@@ -1,0 +1,17 @@
+# Głębokości stacji — DO WYPEŁNIENIA PRZEZ CZŁOWIEKA (T-901)
+# Agent NIE zgaduje tych wartości. Pusty wiersz = brak danych.
+# depth_m = poziom główki szyny względem poziomu ulicy, wartość UJEMNA
+# confidence: measured | counted | estimated | unknown
+line,package,station_fr,station_nl,depth_m,confidence,note
+L1/L5,A,Gare de l'Ouest,Weststation,,unknown,wezel z kolej SNCB
+L1/L5,A,Beekkant,Beekkant,,unknown,wezel 4 linii
+L1/L5,A,Étangs Noirs,Zwarte Vijvers,,unknown,
+L1/L5,A,Comte de Flandre,Graaf van Vlaanderen,,unknown,
+L1/L5,A,Sainte-Catherine,Sint-Katelijne,,unknown,
+L1/L5,A,De Brouckère,De Brouckère,,unknown,przesiadka premetro
+L1/L5,A,Gare Centrale,Centraal Station,,unknown,wezel z kolej SNCB
+L1/L5,A,Parc,Park,,unknown,
+L1/L5,A,Arts-Loi,Kunst-Wet,,unknown,wezel 4 linii dwa poziomy
+L1/L5,A,Maelbeek,Maalbeek,,unknown,
+L1/L5,A,Schuman,Schuman,,unknown,wezel z kolej SNCB
+L1/L5,A,Merode,Merode,,unknown,rozgalezienie L1/L5
