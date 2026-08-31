@@ -374,6 +374,45 @@
       "as_of": "2026-07-01",
       "checked_at": "2026-08-31",
       "limitations": "Nie wyprowadzać z opisu problemu parametrów masy, nacisku osi ani zawieszenia."
+    },
+    {
+      "id": "stib_statistics_2024",
+      "class": "official_stib",
+      "publisher": "STIB/MIVB",
+      "url": "https://www.stib-mivb.be/files/live/sites/STIBMIVB/files/Corporate/STIB_statisticreport2024_FR.pdf",
+      "role": ["metro_900v_cable_statistics", "metro_electric_switch_count", "metro_signalling_post_count", "traction_substation_network_count"],
+      "license": "public reference; not an Open Data asset",
+      "update_frequency": "annual",
+      "access": {"type": "public_web_reference", "authentication": "none"},
+      "as_of": "2024-12-31",
+      "checked_at": "2026-08-31",
+      "limitations": "Tabela potwierdza 111,5 km kabli BT Metro 900 V oraz w sekcji sygnalizacji metra 121 rozjazdów z napędem elektrycznym i 82 posterunki (Delta/Demets wyłączone). Liczba 120 podstacji trakcyjnych występuje w ogólnej sekcji elektrycznej i nie została w tym źródle rozbita wyłącznie na metro."
+    },
+    {
+      "id": "stib_track_intrusions_2025",
+      "class": "official_stib",
+      "publisher": "STIB/MIVB",
+      "url": "https://stib.prezly.com/le-metro-interrompu-95-heures-a-cause-dintrusions-sur-les-voies",
+      "role": ["third_rail", "traction_voltage_900v", "tunnel_operating_speed", "station_entry_speed_context", "platform_height_safety_context"],
+      "license": "public reference; not an Open Data asset",
+      "update_frequency": "event_publication",
+      "access": {"type": "public_web_reference", "authentication": "none"},
+      "as_of": "2025-10-30",
+      "checked_at": "2026-08-31",
+      "limitations": "Komunikat bezpieczeństwa: 72 km/h i 40 km/h są wartościami operacyjnymi w tym kontekście, nie konstrukcyjnym Vmax pojazdu ani obowiązkowym limitem każdego segmentu; >1,10 m nie jest dokładnym wymiarem wszystkich peronów."
+    },
+    {
+      "id": "stib_annual_2023_metro3_conversion",
+      "class": "official_stib",
+      "publisher": "STIB/MIVB",
+      "url": "https://stib.prezly.com/rapport-annuel-stib-2023--frequentation-offre-et-kilometres-parcourus-en-hausse",
+      "role": ["metro3_conversion_requirements", "metro_900v", "platform_height_requirement", "signalling", "switches"],
+      "license": "public reference; not an Open Data asset",
+      "update_frequency": "annual",
+      "access": {"type": "public_web_reference", "authentication": "none"},
+      "as_of": "2024-05-28",
+      "checked_at": "2026-08-31",
+      "limitations": "Opisuje wymagania konwersji premetra do metra; nie dostarcza dokładnej geometrii toru, trzeciej szyny ani rozjazdów istniejących linii 1/5."
     }
   ]
 }

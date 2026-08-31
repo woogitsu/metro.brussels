@@ -1,0 +1,130 @@
+{
+  "$comment": "R-005 infrastructure ground truth for Brussels metro. Public facts only; unknown geometry stays unknown/design_model.",
+  "schema_version": 1,
+  "as_of": "2026-08-31",
+  "facts": [
+    {
+      "id": "traction_voltage",
+      "value": 900,
+      "unit": "V",
+      "status": "observed",
+      "source_ids": ["stib_track_intrusions_2025", "stib_statistics_2024", "stib_annual_2023_metro3_conversion"],
+      "scope": "metro",
+      "limitations": "Nominal system value; no public load/voltage-drop model is inferred."
+    },
+    {
+      "id": "current_collection",
+      "value": "third_rail",
+      "unit": null,
+      "status": "observed",
+      "source_ids": ["stib_track_intrusions_2025"],
+      "scope": "metro",
+      "limitations": "Contact face, offset from track centreline, conductor profile, polarity and sectioning are not established by the checked source."
+    },
+    {
+      "id": "metro_900v_low_voltage_cable_length_2024",
+      "value": 111.5,
+      "unit": "km",
+      "status": "observed",
+      "source_ids": ["stib_statistics_2024"],
+      "scope": "metro_900v",
+      "as_of": "2024-12-31",
+      "limitations": "Infrastructure statistic, not track length and not a power-network topology map."
+    },
+    {
+      "id": "electric_switches_2024",
+      "value": 121,
+      "unit": "count",
+      "status": "observed",
+      "source_ids": ["stib_statistics_2024"],
+      "scope": "metro_signalling",
+      "as_of": "2024-12-31",
+      "limitations": "STIB footnote excludes the Delta and Demets complexes; no geometry, turnout ratio/radius or interlocking logic follows from this count."
+    },
+    {
+      "id": "signalling_posts_2024",
+      "value": 82,
+      "unit": "count",
+      "status": "observed",
+      "source_ids": ["stib_statistics_2024"],
+      "scope": "metro_signalling",
+      "as_of": "2024-12-31",
+      "limitations": "STIB footnote excludes the Delta and Demets complexes; the statistic does not reveal block boundaries or signal aspects."
+    },
+    {
+      "id": "traction_substations_stib_network_2024",
+      "value": 120,
+      "unit": "count",
+      "status": "observed",
+      "source_ids": ["stib_statistics_2024"],
+      "scope": "stib_electricity_table_network_total_unsplit",
+      "as_of": "2024-12-31",
+      "limitations": "The source table does not split this 120 count into metro-only versus tram. Do not store it as 120 metro substations without another source."
+    },
+    {
+      "id": "tunnel_speed_public_safety_statement",
+      "value": 72,
+      "unit": "km/h",
+      "status": "observed",
+      "source_ids": ["stib_track_intrusions_2025"],
+      "scope": "metro_tunnel_operating_context",
+      "global_hardcode": false,
+      "limitations": "STIB says a metro travels up to 72 km/h in tunnel. This is not proof of vehicle design Vmax or a limit on every track segment."
+    },
+    {
+      "id": "station_entry_speed_public_safety_statement",
+      "value": 40,
+      "unit": "km/h",
+      "status": "observed",
+      "source_ids": ["stib_track_intrusions_2025"],
+      "scope": "station_entry_safety_context",
+      "global_hardcode": false,
+      "limitations": "Do not make 40 km/h a universal station-entry rule without route/signal/speed-profile data."
+    },
+    {
+      "id": "platform_edge_height_safety_statement",
+      "value": 1.10,
+      "comparison": ">",
+      "unit": "m_above_rails",
+      "status": "observed",
+      "source_ids": ["stib_track_intrusions_2025"],
+      "scope": "generic_public_safety_context",
+      "global_hardcode": false,
+      "limitations": "General safety statement, not a precise measured dimension for every platform."
+    },
+    {
+      "id": "metro3_conversion_technical_requirements",
+      "value": ["metro_compatible_gauge_envelope", "platforms_at_required_height", "900_v_supply", "signalling", "switches", "other_metro_technical_equipment"],
+      "unit": null,
+      "status": "observed",
+      "source_ids": ["stib_annual_2023_metro3_conversion"],
+      "scope": "conversion_of_premetro_to_metro",
+      "limitations": "Confirms categories of required infrastructure, not their exact dimensions on existing lines 1/5."
+    }
+  ],
+  "unknown_parameters": {
+    "track_gauge_mm": {
+      "status": "unknown_primary_source_not_confirmed",
+      "reference_value": 1435,
+      "reference_status": "secondary_reference_only",
+      "notes": "1435 mm is widely published and plausible, but R-005 did not confirm it in a primary STIB/Brussels Region/CAF source. Do not treat as spec yet."
+    },
+    "third_rail_contact_geometry": {"status": "unknown", "notes": "Exact contact face/top-bottom-side arrangement not established by checked primary source."},
+    "third_rail_offset_m": {"status": "unknown"},
+    "third_rail_conductor_profile": {"status": "unknown"},
+    "third_rail_polarity": {"status": "unknown"},
+    "traction_sectioning_topology": {"status": "unknown"},
+    "voltage_under_load_model": {"status": "design_model_required_if_simulated"},
+    "turnout_geometry": {"status": "unknown"},
+    "turnout_control_logic": {"status": "unknown"},
+    "rail_profile": {"status": "unknown"},
+    "m7_design_vmax_kmh": {"status": "unknown_primary_source_not_confirmed", "reference_value": 80, "reference_status": "secondary_or_legacy_reference_only"}
+  },
+  "simulation_rules": {
+    "T-210": ["Reserve envelope for a third rail but keep exact rail position/profile design_model until sourced."],
+    "T-211": ["Use 900 V/third-rail as hazard metadata; do not present a guessed third-rail offset as STIB geometry."],
+    "T-310": ["900 V may be system metadata; do not infer current limits, sectioning or voltage-drop behaviour without data."],
+    "T-313": ["Electric switches and signalling posts are source-backed facts; their exact layout and interlocking remain design_model/unknown."],
+    "speed_profiles": ["72 km/h tunnel and 40 km/h station-entry statements are cross-checks, not universal hard-coded limits."]
+  }
+}
