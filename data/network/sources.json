@@ -1,0 +1,23 @@
+{
+  "$comment": "Rejestr źródeł z researchu 2026-08-31. URL-e są wejściem do narzędzi; nie są kopią danych.",
+  "checked_at": "2026-08-31",
+  "policy": {
+    "priority": ["official_stib", "official_brussels_region", "openstreetmap", "manufacturer_or_trade_press", "secondary_reference"],
+    "rule": "W razie sprzeczności zachowaj provenance i preferuj źródło wyżej w hierarchii; nie uśredniaj."
+  },
+  "sources": [
+    {"id":"stib_shapefiles","class":"official_stib","publisher":"STIB/MIVB","dataset":"shapefiles-production","url":"https://data.stib-mivb.brussels/explore/dataset/shapefiles-production/","role":["line_geometry","stop_positions"],"license":"STIB/MIVB Open Data Terms of Use","preferred_for":"bazowy przebieg komercyjnych tras STIB"},
+    {"id":"stib_gtfs","class":"official_stib","publisher":"STIB/MIVB","dataset":"gtfs-files-production","url":"https://data.stib-mivb.brussels/explore/dataset/gtfs-files-production/api/","role":["stops","route_order","timetables","route_shapes"],"license":"STIB/MIVB Open Data Terms of Use","preferred_for":"kolejność stacji i rozkład"},
+    {"id":"belgian_mobility_gtfs","class":"official_stib","publisher":"Belgian Mobility Open Data Portal","url":"https://data.belgianmobility.io/en/data.html?agency=stibmivb","role":["gtfs_static_download"],"update_frequency":"daily","preferred_for":"aktualny statyczny pakiet GTFS STIB"},
+    {"id":"stib_stop_details","class":"official_stib","publisher":"STIB/MIVB","dataset":"stop-details-production","url":"https://data.stib-mivb.brussels/explore/dataset/stop-details-production/api/","role":["stop_id","stop_names_fr_nl","stop_geolocation"],"license":"STIB/MIVB Open Data Terms of Use"},
+    {"id":"stib_vehicle_positions_rt","class":"official_stib","publisher":"STIB/MIVB","dataset":"vehicle-position-rt-production","url":"https://data.stib-mivb.brussels/explore/dataset/vehicle-position-rt-production/","role":["vehicle_positions","operational_calibration"],"refresh_seconds":20,"license":"STIB/MIVB Open Data Terms of Use"},
+    {"id":"stib_waiting_times_rt","class":"official_stib","publisher":"STIB/MIVB","dataset":"waiting-time-rt-production","url":"https://data.stib-mivb.brussels/explore/dataset/waiting-time-rt-production/api/","role":["waiting_times","headway_calibration"],"refresh_seconds":20,"license":"STIB/MIVB Open Data Terms of Use"},
+    {"id":"stib_traveller_info_rt","class":"official_stib","publisher":"STIB/MIVB","dataset":"travellers-information-rt-production","url":"https://data.stib-mivb.brussels/explore/dataset/travellers-information-rt-production/","role":["disruptions","planned_works","events"],"refresh_seconds":20,"license":"STIB/MIVB Open Data Terms of Use"},
+    {"id":"brussels_mobility_metro","class":"official_brussels_region","publisher":"Paradigm / Brussels Mobility","dataset":"bm_public_transport:Metro","url":"https://data.mobility.brussels/en/info/Metro/","ogc_features_url":"https://data.mobility.brussels/geoserver/ogc/features/v1/collections/bm_public_transport%3AMetro/items","role":["metro_tunnels","metro_stations","geometry_cross_check"],"license":"CC0","preferred_for":"niezależna kontrola regionalnej geometrii tuneli i stacji"},
+    {"id":"urbis_transport_network","class":"official_brussels_region","publisher":"Paradigm","url":"https://datastore.brussels/","role":["transport_network","surface_context","spatial_cross_check"],"license":"see dataset metadata"},
+    {"id":"openstreetmap","class":"openstreetmap","publisher":"OpenStreetMap contributors","url":"https://www.openstreetmap.org/","role":["track_topology","switches","platforms","entrances","secondary_geometry"],"license":"ODbL 1.0","preferred_for":"szczegóły torowe i kontrola po źródłach oficjalnych"},
+    {"id":"stib_cbtc_status_2026_07_02","class":"official_stib","publisher":"STIB/MIVB","url":"https://stib.prezly.com/nouvelle-signalisation-metro-on-en-est-ou","role":["cbtc_rollout_status"],"as_of":"2026-07-02"},
+    {"id":"stib_activity_report_2025","class":"official_stib","publisher":"STIB/MIVB","url":"https://2025.stib-activityreports.brussels/entreprise","role":["m7_fleet","cbtc_programme","depots"],"as_of":"2025-12-31"},
+    {"id":"stib_m7_vibration_2026","class":"official_stib","publisher":"STIB/MIVB","url":"https://www.stib-mivb.be/travel/works-and-projects/works-in-progress/metro-noise-and-vibrations","role":["m7_wheel_issue","track_grinding","maintenance_context"],"as_of":"2026-07-01"}
+  ]
+}
