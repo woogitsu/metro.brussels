@@ -1,0 +1,16 @@
+build/
+renders/
+__pycache__/
+*.blend1
+.godot/
+bin/
+obj/
+
+# pobierane / generowane dane robocze
+data/gtfs/
+data/raw/
+data/observations/
+
+# Python / środowiska
+*.pyc
+.venv/
