@@ -10,18 +10,36 @@ permissions:
 
 jobs:
   tools:
-    runs-on: ubuntu-latest
+    # CI intentionally runs only on our WSL2 self-hosted runner.
+    # Do not switch this back to GitHub-hosted runners (ubuntu-latest, etc.).
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 15
+
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Set up Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: '3.13'
+      - name: Verify WSL2 runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! grep -qiE '(microsoft|wsl)' /proc/version; then
+            echo 'This workflow is intended to run on the WSL2 self-hosted runner.' >&2
+            exit 1
+          fi
+          uname -a
+
+      - name: Verify Python
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v python3
+          python3 --version
 
       - name: Compile Python tools
-        run: python -m compileall -q tools
+        shell: bash
+        run: python3 -m compileall -q tools
 
       - name: Run tool tests
-        run: python tools/tests/test_all.py
+        shell: bash
+        run: python3 tools/tests/test_all.py
