@@ -1,0 +1,70 @@
+name: Neutral material style smoke
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/material-style-smoke.yml'
+      - 'data/design/visual-style.json'
+      - 'docs/20-art-direction.md'
+      - 'tools/blender/material_test_scene.py'
+      - 'tools/tests/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  material-style:
+    # T-902 visual verification must run on the local WSL2 runner only.
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Verify WSL2 and Blender
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -qiE '(microsoft|wsl)' /proc/version || {
+            echo 'T-902 requires the self-hosted WSL2 runner.' >&2
+            exit 1
+          }
+          command -v blender
+          command -v python3
+          uname -a
+          blender --version | head -n 4
+          python3 --version
+
+      - name: Run Python tests
+        shell: bash
+        run: python3 tools/tests/test_all.py
+
+      - name: Generate and render neutral material scene
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build renders
+          blender --background --python tools/blender/material_test_scene.py -- \
+            --config data/design/visual-style.json \
+            --out build/material-style.glb \
+            --renders renders/material-style | tee build/material-style-report.txt
+          test -s build/material-style.glb
+          test -s renders/material-style_iso.png
+          test -s renders/material-style_side.png
+          test -s renders/material-style_close.png
+
+      - name: Upload visual verification artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: t-902-material-style-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            build/material-style.glb
+            build/material-style-report.txt
+            renders/material-style_iso.png
+            renders/material-style_side.png
+            renders/material-style_close.png

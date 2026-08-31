@@ -8,6 +8,9 @@ import profiles, validate as V, reference as R, make_test_track as M
 def _tmp(d):
     f=tempfile.NamedTemporaryFile("w",suffix=".json",delete=False,encoding="utf-8"); json.dump(d,f,ensure_ascii=False); f.close(); return f.name
 
+def _visual_style():
+    return json.load(open(os.path.join(ROOT,"data","design","visual-style.json"),encoding="utf-8"))
+
 def test_profile_dimensions_sane():
     for n in profiles.PROFILES:
         w,h=profiles.dimensions(n); assert 4<w<25 and 3.5<h<12
@@ -54,6 +57,42 @@ def test_source_registry_has_primary_geometry_sources():
 
 def test_cbtc_2026_not_marked_as_fully_operational():
     net=json.load(open(os.path.join(ROOT,"data","network","lines.json"),encoding="utf-8")); assert net["signalling"]["cbtc"]["status_2026_08"]["operational_full_lines_1_5"] is False
+
+def test_visual_style_has_three_layer_pipeline():
+    d=_visual_style(); assert d["pipeline"]==["technical","neutral_realistic","licensed_stib_optional"]
+    assert d["current_default"]=="technical"
+    assert d["layers"]["licensed_stib_optional"]["rights_gate"]=="data/legal/rights-matrix.json"
+
+def test_visual_material_presets_are_neutral_design_values():
+    d=_visual_style(); ids=[]
+    for m in d["material_presets"]:
+        ids.append(m["id"]); assert m["status"]=="design_model",m["id"]
+        assert "stib" not in m["id"].lower(),m["id"]
+        assert len(m["base_color"])==4
+        assert 0.0<=m.get("metallic",0.0)<=1.0
+        assert 0.0<=m.get("roughness",0.5)<=1.0
+    assert len(ids)==len(set(ids))
+    assert {"concrete_clean","brushed_metal","glass","rubber","rail_steel","generic_safety_strip"}<=set(ids)
+
+def test_visual_external_sources_have_licence_and_provenance_policy():
+    d=_visual_style()
+    for src in d["external_asset_sources"]:
+        assert src["license"],src["id"]
+        if src["id"]!="project_procedural": assert src.get("url") and src.get("checked_at"),src["id"]
+    fields=set(d["asset_metadata_required"])
+    assert {"asset_id","source_url","license","source_hash","redistribution_allowed"}<=fields
+
+def test_visual_regression_baseline_is_deterministic():
+    r=_visual_style()["render_baseline"]
+    assert r["auto_exposure"] is False
+    assert r["temporal_jitter"] is False
+    assert r["resolution"]==[960,576]
+    assert isinstance(r["deterministic_seed"],int)
+
+def test_visual_performance_budgets_wait_for_measurement():
+    p=_visual_style()["performance_policy"]
+    assert p["status"]=="measure_first"
+    for key in ("poly_budget","draw_call_budget","texture_budget","shadow_light_budget","lod_distances"): assert p[key] is None,key
 
 def main():
     tests=[(n,f) for n,f in sorted(globals().items()) if n.startswith("test_") and callable(f)]; passed=0; failed=[]
