@@ -8,6 +8,9 @@ import profiles, validate as V, reference as R, make_test_track as M
 def _tmp(d):
     f=tempfile.NamedTemporaryFile("w",suffix=".json",delete=False,encoding="utf-8"); json.dump(d,f,ensure_ascii=False); f.close(); return f.name
 
+def _rights():
+    return json.load(open(os.path.join(ROOT,"data","legal","rights-matrix.json"),encoding="utf-8"))
+
 def test_profile_dimensions_sane():
     for n in profiles.PROFILES:
         w,h=profiles.dimensions(n); assert 4<w<25 and 3.5<h<12
@@ -54,6 +57,29 @@ def test_source_registry_has_primary_geometry_sources():
 
 def test_cbtc_2026_not_marked_as_fully_operational():
     net=json.load(open(os.path.join(ROOT,"data","network","lines.json"),encoding="utf-8")); assert net["signalling"]["cbtc"]["status_2026_08"]["operational_full_lines_1_5"] is False
+
+def test_rights_matrix_statuses_and_fallbacks():
+    d=_rights(); allowed=set(d["statuses"])
+    for row in d["asset_classes"]:
+        assert row["status"] in allowed,row["asset_or_element"]
+        if row["status"] in {"permission_required","replace_with_original","reference_only","excluded_until_cleared"}:
+            assert row.get("fallback"),row["asset_or_element"]
+
+def test_rights_open_data_logo_is_not_general_brand_permission():
+    d=_rights(); assert d["open_data_logo_rule"]["status"]=="licence_specific_review"
+    branded=next(x for x in d["asset_classes"] if x["asset_or_element"]=="stib_mivb_logo_as_world_asset_livery_or_marketing_brand")
+    assert branded["status"]=="permission_required"
+
+def test_rights_package_a_station_inventory_is_explicit():
+    d=_rights(); station_ids={x["station_id"] for x in d["package_a_artworks"]}
+    expected={"gare_de_l_ouest","beekkant","etangs_noirs","comte_de_flandre","sainte_catherine","de_brouckere","gare_centrale","parc","arts_loi","maelbeek","schuman","merode"}
+    assert station_ids==expected,(expected-station_ids,station_ids-expected)
+    for row in d["package_a_artworks"]:
+        assert row["status"] in {"permission_required","excluded_until_cleared"},row
+
+def test_rights_contributor_policy_requires_provenance():
+    d=_rights(); fields=set(d["contributor_policy"]["required_metadata"])
+    assert {"asset_id","source_url","licence_or_permission_ref","redistribution_allowed"}<=fields
 
 def main():
     tests=[(n,f) for n,f in sorted(globals().items()) if n.startswith("test_") and callable(f)]; passed=0; failed=[]
