@@ -8,6 +8,12 @@ import profiles, validate as V, reference as R, make_test_track as M
 def _tmp(d):
     f=tempfile.NamedTemporaryFile("w",suffix=".json",delete=False,encoding="utf-8"); json.dump(d,f,ensure_ascii=False); f.close(); return f.name
 
+def _audio_schema():
+    return json.load(open(os.path.join(ROOT,"data","audio","audio-manifest.schema.json"),encoding="utf-8"))
+
+def _audio_placeholders():
+    return json.load(open(os.path.join(ROOT,"data","audio","placeholders.json"),encoding="utf-8"))
+
 def test_profile_dimensions_sane():
     for n in profiles.PROFILES:
         w,h=profiles.dimensions(n); assert 4<w<25 and 3.5<h<12
@@ -54,6 +60,55 @@ def test_source_registry_has_primary_geometry_sources():
 
 def test_cbtc_2026_not_marked_as_fully_operational():
     net=json.load(open(os.path.join(ROOT,"data","network","lines.json"),encoding="utf-8")); assert net["signalling"]["cbtc"]["status_2026_08"]["operational_full_lines_1_5"] is False
+
+def test_audio_schema_has_required_rights_fields():
+    s=_audio_schema(); required=set(s["required"])
+    assert {"asset_id","source_type","creator","rights_status","processing_chain","contains_voice","contains_stib_brand_audio","redistribution_allowed","notes"}<=required
+    assert "cleared" in s["properties"]["rights_status"]["enum"]
+
+def test_audio_schema_cleared_cannot_be_satisfied_by_null_rights():
+    s=_audio_schema(); cleared=next(x["then"] for x in s["allOf"] if x.get("if",{}).get("properties",{}).get("rights_status",{}).get("const")=="cleared")
+    branches=cleared["anyOf"]; assert len(branches)==2
+    by_field={next(iter(b["properties"])):b for b in branches}
+    for field in ("permission_ref","license"):
+        branch=by_field[field]
+        assert field in branch["required"]
+        rule=branch["properties"][field]
+        assert rule.get("type")=="string" and rule.get("minLength",0)>=1,(field,rule)
+
+def test_audio_schema_original_recording_requires_real_provenance_values():
+    s=_audio_schema(); rule=next(x["then"] for x in s["allOf"] if x.get("if",{}).get("properties",{}).get("source_type",{}).get("const")=="original_recording")
+    assert {"recorded_by","recorded_at","location","source_file_hash"}<=set(rule["required"])
+    assert rule["properties"]["recorded_by"]["type"]=="string" and rule["properties"]["recorded_by"]["minLength"]>=1
+    assert rule["properties"]["recorded_at"]["type"]=="string"
+    assert rule["properties"]["location"]["type"]=="object"
+    assert rule["properties"]["source_file_hash"]["type"]=="string"
+
+def test_audio_schema_licensed_library_requires_nonempty_license():
+    s=_audio_schema(); rule=next(x["then"] for x in s["allOf"] if x.get("if",{}).get("properties",{}).get("source_type",{}).get("const")=="licensed_library")
+    assert "license" in rule["required"]
+    assert rule["properties"]["license"]["type"]=="string" and rule["properties"]["license"]["minLength"]>=1
+
+def test_audio_placeholders_are_neutral_and_non_stib():
+    d=_audio_placeholders(); ids=set()
+    for a in d["assets"]:
+        assert a["asset_id"] not in ids,a["asset_id"]; ids.add(a["asset_id"])
+        assert a["source_type"]=="placeholder",a["asset_id"]
+        assert a["rights_status"]=="placeholder",a["asset_id"]
+        assert a["contains_stib_brand_audio"] is False,a["asset_id"]
+    assert any(a["category"]=="doors" for a in d["assets"])
+    assert any(a["category"]=="announcement" for a in d["assets"])
+
+def test_audio_placeholder_registry_has_no_ripped_source_urls():
+    d=_audio_placeholders(); text=json.dumps(d,ensure_ascii=False).lower()
+    assert "youtube.com" not in text and "youtu.be" not in text
+    assert "app.stib" not in text
+
+def test_audio_raw_paths_are_gitignored():
+    ignore=open(os.path.join(ROOT,".gitignore"),encoding="utf-8").read().splitlines()
+    assert "recordings/" in ignore
+    assert "data/audio/raw/" in ignore
+    assert "assets/audio/raw/" in ignore
 
 def main():
     tests=[(n,f) for n,f in sorted(globals().items()) if n.startswith("test_") and callable(f)]; passed=0; failed=[]
