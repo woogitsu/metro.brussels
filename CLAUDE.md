@@ -147,3 +147,11 @@ Wzór: `docs/06-worked-example.md`.
 
 **Zatrzymanie się w tych miejscach jest poprawnym wynikiem pracy, nie porażką.**
 Zgadywanie w tym projekcie jest kosztowniejsze niż czekanie na odpowiedź.
+
+## 9. CI / GitHub Actions
+
+- Wszystkie workflow muszą używać **self-hosted runnera WSL2**.
+- Domyślne etykiety: `[self-hosted, linux, x64]`.
+- **Nie używaj** GitHub-hosted runnerów: `ubuntu-latest`, `windows-latest`, `macos-latest`.
+- Projekt nie zakłada dostępnych GitHub Actions minutes.
+- Preferuj narzędzia już zainstalowane na runnerze (`python3`, `dotnet`, `blender`, `godot`) zamiast `actions/setup-*`, jeśli nie jest to konieczne.
