@@ -2,54 +2,136 @@
 
 Stan researchu: **31.08.2026**.
 
-Ten dokument określa hierarchię źródeł dla danych, których nie ma jeszcze w `data/network/`. Maszynowy rejestr źródeł znajduje się w `data/network/sources.json`.
+Ten dokument określa hierarchię źródeł dla danych, których nie ma jeszcze w `data/network/`.
+Maszynowy rejestr źródeł znajduje się w `data/network/sources.json`.
 
 ## Hierarchia źródeł
 
 1. **STIB/MIVB Open Data i oficjalne publikacje STIB** — dane operacyjne, GTFS, przebieg linii, przystanki, stan wdrożeń i tabor.
-2. **Brussels Mobility / Paradigm / UrbIS** — geometria tuneli i stacji, warstwy przestrzenne Regionu Brukselskiego.
-3. **OpenStreetMap** — szczegóły torowe, rozjazdy, wejścia, perony i kontrola krzyżowa.
-4. **Prasa branżowa / dokumentacja producenta** — parametry techniczne, jeśli źródło pierwotne nie jest publiczne.
-5. **Wikipedia, fanowskie mapy i repozytoria GitHub** — wyłącznie trop lub kontrola, nigdy jedyne źródło faktu.
+2. **Brussels Mobility / Paradigm / UrbIS** — geometria tuneli i stacji, wejścia, warstwy przestrzenne i wysokości powierzchni Regionu Brukselskiego.
+3. **Belgian Mobility Open Data Portal** — oficjalna warstwa dystrybucji i niezależna kontrola feedów STIB, m.in. GTFS, NeTEx i INSPIRE Rails.
+4. **OpenStreetMap** — szczegóły torowe, rozjazdy, wejścia, perony i kontrola krzyżowa.
+5. **Dokumentacja producenta / prasa branżowa** — parametry techniczne, gdy źródło operatora nie jest publiczne.
+6. **Wikipedia, fanowskie mapy i repozytoria GitHub** — wyłącznie trop lub kontrola, nigdy jedyne źródło faktu.
 
-Jeżeli dwa źródła są sprzeczne, nie uśredniaj. Zapisz rozbieżność i preferuj źródło wyżej w hierarchii.
+Jeżeli dwa źródła są sprzeczne, **nie uśredniaj**. Zapisz rozbieżność, zachowaj provenance
+obu wejść i preferuj źródło wyżej w hierarchii. Większa szczegółowość geometrii nie oznacza
+automatycznie większej wiarygodności.
+
+## Zasady dostępu, licencji i provenance
+
+- Każdy nowy fakt lub artefakt pochodny ma `source_id` zgodny z `data/network/sources.json`.
+- Każde pobranie danych zapisuje datę/czas, finalny URL po redirectach i hash wejścia zgodnie z T-114.
+- Klucze API, `Ocp-Apim-Subscription-Key`, bearer tokens, cookies i inne sekrety **nie trafiają**
+  do repo, manifestów ani logów.
+- Metadane publicznego datasetu nie gwarantują, że każdy endpoint pobierania jest anonimowy.
+  Jeżeli usługa wymaga autoryzacji, zapisujemy to jako właściwość dostępu i konfigurujemy sekret
+  poza repo.
+- Dużych lub szybko zmieniających się dumpów GTFS, GPKG, SHP, LAS i podobnych nie commitujemy.
+  Commitujemy małe, deterministyczne artefakty pochodne oraz provenance.
+- Przy transformacji CRS zapisujemy **CRS źródłowy i docelowy**. Nie zakładamy CRS na podstawie
+  rozszerzenia pliku lub przybliżonego zakresu współrzędnych.
+- Dataset regionalny może być dostępny w różnych projekcjach zależnie od usługi, m.in. WGS84,
+  Lambert 72, Lambert 2008 albo Web/Pseudo-Mercator. Pipeline ma odczytać metadane konkretnego
+  wejścia i wykonać jawną transformację.
 
 ## STIB/MIVB Open Data
 
 ### Shapefiles — podstawowe źródło przebiegu sieci
 
 Dataset `shapefiles-production`:
+
 https://data.stib-mivb.brussels/explore/dataset/shapefiles-production/
 
-STIB opisuje go jako dane zawierające podstawową strukturę przestrzenną sieci: **przebieg linii i pozycje przystanków** dla komercyjnych wariantów tras.
+STIB opisuje go jako dane zawierające podstawową strukturę przestrzenną sieci:
+**przebieg linii i pozycje przystanków** dla komercyjnych wariantów tras.
 
-**Wniosek:** T-111 nie powinien budować osi wyłącznie z OSM. Najpierw pobieramy geometrię STIB, a OSM służy do doprecyzowania topologii torowej i kontroli.
+**Wniosek:** T-111 nie buduje osi wyłącznie z OSM. Najpierw pobiera geometrię STIB,
+a OSM, UrbIS i INSPIRE Rails służą do kontroli i doprecyzowania topologii. Shapefiles
+nie są jednak automatycznie geometrią tor-po-torze ani profilem pionowym.
 
 ### GTFS
 
 Dataset `gtfs-files-production`:
+
 https://data.stib-mivb.brussels/explore/dataset/gtfs-files-production/api/
 
-Statyczny GTFS STIB jest również publikowany przez belgijski portal danych mobilności i według portalu aktualizowany codziennie:
-https://data.belgianmobility.io/en/data.html?agency=stibmivb
-
-GTFS jest źródłem prawdy dla kolejności przystanków i rozkładów, ale nie wystarcza do modelowania tunelu tor po torze.
+GTFS jest źródłem prawdy dla kolejności przystanków, service patterns i rozkładów,
+ale nie wystarcza do modelowania tunelu tor po torze. `stops.txt` nie jest licznikiem
+fizycznych stacji: T-110 musi uwzględnić `location_type`, `parent_station`,
+warianty peronów i wielojęzyczne nazwy.
 
 ### Stop Details i realtime
 
 - `stop-details-production` — ID, nazwa FR/NL, geolokalizacja.
-- `vehicle-position-rt-production` — pozycje pojazdów, odświeżanie co 20 s.
-- `waiting-time-rt-production` — czasy oczekiwania, odświeżanie co 20 s.
+- `vehicle-position-rt-production` — pozycje pojazdów; STIB publikuje dane realtime.
+- `waiting-time-rt-production` — czasy oczekiwania.
 - `travellers-information-rt-production` — prace, zdarzenia i zakłócenia.
 
-Realtime może później służyć do kalibracji czasów przejazdu, postoju, częstotliwości i zachowania ruchu liniowego.
+Realtime może później służyć do kalibracji czasów przejazdu, postoju, częstotliwości
+i zachowania ruchu liniowego. Snapshot realtime zawsze wymaga timestampu i nie może
+nadpisywać danych historycznych bez daty odniesienia.
 
 ### Licencja STIB Open Data
 
 Warunki:
+
 https://data.stib-mivb.brussels/terms/terms-and-conditions.pdf
 
-Licencja dopuszcza bezpłatne ponowne wykorzystanie informacji, także komercyjne, oraz ich adaptowanie i łączenie z własnym produktem. Wymaga wskazania STIB/MIVB jako źródła i daty ostatniej aktualizacji danych. Nie oznacza to automatycznej zgody na kopiowanie całej identyfikacji wizualnej, dzieł sztuki ani innych chronionych zasobów. Polityka projektu pozostaje w `docs/03-legal.md`.
+Warunki STIB dopuszczają ponowne wykorzystanie informacji, także komercyjne, oraz ich
+adaptowanie i łączenie z własnym produktem, przy zachowaniu wymaganej atrybucji i daty
+aktualizacji. Nie oznacza to automatycznej zgody na kopiowanie całej identyfikacji
+wizualnej, dzieł sztuki, fotografii, map, fontów ani innych chronionych zasobów.
+Polityka projektu pozostaje w `docs/03-legal.md`.
+
+## Belgian Mobility Open Data Portal
+
+Katalog STIB/MIVB:
+
+https://data.belgianmobility.io/en/data.html?agency=stibmivb
+
+Portal jest ważny nie dlatego, że ma zastąpić STIB, lecz dlatego, że udostępnia kilka
+standardowych reprezentacji tych samych danych i pozwala wykrywać niespójności
+między feedami.
+
+### GTFS Static
+
+Portal publikuje statyczny GTFS STIB i wskazuje aktualizację dzienną.
+
+**Rola:** kontrola dostępności aktualnego feedu i niezależny kanał dystrybucji.
+Fakty o sieci nadal preferują pierwotny dataset STIB.
+
+### NeTEx EPIP
+
+Portal publikuje dla STIB/MIVB feed **NeTEx EPIP**, wskazując aktualizację dzienną.
+
+NeTEx jest użyteczny jako niezależna kontrola:
+- struktury przystanków i miejsc postoju;
+- semantyki linii i service patterns;
+- relacji między obiektami, które w GTFS bywają reprezentowane płasko;
+- wielojęzycznych nazw i identyfikatorów, jeżeli występują w feedzie.
+
+**Nie jest** automatycznie źródłem dokładniejszej geometrii toru. T-110 może używać
+NeTEx do wykrywania rozbieżności, ale nie powinien po cichu zastępować nim GTFS.
+
+### INSPIRE Rails
+
+Portal publikuje również **INSPIRE Rails** dla STIB/MIVB i wskazuje aktualizację tygodniową.
+
+**Rola:** niezależna kontrola infrastruktury szynowej względem:
+1. STIB Shapefiles;
+2. regionalnego UrbIS/Brussels Mobility;
+3. OpenStreetMap.
+
+Jeżeli przebieg INSPIRE różni się od Shapefiles, T-111 zapisuje statystykę odchyłek
+i źródła obu geometrii. Nie wybiera automatycznie „bardziej gładkiej” linii.
+
+### Licencja i dostęp
+
+Portal opisuje własną dystrybucję w modelu CC BY 4.0; przy wykorzystaniu danych operatora
+zachowujemy również warunki i atrybucję źródła pierwotnego, jeżeli mają zastosowanie.
+Część usług/API może wymagać klucza lub innego mechanizmu autoryzacji. Endpoint bez
+autoryzacji w dniu researchu nie jest gwarancją, że pozostanie taki na zawsze.
 
 ## Brussels Mobility / Paradigm / UrbIS
 
@@ -57,46 +139,161 @@ Licencja dopuszcza bezpłatne ponowne wykorzystanie informacji, także komercyjn
 
 https://data.mobility.brussels/en/info/Metro/
 
-Warstwa jest wyciągiem obiektów UrbIS typu `MS` — stacja metra i `MT` — tunel metra. Jest publikowana przez Paradigm na licencji **CC0** i dostępna m.in. jako JSON, GeoPackage, CSV, SHP, WMS, WFS i OGC API Features.
+Warstwa `bm_public_transport:Metro` jest wyciągiem obiektów UrbIS typu:
+- `MS` — stacja metra;
+- `MT` — tunel metra.
 
-OGC API Features:
+Jest publikowana przez Paradigm na licencji **CC0** i stanowi niezależne regionalne
+źródło geometrii stacji/tuneli.
+
+OGC API Features używane w researchu:
+
 https://data.mobility.brussels/geoserver/ogc/features/v1/collections/bm_public_transport%3AMetro/items
 
-Nie traktuj pola poziomu względnego jako publicznej niwelety toru, dopóki nie zostanie to potwierdzone dla konkretnego obiektu.
+**Ograniczenie:** obiekt `MT` nie jest automatycznie osią toru, a pole poziomu względnego
+nie jest publiczną niweletą toru. T-112 nie może zamienić `niveau` na metry bez dodatkowego źródła.
+
+### Wejścia do metra — `metro_access`
+
+Metadane:
+
+https://data.mobility.brussels/en/info/0aa53fcf-939f-49a3-9a91-b9ec475be30d/
+
+Dataset `bm_public_transport:metro_access` pochodzi ze STIB i jest publikowany jako
+**CC0**.
+
+**Rola:**
+- kotwice wejść stacji na powierzchni;
+- kontrola tekstowych opisów wyjść publikowanych przez STIB;
+- punkt startowy do późniejszego modelowania połączenia powierzchnia → stacja.
+
+**Nie wolno wyprowadzać z punktu wejścia:**
+- głębokości peronu;
+- kształtu korytarzy;
+- liczby kondygnacji;
+- dokładnej pozycji windy lub schodów wewnątrz stacji.
+
+Niektóre regionalne usługi pobierania mogą wymagać bearer tokenu. Sekret pozostaje
+poza repo i nie może pojawić się w URL-u manifestu.
+
+### UrbIS Topo — linie tuneli
+
+Metadane:
+
+https://data.mobility.brussels/en/info/23248797-1974-497d-b176-2d5045bbe681/
+
+Dataset `bm_urbis_topo:tunnel_line`, typ `BR04L`, jest publikowany jako **CC0**.
+
+**Rola:** kontrola regionalnych obiektów tunelowych, portali i kontekstu powierzchniowego.
+
+**Ograniczenie:** jest to ogólna warstwa tuneli w topografii UrbIS. Nie traktujemy jej
+jako osi tunelu metra ani toru bez potwierdzenia zgodności obiektu z siecią STIB.
+
+### LiDAR lotniczy 2021
+
+Metadane federalnego katalogu:
+
+https://data.gov.be/fr/datasets/ff1124e1-424e-11ee-b156-00090ffe0001
+
+Paradigm publikuje trójwymiarową chmurę punktów z nalotu 2021 dla Regionu Brukselskiego,
+w formacie LAS, na licencji **CC BY 4.0**.
+
+**Rola:**
+- wysokość i geometria powierzchni;
+- kontekst budynków i infrastruktury naziemnej;
+- kontrola portali i odkrytych odcinków;
+- ground reference dla późniejszego T-112/T-212.
+
+**Twarde ograniczenie:** lotniczy LiDAR nie obserwuje podziemnego toru. Nie używamy go
+do „wyliczania” głębokości stacji ani tuneli, których sensor nie widział.
+
+### UrbIS Digital Surface Model
+
+Metadane:
+
+https://data.gov.be/en/datasets/8c2d921e-6a53-11ed-bfb5-010101010000
+
+DSM jest rastrową reprezentacją powierzchni i obiektów naziemnych dla Regionu.
+Jest lżejszą warstwą wejściową niż pełna chmura punktów, gdy potrzebujemy tylko
+kontekstu wysokościowego.
+
+**Rola:**
+- powierzchnia nad tunelem;
+- osadzenie wejść/portali;
+- szybkie generowanie kontekstu terenu.
+
+**Ograniczenie:** DSM nie daje profilu pionowego podziemnego toru. Licencję i konkretny
+endpoint pobierania odczytujemy z bieżących metadanych datasetu w momencie pobrania.
 
 ## OpenStreetMap
 
-OSM pozostaje przydatny dla `railway=subway`, relacji `route=subway`, rozjazdów i łącznic, `stop_position`, `platform`, `stop_area`, wejść do stacji oraz tagów `tunnel` i `layer`.
+OSM pozostaje przydatny dla:
+- `railway=subway`;
+- relacji `route=subway`;
+- rozjazdów i łącznic;
+- `stop_position`, `platform`, `stop_area`;
+- wejść do stacji;
+- tagów `tunnel` i `layer`.
 
-Nie używaj OSM jako jedynego źródła osi, jeśli istnieje oficjalna geometria STIB lub regionalna. Zachowuj wymagane przez ODbL przypisanie autorstwa.
+Nie używamy OSM jako jedynego źródła osi, jeśli istnieje oficjalna geometria STIB
+lub regionalna. Zachowujemy atrybucję ODbL, timestamp danych i hash zapytania/
+ekstraktu użytego przez pipeline.
 
-## Stan CBTC — ważna korekta
+## Macierz źródło → zadanie
 
-Na 31.08.2026 **CBTC na liniach 1 i 5 nie jest jeszcze publicznie uruchomionym systemem na całej trasie**. STIB informuje, że instalacja jest zakończona na odgałęzieniach do Erasme/Erasmus i Stockel/Stokkel, ale trwa testowanie. Odcinek Jacques Brel–Merode ma zostać wyposażony do końca 2026, a odgałęzienie Herrmann-Debroux na początku 2027. Uruchomienie ma nastąpić po zakończeniu instalacji i testów na całych liniach 1 i 5.
+| zadanie | źródło podstawowe | źródła kontrolne | czego nie wolno wywnioskować |
+|---|---|---|---|
+| T-110 stacje/GTFS | STIB GTFS + Stop Details | NeTEx EPIP | liczby fizycznych stacji z samej liczby rekordów `stops.txt` |
+| T-111 oś pozioma | STIB Shapefiles | INSPIRE Rails, UrbIS Metro, OSM | że najdokładniejsza wizualnie geometria jest prawdziwą osią toru |
+| T-112 profil pionowy | zatwierdzone kotwice T-901 + dane powierzchniowe | LiDAR, DSM, UrbIS | głębokości tunelu z `niveau`, LiDAR lub DSM |
+| R-004/T-211 stacje | tekstowe dane STIB + `metro_access` | UrbIS Metro | układu wnętrza/głębokości z samego punktu wejścia |
+| T-212 powierzchnia/portal | `metro_access` + LiDAR/DSM | UrbIS Tunnel, OSM | geometrii podziemnej z danych powierzchniowych |
+
+## Stan CBTC — ważna korekta historyczna
+
+Na 31.08.2026 **CBTC na liniach 1 i 5 nie jest jeszcze publicznie uruchomionym systemem
+na całej trasie**. Oficjalny stan i granice wiedzy są prowadzone w R-003 (#15).
 
 Oficjalny komunikat z 02.07.2026:
+
 https://stib.prezly.com/nouvelle-signalisation-metro-on-en-est-ou
 
-## M7
+Scenariusz historyczny 31.08.2026 nie może domyślnie startować jako `cbtc_future`.
 
-Raport działalności STIB za 2025 potwierdza 36 M7 w ruchu na koniec 2025 i 43 zamówione:
-https://2025.stib-activityreports.brussels/entreprise
+## M7 — źródła techniczne
 
-STIB opisała w 2026 problem produkcyjny części kół M7 powodujący drgania i hałas:
-https://www.stib-mivb.be/travel/works-and-projects/works-in-progress/metro-noise-and-vibrations
+Oficjalna karta techniczna STIB:
+
+https://stib.prezly.com/le-nouveau-metro-m7-est-arrive-a-bruxelles
+
+Potwierdza m.in. długość 94 m, szerokość 2,70 m, podłogę 1,03 m, sześć członów,
+układ drzwi, masę pustego składu około 170 t oraz 16 × 135 kW mocy trakcyjnej.
+
+Szczegółowe rozdzielenie `spec` / `est` / `design` jest prowadzone w T-904 (#8).
+Nie kopiujemy parametrów z repozytoriów fanowskich, jeżeli istnieje źródło STIB.
 
 ## Publiczne repozytoria referencyjne
 
-- `lexag/OpenTrainER` — MIT, Godot, JSON dla linii i pojazdów, import OSM. Dobre źródło pomysłów dla pipeline'u danych; nie jest wzorcem fizyki ani sygnalizacji.
-- `VTTI-CSM/NeTrainSim` — GPL-3.0, sieciowy symulator pociągów, dynamika podłużna i energia. Dobre źródło literatury/modeli; kodu GPL nie kopiujemy bez świadomej decyzji licencyjnej.
-- `danito/stibgtfs2mqtt` — GPL-3.0, łączy realtime STIB z GTFS; referencja dla mapowania ID/endpointów.
-- `widged/stib-geojson` — eksport danych STIB bez zadeklarowanej licencji repo. Nie używamy jako źródła; pobieramy bezpośrednio od STIB.
+- `lexag/OpenTrainER` — MIT, Godot, dane linii/pojazdów poza silnikiem. Dobra referencja
+  dla separacji danych i symulatora; nie jest źródłem faktów o STIB.
+- `VTTI-CSM/NeTrainSim` — GPL-3.0, sieciowy symulator pociągów i dynamika podłużna.
+  Dobra referencja literatury/modeli; kodu GPL nie kopiujemy bez świadomej decyzji licencyjnej.
+- `danito/stibgtfs2mqtt` — GPL-3.0, łączy realtime STIB z GTFS; referencja dla mapowania
+  identyfikatorów/endpointów.
+- `widged/stib-geojson` — brak jawnej licencji repo. **Reference only**; geometrię
+  pobieramy z pierwotnych datasetów.
 
-## Zasady dla agentów
+## Checklista dla agentów
 
-- Każdy nowy fakt dostaje URL i datę sprawdzenia.
-- Dane oficjalne pobieraj z pierwotnego endpointu, nie z mirroru GitHub.
-- Nie commituj dużych dumpów GTFS/GeoPackage; trzymaj je w katalogach ignorowanych przez Git i generuj małe deterministyczne artefakty pochodne.
-- Przy łączeniu STIB + OSM + UrbIS zapisuj provenance dla każdego wyniku.
-- Jeżeli geometrie różnią się istotnie, nie wybieraj „ładniejszej” — zgłoś rozbieżność.
-- Repozytorium publiczne bez licencji = **reference only**.
+Przed dodaniem nowego datasetu:
+
+1. zapisz `id`, wydawcę, klasę źródła i rolę;
+2. zapisz metadane URL i — jeśli potwierdzone — właściwy download/API URL;
+3. zapisz licencję lub jawnie `see dataset metadata`;
+4. zapisz częstotliwość aktualizacji, jeżeli wydawca ją deklaruje;
+5. zapisz rodzaj dostępu i wymagania auth bez sekretów;
+6. zapisz `checked_at` i dla zdarzeń historycznych także `as_of`;
+7. zapisz ograniczenia interpretacji;
+8. przy danych przestrzennych zapisz CRS wejścia;
+9. przy danych pochodnych zapisz transformacje i SHA-256 wejścia/wyjścia zgodnie z T-114;
+10. przy konflikcie nie poprawiaj danych „na oko” — wygeneruj raport rozbieżności.
