@@ -81,6 +81,28 @@ Dlatego ma je też `section` w zestawie `infrastructure`.
 wymagają `--centerline`. Kotwice `axisNN_eye`/`axisNN_target` powstają dla ułamków
 chainage podanych w `--axis-fractions` (domyślnie `0.05,0.25,0.5,0.75`).
 
+**Ułamki liczą się w zakresie, który pokrywa wczytana geometria, nie w całej osi.**
+Dla pełnej osi to jedno i to samo. Dla chunka 2923–3433 m ułamek 0,05 wskazywałby
+86 m, czyli 2,8 km przed jego początkiem — kamera trafiałaby w pustkę, a przekrój
+zjeżdżałby na najbliższy pierścień skraju. Zakres pokrycia jest wypisywany w logu
+jako `[POKRYCIE]`.
+
+**Kamera `wire` w manifeście.** Camera może zadeklarować `"wire": true` i wtedy
+dostaje overlay siatki niezależnie od flagi `--wire-cameras`, która tylko dodaje
+kamery do tego zbioru. To wiedza o kamerze, nie o wywołaniu: bez siatki widok wnętrza
+tunelu jest jednolicie szary i **przechodzi** kontrolę „nie jest pusta", choć nie
+odpowiada na żadne pytanie o geometrię. W scenie złożonej z pojazdu i tunelu bez siatki
+nie da się w ogóle odróżnić pudła od ściany, bo materiał kontrolny jest jeden dla
+całej sceny.
+
+**Wysokość oka kamery bierze się z przekroju PROSTOPADŁEGO do osi**, nie z płata
+o stałym X. Płat o stałym X jest przekrojem tunelu tylko wtedy, gdy tunel biegnie
+wzdłuż X; na odcinku pod innym kątem łapie sam strop i zwraca 4,70 m zamiast 1,75 m,
+stawiając oko kamery w płycie stropowej. Przekrój zbyt płaski (poniżej 0,5 m) jest
+**błędem**, nie wynikiem do cichego użycia. Płat jest poszerzany kilka razy i brany
+jest najwyższy znaleziony przekrój, bo ramki liczone z surowej łamanej mają nieco inne
+styczne niż pierścienie z osi zagęszczonej i potrafią ciąć pierścień ukośnie.
+
 Brakująca kotwica **pomija kamerę jawnie** (wpis `skipped` w metadanych i w logu) —
 nigdy po cichu.
 

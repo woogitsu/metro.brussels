@@ -24,7 +24,9 @@ sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(ROOT, "tools", "blender"))
 
 import framing  # noqa: E402
+import placement as PL  # noqa: E402
 import render_check as rc  # noqa: E402
+import sweep as SW  # noqa: E402
 
 
 def parse_args():
@@ -123,31 +125,53 @@ def named_anchors_from_args(args, vertices, scene_size, fractions="0.05,0.25,0.5
             raise SystemExit(f"BŁĄD: kotwica {name} musi mieć trzy współrzędne")
         anchors[name.strip()] = parts
     if args.centerline:
-        points = rc.load_centerline(args.centerline)
-        eye = rc.point_on_centerline(points, 0.05)
-        target = rc.point_on_centerline(points, 0.055)
-        eye.z = rc.local_vertical_mid(vertices, eye.x, scene_size)
-        target.z = rc.local_vertical_mid(vertices, target.x, scene_size)
+        raw = rc.load_centerline(args.centerline)
+        axis = [(p.x, p.y, p.z) for p in raw]
+        frames = SW.rmf_frames(axis)
+        stations = SW.chainages(axis)
+        # Ułamki liczone są w zakresie, który POKRYWA wczytana geometria, nie w całej osi.
+        # Dla pełnej osi to jedno i to samo; dla chunka 2923..3433 m ułamek 0,05 wskazywałby
+        # 86 m, czyli 2,8 km przed jego początkiem, i kamera trafiałaby w pustkę.
+        low, high = PL.covered_chainage_range([(v.x, v.y, v.z) for v in vertices],
+                                              frames, stations)
+        span = high - low
+        print(f"[POKRYCIE] geometria zajmuje chainage {low:.1f}..{high:.1f} m "
+              f"z osi {stations[0]:.1f}..{stations[-1]:.1f} m")
+
+        def anchor_pair(fraction, ahead_m):
+            eye = _point_at_chainage(axis, stations, PL.fraction_to_chainage(fraction, low, high))
+            look = _point_at_chainage(axis, stations,
+                                      PL.fraction_to_chainage(fraction, low, high) + ahead_m)
+            eye.z = look.z = rc.vertical_mid_on_axis(vertices, eye, look - eye, scene_size)
+            return eye, look
+
+        eye, target = anchor_pair(0.05, max(5.0, span * 0.005))
         anchors.setdefault("inside_eye", [eye.x, eye.y, eye.z])
         anchors.setdefault("inside_target", [target.x, target.y, target.z])
-        cut = rc.point_on_centerline(points, 0.5)
-        ahead = rc.point_on_centerline(points, 0.505)
-        cut.z = rc.local_vertical_mid(vertices, cut.x, scene_size)
-        ahead.z = rc.local_vertical_mid(vertices, ahead.x, scene_size)
+        cut, ahead = anchor_pair(0.5, max(5.0, span * 0.005))
         anchors.setdefault("section_eye", [cut.x, cut.y, cut.z])
         anchors.setdefault("section_target", [ahead.x, ahead.y, ahead.z])
         # Zbiór kotwic wzdłuż osi: pojedynczy render całego, 6,7-kilometrowego tunelu
         # daje kreskę grubości 2 px i nie odpowiada na pytanie „czy gdzieś znika przekrój".
         # Zbliżenia w kilku chainage'ach odpowiadają.
         for fraction in [float(v) for v in fractions.split(",") if v.strip()]:
-            eye = rc.point_on_centerline(points, fraction)
-            look = rc.point_on_centerline(points, min(1.0, fraction + 0.005))
-            eye.z = rc.local_vertical_mid(vertices, eye.x, scene_size)
-            look.z = rc.local_vertical_mid(vertices, look.x, scene_size)
+            eye, look = anchor_pair(fraction, max(5.0, span * 0.005))
             tag = f"axis{int(round(fraction * 100)):02d}"
             anchors.setdefault(f"{tag}_eye", [eye.x, eye.y, eye.z])
             anchors.setdefault(f"{tag}_target", [look.x, look.y, look.z])
     return anchors
+
+
+def _point_at_chainage(axis, stations, chainage):
+    """Punkt na osi w zadanym chainage, jako Vector (kotwice liczymy w metrach, nie w ułamkach)."""
+    chainage = max(stations[0], min(stations[-1], chainage))
+    for index in range(len(stations) - 1):
+        if stations[index] <= chainage <= stations[index + 1]:
+            span = stations[index + 1] - stations[index]
+            t = 0.0 if span <= 0.0 else (chainage - stations[index]) / span
+            a, b = axis[index], axis[index + 1]
+            return Vector(tuple(a[i] + t * (b[i] - a[i]) for i in range(3)))
+    return Vector(axis[-1])
 
 
 def main():

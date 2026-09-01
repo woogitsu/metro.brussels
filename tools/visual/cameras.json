@@ -1,7 +1,7 @@
 {
   "$comment": "Canonical manifest kamer i ustawień renderu kontrolnego (T-012). Zmiana czegokolwiek tutaj unieważnia baseline — bump manifest_version.",
   "schema_version": 1,
-  "manifest_version": "2026-09-01.4",
+  "manifest_version": "2026-09-01.5",
   "render": {
     "engine": "BLENDER_EEVEE_NEXT",
     "engine_fallback": "BLENDER_EEVEE",
@@ -154,6 +154,7 @@
         },
         {
           "id": "section",
+          "wire": true,
           "projection": "ORTHO",
           "anchor": {"mode": "named", "name": "section_eye"},
           "aim": {"mode": "named", "name": "section_target"},
@@ -175,6 +176,7 @@
         },
         {
           "id": "axis05",
+          "wire": true,
           "projection": "PERSP",
           "lens": 35.0,
           "anchor": {"mode": "named", "name": "axis05_eye"},
@@ -184,6 +186,7 @@
         },
         {
           "id": "axis25",
+          "wire": true,
           "projection": "PERSP",
           "lens": 35.0,
           "anchor": {"mode": "named", "name": "axis25_eye"},
@@ -193,6 +196,7 @@
         },
         {
           "id": "axis50",
+          "wire": true,
           "projection": "PERSP",
           "lens": 35.0,
           "anchor": {"mode": "named", "name": "axis50_eye"},
@@ -202,6 +206,7 @@
         },
         {
           "id": "axis75",
+          "wire": true,
           "projection": "PERSP",
           "lens": 35.0,
           "anchor": {"mode": "named", "name": "axis75_eye"},
