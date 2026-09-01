@@ -110,3 +110,26 @@ T-110 i T-111 powinny:
 6. przed nadpisaniem wersjonowanego artefaktu porównać nowy manifest z poprzednim i pokazać diff.
 
 Automatyczne zaakceptowanie zmiany upstream pozostaje poza zakresem.
+
+## Okno ważności i świeżość
+
+Archiwa STIB niosą własne pola `Date_debut`/`Date_fin`, a INSPIRE `tn:validFrom`/`validTo`.
+**Okno bywa wcześniejsze niż data pobrania** — i tak właśnie jest dziś: oś pakietu A
+powstała z archiwum ważnego do 28.08.2026, pobranego 01.09.2026. To ostrzeżenie od
+początku było w `sources.json`, ale siedziało w komentarzu i nikt go nie sprawdzał.
+
+`python3 tools/track/data_freshness.py` przechodzi po skomitowanych plikach `data/**.json`,
+wyciąga każde zadeklarowane okno ważności i raportuje, ile dni zostało, kiedy dane pobrano
+i czy **pobrano je już po wygaśnięciu**. Jest wpięty informacyjnie w job `tools`.
+
+Zasady:
+
+1. **Przeterminowane dane nie są błędem** i nie wywracają pipeline'u domyślnie. Sieć metra
+   nie zmienia przebiegu co tydzień, a stary snapshot bywa jedynym dostępnym.
+2. **Są natomiast faktem, który ma być widoczny**, zanim ktoś nazwie oś „aktualną".
+3. `--strict` kończy się kodem błędu i jest przeznaczony dla zadania, które **wymaga**
+   świeżych danych — nie dla ogólnego CI.
+4. Artefakt, który traci informację o oknie ważności źródła, jest gorszy od
+   przeterminowanego: pilnuje tego `test_freshness_committed_axis_declares_its_window`.
+5. Próg ostrzegania (30 dni przed końcem) jest **założeniem projektowym**, nie wymogiem
+   żadnego źródła.
