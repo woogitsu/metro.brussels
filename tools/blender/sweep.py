@@ -462,3 +462,195 @@ def _strictly_increasing(indices, maximum):
     while len(out) > 1 and out[-2] >= out[-1]:
         out.pop(-2)
     return out
+
+
+# --- manifest streamingowy ----------------------------------------------------
+#
+# Chunki jako osobne obiekty w jednym GLB nie dają streamowania: Godot i tak wczytuje
+# cały plik. Streaming potrzebuje osobnych plików i indeksu, po którym da się w czasie
+# rzeczywistym odpowiedzieć „co wczytać, a co zwolnić, gdy pociąg jest na chainage X".
+# Ta sekcja jest celowo bez bpy — predykat okna ma się dać przetestować gołym python3
+# i przepisać 1:1 na GDScript.
+
+CHUNK_MANIFEST_SCHEMA_VERSION = 1
+# ZAŁOŻENIE PROJEKTOWE, nie dana o sieci: okno streamowania z docs/01-architecture.md
+# („600 m przed składem i 300 m za nim"). Manifest tylko je zapisuje; predykat przyjmuje
+# dowolne wartości, bo budżet pamięci jest decyzją silnika, nie faktem o metrze.
+DEFAULT_STREAM_AHEAD_M = 600.0
+DEFAULT_STREAM_BEHIND_M = 300.0
+# Klucze zależne od bajtów pliku GLB. Eksporter glTF nie gwarantuje kolejności bufora,
+# więc te wartości NIE są odtwarzalne między przebiegami — reszta manifestu jest.
+VOLATILE_CHUNK_KEYS = ("sha256", "bytes")
+
+
+def stations_by_chunk(bounds, station_chainages):
+    """Indeksy stacji przypisane do chunków — każda stacja trafia do dokładnie jednego.
+
+    Chainage stacji pochodzi z łamanej źródłowej, a granice chunków z osi zagęszczonej,
+    więc skrajna stacja potrafi wypaść o ułamek metra za końcem osi (Merode: 6686,99 m
+    przy osi 6686,74 m). Zamiast gubić taką stację, chainage jest przycinany do osi.
+    """
+    total = bounds[-1][1]
+    out = [[] for _ in bounds]
+    last = len(bounds) - 1
+    for position, raw in enumerate(station_chainages):
+        value = min(max(float(raw), 0.0), total)
+        target = last
+        for index, (_a, b) in enumerate(bounds):
+            if value < b or index == last:
+                target = index
+                break
+        out[target].append(position)
+    return out
+
+
+def chunk_geometry_sha256(chunk, digits=6):
+    """Odcisk samej geometrii chunka — niezależny od bajtów GLB.
+
+    Potrzebny, bo eksporter glTF nie daje powtarzalnych bajtów: `sha256` pliku zmienia
+    się między przebiegami, choć siatka jest ta sama. Ten hash liczy się z wierzchołków,
+    UV i ścian, więc odpowiada na pytanie „czy geometria się zmieniła" i nadaje się na
+    klucz cache'u po stronie Godota.
+    """
+    import hashlib
+    digest = hashlib.sha256()
+    for vertex in chunk["vertices"]:
+        digest.update((",".join(f"{c:.{digits}f}" for c in vertex) + ";").encode("ascii"))
+    digest.update(b"|uv|")
+    for uv in chunk["uvs"]:
+        digest.update((",".join(f"{c:.{digits}f}" for c in uv) + ";").encode("ascii"))
+    digest.update(b"|f|")
+    for face in chunk["faces"]:
+        digest.update((",".join(str(i) for i in face) + ";").encode("ascii"))
+    return digest.hexdigest()
+
+
+def stream_window(chainage_m, radius_m=None, ahead_m=None, behind_m=None, heading=1.0):
+    """Zakres chainage, który musi być wczytany dla pociągu w punkcie `chainage_m`.
+
+    `radius_m` daje okno symetryczne; `ahead_m`/`behind_m` okno asymetryczne w kierunku
+    jazdy. `heading` < 0 znaczy jazdę w stronę malejącego chainage, więc „przed składem"
+    leży po stronie mniejszych wartości.
+    """
+    if ahead_m is None:
+        ahead_m = DEFAULT_STREAM_AHEAD_M if radius_m is None else radius_m
+    if behind_m is None:
+        behind_m = DEFAULT_STREAM_BEHIND_M if radius_m is None else radius_m
+    ahead_m, behind_m = float(ahead_m), float(behind_m)
+    if ahead_m < 0.0 or behind_m < 0.0:
+        raise ValueError("zasięg streamowania nie może być ujemny")
+    x = float(chainage_m)
+    if heading >= 0.0:
+        return (x - behind_m, x + ahead_m)
+    return (x - ahead_m, x + behind_m)
+
+
+def chunks_in_range(manifest, low_m, high_m):
+    """Chunki przecinające zakres [low_m, high_m], w kolejności chainage.
+
+    Przedział domknięty z obu stron: pociąg dokładnie na szwie potrzebuje obu chunków,
+    a nadmiarowy chunk kosztuje pamięć, brakujący — dziurę w tunelu.
+    """
+    if high_m < low_m:
+        low_m, high_m = high_m, low_m
+    out = [c for c in manifest["chunks"]
+           if float(c["start_m"]) <= high_m and float(c["end_m"]) >= low_m]
+    return sorted(out, key=lambda c: float(c["start_m"]))
+
+
+def chunks_for_train(manifest, chainage_m, radius_m=None, ahead_m=None, behind_m=None,
+                     heading=1.0):
+    """Predykat streamowania: co musi być w pamięci dla składu na `chainage_m`."""
+    low, high = stream_window(chainage_m, radius_m, ahead_m, behind_m, heading)
+    return chunks_in_range(manifest, low, high)
+
+
+def streaming_plan(manifest, chainage_m, loaded_ids=(), radius_m=None, ahead_m=None,
+                   behind_m=None, heading=1.0):
+    """Różnica między tym, co jest wczytane, a tym, co być powinno.
+
+    Zwraca `load` / `keep` / `free` — dokładnie trzy listy, których potrzebuje pętla
+    streamowania w Godocie, żeby nie przeliczać zbiorów przy każdej klatce.
+    """
+    needed = [c["id"] for c in chunks_for_train(manifest, chainage_m, radius_m, ahead_m,
+                                                behind_m, heading)]
+    have = set(loaded_ids)
+    return {
+        "load": [i for i in needed if i not in have],
+        "keep": [i for i in needed if i in have],
+        "free": sorted(have - set(needed)),
+    }
+
+
+def deterministic_view(manifest):
+    """Kopia manifestu bez pól zależnych od bajtów GLB — do porównania dwóch przebiegów."""
+    import copy
+    out = copy.deepcopy(manifest)
+    out.pop("glb_bytes", None)
+    for chunk in out.get("chunks", []):
+        for key in VOLATILE_CHUNK_KEYS:
+            chunk.pop(key, None)
+    return out
+
+
+def manifest_problems(manifest, length_tolerance_m=0.01, seam_tolerance_m=1e-6):
+    """Kontrola spójności manifestu — lista problemów, pusta znaczy OK.
+
+    Sprawdza dokładnie te niezmienniki, na których opiera się streaming: chunki mają
+    pokryć oś raz, bez dziur i bez zakładek, a deklarowane liczniki mają się sumować
+    do metryk generatora.
+    """
+    problems = []
+    chunks = manifest.get("chunks") or []
+    if not chunks:
+        return ["manifest nie ma ani jednego chunka"]
+
+    ids = [c["id"] for c in chunks]
+    if len(set(ids)) != len(ids):
+        problems.append("powtórzone id chunków")
+    files = [c["file"] for c in chunks]
+    if len(set(files)) != len(files):
+        problems.append("powtórzone nazwy plików chunków")
+
+    ordered = sorted(chunks, key=lambda c: float(c["start_m"]))
+    if [c["id"] for c in ordered] != ids:
+        problems.append("chunki w manifeście nie są posortowane po chainage")
+
+    axis = float(manifest["axis_length_m"])
+    if abs(float(ordered[0]["start_m"])) > seam_tolerance_m:
+        problems.append(f"pierwszy chunk zaczyna się w {ordered[0]['start_m']} m, nie w 0")
+    if abs(float(ordered[-1]["end_m"]) - axis) > length_tolerance_m:
+        problems.append(f"ostatni chunk kończy się w {ordered[-1]['end_m']} m, oś ma {axis} m")
+
+    for chunk in ordered:
+        span = float(chunk["end_m"]) - float(chunk["start_m"])
+        if span <= 0.0:
+            problems.append(f"{chunk['id']}: zakres chainage nie rośnie")
+        if abs(span - float(chunk["length_m"])) > seam_tolerance_m:
+            problems.append(f"{chunk['id']}: length_m {chunk['length_m']} != {span}")
+        if int(chunk["vertices"]) <= 0 or int(chunk["triangles"]) <= 0:
+            problems.append(f"{chunk['id']}: pusta geometria")
+        size = [float(chunk["bbox_max_m"][i]) - float(chunk["bbox_min_m"][i]) for i in range(3)]
+        if max(size) <= 0.0:
+            problems.append(f"{chunk['id']}: bbox zwinięty do punktu")
+
+    for previous, current in zip(ordered, ordered[1:]):
+        seam = float(current["start_m"]) - float(previous["end_m"])
+        if abs(seam) > seam_tolerance_m:
+            kind = "dziura" if seam > 0 else "zakładka"
+            problems.append(f"{kind} {abs(seam):.6f} m między {previous['id']} a {current['id']}")
+
+    total = sum(float(c["length_m"]) for c in chunks)
+    if abs(total - axis) > length_tolerance_m:
+        problems.append(f"suma długości chunków {total:.3f} m != długość osi {axis} m")
+
+    totals = manifest.get("totals") or {}
+    for key in ("vertices", "faces", "triangles"):
+        if key in totals and sum(int(c[key]) for c in chunks) != int(totals[key]):
+            problems.append(f"suma {key} po chunkach != totals.{key}")
+
+    covered = [s for c in chunks for s in c.get("stations", [])]
+    declared = manifest.get("station_count")
+    if declared is not None and len(covered) != int(declared):
+        problems.append(f"stacje w chunkach: {len(covered)}, deklarowane: {declared}")
+    return problems

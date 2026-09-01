@@ -8,11 +8,17 @@ zostaje budowa siatek bpy, materiał, eksport i raport. Oś jest dzielona na chu
 których szwy nigdy nie wypadają w obrębie stacji — to warunek późniejszego
 streamowania w Godot (T-210, wymaganie 4).
 
+`--chunk-dir` dokłada eksport per chunk plus manifest streamingowy. Chunki jako
+osobne obiekty w JEDNYM pliku GLB nie dają streamowania — Godot i tak wczytuje
+całe 6,7 km naraz; osobne pliki i indeks chainage dają. Pojedynczy GLB z `--out`
+zostaje bez zmian, bo jest wejściem renderów kontrolnych i baseline'u T-012.
+
 Dopóki profil pionowy nie ma źródła (T-112 zablokowane brakiem publicznych rzędnych
 główki szyny), wynik jest wariantem `flat-preview` i jest tak nazwany w scenie,
 w metrykach i w raporcie. `--variant production` jest wtedy odrzucany.
 """
 import argparse
+import hashlib
 import json
 import os
 import sys
@@ -40,7 +46,70 @@ def parse_args():
     parser.add_argument("--station-halo-m", type=float, default=SW.DEFAULT_STATION_HALO_M)
     parser.add_argument("--variant", default="auto", choices=("auto", "flat-preview", "production"))
     parser.add_argument("--metrics", help="ścieżka na metryki JSON")
+    parser.add_argument("--chunk-dir",
+                        help="katalog na osobny GLB dla każdego chunka plus manifest "
+                             "streamingowy; bez tej opcji powstaje tylko pojedynczy --out")
+    parser.add_argument("--chunk-manifest",
+                        help="ścieżka manifestu streamingowego; domyślnie "
+                             "<chunk-dir>/<name>-chunks.json")
     return parser.parse_args(argv)
+
+
+def sha256_file(path):
+    digest = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for block in iter(lambda: handle.read(65536), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def export_selected(objects, path):
+    bpy.ops.object.select_all(action="DESELECT")
+    for obj in objects:
+        obj.select_set(True)
+    bpy.context.view_layer.objects.active = objects[0]
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True)
+
+
+def chunk_records(chunks, objects, stations, station_slots, name, chunk_dir):
+    """Eksportuje każdy chunk do własnego GLB i opisuje go wpisem manifestu.
+
+    Nazwy plików są funkcją nazwy wariantu i indeksu chunka, więc są stabilne między
+    przebiegami — Godot może je trzymać w ścieżkach scen. Liczniki wierzchołków
+    i trójkątów pochodzą z generatora, nie z GLB: eksporter glTF rozszczepia
+    wierzchołki na szwach UV, więc liczba w pliku jest większa i nie sumuje się
+    do metryk. `geometry_sha256` odpowiada na pytanie „czy siatka się zmieniła"
+    wtedy, gdy `sha256` pliku i tak nie jest odtwarzalny.
+    """
+    records = []
+    for index, (chunk, obj) in enumerate(zip(chunks, objects)):
+        chunk_id = f"{name}_c{index:02d}"
+        path = os.path.join(chunk_dir, f"{chunk_id}.glb")
+        export_selected([obj], path)
+        lo, hi = SW.bounding_box([chunk])
+        records.append({
+            "id": chunk_id,
+            "index": index,
+            "file": os.path.basename(path),
+            "start_m": round(chunk["start_m"], 6),
+            "end_m": round(chunk["end_m"], 6),
+            "length_m": round(chunk["length_m"], 6),
+            "rings": chunk["last_ring"] - chunk["first_ring"] + 1,
+            "bbox_min_m": [round(v, 4) for v in lo],
+            "bbox_max_m": [round(v, 4) for v in hi],
+            "bbox_size_m": [round(hi[i] - lo[i], 4) for i in range(3)],
+            "vertices": len(chunk["vertices"]),
+            "faces": len(chunk["faces"]),
+            "triangles": len(chunk["faces"]) * 2,
+            "geometry_sha256": SW.chunk_geometry_sha256(chunk),
+            "sha256": sha256_file(path),
+            "bytes": os.path.getsize(path),
+            "stations": [{"name": stations[s]["name"],
+                          "chainage_m": round(float(stations[s]["chainage_m"]), 3)}
+                         for s in station_slots[index]],
+        })
+    return records
 
 
 def clear_scene():
@@ -57,7 +126,11 @@ def load_centerline(path):
         data = json.load(handle)
     if isinstance(data, dict):
         points = data["points"]
-        stations = [float(s["chainage_m"]) for s in data.get("stations", [])]
+        # Stacje wracają jako rekordy, nie same chainage: manifest streamingowy musi
+        # umieć powiedzieć, KTÓRA stacja leży w którym chunku, a nie tylko ile ich jest.
+        stations = [{"name": s.get("name") or f"stop{i:02d}",
+                     "chainage_m": float(s["chainage_m"])}
+                    for i, s in enumerate(data.get("stations", []))]
         vertical = (data.get("vertical") or {}).get("status", "not_modelled")
         identifier = data.get("id", "")
     else:
@@ -110,7 +183,8 @@ def main():
     name = args.name if variant == "production" else f"{args.name}_flat_preview"
 
     profile = profile_points(args.profile)
-    result = SW.sweep(points, profile, args.ring_step, stations, args.max_chunk_m,
+    station_m = [s["chainage_m"] for s in stations]
+    result = SW.sweep(points, profile, args.ring_step, station_m, args.max_chunk_m,
                       args.station_halo_m)
     chunks, frames, columns = result["chunks"], result["frames"], result["columns"]
 
@@ -137,7 +211,7 @@ def main():
         "chunk_lengths_m": [round(c["length_m"], 2) for c in chunks],
         "chunk_length_sum_m": round(sum(c["length_m"] for c in chunks), 3),
         "chunk_max_gap_m": round(max(gaps), 6) if gaps else 0.0,
-        "stations_split": SW.splits_station(result["chunk_bounds"], stations, args.station_halo_m),
+        "stations_split": SW.splits_station(result["chunk_bounds"], station_m, args.station_halo_m),
         "vertices": sum(len(c["vertices"]) for c in chunks),
         "faces": sum(len(c["faces"]) for c in chunks),
         "triangles": sum(len(c["faces"]) for c in chunks) * 2,
@@ -151,14 +225,62 @@ def main():
         "bbox_size_m": [round(hi[i] - lo[i], 3) for i in range(3)],
     }
 
-    os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
     bpy.ops.object.select_all(action="DESELECT")
     for obj in objects:
         obj.select_set(True)
     bpy.context.view_layer.objects.active = objects[0]
     bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
-    bpy.ops.export_scene.gltf(filepath=args.out, export_format="GLB", use_selection=True)
+    export_selected(objects, args.out)
     metrics["glb_bytes"] = os.path.getsize(args.out)
+
+    manifest = None
+    if args.chunk_dir:
+        os.makedirs(args.chunk_dir, exist_ok=True)
+        slots = SW.stations_by_chunk(result["chunk_bounds"], station_m)
+        records = chunk_records(chunks, objects, stations, slots, name, args.chunk_dir)
+        manifest_path = args.chunk_manifest or os.path.join(args.chunk_dir, f"{name}-chunks.json")
+        manifest = {
+            "schema_version": SW.CHUNK_MANIFEST_SCHEMA_VERSION,
+            "generator": "tools/blender/tunnel_sweep.py",
+            "id": metrics["id"],
+            "name": name,
+            "variant": variant,
+            "production_ready": metrics["production_ready"],
+            "profile": args.profile,
+            "profile_size_m": metrics["profile_size_m"],
+            "units": "m",
+            "up_axis": "Z",
+            "axis_length_m": metrics["axis_length_m"],
+            "chunk_count": len(records),
+            "chunk_length_sum_m": metrics["chunk_length_sum_m"],
+            "station_count": len(stations),
+            "totals": {"vertices": metrics["vertices"], "faces": metrics["faces"],
+                       "triangles": metrics["triangles"]},
+            "bbox_min_m": metrics["bbox_min_m"],
+            "bbox_max_m": metrics["bbox_max_m"],
+            # ZAŁOŻENIE PROJEKTOWE, nie dana o sieci: okno z docs/01-architecture.md.
+            # Manifest je tylko zapisuje — predykat przyjmuje dowolne wartości, bo
+            # budżet pamięci jest decyzją silnika, nie faktem o metrze brukselskim.
+            "streaming": {
+                "default_ahead_m": SW.DEFAULT_STREAM_AHEAD_M,
+                "default_behind_m": SW.DEFAULT_STREAM_BEHIND_M,
+                "source": "docs/01-architecture.md — okno 600 m przed składem, 300 m za nim",
+                "status": "design_assumption",
+                "predicate": "tools/blender/sweep.py: chunks_for_train / streaming_plan",
+                "volatile_keys": list(SW.VOLATILE_CHUNK_KEYS),
+            },
+            "chunks": records,
+        }
+        problems = SW.manifest_problems(manifest)
+        if problems:
+            raise SystemExit("BŁĄD: manifest niespójny — " + "; ".join(problems))
+        os.makedirs(os.path.dirname(manifest_path) or ".", exist_ok=True)
+        with open(manifest_path, "w", encoding="utf-8") as handle:
+            json.dump(manifest, handle, ensure_ascii=False, indent=2, sort_keys=True)
+            handle.write("\n")
+        # do metryk trafiają tylko nazwy plików, nie ścieżki: metryki są porównywane
+        # między przebiegami i nie mogą zależeć od katalogu wyjściowego
+        metrics["chunk_files"] = [r["file"] for r in records]
 
     if args.metrics:
         os.makedirs(os.path.dirname(args.metrics) or ".", exist_ok=True)
@@ -186,6 +308,15 @@ def main():
           f"{metrics['uv_metres_per_unit'][1]:.3f}")
     print(f"[RAPORT] bbox_m: X={metrics['bbox_size_m'][0]:.1f} Y={metrics['bbox_size_m'][1]:.1f} "
           f"Z={metrics['bbox_size_m'][2]:.1f}")
+    if manifest:
+        print(f"[CHUNKI] katalog={args.chunk_dir} manifest={manifest_path} "
+              f"pliki={manifest['chunk_count']} "
+              f"bajty={sum(r['bytes'] for r in manifest['chunks'])}")
+        for record in manifest["chunks"]:
+            names = ", ".join(s["name"] for s in record["stations"]) or "-"
+            print(f"[CHUNKI] {record['id']} {record['start_m']:8.2f}..{record['end_m']:8.2f} m "
+                  f"({record['length_m']:6.2f} m) trojkaty={record['triangles']:5d} "
+                  f"bajty={record['bytes']:7d} stacje: {names}")
 
     problems = []
     if metrics["vertices"] == 0 or metrics["faces"] == 0:
