@@ -76,6 +76,37 @@ Problem leży po stronie **placeholderowego profilu**, nie geometrii M7:
 Test `test_clearance_committed_axis_fits_the_double_box_but_not_the_single_bore`
 utrwala oba wyniki, żeby zmiana profilu lub osi nie przeszła po cichu.
 
+### 3.1 Czy w sieci STIB w ogóle są tunele w skali jednotorowej
+
+Pomiar wzdłuż osi pakietu A nie odpowiada na to pytanie, bo pakiet A jest dwutorowy.
+`python3 tools/track/tunnel_width.py --survey` mierzy **każdy** z 87 poligonów tuneli
+w warstwie UrbIS `Metro`:
+
+| statystyka | szerokość korytarza |
+|---|---|
+| min | **6,75 m** — Demey–Herrmann-Debroux (linia 5, wschodni kraniec) |
+| P05 | 7,97 m |
+| mediana | 9,60 m |
+| P95 | 18,20 m |
+| maks. | 31,18 m |
+
+**Żaden poligon w sieci nie jest tak wąski jak `bore_single` (6,08 m)**, a najwęższy
+leży poza pakietem A. To osłabia — ale **nie obala** — tezy, że `bore_single` modeluje
+coś nieistniejącego: poligon `MT` może być obrysem konstrukcji z murami, a wtedy światło
+tunelu jest węższe od zmierzonego i 6,08 m staje się prawdopodobne. Rozstrzygnięcie
+należy do R-005 (#17), razem z pytaniem o szerokość `box_double`.
+
+**Uwaga metodologiczna, bo łatwo tu o błąd.** Szerokość korytarza liczona jest przez
+rozwiązanie układu `A = w·L`, `P = 2(w + L)`, co jest dokładne dla prostokąta i odporne
+na krzywiznę. Najmniejszy wymiar **prostokąta otaczającego** do tego nie służy: dla
+zakrzywionego korytarza mierzy zasięg, nie szerokość, i zawyża wielokrotnie —
+Pétillon–Hankar ma 7,58 m korytarza wobec **25,12 m** bboxa, a Gribaumont–Tomberg
+7,97 m wobec **73,46 m**. Pierwsze podejście oparte na bboxie dało wniosek „w sieci nie
+ma tuneli poniżej 7 m", który był fałszywy. Prostsze `2A/P` też nie wystarcza: zaniża
+o czynnik `1/(1 + w/L)`, czyli 22 cm przy tunelu 9,4 m na 400 m — przy pytaniu „czy ten
+tunel jest jednotorowy" to jest różnica, która zmienia odpowiedź. Oba estymatory są
+raportowane, bo ich rozbieżność mierzy krzywiznę poligonu.
+
 ## 4. Wrażliwość na szerokość tunelu
 
 Zapas zależy od `box_double`, czyli od placeholdera. Żeby wiedzieć, jak bardzo, szerokość
