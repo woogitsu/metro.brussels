@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Testy bazowych narzędzi Metro BXL, bez Blendera i bez pytest."""
-import sys, os, json, tempfile, math
+import sys, os, json, tempfile, math, threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),"..",".."))
-sys.path.insert(0,os.path.join(ROOT,"tools","blender")); sys.path.insert(0,os.path.join(ROOT,"tools","track")); sys.path.insert(0,os.path.join(ROOT,"tools","physics"))
-import profiles, validate as V, reference as R, make_test_track as M
+sys.path.insert(0,os.path.join(ROOT,"tools","blender")); sys.path.insert(0,os.path.join(ROOT,"tools","track")); sys.path.insert(0,os.path.join(ROOT,"tools","physics")); sys.path.insert(0,os.path.join(ROOT,"tools","data"))
+import profiles, validate as V, reference as R, make_test_track as M, provenance as P
 
 def _tmp(d):
     f=tempfile.NamedTemporaryFile("w",suffix=".json",delete=False,encoding="utf-8"); json.dump(d,f,ensure_ascii=False); f.close(); return f.name
@@ -78,6 +79,60 @@ def test_r002_download_metadata_distinction_is_explicit():
 
 def test_cbtc_2026_not_marked_as_fully_operational():
     net=json.load(open(os.path.join(ROOT,"data","network","lines.json"),encoding="utf-8")); assert net["signalling"]["cbtc"]["status_2026_08"]["operational_full_lines_1_5"] is False
+
+def test_provenance_identical_bytes_have_same_hash_and_one_byte_changes():
+    a=b"metro-data\n"; b=b"metro-data!\n"
+    assert P.sha256_bytes(a)==P.sha256_bytes(bytes(a))
+    assert P.sha256_bytes(a)!=P.sha256_bytes(b)
+
+def test_provenance_html_instead_of_zip_is_rejected():
+    try: P.validate_payload(b"<!doctype html><title>login</title>","zip","text/html")
+    except P.ProvenanceError: pass
+    else: raise AssertionError("HTML login page accepted as ZIP")
+
+def test_provenance_zip_magic_is_checked():
+    P.validate_payload(b"PK\x03\x04payload","zip","application/zip")
+    try: P.validate_payload(b"not-a-zip","zip","application/octet-stream")
+    except P.ProvenanceError: pass
+    else: raise AssertionError("bad ZIP magic accepted")
+
+def test_provenance_secrets_are_sanitized_or_rejected():
+    u=P.sanitize_url("https://example.test/feed.zip?token=abc&line=1&api_key=xyz")
+    assert "abc" not in u and "xyz" not in u and "REDACTED" in u and "line=1" in u
+    try: P.sanitize_headers({"Authorization":"Bearer secret"})
+    except P.ProvenanceError: pass
+    else: raise AssertionError("Authorization header was accepted for persistence")
+
+def test_provenance_etag_does_not_change_content_hash():
+    common=dict(source_id="stib_gtfs",requested_url="https://example.test/a.zip",final_url="https://example.test/a.zip",content=b"PK\x03\x04x",retrieved_at="2026-09-01T00:00:00Z",data_format="zip")
+    a=P.build_manifest(etag='"one"',**common); b=P.build_manifest(etag='"two"',**common)
+    assert a["content_sha256"]==b["content_sha256"]
+
+def test_provenance_diff_detects_upstream_byte_change():
+    common=dict(source_id="stib_gtfs",requested_url="https://example.test/a.json",final_url="https://example.test/a.json",retrieved_at="2026-09-01T00:00:00Z",data_format="json")
+    a=P.build_manifest(content=b'{"x":1}',**common); b=P.build_manifest(content=b'{"x":2}',**common)
+    d=P.diff_manifests(a,b); assert d["status"]=="changed" and d["source_changed"] and "content_sha256" in d["changes"]
+
+def test_provenance_redirect_records_final_url():
+    class H(BaseHTTPRequestHandler):
+        def do_GET(self):
+            if self.path=="/start": self.send_response(302); self.send_header("Location","/data"); self.end_headers(); return
+            self.send_response(200); self.send_header("Content-Type","application/json"); self.end_headers(); self.wfile.write(b'{"ok":true}')
+        def log_message(self,*args): pass
+    srv=HTTPServer(("127.0.0.1",0),H); t=threading.Thread(target=srv.serve_forever,daemon=True); t.start()
+    try:
+        url=f"http://127.0.0.1:{srv.server_port}/start"; data,final,_=P.fetch_url(url,expected_format="json",timeout=2)
+        assert data==b'{"ok":true}' and final.endswith("/data")
+    finally:
+        srv.shutdown(); srv.server_close(); t.join(timeout=2)
+
+def test_provenance_osm_query_is_hashed_not_stored():
+    m=P.build_manifest(source_id="openstreetmap",requested_url="https://example.test/osm",final_url="https://example.test/osm",content=b"osm",retrieved_at="2026-09-01T00:00:00Z",data_format="pbf",query_text="[out:json];way[railway=subway];out;")
+    assert len(m["query_sha256"])==64 and "query" not in m
+
+def test_source_manifest_schema_has_core_required_fields():
+    schema=json.load(open(os.path.join(ROOT,"data","schema","source-manifest.schema.json"),encoding="utf-8")); req=set(schema["required"])
+    assert {"source_id","final_url","retrieved_at","content_sha256","size_bytes","format","parser_version","transformations","input_sources"}<=req
 
 def main():
     tests=[(n,f) for n,f in sorted(globals().items()) if n.startswith("test_") and callable(f)]; passed=0; failed=[]

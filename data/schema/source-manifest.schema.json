@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://metro.brussels/schema/source-manifest.schema.json",
+  "title": "Metro BXL source provenance manifest",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "manifest_version",
+    "source_id",
+    "requested_url",
+    "final_url",
+    "retrieved_at",
+    "content_sha256",
+    "size_bytes",
+    "format",
+    "parser_version",
+    "transformations",
+    "input_sources",
+    "source_metadata",
+    "stats"
+  ],
+  "properties": {
+    "manifest_version": {"const": 1},
+    "source_id": {"type": "string", "minLength": 1},
+    "requested_url": {"type": "string", "format": "uri"},
+    "final_url": {"type": "string", "format": "uri"},
+    "retrieved_at": {"type": "string", "format": "date-time"},
+    "dataset_version": {"type": ["string", "null"]},
+    "etag": {"type": ["string", "null"]},
+    "last_modified": {"type": ["string", "null"]},
+    "content_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "size_bytes": {"type": "integer", "minimum": 0},
+    "mime_type": {"type": ["string", "null"]},
+    "format": {"type": "string", "minLength": 1},
+    "crs": {"type": ["string", "null"]},
+    "parser_version": {"type": "string", "minLength": 1},
+    "artifact_sha256": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "transformations": {"type": "array", "items": {"type": "string"}},
+    "input_sources": {"type": "array", "items": {"type": "string"}},
+    "source_metadata": {"type": "object"},
+    "stats": {"type": "object"},
+    "query_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}
