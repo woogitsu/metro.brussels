@@ -53,9 +53,19 @@ python3 tools/visual/compare.py --set vehicle --current renders --prefix M7_shel
 
 **`infrastructure`** — 960x576: `iso`, `side`, `top`, `inside`, `section`.
 
-`door` wymaga kotwicy `--anchor door=X,Y,Z`; `inside` i `section` wymagają
-`--centerline`. Brakująca kotwica **pomija kamerę jawnie** (wpis `skipped`
-w metadanych i w logu) — nigdy po cichu.
+**`alignment`** — 960x576: `plan`, `section`, `axis05`, `axis25`, `axis50`, `axis75`.
+Zestaw dla długiej infrastruktury liniowej. Tunel pakietu A ma proporcję 5452 : 6,
+więc kamera kadrująca po bboxie daje kreskę grubości 2 px, a ortho bez ograniczenia
+głębi całkuje kilka kilometrów łuku w jedną klatkę. Dlatego `section` ma `depth_m`
+(płaszczyzna daleka = bliska + głębia), a kontrola przekroju idzie przez cztery
+zbliżenia wnętrza w różnych chainage'ach zamiast jednego widoku całości.
+
+`door` wymaga kotwicy `--anchor door=X,Y,Z`; `inside`, `section` i wszystkie `axisNN`
+wymagają `--centerline`. Kotwice `axisNN_eye`/`axisNN_target` powstają dla ułamków
+chainage podanych w `--axis-fractions` (domyślnie `0.05,0.25,0.5,0.75`).
+
+Brakująca kotwica **pomija kamerę jawnie** (wpis `skipped` w metadanych i w logu) —
+nigdy po cichu.
 
 ## Determinizm
 

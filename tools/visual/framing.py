@@ -203,7 +203,12 @@ def solve_camera(spec, bmin, bmax, res_x, res_y, named_anchors=None, points=None
         clip_start = distance
     else:
         clip_start = max(0.01, min(0.1, scene_size / 100000.0)) if near > 0.2 else max(0.001, near * 0.5)
-    clip_end = max(1000.0, scene_size * 8.0, (distance + max(depth_max, 0.0)) * 3.0)
+    if "depth_m" in spec:
+        # Ograniczona głębia: kamera przekrojowa ma pokazać JEDEN wycinek, a nie
+        # scałkować kilka kilometrów zakrzywionego tunelu w jedną klatkę ortho.
+        clip_end = clip_start + float(spec["depth_m"])
+    else:
+        clip_end = max(1000.0, scene_size * 8.0, (distance + max(depth_max, 0.0)) * 3.0)
     out["clip_start"] = round(clip_start, 6)
     out["clip_end"] = round(clip_end, 3)
     return out

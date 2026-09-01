@@ -1,7 +1,7 @@
 {
   "$comment": "Canonical manifest kamer i ustawień renderu kontrolnego (T-012). Zmiana czegokolwiek tutaj unieważnia baseline — bump manifest_version.",
   "schema_version": 1,
-  "manifest_version": "2026-09-01.1",
+  "manifest_version": "2026-09-01.2",
   "render": {
     "engine": "BLENDER_EEVEE_NEXT",
     "engine_fallback": "BLENDER_EEVEE",
@@ -128,6 +128,76 @@
           "slab_thickness_m": 12.0,
           "clip_at_anchor": true,
           "purpose": "przekrój prostopadły do osi trasy w połowie długości; płaszczyzna bliska tnie geometrię"
+        }
+      ]
+    },
+    "alignment": {
+      "description": "Zestaw dla długiej infrastruktury liniowej. Pojedynczy render 6,7 km tunelu daje kreskę grubości 2 px i nie odpowiada na pytanie, czy przekrój gdzieś znika — kontrola idzie przez rzut w planie, przekrój o ograniczonej głębi i cztery zbliżenia wnętrza w różnych chainage'ach.",
+      "resolution": [960, 576],
+      "thresholds": {
+        "mean_abs_diff": 0.004,
+        "p95_abs_diff": 0.06,
+        "ssim_min": 0.98,
+        "min_ink_fraction": 0.0002,
+        "min_luma_std": 0.004,
+        "min_distinct_levels": 16
+      },
+      "cameras": [
+        {
+          "id": "plan",
+          "projection": "ORTHO",
+          "direction": [0.0, 0.0, -1.0],
+          "anchor": {"mode": "bbox_center"},
+          "margin": 1.05,
+          "purpose": "przebieg osi w planie — wykrywa ucięcie trasy, pętlę, zły odcinek"
+        },
+        {
+          "id": "section",
+          "projection": "ORTHO",
+          "anchor": {"mode": "named", "name": "section_eye"},
+          "aim": {"mode": "named", "name": "section_target"},
+          "margin": 1.25,
+          "fit": "slab",
+          "slab_thickness_m": 12.0,
+          "clip_at_anchor": true,
+          "depth_m": 30.0,
+          "purpose": "przekrój poprzeczny w połowie długości; głębia ograniczona do 30 m, żeby ortho nie scałkowało kilku kilometrów łuku w jedną klatkę"
+        },
+        {
+          "id": "axis05",
+          "projection": "PERSP",
+          "lens": 35.0,
+          "anchor": {"mode": "named", "name": "axis05_eye"},
+          "aim": {"mode": "named", "name": "axis05_target"},
+          "place_at_anchor": true,
+          "purpose": "wnętrze na 5% chainage — ciągłość, normalne, brak skrętu profilu"
+        },
+        {
+          "id": "axis25",
+          "projection": "PERSP",
+          "lens": 35.0,
+          "anchor": {"mode": "named", "name": "axis25_eye"},
+          "aim": {"mode": "named", "name": "axis25_target"},
+          "place_at_anchor": true,
+          "purpose": "wnętrze na 25% chainage"
+        },
+        {
+          "id": "axis50",
+          "projection": "PERSP",
+          "lens": 35.0,
+          "anchor": {"mode": "named", "name": "axis50_eye"},
+          "aim": {"mode": "named", "name": "axis50_target"},
+          "place_at_anchor": true,
+          "purpose": "wnętrze na 50% chainage"
+        },
+        {
+          "id": "axis75",
+          "projection": "PERSP",
+          "lens": 35.0,
+          "anchor": {"mode": "named", "name": "axis75_eye"},
+          "aim": {"mode": "named", "name": "axis75_target"},
+          "place_at_anchor": true,
+          "purpose": "wnętrze na 75% chainage"
         }
       ]
     }

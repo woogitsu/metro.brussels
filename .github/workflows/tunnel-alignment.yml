@@ -1,0 +1,55 @@
+name: Tunnel alignment
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/tunnel-alignment.yml'
+      - 'tools/blender/**'
+      - 'tools/visual/**'
+      - 'tools/ci/tunnel_alignment.sh'
+      - 'tools/tests/**'
+      - 'data/track/**'
+      - 'reports/L1_A-geometry.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tunnel-alignment:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install Blender
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            blender \
+            python3-numpy \
+            libegl1 \
+            libgl1-mesa-dri
+          blender --version | head -n 3
+
+      - name: Generate and verify the package A tunnel
+        shell: bash
+        run: bash tools/ci/tunnel_alignment.sh
+
+      - name: Upload T-210 verification artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: t-210-tunnel-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            build/t210/report.txt
+            build/t210/*.json
+            build/t210/*.md
+            build/t210/*.log
+            build/t210/renders/**
