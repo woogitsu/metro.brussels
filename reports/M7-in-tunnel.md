@@ -33,6 +33,13 @@ Rzeczywiste bryły w GLB (nie nominalny podział 94/6):
 | `M7_car_2`…`M7_car_5` (środkowe) | 14,567 m |
 | `M7_articulation_1`…`_5` | 1,100 m |
 
+> **Ten raport mierzy JEDNĄ pozycję składu — wyśrodkowaną na najciaśniejszym łuku.
+> To nie jest najgorsza pozycja.** Skan wzdłuż całej osi
+> (`reports/M7-clearance-profile.md`) znalazł minimum **0,8999 m**, o 45 mm mniej,
+> przy składzie ustawionym 38 m wcześniej i na **skrajnym** członie: pudła skrajne są
+> dłuższe (15,12 wobec 14,57 m), więc mają większą strzałkę cięciwy. Liczby poniżej
+> pozostają poprawne dla tej jednej pozycji; **najgorszy przypadek trasy jest tam.**
+
 ## 2. Wynik — oba tory na najciaśniejszym łuku
 
 Najgorszy punkt osi wybierany automatycznie: chainage **2518,8 m**, promień na cięciwie
@@ -119,6 +126,11 @@ wiedza o kamerze, nie o wywołaniu. Bez cięcia płaszczyzną w osi `flank` poka
   nie wolno liczyć osobno.
 
 ## 6. Co z tego wynika
+
+**Sprostowanie po skanie całej trasy:** minimum pakietu A wynosi 0,8999 m (tor +2,10 m,
+chainage 2521,1 m, `M7_car_6`), nie 0,9447 m. Poniżej 1,000 m schodzi 57 z 1320 pozycji
+na torze 1 i 33 na torze 0; na 88–93 % trasy wiąże **strop**, nie ściana. Szczegóły
+i miejsca krytyczne: `reports/M7-clearance-profile.md`.
 
 Luz zostaje dodatni na obu torach i w obu metodach, ale **cztery niezależne niepewności
 działają w tę samą stronę** — mniejszy promień, węższy otwór, zwis czopów, przechyłka.

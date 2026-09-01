@@ -136,6 +136,15 @@ powstaje, i wszystkie mają zmierzone konsekwencje.
 | `UV_METRES_PER_UNIT` | 4,0 m | gęstość UV. Wartość robocza, nie decyzja materiałowa |
 | `DEGENERATE_AREA_M2` | 1e-06 | próg uznania ściany za zdegenerowaną |
 
+## 4a. Parametry pomiaru skrajni (`tools/blender/clearance_profile.py`)
+
+| parametr | wartość | uzasadnienie |
+|---|---|---|
+| krok skanu | 5,0 m | równy krokowi pierścieni osi; poniżej tego geometria nie ma własnej informacji, tylko interpolację. Przebieg kontrolny krokiem 2 m daje **to samo** minimum |
+| doszlifowanie wokół dołka | 0,25 m | samo doszlifowanie obniża znalezione minimum o 3,194 mm wobec siatki zgrubnej |
+| zakres zamiatanej obwiedni | ±150 m wokół minimum | pełna trasa to 3,5 MB w jednym GLB — kształt pliku odrzucony już przez T-210 na rzecz chunków |
+| progi raportowania miejsc krytycznych | 1,000 / 0,950 / 0,900 / 0,500 / 0,300 / 0,000 m | wyłącznie do raportu; żaden nie jest wymogiem źródła |
+
 ## 5. Co jest zablokowane i czym
 
 | potrzebne | blokuje | zadanie |
