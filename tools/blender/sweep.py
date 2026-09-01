@@ -275,24 +275,43 @@ def ring_positions(frame, profile):
 
 
 def build_chunk(frames, station_m, profile, first, last, uv_scale=UV_METRES_PER_UNIT):
-    """Buduje jeden chunk jako rurę na ramkach [first, last] włącznie.
+    """Buduje jeden chunk jako rurę na ramkach [first, last] włącznie."""
+    return build_chunk_from_rings(frames, station_m, profile,
+                                  list(range(first, last + 1)), uv_scale)
+
+
+def build_chunk_from_rings(frames, station_m, profile, ring_indices,
+                           uv_scale=UV_METRES_PER_UNIT):
+    """Buduje rurę na DOWOLNYM podzbiorze ramek podanym rosnąco w `ring_indices`.
+
+    Podzbiór, a nie zakres, bo na tym stoją poziomy szczegółowości (T-210 LOD):
+    rzadszy LOD to ten sam zestaw ramek z wyrzuconymi pierścieniami, a nie osobne
+    zagęszczenie osi. Gdyby LOD powstawał z nowego `--ring-step`, oś zmieniłaby
+    długość i granice chunków przestałyby się pokrywać między poziomami — szew
+    dostałby dziurę przy każdym przełączeniu LOD-a.
 
     Kolumna szwu jest zdublowana (n+1 kolumn na pierścień), żeby UV szło 0..obwód
     bez zawijania — inaczej ostatni czworokąt dostaje u od obwodu do 0 i rozciąga
-    teksturę na całą szerokość.
+    teksturę na całą szerokość. `v` liczy się z chainage ramki, więc jest identyczne
+    w każdym LOD-zie i przełączenie poziomu nie przesuwa tekstury.
     """
+    if len(ring_indices) < 2:
+        raise ValueError("chunk potrzebuje co najmniej dwóch pierścieni")
+    if any(b <= a for a, b in zip(ring_indices, ring_indices[1:])):
+        raise ValueError("indeksy pierścieni muszą rosnąć")
     arc = profile_arc(profile)
     columns = len(profile) + 1
     vertices, uvs = [], []
-    for index in range(first, last + 1):
+    for index in ring_indices:
         ring = ring_positions(frames[index], profile)
         v = station_m[index] / uv_scale
         for column in range(columns):
             vertices.append(ring[column % len(profile)])
             uvs.append((arc[column] / uv_scale, v))
+    first, last = ring_indices[0], ring_indices[-1]
     flip = _needs_flip(frames[first], profile)
     faces = []
-    for row in range(last - first):
+    for row in range(len(ring_indices) - 1):
         base = row * columns
         for column in range(columns - 1):
             a = base + column
@@ -302,6 +321,7 @@ def build_chunk(frames, station_m, profile, first, last, uv_scale=UV_METRES_PER_
         "vertices": vertices,
         "faces": faces,
         "uvs": uvs,
+        "ring_indices": list(ring_indices),
         "first_ring": first,
         "last_ring": last,
         "start_m": station_m[first],
@@ -346,6 +366,9 @@ def outward_faces(chunk, frames, columns):
 
     Powierzchnia tunelu jest oglądana od środka (docs 01), więc poprawny wynik to 0.
     """
+    # Rząd ściany wskazuje ramkę przez `ring_indices`, a nie przez `first_ring + row`:
+    # w rzadszym LOD-zie rzędy nie odpowiadają kolejnym ramkom osi.
+    rows = chunk.get("ring_indices") or list(range(chunk["first_ring"], chunk["last_ring"] + 1))
     count = 0
     for face in chunk["faces"]:
         normal = face_normal(chunk["vertices"], face)
@@ -353,8 +376,7 @@ def outward_faces(chunk, frames, columns):
         for index in face:
             vertex = chunk["vertices"][index]
             centre = [centre[i] + vertex[i] / len(face) for i in range(3)]
-        row = face[0] // columns
-        axis = frames[chunk["first_ring"] + row][0]
+        axis = frames[rows[face[0] // columns]][0]
         if dot(normal, sub(tuple(centre), axis)) > 0.0:
             count += 1
     return count
@@ -433,6 +455,9 @@ def sweep(points, profile, ring_step=DEFAULT_RING_STEP_M, station_chainages=(),
     return {
         "chunks": chunks,
         "frames": frames,
+        # chainage KAŻDEJ ramki, nie tylko granic chunków: na tym stoi wybór pierścieni
+        # dla rzadszych LOD-ów, który musi zostać na tym samym zestawie ramek
+        "station_m": station_m,
         "columns": columns,
         "source_points": len(source),
         "ring_points": len(dense),
@@ -472,7 +497,10 @@ def _strictly_increasing(indices, maximum):
 # Ta sekcja jest celowo bez bpy — predykat okna ma się dać przetestować gołym python3
 # i przepisać 1:1 na GDScript.
 
-CHUNK_MANIFEST_SCHEMA_VERSION = 1
+# 2: doszły `lod_levels` w nagłówku oraz `lods` i `collision` we wpisie chunka
+# (T-210 LOD). Pola schematu 1 zostają nietknięte i nadal opisują LOD 0, więc
+# `chunks_for_train` i `manifest_problems` działają na obu wersjach bez zmiany.
+CHUNK_MANIFEST_SCHEMA_VERSION = 2
 # ZAŁOŻENIE PROJEKTOWE, nie dana o sieci: okno streamowania z docs/01-architecture.md
 # („600 m przed składem i 300 m za nim"). Manifest tylko je zapisuje; predykat przyjmuje
 # dowolne wartości, bo budżet pamięci jest decyzją silnika, nie faktem o metrze.
@@ -583,13 +611,22 @@ def streaming_plan(manifest, chainage_m, loaded_ids=(), radius_m=None, ahead_m=N
 
 
 def deterministic_view(manifest):
-    """Kopia manifestu bez pól zależnych od bajtów GLB — do porównania dwóch przebiegów."""
+    """Kopia manifestu bez pól zależnych od bajtów GLB — do porównania dwóch przebiegów.
+
+    Czyści także zagnieżdżone wpisy `lods` i `collision`: każdy z nich ma własny plik
+    GLB, więc każdy niesie własne nieodtwarzalne `sha256` i `bytes`. Gdyby ich nie
+    zdjąć, kontrola determinizmu wywracałaby się na fakcie, o którym wiadomo, że
+    nie jest odtwarzalny, i przestałaby cokolwiek znaczyć.
+    """
     import copy
     out = copy.deepcopy(manifest)
     out.pop("glb_bytes", None)
     for chunk in out.get("chunks", []):
         for key in VOLATILE_CHUNK_KEYS:
             chunk.pop(key, None)
+        for entry in list(chunk.get("lods") or []) + [chunk.get("collision") or {}]:
+            for key in VOLATILE_CHUNK_KEYS:
+                entry.pop(key, None)
     return out
 
 
