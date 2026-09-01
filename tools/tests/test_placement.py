@@ -123,3 +123,102 @@ def test_placement_rejects_a_zero_length_body():
         assert "cięciwa" in str(exc)
     else:
         raise AssertionError("zerowa cięciwa powinna zostać odrzucona")
+
+
+def _tube_along(direction, length=500.0, step=5.0, half_width=4.70, floor=-1.20, roof=4.70):
+    """Rura o prostokątnym przekroju biegnąca w zadanym kierunku w płaszczyźnie XY."""
+    dx, dy = direction
+    nx, ny = -dy, dx
+    points = []
+    for i in range(int(length / step) + 1):
+        cx, cy = dx * i * step, dy * i * step
+        for side in (-half_width, half_width):
+            for z in (floor, roof):
+                points.append((cx + nx * side, cy + ny * side, z))
+    return points
+
+
+def test_placement_section_perpendicular_finds_the_full_height():
+    for direction in ((1.0, 0.0), (0.0, 1.0), (0.6, 0.8), (-0.7071, 0.7071)):
+        points = _tube_along(direction)
+        origin = (direction[0] * 250.0, direction[1] * 250.0, 0.0)
+        zmin, zmax, count = PL.section_vertical(points, origin, (direction[0], direction[1], 0.0), 1.0)
+        assert abs(zmin + 1.20) < 1e-9 and abs(zmax - 4.70) < 1e-9, (direction, zmin, zmax)
+        assert not PL.is_degenerate_section(zmin, zmax)
+        assert count == 4, (direction, count)
+
+
+def test_placement_constant_x_slab_degenerates_on_a_tube_across_x():
+    """Defekt, który to naprawia: płat o stałym X na rurze biegnącej wzdłuż Y.
+
+    Bierze WSZYSTKIE wierzchołki rury zamiast jednego przekroju, więc na zakrzywionym
+    odcinku potrafi złapać sam strop. Płaszczyzna prostopadła do stycznej — nie.
+    """
+    points = _tube_along((0.0, 1.0))
+    origin = (0.0, 250.0, 0.0)
+    _zmin, _zmax, across = PL.section_vertical(points, origin, (1.0, 0.0, 0.0), 1.0)
+    _zmin2, _zmax2, along = PL.section_vertical(points, origin, (0.0, 1.0, 0.0), 1.0)
+    assert across > 10 * along, (across, along)
+    assert along == 4
+
+
+def test_placement_degenerate_section_is_recognised():
+    roof_only = [(x, 0.0, 4.70) for x in range(0, 50)]
+    zmin, zmax, count = PL.section_vertical(roof_only, (25.0, 0.0, 0.0), (0.0, 1.0, 0.0), 1.0)
+    assert count == len(roof_only)
+    assert PL.is_degenerate_section(zmin, zmax), (zmin, zmax)
+
+
+def test_placement_section_rejects_a_zero_normal():
+    try:
+        PL.section_vertical([(0.0, 0.0, 0.0)], (0.0, 0.0, 0.0), (0.0, 0.0, 0.0), 1.0)
+    except ValueError as exc:
+        assert "zerowym" in str(exc)
+    else:
+        raise AssertionError("zerowa normalna powinna zostać odrzucona")
+
+
+def test_placement_section_falls_back_to_the_nearest_ring_when_nothing_is_in_range():
+    points = _tube_along((1.0, 0.0), length=100.0, step=50.0)
+    zmin, zmax, count = PL.section_vertical(points, (500.0, 0.0, 0.0), (1.0, 0.0, 0.0), 0.1)
+    assert count == 4 and not PL.is_degenerate_section(zmin, zmax)
+
+
+def test_placement_coverage_range_of_a_full_axis_is_the_whole_axis():
+    axis = _straight(600.0, 10.0)
+    frames = SW.rmf_frames(axis)
+    stations = SW.chainages(axis)
+    tube = [(x, y, z) for x in range(0, 601, 10) for y in (-4.7, 4.7) for z in (-1.2, 4.7)]
+    low, high = PL.covered_chainage_range(tube, frames, stations)
+    assert abs(low - 0.0) < 1e-6 and abs(high - 600.0) < 1e-6
+
+
+def test_placement_coverage_range_of_a_chunk_is_only_that_chunk():
+    """Sedno poprawki: ułamek 0,25 na chunku ma trafić w chunk, nie w początek osi."""
+    axis = _straight(600.0, 10.0)
+    frames = SW.rmf_frames(axis)
+    stations = SW.chainages(axis)
+    chunk = [(x, y, z) for x in range(300, 401, 10) for y in (-4.7, 4.7) for z in (-1.2, 4.7)]
+    low, high = PL.covered_chainage_range(chunk, frames, stations)
+    assert abs(low - 300.0) < 1e-6 and abs(high - 400.0) < 1e-6
+    assert abs(PL.fraction_to_chainage(0.25, low, high) - 325.0) < 1e-6
+    assert abs(PL.fraction_to_chainage(0.05, low, high) - 305.0) < 1e-6
+
+
+def test_placement_fraction_is_clamped_to_the_covered_range():
+    assert PL.fraction_to_chainage(-1.0, 100.0, 200.0) == 100.0
+    assert PL.fraction_to_chainage(2.0, 100.0, 200.0) == 200.0
+
+
+def test_placement_stable_section_widens_past_a_plateau():
+    """Zmierzone na chunku pakietu A: tolerancje 1 m i 2 m dają tyle samo, 4 m więcej.
+
+    Przerwanie na pierwszym braku przyrostu zatrzymywało się na zaniżonym stropie.
+    """
+    ring_near = [(0.0, y, z) for y in (-4.7, 4.7) for z in (-1.2, 4.3)]
+    ring_far = [(3.0, y, z) for y in (-4.15, 4.15) for z in (4.7,)]
+    points = ring_near + ring_far
+    naive = PL.section_vertical(points, (0.0, 0.0, 0.0), (1.0, 0.0, 0.0), 1.0)
+    stable = PL.section_vertical_stable(points, (0.0, 0.0, 0.0), (1.0, 0.0, 0.0), 1.0)
+    assert abs(naive[1] - 4.30) < 1e-9, naive
+    assert abs(stable[1] - 4.70) < 1e-9, stable

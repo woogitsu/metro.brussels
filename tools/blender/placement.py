@@ -169,3 +169,89 @@ def _inside_polygon(ring, x, y):
         if (y1 > y) != (y2 > y) and x < (x2 - x1) * (y - y1) / (y2 - y1) + x1:
             inside = not inside
     return inside
+
+
+MIN_SECTION_HEIGHT_M = 0.5
+
+
+def section_vertical(points, origin, normal, tolerance):
+    """Zakres pionowy przekroju prostopadłego do `normal` w punkcie `origin`.
+
+    Zwraca (zmin, zmax, liczba wierzchołków). Wybór płata po **stałym X** jest
+    przekrojem tunelu tylko wtedy, gdy tunel biegnie wzdłuż X; na odcinku pod innym
+    kątem taki płat łapie sam strop i daje zakres bliski zeru. Płaszczyzna
+    prostopadła do lokalnej stycznej działa niezależnie od orientacji odcinka.
+    """
+    length = sweep.norm(normal)
+    if length < 1e-9:
+        raise ValueError("normalna przekroju nie może być wektorem zerowym")
+    unit = sweep.scale(normal, 1.0 / length)
+    depth = [abs(sweep.dot(sweep.sub(p, origin), unit)) for p in points]
+    section = [p for p, d in zip(points, depth) if d <= tolerance]
+    if not section:
+        nearest = min(depth)
+        section = [p for p, d in zip(points, depth) if abs(d - nearest) <= 1e-4]
+    zs = [p[2] for p in section]
+    return min(zs), max(zs), len(section)
+
+
+def section_vertical_stable(points, origin, normal, tolerance, rounds=4):
+    """Poszerza płat kilka razy i bierze NAJWYŻSZY znaleziony przekrój.
+
+    Ramki liczone z surowej łamanej mają nieco inne styczne niż pierścienie wygenerowane
+    z osi zagęszczonej, więc płaszczyzna potrafi ciąć pierścień ukośnie i złapać tylko
+    część jego wierzchołków — objawia się to stropem 4,30 m zamiast 4,70 m, czyli
+    początkiem ścięcia naroża zamiast płyty stropowej.
+
+    Przerwanie na pierwszym braku przyrostu **nie działa**: zmierzone na chunku pakietu A
+    tolerancje 1 m i 2 m dają identyczne 5,50 m, a dopiero 4 m daje pełne 5,90 m.
+    Dlatego przechodzimy wszystkie rundy i bierzemy maksimum. Wysokość i tak nasyca się
+    na wysokości profilu, więc poszerzanie nie zamienia przekroju w pomiar całej sceny.
+    """
+    best = section_vertical(points, origin, normal, tolerance)
+    for _ in range(rounds):
+        tolerance *= 2.0
+        candidate = section_vertical(points, origin, normal, tolerance)
+        if candidate[1] - candidate[0] > best[1] - best[0]:
+            best = candidate
+    return best
+
+
+def is_degenerate_section(zmin, zmax, minimum=MIN_SECTION_HEIGHT_M):
+    """Czy przekrój jest zbyt płaski, żeby uznać go za przekrój tunelu.
+
+    Zdegenerowany przekrój nie jest wynikiem do cichego użycia: oko kamery trafia
+    wtedy w ścianę albo strop, a klatka wychodzi jednolita — i **przechodzi**
+    kontrolę „nie jest pusta", bo jednolita szarość ma i ink, i odchylenie
+    standardowe powyżej progów.
+    """
+    return (zmax - zmin) < minimum
+
+
+COVERAGE_SAMPLES = 2000
+
+
+def covered_chainage_range(points, frames, stations, samples=COVERAGE_SAMPLES):
+    """Zakres chainage osi, który rzeczywiście pokrywa wczytana geometria.
+
+    Kotwice kamer liczone jako ułamki **całej** osi wypadają poza chunkiem: dla
+    chunka 2923..3433 m ułamek 0,05 wskazuje 86 m, czyli 2,8 km przed jego początkiem.
+    Kamera trafia wtedy w pustkę, a przekrój zjeżdża na najbliższy pierścień skraju.
+    Ułamki liczone w tym zakresie trafiają w geometrię niezależnie od tego, czy
+    wczytano całą oś, czy jeden chunk.
+    """
+    if not points:
+        raise ValueError("brak wierzchołków do wyznaczenia zakresu")
+    step = max(1, len(points) // max(1, samples))
+    low, high = float("inf"), float("-inf")
+    for point in points[::step]:
+        chainage, _lateral, _vertical = local_offsets(point, frames, stations)
+        low = min(low, chainage)
+        high = max(high, chainage)
+    return max(stations[0], low), min(stations[-1], high)
+
+
+def fraction_to_chainage(fraction, low, high):
+    """Ułamek w zakresie pokrycia, przycięty do niego."""
+    value = low + (high - low) * float(fraction)
+    return max(low, min(high, value))

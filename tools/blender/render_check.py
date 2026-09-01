@@ -2,6 +2,9 @@
 import bpy, sys, os, math, argparse, json
 from mathutils import Vector, Matrix
 
+sys.path.insert(0,os.path.dirname(os.path.abspath(__file__)))
+import placement
+
 def parse_args():
     argv=sys.argv[sys.argv.index("--")+1:] if "--" in sys.argv else []
     p=argparse.ArgumentParser(); p.add_argument("--in",dest="inp",required=True); p.add_argument("--out",required=True); p.add_argument("--res",type=int,default=960); p.add_argument("--centerline"); return p.parse_args(argv)
@@ -22,13 +25,35 @@ def scene_bounds(vertices):
     return mins,maxs
 
 def local_vertical_mid(vertices,x,scene_size):
-    tolerance=max(1.0,scene_size*0.0015)
-    section=[v for v in vertices if abs(v.x-x)<=tolerance]
-    if not section:
-        nearest=min(vertices,key=lambda v:abs(v.x-x)).x
-        section=[v for v in vertices if abs(v.x-nearest)<=1e-4]
-    zmin=min(v.z for v in section); zmax=max(v.z for v in section); mid=(zmin+zmax)/2
-    print(f"[SECTION-Z] x={x:.1f} vertices={len(section)} zmin={zmin:.2f} zmax={zmax:.2f} mid={mid:.2f}")
+    """Środek pionowy przekroju o STAŁYM X. Zostawione dla zgodności wywołań.
+
+    Nowy kod ma używać `vertical_mid_on_axis`: płat o stałym X jest przekrojem tunelu
+    tylko wtedy, gdy tunel biegnie wzdłuż X.
+    """
+    return _vertical_mid(Vector((x,0.0,0.0)),Vector((1.0,0.0,0.0)),vertices,scene_size,f"x={x:.1f}")
+
+def vertical_mid_on_axis(vertices,point,tangent,scene_size):
+    """Środek pionowy przekroju PROSTOPADŁEGO do osi trasy w zadanym punkcie.
+
+    Na chunku pakietu A biegnącym pod kątem do X płat o stałym X łapał sam strop
+    i zwracał 4,70 m zamiast 1,75 m, przez co oko kamery lądowało w płycie stropowej,
+    a render wychodził jednolitą płaszczyzną — i **przechodził** kontrolę pustej klatki.
+    """
+    normal=Vector(tangent)
+    if normal.length<1e-9: return local_vertical_mid(vertices,point.x,scene_size)
+    origin=Vector(point)
+    return _vertical_mid(origin,normal,vertices,scene_size,
+                         f"os=({origin.x:.1f},{origin.y:.1f})")
+
+def _vertical_mid(origin,normal,vertices,scene_size,label):
+    zmin,zmax,count=placement.section_vertical_stable([(v.x,v.y,v.z) for v in vertices],
+                                               tuple(origin),tuple(normal),
+                                               max(1.0,scene_size*0.0015))
+    if placement.is_degenerate_section(zmin,zmax):
+        raise SystemExit(f"BŁĄD: przekrój {label} ma wysokość {zmax-zmin:.3f} m "
+                         f"({count} wierzchołków) — to nie jest przekrój tunelu")
+    mid=(zmin+zmax)/2
+    print(f"[SECTION-Z] {label} vertices={count} zmin={zmin:.2f} zmax={zmax:.2f} mid={mid:.2f}")
     return mid
 
 def load_centerline(path):
@@ -108,7 +133,7 @@ def main():
     points=load_centerline(args.centerline)
     if points:
         eye=point_on_centerline(points,0.05); target=point_on_centerline(points,0.055)
-        eye.z=local_vertical_mid(vertices,eye.x,size); target.z=local_vertical_mid(vertices,target.x,size)
+        eye.z=target.z=vertical_mid_on_axis(vertices,eye,target-eye,size)
         print(f"[INSIDE] exact centerline points={len(points)} local_chord_m={(target-eye).length:.1f}")
     else:
         eye=Vector((mins.x+(maxs.x-mins.x)*0.05,center.y,center.z)); target=Vector((mins.x+(maxs.x-mins.x)*0.055,center.y,center.z))
