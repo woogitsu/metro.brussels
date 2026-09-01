@@ -38,6 +38,10 @@ src/Sim/Train/ScenarioDrive.cs         pętla przejazdu, wspólna dla obu gospod
 src/Sim/Train/DriveTelemetry.cs        jeden format wiersza CSV
 
 src/Sim.Runner/                        konsolowy gospodarz rdzenia: drive/compare/axis/parity
+
+tests/Sim.Tests/TrainControllerTests.cs   trakcja częściowa, zryw, brak obcięcia, bilans energii
+tests/Sim.Tests/ScenarioDriveTests.cs     determinizm krokowy, bezpiecznik pętli, telemetria
+tests/Sim.Tests/TrackAxisTests.cs         przypadki brzegowe osi + kontrola na pakiecie A
 .github/workflows/godot-first-run.yml  CI na ubuntu-latest, Godot z GitHub Releases
 ```
 
@@ -206,11 +210,30 @@ Build succeeded.
 ### 3.2 `dotnet test tests/Sim.Tests --configuration Release`
 
 ```
-Passed!  - Failed:     0, Passed:    77, Skipped:     0, Total:    77, Duration: 183 ms - MetroBxl.Sim.Tests.dll (net8.0)
+Passed!  - Failed:     0, Passed:   127, Skipped:     0, Total:   127, Duration: 388 ms - MetroBxl.Sim.Tests.dll (net8.0)
 ```
 
-Rdzeń nie został ruszony w miejscach, których dotyczą te testy: doszły cztery nowe
-pliki w `Sim/Train` i jeden w `Sim/Line`, żaden istniejący plik nie zmienił zachowania.
+**77 → 127.** Siedemdziesiąt siedem testów z T-310 przechodzi bez zmian — żaden
+istniejący plik rdzenia nie zmienił zachowania. Pięćdziesiąt nowych pokrywa dokładnie
+to, co T-400 dokłada, i nic ponadto:
+
+| plik | co sprawdza |
+|---|---|
+| `TrainControllerTests` | parytet pełnej trakcji z `AccelerationRun` co do bitu; trakcja częściowa (0,5 · F dokładnie, 0 to 0, hamulec zeruje ciąg); **brak obcięcia przyspieszenia od dołu** — jawna różnica wobec `TrainDynamics.Advance`; ograniczenie zrywu przy narastaniu **i** zdejmowaniu hamulca; zatrzymanie rampy dokładnie na wartości zadanej; obcięcie do ograniczenia prędkości i do zera (skład nie odtacza się w tył, także pod górę); bilans energii hamowania; walidacja argumentów |
+| `ScenarioDriveTests` | powtarzalność co do bitu; **podział kroków na nierówne partie nie zmienia stanu** (odpowiednik przebiegu z nierównym czasem klatki, ale bez silnika); bezpiecznik pętli; `SegmentAt`; katalog założeń scenariusza; kształt wiersza telemetrii |
+| `TrackAxisTests` | pojedynczy odcinek, tryb wierny, duplikaty punktów, chainage na wierzchołku, oba końce osi, wartości poza zakresem, `NaN`, sortowanie stacji, status profilu pionowego oraz kontrola na prawdziwej osi pakietu A (447 → 1349 punktów, 6686,739 m, 12 stacji) |
+
+#### Kontrola negatywna testów
+
+Test, który przechodzi także wtedy, gdy kod jest zepsuty, nic nie kontroluje. Dwie
+mutacje wprowadzone celowo do `TrainController` i wycofane po sprawdzeniu:
+
+| mutacja | co się wywróciło |
+|---|---|
+| `acceleration = Math.Max(0.0, mechanical) - brakeRate` (przywrócenie obcięcia z T-310) i zryw × 1000 | **5 testów**: wybieg bez obcięcia, zryw w obie strony, bilans energii, skrócenie drogi hamowania |
+| `traction = tractionFull` (nastawnik ignorowany) i usunięcie obcięcia prędkości do zera | **9 testów**: trakcja częściowa, zerowy nastawnik, pierwszeństwo hamulca, wybieg, brak odtaczania (na poziomie i pod górę), koniec przejazdu pakietu A, bilans energii, skrócenie drogi |
+
+Po wycofaniu obu mutacji `git diff` na `src/Sim/Train/TrainController.cs` jest pusty.
 
 ### 3.3 `python3 tools/tests/test_all.py`
 
@@ -239,7 +262,7 @@ Testy narzędzi:
   ok    347/347 przeszło
 
 Testy rdzenia symulacji:
-  ok    77/77 przeszło
+  ok    127/127 przeszło
 
 --------------------------------------------------
   Baza projektu jest gotowa. Następne zadanie: T-010.
@@ -290,7 +313,25 @@ Hamowanie: **kontroler celowo nie daje tej samej drogi** i to jest różnica, kt
 trzeba nazwać, a nie schować w tolerancji. `ServiceBrakingRun` jest modelem czysto
 kinematycznym i **nie zna oporów ruchu** — zadaje opóźnienie i tyle. Kontroler
 dokłada do niego opory Davisa, bo prowadzony skład jedzie w tunelu. Różnica
-**6,757 m na 240 m (2,8 %)** jest w całości pracą oporów na drodze hamowania.
+**6,757 m na 240 m (2,8 %)** jest pracą oporów na drodze hamowania — i **nie jest to
+już twierdzenie, tylko pomiar**, bo policzone niezależnie w dwóch testach:
+
+```
+[BILANS HAMOWANIA] E_kin = 59184000.000 J, opory = 1776596.274 J, hamulec = 57382762.017 J,
+                   dyskretyzacja = 24641.708 J, reszta = -4.235E-008 J, względnie = 7.155E-016
+[SKRÓCENIE] kinematyczne 240.479 m, kontroler 233.723 m, zmierzone skrócenie 6.757 m,
+            z pracy oporów 6.738 m, różnica 0.019 m
+```
+
+Pierwsza linia to bilans `½·m_ef·v₀² = ∫F_oporu ds + m_ef·∫b ds + dyskretyzacja`,
+domknięty do **7,2·10⁻¹⁶** względnie, czyli do precyzji `double`. Człon dyskretyzacji
+(24,6 kJ) jest wypisany osobno, a nie rozmazany w tolerancji — bierze się stąd, że
+krok liczy siły od prędkości z **początku**, a drogę od prędkości z **końca**.
+
+Druga linia zamienia pracę oporów na metry: `Δs = (∫F_oporu ds) / (m_ef · b)` daje
+**6,738 m** wobec zmierzonych **6,757 m**, czyli zgodność do **0,019 m (0,3 %)**.
+Resztę wyjaśnia narastanie hamulca w pierwszych 1,47 s, kiedy `b` nie jest jeszcze
+stałe. Oba testy mają progi wzięte z tych pomiarów (1·10⁻¹² i 0,05 m), nie z sufitu.
 
 ### 3.7 Przejazd w Godocie vs przejazd z rdzenia — rozjazd i próg
 
@@ -515,11 +556,15 @@ Godota, więc dyscyplina rdzenia jest zachowana.
 
 `CLAUDE.md` §9: `queued` nie jest weryfikacją. Stan po **zakończonych** jobach na PR:
 
-| workflow | run | wynik |
+| workflow | wynik na gałęzi | co potwierdza |
 |---|---|---|
-| **Godot first run** | [#1](https://github.com/matmaxalez/metro.brussels/actions/runs/33534163101) | **success** — wszystkie 19 kroków |
-| Sim core tests | #6 | success |
-| Python tool tests | #131 | success |
+| **Godot first run** | **success** — wszystkie 19 kroków | przejazd w Godocie, porównanie z rdzeniem, zrzuty |
+| Sim core tests | success | `dotnet test tests/Sim.Tests` — 127/127 |
+| Python tool tests | success | 347/347 testów narzędzi |
+
+Pierwszy zielony przebieg `Godot first run` to
+[run #1](https://github.com/matmaxalez/metro.brussels/actions/runs/33534163101);
+kolejne przebiegi tej gałęzi dają te same liczby, bo przejazd jest deterministyczny.
 
 Pozostałe cztery workflow (`blender-smoke`, `tunnel-alignment`, `visual-regression`,
 `m7-shell`) mają filtry ścieżek, których ten PR nie rusza, więc się nie uruchomiły.
@@ -528,8 +573,7 @@ Uwaga o filtrze ścieżek, bo łatwo się na tym pomylić: dla zdarzenia `pull_r
 GitHub liczy filtr wobec **całego diffu wobec bazy**, a nie wobec ostatniego pusha.
 `Godot first run` uruchamia się więc przy każdej aktualizacji tej gałęzi — także
 wtedy, gdy zmienił się sam raport — i jego wynik zawsze dotyczy aktualnej treści PR-a.
-Powyższa tabela opisuje pierwszy zakończony przebieg; kolejne przebiegi tej samej
-gałęzi mają te same kroki i te same liczby, bo przejazd jest deterministyczny.
+Wynik dotyczy więc zawsze aktualnej treści PR-a, także po dołożeniu testów.
 
 Kroki weryfikacyjne, wszystkie zielone: `Core stays free of the engine`,
 `Axis in C# matches the sweep manifest`, `Controller is still the T-310 core`,
