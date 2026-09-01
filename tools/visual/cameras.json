@@ -115,6 +115,7 @@
           "lens": 35.0,
           "anchor": {"mode": "named", "name": "inside_eye"},
           "aim": {"mode": "named", "name": "inside_target"},
+          "place_at_anchor": true,
           "purpose": "odwrócone normalne — widok wzdłuż osi z wnętrza tunelu"
         },
         {
