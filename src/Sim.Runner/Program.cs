@@ -43,6 +43,7 @@ public static class Program
                 "axis" => Axis(args),
                 "parity" => Parity(),
                 "braking" => Braking(),
+                "line" => LineCommand(args),
                 _ => Unknown(args[0]),
             };
         }
@@ -70,6 +71,10 @@ public static class Program
               axis    --axis PLIK [--manifest PLIK]       kontrola osi wobec manifestu chunków
               parity                                      kontroler vs AccelerationRun z T-310
               braking                                     tablice referencyjne hamowania (T-311)
+              line    --axis PLIK --limit-kmh X            przejazd z zatrzymaniem na każdej stacji
+                      --exchange-s X [--load AW0|AW2]
+                      [--brake-usage X] [--stop-window-m X] [--timetable PLIK]
+                      [--trace PLIK.csv]
             """);
     }
 
@@ -254,6 +259,157 @@ public static class Program
             $"[OŚ] manifest chunków: {manifestLength:F3} m, C#: {axis.LengthM:F3} m, |Δ| = {delta:E3} m -> {(ok ? "ZGODNE" : "ROZJAZD")}"));
 
         return ok ? 0 : 1;
+    }
+
+    // --- line ---------------------------------------------------------------------
+
+    /// <summary>
+    /// Przejazd całej osi z zatrzymaniem na każdej stacji, z opcjonalnym zestawieniem
+    /// z rozkładem STIB zmierzonym w T-113.
+    ///
+    /// <para>Cztery liczby wejściowe są <b>obowiązkowe i bez wartości domyślnych</b>,
+    /// bo żadna z nich nie ma źródła. Wartość domyślna w tym miejscu wyszłaby potem
+    /// w raporcie jako fakt o metrze w Brukseli — patrz <see cref="LineRunSettings"/>.</para>
+    /// </summary>
+    private static int LineCommand(string[] args)
+    {
+        var axisPath = Option(args, "--axis") ?? throw new ArgumentException("line wymaga --axis");
+        var limitKmh = RequiredNumber(args, "--limit-kmh");
+        var exchange = RequiredNumber(args, "--exchange-s");
+        var brakeUsage = OptionalNumber(args, "--brake-usage") ?? 1.0;
+        var stopWindow = OptionalNumber(args, "--stop-window-m") ?? 5.0;
+        var load = Option(args, "--load") ?? "AW0";
+
+        var axis = TrackAxis.FromJson(File.ReadAllText(axisPath));
+        var model = VehicleModel.M7;
+        var trainLoad = load switch
+        {
+            "AW0" => TrainLoad.Aw0,
+            "AW2" => TrainLoad.Aw2,
+            _ => throw new ArgumentException($"nieznane obciążenie: {load}; dozwolone AW0 albo AW2"),
+        };
+
+        var conditions = RunConditions.Level(model, trainLoad);
+        var massKg = conditions.MassKg;
+        var settings = new LineRunSettings(
+            Units.KmhToMps(limitKmh), exchange, brakeUsage, stopWindow);
+        var run = new LineRun(model);
+        var tracePath = Option(args, "--trace");
+        var traceRows = tracePath is null ? null : new List<string> { "t_s,chainage_m,speed_mps,brake_mps2,throttle,brake,door" };
+        var result = run.Run(
+            axis, conditions, settings, LineRun.DefaultStepBudget,
+            traceRows is null ? null : point => traceRows.Add(string.Create(
+                Inv,
+                $"{point.TimeSeconds:R},{point.ChainageM:R},{point.SpeedMps:R},{point.BrakeRateMps2:R}," +
+                $"{point.Command.Throttle:R},{point.Command.Brake:R},{point.Phase}")));
+        if (tracePath is not null && traceRows is not null)
+        {
+            File.WriteAllLines(tracePath, traceRows);
+            Console.Out.WriteLine($"[LINIA] ślad {traceRows.Count - 1} kroków -> {tracePath}");
+        }
+
+
+        Console.Out.WriteLine(string.Create(
+            Inv,
+            $"[LINIA] {result.AxisId}: {result.Calls.Count} zatrzymań, {result.TotalDistanceM:F2} m, " +
+            $"{result.TotalSeconds:F2} s, postoje {result.DwellSeconds:F2} s, " +
+            $"kroków {result.Steps}, koniec={result.FinishReason}"));
+        Console.Out.WriteLine($"[LINIA] {settings}, obciążenie {load} {massKg:F0} kg");
+        foreach (var assumption in settings.Assumptions)
+        {
+            Console.Out.WriteLine($"[ZAŁOŻENIE] {assumption}");
+        }
+
+        var worstStopError = 0.0;
+        foreach (var call in result.Calls)
+        {
+            Console.Out.WriteLine("[STACJA] " + call.ToString());
+            worstStopError = Math.Max(worstStopError, Math.Abs(call.StopErrorM));
+        }
+
+        Console.Out.WriteLine(string.Create(
+            Inv, $"[LINIA] największy błąd zatrzymania: {worstStopError:F3} m"));
+
+        var timetable = Option(args, "--timetable");
+        return timetable is null
+            ? Finish(result)
+            : CompareWithTimetable(result, axis, timetable) is var mismatch && mismatch
+                ? 1
+                : Finish(result);
+
+        static int Finish(LineRunResult result) => result.FinishReason == "arrived" ? 0 : 1;
+    }
+
+    /// <summary>
+    /// Zestawienie czasów jazdy z modelu z rozkładowymi z <c>build/timetable.json</c> (T-113).
+    ///
+    /// <para><b>Co ma wyjść.</b> Rozkład zawiera rezerwę, więc czas modelu ma być
+    /// <b>krótszy</b> od rozkładowego na każdym odcinku. Odcinek, na którym model jest
+    /// wolniejszy od rozkładu, znaczy, że przy tych założeniach STIB-owskiego rozkładu
+    /// nie da się wykonać — i to jest wynik, a nie usterka do przemilczenia.</para>
+    /// </summary>
+    private static bool CompareWithTimetable(LineRunResult result, TrackAxis axis, string path)
+    {
+        using var document = System.Text.Json.JsonDocument.Parse(File.ReadAllText(path));
+        if (!document.RootElement.TryGetProperty("segments", out var segments))
+        {
+            throw new ArgumentException($"{path} nie ma pola segments — to nie jest wyjście tools/track/timetable.py");
+        }
+
+        var scheduled = new Dictionary<(string From, string To), double>();
+        foreach (var segment in segments.EnumerateArray())
+        {
+            if (!segment.TryGetProperty("package", out var package) || package.GetString() != axis.Id)
+            {
+                continue;
+            }
+
+            // Klucz to para identyfikatorów peronu, nie nazw. Nazwa na osi jest dwujęzyczna
+            // i ma diakrytyki, w GTFS jest jedna i wersalikami; dopasowanie po tekście
+            // wymagałoby normalizacji Unicode, której ten projekt nie ma — csproj ma
+            // InvariantGlobalization, więc Normalize(FormD) jest tu pustą operacją.
+            var key = (segment.GetProperty("from_stop").GetString() ?? string.Empty,
+                       segment.GetProperty("to_stop").GetString() ?? string.Empty);
+            scheduled[key] = segment.GetProperty("median_s").GetDouble();
+        }
+
+        var slower = false;
+        var matched = 0;
+        for (var i = 1; i < result.Calls.Count; i++)
+        {
+            var from = result.Calls[i - 1];
+            var to = result.Calls[i];
+            if (from.StopId.Length == 0 || to.StopId.Length == 0
+                || !scheduled.TryGetValue((from.StopId, to.StopId), out var reference))
+            {
+                continue;
+            }
+
+            matched++;
+            var modelled = to.RunSecondsFromPrevious;
+            var reserve = reference - modelled;
+            slower |= reserve < 0.0;
+            Console.Out.WriteLine(string.Create(
+                Inv,
+                $"[ROZKŁAD] {from.Name} → {to.Name}: model {modelled:F2} s, rozkład {reference:F0} s, " +
+                $"rezerwa {reserve:+0.00;-0.00;0.00} s{(reserve < 0.0 ? "  MODEL WOLNIEJSZY" : string.Empty)}"));
+        }
+
+        Console.Out.WriteLine(string.Create(
+            Inv, $"[ROZKŁAD] dopasowanych odcinków: {matched} z {result.Calls.Count - 1}"));
+        return slower;
+    }
+
+    private static double RequiredNumber(string[] args, string name)
+    {
+        var text = Option(args, name) ?? throw new ArgumentException($"line wymaga {name}");
+        return double.Parse(text, Inv);
+    }
+
+    private static double? OptionalNumber(string[] args, string name)
+    {
+        var text = Option(args, name);
+        return text is null ? null : double.Parse(text, Inv);
     }
 
     // --- parity -------------------------------------------------------------------

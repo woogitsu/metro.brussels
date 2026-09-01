@@ -14,7 +14,13 @@ public readonly record struct AxisPoint(double X, double Y, double Z);
 /// <summary>Stacja rzutowana na oś.</summary>
 /// <param name="Name">Nazwa dwujęzyczna FR|NL, tak jak w <c>data/track/*.json</c>.</param>
 /// <param name="ChainageM">Chainage rzutu przystanku na oś.</param>
-public readonly record struct AxisStation(string Name, double ChainageM);
+/// <param name="StopId">
+/// Identyfikator peronu z GTFS STIB. Jest tu po to, żeby zestawienie z rozkładem szło
+/// **po identyfikatorze, a nie po nazwie**: nazwa na osi jest dwujęzyczna i ma
+/// diakrytyki (<c>Étangs Noirs|Zwarte Vijvers</c>), a w GTFS jest jedna, wersalikami
+/// i bez nich. Pusty łańcuch, gdy oś go nie podaje.
+/// </param>
+public readonly record struct AxisStation(string Name, double ChainageM, string StopId);
 
 /// <summary>
 /// Oś trasy pakietu: łamana ze STIB, zagęszczona **dokładnie tak samo**, jak robi to
@@ -140,7 +146,10 @@ public sealed class TrackAxis
             {
                 stations.Add(new AxisStation(
                     station.GetProperty("name").GetString() ?? "?",
-                    station.GetProperty("chainage_m").GetDouble()));
+                    station.GetProperty("chainage_m").GetDouble(),
+                    station.TryGetProperty("stop_id", out var stopId)
+                        ? stopId.GetString() ?? string.Empty
+                        : string.Empty));
             }
         }
 
