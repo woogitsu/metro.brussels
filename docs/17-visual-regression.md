@@ -97,9 +97,24 @@ dochodzi skala: w widoku `iso` tunelu 2 km na 960 px jeden piksel to ~2,2 m, wi�
 przesunięcie o 1,5 m jest podpikselowe.
 
 Dlatego `compare.py` porównuje też `*_metadata.json`: `bbox_min`, `bbox_max`,
-`size_m` z tolerancją **1 mm**, oraz liczbę obiektów, wierzchołków i ścian.
-Metryka obrazowa łapie zmianę kształtu i kadru, metryka wymiarowa łapie
+`size_m` z tolerancją **1 mm** oraz liczbę obiektów — te wartości są odtwarzalne
+dokładnie. Metryka obrazowa łapie zmianę kształtu i kadru, metryka wymiarowa łapie
 bezwzględne położenie i rozmiar.
+
+### Liczniki wierzchołków nie są niezmiennikiem
+
+Eksporter glTF dzieli wierzchołki na duplikaty w innej kolejności przy każdym
+przebiegu, więc **liczba wierzchołków po imporcie GLB nie jest odtwarzalna**, nawet
+gdy geometria jest identyczna. Zmierzone na bryle M7 (T-220): dwa przebiegi
+generatora dały 5360 i 5386 wierzchołków po imporcie przy dokładnie 2334 unikalnych
+pozycjach wierzchołków i 4732 ścianach — różnica zbiorów zero, a rendery obu
+przebiegów bit-identyczne (MAE `0.00000`, SSIM `1.00000`). Strumień bajtów GLB też
+się różni, więc sha256 pliku GLB nie nadaje się na identyfikator artefaktu.
+
+`vertices` i `faces` są więc porównywane z tolerancją względną **10 %**
+(`GEOMETRY_COUNT_TOLERANCE`), co nadal łapie realną zmianę gęstości siatki, ale nie
+zgłasza fałszywej regresji po zwykłej regeneracji assetu. `mesh_objects` i bbox
+pozostają twarde.
 
 ## Baseline
 
