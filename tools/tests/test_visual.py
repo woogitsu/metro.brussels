@@ -488,3 +488,59 @@ def test_visual_side_camera_frames_a_bounded_run_not_the_whole_line():
 def test_visual_infrastructure_section_is_depth_bounded_too():
     spec = next(c for c in MANIFEST["scene_sets"]["infrastructure"]["cameras"] if c["id"] == "section")
     assert spec["depth_m"] == 30.0
+
+
+# --- zestaw silnikowy ---------------------------------------------------------
+
+def _manifest():
+    path = os.path.join(ROOT, "tools", "visual", "cameras.json")
+    with open(path, encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+def test_visual_godot_set_is_marked_as_engine_rendered():
+    """`capture_blender.py` musi umieć odmówić: w tym zestawie nie ma czego renderować."""
+    scene_set = _manifest()["scene_sets"]["godot"]
+    assert scene_set["renderer"] == "godot"
+    for camera in scene_set["cameras"]:
+        assert "projection" not in camera, camera
+        assert "anchor" not in camera, camera
+
+
+def test_visual_every_other_set_is_blender_by_default():
+    for name, scene_set in _manifest()["scene_sets"].items():
+        if name == "godot":
+            continue
+        assert scene_set.get("renderer", "blender") == "blender", name
+
+
+def test_visual_godot_threshold_separates_a_hud_only_frame_from_a_real_one():
+    """Progi są ZMIERZONE, nie przyjęte.
+
+    Klatka bez geometrii (sam HUD) ma ink 0,0127; najsłabsze prawdziwe ujęcie 0,5433.
+    Próg musi leżeć między nimi, i to z zapasem w obie strony.
+    """
+    thresholds = _manifest()["scene_sets"]["godot"]["thresholds"]
+    empty_ink, weakest_real_ink = 0.012721, 0.543301
+    assert empty_ink < thresholds["min_ink_fraction"] < weakest_real_ink
+    assert thresholds["min_ink_fraction"] > empty_ink * 10.0
+    assert thresholds["min_ink_fraction"] < weakest_real_ink / 1.5
+
+
+def test_visual_godot_does_not_lean_on_distinct_levels():
+    """Regresja pojęciowa: dla klatek z silnika ten wskaźnik wskazuje ODWROTNIE.
+
+    Klatka z samym HUD-em ma 235 poziomów jasności, a najbogatsza prawdziwa 213 —
+    więc próg „przynajmniej N poziomów" przepuściłby pustkę i odrzuciłby geometrię.
+    Dlatego w tym zestawie próg jest niski i jest tylko kontrolą „to nie jest
+    jednolity kolor".
+    """
+    thresholds = _manifest()["scene_sets"]["godot"]["thresholds"]
+    empty_levels, real_levels = 235, 210
+    assert thresholds["min_distinct_levels"] < real_levels
+    assert thresholds["min_distinct_levels"] < empty_levels
+    assert thresholds["min_luma_std"] < 0.081944, "luma_std też nie rozróżnia — 0,0819 pusta"
+
+
+def test_visual_godot_resolution_matches_the_shots():
+    assert _manifest()["scene_sets"]["godot"]["resolution"] == [1280, 720]

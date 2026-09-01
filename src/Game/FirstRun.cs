@@ -70,6 +70,8 @@ public sealed partial class FirstRun : Node3D
     private double _acceleration;
 
     private TunnelView _tunnel = null!;
+    // Manifest zostaje w polu, bo metadane zrzutu opisują TO, co scena naprawdę wczytała.
+    private ChunkManifest? _manifest;
     private TrainView _train = null!;
     private Camera3D _cab = null!;
     private Camera3D _chase = null!;
@@ -251,6 +253,7 @@ public sealed partial class FirstRun : Node3D
         }
 
         var manifest = ChunkManifest.FromJson(manifestFile.GetAsText());
+        _manifest = manifest;
         var tunnelMaterial = GlbLoader.NeutralMaterial(new Color(0.52f, 0.52f, 0.53f), 0.95f);
         var trainMaterial = GlbLoader.NeutralMaterial(new Color(0.80f, 0.81f, 0.83f), 0.45f);
 
@@ -578,10 +581,69 @@ public sealed partial class FirstRun : Node3D
 
         var image = GetViewport().GetTexture().GetImage();
         var error = image.SavePng(_shotPath!);
+        WriteShotMetadata(image.GetWidth(), image.GetHeight());
         GD.Print(string.Create(
             CultureInfo.InvariantCulture,
             $"[ZRZUT] {_shotPath} {image.GetWidth()}x{image.GetHeight()} err={error} widok={_view} " +
             $"kroków={_state.Steps} chainage={ChainageM:F1} m v={_state.SpeedKmh:F1} km/h"));
         GetTree().Quit(error == Error.Ok ? 0 : 7);
+    }
+
+    /// <summary>
+    /// Metadane zrzutu obok obrazu — `<prefiks>_metadata.json` w tym samym katalogu.
+    ///
+    /// `tools/visual/compare.py` porównuje je liczbowo, bo obraz tego nie wykryje:
+    /// przesunięcie całej sceny nie zmienia kadru, skoro kamera jedzie razem z nią.
+    /// Kształt pola `scene` jest ten sam, co w metadanych Blenderowych, żeby
+    /// `check_geometry` nie potrzebowało dwóch ścieżek na dwa silniki.
+    ///
+    /// Plik jest JEDEN na prefiks, więc kolejne ujęcia go nadpisują. Pole `scene` jest
+    /// dla wszystkich pięciu identyczne (ta sama wczytana geometria) i to ono jest tu
+    /// treścią; `last_shot` opisuje wyłącznie ostatnie ujęcie i tak się nazywa, żeby
+    /// nikt nie odczytał go jako opisu całego zestawu.
+    /// </summary>
+    private void WriteShotMetadata(int width, int height)
+    {
+        if (_tunnel is null || _manifest is null || _shotPath is null)
+        {
+            return;
+        }
+
+        var bounds = _tunnel.LoadedBounds();
+        var lo = bounds.Position;
+        var hi = bounds.End;
+        var directory = _shotPath.Contains('/') ? _shotPath[.._shotPath.LastIndexOf('/')] : ".";
+        var name = _shotPath[(_shotPath.LastIndexOf('/') + 1)..];
+        var prefix = name.Contains('_') ? name[..name.IndexOf('_')] : "GODOT";
+        var path = $"{directory}/{prefix}_metadata.json";
+        var json = string.Create(CultureInfo.InvariantCulture, $$"""
+        {
+         "engine": "godot",
+         "engine_version": "{{Engine.GetVersionInfo()["string"]}}",
+         "manifest_version": "{{_manifest.Id}}/{{_manifest.Variant}}",
+         "resolution": [{{width}}, {{height}}],
+         "last_shot": {"view": "{{_view}}", "chainage_m": {{ChainageM:F3}}, "steps": {{_state.Steps}}},
+         "scene": {
+          "bbox_min": [{{lo.X:F4}}, {{lo.Y:F4}}, {{lo.Z:F4}}],
+          "bbox_max": [{{hi.X:F4}}, {{hi.Y:F4}}, {{hi.Z:F4}}],
+          "size_m": [{{bounds.Size.X:F4}}, {{bounds.Size.Y:F4}}, {{bounds.Size.Z:F4}}],
+          "mesh_objects": {{_tunnel.MeshNodes}},
+          "vertices": {{_manifest.Triangles * 3}},
+          "faces": {{_manifest.Triangles}},
+          "chunks_loaded": {{_tunnel.LoadedChunks}},
+          "chunks_declared": {{_manifest.Chunks.Count}},
+          "axis_length_m": {{_manifest.AxisLengthM:F3}}
+         }
+        }
+        """);
+        using var file = FileAccess.Open(path, FileAccess.ModeFlags.Write);
+        if (file is null)
+        {
+            GD.PushError($"[ZRZUT] nie udało się zapisać metadanych {path}");
+            return;
+        }
+
+        file.StoreString(json);
+        GD.Print($"[ZRZUT] metadane {path}");
     }
 }
