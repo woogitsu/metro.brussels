@@ -32,3 +32,9 @@ jobs:
       - name: Run tool tests
         shell: bash
         run: python3 tools/tests/test_all.py
+
+      - name: Report data freshness
+        shell: bash
+        # Informacyjnie, bez --strict: przeterminowane okno ważności nie jest błędem
+        # samo w sobie, ale ma być widoczne w logu, zanim ktoś nazwie oś aktualną.
+        run: python3 tools/track/data_freshness.py
