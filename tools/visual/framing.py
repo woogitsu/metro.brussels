@@ -98,6 +98,14 @@ def fov(lens_mm, res_x, res_y):
     return 2.0 * math.atan(sensor_x / (2.0 * lens_mm)), 2.0 * math.atan(sensor_y / (2.0 * lens_mm))
 
 
+def _yaw(direction, degrees):
+    """Obrót wektora wokół osi Z świata; pion pozostaje pionem."""
+    angle = math.radians(degrees)
+    cos_a, sin_a = math.cos(angle), math.sin(angle)
+    x, y, z = direction
+    return (x * cos_a - y * sin_a, x * sin_a + y * cos_a, z)
+
+
 def _extents(corners, anchor, right, up, forward):
     r = [abs(_dot(_sub(c, anchor), right)) for c in corners]
     u = [abs(_dot(_sub(c, anchor), up)) for c in corners]
@@ -120,6 +128,11 @@ def solve_camera(spec, bmin, bmax, res_x, res_y, named_anchors=None, points=None
         direction = _sub(target, anchor)
     else:
         direction = tuple(float(c) for c in spec["direction"])
+    if spec.get("yaw_deg"):
+        # Widok z boku odcinka trasy nie da się opisać stałym `direction` w świecie:
+        # oś jest zakrzywiona, więc „prostopadle do toru" zmienia się z chainage.
+        # Obracamy więc kierunek wyznaczony z kotwic wokół pionu świata.
+        direction = _yaw(direction, float(spec["yaw_deg"]))
     right, up, forward = camera_basis(direction)
 
     corners = bbox_corners(bmin, bmax)

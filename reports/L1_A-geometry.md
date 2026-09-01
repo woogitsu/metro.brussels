@@ -145,12 +145,13 @@ głębi i cztery zbliżenia wnętrza.
 
 ## 7. Zauważone przy okazji, nietknięte
 
-- Kamera `section` w zestawie `infrastructure` nadal nie ma `depth_m` i na zakrzywionej,
-  wielokilometrowej osi całkuje cały tunel w jedną klatkę ortho. Zestaw `infrastructure`
-  jest używany przez baseline T-012, więc został bez zmian; poprawka jest w nowym zestawie
-  `alignment`.
+- ~~Kamera `section` w zestawie `infrastructure` nie ma `depth_m`~~ — **naprawione**:
+  `depth_m` 30 m dostały oba zestawy (`manifest_version` 2026-09-01.3).
+- ~~Zestaw `alignment` nie ma widoku z boku~~ — **naprawione**: doszła kamera `side`
+  (`yaw_deg` 90, `frame_width_m` 80 m), czyli elewacja 80-metrowego odcinka.
 - Kamery `iso` i `side` z zestawu `infrastructure` przy obiekcie o proporcji 5452 : 6
-  dają kreskę grubości ok. 2 px. To ograniczenie kadrowania po bboxie, nie defekt geometrii.
+  dają kreskę grubości ok. 2 px. To ograniczenie kadrowania po bboxie, nie defekt
+  geometrii — dla długiej infrastruktury właściwym zestawem jest `alignment`.
 - `data/track/L1_A.json` podaje chainage Merode 6686,99 m przy `length_m` 6686,35 m
   (różnica 0,64 m wynika z rzutowania stacji na łamaną). Nie tknięte — `data/` jest
   tylko do odczytu.

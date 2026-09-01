@@ -53,12 +53,29 @@ python3 tools/visual/compare.py --set vehicle --current renders --prefix M7_shel
 
 **`infrastructure`** — 960x576: `iso`, `side`, `top`, `inside`, `section`.
 
-**`alignment`** — 960x576: `plan`, `section`, `axis05`, `axis25`, `axis50`, `axis75`.
+**`alignment`** — 960x576: `plan`, `section`, `side`, `axis05`, `axis25`, `axis50`, `axis75`.
 Zestaw dla długiej infrastruktury liniowej. Tunel pakietu A ma proporcję 5452 : 6,
 więc kamera kadrująca po bboxie daje kreskę grubości 2 px, a ortho bez ograniczenia
-głębi całkuje kilka kilometrów łuku w jedną klatkę. Dlatego `section` ma `depth_m`
-(płaszczyzna daleka = bliska + głębia), a kontrola przekroju idzie przez cztery
-zbliżenia wnętrza w różnych chainage'ach zamiast jednego widoku całości.
+głębi całkuje kilka kilometrów łuku w jedną klatkę. Dlatego kontrola idzie przez
+kadry **ograniczone**, a nie przez widok całości:
+
+| kamera | co ogranicza kadr | co wykrywa |
+|---|---|---|
+| `plan` | nic — cała trasa z góry | ucięcie trasy, pętlę, zły odcinek |
+| `section` | `depth_m` 30 m + `clip_at_anchor` | kształt i proporcje przekroju |
+| `side` | `frame_width_m` 80 m + `yaw_deg` 90 | pomylone jednostki, skoki skali, profil pionowy |
+| `axisNN` | perspektywa z wnętrza | ciągłość, odwrócone normalne, skręt profilu |
+
+**`yaw_deg`** obraca kierunek wyznaczony z kotwic wokół pionu świata. Elewacji bocznej
+odcinka trasy nie da się opisać stałym `direction`: oś jest zakrzywiona, więc
+„prostopadle do toru" zmienia się z chainage. Obrót pochodnej kierunku z kotwic
+załatwia to bez wpisywania współrzędnych do manifestu.
+
+**`depth_m`** ustawia płaszczyznę daleką na `clip_start + depth_m`. Bez tego kamera
+ortho przekroju widzi wszystko aż po koniec sceny — na prostym torze testowym
+wygląda to poprawnie, bo tunel nie wychodzi z kadru, ale na rzeczywistej, zakrzywionej
+osi daje dwa bloki i pozorną „szczelinę" w miejscu, gdzie bore wychodzi z kadru i wraca.
+Dlatego ma je też `section` w zestawie `infrastructure`.
 
 `door` wymaga kotwicy `--anchor door=X,Y,Z`; `inside`, `section` i wszystkie `axisNN`
 wymagają `--centerline`. Kotwice `axisNN_eye`/`axisNN_target` powstają dla ułamków

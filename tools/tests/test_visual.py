@@ -383,7 +383,7 @@ def test_visual_bbox_framed_cameras_are_still_pushed_back():
 def test_visual_alignment_set_exists_for_long_infrastructure():
     scene_set = MANIFEST["scene_sets"]["alignment"]
     ids = [c["id"] for c in scene_set["cameras"]]
-    assert ids == ["plan", "section", "axis05", "axis25", "axis50", "axis75"]
+    assert ids == ["plan", "section", "side", "axis05", "axis25", "axis50", "axis75"]
     for camera in scene_set["cameras"]:
         if camera["id"].startswith("axis"):
             assert camera.get("place_at_anchor") is True
@@ -403,3 +403,32 @@ def test_visual_bounded_depth_camera_does_not_integrate_the_whole_line():
     unbounded.pop("depth_m")
     wide = framing.solve_camera(unbounded, (0.0, -1072.0, -1.2), (5452.0, 906.0, 4.7), 960, 576, anchors)
     assert wide["clip_end"] - wide["clip_start"] > 1000.0
+
+
+def test_visual_yaw_rotates_the_forward_direction_around_world_up():
+    spec = {"id": "y", "projection": "ORTHO", "anchor": {"mode": "named", "name": "a"},
+            "aim": {"mode": "named", "name": "b"}, "yaw_deg": 90.0, "frame_width_m": 80.0}
+    anchors = {"a": [0.0, 0.0, 0.0], "b": [10.0, 0.0, 0.0]}
+    turned = framing.solve_camera(spec, (-5.0, -5.0, -5.0), (5.0, 5.0, 5.0), 960, 576, anchors)
+    straight = framing.solve_camera({k: v for k, v in spec.items() if k != "yaw_deg"},
+                                    (-5.0, -5.0, -5.0), (5.0, 5.0, 5.0), 960, 576, anchors)
+    assert abs(straight["direction"][0] - 1.0) < 1e-9
+    assert abs(turned["direction"][1] - 1.0) < 1e-9, turned["direction"]
+    # obrót jest wokół pionu świata, więc kamera nie przechyla się na bok
+    assert abs(turned["up"][2] - 1.0) < 1e-9
+    assert abs(framing._dot(tuple(turned["direction"]), tuple(straight["direction"]))) < 1e-9
+
+
+def test_visual_side_camera_frames_a_bounded_run_not_the_whole_line():
+    spec = next(c for c in MANIFEST["scene_sets"]["alignment"]["cameras"] if c["id"] == "side")
+    assert spec["yaw_deg"] == 90.0 and spec["frame_width_m"] == 80.0
+    anchors = {"section_eye": [2398.2, -23.8, 1.75], "section_target": [2429.8, -34.6, 1.75]}
+    solved = framing.solve_camera(spec, (0.0, -1072.0, -1.2), (5452.0, 906.0, 4.7), 960, 576, anchors)
+    assert abs(solved["frame_w_m"] - 80.0) < 1e-3, solved["frame_w_m"]
+    # 6,7 km tunelu w kadrze 80 m dałoby kreskę grubości 2 px — o to właśnie chodzi
+    assert solved["frame_h_m"] < 60.0
+
+
+def test_visual_infrastructure_section_is_depth_bounded_too():
+    spec = next(c for c in MANIFEST["scene_sets"]["infrastructure"]["cameras"] if c["id"] == "section")
+    assert spec["depth_m"] == 30.0
