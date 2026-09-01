@@ -51,6 +51,42 @@ public sealed partial class TunnelView : Node3D
         return _loaded.Count;
     }
 
+    /// <summary>
+    /// Obwiednia wczytanej geometrii tunelu w układzie świata.
+    ///
+    /// Metryka obrazowa nie wykryje przesunięcia całej sceny, bo kamera jedzie razem
+    /// z nią — dokładnie ta sama pułapka, którą <c>tools/visual/compare.py</c> opisuje
+    /// dla renderów Blenderowych. Dlatego bbox trafia do metadanych zrzutu i jest
+    /// porównywany liczbowo, a nie na obrazku.
+    /// </summary>
+    public Aabb LoadedBounds()
+    {
+        Aabb? merged = null;
+        foreach (var instance in MeshInstances(this))
+        {
+            var box = instance.GlobalTransform * instance.GetAabb();
+            merged = merged is null ? box : merged.Value.Merge(box);
+        }
+
+        return merged ?? new Aabb();
+    }
+
+    private static IEnumerable<MeshInstance3D> MeshInstances(Node node)
+    {
+        foreach (var child in node.GetChildren())
+        {
+            if (child is MeshInstance3D instance)
+            {
+                yield return instance;
+            }
+
+            foreach (var nested in MeshInstances(child))
+            {
+                yield return nested;
+            }
+        }
+    }
+
     /// <summary>Jedna linia do logu przejazdu.</summary>
     public string Describe(ChunkManifest manifest) => string.Create(
         CultureInfo.InvariantCulture,

@@ -185,20 +185,54 @@ jobs:
         # sterownik opengl3 (llvmpipe) daje prawdziwą klatkę bez karty graficznej.
         run: |
           set -euo pipefail
-          mkdir -p renders/t400
+          mkdir -p build/t400/visual
           for view in cab chase outside; do
             xvfb-run -a "$GODOT_BIN" --rendering-driver opengl3 --resolution 1280x720 \
               --path src/Game -- \
-              --shot="$PWD/renders/t400/${view}_2000m.png" --at-chainage=2000 --view="$view"
+              --shot="$PWD/build/t400/visual/GODOT_${view}_2000m.png" --at-chainage=2000 --view="$view"
           done
           xvfb-run -a "$GODOT_BIN" --rendering-driver opengl3 --resolution 1280x720 \
             --path src/Game -- \
-            --shot="$PWD/renders/t400/curve_R91_chase.png" --at-chainage=2560 --view=chase
+            --shot="$PWD/build/t400/visual/GODOT_curve_R91_chase.png" --at-chainage=2560 --view=chase
           xvfb-run -a "$GODOT_BIN" --rendering-driver opengl3 --resolution 1280x720 \
             --path src/Game -- \
-            --shot="$PWD/renders/t400/seam_c01_c02.png" --at-chainage=976 --view=cab
-          ls -la renders/t400
-          test "$(ls renders/t400/*.png | wc -l)" -eq 5
+            --shot="$PWD/build/t400/visual/GODOT_seam_c01_c02.png" --at-chainage=976 --view=cab
+          ls -la build/t400/visual
+
+      - name: Screenshots must not be empty frames
+        shell: bash
+        # `wc -l` sprawdzało, że plików jest pięć. Czarna klatka 1280x720 z działającym
+        # HUD-em to też pięć plików — i dokładnie tak wygląda scena, której nie wczytała
+        # się geometria. Ten krok mierzy zawartość klatek tymi samymi metrykami, co
+        # rendery Blenderowe (T-012), z progami zmierzonymi na klatce BEZ geometrii.
+        run: |
+          set -euo pipefail
+          test "$(ls build/t400/visual/GODOT_*.png | wc -l)" -eq 5
+          python3 tools/visual/compare.py --set godot --current build/t400/visual \
+            --prefix GODOT --out build/t400/visual/render-sanity.json \
+            --markdown build/t400/visual/render-sanity.md --allow-new-baseline
+
+      - name: Negative control of the screenshot check
+        shell: bash
+        # Kontrola, która przechodzi tylko na poprawnym wejściu, nie dowodzi niczego.
+        # `--no-geometry` daje klatkę z samym HUD-em — czyli dokładnie to, co poprzedni
+        # krok ma odrzucać.
+        run: |
+          set -euo pipefail
+          mkdir -p build/t400/negative
+          xvfb-run -a "$GODOT_BIN" --rendering-driver opengl3 --resolution 1280x720 \
+            --path src/Game -- \
+            --shot="$PWD/build/t400/negative/GODOT_cab_2000m.png" \
+            --at-chainage=2000 --view=cab --no-geometry
+          for view in chase_2000m outside_2000m curve_R91_chase seam_c01_c02; do
+            cp build/t400/negative/GODOT_cab_2000m.png "build/t400/negative/GODOT_${view}.png"
+          done
+          if python3 tools/visual/compare.py --set godot --current build/t400/negative \
+              --prefix GODOT --out build/t400/negative/sanity.json --allow-new-baseline; then
+            echo "BŁĄD: klatka bez geometrii przeszła kontrolę zawartości" >&2
+            exit 1
+          fi
+          echo "[NEGATYW] klatka z samym HUD-em odrzucona, tak jak ma być"
 
       - name: Upload verification artifacts
         if: always()
@@ -212,4 +246,6 @@ jobs:
             build/t400/godot.csv
             build/t400/godot_jitter.csv
             build/t400/chunks/L1_A-chunks.json
-            renders/t400/*.png
+            build/t400/visual/*.png
+            build/t400/visual/*.json
+            build/t400/visual/*.md

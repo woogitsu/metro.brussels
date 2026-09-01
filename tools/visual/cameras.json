@@ -1,7 +1,7 @@
 {
   "$comment": "Canonical manifest kamer i ustawień renderu kontrolnego (T-012). Zmiana czegokolwiek tutaj unieważnia baseline — bump manifest_version.",
   "schema_version": 1,
-  "manifest_version": "2026-09-01.6",
+  "manifest_version": "2026-09-01.7",
   "render": {
     "engine": "BLENDER_EEVEE_NEXT",
     "engine_fallback": "BLENDER_EEVEE",
@@ -219,6 +219,26 @@
           "place_at_anchor": true,
           "purpose": "wnętrze na 75% chainage"
         }
+      ]
+    },
+    "godot": {
+      "renderer": "godot",
+      "description": "Zrzuty z SILNIKA, nie z Blendera — kamery są w scenie Godota (src/Game), a nie tutaj. Ten zestaw daje `compare.py` progi i listę ujęć; `capture_blender.py` go ODRZUCA, bo nie ma czego renderować. Progi są zmierzone, nie przyjęte: klatka bez geometrii (--no-geometry, sam HUD) ma ink 0,0127, a najsłabsza prawdziwa 0,5433 — czterdziestokrotna różnica i to jest jedyny wskaźnik, który tu rozróżnia. luma_std (0,0819 pusta wobec 0,0894 najsłabszej prawdziwej) i distinct_levels (235 PUSTA wobec 210 prawdziwej, czyli odwrotnie) nie rozróżniają niczego i są tu tylko kontrolą 'to nie jest jednolity kolor'.",
+      "resolution": [1280, 720],
+      "thresholds": {
+        "mean_abs_diff": 0.004,
+        "p95_abs_diff": 0.06,
+        "ssim_min": 0.98,
+        "min_ink_fraction": 0.30,
+        "min_luma_std": 0.05,
+        "min_distinct_levels": 32
+      },
+      "cameras": [
+        {"id": "cab_2000m", "purpose": "kabina na kilometrażu 2000 m — ciągłość tunelu, ścięcie naroża stropu, asymetria kadru zgodna z odsunięciem toru"},
+        {"id": "chase_2000m", "purpose": "kamera za składem na tym samym kilometrażu — tył pociągu i światło tunelu wokół niego"},
+        {"id": "outside_2000m", "purpose": "kamera z sąsiedniego toru — proporcja składu do tunelu, wycięte otwory drzwiowe"},
+        {"id": "curve_R91_chase", "purpose": "najciaśniejszy łuk pakietu A (R = 91,50 m) — czy osadzenie przegubowe działa"},
+        {"id": "seam_c01_c02", "purpose": "szew chunków c01/c02 — czy na granicy siatek nie ma uskoku ani szczeliny"}
       ]
     },
     "clearance": {

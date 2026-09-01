@@ -181,6 +181,13 @@ def main():
     if args.scene_set not in manifest["scene_sets"]:
         raise SystemExit(f"BŁĄD: zestaw {args.scene_set} nie istnieje w manifeście")
     scene_set = manifest["scene_sets"][args.scene_set]
+    # Zestaw `godot` opisuje ujęcia z SILNIKA: kamery są w scenie Godota, a tutaj są
+    # tylko identyfikatory i progi dla `compare.py`. Bez tej odmowy Blender wygenerowałby
+    # z niego klatki z domyślną kamerą i nikt by nie zauważył, że to nie są te ujęcia.
+    renderer = scene_set.get("renderer", "blender")
+    if renderer != "blender":
+        raise SystemExit(f"BŁĄD: zestaw {args.scene_set} jest renderowany przez '{renderer}', "
+                         "nie przez Blendera — tu nie ma czego renderować")
     if not os.path.isfile(args.inp):
         raise SystemExit(f"BŁĄD: brak pliku wejściowego {args.inp}")
 
