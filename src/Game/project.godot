@@ -1,0 +1,39 @@
+; METRO BXL — warstwa silnika (T-400).
+;
+; Projekt Godota leży w src/Game, bo tak nazywa tę warstwę docs/01-architecture.md.
+; Nie zawiera ani jednej liczby fizyki: cała symulacja przychodzi z MetroBxl.Sim,
+; zbudowanego z ../Sim/Sim.csproj. Plik jest tekstowy i ma się diffować — dlatego
+; scena FirstRun.tscn trzyma strukturę węzłów, a nie zserializowaną geometrię.
+
+config_version=5
+
+[application]
+
+config/name="METRO BXL — pierwszy przejazd"
+config/description="T-400, pierwszy etap: jeden skład M7 na pakiecie A, napędzany rdzeniem MetroBxl.Sim."
+run/main_scene="res://Scenes/FirstRun.tscn"
+config/features=PackedStringArray("4.3", "C#", "Forward Plus")
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+
+[dotnet]
+
+project/assembly_name="MetroBxl.Game"
+
+[physics]
+
+; Rdzeń chodzi krokiem 1/120 s (docs/01-architecture.md). Tik fizyki silnika jest
+; ustawiony na tę samą częstotliwość, żeby akumulator nie musiał w typowej klatce
+; wykonywać dwóch kroków. Determinizm i tak od tego nie zależy — stan po N krokach
+; jest ten sam bez względu na to, jak kroki rozłożą się na klatki, i właśnie to
+; sprawdza porównanie z src/Sim.Runner.
+common/physics_ticks_per_second=120
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/vram_compression/import_etc2_astc=true

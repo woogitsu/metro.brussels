@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Konsolowy gospodarz rdzenia. Istnieje po jedno: policzyć ten sam przejazd, co
+    scena Godota, **bez Godota**, i dać się porównać liczba po liczbie.
+
+    Nie jest częścią rdzenia (src/Sim) ani warstwy silnika (src/Game): jest narzędziem
+    weryfikacji. Zero PackageReference — tak samo jak rdzeń.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>MetroBxl.Sim.Runner</RootNamespace>
+    <AssemblyName>MetroBxl.Sim.Runner</AssemblyName>
+    <LangVersion>12.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <Deterministic>true</Deterministic>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Sim/Sim.csproj" />
+  </ItemGroup>
+
+</Project>
