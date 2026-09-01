@@ -36,6 +36,8 @@ def parse_args():
     parser.add_argument("--out", default="renders", help="katalog wyjściowy")
     parser.add_argument("--manifest", default=os.path.join(HERE, "cameras.json"))
     parser.add_argument("--centerline", help="oś trasy — źródło kotwic inside_eye/inside_target")
+    parser.add_argument("--axis-fractions", default="0.05,0.25,0.5,0.75",
+                        help="ułamki chainage, dla których powstają kotwice axisNN_eye/_target")
     parser.add_argument("--anchor", action="append", default=[],
                         help="jawna kotwica, np. --anchor door=12.5,0,1.8")
     parser.add_argument("--commit", default=os.environ.get("GITHUB_SHA", "local"))
@@ -110,7 +112,7 @@ def build_camera(solved, name):
     return cam
 
 
-def named_anchors_from_args(args, vertices, scene_size):
+def named_anchors_from_args(args, vertices, scene_size, fractions="0.05,0.25,0.5,0.75"):
     anchors = {}
     for item in args.anchor:
         if "=" not in item:
@@ -134,6 +136,17 @@ def named_anchors_from_args(args, vertices, scene_size):
         ahead.z = rc.local_vertical_mid(vertices, ahead.x, scene_size)
         anchors.setdefault("section_eye", [cut.x, cut.y, cut.z])
         anchors.setdefault("section_target", [ahead.x, ahead.y, ahead.z])
+        # Zbiór kotwic wzdłuż osi: pojedynczy render całego, 6,7-kilometrowego tunelu
+        # daje kreskę grubości 2 px i nie odpowiada na pytanie „czy gdzieś znika przekrój".
+        # Zbliżenia w kilku chainage'ach odpowiadają.
+        for fraction in [float(v) for v in fractions.split(",") if v.strip()]:
+            eye = rc.point_on_centerline(points, fraction)
+            look = rc.point_on_centerline(points, min(1.0, fraction + 0.005))
+            eye.z = rc.local_vertical_mid(vertices, eye.x, scene_size)
+            look.z = rc.local_vertical_mid(vertices, look.x, scene_size)
+            tag = f"axis{int(round(fraction * 100)):02d}"
+            anchors.setdefault(f"{tag}_eye", [eye.x, eye.y, eye.z])
+            anchors.setdefault(f"{tag}_target", [look.x, look.y, look.z])
     return anchors
 
 
@@ -160,7 +173,7 @@ def main():
     bmax = (maxs.x, maxs.y, maxs.z)
     scene_size = max(maxs.x - mins.x, maxs.y - mins.y, maxs.z - mins.z, 1.0)
     points = [(v.x, v.y, v.z) for v in vertices]
-    anchors = named_anchors_from_args(args, vertices, scene_size)
+    anchors = named_anchors_from_args(args, vertices, scene_size, args.axis_fractions)
     solved, skipped = framing.solve_set(manifest, args.scene_set, bmin, bmax, anchors, points)
     for entry in skipped:
         print(f"[SKIP] kamera {entry['id']}: {entry['reason']}")

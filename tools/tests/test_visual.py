@@ -378,3 +378,28 @@ def test_visual_bbox_framed_cameras_are_still_pushed_back():
     solved = framing.solve_camera(spec, (0.0, -1072.0, -1.2), (5452.0, 906.0, 4.7), 960, 576)
     assert solved["distance_m"] > 1000.0
     assert framing.corner_visibility(solved, (0.0, -1072.0, -1.2), (5452.0, 906.0, 4.7)) == 1.0
+
+
+def test_visual_alignment_set_exists_for_long_infrastructure():
+    scene_set = MANIFEST["scene_sets"]["alignment"]
+    ids = [c["id"] for c in scene_set["cameras"]]
+    assert ids == ["plan", "section", "axis05", "axis25", "axis50", "axis75"]
+    for camera in scene_set["cameras"]:
+        if camera["id"].startswith("axis"):
+            assert camera.get("place_at_anchor") is True
+            assert camera["anchor"]["name"] == f"{camera['id']}_eye"
+            assert camera["aim"]["name"] == f"{camera['id']}_target"
+
+
+def test_visual_bounded_depth_camera_does_not_integrate_the_whole_line():
+    spec = next(c for c in MANIFEST["scene_sets"]["alignment"]["cameras"] if c["id"] == "section")
+    assert spec["depth_m"] == 30.0
+    anchors = {"section_eye": [2398.2, -23.8, 1.75], "section_target": [2429.8, -34.6, 1.75]}
+    solved = framing.solve_camera(spec, (0.0, -1072.0, -1.2), (5452.0, 906.0, 4.7), 960, 576, anchors)
+    depth = solved["clip_end"] - solved["clip_start"]
+    assert abs(depth - 30.0) < 1e-3, depth
+    # bez `depth_m` ta sama kamera obejmowała ponad 37 km i zlepiała cały łuk w jedną klatkę
+    unbounded = dict(spec)
+    unbounded.pop("depth_m")
+    wide = framing.solve_camera(unbounded, (0.0, -1072.0, -1.2), (5452.0, 906.0, 4.7), 960, 576, anchors)
+    assert wide["clip_end"] - wide["clip_start"] > 1000.0
