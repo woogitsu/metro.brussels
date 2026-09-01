@@ -181,16 +181,25 @@ def check_image(path, expected_size, thresholds, baseline_path=None, diff_path=N
 
 
 GEOMETRY_TOLERANCE_M = 0.001
+# Eksporter glTF dzieli wierzchołki na duplikaty w innej kolejności przy każdym
+# przebiegu, więc liczba wierzchołków po imporcie GLB NIE jest niezmiennikiem
+# regenerowanego assetu: ta sama geometria M7 (2334 unikalne pozycje, 4732 ściany,
+# różnica 0) dała 5360 i 5386 wierzchołków po imporcie. Bbox i liczba obiektów są
+# odtwarzalne dokładnie, więc zostają twarde; liczniki dostają tolerancję względną,
+# która nadal łapie realną zmianę gęstości siatki.
+GEOMETRY_COUNT_TOLERANCE = 0.10
 
 
-def check_geometry(current_meta, baseline_meta, tolerance=GEOMETRY_TOLERANCE_M):
+def check_geometry(current_meta, baseline_meta, tolerance=GEOMETRY_TOLERANCE_M,
+                   count_tolerance=GEOMETRY_COUNT_TOLERANCE):
     """Kontrola wymiarowa z metadanych: kadr jest względny, bbox nie.
 
     Metryka obrazowa nie wykryje przesunięcia całego modelu, bo kamera kadruje się
     względem bboxa i jedzie razem z nim. Bezwzględna geometria musi więc być
     porównywana liczbowo, a nie na obrazku.
     """
-    result = {"tolerance_m": tolerance, "checks": {}, "current": current_meta, "baseline": baseline_meta}
+    result = {"tolerance_m": tolerance, "count_tolerance_ratio": count_tolerance,
+              "checks": {}, "current": current_meta, "baseline": baseline_meta}
     if not current_meta or not os.path.isfile(current_meta):
         result["status"] = "fail"
         result["reason"] = "brak metadanych bieżącego przebiegu"
@@ -215,8 +224,16 @@ def check_geometry(current_meta, baseline_meta, tolerance=GEOMETRY_TOLERANCE_M):
         deltas[key] = delta
         result["checks"][key] = all(abs(d) <= tolerance for d in delta)
     result["deltas_m"] = deltas
-    for key in ("vertices", "faces", "mesh_objects"):
-        result["checks"][key] = current["scene"][key] == base["scene"][key]
+    result["checks"]["mesh_objects"] = current["scene"]["mesh_objects"] == base["scene"]["mesh_objects"]
+    counts = {}
+    for key in ("vertices", "faces"):
+        cur_v = current["scene"][key]
+        base_v = base["scene"][key]
+        allowed = max(1.0, base_v * count_tolerance)
+        counts[key] = {"current": cur_v, "baseline": base_v, "delta": cur_v - base_v,
+                       "allowed_delta": round(allowed, 3)}
+        result["checks"][key] = abs(cur_v - base_v) <= allowed
+    result["counts"] = counts
     result["checks"]["manifest_version"] = current.get("manifest_version") == base.get("manifest_version")
     result["checks"]["blender_version"] = current.get("blender_version") == base.get("blender_version")
     result["checks"]["resolution"] = current.get("resolution") == base.get("resolution")

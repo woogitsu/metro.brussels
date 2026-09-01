@@ -313,3 +313,43 @@ def test_visual_geometry_check_reports_missing_baseline():
         assert compare.check_geometry(os.path.join(tmp, "nope.json"), cur)["status"] == "fail"
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_visual_geometry_check_tolerates_gltf_vertex_splitting():
+    """Eksporter glTF duplikuje wierzchołki w innej kolejności przy każdym przebiegu."""
+    tmp = tempfile.mkdtemp()
+    try:
+        base = _meta_file(tmp, "base.json", _meta(vertices=5360, faces=4732))
+        near = _meta_file(tmp, "near.json", _meta(vertices=5386, faces=4732))
+        result = compare.check_geometry(near, base)
+        assert result["status"] == "pass", result
+        assert result["counts"]["vertices"]["delta"] == 26
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_visual_geometry_check_still_catches_real_mesh_change():
+    tmp = tempfile.mkdtemp()
+    try:
+        base = _meta_file(tmp, "base.json", _meta(vertices=5360, faces=4732))
+        coarse = _meta_file(tmp, "coarse.json", _meta(vertices=2000, faces=1500))
+        result = compare.check_geometry(coarse, base)
+        assert result["status"] == "fail"
+        assert result["checks"]["vertices"] is False and result["checks"]["faces"] is False
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_visual_geometry_check_keeps_bbox_and_object_count_strict():
+    tmp = tempfile.mkdtemp()
+    try:
+        base = _meta_file(tmp, "base.json", _meta(vertices=5360))
+        moved = _meta_file(tmp, "moved.json", _meta(bbox_max=(94.002, 1.35, 3.6), vertices=5386))
+        assert compare.check_geometry(moved, base)["status"] == "fail"
+        payload = _meta(vertices=5386)
+        payload["scene"]["mesh_objects"] = 5
+        fewer = _meta_file(tmp, "fewer.json", payload)
+        result = compare.check_geometry(fewer, base)
+        assert result["status"] == "fail" and result["checks"]["mesh_objects"] is False
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
