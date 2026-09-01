@@ -38,12 +38,14 @@ i powiedz o tym. Nie próbuj obejść.
 | `docs/05-glossary.md` | słownik FR/NL/PL — do czytania źródeł STIB |
 | `docs/06-worked-example.md` | **wzorcowo wykonane zadanie** — przeczytaj przed pierwszym |
 | `docs/07-open-data-research.md` | hierarchia źródeł, publiczne dane i repozytoria referencyjne |
+| `docs/22-heartbeat.md` | puls sesji — kiedy zakładać i dlaczego ma milczeć |
 | `docs/TASKS.md` | lista zadań |
 | `docs/TASK-TEMPLATE.md` | format nowego zadania |
 | `data/network/lines.json` | dane sieci maszynowo |
 | `data/network/sources.json` | maszynowy rejestr źródeł i licencji danych |
 
-Skille w `.claude/skills/` wchodzą automatycznie: `blender-asset`, `track-data`, `sim-physics`.
+Skille w `.claude/skills/` wchodzą automatycznie: `blender-asset`, `track-data`,
+`sim-physics`, `heartbeat`.
 
 ## 4. Twarde reguły
 
