@@ -129,29 +129,55 @@ def test_validate_axis_without_declared_length_still_validates():
 
 # --- prawdziwe osie -----------------------------------------------------------
 
-def test_validate_every_real_axis_passes_without_errors():
+def _package_axes():
+    """Osie pakietów budowy, po `package`, a NIE po zawartości katalogu.
+
+    `tools/track/make_test_track.py` zapisuje syntetyczne `TEST.json` i `BROKEN.json`
+    prosto do `data/track/`, i robi to workflow `blender-smoke` przed uruchomieniem tej
+    suity. Test liczący pliki w katalogu widział wtedy siedem osi zamiast sześciu i padał
+    — co złapało CI, a lokalnie nie było widać. Kryterium jest więc **deklarowana
+    przynależność do pakietu**, zgodna z `build_packages` w `lines.json`: syntetyczna oś
+    pola `package` nie ma, a prawdziwa nie może go stracić po cichu.
+    """
+    with open(os.path.join(ROOT, "data", "network", "lines.json"), encoding="utf-8") as handle:
+        declared = {p["id"] for p in json.load(handle)["build_packages"]}
+    directory = os.path.join(ROOT, "data", "track")
+    found = {}
+    for name in sorted(os.listdir(directory)):
+        if not name.endswith(".json") or name.endswith(".provenance.json"):
+            continue
+        path = os.path.join(directory, name)
+        with open(path, encoding="utf-8") as handle:
+            block = json.load(handle).get("package")
+        # `package` w osi jest obiektem skopiowanym z lines.json, nie samym kodem litery.
+        package = block.get("id") if isinstance(block, dict) else block
+        if package in declared:
+            assert package not in found, f"dwie osie dla pakietu {package}"
+            found[package] = path
+    missing = declared - set(found)
+    assert not missing, f"brak osi dla pakietów: {sorted(missing)}"
+    return found
+
+
+def test_validate_every_package_axis_passes_without_errors():
     """Nowa reguła nie może zapalić się na tym, co już leży w repo — inaczej byłaby
     zaostrzeniem poprzeczki pod pozorem naprawy walidatora."""
-    directory = os.path.join(ROOT, "data", "track")
-    checked = 0
-    for name in sorted(os.listdir(directory)):
-        if not name.endswith(".json") or name.endswith(".provenance.json"):
-            continue
-        checked += 1
-        report = V.validate(os.path.join(directory, name))
-        assert not report.err, (name, report.err)
-    assert checked == 6, f"oczekiwano sześciu osi, znaleziono {checked}"
+    for package, path in sorted(_package_axes().items()):
+        report = V.validate(path)
+        assert not report.err, (package, report.err)
 
 
-def test_validate_every_real_axis_reports_the_overrun_it_actually_has():
+def test_validate_synthetic_axis_in_the_directory_does_not_disturb_the_check():
+    """Regresja z nazwą: `blender-smoke` zapisuje TEST.json do data/track/ przed testami."""
+    axes = _package_axes()
+    assert all(not path.endswith(("TEST.json", "BROKEN.json")) for path in axes.values())
+
+
+def test_validate_every_package_axis_reports_the_overrun_it_actually_has():
     """Wszystkie sześć pakietów ma dziś niezerowe przekroczenie. Gdyby któryś przestał
     je mieć, ten test padnie — i będzie to informacja, że oś przeliczono."""
-    directory = os.path.join(ROOT, "data", "track")
-    with_overrun = 0
-    for name in sorted(os.listdir(directory)):
-        if not name.endswith(".json") or name.endswith(".provenance.json"):
-            continue
-        report = V.validate(os.path.join(directory, name))
-        if _has(report.warn, "za końcem osi"):
-            with_overrun += 1
-    assert with_overrun == 6, f"{with_overrun} z 6 osi zgłasza przekroczenie"
+    without = [
+        package for package, path in sorted(_package_axes().items())
+        if not _has(V.validate(path).warn, "za końcem osi")
+    ]
+    assert not without, f"pakiety bez zgłoszonego przekroczenia: {without}"
