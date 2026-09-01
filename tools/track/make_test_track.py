@@ -2,8 +2,8 @@
 """
 Generuje syntetyczną oś trasy do testów narzędzi.
 
-    python3 tools/track/make_test_track.py --out data/track/TEST.json
-    python3 tools/track/make_test_track.py --out data/track/BROKEN.json --broken
+    python3 tools/track/make_test_track.py --out build/t010/TEST.json
+    python3 tools/track/make_test_track.py --out build/t010/BROKEN.json --broken
 """
 import json, math, argparse, os
 

@@ -47,9 +47,9 @@ python3 tools/tests/test_all.py
 
 echo
 echo "[SETUP] deterministyczna geometria testowa"
-python3 tools/track/make_test_track.py --out data/track/TEST.json
+python3 tools/track/make_test_track.py --out build/t010/TEST.json
 blender --background --python-exit-code 7 --python tools/blender/tunnel_sweep.py -- \
-  --centerline data/track/TEST.json --profile box_double --out build/TEST.glb >"$OUT/tunnel.log" 2>&1 \
+  --centerline build/t010/TEST.json --profile box_double --out build/TEST.glb >"$OUT/tunnel.log" 2>&1 \
   || { cat "$OUT/tunnel.log"; fail "generowanie tunelu testowego nie powiodło się"; }
 grep -E '^\[RAPORT\]' "$OUT/tunnel.log"
 
@@ -57,7 +57,7 @@ capture() {
   local outdir="$1"; shift
   blender --background --python-exit-code 7 --python tools/visual/capture_blender.py -- \
     --in build/TEST.glb --set infrastructure --prefix VIS_TUNNEL --out "$outdir" \
-    --centerline data/track/TEST.json "$@" >"$OUT/capture_$(basename "$outdir").log" 2>&1 \
+    --centerline build/t010/TEST.json "$@" >"$OUT/capture_$(basename "$outdir").log" 2>&1 \
     || { tail -n 40 "$OUT/capture_$(basename "$outdir").log"; fail "capture do $outdir nie powiódł się"; }
   grep -E '^\[(RENDER|SKIP|RAPORT|TEST-SHIFT)\]' "$OUT/capture_$(basename "$outdir").log"
 }
