@@ -153,6 +153,15 @@ if bad:
 PY
 
 echo
+echo "[SKRAJNIA] M7 na rzeczywistych łukach pakietu A"
+python3 tools/blender/clearance.py --alignment "$AXIS" --profile box_double \
+  --out "$OUT/clearance-box_double.json"
+# `bore_single` nie jest używany na pakiecie A, ale ma udokumentowany brak zapasu
+# na łukach tej ostrości — raportujemy, nie wywracamy na tym pipeline'u tunelu.
+python3 tools/blender/clearance.py --alignment "$AXIS" --profile bore_single \
+  --out "$OUT/clearance-bore_single.json" --report-only
+
+echo
 echo "[VERIFY] zestaw testów Pythona"
 python3 tools/tests/test_all.py
 
