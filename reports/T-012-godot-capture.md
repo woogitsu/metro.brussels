@@ -61,10 +61,26 @@ Dwa przebiegi tego samego ujęcia dały **identyczny sha256** i zerową różnic
 ```
 
 To odróżnia je od eksportu glTF, który **nie jest** odtwarzalny bajtowo (PR #44).
-Baseline dla tego zestawu jest więc wykonalny — ale **nie jest jeszcze zapisany**,
-a odtwarzalność **między maszynami** (ten kontener vs runner GitHuba, oba na llvmpipe)
-**nie jest zmierzona**. Progi różnicowe (`mean_abs_diff`, `ssim_min`) są przepisane
-z zestawu `vehicle` i pozostają **nieprzetestowane** do czasu zatwierdzenia baseline'u.
+
+**Odtwarzalność między maszynami też jest już zmierzona** — pierwszy przebieg CI na
+runnerze GitHuba (Mesa 25.2.8, inna maszyna, inna wersja sterownika) dał **te same
+rozmiary wszystkich pięciu plików co do bajtu**:
+
+| ujęcie | ten kontener | runner GitHuba | ink (tu / tam) |
+|---|---:|---:|---|
+| `cab_2000m` | 139 984 B | 139 984 B | 0,8236 / 0,8236 |
+| `chase_2000m` | 92 686 B | 92 686 B | 0,7102 / 0,7102 |
+| `outside_2000m` | 121 077 B | 121 077 B | 0,5433 / 0,5433 |
+| `curve_R91_chase` | 98 895 B | 98 895 B | 0,8939 / 0,8939 |
+| `seam_c01_c02` | 139 841 B | 139 841 B | 0,8155 / 0,8155 |
+
+Klatka negatywna również: 0,01272 / 0,08194 / 235 poziomów w obu miejscach.
+
+Baseline jest więc wykonalny i **będzie miał sens** — ale **nie jest jeszcze zapisany**,
+bo `--accept-baseline` nigdy nie dzieje się automatycznie (T-012). Progi różnicowe
+(`mean_abs_diff`, `ssim_min`) są przepisane z zestawu `vehicle` i pozostają
+**nieprzetestowane** do czasu zatwierdzenia baseline'u — dwa identyczne obrazy nie
+sprawdzają progu różnicy.
 
 ## 4. Metadane, bo obraz tego nie wykryje
 
@@ -164,9 +180,10 @@ zero świata. To jest dokładnie ta klatka, którą stary `wc -l` przyjmował.
 
 ## 8. Czego świadomie nie zrobiono
 
-- **Nie zapisano baseline'u.** Odtwarzalność między maszynami nie jest zmierzona,
-  a `--accept-baseline` nigdy nie dzieje się automatycznie (T-012). Pierwszy zielony
-  przebieg w CI da dane do tej decyzji.
+- **Nie zapisano baseline'u**, mimo że odtwarzalność między maszynami okazała się
+  bajtowa (§3). `--accept-baseline` nigdy nie dzieje się automatycznie (T-012), a
+  zatwierdzenie pierwszego baseline'u to osobna, jawna decyzja — nie skutek uboczny
+  zielonego przebiegu.
 - **Nie ruszono fizyki ani parytetu T-400.** Zmiana w `src/Game/` tylko dopisuje plik
   metadanych; `TrainController` i telemetria są nietknięte.
 - **Nie dodano ujęć.** Pięć istniejących pochodzi z T-400 i mają uzasadnienie
