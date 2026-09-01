@@ -10,6 +10,7 @@ sys.path.insert(0, os.path.join(ROOT, "tools", "blender"))
 
 import clearance as CL  # noqa: E402
 import m7_layout  # noqa: E402
+import placement as PL  # noqa: E402
 import profiles as PR  # noqa: E402
 
 ALIGNMENT = os.path.join(ROOT, "data", "track", "L1_A.json")
@@ -90,3 +91,55 @@ def test_clearance_committed_axis_fits_the_double_box_but_not_the_single_bore():
     assert bore["fits_on_curve"] is False, bore
     assert -0.2 < bore["margin_m"] < 0.0, bore["margin_m"]
     assert box["min_radius_m"] == bore["min_radius_m"]
+
+
+# --- wysokość styku a światło profilu ----------------------------------------
+
+def test_clearance_box_double_narrows_with_height_at_the_chamfer():
+    """Regresja: kontrola krzyżowa mierzyła ścianę na WPISANEJ NA STAŁE wysokości 1,0 m.
+
+    `box_double` ma ścięte naroża stropu, więc światło zwęża się z wysokością. Minimum
+    pakietu A wypada na 1,03 m i stała zgadzała się przypadkiem; minimum pakietu B
+    wypada na ścięciu, na 3,60 m, i tam stała myli się o 149 mm.
+    """
+    ring = PR.profile_points("box_double")
+    spec = m7_layout.load_spec()
+    half = spec["width_m"] / 2.0
+
+    def wall_at(height, track_offset=2.10):
+        return min(PL.distance_to_boundary(ring, track_offset + dx, height)
+                   for dx in (-half, half))
+
+    low = wall_at(1.03)
+    high = wall_at(3.60)
+    assert abs(low - 1.25) < 1e-6, low
+    assert abs(high - 1.10) < 1e-6, high
+    # to jest dokładnie ten rozjazd, który wywrócił pakiet B
+    assert abs(low - high) > 0.14, (low, high)
+
+
+def test_clearance_contact_height_matters_for_every_track_offset():
+    """Zwężenie nie zależy od tego, na którym torze stoi skład."""
+    ring = PR.profile_points("box_double")
+    spec = m7_layout.load_spec()
+    half = spec["width_m"] / 2.0
+    for offset in (-2.10, 2.10):
+        low = min(PL.distance_to_boundary(ring, offset + dx, 1.03) for dx in (-half, half))
+        high = min(PL.distance_to_boundary(ring, offset + dx, 3.60) for dx in (-half, half))
+        assert high < low, (offset, low, high)
+
+
+def test_clearance_versine_formula_is_conservative_for_an_off_centre_body():
+    """Dlaczego kontrola wzoru jest KIERUNKOWA, a nie symetryczna.
+
+    Strzałkę liczy się z promienia w środku składu. Bryła, w której wypada minimum,
+    leży poza środkiem — tam oś jest łagodniejsza, więc wzór przeszacowuje wychylenie
+    i **zaniża** luz. Zmierzone na trzech pakietach, oba tory: zachowawczy 6 z 6,
+    z zapasem 1,2-13,3 mm.
+    """
+    chord = 14.5667
+    tight, gentle = 85.94, 112.38          # promień w środku składu i na cięciwie bryły
+    assert CL.versine(chord, tight) > CL.versine(chord, gentle)
+    # luz przewidziany z ciaśniejszego promienia jest mniejszy, czyli bezpieczny
+    static = 1.25
+    assert static - CL.versine(chord, tight) < static - CL.versine(chord, gentle)

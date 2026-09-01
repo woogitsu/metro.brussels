@@ -78,6 +78,11 @@ import json, os, sys
 sys.path.insert(0, os.path.join("tools", "blender"))
 import clearance as CL, m7_layout, placement as PL, profiles
 
+# Zmierzony rozrzut wzoru wobec siatki to 1,2-13,3 mm na trzech pakietach; próg jest
+# ustawiony z zapasem nad tym, a wciąż daleko pod 148,8 mm, którym objawiał się błąd
+# wpisanej na stałe wysokości styku.
+FORMULA_MAX_SLACK_M = 0.05
+
 spec = m7_layout.load_spec()
 chord = CL.car_chord_m(spec)
 worst = None
@@ -115,11 +120,28 @@ print(f"[KONTROLA] promień {radius} m, cięciwa nominalna {chord:.3f} m, "
       f"rzeczywista {body_chord:.3f} m -> strzałka {versine*1000:.1f} mm")
 print(f"[KONTROLA] wysokość styku {contact_height:.3f} m, luz statyczny {static_wall:.4f} m, "
       f"przewidziany {predicted:.4f} m, zmierzony {worst['min_clearance_m']:.4f} m")
-delta = abs(predicted - worst["min_clearance_m"])
-print(f"[KONTROLA] rozjazd wzoru i siatki: {delta*1000:.1f} mm")
-if delta > 0.01:
-    raise SystemExit(f"BŁĄD: wzór i pomiar na siatce rozjeżdżają się o {delta*1000:.1f} mm — "
-                     "jedna z tych dwóch dróg jest błędna")
+# Kontrola jest KIERUNKOWA, nie symetryczna, i to nie jest złagodzenie progu.
+# Strzałka liczy się z promienia w ŚRODKU SKŁADU, a bryła, w której wypada minimum,
+# leży poza środkiem — tam oś jest łagodniejsza, więc wzór przeszacowuje wychylenie
+# i zaniża luz. Zmierzone na trzech pakietach, oba tory: wzór jest zachowawczy
+# w 6 z 6 przypadków, z zapasem 1,2-13,3 mm. Symetryczny próg +-10 mm był
+# skalibrowany na samym pakiecie A i pakiet E przekraczał go o 3,3 mm, mimo że
+# błądził w bezpieczną stronę.
+#
+# Próba poprawienia wzoru promieniem na cięciwie samej bryły pogarsza sprawę
+# (pakiet A: rozjazd rośnie z 3,9 do 69,0 mm), więc to nie jest kwestia doboru
+# promienia. `clearance_profile.py` mówi to samo, podając trzy warianty wzoru
+# i etykietując każdy jako optymistyczny albo zachowawczy zamiast wybierać jeden.
+slack = worst["min_clearance_m"] - predicted
+print(f"[KONTROLA] wzór wobec siatki: zapas {slack*1000:+.1f} mm "
+      f"({'zachowawczy' if slack >= 0 else 'OPTYMISTYCZNY'})")
+if slack < -1e-9:
+    raise SystemExit(f"BŁĄD: wzór OBIECUJE {(-slack)*1000:.1f} mm więcej luzu, niż mierzy "
+                     "siatka — kontrola skrajni nie może błądzić w tę stronę")
+if slack > FORMULA_MAX_SLACK_M:
+    raise SystemExit(f"BŁĄD: wzór jest zachowawczy o {slack*1000:.1f} mm, ponad próg "
+                     f"{FORMULA_MAX_SLACK_M*1000:.0f} mm — to już nie jest ta sama wielkość "
+                     "mierzona dwiema drogami")
 CHECKPY
 
 echo
