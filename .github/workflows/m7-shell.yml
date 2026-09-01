@@ -1,0 +1,58 @@
+name: M7 shell
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/m7-shell.yml'
+      - 'tools/blender/m7_layout.py'
+      - 'tools/blender/m7_shell.py'
+      - 'tools/blender/profiles.py'
+      - 'tools/ci/m7_shell_check.sh'
+      - 'tools/visual/**'
+      - 'tools/tests/**'
+      - 'data/vehicle/m7-spec.json'
+      - 'reports/M7-shell.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  m7-shell:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install Blender
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            blender \
+            python3-numpy \
+            libegl1 \
+            libgl1-mesa-dri
+          blender --version | head -n 3
+          ldconfig -p | grep -E 'libEGL\.so\.1|libGL\.so\.1' || true
+
+      - name: Generate and verify M7 shell
+        shell: bash
+        run: bash tools/ci/m7_shell_check.sh
+
+      - name: Upload T-220 verification artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: t-220-m7-shell-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            build/t220/report.txt
+            build/t220/*.json
+            build/t220/*.md
+            build/t220/*.log
+            build/t220/renders/**
