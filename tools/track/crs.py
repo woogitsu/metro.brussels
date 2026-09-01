@@ -119,3 +119,101 @@ def bd72_to_lambert72(lon, lat):
 def wgs84_to_lambert72(lon, lat, h=0.0):
     blon, blat, _ = wgs84_to_bd72(lon, lat, h)
     return bd72_to_lambert72(blon, blat)
+
+
+# --- EPSG:3035 (ETRS89-extended / LAEA Europe) --------------------------------
+#
+# INSPIRE publikuje sieć szynową STIB w EPSG:3035, więc bez tej pary funkcji plik
+# `TN.RailTransportNetwork.gml` jest nieporównywalny z osią w Lambercie 72.
+#
+# Elipsoida GRS80, początek 52°N/10°E, przesunięcia 4 321 000 / 3 210 000 m —
+# parametry wpisane wprost w rejestr EPSG i powtórzone w `srsName` każdej geometrii
+# tego datasetu.
+#
+# ETRS89 jest tu traktowane jak WGS84. To **przybliżenie, nie tożsamość**: oba układy
+# rozjeżdżają się o ~2,5 cm rocznie od 1989 r. wskutek ruchu płyty euroazjatyckiej,
+# czyli o rząd 0,8 m w 2026 r. Dla pomiaru *różnicy* dwóch geometrii z tego samego
+# pliku błąd znosi się do zera; dla porównania z osią z innego źródła jest to
+# systematyczne przesunięcie całej chmury i tak trzeba je opisywać.
+
+A_GRS80, F_GRS80 = 6378137.0, 1.0 / 298.257222101
+LAEA_LAT0 = math.radians(52.0)
+LAEA_LON0 = math.radians(10.0)
+LAEA_FE, LAEA_FN = 4321000.0, 3210000.0
+
+
+def _laea_q(sin_phi, e):
+    """Pole autalicznej strefy — LAEA jest odwzorowaniem równopolowym, więc cała
+    jego trygonometria idzie przez `q`, a nie przez szerokość geodezyjną."""
+    es = e * sin_phi
+    return (1 - e ** 2) * (sin_phi / (1 - es ** 2) - (1 / (2 * e)) * math.log((1 - es) / (1 + es)))
+
+
+def _laea_constants():
+    e = math.sqrt(F_GRS80 * (2 - F_GRS80))
+    q_p = _laea_q(1.0, e)
+    q_0 = _laea_q(math.sin(LAEA_LAT0), e)
+    beta_0 = math.asin(q_0 / q_p)
+    r_q = A_GRS80 * math.sqrt(q_p / 2.0)
+    d = (A_GRS80 * math.cos(LAEA_LAT0) / math.sqrt(1 - e ** 2 * math.sin(LAEA_LAT0) ** 2)
+         / (r_q * math.cos(beta_0)))
+    return e, q_p, beta_0, r_q, d
+
+
+def wgs84_to_laea3035(lon, lat):
+    e, q_p, beta_0, r_q, d = _laea_constants()
+    phi, lam = math.radians(lat), math.radians(lon)
+    beta = math.asin(_laea_q(math.sin(phi), e) / q_p)
+    dlam = lam - LAEA_LON0
+    denominator = 1 + math.sin(beta_0) * math.sin(beta) + math.cos(beta_0) * math.cos(beta) * math.cos(dlam)
+    b = r_q * math.sqrt(2.0 / denominator)
+    east = LAEA_FE + b * d * math.cos(beta) * math.sin(dlam)
+    north = LAEA_FN + (b / d) * (math.cos(beta_0) * math.sin(beta)
+                                 - math.sin(beta_0) * math.cos(beta) * math.cos(dlam))
+    return east, north
+
+
+def _authalic_to_geodetic(beta, e, q_p):
+    """Odwrotność `q` przez Newtona zamiast szeregu Snydera.
+
+    Szereg w e^6 zostawia ułamki milimetra, a iteracja schodzi do precyzji maszynowej
+    w trzech krokach i jest krótsza do przeczytania niż cztery współczynniki.
+    """
+    q = q_p * math.sin(beta)
+    phi = beta
+    for _ in range(8):
+        sin_phi = math.sin(phi)
+        es = e * sin_phi
+        residual = (q / (1 - e ** 2) - sin_phi / (1 - es ** 2)
+                    + (1 / (2 * e)) * math.log((1 - es) / (1 + es)))
+        step = residual * (1 - es ** 2) ** 2 / (2 * math.cos(phi))
+        phi += step
+        if abs(step) < 1e-14:
+            break
+    return phi
+
+
+def laea3035_to_wgs84(east, north):
+    e, q_p, beta_0, r_q, d = _laea_constants()
+    x = (east - LAEA_FE) / d
+    y = d * (north - LAEA_FN)
+    rho = math.hypot(x, y)
+    if rho < 1e-12:  # dokładnie w początku odwzorowania — kąt kierunkowy nieokreślony
+        return math.degrees(LAEA_LON0), math.degrees(LAEA_LAT0)
+    c = 2.0 * math.asin(rho / (2.0 * r_q))
+    sin_c, cos_c = math.sin(c), math.cos(c)
+    beta = math.asin(cos_c * math.sin(beta_0) + y * sin_c * math.cos(beta_0) / rho)
+    lam = LAEA_LON0 + math.atan2(x * sin_c,
+                                 rho * math.cos(beta_0) * cos_c - y * math.sin(beta_0) * sin_c)
+    return math.degrees(lam), math.degrees(_authalic_to_geodetic(beta, e, q_p))
+
+
+def laea3035_to_lambert72(east, north):
+    """Skrót używany przez `tools/track/inspire_rail.py`: INSPIRE -> oś projektu.
+
+    Osobna funkcja, a nie złożenie w miejscu wywołania, bo to złożenie niesie
+    założenie ETRS89 ≈ WGS84 opisane wyżej i ma jedno miejsce, w którym da się je
+    znaleźć i podważyć.
+    """
+    lon, lat = laea3035_to_wgs84(east, north)
+    return wgs84_to_lambert72(lon, lat)
