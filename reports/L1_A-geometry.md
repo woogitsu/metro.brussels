@@ -152,6 +152,26 @@ głębi i cztery zbliżenia wnętrza.
 - Kamery `iso` i `side` z zestawu `infrastructure` przy obiekcie o proporcji 5452 : 6
   dają kreskę grubości ok. 2 px. To ograniczenie kadrowania po bboxie, nie defekt
   geometrii — dla długiej infrastruktury właściwym zestawem jest `alignment`.
+- **Część osi leży w poligonach UrbIS oznaczonych `niveau: 0`**, czyli tym samym markerem,
+  co odcinki znane z biegu po powierzchni (Erasme, Pannenhuis, Delacroix–Clemenceau).
+  Zmierzone pokrycie: **18 z 447 punktów osi**, w dwóch krótkich przedziałach —
+  45–135 m (90 m) i 690–840 m (150 m), oba w rejonie Gare de l'Ouest / Beekkant.
+  Razem **240 m z 6686 m, czyli 3,6 %**.
+
+  Pierwsze odczytanie było mocniejsze i **fałszywe**: nazwa poligonu
+  („Tunnel STIB Beekkant – Gare de l'Ouest") sugerowała, że cały pierwszy odcinek
+  pakietu A, 510 m, jest na poziomie terenu. Pomiar pokrycia punkt po punkcie pokazał
+  co innego. Warto to zapisać, bo z samej listy nazw wniosek wyglądał na pewny.
+
+  **Interpretacja pozostaje nierozstrzygnięta.** `data/network/sources.json` mówi
+  wprost, że pola poziomu względnego wymagają interpretacji, a `niveau: '-'` wobec
+  `'0'` nie ma w datasecie definicji. Jeżeli `0` znaczy „na poziomie terenu", to model
+  zamkniętej rury jest na tych 240 m niewłaściwy. Rozstrzygnięcie należy do R-005 (#17)
+  i R-004 (#16). **Geometria nie została na tej podstawie zmieniona.**
+
+  Osobno: **191 z 447 punktów osi nie leży w żadnym poligonie `MT`**, więc warstwa
+  UrbIS nie pokrywa całego pnia i brak pokrycia nie jest dowodem na cokolwiek.
+
 - `data/track/L1_A.json` podaje chainage Merode 6686,99 m przy `length_m` 6686,35 m
   (różnica 0,64 m wynika z rzutowania stacji na łamaną). Nie tknięte — `data/` jest
   tylko do odczytu.
