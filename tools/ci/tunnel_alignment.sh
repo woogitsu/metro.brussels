@@ -162,6 +162,12 @@ python3 tools/blender/clearance.py --alignment "$AXIS" --profile bore_single \
   --out "$OUT/clearance-bore_single.json" --report-only
 
 echo
+echo "[SZEROKOŚĆ] szerokość tunelu w planie wg oficjalnych poligonów UrbIS"
+# Informacyjnie: narzędzie zapisuje niedostępność źródła jako wynik i kończy zerem,
+# więc niedostępny data.mobility.brussels nie wywraca pipeline'u geometrii.
+python3 tools/track/tunnel_width.py --alignment "$AXIS" --out "$OUT/L1_A-tunnel-width.json"
+
+echo
 echo "[VERIFY] zestaw testów Pythona"
 python3 tools/tests/test_all.py
 
