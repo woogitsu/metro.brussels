@@ -108,7 +108,7 @@ domykać zgadywaniem, i żadnej nie wolno liczyć w oderwaniu od pozostałych.
 problem leży po stronie placeholderowego profilu i wymaga albo źródła z R-005, albo
 świadomej zmiany wymiaru projektowego.
 
-## 3. Oś trasy (`data/track/L1_A.json`)
+## 3. Oś trasy (`data/track/*.json`)
 
 | wielkość | wartość | status |
 |---|---|---|
@@ -116,6 +116,24 @@ problem leży po stronie placeholderowego profilu i wymaga albo źródła z R-00
 | chainage stacji | 12 wartości | **`spec`** — rzutowanie przystanków STIB na oś |
 | profil pionowy | brak, Z = 0 | **`blocked`** — brak publicznych rzędnych główki szyny (T-901) |
 | głębokości stacji | `null` | **`blocked`** — 6 z 12 stacji ma dane z dwóch **sprzecznych** źródeł oficjalnych |
+
+Pakiety B–F powstały tą samą metodą i mają te same statusy: przebieg i chainage
+`spec`, profil pionowy i głębokości `blocked`. Pomiary i rozstrzygnięcia:
+`reports/packages-BF-alignment.md`.
+
+| oś | pakiet | źródło STIB | punktów | długość |
+|---|---|---|---:|---:|
+| `L1_B.json` | B — Wschód 1 | `001m` v1 | 340 | 5083,23 m |
+| `L5_C.json` | C — Zachód 5 | `005m` v2 | 361 | 5386,41 m |
+| `L5_D.json` | D — Wschód 5 | `005m` v1 | 258 | 3847,23 m |
+| `L2_E.json` | E — Pierścień 2/6 | `002m` v2 | 603 | 9020,77 m |
+| `L6_F.json` | F — Północ 6 | `006m` v2 | 299 | 4456,66 m |
+
+| wielkość | wartość | status |
+|---|---|---|
+| krok próbkowania 15 m | jedyny z badanych (5/10/15/20/25 m), który na **wszystkich** sześciu pakietach mieści się w granicach walidatora (odstęp ≤ 25 m, R ≥ 90 m) | **`design_assumption`** — wybór potwierdzony pomiarem, ale nie wymóg źródła |
+| `niveau = 0` w UrbIS na osiach | A 4,0 %, B 0,0 %, C 8,6 %, D **37,6 %**, E 2,0 %, F 15,7 % punktów | **`observed`** — pomiar pokrycia; **znaczenia pola dataset nie definiuje**, więc nie wolno z tego wyprowadzić „ten odcinek jest naziemny" bez R-005 (#17) |
+| odległość peronów Elisabeth ↔ Simonis | **18,7 m** (najbliższa para z czterech peronów) | **`observed`** — pomiar z `ACTU_STOPS`; nie rozstrzyga, czy to jedna stacja, czy dwie |
 
 Ograniczenie źródła, wpisane w `sources.json`: `ACTU_LIGNES_BRUTES` to **trasy handlowe**,
 nie geometria tor-po-torze. Stąd rozstaw torów nie może być z niej wzięty.

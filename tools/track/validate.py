@@ -87,8 +87,13 @@ def validate(path, expect_line=None, expect_package=None):
             if not line: r.E(f"linia {expect_line} nie istnieje w lines.json")
             else:
                 names=[s.get("name") for s in st]
-                if not _is_subsequence(names,line["stops"]): r.E(f"kolejność stacji niezgodna z lines.json dla {expect_line}")
-                else: r.I(f"kolejność stacji zgodna z lines.json ({expect_line})")
+                # lines.json wypisuje stacje w jedną stronę, a pakiet budowy ma własny
+                # kierunek from->to (C: Jacques Brel->Erasme, F: Belgica->Roi Baudouin
+                # idą pod prąd tej listy). Oś nie jest kierunkiem jazdy, więc zgodność
+                # z listą odwróconą jest tak samo poprawna — ale ma być widoczna.
+                if _is_subsequence(names,line["stops"]): r.I(f"kolejność stacji zgodna z lines.json ({expect_line})")
+                elif _is_subsequence(names,list(reversed(line["stops"]))): r.I(f"kolejność stacji zgodna z lines.json ({expect_line}), oś biegnie odwrotnie do kolejności z listy")
+                else: r.E(f"kolejność stacji niezgodna z lines.json dla {expect_line}")
         except FileNotFoundError: r.W("nie znaleziono data/network/lines.json — pominięto kontrolę zgodności")
     for i,sl in enumerate(d.get("speed_limits",[])):
         if sl["from_m"]>=sl["to_m"]: r.E(f"ograniczenie {i}: from_m >= to_m")

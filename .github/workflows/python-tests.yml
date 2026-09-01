@@ -33,6 +33,23 @@ jobs:
         shell: bash
         run: python3 tools/tests/test_all.py
 
+      - name: Validate committed alignments
+        shell: bash
+        # Każda oś w data/track musi przechodzić walidator z linią z lines.json.
+        # Numer linii jest w nazwie pliku (L2_E -> L2), więc kontrola nie wymaga
+        # żadnej listy do ręcznego utrzymywania.
+        run: |
+          set -euo pipefail
+          found=0
+          for axis in data/track/*.json; do
+            case "$axis" in *.provenance.json) continue;; esac
+            id="$(basename "$axis" .json)"
+            python3 tools/track/validate.py "$axis" --line "${id%%_*}"
+            found=$((found + 1))
+          done
+          echo "zwalidowanych osi: $found"
+          test "$found" -ge 6
+
       - name: Report data freshness
         shell: bash
         # Informacyjnie, bez --strict: przeterminowane okno ważności nie jest błędem
