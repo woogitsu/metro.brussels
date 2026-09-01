@@ -1,0 +1,82 @@
+name: Sim core tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  sim:
+    # CLAUDE.md §9: standardowe CI na GitHub-hosted runnerze. Obraz ubuntu-latest ma
+    # różne wersje .NET w zależności od miesiąca, więc SDK instalujemy jawnie zamiast
+    # liczyć na to, co akurat jest w obrazie.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Report .NET version
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet --version
+          dotnet --list-sdks
+
+      - name: Restore
+        shell: bash
+        run: dotnet restore MetroBxl.sln
+
+      - name: Build
+        shell: bash
+        # Ostrzeżenia w src/Sim są błędami (TreatWarningsAsErrors), więc build jest
+        # tu też kontrolą jakości, a nie samym warunkiem uruchomienia testów.
+        run: dotnet build MetroBxl.sln --configuration Release --no-restore
+
+      - name: Test
+        shell: bash
+        run: dotnet test tests/Sim.Tests --configuration Release --no-build --verbosity normal
+
+      - name: Core has no engine dependency
+        shell: bash
+        # Reguła 9 z CLAUDE.md pilnowana także poza testami: gdyby ktoś dopisał
+        # użycie Godota do rdzenia, ma to zatrzymać PR, a nie czekać na T-400.
+        # Wzorzec celuje w kod (dyrektywa using i kwalifikowany typ), a nie w słowo
+        # „Godot" w komentarzu — inaczej kontrola wywracałaby się na własnym opisie.
+        run: |
+          set -euo pipefail
+          if grep -rnE '^[[:space:]]*using[[:space:]]+Godot([.;]|[[:space:]])|Godot\.[A-Za-z]' \
+              --include='*.cs' --include='*.csproj' src/Sim; then
+            echo "src/Sim odwołuje się do Godota — CLAUDE.md reguła 9" >&2
+            exit 1
+          fi
+          echo "src/Sim: brak odwołań do Godota"
+
+      - name: Core has no NuGet dependencies
+        shell: bash
+        # Dyscyplina bezzależnościowa rdzenia. Pakiety są dozwolone wyłącznie
+        # w projekcie testowym. Szukamy elementu XML, a nie samego słowa: komentarz
+        # w Sim.csproj wyjaśnia właśnie tę regułę i sam zawiera to słowo.
+        run: |
+          set -euo pipefail
+          if grep -nE '<[[:space:]]*PackageReference' src/Sim/Sim.csproj; then
+            echo "src/Sim dostał zależność NuGet — to wymaga decyzji, nie commita" >&2
+            exit 1
+          fi
+          echo "src/Sim: zero PackageReference"
+
+      - name: Reference parity is still reproducible from Python
+        shell: bash
+        # Snapshot liczb referencyjnych żyje w tests/Sim.Tests/PythonReference.cs.
+        # Ten krok drukuje wyjście referencji obok, żeby rozjazd był widoczny w logu
+        # CI, zanim ktoś zacznie szukać błędu w C#.
+        run: python3 tools/physics/reference.py

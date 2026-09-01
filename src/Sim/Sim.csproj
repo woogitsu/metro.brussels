@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Rdzeń symulacji. CLAUDE.md reguła 9: nic tutaj nie importuje Godota.
+    Projekt jest zwykłą biblioteką net8.0 bez ani jednego PackageReference —
+    JSON czyta System.Text.Json z shared framework, nie z NuGeta.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>MetroBxl.Sim</RootNamespace>
+    <AssemblyName>MetroBxl.Sim</AssemblyName>
+    <LangVersion>12.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <Deterministic>true</Deterministic>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      Ground truth M7 wjeżdża do assembly jako zasób osadzony, a nie jako kopia
+      w src/. Dzięki temu istnieje jedna kopia pliku (data/vehicle/m7-spec.json),
+      a rdzeń działa w Godocie bez katalogu data/ na dysku.
+    -->
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)../../data/vehicle/m7-spec.json"
+                      LogicalName="MetroBxl.Sim.Data.m7-spec.json" />
+  </ItemGroup>
+
+</Project>
