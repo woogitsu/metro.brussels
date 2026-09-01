@@ -108,7 +108,55 @@ UrbIS `Metro` to poligony, nie oś toru, więc jedyną sensowną miarą jest pok
 odchyłka liniowa. 17,4 % poza poligonami nie oznacza błędu osi: warstwa regionalna ma
 własne uproszczenia i miejscami wąskie obrysy biegnące równolegle tuż obok osi.
 
-### OpenStreetMap (ODbL)
+### OpenStreetMap (ODbL) — uzupełnienie 2026-09-01, ekstrakcja po relacjach
+
+Pierwsza kontrola (niżej) używała ekstraktu po bboxie i mieszała wszystkie cztery linie
+metra w jednej statystyce. Powtórzona kontrola na **relacjach tras** `route=subway`
+operatora STIB/MIVB rozstrzyga rzecz, której z samych danych STIB rozstrzygnąć się nie dało.
+
+OSM mapuje pień **tor po torze**, co potwierdzają cztery niezależne przesłanki: zbiory
+way'ów obu kierunków są **rozłączne** (0 wspólnych z 20/27), węzły `stop_position` są różne
+dla każdego kierunku, 223 z 262 way'ów ma `railway:preferred_direction=forward`, a linie 1 i 5
+dzielą te same way'e w tym samym kierunku (18/20 i 27/27) — czyli fizycznie ten sam tor.
+
+Odsunięcie węzłów OSM od osi `L1_A.json`, liczone osobno dla każdego kierunku
+(transformacja `tools/track/crs.py`, wynik odtworzony niezależnie od raportu badawczego):
+
+| relacja | kierunek | węzłów | mediana | P95 | maks. |
+|---|---|---:|---:|---:|---:|
+| 58240 | wschodni | 214 | **0,97 m** | 4,21 m | 26,31 m |
+| 7006075 | zachodni | 229 | **3,88 m** | 8,47 m | 105,23 m |
+
+**Wniosek: oś STIB `001m` var 1 leży na jednym fizycznym torze, a nie na osi międzytorza.**
+Tor przeciwny jest odsunięty o ~3,9 m, co odpowiada rozsunięciu wariantów STIB (~3,3 m).
+Sekcja „Wewnątrz STIB" zostawiała to jako nierozstrzygalne — z danych STIB samych w sobie
+istotnie się nie dało; drugie źródło daje odpowiedź. Pojedyncza odchyłka 105 m leży na
+kilometrażu 0,0, czyli na peronie Gare de l'Ouest, gdzie tory się rozchodzą; tylko 1 z 201
+węzłów przekracza 20 m.
+
+**Ograniczenie metody:** takiego rozdzielenia **nie da się** zrobić na ekstrakcie po bboxie.
+Ekstrakt bboxowy zawiera także linie 2/6, biegnące ~11 m obok, więc podział węzłów po znaku
+odsunięcia miesza cztery linie zamiast dwóch torów (sprawdzone: daje pozorny „rozstaw"
+11,14 m). `crosscheck_alignment.py` używa dziś zapytania bboxowego i dlatego raportuje jedną
+zbiorczą statystykę — poprawne rozdzielenie wymaga zapytania po relacjach tras.
+
+**Rozdzielczość OSM nie nadaje się do promieni łuków:** 7 z 194 segmentów pnia (3,6 %) ma
+ponad 100 m i niesie 18,8 % długości; way 445235629 ma 41 węzłów na 1394,6 m z maksymalnym
+odcinkiem 285 m. OSM służy tu do kontroli topologii, nie geometrii łuku.
+
+**Głębokość:** audyt 5797 elementów (8 relacji kierunkowych + 12 `stop_area`) daje
+`depth`, `ele`, `height`, `min_height`, `est_height` — **0 wystąpień**. `layer` na pniu nie
+jest nawet uporządkowany pionowo: w kolejności jazdy L1 to `-2, —, -1, -4, -4, -4, -4, -4,
+-1, -3, -3, -1, -1, -1, -4, -4, -4, -3, -2, -3`, czyli 10 zmian na 6,7 km — to kolejność
+przecięć w renderze, nie profil. `level` na peronach jest ordinałem kondygnacji, nie metrami.
+OSM **nie zdejmuje** blokady T-901.
+
+**Stacje:** 12 na pniu, zero rozbieżności; `ref:STIB_MIVB` na węzłach OSM zgadza się ze
+`stop_id` w `L1_A.json` dla wszystkich dwunastu. W skali sieci OSM daje 60 unikalnych nazw
+i 26 stacji na L6 — **niezależnie potwierdzając rozbieżność 60 vs 59 wykrytą w T-110** i
+wskazując tę samą przyczynę: Simonis i Elisabeth jako dwa osobne przystanki.
+
+### OpenStreetMap (ODbL) — pierwsza kontrola, ekstrakt po bboxie
 
 Overpass API jest **niedostępny z tego środowiska** — trzy próby, za każdym razem
 `Connection reset by peer` na `overpass-api.de`. Kontrola została wykonana na snapshocie
@@ -150,8 +198,9 @@ punktu odniesienia. T-112 pozostaje zablokowany.
 - **geometrii rozjazdów**, w tym węzła Beekkant — przecięcia wariantów są punktowe;
 - **promieni łuków jako parametru konstrukcyjnego** — patrz sekcja o próbkowaniu;
 - **profilu pionowego, spadków i głębokości** — brak źródła;
-- **rozstawu torów** — 3,3 m między wariantami nie jest udokumentowane jako wymiar
-  fizyczny;
+- **rozstawu torów jako wymiaru projektowego** — OSM potwierdza, że warianty odpowiadają
+  dwóm fizycznym torom odsuniętym o ~3,9 m, ale żadne z tych źródeł nie publikuje rozstawu
+  jako wymiaru konstrukcyjnego;
 - **długości i geometrii peronów** — `ACTU_STOPS` daje punkt, nie oś peronu.
 
 ## Atrybucja
