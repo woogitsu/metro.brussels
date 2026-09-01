@@ -80,3 +80,16 @@ jobs:
         # Ten krok drukuje wyjście referencji obok, żeby rozjazd był widoczny w logu
         # CI, zanim ktoś zacznie szukać błędu w C#.
         run: python3 tools/physics/reference.py
+
+      - name: Braking reference matches the core byte for byte
+        shell: bash
+        # T-311: tablice hamowania powstają dwa razy — raz w rdzeniu (src/Sim.Runner
+        # braking), raz w niezależnej referencji Pythona (tools/physics/braking.py).
+        # To nie jest wydruk do logu, tylko bramka: `diff` wywraca job, gdy obie drogi
+        # przestaną dawać tę samą liczbę.
+        run: |
+          set -euo pipefail
+          dotnet run --project src/Sim.Runner --configuration Release --no-build -- braking > /tmp/braking_core.txt
+          python3 tools/physics/braking.py > /tmp/braking_reference.txt
+          diff -u /tmp/braking_reference.txt /tmp/braking_core.txt
+          echo "tablice hamowania: rdzeń == referencja, co do bajtu"

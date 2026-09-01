@@ -163,6 +163,36 @@ powstaje, i wszystkie mają zmierzone konsekwencje.
 | zakres zamiatanej obwiedni | ±150 m wokół minimum | pełna trasa to 3,5 MB w jednym GLB — kształt pliku odrzucony już przez T-210 na rzecz chunków |
 | progi raportowania miejsc krytycznych | 1,000 / 0,950 / 0,900 / 0,500 / 0,300 / 0,000 m | wyłącznie do raportu; żaden nie jest wymogiem źródła |
 
+## 4b. Model hamowania (`src/Sim/Physics`, T-311)
+
+Hamowanie w T-310 i T-400 było **poleceniem**: zadane opóźnienie z ograniczeniem
+zrywu, niezależne od masy i przyczepności. T-311 dokłada do tego sufit
+przyczepnościowy, solver punktu hamowania i drogę hamowania liczoną z oporami ruchu.
+Wartości 1,10 / 1,30 m/s² i zryw 0,75 m/s³ pochodzą z `docs/02-simulation.md` i mają
+w rejestrze status `design_model` (§ wyżej). Poniżej są **wyłącznie liczby, których
+w rejestrze nie ma**, i pilnuje ich `BrakingTests` po stronie C# oraz
+`tools/tests/test_braking.py` po stronie Pythona.
+
+| stała | wartość | status | dlaczego taka |
+|---|---:|---|---|
+| `AllAxlesBrakedMassFraction` | 1,00 | **`design_assumption`** | górny kres udziału osi hamowanych. STIB/CAF nie publikuje układu hamulcowego M7, więc 1,0 jest granicą przedziału, w którym leży wartość prawdziwa, a nie pomiarem |
+| `PoweredAxlesBrakedMassFraction` | 0,6667 (4/6) | **`design_assumption`** | wariant dolny: hamują wyłącznie osie napędne. Liczba pochodzi z `parameters.powered_mass_fraction`, która w rejestrze sama jest `design_model` i jest opisana jako legacy parametr limitu adhezji **dla trakcji** — przeniesienie jej na hamowanie jest osobnym założeniem |
+| `BrakeForceInertiaFactor` | 1,08 | **`design_assumption`** | siła hamulca liczona jest od masy efektywnej (`m · λ`), tak samo jak `TrainController` zamienia opóźnienie na ruch. Rozdziału bezwładności wirującej na osie hamowane i niehamowane nie ma w danych, więc raport podaje **obie** skrajne interpretacje |
+
+**Czego tu celowo nie ma i dlaczego.** W rejestrze źródeł nie ma rozdziału hamulca
+elektrodynamicznego i pneumatycznego, nie ma charakterystyki zanikania ED przy niskiej
+prędkości, nie ma krzywych bezpieczeństwa STIB ani rzeczywistych czasów reakcji układu.
+Żadnej z tych rzeczy T-311 **nie modeluje**. Model, który dzieli siłę hamowania na dwa
+człony bez źródła na proporcję, wygląda dokładnie tak samo jak model prawdziwy —
+i to jest dokładnie ta sytuacja, o której mówi reguła 1 z `CLAUDE.md`.
+
+**Konsekwencja, którą warto znać** (`reports/T-311-braking.md` §2): przy μ = 0,13
+(mokra szyna, `design_model`) hamowanie awaryjne 1,30 m/s² wymaga udziału osi
+hamowanych **1,101**, czyli jest nieosiągalne przy każdym układzie hamulcowym.
+Wniosek nie zależy od decyzji o masach wirujących — bez współczynnika λ potrzebny
+udział to nadal 1,020. Hamowanie służbowe 1,10 m/s² na mokrej szynie wymaga **0,932**,
+czyli jest osiągalne dopiero, gdy hamuje ponad 93 % masy składu.
+
 ## 5. Co jest zablokowane i czym
 
 | potrzebne | blokuje | zadanie |
@@ -171,6 +201,7 @@ powstaje, i wszystkie mają zmierzone konsekwencje.
 | długość i wysokość peronów, wyjścia, komunikacja pionowa | brak ground truth | R-004 (#16) → T-211 (#18) |
 | przekrój tunelu, geometria toru, trzecia szyna, rozjazdy | brak ground truth | R-005 (#17) |
 | rozstaw czopów skrętu M7 | brak w publicznych materiałach | pełna skrajnia kinematyczna |
+| udział osi hamowanych, rozdział hamulca ED/P, krzywe bezpieczeństwa STIB | brak w publicznych materiałach; §4b modeluje wyłącznie sam udział osi i to jako parametr o dwóch wariantach skrajnych | T-311 zostawia otwarte, T-313 (#22) będzie tego potrzebować |
 
 Dopóki te pozycje są otwarte, **geometria produkcyjna nie może powstać** — obecny tunel
 jest jawnie oznaczonym wariantem `flat-preview`, a generator odrzuca `--variant production`.
