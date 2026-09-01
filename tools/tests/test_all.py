@@ -52,6 +52,30 @@ def test_shared_trunk_is_really_shared():
 def test_source_registry_has_primary_geometry_sources():
     src=json.load(open(os.path.join(ROOT,"data","network","sources.json"),encoding="utf-8")); ids={x["id"] for x in src["sources"]}; assert {"stib_shapefiles","stib_gtfs","brussels_mobility_metro","openstreetmap"}<=ids
 
+def test_r002_sources_have_required_audit_fields():
+    src=json.load(open(os.path.join(ROOT,"data","network","sources.json"),encoding="utf-8")); by_id={x["id"]:x for x in src["sources"]}
+    ids={"belgian_mobility_netex","belgian_mobility_inspire_rails","brussels_mobility_metro_access","urbis_topo_tunnel_line","paradigm_lidar_2021","urbis_dsm"}
+    required={"id","class","publisher","url","role","license","update_frequency","access","checked_at","limitations"}
+    for sid in ids:
+        assert sid in by_id,sid
+        row=by_id[sid]; missing=required-set(row); assert not missing,(sid,sorted(missing))
+        assert isinstance(row["role"],list) and row["role"],sid
+        assert isinstance(row["access"],dict) and row["access"],sid
+        assert row["license"]!="see dataset metadata",sid
+
+def test_r002_download_metadata_distinction_is_explicit():
+    src=json.load(open(os.path.join(ROOT,"data","network","sources.json"),encoding="utf-8")); by_id={x["id"]:x for x in src["sources"]}
+    metro=by_id["brussels_mobility_metro_access"]
+    assert metro["metadata_url"]==metro["url"]
+    assert metro["api_layer"]=="bm_public_transport:metro_access"
+    assert "download_url" in metro and "download_url_status" in metro
+    dsm=by_id["urbis_dsm"]
+    assert dsm["license"]=="unknown"
+    assert dsm["license_status"].startswith("requires_verification_before_data_reuse")
+    lidar=by_id["paradigm_lidar_2021"]
+    assert lidar["license"]=="CC BY 4.0"
+    assert lidar["download_portal_url"].startswith("https://")
+
 def test_cbtc_2026_not_marked_as_fully_operational():
     net=json.load(open(os.path.join(ROOT,"data","network","lines.json"),encoding="utf-8")); assert net["signalling"]["cbtc"]["status_2026_08"]["operational_full_lines_1_5"] is False
 
