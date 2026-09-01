@@ -177,7 +177,14 @@ def solve_camera(spec, bmin, bmax, res_x, res_y, named_anchors=None, points=None
         out["frame_h_m"] = round(ortho_scale * res_y / long_side, 6)
     else:
         fov_x, fov_y = fov(lens, res_x, res_y)
-        if "frame_width_m" in spec:
+        if spec.get("place_at_anchor"):
+            # Kamera stoi DOKŁADNIE w kotwicy: widok z wnętrza obiektu, nie na obiekt.
+            # Bez tego kamera z `aim` wpada w ogólne kadrowanie po bboxie sceny i zostaje
+            # odsunięta o kilometry — na prostym torze testowym cofnięcie wzdłuż stycznej
+            # nadal zostawiało ją w tunelu, więc błąd był niewidoczny; na rzeczywistej,
+            # zakrzywionej osi wyprowadza ją poza geometrię.
+            distance = 0.0
+        elif "frame_width_m" in spec:
             distance = (float(spec["frame_width_m"]) / 2.0) / math.tan(fov_x / 2.0)
         else:
             fit = max((half_r * margin) / math.tan(fov_x / 2.0), (half_u * margin) / math.tan(fov_y / 2.0))

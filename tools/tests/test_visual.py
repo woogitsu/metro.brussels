@@ -353,3 +353,28 @@ def test_visual_geometry_check_keeps_bbox_and_object_count_strict():
         assert result["status"] == "fail" and result["checks"]["mesh_objects"] is False
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_visual_inside_camera_sits_exactly_at_its_anchor():
+    """Kamera z wnętrza musi stać w kotwicy, a nie kadrować scenę z zewnątrz.
+
+    Regresja z T-210: na rzeczywistej, zakrzywionej osi kamera `inside` wpadała
+    w ogólne kadrowanie po bboxie i lądowała 13,9 km od oka, poza tunelem. Na
+    prostym torze testowym cofnięcie wzdłuż stycznej zostawiało ją w tunelu,
+    więc błąd był niewidoczny.
+    """
+    spec = next(c for c in MANIFEST["scene_sets"]["infrastructure"]["cameras"] if c["id"] == "inside")
+    assert spec.get("place_at_anchor") is True
+    anchors = {"inside_eye": [85.9, 322.5, 1.75], "inside_target": [96.8, 333.0, 1.75]}
+    solved = framing.solve_camera(spec, (0.0, -1072.0, -1.2), (5452.0, 906.0, 4.7), 960, 576, anchors)
+    assert solved["distance_m"] == 0.0
+    assert solved["location"] == anchors["inside_eye"]
+    assert solved["clip_start"] < 0.1
+
+
+def test_visual_bbox_framed_cameras_are_still_pushed_back():
+    """Poprawka nie może zepsuć kamer, które mają kadrować obiekt z zewnątrz."""
+    spec = next(c for c in MANIFEST["scene_sets"]["infrastructure"]["cameras"] if c["id"] == "iso")
+    solved = framing.solve_camera(spec, (0.0, -1072.0, -1.2), (5452.0, 906.0, 4.7), 960, 576)
+    assert solved["distance_m"] > 1000.0
+    assert framing.corner_visibility(solved, (0.0, -1072.0, -1.2), (5452.0, 906.0, 4.7)) == 1.0
