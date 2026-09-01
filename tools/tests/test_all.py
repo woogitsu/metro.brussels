@@ -169,8 +169,20 @@ def test_source_manifest_schema_has_core_required_fields():
     schema=json.load(open(os.path.join(ROOT,"data","schema","source-manifest.schema.json"),encoding="utf-8")); req=set(schema["required"])
     assert {"source_id","final_url","retrieved_at","content_sha256","size_bytes","format","parser_version","transformations","input_sources"}<=req
 
+def _discover():
+    """Testy z tego pliku plus wszystkie moduły tools/tests/test_*.py."""
+    import glob, importlib.util
+    tests=[(n,f) for n,f in sorted(globals().items()) if n.startswith("test_") and callable(f)]
+    here=os.path.dirname(os.path.abspath(__file__))
+    for path in sorted(glob.glob(os.path.join(here,"test_*.py"))):
+        if os.path.basename(path)=="test_all.py": continue
+        name=os.path.basename(path)[:-3]
+        spec=importlib.util.spec_from_file_location(name,path); mod=importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
+        tests+=[(n,f) for n,f in sorted(vars(mod).items()) if n.startswith("test_") and callable(f)]
+    return tests
+
 def main():
-    tests=[(n,f) for n,f in sorted(globals().items()) if n.startswith("test_") and callable(f)]; passed=0; failed=[]
+    tests=_discover(); passed=0; failed=[]
     for name,fn in tests:
         try: fn(); print(f"  ok   {name}"); passed+=1
         except Exception as e: print(f"  FAIL {name}: {e}"); failed.append(name)
