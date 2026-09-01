@@ -106,6 +106,35 @@ styczne niż pierścienie z osi zagęszczonej i potrafią ciąć pierścień uko
 Brakująca kotwica **pomija kamerę jawnie** (wpis `skipped` w metadanych i w logu) —
 nigdy po cichu.
 
+## Co w tym łańcuchu jest odtwarzalne, a co nie — zmierzone
+
+Generator jest deterministyczny. **Eksporter glTF nie jest**, i to nie tylko co do
+kolejności bajtów. Zmierzone na czterech niezależnych buildach tej samej skorupy M7,
+przy identycznym wejściu (2334 wierzchołki, 1862 ściany, wymiary zgodne co do sześciu
+miejsc po przecinku):
+
+| wielkość | rozrzut | nadaje się na kontrolę regresji |
+|---|---|---|
+| wyjście generatora (wierzchołki, ściany, bbox) | **0** | tak, dokładnie |
+| **ściany po re-imporcie GLB** | **0** (4732 za każdym razem) | **tak, dokładnie** |
+| wierzchołki po re-imporcie | 5314…5362, czyli **0,9 %** | tylko z tolerancją |
+| rozmiar pliku GLB | 149 660…155 904 B, czyli **4 %** | **nie** |
+| sha256 pliku GLB | inny za każdym razem | **nie** |
+
+Przyczyna: rozszczepienie wierzchołków na szwach UV i normalnych nie ma ustalonej
+kolejności. **Topologia jednak nie drga** — liczba ścian jest niezmiennikiem i to na niej
+opiera się kontrola `[TOPOLOGIA]` w `tools/ci/m7_shell_check.sh`: dwa eksporty tej samej
+bryły muszą dać tę samą liczbę ścian i identyczny bbox, przy wierzchołkach w tolerancji
+5 % (zmierzony rozrzut jest 5–10× mniejszy).
+
+Praktyczne konsekwencje, wszystkie już uwzględnione w kodzie:
+
+- tolerancja 10 % na liczniki w `compare.check_geometry` (PR #44) ma wobec zmierzonego
+  0,9 % **dziesięciokrotny zapas** — nie jest ani za luźna, ani zagrożona;
+- `sweep.deterministic_view` usuwa `sha256` i `bytes` z porównania manifestu, a zostawia
+  `geometry_sha256` liczony po stronie Pythona — i to jest właściwa granica;
+- porównywanie bajtów GLB między buildami **zawsze** da fałszywy alarm.
+
 ## Determinizm
 
 - stałe transformy kamer liczone wyłącznie z bboxa/kotwic, bez losowości;
