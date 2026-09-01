@@ -1,0 +1,70 @@
+{
+  "$comment": "Canonical M7 ground-truth registry for simulation inputs. Checked 2026-08-31. Missing primary-source values remain design_model or unknown.",
+  "schema_version": 1,
+  "vehicle_id": "M7",
+  "as_of": "2026-08-31",
+  "sources": {
+    "stib_m7_2020_07_13": {
+      "publisher": "STIB/MIVB",
+      "kind": "primary",
+      "published_at": "2020-07-13",
+      "url": "https://stib.prezly.com/le-nouveau-metro-m7-est-arrive-a-bruxelles"
+    },
+    "stib_m7_2021_05_26": {
+      "publisher": "STIB/MIVB",
+      "kind": "primary",
+      "published_at": "2021-05-26",
+      "url": "https://stib.prezly.com/les-voyageurs-pourront-bientot-monter-dans-le-nouveau-metro-m7"
+    }
+  },
+  "parameters": {
+    "cars": {"value": 6, "unit": "count", "status": "spec", "source_id": "stib_m7_2020_07_13"},
+    "length_m": {"value": 94.0, "unit": "m", "status": "spec", "source_id": "stib_m7_2020_07_13"},
+    "width_m": {"value": 2.7, "unit": "m", "status": "spec", "source_id": "stib_m7_2020_07_13"},
+    "floor_height_m": {"value": 1.03, "unit": "m", "status": "spec", "source_id": "stib_m7_2020_07_13"},
+    "double_doors_per_side": {"value": 18, "unit": "count", "status": "spec", "source_id": "stib_m7_2020_07_13"},
+    "single_cab_doors_total": {"value": 2, "unit": "count", "status": "spec", "source_id": "stib_m7_2020_07_13"},
+    "double_door_opening_width_m": {"value": 1.6, "unit": "m", "status": "spec", "source_id": "stib_m7_2020_07_13"},
+    "capacity_manual": {"value": 742, "unit": "passengers", "status": "spec", "source_id": "stib_m7_2020_07_13", "notes": "Capacity is not an official AW2 mass definition."},
+    "capacity_automatic": {"value": 758, "unit": "passengers", "status": "spec", "source_id": "stib_m7_2020_07_13"},
+    "empty_mass_kg": {"value": 170000.0, "unit": "kg", "status": "spec", "approximate": true, "source_id": "stib_m7_2020_07_13", "notes": "STIB states approximately 170 tonnes; retain approximation explicitly."},
+    "traction_motor_count": {"value": 16, "unit": "count", "status": "spec", "source_id": "stib_m7_2020_07_13"},
+    "traction_motor_power_kw": {"value": 135.0, "unit": "kW", "status": "spec", "source_id": "stib_m7_2020_07_13"},
+    "traction_installed_power_kw": {"value": 2160.0, "unit": "kW", "status": "spec", "source_id": "stib_m7_2020_07_13", "derived_from": ["traction_motor_count", "traction_motor_power_kw"], "formula": "16 * 135 kW"},
+    "traction_technology": {"value": "three_phase_asynchronous", "unit": null, "status": "spec", "source_id": "stib_m7_2020_07_13"},
+    "regenerative_braking": {"value": true, "unit": null, "status": "spec", "source_id": "stib_m7_2020_07_13"},
+    "max_speed_kmh": {"value": 80.0, "unit": "km/h", "status": "design_model", "source_id": null, "notes": "Legacy simulator value. No primary STIB/CAF source confirmed in R-904."},
+    "powered_mass_fraction": {"value": 0.6666666666666666, "unit": "ratio", "status": "design_model", "source_id": null, "notes": "Legacy 4/6 assumption used only by the adhesion cap; not source-backed as drivetrain layout."}
+  },
+  "reference_model": {
+    "passenger_mass_kg": {"value": 70.0, "unit": "kg/passenger", "status": "design_model"},
+    "aw2_model_passengers": {"value": 742, "unit": "passengers", "status": "design_model", "notes": "Uses source-backed manual capacity as a modelling occupancy count; resulting mass is not an official AW2 value."},
+    "aw2_model_mass_kg": {"value": 221940.0, "unit": "kg", "status": "design_model", "derived_from": ["parameters.empty_mass_kg", "reference_model.aw2_model_passengers", "reference_model.passenger_mass_kg"], "formula": "170000 + 742 * 70"},
+    "startup_force_n": {"value": 248900.0, "unit": "N", "status": "design_model"},
+    "force_power_transition_speed_kmh": {"value": 31.241462434712737, "unit": "km/h", "status": "design_model", "derived_from": ["parameters.traction_installed_power_kw", "reference_model.startup_force_n"], "formula": "(2160 kW / 248.9 kN) * 3.6", "notes": "Derived transition used by the reference force->constant-power model; not a source-backed M7 base speed."},
+    "service_brake_mps2": {"value": 1.1, "unit": "m/s^2", "status": "design_model"},
+    "emergency_brake_mps2": {"value": 1.3, "unit": "m/s^2", "status": "design_model"},
+    "jerk_mps3": {"value": 0.75, "unit": "m/s^3", "status": "design_model"},
+    "effective_mass_factor": {"value": 1.08, "unit": "ratio", "status": "design_model"},
+    "adhesion_dry": {"value": 0.25, "unit": "ratio", "status": "design_model"},
+    "adhesion_wet": {"value": 0.13, "unit": "ratio", "status": "design_model"},
+    "davis_a": {"value": 1.5, "unit": "kgf/t", "status": "design_model"},
+    "davis_b": {"value": 0.006, "unit": "kgf/t/(km/h)", "status": "design_model"},
+    "davis_c": {"value": 0.00035, "unit": "kgf/t/(km/h)^2", "status": "design_model"},
+    "tunnel_resistance_multiplier": {"value": 1.4, "unit": "ratio", "status": "design_model"},
+    "surface_resistance_multiplier": {"value": 1.0, "unit": "ratio", "status": "design_model"}
+  },
+  "unknown_parameters": [
+    "primary-source vehicle design maximum speed",
+    "powered axle/car layout",
+    "source-backed force-speed characteristic and startup force",
+    "source-backed maximum acceleration",
+    "service and emergency braking rates",
+    "jerk limits",
+    "official AW2 definition and mass",
+    "adhesion coefficients",
+    "Davis and tunnel-resistance coefficients",
+    "mass distribution and axle loads",
+    "bogie geometry and pivot distances"
+  ]
+}

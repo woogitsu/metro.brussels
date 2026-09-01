@@ -9,6 +9,9 @@ import profiles, validate as V, reference as R, make_test_track as M, provenance
 def _tmp(d):
     f=tempfile.NamedTemporaryFile("w",suffix=".json",delete=False,encoding="utf-8"); json.dump(d,f,ensure_ascii=False); f.close(); return f.name
 
+def _m7_spec():
+    return json.load(open(os.path.join(ROOT,"data","vehicle","m7-spec.json"),encoding="utf-8"))
+
 def test_profile_dimensions_sane():
     for n in profiles.PROFILES:
         w,h=profiles.dimensions(n); assert 4<w<25 and 3.5<h<12
@@ -40,7 +43,39 @@ def test_emergency_brake_shorter_than_service():
 def test_wet_rail_hurts_acceleration():
     td,_=R.sim_accel(R.MASS["AW0"],80,mu=.25); tw,_=R.sim_accel(R.MASS["AW0"],80,mu=.13); assert tw>td
 
-def test_traction_power_plausible(): assert 1500<R.power_kW()<3500
+def test_traction_power_plausible(): assert R.power_kW()==2160.0
+
+def test_m7_reference_uses_source_backed_aw0(): assert R.MASS["AW0"]==170000.0
+
+def test_m7_transition_speed_is_derived_from_power_and_force():
+    assert math.isclose(R.base_speed_ms(),R.V["installed_power_W"]/R.V["F0_N"],rel_tol=0,abs_tol=1e-12)
+    assert 31.2 < R.base_speed_ms()*3.6 < 31.3
+
+def test_m7_spec_registry_provenance():
+    d=_m7_spec(); sources=d["sources"]
+    assert d["vehicle_id"]=="M7"
+    assert d["parameters"]["empty_mass_kg"]["value"]==170000.0
+    assert d["parameters"]["empty_mass_kg"].get("approximate") is True
+    assert d["parameters"]["traction_installed_power_kw"]["value"]==2160.0
+    for name,rec in d["parameters"].items():
+        if rec.get("status")=="spec":
+            sid=rec.get("source_id"); assert sid in sources,(name,sid)
+            assert sources[sid].get("url","").startswith("https://"),(name,sid)
+
+def test_m7_registry_matches_reference_transition():
+    d=_m7_spec(); rec=d["reference_model"]["force_power_transition_speed_kmh"]
+    assert rec["status"]=="design_model"
+    assert math.isclose(rec["value"],R.base_speed_ms()*3.6,rel_tol=0,abs_tol=1e-12)
+    assert "base_speed_kmh" not in d["reference_model"]
+    assert set(rec["derived_from"])=={"parameters.traction_installed_power_kw","reference_model.startup_force_n"}
+
+def test_unverified_m7_values_are_not_spec():
+    d=_m7_spec()
+    assert d["parameters"]["max_speed_kmh"]["status"]=="design_model"
+    assert d["parameters"]["powered_mass_fraction"]["status"]=="design_model"
+    assert d["reference_model"]["aw2_model_mass_kg"]["status"]=="design_model"
+    assert d["reference_model"]["startup_force_n"]["status"]=="design_model"
+    assert d["reference_model"]["force_power_transition_speed_kmh"]["status"]=="design_model"
 
 def test_network_json_consistent():
     net=json.load(open(os.path.join(ROOT,"data","network","lines.json"),encoding="utf-8")); assert len(net["lines"])==4
