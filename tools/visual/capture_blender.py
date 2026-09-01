@@ -194,6 +194,10 @@ def main():
         print(f"[TEST-SHIFT] geometria przesunięta o {tuple(offset)} po ustaleniu kamer — test pipeline'u")
 
     wire_ids = {c.strip() for c in args.wire_cameras.split(",") if c.strip()}
+    # Manifest też może zażądać siatki. To wiedza o kamerze, nie o wywołaniu: bez siatki
+    # scena złożona z pojazdu i tunelu jest jednolicie szara i nie da się odróżnić, gdzie
+    # kończy się pudło, a zaczyna ściana. Flaga CLI tylko dodaje kamery do tego zbioru.
+    wire_ids |= {c["id"] for c in scene_set["cameras"] if c.get("wire")}
     if wire_ids & {c["id"] for c in solved}:
         rc.add_inside_wire_overlay()
         wire_objects = [o for o in rc.mesh_objects() if o.name.endswith("_verification_wire")]

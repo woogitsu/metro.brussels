@@ -1,7 +1,7 @@
 {
   "$comment": "Canonical manifest kamer i ustawień renderu kontrolnego (T-012). Zmiana czegokolwiek tutaj unieważnia baseline — bump manifest_version.",
   "schema_version": 1,
-  "manifest_version": "2026-09-01.3",
+  "manifest_version": "2026-09-01.4",
   "render": {
     "engine": "BLENDER_EEVEE_NEXT",
     "engine_fallback": "BLENDER_EEVEE",
@@ -208,6 +208,52 @@
           "aim": {"mode": "named", "name": "axis75_target"},
           "place_at_anchor": true,
           "purpose": "wnętrze na 75% chainage"
+        }
+      ]
+    },
+    "clearance": {
+      "description": "Zestaw dla sceny złożonej: pojazd osadzony w tunelu. Przekrój ma celowo bardzo małą głębię, bo pytanie brzmi ile zostało do ściany, a nie jak wygląda tunel — przy 30 m głębi obrys pojazdu rozmazuje się po łuku i luzu nie da się z obrazu odczytać.",
+      "resolution": [960, 576],
+      "thresholds": {
+        "mean_abs_diff": 0.004,
+        "p95_abs_diff": 0.06,
+        "ssim_min": 0.98,
+        "min_ink_fraction": 0.0002,
+        "min_luma_std": 0.004,
+        "min_distinct_levels": 16
+      },
+      "cameras": [
+        {
+          "id": "gap",
+          "wire": true,
+          "projection": "ORTHO",
+          "anchor": {"mode": "named", "name": "gap_eye"},
+          "aim": {"mode": "named", "name": "gap_target"},
+          "frame_width_m": 12.0,
+          "clip_at_anchor": true,
+          "depth_m": 3.0,
+          "purpose": "przekrój przez pojazd i tunel w najgorszym punkcie — luz do ściany czytelny z obrazu"
+        },
+        {
+          "id": "approach",
+          "projection": "PERSP",
+          "lens": 35.0,
+          "anchor": {"mode": "named", "name": "approach_eye"},
+          "aim": {"mode": "named", "name": "approach_target"},
+          "place_at_anchor": true,
+          "purpose": "widok z toru na nadjeżdżający skład — proporcje pojazdu wobec otworu tunelu"
+        },
+        {
+          "id": "flank",
+          "wire": true,
+          "projection": "ORTHO",
+          "anchor": {"mode": "named", "name": "gap_eye"},
+          "aim": {"mode": "named", "name": "gap_target"},
+          "yaw_deg": -90.0,
+          "frame_width_m": 30.0,
+          "clip_at_anchor": true,
+          "depth_m": 8.0,
+          "purpose": "elewacja odcinka składu w tunelu, kadr 30 m. Cały skład w jednym kadrze to pas grubości 31 px — 94 m długości wobec 3,6 m wysokości nie mieści się w czytelnej skali. Bez cięcia widać wyłącznie ścianę: tunel jest zamkniętą rurą i zasłania własne wnętrze. Płaszczyzna bliska tnie w osi, więc bliższa połowa otworu znika, a skład stojący na torze +2,10 m zostaje w kadrze"
         }
       ]
     }
