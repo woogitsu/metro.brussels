@@ -121,6 +121,49 @@ def wgs84_to_lambert72(lon, lat, h=0.0):
     return bd72_to_lambert72(blon, blat)
 
 
+# Środek brukselskiej sieci metra; punkt startowy iteracji, nie parametr odwzorowania.
+LAMBERT_INVERSE_SEED = (4.35, 50.85)
+
+
+def lambert72_to_wgs84(x, y, tolerance_m=1e-6, iterations=60):
+    """Odwrotność `wgs84_to_lambert72`, policzona numerycznie (Newton 2x2).
+
+    Analityczna inwersja wymagałaby odwrócenia zarówno odwzorowania LCC, jak i
+    Helmerta BD72->WGS84 z tymi samymi parametrami; zamiast dublować tę algebrę
+    (i ryzykować, że obie gałęzie się rozjadą) odwracamy istniejącą funkcję w
+    przód. Residuum jest **mierzone**: `residual_m()` mówi, o ile powrót do
+    Lamberta rozmija się z punktem wejściowym, a test sprawdza podmilimetrową
+    zgodność na całej brukselskiej sieci.
+
+    Potrzebne tam, gdzie z osi w Lambercie 72 trzeba zbudować zapytanie do
+    źródła w WGS84 (OSM, UrbIS) — czyli w kontroli krzyżowej pakietów.
+    """
+    lon, lat = LAMBERT_INVERSE_SEED
+    for _ in range(iterations):
+        fx, fy = wgs84_to_lambert72(lon, lat)
+        dx, dy = fx - x, fy - y
+        if abs(dx) < tolerance_m and abs(dy) < tolerance_m:
+            break
+        h = 1e-7
+        x_lon, y_lon = wgs84_to_lambert72(lon + h, lat)
+        x_lat, y_lat = wgs84_to_lambert72(lon, lat + h)
+        j11, j21 = (x_lon - fx) / h, (y_lon - fy) / h
+        j12, j22 = (x_lat - fx) / h, (y_lat - fy) / h
+        determinant = j11 * j22 - j12 * j21
+        if abs(determinant) < 1e-12:
+            raise ValueError(f"inwersja Lamberta rozbieżna w punkcie {x}, {y}")
+        lon -= (dx * j22 - dy * j12) / determinant
+        lat -= (dy * j11 - dx * j21) / determinant
+    return lon, lat
+
+
+def lambert_inverse_residual_m(x, y):
+    """O ile metrów powrót przez `wgs84_to_lambert72` rozmija się z punktem wejścia."""
+    lon, lat = lambert72_to_wgs84(x, y)
+    bx, by = wgs84_to_lambert72(lon, lat)
+    return math.dist((bx, by), (x, y))
+
+
 # --- EPSG:3035 (ETRS89-extended / LAEA Europe) --------------------------------
 #
 # INSPIRE publikuje sieć szynową STIB w EPSG:3035, więc bez tej pary funkcji plik
