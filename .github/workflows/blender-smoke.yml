@@ -1,0 +1,57 @@
+name: Blender smoke
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/blender-smoke.yml'
+      - 'tools/ci/blender_smoke.sh'
+      - 'tools/blender/**'
+      - 'tools/track/**'
+      - 'tools/tests/**'
+      - 'doctor.sh'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  blender-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install Blender
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            blender \
+            python3-numpy \
+            libegl1 \
+            libgl1-mesa-dri
+          blender --version | head -n 4
+          blender --background --python-expr 'import numpy; print("numpy", numpy.__version__)'
+          ldconfig -p | grep -E 'libEGL\.so\.1|libGL\.so\.1' || true
+
+      - name: Run Blender smoke and negative tests
+        shell: bash
+        run: bash tools/ci/blender_smoke.sh
+
+      - name: Upload T-010 verification artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: t-010-blender-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            build/t010/report.txt
+            build/t010/*.log
+            build/TEST.glb
+            renders/TEST_iso.png
+            renders/TEST_side.png
+            renders/TEST_inside.png
