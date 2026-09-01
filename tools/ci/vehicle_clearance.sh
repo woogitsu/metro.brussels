@@ -270,7 +270,11 @@ python3 - "$OUT/profile_t0.json" "$OUT/profile_t1.json" "$OUT/m7_t0.json" "$OUT/
 import json, sys
 
 TOOL_AGREEMENT_MM = 0.5
-FORMULA_TOLERANCE_MM = 10.0
+# Ten sam próg i ta sama zasada co w bloku [KONTROLA] wyżej: wzór na strzałkę liczy
+# się z promienia w środku składu, a bryła z minimum leży poza środkiem, więc wzór
+# jest z natury zachowawczy. `clearance_profile.py` liczy już znak tej różnicy jako
+# `formula_optimistic` — guard poniżej po prostu przestaje go ignorować.
+FORMULA_MAX_SLACK_MM = 50.0
 problems = []
 for track in (0, 1):
     profile = json.load(open(sys.argv[1 + track], encoding="utf-8"))
@@ -309,12 +313,17 @@ for track in (0, 1):
         problems.append(f"tor {track}: profil i place_vehicle rozjeżdżają się o {delta:.3f} mm")
 
     at_reference = profile["crosscheck"]["at_reference"]
-    if at_reference["bound_by"] == "ściana" and at_reference["delta_mm"] > FORMULA_TOLERANCE_MM:
-        problems.append(f"tor {track}: wzór i siatka w pozycji odniesienia rozjeżdżają się o "
-                        f"{at_reference['delta_mm']} mm")
+    if at_reference["bound_by"] == "ściana":
+        if at_reference["formula_optimistic"]:
+            problems.append(f"tor {track}: wzór w pozycji odniesienia OBIECUJE "
+                            f"{at_reference['delta_mm']} mm więcej luzu, niż mierzy siatka")
+        elif at_reference["delta_mm"] > FORMULA_MAX_SLACK_MM:
+            problems.append(f"tor {track}: wzór w pozycji odniesienia jest zachowawczy o "
+                            f"{at_reference['delta_mm']} mm, ponad próg {FORMULA_MAX_SLACK_MM:.0f} mm")
     print(f"[KONTROLA] tor {track}: wzór na strzałkę w pozycji odniesienia — przewidziany "
           f"{at_reference['predicted_clearance_m']:.4f} m wobec "
-          f"{at_reference['measured_clearance_m']:.4f} m, rozjazd {at_reference['delta_mm']} mm")
+          f"{at_reference['measured_clearance_m']:.4f} m, rozjazd {at_reference['delta_mm']} mm "
+          f"({'OPTYMISTYCZNY' if at_reference['formula_optimistic'] else 'zachowawczy'})")
     for variant in profile["crosscheck"]["at_minimum"]["variants"]:
         print(f"[KONTROLA] tor {track}: w minimum, {variant['variant']} (R {variant['radius_m']} m) "
               f"-> {variant['predicted_clearance_m']:.4f} m, rozjazd {variant['delta_mm']} mm "
