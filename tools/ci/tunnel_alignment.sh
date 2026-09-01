@@ -144,7 +144,10 @@ for image in report["images"]:
           f"poziomy={metrics['distinct_levels']} -> {'OK' if ok else 'ODRZUCONY'}")
     if not ok:
         bad.append(image["camera"])
-expected = {"plan", "section", "axis05", "axis25", "axis50", "axis75"}
+# Lista kamer bierze się z manifestu, nie z literału: dopisanie kamery do zestawu
+# ma automatycznie rozszerzać kontrolę, a nie po cichu zostawiać ją niesprawdzoną.
+manifest = json.load(open("tools/visual/cameras.json", encoding="utf-8"))
+expected = {c["id"] for c in manifest["scene_sets"]["alignment"]["cameras"]}
 missing = expected - {i["camera"] for i in report["images"]}
 if missing:
     raise SystemExit(f"BŁĄD: brak renderów: {sorted(missing)}")

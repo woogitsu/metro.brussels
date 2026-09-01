@@ -1,7 +1,7 @@
 {
   "$comment": "Canonical manifest kamer i ustawień renderu kontrolnego (T-012). Zmiana czegokolwiek tutaj unieważnia baseline — bump manifest_version.",
   "schema_version": 1,
-  "manifest_version": "2026-09-01.2",
+  "manifest_version": "2026-09-01.3",
   "render": {
     "engine": "BLENDER_EEVEE_NEXT",
     "engine_fallback": "BLENDER_EEVEE",
@@ -127,7 +127,8 @@
           "fit": "slab",
           "slab_thickness_m": 12.0,
           "clip_at_anchor": true,
-          "purpose": "przekrój prostopadły do osi trasy w połowie długości; płaszczyzna bliska tnie geometrię"
+          "depth_m": 30.0,
+          "purpose": "przekrój prostopadły do osi trasy w połowie długości; płaszczyzna bliska tnie geometrię, daleka jest 30 m dalej, żeby ortho nie scałkowało całej trasy w jedną klatkę"
         }
       ]
     },
@@ -162,6 +163,15 @@
           "clip_at_anchor": true,
           "depth_m": 30.0,
           "purpose": "przekrój poprzeczny w połowie długości; głębia ograniczona do 30 m, żeby ortho nie scałkowało kilku kilometrów łuku w jedną klatkę"
+        },
+        {
+          "id": "side",
+          "projection": "ORTHO",
+          "anchor": {"mode": "named", "name": "section_eye"},
+          "aim": {"mode": "named", "name": "section_target"},
+          "yaw_deg": 90.0,
+          "frame_width_m": 80.0,
+          "purpose": "elewacja boczna 80-metrowego odcinka w połowie długości — wykrywa pomylone jednostki, skoki skali i zły profil pionowy; kierunek liczony z kotwic osi i obrócony o 90 stopni, bo „prostopadle do toru\" zmienia się z chainage"
         },
         {
           "id": "axis05",
