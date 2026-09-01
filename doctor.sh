@@ -72,7 +72,21 @@ fi
 echo ""
 echo "--------------------------------------------------"
 if [ "$required_bad" -eq 0 ]; then
-  echo "  Baza projektu jest gotowa. Następne zadanie: T-010."
+  # Następne zadanie czytamy z rozpiski, a nie wpisujemy na sztywno. Wpisane na sztywno
+  # przestaje być prawdą pierwszego dnia po zrobieniu tego zadania i wysyła kolejną sesję
+  # do roboty, która już leży w main.
+  next_task=""
+  if [ -f docs/TASKS.md ]; then
+    next_task=$(grep -E '^### \[ \]' docs/TASKS.md \
+      | grep -v 'ZABLOKOWANE' | grep -v 'CZŁOWIEK' \
+      | head -1 | sed -E 's/^### \[ \] //')
+  fi
+  if [ -n "$next_task" ]; then
+    echo "  Baza projektu jest gotowa. Następne zadanie: $next_task"
+  else
+    echo "  Baza projektu jest gotowa. W rozpisce nie ma odblokowanego zadania —"
+    echo "  patrz tabela Co blokuje co na końcu docs/TASKS.md."
+  fi
   if [ "$optional_bad" -gt 0 ]; then echo "  $optional_bad narzędzi opcjonalnych brakuje; instaluj je dopiero przed zadaniem, które ich wymaga."; fi
 else
   echo "  $required_bad wymaganych pozycji do naprawienia przed pracą."
