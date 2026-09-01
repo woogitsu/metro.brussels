@@ -28,7 +28,12 @@ chk_optional "blender w PATH" "blender --version" "wymagany od T-010/T-2xx"
 if command -v blender >/dev/null 2>&1; then
   chk_optional "blender headless" "blender --background --python-expr 'pass'" "napraw tryb headless przed T-010"
 fi
-chk_optional "godot w PATH" "godot --version" "wymagany od T-400"
+# Godot bywa instalowany poza PATH (dystrybucje nie pakują wersji mono, a workflow
+# `godot-first-run.yml` rozpakowuje ją do własnego katalogu). `GODOT_BIN` jest tą samą
+# zmienną, której używa workflow, więc doctor pyta o to samo co CI, a nie o coś innego.
+GODOT_CMD="${GODOT_BIN:-godot}"
+chk_optional "godot ($GODOT_CMD)" "\"$GODOT_CMD\" --version" \
+  "wymagany od T-400; ustaw GODOT_BIN, jeśli silnik jest poza PATH"
 
 echo ""
 echo "Struktura projektu:"

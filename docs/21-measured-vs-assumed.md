@@ -145,7 +145,7 @@ powstaje, i wszystkie mają zmierzone konsekwencje.
 
 | stała | wartość | konsekwencja |
 |---|---|---|
-| `DEFAULT_RING_STEP_M` | 5,0 m | zagęszczenie osi krzywą Catmull-Rom. Odchyłka od surowej łamanej STIB **0,1064 m**; minimalny promień spada z 97,3 m na 91,5 m. Tryb wierny `--ring-step 0` daje odchyłkę 0,0000 m |
+| `DEFAULT_RING_STEP_M` | 5,0 m | zagęszczenie osi krzywą Catmull-Rom. **Dwie różne odchyłki, obie zmierzone na pakiecie A:** od surowej łamanej STIB (345 punktów, odstęp 19,44 m) **0,1064 m**, od skomitowanej łamanej 15 m **0,2499 m** — tę drugą raportuje generator jako `smoothing_max_deviation_m`. Minimalny promień spada z 97,3 m na 91,5 m. Tryb wierny `--ring-step 0` daje odchyłkę 0,0000 m |
 | `DEFAULT_STATION_HALO_M` | 90,0 m | promień wokół stacji, w którym nie wolno postawić szwu chunka. Przyjęte ≈ długość składu M7 (94,0 m), bo **długość peronów STIB nie jest publiczna** |
 | `DEFAULT_MAX_CHUNK_M` | 800,0 m | granulacja streamowania. Ograniczenie **miękkie**: przy stacjach bliżej niż 2 × halo chunk zostaje dłuższy |
 | `DEFAULT_MIN_CHUNK_M` | 120,0 m | minimalna długość chunka |

@@ -13,6 +13,8 @@ on:
       - 'reports/L1_A-chunks.md'
       - 'reports/L1_A-lod.md'
       - 'reports/M7-in-tunnel.md'
+      - 'reports/M7-clearance-profile.md'
+      - 'reports/clearance-BE.md'
       - 'reports/packages-BE-tunnels.md'
       - 'reports/surface-vs-tunnel.md'
       - 'data/vehicle/**'
@@ -59,9 +61,8 @@ jobs:
         run: bash tools/ci/tunnel_alignment.sh ${{ matrix.axis }}
 
       - name: Measure M7 clearance inside the generated tunnel
-        if: matrix.axis == 'L1_A'
         shell: bash
-        run: bash tools/ci/vehicle_clearance.sh
+        run: bash tools/ci/vehicle_clearance.sh ${{ matrix.axis }}
 
       - name: Upload T-210 verification artifacts
         if: always()
@@ -76,8 +77,8 @@ jobs:
             build/t210/${{ matrix.axis }}/*.md
             build/t210/${{ matrix.axis }}/*.log
             build/t210/${{ matrix.axis }}/renders/**
-            build/t220clearance/report.txt
-            build/t220clearance/*.json
-            build/t220clearance/*.md
-            build/t220clearance/*.log
-            build/t220clearance/renders/**
+            build/t220clearance/${{ matrix.axis }}/report.txt
+            build/t220clearance/${{ matrix.axis }}/*.json
+            build/t220clearance/${{ matrix.axis }}/*.md
+            build/t220clearance/${{ matrix.axis }}/*.log
+            build/t220clearance/${{ matrix.axis }}/renders/**
