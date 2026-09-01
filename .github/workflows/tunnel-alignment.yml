@@ -13,6 +13,8 @@ on:
       - 'reports/L1_A-chunks.md'
       - 'reports/L1_A-lod.md'
       - 'reports/M7-in-tunnel.md'
+      - 'reports/packages-BE-tunnels.md'
+      - 'reports/surface-vs-tunnel.md'
       - 'data/vehicle/**'
   workflow_dispatch:
 
@@ -23,6 +25,18 @@ jobs:
   tunnel-alignment:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+
+    strategy:
+      # Porażka jednego pakietu nie ma anulować pozostałych: chcemy wiedzieć, czy
+      # to jeden pakiet, czy cała generacja.
+      fail-fast: false
+      matrix:
+        # Tylko pakiety, w których ŻADNE z dwóch niezależnych źródeł nie stawia
+        # zamkniętej rury na odcinku poza tunelem (reports/surface-vs-tunnel.md §3):
+        # A 1,8 %, B 0,0 %, E 2,7 % punktów poza tunelem i zero punktów, w których
+        # UrbIS zawyżałby tunel. C ma 8,6 %, D 69,8 %, F 22,7 % — tam model zamkniętej
+        # rury byłby świadomie nieprawdziwy na setkach metrów.
+        axis: [L1_A, L1_B, L2_E]
 
     steps:
       - name: Checkout
@@ -40,11 +54,12 @@ jobs:
             libgl1-mesa-dri
           blender --version | head -n 3
 
-      - name: Generate and verify the package A tunnel
+      - name: Generate and verify the ${{ matrix.axis }} tunnel
         shell: bash
-        run: bash tools/ci/tunnel_alignment.sh
+        run: bash tools/ci/tunnel_alignment.sh ${{ matrix.axis }}
 
       - name: Measure M7 clearance inside the generated tunnel
+        if: matrix.axis == 'L1_A'
         shell: bash
         run: bash tools/ci/vehicle_clearance.sh
 
@@ -52,15 +67,15 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: t-210-tunnel-${{ github.run_id }}-${{ github.run_attempt }}
+          name: t-210-tunnel-${{ matrix.axis }}-${{ github.run_id }}-${{ github.run_attempt }}
           if-no-files-found: warn
           retention-days: 14
           path: |
-            build/t210/report.txt
-            build/t210/*.json
-            build/t210/*.md
-            build/t210/*.log
-            build/t210/renders/**
+            build/t210/${{ matrix.axis }}/report.txt
+            build/t210/${{ matrix.axis }}/*.json
+            build/t210/${{ matrix.axis }}/*.md
+            build/t210/${{ matrix.axis }}/*.log
+            build/t210/${{ matrix.axis }}/renders/**
             build/t220clearance/report.txt
             build/t220clearance/*.json
             build/t220clearance/*.md

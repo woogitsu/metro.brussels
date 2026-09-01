@@ -1,14 +1,22 @@
 #!/usr/bin/env bash
-# T-210: tunel pakietu A z rzeczywistej osi — generacja, kontrola geometrii,
+# T-210: tunel pakietu z rzeczywistej osi — generacja, kontrola geometrii,
 # poziomów szczegółowości i geometrii kolizyjnej, round-trip GLB i render kontrolny
 # na GitHub-hosted Linux (ubuntu-latest).
-# Wszystkie artefakty lądują w build/t210 i są wgrywane także przy porażce.
+#
+#     bash tools/ci/tunnel_alignment.sh [ID_OSI]
+#
+# ID_OSI to nazwa pliku z `data/track/` bez rozszerzenia (domyślnie L1_A). Pakiet A
+# nie jest tu w niczym wyróżniony — parametr istnieje po to, żeby ta sama poprzeczka
+# dała się postawić każdemu pakietowi, zamiast kopiowania skryptu na sześć wariantów.
+# Wszystkie artefakty lądują w build/t210/<ID_OSI> i są wgrywane także przy porażce.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
-OUT="build/t210"
+NAME="${1:-L1_A}"
+AXIS="data/track/$NAME.json"
+OUT="build/t210/$NAME"
 RENDERS="$OUT/renders"
 mkdir -p "$OUT" "$RENDERS"
 REPORT="$OUT/report.txt"
@@ -16,7 +24,6 @@ REPORT="$OUT/report.txt"
 exec > >(tee -a "$REPORT") 2>&1
 SECONDS=0
 
-AXIS="data/track/L1_A.json"
 BLENDER=(blender --background --python-exit-code 7 --python)
 
 fail() {
@@ -24,7 +31,24 @@ fail() {
   exit 1
 }
 
-echo "T-210 tunel pakietu A — pipeline geometryczny"
+# Kadr zastępczy jest cichy: kamera przekroju z pustym płatem spada na bbox całego
+# chunka i renderuje poprawną geometrię jako plamkę. Wykrycie tego przez „obraz jest
+# jednorodny" jest zgadywanką — metadane mówią to wprost, więc pytamy metadanych.
+check_framing() {
+  python3 - "$1" <<'FRAMEPY'
+import json, sys
+meta = json.load(open(sys.argv[1], encoding="utf-8"))
+bad = [c["id"] for c in meta["cameras"] if c.get("fit_fallback")]
+for camera in meta["cameras"]:
+    if camera.get("fit") == "slab":
+        print(f"[KADR] {camera['id']}: plat {camera.get('slab_thickness_used_m')} m, "
+              f"ortho {camera.get('ortho_scale')} m, zastepczy={camera.get('fit_fallback')}")
+if bad:
+    raise SystemExit(f"BŁĄD: kadr zastępczy (fit_fallback) w kamerach: {bad}")
+FRAMEPY
+}
+
+echo "T-210 tunel pakietu $NAME — pipeline geometryczny"
 echo "============================================================"
 blender --version | head -n 1
 python3 --version
@@ -33,14 +57,14 @@ test -s "$AXIS" || fail "brak osi $AXIS"
 echo
 echo "[GENERATE] wariant renderowy (zagęszczenie 5 m)"
 "${BLENDER[@]}" tools/blender/tunnel_sweep.py -- \
-  --centerline "$AXIS" --profile box_double --name L1_A \
-  --out "$OUT/L1_A.glb" --metrics "$OUT/L1_A-metrics.json"
+  --centerline "$AXIS" --profile box_double --name "$NAME" \
+  --out "$OUT/$NAME.glb" --metrics "$OUT/$NAME-metrics.json"
 
 echo
 echo "[GENERATE] wariant wierny łamanej źródłowej (--ring-step 0)"
 "${BLENDER[@]}" tools/blender/tunnel_sweep.py -- \
-  --centerline "$AXIS" --profile box_double --name L1_A --ring-step 0 \
-  --out "$OUT/L1_A-faithful.glb" --metrics "$OUT/L1_A-faithful-metrics.json"
+  --centerline "$AXIS" --profile box_double --name "$NAME" --ring-step 0 \
+  --out "$OUT/$NAME-faithful.glb" --metrics "$OUT/$NAME-faithful-metrics.json"
 
 echo
 echo "[NEGATIVE] wariant production musi zostać odrzucony bez profilu pionowego"
@@ -56,7 +80,7 @@ tail -n 3 "$OUT/negative-production.log"
 
 echo
 echo "[CHECK] metryki generatora"
-python3 - "$OUT/L1_A-metrics.json" "$OUT/L1_A-faithful-metrics.json" <<'PY'
+python3 - "$OUT/$NAME-metrics.json" "$OUT/$NAME-faithful-metrics.json" <<'PY'
 import json, sys
 
 MAX_GAP_M = 0.001
@@ -95,11 +119,11 @@ PY
 echo
 echo "[DETERMINISM] drugi przebieg musi dać te same metryki"
 "${BLENDER[@]}" tools/blender/tunnel_sweep.py -- \
-  --centerline "$AXIS" --profile box_double --name L1_A \
-  --out "$OUT/L1_A-repeat.glb" --metrics "$OUT/L1_A-repeat-metrics.json" >/dev/null
+  --centerline "$AXIS" --profile box_double --name "$NAME" \
+  --out "$OUT/$NAME-repeat.glb" --metrics "$OUT/$NAME-repeat-metrics.json" >/dev/null
 # Bajty GLB nie są odtwarzalne (eksporter glTF nie gwarantuje kolejności bufora),
 # ale metryki geometryczne muszą się zgadzać co do znaku.
-python3 - "$OUT/L1_A-metrics.json" "$OUT/L1_A-repeat-metrics.json" <<'DETPY'
+python3 - "$OUT/$NAME-metrics.json" "$OUT/$NAME-repeat-metrics.json" <<'DETPY'
 import json, sys
 a = json.load(open(sys.argv[1], encoding="utf-8"))
 b = json.load(open(sys.argv[2], encoding="utf-8"))
@@ -110,16 +134,16 @@ for key in sorted(set(a) | set(b)):
         raise SystemExit(f"BŁĄD: niedeterminizm w {key}: {a.get(key)} != {b.get(key)}")
 print("[DETERMINISM] metryki identyczne w obu przebiegach")
 DETPY
-rm -f "$OUT/L1_A-repeat.glb"
+rm -f "$OUT/$NAME-repeat.glb"
 
 echo
 echo "[ROUNDTRIP] ponowny import wyeksportowanych GLB"
-CHUNKS="$(python3 -c "import json;print(json.load(open('$OUT/L1_A-metrics.json'))['chunks'])")"
+CHUNKS="$(python3 -c "import json;print(json.load(open('$OUT/$NAME-metrics.json'))['chunks'])")"
 "${BLENDER[@]}" tools/blender/glb_roundtrip.py -- \
-  --in "$OUT/L1_A.glb" --expect-objects "$CHUNKS" \
-  --expect-metrics "$OUT/L1_A-metrics.json" --out "$OUT/roundtrip.json"
+  --in "$OUT/$NAME.glb" --expect-objects "$CHUNKS" \
+  --expect-metrics "$OUT/$NAME-metrics.json" --out "$OUT/roundtrip.json"
 "${BLENDER[@]}" tools/blender/glb_roundtrip.py -- \
-  --in "$OUT/L1_A-faithful.glb" --expect-metrics "$OUT/L1_A-faithful-metrics.json" \
+  --in "$OUT/$NAME-faithful.glb" --expect-metrics "$OUT/$NAME-faithful-metrics.json" \
   --out "$OUT/roundtrip-faithful.json"
 
 echo
@@ -129,17 +153,17 @@ echo "[CHUNKI] eksport per chunk i manifest streamingowy"
 # dziur, integralność każdego pliku i sensowność predykatu okna.
 CHUNKS_A="$OUT/chunks"
 CHUNKS_B="$OUT/chunks-repeat"
-MANIFEST_A="$CHUNKS_A/L1_A-chunks.json"
-MANIFEST_B="$CHUNKS_B/L1_A-chunks.json"
+MANIFEST_A="$CHUNKS_A/$NAME-chunks.json"
+MANIFEST_B="$CHUNKS_B/$NAME-chunks.json"
 rm -rf "$CHUNKS_A" "$CHUNKS_B"
 "${BLENDER[@]}" tools/blender/tunnel_sweep.py -- \
-  --centerline "$AXIS" --profile box_double --name L1_A \
-  --out "$OUT/L1_A-chunked.glb" --metrics "$OUT/L1_A-chunked-metrics.json" \
+  --centerline "$AXIS" --profile box_double --name "$NAME" \
+  --out "$OUT/$NAME-chunked.glb" --metrics "$OUT/$NAME-chunked-metrics.json" \
   --chunk-dir "$CHUNKS_A" --chunk-manifest "$MANIFEST_A" | grep -E '^\[CHUNKI\]'
 
 echo
 echo "[CHUNKI] spójność manifestu, pliki, sumy kontrolne i predykat okna"
-python3 - "$MANIFEST_A" "$CHUNKS_A" "$OUT/L1_A-chunked-metrics.json" "$AXIS" <<'CHUNKPY'
+python3 - "$MANIFEST_A" "$CHUNKS_A" "$OUT/$NAME-chunked-metrics.json" "$AXIS" <<'CHUNKPY'
 import hashlib, json, os, shutil, sys, tempfile
 sys.path.insert(0, os.path.join("tools", "blender"))
 import sweep as SW
@@ -280,8 +304,8 @@ done
 echo
 echo "[CHUNKI] determinizm: drugi przebieg, identyczny manifest poza sha256 plików"
 "${BLENDER[@]}" tools/blender/tunnel_sweep.py -- \
-  --centerline "$AXIS" --profile box_double --name L1_A \
-  --out "$OUT/L1_A-chunked-repeat.glb" --chunk-dir "$CHUNKS_B" \
+  --centerline "$AXIS" --profile box_double --name "$NAME" \
+  --out "$OUT/$NAME-chunked-repeat.glb" --chunk-dir "$CHUNKS_B" \
   --chunk-manifest "$MANIFEST_B" >/dev/null
 python3 - "$MANIFEST_A" "$MANIFEST_B" <<'DETPY'
 import json, os, sys
@@ -305,14 +329,14 @@ if same_geometry != len(a["chunks"]):
 print(f"[CHUNKI] geometria identyczna w {same_geometry}/{len(a['chunks'])} chunkach; "
       f"bajty GLB identyczne w {same_bytes}/{len(a['chunks'])} (nie jest to wymagane)")
 DETPY
-rm -rf "$CHUNKS_B" "$OUT/L1_A-chunked-repeat.glb"
+rm -rf "$CHUNKS_B" "$OUT/$NAME-chunked-repeat.glb"
 
 echo
 echo "[LOD] poziomy szczegółowości i geometria kolizyjna"
 # Manifest mówi, CO wczytać; ten blok sprawdza to, co dochodzi obok: w jakiej
 # rozdzielczości to rysować i czym testować kolizje. Kontrole idą osobno dla KAŻDEGO
 # poziomu, bo dziura w szwie LOD 2 nie zobaczy się na LOD 0.
-python3 - "$MANIFEST_A" "$CHUNKS_A" "$OUT/L1_A-chunked-metrics.json" <<'LODPY'
+python3 - "$MANIFEST_A" "$CHUNKS_A" "$OUT/$NAME-chunked-metrics.json" <<'LODPY'
 import hashlib, json, os, shutil, sys, tempfile
 sys.path.insert(0, os.path.join("tools", "blender"))
 import lod as LD
@@ -545,8 +569,17 @@ while read -r line; do ANCHOR_ARGS+=(--anchor "$line"); done < "$ANCHORS_FILE"
   --out "$RENDERS/chunk" --centerline "$CHUNKS_A/$CHUNK_ID-axis.json" \
   --wire-cameras axis05,axis25,axis50,axis75,section "${ANCHOR_ARGS[@]}" \
   | grep -E '^\[(RENDER|SKIP)\]'
+# Kamera `side` jest oceniana tylko na PEŁNEJ osi. Na pojedynczym chunku patrzy na
+# 500-metrową rurę z boku i widzi pasek jednolitej szarości; czy ten pasek ma w sobie
+# czarny prostokąt otwartego wylotu, zależy wyłącznie od tego, w którą stronę biegnie
+# chunk. Zmierzone: chunk pakietu A daje 67 poziomów jasności i przechodzi, chunk
+# pakietu E daje 7 i jest odrzucany — obie siatki są poprawne. Kontrola, której wynik
+# zależy od azymutu, a nie od geometrii, nie jest kontrolą.
+CHUNK_CAMERAS="plan,section,axis05,axis25,axis50,axis75"
+check_framing "$RENDERS/chunk/CHUNK_metadata.json"
 python3 tools/visual/compare.py --set alignment --current "$RENDERS/chunk" \
-  --prefix CHUNK --out "$OUT/chunk-render-sanity.json" --allow-new-baseline
+  --prefix CHUNK --cameras "$CHUNK_CAMERAS" \
+  --out "$OUT/chunk-render-sanity.json" --allow-new-baseline
 python3 - "$OUT/chunk-render-sanity.json" <<'PY'
 import json, sys
 report = json.load(open(sys.argv[1], encoding="utf-8"))
@@ -584,8 +617,10 @@ for MESH in lod2 col; do
     --out "$RENDERS/chunk" --centerline "$CHUNKS_A/$CHUNK_ID-axis.json" \
     --wire-cameras axis05,axis25,axis50,axis75,section "${ANCHOR_ARGS[@]}" \
     | grep -E '^\[(RENDER|SKIP)\]'
+  check_framing "$RENDERS/chunk/${PREFIX}_metadata.json"
   python3 tools/visual/compare.py --set alignment --current "$RENDERS/chunk" \
-    --prefix "$PREFIX" --out "$OUT/$PREFIX-render-sanity.json" --allow-new-baseline
+    --prefix "$PREFIX" --cameras "$CHUNK_CAMERAS" \
+    --out "$OUT/$PREFIX-render-sanity.json" --allow-new-baseline
   python3 - "$OUT/$PREFIX-render-sanity.json" "$PREFIX" <<'PY'
 import json, sys
 report = json.load(open(sys.argv[1], encoding="utf-8"))
@@ -626,12 +661,13 @@ PY
 echo
 echo "[RENDER] zestaw alignment"
 "${BLENDER[@]}" tools/visual/capture_blender.py -- \
-  --in "$OUT/L1_A.glb" --set alignment --prefix L1_A --out "$RENDERS" \
+  --in "$OUT/$NAME.glb" --set alignment --prefix "$NAME" --out "$RENDERS" \
   --centerline "$AXIS" --wire-cameras axis05,axis25,axis50,axis75,section
 
 echo
 echo "[CHECK] renderów nie wolno uznać za puste ani jednolite"
-python3 tools/visual/compare.py --set alignment --current "$RENDERS" --prefix L1_A \
+check_framing "$RENDERS/${NAME}_metadata.json"
+python3 tools/visual/compare.py --set alignment --current "$RENDERS" --prefix "$NAME" \
   --out "$OUT/render-sanity.json" --markdown "$OUT/render-sanity.md" --allow-new-baseline
 
 python3 - "$OUT/render-sanity.json" <<'PY'
@@ -658,10 +694,10 @@ if bad:
 PY
 
 echo
-echo "[SKRAJNIA] M7 na rzeczywistych łukach pakietu A"
+echo "[SKRAJNIA] M7 na rzeczywistych łukach pakietu $NAME"
 python3 tools/blender/clearance.py --alignment "$AXIS" --profile box_double \
   --out "$OUT/clearance-box_double.json"
-# `bore_single` nie jest używany na pakiecie A, ale ma udokumentowany brak zapasu
+# `bore_single` nie jest używany na żadnym z pakietów, ale ma udokumentowany brak zapasu
 # na łukach tej ostrości — raportujemy, nie wywracamy na tym pipeline'u tunelu.
 python3 tools/blender/clearance.py --alignment "$AXIS" --profile bore_single \
   --out "$OUT/clearance-bore_single.json" --report-only
@@ -670,7 +706,7 @@ echo
 echo "[SZEROKOŚĆ] szerokość tunelu w planie wg oficjalnych poligonów UrbIS"
 # Informacyjnie: narzędzie zapisuje niedostępność źródła jako wynik i kończy zerem,
 # więc niedostępny data.mobility.brussels nie wywraca pipeline'u geometrii.
-python3 tools/track/tunnel_width.py --alignment "$AXIS" --out "$OUT/L1_A-tunnel-width.json"
+python3 tools/track/tunnel_width.py --alignment "$AXIS" --out "$OUT/$NAME-tunnel-width.json"
 
 echo
 echo "[VERIFY] zestaw testów Pythona"
@@ -678,9 +714,9 @@ python3 tools/tests/test_all.py
 
 echo
 echo "============================================================"
-echo "[RESULT] T-210 zakończone w ${SECONDS}s"
+echo "[RESULT] T-210 pakiet $NAME zakończone w ${SECONDS}s"
 echo "[RESULT] OGLĘDZINY RENDERÓW SĄ NADAL WYMAGANE:"
-for f in "$RENDERS"/L1_A_*.png "$RENDERS"/chunk/CHUNK_*.png "$RENDERS"/chunk/LOD2_*.png \
+for f in "$RENDERS"/${NAME}_*.png "$RENDERS"/chunk/CHUNK_*.png "$RENDERS"/chunk/LOD2_*.png \
          "$RENDERS"/chunk/COL_*.png; do
   echo "  - $f ($(stat -c%s "$f") B)"
 done

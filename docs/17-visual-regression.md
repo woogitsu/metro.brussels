@@ -62,8 +62,8 @@ kadry **ograniczone**, a nie przez widok całości:
 | kamera | co ogranicza kadr | co wykrywa |
 |---|---|---|
 | `plan` | nic — cała trasa z góry | ucięcie trasy, pętlę, zły odcinek |
-| `section` | `depth_m` 30 m + `clip_at_anchor` | kształt i proporcje przekroju |
-| `side` | `frame_width_m` 80 m + `yaw_deg` 90 | pomylone jednostki, skoki skali, profil pionowy |
+| `section` | `depth_m` 30 m + `slab_radius_m` 40 m + `clip_at_anchor` | kształt i proporcje przekroju |
+| `side` | `frame_width_m` 80 m + `yaw_deg` 90 + `depth_m` 60 m | pomylone jednostki, skoki skali, profil pionowy |
 | `axisNN` | perspektywa z wnętrza | ciągłość, odwrócone normalne, skręt profilu |
 
 **`yaw_deg`** obraca kierunek wyznaczony z kotwic wokół pionu świata. Elewacji bocznej
@@ -76,6 +76,27 @@ ortho przekroju widzi wszystko aż po koniec sceny — na prostym torze testowym
 wygląda to poprawnie, bo tunel nie wychodzi z kadru, ale na rzeczywistej, zakrzywionej
 osi daje dwa bloki i pozorną „szczelinę" w miejscu, gdzie bore wychodzi z kadru i wraca.
 Dlatego ma je też `section` w zestawie `infrastructure`.
+
+**`slab_radius_m`** odrzuca punkty leżące w płaszczyźnie cięcia, ale dalej w bok niż
+zadany promień. Płaszczyzna przecina trasę w **kilku** miejscach, gdy trasa zawraca:
+oś pakietu E (pierścień 2/6) łapie w płacie także drugą stronę pierścienia, przez co
+`ortho_scale` rośnie z 16,5 m do 4777,7 m. Kadr formalnie „znajduje geometrię", a
+pokazuje pustkę, bo przekrój pod kotwicą ma wtedy kilka pikseli.
+
+**Płat rośnie, gdy jest pusty.** Grubość +-12 m zakłada pierścienie co kilka metrów.
+Na LOD 2 stoją co kilkadziesiąt i płat bywa pusty; wtedy kadr cicho spadał na bbox
+całego chunka (`fit_fallback`). Teraz grubość podwaja się do sześciu razy, aż złapie
+geometrię, a użytą wartość widać w metadanych jako `slab_thickness_used_m`.
+`tools/ci/tunnel_alignment.sh` **wywraca się**, jeśli którakolwiek kamera zgłosi
+`fit_fallback` — kadr zastępczy jest cichy i wykrywanie go przez „obraz jest
+jednorodny" było zgadywanką.
+
+**Nie każda kamera odpowiada na pytanie przy każdej skali.** `side` na pojedynczym
+chunku patrzy na 500-metrową rurę z boku i widzi pasek jednolitej szarości; czy ten
+pasek ma w sobie czarny prostokąt otwartego wylotu, zależy wyłącznie od azymutu
+chunka. Zmierzone: chunk pakietu A daje 67 poziomów jasności i przechodzi, chunk
+pakietu E daje 7 i jest odrzucany, a obie siatki są poprawne. Dlatego rendery
+pojedynczego chunka są oceniane tylko na `plan`, `section` i `axisNN`.
 
 `door` wymaga kotwicy `--anchor door=X,Y,Z`; `inside`, `section` i wszystkie `axisNN`
 wymagają `--centerline`. Kotwice `axisNN_eye`/`axisNN_target` powstają dla ułamków
