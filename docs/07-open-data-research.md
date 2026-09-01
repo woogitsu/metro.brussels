@@ -37,6 +37,33 @@ automatycznie większej wiarygodności.
 
 ## STIB/MIVB Open Data
 
+> **Korekta 2026-09-01 (T-110).** Portal `data.stib-mivb.brussels` został wygaszony.
+> Każda sprawdzona ścieżka — `/`, `/explore/dataset/<nazwa>/`, `/api/explore/v2.1/…`,
+> `/api/records/1.0/search/…`, a także `terms/terms-and-conditions.pdf` — zwraca
+> **HTTP 302 na `https://data.belgianmobility.io/`**. Dawne identyfikatory datasetów
+> Opendatasoft (`gtfs-files-production`, `stop-details-production`,
+> `shapefiles-production`) **nie są już serwowane**; URL-e w sekcjach poniżej zachowano
+> jako zapis historyczny researchu z 31.08.2026.
+>
+> Zweryfikowane, anonimowe endpointy zastępcze (bez klucza API, HTTP 200):
+>
+> | dane | endpoint |
+> |---|---|
+> | GTFS static | `https://api-management-discovery-production.azure-api.net/api/gtfs/feed/stibmivb/static` |
+> | Stop details | `…/api/datasets/stibmivb/static/StopDetails` |
+> | Stops by line | `…/api/datasets/stibmivb/static/stopsByLine` |
+> | Shapefiles | `…/api/datasets/stibmivb/static/shape-files` |
+> | INSPIRE Rails | `…/api/datasets/stibmivb/static/rail` |
+>
+> Licencja kanału dystrybucji: **CC BY 4.0**,
+> `https://data.belgianmobility.io/en/terms.html`, wymagana atrybucja
+> `Source: STIB-MIVB - Open Data - <data aktualizacji>`. Limity anonimowe:
+> **100 żądań/dobę i 10/minutę**, powyżej HTTP 429.
+>
+> Feed **NeTEx EPIP** z katalogu BMC (`epip-stibmivb-bmc-latest.xml`) zwraca **HTTP 401**
+> z `WWW-Authenticate: Bearer` (Azure AD). Zapowiadana w tym dokumencie kontrola krzyżowa
+> NeTEx jest więc obecnie **niewykonalna anonimowo**.
+
 ### Shapefiles — podstawowe źródło przebiegu sieci
 
 Dataset `shapefiles-production`:
