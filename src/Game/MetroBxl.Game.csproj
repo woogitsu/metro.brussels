@@ -1,0 +1,26 @@
+<Project Sdk="Godot.NET.Sdk/4.3.0">
+
+  <!--
+    Warstwa silnika. CLAUDE.md reguła 9 działa w drugą stronę niż w rdzeniu: tutaj
+    Godot wolno, ale logiki symulacji nie. Jedyna zależność poza silnikiem to rdzeń.
+
+    Projekt NIE jest w MetroBxl.sln i to jest decyzja, nie przeoczenie: `dotnet build
+    MetroBxl.sln` z CI rdzenia musiałby wtedy ściągać Godot.NET.Sdk, żeby zbudować
+    rzecz, której rdzeń nie dotyczy. Rdzeń ma się budować bez silnika — także w CI.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>MetroBxl.Game</RootNamespace>
+    <AssemblyName>MetroBxl.Game</AssemblyName>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <LangVersion>12.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Sim/Sim.csproj" />
+  </ItemGroup>
+
+</Project>

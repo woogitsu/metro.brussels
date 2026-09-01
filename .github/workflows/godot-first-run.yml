@@ -1,0 +1,215 @@
+name: Godot first run
+
+# T-400, pierwszy etap. Job odpowiada na jedno pytanie: czy przejazd policzony
+# w Godocie jest tym samym przejazdem, co policzony samym rdzeniem.
+#
+# CLAUDE.md §9: GitHub-hosted runner, wszystkie zależności instalowane jawnie.
+# Godota 4.3 mono nie ma na obrazie, więc jest pobierany z GitHub Releases (~70 MB);
+# Blender jest z apt, tak samo jak w blender-smoke.yml.
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/godot-first-run.yml'
+      - 'src/Game/**'
+      - 'src/Sim/**'
+      - 'src/Sim.Runner/**'
+      - 'data/track/L1_A.json'
+      - 'data/vehicle/m7-spec.json'
+      - 'tools/blender/**'
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GODOT_VERSION: 4.3-stable
+  GODOT_DIR: ${{ github.workspace }}/.godot-engine
+
+jobs:
+  first-run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Cache Godot engine
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.GODOT_DIR }}
+          key: godot-mono-${{ env.GODOT_VERSION }}-linux-x86_64
+
+      - name: Download Godot mono
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        shell: bash
+        # Wersja mono jest konieczna: przejazd jest w C# i korzysta z MetroBxl.Sim.
+        # Sam plik wykonywalny nie wystarczy — obok musi leżeć katalog GodotSharp,
+        # inaczej silnik nie znajdzie assembly .NET i wywraca się przy starcie.
+        run: |
+          set -euo pipefail
+          mkdir -p "$GODOT_DIR"
+          url="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_mono_linux_x86_64.zip"
+          curl -fsSL -o /tmp/godot-mono.zip "$url"
+          unzip -q /tmp/godot-mono.zip -d /tmp/godot-mono
+          mv /tmp/godot-mono/Godot_v${GODOT_VERSION}_mono_linux_x86_64/* "$GODOT_DIR/"
+          ls -la "$GODOT_DIR"
+
+      - name: Report tool versions
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "GODOT_BIN=$GODOT_DIR/Godot_v${GODOT_VERSION}_mono_linux.x86_64" >> "$GITHUB_ENV"
+          "$GODOT_DIR/Godot_v${GODOT_VERSION}_mono_linux.x86_64" --headless --version
+          dotnet --version
+
+      - name: Core stays free of the engine
+        shell: bash
+        # Rdzeń buduje się bez Godota, więc projekt Godota nie może być w MetroBxl.sln.
+        # Gdyby tam trafił, `dotnet build MetroBxl.sln` z sim-tests.yml zaczęłoby
+        # ściągać Godot.NET.Sdk i reguła 9 z CLAUDE.md przestałaby cokolwiek znaczyć.
+        run: |
+          set -euo pipefail
+          if grep -q 'MetroBxl.Game' MetroBxl.sln; then
+            echo "projekt Godota trafił do MetroBxl.sln — rdzeń przestałby się budować bez silnika" >&2
+            exit 1
+          fi
+          echo "MetroBxl.sln: bez projektu Godota"
+
+      - name: Build core and console runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet build MetroBxl.sln --configuration Release
+
+      - name: Build the Godot project
+        shell: bash
+        run: dotnet build src/Game/MetroBxl.Game.csproj --configuration Debug
+
+      - name: Install Blender and a software renderer
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            blender python3-numpy xvfb libegl1 libgl1 libgl1-mesa-dri
+          blender --version | head -n 2
+
+      - name: Generate package A geometry
+        shell: bash
+        # Chunki i skorupa M7 nie są w repozytorium (CLAUDE.md reguła 8). Powstają
+        # z generatora tu i teraz — job sprawdza więc także to, że scena wczytuje
+        # świeżo wygenerowaną geometrię, a nie kopię sprzed miesięcy.
+        run: |
+          set -euo pipefail
+          blender --background --python-exit-code 7 --python tools/blender/tunnel_sweep.py -- \
+            --centerline data/track/L1_A.json --profile box_double --name L1_A \
+            --out build/t400/L1_A.glb --metrics build/t400/L1_A-metrics.json \
+            --chunk-dir build/t400/chunks --chunk-manifest build/t400/chunks/L1_A-chunks.json
+          blender --background --python-exit-code 7 --python tools/blender/m7_shell.py -- \
+            --out build/t400/M7_shell.glb --envelope-out build/t400/M7_envelope.glb \
+            --report build/t400/M7_shell.json
+          ls -la build/t400 build/t400/chunks | head -n 20
+
+      - name: Axis in C# matches the sweep manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet run --project src/Sim.Runner -c Release --no-build -- \
+            axis --axis data/track/L1_A.json --manifest build/t400/chunks/L1_A-chunks.json
+
+      - name: Controller is still the T-310 core
+        shell: bash
+        run: dotnet run --project src/Sim.Runner -c Release --no-build -- parity
+
+      - name: Reference run from the core alone
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet run --project src/Sim.Runner -c Release --no-build -- drive --out build/t400/core.csv
+          wc -l build/t400/core.csv
+
+      - name: Godot run, 120 steps per frame
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$GODOT_BIN" --headless --path src/Game -- \
+            --telemetry="$PWD/build/t400/godot.csv" --steps-per-frame=120
+          dotnet run --project src/Sim.Runner -c Release --no-build -- \
+            compare build/t400/core.csv build/t400/godot.csv --tolerance 0
+
+      - name: Godot run, uneven frames
+        shell: bash
+        # Ten sam przejazd przy innym, celowo nierównym rytmie klatek. Jeżeli krok
+        # stały działa, telemetria musi wyjść identyczna — nie „podobna".
+        run: |
+          set -euo pipefail
+          "$GODOT_BIN" --headless --path src/Game -- \
+            --telemetry="$PWD/build/t400/godot_jitter.csv" --steps-per-frame=37 --jitter=0.45
+          dotnet run --project src/Sim.Runner -c Release --no-build -- \
+            compare build/t400/core.csv build/t400/godot_jitter.csv --tolerance 0
+
+      - name: Negative control of the comparison
+        shell: bash
+        # Kontrola, która mówi „ok" także wtedy, gdy nic nie sprawdza, jest bezużyteczna
+        # (reports/T-310-physics.md §6). Psujemy jedną liczbę o 4 mm na 4 km i wymagamy,
+        # żeby porównanie to zauważyło.
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          lines = open('build/t400/godot.csv').read().splitlines()
+          row = lines[200].split(',')
+          row[3] = repr(float(row[3]) + 0.004)
+          lines[200] = ','.join(row)
+          open('build/t400/godot_bad.csv', 'w').write('\n'.join(lines) + '\n')
+          PY
+          if dotnet run --project src/Sim.Runner -c Release --no-build -- \
+              compare build/t400/core.csv build/t400/godot_bad.csv --tolerance 1e-9; then
+            echo "porównanie przepuściło rozjazd 4 mm — kontrola nic nie kontroluje" >&2
+            exit 1
+          fi
+          echo "negatyw OK — rozjazd 4 mm wykryty"
+
+      - name: Screenshots under Xvfb
+        shell: bash
+        # --headless wyłącza renderer, więc obrazu tak się nie zrobi. Xvfb plus
+        # sterownik opengl3 (llvmpipe) daje prawdziwą klatkę bez karty graficznej.
+        run: |
+          set -euo pipefail
+          mkdir -p renders/t400
+          for view in cab chase outside; do
+            xvfb-run -a "$GODOT_BIN" --rendering-driver opengl3 --resolution 1280x720 \
+              --path src/Game -- \
+              --shot="$PWD/renders/t400/${view}_2000m.png" --at-chainage=2000 --view="$view"
+          done
+          xvfb-run -a "$GODOT_BIN" --rendering-driver opengl3 --resolution 1280x720 \
+            --path src/Game -- \
+            --shot="$PWD/renders/t400/curve_R91_chase.png" --at-chainage=2560 --view=chase
+          xvfb-run -a "$GODOT_BIN" --rendering-driver opengl3 --resolution 1280x720 \
+            --path src/Game -- \
+            --shot="$PWD/renders/t400/seam_c01_c02.png" --at-chainage=976 --view=cab
+          ls -la renders/t400
+          test "$(ls renders/t400/*.png | wc -l)" -eq 5
+
+      - name: Upload verification artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: t-400-first-run-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            build/t400/core.csv
+            build/t400/godot.csv
+            build/t400/godot_jitter.csv
+            build/t400/chunks/L1_A-chunks.json
+            renders/t400/*.png

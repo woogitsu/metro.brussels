@@ -1,0 +1,76 @@
+[gd_scene load_steps=6 format=3]
+
+; Struktura sceny pierwszego przejazdu. Celowo płaska i celowo pusta z danych:
+; geometria tunelu i składu jest wczytywana z build/ w czasie działania (patrz
+; GlbLoader), a nie zapisana tutaj — CLAUDE.md reguła 8 nie dopuszcza wygenerowanych
+; siatek w repozytorium. To, co widać w tym pliku, to wyłącznie węzły i ich role.
+
+[ext_resource type="Script" path="res://FirstRun.cs" id="1_root"]
+[ext_resource type="Script" path="res://World/TunnelView.cs" id="2_tunnel"]
+[ext_resource type="Script" path="res://World/TrainView.cs" id="3_train"]
+[ext_resource type="Script" path="res://UI/Hud.cs" id="4_hud"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hud"]
+bg_color = Color(0.03, 0.03, 0.04, 0.62)
+content_margin_left = 18.0
+content_margin_top = 12.0
+content_margin_right = 18.0
+content_margin_bottom = 12.0
+
+[node name="FirstRun" type="Node3D"]
+script = ExtResource("1_root")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+
+[node name="Tunnel" type="Node3D" parent="."]
+script = ExtResource("2_tunnel")
+
+[node name="Train" type="Node3D" parent="."]
+script = ExtResource("3_train")
+
+[node name="CabCamera" type="Camera3D" parent="."]
+current = true
+fov = 70.0
+near = 0.1
+far = 900.0
+
+[node name="Headlight" type="OmniLight3D" parent="CabCamera"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.6, -1.5)
+light_energy = 2.5
+omni_range = 70.0
+
+[node name="ChaseCamera" type="Camera3D" parent="."]
+current = false
+fov = 60.0
+near = 0.1
+far = 900.0
+
+[node name="ChaseLight" type="OmniLight3D" parent="ChaseCamera"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
+light_energy = 2.0
+omni_range = 80.0
+
+[node name="Hud" type="CanvasLayer" parent="."]
+script = ExtResource("4_hud")
+
+[node name="Panel" type="PanelContainer" parent="Hud"]
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 24.0
+offset_top = -150.0
+offset_right = 900.0
+offset_bottom = -24.0
+grow_vertical = 0
+theme_override_styles/panel = SubResource("StyleBoxFlat_hud")
+
+[node name="Rows" type="VBoxContainer" parent="Hud/Panel"]
+
+[node name="Speed" type="Label" parent="Hud/Panel/Rows"]
+text = "0.0 km/h"
+
+[node name="Position" type="Label" parent="Hud/Panel/Rows"]
+text = "chainage"
+
+[node name="Controls" type="Label" parent="Hud/Panel/Rows"]
+text = "ciag / hamulec"

@@ -18,3 +18,9 @@ data/observations/
 
 # .NET
 TestResults/
+
+# Godot (src/Game) — wszystko, co silnik generuje obok projektu
+.godot/
+.import/
+.mono/
+export_presets.cfg
