@@ -25,6 +25,8 @@ def parse_args():
     parser.add_argument("--expect-objects", type=int)
     parser.add_argument("--expect-metrics", help="metryki generatora do porównania bboxa")
     parser.add_argument("--out", help="ścieżka na wynik JSON")
+    parser.add_argument("--allow-missing-uv", action="store_true",
+                        help="nie wymagaj UV; tunel ich wymaga, skorupa M7 na tym etapie nie ma")
     return parser.parse_args(argv)
 
 
@@ -74,7 +76,7 @@ def main():
     problems = []
     if vertices == 0 or faces == 0:
         problems.append("geometria pusta po imporcie")
-    if without_uv:
+    if without_uv and not args.allow_missing_uv:
         problems.append(f"obiekty bez UV: {without_uv}")
     if args.expect_objects is not None and len(meshes) != args.expect_objects:
         problems.append(f"obiektów {len(meshes)}, oczekiwano {args.expect_objects}")

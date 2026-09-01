@@ -254,6 +254,44 @@ print(f"[OK] odchylenie środka sylwetki od osi kadru: {offset_px:.1f} px "
 PY
 
 echo
+echo "[TOPOLOGIA] dwa eksporty tej samej bryły muszą dać tę samą topologię"
+# Eksporter glTF NIE jest powtarzalny: dla identycznego wejścia (2334 wierzchołki,
+# 1862 ściany, wymiary zgodne co do 6 miejsc) plik waha się o 4 % rozmiaru, a liczba
+# wierzchołków po re-imporcie o ok. 1 % — bo rozszczepienie na szwach UV i normalnych
+# nie ma ustalonej kolejności. Liczba ŚCIAN natomiast nie waha się wcale, więc to ona
+# jest niezmiennikiem nadającym się na kontrolę regresji topologii.
+blender --background --python-exit-code 7 --python tools/blender/m7_shell.py -- \
+  --out "$OUT/M7_repeat.glb" --envelope-out "$OUT/M7_repeat_env.glb" \
+  --report "$OUT/M7_repeat.json" --skip-roundtrip >/dev/null
+blender --background --python-exit-code 7 --python tools/blender/glb_roundtrip.py -- \
+  --in build/M7_shell.glb --allow-missing-uv --out "$OUT/topology_a.json" >/dev/null
+blender --background --python-exit-code 7 --python tools/blender/glb_roundtrip.py -- \
+  --in "$OUT/M7_repeat.glb" --allow-missing-uv --out "$OUT/topology_b.json" >/dev/null
+python3 - "$OUT/topology_a.json" "$OUT/topology_b.json" <<'TOPOPY'
+import json, sys
+
+VERTEX_TOLERANCE = 0.05
+a = json.load(open(sys.argv[1], encoding="utf-8"))
+b = json.load(open(sys.argv[2], encoding="utf-8"))
+print(f"[TOPOLOGIA] przebieg A: obiekty={a['objects']} sciany={a['faces']} wierzcholki={a['vertices']} bajty={a['bytes']}")
+print(f"[TOPOLOGIA] przebieg B: obiekty={b['objects']} sciany={b['faces']} wierzcholki={b['vertices']} bajty={b['bytes']}")
+if a["objects"] != b["objects"]:
+    raise SystemExit(f"BŁĄD: liczba obiektow {a['objects']} != {b['objects']}")
+if a["faces"] != b["faces"]:
+    raise SystemExit(f"BŁĄD: topologia niestabilna — scian {a['faces']} != {b['faces']}")
+spread = abs(a["vertices"] - b["vertices"]) / max(1, a["vertices"])
+print(f"[TOPOLOGIA] rozrzut wierzcholkow {spread*100:.2f} % (dopuszczalne {VERTEX_TOLERANCE*100:.0f} %), "
+      f"bajtow {abs(a['bytes']-b['bytes'])/max(1,a['bytes'])*100:.2f} % — bajty nie sa kontrolowane")
+if spread > VERTEX_TOLERANCE:
+    raise SystemExit(f"BŁĄD: rozrzut wierzcholkow {spread*100:.2f} % przekracza {VERTEX_TOLERANCE*100:.0f} %")
+for axis, x, y in zip("XYZ", a["bbox_size_m"], b["bbox_size_m"]):
+    if abs(x - y) > 1e-6:
+        raise SystemExit(f"BŁĄD: bbox {axis} rozjazd {abs(x-y)} m")
+print("[TOPOLOGIA] OK — scian tyle samo, bbox identyczny, wierzcholki w tolerancji")
+TOPOPY
+rm -f "$OUT/M7_repeat.glb" "$OUT/M7_repeat_env.glb"
+
+echo
 echo "[ARTEFAKTY] kopiowanie do artefaktu CI"
 mkdir -p "$OUT/renders"
 cp renders/m7/*.png renders/m7/*.json "$OUT/renders/" 2>/dev/null || true
