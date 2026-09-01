@@ -35,6 +35,29 @@ Ograniczenie przyczepnościowe modelu: `F <= μ · m · (4/6) · g`; `4/6`, `μ=
 
 Referencję liczy `tools/physics/reference.py`.
 
+## Hamowanie
+
+Wartości projektowe (1,10 / 1,30 m/s², zryw 0,75 m/s³) są `design_model` i nie mają
+źródła pierwotnego. T-311 dokłada do nich trzy rzeczy i **żadna nie wprowadza nowej
+liczby o M7**:
+
+1. **Sufit przyczepnościowy** `b_max = μ · f · g / λ`, gdzie `f` to udział masy na
+   osiach hamowanych. Udziału `f` **nie ma w żadnym źródle**, więc jest jawnym
+   `design_assumption` o dwóch wariantach skrajnych: 1,0 (hamują wszystkie osie) i
+   4/6 (hamują tylko osie napędne). Sufit nie zależy od masy składu.
+2. **Solver punktu hamowania** z ograniczeniem zrywu, wzorem zamkniętym:
+   `s(b) = (v₀² − v₁²)/(2b) + v₀·b/(2j) − b³/(24 j²)` i `t(b) = (v₀ − v₁)/b + b/(2j)`.
+   Powyżej `b = √(2 j Δv)` droga przestaje zależeć od opóźnienia — zostaje sam zryw.
+3. **Droga hamowania z oporami Davisa**, liczona tym samym `TrainController`, który
+   prowadzi skład w grze. Opory skracają drogę i to skrócenie domyka się z bilansem
+   energii.
+
+Rozdziału hamulca elektrodynamicznego i pneumatycznego, charakterystyki zanikania ED
+i krzywych bezpieczeństwa STIB **nie modelujemy** — nie ma ich w rejestrze źródeł.
+
+Tablice referencyjne: `reports/T-311-braking.md`. Referencję liczy
+`tools/physics/braking.py`, niezależnie od `src/Sim`.
+
 ## Drzwi i postój
 
 Cykl: odblokowanie 0,5 s → otwieranie 2,0 s → wymiana pasażerów → sygnał zamykania 3,0 s → zamykanie 2,5 s → kontrola 0,5 s. Czasy są `design_model`, dopóki brak źródła operacyjnego. Jazda zablokowana do potwierdzenia zamknięcia.

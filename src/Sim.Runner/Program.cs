@@ -16,7 +16,9 @@ namespace MetroBxl.Sim.Runner;
 /// <item><c>drive</c> — jak wygląda przejazd policzony samym rdzeniem;</item>
 /// <item><c>compare</c> — o ile rozjeżdża się z przejazdem policzonym w Godocie;</item>
 /// <item><c>axis</c> — czy oś w C# jest tą samą krzywą, po której zamiatany jest tunel;</item>
-/// <item><c>parity</c> — czy kontroler przy pełnej trakcji to nadal rdzeń z T-310.</item>
+/// <item><c>parity</c> — czy kontroler przy pełnej trakcji to nadal rdzeń z T-310;</item>
+/// <item><c>braking</c> — tablice referencyjne hamowania z T-311, do porównania
+/// z <c>tools/physics/braking.py</c> wiersz po wierszu.</item>
 /// </list>
 /// </summary>
 public static class Program
@@ -40,6 +42,7 @@ public static class Program
                 "compare" => Compare(args),
                 "axis" => Axis(args),
                 "parity" => Parity(),
+                "braking" => Braking(),
                 _ => Unknown(args[0]),
             };
         }
@@ -66,6 +69,7 @@ public static class Program
               compare PLIK_A PLIK_B [--tolerance METRY]   rozjazd dwóch telemetrii
               axis    --axis PLIK [--manifest PLIK]       kontrola osi wobec manifestu chunków
               parity                                      kontroler vs AccelerationRun z T-310
+              braking                                     tablice referencyjne hamowania (T-311)
             """);
     }
 
@@ -310,6 +314,106 @@ public static class Program
             $"różnica {kinematic.DistanceM - braking.DistanceM:F3} m = praca oporów Davisa"));
 
         return failed ? 1 : 0;
+    }
+
+    // --- braking ------------------------------------------------------------------
+
+    /// <summary>
+    /// Tablice referencyjne hamowania z T-311, w formacie jeden do jednego z
+    /// <c>tools/physics/braking.py</c> — po to, żeby dało się je porównać wiersz po
+    /// wierszu, a nie „na oko". Rdzeń i referencja są tu dwiema niezależnymi drogami
+    /// do tych samych liczb, dokładnie tak jak w T-310.
+    /// </summary>
+    private static int Braking()
+    {
+        var model = VehicleModel.M7;
+        var solver = new BrakingPointSolver(model);
+        var step = FixedStep.Simulation;
+
+        Console.Out.WriteLine(string.Create(
+            Inv,
+            $"zryw = {model.DesignJerkMps3:R} m/s^3, lambda = {model.DesignEffectiveMassFactor:R}, " +
+            $"sluzbowe = {model.DesignServiceBrakeMps2:R} m/s^2, awaryjne = {model.DesignEmergencyBrakeMps2:R} m/s^2"));
+        Console.Out.WriteLine();
+
+        Console.Out.WriteLine("SUFIT PRZYCZEPNOSCIOWY (design_assumption: udzial osi hamowanych)");
+        Console.Out.WriteLine("rail  mu     wariant             f       b_max     b_max_bez_lambda  1.10  1.30");
+        var limits = new[] { BrakeAdhesionLimit.AllAxles(model), BrakeAdhesionLimit.PoweredAxlesOnly(model) };
+        foreach (var (rail, mu) in new[]
+                 {
+                     ("dry", model.DesignAdhesionDry), ("wet", model.DesignAdhesionWet),
+                 })
+        {
+            foreach (var limit in limits)
+            {
+                var service = !limit.IsAdhesionLimited(model.DesignServiceBrakeMps2, mu);
+                var emergency = !limit.IsAdhesionLimited(model.DesignEmergencyBrakeMps2, mu);
+                Console.Out.WriteLine(string.Create(
+                    Inv,
+                    $"{rail,-5} {mu,-6:0.00} {limit.Variant,-19} {limit.DesignBrakedMassFraction:0.0000}  " +
+                    $"{limit.MaxDecelerationMps2(mu),8:0.0000}  {limit.MaxRigidBodyDecelerationMps2(mu),16:0.0000}  " +
+                    $"{(service ? "tak" : "NIE"),4}  {(emergency ? "tak" : "NIE"),4}"));
+            }
+        }
+
+        Console.Out.WriteLine();
+        Console.Out.WriteLine("PROGI KRYTYCZNE");
+        var allAxles = BrakeAdhesionLimit.AllAxles(model);
+        foreach (var (decel, name) in new[]
+                 {
+                     (model.DesignServiceBrakeMps2, "sluzbowe"), (model.DesignEmergencyBrakeMps2, "awaryjne"),
+                 })
+        {
+            foreach (var (rail, mu) in new[]
+                     {
+                         ("dry", model.DesignAdhesionDry), ("wet", model.DesignAdhesionWet),
+                     })
+            {
+                var required = allAxles.RequiredBrakedMassFraction(decel, mu);
+                var note = required > 1.0 ? "  -> NIEOSIAGALNE przy kazdym ukladzie osi" : string.Empty;
+                Console.Out.WriteLine(string.Create(
+                    Inv, $"  {name} {decel:0.00} m/s^2 {rail}: f_min = {required:0.000000}{note}"));
+            }
+
+            Console.Out.WriteLine(string.Create(
+                Inv, $"  {name} {decel:0.00} m/s^2 przy f=1: mu_min = {allAxles.RequiredAdhesion(decel):0.000000}"));
+        }
+
+        Console.Out.WriteLine();
+        Console.Out.WriteLine("DROGA HAMOWANIA, hamulec sluzbowy, krok 1/120 s");
+        Console.Out.WriteLine(
+            "v0[km/h]  wzor[m]   bez_oporow[m]  tunel[m]  powierzchnia[m]  dS_tunel  dS_pow  " +
+            "dS_tunel_z_energii  dS_pow_z_energii");
+        var conditions = RunConditions.Level(model, TrainLoad.Aw2);
+        var speeds = new[] { 30.0, 40.0, 50.0, 60.0, 70.0, 80.0 };
+        foreach (var row in new BrakingRun(model).ReferenceTable(conditions, speeds, model.DesignServiceBrakeMps2, step))
+        {
+            Console.Out.WriteLine(string.Create(
+                Inv,
+                $"{row.StartSpeedKmh,8:0}  {row.ClosedFormDistanceM,8:0.000}  {row.KinematicDistanceM,13:0.000}  " +
+                $"{row.TunnelDistanceM,8:0.000}  {row.SurfaceDistanceM,15:0.000}  {row.TunnelShorteningM,8:0.000}  " +
+                $"{row.SurfaceShorteningM,6:0.000}  {row.TunnelShorteningFromEnergyM,18:0.000}  " +
+                $"{row.SurfaceShorteningFromEnergyM,16:0.000}"));
+        }
+
+        Console.Out.WriteLine();
+        Console.Out.WriteLine("SOLVER PUNKTU HAMOWANIA (bez oporow, z ograniczeniem zrywu)");
+        var top = Units.KmhToMps(model.DesignMaxSpeedKmh);
+        Console.Out.WriteLine(string.Create(
+            Inv,
+            $"  minimum ze zrywu z {model.DesignMaxSpeedKmh:0} km/h do 0 = {solver.MinimumDistanceM(top, 0.0):0.000} m " +
+            $"(b_progowe = {solver.PlateauCeilingMps2(top, 0.0):0.0000} m/s^2)"));
+        foreach (var distance in new[] { 150.0, 200.0, 240.0, 300.0, 400.0 })
+        {
+            var point = solver.RequiredDeceleration(top, 0.0, distance);
+            var back = solver.DistanceM(top, 0.0, point.DecelerationMps2);
+            Console.Out.WriteLine(string.Create(
+                Inv,
+                $"  s = {distance,6:0.0} m -> b = {point.DecelerationMps2:0.000000} m/s^2, " +
+                $"kontrola s(b) = {back:0.000000} m, |delta| = {Math.Abs(back - distance):0.000e+00} m"));
+        }
+
+        return 0;
     }
 
     // --- pomocnicze ---------------------------------------------------------------
