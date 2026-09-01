@@ -150,8 +150,8 @@ Zgadywanie w tym projekcie jest kosztowniejsze niż czekanie na odpowiedź.
 
 ## 9. CI / GitHub Actions
 
-- Wszystkie workflow muszą używać **self-hosted runnera WSL2**.
-- Domyślne etykiety: `[self-hosted, linux, x64]`.
-- **Nie używaj** GitHub-hosted runnerów: `ubuntu-latest`, `windows-latest`, `macos-latest`.
-- Projekt nie zakłada dostępnych GitHub Actions minutes.
-- Preferuj narzędzia już zainstalowane na runnerze (`python3`, `dotnet`, `blender`, `godot`) zamiast `actions/setup-*`, jeśli nie jest to konieczne.
+- Standardowe workflow CI używają **GitHub-hosted runnerów**, domyślnie `ubuntu-latest`.
+- GitHub-hosted Actions są preferowane dla testów Python/.NET i innych zadań, które da się odtworzyć przez instalację zależności w workflow.
+- Workflow wymagające Blendera lub innych narzędzi niedostępnych domyślnie na obrazie runnera muszą jawnie instalować wymagane zależności przed testem.
+- Self-hosted WSL2 pozostaje dozwolony jako opcja awaryjna lub do ciężkich zadań lokalnych, ale nie jest wymagany dla CI.
+- Nie uznawaj `queued` za weryfikację; zadanie jest zweryfikowane dopiero po zakończonym, zielonym jobie i sprawdzeniu wymaganych artefaktów.

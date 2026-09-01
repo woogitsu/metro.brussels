@@ -10,24 +10,13 @@ permissions:
 
 jobs:
   tools:
-    # CI intentionally runs only on our WSL2 self-hosted runner.
-    # Do not switch this back to GitHub-hosted runners (ubuntu-latest, etc.).
-    runs-on: [self-hosted, linux, x64]
+    # Standard CI runs on GitHub-hosted Linux while Actions minutes are available.
+    runs-on: ubuntu-latest
     timeout-minutes: 15
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-
-      - name: Verify WSL2 runner
-        shell: bash
-        run: |
-          set -euo pipefail
-          if ! grep -qiE '(microsoft|wsl)' /proc/version; then
-            echo 'This workflow is intended to run on the WSL2 self-hosted runner.' >&2
-            exit 1
-          fi
-          uname -a
 
       - name: Verify Python
         shell: bash
