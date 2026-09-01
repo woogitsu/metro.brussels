@@ -1,20 +1,39 @@
 #!/usr/bin/env python3
-"""Referencyjny, projektowy model dynamiki M7. Parametry est/design wymagają kalibracji."""
+"""Referencyjny model dynamiki M7.
+
+Ground truth i klasyfikacja parametrów są w data/vehicle/m7-spec.json.
+Wartości bez źródła pierwotnego pozostają design_model.
+"""
 import math, json, sys
 G=9.80665
-MASS={"AW0":155000.0,"AW2":206940.0}
-V={"b_service":1.10,"b_emergency":1.30,"jerk":0.75,"base_speed_ms":35/3.6,"max_speed_ms":80/3.6,"F0_N":248900.0}
+MASS={"AW0":170000.0,"AW2":221940.0}
+V={
+    "b_service":1.10,
+    "b_emergency":1.30,
+    "jerk":0.75,
+    "max_speed_ms":80/3.6,
+    "F0_N":248900.0,
+    "installed_power_W":2160000.0,
+    "powered_mass_fraction":4/6,
+}
+
+def base_speed_ms():
+    """Model transition point implied by design F0 and source-backed installed power."""
+    return V["installed_power_W"]/V["F0_N"]
 
 def davis_N(mass_kg,v_ms,tunnel=True):
     v_kmh=v_ms*3.6; c=1.40 if tunnel else 1.00; r=1.5+0.006*v_kmh+0.00035*c*v_kmh*v_kmh
     return r*(mass_kg/1000.0)*G
 
 def traction_N(v_ms,mass_kg,mu=0.25):
-    f=V["F0_N"] if v_ms<=V["base_speed_ms"] else V["F0_N"]*V["base_speed_ms"]/max(v_ms,0.01)
-    adhesion=mu*mass_kg*(4/6)*G
+    if v_ms<=base_speed_ms():
+        f=V["F0_N"]
+    else:
+        f=V["installed_power_W"]/max(v_ms,0.01)
+    adhesion=mu*mass_kg*V["powered_mass_fraction"]*G
     return min(f,adhesion)
 
-def power_kW(): return V["F0_N"]*V["base_speed_ms"]/1000
+def power_kW(): return V["installed_power_W"]/1000
 
 def sim_accel(mass_kg,target_kmh,grade_pct=0.0,mu=0.25,dt=1/120):
     v=s=t=0.0; target=target_kmh/3.6; eff_mass=mass_kg*1.08
@@ -40,5 +59,6 @@ def report():
 if __name__=="__main__":
     if "--json" in sys.argv: print(json.dumps(report(),ensure_ascii=False,indent=2))
     else:
-        print(f"moc trakcyjna (model) ≈ {power_kW():.0f} kW")
+        print(f"moc zainstalowana trakcji (spec) = {power_kW():.0f} kW")
+        print(f"prędkość przejścia modelu F0→P = {base_speed_ms()*3.6:.2f} km/h (derived design_model)")
         for r in report(): print(r)
