@@ -264,11 +264,11 @@ jako streaming w grze:
    Nie ma budżetu czasu na wczytanie (`ResourceLoader` asynchroniczny), nie ma kolejki
    priorytetów „najpierw to, na czym stoję". Nie ma też polityki, kiedy zwalniać:
    `free` jest liczony natychmiast, bez okresu łaski.
-2. **LOD.** Jeden poziom szczegółu na chunk. Nie ma ani drugiej siatki, ani progów
+2. **LOD.** *(rozwiązane później — `reports/L1_A-lod.md`)* Jeden poziom szczegółu na chunk. Nie ma ani drugiej siatki, ani progów
    odległości, ani impostora dla chunka widocznego z 500 m przez prostą. Przy 16176
    trójkątach na całe 6,7 km to jeszcze nie boli, ale przy torowisku, wyposażeniu
    i oświetleniu zaboli.
-3. **Kolizje.** GLB zawiera samą siatkę wizualną. Nie ma `CollisionShape3D`, nie ma
+3. **Kolizje.** *(rozwiązane później — `reports/L1_A-lod.md` §4)* GLB zawiera samą siatkę wizualną. Nie ma `CollisionShape3D`, nie ma
    uproszczonej geometrii kolizyjnej płyty dennej, nie ma warstw kolizji. Fizyka
    pociągu i tak jest 1D w `src/Sim/`, więc to jest potrzebne dopiero dla widoku
    kabiny i dla obiektów w tunelu.

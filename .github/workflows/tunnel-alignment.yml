@@ -10,6 +10,8 @@ on:
       - 'tools/tests/**'
       - 'data/track/**'
       - 'reports/L1_A-geometry.md'
+      - 'reports/L1_A-chunks.md'
+      - 'reports/L1_A-lod.md'
       - 'reports/M7-in-tunnel.md'
       - 'data/vehicle/**'
   workflow_dispatch:

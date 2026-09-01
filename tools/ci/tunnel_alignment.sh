@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # T-210: tunel pakietu A z rzeczywistej osi — generacja, kontrola geometrii,
-# round-trip GLB i render kontrolny na GitHub-hosted Linux (ubuntu-latest).
+# poziomów szczegółowości i geometrii kolizyjnej, round-trip GLB i render kontrolny
+# na GitHub-hosted Linux (ubuntu-latest).
 # Wszystkie artefakty lądują w build/t210 i są wgrywane także przy porażce.
 set -euo pipefail
 
@@ -307,6 +308,179 @@ DETPY
 rm -rf "$CHUNKS_B" "$OUT/L1_A-chunked-repeat.glb"
 
 echo
+echo "[LOD] poziomy szczegółowości i geometria kolizyjna"
+# Manifest mówi, CO wczytać; ten blok sprawdza to, co dochodzi obok: w jakiej
+# rozdzielczości to rysować i czym testować kolizje. Kontrole idą osobno dla KAŻDEGO
+# poziomu, bo dziura w szwie LOD 2 nie zobaczy się na LOD 0.
+python3 - "$MANIFEST_A" "$CHUNKS_A" "$OUT/L1_A-chunked-metrics.json" <<'LODPY'
+import hashlib, json, os, shutil, sys, tempfile
+sys.path.insert(0, os.path.join("tools", "blender"))
+import lod as LD
+import sweep as SW
+
+manifest_path, chunk_dir, metrics_path = sys.argv[1:4]
+manifest = json.load(open(manifest_path, encoding="utf-8"))
+metrics = json.load(open(metrics_path, encoding="utf-8"))
+problems = list(LD.lod_problems(manifest))
+
+
+def sha256(path):
+    digest = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for block in iter(lambda: handle.read(65536), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def check_meshes(manifest, directory):
+    """Każdy plik LOD-a i kolizji: istnieje, jest GLB, ma zadeklarowany rozmiar i sha256."""
+    bad = []
+    for chunk in manifest["chunks"]:
+        for entry in list(chunk["lods"]) + [chunk["collision"]]:
+            path = os.path.join(directory, entry["file"])
+            if not os.path.isfile(path):
+                bad.append(f"{entry['file']}: brak pliku")
+                continue
+            with open(path, "rb") as handle:
+                if handle.read(4) != b"glTF":
+                    bad.append(f"{entry['file']}: zły magic")
+            if os.path.getsize(path) != entry["bytes"]:
+                bad.append(f"{entry['file']}: rozmiar != manifest")
+            if sha256(path) != entry["sha256"]:
+                bad.append(f"{entry['file']}: sha256 nie zgadza się z manifestem")
+    return bad
+
+
+problems += check_meshes(manifest, chunk_dir)
+
+# Liczniki, bbox i degeneracje po stronie generatora — LOD nie ma prawa wnieść
+# ani jednej ściany zdegenerowanej, wierzchołka NaN/Inf ani normalnej na zewnątrz.
+for key in ("lod_outward_faces", "lod_degenerate_faces", "lod_non_finite_vertices",
+            "collision_outward_faces", "collision_degenerate_faces",
+            "collision_non_finite_vertices"):
+    if metrics[key]:
+        problems.append(f"{key}={metrics[key]}")
+if metrics["lod_max_gap_any_m"] > 1e-6:
+    problems.append(f"szczelina między LOD-ami {metrics['lod_max_gap_any_m']*1000:.4f} mm")
+if metrics["collision_max_gap_m"] > 1e-6:
+    problems.append(f"szczelina kolizji {metrics['collision_max_gap_m']*1000:.4f} mm")
+# Bbox rzadszego poziomu ma prawo się skurczyć — najdalszy pierścień mógł wypaść —
+# ale nie ma prawa urosnąć ani skurczyć się bardziej niż wynosi błąd tego poziomu.
+if metrics["lod_max_bbox_growth_m"] > 1e-6:
+    problems.append(f"bbox LOD-a urósł o {metrics['lod_max_bbox_growth_m']} m")
+worst_deviation = max(e["max_deviation_m"] for e in manifest["lod_levels"])
+if metrics["lod_max_bbox_shrink_m"] > worst_deviation + 1e-6:
+    problems.append(f"bbox LOD-a skurczył się o {metrics['lod_max_bbox_shrink_m']} m, "
+                    f"więcej niż zmierzony błąd {worst_deviation} m")
+if not metrics["collision_closed"]:
+    problems.append("bryła kolizyjna nie jest zamknięta poprzecznie")
+if metrics["collision_min_wall_margin_m"] <= 0.0:
+    problems.append("bryła kolizyjna dotyka albo przebija ścianę tunelu")
+if metrics["collision_min_gauge_margin_m"] <= 0.0:
+    problems.append("bryła kolizyjna nie mieści skrajni M7")
+
+for entry in manifest["lod_levels"]:
+    print(f"[LOD] poziom {entry['level']}: cieciwa<={entry['max_chord_m']:.0f} m "
+          f"strzalka<={entry['max_sagitta_m']:.2f} m trojkaty={entry['triangles']:5d} "
+          f"({entry['triangle_share_pct']:5.1f}%) blad_max={entry['max_deviation_m']:.4f} m "
+          f"mediana={entry['median_deviation_m']:.4f} m "
+          f"prog={entry['switch_distance_m']:.0f} m [{entry['status']}]")
+collision = manifest["chunks"][0]["collision"]
+print(f"[LOD] kolizja: trojkaty={metrics['collision_triangles']} "
+      f"({100.0*metrics['collision_triangles']/metrics['triangles']:.1f}% LOD 0) "
+      f"wciecie={collision['inset_m']} m czapki={collision['end_caps']} "
+      f"zapas_sciana={metrics['collision_min_wall_margin_m']:.4f} m "
+      f"zapas_skrajnia={metrics['collision_min_gauge_margin_m']:.4f} m")
+print(f"[LOD] szczelina: LOD-y {metrics['lod_max_gap_any_m']*1000:.4f} mm "
+      f"(wszystkie {len(metrics['lod_max_gap_m'])} par poziomów), "
+      f"kolizja {metrics['collision_max_gap_m']*1000:.4f} mm, "
+      f"bbox: wzrost {metrics['lod_max_bbox_growth_m']} m, "
+      f"skurcz {metrics['lod_max_bbox_shrink_m']} m")
+
+# Predykat poziomu: przejazd całej osi co 25 m. Chunk pod pociągiem MUSI być w LOD 0,
+# bo to jego się ogląda z bliska i dla niego wczytana jest bryła kolizyjna.
+peak_flat = peak_lod = 0
+step, chainage = 25.0, 0.0
+while chainage <= manifest["axis_length_m"] + step:
+    plan = LD.lod_plan(manifest, chainage)
+    under = [c["id"] for c in manifest["chunks"]
+             if c["start_m"] <= chainage <= c["end_m"]]
+    for chunk_id in under:
+        if plan.get(chunk_id) != 0:
+            problems.append(f"chainage {chainage}: chunk pod pociągiem nie jest w LOD 0")
+    collision_ids = LD.collision_plan(manifest, chainage)
+    if not set(under) <= set(collision_ids):
+        problems.append(f"chainage {chainage}: brak bryły kolizyjnej pod pociągiem")
+    if not set(collision_ids) <= set(plan):
+        problems.append(f"chainage {chainage}: kolizja poza oknem streamowania")
+    peak_lod = max(peak_lod, LD.lod_triangles(manifest, plan))
+    peak_flat = max(peak_flat, LD.lod_triangles(manifest, {k: 0 for k in plan}))
+    chainage += step
+if peak_lod >= peak_flat:
+    problems.append("plan LOD nie oszczędza ani jednego trójkąta wobec pełnej rozdzielczości")
+print(f"[LOD] okno {SW.DEFAULT_STREAM_BEHIND_M}+{SW.DEFAULT_STREAM_AHEAD_M} m: szczyt "
+      f"{peak_lod} trojkatow z LOD wobec {peak_flat} bez LOD "
+      f"({100.0*peak_lod/peak_flat:.1f}%)")
+
+# NEGATYW: kontrola, która przechodzi tylko na poprawnym wejściu, nie dowodzi niczego.
+scratch = tempfile.mkdtemp()
+try:
+    for chunk in manifest["chunks"]:
+        for entry in list(chunk["lods"]) + [chunk["collision"]]:
+            shutil.copy2(os.path.join(chunk_dir, entry["file"]), scratch)
+    victim = os.path.join(scratch, manifest["chunks"][0]["lods"][2]["file"])
+    with open(victim, "r+b") as handle:
+        handle.seek(os.path.getsize(victim) - 1)
+        last = handle.read(1)
+        handle.seek(os.path.getsize(victim) - 1)
+        handle.write(bytes([last[0] ^ 0xFF]))
+    detected = check_meshes(manifest, scratch)
+    if not any("sha256" in d for d in detected):
+        problems.append("NEGATYW: przekręcony bajt w pliku LOD 2 nie został wykryty")
+    else:
+        print(f"[LOD] negatyw OK — {detected[0]}")
+finally:
+    shutil.rmtree(scratch, ignore_errors=True)
+
+broken = json.loads(json.dumps(manifest))
+broken["chunks"][3]["collision"]["wall_margin_m"] = -0.01
+broken["chunks"][3]["lods"][2]["end_m"] += 3.0
+found = LD.lod_problems(broken)
+if not any("wystaje poza światło" in p for p in found) or \
+        not any("inny zakres chainage" in p for p in found):
+    problems.append("NEGATYW: zepsuty manifest LOD/kolizji nie został wykryty")
+else:
+    print(f"[LOD] negatyw OK — {found[0]}")
+
+if problems:
+    raise SystemExit("BŁĄD: " + "; ".join(problems))
+print("[LOD] manifest LOD i kolizji OK")
+LODPY
+
+echo
+echo "[LOD] round-trip GLB każdego poziomu i bryły kolizyjnej jednego chunka"
+# `glb_roundtrip.py` jest jedynym narzędziem do tego w repo i tak zostaje: „eksport
+# nie zgłosił błędu" nie dowodzi, że plik da się wczytać.
+python3 - "$MANIFEST_A" "$CHUNKS_A" <<'EXPECTPY'
+import json, os, sys
+manifest = json.load(open(sys.argv[1], encoding="utf-8"))
+chunk = manifest["chunks"][5]
+for entry in list(chunk["lods"])[1:] + [chunk["collision"]]:
+    tag = os.path.splitext(entry["file"])[0]
+    json.dump({"bbox_size_m": entry["bbox_size_m"], "vertices": entry["vertices"],
+               "faces": entry["faces"]},
+              open(os.path.join(sys.argv[2], f"expect-lod-{tag}.json"), "w",
+                   encoding="utf-8"))
+print(f"[LOD] oczekiwania dla {chunk['id']}: LOD 1, LOD 2 i kolizja")
+EXPECTPY
+for expect in "$CHUNKS_A"/expect-lod-*.json; do
+  mesh_id="$(basename "$expect" .json)"; mesh_id="${mesh_id#expect-lod-}"
+  "${BLENDER[@]}" tools/blender/glb_roundtrip.py -- \
+    --in "$CHUNKS_A/$mesh_id.glb" --expect-objects 1 --expect-metrics "$expect" \
+    --out "$CHUNKS_A/roundtrip-$mesh_id.json" | sed "s/^/  $mesh_id /"
+done
+
+echo
 echo "[CHUNKI] render pojedynczego chunka — czy fragment rury jest zamknięty i ciągły"
 # Kotwice kamer liczą się z UŁAMKÓW osi podanej w --centerline. Podanie tu pełnej osi
 # postawiłoby kamerę wnętrza kilka kilometrów od chunka, więc render dostaje wycinek
@@ -394,6 +568,62 @@ if bad:
 PY
 
 echo
+echo "[LOD] render tego samego chunka w najrzadszym LOD-zie i bryły kolizyjnej"
+# Ten sam chunk, te same kotwice, ta sama kamera — jedyną zmienną jest siatka.
+# Render CHUNK_* powyżej JEST poziomem 0 (to dosłownie plik $CHUNK_ID.glb), więc
+# porównanie idzie klatka w klatkę: CHUNK_axisNN vs LOD2_axisNN.
+# Siatka drutowa dla kamer wnętrza zostaje włączona: bez niej wnętrze rury jest
+# jednolicie szare i nie widać, gdzie stoją pierścienie — a właśnie one są tu treścią.
+for MESH in lod2 col; do
+  case "$MESH" in
+    lod2) SUFFIX="_lod2"; PREFIX="LOD2";;
+    col)  SUFFIX="_col";  PREFIX="COL";;
+  esac
+  "${BLENDER[@]}" tools/visual/capture_blender.py -- \
+    --in "$CHUNKS_A/$CHUNK_ID$SUFFIX.glb" --set alignment --prefix "$PREFIX" \
+    --out "$RENDERS/chunk" --centerline "$CHUNKS_A/$CHUNK_ID-axis.json" \
+    --wire-cameras axis05,axis25,axis50,axis75,section "${ANCHOR_ARGS[@]}" \
+    | grep -E '^\[(RENDER|SKIP)\]'
+  python3 tools/visual/compare.py --set alignment --current "$RENDERS/chunk" \
+    --prefix "$PREFIX" --out "$OUT/$PREFIX-render-sanity.json" --allow-new-baseline
+  python3 - "$OUT/$PREFIX-render-sanity.json" "$PREFIX" <<'PY'
+import json, sys
+report = json.load(open(sys.argv[1], encoding="utf-8"))
+bad = []
+for image in report["images"]:
+    checks, metrics = image["checks"], image["metrics"]
+    ok = checks.get("exists") and checks.get("dimension") and checks.get("not_empty")
+    print(f"[LOD] render {sys.argv[2]}_{image['camera']}: ink={metrics['ink_fraction']} "
+          f"std={metrics['luma_std']} poziomy={metrics['distinct_levels']} "
+          f"-> {'OK' if ok else 'ODRZUCONY'}")
+    if not ok:
+        bad.append(image["camera"])
+missing = {"plan", "section", "axis05", "axis25", "axis50", "axis75"} - \
+    {i["camera"] for i in report["images"]}
+if missing:
+    raise SystemExit(f"BŁĄD: brak renderów {sys.argv[2]}: {sorted(missing)}")
+if bad:
+    raise SystemExit(f"BŁĄD: puste/jednolite rendery {sys.argv[2]}: " + ", ".join(bad))
+PY
+done
+# Metryka obok oględzin, nie zamiast nich: rzadsza siatka drutowa MUSI dać mniej
+# tuszu na klatce wnętrza. Gdyby dała tyle samo, renderowałby się nie ten plik.
+python3 - "$OUT/chunk-render-sanity.json" "$OUT/LOD2-render-sanity.json" <<'PY'
+import json, sys
+base = {i["camera"]: i["metrics"] for i in json.load(open(sys.argv[1], encoding="utf-8"))["images"]}
+lod2 = {i["camera"]: i["metrics"] for i in json.load(open(sys.argv[2], encoding="utf-8"))["images"]}
+worse = []
+for camera in ("axis05", "axis25", "axis50", "axis75"):
+    a, b = base[camera]["ink_fraction"], lod2[camera]["ink_fraction"]
+    print(f"[LOD] tusz siatki {camera}: LOD 0 {a:.4f} -> LOD 2 {b:.4f} "
+          f"({100.0 * (b - a) / a:+.1f}%)")
+    if b >= a:
+        worse.append(camera)
+if worse:
+    raise SystemExit("BŁĄD: LOD 2 nie ma rzadszej siatki niż LOD 0 na: " + ", ".join(worse))
+PY
+
+echo
 echo "[RENDER] zestaw alignment"
 "${BLENDER[@]}" tools/visual/capture_blender.py -- \
   --in "$OUT/L1_A.glb" --set alignment --prefix L1_A --out "$RENDERS" \
@@ -450,7 +680,8 @@ echo
 echo "============================================================"
 echo "[RESULT] T-210 zakończone w ${SECONDS}s"
 echo "[RESULT] OGLĘDZINY RENDERÓW SĄ NADAL WYMAGANE:"
-for f in "$RENDERS"/L1_A_*.png "$RENDERS"/chunk/CHUNK_*.png; do
+for f in "$RENDERS"/L1_A_*.png "$RENDERS"/chunk/CHUNK_*.png "$RENDERS"/chunk/LOD2_*.png \
+         "$RENDERS"/chunk/COL_*.png; do
   echo "  - $f ($(stat -c%s "$f") B)"
 done
 echo "[RESULT] manifest streamingowy: $MANIFEST_A ($(python3 -c "import json;print(json.load(open('$MANIFEST_A'))['chunk_count'])") chunków)"
