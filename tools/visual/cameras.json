@@ -1,0 +1,134 @@
+{
+  "$comment": "Canonical manifest kamer i ustawień renderu kontrolnego (T-012). Zmiana czegokolwiek tutaj unieważnia baseline — bump manifest_version.",
+  "schema_version": 1,
+  "manifest_version": "2026-09-01.1",
+  "render": {
+    "engine": "BLENDER_EEVEE_NEXT",
+    "engine_fallback": "BLENDER_EEVEE",
+    "samples": 32,
+    "view_transform": "Standard",
+    "look": "None",
+    "film_transparent": false,
+    "use_motion_blur": false,
+    "color_mode": "RGB",
+    "background_rgb": [0.05, 0.06, 0.08],
+    "sun_energy": 3.0,
+    "sun_euler_deg": [55.0, 0.0, 35.0]
+  },
+  "scene_sets": {
+    "vehicle": {
+      "description": "Zestaw dla taboru: bok, czoło, izometria, dach/skrajnia, zbliżenie drzwi. Wyłącznie kontrola geometrii, nie brandingu.",
+      "resolution": [1280, 720],
+      "thresholds": {
+        "mean_abs_diff": 0.004,
+        "p95_abs_diff": 0.06,
+        "ssim_min": 0.98,
+        "min_ink_fraction": 0.002,
+        "min_luma_std": 0.01,
+        "min_distinct_levels": 24
+      },
+      "cameras": [
+        {
+          "id": "side",
+          "projection": "ORTHO",
+          "direction": [0.0, 1.0, 0.0],
+          "anchor": {"mode": "bbox_center"},
+          "margin": 1.06,
+          "purpose": "podział na człony, rozstaw i regularność drzwi, długość"
+        },
+        {
+          "id": "front",
+          "projection": "ORTHO",
+          "direction": [1.0, 0.0, 0.0],
+          "anchor": {"mode": "bbox_center"},
+          "margin": 1.35,
+          "purpose": "szerokość, proporcje przekroju, symetria lewo/prawo"
+        },
+        {
+          "id": "iso",
+          "projection": "PERSP",
+          "lens": 50.0,
+          "direction": [-1.0, 1.0, -0.55],
+          "anchor": {"mode": "bbox_center"},
+          "margin": 1.12,
+          "purpose": "ciągłość członów, brak odwróconej lub nakładającej się geometrii"
+        },
+        {
+          "id": "roof",
+          "projection": "ORTHO",
+          "direction": [0.0, 0.0, -1.0],
+          "anchor": {"mode": "bbox_center"},
+          "margin": 1.06,
+          "purpose": "rzut z góry: dach i obrys skrajni, elementy wystające poza envelope"
+        },
+        {
+          "id": "door",
+          "projection": "PERSP",
+          "lens": 50.0,
+          "direction": [0.0, 1.0, -0.15],
+          "anchor": {"mode": "named", "name": "door"},
+          "frame_width_m": 4.2,
+          "purpose": "zbliżenie jednego otworu drzwiowego — wyłącznie kontrola wymiaru otworu"
+        }
+      ]
+    },
+    "infrastructure": {
+      "description": "Zestaw dla tuneli i komór stacyjnych.",
+      "resolution": [960, 576],
+      "thresholds": {
+        "mean_abs_diff": 0.004,
+        "p95_abs_diff": 0.06,
+        "ssim_min": 0.98,
+        "min_ink_fraction": 0.0002,
+        "min_luma_std": 0.004,
+        "min_distinct_levels": 16
+      },
+      "cameras": [
+        {
+          "id": "iso",
+          "projection": "PERSP",
+          "lens": 32.0,
+          "direction": [-1.0, 1.0, -0.6],
+          "anchor": {"mode": "bbox_center"},
+          "margin": 1.1,
+          "purpose": "pusta scena, geometria zwinięta w punkt, zły przebieg osi"
+        },
+        {
+          "id": "side",
+          "projection": "ORTHO",
+          "direction": [0.0, 1.0, 0.0],
+          "anchor": {"mode": "bbox_center"},
+          "margin": 1.05,
+          "purpose": "profil pionowy, pomylone jednostki"
+        },
+        {
+          "id": "top",
+          "projection": "ORTHO",
+          "direction": [0.0, 0.0, -1.0],
+          "anchor": {"mode": "bbox_center"},
+          "margin": 1.05,
+          "purpose": "rzut osi w planie"
+        },
+        {
+          "id": "inside",
+          "projection": "PERSP",
+          "lens": 35.0,
+          "anchor": {"mode": "named", "name": "inside_eye"},
+          "aim": {"mode": "named", "name": "inside_target"},
+          "purpose": "odwrócone normalne — widok wzdłuż osi z wnętrza tunelu"
+        },
+        {
+          "id": "section",
+          "projection": "ORTHO",
+          "anchor": {"mode": "named", "name": "section_eye"},
+          "aim": {"mode": "named", "name": "section_target"},
+          "margin": 1.25,
+          "fit": "slab",
+          "slab_thickness_m": 12.0,
+          "clip_at_anchor": true,
+          "purpose": "przekrój prostopadły do osi trasy w połowie długości; płaszczyzna bliska tnie geometrię"
+        }
+      ]
+    }
+  }
+}
