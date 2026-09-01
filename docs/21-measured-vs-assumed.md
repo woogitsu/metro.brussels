@@ -193,6 +193,30 @@ Wniosek nie zależy od decyzji o masach wirujących — bez współczynnika λ p
 udział to nadal 1,020. Hamowanie służbowe 1,10 m/s² na mokrej szynie wymaga **0,932**,
 czyli jest osiągalne dopiero, gdy hamuje ponad 93 % masy składu.
 
+## 4c. Cykl drzwi i czas postoju (`src/Sim/Train/DoorCycle.cs`, T-312)
+
+`docs/02-simulation.md` podaje cykl wprost: odryglowanie 0,5 s → otwieranie 2,0 s →
+wymiana pasażerów → sygnał zamykania 3,0 s → zamykanie 2,5 s → kontrola 0,5 s, wszystko
+`design_model`. Pięć faz o stałym czasie jest więc przepisane z dokumentu i nie dokłada
+żadnej nowej liczby. **Jedna wielkość cyklu nie ma w dokumencie wartości i nie dostała
+jej też tutaj.**
+
+| wielkość | wartość | status | dlaczego taka |
+|---|---:|---|---|
+| `MinimumDwellSeconds` | 8,5 s | **wyprowadzone** | suma pięciu faz stałych, nie osobna liczba. Test przypina równość sumie, żeby nikt nie mógł jej „poprawić" bez zmiany faz |
+| czas wymiany pasażerów | **brak** | **argument, nie stała** | zależy od potoku, pory dnia i stacji — w rejestrze źródeł nie ma ani jednej z tych rzeczy. `DoorCycle` przyjmuje go jako parametr konstruktora; scenariusz, który go poda, musi zadeklarować własne założenie |
+
+**Dlaczego nie ma tu domyślnej wartości wymiany pasażerów.** Domyślna liczba w tym
+miejscu byłaby wpisaniem czasu postoju metra brukselskiego bez żadnej podstawy — a to
+jest liczba, którą ktoś potem zacytuje. Kod woli nie skompilować się bez niej, niż
+podać zmyśloną. Zero jest dopuszczalne i znaczy „nikt nie wysiada", a nie „drzwi się
+nie otwierają": cykl i tak trwa pełne 8,5 s.
+
+**Blokada jazdy nie jest parametrem.** `docs/02` mówi „jazda zablokowana do
+potwierdzenia zamknięcia", więc trakcja jest wolna wyłącznie w fazie `Closed` — po
+kontroli, a nie w chwili zetknięcia skrzydeł. To jest własność bezpieczeństwa i test
+sprawdza ją dla **każdej** fazy wyliczeniowo, a nie dla wybranych.
+
 ## 5. Co jest zablokowane i czym
 
 | potrzebne | blokuje | zadanie |
