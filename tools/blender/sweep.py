@@ -630,6 +630,25 @@ def deterministic_view(manifest):
     return out
 
 
+MANIFEST_DECIMALS = 6
+
+
+def manifest_span(start_m, end_m, decimals=MANIFEST_DECIMALS):
+    """Trójka (start, koniec, długość) spójna PO zaokrągleniu.
+
+    Zaokrąglanie długości osobno od końców jest błędem, choć wygląda niewinnie:
+    `round(a, 6)`, `round(b, 6)` i `round(b - a, 6)` liczone niezależnie potrafią się
+    rozjechać o pełne 1e-6, czyli dokładnie o tolerancję szwu w
+    `manifest_problems`. Chunk c08 pakietu E (L2_E) trafił w ten przypadek:
+    539,477855 wobec 539,477856 — manifest był odrzucany jako niespójny, mimo że
+    geometria była poprawna. Długość liczona z już zaokrąglonych końców nie może
+    się rozminąć z ich różnicą.
+    """
+    start = round(float(start_m), decimals)
+    end = round(float(end_m), decimals)
+    return start, end, round(end - start, decimals)
+
+
 def manifest_problems(manifest, length_tolerance_m=0.01, seam_tolerance_m=1e-6):
     """Kontrola spójności manifestu — lista problemów, pusta znaczy OK.
 

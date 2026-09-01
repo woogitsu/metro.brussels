@@ -88,10 +88,11 @@ def geometry_record(chunk, path):
     się zmieniła" wtedy, gdy `sha256` pliku i tak nie jest odtwarzalny.
     """
     lo, hi = SW.bounding_box([chunk])
+    start_m, end_m, _length_m = SW.manifest_span(chunk["start_m"], chunk["end_m"])
     return {
         "file": os.path.basename(path),
-        "start_m": round(chunk["start_m"], 6),
-        "end_m": round(chunk["end_m"], 6),
+        "start_m": start_m,
+        "end_m": end_m,
         "rings": len(chunk["ring_indices"]),
         "vertices": len(chunk["vertices"]),
         "faces": len(chunk["faces"]),
@@ -245,7 +246,7 @@ def chunk_records(chunks, objects, stations, station_slots, name, chunk_dir, fra
         record.update({
             "id": chunk_id,
             "index": index,
-            "length_m": round(chunk["length_m"], 6),
+            "length_m": SW.manifest_span(chunk["start_m"], chunk["end_m"])[2],
             "stations": [{"name": stations[s]["name"],
                           "chainage_m": round(float(stations[s]["chainage_m"]), 3)}
                          for s in station_slots[index]],

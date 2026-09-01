@@ -1,7 +1,7 @@
 {
   "$comment": "Canonical manifest kamer i ustawień renderu kontrolnego (T-012). Zmiana czegokolwiek tutaj unieważnia baseline — bump manifest_version.",
   "schema_version": 1,
-  "manifest_version": "2026-09-01.5",
+  "manifest_version": "2026-09-01.6",
   "render": {
     "engine": "BLENDER_EEVEE_NEXT",
     "engine_fallback": "BLENDER_EEVEE",
@@ -126,9 +126,10 @@
           "margin": 1.25,
           "fit": "slab",
           "slab_thickness_m": 12.0,
+          "slab_radius_m": 40.0,
           "clip_at_anchor": true,
           "depth_m": 30.0,
-          "purpose": "przekrój prostopadły do osi trasy w połowie długości; płaszczyzna bliska tnie geometrię, daleka jest 30 m dalej, żeby ortho nie scałkowało całej trasy w jedną klatkę"
+          "purpose": "przekrój prostopadły do osi trasy w połowie długości; płaszczyzna bliska tnie geometrię, daleka jest 30 m dalej, a promień płata to 40 m, żeby ortho nie scałkowało całej trasy w jedną klatkę"
         }
       ]
     },
@@ -161,9 +162,10 @@
           "margin": 1.25,
           "fit": "slab",
           "slab_thickness_m": 12.0,
+          "slab_radius_m": 40.0,
           "clip_at_anchor": true,
           "depth_m": 30.0,
-          "purpose": "przekrój poprzeczny w połowie długości; głębia ograniczona do 30 m, żeby ortho nie scałkowało kilku kilometrów łuku w jedną klatkę"
+          "purpose": "przekrój poprzeczny w połowie długości; głębia ograniczona do 30 m, a promień płata do 40 m, żeby na trasie zawracającej (pierścień 2/6) ortho nie objęło drugiej strony pierścienia"
         },
         {
           "id": "side",
@@ -172,7 +174,10 @@
           "aim": {"mode": "named", "name": "section_target"},
           "yaw_deg": 90.0,
           "frame_width_m": 80.0,
-          "purpose": "elewacja boczna 80-metrowego odcinka w połowie długości — wykrywa pomylone jednostki, skoki skali i zły profil pionowy; kierunek liczony z kotwic osi i obrócony o 90 stopni, bo „prostopadle do toru\" zmienia się z chainage"
+          "wire": true,
+          "clip_at_anchor": true,
+          "depth_m": 60.0,
+          "purpose": "elewacja boczna 80-metrowego odcinka w połowie długości — wykrywa pomylone jednostki, skoki skali i zły profil pionowy; kierunek liczony z kotwic osi i obrócony o 90 stopni, bo „prostopadle do toru\" zmienia się z chainage; głębia ograniczona do 60 m, bo bez tego kadr scałkowałby kilkanaście kilometrów ściany w jednolity pasek"
         },
         {
           "id": "axis05",

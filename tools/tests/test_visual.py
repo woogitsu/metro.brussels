@@ -134,6 +134,62 @@ def test_visual_missing_anchor_skips_camera_explicitly():
     assert "door" not in {c["id"] for c in solved}
 
 
+def test_visual_section_camera_ignores_the_far_side_of_a_returning_route():
+    """Regresja: oś pakietu E to pierścień i płaszczyzna cięcia trafia w niego dwa razy.
+
+    Bez ograniczenia promienia ortho rośnie z 16,5 m do 4777,7 m — kadr formalnie
+    „znalazł geometrię", a pokazuje pustkę, bo przekrój pod kotwicą ma wtedy kilka
+    pikseli.
+    """
+    spec = {"id": "section", "projection": "ORTHO", "fit": "slab",
+            "slab_thickness_m": 12.0, "slab_radius_m": 40.0,
+            "direction": [1.0, 0.0, 0.0], "margin": 1.0,
+            "anchor": {"mode": "named", "name": "cut"}}
+    anchors = {"cut": [0.0, 0.0, 1.75]}
+    here = [(0.0, -4.7, -1.2), (0.0, 4.7, -1.2), (0.0, 4.7, 4.7), (0.0, -4.7, 4.7)]
+    far_side = [(0.0, 2400.0, -1.2), (0.0, 2409.4, 4.7)]
+    solved = framing.solve_camera(spec, (-500.0, -10.0, -1.2), (500.0, 2410.0, 4.7),
+                                  960, 576, named_anchors=anchors, points=here + far_side)
+    assert solved["fit_fallback"] is False
+    assert solved["ortho_scale"] < 30.0, solved
+    without = dict(spec)
+    without.pop("slab_radius_m")
+    loose = framing.solve_camera(without, (-500.0, -10.0, -1.2), (500.0, 2410.0, 4.7),
+                                 960, 576, named_anchors=anchors, points=here + far_side)
+    assert loose["ortho_scale"] > 1000.0, "przypadek brzegowy przestał być brzegowy"
+
+
+def test_visual_section_camera_grows_the_slab_until_it_finds_a_ring():
+    """Regresja: na LOD 2 pierścienie stoją co kilkadziesiąt metrów.
+
+    Płat +-12 m wokół kotwicy bywa wtedy pusty, kadr cicho spada na bbox całego
+    chunka i przekrój 9,4 x 5,9 m ląduje jako plamka na 570-metrowej klatce.
+    Zmierzone na chunku pakietu E: LOD 0 przechodzi, LOD 2 daje ink=0.0000.
+    """
+    spec = {"id": "section", "projection": "ORTHO", "fit": "slab",
+            "slab_thickness_m": 12.0, "direction": [1.0, 0.0, 0.0], "margin": 1.0,
+            "anchor": {"mode": "named", "name": "cut"}}
+    # jedyny pierścień leży 40 m przed kotwicą — dokładnie tak, jak na LOD 2
+    ring = [(40.0, -4.7, -1.2), (40.0, 4.7, -1.2), (40.0, 4.7, 4.7), (40.0, -4.7, 4.7)]
+    solved = framing.solve_camera(spec, (0.0, -4.7, -1.2), (570.0, 4.7, 4.7), 960, 576,
+                                  named_anchors={"cut": [0.0, 0.0, 1.75]}, points=ring)
+    assert solved["fit_fallback"] is False, solved
+    assert solved["slab_thickness_used_m"] >= 40.0, solved
+    # kadr ma obejmować przekrój, a nie 570 m chunka
+    assert solved["ortho_scale"] < 30.0, solved
+
+
+def test_visual_section_camera_reports_fallback_when_there_is_no_geometry():
+    """Sześć podwojeń to 768 m. Jeśli i to nie łapie nic, kadr JEST zastępczy."""
+    spec = {"id": "section", "projection": "ORTHO", "fit": "slab",
+            "slab_thickness_m": 12.0, "direction": [1.0, 0.0, 0.0], "margin": 1.0,
+            "anchor": {"mode": "named", "name": "cut"}}
+    solved = framing.solve_camera(spec, (0.0, -4.7, -1.2), (570.0, 4.7, 4.7), 960, 576,
+                                  named_anchors={"cut": [0.0, 0.0, 1.75]},
+                                  points=[(5000.0, 0.0, 0.0)])
+    assert solved["fit_fallback"] is True, solved
+
+
 def test_visual_section_camera_uses_slab_not_whole_bbox():
     spec = next(c for c in MANIFEST["scene_sets"]["infrastructure"]["cameras"] if c["id"] == "section")
     bmin, bmax = (0.0, -120.0, -15.0), (2000.0, 0.0, -9.0)

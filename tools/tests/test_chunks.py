@@ -217,6 +217,46 @@ def test_chunk_manifest_problems_accepts_a_consistent_manifest():
     assert SW.manifest_problems(_manifest()) == []
 
 
+def test_chunk_manifest_span_is_consistent_after_rounding():
+    """Regresja: pięć z siedemnastu chunków pakietu E wywracało kontrolę manifestu.
+
+    Zaokrąglanie długości niezależnie od końców rozjeżdża się z ich różnicą o pełne
+    1e-6, czyli dokładnie o tolerancję szwu w `manifest_problems`. Liczby poniżej to
+    surowe granice chunków `L2_E_flat_preview_c08` i `..._c12`, wprost z
+    `chunk_boundaries` na osi pakietu E — jeden przypadek w górę, drugi w dół.
+    Pakiet A nie trafił w ten przypadek ani razu, więc błąd przeszedł niezauważony.
+    """
+    for start_raw, end_raw, naive in ((4465.6121470499465, 5005.090002543426, 539.477855),
+                                      (6383.717986769654, 6953.151306430391, 569.43332)):
+        start, end, length = SW.manifest_span(start_raw, end_raw)
+        assert round(end_raw - start_raw, 6) == naive, "przypadek przestał być brzegowy"
+        assert length != naive, "zaokrąglenie osobno i z końców dało to samo"
+        assert abs((end - start) - length) <= 1e-9
+
+
+def test_chunk_manifest_problems_accepts_the_package_e_boundary_case():
+    """Ta sama para liczb wstawiona w manifest nie może być zgłoszona jako błąd."""
+    manifest = _manifest()
+    start, end, length = SW.manifest_span(4465.6121470499465, 5005.090002543426)
+    first, middle, last = manifest["chunks"]
+    first["start_m"], first["end_m"] = 0.0, start
+    first["length_m"] = round(start, 6)
+    middle["start_m"], middle["end_m"], middle["length_m"] = start, end, length
+    last["start_m"] = end
+    last["end_m"] = end + 400.0
+    last["length_m"] = round(last["end_m"] - end, 6)
+    manifest["chunk_length_sum_m"] = sum(c["length_m"] for c in manifest["chunks"])
+    manifest["axis_length_m"] = last["end_m"]
+    assert SW.manifest_problems(manifest) == []
+
+
+def test_chunk_manifest_problems_catches_a_length_rounded_on_its_own():
+    """Kontrola musi nadal łapać długość, która nie zgadza się z końcami."""
+    manifest = _manifest()
+    manifest["chunks"][1]["length_m"] = round(manifest["chunks"][1]["length_m"] + 1e-5, 6)
+    assert any("length_m" in p for p in SW.manifest_problems(manifest))
+
+
 def test_chunk_manifest_problems_detects_a_hole_between_chunks():
     manifest = _manifest()
     manifest["chunks"][1]["start_m"] += 0.5

@@ -113,6 +113,10 @@ def _extents(corners, anchor, right, up, forward):
     return max(r), max(u), max(d), min(d)
 
 
+# Ile razy wolno podwoić grubość płata, zanim uznamy, że w kadrze nie ma geometrii.
+SLAB_GROWTH_STEPS = 6
+
+
 def solve_camera(spec, bmin, bmax, res_x, res_y, named_anchors=None, points=None):
     """Zwraca deterministyczny opis kamery dla jednego wpisu z manifestu.
 
@@ -139,9 +143,37 @@ def solve_camera(spec, bmin, bmax, res_x, res_y, named_anchors=None, points=None
     half_r, half_u, depth_max, depth_min = _extents(corners, anchor, right, up, forward)
     scene_size = max(max(bbox_size(bmin, bmax)), 1.0)
     fit_fallback = False
+    slab_thickness_used = None
     if spec.get("fit") == "slab":
         thickness = float(spec.get("slab_thickness_m", 10.0))
-        slab = [p for p in (points or []) if abs(_dot(_sub(p, anchor), forward)) <= thickness]
+        # Płat o stałej grubości zakłada, że siatka ma pierścienie co kilka metrów.
+        # Na LOD 2 pierścienie stoją co kilkadziesiąt metrów i płat +-12 m bywa PUSTY:
+        # kadr cicho spada na bbox całego chunka i przekrój 9,4 x 5,9 m ląduje jako
+        # kilkupikselowa plamka na 570-metrowej klatce (zmierzone na chunku pakietu E).
+        # Dlatego płat rośnie, aż złapie geometrię — i mówi w metadanych, o ile urósł.
+        # Płaszczyzna cięcia przecina trasę w KILKU miejscach, gdy trasa zawraca.
+        # Oś pakietu E (pierścień 2/6) jest tego przykładem: płat w połowie długości
+        # łapie także drugą stronę pierścienia, kilometry w bok, i ortho rośnie
+        # z 16,5 m do 4777,7 m — kadr formalnie „znalazł geometrię", a pokazuje pustkę.
+        # Przekrój poprzeczny ma kadrować przekrój POD KOTWICĄ, więc punkty dalsze
+        # w bok niż `slab_radius_m` należą do innego kawałka trasy i odpadają.
+        radius = spec.get("slab_radius_m")
+
+        def _in_slab(point, thickness):
+            offset = _sub(point, anchor)
+            if abs(_dot(offset, forward)) > thickness:
+                return False
+            if radius is None:
+                return True
+            return _dot(offset, right) ** 2 + _dot(offset, up) ** 2 <= float(radius) ** 2
+
+        slab = [p for p in (points or []) if _in_slab(p, thickness)]
+        for _ in range(SLAB_GROWTH_STEPS):
+            if slab or not points:
+                break
+            thickness *= 2.0
+            slab = [p for p in points if _in_slab(p, thickness)]
+        slab_thickness_used = round(thickness, 6)
         if slab:
             # przekrój kotwiczy się na geometrii w płaszczyźnie cięcia, nie na środku bboxa
             mean_r = sum(_dot(_sub(p, anchor), right) for p in slab) / len(slab)
@@ -171,6 +203,7 @@ def solve_camera(spec, bmin, bmax, res_x, res_y, named_anchors=None, points=None
         out["fit"] = spec["fit"]
         out["fit_fallback"] = fit_fallback
         out["anchor_shift_right_up"] = out_anchor_shift
+        out["slab_thickness_used_m"] = slab_thickness_used
 
     if projection == "ORTHO":
         need_w = 2.0 * half_r
