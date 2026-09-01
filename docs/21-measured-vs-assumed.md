@@ -90,6 +90,12 @@ właściciela i należy do R-005 (#17).
 |---|---|---|---|---|
 | szerokość otworu `box_double` | 9,40 m | mediana **8,77 m**, P05–P95 8,25–9,92 m | poligony `MT` UrbIS, CC0 (`reports/M7-curve-clearance.md` §4) | dataset nie mówi, czy poligon jest **światłem tunelu**, czy **obrysem konstrukcji z murami** |
 | rozstaw torów | 4,20 m (±2,10 m) | **3,294 m** (±1,647 m), P05–P95 3,03–4,37 m | INSPIRE Rails STIB (`reports/L1_A-track-spacing.md`) | zmierzono odległość dwóch polilinii **tras handlowych**, nie rozstaw torów; trzy źródła dają 3,29 / 3,34 / 3,88 m, a `docs/07` zabrania uśredniania; rozstaw nie jest stały |
+| szerokość `bore_single` | 6,08 m | najwęższy tunel w **całej sieci**: **6,75 m** | 87 poligonów `MT` UrbIS, `tunnel_width.py --survey` | nic w sieci nie jest tak wąskie, a najwęższy kandydat leży poza pakietem A; ale poligon może być obrysem konstrukcji z murami, więc światło bywa węższe |
+| szerokość `station` | 15,20 m | mediana sieci **15,55 m**, P05–P95 11,22–24,75 m | 69 poligonów `MS` UrbIS | **wartość projektowa trafia w medianę** — inaczej niż `bore_single`. Ale poligon `MS` to całe pudło stacji z antresolami, nie komora na poziomie peronu, więc waliduje rząd wielkości, nie wymiar |
+
+Stacje pakietu A rozpinają się od **12,02 m** (Merode) do **24,64 m** (De Brouckère) —
+ponad dwukrotnie. **Jeden profil `station` nie odwzoruje ich wszystkich**; to wejście
+dla T-211 (#18) i R-004 (#16).
 
 **Cztery niepewności działają w tę samą stronę** (mniejszy promień, węższy otwór, zwis
 czopów, przechyłka), a **piąta w przeciwną** (węższy rozstaw torów). Żadnej nie wolno

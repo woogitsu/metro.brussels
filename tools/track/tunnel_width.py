@@ -126,15 +126,18 @@ def bbox_min_width(ring):
     return best
 
 
-def survey(payload):
-    """Szerokość każdego poligonu tunelu w sieci, dwoma estymatorami.
+def survey(payload, kind="MT"):
+    """Szerokość każdego poligonu danego typu w sieci, dwoma estymatorami.
 
-    Odpowiada na pytanie, którego pomiar wzdłuż jednej osi nie obejmuje: czy w sieci
-    STIB w ogóle występują tunele w skali jednotorowej, czy `bore_single` z `profiles.py`
-    modeluje coś, czego nie ma.
+    Odpowiada na pytanie, którego pomiar wzdłuż jednej osi nie obejmuje: czy profile
+    z `profiles.py` modelują skalę, która w sieci STIB w ogóle występuje. `MT` to tunele,
+    `MS` komory stacyjne.
+
+    **Poligon `MS` jest całym pudłem stacji**, razem z antresolami i dojściami, a nie
+    komorą na poziomie peronu. Wynik waliduje rząd wielkości, nie wymiar.
     """
     rows = []
-    for properties, ring in load_polygons(payload, "MT"):
+    for properties, ring in load_polygons(payload, kind):
         width = corridor_width(ring)
         if width is None:
             continue
@@ -148,6 +151,7 @@ def survey(payload):
     rows.sort(key=lambda r: r["corridor_width_m"])
     widths = [r["corridor_width_m"] for r in rows]
     return {
+        "kind": kind,
         "polygons": len(rows),
         "min_m": widths[0] if widths else None,
         "p05_m": widths[int(0.05 * (len(widths) - 1))] if widths else None,
@@ -285,14 +289,16 @@ def main(argv=None):
     report["source"]["features_total"] = payload.get("numberMatched")
     polygons = load_polygons(payload, "MT")
     if args.survey:
-        report["survey"] = survey(payload)
-        item = report["survey"]
-        print(f"[SIEĆ] {item['polygons']} poligonów tuneli: min {item['min_m']} m, "
-              f"P05 {item['p05_m']} m, mediana {item['median_m']} m, "
-              f"P95 {item['p95_m']} m, maks. {item['max_m']} m")
-        for row in item["narrowest"][:5]:
-            print(f"[SIEĆ]   {row['corridor_width_m']:5.2f} m "
-                  f"(bbox {row['bbox_min_width_m']:5.2f} m)  {row['name']}")
+        report["survey"] = {}
+        for kind, label in (("MT", "tuneli"), ("MS", "komór stacyjnych")):
+            item = survey(payload, kind)
+            report["survey"][kind] = item
+            print(f"[SIEĆ] {item['polygons']} poligonów {label}: min {item['min_m']} m, "
+                  f"P05 {item['p05_m']} m, mediana {item['median_m']} m, "
+                  f"P95 {item['p95_m']} m, maks. {item['max_m']} m")
+            for row in item["narrowest"][:5]:
+                print(f"[SIEĆ]   {row['corridor_width_m']:6.2f} m "
+                      f"(bbox {row['bbox_min_width_m']:6.2f} m)  {row['name']}")
     rows = measure(points, stops, polygons)
     summary = summarise(rows)
     report["status"] = summary["status"]

@@ -136,6 +136,7 @@ def test_survey_sorts_by_corridor_width_and_reports_both_estimators():
              [list(CRSLESS(x, y)) for x, y in _rect(6.2, 300.0)]]}},
     ]}
     result = TW.survey(payload)
+    assert result["kind"] == "MT"
     assert result["polygons"] == 2
     assert result["narrowest"][0]["name"] == "waski"
     assert result["narrowest"][0]["corridor_width_m"] < result["narrowest"][1]["corridor_width_m"]
@@ -146,3 +147,20 @@ def test_survey_sorts_by_corridor_width_and_reports_both_estimators():
 def CRSLESS(x, y):
     """Punkty testowe podajemy w stopniach wokół Brukseli, żeby przeszły przez transformację."""
     return (4.35 + x / 70000.0, 50.85 + y / 111000.0)
+
+
+def test_survey_separates_tunnels_from_station_chambers():
+    """Ten sam kod ma odpowiadać na dwa różne pytania, zależnie od typu poligonu."""
+    payload = {"features": [
+        {"properties": {"type": "MT", "name_fr": "tunel"},
+         "geometry": {"type": "Polygon", "coordinates": [
+             [list(CRSLESS(x, y)) for x, y in _rect(9.0, 300.0)]]}},
+        {"properties": {"type": "MS", "name_fr": "stacja"},
+         "geometry": {"type": "Polygon", "coordinates": [
+             [list(CRSLESS(x, y)) for x, y in _rect(16.0, 150.0)]]}},
+    ]}
+    tunnels = TW.survey(payload, "MT")
+    stations = TW.survey(payload, "MS")
+    assert tunnels["polygons"] == 1 and tunnels["narrowest"][0]["name"] == "tunel"
+    assert stations["polygons"] == 1 and stations["narrowest"][0]["name"] == "stacja"
+    assert stations["narrowest"][0]["corridor_width_m"] > tunnels["narrowest"][0]["corridor_width_m"]
