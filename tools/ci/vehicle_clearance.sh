@@ -1,17 +1,27 @@
 #!/usr/bin/env bash
-# Osadzenie M7 w tunelu pakietu A i POMIAR luzu na siatce, plus rendery kontrolne.
+# Osadzenie M7 w tunelu pakietu i POMIAR luzu na siatce, plus rendery kontrolne.
 # `reports/M7-curve-clearance.md` liczy ten sam luz ze wzoru na strzałkę cięciwy —
 # dwie niezależne drogi do jednej liczby, żeby jedna sprawdzała drugą.
 #
 # Druga połowa skryptu przesuwa skład wzdłuż CAŁEJ osi (`profile_vehicle.py`) i pyta
 # o to, czego pomiar w jednym punkcie nie powie: czy zmierzony dołek jest odosobniony
 # i gdzie jeszcze robi się ciasno. Wynik: `reports/M7-clearance-profile.md`.
+#
+#     bash tools/ci/vehicle_clearance.sh [ID_OSI]
+#
+# ID_OSI to nazwa pliku z `data/track/` bez rozszerzenia (domyślnie L1_A). Pakiet A
+# nie jest tu w niczym wyróżniony — tak samo jak w `tunnel_alignment.sh`, parametr
+# istnieje po to, żeby ta sama poprzeczka dała się postawić każdemu pakietowi.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
-OUT="build/t220clearance"
+NAME="${1:-L1_A}"
+# AXIS jest eksportowana, bo czytają ją także wtrącone bloki `python3 - <<'PY'`,
+# do których nie da się podać ścieżki inaczej niż przez środowisko albo argv.
+export AXIS="data/track/$NAME.json"
+OUT="build/t220clearance/$NAME"
 RENDERS="$OUT/renders"
 mkdir -p "$OUT" "$RENDERS"
 REPORT="$OUT/report.txt"
@@ -19,13 +29,12 @@ REPORT="$OUT/report.txt"
 exec > >(tee -a "$REPORT") 2>&1
 SECONDS=0
 
-AXIS="data/track/L1_A.json"
 PROFILE="box_double"
 BLENDER=(blender --background --python-exit-code 7 --python)
 
 fail() { echo "BŁĄD: $*" >&2; exit 1; }
 
-echo "Skrajnia M7 w tunelu pakietu A — pomiar na siatce i profil wzdłuż osi"
+echo "Skrajnia M7 w tunelu pakietu $NAME — pomiar na siatce i profil wzdłuż osi"
 echo "============================================================"
 blender --version | head -n 1
 test -s "$AXIS" || fail "brak osi $AXIS"
@@ -33,28 +42,28 @@ test -s "$AXIS" || fail "brak osi $AXIS"
 echo
 echo "[BUILD] tunel i pojazd"
 "${BLENDER[@]}" tools/blender/tunnel_sweep.py -- \
-  --centerline "$AXIS" --profile "$PROFILE" --name L1_A \
-  --out "$OUT/L1_A.glb" --metrics "$OUT/L1_A-metrics.json" >/dev/null
+  --centerline "$AXIS" --profile "$PROFILE" --name "$NAME" \
+  --out "$OUT/$NAME.glb" --metrics "$OUT/$NAME-metrics.json" >/dev/null
 "${BLENDER[@]}" tools/blender/m7_shell.py -- \
   --out "$OUT/M7_shell.glb" --envelope-out "$OUT/M7_envelope.glb" \
   --report "$OUT/M7_shell.json" >/dev/null
-test -s "$OUT/L1_A.glb" || fail "tunel nie powstał"
+test -s "$OUT/$NAME.glb" || fail "tunel nie powstał"
 test -s "$OUT/M7_shell.glb" || fail "pojazd nie powstał"
 
 echo
 echo "[POMIAR] oba tory na najciaśniejszym łuku"
 for TRACK in 0 1; do
   "${BLENDER[@]}" tools/blender/place_vehicle.py -- \
-    --tunnel "$OUT/L1_A.glb" --vehicle "$OUT/M7_shell.glb" --centerline "$AXIS" \
+    --tunnel "$OUT/$NAME.glb" --vehicle "$OUT/M7_shell.glb" --centerline "$AXIS" \
     --profile "$PROFILE" --track "$TRACK" \
-    --out "$OUT/L1_A_with_M7_t$TRACK.glb" --report "$OUT/m7_t$TRACK.json" \
+    --out "$OUT/${NAME}_with_M7_t$TRACK.glb" --report "$OUT/m7_t$TRACK.json" \
     --min-clearance-m 0.0 | grep -E '^\[OSADZENIE\]'
 done
 
 echo
 echo "[NEGATYWNY] próg luzu musi wywrócić przebieg, gdy nie jest spełniony"
 if "${BLENDER[@]}" tools/blender/place_vehicle.py -- \
-  --tunnel "$OUT/L1_A.glb" --vehicle "$OUT/M7_shell.glb" --centerline "$AXIS" \
+  --tunnel "$OUT/$NAME.glb" --vehicle "$OUT/M7_shell.glb" --centerline "$AXIS" \
   --profile "$PROFILE" --track 1 --min-clearance-m 5.0 \
   --out "$OUT/negative.glb" >"$OUT/negative.log" 2>&1; then
   fail "próg 5 m luzu przeszedł, choć tunel ma 9,40 m szerokości"
@@ -91,13 +100,21 @@ versine = CL.versine(body_chord, radius)
 ring = profiles.profile_points(worst["profile"])
 # Luz statyczny do ŚCIANY na danym torze — inna wielkość niż profiles.min_clearance,
 # które inflatuje skrajnię symetrycznie i bywa wiązane przez ścięcie naroża stropu.
-static_wall = min(PL.distance_to_boundary(ring, worst["track_offset_m"] + dx, 1.0)
+#
+# WYSOKOŚĆ, na której mierzymy odległość do ściany, musi być tą, na której wypadło
+# minimum — nie stałą. Profil `box_double` ma ścięte naroża stropu, więc światło
+# zwęża się z wysokością: na 1,03 m jest 1,250 m, a na 3,60 m już 1,100 m. Wpisana
+# na stałe wysokość 1,0 m zgadzała się z pakietem A PRZYPADKIEM (jego minimum leży
+# na 1,03 m) i rozjeżdżała się o 148,8 mm na pakiecie B, gdzie minimum wypada na
+# ścięciu naroża, na 3,60 m.
+contact_height = float(worst["min_clearance_at"]["vertical_m"])
+static_wall = min(PL.distance_to_boundary(ring, worst["track_offset_m"] + dx, contact_height)
                   for dx in (-spec["width_m"] / 2.0, spec["width_m"] / 2.0))
 predicted = static_wall - versine
 print(f"[KONTROLA] promień {radius} m, cięciwa nominalna {chord:.3f} m, "
       f"rzeczywista {body_chord:.3f} m -> strzałka {versine*1000:.1f} mm")
-print(f"[KONTROLA] luz statyczny do ściany {static_wall:.4f} m, przewidziany {predicted:.4f} m, "
-      f"zmierzony {worst['min_clearance_m']:.4f} m")
+print(f"[KONTROLA] wysokość styku {contact_height:.3f} m, luz statyczny {static_wall:.4f} m, "
+      f"przewidziany {predicted:.4f} m, zmierzony {worst['min_clearance_m']:.4f} m")
 delta = abs(predicted - worst["min_clearance_m"])
 print(f"[KONTROLA] rozjazd wzoru i siatki: {delta*1000:.1f} mm")
 if delta > 0.01:
@@ -113,7 +130,7 @@ sys.path.insert(0, os.path.join("tools", "blender"))
 import placement as PL, sweep as SW
 
 report = json.load(open(sys.argv[1], encoding="utf-8"))
-document = json.load(open(os.path.join("data", "track", "L1_A.json"), encoding="utf-8"))
+document = json.load(open(os.environ["AXIS"], encoding="utf-8"))
 points = SW.catmull_rom([tuple(float(c) for c in p) for p in document["points"]],
                         report["ring_step_m"])
 stations = SW.chainages(points)
@@ -131,7 +148,7 @@ print(f"--anchor gap_eye={at(gap)} --anchor gap_target={at(gap + 10.0)} "
 ANCHORPY
 )"
 "${BLENDER[@]}" tools/visual/capture_blender.py -- \
-  --in "$OUT/L1_A_with_M7_t1.glb" --set clearance --prefix M7_GAP --out "$RENDERS" \
+  --in "$OUT/${NAME}_with_M7_t1.glb" --set clearance --prefix M7_GAP --out "$RENDERS" \
   --centerline "$AXIS" $ANCHORS
 
 echo
@@ -169,10 +186,10 @@ PROFILE_PID=()
 for TRACK in 0 1; do
   "${BLENDER[@]}" tools/blender/profile_vehicle.py -- \
     --vehicle "$OUT/M7_shell.glb" --centerline "$AXIS" --profile "$PROFILE" \
-    --tunnel "$OUT/L1_A.glb" --track "$TRACK" \
+    --tunnel "$OUT/$NAME.glb" --track "$TRACK" \
     --out "$OUT/profile_t$TRACK.json" \
     --swept-out "$OUT/M7_swept_t$TRACK.glb" \
-    --swept-scene-out "$OUT/L1_A_with_swept_t$TRACK.glb" \
+    --swept-scene-out "$OUT/${NAME}_with_swept_t$TRACK.glb" \
     >"$OUT/profile_t$TRACK.log" 2>&1 &
   PROFILE_PID[TRACK]=$!
 done
@@ -328,9 +345,9 @@ echo "[RENDER] przekrój w NAJGORSZYM punkcie profilu i zamiatana obwiednia w tu
 WORST_START="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1],encoding='utf-8'))['statistics']['with_refinement']['min_at']['start_m'])" "$OUT/profile_t1.json")"
 echo "[RENDER] czoło składu na chainage $WORST_START m (tor 1)"
 "${BLENDER[@]}" tools/blender/place_vehicle.py -- \
-  --tunnel "$OUT/L1_A.glb" --vehicle "$OUT/M7_shell.glb" --centerline "$AXIS" \
+  --tunnel "$OUT/$NAME.glb" --vehicle "$OUT/M7_shell.glb" --centerline "$AXIS" \
   --profile "$PROFILE" --track 1 --chainage "$WORST_START" \
-  --out "$OUT/L1_A_with_M7_worst.glb" --report "$OUT/m7_worst.json" \
+  --out "$OUT/${NAME}_with_M7_worst.glb" --report "$OUT/m7_worst.json" \
   --min-clearance-m 0.0 | grep -E '^\[OSADZENIE\] ZMIERZONY'
 
 python3 - "$OUT/profile_t1.json" "$OUT/m7_worst.json" <<'WORSTPY'
@@ -352,7 +369,7 @@ sys.path.insert(0, os.path.join("tools", "blender"))
 import placement as PL, sweep as SW
 
 report = json.load(open(sys.argv[1], encoding="utf-8"))
-document = json.load(open(os.path.join("data", "track", "L1_A.json"), encoding="utf-8"))
+document = json.load(open(os.environ["AXIS"], encoding="utf-8"))
 points = SW.catmull_rom([tuple(float(c) for c in p) for p in document["points"]],
                         report["ring_step_m"])
 stations = SW.chainages(points)
@@ -371,7 +388,7 @@ print(f"--anchor gap_eye={at(gap)} --anchor gap_target={at(gap + 10.0)} "
 ANCHORPY
 )"
 "${BLENDER[@]}" tools/visual/capture_blender.py -- \
-  --in "$OUT/L1_A_with_M7_worst.glb" --set clearance --prefix M7_WORST --out "$RENDERS" \
+  --in "$OUT/${NAME}_with_M7_worst.glb" --set clearance --prefix M7_WORST --out "$RENDERS" \
   --centerline "$AXIS" $ANCHORS >/dev/null
 
 # Obwiednia potrzebuje INNEJ kotwicy `approach` niż pojazd. Zamiatana bryła jest
@@ -384,7 +401,7 @@ sys.path.insert(0, os.path.join("tools", "blender"))
 import clearance_profile as CP, placement as PL, sweep as SW
 
 report = json.load(open(sys.argv[1], encoding="utf-8"))
-document = json.load(open(os.path.join("data", "track", "L1_A.json"), encoding="utf-8"))
+document = json.load(open(os.environ["AXIS"], encoding="utf-8"))
 points = SW.catmull_rom([tuple(float(c) for c in p) for p in document["points"]],
                         report["ring_step_m"])
 stations = SW.chainages(points)
@@ -405,7 +422,7 @@ print(f"--anchor gap_eye={at(gap)} --anchor gap_target={at(gap + 10.0)} "
 SWEPTANCHORPY
 )"
 "${BLENDER[@]}" tools/visual/capture_blender.py -- \
-  --in "$OUT/L1_A_with_swept_t1.glb" --set clearance --prefix M7_SWEPT --out "$RENDERS" \
+  --in "$OUT/${NAME}_with_swept_t1.glb" --set clearance --prefix M7_SWEPT --out "$RENDERS" \
   --centerline "$AXIS" $SWEPT_ANCHORS >/dev/null
 
 for PREFIX in M7_WORST M7_SWEPT; do
