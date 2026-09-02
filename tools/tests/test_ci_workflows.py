@@ -365,3 +365,75 @@ def test_ci_negative_assertion_script_reads_the_reason():
         finally:
             os.unlink(path)
         assert code == expected, (data, code, expected)
+
+
+def test_godot_scene_knows_every_argument_the_workflow_passes():
+    """Lista znanych argumentów sceny i to, czym woła ją CI, muszą się zgadzać.
+
+    Zmierzone 02.09.2026 audytem mutacyjnym: `--at-chainag=2000` — literówka na
+    jednym znaku — kończyło się kodem 0 i zrzutem `GODOT_cab_2000m.png`
+    przedstawiającym stojący skład na 94 m. `ParseArguments` wrzucało każdy argument
+    do słownika i nigdy nie sprawdzało, czy ktoś go odczytał. Pięć „ujęć kontrolnych"
+    mogło więc być pięcioma kopiami tego samego kadru.
+
+    Scena odrzuca teraz nieznany argument, a ten test pilnuje obu stron: że lista
+    w kodzie nie zgubi argumentu, którego CI używa, i że CI nie zacznie wołać
+    argumentu, którego scena nie zna.
+    """
+    source = open(os.path.join(ROOT, "src", "Game", "FirstRun.cs"), encoding="utf-8").read()
+    block = re.search(r"KnownArguments\s*=\s*\{(.*?)\};", source, re.S)
+    assert block, "lista znanych argumentów zniknęła z FirstRun.cs"
+    known = set(re.findall(r'"([a-z-]+)"', block.group(1)))
+    assert len(known) >= 10, known
+
+    text = _text("godot-first-run.yml")
+    scene_calls = [line for line in text.splitlines() if "--path src/Game" in line]
+    assert scene_calls, "workflow przestał uruchamiać scenę"
+
+    # Argumenty sceny to wyłącznie to, co stoi PO `--` w wywołaniu silnika, do końca
+    # tego wywołania — czyli do pierwszej linii bez kontynuacji `\`. Szersze łapanie
+    # wciągało argumenty compare.py i dotnet-a z tego samego kroku.
+    lines = text.splitlines()
+    used = set()
+    for index, line in enumerate(lines):
+        if "--path src/Game" not in line:
+            continue
+        chunk = [line.split("--path src/Game", 1)[1]]
+        cursor = index
+        while lines[cursor].rstrip().endswith("\\") and cursor + 1 < len(lines):
+            cursor += 1
+            chunk.append(lines[cursor])
+        used.update(re.findall(r"(?<!-)--([a-z-]+)(?:=|\s|$)", " ".join(chunk)))
+
+    unknown = sorted(name for name in used if name not in known)
+    assert not unknown, f"CI woła argumenty, których scena nie zna: {unknown}"
+    assert {"shot", "at-chainage", "view"} <= used, sorted(used)
+
+
+def test_godot_scene_rejects_unknown_arguments_instead_of_ignoring_them():
+    """Sama bramka w kodzie, nie tylko zgodność list."""
+    source = open(os.path.join(ROOT, "src", "Game", "FirstRun.cs"), encoding="utf-8").read()
+    assert "ExitUnknownArgument" in source
+    assert "Array.IndexOf(KnownArguments, name) < 0" in source, \
+        "zniknęło sprawdzenie, czy argument jest znany"
+    assert "KnownViews" in source and "ExitBadArgumentValue" in source, \
+        "nieznany --view musi być błędem, a nie cichym powrotem do kabiny"
+    # `double.Parse` w środku `_Ready` rzucał wyjątkiem, `_shotPath` było już
+    # ustawione i `_Process` kręciło się w nieskończoność aż do timeoutu CI.
+    assert "double.Parse(" not in source, "parsowanie bez TryParse wraca do zawieszania"
+    assert "long.Parse(" not in source, "parsowanie bez TryParse wraca do zawieszania"
+    assert "_aborted" in source, "brak flagi zatrzymującej pętlę klatek"
+
+
+def test_godot_scene_gates_the_axis_against_the_manifest():
+    """Wydruk udający bramkę: rozjazd 6,7 km przechodził zielony.
+
+    Osobny krok CI `axis-vs-manifest` tego nie łapie, bo czyta manifest WŁASNYM
+    parserem z Sim.Runner — sprawdza plik na dysku, a nie to, co z tego pliku
+    wyjęła scena. Zmierzone po poprawce: ta sama mutacja daje kod wyjścia 10.
+    """
+    source = open(os.path.join(ROOT, "src", "Game", "FirstRun.cs"), encoding="utf-8").read()
+    assert "AxisManifestToleranceM" in source
+    assert "ExitAxisManifestMismatch" in source
+    assert re.search(r"if \(drift > AxisManifestToleranceM\)", source), \
+        "porównanie osi z manifestem wróciło do bycia wydrukiem"

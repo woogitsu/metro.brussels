@@ -83,7 +83,41 @@ public sealed partial class FirstRun : Node3D
     private long _sampleEvery = DriveTelemetry.DefaultSampleEverySteps;
     private long _stepsPerFrame = 120;
     private double _jitter;
+    /// <summary>
+    /// Kody wyjścia. Były rozsypane po pliku jako literały 3–7; teraz mają nazwy,
+    /// bo CI i człowiek czytający log muszą wiedzieć, co je odróżnia.
+    /// </summary>
+    /// <summary>
+    /// Ile wolno się różnić długości osi z manifestu chunków i z rdzenia.
+    ///
+    /// <para>Nie jest to zapas bezpieczeństwa, tylko rozdzielczość zapisu: manifest
+    /// trzyma długość zaokrągloną, a rdzeń liczy ją z zagęszczonej łamanej. Zmierzone
+    /// na pakiecie A: |Δ| = 1,335E-005 m. Milimetr jest o dwa rzędy wielkości powyżej
+    /// tego rozrzutu i o sześć rzędów poniżej rozjazdu, który ma łapać.</para>
+    /// </summary>
+    private const double AxisManifestToleranceM = 1e-3;
+
+    private const int ExitMissingInput = 3;
+
+    private const int ExitMissingAssets = 4;
+
+    private const int ExitTelemetryWriteFailed = 5;
+
+    private const int ExitHeadlessCannotRender = 6;
+
+    private const int ExitShotWriteFailed = 7;
+
+    private const int ExitUnknownArgument = 8;
+
+    private const int ExitBadArgumentValue = 9;
+
+    private const int ExitAxisManifestMismatch = 10;
+
     private bool _scriptedMode;
+
+    /// <summary>Scena zgłosiła błąd i nie ma prawa dalej liczyć klatek.</summary>
+    private bool _aborted;
+
     private string _mode = "manual";
     private string? _telemetryPath;
     private string? _shotPath;
@@ -98,6 +132,10 @@ public sealed partial class FirstRun : Node3D
     public override void _Ready()
     {
         ParseArguments();
+        if (_aborted)
+        {
+            return;
+        }
 
         _tunnel = GetNode<TunnelView>("Tunnel");
         _train = GetNode<TrainView>("Train");
@@ -112,7 +150,17 @@ public sealed partial class FirstRun : Node3D
 
         BuildEnvironment();
         BuildSimulation();
+        if (_aborted)
+        {
+            return;
+        }
+
         BuildWorld();
+        if (_aborted)
+        {
+            return;
+        }
+
         ApplyView();
         LogHeader();
 
@@ -133,6 +181,27 @@ public sealed partial class FirstRun : Node3D
 
     // --- argumenty i ścieżki ------------------------------------------------------
 
+    /// <summary>
+    /// Wszystkie argumenty, które scena rozumie. Lista jest jawna, bo argument spoza
+    /// niej ma zatrzymać przebieg, a nie zostać po cichu zignorowany.
+    ///
+    /// <para><b>Zmierzone 02.09.2026 audytem mutacyjnym.</b> Przed tą zmianą
+    /// <c>--at-chainag=2000</c> — literówka na jednym znaku — kończyło się kodem 0
+    /// i zrzutem o nazwie <c>GODOT_cab_2000m.png</c> przedstawiającym stojący skład
+    /// na 94 m. <c>--view=zmyslony</c> cicho spadało do widoku z kabiny. Pięć „ujęć
+    /// kontrolnych" mogło więc być pięcioma kopiami tego samego kadru, a wszystkie
+    /// opisy kamer z <c>cameras.json</c> („najciaśniejszy łuk R = 91,5 m", „szew
+    /// chunków c01/c02") były niesprawdzalnymi deklaracjami.</para>
+    /// </summary>
+    private static readonly string[] KnownArguments =
+    {
+        "telemetry", "shot", "sample-every", "steps-per-frame", "jitter",
+        "at-chainage", "view", "axis", "no-geometry", "assets", "manifest", "shell",
+    };
+
+    /// <summary>Widoki, jakie scena potrafi ustawić. Inna wartość jest błędem, nie domyślną.</summary>
+    private static readonly string[] KnownViews = { "cab", "chase", "outside" };
+
     private void ParseArguments()
     {
         foreach (var argument in OS.GetCmdlineUserArgs())
@@ -149,15 +218,38 @@ public sealed partial class FirstRun : Node3D
             }
         }
 
+        foreach (var name in _args.Keys)
+        {
+            if (Array.IndexOf(KnownArguments, name) < 0)
+            {
+                Abort(ExitUnknownArgument,
+                    $"[ARGUMENT] nieznany argument '--{name}'. Znane: --{string.Join(" --", KnownArguments)}");
+                return;
+            }
+        }
+
         _telemetryPath = Argument("telemetry");
         _shotPath = Argument("shot");
         _scriptedMode = _telemetryPath is not null || _shotPath is not null;
         _mode = _telemetryPath is not null ? "telemetry" : _shotPath is not null ? "shot" : "manual";
-        _sampleEvery = long.Parse(Argument("sample-every") ?? "120", CultureInfo.InvariantCulture);
-        _stepsPerFrame = long.Parse(Argument("steps-per-frame") ?? "120", CultureInfo.InvariantCulture);
-        _jitter = double.Parse(Argument("jitter") ?? "0", CultureInfo.InvariantCulture);
-        _shotChainageM = double.Parse(Argument("at-chainage") ?? "0", CultureInfo.InvariantCulture);
-        _view = Argument("view") switch
+
+        if (!TryLong("sample-every", 120L, out _sampleEvery)
+            || !TryLong("steps-per-frame", 120L, out _stepsPerFrame)
+            || !TryDouble("jitter", 0.0, out _jitter)
+            || !TryDouble("at-chainage", 0.0, out _shotChainageM))
+        {
+            return;
+        }
+
+        var view = Argument("view") ?? "cab";
+        if (Array.IndexOf(KnownViews, view) < 0)
+        {
+            Abort(ExitBadArgumentValue,
+                $"[ARGUMENT] nieznany widok '--view={view}'. Znane: {string.Join(", ", KnownViews)}");
+            return;
+        }
+
+        _view = view switch
         {
             "chase" => ViewKind.Chase,
             "outside" => ViewKind.Outside,
@@ -165,7 +257,65 @@ public sealed partial class FirstRun : Node3D
         };
     }
 
+    private bool TryLong(string name, long fallback, out long value)
+    {
+        var text = Argument(name);
+        if (text is null)
+        {
+            value = fallback;
+            return true;
+        }
+
+        if (long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out value))
+        {
+            return true;
+        }
+
+        Abort(ExitBadArgumentValue, $"[ARGUMENT] '--{name}={text}' nie jest liczbą całkowitą");
+        return false;
+    }
+
+    private bool TryDouble(string name, double fallback, out double value)
+    {
+        var text = Argument(name);
+        if (text is null)
+        {
+            value = fallback;
+            return true;
+        }
+
+        if (double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value)
+            && double.IsFinite(value))
+        {
+            return true;
+        }
+
+        // Bez tego `double.Parse` rzucał wyjątkiem w środku `_Ready`, `_shotPath` było
+        // już ustawione, a `_Process` wchodziło w odliczanie od int.MaxValue i kręciło
+        // się w nieskończoność. Zmierzone: `--at-chainage=abc` nie dawało ani PNG-a,
+        // ani kodu błędu — w CI to wypalony `timeout-minutes: 45` bez informacji.
+        Abort(ExitBadArgumentValue, $"[ARGUMENT] '--{name}={text}' nie jest skończoną liczbą");
+        value = fallback;
+        return false;
+    }
+
     private string? Argument(string name) => _args.TryGetValue(name, out var value) ? value : null;
+
+    /// <summary>
+    /// Przerywa przebieg z kodem błędu i **zatrzymuje pętlę klatek**.
+    ///
+    /// <para>Sam <c>GetTree().Quit()</c> nie wystarcza: Godot kończy dopiero na końcu
+    /// klatki, a <c>_Ready</c> i <c>_Process</c> lecą dalej po niezbudowanym stanie.
+    /// Flaga <see cref="_aborted"/> jest tym, co odróżnia „scena zgłosiła błąd"
+    /// od „scena zawisła".</para>
+    /// </summary>
+    private void Abort(int code, string message)
+    {
+        _aborted = true;
+        GD.PushError(message);
+        GD.PrintErr(message);
+        GetTree().Quit(code);
+    }
 
     private static string RepoPath(string relative)
     {
@@ -181,8 +331,7 @@ public sealed partial class FirstRun : Node3D
         using var file = FileAccess.Open(axisPath, FileAccess.ModeFlags.Read);
         if (file is null)
         {
-            GD.PushError($"[OŚ] nie da się otworzyć {axisPath}: {FileAccess.GetOpenError()}");
-            GetTree().Quit(3);
+            Abort(ExitMissingInput, $"[OŚ] nie da się otworzyć {axisPath}: {FileAccess.GetOpenError()}");
             return;
         }
 
@@ -245,10 +394,9 @@ public sealed partial class FirstRun : Node3D
         using var manifestFile = FileAccess.Open(manifestPath, FileAccess.ModeFlags.Read);
         if (manifestFile is null)
         {
-            GD.PushError(
+            Abort(ExitMissingAssets,
                 $"[ASSETS] brak manifestu {manifestPath}. Wygeneruj chunki " +
                 "(tools/blender/tunnel_sweep.py --chunk-dir ...) albo uruchom z --no-geometry.");
-            GetTree().Quit(4);
             return;
         }
 
@@ -262,10 +410,25 @@ public sealed partial class FirstRun : Node3D
 
         GD.Print(_tunnel.Describe(manifest));
         GD.Print(_train.Describe());
+        var drift = Math.Abs(manifest.AxisLengthM - _axis!.LengthM);
         GD.Print(string.Create(
             CultureInfo.InvariantCulture,
             $"[OŚ] manifest {manifest.AxisLengthM:F3} m vs oś z rdzenia {_axis.LengthM:F3} m, " +
-            $"|Δ| = {Math.Abs(manifest.AxisLengthM - _axis.LengthM):E3} m"));
+            $"|Δ| = {drift:E3} m"));
+
+        // Do 02.09.2026 był to sam wydruk. Zmierzone mutacją: wyzerowanie
+        // `axis_length_m` w ChunkManifest dawało w logu zielonego przebiegu
+        // „|Δ| = 6.687E+003 m" — rozjazd 6,7 km — i job kończył się sukcesem.
+        // Osobny krok CI `axis-vs-manifest` tego nie łapie, bo czyta manifest
+        // WŁASNYM parserem z Sim.Runner: sprawdza plik na dysku, a nie to, co
+        // z tego pliku wyjęła scena.
+        if (drift > AxisManifestToleranceM)
+        {
+            Abort(ExitAxisManifestMismatch, string.Create(
+                CultureInfo.InvariantCulture,
+                $"[OŚ] manifest chunków ({manifest.AxisLengthM:F3} m) nie opisuje tej osi " +
+                $"({_axis.LengthM:F3} m), |Δ| = {drift:E3} m > {AxisManifestToleranceM:E3} m"));
+        }
     }
 
     private void LogHeader()
@@ -293,6 +456,13 @@ public sealed partial class FirstRun : Node3D
     /// <inheritdoc/>
     public override void _Process(double delta)
     {
+        if (_aborted)
+        {
+            // Bez tego przebieg przerwany w `_Ready` kręcił klatki na niezbudowanym
+            // stanie aż do `timeout-minutes` w CI.
+            return;
+        }
+
         _frames++;
 
         if (_shotPath is not null)
@@ -531,8 +701,8 @@ public sealed partial class FirstRun : Node3D
         using var file = FileAccess.Open(_telemetryPath, FileAccess.ModeFlags.Write);
         if (file is null)
         {
-            GD.PushError($"[TELEMETRIA] nie da się zapisać {_telemetryPath}: {FileAccess.GetOpenError()}");
-            GetTree().Quit(5);
+            Abort(ExitTelemetryWriteFailed,
+                $"[TELEMETRIA] nie da się zapisać {_telemetryPath}: {FileAccess.GetOpenError()}");
             return;
         }
 
@@ -574,8 +744,8 @@ public sealed partial class FirstRun : Node3D
     {
         if (DisplayServer.GetName() == "headless")
         {
-            GD.PushError("[ZRZUT] --headless wyłącza renderer; użyj xvfb-run i --rendering-driver opengl3");
-            GetTree().Quit(6);
+            Abort(ExitHeadlessCannotRender,
+                "[ZRZUT] --headless wyłącza renderer; użyj xvfb-run i --rendering-driver opengl3");
             return;
         }
 
@@ -586,7 +756,7 @@ public sealed partial class FirstRun : Node3D
             CultureInfo.InvariantCulture,
             $"[ZRZUT] {_shotPath} {image.GetWidth()}x{image.GetHeight()} err={error} widok={_view} " +
             $"kroków={_state.Steps} chainage={ChainageM:F1} m v={_state.SpeedKmh:F1} km/h"));
-        GetTree().Quit(error == Error.Ok ? 0 : 7);
+        GetTree().Quit(error == Error.Ok ? 0 : ExitShotWriteFailed);
     }
 
     /// <summary>
