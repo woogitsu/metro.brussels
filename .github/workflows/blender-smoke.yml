@@ -37,7 +37,7 @@ jobs:
           set -euo pipefail
           export APT_CACHE_DIR="$HOME/.cache/metro-apt"
           bash tools/ci/apt_install.sh --set blender
-          blender --version | head -n 4
+          blender --version | sed -n '1,4p'
           blender --background --python-expr 'import numpy; print("numpy", numpy.__version__)'
           ldconfig -p | grep -E 'libEGL\.so\.1|libGL\.so\.1' || true
 

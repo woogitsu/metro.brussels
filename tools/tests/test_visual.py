@@ -544,3 +544,58 @@ def test_visual_godot_does_not_lean_on_distinct_levels():
 
 def test_visual_godot_resolution_matches_the_shots():
     assert _manifest()["scene_sets"]["godot"]["resolution"] == [1280, 720]
+
+
+# --- podłoga pustej klatki dla renderu kontrolnego ----------------------------
+
+def _stats_of(pixels, width=W, height=H):
+    tmp = tempfile.mkdtemp()
+    try:
+        path = os.path.join(tmp, "f.png")
+        _write(path, pixels, width, height)
+        return compare.image_stats(pngio.read_gray(path))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def _uniform(level=0.06):
+    return [(level, level, level)] * (W * H)
+
+
+def _speck(count, level=0.9, background=0.06):
+    """Tło plus `count` jasnych pikseli — analogia detalu o ułamku piksela."""
+    pixels = _uniform(background)[:]
+    for i in range(count):
+        pixels[(i * 37) % (W * H)] = (level, level, level)
+    return pixels
+
+
+def test_visual_empty_frame_floor_rejects_uniform_frame():
+    reason = compare.empty_frame_reason(_stats_of(_uniform()), compare.EMPTY_FRAME_FLOOR)
+    assert reason is not None and "pusty" in reason
+
+
+def test_visual_empty_frame_floor_rejects_a_handful_of_lit_pixels():
+    # Słupek 0,2 m w kadrze 5,4 km zajmuje ułamek piksela. Taka klatka MUSI polec:
+    # do tej pory `render_check.py` kończył się na niej zerem.
+    stats = _stats_of(_speck(6))
+    assert stats["ink_fraction"] > 0.0, "test byłby pusty, gdyby piksele nie zapaliły się"
+    assert compare.empty_frame_reason(stats, compare.EMPTY_FRAME_FLOOR) is not None
+
+
+def test_visual_empty_frame_floor_accepts_a_real_looking_frame():
+    assert compare.empty_frame_reason(_stats_of(_scene()), compare.EMPTY_FRAME_FLOOR) is None
+
+
+def test_visual_empty_frame_floor_is_not_stricter_than_the_manifest():
+    """Podłoga ma łapać pustkę, nie unieważniać kadrów, które manifest dopuszcza."""
+    for name, scene_set in MANIFEST["scene_sets"].items():
+        thresholds = scene_set["thresholds"]
+        for key, floor in compare.EMPTY_FRAME_FLOOR.items():
+            assert floor <= thresholds[key], (name, key, floor, thresholds[key])
+
+
+def test_visual_check_image_still_reports_the_empty_reason():
+    result = _check(_uniform(), None)
+    assert result["status"] == "fail" and result["checks"]["not_empty"] is False
+    assert "pusty" in result["reason"]

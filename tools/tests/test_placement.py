@@ -222,3 +222,45 @@ def test_placement_stable_section_widens_past_a_plateau():
     stable = PL.section_vertical_stable(points, (0.0, 0.0, 0.0), (1.0, 0.0, 0.0), 1.0)
     assert abs(naive[1] - 4.30) < 1e-9, naive
     assert abs(stable[1] - 4.70) < 1e-9, stable
+
+
+def test_placement_axis_window_frames_the_window_not_the_axis():
+    points = _straight(6000.0, 10.0)
+    window = PL.axis_window(points, 3695.0, 3740.0)
+    assert math.isclose(window["length_m"], 45.0, abs_tol=1e-9)
+    assert math.isclose(window["center"][0], 3717.5, abs_tol=1e-6)
+    assert math.isclose(window["size"], 45.0, abs_tol=1e-6)
+
+
+def test_placement_axis_window_keeps_the_points_inside_it():
+    points = _straight(600.0, 10.0)
+    window = PL.axis_window(points, 105.0, 145.0)
+    xs = [p[0] for p in window["points"]]
+    assert xs == sorted(xs)
+    assert math.isclose(xs[0], 105.0, abs_tol=1e-6) and math.isclose(xs[-1], 145.0, abs_tol=1e-6)
+    assert [round(x, 6) for x in xs[1:-1]] == [110.0, 120.0, 130.0, 140.0]
+
+
+def test_placement_axis_window_on_a_curve_is_wider_than_it_is_long():
+    points = _arc(300.0)
+    stations = SW.chainages(points)
+    window = PL.axis_window(points, 0.0, stations[-1])
+    # Łuk 120 stopni zawraca, więc bbox okna jest szerszy niż jakikolwiek jego bok
+    # liczony po cięciwie — kadr musi wynikać z bboxa, nie z długości łuku.
+    assert window["size"] > 300.0
+    assert math.isclose(window["length_m"], stations[-1], abs_tol=1e-9)
+
+
+def test_placement_axis_window_rejects_a_window_outside_the_axis():
+    points = _straight(600.0, 10.0)
+    for bad in [(0.0, 0.0), (200.0, 100.0), (-1.0, 100.0), (100.0, 900.0)]:
+        try:
+            PL.axis_window(points, bad[0], bad[1])
+        except ValueError:
+            continue
+        raise AssertionError(f"okno {bad} powinno zostać odrzucone")
+
+
+def test_placement_axis_window_floors_the_size_at_one_metre():
+    points = _straight(600.0, 10.0)
+    assert PL.axis_window(points, 100.0, 100.2)["size"] == 1.0

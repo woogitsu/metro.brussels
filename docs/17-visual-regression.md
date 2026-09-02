@@ -188,6 +188,45 @@ włos w kadrze (pokrycie ~0,6 %), a widok z wnętrza wypełnia kadr geometrią, 
 modalny poziom jasności *jest* geometrią. Pusta klatka to klatka jednorodna:
 zerowa wariancja i kilka poziomów jasności.
 
+### Ta sama podłoga w renderze kontrolnym
+
+`tools/blender/render_check.py` — ten z `CLAUDE.md` §5 — nie miał **żadnej** kontroli
+obrazu: pusty PNG wyglądał identycznie jak brak geometrii i kończył się kodem 0.
+Teraz każda zapisana klatka jest mierzona tą samą funkcją (`compare.empty_frame_reason`)
+i tą samą podłogą (`compare.EMPTY_FRAME_FLOOR` = najłagodniejszy zestaw progów
+z manifestu), a klatka pod podłogą kończy skrypt błędem.
+
+Zmierzone na Blenderze 4.0.2, profil `box_double` (9,4 x 5,9 m), kadr po całym bboxie,
+960x576 — kolumna „bok" to widok z boku, „iso" izometria:
+
+| oś | iso ink / poziomy | bok ink / poziomy | wynik |
+|---|---|---|---|
+| L1_A, 5 452 m, zakrzywiona | 0,00252 / 110 | 0,00271 / 100 | przechodzi |
+| prosta 5 000 m | 0,00235 / 105 | 0,00220 / **16** | przechodzi (bok dokładnie na podłodze) |
+| prosta 10 000 m | 0,00179 / 87 | 0,00220 / **13** | bok pod podłogą |
+| prosta 20 000 m | 0,00153 / 67 | 0,00219 / **8** | bok pod podłogą |
+| prosta 40 000 m | 0,00138 / 52 | 0,00219 / **11** | bok pod podłogą |
+| okno 45 m na L1_A | 0,21568 / 111 | 0,21109 / 112 | przechodzi |
+
+Dwie rzeczy widać w tej tabeli i obie trzeba powiedzieć wprost:
+
+1. **Progiem jest liczba poziomów jasności, nie pokrycie.** `ink` prawie nie drgnęło
+   między 5 a 40 km, bo jednopikselowa kreska zajmuje tyle samo pikseli niezależnie
+   od tego, ile metrów reprezentuje. Zmienia się gładkość cieniowania.
+2. **To jest podłoga, nie miara czytelności.** Izometria osi 40 km jest równie
+   bezużyteczna jak jej widok z boku, a mimo to przechodzi — kreska po skosie dostaje
+   od antyaliasingu więcej poziomów niż pozioma. Klatka nad podłogą znaczy tylko
+   „jest się czemu przyjrzeć", nie „widać, co miało być widać". Obejrzenie PNG zostaje
+   obowiązkowe.
+
+Lekarstwem na włos w kadrze jest okno: `render_check.py --from-m X --to-m Y` kadruje
+wycinek osi zamiast całego bboxa (wymaga `--centerline`). Okno ramuje **oś**, nie scenę
+— geometria odsunięta od osi dalej niż połowa okna może wypaść poza kadr, i właśnie
+dlatego pusta klatka musi być błędem, a nie ciszą.
+
+Koszt: 0,40 s na klatkę 960x576 (0,24 s odczyt PNG + 0,16 s statystyki), czysty Python
+bez Pillow i numpy — 1,2 s na trzy klatki renderu kontrolnego.
+
 ## Kontrola wymiarowa jest osobna od obrazowej
 
 Kadr jest liczony względem bboxa modelu, więc kamera jedzie razem z modelem:

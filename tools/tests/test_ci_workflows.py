@@ -171,6 +171,32 @@ def test_ci_apt_helper_rejects_an_unknown_package_set():
     assert empty.returncode == 2 and "użycie" in empty.stderr
 
 
+def test_ci_no_pipe_into_head_under_pipefail():
+    """`| head -n N` pod `set -o pipefail` to wyścig, nie skrót.
+
+    `head` zamyka potok po N wierszach, piszący dostaje SIGPIPE i kończy się 141,
+    a `pipefail` przenosi to na cały krok. Zwykle przechodzi, bo krótkie wyjście
+    mieści się w 64 KB bufora potoku i piszący zdąży skończyć — ale to jest
+    wyścig, nie gwarancja. Zmierzone: `ls -la build/t400 build/t400/chunks`
+    (64 wiersze) dawało lokalnie 0 dziesięć razy na dziesięć, a `find /` już 141
+    za każdym razem. Na runnerze pod obciążeniem przegrał wariant krótki
+    (`first-run` na #88, 02.09.2026: sweep zapisał komplet 12 chunków, a krok
+    i tak padł).
+
+    `sed -n '1,Np'` czyta do końca, więc piszący nigdy nie dostaje SIGPIPE.
+    """
+    offenders = []
+    for directory in (WORKFLOWS, os.path.join(ROOT, "tools", "ci")):
+        for name in sorted(os.listdir(directory)):
+            if not name.endswith((".yml", ".yaml", ".sh")):
+                continue
+            text = open(os.path.join(directory, name), encoding="utf-8").read()
+            for number, line in enumerate(text.splitlines(), 1):
+                if re.search(r"\|\s*head\b", line):
+                    offenders.append(f"{name}:{number}")
+    assert not offenders, offenders
+
+
 def test_ci_blender_workflows_still_install_blender():
     """Odporność nie może po cichu zgubić samego pakietu."""
     for name in ("blender-smoke.yml", "tunnel-alignment.yml", "m7-shell.yml",

@@ -50,7 +50,7 @@ FRAMEPY
 
 echo "T-210 tunel pakietu $NAME — pipeline geometryczny"
 echo "============================================================"
-blender --version | head -n 1
+blender --version | sed -n '1,1p'
 python3 --version
 test -s "$AXIS" || fail "brak osi $AXIS"
 
