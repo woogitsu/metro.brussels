@@ -1,0 +1,7 @@
+# Pakiety dla jobów, które renderują w Blenderze headless.
+# Ten plik jest KLUCZEM CACHE'A: zmiana listy unieważnia cache automatycznie,
+# więc nie da się zapomnieć o jego przebiciu.
+blender
+python3-numpy
+libegl1
+libgl1-mesa-dri

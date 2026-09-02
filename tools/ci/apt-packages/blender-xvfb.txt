@@ -1,0 +1,7 @@
+# Jak `blender.txt`, plus wirtualny X i pełny libGL dla zrzutów z Godota.
+blender
+python3-numpy
+xvfb
+libegl1
+libgl1
+libgl1-mesa-dri

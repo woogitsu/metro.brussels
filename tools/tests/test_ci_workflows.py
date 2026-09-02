@@ -113,10 +113,73 @@ def test_ci_step_budget_covers_a_slow_mirror():
     assert checked == 5, f"oczekiwano pięciu kroków instalacji, znaleziono {checked}"
 
 
+PACKAGE_SETS = os.path.join(ROOT, "tools", "ci", "apt-packages")
+
+
+def _declared_set(step):
+    match = re.search(r"apt_install\.sh --set ([A-Za-z0-9_-]+)", step)
+    return match.group(1) if match else None
+
+
+def test_ci_package_lists_live_in_one_place():
+    """Lista pakietów jest w pliku, nie rozsypana po pięciu workflow."""
+    checked = 0
+    for name in _workflows():
+        for step in _steps(_text(name)):
+            if "apt_install.sh" not in step:
+                continue
+            checked += 1
+            declared = _declared_set(step)
+            assert declared, (name, "instalacja musi iść przez --set <zestaw>")
+            path = os.path.join(PACKAGE_SETS, declared + ".txt")
+            assert os.path.isfile(path), (name, path)
+            packages = [line.strip() for line in open(path, encoding="utf-8")
+                        if line.strip() and not line.startswith("#")]
+            assert "blender" in packages, (declared, packages)
+    assert checked == 5, f"oczekiwano pięciu kroków instalacji, znaleziono {checked}"
+
+
+def test_ci_cache_key_hashes_the_same_package_list_the_step_installs():
+    """Klucz cache'a musi liczyć się z TEJ listy, którą krok instaluje.
+
+    Inaczej dopisanie pakietu nie unieważnia cache'a i pierwszy job po zmianie
+    dostaje komplet starych `.deb` bez nowego — a że apt dociąga brakujące,
+    błąd byłby cichy i widoczny dopiero jako wolny job.
+    """
+    for name in _workflows():
+        text = _text(name)
+        steps = _steps(text)
+        install = [s for s in steps if "apt_install.sh" in s]
+        if not install:
+            continue
+        declared = _declared_set(install[0])
+        cache = [s for s in steps if "actions/cache" in s and "metro-apt" in s]
+        assert cache, (name, "krok instalacji bez cache'a pakietów")
+        assert f"apt-packages/{declared}.txt" in cache[0], (name, declared)
+        assert "~/.cache/metro-apt" in cache[0], name
+        assert 'export APT_CACHE_DIR="$HOME/.cache/metro-apt"' in install[0], \
+            (name, "env: w YAML nie rozwija ~ ani $HOME")
+
+
+def test_ci_apt_helper_rejects_an_unknown_package_set():
+    import subprocess
+    result = subprocess.run(["bash", HELPER, "--set", "nie-ma-takiego"],
+                            capture_output=True, text=True)
+    assert result.returncode == 2, result
+    assert "nie ma zestawu pakietów" in result.stderr
+    empty = subprocess.run(["bash", HELPER, "--set"], capture_output=True, text=True)
+    assert empty.returncode == 2 and "użycie" in empty.stderr
+
+
 def test_ci_blender_workflows_still_install_blender():
     """Odporność nie może po cichu zgubić samego pakietu."""
     for name in ("blender-smoke.yml", "tunnel-alignment.yml", "m7-shell.yml",
                  "visual-regression.yml", "godot-first-run.yml"):
         text = _text(name)
-        assert "apt_install.sh blender " in text, name
-        assert "libegl1" in text and "python3-numpy" in text, name
+        declared = None
+        for step in _steps(text):
+            if "apt_install.sh" in step:
+                declared = _declared_set(step)
+        assert declared, name
+        packages = open(os.path.join(PACKAGE_SETS, declared + ".txt"), encoding="utf-8").read()
+        assert "libegl1" in packages and "python3-numpy" in packages, (name, declared)

@@ -24,12 +24,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Cache pakietów apt
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/metro-apt
+          key: apt-${{ runner.os }}-blender-${{ hashFiles('tools/ci/apt-packages/blender.txt') }}
+          restore-keys: apt-${{ runner.os }}-blender-
+
       - name: Install Blender
         shell: bash
         timeout-minutes: 30
         run: |
           set -euo pipefail
-          bash tools/ci/apt_install.sh blender python3-numpy libegl1 libgl1-mesa-dri
+          export APT_CACHE_DIR="$HOME/.cache/metro-apt"
+          bash tools/ci/apt_install.sh --set blender
           blender --version | head -n 3
           blender --background --python-expr 'import numpy; print("numpy", numpy.__version__)'
           ldconfig -p | grep -E 'libEGL\.so\.1|libGL\.so\.1' || true

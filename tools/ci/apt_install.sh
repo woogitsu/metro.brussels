@@ -31,6 +31,13 @@ BACKOFF_S=${APT_BACKOFF_S:-15}
 # Sufit na `install` jest celowo szeroki: ma złapać proces, który naprawdę umarł,
 # a nie wolne lustro. Węższy sufit jest w `timeout-minutes` na kroku workflow.
 INSTALL_TIMEOUT_S=${APT_INSTALL_TIMEOUT_S:-1500}
+# Katalog cache'a pakietów. Puste = bez cache'a (tak działa lokalnie).
+# Prawdziwym lekarstwem na wolne lustro nie jest czekanie, tylko NIEPOBIERANIE
+# 190 MB przy każdym jobie. Cache trzyma same pliki .deb, a apt i tak sprawdza
+# indeksy w lustrze i użyje pliku z cache'a tylko przy zgodnej wersji i sumie —
+# nieświeży cache może więc najwyżej nie trafić, nie może podstawić złej wersji.
+APT_CACHE_DIR=${APT_CACHE_DIR:-}
+ARCHIVES=/var/cache/apt/archives
 
 apt_run() {
     local budget_s="$1"; shift
@@ -58,12 +65,75 @@ apt_update() {
     return 1
 }
 
+# `cp -n` wypisuje na nowszych coreutils ostrzeżenie o nieprzenośności, a w logu
+# CI szum jest kosztem, nie informacją. Pętla robi to samo bez ostrzeżenia.
+copy_missing() {
+    local source_dir="$1" target_dir="$2" copied=0 file target
+    for file in "$source_dir"/*.deb; do
+        [ -e "$file" ] || continue
+        target="$target_dir/$(basename "$file")"
+        if [ ! -e "$target" ]; then
+            sudo cp "$file" "$target"
+            copied=$((copied + 1))
+        fi
+    done
+    echo "$copied"
+}
+
+cache_restore() {
+    [ -n "$APT_CACHE_DIR" ] && [ -d "$APT_CACHE_DIR" ] || return 0
+    local have copied
+    have=$(find "$APT_CACHE_DIR" -maxdepth 1 -name '*.deb' | wc -l)
+    if [ "$have" -eq 0 ]; then
+        echo "[APT] cache: katalog pusty"
+        return 0
+    fi
+    copied=$(copy_missing "$APT_CACHE_DIR" "$ARCHIVES")
+    echo "[APT] cache: przywrócono ${copied} z ${have} plików .deb"
+}
+
+cache_save() {
+    [ -n "$APT_CACHE_DIR" ] || return 0
+    mkdir -p "$APT_CACHE_DIR"
+    sudo chown -R "$(id -u):$(id -g)" "$APT_CACHE_DIR"
+    local copied
+    copied=$(copy_missing "$ARCHIVES" "$APT_CACHE_DIR")
+    sudo chown -R "$(id -u):$(id -g)" "$APT_CACHE_DIR"
+    echo "[APT] cache: dołożono ${copied}, w cache $(find "$APT_CACHE_DIR" -maxdepth 1 -name '*.deb' | wc -l) plików .deb"
+}
+
+usage() {
+    echo "użycie: $0 <pakiet> [pakiet...]  albo  $0 --set <nazwa-zestawu>" >&2
+}
+
+if [ "${1:-}" = "--set" ]; then
+    # Walidacja PRZED podstawieniem: `exit` w $(...) kończy tylko podpowłokę,
+    # więc skrypt szedłby dalej z pustą listą pakietów i mylącym komunikatem.
+    if [ -z "${2:-}" ]; then
+        usage
+        exit 2
+    fi
+    SET_FILE="$(dirname "$0")/apt-packages/$2.txt"
+    if [ ! -f "$SET_FILE" ]; then
+        echo "[APT] BŁĄD: nie ma zestawu pakietów '$2' ($SET_FILE)" >&2
+        exit 2
+    fi
+    # shellcheck disable=SC2046
+    set -- $(grep -vE '^[[:space:]]*(#|$)' "$SET_FILE")
+    if [ "$#" -eq 0 ]; then
+        echo "[APT] BŁĄD: zestaw '$SET_FILE' nie zawiera ani jednego pakietu" >&2
+        exit 2
+    fi
+fi
+
 if [ "$#" -eq 0 ]; then
-    echo "użycie: $0 <pakiet> [pakiet...]" >&2
+    usage
     exit 2
 fi
 
 echo "[APT] instaluję: $*"
+cache_restore
 apt_update
 apt_run "$INSTALL_TIMEOUT_S" install -y --no-install-recommends "$@"
+cache_save
 echo "[APT] gotowe: $*"
