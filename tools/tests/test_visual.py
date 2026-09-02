@@ -247,6 +247,85 @@ def test_visual_shifted_object_exceeds_threshold():
     assert result["metrics"]["ssim"] < _thresholds()["ssim_min"]
 
 
+def _only(criterion):
+    """Progi, w których działa DOKŁADNIE jedno kryterium regresji; reszta wyłączona."""
+    disabled = {"mean_abs_diff": 2.0, "p95_abs_diff": 2.0, "ssim_min": -1.0}
+    thresholds = dict(_thresholds())
+    thresholds.update(disabled)
+    thresholds[criterion] = _thresholds()[criterion]
+    return thresholds
+
+
+def _check_with(thresholds, current_pixels, baseline_pixels):
+    tmp = tempfile.mkdtemp()
+    try:
+        cur = os.path.join(tmp, "a.png")
+        base = os.path.join(tmp, "b.png")
+        _write(cur, current_pixels)
+        _write(base, baseline_pixels)
+        return compare.check_image(cur, [W, H], thresholds, base, None)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_visual_each_regression_criterion_can_fail_on_its_own():
+    """Każde z trzech kryteriów regresji musi umieć wywrócić render SAMO.
+
+    Zmierzone 02.09.2026 audytem mutacyjnym: usunięcie z alternatywy dowolnego
+    JEDNEGO z trzech członów (`mean_abs_diff`, `p95_abs_diff`, `ssim`) przechodziło
+    przez całą suitę, bo jedna klatka testowa przekraczała wszystkie trzy progi
+    naraz. Kryteria były w testach wzajemnie redundantne — a p95 jest właśnie po to,
+    żeby łapać regresję **lokalną**, którą MAE i SSIM rozmydlają.
+
+    Klatki dobrane tak, żeby każda przekraczała inne kryterium, nie wystarczą:
+    ta implementacja SSIM reaguje na wszystko, co porusza p95. Izolacja idzie więc
+    przez progi — dla każdego kryterium pozostałe dwa są wyłączone.
+    """
+    baseline = _scene()
+
+    band = list(baseline)
+    for y in range(6):                       # 6,25 % obrazu, czyli ponad 5 % dla p95
+        for x in range(W):
+            index = y * W + x
+            value = band[index][0] + 0.062   # ponad próg p95 (0,06), poniżej progu MAE
+            band[index] = (value, value, value)
+
+    by_p95 = _check_with(_only("p95_abs_diff"), band, baseline)
+    assert by_p95["status"] == "fail", by_p95
+    assert by_p95["metrics"]["p95_abs_diff"] > _thresholds()["p95_abs_diff"]
+    assert by_p95["metrics"]["mean_abs_diff"] <= _thresholds()["mean_abs_diff"], \
+        "ta klatka ma przekraczać WYŁĄCZNIE p95 — inaczej nie izoluje kryterium"
+
+    by_mae = _check_with(_only("mean_abs_diff"), _scene(shift=6), baseline)
+    assert by_mae["status"] == "fail", by_mae
+    assert by_mae["metrics"]["mean_abs_diff"] > _thresholds()["mean_abs_diff"]
+
+    by_ssim = _check_with(_only("ssim_min"), _scene(shift=6), baseline)
+    assert by_ssim["status"] == "fail", by_ssim
+    assert by_ssim["metrics"]["ssim"] < _thresholds()["ssim_min"]
+
+    # Kontrola w drugą stronę: przy wszystkich trzech kryteriach wyłączonych ta sama
+    # klatka przechodzi, więc powyższe „fail" biorą się z kryteriów, a nie z czegoś obok.
+    nothing = dict(_thresholds())
+    nothing.update({"mean_abs_diff": 2.0, "p95_abs_diff": 2.0, "ssim_min": -1.0})
+    assert _check_with(nothing, _scene(shift=6), baseline)["status"] == "pass"
+
+
+def test_visual_regression_thresholds_are_pinned():
+    """Same wartości progów, nie tylko to, że są używane.
+
+    Test wyżej bierze progi z manifestu, więc podniesienie `p95_abs_diff` z 0,06
+    do 0,99 podniosłoby razem z nim poprzeczkę i mutacja by przeszła.
+    """
+    for name, expected in (("vehicle", {"mean_abs_diff": 0.004, "p95_abs_diff": 0.06, "ssim_min": 0.98}),
+                           ("tunnel", None), ("godot", None)):
+        scene_set = MANIFEST["scene_sets"].get(name)
+        if scene_set is None or expected is None:
+            continue
+        for key, value in expected.items():
+            assert scene_set["thresholds"][key] == value, (name, key, scene_set["thresholds"][key])
+
+
 def test_visual_small_noise_stays_below_threshold():
     result = _check(_scene(noise=0.002), _scene())
     assert result["status"] == "pass", result
