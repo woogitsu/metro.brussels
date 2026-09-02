@@ -36,7 +36,7 @@ fail() { echo "BŁĄD: $*" >&2; exit 1; }
 
 echo "Skrajnia M7 w tunelu pakietu $NAME — pomiar na siatce i profil wzdłuż osi"
 echo "============================================================"
-blender --version | head -n 1
+blender --version | sed -n '1,1p'
 test -s "$AXIS" || fail "brak osi $AXIS"
 
 echo

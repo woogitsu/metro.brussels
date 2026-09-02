@@ -40,7 +40,7 @@ echo "[ENV] toolchain"
 require_command python3 || exit $?
 require_command blender || exit $?
 python3 --version
-blender --version | head -n 4
+blender --version | sed -n '1,4p'
 
 if command -v lscpu >/dev/null 2>&1; then
   lscpu | grep -E 'Model name|CPU\(s\)|Thread|Core|Socket' || true

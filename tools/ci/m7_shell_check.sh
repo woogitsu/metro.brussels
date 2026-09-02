@@ -35,7 +35,7 @@ uname -a
 require_command python3 || exit $?
 require_command blender || exit $?
 python3 --version
-blender --version | head -n 3
+blender --version | sed -n '1,3p'
 
 echo
 echo "[VERIFY] testy narzędzi"
