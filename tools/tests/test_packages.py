@@ -236,6 +236,49 @@ def test_packages_coverage_and_deviation_are_separate_numbers():
     assert abs(result["deviation_max_m"] - 2.0) < 1e-6
 
 
+def test_packages_deviation_median_and_p95_are_computed_not_zero():
+    """Mediana i p95 odchyłki muszą być POLICZONE, nie zerem wpisanym na sztywno.
+
+    Zmierzone 02.09.2026 audytem mutacyjnym: podmiana obu na `0.0` przechodziła
+    przez całą suitę, bo jedyny test, który ich dotykał, asertował
+    `deviation_median_m is not None`. Kontrola krzyżowa z OSM — jedyna rzecz
+    w repo, która mówi „nasza oś zgadza się z drugim źródłem" — raportowałaby
+    wtedy idealną zgodność dla dowolnej osi, a `provenance.json` niósłby to
+    dalej jako fakt.
+
+    Fikstura: dziesięć punktów o znanych, różnych odchyłkach 1…10 m.
+    """
+    offsets = [float(i) for i in range(1, 11)]
+    points = [(100.0 * i, offset) for i, offset in enumerate(offsets)]
+    segments = [[(-1000.0, 0.0), (10000.0, 0.0)]]
+    result = X._coverage_and_deviation(points, segments)
+
+    assert result["coverage_pct"] == 100.0, result
+    # covered = [1..10]; mediana to element o indeksie 10//2 = 5, czyli 6,0 m,
+    # p95 to indeks int(0.95*9) = 8, czyli 9,0 m.
+    assert result["deviation_median_m"] == 6.0, result
+    assert result["deviation_p95_m"] == 9.0, result
+    assert result["deviation_max_m"] == 10.0, result
+
+
+def test_packages_coverage_radius_is_pinned_and_two_sided():
+    """Promień pokrycia 50 m to próg, a nie ozdoba.
+
+    Mutacja 50 → 900 przechodziła: istniejąca fikstura używa odchyłek 2 m i 1000 m,
+    więc przechodzi dla każdej wartości między ~2 a ~990. To ta sama „okrągła liczba
+    z sufitu", co tolerancja 50 m, którą walidator osi już stracił.
+    """
+    assert X.OSM_COVERAGE_RADIUS_M == 50.0
+
+    segments = [[(-1000.0, 0.0), (10000.0, 0.0)]]
+    just_inside = X._coverage_and_deviation([(0.0, X.OSM_COVERAGE_RADIUS_M - 0.5)], segments)
+    assert just_inside["coverage_pct"] == 100.0, just_inside
+    just_outside = X._coverage_and_deviation([(0.0, X.OSM_COVERAGE_RADIUS_M + 0.5)], segments)
+    assert just_outside["coverage_pct"] == 0.0, just_outside
+    assert "deviation_median_m" not in just_outside, \
+        "punkt poza promieniem nie ma prawa wejść do odchyłki"
+
+
 def test_packages_chainage_ranges_group_consecutive_flags():
     points = [(x, 0.0) for x in (0.0, 10.0, 20.0, 30.0, 40.0)]
     ranges = X.chainage_ranges(points, [False, True, True, False, True])
