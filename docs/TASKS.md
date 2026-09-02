@@ -101,24 +101,32 @@ gdy jego artefakty istnieją w `main` i przechodzą CI.
   decyzję właściciela (8,6 % poza tunelem), D i F na model odcinka poza tunelem
 - **Uwaga:** wyłącznie wariant `flat-preview` — profil pionowy czeka na T-112
 
-### [ ] T-211 · Zestaw wspólny elementów stacji — **ODBLOKOWANE przez R-007**
-- **Stan:** R-004 i R-005 są w `main`; R-007 (`reports/R-007-platform-dimensions.md`)
-  rozstrzygnął oba wymiary, które blokowały to zadanie
-- **Wysokość peronu: 1,03 m nad główką szyny**, `source_backed`. STIB pisze, że podłoga
-  M7 (1 m 03, `spec` w rejestrze) jest „à hauteur du quai", w dwóch niezależnych
-  publikacjach. **Zastrzeżenie jedzie razem z liczbą:** STIB nie deklaruje, względem
-  czego mierzy tę wysokość — baza odniesienia to konwencja branżowa, nie jego zdanie
-- **Długość peronu: nadal bez źródła**, i tak zostaje w danych (`platform_length` =
-  `unknown`). Generator dostaje **jawny parametr** o wartości domyślnej **94,0 m =
-  długość składu M7** (fakt STIB) — nie 94,76 m z pomiaru OSM, bo to klasa źródła niżej,
-  a dwa z 28 obrysów wypadają PONIŻEJ długości składu, czyli błąd obrysu to co najmniej
-  ±0,5 m. Górne ograniczenie z obrysu stacji UrbIS jest **kontrolą**: peron dłuższy niż
-  bryła stacji jest na pewno błędny, najciaśniej **Parc 109,1 m**
-- **Otwarte:** Schuman — OSM daje 111,6 m wobec ~94,8 gdzie indziej, z proweniencją
-  `source=knowledge`. Albo dłuższy peron, albo błąd mapowicza; wymaga człowieka
-- **Nadal `unknown` w rejestrze:** wyposażenie pionowe czterech stacji, których STIB nie
-  opisuje tekstowo (De Brouckère, Étangs Noirs, Sainte-Catherine, Schuman) — to nie
-  blokuje zestawu wspólnego, bo dotyczy wyjść, nie peronu
+### [~] T-211 · Zestaw wspólny elementów stacji — **etap 1 z 2 zrobiony**
+- **Wejście:** `data/track/L1_A.json`, `data/vehicle/m7-spec.json`,
+  `reports/R-007-platform-dimensions.md`
+- **Wyjście (etap 1):** `tools/track/station_layout.py`,
+  `tools/tests/test_station_layout.py`, `reports/T-211-station-layout.md`
+- **Weryfikacja:** `python3 tools/tests/test_all.py` → 635/635; osiem kontroli
+  negatywnych wypisanych w raporcie
+- **Wynik:** 12 peronów pakietu A z kilometrażem, promieniem lokalnym i **policzoną
+  dolną granicą odsunięcia krawędzi** (pół szerokości M7 + strzałka cięciwy członu).
+  Najciaśniej Gare Centrale: R = 137 m daje strzałkę 22,5 cm, więc krawędź musi odsunąć
+  się o 1,5748 m zamiast 1,35 m. Rozpiętość między najprostszym a najciaśniejszym
+  peronem to **22,4 cm** — dość, żeby peron zaprojektowany na prostej wchodził
+  w kolizję na łuku
+- **Znalezisko:** `platform_edge_x` z profilu `station` **nie jest krawędzią peronu**.
+  Przy torach na ±2,10 m i krawędziach na ±4,05 m szczelina peron–pudło wychodzi
+  **0,600 m**, bo 1,95 = 1,35 + 2 × `CLEARANCE_M`. To granica skrajni; nazwa pola myli.
+  Nic w repo tego pola nie czytało
+- **Świadomie nie zrobione:** szczelina peron–pudło nie dostała wartości —
+  `--platform-gap-m` nie ma domyślnej, bo R-007 ustalił, że nie podaje jej żadne
+  źródło. Bez niej `edge_offset_m` wychodzi `None`, nie zero
+- **Zostaje (etap 2):** bryły w Blenderze — płyta peronu, krawędź, komora stacyjna,
+  z renderem kontrolnym. Wtedy też `platform_height_m` w profilu `station` (1,05 → 1,03;
+  **1,05 to wysokość podłogi M6**, nie M7) i nazwa `platform_edge_x` — obie zmieniają
+  geometrię tunelu i muszą przejść przez `tunnel-alignment.yml`
+- **Poza zakresem:** wyjścia, komunikacja pionowa i wnętrza — rejestr R-004 ma je
+  jako `unknown` i `docs/11` zabrania liczenia wind z listy wyjść
 - **Zależy od:** T-010, R-004 (zrobione), R-005 (zrobione), R-007 (zrobione)
 
 ### [ ] T-212 · Pierwsza stacja typowa — **ZABLOKOWANE tylko przez T-211**
