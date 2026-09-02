@@ -2,7 +2,7 @@
 """Walidator osi trasy data/track/*.json. Kod 0 = OK, 1 = błędy."""
 import json, sys, math, argparse, os
 
-LIMITS = {"max_grade_pct":4.0,"min_radius_m":90.0,"max_point_gap_m":25.0,"min_point_gap_m":0.5,"max_station_spacing_m":2200.0,"min_station_spacing_m":250.0}
+LIMITS = {"max_grade_pct":4.0,"min_radius_m":90.0,"max_point_gap_m":25.0,"min_point_gap_m":0.5,"max_station_spacing_m":2200.0,"min_station_spacing_m":250.0,"length_tolerance_m":0.01}
 NET = os.path.join(os.path.dirname(__file__), "..", "..", "data", "network", "lines.json")
 
 class Report:
@@ -47,6 +47,17 @@ def validate(path, expect_line=None, expect_package=None):
         if len(p)!=3: r.E(f"punkt {i} ma {len(p)} współrzędnych, oczekiwano 3 [x, y, z]"); return r
     gaps=[dist(pts[i],pts[i+1]) for i in range(len(pts)-1)]; total=sum(gaps)
     r.I(f"punktów: {len(pts)}, długość osi: {total:.1f} m")
+    # Deklarowana długość kontra policzona z łamanej. Plik zapisuje length_m zaokrąglone,
+    # więc zgodność poniżej centymetra jest maksimum, jakie ten zapis potrafi potwierdzić.
+    # Rozjazd większy znaczy, że length_m pochodzi z innej łamanej niż points — a wtedy
+    # wszystko, co liczy kilometraż z tego pliku, liczy go z czegoś innego niż geometria.
+    declared=d.get("length_m")
+    if declared is not None:
+        drift=abs(float(declared)-total)
+        if drift>LIMITS["length_tolerance_m"]:
+            r.E(f"length_m = {declared:.3f} m nie zgadza się z łamaną ({total:.3f} m), różnica {drift:.3f} m")
+        else:
+            r.I(f"length_m zgodne z łamaną, różnica {drift*1000:.1f} mm")
     for i,g in enumerate(gaps):
         if g>LIMITS["max_point_gap_m"]: r.E(f"odstęp punktów {i}→{i+1} = {g:.1f} m, maks. {LIMITS['max_point_gap_m']} m")
         elif g<LIMITS["min_point_gap_m"]: r.W(f"odstęp punktów {i}→{i+1} = {g:.2f} m — bardzo gęsto, sprawdź duplikaty")
@@ -75,7 +86,32 @@ def validate(path, expect_line=None, expect_package=None):
                 sp=ch[i+1]-ch[i]
                 if sp>LIMITS["max_station_spacing_m"]: r.W(f"odstęp stacji {st[i].get('name')} → {st[i+1].get('name')} = {sp:.0f} m — nietypowo dużo")
                 if sp<LIMITS["min_station_spacing_m"]: r.E(f"odstęp stacji {st[i].get('name')} → {st[i+1].get('name')} = {sp:.0f} m — za mało")
-            if ch and ch[-1]>total+50: r.E(f"kilometraż ostatniej stacji ({ch[-1]:.0f} m) wykracza poza oś ({total:.0f} m)")
+            # Rzut ostatniej stacji potrafi wypaść ZA ostatnim wierzchołkiem osi: punkt
+            # przystanku leży nieco dalej niż koniec łamanej, a rzut na przedłużenie
+            # ostatniego odcinka daje kilometraż większy niż całość. Tolerancją nie jest
+            # więc okrągła liczba, tylko **długość ostatniego odcinka łamanej**: rzut
+            # dalszy niż jeden odcinek nie jest artefaktem rzutowania, tylko stacją,
+            # która nie leży na tej osi.
+            #
+            # Poprzednia wersja dawała tu 50 m bez uzasadnienia i przez to przepuszczała
+            # milczkiem przekroczenia rzędu pół metra we WSZYSTKICH sześciu pakietach.
+            # Pół metra jest nieszkodliwe, ale TrackAxis.PointAt obcina kilometraż do
+            # długości osi, więc skład stojący na ostatniej stacji ma w symulacji inny
+            # kilometraż niż pozycję w scenie — i nikt się o tym nie dowiaduje.
+            if ch:
+                over=ch[-1]-total
+                if over>gaps[-1]:
+                    r.E(f"kilometraż ostatniej stacji ({ch[-1]:.2f} m) wykracza poza oś ({total:.2f} m) "
+                        f"o {over:.2f} m — więcej niż ostatni odcinek łamanej ({gaps[-1]:.2f} m)")
+                elif over>0:
+                    r.W(f"rzut ostatniej stacji wypada {over:.3f} m za końcem osi "
+                        f"({ch[-1]:.2f} m wobec {total:.2f} m); mieści się w ostatnim odcinku "
+                        f"({gaps[-1]:.2f} m), ale kilometraż jest obcinany przy odczycie pozycji")
+                if ch[0]<-gaps[0]:
+                    r.E(f"kilometraż pierwszej stacji ({ch[0]:.2f} m) wypada {-ch[0]:.2f} m przed osią — "
+                        f"więcej niż pierwszy odcinek łamanej ({gaps[0]:.2f} m)")
+                elif ch[0]<0:
+                    r.W(f"rzut pierwszej stacji wypada {-ch[0]:.3f} m przed początkiem osi")
         interp=sum(1 for s in st if s.get("interpolated"))
         if interp: r.I(f"{interp} z {len(st)} głębokości stacji jest interpolowanych")
         missing=[s.get("name") for s in st if s.get("depth_m") is None]
