@@ -86,6 +86,10 @@ def validate(path, expect_line=None, expect_package=None):
                 sp=ch[i+1]-ch[i]
                 if sp>LIMITS["max_station_spacing_m"]: r.W(f"odstęp stacji {st[i].get('name')} → {st[i+1].get('name')} = {sp:.0f} m — nietypowo dużo")
                 if sp<LIMITS["min_station_spacing_m"]: r.E(f"odstęp stacji {st[i].get('name')} → {st[i+1].get('name')} = {sp:.0f} m — za mało")
+            # Zapis `chainage_m` i `length_m` jest zaokrąglony do centymetra, więc
+            # rozjazd poniżej `length_tolerance_m` nie jest przekroczeniem, tylko granicą
+            # rozdzielczości pliku — dokładnie ten sam próg, co przy kontroli `length_m`.
+            #
             # Rzut ostatniej stacji potrafi wypaść ZA ostatnim wierzchołkiem osi: punkt
             # przystanku leży nieco dalej niż koniec łamanej, a rzut na przedłużenie
             # ostatniego odcinka daje kilometraż większy niż całość. Tolerancją nie jest
@@ -103,14 +107,14 @@ def validate(path, expect_line=None, expect_package=None):
                 if over>gaps[-1]:
                     r.E(f"kilometraż ostatniej stacji ({ch[-1]:.2f} m) wykracza poza oś ({total:.2f} m) "
                         f"o {over:.2f} m — więcej niż ostatni odcinek łamanej ({gaps[-1]:.2f} m)")
-                elif over>0:
+                elif over>LIMITS["length_tolerance_m"]:
                     r.W(f"rzut ostatniej stacji wypada {over:.3f} m za końcem osi "
                         f"({ch[-1]:.2f} m wobec {total:.2f} m); mieści się w ostatnim odcinku "
                         f"({gaps[-1]:.2f} m), ale kilometraż jest obcinany przy odczycie pozycji")
                 if ch[0]<-gaps[0]:
                     r.E(f"kilometraż pierwszej stacji ({ch[0]:.2f} m) wypada {-ch[0]:.2f} m przed osią — "
                         f"więcej niż pierwszy odcinek łamanej ({gaps[0]:.2f} m)")
-                elif ch[0]<0:
+                elif ch[0]<-LIMITS["length_tolerance_m"]:
                     r.W(f"rzut pierwszej stacji wypada {-ch[0]:.3f} m przed początkiem osi")
         interp=sum(1 for s in st if s.get("interpolated"))
         if interp: r.I(f"{interp} z {len(st)} głębokości stacji jest interpolowanych")
