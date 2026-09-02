@@ -1,0 +1,299 @@
+{
+  "$comment": "T-313. Plan bloków i tras dla trybu classic_2026. CAŁOŚĆ JEST design_model: STIB nie publikuje granic bloków, tabel aspektów ani logiki interlockingu (data/signalling/ground-truth.json, unknown_parameters). Plik powstał z reguły opisanej w polu generation, przez SignallingPlan.FromAxis — nie z planu STIB. Podmiana na plan ze źródłem nie wymaga zmiany kodu w src/Sim/.",
+  "schema_version": 1,
+  "plan_id": "classic-2026-L1_A",
+  "mode": "classic_2026",
+  "axis_id": "L1_A",
+  "status": "design_model",
+  "protection_variant": "legacy_fixed_block",
+  "require_route": true,
+  "default_permitted_speed_kmh": {
+    "value": 72,
+    "status": "design_model",
+    "basis": "reports/R-006-line-speed.md: żaden dokument STIB nie podaje prędkości dopuszczalnej na torze; 72 km/h wolno używać wyłącznie jako jawnego parametru scenariusza. Zmierzone dolne ograniczenie z T-401 to 58,75 km/h."
+  },
+  "authority_margin_m": {
+    "value": 0,
+    "status": "design_model",
+    "basis": "overlapu za końcem authority nie ma w żadnym źródle; zero znaczy, że model nie wymyśla zapasu, a nie że STIB go nie ma."
+  },
+  "generation": {
+    "rule": "blok peronowy długości jednego składu M7 wyśrodkowany na kilometrażu stacji (przycięty od dołu do początku osi), między dwoma peronami dokładnie jeden blok szlakowy, plan sięga do dalszego z dwóch końców: długości osi albo końca ostatniego bloku peronowego.",
+    "generator": "MetroBxl.Sim.Signalling.SignallingPlan.FromAxis",
+    "platform_block_length_m": 94,
+    "platform_block_length_source": "data/vehicle/m7-spec.json parameters.length_m (status spec)",
+    "station_chainage_source": "data/track/L1_A.json stations[].chainage_m",
+    "boundary_decimals": 3
+  },
+  "unknown_parameters": [
+    "exact fixed-block boundaries and lengths",
+    "complete signal aspect tables and placement",
+    "station-specific route-locking/interlocking logic",
+    "ATP/ATO braking curves and safety margins",
+    "device reaction times"
+  ],
+  "blocks": [
+    {
+      "id": "P01",
+      "kind": "platform",
+      "start_m": 0,
+      "end_m": 47,
+      "station": "Gare de l'Ouest|Weststation"
+    },
+    {
+      "id": "S01",
+      "kind": "interstation",
+      "start_m": 47,
+      "end_m": 462.73
+    },
+    {
+      "id": "P02",
+      "kind": "platform",
+      "start_m": 462.73,
+      "end_m": 556.73,
+      "station": "Beekkant"
+    },
+    {
+      "id": "S02",
+      "kind": "interstation",
+      "start_m": 556.73,
+      "end_m": 1404.9
+    },
+    {
+      "id": "P03",
+      "kind": "platform",
+      "start_m": 1404.9,
+      "end_m": 1498.9,
+      "station": "Étangs Noirs|Zwarte Vijvers"
+    },
+    {
+      "id": "S03",
+      "kind": "interstation",
+      "start_m": 1498.9,
+      "end_m": 2007.78
+    },
+    {
+      "id": "P04",
+      "kind": "platform",
+      "start_m": 2007.78,
+      "end_m": 2101.78,
+      "station": "Comte de Flandre|Graaf van Vlaanderen"
+    },
+    {
+      "id": "S04",
+      "kind": "interstation",
+      "start_m": 2101.78,
+      "end_m": 2673.75
+    },
+    {
+      "id": "P05",
+      "kind": "platform",
+      "start_m": 2673.75,
+      "end_m": 2767.75,
+      "station": "Sainte-Catherine|Sint-Katelijne"
+    },
+    {
+      "id": "S05",
+      "kind": "interstation",
+      "start_m": 2767.75,
+      "end_m": 3082.94
+    },
+    {
+      "id": "P06",
+      "kind": "platform",
+      "start_m": 3082.94,
+      "end_m": 3176.94,
+      "station": "De Brouckère"
+    },
+    {
+      "id": "S06",
+      "kind": "interstation",
+      "start_m": 3176.94,
+      "end_m": 3684.85
+    },
+    {
+      "id": "P07",
+      "kind": "platform",
+      "start_m": 3684.85,
+      "end_m": 3778.85,
+      "station": "Gare Centrale|Centraal Station"
+    },
+    {
+      "id": "S07",
+      "kind": "interstation",
+      "start_m": 3778.85,
+      "end_m": 4028.66
+    },
+    {
+      "id": "P08",
+      "kind": "platform",
+      "start_m": 4028.66,
+      "end_m": 4122.66,
+      "station": "Parc|Park"
+    },
+    {
+      "id": "S08",
+      "kind": "interstation",
+      "start_m": 4122.66,
+      "end_m": 4513.95
+    },
+    {
+      "id": "P09",
+      "kind": "platform",
+      "start_m": 4513.95,
+      "end_m": 4607.95,
+      "station": "Arts-Loi|Kunst-Wet"
+    },
+    {
+      "id": "S09",
+      "kind": "interstation",
+      "start_m": 4607.95,
+      "end_m": 5105.42
+    },
+    {
+      "id": "P10",
+      "kind": "platform",
+      "start_m": 5105.42,
+      "end_m": 5199.42,
+      "station": "Maelbeek|Maalbeek"
+    },
+    {
+      "id": "S10",
+      "kind": "interstation",
+      "start_m": 5199.42,
+      "end_m": 5420.35
+    },
+    {
+      "id": "P11",
+      "kind": "platform",
+      "start_m": 5420.35,
+      "end_m": 5514.35,
+      "station": "Schuman"
+    },
+    {
+      "id": "S11",
+      "kind": "interstation",
+      "start_m": 5514.35,
+      "end_m": 6639.35
+    },
+    {
+      "id": "P12",
+      "kind": "platform",
+      "start_m": 6639.35,
+      "end_m": 6733.35,
+      "station": "Merode"
+    }
+  ],
+  "routes": [
+    {
+      "id": "R01",
+      "from": "P01",
+      "to": "P02",
+      "blocks": [
+        "P01",
+        "S01",
+        "P02"
+      ]
+    },
+    {
+      "id": "R02",
+      "from": "P02",
+      "to": "P03",
+      "blocks": [
+        "P02",
+        "S02",
+        "P03"
+      ]
+    },
+    {
+      "id": "R03",
+      "from": "P03",
+      "to": "P04",
+      "blocks": [
+        "P03",
+        "S03",
+        "P04"
+      ]
+    },
+    {
+      "id": "R04",
+      "from": "P04",
+      "to": "P05",
+      "blocks": [
+        "P04",
+        "S04",
+        "P05"
+      ]
+    },
+    {
+      "id": "R05",
+      "from": "P05",
+      "to": "P06",
+      "blocks": [
+        "P05",
+        "S05",
+        "P06"
+      ]
+    },
+    {
+      "id": "R06",
+      "from": "P06",
+      "to": "P07",
+      "blocks": [
+        "P06",
+        "S06",
+        "P07"
+      ]
+    },
+    {
+      "id": "R07",
+      "from": "P07",
+      "to": "P08",
+      "blocks": [
+        "P07",
+        "S07",
+        "P08"
+      ]
+    },
+    {
+      "id": "R08",
+      "from": "P08",
+      "to": "P09",
+      "blocks": [
+        "P08",
+        "S08",
+        "P09"
+      ]
+    },
+    {
+      "id": "R09",
+      "from": "P09",
+      "to": "P10",
+      "blocks": [
+        "P09",
+        "S09",
+        "P10"
+      ]
+    },
+    {
+      "id": "R10",
+      "from": "P10",
+      "to": "P11",
+      "blocks": [
+        "P10",
+        "S10",
+        "P11"
+      ]
+    },
+    {
+      "id": "R11",
+      "from": "P11",
+      "to": "P12",
+      "blocks": [
+        "P11",
+        "S11",
+        "P12"
+      ]
+    }
+  ]
+}
