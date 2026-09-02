@@ -5,10 +5,10 @@ Wzorzec: narzędzie ma nie tylko wykonać się bez błędu, ale udowodnić, że 
 Dla walidatora osi:
 
 ```bash
-python3 tools/track/make_test_track.py --out data/track/TEST.json
-python3 tools/track/make_test_track.py --out data/track/BROKEN.json --broken
-python3 tools/track/validate.py data/track/TEST.json
-python3 tools/track/validate.py data/track/BROKEN.json
+python3 tools/track/make_test_track.py --out build/t010/TEST.json
+python3 tools/track/make_test_track.py --out build/t010/BROKEN.json --broken
+python3 tools/track/validate.py build/t010/TEST.json
+python3 tools/track/validate.py build/t010/BROKEN.json
 ```
 
 Poprawny plik ma przejść, celowo zepsuty ma zostać odrzucony z konkretnymi błędami. Dla geometrii odpowiednikiem dowodu są trzy obejrzane rendery kontrolne.

@@ -5,7 +5,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
-mkdir -p build/t010 build renders data/track
+mkdir -p build/t010 build renders
 REPORT="build/t010/report.txt"
 : > "$REPORT"
 exec > >(tee -a "$REPORT") 2>&1
@@ -70,15 +70,19 @@ grep -q "BŁĄD: wymagane polecenie" "$MISSING_LOG" || fail "missing-Blender err
 cat "$MISSING_LOG"
 
 echo
+# Syntetyczna oś idzie do build/, nie do data/. `data/` jest tylko do odczytu
+# (CLAUDE.md reguła 6), a plik wygenerowany w trakcie przebiegu CI nie jest danymi
+# o sieci — jest artefaktem. Zapisywany do data/track/ mieszał się z sześcioma
+# prawdziwymi osiami i potrafił przewrócić test, który je przelicza.
 echo "[GENERATE] deterministic synthetic centerline"
-rm -f data/track/TEST.json build/TEST.glb renders/TEST_iso.png renders/TEST_side.png renders/TEST_inside.png
-python3 tools/track/make_test_track.py --out data/track/TEST.json
-test -s data/track/TEST.json || fail "data/track/TEST.json is empty"
+rm -f build/t010/TEST.json build/TEST.glb renders/TEST_iso.png renders/TEST_side.png renders/TEST_inside.png
+python3 tools/track/make_test_track.py --out build/t010/TEST.json
+test -s build/t010/TEST.json || fail "build/t010/TEST.json is empty"
 
 echo
 echo "[BLENDER] generate GLB"
 blender --background --python-exit-code 7 --python tools/blender/tunnel_sweep.py -- \
-  --centerline data/track/TEST.json \
+  --centerline build/t010/TEST.json \
   --profile box_double \
   --out build/TEST.glb
 
@@ -88,7 +92,7 @@ echo
 echo "[BLENDER] render the exported GLB"
 blender --background --python-exit-code 7 --python tools/blender/render_check.py -- \
   --in build/TEST.glb \
-  --centerline data/track/TEST.json \
+  --centerline build/t010/TEST.json \
   --out renders/TEST
 
 python3 - <<'PY'
@@ -142,7 +146,7 @@ echo
 echo "[NEGATIVE] unknown tunnel profile must fail"
 rm -f build/t010/negative-profile.glb
 if blender --background --python-exit-code 7 --python tools/blender/tunnel_sweep.py -- \
-  --centerline data/track/TEST.json --profile definitely_not_a_profile --out build/t010/negative-profile.glb \
+  --centerline build/t010/TEST.json --profile definitely_not_a_profile --out build/t010/negative-profile.glb \
   >build/t010/negative-profile.log 2>&1; then
   fail "unknown-profile negative test unexpectedly succeeded"
 fi
