@@ -39,7 +39,7 @@ if [ -r /etc/os-release ]; then cat /etc/os-release; fi
 require_command python3 || exit $?
 require_command blender || exit $?
 python3 --version
-blender --version | head -n 3
+blender --version | sed -n '1,3p'
 
 echo
 echo "[VERIFY] testy narzędzi (w tym testy pipeline'u wizualnego)"

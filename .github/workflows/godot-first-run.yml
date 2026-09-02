@@ -109,7 +109,7 @@ jobs:
           set -euo pipefail
           export APT_CACHE_DIR="$HOME/.cache/metro-apt"
           bash tools/ci/apt_install.sh --set blender-xvfb
-          blender --version | head -n 2
+          blender --version | sed -n '1,2p'
 
       - name: Generate package A geometry
         shell: bash
@@ -125,7 +125,7 @@ jobs:
           blender --background --python-exit-code 7 --python tools/blender/m7_shell.py -- \
             --out build/t400/M7_shell.glb --envelope-out build/t400/M7_envelope.glb \
             --report build/t400/M7_shell.json
-          ls -la build/t400 build/t400/chunks | head -n 20
+          ls -la build/t400 build/t400/chunks | sed -n '1,20p'
 
       - name: Axis in C# matches the sweep manifest
         shell: bash

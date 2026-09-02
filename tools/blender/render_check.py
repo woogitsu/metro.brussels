@@ -1,13 +1,31 @@
-"""Render kontrolny GLB: izometria, bok i wnętrze. Uruchamianie headless w Blenderze."""
+"""Render kontrolny GLB: izometria, bok i wnętrze. Uruchamianie headless w Blenderze.
+
+Dwie rzeczy poza samym renderem:
+
+* każda klatka jest po zapisaniu ZMIERZONA — klatka poniżej podłogi widoczności
+  kończy skrypt błędem, bo do tej pory pusty PNG wyglądał dokładnie tak samo jak
+  brak geometrii i przechodził z kodem 0;
+* `--from-m/--to-m` kadruje wycinek osi, bo kamera na całym bboxie sprowadza detal
+  do ułamka piksela.
+
+Podłoga jest podłogą, nie oceną: przechodzi ją także kadr, na którym 5 km tunelu
+jest jednopikselową kreską. Obejrzenie PNG zostaje obowiązkowe (`CLAUDE.md` §5) —
+„ink=0.0025" nie mówi, czy widać to, co miało być widać.
+"""
 import bpy, sys, os, math, argparse, json
 from mathutils import Vector, Matrix
 
-sys.path.insert(0,os.path.dirname(os.path.abspath(__file__)))
-import placement
+HERE=os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0,HERE); sys.path.insert(0,os.path.join(HERE,"..","visual"))
+import placement, sweep
+import compare, pngio
 
 def parse_args():
     argv=sys.argv[sys.argv.index("--")+1:] if "--" in sys.argv else []
-    p=argparse.ArgumentParser(); p.add_argument("--in",dest="inp",required=True); p.add_argument("--out",required=True); p.add_argument("--res",type=int,default=960); p.add_argument("--centerline"); return p.parse_args(argv)
+    p=argparse.ArgumentParser(); p.add_argument("--in",dest="inp",required=True); p.add_argument("--out",required=True); p.add_argument("--res",type=int,default=960); p.add_argument("--centerline")
+    p.add_argument("--from-m",dest="from_m",type=float,help="początek okna kadru w metrach osi (wymaga --centerline)")
+    p.add_argument("--to-m",dest="to_m",type=float,help="koniec okna kadru w metrach osi")
+    return p.parse_args(argv)
 
 def clear_scene(): bpy.ops.object.select_all(action="SELECT"); bpy.ops.object.delete(use_global=False)
 
@@ -122,24 +140,72 @@ def add_inside_wire_overlay():
 def render_to(cam,path):
     scn=bpy.context.scene; scn.camera=cam; scn.render.filepath=path; scn.render.image_settings.file_format="PNG"; bpy.ops.render.render(write_still=True); print(f"[RENDER] {path}")
 
+def frame_verdict(path):
+    """Mierzy zapisaną klatkę. Zwraca opis, gdy klatka jest poniżej podłogi, inaczej None.
+
+    Podłoga jest wspólna z pipeline'em wizualnym (`compare.EMPTY_FRAME_FLOOR`), żeby
+    render kontrolny i regresja wizualna nie miały dwóch różnych definicji.
+
+    To jest PODŁOGA, nie miara czytelności: prosty tunel widziany z boku ląduje pod
+    nią jako jednopikselowa kreska, ale ta sama kreska ustawiona po skosie przechodzi,
+    bo antyaliasing daje jej więcej poziomów szarości. Klatka nad podłogą nie znaczy
+    więc „widać, co miało być widać" — znaczy tylko „jest się czemu przyjrzeć".
+    """
+    stats=compare.image_stats(pngio.read_gray(path))
+    below=compare.empty_frame_reason(stats,compare.EMPTY_FRAME_FLOOR) is not None
+    numbers=(f"ink={stats['ink_fraction']:.5f} std={stats['luma_std']:.5f} "
+             f"poziomy={stats['distinct_levels']}")
+    print(f"[KLATKA] {os.path.basename(path)} {stats['width']}x{stats['height']} {numbers}"
+          f"{' PONIŻEJ PODŁOGI' if below else ''}")
+    return f"{os.path.basename(path)} — {numbers}" if below else None
+
+def resolve_window(points,args):
+    """Okno kadru z argumentów. Brak obu argumentów => kadr po całym bboxie."""
+    if args.from_m is None and args.to_m is None: return None
+    if args.from_m is None or args.to_m is None: raise SystemExit("BŁĄD: --from-m i --to-m podaje się razem")
+    if not points: raise SystemExit("BŁĄD: okno kadru liczy się po osi — brakuje --centerline")
+    try: return placement.axis_window([tuple(p) for p in points],args.from_m,args.to_m)
+    except ValueError as bad: raise SystemExit(f"BŁĄD: {bad}")
+
 def main():
     args=parse_args(); clear_scene(); bpy.ops.import_scene.gltf(filepath=args.inp); setup_world(); setup_verification_material(); scn=bpy.context.scene
     try: scn.render.engine="BLENDER_EEVEE_NEXT"
     except Exception: scn.render.engine="BLENDER_EEVEE"
     scn.render.resolution_x=args.res; scn.render.resolution_y=int(args.res*0.6)
-    vertices=mesh_world_vertices(); mins,maxs=scene_bounds(vertices); center=(mins+maxs)/2; size=max((maxs-mins).x,(maxs-mins).y,(maxs-mins).z,1.0); os.makedirs(os.path.dirname(args.out) or ".",exist_ok=True)
-    render_to(add_camera(center+Vector((size*0.9,-size*0.9,size*0.7)),center,"cam_iso",size),f"{args.out}_iso.png")
-    render_to(add_camera(center+Vector((0,-size*1.4,size*0.15)),center,"cam_side",size),f"{args.out}_side.png")
-    points=load_centerline(args.centerline)
+    vertices=mesh_world_vertices(); mins,maxs=scene_bounds(vertices); os.makedirs(os.path.dirname(args.out) or ".",exist_ok=True)
+    points=load_centerline(args.centerline); window=resolve_window(points,args)
+    if window:
+        center=Vector(window["center"]); size=window["size"]
+        print(f"[OKNO] os {window['from_m']:.1f}-{window['to_m']:.1f} m (dlugosc {window['length_m']:.1f} m) "
+              f"center=({center.x:.1f},{center.y:.1f},{center.z:.1f}) size_m={size:.1f}")
+    else:
+        center=(mins+maxs)/2; size=max((maxs-mins).x,(maxs-mins).y,(maxs-mins).z,1.0)
+    blank=[]
+    def shoot(cam,path):
+        render_to(cam,path); reason=frame_verdict(path)
+        if reason is not None: blank.append(reason)
+    shoot(add_camera(center+Vector((size*0.9,-size*0.9,size*0.7)),center,"cam_iso",size),f"{args.out}_iso.png")
+    shoot(add_camera(center+Vector((0,-size*1.4,size*0.15)),center,"cam_side",size),f"{args.out}_side.png")
     if points:
-        eye=point_on_centerline(points,0.05); target=point_on_centerline(points,0.055)
+        if window:
+            # Oko wjeżdża w oknie, nie na 5% całej osi: inaczej widok z wnętrza
+            # pokazywałby zupełnie inny kawałek trasy niż izometria i bok.
+            axis=[tuple(p) for p in points]; stations=sweep.chainages(axis)
+            eye=Vector(placement.frame_at(axis,stations,window["from_m"])[0])
+            target=Vector(placement.frame_at(axis,stations,window["from_m"]+0.1*window["length_m"])[0])
+        else:
+            eye=point_on_centerline(points,0.05); target=point_on_centerline(points,0.055)
         eye.z=target.z=vertical_mid_on_axis(vertices,eye,target-eye,size)
         print(f"[INSIDE] exact centerline points={len(points)} local_chord_m={(target-eye).length:.1f}")
     else:
         eye=Vector((mins.x+(maxs.x-mins.x)*0.05,center.y,center.z)); target=Vector((mins.x+(maxs.x-mins.x)*0.055,center.y,center.z))
         print("[INSIDE] WARN no --centerline supplied; using bbox fallback")
     add_inside_wire_overlay()
-    render_to(add_camera(eye,target,"cam_inside",size,lens=35,keep_level=True),f"{args.out}_inside.png")
+    shoot(add_camera(eye,target,"cam_inside",size,lens=35,keep_level=True),f"{args.out}_inside.png")
     print(f"[RAPORT] bbox_min=({mins.x:.1f},{mins.y:.1f},{mins.z:.1f}) bbox_max=({maxs.x:.1f},{maxs.y:.1f},{maxs.z:.1f}) size_m={size:.1f}")
+    print("[KLATKA] podłoga, nie ocena — obejrzenie PNG jest nadal obowiązkowe (CLAUDE.md §5)")
+    if blank:
+        raise SystemExit("BŁĄD: klatki poniżej podłogi widoczności geometrii: "+"; ".join(blank)
+                         +"\n  kadr po całym bboxie sprowadza obiekt do włosa — zawęź --from-m/--to-m albo renderuj chunk")
 
 if __name__=="__main__": main()

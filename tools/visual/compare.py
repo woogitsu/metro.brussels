@@ -24,6 +24,16 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import pngio
 
 BACKGROUND_TOLERANCE = 0.02
+
+# Podłoga „to nie jest pusta klatka" dla renderów bez manifestu i bez baseline.
+# Wartości są NAJŁAGODNIEJSZYM zestawem progów już używanym w `cameras.json`
+# (infrastructure / alignment / clearance), więc podłoga nie może odrzucić kadru,
+# który w pipeline wizualnym przechodzi. Pilnuje tego test w `test_visual.py`.
+EMPTY_FRAME_FLOOR = {
+    "min_ink_fraction": 0.0002,
+    "min_luma_std": 0.004,
+    "min_distinct_levels": 16,
+}
 SSIM_WIDTH = 128
 SSIM_WINDOW = 8
 C1 = 0.01 ** 2
@@ -70,6 +80,25 @@ def image_stats(img):
         "ink_fraction": round(ink / total, 6),
         "distinct_levels": sum(1 for count in histogram if count),
     }
+
+
+def empty_frame_reason(stats, thresholds):
+    """Powód, dla którego klatka jest pusta/jednorodna — albo `None`, gdy nie jest.
+
+    Wydzielone z `check_image`, bo tej samej kontroli potrzebuje render kontrolny
+    z `tools/blender/render_check.py`: on nie ma ani manifestu, ani baseline, a to
+    właśnie tam pusty PNG przechodził z kodem wyjścia 0.
+
+    "Nie-pusty" nie może być samym pokryciem tła: render tunelu z daleka to włos
+    w kadrze, a widok z wnętrza wypełnia kadr geometrią, więc modalny poziom JEST
+    geometrią. Pusta klatka to klatka jednorodna: zero wariancji i kilka poziomów.
+    """
+    if (stats["ink_fraction"] >= thresholds["min_ink_fraction"]
+            and stats["luma_std"] >= thresholds["min_luma_std"]
+            and stats["distinct_levels"] >= thresholds["min_distinct_levels"]):
+        return None
+    return (f"obraz pusty/jednorodny: ink={stats['ink_fraction']:.5f} "
+            f"std={stats['luma_std']:.5f} poziomy={stats['distinct_levels']}")
 
 
 def ssim(a_w, a_h, a, b):
@@ -127,22 +156,16 @@ def check_image(path, expected_size, thresholds, baseline_path=None, diff_path=N
 
     size_ok = list(img.size) == list(expected_size)
     result["checks"]["dimension"] = size_ok
-    # "Nie-pusty" nie może być samym pokryciem tła: render tunelu z daleka to włos
-    # w kadrze, a widok z wnętrza wypełnia kadr geometrią, więc modalny poziom JEST
-    # geometrią. Pusta klatka to klatka jednorodna: zero wariancji i kilka poziomów.
-    not_empty = (stats["ink_fraction"] >= thresholds["min_ink_fraction"]
-                 and stats["luma_std"] >= thresholds["min_luma_std"]
-                 and stats["distinct_levels"] >= thresholds["min_distinct_levels"])
-    result["checks"]["not_empty"] = not_empty
+    empty = empty_frame_reason(stats, thresholds)
+    result["checks"]["not_empty"] = empty is None
 
     if not size_ok:
         result["status"] = "fail"
         result["reason"] = f"rozdzielczość {img.size} != oczekiwana {tuple(expected_size)}"
         return result
-    if not not_empty:
+    if empty is not None:
         result["status"] = "fail"
-        result["reason"] = (f"obraz pusty/jednorodny: ink={stats['ink_fraction']:.5f} "
-                            f"std={stats['luma_std']:.5f} poziomy={stats['distinct_levels']}")
+        result["reason"] = empty
         return result
 
     if not baseline_path or not os.path.isfile(baseline_path):
