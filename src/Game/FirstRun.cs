@@ -113,6 +113,9 @@ public sealed partial class FirstRun : Node3D
 
     private const int ExitAxisManifestMismatch = 10;
 
+    /// <summary>Skorupa M7 się nie wczytała. Scena bez składu nie jest przejazdem.</summary>
+    private const int ExitTrainMissing = 11;
+
     private bool _scriptedMode;
 
     /// <summary>Scena zgłosiła błąd i nie ma prawa dalej liczyć klatek.</summary>
@@ -406,7 +409,20 @@ public sealed partial class FirstRun : Node3D
         var trainMaterial = GlbLoader.NeutralMaterial(new Color(0.80f, 0.81f, 0.83f), 0.45f);
 
         _tunnel.LoadAll(manifest, Path.GetDirectoryName(manifestPath) ?? assets, tunnelMaterial);
-        _train.Load(shellPath, trainMaterial);
+
+        // Wynik `Load` był ODRZUCANY. `TrainView.Load` zwraca liczbę brył i zero znaczy
+        // „nie wczytałem nic" — bez tego sprawdzenia scena szła dalej bez składu, a że
+        // metadane opisywały wyłącznie tunel, cały `godot-first-run.yml` zostawał
+        // zielony. Zmierzone audytem mutacyjnym (Issue #107): mutacja `TrainView.cs:38`
+        // przechodziła bramki, tą samą drogą przeżyły `TrackOffsetM 2.10→0.0`
+        // i `CabEyeHeightM 2.20→0.0`.
+        var bodies = _train.Load(shellPath, trainMaterial);
+        if (bodies <= 0)
+        {
+            Abort(ExitTrainMissing,
+                $"[SKŁAD] {shellPath} nie dał ani jednej bryły — scena bez składu nie jest przejazdem");
+            return;
+        }
 
         GD.Print(_tunnel.Describe(manifest));
         GD.Print(_train.Describe());
@@ -584,12 +600,13 @@ public sealed partial class FirstRun : Node3D
     private void PlaceEverything()
     {
         var chainage = Math.Min(ChainageM, _axis.LengthM);
-        var trainLength = _train.LengthM > 0.0 ? _train.LengthM : 94.0;
-
-        if (_train.BodyCount > 0)
-        {
-            _train.PlaceAt(_sceneAxis, chainage);
-        }
+        // Było tu `_train.LengthM > 0.0 ? _train.LengthM : 94.0` — CICHY ODWRÓT na
+        // wartość ze specyfikacji, gdy skorupa się nie wczytała. Podstawiał poprawną
+        // liczbę za nieistniejący skład, więc kamery i telemetria wyglądały normalnie.
+        // Fallback jest zbędny, odkąd `SetUpScene` odmawia startu bez brył: długość
+        // pochodzi teraz zawsze z wczytanej geometrii.
+        var trainLength = _train.LengthM;
+        _train.PlaceAt(_sceneAxis, chainage);
 
         var (eye, forward) = _sceneAxis.CabPoint(
             chainage,
@@ -803,6 +820,12 @@ public sealed partial class FirstRun : Node3D
           "chunks_loaded": {{_tunnel.LoadedChunks}},
           "chunks_declared": {{_manifest.Chunks.Count}},
           "axis_length_m": {{_manifest.AxisLengthM:F3}}
+         },
+         "train": {
+          "bodies": {{_train.BodyCount}},
+          "length_m": {{_train.LengthM:F4}},
+          "width_m": {{_train.WidthM:F4}},
+          "roof_height_m": {{_train.RoofHeightM:F4}}
          }
         }
         """);

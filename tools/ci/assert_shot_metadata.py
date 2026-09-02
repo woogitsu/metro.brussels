@@ -74,6 +74,77 @@ def axis_scene_bbox(axis_path):
     return ([min(xs), min(zs), -max(ys)], [max(xs), max(zs), -min(ys)])
 
 
+#: Skorupa M7 to 6 pudeł i 5 mieszków między nimi. Liczba brył jest więc funkcją
+#: liczby członów z rejestru, a nie osobną stałą do przepisania.
+def expected_bodies(cars):
+    return 2 * cars - 1
+
+
+def m7_spec(spec_path):
+    """Długość, szerokość i liczba członów M7 — wyłącznie wpisy o statusie `spec`.
+
+    To jest DRUGA, niezależna droga do tych samych liczb: pierwszą jest AABB brył
+    odczytany przez `TrainView` z wyeksportowanego GLB. Rozjazd między nimi znaczy,
+    że skorupa nie odpowiada rejestrowi — i jest informacją, nie szumem.
+    """
+    with open(spec_path, encoding="utf-8") as handle:
+        registry = json.load(handle)
+    out = {}
+    for key in ("length_m", "width_m", "cars"):
+        entry = registry["parameters"][key]
+        if entry.get("status") != "spec":
+            raise SystemExit(
+                f"BŁĄD: {key} w rejestrze M7 ma status {entry.get('status')!r}, nie 'spec' — "
+                "bramka nie ma prawa opierać się na wartości bez źródła")
+        out[key] = entry["value"]
+    return out
+
+
+def check_train(metadata, spec_path):
+    """Czy w scenie JEST skład i czy to ten skład.
+
+    **Issue #107.** Cały blok `scene` opisuje wyłącznie tunel, więc mutacja
+    `TrainView.cs:38` — skorupa nie wczytuje się w ogóle — zostawiała cały
+    `godot-first-run.yml` zielony. Próg pustej klatki łapie brak tunelu, bo tunel
+    wypełnia kadr; składu w widoku `cab` nie widać z definicji, a w `chase`
+    i `outside` jego brak wygląda jak zwykły kadr tunelu.
+    """
+    problems = []
+    train = metadata.get("train")
+    if not isinstance(train, dict):
+        return ["metadane nie mają bloku `train` — nie ma czym udowodnić, że skład jest w scenie"]
+
+    spec = m7_spec(spec_path)
+    bodies = train.get("bodies")
+    wanted = expected_bodies(int(spec["cars"]))
+    if bodies != wanted:
+        problems.append(
+            f"train.bodies = {bodies}; rejestr daje {spec['cars']} członów, "
+            f"czyli {wanted} brył (pudła + mieszki)")
+
+    length = train.get("length_m")
+    if not isinstance(length, (int, float)) or length <= 0.0:
+        problems.append(f"train.length_m = {length}; skład zwinięty w punkt albo nieobecny")
+    else:
+        # Skorupa jest zamiatana po cięciwach, więc jej długość mierzona wzdłuż X jest
+        # nieco mniejsza niż nominalna. 1 % to zapas na to, nie na pomyłkę w wymiarze.
+        nominal = float(spec["length_m"])
+        if abs(length - nominal) > nominal * 0.01:
+            problems.append(
+                f"train.length_m = {length:.4f}, a rejestr M7 mówi {nominal} "
+                f"(status spec) — rozjazd {abs(length - nominal):.4f} m")
+
+    width = train.get("width_m")
+    nominal_w = float(spec["width_m"])
+    if not isinstance(width, (int, float)) or abs(width - nominal_w) > nominal_w * 0.01:
+        problems.append(f"train.width_m = {width}, a rejestr M7 mówi {nominal_w} (status spec)")
+
+    roof = train.get("roof_height_m")
+    if not isinstance(roof, (int, float)) or roof <= 0.0:
+        problems.append(f"train.roof_height_m = {roof}; bryła bez wysokości nie jest składem")
+    return problems
+
+
 def check(metadata, axis_path, resolution, view, chainage_m):
     problems = []
     scene = metadata.get("scene") or {}
@@ -160,6 +231,8 @@ def main():
     parser.add_argument("--resolution", help="np. 1280x720")
     parser.add_argument("--view", help="widok ostatniego zrzutu")
     parser.add_argument("--at-chainage", type=float, help="chainage ostatniego zrzutu")
+    parser.add_argument("--m7-spec", default=os.path.join(ROOT, "data", "vehicle", "m7-spec.json"),
+                        help="rejestr M7 — niezależna prawda o składzie")
     args = parser.parse_args()
 
     with open(args.metadata, encoding="utf-8") as handle:
@@ -171,6 +244,7 @@ def main():
 
     expected = axis_length_m(args.axis)
     problems = check(metadata, args.axis, resolution, args.view, args.at_chainage)
+    problems += check_train(metadata, args.m7_spec)
     if problems:
         print(f"BŁĄD: metadane zrzutu nie opisują tej sceny ({args.metadata}):", file=sys.stderr)
         for problem in problems:
@@ -181,6 +255,9 @@ def main():
     print(f"[METADANE] {scene['chunks_loaded']}/{scene['chunks_declared']} chunków, "
           f"{scene['mesh_objects']} obiektów, {scene['vertices']} wierzchołków, "
           f"oś {scene['axis_length_m']:.3f} m == {expected:.3f} m policzone niezależnie")
+    train = metadata["train"]
+    print(f"[SKŁAD] {train['bodies']} brył, {train['length_m']:.3f} m x {train['width_m']:.3f} m, "
+          f"dach {train['roof_height_m']:.3f} m — zgodne z rejestrem M7 (status spec)")
     return 0
 
 

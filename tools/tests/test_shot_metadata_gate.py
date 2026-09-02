@@ -49,6 +49,14 @@ def _healthy():
             "chunks_declared": 12,
             "axis_length_m": 6686.739,
         },
+        # Zmierzone na tym samym przebiegu. 11 brył = 6 pudeł + 5 mieszków; długość,
+        # szerokość i liczba członów zgadzają się z rejestrem M7 (status `spec`).
+        "train": {
+            "bodies": 11,
+            "length_m": 94.0,
+            "width_m": 2.7,
+            "roof_height_m": 3.6,
+        },
     }
 
 
@@ -208,3 +216,87 @@ def test_workflow_actually_runs_the_metadata_gate():
     assert "--resolution 1280x720" in body
     # Krok musi stać PO zrzutach, bo inaczej nie ma czego czytać.
     assert text.index("Shot metadata must describe this scene") > text.index("--shot=")
+
+
+# --- Issue #107: scena bez składu ------------------------------------------------
+
+M7_SPEC = os.path.join(ROOT, "data", "vehicle", "m7-spec.json")
+
+
+def _train(metadata):
+    return G.check_train(metadata, M7_SPEC)
+
+
+def test_healthy_metadata_has_a_train_the_registry_agrees_with():
+    assert _train(_healthy()) == []
+
+
+def test_gate_refuses_metadata_without_a_train_block():
+    """Issue #107 w jednym zdaniu: cały blok `scene` opisuje wyłącznie tunel.
+
+    Mutacja `TrainView.cs:38` — skorupa nie wczytuje się w ogóle — zostawiała
+    `godot-first-run.yml` ZIELONY, bo o składzie nie było w metadanych ani słowa.
+    Próg pustej klatki tego nie łapie: w widoku `cab` składu nie widać z definicji,
+    a w `chase` i `outside` jego brak wygląda jak zwykły kadr tunelu.
+    """
+    metadata = _healthy()
+    del metadata["train"]
+    problems = _train(metadata)
+    assert problems and "train" in problems[0], problems
+
+
+def test_body_count_comes_from_the_registry_not_from_a_constant():
+    """6 członów daje 11 brył. Gdyby ktoś przepisał liczbę, rozjazd byłby niewidoczny."""
+    assert G.expected_bodies(6) == 11
+    assert G.expected_bodies(4) == 7
+    metadata = _healthy()
+    metadata["train"]["bodies"] = 6
+    assert _train(metadata), "liczba członów zamiast liczby brył musi zostać odrzucona"
+
+
+def test_train_dimensions_are_checked_against_the_registry():
+    for field, broken in (("length_m", 0.0), ("length_m", 88.0),
+                          ("width_m", 2.5), ("roof_height_m", 0.0)):
+        metadata = _healthy()
+        metadata["train"][field] = broken
+        assert _train(metadata), f"{field}={broken} przeszło bramkę"
+
+
+def test_the_registry_values_must_carry_the_spec_status():
+    """Bramka nie ma prawa opierać się na wartości bez źródła.
+
+    Gdyby ktoś zmienił status `length_m` na `design_assumption`, porównanie
+    przestałoby być drugą niezależną drogą do tej samej liczby i stałoby się
+    porównaniem założenia z założeniem — a wyglądałoby tak samo.
+
+    Pierwsza wersja tego testu sprawdzała tylko WARTOŚCI i przeżyła usunięcie
+    kontroli statusu. Teraz sprawdza, że bramka faktycznie odmawia.
+    """
+    spec = G.m7_spec(M7_SPEC)
+    assert spec["cars"] == 6 and spec["length_m"] == 94.0 and spec["width_m"] == 2.7
+
+    with open(M7_SPEC, encoding="utf-8") as handle:
+        registry = json.load(handle)
+    registry["parameters"]["length_m"]["status"] = "design_assumption"
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as h:
+        json.dump(registry, h, ensure_ascii=False)
+        path = h.name
+    try:
+        raised = False
+        try:
+            G.m7_spec(path)
+        except SystemExit as exc:
+            raised = True
+            assert "spec" in str(exc), exc
+        assert raised, "rejestr bez statusu spec musi zostać odrzucony"
+    finally:
+        os.unlink(path)
+
+
+def test_workflow_gate_would_catch_a_scene_without_a_train():
+    """Kontrola całego skryptu, nie samej funkcji — tak jak woła go workflow."""
+    metadata = _healthy()
+    metadata["train"]["bodies"] = 0
+    result = _run(metadata)
+    assert result.returncode != 0, result.stdout
+    assert "train.bodies" in result.stderr, result.stderr
