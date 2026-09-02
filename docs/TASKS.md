@@ -345,7 +345,36 @@ Wpiąć w scenę to, co **już jest w rdzeniu i przetestowane, a scena tego nie 
 `DoorCycle`, `StationStop`, `FixedBlockSystem`, `TrainProtection`. Do tego streamowanie
 chunków i przełączanie LOD. Ta faza dotknie miejsc wymagających decyzji właściciela.
 
+### Faza 5 — kolejka, która nie kończy się na czekaniu
+
+Zadania poniżej **nie wymagają ani jednej decyzji właściciela**. Nie dotykają `data/`
+zapisem, nie wymagają oceny estetycznej, nie ruszają `docs/03-legal.md` i nie potrzebują
+danych, których repo nie ma. Agent bierze je w tej kolejności, gdy fazy 1–4 są zamknięte
+albo gdy faza w toku czeka na cudzy przebieg CI.
+
+Kolejność wynika z jednej zasady: **najpierw to, co może pokazać, że coś innego jest
+nieprawdą.** Zadanie, które ujawnia błąd, jest warte więcej niż zadanie, które dokłada
+funkcję do kodu, o którym nie wiadomo, czy działa.
+
+| # | zadanie | dlaczego bez decyzji | jak się kończy |
+|---|---|---|---|
+| 5.1 | **Przegląd mutacyjny wszystkich bramek** — po jednej mutacji na każdą kontrolę w `tools/ci/*.sh` i `tools/tests/test_*.py`, z rejestrem, która przeżyła | audyt z 02.09.2026 znalazł **cztery zielone bramki, które niczego nie sprawdzały**, i wszystkie cztery znalazła mutacja, nie czytanie kodu. Do tego dwie kolejne w tej samej sesji (`RUNNER_TOOL_CACHE` w komentarzu, szczyt prędkości na osi bez ograniczenia). Sześć na sześć prób — to nie jest wyjątek, to stan | `reports/mutation-sweep.md` z listą bramek, mutacji i wyniku; każda ocalała mutacja to osobne zadanie naprawcze |
+| 5.2 | **Świeże snapshoty STIB — raport różnic, bez zapisu do `data/`** | `data/` zostaje tylko do odczytu: pobranie idzie do `build/`, a wynikiem jest **diff**, nie podmiana. Decyzja, czy podmieniać, zostaje właścicielowi — ale bez raportu nie ma na czym jej oprzeć | `reports/snapshot-drift.md`: co się zmieniło w GTFS, `ACTU_LIGNES_BRUTES`, Stop Details i INSPIRE Rails wobec commitów w `data/`, z liczbami. INSPIRE Rails miał okno ważności **02.03–28.06.2026** i był wygaśnięty już w chwili pobrania 01.09.2026 |
+| 5.3 | **T-401 na sześciu pakietach zamiast na jednym** — model wobec zmierzonego rozkładu na każdej osi | dane są w repo (T-113), założenia są jawne i już wybrane, nic nowego nie trzeba zgadywać | rozszerzony `reports/T-401-line-run.md`: ile odcinków na pakiet mieści się w rozkładzie, gdzie model jest wolniejszy i o ile |
+| 5.4 | **Wspólny preflight CI jako composite action** | siedem workflowów powtarza ten sam kod ochrony przed forkami, kontroli czystego workspace i sondowania narzędzi. To nie jest kosmetyka: **im więcej kopii, tym większa szansa, że następny workflow pominie jedną regułę bezpieczeństwa** | jedna akcja lokalna, siedem workflowów krótszych o powtórzenia, `tools/tests/test_ci_workflows.py` pilnuje, że żaden nie omija preflightu |
+| 5.5 | **Akcje GitHuba przypięte do pełnych SHA** | wersje tagowane (`actions/checkout@v6`) można przestawić po cichu, a joby chodzą **na maszynie właściciela**, nie na jednorazowym kontenerze. To utwardzenie łańcucha dostaw, nie porządki | każde `uses:` z pełnym SHA i komentarzem z wersją; test odrzuca `uses:` bez SHA |
+| 5.6 | **Domknąć „Czego brakuje w tej rozpisce"** — T-114, R-002…R-007, T-401 mają Issues, ale nie mają wpisu tutaj | ten plik sam deklaruje, że dopóki wpisu nie ma, **Issues są jedynym źródłem prawdy** — czyli rozjazd jest zapisany, ale niezamknięty | sekcja znika, bo każde zadanie ma wpis z sześcioma polami |
+| 5.7 | **Budżet kroków dla wielu składów** — ile kosztuje 120 Hz przy N składach na osi | czysty pomiar na istniejącym kodzie; nie wymaga ani jednej nowej liczby o sieci | `reports/linecore-budget.md`: kroki na sekundę wobec N, i przy jakim N krok stały przestaje się mieścić w klatce |
+| 5.8 | **Pokrycie dwóch modułów `tools/` bez testu jednostkowego** | oba mają dziś wyłącznie pokrycie integracyjne, czyli takie, które mówi „przeszło", ale nie mówi, co dokładnie | testy jednostkowe z kontrolami negatywnymi, jak reszta |
+
+**Czego w tej kolejce świadomie NIE ma:** wszystkiego, co wymagałoby wymyślenia liczby
+o brukselskim metrze. Zmyślona głębokość stacji wygląda dokładnie tak samo jak prawdziwa,
+a zadanie „na przeczekanie" jest najgorszym momentem, żeby o tym zapomnieć.
+
 ### Czego agent nie ruszy bez decyzji
+
+Poniższe **nie są kolejką** — są listą rzeczy, które czekają na właściciela. Agent po nie
+nie sięga, nawet gdy nie ma nic innego do roboty; wtedy sięga po fazę 5.
 
 | | dlaczego |
 |---|---|
