@@ -26,6 +26,14 @@
     -->
     <EmbeddedResource Include="$(MSBuildThisFileDirectory)../../data/vehicle/m7-spec.json"
                       LogicalName="MetroBxl.Sim.Data.m7-spec.json" />
+
+    <!--
+      Ground truth sygnalizacji (R-003) tą samą drogą i z tego samego powodu:
+      T-314 czyta z niego, który tryb ochrony jest historyczny, zamiast kodować
+      tę odpowiedź w C#.
+    -->
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)../../data/signalling/ground-truth.json"
+                      LogicalName="MetroBxl.Sim.Data.signalling-ground-truth.json" />
   </ItemGroup>
 
 </Project>
