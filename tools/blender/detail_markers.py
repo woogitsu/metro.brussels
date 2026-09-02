@@ -60,6 +60,28 @@ def parse_args():
     return parser.parse_args(argv)
 
 
+def select_marks(marks, from_m, to_m):
+    """Znaczniki mieszczące się w oknie kilometrażu. Puste okno jest błędem, nie zerem.
+
+    **Po co osobna funkcja.** Wybór okna siedział w `main()` razem z `bpy`, więc nie
+    dawał się dotknąć testem — a decyduje o tym, czy render kontrolny w ogóle coś
+    pokaże. Bez okna kadr obejmuje 5,4 km i każdy słupek ma 0,03 piksela; scena
+    wychodzi pusta, mimo że geometria jest. Zmierzone, nie przewidziane: pierwszy
+    przebieg dał dokładnie taki pusty render.
+
+    Puste okno kończy się `SystemExit`, a nie pustą listą, bo skrypt bez ani jednego
+    znacznika wyprodukowałby pustą scenę i zapisał ją jako poprawny GLB.
+    """
+    low = from_m if from_m is not None else float("-inf")
+    high = to_m if to_m is not None else float("inf")
+    if low > high:
+        raise SystemExit(f"BŁĄD: okno {low}–{high} m jest puste")
+    selected = [m for m in marks if low <= m["chainage_m"] <= high]
+    if not selected:
+        raise SystemExit(f"BŁĄD: w oknie {low}–{high} m nie ma ani jednego znacznika")
+    return selected, low, high
+
+
 def post_mesh(name, placement, lateral_m, foot_m, height_m, thick_m, wide_m):
     """Prostopadłościan stojący stycznie do osi, odsunięty w bok o `lateral_m`."""
     corners = []
@@ -102,13 +124,7 @@ def main():
     # Okno kilometrażu. Bez niego render kontrolny kadruje 5,4 km i każdy słupek ma
     # 0,03 piksela — scena wychodzi pusta, mimo że geometria jest. Zmierzone, nie
     # przewidziane: pierwszy przebieg dał dokładnie taki pusty render.
-    low = args.from_m if args.from_m is not None else float("-inf")
-    high = args.to_m if args.to_m is not None else float("inf")
-    if low > high:
-        raise SystemExit(f"BŁĄD: okno {low}–{high} m jest puste")
-    selected = [m for m in layout["marks"] if low <= m["chainage_m"] <= high]
-    if not selected:
-        raise SystemExit(f"BŁĄD: w oknie {low}–{high} m nie ma ani jednego znacznika")
+    selected, low, high = select_marks(layout["marks"], args.from_m, args.to_m)
 
     worst_gauge, worst_wall = float("inf"), float("inf")
     objects, counts = [], {}
