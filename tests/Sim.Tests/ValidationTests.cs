@@ -123,6 +123,36 @@ public sealed class ValidationTests
         Assert.ThrowsException<FormatException>(() => ParameterStatusParser.Parse("mniej_wiecej"));
 
     /// <summary>
+    /// Każdy napis z rejestru ma trafiać w SWÓJ status, a nie w jakikolwiek.
+    ///
+    /// Zmierzone 02.09.2026 mutacją: podmiana <c>"observed"</c> i <c>"est"</c> na
+    /// <see cref="ParameterStatus.Spec"/> w parserze przechodziła przez cały zestaw
+    /// (Passed: 252). Rejestr M7 nie ma dziś ani jednego wpisu <c>est</c>/<c>observed</c>,
+    /// więc te dwie gałęzie nie były wykonywane przez nic. Dopisanie takiego wpisu
+    /// oznaczałoby wtedy, że oszacowanie historyczne wchodzi do fizyki jako wartość
+    /// z oficjalnego źródła — czyli dokładnie to, przed czym broni reguła 1 z CLAUDE.md.
+    /// </summary>
+    [TestMethod]
+    public void Kazdy_status_z_rejestru_parsuje_sie_na_siebie()
+    {
+        Assert.AreEqual(ParameterStatus.Spec, ParameterStatusParser.Parse("spec"));
+        Assert.AreEqual(ParameterStatus.Observed, ParameterStatusParser.Parse("observed"));
+        Assert.AreEqual(ParameterStatus.Est, ParameterStatusParser.Parse("est"));
+        Assert.AreEqual(ParameterStatus.DesignModel, ParameterStatusParser.Parse("design_model"));
+
+        // Obie strony zamiany, dla każdego statusu z enuma — nowy status nie może
+        // przejść bez napisu, a napis nie może wracać na inny status.
+        foreach (ParameterStatus status in Enum.GetValues<ParameterStatus>())
+        {
+            var text = ParameterStatusParser.ToRegistryString(status);
+            Assert.AreEqual(status, ParameterStatusParser.Parse(text), text);
+        }
+
+        Assert.AreEqual(4, Enum.GetValues<ParameterStatus>().Length,
+            "doszedł status pochodzenia — dopisz go do tego testu, zanim wejdzie do fizyki");
+    }
+
+    /// <summary>
     /// Rdzeń nie wydaje liczby bez deklaracji jej pochodzenia: prośba o <c>spec</c>
     /// tam, gdzie rejestr ma <c>design_model</c>, kończy się wyjątkiem, a nie wynikiem.
     /// </summary>

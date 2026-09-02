@@ -406,6 +406,73 @@ public sealed class FixedBlockTests
     }
 
     /// <summary>
+    /// Odcisk stanu musi rozróżniać **kto** zajmuje blok i **która trasa** go rezerwuje,
+    /// a nie tylko to, że blok jest zajęty albo zarezerwowany.
+    ///
+    /// <para>Zmierzone 02.09.2026 mutacją: wypisanie stałego <c>"-"</c> zamiast
+    /// zajmującego składu i rezerwującej trasy przechodziło przez cały zestaw
+    /// (Passed: 254). Stan bloku (<c>Occupied</c>/<c>Reserved</c>) zostaje w odcisku
+    /// nawet po takiej mutacji, więc scenariusze różniące się liczbą zajętych bloków
+    /// jej nie widzą. Widać ją dopiero wtedy, gdy dwa stany mają te same bloki zajęte,
+    /// a różnią się PRZYPISANIEM.</para>
+    ///
+    /// <para>Bez tego „replay odtwarza identyczny stan ryglowania" znaczyłoby tylko
+    /// „replay odtwarza ten sam zbiór zajętych bloków" — a zapis, który przypisze blok
+    /// nie temu składowi, porównałby się jako równy.</para>
+    /// </summary>
+    [TestMethod]
+    public void Odcisk_stanu_rozroznia_kto_zajmuje_i_co_rezerwuje()
+    {
+        var plan = Plan(requireRoute: true);
+        var live = new FixedBlockSystem(plan);
+        live.RegisterTrain("A", 600.0, TrainLengthM);
+        live.RegisterTrain("B", 2000.0, TrainLengthM);
+        Assert.IsTrue(live.RequestRoute("R02", "A"), "trasa odrzucona — scenariusz nie bada tego, co miał");
+
+        Assert.IsTrue(plan.Blocks.Any(b => live.ReservationOf(b.Id) is not null),
+            "scenariusz nie zostawia żywej rezerwacji — test nic nie bada");
+        Assert.IsTrue(plan.Blocks.Any(b => live.OccupantOf(b.Id) is not null),
+            "scenariusz nie zostawia zajętego bloku — test nic nie bada");
+
+        Assert.AreEqual(live.StateDigest(), FixedBlockSystem.Replay(plan, live.Events).StateDigest(),
+            "wierny strumień ma odtwarzać stan — inaczej ten test bada co innego");
+
+        // Zamiana składów miejscami, BEZ tras: gdyby którykolwiek skład miał trasę,
+        // odciski różniłyby się przypisaniem trasy do składu i test przechodziłby
+        // niezależnie od tego, czy widzi zajętość.
+        var bare = Plan(requireRoute: false);
+        var left = new FixedBlockSystem(bare);
+        left.RegisterTrain("A", 600.0, TrainLengthM);
+        left.RegisterTrain("B", 2000.0, TrainLengthM);
+        var swapped = new FixedBlockSystem(bare);
+        swapped.RegisterTrain("A", 2000.0, TrainLengthM);
+        swapped.RegisterTrain("B", 600.0, TrainLengthM);
+        foreach (var block in bare.Blocks)
+        {
+            Assert.AreEqual(left.StateOf(block.Id), swapped.StateOf(block.Id), block.Id);
+        }
+
+        CollectionAssert.AreEqual(left.TrainIds.ToArray(), swapped.TrainIds.ToArray());
+        Assert.AreNotEqual(left.StateDigest(), swapped.StateDigest(),
+            "odcisk nie odróżnia, KTÓRY skład zajmuje blok");
+
+        // Ten sam strumień z podmienionym identyfikatorem trasy przy rezerwacji:
+        // stany bloków bez zmian, rezerwacja przypisana komu innemu.
+        var relabelled = live.Events
+            .Select(e => e.Kind == SignallingEventKind.BlockReserved
+                ? e with { Detail = "R99" }
+                : e)
+            .ToList();
+        Assert.AreNotEqual(
+            live.Events.Select(e => e.Detail).ToList(),
+            relabelled.Select(e => e.Detail).ToList(),
+            "podmiana w teście nie zadziałała");
+
+        Assert.AreNotEqual(live.StateDigest(), FixedBlockSystem.Replay(plan, relabelled).StateDigest(),
+            "odcisk nie odróżnia, KTÓRA trasa rezerwuje blok");
+    }
+
+    /// <summary>
     /// Zdarzenia zmieniające stan ryglowania mogą pochodzić tylko z samego systemu.
     /// Gdyby warstwa ochrony mogła je wstrzyknąć, zapis rozjechałby się ze stanem
     /// i odtworzenie przestałoby cokolwiek dowodzić.
@@ -416,8 +483,145 @@ public sealed class FixedBlockTests
         var system = System();
         system.RegisterTrain("A", 600.0, TrainLengthM);
 
-        Assert.ThrowsException<ArgumentOutOfRangeException>(
-            () => system.Report(SignallingEventKind.BlockOccupied, "P03", "A", 600.0, string.Empty));
+        // Wszystkie siedem rodzajów zmieniających stan, a nie jeden przykładowy:
+        // bramka wymienia je z nazwy, więc test ma wymieniać dokładnie te same.
+        // Zmierzone 02.09.2026: przy sprawdzaniu wyłącznie BlockOccupied usunięcie
+        // z bramki któregokolwiek z pozostałych sześciu przechodziło bez śladu.
+        var stateChanging = new[]
+        {
+            SignallingEventKind.TrainRegistered,
+            SignallingEventKind.BlockOccupied,
+            SignallingEventKind.BlockReleased,
+            SignallingEventKind.BlockReserved,
+            SignallingEventKind.BlockReservationReleased,
+            SignallingEventKind.RouteLocked,
+            SignallingEventKind.RouteReleased,
+        };
+
+        foreach (var kind in stateChanging)
+        {
+            Assert.ThrowsException<ArgumentOutOfRangeException>(
+                () => system.Report(kind, "P03", "A", 600.0, string.Empty), kind.ToString());
+        }
+
+        // Druga strona bramki: zdarzenia będące WYNIKIEM nadzoru mają przechodzić,
+        // inaczej TrainProtection nie miałoby gdzie pisać.
+        var before = system.Events.Count;
+        var reported = Enum.GetValues<SignallingEventKind>()
+            .Where(kind => !stateChanging.Contains(kind))
+            .ToList();
+        foreach (var kind in reported)
+        {
+            system.Report(kind, "P03", "A", 600.0, string.Empty);
+        }
+
+        Assert.AreEqual(reported.Count, system.Events.Count - before,
+            "każdy rodzaj spoza bramki ma zostawić dokładnie jedno zdarzenie");
+        Assert.AreEqual(Enum.GetValues<SignallingEventKind>().Length,
+            stateChanging.Length + reported.Count,
+            "doszedł rodzaj zdarzenia — rozstrzygnij, po której stronie bramki stoi");
+    }
+
+    /// <summary>
+    /// Granica bloku jest półotwarta: <c>[Start, End)</c>. Chainage dokładnie na
+    /// granicy należy do bloku, który się tam ZACZYNA, a nie do tego, który się kończy.
+    ///
+    /// <para>Zmierzone 02.09.2026: żaden test nie stawał na samej granicy — wyszukiwanie
+    /// binarne w <see cref="SignallingPlan.BlockIndexAt"/> można było przestawić
+    /// z <c>&lt;=</c> na <c>&lt;</c> i cały zestaw dalej przechodził. Przy 23 blokach
+    /// pakietu A oznaczałoby to, że skład stojący czołem dokładnie na granicy jest
+    /// liczony do złego bloku — czyli że zajętość mija się z rzeczywistością o jeden blok.</para>
+    /// </summary>
+    [TestMethod]
+    public void Chainage_na_granicy_nalezy_do_bloku_ktory_sie_tam_zaczyna()
+    {
+        var plan = Plan();
+        Assert.IsTrue(plan.Blocks.Count >= 3, "plan za krótki na ten test");
+
+        for (var i = 1; i < plan.Blocks.Count; i++)
+        {
+            var boundary = plan.Blocks[i].StartM;
+            Assert.AreEqual(plan.Blocks[i - 1].EndM, boundary, 0.0,
+                $"bloki {plan.Blocks[i - 1].Id} i {plan.Blocks[i].Id} nie stykają się");
+
+            Assert.AreEqual(i, plan.BlockIndexAt(boundary),
+                $"chainage {boundary} m ma należeć do {plan.Blocks[i].Id}");
+            Assert.AreEqual(i - 1, plan.BlockIndexAt(Math.BitDecrement(boundary)),
+                $"tuż przed granicą jest jeszcze {plan.Blocks[i - 1].Id}");
+
+            Assert.IsTrue(plan.Blocks[i].Contains(boundary));
+            Assert.IsFalse(plan.Blocks[i - 1].Contains(boundary));
+        }
+
+        // Poza planem — przycięcie do końców, nie wyjątek i nie indeks spoza tablicy.
+        Assert.AreEqual(0, plan.BlockIndexAt(plan.StartM));
+        Assert.AreEqual(0, plan.BlockIndexAt(plan.StartM - 1000.0));
+        Assert.AreEqual(plan.Blocks.Count - 1, plan.BlockIndexAt(plan.EndM));
+        Assert.AreEqual(plan.Blocks.Count - 1, plan.BlockIndexAt(plan.EndM + 1000.0));
+    }
+
+    /// <summary>
+    /// Blok zarezerwowany pod CUDZĄ trasę ogranicza authority z własnego powodu.
+    ///
+    /// <para>Zmierzone 02.09.2026 mutacją: podmiana
+    /// <see cref="AuthorityLimit.ReservedByOtherRoute"/> na
+    /// <see cref="AuthorityLimit.OccupiedBlock"/> przechodziła przez cały zestaw.
+    /// Powód ograniczenia trafia do zapisu i do kabiny — „blok zajęty" i „blok
+    /// zarezerwowany pod inną trasę" to dla dyżurnego dwie różne sytuacje.</para>
+    /// </summary>
+    [TestMethod]
+    public void Rezerwacja_cudzej_trasy_ogranicza_authority_z_wlasnego_powodu()
+    {
+        // Trasa zaczyna się tam, gdzie stoi skład, a skład zajmuje swój blok — więc
+        // dopóki B stoi w P03, jadący z tyłu A widzi najpierw ZAJĘTOŚĆ. Rezerwacja
+        // wychodzi na pierwszy plan dopiero wtedy, gdy B wyjedzie ogonem z P03,
+        // a trasa jeszcze się nie dopełniła (czoło nie weszło do P04).
+        var plan = Plan();
+        var system = new FixedBlockSystem(plan);
+        system.RegisterTrain("B", 1400.0, TrainLengthM);
+        Assert.IsTrue(system.RequestRoute("R03", "B"), "trasa odrzucona — scenariusz nic nie bada");
+        system.MoveTrain("B", 1600.0);
+        Assert.IsNull(system.OccupantOf("P03"), "B miał wyjechać ogonem z P03");
+        system.RegisterTrain("A", 1300.0, TrainLengthM);
+
+        var authority = system.Authority("A");
+        Assert.AreEqual(AuthorityLimit.ReservedByOtherRoute, authority.Reason);
+        Assert.AreEqual("P03", authority.LimitBlockId,
+            "ogranicza pierwszy blok cudzej rezerwacji, a nie blok zajęty dalej");
+        Assert.IsNull(system.OccupantOf(authority.LimitBlockId),
+            "blok graniczny ma być zarezerwowany, a nie zajęty — inaczej test bada drugi powód");
+        Assert.AreEqual("R03", system.ReservationOf(authority.LimitBlockId));
+    }
+
+    /// <summary>
+    /// Zapas za końcem authority jest ODEJMOWANY, a nie tylko zadeklarowany w planie.
+    ///
+    /// <para>Zmierzone 02.09.2026 mutacją: pominięcie
+    /// <see cref="SignallingPlan.AuthorityMarginM"/> w liczeniu końca authority
+    /// przechodziło przez cały zestaw, bo plan syntetyczny i plan pakietu A mają
+    /// zapas równy zeru. Zapas jest jawnym <c>design_model</c> z T-313 — jeśli kiedyś
+    /// dostanie wartość, ma zadziałać, a nie zostać liczbą w pliku.</para>
+    /// </summary>
+    [TestMethod]
+    public void Zapas_za_koncem_authority_skraca_droge_o_dokladnie_tyle_ile_deklaruje()
+    {
+        const double MarginM = 12.5;
+        var without = SignallingPlanTests.SyntheticPlan(false, 0.0, 600.0, 1400.0, 2000.0);
+        var with = SignallingPlanTests.SyntheticPlanWithMargin(MarginM, 0.0, 600.0, 1400.0, 2000.0);
+        Assert.AreEqual(0.0, without.AuthorityMarginM, 0.0, "plan odniesienia ma mieć zerowy zapas");
+        Assert.AreEqual(MarginM, with.AuthorityMarginM, 0.0);
+
+        var bare = new FixedBlockSystem(without);
+        bare.RegisterTrain("A", 200.0, TrainLengthM);
+        var guarded = new FixedBlockSystem(with);
+        guarded.RegisterTrain("A", 200.0, TrainLengthM);
+
+        var open = bare.Authority("A");
+        var shortened = guarded.Authority("A");
+        Assert.AreEqual(open.LimitBlockId, shortened.LimitBlockId, "zapas nie zmienia bloku granicznego");
+        Assert.AreEqual(open.Reason, shortened.Reason);
+        Assert.AreEqual(MarginM, open.EndChainageM - shortened.EndChainageM, 1e-9,
+            "koniec authority ma się cofnąć dokładnie o zapas");
     }
 
     /// <summary>

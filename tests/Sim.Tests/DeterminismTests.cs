@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text.Json;
 using System.Threading;
 using MetroBxl.Sim.Physics;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -136,6 +138,67 @@ public sealed class DeterminismTests
                 allowedPrefixes.Any(prefix => name.StartsWith(prefix, StringComparison.Ordinal)),
                 $"nieoczekiwana zależność rdzenia: {name}");
         }
+    }
+
+    /// <summary>
+    /// Reguła 9 dotyczy ZALEŻNOŚCI, nie samego użycia typu.
+    ///
+    /// <see cref="Assembly.GetReferencedAssemblies"/> wypisuje wyłącznie assembly,
+    /// z których rdzeń faktycznie używa typów — kompilator wycina z manifestu
+    /// referencję, po której nikt nic nie woła. Dodanie do <c>Sim.csproj</c>
+    /// <c>ProjectReference</c> do projektu Godota (bez ani jednego <c>using</c>)
+    /// przechodziłoby więc przez test wyżej, a <c>Godot.dll</c> i tak lądowałoby
+    /// obok rdzenia w katalogu wyjściowym i w grafie zależności. Zmierzone
+    /// 02.09.2026 na osobnej bibliotece podpiętej do rdzenia: test wyżej zielony,
+    /// plik w katalogu wyjściowym.
+    ///
+    /// Ten test patrzy więc na to, co realnie leży obok rdzenia i co deklaruje
+    /// graf zależności, a nie na to, czego kod używa.
+    /// </summary>
+    [TestMethod]
+    public void Rdzen_nie_wciaga_zadnego_pliku_silnika_do_katalogu_wyjsciowego()
+    {
+        var core = typeof(VehicleModel).Assembly;
+        var directory = Path.GetDirectoryName(core.Location)
+            ?? throw new InvalidOperationException("rdzeń nie ma ścieżki na dysku");
+
+        foreach (var file in Directory.GetFiles(directory, "*Godot*", SearchOption.AllDirectories))
+        {
+            Assert.Fail($"obok rdzenia leży plik silnika: {Path.GetFileName(file)}");
+        }
+
+        // Graf zależności z deps.json: pozycja rdzenia nie może zależeć od niczego
+        // spoza platformy. To łapie ProjectReference bez użycia typu.
+        var depsPath = Path.Combine(directory, "MetroBxl.Sim.Tests.deps.json");
+        Assert.IsTrue(File.Exists(depsPath), $"brak {depsPath} — test nie ma czego sprawdzić");
+        using var deps = JsonDocument.Parse(File.ReadAllText(depsPath));
+        var allowed = new[] { "System", "netstandard", "Microsoft.CSharp", "mscorlib" };
+        var found = 0;
+        foreach (var target in deps.RootElement.GetProperty("targets").EnumerateObject())
+        {
+            foreach (var library in target.Value.EnumerateObject())
+            {
+                if (!library.Name.StartsWith("MetroBxl.Sim/", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                found++;
+                if (!library.Value.TryGetProperty("dependencies", out var dependencies))
+                {
+                    continue;
+                }
+
+                foreach (var dependency in dependencies.EnumerateObject())
+                {
+                    Assert.IsTrue(
+                        allowed.Any(prefix => dependency.Name.StartsWith(prefix, StringComparison.Ordinal)),
+                        $"rdzeń wciąga zależność {dependency.Name} — CLAUDE.md reguła 9");
+                }
+            }
+        }
+
+        Assert.IsTrue(found > 0, "w deps.json nie ma pozycji MetroBxl.Sim — wzorzec przestał pasować");
     }
 
     private static void AssertSameBits(double expected, double actual, string label) =>

@@ -73,6 +73,17 @@ public sealed class SignallingPlanTests
             ProtectionVariant.LegacyFixedBlock,
             requireRoute);
 
+    /// <summary>Ten sam plan z NIEZEROWYM zapasem za końcem authority.</summary>
+    internal static SignallingPlan SyntheticPlanWithMargin(
+        double authorityMarginM, params double[] stationChainages) =>
+        SignallingPlan.FromAxis(
+            SyntheticAxis(stationChainages),
+            VehicleRegistry.M7.RequireValue("parameters.length_m", ParameterStatus.Spec),
+            Units.KmhToMps(72.0),
+            authorityMarginM,
+            ProtectionVariant.LegacyFixedBlock,
+            false);
+
     // --- pochodzenie ---------------------------------------------------------------
 
     [TestMethod]
