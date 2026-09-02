@@ -5,6 +5,8 @@
   "render": {
     "engine": "BLENDER_EEVEE_NEXT",
     "engine_fallback": "BLENDER_EEVEE",
+    "$engine_comment": "Nazwa silnika NIE identyfikuje renderera. Legacy EEVEE usunieto w Blenderze 4.2 (blender/blender#122433); nowy silnik nosil wtedy BLENDER_EEVEE_NEXT, a w 5.0 przemianowano go z powrotem na BLENDER_EEVEE. Zmierzone 02.09.2026: na 4.0.2 i na 5.0.1 enum_items zwraca dokladnie ['BLENDER_EEVEE'] — dwa rozne silniki pod jedna nazwa. Rozstrzyga wylacznie wersja Blendera i tego pilnuje eevee_generation.",
+    "eevee_generation": "next",
     "samples": 32,
     "view_transform": "Standard",
     "look": "None",
@@ -271,6 +273,12 @@
           "anchor": {"mode": "named", "name": "approach_eye"},
           "aim": {"mode": "named", "name": "approach_target"},
           "place_at_anchor": true,
+          "headlight": {
+            "energy_w": 12000.0,
+            "range_m": 70.0,
+            "radius_m": 0.25
+          },
+          "$headlight_comment": "ZALOZENIE, nie dana o taborze. Tunel jest zamknieta rura w jednym materiale emisyjnym o stalej jasnosci, a slonce ze setup_world do wnetrza nie dociera — kamera perspektywiczna wzdluz osi trafia w kazdym kierunku w te sama jasnosc i klatka wychodzi plaska Z KONSTRUKCJI. Kamera flank rozwiazuje to samo cieciem plaszczyzna; approach nie miala ani ciecia, ani swiatla i przechodzila bramke pustki resztka refleksow przy kacie muskajacym: L1_B dawalo ink 0.0104 przy 56 poziomach na legacy EEVEE i ink 0.0002 przy 13 poziomach na EEVEE Next, czyli ponizej min_distinct_levels 16. range_m 70 i sama intencja reflektora sa te same co HeadlightRangeM w widoku kabinowym Godota. energy_w to wat Blendera, DOBRANY POMIAREM: przy 400 W ink 0.0003, przy 4000 W 0.7434, przy 12000 W 0.8932, przy 40000 W spada do 0.5177, bo obraz znowu robi sie jednorodny od przepalenia. 12000 W jest maksimum tej krzywej. Parametr obrazu, nie wymiar M7.",
           "purpose": "widok z toru na nadjeżdżający skład — proporcje pojazdu wobec otworu tunelu"
         },
         {
