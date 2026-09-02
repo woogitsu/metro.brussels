@@ -73,7 +73,7 @@ jobs:
       - name: Install .NET SDK
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: '10.0.x'
 
       # Na jednorazowej maszynie GitHuba Blender trzeba było instalować za każdym
       # razem — 162 pakiety, 190 MB. Na maszynie właściciela zostaje zainstalowany,

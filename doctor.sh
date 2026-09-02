@@ -20,7 +20,7 @@ chk_required "git" "git --version" "zainstaluj git"
 
 echo ""
 echo "Wymagane dla rdzenia symulacji (T-310 jest zrobione, src/Sim istnieje):"
-chk_required "dotnet SDK" "dotnet --version" "zainstaluj .NET SDK 8.0+ (https://dotnet.microsoft.com/download)"
+chk_required "dotnet SDK" "dotnet --version" "zainstaluj .NET SDK 10.0+ (https://dotnet.microsoft.com/download)"
 
 echo ""
 echo "Wymagane dopiero przez konkretne zadania:"
