@@ -146,6 +146,31 @@ def test_provenance_secrets_are_sanitized_or_rejected():
     except P.ProvenanceError: pass
     else: raise AssertionError("Authorization header was accepted for persistence")
 
+def test_provenance_every_sensitive_key_is_redacted_one_by_one():
+    """Każdy klucz z listy osobno, a nie dwa przykładowe.
+
+    Zmierzone 02.09.2026 audytem mutacyjnym: obcięcie SENSITIVE_HEADER_KEYS do
+    {"authorization"} i SENSITIVE_QUERY_KEYS do {"api_key","token"} przechodziło,
+    bo test używał tylko tych dwóch. Manifesty źródeł są commitowane do repo,
+    więc sekret w `requested_url` wszedłby do historii gita.
+    """
+    assert len(P.SENSITIVE_QUERY_KEYS)>=12 and len(P.SENSITIVE_HEADER_KEYS)>=4
+    for key in sorted(P.SENSITIVE_QUERY_KEYS):
+        u=P.sanitize_url(f"https://example.test/feed.zip?{key}=poufne&line=1")
+        assert "poufne" not in u and "REDACTED" in u and "line=1" in u, (key,u)
+    # Klucz spoza listy zostaje nietknięty — inaczej redakcja zjadałaby wszystko
+    # i test przechodziłby także dla pustej listy.
+    plain=P.sanitize_url("https://example.test/feed.zip?line=1&limit=10")
+    assert "REDACTED" not in plain and "limit=10" in plain, plain
+    for key in sorted(P.SENSITIVE_HEADER_KEYS):
+        try: P.sanitize_headers({key:"poufne"})
+        except P.ProvenanceError: pass
+        else: raise AssertionError(f"naglowek {key} przeszedl do zapisu")
+        try: P.sanitize_headers({key.upper():"poufne"})
+        except P.ProvenanceError: pass
+        else: raise AssertionError(f"naglowek {key} w wersji WIELKIMI przeszedl do zapisu")
+    P.sanitize_headers({"Accept":"application/json"})
+
 def test_provenance_etag_does_not_change_content_hash():
     common=dict(source_id="stib_gtfs",requested_url="https://example.test/a.zip",final_url="https://example.test/a.zip",content=b"PK\x03\x04x",retrieved_at="2026-09-01T00:00:00Z",data_format="zip")
     a=P.build_manifest(etag='"one"',**common); b=P.build_manifest(etag='"two"',**common)
