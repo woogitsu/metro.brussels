@@ -11,6 +11,11 @@ def _tmp(d):
 
 def _signalling_ground_truth():
     return json.load(open(os.path.join(ROOT,"data","signalling","ground-truth.json"),encoding="utf-8"))
+def _infrastructure_ground_truth():
+    return json.load(open(os.path.join(ROOT,"data","infrastructure","metro-system.json"),encoding="utf-8"))
+
+def _network():
+    return json.load(open(os.path.join(ROOT,"data","network","lines.json"),encoding="utf-8"))
 
 def _m7_spec():
     return json.load(open(os.path.join(ROOT,"data","vehicle","m7-spec.json"),encoding="utf-8"))
@@ -81,12 +86,12 @@ def test_unverified_m7_values_are_not_spec():
     assert d["reference_model"]["force_power_transition_speed_kmh"]["status"]=="design_model"
 
 def test_network_json_consistent():
-    net=json.load(open(os.path.join(ROOT,"data","network","lines.json"),encoding="utf-8")); assert len(net["lines"])==4
+    net=_network(); assert len(net["lines"])==4
     for l in net["lines"]: assert len(l["stops"])==l["stations"]
     uniq={s for l in net["lines"] for s in l["stops"]}; assert len(uniq)==net["station_notes"]["counting_rules"]["unique_stop_names"]
 
 def test_shared_trunk_is_really_shared():
-    net=json.load(open(os.path.join(ROOT,"data","network","lines.json"),encoding="utf-8")); l1=next(l for l in net["lines"] if l["id"]=="L1")["stops"]; l5=next(l for l in net["lines"] if l["id"]=="L5")["stops"]; assert len([s for s in l1 if s in l5])==12
+    net=_network(); l1=next(l for l in net["lines"] if l["id"]=="L1")["stops"]; l5=next(l for l in net["lines"] if l["id"]=="L5")["stops"]; assert len([s for s in l1 if s in l5])==12
 
 def test_source_registry_has_primary_geometry_sources():
     src=json.load(open(os.path.join(ROOT,"data","network","sources.json"),encoding="utf-8")); ids={x["id"] for x in src["sources"]}; assert {"stib_shapefiles","stib_gtfs","brussels_mobility_metro","openstreetmap"}<=ids
@@ -116,7 +121,7 @@ def test_r002_download_metadata_distinction_is_explicit():
     assert lidar["download_portal_url"].startswith("https://")
 
 def test_cbtc_2026_not_marked_as_fully_operational():
-    net=json.load(open(os.path.join(ROOT,"data","network","lines.json"),encoding="utf-8")); assert net["signalling"]["cbtc"]["status_2026_08"]["operational_full_lines_1_5"] is False
+    net=_network(); assert net["signalling"]["cbtc"]["status_2026_08"]["operational_full_lines_1_5"] is False
 
 def test_provenance_identical_bytes_have_same_hash_and_one_byte_changes():
     a=b"metro-data\n"; b=b"metro-data!\n"
@@ -200,6 +205,49 @@ def test_signalling_historical_default_is_classic_2026():
 def test_signalling_unknowns_remain_explicit():
     gt=_signalling_ground_truth(); unknown=" ".join(gt["unknown_parameters"]).lower()
     for term in ("block","telegram","braking","interlocking","failover"): assert term in unknown,term
+def test_infrastructure_source_backed_facts_have_provenance():
+    gt=_infrastructure_ground_truth(); src=json.load(open(os.path.join(ROOT,"data","network","sources.json"),encoding="utf-8")); ids={x["id"] for x in src["sources"]}
+    for f in gt["facts"]:
+        if f["status"] in {"spec","observed"}:
+            assert f.get("source_ids"),f["id"]
+            assert set(f["source_ids"])<=ids,(f["id"],set(f["source_ids"])-ids)
+
+def test_infrastructure_900v_and_third_rail_are_source_backed():
+    gt=_infrastructure_ground_truth(); facts={f["id"]:f for f in gt["facts"]}
+    assert facts["traction_voltage"]["value"]==900
+    assert facts["current_collection"]["value"]=="third_rail"
+
+def test_network_snapshot_does_not_overstate_infrastructure_ground_truth():
+    gt=_infrastructure_ground_truth(); net=_network()["network"]
+    gauge=gt["unknown_parameters"]["track_gauge_mm"]
+    assert net["gauge_mm"]==gauge["reference_value"]
+    assert net["gauge_status"]==gauge["reference_status"]=="secondary_reference_only"
+    assert net["gauge_ground_truth_registry"]=="data/infrastructure/metro-system.json"
+    power=net["metro_power"]
+    assert power["voltage_v"]==900 and power["voltage_status"]=="observed"
+    assert power["collection"]=="third_rail" and power["collection_status"]=="observed"
+    assert power["contact_geometry"]=="unknown"
+    assert "top" not in power["collection"].lower()
+    assert power["ground_truth_registry"]=="data/infrastructure/metro-system.json"
+    assert power["type_status"]=="legacy_reference_only"
+
+def test_infrastructure_speed_statements_are_not_global_hardcodes():
+    gt=_infrastructure_ground_truth(); facts={f["id"]:f for f in gt["facts"]}
+    assert facts["tunnel_speed_public_safety_statement"]["value"]==72
+    assert facts["station_entry_speed_public_safety_statement"]["value"]==40
+    assert facts["tunnel_speed_public_safety_statement"]["global_hardcode"] is False
+    assert facts["station_entry_speed_public_safety_statement"]["global_hardcode"] is False
+
+def test_infrastructure_unverified_values_stay_non_spec():
+    gt=_infrastructure_ground_truth(); unknown=gt["unknown_parameters"]
+    assert unknown["track_gauge_mm"]["status"]=="unknown_primary_source_not_confirmed"
+    assert unknown["m7_design_vmax_kmh"]["status"]=="unknown_primary_source_not_confirmed"
+    assert unknown["third_rail_contact_geometry"]["status"]=="unknown"
+
+def test_traction_substation_count_not_claimed_as_metro_only():
+    gt=_infrastructure_ground_truth(); facts={f["id"]:f for f in gt["facts"]}; f=facts["traction_substations_stib_network_2024"]
+    assert f["value"]==120
+    assert "unsplit" in f["scope"]
 
 def _discover():
     """Testy z tego pliku plus wszystkie moduły tools/tests/test_*.py."""
