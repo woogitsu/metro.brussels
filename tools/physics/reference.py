@@ -11,7 +11,12 @@ V={
     "b_service":1.10,
     "b_emergency":1.30,
     "jerk":0.75,
-    "max_speed_ms":80/3.6,
+    # `max_speed_ms` stalo tu do 02.09.2026 jako 80/3.6 i nie czytalo go NIC — ani ta
+    # referencja, ani braking.py, ani testy, ani rdzen C#. Byla to reczna kopia wpisu
+    # `max_speed_kmh` z data/vehicle/m7-spec.json (status design_model, source_id null,
+    # "Legacy simulator value"), czyli duplikat danych w kodzie w pliku, ktory jest
+    # zrodlem parytetu dla C#. braking.py czyta te wielkosc z rejestru i tak ma zostac.
+    # Predkosc docelowa jest wszedzie ARGUMENTEM (sim_accel(mass, 80)), a nie stala.
     "F0_N":248900.0,
     "installed_power_W":2160000.0,
     "powered_mass_fraction":4/6,
