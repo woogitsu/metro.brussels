@@ -1,0 +1,249 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://metro.brussels/schema/station-registry.schema.json",
+  "title": "Metro BXL facts-only station registry",
+  "description": "Rejestr faktów o stacjach jednego pakietu. Każdy fakt niesie status i identyfikatory źródeł z data/network/sources.json. Rejestr nie przechowuje geometrii pionowej: głębokości, wysokości peronu ani wymiarów pomieszczeń.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "registry_version",
+    "package",
+    "as_of",
+    "checked_at",
+    "fact_status_values",
+    "works_state_values",
+    "rules",
+    "conflicts",
+    "stations"
+  ],
+  "$defs": {
+    "date": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"},
+    "source_ids": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
+    },
+    "fact": {
+      "description": "Koperta faktu. `unknown` wymaga `reason` i pustej listy źródeł; każdy inny status wymaga co najmniej jednego źródła.",
+      "type": "object",
+      "required": ["status", "source_ids"],
+      "properties": {
+        "status": {"enum": ["source_backed", "indicative", "conflict", "unknown"]},
+        "source_ids": {"$ref": "#/$defs/source_ids"},
+        "as_of": {"$ref": "#/$defs/date"},
+        "note": {"type": "string", "minLength": 1},
+        "reason": {"type": "string", "minLength": 1},
+        "conflict_id": {"type": "string", "minLength": 1},
+        "candidates": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "object",
+            "required": ["value", "source_id"],
+            "properties": {"source_id": {"type": "string", "minLength": 1}}
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"status": {"const": "unknown"}}, "required": ["status"]},
+          "then": {
+            "required": ["reason"],
+            "properties": {
+              "source_ids": {"maxItems": 0},
+              "value": {"type": "null"}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"status": {"const": "conflict"}}, "required": ["status"]},
+          "then": {"required": ["conflict_id", "candidates"]}
+        },
+        {
+          "if": {
+            "properties": {"status": {"enum": ["source_backed", "indicative"]}},
+            "required": ["status"]
+          },
+          "then": {"properties": {"source_ids": {"minItems": 1}}}
+        }
+      ]
+    },
+    "exit": {
+      "type": "object",
+      "required": ["exit_id", "exit_label", "source_records", "position", "street",
+                   "fixed_stairs", "escalator", "lift"],
+      "properties": {
+        "exit_id": {"type": "string", "pattern": "^[A-Z0-9_]+$"},
+        "exit_label": {"$ref": "#/$defs/fact"},
+        "source_records": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["source_id", "record_id"],
+            "properties": {
+              "source_id": {"type": "string", "minLength": 1},
+              "record_id": {"type": "string", "minLength": 1},
+              "record_name": {"type": "string"}
+            }
+          }
+        },
+        "position": {"$ref": "#/$defs/fact"},
+        "street": {"$ref": "#/$defs/fact"},
+        "fixed_stairs": {"$ref": "#/$defs/fact"},
+        "escalator": {"$ref": "#/$defs/fact"},
+        "lift": {"$ref": "#/$defs/fact"}
+      }
+    },
+    "future_change": {
+      "type": "object",
+      "required": ["element", "exists_at_2026_08_31", "source_ids"],
+      "properties": {
+        "element": {"type": "string", "minLength": 1},
+        "exists_at_2026_08_31": {"const": false},
+        "earliest_known_date": {"type": ["string", "null"]},
+        "source_ids": {"$ref": "#/$defs/source_ids", "minItems": 1},
+        "note": {"type": "string"}
+      }
+    },
+    "temporary_element": {
+      "type": "object",
+      "required": ["element", "state", "source_ids", "as_of"],
+      "properties": {
+        "element": {"type": "string", "minLength": 1},
+        "state": {"type": "string", "minLength": 1},
+        "source_ids": {"$ref": "#/$defs/source_ids", "minItems": 1},
+        "as_of": {"$ref": "#/$defs/date"}
+      }
+    },
+    "station": {
+      "type": "object",
+      "required": ["station_id", "names", "gtfs_station_id", "as_of", "works_state",
+                   "metro_lines", "position", "exit_count", "exits", "access_graph",
+                   "functional_levels", "platform_configuration", "gtfs_platform_records",
+                   "accessibility", "railway_interchange", "operator_scope",
+                   "geometry_not_in_this_registry", "temporary_elements", "future_changes",
+                   "variants"],
+      "properties": {
+        "station_id": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]*$"},
+        "names": {"$ref": "#/$defs/fact"},
+        "gtfs_station_id": {"type": "string", "minLength": 1},
+        "as_of": {"$ref": "#/$defs/date"},
+        "works_state": {
+          "allOf": [
+            {"$ref": "#/$defs/fact"},
+            {"properties": {"value": {"enum": ["stable", "under_construction",
+                                               "planned_change", null]}}}
+          ]
+        },
+        "metro_lines": {"$ref": "#/$defs/fact"},
+        "position": {"$ref": "#/$defs/fact"},
+        "exit_count": {"$ref": "#/$defs/fact"},
+        "exits": {"type": "array", "items": {"$ref": "#/$defs/exit"}},
+        "access_graph": {
+          "type": "object",
+          "required": ["completeness", "nodes", "edges"],
+          "properties": {
+            "completeness": {"enum": ["partial", "complete"]},
+            "nodes": {"type": "array", "minItems": 1},
+            "edges": {"type": "array", "minItems": 1}
+          }
+        },
+        "functional_levels": {"$ref": "#/$defs/fact"},
+        "platform_configuration": {
+          "allOf": [
+            {"$ref": "#/$defs/fact"},
+            {"properties": {"value": {"enum": ["island", "side", "interchange", null]}}}
+          ]
+        },
+        "gtfs_platform_records": {"$ref": "#/$defs/fact"},
+        "accessibility": {
+          "type": "object",
+          "required": ["lift_count_station", "escalator_count_station",
+                       "step_free_street_to_platform", "lift_at_listed_exits"],
+          "additionalProperties": {"$ref": "#/$defs/fact"}
+        },
+        "railway_interchange": {"$ref": "#/$defs/fact"},
+        "operator_scope": {
+          "type": "object",
+          "required": ["stib_elements", "non_stib_elements"],
+          "properties": {
+            "stib_elements": {"type": "string", "minLength": 1},
+            "non_stib_elements": {"$ref": "#/$defs/fact"}
+          }
+        },
+        "geometry_not_in_this_registry": {
+          "description": "Wymiary, których rejestr celowo nie zawiera. Każdy wpis musi mieć status `unknown` — wartość liczbowa tutaj oznaczałaby zgadywanie.",
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "allOf": [
+              {"$ref": "#/$defs/fact"},
+              {"properties": {"status": {"const": "unknown"}}}
+            ]
+          }
+        },
+        "temporary_elements": {"type": "array", "items": {"$ref": "#/$defs/temporary_element"}},
+        "future_changes": {"type": "array", "items": {"$ref": "#/$defs/future_change"}},
+        "variants": {
+          "type": "object",
+          "required": ["historical_2026_08_31", "future_completed"],
+          "properties": {
+            "historical_2026_08_31": {
+              "type": "object",
+              "required": ["as_of", "includes_future_elements"],
+              "properties": {
+                "as_of": {"$ref": "#/$defs/date"},
+                "includes_future_elements": {"const": false}
+              }
+            },
+            "future_completed": {
+              "type": "object",
+              "required": ["active_at_2026_08_31", "elements"],
+              "properties": {
+                "active_at_2026_08_31": {"const": false},
+                "elements": {"type": "array", "items": {"type": "string"}}
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "properties": {
+    "registry_version": {"const": 1},
+    "package": {"type": "string", "minLength": 1},
+    "as_of": {"$ref": "#/$defs/date"},
+    "checked_at": {"$ref": "#/$defs/date"},
+    "fact_status_values": {
+      "type": "object",
+      "required": ["source_backed", "indicative", "conflict", "unknown"]
+    },
+    "works_state_values": {
+      "type": "array",
+      "const": ["stable", "under_construction", "planned_change", "unknown"]
+    },
+    "rules": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+    "conflicts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["conflict_id", "station_id", "kind", "source_ids", "description", "resolution"],
+        "properties": {
+          "conflict_id": {"type": "string", "minLength": 1},
+          "station_id": {"type": ["string", "null"]},
+          "kind": {"enum": ["street_assignment", "numbering", "coverage", "scope",
+                            "unverified_claim"]},
+          "source_ids": {"$ref": "#/$defs/source_ids", "minItems": 1},
+          "description": {"type": "string", "minLength": 1},
+          "resolution": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "stations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/station"}
+    }
+  }
+}
