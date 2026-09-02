@@ -3,9 +3,8 @@ name: Godot first run
 # T-400, pierwszy etap. Job odpowiada na jedno pytanie: czy przejazd policzony
 # w Godocie jest tym samym przejazdem, co policzony samym rdzeniem.
 #
-# CLAUDE.md §9: GitHub-hosted runner, wszystkie zależności instalowane jawnie.
-# Godota 4.3 mono nie ma na obrazie, więc jest pobierany z GitHub Releases (~70 MB);
-# Blender jest z apt, tak samo jak w blender-smoke.yml.
+# CLAUDE.md §9: runner właściciela. Godot 4.3 mono i Blender są doinstalowywane
+# tylko wtedy, gdy ich nie ma — na maszynie właściciela zostają między przebiegami.
 
 on:
   pull_request:
@@ -30,31 +29,118 @@ permissions:
 
 env:
   GODOT_VERSION: 4.3-stable
-  GODOT_DIR: ${{ github.workspace }}/.godot-engine
 
 jobs:
   first-run:
-    runs-on: ubuntu-latest
+    # Ten job chodzi na MASZYNIE WŁAŚCICIELA, nie na jednorazowej maszynie GitHuba.
+    # Kroki wykonują kod ze sprawdzonego refa — `tools/**`, `doctor.sh`, skrypty CI —
+    # więc bez tego warunku wystarczyłby pull request z forka, żeby uruchomić tam
+    # dowolny kod. `metro.brussels` jest prywatne, ale ma WŁĄCZONE forkowanie
+    # (`allow_forking: true`), więc uzasadnienie „forka nie da się zrobić" tu nie
+    # obowiązuje. Warunek nosi KAŻDY job; `needs:` nie jest zamiennikiem, bo job
+    # dopisany bez łańcucha zależności nie miałby żadnej ochrony.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: self-hosted
     timeout-minutes: 45
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
+      # Workspace self-hosted runnera JEST WSPÓŁDZIELONY między przebiegami — inaczej
+      # niż jednorazowa maszyna GitHuba, która zawsze startuje pusta.
+      #
+      # Dla tego projektu to nie jest drobiazg, tylko dziura w samej weryfikacji:
+      # `CLAUDE.md` §5 mówi, że skrypt bez błędu potrafi wyprodukować pustą scenę,
+      # więc bramki sprawdzają PLIKI WYJŚCIOWE. Plik z poprzedniego przebiegu
+      # przechodzi te bramki tak samo dobrze jak świeży — job byłby zielony,
+      # nie wygenerowawszy niczego.
+      #
+      # Sprzątaniem zajmuje się samo `actions/checkout`: jego wejście `clean`
+      # ma domyślnie `true`, czyli wykonuje `git clean -ffdx && git reset --hard HEAD`,
+      # a `-x` obejmuje pliki ignorowane — więc `build/` i `renders/` znikają.
+      # Ten krok NIE sprząta, tylko to SPRAWDZA: gdyby ktoś ustawił `clean: false`
+      # albo usunął checkout, bramki zaczęłyby oglądać stare wyjścia i nikt by się
+      # o tym nie dowiedział. Zaklęcie „rm -rf" nie odróżniłoby tych dwóch sytuacji.
+      - name: Workspace jest czysty po checkoucie
+        shell: bash
+        run: |
+          set -euo pipefail
+          stale=""
+          for path in build renders; do
+            [ -e "$path" ] && stale="$stale $path"
+          done
+          if [ -n "$stale" ]; then
+            echo "::error::wyjścia z poprzedniego przebiegu przetrwały checkout:$stale"
+            echo "Sprawdź, czy actions/checkout nie ma clean: false — bramki tego"
+            echo "projektu sprawdzają pliki wyjściowe i stary plik je przejdzie."
+            ls -la $stale
+            exit 1
+          fi
+          echo "build/ i renders/ nie istnieją — bramki zobaczą wyłącznie to, co powstanie w tym przebiegu"
+
       - name: Install .NET SDK
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
 
-      - name: Cache Godot engine
-        id: godot-cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.GODOT_DIR }}
-          key: godot-mono-${{ env.GODOT_VERSION }}-linux-x86_64
+      # Katalog silnika leży POZA workspace, świadomie. `actions/checkout` wykonuje
+      # `git clean -ffdx`, a `-x` obejmuje pliki ignorowane — więc silnik trzymany
+      # w workspace znikał przy KAŻDYM checkoucie i był pobierany od nowa (70 MB).
+      # Na jednorazowej maszynie GitHuba to było nieuniknione; na maszynie
+      # właściciela jest to strata, którą wystarczy przenieść katalog.
+      #
+      # Dlaczego krokiem, a nie wpisem w `env:` na górze pliku. Bo `${{ runner.* }}`
+      # TAM NIE DZIAŁA i nie jest to drobiazg składniowy: workflow-level `env` widzi
+      # wyłącznie `github`, `secrets`, `inputs`, `vars` (job-level `env` dokłada
+      # `needs`, `strategy`, `matrix`). Kontekst `runner` jest dostępny dopiero
+      # w kroku. Pierwsza wersja tej zmiany miała `runner.tool_cache` w `env:` na
+      # górze i GitHub ODMÓWIŁ URUCHOMIENIA całego workflow: przebieg 73 zakończył
+      # się `failure` w tej samej sekundzie, w której powstał, z zerem jobów.
+      # Zmiennej `RUNNER_TOOL_CACHE` używamy więc jako zmiennej powłoki — jest
+      # domyślną zmienną środowiskową runnera i wskazuje katalog `_tool`, rodzeństwo
+      # workspace'u, którego `git clean` nie dotyka. Fallback na `$HOME`, gdyby jakiś
+      # runner jej nie ustawił: liczy się to, żeby katalog był POZA workspace.
+      # Wersja jest w ścieżce, więc podniesienie GODOT_VERSION daje nowy katalog
+      # zamiast mieszać dwa silniki.
+      - name: Katalog silnika poza workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          cache="${RUNNER_TOOL_CACHE:-$HOME/.cache/metro-tools}"
+          dir="$cache/metro-godot/${GODOT_VERSION}"
+          case "$dir" in
+            "$GITHUB_WORKSPACE"/*)
+              echo "::error::katalog silnika $dir leży W WORKSPACE — checkout skasuje go przy następnym przebiegu"
+              exit 1
+              ;;
+          esac
+          echo "GODOT_DIR=$dir" >> "$GITHUB_ENV"
+          echo "silnik poza workspace: $dir"
+
+      # Cache'u GitHuba tu nie ma i nie powinno być: silnik leży teraz poza workspace,
+      # więc przeżywa checkout i kolejne przebiegi zastają go na miejscu. `actions/cache`
+      # dokładałby do tego pobranie archiwum z sieci po to, żeby odtworzyć katalog,
+      # który i tak istnieje.
+      - name: Czy Godot już jest
+        id: godot
+        shell: bash
+        run: |
+          set -euo pipefail
+          binary="$GODOT_DIR/Godot_v${GODOT_VERSION}_mono_linux.x86_64"
+          # Sam plik wykonywalny nie wystarcza — obok musi leżeć katalog GodotSharp,
+          # inaczej silnik nie znajdzie assembly .NET i wywraca się dopiero przy starcie
+          # sceny, czyli kilkanaście kroków dalej niż powód.
+          if [ -x "$binary" ] && [ -d "$GODOT_DIR/GodotSharp" ]; then
+            echo "engine=present" >> "$GITHUB_OUTPUT"
+            "$binary" --headless --version
+          else
+            echo "engine=missing" >> "$GITHUB_OUTPUT"
+            echo "Godota nie ma w $GODOT_DIR — krok pobierania go ściągnie."
+          fi
 
       - name: Download Godot mono
-        if: steps.godot-cache.outputs.cache-hit != 'true'
+        if: steps.godot.outputs.engine == 'missing'
         shell: bash
         # Wersja mono jest konieczna: przejazd jest w C# i korzysta z MetroBxl.Sim.
         # Sam plik wykonywalny nie wystarczy — obok musi leżeć katalog GodotSharp,
@@ -102,7 +188,31 @@ jobs:
         shell: bash
         run: dotnet build src/Game/MetroBxl.Game.csproj --configuration Debug
 
+      # Na jednorazowej maszynie GitHuba Blender trzeba było instalować za każdym
+      # razem — 162 pakiety, 190 MB. Na maszynie właściciela zostaje zainstalowany,
+      # więc instalacja przy każdym przebiegu byłaby marnotrawstwem i niepotrzebnym
+      # `sudo`. Ten krok sprawdza, czy jest; instalacja i cache odpalają się tylko,
+      # gdy go brak. Świeży runner nadal działa bez ręcznego przygotowania.
+      - name: Czy Blender i renderer programowy już są
+        id: tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Ten job potrzebuje OBU: Blendera do geometrii i `xvfb-run` do zrzutów,
+          # bo `--headless` wyłącza renderer. Brak któregokolwiek znaczy instalację
+          # całego zestawu `blender-xvfb` — sprawdzanie ich osobno dałoby stan,
+          # w którym cache jest pominięty, a instalacja i tak potrzebna.
+          if command -v blender >/dev/null 2>&1 && command -v xvfb-run >/dev/null 2>&1; then
+            echo "blender=present" >> "$GITHUB_OUTPUT"
+            blender --version | sed -n '1,2p'
+          else
+            echo "blender=missing" >> "$GITHUB_OUTPUT"
+            command -v blender >/dev/null 2>&1 || echo "brak: blender"
+            command -v xvfb-run >/dev/null 2>&1 || echo "brak: xvfb-run"
+          fi
+
       - name: Cache pakietów apt
+        if: steps.tools.outputs.blender == 'missing'
         uses: actions/cache@v4
         with:
           path: ~/.cache/metro-apt
@@ -110,6 +220,7 @@ jobs:
           restore-keys: apt-${{ runner.os }}-blender-xvfb-
 
       - name: Install Blender and a software renderer
+        if: steps.tools.outputs.blender == 'missing'
         shell: bash
         timeout-minutes: 30
         run: |

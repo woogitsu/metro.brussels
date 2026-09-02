@@ -57,7 +57,35 @@ def sha256(path):
     return digest.hexdigest()
 
 
+#: Wersja Blendera, od której `BLENDER_EEVEE`/`BLENDER_EEVEE_NEXT` znaczy EEVEE Next.
+#: Legacy EEVEE usunięto w 4.2 (blender/blender#122433); nowy silnik nosił wtedy
+#: identyfikator `BLENDER_EEVEE_NEXT`, a w 5.0 przemianowano go z powrotem na
+#: `BLENDER_EEVEE`. Sama nazwa silnika NIE identyfikuje więc renderera — rozstrzyga
+#: dopiero wersja Blendera.
+EEVEE_NEXT_SINCE = (4, 2, 0)
+
+
+def eevee_generation():
+    """'next' albo 'legacy' — który EEVEE naprawdę stoi za nazwą `BLENDER_EEVEE`."""
+    return "next" if bpy.app.version >= EEVEE_NEXT_SINCE else "legacy"
+
+
 def apply_render_settings(scene, render_cfg, resolution):
+    # Bramka na renderer, nie na napis. ZMIERZONE 02.09.2026: `enum_items` dla
+    # `engine` zwraca DOKŁADNIE `['BLENDER_EEVEE']` i na 4.0.2, i na 5.0.1 — a to
+    # dwa różne silniki. Bez tej bramki CI liczyło ujęcia legacy EEVEE, uznawało je
+    # za baseline i nikt by się nie dowiedział, że renderer się zmienił: w logu stał
+    # ten sam `engine=BLENDER_EEVEE`. Kosztowało to dwie czerwone bramki
+    # (`tunnel-alignment` L1_B i L2_E) przy przejściu CI na maszynę właściciela.
+    expected = render_cfg.get("eevee_generation")
+    actual = eevee_generation()
+    if expected and actual != expected:
+        raise SystemExit(
+            f"BŁĄD: baseline projektu to EEVEE '{expected}', a ten Blender "
+            f"({bpy.app.version_string}) daje EEVEE '{actual}'. Rendery z obu "
+            "silników NIE są porównywalne — patrz EEVEE_NEXT_SINCE."
+        )
+
     engine = render_cfg.get("engine", "BLENDER_EEVEE_NEXT")
     try:
         scene.render.engine = engine
@@ -87,7 +115,8 @@ def apply_render_settings(scene, render_cfg, resolution):
         scene.cycles.samples = samples
         scene.cycles.seed = 0
         scene.cycles.use_denoising = False
-    print(f"[RENDER] engine={engine} samples={samples} res={resolution[0]}x{resolution[1]} dither=0.0")
+    print(f"[RENDER] engine={engine} eevee={eevee_generation()} blender={bpy.app.version_string} "
+          f"samples={samples} res={resolution[0]}x{resolution[1]} dither=0.0")
     return engine
 
 
@@ -112,6 +141,39 @@ def build_camera(solved, name):
     cam.rotation_mode = "QUATERNION"
     cam.rotation_quaternion = Matrix((right, up, back)).transposed().to_quaternion()
     return cam
+
+
+def build_headlight(cam_solved, cfg):
+    """Punktowe światło W MIEJSCU kamery. Zwraca obiekt albo None.
+
+    **Po co.** Tunel jest zamkniętą rurą pokrytą jednym materiałem emisyjnym o stałej
+    jasności, a słońce ze `setup_world` do wnętrza nie dociera. Kamera perspektywiczna
+    patrząca wzdłuż osi trafia więc w każdym kierunku w powierzchnię o TEJ SAMEJ
+    jasności i klatka wychodzi płaska — nie z powodu awarii, tylko z konstrukcji.
+    Komentarz przy kamerze `flank` mówi to samo o zamkniętej rurze; tam rozwiązano to
+    cięciem płaszczyzną, a `approach` nie dostała ani cięcia, ani światła.
+
+    ZMIERZONE na L1_B: bez światła `approach` daje ink=0.0104 na legacy EEVEE
+    (próg 0.0002, ale `min_distinct_levels` 16 wobec zmierzonych 56) i ink=0.0002
+    przy 13 poziomach na EEVEE Next — czyli klatkę odrzuca bramka pustki. Ujęcie
+    przechodziło latami resztką refleksów przy kącie muskającym, a nie treścią.
+
+    Spadek jasności z odległością daje głębię: bliższy przekrój tunelu jest jaśniejszy
+    od dalszego, więc widać rurę, sylwetkę składu i szczelinę.
+    """
+    if not cfg:
+        return None
+    data = bpy.data.lights.new(f"headlight_{cam_solved['id']}", type="POINT")
+    data.energy = float(cfg["energy_w"])
+    data.shadow_soft_size = float(cfg.get("radius_m", 0.1))
+    # Zasięg obcina wpływ światła, żeby ujęcie nie rozjaśniało całej sceny 9 km osi.
+    if hasattr(data, "use_custom_distance"):
+        data.use_custom_distance = True
+        data.cutoff_distance = float(cfg["range_m"])
+    light = bpy.data.objects.new(f"headlight_{cam_solved['id']}", data)
+    bpy.context.collection.objects.link(light)
+    light.location = Vector(cam_solved["location"])
+    return light
 
 
 def named_anchors_from_args(args, vertices, scene_size, fractions="0.05,0.25,0.5,0.75"):
@@ -243,10 +305,19 @@ def main():
         for obj in wire_objects:
             obj.hide_render = camera_id not in wire_ids
         cam = build_camera(cam_solved, f"cam_{camera_id}")
+        headlight_cfg = cam_solved.get("headlight")
+        headlight = build_headlight(cam_solved, headlight_cfg)
+        if headlight is not None:
+            print(f"[ZAŁOŻENIE] {camera_id}: reflektor przy kamerze "
+                  f"{headlight_cfg['energy_w']:.1f} W, zasięg {headlight_cfg['range_m']:.0f} m "
+                  "— parametr obrazu, nie dana o taborze")
         path = os.path.join(args.out, f"{args.prefix}_{camera_id}.png")
         scene.camera = cam
         scene.render.filepath = path
         bpy.ops.render.render(write_still=True)
+        if headlight is not None:
+            # Zdejmowane od razu: światło jednego ujęcia nie ma rozjaśniać następnych.
+            bpy.data.objects.remove(headlight, do_unlink=True)
         record = dict(cam_solved)
         record["file"] = path
         record["bytes"] = os.path.getsize(path)

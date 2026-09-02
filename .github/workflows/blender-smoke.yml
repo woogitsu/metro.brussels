@@ -19,23 +19,82 @@ permissions:
 
 jobs:
   blender-smoke:
-    runs-on: ubuntu-latest
+    # Ten job chodzi na MASZYNIE WŁAŚCICIELA, nie na jednorazowej maszynie GitHuba.
+    # Kroki wykonują kod ze sprawdzonego refa — `tools/**`, `doctor.sh`, skrypty CI —
+    # więc bez tego warunku wystarczyłby pull request z forka, żeby uruchomić tam
+    # dowolny kod. `metro.brussels` jest prywatne, ale ma WŁĄCZONE forkowanie
+    # (`allow_forking: true`), więc uzasadnienie „forka nie da się zrobić" tu nie
+    # obowiązuje. Warunek nosi KAŻDY job; `needs:` nie jest zamiennikiem, bo job
+    # dopisany bez łańcucha zależności nie miałby żadnej ochrony.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: self-hosted
     timeout-minutes: 45
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
+      # Workspace self-hosted runnera JEST WSPÓŁDZIELONY między przebiegami — inaczej
+      # niż jednorazowa maszyna GitHuba, która zawsze startuje pusta.
+      #
+      # Dla tego projektu to nie jest drobiazg, tylko dziura w samej weryfikacji:
+      # `CLAUDE.md` §5 mówi, że skrypt bez błędu potrafi wyprodukować pustą scenę,
+      # więc bramki sprawdzają PLIKI WYJŚCIOWE. Plik z poprzedniego przebiegu
+      # przechodzi te bramki tak samo dobrze jak świeży — job byłby zielony,
+      # nie wygenerowawszy niczego.
+      #
+      # Sprzątaniem zajmuje się samo `actions/checkout`: jego wejście `clean`
+      # ma domyślnie `true`, czyli wykonuje `git clean -ffdx && git reset --hard HEAD`,
+      # a `-x` obejmuje pliki ignorowane — więc `build/` i `renders/` znikają.
+      # Ten krok NIE sprząta, tylko to SPRAWDZA: gdyby ktoś ustawił `clean: false`
+      # albo usunął checkout, bramki zaczęłyby oglądać stare wyjścia i nikt by się
+      # o tym nie dowiedział. Zaklęcie „rm -rf" nie odróżniłoby tych dwóch sytuacji.
+      - name: Workspace jest czysty po checkoucie
+        shell: bash
+        run: |
+          set -euo pipefail
+          stale=""
+          for path in build renders; do
+            [ -e "$path" ] && stale="$stale $path"
+          done
+          if [ -n "$stale" ]; then
+            echo "::error::wyjścia z poprzedniego przebiegu przetrwały checkout:$stale"
+            echo "Sprawdź, czy actions/checkout nie ma clean: false — bramki tego"
+            echo "projektu sprawdzają pliki wyjściowe i stary plik je przejdzie."
+            ls -la $stale
+            exit 1
+          fi
+          echo "build/ i renders/ nie istnieją — bramki zobaczą wyłącznie to, co powstanie w tym przebiegu"
+
       # `tools/ci/blender_smoke.sh` uruchamia `doctor.sh`, a ten wymaga SDK .NET
       # i odpala `dotnet test tests/Sim.Tests`. Bez tego kroku job jechał na tym,
-      # co akurat jest w obrazie ubuntu-latest — czyli na wersji zmieniającej się
-      # z miesiąca na miesiąc. Pin jest ten sam co w sim-tests.yml.
+      # co akurat zastał — kiedyś na obrazie GitHuba, dziś na maszynie właściciela.
+      # Pin jest ten sam co w sim-tests.yml.
       - name: Install .NET SDK
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
 
+      # Na jednorazowej maszynie GitHuba Blender trzeba było instalować za każdym
+      # razem — 162 pakiety, 190 MB. Na maszynie właściciela zostaje zainstalowany,
+      # więc instalacja przy każdym przebiegu byłaby marnotrawstwem i niepotrzebnym
+      # `sudo`. Ten krok sprawdza, czy jest; instalacja i cache odpalają się tylko,
+      # gdy go brak. Świeży runner nadal działa bez ręcznego przygotowania.
+      - name: Czy Blender już jest
+        id: tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          if command -v blender >/dev/null 2>&1; then
+            echo "blender=present" >> "$GITHUB_OUTPUT"
+            blender --version | sed -n '1,2p'
+          else
+            echo "blender=missing" >> "$GITHUB_OUTPUT"
+            echo "Blendera nie ma w PATH — krok instalacji go doinstaluje."
+          fi
+
       - name: Cache pakietów apt
+        if: steps.tools.outputs.blender == 'missing'
         uses: actions/cache@v4
         with:
           path: ~/.cache/metro-apt
@@ -43,6 +102,7 @@ jobs:
           restore-keys: apt-${{ runner.os }}-blender-
 
       - name: Install Blender
+        if: steps.tools.outputs.blender == 'missing'
         shell: bash
         timeout-minutes: 30
         run: |

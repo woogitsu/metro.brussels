@@ -199,6 +199,11 @@ def solve_camera(spec, bmin, bmax, res_x, res_y, named_anchors=None, points=None
         "resolution": [res_x, res_y],
         "margin": margin,
     }
+    if spec.get("headlight"):
+        # Przepuszczane jawnie, bo `out` jest budowany kluczem po kluczu. Trafia tym
+        # samym kanałem do Blendera i do metadanych, więc oświetlenie kadru da się
+        # odtworzyć i zaudytować tak samo jak jego geometrię.
+        out["headlight"] = dict(spec["headlight"])
     if spec.get("fit"):
         out["fit"] = spec["fit"]
         out["fit_fallback"] = fit_fallback

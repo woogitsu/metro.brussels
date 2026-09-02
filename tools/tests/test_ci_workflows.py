@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Testy odporności workflow CI. Bez zewnętrznych zależności, bez parsera YAML.
+"""Testy odporności workflow CI.
 
 Powód: 02.09.2026 krok instalacji Blendera zawiesił się trzy razy na trzech różnych
 runnerach, za każdym razem przed uruchomieniem ciała testu. Te testy pilnują, żeby
@@ -7,6 +7,8 @@ poprawka nie wyparowała po cichu przy następnej edycji workflow.
 """
 import os
 import re
+
+import yaml
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 WORKFLOWS = os.path.join(ROOT, ".github", "workflows")
@@ -437,3 +439,200 @@ def test_godot_scene_gates_the_axis_against_the_manifest():
     assert "ExitAxisManifestMismatch" in source
     assert re.search(r"if \(drift > AxisManifestToleranceM\)", source), \
         "porównanie osi z manifestem wróciło do bycia wydrukiem"
+
+
+# --- self-hosted runner (2026-09-02, wyczerpane minuty GitHub Actions) ----------
+
+
+def test_every_job_runs_on_the_self_hosted_runner():
+    """Etykieta `runs-on` decyduje o tym, czy job w ogóle wystartuje.
+
+    `runs-on` z etykietą, której żaden zarejestrowany runner nie nosi, oznacza job
+    wiszący w `queued` bez końca — a `CLAUDE.md` §9 mówi wprost: „Nie uznawaj
+    `queued` za weryfikację". Etykieta jest gołe `self-hosted`, bez `wsl2`:
+    w matmaxalez/osadale 2026-08-19 zdjęto `wsl2`, bo maszyna z tą etykietą została
+    wyłączona i joby zawisły. Gołe `self-hosted` łapie każdego runnera, jakiego
+    właściciel zarejestruje.
+    """
+    wrong = []
+    for name in _workflows():
+        for match in re.finditer(r"(?m)^    runs-on: (.+)$", _text(name)):
+            label = match.group(1).strip()
+            if label != "self-hosted":
+                wrong.append(f"{name}: {label}")
+    assert not wrong, wrong
+
+    hosted = [name for name in _workflows() if "ubuntu-latest" in _text(name)]
+    assert not hosted, f"GitHub-hosted runner nadal wymieniony w: {hosted}"
+
+
+def test_every_job_refuses_pull_requests_from_forks():
+    """Kod z forka NIE MA prawa wykonać się na maszynie właściciela.
+
+    To jest warunek bezpieczeństwa, nie higiena: kroki tych jobów uruchamiają kod
+    ze sprawdzonego refa (`tools/**`, `doctor.sh`, skrypty CI), więc bez tego
+    warunku wystarczyłby pull request z forka, żeby uruchomić tam dowolny kod.
+
+    `metro.brussels` jest prywatne, ale ma WŁĄCZONE forkowanie (`allow_forking:
+    true`), więc uzasadnienie z matmaxalez/osadale — „forka nie da się zrobić" —
+    tutaj nie obowiązuje. Warunek nosi każdy job osobno; `needs:` nie jest
+    zamiennikiem, bo job dopisany bez łańcucha zależności nie miałby ochrony.
+    """
+    required_terms = (
+        "github.event_name != 'pull_request'",
+        "github.event.pull_request.head.repo.full_name == github.repository",
+    )
+    unguarded = []
+    checked = 0
+    for name in _workflows():
+        document = yaml.safe_load(_text(name))
+        for job_id, job in document["jobs"].items():
+            checked += 1
+            condition = str(job.get("if", ""))
+            if not all(term in condition for term in required_terms):
+                unguarded.append(f"{name}:{job_id}")
+    assert not unguarded, f"joby bez strażnika fork-PR: {unguarded}"
+    assert checked >= 7, checked
+
+
+def test_every_workflow_proves_the_workspace_was_clean():
+    """Workspace self-hosted runnera jest współdzielony między przebiegami.
+
+    Bramki tego projektu sprawdzają PLIKI WYJŚCIOWE (`CLAUDE.md` §5: skrypt bez
+    błędu potrafi wyprodukować pustą scenę), więc plik z poprzedniego przebiegu
+    przechodzi je tak samo dobrze jak świeży.
+
+    Sprzątaniem zajmuje się `actions/checkout` — jego wejście `clean` ma domyślnie
+    `true`, czyli `git clean -ffdx && git reset --hard HEAD`, a `-x` obejmuje pliki
+    ignorowane. Krok w workflow tego NIE powtarza, tylko SPRAWDZA: `rm -rf` nie
+    odróżniłby „posprzątane" od „checkout przestał sprzątać".
+    """
+    missing = []
+    for name in _workflows():
+        text = _text(name)
+        if "Workspace jest czysty po checkoucie" not in text:
+            missing.append(name)
+        # `clean: false` wyłączyłoby jedyny mechanizm, który realnie sprząta.
+        # Sprawdzane na SPARSOWANYM YAML-u, nie gremem po tekście: komentarz przy
+        # tym kroku sam zawiera napis `clean: false`, więc wersja tekstowa wywracała
+        # się na własnym opisie — ta sama pułapka, co przy bramce reguły 9.
+        for step in yaml.safe_load(text)["jobs"][next(iter(yaml.safe_load(text)["jobs"]))]["steps"]:
+            if str(step.get("uses", "")).startswith("actions/checkout"):
+                assert (step.get("with") or {}).get("clean") is not False, \
+                    f"{name}: checkout z clean: false"
+    assert not missing, f"workflow bez bramki czystego workspace: {missing}"
+
+
+def test_tool_installation_is_conditional_on_the_tool_being_missing():
+    """Na trwałej maszynie instalacja przy każdym przebiegu to strata i zbędny sudo.
+
+    Blender to 162 pakiety i 190 MB. Na jednorazowej maszynie GitHuba trzeba go było
+    stawiać za każdym razem; na maszynie właściciela zostaje. Krok sondujący ustawia
+    wyjście, a instalacja i cache odpalają się tylko przy jego braku — świeży runner
+    nadal działa bez ręcznego przygotowania.
+    """
+    checked = 0
+    for name in _workflows():
+        text = _text(name)
+        if "apt_install.sh" not in text:
+            continue
+        checked += 1
+        document = yaml.safe_load(text)
+        steps = list(document["jobs"].values())[0]["steps"]
+
+        probe = [s for s in steps if s.get("id") == "tools"]
+        assert probe, f"{name}: brak kroku sondującego obecność Blendera"
+        assert "command -v blender" in probe[0]["run"], name
+
+        for step in steps:
+            run = str(step.get("run", ""))
+            if "apt_install.sh" in run or (step.get("uses", "").startswith("actions/cache")
+                                           and "metro-apt" in str(step)):
+                assert step.get("if") == "steps.tools.outputs.blender == 'missing'", \
+                    f"{name}: krok '{step.get('name')}' nie jest zabramkowany sondą"
+    assert checked == 5, checked
+
+
+def test_godot_lives_outside_the_workspace_that_checkout_wipes():
+    """Silnik w workspace znikał przy każdym `git clean -ffdx` i był pobierany od nowa.
+
+    70 MB na przebieg. Na jednorazowej maszynie nieuniknione, na trwałej — strata,
+    którą usuwa przeniesienie katalogu poza workspace.
+
+    Pierwsza wersja tego testu żądała `runner.tool_cache` w `env:` na górze pliku
+    i przeszła — a GitHub odmówił uruchomienia całego workflow, bo kontekstu `runner`
+    tam nie ma. Test pilnował więc dokładnie tej postaci, która nie działa. Teraz
+    sprawdza WŁASNOŚĆ (katalog poza workspace), nie zapis.
+    """
+    text = _text("godot-first-run.yml")
+    document = yaml.safe_load(text)
+    assert "GODOT_DIR" not in (document.get("env") or {}), (
+        "GODOT_DIR w workflow-level env: tam nie ma kontekstu runner, "
+        "a bez niego ścieżka wskaże workspace"
+    )
+
+    steps = list(document["jobs"].values())[0]["steps"]
+    setter = [s for s in steps if "GODOT_DIR=" in (s.get("run") or "")]
+    assert setter, "żaden krok nie ustawia GODOT_DIR"
+    body = setter[0]["run"]
+    assert "GITHUB_ENV" in body, "GODOT_DIR musi trafić do GITHUB_ENV, inaczej widzi go jeden krok"
+    assert "RUNNER_TOOL_CACHE" in body, body
+    # Katalog poza workspace to cała racja bytu tego kroku — więc krok sam to
+    # sprawdza i przerywa, gdy ścieżka jednak wyląduje w workspace.
+    assert "GITHUB_WORKSPACE" in body, (
+        "krok nie sprawdza, czy katalog nie wylądował w workspace"
+    )
+
+    index = steps.index(setter[0])
+    users = [s for s in steps[:index] if "$GODOT_DIR" in (s.get("run") or "")]
+    assert not users, f"kroki używają GODOT_DIR zanim zostanie ustawiony: {users}"
+
+    probe = [s for s in steps if s.get("id") == "godot"]
+    assert probe, "brak kroku sprawdzającego, czy Godot już jest"
+    # Sam plik wykonywalny nie wystarcza — bez GodotSharp silnik wywala się
+    # dopiero przy starcie sceny, kilkanaście kroków od powodu.
+    assert "GodotSharp" in probe[0]["run"], probe[0]["run"]
+
+    download = [s for s in steps if s.get("name") == "Download Godot mono"]
+    assert download and download[0].get("if") == "steps.godot.outputs.engine == 'missing'", download
+
+
+#: Kontekst `runner` jest dostępny DOPIERO w kroku. Workflow-level `env` widzi
+#: `github`, `secrets`, `inputs`, `vars`; job-level `env` dokłada `needs`,
+#: `strategy`, `matrix`. Nigdzie tam nie ma `runner`.
+_RUNNER_CONTEXT_IS_A_STEP_THING = ("env", "runs-on", "if", "timeout-minutes")
+
+
+def test_no_workflow_uses_the_runner_context_where_github_refuses_to_start_it():
+    """Zła gałąź kontekstu nie jest literówką — GitHub NIE URUCHAMIA takiego workflow.
+
+    To nie jest hipoteza. `${{ runner.tool_cache }}` w `env:` na górze
+    `godot-first-run.yml` dało przebieg 73: `conclusion: failure` w tej samej
+    sekundzie, w której powstał, ZERO jobów, a pole `name` przebiegu to ścieżka
+    pliku zamiast „Godot first run" — bo GitHub nie zdołał go sparsować, żeby
+    odczytać `name:`.
+
+    Żaden z pozostałych testów tego nie łapał: wszystkie czytają treść YAML-a,
+    a ten YAML jest poprawny składniowo. Niepoprawna jest dopiero reguła GitHuba
+    o dostępności kontekstów — i to ona jest tu sprawdzana.
+    """
+    offenders = []
+    for name in _workflows():
+        document = yaml.safe_load(_text(name))
+        top = document.get("env") or {}
+        for key, value in top.items():
+            if "runner." in str(value):
+                offenders.append(f"{name}: env.{key} = {value}")
+        for job_id, job in document["jobs"].items():
+            for key in _RUNNER_CONTEXT_IS_A_STEP_THING:
+                value = job.get(key)
+                if key == "env":
+                    for sub, sub_value in (value or {}).items():
+                        if "runner." in str(sub_value):
+                            offenders.append(f"{name}: {job_id}.env.{sub} = {sub_value}")
+                elif "runner." in str(value or ""):
+                    offenders.append(f"{name}: {job_id}.{key} = {value}")
+    assert not offenders, (
+        "kontekst runner poza krokiem — GitHub odmówi uruchomienia workflow:\n  "
+        + "\n  ".join(offenders)
+    )
