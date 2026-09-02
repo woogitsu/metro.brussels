@@ -1,0 +1,55 @@
+{
+  "$comment": "T-314. Definicja strefy testowej CBTC dla trybu cbtc_test. CAŁOŚĆ JEST design_model: STIB podaje odcinek testowy nazwami stacji końcowych i etapami testów, ale NIE publikuje ani kilometrażu granic strefy, ani protokołu radiowego, ani dokładności lokalizacji, ani buforów bezpieczeństwa (data/signalling/ground-truth.json, modes.cbtc_test.design_model_required). Ten plik nie dodaje ani jednej liczby, której nie ma w źródle — granice są NAZWAMI stacji i rozwiązują się na kilometraż dopiero wobec konkretnej osi. Podmiana na definicję ze źródłem nie wymaga zmiany kodu w src/Sim/.",
+  "schema_version": 1,
+  "area_id": "cbtc-test-2026",
+  "mode": "cbtc_test",
+  "status": "design_model",
+  "as_of": "2026-08-31",
+  "source_fact_ids": [
+    "cbtc_test_erasme_stockel",
+    "cbtc_test_method_and_beekkant",
+    "cbtc_lines_1_5_full_service"
+  ],
+  "extent": {
+    "$comment": "Nazwy stacji, nie kilometraż. Zapisane dokładnie tak, jak w data/network/lines.json, żeby dały się dopasować bez tłumaczenia.",
+    "from_station": "Erasme|Erasmus",
+    "to_station": "Stockel|Stokkel",
+    "basis": "cbtc_test_erasme_stockel: installation_complete_tests_active",
+    "chainage_status": "unknown_primary_source_not_confirmed"
+  },
+  "stages": [
+    {
+      "id": "static_communications",
+      "order": 1,
+      "basis": "cbtc_test_method_and_beekkant.test_sequence[0]"
+    },
+    {
+      "id": "dynamic_train_running",
+      "order": 2,
+      "basis": "cbtc_test_method_and_beekkant.test_sequence[1]"
+    }
+  ],
+  "dynamic_test_locations": [
+    {
+      "station": "Beekkant",
+      "started_label": "started_late_may_2026",
+      "started_date_status": "unknown_source_gives_a_month_not_a_date",
+      "basis": "cbtc_test_method_and_beekkant.beekkant_dynamic_tests"
+    },
+    {
+      "station": null,
+      "scope": "common_trunk",
+      "started_label": "planned_summer_2026",
+      "started_date_status": "unknown_plan_is_not_proof_of_commissioning",
+      "basis": "cbtc_test_method_and_beekkant.common_trunk_dynamic_tests"
+    }
+  ],
+  "unknown_parameters": [
+    "test_area_boundaries_in_sim",
+    "radio_protocol",
+    "positioning_accuracy",
+    "safety_buffers",
+    "CBTC/KCV radio or telegram formats, frequencies and network topology",
+    "exact balise/localiser parameters and positioning algorithm"
+  ]
+}

@@ -4,7 +4,7 @@
 
 **Źródłem prawdy o statusie są GitHub Issues**, nie ten plik. Ten plik jest mapą
 zależności i zakresów. Statusy poniżej odzwierciedlają to, co **realnie leży w repo**
-na dzień 02.09.2026, po scaleniu #34, #35, #80–#93 — zadanie jest odhaczone tylko wtedy,
+na dzień 02.09.2026, po scaleniu #34, #35, #80–#98 — zadanie jest odhaczone tylko wtedy,
 gdy jego artefakty istnieją w `main` i przechodzą CI.
 
 ## Gotowe w szkielecie
@@ -161,16 +161,37 @@ gdy jego artefakty istnieją w `main` i przechodzą CI.
   R-003 wprost mówi w `unknown_parameters`, że STIB ich nie publikuje
 - **Zależy od:** T-311 (zrobione), R-003 (zrobione)
 
-### [ ] T-314 · CBTC + ATS jako osobny tryb — **ODBLOKOWANE**
-- **Wejście:** zweryfikowany stan wdrożenia z `sources.json` (R-003 jest w `main`)
-- **Skończone, gdy:** tryb CBTC nie jest aktywny w scenariuszu historycznym 31.08.2026 bez potwierdzenia pełnego uruchomienia STIB
-- **Zależy od:** T-313 (zrobione)
+### [x] T-314 · CBTC + ATS jako osobny tryb
+- **Wejście:** `data/signalling/ground-truth.json` (R-003), `data/track/L1_A.json`
+- **Wyjście:** `src/Sim/Signalling/{ProtectionMode,CbtcTestArea}.cs`,
+  `data/design/signalling/cbtc-test-2026.json`, `docs/16-protection-modes.md`
+- **Weryfikacja:** `dotnet test tests/Sim.Tests` → `Passed: 277, Failed: 0` (przed: 259)
+- **Wynik:** cztery tryby z rejestru R-003, dokładnie jeden z `historical_default`.
+  `ForHistoricalDate(2026-08-31)` daje `classic_2026`, bo `cbtc_lines_1_5_full_service`
+  jest `false` — odpowiedź jest **czytana z danych**, nie zakodowana. Poza `as_of`
+  rejestr odmawia, bo o roku 2027 repo ma tylko **plany**, a plan nie jest dowodem
+  uruchomienia. Dwie drogi do trybu rozdzielone celowo: `ForHistoricalDate` nie umie
+  włączyć CBTC, `Named` daje dowolny tryb do scenariuszy „co by było gdyby",
+  `RequireHistorical` jest strażnikiem. Strefa testowa Erasme–Stockel opisana
+  **nazwami stacji**, nie kilometrażem; rzut na pakiet A daje `[0,00, 6686,74)`
+  z dwiema flagami przycięcia, bo żadnej z tych stacji na pakiecie A nie ma
+- **Świadomie nie zrobione:** movement authority po CBTC, bufor ochronny, krzywe ATO,
+  protokół radiowy, parametry baliz, tryby awaryjne, ATS. Wszystko to jest
+  w `unknown_parameters` ground truth. Listy `design_model_required` przy trybach CBTC
+  zostają niepuste i osobny test tego pilnuje — wyczyszczenie ich wyglądałoby jak
+  ukończenie pracy. Rozpoczęcie testów przy Beekkant zostaje **etykietą**
+  `started_late_may_2026`, nie datą: źródło podaje miesiąc, nie dzień
+- **Poza zakresem:** implementacja ATS jako warstwy dyspozytorskiej — `ats_transition`
+  mówi wprost, że ATS nie ma prawa omijać ochrony pociągu, więc warstwa trybów nie
+  wystawia niczego, czym dałoby się prowadzić skład
+- **Zależy od:** T-313 (zrobione), R-003 (zrobione)
 
-### [ ] T-320 · Rdzeń linii — wiele składów naraz — **ODBLOKOWANE**
+### [ ] T-320 · Rdzeń linii — wiele składów naraz — **ODBLOKOWANE, następne w kolejce**
 - **Wejście z T-113:** takt 5:10 (L1/L5) i 5:40 (L2/L6), 48 kursów naraz w ruchu,
   71 obiegów pojazdów, rozkładowe czasy jazdy i postoju per odcinek (`build/timetable.json`)
 - **Wejście z T-313:** plan bloków pakietu A, zajętość, movement authority i ATP
-- **Zależy od:** T-313 (zrobione), T-113 (zrobione)
+- **Wejście z T-314:** tryb scenariusza; dla 31.08.2026 zawsze `classic_2026`
+- **Zależy od:** T-313 (zrobione), T-113 (zrobione), T-314 (zrobione)
 
 ## Silnik
 
