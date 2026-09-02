@@ -36,6 +36,41 @@ def frame_at(points, stations, chainage):
     return points[-1], len(points) - 2, 1.0
 
 
+def axis_window(points, from_m, to_m):
+    """Kadr wycinka osi: środek i rozmiar dla kamer kontrolnych.
+
+    Ramuje OŚ, nie scenę — geometria odsunięta od osi dalej niż połowa okna może
+    wypaść poza kadr. To jest cena za kadrowanie bez przeglądania wszystkich
+    wierzchołków i dlatego pusta klatka musi być błędem, a nie ciszą.
+
+    Powód istnienia: kamera obejmująca cały bbox stawia słupek 0,2 m w kadrze
+    5,4 km na 0,03 piksela. Render wychodzi wtedy pusty, a skrypt kończy się zerem.
+    """
+    stations = sweep.chainages(points)
+    total = stations[-1]
+    if to_m <= from_m:
+        raise ValueError(f"okno kadru musi rosnąć: from_m={from_m:.2f} to_m={to_m:.2f}")
+    if from_m < 0.0 or to_m > total + 1e-6:
+        raise ValueError(f"okno {from_m:.2f}-{to_m:.2f} m wychodzi poza oś 0.00-{total:.2f} m")
+    head, _i, _t = frame_at(points, stations, from_m)
+    tail, _j, _u = frame_at(points, stations, to_m)
+    window = [head] + [tuple(p) for p, s in zip(points, stations) if from_m < s < to_m] + [tail]
+    mins = tuple(min(p[axis] for p in window) for axis in range(3))
+    maxs = tuple(max(p[axis] for p in window) for axis in range(3))
+    return {
+        "from_m": from_m,
+        "to_m": to_m,
+        "length_m": to_m - from_m,
+        "head": head,
+        "tail": tail,
+        "points": window,
+        "min": mins,
+        "max": maxs,
+        "center": tuple((a + b) / 2.0 for a, b in zip(mins, maxs)),
+        "size": max(max(b - a for a, b in zip(mins, maxs)), 1.0),
+    }
+
+
 def place_cars(points, frames, stations, start_m, total_length_m, cars, track_offset_m=0.0):
     """Wygodny wariant dla równego podziału składu na `cars` członów."""
     return place_spans(points, stations, start_m, car_spans(total_length_m, cars), track_offset_m)
