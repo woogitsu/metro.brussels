@@ -4,8 +4,11 @@
 
 **Źródłem prawdy o statusie są GitHub Issues**, nie ten plik. Ten plik jest mapą
 zależności i zakresów. Statusy poniżej odzwierciedlają to, co **realnie leży w repo**
-na dzień 02.09.2026, po scaleniu #34, #35, #80–#98 — zadanie jest odhaczone tylko wtedy,
-gdy jego artefakty istnieją w `main` i przechodzą CI.
+na dzień 02.09.2026, po scaleniu #34, #35, #80–#98 oraz #101–#116 — zadanie jest odhaczone
+tylko wtedy, gdy jego artefakty istnieją w `main` i przechodzą CI.
+
+**Kolejność prac jest na dole tego pliku**, w sekcji „Plan". Tam też jest lista rzeczy,
+których agent nie ruszy bez decyzji właściciela.
 
 ## Gotowe w szkielecie
 - `[x]` **T-100** — walidator osi trasy
@@ -101,13 +104,14 @@ gdy jego artefakty istnieją w `main` i przechodzą CI.
   decyzję właściciela (8,6 % poza tunelem), D i F na model odcinka poza tunelem
 - **Uwaga:** wyłącznie wariant `flat-preview` — profil pionowy czeka na T-112
 
-### [~] T-211 · Zestaw wspólny elementów stacji — **etap 1 z 2 zrobiony**
+### [x] T-211 · Zestaw wspólny elementów stacji
 - **Wejście:** `data/track/L1_A.json`, `data/vehicle/m7-spec.json`,
   `reports/R-007-platform-dimensions.md`
 - **Wyjście (etap 1):** `tools/track/station_layout.py`,
   `tools/tests/test_station_layout.py`, `reports/T-211-station-layout.md`
-- **Weryfikacja:** `python3 tools/tests/test_all.py` → 635/635; osiem kontroli
-  negatywnych wypisanych w raporcie
+- **Wyjście (etap 2):** `tools/blender/station_kit.py`, `tools/tests/test_station_kit.py`
+- **Weryfikacja:** `python3 tools/tests/test_all.py`; osiem kontroli negatywnych etapu 1
+  i siedem etapu 2, każda wypisana w commicie. Etap 2 scalony w #110
 - **Wynik:** 12 peronów pakietu A z kilometrażem, promieniem lokalnym i **policzoną
   dolną granicą odsunięcia krawędzi** (pół szerokości M7 + strzałka cięciwy członu).
   Najciaśniej Gare Centrale: R = 137 m daje strzałkę 22,5 cm, więc krawędź musi odsunąć
@@ -217,7 +221,19 @@ gdy jego artefakty istnieją w `main` i przechodzą CI.
   71 obiegów pojazdów, rozkładowe czasy jazdy i postoju per odcinek (`build/timetable.json`)
 - **Wejście z T-313:** plan bloków pakietu A, zajętość, movement authority i ATP
 - **Wejście z T-314:** tryb scenariusza; dla 31.08.2026 zawsze `classic_2026`
+- **Wyjście:** `src/Sim/Line/` — LineCore z wieloma składami; testy w `tests/Sim.Tests`
+- **Weryfikacja:** `dotnet test tests/Sim.Tests`. Druga, niezależna droga do tych samych
+  liczb to **zmierzony** rozkład z T-113 (jedyna sekcja `docs/21` w całości bez założeń):
+  takt, liczba kursów naraz i liczba obiegów policzone przez LineCore mają się zgadzać
+  z GTFS, a nie z niczym
+- **Skończone, gdy:** LineCore prowadzi 48 kursów naraz na 71 obiegach z taktem 5:10
+  i 5:40, bez kolizji w blokach z T-313, a odtworzony z niego rozkład mieści się
+  w zmierzonych czasach jazdy i postoju
+- **Poza zakresem:** widok w Godocie (to T-400 etap 3), pasażerowie, opóźnienia losowe
+  bez modelu, ATO i ATS poza tym, co daje T-314
 - **Zależy od:** T-313 (zrobione), T-113 (zrobione), T-314 (zrobione)
+- **STOP:** logika turnback, model perturbacji i polityka dyspozytora **nie są opisane
+  w żadnym dokumencie**. Agent zatrzymuje się i pyta, zamiast wybierać sam
 
 ## Silnik
 
@@ -282,3 +298,69 @@ Poniższe zadania istnieją jako Issues, ale nie mają tu wpisu. Dopóki go nie 
 
 Zmierzone alternatywy dla wymiarów projektowych i powody, dla których **nie zostały
 podstawione do kodu**: `docs/21-measured-vs-assumed.md`.
+
+## Plan
+
+Kolejność, w jakiej agent bierze zadania, gdy nikt nie stoi nad nim z poleceniem.
+Puls z `docs/22-heartbeat.md` po pobudce sięga właśnie tutaj.
+
+**Zasada porządkująca** wynika ze zdania przewodniego z `docs/01-architecture.md`:
+*„Linia jest symulacją, która działa bez gracza. Kabina jest jednym z jej widoków."*
+Z tego wynika kolejność, której nie da się odwrócić — **T-320 jest warunkiem koniecznym
+dla Issue #26**, bo kabina bez działającej linii nie ma czego być widokiem.
+
+**Zasada druga**, wyprowadzona z audytu mutacyjnego 02.09.2026: każde zadanie musi mieć
+**dwie niezależne drogi do tej samej liczby**. Zielona bramka bez pokrycia jest gorsza
+niż brak bramki, bo usypia.
+
+### Faza 1 — dziury w weryfikacji · ZROBIONE 02.09.2026
+
+Wykonana przed T-320 celowo, mimo że T-320 jest ciekawsze i ważniejsze
+architektonicznie. Powód jest w liczbach: audyt znalazł **cztery zielone bramki, które
+niczego nie sprawdzały**, i wszystkie cztery znalazła mutacja, nie czytanie kodu.
+
+| co | jak było widoczne | gdzie |
+|---|---|---|
+| ujęcie `approach` pokazywało płaską ścianę | przechodziło progiem resztką refleksów | #109 |
+| scena bez składu zostawiała CI zielone | metadane opisywały wyłącznie tunel | #111 |
+| akumulator przepuszczał „1 krok zamiast 120" | telemetria próbkuje po liczniku kroków | #112 |
+| bramka reguły 9 nie łapała `Game.Tests` | szukała nazwy projektu, nie ścieżki | #114 |
+
+Pokrycie po fazie: **691 testów Pythona** (było 623), **289 testów rdzenia** (było 277)
+i **23 testy warstwy silnika** (nie było żadnego). Moduły `tools/` bez testu: **2**
+(oba z pokryciem integracyjnym), było 5.
+
+### Faza 2 — T-320 LineCore · NASTĘPNA
+
+Rdzeń bez Godota, bez estetyki, bez nowych danych o sieci — najbezpieczniejsza duża
+praca do wykonania autonomicznie. Zakres i kryteria: wpis T-320 wyżej.
+
+### Faza 3 — T-212 pierwsza stacja typowa
+
+Po T-320. Blokada danych zdjęta przez R-007, T-211 scalone.
+
+### Faza 4 — T-400 etap 3
+
+Wpiąć w scenę to, co **już jest w rdzeniu i przetestowane, a scena tego nie woła**:
+`DoorCycle`, `StationStop`, `FixedBlockSystem`, `TrainProtection`. Do tego streamowanie
+chunków i przełączanie LOD. Ta faza dotknie miejsc wymagających decyzji właściciela.
+
+### Czego agent nie ruszy bez decyzji
+
+| | dlaczego |
+|---|---|
+| **T-901** głębokości stacji | 9 z 12 stacji pakietu A `unknown`; Schuman ma konflikt 15 m vs 17,42 m. Blokuje T-112, a przez to scenę z dwoma pakietami |
+| **T-902** kierunek artystyczny | ocena estetyczna (`CLAUDE.md` §8) |
+| **T-903** kontakt ze STIB | `docs/03-legal.md` |
+| **T-905** nagrania | praca w terenie |
+| **4034 m dziur** między pakietami | kilometraż nie jest ciągły; przejazd całą linią wymaga decyzji o zakresie |
+| pakiety **C, D, F** bez tuneli | decyzja, co budować zamiast rury |
+| **turnback, perturbacje, dispatcher** w T-320 | nie ma ich w żadnym dokumencie |
+
+### Znane rozjazdy w dokumentach
+
+- `CLAUDE.md` §2 mówi „**25 testów narzędzi**". Jest **691**. Liczba pochodzi z czasów,
+  gdy `test_all.py` był jednym plikiem; dziś zbiera 30 modułów.
+- Dziesięć Issues jest otwartych, choć zadanie leży w `main` (#9, #15–#17, #20–#24, #27).
+  Ten plik deklaruje Issues źródłem prawdy o statusie, więc rozjazd jest realny.
+  Część z nich właściciel poprosił, żeby zostawić otwarte.
