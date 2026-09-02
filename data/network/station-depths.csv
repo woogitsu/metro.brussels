@@ -8,10 +8,10 @@ L1/L5,A,Beekkant,Beekkant,,unknown,wezel 4 linii
 L1/L5,A,Étangs Noirs,Zwarte Vijvers,,unknown,
 L1/L5,A,Comte de Flandre,Graaf van Vlaanderen,,unknown,
 L1/L5,A,Sainte-Catherine,Sint-Katelijne,,unknown,
-L1/L5,A,De Brouckère,De Brouckère,,unknown,przesiadka premetro
+L1/L5,A,De Brouckère,De Brouckère,-12.0,estimated,"przesiadka premetro | EIE Metro 3 Livre III Colignon (zrodlo metro3_eie_livre3_colignon), cytat: «la profondeur des quais par rapport au niveau de la surface est d'environ 11 m». Zrodlo podaje glebokosc PERONU, a ta kolumna chce rzedna glowki szyny. Glowka szyny lezy o wysokosc peronu NIZEJ niz poziom peronu, wiec -11,0 - 1,03 = -12,03, zaokraglone do precyzji zrodla. Wysokosc peronu 1,03 m ze zrodla stib_m7_press_kit_2020_07_13 (R-007). Zrodlo mowi «environ» i podaje przyklad w porownaniu ze stacja Colignon, a nie pomiar - precyzja nie lepsza niz +-1 m."
 L1/L5,A,Gare Centrale,Centraal Station,,unknown,wezel z kolej SNCB
-L1/L5,A,Parc,Park,,unknown,
-L1/L5,A,Arts-Loi,Kunst-Wet,,unknown,wezel 4 linii dwa poziomy
+L1/L5,A,Parc,Park,-20.0,estimated,"EIE Metro 3 Livre III Colignon (zrodlo metro3_eie_livre3_colignon), cytat: «la profondeur des quais par rapport au niveau de la surface est d'environ 19 m». Zrodlo podaje glebokosc PERONU, a ta kolumna chce rzedna glowki szyny. Glowka szyny lezy o wysokosc peronu NIZEJ niz poziom peronu, wiec -19,0 - 1,03 = -20,03, zaokraglone do precyzji zrodla. Wysokosc peronu 1,03 m ze zrodla stib_m7_press_kit_2020_07_13 (R-007). Zrodlo mowi «environ» i podaje przyklad w porownaniu ze stacja Colignon, a nie pomiar - precyzja nie lepsza niz +-1 m."
+L1/L5,A,Arts-Loi,Kunst-Wet,-12.0,estimated,"wezel 4 linii dwa poziomy | EIE Metro 3 Livre III Colignon (zrodlo metro3_eie_livre3_colignon), cytat: «la profondeur des quais par rapport au niveau de la surface est d'environ 11 m». Zrodlo podaje glebokosc PERONU, a ta kolumna chce rzedna glowki szyny. Glowka szyny lezy o wysokosc peronu NIZEJ niz poziom peronu, wiec -11,0 - 1,03 = -12,03, zaokraglone do precyzji zrodla. Wysokosc peronu 1,03 m ze zrodla stib_m7_press_kit_2020_07_13 (R-007). Zrodlo mowi «environ» i podaje przyklad w porownaniu ze stacja Colignon, a nie pomiar - precyzja nie lepsza niz +-1 m. UWAGA: Arts-Loi ma dwa poziomy peronow (L1/L5 i L2/L6); zrodlo nie mowi, ktorego dotyczy - przyjete L1/L5, bo pakiet A to ta para linii."
 L1/L5,A,Maelbeek,Maalbeek,,unknown,
-L1/L5,A,Schuman,Schuman,,unknown,wezel z kolej SNCB
+L1/L5,A,Schuman,Schuman,,unknown,"wezel z kolej SNCB | EIE Metro 3 Livre III Colignon podaje 15 m glebokosci peronu, co potwierdza JEDNA ze stron znanego konfliktu (15 m vs 17,42 m). Rejestr nie wybiera zwyciezcy, wiec wartosc zostaje pusta - patrz reports/R-007-platform-dimensions.md."
 L1/L5,A,Merode,Merode,,unknown,rozgalezienie L1/L5
