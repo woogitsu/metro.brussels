@@ -121,3 +121,31 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
+
+
+def test_reference_inputs_are_pinned_including_the_ones_nothing_derives():
+    """Wejścia referencji, nie tylko liczby z nich wyprowadzone.
+
+    Test wyżej łapie każdą zmianę, która rusza którąś z 24 stałych snapshotu —
+    sprawdzone mutacjami: masa AW2, współczynnik Davisa w tunelu, masy wirujące,
+    opóźnienie służbowe i zryw dają teraz czerwony. Ale `max_speed_ms` NIE wchodzi
+    do żadnej z tych stałych (wszystkie liczone są dla zadanej wprost prędkości
+    80 km/h), więc jego zmiana 80 -> 40 km/h przechodziła. Ten test przypina cały
+    słownik wejść, żeby dopisanie albo przestawienie parametru wymagało decyzji.
+
+    Uwaga zauważona przy okazji: `max_speed_ms` nie jest czytane przez nic
+    w repo — ani przez `reference.py`, ani przez testy, ani przez rdzeń C#.
+    To martwa liczba w pliku, który jest źródłem parytetu; usunięcie albo użycie
+    jej jest osobną decyzją, nie zmianą testów.
+    """
+    assert R.G == 9.80665
+    assert R.MASS == {"AW0": 170000.0, "AW2": 221940.0}, R.MASS
+    assert R.V == {
+        "b_service": 1.10,
+        "b_emergency": 1.30,
+        "jerk": 0.75,
+        "max_speed_ms": 80 / 3.6,
+        "F0_N": 248900.0,
+        "installed_power_W": 2160000.0,
+        "powered_mass_fraction": 4 / 6,
+    }, R.V

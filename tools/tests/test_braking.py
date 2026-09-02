@@ -231,3 +231,75 @@ def test_adhesion_ceiling_makes_wet_emergency_braking_longer_than_dry():
     dry, _, _, _ = B.sim_brake(v0, dry_rate, CFG, CFG["tunnel_c"])
     wet, _, _, _ = B.sim_brake(v0, wet_rate, CFG, CFG["tunnel_c"])
     assert wet > dry + 100.0, (wet, dry)
+
+
+# --- co przeżywało mutację ------------------------------------------------------
+
+
+def test_braking_all_axles_fraction_is_pinned_to_one():
+    """Cała konkluzja T-311 stoi na tym, że to jest JEDYNKA.
+
+    Zmierzone 02.09.2026 audytem mutacyjnym: `ALL_AXLES_BRAKED_MASS_FRACTION`
+    1,0 -> 0,5 przechodziło przez całą suitę. Testy liczyły
+    `required_braked_fraction` z wklejoną literalnie jedynką, więc stała była
+    wolna. Jest opisana w kodzie jako **górny kres** udziału osi hamowanych —
+    zdanie „na mokrej szynie hamowanie awaryjne jest nieosiągalne przy każdym
+    układzie osi" znaczy dokładnie tyle, że nawet przy f = 1 sufit nie wystarcza.
+    """
+    assert B.ALL_AXLES_BRAKED_MASS_FRACTION == 1.0
+    assert B.ALL_AXLES_BRAKED_MASS_FRACTION >= CFG["powered_fraction"], \
+        "wariant wszystkich osi nie może być słabszy od wariantu samych osi napędnych"
+
+
+def test_braking_adhesion_table_verdicts_are_asserted_not_only_printed():
+    """`service_ok` i `emergency_ok` z tablicy nie były sprawdzane przez nic.
+
+    Zmierzone: odwrócenie porównania (`>=` na `<`) w obu werdyktach przechodziło —
+    trafiają tylko do wydruku raportu. To one niosą główny wynik T-311.
+    """
+    rows = {(row["rail"], row["variant"]): row for row in B.adhesion_table(CFG)}
+    assert len(rows) == 4, sorted(rows)
+
+    for key, row in rows.items():
+        assert row["service_ok"] == (row["ceiling_mps2"] >= CFG["service"]), key
+        assert row["emergency_ok"] == (row["ceiling_mps2"] >= CFG["emergency"]), key
+        if row["emergency_ok"]:
+            assert row["service_ok"], f"{key}: awaryjne osiągalne, a służbowe nie"
+
+    wet_all = rows[("wet", "all-axles")]
+    assert wet_all["fraction"] == B.ALL_AXLES_BRAKED_MASS_FRACTION
+    assert wet_all["emergency_ok"] is False, \
+        "mokra szyna i wszystkie osie: hamowanie awaryjne ma być NIEosiągalne (T-311)"
+    assert wet_all["service_ok"] is True, \
+        "mokra szyna i wszystkie osie: hamowanie służbowe ma być osiągalne"
+
+    dry_powered = rows[("dry", "powered-axles-only")]
+    assert dry_powered["emergency_ok"] is True, \
+        "sucha szyna i same osie napędne: awaryjne ma być osiągalne"
+    wet_powered = rows[("wet", "powered-axles-only")]
+    assert wet_powered["service_ok"] is False, \
+        "mokra szyna i same osie napędne: nawet służbowe ma być nieosiągalne"
+
+
+def test_braking_simulation_returns_time_and_steps_that_agree_with_the_distance():
+    """`sim_brake` zwraca cztery liczby, a testy brały tylko drogę.
+
+    Zmierzone: usunięcie warunku `v > v_target` z pętli (czyli hamowanie przez cały
+    limit czasu, także po zatrzymaniu) przechodziło, bo czas i liczba kroków nie
+    były sprawdzane nigdzie.
+    """
+    dt = 1.0 / 120.0
+    v0 = 80.0 / 3.6
+    distance, seconds, steps, _work = B.sim_brake(v0, CFG["service"], CFG, None, dt=dt)
+
+    assert steps == round(seconds / dt), (steps, seconds)
+    # Pętla kończy się na zatrzymaniu, a nie na limicie czasu: przy opóźnieniu
+    # służbowym i zrywie z rejestru zatrzymanie z 80 km/h trwa rzędu 20–30 s,
+    # więc kroków ma być rzędu tysięcy, a nie tyle, ile mieści się w limicie 120 s.
+    limit_s = 120.0   # domyślny limit `sim_brake`
+    assert 0 < steps < int(limit_s / dt), (steps, limit_s)
+    assert 10.0 < seconds < 60.0, seconds
+    # Droga musi zgadzać się z sumą v*dt po tych krokach — inaczej któraś z tych
+    # trzech liczb pochodzi z innego przebiegu niż pozostałe.
+    assert 0.0 < distance < v0 * seconds, (distance, v0 * seconds)
+    assert distance > 0.5 * v0 * seconds, (distance, v0 * seconds)
