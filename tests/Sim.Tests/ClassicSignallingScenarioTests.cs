@@ -130,6 +130,54 @@ public sealed class ClassicSignallingScenarioTests
             "ingerencja awaryjna musi zostawić ślad w zapisie");
     }
 
+    /// <summary>
+    /// Sam próg służbowy → awaryjny, a nie tylko jego okolice.
+    ///
+    /// <para>Zmierzone 02.09.2026 mutacją: podmiana warunku
+    /// <c>need &lt;= _serviceBrakeMps2</c> na <c>need &lt;= _emergencyBrakeMps2</c> —
+    /// czyli zgoda na ingerencję służbową tam, gdzie służbowy nie wystarcza —
+    /// przechodziła przez cały zestaw (Passed: 255). Istniejące testy używają
+    /// prędkości tak wysokich, że potrzebne opóźnienie przekracza także hamulec
+    /// awaryjny; obie strony podmienionego warunku dają wtedy ten sam wynik.</para>
+    ///
+    /// <para>Ten test kalibruje się na rzeczywistej odległości authority: liczy
+    /// potrzebne opóźnienie solverem z T-311, a potem buduje ochronę tak, żeby ta
+    /// liczba wypadła DOKŁADNIE między hamulcem służbowym a awaryjnym. To jedyne
+    /// miejsce, w którym oba warunki się rozchodzą.</para>
+    /// </summary>
+    [TestMethod]
+    public void Prog_miedzy_sluzbowym_a_awaryjnym_wypada_tam_gdzie_sluzbowy_przestaje_wystarczac()
+    {
+        var plan = Plan();
+        var system = new FixedBlockSystem(plan);
+        system.RegisterTrain("A", 1400.0, TrainLengthM);
+        system.RegisterTrain("B", 200.0, TrainLengthM);
+
+        var solver = new BrakingPointSolver(Model);
+        var distance = system.Authority("B").DistanceM;
+        var speed = Units.KmhToMps(40.0);
+        var need = solver.RequiredDeceleration(speed, 0.0, distance).DecelerationMps2;
+        Assert.IsTrue(need > 0.0, $"potrzebne opóźnienie {need:F4} m/s² nie nadaje się na próg");
+
+        // Hamulec służbowy poniżej potrzeby, awaryjny powyżej — czyli dokładnie
+        // sytuacja „służbowy nie wystarcza, ale awaryjny tak".
+        var tooWeak = new TrainProtection(plan, solver, need * 0.5, need * 2.0);
+        var escalated = tooWeak.Supervise(system, "B", speed);
+        Assert.AreEqual(ProtectionAction.EmergencyIntervention, escalated.Action,
+            $"potrzeba {need:F4} m/s², służbowy {need * 0.5:F4} m/s²");
+        StringAssert.Contains(escalated.Reason, "service-brake-insufficient");
+        Assert.AreEqual(need * 2.0, escalated.BrakeDemandMps2, 0.0);
+
+        // Ta sama sytuacja z hamulcem służbowym mocniejszym od potrzeby: bez eskalacji.
+        // Nie żądam tu ingerencji służbowej, bo mocniejszy hamulec podnosi też samą
+        // krzywą — skład może się zmieścić pod nią i nie być w ogóle w nadmiernej
+        // prędkości. Istotne jest, że hamulec awaryjny NIE wchodzi.
+        var strongEnough = new TrainProtection(plan, solver, need * 2.0, need * 4.0);
+        var served = strongEnough.Supervise(system, "B", speed);
+        Assert.AreNotEqual(ProtectionAction.EmergencyIntervention, served.Action,
+            $"potrzeba {need:F4} m/s², służbowy {need * 2.0:F4} m/s²");
+    }
+
     [TestMethod]
     public void Wyczerpane_authority_przy_ruchu_to_zawsze_ingerencja_awaryjna()
     {
