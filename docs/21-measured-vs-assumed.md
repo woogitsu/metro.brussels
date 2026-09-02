@@ -217,6 +217,49 @@ potwierdzenia zamknięcia", więc trakcja jest wolna wyłącznie w fazie `Closed
 kontroli, a nie w chwili zetknięcia skrzydeł. To jest własność bezpieczeństwa i test
 sprawdza ją dla **każdej** fazy wyliczeniowo, a nie dla wybranych.
 
+## 4d. Rozkład jazdy i koperta prędkości liniowej (`tools/track/timetable.py`, T-113)
+
+Wszystko w tej sekcji jest **zmierzone** z oficjalnego GTFS STIB. Ani jedna liczba nie
+jest tu założeniem — jest to jedyna sekcja tego dokumentu, w której kolumna „status" ma
+wyłącznie wartość `zmierzone`, i dlatego warto ją czytać jako punkt odniesienia dla reszty.
+
+| wielkość | wartość (środa 2026-09-02) | status |
+|---|---:|---|
+| takt L1, L5 (mediana i szczyt) | 5:10 | zmierzone |
+| takt L2, L6 (mediana i szczyt) | 5:40 | zmierzone |
+| rozpiętość służby | ok. 05:00–24:30 | zmierzone |
+| postój na zatrzymaniu pośrednim | 12–45 s, mediana 19 s (L1/L5) i 24 s (L2/L6) | zmierzone |
+| udział zatrzymań pośrednich z postojem | **100,0 %** (29 554 z 29 554) | zmierzone |
+| kursów naraz w ruchu | 48 | zmierzone |
+| obiegów pojazdów (`block_id`) | 71, naraz w służbie 56 | zmierzone |
+
+**Co to zmienia dla §4c.** Czas wymiany pasażerów nadal nie ma wartości i `DoorCycle`
+nadal jej nie dostaje. Ale rozkład go **ogranicza od góry**: postój ≥ cykl drzwi 8,5 s +
+wymiana, więc przy medianowym postoju 19 s wymiana nie przekracza 10,5 s, a przy
+najkrótszym w sieci (12 s) nie przekracza 3,5 s. Jest to pierwszy zmierzony przedział,
+jaki repo ma dla tej wielkości. Górny, nie dolny — postój może zawierać także rezerwę.
+To **nie jest** licencja na wpisanie liczby.
+
+**Koperta prędkości liniowej.** `speed_limits` w każdej z sześciu osi z T-210 jest pustą
+listą, a `max_speed_kmh` = 80 w rejestrze M7 to `design_model` bez `source_id` — prędkość
+konstrukcyjna pojazdu, nie dopuszczalna na torze. Rozkład ogranicza tę dziurę od dołu:
+dla odcinka o zmierzonej długości i rozkładowym czasie jazdy istnieje najmniejsza prędkość
+szczytowa, przy której profil rozpęd–jazda–hamowanie się mieści.
+
+| wielkość | wartość | status |
+|---|---:|---|
+| dolne ograniczenie prędkości liniowej, AW0 | **57,65 km/h** (Beaulieu → Demey) | wyprowadzone, warunkowe |
+| to samo dla AW2 | 61,42 km/h (Aumale → Saint-Guidon) | wyprowadzone, warunkowe |
+| odcinków nierealizowalnych przy modelu z T-310/T-311 | **0 z 55** | zmierzone |
+
+**Warunkowe względem czego.** Względem krzywej trakcyjnej z T-310 i hamulca służbowego
+1,10 m/s² z `docs/02` — obu `design_model`. Mocniejszy rozpęd obniżyłby to ograniczenie.
+Liczba mówi „przy tym modelu nie da się wolniej", a nie „tak jeździ metro". Do
+`data/track/*.json` **nie została wpisana** i nie powinna: w polu `speed_limits`
+wyglądałaby dokładnie tak samo jak ograniczenie ze źródła STIB.
+
+Szczegóły i pełne wyjście: `reports/T-113-timetable.md`.
+
 ## 5. Co jest zablokowane i czym
 
 | potrzebne | blokuje | zadanie |
@@ -226,6 +269,8 @@ sprawdza ją dla **każdej** fazy wyliczeniowo, a nie dla wybranych.
 | przekrój tunelu, geometria toru, trzecia szyna, rozjazdy | brak ground truth | R-005 (#17) |
 | rozstaw czopów skrętu M7 | brak w publicznych materiałach | pełna skrajnia kinematyczna |
 | udział osi hamowanych, rozdział hamulca ED/P, krzywe bezpieczeństwa STIB | brak w publicznych materiałach; §4b modeluje wyłącznie sam udział osi i to jako parametr o dwóch wariantach skrajnych | T-311 zostawia otwarte, T-313 (#22) będzie tego potrzebować |
+| prędkość dopuszczalna na torze | brak źródła; `speed_limits` puste we wszystkich sześciu osiach. §4d daje wyłącznie ograniczenie **dolne** (57,65 km/h), warunkowe względem modelu | T-011, T-320; wpis do `data/track/` wymaga źródła STIB |
+| czas wymiany pasażerów | brak źródła; §4d daje wyłącznie ograniczenie **górne** z postoju rozkładowego | T-312 zostawia jako argument |
 
 Dopóki te pozycje są otwarte, **geometria produkcyjna nie może powstać** — obecny tunel
 jest jawnie oznaczonym wariantem `flat-preview`, a generator odrzuca `--variant production`.

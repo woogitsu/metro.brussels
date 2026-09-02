@@ -52,8 +52,18 @@ w `main` i przechodzą CI.
 - **Skończone, gdy:** pochylenia interpolowanego profilu są 0–4%, a każda wygenerowana wartość ma `interpolated:true` i `design_assumption`
 - **Zależy od:** T-111, T-901
 
-### [ ] T-113 · Rozkład jazdy i służby
-- **Zależy od:** T-110
+### [x] T-113 · Rozkład jazdy i służby
+- **Zależy od:** T-110 (zrobione); odległości wymagają osi z T-210
+- **Wyjście:** `tools/track/timetable.py`, `tools/physics/schedule_envelope.py`,
+  `reports/T-113-timetable.md`, `docs/21-measured-vs-assumed.md` §4d
+- **Wynik:** takt 5:10 (L1/L5) i 5:40 (L2/L6), służba ok. 05:00–24:30, 48 kursów naraz
+  w ruchu, 71 obiegów pojazdów z `block_id`. Postój rozkładowy na **100,0 %** zatrzymań
+  pośrednich (29 554 z 29 554), 12–45 s. 55 odcinków toru ze zmierzoną długością wzdłuż osi
+- **Odblokowuje:** górne ograniczenie czasu wymiany pasażerów dla T-312 (≤ 10,5 s przy
+  medianowym postoju) oraz dolne ograniczenie prędkości liniowej **57,65 km/h** dla AW0 —
+  pierwsza liczba, jaką repo ma dla wielkości, której `speed_limits` nie zawiera
+- **Kontrola modelu:** żaden z 55 odcinków nie jest nierealizowalny przy fizyce
+  z T-310/T-311; rezerwa rozkładowa 4,3–45,3 s, mediana 10,7 s
 
 ## Geometria
 
