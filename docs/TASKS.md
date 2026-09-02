@@ -22,11 +22,17 @@ w `main` i przechodzą CI.
 ### [ ] T-011 · Rozstawianie detali wzdłuż osi
 - **Zależy od:** T-010
 
-### [~] T-012 · Zrzuty kontrolne i wykrywanie regresji
-- **Zrobione:** część Blenderowa — canonical manifest kamer `tools/visual/cameras.json`,
-  deterministyczny render, metryki, odrzucanie pustej klatki, `docs/17-visual-regression.md`
-- **Zostaje:** przechwytywanie z Godota
-- **Zależy od:** T-400 (tylko część Godotowa)
+### [x] T-012 · Zrzuty kontrolne i wykrywanie regresji
+- **Wyjście:** `tools/visual/` (manifest kamer `cameras.json`, render, metryki, porównanie),
+  `src/Game/FirstRun.cs` (zrzuty z silnika + `GODOT_metadata.json`),
+  `docs/17-visual-regression.md`, `reports/T-012-godot-capture.md`
+- **Wynik:** zrzuty z Godota idą przez tę samą kontrolę co rendery Blendera. Odtwarzalne
+  **co do bajtu** między przebiegami i między maszynami — pięć plików z runnera GitHuba
+  ma te same rozmiary co z kontenera. Odróżnia to zrzuty od eksportu glTF, który
+  odtwarzalny bajtowo **nie jest**
+- **Uwaga:** bbox sceny trafia do metadanych i jest porównywany liczbowo, bo metryka
+  obrazowa nie wykryje przesunięcia całej sceny — kamera jedzie razem z nią
+- **Zależy od:** T-400 (część Godotowa)
 
 ## Dane
 
@@ -101,22 +107,31 @@ w `main` i przechodzą CI.
   nic w `src/Sim/` nie importuje Godota
 - **Zależy od:** nic
 
-### [ ] T-311 · Hamowanie — **ODBLOKOWANE, następne w kolejce**
-- **Stan:** `TrainController` z T-400 ma hamulec jako **polecenie** — zadane opóźnienie
-  z ograniczeniem zrywu, niezależne od masy i przyczepności. To jest świadome
-  uproszczenie, nie model hamulca
-- **Zostaje:** udział hamulca ED i pneumatycznego, zależność od masy i przyczepności,
-  krzywe bezpieczeństwa
-- **Uwaga:** `docs/02-simulation.md` daje wartości projektowe (1,10 m/s² służbowe,
-  1,30 awaryjne, zryw 0,75 m/s³). Rozdziału ED/P i charakterystyk nie ma w rejestrze
-  źródeł — czego nie da się potwierdzić, ma zostać `design_assumption`
+### [x] T-311 · Hamowanie — sufit przyczepnościowy i solver punktu hamowania
+- **Wyjście:** `src/Sim/Physics/{BrakingAssumptions,BrakeAdhesionLimit,BrakingPointSolver,BrakingEnergyAccount}.cs`,
+  `src/Sim/Train/BrakingRun.cs`, `tools/physics/braking.py`, `reports/T-311-braking.md`,
+  `docs/02-simulation.md` §Hamowanie, `docs/21-measured-vs-assumed.md` §4b
+- **Wynik:** sufit `b_max = μ·f·g/λ`, wzór zamknięty `s(b)` i jego odwrotność, bilans
+  energii. Zgodność rdzenia C# z niezależną referencją Pythona **co do bitu**; przejazd
+  z T-400 został co do bitu (3023 kroków / 337,478 m dla AW0, 3998 / 447,920 m dla AW2)
+- **Świadomie nie zrobione:** rozdział hamulca ED i pneumatycznego — rejestr nie ma
+  proporcji, a model dzielący siłę bez źródła wygląda tak samo jak model prawdziwy.
+  Udział osi hamowanych jest jawnym parametrem o dwóch wariantach skrajnych, nie liczbą
 - **Zależy od:** T-310
 
-### [ ] T-312 · Drzwi i czas postoju
+### [x] T-312 · Drzwi i czas postoju
+- **Wyjście:** `src/Sim/Train/{DoorCycle,StationStop}.cs`, `reports/T-312-doors.md`,
+  `docs/21-measured-vs-assumed.md` §4c
+- **Wynik:** `MinimumDwellSeconds` = 8,5 s jako **suma pięciu faz stałych**, nie osobna
+  stała; trakcja wolna wyłącznie w fazie `Closed`, sprawdzane wyliczeniowo dla każdej fazy
+- **Świadomie nie zrobione:** czas wymiany pasażerów **nie dostał wartości** — jest
+  argumentem konstruktora, bo nie ma go w żadnym źródle. `DoorCycle` nie ma konstruktora
+  bezargumentowego, żeby kod wolał nie skompilować się niż podstawić zmyśloną liczbę.
+  T-113 daje dla niego ograniczenie **górne** (≤ 10,5 s przy medianowym postoju), nie wartość
 - **Zależy od:** T-310
 
 ### [ ] T-313 · Sygnalizacja klasyczna
-- **Zależy od:** T-311
+- **Zależy od:** T-311 (zrobione); ground truth z R-003 czeka w niescalonym PR #34
 
 ### [ ] T-314 · CBTC + ATS jako osobny tryb
 - **Wejście:** zweryfikowany stan wdrożenia z `sources.json`
@@ -124,7 +139,9 @@ w `main` i przechodzą CI.
 - **Zależy od:** T-313
 
 ### [ ] T-320 · Rdzeń linii — wiele składów naraz
-- **Zależy od:** T-313, T-113
+- **Wejście z T-113:** takt 5:10 (L1/L5) i 5:40 (L2/L6), 48 kursów naraz w ruchu,
+  71 obiegów pojazdów, rozkładowe czasy jazdy i postoju per odcinek (`build/timetable.json`)
+- **Zależy od:** T-313 (zablokowane), T-113 (zrobione)
 
 ## Silnik
 
@@ -132,8 +149,11 @@ w `main` i przechodzą CI.
 - **Zrobione (etap 1):** `src/Game/` — Godot 4.3 mono, jeden skład M7 jedzie 6,56 km po
   pakiecie A, napędzany rdzeniem. Rozjazd Godot ↔ rdzeń **0,000 m** przy progu 0, ten sam
   odcisk telemetrii przy nierównym podziale kroków. `reports/T-400-first-run.md`
-- **Zostaje:** wiele składów (T-320), postoje i drzwi (T-312), sygnalizacja (T-313),
-  stacje (T-212), streamowanie chunków, przełączanie LOD
+- **Zrobione (etap 2):** zrzuty z silnika idą przez kontrolę wizualną z T-012,
+  odtwarzalne co do bajtu również między maszynami (`reports/T-012-godot-capture.md`)
+- **Zostaje:** wiele składów (T-320), sygnalizacja (T-313), stacje (T-212),
+  streamowanie chunków, przełączanie LOD. Cykl drzwi jest w rdzeniu (T-312, `DoorCycle`),
+  ale **scena go jeszcze nie woła** — przejazd nadal nie zatrzymuje się na stacjach
 - **Uwaga:** scena wczytuje **jeden** pakiet. Przy `vertical.status = not_modelled` cała
   sieć leży na Z = 0, więc pakiety A i E przenikają się w planie w rejonie Arts-Loi
   (`reports/network-chainage.md`) — sceny z dwoma pakietami nie da się zbudować uczciwie
@@ -171,6 +191,8 @@ Poniższe zadania istnieją jako Issues, ale nie mają tu wpisu. Dopóki go nie 
 | rzędne główki szyny, głębokości stacji | T-112 → produkcyjny tunel | T-901, `data/network/station-depths.csv` |
 | długości i wysokości peronów, wyjścia | T-211 → T-212 | R-004 |
 | przekrój tunelu, geometria toru, trzecia szyna | wiarygodność wymiarów w `profiles.py` | R-005 |
+| ground truth sygnalizacji, CBTC, ATS, KCV | T-313 → T-314 → T-320 | R-003, niescalony PR #34 |
+| prędkość dopuszczalna na torze | T-011, T-320; `speed_limits` puste we wszystkich osiach | brak źródła; T-113 daje ograniczenie dolne 57,65 km/h (`docs/21` §4d) |
 | rozstaw czopów skrętu M7 | pełna skrajnia kinematyczna | brak źródła publicznego |
 | rzędne główki szyny (ta sama co wyżej) | scena z **dwoma** pakietami — przy Z = 0 rury A i E przenikają się w rejonie Arts-Loi | T-901 |
 | odcinki międzypakietowe (4034 m) | przejazd całą linią; kilometraż nie jest ciągły | decyzja właściciela o zakresie pakietów |
