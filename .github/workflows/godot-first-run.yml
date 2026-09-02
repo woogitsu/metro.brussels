@@ -20,6 +20,15 @@ on:
       # apt_install.sh, listy pakietów i (w tunnel-alignment) vehicle_clearance.sh.
       # Przy wąskim wzorcu zmiana takiego pliku nie odpalała własnego CI.
       - 'tools/ci/**'
+      # Ten workflow URUCHAMIA `tests/Game.Tests` (krok „Engine layer unit tests"),
+      # więc musi się odpalać, gdy tamte testy się zmieniają. Bez tego wpisu PR
+      # dotykający wyłącznie `tests/Game.Tests/**` dostawał `sim` i `tools`, a job,
+      # który jako jedyny te testy wykonuje, w ogóle nie startował — czyli zmiana
+      # w testach warstwy silnika szła do `main` NIEURUCHOMIONA.
+      #
+      # Ten sam błąd trafił się już w `blender-smoke.yml` przy wąskim wzorcu na
+      # `tools/ci`; komentarz tamże opisuje go tymi samymi słowami.
+      - 'tests/Game.Tests/**'
   push:
     branches: [main]
   workflow_dispatch:

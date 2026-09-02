@@ -694,3 +694,45 @@ def test_no_other_workflow_tries_to_run_the_engine_tests():
         if name == "godot-first-run.yml":
             continue
         assert "Game.Tests" not in _text(name), name
+
+
+def test_a_workflow_with_path_filters_watches_every_test_project_it_runs():
+    """Workflow, który URUCHAMIA projekt testowy, musi się odpalać przy jego zmianie.
+
+    ZMIERZONE 02.09.2026 na PR #116: gałąź dotykała wyłącznie `tests/Game.Tests/**`
+    i dostała DWIE bramki — `sim` i `tools`. `godot-first-run.yml`, czyli jedyny job
+    wykonujący te testy, w ogóle nie wystartował, bo `tests/Game.Tests` nie było
+    w jego `paths`. Zmiana w testach warstwy silnika poszłaby do `main`
+    NIEURUCHOMIONA, a PR wyglądałby na zielony.
+
+    Poprzedni PR (#114) przeszedł przez PRZYPADEK: ruszał też sam plik workflow,
+    który w filtrze jest.
+
+    Ten sam błąd repozytorium miało już raz w `blender-smoke.yml` przy wąskim
+    wzorcu na `tools/ci` — komentarz tamże opisuje go tymi samymi słowami.
+    """
+    pattern = re.compile(r"dotnet test ([A-Za-z0-9_./-]+)")
+    checked = 0
+    for name in _workflows():
+        document = yaml.safe_load(_text(name))
+        triggers = (document.get(True) or document.get("on") or {})
+        paths = ((triggers.get("pull_request") or {}) or {}).get("paths")
+        if not paths:
+            continue  # bez filtra workflow chodzi na każdym PR, więc nie ma czego gubić
+
+        # Tylko KOD, nie komentarze. Pierwsza wersja tego testu skanowała cały plik
+        # i zgłosiła `blender-smoke.yml`, bo jego komentarz WSPOMINA
+        # `dotnet test tests/Sim.Tests` przy opisie, co robi `doctor.sh`. To ten sam
+        # błąd, przed którym ostrzega komentarz przy bramce reguły 9: wzorzec ma
+        # celować w kod, a nie wywracać się na własnym opisie.
+        code = "\n".join(line for line in _text(name).splitlines()
+                         if not line.lstrip().startswith("#"))
+        for target in pattern.findall(code):
+            # `dotnet test tests/Game.Tests/Game.Tests.csproj` -> katalog projektu
+            directory = os.path.dirname(target) or target
+            checked += 1
+            covered = any(entry.rstrip("/*").rstrip("/") == directory for entry in paths)
+            assert covered, (
+                f"{name} uruchamia {target}, ale nie ma {directory}/** w paths — "
+                "zmiana w tym projekcie nie odpali workflow, który go wykonuje")
+    assert checked >= 1, "żaden workflow z filtrem nie uruchamia projektu testowego"
