@@ -7,7 +7,10 @@ on:
       - 'tools/blender/m7_layout.py'
       - 'tools/blender/m7_shell.py'
       - 'tools/blender/profiles.py'
-      - 'tools/ci/m7_shell_check.sh'
+      # Cały tools/ci, nie pojedynczy skrypt: te joby uruchamiają też
+      # apt_install.sh, listy pakietów i (w tunnel-alignment) vehicle_clearance.sh.
+      # Przy wąskim wzorcu zmiana takiego pliku nie odpalała własnego CI.
+      - 'tools/ci/**'
       - 'tools/visual/**'
       - 'tools/tests/**'
       - 'data/vehicle/m7-spec.json'

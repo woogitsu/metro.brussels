@@ -17,6 +17,10 @@ on:
       - 'data/track/L1_A.json'
       - 'data/vehicle/m7-spec.json'
       - 'tools/blender/**'
+      # Cały tools/ci, nie pojedynczy skrypt: te joby uruchamiają też
+      # apt_install.sh, listy pakietów i (w tunnel-alignment) vehicle_clearance.sh.
+      # Przy wąskim wzorcu zmiana takiego pliku nie odpalała własnego CI.
+      - 'tools/ci/**'
   push:
     branches: [main]
   workflow_dispatch:
@@ -79,6 +83,9 @@ jobs:
         # ściągać Godot.NET.Sdk i reguła 9 z CLAUDE.md przestałaby cokolwiek znaczyć.
         run: |
           set -euo pipefail
+          # Bez tego `test -f` bramka ogłaszałaby sukces po zniknięciu pliku:
+          # grep bez celu zwraca 2, a `if grep ...; then` czyta to jak brak trafień.
+          test -f MetroBxl.sln || { echo "brak MetroBxl.sln — bramka nie ma czego sprawdzić" >&2; exit 1; }
           if grep -q 'MetroBxl.Game' MetroBxl.sln; then
             echo "projekt Godota trafił do MetroBxl.sln — rdzeń przestałby się budować bez silnika" >&2
             exit 1
@@ -224,6 +231,13 @@ jobs:
         # Kontrola, która przechodzi tylko na poprawnym wejściu, nie dowodzi niczego.
         # `--no-geometry` daje klatkę z samym HUD-em — czyli dokładnie to, co poprzedni
         # krok ma odrzucać.
+        #
+        # Do 2026-09 ten negatyw przechodził z NIEWŁAŚCIWEGO powodu: `--no-geometry`
+        # nie ładuje tunelu, więc FirstRun.cs w ogóle nie zapisuje GODOT_metadata.json,
+        # a compare.py wywracał się na „brak metadanych bieżącego przebiegu" — zanim
+        # zdążył ocenić zawartość klatek. Rozluźnienie progów pustej klatki nie ruszyło
+        # by tego negatywu ani o milimetr. Stąd dwie zmiany: metadane są dokopiowane
+        # z przebiegu pozytywnego, a wynik jest czytany z raportu, nie z kodu wyjścia.
         run: |
           set -euo pipefail
           mkdir -p build/t400/negative
@@ -234,11 +248,12 @@ jobs:
           for view in chase_2000m outside_2000m curve_R91_chase seam_c01_c02; do
             cp build/t400/negative/GODOT_cab_2000m.png "build/t400/negative/GODOT_${view}.png"
           done
-          if python3 tools/visual/compare.py --set godot --current build/t400/negative \
-              --prefix GODOT --out build/t400/negative/sanity.json --allow-new-baseline; then
-            echo "BŁĄD: klatka bez geometrii przeszła kontrolę zawartości" >&2
-            exit 1
-          fi
+          cp build/t400/visual/GODOT_metadata.json build/t400/negative/GODOT_metadata.json
+          rc=0
+          python3 tools/visual/compare.py --set godot --current build/t400/negative \
+            --prefix GODOT --out build/t400/negative/sanity.json --allow-new-baseline || rc=$?
+          test "$rc" -ne 0 || { echo "BŁĄD: klatka bez geometrii przeszła kontrolę zawartości" >&2; exit 1; }
+          python3 tools/ci/assert_empty_frame_negative.py build/t400/negative/sanity.json
           echo "[NEGATYW] klatka z samym HUD-em odrzucona, tak jak ma być"
 
       - name: Upload verification artifacts

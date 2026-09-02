@@ -4,7 +4,10 @@ on:
   pull_request:
     paths:
       - '.github/workflows/blender-smoke.yml'
-      - 'tools/ci/blender_smoke.sh'
+      # Cały tools/ci, nie pojedynczy skrypt: te joby uruchamiają też
+      # apt_install.sh, listy pakietów i (w tunnel-alignment) vehicle_clearance.sh.
+      # Przy wąskim wzorcu zmiana takiego pliku nie odpalała własnego CI.
+      - 'tools/ci/**'
       - 'tools/blender/**'
       - 'tools/track/**'
       - 'tools/tests/**'
@@ -22,6 +25,15 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      # `tools/ci/blender_smoke.sh` uruchamia `doctor.sh`, a ten wymaga SDK .NET
+      # i odpala `dotnet test tests/Sim.Tests`. Bez tego kroku job jechał na tym,
+      # co akurat jest w obrazie ubuntu-latest — czyli na wersji zmieniającej się
+      # z miesiąca na miesiąc. Pin jest ten sam co w sim-tests.yml.
+      - name: Install .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
 
       - name: Cache pakietów apt
         uses: actions/cache@v4
