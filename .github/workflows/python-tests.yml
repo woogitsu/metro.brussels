@@ -10,7 +10,6 @@ permissions:
 
 jobs:
   tools:
-    # Standard CI runs on GitHub-hosted Linux while Actions minutes are available.
     # Ten job chodzi na MASZYNIE WŁAŚCICIELA, nie na jednorazowej maszynie GitHuba.
     # Kroki wykonują kod ze sprawdzonego refa — `tools/**`, `doctor.sh`, skrypty CI —
     # więc bez tego warunku wystarczyłby pull request z forka, żeby uruchomić tam

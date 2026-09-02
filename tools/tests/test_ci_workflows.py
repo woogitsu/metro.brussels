@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Testy odporności workflow CI. Bez zewnętrznych zależności, bez parsera YAML.
+"""Testy odporności workflow CI.
 
 Powód: 02.09.2026 krok instalacji Blendera zawiesił się trzy razy na trzech różnych
 runnerach, za każdym razem przed uruchomieniem ciała testu. Te testy pilnują, żeby
@@ -558,14 +558,35 @@ def test_godot_lives_outside_the_workspace_that_checkout_wipes():
 
     70 MB na przebieg. Na jednorazowej maszynie nieuniknione, na trwałej — strata,
     którą usuwa przeniesienie katalogu poza workspace.
+
+    Pierwsza wersja tego testu żądała `runner.tool_cache` w `env:` na górze pliku
+    i przeszła — a GitHub odmówił uruchomienia całego workflow, bo kontekstu `runner`
+    tam nie ma. Test pilnował więc dokładnie tej postaci, która nie działa. Teraz
+    sprawdza WŁASNOŚĆ (katalog poza workspace), nie zapis.
     """
     text = _text("godot-first-run.yml")
     document = yaml.safe_load(text)
-    godot_dir = document["env"]["GODOT_DIR"]
-    assert "github.workspace" not in godot_dir, godot_dir
-    assert "runner.tool_cache" in godot_dir, godot_dir
+    assert "GODOT_DIR" not in (document.get("env") or {}), (
+        "GODOT_DIR w workflow-level env: tam nie ma kontekstu runner, "
+        "a bez niego ścieżka wskaże workspace"
+    )
 
     steps = list(document["jobs"].values())[0]["steps"]
+    setter = [s for s in steps if "GODOT_DIR=" in (s.get("run") or "")]
+    assert setter, "żaden krok nie ustawia GODOT_DIR"
+    body = setter[0]["run"]
+    assert "GITHUB_ENV" in body, "GODOT_DIR musi trafić do GITHUB_ENV, inaczej widzi go jeden krok"
+    assert "RUNNER_TOOL_CACHE" in body, body
+    # Katalog poza workspace to cała racja bytu tego kroku — więc krok sam to
+    # sprawdza i przerywa, gdy ścieżka jednak wyląduje w workspace.
+    assert "GITHUB_WORKSPACE" in body, (
+        "krok nie sprawdza, czy katalog nie wylądował w workspace"
+    )
+
+    index = steps.index(setter[0])
+    users = [s for s in steps[:index] if "$GODOT_DIR" in (s.get("run") or "")]
+    assert not users, f"kroki używają GODOT_DIR zanim zostanie ustawiony: {users}"
+
     probe = [s for s in steps if s.get("id") == "godot"]
     assert probe, "brak kroku sprawdzającego, czy Godot już jest"
     # Sam plik wykonywalny nie wystarcza — bez GodotSharp silnik wywala się
@@ -574,3 +595,44 @@ def test_godot_lives_outside_the_workspace_that_checkout_wipes():
 
     download = [s for s in steps if s.get("name") == "Download Godot mono"]
     assert download and download[0].get("if") == "steps.godot.outputs.engine == 'missing'", download
+
+
+#: Kontekst `runner` jest dostępny DOPIERO w kroku. Workflow-level `env` widzi
+#: `github`, `secrets`, `inputs`, `vars`; job-level `env` dokłada `needs`,
+#: `strategy`, `matrix`. Nigdzie tam nie ma `runner`.
+_RUNNER_CONTEXT_IS_A_STEP_THING = ("env", "runs-on", "if", "timeout-minutes")
+
+
+def test_no_workflow_uses_the_runner_context_where_github_refuses_to_start_it():
+    """Zła gałąź kontekstu nie jest literówką — GitHub NIE URUCHAMIA takiego workflow.
+
+    To nie jest hipoteza. `${{ runner.tool_cache }}` w `env:` na górze
+    `godot-first-run.yml` dało przebieg 73: `conclusion: failure` w tej samej
+    sekundzie, w której powstał, ZERO jobów, a pole `name` przebiegu to ścieżka
+    pliku zamiast „Godot first run" — bo GitHub nie zdołał go sparsować, żeby
+    odczytać `name:`.
+
+    Żaden z pozostałych testów tego nie łapał: wszystkie czytają treść YAML-a,
+    a ten YAML jest poprawny składniowo. Niepoprawna jest dopiero reguła GitHuba
+    o dostępności kontekstów — i to ona jest tu sprawdzana.
+    """
+    offenders = []
+    for name in _workflows():
+        document = yaml.safe_load(_text(name))
+        top = document.get("env") or {}
+        for key, value in top.items():
+            if "runner." in str(value):
+                offenders.append(f"{name}: env.{key} = {value}")
+        for job_id, job in document["jobs"].items():
+            for key in _RUNNER_CONTEXT_IS_A_STEP_THING:
+                value = job.get(key)
+                if key == "env":
+                    for sub, sub_value in (value or {}).items():
+                        if "runner." in str(sub_value):
+                            offenders.append(f"{name}: {job_id}.env.{sub} = {sub_value}")
+                elif "runner." in str(value or ""):
+                    offenders.append(f"{name}: {job_id}.{key} = {value}")
+    assert not offenders, (
+        "kontekst runner poza krokiem — GitHub odmówi uruchomienia workflow:\n  "
+        + "\n  ".join(offenders)
+    )

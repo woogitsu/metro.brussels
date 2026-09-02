@@ -3,9 +3,8 @@ name: Godot first run
 # T-400, pierwszy etap. Job odpowiada na jedno pytanie: czy przejazd policzony
 # w Godocie jest tym samym przejazdem, co policzony samym rdzeniem.
 #
-# CLAUDE.md §9: GitHub-hosted runner, wszystkie zależności instalowane jawnie.
-# Godota 4.3 mono nie ma na obrazie, więc jest pobierany z GitHub Releases (~70 MB);
-# Blender jest z apt, tak samo jak w blender-smoke.yml.
+# CLAUDE.md §9: runner właściciela. Godot 4.3 mono i Blender są doinstalowywane
+# tylko wtedy, gdy ich nie ma — na maszynie właściciela zostają między przebiegami.
 
 on:
   pull_request:
@@ -30,13 +29,6 @@ permissions:
 
 env:
   GODOT_VERSION: 4.3-stable
-  # POZA workspace, świadomie. `actions/checkout` wykonuje `git clean -ffdx`, a `-x`
-  # obejmuje pliki ignorowane — więc silnik trzymany w workspace znikał przy KAŻDYM
-  # checkoucie i był pobierany od nowa (70 MB). Na jednorazowej maszynie GitHuba to
-  # było nieuniknione; na maszynie właściciela jest to strata, którą wystarczy
-  # przenieść katalog. Wersja jest w ścieżce, więc podniesienie GODOT_VERSION daje
-  # nowy katalog zamiast mieszać dwa silniki.
-  GODOT_DIR: ${{ runner.tool_cache }}/metro-godot/4.3-stable
 
 jobs:
   first-run:
@@ -91,6 +83,40 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
+
+      # Katalog silnika leży POZA workspace, świadomie. `actions/checkout` wykonuje
+      # `git clean -ffdx`, a `-x` obejmuje pliki ignorowane — więc silnik trzymany
+      # w workspace znikał przy KAŻDYM checkoucie i był pobierany od nowa (70 MB).
+      # Na jednorazowej maszynie GitHuba to było nieuniknione; na maszynie
+      # właściciela jest to strata, którą wystarczy przenieść katalog.
+      #
+      # Dlaczego krokiem, a nie wpisem w `env:` na górze pliku. Bo `${{ runner.* }}`
+      # TAM NIE DZIAŁA i nie jest to drobiazg składniowy: workflow-level `env` widzi
+      # wyłącznie `github`, `secrets`, `inputs`, `vars` (job-level `env` dokłada
+      # `needs`, `strategy`, `matrix`). Kontekst `runner` jest dostępny dopiero
+      # w kroku. Pierwsza wersja tej zmiany miała `runner.tool_cache` w `env:` na
+      # górze i GitHub ODMÓWIŁ URUCHOMIENIA całego workflow: przebieg 73 zakończył
+      # się `failure` w tej samej sekundzie, w której powstał, z zerem jobów.
+      # Zmiennej `RUNNER_TOOL_CACHE` używamy więc jako zmiennej powłoki — jest
+      # domyślną zmienną środowiskową runnera i wskazuje katalog `_tool`, rodzeństwo
+      # workspace'u, którego `git clean` nie dotyka. Fallback na `$HOME`, gdyby jakiś
+      # runner jej nie ustawił: liczy się to, żeby katalog był POZA workspace.
+      # Wersja jest w ścieżce, więc podniesienie GODOT_VERSION daje nowy katalog
+      # zamiast mieszać dwa silniki.
+      - name: Katalog silnika poza workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          cache="${RUNNER_TOOL_CACHE:-$HOME/.cache/metro-tools}"
+          dir="$cache/metro-godot/${GODOT_VERSION}"
+          case "$dir" in
+            "$GITHUB_WORKSPACE"/*)
+              echo "::error::katalog silnika $dir leży W WORKSPACE — checkout skasuje go przy następnym przebiegu"
+              exit 1
+              ;;
+          esac
+          echo "GODOT_DIR=$dir" >> "$GITHUB_ENV"
+          echo "silnik poza workspace: $dir"
 
       # Cache'u GitHuba tu nie ma i nie powinno być: silnik leży teraz poza workspace,
       # więc przeżywa checkout i kolejne przebiegi zastają go na miejscu. `actions/cache`
