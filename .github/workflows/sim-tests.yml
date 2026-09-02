@@ -54,6 +54,10 @@ jobs:
         # „Godot" w komentarzu — inaczej kontrola wywracałaby się na własnym opisie.
         run: |
           set -euo pipefail
+          # grep bez celu kończy się kodem 2, a `if grep ...; then` czyta to tak samo
+          # jak „nic nie znalazłem". Bramka bez pliku ogłaszałaby więc sukces, gdyby
+          # ktoś przeniósł rdzeń gdzie indziej. Najpierw istnienie celu, potem treść.
+          test -d src/Sim || { echo "brak katalogu src/Sim — bramka reguły 9 nie ma czego sprawdzić" >&2; exit 1; }
           if grep -rnE '^[[:space:]]*using[[:space:]]+Godot([.;]|[[:space:]])|Godot\.[A-Za-z]' \
               --include='*.cs' --include='*.csproj' src/Sim; then
             echo "src/Sim odwołuje się do Godota — CLAUDE.md reguła 9" >&2
@@ -68,6 +72,7 @@ jobs:
         # w Sim.csproj wyjaśnia właśnie tę regułę i sam zawiera to słowo.
         run: |
           set -euo pipefail
+          test -f src/Sim/Sim.csproj || { echo "brak src/Sim/Sim.csproj — bramka NuGet nie ma czego sprawdzić" >&2; exit 1; }
           if grep -nE '<[[:space:]]*PackageReference' src/Sim/Sim.csproj; then
             echo "src/Sim dostał zależność NuGet — to wymaga decyzji, nie commita" >&2
             exit 1
@@ -76,10 +81,16 @@ jobs:
 
       - name: Reference parity is still reproducible from Python
         shell: bash
-        # Snapshot liczb referencyjnych żyje w tests/Sim.Tests/PythonReference.cs.
-        # Ten krok drukuje wyjście referencji obok, żeby rozjazd był widoczny w logu
-        # CI, zanim ktoś zacznie szukać błędu w C#.
-        run: python3 tools/physics/reference.py
+        # Snapshot liczb referencyjnych żyje w tests/Sim.Tests/PythonReference.cs
+        # i jest ręcznie przepisany. Do 2026-09 ten krok był samym `print`: obcięcie
+        # mocy trakcji w reference.py o 10 % przesuwało drogę rozruchu z 337,5 m
+        # na 371,3 m, a `dotnet test` dalej dawał Passed: 252. Teraz test przelicza
+        # wszystkie 24 stałe od nowa i porównuje je z plikiem C# na pełnej precyzji,
+        # więc rozjazd wywraca job zamiast przewijać się w logu.
+        run: |
+          set -euo pipefail
+          python3 tools/physics/reference.py
+          python3 tools/tests/test_reference_snapshot.py
 
       - name: Braking reference matches the core byte for byte
         shell: bash

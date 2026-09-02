@@ -5,7 +5,10 @@ on:
     paths:
       - '.github/workflows/visual-regression.yml'
       - 'tools/visual/**'
-      - 'tools/ci/visual_smoke.sh'
+      # Cały tools/ci, nie pojedynczy skrypt: te joby uruchamiają też
+      # apt_install.sh, listy pakietów i (w tunnel-alignment) vehicle_clearance.sh.
+      # Przy wąskim wzorcu zmiana takiego pliku nie odpalała własnego CI.
+      - 'tools/ci/**'
       - 'tools/blender/**'
       - 'tools/track/**'
       - 'tools/tests/**'

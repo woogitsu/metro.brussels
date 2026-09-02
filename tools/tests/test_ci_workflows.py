@@ -82,9 +82,12 @@ def test_ci_install_is_not_retried_from_scratch():
     body = open(HELPER, encoding="utf-8").read()
     assert "apt_update" in body and "UPDATE_ATTEMPTS" in body
     assert "INSTALL_ATTEMPTS" not in body, "install nie ma pętli prób"
-    install_calls = [line for line in body.splitlines()
-                     if line.startswith("apt_run") and "install" in line]
-    assert len(install_calls) == 1, install_calls
+    # Podkomenda musi być czytana jako osobny token. Poprzednia wersja szukała
+    # podciągu "install" w całej linii i przechodziła nawet po podmianie
+    # `install` na `instalxx`, bo słowo zostaje w `--no-install-recommends`.
+    subcommands = re.findall(r'(?m)^apt_run "\$[A-Z_]+" ([a-z-]+)', body)
+    assert subcommands.count("install") == 1, subcommands
+    assert set(subcommands) <= {"update", "install"}, subcommands
 
 
 def test_ci_step_budget_covers_a_slow_mirror():
@@ -209,3 +212,156 @@ def test_ci_blender_workflows_still_install_blender():
         assert declared, name
         packages = open(os.path.join(PACKAGE_SETS, declared + ".txt"), encoding="utf-8").read()
         assert "libegl1" in packages and "python3-numpy" in packages, (name, declared)
+
+
+def _paths_block(text):
+    """Lista wzorców z `paths:` w `on: pull_request`. Brak filtra => None."""
+    match = re.search(r"(?m)^    paths:\n((?:      - .*\n|      #.*\n)+)", text)
+    if not match:
+        return None
+    return re.findall(r"      - '([^']+)'", match.group(1))
+
+
+def test_ci_workflows_running_tools_ci_are_triggered_by_tools_ci():
+    """Skrypt, którego zmiana nie odpala własnego CI, nie jest bramką.
+
+    Zmierzone 02.09.2026: `tools/ci/vehicle_clearance.sh` (495 linii) jest
+    wywoływane w `tunnel-alignment.yml`, ale w `paths:` siedział wyłącznie
+    `tools/ci/tunnel_alignment.sh`. Wstrzyknięty `exit 3` przechodził — bo job
+    w ogóle się nie uruchamiał. To samo dotyczyło `apt_install.sh` i list
+    pakietów, których nie było w `paths:` żadnego workflow.
+    """
+    offenders = []
+    for name in _workflows():
+        text = _text(name)
+        if not re.search(r"tools/ci/[A-Za-z0-9_]+\.sh", text.split("permissions:", 1)[-1]):
+            continue
+        patterns = _paths_block(text)
+        if patterns is None:      # brak filtra = odpala się zawsze
+            continue
+        if "tools/ci/**" not in patterns:
+            offenders.append((name, patterns))
+    assert not offenders, offenders
+
+
+def test_ci_grep_gates_check_that_their_target_exists():
+    """`grep` bez celu kończy się kodem 2, a `if grep ...; then` czyta to jak brak trafień.
+
+    Bramka reguły 9 ogłaszała wtedy „src/Sim: brak odwołań do Godota" dla
+    katalogu, którego nie ma. Każdy krok z takim `if grep` musi najpierw
+    sprawdzić istnienie celu.
+    """
+    offenders = []
+    checked = 0
+    for name in _workflows():
+        for step in _steps(_text(name)):
+            if not re.search(r"(?m)^\s*if grep\b", step):
+                continue
+            head = step.splitlines()[0]
+            # Cały krok, nie pojedyncza linia: wzorzec reguły 9 jest łamany
+            # odwrotnym ukośnikiem i ścieżka `src/Sim` siedzi w linii NASTĘPNEJ.
+            # Wersja linia-po-linii w ogóle jej nie widziała i przechodziła
+            # po usunięciu `test -d` — sprawdzone.
+            command = step[re.search(r"(?m)^\s*if grep\b", step).start():]
+            command = command[:command.index("; then")]
+            targets = set()
+            for token in command.replace("\\\n", " ").split():
+                token = token.strip("'\"")
+                if os.path.exists(os.path.join(ROOT, token)):
+                    targets.add(token)
+            assert targets, f"{name}: {head} — nie rozpoznano celu grepa"
+            for target in sorted(targets):
+                checked += 1
+                if not re.search(r"test -[df] " + re.escape(target) + r"\b", step):
+                    offenders.append(f"{name}: {head} -> {target}")
+    assert not offenders, offenders
+    assert checked >= 2, checked
+
+
+def test_ci_reference_parity_step_is_a_gate_not_a_print():
+    """Krok o tej nazwie był do 02.09.2026 samym `print` i nie mógł wywalić joba.
+
+    Obcięcie mocy trakcji w `reference.py` o 10 % przechodziło przez całe CI,
+    mimo że snapshot w `tests/Sim.Tests/PythonReference.cs` zostawał stary.
+    """
+    step = [s for s in _steps(_text("sim-tests.yml")) if s.startswith("Reference parity")]
+    assert len(step) == 1, "krok zniknął albo zmienił nazwę"
+    assert "tools/tests/test_reference_snapshot.py" in step[0], step[0]
+
+
+def _reaches_dotnet(body):
+    """Czy krok workflow dochodzi do `dotnet` — wprost albo przez skrypt z tools/ci."""
+    if re.search(r"(?m)^\s*(-\s*)?(run:\s*)?.*\bdotnet\b", body):
+        return True
+    for script in set(re.findall(r"(tools/ci/[A-Za-z0-9_]+\.sh)", body)):
+        path = os.path.join(ROOT, script)
+        if not os.path.isfile(path):
+            continue
+        text = open(path, encoding="utf-8").read()
+        if "dotnet" in text or "doctor.sh" in text:
+            return True
+    return False
+
+
+def test_ci_workflows_using_dotnet_pin_the_sdk():
+    """`doctor.sh` odpala `dotnet test`. Bez pinu job jedzie na tym, co akurat ma obraz.
+
+    Zmierzone 02.09.2026: `blender-smoke.yml` przez `tools/ci/blender_smoke.sh`
+    woła `doctor.sh`, a ten `dotnet test tests/Sim.Tests` — i nigdzie nie było
+    `actions/setup-dotnet`. Wersja szukająca słowa „dotnet" tylko w samym YAML-u
+    tego nie widziała, więc test schodzi o poziom niżej, do skryptów.
+    """
+    offenders = []
+    checked = []
+    for name in _workflows():
+        text = _text(name)
+        body = text.split("permissions:", 1)[-1]
+        if not _reaches_dotnet(body):
+            continue
+        checked.append(name)
+        if "actions/setup-dotnet" not in text:
+            offenders.append(name)
+    assert not offenders, offenders
+    assert "blender-smoke.yml" in checked and "sim-tests.yml" in checked, checked
+
+
+def test_ci_negative_screenshot_control_checks_why_it_failed():
+    """Negatyw musi wywalić się na pustej klatce, nie na braku metadanych.
+
+    Zmierzone 02.09.2026: `--no-geometry` nie ładuje tunelu, więc FirstRun.cs
+    nie zapisuje `GODOT_metadata.json`, a compare.py przerywał na „brak
+    metadanych bieżącego przebiegu". Sam niezerowy kod wyjścia nie odróżniał
+    tych dwóch powodów — negatyw przechodziłby także przy rozluźnionych
+    progach pustej klatki.
+    """
+    step = [s for s in _steps(_text("godot-first-run.yml"))
+            if s.startswith("Negative control of the screenshot check")]
+    assert len(step) == 1, "krok zniknął albo zmienił nazwę"
+    body = step[0]
+    assert "GODOT_metadata.json" in body, "negatyw nie ma metadanych do porównania"
+    assert "tools/ci/assert_empty_frame_negative.py" in body, body
+
+
+def test_ci_negative_assertion_script_reads_the_reason():
+    """Sam skrypt kontrolny: przyjmuje tylko raport z pustymi klatkami."""
+    import json
+    import subprocess
+    import tempfile
+    script = os.path.join(ROOT, "tools", "ci", "assert_empty_frame_negative.py")
+    empty = "obraz pusty/jednorodny: ink=0.00001 std=0.00010 poziomy=3"
+    good = {"images": [{"camera": f"c{i}", "status": "fail", "reason": empty} for i in range(5)],
+            "geometry": {"status": "new-baseline", "reason": "brak metadanych baseline"}}
+    on_geometry = json.loads(json.dumps(good))
+    on_geometry["geometry"] = {"status": "fail", "reason": "brak metadanych bieżącego przebiegu"}
+    accepted = json.loads(json.dumps(good))
+    accepted["images"][2] = {"camera": "c2", "status": "pass", "reason": None}
+    for data, expected in ((good, 0), (on_geometry, 1), (accepted, 1), ({"images": []}, 1)):
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False,
+                                         encoding="utf-8") as handle:
+            json.dump(data, handle, ensure_ascii=False)
+            path = handle.name
+        try:
+            code = subprocess.run(["python3", script, path], capture_output=True).returncode
+        finally:
+            os.unlink(path)
+        assert code == expected, (data, code, expected)
