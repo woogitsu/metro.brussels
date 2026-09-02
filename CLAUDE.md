@@ -152,8 +152,28 @@ Zgadywanie w tym projekcie jest kosztowniejsze niż czekanie na odpowiedź.
 
 ## 9. CI / GitHub Actions
 
-- Standardowe workflow CI używają **GitHub-hosted runnerów**, domyślnie `ubuntu-latest`.
-- GitHub-hosted Actions są preferowane dla testów Python/.NET i innych zadań, które da się odtworzyć przez instalację zależności w workflow.
-- Workflow wymagające Blendera lub innych narzędzi niedostępnych domyślnie na obrazie runnera muszą jawnie instalować wymagane zależności przed testem.
-- Self-hosted WSL2 pozostaje dozwolony jako opcja awaryjna lub do ciężkich zadań lokalnych, ale nie jest wymagany dla CI.
-- Nie uznawaj `queued` za weryfikację; zadanie jest zweryfikowane dopiero po zakończonym, zielonym jobie i sprawdzeniu wymaganych artefaktów.
+**Od 02.09.2026 całe CI chodzi na self-hosted runnerze**, po wyczerpaniu minut
+GitHub Actions. Poprzednia wersja tego punktu mówiła, że standardem jest
+`ubuntu-latest`; to już nieprawda i dlatego jest tu przepisana, a nie dopisana obok.
+
+- `runs-on: self-hosted`, **gołe, bez dodatkowych etykiet**. W `matmaxalez/osadale`
+  zdjęto etykietę `wsl2` 02.08.2026, bo maszyna, która ją nosiła, została wyłączona
+  i joby zawisły w `queued`. Gołe `self-hosted` łapie każdego zarejestrowanego runnera.
+- **Każdy job odrzuca pull requesty z forków.** To warunek bezpieczeństwa, nie higiena:
+  joby wykonują kod ze sprawdzonego refa na maszynie właściciela. `metro.brussels` jest
+  prywatne, ale ma włączone forkowanie, więc „forka nie da się zrobić" tu nie działa.
+  Warunek nosi **każdy job osobno** — `needs:` nie jest zamiennikiem.
+- **Workspace jest współdzielony między przebiegami.** Sprząta `actions/checkout`
+  (`clean` domyślnie `true`, czyli `git clean -ffdx`, a `-x` obejmuje pliki ignorowane).
+  Każdy workflow ma krok, który to **sprawdza**, bo bramki tego projektu oglądają pliki
+  wyjściowe i stary plik przeszedłby je tak samo dobrze jak świeży.
+- **Narzędzia instalują się warunkowo.** Krok sondujący sprawdza `command -v`;
+  instalacja i cache odpalają się tylko przy braku. Świeży runner nadal działa bez
+  ręcznego przygotowania, a trwały nie wywołuje `sudo apt-get` na 190 MB przy każdym
+  przebiegu. Godot leży poza workspace (`runner.tool_cache`), bo w workspace kasował
+  go `git clean` przy każdym checkoucie.
+- Nie uznawaj `queued` za weryfikację; zadanie jest zweryfikowane dopiero po zakończonym,
+  zielonym jobie i sprawdzeniu wymaganych artefaktów. Na jednym runnerze `queued` znaczy
+  też „kolejka", nie tylko „zepsute" — ale nadal nie znaczy „zweryfikowane".
+- Reguły powyżej są pilnowane testami w `tools/tests/test_ci_workflows.py`; każda ma
+  kontrolę negatywną wypisaną w commicie, który ją wprowadził.
