@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Testy warstwy silnika. Istnieją, bo audyt mutacyjny z 02.09.2026 pokazał, że
+    `src/Game` nie miał ANI JEDNEGO testu jednostkowego: 13 typów weryfikowanych
+    wyłącznie integracyjnie przez `godot-first-run.yml`. Tą dziurą przeszły
+    `TrackOffsetM 2.10→0.0`, `CabEyeHeightM 2.20→0.0` i odwrócenie sortowania
+    chunków (Issues #106, #107).
+
+    Projekt NIE jest w MetroBxl.sln — tak samo i z tego samego powodu, co
+    `src/Game/MetroBxl.Game.csproj`: `dotnet build MetroBxl.sln` w CI rdzenia
+    musiałby wtedy ściągnąć Godot.NET.Sdk, żeby zbudować rzecz, której rdzeń nie
+    dotyczy. Reguła 9 mówi, że rdzeń ma się budować i testować bez silnika, i to
+    zostaje w mocy. Ten projekt uruchamia `godot-first-run.yml`, czyli job, który
+    silnik i tak ma.
+
+    Wersje pakietów są te same co w `tests/Sim.Tests` — jeden framework testowy
+    w repozytorium, nie dwa.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>MetroBxl.Game.Tests</RootNamespace>
+    <AssemblyName>MetroBxl.Game.Tests</AssemblyName>
+    <LangVersion>12.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.6.0" />
+    <PackageReference Include="MSTest.TestAdapter" Version="3.0.4" />
+    <PackageReference Include="MSTest.TestFramework" Version="3.0.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Game/MetroBxl.Game.csproj" />
+  </ItemGroup>
+
+</Project>

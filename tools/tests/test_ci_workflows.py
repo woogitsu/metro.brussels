@@ -636,3 +636,61 @@ def test_no_workflow_uses_the_runner_context_where_github_refuses_to_start_it():
         "kontekst runner poza krokiem — GitHub odmówi uruchomienia workflow:\n  "
         + "\n  ".join(offenders)
     )
+
+
+# --- warstwa silnika ma własne testy jednostkowe ---------------------------------
+
+GAME_TESTS = os.path.join(ROOT, "tests", "Game.Tests", "Game.Tests.csproj")
+SOLUTION = os.path.join(ROOT, "MetroBxl.sln")
+
+
+def test_the_engine_layer_has_a_unit_test_project():
+    """Do 02.09.2026 `src/Game` nie miał ANI JEDNEGO testu jednostkowego.
+
+    13 typów weryfikowanych wyłącznie integracyjnie przez `godot-first-run.yml`.
+    Audyt mutacyjny pokazał, co przez to przechodziło: `TrackOffsetM 2.10→0.0`
+    i `CabEyeHeightM 2.20→0.0` zostawiały wszystkie bramki zielone.
+    """
+    assert os.path.isfile(GAME_TESTS), GAME_TESTS
+
+
+def test_the_engine_test_project_stays_out_of_the_core_solution():
+    """Reguła 9 w drugą stronę: `tests/Game.Tests` referuje Godota.
+
+    Gdyby wszedł do `MetroBxl.sln`, `dotnet build MetroBxl.sln` z `sim-tests.yml`
+    zaczęłoby ściągać Godot.NET.Sdk — i rdzeń przestałby się budować bez silnika.
+    To jest ta sama decyzja, którą `MetroBxl.Game.csproj` opisuje w swoim komentarzu
+    jako „decyzja, nie przeoczenie".
+    """
+    assert os.path.isfile(SOLUTION), SOLUTION
+    with open(SOLUTION, encoding="utf-8") as handle:
+        solution = handle.read()
+    # Sprawdzana jest ŚCIEŻKA, nie nazwa projektu. Wpisy w .sln wyglądają tak:
+    #   Project(...) = "Sim.Tests", "tests\\Sim.Tests\\Sim.Tests.csproj", ...
+    # Napis `MetroBxl.Game` pada tylko dla `src\\Game\\MetroBxl.Game.csproj`;
+    # `tests\\Game.Tests\\Game.Tests.csproj` nie zawiera go wcale. Pierwsza wersja
+    # tej bramki szukała właśnie nazwy i PRZEPUŚCIŁA projekt testowy do solucji —
+    # sprawdzone mutacją.
+    for forbidden in ("src\\Game", "src/Game", "tests\\Game.Tests", "tests/Game.Tests"):
+        assert forbidden not in solution, \
+            f"{forbidden} w solucji rdzenia — rdzeń przestałby się budować bez silnika"
+
+
+def test_the_workflow_with_the_engine_actually_runs_those_tests():
+    """Projekt testowy poza solucją nie uruchomi się sam.
+
+    `sim-tests.yml` buduje solucję, więc tych testów nie zobaczy. Musi je wołać
+    workflow, który silnik i tak ma — inaczej istniałyby, a nie chodziły.
+    """
+    text = _text("godot-first-run.yml")
+    assert "tests/Game.Tests/Game.Tests.csproj" in text, \
+        "godot-first-run.yml nie uruchamia testów warstwy silnika"
+    assert "dotnet test tests/Game.Tests" in text, text[:0]
+
+
+def test_no_other_workflow_tries_to_run_the_engine_tests():
+    """Kontrola negatywna: gdyby wołał je workflow bez Godota, padłby na SDK."""
+    for name in _workflows():
+        if name == "godot-first-run.yml":
+            continue
+        assert "Game.Tests" not in _text(name), name

@@ -172,11 +172,19 @@ jobs:
           # Bez tego `test -f` bramka ogłaszałaby sukces po zniknięciu pliku:
           # grep bez celu zwraca 2, a `if grep ...; then` czyta to jak brak trafień.
           test -f MetroBxl.sln || { echo "brak MetroBxl.sln — bramka nie ma czego sprawdzić" >&2; exit 1; }
-          if grep -q 'MetroBxl.Game' MetroBxl.sln; then
-            echo "projekt Godota trafił do MetroBxl.sln — rdzeń przestałby się budować bez silnika" >&2
+          # Wzorzec łapie zarówno `MetroBxl.Game`, jak i `MetroBxl.Game.Tests` —
+          # projekt testowy warstwy silnika też referuje Godota, więc jego wejście
+          # do solucji zepsułoby regułę 9 dokładnie tak samo.
+          # Szukana jest ŚCIEŻKA, nie nazwa projektu. Wpisy w .sln mają postać
+          #   Project(...) = "Sim.Tests", "tests\\Sim.Tests\\Sim.Tests.csproj", ...
+          # więc napis `MetroBxl.Game` pada wyłącznie dla samego projektu gry;
+          # `tests\\Game.Tests\\Game.Tests.csproj` nie zawiera go wcale i poprzednia
+          # wersja tej bramki przepuściłaby go do solucji.
+          if grep -qE 'src[\\/]Game|tests[\\/]Game\.Tests' MetroBxl.sln; then
+            echo "projekt Godota albo jego testy trafiły do MetroBxl.sln — rdzeń przestałby się budować bez silnika" >&2
             exit 1
           fi
-          echo "MetroBxl.sln: bez projektu Godota"
+          echo "MetroBxl.sln: bez projektu Godota i bez jego testów"
 
       - name: Build core and console runner
         shell: bash
@@ -187,6 +195,19 @@ jobs:
       - name: Build the Godot project
         shell: bash
         run: dotnet build src/Game/MetroBxl.Game.csproj --configuration Debug
+
+      # Warstwa silnika do 02.09.2026 nie miała ANI JEDNEGO testu jednostkowego:
+      # 13 typów weryfikowanych wyłącznie tym workflow. Audyt mutacyjny pokazał,
+      # co przez to przechodziło — `TrackOffsetM 2.10→0.0` i `CabEyeHeightM 2.20→0.0`
+      # zostawiały wszystkie bramki zielone, bo kontrola zgodności osi porównuje
+      # DŁUGOŚĆ osi, a nie odsunięcie toru od niej ani wysokość oka.
+      #
+      # Testy chodzą TUTAJ, a nie w sim-tests.yml, bo `tests/Game.Tests` referuje
+      # projekt Godota. Krok wyżej pilnuje, że ten projekt nie wszedł do MetroBxl.sln;
+      # ten krok daje mu pokrycie bez naruszania tamtej reguły.
+      - name: Engine layer unit tests
+        shell: bash
+        run: dotnet test tests/Game.Tests/Game.Tests.csproj --configuration Release
 
       # Na jednorazowej maszynie GitHuba Blender trzeba było instalować za każdym
       # razem — 162 pakiety, 190 MB. Na maszynie właściciela zostaje zainstalowany,
