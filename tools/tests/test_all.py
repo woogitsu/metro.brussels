@@ -9,6 +9,9 @@ import profiles, validate as V, reference as R, make_test_track as M, provenance
 def _tmp(d):
     f=tempfile.NamedTemporaryFile("w",suffix=".json",delete=False,encoding="utf-8"); json.dump(d,f,ensure_ascii=False); f.close(); return f.name
 
+def _signalling_ground_truth():
+    return json.load(open(os.path.join(ROOT,"data","signalling","ground-truth.json"),encoding="utf-8"))
+
 def _m7_spec():
     return json.load(open(os.path.join(ROOT,"data","vehicle","m7-spec.json"),encoding="utf-8"))
 
@@ -168,6 +171,35 @@ def test_provenance_osm_query_is_hashed_not_stored():
 def test_source_manifest_schema_has_core_required_fields():
     schema=json.load(open(os.path.join(ROOT,"data","schema","source-manifest.schema.json"),encoding="utf-8")); req=set(schema["required"])
     assert {"source_id","final_url","retrieved_at","content_sha256","size_bytes","format","parser_version","transformations","input_sources"}<=req
+
+def test_signalling_ground_truth_sources_exist():
+    gt=_signalling_ground_truth(); src=json.load(open(os.path.join(ROOT,"data","network","sources.json"),encoding="utf-8")); ids={x["id"] for x in src["sources"]}
+    referenced={sid for f in gt["facts"] for sid in f.get("source_ids",[])}
+    assert referenced<=ids, sorted(referenced-ids)
+
+def test_signalling_source_backed_facts_have_provenance():
+    gt=_signalling_ground_truth()
+    for f in gt["facts"]:
+        if f["status"] in {"spec","observed"}: assert f.get("source_ids"), f["id"]
+
+def test_signalling_modes_reference_real_facts():
+    gt=_signalling_ground_truth(); fact_ids={f["id"] for f in gt["facts"]}
+    for name,mode in gt["modes"].items():
+        refs=mode.get("source_fact_ids"); assert refs,(name,"missing source_fact_ids")
+        assert set(refs)<=fact_ids,(name,sorted(set(refs)-fact_ids))
+        assert "source_backed" not in mode,(name,"free-form source_backed labels are not auditable")
+    assert "cbtc_test_method_and_beekkant" in gt["modes"]["cbtc_test"]["source_fact_ids"]
+    assert "cbtc_variable_separation_concept" in gt["modes"]["cbtc_future"]["source_fact_ids"]
+
+def test_signalling_historical_default_is_classic_2026():
+    gt=_signalling_ground_truth(); assert gt["as_of"]=="2026-08-31"; assert gt["historical_default"]=="classic_2026"
+    defaults=[name for name,mode in gt["modes"].items() if mode.get("historical_default")]
+    assert defaults==["classic_2026"],defaults
+    assert gt["modes"]["cbtc_test"]["passenger_service_network_wide"] is False
+
+def test_signalling_unknowns_remain_explicit():
+    gt=_signalling_ground_truth(); unknown=" ".join(gt["unknown_parameters"]).lower()
+    for term in ("block","telegram","braking","interlocking","failover"): assert term in unknown,term
 
 def _discover():
     """Testy z tego pliku plus wszystkie moduły tools/tests/test_*.py."""

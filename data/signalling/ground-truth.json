@@ -1,0 +1,197 @@
+{
+  "$comment": "R-003 signalling ground truth. Public facts only; undocumented technical parameters stay design_model/unknown.",
+  "schema_version": 1,
+  "as_of": "2026-08-31",
+  "historical_default": "classic_2026",
+  "facts": [
+    {
+      "id": "legacy_fixed_blocks",
+      "status": "observed",
+      "value": true,
+      "source_ids": ["stib_cbtc_acceleration_2025_08_21", "stibstories_cbtc_explainer"],
+      "simulation_abstraction": "Fixed zones with one-train occupancy are a source-backed baseline; exact block boundaries are design_model until sourced.",
+      "limitations": "No public package-A block plan or lengths were found."
+    },
+    {
+      "id": "legacy_track_circuits",
+      "status": "observed",
+      "value": true,
+      "source_ids": ["stibstories_cbtc_explainer"],
+      "simulation_abstraction": "Track circuits may be represented as the source-backed mechanism forming legacy fixed zones.",
+      "limitations": "Circuit boundaries, electrical parameters and failure logic are not public."
+    },
+    {
+      "id": "legacy_automatic_speed_protection",
+      "status": "observed",
+      "value": true,
+      "source_ids": ["stibstories_cbtc_explainer"],
+      "simulation_abstraction": "A train-protection abstraction may automatically slow/intervene when the protected separation is not respected.",
+      "limitations": "Do not assign real KCV/ATP curves, thresholds or reaction times without a source."
+    },
+    {
+      "id": "ats_transition",
+      "status": "observed",
+      "value": "progressive_transition",
+      "source_ids": ["stib_cbtc_acceleration_2025_08_21", "stib_cbtc_status_2026_07_02"],
+      "simulation_abstraction": "ATS is a distinct supervision/dispatch layer and must not bypass train protection.",
+      "limitations": "No public dispatch algorithm or real decision thresholds."
+    },
+    {
+      "id": "cbtc_variable_separation_concept",
+      "status": "observed",
+      "value": true,
+      "source_ids": ["stib_cbtc_acceleration_2025_08_21", "stibstories_cbtc_explainer"],
+      "simulation_abstraction": "Future CBTC may use a vendor-neutral dynamic/variable separation abstraction instead of the legacy fixed-zone occupancy model.",
+      "limitations": "Do not infer the real positioning accuracy, radio layer, moving-authority algorithm or safety buffer."
+    },
+    {
+      "id": "cbtc_lines_1_5_full_service",
+      "status": "observed",
+      "value": false,
+      "source_ids": ["stib_cbtc_status_2026_07_02"],
+      "simulation_abstraction": "The historical scenario on 2026-08-31 remains classic_2026; CBTC is limited to explicit test/future modes.",
+      "limitations": "STIB states commissioning follows completion of installation and tests across all of lines 1 and 5."
+    },
+    {
+      "id": "cbtc_test_erasme_stockel",
+      "status": "observed",
+      "value": "installation_complete_tests_active",
+      "source_ids": ["stib_cbtc_status_2026_07_02"],
+      "simulation_abstraction": "May exist as an explicitly labelled test scenario, never as network-wide historical service.",
+      "limitations": "Do not infer continuous operational CBTC passenger service from test closures."
+    },
+    {
+      "id": "cbtc_test_method_and_beekkant",
+      "status": "observed",
+      "value": {
+        "test_sequence": ["static_communications", "dynamic_train_running"],
+        "beekkant_dynamic_tests": "started_late_may_2026",
+        "common_trunk_dynamic_tests": "planned_summer_2026"
+      },
+      "source_ids": ["stib_cbtc_status_2026_07_02"],
+      "simulation_abstraction": "Test scenarios may distinguish static validation from dynamic train-running tests and may label Beekkant/common-trunk validation as historical test activity.",
+      "limitations": "The source does not publish test scripts, acceptance thresholds, protocol traces or safety parameters."
+    },
+    {
+      "id": "cbtc_jacques_brel_merode_2026_plan",
+      "status": "observed",
+      "value": "equipment_planned_by_end_2026",
+      "source_ids": ["stib_cbtc_status_2026_07_02"],
+      "simulation_abstraction": "Future rollout metadata only.",
+      "limitations": "A plan is not proof of commissioning."
+    },
+    {
+      "id": "cbtc_herrmann_debroux_plan",
+      "status": "observed",
+      "value": "installation_completion_planned_early_2027",
+      "source_ids": ["stib_cbtc_status_2026_07_02"],
+      "simulation_abstraction": "Future rollout metadata only.",
+      "limitations": "A plan is not proof of commissioning."
+    },
+    {
+      "id": "kcv_lines_2_6",
+      "status": "observed",
+      "value": true,
+      "source_ids": ["stib_cbtc_status_2026_07_02"],
+      "simulation_abstraction": "KCV remains a source-backed interface/function on lines 2/6; protocol internals remain outside the simulator.",
+      "limitations": "No telegram format, frequency, locator geometry or safety curve is public in the checked sources."
+    },
+    {
+      "id": "cbtc_mini_lines_2_6",
+      "status": "observed",
+      "value": "planned_localisation_equipment_plus_existing_kcv",
+      "source_ids": ["stib_cbtc_status_2026_07_02"],
+      "simulation_abstraction": "Future mode can preserve KCV-facing functions and add a vendor-neutral positioning abstraction.",
+      "limitations": "Implementation details are unknown."
+    },
+    {
+      "id": "kcv_confirmed_functions_lines_2_6",
+      "status": "observed",
+      "value": ["secure_automatic_door_opening_at_station", "enable_m7_station_announcements", "activate_wheel_lubrication_on_some_curves"],
+      "source_ids": ["stib_cbtc_status_2026_07_02"],
+      "simulation_abstraction": "Expose only these source-backed functional interfaces; do not emulate a real protocol.",
+      "limitations": "Functions are public; implementation and safety logic are not."
+    },
+    {
+      "id": "new_signalling_vendor",
+      "status": "observed",
+      "value": "Ansaldo STS France SA",
+      "source_ids": ["stib_activity_report_2016_signalling"],
+      "simulation_abstraction": "Vendor remains provenance metadata; runtime interfaces stay vendor-neutral.",
+      "limitations": "Vendor identity does not license reuse of proprietary implementation details."
+    },
+    {
+      "id": "contract_driverless_cbtc_scope",
+      "status": "observed",
+      "value": {"lines": [1, 5], "length_km": 35.5, "stations": 37, "fleet_reference": 60, "contract_value_eur_approx": 88000000},
+      "source_ids": ["hitachi_ansaldo_brussels_contract_2016_10_07"],
+      "simulation_abstraction": "Documents programme scope only; it does not change the historical 2026 operating mode.",
+      "limitations": "Contract scope and product capability are not proof of UTO operation in 2026."
+    },
+    {
+      "id": "contract_integration_scope",
+      "status": "observed",
+      "value": ["CBTC", "ATS", "passenger_information", "passenger_announcement"],
+      "source_ids": ["hitachi_ansaldo_brussels_award_2016_08_03"],
+      "simulation_abstraction": "Allows later domain interfaces between signalling supervision and passenger-information events without asserting protocol details.",
+      "limitations": "No message schemas or interfaces were published in the checked source."
+    },
+    {
+      "id": "platform_screen_doors_for_future_automation",
+      "status": "observed",
+      "value": true,
+      "source_ids": ["stib_cbtc_acceleration_2025_08_21"],
+      "simulation_abstraction": "UTO must remain a future gated scenario and cannot be inferred from CBTC equipment alone.",
+      "limitations": "No station-by-station implementation state is inferred here."
+    },
+    {
+      "id": "headway_program_target_lines_1_5_shared",
+      "status": "observed",
+      "value": {"legacy_seconds_approx": 150, "cbtc_target_seconds_approx": 120},
+      "source_ids": ["stibstories_cbtc_explainer"],
+      "simulation_abstraction": "Use only as a programme-level cross-check after timetable/physics modelling.",
+      "limitations": "Not a guaranteed timetable headway and not a safety margin."
+    }
+  ],
+  "modes": {
+    "classic_2026": {
+      "historical_default": true,
+      "historical_status": "operational_baseline",
+      "lines_1_5": "legacy_fixed_block",
+      "lines_2_6": "legacy_with_kcv",
+      "source_fact_ids": ["legacy_fixed_blocks", "legacy_track_circuits", "legacy_automatic_speed_protection", "kcv_lines_2_6", "cbtc_lines_1_5_full_service"],
+      "design_model_required": ["block_boundaries", "block_lengths", "signal_aspects", "route_locking_details", "safety_curves"]
+    },
+    "cbtc_test": {
+      "historical_default": false,
+      "historical_status": "installation_and_validation",
+      "passenger_service_network_wide": false,
+      "source_fact_ids": ["cbtc_test_erasme_stockel", "cbtc_test_method_and_beekkant", "cbtc_lines_1_5_full_service"],
+      "design_model_required": ["test_area_boundaries_in_sim", "radio_protocol", "positioning_accuracy", "safety_buffers"]
+    },
+    "cbtc_future": {
+      "historical_default": false,
+      "historical_status": "future_scenario",
+      "source_fact_ids": ["cbtc_variable_separation_concept", "ats_transition", "contract_driverless_cbtc_scope", "contract_integration_scope", "platform_screen_doors_for_future_automation", "headway_program_target_lines_1_5_shared"],
+      "design_model_required": ["movement_authority_algorithm", "protective_buffer", "ato_curves", "degraded_modes", "radio_and_localisation_details"]
+    },
+    "cbtc_mini_future": {
+      "historical_default": false,
+      "historical_status": "future_scenario",
+      "lines": [2, 6],
+      "source_fact_ids": ["cbtc_mini_lines_2_6", "kcv_lines_2_6", "kcv_confirmed_functions_lines_2_6"],
+      "design_model_required": ["localisation_device_model", "interfaces", "fallback_logic"]
+    }
+  },
+  "unknown_parameters": [
+    "exact fixed-block boundaries and lengths",
+    "complete signal aspect tables and placement",
+    "CBTC/KCV radio or telegram formats, frequencies and network topology",
+    "exact balise/localiser parameters and positioning algorithm",
+    "ATP/ATO braking curves and safety margins",
+    "device reaction times",
+    "station-specific route-locking/interlocking logic",
+    "vendor-specific failover and degraded-mode implementation",
+    "operational GoA beyond explicitly published historical state"
+  ]
+}
