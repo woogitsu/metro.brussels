@@ -264,7 +264,9 @@ Szczegóły i pełne wyjście: `reports/T-113-timetable.md`.
 
 | potrzebne | blokuje | zadanie |
 |---|---|---|
-| rzędne główki szyny, profil pionowy | brak publicznych danych; dwa oficjalne źródła podają **sprzeczne** głębokości (Schuman 15 m vs 17,42 m; Botanique 21,5 vs 20 m) | T-112 (#10), research T-901 (#29) |
+| rzędne główki szyny, profil pionowy | brak publicznych danych; dwa oficjalne źródła podają **sprzeczne** głębokości (Schuman 15 m vs 17,42 m; Botanique 21,5 vs 20 m). **R-007** dołożył trzy stacje z EIE Métro 3 jako `estimated` (De Brouckère i Arts-Loi ok. 11 m, Parc 19 m) — trzy z dwunastu to nadal nie profil | T-112 (#10), research T-901 (#29) |
+| **wysokość peronu nad główką szyny** | **1,03 m, `source_backed`** — STIB pisze, że podłoga M7 (1 m 03) jest „à hauteur du quai", w dwóch niezależnych publikacjach. **Zastrzeżenie:** STIB nie deklaruje, względem czego mierzy tę wysokość; baza odniesienia to konwencja branżowa | `reports/R-007-platform-dimensions.md` |
+| **długość peronu** | **brak źródła w ogóle.** Udowodnione ograniczenie `94,0 m ≤ L ≤ obrys stacji`; najciaśniej Parc 109,1 m. Pomiar OSM 94,76 ± 0,78 m to `openstreetmap`, klasa niżej, i dwa z 28 obrysów wypadają PONIŻEJ długości składu — błąd obrysu co najmniej ±0,5 m. Liczba „125 m średnio" z Wikipedii wstawiona 2007 bez źródła i sprzeczna z pomiarem o ~30 % | `reports/R-007-platform-dimensions.md`, T-211 |
 | długość i wysokość peronów, wyjścia, komunikacja pionowa | brak ground truth | R-004 (#16) → T-211 (#18) |
 | przekrój tunelu, geometria toru, trzecia szyna, rozjazdy | brak ground truth | R-005 (#17) |
 | rozstaw czopów skrętu M7 | brak w publicznych materiałach | pełna skrajnia kinematyczna |

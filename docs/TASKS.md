@@ -63,6 +63,13 @@ gdy jego artefakty istnieją w `main` i przechodzą CI.
 - **Blokada:** brak publicznych rzędnych główki szyny; dwa oficjalne źródła podają
   **sprzeczne** głębokości stacji (Schuman 15 m vs 17,42 m; Botanique 21,5 vs 20 m).
   Dopóki to trwa, tunel jest wariantem `flat-preview`, a generator odrzuca `--variant production`
+- **Ruszyło się przy R-007:** EIE Métro 3 (Livre III Colignon) podaje głębokości peronów
+  **trzech** stacji pakietu A — De Brouckère i Arts-Loi ok. 11 m, Parc 19 m — wpisane do
+  `station-depths.csv` ze statusem `estimated` i notatką o dwóch przekształceniach
+  (peron → główka szyny, oraz „environ" w zdaniu porównawczym, nie w tabeli pomiarowej).
+  **To nie odblokowuje zadania:** trzy z dwunastu stacji nie dają profilu, a Schuman
+  zostaje pusty, bo 15 m potwierdza jedną stronę konfliktu. Znane jest za to górne
+  ograniczenie na całą sieć: **21,5 m** (Botanique, najgłębsza stacja)
 - **Wejście:** oś + `station-depths.csv`
 - **Skończone, gdy:** pochylenia interpolowanego profilu są 0–4%, a każda wygenerowana wartość ma `interpolated:true` i `design_assumption`
 - **Zależy od:** T-111, T-901
@@ -94,18 +101,29 @@ gdy jego artefakty istnieją w `main` i przechodzą CI.
   decyzję właściciela (8,6 % poza tunelem), D i F na model odcinka poza tunelem
 - **Uwaga:** wyłącznie wariant `flat-preview` — profil pionowy czeka na T-112
 
-### [ ] T-211 · Zestaw wspólny elementów stacji — **NADAL ZABLOKOWANE**
-- **Stan:** R-004 i R-005 są w `main`. Rejestr `data/stations/package-a.json` daje wyjścia,
-  komunikację pionową i stan robót dwunastu stacji pakietu A — ale **260 z 696 faktów
-  to jawne `unknown`**, a długości i wysokości peronów wśród nich
-- **Zostaje jako blokada — i dlatego nagłówek nadal mówi ZABLOKOWANE:** długość
-  i wysokość peronu. Peron bez długości to peron zgadnięty. Cztery stacje (De Brouckère,
-  Étangs Noirs, Sainte-Catherine, Schuman) nie mają dziś tekstowego opisu planu — ich
-  wyjścia pochodzą wyłącznie z GTFS, a wyposażenie pionowe jest `unknown`
-- **Zależy od:** T-010, R-004 (zrobione), R-005 (zrobione)
+### [ ] T-211 · Zestaw wspólny elementów stacji — **ODBLOKOWANE przez R-007**
+- **Stan:** R-004 i R-005 są w `main`; R-007 (`reports/R-007-platform-dimensions.md`)
+  rozstrzygnął oba wymiary, które blokowały to zadanie
+- **Wysokość peronu: 1,03 m nad główką szyny**, `source_backed`. STIB pisze, że podłoga
+  M7 (1 m 03, `spec` w rejestrze) jest „à hauteur du quai", w dwóch niezależnych
+  publikacjach. **Zastrzeżenie jedzie razem z liczbą:** STIB nie deklaruje, względem
+  czego mierzy tę wysokość — baza odniesienia to konwencja branżowa, nie jego zdanie
+- **Długość peronu: nadal bez źródła**, i tak zostaje w danych (`platform_length` =
+  `unknown`). Generator dostaje **jawny parametr** o wartości domyślnej **94,0 m =
+  długość składu M7** (fakt STIB) — nie 94,76 m z pomiaru OSM, bo to klasa źródła niżej,
+  a dwa z 28 obrysów wypadają PONIŻEJ długości składu, czyli błąd obrysu to co najmniej
+  ±0,5 m. Górne ograniczenie z obrysu stacji UrbIS jest **kontrolą**: peron dłuższy niż
+  bryła stacji jest na pewno błędny, najciaśniej **Parc 109,1 m**
+- **Otwarte:** Schuman — OSM daje 111,6 m wobec ~94,8 gdzie indziej, z proweniencją
+  `source=knowledge`. Albo dłuższy peron, albo błąd mapowicza; wymaga człowieka
+- **Nadal `unknown` w rejestrze:** wyposażenie pionowe czterech stacji, których STIB nie
+  opisuje tekstowo (De Brouckère, Étangs Noirs, Sainte-Catherine, Schuman) — to nie
+  blokuje zestawu wspólnego, bo dotyczy wyjść, nie peronu
+- **Zależy od:** T-010, R-004 (zrobione), R-005 (zrobione), R-007 (zrobione)
 
-### [ ] T-212 · Pierwsza stacja typowa — **ZABLOKOWANE**
-- **Zależy od:** T-211 (samo zablokowane), T-210
+### [ ] T-212 · Pierwsza stacja typowa — **ZABLOKOWANE tylko przez T-211**
+- **Stan:** blokada danych zdjęta przez R-007; zostaje kolejność zadań
+- **Zależy od:** T-211 (odblokowane, ale niezrobione), T-210 (zrobione)
 
 ### [x] T-220 · Bryła zewnętrzna M7
 - **Wyjście:** `tools/blender/m7_shell.py`, `m7_layout.py`, `reports/M7-shell.md`
@@ -231,8 +249,9 @@ Poniższe zadania istnieją jako Issues, ale nie mają tu wpisu. Dopóki go nie 
 **Issues są jedynym źródłem prawdy** o ich zakresie:
 
 - **T-114** — proweniencja pobranych danych (`tools/data/provenance.py`, `docs/09`), **zrobione**;
-- **R-002 … R-006** — ground truth źródeł, sygnalizacji, stacji, infrastruktury torowej
-  i prędkości dopuszczalnej. **R-003, R-004, R-005 i R-006 są w `main`** (#34, #90, #35, #85);
+- **R-002 … R-007** — ground truth źródeł, sygnalizacji, stacji, infrastruktury torowej,
+  prędkości dopuszczalnej i wymiarów peronu. **R-003, R-004, R-005, R-006 i R-007 są
+  w `main`** (#34, #90, #35, #85, R-007);
 - **T-401** — przejazd linii z zatrzymaniem na każdej stacji, **zrobione** (#82):
   49 z 49 odcinków sieci dopasowanych, na żadnym model nie jest wolniejszy od rozkładu
   przy 72 km/h; dolne ograniczenie prędkości liniowej rośnie z 57,65 do **58,75 km/h**
@@ -244,7 +263,7 @@ Poniższe zadania istnieją jako Issues, ale nie mają tu wpisu. Dopóki go nie 
 | brakująca dana | blokuje | gdzie szukać |
 |---|---|---|
 | rzędne główki szyny, głębokości stacji | T-112 → produkcyjny tunel | T-901, `data/network/station-depths.csv` |
-| **długość i wysokość peronu** | T-211 → T-212 | R-004 jest w `main`, ale te dwie wartości są tam `unknown` (260 z 696 faktów) |
+| ~~długość i wysokość peronu~~ | ~~T-211~~ → T-212 | **rozstrzygnięte przez R-007**: wysokość 1,03 m `source_backed`, długość zostaje `unknown`, ale generator ma jawny parametr 94,0 m i kontrolę górną 109,1 m |
 | przekrój tunelu, geometria odbioru prądu | wiarygodność wymiarów w `profiles.py` | R-005 jest w `main`: 1435 mm to `secondary_reference_only`, `contact_geometry` = `unknown` |
 | ~~ground truth sygnalizacji, CBTC, ATS, KCV~~ | ~~T-313~~ → T-314, T-320 | **odblokowane** — R-003 w `main` (#34), T-313 zrobione (#91) |
 | prędkość dopuszczalna na torze | T-320; `speed_limits` puste we wszystkich osiach | **rozstrzygnięte przez R-006 (#85): źródła nie ma.** 72/50 km/h pochodzi z notatki DH z 11.02.2008 o sieci sprzed układu z 2009 — klasa `manufacturer_or_trade_press`, poniżej OSM. Ograniczenie dolne z T-401: 58,75 km/h |
