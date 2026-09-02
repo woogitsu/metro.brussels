@@ -78,7 +78,12 @@ public sealed partial class FirstRun : Node3D
     private OmniLight3D _headlight = null!;
     private Hud _hud = null!;
 
-    private double _accumulator;
+    /// <summary>
+    /// Zamiana czasu klatki na kroki rdzenia. Logika siedzi w `src/Sim`, bo
+    /// `docs/01-architecture.md` mówi, że ta warstwa jest bez logiki — a jako
+    /// prywatne pole węzła nie dawała się dotknąć żadnym testem (Issue #106).
+    /// </summary>
+    private StepAccumulator _accumulator = null!;
     private long _frames;
     private long _sampleEvery = DriveTelemetry.DefaultSampleEverySteps;
     private long _stepsPerFrame = 120;
@@ -344,6 +349,7 @@ public sealed partial class FirstRun : Node3D
         _model = VehicleModel.M7;
         _scenario = DriveScenario.PackageAFirstRun(_model);
         _step = FixedStep.Simulation;
+        _accumulator = new StepAccumulator(_step);
 
         // Pochylenie 0 nie jest wyborem: profil pionowy pakietu A ma status
         // not_modelled, a docs/21-measured-vs-assumed.md §3 zabrania wyprowadzania
@@ -536,14 +542,13 @@ public sealed partial class FirstRun : Node3D
             return 0;
         }
 
-        _accumulator += seconds;
+        var wanted = _accumulator.StepsForFrame(seconds);
         var executed = 0L;
-        while (_accumulator >= _step.Seconds)
+        for (var i = 0L; i < wanted; i++)
         {
-            _accumulator -= _step.Seconds;
             if (!StepOnce())
             {
-                _accumulator = 0.0;
+                _accumulator.DropCarry();
                 break;
             }
 
@@ -661,7 +666,7 @@ public sealed partial class FirstRun : Node3D
         if (resetKey && !_resetKeyHeld)
         {
             _state = DriveState.AtRest;
-            _accumulator = 0.0;
+            _accumulator.DropCarry();
             _input.Set(DriverCommand.Coast);
             _command = DriverCommand.Coast;
         }
