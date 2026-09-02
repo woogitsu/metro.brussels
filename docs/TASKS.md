@@ -4,8 +4,8 @@
 
 **Źródłem prawdy o statusie są GitHub Issues**, nie ten plik. Ten plik jest mapą
 zależności i zakresów. Statusy poniżej odzwierciedlają to, co **realnie leży w repo**
-na dzień 01.09.2026, wieczorem — zadanie jest odhaczone tylko wtedy, gdy jego artefakty istnieją
-w `main` i przechodzą CI.
+na dzień 02.09.2026, po scaleniu #34, #35, #80–#93 — zadanie jest odhaczone tylko wtedy,
+gdy jego artefakty istnieją w `main` i przechodzą CI.
 
 ## Gotowe w szkielecie
 - `[x]` **T-100** — walidator osi trasy
@@ -19,7 +19,16 @@ w `main` i przechodzą CI.
 - **Wyjście:** `tools/ci/blender_smoke.sh`, workflow `blender-smoke.yml`
 - **Weryfikacja:** generacja → render → obejrzenie trzech PNG, plus cztery testy negatywne
 
-### [ ] T-011 · Rozstawianie detali wzdłuż osi
+### [x] T-011 · Rozstawianie detali wzdłuż osi
+- **Wyjście:** `tools/track/detail_layout.py` (kilometraże, **0 założeń**),
+  `tools/blender/detail_markers.py` (bryły, 4 założenia, każde wypisywane i sprawdzane),
+  `tools/blender/placement.py` (`marker_clearances`, `axis_window`),
+  `reports/T-011-detail-markers.md`
+- **Wynik:** pakiet A — 89 miejsc na 6686,4 m osi: 66 hektometrów co 100 m, 12 stacji
+  ze `stop_id`, 11 punktów hamowania liczonych solverem z T-311 (72 km/h → 196,39 m)
+- **Uwaga:** `--brake-from-kmh` **nie ma wartości domyślnej** — prędkość dopuszczalna
+  na torze nie ma źródła (R-006). Bez niej narzędzie nie stawia punktów hamowania,
+  a `braking_distance_m` wychodzi `None`, nie `0.0`
 - **Zależy od:** T-010
 
 ### [x] T-012 · Zrzuty kontrolne i wykrywanie regresji
@@ -85,9 +94,15 @@ w `main` i przechodzą CI.
   decyzję właściciela (8,6 % poza tunelem), D i F na model odcinka poza tunelem
 - **Uwaga:** wyłącznie wariant `flat-preview` — profil pionowy czeka na T-112
 
-### [ ] T-211 · Zestaw wspólny elementów stacji — **ZABLOKOWANE**
-- **Blokada:** brak długości i wysokości peronów, wyjść i komunikacji pionowej (R-004)
-- **Zależy od:** T-010, R-004, R-005
+### [ ] T-211 · Zestaw wspólny elementów stacji — **NADAL ZABLOKOWANE**
+- **Stan:** R-004 i R-005 są w `main`. Rejestr `data/stations/package-a.json` daje wyjścia,
+  komunikację pionową i stan robót dwunastu stacji pakietu A — ale **260 z 696 faktów
+  to jawne `unknown`**, a długości i wysokości peronów wśród nich
+- **Zostaje jako blokada — i dlatego nagłówek nadal mówi ZABLOKOWANE:** długość
+  i wysokość peronu. Peron bez długości to peron zgadnięty. Cztery stacje (De Brouckère,
+  Étangs Noirs, Sainte-Catherine, Schuman) nie mają dziś tekstowego opisu planu — ich
+  wyjścia pochodzą wyłącznie z GTFS, a wyposażenie pionowe jest `unknown`
+- **Zależy od:** T-010, R-004 (zrobione), R-005 (zrobione)
 
 ### [ ] T-212 · Pierwsza stacja typowa — **ZABLOKOWANE**
 - **Zależy od:** T-211 (samo zablokowane), T-210
@@ -130,18 +145,32 @@ w `main` i przechodzą CI.
   T-113 daje dla niego ograniczenie **górne** (≤ 10,5 s przy medianowym postoju), nie wartość
 - **Zależy od:** T-310
 
-### [ ] T-313 · Sygnalizacja klasyczna
-- **Zależy od:** T-311 (zrobione); ground truth z R-003 czeka w niescalonym PR #34
+### [x] T-313 · Sygnalizacja klasyczna
+- **Wyjście:** `src/Sim/Signalling/`, `data/design/signalling/classic-2026.json`,
+  `docs/15-classic-signalling.md`
+- **Wynik:** 23 bloki na 6733,35 m pakietu A — 12 peronowych (11 po 94,0 m, pierwszy
+  przycięty do 47 m) i 11 szlakowych 220,93–1125,00 m, mediana 497,47 m. Najkrótszy
+  blok szlakowy mieści drogę hamowania z 72 km/h (220,93 m wobec 196,39 m), pilnuje
+  tego osobny test. ATP korzysta z krzywej hamowania T-311, nie z drugiej fizyki
+- **Plan jest wynikiem reguły, nie tabelką:** `SignallingPlan.FromAxis` wykonuje regułę
+  (blok peronowy długości składu wyśrodkowany na kilometrażu stacji, między peronami
+  dokładnie jeden blok szlakowy), a test przypina do niej plik — kod nie zna ani jednej
+  granicy bloku
+- **Świadomie zostawione jako `design_model`:** granice bloków, prędkość dopuszczalna,
+  zapas za końcem authority, logika konfliktu tras i czasy reakcji urządzeń. Ground truth
+  R-003 wprost mówi w `unknown_parameters`, że STIB ich nie publikuje
+- **Zależy od:** T-311 (zrobione), R-003 (zrobione)
 
-### [ ] T-314 · CBTC + ATS jako osobny tryb
-- **Wejście:** zweryfikowany stan wdrożenia z `sources.json`
+### [ ] T-314 · CBTC + ATS jako osobny tryb — **ODBLOKOWANE**
+- **Wejście:** zweryfikowany stan wdrożenia z `sources.json` (R-003 jest w `main`)
 - **Skończone, gdy:** tryb CBTC nie jest aktywny w scenariuszu historycznym 31.08.2026 bez potwierdzenia pełnego uruchomienia STIB
-- **Zależy od:** T-313
+- **Zależy od:** T-313 (zrobione)
 
-### [ ] T-320 · Rdzeń linii — wiele składów naraz
+### [ ] T-320 · Rdzeń linii — wiele składów naraz — **ODBLOKOWANE**
 - **Wejście z T-113:** takt 5:10 (L1/L5) i 5:40 (L2/L6), 48 kursów naraz w ruchu,
   71 obiegów pojazdów, rozkładowe czasy jazdy i postoju per odcinek (`build/timetable.json`)
-- **Zależy od:** T-313 (zablokowane), T-113 (zrobione)
+- **Wejście z T-313:** plan bloków pakietu A, zajętość, movement authority i ATP
+- **Zależy od:** T-313 (zrobione), T-113 (zrobione)
 
 ## Silnik
 
@@ -181,7 +210,12 @@ Poniższe zadania istnieją jako Issues, ale nie mają tu wpisu. Dopóki go nie 
 **Issues są jedynym źródłem prawdy** o ich zakresie:
 
 - **T-114** — proweniencja pobranych danych (`tools/data/provenance.py`, `docs/09`), **zrobione**;
-- **R-002 … R-005** — ground truth źródeł, sygnalizacji, stacji i infrastruktury torowej;
+- **R-002 … R-006** — ground truth źródeł, sygnalizacji, stacji, infrastruktury torowej
+  i prędkości dopuszczalnej. **R-003, R-004, R-005 i R-006 są w `main`** (#34, #90, #35, #85);
+- **T-401** — przejazd linii z zatrzymaniem na każdej stacji, **zrobione** (#82):
+  49 z 49 odcinków sieci dopasowanych, na żadnym model nie jest wolniejszy od rozkładu
+  przy 72 km/h; dolne ograniczenie prędkości liniowej rośnie z 57,65 do **58,75 km/h**
+  (`reports/T-401-line-run.md`);
 - **T-901** — rzędne i głębokości pakietu A, blokuje T-112.
 
 ## Co blokuje co, w jednym miejscu
@@ -189,10 +223,10 @@ Poniższe zadania istnieją jako Issues, ale nie mają tu wpisu. Dopóki go nie 
 | brakująca dana | blokuje | gdzie szukać |
 |---|---|---|
 | rzędne główki szyny, głębokości stacji | T-112 → produkcyjny tunel | T-901, `data/network/station-depths.csv` |
-| długości i wysokości peronów, wyjścia | T-211 → T-212 | R-004 |
-| przekrój tunelu, geometria toru, trzecia szyna | wiarygodność wymiarów w `profiles.py` | R-005 |
-| ground truth sygnalizacji, CBTC, ATS, KCV | T-313 → T-314 → T-320 | R-003, niescalony PR #34 |
-| prędkość dopuszczalna na torze | T-011, T-320; `speed_limits` puste we wszystkich osiach | brak źródła; T-113 daje ograniczenie dolne 57,65 km/h (`docs/21` §4d) |
+| **długość i wysokość peronu** | T-211 → T-212 | R-004 jest w `main`, ale te dwie wartości są tam `unknown` (260 z 696 faktów) |
+| przekrój tunelu, geometria odbioru prądu | wiarygodność wymiarów w `profiles.py` | R-005 jest w `main`: 1435 mm to `secondary_reference_only`, `contact_geometry` = `unknown` |
+| ~~ground truth sygnalizacji, CBTC, ATS, KCV~~ | ~~T-313~~ → T-314, T-320 | **odblokowane** — R-003 w `main` (#34), T-313 zrobione (#91) |
+| prędkość dopuszczalna na torze | T-320; `speed_limits` puste we wszystkich osiach | **rozstrzygnięte przez R-006 (#85): źródła nie ma.** 72/50 km/h pochodzi z notatki DH z 11.02.2008 o sieci sprzed układu z 2009 — klasa `manufacturer_or_trade_press`, poniżej OSM. Ograniczenie dolne z T-401: 58,75 km/h |
 | rozstaw czopów skrętu M7 | pełna skrajnia kinematyczna | brak źródła publicznego |
 | rzędne główki szyny (ta sama co wyżej) | scena z **dwoma** pakietami — przy Z = 0 rury A i E przenikają się w rejonie Arts-Loi | T-901 |
 | odcinki międzypakietowe (4034 m) | przejazd całą linią; kilometraż nie jest ciągły | decyzja właściciela o zakresie pakietów |
