@@ -28,14 +28,10 @@ jobs:
 
       - name: Install Blender
         shell: bash
+        timeout-minutes: 10
         run: |
           set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            blender \
-            python3-numpy \
-            libegl1 \
-            libgl1-mesa-dri
+          bash tools/ci/apt_install.sh blender python3-numpy libegl1 libgl1-mesa-dri
           blender --version | head -n 3
           ldconfig -p | grep -E 'libEGL\.so\.1|libGL\.so\.1' || true
 
