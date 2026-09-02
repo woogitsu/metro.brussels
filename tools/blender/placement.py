@@ -290,3 +290,36 @@ def fraction_to_chainage(fraction, low, high):
     """Ułamek w zakresie pokrycia, przycięty do niego."""
     value = low + (high - low) * float(fraction)
     return max(low, min(high, value))
+
+
+# --- detale przy torze (T-011) ---------------------------------------------------
+
+
+def gauge_half_width_m(gauge, height_m):
+    """Najszersze pół-rozstawienie skrajni pojazdu **do** zadanej wysokości.
+
+    Skrajnia zwęża się ku górze (ścięcia naroży), więc niski słupek może stać bliżej
+    osi niż wysoki. Branie zawsze najszerszego miejsca skrajni odsuwałoby hektometry
+    dalej, niż muszą stać.
+    """
+    below = [abs(x) for x, z in gauge if z <= height_m + 1e-9]
+    if not below:
+        raise ValueError(f"skrajnia nie ma ani jednego punktu poniżej {height_m} m")
+    return max(below)
+
+
+def marker_clearances(profile, gauge, offset_m, width_m, foot_m, height_m):
+    """Dwa luzy słupka przy torze: do skrajni pojazdu i do ściany tunelu.
+
+    Liczone w NAJGORSZYM punkcie bryły, nie w jej środku: o luz do skrajni decyduje
+    krawędź bliższa osi, o luz do ściany — dalsza i najwyższa. Wynik ujemny znaczy
+    kolizję i wołający ma odmówić zapisu, a nie zaokrąglić.
+    """
+    near = offset_m - width_m / 2.0
+    far = offset_m + width_m / 2.0
+    top = foot_m + height_m
+    to_gauge = near - gauge_half_width_m(gauge, top)
+    to_wall = min(distance_to_boundary(profile, far, top),
+                  distance_to_boundary(profile, far, foot_m),
+                  distance_to_boundary(profile, near, top))
+    return to_gauge, to_wall
