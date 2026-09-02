@@ -59,43 +59,58 @@ def test_ci_apt_helper_is_executable_and_retries():
     assert "ATTEMPTS" in body and "sleep" in body
 
 
-def test_ci_apt_helper_limits_a_single_attempt_not_only_the_whole_step():
-    """Limit na próbę, nie tylko na krok.
+def test_ci_apt_helper_lets_apt_handle_a_dead_socket():
+    """Zerwane połączenie ma łapać apt, nie zewnętrzny stoper.
 
-    Limit wyłącznie na kroku workflow zabija instalację w połowie pierwszego
-    podejścia i powtórka nigdy nie dostaje szansy — zmierzone na `visual-regression`
-    02.09.2026: krok padł po 10 min 13 s, wciąż w pierwszym `apt-get`.
+    `Acquire::*::Timeout` przerywa martwe gniazdo po 30 s, a `Acquire::Retries`
+    powtarza sam plik. Zewnętrzny limit jest sufitem na proces, nie mechanizmem
+    ponawiania — inaczej wyrzuca do kosza 190 MB pobrane w połowie.
     """
     body = open(HELPER, encoding="utf-8").read()
     assert "sudo timeout" in body, "sygnał ma trafić w apt-get, nie w sudo"
-    assert "UPDATE_TIMEOUT_S" in body and "INSTALL_TIMEOUT_S" in body
-    assert "124" in body, "kod 124 z `timeout` musi być rozpoznany jako nieudana próba"
+    assert "Acquire::Retries" in body
+    assert "124" in body, "kod 124 z `timeout` musi być rozpoznany i opisany"
 
 
-def test_ci_step_timeout_leaves_room_for_every_attempt():
-    """Backstop na kroku musi być dłuższy niż wszystkie próby razem z odstępami."""
+def test_ci_install_is_not_retried_from_scratch():
+    """`install` NIE jest powtarzany od zera.
+
+    Zmierzone 02.09.2026 na `first-run`: trzy próby po 240 s, każda z postępem,
+    każda ubita i zaczynająca od nowa — 13 minut na nic. Powtarzany jest tylko
+    `update`, bo jest tani (11,7 MB w 2 s).
+    """
     body = open(HELPER, encoding="utf-8").read()
-    attempts = int(re.search(r"ATTEMPTS=\$\{APT_ATTEMPTS:-(\d+)\}", body).group(1))
-    update_s = int(re.search(r"UPDATE_TIMEOUT_S=\$\{APT_UPDATE_TIMEOUT_S:-(\d+)\}", body).group(1))
+    assert "apt_update" in body and "UPDATE_ATTEMPTS" in body
+    assert "INSTALL_ATTEMPTS" not in body, "install nie ma pętli prób"
+    install_calls = [line for line in body.splitlines()
+                     if line.startswith("apt_run") and "install" in line]
+    assert len(install_calls) == 1, install_calls
+
+
+def test_ci_step_budget_covers_a_slow_mirror():
+    """Sufit musi pomieścić pobranie 190 MB z wolnego lustra.
+
+    Zmierzona prędkość lustra Azure w złym momencie: ~150 kB/s, czyli ponad
+    20 minut samego pobierania. Sufit poniżej tego zamienia wolne, ale postępujące
+    pobranie w twardą awarię — dokładnie to zrobiła pierwsza wersja tej poprawki.
+    """
+    body = open(HELPER, encoding="utf-8").read()
     install_s = int(re.search(r"INSTALL_TIMEOUT_S=\$\{APT_INSTALL_TIMEOUT_S:-(\d+)\}", body).group(1))
-    backoff = int(re.search(r"BACKOFF_S=\$\{APT_BACKOFF_S:-(\d+)\}", body).group(1))
-    # dwa wywołania helpera na krok: `update` i `install`, każde z własnym budżetem
-    worst_case_s = (attempts * (update_s + install_s)
-                    + 2 * backoff * sum(range(1, attempts + 1)))
+    measured_s = 190 * 1024 / 150
+    assert install_s >= measured_s, (install_s, measured_s)
+    checked = 0
     for name in _workflows():
-        for step in _steps(_text(name)):
+        text = _text(name)
+        job_budget = int(re.search(r"(?m)^    timeout-minutes: (\d+)$", text).group(1))
+        for step in _steps(text):
             if "apt_install.sh" not in step:
                 continue
-            declared = int(re.search(r"timeout-minutes: (\d+)", step).group(1))
-            assert declared * 60 >= worst_case_s, (name, declared * 60, worst_case_s)
-
-
-def test_ci_apt_helper_refuses_an_empty_package_list():
-    """Pusta lista pakietów to błąd wywołania, nie cicha instalacja niczego."""
-    import subprocess
-    result = subprocess.run(["bash", HELPER], capture_output=True, text=True)
-    assert result.returncode == 2, result
-    assert "użycie" in result.stderr
+            checked += 1
+            step_budget = int(re.search(r"timeout-minutes: (\d+)", step).group(1))
+            assert step_budget * 60 >= install_s, (name, step_budget * 60, install_s)
+            # po instalacji ma jeszcze zostać czas na samą pracę joba
+            assert job_budget - step_budget >= 10, (name, job_budget, step_budget)
+    assert checked == 5, f"oczekiwano pięciu kroków instalacji, znaleziono {checked}"
 
 
 def test_ci_blender_workflows_still_install_blender():

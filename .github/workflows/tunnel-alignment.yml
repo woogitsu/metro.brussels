@@ -26,7 +26,7 @@ permissions:
 jobs:
   tunnel-alignment:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     strategy:
       # Porażka jednego pakietu nie ma anulować pozostałych: chcemy wiedzieć, czy
@@ -46,7 +46,7 @@ jobs:
 
       - name: Install Blender
         shell: bash
-        timeout-minutes: 20
+        timeout-minutes: 30
         run: |
           set -euo pipefail
           bash tools/ci/apt_install.sh blender python3-numpy libegl1 libgl1-mesa-dri
