@@ -95,12 +95,20 @@ jobs:
         shell: bash
         run: dotnet build src/Game/MetroBxl.Game.csproj --configuration Debug
 
+      - name: Cache pakietów apt
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/metro-apt
+          key: apt-${{ runner.os }}-blender-xvfb-${{ hashFiles('tools/ci/apt-packages/blender-xvfb.txt') }}
+          restore-keys: apt-${{ runner.os }}-blender-xvfb-
+
       - name: Install Blender and a software renderer
         shell: bash
         timeout-minutes: 30
         run: |
           set -euo pipefail
-          bash tools/ci/apt_install.sh blender python3-numpy xvfb libegl1 libgl1 libgl1-mesa-dri
+          export APT_CACHE_DIR="$HOME/.cache/metro-apt"
+          bash tools/ci/apt_install.sh --set blender-xvfb
           blender --version | head -n 2
 
       - name: Generate package A geometry
