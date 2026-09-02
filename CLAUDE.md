@@ -172,6 +172,12 @@ GitHub Actions. Poprzednia wersja tego punktu mówiła, że standardem jest
   ręcznego przygotowania, a trwały nie wywołuje `sudo apt-get` na 190 MB przy każdym
   przebiegu. Godot leży poza workspace (`runner.tool_cache`), bo w workspace kasował
   go `git clean` przy każdym checkoucie.
+- **Narzędzia instalują się do `RUNNER_TOOL_CACHE`, nie do `/usr`.** Runner właściciela
+  nie jest rootem, więc `actions/setup-dotnet` z domyślnym katalogiem `/usr/share/dotnet`
+  pada serią `mkdir: Permission denied` — na jednorazowej maszynie GitHuba nie padał, bo
+  tam runner jest rootem. `DOTNET_INSTALL_DIR` ustawiany **przed** krokiem `setup-dotnet`
+  załatwia to razem z trwałością: `_tool` jest rodzeństwem workspace'u, więc `git clean`
+  go nie dotyka. Ta sama zasada co dla Godota, z tego samego powodu i o jeden powód więcej.
 - Nie uznawaj `queued` za weryfikację; zadanie jest zweryfikowane dopiero po zakończonym,
   zielonym jobie i sprawdzeniu wymaganych artefaktów. Na jednym runnerze `queued` znaczy
   też „kolejka", nie tylko „zepsute" — ale nadal nie znaczy „zweryfikowane".

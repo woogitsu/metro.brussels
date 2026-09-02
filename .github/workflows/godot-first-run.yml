@@ -88,6 +88,40 @@ jobs:
           fi
           echo "build/ i renders/ nie istnieją — bramki zobaczą wyłącznie to, co powstanie w tym przebiegu"
 
+      # `setup-dotnet` domyślnie instaluje do `/usr/share/dotnet`, a runner
+      # właściciela nie ma tam prawa zapisu — cały krok kończył się serią
+      # `mkdir: Permission denied` i `cp: cannot create directory
+      # '/usr/share/dotnet/sdk/10.0.400/': Permission denied`. Na jednorazowej
+      # maszynie GitHuba działało, bo tam runner jest rootem.
+      #
+      # Katalog idzie więc tam, gdzie już leży Godot: `RUNNER_TOOL_CACHE`, czyli
+      # `_tool`, rodzeństwo workspace'u. Załatwia to dwie rzeczy naraz — prawa
+      # zapisu ORAZ przetrwanie `git clean -ffdx` z `actions/checkout`.
+      #
+      # `runner.tool_cache` NIE działa w `env:` na poziomie workflow ani joba
+      # (GitHub odrzuca wtedy cały workflow), więc zmienna powstaje w kroku.
+      - name: Katalog SDK poza /usr/share i poza workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          cache="${RUNNER_TOOL_CACHE:-$HOME/.cache/metro-tools}"
+          dir="$cache/metro-dotnet"
+          case "$dir" in
+            "$GITHUB_WORKSPACE"/*)
+              echo "::error::katalog SDK $dir leży W WORKSPACE — checkout skasuje go przy następnym przebiegu"
+              exit 1
+              ;;
+            /usr/*)
+              echo "::error::katalog SDK $dir leży w /usr — runner nie ma tam prawa zapisu"
+              exit 1
+              ;;
+          esac
+          mkdir -p "$dir"
+          echo "DOTNET_INSTALL_DIR=$dir" >> "$GITHUB_ENV"
+          echo "DOTNET_ROOT=$dir" >> "$GITHUB_ENV"
+          echo "$dir" >> "$GITHUB_PATH"
+          echo "SDK poleci do $dir"
+
       - name: Install .NET SDK
         uses: actions/setup-dotnet@v4
         with:
