@@ -238,7 +238,7 @@ których agent nie ruszy bez decyzji właściciela.
 ## Silnik
 
 ### [~] T-400 · Scena Godota i pierwszy przejazd
-- **Zrobione (etap 1):** `src/Game/` — Godot 4.3 mono, jeden skład M7 jedzie 6,56 km po
+- **Zrobione (etap 1):** `src/Game/` — Godot 4.7.2 mono, jeden skład M7 jedzie 6,56 km po
   pakiecie A, napędzany rdzeniem. Rozjazd Godot ↔ rdzeń **0,000 m** przy progu 0, ten sam
   odcisk telemetrii przy nierównym podziale kroków. `reports/T-400-first-run.md`
 - **Zrobione (etap 2):** zrzuty z silnika idą przez kontrolę wizualną z T-012,
