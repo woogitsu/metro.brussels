@@ -1,564 +1,926 @@
 {
-  "$comment": "Rejestr źródeł zweryfikowanych 2026-08-31. URL-e są wejściem do narzędzi i dokumentacji; repo nie przechowuje pełnych dumpów źródłowych.",
-  "checked_at": "2026-08-31",
-  "policy": {
-    "priority": ["official_stib", "official_brussels_region", "official_belgian_mobility", "openstreetmap", "manufacturer_or_trade_press", "secondary_reference"],
-    "rule": "W razie sprzeczności zachowaj provenance i preferuj źródło wyżej w hierarchii; nie uśredniaj.",
-    "secrets": "Klucze API, bearer tokens i cookies nie trafiają do repo, manifestów ani logów.",
-    "raw_data": "Duże lub często zmienne pliki wejściowe przechowuj poza Git; commituj małe deterministyczne artefakty pochodne i ich provenance."
+ "$comment": "Rejestr źródeł zweryfikowanych 2026-08-31. URL-e są wejściem do narzędzi i dokumentacji; repo nie przechowuje pełnych dumpów źródłowych.",
+ "checked_at": "2026-08-31",
+ "policy": {
+  "priority": [
+   "official_stib",
+   "official_brussels_region",
+   "official_belgian_mobility",
+   "openstreetmap",
+   "manufacturer_or_trade_press",
+   "secondary_reference"
+  ],
+  "rule": "W razie sprzeczności zachowaj provenance i preferuj źródło wyżej w hierarchii; nie uśredniaj.",
+  "secrets": "Klucze API, bearer tokens i cookies nie trafiają do repo, manifestów ani logów.",
+  "raw_data": "Duże lub często zmienne pliki wejściowe przechowuj poza Git; commituj małe deterministyczne artefakty pochodne i ich provenance."
+ },
+ "sources": [
+  {
+   "id": "belgian_mobility_gtfs",
+   "class": "official_belgian_mobility",
+   "publisher": "Belgian Mobility Open Data Portal",
+   "url": "https://data.belgianmobility.io/en/data.html?agency=stibmivb",
+   "role": [
+    "gtfs_static_download",
+    "distribution_cross_check"
+   ],
+   "license": "CC BY 4.0 portal distribution; preserve upstream operator terms where applicable",
+   "update_frequency": "daily",
+   "access": {
+    "type": "catalog_and_download",
+    "authentication": "anonymous rate-limited; some advanced APIs require account/key"
+   },
+   "preferred_for": "aktualny statyczny pakiet GTFS STIB i kontrola dostępności feedu",
+   "limitations": "Portal jest warstwą dystrybucji; fakty o sieci preferują źródło pierwotne STIB. Zachować wymaganą atrybucję operatora.",
+   "checked_at": "2026-08-31"
   },
-  "sources": [
-    {
-      "id": "stib_shapefiles",
-      "class": "official_stib",
-      "publisher": "STIB/MIVB",
-      "dataset": "datasets/stibmivb/static/shape-files",
-      "url": "https://data.belgianmobility.io/en/data.html?agency=stibmivb",
-      "download_url": "https://api-management-discovery-production.azure-api.net/api/datasets/stibmivb/static/shape-files",
-      "role": ["line_geometry", "stop_positions"],
-      "license": "CC BY 4.0",
-      "license_url": "https://data.belgianmobility.io/en/terms.html",
-      "attribution": "Source: STIB-MIVB - Open Data",
-      "update_frequency": "weekly",
-      "crs": "EPSG:31370",
-      "access": {"type": "direct_download", "authentication": "none", "anonymous_rate_limit": "100/day, 10/min; HTTP 429 above"},
-      "preferred_for": "bazowy przebieg komercyjnych tras STIB",
-      "limitations": "Nie jest geometrią tor-po-torze ani profilem pionowym. ACTU_LIGNES_BRUTES to trasy handlowe: warianty tej samej linii duplikują geometrię, a węzły i rozjazdy nie są odwzorowane. Archiwum niesie własne okno ważności Date_debut/Date_fin, które bywa wcześniejsze niż data pobrania.",
-      "migration_note": "Portal data.stib-mivb.brussels wygaszony: każda ścieżka zwraca 302 na data.belgianmobility.io, dawny dataset shapefiles-production nie jest już serwowany.",
-      "checked_at": "2026-09-01"
-    },
-    {
-      "id": "stib_gtfs",
-      "class": "official_stib",
-      "publisher": "STIB/MIVB",
-      "dataset": "gtfs/feed/stibmivb/static",
-      "url": "https://data.belgianmobility.io/en/data.html?agency=stibmivb",
-      "download_url": "https://api-management-discovery-production.azure-api.net/api/gtfs/feed/stibmivb/static",
-      "role": ["stops", "route_order", "timetables", "route_shapes"],
-      "license": "CC BY 4.0",
-      "license_url": "https://data.belgianmobility.io/en/terms.html",
-      "attribution": "Source: STIB-MIVB - Open Data",
-      "update_frequency": "daily",
-      "access": {"type": "direct_download", "authentication": "none", "anonymous_rate_limit": "100/day, 10/min; HTTP 429 above"},
-      "preferred_for": "kolejność przystanków, service patterns i rozkład",
-      "limitations": "Rekord stops.txt nie jest automatycznie jedną fizyczną stacją; normalizować parent_station/location_type. shape_dist_traveled jest w kilometrach. translations.txt łączy się po field_value, nie po record_id.",
-      "migration_note": "Portal data.stib-mivb.brussels wygaszony: każda ścieżka zwraca 302 na data.belgianmobility.io, dawny dataset gtfs-files-production nie jest już serwowany.",
-      "checked_at": "2026-09-01"
-    },
-    {
-      "id": "belgian_mobility_gtfs",
-      "class": "official_belgian_mobility",
-      "publisher": "Belgian Mobility Open Data Portal",
-      "url": "https://data.belgianmobility.io/en/data.html?agency=stibmivb",
-      "role": ["gtfs_static_download", "distribution_cross_check"],
-      "license": "CC BY 4.0 portal distribution; preserve upstream operator terms where applicable",
-      "update_frequency": "daily",
-      "access": {"type": "catalog_and_download", "authentication": "anonymous rate-limited; some advanced APIs require account/key"},
-      "preferred_for": "aktualny statyczny pakiet GTFS STIB i kontrola dostępności feedu",
-      "limitations": "Portal jest warstwą dystrybucji; fakty o sieci preferują źródło pierwotne STIB. Zachować wymaganą atrybucję operatora.",
-      "checked_at": "2026-08-31"
-    },
-    {
-      "id": "belgian_mobility_netex",
-      "class": "official_belgian_mobility",
-      "publisher": "Belgian Mobility Open Data Portal",
-      "dataset": "STIB/MIVB NeTEx EPIP",
-      "url": "https://data.belgianmobility.io/en/data.html?agency=stibmivb",
-      "metadata_url": "https://data.belgianmobility.io/en/data.html?agency=stibmivb",
-      "download_url": null,
-      "download_url_status": "catalog_download_confirmed; final redirected URL must be captured by T-114 at retrieval time",
-      "role": ["netex_epip", "stop_route_semantics", "gtfs_cross_check"],
-      "license": "CC BY 4.0 portal distribution; preserve upstream operator terms where applicable",
-      "update_frequency": "daily",
-      "access": {"type": "catalog_and_download", "authentication": "anonymous rate-limited; portal terms currently state 100 requests/day and 10/minute"},
-      "preferred_for": "niezależna kontrola semantyki linii, przystanków i struktur wymiany",
-      "limitations": "Nie zastępuje geometrii toru ani profilu pionowego; parser XML musi zachować wersję profilu NeTEx.",
-      "checked_at": "2026-08-31"
-    },
-    {
-      "id": "belgian_mobility_inspire_rails",
-      "class": "official_belgian_mobility",
-      "publisher": "Belgian Mobility Open Data Portal",
-      "dataset": "STIB/MIVB INSPIRE Rails",
-      "url": "https://data.belgianmobility.io/en/data.html?agency=stibmivb",
-      "metadata_url": "https://data.belgianmobility.io/en/data.html?agency=stibmivb",
-      "download_url": "https://api-management-discovery-production.azure-api.net/api/datasets/stibmivb/static/rail",
-      "download_url_status": "confirmed 2026-09-01: HTTP 200, ZIP ~378 kB z jednym TN.RailTransportNetwork.gml (3,37 MB)",
-      "role": ["rail_infrastructure_cross_check", "network_geometry_cross_check", "track_spacing_measurement"],
-      "license": "CC BY 4.0",
-      "license_url": "https://data.belgianmobility.io/en/terms.html",
-      "attribution": "Source: STIB-MIVB - Open Data",
-      "update_frequency": "weekly",
-      "crs": "EPSG:3035",
-      "access": {"type": "direct_download", "authentication": "none", "anonymous_rate_limit": "100/day, 10/min; HTTP 429 above"},
-      "preferred_for": "niezależna kontrola infrastruktury szynowej wobec STIB Shapefiles/UrbIS/OSM",
-      "limitations": "Nie uznawać automatycznie za dokładniejszą oś toru; rozbieżności raportować. Geometria ma srsDimension=2 i zero informacji pionowej, więc nie odblokowuje T-112. Warstwa topologiczna jest zepsuta: 0 z 1036 referencji net:link w 44 obiektach RailwayLinkSequence rozwiązuje się do istniejącego RailwayLink (wskazują np. na link_560011 przy realnym link_5655295532), więc powiązanie linia->linki trzeba budować po identyfikatorach przystanków z gml:description. Plik niesie własne okno tn:validFrom/tn:validTo, w snapshocie 2026-09-01 wygasłe (02.03.2026-28.06.2026). posList jest w kolejności osi northing,easting zgodnie z rejestrem EPSG dla 3035. Zawiera tramwaj i metro w jednym pliku; geometria kierunku zgodnego z osią L1_A pokrywa się z ACTU_LIGNES_BRUTES do 0,07 m mediany, więc nie jest niezależnym pomiarem infrastruktury.",
-      "checked_at": "2026-09-01"
-    },
-    {
-      "id": "stib_stop_details",
-      "class": "official_stib",
-      "publisher": "STIB/MIVB",
-      "dataset": "datasets/stibmivb/static/StopDetails",
-      "url": "https://data.belgianmobility.io/en/data.html?agency=stibmivb",
-      "download_url": "https://api-management-discovery-production.azure-api.net/api/datasets/stibmivb/static/StopDetails",
-      "role": ["stop_id", "stop_names_fr_nl", "stop_geolocation"],
-      "license": "CC BY 4.0",
-      "license_url": "https://data.belgianmobility.io/en/terms.html",
-      "attribution": "Source: STIB-MIVB - Open Data",
-      "update_frequency": "daily",
-      "access": {"type": "direct_download", "authentication": "none", "anonymous_rate_limit": "100/day, 10/min; HTTP 429 above"},
-      "limitations": "Geolokalizacja przystanku nie jest automatycznie środkiem peronu ani wejściem do stacji. Zawiera wyłącznie poziom punktu; brak kontenerów location_type=1, więc nie zastępuje stops.txt. Pola gpscoordinates i name to stringi z zagnieżdżonym JSON-em.",
-      "migration_note": "Portal data.stib-mivb.brussels wygaszony: każda ścieżka zwraca 302 na data.belgianmobility.io, dawny dataset stop-details-production nie jest już serwowany.",
-      "checked_at": "2026-09-01"
-    },
-    {
-      "id": "stib_vehicle_positions_rt",
-      "class": "official_stib",
-      "publisher": "STIB/MIVB",
-      "dataset": "vehicle-position-rt-production",
-      "url": "https://data.stib-mivb.brussels/explore/dataset/vehicle-position-rt-production/",
-      "role": ["vehicle_positions", "operational_calibration"],
-      "license": "STIB/MIVB Open Data Terms of Use",
-      "license_url": "https://data.stib-mivb.brussels/terms/terms-and-conditions.pdf",
-      "refresh_seconds": 20,
-      "access": {"type": "metadata_and_api", "authentication": "endpoint-dependent"},
-      "limitations": "Realtime jest obserwacją operacyjną, nie ground truth geometrii toru.",
-      "checked_at": "2026-08-31"
-    },
-    {
-      "id": "stib_waiting_times_rt",
-      "class": "official_stib",
-      "publisher": "STIB/MIVB",
-      "dataset": "waiting-time-rt-production",
-      "url": "https://data.stib-mivb.brussels/explore/dataset/waiting-time-rt-production/api/",
-      "role": ["waiting_times", "headway_calibration"],
-      "license": "STIB/MIVB Open Data Terms of Use",
-      "license_url": "https://data.stib-mivb.brussels/terms/terms-and-conditions.pdf",
-      "refresh_seconds": 20,
-      "access": {"type": "metadata_and_api", "authentication": "endpoint-dependent"},
-      "limitations": "Wartości realtime nie zastępują timetable i wymagają capture timestamp/provenance.",
-      "checked_at": "2026-08-31"
-    },
-    {
-      "id": "stib_traveller_info_rt",
-      "class": "official_stib",
-      "publisher": "STIB/MIVB",
-      "dataset": "travellers-information-rt-production",
-      "url": "https://data.stib-mivb.brussels/explore/dataset/travellers-information-rt-production/",
-      "role": ["disruptions", "planned_works", "events"],
-      "license": "STIB/MIVB Open Data Terms of Use",
-      "license_url": "https://data.stib-mivb.brussels/terms/terms-and-conditions.pdf",
-      "refresh_seconds": 20,
-      "access": {"type": "metadata_and_api", "authentication": "endpoint-dependent"},
-      "limitations": "Dane czasowe; każdy snapshot wymaga daty i godziny pobrania.",
-      "checked_at": "2026-08-31"
-    },
-    {
-      "id": "brussels_mobility_metro",
-      "class": "official_brussels_region",
-      "publisher": "Paradigm / Brussels Mobility",
-      "dataset": "bm_public_transport:Metro",
-      "url": "https://data.mobility.brussels/en/info/Metro/",
-      "metadata_url": "https://data.mobility.brussels/en/info/Metro/",
-      "ogc_features_url": "https://data.mobility.brussels/geoserver/ogc/features/v1/collections/bm_public_transport%3AMetro/items",
-      "role": ["metro_tunnels", "metro_stations", "geometry_cross_check"],
-      "license": "CC0",
-      "update_frequency": "metadata-defined",
-      "access": {"type": "metadata_and_ogc", "authentication": "none_known_for_metadata"},
-      "preferred_for": "niezależna kontrola regionalnej geometrii tuneli i stacji",
-      "limitations": "Obiekty MS/MT nie są automatycznie osią toru ani niweletą; pola poziomu względnego wymagają interpretacji.",
-      "checked_at": "2026-08-31"
-    },
-    {
-      "id": "brussels_mobility_metro_access",
-      "class": "official_brussels_region",
-      "publisher": "Paradigm / Brussels Mobility",
-      "dataset": "bm_public_transport:metro_access",
-      "url": "https://data.mobility.brussels/en/info/0aa53fcf-939f-49a3-9a91-b9ec475be30d/",
-      "metadata_url": "https://data.mobility.brussels/en/info/0aa53fcf-939f-49a3-9a91-b9ec475be30d/",
-      "api_layer": "bm_public_transport:metro_access",
-      "download_url": null,
-      "download_url_status": "metadata confirms JSON/GPKG/CSV/SHP downloads in Lambert72, WGS84/LatLon, Lambert2008 and Pseudo-Mercator; exact generated download URL was not captured in this environment",
-      "role": ["metro_entrances", "station_surface_anchors", "station_cross_check"],
-      "license": "CC0",
-      "update_frequency": "metadata updated 2024-06-21; dataset creation 2022-01-01; no explicit refresh cadence exposed on checked page",
-      "access": {"type": "metadata_downloads_wms_wfs", "authentication": "dataset is partly limited; service use may require bearer token"},
-      "preferred_for": "kotwice wejść stacji na powierzchni",
-      "limitations": "Punkt wejścia nie określa głębokości, przebiegu korytarza ani dokładnej geometrii wnętrza. Brak dokładnego download URL jest jawny i ma zostać uzupełniony przez T-114/T-004 przy rzeczywistym pobraniu, bez zapisywania bearer tokenu.",
-      "checked_at": "2026-08-31"
-    },
-    {
-      "id": "urbis_topo_tunnel_line",
-      "class": "official_brussels_region",
-      "publisher": "Paradigm / Brussels Mobility",
-      "dataset": "bm_urbis_topo:tunnel_line",
-      "url": "https://data.mobility.brussels/en/info/23248797-1974-497d-b176-2d5045bbe681/",
-      "metadata_url": "https://data.mobility.brussels/en/info/23248797-1974-497d-b176-2d5045bbe681/",
-      "api_layer": "bm_urbis_topo:tunnel_line",
-      "download_url": null,
-      "download_url_status": "metadata/service layer identified; final concrete download URL must be captured at retrieval time",
-      "role": ["surface_topography_tunnels", "tunnel_cross_check", "portal_context"],
-      "license": "CC0",
-      "update_frequency": "metadata-defined",
-      "access": {"type": "metadata_and_geospatial_services", "authentication": "endpoint-dependent"},
-      "preferred_for": "kontrola regionalnych obiektów tunelowych i portali",
-      "limitations": "Warstwa BR04L obejmuje tunele w topografii regionalnej; nie jest automatycznie osią tunelu metra.",
-      "checked_at": "2026-08-31"
-    },
-    {
-      "id": "paradigm_lidar_2021",
-      "class": "official_brussels_region",
-      "publisher": "Paradigm",
-      "dataset": "LiDAR aérien 2021 / airborne LiDAR 2021",
-      "url": "https://data.gov.be/fr/datasets/ff1124e1-424e-11ee-b156-00090ffe0001",
-      "metadata_url": "https://data.gov.be/fr/datasets/ff1124e1-424e-11ee-b156-00090ffe0001",
-      "details_url": "https://datastore.brussels/web/data/dataset/ff1124e1-424e-11ee-b156-00090ffe0001",
-      "download_portal_url": "https://datastore.brussels/web/urbis-download",
-      "download_url": null,
-      "download_url_status": "direct LAS download is advertised by the official metadata; exact generated file URL depends on the download portal and must be captured at retrieval time",
-      "role": ["surface_elevation", "surface_objects", "portal_validation", "surface_context"],
-      "license": "CC BY 4.0",
-      "update_frequency": "irregular; 2021 survey product; federal metadata updated 2025-12-09",
-      "access": {"type": "metadata_visualisation_direct_las_download", "authentication": "dataset-service-dependent"},
-      "preferred_for": "wysokości i geometria powierzchni/portali",
-      "limitations": "LiDAR lotniczy nie obserwuje geometrii podziemnej; nie używać do zgadywania głębokości toru.",
-      "checked_at": "2026-08-31"
-    },
-    {
-      "id": "urbis_dsm",
-      "class": "official_brussels_region",
-      "publisher": "Paradigm",
-      "dataset": "UrbIS Digital Surface Model",
-      "url": "https://data.gov.be/en/datasets/8c2d921e-6a53-11ed-bfb5-010101010000",
-      "metadata_url": "https://data.gov.be/en/datasets/8c2d921e-6a53-11ed-bfb5-010101010000",
-      "details_url": "https://datastore.brussels/web/data/dataset/8c2d921e-6a53-11ed-bfb5-010101010000",
-      "download_url": null,
-      "download_url_status": "official federal metadata says the ZIP is freely downloadable, but the checked metadata did not expose a reusable direct data URL",
-      "role": ["surface_elevation_raster", "surface_context", "portal_context"],
-      "license": "unknown",
-      "license_status": "requires_verification_before_data_reuse; the checked federal metadata exposes free download but no explicit licence field",
-      "update_frequency": "irregular; federal metadata updated 2026-05-22",
-      "access": {"type": "metadata_and_datastore_download", "authentication": "dataset-service-dependent"},
-      "preferred_for": "lekka warstwa kontekstu powierzchniowego, gdy pełny LiDAR nie jest potrzebny",
-      "limitations": "DSM opisuje powierzchnię/obiekty naziemne, nie profil podziemnego toru. Nie pobierać/redistribuować jako produkcyjnego inputu, dopóki licencja konkretnej dystrybucji nie zostanie potwierdzona.",
-      "checked_at": "2026-08-31"
-    },
-    {
-      "id": "urbis_transport_network",
-      "class": "official_brussels_region",
-      "publisher": "Paradigm",
-      "url": "https://datastore.brussels/",
-      "role": ["catalog_reference", "transport_network", "surface_context"],
-      "license": "dataset-dependent",
-      "license_status": "catalog_only; verify the concrete dataset before reuse",
-      "update_frequency": "dataset-dependent",
-      "access": {"type": "catalog", "authentication": "dataset-dependent"},
-      "limitations": "Pozycja katalogowa; do automatycznego pipeline używać konkretnych dataset IDs/endpointów zamiast tego ogólnego URL.",
-      "checked_at": "2026-08-31"
-    },
-    {
-      "id": "openstreetmap",
-      "class": "openstreetmap",
-      "publisher": "OpenStreetMap contributors",
-      "url": "https://www.openstreetmap.org/",
-      "role": ["track_topology", "switches", "platforms", "entrances", "secondary_geometry"],
-      "license": "ODbL 1.0",
-      "license_url": "https://www.openstreetmap.org/copyright",
-      "update_frequency": "continuous",
-      "access": {"type": "osm_or_overpass", "authentication": "endpoint-dependent"},
-      "preferred_for": "szczegóły torowe i kontrola po źródłach oficjalnych",
-      "limitations": "Nie jest jedynym źródłem osi tam, gdzie istnieją oficjalne STIB/UrbIS; zapisać query hash i timestamp.",
-      "checked_at": "2026-08-31"
-    },
-    {
-      "id": "stib_cbtc_status_2026_07_02",
-      "class": "official_stib",
-      "publisher": "STIB/MIVB",
-      "url": "https://stib.prezly.com/nouvelle-signalisation-metro-on-en-est-ou",
-      "role": ["cbtc_rollout_status", "cbtc_test_state", "cbtc_mini", "kcv_lines_2_6", "m6_cbtc_equipment", "dispatch_training"],
-      "license": "public reference; not an Open Data asset",
-      "update_frequency": "event_publication",
-      "access": {"type": "public_web_reference", "authentication": "none"},
-      "as_of": "2026-07-02",
-      "checked_at": "2026-08-31",
-      "limitations": "Źródło stanu wdrożenia, nie specyfikacja protokołu CBTC/KCV."
-    },
-    {
-      "id": "stib_cbtc_acceleration_2025_08_21",
-      "class": "official_stib",
-      "publisher": "STIB/MIVB",
-      "url": "https://stib.prezly.com/metro--coup-daccelerateur-pour-la-nouvelle-signalisation-cbtc-sur-les-lignes-1-et-5",
-      "role": ["legacy_fixed_blocks", "ats_transition", "cbtc_rollout", "cbtc_position_balises", "platform_screen_doors_for_future_automation"],
-      "license": "public reference; not an Open Data asset",
-      "update_frequency": "event_publication",
-      "access": {"type": "public_web_reference", "authentication": "none"},
-      "as_of": "2025-08-21",
-      "checked_at": "2026-08-31",
-      "limitations": "Potwierdza zakres funkcjonalny i stan programu, nie publikuje granic bloków, protokołów, marginesów ATP ani logiki interlockingu."
-    },
-    {
-      "id": "stibstories_cbtc_explainer",
-      "class": "official_stib",
-      "publisher": "STIB Stories / STIB-MIVB",
-      "url": "https://en.stibstories.be/shorter-waiting-times-on-the-metro-thanks-to-new-signalling-cbtc/",
-      "role": ["legacy_track_circuits", "fixed_zones", "cbtc_radio_overview", "headway_program_targets"],
-      "license": "public reference; not an Open Data asset",
-      "update_frequency": "event_publication",
-      "access": {"type": "public_web_reference", "authentication": "none"},
-      "as_of": "2026-01-06",
-      "checked_at": "2026-08-31",
-      "limitations": "Materiał popularyzatorski: cele headway/capacity nie są parametrami bezpieczeństwa ani gwarancją rozkładu."
-    },
-    {
-      "id": "stib_activity_report_2016_signalling",
-      "class": "official_stib",
-      "publisher": "STIB/MIVB",
-      "url": "https://2016.stib-activityreports.brussels/en/a-high-performing-company",
-      "role": ["signalling_contract_award", "ansaldo_sts_france_vendor"],
-      "license": "public reference; not an Open Data asset",
-      "update_frequency": "annual",
-      "access": {"type": "public_web_reference", "authentication": "none"},
-      "as_of": "2016-12-31",
-      "checked_at": "2026-08-31",
-      "limitations": "Potwierdza wykonawcę i program, nie parametry techniczne produktu."
-    },
-    {
-      "id": "hitachi_ansaldo_brussels_award_2016_08_03",
-      "class": "manufacturer_or_trade_press",
-      "publisher": "Ansaldo STS / Hitachi Rail",
-      "url": "https://www.mynewsdesk.com/uk/hitachi-rail-global/pressreleases/ansaldo-sts-has-been-appointed-for-brussels-metro-signalling-system-renewal-3014905",
-      "role": ["cbtc_ats_contract_scope", "passenger_information_integration", "passenger_announcement_integration"],
-      "license": "public reference; publisher terms apply",
-      "update_frequency": "event_publication",
-      "access": {"type": "public_web_reference", "authentication": "none"},
-      "as_of": "2016-08-03",
-      "checked_at": "2026-08-31",
-      "limitations": "Źródło wykonawcy; używać do zakresu kontraktu, nie do nieopublikowanych parametrów wdrożenia STIB."
-    },
-    {
-      "id": "hitachi_ansaldo_brussels_contract_2016_10_07",
-      "class": "manufacturer_or_trade_press",
-      "publisher": "Ansaldo STS / Hitachi Rail",
-      "url": "https://www.hitachi.com/en-eu/press/ansaldo-sts-brussels-metro-lines-15-signalling-system-renewal/",
-      "role": ["driverless_cbtc_contract", "contract_value", "scope_lines_1_5", "trackside_onboard_scope"],
-      "license": "public reference; publisher terms apply",
-      "update_frequency": "event_publication",
-      "access": {"type": "public_web_reference", "authentication": "none"},
-      "as_of": "2016-10-07",
-      "checked_at": "2026-08-31",
-      "limitations": "Określenie Driverless CBTC opisuje rozwiązanie/kontrakt; nie oznacza operacyjnego UTO na liniach 1/5 w dniu 31.08.2026."
-    },
-    {
-      "id": "stib_activity_report_2025",
-      "class": "official_stib",
-      "publisher": "STIB/MIVB",
-      "url": "https://2025.stib-activityreports.brussels/entreprise",
-      "role": ["m7_fleet", "cbtc_programme", "depots"],
-      "license": "public reference; not an Open Data asset",
-      "update_frequency": "annual",
-      "access": {"type": "public_web_reference", "authentication": "none"},
-      "as_of": "2025-12-31",
-      "checked_at": "2026-08-31",
-      "limitations": "Raport roczny; nie używać jako źródła dokładnej geometrii ani parametrów pojazdu, jeśli istnieje karta techniczna."
-    },
-    {
-      "id": "stib_m7_vibration_2026",
-      "class": "official_stib",
-      "publisher": "STIB/MIVB",
-      "url": "https://www.stib-mivb.be/travel/works-and-projects/works-in-progress/metro-noise-and-vibrations",
-      "role": ["m7_wheel_issue", "track_grinding", "maintenance_context"],
-      "license": "public reference; not an Open Data asset",
-      "update_frequency": "event_publication",
-      "access": {"type": "public_web_reference", "authentication": "none"},
-      "as_of": "2026-07-01",
-      "checked_at": "2026-08-31",
-      "limitations": "Nie wyprowadzać z opisu problemu parametrów masy, nacisku osi ani zawieszenia."
-    },
-    {
-      "id": "stib_statistics_2024",
-      "class": "official_stib",
-      "publisher": "STIB/MIVB",
-      "url": "https://www.stib-mivb.be/files/live/sites/STIBMIVB/files/Corporate/STIB_statisticreport2024_FR.pdf",
-      "role": ["metro_900v_cable_statistics", "metro_electric_switch_count", "metro_signalling_post_count", "traction_substation_network_count"],
-      "license": "public reference; not an Open Data asset",
-      "update_frequency": "annual",
-      "access": {"type": "public_web_reference", "authentication": "none"},
-      "as_of": "2024-12-31",
-      "checked_at": "2026-08-31",
-      "limitations": "Tabela potwierdza 111,5 km kabli BT Metro 900 V oraz w sekcji sygnalizacji metra 121 rozjazdów z napędem elektrycznym i 82 posterunki (Delta/Demets wyłączone). Liczba 120 podstacji trakcyjnych występuje w ogólnej sekcji elektrycznej i nie została w tym źródle rozbita wyłącznie na metro."
-    },
-    {
-      "id": "stib_track_intrusions_2025",
-      "class": "official_stib",
-      "publisher": "STIB/MIVB",
-      "url": "https://stib.prezly.com/le-metro-interrompu-95-heures-a-cause-dintrusions-sur-les-voies",
-      "role": ["third_rail", "traction_voltage_900v", "tunnel_operating_speed", "station_entry_speed_context", "platform_height_safety_context"],
-      "license": "public reference; not an Open Data asset",
-      "update_frequency": "event_publication",
-      "access": {"type": "public_web_reference", "authentication": "none"},
-      "as_of": "2025-10-30",
-      "checked_at": "2026-08-31",
-      "limitations": "Komunikat bezpieczeństwa: 72 km/h i 40 km/h są wartościami operacyjnymi w tym kontekście, nie konstrukcyjnym Vmax pojazdu ani obowiązkowym limitem każdego segmentu; >1,10 m nie jest dokładnym wymiarem wszystkich peronów."
-    },
-    {
-      "id": "stib_annual_2023_metro3_conversion",
-      "class": "official_stib",
-      "publisher": "STIB/MIVB",
-      "url": "https://stib.prezly.com/rapport-annuel-stib-2023--frequentation-offre-et-kilometres-parcourus-en-hausse",
-      "role": ["metro3_conversion_requirements", "metro_900v", "platform_height_requirement", "signalling", "switches"],
-      "license": "public reference; not an Open Data asset",
-      "update_frequency": "annual",
-      "access": {"type": "public_web_reference", "authentication": "none"},
-      "as_of": "2024-05-28",
-      "checked_at": "2026-08-31",
-      "limitations": "Opisuje wymagania konwersji premetra do metra; nie dostarcza dokładnej geometrii toru, trzeciej szyny ani rozjazdów istniejących linii 1/5."
-    },
-    {
-      "id": "stib_district_plans",
-      "class": "official_stib",
-      "publisher": "STIB/MIVB",
-      "url": "https://www.stib-mivb.be/voyager/plans-de-reseau-et-plans-de-quartier",
-      "role": ["station_district_plans", "station_exit_inventory", "verbal_description_index"],
-      "license": "public reference; not an Open Data asset",
-      "update_frequency": "irregular_publication",
-      "access": {"type": "public_web_reference", "authentication": "none", "note": "serwer odrzuca żądania bez nagłówka User-Agent przeglądarki (HTTP 429)"},
-      "as_of": "2026-09-02",
-      "checked_at": "2026-09-02",
-      "limitations": "Strona indeksowa. Same plany dzielnicowe są grafiką i nie trafiają do repo. Linki „version verbale” dla De Brouckère, Étangs Noirs, Sainte-Catherine i Schuman mają href=\"#\" i pod przewidywalnymi adresami zwracają HTTP 404."
-    },
-    {
-      "id": "stib_district_plan_verbal",
-      "class": "official_stib",
-      "publisher": "STIB/MIVB",
-      "dataset": "Plans Quartiers Verbales / FR",
-      "url": "https://www.stib-mivb.be/files/live/sites/STIBMIVB/files/Travel/Plans%20Quartiers/Plans%20Quartiers%20Verbales/FR/",
-      "role": ["station_exits", "vertical_circulation_per_exit", "exit_street"],
-      "license": "public reference; not an Open Data asset",
-      "update_frequency": "irregular_publication",
-      "access": {"type": "public_web_reference", "authentication": "none"},
-      "as_of": "2026-09-02",
-      "checked_at": "2026-09-02",
-      "preferred_for": "wyposażenie pionowe wyjścia po wyjściu i ulica wyjścia",
-      "limitations": "Wyciągamy fakty, nie kopiujemy opisu. Lista wyjść NIE jest grafem komunikacji pionowej wnętrza stacji (Parc: jedno wyjście w opisie wobec 4 wind i 7 schodów ruchomych na stronie projektu). Numeracja wyjść bywa niezgodna z GTFS i powtarza etykietę „0”. Dostępne 44 z 59 stacji metra."
-    },
-    {
-      "id": "stib_prm_access",
-      "class": "official_stib",
-      "publisher": "STIB/MIVB",
-      "url": "https://www.stib-mivb.be/travel/prm/access-to-stops-stations-and-vehicles",
-      "role": ["accessibility_policy", "lift_status_availability"],
-      "license": "public reference; not an Open Data asset",
-      "update_frequency": "irregular_publication",
-      "access": {"type": "public_web_reference", "authentication": "none"},
-      "as_of": "2025-12-30",
-      "checked_at": "2026-09-02",
-      "limitations": "Strona opisuje zasady i oznaczenia, nie zawiera listy dostępnych stacji w tekście; wykaz jest osobną grafiką PDF, której nie kopiujemy. Nie wyprowadzać z niej statusu konkretnej stacji."
-    },
-    {
-      "id": "stib_works_gare_centrale",
-      "class": "official_stib",
-      "publisher": "STIB/MIVB",
-      "url": "https://www.stib-mivb.be/travel/works-and-projects/works-in-progress/central-station",
-      "role": ["works_state", "temporary_station_elements", "future_station_design"],
-      "license": "public reference; not an Open Data asset",
-      "update_frequency": "event_publication",
-      "access": {"type": "public_web_reference", "authentication": "none"},
-      "as_of": "2026-08-31",
-      "checked_at": "2026-09-02",
-      "limitations": "Zawiera wizualizacje stanu docelowego. Render projektu nie jest źródłem stanu historycznego i nie wchodzi do wariantu 2026-08-31."
-    },
-    {
-      "id": "stib_traffic_gare_centrale_bus_stops",
-      "class": "official_stib",
-      "publisher": "STIB/MIVB",
-      "url": "https://www.stib-mivb.be/travel/works/gare-centrale-central-station-bus-stops-moved",
-      "role": ["temporary_surface_changes"],
-      "license": "public reference; not an Open Data asset",
-      "update_frequency": "event_publication",
-      "access": {"type": "public_web_reference", "authentication": "none"},
-      "as_of": "2026-04-24",
-      "checked_at": "2026-09-02",
-      "limitations": "Dotyczy przystanków autobusowych na powierzchni, nie wnętrza stacji metra."
-    },
-    {
-      "id": "stib_works_maelbeek",
-      "class": "official_stib",
-      "publisher": "STIB/MIVB",
-      "url": "https://www.stib-mivb.be/travel/works-and-projects/works-in-progress/maelbeek-maalbeek-is-getting-a-makeover-for-more-comfort",
-      "role": ["works_state", "temporary_station_elements", "future_station_design"],
-      "license": "public reference; not an Open Data asset",
-      "update_frequency": "event_publication",
-      "access": {"type": "public_web_reference", "authentication": "none"},
-      "as_of": "2026-06-22",
-      "checked_at": "2026-09-02",
-      "limitations": "Opis celu robót, bez dat zakończenia i bez liczby nowych wind. Przestrzeń pamięci ofiar 22.03.2016 pozostaje poza zakresem modelowania (docs/03-legal.md)."
-    },
-    {
-      "id": "stib_works_beekkant",
-      "class": "official_stib",
-      "publisher": "STIB/MIVB",
-      "url": "https://www.stib-mivb.be/travel/works-and-projects/works-in-progress/beekkant",
-      "role": ["works_state", "future_surface_layout"],
-      "license": "public reference; not an Open Data asset",
-      "update_frequency": "event_publication",
-      "access": {"type": "public_web_reference", "authentication": "none"},
-      "as_of": "2026-05-20",
-      "checked_at": "2026-09-02",
-      "limitations": "Zakres robót to otoczenie stacji i terminus autobusu 87. Nie przenosić go na geometrię peronów ani wnętrza."
-    },
-    {
-      "id": "stib_traffic_beekkant_bus87",
-      "class": "official_stib",
-      "publisher": "STIB/MIVB",
-      "url": "https://www.stib-mivb.be/travel/works/works-at-beekkant-station-bus-87-diverted",
-      "role": ["temporary_surface_changes", "works_window"],
-      "license": "public reference; not an Open Data asset",
-      "update_frequency": "event_publication",
-      "access": {"type": "public_web_reference", "authentication": "none"},
-      "as_of": "2026-05-07",
-      "checked_at": "2026-09-02",
-      "limitations": "Podaje okno 11.05.2026 - IV.2027 dla objazdu autobusu 87, nie dla robót we wnętrzu stacji."
-    },
-    {
-      "id": "stib_works_parc",
-      "class": "official_stib",
-      "publisher": "STIB/MIVB",
-      "url": "https://www.stib-mivb.be/travel/works-and-projects/works-in-progress/station-parc-park-renovated-and-accessible",
-      "role": ["station_lift_count", "station_escalator_count", "step_free_status", "future_station_design"],
-      "license": "public reference; not an Open Data asset",
-      "update_frequency": "event_publication",
-      "access": {"type": "public_web_reference", "authentication": "none"},
-      "as_of": "2025-11-25",
-      "checked_at": "2026-09-02",
-      "preferred_for": "liczba wind i schodów ruchomych stacji Parc/Park po fazie 2",
-      "limitations": "Faza 3 (nowe wejście od parku) jest zaplanowana na 2027-2030 i nie istnieje 31.08.2026. Toalety publiczne opisane jako „opening soon” bez daty. Dzieło „Mers et Océans” pozostaje poza assetami produkcyjnymi."
-    },
-    {
-      "id": "stib_commercial_spaces",
-      "class": "official_stib",
-      "publisher": "STIB/MIVB",
-      "url": "https://shops-metrostations.stib-mivb.be/",
-      "role": ["functional_level_hint", "paid_unpaid_zone_hint"],
-      "license": "public reference; not an Open Data asset",
-      "update_frequency": "monthly",
-      "access": {"type": "public_web_reference", "authentication": "none"},
-      "as_of": "2026-09-02",
-      "checked_at": "2026-09-02",
-      "limitations": "Oferta najmu, nie plan kondygnacji. Poziom „-1”/„-2” jest etykietą funkcjonalną bez wysokości w metrach; powierzchnia lokalu nie jest wymiarem pomieszczenia stacji. Lista zmienia się co miesiąc, więc stacja bez oferty nie oznacza braku poziomu."
-    },
-    {
-      "id": "metro_bxl_issue_16_note",
-      "class": "secondary_reference",
-      "publisher": "Metro BXL (notatka badawcza w repozytorium)",
-      "url": "https://github.com/matmaxalez/metro.brussels/issues/16#issuecomment-5484929988",
-      "role": ["research_note", "claim_to_verify"],
-      "license": "internal_project_note",
-      "update_frequency": "none",
-      "access": {"type": "repository_issue", "authentication": "none"},
-      "as_of": "2026-08-31",
-      "checked_at": "2026-09-02",
-      "limitations": "Notatka wewnętrzna, nie źródło pierwotne. Jej listy wyjść dla De Brouckère, Étangs Noirs, Sainte-Catherine i Schuman nie dają się dziś potwierdzić u STIB i są w rejestrze zapisane jako konflikt, nie jako fakt."
-    }
-  ]
+  {
+   "id": "belgian_mobility_inspire_rails",
+   "class": "official_belgian_mobility",
+   "publisher": "Belgian Mobility Open Data Portal",
+   "dataset": "STIB/MIVB INSPIRE Rails",
+   "url": "https://data.belgianmobility.io/en/data.html?agency=stibmivb",
+   "metadata_url": "https://data.belgianmobility.io/en/data.html?agency=stibmivb",
+   "download_url": "https://api-management-discovery-production.azure-api.net/api/datasets/stibmivb/static/rail",
+   "download_url_status": "confirmed 2026-09-01: HTTP 200, ZIP ~378 kB z jednym TN.RailTransportNetwork.gml (3,37 MB)",
+   "role": [
+    "rail_infrastructure_cross_check",
+    "network_geometry_cross_check",
+    "track_spacing_measurement"
+   ],
+   "license": "CC BY 4.0",
+   "license_url": "https://data.belgianmobility.io/en/terms.html",
+   "attribution": "Source: STIB-MIVB - Open Data",
+   "update_frequency": "weekly",
+   "crs": "EPSG:3035",
+   "access": {
+    "type": "direct_download",
+    "authentication": "none",
+    "anonymous_rate_limit": "100/day, 10/min; HTTP 429 above"
+   },
+   "preferred_for": "niezależna kontrola infrastruktury szynowej wobec STIB Shapefiles/UrbIS/OSM",
+   "limitations": "Nie uznawać automatycznie za dokładniejszą oś toru; rozbieżności raportować. Geometria ma srsDimension=2 i zero informacji pionowej, więc nie odblokowuje T-112. Warstwa topologiczna jest zepsuta: 0 z 1036 referencji net:link w 44 obiektach RailwayLinkSequence rozwiązuje się do istniejącego RailwayLink (wskazują np. na link_560011 przy realnym link_5655295532), więc powiązanie linia->linki trzeba budować po identyfikatorach przystanków z gml:description. Plik niesie własne okno tn:validFrom/tn:validTo, w snapshocie 2026-09-01 wygasłe (02.03.2026-28.06.2026). posList jest w kolejności osi northing,easting zgodnie z rejestrem EPSG dla 3035. Zawiera tramwaj i metro w jednym pliku; geometria kierunku zgodnego z osią L1_A pokrywa się z ACTU_LIGNES_BRUTES do 0,07 m mediany, więc nie jest niezależnym pomiarem infrastruktury.",
+   "checked_at": "2026-09-01"
+  },
+  {
+   "id": "belgian_mobility_netex",
+   "class": "official_belgian_mobility",
+   "publisher": "Belgian Mobility Open Data Portal",
+   "dataset": "STIB/MIVB NeTEx EPIP",
+   "url": "https://data.belgianmobility.io/en/data.html?agency=stibmivb",
+   "metadata_url": "https://data.belgianmobility.io/en/data.html?agency=stibmivb",
+   "download_url": null,
+   "download_url_status": "catalog_download_confirmed; final redirected URL must be captured by T-114 at retrieval time",
+   "role": [
+    "netex_epip",
+    "stop_route_semantics",
+    "gtfs_cross_check"
+   ],
+   "license": "CC BY 4.0 portal distribution; preserve upstream operator terms where applicable",
+   "update_frequency": "daily",
+   "access": {
+    "type": "catalog_and_download",
+    "authentication": "anonymous rate-limited; portal terms currently state 100 requests/day and 10/minute"
+   },
+   "preferred_for": "niezależna kontrola semantyki linii, przystanków i struktur wymiany",
+   "limitations": "Nie zastępuje geometrii toru ani profilu pionowego; parser XML musi zachować wersję profilu NeTEx.",
+   "checked_at": "2026-08-31"
+  },
+  {
+   "id": "brussels_mobility_metro",
+   "class": "official_brussels_region",
+   "publisher": "Paradigm / Brussels Mobility",
+   "dataset": "bm_public_transport:Metro",
+   "url": "https://data.mobility.brussels/en/info/Metro/",
+   "metadata_url": "https://data.mobility.brussels/en/info/Metro/",
+   "ogc_features_url": "https://data.mobility.brussels/geoserver/ogc/features/v1/collections/bm_public_transport%3AMetro/items",
+   "role": [
+    "metro_tunnels",
+    "metro_stations",
+    "geometry_cross_check"
+   ],
+   "license": "CC0",
+   "update_frequency": "metadata-defined",
+   "access": {
+    "type": "metadata_and_ogc",
+    "authentication": "none_known_for_metadata"
+   },
+   "preferred_for": "niezależna kontrola regionalnej geometrii tuneli i stacji",
+   "limitations": "Obiekty MS/MT nie są automatycznie osią toru ani niweletą; pola poziomu względnego wymagają interpretacji.",
+   "checked_at": "2026-08-31"
+  },
+  {
+   "id": "brussels_mobility_metro_access",
+   "class": "official_brussels_region",
+   "publisher": "Paradigm / Brussels Mobility",
+   "dataset": "bm_public_transport:metro_access",
+   "url": "https://data.mobility.brussels/en/info/0aa53fcf-939f-49a3-9a91-b9ec475be30d/",
+   "metadata_url": "https://data.mobility.brussels/en/info/0aa53fcf-939f-49a3-9a91-b9ec475be30d/",
+   "api_layer": "bm_public_transport:metro_access",
+   "download_url": null,
+   "download_url_status": "metadata confirms JSON/GPKG/CSV/SHP downloads in Lambert72, WGS84/LatLon, Lambert2008 and Pseudo-Mercator; exact generated download URL was not captured in this environment",
+   "role": [
+    "metro_entrances",
+    "station_surface_anchors",
+    "station_cross_check"
+   ],
+   "license": "CC0",
+   "update_frequency": "metadata updated 2024-06-21; dataset creation 2022-01-01; no explicit refresh cadence exposed on checked page",
+   "access": {
+    "type": "metadata_downloads_wms_wfs",
+    "authentication": "dataset is partly limited; service use may require bearer token"
+   },
+   "preferred_for": "kotwice wejść stacji na powierzchni",
+   "limitations": "Punkt wejścia nie określa głębokości, przebiegu korytarza ani dokładnej geometrii wnętrza. Brak dokładnego download URL jest jawny i ma zostać uzupełniony przez T-114/T-004 przy rzeczywistym pobraniu, bez zapisywania bearer tokenu.",
+   "checked_at": "2026-08-31"
+  },
+  {
+   "id": "hitachi_ansaldo_brussels_award_2016_08_03",
+   "class": "manufacturer_or_trade_press",
+   "publisher": "Ansaldo STS / Hitachi Rail",
+   "url": "https://www.mynewsdesk.com/uk/hitachi-rail-global/pressreleases/ansaldo-sts-has-been-appointed-for-brussels-metro-signalling-system-renewal-3014905",
+   "role": [
+    "cbtc_ats_contract_scope",
+    "passenger_information_integration",
+    "passenger_announcement_integration"
+   ],
+   "license": "public reference; publisher terms apply",
+   "update_frequency": "event_publication",
+   "access": {
+    "type": "public_web_reference",
+    "authentication": "none"
+   },
+   "as_of": "2016-08-03",
+   "checked_at": "2026-08-31",
+   "limitations": "Źródło wykonawcy; używać do zakresu kontraktu, nie do nieopublikowanych parametrów wdrożenia STIB."
+  },
+  {
+   "id": "hitachi_ansaldo_brussels_contract_2016_10_07",
+   "class": "manufacturer_or_trade_press",
+   "publisher": "Ansaldo STS / Hitachi Rail",
+   "url": "https://www.hitachi.com/en-eu/press/ansaldo-sts-brussels-metro-lines-15-signalling-system-renewal/",
+   "role": [
+    "driverless_cbtc_contract",
+    "contract_value",
+    "scope_lines_1_5",
+    "trackside_onboard_scope"
+   ],
+   "license": "public reference; publisher terms apply",
+   "update_frequency": "event_publication",
+   "access": {
+    "type": "public_web_reference",
+    "authentication": "none"
+   },
+   "as_of": "2016-10-07",
+   "checked_at": "2026-08-31",
+   "limitations": "Określenie Driverless CBTC opisuje rozwiązanie/kontrakt; nie oznacza operacyjnego UTO na liniach 1/5 w dniu 31.08.2026."
+  },
+  {
+   "id": "metro3_eie_livre3_colignon",
+   "class": "official_brussels_region",
+   "publisher": "Bruxelles Mobilité / Beliris",
+   "dataset": "Métro 3 — étude d'incidences, Livre III, Station Colignon",
+   "url": "https://metro3.be/sites/default/files/2022-02/RF_Livre%20III_Station%20Colignon_1.pdf",
+   "role": [
+    "station_platform_depth_examples"
+   ],
+   "license": "public reference; not an Open Data asset",
+   "update_frequency": "one_off_study",
+   "access": {
+    "type": "public_web_reference",
+    "authentication": "none"
+   },
+   "as_of": "2022-02",
+   "checked_at": "2026-09-02",
+   "content_sha256": "19be1f4ea8c55b3344bdd90b37ddfcf61741831c53d94cc5476aa59a513f0601",
+   "limitations": "Podaje głębokości peronów PIĘCIU istniejących stacji jako PRZYKŁAD w porównaniu ze stacją Colignon, słowem \"environ\". To nie jest tabela pomiarowa. Wartości dotyczą poziomu PERONU względem powierzchni, nie rzędnej główki szyny. Dla Schuman (15 m) stoi w sprzeczności z innym oficjalnym źródłem (17,42 m)."
+  },
+  {
+   "id": "metro_bxl_issue_16_note",
+   "class": "secondary_reference",
+   "publisher": "Metro BXL (notatka badawcza w repozytorium)",
+   "url": "https://github.com/matmaxalez/metro.brussels/issues/16#issuecomment-5484929988",
+   "role": [
+    "research_note",
+    "claim_to_verify"
+   ],
+   "license": "internal_project_note",
+   "update_frequency": "none",
+   "access": {
+    "type": "repository_issue",
+    "authentication": "none"
+   },
+   "as_of": "2026-08-31",
+   "checked_at": "2026-09-02",
+   "limitations": "Notatka wewnętrzna, nie źródło pierwotne. Jej listy wyjść dla De Brouckère, Étangs Noirs, Sainte-Catherine i Schuman nie dają się dziś potwierdzić u STIB i są w rejestrze zapisane jako konflikt, nie jako fakt."
+  },
+  {
+   "id": "openstreetmap",
+   "class": "openstreetmap",
+   "publisher": "OpenStreetMap contributors",
+   "url": "https://www.openstreetmap.org/",
+   "role": [
+    "track_topology",
+    "switches",
+    "platforms",
+    "entrances",
+    "secondary_geometry"
+   ],
+   "license": "ODbL 1.0",
+   "license_url": "https://www.openstreetmap.org/copyright",
+   "update_frequency": "continuous",
+   "access": {
+    "type": "osm_or_overpass",
+    "authentication": "endpoint-dependent"
+   },
+   "preferred_for": "szczegóły torowe i kontrola po źródłach oficjalnych",
+   "limitations": "Nie jest jedynym źródłem osi tam, gdzie istnieją oficjalne STIB/UrbIS; zapisać query hash i timestamp.",
+   "checked_at": "2026-08-31"
+  },
+  {
+   "id": "paradigm_lidar_2021",
+   "class": "official_brussels_region",
+   "publisher": "Paradigm",
+   "dataset": "LiDAR aérien 2021 / airborne LiDAR 2021",
+   "url": "https://data.gov.be/fr/datasets/ff1124e1-424e-11ee-b156-00090ffe0001",
+   "metadata_url": "https://data.gov.be/fr/datasets/ff1124e1-424e-11ee-b156-00090ffe0001",
+   "details_url": "https://datastore.brussels/web/data/dataset/ff1124e1-424e-11ee-b156-00090ffe0001",
+   "download_portal_url": "https://datastore.brussels/web/urbis-download",
+   "download_url": null,
+   "download_url_status": "direct LAS download is advertised by the official metadata; exact generated file URL depends on the download portal and must be captured at retrieval time",
+   "role": [
+    "surface_elevation",
+    "surface_objects",
+    "portal_validation",
+    "surface_context"
+   ],
+   "license": "CC BY 4.0",
+   "update_frequency": "irregular; 2021 survey product; federal metadata updated 2025-12-09",
+   "access": {
+    "type": "metadata_visualisation_direct_las_download",
+    "authentication": "dataset-service-dependent"
+   },
+   "preferred_for": "wysokości i geometria powierzchni/portali",
+   "limitations": "LiDAR lotniczy nie obserwuje geometrii podziemnej; nie używać do zgadywania głębokości toru.",
+   "checked_at": "2026-08-31"
+  },
+  {
+   "id": "stib_activity_report_2016_signalling",
+   "class": "official_stib",
+   "publisher": "STIB/MIVB",
+   "url": "https://2016.stib-activityreports.brussels/en/a-high-performing-company",
+   "role": [
+    "signalling_contract_award",
+    "ansaldo_sts_france_vendor"
+   ],
+   "license": "public reference; not an Open Data asset",
+   "update_frequency": "annual",
+   "access": {
+    "type": "public_web_reference",
+    "authentication": "none"
+   },
+   "as_of": "2016-12-31",
+   "checked_at": "2026-08-31",
+   "limitations": "Potwierdza wykonawcę i program, nie parametry techniczne produktu."
+  },
+  {
+   "id": "stib_activity_report_2025",
+   "class": "official_stib",
+   "publisher": "STIB/MIVB",
+   "url": "https://2025.stib-activityreports.brussels/entreprise",
+   "role": [
+    "m7_fleet",
+    "cbtc_programme",
+    "depots"
+   ],
+   "license": "public reference; not an Open Data asset",
+   "update_frequency": "annual",
+   "access": {
+    "type": "public_web_reference",
+    "authentication": "none"
+   },
+   "as_of": "2025-12-31",
+   "checked_at": "2026-08-31",
+   "limitations": "Raport roczny; nie używać jako źródła dokładnej geometrii ani parametrów pojazdu, jeśli istnieje karta techniczna."
+  },
+  {
+   "id": "stib_annual_2023_metro3_conversion",
+   "class": "official_stib",
+   "publisher": "STIB/MIVB",
+   "url": "https://stib.prezly.com/rapport-annuel-stib-2023--frequentation-offre-et-kilometres-parcourus-en-hausse",
+   "role": [
+    "metro3_conversion_requirements",
+    "metro_900v",
+    "platform_height_requirement",
+    "signalling",
+    "switches"
+   ],
+   "license": "public reference; not an Open Data asset",
+   "update_frequency": "annual",
+   "access": {
+    "type": "public_web_reference",
+    "authentication": "none"
+   },
+   "as_of": "2024-05-28",
+   "checked_at": "2026-08-31",
+   "limitations": "Opisuje wymagania konwersji premetra do metra; nie dostarcza dokładnej geometrii toru, trzeciej szyny ani rozjazdów istniejących linii 1/5."
+  },
+  {
+   "id": "stib_cbtc_acceleration_2025_08_21",
+   "class": "official_stib",
+   "publisher": "STIB/MIVB",
+   "url": "https://stib.prezly.com/metro--coup-daccelerateur-pour-la-nouvelle-signalisation-cbtc-sur-les-lignes-1-et-5",
+   "role": [
+    "legacy_fixed_blocks",
+    "ats_transition",
+    "cbtc_rollout",
+    "cbtc_position_balises",
+    "platform_screen_doors_for_future_automation"
+   ],
+   "license": "public reference; not an Open Data asset",
+   "update_frequency": "event_publication",
+   "access": {
+    "type": "public_web_reference",
+    "authentication": "none"
+   },
+   "as_of": "2025-08-21",
+   "checked_at": "2026-08-31",
+   "limitations": "Potwierdza zakres funkcjonalny i stan programu, nie publikuje granic bloków, protokołów, marginesów ATP ani logiki interlockingu."
+  },
+  {
+   "id": "stib_cbtc_status_2026_07_02",
+   "class": "official_stib",
+   "publisher": "STIB/MIVB",
+   "url": "https://stib.prezly.com/nouvelle-signalisation-metro-on-en-est-ou",
+   "role": [
+    "cbtc_rollout_status",
+    "cbtc_test_state",
+    "cbtc_mini",
+    "kcv_lines_2_6",
+    "m6_cbtc_equipment",
+    "dispatch_training"
+   ],
+   "license": "public reference; not an Open Data asset",
+   "update_frequency": "event_publication",
+   "access": {
+    "type": "public_web_reference",
+    "authentication": "none"
+   },
+   "as_of": "2026-07-02",
+   "checked_at": "2026-08-31",
+   "limitations": "Źródło stanu wdrożenia, nie specyfikacja protokołu CBTC/KCV."
+  },
+  {
+   "id": "stib_commercial_spaces",
+   "class": "official_stib",
+   "publisher": "STIB/MIVB",
+   "url": "https://shops-metrostations.stib-mivb.be/",
+   "role": [
+    "functional_level_hint",
+    "paid_unpaid_zone_hint"
+   ],
+   "license": "public reference; not an Open Data asset",
+   "update_frequency": "monthly",
+   "access": {
+    "type": "public_web_reference",
+    "authentication": "none"
+   },
+   "as_of": "2026-09-02",
+   "checked_at": "2026-09-02",
+   "limitations": "Oferta najmu, nie plan kondygnacji. Poziom „-1”/„-2” jest etykietą funkcjonalną bez wysokości w metrach; powierzchnia lokalu nie jest wymiarem pomieszczenia stacji. Lista zmienia się co miesiąc, więc stacja bez oferty nie oznacza braku poziomu."
+  },
+  {
+   "id": "stib_district_plan_verbal",
+   "class": "official_stib",
+   "publisher": "STIB/MIVB",
+   "dataset": "Plans Quartiers Verbales / FR",
+   "url": "https://www.stib-mivb.be/files/live/sites/STIBMIVB/files/Travel/Plans%20Quartiers/Plans%20Quartiers%20Verbales/FR/",
+   "role": [
+    "station_exits",
+    "vertical_circulation_per_exit",
+    "exit_street"
+   ],
+   "license": "public reference; not an Open Data asset",
+   "update_frequency": "irregular_publication",
+   "access": {
+    "type": "public_web_reference",
+    "authentication": "none"
+   },
+   "as_of": "2026-09-02",
+   "checked_at": "2026-09-02",
+   "preferred_for": "wyposażenie pionowe wyjścia po wyjściu i ulica wyjścia",
+   "limitations": "Wyciągamy fakty, nie kopiujemy opisu. Lista wyjść NIE jest grafem komunikacji pionowej wnętrza stacji (Parc: jedno wyjście w opisie wobec 4 wind i 7 schodów ruchomych na stronie projektu). Numeracja wyjść bywa niezgodna z GTFS i powtarza etykietę „0”. Dostępne 44 z 59 stacji metra."
+  },
+  {
+   "id": "stib_district_plans",
+   "class": "official_stib",
+   "publisher": "STIB/MIVB",
+   "url": "https://www.stib-mivb.be/voyager/plans-de-reseau-et-plans-de-quartier",
+   "role": [
+    "station_district_plans",
+    "station_exit_inventory",
+    "verbal_description_index"
+   ],
+   "license": "public reference; not an Open Data asset",
+   "update_frequency": "irregular_publication",
+   "access": {
+    "type": "public_web_reference",
+    "authentication": "none",
+    "note": "serwer odrzuca żądania bez nagłówka User-Agent przeglądarki (HTTP 429)"
+   },
+   "as_of": "2026-09-02",
+   "checked_at": "2026-09-02",
+   "limitations": "Strona indeksowa. Same plany dzielnicowe są grafiką i nie trafiają do repo. Linki „version verbale” dla De Brouckère, Étangs Noirs, Sainte-Catherine i Schuman mają href=\"#\" i pod przewidywalnymi adresami zwracają HTTP 404."
+  },
+  {
+   "id": "stib_gtfs",
+   "class": "official_stib",
+   "publisher": "STIB/MIVB",
+   "dataset": "gtfs/feed/stibmivb/static",
+   "url": "https://data.belgianmobility.io/en/data.html?agency=stibmivb",
+   "download_url": "https://api-management-discovery-production.azure-api.net/api/gtfs/feed/stibmivb/static",
+   "role": [
+    "stops",
+    "route_order",
+    "timetables",
+    "route_shapes"
+   ],
+   "license": "CC BY 4.0",
+   "license_url": "https://data.belgianmobility.io/en/terms.html",
+   "attribution": "Source: STIB-MIVB - Open Data",
+   "update_frequency": "daily",
+   "access": {
+    "type": "direct_download",
+    "authentication": "none",
+    "anonymous_rate_limit": "100/day, 10/min; HTTP 429 above"
+   },
+   "preferred_for": "kolejność przystanków, service patterns i rozkład",
+   "limitations": "Rekord stops.txt nie jest automatycznie jedną fizyczną stacją; normalizować parent_station/location_type. shape_dist_traveled jest w kilometrach. translations.txt łączy się po field_value, nie po record_id.",
+   "migration_note": "Portal data.stib-mivb.brussels wygaszony: każda ścieżka zwraca 302 na data.belgianmobility.io, dawny dataset gtfs-files-production nie jest już serwowany.",
+   "checked_at": "2026-09-01"
+  },
+  {
+   "id": "stib_m7_press_kit_2020_07_13",
+   "class": "official_stib",
+   "publisher": "STIB/MIVB",
+   "url": "https://stib.prezly.com/le-nouveau-metro-m7-est-arrive-a-bruxelles",
+   "role": [
+    "m7_floor_height",
+    "platform_height_inference"
+   ],
+   "license": "public reference; not an Open Data asset",
+   "update_frequency": "event_publication",
+   "access": {
+    "type": "public_web_reference",
+    "authentication": "none"
+   },
+   "as_of": "2020-07-13",
+   "checked_at": "2026-09-02",
+   "content_sha256": "1e14cecb3b8d6bc9eeceed04a0e1c085f70972d11bfbb82432fd823eb53f8d45",
+   "limitations": "Karta techniczna M7. Podaje wysokość podłogi 1 m 03 i wiąże ją z poziomem peronu (\"à hauteur du quai\"), ale NIE deklaruje, względem czego mierzy tę wysokość. Nie podaje długości peronu."
+  },
+  {
+   "id": "stib_m7_press_kit_2021_05_26",
+   "class": "official_stib",
+   "publisher": "STIB/MIVB",
+   "url": "https://stib.prezly.com/les-voyageurs-pourront-bientot-monter-dans-le-nouveau-metro-m7",
+   "role": [
+    "m7_floor_height",
+    "platform_height_inference"
+   ],
+   "license": "public reference; not an Open Data asset",
+   "update_frequency": "event_publication",
+   "access": {
+    "type": "public_web_reference",
+    "authentication": "none"
+   },
+   "as_of": "2021-05-26",
+   "checked_at": "2026-09-02",
+   "content_sha256": "f638f4ba470389c08715628a3d59e841372f57648571bd57e398245df1afbbb4",
+   "limitations": "Niezależne powtórzenie tego samego zdania o wysokości podłogi (1 m 03, \"à hauteur du quai\"). Tak samo jak publikacja z 2020 NIE deklaruje, względem czego mierzy tę wysokość. Nie podaje długości peronu."
+  },
+  {
+   "id": "stib_m7_vibration_2026",
+   "class": "official_stib",
+   "publisher": "STIB/MIVB",
+   "url": "https://www.stib-mivb.be/travel/works-and-projects/works-in-progress/metro-noise-and-vibrations",
+   "role": [
+    "m7_wheel_issue",
+    "track_grinding",
+    "maintenance_context"
+   ],
+   "license": "public reference; not an Open Data asset",
+   "update_frequency": "event_publication",
+   "access": {
+    "type": "public_web_reference",
+    "authentication": "none"
+   },
+   "as_of": "2026-07-01",
+   "checked_at": "2026-08-31",
+   "limitations": "Nie wyprowadzać z opisu problemu parametrów masy, nacisku osi ani zawieszenia."
+  },
+  {
+   "id": "stib_prm_access",
+   "class": "official_stib",
+   "publisher": "STIB/MIVB",
+   "url": "https://www.stib-mivb.be/travel/prm/access-to-stops-stations-and-vehicles",
+   "role": [
+    "accessibility_policy",
+    "lift_status_availability"
+   ],
+   "license": "public reference; not an Open Data asset",
+   "update_frequency": "irregular_publication",
+   "access": {
+    "type": "public_web_reference",
+    "authentication": "none"
+   },
+   "as_of": "2025-12-30",
+   "checked_at": "2026-09-02",
+   "limitations": "Strona opisuje zasady i oznaczenia, nie zawiera listy dostępnych stacji w tekście; wykaz jest osobną grafiką PDF, której nie kopiujemy. Nie wyprowadzać z niej statusu konkretnej stacji."
+  },
+  {
+   "id": "stib_shapefiles",
+   "class": "official_stib",
+   "publisher": "STIB/MIVB",
+   "dataset": "datasets/stibmivb/static/shape-files",
+   "url": "https://data.belgianmobility.io/en/data.html?agency=stibmivb",
+   "download_url": "https://api-management-discovery-production.azure-api.net/api/datasets/stibmivb/static/shape-files",
+   "role": [
+    "line_geometry",
+    "stop_positions"
+   ],
+   "license": "CC BY 4.0",
+   "license_url": "https://data.belgianmobility.io/en/terms.html",
+   "attribution": "Source: STIB-MIVB - Open Data",
+   "update_frequency": "weekly",
+   "crs": "EPSG:31370",
+   "access": {
+    "type": "direct_download",
+    "authentication": "none",
+    "anonymous_rate_limit": "100/day, 10/min; HTTP 429 above"
+   },
+   "preferred_for": "bazowy przebieg komercyjnych tras STIB",
+   "limitations": "Nie jest geometrią tor-po-torze ani profilem pionowym. ACTU_LIGNES_BRUTES to trasy handlowe: warianty tej samej linii duplikują geometrię, a węzły i rozjazdy nie są odwzorowane. Archiwum niesie własne okno ważności Date_debut/Date_fin, które bywa wcześniejsze niż data pobrania.",
+   "migration_note": "Portal data.stib-mivb.brussels wygaszony: każda ścieżka zwraca 302 na data.belgianmobility.io, dawny dataset shapefiles-production nie jest już serwowany.",
+   "checked_at": "2026-09-01"
+  },
+  {
+   "id": "stib_statistics_2024",
+   "class": "official_stib",
+   "publisher": "STIB/MIVB",
+   "url": "https://www.stib-mivb.be/files/live/sites/STIBMIVB/files/Corporate/STIB_statisticreport2024_FR.pdf",
+   "role": [
+    "metro_900v_cable_statistics",
+    "metro_electric_switch_count",
+    "metro_signalling_post_count",
+    "traction_substation_network_count"
+   ],
+   "license": "public reference; not an Open Data asset",
+   "update_frequency": "annual",
+   "access": {
+    "type": "public_web_reference",
+    "authentication": "none"
+   },
+   "as_of": "2024-12-31",
+   "checked_at": "2026-08-31",
+   "limitations": "Tabela potwierdza 111,5 km kabli BT Metro 900 V oraz w sekcji sygnalizacji metra 121 rozjazdów z napędem elektrycznym i 82 posterunki (Delta/Demets wyłączone). Liczba 120 podstacji trakcyjnych występuje w ogólnej sekcji elektrycznej i nie została w tym źródle rozbita wyłącznie na metro."
+  },
+  {
+   "id": "stib_stop_details",
+   "class": "official_stib",
+   "publisher": "STIB/MIVB",
+   "dataset": "datasets/stibmivb/static/StopDetails",
+   "url": "https://data.belgianmobility.io/en/data.html?agency=stibmivb",
+   "download_url": "https://api-management-discovery-production.azure-api.net/api/datasets/stibmivb/static/StopDetails",
+   "role": [
+    "stop_id",
+    "stop_names_fr_nl",
+    "stop_geolocation"
+   ],
+   "license": "CC BY 4.0",
+   "license_url": "https://data.belgianmobility.io/en/terms.html",
+   "attribution": "Source: STIB-MIVB - Open Data",
+   "update_frequency": "daily",
+   "access": {
+    "type": "direct_download",
+    "authentication": "none",
+    "anonymous_rate_limit": "100/day, 10/min; HTTP 429 above"
+   },
+   "limitations": "Geolokalizacja przystanku nie jest automatycznie środkiem peronu ani wejściem do stacji. Zawiera wyłącznie poziom punktu; brak kontenerów location_type=1, więc nie zastępuje stops.txt. Pola gpscoordinates i name to stringi z zagnieżdżonym JSON-em.",
+   "migration_note": "Portal data.stib-mivb.brussels wygaszony: każda ścieżka zwraca 302 na data.belgianmobility.io, dawny dataset stop-details-production nie jest już serwowany.",
+   "checked_at": "2026-09-01"
+  },
+  {
+   "id": "stib_track_intrusions_2025",
+   "class": "official_stib",
+   "publisher": "STIB/MIVB",
+   "url": "https://stib.prezly.com/le-metro-interrompu-95-heures-a-cause-dintrusions-sur-les-voies",
+   "role": [
+    "third_rail",
+    "traction_voltage_900v",
+    "tunnel_operating_speed",
+    "station_entry_speed_context",
+    "platform_height_safety_context"
+   ],
+   "license": "public reference; not an Open Data asset",
+   "update_frequency": "event_publication",
+   "access": {
+    "type": "public_web_reference",
+    "authentication": "none"
+   },
+   "as_of": "2025-10-30",
+   "checked_at": "2026-08-31",
+   "limitations": "Komunikat bezpieczeństwa: 72 km/h i 40 km/h są wartościami operacyjnymi w tym kontekście, nie konstrukcyjnym Vmax pojazdu ani obowiązkowym limitem każdego segmentu; >1,10 m nie jest dokładnym wymiarem wszystkich peronów."
+  },
+  {
+   "id": "stib_traffic_beekkant_bus87",
+   "class": "official_stib",
+   "publisher": "STIB/MIVB",
+   "url": "https://www.stib-mivb.be/travel/works/works-at-beekkant-station-bus-87-diverted",
+   "role": [
+    "temporary_surface_changes",
+    "works_window"
+   ],
+   "license": "public reference; not an Open Data asset",
+   "update_frequency": "event_publication",
+   "access": {
+    "type": "public_web_reference",
+    "authentication": "none"
+   },
+   "as_of": "2026-05-07",
+   "checked_at": "2026-09-02",
+   "limitations": "Podaje okno 11.05.2026 - IV.2027 dla objazdu autobusu 87, nie dla robót we wnętrzu stacji."
+  },
+  {
+   "id": "stib_traffic_gare_centrale_bus_stops",
+   "class": "official_stib",
+   "publisher": "STIB/MIVB",
+   "url": "https://www.stib-mivb.be/travel/works/gare-centrale-central-station-bus-stops-moved",
+   "role": [
+    "temporary_surface_changes"
+   ],
+   "license": "public reference; not an Open Data asset",
+   "update_frequency": "event_publication",
+   "access": {
+    "type": "public_web_reference",
+    "authentication": "none"
+   },
+   "as_of": "2026-04-24",
+   "checked_at": "2026-09-02",
+   "limitations": "Dotyczy przystanków autobusowych na powierzchni, nie wnętrza stacji metra."
+  },
+  {
+   "id": "stib_traveller_info_rt",
+   "class": "official_stib",
+   "publisher": "STIB/MIVB",
+   "dataset": "travellers-information-rt-production",
+   "url": "https://data.stib-mivb.brussels/explore/dataset/travellers-information-rt-production/",
+   "role": [
+    "disruptions",
+    "planned_works",
+    "events"
+   ],
+   "license": "STIB/MIVB Open Data Terms of Use",
+   "license_url": "https://data.stib-mivb.brussels/terms/terms-and-conditions.pdf",
+   "refresh_seconds": 20,
+   "access": {
+    "type": "metadata_and_api",
+    "authentication": "endpoint-dependent"
+   },
+   "limitations": "Dane czasowe; każdy snapshot wymaga daty i godziny pobrania.",
+   "checked_at": "2026-08-31"
+  },
+  {
+   "id": "stib_vehicle_positions_rt",
+   "class": "official_stib",
+   "publisher": "STIB/MIVB",
+   "dataset": "vehicle-position-rt-production",
+   "url": "https://data.stib-mivb.brussels/explore/dataset/vehicle-position-rt-production/",
+   "role": [
+    "vehicle_positions",
+    "operational_calibration"
+   ],
+   "license": "STIB/MIVB Open Data Terms of Use",
+   "license_url": "https://data.stib-mivb.brussels/terms/terms-and-conditions.pdf",
+   "refresh_seconds": 20,
+   "access": {
+    "type": "metadata_and_api",
+    "authentication": "endpoint-dependent"
+   },
+   "limitations": "Realtime jest obserwacją operacyjną, nie ground truth geometrii toru.",
+   "checked_at": "2026-08-31"
+  },
+  {
+   "id": "stib_waiting_times_rt",
+   "class": "official_stib",
+   "publisher": "STIB/MIVB",
+   "dataset": "waiting-time-rt-production",
+   "url": "https://data.stib-mivb.brussels/explore/dataset/waiting-time-rt-production/api/",
+   "role": [
+    "waiting_times",
+    "headway_calibration"
+   ],
+   "license": "STIB/MIVB Open Data Terms of Use",
+   "license_url": "https://data.stib-mivb.brussels/terms/terms-and-conditions.pdf",
+   "refresh_seconds": 20,
+   "access": {
+    "type": "metadata_and_api",
+    "authentication": "endpoint-dependent"
+   },
+   "limitations": "Wartości realtime nie zastępują timetable i wymagają capture timestamp/provenance.",
+   "checked_at": "2026-08-31"
+  },
+  {
+   "id": "stib_works_beekkant",
+   "class": "official_stib",
+   "publisher": "STIB/MIVB",
+   "url": "https://www.stib-mivb.be/travel/works-and-projects/works-in-progress/beekkant",
+   "role": [
+    "works_state",
+    "future_surface_layout"
+   ],
+   "license": "public reference; not an Open Data asset",
+   "update_frequency": "event_publication",
+   "access": {
+    "type": "public_web_reference",
+    "authentication": "none"
+   },
+   "as_of": "2026-05-20",
+   "checked_at": "2026-09-02",
+   "limitations": "Zakres robót to otoczenie stacji i terminus autobusu 87. Nie przenosić go na geometrię peronów ani wnętrza."
+  },
+  {
+   "id": "stib_works_gare_centrale",
+   "class": "official_stib",
+   "publisher": "STIB/MIVB",
+   "url": "https://www.stib-mivb.be/travel/works-and-projects/works-in-progress/central-station",
+   "role": [
+    "works_state",
+    "temporary_station_elements",
+    "future_station_design"
+   ],
+   "license": "public reference; not an Open Data asset",
+   "update_frequency": "event_publication",
+   "access": {
+    "type": "public_web_reference",
+    "authentication": "none"
+   },
+   "as_of": "2026-08-31",
+   "checked_at": "2026-09-02",
+   "limitations": "Zawiera wizualizacje stanu docelowego. Render projektu nie jest źródłem stanu historycznego i nie wchodzi do wariantu 2026-08-31."
+  },
+  {
+   "id": "stib_works_maelbeek",
+   "class": "official_stib",
+   "publisher": "STIB/MIVB",
+   "url": "https://www.stib-mivb.be/travel/works-and-projects/works-in-progress/maelbeek-maalbeek-is-getting-a-makeover-for-more-comfort",
+   "role": [
+    "works_state",
+    "temporary_station_elements",
+    "future_station_design"
+   ],
+   "license": "public reference; not an Open Data asset",
+   "update_frequency": "event_publication",
+   "access": {
+    "type": "public_web_reference",
+    "authentication": "none"
+   },
+   "as_of": "2026-06-22",
+   "checked_at": "2026-09-02",
+   "limitations": "Opis celu robót, bez dat zakończenia i bez liczby nowych wind. Przestrzeń pamięci ofiar 22.03.2016 pozostaje poza zakresem modelowania (docs/03-legal.md)."
+  },
+  {
+   "id": "stib_works_parc",
+   "class": "official_stib",
+   "publisher": "STIB/MIVB",
+   "url": "https://www.stib-mivb.be/travel/works-and-projects/works-in-progress/station-parc-park-renovated-and-accessible",
+   "role": [
+    "station_lift_count",
+    "station_escalator_count",
+    "step_free_status",
+    "future_station_design"
+   ],
+   "license": "public reference; not an Open Data asset",
+   "update_frequency": "event_publication",
+   "access": {
+    "type": "public_web_reference",
+    "authentication": "none"
+   },
+   "as_of": "2025-11-25",
+   "checked_at": "2026-09-02",
+   "preferred_for": "liczba wind i schodów ruchomych stacji Parc/Park po fazie 2",
+   "limitations": "Faza 3 (nowe wejście od parku) jest zaplanowana na 2027-2030 i nie istnieje 31.08.2026. Toalety publiczne opisane jako „opening soon” bez daty. Dzieło „Mers et Océans” pozostaje poza assetami produkcyjnymi."
+  },
+  {
+   "id": "stibstories_cbtc_explainer",
+   "class": "official_stib",
+   "publisher": "STIB Stories / STIB-MIVB",
+   "url": "https://en.stibstories.be/shorter-waiting-times-on-the-metro-thanks-to-new-signalling-cbtc/",
+   "role": [
+    "legacy_track_circuits",
+    "fixed_zones",
+    "cbtc_radio_overview",
+    "headway_program_targets"
+   ],
+   "license": "public reference; not an Open Data asset",
+   "update_frequency": "event_publication",
+   "access": {
+    "type": "public_web_reference",
+    "authentication": "none"
+   },
+   "as_of": "2026-01-06",
+   "checked_at": "2026-08-31",
+   "limitations": "Materiał popularyzatorski: cele headway/capacity nie są parametrami bezpieczeństwa ani gwarancją rozkładu."
+  },
+  {
+   "id": "urbis_dsm",
+   "class": "official_brussels_region",
+   "publisher": "Paradigm",
+   "dataset": "UrbIS Digital Surface Model",
+   "url": "https://data.gov.be/en/datasets/8c2d921e-6a53-11ed-bfb5-010101010000",
+   "metadata_url": "https://data.gov.be/en/datasets/8c2d921e-6a53-11ed-bfb5-010101010000",
+   "details_url": "https://datastore.brussels/web/data/dataset/8c2d921e-6a53-11ed-bfb5-010101010000",
+   "download_url": null,
+   "download_url_status": "official federal metadata says the ZIP is freely downloadable, but the checked metadata did not expose a reusable direct data URL",
+   "role": [
+    "surface_elevation_raster",
+    "surface_context",
+    "portal_context"
+   ],
+   "license": "unknown",
+   "license_status": "requires_verification_before_data_reuse; the checked federal metadata exposes free download but no explicit licence field",
+   "update_frequency": "irregular; federal metadata updated 2026-05-22",
+   "access": {
+    "type": "metadata_and_datastore_download",
+    "authentication": "dataset-service-dependent"
+   },
+   "preferred_for": "lekka warstwa kontekstu powierzchniowego, gdy pełny LiDAR nie jest potrzebny",
+   "limitations": "DSM opisuje powierzchnię/obiekty naziemne, nie profil podziemnego toru. Nie pobierać/redistribuować jako produkcyjnego inputu, dopóki licencja konkretnej dystrybucji nie zostanie potwierdzona.",
+   "checked_at": "2026-08-31"
+  },
+  {
+   "id": "urbis_metro_station_polygons",
+   "class": "official_brussels_region",
+   "publisher": "Bruxelles Mobilité / Paradigm",
+   "dataset": "bm_public_transport:Metro (UrbIS ADM SS)",
+   "url": "https://data.mobility.brussels/geoserver/ogc/features/v1/collections/bm_public_transport%3AMetro/items?limit=10000&f=application/json",
+   "role": [
+    "station_footprint_upper_bound"
+   ],
+   "license": "CC0",
+   "update_frequency": "irregular",
+   "access": {
+    "type": "direct_download",
+    "authentication": "none"
+   },
+   "crs": "EPSG:31370",
+   "checked_at": "2026-09-02",
+   "limitations": "Obrys STACJI, nie peronu. Daje wyłącznie GÓRNE ograniczenie długości peronu. Dla Gare de l'Ouest obrys nie obejmuje całego kompleksu (0 z 7 wierzchołków peronów OSM leży wewnątrz), więc tam ograniczenie nie obowiązuje. Sumy kontrolnej nie zapisuję: research R-007 podał ją skróconą, a dopisanie brakujących znaków byłoby wymyśleniem."
+  },
+  {
+   "id": "urbis_topo_tunnel_line",
+   "class": "official_brussels_region",
+   "publisher": "Paradigm / Brussels Mobility",
+   "dataset": "bm_urbis_topo:tunnel_line",
+   "url": "https://data.mobility.brussels/en/info/23248797-1974-497d-b176-2d5045bbe681/",
+   "metadata_url": "https://data.mobility.brussels/en/info/23248797-1974-497d-b176-2d5045bbe681/",
+   "api_layer": "bm_urbis_topo:tunnel_line",
+   "download_url": null,
+   "download_url_status": "metadata/service layer identified; final concrete download URL must be captured at retrieval time",
+   "role": [
+    "surface_topography_tunnels",
+    "tunnel_cross_check",
+    "portal_context"
+   ],
+   "license": "CC0",
+   "update_frequency": "metadata-defined",
+   "access": {
+    "type": "metadata_and_geospatial_services",
+    "authentication": "endpoint-dependent"
+   },
+   "preferred_for": "kontrola regionalnych obiektów tunelowych i portali",
+   "limitations": "Warstwa BR04L obejmuje tunele w topografii regionalnej; nie jest automatycznie osią tunelu metra.",
+   "checked_at": "2026-08-31"
+  },
+  {
+   "id": "urbis_transport_network",
+   "class": "official_brussels_region",
+   "publisher": "Paradigm",
+   "url": "https://datastore.brussels/",
+   "role": [
+    "catalog_reference",
+    "transport_network",
+    "surface_context"
+   ],
+   "license": "dataset-dependent",
+   "license_status": "catalog_only; verify the concrete dataset before reuse",
+   "update_frequency": "dataset-dependent",
+   "access": {
+    "type": "catalog",
+    "authentication": "dataset-dependent"
+   },
+   "limitations": "Pozycja katalogowa; do automatycznego pipeline używać konkretnych dataset IDs/endpointów zamiast tego ogólnego URL.",
+   "checked_at": "2026-08-31"
+  }
+ ]
 }
