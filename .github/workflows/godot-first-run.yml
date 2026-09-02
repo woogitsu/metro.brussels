@@ -226,6 +226,29 @@ jobs:
             --prefix GODOT --out build/t400/visual/render-sanity.json \
             --markdown build/t400/visual/render-sanity.md --allow-new-baseline
 
+      - name: Shot metadata must describe this scene
+        shell: bash
+        # Poprzedni krok woła compare.py BEZ --baseline, a check_geometry przy braku
+        # baseline zwraca `new-baseline` i wychodzi ZANIM porówna choć jedną liczbę.
+        # W logu widać to wprost: "[WYNIK] pass — {'total': 6, 'pass': 0, 'fail': 0,
+        # 'new_baseline': 6}" — zero pass, sześć new_baseline. Metadane sceny nie były
+        # więc porównywane z niczym, mimo że docstring WriteShotMetadata mówi, po co
+        # istnieją: "compare.py porównuje je liczbowo, bo obraz tego nie wykryje".
+        #
+        # Zmierzone 02.09.2026 audytem mutacyjnym — przy ZIELONYM CI przechodziły:
+        # bbox przesunięty o 1000 m, mesh_objects 0, vertices/faces 0, chunks_loaded
+        # o 7 większe niż chunks_declared, podmieniona rozdzielczość i wyzerowane
+        # axis_length_m. Baseline nie jest tu rozwiązaniem, bo wyjście Godota nie jest
+        # stabilne między wersjami silnika; zamiast tego sprawdzana jest spójność
+        # wewnętrzna i zgodność z osią policzoną NIEZALEŻNIE, w Pythonie.
+        run: |
+          set -euo pipefail
+          python3 tools/ci/assert_shot_metadata.py \
+            --metadata build/t400/visual/GODOT_metadata.json \
+            --axis data/track/L1_A.json \
+            --resolution 1280x720 \
+            --view cab --at-chainage 976
+
       - name: Negative control of the screenshot check
         shell: bash
         # Kontrola, która przechodzi tylko na poprawnym wejściu, nie dowodzi niczego.
