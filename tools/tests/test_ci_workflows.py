@@ -59,6 +59,37 @@ def test_ci_apt_helper_is_executable_and_retries():
     assert "ATTEMPTS" in body and "sleep" in body
 
 
+def test_ci_apt_helper_limits_a_single_attempt_not_only_the_whole_step():
+    """Limit na próbę, nie tylko na krok.
+
+    Limit wyłącznie na kroku workflow zabija instalację w połowie pierwszego
+    podejścia i powtórka nigdy nie dostaje szansy — zmierzone na `visual-regression`
+    02.09.2026: krok padł po 10 min 13 s, wciąż w pierwszym `apt-get`.
+    """
+    body = open(HELPER, encoding="utf-8").read()
+    assert "sudo timeout" in body, "sygnał ma trafić w apt-get, nie w sudo"
+    assert "UPDATE_TIMEOUT_S" in body and "INSTALL_TIMEOUT_S" in body
+    assert "124" in body, "kod 124 z `timeout` musi być rozpoznany jako nieudana próba"
+
+
+def test_ci_step_timeout_leaves_room_for_every_attempt():
+    """Backstop na kroku musi być dłuższy niż wszystkie próby razem z odstępami."""
+    body = open(HELPER, encoding="utf-8").read()
+    attempts = int(re.search(r"ATTEMPTS=\$\{APT_ATTEMPTS:-(\d+)\}", body).group(1))
+    update_s = int(re.search(r"UPDATE_TIMEOUT_S=\$\{APT_UPDATE_TIMEOUT_S:-(\d+)\}", body).group(1))
+    install_s = int(re.search(r"INSTALL_TIMEOUT_S=\$\{APT_INSTALL_TIMEOUT_S:-(\d+)\}", body).group(1))
+    backoff = int(re.search(r"BACKOFF_S=\$\{APT_BACKOFF_S:-(\d+)\}", body).group(1))
+    # dwa wywołania helpera na krok: `update` i `install`, każde z własnym budżetem
+    worst_case_s = (attempts * (update_s + install_s)
+                    + 2 * backoff * sum(range(1, attempts + 1)))
+    for name in _workflows():
+        for step in _steps(_text(name)):
+            if "apt_install.sh" not in step:
+                continue
+            declared = int(re.search(r"timeout-minutes: (\d+)", step).group(1))
+            assert declared * 60 >= worst_case_s, (name, declared * 60, worst_case_s)
+
+
 def test_ci_apt_helper_refuses_an_empty_package_list():
     """Pusta lista pakietów to błąd wywołania, nie cicha instalacja niczego."""
     import subprocess
