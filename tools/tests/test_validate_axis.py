@@ -173,11 +173,38 @@ def test_validate_synthetic_axis_in_the_directory_does_not_disturb_the_check():
     assert all(not path.endswith(("TEST.json", "BROKEN.json")) for path in axes.values())
 
 
-def test_validate_every_package_axis_reports_the_overrun_it_actually_has():
-    """Wszystkie sześć pakietów ma dziś niezerowe przekroczenie. Gdyby któryś przestał
-    je mieć, ten test padnie — i będzie to informacja, że oś przeliczono."""
-    without = [
+def test_validate_no_package_axis_overruns_its_own_end():
+    """Odwrotność poprzedniej wersji tego testu, i to jest cała historia.
+
+    Gdy powstawał, wszystkie sześć pakietów zgłaszało przekroczenie 0,25–0,64 m i test
+    pilnował, żeby ta liczba nie zniknęła po cichu. Zniknęła jawnie: kilometraż stacji
+    liczy się teraz na osi, która trafia do pliku, a nie na łamanej źródłowej. Test
+    pilnuje więc dalej tej samej rzeczy, tylko z drugiej strony — powrót przekroczenia
+    znaczyłby, że kilometraż znowu rozjechał się z geometrią.
+    """
+    over = [
         package for package, path in sorted(_package_axes().items())
-        if not _has(V.validate(path).warn, "za końcem osi")
+        if _has(V.validate(path).warn, "za końcem osi")
     ]
-    assert not without, f"pakiety bez zgłoszonego przekroczenia: {without}"
+    assert not over, f"pakiety z przekroczeniem: {over}"
+
+
+def test_validate_last_station_lands_on_the_axis_end():
+    """Ostatnia stacja jest końcem osi — oś jest cięta dokładnie w jej rzucie."""
+    for package, path in sorted(_package_axes().items()):
+        with open(path, encoding="utf-8") as handle:
+            axis = json.load(handle)
+        last = max(s["chainage_m"] for s in axis["stations"])
+        gap = abs(axis["length_m"] - last)
+        assert gap <= 0.01, f"{package}: ostatnia stacja {last:.2f} m, oś {axis['length_m']:.2f} m"
+
+
+def test_validate_axes_keep_the_source_chainage_next_to_the_corrected_one():
+    """Kilometraż na łamanej źródłowej nie znika — jest obok, żeby dało się zmierzyć,
+    ile kosztuje przepróbkowanie osi, zamiast przyjmować to na wiarę."""
+    for package, path in sorted(_package_axes().items()):
+        with open(path, encoding="utf-8") as handle:
+            stations = json.load(handle)["stations"]
+        assert all("source_chainage_m" in s for s in stations), package
+        drift = max(s["source_chainage_m"] - s["chainage_m"] for s in stations)
+        assert drift >= 0.0, f"{package}: oś przepróbkowana wyszła DŁUŻSZA niż źródłowa"

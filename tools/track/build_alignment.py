@@ -463,6 +463,24 @@ def build(args):
     local = [((p[0] - origin[0], p[1] - origin[1]), tag) for p, tag in resampled]
     chain_local = cumulative([p for p, _ in local])
 
+    # Kilometraż stacji liczymy na osi, KTÓRA TRAFIA DO PLIKU, a nie na łamanej źródłowej.
+    #
+    # Poprzednia wersja brała `anchor["chainage"] - start`, czyli kilometraż na łamanej
+    # STIB. Ale do pliku idzie oś **przepróbkowana**, a przepróbkowanie ścina naroża, więc
+    # jest krótsza. Różnica narasta wzdłuż osi: w pakiecie A od 0,000 m na pierwszej stacji
+    # do 0,636 m na Merode. Skutkiem było nie tylko to, że ostatnia stacja wypadała ZA
+    # końcem osi, ale też że KAŻDA odległość międzystacyjna była zawyżona o przyrost tego
+    # dryfu — a `TrackAxis.PointAt` obcinał nadmiar po cichu.
+    #
+    # `resample_uniform` gwarantuje, że każda kotwica stacyjna JEST wierzchołkiem osi
+    # wynikowej, więc kilometraż jest tu dokładny, a nie przybliżony.
+    anchor_indices = [i for i, (_p, tag) in enumerate(local) if tag == "station_anchor"]
+    if len(anchor_indices) != len(anchors):
+        raise SystemExit(f"BŁĄD: {len(anchors)} kotwic stacyjnych dało {len(anchor_indices)} "
+                         "wierzchołków w osi wynikowej — dwie stacje zlały się w jeden punkt")
+    for anchor, index in zip(anchors, anchor_indices):
+        anchor["axis_chainage"] = chain_local[index]
+
     out_points = [[round(p[0], 3), round(p[1], 3), 0.0] for p, _ in local]
     point_sources = [{"index": i, "origin": tag, "source_class": "derived",
                       "derived_from": "official_stib"}
@@ -488,7 +506,8 @@ def build(args):
             "name_nl": _display_name(row["Descr_nl"]),
             "stop_id": row["Stop_id"],
             "stop_order": row["StopOrder"],
-            "chainage_m": round(anchor["chainage"] - start, 2),
+            "chainage_m": round(anchor["axis_chainage"], 2),
+            "source_chainage_m": round(anchor["chainage"] - start, 2),
             "offset_from_axis_m": round(anchor["offset"], 3),
             "source_class": "official_stib",
             "depth_m": None,
