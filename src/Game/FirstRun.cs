@@ -52,7 +52,8 @@ public enum ViewKind
 /// </summary>
 public sealed partial class FirstRun : Node3D
 {
-    private readonly Dictionary<string, string> _args = new(StringComparer.Ordinal);
+    /// <summary>Rozstrzygnięty wiersz poleceń. Ustawiany raz, w `ParseArguments`.</summary>
+    private RunPlan? _plan;
     private readonly List<string> _telemetry = new();
 
     private TrackAxis _axis = null!;
@@ -190,124 +191,36 @@ public sealed partial class FirstRun : Node3D
     // --- argumenty i ścieżki ------------------------------------------------------
 
     /// <summary>
-    /// Wszystkie argumenty, które scena rozumie. Lista jest jawna, bo argument spoza
-    /// niej ma zatrzymać przebieg, a nie zostać po cichu zignorowany.
+    /// Czyta wiersz poleceń przez <see cref="RunPlan"/> i przenosi wynik do pól sceny.
     ///
-    /// <para><b>Zmierzone 02.09.2026 audytem mutacyjnym.</b> Przed tą zmianą
-    /// <c>--at-chainag=2000</c> — literówka na jednym znaku — kończyło się kodem 0
-    /// i zrzutem o nazwie <c>GODOT_cab_2000m.png</c> przedstawiającym stojący skład
-    /// na 94 m. <c>--view=zmyslony</c> cicho spadało do widoku z kabiny. Pięć „ujęć
-    /// kontrolnych" mogło więc być pięcioma kopiami tego samego kadru, a wszystkie
-    /// opisy kamer z <c>cameras.json</c> („najciaśniejszy łuk R = 91,5 m", „szew
-    /// chunków c01/c02") były niesprawdzalnymi deklaracjami.</para>
+    /// <para>Samo rozstrzyganie — lista znanych argumentów, znane widoki, parsowanie
+    /// liczb i kontrola skończoności — siedzi w <see cref="RunPlan"/>, bo tamten plik
+    /// NIE importuje Godota i daje się zawołać wprost z <c>tests/Game.Tests</c>.
+    /// Tutaj zostaje wyłącznie to, co bez silnika nie ma sensu: odczyt argumentów
+    /// procesu i <see cref="Abort"/>, który zatrzymuje pętlę klatek.</para>
     /// </summary>
-    private static readonly string[] KnownArguments =
-    {
-        "telemetry", "shot", "sample-every", "steps-per-frame", "jitter",
-        "at-chainage", "view", "axis", "no-geometry", "assets", "manifest", "shell",
-    };
-
-    /// <summary>Widoki, jakie scena potrafi ustawić. Inna wartość jest błędem, nie domyślną.</summary>
-    private static readonly string[] KnownViews = { "cab", "chase", "outside" };
-
     private void ParseArguments()
     {
-        foreach (var argument in OS.GetCmdlineUserArgs())
+        var plan = RunPlan.Parse(OS.GetCmdlineUserArgs(), ExitUnknownArgument, ExitBadArgumentValue);
+        _plan = plan;
+        if (!plan.IsValid)
         {
-            var text = argument.TrimStart('-');
-            var split = text.IndexOf('=');
-            if (split < 0)
-            {
-                _args[text] = "1";
-            }
-            else
-            {
-                _args[text[..split]] = text[(split + 1)..];
-            }
-        }
-
-        foreach (var name in _args.Keys)
-        {
-            if (Array.IndexOf(KnownArguments, name) < 0)
-            {
-                Abort(ExitUnknownArgument,
-                    $"[ARGUMENT] nieznany argument '--{name}'. Znane: --{string.Join(" --", KnownArguments)}");
-                return;
-            }
-        }
-
-        _telemetryPath = Argument("telemetry");
-        _shotPath = Argument("shot");
-        _scriptedMode = _telemetryPath is not null || _shotPath is not null;
-        _mode = _telemetryPath is not null ? "telemetry" : _shotPath is not null ? "shot" : "manual";
-
-        if (!TryLong("sample-every", 120L, out _sampleEvery)
-            || !TryLong("steps-per-frame", 120L, out _stepsPerFrame)
-            || !TryDouble("jitter", 0.0, out _jitter)
-            || !TryDouble("at-chainage", 0.0, out _shotChainageM))
-        {
+            Abort(plan.ExitCode, plan.Error!);
             return;
         }
 
-        var view = Argument("view") ?? "cab";
-        if (Array.IndexOf(KnownViews, view) < 0)
-        {
-            Abort(ExitBadArgumentValue,
-                $"[ARGUMENT] nieznany widok '--view={view}'. Znane: {string.Join(", ", KnownViews)}");
-            return;
-        }
-
-        _view = view switch
-        {
-            "chase" => ViewKind.Chase,
-            "outside" => ViewKind.Outside,
-            _ => ViewKind.Cab,
-        };
+        _telemetryPath = plan.TelemetryPath;
+        _shotPath = plan.ShotPath;
+        _scriptedMode = plan.ScriptedMode;
+        _mode = plan.Mode;
+        _sampleEvery = plan.SampleEvery;
+        _stepsPerFrame = plan.StepsPerFrame;
+        _jitter = plan.Jitter;
+        _shotChainageM = plan.ShotChainageM;
+        _view = plan.View;
     }
 
-    private bool TryLong(string name, long fallback, out long value)
-    {
-        var text = Argument(name);
-        if (text is null)
-        {
-            value = fallback;
-            return true;
-        }
-
-        if (long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out value))
-        {
-            return true;
-        }
-
-        Abort(ExitBadArgumentValue, $"[ARGUMENT] '--{name}={text}' nie jest liczbą całkowitą");
-        return false;
-    }
-
-    private bool TryDouble(string name, double fallback, out double value)
-    {
-        var text = Argument(name);
-        if (text is null)
-        {
-            value = fallback;
-            return true;
-        }
-
-        if (double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value)
-            && double.IsFinite(value))
-        {
-            return true;
-        }
-
-        // Bez tego `double.Parse` rzucał wyjątkiem w środku `_Ready`, `_shotPath` było
-        // już ustawione, a `_Process` wchodziło w odliczanie od int.MaxValue i kręciło
-        // się w nieskończoność. Zmierzone: `--at-chainage=abc` nie dawało ani PNG-a,
-        // ani kodu błędu — w CI to wypalony `timeout-minutes: 45` bez informacji.
-        Abort(ExitBadArgumentValue, $"[ARGUMENT] '--{name}={text}' nie jest skończoną liczbą");
-        value = fallback;
-        return false;
-    }
-
-    private string? Argument(string name) => _args.TryGetValue(name, out var value) ? value : null;
+    private string? Argument(string name) => _plan?.Argument(name);
 
     /// <summary>
     /// Przerywa przebieg z kodem błędu i **zatrzymuje pętlę klatek**.
@@ -528,12 +441,7 @@ public sealed partial class FirstRun : Node3D
     /// zgadza się z rdzeniem co do bitu, znaczy to, że krok stały robi to, co obiecuje.
     /// </summary>
     private double SyntheticFrameSeconds()
-    {
-        var baseSeconds = _stepsPerFrame * _step.Seconds;
-        return _jitter <= 0.0
-            ? baseSeconds
-            : baseSeconds * (1.0 + (_jitter * Math.Sin(_frames * 1.7)));
-    }
+        => _plan!.SyntheticFrameSeconds(_step.Seconds, _frames);
 
     private long AdvanceBy(double seconds)
     {
