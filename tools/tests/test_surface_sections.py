@@ -317,6 +317,137 @@ def test_surface_nearest_segment_keeps_the_first_segment_when_two_are_equidistan
     assert SS.nearest_segment(a, closer, index)["way_id"] == "drugi"
 
 
+def _pair_of_ways(order):
+    """Dwa way'e metra po przeciwnych stronach osi, w zadanej kolejności dokumentu.
+
+    `order` to lista `(way_id, odsunięcie_w_metrach, tagi)`. Odsunięcie jest podane
+    w Lambert 72 i dopiero przeliczane na stopnie, bo próg, o który tu chodzi, ma
+    rozmiar pół centymetra i musi być zadany w metrach, a nie w stopniach.
+    """
+    import crs as CRS
+    ways = []
+    for way_id, offset_m, tags in order:
+        ends = (CRS.lambert72_to_wgs84(149900.0, 170000.0 + offset_m),
+                CRS.lambert72_to_wgs84(150100.0, 170000.0 + offset_m))
+        ways.append((way_id, [tuple(ends[0]), tuple(ends[1])], dict(tags, railway="subway")))
+    return _osm(ways)
+
+
+# Bliższy way leży 0.906 m od osi, dalszy 0.909 m — różnica 3 mm, czyli MNIEJ niż
+# pół centymetra. Oba zaokrąglają się do tego samego 0.91 m, więc raport wygląda
+# identycznie, a `tunnel` i `layer` są różne: to one decydują o werdykcie.
+_CLOSER = ("blizszy", 0.906, {"tunnel": "yes", "layer": "-2"})
+_FARTHER = ("dalszy", -0.909, {"layer": "-3"})
+
+
+def test_surface_nearest_subway_prefers_the_closer_way_below_the_rounding_step():
+    """Way bliższy o 3 mm ma wygrać, choć obie odległości zaokrąglają się do 0.91 m.
+
+    Porównanie brzmiało `distance < best["distance_m"]`, a w `best` leżała wartość
+    już zaokrąglona do dwóch miejsc. Kandydat oddalony o 0.909 m przechodził więc
+    test wobec zapisanego 0.91 m i wypierał way leżący o 0.906 m — czyli DALSZY
+    wygrywał z BLIŻSZYM, o ile tylko wypadł w dokumencie później.
+
+    Kontrola negatywna jest wpisana w sam kształt danych: na kodzie sprzed zmiany
+    ten test padał, bo `nearest_subway` zwracał `way_id == "dalszy"` z `tunnel=None`
+    (sprawdzone przez uruchomienie tego samego wejścia na wersji z
+    `origin/triaz-powierzchnia-i-szerokosc`). Druga kontrola negatywna jest na dole:
+    przy różnicy 200 m wynik jest ten sam przed i po zmianie.
+    """
+    point = _on_the_way(150000.0, 170000.0)
+    best = SS.nearest_subway(_pair_of_ways([_CLOSER, _FARTHER]), point)
+    assert best["way_id"] == "blizszy", best
+    assert best["tunnel"] == "yes" and best["layer"] == "-2", best
+    # kontrola negatywna: przy różnicy dużo większej niż krok zaokrąglenia wybór
+    # był poprawny także przed zmianą — poprawka nie rusza tego przypadku
+    far = ("daleki", 200.0, {"layer": "-9"})
+    assert SS.nearest_subway(_pair_of_ways([_CLOSER, far]), point)["way_id"] == "blizszy"
+    assert SS.nearest_subway(_pair_of_ways([far, _CLOSER]), point)["way_id"] == "blizszy"
+
+
+def test_surface_nearest_subway_gives_the_same_way_in_both_input_orders():
+    """Ta sama para way'ów w obu kolejnościach ma dać ten sam wynik.
+
+    To jest właściwa treść usterki: przy porównaniu z wartością zaokrągloną wynik
+    zależał od kolejności elementów w dokumencie OSM, a ta kolejność nie niesie
+    żadnej informacji o terenie — zmienia się przy każdej edycji mapy. Narzędzie,
+    którego wynik zależy od kolejności wejścia, nie mierzy tego, co obiecuje.
+
+    Na kodzie sprzed zmiany ten test padał: dla kolejności `[bliższy, dalszy]`
+    wychodził way `dalszy`, dla `[dalszy, bliższy]` — way `bliższy`. Kontrola
+    negatywna poniżej pokazuje, że sam test nie jest tautologią: gdy way'e są
+    naprawdę różnie odległe, obie kolejności też muszą dać ten sam wynik.
+    """
+    point = _on_the_way(150000.0, 170000.0)
+    first = SS.nearest_subway(_pair_of_ways([_CLOSER, _FARTHER]), point)
+    second = SS.nearest_subway(_pair_of_ways([_FARTHER, _CLOSER]), point)
+    assert first == second, (first, second)
+    assert first["way_id"] == "blizszy", first
+    # kontrola negatywna: niezależność od kolejności musi zachodzić także wtedy,
+    # gdy zwycięzcą jest way podany jako drugi
+    swapped = ("blizszy", -0.906, {"tunnel": "yes", "layer": "-2"})
+    other = ("dalszy", 0.909, {"layer": "-3"})
+    assert (SS.nearest_subway(_pair_of_ways([swapped, other]), point)["way_id"]
+            == SS.nearest_subway(_pair_of_ways([other, swapped]), point)["way_id"]
+            == "blizszy")
+
+
+def test_surface_nearest_segment_prefers_the_closer_segment_and_ignores_input_order():
+    """To samo pytanie na ścieżce pełnego pokrycia z Overpassa — punkt po punkcie.
+
+    `nearest_segment` miał tę samą usterkę co `nearest_subway` i to ona liczy się
+    w praktyce: ścieżka `--osm-file` klasyfikuje KAŻDY punkt osi, więc przerzucenie
+    way'a o pół centymetra dotyczy setek punktów naraz. Na kodzie sprzed zmiany
+    pierwsza asercja padała (wychodził `dalszy`, `tunnel=None`), a druga pokazywała
+    dwa różne way'e dla dwóch kolejności tej samej pary.
+    """
+    def pair(order):
+        return [((149900.0, 170000.0 + offset), (150100.0, 170000.0 + offset),
+                 way_id, tags.get("tunnel"), tags.get("layer"))
+                for way_id, offset, tags in order]
+
+    forward = pair([_CLOSER, _FARTHER])
+    backward = pair([_FARTHER, _CLOSER])
+    point = (150000.0, 170000.0)
+    best = SS.nearest_segment(point, forward, SS.segment_grid(forward))
+    assert best["way_id"] == "blizszy" and best["tunnel"] == "yes", best
+    assert best == SS.nearest_segment(point, backward, SS.segment_grid(backward)), best
+    # kontrola negatywna: odcinek odsunięty o 200 m przegrywa w obu kolejnościach
+    far = ("daleki", 200.0, {"layer": "-9"})
+    for order in ([_CLOSER, far], [far, _CLOSER]):
+        segments = pair(order)
+        assert SS.nearest_segment(point, segments,
+                                  SS.segment_grid(segments))["way_id"] == "blizszy"
+
+
+def test_surface_nearest_reports_the_distance_rounded_to_two_places():
+    """Do raportu ma iść odległość zaokrąglona do 2 miejsc — format się nie zmienia.
+
+    Zmiana dotyczy wyłącznie tego, co porównywane; to, co zapisane, ma zostać takie
+    samo, bo `distance_m` trafia do plików raportu i do progu `NEAREST_MAX_M`.
+    Kontrola negatywna jest tu wymierzona w NAJPROSTSZĄ złą poprawkę tej usterki:
+    „trzymaj w `best` surową odległość i tyle". Wtedy `distance_m` przestałoby być
+    zaokrąglone, raporty zmieniłyby format, a ten test by to złapał — 12.3456789
+    zamiast 12.35. Dlatego odsunięcie ma siedem miejsc po przecinku, a nie dwa.
+    """
+    import crs as CRS
+    offset = 12.3456789
+    point = _on_the_way(150000.0, 170000.0)
+    best = SS.nearest_subway(_pair_of_ways([("jedyny", offset, {"tunnel": "yes"})]), point)
+    assert best["distance_m"] == 12.35, best
+    assert best["distance_m"] == round(best["distance_m"], 2), best
+
+    segments = [((149900.0, 170000.0 + offset), (150100.0, 170000.0 + offset),
+                 "jedyny", "yes", "-2")]
+    entry = SS.nearest_segment((150000.0, 170000.0), segments, SS.segment_grid(segments))
+    assert entry["distance_m"] == 12.35, entry
+    assert entry["distance_m"] == round(entry["distance_m"], 2), entry
+    # kontrola negatywna: inne odsunięcie daje inną liczbę, więc 12.35 nie bierze
+    # się z tego, że pole jest stałe
+    other = SS.nearest_subway(_pair_of_ways([("jedyny", 5.0, {"tunnel": "yes"})]), point)
+    assert other["distance_m"] == 5.0, other
+
+
 # --- filtry snapshotu Overpassa -------------------------------------------------
 
 def _overpass(elements):
@@ -496,9 +627,14 @@ def test_surface_survey_counts_both_sources_and_does_not_average_them():
                               "urbis=tunel|osm=tunel": 23}
     assert full["osm_surface_points"] == 8
     assert full["osm_surface_pct"] == 25.8
-    assert full["osm_surface_ranges_m"] == [[800.0, 1500.0]]
+    # Punkty osi 700 i 1500 leżą DOKŁADNIE w stykach way'ów, więc oba way'e są tam
+    # od nich odległe o zero z dokładnością do szumu przeliczenia WGS84↔Lambert 72
+    # (rzędu 4e-9 m). Który z pary wygrywa, jest w tym miejscu nierozstrzygalne
+    # geometrycznie; liczby zbiorcze wyżej — 8 punktów poza tunelem i cała macierz —
+    # nie zależą od tego wyboru, bo styk zawsze oddaje dokładnie jeden punkt.
+    assert full["osm_surface_ranges_m"] == [[700.0, 1400.0]]
     assert len(full["contradictions"]) == 1
-    assert full["contradictions"][0]["chainage_m"] == 1500.0
+    assert full["contradictions"][0]["chainage_m"] == 700.0
 
 
 def test_surface_survey_keeps_the_two_sources_independent():
