@@ -1306,3 +1306,99 @@ def test_visual_png_write_path_stays_byte_identical_after_merging_gray_and_rgb()
         assert abs(image.at(2, 0) - expected) < 1e-12, image.at(2, 0)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+
+
+def _corrupt_crc(blob, tag, bit=0xFF):
+    """Kopia pliku z przekręconym pierwszym bajtem CRC wskazanego chunku.
+
+    Rusza WYŁĄCZNIE pola CRC: długość, tag i dane zostają, więc plik jest nadal
+    kompletny w sensie kontroli ucięcia. Odmowa musi więc przyjść z kontroli sumy,
+    a nie z kontroli długości — inaczej test przechodziłby dla złego powodu.
+    """
+    out = bytearray(blob)
+    pos = len(pngio.MAGIC)
+    while pos + 8 <= len(out):
+        (length,) = struct.unpack(">I", out[pos:pos + 4])
+        if out[pos + 4:pos + 8] == tag:
+            out[pos + 8 + length] ^= bit
+            return bytes(out)
+        pos = pos + 12 + length
+    raise AssertionError(f"nie ma chunku {tag!r} w pliku")
+
+
+def test_visual_png_refuses_a_chunk_whose_crc_does_not_match_its_data():
+    """CRC jest sprawdzany, a nie przeskakiwany.
+
+    Zmierzone 03.09.2026 PRZED zmianą, na PNG-u 4x3 z `write_gray`: przekręcenie
+    jednego bajtu w polu CRC dowolnego z trzech chunków — IHDR, IDAT, IEND — dawało
+    plik czytany BEZ SŁOWA jako poprawny obraz 4x3. Cztery bajty, które są w pliku
+    wyłącznie po to, żeby wykryć uszkodzenie, nie były czytane ani razu.
+
+    Dlaczego to nie jest hipotetyczne: bramka wizualna porównuje zrzuty bajt po
+    bajcie i orzeka na tej podstawie „regresja" albo „bez zmian". Zrzut uszkodzony
+    w transporcie wchodził do tego porównania jako pełnoprawne wejście.
+    """
+    good = _png_bytes(3, 2, 8, 0, _GREY_ROWS, [0, 0],
+                      before=[(b"tEXt", b"Software\x00Blender")],
+                      after=[(b"tIME", struct.pack(">HBBBBB", 2026, 9, 3, 10, 0, 0))])
+    assert _as_bytes(_read_blob(good)) == _GREY_VALUES, "wzorzec do psucia jest zły"
+
+    # Także chunki, z których ten moduł NIC nie czyta: uszkodzony plik jest
+    # uszkodzony niezależnie od tego, czy akurat potrzebujemy tego chunku.
+    for tag in (b"IHDR", b"IDAT", b"IEND", b"tEXt", b"tIME"):
+        error = _raises(_corrupt_crc(good, tag))
+        assert isinstance(error, pngio.PngError), (tag, error)
+        assert "CRC" in str(error), (tag, str(error))
+        assert tag.decode("ascii") in str(error), (tag, str(error))
+
+
+def test_visual_png_crc_message_carries_both_sums_so_the_log_says_what_differs():
+    """Sama informacja „CRC się nie zgadza" nie pozwala odróżnić zepsutego pliku
+    od zepsutego czytnika. W logu CI mają stać obie liczby.
+    """
+    good = _png_bytes(3, 2, 8, 0, _GREY_ROWS, [0, 0])
+    blob = _corrupt_crc(good, b"IDAT")
+
+    pos = len(pngio.MAGIC)
+    while blob[pos + 4:pos + 8] != b"IDAT":
+        (length,) = struct.unpack(">I", blob[pos:pos + 4])
+        pos = pos + 12 + length
+    (length,) = struct.unpack(">I", blob[pos:pos + 4])
+    stored = struct.unpack(">I", blob[pos + 8 + length:pos + 12 + length])[0]
+    actual = zlib.crc32(blob[pos + 4:pos + 8 + length]) & 0xFFFFFFFF
+    assert stored != actual
+
+    message = str(_raises(blob))
+    assert f"{stored:08x}" in message, (message, f"{stored:08x}")
+    assert f"{actual:08x}" in message, (message, f"{actual:08x}")
+
+
+def test_visual_png_a_truncated_file_still_gets_the_truncation_message_not_a_crc_one():
+    """Kolejność kontroli: ucięcie ma własną, dokładniejszą diagnozę i pada pierwsze.
+
+    Gdyby kontrola CRC stanęła przed kontrolą ucięcia, sięgnęłaby po bajty, których
+    w buforze nie ma, i plik ucięty meldowałby się jako „zły CRC" — czyli mylnie,
+    bo o uszkodzeniu danych, a nie o brakującym końcu pliku.
+    """
+    good = _png_bytes(3, 2, 8, 0, _GREY_ROWS, [0, 0])
+    for missing in (1, 4, 9):
+        error = _raises(good[:-missing])
+        assert isinstance(error, pngio.PngError), (missing, error)
+        assert "CRC w pliku" not in str(error), (missing, str(error))
+
+
+def test_visual_png_every_render_this_project_produces_has_sound_crcs():
+    """Kontrola nie może odrzucać plików, które projekt naprawdę wypuszcza.
+
+    Blender pisze PNG-i z siedmioma rodzajami chunków dodatkowych (sRGB, gAMA, cHRM,
+    eXIf, oFFs, pHYs, tEXt) i z IDAT-em pociętym na kilkadziesiąt kawałków. Każdy
+    z nich przechodzi teraz przez kontrolę sumy, więc test bierze plik złożony tak
+    samo i sprawdza, że nadal się czyta.
+    """
+    ancillary = [(b"sRGB", b"\x00"), (b"gAMA", struct.pack(">I", 45455)),
+                 (b"cHRM", struct.pack(">8I", *([31270, 32900] * 4))),
+                 (b"pHYs", struct.pack(">IIB", 2835, 2835, 1)),
+                 (b"oFFs", struct.pack(">iiB", 0, 0, 0)),
+                 (b"tEXt", b"Software\x00Blender")]
+    blob = _png_bytes(3, 2, 8, 0, _GREY_ROWS, [0, 0], before=ancillary)
+    assert _as_bytes(_read_blob(blob)) == _GREY_VALUES, _as_bytes(_read_blob(blob))
