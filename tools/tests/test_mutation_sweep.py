@@ -15,7 +15,9 @@ Testy pilnują trzech rzeczy, z których każda ma tryb cichej awarii:
 """
 import ast
 import os
+import subprocess
 import sys
+import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import mutation_sweep as sweep  # noqa: E402
@@ -221,3 +223,85 @@ def test_report_says_so_when_nothing_survived():
                 "padly": ["t"], "ile_padlo": 1}]
     text = sweep.report(results, "abc1234")
     assert "Żadna mutacja nie przeżyła" in text
+
+
+# --- strażnik brudnego drzewa -------------------------------------------------
+
+def _git(repo, *args):
+    return subprocess.run(["git", "-C", repo] + list(args),
+                          capture_output=True, text=True, check=True)
+
+
+def _repo_with_one_file(tmp, name="tools/blender/x.py", body="a = 1\n"):
+    _git(tmp, "init", "--quiet")
+    _git(tmp, "config", "user.email", "t@t")
+    _git(tmp, "config", "user.name", "t")
+    path = os.path.join(tmp, name)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as handle:
+        handle.write(body)
+    _git(tmp, "add", "-A")
+    _git(tmp, "commit", "--quiet", "-m", "start")
+    return path
+
+
+def test_dirty_sources_sees_a_modified_file():
+    """Mutacje są liczone z drzewa roboczego, a wykonywane na kopii `HEAD`.
+
+    Gdy te dwa źródła się różnią, przesunięcia bajtowe mutacji nie pasują do pliku
+    i przebieg pada po kilkunastu minutach na strażniku wklejki. Ten strażnik ma
+    przerwać w pierwszej sekundzie.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        path = _repo_with_one_file(tmp)
+        original = sweep.ROOT
+        try:
+            sweep.ROOT = tmp
+            assert sweep.dirty_sources(["tools/blender/x.py"]) == []
+            with open(path, "a", encoding="utf-8") as handle:
+                handle.write("# dopisek\n")
+            assert sweep.dirty_sources(["tools/blender/x.py"]) == ["tools/blender/x.py"]
+        finally:
+            sweep.ROOT = original
+
+
+def test_dirty_sources_ignores_files_it_was_not_asked_about():
+    """Kontrola negatywna do testu wyżej.
+
+    Strażnik, który pyta o czystość CAŁEGO repozytorium, blokowałby przegląd za każdym
+    razem, gdy w tej samej sesji dopisuje się testy — a to jest normalny tryb pracy
+    i nie ma z mutacjami nic wspólnego. Zmieniony plik obok nie może niczego wstrzymać.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        _repo_with_one_file(tmp)
+        other = os.path.join(tmp, "tools", "tests", "test_x.py")
+        os.makedirs(os.path.dirname(other), exist_ok=True)
+        with open(other, "w", encoding="utf-8") as handle:
+            handle.write("# nowy test\n")
+        _git(tmp, "add", "-A")
+        _git(tmp, "commit", "--quiet", "-m", "test")
+        with open(other, "a", encoding="utf-8") as handle:
+            handle.write("# zmiana w teście\n")
+
+        original = sweep.ROOT
+        try:
+            sweep.ROOT = tmp
+            assert sweep.dirty_sources(["tools/blender/x.py"]) == []
+            assert sweep.dirty_sources(["tools/tests/test_x.py"]) == ["tools/tests/test_x.py"]
+        finally:
+            sweep.ROOT = original
+
+
+def test_dirty_sources_of_nothing_is_empty_without_calling_git():
+    """Pusta lista plików nie może wołać `git diff` bez ścieżek — to zwróciłoby
+    KAŻDĄ zmianę w repozytorium i strażnik blokowałby wszystko."""
+    with tempfile.TemporaryDirectory() as tmp:
+        path = _repo_with_one_file(tmp)
+        with open(path, "a", encoding="utf-8") as handle:
+            handle.write("# brudno\n")
+        original = sweep.ROOT
+        try:
+            sweep.ROOT = tmp
+            assert sweep.dirty_sources([]) == []
+        finally:
+            sweep.ROOT = original
