@@ -964,3 +964,96 @@ def test_ci_the_station_details_gate_reads_the_reason_of_every_refusal():
                     "wchodzi w skrajnię pojazdu",
                     "przebija ścianę profilu"):
         assert pattern in code, f"brak odmowy o wzorcu /{pattern}/"
+# --- kasowanie gałęzi: workflow, który musi sprawdzać, zanim skasuje ------------
+
+def _prune_workflow():
+    return _text("prune-merged-branches.yml")
+
+
+def _prune_without_comments():
+    """Sam kod workflow, bez komentarzy.
+
+    Bramka, która grepuje po całym pliku, łapie własne uzasadnienie: komentarz
+    tłumaczący, czemu czegoś NIE używamy, zawiera tę frazę tak samo jak użycie.
+    Ta pułapka wywróciła już bramkę reguły 9 w tym repozytorium — powtarzanie jej
+    z pełną świadomością byłoby wyborem, nie przeoczeniem.
+    """
+    return "\n".join(
+        line.split(" #", 1)[0] if not line.lstrip().startswith("#") else ""
+        for line in _prune_workflow().splitlines())
+
+
+def _prune_document():
+    """Sparsowany workflow. `on` w YAML 1.1 jest wartością logiczną, nie napisem —
+    `safe_load` daje klucz `True`, więc `document["on"]` wywraca się na KeyError."""
+    document = yaml.safe_load(_prune_workflow())
+    return document, document.get("on", document.get(True))
+
+
+def test_prune_workflow_verifies_the_merge_itself_instead_of_trusting_a_list():
+    """Kasowanie gałęzi to operacja nieodwracalna wykonywana bez nadzoru.
+
+    Workflow powstał dlatego, że agent w środowisku Claude Code dostaje 403 na
+    usuwanie refów — to ograniczenie środowiska, nie brak uprawnień właściciela.
+    Lista 79 gałęzi zweryfikowanych w #120 wisiała przez to w opisie PR-a.
+
+    Przeniesienie tej roboty na runnera nie może polegać na WKLEJENIU tamtej listy:
+    lista sprzed tygodnia opisuje repozytorium sprzed tygodnia, a gałąź, do której
+    ktoś w międzyczasie dopisał commit, wygląda na niej tak samo jak przedtem.
+    Dlatego workflow wyznacza listę sam i pyta o relację COMMITÓW, nie o nazwy.
+
+    `git branch --merged` nie wystarcza i to nie jest formalność: przy scaleniu ze
+    squashem gałąź ma inny commit niż baza, więc bywa raportowana jako niescalona,
+    a przy scaleniu przez merge — jako scalona nawet wtedy, gdy dopisano do niej
+    później. `merge-base --is-ancestor` odpowiada na pytanie, które ma znaczenie:
+    czy w tej gałęzi jest cokolwiek, czego nie ma w bazie.
+    """
+    text = _prune_without_comments()
+    assert "merge-base --is-ancestor" in text, \
+        "workflow nie sprawdza, czy czubek gałęzi jest przodkiem bazy"
+    assert "--merged" not in text, \
+        "pytanie o samą nazwę gałęzi myli się przy squashu — ma nie być używane"
+    assert "gh pr list --state open" in text, \
+        "workflow nie pyta o otwarte pull requesty"
+    assert "rev-list --count" in text, \
+        "workflow nie liczy, ILE commitów gałąź ma poza bazą — bez tego log nie mówi, czemu została"
+
+
+def test_prune_workflow_defaults_to_a_dry_run():
+    """Domyślne uruchomienie ma NIC nie skasować.
+
+    Krok kasujący jest warunkowany `inputs.dry_run == false`, a samo wejście ma
+    `default: true`. Kolejność jest istotna: gdyby domyślną wartością było
+    kasowanie, jedno kliknięcie „Run workflow" bez czytania formularza usuwałoby
+    gałęzie nieodwracalnie.
+    """
+    document, triggers = _prune_document()
+    inputs = triggers["workflow_dispatch"]["inputs"]
+    assert inputs["dry_run"]["default"] is True, inputs["dry_run"]
+    steps = document["jobs"]["prune"]["steps"]
+    deleting = [s for s in steps if "push origin --delete" in str(s.get("run", ""))]
+    assert len(deleting) == 1, "krok kasujący ma być dokładnie jeden"
+    assert "inputs.dry_run == false" in str(deleting[0]["if"]), deleting[0].get("if")
+
+
+def test_prune_workflow_never_deletes_the_base_branch():
+    """Baza musi być wykluczona jawnie, a nie przez to, że „i tak jest przodkiem siebie".
+
+    `merge-base --is-ancestor main main` jest prawdą, więc bez tego wykluczenia
+    workflow skasowałby gałąź, względem której liczy scalenie — czyli dokładnie tę,
+    której nie wolno tknąć.
+    """
+    assert '[ "$branch" = "$BASE" ]' in _prune_without_comments(), \
+        "brak jawnego wykluczenia bazy"
+
+
+def test_prune_workflow_asks_for_the_write_permission_it_needs_and_no_more():
+    """`contents: write` jest konieczne do usunięcia refa i wystarczające.
+
+    Domyślne `contents: read` z pozostałych workflow tego repozytorium dałoby 403 —
+    czyli dokładnie ten sam objaw, dla którego ten workflow powstał, tylko przeniesiony
+    na runnera. `pull-requests: read` jest potrzebne do listy otwartych PR-ów.
+    """
+    document, _triggers = _prune_document()
+    assert document["permissions"] == {"contents": "write", "pull-requests": "read"}, \
+        document["permissions"]
