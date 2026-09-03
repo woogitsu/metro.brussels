@@ -811,17 +811,52 @@ def test_lod_manifest_problems_treats_a_collision_touching_the_wall_as_still_ins
     assert any("wystaje poza światło" in p for p in LD.lod_problems(manifest))
 
 
-def test_lod_manifest_problems_detects_a_gauge_margin_of_exactly_zero():
-    """Mutacje: 601 `<= 0.0` -> `< 0.0` i `0.0` -> `0.001`.
+def test_lod_manifest_problems_wants_at_least_a_millimetre_of_gauge_margin():
+    """Decyzja właściciela z 03.09.2026: próg zapasu skrajni podniesiony z zera na 1 mm.
 
-    Zapas zero znaczy, że skrajnia M7 dotyka bryły kolizyjnej — czyli pociąg ociera
-    o kolizję. To jest złamanie, nie granica dopuszczalna.
+    Do tej pory kontrola pytała `gauge_margin_m <= 0.0`, więc zapas 0,5 mm przechodził.
+    Pół milimetra między skrajnią pojazdu a ścianą bryły kolizyjnej nie jest zapasem —
+    to styk, w którym o wyniku decyduje zaokrąglenie `double`, a nie geometria.
+
+    Przegląd mutacyjny pokazał to jako ocalałą mutację `0.0 -> 0.001`
+    (`reports/mutation-triage-lod.md`): żaden test nie odróżniał tych dwóch progów, bo
+    progu do odróżnienia nie było. Teraz jest i obie strony granicy są przypięte.
+
+    **Milimetr nie jest pomiarem.** Rzeczywistej skrajni STIB nie ma w żadnym publicznym
+    źródle (R-005), więc `COLLISION_GAUGE_MARGIN_MIN_M` jest jawnym założeniem
+    projektowym i ma iść do wymiany, gdy pojawi się liczba ze STIB.
+    """
+    def margins(value):
+        manifest = _manifest()
+        for chunk in manifest["chunks"]:
+            chunk["collision"]["gauge_margin_m"] = value
+        return [p for p in LD.lod_problems(manifest) if "zapas skrajni" in p]
+
+    assert margins(0.0), "zerowy zapas przeszedł"
+    assert margins(0.0005), "zapas 0,5 mm przeszedł — to jest styk, nie zapas"
+    assert margins(0.0009), "zapas tuż pod progiem przeszedł"
+    assert not margins(LD.COLLISION_GAUGE_MARGIN_MIN_M), \
+        "zapas RÓWNY progowi ma się mieścić — próg znaczy „nie mniej niż\""
+    assert not margins(0.65), "typowy zapas został zgłoszony jako za mały"
+
+    assert LD.COLLISION_GAUGE_MARGIN_MIN_M == 0.001, LD.COLLISION_GAUGE_MARGIN_MIN_M
+    assert margins(0.0005)[0].endswith("0.001 m"), \
+        "komunikat nie mówi, jakiego zapasu wymaga — bez tego czytający nie wie, o ile poprawić"
+
+
+def test_lod_manifest_problems_gauge_threshold_is_a_parameter_not_a_constant_in_the_condition():
+    """Próg musi dać się podać z zewnątrz, bo jest ZAŁOŻENIEM, a nie prawem natury.
+
+    Kontrola negatywna do testu wyżej: gdyby liczba siedziała wpisana w warunek,
+    podniesienie jej po odpowiedzi ze STIB wymagałoby zmiany kodu kontroli, a nie
+    jednej stałej — i nikt by nie zauważył, że stary próg został gdzieś indziej.
     """
     manifest = _manifest()
     for chunk in manifest["chunks"]:
-        chunk["collision"]["gauge_margin_m"] = 0.0
-    problems = LD.lod_problems(manifest)
-    assert any("nie mieści skrajni" in p for p in problems), problems
+        chunk["collision"]["gauge_margin_m"] = 0.05
+    assert not [p for p in LD.lod_problems(manifest) if "zapas skrajni" in p]
+    assert [p for p in LD.lod_problems(manifest, gauge_margin_min_m=0.10)
+            if "zapas skrajni" in p], "podniesiony próg nic nie zmienił"
 
 
 def test_lod_manifest_problems_detects_a_collision_volume_of_exactly_zero():
