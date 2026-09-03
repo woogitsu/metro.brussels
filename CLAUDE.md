@@ -168,11 +168,21 @@ GitHub Actions. Poprzednia wersja tego punktu mówiła, że standardem jest
   (`clean` domyślnie `true`, czyli `git clean -ffdx`, a `-x` obejmuje pliki ignorowane).
   Każdy workflow ma krok, który to **sprawdza**, bo bramki tego projektu oglądają pliki
   wyjściowe i stary plik przeszedłby je tak samo dobrze jak świeży.
-- **Narzędzia instalują się warunkowo.** Krok sondujący sprawdza `command -v`;
+- **Narzędzia instalują się warunkowo.** Krok sondujący sprawdza, czego brakuje;
   instalacja i cache odpalają się tylko przy braku. Świeży runner nadal działa bez
-  ręcznego przygotowania, a trwały nie wywołuje `sudo apt-get` na 190 MB przy każdym
-  przebiegu. Godot leży poza workspace (`runner.tool_cache`), bo w workspace kasował
-  go `git clean` przy każdym checkoucie.
+  ręcznego przygotowania, a trwały nie wywołuje `sudo apt-get` przy każdym przebiegu.
+- **Godot i Blender leżą POZA workspace** (`runner.tool_cache`), bo w workspace kasował
+  je `git clean -ffdx` z checkoutu przy każdym przebiegu.
+- **Blender jest przypięty po wersji, nie brany z apt.** Od 03.09.2026, i ten punkt jest
+  przepisany, a nie dopisany obok: poprzednia wersja mówiła, że sonda sprawdza
+  `command -v blender`, i to już nieprawda. `apt` na Ubuntu 24.04 daje 4.0.2 do końca
+  życia wydania, a 4.0.2 renderuje **legacy EEVEE**, podczas gdy baseline projektu jest
+  z EEVEE Next — `enum_items` dla `engine` zwraca `['BLENDER_EEVEE']` na obu, więc nazwa
+  silnika ich nie odróżnia. Sonda na obecność byłaby tu wręcz szkodliwa: na maszynie,
+  która kiedykolwiek dostała Blendera z apt, uznałaby środowisko za gotowe.
+  Wersja i suma SHA-256 są w `tools/ci/blender-version.txt`, instaluje
+  `tools/ci/blender_install.sh`, a skrypty wołają `${BLENDER_BIN:-blender}` — tak samo
+  jak `GODOT_BIN`. Z apt zostały wyłącznie biblioteki systemowe.
 - Nie uznawaj `queued` za weryfikację; zadanie jest zweryfikowane dopiero po zakończonym,
   zielonym jobie i sprawdzeniu wymaganych artefaktów. Na jednym runnerze `queued` znaczy
   też „kolejka", nie tylko „zepsute" — ale nadal nie znaczy „zweryfikowane".

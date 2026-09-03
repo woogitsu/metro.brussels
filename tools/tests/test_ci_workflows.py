@@ -140,7 +140,13 @@ def test_ci_package_lists_live_in_one_place():
             assert os.path.isfile(path), (name, path)
             packages = [line.strip() for line in open(path, encoding="utf-8")
                         if line.strip() and not line.startswith("#")]
-            assert "blender" in packages, (declared, packages)
+            # Zestawy niosą już tylko BIBLIOTEKI systemowe — sam Blender przychodzi
+            # z przypiętego tarballa (`test_ci_blender_workflows_install_the_pinned_...`).
+            # Warunek zostaje mocny: zestaw musi dawać kontekst EGL, bo bez niego
+            # Blender startuje i wywraca się dopiero przy pierwszym renderze.
+            assert "libegl1" in packages, (declared, packages)
+            assert "blender" not in packages, (declared, packages,
+                                               "zestaw apt znów instaluje Blendera")
     assert checked == 5, f"oczekiwano pięciu kroków instalacji, znaleziono {checked}"
 
 
@@ -202,18 +208,119 @@ def test_ci_no_pipe_into_head_under_pipefail():
     assert not offenders, offenders
 
 
-def test_ci_blender_workflows_still_install_blender():
-    """Odporność nie może po cichu zgubić samego pakietu."""
-    for name in ("blender-smoke.yml", "tunnel-alignment.yml", "m7-shell.yml",
-                 "visual-regression.yml", "godot-first-run.yml"):
-        text = _text(name)
-        declared = None
-        for step in _steps(text):
-            if "apt_install.sh" in step:
-                declared = _declared_set(step)
-        assert declared, name
+BLENDER_WORKFLOWS = ("blender-smoke.yml", "tunnel-alignment.yml", "m7-shell.yml",
+                     "visual-regression.yml", "godot-first-run.yml")
+
+
+def test_ci_blender_workflows_install_the_pinned_blender_not_whatever_apt_has():
+    """Blender przychodzi z PRZYPIĘTEGO tarballa, a nie z tego, co ma dystrybucja.
+
+    Poprzednia wersja tego testu wymagała, żeby zestaw pakietów zawierał `blender`
+    i `python3-numpy`, i jest tu przepisana, a nie dopisana obok, bo tamta reguła
+    już nie obowiązuje. Powód nie jest kosmetyczny: `apt` na Ubuntu 24.04 daje 4.0.2
+    do końca życia wydania, a 4.0.2 renderuje LEGACY EEVEE. Baseline projektu jest
+    z EEVEE Next i te dwie generacje nie są porównywalne — `enum_items` dla `engine`
+    zwraca `['BLENDER_EEVEE']` na obu, więc nazwa silnika ich nie odróżnia
+    (`tools/visual/capture_plan.py`, `EEVEE_NEXT_SINCE`). Kosztowało to dwie czerwone
+    bramki `tunnel-alignment` (L1_B i L2_E) 02.09.2026.
+
+    `python3-numpy` wypadł z zestawu, bo był potrzebny WYŁĄCZNIE dla Blendera z apt,
+    który linkuje się z systemowym Pythonem. Tarball wozi własny Python 3.13 i numpy 2.3,
+    a żaden moduł w `tools/` ani `src/` nie importuje numpy poza Blenderem.
+    """
+    for name in BLENDER_WORKFLOWS:
+        steps = _steps(_text(name))
+
+        # Krok, który skrypt URUCHAMIA, nie taki, który go tylko wspomina w komentarzu.
+        # Pierwsza wersja tego warunku brała `"blender_install.sh" in step` i trafiała
+        # w komentarz kroku sondy — test padał na kroku, który nigdy nie miał
+        # eksportować `BLENDER_BIN`.
+        installer = [s for s in steps if "bash tools/ci/blender_install.sh" in s]
+        assert installer, f"{name}: brak kroku uruchamiającego tools/ci/blender_install.sh"
+        assert 'BLENDER_BIN=' in installer[0], \
+            f"{name}: krok instalacji nie eksportuje BLENDER_BIN, więc skrypty go nie zobaczą"
+
+        apt = [s for s in steps if "apt_install.sh" in s]
+        assert apt, f"{name}: brak kroku instalującego biblioteki renderu"
+        declared = _declared_set(apt[0])
         packages = open(os.path.join(PACKAGE_SETS, declared + ".txt"), encoding="utf-8").read()
-        assert "libegl1" in packages and "python3-numpy" in packages, (name, declared)
+        assert "libegl1" in packages, (name, declared, "brak kontekstu EGL")
+        assert "\nblender\n" not in packages, \
+            (name, declared, "zestaw apt znów instaluje Blendera, czyli 4.0.2")
+
+
+def test_ci_blender_version_is_pinned_in_exactly_one_place():
+    """Numer wersji i suma kontrolna są w jednym pliku, nie w pięciu workflowach.
+
+    Pięć kopii numeru to pięć okazji, żeby jedna została w tyle i żeby baseline
+    został porównany z klatką z innego silnika EEVEE.
+    """
+    pin = os.path.join(os.path.dirname(PACKAGE_SETS), "blender-version.txt")
+    assert os.path.isfile(pin), pin
+    text = open(pin, encoding="utf-8").read()
+    version = re.search(r"(?m)^version=(.+)$", text)
+    sha = re.search(r"(?m)^sha256=([0-9a-f]{64})$", text)
+    assert version, "plik pinu nie podaje 'version='"
+    assert sha, "plik pinu nie podaje 'sha256=' o długości 64 znaków hex"
+
+    # Żaden workflow nie ma prawa wpisywać numeru wersji u siebie.
+    for name in BLENDER_WORKFLOWS:
+        assert version.group(1) not in _text(name), \
+            f"{name}: numer wersji Blendera wpisany w workflow zamiast czytany z pinu"
+
+
+def test_ci_no_workflow_uses_blender_before_installing_it():
+    """Krok, który woła `$BLENDER_BIN`, musi stać PO kroku, który go ustawia.
+
+    Pod `set -euo pipefail` puste `BLENDER_BIN` kończy krok błędem, więc awaria byłaby
+    głośna — ale byłaby też myląca: „command not found" kilkanaście kroków od powodu,
+    czyli od przestawionej kolejności. Ten test nazywa powód wprost.
+    """
+    for name in BLENDER_WORKFLOWS:
+        document = yaml.safe_load(_text(name))
+        steps = list(document["jobs"].values())[0]["steps"]
+        installer = None
+        for index, step in enumerate(steps):
+            if "bash tools/ci/blender_install.sh" in str(step.get("run", "")):
+                installer = index
+                break
+        assert installer is not None, f"{name}: brak kroku instalacji"
+        for index, step in enumerate(steps):
+            run = str(step.get("run", ""))
+            if "BLENDER_BIN" in run and "blender_install.sh" not in run:
+                assert index > installer, (
+                    f"{name}: krok {index} '{step.get('name')}' woła BLENDER_BIN, "
+                    f"a instalacja jest dopiero w kroku {installer}")
+
+
+def test_ci_blender_installer_verifies_the_checksum_and_stays_out_of_the_workspace():
+    """Pobranie bez sprawdzenia sumy nie jest instalacją, tylko nadzieją.
+
+    Archiwum ucięte w połowie rozpakowuje się częściowo i wywraca się dopiero
+    w środku renderu, kilkanaście kroków od powodu. Drugi warunek jest z tej samej
+    rodziny co `test_godot_lives_outside_the_workspace_that_checkout_wipes`:
+    `actions/checkout` robi `git clean -ffdx`, a `-x` obejmuje pliki ignorowane.
+    """
+    script = open(os.path.join(os.path.dirname(PACKAGE_SETS), "blender_install.sh"),
+                  encoding="utf-8").read()
+    # Komentarze SĄ ODCINANE przed sprawdzaniem. Bez tego test przechodzi na
+    # samej wzmiance w komentarzu: kontrola negatywna, która zamieniła
+    # `${RUNNER_TOOL_CACHE:-...}` na inną zmienną, została NIEZŁAPANA właśnie
+    # dlatego, że nazwa dalej stała w komentarzu obok.
+    code = "\n".join(line for line in script.splitlines()
+                     if not line.lstrip().startswith("#"))
+
+    assert "sha256sum -c" in code, "instalator nie sprawdza sumy kontrolnej"
+    assert re.search(r"\$\{RUNNER_TOOL_CACHE:-", code), \
+        "instalator nie czyta RUNNER_TOOL_CACHE, więc Blender może wylądować w workspace"
+    assert re.search(r"\$\{GITHUB_WORKSPACE:?-?[^}]*\}|\$GITHUB_WORKSPACE", code), \
+        "instalator nie sprawdza, czy katalog docelowy nie wpadł do workspace"
+    # Sonda musi czytać WERSJĘ, nie obecność: `command -v blender` na maszynie
+    # z Blenderem z apt znalazłby 4.0.2 i uznał środowisko za gotowe.
+    assert "installed_version" in code and '--version' in code, \
+        "instalator nie porównuje wersji zastanej z przypiętą"
+    assert 'command -v blender' not in code, \
+        "instalator sonduje obecność Blendera zamiast jego wersji"
 
 
 def _paths_block(text):
@@ -541,15 +648,27 @@ def test_tool_installation_is_conditional_on_the_tool_being_missing():
         steps = list(document["jobs"].values())[0]["steps"]
 
         probe = [s for s in steps if s.get("id") == "tools"]
-        assert probe, f"{name}: brak kroku sondującego obecność Blendera"
-        assert "command -v blender" in probe[0]["run"], name
+        assert probe, f"{name}: brak kroku sondującego biblioteki renderu"
+        # Sonda pyta o BIBLIOTEKI, nie o Blendera, i to jest zmiana świadoma.
+        # `command -v blender` na maszynie, która kiedykolwiek dostała Blendera z apt,
+        # znajduje 4.0.2 i uznaje środowisko za gotowe — a to legacy EEVEE. Wersję
+        # sprawdza `tools/ci/blender_install.sh`, który jest własną sondą.
+        assert "ldconfig" in probe[0]["run"], \
+            f"{name}: sonda nie sprawdza bibliotek renderu"
+        assert "command -v blender" not in probe[0]["run"], \
+            f"{name}: sonda pyta o obecność Blendera zamiast o jego wersję"
 
         for step in steps:
             run = str(step.get("run", ""))
             if "apt_install.sh" in run or (step.get("uses", "").startswith("actions/cache")
                                            and "metro-apt" in str(step)):
-                assert step.get("if") == "steps.tools.outputs.blender == 'missing'", \
+                assert step.get("if") == "steps.tools.outputs.libs == 'missing'", \
                     f"{name}: krok '{step.get('name')}' nie jest zabramkowany sondą"
+            # Instalator Blendera NIE jest bramkowany z workflow i tak ma być:
+            # sam czyta pin, sam porównuje wersję i przy zgodzie kończy w 0,12 s.
+            if "blender_install.sh" in run:
+                assert step.get("if") is None, \
+                    f"{name}: instalator Blendera jest własną sondą i nie ma być bramkowany"
     assert checked == 5, checked
 
 

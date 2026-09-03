@@ -30,22 +30,42 @@ i to one są treścią tego dokumentu.
 To jest jedyne miejsce w tym zestawie, gdzie wybór wersji ma konsekwencje, więc
 opisane są obie drogi, a nie tylko ta wygodniejsza.
 
-### 2.1 apt — 4.0.2, tego używa CI
+### 2.1 apt — 4.0.2, i CI już z niego NIE korzysta
+
+> **Od 03.09.2026 CI bierze Blendera z tarballa, nie z apt.** Ta sekcja została
+> przepisana, a nie dopisana obok, bo poprzednia wersja mówiła „tego używa CI"
+> i to już nieprawda. Powód jest w punkcie 2.3: `apt` daje 4.0.2 do końca życia
+> noble, a 4.0.2 renderuje **legacy EEVEE**, podczas gdy baseline projektu jest
+> z EEVEE Next. Z apt zostały wyłącznie biblioteki systemowe.
 
 ```bash
 export APT_CACHE_DIR="$HOME/.cache/metro-apt"
 bash tools/ci/apt_install.sh --set blender        # albo --set blender-xvfb dla Godota
 ```
 
-Zestawy pakietów leżą w `tools/ci/apt-packages/`. Instalują:
+Zestawy pakietów leżą w `tools/ci/apt-packages/`. Po zmianie z 03.09.2026 instalują
+**tylko biblioteki**:
 
 | pakiet | wersja w noble | po co |
 |---|---|---|
-| `blender` | `4.0.2+dfsg-1ubuntu8` | generatory geometrii |
+| `libegl1` | `1.7.0-1build1` | kontekst EGL do renderu headless |
+| `libgl1-mesa-dri` | `25.2.8-0ubuntu0.24.04.2` | programowy sterownik GL |
+| `libgl1` | `1.7.0-1build1` | tylko w `blender-xvfb`, pełny libGL dla Godota |
+| `xvfb` | `2:21.1.12-1ubuntu1.6` | tylko w `blender-xvfb` |
+
+Wypadły dwa pakiety i oba z powodem. `blender` — bo przychodzi z tarballa.
+`python3-numpy` — bo był potrzebny **wyłącznie** dla Blendera z apt, który linkuje
+się z systemowym Pythonem; tarball wozi własny Python 3.13 i numpy 2.3.4, a żaden
+moduł w `tools/` ani `src/` nie importuje numpy poza Blenderem (sprawdzone grepem
+po całym drzewie).
+
+Gdyby ktoś chciał odtworzyć STARY zestaw — ten, którego CI używało do 02.09.2026 —
+instalował on dodatkowo:
+
+| pakiet | wersja w noble | po co |
+|---|---|---|
+| `blender` | `4.0.2+dfsg-1ubuntu8` | generatory geometrii — **zastąpione tarballem** |
 | `python3-numpy` | `1:1.26.4+ds-6ubuntu1` | Blender z apt **nie ma własnego** numpy |
-| `libegl1` | `1.7.0-1build1` | render headless |
-| `libgl1-mesa-dri` | `25.2.8-0ubuntu0.24.04.2` | sterownik programowy |
-| `xvfb` | `2:21.1.12-1ubuntu1.6` | tylko w zestawie `blender-xvfb`, do zrzutów z Godota |
 
 **Koszt, zmierzony 03.09.2026 na czystym kontenerze:**
 
@@ -170,12 +190,53 @@ Odtwarzalność w obrębie 5.2.1 jest zachowana z zapasem: trzy przebiegi
 identyczne w 12/12 (nie jest to wymagane)`. To ta sama własność, którą `m7_shell.py`
 traci na obu wersjach — `reports/m7-glb-nondeterminism.md`.
 
-**Wniosek dla CI:** póki `tools/ci/apt-packages/blender.txt` mówi `blender`, CI dostaje
-4.0.2 i nie ma się co spierać. Podniesienie do 5.2.1 jest **technicznie bezkosztowe** —
-wszystkie bramki przechodzą, żadna nie stoi na bajtach, w repo nie ma baseline'ów do
-unieważnienia. Ale to nadal **zmiana wersji silnika**, więc według `CLAUDE.md` §8 jest
-decyzją właściciela, nie czynnością techniczną. Ta sekcja istnieje po to, żeby ta
-decyzja miała liczby, a nie przeczucie.
+**Decyzja podjęta 03.09.2026: CI chodzi na 5.2.1 LTS.** Podniesienie było technicznie
+bezkosztowe — wszystkie bramki przechodzą, żadna nie stoi na bajtach GLB, w repo nie ma
+baseline'ów do unieważnienia — ale było **zmianą wersji silnika**, więc czekało na
+decyzję właściciela zgodnie z `CLAUDE.md` §8. Ta sekcja istnieje po to, żeby ta decyzja
+miała liczby, a nie przeczucie.
+
+### 2.5 Jak CI stawia Blendera po tej zmianie
+
+Trzy rzeczy, z których każda ma swoją kontrolę negatywną w `tools/tests/test_ci_workflows.py`.
+
+**Wersja i suma są w JEDNYM pliku** — `tools/ci/blender-version.txt`:
+
+```
+version=5.2.1
+sha256=a31f524fa99a527d3d52b7f5aaa68c34e1a19d5a1c9473f79c5cc610fd5b10e9
+```
+
+Pięć kopii numeru w pięciu workflowach to pięć okazji, żeby jedna została w tyle
+i żeby baseline został porównany z klatką z innego silnika EEVEE. Test pilnuje, że
+żaden workflow nie wpisuje numeru u siebie.
+
+**Instalację robi `tools/ci/blender_install.sh`** i jest własną sondą: czyta pin,
+porównuje z tym, co faktycznie stoi w katalogu, i pobiera tylko przy rozjeździe.
+Zmierzone: pobranie i rozpakowanie ~15 s, drugie wywołanie **0,12 s**. Dlatego krok
+w workflow NIE ma `if:` — bramkowanie z zewnątrz byłoby drugą, słabszą sondą obok mocnej.
+
+**Sonda pyta o WERSJĘ, nie o obecność.** To jest sedno zmiany. `command -v blender`
+na maszynie, która kiedykolwiek dostała Blendera z apt, znajduje 4.0.2 i uznaje
+środowisko za gotowe — a to legacy EEVEE. Dowód, że nowa ścieżka to zamyka, wygląda tak:
+
+```
+$ blender --version | head -1
+Blender 4.0.2                     <- to jest w PATH
+
+$ BLENDER_BIN=$(bash tools/ci/blender_install.sh) bash tools/ci/blender_smoke.sh
+Blender 5.2.1 LTS (hash 9e2066aef7ef built 2026-08-25 02:12:34)
+blender_smoke EXIT=0              <- bramka pojechała na 5.2.1
+```
+
+**Skrypty wołają `${BLENDER_BIN:-blender}`**, nie gołego `blender` — ta sama konwencja,
+którą `doctor.sh` ma już dla `GODOT_BIN`. Fallback na PATH zostaje, żeby uruchomienie
+z ręki na maszynie z jednym Blenderem dalej działało.
+
+**Katalog jest poza workspace**, w `RUNNER_TOOL_CACHE`, dokładnie jak Godot: `actions/checkout`
+robi `git clean -ffdx`, a `-x` obejmuje pliki ignorowane, więc Blender w workspace
+schodziłby z sieci (366 MB) raz na przebieg. Skrypt sam odmawia, gdy katalog docelowy
+wypadnie w `GITHUB_WORKSPACE`.
 
 ### 2.4 Jedyny dług, jaki 5.2.1 pokazuje
 
@@ -258,12 +319,19 @@ dla T-400 potrzebny jest zestaw `blender-xvfb`, nie `blender`.
 Trzy, wszystkie opcjonalne w tym sensie, że bez nich też się zbuduje — tylko gorzej:
 
 ```bash
+export BLENDER_BIN="$(bash tools/ci/blender_install.sh)"
 export GODOT_BIN=/opt/metro-godot/4.3-stable/Godot_v4.3-stable_mono_linux.x86_64
 export DOTNET_CLI_TELEMETRY_OPTOUT=1
 export DOTNET_NOLOGO=1
 ```
 
-`GODOT_BIN` jest jedyną, której brak `doctor.sh` zauważy i zgłosi jako `WARN`.
+`BLENDER_BIN` i `GODOT_BIN` są tymi dwiema, o które `doctor.sh` pyta wprost — i o które
+pyta **tak samo jak CI**, a nie o coś innego. Doctor porównuje przy tym wersję Blendera
+z pinem, więc rozjazd „u mnie ok, w CI czerwono" widać u siebie:
+
+```
+  WARN  blender w wersji z pinu (5.2.1, jest 4.0.2)  -> CI wymaga 5.2.1; uruchom tools/ci/blender_install.sh
+```
 
 ## 6. Kontrola, że to naprawdę stoi
 
