@@ -39,18 +39,54 @@ HECTOMETRE_STEP_M = 100.0
 #: czegokolwiek poniżej byłoby rozróżnianiem szumu zapisu.
 SAME_PLACE_M = 0.01
 
+#: Najdłuższa oś, jaką ten projekt może w ogóle dostać. Cała sieć metra to 39,9 km
+#: (`data/network/lines.json`, pole `network.metro_length_km`), a oś jest fragmentem
+#: jednej linii — więc 40 km jest granicą od góry dla czegokolwiek, co tu wejdzie.
+MAX_AXIS_LENGTH_M = 40000.0
+
+#: Najgęstszy krok, przy którym siatka hektometrowa jeszcze cokolwiek znaczy.
+#: Konwencja kolejowa to 100 m; 1 m jest już sto razy gęstsze i nie jest
+#: „hektometrem" w żadnym sensie.
+MIN_SENSIBLE_STEP_M = 1.0
+
+#: Ogranicznik liczby znaczników, **niezależny od strażnika `step_m`**. Strażnik
+#: sprawdza znak kroku i był jedyną rzeczą, która trzymała pętlę w `hectometre_marks`:
+#: przy `step_m == 0.0` warunek `index * step_m <= length_m` jest prawdziwy zawsze,
+#: więc jego osłabienie nie dawało złego wyniku, tylko proces, który się nie kończy
+#: (przemiatanie mutacyjne 03.09.2026: `timeout 20` kończył się kodem 124, czyli
+#: mutacja nie mogła nawet zostać zaraportowana jako zabita).
+#:
+#: Liczba: 40 km / 1 m. Najdłuższa realna oś pakietu to 6,7 km, co przy konwencyjnym
+#: kroku 100 m daje 68 znaczników — ogranicznik jest od tego ~590 razy wyżej, więc
+#: nie da się w niego wejść poprawnym wejściem. Przekroczenie podnosi `ValueError`
+#: z liczbami, a nie ucina wyniku po cichu: ucięta siatka wygląda dokładnie tak samo
+#: jak krótka oś.
+MAX_MARKS = int(MAX_AXIS_LENGTH_M / MIN_SENSIBLE_STEP_M)
+
 
 def hectometre_marks(length_m, step_m=HECTOMETRE_STEP_M):
     """Kilometraże co `step_m`, od zera, **bez** przekraczania końca osi.
 
     Znacznik dokładnie na końcu osi jest dopuszczony: koniec osi to ostatnia stacja,
     więc taki znacznik i tak zniknie przy scaleniu ze stacjami.
+
+    Pętlę trzymają DWA warunki, każdy sam z siebie wystarczający do jej zakończenia:
+    strażnik `step_m > 0` i ogranicznik `MAX_MARKS`. Ogranicznik nie jest zapasem
+    na wypadek błędu — jest jedynym powodem, dla którego ta funkcja zatrzymuje się
+    także wtedy, gdy strażnik zniknie. Przekroczenie go to `ValueError`, nie ucięcie.
     """
     if step_m <= 0.0:
         raise ValueError("krok hektometrów musi być dodatni")
     marks = []
     index = 0
     while index * step_m <= length_m + SAME_PLACE_M:
+        if index >= MAX_MARKS:
+            raise ValueError(
+                f"siatka hektometrów przekroczyła {MAX_MARKS} znaczników: krok "
+                f"{step_m} m na osi {length_m} m. Granica to {MAX_AXIS_LENGTH_M:.0f} m "
+                f"sieci przez {MIN_SENSIBLE_STEP_M:.0f} m najgęstszego sensownego "
+                f"kroku; najdłuższy pakiet (6686 m) daje przy kroku "
+                f"{HECTOMETRE_STEP_M:.0f} m 68 znaczników")
         marks.append(round(index * step_m, 2))
         index += 1
     return marks
