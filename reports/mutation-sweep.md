@@ -26,11 +26,32 @@ mutant równoważny. Narzędzie nie zgaduje, które to.
 Nierozstrzygnięta znaczy, że przebieg testów nie doszedł do końca — ubity,
 bez pamięci, błąd poza samą mutacją. **Nie liczy się jako zabicie.** Tu jest jedna:
 
-- `tools/track/detail_layout.py:49`, operator `<=` → `<` — **przekroczony czas**.
-  Przebieg szedł, gdy na tej samej maszynie pracowały równolegle cztery inne zadania,
-  więc najprawdopodobniej to obciążenie, a nie pętla nieskończona w zmutowanym kodzie.
-  Nie zgaduję: zostaje jako nierozstrzygnięta i nie liczy się ani jako zabicie, ani
-  jako ocalenie. Kto będzie robił triaż `detail_layout.py`, zmierzy ją osobno.
+- `tools/track/detail_layout.py:49`, operator `<=` → `<` — **przekroczony czas**, i to
+  nie z powodu obciążenia maszyny. Pierwsza wersja tego akapitu tak zgadywała; zgadła źle.
+
+  Wiersz 49 to `if step_m <= 0.0: raise ValueError(...)`, czyli strażnik przed krokiem
+  zerowym. Osłabienie go do `<` wpuszcza `step_m == 0.0` do pętli
+  `while index * step_m <= length_m + SAME_PLACE_M`, gdzie lewa strona jest **zawsze
+  zerem** — pętla nie kończy się nigdy. Sprawdzone wykonaniem:
+
+  ```
+  $ sed -i '49s/step_m <= 0.0/step_m < 0.0/' tools/track/detail_layout.py
+  $ timeout 20 python3 -c "... D.hectometre_marks(500.0, 0.0)"
+  kod wyjścia: 124        # zawisł
+  ```
+
+  **To nie jest luka w pokryciu.** Test `test_layout_hectometre_step_must_be_positive`
+  woła dokładnie `hectometre_marks(500.0, 0.0)` i oczekuje `ValueError` — bramka istnieje
+  i jest sprawdzana. To jest **ograniczenie narzędzia**: mutacja, która zamienia strażnik
+  w pętlę nieskończoną, nie może zostać zaraportowana jako zabita, bo proces testów nigdy
+  nie kończy pracy. Przemiatanie widzi tylko sygnał zabójczy i uczciwie mówi
+  „nierozstrzygnięta".
+
+  Wniosek na przyszłość: `nierozstrzygnięta` z przekroczonego czasu warto obejrzeć
+  RĘCZNIE, zanim się ją odłoży — bywa, że kryje najmocniejszy dowód, jaki mutacja może
+  dać, czyli że bez tego warunku program w ogóle się nie zatrzymuje. Osobno warto
+  rozważyć niezależny ogranicznik liczby iteracji w `hectometre_marks` — decyzja
+  właściciela, nie moja.
 
 ## Kontrola: dlaczego te liczby są tak inne od poprzednich
 
