@@ -27,6 +27,13 @@ namespace MetroBxl.Sim.Train;
 /// </summary>
 public sealed class LineDrive
 {
+    /// <summary>
+    /// Tolerancja porównań chainage; ta sama co w <see cref="MetroBxl.Sim.Signalling.FixedBlockSystem"/>.
+    /// Nie jest zapasem bezpieczeństwa — jest granicą, poniżej której dwie liczby double
+    /// opisujące to samo miejsce nie mają prawa być uznane za różne.
+    /// </summary>
+    public const double PositionEpsilonM = 1e-9;
+
     private readonly TrainController _controller;
     private readonly BrakingPointSolver _solver;
     private readonly FixedStep _step;
@@ -44,6 +51,7 @@ public sealed class LineDrive
     private double _departedAtSeconds;
     private double _departedFromM;
     private bool _braking;
+    private double _brakingToM = double.NaN;
     private StationStop? _stop;
 
     /// <summary>Skład postawiony na początku osi, gotowy do pierwszego kroku.</summary>
@@ -112,6 +120,22 @@ public sealed class LineDrive
     public bool AtStation => _stop is not null;
 
     /// <summary>
+    /// Kilometraż, za który skład nie ma prawa wyjechać w tym kroku — koniec autorytetu
+    /// jazdy. `null` znaczy „droga wolna do następnej stacji".
+    ///
+    /// <para><b>Dlaczego to jest tu, a nie w kontrolerze.</b> Ograniczenie ruchu składu
+    /// jest poleceniem maszynisty, a nie własnością pojazdu. Kontroler z T-310 dostaje
+    /// nastawę i liczy fizykę; to, skąd ta nastawa się wzięła — z odległości do stacji
+    /// czy z zajętego bloku przed nosem — należy do prowadzenia.</para>
+    ///
+    /// <para><b>Czego to NIE robi.</b> Nie jest drugą fizyką hamowania. Skład hamuje tym
+    /// samym serwem co przed stacją, tylko cel jest bliższy z dwóch. Gdyby autorytet miał
+    /// własny wzór, dwa modele hamowania rozjechałyby się i nie dałoby się powiedzieć,
+    /// który jest prawdziwy.</para>
+    /// </summary>
+    public double? AuthorityEndM { get; set; }
+
+    /// <summary>
     /// Jeden krok stały. Ciało przeniesione z <see cref="LineRun"/> bez zmiany kolejności.
     /// </summary>
     /// <param name="trace">Ślad wołany po kroku, gdy podany.</param>
@@ -165,6 +189,7 @@ public sealed class LineDrive
                 _departedFromM = _start + _state.DistanceM;
                 _topSpeed = 0.0;
                 _braking = false;
+                _brakingToM = double.NaN;
                 _stop = null;
                 _next++;
             }
@@ -172,8 +197,53 @@ public sealed class LineDrive
             return true;
         }
 
-        var command = Command(target - chainage);
-        _braking |= command.Brake > 0.0;
+        // Cel hamowania to BLIŻSZY z dwóch: następna stacja albo koniec autorytetu.
+        // Gdy autorytet sięga dalej niż stacja, nie zmienia się nic — i ta tożsamość
+        // jest przypięta testem, bo inaczej wprowadzenie sygnalizacji po cichu zmieniłoby
+        // każdy dotychczasowy przejazd.
+        var stopAt = AuthorityEndM is double limit && limit < target ? limit : target;
+
+        // Zatrzask hamowania jest zatrzaskiem **na konkretny cel**, a nie na cały odcinek.
+        // Przed autorytetem cel się cofa i wraca: skład wyhamowuje przed zajętym blokiem,
+        // a gdy poprzedzający zwolni blok, autorytet skacze do przodu. Zatrzask bez tego
+        // zwolnienia trzymałby skład na zawsze — `Command` przy zatrzasku nigdy nie wraca
+        // do trakcji, więc skład, raz zatrzymany przed sygnałem, dojechałby do stacji
+        // wybiegiem albo wcale. Przy jeździe do stacji cel się nie rusza, więc warunek
+        // nigdy nie zachodzi i ślad przejazdu solo jest ten sam co przed tą zmianą.
+        if (_braking && stopAt > _brakingToM + PositionEpsilonM)
+        {
+            _braking = false;
+        }
+
+        // Skład, który stanął PRZED AUTORYTETEM, stoi — dopóki autorytet się nie ruszy.
+        //
+        // Bez tego warunku pełznie. `Command` przy prędkości zero daje pełną trakcję,
+        // bo tak się rusza z peronu; przed sygnałem daje to skok o 9 mm/s, zaraz potem
+        // wyhamowanie do zera i tak w kółko. Zmierzone: 0,30 m w 58 s, czyli minuta
+        // doliczona do każdego postoju przed zajętym blokiem, a więc do każdego pomiaru
+        // odstępu. Do STACJI podpełznąć wolno i jest to potrzebne — okno zatrzymania
+        // (`StopWindowM`) łapie skład, który stanął za wcześnie — dlatego warunek pyta
+        // o autorytet, a nie o samo zatrzymanie.
+        //
+        // Zatrzymanie przed autorytetem jest ostateczne, bo zezwolenie na jazdę albo jest,
+        // albo go nie ma; nie ma stanu pośredniego, w którym skład dosuwa się do sygnału
+        // centymetrami. Warunek nie zawiera ani jednej liczby — pyta o zatrzask hamowania
+        // i o to, czy cel jest bliższy niż stacja.
+        //
+        // Skład, który dopiero rusza z peronu przy krótkim autorytecie, ma zatrzask
+        // wyzerowany przy odjeździe, więc ten warunek go nie dotyczy i odjazd się odbywa.
+        var command = _braking && stopAt < target && _state.SpeedMps <= 0.0
+            ? DriverCommand.FullServiceBrake
+            : Command(stopAt - chainage);
+        if (command.Brake > 0.0)
+        {
+            if (!_braking)
+            {
+                _brakingToM = stopAt;
+            }
+
+            _braking = true;
+        }
         _state = _controller.Advance(
             _state, _conditions, command, _settings.SpeedLimitMps, _step, out _);
         trace?.Invoke(new LineRun.TracePoint(

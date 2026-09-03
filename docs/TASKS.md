@@ -216,7 +216,23 @@ których agent nie ruszy bez decyzji właściciela.
   wystawia niczego, czym dałoby się prowadzić skład
 - **Zależy od:** T-313 (zrobione), R-003 (zrobione)
 
-### [ ] T-320 · Rdzeń linii — wiele składów naraz — **ODBLOKOWANE, następne w kolejce**
+### [~] T-320 · Rdzeń linii — wiele składów naraz — **W TOKU**
+- **Zrobione (etap 1):** `LineDrive` — skład krokowany z zewnątrz. Ciało pętli przeniesione
+  z `LineRun` bez zmiany kolejności; ślad co krok identyczny co do bajtu (PR #123)
+- **Zrobione (etap 2):** `src/Sim/Line/LineCore.cs` — N składów na jednym zegarze, jednej
+  osi i jednym planie bloków z T-313. Krok idzie w trzech fazach nad wszystkimi składami
+  (wyjazdy → odczyt autorytetów ze stanu sprzed kroku → jazda i meldunek ruchu), przez co
+  wynik nie zależy od kolejności zgłoszenia. Zmierzone na osi syntetycznej 0/600/1400/2000 m,
+  takt 30 s: drugi skład przejeżdża pierwszy odcinek w 96,03 s wobec 50,37 s na pustej linii,
+  staje 0,29 m przed blokiem zajętym przez poprzedzający i zostaje tam; **zero naruszeń
+  autorytetu** w całym przebiegu
+- **Decyzja modelowa podjęta po drodze (do rewizji przez właściciela):** skład, który stanął
+  przed autorytetem, **stoi**, zamiast dopełzać do granicy. Bez tego `Command` przy prędkości
+  zero daje pełną trakcję — zmierzone 0,30 m w 58 s i przekroczenie autorytetu o 1,1 mm.
+  Warunek nie wnosi ani jednej liczby; do stacji podpełznąć nadal wolno, bo tam łapie okno
+  zatrzymania
+- **Zostaje:** takt i obiegi z T-113 (48 kursów naraz, 71 obiegów) — bez turnbacku nie da się
+  ich domknąć, bo skład, który dojechał do ostatniej stacji, zajmuje peron na zawsze
 - **Wejście z T-113:** takt 5:10 (L1/L5) i 5:40 (L2/L6), 48 kursów naraz w ruchu,
   71 obiegów pojazdów, rozkładowe czasy jazdy i postoju per odcinek (`build/timetable.json`)
 - **Wejście z T-313:** plan bloków pakietu A, zajętość, movement authority i ATP
