@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Text;
 using Godot;
 using MetroBxl.Game.Assets;
 using MetroBxl.Game.Input;
@@ -65,6 +66,11 @@ public sealed partial class FirstRun : Node3D
     private FixedStep _step;
 
     private ScenarioDrive? _scripted;
+    private LineDrive? _line;
+    private LineRunSettings? _lineSettings;
+    private string? _lineReportPath;
+    private LineRun.TracePoint _lineTrace;
+    private bool _lineMode;
     private DriveState _state;
     private DriverCommand _command = DriverCommand.Coast;
     private double _acceleration;
@@ -205,7 +211,23 @@ public sealed partial class FirstRun : Node3D
     {
         "telemetry", "shot", "sample-every", "steps-per-frame", "jitter",
         "at-chainage", "view", "axis", "no-geometry", "assets", "manifest", "shell",
+        "drive", "exchange-s", "brake-usage", "stop-window-m", "limit-kmh",
+        "line-report",
     };
+
+    /// <summary>
+    /// Sposoby prowadzenia składu, jakie scena potrafi uruchomić.
+    ///
+    /// <para><c>manual</c> to dotychczasowy tryb: nastawa idzie z klawiatury, skład nie wie
+    /// o stacjach. <c>line</c> prowadzi <see cref="LineDrive"/> z rdzenia — ten sam kod,
+    /// który przejeżdża oś w <c>Sim.Runner line</c> i jest przypięty testami — więc skład
+    /// zatrzymuje się na KAŻDEJ stacji i odbywa pełny cykl drzwi z T-312.</para>
+    ///
+    /// <para>To jest wpięcie, a nie nowy model: scena nie liczy tu ani jednej rzeczy sama.
+    /// Gdyby liczyła, byłaby druga fizyka jazdy obok rdzenia i nie dałoby się powiedzieć,
+    /// która jest prawdziwa.</para>
+    /// </summary>
+    private static readonly string[] KnownDrives = { "manual", "line" };
 
     /// <summary>Widoki, jakie scena potrafi ustawić. Inna wartość jest błędem, nie domyślną.</summary>
     private static readonly string[] KnownViews = { "cab", "chase", "outside" };
@@ -238,6 +260,7 @@ public sealed partial class FirstRun : Node3D
 
         _telemetryPath = Argument("telemetry");
         _shotPath = Argument("shot");
+        _lineReportPath = Argument("line-report");
         _scriptedMode = _telemetryPath is not null || _shotPath is not null;
         _mode = _telemetryPath is not null ? "telemetry" : _shotPath is not null ? "shot" : "manual";
 
@@ -246,6 +269,33 @@ public sealed partial class FirstRun : Node3D
             || !TryDouble("jitter", 0.0, out _jitter)
             || !TryDouble("at-chainage", 0.0, out _shotChainageM))
         {
+            return;
+        }
+
+        var drive = Argument("drive") ?? "manual";
+        if (Array.IndexOf(KnownDrives, drive) < 0)
+        {
+            Abort(ExitBadArgumentValue,
+                $"[ARGUMENT] nieznany sposób prowadzenia '--drive={drive}'. "
+                + $"Znane: {string.Join(", ", KnownDrives)}");
+            return;
+        }
+
+        _lineMode = drive == "line";
+        if (_lineReportPath is not null && !_lineMode)
+        {
+            Abort(ExitBadArgumentValue,
+                "[ARGUMENT] --line-report ma sens tylko z --drive=line; "
+                + "raport z przejazdu, którego nie było, byłby plikiem zer");
+            return;
+        }
+
+        if (_lineMode && _scriptedMode)
+        {
+            Abort(ExitBadArgumentValue,
+                "[ARGUMENT] --drive=line nie łączy się z --telemetry ani --shot: "
+                + "tamte tryby prowadzi ScenarioDrive z zapisanego scenariusza, "
+                + "a ten prowadzi LineDrive po stacjach. Dwa prowadzenia naraz to nie jest jeden przejazd");
             return;
         }
 
@@ -368,6 +418,56 @@ public sealed partial class FirstRun : Node3D
         {
             _scripted = new ScenarioDrive(_controller, _scenario, _conditions, _step);
         }
+
+        if (_lineMode)
+        {
+            BuildLineDrive();
+        }
+    }
+
+    /// <summary>
+    /// Prowadzenie po stacjach — te same nastawy i ta sama klasa, co w <c>Sim.Runner line</c>.
+    ///
+    /// <para><c>--exchange-s</c> NIE MA wartości domyślnej i to jest ta sama decyzja, co
+    /// w <see cref="DoorCycle"/> i w <see cref="LineRunSettings"/>: czasu wymiany pasażerów
+    /// nie podaje żadne źródło, więc scena woli odmówić uruchomienia, niż podstawić liczbę,
+    /// która potem wyjdzie w nagraniu jako fakt o metrze w Brukseli.</para>
+    ///
+    /// <para>Pozostałe dwie nastawy mają wartości domyślne **te same, co polecenie
+    /// <c>line</c>** (1,0 i 5,0 m), żeby ten sam przejazd liczony w rdzeniu i pokazany
+    /// w scenie nie różnił się przez inaczej dobrane założenie.</para>
+    /// </summary>
+    private void BuildLineDrive()
+    {
+        if (Argument("exchange-s") is null)
+        {
+            Abort(ExitBadArgumentValue,
+                "[ARGUMENT] --drive=line wymaga --exchange-s: czasu wymiany pasażerów "
+                + "nie podaje żadne źródło (T-312), więc scena go nie zgaduje");
+            return;
+        }
+
+        if (!TryDouble("exchange-s", 0.0, out var exchange)
+            || !TryDouble("brake-usage", 1.0, out var brakeUsage)
+            || !TryDouble("stop-window-m", 5.0, out var stopWindow)
+            || !TryDouble("limit-kmh", Units.MpsToKmh(_scenario.SpeedLimitMps), out var limitKmh))
+        {
+            return;
+        }
+
+        if (_axis.Stations.Count < 2)
+        {
+            Abort(ExitMissingInput,
+                $"[OŚ] --drive=line wymaga co najmniej dwóch stacji na osi, "
+                + $"a {_axis.Id} ma {_axis.Stations.Count}");
+            return;
+        }
+
+        _lineSettings = new LineRunSettings(
+            Units.KmhToMps(limitKmh), exchange, brakeUsage, stopWindow);
+        _line = new LineDrive(_axis, _conditions, _lineSettings, _controller,
+                              new BrakingPointSolver(_model), _step);
+        _mode = "line";
     }
 
     private void BuildEnvironment()
@@ -471,6 +571,18 @@ public sealed partial class FirstRun : Node3D
         {
             GD.Print($"[ZAŁOŻENIE widok] {assumption}");
         }
+
+        if (_lineMode)
+        {
+            GD.Print(string.Create(
+                CultureInfo.InvariantCulture,
+                $"[LINIA] prowadzi LineDrive z rdzenia; {_axis.Stations.Count} stacji na osi, "
+                + $"zatrzymanie na każdej, pełny cykl drzwi {_lineSettings!.PassengerExchangeSeconds:F1} s wymiany"));
+            foreach (var assumption in _lineSettings!.Assumptions)
+            {
+                GD.Print($"[ZAŁOŻENIE linia] {assumption}");
+            }
+        }
     }
 
     // --- pętla -------------------------------------------------------------------
@@ -502,13 +614,21 @@ public sealed partial class FirstRun : Node3D
             return;
         }
 
-        if (!_scriptedMode)
+        // W trybie `line` nastawę wybiera LineDrive, nie klawiatura. Odpytywanie wejścia
+        // i tak zostałoby nadpisane przez ślad kroku, ale zostawione wyglądałoby tak,
+        // jakby gracz miał tu cokolwiek do powiedzenia.
+        if (!_scriptedMode && !_lineMode)
         {
             _command = _input.Poll(delta);
             HandleViewKeys();
         }
 
-        AdvanceBy(_scriptedMode ? SyntheticFrameSeconds() : delta);
+        // Przejazd z raportem jest przebiegiem KONTROLNYM, nie rozgrywką: ma dojechać
+        // i skończyć, a nie odtwarzać 11 minut w czasie rzeczywistym. Przewijanie idzie
+        // przez ten sam licznik kroków na klatkę, co tryb zapisany, więc wynik zależy
+        // od liczby kroków, a nie od tego, jak szybko chodzi maszyna w CI.
+        var fastForward = _scriptedMode || _lineReportPath is not null;
+        AdvanceBy(fastForward ? SyntheticFrameSeconds() : delta);
         PlaceEverything();
         UpdateHud();
 
@@ -516,6 +636,92 @@ public sealed partial class FirstRun : Node3D
         {
             FinishScriptedRun();
         }
+
+        if (_lineMode && (_line?.Finished ?? false))
+        {
+            FinishLineRun();
+        }
+    }
+
+    /// <summary>
+    /// Koniec przejazdu po stacjach: raport z listą zatrzymań i wyjście.
+    ///
+    /// <para>Raport jest tu po to, żeby bramka CI mogła sprawdzić, **co scena zrobiła**,
+    /// a nie tylko że wystartowała. Uruchomienie bez błędu potrafi dojechać do końca osi
+    /// nie zatrzymawszy się ani razu — i wyglądałoby w logu identycznie.</para>
+    /// </summary>
+    private void FinishLineRun()
+    {
+        if (_done)
+        {
+            return;
+        }
+
+        _done = true;
+        var result = _line!.Result("arrived");
+        GD.Print(string.Create(
+            CultureInfo.InvariantCulture,
+            $"[LINIA] koniec: zatrzymań={result.Calls.Count} kroków={result.Steps} "
+            + $"t={result.TotalSeconds:F2} s droga={result.TotalDistanceM:F2} m "
+            + $"postoje={result.DwellSeconds:F2} s"));
+
+        foreach (var call in result.Calls)
+        {
+            GD.Print($"[LINIA] {call}");
+        }
+
+        if (_lineReportPath is not null)
+        {
+            WriteLineReport(result);
+        }
+
+        GetTree().Quit();
+    }
+
+    private void WriteLineReport(LineRunResult result)
+    {
+        var text = new StringBuilder();
+        text.Append("{\n  \"axis_id\": \"").Append(result.AxisId).Append("\",\n");
+        text.Append(string.Create(CultureInfo.InvariantCulture,
+            $"  \"stations_on_axis\": {_axis.Stations.Count},\n"));
+        text.Append(string.Create(CultureInfo.InvariantCulture,
+            $"  \"calls\": {result.Calls.Count},\n"));
+        text.Append(string.Create(CultureInfo.InvariantCulture,
+            $"  \"steps\": {result.Steps},\n"));
+        text.Append(string.Create(CultureInfo.InvariantCulture,
+            $"  \"total_seconds\": {result.TotalSeconds:F6},\n"));
+        text.Append(string.Create(CultureInfo.InvariantCulture,
+            $"  \"total_distance_m\": {result.TotalDistanceM:F6},\n"));
+        text.Append(string.Create(CultureInfo.InvariantCulture,
+            $"  \"dwell_seconds\": {result.DwellSeconds:F6},\n"));
+        text.Append(string.Create(CultureInfo.InvariantCulture,
+            $"  \"stop_window_m\": {_lineSettings!.StopWindowM:F6},\n"));
+        text.Append("  \"stops\": [\n");
+        for (var index = 0; index < result.Calls.Count; index++)
+        {
+            var call = result.Calls[index];
+            text.Append(string.Create(CultureInfo.InvariantCulture,
+                $"    {{\"name\": \"{call.Name}\", \"stop_id\": \"{call.StopId}\", "
+                + $"\"chainage_m\": {call.ChainageM:F3}, "
+                + $"\"stopped_at_m\": {call.StoppedAtChainageM:F3}, "
+                + $"\"stop_error_m\": {call.StopErrorM:F6}, "
+                + $"\"arrival_s\": {call.ArrivalSeconds:F3}, "
+                + $"\"departure_s\": {call.DepartureSeconds:F3}}}"));
+            text.Append(index + 1 < result.Calls.Count ? ",\n" : "\n");
+        }
+
+        text.Append("  ]\n}\n");
+
+        using var file = FileAccess.Open(_lineReportPath, FileAccess.ModeFlags.Write);
+        if (file is null)
+        {
+            Abort(ExitMissingInput,
+                $"[LINIA] nie da się zapisać {_lineReportPath}: {FileAccess.GetOpenError()}");
+            return;
+        }
+
+        file.StoreString(text.ToString());
+        GD.Print($"[LINIA] raport -> {_lineReportPath}");
     }
 
     /// <summary>
@@ -580,13 +786,29 @@ public sealed partial class FirstRun : Node3D
             return true;
         }
 
+        if (_lineMode)
+        {
+            var previous = _state;
+            if (!_line!.Step(point => _lineTrace = point))
+            {
+                return false;
+            }
+
+            _state = _line.State;
+            _command = _lineTrace.Command;
+            _acceleration = (_state.SpeedMps - previous.SpeedMps) / _step.Seconds;
+            return true;
+        }
+
         _state = _controller.Advance(
             _state, _conditions, _command, _scenario.SpeedLimitMps, _step, out var forces);
         _acceleration = forces.AccelerationMps2;
         return true;
     }
 
-    private double ChainageM => _scenario.StartChainageM + _state.DistanceM;
+    private double ChainageM => _lineMode
+        ? _line!.ChainageM
+        : _scenario.StartChainageM + _state.DistanceM;
 
     // --- widok -------------------------------------------------------------------
 
@@ -689,10 +911,31 @@ public sealed partial class FirstRun : Node3D
             }
         }
 
+        // W trybie `line` postój na stacji jest tym, co widać najpierw — i tym, czego
+        // scena do tej pory NIE pokazywała, bo nie zatrzymywała się wcale. Faza drzwi
+        // idzie w polu trybu, żeby nie dokładać elementu HUD-a dla jednej linijki tekstu.
+        var mode = _lineMode && _line!.AtStation
+            ? $"line · drzwi: {DoorPhaseName(_lineTrace.Phase)}"
+            : _lineMode
+                ? $"line · zatrzymań {_line!.Calls.Count}/{_axis.Stations.Count - 1}"
+                : _mode;
+
         _hud.Update(
             _state.SpeedKmh, _acceleration, chainage, _axis.LengthM,
-            name, distance, _command.Throttle, _command.Brake, _mode);
+            name, distance, _command.Throttle, _command.Brake, mode);
     }
+
+    /// <summary>Nazwa fazy drzwi po polsku — HUD jest do czytania, nie do parsowania.</summary>
+    private static string DoorPhaseName(DoorPhase phase) => phase switch
+    {
+        DoorPhase.Unlocking => "odryglowanie",
+        DoorPhase.Opening => "otwierają się",
+        DoorPhase.Open => "otwarte",
+        DoorPhase.Closing => "zamykają się",
+        DoorPhase.Checking => "kontrola zamknięcia",
+        DoorPhase.Closed => "zamknięte",
+        _ => phase.ToString(),
+    };
 
     // --- zakończenie -------------------------------------------------------------
 

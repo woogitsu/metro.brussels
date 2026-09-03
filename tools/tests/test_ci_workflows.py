@@ -736,3 +736,86 @@ def test_a_workflow_with_path_filters_watches_every_test_project_it_runs():
                 f"{name} uruchamia {target}, ale nie ma {directory}/** w paths — "
                 "zmiana w tym projekcie nie odpali workflow, który go wykonuje")
     assert checked >= 1, "żaden workflow z filtrem nie uruchamia projektu testowego"
+
+
+# --- scena zatrzymuje się na stacjach (T-400 etap 3) ---------------------------
+
+def _scene_source():
+    with open(os.path.join(ROOT, "src", "Game", "FirstRun.cs"), encoding="utf-8") as handle:
+        return handle.read()
+
+
+def test_the_scene_line_mode_is_driven_by_the_core_not_by_the_scene():
+    """Tryb `line` ma WOŁAĆ `LineDrive`, a nie liczyć jazdy po swojemu.
+
+    Gdyby scena liczyła sama, w repozytorium byłyby dwie fizyki jazdy — jedna
+    przypięta testami rdzenia, druga nie — i nie dałoby się powiedzieć, która jest
+    prawdziwa. Reguła 9 z `CLAUDE.md` broni rdzenia przed silnikiem; ta bramka broni
+    w drugą stronę: silnik nie ma prawa mieć własnego modelu.
+    """
+    text = _scene_source()
+    assert "_line!.Step(" in text, "scena nie woła LineDrive.Step"
+    assert "new LineDrive(" in text, "scena nie buduje LineDrive"
+
+    branch = text[text.index("if (_lineMode)", text.index("private bool StepOnce()")):]
+    branch = branch[:branch.index("_state = _controller.Advance(")]
+    assert "_controller.Advance(" not in branch, \
+        "gałąź trybu line liczy krok sama zamiast oddać go rdzeniowi"
+
+
+def test_the_scene_refuses_a_line_run_without_the_exchange_time():
+    """Czasu wymiany pasażerów nie podaje żadne źródło (T-312, R-007).
+
+    `DoorCycle` i `LineRunSettings` nie mają dla niego wartości domyślnej i scena
+    ma trzymać tę samą linię: woli odmówić uruchomienia, niż podstawić liczbę, która
+    potem wyjdzie w nagraniu jako fakt o metrze w Brukseli.
+    """
+    text = _scene_source()
+    assert 'Argument("exchange-s") is null' in text, "scena nie sprawdza braku --exchange-s"
+    marker = text.index('Argument("exchange-s") is null')
+    assert "Abort(" in text[marker:marker + 400], "brak --exchange-s nie przerywa uruchomienia"
+
+
+def test_the_workflow_gates_on_what_the_line_run_did_not_that_it_started():
+    """Uruchomienie bez błędu potrafi dojechać do końca osi nie zatrzymawszy się ani razu.
+
+    Bramka musi więc czytać RAPORT i porównywać liczbę zatrzymań z liczbą stacji,
+    a nie sprawdzać kod wyjścia sceny. Bez tego cały etap 3 byłby zielony także wtedy,
+    gdyby `LineDrive` przestał zatrzymywać skład.
+    """
+    text = _text("godot-first-run.yml")
+    assert "--drive=line" in text, "workflow nie uruchamia sceny w trybie line"
+    assert "--line-report=" in text, "workflow nie żąda raportu z przejazdu"
+
+    step = [s for s in _steps(text) if "--line-report=" in s]
+    assert len(step) == 1, len(step)
+    body = step[0]
+
+    # Sprawdzane jest POROWNANIE, a nie obecność nazw. Pierwsza wersja tej bramki
+    # szukała samych `report["calls"]` i `report["stations_on_axis"]` — i przechodziła
+    # także wtedy, gdy warunek porównujący je został zastąpiony przez `if False`,
+    # bo obie nazwy zostawały w komunikacie obok. Kontrola negatywna to pokazała.
+    for needle in ("calls != stations - 1",
+                   'report["total_distance_m"] <= 0.0',
+                   'report["dwell_seconds"] <= 0.0',
+                   'abs(stop["stop_error_m"]) > window',
+                   'stop["departure_s"] > stop["arrival_s"]',
+                   "sys.exit(1)"):
+        assert needle in body, f"bramka nie sprawdza: {needle}"
+
+    assert body.index("calls != stations - 1") < body.index("sys.exit(1)"), \
+        "porównanie stoi za wyjściem z błędem — nie ma jak go wywołać"
+
+
+def test_the_line_gate_has_a_negative_control_that_can_fail_it():
+    """Bramka, która nie umie paść, nie jest bramką — cała lekcja audytu z 02.09.2026.
+
+    Kontrola negatywna psuje raport o jedno zatrzymanie i wymaga, żeby ta sama
+    reguła go odrzuciła.
+    """
+    text = _text("godot-first-run.yml")
+    control = [s for s in _steps(text) if "line_bad.json" in s]
+    assert len(control) == 1, len(control)
+    body = control[0]
+    assert 'report["calls"] -= 1' in body, "kontrola nie psuje liczby zatrzymań"
+    assert "kontrola negatywna przeszła" in body, "kontrola nie ma komunikatu o własnej porażce"

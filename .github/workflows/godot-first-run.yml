@@ -313,6 +313,66 @@ jobs:
           dotnet run --project src/Sim.Runner -c Release --no-build -- \
             compare build/t400/core.csv build/t400/godot_jitter.csv --tolerance 0
 
+      - name: Scena zatrzymuje się na każdej stacji
+        shell: bash
+        # Bramka na to, CO scena zrobiła, a nie że wystartowała. Uruchomienie bez błędu
+        # potrafi dojechać do końca osi nie zatrzymawszy się ani razu — i wyglądałoby
+        # w logu identycznie. Raport wymusza policzenie zatrzymań i błędów zatrzymania.
+        run: |
+          set -euo pipefail
+          "$GODOT_BIN" --headless --path src/Game -- \
+            --drive=line --exchange-s=10.5 --steps-per-frame=240 \
+            --line-report="$PWD/build/t400/line.json"
+          python3 - <<'PY'
+          import json, sys
+          report = json.load(open("build/t400/line.json"))
+          stations = report["stations_on_axis"]
+          calls = report["calls"]
+          window = report["stop_window_m"]
+          print(f"stacji na osi {stations}, zatrzymań {calls}, "
+                f"czas {report['total_seconds']:.1f} s, postoje {report['dwell_seconds']:.1f} s")
+          problems = []
+          if calls != stations - 1:
+              problems.append(f"zatrzymań {calls}, oczekiwano {stations - 1}")
+          if report["total_distance_m"] <= 0.0:
+              problems.append("droga zerowa")
+          if report["dwell_seconds"] <= 0.0:
+              problems.append("suma postojów zerowa — drzwi nigdy się nie otworzyły")
+          for stop in report["stops"]:
+              if abs(stop["stop_error_m"]) > window:
+                  problems.append(f"{stop['name']}: błąd {stop['stop_error_m']:.3f} m > okno {window} m")
+              if not (stop["departure_s"] > stop["arrival_s"]):
+                  problems.append(f"{stop['name']}: odjazd nie po przyjeździe")
+          if problems:
+              print("BŁĄD: " + "; ".join(problems), file=sys.stderr)
+              sys.exit(1)
+          print(f"wszystkie {calls} zatrzymań w oknie {window} m, każde z cyklem drzwi")
+          PY
+
+      - name: Kontrola negatywna bramki zatrzymań
+        shell: bash
+        # Bramka wyżej musi UMIEĆ paść. Raport z jednym zatrzymaniem mniej to dokładnie
+        # ten przypadek, który miałaby wyłapać, gdyby scena przestała stawać na stacji.
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          report = json.load(open("build/t400/line.json"))
+          report["calls"] -= 1
+          report["stops"] = report["stops"][:-1]
+          json.dump(report, open("build/t400/line_bad.json", "w"))
+          PY
+          if python3 - <<'PY'
+          import json, sys
+          report = json.load(open("build/t400/line_bad.json"))
+          sys.exit(0 if report["calls"] == report["stations_on_axis"] - 1 else 1)
+          PY
+          then
+            echo "::error::kontrola negatywna przeszła — bramka zatrzymań nie bramkuje"
+            exit 1
+          fi
+          echo "kontrola negatywna zadziałała: raport z brakującym zatrzymaniem jest odrzucany"
+
       - name: Negative control of the comparison
         shell: bash
         # Kontrola, która mówi „ok" także wtedy, gdy nic nie sprawdza, jest bezużyteczna

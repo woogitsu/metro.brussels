@@ -259,9 +259,14 @@ których agent nie ruszy bez decyzji właściciela.
   odcisk telemetrii przy nierównym podziale kroków. `reports/T-400-first-run.md`
 - **Zrobione (etap 2):** zrzuty z silnika idą przez kontrolę wizualną z T-012,
   odtwarzalne co do bajtu również między maszynami (`reports/T-012-godot-capture.md`)
-- **Zostaje:** wiele składów (T-320), sygnalizacja (T-313), stacje (T-212),
-  streamowanie chunków, przełączanie LOD. Cykl drzwi jest w rdzeniu (T-312, `DoorCycle`),
-  ale **scena go jeszcze nie woła** — przejazd nadal nie zatrzymuje się na stacjach
+- **Zrobione (etap 3, część 1):** scena zatrzymuje się na stacjach. `--drive=line`
+  prowadzi `LineDrive` z rdzenia — ten sam kod, co `Sim.Runner line` — więc skład staje
+  na KAŻDEJ stacji i odbywa pełny cykl drzwi z T-312. HUD pokazuje fazę drzwi.
+  Bramka CI czyta raport przejazdu i porównuje liczbę zatrzymań z liczbą stacji oraz
+  błąd każdego zatrzymania z oknem, plus kontrola negatywna psująca raport
+- **Zostaje:** wiele składów (T-320 `LineCore` jest w rdzeniu, scena go nie woła),
+  sygnalizacja (T-313), stacje (T-212 jest w geometrii, scena jej nie wczytuje),
+  streamowanie chunków, przełączanie LOD
 - **Uwaga:** scena wczytuje **jeden** pakiet. Przy `vertical.status = not_modelled` cała
   sieć leży na Z = 0, więc pakiety A i E przenikają się w planie w rejonie Arts-Loi
   (`reports/network-chainage.md`) — sceny z dwoma pakietami nie da się zbudować uczciwie
@@ -355,11 +360,18 @@ praca do wykonania autonomicznie. Zakres i kryteria: wpis T-320 wyżej.
 
 Po T-320. Blokada danych zdjęta przez R-007, T-211 scalone.
 
-### Faza 4 — T-400 etap 3
+### Faza 4 — T-400 etap 3 · W TOKU
 
-Wpiąć w scenę to, co **już jest w rdzeniu i przetestowane, a scena tego nie woła**:
-`DoorCycle`, `StationStop`, `FixedBlockSystem`, `TrainProtection`. Do tego streamowanie
-chunków i przełączanie LOD. Ta faza dotknie miejsc wymagających decyzji właściciela.
+Wpiąć w scenę to, co **już jest w rdzeniu i przetestowane, a scena tego nie woła**.
+
+- **`DoorCycle` i `StationStop`: zrobione 03.09.2026** przez `--drive=line`, które prowadzi
+  `LineDrive`. Scena nie liczy przy tym ani jednej rzeczy sama — bramka
+  `test_the_scene_line_mode_is_driven_by_the_core_not_by_the_scene` tego pilnuje, bo dwie
+  fizyki jazdy w jednym repozytorium znaczyłyby, że nie wiadomo, która jest prawdziwa;
+- **`FixedBlockSystem` i `TrainProtection`:** zostaje. Wymaga `LineCore` w scenie, czyli
+  wielu składów — a to dotyka turnbacku, który jest decyzją właściciela (T-320, STOP);
+- **streamowanie chunków i przełączanie LOD:** zostaje;
+- **stacje z T-212:** zostaje — geometria jest, scena jej nie wczytuje.
 
 ### Czego agent nie ruszy bez decyzji
 
