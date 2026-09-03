@@ -51,6 +51,39 @@ def test_emergency_brake_shorter_than_service():
 def test_wet_rail_hurts_acceleration():
     td,_=R.sim_accel(R.MASS["AW0"],80,mu=.25); tw,_=R.sim_accel(R.MASS["AW0"],80,mu=.13); assert tw>td
 
+def test_reference_acceleration_run_stops_at_its_declared_time_limit():
+    """Limit 300 s w `sim_accel` jest bramką przeciw zawieszeniu, a nie ozdobą.
+
+    Zmierzone 03.09.2026 audytem mutacyjnym: podniesienie limitu z 300 na 301
+    przechodziło przez całą suitę. Każdy test rozruchu zadaje 80 km/h, które model
+    osiąga po ~25 s — pętla kończy się wtedy na prędkości docelowej i liczba 300
+    nie bramkuje niczego. Przy 500 km/h opór Davisa zjada całą trakcję, przyspieszenie
+    schodzi do zera i przebieg kończy się WYŁĄCZNIE na limicie; dopiero to wejście
+    tę liczbę mierzy.
+    """
+    dt=1/120
+    t,s=R.sim_accel(R.MASS["AW0"],500.0)
+    assert 300.0 <= t < 300.0+2*dt, t
+    assert s > 12000.0, s
+    # Kontrola: przy prędkości, którą model dowozi, limit nie jest tym, co kończy
+    # przebieg — inaczej powyższe mierzyłoby co innego, niż mówi.
+    t80,_=R.sim_accel(R.MASS["AW0"],80.0); assert t80 < 100.0, t80
+
+def test_reference_braking_run_stops_at_its_declared_time_limit():
+    """Ten sam limit po stronie hamowania: 120 s w `sim_brake`.
+
+    Zmierzone 03.09.2026: 120 -> 121 przechodziło. Wszystkie testy hamowania zadają
+    opóźnienie, przy którym pociąg staje po ~20 s, więc limit nigdy nie był osiągany.
+    Hamulec zadany jako 0 m/s² nie zatrzymuje pociągu nigdy — to jedyne wejście,
+    przy którym ta liczba o czymkolwiek decyduje.
+    """
+    dt=1/120
+    t,s=R.sim_brake(R.MASS["AW0"],80.0,0.0)
+    assert 120.0 <= t < 120.0+2*dt, t
+    # Zerowy hamulec nie zmienia prędkości, więc droga to v0 * czas.
+    assert abs(s-(80/3.6)*t) < 1e-6, (s,t)
+    ts,_=R.sim_brake(R.MASS["AW0"],80.0,R.V["b_service"]); assert ts < 60.0, ts
+
 def test_traction_power_plausible(): assert R.power_kW()==2160.0
 
 def test_m7_reference_uses_source_backed_aw0(): assert R.MASS["AW0"]==170000.0

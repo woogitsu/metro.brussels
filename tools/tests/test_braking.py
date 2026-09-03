@@ -303,3 +303,72 @@ def test_braking_simulation_returns_time_and_steps_that_agree_with_the_distance(
     # trzech liczb pochodzi z innego przebiegu niż pozostałe.
     assert 0.0 < distance < v0 * seconds, (distance, v0 * seconds)
     assert distance > 0.5 * v0 * seconds, (distance, v0 * seconds)
+
+
+def test_braking_integration_stops_after_exactly_the_declared_number_of_steps():
+    """Limit kroków `sim_brake` jest bramką przeciw zawieszeniu i musi być pilnowany.
+
+    Zmierzone 03.09.2026 audytem mutacyjnym: `n < max_steps` -> `n <= max_steps`
+    przechodziło przez całą suitę. Każdy dotychczasowy test zadaje opóźnienie, przy
+    którym pociąg staje długo przed limitem, więc licznik kroków nigdy nie dochodził
+    do granicy i obie wersje warunku dawały to samo. Hamulec zadany jako 0 m/s² nie
+    zatrzymuje pociągu nigdy — dopiero wtedy `max_steps` o czymkolwiek decyduje,
+    a jeden krok za dużo to 0,185 m drogi doliczonej po zakończeniu przebiegu.
+
+    W granicę trafiamy DOKŁADNIE i bez sztuczek: licznik kroków jest liczbą całkowitą,
+    więc `n == max_steps` to równość int, bez marginesu zmiennoprzecinkowego. Gdyby
+    granicą była tu liczba sekund, test „na granicy" musiałby ominąć pułapkę
+    `(t + eps) - t != eps` — z liczbą kroków ten problem nie istnieje.
+    """
+    dt = 1.0 / 120.0
+    v0 = 80.0 / 3.6
+    for limit_s in (0.5, 1.0, 120.0):
+        distance, seconds, steps, work = B.sim_brake(v0, 0.0, CFG, None,
+                                                     dt=dt, limit_s=limit_s)
+        assert steps == int(limit_s / dt), (limit_s, steps, int(limit_s / dt))
+        assert seconds == steps * dt, (seconds, steps)
+        # Zerowy hamulec nie zmienia prędkości, więc droga to dokładnie v0 * czas.
+        assert abs(distance - v0 * steps * dt) < 1e-8, (limit_s, distance)
+        # Opory wyłączone (`c_env is None`), więc praca oporów ma być zerem.
+        assert work == 0.0, work
+    # Kontrola w drugą stronę: przy prawdziwym hamulcu pętla kończy się na
+    # zatrzymaniu, WYRAŹNIE przed limitem — inaczej powyższe mierzyłoby co innego.
+    _s, _t, steps, _w = B.sim_brake(v0, CFG["service"], CFG, None, dt=dt, limit_s=120.0)
+    assert steps < int(120.0 / dt) // 4, steps
+
+
+def test_braking_adhesion_verdict_is_inclusive_at_the_exact_ceiling():
+    """Werdykt tablicy ma znaczyć „sufit WYSTARCZA", czyli `>=`, a nie `>`.
+
+    Zmierzone 03.09.2026: `>=` -> `>` w `service_ok` i w `emergency_ok` przeżywało,
+    mimo że `test_braking_adhesion_table_verdicts_are_asserted_not_only_printed` oba
+    te pola sprawdza. Powód jest prosty i pouczający: dla czterech wierszy liczonych
+    z rejestru sufit NIGDY nie jest dokładnie równy zadaniu, a poza równością `>` i
+    `>=` są nieodróżnialne. Bramka bez wejścia na granicy nie bramkuje granicy.
+
+    W granicę trafiamy DOKŁADNIE, bo zadanie hamowania w podstawionej konfiguracji
+    jest WYLICZONE tą samą funkcją, z tych samych argumentów, co sufit w tablicy —
+    dwie identyczne operacje zmiennoprzecinkowe dają identyczny bit. Ta droga jest
+    tu jedyna sensowna: gdybyśmy próbowali „stanąć obok granicy" epsilonem, trafiliby-
+    śmy w liczbę, która granicą nie jest, bo `abs((x + eps) - x)` nie jest `eps`.
+
+    Rejestr pozostaje nietknięty — podstawiany jest słownik `cfg`, nie plik danych.
+    """
+    exact = B.adhesion_ceiling_mps2(CFG["mu_dry"], B.ALL_AXLES_BRAKED_MASS_FRACTION,
+                                    CFG["lam"])
+    for key, verdict in (("service", "service_ok"), ("emergency", "emergency_ok")):
+        tuned = dict(CFG)
+        tuned[key] = exact
+        row = next(r for r in B.adhesion_table(tuned)
+                   if (r["rail"], r["variant"]) == ("dry", "all-axles"))
+        assert row["ceiling_mps2"] == exact, (key, row["ceiling_mps2"], exact)
+        assert row[verdict] is True, (
+            f"{key}: sufit przyczepnościowy równy CO DO BITU zadanemu opóźnieniu ma "
+            "wystarczać — werdykt musi być `>=`, nie `>`")
+    # Kontrola w drugą stronę: o jeden bit poniżej sufitu werdykt ma być odmowny,
+    # inaczej test przechodziłby także dla `>=` zamienionego na cokolwiek prawdziwego.
+    tuned = dict(CFG)
+    tuned["service"] = math.nextafter(exact, math.inf)
+    row = next(r for r in B.adhesion_table(tuned)
+               if (r["rail"], r["variant"]) == ("dry", "all-axles"))
+    assert row["service_ok"] is False, row["ceiling_mps2"]
