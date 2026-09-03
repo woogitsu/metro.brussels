@@ -286,3 +286,103 @@ def test_crs_convergence_defaults_are_the_ones_the_module_had_before():
     authalic = inspect.signature(CRS._authalic_to_geodetic).parameters
     assert authalic["tolerance_rad"].default == 1e-14, authalic["tolerance_rad"].default
     assert authalic["iterations"].default == 8, authalic["iterations"].default
+
+
+# --- trzecia iteracja w tym pliku: ECEF -> geodezyjne -------------------------------
+
+def _brussels_ecef(height_m, a=None, f=None):
+    a = CRS.A_WGS if a is None else a
+    f = CRS.F_WGS if f is None else f
+    return CRS._geodetic_to_ecef(4.35, 50.85, a, f, height_m)
+
+
+def test_crs_ecef_iteration_stops_on_a_measured_step_not_on_a_fixed_count():
+    """Pętla kończyła się po dokładnie 12 obrotach, cokolwiek by z nich nie wyszło.
+
+    Zmierzone 03.09.2026: dla wejścia 6000 km pod powierzchnią przyrost szerokości
+    po 12. obrocie odpowiadał jeszcze 1,27e-07 m łuku, czyli iteracja była wtedy
+    przerywana w locie. Warunku nikt nie sprawdzał, bo go nie było.
+    """
+    import inspect
+
+    signature = inspect.signature(CRS._ecef_to_geodetic).parameters
+    assert signature["tolerance_m"].default == 1e-9, signature["tolerance_m"].default
+    assert signature["iterations"].default == 40, signature["iterations"].default
+
+    deep = _brussels_ecef(-6_000_000.0)
+    residual = CRS.ecef_to_geodetic_residual_m(*deep, CRS.A_WGS, CRS.F_WGS)
+    assert residual < 1e-9, residual
+
+
+def test_crs_ecef_round_trip_is_exact_for_everything_this_project_produces():
+    for height in (0.0, 100.0, -50.0, 400_000.0):
+        point = _brussels_ecef(height)
+        residual = CRS.ecef_to_geodetic_residual_m(*point, CRS.A_WGS, CRS.F_WGS)
+        assert residual < 1e-9, (height, residual)
+
+        lon, lat, back = CRS._ecef_to_geodetic(*point, CRS.A_WGS, CRS.F_WGS)
+        assert abs(lon - 4.35) < 1e-12, (height, lon)
+        assert abs(lat - 50.85) < 1e-12, (height, lat)
+        assert abs(back - height) < 1e-6, (height, back)
+
+
+def test_crs_ecef_on_the_rotation_axis_is_an_answer_not_a_zero_division():
+    """`x = y = 0` podnosiło `ZeroDivisionError` z wnętrza pętli.
+
+    Zmierzone przed zmianą: na osi `p` jest zerem, więc `h` wychodzi równe `-n`,
+    a następny krok dzieli przez `n + h`, czyli przez zero. Wyjątek spoza kontraktu
+    modułu, nie mówiący nic o tym, co jest z wejściem nie tak — ta sama rodzina, co
+    `struct.error` z niedokończonego PNG-a. Odpowiedź jest tu zresztą znana bez
+    iterowania, bo punkt na osi ma szerokość +-90 stopni z definicji.
+    """
+    semi_minor = CRS.A_WGS * (1 - CRS.F_WGS)
+
+    for sign in (1.0, -1.0):
+        lon, lat, height = CRS._ecef_to_geodetic(0.0, 0.0, sign * semi_minor,
+                                                 CRS.A_WGS, CRS.F_WGS)
+        assert lon == 0.0, lon
+        assert lat == sign * 90.0, lat
+        assert abs(height) < 1e-6, height
+
+    # Punkt na osi, ale wyżej: wysokość liczy się od bieguna, nie od równika.
+    _lon, lat, height = CRS._ecef_to_geodetic(0.0, 0.0, semi_minor + 43_247.0,
+                                              CRS.A_WGS, CRS.F_WGS)
+    assert lat == 90.0, lat
+    assert abs(height - 43_247.0) < 1e-3, height
+
+    residual = CRS.ecef_to_geodetic_residual_m(0.0, 0.0, semi_minor,
+                                               CRS.A_WGS, CRS.F_WGS)
+    assert residual < 1e-9, residual
+
+
+def test_crs_ecef_zero_axis_branch_is_reached_only_by_an_exact_zero():
+    """Gałąź osi jest skrótem, nie obejściem: `p` różne od zera ma iść przez pętlę.
+
+    Gdyby warunek był nieostry (`p < eps`), punkty leżące blisko osi — a takie
+    projekt liczy, bo biegun odwzorowania Lamberta 72 ma `p` rzędu kilometrów —
+    dostawałyby szerokość równą dokładnie 90 stopni zamiast policzonej.
+    """
+    semi_minor = CRS.A_WGS * (1 - CRS.F_WGS)
+    _lon, lat, _h = CRS._ecef_to_geodetic(1e-3, 0.0, semi_minor, CRS.A_WGS, CRS.F_WGS)
+    assert lat != 90.0, lat
+    assert 89.0 < lat < 90.0, lat
+
+
+def test_crs_ecef_residual_grows_towards_the_rotation_axis_and_that_is_recorded():
+    """Kontrola do decyzji, która czeka na właściciela.
+
+    Degradacja wzoru w stronę osi jest CIĄGŁA i nieograniczona, więc żadna
+    tolerancja nie rozcina tu „szumu" od „śmiecia" w miejscu, które dałoby się
+    obronić pomiarem. Test przybija sam kształt tej zależności, żeby przyszła
+    decyzja o progu opierała się na liczbach, a nie na wrażeniu.
+    """
+    semi_minor = CRS.A_WGS * (1 - CRS.F_WGS)
+    measured = [(p, CRS.ecef_to_geodetic_residual_m(p, 0.0, semi_minor,
+                                                    CRS.A_WGS, CRS.F_WGS))
+                for p in (1e6, 1e4, 1e2, 1.0, 1e-6)]
+
+    for (_p_far, near_axis), (_p_near, farther) in zip(measured, measured[1:]):
+        assert near_axis <= farther, measured
+
+    assert measured[0][1] < 1e-8, measured[0]
+    assert measured[-1][1] > 1.0, measured[-1]
