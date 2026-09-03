@@ -167,20 +167,20 @@ def test_packages_every_committed_station_name_exists_in_lines_json():
 
 def test_packages_slice_keeps_last_vertex_when_cut_is_at_polyline_end():
     line = [(0.0, 0.0), (100.0, 0.0), (200.0, 0.0), (286.8, 0.0)]
-    sliced = [p for p, _ in B.slice_polyline(line, 50.0, 286.8)]
+    sliced = B.slice_polyline(line, 50.0, 286.8)
     assert sliced[-1] == (286.8, 0.0), sliced[-1]
     assert abs(B.polyline_length(sliced) - 236.8) < 1e-6
 
 
 def test_packages_slice_at_end_does_not_duplicate_last_vertex():
     line = [(0.0, 0.0), (100.0, 0.0), (200.0, 0.0)]
-    sliced = [p for p, _ in B.slice_polyline(line, 0.0, 200.0)]
+    sliced = B.slice_polyline(line, 0.0, 200.0)
     assert len(sliced) == len(set(sliced)) == 3
 
 
 def test_packages_resample_at_line_end_has_no_zero_gap():
     line = [(0.0, 0.0), (500.0, 0.0), (586.8, 0.0)]
-    sliced = [p for p, _ in B.slice_polyline(line, 0.0, 586.8)]
+    sliced = B.slice_polyline(line, 0.0, 586.8)
     sampled = [p for p, _ in B.resample_uniform(sliced, 15.0, [0.0, 586.8])]
     gaps = [math.dist(a, b) for a, b in zip(sampled, sampled[1:])]
     assert min(gaps) > MIN_POINT_GAP_M, min(gaps)

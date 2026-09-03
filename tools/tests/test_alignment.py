@@ -143,7 +143,7 @@ def test_alignment_projection_finds_perpendicular_foot():
 
 def test_alignment_slice_cuts_between_chainages():
     line = [(0.0, 0.0), (100.0, 0.0), (200.0, 0.0)]
-    sliced = [p for p, _ in B.slice_polyline(line, 50.0, 150.0)]
+    sliced = B.slice_polyline(line, 50.0, 150.0)
     assert abs(B.polyline_length(sliced) - 100.0) < 1e-9
     assert sliced[0] == (50.0, 0.0) and sliced[-1] == (150.0, 0.0)
 
@@ -317,54 +317,34 @@ def test_alignment_projection_keeps_the_first_of_two_equally_close_feet():
 
 def test_alignment_slice_cuts_inside_a_segment_and_keeps_the_vertex_between():
     line = [(0.0, 0.0), (100.0, 0.0), (200.0, 0.0)]
-    sliced = [p for p, _ in B.slice_polyline(line, 50.0, 150.0)]
+    sliced = B.slice_polyline(line, 50.0, 150.0)
     assert sliced == [(50.0, 0.0), (100.0, 0.0), (150.0, 0.0)], sliced
 
 
 def test_alignment_slice_starting_exactly_on_a_vertex_returns_it_once():
     line = [(0.0, 0.0), (100.0, 0.0), (200.0, 0.0)]
-    sliced = [p for p, _ in B.slice_polyline(line, 100.0, 150.0)]
+    sliced = B.slice_polyline(line, 100.0, 150.0)
     assert sliced == [(100.0, 0.0), (150.0, 0.0)], sliced
 
 
 def test_alignment_slice_from_zero_keeps_the_first_vertex():
     line = [(0.0, 0.0), (100.0, 0.0), (200.0, 0.0)]
-    sliced = [p for p, _ in B.slice_polyline(line, 0.0, 150.0)]
+    sliced = B.slice_polyline(line, 0.0, 150.0)
     assert sliced == [(0.0, 0.0), (100.0, 0.0), (150.0, 0.0)], sliced
 
 
 def test_alignment_slice_ending_exactly_on_a_vertex_keeps_it_once():
     line = [(0.0, 0.0), (100.0, 0.0), (200.0, 0.0)]
-    sliced = [p for p, _ in B.slice_polyline(line, 0.0, 100.0)]
+    sliced = B.slice_polyline(line, 0.0, 100.0)
     assert sliced == [(0.0, 0.0), (100.0, 0.0)], sliced
-
-
-def test_alignment_slice_origin_tags_are_output_that_nobody_reads():
-    """Etykieta pochodzenia z `slice_polyline` jest MARTWA i test to utrwala.
-
-    Wszystkie cztery miejsca w `build_alignment.py`, które wołają tę funkcję,
-    robią `[p for p, _ in slice_polyline(...)]` — etykieta jest odrzucana na
-    wejściu. Do `data/track/*.json` nie trafia; plik osi nie ma w ogóle klucza
-    `provenance` per punkt (ma go `resample_uniform`, i TA etykieta jest żywa).
-
-    Test nie sprawdza więc, jaka etykieta jest — sprawdza, że każdy punkt jakąś
-    ma i że jest napisem. Przypinanie konkretnych wartości znaczyłoby, że testy
-    bronią czegoś, na czym nic nie stoi; wtedy zmiana etykiety wyglądałaby na
-    regresję, a nie jest. Decyzja, czy etykietę uruchomić, czy usunąć, należy
-    do właściciela — jest opisana w PR-ze, nie rozstrzygnięta tutaj.
-    """
-    line = [(0.0, 0.0), (100.0, 0.0), (200.0, 0.0)]
-    sliced = B.slice_polyline(line, 50.0, 150.0)
-    assert len(sliced) == 3, sliced
-    assert all(isinstance(tag, str) and tag for _p, tag in sliced), sliced
 
 
 def test_alignment_slice_of_the_whole_polyline_reaches_the_last_vertex():
     """Regresja z pakietu D: bez domknięcia prawego końca ginęło 86,8 m osi."""
     line = [(0.0, 0.0), (100.0, 0.0), (200.0, 0.0)]
     sliced = B.slice_polyline(line, 0.0, 200.0)
-    assert [p for p, _ in sliced] == [(0.0, 0.0), (100.0, 0.0), (200.0, 0.0)], sliced
-    assert abs(B.polyline_length([p for p, _ in sliced]) - 200.0) < 1e-9
+    assert sliced == [(0.0, 0.0), (100.0, 0.0), (200.0, 0.0)], sliced
+    assert abs(B.polyline_length(sliced) - 200.0) < 1e-9
 
 
 def test_alignment_slice_dedup_threshold_is_a_micrometre_not_more():
@@ -380,6 +360,7 @@ def test_alignment_slice_dedup_threshold_is_a_micrometre_not_more():
 
 
 def test_alignment_slice_dedup_threshold_is_open_at_exactly_a_micrometre():
+    """Warunek sklejania jest OSTRY: odległość równa mikrometrowi jeszcze zostaje."""
     line = [(0.0, 0.0), (1e-6, 0.0), (100.0, 0.0)]
     sliced = B.slice_polyline(line, 0.0, 100.0)
     assert len(sliced) == 3, sliced
@@ -535,17 +516,17 @@ def test_alignment_slice_starting_on_a_duplicated_vertex_does_not_divide_by_zero
     zestaw testów, a wywraca się na TYM wejściu.
     """
     line = [(0.0, 0.0), (50.0, 0.0), (50.0, 0.0), (100.0, 0.0)]
-    assert [p for p, _ in B.slice_polyline(line, 50.0, 75.0)] == \
+    assert B.slice_polyline(line, 50.0, 75.0) == \
         [(50.0, 0.0), (75.0, 0.0)]
-    assert [p for p, _ in B.slice_polyline(line, 50.0, 50.0)] == [(50.0, 0.0)]
+    assert B.slice_polyline(line, 50.0, 50.0) == [(50.0, 0.0)]
 
 
 def test_alignment_slice_ending_on_a_duplicated_vertex_does_not_divide_by_zero():
     """To samo od drugiej strony: ostre `<` w `c0 <= end < c1`."""
     line = [(0.0, 0.0), (50.0, 0.0), (50.0, 0.0), (100.0, 0.0)]
-    assert [p for p, _ in B.slice_polyline(line, 0.0, 50.0)] == \
+    assert B.slice_polyline(line, 0.0, 50.0) == \
         [(0.0, 0.0), (50.0, 0.0)]
-    assert [p for p, _ in B.slice_polyline(line, 25.0, 50.0)] == \
+    assert B.slice_polyline(line, 25.0, 50.0) == \
         [(25.0, 0.0), (50.0, 0.0)]
 
 
@@ -582,11 +563,11 @@ def test_alignment_the_nanometre_guard_is_dominated_by_the_micrometre_dedup():
     „zero różnic" nic by nie znaczyło: losowa bateria w punkt równości nie trafia.
     """
     line = [(0.0, 0.0), (1.005e-9, 0.0)]
-    assert [p for p, _ in B.slice_polyline(line, 0.0, 1.005e-9)] == [(0.0, 0.0)]
+    assert B.slice_polyline(line, 0.0, 1.005e-9) == [(0.0, 0.0)]
     for length in (1.0, 100.0, 6700.0):
         straight = [(0.0, 0.0), (length, 0.0)]
-        at_edge = [p for p, _ in B.slice_polyline(straight, 0.0, length - 1e-9)]
-        to_end = [p for p, _ in B.slice_polyline(straight, 0.0, length)]
+        at_edge = B.slice_polyline(straight, 0.0, length - 1e-9)
+        to_end = B.slice_polyline(straight, 0.0, length)
         assert at_edge[0] == (0.0, 0.0) and to_end[0] == (0.0, 0.0)
         assert to_end[-1] == (length, 0.0), (length, to_end)
 # --- CRS: granice bramek, nie tylko punkty odniesienia --------------------------
