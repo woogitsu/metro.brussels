@@ -491,9 +491,14 @@ def test_godot_scene_knows_every_argument_the_workflow_passes():
     w kodzie nie zgubi argumentu, którego CI używa, i że CI nie zacznie wołać
     argumentu, którego scena nie zna.
     """
-    source = open(os.path.join(ROOT, "src", "Game", "FirstRun.cs"), encoding="utf-8").read()
+    # Lista przeprowadziła się 03.09.2026 do `RunPlan.cs`, razem z całym
+    # rozstrzyganiem wiersza poleceń — bo tamten plik nie importuje Godota i daje
+    # się przetestować jednostkowo. Ten test celuje w nowy adres, a nie został
+    # usunięty: porównanie listy z tym, czym CI WOŁA scenę, jest czymś, czego
+    # test jednostkowy nie zrobi, bo nie widzi workflow.
+    source = open(os.path.join(ROOT, "src", "Game", "RunPlan.cs"), encoding="utf-8").read()
     block = re.search(r"KnownArguments\s*=\s*\{(.*?)\};", source, re.S)
-    assert block, "lista znanych argumentów zniknęła z FirstRun.cs"
+    assert block, "lista znanych argumentów zniknęła z RunPlan.cs"
     known = set(re.findall(r'"([a-z-]+)"', block.group(1)))
     assert len(known) >= 10, known
 
@@ -521,19 +526,48 @@ def test_godot_scene_knows_every_argument_the_workflow_passes():
     assert {"shot", "at-chainage", "view"} <= used, sorted(used)
 
 
-def test_godot_scene_rejects_unknown_arguments_instead_of_ignoring_them():
-    """Sama bramka w kodzie, nie tylko zgodność list."""
-    source = open(os.path.join(ROOT, "src", "Game", "FirstRun.cs"), encoding="utf-8").read()
-    assert "ExitUnknownArgument" in source
-    assert "Array.IndexOf(KnownArguments, name) < 0" in source, \
-        "zniknęło sprawdzenie, czy argument jest znany"
-    assert "KnownViews" in source and "ExitBadArgumentValue" in source, \
-        "nieznany --view musi być błędem, a nie cichym powrotem do kabiny"
-    # `double.Parse` w środku `_Ready` rzucał wyjątkiem, `_shotPath` było już
-    # ustawione i `_Process` kręciło się w nieskończoność aż do timeoutu CI.
-    assert "double.Parse(" not in source, "parsowanie bez TryParse wraca do zawieszania"
-    assert "long.Parse(" not in source, "parsowanie bez TryParse wraca do zawieszania"
-    assert "_aborted" in source, "brak flagi zatrzymującej pętlę klatek"
+def test_godot_argument_gate_stays_testable_outside_the_engine():
+    """Rozstrzyganie argumentów sceny ma zostać W PLIKU BEZ GODOTA i mieć testy.
+
+    Ten test jest PRZEPISANY, nie dopisany obok, i warto powiedzieć dlaczego.
+    Poprzednia wersja sprawdzała obecność NAPISÓW w `FirstRun.cs`:
+    `"Array.IndexOf(KnownArguments, name) < 0" in source`. Taki test nie odróżnia
+    kodu wykonywanego od zakomentowanego i nie dotyka ani jednej gałęzi — a był
+    JEDYNYM, co pilnowało 847-liniowej klasy, bo `grep -rn "FirstRun" tests/`
+    nie dawał ani jednego trafienia.
+
+    Od 03.09.2026 te gałęzie mają prawdziwe testy jednostkowe (`RunPlanTests.cs`,
+    23 przypadki), więc ten test nie musi już udawać, że je sprawdza. Pilnuje
+    natomiast czegoś, czego test jednostkowy nie wyrazi: że logika NIE WRÓCI pod
+    Godota, bo wtedy przestałaby być testowalna i wszystko zaczęłoby się od nowa.
+    """
+    plan_path = os.path.join(ROOT, "src", "Game", "RunPlan.cs")
+    assert os.path.isfile(plan_path), "RunPlan.cs zniknął — rozstrzyganie wróciło pod Godota"
+    plan = open(plan_path, encoding="utf-8").read()
+
+    assert "using Godot" not in plan, \
+        "RunPlan.cs zaczął importować Godota — testy jednostkowe przestaną go widzieć"
+    assert "KnownArguments" in plan and "KnownViews" in plan
+    # Bramki, nie napisy: `TryParse` zamiast `Parse`, bo `double.Parse` w środku
+    # `_Ready` rzucał wyjątkiem, `_shotPath` było już ustawione, a `_Process`
+    # kręciło się w nieskończoność aż do wypalenia `timeout-minutes` w CI.
+    assert "double.Parse(" not in plan and "long.Parse(" not in plan, \
+        "parsowanie bez TryParse wraca do zawieszania przebiegu"
+    assert "double.IsFinite" in plan, \
+        "TryParse sam przyjmuje Infinity i NaN — bez IsFinite wraca pętla bez końca"
+
+    tests_path = os.path.join(ROOT, "tests", "Game.Tests", "RunPlanTests.cs")
+    assert os.path.isfile(tests_path), "RunPlan stracił testy jednostkowe"
+    tests = open(tests_path, encoding="utf-8").read()
+    cases = tests.count("[TestMethod]")
+    assert cases >= 20, f"RunPlanTests ma tylko {cases} przypadków"
+
+    # Scena nadal musi umieć zatrzymać pętlę klatek — to jest po stronie Godota
+    # i zostaje w `FirstRun.cs`.
+    scene = open(os.path.join(ROOT, "src", "Game", "FirstRun.cs"), encoding="utf-8").read()
+    assert "ExitUnknownArgument" in scene and "ExitBadArgumentValue" in scene
+    assert "_aborted" in scene, "brak flagi zatrzymującej pętlę klatek"
+    assert "RunPlan.Parse(" in scene, "scena przestała wołać RunPlan"
 
 
 def test_godot_scene_gates_the_axis_against_the_manifest():
