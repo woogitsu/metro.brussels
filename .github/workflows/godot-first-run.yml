@@ -223,41 +223,69 @@ jobs:
       # więc instalacja przy każdym przebiegu byłaby marnotrawstwem i niepotrzebnym
       # `sudo`. Ten krok sprawdza, czy jest; instalacja i cache odpalają się tylko,
       # gdy go brak. Świeży runner nadal działa bez ręcznego przygotowania.
-      - name: Czy Blender i renderer programowy już są
+      - name: Czy biblioteki systemowe renderu już są
         id: tools
         shell: bash
+        # Sonda pyta o BIBLIOTEKI, nie o Blendera, i to jest zmiana względem poprzedniej
+        # wersji tego kroku. Blender nie przychodzi już z apt — przychodzi z przypiętego
+        # tarballa przez `tools/ci/blender_install.sh`, który sam sprawdza, czy w jego
+        # katalogu stoi WŁAŚCIWA WERSJA, i sam jest tanią operacją, gdy stoi (zmierzone:
+        # 0,12 s). Sonda na `command -v blender` byłaby tu wręcz szkodliwa: na maszynie,
+        # która kiedykolwiek dostała Blendera z apt, znalazłaby 4.0.2 i uznała
+        # środowisko za gotowe — a 4.0.2 to legacy EEVEE, czyli rendery nieporównywalne
+        # z baseline'em. Z apt zostają wyłącznie biblioteki, których tarball nie wozi.
         run: |
           set -euo pipefail
-          # Ten job potrzebuje OBU: Blendera do geometrii i `xvfb-run` do zrzutów,
-          # bo `--headless` wyłącza renderer. Brak któregokolwiek znaczy instalację
-          # całego zestawu `blender-xvfb` — sprawdzanie ich osobno dałoby stan,
-          # w którym cache jest pominięty, a instalacja i tak potrzebna.
-          if command -v blender >/dev/null 2>&1 && command -v xvfb-run >/dev/null 2>&1; then
-            echo "blender=present" >> "$GITHUB_OUTPUT"
-            blender --version | sed -n '1,2p'
+          missing=""
+          ldconfig -p | grep -q 'libEGL\.so\.1' || missing="$missing libEGL.so.1"
+          command -v xvfb-run >/dev/null 2>&1 || missing="$missing xvfb-run"
+          if [ -z "$missing" ]; then
+            echo "libs=present" >> "$GITHUB_OUTPUT"
+            echo "biblioteki renderu są na miejscu"
           else
-            echo "blender=missing" >> "$GITHUB_OUTPUT"
-            command -v blender >/dev/null 2>&1 || echo "brak: blender"
-            command -v xvfb-run >/dev/null 2>&1 || echo "brak: xvfb-run"
+            echo "libs=missing" >> "$GITHUB_OUTPUT"
+            echo "brakuje:$missing — krok instalacji je doinstaluje"
           fi
 
       - name: Cache pakietów apt
-        if: steps.tools.outputs.blender == 'missing'
+        if: steps.tools.outputs.libs == 'missing'
         uses: actions/cache@v4
         with:
           path: ~/.cache/metro-apt
           key: apt-${{ runner.os }}-blender-xvfb-${{ hashFiles('tools/ci/apt-packages/blender-xvfb.txt') }}
           restore-keys: apt-${{ runner.os }}-blender-xvfb-
 
-      - name: Install Blender and a software renderer
-        if: steps.tools.outputs.blender == 'missing'
+      - name: Install render libraries
+        if: steps.tools.outputs.libs == 'missing'
         shell: bash
         timeout-minutes: 30
         run: |
           set -euo pipefail
           export APT_CACHE_DIR="$HOME/.cache/metro-apt"
           bash tools/ci/apt_install.sh --set blender-xvfb
-          blender --version | sed -n '1,2p'
+          # Bramka, nie ozdoba: pod `pipefail` brak biblioteki kończy krok błędem.
+          # Poprzednia wersja miała tu `|| true`, czyli wypisywała i przemilczała.
+          ldconfig -p | grep -E 'libEGL\.so\.1|libGL\.so\.1'
+
+      # Blender w PRZYPIĘTEJ wersji, z oficjalnego tarballa, POZA workspace.
+      #
+      # Bez `if:`, i to jest celowe. Skrypt jest własną sondą: czyta numer z
+      # `tools/ci/blender-version.txt`, porównuje go z tym, co faktycznie stoi w jego
+      # katalogu, i pobiera tylko przy rozjeździe. Gdy wersja się zgadza, kończy w 0,12 s.
+      # Bramkowanie tego `if:` z workflow oznaczałoby drugą, słabszą sondę obok mocnej.
+      #
+      # Katalog jest poza workspace, bo `actions/checkout` robi `git clean -ffdx`,
+      # a `-x` obejmuje pliki ignorowane — Blender w workspace schodziłby z sieci
+      # (366 MB) raz na przebieg. Ta sama decyzja i ten sam katalog co przy Godocie.
+      - name: Blender w przypiętej wersji
+        shell: bash
+        timeout-minutes: 30
+        run: |
+          set -euo pipefail
+          bin="$(bash tools/ci/blender_install.sh)"
+          echo "BLENDER_BIN=$bin" >> "$GITHUB_ENV"
+          "$bin" --version | sed -n '1,2p'
+          "$bin" --background --python-expr 'import numpy; print("numpy", numpy.__version__)'
 
       - name: Generate package A geometry
         shell: bash
@@ -266,11 +294,11 @@ jobs:
         # świeżo wygenerowaną geometrię, a nie kopię sprzed miesięcy.
         run: |
           set -euo pipefail
-          blender --background --python-exit-code 7 --python tools/blender/tunnel_sweep.py -- \
+          "$BLENDER_BIN" --background --python-exit-code 7 --python tools/blender/tunnel_sweep.py -- \
             --centerline data/track/L1_A.json --profile box_double --name L1_A \
             --out build/t400/L1_A.glb --metrics build/t400/L1_A-metrics.json \
             --chunk-dir build/t400/chunks --chunk-manifest build/t400/chunks/L1_A-chunks.json
-          blender --background --python-exit-code 7 --python tools/blender/m7_shell.py -- \
+          "$BLENDER_BIN" --background --python-exit-code 7 --python tools/blender/m7_shell.py -- \
             --out build/t400/M7_shell.glb --envelope-out build/t400/M7_envelope.glb \
             --report build/t400/M7_shell.json
           ls -la build/t400 build/t400/chunks | sed -n '1,20p'
