@@ -25,11 +25,30 @@ public sealed partial class TunnelView : Node3D
     /// <summary>
     /// Wczytuje wszystkie chunki poziomu 0 z manifestu. Zwraca liczbę wczytanych plików.
     ///
-    /// <b>Bez streamowania.</b> Cały pakiet A to 12 plików, 867 kB i 16176 trójkątów —
-    /// mniej niż jeden budżetowy próg czegokolwiek. Predykat okna z
-    /// <c>tools/blender/sweep.py</c> jest gotowy i przetestowany **po stronie Pythona**;
-    /// przepisanie go tutaj bez przeniesienia jego testów dałoby drugą implementację
-    /// bez kontroli, a to jest gorsze niż jawny brak streamowania.
+    /// <b>Bez streamowania — i teraz z liczbą, a nie tylko z argumentem.</b>
+    /// Cały pakiet A to 12 plików, 872 kB i 16 176 trójkątów. Zmierzone na
+    /// <c>build/t400/chunks/L1_A-chunks.json</c>, ile z tego byłoby rezydentne przy
+    /// włączonym oknie streamowania:
+    ///
+    /// <list type="table">
+    /// <item><term>pociąg na 0 m</term><description>2 z 12 chunków, 1 044 trójkątów</description></item>
+    /// <item><term>pociąg na 3 000 m</term><description>3 z 12 chunków, 2 700 trójkątów</description></item>
+    /// <item><term>pociąg na 6 500 m</term><description>1 z 12 chunków, 1 464 trójkąty</description></item>
+    /// </list>
+    ///
+    /// Streamowanie ścięłoby więc rezydentną geometrię do <b>6–17 %</b> — redukcja
+    /// sześcio- do szesnastokrotnej, ale na liczbie, która i tak jest znikoma. Cała
+    /// SIEĆ to sześć pakietów o łącznej długości 34,5 km, czyli ok. 84 tys. trójkątów
+    /// i 4,5 MB przy tej samej gęstości; to nadal mniej niż jeden budżetowy próg.
+    ///
+    /// Do tego predykat okna z <c>tools/blender/sweep.py</c> jest gotowy i przetestowany
+    /// **po stronie Pythona**; przepisanie go tutaj bez przeniesienia jego testów dałoby
+    /// drugą implementację bez kontroli, a to jest gorsze niż jawny brak streamowania.
+    ///
+    /// <para><b>Kiedy to przestanie być prawdą.</b> Gdy rezydentna geometria przekroczy
+    /// próg, przy którym ktoś zmierzy spadek klatek — albo gdy dojdzie geometria stacji
+    /// z T-212, której jeszcze nie ma w manifeście. Wtedy trzeba PRZENIEŚĆ predykat
+    /// razem z testami, a nie napisać go od nowa.</para>
     /// </summary>
     public int LoadAll(ChunkManifest manifest, string assetDirectory, StandardMaterial3D material)
     {

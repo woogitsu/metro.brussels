@@ -8,6 +8,7 @@ która przechodzi tylko na poprawnym wejściu, nie dowodzi niczego
 (`docs/06-worked-example.md`).
 """
 import copy
+import json
 import math
 import os
 import sys
@@ -535,3 +536,59 @@ def test_lod_uv_along_the_axis_does_not_shift_between_levels():
     sparse = SW.build_chunk_from_rings(frames, station, BOX, kept)
     for row, ring in enumerate(kept):
         assert sparse["uvs"][row * columns] == base["uvs"][ring * columns]
+
+
+def test_lod_streaming_saving_on_package_a_is_measured_not_assumed():
+    """Decyzja „scena nie streamuje" stoi w `TunnelView.cs` i ma być poparta liczbą.
+
+    Bez tego testu liczby w tamtym komentarzu są tekstem, który starzeje się po cichu:
+    zmiana długości chunka albo kroku pierścienia przesuwa je, a komentarz zostaje.
+    Test liczy je z manifestu, jeśli manifest jest w drzewie, i pilnuje rzędu wielkości,
+    a nie konkretnej cyfry — bo argument dotyczy rzędu wielkości.
+
+    Pomija się, gdy manifestu nie ma: to jest artefakt `build/`, a `build/` nie jest
+    commitowane (`CLAUDE.md` reguła 8).
+    """
+    path = os.path.join(ROOT, "build", "t400", "chunks", "L1_A-chunks.json")
+    if not os.path.isfile(path):
+        return
+
+    with open(path, encoding="utf-8") as handle:
+        manifest = json.load(handle)
+    if int(manifest.get("schema_version", 0)) < 2:
+        return
+
+    total = sum(int(c["triangles"]) for c in manifest["chunks"])
+    assert total > 0, total
+
+    worst = 0.0
+    for chainage in (0.0, 3000.0, 6500.0):
+        plan = LD.lod_plan(manifest, chainage)
+        assert 0 < len(plan) < len(manifest["chunks"]), (chainage, len(plan))
+        worst = max(worst, LD.lod_triangles(manifest, plan) / total)
+
+    assert worst < 0.25, (
+        f"rezydentne {worst:.0%} całości — komentarz w TunnelView.cs mówi o 6–17 %, "
+        "więc albo manifest się zmienił, albo argument za brakiem streamowania osłabł")
+
+
+def test_lod_streaming_measurement_would_notice_a_window_that_loads_everything():
+    """Kontrola negatywna do testu wyżej: okno obejmujące całą oś ma go wywrócić.
+
+    Test, który mierzy oszczędność, musi umieć zobaczyć jej brak — inaczej przechodzi
+    także wtedy, gdy predykat okna przestanie cokolwiek odsiewać.
+    """
+    path = os.path.join(ROOT, "build", "t400", "chunks", "L1_A-chunks.json")
+    if not os.path.isfile(path):
+        return
+
+    with open(path, encoding="utf-8") as handle:
+        manifest = json.load(handle)
+    if int(manifest.get("schema_version", 0)) < 2:
+        return
+
+    total = sum(int(c["triangles"]) for c in manifest["chunks"])
+    everything = LD.lod_plan(manifest, 3000.0, ahead_m=10_000.0, behind_m=10_000.0)
+    assert len(everything) == len(manifest["chunks"]), len(everything)
+    assert LD.lod_triangles(manifest, everything) / total > 0.25, \
+        "okno na całą oś nadal wygląda na oszczędne — miara nie mierzy"
