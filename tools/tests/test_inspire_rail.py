@@ -7,6 +7,7 @@ zamknięty port na 127.0.0.1 — po to, żeby sprawdzić, że niedostępne źró
 wynikiem, a nie wyjątkiem.
 """
 import contextlib
+import glob
 import io
 import json
 import math
@@ -717,3 +718,163 @@ def test_inspire_main_stops_on_an_ambiguous_walk_instead_of_measuring():
     assert report["status"] == "niejednoznaczne przejście po stacjach"
     assert "spacing" not in report
     assert "niejednoznaczne" in printed
+
+
+# --- deduplikacja osi przy wczytaniu ------------------------------------------
+
+# Oś z jednym załamaniem: 100 m prostej, zwrot o 45 stopni, 100 m prostej. Załamanie
+# jest tu konieczne, a nie ozdobne: na osi idealnie prostej wszystkie ramki RMF są
+# identyczne, więc przesunięcie indeksu ramki o jeden nie zmienia żadnej liczby
+# i taka oś nie odróżniłaby naprawy od jej braku.
+DEDUPE_AXIS = [(0.0, 0.0, 0.0), (100.0, 0.0, 0.0), (150.0, 50.0, 0.0), (250.0, 50.0, 0.0)]
+DEDUPE_PROBE = (50.0, -3.5)
+DEDUPE_EXPECTED = (50.0, 3.5, 3.5)
+# Ta sama próbka liczona ramką sąsiedniego segmentu — wartość sprzed naprawy.
+DEDUPE_STALE_OFFSET = 3.2335783637895035
+# Próbka przy OSTATNIM segmencie: tam kończyły się indeksy skróconej listy ramek.
+DEDUPE_TAIL_PROBE = (200.0, 46.5)
+
+
+def _alignment_document(points):
+    """Dokument osi w formacie `data/track/*.json`, o zadanych punktach."""
+    return {"id": "DEDUP", "source_crs": "EPSG:31370", "origin_source_crs": [0.0, 0.0],
+            "points": [list(p) for p in points],
+            "stations": [{"stop_id": "1", "name": "A", "chainage_m": 0.0},
+                         {"stop_id": "2", "name": "B", "chainage_m": 200.0}]}
+
+
+def _load_axis(points):
+    """Przepuszcza punkty przez prawdziwe `IR.load_alignment`, nie przez skrót."""
+    with tempfile.TemporaryDirectory() as directory:
+        path = os.path.join(directory, "alignment.json")
+        with open(path, "w", encoding="utf-8") as handle:
+            json.dump(_alignment_document(points), handle, ensure_ascii=False)
+        _document, axis, _stop_ids = IR.load_alignment(path)
+    return axis
+
+
+def _raw_axis(points):
+    """Oś zbudowana tak, jak `load_alignment` budowało ją przed naprawą — bez dedupe."""
+    return [(p[0], p[1], 0.0) for p in points]
+
+
+def _committed_axes():
+    """Wszystkie skomitowane osie: (nazwa pliku, dokument)."""
+    out = []
+    for path in sorted(glob.glob(os.path.join(ROOT, "data", "track", "*.json"))):
+        if path.endswith(".provenance.json"):
+            continue
+        with open(path, encoding="utf-8") as handle:
+            out.append((os.path.basename(path), path, json.load(handle)))
+    return out
+
+
+def _station_chainages(axis, document):
+    """Zmierzony kilometraż każdej stacji: punkt osi w jej kilometrażu, z powrotem rzutem."""
+    marks = SW.chainages(axis)
+    out = []
+    for station in document["stations"]:
+        target = float(station["chainage_m"])
+        point = axis[-1][:2]
+        if target <= 0.0:
+            point = axis[0][:2]
+        else:
+            for i in range(len(axis) - 1):
+                if marks[i] <= target <= marks[i + 1]:
+                    span = marks[i + 1] - marks[i]
+                    t = 0.0 if span == 0.0 else (target - marks[i]) / span
+                    a, b = axis[i], axis[i + 1]
+                    point = (a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1]))
+                    break
+        out.append((station["stop_id"],) + IR.project_signed(point, axis, SW.rmf_frames(axis)))
+    return out
+
+
+def test_inspire_load_alignment_dedupes_a_repeated_vertex():
+    """Oś z JEDNYM powtórzonym wierzchołkiem ma dać to samo odsunięcie co oś czysta.
+
+    Po co ten test istnieje: `project_signed` indeksuje `frames[index]` numerem
+    segmentu osi, a ramki liczy `SW.rmf_frames`, które oś deduplikuje u siebie
+    (`sweep.dedupe`, eps 1e-6). Dopóki `load_alignment` oddawało oś surową, jeden
+    powtórzony wierzchołek rozjeżdżał obie listy o jeden i znakowane odsunięcie było
+    liczone ramką sąsiedniego segmentu — bez wyjątku, bez ostrzeżenia, po prostu
+    z inną liczbą. Nic tego nie łapało, bo skrypt kończył się kodem 0 i wypisywał
+    rozstaw, a to właśnie ta liczba jest w raporcie zestawiana z `track_offsets`.
+    """
+    axis = _load_axis([DEDUPE_AXIS[0]] + DEDUPE_AXIS)
+    assert len(axis) == len(DEDUPE_AXIS), axis
+    frames = SW.rmf_frames(axis)
+    assert len(frames) == len(axis), (len(frames), len(axis))
+    assert IR.project_signed(DEDUPE_PROBE, axis, frames) == DEDUPE_EXPECTED
+
+    # kontrola negatywna: ta sama oś po staremu, bez deduplikacji przy wczytaniu,
+    # daje odsunięcie cudzej ramki — czyli test naprawdę rozróżnia jedno od drugiego
+    raw = _raw_axis([DEDUPE_AXIS[0]] + DEDUPE_AXIS)
+    stale = IR.project_signed(DEDUPE_PROBE, raw, SW.rmf_frames(raw))
+    assert stale[0] == DEDUPE_EXPECTED[0], stale
+    assert stale[1] == DEDUPE_STALE_OFFSET != DEDUPE_EXPECTED[1], stale
+
+
+def test_inspire_load_alignment_survives_two_repeated_vertices():
+    """DWA powtórzenia z rzędu nie mają prawa skończyć się `IndexError`.
+
+    Po co ten test istnieje: przy dwóch powtórzeniach lista ramek jest krótsza od
+    listy segmentów o dwa, więc rzut punktu, którego najbliższym segmentem jest
+    ostatni, sięgał poza koniec `frames` i skrypt przerywał się wyjątkiem zamiast
+    zmierzyć rozstaw. Awaria jest głośna, ale zależy od danych — pojawia się dopiero
+    wtedy, gdy próbka wypadnie przy końcu osi, więc oś z duplikatem potrafi przejść
+    cały pomiar i wywalić się dopiero na innym pakiecie.
+    """
+    doubled = [DEDUPE_AXIS[0], DEDUPE_AXIS[0]] + DEDUPE_AXIS
+    axis = _load_axis(doubled)
+    assert len(axis) == len(DEDUPE_AXIS), axis
+    frames = SW.rmf_frames(axis)
+    assert len(frames) == len(axis), (len(frames), len(axis))
+    _chainage, _offset, distance = IR.project_signed(DEDUPE_TAIL_PROBE, axis, frames)
+    assert abs(distance - 3.5) < 1e-12, distance
+
+    # kontrola negatywna: bez deduplikacji ta sama próbka nie liczy się wcale
+    raw = _raw_axis(doubled)
+    raw_frames = SW.rmf_frames(raw)
+    assert len(raw_frames) < len(raw) - 1, (len(raw_frames), len(raw))
+    try:
+        IR.project_signed(DEDUPE_TAIL_PROBE, raw, raw_frames)
+    except IndexError:
+        pass
+    else:
+        raise AssertionError("oś surowa miała wywalić IndexError, a policzyła wynik")
+
+
+def test_inspire_load_alignment_leaves_a_committed_axis_untouched():
+    """Oś BEZ powtórzeń ma po naprawie dawać dokładnie te same liczby co przed nią.
+
+    Po co ten test istnieje: deduplikacja przy wczytaniu jest zmianą w drodze KAŻDEJ
+    osi do pomiaru, także tych sześciu skomitowanych, w których nie ma ani jednego
+    powtórzonego wierzchołka. Gdyby kryterium rozjechało się z `sweep.dedupe` — inny
+    próg, inna metryka, zaokrąglenie po drodze — z osi wypadłby punkt, którego nikt
+    nie kazał usuwać, a kilometraż stacji przesunąłby się cicho o kilka metrów.
+    Test porównuje oś po wczytaniu z osią budowaną po staremu, punkt po punkcie,
+    i zmierzony kilometraż każdej z 61 stacji.
+    """
+    axes = _committed_axes()
+    assert len(axes) == 6, [name for name, _path, _doc in axes]
+    stations = 0
+    for name, path, document in axes:
+        origin = document["origin_source_crs"]
+        before = _raw_axis([(p[0] + origin[0], p[1] + origin[1]) for p in document["points"]])
+        _doc, after, _stops = IR.load_alignment(path)
+        assert after == before, name
+        assert len(SW.rmf_frames(after)) == len(after), name
+        assert _station_chainages(after, document) == _station_chainages(before, document), name
+        stations += len(document["stations"])
+    assert stations == 61, stations
+
+    # kontrola negatywna: gdyby `SW.dedupe` cokolwiek z tych osi wyrzucało, powyższa
+    # równość byłaby pusta — więc na tej samej osi z dostawionym duplikatem musi wyrzucić
+    _name, _path, document = axes[0]
+    origin = document["origin_source_crs"]
+    clean = _raw_axis([(p[0] + origin[0], p[1] + origin[1]) for p in document["points"]])
+    assert SW.dedupe(clean) == clean
+    with_duplicate = [clean[0]] + clean
+    assert with_duplicate != clean
+    assert SW.dedupe(with_duplicate) == clean
