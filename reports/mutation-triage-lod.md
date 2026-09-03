@@ -174,10 +174,19 @@ Mutacje `prog 0.0 → 0.001` (wiersze 91, 110, 127 ×2, 135, 137, 183, 186, 196,
 milimetra. Testy dopisane wyżej trafiają w dokładne zero, które łapią obie wersje warunku.
 
 Nie dopisywałem osobnych testów na pół milimetra, bo taki test mierzyłby narzędzie, a nie
-model — z jednym wyjątkiem wartym zapisania: `gauge_margin_m` (wiersz 610) i `volume_m3`
-(612). Zapas skrajni 0,5 mm to w praktyce styk i **można** argumentować, że kontrola
-powinna go meldować. Ale próg 1 mm byłby liczbą wziętą znikąd, a wszystkie progi skrajni
-w tym projekcie są decyzją właściciela (R-005). Zostawiam jako pytanie, nie jako zmianę.
+model — z jednym wyjątkiem, który **przestał być pytaniem**: `gauge_margin_m`.
+
+**ROZSTRZYGNIĘTE 03.09.2026 przez właściciela: próg podniesiony z zera na 1 mm.**
+Zapas 0,5 mm między skrajnią M7 a bryłą kolizyjną nie jest zapasem, tylko stykiem,
+w którym o wyniku decyduje zaokrąglenie `double`. Kontrola pyta teraz
+`gauge_margin_m < COLLISION_GAUGE_MARGIN_MIN_M`, a stała jest jawnym
+`design_assumption` z komentarzem mówiącym, że idzie do wymiany, gdy R-005 dostanie
+liczbę ze STIB. Obie strony granicy przypięte testem, cztery kontrole negatywne.
+Mutacja `0.0 -> 0.001` w tym wierszu jest tym samym martwa: progu nie da się już
+przesunąć o milimetr bez wywrócenia testu.
+
+`volume_m3` (wiersz 612) zostaje przy zerze i to jest inna sprawa: objętość nie ma
+jednostki, którą warto progować — bryła albo ma objętość, albo jest zdegenerowana.
 
 Podobnie `1e-12` w wierszu 216 (`prog` i `operator`): to próg równoległości krawędzi,
 nie wielkość fizyczna, i jego mutacja jest odróżnialna wyłącznie dla iloczynu wektorowego
