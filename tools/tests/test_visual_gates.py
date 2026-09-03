@@ -162,12 +162,22 @@ def test_gate_missing_render_is_reported_as_missing_not_as_a_broken_png():
         one_byte = os.path.join(tmp, "jeden.png")
         with open(one_byte, "wb") as handle:
             handle.write(b"\x89")
-        try:
-            compare.check_image(one_byte, [GW, GH], _thresholds())
-        except pngio.PngError:
-            pass  # oczekiwane: plik istnieje, ale nie jest PNG-iem
-        else:
-            raise AssertionError("plik 1-bajtowy nie może przejść jako render")
+        broken = compare.check_image(one_byte, [GW, GH], _thresholds())
+        # Ten test PRZEKIEROWANO, a nie usunięto. Do 03.09.2026 wymagał, żeby
+        # `check_image` PODNIOSŁO `PngError` — i to było zachowanie, które
+        # wywracało cały `run()`, kasując raport z pozostałych kamer. Gwarancja
+        # jest ta sama („plik jednobajtowy nie może przejść jako render"), tylko
+        # wyrażona statusem, nie wyjątkiem. Usunięcie tego testu przeszłoby na
+        # zielono, bo usunięty test nie pada — a wtedy nikt by nie zauważył, że
+        # granica między „nie ma pliku" a „plik nie jest PNG-iem" przestała być
+        # pilnowana.
+        assert broken["checks"]["exists"] is True, broken
+        assert broken["checks"]["readable"] is False, broken
+        assert broken["status"] == "fail", broken
+        assert "nie da się wczytać renderu" in broken["reason"], broken
+        # Kontrola negatywna z pierwotnego testu zostaje: plik jednobajtowy MUSI
+        # wyjść poza gałąź „pusty", inaczej test nie odróżnia zera od jedynki.
+        assert broken["reason"] != result["reason"], (broken, result)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -753,3 +763,50 @@ def test_gate_perspective_visibility_counts_corners_exactly_on_the_frustum_wall(
         cam, (depth, -over_x, 0.0), (depth, over_x, 0.0)) == 0.0
     assert framing.corner_visibility(
         cam, (depth, 0.0, -over_y), (depth, 0.0, over_y)) == 0.0
+
+
+def test_gate_one_broken_frame_does_not_erase_the_report_for_the_others():
+    """Sedno znaleziska 3: `run()` musi opisać WSZYSTKIE kamery, nie paść na pierwszej.
+
+    Do 03.09.2026 `check_image` puszczało `PngError` w górę, więc jeden uszkodzony
+    plik wywracał cały `run()` — raport z pozostałych kamer nie powstawał, a komunikat
+    nie mówił nawet, o którą kamerę chodzi, bo `camera` dokłada `run()` DOPIERO po
+    powrocie z `check_image`.
+
+    Ten test podstawia jedną kamerę z plikiem, który nie jest PNG-iem, i wymaga:
+    wpisu dla każdej kamery, statusu `fail` dokładnie na tej jednej, i nazwy kamery
+    przy tym wpisie. Bez tego naprawa jest niesprawdzalna — samo „nie leci wyjątek"
+    nie mówi, że pozostałe kamery zostały opisane.
+    """
+    tmp = tempfile.mkdtemp()
+    try:
+        current = os.path.join(tmp, "cur")
+        os.makedirs(current)
+        manifest = json.loads(json.dumps(MANIFEST))
+        set_name, prefix = "vehicle", "t"
+        manifest["scene_sets"][set_name]["resolution"] = [GW, GH]
+        cameras = [c["id"] for c in manifest["scene_sets"][set_name]["cameras"]]
+        assert len(cameras) >= 2, "test wymaga zestawu z więcej niż jedną kamerą"
+
+        # Wszystkie kamery dostają poprawny render, jedna dostaje śmieci.
+        for camera_id in cameras:
+            pngio.write_rgb(os.path.join(current, f"{prefix}_{camera_id}.png"),
+                            GW, GH, _frame())
+        _meta_file(current, f"{prefix}_metadata.json", _meta())
+        broken_id = cameras[0]
+        with open(os.path.join(current, f"{prefix}_{broken_id}.png"), "wb") as handle:
+            handle.write(b"\x89PNG-to-nie-jest")
+
+        report = compare.run(manifest, set_name, current, prefix, None, None)
+
+        assert len(report["images"]) == len(cameras), report["images"]
+        by_camera = {entry["camera"]: entry for entry in report["images"]}
+        assert sorted(by_camera) == sorted(cameras), by_camera
+
+        assert by_camera[broken_id]["status"] == "fail", by_camera[broken_id]
+        assert "nie da się wczytać renderu" in by_camera[broken_id]["reason"]
+        for camera_id in cameras[1:]:
+            assert by_camera[camera_id]["status"] != "fail", by_camera[camera_id]
+            assert "metrics" in by_camera[camera_id] and by_camera[camera_id]["metrics"]
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
