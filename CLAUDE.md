@@ -39,6 +39,7 @@ i powiedz o tym. Nie próbuj obejść.
 | `docs/06-worked-example.md` | **wzorcowo wykonane zadanie** — przeczytaj przed pierwszym |
 | `docs/07-open-data-research.md` | hierarchia źródeł, publiczne dane i repozytoria referencyjne |
 | `docs/22-heartbeat.md` | puls sesji — kiedy zakładać i dlaczego ma milczeć |
+| `docs/24-clearance-profile-decisions.md` | progi luzu czekające na decyzję właściciela |
 | `docs/TASKS.md` | lista zadań |
 | `docs/TASK-TEMPLATE.md` | format nowego zadania |
 | `data/network/lines.json` | dane sieci maszynowo |
