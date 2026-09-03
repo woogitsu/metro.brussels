@@ -305,3 +305,82 @@ def test_dirty_sources_of_nothing_is_empty_without_calling_git():
             assert sweep.dirty_sources([]) == []
         finally:
             sweep.ROOT = original
+
+
+# --- moduły nieosiągalne dla zestawu testów -----------------------------------
+
+def test_unreachable_modules_names_a_module_the_suite_cannot_import():
+    """Mutacja w module, którego zestaw NIE MOŻE wczytać, nie ma jak zostać zabita.
+
+    Narzędzie liczyło ją dotąd jako „ocalałą" — czyli tak samo jak prawdziwą dziurę
+    w pokryciu bramki. Zmierzone na tym repozytorium: **148 z 961 mutacji (15 %) siedzi
+    w dziewięciu modułach z `import bpy`**, a w częściowym przebiegu przeżywało tam
+    98 % wobec 66 % w czystym Pythonie. Te pozycje zawyżały „nieprzetestowane bramki"
+    i kierowały triaż na moduły, w których żaden test nie pomoże, dopóki nie wyjdzie
+    z nich matematyka.
+
+    Pytanie jest zadawane WYKONANIEM, nie grepem po nazwie biblioteki: liczy się to,
+    czy import się udaje, a nie co go blokuje.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        good = os.path.join(tmp, "dobry.py")
+        bad = os.path.join(tmp, "zly.py")
+        with open(good, "w", encoding="utf-8") as handle:
+            handle.write("VALUE = 1\n")
+        with open(bad, "w", encoding="utf-8") as handle:
+            handle.write("import biblioteka_ktorej_nie_ma\n")
+
+        result = sweep.unreachable_modules([good, bad])
+        assert set(result) == {bad}, result
+        assert "biblioteka_ktorej_nie_ma" in result[bad], result[bad]
+
+
+def test_unreachable_modules_reports_the_reason_not_just_the_fact():
+    """Sam fakt „nie da się zaimportować" nie mówi, czy to brak Blendera, czy literówka.
+
+    Powód jest ostatnią linią `stderr` podprocesu, czyli tym, co Python sam uznał za
+    podsumowanie błędu. Bez niego czytający raportu nie wie, czy ma doinstalować
+    zależność, czy naprawić moduł.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        broken = os.path.join(tmp, "skladnia.py")
+        with open(broken, "w", encoding="utf-8") as handle:
+            handle.write("def f(:\n")
+        result = sweep.unreachable_modules([broken])
+        assert set(result) == {broken}
+        assert "SyntaxError" in result[broken], result[broken]
+
+
+def test_unreachable_modules_sees_a_sibling_import_as_reachable():
+    """Kontrola negatywna: moduł wołający sąsiada z tego samego katalogu jest OSIĄGALNY.
+
+    Bez uruchamiania sondy z katalogu modułu każdy plik `tools/blender/*.py`, który
+    importuje `sweep` albo `profiles`, wyszedłby nieosiągalny — i narzędzie wycięłoby
+    z przeglądu prawie całą geometrię, czyli dokładnie to, co ma mierzyć.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        with open(os.path.join(tmp, "sasiad.py"), "w", encoding="utf-8") as handle:
+            handle.write("VALUE = 2\n")
+        user = os.path.join(tmp, "user.py")
+        with open(user, "w", encoding="utf-8") as handle:
+            handle.write("import sasiad\nVALUE = sasiad.VALUE\n")
+        assert sweep.unreachable_modules([user]) == {}
+
+
+def test_unreachable_modules_of_nothing_is_empty():
+    assert sweep.unreachable_modules([]) == {}
+
+
+def test_every_real_target_except_the_blender_entry_points_is_reachable():
+    """Sonda nie może wycinać modułów, które da się przetestować.
+
+    Zmierzone: 9 z 44 modułów `tools/` jest nieosiągalnych i wszystkie dziewięć to
+    wejścia Blenderowe. Gdyby sonda zaczęła zgłaszać cokolwiek innego, przegląd
+    po cichu zmniejszyłby swój zakres — a liczba „ocalałych" spadłaby, wyglądając
+    na poprawę pokrycia.
+    """
+    unreachable = sweep.unreachable_modules(sweep.targets())
+    assert unreachable, "sonda nie znalazła nic — na tej maszynie bpy jest dostępne?"
+    for path, reason in unreachable.items():
+        assert "bpy" in reason, f"{path}: nieoczekiwany powód {reason}"
+    assert len(unreachable) < len(sweep.targets()) // 2, len(unreachable)

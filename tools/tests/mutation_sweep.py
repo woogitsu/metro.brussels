@@ -182,6 +182,37 @@ def targets() -> list[str]:
     return sorted(out)
 
 
+def unreachable_modules(paths) -> dict[str, str]:
+    """Moduły, których zestaw testów NIE MOŻE zaimportować, z powodem.
+
+    Bez tego narzędzie kłamie w najbardziej mylący sposób, jaki umie. Mutacja w module,
+    którego `tools/tests/test_all.py` nie potrafi wczytać, **nie ma jak zostać zabita** —
+    żaden test nigdy nie wykona ani jednej jej linii. Narzędzie liczyło ją dotąd jako
+    „ocalałą", czyli tak samo jak prawdziwą dziurę w pokryciu bramki.
+
+    Zmierzone na tym repozytorium: **138 mutacji siedzi w siedmiu modułach z `import bpy`
+    i 135 z nich przeżywa — 98 %**. Cała reszta, czysty Python, ma 66 %. Te 135 pozycji
+    zawyżało „nieprzetestowane bramki" o jedną trzecią i kierowało triaż na moduły,
+    w których żaden test nie pomoże, dopóki nie wyjdzie z nich matematyka.
+
+    Pytanie jest zadawane WYKONANIEM, nie grepem po `import bpy`: liczy się to, czy
+    import się udaje w tym środowisku, a nie która biblioteka go blokuje. Świeży runner
+    bez Blendera i maszyna z Blenderem dadzą przez to różne odpowiedzi — i to jest
+    poprawne, bo pytanie brzmi „czy TEN zestaw testów może to wykonać".
+    """
+    out = {}
+    for path in sorted(set(paths)):
+        module = os.path.splitext(os.path.basename(path))[0]
+        probe = subprocess.run(
+            [sys.executable, "-c", f"import {module}"],
+            cwd=os.path.dirname(path), capture_output=True, text=True, timeout=120)
+        if probe.returncode == 0:
+            continue
+        reason = (probe.stderr or "").strip().splitlines()
+        out[path] = reason[-1] if reason else f"kod wyjścia {probe.returncode}"
+    return out
+
+
 def collect() -> list[Mutation]:
     found: list[Mutation] = []
     for path in targets():
@@ -479,6 +510,10 @@ def main() -> int:
     parser.add_argument("--json", default="", help="zapisz surowe wyniki tutaj")
     parser.add_argument("--out", default="", help="zapisz raport markdown tutaj")
     parser.add_argument("--list", action="store_true", help="wypisz mutacje i wyjdź")
+    parser.add_argument("--include-unreachable", action="store_true",
+                        help="mutuj także moduły, których zestaw testów nie potrafi "
+                             "zaimportować. Ich mutacje policzą się jako ocalałe, choć "
+                             "nie mają jak zostać zabite — patrz `unreachable_modules`")
     parser.add_argument("--dirty", action="store_true",
                         help="nie przerywaj, gdy mutowane pliki mają niezacommitowane "
                              "zmiany. Wyniki będą wtedy liczone dla innego pliku niż ten "
@@ -528,6 +563,24 @@ def main() -> int:
             "  Zacommituj zmiany albo uruchom z --dirty, jeśli wiesz, że robisz co innego.",
             file=sys.stderr)
         return 2
+
+    unreachable = unreachable_modules(m.path for m in found)
+    if unreachable:
+        blocked = [m for m in found if m.path in unreachable]
+        print(f"[MUTACJE] {len(blocked)} mutacji w {len(unreachable)} modułach, których "
+              "zestaw testów nie potrafi zaimportować — nie mają jak zostać zabite:",
+              file=sys.stderr)
+        for path, reason in unreachable.items():
+            count = sum(1 for m in blocked if m.path == path)
+            print(f"    {path} ({count}): {reason[:80]}", file=sys.stderr)
+        if not args.include_unreachable:
+            found = [m for m in found if m.path not in unreachable]
+            print("[MUTACJE] pominięte; --include-unreachable liczy je razem z resztą",
+                  file=sys.stderr)
+
+    if not found:
+        print("brak mutacji do sprawdzenia po odfiltrowaniu nieosiągalnych", file=sys.stderr)
+        return 1
 
     commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT,
                             capture_output=True, text=True).stdout.strip()
