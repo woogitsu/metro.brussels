@@ -47,6 +47,16 @@ def _paeth(a, b, c):
 
 
 def _unfilter(raw, width, height, bpp, stride):
+    """Odfiltrowuje rozpakowany strumień IDAT. Wymaga strumienia PEŁNEGO.
+
+    Długość sprawdza wywołujący (`read_gray`), PRZED wejściem tutaj, bo ta funkcja
+    nie ma jak zameldować braku sensownie. Zmierzone 03.09.2026, height=4, filtr 0
+    w każdym wierszu: dla color_type 0, 2 i 0/16-bit strumień krótszy o 1 B i więcej
+    wychodzi jako `IndexError` z wnętrza pętli — wyjątek spoza kontraktu modułu,
+    którego bramka wizualna nie łapie; dla greyA i RGBA krótszy o dokładnie 1 B
+    plik PRZECHODZI jako gotowy obraz, bo brakującego bajtu alfa ostatniego piksela
+    `read_gray` i tak nie czyta. Blender pisze RGBA.
+    """
     out = bytearray(height * stride)
     pos = 0
     prev = bytearray(stride)
@@ -95,6 +105,10 @@ def read_gray(path):
     w nagłówku plus cztery bajty CRC muszą się mieścić w buforze. Bez tego plik
     urwany w środku chunku wychodził jako `struct.error` albo `zlib.error` — wyjątek
     spoza kontraktu tego modułu, nie mówiący nic o tym, co jest z plikiem nie tak.
+
+    Rozpakowany strumień jest sprawdzany na długość ODDZIELNIE od kompletności
+    chunków, bo to dwie różne usterki: plik może się składać z samych całych,
+    poprawnie zCRC-owanych chunków i mieć w nich za mało danych obrazu.
     """
     with open(path, "rb") as handle:
         blob = handle.read()
@@ -138,7 +152,21 @@ def read_gray(path):
     sample_bytes = bit_depth // 8
     bpp = channels * sample_bytes
     stride = width * bpp
-    raw = _unfilter(zlib.decompress(bytes(idat)), width, height, bpp, stride)
+    stream = zlib.decompress(bytes(idat))
+    needed = height * (stride + 1)
+    # Odrzucamy TYLKO strumień za krótki, nie „różny od". Zmierzone na PNG-ach, które
+    # projekt realnie produkuje (Blender 5.2.1, 960x576: trzy `renders/TEST_*.png`
+    # z `render_check.py`, RGBA/color_type 6, i pięć `renders/vis/TESTVIS_*.png`
+    # z `capture_blender.py`, RGB/color_type 2): nadwyżka wynosi dokładnie 0 B
+    # w każdym z ośmiu plików. Warunek `!=` byłby więc dziś równoważny, ale kodery
+    # PNG mają prawo dopisać wyrównanie i wtedy `!=` odrzucałby pliki zdrowe —
+    # a nadwyżkę `_unfilter` i tak ignoruje, bo czyta dokładnie `height` wierszy.
+    if len(stream) < needed:
+        raise PngError(
+            f"{path}: strumień IDAT za krótki — rozpakowano {len(stream)} B, "
+            f"potrzeba {needed} B (height={height} x (stride={stride} + 1 B filtra)), "
+            f"brakuje {needed - len(stream)} B")
+    raw = _unfilter(stream, width, height, bpp, stride)
 
     gray = [0.0] * (width * height)
     scale = 255.0 if bit_depth == 8 else 65535.0
@@ -167,35 +195,40 @@ def _chunk(tag, payload):
     return struct.pack(">I", len(payload)) + tag + payload + struct.pack(">I", zlib.crc32(tag + payload) & 0xFFFFFFFF)
 
 
-def write_gray(path, width, height, gray):
-    """Zapisuje 8-bitowy PNG w skali szarości z listy wartości 0.0–1.0."""
+def _write_png(path, width, height, samples, channels, color_type):
+    """Wspólna ścieżka zapisu 8-bitowego PNG bez przeplotu, filtr 0 w każdym wierszu.
+
+    `samples` jest PŁASKIM ciągiem próbek 0.0–1.0 idącym wiersz po wierszu, po
+    `channels` wartości na piksel; `color_type` idzie wprost do IHDR. Wartości
+    spoza zakresu są przycinane do 0–1 i skalowane do 0–255.
+
+    `write_gray` i `write_rgb` różniły się wyłącznie liczbą kanałów i tą jedną
+    liczbą w IHDR, a miały po własnej kopii pętli wierszy, przycięcia, skalowania
+    i składania chunków. Wyjście jest identyczne co do bajtu z tym, co pisały
+    osobno — poziom kompresji zlib (6) i kolejność chunków są tu te same.
+    """
     raw = bytearray()
+    row_len = width * channels
     for y in range(height):
         raw.append(0)
-        base = y * width
-        for x in range(width):
-            value = gray[base + x]
+        base = y * row_len
+        for i in range(row_len):
+            value = samples[base + i]
             value = 0.0 if value < 0.0 else (1.0 if value > 1.0 else value)
             raw.append(int(round(value * 255.0)))
-    payload = _chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 0, 0, 0, 0))
+    payload = _chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, color_type, 0, 0, 0))
     payload += _chunk(b"IDAT", zlib.compress(bytes(raw), 6))
     payload += _chunk(b"IEND", b"")
     with open(path, "wb") as handle:
         handle.write(MAGIC + payload)
+
+
+def write_gray(path, width, height, gray):
+    """Zapisuje 8-bitowy PNG w skali szarości z listy wartości 0.0–1.0."""
+    _write_png(path, width, height, gray, 1, 0)
 
 
 def write_rgb(path, width, height, rgb):
     """Zapisuje 8-bitowy PNG RGB z listy trójek 0.0–1.0 (do obrazów testowych)."""
-    raw = bytearray()
-    for y in range(height):
-        raw.append(0)
-        base = y * width
-        for x in range(width):
-            for channel in rgb[base + x]:
-                channel = 0.0 if channel < 0.0 else (1.0 if channel > 1.0 else channel)
-                raw.append(int(round(channel * 255.0)))
-    payload = _chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
-    payload += _chunk(b"IDAT", zlib.compress(bytes(raw), 6))
-    payload += _chunk(b"IEND", b"")
-    with open(path, "wb") as handle:
-        handle.write(MAGIC + payload)
+    _write_png(path, width, height,
+               [channel for pixel in rgb for channel in pixel], 3, 2)

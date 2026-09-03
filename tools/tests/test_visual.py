@@ -5,6 +5,7 @@ Dowodzą tego, czego wymaga #27: identyczny render przechodzi, czarny obraz i z�
 rozmiar są odrzucane, przesunięty obiekt przekracza próg, drobny szum nie, a brak
 baseline nigdy nie prowadzi do automatycznego nadpisania.
 """
+import hashlib
 import json
 import os
 import shutil
@@ -701,11 +702,16 @@ def _png_chunk(tag, payload):
 
 
 def _png_bytes(width, height, bit_depth, color_type, rows, filters,
-               before=(), after=(), tail=b"", interlace=0):
+               before=(), after=(), tail=b"", interlace=0, stream_len=None):
     """PNG złożony ręcznie: `rows` to bajty NIEfiltrowane, `filters` — typ na wiersz.
 
     Filtrowanie liczone jest tutaj, w drugą stronę niż w `pngio._unfilter`, więc
     round-trip porównuje dwie niezależne implementacje tej samej definicji z PNG-spec.
+
+    `stream_len` skraca albo wydłuża strumień PRZED kompresją, nie ruszając chunków:
+    plik zostaje złożony z całych, poprawnie zCRC-owanych IDAT-ów, w których jest
+    inna liczba bajtów obrazu, niż deklaruje IHDR. Tak wygląda strumień urwany
+    u kodera, w odróżnieniu od pliku urwanego na dysku.
     """
     channels = {0: 1, 2: 3, 3: 1, 4: 2, 6: 4}[color_type]
     bpp = channels * (bit_depth // 8)
@@ -728,6 +734,8 @@ def _png_bytes(width, height, bit_depth, color_type, rows, filters,
             encoded.append(value & 0xFF)
         stream += encoded
         prev = row
+    if stream_len is not None:
+        stream = (stream + bytearray(max(0, stream_len - len(stream))))[:stream_len]
     body = _png_chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, bit_depth,
                                            color_type, 0, 0, interlace))
     for tag, payload in before:
@@ -1135,5 +1143,166 @@ def test_visual_png_completeness_check_leaves_correct_files_byte_for_byte():
         path = os.path.join(tmp, "roundtrip.png")
         pngio.write_gray(path, 3, 2, [v / 255.0 for v in _GREY_VALUES])
         assert _as_bytes(pngio.read_gray(path)) == _GREY_VALUES
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+# --- długość rozpakowanego strumienia IDAT ------------------------------------
+# Kompletność chunków (sekcja wyżej) i długość strumienia to DWIE różne usterki.
+# Plik może być złożony z samych całych, poprawnie zCRC-owanych chunków i mieć
+# w nich mniej bajtów obrazu, niż deklaruje IHDR — tak wygląda strumień urwany
+# u kodera, nie plik urwany na dysku. Zmierzone 03.09.2026 na wersji `read_gray`
+# bez kontroli długości, height=4, filtr 0 w każdym wierszu:
+#
+#   color_type 0 / 2 / 0-16bit, brak 1 B i więcej -> `IndexError` z wnętrza pętli
+#   color_type 4 / 6 (greyA, RGBA), brak 1 B      -> PLIK PRZECHODZI jako obraz
+#
+# Druga linia jest tą groźną, bo Blender pisze dokładnie te typy: zmierzone na
+# `renders/TEST_*.png` z Blendera 5.2.1 — color_type 6, 960x576. Brakującego bajtu
+# alfa ostatniego piksela `read_gray` nie czytał, więc bramka porównywała z baseline
+# obraz złożony z niekompletnego strumienia. Pierwsza linia też jest usterką:
+# `IndexError` jest spoza kontraktu modułu (`read_gray` deklaruje `PngError`),
+# a bramka wizualna łapie tylko `PngError` — reszta leci przez nią jako traceback.
+#
+# Nadwyżka jest natomiast dozwolona: warunek jest `<`, nie `!=`. Zmierzone na ośmiu
+# PNG-ach, które projekt realnie produkuje (trzy `renders/TEST_*.png` z `render_check.py`
+# i pięć `renders/vis/TESTVIS_*.png` z `capture_blender.py`): nadwyżka 0 B w każdym,
+# czyli `!=` byłoby dziś równoważne — ale koder ma prawo dopisać wyrównanie, a wtedy
+# `!=` odrzucałoby pliki zdrowe.
+
+#: RGBA 2x2, szare piksele z pełną alfą — kształt, który realnie wychodzi z Blendera.
+_RGBA_ROWS = [bytes([200, 200, 200, 255, 17, 17, 17, 255]),
+              bytes([44, 44, 44, 255, 250, 250, 250, 255])]
+_RGBA_VALUES = [200, 17, 44, 250]
+
+
+def test_visual_png_rejects_a_stream_one_byte_short_of_what_ihdr_declares():
+    """Granica jest CAŁKOWITA: `height * (stride + 1)` przechodzi, o 1 B mniej nie.
+
+    Dotykana jest granica DOKŁADNA i obie jej strony, bo inaczej test nie odróżnia
+    `<` od `<=`: strumień o długości równej `height * (stride + 1)` musi dać obraz,
+    a strumień krótszy o jeden jedyny bajt — `PngError`. Liczba bajtów jest liczbą
+    całkowitą, więc żadnego zapasu na błąd zaokrąglenia tu nie ma i nie trzeba go
+    udawać `nextafter`-em.
+
+    Komunikat musi podać LICZBY (ile jest, ile potrzeba, `height`, `stride`), bo
+    w logu CI to jedyne, co odróżnia strumień urwany o ogon od pliku o zupełnie
+    złym nagłówku.
+
+    Wariant RGBA jest osobno, bo tylko on przechodził po cichu przed tą kontrolą,
+    i to jest typ, który pisze Blender.
+
+    Kontrole negatywne trzy: (1) ten sam plik z pełnym strumieniem musi dać dokładnie
+    te same wartości pikseli co zawsze; (2) strumień DŁUŻSZY niż potrzeba musi
+    przejść i dać ten sam obraz — inaczej warunek byłby `!=`; (3) komunikat nie może
+    mówić o uciętym chunku, bo wszystkie chunki w tym pliku są całe.
+    """
+    for color_type, rows, values, stride in ((0, _GREY_ROWS, _GREY_VALUES, 3),
+                                             (6, _RGBA_ROWS, _RGBA_VALUES, 8)):
+        height = 2
+        full = height * (stride + 1)
+
+        exact = _png_bytes(3 if color_type == 0 else 2, height, 8, color_type,
+                           rows, [0, 0], stream_len=full)
+        image = _read_blob(exact)
+        assert _as_bytes(image) == values, (color_type, _as_bytes(image))
+
+        surplus = 7
+        longer = _png_bytes(3 if color_type == 0 else 2, height, 8, color_type,
+                            rows, [0, 0], stream_len=full + surplus)
+        assert _as_bytes(_read_blob(longer)) == values, (
+            f"nadwyżka {surplus} B ma być pomijana, nie odrzucana "
+            f"(color_type={color_type})")
+
+        short = _png_bytes(3 if color_type == 0 else 2, height, 8, color_type,
+                           rows, [0, 0], stream_len=full - 1)
+        exc = _raises(short)
+        assert isinstance(exc, pngio.PngError), (
+            f"color_type={color_type}: oczekiwano PngError, dostano {exc!r}")
+        assert not isinstance(exc, (struct.error, zlib.error, IndexError)), repr(exc)
+        text = str(exc)
+        assert f"{full - 1} B" in text, text
+        assert f"{full} B" in text, text
+        assert f"height={height}" in text and f"stride={stride}" in text, text
+        assert "brakuje 1 B" in text, text
+        assert "ucięty" not in text, f"chunki w tym pliku są całe; komunikat kłamie: {text}"
+
+    # Strumień pusty i strumień krótszy o cały wiersz — ta sama odmowa, nie IndexError.
+    for stream_len in (0, 4):
+        exc = _raises(_png_bytes(3, 2, 8, 0, _GREY_ROWS, [0, 0], stream_len=stream_len))
+        assert isinstance(exc, pngio.PngError), f"stream_len={stream_len}: {exc!r}"
+        assert f"brakuje {8 - stream_len} B" in str(exc), (stream_len, str(exc))
+
+
+# --- scalenie ścieżki zapisu --------------------------------------------------
+# `write_gray` i `write_rgb` miały po własnej kopii pętli wierszy, przycięcia,
+# skalowania i składania chunków; różniły się liczbą kanałów i `color_type`.
+# Sumy poniżej są policzone na wersji PRZED scaleniem (`git show main:tools/visual/pngio.py`,
+# 03.09.2026) i są jedynym dowodem, że scalenie nie zmieniło ani jednego bajtu.
+
+_WRITE_GRAY_SHA256 = "8d92639b459e34b1c8b2900207c83d7dbbdbfa9fb2bac639292b69788860eb3a"
+_WRITE_RGB_SHA256 = "1ed04d40d93f7527dcb0e995964dd503b545b64bcd3c28bc51192f8a296a0c53"
+
+#: 5x3. Wartości spoza zakresu z OBU stron (przycięcie), dokładne 1/255, ćwiartki
+#: i połówki (zaokrąglenie), więcej niż jeden wiersz (bajt filtra na wiersz).
+_WRITE_GRAY_INPUT = [-3.0, -1e-9, 0.0, 1.0 / 255.0, 0.25,
+                     0.5, 0.5 + 1e-12, 0.75, 1.0, 1.0 + 1e-9,
+                     1.002, 5.0, 0.2126, 0.7152, 0.0722]
+_WRITE_GRAY_EXPECTED = [0, 0, 0, 1, 64, 128, 128, 191, 255, 255, 255, 255, 54, 182, 18]
+
+#: 4x2 trójek, ten sam zamysł: przycięcie z obu stron i małe wartości całkowite.
+_WRITE_RGB_INPUT = [(-1.0, 0.0, 0.5), (0.25, 0.5, 0.75), (1.0, 1.5, -0.5),
+                    (1.0 / 255.0, 2.0 / 255.0, 3.0 / 255.0),
+                    (0.1, 0.2, 0.3), (0.9, 0.8, 0.7), (0.0, 0.0, 0.0), (1.0, 1.0, 1.0)]
+
+
+def test_visual_png_write_path_stays_byte_identical_after_merging_gray_and_rgb():
+    """Scalona ścieżka zapisu musi dać plik CO DO BAJTU taki jak dwie osobne.
+
+    Cała regresja wizualna stoi na tych plikach: `compare.py` pisze nimi mapy różnic,
+    a `visual_smoke.sh` i `test_visual_gates.py` budują nimi syntetyczne rendery,
+    które potem służą jako baseline. Zmiana o jeden bajt w kompresji albo w kolejności
+    chunków znaczyłaby, że baseline sprzed zmiany nie jest porównywalny z niczym.
+
+    Wzorcem jest sha256 policzony na wersji PRZED scaleniem, a nie drugi przebieg
+    wersji po scaleniu — inaczej test przechodziłby też wtedy, gdyby obie funkcje
+    psuły plik w ten sam sposób.
+
+    Kontrola negatywna podwójna: zapisany plik musi się dać wczytać z powrotem na
+    te same wartości (plik o poprawnym haszu, ale nieczytelny, nie jest sukcesem),
+    a nagłówek musi nadal deklarować color_type 0 dla szarości i 2 dla RGB.
+    """
+    tmp = tempfile.mkdtemp()
+    try:
+        gray_path = os.path.join(tmp, "gray.png")
+        pngio.write_gray(gray_path, 5, 3, _WRITE_GRAY_INPUT)
+        with open(gray_path, "rb") as handle:
+            blob = handle.read()
+        got = hashlib.sha256(blob).hexdigest()
+        assert got == _WRITE_GRAY_SHA256, (
+            f"write_gray zmienił bajty: {got} != {_WRITE_GRAY_SHA256}")
+        assert struct.unpack(">IIBBBBB", blob[16:29])[3] == 0, "szarość to color_type 0"
+        image = pngio.read_gray(gray_path)
+        assert image.size == (5, 3) and image.color_type == 0
+        assert _as_bytes(image) == _WRITE_GRAY_EXPECTED, _as_bytes(image)
+
+        rgb_path = os.path.join(tmp, "rgb.png")
+        pngio.write_rgb(rgb_path, 4, 2, _WRITE_RGB_INPUT)
+        with open(rgb_path, "rb") as handle:
+            blob = handle.read()
+        got = hashlib.sha256(blob).hexdigest()
+        assert got == _WRITE_RGB_SHA256, (
+            f"write_rgb zmienił bajty: {got} != {_WRITE_RGB_SHA256}")
+        assert struct.unpack(">IIBBBBB", blob[16:29])[3] == 2, "RGB to color_type 2"
+        image = pngio.read_gray(rgb_path)
+        assert image.size == (4, 2) and image.color_type == 2
+        # (-1.0, 0.0, 0.5) -> bajty (0, 0, 128); liczy się tylko waga niebieskiego.
+        assert abs(image.at(0, 0) - 0.0722 * 128 / 255.0) < 1e-12, image.at(0, 0)
+        # (0.25, 0.5, 0.75) -> bajty (64, 128, 191).
+        expected = (0.2126 * 64 + 0.7152 * 128 + 0.0722 * 191) / 255.0
+        assert abs(image.at(1, 0) - expected) < 1e-12, image.at(1, 0)
+        # (1.0, 1.5, -0.5) -> przycięcie z obu stron: (255, 255, 0).
+        expected = (0.2126 * 255 + 0.7152 * 255) / 255.0
+        assert abs(image.at(2, 0) - expected) < 1e-12, image.at(2, 0)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
