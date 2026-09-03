@@ -38,4 +38,13 @@
     <ProjectReference Include="../../src/Game/MetroBxl.Game.csproj" />
   </ItemGroup>
 
+  <!--
+    Wzorce dla `StreamingPlanTests`: prawdziwy manifest z `tunnel_sweep.py` i tablica
+    planów policzona implementacją pythonową. Oba produkuje
+    `tools/tests/make_streaming_fixture.py`; ręcznie się ich nie pisze.
+  -->
+  <ItemGroup>
+    <None Include="fixtures/*.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
