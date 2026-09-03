@@ -415,6 +415,7 @@ jobs:
           python3 tools/ci/assert_shot_metadata.py \
             --metadata build/t400/visual/GODOT_metadata.json \
             --axis data/track/L1_A.json \
+            --manifest build/t400/chunks/L1_A-chunks.json \
             --resolution 1280x720 \
             --view cab --at-chainage 976
 

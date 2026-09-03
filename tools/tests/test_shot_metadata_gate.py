@@ -215,6 +215,17 @@ def test_workflow_actually_runs_the_metadata_gate():
     assert "tools/ci/assert_shot_metadata.py" in body
     assert "--axis data/track/L1_A.json" in body, "bramka musi dostać oś do policzenia prawdy"
     assert "--resolution 1280x720" in body
+
+    # Bez `--manifest` bramka nie policzy predykatu i cała kontrola streamowania
+    # — najmocniejsza rzecz, jaką ten skrypt umie — przechodzi obok, nic nie mówiąc.
+    # Skrypt nie może tego wymuszać sam: `--manifest` jest opcjonalny, żeby dało się
+    # go wołać na scenie bez tunelu (krok kontroli negatywnej niżej). Dlatego pilnuje
+    # tego test, a nie argparse.
+    assert "--manifest build/t400/chunks/L1_A-chunks.json" in body, (
+        "krok bramki nie podaje manifestu — kontrola okna, rezydencji i LOD nie działa")
+    # I manifest musi być tym, który ten job SAM wygenerował, a nie kopią z repo.
+    assert text.index("--chunk-manifest build/t400/chunks/L1_A-chunks.json") < text.index(
+        "--manifest build/t400/chunks/L1_A-chunks.json")
     # Krok musi stać PO zrzutach, bo inaczej nie ma czego czytać.
     assert text.index("Shot metadata must describe this scene") > text.index("--shot=")
 
@@ -625,3 +636,155 @@ def test_a_shot_exactly_one_metre_off_is_still_the_same_frame():
         problems = _check(over)
         assert len(problems) == 1 and problems[0].startswith("last_shot.chainage_m"), (
             chainage, problems)
+
+
+# --- streamowanie: bramka porównuje scenę z predykatem, nie z liczbą chunków --------
+
+#: Manifest z `tunnel_sweep.py`, ten sam, którym `StreamingPlanTests.cs` przybija
+#: stronę C#. Zakresy chainage, długość osi i progi LOD są identyczne z manifestem,
+#: który generuje `godot-first-run.yml`; sprawdzone przed wpisaniem tych liczb.
+STREAM_MANIFEST = os.path.join(ROOT, "tests", "Game.Tests", "fixtures", "L1_A-chunks.json")
+
+
+def _stream_manifest():
+    return G.load_manifest(STREAM_MANIFEST)
+
+
+def _streaming_healthy():
+    """Metadane ZMIERZONE na prawdziwym przebiegu Godota 4.3 ze streamowaniem.
+
+    Ujęcie z szwu c01/c02 (żądane 976 m, scena stanęła na 976,180 m), widok z kabiny.
+    Dwa chunki rezydentne z dwunastu, 3624 ściany zamiast 16176 z całego pakietu.
+    """
+    return {
+        "engine": "godot",
+        "engine_version": "4.3-stable (official)",
+        "manifest_version": "L1_A/flat-preview",
+        "resolution": [1280, 720],
+        "last_shot": {"view": "Cab", "chainage_m": 976.180, "steps": 6343},
+        "scene": {
+            "bbox_min": [57.4900, -1.2000, -910.3813],
+            "bbox_max": [1141.9778, 4.7000, -245.6428],
+            "size_m": [1084.4878, 5.9000, 664.7385],
+            "mesh_objects": 2,
+            "vertices": 10872,
+            "faces": 3624,
+            "chunks_loaded": 2,
+            "chunks_declared": 12,
+            "window_low_m": 676.180,
+            "window_high_m": 1576.180,
+            "axis_length_m": 6686.739,
+        },
+        "train": {"bodies": 11, "length_m": 94.0, "width_m": 2.7, "roof_height_m": 3.6},
+    }
+
+
+def _check_stream(metadata, chainage_m=976.0):
+    return G.check(metadata, AXIS, [1280, 720], "cab", chainage_m, _stream_manifest())
+
+
+def _mutate_stream(**scene):
+    metadata = _streaming_healthy()
+    metadata["scene"].update(scene)
+    return metadata
+
+
+def test_shot_gate_accepts_a_real_streamed_run():
+    problems = _check_stream(_streaming_healthy())
+    assert problems == [], problems
+
+
+def test_shot_gate_refuses_a_scene_that_loaded_everything_instead_of_streaming():
+    """Do 03.09.2026 to był JEDYNY stan, jaki bramka uznawała za poprawny.
+
+    Warunek brzmiał `chunks_loaded != chunks_declared`, więc scena wczytująca cały
+    pakiet przechodziła zawsze — także wtedy, gdy okno streamowania było policzone
+    źle albo wcale. Teraz porównanie idzie z predykatem, więc „wczytałem wszystko"
+    jest tak samo błędne, jak „wczytałem za mało".
+    """
+    problems = _check_stream(_mutate_stream(chunks_loaded=12, mesh_objects=12))
+    assert any("predykat" in p for p in problems), problems
+
+
+def test_shot_gate_refuses_one_chunk_too_few():
+    problems = _check_stream(_mutate_stream(chunks_loaded=1))
+    assert any("predykat" in p for p in problems), problems
+
+
+def test_shot_gate_refuses_a_window_computed_for_the_wrong_direction():
+    """Okno 600/300 odwrócone to jazda tyłem: 300 m przed składem, 600 m za nim."""
+    problems = _check_stream(_mutate_stream(window_low_m=376.180, window_high_m=1276.180))
+    assert sum("scena streamuje z innego okna" in p for p in problems) == 2, problems
+
+
+def test_shot_gate_refuses_face_counts_taken_from_the_whole_package():
+    """`faces` szło z `_manifest.Triangles`, czyli z sumy całego pakietu.
+
+    Przy wczytywaniu wszystkiego liczba przypadkiem się zgadzała. Przy streamowaniu
+    byłaby wprost nieprawdą — i to jest dokładnie ten rodzaj metadanych, dla którego
+    ta bramka powstała.
+    """
+    problems = _check_stream(_mutate_stream(faces=16176, vertices=48528))
+    assert any("inną geometrię" in p for p in problems), problems
+
+
+def test_shot_gate_still_catches_a_scene_shifted_by_a_kilometre_while_streaming():
+    """Własność, której bramka pilnowała przed streamowaniem, ma zostać w mocy.
+
+    Kotwica jest teraz liczona na zakresie chunków REZYDENTNYCH zamiast na całej osi,
+    więc jest ciaśniejsza: trzeba trafić w odcinek 1085-metrowy we właściwym miejscu,
+    a nie zawrzeć oś długą na 6,7 km.
+    """
+    shifted = _streaming_healthy()
+    shifted["scene"]["bbox_min"] = [v + 1000.0 for v in shifted["scene"]["bbox_min"]]
+    shifted["scene"]["bbox_max"] = [v + 1000.0 for v in shifted["scene"]["bbox_max"]]
+    problems = _check_stream(shifted)
+    assert any("nie zawiera osi" in p for p in problems), problems
+
+
+def test_shot_gate_anchors_on_the_resident_span_not_on_the_streaming_window():
+    """Chunk wchodzi do pamięci w CAŁOŚCI, więc wystaje poza krawędź okna.
+
+    Zmierzone: przy oknie [1700, 2600] m bryła sięgała 709 m dalej wzdłuż X i było to
+    zachowanie poprawne. Kotwica liczona na oknie odrzucałaby zdrowe sceny; liczona
+    na sumie zakresów chunków rezydentnych — nie.
+    """
+    manifest = _stream_manifest()
+    expected = G.streaming_expectations(manifest, 976.180)
+    window_lo, window_hi = expected["window"]
+    span_lo, span_hi = expected["span"]
+
+    # Zakres chunków rezydentnych wystaje poza okno z OBU stron — bo chunk wchodzi
+    # do pamięci w całości. Pierwsza wersja tego testu miała tu `span_hi < window_hi`
+    # i padła na własnej asercji: 1754,148 m wobec 1576,180 m. Kierunek nierówności
+    # jest właśnie tym, co ten test opisuje, więc pomyłka była w teście, nie w bramce.
+    assert span_lo < window_lo, (span_lo, window_lo)
+    assert span_hi > window_hi, (span_hi, window_hi)
+
+    # Kotwica na oknie zamiast na zakresie odrzuciłaby ten zdrowy przebieg.
+    on_window = G.axis_scene_bbox(AXIS, window_lo, window_hi)
+    on_span = G.axis_scene_bbox(AXIS, span_lo, span_hi)
+    assert on_window != on_span, "okno i zakres chunków dają ten sam bbox — test nic nie rozróżnia"
+
+
+def test_shot_gate_predicate_agrees_with_the_streaming_fixture_table():
+    """Bramka i `StreamingPlanTests.cs` liczą z tego samego predykatu i manifestu.
+
+    Gdyby bramka wołała własny rachunek okna, mogłaby zgadzać się ze sceną i mijać
+    się z implementacją wzorcową jednocześnie.
+    """
+    manifest = _stream_manifest()
+    plans = json.load(open(
+        os.path.join(ROOT, "tests", "Game.Tests", "fixtures", "L1_A-streaming-plans.json"),
+        encoding="utf-8"))
+
+    checked = 0
+    for row in plans:
+        if row["heading"] != 1.0 or not (0.0 <= row["chainage_m"] <= manifest["axis_length_m"]):
+            continue
+        expected = G.streaming_expectations(manifest, row["chainage_m"])
+        assert expected["window"] == (row["window_low_m"], row["window_high_m"]), row["chainage_m"]
+        assert expected["resident_ids"] == row["resident"], row["chainage_m"]
+        checked += 1
+
+    assert checked >= 50, checked
