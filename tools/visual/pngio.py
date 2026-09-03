@@ -126,6 +126,29 @@ def read_gray(path):
                 f"{path}: chunk {_tag_name(ctype)} ucięty — nagłówek deklaruje "
                 f"{length} B danych + 4 B CRC, brakuje {end - len(blob)} B")
         data = blob[pos + 8:pos + 8 + length]
+
+        # CRC jest sprawdzany dla KAŻDEGO chunku, nie tylko dla tych, z których
+        # ten moduł coś czyta. Zmierzone 03.09.2026 na PNG-u 4x3 z `write_gray`:
+        # przekręcenie jednego bajtu w polu CRC dowolnego z trzech chunków (IHDR,
+        # IDAT, IEND) dawało plik czytany BEZ SŁOWA jako poprawny obraz 4x3.
+        #
+        # Dlaczego to nie jest hipotetyczne: bramka wizualna porównuje zrzuty
+        # bajt po bajcie i orzeka na tej podstawie „regresja" albo „bez zmian".
+        # Zrzut uszkodzony w transporcie — ucięty zapis, zła pamięć, przerwany
+        # artefakt CI — wchodził do tego porównania jako pełnoprawne wejście, więc
+        # bramka porównywała cudzy szum z zaufanym wzorcem i wynik nazywała
+        # regresją albo, gorzej, jej brakiem. CRC jest w pliku właśnie po to.
+        #
+        # Kontrola sięga tylko tam, gdzie chunk jest KOMPLETNY: plik ucięty ma
+        # wyżej własną, dokładniejszą diagnozę i to ona ma paść pierwsza.
+        stored = struct.unpack(">I", blob[pos + 8 + length:end])[0]
+        actual = zlib.crc32(blob[pos + 4:pos + 8 + length]) & 0xFFFFFFFF
+        if stored != actual:
+            raise PngError(
+                f"{path}: chunk {_tag_name(ctype)} uszkodzony — CRC w pliku "
+                f"{stored:08x}, policzony z danych {actual:08x} "
+                f"({length} B danych)")
+
         pos = end
         if ctype == b"IHDR":
             header = struct.unpack(">IIBBBBB", data)
