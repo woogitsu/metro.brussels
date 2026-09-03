@@ -5,6 +5,7 @@ Powód: 02.09.2026 krok instalacji Blendera zawiesił się trzy razy na trzech r
 runnerach, za każdym razem przed uruchomieniem ciała testu. Te testy pilnują, żeby
 poprawka nie wyparowała po cichu przy następnej edycji workflow.
 """
+import glob
 import os
 import re
 
@@ -51,7 +52,7 @@ def test_ci_every_package_install_step_has_a_step_timeout():
                 continue
             checked += 1
             assert "timeout-minutes:" in step, (name, step.splitlines()[0].strip())
-    assert checked == 5, f"oczekiwano pięciu kroków instalacji, znaleziono {checked}"
+    assert checked == 6, f"oczekiwano sześciu kroków instalacji, znaleziono {checked}"
 
 
 def test_ci_apt_helper_is_executable_and_retries():
@@ -115,7 +116,7 @@ def test_ci_step_budget_covers_a_slow_mirror():
             assert step_budget * 60 >= install_s, (name, step_budget * 60, install_s)
             # po instalacji ma jeszcze zostać czas na samą pracę joba
             assert job_budget - step_budget >= 10, (name, job_budget, step_budget)
-    assert checked == 5, f"oczekiwano pięciu kroków instalacji, znaleziono {checked}"
+    assert checked == 6, f"oczekiwano sześciu kroków instalacji, znaleziono {checked}"
 
 
 PACKAGE_SETS = os.path.join(ROOT, "tools", "ci", "apt-packages")
@@ -147,7 +148,7 @@ def test_ci_package_lists_live_in_one_place():
             assert "libegl1" in packages, (declared, packages)
             assert "blender" not in packages, (declared, packages,
                                                "zestaw apt znów instaluje Blendera")
-    assert checked == 5, f"oczekiwano pięciu kroków instalacji, znaleziono {checked}"
+    assert checked == 6, f"oczekiwano sześciu kroków instalacji, znaleziono {checked}"
 
 
 def test_ci_cache_key_hashes_the_same_package_list_the_step_installs():
@@ -209,7 +210,8 @@ def test_ci_no_pipe_into_head_under_pipefail():
 
 
 BLENDER_WORKFLOWS = ("blender-smoke.yml", "tunnel-alignment.yml", "m7-shell.yml",
-                     "visual-regression.yml", "godot-first-run.yml")
+                     "visual-regression.yml", "godot-first-run.yml",
+                     "station-details.yml")
 
 
 def test_ci_blender_workflows_install_the_pinned_blender_not_whatever_apt_has():
@@ -669,7 +671,7 @@ def test_tool_installation_is_conditional_on_the_tool_being_missing():
             if "blender_install.sh" in run:
                 assert step.get("if") is None, \
                     f"{name}: instalator Blendera jest własną sondą i nie ma być bramkowany"
-    assert checked == 5, checked
+    assert checked == 6, checked
 
 
 def test_godot_lives_outside_the_workspace_that_checkout_wipes():
@@ -855,3 +857,110 @@ def test_a_workflow_with_path_filters_watches_every_test_project_it_runs():
                 f"{name} uruchamia {target}, ale nie ma {directory}/** w paths — "
                 "zmiana w tym projekcie nie odpali workflow, który go wykonuje")
     assert checked >= 1, "żaden workflow z filtrem nie uruchamia projektu testowego"
+
+
+def test_ci_every_blender_generator_has_a_gate():
+    """Każdy generator geometrii w `tools/blender/` musi być wołany przez BRAMKĘ.
+
+    Powód jest wprost z `CLAUDE.md` §5: skrypt bez błędu potrafi wyprodukować pustą
+    scenę, więc pokrycie testem jednostkowym przez atrapę `bpy` NIE jest weryfikacją
+    generatora — atrapa nigdy nie dotyka Blendera i nie umie wykonać ani jednej
+    ścieżki, która wczytuje scenkę.
+
+    Zmierzone 03.09.2026: `station_kit.py` i `detail_markers.py` nie były wołane
+    z żadnego workflow ani skryptu w `tools/ci`. Oba generują geometrię, oba noszą
+    jawne stałe projektowe, i oba miały bramki ODMOWY, których nie sprawdzał nikt:
+    `--only-station` z literówką, okno bez znaczników, słupek wchodzący w skrajnię.
+
+    GRANICA REGUŁY JEST WĄSKA I TO JEST ŚWIADOME. Obejmuje `tools/blender/`, a nie
+    każde CLI w `tools/`. Czternaście modułów w `tools/track/` też nie jest wołanych
+    z CI i większość z nich SŁUSZNIE: `fetch_gtfs.py`, `fetch_osm_routes.py`
+    i `fetch_stib_shapes.py` chodzą po sieci, a `build_alignment.py`,
+    `crosscheck_alignment.py`, `inspire_rail.py`, `network_chainage.py`,
+    `normalize_stops.py`, `surface_sections.py` i `timetable.py` potrzebują danych,
+    których w repozytorium nie ma (reguła 8). Rozszerzenie tej reguły na `tools/track/`
+    wymagałoby sieci w CI, więc byłoby żądaniem, nie bramką.
+    """
+    # Kryterium: moduł IMPORTUJE `bpy` i ma własne CLI. Obie połowy są konieczne.
+    #
+    # `bpy`, bo tylko taki moduł produkuje scenę — a §5 mówi właśnie o pustej scenie
+    # z bezbłędnego skryptu. `m7_layout.py` ma CLI (`print(report())`), ale nie tyka
+    # Blendera i jest importowany przez `m7_shell`, `clearance` i `m7_report`, więc
+    # jego kod i tak się wykonuje; żądanie osobnej bramki dla niego byłoby żądaniem,
+    # nie regułą. Pierwsza wersja tego testu brała samo CLI i wskazała go jako
+    # niepokrytego — słusznie co do faktu, błędnie co do wniosku.
+    #
+    # CLI, bo moduł bez `__main__` (jak `render_check.py`) jest wołany PRZEZ inny
+    # generator i nie ma własnej ścieżki do zabramkowania.
+    generators = []
+    for path in sorted(glob.glob(os.path.join(ROOT, "tools", "blender", "*.py"))
+                       + glob.glob(os.path.join(ROOT, "tools", "visual", "*.py"))):
+        source = open(path, encoding="utf-8").read()
+        if '__name__ == "__main__"' not in source:
+            continue
+        if not re.search(r"(?m)^import bpy$", source):
+            continue
+        generators.append(os.path.relpath(path, ROOT))
+    assert len(generators) >= 7, generators
+
+    # Skrypt w `tools/ci`, którego NIE URUCHAMIA żaden workflow, nie jest bramką.
+    # To nie jest hipoteza: pierwsza wersja tego testu sklejała po prostu wszystkie
+    # skrypty i wszystkie workflowy, więc kontrola negatywna „workflow przestaje
+    # wołać skrypt" przeszła NIEZŁAPANA — generator dalej stał w pliku, którego
+    # nikt nie odpala. Dlatego najpierw ustalamy, które skrypty są realnie wołane.
+    # Liczy się TREŚĆ KROKÓW `run:`, a nie cały YAML. Druga pułapka tej samej
+    # rodziny: nazwa generatora stoi też w `paths:`, czyli w WYZWALACZU workflow —
+    # a wyzwalacz mówi tylko „odpal się, gdy ten plik się zmieni", nie „uruchom go".
+    # Kontrola negatywna „workflow przestaje wołać skrypt" przechodziła NIEZŁAPANA
+    # jeszcze raz, właśnie na tym.
+    workflows = ""
+    for path in sorted(glob.glob(os.path.join(ROOT, ".github", "workflows", "*.yml"))):
+        document = yaml.safe_load(open(path, encoding="utf-8"))
+        for job in document["jobs"].values():
+            for step in job["steps"]:
+                workflows += str(step.get("run", "")) + "\n"
+
+    haystack = workflows
+    invoked = []
+    for path in sorted(glob.glob(os.path.join(ROOT, "tools", "ci", "*.sh"))):
+        name = "tools/ci/" + os.path.basename(path)
+        if re.search(r"bash\s+" + re.escape(name) + r"\b", workflows):
+            invoked.append(name)
+            haystack += open(path, encoding="utf-8").read()
+    assert len(invoked) >= 5, ("skrypty CI wołane przez workflow: " + ", ".join(invoked))
+
+    missing = [name for name in generators if name not in haystack]
+    assert not missing, ("generatory geometrii bez bramki w CI: " + ", ".join(missing)
+                         + " (skrypty realnie wołane: " + ", ".join(invoked) + ")")
+
+
+def test_ci_the_station_details_gate_reads_the_reason_of_every_refusal():
+    """Odmowa bez przeczytanego powodu nie jest bramką, tylko awarią.
+
+    `station_details.sh` sprawdza sześć odmów i każda musi spełnić trzy warunki:
+    polecenie padło, NIE zostawiło pliku wyjściowego, a w logu stoi konkretna
+    diagnoza. Trzeci warunek jest tym, który odróżnia bramkę od „coś się wywaliło":
+    bez niego test przechodzi także wtedy, gdy generator pada z zupełnie innego
+    powodu — na przykład na literówce w nazwie pliku.
+
+    Ta sama konwencja co negatywy w `blender_smoke.sh`.
+    """
+    script = open(os.path.join(ROOT, "tools", "ci", "station_details.sh"),
+                  encoding="utf-8").read()
+    code = "\n".join(line for line in script.splitlines()
+                     if not line.lstrip().startswith("#"))
+
+    assert "expect_refusal()" in code, "brak wspólnej funkcji sprawdzającej odmowy"
+    # Trzy warunki w jednym miejscu, więc żadna odmowa nie może ich pominąć.
+    assert 'fail "$label: polecenie NIE padło' in code
+    assert 'test ! -e "$glb"' in code, "odmowa nie sprawdza, czy nie powstał plik"
+    assert 'grep -Eq "$pattern" "$log"' in code, "odmowa nie czyta powodu z logu"
+
+    # Sześć odmów: dwie na peronach, cztery na słupkach.
+    assert code.count("expect_refusal ") >= 6, code.count("expect_refusal ")
+    for pattern in ("nie zbudowano ani jednej bryły",
+                    "okno .* jest puste",
+                    "nie ma ani jednego znacznika",
+                    "wchodzi w skrajnię pojazdu",
+                    "przebija ścianę profilu"):
+        assert pattern in code, f"brak odmowy o wzorcu /{pattern}/"
