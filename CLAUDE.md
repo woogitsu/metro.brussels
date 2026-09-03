@@ -175,5 +175,10 @@ GitHub Actions. Poprzednia wersja tego punktu mówiła, że standardem jest
 - Nie uznawaj `queued` za weryfikację; zadanie jest zweryfikowane dopiero po zakończonym,
   zielonym jobie i sprawdzeniu wymaganych artefaktów. Na jednym runnerze `queued` znaczy
   też „kolejka", nie tylko „zepsute" — ale nadal nie znaczy „zweryfikowane".
+- **Akcje są przypięte po SHA commita, nie po tagu.** `actions/checkout@v6` wskazuje na
+  to, co właściciel akcji ostatnio tam przesunął; te joby chodzą na maszynie właściciela
+  tego repozytorium, z dostępem do workspace'u, `runner.tool_cache` i `GITHUB_TOKEN`.
+  Przy każdym SHA stoi komentarz z wersją — bez niego przypięcie jest nieczytelne i przez
+  to nieaktualizowalne. Ta sama akcja ma wszędzie ten sam SHA.
 - Reguły powyżej są pilnowane testami w `tools/tests/test_ci_workflows.py`; każda ma
   kontrolę negatywną wypisaną w commicie, który ją wprowadził.

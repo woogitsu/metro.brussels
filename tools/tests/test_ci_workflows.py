@@ -831,3 +831,76 @@ def test_prune_workflow_asks_for_the_write_permission_it_needs_and_no_more():
     document, _triggers = _prune_document()
     assert document["permissions"] == {"contents": "write", "pull-requests": "read"}, \
         document["permissions"]
+
+
+# --- akcje przypięte po SHA ----------------------------------------------------
+
+ACTION_USE = re.compile(r"(?m)^\s*uses:\s*(\S+)\s*(?:#\s*(\S+))?\s*$")
+
+
+def test_every_action_is_pinned_to_a_commit_not_a_moving_tag():
+    """Te joby chodzą na MASZYNIE WŁAŚCICIELA, a nie na jednorazowej maszynie GitHuba.
+
+    `actions/checkout@v6` to tag RUCHOMY: wskazuje na to, co właściciel akcji ostatnio
+    tam przesunął. Kto przejmie konto `actions` albo dopisze commit i przesunie tag,
+    ten wykonuje swój kod na maszynie w mieszkaniu właściciela tego repozytorium,
+    z dostępem do `runner.tool_cache`, do workspace'u i do `GITHUB_TOKEN`. Ten sam tag,
+    ten sam workflow, inny kod — i nic w repozytorium tego nie odnotowuje.
+
+    SHA commita jest niezmienny. Przesunięcie tagu przestaje mieć znaczenie, a każda
+    zmiana wersji akcji staje się widocznym commitem w tym repozytorium.
+
+    Zmierzone przy wprowadzaniu: 21 wywołań, 4 różne akcje, wszystkie na tagach `v4`/`v6`.
+    """
+    unpinned = []
+    checked = 0
+    for name in _workflows():
+        for match in ACTION_USE.finditer(_text(name)):
+            ref = match.group(1)
+            if "@" not in ref or ref.startswith("./"):
+                continue
+            checked += 1
+            _action, version = ref.rsplit("@", 1)
+            if not re.fullmatch(r"[0-9a-f]{40}", version):
+                unpinned.append(f"{name}: {ref}")
+    assert not unpinned, f"akcje na ruchomym tagu: {unpinned}"
+    assert checked >= 20, checked
+
+
+def test_every_pinned_action_says_which_version_the_commit_is():
+    """SHA bez wersji jest nieczytelny i przez to nieaktualizowalny.
+
+    `actions/checkout@d23441a4…` nie mówi człowiekowi nic: nie da się zobaczyć, czy to
+    wersja sprzed roku, ani zdecydować, czy warto podnieść. Komentarz z wersją zamienia
+    przypięcie z bariery w informację — i jest jedyną rzeczą, która sprawia, że
+    przypinanie po SHA nie zamienia się w porzucanie akcji na zawsze.
+    """
+    missing = []
+    for name in _workflows():
+        for match in ACTION_USE.finditer(_text(name)):
+            ref, comment = match.group(1), match.group(2)
+            if "@" not in ref or ref.startswith("./"):
+                continue
+            if not re.fullmatch(r"v\d+(\.\d+)*", comment or ""):
+                missing.append(f"{name}: {ref} # {comment}")
+    assert not missing, f"przypięcia bez czytelnej wersji: {missing}"
+
+
+def test_the_same_action_is_pinned_to_the_same_commit_everywhere():
+    """Dwa różne SHA tej samej akcji w jednym repozytorium to stan, nie decyzja.
+
+    Bez tej kontroli aktualizacja „wszystkich checkoutów" zostawia jeden na starym
+    commicie i nikt tego nie widzi — a właśnie ten jeden będzie potem tłumaczył, czemu
+    jeden job zachowuje się inaczej niż sześć pozostałych.
+    """
+    seen = {}
+    for name in _workflows():
+        for match in ACTION_USE.finditer(_text(name)):
+            ref = match.group(1)
+            if "@" not in ref or ref.startswith("./"):
+                continue
+            action, sha = ref.rsplit("@", 1)
+            seen.setdefault(action, {}).setdefault(sha, []).append(name)
+    split = {a: v for a, v in seen.items() if len(v) > 1}
+    assert not split, f"ta sama akcja na różnych commitach: {split}"
+    assert len(seen) >= 4, seen

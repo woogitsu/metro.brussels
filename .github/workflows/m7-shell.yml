@@ -35,7 +35,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       # Workspace self-hosted runnera JEST WSPÓŁDZIELONY między przebiegami — inaczej
       # niż jednorazowa maszyna GitHuba, która zawsze startuje pusta.
@@ -89,7 +89,7 @@ jobs:
 
       - name: Cache pakietów apt
         if: steps.tools.outputs.blender == 'missing'
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/.cache/metro-apt
           key: apt-${{ runner.os }}-blender-${{ hashFiles('tools/ci/apt-packages/blender.txt') }}
@@ -112,7 +112,7 @@ jobs:
 
       - name: Upload T-220 verification artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: t-220-m7-shell-${{ github.run_id }}-${{ github.run_attempt }}
           if-no-files-found: warn
