@@ -12,6 +12,7 @@ ją nadal. Sam skrypt jest czystym Pythonem, więc testuje się bez silnika; prz
 z prawdziwym Godotem robi CI.
 """
 import json
+import math
 import os
 import re
 import subprocess
@@ -300,3 +301,327 @@ def test_workflow_gate_would_catch_a_scene_without_a_train():
     result = _run(metadata)
     assert result.returncode != 0, result.stdout
     assert "train.bodies" in result.stderr, result.stderr
+
+
+# --- progi sprawdzane NA GRANICY ------------------------------------------------
+#
+# Przegląd mutacyjny 03.09.2026: 16 z 33 mutacji tego pliku przeżyło, a czternaście
+# z nich to były progi. Testy powyżej sprawdzały wartości DALEKO od progu — bbox
+# przesunięty o 1000 m, `mesh_objects: 0`, skład o 6 m za krótki. Takie wejście nie
+# odróżnia `>` od `>=` ani 1e-3 od 1,01e-3: przechodzi po obu stronach granicy.
+#
+# Poniższe testy dotykają granicy DOKŁADNIE, i to jest ich jedyny powód istnienia.
+# Każdy ma kontrolę negatywną o jeden `ulp` dalej — bo test, który tylko potwierdza,
+# że coś przechodzi, przeszedłby też przy bramce wyłączonej.
+
+
+def _next_up(value):
+    return math.nextafter(value, math.inf)
+
+
+def _next_down(value):
+    return math.nextafter(value, -math.inf)
+
+
+def _spec_with(length_m, width_m):
+    """Kopia rejestru M7 z podmienionymi wymiarami — tylko do arytmetyki progów.
+
+    Zwraca ścieżkę do pliku tymczasowego; woła się ją w `try/finally`.
+    """
+    with open(M7_SPEC, encoding="utf-8") as handle:
+        registry = json.load(handle)
+    registry["parameters"]["length_m"]["value"] = length_m
+    registry["parameters"]["width_m"]["value"] = width_m
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as h:
+        json.dump(registry, h, ensure_ascii=False)
+        return h.name
+
+
+def test_train_tolerance_is_one_percent_and_the_boundary_itself_passes():
+    """Rozjazd RÓWNY jednemu procentowi jeszcze przechodzi; o jeden `ulp` więcej — nie.
+
+    **Dlaczego rejestr jest tu podmieniony.** Prawdziwy wymiar to 94,0 m, a próg to
+    `94.0 * 0.01`, czyli w double `0.9400000000000001`. Nie istnieje żadna liczba
+    zmiennoprzecinkowa `L`, dla której `abs(L - 94.0)` daje dokładnie tę wartość:
+    różnice dwóch liczb w okolicy 94,94 są wielokrotnościami 2^-46 (≈ 1,4e-14),
+    a próg wymaga rozdzielczości 2^-53. Naiwne `94.0 + 94.0 * 0.01` daje
+    `0.9399999999999977` — czyli POD progiem, po tej samej stronie co wartość zdrowa.
+    Taki „test granicy" granicy nie dotyka i przepuszcza zamianę `>` na `>=`.
+
+    Dla nominału 100,0 m arytmetyka wychodzi dokładna: `100.0 * 0.01 == 1.0`
+    (próg jest potęgą dwójki), a `abs(101.0 - 100.0) == 1.0` bez żadnego błędu.
+    Dlatego granica jest badana na podmienionym rejestrze — podmiana dotyczy
+    WYŁĄCZNIE arytmetyki, a prawdziwe 94,0 m jest tu zaraz obok potwierdzone.
+    """
+    assert G.m7_spec(M7_SPEC)["length_m"] == 94.0, "rejestr nie zmienia się przez ten test"
+    assert 94.0 * 0.01 != abs(94.0 + 94.0 * 0.01 - 94.0), (
+        "gdyby ta granica była osiągalna wprost, podmiana rejestru byłaby zbędna")
+    assert 100.0 * 0.01 == 1.0 and abs(101.0 - 100.0) == 100.0 * 0.01
+
+    spec = _spec_with(100.0, 100.0)
+    try:
+        for field in ("length_m", "width_m"):
+            on_edge = _healthy()
+            on_edge["train"]["length_m"] = 100.0
+            on_edge["train"]["width_m"] = 100.0
+            on_edge["train"][field] = 101.0
+            assert G.check_train(on_edge, spec) == [], (
+                field, G.check_train(on_edge, spec),
+                "rozjazd równy dokładnie 1 % musi jeszcze przejść")
+
+            over = json.loads(json.dumps(on_edge))
+            over["train"][field] = _next_up(101.0)
+            problems = G.check_train(over, spec)
+            assert len(problems) == 1 and field in problems[0], (field, problems)
+
+            under = json.loads(json.dumps(on_edge))
+            under["train"][field] = 99.0
+            assert G.check_train(under, spec) == [], (field, "granica działa w obie strony")
+    finally:
+        os.unlink(spec)
+
+
+def test_a_train_of_zero_length_is_reported_as_absent_not_as_a_wrong_size():
+    """`length_m == 0.0` to „nie ma składu", nie „skład o złym wymiarze".
+
+    Obie diagnozy kończą się czerwonym CI, więc test liczący same problemy nie
+    odróżnia `<= 0.0` od `< 0.0` — przy `<` zero wpada do porównania z rejestrem
+    i wychodzi jako rozjazd 94 m. Różni się KOMUNIKAT, a to on trafia do loga
+    i mówi, czy szukać złej skorupy, czy jej braku.
+
+    Kontrola negatywna: skład o realnie złej długości musi dać dokładnie tę drugą
+    diagnozę, a skład zgodny z rejestrem — żadnej.
+    """
+    absent = _healthy()
+    absent["train"]["length_m"] = 0.0
+    problems = _train(absent)
+    assert len(problems) == 1, problems
+    assert "zwinięty w punkt" in problems[0], problems
+
+    wrong = _healthy()
+    wrong["train"]["length_m"] = 88.0
+    problems = _train(wrong)
+    assert len(problems) == 1 and "rejestr M7" in problems[0], problems
+    assert "zwinięty w punkt" not in problems[0], problems
+
+    assert _train(_healthy()) == []
+
+
+def test_a_scene_of_one_mesh_object_is_still_a_scene():
+    """Próg zawartości to „więcej niż zero", nie „więcej niż jeden".
+
+    Scena złożona z jednej scalonej siatki jest normalnym wynikiem eksportu i musi
+    przejść. Test dotyka granicy od tej strony, bo poprzednie sprawdzały wyłącznie
+    zero — a zero nie odróżnia `<= 0` od `<= 1`.
+
+    Kontrola negatywna: zero na tym samym polu musi dać dokładnie jeden problem,
+    i to nazwany po polu.
+    """
+    for key in ("mesh_objects", "vertices", "faces"):
+        one = _mutate(**{key: 1})
+        assert _check(one) == [], (key, _check(one))
+
+        zero = _mutate(**{key: 0})
+        problems = _check(zero)
+        assert len(problems) == 1 and problems[0].startswith(f"{key} = 0"), (key, problems)
+
+
+def test_size_must_follow_from_the_bbox_down_to_the_millimetre():
+    """Niespójność `size_m` z bboxem równa DOKŁADNIE 1 mm jeszcze przechodzi.
+
+    **Gdzie ta granica jest osiągalna.** Różnica `(b - a) - s` jest w double dokładna
+    tylko wtedy, gdy operandy są małe: przy bboxie rzędu tysięcy metrów najbliższe
+    liczby są oddalone o ~1e-13 i wartość dokładnie `1e-3` nie wypada w tej siatce.
+    Ale oś L1_A jest PŁASKA w scenicznym Y (`SceneAxis.ToScene` daje tam składową Z
+    danych, a ta jest wszędzie zerowa), więc wzdłuż Y bryła może stać przy samym
+    zerze i arytmetyka robi się dokładna:
+
+        (0.001 - (-0.001)) - 0.001 == 1e-3     # dokładnie, bo 2·d − d = d
+
+    Test to sprawdza jawnie, zanim cokolwiek założy.
+
+    Kontrola negatywna: 1,005 mm — wartość leżąca MIĘDZY progiem a progiem
+    podniesionym o procent — musi zostać odrzucona.
+    """
+    lo, hi = G.axis_scene_bbox(AXIS)
+    assert lo[1] == hi[1] == 0.0, ("oś nie jest już płaska w scenicznym Y", lo, hi)
+    assert (0.001 - (-0.001)) - 0.001 == 1e-3, "arytmetyka granicy przestała być dokładna"
+
+    on_edge = _healthy()
+    on_edge["scene"]["bbox_min"][1] = -0.001
+    on_edge["scene"]["bbox_max"][1] = 0.001
+    on_edge["scene"]["size_m"][1] = 0.001          # o 1 mm mniej, niż wynika z bboxa
+    assert _check(on_edge) == [], _check(on_edge)
+
+    over = _healthy()
+    over["scene"]["bbox_min"][1] = -0.001
+    over["scene"]["bbox_max"][1] = 0.001 + 5e-6    # rozjazd 1,005 mm
+    over["scene"]["size_m"][1] = 0.001
+    problems = _check(over)
+    assert len(problems) == 1 and problems[0].startswith("size_m[1]"), problems
+    assert "nie wynika z bboxa" in problems[0], problems
+
+
+def test_a_scene_axis_collapsed_to_zero_is_reported():
+    """`size_m` równe DOKŁADNIE zero to bryła zwinięta — i tak musi być nazwana.
+
+    Poprzedni test zerował całe `size_m`, ale zostawiał bbox bez zmian, więc pierwsza
+    zapalała się kontrola spójności z bboxem, nie kontrola zwinięcia. Tutaj bbox jest
+    zwinięty razem z rozmiarem, więc zapala się WYŁĄCZNIE ta druga — i widać, że
+    granica leży na zerze, a nie tuż pod nim.
+
+    Kontrola negatywna: ta sama scena z niezerową grubością nie może dać ani jednego
+    problemu.
+    """
+    flat = _healthy()
+    flat["scene"]["bbox_min"][1] = 0.0
+    flat["scene"]["bbox_max"][1] = 0.0
+    flat["scene"]["size_m"][1] = 0.0
+    problems = _check(flat)
+    assert len(problems) == 1, problems
+    assert problems[0].startswith("size_m[1] = 0.0") and "zwinięta" in problems[0], problems
+
+    thick = _healthy()
+    thick["scene"]["bbox_min"][1] = -0.001
+    thick["scene"]["bbox_max"][1] = 0.001
+    thick["scene"]["size_m"][1] = 0.002
+    assert _check(thick) == [], _check(thick)
+
+
+def test_the_scene_may_touch_the_axis_exactly_at_the_micrometre_slack():
+    """Zapas mikrometra na zawieranie osi jest inkluzywny po obu stronach.
+
+    `1e-6` w tym warunku jest zapasem na zaokrąglenia zapisu, nie miejscem, w którym
+    scena ma się urwać. Granica jest tu osiągalna DOKŁADNIE, bo test liczy ją tym
+    samym wyrażeniem, co bramka (`axis_lo + 1e-6`), i wstawia wynik do metadanych —
+    porównywane są więc dwie identyczne liczby, bez żadnej arytmetyki pośredniej.
+
+    Kontrola negatywna: jeden `ulp` dalej od osi — czyli bryła, która osi już
+    nie zawiera — musi dać dokładnie jeden problem, nazwany po osi.
+    """
+    axis_lo, axis_hi = G.axis_scene_bbox(AXIS)
+
+    touching_lo = _healthy()
+    touching_lo["scene"]["bbox_min"][0] = axis_lo[0] + 1e-6
+    touching_lo["scene"]["size_m"][0] = (touching_lo["scene"]["bbox_max"][0]
+                                         - touching_lo["scene"]["bbox_min"][0])
+    assert _check(touching_lo) == [], _check(touching_lo)
+
+    past_lo = json.loads(json.dumps(touching_lo))
+    past_lo["scene"]["bbox_min"][0] = _next_up(axis_lo[0] + 1e-6)
+    past_lo["scene"]["size_m"][0] = (past_lo["scene"]["bbox_max"][0]
+                                     - past_lo["scene"]["bbox_min"][0])
+    problems = _check(past_lo)
+    assert len(problems) == 1 and "nie zawiera osi wzdłuż X" in problems[0], problems
+
+    touching_hi = _healthy()
+    touching_hi["scene"]["bbox_max"][0] = axis_hi[0] - 1e-6
+    touching_hi["scene"]["size_m"][0] = (touching_hi["scene"]["bbox_max"][0]
+                                         - touching_hi["scene"]["bbox_min"][0])
+    assert _check(touching_hi) == [], _check(touching_hi)
+
+    past_hi = json.loads(json.dumps(touching_hi))
+    past_hi["scene"]["bbox_max"][0] = _next_down(axis_hi[0] - 1e-6)
+    past_hi["scene"]["size_m"][0] = (past_hi["scene"]["bbox_max"][0]
+                                     - past_hi["scene"]["bbox_min"][0])
+    problems = _check(past_hi)
+    assert len(problems) == 1 and "nie zawiera osi wzdłuż X" in problems[0], problems
+
+
+def test_an_overhang_of_exactly_one_tunnel_cross_section_still_passes():
+    """Wystawanie RÓWNE przekrojowi tunelu mieści się w progu; o `ulp` więcej — nie.
+
+    Test powyżej (`test_slack_tolerance_is_the_tunnel_cross_section...`) sprawdza pół
+    przekroju i dwa przekroje — po obu stronach granicy, ale nigdy NA niej. Tu granica
+    jest trafiona dokładnie, i jest to możliwe wyłącznie dlatego, że oś L1_A zaczyna
+    się w scenicznym X równym ZERU: `0.0 - (-9.4)` daje dokładnie `9.4`, podczas gdy
+    ta sama różnica policzona przy 5446,6 m zgubiłaby się w zaokrągleniu. Test
+    sprawdza to założenie jawnie, zamiast na nim milcząco polegać.
+    """
+    axis_lo, _axis_hi = G.axis_scene_bbox(AXIS)
+    assert axis_lo[0] == 0.0, ("oś nie zaczyna się już w zerze — granica przestała "
+                               "być dokładna", axis_lo)
+    width = max(profiles.dimensions("box_double"))
+    assert width == 9.4
+    assert axis_lo[0] - (axis_lo[0] - width) == width, "arytmetyka granicy nie jest dokładna"
+
+    on_edge = _healthy()
+    on_edge["scene"]["bbox_min"][0] = axis_lo[0] - width
+    on_edge["scene"]["size_m"][0] = (on_edge["scene"]["bbox_max"][0]
+                                     - on_edge["scene"]["bbox_min"][0])
+    assert _check(on_edge) == [], _check(on_edge)
+
+    over = _healthy()
+    over["scene"]["bbox_min"][0] = _next_down(axis_lo[0] - width)
+    over["scene"]["size_m"][0] = (over["scene"]["bbox_max"][0]
+                                  - over["scene"]["bbox_min"][0])
+    problems = _check(over)
+    assert len(problems) == 1 and "wystaje poza oś wzdłuż X" in problems[0], problems
+
+
+def test_axis_length_off_by_exactly_the_tolerance_still_passes():
+    """Różnica długości osi RÓWNA tolerancji jeszcze przechodzi, większa — nie.
+
+    **Dlaczego tolerancja jest tu chwilowo podmieniona.** `AXIS_TOLERANCE_M` to
+    `1e-3`, a oś ma 6686,74 m. Sąsiednie liczby zmiennoprzecinkowe są tam oddalone
+    o 2^-40 (≈ 9,1e-13), więc żadna różnica dwóch takich liczb nie wynosi dokładnie
+    `1e-3`: `(oś + 1e-3) - oś` daje `0.0010000000002037268`, czyli NAD progiem.
+    Granicy `1e-3` nie da się dotknąć dla osi dłuższej niż około 2 mm i to jest
+    własność arytmetyki, nie bramki.
+
+    Potęga dwójki takiego problemu nie ma: `2^-10` (0,977 mm) jest dokładną
+    wielokrotnością 2^-40, więc `(oś + 2^-10) - oś == 2^-10` bez błędu. Na czas
+    tego jednego sprawdzenia tolerancja jest więc podmieniana na `2^-10`, a zaraz
+    obok potwierdzone jest, że w kodzie stoi nadal `1e-3`.
+
+    Kontrola negatywna: jeden `ulp` powyżej granicy musi dać dokładnie jeden problem.
+    """
+    assert G.AXIS_TOLERANCE_M == 1e-3, "próg produkcyjny musi zostać nietknięty"
+    expected = G.axis_length_m(AXIS)
+    assert (expected + 1e-3) - expected != 1e-3, (
+        "gdyby ta granica była osiągalna wprost, podmiana tolerancji byłaby zbędna")
+
+    tolerance = 2.0 ** -10
+    assert (expected + tolerance) - expected == tolerance
+
+    saved = G.AXIS_TOLERANCE_M
+    G.AXIS_TOLERANCE_M = tolerance
+    try:
+        on_edge = _mutate(axis_length_m=expected + tolerance)
+        assert _check(on_edge) == [], _check(on_edge)
+
+        under = _mutate(axis_length_m=expected - tolerance)
+        assert _check(under) == [], _check(under)
+
+        over = _mutate(axis_length_m=_next_up(expected + tolerance))
+        problems = _check(over)
+        assert len(problems) == 1 and problems[0].startswith("axis_length_m"), problems
+    finally:
+        G.AXIS_TOLERANCE_M = saved
+    assert G.AXIS_TOLERANCE_M == 1e-3
+
+
+def test_a_shot_exactly_one_metre_off_is_still_the_same_frame():
+    """Metr zapasu na chainage jest inkluzywny; 1,005 m to już inny kadr.
+
+    Granica jest tu osiągalna wprost, bo `1.0` jest potęgą dwójki, a chainage rzędu
+    2000 m ma krok siatki 2^-41 — `abs(2001.0 - 2000.0)` daje dokładnie `1.0`.
+    To jedyny próg w tym pliku, który nie wymagał żadnej sztuczki.
+
+    Kontrole negatywne dwie: jeden `ulp` nad metrem (odróżnia `>` od `>=`) oraz
+    1,005 m (odróżnia próg 1,0 od progu podniesionego o procent). Bez tej drugiej
+    test przechodziłby dla bramki tolerującej 1,01 m.
+    """
+    assert abs(2001.0 - 2000.0) == 1.0
+
+    for chainage in (2001.0, 1999.0):
+        on_edge = _healthy()
+        on_edge["last_shot"]["chainage_m"] = chainage
+        assert _check(on_edge) == [], (chainage, _check(on_edge))
+
+    for chainage in (_next_up(2001.0), 2001.005, 1998.995):
+        over = _healthy()
+        over["last_shot"]["chainage_m"] = chainage
+        problems = _check(over)
+        assert len(problems) == 1 and problems[0].startswith("last_shot.chainage_m"), (
+            chainage, problems)
