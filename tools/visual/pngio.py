@@ -77,8 +77,25 @@ def _unfilter(raw, width, height, bpp, stride):
     return out
 
 
+def _tag_name(ctype):
+    """Tag chunku w formie nadającej się do logu CI.
+
+    Plik ucięty bywa też uszkodzony, a wtedy w miejscu tagu stoją dowolne bajty.
+    Zwykłe `decode("ascii")` rzuciłoby wtedy `UnicodeDecodeError` — czyli dokładnie
+    ten rodzaj wyjątku, którego mamy się tu pozbyć.
+    """
+    text = ctype.decode("ascii", "backslashreplace")
+    return text if text.isprintable() else repr(ctype)
+
+
 def read_gray(path):
-    """Wczytuje PNG i zwraca luminancję jako `Image`."""
+    """Wczytuje PNG i zwraca luminancję jako `Image`.
+
+    Każdy chunk jest sprawdzany na kompletność PRZED użyciem: długość zadeklarowana
+    w nagłówku plus cztery bajty CRC muszą się mieścić w buforze. Bez tego plik
+    urwany w środku chunku wychodził jako `struct.error` albo `zlib.error` — wyjątek
+    spoza kontraktu tego modułu, nie mówiący nic o tym, co jest z plikiem nie tak.
+    """
     with open(path, "rb") as handle:
         blob = handle.read()
     if not blob.startswith(MAGIC):
@@ -89,14 +106,27 @@ def read_gray(path):
     while pos + 8 <= len(blob):
         (length,) = struct.unpack(">I", blob[pos:pos + 4])
         ctype = blob[pos + 4:pos + 8]
+        end = pos + 12 + length  # 8 B nagłówka + dane + 4 B CRC
+        if end > len(blob):
+            raise PngError(
+                f"{path}: chunk {_tag_name(ctype)} ucięty — nagłówek deklaruje "
+                f"{length} B danych + 4 B CRC, brakuje {end - len(blob)} B")
         data = blob[pos + 8:pos + 8 + length]
-        pos += 12 + length
+        pos = end
         if ctype == b"IHDR":
             header = struct.unpack(">IIBBBBB", data)
         elif ctype == b"IDAT":
             idat += data
         elif ctype == b"IEND":
             break
+    else:
+        # Pętla wyszła przez warunek, nie przez IEND: zostało mniej niż 8 bajtów,
+        # więc to, co zostało, jest urwanym nagłówkiem chunku, a nie śmieciem za
+        # IEND-em (tamten wypada z pętli przez `break` i tu nie trafia).
+        if pos < len(blob):
+            raise PngError(
+                f"{path}: plik urwany w nagłówku chunku — nagłówek ma 8 B, "
+                f"zostało {len(blob) - pos} B")
     if header is None:
         raise PngError(f"{path}: brak IHDR")
     width, height, bit_depth, color_type, _comp, _filt, interlace = header
