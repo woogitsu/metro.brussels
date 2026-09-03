@@ -25,7 +25,8 @@ Trzy możliwe odpowiedzi:
 
 - **RÓŻNICA** — jest wejście, które je odróżnia. Mutacja jest zabijalna, brak testu.
 - **MARTWE WYJŚCIE** — różni się wyłącznie etykieta pochodzenia ze `slice_polyline`,
-  a tej nikt nie czyta (patrz niżej).
+  a tej nikt nie czyta. Klasa historyczna: etykiety zostały usunięte decyzją
+  właściciela, więc te mutacje są dziś po prostu RÓWNOWAŻNE (patrz niżej).
 - **RÓWNOWAŻNA** — żadne wejście nie odróżnia.
 
 To nie jest formalny dowód równoważności. Jest to najmocniejsza rzecz, jaką umiem
@@ -94,7 +95,10 @@ Różnica to 1e-13 m — fizycznie nic. Ale kotwice stacji porównuje się z ko�
 **na równość**, nie z tolerancją, więc gwarancją jest tożsamość, nie przybliżenie.
 Test przypina konkretną łamaną, bo na krótkiej i prostej różnicy nie ma.
 
-## Znalezisko do decyzji właściciela: martwe wyjście `slice_polyline`
+## Martwe wyjście `slice_polyline` — USUNIĘTE
+
+**Właściciel zdecydował: etykiety znikają.** Poniższy opis zostaje jako zapis
+tego, co i dlaczego było nie tak; sam kod już tego nie robi.
 
 `slice_polyline` zwraca pary `(punkt, pochodzenie)`, gdzie pochodzenie to
 `"source_vertex:<i>"` albo `"interpolated_cut"`. **Wszystkie cztery miejsca
@@ -107,16 +111,16 @@ Cztery z pozostałych 15 ocalałych mutacji (110, 113, 115, 117) zmieniają
 **wyłącznie tę etykietę**. Nie da się ich zabić testem, który broni czegoś
 prawdziwego — można je zabić tylko przypinając wartości, na których nic nie stoi.
 
-Dlatego test `test_alignment_slice_origin_tags_are_output_that_nobody_reads`
-sprawdza, że etykieta **jest napisem**, i nie sprawdza, jakim. Decyzja należy do
-właściciela i jest dwuwariantowa:
+Wybrany został wariant „usunąć": `slice_polyline` zwraca same punkty. Wariant
+„uruchomić" (przepisać pochodzenie do pliku osi) zmieniałby format
+`data/track/*.json`, a `data/` jest tylko do odczytu (CLAUDE.md reguła 6).
 
-1. **Uruchomić** — przepisać pochodzenie do pliku osi obok współrzędnych;
-   wtedy etykiety stają się żywe i te 4 mutacje zabija zwykły test.
-2. **Usunąć** — `slice_polyline` zwraca same punkty; wtedy te 4 mutacje znikają.
-
-Nie rozstrzygam tego sam, bo pierwszy wariant zmienia format `data/track/*.json`,
-a `data/` jest tylko do odczytu (CLAUDE.md reguła 6).
+**Skutek dla klasyfikacji:** cztery mutacje, które zmieniały wyłącznie etykietę,
+NIE znikają z listy — to nadal są porównania i nadal się mutują. Zmienia się ich
+werdykt: z „martwego wyjścia" na **prawdziwą równoważność**, bo po usunięciu
+etykiet nie mają już czego zmienić. Sprawdzone wykonaniem po zmianie, osobno dla
+każdego z dwóch wystąpień `<=` w wierszu 119: 780 i 768 porównań, **zero różnic**,
+przy 402 cięciach trafiających dokładnie w wierzchołek.
 
 ## Pozostałe 15 ocalałych w bloku geometrii
 
@@ -124,9 +128,9 @@ a `data/` jest tylko do odczytu (CLAUDE.md reguła 6).
 |---|---|---|
 | 88 | `t < 0.0` → `<=` | RÓWNOWAŻNA — przy `t == 0` obie gałęzie dają 0.0 |
 | 88 | `t > 1.0` → `>=` | RÓWNOWAŻNA — przy `t == 1` obie dają 1.0 |
-| 110 | `c1 < start` → `<=` | MARTWE WYJŚCIE |
-| 113 | `start <= c1` → `<` | MARTWE WYJŚCIE |
-| 115 | `c0 <= end` → `<` | MARTWE WYJŚCIE |
+| 110 | `c1 < start` → `<=` | RÓWNOWAŻNA (po usunięciu etykiet) |
+| 113 | `start <= c1` → `<` | RÓWNOWAŻNA (po usunięciu etykiet) |
+| 115 | `c0 <= end` → `<` | RÓWNOWAŻNA (po usunięciu etykiet) |
 | 117 | `c0 <= end` → `<` | RÓWNOWAŻNA |
 | 119 | `end >= chain[-1] - 1e-9` → `>` | RÓWNOWAŻNA — próg nanometrowy jest zdominowany przez dedupikację mikrometrową (niżej) |
 | 121 | `dist > 1e-9` → `>=` | RÓWNOWAŻNA — jw. |
