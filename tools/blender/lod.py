@@ -573,7 +573,16 @@ def lod_problems(manifest, seam_tolerance_m=1e-6):
             problems.append(f"{chunk['id']}: LOD 0 ma niezerowy błąd wobec siebie")
         for previous, current in zip(sorted(lods, key=lambda l: l["level"])[:-1],
                                      sorted(lods, key=lambda l: l["level"])[1:]):
-            if int(current["triangles"]) > int(previous["triangles"]):
+            # RÓWNA liczba trójkątów też jest złamaniem: wiadomość mówi „nie jest
+            # tańszy", a poziom o tej samej cenie tańszy nie jest. Przed przeglądem
+            # mutacyjnym stało tu `>`, czyli równość przechodziła — i różniło się to
+            # od kontroli kolizji dziesięć wierszy niżej, która od początku liczy `>=`.
+            # Nasycenie, przy którym dwa poziomy legalnie zeszłyby do tyle samo
+            # pierścieni, jest przy tych parametrach nieosiągalne: najkrótszy chunk to
+            # 120 m (`sweep.DEFAULT_MIN_CHUNK_M`), krok pierścienia 5 m, więc na prostej
+            # wychodzi 25/6/3 pierścienie, a na łuku tym bardziej. Równość znaczy tu
+            # zatem usterkę generatora, nie krótki chunk.
+            if int(current["triangles"]) >= int(previous["triangles"]):
                 problems.append(f"{chunk['id']}: LOD {current['level']} nie jest tańszy "
                                 f"od LOD {previous['level']}")
             if float(current["max_deviation_m"]) < float(previous["max_deviation_m"]):
