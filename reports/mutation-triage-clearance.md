@@ -99,3 +99,51 @@ odróżnia test od jego pozoru.
 
 Stąd zasada na resztę kolejki: **każdą dopisaną kontrolę mierzy się ponownie**, a nie
 zakłada, że skoro dotyka funkcji, to coś w niej sprawdza.
+
+---
+
+# Triaż: `tools/blender/clearance_profile.py`
+
+**Drugi moduł z kolejki.** 72 ocalałe na 77 mutacji (94 %) — najwyższy udział w całym
+repo. Ten sam obszar co wyżej: luz M7 wzdłuż całej osi, tylko liczony wydajnie, z trzema
+redukcjami zamiast naiwnego przebiegu po 5408 wierzchołkach na każdą pozycję.
+
+## Wynik tego etapu
+
+| | przed | po |
+|---|---|---|
+| zabitych | 7 | **11** |
+| ocalałych | 72 | **66** |
+
+Trzy dopisane testy zabiły cztery mutacje. **Zmierzone, nie założone** — po lekcji
+z `clearance.py` każda kontrola idzie przez przegląd, zanim zostanie uznana za pokrycie.
+
+## Co zostało domknięte
+
+Strażniki **geometrii zdegenerowanej** w `hull_2d` i `halfplanes`, czyli w kodzie, który
+odpowiada na pytanie „czy M7 mieści się w rurze". Jeżeli te bramki są nieszczelne, cała
+reszta liczy się poprawnie na wejściu, które nie jest obrysem.
+
+| kontrola | co łapie |
+|---|---|
+| otoczka trójkąta w obiegu przeciwnym do zegara | skrót `len(pts) <= 3` zwracałby punkty **posortowane leksykograficznie** zamiast po obiegu. `halfplanes` chodzi po pierścieniu i liczy normalne z kolejnych krawędzi — przy złej kolejności wyszłyby normalne skierowane **na zewnątrz** i luz zmieniłby znak |
+| trójkąt jest poprawnym obrysem | mutacje `count < 3` -> `<= 3` i `3` -> `4` odrzucałyby go; kontrola negatywna pilnuje, że dwa punkty nadal są odrzucane |
+| zdublowany wierzchołek | bez strażnika `length <= 0.0` normalna dzieli się przez zero i zamiast czytelnej odmowy leci `ZeroDivisionError` z wnętrza pętli |
+
+## Klasyfikacja 66 pozostałych
+
+| klasa | ile | co z tym |
+|---|---|---|
+| **strażnik zdegenerowany** | 19 | ta sama rodzina co domknięte wyżej — puste listy, zerowe kroki, jednoelementowe pierścienie. **Do zrobienia**, każdy wymaga wejścia dobranego pod konkretny warunek |
+| **inne** | 16 | wymagają przeczytania funkcji po kolei; bez tego klasyfikacja byłaby zgadywaniem |
+| **tolerancja numeryczna** | 11 | `1e-6`, `1e-9`, `1e-12` przesunięte o procent. Rozróżnia je wejście oddalone o mniej niż procent od tolerancji, czyli takie, którego geometria STIB nie produkuje. Klasa **równoważnych w dziedzinie** — do zapisania, nie do naprawiania |
+| **próg klasyfikacji** | 11 | `ny >= 0.9` (która ściana wiąże), `clearance_m < threshold_m` (czy luz **dokładnie równy** dopuszczalnemu jest naruszeniem). To są prawdziwe pytania semantyczne i **wymagają rozstrzygnięcia**, a nie tylko testu |
+| **remis przy minimum** | 9 | `if value < best` kontra `<=`. Przy remisie obie gałęzie dają tę samą **wartość**; różnią się tylko wyborem **indeksu**. Rozstrzygnięcie wymaga sprawdzenia, czy indeks jedzie dalej do raportu |
+
+## Dlaczego to nie jest domknięte w jednym podejściu
+
+66 pozycji po jednej mutacji na sztukę to sześć osobnych przeglądów mierzących skutek —
+a lekcja z `clearance.py` mówi, że testu nie wolno uznać za pokrycie bez pomiaru.
+Podział na klasy jest tu wynikiem samym w sobie: pokazuje, że **jedenaście** z tych
+pozycji nie jest pytaniem o test, tylko o **decyzję**, czym ma być luz równy
+dopuszczalnemu. Tego nie rozstrzyga się dopisaniem asercji.
