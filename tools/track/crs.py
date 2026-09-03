@@ -137,13 +137,32 @@ def lambert72_to_wgs84(x, y, tolerance_m=1e-6, iterations=60):
 
     Potrzebne tam, gdzie z osi w Lambercie 72 trzeba zbudować zapytanie do
     źródła w WGS84 (OSM, UrbIS) — czyli w kontroli krzyżowej pakietów.
+
+    **Niezbieżność jest błędem, nie wynikiem.** Wcześniej funkcja po wyczerpaniu
+    `iterations` zwracała ostatni iterat bez słowa: dla `(1e9, 1e9)` była to
+    szerokość -46040,3° przy residuum 9,98e+08 m na składową (1,41e+09 m
+    euklidesowo), a dla bieguna odwzorowania długość 395,8° przy 2433 m na
+    składową (2435 m euklidesowo). Rozjeżdżało to całą geometrię, bo
+    residuum mierzy osobna funkcja `lambert_inverse_residual_m`, której nikt nie
+    wołał. Teraz brak zbieżności podnosi `ValueError` — tą samą konwencją, co
+    zdegenerowany jakobian poniżej, żeby wołający miał jeden wzorzec obsługi.
+
+    Kryterium zbieżności jest **na składową i ostre**: `max(|dx|, |dy|)` musi być
+    *mniejsze* od `tolerance_m`. Residuum równe dokładnie `tolerance_m` jest więc
+    porażką, nie sukcesem — dokładnie jak w warunku przerwania pętli, którego ta
+    zmiana nie rusza. Uwaga: `lambert_inverse_residual_m` mierzy odległość
+    **euklidesową**, więc jej wynik może być do sqrt(2) raza większy od progu
+    i to nie jest sprzeczność.
+
+    Residuum w komunikacie jest zapisane przez `repr`, żeby dało się je odczytać
+    z powrotem bez straty bitów — na tym opiera się test progu.
     """
     lon, lat = LAMBERT_INVERSE_SEED
     for _ in range(iterations):
         fx, fy = wgs84_to_lambert72(lon, lat)
         dx, dy = fx - x, fy - y
         if abs(dx) < tolerance_m and abs(dy) < tolerance_m:
-            break
+            return lon, lat
         h = 1e-7
         x_lon, y_lon = wgs84_to_lambert72(lon + h, lat)
         x_lat, y_lat = wgs84_to_lambert72(lon, lat + h)
@@ -154,7 +173,14 @@ def lambert72_to_wgs84(x, y, tolerance_m=1e-6, iterations=60):
             raise ValueError(f"inwersja Lamberta rozbieżna w punkcie {x}, {y}")
         lon -= (dx * j22 - dy * j12) / determinant
         lat -= (dy * j11 - dx * j21) / determinant
-    return lon, lat
+    fx, fy = wgs84_to_lambert72(lon, lat)
+    residual_m = max(abs(fx - x), abs(fy - y))
+    if residual_m < tolerance_m:
+        return lon, lat
+    raise ValueError(
+        f"inwersja Lamberta rozbieżna w punkcie {x}, {y}: "
+        f"residuum {residual_m!r} m nie zeszło pod tolerancję {tolerance_m!r} m "
+        f"po {iterations} iteracjach")
 
 
 def lambert_inverse_residual_m(x, y):
@@ -216,24 +242,45 @@ def wgs84_to_laea3035(lon, lat):
     return east, north
 
 
-def _authalic_to_geodetic(beta, e, q_p):
+def _authalic_to_geodetic(beta, e, q_p, tolerance_rad=1e-14, iterations=8):
     """Odwrotność `q` przez Newtona zamiast szeregu Snydera.
 
     Szereg w e^6 zostawia ułamki milimetra, a iteracja schodzi do precyzji maszynowej
     w trzech krokach i jest krótsza do przeczytania niż cztery współczynniki.
+
+    **Niezbieżność jest błędem, nie wynikiem** — ta sama konwencja i to samo
+    brzmienie komunikatu, co w `lambert72_to_wgs84`. Krok Newtona dzieli przez
+    `2*cos(phi)`, więc przy `beta` dążącym do ±90° iteracja przestaje się
+    domykać: dla `beta = -90°` osiem kroków dawało wcześniej `phi = 270,355°`
+    zwrócone bez żadnego sygnału.
+
+    Kryterium jest **ostre**: `|step|` musi być *mniejsze* od `tolerance_rad`,
+    czyli krok równy dokładnie progowi jest porażką. Zgadza się to z warunkiem
+    przerwania pętli, którego ta zmiana nie rusza — domyślne `1e-14` rad i osiem
+    iteracji są dokładnie te, co wcześniej, tylko dostały nazwy, żeby test mógł
+    odczytać próg z wnętrza funkcji, a nie zgadywać go z zewnątrz.
+
+    Zasięg, w którym osiem kroków nie domyka `1e-14` rad, zaczyna się przy
+    |beta| ≈ 85,1°. Oś brukselska ma `beta` w [50,67°, 50,78°], czyli ponad 34°
+    zapasu, a `laea3035_to_wgs84` liczy `beta` przez `asin`, więc nigdy nie
+    wyjdzie poza ±90°.
     """
     q = q_p * math.sin(beta)
     phi = beta
-    for _ in range(8):
+    step = None
+    for _ in range(iterations):
         sin_phi = math.sin(phi)
         es = e * sin_phi
         residual = (q / (1 - e ** 2) - sin_phi / (1 - es ** 2)
                     + (1 / (2 * e)) * math.log((1 - es) / (1 + es)))
         step = residual * (1 - es ** 2) ** 2 / (2 * math.cos(phi))
         phi += step
-        if abs(step) < 1e-14:
-            break
-    return phi
+        if abs(step) < tolerance_rad:
+            return phi
+    raise ValueError(
+        f"inwersja szerokości autalicznej rozbieżna dla beta {math.degrees(beta)} deg: "
+        f"krok {abs(step)!r} rad nie zeszedł pod tolerancję {tolerance_rad!r} rad "
+        f"po {iterations} iteracjach")
 
 
 def laea3035_to_wgs84(east, north):
