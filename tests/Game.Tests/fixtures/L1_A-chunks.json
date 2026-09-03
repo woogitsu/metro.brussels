@@ -1,0 +1,2373 @@
+{
+ "axis_length_m": 6686.739,
+ "bbox_max_m": [
+  5448.105,
+  910.381,
+  4.7
+ ],
+ "bbox_min_m": [
+  -4.439,
+  -1076.553,
+  -1.2
+ ],
+ "chunk_count": 12,
+ "chunk_length_sum_m": 6686.739,
+ "chunks": [
+  {
+   "bbox_max_m": [
+    66.634,
+    247.8212,
+    4.7
+   ],
+   "bbox_min_m": [
+    -4.4386,
+    -1.5457,
+    -1.2
+   ],
+   "bbox_size_m": [
+    71.0726,
+    249.3669,
+    5.9
+   ],
+   "collision": {
+    "bbox_max_m": [
+     66.4881,
+     247.7865,
+     4.55
+    ],
+    "bbox_min_m": [
+     -4.2969,
+     -1.4963,
+     -1.05
+    ],
+    "bbox_size_m": [
+     70.785,
+     249.2828,
+     5.6
+    ],
+    "boundary_edges": 12,
+    "boundary_edges_expected": 12,
+    "cross_section_m2": 50.8135,
+    "degenerate_faces": 0,
+    "derived_from_profile": "box_double",
+    "end_caps": false,
+    "end_m": 254.880777,
+    "faces": 66,
+    "file": "tunnel_flat_preview_c00_col.glb",
+    "gauge_margin_m": 0.65,
+    "geometry_sha256": "357ec1d19e8740e5d8ad8adba8865cef6822abd01e91d514610006bfdd533d1f",
+    "inset_m": 0.15,
+    "max_chord_m": 25.0,
+    "max_sagitta_m": 0.1,
+    "normals": "do wnętrza, jak w siatce wizualnej",
+    "outward_faces": 0,
+    "rings": 12,
+    "role": "wnętrze tunelu — przestrzeń, w której może się poruszać pociąg",
+    "start_m": 0.0,
+    "transversally_closed": true,
+    "triangle_share_pct": 21.57,
+    "triangles": 132,
+    "vertices": 84,
+    "volume_m3": 12950.272,
+    "volume_share_pct": 91.979,
+    "wall_margin_m": 0.053928
+   },
+   "end_m": 254.880777,
+   "faces": 306,
+   "file": "tunnel_flat_preview_c00.glb",
+   "geometry_sha256": "0dea5b2e09116ab82a780aa28bc9d1af0620bbc185d7158ebacd04ab937d4fad",
+   "id": "tunnel_flat_preview_c00",
+   "index": 0,
+   "length_m": 254.880777,
+   "lods": [
+    {
+     "bbox_growth_m": 0.0,
+     "bbox_max_m": [
+      66.634,
+      247.8212,
+      4.7
+     ],
+     "bbox_min_m": [
+      -4.4386,
+      -1.5457,
+      -1.2
+     ],
+     "bbox_shrink_m": 0.0,
+     "bbox_size_m": [
+      71.0726,
+      249.3669,
+      5.9
+     ],
+     "end_m": 254.880777,
+     "faces": 306,
+     "file": "tunnel_flat_preview_c00.glb",
+     "geometry_sha256": "0dea5b2e09116ab82a780aa28bc9d1af0620bbc185d7158ebacd04ab937d4fad",
+     "level": 0,
+     "max_chord_m": 0.0,
+     "max_deviation_m": 0.0,
+     "max_sagitta_m": 0.0,
+     "mean_deviation_m": 0.0,
+     "median_deviation_m": 0.0,
+     "p95_deviation_m": 0.0,
+     "rings": 52,
+     "start_m": 0.0,
+     "triangle_share_pct": 100.0,
+     "triangles": 612,
+     "vertices": 364,
+     "volume_delta_pct": 0.0,
+     "volume_m3": 14079.564
+    },
+    {
+     "bbox_growth_m": 0.0,
+     "bbox_max_m": [
+      66.634,
+      247.8212,
+      4.7
+     ],
+     "bbox_min_m": [
+      -4.4386,
+      -1.5457,
+      -1.2
+     ],
+     "bbox_shrink_m": 0.0,
+     "bbox_size_m": [
+      71.0726,
+      249.3669,
+      5.9
+     ],
+     "end_m": 254.880777,
+     "faces": 66,
+     "file": "tunnel_flat_preview_c00_lod1.glb",
+     "geometry_sha256": "137c8e92080ee749cc2ccd4e468da7332e35bb5d76f75587eea7227bf7ae46b7",
+     "level": 1,
+     "max_chord_m": 25.0,
+     "max_deviation_m": 0.107311,
+     "max_sagitta_m": 0.15,
+     "mean_deviation_m": 0.040407,
+     "median_deviation_m": 0.035909,
+     "p95_deviation_m": 0.103084,
+     "rings": 12,
+     "start_m": 0.0,
+     "triangle_share_pct": 21.57,
+     "triangles": 132,
+     "vertices": 84,
+     "volume_delta_pct": -0.0095,
+     "volume_m3": 14078.226
+    },
+    {
+     "bbox_growth_m": 0.0,
+     "bbox_max_m": [
+      66.634,
+      247.8212,
+      4.7
+     ],
+     "bbox_min_m": [
+      -4.4386,
+      -1.5457,
+      -1.2
+     ],
+     "bbox_shrink_m": 0.0,
+     "bbox_size_m": [
+      71.0726,
+      249.3669,
+      5.9
+     ],
+     "end_m": 254.880777,
+     "faces": 36,
+     "file": "tunnel_flat_preview_c00_lod2.glb",
+     "geometry_sha256": "0300020252c11cd167a417ef88ffa6f55c3d2336c8bf19ba90c6506f42991a04",
+     "level": 2,
+     "max_chord_m": 60.0,
+     "max_deviation_m": 0.322294,
+     "max_sagitta_m": 0.35,
+     "mean_deviation_m": 0.157603,
+     "median_deviation_m": 0.151438,
+     "p95_deviation_m": 0.304916,
+     "rings": 7,
+     "start_m": 0.0,
+     "triangle_share_pct": 11.76,
+     "triangles": 72,
+     "vertices": 49,
+     "volume_delta_pct": -0.0312,
+     "volume_m3": 14075.168
+    }
+   ],
+   "rings": 52,
+   "start_m": 0.0,
+   "stations": [
+    {
+     "chainage_m": 0.0,
+     "name": "Gare de l'Ouest|Weststation"
+    }
+   ],
+   "triangles": 612,
+   "vertices": 364
+  },
+  {
+   "bbox_max_m": [
+    390.5986,
+    864.3352,
+    4.7
+   ],
+   "bbox_min_m": [
+    57.49,
+    245.6428,
+    -1.2
+   ],
+   "bbox_size_m": [
+    333.1086,
+    618.6924,
+    5.9
+   ],
+   "collision": {
+    "bbox_max_m": [
+     390.5784,
+     864.1866,
+     4.55
+    ],
+    "bbox_min_m": [
+     57.6359,
+     245.6775,
+     -1.05
+    ],
+    "bbox_size_m": [
+     332.9425,
+     618.509,
+     5.6
+    ],
+    "boundary_edges": 12,
+    "boundary_edges_expected": 12,
+    "cross_section_m2": 50.8135,
+    "degenerate_faces": 0,
+    "derived_from_profile": "box_double",
+    "end_caps": false,
+    "end_m": 979.521433,
+    "faces": 246,
+    "file": "tunnel_flat_preview_c01_col.glb",
+    "gauge_margin_m": 0.65,
+    "geometry_sha256": "ad785e775a497bf68bc9a7feb20b77be5a97855c00be83f7cbb5cc54f0caa877",
+    "inset_m": 0.15,
+    "max_chord_m": 25.0,
+    "max_sagitta_m": 0.1,
+    "normals": "do wnętrza, jak w siatce wizualnej",
+    "outward_faces": 0,
+    "rings": 42,
+    "role": "wnętrze tunelu — przestrzeń, w której może się poruszać pociąg",
+    "start_m": 254.880777,
+    "transversally_closed": true,
+    "triangle_share_pct": 28.08,
+    "triangles": 492,
+    "vertices": 294,
+    "volume_m3": 36815.84,
+    "volume_share_pct": 91.975,
+    "wall_margin_m": 0.059869
+   },
+   "end_m": 979.521433,
+   "faces": 876,
+   "file": "tunnel_flat_preview_c01.glb",
+   "geometry_sha256": "435b2c692d7ec6d6239b89f514d6bf1971ba5e383e419607f58e357acac22b16",
+   "id": "tunnel_flat_preview_c01",
+   "index": 1,
+   "length_m": 724.640656,
+   "lods": [
+    {
+     "bbox_growth_m": 0.0,
+     "bbox_max_m": [
+      390.5986,
+      864.3352,
+      4.7
+     ],
+     "bbox_min_m": [
+      57.49,
+      245.6428,
+      -1.2
+     ],
+     "bbox_shrink_m": 0.0,
+     "bbox_size_m": [
+      333.1086,
+      618.6924,
+      5.9
+     ],
+     "end_m": 979.521433,
+     "faces": 876,
+     "file": "tunnel_flat_preview_c01.glb",
+     "geometry_sha256": "435b2c692d7ec6d6239b89f514d6bf1971ba5e383e419607f58e357acac22b16",
+     "level": 0,
+     "max_chord_m": 0.0,
+     "max_deviation_m": 0.0,
+     "max_sagitta_m": 0.0,
+     "mean_deviation_m": 0.0,
+     "median_deviation_m": 0.0,
+     "p95_deviation_m": 0.0,
+     "rings": 147,
+     "start_m": 254.880777,
+     "triangle_share_pct": 100.0,
+     "triangles": 1752,
+     "vertices": 1029,
+     "volume_delta_pct": 0.0,
+     "volume_m3": 40028.122
+    },
+    {
+     "bbox_growth_m": 0.0,
+     "bbox_max_m": [
+      390.5986,
+      864.3352,
+      4.7
+     ],
+     "bbox_min_m": [
+      57.49,
+      245.6428,
+      -1.2
+     ],
+     "bbox_shrink_m": 0.0,
+     "bbox_size_m": [
+      333.1086,
+      618.6924,
+      5.9
+     ],
+     "end_m": 979.521433,
+     "faces": 216,
+     "file": "tunnel_flat_preview_c01_lod1.glb",
+     "geometry_sha256": "fa6c1ecc6e13f584a7333c213a0a9c2dc06b7cec4a9d731b596c818da2b8bec3",
+     "level": 1,
+     "max_chord_m": 25.0,
+     "max_deviation_m": 0.156387,
+     "max_sagitta_m": 0.15,
+     "mean_deviation_m": 0.033284,
+     "median_deviation_m": 0.000353,
+     "p95_deviation_m": 0.139203,
+     "rings": 37,
+     "start_m": 254.880777,
+     "triangle_share_pct": 24.66,
+     "triangles": 432,
+     "vertices": 259,
+     "volume_delta_pct": -0.0216,
+     "volume_m3": 40019.482
+    },
+    {
+     "bbox_growth_m": 0.0,
+     "bbox_max_m": [
+      390.5986,
+      864.3352,
+      4.7
+     ],
+     "bbox_min_m": [
+      57.49,
+      245.6428,
+      -1.2
+     ],
+     "bbox_shrink_m": 0.0,
+     "bbox_size_m": [
+      333.1086,
+      618.6924,
+      5.9
+     ],
+     "end_m": 979.521433,
+     "faces": 114,
+     "file": "tunnel_flat_preview_c01_lod2.glb",
+     "geometry_sha256": "25bb810919fbb363f1a83e6f48350059388b1b73aa5f69615e01674f347a0708",
+     "level": 2,
+     "max_chord_m": 60.0,
+     "max_deviation_m": 0.355564,
+     "max_sagitta_m": 0.35,
+     "mean_deviation_m": 0.100986,
+     "median_deviation_m": 0.004764,
+     "p95_deviation_m": 0.316904,
+     "rings": 20,
+     "start_m": 254.880777,
+     "triangle_share_pct": 13.01,
+     "triangles": 228,
+     "vertices": 140,
+     "volume_delta_pct": -0.0617,
+     "volume_m3": 40003.441
+    }
+   ],
+   "rings": 147,
+   "start_m": 254.880777,
+   "stations": [
+    {
+     "chainage_m": 509.73,
+     "name": "Beekkant"
+    }
+   ],
+   "triangles": 1752,
+   "vertices": 1029
+  },
+  {
+   "bbox_max_m": [
+    1141.9778,
+    910.3813,
+    4.7
+   ],
+   "bbox_min_m": [
+    389.3335,
+    810.4344,
+    -1.2
+   ],
+   "bbox_size_m": [
+    752.6443,
+    99.9469,
+    5.9
+   ],
+   "collision": {
+    "bbox_max_m": [
+     1141.8883,
+     910.2154,
+     4.55
+    ],
+    "bbox_min_m": [
+     389.3537,
+     810.5548,
+     -1.05
+    ],
+    "bbox_size_m": [
+     752.5347,
+     99.6606,
+     5.6
+    ],
+    "boundary_edges": 12,
+    "boundary_edges_expected": 12,
+    "cross_section_m2": 50.8135,
+    "degenerate_faces": 0,
+    "derived_from_profile": "box_double",
+    "end_caps": false,
+    "end_m": 1754.148126,
+    "faces": 252,
+    "file": "tunnel_flat_preview_c02_col.glb",
+    "gauge_margin_m": 0.65,
+    "geometry_sha256": "919cfd820cf742632f6258b83d63a6cbc9dcdb9477666dc13fe4d0172e6e7e5c",
+    "inset_m": 0.15,
+    "max_chord_m": 25.0,
+    "max_sagitta_m": 0.1,
+    "normals": "do wnętrza, jak w siatce wizualnej",
+    "outward_faces": 0,
+    "rings": 43,
+    "role": "wnętrze tunelu — przestrzeń, w której może się poruszać pociąg",
+    "start_m": 979.521433,
+    "transversally_closed": true,
+    "triangle_share_pct": 26.92,
+    "triangles": 504,
+    "vertices": 301,
+    "volume_m3": 39355.478,
+    "volume_share_pct": 91.974,
+    "wall_margin_m": 0.058377
+   },
+   "end_m": 1754.148126,
+   "faces": 936,
+   "file": "tunnel_flat_preview_c02.glb",
+   "geometry_sha256": "955103b4032b3497e0dafb9e93c065774ebda9d1b1701bbbe40a394a925f8810",
+   "id": "tunnel_flat_preview_c02",
+   "index": 2,
+   "length_m": 774.626693,
+   "lods": [
+    {
+     "bbox_growth_m": 0.0,
+     "bbox_max_m": [
+      1141.9778,
+      910.3813,
+      4.7
+     ],
+     "bbox_min_m": [
+      389.3335,
+      810.4344,
+      -1.2
+     ],
+     "bbox_shrink_m": 0.0,
+     "bbox_size_m": [
+      752.6443,
+      99.9469,
+      5.9
+     ],
+     "end_m": 1754.148126,
+     "faces": 936,
+     "file": "tunnel_flat_preview_c02.glb",
+     "geometry_sha256": "955103b4032b3497e0dafb9e93c065774ebda9d1b1701bbbe40a394a925f8810",
+     "level": 0,
+     "max_chord_m": 0.0,
+     "max_deviation_m": 0.0,
+     "max_sagitta_m": 0.0,
+     "mean_deviation_m": 0.0,
+     "median_deviation_m": 0.0,
+     "p95_deviation_m": 0.0,
+     "rings": 157,
+     "start_m": 979.521433,
+     "triangle_share_pct": 100.0,
+     "triangles": 1872,
+     "vertices": 1099,
+     "volume_delta_pct": 0.0,
+     "volume_m3": 42789.863
+    },
+    {
+     "bbox_growth_m": 0.0,
+     "bbox_max_m": [
+      1141.9778,
+      910.3654,
+      4.7
+     ],
+     "bbox_min_m": [
+      389.3335,
+      810.4344,
+      -1.2
+     ],
+     "bbox_shrink_m": 0.0159,
+     "bbox_size_m": [
+      752.6443,
+      99.931,
+      5.9
+     ],
+     "end_m": 1754.148126,
+     "faces": 216,
+     "file": "tunnel_flat_preview_c02_lod1.glb",
+     "geometry_sha256": "c972de5135d1e7bfff42e17bc31b4b70748b270577c6640fffdbd3f69de183de",
+     "level": 1,
+     "max_chord_m": 25.0,
+     "max_deviation_m": 0.149854,
+     "max_sagitta_m": 0.15,
+     "mean_deviation_m": 0.049459,
+     "median_deviation_m": 0.032179,
+     "p95_deviation_m": 0.136102,
+     "rings": 37,
+     "start_m": 979.521433,
+     "triangle_share_pct": 23.08,
+     "triangles": 432,
+     "vertices": 259,
+     "volume_delta_pct": -0.0227,
+     "volume_m3": 42780.153
+    },
+    {
+     "bbox_growth_m": 0.0,
+     "bbox_max_m": [
+      1141.9778,
+      910.29,
+      4.7
+     ],
+     "bbox_min_m": [
+      389.3335,
+      810.4344,
+      -1.2
+     ],
+     "bbox_shrink_m": 0.0913,
+     "bbox_size_m": [
+      752.6443,
+      99.8556,
+      5.9
+     ],
+     "end_m": 1754.148126,
+     "faces": 120,
+     "file": "tunnel_flat_preview_c02_lod2.glb",
+     "geometry_sha256": "b8465f8047a0f30d533a1a3f06667c2232692c6b8eb5346f244e18a09c654620",
+     "level": 2,
+     "max_chord_m": 60.0,
+     "max_deviation_m": 0.356189,
+     "max_sagitta_m": 0.35,
+     "mean_deviation_m": 0.149591,
+     "median_deviation_m": 0.16318,
+     "p95_deviation_m": 0.328893,
+     "rings": 21,
+     "start_m": 979.521433,
+     "triangle_share_pct": 12.82,
+     "triangles": 240,
+     "vertices": 147,
+     "volume_delta_pct": -0.0624,
+     "volume_m3": 42763.155
+    }
+   ],
+   "rings": 157,
+   "start_m": 979.521433,
+   "stations": [
+    {
+     "chainage_m": 1451.9,
+     "name": "Étangs Noirs|Zwarte Vijvers"
+    }
+   ],
+   "triangles": 1872,
+   "vertices": 1099
+  },
+  {
+   "bbox_max_m": [
+    1694.1947,
+    817.9816,
+    4.7
+   ],
+   "bbox_min_m": [
+    1136.3742,
+    532.8387,
+    -1.2
+   ],
+   "bbox_size_m": [
+    557.8205,
+    285.1429,
+    5.9
+   ],
+   "collision": {
+    "bbox_max_m": [
+     1694.1734,
+     817.8612,
+     4.55
+    ],
+    "bbox_min_m": [
+     1136.4637,
+     532.9872,
+     -1.05
+    ],
+    "bbox_size_m": [
+     557.7098,
+     284.874,
+     5.6
+    ],
+    "boundary_edges": 12,
+    "boundary_edges_expected": 12,
+    "cross_section_m2": 50.8135,
+    "degenerate_faces": 0,
+    "derived_from_profile": "box_double",
+    "end_caps": false,
+    "end_m": 2388.847676,
+    "faces": 180,
+    "file": "tunnel_flat_preview_c03_col.glb",
+    "gauge_margin_m": 0.65,
+    "geometry_sha256": "40822fb19ae337ced6748d380b3272b9bae10bbbdfd3c5ae7260618b144e2175",
+    "inset_m": 0.15,
+    "max_chord_m": 25.0,
+    "max_sagitta_m": 0.1,
+    "normals": "do wnętrza, jak w siatce wizualnej",
+    "outward_faces": 0,
+    "rings": 31,
+    "role": "wnętrze tunelu — przestrzeń, w której może się poruszać pociąg",
+    "start_m": 1754.148126,
+    "transversally_closed": true,
+    "triangle_share_pct": 23.44,
+    "triangles": 360,
+    "vertices": 217,
+    "volume_m3": 32248.334,
+    "volume_share_pct": 91.979,
+    "wall_margin_m": 0.053919
+   },
+   "end_m": 2388.847676,
+   "faces": 768,
+   "file": "tunnel_flat_preview_c03.glb",
+   "geometry_sha256": "3d839a2fe84f500fd6e49edcfaabb17d8dc50e9a49ffc7eb318d6e4140d13017",
+   "id": "tunnel_flat_preview_c03",
+   "index": 3,
+   "length_m": 634.69955,
+   "lods": [
+    {
+     "bbox_growth_m": 0.0,
+     "bbox_max_m": [
+      1694.1947,
+      817.9816,
+      4.7
+     ],
+     "bbox_min_m": [
+      1136.3742,
+      532.8387,
+      -1.2
+     ],
+     "bbox_shrink_m": 0.0,
+     "bbox_size_m": [
+      557.8205,
+      285.1429,
+      5.9
+     ],
+     "end_m": 2388.847676,
+     "faces": 768,
+     "file": "tunnel_flat_preview_c03.glb",
+     "geometry_sha256": "3d839a2fe84f500fd6e49edcfaabb17d8dc50e9a49ffc7eb318d6e4140d13017",
+     "level": 0,
+     "max_chord_m": 0.0,
+     "max_deviation_m": 0.0,
+     "max_sagitta_m": 0.0,
+     "mean_deviation_m": 0.0,
+     "median_deviation_m": 0.0,
+     "p95_deviation_m": 0.0,
+     "rings": 129,
+     "start_m": 1754.148126,
+     "triangle_share_pct": 100.0,
+     "triangles": 1536,
+     "vertices": 903,
+     "volume_delta_pct": 0.0,
+     "volume_m3": 35060.518
+    },
+    {
+     "bbox_growth_m": 0.0,
+     "bbox_max_m": [
+      1694.1947,
+      817.9816,
+      4.7
+     ],
+     "bbox_min_m": [
+      1136.3742,
+      532.8387,
+      -1.2
+     ],
+     "bbox_shrink_m": 0.0,
+     "bbox_size_m": [
+      557.8205,
+      285.1429,
+      5.9
+     ],
+     "end_m": 2388.847676,
+     "faces": 174,
+     "file": "tunnel_flat_preview_c03_lod1.glb",
+     "geometry_sha256": "334ef6d7f0e2a016262e6c80d5bac4721dde3e64b5c7f364eb123b3a615a0037",
+     "level": 1,
+     "max_chord_m": 25.0,
+     "max_deviation_m": 0.140564,
+     "max_sagitta_m": 0.15,
+     "mean_deviation_m": 0.018273,
+     "median_deviation_m": 0.000242,
+     "p95_deviation_m": 0.098023,
+     "rings": 30,
+     "start_m": 1754.148126,
+     "triangle_share_pct": 22.66,
+     "triangles": 348,
+     "vertices": 210,
+     "volume_delta_pct": -0.0105,
+     "volume_m3": 35056.84
+    },
+    {
+     "bbox_growth_m": 0.0,
+     "bbox_max_m": [
+      1694.1947,
+      817.9816,
+      4.7
+     ],
+     "bbox_min_m": [
+      1136.3742,
+      532.8387,
+      -1.2
+     ],
+     "bbox_shrink_m": 0.0,
+     "bbox_size_m": [
+      557.8205,
+      285.1429,
+      5.9
+     ],
+     "end_m": 2388.847676,
+     "faces": 84,
+     "file": "tunnel_flat_preview_c03_lod2.glb",
+     "geometry_sha256": "851bc375cb98f2f8b403f081da2cd85835601463f6e505316da6b334082b93ac",
+     "level": 2,
+     "max_chord_m": 60.0,
+     "max_deviation_m": 0.34668,
+     "max_sagitta_m": 0.35,
+     "mean_deviation_m": 0.060864,
+     "median_deviation_m": 0.000619,
+     "p95_deviation_m": 0.29301,
+     "rings": 15,
+     "start_m": 1754.148126,
+     "triangle_share_pct": 10.94,
+     "triangles": 168,
+     "vertices": 105,
+     "volume_delta_pct": -0.0311,
+     "volume_m3": 35049.616
+    }
+   ],
+   "rings": 129,
+   "start_m": 1754.148126,
+   "stations": [
+    {
+     "chainage_m": 2054.78,
+     "name": "Comte de Flandre|Graaf van Vlaanderen"
+    }
+   ],
+   "triangles": 1536,
+   "vertices": 903
+  },
+  {
+   "bbox_max_m": [
+    2062.0624,
+    542.1433,
+    4.7
+   ],
+   "bbox_min_m": [
+    1692.8593,
+    211.9667,
+    -1.2
+   ],
+   "bbox_size_m": [
+    369.2031,
+    330.1766,
+    5.9
+   ],
+   "collision": {
+    "bbox_max_m": [
+     2062.0231,
+     541.9949,
+     4.55
+    ],
+    "bbox_min_m": [
+     1692.8806,
+     212.1115,
+     -1.05
+    ],
+    "bbox_size_m": [
+     369.1424,
+     329.8834,
+     5.6
+    ],
+    "boundary_edges": 12,
+    "boundary_edges_expected": 12,
+    "cross_section_m2": 50.8135,
+    "degenerate_faces": 0,
+    "derived_from_profile": "box_double",
+    "end_caps": false,
+    "end_m": 2923.542182,
+    "faces": 330,
+    "file": "tunnel_flat_preview_c04_col.glb",
+    "gauge_margin_m": 0.65,
+    "geometry_sha256": "6cda1811a01ba6e21d627be5de0df6cc5b074e08ea6aa92df9a6bcb8d7854cf3",
+    "inset_m": 0.15,
+    "max_chord_m": 25.0,
+    "max_sagitta_m": 0.1,
+    "normals": "do wnętrza, jak w siatce wizualnej",
+    "outward_faces": 0,
+    "rings": 56,
+    "role": "wnętrze tunelu — przestrzeń, w której może się poruszać pociąg",
+    "start_m": 2388.847676,
+    "transversally_closed": true,
+    "triangle_share_pct": 50.93,
+    "triangles": 660,
+    "vertices": 392,
+    "volume_m3": 27164.955,
+    "volume_share_pct": 91.98,
+    "wall_margin_m": 0.053594
+   },
+   "end_m": 2923.542182,
+   "faces": 648,
+   "file": "tunnel_flat_preview_c04.glb",
+   "geometry_sha256": "5c36eba1b247254da4427b75b077ef349c32c31e5397485ffa1a36b25ebe9540",
+   "id": "tunnel_flat_preview_c04",
+   "index": 4,
+   "length_m": 534.694506,
+   "lods": [
+    {
+     "bbox_growth_m": 0.0,
+     "bbox_max_m": [
+      2062.0624,
+      542.1433,
+      4.7
+     ],
+     "bbox_min_m": [
+      1692.8593,
+      211.9667,
+      -1.2
+     ],
+     "bbox_shrink_m": 0.0,
+     "bbox_size_m": [
+      369.2031,
+      330.1766,
+      5.9
+     ],
+     "end_m": 2923.542182,
+     "faces": 648,
+     "file": "tunnel_flat_preview_c04.glb",
+     "geometry_sha256": "5c36eba1b247254da4427b75b077ef349c32c31e5397485ffa1a36b25ebe9540",
+     "level": 0,
+     "max_chord_m": 0.0,
+     "max_deviation_m": 0.0,
+     "max_sagitta_m": 0.0,
+     "mean_deviation_m": 0.0,
+     "median_deviation_m": 0.0,
+     "p95_deviation_m": 0.0,
+     "rings": 109,
+     "start_m": 2388.847676,
+     "triangle_share_pct": 100.0,
+     "triangles": 1296,
+     "vertices": 763,
+     "volume_delta_pct": 0.0,
+     "volume_m3": 29533.418
+    },
+    {
+     "bbox_growth_m": 0.0,
+     "bbox_max_m": [
+      2062.0624,
+      542.1433,
+      4.7
+     ],
+     "bbox_min_m": [
+      1692.8593,
+      211.9667,
+      -1.2
+     ],
+     "bbox_shrink_m": 0.0,
+     "bbox_size_m": [
+      369.2031,
+      330.1766,
+      5.9
+     ],
+     "end_m": 2923.542182,
+     "faces": 216,
+     "file": "tunnel_flat_preview_c04_lod1.glb",
+     "geometry_sha256": "68af12cbe2d1adc74bb77757d360dae5c6905761bc1bb632660e10894471a268",
+     "level": 1,
+     "max_chord_m": 25.0,
+     "max_deviation_m": 0.151648,
+     "max_sagitta_m": 0.15,
+     "mean_deviation_m": 0.038137,
+     "median_deviation_m": 0.00033,
+     "p95_deviation_m": 0.126791,
+     "rings": 37,
+     "start_m": 2388.847676,
+     "triangle_share_pct": 33.33,
+     "triangles": 432,
+     "vertices": 259,
+     "volume_delta_pct": -0.0471,
+     "volume_m3": 29519.502
+    },
+    {
+     "bbox_growth_m": 0.0,
+     "bbox_max_m": [
+      2062.0624,
+      542.1433,
+      4.7
+     ],
+     "bbox_min_m": [
+      1692.8593,
+      211.9667,
+      -1.2
+     ],
+     "bbox_shrink_m": 0.0,
+     "bbox_size_m": [
+      369.2031,
+      330.1766,
+      5.9
+     ],
+     "end_m": 2923.542182,
+     "faces": 126,
+     "file": "tunnel_flat_preview_c04_lod2.glb",
+     "geometry_sha256": "818427ac4671e4fc0f48b34748d9458aaa10bb769de1b03b1a4330ab815ef320",
+     "level": 2,
+     "max_chord_m": 60.0,
+     "max_deviation_m": 0.388021,
+     "max_sagitta_m": 0.35,
+     "mean_deviation_m": 0.123325,
+     "median_deviation_m": 0.074954,
+     "p95_deviation_m": 0.339866,
+     "rings": 22,
+     "start_m": 2388.847676,
+     "triangle_share_pct": 19.44,
+     "triangles": 252,
+     "vertices": 154,
+     "volume_delta_pct": -0.1349,
+     "volume_m3": 29493.571
+    }
+   ],
+   "rings": 109,
+   "start_m": 2388.847676,
+   "stations": [
+    {
+     "chainage_m": 2720.75,
+     "name": "Sainte-Catherine|Sint-Katelijne"
+    }
+   ],
+   "triangles": 1296,
+   "vertices": 763
+  },
+  {
+   "bbox_max_m": [
+    2480.2853,
+    221.0373,
+    4.7
+   ],
+   "bbox_min_m": [
+    2059.5956,
+    -68.0749,
+    -1.2
+   ],
+   "bbox_size_m": [
+    420.6897,
+    289.1122,
+    5.9
+   ],
+   "collision": {
+    "bbox_max_m": [
+     2480.1806,
+     220.8925,
+     4.55
+    ],
+    "bbox_min_m": [
+     2059.6349,
+     -67.9674,
+     -1.05
+    ],
+    "bbox_size_m": [
+     420.5457,
+     288.86,
+     5.6
+    ],
+    "boundary_edges": 12,
+    "boundary_edges_expected": 12,
+    "cross_section_m2": 50.8135,
+    "degenerate_faces": 0,
+    "derived_from_profile": "box_double",
+    "end_caps": false,
+    "end_m": 3433.260543,
+    "faces": 216,
+    "file": "tunnel_flat_preview_c05_col.glb",
+    "gauge_margin_m": 0.65,
+    "geometry_sha256": "dcb3b48995abdd3f29a5b5a49cd8644af31c1ca463a003511eb2b0eeec151622",
+    "inset_m": 0.15,
+    "max_chord_m": 25.0,
+    "max_sagitta_m": 0.1,
+    "normals": "do wnętrza, jak w siatce wizualnej",
+    "outward_faces": 0,
+    "rings": 37,
+    "role": "wnętrze tunelu — przestrzeń, w której może się poruszać pociąg",
+    "start_m": 2923.542182,
+    "transversally_closed": true,
+    "triangle_share_pct": 34.95,
+    "triangles": 432,
+    "vertices": 259,
+    "volume_m3": 25892.605,
+    "volume_share_pct": 91.963,
+    "wall_margin_m": 0.053742
+   },
+   "end_m": 3433.260543,
+   "faces": 618,
+   "file": "tunnel_flat_preview_c05.glb",
+   "geometry_sha256": "d1404a989433c39c917bb16cd4cdc1a397ea0a5fe76ae7fe60eee770c2a97286",
+   "id": "tunnel_flat_preview_c05",
+   "index": 5,
+   "length_m": 509.718361,
+   "lods": [
+    {
+     "bbox_growth_m": 0.0,
+     "bbox_max_m": [
+      2480.2853,
+      221.0373,
+      4.7
+     ],
+     "bbox_min_m": [
+      2059.5956,
+      -68.0749,
+      -1.2
+     ],
+     "bbox_shrink_m": 0.0,
+     "bbox_size_m": [
+      420.6897,
+      289.1122,
+      5.9
+     ],
+     "end_m": 3433.260543,
+     "faces": 618,
+     "file": "tunnel_flat_preview_c05.glb",
+     "geometry_sha256": "d1404a989433c39c917bb16cd4cdc1a397ea0a5fe76ae7fe60eee770c2a97286",
+     "level": 0,
+     "max_chord_m": 0.0,
+     "max_deviation_m": 0.0,
+     "max_sagitta_m": 0.0,
+     "mean_deviation_m": 0.0,
+     "median_deviation_m": 0.0,
+     "p95_deviation_m": 0.0,
+     "rings": 104,
+     "start_m": 2923.542182,
+     "triangle_share_pct": 100.0,
+     "triangles": 1236,
+     "vertices": 728,
+     "volume_delta_pct": 0.0,
+     "volume_m3": 28155.546
+    },
+    {
+     "bbox_growth_m": 0.0,
+     "bbox_max_m": [
+      2480.2853,
+      221.0373,
+      4.7
+     ],
+     "bbox_min_m": [
+      2059.5956,
+      -68.0749,
+      -1.2
+     ],
+     "bbox_shrink_m": 0.0,
+     "bbox_size_m": [
+      420.6897,
+      289.1122,
+      5.9
+     ],
+     "end_m": 3433.260543,
+     "faces": 180,
+     "file": "tunnel_flat_preview_c05_lod1.glb",
+     "geometry_sha256": "3b09b64c85fffefb73c8ded10e1d8b4dd291eae2340e6121f4313c5942dfc8f1",
+     "level": 1,
+     "max_chord_m": 25.0,
+     "max_deviation_m": 0.15172,
+     "max_sagitta_m": 0.15,
+     "mean_deviation_m": 0.061301,
+     "median_deviation_m": 0.075472,
+     "p95_deviation_m": 0.13953,
+     "rings": 31,
+     "start_m": 2923.542182,
+     "triangle_share_pct": 29.13,
+     "triangles": 360,
+     "vertices": 217,
+     "volume_delta_pct": -0.0423,
+     "volume_m3": 28143.63
+    },
+    {
+     "bbox_growth_m": 0.0,
+     "bbox_max_m": [
+      2480.2853,
+      221.0373,
+      4.7
+     ],
+     "bbox_min_m": [
+      2059.5956,
+      -68.0749,
+      -1.2
+     ],
+     "bbox_shrink_m": 0.0,
+     "bbox_size_m": [
+      420.6897,
+      289.1122,
+      5.9
+     ],
+     "end_m": 3433.260543,
+     "faces": 102,
+     "file": "tunnel_flat_preview_c05_lod2.glb",
+     "geometry_sha256": "76abe9eedcaf4f58dadc876eaa5cb358f87e4279dc1e8a88ba556b0d39597068",
+     "level": 2,
+     "max_chord_m": 60.0,
+     "max_deviation_m": 0.400228,
+     "max_sagitta_m": 0.35,
+     "mean_deviation_m": 0.180971,
+     "median_deviation_m": 0.199044,
+     "p95_deviation_m": 0.34166,
+     "rings": 18,
+     "start_m": 2923.542182,
+     "triangle_share_pct": 16.5,
+     "triangles": 204,
+     "vertices": 126,
+     "volume_delta_pct": -0.1179,
+     "volume_m3": 28122.349
+    }
+   ],
+   "rings": 104,
+   "start_m": 2923.542182,
+   "stations": [
+    {
+     "chainage_m": 3129.94,
+     "name": "De Brouckère"
+    }
+   ],
+   "triangles": 1236,
+   "vertices": 728
+  },
+  {
+   "bbox_max_m": [
+    2791.5032,
+    -61.3391,
+    4.7
+   ],
+   "bbox_min_m": [
+    2473.7287,
+    -403.2688,
+    -1.2
+   ],
+   "bbox_size_m": [
+    317.7745,
+    341.9297,
+    5.9
+   ],
+   "collision": {
+    "bbox_max_m": [
+     2791.4804,
+     -61.4466,
+     4.55
+    ],
+    "bbox_min_m": [
+     2473.8334,
+     -403.1205,
+     -1.05
+    ],
+    "bbox_size_m": [
+     317.6471,
+     341.6739,
+     5.6
+    ],
+    "boundary_edges": 12,
+    "boundary_edges_expected": 12,
+    "cross_section_m2": 50.8135,
+    "degenerate_faces": 0,
+    "derived_from_profile": "box_double",
+    "end_caps": false,
+    "end_m": 3903.021397,
+    "faces": 186,
+    "file": "tunnel_flat_preview_c06_col.glb",
+    "gauge_margin_m": 0.65,
+    "geometry_sha256": "f80c5fce831ebe8d5095dbf782d95bf8a10ec835884696418f53a7aeb3437cb2",
+    "inset_m": 0.15,
+    "max_chord_m": 25.0,
+    "max_sagitta_m": 0.1,
+    "normals": "do wnętrza, jak w siatce wizualnej",
+    "outward_faces": 0,
+    "rings": 32,
+    "role": "wnętrze tunelu — przestrzeń, w której może się poruszać pociąg",
+    "start_m": 3433.260543,
+    "transversally_closed": true,
+    "triangle_share_pct": 32.63,
+    "triangles": 372,
+    "vertices": 224,
+    "volume_m3": 23864.057,
+    "volume_share_pct": 91.967,
+    "wall_margin_m": 0.056944
+   },
+   "end_m": 3903.021397,
+   "faces": 570,
+   "file": "tunnel_flat_preview_c06.glb",
+   "geometry_sha256": "d91ae4037b068d9949dd1951cc30b6d75a48cbc4647889dcebd76a6f7582efa6",
+   "id": "tunnel_flat_preview_c06",
+   "index": 6,
+   "length_m": 469.760854,
+   "lods": [
+    {
+     "bbox_growth_m": 0.0,
+     "bbox_max_m": [
+      2791.5032,
+      -61.3391,
+      4.7
+     ],
+     "bbox_min_m": [
+      2473.7287,
+      -403.2688,
+      -1.2
+     ],
+     "bbox_shrink_m": 0.0,
+     "bbox_size_m": [
+      317.7745,
+      341.9297,
+      5.9
+     ],
+     "end_m": 3903.021397,
+     "faces": 570,
+     "file": "tunnel_flat_preview_c06.glb",
+     "geometry_sha256": "d91ae4037b068d9949dd1951cc30b6d75a48cbc4647889dcebd76a6f7582efa6",
+     "level": 0,
+     "max_chord_m": 0.0,
+     "max_deviation_m": 0.0,
+     "max_sagitta_m": 0.0,
+     "mean_deviation_m": 0.0,
+     "median_deviation_m": 0.0,
+     "p95_deviation_m": 0.0,
+     "rings": 96,
+     "start_m": 3433.260543,
+     "triangle_share_pct": 100.0,
+     "triangles": 1140,
+     "vertices": 672,
+     "volume_delta_pct": 0.0,
+     "volume_m3": 25948.396
+    },
+    {
+     "bbox_growth_m": 0.0,
+     "bbox_max_m": [
+      2791.5032,
+      -61.3391,
+      4.7
+     ],
+     "bbox_min_m": [
+      2473.7287,
+      -403.2688,
+      -1.2
+     ],
+     "bbox_shrink_m": 0.0,
+     "bbox_size_m": [
+      317.7745,
+      341.9297,
+      5.9
+     ],
+     "end_m": 3903.021397,
+     "faces": 168,
+     "file": "tunnel_flat_preview_c06_lod1.glb",
+     "geometry_sha256": "e4dbe4661ab92329f30418542ceae2ee03794762c6076abc3f71a14bbac0c76f",
+     "level": 1,
+     "max_chord_m": 25.0,
+     "max_deviation_m": 0.151769,
+     "max_sagitta_m": 0.15,
+     "mean_deviation_m": 0.040433,
+     "median_deviation_m": 0.01779,
+     "p95_deviation_m": 0.141661,
+     "rings": 29,
+     "start_m": 3433.260543,
+     "triangle_share_pct": 29.47,
+     "triangles": 336,
+     "vertices": 203,
+     "volume_delta_pct": -0.0328,
+     "volume_m3": 25939.875
+    },
+    {
+     "bbox_growth_m": 0.0,
+     "bbox_max_m": [
+      2791.5032,
+      -61.3391,
+      4.7
+     ],
+     "bbox_min_m": [
+      2473.7287,
+      -403.2688,
+      -1.2
+     ],
+     "bbox_shrink_m": 0.0,
+     "bbox_size_m": [
+      317.7745,
+      341.9297,
+      5.9
+     ],
+     "end_m": 3903.021397,
+     "faces": 84,
+     "file": "tunnel_flat_preview_c06_lod2.glb",
+     "geometry_sha256": "14a00b490e9ef985b2e6063a400cec4f5f1b0dcf085f2ba345d64e764903cb00",
+     "level": 2,
+     "max_chord_m": 60.0,
+     "max_deviation_m": 0.352788,
+     "max_sagitta_m": 0.35,
+     "mean_deviation_m": 0.148903,
+     "median_deviation_m": 0.141053,
+     "p95_deviation_m": 0.331047,
+     "rings": 15,
+     "start_m": 3433.260543,
+     "triangle_share_pct": 14.74,
+     "triangles": 168,
+     "vertices": 105,
+     "volume_delta_pct": -0.1103,
+     "volume_m3": 25919.787
+    }
+   ],
+   "rings": 96,
+   "start_m": 3433.260543,
+   "stations": [
+    {
+     "chainage_m": 3731.85,
+     "name": "Gare Centrale|Centraal Station"
+    }
+   ],
+   "triangles": 1140,
+   "vertices": 672
+  },
+  {
+   "bbox_max_m": [
+    3197.5554,
+    -322.2131,
+    4.7
+   ],
+   "bbox_min_m": [
+    2790.0746,
+    -405.1,
+    -1.2
+   ],
+   "bbox_size_m": [
+    407.4807,
+    82.8869,
+    5.9
+   ],
+   "collision": {
+    "bbox_max_m": [
+     3197.5206,
+     -322.3631,
+     4.55
+    ],
+    "bbox_min_m": [
+     2790.0974,
+     -404.9013,
+     -1.05
+    ],
+    "bbox_size_m": [
+     407.4232,
+     82.5382,
+     5.6
+    ],
+    "boundary_edges": 12,
+    "boundary_edges_expected": 12,
+    "cross_section_m2": 50.8135,
+    "degenerate_faces": 0,
+    "derived_from_profile": "box_double",
+    "end_caps": false,
+    "end_m": 4317.814068,
+    "faces": 156,
+    "file": "tunnel_flat_preview_c07_col.glb",
+    "gauge_margin_m": 0.65,
+    "geometry_sha256": "8339110e8f6f9ec7645940347a2b1eb90fb3c7fc1be162f7142eec89ac20bc17",
+    "inset_m": 0.15,
+    "max_chord_m": 25.0,
+    "max_sagitta_m": 0.1,
+    "normals": "do wnętrza, jak w siatce wizualnej",
+    "outward_faces": 0,
+    "rings": 27,
+    "role": "wnętrze tunelu — przestrzeń, w której może się poruszać pociąg",
+    "start_m": 3903.021397,
+    "transversally_closed": true,
+    "triangle_share_pct": 30.95,
+    "triangles": 312,
+    "vertices": 189,
+    "volume_m3": 21072.917,
+    "volume_share_pct": 91.972,
+    "wall_margin_m": 0.059214
+   },
+   "end_m": 4317.814068,
+   "faces": 504,
+   "file": "tunnel_flat_preview_c07.glb",
+   "geometry_sha256": "9fb05f6d194ea11ebc72d181712c69c078d46f2ed930c930e1a41097d29ab9ae",
+   "id": "tunnel_flat_preview_c07",
+   "index": 7,
+   "length_m": 414.792671,
+   "lods": [
+    {
+     "bbox_growth_m": 0.0,
+     "bbox_max_m": [
+      3197.5554,
+      -322.2131,
+      4.7
+     ],
+     "bbox_min_m": [
+      2790.0746,
+      -405.1,
+      -1.2
+     ],
+     "bbox_shrink_m": 0.0,
+     "bbox_size_m": [
+      407.4807,
+      82.8869,
+      5.9
+     ],
+     "end_m": 4317.814068,
+     "faces": 504,
+     "file": "tunnel_flat_preview_c07.glb",
+     "geometry_sha256": "9fb05f6d194ea11ebc72d181712c69c078d46f2ed930c930e1a41097d29ab9ae",
+     "level": 0,
+     "max_chord_m": 0.0,
+     "max_deviation_m": 0.0,
+     "max_sagitta_m": 0.0,
+     "mean_deviation_m": 0.0,
+     "median_deviation_m": 0.0,
+     "p95_deviation_m": 0.0,
+     "rings": 85,
+     "start_m": 3903.021397,
+     "triangle_share_pct": 100.0,
+     "triangles": 1008,
+     "vertices": 595,
+     "volume_delta_pct": 0.0,
+     "volume_m3": 22912.33
+    },
+    {
+     "bbox_growth_m": 0.0,
+     "bbox_max_m": [
+      3197.5554,
+      -322.2543,
+      4.7
+     ],
+     "bbox_min_m": [
+      2790.0746,
+      -405.0513,
+      -1.2
+     ],
+     "bbox_shrink_m": 0.09,
+     "bbox_size_m": [
+      407.4807,
+      82.7969,
+      5.9
+     ],
+     "end_m": 4317.814068,
+     "faces": 132,
+     "file": "tunnel_flat_preview_c07_lod1.glb",
+     "geometry_sha256": "23e7d719ae1ae74af9e0063baeb4ce8bd4077bcef2e2ebf204b1126a2e52e8b7",
+     "level": 1,
+     "max_chord_m": 25.0,
+     "max_deviation_m": 0.155001,
+     "max_sagitta_m": 0.15,
+     "mean_deviation_m": 0.035486,
+     "median_deviation_m": 0.000589,
+     "p95_deviation_m": 0.137381,
+     "rings": 23,
+     "start_m": 3903.021397,
+     "triangle_share_pct": 26.19,
+     "triangles": 264,
+     "vertices": 161,
+     "volume_delta_pct": -0.0313,
+     "volume_m3": 22905.161
+    },
+    {
+     "bbox_growth_m": 0.0,
+     "bbox_max_m": [
+      3197.5554,
+      -322.2543,
+      4.7
+     ],
+     "bbox_min_m": [
+      2790.0746,
+      -405.0513,
+      -1.2
+     ],
+     "bbox_shrink_m": 0.09,
+     "bbox_size_m": [
+      407.4807,
+      82.7969,
+      5.9
+     ],
+     "end_m": 4317.814068,
+     "faces": 72,
+     "file": "tunnel_flat_preview_c07_lod2.glb",
+     "geometry_sha256": "b2a3a18c562c8c18a47ef891b6a531c099d7bf10a414a72cd8031fc9b41a390a",
+     "level": 2,
+     "max_chord_m": 60.0,
+     "max_deviation_m": 0.35059,
+     "max_sagitta_m": 0.35,
+     "mean_deviation_m": 0.094753,
+     "median_deviation_m": 0.021881,
+     "p95_deviation_m": 0.291742,
+     "rings": 13,
+     "start_m": 3903.021397,
+     "triangle_share_pct": 14.29,
+     "triangles": 144,
+     "vertices": 91,
+     "volume_delta_pct": -0.0773,
+     "volume_m3": 22894.616
+    }
+   ],
+   "rings": 85,
+   "start_m": 3903.021397,
+   "stations": [
+    {
+     "chainage_m": 4075.66,
+     "name": "Parc|Park"
+    }
+   ],
+   "triangles": 1008,
+   "vertices": 595
+  },
+  {
+   "bbox_max_m": [
+    3710.2573,
+    -327.551,
+    4.7
+   ],
+   "bbox_min_m": [
+    3195.3766,
+    -506.4255,
+    -1.2
+   ],
+   "bbox_size_m": [
+    514.8807,
+    178.8745,
+    5.9
+   ],
+   "collision": {
+    "bbox_max_m": [
+     3710.2099,
+     -327.6969,
+     4.55
+    ],
+    "bbox_min_m": [
+     3195.4114,
+     -506.2831,
+     -1.05
+    ],
+    "bbox_size_m": [
+     514.7985,
+     178.5862,
+     5.6
+    ],
+    "boundary_edges": 12,
+    "boundary_edges_expected": 12,
+    "cross_section_m2": 50.8135,
+    "degenerate_faces": 0,
+    "derived_from_profile": "box_double",
+    "end_caps": false,
+    "end_m": 4857.569125,
+    "faces": 138,
+    "file": "tunnel_flat_preview_c08_col.glb",
+    "gauge_margin_m": 0.65,
+    "geometry_sha256": "75ebd8aa7bae6cf17f48f8a6eb44e62c4959850ad182af5ccad05eb3ee2dd897",
+    "inset_m": 0.15,
+    "max_chord_m": 25.0,
+    "max_sagitta_m": 0.1,
+    "normals": "do wnętrza, jak w siatce wizualnej",
+    "outward_faces": 0,
+    "rings": 24,
+    "role": "wnętrze tunelu — przestrzeń, w której może się poruszać pociąg",
+    "start_m": 4317.814068,
+    "transversally_closed": true,
+    "triangle_share_pct": 21.1,
+    "triangles": 276,
+    "vertices": 168,
+    "volume_m3": 27426.269,
+    "volume_share_pct": 91.985,
+    "wall_margin_m": 0.054411
+   },
+   "end_m": 4857.569125,
+   "faces": 654,
+   "file": "tunnel_flat_preview_c08.glb",
+   "geometry_sha256": "73d5470a8a7b5892e69b32681867069b88c51ebe7ba4843dff308c7251849f12",
+   "id": "tunnel_flat_preview_c08",
+   "index": 8,
+   "length_m": 539.755057,
+   "lods": [
+    {
+     "bbox_growth_m": 0.0,
+     "bbox_max_m": [
+      3710.2573,
+      -327.551,
+      4.7
+     ],
+     "bbox_min_m": [
+      3195.3766,
+      -506.4255,
+      -1.2
+     ],
+     "bbox_shrink_m": 0.0,
+     "bbox_size_m": [
+      514.8807,
+      178.8745,
+      5.9
+     ],
+     "end_m": 4857.569125,
+     "faces": 654,
+     "file": "tunnel_flat_preview_c08.glb",
+     "geometry_sha256": "73d5470a8a7b5892e69b32681867069b88c51ebe7ba4843dff308c7251849f12",
+     "level": 0,
+     "max_chord_m": 0.0,
+     "max_deviation_m": 0.0,
+     "max_sagitta_m": 0.0,
+     "mean_deviation_m": 0.0,
+     "median_deviation_m": 0.0,
+     "p95_deviation_m": 0.0,
+     "rings": 110,
+     "start_m": 4317.814068,
+     "triangle_share_pct": 100.0,
+     "triangles": 1308,
+     "vertices": 770,
+     "volume_delta_pct": 0.0,
+     "volume_m3": 29816.02
+    },
+    {
+     "bbox_growth_m": 0.0,
+     "bbox_max_m": [
+      3710.2573,
+      -327.551,
+      4.7
+     ],
+     "bbox_min_m": [
+      3195.3766,
+      -506.4255,
+      -1.2
+     ],
+     "bbox_shrink_m": 0.0,
+     "bbox_size_m": [
+      514.8807,
+      178.8745,
+      5.9
+     ],
+     "end_m": 4857.569125,
+     "faces": 138,
+     "file": "tunnel_flat_preview_c08_lod1.glb",
+     "geometry_sha256": "2466eb04d20a0200b4ee283eb4ac615eb4a0d2fba318011453b5ad937f5448b7",
+     "level": 1,
+     "max_chord_m": 25.0,
+     "max_deviation_m": 0.116258,
+     "max_sagitta_m": 0.15,
+     "mean_deviation_m": 0.005934,
+     "median_deviation_m": 0.000188,
+     "p95_deviation_m": 0.066375,
+     "rings": 24,
+     "start_m": 4317.814068,
+     "triangle_share_pct": 21.1,
+     "triangles": 276,
+     "vertices": 168,
+     "volume_delta_pct": -0.0024,
+     "volume_m3": 29815.311
+    },
+    {
+     "bbox_growth_m": 0.0,
+     "bbox_max_m": [
+      3710.2573,
+      -327.551,
+      4.7
+     ],
+     "bbox_min_m": [
+      3195.3766,
+      -506.4255,
+      -1.2
+     ],
+     "bbox_shrink_m": 0.0,
+     "bbox_size_m": [
+      514.8807,
+      178.8745,
+      5.9
+     ],
+     "end_m": 4857.569125,
+     "faces": 60,
+     "file": "tunnel_flat_preview_c08_lod2.glb",
+     "geometry_sha256": "cea6d93fc61b20004a1dad58281f23c78b2571868ec4cd1428de099340631a94",
+     "level": 2,
+     "max_chord_m": 60.0,
+     "max_deviation_m": 0.32236,
+     "max_sagitta_m": 0.35,
+     "mean_deviation_m": 0.016386,
+     "median_deviation_m": 0.000478,
+     "p95_deviation_m": 0.050366,
+     "rings": 11,
+     "start_m": 4317.814068,
+     "triangle_share_pct": 9.17,
+     "triangles": 120,
+     "vertices": 77,
+     "volume_delta_pct": -0.0069,
+     "volume_m3": 29813.971
+    }
+   ],
+   "rings": 110,
+   "start_m": 4317.814068,
+   "stations": [
+    {
+     "chainage_m": 4560.95,
+     "name": "Arts-Loi|Kunst-Wet"
+    }
+   ],
+   "triangles": 1308,
+   "vertices": 770
+  },
+  {
+   "bbox_max_m": [
+    4141.7861,
+    -497.5065,
+    4.7
+   ],
+   "bbox_min_m": [
+    3707.2887,
+    -650.0315,
+    -1.2
+   ],
+   "bbox_size_m": [
+    434.4974,
+    152.525,
+    5.9
+   ],
+   "collision": {
+    "bbox_max_m": [
+     4141.7387,
+     -497.6489,
+     4.55
+    ],
+    "bbox_min_m": [
+     3707.3361,
+     -649.8892,
+     -1.05
+    ],
+    "bbox_size_m": [
+     434.4026,
+     152.2404,
+     5.6
+    ],
+    "boundary_edges": 12,
+    "boundary_edges_expected": 12,
+    "cross_section_m2": 50.8135,
+    "degenerate_faces": 0,
+    "derived_from_profile": "box_double",
+    "end_caps": false,
+    "end_m": 5312.363823,
+    "faces": 114,
+    "file": "tunnel_flat_preview_c09_col.glb",
+    "gauge_margin_m": 0.65,
+    "geometry_sha256": "0d5e0d66ab6d11accc07b9819b0d0525c0dabb5317dfdf12aa887cb4c2eec3de",
+    "inset_m": 0.15,
+    "max_chord_m": 25.0,
+    "max_sagitta_m": 0.1,
+    "normals": "do wnętrza, jak w siatce wizualnej",
+    "outward_faces": 0,
+    "rings": 20,
+    "role": "wnętrze tunelu — przestrzeń, w której może się poruszać pociąg",
+    "start_m": 4857.569125,
+    "transversally_closed": true,
+    "triangle_share_pct": 20.65,
+    "triangles": 228,
+    "vertices": 140,
+    "volume_m3": 23109.722,
+    "volume_share_pct": 91.987,
+    "wall_margin_m": 0.148505
+   },
+   "end_m": 5312.363823,
+   "faces": 552,
+   "file": "tunnel_flat_preview_c09.glb",
+   "geometry_sha256": "1e6501df0cdde1dcefcc68589f8bd58f4524a7aafca9d5222e6854ad43e085a8",
+   "id": "tunnel_flat_preview_c09",
+   "index": 9,
+   "length_m": 454.794698,
+   "lods": [
+    {
+     "bbox_growth_m": 0.0,
+     "bbox_max_m": [
+      4141.7861,
+      -497.5065,
+      4.7
+     ],
+     "bbox_min_m": [
+      3707.2887,
+      -650.0315,
+      -1.2
+     ],
+     "bbox_shrink_m": 0.0,
+     "bbox_size_m": [
+      434.4974,
+      152.525,
+      5.9
+     ],
+     "end_m": 5312.363823,
+     "faces": 552,
+     "file": "tunnel_flat_preview_c09.glb",
+     "geometry_sha256": "1e6501df0cdde1dcefcc68589f8bd58f4524a7aafca9d5222e6854ad43e085a8",
+     "level": 0,
+     "max_chord_m": 0.0,
+     "max_deviation_m": 0.0,
+     "max_sagitta_m": 0.0,
+     "mean_deviation_m": 0.0,
+     "median_deviation_m": 0.0,
+     "p95_deviation_m": 0.0,
+     "rings": 93,
+     "start_m": 4857.569125,
+     "triangle_share_pct": 100.0,
+     "triangles": 1104,
+     "vertices": 651,
+     "volume_delta_pct": 0.0,
+     "volume_m3": 25122.859
+    },
+    {
+     "bbox_growth_m": 0.0,
+     "bbox_max_m": [
+      4141.7861,
+      -497.5065,
+      4.7
+     ],
+     "bbox_min_m": [
+      3707.2887,
+      -650.0315,
+      -1.2
+     ],
+     "bbox_shrink_m": 0.0,
+     "bbox_size_m": [
+      434.4974,
+      152.525,
+      5.9
+     ],
+     "end_m": 5312.363823,
+     "faces": 114,
+     "file": "tunnel_flat_preview_c09_lod1.glb",
+     "geometry_sha256": "e9d7ff6779fced4b858777c220f67f88311725a78ae0c405fd245f7bc570f5e9",
+     "level": 1,
+     "max_chord_m": 25.0,
+     "max_deviation_m": 0.001516,
+     "max_sagitta_m": 0.15,
+     "mean_deviation_m": 0.000146,
+     "median_deviation_m": 5.1e-05,
+     "p95_deviation_m": 0.000457,
+     "rings": 20,
+     "start_m": 4857.569125,
+     "triangle_share_pct": 20.65,
+     "triangles": 228,
+     "vertices": 140,
+     "volume_delta_pct": -0.0,
+     "volume_m3": 25122.859
+    },
+    {
+     "bbox_growth_m": 0.0,
+     "bbox_max_m": [
+      4141.7861,
+      -497.5065,
+      4.7
+     ],
+     "bbox_min_m": [
+      3707.2887,
+      -650.0315,
+      -1.2
+     ],
+     "bbox_shrink_m": 0.0,
+     "bbox_size_m": [
+      434.4974,
+      152.525,
+      5.9
+     ],
+     "end_m": 5312.363823,
+     "faces": 48,
+     "file": "tunnel_flat_preview_c09_lod2.glb",
+     "geometry_sha256": "c2b7c982a17a77f62d99dcbf7c23dfb76f309e06af6206c25f34277c61678c56",
+     "level": 2,
+     "max_chord_m": 60.0,
+     "max_deviation_m": 0.003379,
+     "max_sagitta_m": 0.35,
+     "mean_deviation_m": 0.000392,
+     "median_deviation_m": 0.000259,
+     "p95_deviation_m": 0.001456,
+     "rings": 9,
+     "start_m": 4857.569125,
+     "triangle_share_pct": 8.7,
+     "triangles": 96,
+     "vertices": 63,
+     "volume_delta_pct": -0.0,
+     "volume_m3": 25122.859
+    }
+   ],
+   "rings": 93,
+   "start_m": 4857.569125,
+   "stations": [
+    {
+     "chainage_m": 5152.42,
+     "name": "Maelbeek|Maalbeek"
+    }
+   ],
+   "triangles": 1104,
+   "vertices": 651
+  },
+  {
+   "bbox_max_m": [
+    4866.527,
+    -641.114,
+    4.7
+   ],
+   "bbox_min_m": [
+    4138.8133,
+    -893.412,
+    -1.2
+   ],
+   "bbox_size_m": [
+    727.7136,
+    252.298,
+    5.9
+   ],
+   "collision": {
+    "bbox_max_m": [
+     4866.4821,
+     -641.2563,
+     4.55
+    ],
+    "bbox_min_m": [
+     4138.8608,
+     -893.2689,
+     -1.05
+    ],
+    "bbox_size_m": [
+     727.6213,
+     252.0126,
+     5.6
+    ],
+    "boundary_edges": 12,
+    "boundary_edges_expected": 12,
+    "cross_section_m2": 50.8135,
+    "degenerate_faces": 0,
+    "derived_from_profile": "box_double",
+    "end_caps": false,
+    "end_m": 6077.018529,
+    "faces": 192,
+    "file": "tunnel_flat_preview_c10_col.glb",
+    "gauge_margin_m": 0.65,
+    "geometry_sha256": "5f6328ded6c0f7913d686404946ccebb3d1119d3333b7922fe34426beac3fc84",
+    "inset_m": 0.15,
+    "max_chord_m": 25.0,
+    "max_sagitta_m": 0.1,
+    "normals": "do wnętrza, jak w siatce wizualnej",
+    "outward_faces": 0,
+    "rings": 33,
+    "role": "wnętrze tunelu — przestrzeń, w której może się poruszać pociąg",
+    "start_m": 5312.363823,
+    "transversally_closed": true,
+    "triangle_share_pct": 20.78,
+    "triangles": 384,
+    "vertices": 231,
+    "volume_m3": 38854.33,
+    "volume_share_pct": 91.986,
+    "wall_margin_m": 0.061899
+   },
+   "end_m": 6077.018529,
+   "faces": 924,
+   "file": "tunnel_flat_preview_c10.glb",
+   "geometry_sha256": "90d4f88dcb843d01e1b0fe9811e390b85a7059c197fe94a8e4bc0a94baf9350c",
+   "id": "tunnel_flat_preview_c10",
+   "index": 10,
+   "length_m": 764.654706,
+   "lods": [
+    {
+     "bbox_growth_m": 0.0,
+     "bbox_max_m": [
+      4866.527,
+      -641.114,
+      4.7
+     ],
+     "bbox_min_m": [
+      4138.8133,
+      -893.412,
+      -1.2
+     ],
+     "bbox_shrink_m": 0.0,
+     "bbox_size_m": [
+      727.7136,
+      252.298,
+      5.9
+     ],
+     "end_m": 6077.018529,
+     "faces": 924,
+     "file": "tunnel_flat_preview_c10.glb",
+     "geometry_sha256": "90d4f88dcb843d01e1b0fe9811e390b85a7059c197fe94a8e4bc0a94baf9350c",
+     "level": 0,
+     "max_chord_m": 0.0,
+     "max_deviation_m": 0.0,
+     "max_sagitta_m": 0.0,
+     "mean_deviation_m": 0.0,
+     "median_deviation_m": 0.0,
+     "p95_deviation_m": 0.0,
+     "rings": 155,
+     "start_m": 5312.363823,
+     "triangle_share_pct": 100.0,
+     "triangles": 1848,
+     "vertices": 1085,
+     "volume_delta_pct": 0.0,
+     "volume_m3": 42239.497
+    },
+    {
+     "bbox_growth_m": 0.0,
+     "bbox_max_m": [
+      4866.527,
+      -641.114,
+      4.7
+     ],
+     "bbox_min_m": [
+      4138.8133,
+      -893.412,
+      -1.2
+     ],
+     "bbox_shrink_m": 0.0,
+     "bbox_size_m": [
+      727.7136,
+      252.298,
+      5.9
+     ],
+     "end_m": 6077.018529,
+     "faces": 186,
+     "file": "tunnel_flat_preview_c10_lod1.glb",
+     "geometry_sha256": "ccb6073a0c20d0f6d1eddde5206e085c5085f0f1acfcda69772d4ff058ce00d9",
+     "level": 1,
+     "max_chord_m": 25.0,
+     "max_deviation_m": 0.135994,
+     "max_sagitta_m": 0.15,
+     "mean_deviation_m": 0.011465,
+     "median_deviation_m": 0.001129,
+     "p95_deviation_m": 0.058716,
+     "rings": 32,
+     "start_m": 5312.363823,
+     "triangle_share_pct": 20.13,
+     "triangles": 372,
+     "vertices": 224,
+     "volume_delta_pct": -0.0015,
+     "volume_m3": 42238.847
+    },
+    {
+     "bbox_growth_m": 0.0,
+     "bbox_max_m": [
+      4866.527,
+      -641.114,
+      4.7
+     ],
+     "bbox_min_m": [
+      4138.8133,
+      -893.412,
+      -1.2
+     ],
+     "bbox_shrink_m": 0.0,
+     "bbox_size_m": [
+      727.7136,
+      252.298,
+      5.9
+     ],
+     "end_m": 6077.018529,
+     "faces": 84,
+     "file": "tunnel_flat_preview_c10_lod2.glb",
+     "geometry_sha256": "a86a71ee78dcb32b7610e0ac75c0d94038daa956d5a034e3f289ec278e0e5136",
+     "level": 2,
+     "max_chord_m": 60.0,
+     "max_deviation_m": 0.347246,
+     "max_sagitta_m": 0.35,
+     "mean_deviation_m": 0.053588,
+     "median_deviation_m": 0.022585,
+     "p95_deviation_m": 0.266898,
+     "rings": 15,
+     "start_m": 5312.363823,
+     "triangle_share_pct": 9.09,
+     "triangles": 168,
+     "vertices": 105,
+     "volume_delta_pct": -0.0047,
+     "volume_m3": 42237.513
+    }
+   ],
+   "rings": 155,
+   "start_m": 5312.363823,
+   "stations": [
+    {
+     "chainage_m": 5467.35,
+     "name": "Schuman"
+    }
+   ],
+   "triangles": 1848,
+   "vertices": 1085
+  },
+  {
+   "bbox_max_m": [
+    5448.105,
+    -884.4426,
+    4.7
+   ],
+   "bbox_min_m": [
+    4863.7145,
+    -1076.5525,
+    -1.2
+   ],
+   "bbox_size_m": [
+    584.3905,
+    192.1099,
+    5.9
+   ],
+   "collision": {
+    "bbox_max_m": [
+     5448.057,
+     -884.5857,
+     4.55
+    ],
+    "bbox_min_m": [
+     4863.7594,
+     -1076.4104,
+     -1.05
+    ],
+    "bbox_size_m": [
+     584.2976,
+     191.8247,
+     5.6
+    ],
+    "boundary_edges": 12,
+    "boundary_edges_expected": 12,
+    "cross_section_m2": 50.8135,
+    "degenerate_faces": 0,
+    "derived_from_profile": "box_double",
+    "end_caps": false,
+    "end_m": 6686.738987,
+    "faces": 150,
+    "file": "tunnel_flat_preview_c11_col.glb",
+    "gauge_margin_m": 0.65,
+    "geometry_sha256": "031a8080671bcc4f0135921fd71d64e88ecd0cb200f34e4ef95722d43f63c558",
+    "inset_m": 0.15,
+    "max_chord_m": 25.0,
+    "max_sagitta_m": 0.1,
+    "normals": "do wnętrza, jak w siatce wizualnej",
+    "outward_faces": 0,
+    "rings": 26,
+    "role": "wnętrze tunelu — przestrzeń, w której może się poruszać pociąg",
+    "start_m": 6077.018529,
+    "transversally_closed": true,
+    "triangle_share_pct": 20.49,
+    "triangles": 300,
+    "vertices": 182,
+    "volume_m3": 30981.116,
+    "volume_share_pct": 91.984,
+    "wall_margin_m": 0.06432
+   },
+   "end_m": 6686.738987,
+   "faces": 732,
+   "file": "tunnel_flat_preview_c11.glb",
+   "geometry_sha256": "d2d236b8c434b8fe4647bc676cf64498a63341e2f58603c3591c43a2661a0c1c",
+   "id": "tunnel_flat_preview_c11",
+   "index": 11,
+   "length_m": 609.720458,
+   "lods": [
+    {
+     "bbox_growth_m": 0.0,
+     "bbox_max_m": [
+      5448.105,
+      -884.4426,
+      4.7
+     ],
+     "bbox_min_m": [
+      4863.7145,
+      -1076.5525,
+      -1.2
+     ],
+     "bbox_shrink_m": 0.0,
+     "bbox_size_m": [
+      584.3905,
+      192.1099,
+      5.9
+     ],
+     "end_m": 6686.738987,
+     "faces": 732,
+     "file": "tunnel_flat_preview_c11.glb",
+     "geometry_sha256": "d2d236b8c434b8fe4647bc676cf64498a63341e2f58603c3591c43a2661a0c1c",
+     "level": 0,
+     "max_chord_m": 0.0,
+     "max_deviation_m": 0.0,
+     "max_sagitta_m": 0.0,
+     "mean_deviation_m": 0.0,
+     "median_deviation_m": 0.0,
+     "p95_deviation_m": 0.0,
+     "rings": 123,
+     "start_m": 6077.018529,
+     "triangle_share_pct": 100.0,
+     "triangles": 1464,
+     "vertices": 861,
+     "volume_delta_pct": 0.0,
+     "volume_m3": 33680.911
+    },
+    {
+     "bbox_growth_m": 0.0,
+     "bbox_max_m": [
+      5448.105,
+      -884.4426,
+      4.7
+     ],
+     "bbox_min_m": [
+      4863.7145,
+      -1076.5525,
+      -1.2
+     ],
+     "bbox_shrink_m": 0.0,
+     "bbox_size_m": [
+      584.3905,
+      192.1099,
+      5.9
+     ],
+     "end_m": 6686.738987,
+     "faces": 150,
+     "file": "tunnel_flat_preview_c11_lod1.glb",
+     "geometry_sha256": "4a27ecfd8990c521891b431416500745bd0f7a56cb2fc675b7562b26388d514d",
+     "level": 1,
+     "max_chord_m": 25.0,
+     "max_deviation_m": 0.087782,
+     "max_sagitta_m": 0.15,
+     "mean_deviation_m": 0.016337,
+     "median_deviation_m": 0.000409,
+     "p95_deviation_m": 0.079637,
+     "rings": 26,
+     "start_m": 6077.018529,
+     "triangle_share_pct": 20.49,
+     "triangles": 300,
+     "vertices": 182,
+     "volume_delta_pct": -0.0029,
+     "volume_m3": 33679.946
+    },
+    {
+     "bbox_growth_m": 0.0,
+     "bbox_max_m": [
+      5448.105,
+      -884.4426,
+      4.7
+     ],
+     "bbox_min_m": [
+      4863.7145,
+      -1076.5525,
+      -1.2
+     ],
+     "bbox_shrink_m": 0.0,
+     "bbox_size_m": [
+      584.3905,
+      192.1099,
+      5.9
+     ],
+     "end_m": 6686.738987,
+     "faces": 66,
+     "file": "tunnel_flat_preview_c11_lod2.glb",
+     "geometry_sha256": "121479c52e119a47f954a9d32bdcf02a3910218df6ac5382259641208b6a0389",
+     "level": 2,
+     "max_chord_m": 60.0,
+     "max_deviation_m": 0.319196,
+     "max_sagitta_m": 0.35,
+     "mean_deviation_m": 0.069496,
+     "median_deviation_m": 0.029628,
+     "p95_deviation_m": 0.264381,
+     "rings": 12,
+     "start_m": 6077.018529,
+     "triangle_share_pct": 9.02,
+     "triangles": 132,
+     "vertices": 84,
+     "volume_delta_pct": -0.0097,
+     "volume_m3": 33677.66
+    }
+   ],
+   "rings": 123,
+   "start_m": 6077.018529,
+   "stations": [
+    {
+     "chainage_m": 6686.35,
+     "name": "Merode"
+    }
+   ],
+   "triangles": 1464,
+   "vertices": 861
+  }
+ ],
+ "generator": "tools/blender/tunnel_sweep.py",
+ "id": "L1_A",
+ "lod_levels": [
+  {
+   "level": 0,
+   "max_chord_m": 0.0,
+   "max_deviation_m": 0.0,
+   "max_sagitta_m": 0.0,
+   "median_deviation_m": 0.0,
+   "purpose": "chunk pod pociągiem i w bliskim planie — pełny zestaw pierścieni",
+   "status": "design_assumption",
+   "switch_distance_m": 0.0,
+   "switch_distance_source": "poziom bazowy — obowiązuje wszędzie poniżej progu LOD 1",
+   "triangle_share_pct": 100.0,
+   "triangles": 16176
+  },
+  {
+   "level": 1,
+   "max_chord_m": 25.0,
+   "max_deviation_m": 0.156387,
+   "max_sagitta_m": 0.15,
+   "median_deviation_m": 0.000589,
+   "purpose": "plan średni — strzałka poniżej 1 px na ok. 150 m",
+   "status": "design_assumption",
+   "switch_distance_m": 158.0,
+   "switch_distance_source": "odległość, na której zmierzone odchylenie 0.1564 m schodzi poniżej 1 px przy 960 px i obiektywie 35 mm na matrycy 36 mm",
+   "triangle_share_pct": 24.18,
+   "triangles": 3912
+  },
+  {
+   "level": 2,
+   "max_chord_m": 60.0,
+   "max_deviation_m": 0.400228,
+   "max_sagitta_m": 0.35,
+   "median_deviation_m": 0.029628,
+   "purpose": "plan daleki — strzałka poniżej 1 px na ok. 350 m",
+   "status": "design_assumption",
+   "switch_distance_m": 404.4,
+   "switch_distance_source": "odległość, na której zmierzone odchylenie 0.4002 m schodzi poniżej 1 px przy 960 px i obiektywie 35 mm na matrycy 36 mm",
+   "triangle_share_pct": 12.31,
+   "triangles": 1992
+  }
+ ],
+ "name": "tunnel_flat_preview",
+ "production_ready": false,
+ "profile": "box_double",
+ "profile_size_m": [
+  9.4,
+  5.9
+ ],
+ "schema_version": 2,
+ "station_count": 12,
+ "streaming": {
+  "collision_predicate": "tools/blender/lod.py: collision_plan",
+  "collision_radius_m": 150.0,
+  "collision_radius_source": "długość składu M7 94,0 m (data/vehicle/m7-spec.json) z zapasem po obu stronach",
+  "collision_radius_status": "design_assumption",
+  "default_ahead_m": 600.0,
+  "default_behind_m": 300.0,
+  "lod_predicate": "tools/blender/lod.py: lod_plan",
+  "predicate": "tools/blender/sweep.py: chunks_for_train / streaming_plan",
+  "source": "docs/01-architecture.md — okno 600 m przed składem, 300 m za nim",
+  "status": "design_assumption",
+  "volatile_keys": [
+   "sha256",
+   "bytes"
+  ]
+ },
+ "totals": {
+  "faces": 8088,
+  "triangles": 16176,
+  "vertices": 9520
+ },
+ "units": "m",
+ "up_axis": "Z",
+ "variant": "flat-preview"
+}
