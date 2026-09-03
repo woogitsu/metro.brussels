@@ -437,6 +437,34 @@ def report(results: list[dict], commit: str) -> str:
     return "\n".join(lines)
 
 
+def dirty_sources(paths) -> list[str]:
+    """Które z podanych plików różnią się między drzewem roboczym a `HEAD`.
+
+    Istnieje po to, żeby przebieg przerwał się w pierwszej sekundzie, a nie w piętnastej
+    minucie. Mutacje powstają z pliku w DRZEWIE ROBOCZYM — z jego przesunięciami bajtowymi
+    — a wykonywane są w kopii z `HEAD` (`run_worker`). Gdy plik jest zmieniony i
+    niezacommitowany, te dwa źródła to dwa różne pliki i mutacja trafia w inne miejsce,
+    niż myśli.
+
+    Zdarzyło się przy triażu `lod.py`: dopisany komentarz przesunął ofsety i przebieg padł
+    po 88 mutacjach na `AssertionError` mówiącym, że „w pliku stoi 'ł', oczekiwano '<'".
+    Strażnik wklejki zadziałał — nikt nie policzył złych wyników — ale kosztowało to
+    piętnaście minut maszyny i minutę zastanawiania się, skąd tam polska litera.
+
+    Pyta o KONKRETNE mutowane pliki, a nie o czystość całego repozytorium: dopisywanie
+    testów w tej samej sesji jest normalne i nie ma powodu, żeby blokowało przegląd.
+    """
+    wanted = sorted(set(paths))
+    if not wanted:
+        return []
+    changed = subprocess.run(
+        ["git", "diff", "--name-only", "HEAD", "--"] + wanted,
+        cwd=ROOT, capture_output=True, text=True)
+    if changed.returncode != 0:
+        return []
+    return [line for line in changed.stdout.splitlines() if line]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--workers", type=int, default=max(1, (os.cpu_count() or 2) - 1))
@@ -451,6 +479,10 @@ def main() -> int:
     parser.add_argument("--json", default="", help="zapisz surowe wyniki tutaj")
     parser.add_argument("--out", default="", help="zapisz raport markdown tutaj")
     parser.add_argument("--list", action="store_true", help="wypisz mutacje i wyjdź")
+    parser.add_argument("--dirty", action="store_true",
+                        help="nie przerywaj, gdy mutowane pliki mają niezacommitowane "
+                             "zmiany. Wyniki będą wtedy liczone dla innego pliku niż ten "
+                             "w drzewie roboczym")
     args = parser.parse_args()
 
     found = collect()
@@ -480,6 +512,22 @@ def main() -> int:
     if not found and not done:
         print("brak mutacji do sprawdzenia", file=sys.stderr)
         return 1
+
+    dirty = dirty_sources(m.path for m in found)
+    if dirty and not args.dirty:
+        print("[MUTACJE] przerwane: mutowane pliki mają niezacommitowane zmiany:",
+              file=sys.stderr)
+        for path in dirty:
+            print(f"    {path}", file=sys.stderr)
+        print(
+            "\n  Mutacje są liczone z DRZEWA ROBOCZEGO, a robotnicy pracują na kopii\n"
+            "  `git worktree add --detach HEAD`. Gdy te dwa źródła się różnią, przesunięcia\n"
+            "  bajtowe mutacji nie pasują do pliku, na którym mają być wykonane. Strażnik\n"
+            "  wklejki to wyłapie, ale dopiero po kilkunastu minutach liczenia i w postaci\n"
+            "  AssertionError o nieoczywistej treści.\n\n"
+            "  Zacommituj zmiany albo uruchom z --dirty, jeśli wiesz, że robisz co innego.",
+            file=sys.stderr)
+        return 2
 
     commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT,
                             capture_output=True, text=True).stdout.strip()
