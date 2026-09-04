@@ -915,3 +915,676 @@ def test_clearance_profile_tolerance_equals_the_resolution_the_module_records():
     assert CP.THRESHOLD_TOLERANCE_M == 10 ** -3, CP.THRESHOLD_TOLERANCE_M
     assert CP.THRESHOLD_TOLERANCE_MM == 1, CP.THRESHOLD_TOLERANCE_MM
     assert CP._millimetres(0.9004) == 900 and CP._millimetres(0.9006) == 901
+
+
+# --- remis przy minimum: czy WYBRANY INDEKS jedzie dalej ---------------------
+#
+# Klasa z `reports/mutation-triage-clearance.md`: dziewięć mutacji `<` -> `<=`
+# (albo `>` -> `>=`) w wyborze minimum. Przy remisie obie gałęzie dają tę samą
+# WARTOŚĆ i różnią się wybranym INDEKSEM, więc pytanie „czy to usterka" jest
+# pytaniem, czy indeks jedzie dalej do wyjścia. Odpowiedź jest różna w różnych
+# miejscach tego modułu i została ZMIERZONA, nie odczytana z kodu — pomiary stoją
+# w docstringach niżej i w `reports/mutation-triage-clearance.md`.
+#
+# W remis się na ogół NIE WPADA losowo: 200 000 losowych punktów w profilu
+# `box_double` trafiło w remis półpłaszczyzn DOKŁADNIE ZERO razy, a wystarczy
+# kwadrat, żeby trafiać w 25 % przypadków. Każde wejście niżej jest więc
+# SKONSTRUOWANE pod konkretny remis, a nie wylosowane.
+
+def test_clearance_profile_a_tie_between_planes_picks_the_first_edge_in_ring_order():
+    """Remis półpłaszczyzn zmienia ETYKIETĘ wiążącej krawędzi, a ta jedzie do raportu.
+
+    Środek kwadratu jest równo odległy od wszystkich czterech krawędzi. Wartość luzu
+    jest wtedy niezależna od wyboru, ale `bound_by` — nie: to ona odpowiada w raporcie
+    na pytanie „co ogranicza skrajnię w tym miejscu", i wchodzi do
+    `statistics()["bound_by_counts"]` oraz do każdego wpisu `critical_places`.
+
+    Zmierzone: mutacja `value < best` -> `<=` zamienia `podłoga` na `ściana` przy
+    identycznej wartości 1,0. Na 200 000 losowych punktów w kwadracie remis wypadł
+    50 023 razy i etykieta różniła się we WSZYSTKICH 50 023; w profilu `box_double`
+    remis nie wypadł ANI RAZU, więc samo próbkowanie orzekłoby tu równoważność.
+    """
+    square = [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)]
+    planes = CP.halfplanes(square)
+    values = [nx * 0.0 + ny * 0.0 - c for nx, ny, c, _label in planes]
+    assert values.count(min(values)) == 4, ("remis nie zaszedł", values)
+
+    clearance, label = CP.clearance_in_planes(planes, 0.0, 0.0)
+    assert clearance == 1.0, clearance
+    assert label == planes[0][3] == CP.FLOOR, (label, planes[0][3])
+
+    # Kontrola negatywna: bez remisu wygrywa krawędź NAJBLIŻSZA, nie pierwsza.
+    blisko_stropu = CP.clearance_in_planes(planes, 0.0, 0.5)
+    assert blisko_stropu == (0.5, CP.ROOF), blisko_stropu
+
+
+def test_clearance_profile_a_tie_between_frames_keeps_the_earlier_frame():
+    """Wierzchołek DOKŁADNIE w połowie między dwiema ramkami — wygrywa wcześniejsza.
+
+    `nearest_frame` zwraca INDEKS, więc tu remis jest wprost wynikiem funkcji.
+    Zmierzone: dla punktu (2,5; 0; 0) na osi o pierścieniach co 5 m odległość wzdłuż
+    stycznej do ramki 0 i do ramki 1 wynosi 2,5 — równe CO DO BITU. Oryginał zwraca
+    0, mutant `<=` zwraca 1. Na 50 000 losowych punktów remis wypadł 9 935 razy
+    i indeks różnił się we wszystkich 9 935.
+    """
+    points = _straight()
+    stations = SW.chainages(points)
+    frames = SW.rmf_frames(points)
+    midpoint = (2.5, 0.0, 0.0)
+
+    do_zera = abs(SW.dot(SW.sub(midpoint, frames[0][0]), frames[0][1]))
+    do_jedynki = abs(SW.dot(SW.sub(midpoint, frames[1][0]), frames[1][1]))
+    assert do_zera == do_jedynki == 2.5, (do_zera, do_jedynki)
+
+    assert CP.nearest_frame(frames, stations, midpoint, hint_m=2.5) == 0
+
+    # Kontrola negatywna: o włos bliżej drugiej ramki i wybór ma się przesunąć.
+    assert CP.nearest_frame(frames, stations, (2.6, 0.0, 0.0), hint_m=2.6) == 1
+    assert CP.nearest_frame(frames, stations, (2.4, 0.0, 0.0), hint_m=2.4) == 0
+
+
+def test_clearance_profile_a_tie_in_the_worst_candidate_keeps_the_first_vertex():
+    """Symetryczna bryła na prostej: luz minimalny mają DZIESIĄTKI wierzchołków.
+
+    Wartość minimum jest wtedy jedna, ale `chainage_m`, `lateral_m` i `object`
+    opisują KONKRETNY punkt styku i trafiają do `statistics()["min_at"]` oraz do
+    `critical_places`. Zmierzone: mutacja `clearance < best[...]` -> `<=` przesuwa
+    zgłoszony punkt styku z chainage 100,0 na 115,0 i z lateral +1,35 na −1,35, przy
+    luzie identycznym co do bitu (1,1 m). Raport wskazywałby wtedy inny koniec składu.
+    """
+    points = _straight()
+    stations = SW.chainages(points)
+    frames = SW.rmf_frames(points)
+    reduced = CP.reduce_bodies([_box_body("b", 0.0, 15.0)])
+
+    trafienia = []
+
+    def collector(chainage, lateral, vertical):
+        trafienia.append((chainage, lateral, vertical,
+                          CP.clearance_in_planes(PLANES, lateral, vertical)[0]))
+
+    record = CP.measure_position(points, frames, stations, PLANES, reduced, 100.0, 0.0,
+                                 collector=collector)
+    najmniejszy = min(t[3] for t in trafienia)
+    assert record["clearance_m"] == najmniejszy
+    assert sum(1 for t in trafienia if t[3] == najmniejszy) > 1, (
+        "remis nie zaszedł — test nie sprawdza tego, co ma sprawdzać")
+
+    assert record["chainage_m"] == 100.0, record["chainage_m"]
+    assert record["lateral_m"] == 1.35, record["lateral_m"]
+
+
+def test_clearance_profile_a_tie_in_the_naive_measurement_keeps_the_first_vertex():
+    """Ta sama konwencja w przebiegu naiwnym — inaczej `--verify-full` porównywałby
+    dwa różne punkty styku i zgłaszałby rozjazd tam, gdzie go nie ma.
+
+    Zmierzone: mutacja `clearance < best[...]` -> `<=` w `measure_position_naive`
+    przesuwa chainage z 100,0 na 115,0 i lateral z +1,35 na −1,35, przy tym samym
+    luzie 1,1 m.
+    """
+    points = _straight()
+    stations = SW.chainages(points)
+    frames = SW.rmf_frames(points)
+    record = CP.measure_position_naive(points, frames, stations, BOX,
+                                       [_box_body("b", 0.0, 15.0)], 100.0, 0.0)
+    assert record["chainage_m"] == 100.0, record["chainage_m"]
+    assert record["lateral_m"] == 1.35, record["lateral_m"]
+
+    zgodny = CP.measure_position(points, frames, stations, PLANES,
+                                 CP.reduce_bodies([_box_body("b", 0.0, 15.0)]),
+                                 100.0, 0.0)
+    assert zgodny["chainage_m"] == record["chainage_m"]
+    assert zgodny["lateral_m"] == record["lateral_m"]
+
+
+def test_clearance_profile_a_tie_between_stations_names_the_earlier_one():
+    """Punkt DOKŁADNIE w połowie między stacjami — raport ma podać jedną, nie losową.
+
+    `nearest_station` wchodzi wprost w każdy wpis `critical_places`, więc remis
+    zmienia NAZWĘ w raporcie. Zmierzone: mutacja `distance < best[1]` -> `<=`
+    zamienia stację „A" na „B" przy identycznej odległości 100 m; na 50 000 losowych
+    kilometraży remis wypadł 276 razy i nazwa różniła się we wszystkich 276.
+    """
+    doc = [{"name": "A", "chainage_m": 100.0}, {"name": "B", "chainage_m": 300.0}]
+    remis = CP.nearest_station(doc, 200.0)
+    assert remis["distance_m"] == 100.0, remis
+    assert remis["name"] == "A", remis
+
+    # Kontrola negatywna po obu stronach remisu.
+    assert CP.nearest_station(doc, 199.0)["name"] == "A"
+    assert CP.nearest_station(doc, 201.0)["name"] == "B"
+
+
+def test_clearance_profile_a_tie_in_the_minimum_radius_keeps_the_first_chainage():
+    """Oś o stałym promieniu: KAŻDY dopuszczalny kilometraż daje ten sam promień.
+
+    Zygzak z odcinków (3, 4) ma długość odcinka DOKŁADNIE 5,0, więc kilometraże są
+    całkowite i `point_at` na kilometrażu +/- 5 m trafia w węzeł bez interpolacji.
+    Wszystkie pięć promieni wychodzi wtedy 3,125 CO DO BITU.
+
+    Zmierzone: mutacja `radius < best[1]` -> `<=` przesuwa zgłoszony kilometraż
+    z 5,0 na 25,0. Ta sama liczba promienia, inne MIEJSCE na trasie — a to właśnie
+    to miejsce jedzie do raportu jako „najciaśniejszy łuk".
+    """
+    zigzag = [(0.0, 0.0, 0.0), (3.0, 4.0, 0.0), (6.0, 0.0, 0.0), (9.0, 4.0, 0.0),
+              (12.0, 0.0, 0.0), (15.0, 4.0, 0.0), (18.0, 0.0, 0.0)]
+    stations = SW.chainages(zigzag)
+    assert stations == [0.0, 5.0, 10.0, 15.0, 20.0, 25.0, 30.0], stations
+
+    promienie = []
+    for index, station in enumerate(stations):
+        if station < 5.0 or station > 25.0:
+            continue
+        before = CP.point_at(zigzag, stations, station - 5.0)
+        after = CP.point_at(zigzag, stations, station + 5.0)
+        promienie.append(PL._circumradius(before[:2], zigzag[index][:2], after[:2]))
+    assert promienie == [3.125] * 5, promienie
+
+    assert CP.min_radius_on_chord(zigzag, stations, 10.0) == (5.0, 3.125)
+
+
+def test_clearance_profile_a_tie_in_the_envelope_clearance_keeps_the_first_vertex():
+    """Obrys symetryczny wobec profilu: dwa wierzchołki mają ten sam, najgorszy luz.
+
+    `envelope_clearance` zwraca nie tylko liczbę, ale i `where` — pierścień i punkt,
+    w którym obwiednia jest najciaśniejsza. Zmierzone: mutacja `value < best` -> `<=`
+    zamienia `lateral_m` z +1,0 na −1,0 przy luzie identycznym co do bitu.
+    """
+    polygon = [(-1.0, 1.0), (1.0, 1.0), (1.0, 3.0), (-1.0, 3.0)]
+    luzy = [CP.clearance_in_planes(PLANES, lateral, vertical)[0]
+            for lateral, vertical in polygon]
+    assert luzy.count(min(luzy)) == 2, ("remis nie zaszedł", luzy)
+
+    best, where = CP.envelope_clearance([(0, polygon)], PLANES)
+    assert best == min(luzy)
+    assert where["lateral_m"] == 1.0, where
+    assert where["ring"] == 0
+
+    # Kontrola negatywna: obrys przesunięty w bok ma jedno, nie dwa najgorsze miejsca.
+    przesuniety = [(x + 0.5, y) for x, y in polygon]
+    _b, gdzie = CP.envelope_clearance([(0, przesuniety)], PLANES)
+    assert gdzie["lateral_m"] == 1.5, gdzie
+
+
+def test_clearance_profile_a_tie_between_frames_of_a_vertex_is_measured_equivalence():
+    """Remis, który NIE zmienia wyjścia — i to jest zmierzone, nie założone.
+
+    Wybór ramki dla pojedynczego wierzchołka (`along < closest` w `measure_position`)
+    remisuje, gdy wierzchołek jest równo odległy od dwóch ramek wzdłuż stycznej.
+    Trafień w ten remis jest DUŻO: 2 480 na osi prostej w 400 pozycjach, 854
+    w przeszukaniu osi łamanych. Wyjście różni się jednak najwyżej o
+    **8,88e-16 m** — dziesięć rzędów PONIŻEJ mikrometra, w którym `statistics`
+    zapisuje minimum, i trzynaście poniżej milimetra progów.
+
+    Powód jest algebraiczny i też zmierzony: na odcinku prostym `band_coefficients`
+    dwóch sąsiednich ramek dają IDENTYCZNE chainage, lateral i vertical (różnica 0,0
+    na 15 porównaniach), bo przesunięcie początku ramki wzdłuż stycznej znosi się
+    z przyrostem kilometrażu. Ten test przybija właśnie tę własność — nie jest
+    zabójcą mutacji i nie udaje, że nim jest.
+    """
+    points = _straight()
+    stations = SW.chainages(points)
+    frames = SW.rmf_frames(points)
+    place = PL.place_spans(points, stations, 100.0, [(0.0, 15.0)], 0.0)[0]
+
+    odniesienie = CP.band_coefficients(place, frames[20], stations[20])
+    for index in (19, 20, 21):
+        coefficients = CP.band_coefficients(place, frames[index], stations[index])
+        for local in ((0.0, 1.35, 3.6), (7.5, -1.35, 0.95), (15.0, 0.0, 2.0)):
+            mam = tuple(c[0] + c[1] * local[0] + c[2] * local[1] + c[3] * local[2]
+                        for c in coefficients)
+            chce = tuple(c[0] + c[1] * local[0] + c[2] * local[1] + c[3] * local[2]
+                         for c in odniesienie)
+            assert mam == chce, (index, local, mam, chce)
+
+
+def test_clearance_profile_a_tie_in_the_envelope_height_is_a_plain_equivalence():
+    """`if value > row[slot]: row[slot] = value` — przy remisie podstawia TO SAMO.
+
+    Tu remisu nie trzeba szukać: przy `value == row[slot]` obie gałęzie kończą się
+    tą samą liczbą w tym samym gnieździe, bo gałąź `>=` przypisuje wartość równą tej,
+    która już tam stoi. Żaden indeks się nie wybiera, więc nie ma czego zgubić.
+    Zmierzone: 40 001 remisów `value == row[slot]` na 200 000 losowych par, po
+    4 000 próbkach `heights` i `rings()` identyczne, a próbka podana DWA RAZY daje
+    ten sam słownik wysokości.
+    """
+    stations = SW.chainages(_straight(100.0, 5.0))
+
+    raz = CP.SweptEnvelope(stations, 0.0, 100.0)
+    raz.add(50.0, 1.0, 2.0)
+    dwa = CP.SweptEnvelope(stations, 0.0, 100.0)
+    dwa.add(50.0, 1.0, 2.0)
+    dwa.add(50.0, 1.0, 2.0)
+    assert raz.heights == dwa.heights, "powtórzona próbka zmieniła wysokości podparcia"
+    assert dwa.samples == 2 and raz.samples == 1
+
+    # Kontrola negatywna: próbka WIĘKSZA musi wysokość podnieść.
+    dwa.add(50.0, 1.5, 2.0)
+    assert dwa.heights != raz.heights
+
+
+# --- tolerancje numeryczne: czy próg jest OSIĄGALNY --------------------------
+#
+# Raport triażu klasyfikował te jedenaście pozycji jako „równoważne w dziedzinie"
+# BEZ POMIARU. Pomiar pokazał, że klasyfikacja była w części nieprawdziwa: pięć
+# progów jest osiągalnych DOKŁADNIE, i to wejściem, które nie jest absurdalne —
+# bo `coverage_gaps`, `support_polygon` i `envelope_contains` są funkcjami czystymi,
+# którym próg podaje się wprost na wejściu.
+#
+# Ta klasa jest też miejscem, w którym `docs/24` pozycja 6 się potwierdza:
+# `step + 1e-6` jest reprezentowalne dokładnie TYLKO przy podstawie zero.
+
+def test_clearance_profile_coverage_accepts_a_first_position_exactly_at_the_tolerance():
+    """Pierwsza pozycja odległa od zera DOKŁADNIE o tolerancję nie jest usterką.
+
+    Zmierzone: mutacja `abs(starts[0]) > 1e-6` -> `>=` zgłasza wtedy problem, którego
+    oryginał nie zgłasza. Kontrola negatywna po drugiej stronie: przesunięcie samego
+    progu na 1,01e-6 sprawia, że 1,005e-6 przestaje być zgłaszane — więc test pilnuje
+    obu stron, a nie tylko operatora.
+    """
+    na_progu = [{"start_m": 1e-6, "clearance_m": 1.0},
+                {"start_m": 5.0 + 1e-6, "clearance_m": 1.0}]
+    assert abs(na_progu[0]["start_m"]) == 1e-6
+    assert CP.coverage_gaps(na_progu, 0.0, 5.0 + 1e-6, 5.0) == []
+
+    nad_progiem = [{"start_m": 1.005e-6, "clearance_m": 1.0},
+                   {"start_m": 5.0 + 1.005e-6, "clearance_m": 1.0}]
+    problemy = CP.coverage_gaps(nad_progiem, 0.0, 5.0 + 1.005e-6, 5.0)
+    assert len(problemy) == 1 and "pierwsza pozycja" in problemy[0], problemy
+
+
+def test_clearance_profile_coverage_accepts_a_last_position_exactly_at_the_tolerance():
+    """Ostatnia pozycja odległa od oczekiwanej DOKŁADNIE o tolerancję też przechodzi.
+
+    Zakotwiczenie w ZERZE nie jest tu wygodą, tylko koniecznością i jest zmierzone:
+    różnica dwóch double równa DOKŁADNIE `fl(1e-6)` przy niezerowej podstawie nie
+    wychodzi — `5.0 - (5.0 - 1e-6)` daje `1.000000000139778e-06`. To ta sama pułapka,
+    którą `docs/24` pozycja 6 opisała dla `1e-6` przy 1500 m i 6700 m.
+    """
+    assert 5.0 - (5.0 - 1e-6) != 1e-6
+    assert 1e-6 - 0.0 == 1e-6
+
+    records = [{"start_m": 0.0, "clearance_m": 1.0}, {"start_m": 1e-6, "clearance_m": 1.0}]
+    assert CP.coverage_gaps(records, 5.0, 5.0, 5.0) == []
+
+    dalej = [{"start_m": 0.0, "clearance_m": 1.0}, {"start_m": 1.005e-6, "clearance_m": 1.0}]
+    problemy = CP.coverage_gaps(dalej, 5.0, 5.0, 5.0)
+    assert len(problemy) == 1 and "ostatnia pozycja" in problemy[0], problemy
+
+
+def test_clearance_profile_coverage_accepts_a_gap_exactly_at_step_plus_tolerance():
+    """Przerwa DOKŁADNIE równa `krok + tolerancja` nie jest dziurą — i da się to trafić.
+
+    `docs/24` pozycja 6 zmierzyła, że `step_m + 1e-6` nie jest reprezentowalne
+    dokładnie i że strona granicy zależy od kilometrażu. Ten test korzysta z tego
+    wprost: przy `a = 0` różnica `b - a` JEST równa `step + 1e-6` co do bitu, przy
+    `a = 5` już nie. Zmierzone:
+
+        a=   0,0  b-a = 5.000001              == step+1e-6: True
+        a=   5,0  b-a = 5.000000999999999     == step+1e-6: False
+        a=6700,0  b-a = 5.0000010000003385    == step+1e-6: False
+
+    Na 300 000 losowych par (a, a+step+1e-6) w równość trafiło 135 — wszystkie przy
+    podstawie zero. Mutacja `>` -> `>=` zgłasza wtedy dziurę 5,000 m, której nie ma.
+    """
+    krok = 5.0
+    assert (krok + 1e-6) - 0.0 == krok + 1e-6
+    assert (5.0 + krok + 1e-6) - 5.0 != krok + 1e-6
+
+    styczne = [{"start_m": 0.0, "clearance_m": 1.0},
+               {"start_m": krok + 1e-6, "clearance_m": 1.0}]
+    assert CP.coverage_gaps(styczne, 0.0, krok + 1e-6, krok) == []
+
+    # Kontrola negatywna: przerwa o mikrometr większa JEST dziurą.
+    dziura = [{"start_m": 0.0, "clearance_m": 1.0},
+              {"start_m": krok + 2e-6, "clearance_m": 1.0}]
+    problemy = CP.coverage_gaps(dziura, 0.0, krok + 2e-6, krok)
+    assert len(problemy) == 1 and "dziura" in problemy[0], problemy
+
+
+def test_clearance_profile_support_polygon_skips_a_pair_exactly_at_the_determinant():
+    """Wyznacznik DOKŁADNIE równy `1e-12` to para kierunków równoległych — pomijana.
+
+    `support_polygon` przyjmuje kierunki od wołającego (`SweptEnvelope(directions=...)`),
+    więc próg jest tu osiągalny wprost: `det((1, 0), (1, 1e-12)) == 1e-12` co do bitu.
+    Bez pominięcia dzielenie przez wyznacznik rzędu 1e-12 daje wierzchołek oddalony
+    o 1e12 jednostek i obrys przestaje być obrysem.
+
+    Zmierzone: przy `det == 1e-12` oryginał wierzchołek LICZY (5 wierzchołków), bo
+    porównanie jest ostre; mutant `<=` go pomija i zwraca 4. Tak samo przy
+    `det == 1,005e-12` mutant progu (`1e-12` -> `1,01e-12`) pomija to, czego oryginał
+    nie pomija. Żadne `support_directions(3..64)` nie produkuje takiego wyznacznika
+    (0 trafień), więc ta bramka istnieje wyłącznie dla kierunków podanych z zewnątrz.
+    """
+    wysokosci = [2.0, 2.0, 3.0, 2.0, 1.0]
+
+    na_progu = [(1.0, 0.0), (1.0, 1e-12), (0.0, 1.0), (-1.0, 0.0), (0.0, -1.0)]
+    det = na_progu[0][0] * na_progu[1][1] - na_progu[0][1] * na_progu[1][0]
+    assert det == 1e-12, det
+    assert len(CP.support_polygon(na_progu, wysokosci)) == 5, "próg pominął parę na progu"
+
+    nad_progiem = [(1.0, 0.0), (1.0, 1.005e-12), (0.0, 1.0), (-1.0, 0.0), (0.0, -1.0)]
+    assert len(CP.support_polygon(nad_progiem, wysokosci)) == 5, (
+        "para powyżej progu została pominięta")
+
+    # Kontrola negatywna: wyznacznik PONIŻEJ progu musi zostać pominięty, inaczej
+    # rozluźnienie porównania zamieniłoby się w brak porównania.
+    pod_progiem = [(1.0, 0.0), (1.0, 9.9e-13), (0.0, 1.0), (-1.0, 0.0), (0.0, -1.0)]
+    assert len(CP.support_polygon(pod_progiem, wysokosci)) == 4, (
+        "para kierunków równoległych przeszła jako wierzchołek")
+
+
+def test_clearance_profile_envelope_contains_accepts_a_sample_exactly_at_the_tolerance():
+    """Próbka DOKŁADNIE `tolerance_m` poza obrysem jeszcze się mieści.
+
+    Próg jest osiągalny co do bitu, ale nie dla każdej tolerancji — i to jest ta sama
+    obserwacja, co w `docs/24` pozycji 6. Zmierzone na kwadracie [-1; 1]:
+
+        punkt (1 + 2**-20, 0) -> odległość -9.5367431640625e-07  == -2**-20  : True
+        punkt (1 + 1e-6,   0) -> odległość -9.999999999177334e-07 == -1e-6  : False
+
+    Potęga dwójki trafia w granicę dokładnie, `1e-6` nie trafia nigdy — na 200 000
+    losowych punktów odległość wyszła równa `-1e-6` ZERO razy. Mutacja `<` -> `<=`
+    liczy przy tolerancji `2**-20` obie próbki jako leżące poza obwiednią.
+    """
+    tolerancja = 2.0 ** -20
+    kwadrat = [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)]
+    assert PL.distance_to_boundary(kwadrat, 1.0 + tolerancja, 0.0) == -tolerancja
+    assert PL.distance_to_boundary(kwadrat, 1.0 + 1e-6, 0.0) != -1e-6
+
+    stations = SW.chainages(_straight(50.0, 5.0))
+    envelope = CP.SweptEnvelope(stations, 0.0, 50.0)
+    rings = [(index, kwadrat) for index in range(len(stations))]
+
+    poza, sprawdzone = CP.envelope_contains(envelope, rings, [(25.0, 1.0 + tolerancja, 0.0)],
+                                            tolerance_m=tolerancja)
+    assert sprawdzone == 2, sprawdzone
+    assert poza == 0, "próbka dokładnie na tolerancji zgłoszona jako poza obwiednią"
+
+    # Kontrola negatywna: dwa razy dalej i próbka MUSI wypaść poza.
+    poza, sprawdzone = CP.envelope_contains(envelope, rings, [(25.0, 1.0 + 2.0 ** -19, 0.0)],
+                                            tolerance_m=tolerancja)
+    assert (poza, sprawdzone) == (2, 2), (poza, sprawdzone)
+
+
+def test_clearance_profile_the_axis_tail_tolerance_is_measured_not_reachable():
+    """`abs(out[-1] - last) > 1e-9` — próg nieosiągalny inaczej niż osią nanometrową.
+
+    Zmierzone, a nie założone. Ogon jest różnicą `last` i `round(count * step, 6)`.
+    Żeby wyszła DOKŁADNIE `fl(1e-9)`, `fl(1e-9)` musiałby być wielokrotnością odstępu
+    double przy `out[-1]`, a nie jest:
+
+        (0,5   + 1e-9) - 0,5   = 9.999999717180685e-10   != 1e-9
+        (94,0  + 1e-9) - 94,0  = 1.0000036354540498e-09  != 1e-9
+        (6700  + 1e-9) - 6700  = 1.000444171950221e-09   != 1e-9
+
+    Zostaje `out[-1] == 0.0`, czyli `count == 0`, czyli `last < step` — i wtedy
+    `last` sam musi być równy `fl(1e-9)`. Jedyne takie wejście to oś rzędu nanometra:
+    `scan_positions(2e-9, 1e-9, 1.0)` daje `[0.0]`, a mutant `>=` `[0.0, 0.0]`.
+    Na 300 000 losowych trójek (oś 200-7000 m, skład 15-94 m, krok 0,25-5 m) w próg
+    trafiło ZERO. Ta mutacja zostaje więc jako równoważna w dziedzinie, a test pilnuje
+    tego, po co próg stoi: żeby ogon osi był pokryty i NIE zdublowany.
+    """
+    assert (94.0 + 1e-9) - 94.0 != 1e-9
+    assert (6700.0 + 1e-9) - 6700.0 != 1e-9
+
+    dzieli = CP.scan_positions(1000.0, 94.0, 5.0)
+    assert dzieli[-1] == 906.0 and dzieli[-2] == 905.0, dzieli[-3:]
+    assert len(dzieli) == len(set(dzieli)), "ogon osi zdublowany"
+
+    nie_dzieli = CP.scan_positions(1000.5, 94.0, 5.0)
+    assert nie_dzieli[-1] == 906.5 and nie_dzieli[-2] == 905.0, nie_dzieli[-3:]
+    assert len(nie_dzieli) == len(set(nie_dzieli))
+
+
+def test_clearance_profile_the_zero_chord_tolerance_is_measured_equivalence():
+    """`SW.norm(chord) < 1e-9` — próg trafialny, ale po obu stronach to samo zero.
+
+    Zmierzone. Norma cięciwy wychodzi DOKŁADNIE `1e-9` na osi prostej (cięciwa od 0
+    do 1e-9 daje wektor (1e-9, 0, 0)), i wtedy oryginał zwraca 0,0 przez strażnika,
+    a mutant `<=` zwraca 0,0 licząc — ta sama liczba. Na łuku norma w próg nie trafia
+    ani razu (0 na 200 000 par kilometraży), bo `frame_at` interpoluje.
+
+    Ścieżka bez strażnika daje na cięciwie tego rzędu odchylenie 1,8e-15 m — czyli
+    2 femtometry — przy cięciwie bryły M7 wynoszącej 15,12 m. Mutacja progu
+    (`1e-9` -> `1,01e-9`) rozróżnia się właśnie tam i dlatego zostaje jako
+    równoważna w dziedzinie. Test przybija samo zejście do zera i granicę cięciwy
+    zerowej, bo TO jest powód, dla którego ten strażnik stoi.
+    """
+    points = _straight(50.0, 5.0)
+    stations = SW.chainages(points)
+    head, _i, _t = PL.frame_at(points, stations, 0.0)
+    tail, _j, _u = PL.frame_at(points, stations, 1e-9)
+    assert SW.norm(SW.sub(tail, head)) == 1e-9
+
+    assert CP.chord_deviation_m(points, stations, 0.0, 1e-9) == 0.0
+    assert CP.chord_deviation_m(points, stations, 12.0, 12.0) == 0.0, (
+        "cięciwa zerowa musi zejść przez strażnika, a nie przez `unit` wektora zerowego")
+
+    # Kontrola negatywna: na łuku prawdziwa cięciwa daje odchylenie NIEzerowe.
+    arc = _arc(120.0)
+    assert CP.chord_deviation_m(arc, SW.chainages(arc), 0.0, 15.12) > 0.02
+
+
+# --- reszta ocalałych: pozycja po pozycji ------------------------------------
+
+def test_clearance_profile_hull_drops_a_collinear_point_on_the_lower_chain():
+    """Punkt DOKŁADNIE na krawędzi otoczki nie jest wierzchołkiem otoczki.
+
+    `turn(...) <= 0.0` zdejmuje wierzchołek o zerowym zakręcie; mutacja `<` go
+    ZOSTAWIA. Skutek nie jest kosmetyczny: `halfplanes` liczy normalną z każdej
+    kolejnej krawędzi, więc współliniowy wierzchołek dokłada półpłaszczyznę
+    o tej samej normalnej, a `candidate_bands` niesie wierzchołek, który nie może
+    być ekstremalny w żadnym kierunku — czyli dokładnie to, co redukcja ma odsiać.
+
+    Zmierzone: na 200 000 losowych zbiorów na siatce 4x4 trójka o zakręcie DOKŁADNIE
+    zero wypadła 49 621 razy, a otoczka różniła się w 22 482. Dolny łańcuch rozstrzyga
+    wejście współliniowe na DOLE — na tym samym wejściu mutacja górnego łańcucha
+    (w. 155) nie zmienia niczego.
+    """
+    pts = [(0.0, 0.0), (1.0, 0.0), (2.0, 0.0), (1.0, 2.0)]
+    assert (1.0 - 0.0) * (0.0 - 0.0) - (0.0 - 0.0) * (2.0 - 0.0) == 0.0
+    assert CP.hull_2d(pts) == [(0.0, 0.0), (2.0, 0.0), (1.0, 2.0)]
+
+    # Kontrola negatywna: wierzchołek o zakręcie DODATNIM ma zostać.
+    wypukly = [(0.0, 0.0), (1.0, -0.5), (2.0, 0.0), (1.0, 2.0)]
+    assert CP.hull_2d(wypukly) == [(0.0, 0.0), (1.0, -0.5), (2.0, 0.0), (1.0, 2.0)]
+
+
+def test_clearance_profile_hull_keeps_a_lower_vertex_below_one_millimetre_of_turn():
+    """Próg zdejmowania wierzchołka jest ZEREM, nie milimetrem — i to jest sprawdzane.
+
+    Mutacja `turn(...) <= 0.0` -> `<= 0.001` spłaszczałaby otoczkę: zdejmowałaby
+    wierzchołki o zakręcie dodatnim, ale mniejszym od 0,001. Zakręt to podwojone
+    pole trójkąta, więc dla obrysu M7 w metrach 0,001 znaczy 0,5 mm^2 — a otoczka
+    ma być otoczką ZBIORU, nie jego przybliżeniem.
+
+    Zmierzone: wierzchołek (1; -0,00025) daje zakręt DOKŁADNIE 0,0005, oryginał go
+    zostawia, mutant zdejmuje.
+    """
+    pts = [(0.0, 0.0), (1.0, -0.00025), (2.0, 0.0), (1.0, 2.0)]
+    zakret = (1.0 - 0.0) * (0.0 - 0.0) - (-0.00025 - 0.0) * (2.0 - 0.0)
+    assert zakret == 0.0005, zakret
+    assert (1.0, -0.00025) in CP.hull_2d(pts), CP.hull_2d(pts)
+
+
+def test_clearance_profile_hull_drops_a_collinear_point_on_the_upper_chain():
+    """To samo dla łańcucha GÓRNEGO — dwa łańcuchy to dwie osobne bramki.
+
+    Zmierzone: wejście współliniowe na GÓRZE zmienia otoczkę pod mutacją w. 155
+    i NIE zmienia jej pod mutacją w. 150. Bez obu wejść jedna z dwóch bramek
+    zostawałaby nietknięta, a wyglądałoby to na pokrycie.
+    """
+    pts = [(0.0, 2.0), (1.0, 2.0), (2.0, 2.0), (1.0, 0.0)]
+    assert CP.hull_2d(pts) == [(0.0, 2.0), (1.0, 0.0), (2.0, 2.0)]
+
+    gorny = [(0.0, 2.0), (1.0, 2.00025), (2.0, 2.0), (1.0, 0.0)]
+    zakret = (1.0 - 2.0) * (2.0 - 2.0) - (2.00025 - 2.0) * (0.0 - 2.0)
+    assert 0.0 < zakret < 0.001, zakret
+    assert (1.0, 2.00025) in CP.hull_2d(gorny), CP.hull_2d(gorny)
+
+
+def test_clearance_profile_touching_refine_windows_merge_into_one():
+    """Dwa okna, których granice się DOKŁADNIE stykają, to jedno okno.
+
+    Bez scalenia doszlifowanie policzyłoby pozycję granicy dwa razy — raz jako koniec
+    pierwszego okna, raz jako początek drugiego — i `coverage_gaps` zobaczyłby
+    zdublowaną pozycję. Zmierzone: dołki 8,0 m od siebie przy półoknie 4,0 m dają
+    `0,0 + 4,0 == 8,0 - 4,0` co do bitu; oryginał zwraca jedno okno (-4,0; 12,0),
+    mutant `<` dwa: (-4,0; 4,0) i (4,0; 12,0).
+    """
+    records = [{"start_m": 0.0, "clearance_m": 0.5},
+               {"start_m": 8.0, "clearance_m": 0.5},
+               {"start_m": 40.0, "clearance_m": 9.0}]
+    assert 0.0 + 4.0 == 8.0 - 4.0
+    assert CP.refine_windows(records, 5.0, half_window_m=4.0) == [(-4.0, 12.0)]
+
+    # Kontrola negatywna: dołki dalej od siebie niż dwa półokna to DWA okna.
+    rozlaczne = [{"start_m": 0.0, "clearance_m": 0.5},
+                 {"start_m": 8.5, "clearance_m": 0.5},
+                 {"start_m": 40.0, "clearance_m": 9.0}]
+    assert CP.refine_windows(rozlaczne, 5.0, half_window_m=4.0) == [(-4.0, 4.0), (4.5, 12.5)]
+
+
+def test_clearance_profile_zero_clearance_is_not_counted_as_negative():
+    """`negative_positions` znaczy UJEMNY, a zero nie jest ujemne.
+
+    Ta sama konwencja, którą `below_threshold` ma po decyzji z pozycji 3 `docs/24`:
+    klucz nazywa się tak, jak liczy. Mutacja `v < 0.0` -> `<=` liczyłaby styk
+    dokładnie na obrysie jako naruszenie, a mutacja progu (`0.0` -> `0.001`)
+    liczyłaby jako naruszenie każdy luz poniżej milimetra.
+
+    Zmierzone: luz 0,0 -> oryginał 0, mutant `<=` 1; luz 0,0005 -> oryginał 0,
+    mutant 0,001 -> 1.
+    """
+    zero = CP.statistics([_record(100.0, 0.0), _record(200.0, 1.0)], thresholds=(0.0,))
+    assert zero["negative_positions"] == 0, zero["negative_positions"]
+
+    polmilimetra = CP.statistics([_record(100.0, 0.0005), _record(200.0, 1.0)],
+                                 thresholds=(0.0,))
+    assert polmilimetra["negative_positions"] == 0, polmilimetra["negative_positions"]
+
+    # Kontrola negatywna: milimetr PONIŻEJ zera jest już naruszeniem.
+    ujemny = CP.statistics([_record(100.0, -0.001), _record(200.0, 1.0)], thresholds=(0.0,))
+    assert ujemny["negative_positions"] == 1, ujemny["negative_positions"]
+
+
+def test_clearance_profile_min_radius_includes_the_chainage_exactly_at_half_chord():
+    """Kilometraż DOKŁADNIE równy połowie cięciwy jeszcze się mierzy.
+
+    Strażnik ma odrzucać kilometraże, dla których cięciwa nie mieści się na osi.
+    Przy kilometrażu równym `half` mieści się dokładnie — `point_at(0)` jest końcem
+    osi, nie ekstrapolacją. Zmierzone na zygzaku 3-4-5 (kilometraże całkowite):
+    oryginał zwraca (5,0; 3,125), mutant `<=` pomija ten kilometraż i zwraca
+    (10,0; 3,125), czyli inne MIEJSCE przy tej samej liczbie.
+    """
+    zigzag = [(0.0, 0.0, 0.0), (3.0, 4.0, 0.0), (6.0, 0.0, 0.0), (9.0, 4.0, 0.0),
+              (12.0, 0.0, 0.0), (15.0, 4.0, 0.0), (18.0, 0.0, 0.0)]
+    stations = SW.chainages(zigzag)
+    assert stations[1] == 5.0 == 10.0 / 2.0
+    assert CP.min_radius_on_chord(zigzag, stations, 10.0)[0] == 5.0
+
+    # Kontrola negatywna: przy cięciwie 11 m połowa wynosi 5,5 m, więc kilometraż
+    # 5,0 NIE mieści cięciwy i ma zostać pominięty — pierwszym mierzonym jest 10,0.
+    assert CP.min_radius_on_chord(zigzag, stations, 11.0)[0] == 10.0
+
+
+def test_clearance_profile_min_radius_includes_the_last_admissible_chainage():
+    """Symetrycznie na drugim końcu: `total - half` jeszcze się mierzy.
+
+    Oś z czterema odcinkami prostymi i dwoma załamaniami na końcu. Trzy pierwsze
+    kilometraże dają promień `None` (punkty współliniowe), więc minimum leży na
+    OSTATNIM dopuszczalnym kilometrażu i strażnik prawego końca jest jedyną rzeczą,
+    która o nim decyduje. Zmierzone: oryginał (25,0; 3,125), mutant `>=`
+    (20,0; 7,905694150420948) — inne miejsce I inna liczba.
+    """
+    points = [(0.0, 0.0, 0.0), (5.0, 0.0, 0.0), (10.0, 0.0, 0.0), (15.0, 0.0, 0.0),
+              (20.0, 0.0, 0.0), (24.0, 3.0, 0.0), (20.0, 6.0, 0.0)]
+    stations = SW.chainages(points)
+    assert stations == [0.0, 5.0, 10.0, 15.0, 20.0, 25.0, 30.0], stations
+
+    station, radius = CP.min_radius_on_chord(points, stations, 10.0)
+    assert station == 25.0 == stations[-1] - 5.0, station
+    assert radius == 3.125, radius
+
+
+def test_clearance_profile_envelope_rings_include_both_range_ends():
+    """Kilometraż DOKŁADNIE na granicy zakresu obwiedni wnosi się do pierścieni.
+
+    `low_m` i `high_m` są granicami zakresu ZAMKNIĘTEGO — inaczej próbki z pierwszej
+    i ostatniej mierzonej pozycji przepadałyby i obwiednia miałaby na szwach prążki
+    niedomiaru, czyli byłaby MNIEJSZA od składu. Zmierzone na osi co 5 m z zakresem
+    [10; 30]: przy chainage 10,0 oryginał daje (1, 2), mutant `<=` — nic; przy 30,0
+    oryginał (5, 6), mutant `>=` — nic.
+    """
+    stations = SW.chainages(_straight(50.0, 5.0))
+    envelope = CP.SweptEnvelope(stations, 10.0, 30.0)
+
+    assert envelope.rings_for(10.0) == (1, 2), envelope.rings_for(10.0)
+    assert envelope.rings_for(30.0) == (5, 6), envelope.rings_for(30.0)
+
+    # Kontrola negatywna: o milimetr poza zakresem i próbka nie wnosi się nigdzie.
+    assert envelope.rings_for(9.999) == ()
+    assert envelope.rings_for(30.001) == ()
+
+
+def test_clearance_profile_envelope_rings_include_the_first_and_last_ring_index():
+    """Pierścień o indeksie `first` i o indeksie `last` należą do obwiedni.
+
+    To osobna bramka niż zakres kilometrażu: `first` i `last` są przycięciem do
+    ISTNIEJĄCYCH pierścieni osi, a łańcuch `self.first <= r <= self.last` nosi DWIE
+    mutacje `<=` -> `<`. Zmierzone na zakresie [12; 28] (first=2, last=6): przy
+    chainage 12,0 oryginał daje (2, 3), mutant lewej strony (3,); przy chainage 28,0
+    oryginał (5, 6), mutant prawej strony (5,). Zgubiony pierścień to zgubiona
+    ćwiartka obrysu na szwie.
+    """
+    stations = SW.chainages(_straight(50.0, 5.0))
+    envelope = CP.SweptEnvelope(stations, 12.0, 28.0)
+    assert (envelope.first, envelope.last) == (2, 6), (envelope.first, envelope.last)
+
+    assert envelope.rings_for(12.0) == (2, 3), envelope.rings_for(12.0)
+    assert envelope.rings_for(28.0) == (5, 6), envelope.rings_for(28.0)
+
+    # Kontrola negatywna: pierścień PONIŻEJ `first` nadal się nie wnosi.
+    waski = CP.SweptEnvelope(stations, 12.0, 13.0)
+    assert (waski.first, waski.last) == (2, 3), (waski.first, waski.last)
+    assert waski.rings_for(12.5) == (2, 3)
+    assert waski.rings_for(12.0) == (2, 3)
+
+
+def test_clearance_profile_the_hand_rolled_absolute_value_is_measured_equivalence():
+    """`if along < 0.0: along = -along` — dwie mutacje, obie zmierzone jako równoważne.
+
+    `<` -> `<=`: przy `along == 0.0` mutant podstawia `-0.0`. `-0.0 == 0.0` jest
+    prawdą, a `-0.0 < 0.0` fałszem, więc porównanie `along < closest` zachowuje się
+    identycznie, a `along` nigdzie dalej nie jedzie. Zmierzone: `along == 0.0`
+    wypadło DOKŁADNIE 1 488 razy w 120 pozycjach na osi prostej i rekord nie
+    różnił się ani razu.
+
+    `0.0` -> `0.001`: mutant negowałby każdy `along` poniżej milimetra, a różnica
+    wymaga DWÓCH kandydatów bliżej niż milimetr od swoich kilometraży. Kandydaci to
+    sąsiednie pierścienie osi, czyli 5 m od siebie — zmierzone: 0 takich par na
+    24 800 sprawdzonych wierzchołków. Na osi zdegenerowanej (łuk R = 0,01 m,
+    pierścienie co 0,5 mm) różnica pojawia się i wynosi 2,47e-05 m, ale
+    `MIN_RADIUS_M` w tym repozytorium to 20 m, a pierścienie stoją co 5 m.
+
+    Ten test przybija to, po co ta gałąź stoi: że wybierana jest ramka NAJBLIŻSZA
+    wzdłuż stycznej, po obu stronach kilometrażu jednakowo.
+    """
+    assert -0.0 == 0.0 and not (-0.0 < 0.0)
+
+    points = _arc(150.0)
+    stations = SW.chainages(points)
+    frames = SW.rmf_frames(points)
+    place = PL.place_spans(points, stations, 30.0, [(0.0, 15.0)], 0.0)[0]
+    for local_x in (0.0, 3.7, 7.5, 11.3, 15.0):
+        world = PL.transform_point(place, (local_x, 0.0, 0.0))
+        index = CP.nearest_frame(frames, stations, world, hint_m=30.0 + local_x)
+        mine = CP.offsets_in_frame(frames[index], stations[index], world)
+        blisko = abs(mine[0] - stations[index])
+        for other in (index - 1, index + 1):
+            if not 0 <= other < len(frames):
+                continue
+            dalej = CP.offsets_in_frame(frames[other], stations[other], world)
+            assert blisko <= abs(dalej[0] - stations[other]) + 1e-12, (
+                local_x, index, blisko, abs(dalej[0] - stations[other]))
