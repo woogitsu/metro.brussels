@@ -34,6 +34,45 @@ liczby nie da się dziś zmierzyć, jest to napisane wprost.
 Wszystkie te progi mają dziś status `design_assumption`, ale — w odróżnieniu od
 np. długości chunka — **nikt ich nie wybierał**. Wzięły się z pisania kodu.
 
+### Co z liczbami po #86 (dopisane 04.09.2026)
+
+Dokument jest z 03.09.2026, a #86 (`4a03982`) przeliczyło kilometraże stacji na
+wszystkich sześciu osiach. Pytanie, czy liczby w tym dokumencie nadal obowiązują,
+jest zasadne i **zmierzone**, a nie odpowiedziane z pamięci:
+
+```
+punkty osi identyczne: True
+length_m: 6686.35 -> 6686.35
+stacji ze zmienionym kilometrażem: 11 z 12
+  Beekkant: 509.74 -> 509.73   (-0.010 m)
+  ...
+  Merode:   6686.99 -> 6686.35 (-0.640 m)
+```
+
+**Łamana osi nie ruszyła się ani o mikrometr** — #86 poprawiło wyłącznie kilometraże
+stacji, o najwyżej 0,640 m. Wynika z tego:
+
+- pozycje **1, 2, 9, 10, 11** stoją na profilach z `profiles.py` i na geometrii osi,
+  więc są nietknięte;
+- pozycja **6** liczy tolerancję na długości osi, a ta jest identyczna — nietknięta;
+- pozycje **3, 4, 5, 7, 8** dotyczą kilometraży, ale jako pytania o KONWENCJĘ, nie
+  o wartość, więc treść pytania się nie zmienia.
+
+**Jedna rzecz zostaje otwarta** i jest tu zapisana, żeby nikt jej nie przeoczył:
+minimum luzu 0,899948 m z pozycji 3 zostało zmierzone przy starych kilometrażach.
+Skan przełącza profil na granicy stacji (`between_stations`), więc gdyby minimum
+leżało bliżej niż 0,640 m od takiej granicy, przesunięcie mogłoby zmienić, który
+profil w tym punkcie obowiązuje — a wtedy i samą liczbę. Ten dokument nie zapisuje
+kilometrażu minimum, więc bez ponownego skanu nie da się tego rozstrzygnąć, a skan
+wymaga tunelowego i pojazdowego GLB, czyli Blendera **5.2.1** z przypięcia
+(`tools/ci/blender-version.txt`). Lokalnie stoi 4.0.2, który renderuje legacy EEVEE,
+więc zgodnie z `CLAUDE.md` §2 pomiaru tu nie wykonuję. Do zrobienia w CI, przy
+odpowiedzi na pozycję 3.
+
+Wniosek praktyczny: **52 µm z pozycji 3 traktuj jako rząd wielkości, nie jako
+przypięty pomiar.** Sedno pytania jest od tej liczby niezależne — chodzi o to, że
+minimum potrafi wypaść dowolnie blisko progu, a nie o to, jak blisko wypadło tego dnia.
+
 ---
 
 ## 1. Czy krawędź o `|ny| = 0,9` to strop, czy ścięcie naroża?
