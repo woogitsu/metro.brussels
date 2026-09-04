@@ -8,6 +8,7 @@ poprawka nie wyparowała po cichu przy następnej edycji workflow.
 import glob
 import os
 import re
+import secrets
 
 import yaml
 
@@ -574,10 +575,80 @@ def test_ci_blender_installer_verifies_the_checksum_and_stays_out_of_the_workspa
 #: potrafiłby wejść w drogę czyjemuś pobieraniu. `installed_version` czyta
 #: z pierwszej linii `--version` wyłącznie cyfry i kropki, więc atrapa musi się
 #: przedstawiać dokładnie tym numerem, żeby przebieg zgodny doszedł do końca.
-FAKE_BLENDER_VERSION = "0.0.1"
+#: Zmyślona wersja Blendera dla bramek wykonawczych — UNIKALNA NA PROCES, i to jest
+#: naprawa zmierzonej usterki, nie ostrożność.
+#:
+#: `tools/ci/blender_install.sh` wyprowadza ścieżkę archiwum z wersji:
+#: `TARBALL="/tmp/blender-${VERSION}-linux-x64.tar.xz"`. Przy stałym `0.0.1` była to
+#: więc jedna GLOBALNA ścieżka w `/tmp`, a przegląd mutacyjny puszcza cały zestaw
+#: w trzech równoległych robotnikach. Odtworzone 04.09.2026, sześć przebiegów po trzy
+#: naraz — **padły dwa**:
+#:
+#:     AssertionError: (1, '...[BLENDER] sprawdzam sumę SHA-256\n
+#:                          /tmp/blender-0.0.1-linux-x64.tar.xz: FAILED...')
+#:     AssertionError: (1, '...sha256sum: /tmp/blender-0.0.1-linux-x64.tar.xz:
+#:                          No such file or directory...')
+#:
+#: Jeden robotnik podmieniał archiwum drugiemu, drugi je usuwał trzeciemu.
+#:
+#: Skutek był GORSZY niż czerwony test: `mutation_sweep.py` liczy „padł jakikolwiek
+#: test" jako zabicie mutacji, więc ten flak dał FAŁSZYWE ZABICIE i przekłamał
+#: werdykt przeglądu dla mutacji w `clearance_profile.py:142` — pozycji, która jest
+#: w rzeczywistości równoważna (99 840 trafień w próg, 0 różnic). Bramka
+#: niedeterministyczna nie jest tylko uciążliwa; ona kłamie w pomiarze, który ktoś
+#: potem wpisuje do raportu.
+#:
+#: Unikalność NIE opiera się na PID, i to też jest zmierzone. Pierwsza wersja tej
+#: naprawy dawała `0.<pid>.<licznik>` z uzasadnieniem „`mutation_sweep` zrównolegla
+#: procesami". Sprawdzone tym samym testem wyścigu, tylko na WĄTKACH: padło 10 z 12,
+#: bo każdy wątek importuje moduł od nowa, dostaje świeży licznik od 1, a PID ma ten
+#: sam — wszystkie dwanaście dostało `0.25530.1`. Naprawa, która działa tylko przy
+#: jednym modelu równoległości, jest naprawą przypadkiem.
+#:
+#: `secrets.randbits(48)` nie zależy od żadnego modelu: ani od procesu, ani od wątku,
+#: ani od tego, czy moduł został zaimportowany raz czy dwadzieścia razy.
+def fake_blender_version():
+    """Wersja i przez to ścieżka w `/tmp` unikalna dla KAŻDEGO wywołania.
+
+    `installed_version` w instalatorze czyta z `--version` wyłącznie cyfry i kropki,
+    więc numer musi mieć tę postać — stąd `0.<losowe>.<losowe>` zamiast UUID-a.
+    """
+    return f"0.{secrets.randbits(24)}.{secrets.randbits(24)}"
 
 
-def _fake_blender_archive(root):
+def test_ci_blender_fake_version_is_unique_so_the_gate_cannot_race_itself():
+    """Bramka niedeterministyczna nie jest uciążliwa — ona KŁAMIE W POMIARZE.
+
+    `tools/ci/blender_install.sh` wyprowadza ścieżkę archiwum z wersji
+    (`TARBALL="/tmp/blender-${VERSION}-linux-x64.tar.xz"`), a `mutation_sweep.py`
+    puszcza cały ten zestaw w trzech równoległych robotnikach. Przy STAŁEJ zmyślonej
+    wersji była to jedna globalna ścieżka w `/tmp` i robotnicy podmieniali sobie
+    archiwum: odtworzone 04.09.2026, **2 padnięcia na 6** przebiegów po trzy naraz.
+
+    Skutek był gorszy niż czerwony test. `mutation_sweep` liczy „padł jakikolwiek
+    test" jako zabicie mutacji, więc ten flak dał FAŁSZYWE ZABICIE i przekłamał
+    werdykt dla `clearance_profile.py:142` — mutacji, która jest w rzeczywistości
+    równoważna (99 840 trafień w próg, 0 różnic). Liczba z przeglądu trafia potem
+    do raportu, więc niedeterminizm tutaj to nieprawda tam.
+
+    Ten test nie sprawdza samej losowości, a KONSEKWENCJĘ: dwie wersje muszą dać
+    dwie różne ścieżki w `/tmp`.
+    """
+    versions = [fake_blender_version() for _ in range(64)]
+    assert len(set(versions)) == len(versions), "wersje się powtarzają"
+
+    paths = {f"/tmp/blender-{v}-linux-x64.tar.xz" for v in versions}
+    assert len(paths) == len(versions), "różne wersje dały tę samą ścieżkę"
+
+    # Kształt musi zostać taki, jaki czyta instalator: `installed_version` bierze
+    # z `--version` wyłącznie cyfry i kropki, więc litery czy myślnik wywróciłyby
+    # przebieg ZGODNY, a nie odmowę — czyli zepsułyby akurat tę stronę pomiaru,
+    # która dowodzi, że skrypt w ogóle dochodzi do końca.
+    for version in versions:
+        assert re.fullmatch(r"[0-9]+(\.[0-9]+)+", version), version
+
+
+def _fake_blender_archive(root, version):
     """Poprawny `.tar.xz` z atrapą `blender` w środku. Zwraca (ścieżka, suma).
 
     Atrapa musi być PRAWDZIWYM archiwum, nie śmieciem: na śmieciu wywraca się
@@ -589,13 +660,13 @@ def _fake_blender_archive(root):
     import hashlib
     import tarfile
 
-    tree = f"blender-{FAKE_BLENDER_VERSION}-linux-x64"
+    tree = f"blender-{version}-linux-x64"
     payload = os.path.join(root, "payload", tree)
     os.makedirs(payload)
     binary = os.path.join(payload, "blender")
     with open(binary, "w", encoding="utf-8") as handle:
         handle.write("#!/usr/bin/env bash\n"
-                     f'echo "Blender {FAKE_BLENDER_VERSION}"\n'
+                     f'echo "Blender {version}"\n'
                      'echo "\tbuild date: atrapa testowa"\n')
     os.chmod(binary, 0o755)
 
@@ -606,7 +677,7 @@ def _fake_blender_archive(root):
         return archive, hashlib.sha256(handle.read()).hexdigest()
 
 
-def _run_blender_installer(root, label, sha256, archive, workspace=None):
+def _run_blender_installer(root, label, sha256, archive, version, workspace=None):
     """Uruchamia PRAWDZIWY `blender_install.sh` obok podstawionego pinu, bez sieci.
 
     Skrypt czyta pin z katalogu, w którym sam leży (`$HERE/blender-version.txt`),
@@ -632,7 +703,7 @@ def _run_blender_installer(root, label, sha256, archive, workspace=None):
     script = os.path.join(ci, "blender_install.sh")
     shutil.copyfile(INSTALLER, script)
     with open(os.path.join(ci, "blender-version.txt"), "w", encoding="utf-8") as handle:
-        handle.write(f"version={FAKE_BLENDER_VERSION}\nsha256={sha256}\n")
+        handle.write(f"version={version}\nsha256={sha256}\n")
 
     log = os.path.join(base, "curl-zostal-wolany")
     shim = os.path.join(binroot, "curl")
@@ -657,7 +728,7 @@ def _run_blender_installer(root, label, sha256, archive, workspace=None):
                CURL_LOG=log, ARCHIVE=archive, LC_ALL="C")
 
     result = subprocess.run(["bash", script], env=env, capture_output=True, text=True)
-    unpacked = os.path.join(cache, "metro-blender", FAKE_BLENDER_VERSION)
+    unpacked = os.path.join(cache, "metro-blender", version)
     return result, unpacked, os.path.exists(log)
 
 
@@ -697,20 +768,23 @@ def test_ci_blender_installer_refuses_a_tarball_whose_checksum_does_not_match():
     root = tempfile.mkdtemp(prefix="metro-blender-pin-")
     # Nazwa tarballa jest w instalatorze zaszyta na `/tmp`, a przy odmowie skrypt
     # nie dochodzi do `rm -f` — sprzątamy po nim sami.
-    leftover = f"/tmp/blender-{FAKE_BLENDER_VERSION}-linux-x64.tar.xz"
+    version = fake_blender_version()
+    leftover = f"/tmp/blender-{version}-linux-x64.tar.xz"
     try:
-        archive, digest = _fake_blender_archive(root)
+        archive, digest = _fake_blender_archive(root, version)
         wrong = "0" * 63 + "1"
         assert wrong != digest
 
-        good, unpacked, called = _run_blender_installer(root, "zgodna", digest, archive)
+        good, unpacked, called = _run_blender_installer(
+            root, "zgodna", digest, archive, version)
         assert good.returncode == 0, (good.returncode, good.stderr)
         assert called, "shim `curl` nie został wywołany, więc przebieg nie mierzy pobrania"
-        binary = os.path.join(unpacked, f"blender-{FAKE_BLENDER_VERSION}-linux-x64", "blender")
+        binary = os.path.join(unpacked, f"blender-{version}-linux-x64", "blender")
         assert good.stdout.strip() == binary, (good.stdout, binary)
         assert os.access(binary, os.X_OK), binary
 
-        bad, unpacked, called = _run_blender_installer(root, "niezgodna", wrong, archive)
+        bad, unpacked, called = _run_blender_installer(
+            root, "niezgodna", wrong, archive, version)
         assert called, "shim `curl` nie został wywołany, więc odmowa nie jest odmową sumy"
         assert bad.returncode != 0, (
             "instalator z niezgodną sumą zakończył się zerem — suma nie bramkuje niczego")
@@ -721,7 +795,7 @@ def test_ci_blender_installer_refuses_a_tarball_whose_checksum_does_not_match():
         workspace = os.path.join(root, "w-workspace", "workspace")
         os.makedirs(workspace)
         inside, unpacked, called = _run_blender_installer(
-            root, "w-workspace", digest, archive, workspace=workspace)
+            root, "w-workspace", digest, archive, version, workspace=workspace)
         assert inside.returncode == 1, (inside.returncode, inside.stderr)
         assert "W WORKSPACE" in inside.stderr, inside.stderr
         assert not called, "instalator pobrał 366 MB do katalogu, który skasuje checkout"
