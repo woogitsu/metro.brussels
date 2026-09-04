@@ -90,11 +90,147 @@ def test_ci_every_package_install_step_has_a_step_timeout():
     assert checked == 7, f"oczekiwano siedmiu kroków instalacji, znaleziono {checked}"
 
 
-def test_ci_apt_helper_is_executable_and_retries():
+# --- bramki na `tools/ci/*.sh`: WYKONANIE, nie napis w pliku --------------------
+#
+# Wspólny powód całej rodziny niżej, zmierzony 04.09.2026: bramka pytająca „czy ten
+# napis stoi w pliku" przechodzi tak samo dobrze wtedy, gdy polecenie jest
+# WYKONYWANE, jak wtedy, gdy jest tylko WSPOMNIANE — w komentarzu, w `echo`, w treści
+# `--help`. Pomiar był zawsze ten sam: mutacja wyłączająca ochronę i zostawiająca
+# napis, a potem cały zestaw na zielono. Wszystkie cztery bramki `apt_install.sh`
+# przechodziły takie mutacje — każda opisana w docstringu swojego testu (M1–M4)
+# i wypisana w commicie, który tę zmianę wprowadził.
+#
+# Napisy zostają tam, gdzie WSKAZUJĄ fragment do uruchomienia (nazwa funkcji
+# shellowej, prefiks heredoca) — werdykt wydaje uruchomienie tego fragmentu.
+
+
+def _shim(directory, name, body):
+    """Atrapa polecenia w `PATH`: zapisuje swoje argv i kończy się zadanym kodem."""
+    path = os.path.join(directory, name)
+    with open(path, "w", encoding="utf-8") as handle:
+        handle.write("#!/usr/bin/env bash\n" + body)
+    os.chmod(path, 0o755)
+    return path
+
+
+def _log_lines(path):
+    if not os.path.exists(path):
+        return []
+    with open(path, encoding="utf-8") as handle:
+        return [line for line in handle.read().splitlines() if line]
+
+
+def _run_apt_helper(update_code=0, install_code=0, attempts=None, packages=("libegl1",)):
+    """Uruchamia PRAWDZIWY `tools/ci/apt_install.sh` bez sieci, bez sudo i bez czekania.
+
+    `sudo`, `apt-get` i `sleep` są podmienione w `PATH`. Atrapa `sudo` zapisuje swoje
+    argv i wykonuje resztę wiersza, więc widać, CO dostanie sygnał od stopera: przy
+    `sudo timeout … apt-get` pierwszym argumentem `sudo` jest `timeout`, a przy
+    `timeout … sudo apt-get` — `apt-get`. Atrapa `apt-get` zapisuje argv i kończy się
+    kodem zadanym z testu, stąd wiadomo, jakie opcje `-o` naprawdę do apta doszły
+    i ile razy każda podkomenda została wywołana. Atrapa `sleep` tylko notuje, żeby
+    pętla ponawiania nie kosztowała testu 45 sekund.
+
+    Zwraca kod wyjścia, oba strumienie oraz wywołania `sudo`, `apt-get` i `sleep`.
+    """
+    import shutil
+    import subprocess
+    import tempfile
+
+    root = tempfile.mkdtemp(prefix="metro-apt-")
+    try:
+        binroot = os.path.join(root, "bin")
+        os.makedirs(binroot)
+        logs = {name: os.path.join(root, name + ".log")
+                for name in ("sudo", "apt", "sleep")}
+        _shim(binroot, "sudo", 'printf "%s\\n" "$*" >> "$SUDO_LOG"\nexec "$@"\n')
+        _shim(binroot, "apt-get",
+              'printf "%s\\n" "$*" >> "$APT_LOG"\n'
+              'for argument in "$@"; do\n'
+              '    [ "$argument" = update ] && exit "$FAKE_UPDATE_CODE"\n'
+              '    [ "$argument" = install ] && exit "$FAKE_INSTALL_CODE"\n'
+              'done\n'
+              'exit 0\n')
+        _shim(binroot, "sleep", 'printf "%s\\n" "$*" >> "$SLEEP_LOG"\n')
+
+        env = dict(os.environ)
+        env.update(PATH=binroot + os.pathsep + env.get("PATH", ""),
+                   SUDO_LOG=logs["sudo"], APT_LOG=logs["apt"], SLEEP_LOG=logs["sleep"],
+                   FAKE_UPDATE_CODE=str(update_code),
+                   FAKE_INSTALL_CODE=str(install_code),
+                   APT_CACHE_DIR="", LC_ALL="C.UTF-8")
+        if attempts is not None:
+            env["APT_UPDATE_ATTEMPTS"] = str(attempts)
+        result = subprocess.run(["bash", HELPER, *packages], env=env,
+                                capture_output=True, text=True,
+                                encoding="utf-8", errors="replace")
+        return {"code": result.returncode, "out": result.stdout, "err": result.stderr,
+                "sudo": _log_lines(logs["sudo"]), "apt": _log_lines(logs["apt"]),
+                "sleeps": _log_lines(logs["sleep"])}
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+
+def _apt_calls(run, subcommand):
+    """Wywołania `apt-get`, które dostały tę podkomendę jako OSOBNY token.
+
+    Osobny token, bo słowo `install` stoi też w `--no-install-recommends`; wersja
+    szukająca podciągu liczyłaby jedno wywołanie za dwa.
+    """
+    return [call for call in run["apt"] if subcommand in call.split()]
+
+
+def test_ci_apt_helper_passes_its_own_socket_timeouts_to_apt():
+    """Limity gniazda muszą DOJŚĆ DO APTA, a nie stać w pliku.
+
+    Ten test jest PRZEPISANY, nie dopisany obok. Poprzednia wersja
+    (`test_ci_apt_helper_is_executable_and_retries`) pytała wyłącznie, czy napisy
+    `Acquire::http::Timeout` i `Acquire::https::Timeout` stoją gdziekolwiek
+    w skrypcie. Mutacja M1, zmierzona 04.09.2026: usunięcie obu opcji z `APT_OPTS`
+    i przeniesienie ich do komentarza obok — cały zestaw na zielono, 1343/1343,
+    a apt jechał bez limitu na martwe gniazdo, czyli dokładnie tak, jak
+    02.09.2026, kiedy trzy joby zawisły.
+
+    Teraz argumenty są czytane z ATRAPY `apt-get`, więc liczy się to, co proces
+    naprawdę dostał.
+    """
     assert os.access(HELPER, os.X_OK), "tools/ci/apt_install.sh musi być wykonywalny"
-    body = open(HELPER, encoding="utf-8").read()
-    assert "Acquire::http::Timeout" in body and "Acquire::https::Timeout" in body
-    assert "ATTEMPTS" in body and "sleep" in body
+
+    run = _run_apt_helper()
+    assert run["code"] == 0, (run["code"], run["err"])
+    installs = _apt_calls(run, "install")
+    assert len(installs) == 1, run["apt"]
+    for option in ("-o Acquire::http::Timeout=30",
+                   "-o Acquire::https::Timeout=30",
+                   "-o Acquire::Retries=3"):
+        for call in run["apt"]:
+            assert option in call, (option, call)
+
+
+def test_ci_apt_helper_really_retries_a_failing_update():
+    """Pętla ponawiania `update` musi się WYKONAĆ tyle razy, ile zapowiada.
+
+    Poprzednia wersja tej reguły sprawdzała obecność napisów `ATTEMPTS` i `sleep`.
+    Oba zostają w pliku po każdej mutacji, która pętlę usuwa — nazwa zmiennej
+    i tak stoi w deklaracji na górze skryptu.
+
+    Dwa przebiegi, bo jeden nie mierzy tego, co mówi: przy domyślnych dwóch próbach
+    liczba 2 mogłaby być przypadkiem (na przykład jednym wywołaniem i jednym
+    ponowieniem wpisanym z ręki). Podniesienie `APT_UPDATE_ATTEMPTS` do trzech
+    pokazuje, że pętla czyta ZMIENNĄ, a nie stałą.
+    """
+    two = _run_apt_helper(update_code=100)
+    assert two["code"] != 0, two
+    assert len(_apt_calls(two, "update")) == 2, two["apt"]
+    assert "nie powiodło się po 2 próbach" in two["err"], two["err"]
+    # `install` nie ma prawa się zacząć, gdy indeksy nie zjechały.
+    assert _apt_calls(two, "install") == [], two["apt"]
+    # Odczekanie między próbami jest częścią reguły: bez niego ponowienie trafia
+    # w tę samą blokadę dpkg co próba poprzednia.
+    assert two["sleeps"], "między próbami nie ma odczekania"
+
+    three = _run_apt_helper(update_code=100, attempts=3)
+    assert len(_apt_calls(three, "update")) == 3, three["apt"]
 
 
 def test_ci_apt_helper_lets_apt_handle_a_dead_socket():
@@ -103,11 +239,31 @@ def test_ci_apt_helper_lets_apt_handle_a_dead_socket():
     `Acquire::*::Timeout` przerywa martwe gniazdo po 30 s, a `Acquire::Retries`
     powtarza sam plik. Zewnętrzny limit jest sufitem na proces, nie mechanizmem
     ponawiania — inaczej wyrzuca do kosza 190 MB pobrane w połowie.
+
+    Sprawdzane na WYKONANIU. Mutacja M2, zmierzona 04.09.2026: zamiana
+    `sudo timeout … apt-get` na `timeout … sudo apt-get`. Napis `sudo timeout`
+    zostaje w pliku, bo stoi w komentarzu, który tę właśnie kolejność tłumaczy —
+    bramka łapała więc własne uzasadnienie i przechodziła, choć sygnał trafiał
+    w `sudo`, a pobieranie zostawało sierotą. Atrapa `sudo` zapisuje swoje argv,
+    więc kolejność jest widoczna wprost.
     """
-    body = open(HELPER, encoding="utf-8").read()
-    assert "sudo timeout" in body, "sygnał ma trafić w apt-get, nie w sudo"
-    assert "Acquire::Retries" in body
-    assert "124" in body, "kod 124 z `timeout` musi być rozpoznany i opisany"
+    run = _run_apt_helper()
+    assert run["sudo"], "skrypt nie wywołał sudo ani razu"
+    for call in run["sudo"]:
+        first = call.split()[0]
+        assert first == "timeout", (
+            f"sudo dostało jako pierwszy argument '{first}', a nie 'timeout' — "
+            "sygnał ze stopera trafi w sudo, nie w apt-get")
+        assert "--kill-after=" in call, call
+
+    # Kod 124 (i 137 po `--kill-after`) musi być ROZPOZNANY i opisany, inaczej
+    # w logu zostaje samo „zakończyło się kodem 124" bez słowa o limicie.
+    for code in (124, 137):
+        timed_out = _run_apt_helper(install_code=code)
+        assert timed_out["code"] != 0, timed_out
+        assert "przekroczyło" in timed_out["err"], (code, timed_out["err"])
+    other = _run_apt_helper(install_code=100)
+    assert "zakończyło się kodem 100" in other["err"], other["err"]
 
 
 def test_ci_install_is_not_retried_from_scratch():
@@ -116,13 +272,28 @@ def test_ci_install_is_not_retried_from_scratch():
     Zmierzone 02.09.2026 na `first-run`: trzy próby po 240 s, każda z postępem,
     każda ubita i zaczynająca od nowa — 13 minut na nic. Powtarzany jest tylko
     `update`, bo jest tani (11,7 MB w 2 s).
+
+    Mutacja M3, zmierzona 04.09.2026: dopisane za `apt_run … install` alternatywne
+    `|| { sleep …; sudo timeout … apt-get … install …; }`. Warunek strukturalny
+    niżej tego NIE łapie (wiersz `^apt_run "$…" install` zostaje dokładnie jeden,
+    nazwa `INSTALL_ATTEMPTS` nie pada), a `install` startował dwa razy. Dlatego
+    liczy się LICZBA WYWOŁAŃ atrapy `apt-get`, a nie kształt pliku.
     """
+    failed = _run_apt_helper(install_code=100)
+    assert failed["code"] != 0, failed
+    assert len(_apt_calls(failed, "install")) == 1, (
+        f"`install` wywołany {len(_apt_calls(failed, 'install'))} razy po porażce — "
+        "190 MB pobrane w połowie idzie do kosza")
+
+    good = _run_apt_helper()
+    assert len(_apt_calls(good, "install")) == 1, good["apt"]
+    assert len(_apt_calls(good, "update")) == 1, good["apt"]
+
+    # Warunek strukturalny zostaje jako druga linia obrony: podkomenda musi być
+    # czytana jako osobny token. Poprzednia wersja szukała podciągu "install"
+    # w całej linii i przechodziła nawet po podmianie `install` na `instalxx`,
+    # bo słowo zostaje w `--no-install-recommends`.
     body = open(HELPER, encoding="utf-8").read()
-    assert "apt_update" in body and "UPDATE_ATTEMPTS" in body
-    assert "INSTALL_ATTEMPTS" not in body, "install nie ma pętli prób"
-    # Podkomenda musi być czytana jako osobny token. Poprzednia wersja szukała
-    # podciągu "install" w całej linii i przechodziła nawet po podmianie
-    # `install` na `instalxx`, bo słowo zostaje w `--no-install-recommends`.
     subcommands = re.findall(r'(?m)^apt_run "\$[A-Z_]+" ([a-z-]+)', body)
     assert subcommands.count("install") == 1, subcommands
     assert set(subcommands) <= {"update", "install"}, subcommands
@@ -134,9 +305,19 @@ def test_ci_step_budget_covers_a_slow_mirror():
     Zmierzona prędkość lustra Azure w złym momencie: ~150 kB/s, czyli ponad
     20 minut samego pobierania. Sufit poniżej tego zamienia wolne, ale postępujące
     pobranie w twardą awarię — dokładnie to zrobiła pierwsza wersja tej poprawki.
+
+    Sufit jest odczytywany z WYWOŁANIA, nie z pliku. Mutacja M4, zmierzona
+    04.09.2026: `INSTALL_TIMEOUT_S=${APT_INSTALL_TIMEOUT_S:-60}` z poprzednim
+    wierszem przepisanym do komentarza obok. `re.search` bierze PIERWSZE trafienie,
+    czyli to z komentarza, więc test widział 1500 s, a stoper dostawał 60 —
+    i przechodził. Teraz liczba pochodzi z argumentów, jakie `timeout` naprawdę
+    dostał w przebiegu instalacji.
     """
-    body = open(HELPER, encoding="utf-8").read()
-    install_s = int(re.search(r"INSTALL_TIMEOUT_S=\$\{APT_INSTALL_TIMEOUT_S:-(\d+)\}", body).group(1))
+    run = _run_apt_helper()
+    installs = [call for call in run["sudo"] if "install" in call.split()]
+    assert len(installs) == 1, run["sudo"]
+    # `timeout --kill-after=30 <budżet> apt-get …` — budżet to trzeci token.
+    install_s = int(installs[0].split()[2])
     measured_s = 190 * 1024 / 150
     assert install_s >= measured_s, (install_s, measured_s)
     checked = 0
@@ -1469,6 +1650,101 @@ def test_ci_every_blender_generator_has_a_gate():
                          + " (skrypty realnie wołane: " + ", ".join(invoked) + ")")
 
 
+def _shell_function(script, name):
+    """Definicja funkcji shellowej wyjęta ze skryptu — po klamrach, nie po napisie.
+
+    Nazwa funkcji jest tu WSKAŹNIKIEM, co uruchomić, a nie werdyktem: samo
+    `expect_refusal()` w pliku nie mówi jeszcze, czy funkcja czegokolwiek wymaga.
+    Ciało wychodzi stąd do harnessu i tam się WYKONUJE.
+
+    Klamry liczone po odcięciu komentarza od `#` do końca wiersza. Wystarcza,
+    bo ani `fail()`, ani `expect_refusal()` nie mają klamry wewnątrz napisu —
+    gdyby kiedyś miały, `assert` na domknięcie niżej pokaże to wprost, zamiast
+    po cichu wyciąć pół funkcji.
+    """
+    lines = script.splitlines()
+    start = None
+    for index, line in enumerate(lines):
+        if re.match(r"^\s*" + re.escape(name) + r"\(\)\s*\{", line):
+            start = index
+            break
+    assert start is not None, f"w skrypcie nie ma definicji `{name}()`"
+    depth, collected = 0, []
+    for line in lines[start:]:
+        bare = line.split("#", 1)[0]
+        depth += bare.count("{") - bare.count("}")
+        collected.append(line)
+        if depth == 0:
+            break
+    assert depth == 0, f"definicja `{name}()` nie domyka się klamrą"
+    return "\n".join(collected)
+
+
+#: Cztery przebiegi, którymi sprawdza się `expect_refusal()`: (etykieta, kod wyjścia
+#: atrapy, czy atrapa zostawia plik, co wypisuje, czego test wymaga od harnessu).
+#: Pierwszy MUSI przejść — bez niego „padło" z pozostałych trzech mogłoby pochodzić
+#: z zepsutego harnessu, a nie z warunku, który jest mierzony.
+REFUSAL_RUNS = (
+    ("poprawna odmowa", 1, False, "odmowa: powód konkretny", 0, "[NEGATYW]"),
+    ("polecenie nie padło", 0, False, "odmowa: powód konkretny", 1, "NIE padło"),
+    ("odmowa zostawiła plik", 1, True, "odmowa: powód konkretny", 1, "zostawiła plik"),
+    ("brak diagnozy w logu", 1, False, "traceback z innego powodu", 1, "nie ma diagnozy"),
+)
+
+
+def _run_expect_refusal(script_name, exit_code, leaves_file, message):
+    """Uruchamia funkcję `expect_refusal()` WYJĘTĄ z bramki, na atrapie generatora.
+
+    Blendera tu nie ma i nie jest potrzebny: mierzona jest funkcja, która czyta
+    kod wyjścia, obecność pliku i log — a nie generator, który ją karmi. Atrapa
+    kończy się zadanym kodem, opcjonalnie zostawia plik wyjściowy i wypisuje zadany
+    komunikat, więc każdy z trzech warunków `expect_refusal()` da się rozbroić
+    z osobna i zobaczyć, czy funkcja to zauważy.
+    """
+    import shutil
+    import subprocess
+    import tempfile
+
+    script = open(os.path.join(ROOT, "tools", "ci", script_name),
+                  encoding="utf-8").read()
+    root = tempfile.mkdtemp(prefix="metro-negatyw-")
+    try:
+        generator = _shim(root, "generator",
+                          'if [ -n "${FAKE_MESSAGE:-}" ]; then echo "$FAKE_MESSAGE"; fi\n'
+                          'if [ "$FAKE_LEAVE" = 1 ]; then : > "$1"; fi\n'
+                          'exit "$FAKE_CODE"\n')
+        artefact = os.path.join(root, "wynik.glb")
+        log = os.path.join(root, "przebieg.log")
+        harness = os.path.join(root, "harness.sh")
+        with open(harness, "w", encoding="utf-8") as handle:
+            handle.write("#!/usr/bin/env bash\nset -euo pipefail\n"
+                         + _shell_function(script, "fail") + "\n"
+                         + _shell_function(script, "expect_refusal") + "\n"
+                         + f'expect_refusal "proba" "{artefact}" "{log}"'
+                           f' "odmowa: powód konkretny" "{generator}" "{artefact}"\n')
+        env = dict(os.environ)
+        env.update(FAKE_CODE=str(exit_code), FAKE_LEAVE="1" if leaves_file else "0",
+                   FAKE_MESSAGE=message, LC_ALL="C.UTF-8")
+        return subprocess.run(["bash", harness], env=env, capture_output=True,
+                              text=True, encoding="utf-8", errors="replace")
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+
+def _assert_refusal_function_has_teeth(script_name):
+    """Wspólny pomiar dla obu bramek: `expect_refusal()` wymaga wszystkich trzech rzeczy."""
+    for label, code, leaves, message, expected, needle in REFUSAL_RUNS:
+        result = _run_expect_refusal(script_name, code, leaves, message)
+        where = result.stdout if expected == 0 else result.stderr
+        assert (result.returncode == 0) == (expected == 0), (
+            f"{script_name} / {label}: expect_refusal zwróciło {result.returncode}, "
+            f"oczekiwano {'zera' if expected == 0 else 'niezera'}\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}")
+        assert needle in where, (
+            f"{script_name} / {label}: brak diagnozy /{needle}/ w wyjściu\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}")
+
+
 def test_ci_the_station_details_gate_reads_the_reason_of_every_refusal():
     """Odmowa bez przeczytanego powodu nie jest bramką, tylko awarią.
 
@@ -1478,20 +1754,25 @@ def test_ci_the_station_details_gate_reads_the_reason_of_every_refusal():
     bez niego test przechodzi także wtedy, gdy generator pada z zupełnie innego
     powodu — na przykład na literówce w nazwie pliku.
 
+    Trzy warunki są tu SPRAWDZANE PRZEZ URUCHOMIENIE, a nie przez obecność napisu.
+    Mutacja M5, zmierzona 04.09.2026: `if "$@" …; then fail …` zamienione na
+    `"$@" … || true` plus `if false; then fail …; fi`, a `test ! -e "$glb"`
+    i `grep -Eq "$pattern" "$log"` domknięte `|| true`. Wszystkie trzy napisy,
+    o które pytała poprzednia wersja, zostały w pliku bez zmiany — bramka
+    przechodziła zielono, a funkcja przyjmowała każdą odmowę, także taką, której
+    nie było.
+
     Ta sama konwencja co negatywy w `blender_smoke.sh`.
     """
+    _assert_refusal_function_has_teeth("station_details.sh")
+
     script = open(os.path.join(ROOT, "tools", "ci", "station_details.sh"),
                   encoding="utf-8").read()
     code = "\n".join(line for line in script.splitlines()
                      if not line.lstrip().startswith("#"))
 
-    assert "expect_refusal()" in code, "brak wspólnej funkcji sprawdzającej odmowy"
-    # Trzy warunki w jednym miejscu, więc żadna odmowa nie może ich pominąć.
-    assert 'fail "$label: polecenie NIE padło' in code
-    assert 'test ! -e "$glb"' in code, "odmowa nie sprawdza, czy nie powstał plik"
-    assert 'grep -Eq "$pattern" "$log"' in code, "odmowa nie czyta powodu z logu"
-
-    # Sześć odmów: dwie na peronach, cztery na słupkach.
+    # Sześć odmów: dwie na peronach, cztery na słupkach. To liczba wywołań,
+    # nie kształt funkcji — funkcję mierzy pomiar wyżej.
     assert code.count("expect_refusal ") >= 6, code.count("expect_refusal ")
     for pattern in ("nie zbudowano ani jednej bryły",
                     "okno .* jest puste",
@@ -1514,16 +1795,17 @@ def test_ci_the_material_style_gate_reads_the_reason_of_every_refusal():
     materiału wymaganego przez kamerę `close`). Te trzy są tu istotne, bo żadnej
     z nich nie da się wykonać bez uruchomionego Blendera — testy jednostkowe
     T-902 czytają wyłącznie JSON i nie wchodzą w generator ani na krok.
+
+    Trzy warunki `expect_refusal()` są tu sprawdzane PRZEZ URUCHOMIENIE — mutacja
+    M6 (04.09.2026) rozbroiła je wszystkie, zostawiając w pliku każdy napis,
+    o który pytała poprzednia wersja, i bramka przeszła zielono.
     """
+    _assert_refusal_function_has_teeth("material_style.sh")
+
     script = open(os.path.join(ROOT, "tools", "ci", "material_style.sh"),
                   encoding="utf-8").read()
     code = "\n".join(line for line in script.splitlines()
                      if not line.lstrip().startswith("#"))
-
-    assert "expect_refusal()" in code, "brak wspólnej funkcji sprawdzającej odmowy"
-    assert 'fail "$label: polecenie NIE padło' in code
-    assert 'test ! -e "$artefact"' in code, "odmowa nie sprawdza, czy nie powstał plik"
-    assert 'grep -Eq "$pattern" "$log"' in code, "odmowa nie czyta powodu z logu"
 
     assert code.count("expect_refusal ") >= 5, code.count("expect_refusal ")
     for pattern in ("FileNotFoundError",
@@ -1544,6 +1826,66 @@ def test_ci_the_material_style_gate_reads_the_reason_of_every_refusal():
             f"bramka szuka /{pattern}/, a generator tego nie wypisuje")
 
 
+def _env_prefixed_python_blocks(script):
+    """Ciała heredoców `python3 - <<'PY'` poprzedzonych przypisaniami zmiennych.
+
+    Prefiks `NAZWA=…` jest tu WSKAŹNIKIEM, który blok wziąć — to jedyny w tym
+    skrypcie blok, który dostaje wejście przez otoczenie, więc jedyny, który da
+    się uruchomić w oderwaniu od Blendera. Werdykt wydaje jego uruchomienie.
+    """
+    lines = script.splitlines()
+    blocks = []
+    for index, line in enumerate(lines):
+        if not re.match(r"^[A-Z_]+=.*python3 - <<'PY'$", line):
+            continue
+        body = []
+        for follow in lines[index + 1:]:
+            if follow == "PY":
+                break
+            body.append(follow)
+        blocks.append("\n".join(body))
+    return blocks
+
+
+def _glb_with_nodes(names):
+    """Minimalny, poprawny GLB z chunkiem JSON o zadanych nazwach węzłów."""
+    import json
+    import struct
+
+    document = json.dumps({"asset": {"version": "2.0"},
+                           "nodes": [{"name": name} for name in names]}).encode("utf-8")
+    document += b" " * ((4 - len(document) % 4) % 4)
+    chunk = struct.pack("<II", len(document), 0x4E4F534A) + document
+    return b"glTF" + struct.pack("<II", 2, 12 + len(chunk)) + chunk
+
+
+def _run_scene_check(body, ids, nodes, report, blob=None):
+    """Uruchamia wyjęty blok porównania presetów z GLB na podstawionym wejściu."""
+    import json
+    import shutil
+    import subprocess
+    import tempfile
+
+    root = tempfile.mkdtemp(prefix="metro-glb-")
+    try:
+        config = os.path.join(root, "visual-style.json")
+        out = os.path.join(root, "materials.glb")
+        log = os.path.join(root, "run.log")
+        with open(config, "w", encoding="utf-8") as handle:
+            json.dump({"material_presets": [{"id": i} for i in ids]}, handle)
+        with open(out, "wb") as handle:
+            handle.write(blob if blob is not None else _glb_with_nodes(nodes))
+        with open(log, "w", encoding="utf-8") as handle:
+            handle.write(report + "\n")
+        env = dict(os.environ)
+        env.update(CONFIG=config, OUT=out, LOG=log, LC_ALL="C.UTF-8")
+        return subprocess.run(["python3", "-"], input=body, env=env,
+                              capture_output=True, text=True,
+                              encoding="utf-8", errors="replace")
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+
 def test_ci_the_material_style_gate_checks_the_scene_not_only_the_generator_report():
     """Raport generatora nie jest weryfikacją generatora — to ta sama strona umowy.
 
@@ -1552,17 +1894,67 @@ def test_ci_the_material_style_gate_checks_the_scene_not_only_the_generator_repo
     `visual-style.json`, a nieobecny w scenie, przechodził przez to bez śladu.
     Dlatego bramka czyta chunk JSON wyeksportowanego GLB — bez Blendera, wprost
     ze struktury pliku — i porównuje nazwy węzłów z listą presetów.
+
+    Ten test jest PRZEPISANY, nie dopisany obok. Poprzednia wersja pytała, czy
+    w skrypcie stoją napisy `0x4E4F534A`, `swatch_` i `presety bez bryły w GLB`.
+    Mutacja M7, zmierzona 04.09.2026: `missing = [i for i in declared if not …]`
+    zamienione na `missing = []`. Wszystkie trzy napisy zostały w pliku, wiersz
+    `problems.append("presety bez bryły w GLB: " …)` też — tylko nigdy się już nie
+    wykonywał. Bramka przeszła zielono, a preset bez bryły w scenie znów byłby
+    niewidoczny. Teraz blok porównania jest WYJMOWANY ze skryptu i URUCHAMIANY
+    na pięciu podstawionych wejściach; Blender nie jest do tego potrzebny, bo
+    struktura GLB czyta się z bajtów.
     """
     script = open(os.path.join(ROOT, "tools", "ci", "material_style.sh"),
                   encoding="utf-8").read()
     code = "\n".join(line for line in script.splitlines()
                      if not line.lstrip().startswith("#"))
-
     assert 'grep -q "material_presets="' not in code, (
         "bramka wróciła do sprawdzania samego raportu generatora")
-    assert "0x4E4F534A" in code, "bramka nie czyta chunku JSON z GLB"
-    assert 'swatch_' in code, "bramka nie porównuje nazw brył z presetami"
-    assert 'presety bez bryły w GLB' in code, "bramka nie nazywa brakującego presetu"
+
+    blocks = _env_prefixed_python_blocks(script)
+    assert len(blocks) == 1, (
+        f"oczekiwano jednego bloku porównania presetów z GLB, znaleziono {len(blocks)}")
+    body = blocks[0]
+
+    healthy = dict(ids=["a", "b"], nodes=["swatch_a", "swatch_b", "floor"],
+                   report="material_presets=2 mesh_objects=3")
+    # 1. Wejście zgodne MUSI przejść. Bez tego przebiegu „padło" z pozostałych
+    #    czterech mogłoby pochodzić z podstawionego wejścia, a nie z porównania.
+    ok = _run_scene_check(body, **healthy)
+    assert ok.returncode == 0, (ok.returncode, ok.stdout, ok.stderr)
+    assert "[ZGODNOŚĆ]" in ok.stdout, ok.stdout
+
+    # 2. Preset z konfiguracji bez własnej bryły w GLB — liczba brył się zgadza,
+    #    więc łapie to WYŁĄCZNIE porównanie nazw.
+    missing = _run_scene_check(body, ids=["a", "b"],
+                               nodes=["swatch_a", "swatch_zz", "floor"],
+                               report="material_presets=2 mesh_objects=3")
+    assert missing.returncode != 0, (missing.stdout, missing.stderr)
+    assert "presety bez bryły w GLB" in missing.stderr, missing.stderr
+    assert missing.stderr.rstrip().endswith("b"), (
+        "diagnoza nie nazywa presetu, którego brakuje: " + missing.stderr)
+
+    # 3. Bryła `swatch_` ponad liczbę presetów — drugi kierunek tej samej niezgody.
+    extra = _run_scene_check(body, ids=["a", "b"],
+                             nodes=["swatch_a", "swatch_b", "swatch_c", "floor"],
+                             report="material_presets=2 mesh_objects=4")
+    assert extra.returncode != 0, extra.stdout
+    assert "ponad liczbę presetów" in extra.stderr, extra.stderr
+
+    # 4. Raport generatora niezgodny z konfiguracją.
+    lying = _run_scene_check(body, ids=["a", "b"],
+                             nodes=["swatch_a", "swatch_b", "floor"],
+                             report="material_presets=3 mesh_objects=3")
+    assert lying.returncode != 0, lying.stdout
+    assert "raport mówi" in lying.stderr, lying.stderr
+
+    # 5. Plik, który nie jest GLB — bramka nie ma prawa uznać go za zgodny.
+    junk = _run_scene_check(body, ids=["a"], nodes=[],
+                            report="material_presets=1 mesh_objects=2",
+                            blob=b"NIEGLB" + b"\0" * 26)
+    assert junk.returncode != 0, junk.stdout
+    assert "nie jest plikiem GLB" in junk.stderr, junk.stderr
 # --- kasowanie gałęzi: workflow, który musi sprawdzać, zanim skasuje ------------
 
 def _prune_workflow():
