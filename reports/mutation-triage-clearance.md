@@ -288,3 +288,311 @@ właściciela, nie asercja. §8: zatrzymanie na tej pozycji jest wynikiem pracy.
   się dopiero na wartości równej tolerancji z dokładnością do procenta, więc
   siedzą w klasie „tolerancja numeryczna", a nie tutaj. Test na samo wejście
   zdegenerowane nic by w przeglądzie nie ruszył i dlatego go nie ma.
+
+
+## Etap trzeci: reszta ocalałych — trzy klasy, 44 → 17
+
+**Data:** 2026-09-04
+**Zmierzone na commitach:** `8a02538` (przed) i `68da7da` (po) — oba przebiegi
+`tools/tests/mutation_sweep.py --only clearance_profile.py --workers 3`, każdy
+z własnym dziennikiem. Przebieg „po" stoi na commicie z dokładnie tym samym
+drzewem testów, co ten; ta sekcja doszła po nim, a przegląd czyta kod pod testem
+i `tools/tests/`, więc `reports/` nie zmienia wyniku.
+
+### Punkt odniesienia się NIE zgadza z tym z `docs/24`, i to jest wyjaśnione
+
+Pomiar końcowy pozycji 12 (`docs/24`) podawał na `c82157f` **76 mutacji, 28 zabitych,
+48 ocalałych**. Na dzisiejszym `main` (`8a02538`) wychodzi **76 / 32 / 44**. Różnica
+nie jest szumem i ma dwa niezależne powody, oba zmierzone:
+
+**1. #203 (scalone jako `8a02538`) dołożyło cztery zabicia.** Zbiór mutacji ma nadal
+76 pozycji, ale jego SKŁAD się zmienił — porównanie AST obu wersji modułu:
+
+```
+c82157f mutacji: 76   c87576a mutacji: 76
+  ('<', '<='): 22 -> 21
+  ('<=', '<'): 16 -> 17
+```
+
+`critical_places` przestało porównywać `clearance_m < threshold_m` wprost i woła
+`at_or_below_threshold`, a doszły dwie funkcje pasma (`within_threshold_band`,
+`at_or_below_threshold`), każda z własnym `<=`. Cztery testy pasma ±1 mm z #203
+zabijają je razem ze starym warunkiem.
+
+**2. Jedno z tych 32 zabić było FAŁSZYWE.** Dziennik przebiegu „przed" pokazuje, że
+mutację `w.142 '<=' -> '<'` uznano za zabitą, bo padł jeden test — i **nie był to
+test tego modułu**:
+
+```
+w.142 <= -> < : przezyla False, kod 1,
+                padly ['test_ci_blender_installer_refuses_a_tarball_whose_checksum_does_not_match']
+```
+
+Ta mutacja jest tą samą, którą etap drugi zmierzył jako **równoważną** (99 840 trafień
+w próg `len(set) == 2`, zero różnic w wyniku), więc zabita być nie mogła. Uczciwy punkt
+odniesienia to zatem **31 zabitych i 45 ocalałych**, a nie 32 i 44 — i tak jest liczony
+niżej. Przyczyna flaka jest wypisana na końcu tej sekcji.
+
+### Wynik
+
+| | przed (`8a02538`) | po (`68da7da`) |
+|---|---:|---:|
+| mutacji | 76 | 76 |
+| rozstrzygniętych | 76 | 76 |
+| zabitych, surowo z narzędzia | 32 | **59** |
+| z tego zabić fałszywych (flak) | 1 | **0** |
+| zabitych, uczciwie | 31 | **59** |
+| **ocalałych** | **45** | **17** |
+| pokrycie | 40,8 % | **77,6 %** |
+
+Dwadzieścia nowych testów w `tools/tests/test_clearance_profile.py` zabiło
+**28 mutacji**. Modułu nie tknięto ani w jednym miejscu — cała zmiana to testy
+i `docs/24`.
+
+Siedemnaście ocalałych rozkłada się bez reszty na **dziewięć zmierzonych
+równoważności** i **osiem pytań do właściciela**, z czego siedem stało w `docs/24`
+już wcześniej, a jedno doszło dziś jako pozycja 13.
+
+### Metoda: zero trafień w próg to dowód luki, nie równoważności
+
+Ta zasada nie jest tu ozdobą — zadziałała dwa razy w tej samej sesji.
+
+**Raz na plus.** Mutacja `value < best` -> `<=` w `clearance_in_planes`: 200 000
+losowych punktów w prawdziwym profilu `box_double` trafiło w remis półpłaszczyzn
+**DOKŁADNIE ZERO razy**. Samo próbkowanie orzekłoby więc równoważność. Wystarczyło
+podać kwadrat, żeby trafiać w 25 % przypadków — 50 023 remisy na 200 000 — i etykieta
+wiążącej krawędzi różniła się we **wszystkich 50 023**.
+
+**Raz na minus.** Mutacja `>` -> `>=` w progu ogona osi (`w.470`): tu zero trafień
+na 300 000 wejść nie było lukę pomiaru, tylko prawdą — i dowodzi tego argument,
+a nie próbkowanie. Ogon jest różnicą `last` i `round(count * step, 6)`, a `fl(1e-9)`
+nie jest wielokrotnością odstępu double przy realnym kilometrażu:
+
+```
+(0,5   + 1e-9) - 0,5   = 9.999999717180685e-10   != 1e-9
+(94,0  + 1e-9) - 94,0  = 1.0000036354540498e-09  != 1e-9
+(6700  + 1e-9) - 6700  = 1.000444171950221e-09   != 1e-9
+```
+
+Zostaje `out[-1] == 0.0`, czyli oś rzędu nanometra. Różnica między tymi dwoma
+przypadkami jest cała w tym, że drugi ma **wypisany warunek osiągalności progu**,
+a nie tylko liczbę prób.
+
+### Klasa „remis przy minimum": 9 pozycji, 7 zabitych
+
+Raport klasyfikował ją jednym zdaniem: „różnią się tylko wyborem indeksu,
+rozstrzygnięcie wymaga sprawdzenia, czy indeks jedzie dalej do raportu". Pomiar
+pokazał, że **klasa nie jest jednorodna** — w siedmiu miejscach jedzie, w dwóch nie.
+
+| wiersz | co wybiera indeks | co się zmienia przy remisie | trafień w remis | test |
+|---|---|---|---:|---|
+| 298 | wiążąca półpłaszczyzna | `bound_by` w każdym rekordzie i w `bound_by_counts`: `podłoga` -> `ściana` | 50 023 / 200 000 (kwadrat); **0** / 200 000 (`box_double`) | `..._a_tie_between_planes_picks_the_first_edge_in_ring_order` |
+| 329 | ramka pasma | zwracany INDEKS: 0 -> 1 | 9 935 / 50 000 | `..._a_tie_between_frames_keeps_the_earlier_frame` |
+| 418 | najgorszy kandydat | punkt styku w `min_at`: chainage 100,0 -> 115,0, lateral +1,35 -> −1,35 | remis w każdej pozycji na prostej | `..._a_tie_in_the_worst_candidate_keeps_the_first_vertex` |
+| 447 | to samo, przebieg naiwny | chainage 100,0 -> 115,0 — czyli `--verify-full` porównywałby dwa różne punkty | jak wyżej | `..._a_tie_in_the_naive_measurement_keeps_the_first_vertex` |
+| 569 | najbliższa stacja | NAZWA w raporcie: „A" -> „B" przy odległości 100 m po obu stronach | 276 / 50 000 | `..._a_tie_between_stations_names_the_earlier_one` |
+| 666 | kilometraż minimalnego promienia | miejsce najciaśniejszego łuku: 5,0 -> 25,0 przy promieniu 3,125 co do bitu | 5 / 5 (oś o stałym promieniu) | `..._a_tie_in_the_minimum_radius_keeps_the_first_chainage` |
+| 835 | najgorszy wierzchołek obwiedni | `where`: lateral +1,0 -> −1,0 | 2 / 4 | `..._a_tie_in_the_envelope_clearance_keeps_the_first_vertex` |
+
+**Remis konstruuje się pod sposób wybierania, nie pod funkcję.** Trzy przykłady z tej
+tabeli, bo każdy wymagał innego pomysłu:
+
+- w.298 — środek kwadratu remisuje na czterech krawędziach naraz; prawdziwy profil
+  tunelu nie remisuje nigdy, bo nie jest symetryczny w pionie.
+- w.329 — punkt DOKŁADNIE w połowie między dwiema ramkami: `|along|` wynosi 2,5
+  do jednej i do drugiej, i to jest równość **co do bitu**, nie przybliżenie.
+- w.666 — oś ze zygzaka o odcinkach (3, 4). Długość odcinka to dokładnie 5,0, więc
+  kilometraże wychodzą całkowite (`[0, 5, 10, 15, 20, 25, 30]`), `point_at` na
+  kilometrażu ±5 m trafia w węzeł bez interpolacji i wszystkie pięć promieni
+  wychodzi `3.125` co do bitu. Na łuku okręgu ten sam pomysł daje jedno trafienie
+  na 55 — zaokrąglenie kilometraży rozstrzyga remis za nas.
+
+#### Dwie pozycje, które zostają — z liczbą
+
+**w.407, wybór ramki dla pojedynczego wierzchołka: równoważna, 854 trafienia.**
+Remis jest tu częsty (2 480 trafień w 400 pozycjach na prostej, 854 w przeszukaniu
+osi łamanych o różnych kątach), a wyjście różni się **najwyżej o 8,88e-16 m**.
+Powód jest algebraiczny i też zmierzony: na odcinku prostym `band_coefficients`
+dwóch sąsiednich ramek dają identyczne chainage, lateral i vertical — różnica 0,0
+na 15 porównaniach — bo przesunięcie początku ramki wzdłuż stycznej znosi się
+z przyrostem kilometrażu. Osiem femtometrów przy mikrometrze, w którym `statistics`
+zapisuje minimum, to dziesięć rzędów zapasu.
+
+**w.755, `if value > row[slot]`: równoważna bez potrzeby szukania wejścia.**
+Przy remisie gałąź przypisuje wartość **równą tej, która już stoi w gnieździe** —
+żaden indeks się nie wybiera. Zmierzone i tak: 40 001 remisów `value == row[slot]`
+na 200 000 losowych par, `heights` i `rings()` identyczne po 4 000 próbkach,
+a próbka podana dwa razy daje ten sam słownik wysokości.
+
+### Klasa „tolerancja numeryczna": 13 pozycji, 8 zabitych
+
+**Klasyfikacja z raportu była w części nieprawdziwa i to trzeba zapisać wprost.**
+Raport pisał: „rozróżnia je wejście oddalone o mniej niż procent od tolerancji, czyli
+takie, którego geometria STIB nie produkuje. Klasa równoważnych w dziedzinie — do
+zapisania, nie do naprawiania". Sprawdzenie pokazało, że **pięć progów jest osiągalnych
+DOKŁADNIE, i to wejściem, które nie jest absurdalne**: `coverage_gaps`,
+`support_polygon` i `envelope_contains` są funkcjami czystymi, którym próg podaje się
+wprost na wejściu, a nie przez geometrię osi.
+
+| wiersz | próg | wejście trafiające DOKŁADNIE | co robi mutant |
+|---|---|---|---|
+| 481 | `abs(starts[0]) > 1e-6` | `starts[0] = 1e-6` | zgłasza „pierwsza pozycja czoła w 1e-06 m, nie w 0" |
+| 481 | `1e-6` -> `1,01e-6` | `starts[0] = 1,005e-6` | PRZESTAJE zgłaszać pozycję, która jest za daleko |
+| 484 | `abs(starts[-1] - koniec) > 1e-6` | `starts[-1] = 1e-6` przy oczekiwanym 0,0 | zgłasza problem, którego nie ma |
+| 484 | `1e-6` -> `1,01e-6` | `starts[-1] = 1,005e-6` | przestaje zgłaszać |
+| 487 | `b - a > step_m + 1e-6` | `a = 0,0`, `b = 5,000001` | zgłasza „dziurę 5,000 m", której nie ma |
+| 781 | `abs(det) < 1e-12` | `det((1, 0), (1, 1e-12)) == 1e-12` | pomija wierzchołek: 5 -> 4 |
+| 781 | `1e-12` -> `1,01e-12` | `det == 1,005e-12` | to samo, o krok dalej |
+| 857 | `odległość < -tolerance_m` | punkt `2**-20` poza kwadratem przy `tolerance_m = 2**-20` | liczy próbkę jako leżącą poza obwiednią |
+
+#### `docs/24` pozycja 6 potwierdza się liczbą, i to w dwie strony
+
+Tamta pozycja pytała, czy `1e-6` ma zostać, czy zmienić się na potęgę dwójki, bo
+`1e-6` przy dużym kilometrażu jest po jednej stronie granicy, a przy małym po drugiej.
+Ten etap dostarcza dwa niezależne pomiary tego samego zjawiska:
+
+```
+w.487, czy b - a jest DOKŁADNIE równe step + 1e-6:
+    a =    0,0   b-a = 5.000001              == 5.000001 : True
+    a =    5,0   b-a = 5.000000999999999     == 5.000001 : False
+    a = 6700,0   b-a = 5.0000010000003385    == 5.000001 : False
+  300 000 losowych par (a, a + step + 1e-6): trafień w równość 135, WSZYSTKIE przy a = 0
+
+w.857, czy odległość od obrysu jest DOKŁADNIE równa tolerancji:
+    punkt (1 + 2**-20, 0) -> -9.5367431640625e-07   == -2**-20 : True
+    punkt (1 + 1e-6,   0) -> -9.999999999177334e-07 == -1e-6   : False
+  200 000 losowych punktów: trafień w -1e-6 ZERO, w -2**-20 trafia się co do bitu
+```
+
+Rekomendacja techniczna z pozycji 6 (potęga dwójki) jest więc nie tylko czystsza —
+jest **jedyną, którą da się przypiąć testem przy niezerowej podstawie**. To nadal
+pytanie o zmianę wartości progu, więc rozstrzygnięcia nie wyprzedzam; test w.857
+podaje `tolerance_m = 2**-20` jako ARGUMENT, nie zmienia stałej.
+
+#### Dwie tolerancje naprawdę nieosiągalne — z warunkiem, nie z liczby prób
+
+**w.470, ogon osi (`1e-9`).** Zero trafień na 300 000 losowych trójek (oś 200-7000 m,
+skład 15-94 m, krok 0,25-5 m) plus warunek wypisany wyżej: przy `count > 0` różnica
+NIE MOŻE wyjść `fl(1e-9)`, bo `fl(1e-9)` nie jest wielokrotnością odstępu double
+w tym rzędzie. Jedyne wejście trafiające to `scan_positions(2e-9, 1e-9, 1.0)` —
+oś dwóch nanometrów. Test przybija to, po co ten próg stoi (ogon pokryty i NIE
+zdublowany), a nie samą granicę.
+
+**w.682, cięciwa zerowa (`1e-9`).** Tu próg JEST trafialny co do bitu: na osi prostej
+cięciwa od 0 do 1e-9 daje wektor `(1e-09, 0.0, 0.0)` i normę dokładnie `1e-9`.
+Tylko że po obu stronach progu wychodzi **to samo zero** — oryginał zwraca 0,0
+przez strażnika, mutant `<=` zwraca 0,0 licząc. Mutacja progu (`1e-9` -> `1,01e-9`)
+rozróżnia się dopiero na łuku i daje różnicę 1,8e-15 m, czyli 2 femtometry, przy
+cięciwie bryły M7 wynoszącej 15,12 m. Na łuku norma nie trafia w próg ani razu
+(0 na 200 000 par kilometraży), bo `frame_at` interpoluje.
+
+### Klasa „inne": 15 pozycji, 13 zabitych
+
+| wiersz | mutacja | co rozstrzyga | test |
+|---|---|---|---|
+| 150 | `<=` -> `<` | wierzchołek DOKŁADNIE na krawędzi otoczki zostaje w otoczce | `..._hull_drops_a_collinear_point_on_the_lower_chain` |
+| 150 | `0.0` -> `0.001` | wierzchołek o zakręcie 0,0005 wypada z otoczki | `..._hull_keeps_a_lower_vertex_below_one_millimetre_of_turn` |
+| 155 | `<=` -> `<` | to samo w łańcuchu GÓRNYM | `..._hull_drops_a_collinear_point_on_the_upper_chain` |
+| 155 | `0.0` -> `0.001` | to samo, próg | jak wyżej |
+| 515 | `<=` -> `<` | dwa okna DOKŁADNIE styczne przestają się scalać: `[(-4,12)]` -> `[(-4,4), (4,12)]` | `..._touching_refine_windows_merge_into_one` |
+| 560 | `<` -> `<=` | luz DOKŁADNIE 0 liczony jako pozycja ujemna | `..._zero_clearance_is_not_counted_as_negative` |
+| 560 | `0.0` -> `0.001` | luz 0,5 mm liczony jako pozycja ujemna | jak wyżej |
+| 661 | `<` -> `<=` | kilometraż równy połowie cięciwy pomijany: 5,0 -> 10,0 | `..._min_radius_includes_the_chainage_exactly_at_half_chord` |
+| 661 | `>` -> `>=` | kilometraż `total - half` pomijany: (25,0; 3,125) -> (20,0; 7,906) | `..._min_radius_includes_the_last_admissible_chainage` |
+| 742 | `<` -> `<=` | próbka na `low_m` nie wnosi się do żadnego pierścienia: `(1, 2)` -> `()` | `..._envelope_rings_include_both_range_ends` |
+| 742 | `>` -> `>=` | to samo na `high_m`: `(5, 6)` -> `()` | jak wyżej |
+| 745 | `<=` -> `<` (lewa) | pierścień o indeksie `first` wypada: `(2, 3)` -> `(3,)` | `..._envelope_rings_include_the_first_and_last_ring_index` |
+| 745 | `<=` -> `<` (prawa) | pierścień o indeksie `last` wypada: `(5, 6)` -> `(5,)` | jak wyżej |
+
+**Dwa łańcuchy otoczki to dwie osobne bramki, i to trzeba było zmierzyć.** Wejście
+współliniowe na DOLE zmienia otoczkę pod mutacją w.150 i nie zmienia jej pod w.155;
+na GÓRZE odwrotnie. Jedno wejście dawałoby więc pokrycie jednej z dwóch bramek
+i wyglądałoby dokładnie tak, jakby dawało pokrycie obu. Trafienia w próg policzone:
+na 200 000 losowych zbiorów na siatce 4x4 trójka o zakręcie DOKŁADNIE zero wypadła
+49 621 razy, a otoczka różniła się w 22 482.
+
+**Wiersz 745 nosi DWIE mutacje** — `self.first <= r <= self.last` to porównanie
+łańcuchowe i narzędzie liczy każdy operator osobno. Obie zabija ten sam test, ale
+osobnymi asercjami: lewą przy chainage na początku zakresu, prawą na końcu.
+
+#### Dwie pozycje „inne", które zostają
+
+**w.405 `<` -> `<=`: `if along < 0.0: along = -along`, czyli ręczna wartość bezwzględna.**
+Mutant podstawia `-0.0` zamiast `0.0`. `-0.0 == 0.0` jest prawdą, `-0.0 < 0.0`
+fałszem, a `along` nie jedzie dalej niż do porównania `along < closest` — więc
+podmiana jest nieobserwowalna. Zmierzone: `along == 0.0` wypadło **DOKŁADNIE
+1 488 razy** w 120 pozycjach na osi prostej i rekord nie różnił się ani razu.
+
+**w.405 `0.0` -> `0.001`: równoważna w dziedzinie, z warunkiem.** Mutant negowałby
+każdy `along` poniżej milimetra, a różnica wymaga **DWÓCH kandydatów bliżej niż
+milimetr od swoich kilometraży**. Kandydaci to sąsiednie pierścienie osi, czyli 5 m
+od siebie — zmierzone: **0 takich par na 24 800 sprawdzonych wierzchołków**. Na osi
+zdegenerowanej (łuk R = 0,01 m, pierścienie co 0,5 mm) różnica pojawia się w 7 z 8
+pozycji i wynosi 2,47e-05 m, ale `MIN_RADIUS_M` w tym repozytorium to 20 m.
+
+### Co zostało wypisane jako pytanie, a nie rozstrzygnięte
+
+**w.262, `turn < -CONVEXITY_EPS`** — nowa pozycja **13** w
+`docs/24-clearance-profile-decisions.md`. `CONVEXITY_EPS` jest w `halfplanes` użyta
+dwa razy, o osiemnaście wierszy od siebie, i odchyłka DOKŁADNIE równa tolerancji
+trafia w tych dwóch miejscach po przeciwnych stronach granicy: pole obrysu na progu
+**odrzuca** (`<=`, przybite testem w #197 na mocy decyzji z pozycji 12), a zakręt na
+progu **przyjmuje** (`<`). Oba wejścia skonstruowane co do bitu — obrys
+`[(0,0), (1,0), (2,-1e-9), (3,0), (3,2), (0,2)]` ma najmniejszy zakręt równy `-1e-9`
+i `area2 = 12.000000002`, więc jest obrysem, a nie geometrią zdegenerowaną.
+
+To jest ten sam kształt pytania, co pozycja 4: ta sama stała, ta sama jednostka,
+przeciwna konwencja na granicy. Przypięcie w.262 testem **bez odpowiedzi**
+zabetonowałoby zachowanie, którego nikt nie wybrał — czyli dokładnie to, przed czym
+`docs/24` ostrzega we wstępie. `CLAUDE.md` §8: zatrzymanie się tutaj jest wynikiem.
+
+Konsekwencja dla dzisiejszych danych: **zerowa.** Najmniejszy zakręt w `profiles.py`
+to `bore_single` z 0,0606 — 7,8 rzędu powyżej progu.
+
+### Siedemnaście ocalałych, bez reszty
+
+| wiersz | mutacja | status |
+|---|---|---|
+| 142 | `<=` -> `<` | zmierzona równoważność (etap drugi: 99 840 trafień, 0 różnic) |
+| 262 | `<` -> `<=` | **pytanie do właściciela — `docs/24` pozycja 13** |
+| 277 | `<=` -> `<` | `docs/24` pozycja 1, otwarta |
+| 279 | `>=` -> `>` | `docs/24` pozycja 1, otwarta |
+| 279 | `0.9` -> `0.909` | `docs/24` pozycja 1, otwarta |
+| 281 | `>=` -> `>` | `docs/24` pozycja 2, otwarta |
+| 281 | `0.9` -> `0.909` | `docs/24` pozycja 2, otwarta |
+| 405 | `<` -> `<=` | zmierzona równoważność (1 488 trafień, 0 różnic) |
+| 405 | `0.0` -> `0.001` | równoważna w dziedzinie (0 par na 24 800 wierzchołków) |
+| 407 | `<` -> `<=` | zmierzona równoważność (854 trafienia, różnica ≤ 8,88e-16 m) |
+| 470 | `>` -> `>=` | równoważna w dziedzinie (0 / 300 000 + warunek osiągalności) |
+| 470 | `1e-9` -> `1,01e-9` | jak wyżej |
+| 586 | `<=` -> `<` | `docs/24` pozycja 8, otwarta |
+| 612 | `<=` -> `<` | `docs/24` pozycja 5, otwarta |
+| 682 | `<` -> `<=` | zmierzona równoważność (próg trafiony, po obu stronach 0,0) |
+| 682 | `1e-9` -> `1,01e-9` | równoważna w dziedzinie (2 femtometry na cięciwie 1 nm) |
+| 755 | `>` -> `>=` | równoważność dowodliwa (przypisanie wartości równej) |
+
+Dziewięć równoważności, osiem pytań. **Żadna ocalała nie jest już nierozpoznana.**
+
+### Zauważone przy okazji, nietknięte
+
+**`test_ci_blender_installer_refuses_a_tarball_whose_checksum_does_not_match` jest
+flaky przy przebiegu współbieżnym** — i to on wyprodukował fałszywe zabicie
+w przebiegu „przed". Nazwa tarballa jest w nim zaszyta na stałe:
+
+```python
+leftover = f"/tmp/blender-{FAKE_BLENDER_VERSION}-linux-x64.tar.xz"
+```
+
+Trzy robotnicy przeglądu uruchamiają `test_all.py` równolegle i wchodzą sobie w tę
+jedną ścieżkę: jeden sprząta plik, którego drugi jeszcze używa. W dzienniku „przed"
+test padł 1 raz, w dzienniku „po" 3 razy — i tylko raz był JEDYNYM padniętym testem,
+czyli tylko raz przekłamał werdykt. W przebiegu „po" każdy dotknięty flakiem wpis
+miał też prawdziwe padnięcie, więc **żadne z 59 zabić nie jest fałszywe** —
+sprawdzone wpis po wpisie w dzienniku, nie założone.
+
+`tools/tests/test_ci_workflows.py` jest poza zakresem tego zadania, więc nie ruszony.
+Poprawka jest jednozdaniowa (katalog tymczasowy zamiast `/tmp` na stałe), ale
+dotyczy pliku, którego to zadanie nie miało dotykać — i jest to zarazem powód, żeby
+**każdy przyszły przegląd czytał dziennik, a nie tylko podsumowanie**: narzędzie
+liczy „padł jakikolwiek test" jako zabicie i nie ma jak wiedzieć, że padł test
+o niczym.

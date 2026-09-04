@@ -417,6 +417,72 @@ znalazłem różnicy".
 
 ---
 
+## 13. `CONVEXITY_EPS` ma dziś DWIE przeciwne konwencje na granicy — którą ujednolicić?
+
+Pozycja dopisana 04.09.2026 po triażu reszty ocalałych mutacji; pytanie wyszło
+z pomiaru, nie z tej listy. Nie rozstrzygam jej sam, bo jest tym samym rodzajem
+pytania, co pozycja 4: **ta sama stała, ta sama jednostka, przeciwna konwencja
+na granicy** — tylko tu obie strony są w jednej funkcji.
+
+`halfplanes` używa `CONVEXITY_EPS = 1e-9` dwa razy, o osiemnaście wierszy od siebie:
+
+```python
+if abs(area2) <= CONVEXITY_EPS:          # w. 239 — pole obrysu
+    raise ValueError("obrys profilu ma zerowe pole")
+...
+if turn < -CONVEXITY_EPS:                # w. 262 — wypukłość obrysu
+    raise ValueError("obrys profilu nie jest wypukły")
+```
+
+Odchyłka **dokładnie równa tolerancji** trafia w tych dwóch miejscach po przeciwnych
+stronach granicy, i oba przypadki są osiągalne CO DO BITU — zmierzone, nie oszacowane:
+
+| miejsce | wejście na progu | co robi kod dziś |
+|---|---|---|
+| w. 239, pole | trójkąt 1e-5 x 1e-4 m -> `area2` DOKŁADNIE `1e-09` | **ODRZUCA** (`<=`) |
+| w. 262, wypukłość | obrys CCW z zakrętem DOKŁADNIE `-1e-09` | **PRZYJMUJE** (`<`) |
+
+Konstrukcja drugiego wejścia, żeby dało się to powtórzyć:
+
+```
+ring   = [(0,0), (1,0), (2,-1e-9), (3,0), (3,2), (0,2)]
+area2  = 12.000000002                    (11 rzędów powyżej progu, obrys jest obrysem)
+zakręty = [-1e-09, 2e-09, 2.0, 6.0, 6.0, 2.0]
+najmniejszy zakręt == -1e-9 co do bitu: True
+oryginał    : PRZYJĄŁ, 6 półpłaszczyzn
+mutacja `<=`: ODMÓWIŁ — „obrys profilu nie jest wypukły"
+```
+
+Granica w. 239 została przybita testem w #197 (decyzja z pozycji 12: na progu
+**odrzucać**). Granica w. 262 nie jest przybita niczym, a mutacja `<` -> `<=`
+przeżywa przegląd właśnie dlatego, że nikt nie powiedział, co ma się stać
+na progu. Przypięcie jej testem **bez odpowiedzi** zabetonowałoby zachowanie,
+którego nikt nie wybrał — a to jest dokładnie zarzut ze wstępu tego dokumentu.
+
+- **Ujednolicić „na progu odrzucamy" (`turn <= -EPS`):** obie strony czytają tak samo,
+  „odchyłka równa tolerancji jest już odchyłką". Cena: obrys o zakręcie dokładnie
+  `-1e-9` przestaje przechodzić, czyli tolerancja robi się o jeden bit ciaśniejsza.
+- **Ujednolicić „na progu przyjmujemy" (`abs(area2) < EPS`):** wymagałoby zmiany
+  decyzji z pozycji 12, więc jest to pytanie o cofnięcie tamtej odpowiedzi, nie
+  o nową.
+- **Trzecia droga, ta z pozycji 3:** zamiast wybierać stronę operatora, zgłaszać
+  pasmo. Tu jednak wyjściem jest odmowa, a nie liczba w raporcie, więc „obrys
+  prawie wypukły" nie ma gdzie zostać zgłoszony — pasmo dałoby trzeci stan
+  w funkcji, która dziś ma dwa.
+
+**Czego to NIE zmienia i to jest zmierzone:** żadnego prawdziwego profilu. Najmniejszy
+zakręt w `profiles.py` to `bore_single` z **0,0606** — 7,8 rzędu POWYŻEJ progu:
+
+| profil | najmniejszy zakręt | względem progu |
+|---|---:|---|
+| `bore_single` | 0,0606026 | 7,8 rzędu powyżej |
+| `box_double` | 3,025 | 9,5 rzędu powyżej |
+| `station` | 4,640 | 9,7 rzędu powyżej |
+
+Pytanie jest więc o **spójność i o profil, który dopiero powstanie**, nie o dzisiejszy
+wynik — tak samo jak pozycja 11, z którą łączy je ta sama stała. Konsekwencja liczbowa
+dla pakietu A: **zerowa.**
+
 ## Czego na tej liście nie ma
 
 Nie ma tu **wartości progów raportowania** (1,000 · 0,950 · 0,900 · 0,500 · 0,300 · 0,0).
