@@ -175,3 +175,84 @@ def test_parsers_reject_what_they_should():
     assert tfm_major("net10.0") == 10
     assert tfm_major("net8.0") == 8
     assert tfm_major("net8.0") < MINIMUM_SUPPORTED_MAJOR
+
+
+# --- doctor.sh sprawdza WERSJĘ SDK, nie samą obecność `dotnet` -----------------------
+
+DOCTOR = os.path.join(ROOT, "doctor.sh")
+
+
+def test_doctor_compares_the_sdk_major_against_the_target_framework():
+    """`chk_required "dotnet SDK" "dotnet --version"` sprawdzało tylko, czy `dotnet`
+    się uruchamia.
+
+    Zmierzone 04.09.2026, zaraz po podniesieniu rdzenia na `net10.0`: doctor na
+    SDK 8.0.130 wypisywał `ok dotnet SDK`, a dwadzieścia wierszy niżej
+    `BLAD dotnet test nie przechodzi` z błędem NETSDK1045 — czyli mówił „ok"
+    o tym samym SDK, przez które przed chwilą padł. Podpowiedź obiecywała
+    „.NET SDK 10.0+", ale nikt tego nie sprawdzał.
+
+    Wymagana wersja ma pochodzić z `<TargetFramework>`, a nie być wpisana w doctora
+    z ręki — inaczej przy następnym podniesieniu byłyby dwa źródła prawdy.
+    """
+    with open(DOCTOR, encoding="utf-8") as handle:
+        doctor = handle.read()
+
+    assert "REQUIRED_TFM" in doctor, "doctor nie czyta wymaganej wersji znikąd"
+    assert "src/Sim/Sim.csproj" in doctor, (
+        "doctor musi brać wymaganą wersję z csproj, a nie z liczby wpisanej obok")
+    assert "NETSDK1045" in doctor, "podpowiedź nie nazywa błędu, który tu pada"
+
+    # Liczba major NIE może stać w doctorze jako literał obok warunku.
+    major = tfm_major(target_framework(open(
+        os.path.join(ROOT, "src", "Sim", "Sim.csproj"), encoding="utf-8").read()))
+    assert f'-ge "{major}"' not in doctor and f"-ge {major}" not in doctor, (
+        f"doctor porównuje z wpisaną liczbą {major} zamiast z odczytaną z csproj")
+
+
+def test_doctor_sdk_check_actually_reads_the_current_target_framework():
+    """Sam `sed` z doctora, puszczony na tym samym pliku, ma dać dzisiejszą wersję."""
+    import re
+    import subprocess
+
+    match = re.search(r'REQUIRED_TFM="\$\((.+?)\)"', open(DOCTOR, encoding="utf-8").read())
+    assert match, "nie znalazłem podstawienia REQUIRED_TFM w doctor.sh"
+
+    got = subprocess.run(["bash", "-c", match.group(1)], cwd=ROOT,
+                         capture_output=True, text=True).stdout.strip()
+    expected = tfm_major(target_framework(open(
+        os.path.join(ROOT, "src", "Sim", "Sim.csproj"), encoding="utf-8").read()))
+    assert got == str(expected), (got, expected)
+
+
+def test_doctor_sdk_condition_actually_rejects_an_old_sdk():
+    """Kontrola, która sprawdza OBECNOŚĆ warunku, nie sprawdza, czy warunek działa.
+
+    Kontrola negatywna 04.09.2026: podmiana samego porównania na `true` przechodziła
+    cały zestaw — dwa poprzednie testy pilnowały, że w doctorze STOI odczyt wersji
+    z csproj, ale żaden nie pytał, czy porównanie cokolwiek odrzuca. Ten wyciąga
+    warunek z pliku i URUCHAMIA go dla SDK starszego i nowszego od wymaganego.
+    """
+    import re
+    import subprocess
+
+    doctor = open(DOCTOR, encoding="utf-8").read()
+    # Wyrażenie `"([^"]+)"` urywało się na pierwszym `\"` i wyciągało `[ \\` —
+    # warunek z cudzysłowami w środku trzeba brać po wierszu, nie po parze cudzysłowów.
+    lines = [line.strip() for line in doctor.splitlines() if "-ge" in line and "REQUIRED_TFM" in line]
+    assert len(lines) == 1, lines
+    condition = lines[0].rstrip("\\").strip()
+    assert condition.startswith('"') and condition.endswith('"'), condition
+    condition = condition[1:-1].replace('\\"', '"')
+
+    required = tfm_major(target_framework(open(
+        os.path.join(ROOT, "src", "Sim", "Sim.csproj"), encoding="utf-8").read()))
+
+    def run(have):
+        script = f'HAVE_SDK_MAJOR="{have}"; REQUIRED_TFM="{required}"; {condition}'
+        return subprocess.run(["bash", "-c", script]).returncode
+
+    assert run(required - 1) != 0, f"warunek przepuścił SDK {required - 1} przy wymaganym {required}"
+    assert run(required) == 0, f"warunek odrzucił SDK {required} przy wymaganym {required}"
+    assert run(required + 1) == 0, "warunek odrzucił SDK nowsze niż wymagane"
+

@@ -22,6 +22,23 @@ echo ""
 echo "Wymagane dla rdzenia symulacji (T-310 jest zrobione, src/Sim istnieje):"
 chk_required "dotnet SDK" "dotnet --version" "zainstaluj .NET SDK 10.0+ (https://dotnet.microsoft.com/download)"
 
+# Sama obecność `dotnet` nie wystarczy i to jest zmierzone, nie przewidywane.
+# Po podniesieniu rdzenia na `net10.0` (04.09.2026) doctor na SDK 8.0.130 wypisywał
+# `ok dotnet SDK`, a dwadzieścia wierszy niżej `BLAD dotnet test nie przechodzi`
+# z błędem NETSDK1045 — czyli mówił „ok" o tym samym SDK, przez które przed chwilą
+# padł. Podpowiedź obiecywała „10.0+", ale nikt tego nie sprawdzał.
+#
+# Wymagana wersja NIE jest tu wpisana z ręki: czyta się ją z `<TargetFramework>`
+# w `src/Sim/Sim.csproj`, czyli z jedynego miejsca, które o niej decyduje. Wpisanie
+# jej drugi raz dałoby dwa źródła prawdy i rozjazd przy następnym podniesieniu.
+REQUIRED_TFM="$(sed -n 's/.*<TargetFramework>net\([0-9]*\)\..*/\1/p' src/Sim/Sim.csproj 2>/dev/null | head -1)"
+HAVE_SDK_MAJOR="$(dotnet --version 2>/dev/null | cut -d. -f1)"
+if [ -n "$REQUIRED_TFM" ] && [ -n "$HAVE_SDK_MAJOR" ]; then
+  chk_required "dotnet SDK >= $REQUIRED_TFM (jest $HAVE_SDK_MAJOR)" \
+    "[ \"$HAVE_SDK_MAJOR\" -ge \"$REQUIRED_TFM\" ]" \
+    "src/Sim/Sim.csproj celuje w net${REQUIRED_TFM}.0, a to SDK tego nie zbuduje (NETSDK1045); pobierz nowsze z https://dotnet.microsoft.com/download"
+fi
+
 echo ""
 echo "Wymagane dopiero przez konkretne zadania:"
 # Blender bywa instalowany poza PATH: `tools/ci/blender_install.sh` rozpakowuje
