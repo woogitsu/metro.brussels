@@ -133,9 +133,11 @@ których agent nie ruszy bez decyzji właściciela.
   jako `unknown` i `docs/11` zabrania liczenia wind z listy wyjść
 - **Zależy od:** T-010, R-004 (zrobione), R-005 (zrobione), R-007 (zrobione)
 
-### [ ] T-212 · Pierwsza stacja typowa — **ZABLOKOWANE tylko przez T-211**
-- **Stan:** blokada danych zdjęta przez R-007; zostaje kolejność zadań
-- **Zależy od:** T-211 (odblokowane, ale niezrobione), T-210 (zrobione)
+### [ ] T-212 · Pierwsza stacja typowa — **ODBLOKOWANE**
+- **Stan:** blokada danych zdjęta przez R-007 (wysokość peronu 1,03 m `source_backed`),
+  blokada zadaniowa zdjęta przez T-211 — oba etapy scalone (#110). Zostaje kolejność:
+  faza 3 planu, po T-320
+- **Zależy od:** T-211 (zrobione), T-210 (zrobione), R-007 (zrobione)
 
 ### [x] T-220 · Bryła zewnętrzna M7
 - **Wyjście:** `tools/blender/m7_shell.py`, `m7_layout.py`, `reports/M7-shell.md`
@@ -375,8 +377,9 @@ chunków i przełączanie LOD. Ta faza dotknie miejsc wymagających decyzji wła
 
 ### Znane rozjazdy w dokumentach
 
-- `CLAUDE.md` §2 mówi „**25 testów narzędzi**". Jest **691**. Liczba pochodzi z czasów,
-  gdy `test_all.py` był jednym plikiem; dziś zbiera 30 modułów.
+- ~~`CLAUDE.md` §2 mówi „25 testów narzędzi"~~ — **zamknięte**: liczba zeszła z pliku,
+  bo zaszywanie jej w konstytucji generowało rozjazd przy każdym nowym module.
+  Dla porządku: `test_all.py` zbiera dziś **700** testów z 31 modułów.
 - Dziesięć Issues jest otwartych, choć zadanie leży w `main` (#9, #15–#17, #20–#24, #27).
   Ten plik deklaruje Issues źródłem prawdy o statusie, więc rozjazd jest realny.
   Część z nich właściciel poprosił, żeby zostawić otwarte.
