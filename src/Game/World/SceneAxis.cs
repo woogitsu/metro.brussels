@@ -87,9 +87,26 @@ public sealed class SceneAxis
     /// wzdłuż składu, +Y jest pionem, +Z jest stroną. Dokładnie ta sama zamiana, co
     /// w <see cref="ToScene"/>.
     /// </summary>
-    public Transform3D BodyTransform(double rearChainageM, double localFromM, double localToM)
+    public Transform3D BodyTransform(double rearChainageM, double localFromM, double localToM) =>
+        BodyTransform(
+            rearChainageM + localFromM, rearChainageM + localToM, localFromM, localToM);
+
+    /// <summary>
+    /// Transformacja bryły z gotowej decyzji <see cref="TrainLayout"/>. Cięciwa jest
+    /// wzięta z planu, a nie liczona tu po raz drugi: plan jest jedynym miejscem, w
+    /// którym kilometraż ogona spotyka się z lokalnym zakresem bryły.
+    /// </summary>
+    public Transform3D BodyTransform(BodyPlacement placement) =>
+        BodyTransform(
+            placement.FromChainageM,
+            placement.ToChainageM,
+            placement.Span.FromM,
+            placement.Span.ToM);
+
+    private Transform3D BodyTransform(
+        double fromChainageM, double toChainageM, double localFromM, double localToM)
     {
-        var frame = Chord(rearChainageM + localFromM, rearChainageM + localToM);
+        var frame = Chord(fromChainageM, toChainageM);
         var basis = new Basis(frame.Forward, frame.Up, frame.Right);
         var centreLocalX = (float)(0.5 * (localFromM + localToM));
         var origin = frame.Origin - (basis * new Vector3(centreLocalX, 0.0f, 0.0f));
