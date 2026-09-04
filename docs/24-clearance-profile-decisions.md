@@ -417,7 +417,7 @@ znalazłem różnicy".
 
 ---
 
-## 13. `CONVEXITY_EPS` ma dziś DWIE przeciwne konwencje na granicy — którą ujednolicić?
+## 13. `CONVEXITY_EPS` miał DWIE przeciwne konwencje na granicy — ROZSTRZYGNIĘTE 04.09.2026
 
 Pozycja dopisana 04.09.2026 po triażu reszty ocalałych mutacji; pytanie wyszło
 z pomiaru, nie z tej listy. Nie rozstrzygam jej sam, bo jest tym samym rodzajem
@@ -452,6 +452,26 @@ najmniejszy zakręt == -1e-9 co do bitu: True
 oryginał    : PRZYJĄŁ, 6 półpłaszczyzn
 mutacja `<=`: ODMÓWIŁ — „obrys profilu nie jest wypukły"
 ```
+
+**Odpowiedź właściciela: ujednolicić na „odrzuć na progu".** Zakręt dokładnie równy
+`-CONVEXITY_EPS` jest teraz odmową (`turn <= -CONVEXITY_EPS`), tak samo jak pole
+dokładnie równe progowi. Jedna stała, jedna konwencja.
+
+Warunek, który postawiłem przed wdrożeniem: zaostrzenie nie może odrzucić prawdziwego
+profilu. Zmierzone przed zmianą, wszystkie trzy profile z `profiles.py`:
+
+```
+profil             najmniejszy zakret     zapas nad -EPS
+bore_single       0.06060260000000016          6.06e+07x
+box_double          3.024999999999999          3.02e+09x
+station             4.639999999999999          4.64e+09x
+```
+
+Wszystkie **dodatnie** i najbliższy progu leży 6·10⁷ razy nad nim, więc zaostrzenie
+nie ma jak dotknąć prawdziwego obrysu. Tolerancja na szum zaokrąglenia zostaje:
+obrys z zakrętem `-1e-10`, czyli dziesięć razy bliżej zera niż próg, nadal przechodzi
+i jest to przybite osobnym testem — inaczej nie dałoby się odróżnić „zaostrzyłem
+granicę" od „zjadłem całą tolerancję".
 
 Granica w. 239 została przybita testem w #197 (decyzja z pozycji 12: na progu
 **odrzucać**). Granica w. 262 nie jest przybita niczym, a mutacja `<` -> `<=`
