@@ -57,7 +57,7 @@ public readonly record struct BrakingPoint(
 /// przyczepnościowego. Opory i pochylenie w dół są w tym miejscu po stronie
 /// bezpiecznej i po stronie niebezpiecznej odpowiednio, więc mieszanie ich do wzoru
 /// zamkniętego dałoby wynik, którego nie da się sprawdzić ręcznie. Drogę z oporami
-/// liczy numerycznie <see cref="BrakingRun"/>, a różnicę między jednym a drugim
+/// liczy numerycznie <see cref="Train.BrakingRun"/>, a różnicę między jednym a drugim
 /// raport podaje liczbą dla każdej prędkości. Osiągalność zadanego opóźnienia
 /// sprawdza <see cref="BrakeAdhesionLimit"/>.</para>
 /// </summary>

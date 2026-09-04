@@ -218,6 +218,7 @@ public sealed class TrackAxis
     /// ile interpolacja dołożyła do przebiegu STIB. Odpowiednik
     /// <c>tools/blender/sweep.py: max_deviation</c>; na pakiecie A wychodzi 0,1064 m.
     /// </summary>
+    /// <returns>Odległość w metrach; zero, gdy oś nie została zagęszczona.</returns>
     public double MaxDeviationFromSourceM()
     {
         var worst = 0.0;

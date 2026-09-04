@@ -20,6 +20,14 @@
     <Deterministic>true</Deterministic>
     <InvariantGlobalization>true</InvariantGlobalization>
     <IsPackable>false</IsPackable>
+
+    <!--
+      Ta sama bramka co w rdzeniu i z tego samego powodu — patrz komentarz przy
+      `GenerateDocumentationFile` w `src/Sim/Sim.csproj`. Zmierzone 04.09.2026 na
+      `74d323c`: w tym projekcie ZERO ostrzeżeń przy włączeniu; przełącznik jest tu
+      po to, żeby następny plik runnera nie wjechał bez opisu, a nie żeby coś naprawić.
+    -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
 
   <ItemGroup>

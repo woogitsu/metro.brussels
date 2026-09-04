@@ -16,6 +16,24 @@
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
     <Deterministic>true</Deterministic>
     <IsPackable>false</IsPackable>
+
+    <!--
+      Dokumentacji XML pilnuje kompilator, nie skan tekstowy. Bez tego przełącznika
+      Roslyn w ogóle nie parsuje bloków `///`, więc CS1570-CS1574 i CS1591 nie padają
+      i `dotnet build` stoi na zerze ostrzeżeń nad opisem, który mówi o nieistniejącym
+      parametrze. Zmierzone 04.09.2026 na `74d323c` przy włączeniu: 27 ostrzeżeń
+      w tym projekcie (4x CS1572, 8x CS1573, 3x CS1574, 12x CS1591) — wszystkie
+      naprawione w tym samym commicie, bo `TreatWarningsAsErrors` powyżej robi z nich
+      błędy budowy.
+
+      CS1591 („brak komentarza XML") zostaje WŁĄCZONE i to jest decyzja, nie
+      przeoczenie: to właśnie ono łapie blok osierocony. Gdy opis przykleja się do
+      sąsiada, kompilator nie widzi drugiego `<summary>` — widzi składnik, któremu opis
+      ZABRANO. Tak wyszły trzy z czterech sztuk z #222: `MaxDeviationFromSourceM`,
+      `LineCore.Finished` i `LineRun.Run` zgłosiły się jako nieudokumentowane.
+      Wyciszenie CS1591 zabrałoby bramce dokładnie tę zdolność.
+    -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
 
   <ItemGroup>

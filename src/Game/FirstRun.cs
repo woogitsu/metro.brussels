@@ -1234,7 +1234,7 @@ public sealed partial class FirstRun : Node3D
     }
 
     /// <summary>
-    /// Metadane zrzutu obok obrazu — `<prefiks>_metadata.json` w tym samym katalogu.
+    /// Metadane zrzutu obok obrazu — <c>&lt;prefiks&gt;_metadata.json</c> w tym samym katalogu.
     ///
     /// `tools/visual/compare.py` porównuje je liczbowo, bo obraz tego nie wykryje:
     /// przesunięcie całej sceny nie zmienia kadru, skoro kamera jedzie razem z nią.
