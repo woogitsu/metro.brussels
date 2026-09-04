@@ -153,7 +153,15 @@ def _circumradius(a, b, c):
     bc = math.dist(b, c)
     ca = math.dist(c, a)
     area2 = abs((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]))
-    if area2 < 1e-12 or ab * bc * ca == 0.0:
+    # Druga połowa warunku (`ab * bc * ca == 0.0`) była MARTWA i została usunięta
+    # 03.09.2026. Iloczyn boków zeruje się tylko wtedy, gdy dwa z trzech punktów się
+    # pokrywają — a wtedy trójkąt ma zerowe pole i łapie go już `area2 < 1e-12`.
+    # Sprawdzone wykonaniem na (0,0), (0,0), (2,0): area2 = 0.0, iloczyn = 0.0.
+    #
+    # Ta sama martwa połowa stała w `clearance.circumradius` i została stamtąd usunięta
+    # w #127; tutaj przetrwała, bo nikt nie sprawdził drugiego wystąpienia. Martwy kod
+    # jest zawsze ocalałą mutacją — przegląd mutacyjny wskazał oba miejsca.
+    if area2 < 1e-12:
         return None
     return ab * bc * ca / (2.0 * area2)
 

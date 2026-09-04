@@ -28,7 +28,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       # Workspace self-hosted runnera JEST WSPÓŁDZIELONY między przebiegami — inaczej
       # niż jednorazowa maszyna GitHuba, która zawsze startuje pusta.
@@ -97,7 +97,7 @@ jobs:
           echo "SDK poleci do $dir"
 
       - name: Install .NET SDK
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         with:
           dotnet-version: '10.0.x'
 

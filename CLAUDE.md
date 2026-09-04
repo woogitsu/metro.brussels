@@ -20,7 +20,7 @@ Szczegóły: `docs/01-architecture.md`.
 
 ```bash
 bash doctor.sh                       # kontrola środowiska i testów
-python3 tools/tests/test_all.py      # 25 testów narzędzi, muszą przechodzić
+python3 tools/tests/test_all.py      # testy narzędzi, wszystkie muszą przechodzić
 ```
 
 Jeśli `doctor.sh` zgłasza brak Blendera, a zadanie dotyczy geometrii — **przerwij**
@@ -39,6 +39,7 @@ i powiedz o tym. Nie próbuj obejść.
 | `docs/06-worked-example.md` | **wzorcowo wykonane zadanie** — przeczytaj przed pierwszym |
 | `docs/07-open-data-research.md` | hierarchia źródeł, publiczne dane i repozytoria referencyjne |
 | `docs/22-heartbeat.md` | puls sesji — kiedy zakładać i dlaczego ma milczeć |
+| `docs/23-environment.md` | **skąd wziąć** Blender, .NET i Godota — wersje, adresy, sumy |
 | `docs/TASKS.md` | lista zadań |
 | `docs/TASK-TEMPLATE.md` | format nowego zadania |
 | `data/network/lines.json` | dane sieci maszynowo |
@@ -150,6 +151,17 @@ Wzór: `docs/06-worked-example.md`.
 **Zatrzymanie się w tych miejscach jest poprawnym wynikiem pracy, nie porażką.**
 Zgadywanie w tym projekcie jest kosztowniejsze niż czekanie na odpowiedź.
 
+**Ale zatrzymanie się z powodu pustej kolejki nią nie jest.** Powyższa lista mówi, kiedy
+przerwać **konkretne zadanie** — nie kiedy przestać pracować. Gdy zadanie utknie na cudzej
+decyzji albo na cudzym przebiegu CI, agent bierze następną pozycję z fazy 5 lub 6
+w `docs/TASKS.md`; są tam wyłącznie zadania, które nie wymagają ani jednej decyzji
+właściciela. Gdy kolejka zejdzie poniżej dwunastu pozycji, **pierwszym zadaniem jest jej
+uzupełnienie**, nie zatrzymanie się. Pilnuje tego `tools/tests/test_backlog.py`, żeby
+reguła nie była życzeniem zapisanym w dokumencie.
+
+Zadania wymyślonego na miejscu, bo akurat skończyła się kolejka, nie bierze się nigdy:
+omija format z sekcji 6 i zwykle ląduje w kodzie, którego nikt nie prosił o zmianę.
+
 ## 9. CI / GitHub Actions
 
 **Od 02.09.2026 całe CI chodzi na self-hosted runnerze**, po wyczerpaniu minut
@@ -167,11 +179,21 @@ GitHub Actions. Poprzednia wersja tego punktu mówiła, że standardem jest
   (`clean` domyślnie `true`, czyli `git clean -ffdx`, a `-x` obejmuje pliki ignorowane).
   Każdy workflow ma krok, który to **sprawdza**, bo bramki tego projektu oglądają pliki
   wyjściowe i stary plik przeszedłby je tak samo dobrze jak świeży.
-- **Narzędzia instalują się warunkowo.** Krok sondujący sprawdza `command -v`;
+- **Narzędzia instalują się warunkowo.** Krok sondujący sprawdza, czego brakuje;
   instalacja i cache odpalają się tylko przy braku. Świeży runner nadal działa bez
-  ręcznego przygotowania, a trwały nie wywołuje `sudo apt-get` na 190 MB przy każdym
-  przebiegu. Godot leży poza workspace (`runner.tool_cache`), bo w workspace kasował
-  go `git clean` przy każdym checkoucie.
+  ręcznego przygotowania, a trwały nie wywołuje `sudo apt-get` przy każdym przebiegu.
+- **Godot i Blender leżą POZA workspace** (`runner.tool_cache`), bo w workspace kasował
+  je `git clean -ffdx` z checkoutu przy każdym przebiegu.
+- **Blender jest przypięty po wersji, nie brany z apt.** Od 03.09.2026, i ten punkt jest
+  przepisany, a nie dopisany obok: poprzednia wersja mówiła, że sonda sprawdza
+  `command -v blender`, i to już nieprawda. `apt` na Ubuntu 24.04 daje 4.0.2 do końca
+  życia wydania, a 4.0.2 renderuje **legacy EEVEE**, podczas gdy baseline projektu jest
+  z EEVEE Next — `enum_items` dla `engine` zwraca `['BLENDER_EEVEE']` na obu, więc nazwa
+  silnika ich nie odróżnia. Sonda na obecność byłaby tu wręcz szkodliwa: na maszynie,
+  która kiedykolwiek dostała Blendera z apt, uznałaby środowisko za gotowe.
+  Wersja i suma SHA-256 są w `tools/ci/blender-version.txt`, instaluje
+  `tools/ci/blender_install.sh`, a skrypty wołają `${BLENDER_BIN:-blender}` — tak samo
+  jak `GODOT_BIN`. Z apt zostały wyłącznie biblioteki systemowe.
 - **Narzędzia instalują się do `RUNNER_TOOL_CACHE`, nie do `/usr`.** Runner właściciela
   nie jest rootem, więc `actions/setup-dotnet` z domyślnym katalogiem `/usr/share/dotnet`
   pada serią `mkdir: Permission denied` — na jednorazowej maszynie GitHuba nie padał, bo
@@ -181,5 +203,10 @@ GitHub Actions. Poprzednia wersja tego punktu mówiła, że standardem jest
 - Nie uznawaj `queued` za weryfikację; zadanie jest zweryfikowane dopiero po zakończonym,
   zielonym jobie i sprawdzeniu wymaganych artefaktów. Na jednym runnerze `queued` znaczy
   też „kolejka", nie tylko „zepsute" — ale nadal nie znaczy „zweryfikowane".
+- **Akcje są przypięte po SHA commita, nie po tagu.** `actions/checkout@v6` wskazuje na
+  to, co właściciel akcji ostatnio tam przesunął; te joby chodzą na maszynie właściciela
+  tego repozytorium, z dostępem do workspace'u, `runner.tool_cache` i `GITHUB_TOKEN`.
+  Przy każdym SHA stoi komentarz z wersją — bez niego przypięcie jest nieczytelne i przez
+  to nieaktualizowalne. Ta sama akcja ma wszędzie ten sam SHA.
 - Reguły powyżej są pilnowane testami w `tools/tests/test_ci_workflows.py`; każda ma
   kontrolę negatywną wypisaną w commicie, który ją wprowadził.

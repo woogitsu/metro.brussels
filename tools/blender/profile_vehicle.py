@@ -30,6 +30,7 @@ import clearance as CL  # noqa: E402
 import clearance_profile as CP  # noqa: E402
 import m7_layout  # noqa: E402
 import placement as PL  # noqa: E402
+import profile_scan as PS  # noqa: E402
 import profiles  # noqa: E402
 import sweep as SW  # noqa: E402
 
@@ -45,11 +46,11 @@ UV_METRES_PER_UNIT = 4.0
 #
 # Wzór OPTYMISTYCZNY — obiecujący więcej luzu, niż mierzy siatka — jest błędem zawsze,
 # niezależnie od wielkości; kontrola skrajni nie może błądzić w tę stronę.
-FORMULA_MAX_SLACK_MM = 50.0
+
 # W globalnym minimum wzór ma prawo być gorszy, bo oś nie jest tam łukiem okręgu.
 # Ta wartość nie jest oceną dokładności, tylko bezpiecznikiem na regresję: rozjazd
 # powyżej 100 mm oznaczałby, że rozjechał się model, a nie krzywizna osi.
-FORMULA_GUARD_MM = 100.0
+
 
 
 def parse_args():
@@ -140,51 +141,6 @@ def scan(points, frames, stations, planes, reduced, positions, track_offset, col
             for start in positions]
 
 
-def static_wall_clearance(ring, track_offset, spec_width_m):
-    """Luz do ŚCIANY na prostej dla danego toru — inna wielkość niż `profiles.min_clearance`.
-
-    `min_clearance` inflatuje skrajnię symetrycznie i bywa wiązane przez ścięcie naroża
-    stropu; tu chodzi o odległość boku pudła od ściany na torze +/- offset.
-    """
-    return min(PL.distance_to_boundary(ring, track_offset + dx, 1.0)
-               for dx in (-spec_width_m / 2.0, spec_width_m / 2.0))
-
-
-def formula_prediction(chord_m, radius_m, static_wall_m, measured_m, label):
-    """Przewidywany luz ze wzoru na strzałkę cięciwy wobec luzu zmierzonego na siatce.
-
-    Cięciwa jest RZECZYWISTA, z bryły, w której wypadło minimum. Nominalny podział 94/6
-    daje 15,667 m zamiast 14,567 m i przewiduje luz mniejszy o ~52 mm; kontrola musi
-    porównywać tę samą wielkość, inaczej mierzy własną niespójność
-    (`reports/M7-in-tunnel.md` §3).
-    """
-    versine = CL.versine(chord_m, radius_m) if radius_m else 0.0
-    predicted = static_wall_m - versine
-    return {
-        "variant": label,
-        "chord_m": round(chord_m, 4),
-        "radius_m": round(radius_m, 2) if radius_m else None,
-        "versine_mm": round(versine * 1000.0, 1),
-        "static_wall_clearance_m": round(static_wall_m, 4),
-        "predicted_clearance_m": round(predicted, 4),
-        "measured_clearance_m": round(measured_m, 4),
-        "delta_mm": round(abs(predicted - measured_m) * 1000.0, 1),
-        "formula_optimistic": bool(predicted > measured_m),
-    }
-
-
-def compact(record):
-    return {
-        "start_m": round(record["start_m"], 3),
-        "clearance_m": round(record["clearance_m"], 5),
-        "object": record["object"],
-        "bound_by": record["bound_by"],
-        "chainage_m": round(record["chainage_m"], 2),
-        "lateral_m": round(record["lateral_m"], 4),
-        "vertical_m": round(record["vertical_m"], 4),
-    }
-
-
 def main():
     args = parse_args()
     started = time.time()
@@ -199,9 +155,10 @@ def main():
     axis_length = stations[-1]
 
     offsets = profiles.PROFILES[args.profile].get("track_offsets", [0.0])
-    if not 0 <= args.track < len(offsets):
-        raise SystemExit(f"BŁĄD: profil {args.profile} ma {len(offsets)} torów, żądano {args.track}")
-    track_offset = offsets[args.track]
+    try:
+        track_offset = PS.track_offset(offsets, args.track)
+    except ValueError as err:
+        raise SystemExit(f"BŁĄD: profil {args.profile} {err}")
     ring = profiles.profile_points(args.profile)
     planes = CP.halfplanes(ring)
 
@@ -230,14 +187,8 @@ def main():
                "gain_mm": 0.0, "seconds": 0.0}
     if args.refine_step > 0.0:
         windows = CP.refine_windows(records, args.step)
-        extra = []
-        for low, high in windows:
-            value = max(0.0, low)
-            stop = min(high, axis_length - train_length)
-            while value <= stop + 1e-9:
-                extra.append(round(value, 6))
-                value += args.refine_step
-        extra = sorted(set(extra) - set(positions))
+        extra = PS.refine_positions(windows, args.refine_step, axis_length,
+                                    train_length, positions)
         t0 = time.time()
         more = scan(points, frames, stations, planes, reduced, extra, track_offset)
         refined["seconds"] = round(time.time() - t0, 2)
@@ -271,19 +222,11 @@ def main():
     # po WSZYSTKICH wierzchołkach i przez placement.distance_to_boundary.
     verification = []
     if args.verify_full > 0:
-        ordered = sorted(records, key=lambda r: r["clearance_m"])
-        picked = [ordered[0]] + ordered[1:len(ordered):max(1, len(ordered) // args.verify_full)]
         t0 = time.time()
-        for record in picked[:args.verify_full]:
+        for record in PS.verification_sample(records, args.verify_full):
             naive = CP.measure_position_naive(points, frames, stations, ring, bodies,
                                               record["start_m"], track_offset)
-            verification.append({
-                "start_m": round(record["start_m"], 3),
-                "reduced_m": round(record["clearance_m"], 6),
-                "full_m": round(naive["clearance_m"], 6),
-                "delta_mm": round(abs(record["clearance_m"] - naive["clearance_m"]) * 1000.0, 4),
-                "same_object": record["object"] == naive["object"],
-            })
+            verification.append(PS.verification_entry(record, naive))
         print(f"[PROFIL] kontrola redukcji na {len(verification)} pozycjach "
               f"({time.time() - t0:.2f} s):")
         for item in verification:
@@ -302,11 +245,11 @@ def main():
     reference_start = reference_station - train_length / 2.0
     reference = CP.measure_position(points, frames, stations, planes, reduced,
                                     reference_start, track_offset)
-    static_wall = static_wall_clearance(ring, track_offset, spec_width)
+    static_wall = PS.static_wall_clearance(ring, track_offset, spec_width)
     # Wariant ODNIESIENIA jest przepisany 1:1 z tools/ci/vehicle_clearance.sh: rzeczywista
     # cięciwa bryły, w której wypadło minimum, razy promień w ŚRODKU składu. Ma wyjść
     # ten sam rozjazd co w #55, inaczej nowe narzędzie liczy coś innego niż stare.
-    check_reference = formula_prediction(reference["chord_m"], reference_radius, static_wall,
+    check_reference = PS.formula_prediction(reference["chord_m"], reference_radius, static_wall,
                                          reference["clearance_m"], "pozycja odniesienia")
     check_reference["start_m"] = round(reference_start, 3)
     check_reference["centre_chainage_m"] = round(reference_station, 2)
@@ -324,11 +267,11 @@ def main():
     _station_nom, min_radius_nominal = CP.min_radius_on_chord(points, stations, nominal_chord,
                                                               train_length)
     variants = [
-        formula_prediction(worst_chord, local_radius, static_wall, worst["clearance_m"],
+        PS.formula_prediction(worst_chord, local_radius, static_wall, worst["clearance_m"],
                            "promień lokalny w środku bryły"),
-        formula_prediction(worst_chord, min_radius_real, static_wall, worst["clearance_m"],
+        PS.formula_prediction(worst_chord, min_radius_real, static_wall, worst["clearance_m"],
                            "najmniejszy promień osi na cięciwie rzeczywistej"),
-        formula_prediction(nominal_chord, min_radius_nominal, static_wall, worst["clearance_m"],
+        PS.formula_prediction(nominal_chord, min_radius_nominal, static_wall, worst["clearance_m"],
                            "najmniejszy promień osi na cięciwie nominalnej 94/6"),
     ]
     check = dict(variants[1])
@@ -360,17 +303,14 @@ def main():
 
     # --- zamiatana obwiednia ---------------------------------------------------
     centre = worst["chainage_m"]
-    low = args.swept_from if args.swept_from is not None else centre - args.swept_half_range
-    high = args.swept_to if args.swept_to is not None else centre + args.swept_half_range
-    low = max(0.0, low)
-    high = min(axis_length, high)
+    low, high = PS.swept_range(centre, args.swept_half_range, args.swept_from,
+                               args.swept_to, axis_length)
     envelope = CP.SweptEnvelope(stations, low, high)
-    contributing = [r["start_m"] for r in records
-                    if r["start_m"] <= high and r["start_m"] + train_length >= low]
+    contributing = PS.contributing_starts(records, train_length, low, high)
     t0 = time.time()
     samples = []
     for index, start in enumerate(contributing):
-        keep = (index % 25 == 0) or abs(start - worst["start_m"]) < 1e-9
+        keep = PS.keep_sample(index, start, worst["start_m"])
         collected = []
 
         def collector(chainage, lateral, vertical, _sink=collected, _keep=keep):
@@ -387,8 +327,7 @@ def main():
     bbox_min, bbox_max = CP.mesh_bbox(mesh)
     env_clearance, env_where = CP.envelope_clearance(rings, planes)
     outside, checked = CP.envelope_contains(envelope, rings, samples)
-    in_range = [r["clearance_m"] for r in records
-                if low <= r["chainage_m"] <= high]
+    in_range = PS.in_range_clearances(records, low, high)
     swept = {
         "from_chainage_m": round(low, 2),
         "to_chainage_m": round(high, 2),
@@ -472,16 +411,16 @@ def main():
         "crosscheck": {
             "at_minimum": check,
             "at_reference": check_reference,
-            "reference_measurement": compact(reference),
-            "formula_max_slack_mm": FORMULA_MAX_SLACK_MM,
-            "formula_guard_at_minimum_mm": FORMULA_GUARD_MM,
+            "reference_measurement": PS.compact(reference),
+            "formula_max_slack_mm": PS.FORMULA_MAX_SLACK_MM,
+            "formula_guard_at_minimum_mm": PS.FORMULA_GUARD_MM,
             "note": ("wzór na strzałkę cięciwy zakłada łuk okręgu; w pozycji odniesienia "
                      "oś jest do niego bliska i zgodność jest milimetrowa, w globalnym "
                      "minimum krzywizna zmienia się wewnątrz bryły i wzór jest optymistyczny"),
         },
         "swept_envelope": swept,
         "critical_places": critical,
-        "profile": [compact(r) for r in records],
+        "profile": [PS.compact(r) for r in records],
         "timing_s": {"scan": round(scan_seconds, 2), "refine": refined["seconds"],
                      "swept": round(swept_seconds, 2),
                      "total": round(time.time() - started, 2)},
@@ -511,26 +450,8 @@ def main():
     print(f"[PROFIL] raport={args.out} ({os.path.getsize(args.out)} B), "
           f"czas {report['timing_s']['total']:.1f} s")
 
-    problems = list(gaps)
-    if check_reference["bound_by"] == CP.WALL:
-        if check_reference["formula_optimistic"]:
-            problems.append(f"w pozycji odniesienia wzór OBIECUJE "
-                            f"{check_reference['delta_mm']:.1f} mm więcej luzu, niż mierzy siatka")
-        elif check_reference["delta_mm"] > FORMULA_MAX_SLACK_MM:
-            problems.append(f"w pozycji odniesienia wzór jest zachowawczy o "
-                            f"{check_reference['delta_mm']:.1f} mm > {FORMULA_MAX_SLACK_MM} mm")
-    if check["bound_by"] == CP.WALL and check["delta_mm"] > FORMULA_GUARD_MM:
-        problems.append(f"w globalnym minimum wzór i siatka rozjeżdżają się o "
-                        f"{check['delta_mm']:.1f} mm > {FORMULA_GUARD_MM} mm")
-    if stats["with_refinement"]["negative_positions"]:
-        problems.append(f"{stats['with_refinement']['negative_positions']} pozycji z UJEMNYM "
-                        "luzem — pojazd wchodzi w obrys tunelu")
-    if outside:
-        problems.append(f"{outside} wierzchołków pojazdu poza zamiataną obwiednią")
-    if (args.min_clearance_m is not None
-            and stats["with_refinement"]["min_clearance_m"] < args.min_clearance_m):
-        problems.append(f"minimum {stats['with_refinement']['min_clearance_m']:.4f} m poniżej "
-                        f"progu {args.min_clearance_m:.4f} m")
+    problems = PS.acceptance_problems(gaps, check_reference, check, stats,
+                                      outside, args.min_clearance_m, CP.WALL)
     if problems:
         raise SystemExit("BŁĄD: " + "; ".join(problems))
 

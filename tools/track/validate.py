@@ -2,7 +2,7 @@
 """Walidator osi trasy data/track/*.json. Kod 0 = OK, 1 = błędy."""
 import json, sys, math, argparse, os
 
-LIMITS = {"max_grade_pct":4.0,"min_radius_m":90.0,"max_point_gap_m":25.0,"min_point_gap_m":0.5,"max_station_spacing_m":2200.0,"min_station_spacing_m":250.0,"length_tolerance_m":0.01}
+LIMITS = {"max_grade_pct":4.0,"min_radius_m":90.0,"max_point_gap_m":25.0,"duplicate_point_gap_m":1e-6,"min_point_gap_m":0.5,"max_station_spacing_m":2200.0,"min_station_spacing_m":250.0,"length_tolerance_m":0.01}
 NET = os.path.join(os.path.dirname(__file__), "..", "..", "data", "network", "lines.json")
 
 class Report:
@@ -58,8 +58,28 @@ def validate(path, expect_line=None, expect_package=None):
             r.E(f"length_m = {declared:.3f} m nie zgadza się z łamaną ({total:.3f} m), różnica {drift:.3f} m")
         else:
             r.I(f"length_m zgodne z łamaną, różnica {drift*1000:.1f} mm")
+    # „Bardzo gęsto" i „zdublowany wierzchołek" to DWIE różne rzeczy i do 03.09.2026
+    # miały jeden status: ostrzeżenie. Gęste punkty w danych STIB są normalne, więc
+    # ostrzeżenie jest dla nich właściwe. Wierzchołek powtórzony daje segment o zerowej
+    # długości, a z niego zerowy mianownik: `tools/visual/capture_plan.py`
+    # (`point_at_chainage`) ma na to osobną gałąź `span <= 0.0`, a
+    # `build_alignment.slice_polyline` ostre `<` w obu warunkach cięcia (#143). To są
+    # obrony PRZED danymi, które ten walidator wpuszczał — więc oś z duplikatem szła
+    # do wszystkich narzędzi i każde musiało się bronić samo.
+    #
+    # Próg nie jest nowy: `slice_polyline` odrzuca punkt bliższy niż `1e-6` m od
+    # poprzedniego, czyli każda oś WYPRODUKOWANA przez `build_alignment.py` już
+    # gwarantuje odstęp co najmniej mikrometrowy. Duplikat, który tu dojedzie, powstał
+    # więc poza tą ścieżką. Warunek jest ostry po tej samej stronie co tam: odstęp
+    # równy dokładnie mikrometrowi to nadal dwa punkty.
+    #
+    # Odstęp jest liczony w 2D, tak samo jak cały kilometraż w tym projekcie, więc
+    # czysto pionowy uskok (te same x, y, inne z) też jest błędem. To jest zamierzone:
+    # taki uskok daje dwa punkty o identycznym kilometrażu, czyli dokładnie ten sam
+    # zerowy mianownik.
     for i,g in enumerate(gaps):
         if g>LIMITS["max_point_gap_m"]: r.E(f"odstęp punktów {i}→{i+1} = {g:.1f} m, maks. {LIMITS['max_point_gap_m']} m")
+        elif g<LIMITS["duplicate_point_gap_m"]: r.E(f"odstęp punktów {i}→{i+1} = {g:.9f} m — zdublowany wierzchołek, segment o zerowej długości (próg {LIMITS['duplicate_point_gap_m']:g} m to ten sam, co przy sklejaniu w build_alignment.slice_polyline)")
         elif g<LIMITS["min_point_gap_m"]: r.W(f"odstęp punktów {i}→{i+1} = {g:.2f} m — bardzo gęsto, sprawdź duplikaty")
     worst_g,worst_i=0.0,-1
     for i in range(len(pts)-1):
