@@ -261,9 +261,16 @@ których agent nie ruszy bez decyzji właściciela.
   odcisk telemetrii przy nierównym podziale kroków. `reports/T-400-first-run.md`
 - **Zrobione (etap 2):** zrzuty z silnika idą przez kontrolę wizualną z T-012,
   odtwarzalne co do bajtu również między maszynami (`reports/T-012-godot-capture.md`)
-- **Zostaje:** wiele składów (T-320), sygnalizacja (T-313), stacje (T-212),
-  streamowanie chunków, przełączanie LOD. Cykl drzwi jest w rdzeniu (T-312, `DoorCycle`),
-  ale **scena go jeszcze nie woła** — przejazd nadal nie zatrzymuje się na stacjach
+- **Zrobione (etap 3a):** scena **streamuje** chunki i przełącza LOD. `TunnelView.Stream`
+  zastąpił `LoadAll`; predykat okna i wybór poziomu liczy `StreamingPlan` (#174), scena
+  go woła (#177). Zmierzone na pakiecie A, w trójkątach, co 50 m na całej osi 6686,7 m
+  (134 próbki): rezydentne **22,6 % szczytowo i 14,9 % średnio** z 16 176 trójkątów
+  pakietu, od 1 do 3 chunków z 12. Predykat jest przybity **z dwóch stron** — wzorcowa
+  implementacja w Pythonie (`sweep`, `lod`) i runtime C# stoją przy jednej tablicy
+  oczekiwań na 138 wierszach, oba kierunki jazdy, wszystkie 13 szwów trafione dokładnie
+- **Zostaje:** wiele składów (T-320), sygnalizacja (T-313), stacje (T-212). Cykl drzwi
+  jest w rdzeniu (T-312, `DoorCycle`), ale **scena go jeszcze nie woła** — przejazd
+  nadal nie zatrzymuje się na stacjach
 - **Uwaga:** scena wczytuje **jeden** pakiet. Przy `vertical.status = not_modelled` cała
   sieć leży na Z = 0, więc pakiety A i E przenikają się w planie w rejonie Arts-Loi
   (`reports/network-chainage.md`) — sceny z dwoma pakietami nie da się zbudować uczciwie
@@ -360,8 +367,9 @@ Po T-320. Blokada danych zdjęta przez R-007, T-211 scalone.
 ### Faza 4 — T-400 etap 3
 
 Wpiąć w scenę to, co **już jest w rdzeniu i przetestowane, a scena tego nie woła**:
-`DoorCycle`, `StationStop`, `FixedBlockSystem`, `TrainProtection`. Do tego streamowanie
-chunków i przełączanie LOD. Ta faza dotknie miejsc wymagających decyzji właściciela.
+`DoorCycle`, `StationStop`, `FixedBlockSystem`, `TrainProtection`. Streamowanie chunków
+i przełączanie LOD **wypadły z tej fazy, bo są zrobione** (#174, #177 — wpis T-400 wyżej).
+Ta faza dotknie miejsc wymagających decyzji właściciela.
 
 ### Faza 5 — kolejka, która nie kończy się na czekaniu
 
@@ -380,10 +388,26 @@ funkcję do kodu, o którym nie wiadomo, czy działa.
 | 5.2 | **Świeże snapshoty STIB — raport różnic, bez zapisu do `data/`** | `data/` zostaje tylko do odczytu: pobranie idzie do `build/`, a wynikiem jest **diff**, nie podmiana. Decyzja, czy podmieniać, zostaje właścicielowi — ale bez raportu nie ma na czym jej oprzeć | `reports/snapshot-drift.md`: co się zmieniło w GTFS, `ACTU_LIGNES_BRUTES`, Stop Details i INSPIRE Rails wobec commitów w `data/`, z liczbami. INSPIRE Rails miał okno ważności **02.03–28.06.2026** i był wygaśnięty już w chwili pobrania 01.09.2026 |
 | 5.3 | **T-401 na sześciu pakietach zamiast na jednym** — model wobec zmierzonego rozkładu na każdej osi | dane są w repo (T-113), założenia są jawne i już wybrane, nic nowego nie trzeba zgadywać | rozszerzony `reports/T-401-line-run.md`: ile odcinków na pakiet mieści się w rozkładzie, gdzie model jest wolniejszy i o ile |
 | 5.4 | **Wspólny preflight CI jako composite action** | siedem workflowów powtarza ten sam kod ochrony przed forkami, kontroli czystego workspace i sondowania narzędzi. To nie jest kosmetyka: **im więcej kopii, tym większa szansa, że następny workflow pominie jedną regułę bezpieczeństwa** | jedna akcja lokalna, siedem workflowów krótszych o powtórzenia, `tools/tests/test_ci_workflows.py` pilnuje, że żaden nie omija preflightu |
-| 5.5 | **Akcje GitHuba przypięte do pełnych SHA** | wersje tagowane (`actions/checkout@v6`) można przestawić po cichu, a joby chodzą **na maszynie właściciela**, nie na jednorazowym kontenerze. To utwardzenie łańcucha dostaw, nie porządki | każde `uses:` z pełnym SHA i komentarzem z wersją; test odrzuca `uses:` bez SHA |
 | 5.6 | **Domknąć „Czego brakuje w tej rozpisce"** — T-114, R-002…R-007, T-401 mają Issues, ale nie mają wpisu tutaj | ten plik sam deklaruje, że dopóki wpisu nie ma, **Issues są jedynym źródłem prawdy** — czyli rozjazd jest zapisany, ale niezamknięty | sekcja znika, bo każde zadanie ma wpis z sześcioma polami |
 | 5.7 | **Budżet kroków dla wielu składów** — ile kosztuje 120 Hz przy N składach na osi | czysty pomiar na istniejącym kodzie; nie wymaga ani jednej nowej liczby o sieci | `reports/linecore-budget.md`: kroki na sekundę wobec N, i przy jakim N krok stały przestaje się mieścić w klatce |
 | 5.8 | **Pokrycie dwóch modułów `tools/` bez testu jednostkowego** | oba mają dziś wyłącznie pokrycie integracyjne, czyli takie, które mówi „przeszło", ale nie mówi, co dokładnie | testy jednostkowe z kontrolami negatywnymi, jak reszta |
+
+#### Domknięte i zdjęte z kolejki
+
+Pozycja zrobiona znika z tabeli wyżej, a jej wynik stoi w odpowiednim wpisie w tym pliku.
+Tabela jest tu po to, żeby numer, który kiedyś istniał, nie wyglądał na zgubiony.
+
+**Licznik zapasu tej sekcji NIE liczy** i pilnuje tego `tools/tests/test_backlog.py`.
+Bez tego wykluczenia domknięcie pozycji podnosiłoby zapas zamiast go obniżać: wiersz
+`| 6.C1 | ... |` wygląda dla parsera dokładnie tak samo, niezależnie od tego, w której
+tabeli stoi. Zmierzone przy pisaniu tej sekcji — licznik pokazywał 28 przy 25 pozycjach
+realnych.
+
+| # | co było | gdzie zostało zrobione |
+|---|---|---|
+| 5.5 | akcje GitHuba przypięte po tagu, nie po SHA | wszystkie cztery `uses:` mają pełny SHA i komentarz z wersją; pilnują tego `test_ci_workflows.py::test_every_action_is_pinned_to_a_commit_not_a_moving_tag`, `..._every_pinned_action_says_which_version_the_commit_is` i `..._the_same_action_is_pinned_to_the_same_commit_everywhere` |
+| 6.C1 | scena wczytywała wszystkie chunki naraz | #174 (predykat i LOD po stronie sceny), #177 (`TunnelView.Stream` zamiast `LoadAll`) — wpis T-400, etap 3a |
+| 6.C2 | poziomy LOD istniały, scena ich nie używała | to samo, `StreamingPlan.LodPlan`; przybite tablicą oczekiwań wspólną dla Pythona i C# |
 
 **Czego w tej kolejce świadomie NIE ma:** wszystkiego, co wymagałoby wymyślenia liczby
 o brukselskim metrze. Zmyślona głębokość stacji wygląda dokładnie tak samo jak prawdziwa,
@@ -451,8 +475,6 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 
 | # | zadanie | dlaczego bez decyzji | rozmiar |
 |---|---|---|---|
-| 6.C1 | **Streamowanie chunków** — scena wczytuje dziś wszystkie naraz | manifest streamingowy istnieje od T-210 | L |
-| 6.C2 | **Przełączanie LOD w scenie** | poziomy istnieją, scena ich nie używa | M |
 | 6.C3 | **Odtwarzanie przejazdu z pliku telemetrii** — scena jako widok zapisanego przebiegu | wynika wprost z zasady „linia jest symulacją, kabina jednym z jej widoków" | M |
 | 6.C4 | **Kamera inspekcyjna** do oglądania geometrii bez jazdy | narzędzie weryfikacji, nie decyzja estetyczna: nie zmienia ani jednego materiału | S |
 

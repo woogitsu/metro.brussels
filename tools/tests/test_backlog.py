@@ -25,6 +25,10 @@ MINIMUM_READY_ITEMS = 12
 # po którą agent może sięgnąć.
 QUEUE_PREFIXES = ("5.", "6.")
 
+#: Nagłówek tabeli kolejki. Służy do jednego: sprawdzenia, że wycinanie sekcji
+#: domknięć nie zabrało ze sobą tabeli, z której ta sekcja pochodzi.
+QUEUE_TABLE_HEADER = "| # | zadanie |"
+
 
 def _tasks():
     with open(TASKS, encoding="utf-8") as handle:
@@ -41,14 +45,37 @@ def queue_items(text):
     return found
 
 
-def blocked_section(text):
-    """Treść sekcji „Czego agent nie ruszy bez decyzji"."""
-    start = text.find("### Czego agent nie ruszy bez decyzji")
+def _section(text, heading, stop_prefixes):
+    """Treść sekcji od `heading` do pierwszego kolejnego nagłówka z `stop_prefixes`."""
+    start = text.find(heading)
     if start < 0:
         return ""
-    rest = text[start + 1:]
-    end = rest.find("\n### ")
-    return rest if end < 0 else rest[:end]
+    rest = text[start + len(heading):]
+    ends = [rest.find(prefix) for prefix in stop_prefixes]
+    ends = [e for e in ends if e >= 0]
+    return rest if not ends else rest[:min(ends)]
+
+
+def blocked_section(text):
+    """Treść sekcji „Czego agent nie ruszy bez decyzji"."""
+    return _section(text, "### Czego agent nie ruszy bez decyzji", ["\n### "])
+
+
+def closed_section(text):
+    """Treść sekcji „Domknięte i zdjęte z kolejki".
+
+    Zatrzymuje się na nagłówku CZWARTEGO poziomu też, nie tylko trzeciego: sekcja
+    domknięć jest `####` i stoi wewnątrz fazy 5, więc szukanie samego `\n### `
+    wciągnęłoby resztę fazy razem z jej tabelą pozycji — czyli wykluczyłoby
+    z licznika dokładnie tę kolejkę, której ma pilnować.
+    """
+    return _section(text, "#### Domknięte i zdjęte z kolejki", ["\n### ", "\n#### "])
+
+
+def ready_items(text):
+    """Pozycje kolejki, które są PRACĄ: bez zablokowanych i bez domkniętych."""
+    excluded = set(queue_items(blocked_section(text))) | set(queue_items(closed_section(text)))
+    return [item for item in queue_items(text) if item not in excluded]
 
 
 def test_tasks_file_exists():
@@ -62,7 +89,7 @@ def test_the_reserve_rule_is_written_down():
 
 
 def test_the_queue_holds_at_least_a_day_of_work():
-    items = queue_items(_tasks())
+    items = ready_items(_tasks())
     assert len(items) >= MINIMUM_READY_ITEMS, (
         f"kolejka ma {len(items)} pozycji przy progu {MINIMUM_READY_ITEMS}; "
         "pierwszym zadaniem jest uzupełnienie fazy 6, nie zatrzymanie się")
@@ -96,6 +123,63 @@ def test_blocked_work_is_not_counted_as_queue():
     assert blocked, "sekcja o decyzjach właściciela zniknęła"
     assert not queue_items(blocked), (
         "pozycje z sekcji decyzji właściciela wpadają do licznika kolejki")
+
+
+def test_closed_work_is_not_counted_as_queue():
+    """Domknięcie pozycji ma zapas OBNIŻAĆ, a nie podnosić.
+
+    Wiersz `| 6.C1 | ... |` wygląda dla parsera identycznie niezależnie od tego,
+    w której tabeli stoi. Bez tego wykluczenia przeniesienie pozycji do sekcji
+    domknięć zostawiało ją w liczniku — zmierzone 04.09.2026 przy zamykaniu 5.5,
+    6.C1 i 6.C2: licznik pokazywał 28 przy 25 pozycjach realnych, czyli dokładnie
+    tyle, ile przed domknięciem czegokolwiek.
+    """
+    text = _tasks()
+    closed = closed_section(text)
+    assert closed, "sekcja domknięć zniknęła z planu"
+
+    numbers = queue_items(closed)
+    assert numbers, "sekcja domknięć nie wymienia ani jednego numeru"
+
+    ready = ready_items(text)
+    for number in numbers:
+        assert number not in ready, f"{number} jest domknięte, a nadal liczy się do zapasu"
+    assert len(ready) < len(queue_items(text)), (
+        "wykluczenie niczego nie odejmuje — licznik liczy domknięte razem z gotowymi")
+
+
+def test_the_closed_section_stands_below_the_queue_it_is_carved_out_of():
+    """Wycinanie sekcji domknięć nie może zabrać ze sobą tabeli kolejki.
+
+    Dziś nie zabiera — ale NIE dzięki liście nagłówków zamykających, tylko dzięki
+    POŁOŻENIU: sekcja `#### Domknięte` stoi pod tabelą fazy 5, więc poniżej niej
+    nie ma już ani jednego wiersza `| 5.x |`. Pierwsza wersja tego testu twierdziła,
+    że pilnuje listy nagłówków, i była fałszywa: usunięcie `"\n#### "` z `closed_section`
+    NIE wywracało jej ani razu, bo nie było czego pochłonąć. Zmierzone, nie wyczytane.
+
+    Ten test pilnuje więc tego, co naprawdę trzyma licznik w ryzach. Gdyby sekcja
+    domknięć trafiła NAD tabelę, wycinanie zabrałoby całą kolejkę fazy 5 i próg
+    spełniałby się na samej fazie 6 — czyli bramka byłaby zielona przy zapasie
+    mniejszym, niż pokazuje.
+    """
+    text = _tasks()
+    assert "#### Domknięte i zdjęte z kolejki" in text, "sekcja domknięć zniknęła z planu"
+
+    # Wprost: wycięty blok nie ma prawa zawierać NAGŁÓWKA tabeli kolejki. Gdyby
+    # sekcja domknięć stała nad tabelą, wycinanie zabrałoby nagłówek i wszystkie
+    # wiersze pod nim — i to jest jedyny objaw, który widać z samego pliku.
+    carved = closed_section(text)
+    assert QUEUE_TABLE_HEADER not in carved, (
+        "sekcja domknięć stoi NAD tabelą kolejki i wycinanie zabiera ją razem z sobą")
+
+    # I skutek tego położenia: każda niedomknięta pozycja 5.x zostaje w zapasie.
+    closed_numbers = set(queue_items(carved))
+    ready = ready_items(text)
+    phase_five = [i for i in queue_items(text)
+                  if i.startswith("5.") and i not in closed_numbers]
+    assert phase_five, "faza 5 nie ma ani jednej niedomkniętej pozycji"
+    for item in phase_five:
+        assert item in ready, f"{item} z fazy 5 wypadło z zapasu"
 
 
 def test_the_parser_actually_parses():
