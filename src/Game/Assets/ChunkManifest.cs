@@ -5,12 +5,49 @@ using System.Text.Json;
 
 namespace MetroBxl.Game.Assets;
 
+/// <summary>Jeden poziom szczegółowości chunka: własny plik GLB, własna liczba trójkątów.</summary>
+/// <param name="Level">Numer poziomu; 0 to pełna siatka.</param>
+/// <param name="File">Nazwa pliku GLB tego poziomu.</param>
+/// <param name="Triangles">Trójkąty tego poziomu.</param>
+public readonly record struct ChunkLod(int Level, string File, int Triangles);
+
 /// <summary>Jeden chunk tunelu, tak jak opisuje go manifest streamingowy.</summary>
 /// <param name="Id">Identyfikator chunka, np. <c>L1_A_flat_preview_c05</c>.</param>
 /// <param name="File">Nazwa pliku GLB poziomu 0.</param>
 /// <param name="StartM">Początek zakresu chainage.</param>
 /// <param name="EndM">Koniec zakresu chainage.</param>
-public readonly record struct ChunkEntry(string Id, string File, double StartM, double EndM);
+/// <param name="Lods">Poziomy szczegółowości, rosnąco po <c>Level</c>.</param>
+/// <param name="CollisionFile">Plik bryły kolizyjnej; osobny GLB, osobna decyzja o rezydencji.</param>
+/// <param name="CollisionTriangles">Trójkąty bryły kolizyjnej.</param>
+public readonly record struct ChunkEntry(
+    string Id,
+    string File,
+    double StartM,
+    double EndM,
+    IReadOnlyList<ChunkLod> Lods,
+    string? CollisionFile,
+    int CollisionTriangles)
+{
+    /// <summary>Plik GLB dla żądanego poziomu; wyjątek, gdy manifest go nie zna.</summary>
+    /// <remarks>
+    /// Poziom spoza manifestu jest BŁĘDEM, a nie powodem do zejścia na poziom 0.
+    /// Cichy powrót do poziomu 0 dałby scenę, która rysuje pełną siatkę na horyzoncie
+    /// i nie ma jak tego zgłosić: klatki spadają, a manifest wygląda na uszanowany.
+    /// </remarks>
+    public ChunkLod Lod(int level)
+    {
+        foreach (var entry in Lods)
+        {
+            if (entry.Level == level)
+            {
+                return entry;
+            }
+        }
+
+        throw new ArgumentOutOfRangeException(nameof(level), level,
+            $"chunk {Id} nie ma poziomu {level}; manifest zna {Lods.Count}");
+    }
+}
 
 /// <summary>
 /// Odczyt manifestu <c>*-chunks.json</c> wyprodukowanego przez
@@ -29,6 +66,7 @@ public readonly record struct ChunkEntry(string Id, string File, double StartM, 
 public sealed class ChunkManifest
 {
     private readonly ChunkEntry[] _chunks;
+    private readonly double[] _lodThresholds;
 
     private ChunkManifest(
         string id,
@@ -42,6 +80,8 @@ public sealed class ChunkManifest
         int triangles,
         double defaultAheadM,
         double defaultBehindM,
+        double collisionRadiusM,
+        double[] lodThresholds,
         ChunkEntry[] chunks)
     {
         Id = id;
@@ -55,6 +95,8 @@ public sealed class ChunkManifest
         Triangles = triangles;
         DefaultAheadM = defaultAheadM;
         DefaultBehindM = defaultBehindM;
+        CollisionRadiusM = collisionRadiusM;
+        _lodThresholds = lodThresholds;
         _chunks = chunks;
     }
 
@@ -85,11 +127,20 @@ public sealed class ChunkManifest
     /// <summary>Liczba trójkątów poziomu 0 na całym pakiecie.</summary>
     public int Triangles { get; }
 
-    /// <summary>Domyślne okno streamowania przed składem (na razie nieużywane).</summary>
+    /// <summary>Domyślny zasięg streamowania przed składem.</summary>
     public double DefaultAheadM { get; }
 
-    /// <summary>Domyślne okno streamowania za składem (na razie nieużywane).</summary>
+    /// <summary>Domyślny zasięg streamowania za składem.</summary>
     public double DefaultBehindM { get; }
+
+    /// <summary>Promień, w którym trzeba mieć wczytaną bryłę kolizyjną.</summary>
+    public double CollisionRadiusM { get; }
+
+    /// <summary>
+    /// Progi przełączania LOD: <c>[k]</c> to odległość, od której wolno poziom
+    /// <c>k+1</c>. Poziom 0 progu nie ma, bo obowiązuje wszędzie poniżej pierwszego.
+    /// </summary>
+    public IReadOnlyList<double> LodThresholds => _lodThresholds;
 
     /// <summary>Chunki w kolejności chainage.</summary>
     public IReadOnlyList<ChunkEntry> Chunks => _chunks;
@@ -107,14 +158,62 @@ public sealed class ChunkManifest
         var chunks = new List<ChunkEntry>();
         foreach (var chunk in root.GetProperty("chunks").EnumerateArray())
         {
+            var lods = new List<ChunkLod>();
+            if (chunk.TryGetProperty("lods", out var lodArray))
+            {
+                foreach (var lod in lodArray.EnumerateArray())
+                {
+                    lods.Add(new ChunkLod(
+                        lod.GetProperty("level").GetInt32(),
+                        lod.GetProperty("file").GetString() ?? "?",
+                        lod.GetProperty("triangles").GetInt32()));
+                }
+            }
+
+            lods.Sort(static (a, b) => a.Level.CompareTo(b.Level));
+
+            string? collisionFile = null;
+            var collisionTriangles = 0;
+            if (chunk.TryGetProperty("collision", out var collision))
+            {
+                collisionFile = collision.GetProperty("file").GetString();
+                collisionTriangles = collision.GetProperty("triangles").GetInt32();
+            }
+
             chunks.Add(new ChunkEntry(
                 chunk.GetProperty("id").GetString() ?? "?",
                 chunk.GetProperty("file").GetString() ?? "?",
                 chunk.GetProperty("start_m").GetDouble(),
-                chunk.GetProperty("end_m").GetDouble()));
+                chunk.GetProperty("end_m").GetDouble(),
+                lods,
+                collisionFile,
+                collisionTriangles));
         }
 
         chunks.Sort(static (a, b) => a.StartM.CompareTo(b.StartM));
+
+        // Progi bierze się z `lod_levels`, pomijając poziom 0: on nie ma progu, bo
+        // obowiązuje wszędzie poniżej pierwszego. Wpisanie go do listy przesunęłoby
+        // wszystkie pozostałe o jeden i scena rysowałaby najgrubszą siatkę pod nosem.
+        var levels = new List<(int Level, double Distance)>();
+        if (root.TryGetProperty("lod_levels", out var levelArray))
+        {
+            foreach (var level in levelArray.EnumerateArray())
+            {
+                levels.Add((level.GetProperty("level").GetInt32(),
+                            level.GetProperty("switch_distance_m").GetDouble()));
+            }
+        }
+
+        levels.Sort(static (a, b) => a.Level.CompareTo(b.Level));
+        var thresholds = new List<double>();
+        foreach (var level in levels)
+        {
+            if (level.Level > 0)
+            {
+                thresholds.Add(level.Distance);
+            }
+        }
 
         return new ChunkManifest(
             root.GetProperty("id").GetString() ?? "?",
@@ -128,6 +227,10 @@ public sealed class ChunkManifest
             root.GetProperty("totals").GetProperty("triangles").GetInt32(),
             streaming.GetProperty("default_ahead_m").GetDouble(),
             streaming.GetProperty("default_behind_m").GetDouble(),
+            streaming.TryGetProperty("collision_radius_m", out var radius)
+                ? radius.GetDouble()
+                : StreamingPlan.DefaultCollisionRadiusM,
+            thresholds.ToArray(),
             chunks.ToArray());
     }
 

@@ -12,6 +12,14 @@ rozjadą, jedna z nich jest błędna i trzeba to zobaczyć, a nie uśrednić.
 
 Skład jest przegubowy, więc każde pudło i każdy mieszek stoi na **własnej cięciwie**.
 Ustawienie całych 94 m jako jednej bryły dałoby geometrię, której na torze nie ma.
+
+Same DECYZJE — który tor, gdzie postawić czoło, który wierzchołek jest najgorszy
+i czy wynik wolno wypuścić — siedzą w `vehicle_fit.py`. Nie dlatego, że tego
+modułu nie da się zaimportować bez Blendera: atrapa `bpy` w
+`tools/tests/test_blender_cli.py` importuje go bez przeszkód. Dlatego, że stały
+wewnątrz `main()`, za `bpy.ops.object.select_all` i `bpy.ops.import_scene.gltf`,
+czyli za granicą, której atrapa nie przekroczy. Tutaj zostaje to, co dotyka
+scenki: import GLB, macierze pudeł, chodzenie po siatce i eksport.
 """
 import argparse
 import json
@@ -25,6 +33,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import placement as PL  # noqa: E402
 import profiles  # noqa: E402
 import sweep as SW  # noqa: E402
+import vehicle_fit as VF  # noqa: E402
 
 DEFAULT_RING_STEP_M = 5.0
 
@@ -78,21 +87,17 @@ def main():
 
     document, points, frames, stations = load_axis(args.centerline, args.ring_step)
     offsets = profiles.PROFILES[args.profile].get("track_offsets", [0.0])
-    if not 0 <= args.track < len(offsets):
-        raise SystemExit(f"BŁĄD: profil {args.profile} ma {len(offsets)} torów, żądano {args.track}")
-    track_offset = offsets[args.track]
+    try:
+        track_offset = VF.track_offset(offsets, args.track)
+    except ValueError as error:
+        raise SystemExit(f"BŁĄD: profil {args.profile} {error}")
 
     tunnel = import_glb(args.tunnel, "tunnel")
     vehicle = import_glb(args.vehicle, "vehicle")
     spans = {obj.name: local_span(obj) for obj in vehicle}
     train_length = max(b for _a, b in spans.values()) - min(a for a, _b in spans.values())
 
-    if args.chainage == "worst":
-        station, radius = PL.worst_chainage(points, train_length / 6.0, train_length)
-        start = station - train_length / 2.0
-    else:
-        start, radius = float(args.chainage), None
-        station = start + train_length / 2.0
+    start, station, radius = VF.resolve_chainage(args.chainage, points, train_length)
 
     chords = {name: round(b - a, 4) for name, (a, b) in spans.items()}
     order = sorted(vehicle, key=lambda o: spans[o.name][0])
@@ -110,21 +115,16 @@ def main():
     bpy.context.view_layer.update()
     window = (start - 40.0, start + train_length + 40.0)
     ring = profiles.profile_points(args.profile)
-    worst = {"clearance_m": float("inf"), "object": "", "chainage_m": 0.0,
-             "lateral_m": 0.0, "vertical_m": 0.0}
-    per_object = {}
-    for obj in vehicle:
-        local_worst = float("inf")
+
+    def measured(obj):
+        """Luz w każdym wierzchołku bryły — jedyny fragment, który dotyka siatki."""
         for vertex in obj.data.vertices:
             world = obj.matrix_world @ vertex.co
             chainage, lateral, vertical = PL.local_offsets(
                 (world.x, world.y, world.z), frames, stations, window)
-            clearance = PL.distance_to_boundary(ring, lateral, vertical)
-            local_worst = min(local_worst, clearance)
-            if clearance < worst["clearance_m"]:
-                worst = {"clearance_m": clearance, "object": obj.name,
-                         "chainage_m": chainage, "lateral_m": lateral, "vertical_m": vertical}
-        per_object[obj.name] = round(local_worst, 4)
+            yield PL.distance_to_boundary(ring, lateral, vertical), chainage, lateral, vertical
+
+    worst, per_object = VF.clearance_tally((obj.name, measured(obj)) for obj in vehicle)
 
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
     bpy.ops.object.select_all(action="SELECT")
@@ -179,9 +179,9 @@ def main():
         print(f"[OSADZENIE]   {per_object[name]:+.4f} m  {name}")
     print(f"[OSADZENIE] plik={args.out} ({report['glb_bytes']} B)")
 
-    if worst["clearance_m"] < args.min_clearance_m:
-        raise SystemExit(f"BŁĄD: zmierzony luz {worst['clearance_m']:.4f} m poniżej progu "
-                         f"{args.min_clearance_m:.4f} m — pojazd wchodzi w ścianę tunelu")
+    problem = VF.clearance_problem(worst["clearance_m"], args.min_clearance_m)
+    if problem:
+        raise SystemExit(f"BŁĄD: {problem}")
 
 
 if __name__ == "__main__":

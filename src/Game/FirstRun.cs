@@ -52,7 +52,8 @@ public enum ViewKind
 /// </summary>
 public sealed partial class FirstRun : Node3D
 {
-    private readonly Dictionary<string, string> _args = new(StringComparer.Ordinal);
+    /// <summary>Rozstrzygnięty wiersz poleceń. Ustawiany raz, w `ParseArguments`.</summary>
+    private RunPlan? _plan;
     private readonly List<string> _telemetry = new();
 
     private TrackAxis _axis = null!;
@@ -72,6 +73,8 @@ public sealed partial class FirstRun : Node3D
     private TunnelView _tunnel = null!;
     // Manifest zostaje w polu, bo metadane zrzutu opisują TO, co scena naprawdę wczytała.
     private ChunkManifest? _manifest;
+    private string _assetDirectory = string.Empty;
+    private StandardMaterial3D? _tunnelMaterial;
     private TrainView _train = null!;
     private Camera3D _cab = null!;
     private Camera3D _chase = null!;
@@ -190,124 +193,36 @@ public sealed partial class FirstRun : Node3D
     // --- argumenty i ścieżki ------------------------------------------------------
 
     /// <summary>
-    /// Wszystkie argumenty, które scena rozumie. Lista jest jawna, bo argument spoza
-    /// niej ma zatrzymać przebieg, a nie zostać po cichu zignorowany.
+    /// Czyta wiersz poleceń przez <see cref="RunPlan"/> i przenosi wynik do pól sceny.
     ///
-    /// <para><b>Zmierzone 02.09.2026 audytem mutacyjnym.</b> Przed tą zmianą
-    /// <c>--at-chainag=2000</c> — literówka na jednym znaku — kończyło się kodem 0
-    /// i zrzutem o nazwie <c>GODOT_cab_2000m.png</c> przedstawiającym stojący skład
-    /// na 94 m. <c>--view=zmyslony</c> cicho spadało do widoku z kabiny. Pięć „ujęć
-    /// kontrolnych" mogło więc być pięcioma kopiami tego samego kadru, a wszystkie
-    /// opisy kamer z <c>cameras.json</c> („najciaśniejszy łuk R = 91,5 m", „szew
-    /// chunków c01/c02") były niesprawdzalnymi deklaracjami.</para>
+    /// <para>Samo rozstrzyganie — lista znanych argumentów, znane widoki, parsowanie
+    /// liczb i kontrola skończoności — siedzi w <see cref="RunPlan"/>, bo tamten plik
+    /// NIE importuje Godota i daje się zawołać wprost z <c>tests/Game.Tests</c>.
+    /// Tutaj zostaje wyłącznie to, co bez silnika nie ma sensu: odczyt argumentów
+    /// procesu i <see cref="Abort"/>, który zatrzymuje pętlę klatek.</para>
     /// </summary>
-    private static readonly string[] KnownArguments =
-    {
-        "telemetry", "shot", "sample-every", "steps-per-frame", "jitter",
-        "at-chainage", "view", "axis", "no-geometry", "assets", "manifest", "shell",
-    };
-
-    /// <summary>Widoki, jakie scena potrafi ustawić. Inna wartość jest błędem, nie domyślną.</summary>
-    private static readonly string[] KnownViews = { "cab", "chase", "outside" };
-
     private void ParseArguments()
     {
-        foreach (var argument in OS.GetCmdlineUserArgs())
+        var plan = RunPlan.Parse(OS.GetCmdlineUserArgs(), ExitUnknownArgument, ExitBadArgumentValue);
+        _plan = plan;
+        if (!plan.IsValid)
         {
-            var text = argument.TrimStart('-');
-            var split = text.IndexOf('=');
-            if (split < 0)
-            {
-                _args[text] = "1";
-            }
-            else
-            {
-                _args[text[..split]] = text[(split + 1)..];
-            }
-        }
-
-        foreach (var name in _args.Keys)
-        {
-            if (Array.IndexOf(KnownArguments, name) < 0)
-            {
-                Abort(ExitUnknownArgument,
-                    $"[ARGUMENT] nieznany argument '--{name}'. Znane: --{string.Join(" --", KnownArguments)}");
-                return;
-            }
-        }
-
-        _telemetryPath = Argument("telemetry");
-        _shotPath = Argument("shot");
-        _scriptedMode = _telemetryPath is not null || _shotPath is not null;
-        _mode = _telemetryPath is not null ? "telemetry" : _shotPath is not null ? "shot" : "manual";
-
-        if (!TryLong("sample-every", 120L, out _sampleEvery)
-            || !TryLong("steps-per-frame", 120L, out _stepsPerFrame)
-            || !TryDouble("jitter", 0.0, out _jitter)
-            || !TryDouble("at-chainage", 0.0, out _shotChainageM))
-        {
+            Abort(plan.ExitCode, plan.Error!);
             return;
         }
 
-        var view = Argument("view") ?? "cab";
-        if (Array.IndexOf(KnownViews, view) < 0)
-        {
-            Abort(ExitBadArgumentValue,
-                $"[ARGUMENT] nieznany widok '--view={view}'. Znane: {string.Join(", ", KnownViews)}");
-            return;
-        }
-
-        _view = view switch
-        {
-            "chase" => ViewKind.Chase,
-            "outside" => ViewKind.Outside,
-            _ => ViewKind.Cab,
-        };
+        _telemetryPath = plan.TelemetryPath;
+        _shotPath = plan.ShotPath;
+        _scriptedMode = plan.ScriptedMode;
+        _mode = plan.Mode;
+        _sampleEvery = plan.SampleEvery;
+        _stepsPerFrame = plan.StepsPerFrame;
+        _jitter = plan.Jitter;
+        _shotChainageM = plan.ShotChainageM;
+        _view = plan.View;
     }
 
-    private bool TryLong(string name, long fallback, out long value)
-    {
-        var text = Argument(name);
-        if (text is null)
-        {
-            value = fallback;
-            return true;
-        }
-
-        if (long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out value))
-        {
-            return true;
-        }
-
-        Abort(ExitBadArgumentValue, $"[ARGUMENT] '--{name}={text}' nie jest liczbą całkowitą");
-        return false;
-    }
-
-    private bool TryDouble(string name, double fallback, out double value)
-    {
-        var text = Argument(name);
-        if (text is null)
-        {
-            value = fallback;
-            return true;
-        }
-
-        if (double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value)
-            && double.IsFinite(value))
-        {
-            return true;
-        }
-
-        // Bez tego `double.Parse` rzucał wyjątkiem w środku `_Ready`, `_shotPath` było
-        // już ustawione, a `_Process` wchodziło w odliczanie od int.MaxValue i kręciło
-        // się w nieskończoność. Zmierzone: `--at-chainage=abc` nie dawało ani PNG-a,
-        // ani kodu błędu — w CI to wypalony `timeout-minutes: 45` bez informacji.
-        Abort(ExitBadArgumentValue, $"[ARGUMENT] '--{name}={text}' nie jest skończoną liczbą");
-        value = fallback;
-        return false;
-    }
-
-    private string? Argument(string name) => _args.TryGetValue(name, out var value) ? value : null;
+    private string? Argument(string name) => _plan?.Argument(name);
 
     /// <summary>
     /// Przerywa przebieg z kodem błędu i **zatrzymuje pętlę klatek**.
@@ -414,7 +329,11 @@ public sealed partial class FirstRun : Node3D
         var tunnelMaterial = GlbLoader.NeutralMaterial(new Color(0.52f, 0.52f, 0.53f), 0.95f);
         var trainMaterial = GlbLoader.NeutralMaterial(new Color(0.80f, 0.81f, 0.83f), 0.45f);
 
-        _tunnel.LoadAll(manifest, Path.GetDirectoryName(manifestPath) ?? assets, tunnelMaterial);
+        // Katalog i materiał zapamiętane, bo streamowanie dokłada chunki w KAŻDEJ
+        // klatce, a nie raz przy starcie.
+        _assetDirectory = Path.GetDirectoryName(manifestPath) ?? assets;
+        _tunnelMaterial = tunnelMaterial;
+        _tunnel.Stream(manifest, _assetDirectory, tunnelMaterial, _scenario.StartChainageM);
 
         // Wynik `Load` był ODRZUCANY. `TrainView.Load` zwraca liczbę brył i zero znaczy
         // „nie wczytałem nic" — bez tego sprawdzenia scena szła dalej bez składu, a że
@@ -528,12 +447,7 @@ public sealed partial class FirstRun : Node3D
     /// zgadza się z rdzeniem co do bitu, znaczy to, że krok stały robi to, co obiecuje.
     /// </summary>
     private double SyntheticFrameSeconds()
-    {
-        var baseSeconds = _stepsPerFrame * _step.Seconds;
-        return _jitter <= 0.0
-            ? baseSeconds
-            : baseSeconds * (1.0 + (_jitter * Math.Sin(_frames * 1.7)));
-    }
+        => _plan!.SyntheticFrameSeconds(_step.Seconds, _frames);
 
     private long AdvanceBy(double seconds)
     {
@@ -605,6 +519,24 @@ public sealed partial class FirstRun : Node3D
     private void PlaceEverything()
     {
         var chainage = Math.Min(ChainageM, _axis.LengthM);
+
+        // Streamowanie stoi na początku, ale to jest porządek czytania, nie warunek
+        // poprawności — i tak jest tu napisane, bo pierwsza wersja tego komentarza
+        // twierdziła inaczej. Stało: „gdyby geometria dochodziła po ustawieniu kamery,
+        // zrzut pokazywałby dziurę przed czołem". SPRAWDZONE 03.09.2026 i to nieprawda:
+        // po przeniesieniu tego wywołania na koniec metody zrzut z 2000 m wyszedł
+        // IDENTYCZNY CO DO BAJTU, a bramka metadanych przeszła. Powód jest prosty —
+        // jedno i drugie dzieje się w tym samym `_Process`, a Godot rysuje dopiero
+        // po jego powrocie, więc w obrębie klatki kolejność jest niewidoczna.
+        //
+        // Kolejność zaczęłaby mieć znaczenie dopiero wtedy, gdyby streamowanie
+        // spóźniało się o CAŁĄ klatkę (osobny wątek, wczytywanie asynchroniczne).
+        // Tego tu nie ma i dopóki nie ma, żaden test tej kolejności nie pilnuje.
+        if (_manifest is not null && _tunnelMaterial is not null)
+        {
+            _tunnel.Stream(_manifest, _assetDirectory, _tunnelMaterial, chainage);
+        }
+
         // Było tu `_train.LengthM > 0.0 ? _train.LengthM : 94.0` — CICHY ODWRÓT na
         // wartość ze specyfikacji, gdy skorupa się nie wczytała. Podstawiał poprawną
         // liczbę za nieistniejący skład, więc kamery i telemetria wyglądały normalnie.
@@ -804,6 +736,14 @@ public sealed partial class FirstRun : Node3D
         var bounds = _tunnel.LoadedBounds();
         var lo = bounds.Position;
         var hi = bounds.End;
+
+        // `vertices` i `faces` szły dotąd z `_manifest.Triangles`, czyli z SUMY CAŁEGO
+        // pakietu, niezależnie od tego, co scena naprawdę trzymała. Przy wczytywaniu
+        // wszystkiego naraz liczby przypadkiem się zgadzały; przy streamowaniu byłoby
+        // to wprost nieprawdą — 3 chunki w pamięci, a w metadanych 16176 ścian.
+        // Teraz suma idzie po chunkach REZYDENTNYCH i po tym poziomie, w którym każdy
+        // z nich faktycznie wisi, więc bramka porównuje to, co jest na scenie.
+        var faces = StreamingPlan.TrianglesFor(_manifest, _tunnel.ResidentLevels);
         var directory = _shotPath.Contains('/') ? _shotPath[.._shotPath.LastIndexOf('/')] : ".";
         var name = _shotPath[(_shotPath.LastIndexOf('/') + 1)..];
         var prefix = name.Contains('_') ? name[..name.IndexOf('_')] : "GODOT";
@@ -820,10 +760,12 @@ public sealed partial class FirstRun : Node3D
           "bbox_max": [{{hi.X:F4}}, {{hi.Y:F4}}, {{hi.Z:F4}}],
           "size_m": [{{bounds.Size.X:F4}}, {{bounds.Size.Y:F4}}, {{bounds.Size.Z:F4}}],
           "mesh_objects": {{_tunnel.MeshNodes}},
-          "vertices": {{_manifest.Triangles * 3}},
-          "faces": {{_manifest.Triangles}},
+          "vertices": {{faces * 3}},
+          "faces": {{faces}},
           "chunks_loaded": {{_tunnel.LoadedChunks}},
           "chunks_declared": {{_manifest.Chunks.Count}},
+          "window_low_m": {{_tunnel.WindowLowM:F3}},
+          "window_high_m": {{_tunnel.WindowHighM:F3}},
           "axis_length_m": {{_manifest.AxisLengthM:F3}}
          },
          "train": {

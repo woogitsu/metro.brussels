@@ -5,6 +5,7 @@ Powód: 02.09.2026 krok instalacji Blendera zawiesił się trzy razy na trzech r
 runnerach, za każdym razem przed uruchomieniem ciała testu. Te testy pilnują, żeby
 poprawka nie wyparowała po cichu przy następnej edycji workflow.
 """
+import glob
 import os
 import re
 
@@ -51,7 +52,7 @@ def test_ci_every_package_install_step_has_a_step_timeout():
                 continue
             checked += 1
             assert "timeout-minutes:" in step, (name, step.splitlines()[0].strip())
-    assert checked == 5, f"oczekiwano pięciu kroków instalacji, znaleziono {checked}"
+    assert checked == 6, f"oczekiwano sześciu kroków instalacji, znaleziono {checked}"
 
 
 def test_ci_apt_helper_is_executable_and_retries():
@@ -115,7 +116,7 @@ def test_ci_step_budget_covers_a_slow_mirror():
             assert step_budget * 60 >= install_s, (name, step_budget * 60, install_s)
             # po instalacji ma jeszcze zostać czas na samą pracę joba
             assert job_budget - step_budget >= 10, (name, job_budget, step_budget)
-    assert checked == 5, f"oczekiwano pięciu kroków instalacji, znaleziono {checked}"
+    assert checked == 6, f"oczekiwano sześciu kroków instalacji, znaleziono {checked}"
 
 
 PACKAGE_SETS = os.path.join(ROOT, "tools", "ci", "apt-packages")
@@ -140,8 +141,14 @@ def test_ci_package_lists_live_in_one_place():
             assert os.path.isfile(path), (name, path)
             packages = [line.strip() for line in open(path, encoding="utf-8")
                         if line.strip() and not line.startswith("#")]
-            assert "blender" in packages, (declared, packages)
-    assert checked == 5, f"oczekiwano pięciu kroków instalacji, znaleziono {checked}"
+            # Zestawy niosą już tylko BIBLIOTEKI systemowe — sam Blender przychodzi
+            # z przypiętego tarballa (`test_ci_blender_workflows_install_the_pinned_...`).
+            # Warunek zostaje mocny: zestaw musi dawać kontekst EGL, bo bez niego
+            # Blender startuje i wywraca się dopiero przy pierwszym renderze.
+            assert "libegl1" in packages, (declared, packages)
+            assert "blender" not in packages, (declared, packages,
+                                               "zestaw apt znów instaluje Blendera")
+    assert checked == 6, f"oczekiwano sześciu kroków instalacji, znaleziono {checked}"
 
 
 def test_ci_cache_key_hashes_the_same_package_list_the_step_installs():
@@ -202,18 +209,120 @@ def test_ci_no_pipe_into_head_under_pipefail():
     assert not offenders, offenders
 
 
-def test_ci_blender_workflows_still_install_blender():
-    """Odporność nie może po cichu zgubić samego pakietu."""
-    for name in ("blender-smoke.yml", "tunnel-alignment.yml", "m7-shell.yml",
-                 "visual-regression.yml", "godot-first-run.yml"):
-        text = _text(name)
-        declared = None
-        for step in _steps(text):
-            if "apt_install.sh" in step:
-                declared = _declared_set(step)
-        assert declared, name
+BLENDER_WORKFLOWS = ("blender-smoke.yml", "tunnel-alignment.yml", "m7-shell.yml",
+                     "visual-regression.yml", "godot-first-run.yml",
+                     "station-details.yml")
+
+
+def test_ci_blender_workflows_install_the_pinned_blender_not_whatever_apt_has():
+    """Blender przychodzi z PRZYPIĘTEGO tarballa, a nie z tego, co ma dystrybucja.
+
+    Poprzednia wersja tego testu wymagała, żeby zestaw pakietów zawierał `blender`
+    i `python3-numpy`, i jest tu przepisana, a nie dopisana obok, bo tamta reguła
+    już nie obowiązuje. Powód nie jest kosmetyczny: `apt` na Ubuntu 24.04 daje 4.0.2
+    do końca życia wydania, a 4.0.2 renderuje LEGACY EEVEE. Baseline projektu jest
+    z EEVEE Next i te dwie generacje nie są porównywalne — `enum_items` dla `engine`
+    zwraca `['BLENDER_EEVEE']` na obu, więc nazwa silnika ich nie odróżnia
+    (`tools/visual/capture_plan.py`, `EEVEE_NEXT_SINCE`). Kosztowało to dwie czerwone
+    bramki `tunnel-alignment` (L1_B i L2_E) 02.09.2026.
+
+    `python3-numpy` wypadł z zestawu, bo był potrzebny WYŁĄCZNIE dla Blendera z apt,
+    który linkuje się z systemowym Pythonem. Tarball wozi własny Python 3.13 i numpy 2.3,
+    a żaden moduł w `tools/` ani `src/` nie importuje numpy poza Blenderem.
+    """
+    for name in BLENDER_WORKFLOWS:
+        steps = _steps(_text(name))
+
+        # Krok, który skrypt URUCHAMIA, nie taki, który go tylko wspomina w komentarzu.
+        # Pierwsza wersja tego warunku brała `"blender_install.sh" in step` i trafiała
+        # w komentarz kroku sondy — test padał na kroku, który nigdy nie miał
+        # eksportować `BLENDER_BIN`.
+        installer = [s for s in steps if "bash tools/ci/blender_install.sh" in s]
+        assert installer, f"{name}: brak kroku uruchamiającego tools/ci/blender_install.sh"
+        assert 'BLENDER_BIN=' in installer[0], \
+            f"{name}: krok instalacji nie eksportuje BLENDER_BIN, więc skrypty go nie zobaczą"
+
+        apt = [s for s in steps if "apt_install.sh" in s]
+        assert apt, f"{name}: brak kroku instalującego biblioteki renderu"
+        declared = _declared_set(apt[0])
         packages = open(os.path.join(PACKAGE_SETS, declared + ".txt"), encoding="utf-8").read()
-        assert "libegl1" in packages and "python3-numpy" in packages, (name, declared)
+        assert "libegl1" in packages, (name, declared, "brak kontekstu EGL")
+        assert "\nblender\n" not in packages, \
+            (name, declared, "zestaw apt znów instaluje Blendera, czyli 4.0.2")
+
+
+def test_ci_blender_version_is_pinned_in_exactly_one_place():
+    """Numer wersji i suma kontrolna są w jednym pliku, nie w pięciu workflowach.
+
+    Pięć kopii numeru to pięć okazji, żeby jedna została w tyle i żeby baseline
+    został porównany z klatką z innego silnika EEVEE.
+    """
+    pin = os.path.join(os.path.dirname(PACKAGE_SETS), "blender-version.txt")
+    assert os.path.isfile(pin), pin
+    text = open(pin, encoding="utf-8").read()
+    version = re.search(r"(?m)^version=(.+)$", text)
+    sha = re.search(r"(?m)^sha256=([0-9a-f]{64})$", text)
+    assert version, "plik pinu nie podaje 'version='"
+    assert sha, "plik pinu nie podaje 'sha256=' o długości 64 znaków hex"
+
+    # Żaden workflow nie ma prawa wpisywać numeru wersji u siebie.
+    for name in BLENDER_WORKFLOWS:
+        assert version.group(1) not in _text(name), \
+            f"{name}: numer wersji Blendera wpisany w workflow zamiast czytany z pinu"
+
+
+def test_ci_no_workflow_uses_blender_before_installing_it():
+    """Krok, który woła `$BLENDER_BIN`, musi stać PO kroku, który go ustawia.
+
+    Pod `set -euo pipefail` puste `BLENDER_BIN` kończy krok błędem, więc awaria byłaby
+    głośna — ale byłaby też myląca: „command not found" kilkanaście kroków od powodu,
+    czyli od przestawionej kolejności. Ten test nazywa powód wprost.
+    """
+    for name in BLENDER_WORKFLOWS:
+        document = yaml.safe_load(_text(name))
+        steps = list(document["jobs"].values())[0]["steps"]
+        installer = None
+        for index, step in enumerate(steps):
+            if "bash tools/ci/blender_install.sh" in str(step.get("run", "")):
+                installer = index
+                break
+        assert installer is not None, f"{name}: brak kroku instalacji"
+        for index, step in enumerate(steps):
+            run = str(step.get("run", ""))
+            if "BLENDER_BIN" in run and "blender_install.sh" not in run:
+                assert index > installer, (
+                    f"{name}: krok {index} '{step.get('name')}' woła BLENDER_BIN, "
+                    f"a instalacja jest dopiero w kroku {installer}")
+
+
+def test_ci_blender_installer_verifies_the_checksum_and_stays_out_of_the_workspace():
+    """Pobranie bez sprawdzenia sumy nie jest instalacją, tylko nadzieją.
+
+    Archiwum ucięte w połowie rozpakowuje się częściowo i wywraca się dopiero
+    w środku renderu, kilkanaście kroków od powodu. Drugi warunek jest z tej samej
+    rodziny co `test_godot_lives_outside_the_workspace_that_checkout_wipes`:
+    `actions/checkout` robi `git clean -ffdx`, a `-x` obejmuje pliki ignorowane.
+    """
+    script = open(os.path.join(os.path.dirname(PACKAGE_SETS), "blender_install.sh"),
+                  encoding="utf-8").read()
+    # Komentarze SĄ ODCINANE przed sprawdzaniem. Bez tego test przechodzi na
+    # samej wzmiance w komentarzu: kontrola negatywna, która zamieniła
+    # `${RUNNER_TOOL_CACHE:-...}` na inną zmienną, została NIEZŁAPANA właśnie
+    # dlatego, że nazwa dalej stała w komentarzu obok.
+    code = "\n".join(line for line in script.splitlines()
+                     if not line.lstrip().startswith("#"))
+
+    assert "sha256sum -c" in code, "instalator nie sprawdza sumy kontrolnej"
+    assert re.search(r"\$\{RUNNER_TOOL_CACHE:-", code), \
+        "instalator nie czyta RUNNER_TOOL_CACHE, więc Blender może wylądować w workspace"
+    assert re.search(r"\$\{GITHUB_WORKSPACE:?-?[^}]*\}|\$GITHUB_WORKSPACE", code), \
+        "instalator nie sprawdza, czy katalog docelowy nie wpadł do workspace"
+    # Sonda musi czytać WERSJĘ, nie obecność: `command -v blender` na maszynie
+    # z Blenderem z apt znalazłby 4.0.2 i uznał środowisko za gotowe.
+    assert "installed_version" in code and '--version' in code, \
+        "instalator nie porównuje wersji zastanej z przypiętą"
+    assert 'command -v blender' not in code, \
+        "instalator sonduje obecność Blendera zamiast jego wersji"
 
 
 def _paths_block(text):
@@ -382,9 +491,14 @@ def test_godot_scene_knows_every_argument_the_workflow_passes():
     w kodzie nie zgubi argumentu, którego CI używa, i że CI nie zacznie wołać
     argumentu, którego scena nie zna.
     """
-    source = open(os.path.join(ROOT, "src", "Game", "FirstRun.cs"), encoding="utf-8").read()
+    # Lista przeprowadziła się 03.09.2026 do `RunPlan.cs`, razem z całym
+    # rozstrzyganiem wiersza poleceń — bo tamten plik nie importuje Godota i daje
+    # się przetestować jednostkowo. Ten test celuje w nowy adres, a nie został
+    # usunięty: porównanie listy z tym, czym CI WOŁA scenę, jest czymś, czego
+    # test jednostkowy nie zrobi, bo nie widzi workflow.
+    source = open(os.path.join(ROOT, "src", "Game", "RunPlan.cs"), encoding="utf-8").read()
     block = re.search(r"KnownArguments\s*=\s*\{(.*?)\};", source, re.S)
-    assert block, "lista znanych argumentów zniknęła z FirstRun.cs"
+    assert block, "lista znanych argumentów zniknęła z RunPlan.cs"
     known = set(re.findall(r'"([a-z-]+)"', block.group(1)))
     assert len(known) >= 10, known
 
@@ -412,19 +526,48 @@ def test_godot_scene_knows_every_argument_the_workflow_passes():
     assert {"shot", "at-chainage", "view"} <= used, sorted(used)
 
 
-def test_godot_scene_rejects_unknown_arguments_instead_of_ignoring_them():
-    """Sama bramka w kodzie, nie tylko zgodność list."""
-    source = open(os.path.join(ROOT, "src", "Game", "FirstRun.cs"), encoding="utf-8").read()
-    assert "ExitUnknownArgument" in source
-    assert "Array.IndexOf(KnownArguments, name) < 0" in source, \
-        "zniknęło sprawdzenie, czy argument jest znany"
-    assert "KnownViews" in source and "ExitBadArgumentValue" in source, \
-        "nieznany --view musi być błędem, a nie cichym powrotem do kabiny"
-    # `double.Parse` w środku `_Ready` rzucał wyjątkiem, `_shotPath` było już
-    # ustawione i `_Process` kręciło się w nieskończoność aż do timeoutu CI.
-    assert "double.Parse(" not in source, "parsowanie bez TryParse wraca do zawieszania"
-    assert "long.Parse(" not in source, "parsowanie bez TryParse wraca do zawieszania"
-    assert "_aborted" in source, "brak flagi zatrzymującej pętlę klatek"
+def test_godot_argument_gate_stays_testable_outside_the_engine():
+    """Rozstrzyganie argumentów sceny ma zostać W PLIKU BEZ GODOTA i mieć testy.
+
+    Ten test jest PRZEPISANY, nie dopisany obok, i warto powiedzieć dlaczego.
+    Poprzednia wersja sprawdzała obecność NAPISÓW w `FirstRun.cs`:
+    `"Array.IndexOf(KnownArguments, name) < 0" in source`. Taki test nie odróżnia
+    kodu wykonywanego od zakomentowanego i nie dotyka ani jednej gałęzi — a był
+    JEDYNYM, co pilnowało 847-liniowej klasy, bo `grep -rn "FirstRun" tests/`
+    nie dawał ani jednego trafienia.
+
+    Od 03.09.2026 te gałęzie mają prawdziwe testy jednostkowe (`RunPlanTests.cs`,
+    23 przypadki), więc ten test nie musi już udawać, że je sprawdza. Pilnuje
+    natomiast czegoś, czego test jednostkowy nie wyrazi: że logika NIE WRÓCI pod
+    Godota, bo wtedy przestałaby być testowalna i wszystko zaczęłoby się od nowa.
+    """
+    plan_path = os.path.join(ROOT, "src", "Game", "RunPlan.cs")
+    assert os.path.isfile(plan_path), "RunPlan.cs zniknął — rozstrzyganie wróciło pod Godota"
+    plan = open(plan_path, encoding="utf-8").read()
+
+    assert "using Godot" not in plan, \
+        "RunPlan.cs zaczął importować Godota — testy jednostkowe przestaną go widzieć"
+    assert "KnownArguments" in plan and "KnownViews" in plan
+    # Bramki, nie napisy: `TryParse` zamiast `Parse`, bo `double.Parse` w środku
+    # `_Ready` rzucał wyjątkiem, `_shotPath` było już ustawione, a `_Process`
+    # kręciło się w nieskończoność aż do wypalenia `timeout-minutes` w CI.
+    assert "double.Parse(" not in plan and "long.Parse(" not in plan, \
+        "parsowanie bez TryParse wraca do zawieszania przebiegu"
+    assert "double.IsFinite" in plan, \
+        "TryParse sam przyjmuje Infinity i NaN — bez IsFinite wraca pętla bez końca"
+
+    tests_path = os.path.join(ROOT, "tests", "Game.Tests", "RunPlanTests.cs")
+    assert os.path.isfile(tests_path), "RunPlan stracił testy jednostkowe"
+    tests = open(tests_path, encoding="utf-8").read()
+    cases = tests.count("[TestMethod]")
+    assert cases >= 20, f"RunPlanTests ma tylko {cases} przypadków"
+
+    # Scena nadal musi umieć zatrzymać pętlę klatek — to jest po stronie Godota
+    # i zostaje w `FirstRun.cs`.
+    scene = open(os.path.join(ROOT, "src", "Game", "FirstRun.cs"), encoding="utf-8").read()
+    assert "ExitUnknownArgument" in scene and "ExitBadArgumentValue" in scene
+    assert "_aborted" in scene, "brak flagi zatrzymującej pętlę klatek"
+    assert "RunPlan.Parse(" in scene, "scena przestała wołać RunPlan"
 
 
 def test_godot_scene_gates_the_axis_against_the_manifest():
@@ -541,16 +684,28 @@ def test_tool_installation_is_conditional_on_the_tool_being_missing():
         steps = list(document["jobs"].values())[0]["steps"]
 
         probe = [s for s in steps if s.get("id") == "tools"]
-        assert probe, f"{name}: brak kroku sondującego obecność Blendera"
-        assert "command -v blender" in probe[0]["run"], name
+        assert probe, f"{name}: brak kroku sondującego biblioteki renderu"
+        # Sonda pyta o BIBLIOTEKI, nie o Blendera, i to jest zmiana świadoma.
+        # `command -v blender` na maszynie, która kiedykolwiek dostała Blendera z apt,
+        # znajduje 4.0.2 i uznaje środowisko za gotowe — a to legacy EEVEE. Wersję
+        # sprawdza `tools/ci/blender_install.sh`, który jest własną sondą.
+        assert "ldconfig" in probe[0]["run"], \
+            f"{name}: sonda nie sprawdza bibliotek renderu"
+        assert "command -v blender" not in probe[0]["run"], \
+            f"{name}: sonda pyta o obecność Blendera zamiast o jego wersję"
 
         for step in steps:
             run = str(step.get("run", ""))
             if "apt_install.sh" in run or (step.get("uses", "").startswith("actions/cache")
                                            and "metro-apt" in str(step)):
-                assert step.get("if") == "steps.tools.outputs.blender == 'missing'", \
+                assert step.get("if") == "steps.tools.outputs.libs == 'missing'", \
                     f"{name}: krok '{step.get('name')}' nie jest zabramkowany sondą"
-    assert checked == 5, checked
+            # Instalator Blendera NIE jest bramkowany z workflow i tak ma być:
+            # sam czyta pin, sam porównuje wersję i przy zgodzie kończy w 0,12 s.
+            if "blender_install.sh" in run:
+                assert step.get("if") is None, \
+                    f"{name}: instalator Blendera jest własną sondą i nie ma być bramkowany"
+    assert checked == 6, checked
 
 
 def test_godot_lives_outside_the_workspace_that_checkout_wipes():
@@ -736,3 +891,276 @@ def test_a_workflow_with_path_filters_watches_every_test_project_it_runs():
                 f"{name} uruchamia {target}, ale nie ma {directory}/** w paths — "
                 "zmiana w tym projekcie nie odpali workflow, który go wykonuje")
     assert checked >= 1, "żaden workflow z filtrem nie uruchamia projektu testowego"
+
+
+def test_ci_every_blender_generator_has_a_gate():
+    """Każdy generator geometrii w `tools/blender/` musi być wołany przez BRAMKĘ.
+
+    Powód jest wprost z `CLAUDE.md` §5: skrypt bez błędu potrafi wyprodukować pustą
+    scenę, więc pokrycie testem jednostkowym przez atrapę `bpy` NIE jest weryfikacją
+    generatora — atrapa nigdy nie dotyka Blendera i nie umie wykonać ani jednej
+    ścieżki, która wczytuje scenkę.
+
+    Zmierzone 03.09.2026: `station_kit.py` i `detail_markers.py` nie były wołane
+    z żadnego workflow ani skryptu w `tools/ci`. Oba generują geometrię, oba noszą
+    jawne stałe projektowe, i oba miały bramki ODMOWY, których nie sprawdzał nikt:
+    `--only-station` z literówką, okno bez znaczników, słupek wchodzący w skrajnię.
+
+    GRANICA REGUŁY JEST WĄSKA I TO JEST ŚWIADOME. Obejmuje `tools/blender/`, a nie
+    każde CLI w `tools/`. Czternaście modułów w `tools/track/` też nie jest wołanych
+    z CI i większość z nich SŁUSZNIE: `fetch_gtfs.py`, `fetch_osm_routes.py`
+    i `fetch_stib_shapes.py` chodzą po sieci, a `build_alignment.py`,
+    `crosscheck_alignment.py`, `inspire_rail.py`, `network_chainage.py`,
+    `normalize_stops.py`, `surface_sections.py` i `timetable.py` potrzebują danych,
+    których w repozytorium nie ma (reguła 8). Rozszerzenie tej reguły na `tools/track/`
+    wymagałoby sieci w CI, więc byłoby żądaniem, nie bramką.
+    """
+    # Kryterium: moduł IMPORTUJE `bpy` i ma własne CLI. Obie połowy są konieczne.
+    #
+    # `bpy`, bo tylko taki moduł produkuje scenę — a §5 mówi właśnie o pustej scenie
+    # z bezbłędnego skryptu. `m7_layout.py` ma CLI (`print(report())`), ale nie tyka
+    # Blendera i jest importowany przez `m7_shell`, `clearance` i `m7_report`, więc
+    # jego kod i tak się wykonuje; żądanie osobnej bramki dla niego byłoby żądaniem,
+    # nie regułą. Pierwsza wersja tego testu brała samo CLI i wskazała go jako
+    # niepokrytego — słusznie co do faktu, błędnie co do wniosku.
+    #
+    # CLI, bo moduł bez `__main__` (jak `render_check.py`) jest wołany PRZEZ inny
+    # generator i nie ma własnej ścieżki do zabramkowania.
+    generators = []
+    for path in sorted(glob.glob(os.path.join(ROOT, "tools", "blender", "*.py"))
+                       + glob.glob(os.path.join(ROOT, "tools", "visual", "*.py"))):
+        source = open(path, encoding="utf-8").read()
+        if '__name__ == "__main__"' not in source:
+            continue
+        if not re.search(r"(?m)^import bpy$", source):
+            continue
+        generators.append(os.path.relpath(path, ROOT))
+    assert len(generators) >= 7, generators
+
+    # Skrypt w `tools/ci`, którego NIE URUCHAMIA żaden workflow, nie jest bramką.
+    # To nie jest hipoteza: pierwsza wersja tego testu sklejała po prostu wszystkie
+    # skrypty i wszystkie workflowy, więc kontrola negatywna „workflow przestaje
+    # wołać skrypt" przeszła NIEZŁAPANA — generator dalej stał w pliku, którego
+    # nikt nie odpala. Dlatego najpierw ustalamy, które skrypty są realnie wołane.
+    # Liczy się TREŚĆ KROKÓW `run:`, a nie cały YAML. Druga pułapka tej samej
+    # rodziny: nazwa generatora stoi też w `paths:`, czyli w WYZWALACZU workflow —
+    # a wyzwalacz mówi tylko „odpal się, gdy ten plik się zmieni", nie „uruchom go".
+    # Kontrola negatywna „workflow przestaje wołać skrypt" przechodziła NIEZŁAPANA
+    # jeszcze raz, właśnie na tym.
+    workflows = ""
+    for path in sorted(glob.glob(os.path.join(ROOT, ".github", "workflows", "*.yml"))):
+        document = yaml.safe_load(open(path, encoding="utf-8"))
+        for job in document["jobs"].values():
+            for step in job["steps"]:
+                workflows += str(step.get("run", "")) + "\n"
+
+    haystack = workflows
+    invoked = []
+    for path in sorted(glob.glob(os.path.join(ROOT, "tools", "ci", "*.sh"))):
+        name = "tools/ci/" + os.path.basename(path)
+        if re.search(r"bash\s+" + re.escape(name) + r"\b", workflows):
+            invoked.append(name)
+            haystack += open(path, encoding="utf-8").read()
+    assert len(invoked) >= 5, ("skrypty CI wołane przez workflow: " + ", ".join(invoked))
+
+    missing = [name for name in generators if name not in haystack]
+    assert not missing, ("generatory geometrii bez bramki w CI: " + ", ".join(missing)
+                         + " (skrypty realnie wołane: " + ", ".join(invoked) + ")")
+
+
+def test_ci_the_station_details_gate_reads_the_reason_of_every_refusal():
+    """Odmowa bez przeczytanego powodu nie jest bramką, tylko awarią.
+
+    `station_details.sh` sprawdza sześć odmów i każda musi spełnić trzy warunki:
+    polecenie padło, NIE zostawiło pliku wyjściowego, a w logu stoi konkretna
+    diagnoza. Trzeci warunek jest tym, który odróżnia bramkę od „coś się wywaliło":
+    bez niego test przechodzi także wtedy, gdy generator pada z zupełnie innego
+    powodu — na przykład na literówce w nazwie pliku.
+
+    Ta sama konwencja co negatywy w `blender_smoke.sh`.
+    """
+    script = open(os.path.join(ROOT, "tools", "ci", "station_details.sh"),
+                  encoding="utf-8").read()
+    code = "\n".join(line for line in script.splitlines()
+                     if not line.lstrip().startswith("#"))
+
+    assert "expect_refusal()" in code, "brak wspólnej funkcji sprawdzającej odmowy"
+    # Trzy warunki w jednym miejscu, więc żadna odmowa nie może ich pominąć.
+    assert 'fail "$label: polecenie NIE padło' in code
+    assert 'test ! -e "$glb"' in code, "odmowa nie sprawdza, czy nie powstał plik"
+    assert 'grep -Eq "$pattern" "$log"' in code, "odmowa nie czyta powodu z logu"
+
+    # Sześć odmów: dwie na peronach, cztery na słupkach.
+    assert code.count("expect_refusal ") >= 6, code.count("expect_refusal ")
+    for pattern in ("nie zbudowano ani jednej bryły",
+                    "okno .* jest puste",
+                    "nie ma ani jednego znacznika",
+                    "wchodzi w skrajnię pojazdu",
+                    "przebija ścianę profilu"):
+        assert pattern in code, f"brak odmowy o wzorcu /{pattern}/"
+# --- kasowanie gałęzi: workflow, który musi sprawdzać, zanim skasuje ------------
+
+def _prune_workflow():
+    return _text("prune-merged-branches.yml")
+
+
+def _prune_without_comments():
+    """Sam kod workflow, bez komentarzy.
+
+    Bramka, która grepuje po całym pliku, łapie własne uzasadnienie: komentarz
+    tłumaczący, czemu czegoś NIE używamy, zawiera tę frazę tak samo jak użycie.
+    Ta pułapka wywróciła już bramkę reguły 9 w tym repozytorium — powtarzanie jej
+    z pełną świadomością byłoby wyborem, nie przeoczeniem.
+    """
+    return "\n".join(
+        line.split(" #", 1)[0] if not line.lstrip().startswith("#") else ""
+        for line in _prune_workflow().splitlines())
+
+
+def _prune_document():
+    """Sparsowany workflow. `on` w YAML 1.1 jest wartością logiczną, nie napisem —
+    `safe_load` daje klucz `True`, więc `document["on"]` wywraca się na KeyError."""
+    document = yaml.safe_load(_prune_workflow())
+    return document, document.get("on", document.get(True))
+
+
+def test_prune_workflow_verifies_the_merge_itself_instead_of_trusting_a_list():
+    """Kasowanie gałęzi to operacja nieodwracalna wykonywana bez nadzoru.
+
+    Workflow powstał dlatego, że agent w środowisku Claude Code dostaje 403 na
+    usuwanie refów — to ograniczenie środowiska, nie brak uprawnień właściciela.
+    Lista 79 gałęzi zweryfikowanych w #120 wisiała przez to w opisie PR-a.
+
+    Przeniesienie tej roboty na runnera nie może polegać na WKLEJENIU tamtej listy:
+    lista sprzed tygodnia opisuje repozytorium sprzed tygodnia, a gałąź, do której
+    ktoś w międzyczasie dopisał commit, wygląda na niej tak samo jak przedtem.
+    Dlatego workflow wyznacza listę sam i pyta o relację COMMITÓW, nie o nazwy.
+
+    `git branch --merged` nie wystarcza i to nie jest formalność: przy scaleniu ze
+    squashem gałąź ma inny commit niż baza, więc bywa raportowana jako niescalona,
+    a przy scaleniu przez merge — jako scalona nawet wtedy, gdy dopisano do niej
+    później. `merge-base --is-ancestor` odpowiada na pytanie, które ma znaczenie:
+    czy w tej gałęzi jest cokolwiek, czego nie ma w bazie.
+    """
+    text = _prune_without_comments()
+    assert "merge-base --is-ancestor" in text, \
+        "workflow nie sprawdza, czy czubek gałęzi jest przodkiem bazy"
+    assert "--merged" not in text, \
+        "pytanie o samą nazwę gałęzi myli się przy squashu — ma nie być używane"
+    assert "gh pr list --state open" in text, \
+        "workflow nie pyta o otwarte pull requesty"
+    assert "rev-list --count" in text, \
+        "workflow nie liczy, ILE commitów gałąź ma poza bazą — bez tego log nie mówi, czemu została"
+
+
+def test_prune_workflow_defaults_to_a_dry_run():
+    """Domyślne uruchomienie ma NIC nie skasować.
+
+    Krok kasujący jest warunkowany `inputs.dry_run == false`, a samo wejście ma
+    `default: true`. Kolejność jest istotna: gdyby domyślną wartością było
+    kasowanie, jedno kliknięcie „Run workflow" bez czytania formularza usuwałoby
+    gałęzie nieodwracalnie.
+    """
+    document, triggers = _prune_document()
+    inputs = triggers["workflow_dispatch"]["inputs"]
+    assert inputs["dry_run"]["default"] is True, inputs["dry_run"]
+    steps = document["jobs"]["prune"]["steps"]
+    deleting = [s for s in steps if "push origin --delete" in str(s.get("run", ""))]
+    assert len(deleting) == 1, "krok kasujący ma być dokładnie jeden"
+    assert "inputs.dry_run == false" in str(deleting[0]["if"]), deleting[0].get("if")
+
+
+def test_prune_workflow_never_deletes_the_base_branch():
+    """Baza musi być wykluczona jawnie, a nie przez to, że „i tak jest przodkiem siebie".
+
+    `merge-base --is-ancestor main main` jest prawdą, więc bez tego wykluczenia
+    workflow skasowałby gałąź, względem której liczy scalenie — czyli dokładnie tę,
+    której nie wolno tknąć.
+    """
+    assert '[ "$branch" = "$BASE" ]' in _prune_without_comments(), \
+        "brak jawnego wykluczenia bazy"
+
+
+def test_prune_workflow_asks_for_the_write_permission_it_needs_and_no_more():
+    """`contents: write` jest konieczne do usunięcia refa i wystarczające.
+
+    Domyślne `contents: read` z pozostałych workflow tego repozytorium dałoby 403 —
+    czyli dokładnie ten sam objaw, dla którego ten workflow powstał, tylko przeniesiony
+    na runnera. `pull-requests: read` jest potrzebne do listy otwartych PR-ów.
+    """
+    document, _triggers = _prune_document()
+    assert document["permissions"] == {"contents": "write", "pull-requests": "read"}, \
+        document["permissions"]
+
+
+# --- akcje przypięte po SHA ----------------------------------------------------
+
+ACTION_USE = re.compile(r"(?m)^\s*uses:\s*(\S+)\s*(?:#\s*(\S+))?\s*$")
+
+
+def test_every_action_is_pinned_to_a_commit_not_a_moving_tag():
+    """Te joby chodzą na MASZYNIE WŁAŚCICIELA, a nie na jednorazowej maszynie GitHuba.
+
+    `actions/checkout@v6` to tag RUCHOMY: wskazuje na to, co właściciel akcji ostatnio
+    tam przesunął. Kto przejmie konto `actions` albo dopisze commit i przesunie tag,
+    ten wykonuje swój kod na maszynie w mieszkaniu właściciela tego repozytorium,
+    z dostępem do `runner.tool_cache`, do workspace'u i do `GITHUB_TOKEN`. Ten sam tag,
+    ten sam workflow, inny kod — i nic w repozytorium tego nie odnotowuje.
+
+    SHA commita jest niezmienny. Przesunięcie tagu przestaje mieć znaczenie, a każda
+    zmiana wersji akcji staje się widocznym commitem w tym repozytorium.
+
+    Zmierzone przy wprowadzaniu: 21 wywołań, 4 różne akcje, wszystkie na tagach `v4`/`v6`.
+    """
+    unpinned = []
+    checked = 0
+    for name in _workflows():
+        for match in ACTION_USE.finditer(_text(name)):
+            ref = match.group(1)
+            if "@" not in ref or ref.startswith("./"):
+                continue
+            checked += 1
+            _action, version = ref.rsplit("@", 1)
+            if not re.fullmatch(r"[0-9a-f]{40}", version):
+                unpinned.append(f"{name}: {ref}")
+    assert not unpinned, f"akcje na ruchomym tagu: {unpinned}"
+    assert checked >= 20, checked
+
+
+def test_every_pinned_action_says_which_version_the_commit_is():
+    """SHA bez wersji jest nieczytelny i przez to nieaktualizowalny.
+
+    `actions/checkout@d23441a4…` nie mówi człowiekowi nic: nie da się zobaczyć, czy to
+    wersja sprzed roku, ani zdecydować, czy warto podnieść. Komentarz z wersją zamienia
+    przypięcie z bariery w informację — i jest jedyną rzeczą, która sprawia, że
+    przypinanie po SHA nie zamienia się w porzucanie akcji na zawsze.
+    """
+    missing = []
+    for name in _workflows():
+        for match in ACTION_USE.finditer(_text(name)):
+            ref, comment = match.group(1), match.group(2)
+            if "@" not in ref or ref.startswith("./"):
+                continue
+            if not re.fullmatch(r"v\d+(\.\d+)*", comment or ""):
+                missing.append(f"{name}: {ref} # {comment}")
+    assert not missing, f"przypięcia bez czytelnej wersji: {missing}"
+
+
+def test_the_same_action_is_pinned_to_the_same_commit_everywhere():
+    """Dwa różne SHA tej samej akcji w jednym repozytorium to stan, nie decyzja.
+
+    Bez tej kontroli aktualizacja „wszystkich checkoutów" zostawia jeden na starym
+    commicie i nikt tego nie widzi — a właśnie ten jeden będzie potem tłumaczył, czemu
+    jeden job zachowuje się inaczej niż sześć pozostałych.
+    """
+    seen = {}
+    for name in _workflows():
+        for match in ACTION_USE.finditer(_text(name)):
+            ref = match.group(1)
+            if "@" not in ref or ref.startswith("./"):
+                continue
+            action, sha = ref.rsplit("@", 1)
+            seen.setdefault(action, {}).setdefault(sha, []).append(name)
+    split = {a: v for a, v in seen.items() if len(v) > 1}
+    assert not split, f"ta sama akcja na różnych commitach: {split}"
+    assert len(seen) >= 4, seen
