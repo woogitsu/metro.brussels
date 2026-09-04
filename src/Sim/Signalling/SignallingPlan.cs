@@ -216,7 +216,7 @@ public sealed class SignallingPlan
             Units.MpsToKmh(PermittedSpeedMps).ToString("R", CultureInfo.InvariantCulture) + " km/h",
             "reports/R-006-line-speed.md: żaden dokument STIB nie podaje prędkości " +
             "dopuszczalnej na torze; 72 km/h wolno używać tylko jako jawnego parametru " +
-            "scenariusza, a zmierzone dolne ograniczenie z T-401 to 58,75 km/h"),
+            "scenariusza, a zmierzone dolne ograniczenie z T-401 to 58,68 km/h"),
         new SignallingAssumption(
             nameof(AuthorityMarginM),
             AuthorityMarginM.ToString("R", CultureInfo.InvariantCulture) + " m",
@@ -612,7 +612,7 @@ public sealed class SignallingPlan
             writer.WriteString("basis",
                 "reports/R-006-line-speed.md: żaden dokument STIB nie podaje prędkości dopuszczalnej " +
                 "na torze; 72 km/h wolno używać wyłącznie jako jawnego parametru scenariusza. " +
-                "Zmierzone dolne ograniczenie z T-401 to 58,75 km/h.");
+                "Zmierzone dolne ograniczenie z T-401 to 58,68 km/h.");
             writer.WriteEndObject();
 
             writer.WriteStartObject("authority_margin_m");

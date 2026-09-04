@@ -10,7 +10,7 @@
   "default_permitted_speed_kmh": {
     "value": 72,
     "status": "design_model",
-    "basis": "reports/R-006-line-speed.md: żaden dokument STIB nie podaje prędkości dopuszczalnej na torze; 72 km/h wolno używać wyłącznie jako jawnego parametru scenariusza. Zmierzone dolne ograniczenie z T-401 to 58,75 km/h."
+    "basis": "reports/R-006-line-speed.md: żaden dokument STIB nie podaje prędkości dopuszczalnej na torze; 72 km/h wolno używać wyłącznie jako jawnego parametru scenariusza. Zmierzone dolne ograniczenie z T-401 to 58,68 km/h."
   },
   "authority_margin_m": {
     "value": 0,

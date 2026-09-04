@@ -57,7 +57,11 @@ Prędkości maksymalnej ani dopuszczalnej na torze nie ma w żadnym z nich.
 ## 4. Pomiar: 50 km/h nie da się pogodzić z dzisiejszym rozkładem
 
 Przepuściłem pakiet E (pierścień 2/6) przez pętlę z T-401 przy różnych limitach
-i porównałem z rozkładem zmierzonym w T-113:
+i porównałem z rozkładem zmierzonym w T-113.
+
+Blok niżej jest przebiegiem z 02.09.2026, czyli sprzed #86, i liczb w nim nie
+przeliczam — to zapis tego, co wyszło tamtego dnia. Wiersz `58,75 km/h` był wtedy
+próbą przy dolnym ograniczeniu, jakie podawało T-401.
 
 ```
 $ dotnet run --project src/Sim.Runner -- line --axis data/track/L2_E.json \
@@ -75,7 +79,10 @@ z T-310, ale kierunek jest jednoznaczny: albo ograniczenie zniknęło przy restr
 2009, albo dotyczyło innego odcinka, albo nigdy nie było tym, czym opisała je prasa.
 
 **72 km/h natomiast jest zgodne ze wszystkim, co zmierzyłem** — leży powyżej dolnego
-ograniczenia 58,75 km/h z T-401 i zostawia rezerwę na każdym z 49 odcinków sieci.
+ograniczenia 58,68 km/h z T-401 i zostawia rezerwę na każdym z 49 odcinków sieci.
+
+Do 04.09.2026 stała w tym zdaniu wartość sprzed #86. Wniosek się nie ruszył, bo 72
+leży powyżej obu, ale liczba cytowana z T-401 ma być tą, którą T-401 podaje dzisiaj.
 
 ## 5. Kontrola krzyżowa: prędkość handlowa się zgadza
 
@@ -127,8 +134,11 @@ Co proponuję zamiast tego:
 1. **72 km/h wolno używać jako parametru scenariusza**, jawnie zadeklarowanego przez
    wołającego (`LineRunSettings.SpeedLimitMps`), z tym raportem jako uzasadnieniem
    wyboru. Nie jako wpis w `data/`.
-2. **Dolne ograniczenie 58,75 km/h z T-401 zostaje pomiarem** — to jedyna liczba
-   o prędkości liniowej, która w tym repo ma wyprowadzenie.
+2. **Dolne ograniczenie 58,68 km/h z T-401 zostaje pomiarem** — to jedyna liczba
+   o prędkości liniowej, która w tym repo ma wyprowadzenie: `reports/T-401-line-run.md`
+   §4, maksimum kolumny C# po sześciu pakietach, czyli odcinek Beaulieu → Demey
+   w L5_D. Ta liczba się rusza przy każdym przeliczeniu T-401, dlatego pilnuje jej
+   `tools/tests/test_t401_citation.py`, a nie dobra wola czytającego.
 3. **Prawdziwe źródło wymaga kontaktu ze STIB** albo dostępu do dokumentacji
    przetargowej CBTC (Ansaldo 2016 dla L1/L5, Pulsar/SYSTRA-GESTE-Tractebel 2017).
    Dokumenty przetargowe nie są publiczne; to zadanie dla człowieka, tak samo jak T-903.
