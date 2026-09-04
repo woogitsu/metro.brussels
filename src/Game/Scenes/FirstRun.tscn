@@ -1,4 +1,4 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 ; Struktura sceny pierwszego przejazdu. Celowo płaska i celowo pusta z danych:
 ; geometria tunelu i składu jest wczytywana z build/ w czasie działania (patrz
@@ -8,6 +8,7 @@
 [ext_resource type="Script" path="res://FirstRun.cs" id="1_root"]
 [ext_resource type="Script" path="res://World/TunnelView.cs" id="2_tunnel"]
 [ext_resource type="Script" path="res://World/TrainView.cs" id="3_train"]
+[ext_resource type="Script" path="res://World/StationView.cs" id="5_station"]
 [ext_resource type="Script" path="res://UI/Hud.cs" id="4_hud"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hud"]
@@ -24,6 +25,9 @@ script = ExtResource("1_root")
 
 [node name="Tunnel" type="Node3D" parent="."]
 script = ExtResource("2_tunnel")
+
+[node name="Platforms" type="Node3D" parent="."]
+script = ExtResource("5_station")
 
 [node name="Train" type="Node3D" parent="."]
 script = ExtResource("3_train")

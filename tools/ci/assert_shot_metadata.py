@@ -44,6 +44,16 @@ AXIS_TOLERANCE_M = 1e-3
 #: Krok zagęszczania z `TrackAxis.DefaultRingStepM` i `sweep.DEFAULT_RING_STEP_M`.
 RING_STEP_M = 5.0
 
+#: Zapas nad wysokością podłogi M7, w którym musi się zmieścić góra brył peronu.
+#:
+#: Płyta kończy się dokładnie na wysokości podłogi (STIB: podłoga M7 „à hauteur du
+#: quai", R-007), a pas ostrzegawczy z `station_kit.py` leży 1 mm nad płytą, żeby dał
+#: się pomalować niezależnie. Centymetr to o rząd wielkości więcej niż ten milimetr
+#: i o dwa rzędy mniej niż jakikolwiek błąd wysokości, który miałby tu przejść: peron
+#: postawiony na poziomie główki szyny albo pod stropem komory wypada z tego
+#: przedziału natychmiast.
+PLATFORM_TOP_SLACK_M = 0.01
+
 
 def axis_points(axis_path):
     with open(axis_path, encoding="utf-8") as handle:
@@ -202,6 +212,171 @@ def check_train(metadata, spec_path):
     return problems
 
 
+def platform_floor_height_m(spec_path):
+    """Wysokość podłogi M7 z rejestru — wyłącznie wpis o statusie `spec`.
+
+    To jest DRUGA, niezależna droga do wysokości peronu. Pierwszą jest AABB brył,
+    który `StationView` odczytał z wyeksportowanego GLB. Bramka nie porównuje więc
+    generatora z samym sobą.
+    """
+    with open(spec_path, encoding="utf-8") as handle:
+        registry = json.load(handle)
+    entry = registry["parameters"]["floor_height_m"]
+    if entry.get("status") != "spec":
+        raise SystemExit(
+            f"BŁĄD: floor_height_m w rejestrze M7 ma status {entry.get('status')!r}, "
+            "nie 'spec' — bramka nie ma prawa opierać się na wartości bez źródła")
+    return float(entry["value"])
+
+
+def platform_radius_bounds(layout, metrics):
+    """Przedział, w którym musi się zmieścić promień szukania peronu.
+
+    **Po co to jest.** Promień przychodzi z metadanych, czyli OD SCENY, a bramka
+    liczy nim swoje oczekiwania — więc scena, która poda promień 20 km, sama sobie
+    rozszerza bramkę do „gdziekolwiek na pakiecie" i przechodzi. Zmierzone
+    04.09.2026: mutacja `PlatformNearRadiusM 20.0 -> 20000.0` dawała
+    `near_shot.slabs = 48` i przechodziła kontrolę przedziału, bo przy takim
+    promieniu layout „luźno" obejmował wszystkie dwanaście peronów.
+
+    Oba końce przedziału są policzone z danych, nie przyjęte:
+
+    * **od dołu** — odległość krawędzi peronu od osi TRASY, czyli odsunięcie toru
+      z profilu plus największe minimalne odsunięcie krawędzi na pakiecie plus
+      szczelina. Promień mniejszy nie sięgnąłby własnego peronu na żadnej stacji
+      i `near_shot` byłoby zawsze zerem;
+    * **od góry** — połowa najmniejszego odstępu między sąsiednimi peronami.
+      Promień większy mógłby złapać peron następnej stacji i „peron jest przy
+      składzie" przestałoby cokolwiek znaczyć.
+    """
+    offsets = profiles.PROFILES[metrics["profile"]]["track_offsets"]
+    gap_m = float(metrics["platform_gap_m"])
+    edge_m = max(float(p["minimum_edge_offset_m"]) for p in layout["platforms"])
+    low = max(abs(o) for o in offsets) + edge_m + gap_m
+
+    ordered = sorted(layout["platforms"], key=lambda p: float(p["from_m"]))
+    gaps = [float(b["from_m"]) - float(a["to_m"]) for a, b in zip(ordered, ordered[1:])]
+    if not gaps:
+        raise SystemExit("BŁĄD: layout ma mniej niż dwa perony — nie da się policzyć "
+                         "górnej granicy promienia szukania")
+    return low, min(gaps) / 2.0
+
+
+def platforms_around(layout, chainage_m, radius_m):
+    """Ile peronów layoutu obejmuje ten kilometraż — ciasno i luźno.
+
+    Zwraca `(ciasno, luzno)`. `ciasno` liczy perony, w których kilometraż leży
+    **z zapasem** `radius_m` od obu końców — tam scena MUSI mieć bryły peronu.
+    `luzno` liczy perony, których zakres poszerzony o `2 x radius_m` ten kilometraż
+    jeszcze zawiera — poza nimi scena NIE MA PRAWA mieć ani jednej bryły.
+
+    Dwa progi zamiast jednego, bo `PlatformFit.Near` mierzy odległość POZIOMĄ od
+    prostopadłościanu, a layout zna tylko kilometraż. Na końcach peronu te dwie miary
+    się rozjeżdżają i równość byłaby bramką losową; przedział jest bramką ciasną
+    z obu stron i nie zależy od tego, po której stronie końca wypadł zrzut.
+    """
+    tight = 0
+    loose = 0
+    for platform in layout["platforms"]:
+        low = float(platform["from_m"])
+        high = float(platform["to_m"])
+        if low + radius_m <= chainage_m <= high - radius_m:
+            tight += 1
+        if low - 2.0 * radius_m <= chainage_m <= high + 2.0 * radius_m:
+            loose += 1
+    return tight, loose
+
+
+def check_platforms(metadata, layout, metrics, spec_path):
+    """Czy w scenie JEST peron i czy stoi tam, gdzie stanął skład.
+
+    **Po co dwie kontrole zamiast jednej.** `slabs` mówi, że plik peronów się wczytał
+    — i tylko to. Bryła peronów pakietu A ma 5,4 km rozpiętości, więc jej obwiednia
+    zawiera każdy punkt, o który dałoby się zapytać: peron odsunięty od osi albo
+    wczytany z innej linii przeszedłby taką kontrolę bez mrugnięcia. `near_shot` liczy
+    bryły w promieniu wokół punktu osi, na którym stanął skład, i porównuje to z tym,
+    co o tym kilometrażu mówi layout policzony osobno.
+
+    Kadr z kabiny stojącej na peronie Beekkant był do 04.09.2026 kadrem PUSTEGO
+    tunelu i żadna bramka tego nie widziała: `scene` opisuje wyłącznie tunel, `train`
+    wyłącznie skład, a próg pustej klatki mierzy jasność — którą ściany tunelu
+    wypełniają tak samo dobrze bez peronu, jak z nim.
+    """
+    problems = []
+    platforms = metadata.get("platforms")
+    if not isinstance(platforms, dict):
+        return ["metadane nie mają bloku `platforms` — nie ma czym udowodnić, "
+                "że peron jest w scenie"]
+
+    declared = int(metrics["objects"])
+    slabs = platforms.get("slabs")
+    if slabs != declared:
+        problems.append(
+            f"platforms.slabs = {slabs}, a generator zbudował {declared} brył "
+            f"({metrics.get('objects_per_component')}) — scena trzyma inny peron")
+
+    floor_m = platform_floor_height_m(spec_path)
+    top = platforms.get("top_m")
+    if not isinstance(top, (int, float)):
+        problems.append(f"platforms.top_m = {top}; peron bez wysokości nie jest peronem")
+    elif not floor_m <= top <= floor_m + PLATFORM_TOP_SLACK_M:
+        problems.append(
+            f"platforms.top_m = {top} m, a podłoga M7 jest na {floor_m} m (status spec) "
+            f"z zapasem {PLATFORM_TOP_SLACK_M} m na pas ostrzegawczy — peron na innej "
+            "wysokości niż podłoga nie jest peronem M7")
+
+    lo = platforms.get("bbox_min") or []
+    hi = platforms.get("bbox_max") or []
+    if len(lo) != 3 or len(hi) != 3:
+        problems.append(f"obwiednia peronu niekompletna: min={lo} max={hi}")
+    else:
+        # Peron ciągnie się wzdłuż osi, czyli w płaszczyźnie (X, Z) sceny. Obwiednia
+        # zwinięta wzdłuż którejkolwiek z nich znaczy, że zamiatanie nie ruszyło.
+        for axis, name in ((0, "X"), (2, "Z")):
+            if hi[axis] - lo[axis] <= 0.0:
+                problems.append(
+                    f"obwiednia peronu zwinięta wzdłuż {name}: [{lo[axis]}, {hi[axis]}]")
+        if isinstance(top, (int, float)) and abs(hi[1] - top) > 1e-3:
+            problems.append(
+                f"platforms.top_m = {top}, a bbox_max[Y] = {hi[1]} — dwie liczby o tej "
+                "samej rzeczy, więc rozjazd znaczy, że jedna z nich jest przepisana")
+
+    near = platforms.get("near_shot") or {}
+    radius = near.get("radius_m")
+    last_chainage = (metadata.get("last_shot") or {}).get("chainage_m")
+    radius_low, radius_high = platform_radius_bounds(layout, metrics)
+    if not isinstance(radius, (int, float)) or radius <= 0.0:
+        problems.append(f"near_shot.radius_m = {radius}; promień szukania musi być dodatni")
+    elif not radius_low <= radius <= radius_high:
+        problems.append(
+            f"near_shot.radius_m = {radius} m poza przedziałem "
+            f"[{radius_low:.3f}, {radius_high:.3f}] m: poniżej dolnej granicy scena nie "
+            "sięgnie własnego peronu, powyżej górnej złapie peron sąsiedniej stacji "
+            "— w obie strony `near_shot` przestaje znaczyć „peron jest przy składzie\"")
+    elif not isinstance(last_chainage, (int, float)):
+        problems.append("brak last_shot.chainage_m — nie da się sprawdzić, czy peron "
+                        "jest tam, gdzie stanął skład")
+    else:
+        per_platform = declared / len(layout["platforms"])
+        tight, loose = platforms_around(layout, last_chainage, radius)
+        found = near.get("slabs")
+        low = int(round(per_platform * tight))
+        high = int(round(per_platform * loose))
+        if not isinstance(found, int) or not low <= found <= high:
+            problems.append(
+                f"near_shot.slabs = {found} w promieniu {radius} m od kilometrażu "
+                f"{last_chainage:.3f} m, a layout daje tam {tight} peronów ciasno "
+                f"i {loose} luźno, czyli {low}..{high} brył")
+        if low > 0:
+            near_top = near.get("top_m")
+            if not isinstance(near_top, (int, float)) or \
+                    not floor_m <= near_top <= floor_m + PLATFORM_TOP_SLACK_M:
+                problems.append(
+                    f"near_shot.top_m = {near_top} m przy podłodze M7 {floor_m} m — "
+                    "peron pod drzwiami składu jest na innej wysokości niż jego podłoga")
+    return problems
+
+
 def check(metadata, axis_path, resolution, view, chainage_m, manifest=None):
     problems = []
     scene = metadata.get("scene") or {}
@@ -330,7 +505,13 @@ def main():
     parser.add_argument("--view", help="widok ostatniego zrzutu")
     parser.add_argument("--at-chainage", type=float, help="chainage ostatniego zrzutu")
     parser.add_argument("--m7-spec", default=os.path.join(ROOT, "data", "vehicle", "m7-spec.json"),
-                        help="rejestr M7 — niezależna prawda o składzie")
+                        help="rejestr M7 — niezależna prawda o składzie i o wysokości peronu")
+    parser.add_argument("--platform-layout",
+                        help="wyjście tools/track/station_layout.py — zakresy peronów, "
+                             "czyli niezależna prawda o tym, gdzie peron ma być")
+    parser.add_argument("--platform-metrics",
+                        help="wyjście --metrics z tools/blender/station_kit.py — ile brył "
+                             "generator naprawdę zbudował")
     args = parser.parse_args()
 
     with open(args.metadata, encoding="utf-8") as handle:
@@ -344,6 +525,19 @@ def main():
     manifest = load_manifest(args.manifest) if args.manifest else None
     problems = check(metadata, args.axis, resolution, args.view, args.at_chainage, manifest)
     problems += check_train(metadata, args.m7_spec)
+    # Peron sprawdzany TYLKO wtedy, gdy wołający podał, z czym go porównać. Bez tego
+    # bramka nie ma niezależnej prawdy, a „przeszło" znaczyłoby wyłącznie „nie było
+    # czego sprawdzić" — dokładnie ta forma weryfikacji, którą CLAUDE.md §5 zakazuje.
+    layout = None
+    if args.platform_layout or args.platform_metrics:
+        if not (args.platform_layout and args.platform_metrics):
+            raise SystemExit("BŁĄD: --platform-layout i --platform-metrics idą razem; "
+                             "jedno bez drugiego nie daje pełnej prawdy o peronie")
+        with open(args.platform_layout, encoding="utf-8") as handle:
+            layout = json.load(handle)
+        with open(args.platform_metrics, encoding="utf-8") as handle:
+            metrics = json.load(handle)
+        problems += check_platforms(metadata, layout, metrics, args.m7_spec)
     if problems:
         print(f"BŁĄD: metadane zrzutu nie opisują tej sceny ({args.metadata}):", file=sys.stderr)
         for problem in problems:
@@ -357,6 +551,12 @@ def main():
     train = metadata["train"]
     print(f"[SKŁAD] {train['bodies']} brył, {train['length_m']:.3f} m x {train['width_m']:.3f} m, "
           f"dach {train['roof_height_m']:.3f} m — zgodne z rejestrem M7 (status spec)")
+    if layout is not None:
+        peron = metadata["platforms"]
+        near = peron["near_shot"]
+        print(f"[PERON] {peron['slabs']} brył, góra {peron['top_m']:.4f} m nad główką "
+              f"szyny; w promieniu {near['radius_m']:.1f} m od kilometrażu zrzutu "
+              f"{near['slabs']} brył")
     return 0
 
 

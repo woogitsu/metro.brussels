@@ -80,6 +80,7 @@ public sealed partial class FirstRun : Node3D
     private string _assetDirectory = string.Empty;
     private StandardMaterial3D? _tunnelMaterial;
     private TrainView _train = null!;
+    private StationView _platforms = null!;
     private Camera3D _cab = null!;
     private Camera3D _chase = null!;
     private OmniLight3D _headlight = null!;
@@ -109,6 +110,18 @@ public sealed partial class FirstRun : Node3D
     /// </summary>
     private const double AxisManifestToleranceM = 1e-3;
 
+    /// <summary>
+    /// Promień, w jakim metadane zrzutu szukają peronu wokół punktu osi.
+    ///
+    /// <para>Nie jest to wymiar czegokolwiek w metrze, tylko parametr pomiaru, i ma
+    /// dwa ograniczenia, oba zmierzone. Od dołu: płyta peronu zaczyna się 3,53 m od osi
+    /// TRASY (2,10 m odsunięcia toru + 1,35 m połowy szerokości M7 + 0,08 m szczeliny),
+    /// więc promień mniejszy nie znalazłby własnego peronu. Od góry: najkrótszy odstęp
+    /// stacji pakietu A to 415 m, a peron ma 94 m, więc sąsiedni peron leży nie bliżej
+    /// niż 320 m — 20 m nie ma prawa go złapać.</para>
+    /// </summary>
+    private const double PlatformNearRadiusM = 20.0;
+
     private const int ExitMissingInput = 3;
 
     private const int ExitMissingAssets = 4;
@@ -127,6 +140,15 @@ public sealed partial class FirstRun : Node3D
 
     /// <summary>Skorupa M7 się nie wczytała. Scena bez składu nie jest przejazdem.</summary>
     private const int ExitTrainMissing = 11;
+
+    /// <summary>
+    /// Perony się nie wczytały. Odmowa, a nie cichy przejazd bez nich — i to jest
+    /// wprost wniosek z Issue #107. Scena bez peronów wygląda dokładnie tak samo jak
+    /// scena z peronami wczytanymi 1000 m dalej: pusty tunel. Kadr z kabiny stojącej
+    /// na stacji był takim kadrem od T-400 do 04.09.2026 i żadna bramka tego nie
+    /// zauważyła, bo żadna nie miała czego porównać.
+    /// </summary>
+    private const int ExitPlatformsMissing = 12;
 
     private bool _scriptedMode;
     private bool _lineMode;
@@ -158,6 +180,7 @@ public sealed partial class FirstRun : Node3D
 
         _tunnel = GetNode<TunnelView>("Tunnel");
         _train = GetNode<TrainView>("Train");
+        _platforms = GetNode<StationView>("Platforms");
         _cab = GetNode<Camera3D>("CabCamera");
         _chase = GetNode<Camera3D>("ChaseCamera");
         _headlight = GetNode<OmniLight3D>("CabCamera/Headlight");
@@ -442,6 +465,7 @@ public sealed partial class FirstRun : Node3D
         var assets = Argument("assets") ?? RepoPath("build/t400");
         var manifestPath = Argument("manifest") ?? Path.Combine(assets, "chunks", "L1_A-chunks.json");
         var shellPath = Argument("shell") ?? Path.Combine(assets, "M7_shell.glb");
+        var platformsPath = Argument("platforms") ?? Path.Combine(assets, "L1_A-platforms.glb");
 
         using var manifestFile = FileAccess.Open(manifestPath, FileAccess.ModeFlags.Read);
         if (manifestFile is null)
@@ -456,6 +480,14 @@ public sealed partial class FirstRun : Node3D
         _manifest = manifest;
         var tunnelMaterial = GlbLoader.NeutralMaterial(new Color(0.52f, 0.52f, 0.53f), 0.95f);
         var trainMaterial = GlbLoader.NeutralMaterial(new Color(0.80f, 0.81f, 0.83f), 0.45f);
+
+        // Peron dostaje WŁASNY, ciemniejszy odcień szarości i to nie jest wybór
+        // estetyczny, tylko warunek widzialności: płyta stoi 1,4 m od ściany komory
+        // i przy tej samej wartości albedo obie powierzchnie zlewają się w kadrze
+        // z kabiny w jedną plamę. Odcień zostaje neutralny — `docs/03-legal.md`
+        // zabrania wystroju, piktogramów i barw STIB, a wygląd docelowy jest
+        // przedmiotem osobnego zadania, nie tego.
+        var platformMaterial = GlbLoader.NeutralMaterial(new Color(0.34f, 0.34f, 0.36f), 0.90f);
 
         // Katalog i materiał zapamiętane, bo streamowanie dokłada chunki w KAŻDEJ
         // klatce, a nie raz przy starcie.
@@ -477,7 +509,20 @@ public sealed partial class FirstRun : Node3D
             return;
         }
 
+        // Perony wchodzą PRZED wypisaniem opisu sceny, żeby log przejazdu mówił
+        // o tym, co scena naprawdę trzyma, a nie o połowie tego.
+        var slabs = _platforms.Load(platformsPath, platformMaterial);
+        if (slabs <= 0)
+        {
+            Abort(ExitPlatformsMissing,
+                $"[PERON] {platformsPath} nie dał ani jednej bryły. Wygeneruj perony "
+                + "(tools/track/station_layout.py, potem tools/blender/station_kit.py "
+                + "--component platform --component edge) albo uruchom z --no-geometry.");
+            return;
+        }
+
         GD.Print(_tunnel.Describe(manifest));
+        GD.Print(_platforms.Describe());
         GD.Print(_train.Describe());
         var drift = Math.Abs(manifest.AxisLengthM - _axis!.LengthM);
         GD.Print(string.Create(
@@ -1219,6 +1264,18 @@ public sealed partial class FirstRun : Node3D
         // Teraz suma idzie po chunkach REZYDENTNYCH i po tym poziomie, w którym każdy
         // z nich faktycznie wisi, więc bramka porównuje to, co jest na scenie.
         var faces = StreamingPlan.TrianglesFor(_manifest, _tunnel.ResidentLevels);
+
+        // Peron opisany DWA RAZY i to nie jest powtórzenie. Obwiednia wszystkich brył
+        // mówi, że coś się wczytało; obwiednia brył PRZY ZRZUCIE mówi, że peron jest
+        // TAM, gdzie stanął skład. Pierwsza sama w sobie przepuściłaby peron pakietu
+        // wczytany w całości, ale odsunięty od osi — bo bryła długa na 6,7 km zawiera
+        // każdy punkt, o który bramka mogłaby zapytać.
+        var peronBox = PlatformFit.Merge(_platforms.Slabs) ?? new Aabb();
+        var plo = peronBox.Position;
+        var phi = peronBox.End;
+        var punktOsi = _sceneAxis.CentreLinePoint(Math.Min(ChainageM, _axis.LengthM));
+        var przyZrzucie = PlatformFit.Near(_platforms.Slabs, punktOsi, PlatformNearRadiusM);
+        var przyZrzucieGora = PlatformFit.TopM(_platforms.Slabs, przyZrzucie) ?? 0.0;
         var directory = _shotPath.Contains('/') ? _shotPath[.._shotPath.LastIndexOf('/')] : ".";
         var name = _shotPath[(_shotPath.LastIndexOf('/') + 1)..];
         var prefix = name.Contains('_') ? name[..name.IndexOf('_')] : "GODOT";
@@ -1242,6 +1299,17 @@ public sealed partial class FirstRun : Node3D
           "window_low_m": {{_tunnel.WindowLowM:F3}},
           "window_high_m": {{_tunnel.WindowHighM:F3}},
           "axis_length_m": {{_manifest.AxisLengthM:F3}}
+         },
+         "platforms": {
+          "slabs": {{_platforms.SlabCount}},
+          "bbox_min": [{{plo.X:F4}}, {{plo.Y:F4}}, {{plo.Z:F4}}],
+          "bbox_max": [{{phi.X:F4}}, {{phi.Y:F4}}, {{phi.Z:F4}}],
+          "top_m": {{peronBox.End.Y:F4}},
+          "near_shot": {
+           "radius_m": {{PlatformNearRadiusM:F3}},
+           "slabs": {{przyZrzucie.Count}},
+           "top_m": {{przyZrzucieGora:F4}}
+          }
          },
          "train": {
           "bodies": {{_train.BodyCount}},
