@@ -421,6 +421,71 @@ jobs:
             build/t400/linia/core-calls.csv \
             build/t400/linia/scene-signalling-calls.csv --expect-calls 11
 
+      - name: ATP must really brake above the plan limit
+        shell: bash
+        # DOWÓD, ŻE OCHRONA POCIĄGU DZIAŁA, A NIE TYLKO LICZY.
+        #
+        # Do 04.09.2026 `TrainProtection.Supervise` liczyło decyzję, której NIKT nie
+        # stosował: jedyne wołanie stało w HUD-zie sceny i było tam opisane jako „odczyt,
+        # nie ingerencja". Krok wyżej („SAME calls") tego nie łapał i nie mógł: jedzie
+        # z limitem 70 km/h, czyli PONIŻEJ limitu planu 72 km/h, gdzie ochrona milczy.
+        # Bramka porównywała więc przejazd bez ingerencji z przejazdem bez ingerencji.
+        #
+        # Ten krok jedzie z limitem 76 km/h, czyli NAD planem, i wymaga trzech rzeczy:
+        #   1. rdzeń melduje niezerowe ingerencje (liczniki są wynikiem, nie napisem —
+        #      podnosi je ta sama gałąź, która stosuje decyzję ochrony);
+        #   2. scena daje te same zatrzymania co rdzeń, co do bitu — czyli ingeruje
+        #      identycznie, a nie „też jakoś";
+        #   3. kontrola negatywna niżej: ten sam przejazd BEZ sygnalizacji ma się
+        #      RÓŻNIĆ, inaczej punkt 2 byłby zgodnością dwóch przejazdów, w których
+        #      ochrona nic nie zrobiła.
+        #
+        # Zmierzone 04.09.2026 na pakiecie A: 4576 ostrzeżeń i 4576 ingerencji
+        # służbowych, największe żądanie 0,863 m/s² przy hamulcu służbowym 1,100 m/s².
+        # Przejazd z ochroną trwa 767,33 s wobec 727,19 s bez niej — ochrona SPOWALNIA,
+        # bo jest nadzorem, a nie regulatorem prędkości. Ingerencji awaryjnych jest
+        # ZERO i tak ma być: 0,863 m/s² mieści się w hamulcu służbowym, więc ta ścieżka
+        # zostaje w tym przejeździe nieprzećwiczona (sprawdzają ją testy jednostkowe).
+        run: |
+          set -euo pipefail
+          dotnet run --project src/Sim.Runner -c Release --no-build -- \
+            line --axis data/track/L1_A.json --limit-kmh 76 --exchange-s 8 --load AW2 \
+            --brake-usage 1.0 --stop-window-m 5 \
+            --signalling data/design/signalling/classic-2026.json \
+            --calls build/t400/linia/core-atp-calls.csv | tee build/t400/linia/core-atp.log
+          dotnet run --project src/Sim.Runner -c Release --no-build -- \
+            line --axis data/track/L1_A.json --limit-kmh 76 --exchange-s 8 --load AW2 \
+            --brake-usage 1.0 --stop-window-m 5 \
+            --calls build/t400/linia/core-bez-atp-calls.csv
+          grep -q "^\[ATP\] ostrzeżenia 4576, ingerencje służbowe 4576, awaryjne 0, największe żądanie 0.863 m/s²" \
+            build/t400/linia/core-atp.log \
+            || { echo "BŁĄD: rdzeń nie zameldował zmierzonych ingerencji ochrony" >&2; exit 1; }
+          "$GODOT_BIN" --headless --path src/Game -- \
+            --line --limit-kmh=76 \
+            --signalling="$PWD/data/design/signalling/classic-2026.json" \
+            --calls="$PWD/build/t400/linia/scene-atp-calls.csv"
+          python3 tools/ci/assert_line_calls_match.py \
+            build/t400/linia/core-atp-calls.csv \
+            build/t400/linia/scene-atp-calls.csv --expect-calls 11
+
+      - name: Negative control — the same run without ATP must differ
+        shell: bash
+        # Gdyby ochrona nic nie zmieniała, krok wyżej przechodziłby tak samo dobrze
+        # z plikiem sprzed ingerencji. Wymagamy więc, żeby porównanie ODRZUCIŁO
+        # przejazd bez sygnalizacji. Zmierzony rozjazd: 40,13 s w przyjazdach
+        # i 0,309 m w miejscu zatrzymania.
+        run: |
+          set -euo pipefail
+          rc=0
+          python3 tools/ci/assert_line_calls_match.py \
+            build/t400/linia/core-bez-atp-calls.csv \
+            build/t400/linia/scene-atp-calls.csv --expect-calls 11 || rc=$?
+          test "$rc" -ne 0 || {
+            echo "BŁĄD: przejazd BEZ ochrony przeszedł porównanie z przejazdem Z ochroną" >&2
+            exit 1
+          }
+          echo "[NEGATYW] przejazd bez ATP odrzucony wobec przejazdu z ATP, tak jak ma być"
+
       - name: Line run — a shot at the platform must show open doors
         shell: bash
         # Zrzut z peronu Beekkant. Bramka nie oglądałaby obrazka, więc sprawdza to, co
@@ -565,3 +630,11 @@ jobs:
             build/t400/visual/*.png
             build/t400/visual/*.json
             build/t400/visual/*.md
+            # Przejazdy linią: bez nich zielony job NIE JEST weryfikacją, tylko obietnicą.
+            # `CLAUDE.md` §9 mówi wprost: zadanie jest zweryfikowane po zielonym jobie
+            # I SPRAWDZENIU WYMAGANYCH ARTEFAKTÓW — a artefaktu, którego się nie zbiera,
+            # nie da się sprawdzić inaczej niż powtarzając cały przebieg. Bramka ATP
+            # opiera się na `core-atp.log` i na trzech plikach zatrzymań; do 04.09.2026
+            # żaden z nich nie wychodził z runnera.
+            build/t400/linia/*.csv
+            build/t400/linia/*.log

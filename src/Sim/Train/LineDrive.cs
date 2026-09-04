@@ -167,6 +167,24 @@ public sealed class LineDrive
     public double? AuthorityEndM { get; set; }
 
     /// <summary>
+    /// Nadzór ochrony pociągu: filtr polecenia stosowany PRZED kontrolerem.
+    /// <c>null</c> znaczy „bez ochrony" i wtedy przejazd jest bit w bit taki, jak przed
+    /// dodaniem tego haka.
+    ///
+    /// <para><b>Dlaczego hak, a nie gałąź w środku.</b> Z tego samego powodu, dla którego
+    /// <see cref="AuthorityEndM"/> jest tu, a nie w kontrolerze: ograniczenie ruchu składu
+    /// jest poleceniem, a nie własnością pojazdu. Ochrona nie liczy tu ani jednej siły —
+    /// bierze gotową decyzję (<c>ProtectionDecision.Apply</c>) i przekłada ją na
+    /// nastawniki. Druga formuła hamowania obok tej z T-311 dałaby dwa modele, które się
+    /// rozjadą (zasada 4 z T-313).</para>
+    ///
+    /// <para><b>Filtr widzi polecenie, nie stan.</b> Wołający zna prędkość i sygnalizację
+    /// lepiej niż prowadzenie, więc decyzję podejmuje on; tutaj wchodzi wyłącznie jej
+    /// skutek. Dzięki temu ten sam hak obsługuje autopilota i kabinę z człowiekiem.</para>
+    /// </summary>
+    public Func<DriverCommand, DriverCommand>? Supervisor { get; set; }
+
+    /// <summary>
     /// Jeden krok stały. Ciało przeniesione z <see cref="LineRun"/> bez zmiany kolejności.
     /// </summary>
     /// <param name="trace">Ślad wołany po kroku, gdy podany.</param>
@@ -275,6 +293,11 @@ public sealed class LineDrive
 
             _braking = true;
         }
+        // Ochrona wchodzi TUTAJ, między poleceniem i kontrolerem, i widzi ślad: to, co
+        // trafia do `TracePoint`, jest poleceniem PO ingerencji, a nie przed nią. Inaczej
+        // ślad pokazywałby, co maszynista chciał, a nie co pojechało — i telemetria
+        // porównywana co do bitu przestałaby opisywać przejazd.
+        command = Supervisor is null ? command : Supervisor(command);
         _state = _controller.Advance(
             _state, _conditions, command, _settings.SpeedLimitMps, _step, out _);
         trace?.Invoke(new LineRun.TracePoint(

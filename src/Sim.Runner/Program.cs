@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using MetroBxl.Sim.Line;
 using MetroBxl.Sim.Physics;
+using MetroBxl.Sim.Signalling;
 using MetroBxl.Sim.Train;
 
 namespace MetroBxl.Sim.Runner;
@@ -23,6 +24,13 @@ namespace MetroBxl.Sim.Runner;
 /// </summary>
 public static class Program
 {
+    /// <summary>
+    /// Identyfikator składu w przejeździe pod sygnalizacją; ten sam, co używa scena,
+    /// żeby zdarzenia sygnalizacji z obu stron dały się porównać po nazwie, a nie po
+    /// domysłach.
+    /// </summary>
+    private const string SignalledTrainId = "KABINA";
+
     private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
     /// <summary>Punkt wejścia.</summary>
@@ -75,6 +83,7 @@ public static class Program
                       --exchange-s X [--load AW0|AW2]
                       [--brake-usage X] [--stop-window-m X] [--timetable PLIK]
                       [--trace PLIK.csv] [--calls PLIK.csv]
+                      [--signalling PLIK.json]              przejazd pod blokadami i z ATP
             """);
     }
 
@@ -293,15 +302,39 @@ public static class Program
         var massKg = conditions.MassKg;
         var settings = new LineRunSettings(
             Units.KmhToMps(limitKmh), exchange, brakeUsage, stopWindow);
-        var run = new LineRun(model);
         var tracePath = Option(args, "--trace");
         var traceRows = tracePath is null ? null : new List<string> { "t_s,chainage_m,speed_mps,brake_mps2,throttle,brake,door" };
-        var result = run.Run(
-            axis, conditions, settings, LineRun.DefaultStepBudget,
-            traceRows is null ? null : point => traceRows.Add(string.Create(
-                Inv,
-                $"{point.TimeSeconds:R},{point.ChainageM:R},{point.SpeedMps:R},{point.BrakeRateMps2:R}," +
-                $"{point.Command.Throttle:R},{point.Command.Brake:R},{point.Phase}")));
+        Action<LineRun.TracePoint>? trace = traceRows is null ? null : point => traceRows.Add(string.Create(
+            Inv,
+            $"{point.TimeSeconds:R},{point.ChainageM:R},{point.SpeedMps:R},{point.BrakeRateMps2:R}," +
+            $"{point.Command.Throttle:R},{point.Command.Brake:R},{point.Phase}"));
+
+        // `--signalling` zamienia `LineRun` na `LineCore` z OCHRONĄ POCIĄGU — i to jest
+        // cały powód, dla którego ta opcja istnieje. Bramka CI porównuje przejazd sceny
+        // z przejazdem rdzenia co do bitu; bez tej opcji nie dałoby się porównać
+        // przejazdu, w którym ATP naprawdę ingeruje, bo rdzeń nie miałby jak go wykonać.
+        // Zgodność zmierzona przy limicie pod planem nie mówi nic o przejeździe nad
+        // planem: pod limitem ochrona milczy, więc porównywałaby się z samą sobą.
+        var signallingPath = Option(args, "--signalling");
+        LineRunResult result;
+        LineCore? core = null;
+        if (signallingPath is null)
+        {
+            result = new LineRun(model).Run(
+                axis, conditions, settings, LineRun.DefaultStepBudget, trace);
+        }
+        else
+        {
+            var plan = SignallingPlan.FromJson(File.ReadAllText(signallingPath));
+            core = LineCore.M7(plan, axis, conditions, settings, turnbackSeconds: 0.0, atp: true);
+            core.Add(SignalledTrainId, 0L);
+            while (!core.Finished && core.Steps < LineRun.DefaultStepBudget)
+            {
+                core.Step(trace is null ? null : (_, point) => trace(point));
+            }
+
+            result = core.ResultOf(SignalledTrainId, core.Finished ? "arrived" : "step-budget");
+        }
         if (tracePath is not null && traceRows is not null)
         {
             File.WriteAllLines(tracePath, traceRows);
@@ -351,6 +384,26 @@ public static class Program
 
         Console.Out.WriteLine(string.Create(
             Inv, $"[LINIA] największy błąd zatrzymania: {worstStopError:F3} m"));
+
+        if (core is not null)
+        {
+            // Liczniki są WYNIKIEM, nie napisem: podnosi je ta sama gałąź, która stosuje
+            // decyzję ochrony. Zero ingerencji przy limicie pod planem i niezerowe nad
+            // planem to dwie rzeczy, które bramka może porównać z liczbą, a nie z tym,
+            // że przejazd się nie wywrócił.
+            Console.Out.WriteLine(string.Create(
+                Inv,
+                $"[SYGNALIZACJA] {core.Signalling.Plan.Blocks.Count} bloków, "
+                + $"tras zaryglowanych {core.Dispatcher.Locked}, odmów {core.Dispatcher.Refused}, "
+                + $"limit planu {Units.MpsToKmh(core.Signalling.Plan.PermittedSpeedMps):F2} km/h"));
+            Console.Out.WriteLine(string.Create(
+                Inv,
+                $"[ATP] ostrzeżenia {core.ProtectionWarnings}, "
+                + $"ingerencje służbowe {core.ServiceInterventions}, "
+                + $"awaryjne {core.EmergencyInterventions}, "
+                + $"największe żądanie {core.MaxBrakeDemandMps2:F3} m/s² "
+                + $"przy hamulcu służbowym {core.Protection!.ServiceBrakeMps2:F3} m/s²"));
+        }
 
         var timetable = Option(args, "--timetable");
         return timetable is null

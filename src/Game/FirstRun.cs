@@ -70,7 +70,6 @@ public sealed partial class FirstRun : Node3D
     private StationService? _stations;
     private LineDrive? _line;
     private LineCore? _lineCore;
-    private TrainProtection? _protection;
     private DriveState _state;
     private DriverCommand _command = DriverCommand.Coast;
     private double _acceleration;
@@ -338,7 +337,19 @@ public sealed partial class FirstRun : Node3D
 
                 try
                 {
-                    _lineCore = LineCore.M7(signalling, _axis, _conditions, settings);
+                    // ATP jest WŁĄCZONE razem z planem, bez osobnego argumentu, i to jest
+                    // treść, nie domyślność. `data/signalling/ground-truth.json` mówi
+                    // o obecnym systemie, że „automatycznie spowalnia skład"; plan
+                    // w trybie `classic_2026` jest właśnie tym systemem. Osobny
+                    // przełącznik znaczyłby, że istnieje sieć z blokadami i bez ochrony,
+                    // a takiej sieci w źródłach nie ma.
+                    //
+                    // Przy limicie planu (72,00 km/h) ochrona nie ingeruje ANI RAZU
+                    // i przejazd jest ten sam co przed jej wpięciem — zmierzone, nie
+                    // założone. Zmienia przejazd dopiero limit podniesiony ponad plan
+                    // (`--limit-kmh=76`), i wtedy ma zmieniać.
+                    _lineCore = LineCore.M7(
+                        signalling, _axis, _conditions, settings, turnbackSeconds: 0.0, atp: true);
                 }
                 catch (ArgumentException error)
                 {
@@ -348,7 +359,6 @@ public sealed partial class FirstRun : Node3D
                 }
 
                 _lineCore.Add("KABINA", 0L);
-                _protection = new TrainProtection(signalling, _model);
                 GD.Print(string.Create(
                     CultureInfo.InvariantCulture,
                     $"[SYGNALIZACJA] {signalling.Blocks.Count} bloków, {signalling.Routes.Count} tras, "
@@ -854,14 +864,17 @@ public sealed partial class FirstRun : Node3D
     }
 
     /// <summary>
-    /// Wiersz HUD o sygnalizacji: prędkość dopuszczalna, autorytet jazdy i powód jego końca.
+    /// Wiersz HUD o sygnalizacji: prędkość dopuszczalna, autorytet jazdy, powód jego
+    /// końca i to, czy ochrona pociągu właśnie hamuje za maszynistę.
     ///
-    /// <para><b>ODCZYT, nie ingerencja.</b> <c>TrainProtection.Supervise</c> jest tu
-    /// wołane wyłącznie po to, żeby pokazać liczbę — polecenia składu nie zmienia ani
-    /// o jotę. Czy ATP ma hamować za maszynistę, jest decyzją o rozgrywce, nie usterką
-    /// do naprawienia po cichu: prowadzenie w tym trybie należy do rdzenia, a w trybie
-    /// ręcznym do człowieka. Pokazanie przed ingerowaniem jest mniejszym krokiem, który
-    /// da się sprawdzić.</para>
+    /// <para><b>Wiersz POKAZUJE decyzję, a nie liczy drugiej.</b> Do 04.09.2026 stało tu
+    /// własne wołanie <c>Supervise</c> „tylko do pokazania" — ochrona nie ingerowała,
+    /// bo to była decyzja o rozgrywce, a nie usterka. Decyzja właściciela zapadła
+    /// („ostrzeżenie, potem hamulec służbowy"), ochrona jest w rdzeniu, więc HUD czyta
+    /// <c>LineTrain.Protection</c>: dokładnie tę decyzję, która w tym kroku zadziałała.
+    /// Drugie wołanie liczyłoby ją z innego stanu (HUD chodzi w klatkach, rdzeń
+    /// w krokach) i nie dałoby się powiedzieć, która liczba jest prawdziwa — a przy
+    /// okazji emitowałoby zdarzenia sygnalizacji z widoku.</para>
     ///
     /// <para>Bez <c>--signalling</c> wiersz mówi WPROST, że blokad nie ma. Milczenie
     /// wyglądałoby dokładnie tak samo jak „droga wolna", a to dwie różne rzeczy.</para>
@@ -873,7 +886,7 @@ public sealed partial class FirstRun : Node3D
             return string.Empty;
         }
 
-        if (_lineCore is null || _protection is null)
+        if (_lineCore is null)
         {
             return "bez sygnalizacji — przejazd bez blokad (podaj --signalling)";
         }
@@ -884,11 +897,15 @@ public sealed partial class FirstRun : Node3D
             return "sygnalizacja: skład jeszcze nie wjechał na plan";
         }
 
-        var decision = _protection.Supervise(_lineCore.Signalling, train.Id, _state.SpeedMps);
+        if (train.Protection is not ProtectionDecision decision)
+        {
+            return "sygnalizacja: linia bez ochrony pociągu";
+        }
+
         var ostrzezenie = decision.Overspeed ? "  PRZEKROCZENIE" : string.Empty;
         var ingerencja = decision.Action == ProtectionAction.None
             ? string.Empty
-            : $"  ATP: {decision.Action}";
+            : $"  ATP HAMUJE: {decision.Action} {decision.BrakeDemandMps2:F2} m/s²";
         return string.Create(
             CultureInfo.InvariantCulture,
             $"v_dop {Units.MpsToKmh(decision.PermittedSpeedMps),5:F1} km/h   "

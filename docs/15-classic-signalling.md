@@ -129,7 +129,87 @@ wynikające z krzywej:
 Hamowanie awaryjne jako *polecenie maszynisty* w tym repo nie istnieje —
 `DriverCommand.Brake = 1` to pełny hamulec **służbowy**. `ProtectionDecision` niesie
 żądane opóźnienie liczbą, a `BrakeCommandFraction` obcina je do możliwości polecenia.
-Ta różnica jest widoczna, a nie zamieciona.
+Obcięcie jest poprawne, ale samo w sobie zamiatałoby przekroczenie: żądanie 2,00 m/s²
+i żądanie 1,10 m/s² dają ten sam nastawnik. Dlatego różnicę pokazuje osobno
+`DemandExceedsServiceBrake` — jest widoczna, a nie zamieciona.
+
+### ATP naprawdę hamuje — decyzja właściciela z 04.09.2026
+
+Do tego dnia progi powyżej były **liczone i nie stosowane**. `TrainProtection.Supervise`
+zwracało decyzję, a jedyne jego wołanie stało w HUD-zie sceny i było tam wprost opisane
+jako „odczyt, nie ingerencja": czy ATP ma hamować za maszynistę, było decyzją o rozgrywce,
+a nie usterką. Decyzja zapadła — **„ostrzeżenie, potem hamulec służbowy"** — i ochrona
+jest teraz w rdzeniu.
+
+Trzy poziomy, dokładnie te z `ProtectionAction`:
+
+| reakcja | co dostaje pojazd |
+|---|---|
+| `None` | polecenie maszynisty **bez zmiany**; samo przekroczenie jest ostrzeżeniem |
+| `ServiceIntervention` | trakcja zerowana, hamulec = **większy** z dwóch: maszynisty i ochrony |
+| `EmergencyIntervention` | pełny hamulec |
+
+„Większy z dwóch" jest tu treścią: ochrona idzie **tylko** w stronę mocniejszego
+hamowania. Gdyby wstawiała swój ułamek zamiast brać maksimum, maszynista hamujący pełnym
+hamulcem dostałby przy ostrzeżeniu hamulec **słabszy**.
+
+Nadzór wchodzi w **fazie 2** kroku `LineCore`, razem z odczytem autorytetów: liczy się ze
+stanu **sprzed** kroku. Zastosowanie decyzji jest w fazie 3, przez `LineDrive.Supervisor`,
+**za** zatrzaskiem hamowania — więc hamulec podany przez ATP nie zatrzaskuje jazdy na cel
+i ingerencja puszcza, gdy prędkość wróci pod krzywą.
+
+Jedna z tych dwóch rzeczy jest zmierzona, a druga nie — i trzeba je rozdzielić.
+
+**Miejsce zastosowania jest mierzalne.** Filtr przed zatrzaskiem zamiast za nim zmienia
+przejazd radykalnie: ingerencji jest **6 zamiast 4576**, bo zatrzask przejmuje prowadzenie
+i skład nigdy nie wraca nad limit. Kontrola negatywna to łapie.
+
+**Miejsce nadzoru nie jest.** Przeniesienie nadzoru z fazy 2 do fazy 3 **nie zmienia ani
+jednej liczby**: dwa składy na pakiecie A przy 76 km/h, osiem odstępów od 5 s do 150 s
+(przy 5 s nastawnia odmawia 603 razy, czyli składy są tak blisko, jak ryglowanie pozwala)
+— sumy kilometraży, liczba ingerencji i liczba odmów wychodzą identyczne, cały zestaw 376
+testów przechodzi po mutacji. Powód jest strukturalny: ruch innego składu może autorytet
+tylko **wydłużyć** (zwolniony blok), nigdy skrócić, a żeby wydłużenie zmieniło decyzję,
+skład musiałby być nad prędkością dopuszczalną dokładnie w tym kroku, w którym
+poprzedzający zwalnia blok — a skład stojący za sygnałem jest wtedy zatrzymany.
+
+Faza 2 zostaje mimo to, bo niezmiennik „odczyt przed ruchem" ma trzymać z zasady. Ale nie
+wolno pisać, że to **ona** broni niezależności od kolejności zgłoszenia składów: broni jej
+to, że składy respektują autorytet.
+
+#### Co z tego wychodzi na pakiecie A
+
+Przejazd samotnego składu, plan `classic-2026` (limit **72,00 km/h**), hamulec służbowy
+1,100 m/s², awaryjny 1,300 m/s²:
+
+| limit scenariusza | bez ATP | z ATP | ostrzeżenia / ingerencje |
+|---|---|---|---|
+| 70,0 km/h | 89 958 kroków, 733,14 s | 89 958 kroków, 733,14 s | 0 / 0 |
+| 72,0 km/h | 89 667 | 89 667 | 0 / 0 |
+| 74,0 km/h | 89 431 | 94 060 | 4576 / 4576 |
+| 76,0 km/h | 89 244, 727,19 s | 94 060, 767,33 s | 4576 / 4576 |
+| 80,0 km/h | 88 974 | 94 060 | 4576 / 4576 |
+
+Dwie rzeczy z tej tabeli są treścią modelu:
+
+- **pod limitem planu ochrona nie rusza ani jednego kroku** — ślad jest identyczny co do
+  bitu, nie tylko „tyle samo sekund". Zweryfikowane 733,14 s zostaje zweryfikowanym
+  733,14 s;
+- **nad limitem planu limit planu staje się faktycznym pułapem** — 74, 76 i 80 km/h dają
+  dokładnie ten sam przejazd, bo ogranicza go krzywa ochrony, a nie nastawa scenariusza.
+
+Ochrona przy tym **spowalnia** przejazd (767,33 s wobec 727,19 s przy 76 km/h) i tak ma
+być: to nadzór, a nie regulator prędkości. Ingeruje **po** przekroczeniu i puszcza, gdy
+prędkość wróci pod krzywą, więc jazda nad limitem planu jest piłą, a nie płaskim
+ograniczeniem. Kto chce jechać szybko, ma nie przekraczać.
+
+**Ingerencji awaryjnych jest zero i to trzeba powiedzieć, a nie przemilczeć.** Największe
+żądanie ochrony w tym przejeździe to 0,863 m/s², czyli 78 % hamulca służbowego — żeby
+ochrona sięgnęła po hamowanie awaryjne, hamulec służbowy musiałby **nie wystarczyć** do
+zatrzymania przed końcem authority, a na tym planie authority kończy się dalej, niż sięga
+droga hamowania z 80 km/h. Ścieżka awaryjna zostaje więc na pakiecie A
+**nieprzećwiczona**; sprawdzają ją testy jednostkowe `ProtectionDecision.Apply`, a to, że
+przejazd jej nie wywołuje, jest osobno przybite testem.
 
 ## 6. Ryglowanie tras — minimalny model
 
