@@ -98,6 +98,7 @@ public sealed class LineTrain
 public sealed class LineCore
 {
     private readonly FixedBlockSystem _signalling;
+    private readonly RouteDispatcher _dispatcher;
     private readonly TrackAxis _axis;
     private readonly RunConditions _conditions;
     private readonly LineRunSettings _settings;
@@ -156,6 +157,7 @@ public sealed class LineCore
         }
 
         _signalling = new FixedBlockSystem(plan);
+        _dispatcher = new RouteDispatcher(plan);
         _axis = axis;
         _conditions = conditions;
         _settings = settings;
@@ -181,6 +183,14 @@ public sealed class LineCore
 
     /// <summary>Sygnalizacja linii — do odczytu zajętości, zdarzeń i odcisku stanu.</summary>
     public FixedBlockSystem Signalling => _signalling;
+
+    /// <summary>
+    /// Nastawnia automatyczna tej linii — do odczytu licznika zaryglowanych tras i odmów.
+    ///
+    /// Odmowa NIE jest usterką: blok przed nosem bywa zajęty i wtedy sygnał ma stać na
+    /// stój. Licznik jest tu, żeby dało się to zmierzyć, a nie żeby świecił na zielono.
+    /// </summary>
+    public RouteDispatcher Dispatcher => _dispatcher;
 
     /// <summary>Liczba wykonanych kroków zegara linii.</summary>
     public long Steps { get; private set; }
@@ -260,6 +270,27 @@ public sealed class LineCore
             train.Drive = new LineDrive(_axis, _conditions, _settings, _controller, _solver, _step);
             train.EnteredAtStep = Steps;
             _signalling.RegisterTrain(train.Id, _entryChainageM, _trainLengthM);
+        }
+
+        // 1b. nastawnia — żądania tras PRZED odczytem autorytetów.
+        //
+        // Kolejność jest tu treścią, nie kosmetyką: `RequestRoute` woła w środku
+        // `PublishAuthorities`, więc trasa zaryglowana teraz jest widoczna w autorytecie
+        // odczytanym w fazie 2 i skład może ruszyć w TYM kroku, a nie w następnym.
+        // Po fazie 2 byłoby o krok późno przy każdym odjeździe z peronu — 1/120 s na
+        // zatrzymanie, czyli niewidocznie mało, ale mierzalnie nieprawdziwie.
+        //
+        // Przed 04.09.2026 tej fazy nie było i NIKT tras nie ryglował. Na planie, który
+        // ich wymaga (`data/design/signalling/classic-2026.json`, `RequireRoute = true`),
+        // linia wtedy nie ruszała: autorytet 47,00 m, powód `BlockNotReserved`.
+        foreach (var train in _trains)
+        {
+            if (train.Drive is null)
+            {
+                continue;
+            }
+
+            _dispatcher.Dispatch(_signalling, train.Id, train.Drive.ChainageM, Steps);
         }
 
         // 2. odczyt — wszystkie autorytety ze stanu SPRZED kroku

@@ -20,11 +20,12 @@ dotnet test tests/Sim.Tests          # rdzeń symulacji, bez Godota
 
 ## Stan: co działa, a czego nie ma
 
-**Rdzeń symulacji — `src/Sim/`, 45 plików `.cs`, kompiluje się i testuje bez silnika:**
+**Rdzeń symulacji — `src/Sim/`, 46 plików `.cs`, kompiluje się i testuje bez silnika:**
 
 - fizyka: model trakcji M7, opór Davisa, hamowanie służbowe i granica przyczepności,
   krok stały 1/120 s liczony **licznikiem kroków**, nigdy `t += dt`;
-- sygnalizacja: bloki stałe, autoryzacja jazdy, ochrona pociągu, obszar testowy CBTC;
+- sygnalizacja: bloki stałe, autoryzacja jazdy, ochrona pociągu, obszar testowy CBTC,
+  nastawnia automatyczna ryglująca trasę na następny odcinek międzystacyjny;
 - prowadzenie: scenariusz jazdy, przejazd linią, cykl drzwi, postój na stacji,
   obsługa stacji dla składu prowadzonego ręcznie (okno zatrzymania, blokada trakcji);
 - każdy parametr niesie status (`spec`, `source_backed`, `design_assumption`, `unknown`) —
