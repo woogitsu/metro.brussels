@@ -467,6 +467,257 @@ public sealed class LineCoreTests
         RealSettings(),
         seconds);
 
+    // --- ATP, ktore naprawde hamuje -----------------------------------------
+    //
+    // Decyzja wlasciciela z 04.09.2026: „ostrzezenie, potem hamulec sluzbowy".
+    // Do tego dnia `TrainProtection.Supervise` liczylo decyzje, a NIKT jej nie stosowal:
+    // jedyne wolanie stalo w HUD-zie sceny i bylo tam opisane jako „odczyt, nie
+    // ingerencja". Ochrona byla wiec zweryfikowana jako funkcja i nie zweryfikowana
+    // jako zachowanie — a to dwie rozne rzeczy.
+    //
+    // Zmierzone na pakiecie A (plan `classic-2026`, limit planu 72,00 km/h, hamulec
+    // sluzbowy 1,100 m/s², awaryjny 1,300 m/s²), przejazd samotnego skladu:
+    //
+    //   limit scenariusza   bez ATP        z ATP          ostrzezenia/ingerencje
+    //   70,0 km/h           89 958 krokow  89 958 krokow  0 / 0
+    //   72,0 km/h           89 667         89 667         0 / 0
+    //   74,0 km/h           89 431         94 060         4576 / 4576
+    //   76,0 km/h           89 244         94 060         4576 / 4576
+    //   80,0 km/h           88 974         94 060         4576 / 4576
+    //
+    // Dwie rzeczy z tej tabeli sa TRESCIA modelu i obie sa nizej przypiete:
+    // pod limitem planu ochrona nie rusza ani jednego kroku, a nad nim limit planu
+    // staje sie faktycznym pulapem — 74, 76 i 80 daja dokladnie ten sam przejazd.
+    //
+    // Ochrona przy tym SPOWALNIA przejazd (783,83 s wobec 749,65 s przy 70 km/h)
+    // i tak ma byc: to nadzor, a nie regulator predkosci. Ingeruje PO przekroczeniu
+    // i puszcza, gdy predkosc wroci pod krzywa, wiec jazda nad limitem planu jest
+    // pila, nie plaskim ograniczeniem. Kto chce jechac szybko, ma nie przekraczac.
+
+    private static LineCore RealLineWithAtp(double limitKmh, bool atp) => LineCore.M7(
+        SignallingPlanTests.PackageAPlan(),
+        SignallingPlanTests.PackageAAxis(),
+        new RunConditions(
+            VehicleModel.M7.MassKg(TrainLoad.Aw2), 0.0,
+            VehicleModel.M7.Adhesion(RailCondition.Dry), TrackEnvironment.Tunnel),
+        new LineRunSettings(Units.KmhToMps(limitKmh), 8.0, 1.0, 5.0),
+        turnbackSeconds: 0.0,
+        atp);
+
+    private static List<LineRun.TracePoint> AtpTrace(double limitKmh, bool atp, out LineCore line)
+    {
+        line = RealLineWithAtp(limitKmh, atp);
+        line.Add("A", 0L);
+        var trace = new List<LineRun.TracePoint>();
+        while (!line.Finished && line.Steps < LineRun.DefaultStepBudget)
+        {
+            line.Step((_, point) => trace.Add(point));
+        }
+
+        Assert.IsTrue(line.Finished,
+            $"przejazd {limitKmh:F1} km/h (atp={atp}) nie dojechal: {line.Trains[0].Drive!.ChainageM:F2} m");
+        return trace;
+    }
+
+    [TestMethod]
+    public void Ochrona_pociagu_jest_domyslnie_wylaczona()
+    {
+        // Opt-in, bo brak ochrony tez jest stanem: przejazd bez planu sygnalizacji
+        // nie ma autorytetu jazdy, wiec nie ma czego nadzorowac. Gdyby ATP bylo
+        // domyslne, kazdy dotychczasowy przejazd zmienilby sie po cichu.
+        var bez = RealLine();
+        Assert.IsFalse(bez.ProtectionEnabled);
+        Assert.IsNull(bez.Protection);
+
+        bez.Add("A", 0L);
+        bez.Step();
+        Assert.IsNotNull(bez.Trains[0].Drive, "sklad mial wjechac na plan");
+        Assert.IsNull(bez.Trains[0].Protection,
+            "bez ATP nie ma decyzji ochrony — null, a nie decyzja „nic nie robie\"");
+        Assert.AreEqual(0L, bez.ProtectionWarnings);
+        Assert.AreEqual(0L, bez.ServiceInterventions);
+        Assert.AreEqual(0L, bez.EmergencyInterventions);
+        Assert.AreEqual(0.0, bez.MaxBrakeDemandMps2, 0.0);
+    }
+
+    [TestMethod]
+    public void Pod_limitem_planu_ochrona_nie_zmienia_przejazdu_ani_o_bit()
+    {
+        // Limit scenariusza 70,00 km/h lezy PONIZEJ limitu planu 72,00 km/h, wiec
+        // ochrona nie ma powodu ingerowac. „Nie ma powodu" nie wystarcza: slad jest
+        // porownany co do bitu, bo gdyby ochrona zmieniala cokolwiek — choc jeden
+        // ulamek nastawnika w jednym kroku — zweryfikowany przejazd przestalby byc tym
+        // zweryfikowanym przejazdem, a licznik ingerencji nadal pokazywalby zero.
+        var bez = AtpTrace(70.0, atp: false, out var lineBez);
+        var zAtp = AtpTrace(70.0, atp: true, out var lineZAtp);
+
+        Assert.IsTrue(lineZAtp.ProtectionEnabled);
+        Assert.IsNotNull(lineZAtp.Protection);
+        Assert.AreEqual(0L, lineZAtp.ProtectionWarnings, "pod limitem planu ani jednego ostrzezenia");
+        Assert.AreEqual(0L, lineZAtp.ServiceInterventions);
+        Assert.AreEqual(0L, lineZAtp.EmergencyInterventions);
+        Assert.AreEqual(0.0, lineZAtp.MaxBrakeDemandMps2, 0.0);
+        Assert.AreEqual(lineBez.Steps, lineZAtp.Steps, "ta sama liczba krokow");
+        Assert.AreEqual(bez.Count, zAtp.Count, "ten sam slad co do liczby punktow");
+
+        for (var i = 0; i < bez.Count; i++)
+        {
+            Assert.AreEqual(bez[i].ChainageM, zAtp[i].ChainageM, 0.0, $"krok {i}: droga");
+            Assert.AreEqual(bez[i].SpeedMps, zAtp[i].SpeedMps, 0.0, $"krok {i}: predkosc");
+            Assert.AreEqual(bez[i].Command.Throttle, zAtp[i].Command.Throttle, 0.0, $"krok {i}: trakcja");
+            Assert.AreEqual(bez[i].Command.Brake, zAtp[i].Command.Brake, 0.0, $"krok {i}: hamulec");
+        }
+    }
+
+    [TestMethod]
+    public void Nad_limitem_planu_ochrona_hamuje_i_da_sie_to_zmierzyc()
+    {
+        // To jest test, ktory pada, gdy ochrona przestanie ingerowac. Liczby sa
+        // zmierzone (tabela wyzej), a nie przyjete, i sa porownane z przejazdem BEZ
+        // ochrony na tym samym limicie — inaczej „4576 ingerencji" nie mowiloby, czy
+        // cokolwiek zmienily.
+        var bez = AtpTrace(76.0, atp: false, out var lineBez);
+        var zAtp = AtpTrace(76.0, atp: true, out var lineZAtp);
+
+        Assert.AreEqual(4576L, lineZAtp.ServiceInterventions,
+            "zmierzone: 4576 krokow z hamulcem sluzbowym ochrony");
+        Assert.AreEqual(4576L, lineZAtp.ProtectionWarnings,
+            "kazda ingerencja sluzbowa jest tez przekroczeniem, wiec liczby sa rowne");
+        Assert.AreEqual(0.863, lineZAtp.MaxBrakeDemandMps2, 5e-4,
+            "najwieksze zadanie ochrony w tym przejezdzie");
+        Assert.IsFalse(
+            lineZAtp.Protection!.ServiceBrakeMps2 < lineZAtp.MaxBrakeDemandMps2,
+            "0,863 m/s² miesci sie w hamulcu sluzbowym 1,100 m/s², wiec nastawnik nie jest obcinany");
+
+        Assert.IsTrue(lineZAtp.Steps > lineBez.Steps,
+            $"ochrona ma SPOWOLNIC przejazd nad limitem planu: {lineZAtp.Steps} wobec {lineBez.Steps}");
+        Assert.AreNotEqual(bez.Count, zAtp.Count, "slad nie moze byc ten sam");
+        Assert.AreEqual(
+            lineBez.Trains[0].Drive!.Calls.Count,
+            lineZAtp.Trains[0].Drive!.Calls.Count,
+            "ochrona spowalnia, ale NIE MOZE gubic stacji");
+    }
+
+    [TestMethod]
+    public void Awaryjna_ingerencja_w_tym_scenariuszu_nie_zachodzi_i_to_jest_zapisane()
+    {
+        // Sciezka awaryjna zostaje NIEPRZECWICZONA w przejezdzie po pakiecie A i to
+        // trzeba powiedziec, a nie przemilczec: najwieksze zadanie ochrony to
+        // 0,863 m/s², czyli 78 % hamulca sluzbowego 1,100 m/s². Zeby ochrona siegnela
+        // po hamowanie awaryjne, hamulec sluzbowy musialby NIE WYSTARCZYC do
+        // zatrzymania przed koncem autorytetu — a na tym planie autorytet konczy sie
+        // dalej, niz siega droga hamowania z 80 km/h.
+        //
+        // `ProtectionAction.EmergencyIntervention` jest sprawdzone jednostkowo
+        // (`ClassicSignallingScenarioTests`); tu jest tylko przybite, ze przejazd po
+        // pakiecie A go NIE wywoluje. Gdyby kiedys wywolal, ma to zapalic sie tutaj,
+        // a nie zniknac w zielonym zestawie.
+        AtpTrace(80.0, atp: true, out var line);
+        Assert.AreEqual(0L, line.EmergencyInterventions);
+        Assert.IsTrue(line.MaxBrakeDemandMps2 < line.Protection!.ServiceBrakeMps2,
+            $"zadanie {line.MaxBrakeDemandMps2:F3} m/s² wobec hamulca sluzbowego "
+            + $"{line.Protection!.ServiceBrakeMps2:F3} m/s²");
+    }
+
+    [TestMethod]
+    public void Z_ochrona_limit_planu_jest_faktycznym_pulapem_niezaleznie_od_scenariusza()
+    {
+        // Najmocniejsza wlasnosc calej zmiany: z ATP przejazd przestaje zalezec od
+        // tego, o ile scenariusz przekracza limit planu. 74, 76 i 80 km/h daja
+        // DOKLADNIE ten sam przejazd, bo ogranicza go krzywa ochrony, a nie nastawa.
+        // Bez ochrony te trzy limity dawaly trzy rozne czasy (89 431 / 89 244 / 88 974).
+        var wzorzec = AtpTrace(74.0, atp: true, out var linia74);
+        foreach (var limit in new[] { 76.0, 80.0 })
+        {
+            var slad = AtpTrace(limit, atp: true, out var linia);
+            Assert.AreEqual(linia74.Steps, linia.Steps, $"{limit:F1} km/h: ta sama liczba krokow");
+            Assert.AreEqual(
+                linia74.ServiceInterventions, linia.ServiceInterventions, $"{limit:F1} km/h: ingerencje");
+            Assert.AreEqual(wzorzec.Count, slad.Count, $"{limit:F1} km/h: ten sam slad");
+            for (var i = 0; i < wzorzec.Count; i++)
+            {
+                Assert.AreEqual(wzorzec[i].ChainageM, slad[i].ChainageM, 0.0, $"{limit:F1} km/h, krok {i}");
+                Assert.AreEqual(wzorzec[i].SpeedMps, slad[i].SpeedMps, 0.0, $"{limit:F1} km/h, krok {i}");
+            }
+        }
+    }
+
+    [TestMethod]
+    public void Z_ochrona_wynik_nadal_nie_zalezy_od_kolejnosci_zgloszenia_skladow()
+    {
+        // Kanarek na FAZOWANIE nadzoru, nie na sam nadzór. Ochrona liczy prędkość
+        // dopuszczalną z zajętości bloków; zajętość zmienia się w fazie 3, skład po
+        // składzie. Nadzór w fazie 3 dałby więc składowi B prędkość dopuszczalną
+        // policzoną po tym, jak skład A już się przesunął — i ten sam scenariusz
+        // dawałby dwa różne przejazdy zależnie od kolejności w liście.
+        //
+        // Dlatego nadzór jest w fazie 2, razem z odczytem autorytetów. Test jedzie
+        // z limitem 76 km/h, czyli NAD limitem planu, bo pod nim ochrona milczy
+        // i porównywałby dwa przejazdy, w których nic się nie działo.
+        //
+        // Test istniejący (`Wynik_nie_zalezy_od_kolejnosci_zgloszenia_skladow`) tego NIE
+        // łapał: jedzie po planie syntetycznym, bez ochrony i bez wymogu tras.
+        const long Budget = 20L * 60L * FixedStep.SimulationHertz;
+
+        (List<LineRun.TracePoint> A, List<LineRun.TracePoint> B, long Interwencje) Przejazd(bool odwrotnie)
+        {
+            var line = RealLineWithAtp(76.0, atp: true);
+            if (odwrotnie)
+            {
+                line.Add("B", 90L * FixedStep.SimulationHertz);
+                line.Add("A", 0L);
+            }
+            else
+            {
+                line.Add("A", 0L);
+                line.Add("B", 90L * FixedStep.SimulationHertz);
+            }
+
+            var a = new List<LineRun.TracePoint>();
+            var b = new List<LineRun.TracePoint>();
+            line.Run(Budget, (id, point) => (id == "A" ? a : b).Add(point));
+            return (a, b, line.ServiceInterventions);
+        }
+
+        var wprzod = Przejazd(odwrotnie: false);
+        var wstecz = Przejazd(odwrotnie: true);
+
+        Assert.IsTrue(wprzod.Interwencje > 0L,
+            "przy limicie 76 km/h ochrona MUSI ingerować, inaczej ten test porównuje dwa "
+            + "przejazdy, w których nic się nie działo");
+        Assert.AreEqual(wprzod.Interwencje, wstecz.Interwencje,
+            "liczba ingerencji zmieniła się po zamianie kolejności zgłoszenia");
+        CollectionAssert.AreEqual(wprzod.A, wstecz.A, "skład A pojechał inaczej po zamianie kolejności");
+        CollectionAssert.AreEqual(wprzod.B, wstecz.B, "skład B pojechał inaczej po zamianie kolejności");
+    }
+
+    [TestMethod]
+    public void Ochrona_zbudowana_na_innym_planie_jest_odmowa()
+    {
+        // Ochrona na innym OBIEKCIE planu nadzorowalaby limit predkosci i bloki planu,
+        // po ktorym nikt nie jedzie. Rozjazd bylby widoczny wylacznie jako dziwne
+        // liczby w raporcie, wiec musi byc odmowa przy budowie, a nie zagadka potem.
+        var plan = SignallingPlanTests.PackageAPlan();
+        var inny = SignallingPlanTests.PackageAPlan();
+        var axis = SignallingPlanTests.PackageAAxis();
+        var conditions = new RunConditions(
+            VehicleModel.M7.MassKg(TrainLoad.Aw2), 0.0,
+            VehicleModel.M7.Adhesion(RailCondition.Dry), TrackEnvironment.Tunnel);
+
+        var error = Assert.ThrowsException<ArgumentException>(() => new LineCore(
+            plan, axis, conditions, RealSettings(),
+            new TrainController(VehicleModel.M7), new BrakingPointSolver(VehicleModel.M7),
+            FixedStep.Simulation, 94.0, 0.0, new TrainProtection(inny, VehicleModel.M7)));
+        StringAssert.Contains(error.Message, "innym obiekcie planu");
+
+        // Ta sama ochrona na TYM SAMYM obiekcie planu przechodzi — inaczej test wyzej
+        // moglby przechodzic z dowolnego innego powodu.
+        _ = new LineCore(
+            plan, axis, conditions, RealSettings(),
+            new TrainController(VehicleModel.M7), new BrakingPointSolver(VehicleModel.M7),
+            FixedStep.Simulation, 94.0, 0.0, new TrainProtection(plan, VehicleModel.M7));
+    }
+
     [TestMethod]
     public void Turnback_jest_domyslnie_wylaczony_i_linia_zachowuje_sie_jak_dotad()
     {

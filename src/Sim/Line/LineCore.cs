@@ -40,6 +40,18 @@ public sealed class LineTrain
     public MovementAuthority? Authority { get; internal set; }
 
     /// <summary>
+    /// Decyzja ochrony pociągu z ostatniego kroku; <c>null</c>, gdy linia jedzie
+    /// bez ATP albo skład jeszcze nie wszedł na plan.
+    ///
+    /// <para><b>To jest ta sama decyzja, która działała.</b> Nie jest przeliczana na
+    /// potrzeby raportu ani HUD-u — wołający czyta dokładnie to, co filtr polecenia
+    /// zastosował w fazie 3. Drugie wołanie <c>Supervise</c> „do pokazania" dałoby
+    /// liczbę policzoną z innego stanu i nie dałoby się powiedzieć, która jest
+    /// prawdziwa.</para>
+    /// </summary>
+    public ProtectionDecision? Protection { get; internal set; }
+
+    /// <summary>
     /// Zakończone przejazdy tego pojazdu, w kolejności. Bez turnbacku ma zawsze zero
     /// albo jeden wpis; z turnbackiem rośnie z każdym obiegiem.
     /// </summary>
@@ -78,13 +90,18 @@ public sealed class LineTrain
 /// tej zmianie szczególnym przypadkiem — jeden skład, brak sygnalizacji — a nie osobnym
 /// modelem.</para>
 ///
-/// <para><b>Kolejność w kroku jest częścią modelu, nie szczegółem.</b> Krok idzie w trzech
-/// fazach nad **wszystkimi** składami, a nie skład po składzie:</para>
+/// <para><b>Kolejność w kroku jest częścią modelu, nie szczegółem.</b> Krok idzie fazami
+/// nad **wszystkimi** składami, a nie skład po składzie:</para>
 /// <list type="number">
 /// <item>wyjazdy: składy, których krok wyjazdu nadszedł, wchodzą na plan, o ile peron
 ///   początkowy jest wolny;</item>
-/// <item>odczyt: każdy skład dostaje autorytet policzony ze stanu **sprzed** kroku;</item>
-/// <item>jazda i ruch: każdy skład robi swój krok, po czym melduje nowe czoło.</item>
+/// <item>nastawnia: każdy skład bez trasy żąda tej, która wyprowadza z jego bloku —
+///   PRZED odczytem, żeby zaryglowana trasa była widoczna w tym samym kroku;</item>
+/// <item>odczyt: każdy skład dostaje autorytet policzony ze stanu **sprzed** kroku,
+///   a przy włączonym ATP także decyzję ochrony z tego samego stanu;</item>
+/// <item>jazda i ruch: każdy skład robi swój krok, po czym melduje nowe czoło;</item>
+/// <item>nawrót: skład, który dojechał i odstał czas nawrotu, wypisuje się z planu
+///   i wraca na jego początek — faza jest ostatnia, żeby przyjazd był widoczny.</item>
 /// </list>
 ///
 /// <para>Rozdzielenie odczytu od ruchu jest jedynym powodem, dla którego wynik nie zależy
@@ -113,6 +130,7 @@ public sealed class LineCore
 {
     private readonly FixedBlockSystem _signalling;
     private readonly RouteDispatcher _dispatcher;
+    private readonly TrainProtection? _protection;
     private readonly long _turnbackSteps;
     private readonly TrackAxis _axis;
     private readonly RunConditions _conditions;
@@ -183,6 +201,50 @@ public sealed class LineCore
         FixedStep step,
         double trainLengthM,
         double turnbackSeconds)
+        : this(plan, axis, conditions, settings, controller, solver, step, trainLengthM,
+            turnbackSeconds, protection: null)
+    {
+    }
+
+    /// <summary>
+    /// Linia z OCHRONĄ POCIĄGU, która naprawdę ingeruje w polecenie — decyzja
+    /// właściciela z 04.09.2026: „ostrzeżenie, potem hamulec służbowy".
+    ///
+    /// <para><b>Ochrona jest opcją, bo jej brak też jest stanem sieci.</b> `null` znaczy
+    /// „linia bez ATP" i wtedy przejazd jest bit w bit taki, jak przed tą zmianą —
+    /// ani jedno wołanie <c>Supervise</c> się nie odbywa, więc nie powstaje ani jedno
+    /// zdarzenie sygnalizacji. Nie jest to wyłącznik na wszelki wypadek: tryb
+    /// <c>classic_2026</c> na pakiecie A ma ochronę, a przejazd bez planu sygnalizacji
+    /// nie ma czego nadzorować, bo nie ma autorytetu jazdy.</para>
+    ///
+    /// <para><b>Gdzie ochrona wchodzi w krok.</b> Nadzór jest w fazie 2, razem
+    /// z odczytem autorytetów: liczy się ze stanu SPRZED kroku. Zastosowanie decyzji jest
+    /// w fazie 3, przez <see cref="LineDrive.Supervisor"/>. Że akurat ta faza jest
+    /// NIEODRÓŻNIALNA od trzeciej — zmierzone, osiem odstępów, zero różnicy — opisuje
+    /// komentarz przy samej fazie; niezmiennik zostaje, ale nie udaje, że coś ratuje.</para>
+    ///
+    /// <para><b>Czego ochrona NIE rusza.</b> Zatrzasku hamowania w prowadzeniu
+    /// (<c>_braking</c>). Filtr stoi ZA zatrzaskiem, więc hamulec podany przez ATP nie
+    /// zatrzaskuje jazdy na cel — ingerencja trwa dokładnie tyle, ile trwa przekroczenie,
+    /// i puszcza. Gdyby zatrzaskiwała, skład raz zwolniony przez ATP dojeżdżałby do
+    /// stacji wybiegiem, bo zatrzask nie wraca do trakcji.</para>
+    /// </summary>
+    /// <param name="protection">
+    /// Ochrona pociągu. Musi być zbudowana na TYM SAMYM obiekcie planu — inaczej
+    /// nadzorowałaby limit i bloki innego planu niż ten, po którym linia jedzie,
+    /// a rozjazd byłby widoczny tylko jako dziwne liczby w raporcie.
+    /// </param>
+    public LineCore(
+        SignallingPlan plan,
+        TrackAxis axis,
+        RunConditions conditions,
+        LineRunSettings settings,
+        TrainController controller,
+        BrakingPointSolver solver,
+        FixedStep step,
+        double trainLengthM,
+        double turnbackSeconds,
+        TrainProtection? protection)
     {
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentNullException.ThrowIfNull(axis);
@@ -212,8 +274,17 @@ public sealed class LineCore
                 nameof(trainLengthM), trainLengthM, "Długość składu musi być dodatnia i skończona.");
         }
 
+        if (protection is not null && !ReferenceEquals(protection.Plan, plan))
+        {
+            throw new ArgumentException(
+                "ochrona pociągu jest zbudowana na innym obiekcie planu niż linia — "
+                + "nadzorowałaby limit prędkości i bloki planu, po którym nikt nie jedzie",
+                nameof(protection));
+        }
+
         _signalling = new FixedBlockSystem(plan);
         _dispatcher = new RouteDispatcher(plan);
+        _protection = protection;
         _axis = axis;
         _conditions = conditions;
         _settings = settings;
@@ -255,12 +326,30 @@ public sealed class LineCore
     public static LineCore M7(
         SignallingPlan plan, TrackAxis axis, RunConditions conditions,
         LineRunSettings settings, double turnbackSeconds) =>
+        M7(plan, axis, conditions, settings, turnbackSeconds, atp: false);
+
+    /// <summary>
+    /// Linia M7 z turnbackiem i z OCHRONĄ POCIĄGU, która ingeruje w polecenie.
+    ///
+    /// <para>Ochrona jest zbudowana z TEGO SAMEGO planu i z modelu M7, więc opóźnienia
+    /// hamulców pochodzą z rejestru pojazdu, a nie z argumentu — dokładnie tak samo jak
+    /// kontroler i solver linii. Solvera ochrona ma własnego, ale z tego samego modelu,
+    /// więc krzywa hamowania jest ta z T-311, a nie druga obok niej.</para>
+    /// </summary>
+    /// <param name="atp">
+    /// <c>false</c> daje linię bez ochrony i przejazd bit w bit taki jak przed
+    /// wprowadzeniem ATP; <c>true</c> włącza nadzór i ingerencję.
+    /// </param>
+    public static LineCore M7(
+        SignallingPlan plan, TrackAxis axis, RunConditions conditions,
+        LineRunSettings settings, double turnbackSeconds, bool atp) =>
         new(plan, axis, conditions, settings,
             new TrainController(VehicleModel.M7),
             new BrakingPointSolver(VehicleModel.M7),
             FixedStep.Simulation,
             VehicleRegistry.M7.RequireValue("parameters.length_m", ParameterStatus.Spec),
-            turnbackSeconds);
+            turnbackSeconds,
+            atp ? new TrainProtection(plan, VehicleModel.M7) : null);
 
     /// <summary>Sygnalizacja linii — do odczytu zajętości, zdarzeń i odcisku stanu.</summary>
     public FixedBlockSystem Signalling => _signalling;
@@ -272,6 +361,40 @@ public sealed class LineCore
     /// stój. Licznik jest tu, żeby dało się to zmierzyć, a nie żeby świecił na zielono.
     /// </summary>
     public RouteDispatcher Dispatcher => _dispatcher;
+
+    /// <summary>
+    /// Ochrona pociągu tej linii; <c>null</c>, gdy linia jedzie bez ATP.
+    ///
+    /// Jest do ODCZYTU — po to, żeby raport i HUD pokazały opóźnienia hamulców, którymi
+    /// ochrona naprawdę liczy, a nie kopię tych liczb wpisaną obok.
+    /// </summary>
+    public TrainProtection? Protection => _protection;
+
+    /// <summary>Czy ta linia ma ochronę, która ingeruje w polecenie.</summary>
+    public bool ProtectionEnabled => _protection is not null;
+
+    /// <summary>
+    /// Kroki składów, w których prędkość przekraczała dopuszczalną — czyli OSTRZEŻENIA.
+    ///
+    /// Licznik jest po kroku-składzie, nie po zdarzeniu: zdarzenia powstają na przejściu
+    /// i jedno przekroczenie trwające dziesięć sekund daje jedno zdarzenie, ale 1200
+    /// kroków. Do pomiaru „ile przejazdu spędzono nad limitem" potrzebna jest ta druga
+    /// liczba, a nie pierwsza.
+    /// </summary>
+    public long ProtectionWarnings { get; private set; }
+
+    /// <summary>Kroki składów z ingerencją hamulcem służbowym.</summary>
+    public long ServiceInterventions { get; private set; }
+
+    /// <summary>Kroki składów z ingerencją awaryjną.</summary>
+    public long EmergencyInterventions { get; private set; }
+
+    /// <summary>
+    /// Największe opóźnienie, jakiego ochrona zażądała w tym przejeździe; zero, gdy nie
+    /// ingerowała ani razu. Do porównania z opóźnieniem hamulca służbowego: żądanie
+    /// większe znaczy, że nastawnik został obcięty i pełny hamulec nie wystarczył.
+    /// </summary>
+    public double MaxBrakeDemandMps2 { get; private set; }
 
     /// <summary>Liczba wykonanych kroków zegara linii.</summary>
     public long Steps { get; private set; }
@@ -369,6 +492,19 @@ public sealed class LineCore
 
             train.Drive = new LineDrive(_axis, _conditions, _settings, _controller, _solver, _step);
             train.EnteredAtStep = Steps;
+
+            // Filtr ochrony zakładany RAZ, przy wjeździe na plan, i czytający decyzję
+            // z fazy 2 tego samego kroku. Domknięcie bierze `train`, a nie kopię
+            // decyzji, bo decyzja zmienia się co krok, a filtr ma zostać ten sam.
+            if (_protection is not null)
+            {
+                var supervised = train;
+                var protection = _protection;
+                train.Drive.Supervisor = command => supervised.Protection is ProtectionDecision decision
+                    ? decision.Apply(command, protection.ServiceBrakeMps2)
+                    : command;
+            }
+
             _signalling.RegisterTrain(train.Id, _entryChainageM, _trainLengthM);
         }
 
@@ -404,6 +540,62 @@ public sealed class LineCore
             var authority = _signalling.Authority(train.Id);
             train.Authority = authority;
             train.Drive.AuthorityEndM = authority.EndChainageM;
+
+            // Nadzór ochrony stoi TUTAJ, ze stanem sprzed kroku, razem z odczytem
+            // autorytetów — ale uczciwie trzeba powiedzieć, ILE z tego wynika.
+            //
+            // Zasada jest ta sama, co przy autorytetach: prędkość dopuszczalna liczy się
+            // z zajętości bloków, a w fazie 3 zajętość zmienia się w trakcie, skład po
+            // składzie. Nadzór po ruchu byłby więc odczytem ze stanu, który inny skład
+            // zdążył już zmienić w tym samym kroku.
+            //
+            // ZMIERZONE 04.09.2026, i wynik jest inny, niż zakładała pierwsza wersja tego
+            // komentarza: przeniesienie nadzoru do fazy 3 NIE ZMIENIA ani jednej liczby.
+            // Kontrola negatywna na pakiecie A, dwa składy przy limicie 76 km/h, osiem
+            // odstępów od 5 s do 150 s (przy 5 s nastawnia odmawia 603 razy, czyli składy
+            // są tak blisko, jak ryglowanie pozwala): sumy kilometraży obu składów,
+            // liczba ingerencji i liczba odmów wychodzą IDENTYCZNE. Cały zestaw 376
+            // testów też przechodzi po mutacji.
+            //
+            // Powód jest strukturalny, nie przypadkowy: `MoveTrain` innego składu może
+            // autorytet tego składu tylko WYDŁUŻYĆ (zwolniony blok), nigdy skrócić.
+            // Żeby wydłużenie zmieniło decyzję, skład musiałby być nad prędkością
+            // dopuszczalną dokładnie w tym kroku, w którym poprzedzający zwalnia blok —
+            // a skład, który jedzie za sygnałem, jest wtedy zatrzymany albo pełznie.
+            //
+            // Faza 2 zostaje mimo to, bo niezmiennik „odczyt przed ruchem" ma trzymać
+            // z zasady, a nie dlatego, że akurat udało się go złamać niewidocznie.
+            // Ale nie wolno pisać, że to ta faza broni niezależności od kolejności:
+            // broni jej to, że składy respektują autorytet, i to jest przypięte testem
+            // `Z_ochrona_wynik_nadal_nie_zalezy_od_kolejnosci_zgloszenia_skladow`.
+            if (_protection is null)
+            {
+                continue;
+            }
+
+            var decision = _protection.Supervise(_signalling, train.Id, train.Drive.State.SpeedMps);
+            train.Protection = decision;
+            if (decision.Overspeed)
+            {
+                ProtectionWarnings++;
+            }
+
+            switch (decision.Action)
+            {
+                case ProtectionAction.ServiceIntervention:
+                    ServiceInterventions++;
+                    break;
+                case ProtectionAction.EmergencyIntervention:
+                    EmergencyInterventions++;
+                    break;
+                default:
+                    break;
+            }
+
+            if (decision.BrakeDemandMps2 > MaxBrakeDemandMps2)
+            {
+                MaxBrakeDemandMps2 = decision.BrakeDemandMps2;
+            }
         }
 
         // 3. jazda i meldunek ruchu
@@ -455,6 +647,7 @@ public sealed class LineCore
                 _signalling.ReleaseTrain(train.Id);
                 train.Drive = null;
                 train.Authority = null;
+                train.Protection = null;
                 train.FinishedAtStep = null;
                 train.EnteredAtStep = null;
 

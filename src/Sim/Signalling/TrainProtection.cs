@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using MetroBxl.Sim.Physics;
+using MetroBxl.Sim.Train;
 
 namespace MetroBxl.Sim.Signalling;
 
@@ -57,6 +58,61 @@ public readonly record struct ProtectionDecision(
 
         return Math.Clamp(BrakeDemandMps2 / serviceBrakeMps2, 0.0, 1.0);
     }
+
+    /// <summary>
+    /// Czy żądane opóźnienie PRZEKRACZA to, co hamulec służbowy potrafi podać.
+    ///
+    /// <para><b>Po co osobna własność.</b> <see cref="BrakeCommandFraction"/> obcina
+    /// ułamek do 1,0, więc żądanie 2,0 m/s² i żądanie 1,1 m/s² dają ten sam nastawnik.
+    /// Obcięcie samo w sobie jest poprawne — polecenie maszynisty kończy się na pełnym
+    /// hamulcu służbowym — ale gdyby to była jedyna informacja, przekroczenie stałoby
+    /// się niewidoczne. Ta własność je pokazuje, zamiast zamiatać.</para>
+    /// </summary>
+    /// <param name="serviceBrakeMps2">Opóźnienie pełnego hamulca służbowego.</param>
+    public bool DemandExceedsServiceBrake(double serviceBrakeMps2)
+    {
+        if (!double.IsFinite(serviceBrakeMps2) || serviceBrakeMps2 <= 0.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(serviceBrakeMps2), serviceBrakeMps2, "Opóźnienie hamulca służbowego musi być dodatnie.");
+        }
+
+        return BrakeDemandMps2 > serviceBrakeMps2;
+    }
+
+    /// <summary>
+    /// Polecenie po INGERENCJI ochrony — decyzja właściciela z 04.09.2026:
+    /// „ostrzeżenie, potem hamulec służbowy".
+    ///
+    /// <para><b>Trzy poziomy, dokładnie jak w <see cref="ProtectionAction"/>:</b></para>
+    /// <list type="bullet">
+    /// <item><see cref="ProtectionAction.None"/> — polecenie maszynisty przechodzi
+    ///   BEZ ZMIANY. Samo przekroczenie prędkości bez ingerencji jest ostrzeżeniem
+    ///   (<see cref="Overspeed"/>), nie hamowaniem: krzywa jeszcze wyrabia.</item>
+    /// <item><see cref="ProtectionAction.ServiceIntervention"/> — nastawnik jazdy
+    ///   zerowany, hamulec podniesiony do WIĘKSZEGO z dwóch: tego, co dał maszynista,
+    ///   i tego, czego żąda ochrona. Ochrona nie ODPUSZCZA hamulca, który maszynista
+    ///   już podał — to byłaby ingerencja w drugą stronę.</item>
+    /// <item><see cref="ProtectionAction.EmergencyIntervention"/> — pełny hamulec.
+    ///   <b>Hamowanie awaryjne jako POLECENIE nie istnieje</b> w T-310/T-400 i T-313
+    ///   go nie dokłada, więc „awaryjne" znaczy tu pełny służbowy; czy to wystarczy,
+    ///   mówi <see cref="DemandExceedsServiceBrake"/>, a nie milczenie.</item>
+    /// </list>
+    ///
+    /// <para><b>Czego to NIE robi.</b> Nie liczy fizyki i nie zna prędkości — bierze
+    /// gotową decyzję i przekłada ją na nastawniki. Druga formuła hamowania obok tej
+    /// z T-311 dałaby dwa modele, które się rozjadą (zasada 4 z T-313).</para>
+    /// </summary>
+    /// <param name="requested">Polecenie maszynisty albo autopilota.</param>
+    /// <param name="serviceBrakeMps2">Opóźnienie pełnego hamulca służbowego.</param>
+    public DriverCommand Apply(DriverCommand requested, double serviceBrakeMps2) => Action switch
+    {
+        ProtectionAction.None => requested,
+        ProtectionAction.ServiceIntervention => new DriverCommand(
+            0.0, Math.Max(requested.Brake, BrakeCommandFraction(serviceBrakeMps2))),
+        ProtectionAction.EmergencyIntervention => new DriverCommand(0.0, 1.0),
+        _ => throw new ArgumentOutOfRangeException(nameof(Action), Action, "Nieznana reakcja ochrony."),
+    };
 
     /// <inheritdoc/>
     public override string ToString() => string.Create(

@@ -387,6 +387,98 @@ public sealed class ClassicSignallingScenarioTests
     /// przez movement authority i nadzorowana przez ATP. Nie jest to symulator ruchu
     /// (to T-320) — jest to najmniejsze, co pozwala przejechać scenariusz z T-313.
     /// </summary>
+    // --- ATP INGERUJE: decyzja właściciela z 04.09.2026 ---------------------
+    //
+    // „Ostrzeżenie, potem hamulec służbowy". Do tej pory `Supervise` liczyło decyzję,
+    // a nikt jej nie stosował — HUD pokazywał liczbę i tyle. Poniżej testy tej jednej
+    // rzeczy, która zamienia liczbę w zachowanie: `ProtectionDecision.Apply`.
+
+    private static ProtectionDecision Decision(ProtectionAction action, double demand) =>
+        new(0.0, 100.0, action, demand, action != ProtectionAction.None, "test");
+
+    [TestMethod]
+    public void Bez_ingerencji_polecenie_maszynisty_przechodzi_bez_zmiany()
+    {
+        // Samo przekroczenie prędkości jest OSTRZEŻENIEM, nie hamowaniem: dopóki krzywa
+        // wyrabia, ochrona nie ma prawa odebrać jazdy. Gdyby `None` też hamowało,
+        // przejazd z limitem planu przestałby być tym zweryfikowanym przejazdem.
+        var wanted = new DriverCommand(0.65, 0.0);
+        var passed = Decision(ProtectionAction.None, 0.0).Apply(wanted, 1.1);
+
+        Assert.AreEqual(wanted.Throttle, passed.Throttle, 0.0, "trakcja ma przejść nietknięta");
+        Assert.AreEqual(wanted.Brake, passed.Brake, 0.0, "hamulec ma przejść nietknięty");
+    }
+
+    [TestMethod]
+    public void Ingerencja_sluzbowa_zeruje_trakcje_i_podaje_zadany_hamulec()
+    {
+        // 0,55 m/s² przy hamulcu służbowym 1,10 m/s² to dokładnie połowa nastawnika.
+        // Liczba jest wybrana tak, żeby dała się sprawdzić w głowie, a nie żeby zgodzić
+        // się z implementacją.
+        var passed = Decision(ProtectionAction.ServiceIntervention, 0.55)
+            .Apply(new DriverCommand(1.0, 0.0), 1.1);
+
+        Assert.AreEqual(0.0, passed.Throttle, 0.0, "trakcja przy ingerencji musi zniknąć");
+        Assert.AreEqual(0.5, passed.Brake, 1e-12, "0,55 / 1,10 = połowa nastawnika hamulca");
+    }
+
+    [TestMethod]
+    public void Ochrona_nie_odpuszcza_hamulca_ktory_maszynista_juz_podal()
+    {
+        // Ingerencja idzie TYLKO w stronę mocniejszego hamowania. Gdyby ochrona
+        // wstawiała swój ułamek zamiast brać większy z dwóch, maszynista hamujący
+        // pełnym hamulcem dostałby przy ostrzeżeniu hamulec SŁABSZY — czyli ochrona
+        // przyspieszałaby skład, którego ma pilnować.
+        var passed = Decision(ProtectionAction.ServiceIntervention, 0.55)
+            .Apply(new DriverCommand(0.0, 1.0), 1.1);
+
+        Assert.AreEqual(1.0, passed.Brake, 0.0,
+            "pełny hamulec maszynisty ma zostać pełnym, a nie spaść do połowy");
+    }
+
+    [TestMethod]
+    public void Ingerencja_awaryjna_daje_pelny_hamulec_niezaleznie_od_zadania()
+    {
+        foreach (var demand in new[] { 0.0, 0.4, 1.3, 9.9 })
+        {
+            var passed = Decision(ProtectionAction.EmergencyIntervention, demand)
+                .Apply(new DriverCommand(1.0, 0.0), 1.1);
+            Assert.AreEqual(0.0, passed.Throttle, 0.0, $"żądanie {demand:F1} m/s²");
+            Assert.AreEqual(1.0, passed.Brake, 0.0, $"żądanie {demand:F1} m/s²");
+        }
+    }
+
+    [TestMethod]
+    public void Zadanie_ponad_hamulec_sluzbowy_jest_widoczne_a_nie_zamiecione()
+    {
+        // `BrakeCommandFraction` obcina ułamek do 1,0, więc żądanie 2,00 m/s² i żądanie
+        // 1,10 m/s² dają ten sam nastawnik. Obcięcie jest poprawne — polecenie kończy
+        // się na pełnym hamulcu — ale gdyby to była jedyna informacja, przekroczenie
+        // stałoby się niewidoczne.
+        var ledwo = Decision(ProtectionAction.ServiceIntervention, 1.1);
+        var ponad = Decision(ProtectionAction.ServiceIntervention, 2.0);
+
+        Assert.AreEqual(1.0, ledwo.BrakeCommandFraction(1.1), 1e-12);
+        Assert.AreEqual(1.0, ponad.BrakeCommandFraction(1.1), 1e-12);
+        Assert.IsFalse(ledwo.DemandExceedsServiceBrake(1.1),
+            "żądanie równe pełnemu hamulcowi jeszcze go nie przekracza");
+        Assert.IsTrue(ponad.DemandExceedsServiceBrake(1.1),
+            "żądanie 2,00 m/s² przy hamulcu 1,10 m/s² przekracza go i musi to powiedzieć");
+    }
+
+    [TestMethod]
+    public void Apply_i_DemandExceeds_odmawiaja_niedodatniego_hamulca()
+    {
+        var decision = Decision(ProtectionAction.ServiceIntervention, 0.55);
+        foreach (var bad in new[] { 0.0, -1.1, double.NaN, double.PositiveInfinity })
+        {
+            Assert.ThrowsException<ArgumentOutOfRangeException>(
+                () => decision.DemandExceedsServiceBrake(bad), $"{bad}");
+            Assert.ThrowsException<ArgumentOutOfRangeException>(
+                () => decision.Apply(new DriverCommand(1.0, 0.0), bad), $"{bad}");
+        }
+    }
+
     private sealed class Runner
     {
         private const double StopWindowM = 5.0;
