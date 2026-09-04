@@ -286,6 +286,97 @@ geometria.
 
 ---
 
+## 12. Czy pierścień o polu **dokładnie zero** to obrys? — ROZSTRZYGNIĘTE 04.09.2026
+
+Pozycja dopisana po tej liście, bo pytanie wyszło z triażu (#196), nie z tego
+dokumentu. **Odpowiedź właściciela: `halfplanes` ma taki pierścień ODRZUCAĆ,
+z nazwanym błędem, tak samo jak odrzuca zerową krawędź.** Wdrożone.
+
+Dlaczego to było pytanie: mutacja `area2 > 0.0` -> `>= 0.0` w wyznaczaniu orientacji
+przeżywała przegląd. Rozstrzyga się wyłącznie na pierścieniu o polu zerowym, a tam
+luz jest identyczny w 1681 punktach na 1681 — różni się sama etykieta wiążącej
+krawędzi, w 41 punktach.
+
+### Strażnik jej NIE ZABIŁ, i to trzeba zapisać wprost
+
+Pierwsza wersja tej pozycji twierdziła, że odmowa zamyka tamtą mutację. Nie zamyka.
+Przegląd po dodaniu strażnika, na `f6058f9`:
+
+```
+[MUTACJE] rozstrzygniętych 78/78, zabitych 29, ocalałych 49, nierozstrzygniętych 0
+  w.188  '<=' -> '<'      ZABITA — test granicy progu
+  w.190  '>'  -> '>='     OCALAŁA
+```
+
+Strażnik czyni ją **nieosiągalną**, a nie zabitą: różnicę między `>` i `>=` widać
+wyłącznie przy `area2 == 0.0`, a takie wejście jest już odrzucone wyżej. Z „ocalałej,
+bo nie wiadomo co robi" zrobiła się „ocalała, bo dowodliwie równoważna" — postęp, ale
+nie ten, który obiecywałem.
+
+Zostawienie jej byłoby zostawieniem progu, który niczego nie rozstrzyga, w module,
+którego progi są tematem całego tego dokumentu. Porównanie zastąpione więc
+wyrażeniem **bez progu**:
+
+```python
+orientation = math.copysign(1.0, area2)
+```
+
+Zmierzone: 0 różnic wobec starego wyrażenia na 200 000 wejściach z `area2 != 0`.
+Dla dokładnego zera wyniki się różnią (+1,0 kontra -1,0), ale tam nie dochodzi już
+wykonanie. Pomiar końcowy, `c82157f`:
+
+| | main przed zmianą | strażnik sam | strażnik + `copysign` |
+|---|---:|---:|---:|
+| mutacji | 77 | 78 | **76** |
+| zabitych | 28 | 29 | **28** |
+| ocalałych | **49** | 49 | **48** |
+
+Tabelę trzeba czytać uczciwie: zabitych jest tyle samo co przed zmianą, bo skład się
+wymienił — odszedł zabity `0.0` -> `0.001` z wiersza orientacji, doszedł zabity
+`<=` -> `<` z nowego strażnika. **Ocalałych jest o jedną mniej, i nie dlatego, że
+doszedł test, który ją zabija, ale dlatego, że zniknął próg, którego żaden test nigdy
+nie mógłby zabić.** To jest mniej efektowne niż „+1 zabita" i dlatego stoi tu wprost.
+
+### Próg jest istniejący, nie nowy — i to jest zmierzone
+
+Naturalne `area2 == 0.0` byłoby **dekoracją**. Zmierzone 04.09.2026 na 200 000
+losowych trójkach współliniowych:
+
+```
+prób: 200000, area2 != 0.0 w 126915 przypadkach (63.46 %)
+największe |area2| dla wejścia współliniowego: 2.183e-11
+```
+
+Dokładne porównanie z zerem przepuszczałoby **prawie dwie trzecie** prawdziwie
+zdegenerowanych wejść. Strażnik porównuje więc z `CONVEXITY_EPS = 1e-9`, czyli
+z progiem, który w tym module **już był** — a nie z dwunastą stałą. Rozdzielenie
+zmierzone z obu stron:
+
+| wejście | \|area2\| | względem progu |
+|---|---:|---|
+| trójki współliniowe (200 000 prób, maksimum) | 2,183e-11 | 1,7 rzędu **poniżej** |
+| trójkąt 0,5 mm — najmniejszy, który zestaw każe przyjąć | 2,5e-07 | 2,4 rzędu **powyżej** |
+| `bore_single` | 56,53 | 10,8 rzędu powyżej |
+| `box_double` | 110,48 | 11,0 rzędu powyżej |
+| `station` | 196,48 | 11,3 rzędu powyżej |
+
+### Nowy próg dostał od razu przybitą granicę
+
+Bez tego pozycja 12 tworzyłaby pozycję 13. Granica **jest osiągalna**: trójkąt
+o przyprostokątnych 1e-5 i 1e-4 daje `area2` dokładnie `1e-09`, i tak samo cztery
+inne pary (1e-9 x 1, 1e-4 x 1e-5, 2e-5 x 5e-5, 1 x 1e-9). Na progu obrys jest
+**odrzucany** (`<=`), tak samo jak przy zerowej krawędzi; 1e-5 m na 1e-4 m to
+0,01 mm na 0,1 mm i nie jest to profil tunelu przy żadnym czytaniu.
+
+Warte zapamiętania, bo dotyczy metody, nie tej jednej pozycji: **300 000 losowych
+obrysów o skali rozłożonej logarytmicznie trafiło w ten próg dokładnie ZERO razy.**
+Samo próbkowanie orzekłoby więc, że `<=` i `<` są nierozróżnialne — a mutacja
+`<=` -> `<` wywraca test. W taki próg się nie wpada losowo, tylko się go
+konstruuje, i to jest cała różnica między „zmierzyłem równoważność" a „nie
+znalazłem różnicy".
+
+---
+
 ## Czego na tej liście nie ma
 
 Nie ma tu **wartości progów raportowania** (1,000 · 0,950 · 0,900 · 0,500 · 0,300 · 0,0).

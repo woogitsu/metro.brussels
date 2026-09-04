@@ -171,7 +171,37 @@ def halfplanes(ring):
     area2 = 0.0
     for a, b in zip(ring, ring[1:] + ring[:1]):
         area2 += a[0] * b[1] - b[0] * a[1]
-    orientation = 1.0 if area2 > 0.0 else -1.0
+    # Pierścień o zerowym polu NIE JEST obrysem — jest odcinkiem albo punktem.
+    # Odmowa, tak samo jak dla zerowej krawędzi niżej, bo dalej cała tożsamość
+    # „luz = minimum po półpłaszczyznach" traci sens: wnętrza nie ma, więc luz
+    # każdego punktu wychodzi niedodatni, a etykieta wiążącej krawędzi jest losowa.
+    # Decyzja właściciela, pozycja 12 w `docs/24-clearance-profile-decisions.md`.
+    #
+    # PRÓG TO ISTNIEJĄCY `CONVEXITY_EPS`, nie nowa stała, i nie jest to wygoda.
+    # `area2 == 0.0` byłoby DEKORACJĄ: zmierzone 04.09.2026 na 200 000 losowych
+    # trójkach współliniowych — 63,46 % z nich daje `area2` różne od zera przez
+    # zaokrąglenie (największe |area2| 2,183e-11), więc dokładne porównanie
+    # przepuszczałoby prawie dwie trzecie prawdziwie zdegenerowanych wejść.
+    # Rozdzielenie zmierzone z OBU stron: wejścia współliniowe siedzą 1,7 rzędu
+    # PONIŻEJ progu, najmniejszy obrys, który ten zestaw każe przyjąć (trójkąt
+    # 0,5 mm), 2,4 rzędu POWYŻEJ, a prawdziwe profile 10,8-11,3 rzędu powyżej.
+    if abs(area2) <= CONVEXITY_EPS:
+        raise ValueError("obrys profilu ma zerowe pole")
+    # ZNAK pola, wyrażony bez porównania — i to jest celowe.
+    #
+    # Ta linia była `1.0 if area2 > 0.0 else -1.0`, a mutacja `>` -> `>=` PRZEŻYWAŁA
+    # przegląd (to ona była pytaniem, na które odpowiada pozycja 12 w `docs/24`).
+    # Strażnik wyżej nie zabija jej, tylko czyni NIEOSIĄGALNĄ: różnica między `>`
+    # i `>=` widać wyłącznie przy `area2 == 0.0`, a takie wejście zostało już
+    # odrzucone. Zmierzone: po dodaniu strażnika mutacja nadal ocalała (przegląd
+    # na `f6058f9`: 78 mutacji, 29 zabitych, 49 ocalałych — ta wśród ocalałych).
+    #
+    # Zostawienie jej byłoby więc zostawieniem progu, który niczego nie rozstrzyga,
+    # w module, którego progi są tematem całego `docs/24`. `copysign` nie ma progu
+    # do zmutowania. Zmierzone na 200 000 wejściach z `area2 != 0`: 0 różnic wobec
+    # starego wyrażenia; dla dokładnego zera wyniki się różnią (+1,0 kontra -1,0),
+    # ale tam nie dochodzi już wykonanie.
+    orientation = math.copysign(1.0, area2)
     planes = []
     for index in range(count):
         a = ring[index]
