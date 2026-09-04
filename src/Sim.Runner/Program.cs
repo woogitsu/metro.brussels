@@ -74,7 +74,7 @@ public static class Program
               line    --axis PLIK --limit-kmh X            przejazd z zatrzymaniem na każdej stacji
                       --exchange-s X [--load AW0|AW2]
                       [--brake-usage X] [--stop-window-m X] [--timetable PLIK]
-                      [--trace PLIK.csv]
+                      [--trace PLIK.csv] [--calls PLIK.csv]
             """);
     }
 
@@ -306,6 +306,28 @@ public static class Program
         {
             File.WriteAllLines(tracePath, traceRows);
             Console.Out.WriteLine($"[LINIA] ślad {traceRows.Count - 1} kroków -> {tracePath}");
+        }
+
+        // Zatrzymania w postaci maszynowej. Istnieje po to, żeby przejazd SCENY dał się
+        // porównać z przejazdem RDZENIA po liczbach, a nie po tym, że oba się nie
+        // wywróciły. `--trace` odpowiada na inne pytanie: co dzieje się w każdym kroku.
+        var callsPath = Option(args, "--calls");
+        if (callsPath is not null)
+        {
+            var rows = new List<string>
+            {
+                "name,stop_id,chainage_m,stopped_at_m,stop_error_m,arrival_s,departure_s",
+            };
+            foreach (var call in result.Calls)
+            {
+                rows.Add(string.Create(
+                    Inv,
+                    $"{call.Name},{call.StopId},{call.ChainageM:R},{call.StoppedAtChainageM:R}," +
+                    $"{call.StopErrorM:R},{call.ArrivalSeconds:R},{call.DepartureSeconds:R}"));
+            }
+
+            File.WriteAllLines(callsPath, rows);
+            Console.Out.WriteLine($"[LINIA] {result.Calls.Count} zatrzymań -> {callsPath}");
         }
 
 

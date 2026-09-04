@@ -187,6 +187,35 @@ public sealed class TrackAxis
     /// ile interpolacja dołożyła do przebiegu STIB. Odpowiednik
     /// <c>tools/blender/sweep.py: max_deviation</c>; na pakiecie A wychodzi 0,1064 m.
     /// </summary>
+    /// <summary>
+    /// Czy cięciwa od <paramref name="fromM"/> do <paramref name="toM"/> ma na tej osi
+    /// niezerową długość.
+    ///
+    /// <para><b>Po co to istnieje.</b> <see cref="PointAt"/> PRZYCINA kilometraż do osi,
+    /// więc dwa różne kilometraże leżące oba przed początkiem albo oba za końcem dają
+    /// TEN SAM punkt — a z niego cięciwę zerowej długości, z której nie da się zbudować
+    /// ramki. Widok składu pytał o takie cięciwy przy przejeździe rozpoczętym na
+    /// kilometrażu mniejszym niż długość składu: ogon leżał wtedy poza osią.
+    /// <c>DriveScenario.PackageAFirstRun</c> obchodzi to startem na 94,0 m i mówi o tym
+    /// wprost w komentarzu, ale przejazd całą linią startuje na pierwszej stacji, czyli
+    /// na zerze, i obejście przestaje działać.</para>
+    ///
+    /// <para>Predykat jest tutaj, a nie w widoku, bo odpowiada na pytanie o ZASIĘG OSI,
+    /// nie o rysowanie. Dzięki temu daje się sprawdzić bez silnika.</para>
+    /// </summary>
+    public bool CoversChord(double fromM, double toM)
+    {
+        if (!double.IsFinite(fromM) || !double.IsFinite(toM))
+        {
+            return false;
+        }
+
+        var length = LengthM;
+        var a = Math.Clamp(fromM, 0.0, length);
+        var b = Math.Clamp(toM, 0.0, length);
+        return a != b;
+    }
+
     public double MaxDeviationFromSourceM()
     {
         var worst = 0.0;

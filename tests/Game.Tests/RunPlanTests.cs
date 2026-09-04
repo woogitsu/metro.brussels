@@ -85,8 +85,25 @@ public sealed class RunPlanTests
     }
 
     [TestMethod]
-    public void EveryKnownArgumentIsAcceptedOnItsOwn()
+    public void EveryKnownArgumentIsAcceptedOnItsOwnOrNamesWhatItNeeds()
     {
+        // Przepisane 04.09.2026, gdy doszły trzy argumenty z PRAWDZIWĄ zależnością:
+        // `--line` bez `--limit-kmh` musi odmówić (limit nie ma źródła, R-006, a domyślne
+        // 80 km/h to prędkość konstrukcyjna pojazdu), a `--calls` i `--limit-kmh` bez
+        // `--line` nic by nie robiły. Poprzednia wersja tego testu twierdziła, że KAŻDY
+        // znany argument działa samotnie — po tych trzech przestało to być prawdą.
+        //
+        // Test jest teraz MOCNIEJSZY, nie słabszy: argument z zależnością musi odmówić
+        // KOMUNIKATEM WYMIENIAJĄCYM towarzysza, a nie zostać po cichu zignorowany.
+        // Argument, który nic nie robi, jest gorszy od nieznanego: nieznany zatrzymuje
+        // przebieg, a bezczynny wygląda jak działający.
+        var towarzysz = new Dictionary<string, string[]>(StringComparer.Ordinal)
+        {
+            ["line"] = new[] { "--limit-kmh=70" },
+            ["limit-kmh"] = new[] { "--line" },
+            ["calls"] = new[] { "--line", "--limit-kmh=70" },
+        };
+
         foreach (var name in RunPlan.KnownArguments)
         {
             var value = name switch
@@ -94,10 +111,30 @@ public sealed class RunPlanTests
                 "sample-every" or "steps-per-frame" => "10",
                 "jitter" or "at-chainage" => "1.5",
                 "view" => "cab",
+                "limit-kmh" => "70",
                 _ => "x",
             };
-            var plan = Parse($"--{name}={value}");
-            Assert.IsTrue(plan.IsValid, $"--{name}={value}: {plan.Error}");
+
+            if (!towarzysz.TryGetValue(name, out var potrzebne))
+            {
+                var plan = Parse($"--{name}={value}");
+                Assert.IsTrue(plan.IsValid, $"--{name}={value}: {plan.Error}");
+                continue;
+            }
+
+            var samotny = Parse($"--{name}={value}");
+            Assert.IsFalse(samotny.IsValid, $"--{name} przeszło samotnie, choć wymaga towarzysza");
+            foreach (var wymagany in potrzebne)
+            {
+                var goly = wymagany.Split('=')[0];
+                Assert.IsTrue(samotny.Error!.Contains(goly) || samotny.Error!.Contains($"--{name}"),
+                    $"komunikat dla --{name} nie wymienia ani siebie, ani {goly}: {samotny.Error}");
+            }
+
+            var lista = new List<string> { $"--{name}={value}" };
+            lista.AddRange(potrzebne);
+            var razem = Parse(lista.ToArray());
+            Assert.IsTrue(razem.IsValid, $"--{name} z towarzyszem nadal odmawia: {razem.Error}");
         }
     }
 
@@ -560,5 +597,86 @@ public sealed class RunPlanTests
 
         Assert.AreEqual(StepSeconds, one.SyntheticFrameSeconds(StepSeconds, 0));
         Assert.AreEqual(240 * StepSeconds, many.SyntheticFrameSeconds(StepSeconds, 0));
+    }
+
+    // --- tryb przejazdu linią -----------------------------------------------------
+
+    [TestMethod]
+    public void LineModeRefusesToRunWithoutAnExplicitSpeedLimit()
+    {
+        // To NIE jest higiena argumentów, to jest naprawa zmierzonej usterki. Pierwsza
+        // wersja trybu `--line` brała limit z `DriveScenario.PackageAFirstRun`, a ten
+        // woła `Units.KmhToMps(model.DesignMaxSpeedKmh)` — czyli 80 km/h, prędkość
+        // KONSTRUKCYJNĄ pojazdu. Zmierzone: scena rozpędzała skład do 80,00 km/h
+        // i przejeżdżała linię w 724,94 s wobec 733,14 s rdzenia, czyli o 8,2 s szybciej.
+        // Prędkość dopuszczalna na torze nie ma źródła (R-006), więc musi przyjść
+        // od wołającego — ta sama zasada, co brak domyślnych w `LineRunSettings`.
+        var plan = Parse("--line");
+
+        Assert.IsFalse(plan.IsValid, "tryb linii przeszedł bez podanego limitu");
+        Assert.IsTrue(plan.Error!.Contains("--limit-kmh"), plan.Error);
+        Assert.IsTrue(plan.Error!.Contains("KONSTRUKCYJN"), plan.Error);
+        Assert.AreEqual(BadArgumentValue, plan.ExitCode);
+    }
+
+    [TestMethod]
+    public void LineModeWithALimitIsValidAndNamesItself()
+    {
+        var plan = Parse("--line", "--limit-kmh=70");
+
+        Assert.IsTrue(plan.IsValid, plan.Error);
+        Assert.IsTrue(plan.LineMode);
+        Assert.AreEqual("line", plan.Mode);
+        Assert.AreEqual(70.0, plan.LimitKmh, 1e-12);
+        Assert.IsFalse(plan.ScriptedMode);
+    }
+
+    [TestMethod]
+    public void LineModeRefusesTelemetryButAcceptsAShot()
+    {
+        // `--telemetry` jest DRUGIM sterownikiem tego samego składu i jego wyjście
+        // porównuje się z rdzeniem co do bitu, więc pomyłka wyglądałaby jak rozjazd
+        // fizyki. `--shot` sterownikiem nie jest — to migawka — i właśnie po to się
+        // z `--line` łączy, żeby dało się OBEJRZEĆ skład przy peronie z otwartymi
+        // drzwiami, a nie tylko przeczytać, że się zatrzymał.
+        var zTelemetria = Parse("--line", "--limit-kmh=70", "--telemetry=/tmp/a.csv");
+        Assert.IsFalse(zTelemetria.IsValid, "linia z telemetrią przeszła");
+        Assert.IsTrue(zTelemetria.Error!.Contains("--telemetry"), zTelemetria.Error);
+
+        var zZrzutem = Parse("--line", "--limit-kmh=70", "--shot=/tmp/a.png", "--at-chainage=509.73");
+        Assert.IsTrue(zZrzutem.IsValid, zZrzutem.Error);
+        Assert.IsTrue(zZrzutem.LineMode, "zrzut wyłączył tryb linii");
+        Assert.AreEqual("shot", zZrzutem.Mode);
+        Assert.AreEqual(509.73, zZrzutem.ShotChainageM, 1e-12);
+    }
+
+    [TestMethod]
+    public void CallsAndLimitOnlyMakeSenseWithLineMode()
+    {
+        // Argument, który nic nie robi, jest gorszy od nieznanego: nieznany zatrzymuje
+        // przebieg, a bezczynny wygląda jak działający. Ta sama zasada, dla której
+        // nieznany argument jest tu błędem, a nie ostrzeżeniem.
+        var samoCalls = Parse("--calls=/tmp/a.csv");
+        Assert.IsFalse(samoCalls.IsValid, "--calls przeszło bez --line");
+        Assert.IsTrue(samoCalls.Error!.Contains("--calls"), samoCalls.Error);
+
+        var samLimit = Parse("--limit-kmh=70");
+        Assert.IsFalse(samLimit.IsValid, "--limit-kmh przeszło bez --line");
+        Assert.IsTrue(samLimit.Error!.Contains("--limit-kmh"), samLimit.Error);
+    }
+
+    [TestMethod]
+    public void LineModeStillRefusesAnUnknownArgumentAndABadLimit()
+    {
+        var literowka = Parse("--line", "--limit-khm=70");
+        Assert.IsFalse(literowka.IsValid, "literówka w nazwie limitu przeszła");
+        Assert.AreEqual(UnknownArgument, literowka.ExitCode);
+
+        foreach (var zly in new[] { "--limit-kmh=0", "--limit-kmh=-70", "--limit-kmh=abc" })
+        {
+            var plan = Parse("--line", zly);
+            Assert.IsFalse(plan.IsValid, $"{zly} przeszło");
+            Assert.AreEqual(BadArgumentValue, plan.ExitCode, zly);
+        }
     }
 }

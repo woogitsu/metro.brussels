@@ -330,6 +330,75 @@ jobs:
           dotnet run --project src/Sim.Runner -c Release --no-build -- \
             compare build/t400/core.csv build/t400/godot_jitter.csv --tolerance 0
 
+      - name: Line run — scene must call the same stations as the core
+        shell: bash
+        # Przejazd całą linią z zatrzymaniami, prowadzony rdzeniem (`LineDrive`), liczony
+        # DWA RAZY: raz przez `Sim.Runner`, raz przez scenę Godota. Porównanie idzie po
+        # ZATRZYMANIACH, nie po tym, że oba przebiegi się nie wywróciły — bo dwa przebiegi
+        # kończące się kodem 0 mogą różnić się liczbą obsłużonych stacji, a tego nie widać
+        # z kodu wyjścia.
+        #
+        # `--limit-kmh` jest podane JAWNIE po obu stronach i to jest warunek sensu tego
+        # porównania: prędkość dopuszczalna na torze nie ma źródła (R-006), a domyślna
+        # z `DriveScenario` to 80 km/h, czyli prędkość KONSTRUKCYJNA M7. Zmierzone
+        # 04.09.2026: bez tego argumentu scena jechała 80 km/h i przejeżdżała linię
+        # w 724,94 s wobec 733,14 s rdzenia.
+        run: |
+          set -euo pipefail
+          mkdir -p build/t400/linia
+          dotnet run --project src/Sim.Runner -c Release --no-build -- \
+            line --axis data/track/L1_A.json --limit-kmh 70 --exchange-s 8 --load AW2 \
+            --brake-usage 1.0 --stop-window-m 5 \
+            --calls build/t400/linia/core-calls.csv
+          "$GODOT_BIN" --headless --path src/Game -- \
+            --line --limit-kmh=70 --calls="$PWD/build/t400/linia/scene-calls.csv"
+          python3 tools/ci/assert_line_calls_match.py \
+            build/t400/linia/core-calls.csv build/t400/linia/scene-calls.csv \
+            --expect-calls 11
+
+      - name: Negative control of the line comparison
+        shell: bash
+        # Bramka, która mówi „ok" także wtedy, gdy nic nie sprawdza, jest bezużyteczna
+        # (reports/T-310-physics.md §6). Psujemy JEDNĄ liczbę o milimetr i wymagamy,
+        # żeby porównanie to zauważyło — próg jest zerowy, więc milimetr wystarcza.
+        run: |
+          set -euo pipefail
+          python3 - <<'NEGPY'
+          import csv
+
+          rows = list(csv.reader(open("build/t400/linia/scene-calls.csv", encoding="utf-8")))
+          rows[1][3] = repr(float(rows[1][3]) + 0.001)
+          with open("build/t400/linia/scene-calls-bad.csv", "w", newline="", encoding="utf-8") as h:
+              csv.writer(h).writerows(rows)
+          NEGPY
+          rc=0
+          python3 tools/ci/assert_line_calls_match.py \
+            build/t400/linia/core-calls.csv build/t400/linia/scene-calls-bad.csv \
+            --expect-calls 11 || rc=$?
+          test "$rc" -ne 0 || { echo "BŁĄD: różnica 1 mm przeszła porównanie" >&2; exit 1; }
+          echo "[NEGATYW] różnica 1 mm w jednym zatrzymaniu odrzucona, tak jak ma być"
+
+      - name: Line run — a shot at the platform must show open doors
+        shell: bash
+        # Zrzut z peronu Beekkant. Bramka nie oglądałaby obrazka, więc sprawdza to, co
+        # da się sprawdzić maszynowo: że przebieg zatrzymał się TAM, gdzie celowano,
+        # i że w chwili migawki prędkość była zerowa. Zmierzone 04.09.2026: warunek
+        # tylko na kilometraż przekręcał cały postój (16,5 s) i łapał skład odjeżdżający,
+        # bo skład staje 0,3 m PRZED celem.
+        run: |
+          set -euo pipefail
+          mkdir -p build/t400/linia/renders
+          xvfb-run -a "$GODOT_BIN" --rendering-driver opengl3 --resolution 1280x720 \
+            --path src/Game -- --line --limit-kmh=70 \
+            --shot="$PWD/build/t400/linia/renders/LINIA_outside_Beekkant.png" \
+            --at-chainage=509.73 --view=outside | tee build/t400/linia/shot.log
+          grep -q "v=0.0 km/h" build/t400/linia/shot.log \
+            || { echo "BŁĄD: migawka z peronu złapała skład w ruchu" >&2; exit 1; }
+          grep -q "chainage=509.4 m" build/t400/linia/shot.log \
+            || { echo "BŁĄD: migawka nie na peronie Beekkant" >&2; exit 1; }
+          test -s build/t400/linia/renders/LINIA_outside_Beekkant.png
+          echo "[LINIA] zrzut z peronu Beekkant: skład stoi na 509,4 m"
+
       - name: Negative control of the comparison
         shell: bash
         # Kontrola, która mówi „ok" także wtedy, gdy nic nie sprawdza, jest bezużyteczna

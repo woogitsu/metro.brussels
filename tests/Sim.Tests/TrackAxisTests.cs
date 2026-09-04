@@ -237,4 +237,33 @@ public sealed class TrackAxisTests
 
         return null;
     }
+
+    [TestMethod]
+    public void CoversChordSaysWhenAChordHasNoLengthOnThisAxis()
+    {
+        // `PointAt` PRZYCINA kilometraż, więc dwa różne kilometraże leżące oba przed
+        // początkiem dają ten sam punkt — i cięciwę zerowej długości, z której nie da
+        // się zbudować ramki. Widok składu pytał o takie cięciwy przy przejeździe
+        // rozpoczętym na kilometrażu 0: ogon leżał wtedy 94 m przed osią.
+        var axis = TrackAxis.FromJson(Json((0.0, 0.0), (100.0, 0.0), (200.0, 0.0)));
+        var length = axis.LengthM;
+
+        Assert.IsTrue(axis.CoversChord(0.0, 15.0), "cięciwa w środku osi");
+        Assert.IsTrue(axis.CoversChord(-10.0, 15.0), "cięciwa wchodząca na oś z lewej");
+        Assert.IsTrue(axis.CoversChord(length - 5.0, length + 50.0), "wychodząca za koniec");
+
+        Assert.IsFalse(axis.CoversChord(-95.0, -80.0), "cięciwa CAŁA przed osią");
+        Assert.IsFalse(axis.CoversChord(length + 1.0, length + 20.0), "cięciwa CAŁA za osią");
+        Assert.IsFalse(axis.CoversChord(50.0, 50.0), "cięciwa zdegenerowana do punktu");
+
+        // Granica: koniec dokładnie w zerze to jeszcze nie cięciwa, bo drugi koniec
+        // też przycina się do zera.
+        Assert.IsFalse(axis.CoversChord(-15.0, 0.0), "oba końce przycięte do zera");
+        Assert.IsTrue(axis.CoversChord(-15.0, 1e-9), "koniec o nanometr na osi już wystarcza");
+
+        // Wartości niepoliczalne są ODMOWĄ, nie wyjątkiem: widok pyta o to raz na
+        // bryłę na klatkę i nie ma sensownej reakcji na NaN poza „nie rysuj".
+        Assert.IsFalse(axis.CoversChord(double.NaN, 10.0));
+        Assert.IsFalse(axis.CoversChord(0.0, double.PositiveInfinity));
+    }
 }

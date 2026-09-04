@@ -33,6 +33,7 @@ public sealed class RunPlan
     {
         "telemetry", "shot", "sample-every", "steps-per-frame", "jitter",
         "at-chainage", "view", "axis", "no-geometry", "assets", "manifest", "shell",
+        "line", "calls", "limit-kmh",
     };
 
     /// <summary>Widoki, jakie scena potrafi ustawić. Inna wartość jest BŁĘDEM, nie domyślną.</summary>
@@ -70,9 +71,48 @@ public sealed class RunPlan
     /// <summary>Przebieg bez interakcji: telemetria albo zrzut.</summary>
     public bool ScriptedMode => TelemetryPath is not null || ShotPath is not null;
 
-    /// <summary>Nazwa trybu do nagłówka logu: <c>telemetry</c>, <c>shot</c> albo <c>manual</c>.</summary>
+    /// <summary>
+    /// Przejazd całą linią z zatrzymaniami na stacjach, prowadzony rdzeniem
+    /// (<c>LineDrive</c>) — scena jest wtedy WIDOKIEM linii, która jedzie sama.
+    ///
+    /// To zdanie przewodnie z <c>docs/01-architecture.md</c> wzięte dosłownie:
+    /// „Linia jest symulacją, która działa bez gracza. Kabina jest jednym z jej
+    /// widoków." Tryb ręczny jest drugim widokiem tej samej linii, z człowiekiem
+    /// w miejscu autopilota.
+    /// </summary>
+    public bool LineMode => HasFlag("line") && TelemetryPath is null;
+
+    /// <summary>
+    /// Plik, do którego przejazd linią wypisuje ZATRZYMANIA (CSV). Podanie go znaczy
+    /// też „to jest przebieg weryfikacyjny", więc klatki lecą tak szybko, jak procesor
+    /// zdąży — a nie w czasie ściennym, w którym 853 s przejazdu to 853 s czekania.
+    /// </summary>
+    public string? CallsPath { get; private init; }
+
+    /// <summary>
+    /// Prędkość dopuszczalna na torze dla przejazdu linią, km/h. <b>Bez wartości
+    /// domyślnej</b> i to jest cała treść tego pola.
+    ///
+    /// <para>Pierwsza wersja trybu <c>--line</c> brała limit z
+    /// <c>DriveScenario.PackageAFirstRun</c>, a ten woła
+    /// <c>Units.KmhToMps(model.DesignMaxSpeedKmh)</c> — czyli <b>80 km/h, prędkość
+    /// KONSTRUKCYJNĄ pojazdu</b>. Zmierzone: scena rozpędzała skład do 80,00 km/h
+    /// i przejeżdżała linię w 724,94 s wobec 733,14 s rdzenia. Prędkość konstrukcyjna
+    /// nie jest prędkością dopuszczalną na torze i <c>LineRunSettings</c> ostrzega
+    /// o tym wprost.</para>
+    ///
+    /// <para>Źródła nie ma (R-006, #85: 72/50 km/h pochodzi z notatki DH z 2008 o sieci
+    /// sprzed układu z 2009, klasa <c>manufacturer_or_trade_press</c>). Znane są tylko
+    /// ograniczenia: <b>od dołu 58,68 km/h</b> z rozkładu T-401, <b>od góry 80 km/h</b>
+    /// z rejestru pojazdu. Dlatego liczba musi przyjść od wołającego, tak samo jak
+    /// w <c>LineRunSettings</c>, gdzie konstruktor celowo nie ma domyślnych.</para>
+    /// </summary>
+    public double LimitKmh { get; private init; }
+
+    /// <summary>Nazwa trybu do nagłówka logu i do HUD-a.</summary>
     public string Mode => TelemetryPath is not null ? "telemetry"
-        : ShotPath is not null ? "shot" : "manual";
+        : ShotPath is not null ? "shot"
+        : LineMode ? "line" : "manual";
 
     /// <summary>Co ile kroków zapisać wiersz telemetrii.</summary>
     public long SampleEvery { get; private init; } = DefaultSampleEvery;
@@ -161,10 +201,52 @@ public sealed class RunPlan
                 $"[ARGUMENT] nieznany widok '--view={view}'. Znane: {string.Join(", ", KnownViews)}");
         }
 
+        // `--line` i `--telemetry` to DWA RÓŻNE źródła polecenia dla tego samego składu.
+        // `--shot` nie jest sterownikiem, tylko migawką, więc z `--line` się łączy —
+        // i właśnie po to, żeby dało się OBEJRZEĆ skład stojący przy peronie
+        // z otwartymi drzwiami, a nie tylko przeczytać, że się zatrzymał.
+        if (arguments.ContainsKey("line") && arguments.ContainsKey("telemetry"))
+        {
+            return Refusal(arguments, exitBadArgumentValue,
+                "[ARGUMENT] --line nie łączy się z --telemetry: to dwa różne źródła "
+                + "polecenia dla tego samego składu, a telemetria jest porównywana "
+                + "z rdzeniem CO DO BITU, więc pomyłka tutaj wyglądałaby jak rozjazd fizyki");
+        }
+
+        if (!TryDouble(arguments, "limit-kmh", 0.0, out var limitKmh, out error))
+        {
+            return Refusal(arguments, exitBadArgumentValue, error!);
+        }
+
+        if (arguments.ContainsKey("line") && limitKmh <= 0.0)
+        {
+            return Refusal(arguments, exitBadArgumentValue,
+                "[ARGUMENT] --line wymaga --limit-kmh: prędkość dopuszczalna na torze NIE MA "
+                + "źródła (R-006), a scenariusz T-400 podaje 80 km/h, czyli prędkość "
+                + "KONSTRUKCYJNĄ M7. Znane ograniczenia: od dołu 58,68 km/h z rozkładu "
+                + "T-401, od góry 80 km/h z rejestru pojazdu");
+        }
+
+        if (arguments.ContainsKey("limit-kmh") && !arguments.ContainsKey("line"))
+        {
+            return Refusal(arguments, exitBadArgumentValue,
+                "[ARGUMENT] --limit-kmh ma sens tylko z --line: przebieg skryptowy i ręczny "
+                + "biorą limit ze scenariusza");
+        }
+
+        if (arguments.ContainsKey("calls") && !arguments.ContainsKey("line"))
+        {
+            return Refusal(arguments, exitBadArgumentValue,
+                "[ARGUMENT] --calls ma sens tylko z --line: bez przejazdu linią nie ma "
+                + "zatrzymań do wypisania");
+        }
+
         return new RunPlan(arguments)
         {
             TelemetryPath = Argument(arguments, "telemetry"),
             ShotPath = Argument(arguments, "shot"),
+            CallsPath = Argument(arguments, "calls"),
+            LimitKmh = limitKmh,
             SampleEvery = sampleEvery,
             StepsPerFrame = stepsPerFrame,
             Jitter = jitter,

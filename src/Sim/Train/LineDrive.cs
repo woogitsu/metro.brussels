@@ -120,6 +120,24 @@ public sealed class LineDrive
     public bool AtStation => _stop is not null;
 
     /// <summary>
+    /// Faza drzwi w tym kroku; <see cref="DoorPhase.Closed"/> poza postojem.
+    ///
+    /// Dopisane, żeby KABINA mogła być widokiem tego przejazdu, a nie tylko jego
+    /// wynikiem: HUD ma pokazać, co dzieje się z drzwiami, a nie odgadywać tego
+    /// z prędkości zero. Sam przebieg jest niezmieniony — trzy własności tylko
+    /// czytają stan, który ta klasa i tak trzymała.
+    /// </summary>
+    public DoorPhase Phase => _stop?.Phase ?? DoorPhase.Closed;
+
+    /// <summary>Ile sekund postoju zostało; zero poza postojem.</summary>
+    public double DwellRemainingSeconds => _stop is null
+        ? 0.0
+        : Math.Max(0.0, _cycle.DwellSeconds - _stop.SecondsSinceStopped);
+
+    /// <summary>Stacja, do której skład jedzie; <c>null</c> po ostatniej.</summary>
+    public AxisStation? NextStation => Finished ? null : _stations[_next];
+
+    /// <summary>
     /// Kilometraż, za który skład nie ma prawa wyjechać w tym kroku — koniec autorytetu
     /// jazdy. `null` znaczy „droga wolna do następnej stacji".
     ///

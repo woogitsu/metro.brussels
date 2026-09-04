@@ -95,6 +95,19 @@ public static class DesignAssumptions
     /// </summary>
     public const double PassengerExchangeSeconds = 8.0;
 
+    /// <summary>
+    /// Ułamek hamulca służbowego, przy którym autopilot trybu <c>--line</c> zaczyna
+    /// hamować do peronu.
+    ///
+    /// <b>Nie ma źródła</b> — praktyka prowadzenia STIB nie jest publikowana
+    /// (<c>LineRunSettings.BrakeUsageFraction</c>). 1,0 znaczy „hamuj w ostatniej
+    /// możliwej chwili" i nie zostawia zapasu na nic; przejazd referencyjny T-401
+    /// woła to właśnie z 1,0, i ta sama liczba stoi tutaj, żeby scena jechała tym
+    /// samym przejazdem, z którym się ją porównuje. Zmiana tej liczby zmienia czas
+    /// przejazdu, więc nie jest kosmetyką.
+    /// </summary>
+    public const double LineBrakeUsageFraction = 1.0;
+
     /// <summary>Zasięg reflektora czołowego.</summary>
     public const double HeadlightRangeM = 70.0;
 
@@ -130,6 +143,8 @@ public static class DesignAssumptions
             "okno rozpoznania stacji, nie dokładność zatrzymania; ta sama liczba co LineRunSettings.StopWindowM w T-401, a górne ograniczenie to połowa peronu 94,0 m"),
         new ViewAssumption(nameof(PassengerExchangeSeconds), PassengerExchangeSeconds, "s",
             "wymiana pasażerów; brak źródła (T-312), T-113 ogranicza od góry do 10,5 s przy medianowym postoju 19 s"),
+        new ViewAssumption(nameof(LineBrakeUsageFraction), LineBrakeUsageFraction, "-",
+            "ułamek hamulca służbowego, przy którym autopilot --line zaczyna hamować; brak źródła, ta sama liczba co przejazd referencyjny T-401"),
         new ViewAssumption(nameof(HeadlightRangeM), HeadlightRangeM, "m",
             "zasięg reflektora; parametr oświetlenia sceny, nie dane o taborze"),
         new ViewAssumption(nameof(HeadlightEnergy), HeadlightEnergy, "-",
