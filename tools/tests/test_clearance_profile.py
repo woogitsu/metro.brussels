@@ -714,21 +714,34 @@ def test_clearance_profile_scan_positions_accept_a_millimetre_step():
     assert abs(positions[-1] - 1.0) < 1e-9, positions[-1]
 
 
-def test_clearance_profile_scan_positions_refuse_a_train_as_long_as_the_axis():
-    """Skład dokładnie tak długi jak oś: zakres skanu ma zerową długość.
+def test_clearance_profile_scan_positions_accept_a_train_as_long_as_the_axis():
+    """Skład dokładnie tak długi jak oś ma JEDNĄ pozycję, nie zero.
 
-    Test PRZYPINA obowiązujący kontrakt, a nie rozstrzyga go od nowa: komunikat
-    strażnika mówi „nie mieści się", więc równość jest odmową. Mutacja
-    `last <= 0.0` -> `< 0.0` zwracała w tym miejscu profil z jednej pozycji.
-    Gdyby właściciel chciał, żeby równość była dopuszczalna, zmienia się strażnik
-    i ten test razem z nim.
+    Poprzednia wersja tego testu przypinała odmowę i mówiła wprost: „gdyby właściciel
+    chciał, żeby równość była dopuszczalna, zmienia się strażnik i ten test razem
+    z nim". Właściciel tak zdecydował (pozycja 7 `docs/24`), więc test jest PRZEPISANY,
+    nie dopisany obok.
+
+    Powód decyzji jest zmierzalny i zmierzony: skład 93,999 m na osi 94,0 m dawał dwie
+    pozycje `[0.0, 0.001]`, a skład 94,0 m — wyjątek. Nieciągłość w miejscu, w którym
+    wynik jest dobrze określony (skład zajmuje dokładnie całą oś).
     """
+    positions = CP.scan_positions(94.0, 94.0, 5.0)
+    assert positions == [0.0], positions
+
+    # Kontrola negatywna po DRUGIEJ stronie granicy: skład dłuższy od osi choćby
+    # o milimetr nadal jest odmową. Bez tej połowy „poluzowałem strażnika" nie da się
+    # odróżnić od „usunąłem strażnika".
     try:
-        CP.scan_positions(94.0, 94.0, 5.0)
+        CP.scan_positions(94.0, 94.001, 5.0)
     except ValueError as exc:
         assert "nie mieści się" in str(exc), str(exc)
     else:
-        raise AssertionError("skład równy długości osi przeszedł")
+        raise AssertionError("skład dłuższy od osi przeszedł")
+
+    # I ciągłość, o którą cała pozycja szła: 93,999 / 94,000 / 94,001 to teraz
+    # dwie pozycje / jedna pozycja / odmowa, a nie dwie / odmowa / odmowa.
+    assert len(CP.scan_positions(94.0, 93.999, 5.0)) == 2
 
 
 def test_clearance_profile_scan_positions_accept_half_a_millimetre_of_room():
@@ -1171,75 +1184,325 @@ def test_clearance_profile_a_tie_in_the_envelope_height_is_a_plain_equivalence()
 # bo `coverage_gaps`, `support_polygon` i `envelope_contains` są funkcjami czystymi,
 # którym próg podaje się wprost na wejściu.
 #
-# Ta klasa jest też miejscem, w którym `docs/24` pozycja 6 się potwierdza:
-# `step + 1e-6` jest reprezentowalne dokładnie TYLKO przy podstawie zero.
+# Ta klasa BYŁA też miejscem, w którym `docs/24` pozycja 6 się potwierdzała:
+# `step + 1e-6` jest reprezentowalne dokładnie TYLKO przy podstawie zero. Właściciel
+# rozstrzygnął tę pozycję na milimetry całkowite, więc trzy testy poniżej są PRZEPISANE,
+# nie dopisane obok — i przypinają teraz własność ODWROTNĄ: granica `coverage_gaps`
+# wypada w tym samym miejscu przy KAŻDEJ podstawie i właśnie to da się zmierzyć.
 
-def test_clearance_profile_coverage_accepts_a_first_position_exactly_at_the_tolerance():
-    """Pierwsza pozycja odległa od zera DOKŁADNIE o tolerancję nie jest usterką.
+def test_clearance_profile_station_boundary_matches_the_half_open_block_rule():
+    """Punkt na kilometrażu stacji trafia tam, gdzie trafiłby w bloku `[start, end)`.
 
-    Zmierzone: mutacja `abs(starts[0]) > 1e-6` -> `>=` zgłasza wtedy problem, którego
-    oryginał nie zgłasza. Kontrola negatywna po drugiej stronie: przesunięcie samego
-    progu na 1,01e-6 sprawia, że 1,005e-6 przestaje być zgłaszane — więc test pilnuje
-    obu stron, a nie tylko operatora.
+    Pozycja 8 `docs/24` twierdziła, że te dwie konwencje są PRZECIWNE. Nie są, i to
+    była moja pomyłka w odczycie `docs/15`. Ten test przypina zgodność, bo dokument
+    poprawiony bez testu to znów zdanie, którego nic nie porównuje — a rozjechać może
+    się każda ze stron osobno.
+
+    Reguła bloku, `src/Sim/Signalling/Block.cs`:
+
+        public bool Contains(double chainageM) => chainageM >= StartM && chainageM < EndM;
+
+    Test nie czyta C# — odtwarza tę regułę wprost i żąda, żeby `between_stations`
+    wskazywało ten sam przedział. Gdyby ktoś zmienił `Block.Contains` na domknięty
+    z prawej, ten test tego NIE zauważy; to pilnuje `tests/Sim.Tests`. Tutaj pilnowana
+    jest strona pythonowa i sama reguła zapisana jawnie.
     """
-    na_progu = [{"start_m": 1e-6, "clearance_m": 1.0},
-                {"start_m": 5.0 + 1e-6, "clearance_m": 1.0}]
-    assert abs(na_progu[0]["start_m"]) == 1e-6
-    assert CP.coverage_gaps(na_progu, 0.0, 5.0 + 1e-6, 5.0) == []
+    stacje = [{"name": "A", "chainage_m": 0.0},
+              {"name": "B", "chainage_m": 509.73},
+              {"name": "C", "chainage_m": 1451.9}]
 
-    nad_progiem = [{"start_m": 1.005e-6, "clearance_m": 1.0},
-                   {"start_m": 5.0 + 1.005e-6, "clearance_m": 1.0}]
-    problemy = CP.coverage_gaps(nad_progiem, 0.0, 5.0 + 1.005e-6, 5.0)
-    assert len(problemy) == 1 and "pierwsza pozycja" in problemy[0], problemy
+    def blok_zawierajacy(chainage):
+        """Który odcinek międzystacyjny zawiera chainage przy konwencji [start, end)."""
+        for i in range(len(stacje) - 1):
+            start, end = stacje[i]["chainage_m"], stacje[i + 1]["chainage_m"]
+            if chainage >= start and chainage < end:
+                return stacje[i]["name"]
+        return stacje[-1]["name"]
+
+    for stacja in stacje:
+        c = float(stacja["chainage_m"])
+        para = CP.between_stations(stacje, c)
+        # `after` to stacja, którą punkt ma ZA sobą, czyli początek jego przedziału.
+        assert para["after"] == blok_zawierajacy(c), (c, para, blok_zawierajacy(c))
+
+    # I kontrola negatywna: milimikron PRZED granicą należy już do przedziału
+    # poprzedniego — po obu stronach jednakowo. Bez tej połowy test przechodziłby
+    # także dla konwencji domkniętej obustronnie.
+    for stacja in stacje[1:]:
+        c = float(stacja["chainage_m"]) - 1e-9
+        assert CP.between_stations(stacje, c)["after"] == blok_zawierajacy(c), c
+    assert CP.between_stations(stacje, 509.73 - 1e-9)["after"] == "A"
+    assert CP.between_stations(stacje, 509.73)["after"] == "B"
 
 
-def test_clearance_profile_coverage_accepts_a_last_position_exactly_at_the_tolerance():
-    """Ostatnia pozycja odległa od oczekiwanej DOKŁADNIE o tolerancję też przechodzi.
+def test_clearance_profile_convexity_eps_sits_between_noise_and_the_real_profiles():
+    """`CONVEXITY_EPS` ma zmierzony zapas z DWÓCH stron, i to jest jego uzasadnienie.
 
-    Zakotwiczenie w ZERZE nie jest tu wygodą, tylko koniecznością i jest zmierzone:
-    różnica dwóch double równa DOKŁADNIE `fl(1e-6)` przy niezerowej podstawie nie
-    wychodzi — `5.0 - (5.0 - 1e-6)` daje `1.000000000139778e-06`. To ta sama pułapka,
-    którą `docs/24` pozycja 6 opisała dla `1e-6` przy 1500 m i 6700 m.
+    Pozycja 11 `docs/24`: pytanie nie było o wartość, tylko o to, że nie wiadomo,
+    skąd się wzięła. Zmierzone i przypięte tutaj, żeby uzasadnienie było wynikiem,
+    a nie akapitem:
+
+    Od góry — najmniejszy prawdziwy `|turn|` na trzech profilach `profiles.py`:
+    `bore_single` 6,06e-02 (6,1e7 x EPS), `box_double` 3,025 (3,0e9 x), `station`
+    4,64 (4,6e9 x).
+
+    Od dołu — szum: obrys we współrzędnych lokalnych daje dryf DOKŁADNIE 0,0;
+    przesunięty o 1000 m — 1,3e-12 (0,0013 x EPS); o 10^6 m — 1,3e-09 (1,33 x EPS).
+    Lambert 72 dla Brukseli to ~1,5e5 m, czyli ~0,01 x EPS.
     """
-    assert 5.0 - (5.0 - 1e-6) != 1e-6
-    assert 1e-6 - 0.0 == 1e-6
+    najmniejsze = {}
+    for nazwa in ("box_double", "bore_single", "station"):
+        ring = PR.profile_points(nazwa)
+        n = len(ring)
+        zakrety = []
+        for i in range(n):
+            ax, ay = ring[i]
+            bx, by = ring[(i + 1) % n]
+            cx, cy = ring[(i + 2) % n]
+            zakrety.append((bx - ax) * (cy - by) - (by - ay) * (cx - bx))
+        najmniejsze[nazwa] = min(abs(z) for z in zakrety if z != 0.0)
 
-    records = [{"start_m": 0.0, "clearance_m": 1.0}, {"start_m": 1e-6, "clearance_m": 1.0}]
-    assert CP.coverage_gaps(records, 5.0, 5.0, 5.0) == []
+    # Od góry: każdy prawdziwy profil stoi co najmniej 10^6 razy nad progiem.
+    for nazwa, wartosc in najmniejsze.items():
+        assert wartosc / CP.CONVEXITY_EPS > 1e6, (nazwa, wartosc)
+    assert abs(najmniejsze["bore_single"] - 0.0606026) < 1e-7, najmniejsze["bore_single"]
 
-    dalej = [{"start_m": 0.0, "clearance_m": 1.0}, {"start_m": 1.005e-6, "clearance_m": 1.0}]
-    problemy = CP.coverage_gaps(dalej, 5.0, 5.0, 5.0)
-    assert len(problemy) == 1 and "ostatnia pozycja" in problemy[0], problemy
+    # Od dołu: przesunięcie do skali Lamberta zostawia szum PONIŻEJ progu.
+    ring = PR.profile_points("station")
+    n = len(ring)
+
+    def zakrety_po_przesunieciu(shift):
+        out = []
+        for i in range(n):
+            ax, ay = ring[i][0] + shift, ring[i][1] + shift
+            bx, by = ring[(i + 1) % n][0] + shift, ring[(i + 1) % n][1] + shift
+            cx, cy = ring[(i + 2) % n][0] + shift, ring[(i + 2) % n][1] + shift
+            out.append((bx - ax) * (cy - by) - (by - ay) * (cx - bx))
+        return out
+
+    bazowe = zakrety_po_przesunieciu(0.0)
+    dryf_lambert = max(abs(a - b) for a, b in
+                       zip(bazowe, zakrety_po_przesunieciu(1.5e5)))
+    assert dryf_lambert < CP.CONVEXITY_EPS, dryf_lambert
+
+    # Kontrola po drugiej stronie: przy 10^6 m szum PRZEKRACZA próg, więc próg nie
+    # jest dowolnie mały — gdyby ta asercja padła, znaczyłoby to, że zapas od dołu
+    # jest większy, niż mierzę, i akapit w dokumencie byłby przesadnie ostrożny.
+    dryf_milion = max(abs(a - b) for a, b in
+                      zip(bazowe, zakrety_po_przesunieciu(1e6)))
+    assert dryf_milion > CP.CONVEXITY_EPS, dryf_milion
 
 
-def test_clearance_profile_coverage_accepts_a_gap_exactly_at_step_plus_tolerance():
-    """Przerwa DOKŁADNIE równa `krok + tolerancja` nie jest dziurą — i da się to trafić.
+def test_clearance_profile_refine_band_is_not_a_reserve_over_the_measured_gain():
+    """Pasmo 50 mm NIE jest zapasem nad zyskiem 3,194 mm — przeciwnie, jest blisko dna.
 
-    `docs/24` pozycja 6 zmierzyła, że `step_m + 1e-6` nie jest reprezentowalne
-    dokładnie i że strona granicy zależy od kilometrażu. Ten test korzysta z tego
-    wprost: przy `a = 0` różnica `b - a` JEST równa `step + 1e-6` co do bitu, przy
-    `a = 5` już nie. Zmierzone:
+    Pozycja 10 `docs/24` mówiła, że pasmo jest „z zapasem, 15 razy większe od zysku".
+    Zmierzone na pakiecie A, tor 1: przy 10 mm dołek 0,899948 m NIE zostaje znaleziony
+    i raport pokazuje 0,900821 m, czyli o 0,873 mm za wysoko.
 
-        a=   0,0  b-a = 5.000001              == step+1e-6: True
-        a=   5,0  b-a = 5.000000999999999     == step+1e-6: False
-        a=6700,0  b-a = 5.0000010000003385    == step+1e-6: False
+    Pomiaru na pakiecie nie da się powtórzyć w teście jednostkowym (potrzebuje Blendera
+    i tunelu), więc test przypina to, co da się przypiąć bez silnika: że pasmo wybiera
+    dołki, których jest WIĘCEJ niż samo minimum, i że zawężenie do 10 mm zmienia wybór.
+    Gdyby ktoś zawęził stałą „bo jest zapas", ten test padnie razem z akapitem.
+    """
+    assert CP.DEFAULT_REFINE_BAND_M == 0.050
 
-    Na 300 000 losowych par (a, a+step+1e-6) w równość trafiło 135 — wszystkie przy
-    podstawie zero. Mutacja `>` -> `>=` zgłasza wtedy dziurę 5,000 m, której nie ma.
+    # Rekordy odtwarzające rozkład z pakietu: jedno minimum i kilka pozycji nad nim
+    # w odległościach, które 50 mm łapie, a 10 mm już nie.
+    records = [{"start_m": 0.0, "clearance_m": 0.9000},
+               {"start_m": 5.0, "clearance_m": 0.9200},
+               {"start_m": 200.0, "clearance_m": 0.9450},
+               {"start_m": 400.0, "clearance_m": 1.1000}]
+
+    szerokie = CP.refine_windows(records, 5.0, band_m=0.050)
+    waskie = CP.refine_windows(records, 5.0, band_m=0.010)
+    assert len(szerokie) > len(waskie), (szerokie, waskie)
+    assert len(waskie) == 1, waskie
+
+    # 0,9450 wpada dopiero w pasmo 45 mm — czyli 50 mm bierze trzy dołki, 10 mm jeden.
+    assert len(CP.refine_windows(records, 5.0, band_m=0.045)) == len(szerokie)
+
+
+def test_clearance_profile_cluster_gap_follows_the_scan_step():
+    """Odstęp grupowania jest KROTNOŚCIĄ kroku skanu, nie liczbą wpisaną z ręki.
+
+    Pozycja 5 `docs/24`: poprzedni komentarz uzasadniał 25,0 m cięciwą najdłuższej
+    bryły M7 (podaną jako 15,12 m; zmierzona to 15,1167 m). Pomiar na pakiecie A
+    pokazał, że wielkość, od której ta stała naprawdę zależy, to GĘSTOŚĆ PRÓBKOWANIA:
+    największy odstęp między sąsiednimi rekordami pod progiem WEWNĄTRZ jednego miejsca
+    wyniósł 5,01 m — czyli krok skanu — a luki dzielące różne miejsca miały 844,5 m
+    i 1524,6 m.
+
+    Ten test pilnuje samego wyprowadzenia. Gdyby ktoś wpisał tu z powrotem stałą 25,0,
+    `cluster_gap_m(2.0)` przestałoby zwracać 10,0 i test padnie — a to jest dokładnie
+    ta usterka, którą pozycja 5 opisuje: opis nie jest wynikiem, więc nic go nie
+    porównuje.
+    """
+    assert CP.CRITICAL_CLUSTER_GAP_M == CP.cluster_gap_m(CP.DEFAULT_STEP_M)
+    assert CP.cluster_gap_m(5.0) == 25.0
+    assert CP.cluster_gap_m(2.0) == 10.0
+    assert CP.cluster_gap_m(25.0) == 125.0
+
+    # Krok niedodatni jest odmową, tak samo jak w `scan_positions` — inaczej odstęp
+    # zero scaliłby wszystko w jeden wpis i raport zgłosiłby jedno miejsce na trasie.
+    for zly in (0.0, -5.0):
+        try:
+            CP.cluster_gap_m(zly)
+        except ValueError as exc:
+            assert "dodatni" in str(exc), str(exc)
+        else:
+            raise AssertionError(f"krok {zly} przeszedł")
+
+
+def test_clearance_profile_cluster_gap_must_stay_above_the_scan_step():
+    """Odstęp NIE MOŻE być równy krokowi — i to jest zmierzona przesłanka wyboru.
+
+    Zmierzone na pakiecie A, tor 1, próg 1,000 m: przy odstępie 5,0 m trzy miejsca
+    rozpadają się na PIĘĆ, bo odstępy 5,01 m przestają się mieścić. Przy 15,0985 m
+    (cięciwa bryły), 15,667 m (cięciwa nominalna) i 25,0 m — trzy miejsca, identycznie.
+    Krotność 5 daje więc pięciokrotny zapas nad krokiem, a nie „nieco więcej niż
+    cięciwa pudła".
+
+    Test odtwarza to na wejściu skonstruowanym, nie na pakiecie: dwa rekordy o odstępie
+    chainage nieco większym od kroku. W taki próg się nie wpada losowo — trzeba go
+    zbudować (ta sama lekcja co przy `CONVEXITY_EPS`, pozycja 12).
+    """
+    assert CP.CLUSTER_GAP_STEPS >= 2, CP.CLUSTER_GAP_STEPS
+
+    krok = 5.0
+    records = [{"chainage_m": 100.0, "clearance_m": 0.95, "start_m": 0.0,
+                "object": "M7_car_6", "bound_by": "ściana"},
+               {"chainage_m": 100.0 + krok + 0.01, "clearance_m": 0.96, "start_m": 5.0,
+                "object": "M7_car_6", "bound_by": "ściana"}]
+
+    # Przy odstępie równym krokowi te dwa rekordy to DWA miejsca — czyli rozpad.
+    rozpad = CP.critical_places(records, 1.000, [], gap_m=krok)
+    assert len(rozpad) == 2, rozpad
+
+    # Przy wyprowadzonym odstępie — jedno, i tego pomiar wymaga.
+    razem = CP.critical_places(records, 1.000, [], gap_m=CP.cluster_gap_m(krok))
+    assert len(razem) == 1, razem
+    assert razem[0]["positions"] == 2, razem
+
+
+def test_clearance_profile_coverage_first_position_boundary_sits_below_half_a_millimetre():
+    """Pierwsza pozycja: 0,4 mm przechodzi, 0,6 mm jest zgłaszane.
+
+    Granica wypada poniżej połowy milimetra, bo `_millimetres` zaokrągla do
+    najbliższego. Test celuje 0,1 mm po każdej stronie, a nie DOKŁADNIE w połowę —
+    powód jest zmierzony i ma własny test poniżej
+    (`..._exactly_half_a_millimetre_depends_on_parity`).
+    """
+    assert CP._millimetres(0.0004) == 0
+    assert CP._millimetres(0.0006) == 1
+
+    na_progu = [{"start_m": 0.0004, "clearance_m": 1.0},
+                {"start_m": 5.0004, "clearance_m": 1.0}]
+    assert CP.coverage_gaps(na_progu, 0.0, 5.0004, 5.0) == []
+
+    # Kontrola negatywna: 0,2 mm dalej i pierwsza pozycja JEST zgłaszana.
+    nad_progiem = [{"start_m": 0.0006, "clearance_m": 1.0},
+                   {"start_m": 5.0006, "clearance_m": 1.0}]
+    problemy = CP.coverage_gaps(nad_progiem, 0.0, 5.0006, 5.0)
+    assert any("pierwsza pozycja" in p for p in problemy), problemy
+
+
+def test_clearance_profile_coverage_last_position_no_longer_needs_a_zero_base():
+    """Ostatnia pozycja: ta sama granica przy podstawie 0 i przy 6700 m.
+
+    Poprzednia wersja tego testu MUSIAŁA kotwiczyć w zerze i mówiła to wprost:
+    „różnica dwóch double równa DOKŁADNIE `fl(1e-6)` przy niezerowej podstawie nie
+    wychodzi". Ta konieczność zniknęła razem z porównaniem floatów, i dokładnie to
+    jest tu przypięte — bo gdyby wróciła, ten test byłby jedynym miejscem, które
+    to zauważy.
+    """
+    assert 5.0 - (5.0 - 1e-6) != 1e-6          # stara pułapka nadal istnieje w floatach
+
+    # Trzy oczekiwane końce zakresu: zero, mała podstawa i realny koniec pakietu A
+    # (6686,739 m osi minus 94 m składu). Krok podany szeroko, żeby kontrola dziur
+    # nie mieszała się do kontroli końca.
+    for oczekiwane in (0.0, 5.0, 6592.739):
+        blisko = [{"start_m": 0.0, "clearance_m": 1.0},
+                  {"start_m": oczekiwane + 0.0004, "clearance_m": 1.0}]
+        problemy = CP.coverage_gaps(blisko, 94.0, oczekiwane + 94.0, 10000.0)
+        assert not [x for x in problemy if "ostatnia pozycja" in x], (oczekiwane, problemy)
+
+        dalej = [{"start_m": 0.0, "clearance_m": 1.0},
+                 {"start_m": oczekiwane + 0.0006, "clearance_m": 1.0}]
+        problemy = CP.coverage_gaps(dalej, 94.0, oczekiwane + 94.0, 10000.0)
+        assert [x for x in problemy if "ostatnia pozycja" in x], (oczekiwane, problemy)
+
+
+def test_clearance_profile_coverage_gap_boundary_is_the_same_at_every_chainage():
+    """Granica dziury wypada w TYM SAMYM miejscu przy każdej podstawie — to cała pozycja 6.
+
+    Poprzednia wersja tego testu korzystała z pułapki, którą decyzja usunęła: przy
+    `a = 0` różnica `b - a` była równa `step + 1e-6` co do bitu, przy `a = 5` już nie,
+    a na 300 000 losowych par w równość trafiło 135 — wszystkie przy podstawie zero.
+
+    Zmierzone po zmianie, ten sam warunek przy trzech podstawach:
+
+        podstawa   przerwa 5,0004 m   przerwa 5,0006 m
+             0,0   5000 mm, nie dziura   5001 mm, DZIURA
+             5,0   5000 mm, nie dziura   5001 mm, DZIURA
+          6700,0   5000 mm, nie dziura   5001 mm, DZIURA
+
+    Nie ma już „strony granicy zależnej od kilometrażu" i nie ma losowego trafiania
+    w próg: granicę się KONSTRUUJE, w jednym miejscu, dla każdej podstawy.
     """
     krok = 5.0
-    assert (krok + 1e-6) - 0.0 == krok + 1e-6
-    assert (5.0 + krok + 1e-6) - 5.0 != krok + 1e-6
+    for baza in (0.0, 5.0, 6700.0):
+        styczne = [{"start_m": baza, "clearance_m": 1.0},
+                   {"start_m": baza + krok + 0.0004, "clearance_m": 1.0}]
+        problemy = CP.coverage_gaps(styczne, 0.0, baza + krok + 0.0004, krok)
+        assert not [p for p in problemy if "dziura" in p], (baza, problemy)
 
-    styczne = [{"start_m": 0.0, "clearance_m": 1.0},
-               {"start_m": krok + 1e-6, "clearance_m": 1.0}]
-    assert CP.coverage_gaps(styczne, 0.0, krok + 1e-6, krok) == []
+        # Kontrola negatywna, ta sama podstawa: 0,1 mm dalej JEST dziurą.
+        dziura = [{"start_m": baza, "clearance_m": 1.0},
+                  {"start_m": baza + krok + 0.0006, "clearance_m": 1.0}]
+        problemy = CP.coverage_gaps(dziura, 0.0, baza + krok + 0.0006, krok)
+        assert [p for p in problemy if "dziura" in p], (baza, problemy)
 
-    # Kontrola negatywna: przerwa o mikrometr większa JEST dziurą.
-    dziura = [{"start_m": 0.0, "clearance_m": 1.0},
-              {"start_m": krok + 2e-6, "clearance_m": 1.0}]
-    problemy = CP.coverage_gaps(dziura, 0.0, krok + 2e-6, krok)
-    assert len(problemy) == 1 and "dziura" in problemy[0], problemy
+
+def test_clearance_profile_coverage_exactly_half_a_millimetre_depends_on_parity():
+    """DOKŁADNIE pół milimetra rozstrzyga się PARZYSTOŚCIĄ licznika, i to trzeba wiedzieć.
+
+    Przejście na milimetry całkowite (decyzja właściciela, pozycja 6 `docs/24`) usuwa
+    zależność granicy od kilometrażu — ale nie w jednym punkcie: `round()` w Pythonie
+    zaokrągla połowę do liczby PARZYSTEJ, więc `x + 0,5 mm` raz wpada w ten sam
+    milimetr, a raz w następny. Zmierzone:
+
+        podstawa      mm      mm(+0,5 mm)   różnica   licznik
+             0,0       0            0          0      parzysty
+             5,0    5000         5000          0      parzysty
+        1500,000 1500000      1500000          0      parzysty
+        1500,001 1500001      1500002          1      NIEPARZYSTY
+        6592,739 6592739      6592740          1      NIEPARZYSTY
+        6592,740 6592740      6592740          0      parzysty
+
+    Ten test istnieje, bo bez niego łatwo napisać w raporcie „granica jest teraz
+    dokładna przy każdym kilometrażu" — co jest prawdą o 0,4 i 0,6 mm, a nieprawdą
+    o 0,5 mm. Znalazł to MÓJ WŁASNY test poprzedniej wersji, który celował dokładnie
+    w połowę i padł na końcu zakresu pakietu A (6592,739 m). Zapisuję ograniczenie,
+    a nie tylko obchodzę je doborem liczb.
+
+    Konsekwencja praktyczna jest żadna: chainage w `data/track/` jest zapisany
+    z dokładnością do centymetra, więc różnica dokładnie pół milimetra nie powstaje
+    z danych — powstaje z testu, który ją skonstruuje.
+    """
+    for podstawa, oczekiwana_roznica in ((0.0, 0), (5.0, 0), (1500.0, 0),
+                                         (1500.001, 1), (6592.739, 1), (6592.740, 0)):
+        licznik = CP._millimetres(podstawa)
+        roznica = CP._millimetres(podstawa + 0.0005) - licznik
+        assert roznica == oczekiwana_roznica, (podstawa, licznik, roznica)
+        assert roznica == licznik % 2, (podstawa, licznik, roznica)
+
+    # A 0,4 i 0,6 mm są jednoznaczne przy KAŻDEJ z tych podstaw — to jest ta część,
+    # którą decyzja naprawdę kupiła, i dlatego pozostałe testy celują właśnie tam.
+    for podstawa in (0.0, 5.0, 1500.0, 1500.001, 6592.739, 6592.740, 6700.0):
+        licznik = CP._millimetres(podstawa)
+        assert CP._millimetres(podstawa + 0.0004) - licznik == 0, podstawa
+        assert CP._millimetres(podstawa + 0.0006) - licznik == 1, podstawa
 
 
 def test_clearance_profile_support_polygon_skips_a_pair_exactly_at_the_determinant():
