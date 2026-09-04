@@ -5,6 +5,15 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
+# Blender jest przypięty po wersji i leży POZA workspace (`tools/ci/blender_install.sh`),
+# więc woła się go przez `BLENDER_BIN`, a nie przez goły `blender` z PATH. To nie jest
+# ozdoba: na maszynie, która kiedykolwiek miała `apt-get install blender`, w PATH stoi
+# 4.0.2, czyli LEGACY EEVEE — a baseline projektu jest z EEVEE Next i te dwie generacje
+# nie są porównywalne (`tools/visual/capture_plan.py`, `EEVEE_NEXT_SINCE`). Fallback na
+# PATH zostaje, żeby uruchomienie z ręki na maszynie z jednym Blenderem dalej działało.
+# Ta sama konwencja co `GODOT_BIN`.
+BLENDER_EXE="${BLENDER_BIN:-blender}"
 cd "$ROOT"
 
 OUT="build/t012visual"
@@ -37,9 +46,9 @@ echo "[ENV] runner"
 uname -a
 if [ -r /etc/os-release ]; then cat /etc/os-release; fi
 require_command python3 || exit $?
-require_command blender || exit $?
+require_command "$BLENDER_EXE" || exit $?
 python3 --version
-blender --version | sed -n '1,3p'
+"$BLENDER_EXE" --version | sed -n '1,3p'
 
 echo
 echo "[VERIFY] testy narzędzi (w tym testy pipeline'u wizualnego)"
@@ -48,14 +57,14 @@ python3 tools/tests/test_all.py
 echo
 echo "[SETUP] deterministyczna geometria testowa"
 python3 tools/track/make_test_track.py --out build/t010/TEST.json
-blender --background --python-exit-code 7 --python tools/blender/tunnel_sweep.py -- \
+"$BLENDER_EXE" --background --python-exit-code 7 --python tools/blender/tunnel_sweep.py -- \
   --centerline build/t010/TEST.json --profile box_double --out build/TEST.glb >"$OUT/tunnel.log" 2>&1 \
   || { cat "$OUT/tunnel.log"; fail "generowanie tunelu testowego nie powiodło się"; }
 grep -E '^\[RAPORT\]' "$OUT/tunnel.log"
 
 capture() {
   local outdir="$1"; shift
-  blender --background --python-exit-code 7 --python tools/visual/capture_blender.py -- \
+  "$BLENDER_EXE" --background --python-exit-code 7 --python tools/visual/capture_blender.py -- \
     --in build/TEST.glb --set infrastructure --prefix VIS_TUNNEL --out "$outdir" \
     --centerline build/t010/TEST.json "$@" >"$OUT/capture_$(basename "$outdir").log" 2>&1 \
     || { tail -n 40 "$OUT/capture_$(basename "$outdir").log"; fail "capture do $outdir nie powiódł się"; }

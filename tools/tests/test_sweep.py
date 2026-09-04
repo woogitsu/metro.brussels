@@ -181,3 +181,128 @@ def test_sweep_committed_axis_produces_a_sane_tunnel():
     # bbox nie może być ani punktem, ani dłuższy niż sama oś
     assert width < span <= result["axis_length_m"]
     assert abs((hi[2] - lo[2]) - height) < 1e-6
+
+
+# --- triaż mutacyjny: granice prymitywów geometrycznych -------------------------
+#
+# Z przeglądu `tools/tests/mutation_sweep.py` na `sweep.py`: 39 ocalałych mutacji.
+# Każdy test poniżej zabija konkretną, wypisaną w komentarzu — i ta mutacja jest jego
+# kontrolą negatywną. Klasyfikacja całości: `reports/mutation-triage-sweep.md`.
+
+
+def test_sweep_zero_vector_has_no_direction():
+    """Mutacja: 54 `<= 0.0` -> `< 0.0` — wektor zerowy dzieliłby przez zero."""
+    try:
+        SW.unit((0.0, 0.0, 0.0))
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("wektor zerowy dostał kierunek")
+    assert SW.unit((3.0, 0.0, 0.0)) == (1.0, 0.0, 0.0)
+
+
+def test_sweep_three_points_are_enough_to_smooth():
+    """Mutacja: 92 `len(points) < 3` -> `< 4` — trzy punkty wracałyby bez zmian.
+
+    Trzy punkty to najkrótsza łamana, która ma w ogóle załamanie, więc jest to
+    najmniejszy przypadek, w którym wygładzanie ma sens. Odrzucenie go byłoby ciche:
+    oś wróciłaby kanciasta i nikt by się nie dowiedział.
+    """
+    source = [(0.0, 0.0, 0.0), (10.0, 0.0, 0.0), (20.0, 1.0, 0.0)]
+    smoothed = SW.catmull_rom(source, 2.0)
+    assert len(smoothed) > len(source), len(smoothed)
+    assert SW.catmull_rom(source[:2], 2.0) == source[:2], "dwa punkty nie mają czego wygładzać"
+
+
+def test_sweep_point_to_polyline_survives_a_segment_of_zero_length():
+    """Mutacja: 126 `<= 0.0` -> `< 0.0` — dzielenie przez zero na zdublowanym punkcie.
+
+    `dedupe` istnieje właśnie dlatego, że surowe dane zawierają powtórzone wierzchołki.
+    Gdy taki odcinek mimo wszystko tu trafi, ma wyjść odległość od punktu.
+    """
+    assert SW.point_to_polyline((0.0, 3.0, 0.0),
+                                [(0.0, 0.0, 0.0), (0.0, 0.0, 0.0)]) == 3.0
+
+
+def test_sweep_two_points_are_enough_for_frames():
+    """Mutacje: 157 `< 2` -> `<= 2` i `2` -> `3` — dwupunktowa oś byłaby odrzucona.
+
+    Prosty odcinek jest legalną osią i najkrótszą, jaka daje rurę. Odmowa dla niego
+    wywróciłaby każdy chunk zbudowany z dwóch pierścieni.
+    """
+    frames = SW.rmf_frames([(0.0, 0.0, 0.0), (10.0, 0.0, 0.0)])
+    assert len(frames) == 2
+    try:
+        SW.rmf_frames([(0.0, 0.0, 0.0)])
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("oś z jednego punktu dostała ramki")
+
+
+def test_sweep_a_vertical_axis_still_gets_a_frame():
+    """Oś pionowa ma styczną równoległą do „góry" świata.
+
+    Iloczyn wektorowy stycznej i pionu jest wtedy zerem, więc bez tej gałęzi
+    `unit` dostaje wektor zerowy i całość leci wyjątkiem. Szyb windy albo pochylnia
+    o dużym spadku to nie jest przypadek hipotetyczny.
+
+    **Ten test nie zabija żadnej mutacji z przeglądu i tak ma być.** Obie mutacje
+    wiersza 161 — `< 1e-9` na `<= 1e-9` oraz próg na `1,01e-9` — są nieobserwowalne:
+    rozróżnia je wyłącznie norma wypadająca DOKŁADNIE na progu. Sprawdzone
+    wykonaniem: mutant `<=` daje 730/730. Test zostaje jako regresja na samą gałąź,
+    bo jej usunięcie wywraca oś pionową natychmiast — ale nie udaję, że coś zabija.
+    """
+    frames = SW.rmf_frames([(0.0, 0.0, 0.0), (0.0, 0.0, 10.0)])
+    right = frames[0][2]
+    assert abs(SW.norm(right) - 1.0) < 1e-12, right
+    assert abs(SW.dot(right, (0.0, 0.0, 1.0))) < 1e-12, "prawo nie jest prostopadłe do osi"
+
+
+def test_sweep_ring_indices_must_be_at_least_two_and_increasing():
+    """Mutacja: 298 `< 2` -> `<= 2` — chunk z jednego pierścienia przechodziłby dalej."""
+    frames = SW.rmf_frames(SW.dedupe(_s_curve()))
+    station_m = SW.chainages([f[0] for f in frames])
+    for bad in ([3], [3, 3], [5, 2]):
+        try:
+            SW.build_chunk_from_rings(frames, station_m, BOX, bad)
+        except ValueError:
+            continue
+        raise AssertionError(f"zestaw pierścieni {bad} został przyjęty")
+    assert SW.build_chunk_from_rings(frames, station_m, BOX, [0, 1])["vertices"]
+
+
+def test_sweep_uv_stretch_ignores_rows_with_no_uv_span():
+    """Zerowy krok UV nie może wejść do stosunku metrów na jednostkę tekstury.
+
+    Dwa pierścienie o tym samym `v` dają `duv == 0`; policzenie dla nich stosunku
+    byłoby dzieleniem przez zero, a wpisanie tam zera zaniżyłoby minimum i kontrola
+    rozciągnięcia tekstury przestałaby cokolwiek znaczyć.
+
+    **Mutacji wiersza 410 ten test nie zabija.** `> 1e-9` na `>= 1e-9` rozróżnia
+    wyłącznie krok UV równy progowi co do bitu; sprawdzone wykonaniem — mutant daje
+    730/730. Zabija natomiast usunięcie samego strażnika, bo wtedy leci dzielenie
+    przez zero, i to jest to, co ten test pilnuje.
+    """
+    frames = SW.rmf_frames(SW.dedupe(_s_curve()))
+    station_m = SW.chainages([f[0] for f in frames])
+    chunk = SW.build_chunk(frames, station_m, BOX, 0, 20)
+    columns = len(BOX) + 1
+    low, high = SW.uv_stretch(chunk, columns)
+    assert low > 0.0 and high > 0.0, (low, high)
+    assert high / low < 1.05, (low, high)
+
+    flat = {"vertices": list(chunk["vertices"]), "uvs": [(u, 0.0) for u, _v in chunk["uvs"]]}
+    assert SW.uv_stretch(flat, columns) == (0.0, 0.0), "brak rozpiętości UV ma dać zera"
+
+
+def test_sweep_strictly_increasing_removes_a_repeated_tail():
+    """Mutacja: 487 `>=` -> `>` — powtórzony indeks na końcu zostawałby w wyniku.
+
+    Zduplikowany pierścień na szwie znaczy czworokąt o zerowej wysokości, czyli
+    ścianę bez pola — `degenerate_faces` zgłosiłoby to później, ale dopiero po
+    zbudowaniu siatki.
+    """
+    assert SW._strictly_increasing([0, 3, 3], 3) == [0, 3]
+    assert SW._strictly_increasing([0, 0, 0], 5) == [0, 1, 5]
+    assert SW._strictly_increasing([0, 2, 4], 4) == [0, 2, 4]

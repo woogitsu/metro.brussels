@@ -8,6 +8,7 @@ przypinają regułę, która zastąpiła tę liczbę: **przekroczenie nie może 
 ostatni odcinek łamanej**.
 """
 import json
+import math
 import os
 import sys
 import tempfile
@@ -258,6 +259,84 @@ def test_validate_dense_points_are_warned_only_below_the_limit():
     under = V.LIMITS["min_point_gap_m"] * 0.5
     dense = _run(_axis_from([[i * under, 0.0, 0.0] for i in range(10)], stations=(0.0,)))
     assert _has(dense.warn, "bardzo gęsto"), dense.warn
+    # Gęsto, ale niezerowo — to zostaje OSTRZEŻENIEM. Gęste punkty w danych STIB są
+    # normalne i podniesienie ich do błędu wywróciłoby walidację realnych osi.
+    assert not dense.err, dense.err
+
+
+def test_validate_duplicate_vertex_is_an_error_not_a_dense_warning():
+    """Odstęp DOKŁADNIE zerowy to błąd, a nie „bardzo gęsto".
+
+    Którą drogą omijam pułapkę „granicy, która granicy nie dotyka": zero jest tu
+    **dokładne**, bo powstaje z odejmowania dwóch identycznych liczb — `math.dist`
+    na powtórzonym wierzchołku zwraca 0.0 co do bitu, bez żadnego zaokrąglenia.
+    To ta sama droga, z której korzysta
+    `test_point_at_chainage_survives_a_duplicate_at_the_very_start`.
+
+    Powód, dla którego to jest błąd: segment o zerowej długości daje zerowy
+    mianownik. `capture_plan.point_at_chainage` broni się gałęzią `span <= 0.0`,
+    a `build_alignment.slice_polyline` ostrym `<` (#143) — ale to obrony PRZED
+    danymi, które ten walidator wpuszczał jako ostrzeżenie.
+    """
+    step = 15.0
+    points = [[i * step, 0.0, 0.0] for i in range(10)]
+    points.insert(1, list(points[0]))
+    import math
+    assert math.dist(points[0][:2], points[1][:2]) == 0.0, "zero musi być dokładne"
+    report = _run(_axis_from(points, stations=(0.0,)))
+    assert _has(report.err, "zdublowany wierzchołek"), report.err
+    assert not _has(report.warn, "bardzo gęsto"), report.warn
+    # Kontrola negatywna fikstury: bez wstawionej kopii ta sama oś jest czysta.
+    clean = _run(_axis_from([[i * step, 0.0, 0.0] for i in range(10)], stations=(0.0,)))
+    assert not clean.err, clean.err
+
+
+def test_validate_duplicate_threshold_is_open_at_exactly_a_micrometre():
+    """Odstęp równy dokładnie progowi to jeszcze DWA punkty, nie duplikat.
+
+    Którą drogą omijam pułapkę: wartość graniczną **czytam z modułu**
+    (`V.LIMITS["duplicate_point_gap_m"]`) i stawiam drugi punkt w odległości tej
+    liczby od zera, więc `math.dist` zwraca ją **bez zaokrąglenia** — odejmowanie
+    od dokładnego zera jest dokładne. Fikstura typu „próg razy 1,01" nie
+    odróżniłaby `<` od `<=` w żadną stronę.
+
+    Ta strona nierówności jest ta sama, co w `build_alignment.slice_polyline`,
+    i to jest cały powód, dla którego wolno było użyć tamtej liczby.
+    """
+    import math
+    gap = V.LIMITS["duplicate_point_gap_m"]
+    step = 15.0
+    points = [[0.0, 0.0, 0.0], [gap, 0.0, 0.0]] + [[i * step, 0.0, 0.0] for i in range(1, 10)]
+    assert math.dist(points[0][:2], points[1][:2]) == gap, "próg musi być dokładny"
+    at_threshold = _run(_axis_from(points, stations=(0.0,)))
+    assert not _has(at_threshold.err, "zdublowany wierzchołek"), at_threshold.err
+    assert _has(at_threshold.warn, "bardzo gęsto"), at_threshold.warn
+
+    under = points[:]
+    under[1] = [gap * 0.5, 0.0, 0.0]
+    below = _run(_axis_from(under, stations=(0.0,)))
+    assert _has(below.err, "zdublowany wierzchołek"), below.err
+
+
+def test_validate_duplicate_threshold_matches_the_alignment_merge_threshold():
+    """Ta liczba nie jest nowa i nie wolno jej rozjechać z miejscem, z którego pochodzi.
+
+    `build_alignment.slice_polyline` skleja punkty bliższe niż `1e-6` m, więc każda
+    oś wyprodukowana tą ścieżką ma odstęp co najmniej mikrometrowy — i dlatego próg
+    duplikatu w walidatorze może być dokładnie ten sam. Test sprawdza to
+    **zachowaniem**, nie odczytem literału: gdyby którakolwiek strona się przesunęła,
+    walidator albo odrzucałby własne dane, albo znów przepuszczał duplikat.
+    """
+    import math
+    sys.path.insert(0, os.path.join(ROOT, "tools", "track"))
+    import build_alignment as A  # noqa: E402
+
+    gap = V.LIMITS["duplicate_point_gap_m"]
+    merged = A.slice_polyline([(0.0, 0.0), (gap * 0.5, 0.0), (100.0, 0.0)], 0.0, 100.0)
+    assert len(merged) == 2, merged          # poniżej progu -> sklejone tam
+    kept = A.slice_polyline([(0.0, 0.0), (gap, 0.0), (100.0, 0.0)], 0.0, 100.0)
+    assert len(kept) == 3, kept              # dokładnie na progu -> zostaje tam
+    assert math.dist(kept[0], kept[1]) == gap
 
 
 def test_validate_grade_limit_holds_at_the_limit_and_breaks_past_it():
@@ -375,13 +454,20 @@ def test_validate_limits_are_pinned_to_their_stated_values():
     * 4 % — kryterium ukończenia T-112 w `docs/TASKS.md` („pochylenia 0–4%");
     * 250 m i 2200 m — obwiednia rzeczywistych odstępów stacji sieci; zmiana
       któregokolwiek przebazowuje wszystkie sześć osi bez ani jednego czerwonego testu;
-    * 0,5 m — próg wykrywania zdublowanych wierzchołków;
+    * 0,5 m — próg „bardzo gęsto", czyli podejrzenie nadmiarowych punktów. Ten
+      wiersz był wcześniej opisany jako „próg wykrywania zdublowanych wierzchołków"
+      i to była nieprawda, dlatego jest przepisany, a nie dopisany obok: przy 0,5 m
+      duplikat i gęsta polilinia dostawały ten sam status, czyli ostrzeżenie;
+    * 1e-6 m — próg duplikatu. Nie jest nową liczbą projektową: dokładnie tyle
+      wynosi próg sklejania w `build_alignment.slice_polyline`, więc każda oś
+      wyprodukowana tą ścieżką gwarantuje odstęp co najmniej mikrometrowy;
     * 0,01 m — rozdzielczość zapisu `length_m` i `chainage_m` w plikach osi.
     """
     assert V.LIMITS == {
         "max_grade_pct": 4.0,
         "min_radius_m": 90.0,
         "max_point_gap_m": 25.0,
+        "duplicate_point_gap_m": 1e-6,
         "min_point_gap_m": 0.5,
         "max_station_spacing_m": 2200.0,
         "min_station_spacing_m": 250.0,
@@ -392,3 +478,337 @@ def test_validate_limits_are_pinned_to_their_stated_values():
         audit = handle.read()
     assert "odstęp ≤ 25 m, R ≥ 90 m" in audit, \
         "dokument audytu przestał wymieniać granice walidatora — rozjazd kodu z opisem"
+
+
+# --- progi, których nie dotykał żaden test ------------------------------------
+#
+# Przegląd mutacyjny z 03.09.2026: z 36 mutacji w `validate.py` przeżyły 23.
+# Testy wyżej sprawdzały każdą regułę „gdzieś obok progu" — a `>` różni się od `>=`
+# WYŁĄCZNIE w punkcie równości. Poniższe testy stają dokładnie na progu.
+#
+# PUŁAPKA, która kosztowała najwięcej: `(885.0 + 0.01) - 885.0` daje
+# 0.009999999999990905, czyli PONIŻEJ progu 0,01. Naiwna fikstura „dokładnie na
+# granicy" nie dotyka granicy i nie odróżnia `>` od `>=` w żadną stronę. Różnica
+# dwóch double'i jest równa dokładnie 0,01 tylko wtedy, gdy jedna strona jest zerem
+# albo gdy obie mieszczą się na tyle nisko, że 0,01 daje się w nich zapisać bez
+# zaokrąglenia. Oba te warianty są niżej wykorzystane i każdy jest opisany na miejscu.
+
+
+def _bare_axis(points, stations, length_m=None):
+    """Oś bez ustawiania czegokolwiek za plecami testu.
+
+    `_axis` i `_axis_from` wyżej dopisują `length_m` i `depth_m`; tutaj są testy,
+    w których obecność tych pól decyduje o wyniku, więc fikstura ich nie zgaduje.
+    """
+    axis = {"id": "T", "crs": "EPSG:31370",
+            "vertical": {"status": "not_modelled"},
+            "points": [list(p) for p in points],
+            "stations": [dict(s) for s in stations]}
+    if length_m is not None:
+        axis["length_m"] = length_m
+    return axis
+
+
+def _station(name, chainage, depth=0.0):
+    station = {"name": name, "chainage_m": chainage}
+    if depth is not None:
+        station["depth_m"] = depth
+    return station
+
+
+# --- radius3: próg zdegenerowanego wyznacznika --------------------------------
+
+def test_validate_radius3_degenerate_threshold_is_strict_at_1e_9():
+    """`abs(d)<1e-9` ma być OSTRE, bo `d` dokładnie równe 1e-9 to jeszcze łuk.
+
+    Fikstura trafia w próg dokładnie, a nie „mniej więcej": dla punktów
+    (0,0), (1,0), (0,5e-10) wyznacznik to `2*(5e-10)`, a mnożenie double'a przez
+    dwa jest w arytmetyce binarnej DOKŁADNE i nie zmienia mantysy. Najbliższy
+    double do 5e-10 razy dwa to więc najbliższy double do 1e-9 — te dwie liczby
+    są równe co do bitu. To jedyny sposób, żeby stanąć na tym progu; próg 1e-9
+    nie jest potęgą dwójki, więc żadna suma ani różnica dwóch „ładnych" liczb
+    dziesiętnych w niego nie trafia.
+
+    Bez tego testu przechodziły dwie mutacje naraz: `<` → `<=` oraz podniesienie
+    progu o procent. Obie zamieniają realny łuk o promieniu 0,5 m — czyli błąd
+    danych, który walidator ma krzyczeć — w `inf`, czyli „prosta, nie ma sprawy".
+    """
+    d_at_threshold = 2 * (5e-10)
+    assert d_at_threshold == 1e-9, "fikstura przestała trafiać w próg"
+
+    on_threshold = V.radius3((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 5e-10, 0.0))
+    assert on_threshold == 0.5, on_threshold
+
+    # Kontrola negatywna: punkty naprawdę współliniowe mają dawać `inf`, inaczej
+    # test wyżej przechodziłby też dla walidatora, który nigdy nie zwraca `inf`.
+    collinear = V.radius3((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (2.0, 0.0, 0.0))
+    assert collinear == float("inf"), collinear
+
+
+# --- length_m: próg 0,01 m ----------------------------------------------------
+
+def test_validate_length_drift_exactly_at_tolerance_is_not_an_error():
+    """Rozjazd równy tolerancji to jeszcze zgodność, dopiero większy jest błędem.
+
+    Fikstura jest tu **przepisana, nie dopisana obok**. Poprzednia wersja brała trzy
+    identyczne punkty, żeby `total` wyszło dokładnym zerem, i tłumaczyła to tak:
+    „0,01 nie jest potęgą dwójki, więc przy `total` rzędu setek metrów najbliższy
+    double do `total + 0,01` różni się od `total` o 0,00999999999999 — jedna strona
+    musi być zerem". Rozumowanie było poprawne, ale wniosek za wąski, a od 03.09.2026
+    łamana o zerowej długości jest **błędem walidacji** (zdublowany wierzchołek), więc
+    ta fikstura nie mogła już mierzyć „braku błędów".
+
+    Zerowy `total` nie jest jedynym wejściem, które staje na progu dokładnie. Wystarczy,
+    żeby `total` było tego samego rzędu co 0,01, bo wtedy odejmowanie nie wymaga
+    zaokrąglenia. Tu `total` to `0,005 + 0,005`, czyli podwojenie double'a — operacja
+    w arytmetyce binarnej DOKŁADNA, nie ruszająca mantysy — więc `total` jest bit
+    w bit najbliższym double'em do 0,01, a `0,02` jest bit w bit jego podwojeniem.
+    Stąd `abs(0,02 - total)` to dokładnie ten sam double, co `LIMITS`, i test
+    naprawdę stoi na granicy, a nie tuż nad nią.
+
+    Odstęp 0,005 m jest poniżej `min_point_gap_m`, więc oś dostaje ostrzeżenia
+    „bardzo gęsto" — i o to chodzi: gęsto nie jest błędem, duplikat jest.
+    """
+    tiny = [[0.0, 0.0, 0.0], [0.005, 0.0, 0.0], [0.01, 0.0, 0.0]]
+    on_threshold = _run(_bare_axis(tiny, [_station("S0", 0.0)], length_m=0.02))
+    assert math.dist(tiny[0][:2], tiny[1][:2]) * 2.0 == 0.01, "fikstura zgubiła dokładność"
+    assert abs(0.02 - 0.01) == V.LIMITS["length_tolerance_m"], "fikstura minęła próg"
+    assert not on_threshold.err, on_threshold.err
+    assert _has(on_threshold.info, "length_m zgodne z łamaną"), on_threshold.info
+
+    # Kontrola negatywna: o jeden krok dalej ma być dokładnie jeden błąd i ma to
+    # być TEN błąd. Bez tego test przechodziłby dla walidatora, który nie sprawdza
+    # length_m w ogóle.
+    past = _run(_bare_axis(tiny, [_station("S0", 0.0)], length_m=0.03))
+    assert len(past.err) == 1, past.err
+    assert _has(past.err, "nie zgadza się z łamaną"), past.err
+
+    # Kontrola negatywna drugiej strony: dawna fikstura (trzy identyczne punkty) jest
+    # dziś błędem i ma nim pozostać. Gdyby wróciła, test wyżej mierzyłby co innego,
+    # niż mówi jego nazwa.
+    degenerate = _run(_bare_axis([[0.0, 0.0, 0.0]] * 3, [_station("S0", 0.0)],
+                                 length_m=0.01))
+    assert _has(degenerate.err, "zdublowany wierzchołek"), degenerate.err
+
+
+# --- pochylenie: próg h < 1e-6 i próg 4 % -------------------------------------
+
+def test_validate_segment_of_exactly_one_micrometre_still_gets_a_grade():
+    """`h<1e-6` chroni przed dzieleniem przez zero, a nie przed liczeniem pochylenia.
+
+    Odcinek o długości dokładnie 1e-6 m ma być POLICZONY. Próg da się trafić
+    dokładnie, bo `math.dist((1e-6, 0), (0, 0))` to `hypot(1e-6, 0.0)`, a to
+    zwraca sam argument bez żadnej arytmetyki — bit w bit ten sam double, co
+    stała w kodzie.
+
+    Przeżywały tu dwie mutacje: `<` → `<=` i podniesienie progu o procent. Obie
+    każą walidatorowi PRZESKOCZYĆ odcinek o pochyleniu 100 % i nie powiedzieć
+    o tym ani słowa.
+    """
+    assert math.dist((1e-6, 0.0), (0.0, 0.0)) == 1e-6, "fikstura przestała trafiać w próg"
+
+    on_threshold = _run(_bare_axis(
+        [[0.0, 0.0, 0.0], [1e-6, 0.0, 1e-6], [2e-6, 0.0, 2e-6]],
+        [_station("S0", 0.0)]))
+    steep = [m for m in on_threshold.err if "pochylenie" in m]
+    assert len(steep) == 2, on_threshold.err
+    assert "100.00%" in steep[0], steep[0]
+
+    # Kontrola negatywna: PONIŻEJ progu odcinek ma być pominięty, inaczej test
+    # wyżej przechodziłby też dla walidatora bez żadnej ochrony przed dzieleniem
+    # przez długość zerową.
+    below = _run(_bare_axis(
+        [[0.0, 0.0, 0.0], [5e-7, 0.0, 5e-7], [1e-6, 0.0, 1e-6]],
+        [_station("S0", 0.0)]))
+    assert not [m for m in below.err if "pochylenie" in m], below.err
+
+
+def test_validate_grade_of_exactly_four_percent_passes_and_names_the_first_segment():
+    """Trzy progi naraz, wszystkie na jednej osi o stałym pochyleniu 4,00 %.
+
+    * `g>4.0` ma być ostre — 4 % to wartość dopuszczalna, nie przekroczenie
+      (`docs/TASKS.md`, T-112: „pochylenia 0–4%").
+    * `g>abs(worst_g)` ma być ostre, żeby przy remisie raportowany był PIERWSZY
+      odcinek. Numer punktu idzie do komunikatu, więc remis nie jest tu obojętny:
+      przy `>=` ten sam plik dawałby raz „punkt 0", raz „punkt 1".
+    * `worst_i>=0` ma obejmować zero, inaczej oś, której najostrzejszy odcinek
+      jest PIERWSZY, w ogóle traci wiersz o pochyleniu.
+
+    0,6/15 · 100 daje dokładnie 4.0 w double — sprawdzone asercją niżej, bo bez
+    niej fikstura mogłaby po cichu wylądować minimalnie nad progiem i test
+    przestałby cokolwiek znaczyć.
+    """
+    assert abs(0.6) / 15.0 * 100 == V.LIMITS["max_grade_pct"], "fikstura minęła próg"
+
+    on_limit = _run(_bare_axis(
+        [[0.0, 0.0, 0.0], [15.0, 0.0, 0.6], [30.0, 0.0, 1.2]],
+        [_station("S0", 0.0)]))
+    assert not on_limit.err, on_limit.err
+    assert _has(on_limit.info, "największe pochylenie: 4.00% (punkt 0)"), on_limit.info
+
+    # Kontrola negatywna: minimalnie stromiej ma dać błędy i tylko takie.
+    past = _run(_bare_axis(
+        [[0.0, 0.0, 0.0], [15.0, 0.0, 0.61], [30.0, 0.0, 1.22]],
+        [_station("S0", 0.0)]))
+    assert past.err and all("pochylenie" in m for m in past.err), past.err
+
+
+# --- promień: próg 90 m i wybór najmniejszego ---------------------------------
+
+def test_validate_radius_of_exactly_ninety_metres_passes_and_names_the_first_point():
+    """Trzy progi naraz na okręgu o promieniu dokładnie 90 m.
+
+    Cztery punkty (±90, 0) i (0, ±90) dają `radius3` równe 90.0 co do bitu:
+    wyznacznik i oba liczniki wychodzą na całkowitych wielokrotnościach 8100,
+    więc dzielenie jest dokładne, a środek wypada w (0, 0). Łuku o promieniu
+    90 m NIE da się zbudować z odstępów ≤ 25 m i jednocześnie trafić w próg
+    dokładnie — okrąg o promieniu 90 nie ma punktów wymiernych bliżej niż 127 m
+    od siebie (jedyna trójka pitagorejska o przeciwprostokątnej 90 to 54–72–90).
+    Dlatego ta oś ŁAMIE limit odstępu punktów i test mówi to wprost: jedyne
+    dopuszczone błędy to błędy odstępu.
+
+    Przeżywały tu trzy mutacje: `rad<90` → `<=`, `rad<worst_r` → `<=` oraz
+    `worst_r!=inf` → `==`. Ostatnia kasuje wiersz „najmniejszy promień"
+    z KAŻDEGO raportu — warunek jest spełniony zawsze, gdy `worst_ri>=0`.
+    """
+    circle = [[-90.0, 0.0, 0.0], [0.0, 90.0, 0.0], [90.0, 0.0, 0.0], [0.0, -90.0, 0.0]]
+    assert V.radius3(circle[0], circle[1], circle[2]) == 90.0, "fikstura minęła próg"
+
+    on_limit = _run(_bare_axis(circle, [_station("S0", 0.0)]))
+    assert all("odstęp punktów" in m for m in on_limit.err), on_limit.err
+    assert not _has(on_limit.err, "promień łuku"), on_limit.err
+    assert _has(on_limit.info, "najmniejszy promień: 90 m (punkt 1)"), on_limit.info
+
+    # Kontrola negatywna: ten sam kształt ciut ciaśniej ma dać błąd promienia.
+    tight = [[-89.0, 0.0, 0.0], [0.0, 89.0, 0.0], [89.0, 0.0, 0.0], [0.0, -89.0, 0.0]]
+    past = _run(_bare_axis(tight, [_station("S0", 0.0)]))
+    assert _has(past.err, "promień łuku"), past.err
+
+
+# --- rzut stacji: dwa progi z każdej strony osi -------------------------------
+
+def test_validate_overrun_equal_to_the_last_segment_is_a_warning_not_an_error():
+    """Granica między „artefakt rzutowania" a „stacja nie leży na tej osi".
+
+    Przekroczenie równe ostatniemu odcinkowi jest jeszcze artefaktem. Różnica
+    900,0 − 885,0 jest w double dokładna (obie liczby są całkowite), więc ta
+    fikstura naprawdę staje na progu, w odróżnieniu od prób z ułamkami.
+    """
+    on_limit = _run(_axis([0.0, 400.0, 900.0]))
+    assert 900.0 - 885.0 == STEP_M, "fikstura minęła próg"
+    assert not on_limit.err, on_limit.err
+    assert _has(on_limit.warn, "za końcem osi"), on_limit.warn
+
+    # Kontrola negatywna: jeden krok dalej i to już jest błąd, i tylko ten błąd.
+    past = _run(_axis([0.0, 400.0, 900.1]))
+    assert len(past.err) == 1, past.err
+    assert _has(past.err, "wykracza poza oś"), past.err
+
+
+def test_validate_overrun_exactly_at_tolerance_stays_silent():
+    """Rzut przesunięty dokładnie o rozdzielczość zapisu nie jest przekroczeniem.
+
+    Ta fikstura wygląda absurdalnie — oś ma 14 milimetrów — i to jest jej sens.
+    `over = ch[-1] - total` może być równe DOKŁADNIE 0,01 tylko wtedy, gdy oba
+    double'e leżą na tyle nisko, że 0,01 mieści się w ich najmłodszych bitach:
+    mantysa 0,01 jest nieparzysta na poziomie 2⁻⁵⁹, więc przy `total` rzędu
+    metrów różnica zawsze wypada obok progu (dla 885 m: 0,00999999999999).
+    Jednocześnie ostatni odcinek musi być DŁUŻSZY niż 0,01, inaczej zadziała
+    wcześniejsza reguła i do progu 0,01 sprawdzanie nigdy nie dojdzie. Oba
+    warunki spełnia dopiero łamana 2 mm + 12 mm; wartości sprawdzone asercją.
+    """
+    points = [[0.0, 0.0, 0.0], [0.002, 0.0, 0.0], [0.014, 0.0, 0.0]]
+    total = 0.002 + 0.012
+    assert (total + 0.01) - total == V.LIMITS["length_tolerance_m"], "fikstura minęła próg"
+
+    on_threshold = _run(_bare_axis(points, [_station("S0", total + 0.01)]))
+    assert not on_threshold.err, on_threshold.err
+    assert not _has(on_threshold.warn, "za końcem osi"), on_threshold.warn
+
+    # Kontrola negatywna: o milimetr dalej i ostrzeżenie ma się pojawić, wciąż
+    # bez błędu — bo mieści się w ostatnim odcinku (12 mm).
+    past = _run(_bare_axis(points, [_station("S0", total + 0.011)]))
+    assert not past.err, past.err
+    assert _has(past.warn, "za końcem osi"), past.warn
+
+
+def test_validate_underrun_equal_to_the_first_segment_is_a_warning_not_an_error():
+    """Symetria progu z drugiej strony osi: −15,0 wobec pierwszego odcinka 15,0."""
+    on_limit = _run(_axis([-STEP_M, 400.0, 885.0]))
+    assert not on_limit.err, on_limit.err
+    assert _has(on_limit.warn, "przed początkiem osi"), on_limit.warn
+
+    past = _run(_axis([-STEP_M - 0.1, 400.0, 885.0]))
+    assert len(past.err) == 1, past.err
+    assert _has(past.err, "przed osią"), past.err
+
+
+def test_validate_underrun_exactly_at_tolerance_stays_silent():
+    """Tu próg da się trafić bez sztuczek: `ch[0]` jest porównywane z `-0,01`
+    wprost, bez odejmowania, więc wystarczy wpisać −0,01 do pliku."""
+    on_threshold = _run(_axis([-0.01, 400.0, 885.0]))
+    assert not on_threshold.err, on_threshold.err
+    assert not _has(on_threshold.warn, "przed początkiem osi"), on_threshold.warn
+
+    past = _run(_axis([-0.02, 400.0, 885.0]))
+    assert not past.err, past.err
+    assert _has(past.warn, "przed początkiem osi"), past.warn
+
+
+# --- lista brakujących głębokości ---------------------------------------------
+
+def test_validate_missing_depth_list_is_elided_only_past_five_names():
+    """Wielokropek w komunikacie ma znaczyć „lista jest ucięta", a nie nic.
+
+    Komunikat pokazuje `missing[:5]`, więc przy dokładnie pięciu brakach nic nie
+    jest ucięte i wielokropka być nie może; przy sześciu — musi. Bez obu stron
+    przechodziły dwie mutacje: `>5` → `>=5` (wielokropek przy pełnej liście)
+    i `>5` → `>6` (ucięta lista bez znaku, że jest ucięta).
+    """
+    points = [[i * 15.0, 0.0, 0.0] for i in range(400)]
+
+    def run(count):
+        stations = [_station(f"S{i}", i * 300.0, depth=None) for i in range(count)]
+        return _run(_bare_axis(points, stations))
+
+    five = [m for m in run(5).warn if "brak głębokości" in m]
+    assert len(five) == 1, five
+    assert "…" not in five[0], five[0]
+    assert five[0].endswith("S4"), five[0]
+
+    six = [m for m in run(6).warn if "brak głębokości" in m]
+    assert len(six) == 1, six
+    assert six[0].endswith("…"), six[0]
+    assert "S5" not in six[0], six[0]
+
+    # Kontrola negatywna: komplet głębokości nie może dawać tego ostrzeżenia
+    # w ogóle — inaczej obie asercje wyżej sprawdzałyby tylko formatowanie.
+    full = [_station(f"S{i}", i * 300.0, depth=-10.0) for i in range(6)]
+    assert not [m for m in _run(_bare_axis(points, full)).warn if "brak głębokości" in m]
+
+
+# --- zakres ograniczeń prędkości ----------------------------------------------
+
+def test_validate_speed_limit_range_is_inclusive_at_both_ends():
+    """5 i 80 km/h to wartości DOPUSZCZALNE, nie granice do odrzucenia.
+
+    Istniejący test sprawdzał tylko 4 i 81, czyli obie strony NA ZEWNĄTRZ.
+    Przeżywały przez to trzy mutacje: oba `<=` ścięte do `<` i dolna granica
+    podniesiona do 6 — czyli walidator, który odrzuca prawidłowy manewrowy
+    5 km/h albo prawidłowe 80 km/h, i żaden test tego nie zauważa.
+    """
+    points = [[i * 15.0, 0.0, 0.0] for i in range(20)]
+
+    def run(kmh):
+        axis = _bare_axis(points, [_station("S0", 0.0)])
+        axis["speed_limits"] = [{"from_m": 0.0, "to_m": 100.0, "kmh": kmh}]
+        return _run(axis)
+
+    for kmh in (5, 80):
+        out = run(kmh)
+        assert not out.err, (kmh, out.err)
+
+    for kmh in (4, 81):
+        out = run(kmh)
+        assert len(out.err) == 1, (kmh, out.err)
+        assert _has(out.err, "poza zakresem 5–80"), (kmh, out.err)

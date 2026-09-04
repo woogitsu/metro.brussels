@@ -3,8 +3,9 @@
     blender --background --python tools/blender/tunnel_sweep.py -- \
         --centerline data/track/L1_A.json --profile box_double --out build/L1_A.glb
 
-Cała matematyka siedzi w `sweep.py` (czysty Python, testowalny bez Blendera); tutaj
-zostaje budowa siatek bpy, materiał, eksport i raport. Oś jest dzielona na chunki,
+Cała matematyka siedzi w `sweep.py` i `lod.py`, a manifest, wybór wariantu i bramka
+akceptacji w `tunnel_manifest.py` — wszystko czysty Python, testowalny bez Blendera.
+Tutaj zostaje budowa siatek bpy, materiał, eksport i wypisanie raportu. Oś jest dzielona na chunki,
 których szwy nigdy nie wypadają w obrębie stacji — to warunek późniejszego
 streamowania w Godot (T-210, wymaganie 4).
 
@@ -24,7 +25,6 @@ główki szyny), wynik jest wariantem `flat-preview` i jest tak nazwany w scenie
 w metrykach i w raporcie. `--variant production` jest wtedy odrzucany.
 """
 import argparse
-import hashlib
 import json
 import os
 import sys
@@ -34,10 +34,8 @@ import bpy
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import lod as LD  # noqa: E402
 import sweep as SW  # noqa: E402
+import tunnel_manifest as TM  # noqa: E402
 from profiles import PROFILES, profile_points, dimensions, fits_gauge, vehicle_gauge  # noqa: E402
-
-MAX_GAP_M = 0.001
-MAX_TWIST_DEG = 5.0
 
 
 def parse_args():
@@ -62,14 +60,6 @@ def parse_args():
     return parser.parse_args(argv)
 
 
-def sha256_file(path):
-    digest = hashlib.sha256()
-    with open(path, "rb") as handle:
-        for block in iter(lambda: handle.read(65536), b""):
-            digest.update(block)
-    return digest.hexdigest()
-
-
 def export_selected(objects, path):
     bpy.ops.object.select_all(action="DESELECT")
     for obj in objects:
@@ -77,33 +67,6 @@ def export_selected(objects, path):
     bpy.context.view_layer.objects.active = objects[0]
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True)
-
-
-def geometry_record(chunk, path):
-    """Wspólny opis dowolnej siatki chunka: LOD-a, kolizji i siatki bazowej.
-
-    Liczniki wierzchołków i trójkątów pochodzą z generatora, nie z GLB: eksporter
-    glTF rozszczepia wierzchołki na szwach UV, więc liczba w pliku jest większa
-    i nie sumuje się do metryk. `geometry_sha256` odpowiada na pytanie „czy siatka
-    się zmieniła" wtedy, gdy `sha256` pliku i tak nie jest odtwarzalny.
-    """
-    lo, hi = SW.bounding_box([chunk])
-    start_m, end_m, _length_m = SW.manifest_span(chunk["start_m"], chunk["end_m"])
-    return {
-        "file": os.path.basename(path),
-        "start_m": start_m,
-        "end_m": end_m,
-        "rings": len(chunk["ring_indices"]),
-        "vertices": len(chunk["vertices"]),
-        "faces": len(chunk["faces"]),
-        "triangles": len(chunk["faces"]) * 2,
-        "bbox_min_m": [round(v, 4) for v in lo],
-        "bbox_max_m": [round(v, 4) for v in hi],
-        "bbox_size_m": [round(hi[i] - lo[i], 4) for i in range(3)],
-        "geometry_sha256": SW.chunk_geometry_sha256(chunk),
-        "sha256": sha256_file(path),
-        "bytes": os.path.getsize(path),
-    }
 
 
 def drop_object(obj):
@@ -131,7 +94,7 @@ def lod_entries(chunk, chunk_id, name_prefix, base_object, chunk_dir, frames, st
     """
     first, last = chunk["first_ring"], chunk["last_ring"]
     base_volume = LD.tube_volume_m3(LD.rings_of(frames, profile, chunk["ring_indices"]))
-    base_size = [round(v, 4) for v in chunk_size(chunk)]
+    base_size = [round(v, 4) for v in TM.chunk_size(chunk)]
     entries, meshes = [], []
     for params in LD.LOD_LEVELS:
         level = params["level"]
@@ -147,7 +110,7 @@ def lod_entries(chunk, chunk_id, name_prefix, base_object, chunk_dir, frames, st
         stats = LD.deviation_stats(frames, profile, station_m, first, last,
                                    mesh["ring_indices"])
         volume = LD.tube_volume_m3(LD.rings_of(frames, profile, mesh["ring_indices"]))
-        record = geometry_record(mesh, path)
+        record = TM.geometry_record(mesh, path)
         record.update({
             "level": level,
             "max_chord_m": params["max_chord_m"],
@@ -172,11 +135,6 @@ def lod_entries(chunk, chunk_id, name_prefix, base_object, chunk_dir, frames, st
     return entries, meshes
 
 
-def chunk_size(chunk):
-    lo, hi = SW.bounding_box([chunk])
-    return [hi[i] - lo[i] for i in range(3)]
-
-
 def collision_entry(chunk, chunk_id, chunk_dir, frames, station_m, profile, material,
                     uv_scale, track_offsets):
     """Bryła kolizyjna chunka w osobnym pliku, z pomiarem zapasu do ściany i do skrajni.
@@ -197,7 +155,7 @@ def collision_entry(chunk, chunk_id, chunk_dir, frames, station_m, profile, mate
     closed, boundary, expected = LD.transversally_closed(solid, columns)
     base_volume = LD.tube_volume_m3(LD.rings_of(frames, profile, chunk["ring_indices"]))
     volume = LD.tube_volume_m3(LD.rings_of(frames, hull, solid["ring_indices"]))
-    record = geometry_record(solid, path)
+    record = TM.geometry_record(solid, path)
     record.update({
         "role": "wnętrze tunelu — przestrzeń, w której może się poruszać pociąg",
         "derived_from_profile": "box_double",
@@ -242,7 +200,7 @@ def chunk_records(chunks, objects, stations, station_slots, name, chunk_dir, fra
                                            profile, material, uv_scale, track_offsets)
         lod_meshes.append(meshes)
         collision_meshes.append(solid)
-        record = geometry_record(chunk, path)
+        record = TM.geometry_record(chunk, path)
         record.update({
             "id": chunk_id,
             "index": index,
@@ -255,97 +213,6 @@ def chunk_records(chunks, objects, stations, station_slots, name, chunk_dir, fra
         })
         records.append(record)
     return records, lod_meshes, collision_meshes
-
-
-def lod_levels_header(records):
-    """Nagłówek manifestu: co robi każdy poziom, ile kosztuje i od jakiej odległości wolno.
-
-    Próg odległości NIE jest zgadnięty i NIE jest specyfikacją: liczy się ze
-    ZMIERZONEGO na tym pakiecie największego odchylenia poziomu i z jawnego budżetu
-    błędu ekranowego (`lod.switch_distance_m`). Docelowe progi mają wyjść z pomiaru
-    wydajności na rzeczywistym sprzęcie w T-400 — do tego czasu wpis jest oznaczony
-    `design_assumption`, tak jak okno streamowania.
-    """
-    out = []
-    for params in LD.LOD_LEVELS:
-        level = params["level"]
-        entries = [l for chunk in records for l in chunk["lods"] if l["level"] == level]
-        worst = max(e["max_deviation_m"] for e in entries)
-        triangles = sum(e["triangles"] for e in entries)
-        base = sum(l["triangles"] for chunk in records for l in chunk["lods"]
-                   if l["level"] == 0)
-        out.append({
-            "level": level,
-            "max_chord_m": params["max_chord_m"],
-            "max_sagitta_m": params["max_sagitta_m"],
-            "purpose": params["purpose"],
-            "triangles": triangles,
-            "triangle_share_pct": round(100.0 * triangles / base, 2),
-            "max_deviation_m": round(worst, 6),
-            "median_deviation_m": round(
-                sorted(e["median_deviation_m"] for e in entries)[len(entries) // 2], 6),
-            "switch_distance_m": round(LD.switch_distance_m(worst), 1),
-            "switch_distance_source":
-                "poziom bazowy — obowiązuje wszędzie poniżej progu LOD 1" if level == 0 else
-                f"odległość, na której zmierzone odchylenie {worst:.4f} m schodzi poniżej "
-                f"{LD.PIXEL_BUDGET_TOLERANCE_PX:.0f} px przy {LD.PIXEL_BUDGET_WIDTH_PX} px "
-                f"i obiektywie {LD.PIXEL_BUDGET_LENS_MM:.0f} mm na matrycy "
-                f"{LD.PIXEL_BUDGET_SENSOR_MM:.0f} mm",
-            "status": "design_assumption",
-        })
-    return out
-
-
-def lod_metrics(records, lod_meshes, collision_meshes, frames, columns, collision_columns):
-    """Metryki generatora dla LOD-ów i kolizji, z kontrolą szwów W KAŻDYM poziomie.
-
-    Szew jest sprawdzany osobno w każdym poziomie ORAZ między różnymi poziomami
-    sąsiednich chunków: streaming ma prawo trzymać chunk `n` w LOD 0 i chunk `n+1`
-    w LOD 2, więc dziura mogłaby się otworzyć dokładnie na tej parze.
-    """
-    levels = [p["level"] for p in LD.LOD_LEVELS]
-    gaps = {}
-    for low in levels:
-        for high in levels:
-            worst = 0.0
-            for previous, current in zip(lod_meshes, lod_meshes[1:]):
-                worst = max(worst, SW.chunk_gap_m(previous[low], current[high], columns))
-            gaps[f"{low}->{high}"] = round(worst, 9)
-    collision_gap = 0.0
-    for previous, current in zip(collision_meshes, collision_meshes[1:]):
-        collision_gap = max(collision_gap,
-                            SW.chunk_gap_m(previous, current, collision_columns))
-    return {
-        "lod_level_ids": levels,
-        "lod_max_bbox_growth_m": round(max(l["bbox_growth_m"] for chunk in records
-                                           for l in chunk["lods"]), 6),
-        "lod_max_bbox_shrink_m": round(max(l["bbox_shrink_m"] for chunk in records
-                                           for l in chunk["lods"]), 6),
-        "lod_triangles": {str(level): sum(l["triangles"] for chunk in records
-                                          for l in chunk["lods"] if l["level"] == level)
-                          for level in levels},
-        "lod_max_deviation_m": {str(level): round(max(l["max_deviation_m"] for chunk in records
-                                                      for l in chunk["lods"]
-                                                      if l["level"] == level), 6)
-                                for level in levels},
-        "lod_outward_faces": sum(SW.outward_faces(mesh, frames, columns)
-                                 for meshes in lod_meshes for mesh in meshes),
-        "lod_degenerate_faces": sum(len(SW.degenerate_faces(mesh))
-                                    for meshes in lod_meshes for mesh in meshes),
-        "lod_non_finite_vertices": SW.non_finite([m for ms in lod_meshes for m in ms]),
-        "lod_max_gap_m": {key: value for key, value in sorted(gaps.items())},
-        "lod_max_gap_any_m": round(max(gaps.values()), 9),
-        "collision_triangles": sum(c["collision"]["triangles"] for c in records),
-        "collision_max_gap_m": round(collision_gap, 9),
-        "collision_outward_faces": sum(c["collision"]["outward_faces"] for c in records),
-        "collision_degenerate_faces": sum(c["collision"]["degenerate_faces"] for c in records),
-        "collision_non_finite_vertices": SW.non_finite(collision_meshes),
-        "collision_min_wall_margin_m": round(min(c["collision"]["wall_margin_m"]
-                                                 for c in records), 6),
-        "collision_min_gauge_margin_m": round(min(c["collision"]["gauge_margin_m"]
-                                                  for c in records), 6),
-        "collision_closed": all(c["collision"]["transversally_closed"] for c in records),
-    }
 
 
 def clear_scene():
@@ -407,18 +274,17 @@ def main():
     args = parse_args()
     clear_scene()
     points, stations, vertical, identifier = load_centerline(args.centerline)
-    if len(points) < 2:
+    if not TM.enough_points(points):
         raise SystemExit("BŁĄD: oś trasy musi mieć co najmniej 2 punkty")
     ok, message = fits_gauge(args.profile)
     if not ok:
         raise SystemExit(f"BŁĄD: profil {args.profile} nie mieści skrajni M7 — {message}")
 
-    variant = args.variant
-    if variant == "auto":
-        variant = "production" if vertical == "modelled" else "flat-preview"
-    if variant == "production" and vertical != "modelled":
-        raise SystemExit("BŁĄD: oś nie ma profilu pionowego (T-112), wariant production niedozwolony")
-    name = args.name if variant == "production" else f"{args.name}_flat_preview"
+    try:
+        plan = TM.variant_plan(args.variant, vertical, args.name)
+    except ValueError as err:
+        raise SystemExit(f"BŁĄD: {err}")
+    variant, name = plan["variant"], plan["scene_name"]
 
     profile = profile_points(args.profile)
     station_m = [s["chainage_m"] for s in stations]
@@ -435,7 +301,7 @@ def main():
     metrics = {
         "id": identifier or name,
         "variant": variant,
-        "production_ready": variant == "production",
+        "production_ready": plan["production_ready"],
         "profile": args.profile,
         "profile_size_m": list(dimensions(args.profile)),
         "axis_length_m": round(result["axis_length_m"], 3),
@@ -479,8 +345,8 @@ def main():
             chunks, objects, stations, slots, name, args.chunk_dir, frames,
             result["station_m"], profile, material, SW.UV_METRES_PER_UNIT,
             PROFILES[args.profile].get("track_offsets", [0.0]))
-        lod_header = lod_levels_header(records)
-        metrics.update(lod_metrics(records, lod_meshes, collision_meshes, frames,
+        lod_header = TM.lod_levels_header(records)
+        metrics.update(TM.lod_metrics(records, lod_meshes, collision_meshes, frames,
                                    columns, len(profile) + 1))
         manifest_path = args.chunk_manifest or os.path.join(args.chunk_dir, f"{name}-chunks.json")
         manifest = {
@@ -585,41 +451,7 @@ def main():
               f"objetosc {sum(c['collision']['volume_m3'] for c in manifest['chunks']):.1f} m3 "
               f"({manifest['chunks'][0]['collision']['volume_share_pct']:.1f}% swiatla tunelu)")
 
-    problems = []
-    if manifest:
-        if metrics["lod_outward_faces"]:
-            problems.append(f"{metrics['lod_outward_faces']} ścian LOD-a z normalną na zewnątrz")
-        if metrics["lod_degenerate_faces"] or metrics["lod_non_finite_vertices"]:
-            problems.append("LOD ma ściany zdegenerowane albo wierzchołki NaN/Inf")
-        if metrics["lod_max_gap_any_m"] > MAX_GAP_M:
-            problems.append(f"szczelina między LOD-ami {metrics['lod_max_gap_any_m']*1000:.3f} mm")
-        if metrics["collision_max_gap_m"] > MAX_GAP_M:
-            problems.append(f"szczelina kolizji {metrics['collision_max_gap_m']*1000:.3f} mm")
-        if metrics["collision_outward_faces"] or metrics["collision_degenerate_faces"] \
-                or metrics["collision_non_finite_vertices"]:
-            problems.append("bryła kolizyjna ma złe normalne, degeneracje albo NaN/Inf")
-        if not metrics["collision_closed"]:
-            problems.append("bryła kolizyjna nie jest zamknięta poprzecznie")
-        if metrics["collision_min_wall_margin_m"] < 0.0:
-            problems.append("bryła kolizyjna wystaje poza światło tunelu")
-        if metrics["collision_min_gauge_margin_m"] <= 0.0:
-            problems.append("bryła kolizyjna nie mieści skrajni M7")
-    if metrics["vertices"] == 0 or metrics["faces"] == 0:
-        problems.append("geometria pusta")
-    if metrics["chunk_max_gap_m"] > MAX_GAP_M:
-        problems.append(f"szczelina na szwie {metrics['chunk_max_gap_m']*1000:.3f} mm > 1 mm")
-    if metrics["stations_split"]:
-        problems.append(f"szew chunka przecina stację: {metrics['stations_split']}")
-    if metrics["outward_faces"]:
-        problems.append(f"{metrics['outward_faces']} ścian z normalną na zewnątrz")
-    if metrics["degenerate_faces"]:
-        problems.append(f"{metrics['degenerate_faces']} zdegenerowanych ścian")
-    if metrics["non_finite_vertices"]:
-        problems.append(f"{metrics['non_finite_vertices']} wierzchołków NaN/Inf")
-    if metrics["frame_twist_deg"] > MAX_TWIST_DEG:
-        problems.append(f"skręt ramki {metrics['frame_twist_deg']:.2f} st.")
-    if abs(metrics["chunk_length_sum_m"] - metrics["axis_length_m"]) > 0.01:
-        problems.append("suma długości chunków nie zgadza się z chainage")
+    problems = TM.geometry_problems(metrics, manifest)
     if problems:
         raise SystemExit("BŁĄD: " + "; ".join(problems))
     print("[RAPORT] kontrole geometryczne: OK")

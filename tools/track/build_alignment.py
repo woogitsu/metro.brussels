@@ -102,6 +102,10 @@ def slice_polyline(points, start_chainage, end_chainage):
     końcowej linii (Stockel, Erasme, Herrmann-Debroux, Roi Baudouin) — żaden segment
     nie spełnia `c0 <= end < c1` i ostatni wierzchołek wypadał z wyniku. Na pakiecie D
     kosztowało to 86,8 m osi i dawało zdublowany punkt przy kotwicy stacji końcowej.
+
+    Ostre `<` w obu warunkach cięcia to NIE jest test zakresu, tylko zabezpieczenie
+    przed dzieleniem przez zero: przy zdublowanym wierzchołku segment między kopiami
+    ma `c1 - c0 == 0`, a nieostry warunek wpuściłby go do interpolacji (#143).
     """
     chain = cumulative(points)
     out = []
@@ -111,20 +115,20 @@ def slice_polyline(points, start_chainage, end_chainage):
             continue
         a, b = points[index], points[index + 1]
         if c0 < start_chainage <= c1:
-            out.append((_lerp(a, b, (start_chainage - c0) / (c1 - c0)), "interpolated_cut"))
+            out.append(_lerp(a, b, (start_chainage - c0) / (c1 - c0)))
         if start_chainage <= c0 <= end_chainage:
-            out.append((a, f"source_vertex:{index}"))
+            out.append(a)
         if c0 <= end_chainage < c1:
-            out.append((_lerp(a, b, (end_chainage - c0) / (c1 - c0)), "interpolated_cut"))
+            out.append(_lerp(a, b, (end_chainage - c0) / (c1 - c0)))
     if out and end_chainage >= chain[-1] - 1e-9:
         last = points[-1]
-        if math.dist(out[-1][0], last) > 1e-9:
-            out.append((last, f"source_vertex:{len(points) - 1}"))
+        if math.dist(out[-1], last) > 1e-9:
+            out.append(last)
     deduped = []
-    for point, origin in out:
-        if deduped and math.dist(deduped[-1][0], point) < 1e-6:
+    for point in out:
+        if deduped and math.dist(deduped[-1], point) < 1e-6:
             continue
-        deduped.append((point, origin))
+        deduped.append(point)
     return deduped
 
 
@@ -451,7 +455,7 @@ def build(args):
         raise SystemExit("BŁĄD: rzuty stacji nie są monotoniczne wzdłuż osi")
 
     start, end = anchors[0]["chainage"], anchors[-1]["chainage"]
-    sliced = [p for p, _ in slice_polyline(points, start, end)]
+    sliced = slice_polyline(points, start, end)
     anchor_local = [a["chainage"] - start for a in anchors]
     resampled = resample_uniform(sliced, args.step, anchor_local)
     deviation = max_deviation([p for p, _ in resampled], sliced)
@@ -577,7 +581,7 @@ def crosscheck_internal(lines, stops, base_code, variante, package, base_points,
     samej linii to drugi tor, więc jego odchyłka jest **pomiarem rozsunięcia torów**,
     nie błędem osi.
     """
-    base_slice = [p for p, _ in slice_polyline(base_points, start, end)]
+    base_slice = slice_polyline(base_points, start, end)
     if others is None:
         others = [(code, var) for code in metro_line_codes(stops)
                   for var in line_variants(stops, code)]
@@ -598,7 +602,7 @@ def crosscheck_internal(lines, stops, base_code, variante, package, base_points,
                                                  float(other_stops[-1]["Coord_Y"])))[0]
         # wariant powrotny biegnie w przeciwną stronę, więc kilometraże trzeba uporządkować
         low, high = (first, last) if first <= last else (last, first)
-        other_slice = [p for p, _ in slice_polyline(other_points, low, high)]
+        other_slice = slice_polyline(other_points, low, high)
         if not other_slice:
             results.append({"line_code": code, "variante": var, "status": "pusty wycinek",
                             "reason": f"kilometraże {low:.1f}..{high:.1f} nie dały punktów"})
@@ -802,7 +806,7 @@ def main(argv=None):
                                                float(other_stops[-1]["Coord_Y"])))[0]
             low, high = sorted((first, last))
             extra[f"stib_{code}_v{var}"] = [(p[0] - origin[0], p[1] - origin[1])
-                                            for p, _ in slice_polyline(other, low, high)]
+                                            for p in slice_polyline(other, low, high)]
         write_svg(svg_path, document, anchors, origin, extra,
                   base_label=f"oś STIB {line_code} v{variante} (bazowa)")
         print(f"[RAPORT] {svg_path}")
