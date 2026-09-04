@@ -344,10 +344,24 @@ jobs:
 
       - name: Godot run, 120 steps per frame
         shell: bash
+        # BRAMKA OSTRZEŻEŃ — obowiązuje KAŻDE uruchomienie sceny w tym pliku i dlatego
+        # jest wyjaśniona raz, tutaj. Do 04.09.2026 żaden krok nie patrzył, czy silnik
+        # czegoś nie wypisał: przebieg `--line` kończył się kodem 0, telemetria zgadzała
+        # się z rdzeniem co do bitu, a w logu stało DZIESIĘĆ ostrzeżeń `Target and up
+        # vectors are colinear` z `FirstRun.PlaceEverything`. `CLAUDE.md` §5 wymienia
+        # tę rodzinę wprost: „skrypt wykonał się bez błędu" nie jest weryfikacją.
+        #
+        # `2>&1` jest tu warunkiem sensu, nie ozdobą: Godot pisze ostrzeżenia na
+        # stderr, więc `| tee` bez przekierowania zapisywał log BEZ ani jednego z nich.
+        # Listę dopuszczonych (szum maszyny bez karty graficznej i bez dźwiękowej)
+        # trzyma `tools/ci/assert_no_godot_warnings.py` — jawną, krótką i z powodem
+        # przy każdej pozycji.
         run: |
           set -euo pipefail
           "$GODOT_BIN" --headless --path src/Game -- \
-            --telemetry="$PWD/build/t400/godot.csv" --steps-per-frame=120
+            --telemetry="$PWD/build/t400/godot.csv" --steps-per-frame=120 \
+            2>&1 | tee build/t400/godot-telemetry.log
+          python3 tools/ci/assert_no_godot_warnings.py build/t400/godot-telemetry.log
           dotnet run --project src/Sim.Runner -c Release --no-build -- \
             compare build/t400/core.csv build/t400/godot.csv --tolerance 0
 
@@ -358,7 +372,9 @@ jobs:
         run: |
           set -euo pipefail
           "$GODOT_BIN" --headless --path src/Game -- \
-            --telemetry="$PWD/build/t400/godot_jitter.csv" --steps-per-frame=37 --jitter=0.45
+            --telemetry="$PWD/build/t400/godot_jitter.csv" --steps-per-frame=37 --jitter=0.45 \
+            2>&1 | tee build/t400/godot-jitter.log
+          python3 tools/ci/assert_no_godot_warnings.py build/t400/godot-jitter.log
           dotnet run --project src/Sim.Runner -c Release --no-build -- \
             compare build/t400/core.csv build/t400/godot_jitter.csv --tolerance 0
 
@@ -384,7 +400,9 @@ jobs:
             --calls build/t400/linia/core-calls.csv
           "$GODOT_BIN" --headless --path src/Game -- \
             --line --limit-kmh=70 --calls="$PWD/build/t400/linia/scene-calls.csv" \
-            | tee build/t400/linia/scene.log
+            2>&1 | tee build/t400/linia/scene.log
+          # To jest TEN przebieg, na którym zmierzono dziesięć ostrzeżeń kamery goniącej.
+          python3 tools/ci/assert_no_godot_warnings.py build/t400/linia/scene.log
           python3 tools/ci/assert_line_calls_match.py \
             build/t400/linia/core-calls.csv build/t400/linia/scene-calls.csv \
             --expect-calls 11
@@ -437,7 +455,8 @@ jobs:
             --line --limit-kmh=70 \
             --signalling="$PWD/data/design/signalling/classic-2026.json" \
             --calls="$PWD/build/t400/linia/scene-signalling-calls.csv" \
-            | tee build/t400/linia/signalling.log
+            2>&1 | tee build/t400/linia/signalling.log
+          python3 tools/ci/assert_no_godot_warnings.py build/t400/linia/signalling.log
           grep -q "^\[SYGNALIZACJA\] 23 bloków, 11 tras, wymaga tras: True" \
             build/t400/linia/signalling.log \
             || { echo "BŁĄD: scena nie wczytała planu, którego wymaga ten krok" >&2; exit 1; }
@@ -495,7 +514,9 @@ jobs:
           "$GODOT_BIN" --headless --path src/Game -- \
             --line --limit-kmh=76 \
             --signalling="$PWD/data/design/signalling/classic-2026.json" \
-            --calls="$PWD/build/t400/linia/scene-atp-calls.csv"
+            --calls="$PWD/build/t400/linia/scene-atp-calls.csv" \
+            2>&1 | tee build/t400/linia/scene-atp.log
+          python3 tools/ci/assert_no_godot_warnings.py build/t400/linia/scene-atp.log
           python3 tools/ci/assert_line_calls_match.py \
             build/t400/linia/core-atp-calls.csv \
             build/t400/linia/scene-atp-calls.csv --expect-calls 11
@@ -531,7 +552,8 @@ jobs:
           xvfb-run -a "$GODOT_BIN" --rendering-driver opengl3 --resolution 1280x720 \
             --path src/Game -- --line --limit-kmh=70 \
             --shot="$PWD/build/t400/linia/renders/LINIA_outside_Beekkant.png" \
-            --at-chainage=509.73 --view=outside | tee build/t400/linia/shot.log
+            --at-chainage=509.73 --view=outside 2>&1 | tee build/t400/linia/shot.log
+          python3 tools/ci/assert_no_godot_warnings.py build/t400/linia/shot.log
           grep -q "v=0.0 km/h" build/t400/linia/shot.log \
             || { echo "BŁĄD: migawka z peronu złapała skład w ruchu" >&2; exit 1; }
           grep -q "chainage=509.4 m" build/t400/linia/shot.log \
@@ -648,14 +670,21 @@ jobs:
           for view in cab chase outside; do
             xvfb-run -a "$GODOT_BIN" --rendering-driver opengl3 --resolution 1280x720 \
               --path src/Game -- \
-              --shot="$PWD/build/t400/visual/GODOT_${view}_2000m.png" --at-chainage=2000 --view="$view"
+              --shot="$PWD/build/t400/visual/GODOT_${view}_2000m.png" --at-chainage=2000 --view="$view" \
+              2>&1 | tee "build/t400/visual/godot-${view}-2000m.log"
+            python3 tools/ci/assert_no_godot_warnings.py "build/t400/visual/godot-${view}-2000m.log"
           done
           xvfb-run -a "$GODOT_BIN" --rendering-driver opengl3 --resolution 1280x720 \
             --path src/Game -- \
-            --shot="$PWD/build/t400/visual/GODOT_curve_R91_chase.png" --at-chainage=2560 --view=chase
+            --shot="$PWD/build/t400/visual/GODOT_curve_R91_chase.png" --at-chainage=2560 --view=chase \
+            2>&1 | tee build/t400/visual/godot-curve-R91-chase.log
           xvfb-run -a "$GODOT_BIN" --rendering-driver opengl3 --resolution 1280x720 \
             --path src/Game -- \
-            --shot="$PWD/build/t400/visual/GODOT_seam_c01_c02.png" --at-chainage=976 --view=cab
+            --shot="$PWD/build/t400/visual/GODOT_seam_c01_c02.png" --at-chainage=976 --view=cab \
+            2>&1 | tee build/t400/visual/godot-seam-c01-c02.log
+          python3 tools/ci/assert_no_godot_warnings.py \
+            build/t400/visual/godot-curve-R91-chase.log \
+            build/t400/visual/godot-seam-c01-c02.log
           ls -la build/t400/visual
 
       - name: Screenshots must not be empty frames
@@ -715,7 +744,11 @@ jobs:
           xvfb-run -a "$GODOT_BIN" --rendering-driver opengl3 --resolution 1280x720 \
             --path src/Game -- \
             --shot="$PWD/build/t400/negative/GODOT_cab_2000m.png" \
-            --at-chainage=2000 --view=cab --no-geometry
+            --at-chainage=2000 --view=cab --no-geometry \
+            2>&1 | tee build/t400/negative/godot-no-geometry.log
+          # Scena BEZ geometrii ma być zepsuta na obrazie, a nie w silniku: ten przebieg
+          # też nie ma prawa wypisać ostrzeżenia spoza listy.
+          python3 tools/ci/assert_no_godot_warnings.py build/t400/negative/godot-no-geometry.log
           for view in chase_2000m outside_2000m curve_R91_chase seam_c01_c02; do
             cp build/t400/negative/GODOT_cab_2000m.png "build/t400/negative/GODOT_${view}.png"
           done
@@ -746,6 +779,11 @@ jobs:
             build/t400/visual/*.png
             build/t400/visual/*.json
             build/t400/visual/*.md
+            # Logi przebiegów sceny — to na nich stoi bramka ostrzeżeń, więc bez nich
+            # nie da się sprawdzić, CO scena wypisała, inaczej niż powtarzając przebieg.
+            build/t400/*.log
+            build/t400/visual/*.log
+            build/t400/negative/*.log
             # Przejazdy linią: bez nich zielony job NIE JEST weryfikacją, tylko obietnicą.
             # `CLAUDE.md` §9 mówi wprost: zadanie jest zweryfikowane po zielonym jobie
             # I SPRAWDZENIU WYMAGANYCH ARTEFAKTÓW — a artefaktu, którego się nie zbiera,
