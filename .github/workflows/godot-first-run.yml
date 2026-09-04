@@ -16,6 +16,11 @@ on:
       - 'data/track/L1_A.json'
       - 'data/vehicle/m7-spec.json'
       - 'tools/blender/**'
+      # `tools/track/**`, bo od 04.09.2026 scena wymaga peronów, a ich kilometraże
+      # liczy `tools/track/station_layout.py` (razem z `station_components.py`).
+      # Bez tego wpisu zmiana długości peronu szłaby do `main` nieuruchomiona przez
+      # jedyny job, który ogląda peron w scenie.
+      - 'tools/track/**'
       # Cały tools/ci, nie pojedynczy skrypt: te joby uruchamiają też
       # apt_install.sh, listy pakietów i (w tunnel-alignment) vehicle_clearance.sh.
       # Przy wąskim wzorcu zmiana takiego pliku nie odpalała własnego CI.
@@ -290,6 +295,27 @@ jobs:
           "$BLENDER_BIN" --background --python-exit-code 7 --python tools/blender/m7_shell.py -- \
             --out build/t400/M7_shell.glb --envelope-out build/t400/M7_envelope.glb \
             --report build/t400/M7_shell.json
+          # Perony. Dwa kroki, bo taki jest podział T-211: kilometraże i dolna granica
+          # odsunięcia krawędzi liczą się czystym Pythonem, a bryły powstają w Blenderze.
+          # `--platform-gap-m` NIE ma wartości domyślnej (R-007: szczeliny peron–pudło
+          # nie podaje żadne publiczne źródło), więc stoi tu jawnie i ta sama liczba
+          # co w `tools/ci/station_details.sh`.
+          #
+          # Budowane są WYŁĄCZNIE `platform` i `edge`. Reszta zespołu stacji — schody,
+          # winda, antresola, korytarz, portal — sięga od 1,03 m do 8,30 m nad główką
+          # szyny, a strop profilu `box_double`, którym zamiatany jest tunel pakietu A,
+          # stoi na 4,70 m. Te bryły przebijałyby więc strop i kończyły się w nim,
+          # bo komora stacyjna (profil `station`, strop 5,30 m) nie jest jeszcze
+          # wstawiana w przebieg tunelu. To jest zakres osobnego zadania i do tego
+          # czasu scena pokazuje płytę i pas ostrzegawczy, czyli to, co leży w tunelu,
+          # który naprawdę ma.
+          python3 tools/track/station_layout.py --axis data/track/L1_A.json \
+            --out build/t400/L1_A-platforms.json
+          "$BLENDER_BIN" --background --python-exit-code 7 --python tools/blender/station_kit.py -- \
+            --axis data/track/L1_A.json --layout build/t400/L1_A-platforms.json \
+            --platform-gap-m 0.08 --component platform --component edge \
+            --out build/t400/L1_A-platforms.glb \
+            --metrics build/t400/L1_A-platforms-metrics.json
           ls -la build/t400 build/t400/chunks | sed -n '1,20p'
 
       - name: Axis in C# matches the sweep manifest
@@ -424,6 +450,84 @@ jobs:
           test -s build/t400/linia/renders/LINIA_outside_Beekkant.png
           echo "[LINIA] zrzut z peronu Beekkant: skład stoi na 509,4 m"
 
+      - name: The shot from the platform must contain a platform
+        shell: bash
+        # DLACZEGO TEN KROK ISTNIEJE. Krok wyżej sprawdzał, że skład STOI tam, gdzie
+        # celowano, i że drzwi są otwarte — i to wszystko było prawdą, gdy za oknem
+        # nie było peronu. Do 04.09.2026 scena nie wczytywała peronów w ogóle:
+        # `station_kit.py` produkował je od T-211, ale nie wołał go ani jeden krok
+        # tego workflow, a kadr z kabiny stojącej na Beekkant pokazywał pusty tunel.
+        # Żadna bramka tego nie widziała, bo `scene` w metadanych opisuje wyłącznie
+        # tunel, `train` wyłącznie skład, a próg pustej klatki mierzy jasność, którą
+        # ściany tunelu wypełniają tak samo dobrze bez peronu, jak z nim.
+        #
+        # Prawda jest tu policzona DWA RAZY niezależnie: ile brył zbudował generator
+        # (`--platform-metrics`) i gdzie peron ma leżeć wzdłuż osi (`--platform-layout`,
+        # czyli wyjście czystego Pythona). Scena zgłasza to, co naprawdę trzyma.
+        run: |
+          set -euo pipefail
+          python3 tools/ci/assert_shot_metadata.py \
+            --metadata build/t400/linia/renders/LINIA_metadata.json \
+            --axis data/track/L1_A.json \
+            --manifest build/t400/chunks/L1_A-chunks.json \
+            --resolution 1280x720 --view outside --at-chainage 509.73 \
+            --platform-layout build/t400/L1_A-platforms.json \
+            --platform-metrics build/t400/L1_A-platforms-metrics.json \
+            | tee build/t400/linia/peron.log
+          grep -q "^\[PERON\] 48 brył" build/t400/linia/peron.log \
+            || { echo "BŁĄD: scena nie trzyma 48 brył peronowych pakietu A" >&2; exit 1; }
+          grep -q "kilometrażu zrzutu 4 brył" build/t400/linia/peron.log \
+            || { echo "BŁĄD: przy stojącym składzie nie ma peronu" >&2; exit 1; }
+
+      - name: Negative control of the platform gate
+        shell: bash
+        # Bramka, która mówi „ok" także wtedy, gdy nic nie sprawdza, jest bezużyteczna
+        # (reports/T-310-physics.md §6). Trzy mutacje, każda celująca w INNĄ kontrolę,
+        # bo żadna z nich nie łapie tego, co łapią pozostałe:
+        #
+        #  1. `slabs: 0` — peron w ogóle się nie wczytał. To jest dokładnie stan sceny
+        #     sprzed tej zmiany i bramka ma go odrzucać.
+        #  2. `near_shot.slabs: 0` przy niezmienionym `slabs: 48` — peron wczytany,
+        #     ale nie ma go tam, gdzie stanął skład. Tego pierwsza kontrola nie widzi,
+        #     bo obwiednia peronów pakietu ma 5,4 km i zawiera każdy punkt osi.
+        #  3. `near_shot.radius_m: 20000` — promień przychodzi OD SCENY, a bramka liczy
+        #     nim swoje oczekiwania, więc scena z promieniem 20 km sama sobie rozszerza
+        #     bramkę do „gdziekolwiek na pakiecie". Zmierzone 04.09.2026: mutacja
+        #     `PlatformNearRadiusM 20.0 -> 20000.0` dawała `near_shot.slabs = 48`
+        #     i PRZECHODZIŁA kontrolę z punktu 2, bo przy takim promieniu layout
+        #     „luźno" obejmował wszystkie dwanaście peronów.
+        run: |
+          set -euo pipefail
+          for mutacja in slabs near radius; do
+            python3 - "$mutacja" <<'NEGPERON'
+          import json, sys
+
+          wariant = sys.argv[1]
+          meta = json.load(open("build/t400/linia/renders/LINIA_metadata.json",
+                                encoding="utf-8"))
+          if wariant == "slabs":
+              meta["platforms"]["slabs"] = 0
+          elif wariant == "near":
+              meta["platforms"]["near_shot"]["slabs"] = 0
+          else:
+              meta["platforms"]["near_shot"]["radius_m"] = 20000.0
+              meta["platforms"]["near_shot"]["slabs"] = meta["platforms"]["slabs"]
+          with open("build/t400/linia/LINIA_metadata_bad.json", "w", encoding="utf-8") as h:
+              json.dump(meta, h, ensure_ascii=False)
+          NEGPERON
+            rc=0
+            python3 tools/ci/assert_shot_metadata.py \
+              --metadata build/t400/linia/LINIA_metadata_bad.json \
+              --axis data/track/L1_A.json \
+              --manifest build/t400/chunks/L1_A-chunks.json \
+              --resolution 1280x720 --view outside --at-chainage 509.73 \
+              --platform-layout build/t400/L1_A-platforms.json \
+              --platform-metrics build/t400/L1_A-platforms-metrics.json || rc=$?
+            test "$rc" -ne 0 \
+              || { echo "BŁĄD: mutacja '$mutacja' przeszła bramkę peronu" >&2; exit 1; }
+            echo "[NEGATYW] mutacja '$mutacja' odrzucona, tak jak ma być"
+          done
+
       - name: Negative control of the comparison
         shell: bash
         # Kontrola, która mówi „ok" także wtedy, gdy nic nie sprawdza, jest bezużyteczna
@@ -500,7 +604,9 @@ jobs:
             --axis data/track/L1_A.json \
             --manifest build/t400/chunks/L1_A-chunks.json \
             --resolution 1280x720 \
-            --view cab --at-chainage 976
+            --view cab --at-chainage 976 \
+            --platform-layout build/t400/L1_A-platforms.json \
+            --platform-metrics build/t400/L1_A-platforms-metrics.json
 
       - name: Negative control of the screenshot check
         shell: bash
@@ -544,6 +650,10 @@ jobs:
             build/t400/godot.csv
             build/t400/godot_jitter.csv
             build/t400/chunks/L1_A-chunks.json
+            build/t400/L1_A-platforms.json
+            build/t400/L1_A-platforms-metrics.json
+            build/t400/linia/renders/*.png
+            build/t400/linia/*.log
             build/t400/visual/*.png
             build/t400/visual/*.json
             build/t400/visual/*.md

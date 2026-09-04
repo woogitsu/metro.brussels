@@ -33,6 +33,7 @@ public sealed class RunPlan
     {
         "telemetry", "shot", "sample-every", "steps-per-frame", "jitter",
         "at-chainage", "view", "axis", "no-geometry", "assets", "manifest", "shell",
+        "platforms",
         "line", "calls", "limit-kmh", "signalling",
     };
 
