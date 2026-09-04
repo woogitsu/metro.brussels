@@ -363,9 +363,22 @@ def test_crs_ecef_zero_axis_branch_is_reached_only_by_an_exact_zero():
     dostawałyby szerokość równą dokładnie 90 stopni zamiast policzonej.
     """
     semi_minor = CRS.A_WGS * (1 - CRS.F_WGS)
-    _lon, lat, _h = CRS._ecef_to_geodetic(1e-3, 0.0, semi_minor, CRS.A_WGS, CRS.F_WGS)
+
+    # Punkt centymetr od osi: idzie przez pętlę i dostaje szerokość POLICZONĄ,
+    # różną od dokładnych 90 stopni, mimo że jest ich o włos.
+    _lon, lat, _h = CRS._ecef_to_geodetic(1e-2, 0.0, semi_minor, CRS.A_WGS, CRS.F_WGS)
     assert lat != 90.0, lat
     assert 89.0 < lat < 90.0, lat
+
+    # Milimetr od osi wzór już nie daje współrzędnej i funkcja to MÓWI, zamiast
+    # zwracać 89,99999999 st. z residuum 1,4 m. Gałąź osi nadal się tu nie włącza —
+    # gdyby się włączyła, dostalibyśmy dokładne 90 st. bez słowa.
+    try:
+        CRS._ecef_to_geodetic(1e-3, 0.0, semi_minor, CRS.A_WGS, CRS.F_WGS)
+    except ValueError as error:
+        assert "residuum" in str(error), str(error)
+    else:
+        raise AssertionError("p = 1e-3 m przeszło, a residuum wynosi tam 1,4 m")
 
 
 def test_crs_ecef_residual_grows_towards_the_rotation_axis_and_that_is_recorded():
@@ -377,12 +390,101 @@ def test_crs_ecef_residual_grows_towards_the_rotation_axis_and_that_is_recorded(
     decyzja o progu opierała się na liczbach, a nie na wrażeniu.
     """
     semi_minor = CRS.A_WGS * (1 - CRS.F_WGS)
+
+    # W zakresie, który funkcja jeszcze przyjmuje, residuum rośnie monotonicznie
+    # w stronę osi. To jest kształt, na którym stoi cała decyzja o progu.
     measured = [(p, CRS.ecef_to_geodetic_residual_m(p, 0.0, semi_minor,
                                                     CRS.A_WGS, CRS.F_WGS))
-                for p in (1e6, 1e4, 1e2, 1.0, 1e-6)]
+                for p in (1e6, 1e4, 1e2, 1.0, 1e-2)]
 
     for (_p_far, near_axis), (_p_near, farther) in zip(measured, measured[1:]):
         assert near_axis <= farther, measured
 
     assert measured[0][1] < 1e-8, measured[0]
-    assert measured[-1][1] > 1.0, measured[-1]
+
+    # Poniżej progu funkcja przestaje zwracać liczbę i zaczyna mówić, dlaczego.
+    # Granica leży między milimetrem a centymetrem od osi — zmierzone:
+    # p = 1e-2 m daje 1,5e-02 m (przechodzi), p = 1e-3 m daje 1,4 m (odmowa).
+    assert measured[-1][1] < CRS.MAX_ECEF_RESIDUAL_M, measured[-1]
+    for p in (1e-3, 1e-6, 1e-9):
+        try:
+            CRS.ecef_to_geodetic_residual_m(p, 0.0, semi_minor, CRS.A_WGS, CRS.F_WGS)
+        except ValueError:
+            continue
+        raise AssertionError(f"p = {p} m przeszło, a wzór nie ma tam dokładności")
+
+
+def test_crs_ecef_threshold_is_the_declared_accuracy_of_the_datum_not_a_tuned_number():
+    """Próg 1 m pochodzi SPOZA pomiaru i to jest jego jedyne uczciwe uzasadnienie.
+
+    EPSG opisuje BD72 -> WGS84 jako `VERSION["IGN-Bel 1m"]`, co nagłówek `crs.py`
+    cytuje od pierwszej wersji. Residuum większe niż dokładność, z jaką ta
+    transformacja w ogóle cokolwiek znaczy, nie jest już współrzędną.
+
+    Dwie wcześniejsze próby progu (1e-6 m i 1e-3 m) były dobierane do pomiaru
+    i obie odrzuciły punkt, który projekt realnie liczy — biegun odwzorowania
+    Lamberta 72. Ten test pilnuje, żeby liczba nie wróciła do bycia dostrajaną:
+    stoi w module jako stała z nazwą, a nie w środku warunku.
+    """
+    import inspect
+
+    assert CRS.MAX_ECEF_RESIDUAL_M == 1.0, CRS.MAX_ECEF_RESIDUAL_M
+
+    with open(os.path.join(ROOT, "tools", "track", "crs.py"), encoding="utf-8") as handle:
+        source = handle.read()
+    assert "IGN-Bel 1m" in source, "zniknęło źródło progu z modułu"
+
+    signature = inspect.signature(CRS._ecef_to_geodetic).parameters
+    assert signature["max_residual_m"].default == CRS.MAX_ECEF_RESIDUAL_M
+
+
+def test_crs_ecef_refuses_the_deep_inputs_that_used_to_come_back_as_coordinates():
+    """Wejścia, dla których funkcja zwracała liczbę wyglądającą jak szerokość.
+
+    Zmierzone na TYM kodzie, już z warunkiem zbieżności: granica leży między
+    -6300 km (residuum 3,7e-07 m, przechodzi) a -6350 km (1 708 m, odmowa).
+    Na kodzie sprzed warunku zbieżności ta granica leżała pięćdziesiąt kilometrów
+    wyżej i ten test przybija, gdzie leży teraz.
+    """
+    def at(height_m):
+        return CRS._geodetic_to_ecef(4.35, 50.85, CRS.A_WGS, CRS.F_WGS, height_m)
+
+    for height_m in (0.0, 100.0, 400_000.0, -6_000_000.0, -6_300_000.0):
+        lon, lat, back = CRS._ecef_to_geodetic(*at(height_m), CRS.A_WGS, CRS.F_WGS)
+        assert abs(lat - 50.85) < 1e-9, (height_m, lat)
+        assert abs(back - height_m) < 1e-3, (height_m, back)
+
+    for height_m in (-6_350_000.0, -6_370_000.0):
+        try:
+            CRS._ecef_to_geodetic(*at(height_m), CRS.A_WGS, CRS.F_WGS)
+        except ValueError as error:
+            assert "nie jest współrzędną" in str(error), str(error)
+        else:
+            raise AssertionError(f"h = {height_m} m przeszło mimo residuum ponad kilometr")
+
+
+def test_crs_ecef_threshold_lets_through_everything_the_project_actually_computes():
+    """Kontrola w drugą stronę: próg nie może odrzucać zdrowych punktów.
+
+    Bierze prawdziwą oś z `data/track/` i przepuszcza przez pełny łańcuch
+    Lambert -> WGS84 każdy jej wierzchołek. Gdyby próg był za ciasny — a dwa
+    poprzednie były — ta pętla by go złapała na realnych danych, a nie na
+    wymyślonym punkcie.
+    """
+    checked = 0
+    for path in sorted(glob.glob(os.path.join(ROOT, "data", "track", "L*.json"))):
+        if path.endswith(".provenance.json"):
+            continue
+        with open(path, encoding="utf-8") as handle:
+            document = json.load(handle)
+        origin = document.get("origin_source_crs")
+        if not origin:
+            continue
+        for point in document["points"][::25]:
+            x = float(origin[0]) + float(point[0])
+            y = float(origin[1]) + float(point[1])
+            lon, lat = CRS.lambert72_to_wgs84(x, y)
+            assert -90.0 <= lat <= 90.0, (path, lat)
+            checked += 1
+
+    assert checked >= 50, checked

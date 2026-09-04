@@ -23,6 +23,13 @@ implementacja nie uczyni jej dokładniejszą i nie wolno na jej podstawie twierd
 """
 import math
 
+#: Największe residuum round-tripu, przy jakim wynik `_ecef_to_geodetic` jest jeszcze
+#: współrzędną. NIE jest to liczba dobrana do pomiaru — to deklarowana dokładność samej
+#: transformacji datum BD72 <-> WGS84, którą EPSG opisuje jako `VERSION["IGN-Bel 1m"]`
+#: i którą nagłówek tego modułu cytuje. Powyżej niej wynik przestaje cokolwiek znaczyć,
+#: niezależnie od tego, jak blisko osi obrotu leży punkt wejściowy.
+MAX_ECEF_RESIDUAL_M = 1.0
+
 A_WGS, F_WGS = 6378137.0, 1.0 / 298.257223563
 A_BD72, F_BD72 = 6378388.0, 1.0 / 297.0
 
@@ -50,7 +57,8 @@ def _geodetic_to_ecef(lon, lat, a, f, h=0.0):
             (n * (1 - e2) + h) * math.sin(p))
 
 
-def _ecef_to_geodetic(x, y, z, a, f, tolerance_m=1e-9, iterations=40):
+def _ecef_to_geodetic(x, y, z, a, f, tolerance_m=1e-9, iterations=40,
+                      max_residual_m=MAX_ECEF_RESIDUAL_M):
     """ECEF -> (lon, lat, h) iteracyjnie, z warunkiem zbieżności zamiast stałej 12.
 
     Pętla kręciła się dokładnie 12 razy i zwracała ostatni iterat, cokolwiek by
@@ -81,11 +89,10 @@ def _ecef_to_geodetic(x, y, z, a, f, tolerance_m=1e-9, iterations=40):
     i widać to w testach (kontrola negatywna „przerwij po pierwszym obrocie"
     wywraca pięć testów, w tym zbieżność inwersji Lamberta).
 
-    **Czego ta zmiana świadomie NIE robi.** Nie odrzuca wyniku niezbieżnego, bo
-    próg, poniżej którego wynik jest jeszcze współrzędną, a powyżej śmieciem, nie
-    jest zapisany w żadnym dokumencie projektu i nie da się go wyprowadzić
-    z pomiaru. Zmierzone residuum round-tripu przy z na powierzchni i malejącym
-    `p` (odległość od osi obrotu), przy 400 iteracjach, czyli już na granicy
+    **Odmowa przy residuum ponad `max_residual_m`.** Degradacja wzoru w stronę osi
+    obrotu jest CIĄGŁA i nieograniczona, więc progu nie da się wyprowadzić
+    z samego pomiaru. Zmierzone residuum round-tripu przy z na powierzchni
+    i malejącym `p` (odległość od osi), przy 400 iteracjach, czyli już na granicy
     samego wzoru, a nie liczby powtórzeń:
 
         p = 1e+06 m  ->  0        m        p = 1e+03 m  ->  1,9e-06 m
@@ -94,16 +101,45 @@ def _ecef_to_geodetic(x, y, z, a, f, tolerance_m=1e-9, iterations=40):
                                            p = 1e-06 m  ->  3,97e+03 m
                                            p = 1e-09 m  ->  9,93e+06 m
 
-    Nie ma tu progu do znalezienia: degradacja jest ciągła i nieograniczona, więc
-    każda tolerancja rozcinałaby to continuum w miejscu wybranym arbitralnie.
-    Punkty o `p` rzędu kilometrów projekt realnie liczy — biegun odwzorowania
-    Lamberta 72 — i ich residuum (1e-06..2e-03 m) jest bez znaczenia fizycznego,
-    ale formalnie leży w tym samym continuum, co śmieci: 17,5 m przy h = -6300 km
-    i 26 133 m przy h = -6370 km, gdzie funkcja zwraca szerokość -18,8 st. dla
-    wejścia o szerokości 50,85 st. Wybór progu jest decyzją projektową i czeka
-    na odpowiedź właściciela (CLAUDE.md §8).
+    Próg pochodzi więc SPOZA tego pomiaru i to jest jego jedyne uczciwe
+    uzasadnienie: 1 m to **deklarowana dokładność samej transformacji datum**.
+    EPSG opisuje BD72 -> WGS84 jako `VERSION["IGN-Bel 1m"]`, co nagłówek tego
+    modułu cytuje od początku. Residuum większe niż dokładność, z jaką ta
+    transformacja w ogóle cokolwiek znaczy, nie jest już współrzędną — i to
+    zdanie da się obronić bez oglądania się na to, gdzie akurat leży `p`.
 
-    Do zmierzenia residuum bez czekania na tę decyzję jest
+    Gdzie ten próg realnie tnie — zmierzone NA TYM kodzie, już z warunkiem
+    zbieżności, a nie na wcześniejszej wersji ze stałą liczbą obrotów:
+
+        wejścia z lon=4,35 lat=50,85 i podaną wysokością
+            h = -6000 km  ->  1,1e-10 m   przechodzi
+            h = -6300 km  ->  3,7e-07 m   przechodzi
+            h = -6350 km  ->  1 708    m   ODRZUCONE
+            h = -6370 km  ->  26 133   m   ODRZUCONE
+
+        wejścia zbliżane do osi obrotu, z na powierzchni
+            p = 1e-02 m   ->  1,5e-02 m   przechodzi
+            p = 1e-03 m   ->  1,4      m   ODRZUCONE
+            p = 1e-06 m   ->  4 153    m   ODRZUCONE
+            p = 1e-09 m   ->  9,93e+06 m   ODRZUCONE
+
+    Czyli odmowa zaczyna się dopiero milimetr od osi obrotu Ziemi i poniżej
+    6300 km pod powierzchnią. Biegun odwzorowania Lamberta 72, który projekt
+    realnie liczy, ma `p` rzędu kilometrów i residuum 1e-07..2e-06 m — przechodzi
+    z zapasem sześciu rzędów wielkości.
+
+    **Sprostowanie do liczb z poprzedniej wersji tego opisu.** Stało tu, że
+    h = -6300 km daje 17,5 m. To był pomiar na kodzie SPRZED warunku zbieżności,
+    gdzie pętla kręciła się dokładnie 12 razy; po tamtej zmianie ten przypadek
+    dochodzi do 3,7e-07 m i jest poprawny. Granica przesunęła się przez to
+    o pięćdziesiąt kilometrów w dół i tak jest teraz zapisana.
+
+    Dwie wcześniejsze próby progu były o rzędy za ciasne i obie odrzuciły punkt,
+    który projekt realnie liczy: 1e-6 m odrzuciło biegun odwzorowania przy
+    residuum 1,6e-05 m, a 1e-3 m — inny punkt tej samej bramki przy 2,2e-03 m.
+    Stąd próg wzięty z dokumentu, a nie dobrany do tego, co akurat przechodzi.
+
+    Do zmierzenia residuum bez wywoływania odmowy jest
     `ecef_to_geodetic_residual_m`.
     """
     p = math.hypot(x, y)
@@ -129,7 +165,18 @@ def _ecef_to_geodetic(x, y, z, a, f, tolerance_m=1e-9, iterations=40):
         if converged:
             break
     n = a / math.sqrt(1 - e2 * math.sin(lat) ** 2)
-    return math.degrees(l), math.degrees(lat), p / math.cos(lat) - n
+    lon_deg, lat_deg, height = math.degrees(l), math.degrees(lat), p / math.cos(lat) - n
+
+    bx, by, bz = _geodetic_to_ecef(lon_deg, lat_deg, a, f, height)
+    residual_m = math.dist((bx, by, bz), (x, y, z))
+    if residual_m > max_residual_m:
+        raise ValueError(
+            f"ECEF -> geodezyjne rozbieżne dla {x}, {y}, {z}: residuum "
+            f"{residual_m!r} m przekracza {max_residual_m!r} m, czyli deklarowaną "
+            f"dokładność transformacji datum (EPSG: IGN-Bel 1m) — zwrócona "
+            f"szerokość {lat_deg} st. nie jest współrzędną")
+
+    return lon_deg, lat_deg, height
 
 
 def ecef_to_geodetic_residual_m(x, y, z, a, f):
