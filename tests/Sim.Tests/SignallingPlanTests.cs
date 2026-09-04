@@ -316,10 +316,14 @@ public sealed class SignallingPlanTests
     [TestMethod]
     public void Predkosc_planu_lezy_powyzej_zmierzonego_dolnego_ograniczenia_z_T_401()
     {
-        // reports/R-006-line-speed.md §7: 58,75 km/h to jedyna liczba o prędkości
+        // reports/R-006-line-speed.md §7: 58,68 km/h to jedyna liczba o prędkości
         // liniowej, która ma w tym repo wyprowadzenie — dolne ograniczenie z rozkładu.
+        // Wyprowadzenie jest w reports/T-401-line-run.md §4: maksimum kolumny C# po
+        // sześciu pakietach (Beaulieu → Demey w L5_D). Ta liczba SIĘ RUSZA przy każdym
+        // przeliczeniu T-401 — do #86 stało tu 58,75 — a C# nie czyta raportu, więc
+        // zgodność tego progu z T-401 pilnuje tools/tests/test_t401_citation.py.
         var kmh = Units.MpsToKmh(PackageAPlan().PermittedSpeedMps);
-        Assert.IsTrue(kmh >= 58.75, $"{kmh:F2} km/h nie wystarcza na rozkład zmierzony w T-113");
+        Assert.IsTrue(kmh >= 58.68, $"{kmh:F2} km/h nie wystarcza na rozkład zmierzony w T-113");
         Assert.IsTrue(kmh <= VehicleModel.M7.DesignMaxSpeedKmh, $"{kmh:F2} km/h powyżej prędkości konstrukcyjnej M7");
     }
 }
