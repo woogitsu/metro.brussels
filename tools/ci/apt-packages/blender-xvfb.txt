@@ -1,6 +1,5 @@
 # Jak `blender.txt`, plus wirtualny X i pełny libGL dla zrzutów z Godota.
-blender
-python3-numpy
+# Samego Blendera tu nie ma — przychodzi z tarballa, powód w `blender.txt`.
 xvfb
 libegl1
 libgl1

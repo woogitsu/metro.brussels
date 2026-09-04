@@ -365,3 +365,195 @@ def test_chunk_deterministic_view_still_sees_a_geometry_change():
     assert SW.deterministic_view(a) == SW.deterministic_view(b)
     b["chunks"][0]["geometry_sha256"] = "e" * 64
     assert SW.deterministic_view(a) != SW.deterministic_view(b)
+
+
+# --- triaż mutacyjny: granice cięcia i kontroli manifestu -----------------------
+#
+# Z przeglądu `tools/tests/mutation_sweep.py` na `sweep.py`. Każdy test zabija
+# konkretną mutację, wypisaną w komentarzu — i ta mutacja jest jego kontrolą
+# negatywną. Klasyfikacja całości: `reports/mutation-triage-sweep.md`.
+#
+# TOLERANCJA JEST POTĘGĄ DWÓJKI. `1e-6` nie jest reprezentowalne dokładnie przy
+# 400,0 / 900,0 / 1500,0 m — `abs((400.0 + 1e-6) - 400.0)` wychodzi mniej niż `1e-6`,
+# więc test „przesuwam dokładnie o tolerancję" nigdy nie dotykałby granicy i mutacja
+# `>` -> `>=` przeżywałaby mimo testu napisanego wprost pod nią. Ta sama pułapka
+# przeszła niezauważona w `test_lod.py` (patrz `reports/mutation-triage-lod.md`),
+# dlatego każdy test poniżej sprawdza swoje założenie wprost, zamiast je zakładać.
+
+EXACT_TOL = 2.0 ** -20
+
+
+def test_chunk_a_span_exactly_at_the_cap_is_not_split():
+    """Odcinek RÓWNY limitowi nie jest dzielony. Limit znaczy „nie dłuższy niż".
+
+    **Mutacja 219 `<=` -> `<` jest równoważna i ten test tego nie zmienia.**
+    Napisałem go w przekonaniu, że ją zabije; nie zabija — sprawdzone wykonaniem,
+    mutant daje 730/730. Powód: przy równości `pieces = ceil((b - a) / max_chunk_m)`
+    wychodzi 1, więc `range(1, 1)` jest puste i pętla i tak nic nie dokłada. `continue`
+    w tym wierszu jest optymalizacją, nie bramką.
+
+    Test zostaje, bo przypina zachowanie, które jest umową („nie dłuższy niż"), i
+    złapie każdą zmianę, która tę umowę naprawdę złamie — na przykład przejście na
+    `floor` albo dzielenie z zapasem. Ale nie udaję, że zabija mutację.
+    """
+    assert SW._split_long([], 400.0, 400.0, [], 10.0) == []
+    assert SW._split_long([], 400.1, 400.0, [], 10.0) != []
+
+
+def test_chunk_a_cut_exactly_one_halo_from_a_station_is_left_alone():
+    """Mutacja: 234 `>=` -> `>` — cięcie DOKŁADNIE o halo od peronu byłoby odsuwane.
+
+    Halo znaczy „bliżej niż tyle nie wolno", więc odległość równa halo jest już
+    dopuszczalna. Mutacja odsuwałaby takie cięcie bez potrzeby, a odsunięcie może
+    się nie udać i wtedy chunk w ogóle nie zostaje podzielony.
+    """
+    assert SW._push_out_of_stations(150.0, [100.0], 50.0, 0.0, 1000.0) == 150.0
+    assert SW._push_out_of_stations(149.9, [100.0], 50.0, 0.0, 1000.0) == 50.0
+
+
+def test_chunk_a_piece_exactly_at_the_minimum_length_is_kept():
+    """Mutacja: 247 `>=` -> `>` — kawałek RÓWNY minimum byłby wyrzucony.
+
+    Minimum znaczy „nie krótszy niż", więc równość jest dopuszczalna. Wyrzucenie
+    takiego cięcia scala dwa chunki w jeden dłuższy niż `max_chunk_m` — czyli łamie
+    drugi limit, żeby uszanować pierwszy.
+    """
+    assert SW._drop_short([100.0], 300.0, 100.0) == [100.0]
+    assert SW._drop_short([99.999], 300.0, 100.0) == []
+
+
+def test_chunk_a_station_exactly_on_a_seam_goes_to_the_chunk_that_starts_there():
+    """Mutacja: 528 `<` -> `<=` — stacja na szwie wpadałaby do chunka POPRZEDNIEGO.
+
+    Konwencja jest półotwarta, `[start, end)`, ta sama co w blokach sygnalizacji:
+    kilometraż równy granicy należy do chunka NASTĘPNEGO. Bez tego peron leżałby
+    w chunku, który się na nim kończy, i halo stacji straciłoby sens.
+    """
+    assert SW.stations_by_chunk([(0.0, 400.0), (400.0, 900.0)], [400.0]) == [[], [0]]
+    assert SW.stations_by_chunk([(0.0, 400.0), (400.0, 900.0)], [399.999]) == [[0], []]
+
+
+def test_chunk_window_with_no_heading_looks_forward():
+    """Mutacja: 571 `>=` -> `>` — `heading == 0.0` odwracałoby okno.
+
+    Zero to „kierunek nieznany", a nie „do tyłu": skład stojący na peronie ma zerową
+    prędkość i musi mieć wczytane to, co PRZED nim, bo za chwilę tam pojedzie.
+    """
+    assert SW.stream_window(500.0, ahead_m=100.0, behind_m=50.0, heading=0.0) == (450.0, 600.0)
+    assert SW.stream_window(500.0, ahead_m=100.0, behind_m=50.0, heading=-1.0) == (400.0, 550.0)
+
+
+# --- kontrola manifestu: granice tolerancji ------------------------------------
+
+def test_chunk_manifest_problems_detects_a_span_of_exactly_zero():
+    """Mutacja: 683 `<= 0.0` -> `< 0.0` — chunk o zerowej długości przechodziłby.
+
+    Chunk, który zaczyna się i kończy w tym samym miejscu, nie ma geometrii ani szwu.
+    Zero jest tu złamaniem, nie granicą dopuszczalną.
+    """
+    manifest = _manifest()
+    manifest["chunks"][1]["end_m"] = manifest["chunks"][1]["start_m"]
+    problems = SW.manifest_problems(manifest)
+    assert any("zakres chainage nie rośnie" in p for p in problems), problems
+
+
+def test_chunk_manifest_problems_detects_geometry_that_is_exactly_empty():
+    """Mutacje: 687 `<= 0` -> `< 0` (dwie) i `0` -> `1` (dwie).
+
+    Zero wierzchołków albo zero trójkątów to pusty plik. Mutacja w drugą stronę
+    (`<= 1`) zgłaszałaby jako pustą siatkę o jednym trójkącie, która pusta nie jest,
+    więc test sprawdza obie strony granicy.
+    """
+    for field in ("vertices", "triangles"):
+        manifest = _manifest()
+        manifest["chunks"][1][field] = 0
+        assert any("pusta geometria" in p for p in SW.manifest_problems(manifest)), field
+
+    manifest = _manifest()
+    for chunk in manifest["chunks"]:
+        chunk["vertices"], chunk["triangles"], chunk["faces"] = 1, 1, 1
+    manifest["totals"] = {"vertices": 3, "faces": 3, "triangles": 3}
+    assert not any("pusta geometria" in p for p in SW.manifest_problems(manifest))
+
+
+def test_chunk_manifest_problems_detects_a_bbox_collapsed_to_a_point():
+    """Mutacja: 690 `<= 0.0` -> `0.001` — bbox zwinięty do punktu.
+
+    `max(size) <= 0.0` łapie chunk, którego pudełko ma zerowy rozmiar we WSZYSTKICH
+    trzech osiach naraz — czyli siatkę zwiniętą do punktu. To jest dokładnie ten
+    obraz, którego szuka render `_iso` z `CLAUDE.md`, tylko widziany w liczbach.
+    """
+    manifest = _manifest()
+    chunk = manifest["chunks"][1]
+    chunk["bbox_min_m"] = [10.0, 0.0, 0.0]
+    chunk["bbox_max_m"] = [10.0, 0.0, 0.0]
+    chunk["bbox_size_m"] = [0.0, 0.0, 0.0]
+    assert any("bbox zwinięty" in p for p in SW.manifest_problems(manifest))
+
+    chunk["bbox_max_m"] = [10.0, 0.0, 1e-6]
+    assert not any("bbox zwinięty" in p for p in SW.manifest_problems(manifest))
+
+
+def test_chunk_manifest_tolerances_accept_a_shift_of_exactly_the_tolerance():
+    """Mutacje: 678, 685, 695 i 700 `>` -> `>=`.
+
+    Cztery tolerancje — koniec ostatniego chunka wobec osi, `length_m` wobec różnicy
+    końców, szew między chunkami i suma długości — i wszystkie znaczą to samo:
+    „do tyle wolno". Przesunięcie RÓWNE tolerancji jeszcze się mieści, większe już nie.
+
+    Każdy przypadek sprawdza najpierw, że różnica faktycznie WYSZŁA równa tolerancji.
+    Bez tego sprawdzenia test wygląda na kontrolę granicy, a granicy nie dotyka —
+    dokładnie tak przeżyły dwie mutacje w `test_lod.py`.
+    """
+    # 685: length_m rozjechane z różnicą końców dokładnie o tolerancję szwu
+    manifest = _manifest()
+    chunk = manifest["chunks"][1]
+    span = chunk["end_m"] - chunk["start_m"]
+    chunk["length_m"] = span + EXACT_TOL
+    assert abs(span - chunk["length_m"]) == EXACT_TOL
+    assert not any("length_m" in p for p in SW.manifest_problems(manifest, seam_tolerance_m=EXACT_TOL))
+    chunk["length_m"] = span + EXACT_TOL * 2.0
+    assert any("length_m" in p for p in SW.manifest_problems(manifest, seam_tolerance_m=EXACT_TOL))
+
+    # 695: szew między chunkami dokładnie o tolerancję
+    manifest = _manifest()
+    first, second = manifest["chunks"][0], manifest["chunks"][1]
+    second["start_m"] = first["end_m"] + EXACT_TOL
+    second["length_m"] = second["end_m"] - second["start_m"]
+    assert abs(second["start_m"] - first["end_m"]) == EXACT_TOL
+    problems = SW.manifest_problems(manifest, seam_tolerance_m=EXACT_TOL,
+                                    length_tolerance_m=1e-3)
+    assert not any("dziura" in p or "zakładka" in p for p in problems), problems
+    second["start_m"] = first["end_m"] + EXACT_TOL * 2.0
+    second["length_m"] = second["end_m"] - second["start_m"]
+    problems = SW.manifest_problems(manifest, seam_tolerance_m=EXACT_TOL,
+                                    length_tolerance_m=1e-3)
+    assert any("dziura" in p for p in problems), problems
+
+    # 678 i 700: koniec ostatniego chunka i suma długości wobec osi
+    manifest = _manifest()
+    axis = manifest["axis_length_m"]
+    manifest["axis_length_m"] = axis + EXACT_TOL
+    assert abs(manifest["chunks"][-1]["end_m"] - manifest["axis_length_m"]) == EXACT_TOL
+    problems = SW.manifest_problems(manifest, length_tolerance_m=EXACT_TOL)
+    assert not any("ostatni chunk" in p or "suma długości" in p for p in problems), problems
+    manifest["axis_length_m"] = axis + EXACT_TOL * 2.0
+    problems = SW.manifest_problems(manifest, length_tolerance_m=EXACT_TOL)
+    assert any("ostatni chunk" in p for p in problems), problems
+    assert any("suma długości" in p for p in problems), problems
+
+
+def test_chunk_a_shifted_cut_may_land_exactly_one_halo_from_another_station():
+    """Mutacja: 237 `>=` -> `>` — odsunięte cięcie odrzucane przez własne halo.
+
+    Cięcie odsuwane spod peronu ląduje z definicji DOKŁADNIE o halo od niego. Warunek
+    „nie bliżej niż halo od żadnej stacji" musi więc dopuszczać równość, bo inaczej
+    odrzuca każdy kandydat, który sam wyprodukował — i `_push_out_of_stations` zwraca
+    `None`, czyli „nie da się przeciąć", dla przypadku, w którym da się doskonale.
+
+    Zmierzone: przy stacjach 100 i 200 m, halo 50 m i kandydacie 120 m oryginał oddaje
+    50,0 m, a mutant `None`. Drugi przypadek pilnuje, że wybór jest ograniczony
+    krańcami odcinka: przy `low = 60` pierwsza możliwość odpada i wychodzi 150,0 m.
+    """
+    assert SW._push_out_of_stations(120.0, [100.0, 200.0], 50.0, 0.0, 1000.0) == 50.0
+    assert SW._push_out_of_stations(120.0, [100.0, 200.0], 50.0, 60.0, 1000.0) == 150.0

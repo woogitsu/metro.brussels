@@ -150,7 +150,28 @@ def check_image(path, expected_size, thresholds, baseline_path=None, diff_path=N
         result["reason"] = "brak pliku renderu albo plik pusty"
         return result
     result["checks"]["exists"] = True
-    img = pngio.read_gray(path)
+
+    # Plik NIEPUSTY, ale niebędący PNG-iem, jest statusem `fail`, a nie wyjątkiem.
+    #
+    # Poprzednio `read_gray` leciało w górę i wywracało CAŁY `run()`: jedna zła
+    # klatka kasowała raport z pozostałych pięciu kamer, a komunikat nie mówił
+    # nawet, o którą kamerę chodzi — bo nazwę kamery dokłada `run()` DOPIERO po
+    # powrocie z tej funkcji. Bramka wizualna, która przy jednej uszkodzonej
+    # klatce nie mówi nic o pozostałych, jest gorsza niż bramka, która mówi
+    # „ta jedna jest zła".
+    #
+    # Łapane jest `PngError`, czyli zadeklarowany kontrakt `pngio`, a nie każdy
+    # wyjątek: `IndexError` z wnętrza dekodera znaczyłby usterkę w `pngio`,
+    # a nie zły plik, i ma prawo wywalić przebieg.
+    try:
+        img = pngio.read_gray(path)
+    except pngio.PngError as err:
+        result["checks"]["readable"] = False
+        result["status"] = "fail"
+        result["reason"] = f"nie da się wczytać renderu: {err}"
+        return result
+    result["checks"]["readable"] = True
+
     stats = image_stats(img)
     result["metrics"].update(stats)
 
@@ -173,7 +194,17 @@ def check_image(path, expected_size, thresholds, baseline_path=None, diff_path=N
         result["reason"] = "brak canonical baseline — wymaga jawnego zatwierdzenia"
         return result
 
-    base = pngio.read_gray(baseline_path)
+    # Baseline czytany tą samą drogą i z tego samego powodu: uszkodzony baseline
+    # jest problemem TEJ kamery, nie całego przebiegu.
+    try:
+        base = pngio.read_gray(baseline_path)
+    except pngio.PngError as err:
+        result["checks"]["baseline_readable"] = False
+        result["status"] = "fail"
+        result["reason"] = f"nie da się wczytać baseline'u: {err}"
+        return result
+    result["checks"]["baseline_readable"] = True
+
     if base.size != img.size:
         result["checks"]["baseline_dimension"] = False
         result["status"] = "fail"

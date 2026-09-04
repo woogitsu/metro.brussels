@@ -82,6 +82,47 @@ def select_marks(marks, from_m, to_m):
     return selected, low, high
 
 
+def side_sign(side):
+    """'right' -> +1, 'left' -> -1. Odmawia zamiast zgadywać.
+
+    Wyjęte z `main()` na poziom modułu, bo tam siedziało za `bpy.ops` i żaden test
+    nie mógł tego dotknąć — przemiatanie mutacyjne z 03.09.2026 pokazało tu mutację
+    ocalałą. Strona osi jest JEDNYM Z CZTERECH założeń projektowych tego modułu
+    i sam docstring modułu obiecuje, że są „sprawdzane, nie tylko zadeklarowane".
+
+    Poprzednia wersja, `1.0 if side == "right" else -1.0`, odpowiadała „lewa"
+    na KAŻDĄ wartość różną od „right", literówkę włącznie. `argparse` ma tu
+    `choices`, więc na drodze z CLI to nie zdarzy się — ale ta funkcja jest
+    wołana także z testów i z innych narzędzi, a cicha odpowiedź „lewa"
+    postawiłaby wszystkie słupki po drugiej stronie toru.
+    """
+    if side == "right":
+        return 1.0
+    if side == "left":
+        return -1.0
+    raise ValueError(f"strona osi musi być 'right' albo 'left', nie {side!r}")
+
+
+def clearance_problems(worst_gauge_m, worst_wall_m, profile_name):
+    """Lista zarzutów wobec zmierzonych luzów. Pusta lista = słupki wolno wypuścić.
+
+    Dwie bramki tego modułu, wyjęte z `main()` razem, bo odpowiadają na to samo
+    pytanie i mają wspólną granicę: luz DOKŁADNIE zerowy jest jeszcze dopuszczony,
+    ujemny nie. Zero jest tu granicą, a nie przypadkiem brzegowym — słupek stykający
+    się ze skrajnią jeszcze się w niej nie znajduje.
+
+    Kolejność zarzutów jest ustalona, bo trafia do komunikatu błędu.
+    """
+    problems = []
+    if worst_gauge_m < 0.0:
+        problems.append(f"słupek wchodzi w skrajnię pojazdu o {-worst_gauge_m:.3f} m — "
+                        "zwiększ --offset-m")
+    if worst_wall_m < 0.0:
+        problems.append(f"słupek przebija ścianę profilu {profile_name} o "
+                        f"{-worst_wall_m:.3f} m — zmniejsz --offset-m")
+    return problems
+
+
 def post_mesh(name, placement, lateral_m, foot_m, height_m, thick_m, wide_m):
     """Prostopadłościan stojący stycznie do osi, odsunięty w bok o `lateral_m`."""
     corners = []
@@ -115,7 +156,7 @@ def main():
     stations = SW.chainages(points)
     profile = profile_points(args.profile)
     gauge = vehicle_gauge()
-    sign = 1.0 if args.side == "right" else -1.0
+    sign = side_sign(args.side)
     thick_m, wide_m = DEFAULT_POST_M
 
     for name in list(bpy.data.objects):
@@ -153,12 +194,9 @@ def main():
     print(f"[LUZ] do skrajni pojazdu: {worst_gauge:+.3f} m")
     print(f"[LUZ] do ściany tunelu {args.profile}: {worst_wall:+.3f} m")
 
-    if worst_gauge < 0.0:
-        raise SystemExit(f"BŁĄD: słupek wchodzi w skrajnię pojazdu o {-worst_gauge:.3f} m — "
-                         "zwiększ --offset-m")
-    if worst_wall < 0.0:
-        raise SystemExit(f"BŁĄD: słupek przebija ścianę profilu {args.profile} o "
-                         f"{-worst_wall:.3f} m — zmniejsz --offset-m")
+    problems = clearance_problems(worst_gauge, worst_wall, args.profile)
+    if problems:
+        raise SystemExit("BŁĄD: " + "; ".join(problems))
 
     out = args.out if os.path.isabs(args.out) else os.path.join(root, args.out)
     os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
