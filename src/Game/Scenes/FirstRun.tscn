@@ -77,3 +77,6 @@ text = "ciag / hamulec"
 
 [node name="Station" type="Label" parent="Hud/Panel/Rows"]
 text = "stacja"
+
+[node name="Signalling" type="Label" parent="Hud/Panel/Rows"]
+text = "sygnalizacja"

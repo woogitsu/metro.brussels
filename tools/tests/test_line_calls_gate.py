@@ -95,3 +95,28 @@ def test_line_gate_is_wired_into_the_workflow_that_needs_it():
         "workflow nie podaje limitu jawnie — a bez tego scena bierze prędkość "
         "KONSTRUKCYJNĄ M7 (80 km/h) i przejazd nie zgadza się z rdzeniem")
     assert "--expect-calls 11" in workflow
+
+    assert "--signalling=" in workflow, "workflow nie podaje planu sygnalizacji"
+
+    # Drugi przebieg, pod sygnalizacją, musi być porównywany z tym SAMYM plikiem
+    # rdzenia — inaczej zgodność mogłaby zachodzić przez wspólny błąd obu stron sceny.
+    #
+    # Pierwsza wersja tej kontroli liczyła WYSTĄPIENIA `core-calls.csv` w całym pliku
+    # i była bezwartościowa: podmiana pary na `scene-calls.csv` zostawiała licznik bez
+    # zmian, bo ta nazwa występuje w workflow także w innych krokach. Kontrola negatywna
+    # to pokazała (mutacja „porównanie scena-vs-scena" przeszła 1462/1462), więc
+    # asercja jest przepisana na sprawdzenie PARY w jednym wywołaniu.
+    wywolania = [
+        fragment for fragment in workflow.split("assert_line_calls_match.py")[1:]
+    ]
+    assert wywolania, "bramka nie jest wołana ani razu"
+    z_sygnalizacja = [
+        fragment for fragment in wywolania
+        if "scene-signalling-calls.csv" in fragment.split("--expect-calls")[0]
+    ]
+    assert z_sygnalizacja, "workflow nie porównuje przejazdu pod sygnalizacją"
+    for fragment in z_sygnalizacja:
+        argumenty = fragment.split("--expect-calls")[0]
+        assert "core-calls.csv" in argumenty, (
+            "przejazd pod sygnalizacją porównuje się z czymś innym niż plik rdzenia: "
+            + argumenty.strip())

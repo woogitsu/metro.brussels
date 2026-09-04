@@ -4,8 +4,9 @@ using Godot;
 namespace MetroBxl.Game.UI;
 
 /// <summary>
-/// Podgląd stanu przejazdu. Cztery pola tekstowe i nic więcej: prędkość, położenie na
-/// osi, to co robią nastawniki, i stacja — dojazd albo faza cyklu drzwi.
+/// Podgląd stanu przejazdu. Pięć pól tekstowych i nic więcej: prędkość, położenie na
+/// osi, to co robią nastawniki, stacja — dojazd albo faza cyklu drzwi — i sygnalizacja,
+/// czyli prędkość dopuszczalna z autorytetem jazdy.
 ///
 /// <b>Bez brandingu.</b> <c>docs/03-legal.md</c> zabrania logo, map sieci, piktogramów
 /// i wystroju STIB/MIVB. HUD jest gołym tekstem na półprzezroczystym tle i nie udaje
@@ -17,6 +18,7 @@ public sealed partial class Hud : CanvasLayer
     private Label? _position;
     private Label? _controls;
     private Label? _station;
+    private Label? _signalling;
 
     /// <inheritdoc/>
     public override void _Ready()
@@ -25,8 +27,9 @@ public sealed partial class Hud : CanvasLayer
         _position = GetNode<Label>("Panel/Rows/Position");
         _controls = GetNode<Label>("Panel/Rows/Controls");
         _station = GetNode<Label>("Panel/Rows/Station");
+        _signalling = GetNode<Label>("Panel/Rows/Signalling");
 
-        foreach (var label in new[] { _speed, _position, _controls, _station })
+        foreach (var label in new[] { _speed, _position, _controls, _station, _signalling })
         {
             label.AddThemeFontSizeOverride("font_size", 20);
             label.AddThemeColorOverride("font_color", new Color(0.92f, 0.94f, 0.96f));
@@ -39,6 +42,7 @@ public sealed partial class Hud : CanvasLayer
         // bez obsługi stacji (skryptowy, czyli każdy zrzut kontrolny) miałby na pierwszej
         // klatce czwarty wiersz i bramka wizualna zapłaciłaby za tekst zastępczy.
         _station.Visible = false;
+        _signalling.Visible = false;
     }
 
     /// <summary>Odświeża wszystkie trzy wiersze.</summary>
@@ -57,6 +61,12 @@ public sealed partial class Hud : CanvasLayer
     /// kopia tej wiedzy tutaj rozjechałaby się z pierwszą. Puste znaczy „bez wiersza",
     /// czyli przebieg bez obsługi stacji.
     /// </param>
+    /// <param name="signalling">
+    /// Wiersz o sygnalizacji, złożony po stronie wołającego — z tego samego powodu, co
+    /// wiersz o stacji: prędkość dopuszczalna, autorytet i powód jego końca mieszkają
+    /// w <c>TrainProtection</c> i <c>MovementAuthority</c>, a druga kopia tej wiedzy
+    /// tutaj rozjechałaby się z pierwszą. Puste znaczy „przebieg bez sygnalizacji".
+    /// </param>
     public void Update(
         double speedKmh,
         double accelerationMps2,
@@ -67,9 +77,11 @@ public sealed partial class Hud : CanvasLayer
         double throttle,
         double brake,
         string mode,
-        string station)
+        string station,
+        string signalling)
     {
-        if (_speed is null || _position is null || _controls is null || _station is null)
+        if (_speed is null || _position is null || _controls is null
+            || _station is null || _signalling is null)
         {
             return;
         }
@@ -84,6 +96,8 @@ public sealed partial class Hud : CanvasLayer
             $"ciąg {Bar(throttle)} {throttle:F2}   hamulec {Bar(brake)} {brake:F2}   [{mode}]");
         _station.Text = station;
         _station.Visible = station.Length > 0;
+        _signalling.Text = signalling;
+        _signalling.Visible = signalling.Length > 0;
     }
 
     private static string Bar(double value)

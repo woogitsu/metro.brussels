@@ -37,6 +37,11 @@ dotnet test tests/Sim.Tests          # rdzeń symulacji, bez Godota
 - **przejazd zatrzymuje się na stacjach**: dojazd w okno ±5 m otwiera cykl drzwi,
   trakcja jest zablokowana do potwierdzenia zamknięcia, przejechana stacja ląduje
   w liczniku miniętych; błąd zatrzymania jest mierzony i pokazywany;
+- **tryb `--line`**: scena przejeżdża całą linię z 11 zatrzymaniami, prowadzona rdzeniem;
+  zatrzymania sceny i rdzenia są identyczne co do wszystkich kolumn (próg **zerowy**);
+- **sygnalizacja w kabinie** (`--signalling`): HUD pokazuje prędkość dopuszczalną,
+  autorytet jazdy z powodem jego końca i licznik zaryglowanych tras. Odczyt, nie
+  ingerencja — czy ATP ma hamować za maszynistę, jest decyzją o rozgrywce;
 - rozjazd Godot ↔ rdzeń **0,000 m**, ten sam odcisk telemetrii przy nierównym podziale
   klatek (`reports/T-400-first-run.md`);
 - zrzuty z silnika idą przez tę samą kontrolę wizualną co geometria, odtwarzalne co do
