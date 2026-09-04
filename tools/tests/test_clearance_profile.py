@@ -836,3 +836,82 @@ def test_clearance_profile_swept_mesh_from_exactly_two_rings():
     assert len(mesh["faces"]) == 4 + 2, mesh["faces"]
     low, high = CP.mesh_bbox(mesh)
     assert abs((high[0] - low[0]) - 5.0) < 1e-9, (low, high)
+
+
+def test_clearance_profile_a_clearance_exactly_at_the_threshold_is_reported():
+    """Sedno decyzji właściciela: luz DOKŁADNIE na progu nie może zniknąć z raportu.
+
+    `docs/24` pozycja 3 zmierzyła, że minimum na pakiecie A to 0,899948 m przy progu
+    raportowania 0,900 m — różnica 52 µm. Gdyby minimum wypadło o te 52 µm wyżej,
+    czyli dokładnie na progu, stary warunek `clearance_m < threshold_m` nie zgłosiłby
+    NAJCIAŚNIEJSZEGO MIEJSCA NA CAŁYM PAKIECIE. Pasmo zgłasza je w obu przypadkach.
+    """
+    dokladnie = CP.critical_places([_record(2520.0, 0.900)], 0.900, STATIONS_DOC)
+    assert len(dokladnie) == 1, dokladnie
+    assert dokladnie[0]["at_threshold"] is True
+
+    ponizej = CP.critical_places([_record(2520.0, 0.899948)], 0.900, STATIONS_DOC)
+    assert len(ponizej) == 1, ponizej
+    assert ponizej[0]["at_threshold"] is True, "52 µm pod progiem to nadal pasmo graniczne"
+
+    glebiej = CP.critical_places([_record(2520.0, 0.850)], 0.900, STATIONS_DOC)
+    assert len(glebiej) == 1
+    assert glebiej[0]["at_threshold"] is False, "50 mm pod progiem to już nie pasmo"
+
+
+def test_clearance_profile_the_threshold_band_is_two_sided():
+    """„Dwustronny" znaczy dwustronny — także POWYŻEJ progu, i to jest cała różnica.
+
+    Warunek jednostronny (`<=` zamiast `<`) łapałby wyłącznie równość co do bitu,
+    czyli w praktyce nic. Kontrola negatywna po drugiej stronie pasma jest tu tym,
+    co odróżnia tolerancję od zmiany operatora.
+    """
+    milimetr_nad = CP.critical_places([_record(2520.0, 0.901)], 0.900, STATIONS_DOC)
+    assert len(milimetr_nad) == 1, "luz milimetr NAD progiem wypadł z raportu"
+    assert milimetr_nad[0]["at_threshold"] is True
+
+    poza_pasmem = CP.critical_places([_record(2520.0, 0.902)], 0.900, STATIONS_DOC)
+    assert poza_pasmem == [], "pasmo objęło luz dwa milimetry nad progiem"
+
+    # Symetria pasma, i to jest cała treść słowa „dwustronny": milimetr pod progiem
+    # i milimetr nad nim muszą być traktowane jednakowo. Pierwsza wersja tej bramki
+    # liczyła pasmo na floatach i `abs(0.899 - 0.900)` wychodziło
+    # `0.0010000000000000009` — czyli WIĘCEJ niż tolerancja, więc milimetr pod progiem
+    # z pasma wypadał, a pół milimetra nad nim wpadało. Granica rozstrzygała się
+    # reprezentacją binarną, nie decyzją.
+    assert CP.within_threshold_band(0.899, 0.900) is True
+    assert CP.within_threshold_band(0.901, 0.900) is True
+    assert CP.within_threshold_band(0.898, 0.900) is False
+    assert CP.within_threshold_band(0.902, 0.900) is False
+
+
+def test_clearance_profile_below_threshold_keeps_meaning_strictly_below():
+    """Stary klucz nie zmienia znaczenia, bo czyta go `profile_vehicle.py` i bramka CI.
+
+    Pasmo dochodzi jako OSOBNY klucz. Gdyby `below_threshold` zaczęło liczyć pasmo,
+    liczba w raporcie zmieniłaby sens bez zmiany nazwy — a to jest dokładnie ten
+    rodzaj cichego rozjazdu, którego ten moduł ma nie produkować.
+    """
+    records = [_record(100.0, 0.850), _record(200.0, 0.899),
+               _record(300.0, 0.900), _record(400.0, 0.901)]
+    stats = CP.statistics(records, thresholds=(0.900,))
+    assert stats["below_threshold"]["0.900"] == 2, stats["below_threshold"]
+    assert stats["at_threshold"]["0.900"] == 3, stats["at_threshold"]
+    assert stats["threshold_tolerance_m"] == CP.THRESHOLD_TOLERANCE_M
+
+
+def test_clearance_profile_tolerance_equals_the_resolution_the_module_records():
+    """Tolerancja nie jest liczbą z powietrza — równa się rozdzielczości ZAPISU progów.
+
+    `critical_places` zapisuje próg przez `round(threshold_m, 3)`, a `statistics`
+    kluczuje po `f"{t:.3f}"`. Poniżej milimetra w wyjściu nie ma więc informacji,
+    po której stronie progu leży wartość. Ten test przybija tę równość, żeby zmiana
+    jednej strony bez drugiej nie przeszła po cichu.
+    """
+    source = open(os.path.join(ROOT, "tools", "blender", "clearance_profile.py"),
+                  encoding="utf-8").read()
+    assert 'round(threshold_m, 3)' in source, "zmieniła się rozdzielczość zapisu progu"
+    assert 'f"{t:.3f}"' in source, "zmieniła się rozdzielczość kluczy statystyk"
+    assert CP.THRESHOLD_TOLERANCE_M == 10 ** -3, CP.THRESHOLD_TOLERANCE_M
+    assert CP.THRESHOLD_TOLERANCE_MM == 1, CP.THRESHOLD_TOLERANCE_MM
+    assert CP._millimetres(0.9004) == 900 and CP._millimetres(0.9006) == 901

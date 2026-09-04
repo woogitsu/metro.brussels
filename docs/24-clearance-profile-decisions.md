@@ -140,6 +140,42 @@ zgłosiłby go w ogóle** — a jest to najciaśniejsze miejsce na całym pakiec
 Nie ma tu odpowiedzi lepszej z natury; jest odpowiedź, którą trzeba wybrać, bo w tym
 module jest **niespójna z sąsiednim warunkiem** (pozycja 4).
 
+### ROZSTRZYGNIĘTE 04.09.2026 — ani `<`, ani `<=`
+
+**Odpowiedź właściciela: żadne z dwóch.** Zamiast wybierać stronę operatora,
+granica staje się nazwanym **pasmem, które się RAPORTUJE**. Luz w odległości
+najwyżej jednego milimetra od progu nie jest ani po cichu w porządku, ani po cichu
+naruszeniem — jest zgłaszany jako `at_threshold`. To zamyka też pozycję 4: obie
+strony czytają teraz jednakowo.
+
+Dlaczego jeden milimetr, a nie liczba wzięta z powietrza: ten moduł **zapisuje**
+progi z dokładnością milimetra — `round(threshold_m, 3)` w `critical_places`
+i `f"{t:.3f}"` w `statistics`. Poniżej milimetra w wyjściu nie ma informacji, po
+której stronie progu leży wartość, więc rozstrzyganie tam operatorem jest
+rozstrzyganiem o czymś, czego raport i tak nie odnotowuje. Równość tolerancji
+z rozdzielczością zapisu jest przybita testem, żeby zmiana jednej strony bez
+drugiej nie przeszła po cichu.
+
+**Pasmo liczy się w milimetrach CAŁKOWITYCH, i to nie jest szczegół.** Pierwsza
+wersja porównywała floaty (`abs(v - t) <= 0.001`) i przywracała dokładnie to pytanie,
+które tolerancja miała usunąć, tylko o poziom niżej. Zmierzone:
+
+```
+  luz 0.899   |v-0.900| = 0.0010000000000000009    <= 0.001 ? False
+  luz 0.9005  |v-0.900| = 0.0004999999999999449    <= 0.001 ? True
+```
+
+Milimetr **pod** progiem z pasma wypadał, pół milimetra **nad** nim wpadało —
+granicę rozstrzygała reprezentacja binarna, nie decyzja. Liczby całkowite tego
+problemu nie mają i mówią wprost, co pasmo znaczy: „w odległości najwyżej jednego
+zapisanego milimetra".
+
+Co się NIE zmieniło: `below_threshold` dalej znaczy **ściśle poniżej** progu, bo
+czyta je `profile_vehicle.py` i przybijają je testy. Pasmo doszło jako osobny klucz
+`at_threshold`. Rozszerzenie zakresu `critical_places` nie może wywrócić CI —
+`vehicle_clearance.sh` te wpisy wypisuje, a do listy `problems` ich nie dodaje,
+i jest to sprawdzone w kodzie bramki, nie założone.
+
 ---
 
 ## 4. Dobór dołków do doszlifowania używa `<=`, a raportowanie `<`
@@ -156,6 +192,10 @@ Zmierzone: pasmo doboru to 50 mm, a doszlifowanie obniża minimum o **3,194 mm**
 `<=` na `<` wyrzuciłaby z doboru wyłącznie pozycje o luzie **równym co do bitu**
 `min + 0,050`, czyli w praktyce żadną. **Konsekwencja liczbowa: zerowa.** To pytanie jest
 o spójność, nie o wynik.
+
+**ROZSTRZYGNIĘTE 04.09.2026 razem z pozycją 3:** oba warunki używają teraz tego samego
+pasma (`at_or_below_threshold`), więc niespójność znika, a konsekwencja liczbowa
+zostaje zerowa — dokładnie jak zmierzono wyżej.
 
 ---
 
