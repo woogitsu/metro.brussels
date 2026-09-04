@@ -4,6 +4,29 @@ set -u
 required_bad=0
 optional_bad=0
 
+# `--no-tests` pomija OBA zestawy i sprawdza wyłącznie środowisko.
+#
+# Dwa powody, oba praktyczne. Pierwszy: `CLAUDE.md` §2 każe uruchomić doctora przed
+# KAŻDYM zadaniem, a pełny przebieg to oba zestawy — czyli dokładnie to, co i tak
+# uruchamia się osobno w pętli weryfikacji z §5. Drugi: bramka, która sprawdza
+# ZACHOWANIE doctora, musi go uruchomić, a doctor uruchamia `test_all.py` — więc bez
+# tej flagi test wewnątrz zestawu odpalałby cały zestaw jeszcze raz, cztery razy pod
+# rząd. Pierwsza wersja tej bramki tak właśnie robiła i przekroczyła limit czasu.
+RUN_TESTS=1
+for arg in "$@"; do
+  case "$arg" in
+    --no-tests) RUN_TESTS=0 ;;
+    -h|--help)
+      echo "użycie: bash doctor.sh [--no-tests]"
+      echo "  --no-tests   sprawdź tylko środowisko, nie uruchamiaj zestawów testów"
+      echo ""
+      echo "zmienne: DOTNET_BIN, BLENDER_BIN, GODOT_BIN — ścieżki do narzędzi,"
+      echo "         gdy leżą poza PATH (ta sama konwencja co w tools/ci/)"
+      exit 0 ;;
+    *) echo "nieznany argument: $arg (patrz --help)" >&2; exit 2 ;;
+  esac
+done
+
 chk_required() {
   if eval "$2" >/dev/null 2>&1; then echo "  ok    $1"; else echo "  BRAK  $1  -> $3"; required_bad=$((required_bad + 1)); fi
 }
@@ -20,7 +43,17 @@ chk_required "git" "git --version" "zainstaluj git"
 
 echo ""
 echo "Wymagane dla rdzenia symulacji (T-310 jest zrobione, src/Sim istnieje):"
-chk_required "dotnet SDK" "dotnet --version" "zainstaluj .NET SDK 10.0+ (https://dotnet.microsoft.com/download)"
+
+# `${DOTNET_BIN:-dotnet}` — ta sama konwencja, co `${BLENDER_BIN:-blender}` w sześciu
+# skryptach `tools/ci/` i co `GODOT_BIN`, i z tego samego powodu: SDK potrafi leżeć
+# POZA `PATH`. W CI nie potrafi, bo `DOTNET_INSTALL_DIR` sprawia, że `setup-dotnet`
+# kładzie je na `PATH` (`sim-tests.yml`) — ale na maszynie, na której ktoś zainstalował
+# SDK do katalogu domowego, `dotnet` z `PATH` jest tym STARYM z pakietu systemowego.
+# Zmierzone w tym środowisku 04.09.2026: `dotnet --version` daje 8.0.130, a obok stoi
+# 10.0.400 w `$HOME/.dotnet`, którego doctor nie widział. Kazał więc pobrać SDK, które
+# już było na dysku, i to jest gorsze niż milczenie: brzmi jak brak, a jest ślepotą.
+DOTNET="${DOTNET_BIN:-dotnet}"
+chk_required "dotnet SDK" "$DOTNET --version" "zainstaluj .NET SDK 10.0+ (https://dotnet.microsoft.com/download)"
 
 # Sama obecność `dotnet` nie wystarczy i to jest zmierzone, nie przewidywane.
 # Po podniesieniu rdzenia na `net10.0` (04.09.2026) doctor na SDK 8.0.130 wypisywał
@@ -32,11 +65,30 @@ chk_required "dotnet SDK" "dotnet --version" "zainstaluj .NET SDK 10.0+ (https:/
 # w `src/Sim/Sim.csproj`, czyli z jedynego miejsca, które o niej decyduje. Wpisanie
 # jej drugi raz dałoby dwa źródła prawdy i rozjazd przy następnym podniesieniu.
 REQUIRED_TFM="$(sed -n 's/.*<TargetFramework>net\([0-9]*\)\..*/\1/p' src/Sim/Sim.csproj 2>/dev/null | head -1)"
-HAVE_SDK_MAJOR="$(dotnet --version 2>/dev/null | cut -d. -f1)"
+HAVE_SDK_MAJOR="$($DOTNET --version 2>/dev/null | cut -d. -f1)"
 if [ -n "$REQUIRED_TFM" ] && [ -n "$HAVE_SDK_MAJOR" ]; then
   chk_required "dotnet SDK >= $REQUIRED_TFM (jest $HAVE_SDK_MAJOR)" \
     "[ \"$HAVE_SDK_MAJOR\" -ge \"$REQUIRED_TFM\" ]" \
     "src/Sim/Sim.csproj celuje w net${REQUIRED_TFM}.0, a to SDK tego nie zbuduje (NETSDK1045); pobierz nowsze z https://dotnet.microsoft.com/download"
+
+  # Zanim każe cokolwiek pobierać, doctor SZUKA. Podpowiedź wypisuje się wyłącznie
+  # wtedy, gdy znaleziony `dotnet` naprawdę zgłasza wersję dostatecznie wysoką —
+  # nie na samą obecność pliku. Podpowiedź o SDK, którego tam nie ma, byłaby
+  # dokładnie tym samym błędem, tylko w drugą stronę.
+  if [ "$HAVE_SDK_MAJOR" -lt "$REQUIRED_TFM" ] 2>/dev/null; then
+    for candidate in "$HOME/.dotnet/dotnet" /usr/local/share/dotnet/dotnet \
+                     /usr/share/dotnet/dotnet /opt/dotnet/dotnet; do
+      [ -x "$candidate" ] || continue
+      [ "$candidate" = "$(command -v "$DOTNET" 2>/dev/null)" ] && continue
+      cand_major="$("$candidate" --version 2>/dev/null | cut -d. -f1)"
+      [ -n "$cand_major" ] || continue
+      if [ "$cand_major" -ge "$REQUIRED_TFM" ] 2>/dev/null; then
+        echo "        na dysku JEST nowsze SDK: $candidate (wersja ${cand_major}.x)"
+        echo "        uruchom: DOTNET_BIN=$candidate bash doctor.sh"
+        break
+      fi
+    done
+  fi
 fi
 
 echo ""
@@ -76,6 +128,24 @@ for d in CLAUDE.md docs docs/07-open-data-research.md data/network/lines.json da
   if [ -e "$d" ]; then echo "  ok    $d"; else echo "  BRAK  $d"; required_bad=$((required_bad + 1)); fi
 done
 
+# STRAŻNIK REKURENCJI, i nie jest hipotetyczny.
+#
+# Doctor uruchamia `tools/tests/test_all.py`, a ten zestaw zawiera testy, które
+# uruchamiają doctora (bramki `test_dotnet_version.py`). Dopóki te bramki podają
+# `--no-tests`, pętla jest przerwana — ale zależy to od jednej gałęzi `case`.
+# Zmierzone 04.09.2026: mutacja `--no-tests) RUN_TESTS=1` zamieniła to w rekurencję
+# wykładniczą i zostawiła w systemie 174 procesy `test_all.py`, zanim je wyłapałem.
+#
+# Marker w środowisku zamyka całą tę klasę, a nie jedną mutację: zagnieżdżony doctor
+# pomija zestawy bez względu na argumenty, jakie dostał.
+if [ "${MBXL_DOCTOR_RUNNING:-0}" = "1" ]; then
+  RUN_TESTS=0
+  echo ""
+  echo "Testy: pomijam — doctor jest już uruchomiony wyżej (MBXL_DOCTOR_RUNNING)."
+fi
+export MBXL_DOCTOR_RUNNING=1
+
+if [ "$RUN_TESTS" -eq 1 ]; then
 echo ""
 echo "Testy narzędzi:"
 log_file="${TMPDIR:-/tmp}/mbxl_tests.log"
@@ -90,9 +160,9 @@ echo ""
 echo "Testy rdzenia symulacji:"
 # Rdzeń nie ma zależności NuGet, ale testy mają trzy pakiety — pierwsze uruchomienie
 # na czystej maszynie wymaga sieci na czas `restore`. Później liczy się z cache.
-if command -v dotnet >/dev/null 2>&1; then
+if command -v "${DOTNET_BIN:-dotnet}" >/dev/null 2>&1; then
   sim_log="${TMPDIR:-/tmp}/mbxl_sim_tests.log"
-  if dotnet test tests/Sim.Tests --nologo -v q >"$sim_log" 2>&1; then
+  if "${DOTNET_BIN:-dotnet}" test tests/Sim.Tests --nologo -v q >"$sim_log" 2>&1; then
     sim_passed=$(grep -oE "Passed: +[0-9]+" "$sim_log" | tail -1 | grep -oE "[0-9]+")
     sim_total=$(grep -oE "Total( tests)?: +[0-9]+" "$sim_log" | tail -1 | grep -oE "[0-9]+")
     echo "  ok    ${sim_passed}/${sim_total} przeszło"
@@ -102,6 +172,7 @@ if command -v dotnet >/dev/null 2>&1; then
   fi
 else
   echo "  pomijam — brak dotnet"
+fi
 fi
 
 echo ""

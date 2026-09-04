@@ -288,7 +288,15 @@ def test_doctor_sdk_condition_actually_rejects_an_old_sdk():
     doctor = open(DOCTOR, encoding="utf-8").read()
     # Wyrażenie `"([^"]+)"` urywało się na pierwszym `\"` i wyciągało `[ \\` —
     # warunek z cudzysłowami w środku trzeba brać po wierszu, nie po parze cudzysłowów.
-    lines = [line.strip() for line in doctor.splitlines() if "-ge" in line and "REQUIRED_TFM" in line]
+    #
+    # Selektor wymaga też, żeby wiersz był ARGUMENTEM `chk_required`, czyli zaczynał
+    # się od cudzysłowa. Bez tego łapał dwa wiersze od 04.09.2026, gdy doszła
+    # podpowiedź szukająca nowszego SDK na dysku — ona też porównuje `-ge` z
+    # `REQUIRED_TFM`, ale jest osobnym warunkiem i nie jest tym, co ten test mierzy.
+    # Zawężony jest SELEKTOR, nie asercja: dalej wyciąga warunek i go URUCHAMIA.
+    lines = [line.strip() for line in doctor.splitlines()
+             if "-ge" in line and "REQUIRED_TFM" in line
+             and line.strip().startswith('"')]
     assert len(lines) == 1, lines
     condition = lines[0].rstrip("\\").strip()
     assert condition.startswith('"') and condition.endswith('"'), condition
@@ -305,3 +313,201 @@ def test_doctor_sdk_condition_actually_rejects_an_old_sdk():
     assert run(required) == 0, f"warunek odrzucił SDK {required} przy wymaganym {required}"
     assert run(required + 1) == 0, "warunek odrzucił SDK nowsze niż wymagane"
 
+
+
+def _run_doctor(dotnet_version, home_version=None):
+    """Uruchamia PRAWDZIWY `doctor.sh` z podstawionym `dotnet`, bez sieci i bez SDK.
+
+    Dwie atrapy: jedna pod `DOTNET_BIN` (udaje SDK, które doctor ma sprawdzić),
+    druga pod `$HOME/.dotnet/dotnet` (udaje SDK leżące na dysku poza `PATH`).
+    `home_version=None` znaczy „w katalogu domowym nie ma nic".
+
+    Bramka na obecność napisu `DOTNET_BIN` w pliku nie odróżniłaby zmiennej użytej
+    od zmiennej wspomnianej w komentarzu — a ten plik ma jej w komentarzach cztery.
+    """
+    import subprocess
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        def stub(path, version):
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w", encoding="utf-8") as handle:
+                handle.write("#!/bin/sh\n"
+                             'if [ "$1" = "--version" ]; then echo "%s"; exit 0; fi\n'
+                             "exit 1\n" % version)
+            os.chmod(path, 0o755)
+
+        fake_bin = os.path.join(tmp, "bin", "dotnet")
+        stub(fake_bin, dotnet_version)
+        fake_home = os.path.join(tmp, "home")
+        os.makedirs(fake_home, exist_ok=True)
+        if home_version is not None:
+            stub(os.path.join(fake_home, ".dotnet", "dotnet"), home_version)
+
+        env = dict(os.environ)
+        env.update(DOTNET_BIN=fake_bin, HOME=fake_home, LC_ALL="C")
+        # `--no-tests`, bo doctor bez tej flagi uruchamia `test_all.py` — czyli
+        # ten zestaw uruchamiałby sam siebie, cztery razy pod rząd. Pierwsza wersja
+        # tej bramki tak robiła i przekroczyła limit czasu; flaga powstała po to.
+        done = subprocess.run(["bash", DOCTOR, "--no-tests"], cwd=ROOT, env=env,
+                              capture_output=True, text=True, timeout=120)
+        return done.stdout + done.stderr
+
+
+def test_doctor_honours_dotnet_bin_the_same_way_as_blender_bin():
+    """`DOTNET_BIN` musi być UŻYWANY, nie tylko wspomniany w komentarzu.
+
+    Ta sama konwencja co `${BLENDER_BIN:-blender}` w sześciu skryptach `tools/ci/`
+    i co `GODOT_BIN`, i z tego samego powodu: SDK potrafi leżeć poza `PATH`.
+    Zmierzone w środowisku tej sesji 04.09.2026 — `dotnet` z `PATH` to 8.0.130,
+    a obok stoi 10.0.400 w katalogu domowym.
+
+    Test podstawia atrapę zgłaszającą wersję 99 i wymaga, żeby doctor ją zobaczył.
+    Gdyby czytał `dotnet` z `PATH`, wypisałby wersję systemową i test by padł.
+    """
+    out = _run_doctor("99.1.2")
+    required = tfm_major(target_framework(open(
+        os.path.join(ROOT, "src", "Sim", "Sim.csproj"), encoding="utf-8").read()))
+    assert f"ok    dotnet SDK >= {required} (jest 99)" in out, out[:1500]
+
+
+def test_doctor_points_at_the_newer_sdk_that_is_already_on_disk():
+    """Kazać pobrać SDK, które leży na dysku, jest gorsze od milczenia.
+
+    Brzmi jak brak, a jest ślepotą narzędzia. Doctor ma najpierw POSZUKAĆ,
+    i podpowiedzieć gotowe polecenie.
+    """
+    out = _run_doctor("8.0.130", home_version="99.1.2")
+    assert "na dysku JEST nowsze SDK" in out, out[:1500]
+    assert "DOTNET_BIN=" in out and "bash doctor.sh" in out, out[:1500]
+
+
+def test_doctor_does_not_invent_an_sdk_that_is_not_there():
+    """Kontrola po DRUGIEJ stronie podpowiedzi — bez niej byłaby ona zawsze prawdziwa.
+
+    Gdy nowszego SDK naprawdę nie ma, doctor musi zgłosić brak i NIE obiecywać
+    niczego na dysku. Podpowiedź o SDK, którego tam nie ma, to ten sam błąd,
+    tylko w drugą stronę.
+    """
+    out = _run_doctor("8.0.130", home_version=None)
+    required = tfm_major(target_framework(open(
+        os.path.join(ROOT, "src", "Sim", "Sim.csproj"), encoding="utf-8").read()))
+    assert f"BRAK  dotnet SDK >= {required} (jest 8)" in out, out[:1500]
+    assert "na dysku JEST nowsze SDK" not in out, out[:1500]
+
+
+def test_doctor_does_not_offer_an_sdk_that_is_also_too_old():
+    """Kandydat, który ISTNIEJE, ale jest za stary, nie może być podpowiedziany.
+
+    Ta kontrola powstała z pomiaru na samej bramce, nie z ostrożności. Mutacja
+    `if [ "$cand_major" -ge "$REQUIRED_TFM" ]` -> `if true` PRZECHODZIŁA cały zestaw:
+    pozostałe testy podstawiały `home_version=None`, czyli brak pliku, więc pętla
+    wychodziła już na `[ -x "$candidate" ]` i do porównania wersji nigdy nie docierała.
+    Sprawdzanie wersji kandydata było niepokryte, a to ono decyduje, czy podpowiedź
+    jest prawdą.
+
+    Tutaj kandydat istnieje i jest NOWSZY od tego pod `DOTNET_BIN`, ale nadal
+    starszy od wymaganego — doctor ma zgłosić brak i milczeć o dysku.
+    """
+    required = tfm_major(target_framework(open(
+        os.path.join(ROOT, "src", "Sim", "Sim.csproj"), encoding="utf-8").read()))
+    za_stary = required - 1
+    assert za_stary >= 1, required
+
+    out = _run_doctor("8.0.130", home_version="%d.0.100" % za_stary)
+    assert "BRAK  dotnet SDK >= %d (jest 8)" % required in out, out[:1200]
+    assert "na dysku JEST nowsze SDK" not in out, (
+        "doctor podpowiedzial SDK %d.x przy wymaganym %d:\n%s"
+        % (za_stary, required, out[:1000]))
+
+
+def test_doctor_does_not_offer_the_sdk_it_was_already_told_to_use():
+    """Podpowiedź „użyj tego, czego właśnie użyłem" byłaby szumem.
+
+    Gdy `DOTNET_BIN` już wskazuje na SDK z katalogu domowego, a ono samo jest
+    za stare, doctor ma zgłosić brak bez odsyłania do tego samego pliku.
+    """
+    import subprocess
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        home = os.path.join(tmp, "home")
+        path = os.path.join(home, ".dotnet", "dotnet")
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write('#!/bin/sh\nif [ "$1" = "--version" ]; then echo "8.0.130"; '
+                         "exit 0; fi\nexit 1\n")
+        os.chmod(path, 0o755)
+        env = dict(os.environ)
+        env.update(DOTNET_BIN=path, HOME=home, LC_ALL="C")
+        done = subprocess.run(["bash", DOCTOR, "--no-tests"], cwd=ROOT, env=env,
+                              capture_output=True, text=True, timeout=120)
+        out = done.stdout + done.stderr
+    assert "BRAK  dotnet SDK >= " in out, out[:1500]
+    assert "na dysku JEST nowsze SDK" not in out, out[:1500]
+
+
+def test_doctor_no_tests_flag_really_skips_both_suites():
+    """Flaga musi POMIJAĆ zestawy, nie tylko istnieć.
+
+    Bez tej kontroli `--no-tests` mogłoby być przyjmowanym argumentem, który nic
+    nie robi — a wtedy bramki wyżej uruchamiałyby `test_all.py` wewnątrz
+    `test_all.py`. Rozstrzyga porównanie WYJŚĆ: z flagą nie ma nagłówków sekcji
+    testowych, bez flagi są.
+    """
+    import subprocess
+
+    env = dict(os.environ)
+    env["LC_ALL"] = "C"
+    # Limit 60 s jest tu CZĘŚCIĄ ASERCJI, nie ostrożnością. Zdrowy przebieg
+    # z `--no-tests` trwa ~1,5 s. Mutant, który flagę ignoruje, MUSI uruchomić oba
+    # zestawy — więc albo przekroczy limit, albo wypisze nagłówki sekcji testowych.
+    # Jedno i drugie wywraca ten test, i to jest cała jego treść. Zmierzone
+    # 04.09.2026 na mutacji `--no-tests) RUN_TESTS=1`.
+    szybko = subprocess.run(["bash", DOCTOR, "--no-tests"], cwd=ROOT, env=env,
+                            capture_output=True, text=True, timeout=60)
+    out = szybko.stdout + szybko.stderr
+    assert "Testy narzędzi:" not in out, out[-800:]
+    assert "Testy rdzenia symulacji:" not in out, out[-800:]
+    # ...a kontrola środowiska nadal się wykonuje, inaczej flaga wyłączałaby wszystko.
+    assert "dotnet SDK" in out, out[-800:]
+    assert "python3" in out, out[-800:]
+
+
+def test_doctor_rejects_an_unknown_argument():
+    """Cichy `doctor.sh --no-test` (literówka) byłby pełnym przebiegiem udającym szybki."""
+    import subprocess
+
+    env = dict(os.environ)
+    env["LC_ALL"] = "C"
+    # `--no-tests` PRZED literówką, i to nie z wygody: gdyby doctor przestał
+    # odrzucać nieznany argument, `--no-test` wpadłby w gałąź `*)`, `RUN_TESTS`
+    # zostałoby na 1 i mutant uruchomiłby oba zestawy testów WEWNĄTRZ tego testu.
+    # Pierwsza wersja tak robiła i mierzyła limit czasu zamiast zachowania.
+    done = subprocess.run(["bash", DOCTOR, "--no-tests", "--no-test"], cwd=ROOT,
+                          env=env, capture_output=True, text=True, timeout=120)
+    assert done.returncode == 2, done.returncode
+    assert "nieznany argument" in done.stdout + done.stderr
+
+
+def test_doctor_cannot_recurse_into_itself():
+    """Zagnieżdżony doctor pomija zestawy BEZ WZGLĘDU na argumenty.
+
+    Powód jest zmierzony, nie przewidziany. Doctor uruchamia `test_all.py`, a ten
+    zestaw zawiera bramki uruchamiające doctora — pętla jest przerwana tylko tym,
+    że bramki podają `--no-tests`. Mutacja `--no-tests) RUN_TESTS=1` zamieniła to
+    04.09.2026 w rekurencję wykładniczą: w systemie zostało 174 procesy
+    `test_all.py`. Marker w środowisku zamyka całą tę klasę, a nie jedną mutację.
+    """
+    import subprocess
+
+    env = dict(os.environ)
+    env.update(LC_ALL="C", MBXL_DOCTOR_RUNNING="1")
+    done = subprocess.run(["bash", DOCTOR], cwd=ROOT, env=env,
+                          capture_output=True, text=True, timeout=120)
+    out = done.stdout + done.stderr
+    assert "doctor jest już uruchomiony wyżej" in out, out[-800:]
+    assert "Testy narzędzi:" not in out, out[-800:]
+    assert "Testy rdzenia symulacji:" not in out, out[-800:]
+    # Kontrola środowiska musi się nadal wykonać — inaczej marker wyłączałby wszystko.
+    assert "dotnet SDK" in out, out[-800:]
