@@ -8,6 +8,7 @@ using MetroBxl.Game.UI;
 using MetroBxl.Game.World;
 using MetroBxl.Sim.Line;
 using MetroBxl.Sim.Physics;
+using MetroBxl.Sim.Signalling;
 using MetroBxl.Sim.Train;
 using Environment = Godot.Environment;
 using Path = System.IO.Path;
@@ -68,6 +69,8 @@ public sealed partial class FirstRun : Node3D
     private ScenarioDrive? _scripted;
     private StationService? _stations;
     private LineDrive? _line;
+    private LineCore? _lineCore;
+    private TrainProtection? _protection;
     private DriveState _state;
     private DriverCommand _command = DriverCommand.Coast;
     private double _acceleration;
@@ -130,6 +133,7 @@ public sealed partial class FirstRun : Node3D
     private bool _lineMode;
     private string? _callsPath;
     private double _limitKmh;
+    private string? _signallingPath;
 
     /// <summary>Scena zgłosiła błąd i nie ma prawa dalej liczyć klatek.</summary>
     private bool _aborted;
@@ -222,6 +226,7 @@ public sealed partial class FirstRun : Node3D
         _lineMode = plan.LineMode;
         _callsPath = plan.CallsPath;
         _limitKmh = plan.LimitKmh;
+        _signallingPath = plan.SignallingPath;
         _mode = plan.Mode;
         _sampleEvery = plan.SampleEvery;
         _stepsPerFrame = plan.StepsPerFrame;
@@ -311,9 +316,46 @@ public sealed partial class FirstRun : Node3D
                 DesignAssumptions.PassengerExchangeSeconds,
                 DesignAssumptions.LineBrakeUsageFraction,
                 DesignAssumptions.StationStopWindowM);
-            _line = new LineDrive(
-                _axis, _conditions, settings, _controller,
-                new BrakingPointSolver(_model), _step);
+            if (_signallingPath is null)
+            {
+                // Bez sygnalizacji: goły `LineDrive`, tak jak przed wprowadzeniem
+                // `--signalling`. Nie ma tu cichego wykrywania planu — brak argumentu
+                // znaczy „jedź bez blokad" i HUD mówi to wprost.
+                _line = new LineDrive(
+                    _axis, _conditions, settings, _controller,
+                    new BrakingPointSolver(_model), _step);
+            }
+            else
+            {
+                // Z sygnalizacją: prowadzi `LineCore`, czyli linia z nastawnią
+                // automatyczną i autorytetem jazdy. `_line` wskazuje potem na
+                // prowadzenie TEGO składu, więc reszta sceny nie widzi różnicy.
+                var signalling = ReadSignallingPlan(_signallingPath);
+                if (signalling is null)
+                {
+                    return;
+                }
+
+                try
+                {
+                    _lineCore = LineCore.M7(signalling, _axis, _conditions, settings);
+                }
+                catch (ArgumentException error)
+                {
+                    Abort(ExitBadArgumentValue,
+                        $"[LINIA] plan sygnalizacji nie pasuje do osi {_axis.Id}: {error.Message}");
+                    return;
+                }
+
+                _lineCore.Add("KABINA", 0L);
+                _protection = new TrainProtection(signalling, _model);
+                GD.Print(string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"[SYGNALIZACJA] {signalling.Blocks.Count} bloków, {signalling.Routes.Count} tras, "
+                    + $"wymaga tras: {signalling.RequireRoute}, "
+                    + $"limit planu {Units.MpsToKmh(signalling.PermittedSpeedMps):F2} km/h, "
+                    + $"margines autorytetu {signalling.AuthorityMarginM:F2} m"));
+            }
         }
         else if (_scriptedMode)
         {
@@ -332,6 +374,32 @@ public sealed partial class FirstRun : Node3D
                 new DoorCycle(DesignAssumptions.PassengerExchangeSeconds),
                 _step,
                 DesignAssumptions.StationStopWindowM);
+        }
+    }
+
+    /// <summary>
+    /// Plan sygnalizacji z pliku. Godot czyta przez <see cref="FileAccess"/>, więc
+    /// ścieżka spod `res://` też działa; <c>SignallingPlan.FromFile</c> użyłoby
+    /// <c>System.IO</c> i nie widziałoby zasobów silnika.
+    /// </summary>
+    private SignallingPlan? ReadSignallingPlan(string path)
+    {
+        using var file = FileAccess.Open(path, FileAccess.ModeFlags.Read);
+        if (file is null)
+        {
+            Abort(ExitMissingInput,
+                $"[SYGNALIZACJA] nie da się otworzyć {path}: {FileAccess.GetOpenError()}");
+            return null;
+        }
+
+        try
+        {
+            return SignallingPlan.FromJson(file.GetAsText());
+        }
+        catch (Exception error) when (error is ArgumentException or FormatException)
+        {
+            Abort(ExitBadArgumentValue, $"[SYGNALIZACJA] {path} nie jest planem: {error.Message}");
+            return null;
         }
     }
 
@@ -489,7 +557,7 @@ public sealed partial class FirstRun : Node3D
         {
             FinishScriptedRun();
         }
-        else if (_lineMode && (_line?.Finished ?? false))
+        else if (_lineMode && (_lineCore?.Finished ?? _line?.Finished ?? false))
         {
             FinishLineRun();
         }
@@ -538,6 +606,31 @@ public sealed partial class FirstRun : Node3D
         // krok wchodził w `_scripted!.Step()` na nullu: zrzut wisiał do timeoutu 400 s
         // i nie powstawał żaden plik. Warunek na sterownik musi być sprawdzany przed
         // warunkiem na SPOSÓB ZAPISU wyniku.
+        if (_lineCore is not null)
+        {
+            // Linia z sygnalizacją. `LineCore.Step` robi w jednym kroku wszystko:
+            // wyjazdy, żądania tras nastawni, odczyt autorytetów, jazdę i meldunek
+            // ruchu. Scena nie powtarza ani jednej z tych faz — tylko patrzy.
+            if (_lineCore.Finished)
+            {
+                return false;
+            }
+
+            var przed = _state.SpeedMps;
+            _lineCore.Step((id, point) => _command = point.Command);
+            _line = _lineCore.Trains[0].Drive;
+            if (_line is null)
+            {
+                // Skład jeszcze nie wjechał na plan (wejście zajęte). Krok się odbył,
+                // zegar linii idzie, ale prowadzenia jeszcze nie ma.
+                return true;
+            }
+
+            _state = _line.State;
+            _acceleration = (_state.SpeedMps - przed) / _step.Seconds;
+            return true;
+        }
+
         if (_line is not null)
         {
             // Polecenie bierze się ZE ŚLADU, nie z domysłu: `LineDrive` liczy je sam
@@ -588,7 +681,10 @@ public sealed partial class FirstRun : Node3D
         return true;
     }
 
-    private double ChainageM => _line?.ChainageM ?? (_scenario.StartChainageM + _state.DistanceM);
+    private double ChainageM => _line?.ChainageM
+        ?? (_lineCore is not null
+            ? _axis.Stations[0].ChainageM
+            : _scenario.StartChainageM + _state.DistanceM);
 
     // --- widok -------------------------------------------------------------------
 
@@ -738,7 +834,51 @@ public sealed partial class FirstRun : Node3D
         _hud.Update(
             _state.SpeedKmh, _acceleration, chainage, _axis.LengthM,
             name, distance, _command.Throttle, _command.Brake, _mode,
-            StationLine());
+            StationLine(), SignallingLine());
+    }
+
+    /// <summary>
+    /// Wiersz HUD o sygnalizacji: prędkość dopuszczalna, autorytet jazdy i powód jego końca.
+    ///
+    /// <para><b>ODCZYT, nie ingerencja.</b> <c>TrainProtection.Supervise</c> jest tu
+    /// wołane wyłącznie po to, żeby pokazać liczbę — polecenia składu nie zmienia ani
+    /// o jotę. Czy ATP ma hamować za maszynistę, jest decyzją o rozgrywce, nie usterką
+    /// do naprawienia po cichu: prowadzenie w tym trybie należy do rdzenia, a w trybie
+    /// ręcznym do człowieka. Pokazanie przed ingerowaniem jest mniejszym krokiem, który
+    /// da się sprawdzić.</para>
+    ///
+    /// <para>Bez <c>--signalling</c> wiersz mówi WPROST, że blokad nie ma. Milczenie
+    /// wyglądałoby dokładnie tak samo jak „droga wolna", a to dwie różne rzeczy.</para>
+    /// </summary>
+    private string SignallingLine()
+    {
+        if (!_lineMode)
+        {
+            return string.Empty;
+        }
+
+        if (_lineCore is null || _protection is null)
+        {
+            return "bez sygnalizacji — przejazd bez blokad (podaj --signalling)";
+        }
+
+        var train = _lineCore.Trains[0];
+        if (train.Drive is null || train.Authority is not MovementAuthority authority)
+        {
+            return "sygnalizacja: skład jeszcze nie wjechał na plan";
+        }
+
+        var decision = _protection.Supervise(_lineCore.Signalling, train.Id, _state.SpeedMps);
+        var ostrzezenie = decision.Overspeed ? "  PRZEKROCZENIE" : string.Empty;
+        var ingerencja = decision.Action == ProtectionAction.None
+            ? string.Empty
+            : $"  ATP: {decision.Action}";
+        return string.Create(
+            CultureInfo.InvariantCulture,
+            $"v_dop {Units.MpsToKmh(decision.PermittedSpeedMps),5:F1} km/h   "
+            + $"autorytet {authority.DistanceM,7:F0} m ({authority.Reason}, blok {authority.LimitBlockId})   "
+            + $"tras {_lineCore.Dispatcher.Locked}/odmów {_lineCore.Dispatcher.Refused}"
+            + $"{ostrzezenie}{ingerencja}");
     }
 
     /// <summary>Wiersz HUD o stacji: cykl drzwi albo dojazd, plus rejestr wywołań.</summary>
@@ -919,9 +1059,17 @@ public sealed partial class FirstRun : Node3D
     /// </summary>
     private void FastForwardToShot()
     {
-        if (_line is not null)
+        if (_lineMode)
         {
-            // Migawka z przejazdu linią. Dwa różne cele wymagają dwóch różnych warunków
+            // Warunek jest na TRYB, nie na `_line`, i to jest naprawa trzeciego
+            // wystąpienia tej samej usterki w tym pliku. `LineCore` tworzy prowadzenie
+            // LENIWIE — dopiero w pierwszym `Step`, w fazie wyjazdów — więc w chwili
+            // wejścia tutaj `_line` jest jeszcze NULLEM. Gałąź na `_line is not null`
+            // spadała wtedy do przebiegu skryptowego i wchodziła w `_scripted!` na
+            // nullu: zrzut wisiał do timeoutu 400 s i nie powstawał żaden plik.
+            // Dokładnie tak jak przy `StepOnce` przed #212.
+            //
+            // Dwa różne cele wymagają dwóch różnych warunków
             // końca i to jest cała treść tego rozgałęzienia.
             //
             // CEL W TUNELU: jedziemy, aż czoło minie zadany kilometraż. Prosto.
@@ -948,8 +1096,9 @@ public sealed partial class FirstRun : Node3D
 
             if (celowaneWPeron)
             {
-                while (!_line.Finished
-                       && !(_line.AtStation
+                while (!(_line is not null && _line.Finished)
+                       && !(_line is not null
+                            && _line.AtStation
                             && _line.Phase == DoorPhase.Open
                             && Math.Abs(ChainageM - _shotChainageM) <= okno)
                        && StepOnce())
@@ -958,7 +1107,9 @@ public sealed partial class FirstRun : Node3D
             }
             else
             {
-                while (!_line.Finished && ChainageM < _shotChainageM && StepOnce())
+                while (!(_line is not null && _line.Finished)
+                       && ChainageM < _shotChainageM
+                       && StepOnce())
                 {
                 }
             }

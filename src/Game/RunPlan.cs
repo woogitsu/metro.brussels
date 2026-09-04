@@ -33,7 +33,7 @@ public sealed class RunPlan
     {
         "telemetry", "shot", "sample-every", "steps-per-frame", "jitter",
         "at-chainage", "view", "axis", "no-geometry", "assets", "manifest", "shell",
-        "line", "calls", "limit-kmh",
+        "line", "calls", "limit-kmh", "signalling",
     };
 
     /// <summary>Widoki, jakie scena potrafi ustawić. Inna wartość jest BŁĘDEM, nie domyślną.</summary>
@@ -108,6 +108,21 @@ public sealed class RunPlan
     /// w <c>LineRunSettings</c>, gdzie konstruktor celowo nie ma domyślnych.</para>
     /// </summary>
     public double LimitKmh { get; private init; }
+
+    /// <summary>
+    /// Plan sygnalizacji dla przejazdu linią; <c>null</c> znaczy „bez sygnalizacji".
+    ///
+    /// <para><b>Jawny argument, a nie ciche wykrywanie.</b> Scena mogłaby próbować
+    /// znaleźć plan dla osi sama i po cichu jechać bez sygnalizacji, gdy go nie ma —
+    /// i to jest dokładnie ta rodzina usterek, którą to repozytorium zbierało: przebieg
+    /// kończy się kodem zero, a nikt nie wie, czy sygnalizacja w nim była. Bez tego
+    /// argumentu przejazd jedzie bez blokad i HUD mówi to wprost; z nim prowadzi
+    /// <c>LineCore</c>, czyli linia z nastawnią i autorytetem jazdy.</para>
+    ///
+    /// <para>Plan musi pochodzić z TEJ SAMEJ osi — <c>LineCore</c> odrzuca niezgodną
+    /// parę, bo autorytet i cel hamowania liczyłyby się wtedy w dwóch układach.</para>
+    /// </summary>
+    public string? SignallingPath { get; private init; }
 
     /// <summary>Nazwa trybu do nagłówka logu i do HUD-a.</summary>
     public string Mode => TelemetryPath is not null ? "telemetry"
@@ -227,6 +242,13 @@ public sealed class RunPlan
                 + "T-401, od góry 80 km/h z rejestru pojazdu");
         }
 
+        if (arguments.ContainsKey("signalling") && !arguments.ContainsKey("line"))
+        {
+            return Refusal(arguments, exitBadArgumentValue,
+                "[ARGUMENT] --signalling ma sens tylko z --line: przebieg skryptowy i ręczny "
+                + "nie mają składu zarejestrowanego w sygnalizacji");
+        }
+
         if (arguments.ContainsKey("limit-kmh") && !arguments.ContainsKey("line"))
         {
             return Refusal(arguments, exitBadArgumentValue,
@@ -247,6 +269,7 @@ public sealed class RunPlan
             ShotPath = Argument(arguments, "shot"),
             CallsPath = Argument(arguments, "calls"),
             LimitKmh = limitKmh,
+            SignallingPath = Argument(arguments, "signalling"),
             SampleEvery = sampleEvery,
             StepsPerFrame = stepsPerFrame,
             Jitter = jitter,

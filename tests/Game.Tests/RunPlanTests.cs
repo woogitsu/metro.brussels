@@ -102,6 +102,7 @@ public sealed class RunPlanTests
             ["line"] = new[] { "--limit-kmh=70" },
             ["limit-kmh"] = new[] { "--line" },
             ["calls"] = new[] { "--line", "--limit-kmh=70" },
+            ["signalling"] = new[] { "--line", "--limit-kmh=70" },
         };
 
         foreach (var name in RunPlan.KnownArguments)
@@ -678,5 +679,33 @@ public sealed class RunPlanTests
             Assert.IsFalse(plan.IsValid, $"{zly} przeszło");
             Assert.AreEqual(BadArgumentValue, plan.ExitCode, zly);
         }
+    }
+
+    [TestMethod]
+    public void SignallingOnlyMakesSenseWithLineMode()
+    {
+        // Przebieg skryptowy i ręczny nie mają składu zarejestrowanego w sygnalizacji,
+        // więc plan byłby wczytany i nieużyty. Argument, który nic nie robi, jest gorszy
+        // od nieznanego: nieznany zatrzymuje przebieg, a bezczynny wygląda jak działający.
+        var samo = Parse("--signalling=/tmp/plan.json");
+        Assert.IsFalse(samo.IsValid, "--signalling przeszło bez --line");
+        Assert.IsTrue(samo.Error!.Contains("--signalling"), samo.Error);
+        Assert.AreEqual(BadArgumentValue, samo.ExitCode);
+    }
+
+    [TestMethod]
+    public void LineModeWithoutSignallingIsValidAndSaysSoByLeavingThePathNull()
+    {
+        // Brak planu NIE jest błędem — jest wyborem „jedź bez blokad", i scena mówi to
+        // wprost w HUD. Ciche wykrywanie planu dla osi dałoby przebieg, o którym nie
+        // da się powiedzieć, czy sygnalizacja w nim była.
+        var bez = Parse("--line", "--limit-kmh=70");
+        Assert.IsTrue(bez.IsValid, bez.Error);
+        Assert.IsNull(bez.SignallingPath);
+
+        var z = Parse("--line", "--limit-kmh=70", "--signalling=/tmp/plan.json");
+        Assert.IsTrue(z.IsValid, z.Error);
+        Assert.AreEqual("/tmp/plan.json", z.SignallingPath);
+        Assert.IsTrue(z.LineMode);
     }
 }

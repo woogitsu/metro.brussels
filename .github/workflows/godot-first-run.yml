@@ -378,6 +378,31 @@ jobs:
           test "$rc" -ne 0 || { echo "BŁĄD: różnica 1 mm przeszła porównanie" >&2; exit 1; }
           echo "[NEGATYW] różnica 1 mm w jednym zatrzymaniu odrzucona, tak jak ma być"
 
+      - name: Line run under signalling gives the SAME calls
+        shell: bash
+        # Ten sam przejazd, ale prowadzony `LineCore` — czyli linią z nastawnią
+        # automatyczną i autorytetem jazdy. Zatrzymania MUSZĄ wyjść identyczne
+        # z przejazdem bez sygnalizacji, i to jest cała treść tego kroku: sygnalizacja
+        # nie ma prawa dołożyć samotnemu składowi ani jednej sekundy. Gdyby dokładała,
+        # każdy zmierzony czas jazdy w tym repozytorium byłby do przeliczenia.
+        #
+        # Porównanie idzie z plikiem RDZENIA (bez sygnalizacji) z kroku wyżej, a nie
+        # z drugim przebiegiem sceny — inaczej zgodność mogłaby zachodzić przez wspólny
+        # błąd obu stron.
+        run: |
+          set -euo pipefail
+          "$GODOT_BIN" --headless --path src/Game -- \
+            --line --limit-kmh=70 \
+            --signalling="$PWD/data/design/signalling/classic-2026.json" \
+            --calls="$PWD/build/t400/linia/scene-signalling-calls.csv" \
+            | tee build/t400/linia/signalling.log
+          grep -q "^\[SYGNALIZACJA\] 23 bloków, 11 tras, wymaga tras: True" \
+            build/t400/linia/signalling.log \
+            || { echo "BŁĄD: scena nie wczytała planu, którego wymaga ten krok" >&2; exit 1; }
+          python3 tools/ci/assert_line_calls_match.py \
+            build/t400/linia/core-calls.csv \
+            build/t400/linia/scene-signalling-calls.csv --expect-calls 11
+
       - name: Line run — a shot at the platform must show open doors
         shell: bash
         # Zrzut z peronu Beekkant. Bramka nie oglądałaby obrazka, więc sprawdza to, co
