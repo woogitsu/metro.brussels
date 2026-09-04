@@ -17,6 +17,7 @@ sys.path.insert(0, os.path.join(ROOT, "tools", "blender"))
 
 import m7_layout  # noqa: E402
 import profiles  # noqa: E402
+import station_components  # noqa: E402
 import sweep  # noqa: E402
 
 AUDIT = os.path.join(ROOT, "docs", "21-measured-vs-assumed.md")
@@ -180,3 +181,20 @@ def _format(value):
     if isinstance(value, float) and value != int(value):
         return f"{value}".replace(".", ",")
     return str(int(value)) if isinstance(value, float) else str(value)
+
+
+def test_audit_covers_every_station_component_constant():
+    """Stała projektowa bez wpisu w audycie jest liczbą, która udaje pomiar.
+
+    T-212 dokłada siedemnaście takich stałych naraz — schody, winda, antresola,
+    korytarz, portal — i żadna nie ma źródła. To jest dokładnie ta sytuacja, dla
+    której audyt powstał: dużo liczb naraz, wszystkie brzmiące rozsądnie, żadna
+    nie pochodząca ze STIB.
+    """
+    text = _audit_text()
+    constants = [n for n in dir(station_components)
+                 if n.startswith("DESIGN_") and n != "DESIGN_ASSUMPTIONS"]
+    assert len(constants) >= 15, constants
+    missing = [n for n in constants if f"`{n}`" not in text]
+    assert not missing, f"stałe T-212 bez wpisu w audycie: {missing}"
+    assert "design_assumption" in text

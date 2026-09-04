@@ -37,8 +37,11 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 sys.path.insert(0, HERE)
 
+sys.path.insert(0, os.path.join(ROOT, "tools", "track"))
+
 import placement as PL  # noqa: E402
 import profiles  # noqa: E402
+import station_components as SC  # noqa: E402
 import sweep as SW  # noqa: E402
 
 #: ZAŁOŻENIE 2. O tyle peron cofa się od ściany komory, żeby nie wchodzić w nią siatką.
@@ -57,6 +60,9 @@ DESIGN_ASSUMPTIONS = {
     "DESIGN_SOLID_FROM_RAIL_HEAD": DESIGN_SOLID_FROM_RAIL_HEAD,
 }
 
+#: Peron i pas ostrzegawczy są z T-211; reszta z T-212 i z `station_components`.
+ALL_COMPONENTS = ("platform", "edge") + SC.COMPONENTS
+
 
 def parse_args():
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
@@ -70,7 +76,46 @@ def parse_args():
     parser.add_argument("--out", required=True)
     parser.add_argument("--metrics")
     parser.add_argument("--only-station", help="zbuduj tylko ten peron, po nazwie")
-    return parser.parse_args(argv)
+    parser.add_argument("--component", action="append", choices=list(ALL_COMPONENTS),
+                        help="element do zbudowania; można podać wiele razy. "
+                             "Bez tego budowane są wszystkie")
+    parser.add_argument("--access-side", type=int, default=1, choices=(1, -1),
+                        help="strona osi, po której stoi zespół dostępu")
+    args = parser.parse_args(argv)
+    args.component = tuple(args.component) if args.component else ALL_COMPONENTS
+    return args
+
+
+def straight_prism(points, stations, at_m, length_m, section):
+    """Graniastosłup PROSTY w ramce lokalnej — dla brył krótkich i poprzecznych.
+
+    Zamiatanie po łuku (`sweep_section`) ma sens dla peronu i antresoli, które idą
+    wzdłuż osi na dziesiątki metrów. Schody, winda, korytarz i portal są krótkie albo
+    stoją w poprzek toru; zamiatanie ich po łuku wykręciłoby stopień i szyb windy.
+    Błąd prostej wobec łuku na `length_m` to strzałka cięciwy: przy najciaśniejszym
+    promieniu pakietu A (97 m) i najdłuższej takiej bryle (4,0 m portalu) wychodzi
+    20,6 mm — mniej niż grubość płyty i mniej niż szczelina peron–pudło.
+    """
+    position, index, _t = PL.frame_at(points, stations, at_m)
+    forward = SW.unit(SW.sub(points[min(index + 1, len(points) - 1)], points[index])) \
+        if index + 1 < len(points) else (1.0, 0.0, 0.0)
+    right = SW.unit(SW.cross(forward, SW.UP_WORLD))
+    up = SW.unit(SW.cross(right, forward))
+
+    verts = []
+    for distance in (0.0, length_m):
+        origin = SW.add(position, SW.scale(forward, distance))
+        for y, z in section:
+            verts.append(SW.add(origin, SW.add(SW.scale(right, y), SW.scale(up, z))))
+
+    width = len(section)
+    faces = []
+    for i in range(width):
+        j = (i + 1) % width
+        faces.append((i, j, width + j, width + i))
+    faces.append(tuple(range(width - 1, -1, -1)))
+    faces.append(tuple(range(width, 2 * width)))
+    return verts, faces
 
 
 def wall_offset_m(profile_name):
@@ -210,7 +255,23 @@ def main():
     for obj in list(bpy.data.objects):
         bpy.data.objects.remove(obj, do_unlink=True)
 
+    ceiling_m = max(z for _x, z in profiles.profile_points(args.profile))
+    level = SC.levels(height_m, ceiling_m)
+    print(f"[STACJA] poziomy: peron {level['platform_top_m']:.2f} m, strop komory "
+          f"{level['chamber_ceiling_m']:.2f} m (w świetle {level['chamber_clear_m']:.2f} m), "
+          f"antresola {level['mezzanine_floor_m']:.2f}–{level['mezzanine_ceiling_m']:.2f} m, "
+          f"wznoszenie schodów {level['stair_rise_m']:.2f} m")
+    print(f"[STACJA] elementy: {', '.join(args.component)}")
+    print(f"[STACJA] peron: decyzja właściciela {SC.DESIGN_PLATFORM_LENGTH_M:.1f} m "
+          f"(skład M7 94,0 m + 1,0 m zapasu), kontrola R-007: obrys stacji "
+          f"{SC.TIGHTEST_STATION_FOOTPRINT_M:.1f} m (Parc)")
+    print(f"[STACJA] założenia projektowe T-212 ({len(SC.DESIGN_ASSUMPTIONS)}): "
+          + ", ".join(f"{k}={v}" for k, v in SC.DESIGN_ASSUMPTIONS.items()))
+    for line in SC.NOT_MODELLED:
+        print(f"[STACJA] nie modelowane: {line}")
+
     built = []
+    per_kind = {}
     for platform in selected_platforms(layout["platforms"], args.only_station):
         minimum = platform["minimum_edge_offset_m"]
         safe = "".join(c if c.isalnum() else "_" for c in (platform["name"] or "x"))[:24]
@@ -218,13 +279,45 @@ def main():
             slab, strip = slab_sections(args.platform_gap_m, minimum, wall_m, height_m,
                                         track, side)
             tag = side_tag(side)
-            for kind, section in (("slab", slab), ("edge", strip)):
+            for kind, section in (("platform", slab), ("edge", strip)):
+                if kind not in args.component:
+                    continue
                 verts, faces = sweep_section(points, stations, platform["from_m"],
                                              platform["to_m"], section, args.ring_step_m)
                 built.append(build_mesh(f"{safe}_{tag}_{kind}", verts, faces))
+                per_kind[kind] = per_kind.get(kind, 0) + 1
         print(f"[PERON] {platform['name']}: {platform['from_m']:.1f}–{platform['to_m']:.1f} m, "
               f"krawędź {minimum + args.platform_gap_m:.4f} m od toru "
               f"(minimum {minimum:.4f} + szczelina {args.platform_gap_m:.3f})")
+
+        wanted = tuple(c for c in args.component if c in SC.COMPONENTS)
+        if not wanted:
+            continue
+        # Kontrola z R-007 §5 pkt 3, wykonywana, a nie opisana: peron dłuższy niż
+        # najciaśniejszy obrys stacji pakietu A jest na pewno błędny, a zespół dostępu
+        # postawiony na takim peronie byłby błędny razem z nim. Generator staje.
+        if not SC.platform_fits_the_station(platform["length_m"]):
+            raise SystemExit(
+                f"BŁĄD: peron {platform['name']} ma {platform['length_m']:.1f} m, "
+                f"a najciaśniejszy obrys stacji pakietu A to "
+                f"{SC.TIGHTEST_STATION_FOOTPRINT_M:.1f} m (Parc, R-007) — peron dłuższy "
+                "niż obrys stacji jest na pewno błędny")
+        if platform["length_m"] < SC.DESIGN_MEZZANINE_LENGTH_M + SC.DESIGN_ACCESS_SETBACK_M:
+            print(f"[STACJA] {platform['name']}: peron {platform['length_m']:.1f} m jest "
+                  f"krótszy niż zespół dostępu "
+                  f"({SC.DESIGN_MEZZANINE_LENGTH_M + SC.DESIGN_ACCESS_SETBACK_M:.1f} m) "
+                  "— pomijam; peron przycięty do końca osi nie jest stacją typową")
+            continue
+        for solid in SC.station_solids(platform, level, wall_m, wanted, args.access_side):
+            if solid["follows_axis"]:
+                verts, faces = sweep_section(points, stations, solid["at_m"],
+                                             solid["at_m"] + solid["length_m"],
+                                             solid["section"], args.ring_step_m)
+            else:
+                verts, faces = straight_prism(points, stations, solid["at_m"],
+                                              solid["length_m"], solid["section"])
+            built.append(build_mesh(f"{safe}_{solid['name']}", verts, faces))
+            per_kind[solid["kind"]] = per_kind.get(solid["kind"], 0) + 1
 
     if not built:
         raise SystemExit("BŁĄD: nie zbudowano ani jednej bryły — sprawdź --only-station")
@@ -240,6 +333,8 @@ def main():
     vertices = sum(len(o.data.vertices) for o in built)
     faces = sum(len(o.data.polygons) for o in built)
     print(f"[PERON] {len(built)} brył, {vertices} wierzchołków, {faces} ścian -> {out}")
+    print("[STACJA] brył per element: "
+          + ", ".join(f"{k}={v}" for k, v in sorted(per_kind.items())))
 
     if args.metrics:
         metrics_path = resolve(args.metrics)
@@ -255,8 +350,13 @@ def main():
                 "objects": len(built),
                 "vertices": vertices,
                 "faces": faces,
+                "components": list(args.component),
+                "objects_per_component": per_kind,
+                "access_side": args.access_side,
+                "levels": level,
                 "design_assumptions": DESIGN_ASSUMPTIONS,
-                "not_modelled": layout["not_modelled"],
+                "design_assumptions_t212": SC.DESIGN_ASSUMPTIONS,
+                "not_modelled": list(layout["not_modelled"]) + list(SC.NOT_MODELLED),
             }, handle, ensure_ascii=False, indent=1)
             handle.write("\n")
         print(f"[RAPORT] {metrics_path}")

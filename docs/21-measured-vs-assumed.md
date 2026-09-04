@@ -260,6 +260,63 @@ wyglądałaby dokładnie tak samo jak ograniczenie ze źródła STIB.
 
 Szczegóły i pełne wyjście: `reports/T-113-timetable.md`.
 
+## 4e. Elementy stacji ponad peronem (`tools/track/station_components.py`, T-212)
+
+**Wszystkie wartości w tej sekcji mają status `design_assumption`. Żadna nie pochodzi
+ze STIB.** R-007 ustalił, że STIB nie publikuje rzutów stacji, a obrysy z UrbIS mówią
+tylko, ile miejsca stacja zajmuje na powierzchni. Układ zbudowany przez T-212 jest
+**kanoniczny**, a nie odwzorowaniem którejkolwiek brukselskiej stacji, i tak jest opisany
+w `not_modelled` metryk oraz w `reports/T-212-station.md`.
+
+| stała | wartość | co opisuje |
+|---|---|---|
+| `DESIGN_STAIR_RISER_M` | 0,17 m | wysokość stopnia; z `DESIGN_STAIR_GOING_M` daje wzór Blondela 2·podstopnica + stopnica = 0,63 m |
+| `DESIGN_STAIR_GOING_M` | 0,29 m | głębokość stopnia |
+| `DESIGN_STAIR_WIDTH_M` | 2,40 m | szerokość biegu |
+| `DESIGN_STAIR_MAX_RISERS` | 16 | najwięcej stopni w biegu bez spocznika |
+| `DESIGN_STAIR_LANDING_M` | 1,20 m | długość spocznika |
+| `DESIGN_LIFT_PLAN_M` | 2,10 × 2,60 m | rzut szybu windy |
+| `DESIGN_SLAB_THICKNESS_M` | 0,40 m | grubość płyty antresoli |
+| `DESIGN_MEZZANINE_CLEAR_M` | 2,60 m | wysokość w świetle na antresoli |
+| `DESIGN_MEZZANINE_LENGTH_M` | 24,0 m | rozciągłość antresoli wzdłuż osi |
+| `DESIGN_CORRIDOR_WIDTH_M` | 3,00 m | szerokość korytarza do portalu |
+| `DESIGN_CORRIDOR_CLEAR_M` | 2,40 m | wysokość korytarza w świetle |
+| `DESIGN_CORRIDOR_LENGTH_M` | 12,0 m | długość korytarza od ściany komory |
+| `DESIGN_PORTAL_WIDTH_M` | 4,00 m | szerokość portalu wejściowego |
+| `DESIGN_PORTAL_CLEAR_M` | 2,60 m | wysokość portalu w świetle |
+| `DESIGN_PORTAL_DEPTH_M` | 1,50 m | głębokość portalu |
+| `DESIGN_ACCESS_SETBACK_M` | 4,0 m | odsunięcie zespołu dostępu od końca peronu |
+| `DESIGN_VOID_MARGIN_M` | 0,30 m | zapas otworu antresoli wokół obrysu schodów i windy |
+| `DESIGN_PLATFORM_LENGTH_M` | 95,0 m | długość peronu, na której stoi zespół dostępu — decyzja właściciela z 04.09.2026 (patrz akapit niżej) |
+
+**Długość peronu 95,0 m ma dwie granice, których nie wybrano — udowodniono je w R-007.**
+Dolna to długość składu M7 **94,0 m** (`data/vehicle/m7-spec.json`, status `spec`): peron
+krótszy od składu jest sprzeczny z ruchem bez selektywnego otwierania drzwi, którego STIB
+nie stosuje. Górna to obrys stacji z UrbIS (poligony `MS`, CC0), najciaśniej **Parc
+109,1 m** — R-007 §5 pkt 3 robi z niej **kontrolę**: „generator dający peron dłuższy niż
+obrys stacji jest na pewno błędny". Sama liczba 109,1 m **nie jest** `design_assumption`,
+jest pomiarem, i dlatego stoi w kodzie poza `DESIGN_ASSUMPTIONS`, jako
+`TIGHTEST_STATION_FOOTPRINT_M`. Kontrolę wykonuje `platform_fits_the_station()`, wołane
+przez `station_kit.py` przed postawieniem zespołu, i pilnuje jej
+`test_components_platform_length_stays_within_the_tightest_station_footprint`.
+
+Wybór **95,0 m** wewnątrz tych granic jest jedyną decyzją i jest to składowa suma:
+94,0 m składu **plus metr zapasu, po 0,50 m z każdej strony**. Zapas nie jest okrągły dla
+ozdoby — 1,00 m to **3,2×** największy zmierzony błąd zatrzymania autopilota na pakiecie A
+(0,307 m, `reports/T-401-line-run.md` §2). Wartość mieści się też w rozrzucie peronów OSM
+z R-007 §4: 26 z 28 leży w 94,76 ± 0,78 m, czyli do 95,54 m. **Poprzednia wartość tego
+zadania, 110 m, wpadała w kontrolę** — przekraczała obrys Parc o 0,9 m — i została
+zmieniona 04.09.2026 decyzją właściciela.
+
+**Co NIE jest tu założeniem.** Poziomy stacji nie są wpisane — są liczone z profilu
+`station` i z wysokości peronu: strop komory 5,30 m i peron 1,03 m dają 4,27 m w świetle,
+a stąd wynika, że antresola nie mieści się WEWNĄTRZ komory (płyta 0,40 m plus 2,60 m
+w świetle zostawiłyby górnemu poziomowi 1,27 m). Antresola idzie więc nad stropem
+i to jest rachunek, nie wybór. Wysokość peronu 1,03 m ma status `spec`.
+
+**Świadomie niemodelowane w T-212:** rzut stacji, liczba i położenie wyjść, bramki
+biletowe i kasy, konstrukcja (słupy, belki, dylatacje), instalacje.
+
 ## 5. Co jest zablokowane i czym
 
 | potrzebne | blokuje | zadanie |
