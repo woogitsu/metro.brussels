@@ -80,6 +80,57 @@ SWEPT_DIRECTIONS = 32
 # Domyślny zakres zamiatanej obwiedni: +/- 150 m wokół najgorszej pozycji.
 DEFAULT_SWEPT_HALF_RANGE_M = 150.0
 
+#: Dwustronna tolerancja progu luzu. DECYZJA WŁAŚCICIELA z 04.09.2026, pozycje 3 i 4
+#: w `docs/24-clearance-profile-decisions.md`.
+#:
+#: Pytanie brzmiało „czy luz DOKŁADNIE równy progowi jest naruszeniem" i miało dwie
+#: równie dobre odpowiedzi (`<` albo `<=`). Wybrana jest trzecia: próg przestaje być
+#: pytaniem o operator, bo granica staje się nazwanym PASMEM, które się RAPORTUJE.
+#: Luz w odległości mniejszej niż ta tolerancja od progu nie jest ani po cichu
+#: w porządku, ani po cichu naruszeniem — jest zgłaszany jako „na progu".
+#:
+#: Dlaczego 1 mm, a nie liczba wzięta z powietrza: ten moduł ZAPISUJE progi
+#: z dokładnością milimetra (`round(threshold_m, 3)` w `critical_places`,
+#: `f"{t:.3f}"` w `statistics`). Poniżej milimetra nie ma więc w wyjściu informacji,
+#: po której stronie progu leży wartość — rozstrzyganie tam operatorem jest
+#: rozstrzyganiem o czymś, czego raport i tak nie odnotowuje. Tolerancja równa
+#: rozdzielczości zapisu jest jedyną, która nie udaje precyzji większej niż istniejąca.
+#:
+#: Powód, dla którego to nie jest kosmetyka, jest zmierzony: minimum luzu na pakiecie A
+#: wynosi 0,899948 m przy progu raportowania 0,900 m — 52 µm. Gdyby wypadło o te
+#: 52 µm wyżej, `<` nie zgłosiłby najciaśniejszego miejsca na pakiecie W OGÓLE.
+#: Pasmo ±1 mm zgłasza je w obu przypadkach.
+THRESHOLD_TOLERANCE_M = 0.001
+
+#: Pasmo liczy się w MILIMETRACH CAŁKOWITYCH, nie przez `abs(v - t) <= tolerancja`.
+#:
+#: Pierwsza wersja porównywała floaty i przywracała dokładnie to pytanie, które
+#: tolerancja miała usunąć — tylko o poziom niżej. Zmierzone: `abs(0.899 - 0.900)`
+#: daje `0.0010000000000000009`, czyli WIĘCEJ niż `0.001`, więc luz milimetr pod
+#: progiem wypadał z pasma, a `abs(0.9005 - 0.900)` daje `0.0004999999999999449`
+#: i wpadał. Granica pasma rozstrzygała się reprezentacją binarną, nie decyzją.
+#:
+#: Liczby całkowite nie mają tego problemu i mówią wprost, co pasmo znaczy:
+#: „w odległości najwyżej jednego zapisanego milimetra". To ta sama rozdzielczość,
+#: z której tolerancja się wywodzi, więc jedno wyprowadzenie zamiast dwóch.
+THRESHOLD_TOLERANCE_MM = 1
+
+
+def _millimetres(value_m):
+    """Metry na milimetry całkowite — rozdzielczość, w której moduł zapisuje progi."""
+    return int(round(value_m * 1000.0))
+
+
+def within_threshold_band(clearance_m, threshold_m):
+    """Czy luz leży w pasmie granicznym progu (±`THRESHOLD_TOLERANCE_MM`)."""
+    return abs(_millimetres(clearance_m) - _millimetres(threshold_m)) <= THRESHOLD_TOLERANCE_MM
+
+
+def at_or_below_threshold(clearance_m, threshold_m):
+    """Czy luz jest pod progiem ALBO w jego pasmie granicznym."""
+    return _millimetres(clearance_m) <= _millimetres(threshold_m) + THRESHOLD_TOLERANCE_MM
+
+
 CONVEXITY_EPS = 1e-9
 
 
@@ -450,8 +501,14 @@ def refine_windows(records, step_m, band_m=DEFAULT_REFINE_BAND_M, half_window_m=
         half_window_m = max(step_m, DEFAULT_REFINE_HALF_WINDOW_M)
     if not records:
         return []
+    # Ta sama konwencja pasma, co przy progach raportowania — pozycja 4 `docs/24`
+    # zauważyła, że dobór używał `<=`, a raportowanie `<`: ta sama wielkość, ta sama
+    # jednostka, przeciwna konwencja na granicy. Teraz obie strony czytają jednakowo,
+    # a konsekwencja liczbowa jest ZEROWA i to zmierzone: pasmo doboru ma 50 mm, więc
+    # zmiana dotyczy wyłącznie pozycji o luzie równym `min + 0,050` co do milimetra.
     floor_value = min(r["clearance_m"] for r in records) + band_m
-    picked = sorted(r["start_m"] for r in records if r["clearance_m"] <= floor_value)
+    picked = sorted(r["start_m"] for r in records
+                    if at_or_below_threshold(r["clearance_m"], floor_value))
     windows = []
     for start in picked:
         low, high = start - half_window_m, start + half_window_m
@@ -492,7 +549,14 @@ def statistics(records, thresholds=DEFAULT_THRESHOLDS_M):
         "p95_clearance_m": round(percentile(values, 0.95), 6),
         "max_clearance_m": round(max(values), 6),
         "bound_by_counts": dict(sorted(bound.items())),
+        # `below_threshold` zostaje ŚCIŚLE poniżej progu i nie zmienia znaczenia:
+        # czyta je `profile_vehicle.py` i przybijają je testy. Pasmo dochodzi jako
+        # OSOBNY klucz, więc stara liczba dalej znaczy to samo, co znaczyła.
         "below_threshold": {f"{t:.3f}": sum(1 for v in values if v < t) for t in thresholds},
+        "at_threshold": {f"{t:.3f}": sum(1 for v in values
+                                         if within_threshold_band(v, t))
+                         for t in thresholds},
+        "threshold_tolerance_m": THRESHOLD_TOLERANCE_M,
         "negative_positions": sum(1 for v in values if v < 0.0),
     }
 
@@ -527,12 +591,19 @@ def between_stations(stations_doc, chainage_m):
 
 
 def critical_places(records, threshold_m, stations_doc, gap_m=CRITICAL_CLUSTER_GAP_M):
-    """Miejsca na TRASIE, w których luz spada poniżej progu — jeden wpis na miejsce.
+    """Miejsca na TRASIE, w których luz spada do progu — jeden wpis na miejsce.
 
     Grupowanie idzie po chainage punktu styku, nie po pozycji składu: jeden ciasny łuk
     widziany z kilkuset pozycji składu to jedno miejsce w tunelu, a nie kilkaset wpisów.
+
+    Zakres jest PASMEM, nie stroną operatora (decyzja właściciela, `THRESHOLD_TOLERANCE_MM`).
+    Wpada w niego wszystko do `próg + jeden milimetr` włącznie, a każdy wpis mówi w polu
+    `at_threshold`, czy jego minimum leży w pasmie granicznym, czy jest już ściśle
+    pod progiem. Rozszerzenie zakresu nie może wywrócić CI: `vehicle_clearance.sh`
+    te wpisy WYPISUJE, a do listy `problems` ich nie dodaje — sprawdzone w kodzie
+    bramki, nie założone.
     """
-    below = [r for r in records if r["clearance_m"] < threshold_m]
+    below = [r for r in records if at_or_below_threshold(r["clearance_m"], threshold_m)]
     if not below:
         return []
     below.sort(key=lambda r: r["chainage_m"])
@@ -547,6 +618,7 @@ def critical_places(records, threshold_m, stations_doc, gap_m=CRITICAL_CLUSTER_G
         worst = min(run, key=lambda r: r["clearance_m"])
         out.append({
             "threshold_m": round(threshold_m, 3),
+            "at_threshold": within_threshold_band(worst["clearance_m"], threshold_m),
             "from_chainage_m": round(run[0]["chainage_m"], 2),
             "to_chainage_m": round(run[-1]["chainage_m"], 2),
             "positions": len(run),
