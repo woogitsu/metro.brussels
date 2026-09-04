@@ -20,18 +20,22 @@ dotnet test tests/Sim.Tests          # rdzeń symulacji, bez Godota
 
 ## Stan: co działa, a czego nie ma
 
-**Rdzeń symulacji — `src/Sim/`, 44 pliki `.cs`, kompiluje się i testuje bez silnika:**
+**Rdzeń symulacji — `src/Sim/`, 45 plików `.cs`, kompiluje się i testuje bez silnika:**
 
 - fizyka: model trakcji M7, opór Davisa, hamowanie służbowe i granica przyczepności,
   krok stały 1/120 s liczony **licznikiem kroków**, nigdy `t += dt`;
 - sygnalizacja: bloki stałe, autoryzacja jazdy, ochrona pociągu, obszar testowy CBTC;
-- prowadzenie: scenariusz jazdy, przejazd linią, cykl drzwi, postój na stacji;
+- prowadzenie: scenariusz jazdy, przejazd linią, cykl drzwi, postój na stacji,
+  obsługa stacji dla składu prowadzonego ręcznie (okno zatrzymania, blokada trakcji);
 - każdy parametr niesie status (`spec`, `source_backed`, `design_assumption`, `unknown`) —
   wartość bez źródła nie da się podstawić po cichu.
 
 **Warstwa silnika — `src/Game/`, projekt Godot 4.7 mono:**
 
 - jeden skład M7 jedzie 6,56 km po pakiecie A, napędzany rdzeniem;
+- **przejazd zatrzymuje się na stacjach**: dojazd w okno ±5 m otwiera cykl drzwi,
+  trakcja jest zablokowana do potwierdzenia zamknięcia, przejechana stacja ląduje
+  w liczniku miniętych; błąd zatrzymania jest mierzony i pokazywany;
 - rozjazd Godot ↔ rdzeń **0,000 m**, ten sam odcisk telemetrii przy nierównym podziale
   klatek (`reports/T-400-first-run.md`);
 - zrzuty z silnika idą przez tę samą kontrolę wizualną co geometria, odtwarzalne co do

@@ -4,8 +4,8 @@ using Godot;
 namespace MetroBxl.Game.UI;
 
 /// <summary>
-/// Podgląd stanu przejazdu. Trzy pola tekstowe i nic więcej: prędkość, położenie na
-/// osi i to, co robią nastawniki.
+/// Podgląd stanu przejazdu. Cztery pola tekstowe i nic więcej: prędkość, położenie na
+/// osi, to co robią nastawniki, i stacja — dojazd albo faza cyklu drzwi.
 ///
 /// <b>Bez brandingu.</b> <c>docs/03-legal.md</c> zabrania logo, map sieci, piktogramów
 /// i wystroju STIB/MIVB. HUD jest gołym tekstem na półprzezroczystym tle i nie udaje
@@ -16,6 +16,7 @@ public sealed partial class Hud : CanvasLayer
     private Label? _speed;
     private Label? _position;
     private Label? _controls;
+    private Label? _station;
 
     /// <inheritdoc/>
     public override void _Ready()
@@ -23,14 +24,21 @@ public sealed partial class Hud : CanvasLayer
         _speed = GetNode<Label>("Panel/Rows/Speed");
         _position = GetNode<Label>("Panel/Rows/Position");
         _controls = GetNode<Label>("Panel/Rows/Controls");
+        _station = GetNode<Label>("Panel/Rows/Station");
 
-        foreach (var label in new[] { _speed, _position, _controls })
+        foreach (var label in new[] { _speed, _position, _controls, _station })
         {
             label.AddThemeFontSizeOverride("font_size", 20);
             label.AddThemeColorOverride("font_color", new Color(0.92f, 0.94f, 0.96f));
         }
 
         _speed.AddThemeFontSizeOverride("font_size", 34);
+
+        // Wiersz stacji startuje UKRYTY. W .tscn ma tekst zastępczy, żeby scena dała się
+        // otworzyć w edytorze, a widoczność ustawia dopiero `Update` — inaczej przebieg
+        // bez obsługi stacji (skryptowy, czyli każdy zrzut kontrolny) miałby na pierwszej
+        // klatce czwarty wiersz i bramka wizualna zapłaciłaby za tekst zastępczy.
+        _station.Visible = false;
     }
 
     /// <summary>Odświeża wszystkie trzy wiersze.</summary>
@@ -43,6 +51,12 @@ public sealed partial class Hud : CanvasLayer
     /// <param name="throttle">Nastawnik jazdy.</param>
     /// <param name="brake">Hamulec.</param>
     /// <param name="mode">Nazwa trybu przejazdu.</param>
+    /// <param name="station">
+    /// Wiersz o stacji, złożony po stronie wołającego. HUD go NIE składa: faza drzwi,
+    /// okno zatrzymania i licznik wywołań mieszkają w <c>StationService</c>, a druga
+    /// kopia tej wiedzy tutaj rozjechałaby się z pierwszą. Puste znaczy „bez wiersza",
+    /// czyli przebieg bez obsługi stacji.
+    /// </param>
     public void Update(
         double speedKmh,
         double accelerationMps2,
@@ -52,9 +66,10 @@ public sealed partial class Hud : CanvasLayer
         double toStationM,
         double throttle,
         double brake,
-        string mode)
+        string mode,
+        string station)
     {
-        if (_speed is null || _position is null || _controls is null)
+        if (_speed is null || _position is null || _controls is null || _station is null)
         {
             return;
         }
@@ -67,6 +82,8 @@ public sealed partial class Hud : CanvasLayer
         _controls.Text = string.Create(
             CultureInfo.InvariantCulture,
             $"ciąg {Bar(throttle)} {throttle:F2}   hamulec {Bar(brake)} {brake:F2}   [{mode}]");
+        _station.Text = station;
+        _station.Visible = station.Length > 0;
     }
 
     private static string Bar(double value)

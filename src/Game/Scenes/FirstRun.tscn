@@ -74,3 +74,6 @@ text = "chainage"
 
 [node name="Controls" type="Label" parent="Hud/Panel/Rows"]
 text = "ciag / hamulec"
+
+[node name="Station" type="Label" parent="Hud/Panel/Rows"]
+text = "stacja"
