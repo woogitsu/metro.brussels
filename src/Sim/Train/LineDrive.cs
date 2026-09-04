@@ -138,6 +138,19 @@ public sealed class LineDrive
     public AxisStation? NextStation => Finished ? null : _stations[_next];
 
     /// <summary>
+    /// Ograniczenie prędkości, którym TEN skład naprawdę jedzie — ta sama liczba,
+    /// którą <see cref="Step"/> podaje kontrolerowi, a nie jej kopia.
+    ///
+    /// <para><b>Po co to jest.</b> Żeby widok mógł POKAZAĆ limit przejazdu, nie musząc
+    /// go szukać u siebie. Do 04.09.2026 nagłówek sceny brał limit z rejestru pojazdu
+    /// (<c>DriveScenario.SpeedLimitMps</c>, 80 km/h — prędkość KONSTRUKCYJNA M7) i przy
+    /// <c>--limit-kmh=70</c> wypisywał 80,0 km/h, podczas gdy skład rozpędzał się
+    /// dokładnie do 70,00 km/h. Liczba w napisie nie była wynikiem, więc nic jej nie
+    /// porównywało.</para>
+    /// </summary>
+    public double SpeedLimitMps => _settings.SpeedLimitMps;
+
+    /// <summary>
     /// Kilometraż, za który skład nie ma prawa wyjechać w tym kroku — koniec autorytetu
     /// jazdy. `null` znaczy „droga wolna do następnej stacji".
     ///
