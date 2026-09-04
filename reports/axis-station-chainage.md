@@ -1,5 +1,7 @@
 # Kilometraż stacji był liczony na innej osi niż ta, która trafia do pliku
 
+**Zmierzone na commicie:** `4a03982`
+
 Stan: **2026-09-02**. Wyjście: `tools/track/build_alignment.py`, sześć plików
 `data/track/*.json`, `tools/track/validate.py`, `tools/tests/test_validate_axis.py`.
 

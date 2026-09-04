@@ -1,5 +1,7 @@
 # Gdzie sieć naprawdę biegnie w tunelu — dwa źródła zamiast jednego
 
+**Zmierzone na commicie:** `01c457d`
+
 Stan: **2026-09-01**. Narzędzie: `tools/track/surface_sections.py`.
 Wejście: sześć osi z `data/track/`, warstwa UrbIS `bm_public_transport:Metro` (CC0)
 i tagi `railway=subway` z OpenStreetMap (ODbL 1.0, snapshot Overpassa
@@ -121,10 +123,16 @@ Przedziały kilometrażu, na których **OSM** nie widzi tunelu:
   Delacroix – Clemenceau (7762–7927 m) ma w OSM `layer = 1`, czyli biegnie **nad**
   terenem, nie po nim. Do tego **8556–8616 m** — 60 m tuż za Gare de l'Ouest, bez
   żadnego poligonu UrbIS. To ten sam fizyczny odcinek co 45–135 m pakietu A, widziany
-  z drugiej linii. Licząc od Gare de l'Ouest (kilometraż 8512,7 m na osi E): odcinek
-  wypada **43,6–103,5 m** za stacją, wobec **45–135 m** w pakiecie A. Dwie niezależne
-  osie, zbudowane z dwóch różnych wariantów trasy, wskazują ten sam odcinek — to jest
-  kontrola, nie zbieg okoliczności.
+  z drugiej linii. Licząc od Gare de l'Ouest: odcinek wypada **43,6–103,5 m** za
+  stacją, wobec **45–135 m** w pakiecie A. Dwie niezależne osie, zbudowane z dwóch
+  różnych wariantów trasy, wskazują ten sam odcinek — to jest kontrola, nie zbieg
+  okoliczności.
+
+  Zdanie wyżej podawało do #86 (`4a03982`, 02.09.2026) kilometraż Gare de l'Ouest na
+  osi E jako **8512,7 m**; dziś jest to 8512,25 m. Przedział **43,6–103,5 m** jest
+  liczony na wartości sprzed poprawki i **nie jest przeliczony** — to zapis tego, co
+  wyszło w tym przebiegu. Poprawka przesuwa go o +0,47 m, czyli nie rusza wniosku,
+  którym jest zgodność dwóch osi co do tego samego odcinka.
 - **C — 449 m, oba źródła co do punktu tak samo.** Rejon Erasme, do końca osi.
   Zgodność 361/361 — pod względem jakości danych pakiet C jest **najczystszy ze
   wszystkich sześciu**. Ma tylko dużo dłuższy odcinek poza tunelem i to jest jedyny

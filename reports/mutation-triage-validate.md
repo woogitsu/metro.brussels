@@ -1,5 +1,7 @@
 # Triaż mutacji: `tools/track/validate.py` i `tools/track/crosscheck_alignment.py`
 
+**Zmierzone na commicie:** `cdf0591`
+
 Data: 03.09.2026. Narzędzie: `tools/tests/mutation_sweep.py` (gałąź
 `mutacje-raport-przeliczony`; **plik roboczy, nie jest na `main`** i nie wchodzi
 do tego commita). Mutowany jest kod pod testem, nie testy.

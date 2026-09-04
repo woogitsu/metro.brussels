@@ -1,5 +1,7 @@
 # Tunele pakietów B i E — ta sama poprzeczka co pakiet A
 
+**Zmierzone na commicie:** `aeaa322`
+
 Stan: **2026-09-01**. Wariant: **`flat-preview`, nieprodukcyjny** — osie
 `data/track/L1_B.json` i `data/track/L2_E.json` mają `vertical.status =
 "not_modelled"`, cała geometria leży na Z = 0, generator odmawia wariantu

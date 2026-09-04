@@ -1,5 +1,7 @@
 # T-011 · Rozstawianie detali wzdłuż osi
 
+**Zmierzone na commicie:** `c6eb1ca`
+
 Stan: **2026-09-02**. Wyjście: `tools/track/detail_layout.py`,
 `tools/blender/detail_markers.py`, `tools/blender/placement.py` (`marker_clearances`),
 `tools/tests/test_detail_layout.py`. Na poprawionym kilometrażu stacji

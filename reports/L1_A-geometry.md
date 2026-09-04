@@ -1,5 +1,7 @@
 # T-210 — tunel pakietu A z rzeczywistej osi
 
+**Zmierzone na commicie:** `51fd842` · **data:** 2026-09-01
+
 Wariant: **`flat-preview`, nieprodukcyjny.** Oś `data/track/L1_A.json` ma
 `vertical.status = "not_modelled"`, więc cała geometria leży na Z = 0. Generator
 odmawia wariantu `production`, dopóki T-112 (#10) nie dostarczy profilu pionowego;
@@ -172,6 +174,11 @@ głębi i cztery zbliżenia wnętrza.
   Osobno: **191 z 447 punktów osi nie leży w żadnym poligonie `MT`**, więc warstwa
   UrbIS nie pokrywa całego pnia i brak pokrycia nie jest dowodem na cokolwiek.
 
-- `data/track/L1_A.json` podaje chainage Merode 6686,99 m przy `length_m` 6686,35 m
-  (różnica 0,64 m wynika z rzutowania stacji na łamaną). Nie tknięte — `data/` jest
-  tylko do odczytu.
+- `data/track/L1_A.json` podaje chainage Merode **6686,35 m**, czyli dokładnie
+  `length_m` osi. Różnicy nie ma i nie ma tu nic do rozstrzygnięcia.
+
+  Do #86 (`4a03982`, 02.09.2026) stało tu 6686,99 m przy `length_m` 6686,35 m i ten
+  raport zapisał rozbieżność 0,64 m jako obserwację do rozstrzygnięcia. #86 rozstrzygnęło
+  ją: kilometraż stacji liczy się teraz na osi **po** przepróbkowaniu, a nie na łamanej
+  źródłowej. Pomiary geometrii wyżej zostają nieprzeliczone — `points` i `length_m`
+  #86 nie tknęło.

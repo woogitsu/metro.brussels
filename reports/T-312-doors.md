@@ -1,5 +1,7 @@
 # T-312 · Drzwi i czas postoju
 
+**Zmierzone na commicie:** `ed0f5e2`
+
 Stan: **2026-09-01**. Wyjście: `src/Sim/Train/DoorCycle.cs`, `src/Sim/Train/StationStop.cs`,
 `tests/Sim.Tests/DoorCycleTests.cs`. Zależy od T-310 (zrobione).
 

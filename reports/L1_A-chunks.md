@@ -1,5 +1,7 @@
 # T-210 — eksport per chunk i manifest streamingowy pakietu A
 
+**Zmierzone na commicie:** `51fd842` · **data:** 2026-09-01
+
 Wariant: **`flat-preview`, nieprodukcyjny** — jak w `reports/L1_A-geometry.md`. Oś
 `data/track/L1_A.json` ma `vertical.status = "not_modelled"`, cała geometria leży na Z = 0,
 generator odmawia wariantu `production` do zamknięcia T-112 (#10).
@@ -146,11 +148,18 @@ nowe są kolumny plików i liczników.
 | 11 | `..._c11.glb` | 6077,02 | 6686,74 | 609,72 | 123 | 861 | 1464 | 77,1 | Merode |
 | | **suma** | | | **6686,74** | | **9520** | **16176** | **872,0** | **12 stacji** |
 
-Chainage Merode w `data/track/L1_A.json` to 6686,99 m, a oś zagęszczona kończy się na
-6686,74 m (różnica z rzutowania stacji na łamaną, opisana w T-210). Stacja spoza końca
-osi **nie może wypaść z manifestu**, bo Godot nie zobaczyłby peronu ostatniej stacji —
-więc `sweep.stations_by_chunk` przycina chainage do osi i Merode ląduje w c11. Jest na
-to test (`test_chunk_station_beyond_the_axis_end_is_clamped_not_dropped`).
+Chainage Merode w `data/track/L1_A.json` to **6686,35 m** — dokładnie `length_m` osi.
+Merode leży więc wewnątrz osi, a nie za jej końcem. Przycięcie chainage do osi
+w `sweep.stations_by_chunk` zostaje jako zabezpieczenie, nie jako obejście: stacja
+spoza końca osi **nie może wypaść z manifestu**, bo Godot nie zobaczyłby peronu
+ostatniej stacji. Jest na to test
+(`test_chunk_station_beyond_the_axis_end_is_clamped_not_dropped`).
+
+Do #86 (`4a03982`, 02.09.2026) ten akapit mówił, że chainage Merode to 6686,99 m i że
+stacja wypada **za** końcem osi — kilometraż stacji brał się wtedy z łamanej źródłowej,
+sprzed przepróbkowania. Tabela chunków wyżej jest sprzed tej poprawki i **nie jest
+przeliczona**: #86 nie tknęło `points` ani `length_m`, więc granice chunków, sumy
+trójkątów i `6686,74 m` w wierszu sumy zostają tym, co zmierzył ten przebieg.
 
 ## 5. Kontrole automatyczne
 

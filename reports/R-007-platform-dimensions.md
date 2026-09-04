@@ -1,5 +1,7 @@
 # R-007 — długość i wysokość peronu: czego STIB nie publikuje
 
+**Zmierzone na commicie:** `68e1c81`
+
 Stan: **2026-09-02**. Pytanie: czy istnieje publiczne, kompatybilne licencyjnie źródło
 długości i wysokości peronów stacji metra w Brukseli. Odblokowuje (albo nie) T-211 i T-212.
 

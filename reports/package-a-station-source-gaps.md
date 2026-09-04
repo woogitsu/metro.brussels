@@ -1,5 +1,7 @@
 # Pakiet A — czego nie dało się potwierdzić (R-004)
 
+**Zmierzone na commicie:** `8e2faea`
+
 Audyt: **2026-09-02**. Stan modelowany: **2026-08-31**.
 Rejestr: `data/stations/package-a.json`. Opis: `docs/11-station-ground-truth.md`.
 

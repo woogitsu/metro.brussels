@@ -1,5 +1,7 @@
 # Triaż ocalałych mutacji — fizyka i rozkład
 
+**Data pomiaru:** 2026-09-03
+
 Cztery moduły: `tools/physics/braking.py`, `tools/physics/reference.py`,
 `tools/physics/schedule_envelope.py`, `tools/track/timetable.py`.
 Punkt wyjścia: przegląd mutacyjny na `main`, commit `737d592`.

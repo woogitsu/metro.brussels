@@ -1,5 +1,7 @@
 # Pakiet A — zmierzony rozstaw torów z INSPIRE Rails (T-111)
 
+**Zmierzone na commicie:** `51fd842`
+
 Wygenerowane przez `tools/track/inspire_rail.py`. Stan: **2026-09-01**.
 Odcinek: Gare de l'Ouest / Weststation → Merode, 12 stacji, 6686,35 m.
 

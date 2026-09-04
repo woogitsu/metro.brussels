@@ -1,5 +1,7 @@
 # T-210 — poziomy szczegółowości i geometria kolizyjna chunków pakietu A
 
+**Zmierzone na commicie:** `51fd842` · **data:** 2026-09-01
+
 Wariant: **`flat-preview`, nieprodukcyjny** — jak w `reports/L1_A-geometry.md`
 i `reports/L1_A-chunks.md`. Oś `data/track/L1_A.json` ma `vertical.status = "not_modelled"`,
 cała geometria leży na Z = 0, generator odmawia wariantu `production` do zamknięcia

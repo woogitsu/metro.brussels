@@ -1,5 +1,7 @@
 # T-311 — hamowanie
 
+**Zmierzone na commicie:** `9c94c1a` · **data:** 2026-09-01
+
 Do tej pory hamulec był **poleceniem**: zadane opóźnienie z ograniczeniem zrywu,
 niezależne od masy i przyczepności (`ServiceBrakingRun` z T-310, `TrainController`
 z T-400). T-311 dokłada do tego trzy rzeczy — sufit przyczepnościowy, solver punktu

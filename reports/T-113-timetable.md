@@ -1,5 +1,7 @@
 # T-113 · Rozkład jazdy i służby
 
+**Zmierzone na commicie:** `e2c32e9`
+
 Stan: **2026-09-01**. Wyjście: `tools/track/timetable.py`, `tools/physics/schedule_envelope.py`,
 `tools/tests/test_timetable.py`, `tools/tests/test_schedule_envelope.py`.
 Zależy od T-110 (zrobione) i — dla odległości — od osi z T-210.

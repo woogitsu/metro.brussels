@@ -1,5 +1,7 @@
 # Skrajnia M7 na rzeczywistych łukach pakietu A
 
+**Zmierzone na commicie:** `51fd842` · **data:** 2026-09-01
+
 Kontrola, której nie dało się wykonać wcześniej: dopiero po T-220 (#14) i T-210 (#12)
 w repozytorium są jednocześnie geometria pojazdu i rzeczywisty przebieg osi. Nie jest to
 osobne zadanie z ROADMAP — jest to weryfikacja wynikająca z reguły „jeżeli skrajnia
@@ -46,8 +48,12 @@ geometria STIB to linia trasy handlowej, nie oś toru z pomiaru. Werdykt zapada 
 pesymistycznym: profil, który przechodzi dopiero po wygładzeniu osi, nie jest profilem,
 na którym można polegać.
 
-Najciaśniejszy łuk wypada na chainage ~2519 m, czyli między Comte de Flandre (2054,9 m)
-a Sainte-Catherine (2721,0 m) — na zakręcie w stronę Pentagonu.
+Najciaśniejszy łuk wypada na chainage ~2519 m, czyli między Comte de Flandre (2054,8 m)
+a Sainte-Catherine (2720,8 m) — na zakręcie w stronę Pentagonu.
+
+Do #86 (`4a03982`, 02.09.2026) stały tu kilometraże 2054,9 m i 2721,0 m. #86 przeliczyło
+kilometraż stacji i obie liczby zmalały o 0,12 i 0,25 m; łuk, jego promień i luz są
+liczone z `points`, których #86 nie tknęło, więc pomiary niżej zostają nieprzeliczone.
 
 ## 3. Wynik
 

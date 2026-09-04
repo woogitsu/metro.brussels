@@ -1,5 +1,7 @@
 # M7 w tunelu pakietu A — skrajnia zmierzona na siatce
 
+**Zmierzone na commicie:** `d4a9c54` · **data:** 2026-09-01
+
 Pierwsza scena, w której pojazd i infrastruktura istnieją razem. Do tej pory
 `reports/M7-curve-clearance.md` liczył luz **ze wzoru** na strzałkę cięciwy; tutaj
 ten sam luz jest mierzony **na siatce**: każdy wierzchołek pojazdu dostaje offsety

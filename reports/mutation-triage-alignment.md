@@ -1,5 +1,7 @@
 # Triaż ocalałych mutacji: `tools/track/build_alignment.py`, blok geometrii
 
+**Zmierzone na commicie:** `14ceed2`
+
 Data: 03.09.2026. Wejście: przemiatanie mutacyjne z `tools/tests/mutation_sweep.py`.
 
 ## Stan przed i po

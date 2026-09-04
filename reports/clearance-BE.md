@@ -1,5 +1,7 @@
 # Profil luzu M7 wzdłuż osi pakietów B i E
 
+**Zmierzone na commicie:** `1b7c2bb`
+
 Stan: **2026-09-01**. Narzędzia: `tools/ci/vehicle_clearance.sh <ID_OSI>`,
 `tools/blender/place_vehicle.py`, `tools/blender/profile_vehicle.py`.
 Wariant tuneli: **`flat-preview`, nieprodukcyjny** (Z = 0, T-112 zablokowane).
