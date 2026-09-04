@@ -14,7 +14,6 @@ liverii, map sieci, piktogramów ani wzorów tapicerki.
 """
 import argparse
 import json
-import math
 import os
 import sys
 
@@ -24,12 +23,8 @@ from mathutils import Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import profiles  # noqa: E402
+import m7_report as RP  # noqa: E402
 from m7_layout import DESIGN_ASSUMPTIONS, DESIGN_SHELL_THICKNESS_M, Layout  # noqa: E402
-
-NOSE_STEP_M = 0.20
-BODY_STEP_M = 1.00
-TOLERANCE_M = 0.001
-VERTEX_EPS = 1e-4
 
 
 def parse_args():
@@ -69,27 +64,6 @@ def neutral_material():
     return material
 
 
-def x_stations(layout, start, end, taper_aware=True):
-    """Punkty podziału wzdłuż X: gęściej tam, gdzie przekrój się zmienia."""
-    stations = {round(start, 6), round(end, 6)}
-    span = end - start
-    steps = max(1, int(math.ceil(span / BODY_STEP_M)))
-    for i in range(steps + 1):
-        stations.add(round(start + span * i / steps, 6))
-    if taper_aware:
-        from m7_layout import DESIGN_NOSE_LENGTH_M
-        for nose_end in (DESIGN_NOSE_LENGTH_M, layout.length - DESIGN_NOSE_LENGTH_M):
-            if start - 1e-9 <= nose_end <= end + 1e-9:
-                stations.add(round(nose_end, 6))
-        nose_steps = int(math.ceil(DESIGN_NOSE_LENGTH_M / NOSE_STEP_M))
-        for i in range(nose_steps + 1):
-            for candidate in (DESIGN_NOSE_LENGTH_M * i / nose_steps,
-                              layout.length - DESIGN_NOSE_LENGTH_M * i / nose_steps):
-                if start - 1e-9 <= candidate <= end + 1e-9:
-                    stations.add(round(candidate, 6))
-    return sorted(stations)
-
-
 def build_tube(name, layout, start, end, extra_inset=0.0, taper_aware=True):
     """Zamknięta skorupa zbudowana z pierścieni przekroju wzdłuż X."""
     mesh = bpy.data.meshes.new(name)
@@ -98,7 +72,7 @@ def build_tube(name, layout, start, end, extra_inset=0.0, taper_aware=True):
 
     bm = bmesh.new()
     rings = []
-    for x in x_stations(layout, start, end, taper_aware):
+    for x in RP.x_stations(layout, start, end, taper_aware):
         section = layout.section(x, extra_inset)
         rings.append([bm.verts.new((x, y, z)) for y, z in section])
     bm.verts.ensure_lookup_table()
@@ -165,17 +139,18 @@ def cut_doors(obj, cutter):
     bpy.data.objects.remove(cutter, do_unlink=True)
 
 
-def world_vertices(objects):
-    out = []
-    for obj in objects:
-        matrix = obj.matrix_world
-        out.extend(matrix @ v.co for v in obj.data.vertices)
-    return out
+def mesh_records(objects):
+    """Wszystko, czego pomiar i bramka potrzebują od Blendera — i nic ponadto.
 
-
-def bounds(vertices):
-    return ((min(v.x for v in vertices), min(v.y for v in vertices), min(v.z for v in vertices)),
-            (max(v.x for v in vertices), max(v.y for v in vertices), max(v.z for v in vertices)))
+    To jest CAŁA granica między bpy a `m7_report.py`. Wierzchołki idą dalej już
+    w układzie świata, bo przemnożenie przez `matrix_world` jest jedyną rzeczą
+    w tym kroku, której bez Blendera zrobić się nie da.
+    """
+    return [{"name": obj.name,
+             "vertices": [tuple(obj.matrix_world @ v.co) for v in obj.data.vertices],
+             "faces": len(obj.data.polygons),
+             "dimensions": tuple(obj.dimensions)}
+            for obj in objects]
 
 
 def build_shell(layout):
@@ -226,132 +201,7 @@ def build_envelope(layout, name="M7_clearance_envelope"):
 
 # --- weryfikacja --------------------------------------------------------------
 
-def check_no_nan(vertices):
-    for v in vertices:
-        for component in (v.x, v.y, v.z):
-            if math.isnan(component) or math.isinf(component):
-                return False
-    return True
 
-
-def measure_openings(layout, objects):
-    """Mierzy rzeczywistą szerokość otworów w wygenerowanej geometrii, nie w parametrach."""
-    by_x = {}
-    for obj in objects:
-        matrix = obj.matrix_world
-        for vertex in obj.data.vertices:
-            point = matrix @ vertex.co
-            if abs(abs(point.y) - layout.half_width) > VERTEX_EPS:
-                continue
-            key = (round(point.x, 4), 1 if point.y > 0 else -1)
-            by_x.setdefault(key, []).append(round(point.z, 4))
-
-    measured = []
-    for door in layout.all_doors():
-        side = door["side"]
-        left = by_x.get((round(door["x0"], 4), side), [])
-        right = by_x.get((round(door["x1"], 4), side), [])
-        has_bottom = any(abs(z - door["z0"]) <= VERTEX_EPS for z in left + right)
-        has_top = any(abs(z - door["z1"]) <= VERTEX_EPS for z in left + right)
-        measured.append({
-            "kind": door["kind"],
-            "car": door["car"],
-            "side": side,
-            "center_x": door["center_x"],
-            "edges_found": bool(left) and bool(right),
-            "corners_found": has_bottom and has_top,
-            "measured_width_m": round(door["x1"] - door["x0"], 6) if left and right else None,
-            "measured_height_m": round(door["z1"] - door["z0"], 6) if has_bottom and has_top else None,
-        })
-    return measured
-
-
-def verify(layout, cars, joints, report):
-    problems = []
-    body = cars + joints
-    vertices = world_vertices(body)
-    bmin, bmax = bounds(vertices)
-    size = [bmax[i] - bmin[i] for i in range(3)]
-    report["body"] = {
-        "bbox_min": [round(c, 6) for c in bmin],
-        "bbox_max": [round(c, 6) for c in bmax],
-        "size_m": [round(c, 6) for c in size],
-        "objects": len(body),
-        "cars": len(cars),
-        "articulations": len(joints),
-        "vertices": sum(len(o.data.vertices) for o in body),
-        "faces": sum(len(o.data.polygons) for o in body),
-        "object_names": [o.name for o in body],
-    }
-
-    if abs(size[0] - layout.length) > TOLERANCE_M:
-        problems.append(f"długość {size[0]:.6f} m != {layout.length} m")
-    if abs(size[1] - layout.width) > TOLERANCE_M:
-        problems.append(f"szerokość {size[1]:.6f} m != {layout.width} m")
-    if abs(bmin[0]) > TOLERANCE_M or abs(bmax[0] - layout.length) > TOLERANCE_M:
-        problems.append(f"origin/zasięg X = [{bmin[0]:.6f}, {bmax[0]:.6f}]")
-    if abs(bmax[2] - layout.roof_z) > TOLERANCE_M:
-        problems.append(f"wysokość dachu {bmax[2]:.6f} m != {layout.roof_z} m")
-    if abs(bmin[2] - layout.body_bottom_z) > TOLERANCE_M:
-        problems.append(f"spód pudła {bmin[2]:.6f} m != {layout.body_bottom_z} m")
-    if len(cars) != layout.cars:
-        problems.append(f"członów {len(cars)} != {layout.cars}")
-    if not check_no_nan(vertices):
-        problems.append("geometria zawiera NaN/Inf")
-    if not 1000 < report["body"]["vertices"] < 500000:
-        problems.append(f"podejrzana liczba wierzchołków: {report['body']['vertices']}")
-    for obj in body:
-        dims = obj.dimensions
-        if max(dims) > layout.length + 1.0 or max(dims) <= 0.0:
-            problems.append(f"absurdalna skala obiektu {obj.name}: {tuple(round(d, 3) for d in dims)}")
-
-    openings = measure_openings(layout, body)
-    report["openings"] = openings
-    doubles = [o for o in openings if o["kind"] == "double"]
-    cabs = [o for o in openings if o["kind"] == "cab"]
-    report["opening_summary"] = {
-        "double_total": len(doubles),
-        "double_per_side": len(doubles) // 2,
-        "cab_total": len(cabs),
-        "double_edges_found": sum(1 for o in doubles if o["edges_found"]),
-        "double_corners_found": sum(1 for o in doubles if o["corners_found"]),
-        "cab_edges_found": sum(1 for o in cabs if o["edges_found"]),
-    }
-    if len(doubles) // 2 != layout.doors_per_side:
-        problems.append(f"drzwi podwójnych na stronę {len(doubles) // 2} != {layout.doors_per_side}")
-    if len(cabs) != layout.cab_doors:
-        problems.append(f"drzwi kabinowych {len(cabs)} != {layout.cab_doors}")
-    for opening in openings:
-        if not opening["edges_found"] or not opening["corners_found"]:
-            problems.append(f"otwór {opening['kind']} x={opening['center_x']} strona {opening['side']}"
-                            " nie ma krawędzi w geometrii")
-        elif opening["kind"] == "double" and abs(opening["measured_width_m"] - layout.door_width) > TOLERANCE_M:
-            problems.append(f"otwór x={opening['center_x']}: zmierzone {opening['measured_width_m']} m")
-
-    # Skład jest dwukierunkowy: bryła musi być niezmiennicza na obrót 180 stopni
-    # wokół środka pojazdu. To łapie błędy generatora, których nie widać na renderze,
-    # bo cieniowanie i tak jest asymetryczne.
-    keys = {(round(v.x, 4), round(v.y, 4), round(v.z, 4)) for v in vertices}
-    rotated = {(round(layout.length - x, 4), round(-y, 4), z) for x, y, z in keys}
-    missing = keys - rotated
-    report["rotational_symmetry"] = {
-        "vertices": len(keys),
-        "mismatched": len(missing),
-        "ok": not missing,
-        "rule": "(x, y, z) -> (94 - x, -y, z)",
-    }
-    if missing:
-        problems.append(f"bryła nie jest symetryczna obrotowo: {len(missing)} z {len(keys)} wierzchołków")
-
-    gauge_ok, gauge_message = layout.fits_vehicle_gauge()
-    tunnel = layout.fits_tunnel_profiles()
-    report["gauge"] = {"vehicle_gauge_ok": gauge_ok, "vehicle_gauge_message": gauge_message, "tunnel_profiles": tunnel}
-    if not gauge_ok:
-        problems.append(f"skrajnia pojazdu: {gauge_message}")
-    for name, entry in tunnel.items():
-        if not entry["ok"]:
-            problems.append(f"profil {name}: {entry['message']}")
-    return problems
 
 
 def export(objects, path):
@@ -369,20 +219,7 @@ def roundtrip(path, expected_objects, expected_bbox):
     clear_scene()
     bpy.ops.import_scene.gltf(filepath=path)
     meshes = [o for o in bpy.context.scene.objects if o.type == "MESH"]
-    vertices = world_vertices(meshes)
-    bmin, bmax = bounds(vertices)
-    deltas = [round(bmin[i] - expected_bbox[0][i], 6) for i in range(3)] + \
-             [round(bmax[i] - expected_bbox[1][i], 6) for i in range(3)]
-    result = {
-        "objects": len(meshes),
-        "expected_objects": expected_objects,
-        "bbox_min": [round(c, 6) for c in bmin],
-        "bbox_max": [round(c, 6) for c in bmax],
-        "max_delta_m": max(abs(d) for d in deltas),
-        "names": sorted(o.name for o in meshes),
-    }
-    result["ok"] = result["objects"] == expected_objects and result["max_delta_m"] <= TOLERANCE_M
-    return result
+    return RP.roundtrip_result(mesh_records(meshes), expected_objects, expected_bbox)
 
 
 def main():
@@ -403,24 +240,21 @@ def main():
         "design_assumptions": {k: {"value": v[0], "reason": v[1]} for k, v in DESIGN_ASSUMPTIONS.items()},
         "layout": layout.summary(),
     }
-    problems = verify(layout, cars, joints, report)
+    problems = RP.verify(layout, mesh_records(cars), mesh_records(joints), report)
 
     body_bbox = (report["body"]["bbox_min"], report["body"]["bbox_max"])
     report["exports"] = {"shell": export(cars + joints, args.out)}
 
     envelope = build_envelope(layout)
     report["exports"]["envelope"] = export([envelope], args.envelope_out)
-    envelope_vertices = world_vertices([envelope])
-    emin, emax = bounds(envelope_vertices)
+    emin, emax = RP.bounds(RP.all_points(mesh_records([envelope])))
     report["envelope"] = {
         "bbox_min": [round(c, 6) for c in emin],
         "bbox_max": [round(c, 6) for c in emax],
         "size_m": [round(emax[i] - emin[i], 6) for i in range(3)],
         "source": "profiles.vehicle_gauge(clearance=0.0)",
     }
-    for axis, label in ((1, "szerokość"), (2, "wysokość")):
-        if emax[axis] + 1e-6 < body_bbox[1][axis] or emin[axis] - 1e-6 > body_bbox[0][axis]:
-            problems.append(f"skrajnia nie obejmuje bryły w osi {label}")
+    problems.extend(RP.envelope_problems((emin, emax), body_bbox))
 
     if not args.skip_roundtrip:
         report["roundtrip"] = roundtrip(args.out, len(cars) + len(joints), body_bbox)
