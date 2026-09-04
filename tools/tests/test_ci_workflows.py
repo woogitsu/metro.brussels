@@ -1338,6 +1338,41 @@ def test_the_local_actions_carry_the_rule_they_took_over():
         "wyjście `libs` nie jest podłączone do kroku sondującego"
 
 
+#: Zestawy pakietów apt: `tools/ci/apt-packages/<nazwa>.txt`, komentarze pomijane.
+APT_SETS = os.path.join(ROOT, "tools", "ci", "apt-packages")
+
+
+def _apt_set_of(text):
+    """Nazwa zestawu apt, który instaluje ten workflow (`apt_install.sh --set X`)."""
+    found = re.findall(r"apt_install\.sh --set (\S+)", text)
+    assert found, "workflow woła apt_install.sh bez --set"
+    assert len(set(found)) == 1, f"workflow instaluje więcej niż jeden zestaw: {found}"
+    return found[0]
+
+
+def _apt_set_packages(name):
+    """Pakiety z zestawu, bez komentarzy i pustych wierszy."""
+    path = os.path.join(APT_SETS, f"{name}.txt")
+    assert os.path.isfile(path), f"nie ma zestawu apt: {path}"
+    with open(path, encoding="utf-8") as handle:
+        packages = {line.strip() for line in handle
+                    if line.strip() and not line.lstrip().startswith("#")}
+    assert packages, f"zestaw {name} nie wymienia ani jednego pakietu"
+    return packages
+
+
+def _debian_package_for(soname):
+    """`libEGL.so.1` -> `libegl1`, `libGL.so.1` -> `libgl1`.
+
+    Przekształcenie jest MECHANICZNE, nie tablicą wyjątków: małe litery, `.so`
+    wypada, numer ABI zostaje przyklejony. Dzięki temu bramka nie trzyma drugiej
+    listy „soname -> pakiet", która rozjechałaby się przy pierwszej nowej bibliotece.
+    """
+    match = re.fullmatch(r"(lib[A-Za-z0-9_+-]*)\.so\.(\d+)", soname)
+    assert match, f"nie umiem wyprowadzić pakietu z sonamu {soname!r}"
+    return (match.group(1) + match.group(2)).lower()
+
+
 def test_tool_installation_is_conditional_on_the_tool_being_missing():
     """Na trwałej maszynie instalacja przy każdym przebiegu to strata i zbędny sudo.
 
@@ -1351,42 +1386,74 @@ def test_tool_installation_is_conditional_on_the_tool_being_missing():
         text = _text(name)
         if "apt_install.sh" not in text:
             continue
-        checked += 1
         document = yaml.safe_load(text)
-        steps = list(document["jobs"].values())[0]["steps"]
+        # KAŻDY job, nie pierwszy. `list(...values())[0]` czytał wyłącznie pierwszy
+        # job i była to ta sama luka, którą #191 naprawiło w bramce czystego
+        # workspace'u — utajona, bo dziś każdy workflow ma jeden job. Drugi job
+        # z niebramkowaną instalacją przechodziłby tę kontrolę.
+        for jobname, job in document["jobs"].items():
+          steps = job["steps"]
+          if not any("apt_install.sh" in str(step.get("run", "")) for step in steps):
+              continue
+          checked += 1
 
-        probe = [s for s in steps if s.get("id") == "tools"]
-        assert probe, f"{name}: brak kroku sondującego biblioteki renderu"
-        # Sonda pyta o BIBLIOTEKI, nie o Blendera, i to jest zmiana świadoma.
-        # `command -v blender` na maszynie, która kiedykolwiek dostała Blendera z apt,
-        # znajduje 4.0.2 i uznaje środowisko za gotowe — a to legacy EEVEE. Wersję
-        # sprawdza `tools/ci/blender_install.sh`, który jest własną sondą.
-        # Treść sondy leży od 04.09.2026 w akcji lokalnej, więc test czyta ją stamtąd.
-        # `probe[0]["run"]` przestało istnieć i to jest właściwy moment, żeby test
-        # poszedł za odnośnikiem, a nie żeby warunek złagodzić do „jakoś sonduje".
-        assert str(probe[0].get("uses", "")) == PROBE_ACTION, \
-            f"{name}: sonda nie woła {PROBE_ACTION}"
-        body = _action_body(PROBE_ACTION)
-        assert "ldconfig" in body, "akcja sondy nie sprawdza bibliotek renderu"
-        assert "command -v blender" not in body, \
-            "akcja sondy pyta o obecność Blendera zamiast o jego wersję"
-        # Biblioteka, o którą pyta TEN workflow, musi być podana w `with:` — inaczej
-        # akcja z domyślnie pustym wejściem nie sonduje niczego i mówi `present`.
-        wanted = (probe[0].get("with") or {})
-        assert wanted.get("libraries"), \
-            f"{name}: sonda nie podaje ani jednej biblioteki, więc zawsze zwróci present"
+          probe = [s for s in steps if s.get("id") == "tools"]
+          assert probe, f"{name}: brak kroku sondującego biblioteki renderu"
+          # Sonda pyta o BIBLIOTEKI, nie o Blendera, i to jest zmiana świadoma.
+          # `command -v blender` na maszynie, która kiedykolwiek dostała Blendera z apt,
+          # znajduje 4.0.2 i uznaje środowisko za gotowe — a to legacy EEVEE. Wersję
+          # sprawdza `tools/ci/blender_install.sh`, który jest własną sondą.
+          # Treść sondy leży od 04.09.2026 w akcji lokalnej, więc test czyta ją stamtąd.
+          # `probe[0]["run"]` przestało istnieć i to jest właściwy moment, żeby test
+          # poszedł za odnośnikiem, a nie żeby warunek złagodzić do „jakoś sonduje".
+          assert str(probe[0].get("uses", "")) == PROBE_ACTION, \
+              f"{name}: sonda nie woła {PROBE_ACTION}"
+          body = _action_body(PROBE_ACTION)
+          assert "ldconfig" in body, "akcja sondy nie sprawdza bibliotek renderu"
+          assert "command -v blender" not in body, \
+              "akcja sondy pyta o obecność Blendera zamiast o jego wersję"
+          # Sonda musi pytać o TO, co ten workflow instaluje — nie o „cokolwiek".
+          #
+          # Poprzednia wersja wymagała tylko `wanted.get("libraries")` niepustego,
+          # choć komentarz obok obiecywał „bibliotekę, o którą pyta TEN workflow".
+          # Sonda na `libfoo.so.1` przechodziła: niepusta, więc akcja czegoś szuka,
+          # tylko nie tego, czego brak wywraca render. Prawda bierze się teraz
+          # z zestawu apt, który ten sam workflow instaluje — nie z drugiej listy
+          # wpisanej do testu.
+          wanted = (probe[0].get("with") or {})
+          packages = _apt_set_packages(_apt_set_of(text))
+          sonames = (wanted.get("libraries") or "").split()
+          assert sonames, \
+              f"{name}: sonda nie podaje ani jednej biblioteki, więc zawsze zwróci present"
+          for soname in sonames:
+              package = _debian_package_for(soname)
+              assert package in packages, (
+                  f"{name}: sonda pyta o {soname} (pakiet {package}), a zestaw apt "
+                  f"tego workflow tego nie instaluje: {sorted(packages)}")
 
-        for step in steps:
-            run = str(step.get("run", ""))
-            if "apt_install.sh" in run or (step.get("uses", "").startswith("actions/cache")
-                                           and "metro-apt" in str(step)):
-                assert step.get("if") == "steps.tools.outputs.libs == 'missing'", \
-                    f"{name}: krok '{step.get('name')}' nie jest zabramkowany sondą"
-            # Instalator Blendera NIE jest bramkowany z workflow i tak ma być:
-            # sam czyta pin, sam porównuje wersję i przy zgodzie kończy w 0,12 s.
-            if "blender_install.sh" in run:
-                assert step.get("if") is None, \
-                    f"{name}: instalator Blendera jest własną sondą i nie ma być bramkowany"
+          # `xvfb-run` jest jedyną RÓŻNICĄ między dwoma zestawami, więc jest też
+          # jedynym miejscem, w którym sonda poleceń ma sens — i musi iść za
+          # zestawem w obie strony. Bez tego `godot-first-run.yml` mógłby zgubić
+          # sondę `xvfb-run`, instalując pakiet `xvfb`, i nikt by nie zauważył.
+          commands = (wanted.get("commands") or "").split()
+          if "xvfb" in packages:
+              assert "xvfb-run" in commands, (
+                  f"{name}: instaluje pakiet xvfb, a sonda o `xvfb-run` nie pyta")
+          else:
+              assert "xvfb-run" not in commands, (
+                  f"{name}: sonda pyta o `xvfb-run`, a zestaw apt xvfb nie instaluje")
+
+          for step in steps:
+              run = str(step.get("run", ""))
+              if "apt_install.sh" in run or (step.get("uses", "").startswith("actions/cache")
+                                             and "metro-apt" in str(step)):
+                  assert step.get("if") == "steps.tools.outputs.libs == 'missing'", \
+                      f"{name}: krok '{step.get('name')}' nie jest zabramkowany sondą"
+              # Instalator Blendera NIE jest bramkowany z workflow i tak ma być:
+              # sam czyta pin, sam porównuje wersję i przy zgodzie kończy w 0,12 s.
+              if "blender_install.sh" in run:
+                  assert step.get("if") is None, \
+                      f"{name}: instalator Blendera jest własną sondą i nie ma być bramkowany"
     assert checked == 7, checked
 
 
@@ -1519,10 +1586,27 @@ def test_the_workflow_with_the_engine_actually_runs_those_tests():
     `sim-tests.yml` buduje solucję, więc tych testów nie zobaczy. Musi je wołać
     workflow, który silnik i tak ma — inaczej istniałyby, a nie chodziły.
     """
-    text = _text("godot-first-run.yml")
-    assert "tests/Game.Tests/Game.Tests.csproj" in text, \
-        "godot-first-run.yml nie uruchamia testów warstwy silnika"
-    assert "dotnet test tests/Game.Tests" in text, text[:0]
+    name = "godot-first-run.yml"
+    text = _text(name)
+
+    # Rozstrzyga TREŚĆ `run:` kroków, nie surowy tekst pliku, i nie z ostrożności:
+    # `dotnet test tests/Game.Tests` wpisane w KOMENTARZ przechodziło poprzednią
+    # wersję tak samo dobrze jak polecenie, które się wykonuje. Ten plik ma
+    # kilkadziesiąt wierszy komentarza i wyjaśnia w prozie, co uruchamia.
+    document = yaml.safe_load(text)
+    runs = "\n".join(str(step.get("run", ""))
+                     for job in document["jobs"].values()
+                     for step in job["steps"])
+
+    assert "tests/Game.Tests/Game.Tests.csproj" in runs, (
+        f"{name}: żaden krok nie odnosi się do tests/Game.Tests/Game.Tests.csproj — "
+        f"projekt testowy warstwy silnika istniałby, a nie chodził")
+    # Komunikat tej asercji był `text[:0]`, czyli PUSTY NAPIS: przy czerwonym
+    # przebiegu dostawało się `AssertionError` bez ani jednej wskazówki. Teraz
+    # mówi, czego nie znalazł i gdzie szukał.
+    assert "dotnet test tests/Game.Tests" in runs, (
+        f"{name}: w treści `run:` nie ma `dotnet test tests/Game.Tests`; "
+        f"kroki wołają: {[s.get('name') for j in document['jobs'].values() for s in j['steps']]}")
 
 
 def test_no_other_workflow_tries_to_run_the_engine_tests():
