@@ -66,6 +66,7 @@ public sealed partial class FirstRun : Node3D
     private FixedStep _step;
 
     private ScenarioDrive? _scripted;
+    private StationService? _stations;
     private DriveState _state;
     private DriverCommand _command = DriverCommand.Coast;
     private double _acceleration;
@@ -283,6 +284,20 @@ public sealed partial class FirstRun : Node3D
         {
             _scripted = new ScenarioDrive(_controller, _scenario, _conditions, _step);
         }
+        else if (_axis.Stations.Count >= 2)
+        {
+            // Obsługa stacji jest WYŁĄCZNIE w trybie ręcznym, i to nie jest oszczędność.
+            // Przebieg skryptowy odtwarza `ScenarioDrive` z rdzenia i jego telemetria jest
+            // porównywana z rdzeniem CO DO BITU (`reports/T-400-first-run.md`, rozjazd
+            // 0,000 m). Wpięcie tu blokady drzwi zmieniłoby przebieg, którego zgodność
+            // jest całą treścią tamtej bramki — a scenariusz T-400 nie ma zatrzymań na
+            // stacjach, więc nie ma czego blokować.
+            _stations = new StationService(
+                _axis.Stations,
+                new DoorCycle(DesignAssumptions.PassengerExchangeSeconds),
+                _step,
+                DesignAssumptions.StationStopWindowM);
+        }
     }
 
     private void BuildEnvironment()
@@ -494,8 +509,12 @@ public sealed partial class FirstRun : Node3D
             return true;
         }
 
+        // `Filter` posuwa licznik cyklu drzwi, więc musi zostać zawołane DOKŁADNIE RAZ
+        // na krok symulacji — nie raz na klatkę. `AdvanceBy` woła `StepOnce` tyle razy,
+        // ile kroków wypada w klatce, i to jest właściwe miejsce.
+        var effective = _stations?.Filter(_state, _command, ChainageM) ?? _command;
         _state = _controller.Advance(
-            _state, _conditions, _command, _scenario.SpeedLimitMps, _step, out var forces);
+            _state, _conditions, effective, _scenario.SpeedLimitMps, _step, out var forces);
         _acceleration = forces.AccelerationMps2;
         return true;
     }
@@ -611,20 +630,86 @@ public sealed partial class FirstRun : Node3D
         var chainage = ChainageM;
         var name = "koniec pakietu";
         var distance = _axis.LengthM - chainage;
-        foreach (var station in _axis.Stations)
+
+        // Wiedza o tym, gdzie jest następna stacja, ma JEDNO miejsce. Poprzednio ta
+        // pętla stała tutaj i była drugą kopią tego, co robi `StationService.Approach`;
+        // dwie kopie tej samej wiedzy rozjeżdżają się w chwili, gdy jedna z nich dostaje
+        // okno zatrzymania, a druga nie.
+        if (_stations is not null)
         {
-            if (station.ChainageM >= chainage)
+            var approach = _stations.Approach(chainage);
+            if (approach.Exists)
             {
-                name = station.Name;
-                distance = station.ChainageM - chainage;
-                break;
+                name = approach.Name;
+                distance = approach.DistanceM;
+            }
+        }
+        else
+        {
+            foreach (var station in _axis.Stations)
+            {
+                if (station.ChainageM >= chainage)
+                {
+                    name = station.Name;
+                    distance = station.ChainageM - chainage;
+                    break;
+                }
             }
         }
 
         _hud.Update(
             _state.SpeedKmh, _acceleration, chainage, _axis.LengthM,
-            name, distance, _command.Throttle, _command.Brake, _mode);
+            name, distance, _command.Throttle, _command.Brake, _mode,
+            StationLine());
     }
+
+    /// <summary>Wiersz HUD o stacji: cykl drzwi albo dojazd, plus rejestr wywołań.</summary>
+    private string StationLine()
+    {
+        if (_stations is null)
+        {
+            return string.Empty;
+        }
+
+        var obsluzone = _stations.Calls.Count;
+        var minione = _stations.Missed.Count;
+        var licznik = string.Create(
+            CultureInfo.InvariantCulture, $"obsłużone {obsluzone}  minięte {minione}");
+
+        if (_stations.AtStation)
+        {
+            var blokada = _stations.TractionAllowed ? "trakcja WOLNA" : "trakcja ZABLOKOWANA";
+            var blad = _stations.Calls[^1].StopErrorM;
+            return string.Create(
+                CultureInfo.InvariantCulture,
+                $"DRZWI {Faza(_stations.Phase)}  jeszcze {_stations.DwellRemainingSeconds:F1} s  " +
+                $"({blokada})  błąd zatrzymania {blad:+0.00;-0.00;0.00} m   {licznik}");
+        }
+
+        if (_stations.Finished)
+        {
+            return string.Create(CultureInfo.InvariantCulture, $"brak dalszych stacji   {licznik}");
+        }
+
+        var approach = _stations.Approach(ChainageM);
+        var okno = approach.WithinWindow ? "  W OKNIE — zatrzymaj się" : string.Empty;
+        return string.Create(
+            CultureInfo.InvariantCulture,
+            $"{approach.Name} za {approach.DistanceM:F0} m (okno ±{_stations.WindowM:F1} m)" +
+            $"{okno}   {licznik}");
+    }
+
+    private static string Faza(DoorPhase phase) => phase switch
+    {
+        DoorPhase.Closed => "zamknięte",
+        DoorPhase.Unlocking => "odryglowanie",
+        DoorPhase.Opening => "otwieranie",
+        DoorPhase.Open => "otwarte",
+        DoorPhase.ClosingWarning => "sygnał zamykania",
+        DoorPhase.Closing => "zamykanie",
+        DoorPhase.Checking => "kontrola zamknięcia",
+        _ => phase.ToString(),
+    };
 
     // --- zakończenie -------------------------------------------------------------
 

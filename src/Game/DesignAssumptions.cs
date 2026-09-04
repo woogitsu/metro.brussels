@@ -68,6 +68,33 @@ public static class DesignAssumptions
     /// </summary>
     public const double TrackOffsetM = 2.10;
 
+    /// <summary>
+    /// Połowa szerokości okna, w którym zatrzymanie liczy się jako wywołanie stacji.
+    ///
+    /// <b>Nie jest to dokładność zatrzymania M7</b> — ta jest mierzona i wychodzi
+    /// w <c>StationCall.StopErrorM</c>. Jest to okno rozpoznania stacji przez pętlę,
+    /// ta sama wielkość co <c>LineRunSettings.StopWindowM</c>, którą przejazd
+    /// referencyjny T-401 woła z 5,0 m. Ta sama liczba stoi tutaj, żeby kabina liczyła
+    /// stacje tak samo jak linia, której jest widokiem.
+    ///
+    /// <b>Górne ograniczenie jest znane i nieprzekraczalne:</b> peron w generatorze ma
+    /// 94,0 m (R-007 daje kontrolę górną 109,1 m), więc okno szersze niż połowa peronu
+    /// pozwalałoby otworzyć drzwi poza krawędzią. 5,0 m to 5,3 % połowy peronu.
+    /// </summary>
+    public const double StationStopWindowM = 5.0;
+
+    /// <summary>
+    /// Czas wymiany pasażerów na stacji, przekazywany do <c>DoorCycle</c>.
+    ///
+    /// <b>Nie ma źródła</b> — zależy od potoku, pory dnia i stacji, a w rejestrze nie ma
+    /// ani jednej z tych rzeczy (T-312). T-113 ogranicza go od góry rozkładowym postojem
+    /// minus cykl drzwi 8,5 s: <b>≤ 10,5 s</b> przy medianowym postoju 19 s i ≤ 3,5 s
+    /// przy najkrótszym w sieci 12 s. Wybrane 8,0 s mieści się pod medianą i daje postój
+    /// 16,5 s, czyli krócej niż medianowe 19 s — po stronie, na której gra jest szybsza
+    /// od rzeczywistości, a nie wolniejsza.
+    /// </summary>
+    public const double PassengerExchangeSeconds = 8.0;
+
     /// <summary>Zasięg reflektora czołowego.</summary>
     public const double HeadlightRangeM = 70.0;
 
@@ -99,6 +126,10 @@ public static class DesignAssumptions
             "tempo przestawiania nastawnika; czułość sterowania jest decyzją o obsłudze, nie parametrem M7"),
         new ViewAssumption(nameof(TrackOffsetM), TrackOffsetM, "m",
             "oś toru względem osi trasy; wartość z profiles.py (design), a wybór prawego toru nie ma źródła — ACTU_LIGNES_BRUTES to trasa handlowa, nie geometria tor-po-torze"),
+        new ViewAssumption(nameof(StationStopWindowM), StationStopWindowM, "m",
+            "okno rozpoznania stacji, nie dokładność zatrzymania; ta sama liczba co LineRunSettings.StopWindowM w T-401, a górne ograniczenie to połowa peronu 94,0 m"),
+        new ViewAssumption(nameof(PassengerExchangeSeconds), PassengerExchangeSeconds, "s",
+            "wymiana pasażerów; brak źródła (T-312), T-113 ogranicza od góry do 10,5 s przy medianowym postoju 19 s"),
         new ViewAssumption(nameof(HeadlightRangeM), HeadlightRangeM, "m",
             "zasięg reflektora; parametr oświetlenia sceny, nie dane o taborze"),
         new ViewAssumption(nameof(HeadlightEnergy), HeadlightEnergy, "-",
