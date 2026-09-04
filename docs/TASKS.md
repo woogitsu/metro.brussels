@@ -466,6 +466,7 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.A5 | **Bilans energii przejazdu z odzyskiem i bez** | model energii jest w rdzeniu od T-310; to pomiar na istniejącym kodzie | M |
 | 6.A6 | **Wybieg zamiast trakcji: ile kosztuje w czasie, ile oszczędza w energii** | czysty eksperyment na modelu, żadnych nowych danych | M |
 | 6.A7 | **Testy własnościowe fizyki** — monotoniczność drogi hamowania po prędkości i masie, zachowanie energii, brak ujemnego czasu | wzmacnia to, co jest; nie dodaje ani jednej liczby o metrze | M |
+| 6.A8 | **Testy jednostkowe sześciu typów `src/Sim`, których nie nazywa żaden plik z `tests/`** — `EnergyAccount`, `BrakingEnergyAccount`, `SpeedProfile`, `MovementAuthority`, `Block`, `DesignParameter` | zmierzone licznikiem, nie na oko (polecenie w szczegółach pozycji); praca idzie wyłącznie do `tests/Sim.Tests/`, więc nie dotyka ani jednej liczby o sieci ani kodu produkcyjnego | M |
 
 #### Pasmo B — narzędzia i geometria (`tools/`)
 
@@ -476,6 +477,11 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.B3 | **LOD tuneli pakietów B–F** | wzorzec z pakietu A, `reports/L1_A-lod.md` | M |
 | 6.B4 | **Kontrola krzyżowa osi B–F wobec OSM**, jak `reports/L1_A-crosscheck.md` dla A | hierarchia źródeł rozstrzygnięta w `docs/07`; rozbieżności się **liczy i zapisuje**, nigdy nie uśrednia | M |
 | 6.B5 | **Wykrywanie łuków o najmniejszym promieniu na każdej osi** i sprawdzenie skrajni M7 punkt po punkcie | metoda zmierzona i opisana (`reports/M7-curve-clearance.md`), zostaje zastosowanie | M |
+| 6.B6 | **Triaż 37 ocalałych mutacji `tools/blender/sweep.py`** — największy niezablokowany zestaw w repozytorium; wynik idzie do `reports/mutation-triage-sweep.md`, którego dziś nie ma | `reports/mutation-triage-lod.md` §„Czego ten triaż nie ruszał" mówi wprost: „**`sweep.py`** — ocalałe tego modułu są osobną pozycją kolejki". Triaż klasyfikuje mutacje i dopisuje testy, nie zmienia ani jednej stałej — a stałe generatora są jawnie decyzją właściciela (`docs/21-measured-vs-assumed.md` §4) i zostają poza zakresem | L |
+| 6.B7 | **Triaż 9 ocalałych mutacji `tools/blender/m7_report.py`** — jedyny moduł z co najmniej pięcioma ocalałymi, który nie ma w `reports/` żadnego raportu triażu | wszystkie dziewięć to operatory porównań w progach raportu dopasowania M7; klasyfikacja i testy graniczne, żadnej nowej liczby o taborze — wymiary M7 pochodzą z `data/vehicle/m7-spec.json` (T-904, zrobione) | M |
+| 6.B8 | **Triaż 2 ocalałych mutacji `tools/track/make_test_track.py`** — pierwszy wiersz tabeli „Kolejność triażu — po udziale" w `reports/mutation-sweep.md`, udział 100 % (2 / 2) | moduł generuje `BROKEN.json`, czyli kontrolę negatywną dla walidatora osi, i karmi dwie bramki CI (`tools/ci/blender_smoke.sh`, `tools/ci/visual_smoke.sh`); obie ocalałe siedzą w warunku, który decyduje, **gdzie** oś jest zepsuta — mutant przesuwa uszkodzenie, a bramki nadal świecą zielono. Oś jest syntetyczna, więc nie ma tu ani jednego faktu o Brukseli | S |
+| 6.B9 | **Wyciągnięcie czystej logiki spod `bpy` z `material_test_scene.py` (12), `station_kit.py` (11) i `detail_markers.py` (9)** — 32 z 51 nieosiągalnych mutacji w trzech plikach | `reports/mutation-sweep.md` §„Moduły nieosiągalne" nazywa lekarstwo wprost: „Lekarstwem tutaj nie są testy, tylko dalsze wyciąganie logiki spod `bpy`", i ma dla tego zmierzony precedens z tego samego przebiegu (`m7_shell.py` 35 → 2, `tunnel_sweep.py` 35 → 6, `profile_vehicle.py` 26 → 7). Przeniesienie funkcji czystych nie zmienia geometrii wyjściowej — kontrolą jest identyczny GLB | L |
+| 6.B10 | **`report()` w `tools/physics/braking.py` nie jest wykonywane przez nic** — ani test, ani skrypt `tools/ci/*.sh`; jedyny wołający to `if __name__ == "__main__"` w wierszu 313 | `reports/mutation-triage-fizyka.md` §6 zapisał to jako znalezisko poza triażem: „Funkcja drukuje trzy tablice referencyjne T-311 i mogłaby przestać się składać bez skutku dla CI. To jest osobne zadanie, nie triaż". Tablice referencyjne T-311 są już w `docs/02-simulation.md`, więc test porównuje wypis z tym, co repo już deklaruje | S |
 
 #### Pasmo C — warstwa silnika (`src/Game`)
 
@@ -492,6 +498,270 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.D2 | **Bramka na czas przebiegu** — regres wydajności rdzenia widoczny, zanim zablokuje N składów | pomiar, nie decyzja | S |
 | 6.D3 | **Kontrola, że każdy `reports/*.md` niesie commit i datę pomiaru** | konwencja już obowiązuje, brakuje bramki | S |
 | 6.D4 | **Kontrola spójności liczb między `reports/` a kodem** — wartość wypisana w raporcie musi dać się odtworzyć z repo | dokładnie ta klasa rozjazdu, którą audyt znalazł w README | M |
+| 6.D5 | **Audyt dryfu pokrycia mutacyjnego po triażu** — które moduły odzyskały ocalałe od czasu swojego raportu triażu, i przybicie ich z powrotem | rozjazd jest już zmierzony i leży w dwóch plikach naraz: `tools/track/crs.py` miał po triażu 6 ocalałych na 8 mutacji (`reports/mutation-triage-wczytywanie.md` §Wynik), a przebieg z `66b8301` w `reports/mutation-sweep.md` pokazuje **8 na 14**; `tools/ci/assert_shot_metadata.py` miał **2 na 33** (`reports/mutation-triage-png-metadata.md` §Wynik), a dziś ma **6 na 39**. Porównanie dwóch raportów, które już istnieją — żadnej nowej danej | M |
+| 6.D6 | **Rozszerzenie zestawu operatorów `tools/tests/mutation_sweep.py`** poza porównania i progi liczbowe — przypisania, wywołania i łączniki logiczne | `reports/mutation-sweep.md` §„Czego ten przebieg NIE pokrywa, choć pozycja 5.1 tak brzmi" wypisuje ten brak w tabeli: pozycja 5.1 mówi „każdą kontrolę", a narzędzie mutuje „wyłącznie **operatory porównań i progi liczbowe**; nie mutuje przypisań, wywołań ani łączników logicznych". Praca w samym narzędziu pomiaru; baza do porównania jest zmierzona (980 mutacji, 51 nieosiągalnych, 929 policzonych na `66b8301`) | L |
+
+#### Szczegóły ośmiu pozycji dopisanych 04.09.2026
+
+Wiersze tabel wyżej mówią, **dlaczego** pozycja nie wymaga decyzji. Poniżej stoi to,
+czego wymaga `CLAUDE.md` §6 i `docs/TASK-TEMPLATE.md`: sześć pól na pozycję, plus jedno
+zdanie o tym, **z czego ta pozycja się wzięła** — plik i sekcja. Pozycja bez takiego
+odnośnika byłaby zadaniem wymyślonym na miejscu, a §8 zabrania takie brać.
+
+Wspólne dla wszystkich ośmiu: **Poza zakresem** zawiera zawsze `docs/03-legal.md`,
+zapis do `data/`, ocenę estetyczną i podnoszenie albo obniżanie jakiejkolwiek stałej
+wymienionej w `docs/21-measured-vs-assumed.md`. Pozycje wypisują poniżej tylko to,
+co dochodzi ponad ten wspólny zakaz.
+
+##### 6.A8 · Sześć typów `src/Sim` bez ani jednego testu, który je nazywa
+
+- **Skąd:** pomiar własny, nie lektura. Faza 1 tego planu liczyła „Moduły `tools/` bez
+  testu: **2**" i z tego wyszła pozycja 5.8; ten sam licznik po stronie rdzenia nie był
+  dotąd puszczony. Wynik: **6 z 45** plików `src/Sim` nie jest nazwane w żadnym pliku
+  pod `tests/`.
+- **Wejście:** `src/Sim/Physics/EnergyAccount.cs`, `src/Sim/Physics/BrakingEnergyAccount.cs`,
+  `src/Sim/Physics/SpeedProfile.cs`, `src/Sim/Physics/DesignParameter.cs`,
+  `src/Sim/Signalling/MovementAuthority.cs`, `src/Sim/Signalling/Block.cs`;
+  tablice referencyjne z `docs/02-simulation.md` i `reports/T-310-physics.md`.
+- **Wyjście:** `tests/Sim.Tests/EnergyAccountTests.cs`,
+  `tests/Sim.Tests/SpeedProfileTests.cs`, `tests/Sim.Tests/MovementAuthorityTests.cs`
+  (podział na pliki wynika z przestrzeni nazw, nie z upodobania).
+- **Weryfikacja:**
+  ```bash
+  # licznik, który wskazał te sześć — po zadaniu ma wypisać zero wierszy
+  for f in $(find src/Sim -name '*.cs'); do n=$(basename $f .cs); \
+      [ "$(grep -rlw "$n" tests/ | wc -l)" -eq 0 ] && echo "BRAK TESTU: $f"; done
+  dotnet test tests/Sim.Tests
+  ```
+  Oczekiwane: pusty wypis licznika i zielony `dotnet test`.
+- **Skończone, gdy:** licznik wypisuje **0** plików zamiast 6, a każdy z nowych testów ma
+  kontrolę negatywną sprawdzoną wykonaniem — w szczególności `ResidualJ`
+  i `RelativeResidual` (oba konta energii), `PeakSpeedMps` i `FirstAtLeast` na profilu
+  pustym i jednopróbkowym, oraz `ResistanceShorteningM` przy zerowym opóźnieniu.
+- **Poza zakresem:** zmiana czegokolwiek w `src/Sim/` — commit zawiera wyłącznie
+  `tests/` i ten plik. Nie dotyka `src/Game/` ani warstwy Godota.
+- **Zależy od:** nic.
+
+##### 6.B6 · Triaż 37 ocalałych mutacji `tools/blender/sweep.py`
+
+- **Skąd:** `reports/mutation-triage-lod.md` §„Czego ten triaż nie ruszał", ostatni
+  punkt: „**`sweep.py`** — ocalałe tego modułu są osobną pozycją kolejki". Liczba jest
+  z `reports/mutation-sweep.md` §„Kolejność triażu — po udziale": **37 / 79, 47 %** —
+  drugi zestaw w repozytorium po `clearance_profile.py`, a ten jest zablokowany przez
+  T-906, więc `sweep.py` jest **największym niezablokowanym**.
+- **Wejście:** `tools/blender/sweep.py`, `reports/mutation-sweep.md`
+  §`tools/blender/sweep.py` (37 wierszy z numerem wiersza i rodzajem mutacji),
+  `tools/tests/mutation_sweep.py`, istniejące `tools/tests/test_sweep.py`
+  i `tools/tests/test_chunks.py`.
+- **Wyjście:** `reports/mutation-triage-sweep.md` (dziś **nie istnieje** — triaż z 03.09.2026
+  zostawił wynik wyłącznie w treści commita `a6793ed`, PR #132) oraz nowe testy
+  w `tools/tests/test_sweep.py` i `tools/tests/test_chunks.py`.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/mutation_sweep.py --only sweep.py --workers 4 \
+      --journal build/sweep-po.jsonl --json build/sweep-po.json
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: liczba ocalałych z `--only sweep.py` niższa od 37, cały zestaw zielony,
+  a każda ocalała, która **zostaje**, ma w raporcie werdykt „mutant równoważny" albo
+  „remis bez znaczenia" — z powodem, nie z etykietą (tabela klas z `reports/mutation-sweep.md`
+  §„Jak czytać ocalałe").
+- **Skończone, gdy:** z 37 ocalałych **każda** ma werdykt, liczba ocalałych spada
+  co najmniej do poziomu, przy którym udział modułu schodzi poniżej 20 % (czyli
+  najwyżej 15 z 79), a każdy dopisany test ma kontrolę negatywną pokazaną wypisem
+  `python3 tools/tests/test_all.py` z nazwą padającego testu.
+- **Poza zakresem:** ośmiu stałych generatora z `docs/21-measured-vs-assumed.md` §4
+  (`DEFAULT_RING_STEP_M`, `DEFAULT_STATION_HALO_M`, `DEFAULT_MAX_CHUNK_M`,
+  `DEFAULT_MIN_CHUNK_M`, `DEFAULT_STREAM_AHEAD_M`, `DEFAULT_STREAM_BEHIND_M`,
+  `UV_METRES_PER_UNIT`, `DEGENERATE_AREA_M2`) się **nie rusza** — testy przypinają
+  granice porównań, nie liczby po prawej stronie. Nie dotyka `tools/blender/lod.py`
+  ani `clearance_profile.py`.
+- **Zależy od:** nic. 5.1 jest wykonane — jego wynikiem jest `reports/mutation-sweep.md`.
+
+##### 6.B7 · Triaż 9 ocalałych mutacji `tools/blender/m7_report.py`
+
+- **Skąd:** `reports/mutation-sweep.md` §„Kolejność triażu — po udziale" i
+  §`tools/blender/m7_report.py`: **9 / 31, 29 %**. Przegląd `reports/mutation-triage-*.md`
+  (dwanaście plików) nie wymienia tego modułu ani razu — to jedyny moduł z co najmniej
+  pięcioma ocalałymi bez własnego raportu triażu.
+- **Wejście:** `tools/blender/m7_report.py`, dziewięć wierszy z
+  `reports/mutation-sweep.md` (46 ×2, 52 ×2, 85, 87, 95, 96, 169),
+  `tools/tests/test_m7_report.py` (43 testy dziś), `data/vehicle/m7-spec.json`,
+  `reports/M7-in-tunnel.md`.
+- **Wyjście:** `reports/mutation-triage-m7-report.md` i nowe testy w
+  `tools/tests/test_m7_report.py`.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/mutation_sweep.py --only m7_report.py --workers 4 \
+      --journal build/m7report-po.jsonl --json build/m7report-po.json
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: mniej niż 9 ocalałych, zestaw zielony, każda pozostała z werdyktem.
+- **Skończone, gdy:** wszystkie 9 ma werdykt, a udział modułu schodzi z 29 % poniżej
+  10 % (najwyżej 3 z 31); pary z wierszy 46 i 52 są rozróżnione po
+  `plik:wiersz:przesunięcie`, a nie po `plik:wiersz` — `reports/mutation-sweep.md`
+  §„Pułapka odczytu" mówi, dlaczego to nie jest formalność.
+- **Poza zakresem:** wymiary M7 (`data/vehicle/m7-spec.json`, siedem wartości `spec`
+  z T-904 i reszta jako jawne założenia projektowe) i progi raportowania miejsc
+  krytycznych z `docs/21-measured-vs-assumed.md` §4a.
+- **Zależy od:** nic.
+
+##### 6.B8 · Triaż 2 ocalałych mutacji `tools/track/make_test_track.py`
+
+- **Skąd:** `reports/mutation-sweep.md` §„Kolejność triażu — po udziale", **pierwszy
+  wiersz tabeli**: `tools/track/make_test_track.py`, **2 / 2, 100 %** — jedyny moduł
+  z udziałem pełnym. Pozycja jest mała, ale ta tabela jest własną kolejnością triażu
+  tego projektu i ten moduł stoi w niej na szczycie.
+- **Wejście:** `tools/track/make_test_track.py` (wiersz 19: `if broken and i == 130`),
+  dwa wiersze z `reports/mutation-sweep.md` (`== → !=` i `130 → 131`),
+  `tools/ci/blender_smoke.sh` (wiersz 88), `tools/ci/visual_smoke.sh` (wiersz 59),
+  `tools/tests/test_validate_axis.py`.
+- **Wyjście:** testy w `tools/tests/test_validate_axis.py` albo nowy
+  `tools/tests/test_test_track_fixture.py`, oraz `reports/mutation-triage-make-test-track.md`.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/mutation_sweep.py --only make_test_track.py --workers 2 \
+      --journal build/mtt-po.jsonl --json build/mtt-po.json
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: **0 ocalałych z 2**, zestaw zielony.
+- **Skończone, gdy:** obie mutacje są **zabite**, a nie zaklasyfikowane jako równoważne:
+  test sprawdza, że uszkodzenie w `BROKEN.json` siedzi dokładnie w punkcie **130** z 260
+  (a nie 131 i nie w każdym punkcie), bo to ten punkt czyni z pliku kontrolę negatywną
+  walidatora osi. Kontrola negatywna obu mutacji pokazana wypisem z nazwą padającego testu.
+- **Poza zakresem:** oś jest **syntetyczna** (`"crs": "syntetyczny, origin (0,0)"`), więc
+  zadanie nie dotyka ani jednego faktu o brukselskiej sieci; nie zmienia `tools/ci/*.sh`
+  ani kształtu `TEST.json`, bo od tego kształtu zależą dwie bramki.
+- **Zależy od:** nic.
+
+##### 6.B9 · Wyciągnięcie czystej logiki spod `bpy` z trzech modułów scen
+
+- **Skąd:** `reports/mutation-sweep.md` §„Moduły nieosiągalne — 51 mutacji w 9 plikach":
+  „Lekarstwem tutaj nie są testy, tylko dalsze wyciąganie logiki spod `bpy`". Trzy
+  pierwsze pliki tej tabeli — `material_test_scene.py` (12), `station_kit.py` (11),
+  `detail_markers.py` (9) — to **32 z 51** nieosiągalnych mutacji, i ten sam raport mówi,
+  że wszystkie trzy **urosły**, a nie zostały po ekstrakcji.
+- **Wejście:** `tools/blender/material_test_scene.py`, `tools/blender/station_kit.py`,
+  `tools/blender/detail_markers.py`; wzorzec ekstrakcji zmierzony w tym samym raporcie
+  (`m7_shell.py` 35 → 2, `tunnel_sweep.py` 35 → 6, `profile_vehicle.py` 26 → 7,
+  `glb_roundtrip.py` 10 → 1, `place_vehicle.py` 7 → 1).
+- **Wyjście:** funkcje czyste przeniesione do `tools/track/` albo `tools/visual/`
+  (jak zrobiono dla poprzednich pięciu), testy w `tools/tests/`, raport
+  `reports/bpy-extraction-round-2.md`.
+- **Weryfikacja:**
+  ```bash
+  bash tools/ci/blender_smoke.sh          # ta sama geometria, suma SHA-256 przed i po
+  python3 tools/tests/mutation_sweep.py --workers 4 \
+      --journal build/bpy-po.jsonl --json build/bpy-po.json
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: te same pliki wyjściowe co przed ekstrakcją (suma SHA-256 zgodna),
+  liczba nieosiągalnych mutacji poniżej 51, zestaw zielony.
+- **Skończone, gdy:** nieosiągalne schodzą z **51** do najwyżej **25**, każda wyciągnięta
+  funkcja ma test z kontrolą negatywną, a GLB i PNG z bramek są **identyczne co do sumy
+  SHA-256** z tymi przed ekstrakcją — czyli refaktor nie zmienił ani jednego wierzchołka.
+- **Poza zakresem:** materiały, kolory i cokolwiek z `docs/03-legal.md` lub kierunku
+  artystycznego (T-902); nie zmienia interfejsu CLI żadnego z trzech skryptów, bo wołają
+  je bramki.
+- **Zależy od:** nic. Jeśli 6.B6 idzie równolegle, wchodzi po nim — oba dotykają
+  `tools/blender/`.
+
+##### 6.B10 · `report()` w `tools/physics/braking.py` nie jest wykonywane przez nic
+
+- **Skąd:** `reports/mutation-triage-fizyka.md` §6 „Co zauważyłem przy okazji, a czego
+  nie ruszałem": „**`report()` w `braking.py` nie jest wykonywane przez żaden test.**
+  (…) Funkcja drukuje trzy tablice referencyjne T-311 i mogłaby przestać się składać bez
+  skutku dla CI. To jest osobne zadanie, nie triaż." Sprawdzone ponownie na tym drzewie:
+  jedynym wołającym jest blok `__main__` w wierszu 313, i nie woła jej żaden plik
+  z `tools/tests/` ani żaden `tools/ci/*.sh`.
+- **Wejście:** `tools/physics/braking.py` (wiersze 267–313), tablice referencyjne
+  T-311 w `docs/02-simulation.md` i `reports/T-311-braking.md`,
+  `tools/tests/test_braking.py`.
+- **Wyjście:** testy w `tools/tests/test_braking.py`, które wołają `report()`
+  i porównują wypis z liczbami, które repo już deklaruje.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py
+  python3 -c "import sys; sys.path.insert(0,'tools/physics'); import braking; braking.report()"
+  ```
+  Oczekiwane: zielony zestaw, a wypis funkcji zgodny wiersz w wiersz z tablicą
+  referencyjną z `reports/T-311-braking.md`.
+- **Skończone, gdy:** `report()` jest wołane przez co najmniej jeden test, a kontrola
+  negatywna pokazuje, że usunięcie dowolnej z **trzech** tablic z wypisu wywraca test
+  z nazwą — wypis z `python3 tools/tests/test_all.py`, nie opis.
+- **Poza zakresem:** wartości progów hamowania (`docs/21-measured-vs-assumed.md` §4b)
+  i `data/vehicle/m7-spec.json`; nie zmienia formatu wypisu, bo raporty T-311 cytują go
+  jako stan bieżący.
+- **Zależy od:** nic.
+
+##### 6.D5 · Audyt dryfu pokrycia mutacyjnego po triażu
+
+- **Skąd:** porównanie dwóch raportów, które **już leżą w repo**.
+  `reports/mutation-triage-wczytywanie.md` §Wynik podaje `tools/track/crs.py`
+  **6 ocalałych na 8** po triażu (pokrycie 25,0 %), a `reports/mutation-sweep.md`
+  (przebieg na `66b8301`) podaje dla tego samego pliku **8 na 14**.
+  `reports/mutation-triage-png-metadata.md` §Wynik podaje
+  `tools/ci/assert_shot_metadata.py` **2 na 33**, a przebieg z `66b8301` — **6 na 39**.
+  W obu przypadkach urosła i liczba mutacji, i liczba ocalałych.
+- **Wejście:** `reports/mutation-sweep.md` i wszystkie dwanaście
+  `reports/mutation-triage-*.md`; `tools/tests/mutation_sweep.py`.
+- **Wyjście:** `reports/mutation-drift.md` (moduł, ocalałe w swoim raporcie triażu,
+  ocalałe dziś, różnica, commit każdej z dwóch liczb) i nowe testy w
+  `tools/tests/test_mutation_sweep.py`.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/mutation_sweep.py --only crs.py --workers 2 \
+      --journal build/drift-crs.jsonl --json build/drift-crs.json
+  python3 tools/tests/mutation_sweep.py --only assert_shot_metadata.py --workers 2 \
+      --journal build/drift-shot.jsonl --json build/drift-shot.json
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: liczby z przebiegu zgadzają się z tabelą w `reports/mutation-drift.md`
+  co do jedności, a nie „w przybliżeniu".
+- **Skończone, gdy:** tabela wymienia **wszystkie dwanaście** modułów z raportem triażu
+  z liczbą po obu stronach, dwa znane przypadki dryfu (`crs.py` 6 → 8,
+  `assert_shot_metadata.py` 2 → 6) są przybite testami, a każda różnica, która
+  **zostaje**, ma powód wpisany w raporcie: nowy kod albo mutant równoważny.
+- **Poza zakresem:** `tools/blender/clearance_profile.py` — jego 66 ocalałych czeka na
+  T-906 i **nie należy do tej pozycji**; nie zmienia zestawu operatorów narzędzia
+  (to jest 6.D6).
+- **Zależy od:** nic. Wykonane przed 6.B6 i 6.B7 daje im punkt odniesienia; wykonane po
+  nich musi je uwzględnić.
+
+##### 6.D6 · Rozszerzenie zestawu operatorów `mutation_sweep.py`
+
+- **Skąd:** `reports/mutation-sweep.md` §„Czego ten przebieg NIE pokrywa, choć pozycja
+  5.1 tak brzmi", trzeci wiersz tabeli: pozycja 5.1 mówi „każdą kontrolę", a narzędzie
+  mutuje „wyłącznie **operatory porównań i progi liczbowe**; nie mutuje przypisań,
+  wywołań ani łączników logicznych". Rozjazd jest w repozytorium nazwany, ale
+  niedomknięty.
+- **Wejście:** `tools/tests/mutation_sweep.py` (generator mutacji z AST, wiersze
+  ok. 114 i 176), `tools/tests/test_mutation_sweep.py`, baza porównania z
+  `reports/mutation-sweep.md`: **980 mutacji, 51 nieosiągalnych, 929 policzonych,
+  661 zabitych, 268 ocalałych, 71,2 % pokrycia** na `66b8301`.
+- **Wyjście:** nowe klasy mutacji w `tools/tests/mutation_sweep.py`, testy w
+  `tools/tests/test_mutation_sweep.py`, przeliczony `reports/mutation-sweep.md`
+  z **dwiema kolumnami**: stary zestaw operatorów i nowy.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py
+  python3 tools/tests/mutation_sweep.py --workers 4 \
+      --journal build/ops-po.jsonl --json build/ops-po.json --out build/ops-po.md
+  ```
+  Oczekiwane: przebieg na **starym** zestawie operatorów daje te same 980 mutacji
+  i te same identyfikatory `plik:wiersz:przesunięcie` co `66b8301` (narzędzie generuje
+  je w ustalonej kolejności, więc to jest sprawdzalne co do wiersza), a nowy zestaw
+  daje ich więcej.
+- **Skończone, gdy:** narzędzie mutuje co najmniej trzy nowe klasy (`and` ↔ `or`,
+  podmiana argumentu wywołania na wartość neutralną, usunięcie przypisania
+  augmentowanego), stary zestaw jest **odtwarzalny co do identyfikatora** — kontrola
+  regresji na 980 pozycjach — a przyrost ocalałych jest w raporcie rozbity na klasy,
+  nie podany jedną liczbą.
+- **Poza zakresem:** mutowanie bramek shellowych z `tools/ci/*.sh` — ten sam raport
+  mówi, że wymaga „drugiego narzędzia i osobnej wyroczni", i to jest osobna pozycja,
+  której tu **nie zakładam**; nie zmienia ani jednego pliku pod testem.
+- **Zależy od:** nic. Wykonane po 6.D5 unieważnia jego tabelę bazową, więc kolejność
+  6.D5 → 6.D6 jest tańsza.
 
 **Aktualizacja tej listy jest częścią pracy, nie dodatkiem do niej.** Pozycja zrobiona
 znika stąd i pojawia się jako wpis z sześcioma polami wyżej w tym pliku.
