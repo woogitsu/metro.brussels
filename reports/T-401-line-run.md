@@ -22,50 +22,55 @@ Rdzeń nie importuje Godota (reguła 9); `data/` nietknięte (reguła 6).
 
 ## 2. Weryfikacja — rzeczywiste wyjście
 
+**Przeliczone 04.09.2026 na commicie `28e0d82`.** Poprzednia wersja tej sekcji niosła
+wyjście sprzed commita `4a03982` (#86) — ta sama zaległość, którą §3a opisuje dla §3
+i §4. Skutek był gorszy niż w tamtych sekcjach: **raport przeczył sam sobie**, bo §2
+podawało 6686,69 m i 89 333 kroki, a §3 w tym samym pliku 6686,05 m i 89 332. Sekcja
+„rzeczywiste wyjście" jest w tym repozytorium dowodem w rozumieniu `CLAUDE.md` §5 i §7,
+więc stary blok w niej był najgorszym miejscem na nieaktualne liczby.
+
 ```
 $ dotnet run --project src/Sim.Runner -- line --axis data/track/L1_A.json \
     --limit-kmh 72 --exchange-s 10.5 --load AW0 --timetable build/timetable.json
 ```
 
 ```
-[LINIA] L1_A: 11 zatrzymań, 6686.69 m, 725.43 s, postoje 209.09 s, kroków 89333, koniec=arrived
+[LINIA] L1_A: 11 zatrzymań, 6686.05 m, 725.42 s, postoje 209.09 s, kroków 89332, koniec=arrived
 [LINIA] limit 72.00 km/h, wymiana 10.5 s, hamulec 100 % służbowego, okno stacji 5.0 m, obciążenie AW0 170000 kg
 [ZAŁOŻENIE] SpeedLimitMps = 20 — jedno ograniczenie na całą oś; speed_limits w data/track/*.json jest puste we wszystkich sześciu pakietach, a 80 km/h z rejestru M7 to prędkość konstrukcyjna pojazdu (design_model), nie prędkość dopuszczalna na torze
 [ZAŁOŻENIE] PassengerExchangeSeconds = 10.5 — brak źródła (T-312). T-113 ogranicza od góry: postój rozkładowy minus cykl drzwi 8,5 s, czyli ≤ 10,5 s przy medianowym postoju 19 s
 [ZAŁOŻENIE] BrakeUsageFraction = 1 — ułamek hamulca służbowego, przy którym maszynista zaczyna hamować; praktyka prowadzenia STIB nie jest publikowana
 [ZAŁOŻENIE] StopWindowM = 5 — okno rozpoznania stacji przez pętlę, nie dokładność zatrzymania M7 — rzeczywisty błąd zatrzymania jest mierzony i wychodzi w StationCall.StopErrorM
-[STACJA] Beekkant: przyjazd 43.27 s na 509.43 m (błąd -0.306 m), jazda 43.27 s na 509.43 m, szczyt 72.00 km/h
-[STACJA] Étangs Noirs|Zwarte Vijvers: przyjazd 127.77 s na 1451.69 m (błąd -0.305 m), jazda 65.50 s na 942.26 m, szczyt 72.00 km/h
-[STACJA] Comte de Flandre|Graaf van Vlaanderen: przyjazd 195.31 s na 2054.62 m (błąd -0.304 m), jazda 48.53 s na 602.92 m, szczyt 72.00 km/h
-[STACJA] Sainte-Catherine|Sint-Katelijne: przyjazd 266.00 s na 2720.71 m (błąd -0.304 m), jazda 51.68 s na 666.09 m, szczyt 72.00 km/h
-[STACJA] De Brouckère: przyjazd 323.83 s na 3130.07 m (błąd -0.294 m), jazda 38.82 s na 409.36 m, szczyt 69.83 km/h
-[STACJA] Gare Centrale|Centraal Station: przyjazd 391.31 s na 3732.06 m (błąd -0.299 m), jazda 48.47 s na 601.99 m, szczyt 72.00 km/h
-[STACJA] Parc|Park: przyjazd 445.70 s na 4075.95 m (błąd -0.296 m), jazda 35.38 s na 343.89 m, szczyt 65.07 km/h
-[STACJA] Arts-Loi|Kunst-Wet: przyjazd 507.34 s na 4561.28 m (błąd -0.299 m), jazda 42.63 s na 485.33 m, szczyt 72.00 km/h
-[STACJA] Maelbeek|Maalbeek: przyjazd 574.31 s na 5152.74 m (błąd -0.306 m), jazda 47.96 s na 591.46 m, szczyt 72.00 km/h
-[STACJA] Schuman: przyjazd 627.11 s na 5467.68 m (błąd -0.303 m), jazda 33.79 s na 314.93 m, szczyt 62.75 km/h
-[STACJA] Merode: przyjazd 725.43 s na 6686.69 m (błąd -0.300 m), jazda 79.32 s na 1219.01 m, szczyt 72.00 km/h
-[LINIA] największy błąd zatrzymania: 0.306 m
-[ROZKŁAD] Beekkant → Étangs Noirs|Zwarte Vijvers: model 65.50 s, rozkład 78 s, rezerwa +12.50 s
+[STACJA] Beekkant: przyjazd 43.27 s na 509.42 m (błąd -0.307 m), jazda 43.27 s na 509.42 m, szczyt 72.00 km/h
+[STACJA] Étangs Noirs|Zwarte Vijvers: przyjazd 127.75 s na 1451.60 m (błąd -0.300 m), jazda 65.47 s na 942.18 m, szczyt 72.00 km/h
+[STACJA] Comte de Flandre|Graaf van Vlaanderen: przyjazd 195.28 s na 2054.48 m (błąd -0.302 m), jazda 48.53 s na 602.88 m, szczyt 72.00 km/h
+[STACJA] Sainte-Catherine|Sint-Katelijne: przyjazd 265.98 s na 2720.44 m (błąd -0.307 m), jazda 51.68 s na 665.96 m, szczyt 72.00 km/h
+[STACJA] De Brouckère: przyjazd 323.81 s na 3129.64 m (błąd -0.300 m), jazda 38.82 s na 409.20 m, szczyt 69.81 km/h
+[STACJA] Gare Centrale|Centraal Station: przyjazd 391.29 s na 3731.55 m (błąd -0.303 m), jazda 48.48 s na 601.91 m, szczyt 72.00 km/h
+[STACJA] Parc|Park: przyjazd 445.68 s na 4075.37 m (błąd -0.289 m), jazda 35.38 s na 343.82 m, szczyt 65.07 km/h
+[STACJA] Arts-Loi|Kunst-Wet: przyjazd 507.33 s na 4560.64 m (błąd -0.306 m), jazda 42.65 s na 485.27 m, szczyt 72.00 km/h
+[STACJA] Maelbeek|Maalbeek: przyjazd 574.30 s na 5152.11 m (błąd -0.307 m), jazda 47.96 s na 591.47 m, szczyt 72.00 km/h
+[STACJA] Schuman: przyjazd 627.10 s na 5467.05 m (błąd -0.303 m), jazda 33.79 s na 314.93 m, szczyt 62.75 km/h
+[STACJA] Merode: przyjazd 725.42 s na 6686.05 m (błąd -0.299 m), jazda 79.32 s na 1219.00 m, szczyt 72.00 km/h
+[LINIA] największy błąd zatrzymania: 0.307 m
+[ROZKŁAD] Beekkant → Étangs Noirs|Zwarte Vijvers: model 65.47 s, rozkład 78 s, rezerwa +12.53 s
 [ROZKŁAD] Étangs Noirs|Zwarte Vijvers → Comte de Flandre|Graaf van Vlaanderen: model 48.53 s, rozkład 58 s, rezerwa +9.47 s
 [ROZKŁAD] Comte de Flandre|Graaf van Vlaanderen → Sainte-Catherine|Sint-Katelijne: model 51.68 s, rozkład 71 s, rezerwa +19.32 s
 [ROZKŁAD] Sainte-Catherine|Sint-Katelijne → De Brouckère: model 38.82 s, rozkład 51 s, rezerwa +12.18 s
-[ROZKŁAD] De Brouckère → Gare Centrale|Centraal Station: model 48.47 s, rozkład 61 s, rezerwa +12.53 s
-[ROZKŁAD] Gare Centrale|Centraal Station → Parc|Park: model 35.38 s, rozkład 39 s, rezerwa +3.62 s
-[ROZKŁAD] Parc|Park → Arts-Loi|Kunst-Wet: model 42.63 s, rozkład 51 s, rezerwa +8.37 s
+[ROZKŁAD] De Brouckère → Gare Centrale|Centraal Station: model 48.48 s, rozkład 61 s, rezerwa +12.53 s
+[ROZKŁAD] Gare Centrale|Centraal Station → Parc|Park: model 35.38 s, rozkład 39 s, rezerwa +3.63 s
+[ROZKŁAD] Parc|Park → Arts-Loi|Kunst-Wet: model 42.65 s, rozkład 51 s, rezerwa +8.35 s
 [ROZKŁAD] Arts-Loi|Kunst-Wet → Maelbeek|Maalbeek: model 47.96 s, rozkład 54 s, rezerwa +6.04 s
 [ROZKŁAD] Maelbeek|Maalbeek → Schuman: model 33.79 s, rozkład 45 s, rezerwa +11.21 s
 [ROZKŁAD] Schuman → Merode: model 79.32 s, rozkład 90 s, rezerwa +10.68 s
 [ROZKŁAD] dopasowanych odcinków: 10 z 10
 ```
 
-```
-$ dotnet test tests/Sim.Tests
-Passed!  - Failed: 0, Passed: 205, Skipped: 0, Total: 205
-
-$ python3 tools/tests/test_all.py
-  406/406 przeszło
-```
+Wszystkie jedenaście kilometraży stacji przesunęło się względem starej wersji tej sekcji
+(np. Beekkant 509,43 → 509,42 m, Comte de Flandre 2054,62 → 2054,48 m, Schuman
+5467,68 → 5467,05 m), bo #86 przeliczył je na polilinii, która faktycznie leży w pliku.
+Największy błąd zatrzymania to dziś **0,307 m** (było 0,306 m), a rezerwy rozkładowe
+zmieniły się w trzecim miejscu znaczącym. Mechanizm i dowód bisekcją — §3a.
 
 ## 3. Model jest szybszy od rozkładu na wszystkich 49 odcinkach sieci
 
@@ -256,7 +261,7 @@ identyfikatory nie.
 ## 7. Czego świadomie nie zrobiłem
 
 - **Nie wpisałem prędkości liniowej do `data/track/*.json`.** `data/` jest tylko do
-  odczytu, a 58,75 km/h jest ograniczeniem dolnym warunkowym względem modelu. W polu
+  odczytu, a 58,68 km/h jest ograniczeniem dolnym warunkowym względem modelu. W polu
   `speed_limits` wyglądałoby dokładnie tak samo jak ograniczenie ze źródła STIB.
 - **Nie wpisałem czasu wymiany pasażerów jako domyślnego.** `LineRunSettings` nie ma
   wartości domyślnych w konstruktorze — ta sama decyzja, co brak konstruktora
