@@ -96,12 +96,15 @@ MIN_REPORTS = 40
 #: bramkę, więc lista nie może po cichu rosnąć ani po cichu zostać.
 COMMIT_EXCEPTIONS = {
     "R-006-line-speed.md":
-        "Nagłówek jest przepisywany na gałęzi w locie (poprawka cytatu dolnego "
-        "ograniczenia prędkości); dopisanie commita tutaj dałoby konflikt. "
-        "Wyjątek do zdjęcia razem ze scaleniem tej gałęzi.",
+        "Raport z 02.09.2026 nie zapisał commita pomiaru w chwili powstania, a dziś "
+        "nie da się go ustalić bez zgadywania: wniósł go `78fa1f7`, ale pomiar "
+        "wykonano PRZED tym commitem, na drzewie, którego raport nie nazywa. "
+        "Wpisanie tam czegokolwiek byłoby dorobieniem liczby do formularza.",
     "T-401-line-run.md":
-        "Ten sam powód: `t401-cytowanie-bez-dryfu` przepisuje §2 i §4 tego raportu. "
-        "SHA w treści raport ma, w nagłówku nie; wyjątek do zdjęcia po scaleniu.",
+        "Sekcje tego raportu są mierzone na RÓŻNYCH commitach i każda go nazywa: "
+        "§2 na `28e0d82`, §4 na `7d15987` (04.09.2026). Jeden SHA w nagłówku "
+        "spłaszczyłby dwa różne pomiary do jednego i mówiłby nieprawdę o jednym "
+        "z nich; nagłówek odsyła więc do sekcji, a nie udaje wspólnego commita.",
 }
 
 #: Wyjątków od wymogu DATY nie ma i to jest wynik pomiaru, nie założenie: po tej
@@ -240,6 +243,22 @@ def test_lista_wyjatkow_nie_gnije():
             checked += 1
             assert name in existing, f"wyjątek na {name} — takiego raportu nie ma"
             assert len(reason) > 40, f"wyjątek na {name} bez powodu: {reason!r}"
+            # POWÓD NIE MOŻE OBIECYWAĆ WŁASNEGO USUNIĘCIA, i to jest usterka
+            # zmierzona na tej bramce, nie ostrożność. Oba pierwotne wyjątki brzmiały
+            # „gałąź w locie przepisuje ten nagłówek, wyjątek do zdjęcia po scaleniu".
+            # Gałąź (#195) scaliła się 04.09.2026 — a asercja niżej sprawdza tylko,
+            # czy plik JUŻ MA pole. Nie ma, bo nikt go nie dopisał, więc wyjątek
+            # zostawał uzasadniony na zawsze przez powód, który dawno wygasł.
+            # Bramka nie umie dopilnować obietnicy, więc jej nie przyjmuje: powód
+            # musi opisywać stan TRWAŁY, taki jak „raport nie zapisał commita
+            # i nie da się go dziś ustalić" albo „sekcje mierzono na różnych".
+            obietnice = ("po scaleniu", "do zdjęcia", "w locie", "gałęzi w locie",
+                         "tymczasow", "na razie", "docelowo")
+            znalezione = [f for f in obietnice if f in reason.lower()]
+            assert not znalezione, (
+                f"wyjątek na {name} uzasadnia się obietnicą {znalezione} — bramka nie "
+                "umie sprawdzić, czy obietnica została dotrzymana, więc powód musi "
+                "opisywać stan trwały")
             with open(os.path.join(REPORTS, name), encoding="utf-8") as handle:
                 header = _header(handle.read())
             assert not reader(header), (
