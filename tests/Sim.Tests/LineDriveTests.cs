@@ -171,9 +171,15 @@ public sealed class LineDriveTests
     public void Dwa_sklady_na_wspolnym_zegarze_jada_tak_samo_jak_kazdy_osobno()
     {
         // Własność, dla której ta klasa powstała: wołający może posuwać N składów
-        // naprzemiennie. Dziś składy są niezależne, więc wspólny zegar musi dać
-        // dokładnie to samo co dwa osobne przejazdy. Gdy dojdzie sprzężenie (T-313),
-        // ten test zacznie padać — i to będzie poprawny sygnał, nie regres.
+        // naprzemiennie. GOŁE `LineDrive` są niezależne — o innych składach nie wie ani
+        // jedno — więc wspólny zegar musi dać dokładnie to samo co dwa osobne przejazdy.
+        //
+        // Poprzednia wersja tego komentarza zapowiadała, że test zacznie padać, gdy dojdzie
+        // sprzężenie z T-313. Zapowiedź była błędna i dlatego jest tu przepisana, a nie
+        // dopisana obok: sprzężenie mieszka w `LineCore`, które trzyma sygnalizację i podaje
+        // składom `AuthorityEndM`. Tutaj nikt tego nie ustawia, więc granica przebiega
+        // dokładnie w tym miejscu i ten test ją trzyma: bez sygnalizacji składy pozostają
+        // niezależne. Sprzężenie jest w `LineCoreTests`.
         var axis = Axis(0.0, 600.0, 1400.0);
         var settings = Settings();
 
@@ -212,6 +218,115 @@ public sealed class LineDriveTests
         Assert.IsTrue(longDrive.Finished);
         Assert.IsTrue(longDrive.Steps > shortDrive.Steps,
             $"dłuższa oś dała {longDrive.Steps} kroków, krótsza {shortDrive.Steps}");
+    }
+
+    // --- autorytet jazdy -----------------------------------------------------
+
+    [TestMethod]
+    public void Autorytet_dalej_niz_stacja_nie_zmienia_ani_jednego_kroku()
+    {
+        // Tożsamość, bez której wprowadzenie sygnalizacji byłoby cichą zmianą każdego
+        // dotychczasowego przejazdu. Autorytet poza końcem osi to „droga wolna" — ślad
+        // musi wyjść ten sam co bez autorytetu, co do bajtu.
+        var axis = Axis(0.0, 600.0, 1400.0, 2000.0);
+        var settings = Settings();
+
+        var without = RunToEnd(Drive(axis, settings));
+
+        var drive = Drive(axis, settings);
+        drive.AuthorityEndM = 1e9;
+        var with = RunToEnd(drive);
+
+        Assert.AreEqual(without.Count, with.Count, "różna liczba kroków");
+        CollectionAssert.AreEqual(without, with, "autorytet poza osią zmienił przejazd");
+    }
+
+    [TestMethod]
+    public void Autorytet_blizej_niz_stacja_zatrzymuje_sklad_przed_nim()
+    {
+        // Stacja jest 800 m dalej, autorytet kończy się na 300 m. Skład ma stanąć przed
+        // 300 m i tam ZOSTAĆ: nie dojechać do stacji, nie przekroczyć granicy i nie
+        // pełznąć do niej centymetrami.
+        const double Limit = 300.0;
+        var drive = Drive(Axis(0.0, 800.0), Settings());
+        drive.AuthorityEndM = Limit;
+
+        var maxChainage = 0.0;
+        for (var i = 0; i < 12000; i++)
+        {
+            drive.Step();
+            maxChainage = Math.Max(maxChainage, drive.ChainageM);
+        }
+
+        Assert.IsFalse(drive.Finished, "skład dojechał do stacji mimo autorytetu przed nią");
+        Assert.IsTrue(maxChainage <= Limit,
+            $"czoło doszło do {maxChainage:F6} m, czyli za koniec autorytetu {Limit:F2} m");
+        Assert.AreEqual(0.0, drive.State.SpeedMps, 0.0,
+            $"skład przed końcem autorytetu jedzie {drive.State.SpeedMps:E3} m/s zamiast stać");
+        Assert.IsTrue(drive.ChainageM > Limit - 5.0,
+            $"skład stanął {Limit - drive.ChainageM:F2} m przed autorytetem — to jest " +
+            "hamowanie do zupełnie innego celu, a nie do tej granicy");
+    }
+
+    [TestMethod]
+    public void Postoj_przed_autorytetem_jest_naprawde_postojem_a_nie_pelzaniem()
+    {
+        // Kontrola do testu wyżej i jedyny powód, dla którego `Step` pyta o zatrzask
+        // przed wywołaniem `Command`. Bez tego warunku skład po zatrzymaniu rusza co krok
+        // pełną trakcją, robi 9 mm/s, hamuje do zera i powtarza — zmierzone 0,30 m w 58 s.
+        // Tu jest zmierzone inaczej: po zatrzymaniu czoło nie drgnie ani o mikrometr
+        // przez pełną minutę, a prędkość jest zerem dokładnym, nie „prawie".
+        var drive = Drive(Axis(0.0, 800.0), Settings());
+        drive.AuthorityEndM = 300.0;
+
+        var settled = 0;
+        while (drive.ChainageM < 100.0 || drive.State.SpeedMps > 0.0)
+        {
+            drive.Step();
+            settled++;
+            Assert.IsTrue(settled < 12000, "skład nie zatrzymał się przed autorytetem");
+        }
+
+        var stoppedAt = drive.ChainageM;
+        for (var i = 0; i < 60 * FixedStep.SimulationHertz; i++)
+        {
+            drive.Step();
+            Assert.AreEqual(stoppedAt, drive.ChainageM, 0.0,
+                $"po {i + 1} krokach postoju czoło przesunęło się z {stoppedAt:F9} m " +
+                $"na {drive.ChainageM:F9} m — to jest pełzanie do sygnału");
+        }
+    }
+
+    [TestMethod]
+    public void Otwarty_autorytet_puszcza_sklad_dalej_zamiast_zostawic_go_na_wybiegu()
+    {
+        // Druga kontrola: zatrzask hamowania musi zostać ZWOLNIONY, gdy cel odskoczy.
+        // Zatrzask bez zwolnienia trzymałby się po otwarciu autorytetu — `Command` przy
+        // zatrzasku nigdy nie wraca do trakcji — więc skład albo zjechałby z 300 m do
+        // stacji samym wybiegiem, albo (z warunkiem postoju wyżej) nie ruszyłby wcale.
+        var drive = Drive(Axis(0.0, 800.0), Settings());
+        drive.AuthorityEndM = 300.0;
+        while (drive.ChainageM < 100.0 || drive.State.SpeedMps > 0.0)
+        {
+            drive.Step();
+            Assert.IsTrue(drive.Steps < 12000, "skład nie zatrzymał się przed autorytetem");
+        }
+
+        drive.AuthorityEndM = null;
+        var freed = 0;
+        while (!drive.Finished && freed < 12000)
+        {
+            drive.Step();
+            freed++;
+        }
+
+        Assert.IsTrue(drive.Finished,
+            $"po otwarciu autorytetu skład przejechał w {freed} krokach tylko do " +
+            $"{drive.ChainageM:F2} m — zatrzask hamowania nie został zwolniony");
+        var call = drive.Result("arrived").Calls[0];
+        Assert.IsTrue(call.TopSpeedMps > 5.0,
+            $"po otwarciu autorytetu szczyt wyniósł {call.TopSpeedMps:F3} m/s — " +
+            "to jest wybieg, a nie rozpęd");
     }
 
     // --- odmowy --------------------------------------------------------------
