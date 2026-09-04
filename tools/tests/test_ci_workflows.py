@@ -52,7 +52,11 @@ def test_ci_every_package_install_step_has_a_step_timeout():
                 continue
             checked += 1
             assert "timeout-minutes:" in step, (name, step.splitlines()[0].strip())
-    assert checked == 6, f"oczekiwano sześciu kroków instalacji, znaleziono {checked}"
+    # Siedem, odkąd doszedł `material-style-smoke.yml` (bramka T-902). Liczba jest
+    # tu po to, żeby workflow, który PRZESTAŁ instalować biblioteki, nie wypadł
+    # z pętli po cichu — pętla po samych znalezionych krokach przeszłaby wtedy
+    # pusta i zielona.
+    assert checked == 7, f"oczekiwano siedmiu kroków instalacji, znaleziono {checked}"
 
 
 def test_ci_apt_helper_is_executable_and_retries():
@@ -116,7 +120,11 @@ def test_ci_step_budget_covers_a_slow_mirror():
             assert step_budget * 60 >= install_s, (name, step_budget * 60, install_s)
             # po instalacji ma jeszcze zostać czas na samą pracę joba
             assert job_budget - step_budget >= 10, (name, job_budget, step_budget)
-    assert checked == 6, f"oczekiwano sześciu kroków instalacji, znaleziono {checked}"
+    # Siedem, odkąd doszedł `material-style-smoke.yml` (bramka T-902). Liczba jest
+    # tu po to, żeby workflow, który PRZESTAŁ instalować biblioteki, nie wypadł
+    # z pętli po cichu — pętla po samych znalezionych krokach przeszłaby wtedy
+    # pusta i zielona.
+    assert checked == 7, f"oczekiwano siedmiu kroków instalacji, znaleziono {checked}"
 
 
 PACKAGE_SETS = os.path.join(ROOT, "tools", "ci", "apt-packages")
@@ -148,7 +156,11 @@ def test_ci_package_lists_live_in_one_place():
             assert "libegl1" in packages, (declared, packages)
             assert "blender" not in packages, (declared, packages,
                                                "zestaw apt znów instaluje Blendera")
-    assert checked == 6, f"oczekiwano sześciu kroków instalacji, znaleziono {checked}"
+    # Siedem, odkąd doszedł `material-style-smoke.yml` (bramka T-902). Liczba jest
+    # tu po to, żeby workflow, który PRZESTAŁ instalować biblioteki, nie wypadł
+    # z pętli po cichu — pętla po samych znalezionych krokach przeszłaby wtedy
+    # pusta i zielona.
+    assert checked == 7, f"oczekiwano siedmiu kroków instalacji, znaleziono {checked}"
 
 
 def test_ci_cache_key_hashes_the_same_package_list_the_step_installs():
@@ -211,7 +223,7 @@ def test_ci_no_pipe_into_head_under_pipefail():
 
 BLENDER_WORKFLOWS = ("blender-smoke.yml", "tunnel-alignment.yml", "m7-shell.yml",
                      "visual-regression.yml", "godot-first-run.yml",
-                     "station-details.yml")
+                     "station-details.yml", "material-style-smoke.yml")
 
 
 def test_ci_blender_workflows_install_the_pinned_blender_not_whatever_apt_has():
@@ -705,7 +717,7 @@ def test_tool_installation_is_conditional_on_the_tool_being_missing():
             if "blender_install.sh" in run:
                 assert step.get("if") is None, \
                     f"{name}: instalator Blendera jest własną sondą i nie ma być bramkowany"
-    assert checked == 6, checked
+    assert checked == 7, checked
 
 
 def test_godot_lives_outside_the_workspace_that_checkout_wipes():
@@ -998,6 +1010,70 @@ def test_ci_the_station_details_gate_reads_the_reason_of_every_refusal():
                     "wchodzi w skrajnię pojazdu",
                     "przebija ścianę profilu"):
         assert pattern in code, f"brak odmowy o wzorcu /{pattern}/"
+
+
+def test_ci_the_material_style_gate_reads_the_reason_of_every_refusal():
+    """Ta sama konwencja co w `station_details.sh`, dla bramki T-902.
+
+    Powód, dla którego ten test istnieje osobno, a nie jako pętla po obu skryptach:
+    wzorce odmów są RÓŻNE i to one są treścią bramki. Test napisany „dla każdego
+    skryptu w tools/ci sprawdź, że ma expect_refusal" przechodziłby także wtedy,
+    gdyby `material_style.sh` sprawdzał pięć razy tę samą odmowę.
+
+    Pięć odmów: dwie na wywołaniu (brak pliku konfiguracji, brak argumentu) i trzy
+    na TREŚCI konfiguracji (pusta lista materiałów, powtórzony identyfikator, brak
+    materiału wymaganego przez kamerę `close`). Te trzy są tu istotne, bo żadnej
+    z nich nie da się wykonać bez uruchomionego Blendera — testy jednostkowe
+    T-902 czytają wyłącznie JSON i nie wchodzą w generator ani na krok.
+    """
+    script = open(os.path.join(ROOT, "tools", "ci", "material_style.sh"),
+                  encoding="utf-8").read()
+    code = "\n".join(line for line in script.splitlines()
+                     if not line.lstrip().startswith("#"))
+
+    assert "expect_refusal()" in code, "brak wspólnej funkcji sprawdzającej odmowy"
+    assert 'fail "$label: polecenie NIE padło' in code
+    assert 'test ! -e "$artefact"' in code, "odmowa nie sprawdza, czy nie powstał plik"
+    assert 'grep -Eq "$pattern" "$log"' in code, "odmowa nie czyta powodu z logu"
+
+    assert code.count("expect_refusal ") >= 5, code.count("expect_refusal ")
+    for pattern in ("FileNotFoundError",
+                    "material_presets jest puste",
+                    "niepuste i unikalne",
+                    "wymaganych przez kamerę close"):
+        assert pattern in code, f"brak odmowy o wzorcu /{pattern}/"
+
+    # Wzorzec odmowy musi się zgadzać z tym, co generator NAPRAWDĘ wypisuje.
+    # Literówka po jednej ze stron zamienia bramkę w test „coś się wywaliło":
+    # `expect_refusal` sprawdza wtedy wyłącznie, że polecenie padło.
+    generator = open(os.path.join(ROOT, "tools", "blender", "material_test_scene.py"),
+                     encoding="utf-8").read()
+    for pattern in ("material_presets jest puste",
+                    "niepuste i unikalne",
+                    "wymaganych przez kamerę close"):
+        assert pattern in generator, (
+            f"bramka szuka /{pattern}/, a generator tego nie wypisuje")
+
+
+def test_ci_the_material_style_gate_checks_the_scene_not_only_the_generator_report():
+    """Raport generatora nie jest weryfikacją generatora — to ta sama strona umowy.
+
+    Pierwsza wersja tej bramki miała tu `grep -q "material_presets="`, czyli
+    sprawdzała, że generator COKOLWIEK o sobie powiedział. Preset dopisany do
+    `visual-style.json`, a nieobecny w scenie, przechodził przez to bez śladu.
+    Dlatego bramka czyta chunk JSON wyeksportowanego GLB — bez Blendera, wprost
+    ze struktury pliku — i porównuje nazwy węzłów z listą presetów.
+    """
+    script = open(os.path.join(ROOT, "tools", "ci", "material_style.sh"),
+                  encoding="utf-8").read()
+    code = "\n".join(line for line in script.splitlines()
+                     if not line.lstrip().startswith("#"))
+
+    assert 'grep -q "material_presets="' not in code, (
+        "bramka wróciła do sprawdzania samego raportu generatora")
+    assert "0x4E4F534A" in code, "bramka nie czyta chunku JSON z GLB"
+    assert 'swatch_' in code, "bramka nie porównuje nazw brył z presetami"
+    assert 'presety bez bryły w GLB' in code, "bramka nie nazywa brakującego presetu"
 # --- kasowanie gałęzi: workflow, który musi sprawdzać, zanim skasuje ------------
 
 def _prune_workflow():
@@ -1151,7 +1227,7 @@ def test_the_same_action_is_pinned_to_the_same_commit_everywhere():
 
     Bez tej kontroli aktualizacja „wszystkich checkoutów" zostawia jeden na starym
     commicie i nikt tego nie widzi — a właśnie ten jeden będzie potem tłumaczył, czemu
-    jeden job zachowuje się inaczej niż sześć pozostałych.
+    jeden job zachowuje się inaczej niż wszystkie pozostałe.
     """
     seen = {}
     for name in _workflows():
