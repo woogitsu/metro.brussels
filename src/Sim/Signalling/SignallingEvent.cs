@@ -19,6 +19,16 @@ public enum SignallingEventKind
     /// <summary>Skład wprowadzony na plan; niesie długość i chainage czoła.</summary>
     TrainRegistered,
 
+    /// <summary>
+    /// Skład wypisany z planu — zwolnił wszystkie bloki i trasę.
+    ///
+    /// Dopisane przy turnbacku: skład, który dojechał do ostatniego peronu, musi
+    /// zwolnić ten peron, inaczej trzyma go NA ZAWSZE i następny skład nie ma jak
+    /// zaryglować ostatniej trasy. Zmierzone przed tą zmianą na pakiecie A: drugi
+    /// skład stawał na 5514,04 m, bo pierwszy nigdy nie odjeżdżał z Merode.
+    /// </summary>
+    TrainDeregistered,
+
     /// <summary>Blok przeszedł w zajętość pod danym składem.</summary>
     BlockOccupied,
 

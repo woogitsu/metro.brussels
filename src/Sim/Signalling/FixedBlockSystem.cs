@@ -210,6 +210,49 @@ public sealed class FixedBlockSystem
     }
 
     /// <summary>
+    /// Wypisuje skład z planu: zwalnia jego trasę i wszystkie zajęte przez niego bloki.
+    ///
+    /// <para><b>Po co to istnieje.</b> Do 04.09.2026 składu nie dało się z planu zdjąć.
+    /// Skład, który dojechał do ostatniego peronu, trzymał go NA ZAWSZE — a dwie kolejne
+    /// trasy dzielą blok peronowy, więc następny skład nie miał jak zaryglować ostatniej.
+    /// Zmierzone na pakiecie A przed tą zmianą: drugi skład stawał na 5514,04 m, za
+    /// Schumanem, i nie dojeżdżał do Merode nigdy.</para>
+    ///
+    /// <para><b>Co to NIE jest.</b> Nie jest to jazda w przeciwną stronę. Oś pakietu
+    /// biegnie w jednym kierunku i <see cref="MoveTrain"/> odmawia cofnięcia czoła;
+    /// przeciwny kierunek to OSOBNA oś (pakiet A ma parę w pakiecie B). Wypisanie składu
+    /// znaczy dosłownie „ten pojazd zniknął z tego planu" i nic więcej — co z nim dalej,
+    /// rozstrzyga wołający.</para>
+    ///
+    /// <para>Wypisanie składu, którego nie ma, jest wyjątkiem, a nie ciszą: pomyłka
+    /// w identyfikatorze wyglądałaby wtedy jak udane wypisanie.</para>
+    /// </summary>
+    /// <param name="trainId">Skład do wypisania.</param>
+    public void ReleaseTrain(string trainId)
+    {
+        var train = Require(trainId);
+        var chainage = train.FrontM;
+
+        if (train.RouteId is string routeId)
+        {
+            ReleaseRoute(routeId);
+        }
+
+        for (var i = 0; i < _occupant.Length; i++)
+        {
+            if (string.Equals(_occupant[i], trainId, StringComparison.Ordinal))
+            {
+                _occupant[i] = null;
+                Emit(SignallingEventKind.BlockReleased, _plan.Blocks[i].Id, trainId, chainage, string.Empty);
+            }
+        }
+
+        _trains.Remove(train);
+        Emit(SignallingEventKind.TrainDeregistered, trainId, trainId, chainage, string.Empty);
+        PublishAuthorities();
+    }
+
+    /// <summary>
     /// Przesuwa czoło składu do zadanego chainage i uzgadnia zajętość na **całym**
     /// zamiecionym odcinku.
     ///

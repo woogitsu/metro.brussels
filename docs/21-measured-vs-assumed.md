@@ -317,6 +317,67 @@ i to jest rachunek, nie wybór. Wysokość peronu 1,03 m ma status `spec`.
 **Świadomie niemodelowane w T-212:** rzut stacji, liczba i położenie wyjść, bramki
 biletowe i kasy, konstrukcja (słupy, belki, dylatacje), instalacje.
 
+## 4f. Czas nawrotu na krańcówce (`src/Sim/Line/LineCore.cs`, turnback, T-320)
+
+`docs/TASKS.md` mówił o tym: „**logika turnback**, model perturbacji i polityka dyspozytora
+**nie są opisane w żadnym dokumencie**". Dla samego czasu nawrotu to już **nieprawda**
+i dlatego ta sekcja istnieje — reszta tamtego zdania (perturbacje, polityka dyspozytora)
+obowiązuje dalej.
+
+### Zmierzone 04.09.2026 z feedu GTFS STIB
+
+Feed pobrany z adresu z `data/network/gtfs-manifest.json`; suma `sha256` pliku **zgadza się
+z zapisanym `content_sha256`** co do znaku (`28c2fba4…78bb6`), czyli to ten sam feed, który
+projekt już zarejestrował. Kursy połączone po `block_id` — GTFS wiąże w ten sposób kursy
+wykonywane po kolei tym samym pojazdem — i ograniczone do **linii 1 i 5**, bo pakiet A to
+ta para linii.
+
+Nawrót policzony jako luka między **ostatnim przyjazdem** jednego kursu i **pierwszym
+odjazdem** następnego w tym samym obiegu:
+
+| wielkość | wartość |
+|---|---|
+| obiegów (linie 1 i 5) | **194** |
+| nawrotów w łańcuchach | **4289** |
+| minimum | **240 s** |
+| p05 | 259 s |
+| mediana | **445 s** |
+| p95 | 841 s |
+| maksimum | **1005 s** |
+| nawrotów poniżej 240 s | **0** |
+| nawrotów nakładających się (ujemnych) | 0 |
+
+Stacje nawrotu, po liczbie wystąpień:
+
+| stacja | nawrotów | minimum | mediana |
+|---|---|---|---|
+| Gare de l'Ouest | 1126 | 377 s | 556 s |
+| Herrmann-Debroux | 1070 | 375 s | 615 s |
+| Stockel | 1067 | 240 s | 468 s |
+| Erasme | 1026 | 240 s | 352 s |
+
+### Dwa zastrzeżenia, bez których ta liczba kłamie
+
+1. **To nie jest techniczne minimum nawrotu.** Luka między kursami zawiera też postój
+   wyrównawczy, więc 240 s jest ograniczeniem **na rozkład**: STIB nie planuje nawrotu
+   krótszego. Ile trwa sam manewr, tego GTFS nie mówi i nie powie.
+2. **Merode nie jest krańcówką.** W GTFS krańcówkami linii 1 są Gare de l'Ouest i Stockel,
+   linii 5 — Erasme i Herrmann-Debroux. Merode jest **granicą pakietu A**, czyli cięciwem
+   sieci na potrzeby tego projektu. Nawrót tam jest `design_assumption` wynikającym
+   z decyzji właściciela z 04.09.2026 („nawrót na oba końce osi"), a **nie** faktem o ruchu
+   STIB. Nawrót na Gare de l'Ouest ma pokrycie w danych; na Merode nie ma i nie będzie miał.
+
+### Co z tego weszło do kodu
+
+`LineCore` przyjmuje czas nawrotu jako **argument bez wartości domyślnej dodatniej**: zero
+wyłącza turnback i wtedy linia zachowuje się jak przed tą zmianą. Wołający musi liczbę
+podać, tak samo jak w `LineRunSettings`. Turnback **nie jest jazdą w przeciwną stronę** —
+oś pakietu biegnie w jednym kierunku, a przeciwny to osobna oś (pakiet A ma parę w B);
+„nawrót" znaczy tu, że pojazd znika z tego planu i wraca na jego początek jako następny
+obieg.
+
+---
+
 ## 5. Co jest zablokowane i czym
 
 | potrzebne | blokuje | zadanie |
@@ -330,6 +391,8 @@ biletowe i kasy, konstrukcja (słupy, belki, dylatacje), instalacje.
 | udział osi hamowanych, rozdział hamulca ED/P, krzywe bezpieczeństwa STIB | brak w publicznych materiałach; §4b modeluje wyłącznie sam udział osi i to jako parametr o dwóch wariantach skrajnych | T-311 zostawia otwarte, T-313 (#22) będzie tego potrzebować |
 | prędkość dopuszczalna na torze | brak źródła; `speed_limits` puste we wszystkich sześciu osiach. §4d daje wyłącznie ograniczenie **dolne** (57,65 km/h), warunkowe względem modelu | T-011, T-320; wpis do `data/track/` wymaga źródła STIB |
 | czas wymiany pasażerów | brak źródła; §4d daje wyłącznie ograniczenie **górne** z postoju rozkładowego | T-312 zostawia jako argument |
+| ~~czas nawrotu na krańcówce~~ | **zmierzony 04.09.2026 z GTFS**: 194 obiegi, 4289 nawrotów, minimum 240 s, mediana 445 s, ani jednego poniżej 240 s. Ograniczenie **na rozkład**, nie techniczne minimum manewru — §4f | `LineCore` przyjmuje jako argument |
+| model perturbacji, polityka dyspozytora | brak w jakimkolwiek dokumencie; to **zostaje** ze STOP-u T-320, mimo że czas nawrotu z niego wyszedł | T-320 |
 
 Dopóki te pozycje są otwarte, **geometria produkcyjna nie może powstać** — obecny tunel
 jest jawnie oznaczonym wariantem `flat-preview`, a generator odrzuca `--variant production`.
