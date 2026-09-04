@@ -1,0 +1,77 @@
+name: Kontrola czystego workspace
+description: >
+  Sprawdza, że `actions/checkout` naprawdę wyczyścił workspace self-hosted runnera.
+  Jedna implementacja zamiast dziesięciu kopii.
+
+# DLACZEGO TA AKCJA ISTNIEJE.
+#
+# Do 04.09.2026 ten sam krok stał w DZIESIĘCIU workflowach: w dziewięciu bajt w bajt,
+# w jednym w wersji skróconej. Zmierzone sumami SHA-256 treści kroków, nie na oko.
+#
+# To nie jest kosmetyka. Ten krok NIESIE REGUŁĘ WERYFIKACJI (`CLAUDE.md` §5 i §9),
+# a im więcej kopii, tym większa szansa, że następny workflow ją pominie — i nikt
+# tego nie zauważy, bo job będzie zielony. Dziesiąta kopia powstała 04.09.2026 przy
+# dopisywaniu `material-style-smoke.yml` przez skopiowanie bloku z `station-details.yml`,
+# co jest dokładnie tym mechanizmem.
+
+# WARUNEK ODRZUCAJĄCY PULL REQUESTY Z FORKÓW NIE MOŻE BYĆ TUTAJ.
+#
+# Zostaje jako `if:` w KAŻDYM jobie osobno. Powód jest techniczny i rozstrzygający:
+# akcja lokalna (`uses: ./.github/actions/...`) mieszka W REPOZYTORIUM, więc GitHub
+# potrafi ją uruchomić dopiero PO `actions/checkout`. Do tego momentu kod z forka już
+# leży na dysku maszyny właściciela, a job już się na niej uruchomił. Warunek na
+# poziomie joba nie dopuszcza do żadnej z tych rzeczy — krok w akcji dopuszcza do obu
+# i pada dopiero potem. Przeniesienie go tu OSŁABIŁOBY ochronę, czyli zrobiłoby
+# odwrotność tego, po co te akcje powstały.
+#
+# Pilnuje tego `tools/tests/test_ci_workflows.py::test_every_job_refuses_pull_requests
+# _from_forks`, który wymaga warunku w każdym jobie i nie uznaje akcji za zamiennik.
+
+inputs:
+  paths:
+    description: >
+      Katalogi wyjściowe, które NIE mogą przetrwać checkoutu, rozdzielone spacją.
+      Puste znaczy „nie sprawdzaj" — i wtedy trzeba wiedzieć, po co się to robi.
+    required: false
+    default: "build renders"
+
+runs:
+  using: composite
+  steps:
+    # Workspace self-hosted runnera JEST WSPÓŁDZIELONY między przebiegami — inaczej
+    # niż jednorazowa maszyna GitHuba, która zawsze startuje pusta.
+    #
+    # Dla tego projektu to nie drobiazg, tylko dziura w samej weryfikacji:
+    # `CLAUDE.md` §5 mówi, że skrypt bez błędu potrafi wyprodukować pustą scenę,
+    # więc bramki sprawdzają PLIKI WYJŚCIOWE. Plik z poprzedniego przebiegu
+    # przechodzi te bramki tak samo dobrze jak świeży — job byłby zielony,
+    # nie wygenerowawszy niczego.
+    #
+    # Sprzątaniem zajmuje się samo `actions/checkout`: jego wejście `clean` ma
+    # domyślnie `true`, czyli wykonuje `git clean -ffdx && git reset --hard HEAD`,
+    # a `-x` obejmuje pliki ignorowane — więc `build/` i `renders/` znikają.
+    # Ten krok NIE sprząta, tylko to SPRAWDZA: gdyby ktoś ustawił `clean: false`
+    # albo usunął checkout, bramki zaczęłyby oglądać stare wyjścia i nikt by się
+    # o tym nie dowiedział. Zaklęcie „rm -rf" nie odróżniłoby tych dwóch sytuacji.
+    - name: Workspace jest czysty po checkoucie
+      shell: bash
+      env:
+        MUST_BE_ABSENT: ${{ inputs.paths }}
+      run: |
+        set -euo pipefail
+        if [ -z "${MUST_BE_ABSENT// /}" ]; then
+          echo "preflight: nie zadano katalogów do sprawdzenia"
+          exit 0
+        fi
+        stale=""
+        for path in $MUST_BE_ABSENT; do
+          [ -e "$path" ] && stale="$stale $path"
+        done
+        if [ -n "$stale" ]; then
+          echo "::error::wyjścia z poprzedniego przebiegu przetrwały checkout:$stale"
+          echo "Sprawdź, czy actions/checkout nie ma clean: false — bramki tego"
+          echo "projektu sprawdzają pliki wyjściowe i stary plik je przejdzie."
+          ls -la $stale
+          exit 1
+        fi
+        echo "$MUST_BE_ABSENT nie istnieją — bramki zobaczą wyłącznie to, co powstanie w tym przebiegu"
