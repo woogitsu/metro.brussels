@@ -20,7 +20,7 @@ dotnet test tests/Sim.Tests          # rdzeń symulacji, bez Godota
 
 ## Stan: co działa, a czego nie ma
 
-**Rdzeń symulacji — `src/Sim/`, 41 plików, kompiluje się i testuje bez silnika:**
+**Rdzeń symulacji — `src/Sim/`, 44 pliki `.cs`, kompiluje się i testuje bez silnika:**
 
 - fizyka: model trakcji M7, opór Davisa, hamowanie służbowe i granica przyczepności,
   krok stały 1/120 s liczony **licznikiem kroków**, nigdy `t += dt`;
@@ -29,7 +29,7 @@ dotnet test tests/Sim.Tests          # rdzeń symulacji, bez Godota
 - każdy parametr niesie status (`spec`, `source_backed`, `design_assumption`, `unknown`) —
   wartość bez źródła nie da się podstawić po cichu.
 
-**Warstwa silnika — `src/Game/`, projekt Godot 4.3 mono:**
+**Warstwa silnika — `src/Game/`, projekt Godot 4.7 mono:**
 
 - jeden skład M7 jedzie 6,56 km po pakiecie A, napędzany rdzeniem;
 - rozjazd Godot ↔ rdzeń **0,000 m**, ten sam odcisk telemetrii przy nierównym podziale
@@ -95,8 +95,13 @@ szara klatka przechodzi kontrolę „nie jest pusta". Szczegóły: `docs/17-visu
 
 ## CI
 
-Siedem workflowów, jeden na bramkę: `blender-smoke`, `visual-regression`,
-`tunnel-alignment`, `m7-shell`, `python-tests`, `sim-tests`, `godot-first-run`.
+Dziesięć workflowów: `blender-smoke`, `visual-regression`, `tunnel-alignment`,
+`m7-shell`, `material-style-smoke`, `station-details`, `python-tests`, `sim-tests`,
+`godot-first-run`, `prune-merged-branches`.
+
+Wszystkie oprócz ostatniego są bramkami, po jednej na zadanie weryfikacyjne;
+`prune-merged-branches` jest utrzymaniowy i odpala się wyłącznie ręcznie
+(`workflow_dispatch`).
 
 **Wszystkie chodzą na self-hosted runnerze**, na gołej etykiecie `self-hosted`, po
 wyczerpaniu minut GitHub Actions 02.09.2026. Każdy job osobno odrzuca pull requesty
@@ -119,7 +124,7 @@ jobie i sprawdzeniu wymaganych artefaktów.
 | `data/vehicle/` | specyfikacja M7 |
 | `src/Sim/` | rdzeń symulacji — fizyka, sygnalizacja, prowadzenie. **Bez Godota** |
 | `src/Sim.Runner/` | uruchamianie scenariuszy rdzenia z linii poleceń |
-| `src/Game/` | projekt Godot 4.3 mono — scena, widok składu, tunel, HUD, wejście |
+| `src/Game/` | projekt Godot 4.7 mono — scena, widok składu, tunel, HUD, wejście |
 | `tests/Sim.Tests/` | testy rdzenia |
 | `tests/Game.Tests/` | testy warstwy silnika, poza `MetroBxl.sln` |
 | `tools/track/` | pobieranie i budowa danych trasy, transformacje CRS, kontrole krzyżowe |
