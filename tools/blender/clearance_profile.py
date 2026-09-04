@@ -259,7 +259,25 @@ def halfplanes(ring):
         b = ring[(index + 1) % count]
         c = ring[(index + 2) % count]
         turn = ((b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0])) * orientation
-        if turn < -CONVEXITY_EPS:
+        # `<=`, nie `<`, i to jest DECYZJA WŁAŚCICIELA z 04.09.2026 — pozycja 13
+        # w `docs/24-clearance-profile-decisions.md`.
+        #
+        # `CONVEXITY_EPS` był w tej funkcji użyty dwa razy, osiemnaście wierszy od
+        # siebie, z PRZECIWNYMI konwencjami na granicy: pole obrysu na progu
+        # odrzucało (pozycja 12, przybite w #197), a zakręt na progu przyjmował
+        # i nie był przybity niczym. Ta sama stała, ta sama jednostka, przeciwna
+        # strona granicy — dokładnie zarzut z pozycji 4, tylko w jednej funkcji.
+        #
+        # Oba wejścia na progu są osiągalne CO DO BITU, zmierzone, nie oszacowane:
+        # obrys `[(0,0),(1,0),(2,-1e-9),(3,0),(3,2),(0,2)]` ma `area2 = 12.000000002`
+        # (11 rzędów nad progiem, więc jest obrysem), a jego najmniejszy zakręt
+        # równa się `-1e-9` co do bitu.
+        #
+        # Zaostrzenie nie może odrzucić prawdziwego profilu i to też jest zmierzone:
+        # najmniejszy zakręt w `profiles.PROFILES` to 0,0606 w `bore_single`, czyli
+        # 6e+07 razy NAD progiem, a w `box_double` i `station` odpowiednio 3,02
+        # i 4,64 — wszystkie dodatnie.
+        if turn <= -CONVEXITY_EPS:
             raise ValueError("obrys profilu nie jest wypukły")
         edge = (b[0] - a[0], b[1] - a[1])
         length = math.hypot(*edge)

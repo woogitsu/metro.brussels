@@ -1588,3 +1588,65 @@ def test_clearance_profile_the_hand_rolled_absolute_value_is_measured_equivalenc
             dalej = CP.offsets_in_frame(frames[other], stations[other], world)
             assert blisko <= abs(dalej[0] - stations[other]) + 1e-12, (
                 local_x, index, blisko, abs(dalej[0] - stations[other]))
+
+
+def test_clearance_profile_convexity_threshold_refuses_at_the_boundary():
+    """Zakręt DOKŁADNIE na progu jest odmową — decyzja właściciela, pozycja 13.
+
+    `CONVEXITY_EPS` był w `halfplanes` użyty dwa razy, osiemnaście wierszy od siebie,
+    z PRZECIWNYMI konwencjami na granicy: pole obrysu na progu odrzucało (pozycja 12,
+    przybite w #197), a zakręt na progu przyjmował i nie był przybity niczym. Mutacja
+    `<` -> `<=` przeżywała przegląd właśnie dlatego, że nikt nie powiedział, co ma się
+    stać na progu — a nie dlatego, że była nieosiągalna.
+
+    Wejście jest SKONSTRUOWANE, nie wylosowane, i to jest tu istotne: `area2` wynosi
+    `12.000000002`, czyli jedenaście rzędów nad progiem, więc obrys jest obrysem,
+    a jego najmniejszy zakręt równa się `-1e-9` CO DO BITU. W taki próg się nie wpada
+    losowo.
+    """
+    ring = [(0.0, 0.0), (1.0, 0.0), (2.0, -1e-9), (3.0, 0.0), (3.0, 2.0), (0.0, 2.0)]
+
+    area2 = 0.0
+    for a, b in zip(ring, ring[1:] + ring[:1]):
+        area2 += a[0] * b[1] - b[0] * a[1]
+    assert abs(area2) > 1e9 * CP.CONVEXITY_EPS, (
+        f"to wejście przestało być obrysem: area2 = {area2!r}")
+
+    orientation = math.copysign(1.0, area2)
+    count = len(ring)
+    turns = [((ring[(i + 1) % count][0] - ring[i][0])
+              * (ring[(i + 2) % count][1] - ring[(i + 1) % count][1])
+              - (ring[(i + 1) % count][1] - ring[i][1])
+              * (ring[(i + 2) % count][0] - ring[(i + 1) % count][0])) * orientation
+             for i in range(count)]
+    assert min(turns) == -CP.CONVEXITY_EPS, (
+        f"najmniejszy zakręt nie trafia już w próg co do bitu: {min(turns)!r}")
+
+    try:
+        CP.halfplanes(ring)
+    except ValueError as error:
+        assert "nie jest wypukły" in str(error), str(error)
+    else:
+        raise AssertionError("obrys z zakrętem dokładnie na progu został przyjęty")
+
+
+def test_clearance_profile_convexity_threshold_still_accepts_real_profiles():
+    """Kontrola po DRUGIEJ stronie — bez niej zaostrzenie mogłoby odrzucać wszystko.
+
+    Zmierzone przed zmianą: najmniejszy zakręt w `profiles.PROFILES` to 0,0606
+    w `bore_single`, czyli **6e+07 razy** nad progiem; `box_double` ma 3,02,
+    a `station` 4,64. Wszystkie dodatnie, więc zaostrzenie `<` na `<=` nie ma jak
+    dotknąć prawdziwego obrysu — i ten test to trzyma, gdyby ktoś podniósł próg.
+    """
+    import profiles
+
+    for name in profiles.PROFILES:
+        ring = [tuple(point) for point in profiles.profile_points(name)]
+        planes = CP.halfplanes(ring)
+        assert len(planes) == len(ring), name
+
+    # Szum zaokrąglenia POWYŻEJ pasma nadal wolno: obrys z zakrętem -1e-10 przechodzi,
+    # bo dziesięć razy bliżej zera niż próg. Gdyby ta asercja padła, znaczyłoby to,
+    # że zaostrzenie zjadło tolerancję na szum, a nie tylko jej granicę.
+    lagodny = [(0.0, 0.0), (1.0, 0.0), (2.0, -1e-10), (3.0, 0.0), (3.0, 2.0), (0.0, 2.0)]
+    assert len(CP.halfplanes(lagodny)) == 6
