@@ -133,9 +133,11 @@ których agent nie ruszy bez decyzji właściciela.
   jako `unknown` i `docs/11` zabrania liczenia wind z listy wyjść
 - **Zależy od:** T-010, R-004 (zrobione), R-005 (zrobione), R-007 (zrobione)
 
-### [ ] T-212 · Pierwsza stacja typowa — **ZABLOKOWANE tylko przez T-211**
-- **Stan:** blokada danych zdjęta przez R-007; zostaje kolejność zadań
-- **Zależy od:** T-211 (odblokowane, ale niezrobione), T-210 (zrobione)
+### [ ] T-212 · Pierwsza stacja typowa — **ODBLOKOWANE**
+- **Stan:** blokada danych zdjęta przez R-007 (wysokość peronu 1,03 m `source_backed`),
+  blokada zadaniowa zdjęta przez T-211 — oba etapy scalone (#110). Zostaje kolejność:
+  faza 3 planu, po T-320
+- **Zależy od:** T-211 (zrobione), T-210 (zrobione), R-007 (zrobione)
 
 ### [x] T-220 · Bryła zewnętrzna M7
 - **Wyjście:** `tools/blender/m7_shell.py`, `m7_layout.py`, `reports/M7-shell.md`
@@ -216,7 +218,23 @@ których agent nie ruszy bez decyzji właściciela.
   wystawia niczego, czym dałoby się prowadzić skład
 - **Zależy od:** T-313 (zrobione), R-003 (zrobione)
 
-### [ ] T-320 · Rdzeń linii — wiele składów naraz — **ODBLOKOWANE, następne w kolejce**
+### [~] T-320 · Rdzeń linii — wiele składów naraz — **W TOKU**
+- **Zrobione (etap 1):** `LineDrive` — skład krokowany z zewnątrz. Ciało pętli przeniesione
+  z `LineRun` bez zmiany kolejności; ślad co krok identyczny co do bajtu (PR #123)
+- **Zrobione (etap 2):** `src/Sim/Line/LineCore.cs` — N składów na jednym zegarze, jednej
+  osi i jednym planie bloków z T-313. Krok idzie w trzech fazach nad wszystkimi składami
+  (wyjazdy → odczyt autorytetów ze stanu sprzed kroku → jazda i meldunek ruchu), przez co
+  wynik nie zależy od kolejności zgłoszenia. Zmierzone na osi syntetycznej 0/600/1400/2000 m,
+  takt 30 s: drugi skład przejeżdża pierwszy odcinek w 96,03 s wobec 50,37 s na pustej linii,
+  staje 0,29 m przed blokiem zajętym przez poprzedzający i zostaje tam; **zero naruszeń
+  autorytetu** w całym przebiegu
+- **Decyzja modelowa podjęta po drodze (do rewizji przez właściciela):** skład, który stanął
+  przed autorytetem, **stoi**, zamiast dopełzać do granicy. Bez tego `Command` przy prędkości
+  zero daje pełną trakcję — zmierzone 0,30 m w 58 s i przekroczenie autorytetu o 1,1 mm.
+  Warunek nie wnosi ani jednej liczby; do stacji podpełznąć nadal wolno, bo tam łapie okno
+  zatrzymania
+- **Zostaje:** takt i obiegi z T-113 (48 kursów naraz, 71 obiegów) — bez turnbacku nie da się
+  ich domknąć, bo skład, który dojechał do ostatniej stacji, zajmuje peron na zawsze
 - **Wejście z T-113:** takt 5:10 (L1/L5) i 5:40 (L2/L6), 48 kursów naraz w ruchu,
   71 obiegów pojazdów, rozkładowe czasy jazdy i postoju per odcinek (`build/timetable.json`)
 - **Wejście z T-313:** plan bloków pakietu A, zajętość, movement authority i ATP
@@ -388,8 +406,9 @@ nie sięga, nawet gdy nie ma nic innego do roboty; wtedy sięga po fazę 5.
 
 ### Znane rozjazdy w dokumentach
 
-- `CLAUDE.md` §2 mówi „**25 testów narzędzi**". Jest **691**. Liczba pochodzi z czasów,
-  gdy `test_all.py` był jednym plikiem; dziś zbiera 30 modułów.
+- ~~`CLAUDE.md` §2 mówi „25 testów narzędzi"~~ — **zamknięte**: liczba zeszła z pliku,
+  bo zaszywanie jej w konstytucji generowało rozjazd przy każdym nowym module.
+  Dla porządku: `test_all.py` zbiera dziś **700** testów z 31 modułów.
 - Dziesięć Issues jest otwartych, choć zadanie leży w `main` (#9, #15–#17, #20–#24, #27).
   Ten plik deklaruje Issues źródłem prawdy o statusie, więc rozjazd jest realny.
   Część z nich właściciel poprosił, żeby zostawić otwarte.

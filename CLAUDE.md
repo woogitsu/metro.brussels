@@ -20,7 +20,7 @@ Szczegóły: `docs/01-architecture.md`.
 
 ```bash
 bash doctor.sh                       # kontrola środowiska i testów
-python3 tools/tests/test_all.py      # 25 testów narzędzi, muszą przechodzić
+python3 tools/tests/test_all.py      # testy narzędzi, wszystkie muszą przechodzić
 ```
 
 Jeśli `doctor.sh` zgłasza brak Blendera, a zadanie dotyczy geometrii — **przerwij**
