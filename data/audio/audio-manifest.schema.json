@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://metro.brussels/schema/audio-manifest.schema.json",
+  "title": "Metro BXL audio asset manifest",
+  "description": "Provenance and rights metadata for every production or placeholder audio asset. T-905, checked 2026-08-31.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "asset_id",
+    "source_type",
+    "creator",
+    "rights_status",
+    "processing_chain",
+    "contains_voice",
+    "contains_stib_brand_audio",
+    "redistribution_allowed",
+    "notes"
+  ],
+  "properties": {
+    "asset_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
+    "category": {
+      "type": "string",
+      "enum": ["traction", "rolling", "wheel_rail", "braking", "auxiliary", "doors", "announcement", "station_ambience", "cab_safety", "reverb_ir", "other"]
+    },
+    "source_type": {
+      "type": "string",
+      "enum": ["original_recording", "synthesized", "licensed_library", "commissioned", "placeholder"]
+    },
+    "creator": {"type": "string", "minLength": 1},
+    "recorded_by": {"type": ["string", "null"]},
+    "recorded_at": {"type": ["string", "null"], "format": "date-time"},
+    "location": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["description", "access_class"],
+          "properties": {
+            "description": {"type": "string", "minLength": 1},
+            "station_id": {"type": ["string", "null"]},
+            "vehicle_type": {"type": ["string", "null"]},
+            "access_class": {"type": "string", "enum": ["public_passenger_area", "controlled_with_permission", "non_stib", "unknown"]}
+          }
+        }
+      ]
+    },
+    "permission_ref": {"type": ["string", "null"]},
+    "license": {"type": ["string", "null"]},
+    "source_file_hash": {"type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$"},
+    "processing_chain": {"type": "array", "items": {"type": "string"}},
+    "contains_voice": {"type": "boolean"},
+    "contains_stib_brand_audio": {"type": "boolean"},
+    "redistribution_allowed": {"type": "boolean"},
+    "rights_status": {"type": "string", "enum": ["placeholder", "cleared", "permission_required", "rejected"]},
+    "as_of": {"type": ["string", "null"], "format": "date"},
+    "notes": {"type": "string"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"source_type": {"const": "licensed_library"}}, "required": ["source_type"]},
+      "then": {
+        "required": ["license"],
+        "properties": {"license": {"type": "string", "minLength": 1}}
+      }
+    },
+    {
+      "if": {"properties": {"source_type": {"const": "original_recording"}}, "required": ["source_type"]},
+      "then": {
+        "required": ["recorded_by", "recorded_at", "location", "source_file_hash"],
+        "properties": {
+          "recorded_by": {"type": "string", "minLength": 1},
+          "recorded_at": {"type": "string", "format": "date-time"},
+          "location": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["description", "access_class"],
+            "properties": {
+              "description": {"type": "string", "minLength": 1},
+              "station_id": {"type": ["string", "null"]},
+              "vehicle_type": {"type": ["string", "null"]},
+              "access_class": {"type": "string", "enum": ["public_passenger_area", "controlled_with_permission", "non_stib", "unknown"]}
+            }
+          },
+          "source_file_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"rights_status": {"const": "cleared"}}, "required": ["rights_status"]},
+      "then": {
+        "anyOf": [
+          {
+            "required": ["permission_ref"],
+            "properties": {"permission_ref": {"type": "string", "minLength": 1}}
+          },
+          {
+            "required": ["license"],
+            "properties": {"license": {"type": "string", "minLength": 1}}
+          }
+        ]
+      }
+    }
+  ]
+}
