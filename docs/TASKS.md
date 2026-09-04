@@ -268,9 +268,21 @@ których agent nie ruszy bez decyzji właściciela.
   pakietu, od 1 do 3 chunków z 12. Predykat jest przybity **z dwóch stron** — wzorcowa
   implementacja w Pythonie (`sweep`, `lod`) i runtime C# stoją przy jednej tablicy
   oczekiwań na 138 wierszach, oba kierunki jazdy, wszystkie 13 szwów trafione dokładnie
-- **Zostaje:** wiele składów (T-320), sygnalizacja (T-313), stacje (T-212). Cykl drzwi
-  jest w rdzeniu (T-312, `DoorCycle`), ale **scena go jeszcze nie woła** — przejazd
-  nadal nie zatrzymuje się na stacjach
+- **Zrobione (etap 3b):** scena **zatrzymuje się na stacjach** (#210, #212). Poprzednia
+  wersja tego punktu mówiła, że cykl drzwi „jest w rdzeniu, ale scena go jeszcze nie
+  woła" — to już nieprawda i dlatego jest tu przepisana, a nie dopisana obok. Dwa widoki
+  tej samej linii: tryb **ręczny** przez `StationService` (okno zatrzymania dwustronne,
+  blokada trakcji, minięta stacja liczona osobno) i tryb **`--line`** przez `LineDrive`,
+  czyli linia, która jedzie bez gracza. Zmierzone na pakiecie A: scena i rdzeń dają
+  **11 zatrzymań i identyczne kolumny** (`chainage_m`, `stopped_at_m`, `stop_error_m`,
+  `arrival_s`, `departure_s` — wszystkie max |Δ| = 0,000E+00), a przejazd trwa 733,14 s
+  z postojami 181,59 s. Pilnuje tego `tools/ci/assert_line_calls_match.py` przy progu
+  **zerowym**. Migawka z peronu Beekkant łapie skład o prędkości 0,0 km/h na 509,4 m
+  z drzwiami w fazie `Open`
+- **Zostaje:** wiele składów (T-320), sygnalizacja w kabinie (T-313 jest w rdzeniu, ale
+  HUD nie pokazuje ani prędkości dopuszczalnej, ani autorytetu jazdy), stacje jako
+  geometria (T-212). **Na stacji nie ma dziś czego zobaczyć:** zrzut kabinowy z Beekkant
+  to pusty tunel, bo peronu w scenie nie ma
 - **Uwaga:** scena wczytuje **jeden** pakiet. Przy `vertical.status = not_modelled` cała
   sieć leży na Z = 0, więc pakiety A i E przenikają się w planie w rejonie Arts-Loi
   (`reports/network-chainage.md`) — sceny z dwoma pakietami nie da się zbudować uczciwie
@@ -481,6 +493,8 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.B7 | **Triaż 9 ocalałych mutacji `tools/blender/m7_report.py`** — jedyny moduł z co najmniej pięcioma ocalałymi, który nie ma w `reports/` żadnego raportu triażu | wszystkie dziewięć to operatory porównań w progach raportu dopasowania M7; klasyfikacja i testy graniczne, żadnej nowej liczby o taborze — wymiary M7 pochodzą z `data/vehicle/m7-spec.json` (T-904, zrobione) | M |
 | 6.B8 | **Triaż 2 ocalałych mutacji `tools/track/make_test_track.py`** — pierwszy wiersz tabeli „Kolejność triażu — po udziale" w `reports/mutation-sweep.md`, udział 100 % (2 / 2) | moduł generuje `BROKEN.json`, czyli kontrolę negatywną dla walidatora osi, i karmi dwie bramki CI (`tools/ci/blender_smoke.sh`, `tools/ci/visual_smoke.sh`); obie ocalałe siedzą w warunku, który decyduje, **gdzie** oś jest zepsuta — mutant przesuwa uszkodzenie, a bramki nadal świecą zielono. Oś jest syntetyczna, więc nie ma tu ani jednego faktu o Brukseli | S |
 | 6.B9 | **Wyciągnięcie czystej logiki spod `bpy` z `material_test_scene.py` (12), `station_kit.py` (11) i `detail_markers.py` (9)** — 32 z 51 nieosiągalnych mutacji w trzech plikach | `reports/mutation-sweep.md` §„Moduły nieosiągalne" nazywa lekarstwo wprost: „Lekarstwem tutaj nie są testy, tylko dalsze wyciąganie logiki spod `bpy`", i ma dla tego zmierzony precedens z tego samego przebiegu (`m7_shell.py` 35 → 2, `tunnel_sweep.py` 35 → 6, `profile_vehicle.py` 26 → 7). Przeniesienie funkcji czystych nie zmienia geometrii wyjściowej — kontrolą jest identyczny GLB | L |
+| 6.B11 | **Kamera obserwacyjna siedzi WEWNĄTRZ geometrii przez pierwsze ~106 m przejazdu linią** — stoi 12 m za ogonem, ogon jest 94 m przed początkiem osi, więc kilometraż przycina się do zera i kamera ląduje w powłoce tunelu; klatka wychodzi białą plamą | znalezione uruchomieniem przy #212 i zmierzone: zrzut `--line --at-chainage=20 --view=chase` to biała plama, a ten sam kadr z kilometrażu 2000 m jest poprawny. Kamera kabinowa dostała już przycięcie kilometraża PRZED oknem cięciwy (`SceneAxis.CabPoint`), więc wzorzec naprawy jest w repozytorium; do rozstrzygnięcia zostaje, czy kamera ma być przyciągana do minimalnego kilometraża, czy ukrywana do wjechania całego składu na oś — **oba warianty są w zakresie warstwy widoku i żaden nie dotyka danych o sieci** | S |
+| 6.B12 | **`TrainView.PlaceAt` nie ma ani jednego testu** — mutacja `body.Node.Visible = covered` → `= true` przeżyła przegląd przy #212 | `dotnet test` nie jest silnikiem, więc wczytanie GLB w teście nie przejdzie; lekarstwem jest ta sama droga, którą repozytorium już przeszło dla sześciu modułów `bpy` — wyciągnąć decyzję o widoczności i o transformacie do funkcji czystej i przybić ją w `tests/Game.Tests`, jak `StreamingPlan` (#174). `TrackAxis.CoversChord` jest już czysty i przetestowany, więc brakuje wyłącznie strony wywołania | S |
 | 6.B10 | **`report()` w `tools/physics/braking.py` nie jest wykonywane przez nic** — ani test, ani skrypt `tools/ci/*.sh`; jedyny wołający to `if __name__ == "__main__"` w wierszu 313 | `reports/mutation-triage-fizyka.md` §6 zapisał to jako znalezisko poza triażem: „Funkcja drukuje trzy tablice referencyjne T-311 i mogłaby przestać się składać bez skutku dla CI. To jest osobne zadanie, nie triaż". Tablice referencyjne T-311 są już w `docs/02-simulation.md`, więc test porównuje wypis z tym, co repo już deklaruje | S |
 
 #### Pasmo C — warstwa silnika (`src/Game`)
