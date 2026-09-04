@@ -93,7 +93,7 @@ Scena:
 
 Artefakty nie trafiają do Git. Workflow `material-style-smoke.yml` przechowuje je jako artefakty CI do rzeczywistego obejrzenia.
 
-T-902 **nie może zostać zamknięte**, dopóki ten job nie wykona się na self-hosted WSL2 i trzy PNG nie zostaną ręcznie ocenione.
+T-902 **nie może zostać zamknięte**, dopóki ten job nie wykona się na runnerze self-hosted i trzy PNG nie zostaną ręcznie ocenione.
 
 ## Źródła zewnętrznych materiałów
 
@@ -160,7 +160,7 @@ Statusy safety mają mieć redundancję: tekst/ikona/kształt, nie sam kolor.
 
 Nie wpisujemy dziś arbitralnych limitów polygonów, draw calls, świateł, rozmiarów tekstur ani LOD distances.
 
-`visual-style.json` zostawia te budżety jako `null`, dopóki T-400/T-012 nie zmierzy na docelowym self-hosted WSL2/GPU:
+`visual-style.json` zostawia te budżety jako `null`, dopóki T-400/T-012 nie zmierzy na docelowym runnerze self-hosted, na jego GPU:
 - FPS/frame time;
 - sim tick time osobno;
 - draw calls;
@@ -183,7 +183,12 @@ Do tego czasu kod i assety mają pozostać kompatybilne z neutralnym fallbackiem
 
 ## Weryfikacja po odblokowaniu runnera
 
-Na self-hosted WSL2:
+Poprzednia wersja tego rozdziału — i dwa miejsca wyżej — mówiła „na self-hosted
+WSL2"; etykietę `wsl2` zdjęto 02.08.2026, bo maszyna, która ją nosiła, została
+wyłączona i joby zawisły w `queued`. Dlatego jest tu przepisana, a nie dopisana
+obok: runner jest gołe `self-hosted`, bez dodatkowych etykiet (`CLAUDE.md` §9).
+
+Na runnerze self-hosted:
 
 ```bash
 python3 tools/tests/test_all.py
