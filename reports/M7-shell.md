@@ -1,5 +1,7 @@
 # M7 — proceduralna bryła zewnętrzna (T-220)
 
+**Zmierzone na commicie:** `51fd842`
+
 Generator: `tools/blender/m7_shell.py` + `tools/blender/m7_layout.py`.
 Stan: **techniczna skorupa**, nie asset finalny. Data: 2026-09-01.
 

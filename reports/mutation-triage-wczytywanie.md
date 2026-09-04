@@ -1,5 +1,7 @@
 # Triaż mutacji: łańcuch wczytywania danych źródłowych
 
+**Data pomiaru:** 2026-09-03
+
 **Zmierzone na:** `737d592` (stan `main` w chwili rozpoczęcia).
 **Narzędzie:** `tools/tests/mutation_sweep.py` z gałęzi `mutacje-raport-przeliczony`
 (nie jest częścią tego commita — po pomiarze usunięty z drzewa).

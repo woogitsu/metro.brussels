@@ -1,5 +1,7 @@
 # T-012, druga połowa: zrzuty z silnika idą przez tę samą kontrolę co rendery Blendera
 
+**Zmierzone na commicie:** `4575195`
+
 Stan: **2026-09-01**. Domyka `[~] T-012` z `docs/TASKS.md` — część Blenderowa weszła
 z #27, część Godotowa czekała na T-400, który jest już w `main`.
 

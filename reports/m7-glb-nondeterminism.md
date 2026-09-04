@@ -1,5 +1,7 @@
 # GLB bryły M7 nie jest powtarzalny między przebiegami — a siatka jest
 
+**Zmierzone na commicie:** `2fa30c1`
+
 Data: 03.09.2026. Znalezione przy okazji weryfikacji refaktoryzacji `m7_shell.py`.
 
 ## Objaw

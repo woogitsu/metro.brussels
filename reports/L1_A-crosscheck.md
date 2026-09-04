@@ -1,5 +1,7 @@
 # Pakiet A — oś pozioma i kontrola krzyżowa (T-111)
 
+**Zmierzone na commicie:** `51fd842`
+
 Wygenerowane przez `tools/track/build_alignment.py` i `tools/track/crosscheck_alignment.py`.
 Stan: **2026-09-01**. Odcinek: Gare de l'Ouest / Weststation → Merode, 12 stacji.
 

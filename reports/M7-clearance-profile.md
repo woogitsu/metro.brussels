@@ -1,5 +1,7 @@
 # Profil luzu M7 wzdłuż całego pakietu A i zamiatana obwiednia składu
 
+**Zmierzone na commicie:** `51fd842` · **data:** 2026-09-01
+
 `reports/M7-in-tunnel.md` zmierzył luz w **jednym** punkcie — automatycznie wybranym
 najciaśniejszym łuku (chainage 2518,8 m, R = 85,94 m, luz 0,9447 m na torze +2,10 m).
 Ten raport odpowiada na pytanie, którego tamten pomiar nie zadaje: **jak luz wygląda

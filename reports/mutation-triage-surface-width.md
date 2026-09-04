@@ -1,5 +1,7 @@
 # Triaż ocalałych mutacji: `surface_sections.py` i `tunnel_width.py`
 
+**Zmierzone na commicie:** `b5bcf34`
+
 Stan: **2026-09-03**. Narzędzie: `tools/tests/mutation_sweep.py` (gałąź
 `mutacje-raport-przeliczony`, plik roboczy — **nie jest** commitowany).
 Mutowany jest kod pod testem, nie testy. Zestaw kontrolny: `python3 tools/tests/test_all.py`.

@@ -1,5 +1,7 @@
 # Mapa kilometrażu sieci — co pokrywają pakiety, gdzie są dziury, gdzie rury się przenikają
 
+**Zmierzone na commicie:** `580882c`
+
 Stan: **2026-09-01**. Narzędzie: `tools/track/network_chainage.py`.
 Wejście: sześć osi z `data/track/`, bez sieci i bez dodatkowych źródeł.
 

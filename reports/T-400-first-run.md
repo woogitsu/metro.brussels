@@ -1,5 +1,7 @@
 # T-400 — pierwszy przejazd (etap 1 z Issue #26)
 
+**Zmierzone na commicie:** `39123b9` · **data:** 2026-09-01
+
 Pierwsza scena Godota w tym repozytorium. Do tej pory istniały wyłącznie narzędzia,
 dane i rdzeń symulacji; nic z tego nie dawało się obejrzeć w ruchu.
 

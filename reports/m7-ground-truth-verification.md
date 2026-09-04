@@ -1,5 +1,7 @@
 # T-904 verification record
 
+**Zmierzone na commicie:** `51fd842`
+
 Date: 2026-09-01
 
 ## Source verification

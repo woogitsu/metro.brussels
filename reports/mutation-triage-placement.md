@@ -1,5 +1,7 @@
 # Triaż ocalałych mutacji: `tools/blender/placement.py`
 
+**Zmierzone na commicie:** `3262bb4`
+
 **Data:** 2026-09-03
 **Poprzednie moduły:** `clearance.py` (#127), `clearance_profile.py` (#128),
 `lod.py` (#130), `sweep.py` (#132)

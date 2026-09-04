@@ -1,5 +1,7 @@
 # Pakiety B–F — osie poziome i kontrola krzyżowa (T-111, ciąg dalszy)
 
+**Zmierzone na commicie:** `d47ae47`
+
 Stan: **2026-09-01**. Wygenerowane przez `tools/track/build_alignment.py`,
 sprawdzone `tools/track/crosscheck_alignment.py` i `tools/track/validate.py`.
 Metoda jest ta sama co dla pakietu A (`reports/L1_A-crosscheck.md`); ten raport
@@ -298,12 +300,17 @@ sensowną.** Nie wymaga traktowania pętlowego. Uzasadnienie jest pomiarowe:
    (Elisabeth 8471 i Simonis 8763) dzieli 96,3 m. Wariant v1 kończy się na innej
    parze peronów i tam odległość końców to 18,7 m. W żadnym z wariantów
    polilinia nie wraca do punktu startu.
-2. Pakiet E kończy się na **Beekkant, kilometraż 9021,3 m**. Do Simonis zostaje
+2. Pakiet E kończy się na **Beekkant, kilometraż 9020,8 m**. Do Simonis zostaje
    jeszcze **1278,6 m** (Beekkant → Osseghem → Simonis), więc pakiet urywa się
    ponad kilometr przed miejscem, w którym pierścień mógłby się domknąć.
 3. Odległość pierwszego punktu osi (Elisabeth) od ostatniego (Beekkant) to
    **1213 m w linii prostej** przy 9021 m długości osi — pakiet E to podkowa,
    nie pętla (potwierdza to rzut w planie, `build/L2_E.svg`).
+
+W punkcie 2 stało do #86 (`4a03982`, 02.09.2026) **9021,3 m**; #86 przeliczyło kilometraż
+stacji i Beekkant zjechał na 9020,77 m. Reszta liczb w tym raporcie zostaje
+nieprzeliczona: `1278,6 m` do Simonis i `1213 m` cięciwy są mierzone na łamanej
+źródłowej i na `points`, a tych #86 nie tknęło.
 
 Wniosek dla późniejszych zadań: linie 2 i 6 tworzą pierścień **jako sieć**, ale
 żaden pojedynczy rekord `ACTU_LIGNES_BRUTES` nie jest zamkniętą krzywą, a pakiet

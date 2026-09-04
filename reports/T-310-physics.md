@@ -1,5 +1,7 @@
 # T-310 — rdzeń fizyki M7
 
+**Zmierzone na commicie:** `614bfeb` · **data:** 2026-09-01
+
 Pierwszy kod w `src/`. Biblioteka `MetroBxl.Sim` (net8.0) odtwarza model projektowy
 z `docs/02-simulation.md` i `tools/physics/reference.py`: trakcję, opory ruchu,
 całkowanie ruchu krokiem stałym, bilans energii i profil prędkości. Hamowanie służbowe

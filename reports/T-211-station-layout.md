@@ -1,5 +1,7 @@
 # T-211 (1/2) — perony liczone z osi i ze skrajni
 
+**Zmierzone na commicie:** `1426940`
+
 Stan: **2026-09-02**. Wyjście: `tools/track/station_layout.py`,
 `tools/tests/test_station_layout.py`. Odblokowane przez
 [`reports/R-007-platform-dimensions.md`](R-007-platform-dimensions.md).
