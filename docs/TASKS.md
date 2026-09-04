@@ -279,6 +279,12 @@ których agent nie ruszy bez decyzji właściciela.
 
 ## Zadania dla człowieka
 
+### [ ] **[CZŁOWIEK]** T-906 · Jedenaście progów w `clearance_profile.py`
+`docs/24-clearance-profile-decisions.md`. Triaż 72 ocalałych mutacji tego modułu — najwięcej
+w repozytorium — czeka na te odpowiedzi. Każde pytanie ma zmierzoną konsekwencję obu
+odpowiedzi. Najpilniejsze: krawędzie 12 i 17 profilu `bore_single` mają `|ny| = 0,892173`,
+czyli 0,0078 poniżej progu, który decyduje o tym, czy są stropem, czy ścięciem naroża.
+
 ### [ ] **[CZŁOWIEK]** T-901 · Głębokości stacji pakietu A
 Wypełnić `data/network/station-depths.csv`; agent nie zgaduje.
 
