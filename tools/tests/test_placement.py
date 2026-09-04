@@ -264,3 +264,142 @@ def test_placement_axis_window_rejects_a_window_outside_the_axis():
 def test_placement_axis_window_floors_the_size_at_one_metre():
     points = _straight(600.0, 10.0)
     assert PL.axis_window(points, 100.0, 100.2)["size"] == 1.0
+
+
+# --- triaż mutacyjny: granice, które wyglądały na pokryte -----------------------
+#
+# Z przeglądu `tools/tests/mutation_sweep.py` na `placement.py`. Każdy test zabija
+# konkretną mutację, wypisaną w komentarzu — i ta mutacja jest jego kontrolą negatywną.
+# Klasyfikacja całości: `reports/mutation-triage-placement.md`.
+
+
+def _bent_axis():
+    """Prosta, ostry łuk, prosta — najgorsza krzywizna w znanym miejscu."""
+    points = [(i * 10.0, 0.0, 0.0) for i in range(11)]
+    points += [(100.0 + 40.0 * math.sin(math.radians(a)),
+                40.0 - 40.0 * math.cos(math.radians(a)), 0.0)
+               for a in range(10, 91, 10)]
+    points += [(140.0, 40.0 + i * 10.0, 0.0) for i in range(1, 26)]
+    return points
+
+
+def test_placement_a_node_belongs_to_the_segment_before_it():
+    """Mutacja: 30, drugi `<=` -> `<` — węzeł osi wpadałby do odcinka NASTĘPNEGO.
+
+    Pozycja wychodzi ta sama, więc żaden test pozycji tego nie widzi. Różni się
+    INDEKS odcinka — a z niego wołający liczy styczną (`station_kit.sweep_section`,
+    `tunnel_sweep`). W węźle między dwoma odcinkami o różnych kierunkach dwie różne
+    styczne znaczą dwie różne ramki, czyli profil obrócony wokół osi.
+
+    Zmierzone na prostej 0/10/20 m: oryginał daje `(index 0, t 1.0)`, mutant
+    `(index 1, t 0.0)`.
+
+    **Konwencja jest tu ODWROTNA niż w blokach sygnalizacji i w chunkach**, gdzie
+    granica należy do następnego (`docs/15-classic-signalling.md`). Test przypina stan
+    faktyczny, a rozbieżność jest zapisana w `docs/24-clearance-profile-decisions.md`.
+    """
+    points = [(0.0, 0.0, 0.0), (10.0, 0.0, 0.0), (20.0, 0.0, 0.0)]
+    stations = SW.chainages(points)
+    position, index, t = PL.frame_at(points, stations, 10.0)
+    assert position == (10.0, 0.0, 0.0)
+    assert (index, t) == (0, 1.0), (index, t)
+
+    assert PL.frame_at(points, stations, 0.0)[1:] == (0, 0.0)
+    assert PL.frame_at(points, stations, 20.0)[1:] == (1, 1.0)
+
+
+def test_placement_a_window_over_the_whole_axis_is_accepted():
+    """Mutacja: 53 `from_m < 0.0` -> `<= 0.0` — kadr całej osi byłby ODRZUCONY.
+
+    Kadrowanie od zera to nie jest przypadek brzegowy, tylko domyślne wywołanie
+    renderu kontrolnego dla całego pakietu. Mutant kończy je wyjątkiem „okno wychodzi
+    poza oś", co jest nieprawdą: 0 m to początek osi, a nie punkt przed nią.
+    """
+    points = _straight()
+    total = SW.chainages(points)[-1]
+    window = PL.axis_window(points, 0.0, total)
+    assert abs(window["length_m"] - total) < 1e-9
+    assert window["from_m"] == 0.0
+
+    for bad in ((-0.001, total), (0.0, total + 1.0)):
+        try:
+            PL.axis_window(points, *bad)
+        except ValueError:
+            continue
+        raise AssertionError(f"okno {bad} poza osią zostało przyjęte")
+
+
+def test_placement_a_station_exactly_at_the_guard_still_counts():
+    """Mutacja: 140 `station < guard_m` -> `<=` — pomijałaby stację DOKŁADNIE na granicy.
+
+    Strefa ochronna odsuwa wynik od końców osi, żeby cały skład się mieścił; odległość
+    RÓWNA strefie już się mieści. Mutant przesuwa odpowiedź na następną stację i podaje
+    inne miejsce jako najgorsze.
+
+    Zmierzone na osi z łukiem: przy strefie ustawionej dokładnie na najgorszym
+    kilometrażu oryginał zwraca 134,862 m, mutant 148,807 m — ten sam promień, inne
+    miejsce w tunelu.
+    """
+    points = _bent_axis()
+    worst_m, radius = PL.worst_chainage(points, 15.12, 1.0)
+    assert worst_m is not None and radius < 50.0, (worst_m, radius)
+
+    same_m, same_r = PL.worst_chainage(points, 15.12, worst_m)
+    assert abs(same_m - worst_m) < 1e-9, (same_m, worst_m)
+    assert abs(same_r - radius) < 1e-9
+
+
+def test_placement_a_frame_exactly_at_the_window_edge_is_searched():
+    """Mutacje: 169, oba `<=` -> `<` — ramka na krańcu okna wypadałaby z przeszukania.
+
+    Awaria jest cicha i przez to najgorsza z całego tego zestawu: `local_offsets`
+    startuje z `best = (0, 0, 0, inf)` i gdy żadna ramka nie przejdzie filtra, zwraca
+    te ZERA jako offsety. Punkt oddalony o 2 m nad osią dostaje wtedy odpowiedź
+    „leżysz dokładnie na osi w kilometrażu zero".
+
+    Zmierzone przy oknie zawężonym do jednej ramki: oryginał `(50.0, 0.0, 2.0)`,
+    mutant `(0.0, 0.0, 0.0)`.
+    """
+    points = _bent_axis()
+    frames = SW.rmf_frames(SW.dedupe(points))
+    stations = SW.chainages([f[0] for f in frames])
+    origin = frames[5][0]
+    probe = (origin[0], origin[1], origin[2] + 2.0)
+
+    single = (stations[5], stations[5])
+    chainage, right, up = PL.local_offsets(probe, frames, stations, single)
+    assert abs(chainage - stations[5]) < 1e-6, (chainage, stations[5])
+    assert abs(up - 2.0) < 1e-6, up
+    assert abs(right) < 1e-6, right
+
+
+def test_placement_a_section_exactly_at_the_minimum_is_not_degenerate():
+    """Mutacja: 263 `<` -> `<=` — przekrój o wysokości RÓWNEJ minimum byłby odrzucony.
+
+    Minimum znaczy „nie niższy niż", więc równość jeszcze się mieści. Kierunek błędu
+    jest tu istotny: uznanie dobrego przekroju za zdegenerowany przerywa render, który
+    powinien się udać, i wygląda jak usterka geometrii, a nie progu.
+    """
+    minimum = PL.MIN_SECTION_HEIGHT_M
+    assert PL.is_degenerate_section(0.0, minimum) is False
+    assert PL.is_degenerate_section(0.0, minimum * 0.999) is True
+    assert PL.is_degenerate_section(0.0, minimum * 1.001) is False
+
+
+def test_placement_circumradius_rejects_a_repeated_point_by_area_alone():
+    """Kontrola po usunięciu MARTWEGO warunku `ab * bc * ca == 0.0` z `_circumradius`.
+
+    Iloczyn boków zeruje się tylko wtedy, gdy dwa z trzech punktów się pokrywają —
+    a wtedy trójkąt ma zerowe pole i łapie go już `area2 < 1e-12`. Ta sama martwa
+    połowa stała w `clearance.circumradius` i została usunięta w #127; tutaj przetrwała,
+    bo nikt nie sprawdził drugiego wystąpienia.
+
+    Test pilnuje, że po usunięciu nadal odrzucane są WSZYSTKIE trzy przypadki, które
+    tamten warunek miał rzekomo łapać.
+    """
+    assert PL._circumradius((0.0, 0.0), (0.0, 0.0), (2.0, 0.0)) is None
+    assert PL._circumradius((0.0, 0.0), (1.0, 1.0), (0.0, 0.0)) is None
+    assert PL._circumradius((0.0, 0.0), (1.0, 0.0), (2.0, 0.0)) is None
+
+    radius = PL._circumradius((0.0, 0.0), (1.0, 1.0), (2.0, 0.0))
+    assert radius is not None and abs(radius - 1.0) < 1e-9, radius

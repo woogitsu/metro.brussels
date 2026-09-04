@@ -12,6 +12,15 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
+# Blender jest przypięty po wersji i leży POZA workspace (`tools/ci/blender_install.sh`),
+# więc woła się go przez `BLENDER_BIN`, a nie przez goły `blender` z PATH. To nie jest
+# ozdoba: na maszynie, która kiedykolwiek miała `apt-get install blender`, w PATH stoi
+# 4.0.2, czyli LEGACY EEVEE — a baseline projektu jest z EEVEE Next i te dwie generacje
+# nie są porównywalne (`tools/visual/capture_plan.py`, `EEVEE_NEXT_SINCE`). Fallback na
+# PATH zostaje, żeby uruchomienie z ręki na maszynie z jednym Blenderem dalej działało.
+# Ta sama konwencja co `GODOT_BIN`.
+BLENDER_EXE="${BLENDER_BIN:-blender}"
 cd "$ROOT"
 
 NAME="${1:-L1_A}"
@@ -24,7 +33,7 @@ REPORT="$OUT/report.txt"
 exec > >(tee -a "$REPORT") 2>&1
 SECONDS=0
 
-BLENDER=(blender --background --python-exit-code 7 --python)
+BLENDER=("$BLENDER_EXE" --background --python-exit-code 7 --python)
 
 fail() {
   echo "BŁĄD: $*" >&2
@@ -50,7 +59,7 @@ FRAMEPY
 
 echo "T-210 tunel pakietu $NAME — pipeline geometryczny"
 echo "============================================================"
-blender --version | sed -n '1,1p'
+"$BLENDER_EXE" --version | sed -n '1,1p'
 python3 --version
 test -s "$AXIS" || fail "brak osi $AXIS"
 

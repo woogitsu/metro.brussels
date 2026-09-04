@@ -446,10 +446,25 @@ def spacing_by_link(rows, links, nodes):
 # --- wejście/wyjście ----------------------------------------------------------
 
 def load_alignment(path):
+    """Oś w EPSG:31370 z pliku osi, **zdeduplikowana już tutaj**, przy wczytaniu.
+
+    Deduplikacja jest tu, a nie niżej, bo `SW.rmf_frames` i tak robi ją u siebie
+    (`sweep.dedupe`, metryka: `norm(b - a) > eps`, `eps = 1e-6`). Dopóki oś krążyła
+    po module w wersji surowej, a ramki były liczone z wersji zdeduplikowanej, obie
+    listy przestawały być równoległe przy pierwszym powtórzonym wierzchołku i
+    `project_signed` sięgało po `frames[index]` cudzą ramką — odsunięcie wychodziło
+    ciche i złe (`reports/mutation-triage-inspire-rail.md`: 3,03 zamiast 3,5 m),
+    a przy dwóch powtórzeniach z rzędu leciał `IndexError`. Dlatego kryterium MUSI być dokładnie to samo wywołanie `SW.dedupe`,
+    a nie własna kopia progu: rozjazd kryteriów przywraca dokładnie tę usterkę.
+
+    Dla osi bez powtórzeń `SW.dedupe` zwraca te same punkty, więc kilometraż stacji
+    ani długość osi nie drgną — sprawdzone na wszystkich sześciu osiach w `data/track/`.
+    """
     with open(path, encoding="utf-8") as handle:
         document = json.load(handle)
     origin = document["origin_source_crs"]
-    axis = [(p[0] + origin[0], p[1] + origin[1], 0.0) for p in document["points"]]
+    axis = SW.dedupe([(p[0] + origin[0], p[1] + origin[1], 0.0)
+                      for p in document["points"]])
     stop_ids = [station["stop_id"] for station in document["stations"]]
     return document, axis, stop_ids
 

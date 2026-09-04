@@ -188,7 +188,7 @@ def nearest_subway(content, point):
     root = ET.fromstring(content)
     nodes = {n.get("id"): (float(n.get("lon")), float(n.get("lat")))
              for n in root.findall("node")}
-    best = None
+    best, best_distance = None, None
     for way in root.findall("way"):
         tags = {t.get("k"): t.get("v") for t in way.findall("tag")}
         if tags.get("railway") != "subway":
@@ -199,7 +199,12 @@ def nearest_subway(content, point):
         metric = [CRS.wgs84_to_lambert72(x, y) for x, y in coords]
         distance = min(CC._distance_to_polyline(point, [a, b])
                        for a, b in zip(metric, metric[1:]))
-        if best is None or distance < best["distance_m"]:
+        # Porównujemy odległość SUROWĄ, a zaokrąglamy dopiero to, co idzie do raportu.
+        # Przy `distance < best["distance_m"]` po prawej stronie stała wartość już
+        # zaokrąglona do 2 miejsc, więc way dalszy o mniej niż pół centymetra wygrywał
+        # z bliższym, a wynik zależał od kolejności way'ów w dokumencie.
+        if best is None or distance < best_distance:
+            best_distance = distance
             best = {"way_id": way.get("id"), "distance_m": round(distance, 2),
                     "tunnel": tags.get("tunnel"), "layer": tags.get("layer"),
                     "bridge": tags.get("bridge")}
@@ -245,11 +250,13 @@ def nearest_segment(point, segments, index, cell_m=OSM_GRID_CELL_M, rings=2):
     for i in range(-rings, rings + 1):
         for j in range(-rings, rings + 1):
             candidates.update(index.get((cx + i, cy + j), ()))
-    best = None
+    best, best_distance = None, None
     for i in candidates:
         a, b, way_id, tunnel, layer = segments[i]
         distance = CC._distance_to_polyline(point, [a, b])
-        if best is None or distance < best["distance_m"]:
+        # jak w `nearest_subway`: surowa odległość rozstrzyga, zaokrąglona tylko raportuje
+        if best is None or distance < best_distance:
+            best_distance = distance
             best = {"way_id": way_id, "distance_m": round(distance, 2),
                     "tunnel": tunnel, "layer": layer, "bridge": None}
     return best

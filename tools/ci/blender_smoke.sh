@@ -3,6 +3,15 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
+# Blender jest przypięty po wersji i leży POZA workspace (`tools/ci/blender_install.sh`),
+# więc woła się go przez `BLENDER_BIN`, a nie przez goły `blender` z PATH. To nie jest
+# ozdoba: na maszynie, która kiedykolwiek miała `apt-get install blender`, w PATH stoi
+# 4.0.2, czyli LEGACY EEVEE — a baseline projektu jest z EEVEE Next i te dwie generacje
+# nie są porównywalne (`tools/visual/capture_plan.py`, `EEVEE_NEXT_SINCE`). Fallback na
+# PATH zostaje, żeby uruchomienie z ręki na maszynie z jednym Blenderem dalej działało.
+# Ta sama konwencja co `GODOT_BIN`.
+BLENDER_EXE="${BLENDER_BIN:-blender}"
 cd "$ROOT"
 
 mkdir -p build/t010 build renders
@@ -38,9 +47,9 @@ if [ -r /etc/os-release ]; then cat /etc/os-release; fi
 echo
 echo "[ENV] toolchain"
 require_command python3 || exit $?
-require_command blender || exit $?
+require_command "$BLENDER_EXE" || exit $?
 python3 --version
-blender --version | sed -n '1,4p'
+"$BLENDER_EXE" --version | sed -n '1,4p'
 
 if command -v lscpu >/dev/null 2>&1; then
   lscpu | grep -E 'Model name|CPU\(s\)|Thread|Core|Socket' || true
@@ -81,7 +90,7 @@ test -s build/t010/TEST.json || fail "build/t010/TEST.json is empty"
 
 echo
 echo "[BLENDER] generate GLB"
-blender --background --python-exit-code 7 --python tools/blender/tunnel_sweep.py -- \
+"$BLENDER_EXE" --background --python-exit-code 7 --python tools/blender/tunnel_sweep.py -- \
   --centerline build/t010/TEST.json \
   --profile box_double \
   --out build/TEST.glb
@@ -90,7 +99,7 @@ test -s build/TEST.glb || fail "build/TEST.glb is empty"
 
 echo
 echo "[BLENDER] render the exported GLB"
-blender --background --python-exit-code 7 --python tools/blender/render_check.py -- \
+"$BLENDER_EXE" --background --python-exit-code 7 --python tools/blender/render_check.py -- \
   --in build/TEST.glb \
   --centerline build/t010/TEST.json \
   --out renders/TEST
@@ -120,7 +129,7 @@ PY
 echo
 echo "[NEGATIVE] nonexistent centerline must fail"
 rm -f build/t010/negative-missing.glb
-if blender --background --python-exit-code 7 --python tools/blender/tunnel_sweep.py -- \
+if "$BLENDER_EXE" --background --python-exit-code 7 --python tools/blender/tunnel_sweep.py -- \
   --centerline build/t010/does-not-exist.json --profile box_double --out build/t010/negative-missing.glb \
   >build/t010/negative-missing.log 2>&1; then
   fail "nonexistent-centerline negative test unexpectedly succeeded"
@@ -133,7 +142,7 @@ echo
 echo "[NEGATIVE] malformed JSON must fail"
 printf '{broken json\n' > build/t010/broken.json
 rm -f build/t010/negative-broken.glb
-if blender --background --python-exit-code 7 --python tools/blender/tunnel_sweep.py -- \
+if "$BLENDER_EXE" --background --python-exit-code 7 --python tools/blender/tunnel_sweep.py -- \
   --centerline build/t010/broken.json --profile box_double --out build/t010/negative-broken.glb \
   >build/t010/negative-broken.log 2>&1; then
   fail "malformed-JSON negative test unexpectedly succeeded"
@@ -145,7 +154,7 @@ tail -n 12 build/t010/negative-broken.log || true
 echo
 echo "[NEGATIVE] unknown tunnel profile must fail"
 rm -f build/t010/negative-profile.glb
-if blender --background --python-exit-code 7 --python tools/blender/tunnel_sweep.py -- \
+if "$BLENDER_EXE" --background --python-exit-code 7 --python tools/blender/tunnel_sweep.py -- \
   --centerline build/t010/TEST.json --profile definitely_not_a_profile --out build/t010/negative-profile.glb \
   >build/t010/negative-profile.log 2>&1; then
   fail "unknown-profile negative test unexpectedly succeeded"
