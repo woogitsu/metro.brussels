@@ -117,13 +117,6 @@ public sealed class LineRun
     public FixedStep TimeStep => _step;
 
     /// <summary>
-    /// Przejazd osi od pierwszej do ostatniej stacji.
-    /// </summary>
-    /// <param name="axis">Oś z chainage stacji.</param>
-    /// <param name="conditions">Masa, pochylenie, przyczepność, otoczenie toru.</param>
-    /// <param name="settings">Założenia przejazdu — wszystkie bez źródła, patrz <see cref="LineRunSettings"/>.</param>
-    /// <param name="stepBudget">Bezpiecznik pętli.</param>
-    /// <summary>
     /// Ślad przejazdu: wołany po każdym kroku, gdy podany. Istnieje po to, żeby różnicę
     /// wobec profilu idealnego dało się **zobaczyć**, a nie tylko zmierzyć na końcu.
     /// </summary>
@@ -137,6 +130,13 @@ public sealed class LineRun
         double TimeSeconds, double ChainageM, double SpeedMps,
         double BrakeRateMps2, DriverCommand Command, DoorPhase Phase);
 
+    /// <summary>
+    /// Przejazd osi od pierwszej do ostatniej stacji.
+    /// </summary>
+    /// <param name="axis">Oś z chainage stacji.</param>
+    /// <param name="conditions">Masa, pochylenie, przyczepność, otoczenie toru.</param>
+    /// <param name="settings">Założenia przejazdu — wszystkie bez źródła, patrz <see cref="LineRunSettings"/>.</param>
+    /// <param name="stepBudget">Bezpiecznik pętli.</param>
     public LineRunResult Run(
         TrackAxis axis,
         RunConditions conditions,

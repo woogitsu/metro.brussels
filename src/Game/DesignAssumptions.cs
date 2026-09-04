@@ -78,8 +78,11 @@ public static class DesignAssumptions
     /// stacje tak samo jak linia, której jest widokiem.
     ///
     /// <b>Górne ograniczenie jest znane i nieprzekraczalne:</b> peron w generatorze ma
-    /// 94,0 m (R-007 daje kontrolę górną 109,1 m), więc okno szersze niż połowa peronu
-    /// pozwalałoby otworzyć drzwi poza krawędzią. 5,0 m to 5,3 % połowy peronu.
+    /// 95,0 m (decyzja właściciela T-212,
+    /// <c>tools/track/station_components.py: DESIGN_PLATFORM_LENGTH_M</c>; R-007 daje
+    /// kontrolę górną 109,1 m), więc okno szersze niż połowa peronu pozwalałoby
+    /// otworzyć drzwi poza krawędzią. 5,0 m to 10,5 % połowy peronu (47,5 m) —
+    /// podstawą procentu jest POŁOWA peronu, nie cały peron.
     /// </summary>
     public const double StationStopWindowM = 5.0;
 
@@ -140,7 +143,7 @@ public static class DesignAssumptions
         new ViewAssumption(nameof(TrackOffsetM), TrackOffsetM, "m",
             "oś toru względem osi trasy; wartość z profiles.py (design), a wybór prawego toru nie ma źródła — ACTU_LIGNES_BRUTES to trasa handlowa, nie geometria tor-po-torze"),
         new ViewAssumption(nameof(StationStopWindowM), StationStopWindowM, "m",
-            "okno rozpoznania stacji, nie dokładność zatrzymania; ta sama liczba co LineRunSettings.StopWindowM w T-401, a górne ograniczenie to połowa peronu 94,0 m"),
+            "okno rozpoznania stacji, nie dokładność zatrzymania; ta sama liczba co LineRunSettings.StopWindowM w T-401, a górne ograniczenie to połowa peronu, czyli 47,5 m"),
         new ViewAssumption(nameof(PassengerExchangeSeconds), PassengerExchangeSeconds, "s",
             "wymiana pasażerów; brak źródła (T-312), T-113 ogranicza od góry do 10,5 s przy medianowym postoju 19 s"),
         new ViewAssumption(nameof(LineBrakeUsageFraction), LineBrakeUsageFraction, "-",

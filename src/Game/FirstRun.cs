@@ -97,10 +97,6 @@ public sealed partial class FirstRun : Node3D
     private long _stepsPerFrame = 120;
     private double _jitter;
     /// <summary>
-    /// Kody wyjścia. Były rozsypane po pliku jako literały 3–7; teraz mają nazwy,
-    /// bo CI i człowiek czytający log muszą wiedzieć, co je odróżnia.
-    /// </summary>
-    /// <summary>
     /// Ile wolno się różnić długości osi z manifestu chunków i z rdzenia.
     ///
     /// <para>Nie jest to zapas bezpieczeństwa, tylko rozdzielczość zapisu: manifest
@@ -110,6 +106,9 @@ public sealed partial class FirstRun : Node3D
     /// </summary>
     private const double AxisManifestToleranceM = 1e-3;
 
+    // Kody wyjścia. Były rozsypane po pliku jako literały 3–7; teraz mają nazwy,
+    // bo CI i człowiek czytający log muszą wiedzieć, co je odróżnia. Nota opisuje
+    // CAŁĄ grupę, więc jest zwykłym komentarzem — `<summary>` opisuje jeden składnik.
     private const int ExitMissingInput = 3;
 
     private const int ExitMissingAssets = 4;

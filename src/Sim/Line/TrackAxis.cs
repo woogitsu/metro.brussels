@@ -183,13 +183,10 @@ public sealed class TrackAxis
     }
 
     /// <summary>
-    /// Największa odległość punktu zagęszczonej osi od łamanej źródłowej — miara tego,
-    /// ile interpolacja dołożyła do przebiegu STIB. Odpowiednik
-    /// <c>tools/blender/sweep.py: max_deviation</c>; na pakiecie A wychodzi 0,1064 m.
-    /// </summary>
-    /// <summary>
-    /// Czy cięciwa od <paramref name="fromM"/> do <paramref name="toM"/> ma na tej osi
-    /// niezerową długość.
+    /// Czy cięciwa od <paramref name="fromM"/> do <paramref name="toM"/> jest na tej osi
+    /// niezdegenerowana: oba kilometraże przycięte do <c>[0, LengthM]</c> dają RÓŻNE
+    /// wartości. Kilometraż nieskończony albo NaN daje <c>false</c> — takiej cięciwy
+    /// nie da się przyciąć do osi, więc nie ma czego mierzyć.
     ///
     /// <para><b>Po co to istnieje.</b> <see cref="PointAt"/> PRZYCINA kilometraż do osi,
     /// więc dwa różne kilometraże leżące oba przed początkiem albo oba za końcem dają
@@ -216,6 +213,11 @@ public sealed class TrackAxis
         return a != b;
     }
 
+    /// <summary>
+    /// Największa odległość punktu zagęszczonej osi od łamanej źródłowej — miara tego,
+    /// ile interpolacja dołożyła do przebiegu STIB. Odpowiednik
+    /// <c>tools/blender/sweep.py: max_deviation</c>; na pakiecie A wychodzi 0,1064 m.
+    /// </summary>
     public double MaxDeviationFromSourceM()
     {
         var worst = 0.0;
