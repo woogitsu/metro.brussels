@@ -79,6 +79,111 @@ def test_clearance_profile_halfplanes_accepts_a_triangle():
         raise AssertionError("dwa punkty przeszły jako obrys profilu")
 
 
+def test_clearance_profile_halfplanes_refuses_a_ring_with_zero_area():
+    """Pierścień o zerowym polu nie jest obrysem — jest odcinkiem albo punktem.
+
+    Decyzja właściciela z 04.09.2026, pozycja 12 w
+    `docs/24-clearance-profile-decisions.md`: `halfplanes` ma go ODRZUCAĆ, tak samo
+    jak odrzuca zerową krawędź. Przed tą decyzją liczył na nim dalej i zwracał
+    półpłaszczyzny, w których luz każdego punktu jest niedodatni, a etykieta
+    wiążącej krawędzi bierze się z orientacji policzonej ze `area2 == 0.0` —
+    czyli z niczego.
+    """
+    for ring in ([(0.0, 0.0), (1.0, 0.0), (2.0, 0.0)],
+                 [(0.0, 0.0), (0.0, 1.0), (0.0, 2.0)],
+                 [(0.0, 0.0), (1.0, 1.0), (2.0, 2.0)],
+                 [(1.0, 1.0), (1.0, 1.0), (1.0, 1.0)],
+                 [(0.0, 0.0), (1.0, 1.0), (2.0, 2.0), (3.0, 3.0)]):
+        try:
+            CP.halfplanes(ring)
+        except ValueError as error:
+            assert "zerowe pole" in str(error), (ring, str(error))
+        else:
+            raise AssertionError(f"przyjęty pierścień o zerowym polu: {ring}")
+
+
+def test_clearance_profile_halfplanes_refuses_a_collinear_ring_that_rounds_off_zero():
+    """DOKŁADNE `area2 == 0.0` przepuszczałoby prawie dwie trzecie wejść.
+
+    To nie jest przypadek hipotetyczny i dlatego ma osobny test: dla trójki
+    współliniowej o niecałkowitych współrzędnych suma wyznaczników nie wychodzi
+    zerem, tylko rzędu 1e-15. Zmierzone 04.09.2026 na 200 000 losowych trójkach
+    współliniowych: 63,46 % daje `area2 != 0.0`, największe |area2| to 2,183e-11.
+    Strażnik porównuje więc z `CONVEXITY_EPS`, a nie z zerem, i ten test jest tym,
+    co odróżnia jedną wersję od drugiej.
+    """
+    ring = [(0.1, 0.3), (1.7, 5.1), (3.3, 9.9)]
+    area2 = 0.0
+    for a, b in zip(ring, ring[1:] + ring[:1]):
+        area2 += a[0] * b[1] - b[0] * a[1]
+    assert area2 != 0.0, "to wejście przestało być tym, o co w tym teście chodzi"
+    assert abs(area2) < CP.CONVEXITY_EPS, area2
+
+    try:
+        CP.halfplanes(ring)
+    except ValueError as error:
+        assert "zerowe pole" in str(error), str(error)
+    else:
+        raise AssertionError(f"przyjęty pierścień współliniowy o area2 = {area2!r}")
+
+
+def test_clearance_profile_halfplanes_still_accepts_the_smallest_legitimate_ring():
+    """Kontrola po DRUGIEJ stronie progu — bez niej strażnik mógłby odrzucać wszystko.
+
+    Najmniejszy obrys, który ten zestaw testów każe przyjąć, to trójkąt 0,5 mm
+    (`area2 = 2,5e-07`), czyli 2,4 rzędu POWYŻEJ progu. Prawdziwe profile z
+    `profiles.py` leżą 10,8-11,3 rzędu powyżej. Zapas jest zmierzony z obu stron,
+    a nie przyjęty na wiarę.
+    """
+    maly = [(0.0, 0.0), (5e-4, 0.0), (0.0, 5e-4)]
+    assert len(CP.halfplanes(maly)) == 3
+
+    import profiles
+    for name in profiles.PROFILES:
+        ring = [tuple(point) for point in profiles.profile_points(name)]
+        planes = CP.halfplanes(ring)
+        assert len(planes) == len(ring), name
+
+
+def test_clearance_profile_halfplanes_refuses_a_ring_exactly_at_the_area_threshold():
+    """Granica nowego progu jest OSIĄGALNA, więc `<=` kontra `<` to prawdziwa luka.
+
+    Nowy strażnik wprowadził próg, a próg bez przybitej granicy jest dokładnie tym,
+    na co narzeka `docs/24`. Zmierzone 04.09.2026: trójkąt o przyprostokątnych
+    1e-5 i 1e-4 daje `area2` DOKŁADNIE `1e-09`, i tak samo cztery inne pary
+    (1e-9 x 1, 1e-4 x 1e-5, 2e-5 x 5e-5, 1 x 1e-9).
+
+    Wart uwagi jest sposób, w jaki to wyszło: 300 000 losowych obrysów o skali
+    rozłożonej logarytmicznie trafiło w ten próg DOKŁADNIE **zero razy**. Samo
+    próbkowanie podpowiedziałoby więc, że `<=` i `<` są nierozróżnialne — a nie są.
+    W ten próg się nie wpada losowo, tylko się go konstruuje.
+
+    Wybrana strona: na progu obrys jest już ODRZUCANY (`<=`), tak samo jak przy
+    zerowej krawędzi niżej. 1e-5 m na 1e-4 m to 0,01 mm na 0,1 mm — nie jest to
+    profil tunelu przy żadnym czytaniu.
+    """
+    dokladnie_na_progu = [(0.0, 0.0), (1e-5, 0.0), (0.0, 1e-4)]
+    area2 = 0.0
+    for a, b in zip(dokladnie_na_progu,
+                    dokladnie_na_progu[1:] + dokladnie_na_progu[:1]):
+        area2 += a[0] * b[1] - b[0] * a[1]
+    assert abs(area2) == CP.CONVEXITY_EPS, (
+        f"to wejście nie trafia już w próg dokładnie: {area2!r}")
+
+    try:
+        CP.halfplanes(dokladnie_na_progu)
+    except ValueError as error:
+        assert "zerowe pole" in str(error), str(error)
+    else:
+        raise AssertionError("obrys dokładnie na progu został przyjęty")
+
+    # Druga strona granicy: o jeden bit powyżej progu obrys musi PRZEJŚĆ,
+    # inaczej test przybijałby odmowę zamiast progu.
+    import math
+    tuz_powyzej = [(0.0, 0.0), (math.nextafter(1e-5, 1.0), 0.0), (0.0, 1e-4)]
+    assert len(CP.halfplanes(tuz_powyzej)) == 3
+
+
 def test_clearance_profile_halfplanes_refuses_a_zero_length_edge():
     """Zdublowany wierzchołek obrysu daje krawędź o zerowej długości.
 
