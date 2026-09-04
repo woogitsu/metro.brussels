@@ -15,6 +15,7 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 WORKFLOWS = os.path.join(ROOT, ".github", "workflows")
 ACTIONS = os.path.join(ROOT, ".github", "actions")
 HELPER = os.path.join(ROOT, "tools", "ci", "apt_install.sh")
+INSTALLER = os.path.join(ROOT, "tools", "ci", "blender_install.sh")
 
 #: Akcje lokalne, w których stoi JEDNA implementacja reguł powtarzanych wcześniej
 #: w każdym workflow. Testy niżej idą ZA tym odnośnikiem, a nie uznają go za dowód:
@@ -371,6 +372,9 @@ def test_ci_blender_installer_verifies_the_checksum_and_stays_out_of_the_workspa
     code = "\n".join(line for line in script.splitlines()
                      if not line.lstrip().startswith("#"))
 
+    # Sam napis. Że suma cokolwiek ODRZUCA, pilnuje
+    # `test_ci_blender_installer_refuses_a_tarball_whose_checksum_does_not_match` —
+    # ten warunek przechodził z dopisanym `|| true`.
     assert "sha256sum -c" in code, "instalator nie sprawdza sumy kontrolnej"
     assert re.search(r"\$\{RUNNER_TOOL_CACHE:-", code), \
         "instalator nie czyta RUNNER_TOOL_CACHE, więc Blender może wylądować w workspace"
@@ -382,6 +386,169 @@ def test_ci_blender_installer_verifies_the_checksum_and_stays_out_of_the_workspa
         "instalator nie porównuje wersji zastanej z przypiętą"
     assert 'command -v blender' not in code, \
         "instalator sonduje obecność Blendera zamiast jego wersji"
+
+
+#: Zmyślona wersja atrapy Blendera. NIGDY nie będzie prawdziwym wydaniem, bo nazwa
+#: tarballa w `/tmp` jest w instalatorze zaszyta i pod prawdziwym numerem test
+#: potrafiłby wejść w drogę czyjemuś pobieraniu. `installed_version` czyta
+#: z pierwszej linii `--version` wyłącznie cyfry i kropki, więc atrapa musi się
+#: przedstawiać dokładnie tym numerem, żeby przebieg zgodny doszedł do końca.
+FAKE_BLENDER_VERSION = "0.0.1"
+
+
+def _fake_blender_archive(root):
+    """Poprawny `.tar.xz` z atrapą `blender` w środku. Zwraca (ścieżka, suma).
+
+    Atrapa musi być PRAWDZIWYM archiwum, nie śmieciem: na śmieciu wywraca się
+    `tar -xJf`, więc skrypt padłby również z rozbrojoną sumą i kontrola negatywna
+    nie zmierzyłaby niczego. Musi też być rozpakowywalna DO KOŃCA i przedstawiać
+    się przypiętym numerem — z `|| true` po `sha256sum` instalator ma dojść do
+    `exit 0` i wypisać ścieżkę, żeby test miał co złapać.
+    """
+    import hashlib
+    import tarfile
+
+    tree = f"blender-{FAKE_BLENDER_VERSION}-linux-x64"
+    payload = os.path.join(root, "payload", tree)
+    os.makedirs(payload)
+    binary = os.path.join(payload, "blender")
+    with open(binary, "w", encoding="utf-8") as handle:
+        handle.write("#!/usr/bin/env bash\n"
+                     f'echo "Blender {FAKE_BLENDER_VERSION}"\n'
+                     'echo "\tbuild date: atrapa testowa"\n')
+    os.chmod(binary, 0o755)
+
+    archive = os.path.join(root, "atrapa.tar.xz")
+    with tarfile.open(archive, "w:xz") as tar:
+        tar.add(payload, arcname=tree)
+    with open(archive, "rb") as handle:
+        return archive, hashlib.sha256(handle.read()).hexdigest()
+
+
+def _run_blender_installer(root, label, sha256, archive, workspace=None):
+    """Uruchamia PRAWDZIWY `blender_install.sh` obok podstawionego pinu, bez sieci.
+
+    Skrypt czyta pin z katalogu, w którym sam leży (`$HERE/blender-version.txt`),
+    więc podmiana sumy to kopia skryptu BAJT W BAJT do katalogu tymczasowego
+    i własny pin obok — plik w repozytorium zostaje nietknięty.
+
+    Sieci nie ma: `curl` jest podmieniony w PATH i pod ścieżkę z `-o` podkłada
+    atrapę zamiast 366 MB z download.blender.org. Shim zapisuje też fakt wywołania,
+    bo „skrypt padł" bez „curl został wywołany" nie dowodzi, że wykonała się
+    ścieżka SUMY, a nie cokolwiek wcześniej.
+    """
+    import shutil
+    import subprocess
+
+    base = os.path.join(root, label)
+    home = os.path.join(base, "home")
+    binroot = os.path.join(base, "bin")
+    ci = os.path.join(base, "ci")
+    cache = os.path.join(workspace, "_tool") if workspace else os.path.join(base, "cache")
+    for directory in (home, binroot, ci, cache):
+        os.makedirs(directory, exist_ok=True)
+
+    script = os.path.join(ci, "blender_install.sh")
+    shutil.copyfile(INSTALLER, script)
+    with open(os.path.join(ci, "blender-version.txt"), "w", encoding="utf-8") as handle:
+        handle.write(f"version={FAKE_BLENDER_VERSION}\nsha256={sha256}\n")
+
+    log = os.path.join(base, "curl-zostal-wolany")
+    shim = os.path.join(binroot, "curl")
+    with open(shim, "w", encoding="utf-8") as handle:
+        handle.write('#!/usr/bin/env bash\n'
+                     'echo "$@" >> "$CURL_LOG"\n'
+                     'out=""\n'
+                     'while [ $# -gt 0 ]; do\n'
+                     '    [ "$1" = "-o" ] && out="$2"\n'
+                     '    shift\n'
+                     'done\n'
+                     '[ -n "$out" ] || exit 9\n'
+                     'cp "$ARCHIVE" "$out"\n')
+    os.chmod(shim, 0o755)
+
+    env = dict(os.environ)
+    env.pop("GITHUB_WORKSPACE", None)
+    if workspace:
+        env["GITHUB_WORKSPACE"] = workspace
+    env.update(PATH=binroot + os.pathsep + env.get("PATH", ""),
+               HOME=home, RUNNER_TOOL_CACHE=cache,
+               CURL_LOG=log, ARCHIVE=archive, LC_ALL="C")
+
+    result = subprocess.run(["bash", script], env=env, capture_output=True, text=True)
+    unpacked = os.path.join(cache, "metro-blender", FAKE_BLENDER_VERSION)
+    return result, unpacked, os.path.exists(log)
+
+
+def test_ci_blender_installer_refuses_a_tarball_whose_checksum_does_not_match():
+    """Bramka na ZACHOWANIE instalatora, nie na napis `sha256sum -c` w jego kodzie.
+
+    Zmierzone 04.09.2026: dopisanie `|| true` po `sha256sum -c -` w
+    `tools/ci/blender_install.sh` (wiersz 82) przechodziło CAŁY zestaw, 1335/1335.
+    `test_..._verifies_the_checksum_and_stays_out_of_the_workspace` pyta wyłącznie,
+    czy napis stoi w pliku, a suma z `tools/ci/blender-version.txt` była sprawdzana
+    tylko pod kątem formatu (64 znaki hex) — cała ścieżka „przypięta wersja
+    Blendera" nie miała ani jednej bramki wykonawczej. Podmieniony tarball
+    rozpakowywał się dalej, a joby chodzą na maszynie właściciela.
+
+    Trzy przebiegi, bo żaden z nich osobno nie mierzy tego, co mówi:
+
+    1. suma ZGODNA — skrypt musi dojść do końca i wypisać ścieżkę do pliku
+       wykonywalnego. Bez tego „padł" z przebiegu 2 mógłby pochodzić z zepsutego
+       shima albo z byle czego w otoczeniu, a nie z sumy.
+    2. suma NIEZGODNA — skrypt musi PAŚĆ i NIE zostawić rozpakowanego katalogu.
+       Sam kod wyjścia tu nie wystarcza: przy `|| true` atrapa rozpakowuje się
+       i przedstawia przypiętym numerem, więc instalator kończy się ZEREM —
+       łapie go dopiero istnienie katalogu i kodu wyjścia razem.
+    3. katalog docelowy W WORKSPACE — skrypt musi paść PRZED pobraniem
+       (shim nietknięty), bo `git clean -ffdx` z checkoutu i tak by to skasował.
+
+    Czego ta bramka NIE obejmuje: że suma w pinie jest sumą PRAWDZIWEGO archiwum
+    z download.blender.org. Tego nie da się sprawdzić bez sieci — zestaw
+    `tools/tests/test_all.py` chodzi offline i żaden inny jego test nie wychodzi
+    na zewnątrz. Zejście po `blender-<wersja>.sha256` z serwera Blender Foundation
+    zamieniłoby te testy w bramkę zależną od cudzego serwera; poprawność samego
+    numeru zostaje przy człowieku, który podnosi pin.
+    """
+    import shutil
+    import tempfile
+
+    root = tempfile.mkdtemp(prefix="metro-blender-pin-")
+    # Nazwa tarballa jest w instalatorze zaszyta na `/tmp`, a przy odmowie skrypt
+    # nie dochodzi do `rm -f` — sprzątamy po nim sami.
+    leftover = f"/tmp/blender-{FAKE_BLENDER_VERSION}-linux-x64.tar.xz"
+    try:
+        archive, digest = _fake_blender_archive(root)
+        wrong = "0" * 63 + "1"
+        assert wrong != digest
+
+        good, unpacked, called = _run_blender_installer(root, "zgodna", digest, archive)
+        assert good.returncode == 0, (good.returncode, good.stderr)
+        assert called, "shim `curl` nie został wywołany, więc przebieg nie mierzy pobrania"
+        binary = os.path.join(unpacked, f"blender-{FAKE_BLENDER_VERSION}-linux-x64", "blender")
+        assert good.stdout.strip() == binary, (good.stdout, binary)
+        assert os.access(binary, os.X_OK), binary
+
+        bad, unpacked, called = _run_blender_installer(root, "niezgodna", wrong, archive)
+        assert called, "shim `curl` nie został wywołany, więc odmowa nie jest odmową sumy"
+        assert bad.returncode != 0, (
+            "instalator z niezgodną sumą zakończył się zerem — suma nie bramkuje niczego")
+        assert "FAILED" in bad.stderr, bad.stderr
+        assert not os.path.exists(unpacked), (
+            f"instalator rozpakował archiwum o niezgodnej sumie do {unpacked}")
+
+        workspace = os.path.join(root, "w-workspace", "workspace")
+        os.makedirs(workspace)
+        inside, unpacked, called = _run_blender_installer(
+            root, "w-workspace", digest, archive, workspace=workspace)
+        assert inside.returncode == 1, (inside.returncode, inside.stderr)
+        assert "W WORKSPACE" in inside.stderr, inside.stderr
+        assert not called, "instalator pobrał 366 MB do katalogu, który skasuje checkout"
+        assert not os.path.exists(unpacked), unpacked
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+        if os.path.exists(leftover):
+            os.unlink(leftover)
 
 
 def _paths_block(text):
