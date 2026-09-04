@@ -138,6 +138,42 @@ public sealed class SceneAxisTests
     }
 
     [TestMethod]
+    public void CabPointBeforeTheAxisStartUsesTheFirstChordInsteadOfThrowing()
+    {
+        // Znalezione URUCHOMIENIEM trybu `--line`, nie lekturą: przejazd całą linią
+        // startuje na pierwszej stacji, czyli na kilometrażu 0, więc oko maszynisty
+        // wypada na −1,8 m (odsunięcie z `DesignAssumptions.CabEyeSetbackM`). Okno
+        // cięciwy [−2,8; −0,8] leżało wtedy CAŁE przed początkiem osi, `PointAt`
+        // przycinał oba końce do tego samego punktu, a `Chord` rzucał
+        // „zerowa cięciwa między 0 m a -0.8 m". Scena wypisywała trzynaście takich
+        // wyjątków na przebieg i przebieg mimo to kończył się kodem 0.
+        var scene = Scene(2.10);
+
+        var (position, forward) = scene.CabPoint(0.0, 1.8, 2.20, 0.0);
+
+        Assert.IsFalse(float.IsNaN(position.X) || float.IsNaN(position.Y) || float.IsNaN(position.Z));
+        Assert.AreEqual(1.0f, forward.Length(), 1e-5f, "kierunek nie jest znormalizowany");
+
+        // Oś testowa biegnie wzdłuż +X, więc w scenie kierunek to +X.
+        Assert.AreEqual(1.0f, forward.X, 1e-5f, "kierunek na starcie nie jest pierwszą cięciwą osi");
+        Assert.AreEqual(2.20f, position.Y, 1e-5f, "wysokość oka nad główką szyny się nie zgadza");
+    }
+
+    [TestMethod]
+    public void CabPointDeepInsideTheAxisIsUnchangedByTheClamp()
+    {
+        // Kontrola po DRUGIEJ stronie: przycięcie nie ma prawa ruszyć położenia kamery
+        // tam, gdzie okno cięciwy i tak leży w osi. Bez tego „naprawiłem start" nie
+        // dałoby się odróżnić od „przesunąłem kamerę na całym przebiegu", a bramka
+        // wizualna T-012 porównuje zrzuty co do piksela.
+        var scene = Scene(2.10);
+        var (position, forward) = scene.CabPoint(150.0, 1.8, 2.20, 0.0);
+
+        Assert.AreEqual(150.0 - 1.8, position.X, 1e-4, "kamera przesunęła się wzdłuż osi");
+        Assert.AreEqual(1.0f, forward.X, 1e-5f);
+    }
+
+    [TestMethod]
     public void ConstructorRefusesAMissingAxis()
     {
         Assert.ThrowsException<ArgumentNullException>(() => new SceneAxis(null!, 2.10));

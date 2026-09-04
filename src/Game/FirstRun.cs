@@ -67,6 +67,7 @@ public sealed partial class FirstRun : Node3D
 
     private ScenarioDrive? _scripted;
     private StationService? _stations;
+    private LineDrive? _line;
     private DriveState _state;
     private DriverCommand _command = DriverCommand.Coast;
     private double _acceleration;
@@ -126,6 +127,9 @@ public sealed partial class FirstRun : Node3D
     private const int ExitTrainMissing = 11;
 
     private bool _scriptedMode;
+    private bool _lineMode;
+    private string? _callsPath;
+    private double _limitKmh;
 
     /// <summary>Scena zgłosiła błąd i nie ma prawa dalej liczyć klatek.</summary>
     private bool _aborted;
@@ -215,6 +219,9 @@ public sealed partial class FirstRun : Node3D
         _telemetryPath = plan.TelemetryPath;
         _shotPath = plan.ShotPath;
         _scriptedMode = plan.ScriptedMode;
+        _lineMode = plan.LineMode;
+        _callsPath = plan.CallsPath;
+        _limitKmh = plan.LimitKmh;
         _mode = plan.Mode;
         _sampleEvery = plan.SampleEvery;
         _stepsPerFrame = plan.StepsPerFrame;
@@ -280,7 +287,35 @@ public sealed partial class FirstRun : Node3D
         _input = new DriverInput(DesignAssumptions.ControlNotchRatePerSecond);
         _state = DriveState.AtRest;
 
-        if (_scriptedMode)
+        if (_lineMode)
+        {
+            // TRZECI sterownik tego samego składu, i to jest zdanie przewodnie
+            // `docs/01-architecture.md` wzięte dosłownie: „Linia jest symulacją, która
+            // działa bez gracza. Kabina jest jednym z jej widoków." Tutaj scena JEST
+            // widokiem — prowadzi rdzeń przez `LineDrive`, a kamera tylko patrzy.
+            //
+            // Autorytet stacji należy w tym trybie do `LineDrive`, nie do
+            // `StationService`. Dwie kopie tej samej wiedzy w jednym przebiegu
+            // rozjechałyby się, a `LineDrive` ma tu więcej: własny punkt hamowania
+            // z T-311, którego kabina nie liczy, bo w kabinie liczy go człowiek.
+            if (_axis.Stations.Count < 2)
+            {
+                Abort(ExitMissingInput,
+                    $"[LINIA] oś {_axis.Id} ma {_axis.Stations.Count} stacji, "
+                    + "przejazd z zatrzymaniami wymaga co najmniej dwóch");
+                return;
+            }
+
+            var settings = new LineRunSettings(
+                Units.KmhToMps(_limitKmh),
+                DesignAssumptions.PassengerExchangeSeconds,
+                DesignAssumptions.LineBrakeUsageFraction,
+                DesignAssumptions.StationStopWindowM);
+            _line = new LineDrive(
+                _axis, _conditions, settings, _controller,
+                new BrakingPointSolver(_model), _step);
+        }
+        else if (_scriptedMode)
         {
             _scripted = new ScenarioDrive(_controller, _scenario, _conditions, _step);
         }
@@ -442,13 +477,21 @@ public sealed partial class FirstRun : Node3D
             HandleViewKeys();
         }
 
-        AdvanceBy(_scriptedMode ? SyntheticFrameSeconds() : delta);
+        // Przebieg z `--calls` jest WERYFIKACYJNY, więc leci syntetycznym rytmem:
+        // 853 s przejazdu w czasie ściennym to 853 s czekania w CI. Bez `--calls`
+        // tryb `--line` idzie czasem ściennym, bo wtedy ktoś na to patrzy.
+        var synthetic = _scriptedMode || (_lineMode && _callsPath is not null);
+        AdvanceBy(synthetic ? SyntheticFrameSeconds() : delta);
         PlaceEverything();
         UpdateHud();
 
         if (_scriptedMode && (_scripted?.Finished ?? false))
         {
             FinishScriptedRun();
+        }
+        else if (_lineMode && (_line?.Finished ?? false))
+        {
+            FinishLineRun();
         }
     }
 
@@ -489,6 +532,32 @@ public sealed partial class FirstRun : Node3D
 
     private bool StepOnce()
     {
+        // LINIA IDZIE PIERWSZA, i to nie jest kosmetyka kolejności. Przy `--line --shot`
+        // `_scriptedMode` jest PRAWDZIWE (bo jest `--shot`), a `_scripted` jest NULLEM,
+        // bo sterownikiem jest `LineDrive`. Ta gałąź stała wcześniej pod spodem i pierwszy
+        // krok wchodził w `_scripted!.Step()` na nullu: zrzut wisiał do timeoutu 400 s
+        // i nie powstawał żaden plik. Warunek na sterownik musi być sprawdzany przed
+        // warunkiem na SPOSÓB ZAPISU wyniku.
+        if (_line is not null)
+        {
+            // Polecenie bierze się ZE ŚLADU, nie z domysłu: `LineDrive` liczy je sam
+            // (punkt hamowania z T-311) i podaje w `TracePoint`. Wpisanie tu `Coast`
+            // dałoby HUD pokazujący wyluzowane nastawniki w trakcie hamowania do peronu.
+            var before = _state.SpeedMps;
+            if (!_line.Step(point => _command = point.Command))
+            {
+                return false;
+            }
+
+            _state = _line.State;
+
+            // Przyspieszenie to RÓŻNICA prędkości na tym kroku, nie osobny model:
+            // `LineDrive` nie wystawia sił, a druga formuła obok pierwszej rozjechałaby
+            // się z nią. Krok jest stały, więc iloraz jest dokładny, nie przybliżony.
+            _acceleration = (_state.SpeedMps - before) / _step.Seconds;
+            return true;
+        }
+
         if (_scriptedMode)
         {
             if (!_scripted!.Step())
@@ -519,7 +588,7 @@ public sealed partial class FirstRun : Node3D
         return true;
     }
 
-    private double ChainageM => _scenario.StartChainageM + _state.DistanceM;
+    private double ChainageM => _line?.ChainageM ?? (_scenario.StartChainageM + _state.DistanceM);
 
     // --- widok -------------------------------------------------------------------
 
@@ -635,7 +704,16 @@ public sealed partial class FirstRun : Node3D
         // pętla stała tutaj i była drugą kopią tego, co robi `StationService.Approach`;
         // dwie kopie tej samej wiedzy rozjeżdżają się w chwili, gdy jedna z nich dostaje
         // okno zatrzymania, a druga nie.
-        if (_stations is not null)
+        if (_line is not null)
+        {
+            var nastepna = _line.NextStation;
+            if (nastepna is not null)
+            {
+                name = nastepna.Value.Name;
+                distance = nastepna.Value.ChainageM - chainage;
+            }
+        }
+        else if (_stations is not null)
         {
             var approach = _stations.Approach(chainage);
             if (approach.Exists)
@@ -666,6 +744,31 @@ public sealed partial class FirstRun : Node3D
     /// <summary>Wiersz HUD o stacji: cykl drzwi albo dojazd, plus rejestr wywołań.</summary>
     private string StationLine()
     {
+        if (_line is not null)
+        {
+            var zaLinie = _line.Calls.Count;
+            if (_line.AtStation)
+            {
+                var blad = _line.Calls[^1].StopErrorM;
+                return string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"DRZWI {Faza(_line.Phase)}  jeszcze {_line.DwellRemainingSeconds:F1} s  "
+                    + $"błąd zatrzymania {blad:+0.00;-0.00;0.00} m   obsłużone {zaLinie}");
+            }
+
+            var nastepnaNaLinii = _line.NextStation;
+            if (nastepnaNaLinii is null)
+            {
+                return string.Create(
+                    CultureInfo.InvariantCulture, $"koniec przejazdu   obsłużone {zaLinie}");
+            }
+
+            return string.Create(
+                CultureInfo.InvariantCulture,
+                $"{nastepnaNaLinii.Value.Name} za {nastepnaNaLinii.Value.ChainageM - ChainageM:F0} m"
+                + $"   obsłużone {zaLinie}");
+        }
+
         if (_stations is null)
         {
             return string.Empty;
@@ -730,6 +833,62 @@ public sealed partial class FirstRun : Node3D
         GetTree().Quit();
     }
 
+    private void FinishLineRun()
+    {
+        if (_done)
+        {
+            return;
+        }
+
+        _done = true;
+        var result = _line!.Result("arrived");
+        GD.Print(string.Create(
+            CultureInfo.InvariantCulture,
+            $"[LINIA] {result.AxisId}: {result.Calls.Count} zatrzymań, "
+            + $"{result.TotalDistanceM:F2} m, {result.TotalSeconds:F2} s, "
+            + $"postoje {result.DwellSeconds:F2} s, kroków {result.Steps}, "
+            + $"koniec={result.FinishReason}"));
+        foreach (var call in result.Calls)
+        {
+            GD.Print($"[STACJA] {call}");
+        }
+
+        WriteCalls(result);
+        GetTree().Quit();
+    }
+
+    /// <summary>
+    /// Zatrzymania do CSV. Format jest ten sam, co wypisuje `Sim.Runner line`, żeby
+    /// bramka CI mogła porównać przejazd SCENY z przejazdem RDZENIA — a nie tylko
+    /// sprawdzić, że scena czegoś nie wywróciła.
+    /// </summary>
+    private void WriteCalls(LineRunResult result)
+    {
+        if (_callsPath is null)
+        {
+            return;
+        }
+
+        using var file = FileAccess.Open(_callsPath, FileAccess.ModeFlags.Write);
+        if (file is null)
+        {
+            Abort(ExitTelemetryWriteFailed,
+                $"[STACJE] nie da się zapisać {_callsPath}: {FileAccess.GetOpenError()}");
+            return;
+        }
+
+        file.StoreLine("name,stop_id,chainage_m,stopped_at_m,stop_error_m,arrival_s,departure_s");
+        foreach (var call in result.Calls)
+        {
+            file.StoreLine(string.Create(
+                CultureInfo.InvariantCulture,
+                $"{call.Name},{call.StopId},{call.ChainageM:R},{call.StoppedAtChainageM:R},"
+                + $"{call.StopErrorM:R},{call.ArrivalSeconds:R},{call.DepartureSeconds:R}"));
+        }
+
+        GD.Print($"[STACJE] {result.Calls.Count} zatrzymań -> {_callsPath}");
+    }
+
     private void WriteTelemetry()
     {
         if (_telemetryPath is null)
@@ -760,16 +919,63 @@ public sealed partial class FirstRun : Node3D
     /// </summary>
     private void FastForwardToShot()
     {
-        while (!_scripted!.Finished && ChainageM < _shotChainageM)
+        if (_line is not null)
         {
-            if (!_scripted.Step())
+            // Migawka z przejazdu linią. Dwa różne cele wymagają dwóch różnych warunków
+            // końca i to jest cała treść tego rozgałęzienia.
+            //
+            // CEL W TUNELU: jedziemy, aż czoło minie zadany kilometraż. Prosto.
+            //
+            // CEL NA PERONIE: warunek na kilometraż tu NIE WYSTARCZA i to jest zmierzone.
+            // Skład staje z błędem −0,3027 m, więc przy celu 509,73 m zatrzymuje się na
+            // 509,4267 m — czyli PRZED celem. Pętla na kilometraż przekręcała wtedy cały
+            // postój (16,5 s, 1980 kroków) i łapała skład odjeżdżający; wiersz HUD mówił
+            // „obsłużone 1", a nie „DRZWI otwarte", więc zrzut wyglądał jak dowód postoju,
+            // a był dowodem odjazdu. Druga próba, z czekaniem na otwarte drzwi bez
+            // przypisania do stacji, przeskakiwała o jedną stację dalej i kończyła na
+            // 1451,6 m. Warunek musi więc mówić trzy rzeczy naraz: skład stoi na stacji,
+            // drzwi są otwarte, i to jest TA stacja, w którą celowano.
+            var okno = DesignAssumptions.StationStopWindowM;
+            var celowaneWPeron = false;
+            foreach (var station in _axis.Stations)
             {
-                break;
+                if (Math.Abs(station.ChainageM - _shotChainageM) <= okno)
+                {
+                    celowaneWPeron = true;
+                    break;
+                }
             }
 
-            _state = _scripted.State;
-            _command = _scripted.Command;
-            _acceleration = _scripted.AccelerationMps2;
+            if (celowaneWPeron)
+            {
+                while (!_line.Finished
+                       && !(_line.AtStation
+                            && _line.Phase == DoorPhase.Open
+                            && Math.Abs(ChainageM - _shotChainageM) <= okno)
+                       && StepOnce())
+                {
+                }
+            }
+            else
+            {
+                while (!_line.Finished && ChainageM < _shotChainageM && StepOnce())
+                {
+                }
+            }
+        }
+        else
+        {
+            while (!_scripted!.Finished && ChainageM < _shotChainageM)
+            {
+                if (!_scripted.Step())
+                {
+                    break;
+                }
+
+                _state = _scripted.State;
+                _command = _scripted.Command;
+                _acceleration = _scripted.AccelerationMps2;
+            }
         }
 
         PlaceEverything();

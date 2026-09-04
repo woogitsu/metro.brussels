@@ -96,7 +96,18 @@ public sealed partial class TrainView : Node3D
         var rear = frontChainageM - LengthM;
         foreach (var body in _bodies)
         {
-            body.Node.Transform = axis.BodyTransform(rear, body.FromM, body.ToM);
+            // Bryła leżąca CAŁA poza osią zostaje UKRYTA, a nie postawiona gdziekolwiek.
+            // Przy przejeździe rozpoczętym na pierwszej stacji (kilometraż 0) ogon składu
+            // wystaje 94 m przed początek osi; `TrackAxis.PointAt` przycina kilometraż,
+            // więc oba końce takiej cięciwy dają ten sam punkt i ramki nie da się
+            // zbudować. Ukrycie jest jedyną odpowiedzią, która nie zmyśla geometrii:
+            // osi tam po prostu nie ma. Bryła wjeżdża na oś i pojawia się sama.
+            var covered = axis.Axis.CoversChord(rear + body.FromM, rear + body.ToM);
+            body.Node.Visible = covered;
+            if (covered)
+            {
+                body.Node.Transform = axis.BodyTransform(rear, body.FromM, body.ToM);
+            }
         }
     }
 

@@ -104,7 +104,15 @@ public sealed class SceneAxis
     public (Vector3 Position, Vector3 Forward) CabPoint(
         double chainageM, double setbackM, double heightM, double lateralM)
     {
-        var at = chainageM - setbackM;
+        // Kilometraż kamery przycinamy do osi PRZED oknem cięciwy, nie po nim.
+        // Przy przejeździe rozpoczętym na pierwszej stacji (kilometraż 0) oko maszynisty
+        // wypada na −1,8 m, a okno [−2,8; −0,8] leży całe przed początkiem osi: oba końce
+        // przycinały się wtedy do tego samego punktu i cięciwa wychodziła zerowa.
+        // Kamera przed początkiem osi patrzy więc wzdłuż PIERWSZEJ cięciwy osi — innej
+        // prawdy o kierunku w tym miejscu nie ma, a zmyślona byłaby gorsza od przyciętej.
+        // Błąd położenia to najwyżej odsunięcie oka (1,8 m) i zeruje się, gdy czoło
+        // minie ten dystans.
+        var at = Math.Clamp(chainageM - setbackM, 0.0, _axis.LengthM);
         var frame = Chord(Math.Max(0.0, at - 1.0), Math.Min(_axis.LengthM, at + 1.0));
         var position = frame.Origin + (frame.Up * (float)heightM) + (frame.Right * (float)lateralM);
         return (position, frame.Forward);
