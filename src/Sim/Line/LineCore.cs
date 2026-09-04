@@ -39,6 +39,20 @@ public sealed class LineTrain
     /// <summary>Autorytet z ostatniego kroku; <c>null</c>, dopóki skład nie wszedł na plan.</summary>
     public MovementAuthority? Authority { get; internal set; }
 
+    /// <summary>
+    /// Zakończone przejazdy tego pojazdu, w kolejności. Bez turnbacku ma zawsze zero
+    /// albo jeden wpis; z turnbackiem rośnie z każdym obiegiem.
+    /// </summary>
+    public IReadOnlyList<LineRunResult> CompletedRuns => _completed;
+
+    internal readonly List<LineRunResult> _completed = new();
+
+    /// <summary>
+    /// Krok, na którym prowadzenie zgłosiło koniec przejazdu; <c>null</c>, gdy jeszcze
+    /// jedzie. Od niego liczy się czas nawrotu.
+    /// </summary>
+    internal long? FinishedAtStep { get; set; }
+
     /// <summary>Prawda, gdy skład jest na planie.</summary>
     public bool OnLine => Drive is not null;
 
@@ -99,6 +113,7 @@ public sealed class LineCore
 {
     private readonly FixedBlockSystem _signalling;
     private readonly RouteDispatcher _dispatcher;
+    private readonly long _turnbackSteps;
     private readonly TrackAxis _axis;
     private readonly RunConditions _conditions;
     private readonly LineRunSettings _settings;
@@ -127,6 +142,47 @@ public sealed class LineCore
         BrakingPointSolver solver,
         FixedStep step,
         double trainLengthM)
+        : this(plan, axis, conditions, settings, controller, solver, step, trainLengthM, 0.0)
+    {
+    }
+
+    /// <summary>
+    /// Linia z TURNBACKIEM: pojazd, który dojechał do ostatniego peronu, po zadanym
+    /// czasie wypisuje się z planu i wjeżdża znowu na pierwszym.
+    ///
+    /// <para><b>Czas nawrotu ma źródło i to jest jego cała treść.</b> Zmierzony
+    /// 04.09.2026 z feedu GTFS STIB (`data/network/gtfs-manifest.json`, suma
+    /// <c>content_sha256</c> zgodna), przez połączenie kursów po <c>block_id</c> na
+    /// liniach 1 i 5: <b>194 obiegi, 4289 nawrotów, minimum 240 s</b>, p05 259 s,
+    /// mediana 445 s, p95 841 s, maksimum 1005 s, <b>ani jednego poniżej 240 s</b>.
+    /// Luka między kursami zawiera też postój wyrównawczy, więc 240 s jest
+    /// ograniczeniem NA ROZKŁAD, nie technicznym minimum nawrotu — i tak trzeba o niej
+    /// mówić.</para>
+    ///
+    /// <para><b>Czego ten model NIE robi.</b> Nie zawraca składu na osi. Oś pakietu
+    /// biegnie w jednym kierunku, a przeciwny to osobna oś (pakiet A ma parę w B), więc
+    /// „nawrót" znaczy tu: pojazd znika z tego planu i wraca na jego początek jako
+    /// następny obieg. Nawrót na MERODE jest przy tym <c>design_assumption</c>, a nie
+    /// faktem o ruchu STIB: w GTFS krańcówkami linii 1 są Gare de l'Ouest i Stockel,
+    /// a Merode to granica pakietu. Nawrót na Gare de l'Ouest ma pokrycie w danych
+    /// (1126 nawrotów, minimum 377 s); nawrót na Merode wynika z cięcia sieci na
+    /// pakiety i z decyzji właściciela z 04.09.2026.</para>
+    /// </summary>
+    /// <param name="turnbackSeconds">
+    /// Czas nawrotu w sekundach. <b>Zero wyłącza turnback</b> i wtedy linia zachowuje
+    /// się dokładnie tak, jak przed tą zmianą: pojazd kończy na ostatnim peronie i tam
+    /// zostaje. Wartość ujemna jest odmową, nie wyłączeniem.
+    /// </param>
+    public LineCore(
+        SignallingPlan plan,
+        TrackAxis axis,
+        RunConditions conditions,
+        LineRunSettings settings,
+        TrainController controller,
+        BrakingPointSolver solver,
+        FixedStep step,
+        double trainLengthM,
+        double turnbackSeconds)
     {
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentNullException.ThrowIfNull(axis);
@@ -166,6 +222,24 @@ public sealed class LineCore
         _step = step;
         _trainLengthM = trainLengthM;
         _entryChainageM = axis.Stations[0].ChainageM;
+
+        if (!double.IsFinite(turnbackSeconds) || turnbackSeconds < 0.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(turnbackSeconds), turnbackSeconds,
+                "Czas nawrotu musi być nieujemny i skończony; zero wyłącza turnback.");
+        }
+
+        _turnbackSteps = turnbackSeconds > 0.0
+            ? (long)Math.Round(turnbackSeconds / step.Seconds)
+            : 0L;
+        if (turnbackSeconds > 0.0 && _turnbackSteps <= 0L)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(turnbackSeconds), turnbackSeconds,
+                "Czas nawrotu krótszy niż jeden krok symulacji zaokrągliłby się do zera, "
+                + "czyli po cichu wyłączyłby turnback.");
+        }
     }
 
     /// <summary>Linia M7 z planem dla podanej osi.</summary>
@@ -175,11 +249,18 @@ public sealed class LineCore
     /// <param name="settings">Założenia przejazdu.</param>
     public static LineCore M7(
         SignallingPlan plan, TrackAxis axis, RunConditions conditions, LineRunSettings settings) =>
+        M7(plan, axis, conditions, settings, turnbackSeconds: 0.0);
+
+    /// <summary>Linia M7 z turnbackiem; zero sekund wyłącza nawrót.</summary>
+    public static LineCore M7(
+        SignallingPlan plan, TrackAxis axis, RunConditions conditions,
+        LineRunSettings settings, double turnbackSeconds) =>
         new(plan, axis, conditions, settings,
             new TrainController(VehicleModel.M7),
             new BrakingPointSolver(VehicleModel.M7),
             FixedStep.Simulation,
-            VehicleRegistry.M7.RequireValue("parameters.length_m", ParameterStatus.Spec));
+            VehicleRegistry.M7.RequireValue("parameters.length_m", ParameterStatus.Spec),
+            turnbackSeconds);
 
     /// <summary>Sygnalizacja linii — do odczytu zajętości, zdarzeń i odcisku stanu.</summary>
     public FixedBlockSystem Signalling => _signalling;
@@ -206,6 +287,12 @@ public sealed class LineCore
     /// Na krótkiej osi z krótkim odstępem nie nastąpi to nigdy — patrz akapit o turnbacku
     /// w opisie klasy.
     /// </summary>
+    /// <summary>Czy ta linia ma włączony turnback (pojazdy krążą i nigdy nie kończą).</summary>
+    public bool TurnbackEnabled => _turnbackSteps > 0L;
+
+    /// <summary>Czas nawrotu w krokach; zero, gdy turnback wyłączony.</summary>
+    public long TurnbackSteps => _turnbackSteps;
+
     public bool Finished
     {
         get
@@ -317,6 +404,55 @@ public sealed class LineCore
             var id = train.Id;
             train.Drive.Step(trace is null ? null : point => trace(id, point));
             _signalling.MoveTrain(id, train.Drive.ChainageM);
+        }
+
+        // 4. TURNBACK. Pojazd, który dojechał do ostatniego peronu, po zmierzonym czasie
+        // nawrotu wypisuje się z planu i wraca na jego początek jako następny obieg.
+        //
+        // Bez tej fazy ostatni peron zostawał zajęty NA ZAWSZE, a dwie kolejne trasy
+        // dzielą blok peronowy — więc następny skład nie miał jak zaryglować ostatniej
+        // trasy. Zmierzone na pakiecie A: drugi skład stawał na 5514,04 m, za Schumanem.
+        //
+        // Faza jest OSTATNIA i to jest istotne: pojazd, który właśnie dojechał, ma
+        // w tym kroku jeszcze pełny stan (`Drive.Result`), a zwolnienie peronu wchodzi
+        // do autorytetów dopiero w następnym kroku — tak samo jak każda inna zmiana
+        // zajętości. Wypisanie w fazie 1 dałoby skład, który znika, zanim ktokolwiek
+        // zobaczył jego przyjazd.
+        if (_turnbackSteps > 0L)
+        {
+            foreach (var train in _trains)
+            {
+                if (train.Drive is not { Finished: true })
+                {
+                    continue;
+                }
+
+                if (train.FinishedAtStep is null)
+                {
+                    train.FinishedAtStep = Steps;
+                    continue;
+                }
+
+                if (Steps - train.FinishedAtStep.Value < _turnbackSteps)
+                {
+                    continue;
+                }
+
+                train._completed.Add(train.Drive.Result("turnback"));
+                _signalling.ReleaseTrain(train.Id);
+                train.Drive = null;
+                train.Authority = null;
+                train.FinishedAtStep = null;
+                train.EnteredAtStep = null;
+
+                // Nie ma tu żadnego przesuwania kroku wyjazdu i to jest ŚWIADOME.
+                // Pierwsza wersja ustawiała `NextReleaseStep = Steps + 1`, a kontrola
+                // negatywna pokazała, że to pole nic nie robi: faza wyjazdów idzie
+                // PRZED tą fazą, więc pojazd wypisany w kroku N jest rozważany do
+                // wjazdu najwcześniej w kroku N+1 i tak. Mutacja przywracająca stare
+                // `ReleaseStep` przeszła 363/363, więc pole zostało usunięte, a nie
+                // obronione. Czas nawrotu pilnuje wyłącznie `FinishedAtStep`.
+            }
         }
 
         Steps++;

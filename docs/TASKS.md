@@ -250,8 +250,14 @@ których agent nie ruszy bez decyzji właściciela.
 - **Poza zakresem:** widok w Godocie (to T-400 etap 3), pasażerowie, opóźnienia losowe
   bez modelu, ATO i ATS poza tym, co daje T-314
 - **Zależy od:** T-313 (zrobione), T-113 (zrobione), T-314 (zrobione)
-- **STOP:** logika turnback, model perturbacji i polityka dyspozytora **nie są opisane
-  w żadnym dokumencie**. Agent zatrzymuje się i pyta, zamiast wybierać sam
+- **STOP (przepisany 04.09.2026):** model perturbacji i polityka dyspozytora **nie są
+  opisane w żadnym dokumencie**. Agent zatrzymuje się i pyta, zamiast wybierać sam.
+  **Turnback z tego STOP-u wyszedł** i dlatego ten punkt jest przepisany, a nie dopisany
+  obok: czas nawrotu jest **zmierzony z GTFS STIB** (194 obiegi, 4289 nawrotów, minimum
+  240 s, mediana 445 s, ani jednego poniżej 240 s — `docs/21-measured-vs-assumed.md` §4f),
+  a sam nawrót jest w `LineCore` jako argument, którego zero wyłącza. Nawrót na Merode
+  zostaje `design_assumption`, bo Merode nie jest krańcówką w żadnym źródle — to granica
+  pakietu
 
 ## Silnik
 

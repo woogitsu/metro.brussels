@@ -636,4 +636,81 @@ public sealed class FixedBlockTests
             typeof(FixedBlockSystem).Assembly.GetReferencedAssemblies()
                 .Any(a => (a.Name ?? string.Empty).Contains("Godot", StringComparison.OrdinalIgnoreCase)));
     }
+
+    // --- wypisanie skladu z planu -------------------------------------------
+
+    [TestMethod]
+    public void ReleaseTrainFreesEveryBlockAndTheRouteItHeld()
+    {
+        // Dopisane przy turnbacku. Do 04.09.2026 składu nie dało się z planu zdjąć,
+        // więc pojazd na ostatnim peronie trzymał go NA ZAWSZE — a dwie kolejne trasy
+        // dzielą blok peronowy, więc następny skład nie miał jak zaryglować ostatniej.
+        var system = System(requireRoute: true);
+        system.RegisterTrain("A", 0.0, TrainLengthM);
+        Assert.IsTrue(system.RequestRoute(system.Plan.Routes[0].Id, "A"));
+
+        var zajete = system.BlocksOccupiedBy("A");
+        Assert.IsTrue(zajete.Count > 0, "skład nie zajmuje ani jednego bloku");
+        Assert.IsNotNull(system.RouteOf("A"));
+        Assert.AreEqual(1, system.LockedRoutes.Count);
+
+        system.ReleaseTrain("A");
+
+        Assert.AreEqual(0, system.LockedRoutes.Count, "trasa została po wypisanym składzie");
+        foreach (var blockId in zajete)
+        {
+            Assert.IsNull(system.OccupantOf(blockId), $"blok {blockId} nadal zajęty");
+            Assert.IsNull(system.ReservationOf(blockId), $"blok {blockId} nadal zarezerwowany");
+        }
+
+        Assert.AreEqual(0, system.TrainIds.Count, "skład nadal jest na planie");
+
+        // Zdarzenie MUSI być w strumieniu — to jedyny zapis tego, co zrobiła
+        // sygnalizacja, i bez niego wypisanie byłoby niewidoczne w raporcie.
+        var wypisania = system.Events
+            .Count(e => e.Kind == SignallingEventKind.TrainDeregistered && e.TrainId == "A");
+        Assert.AreEqual(1, wypisania, "brak zdarzenia TrainDeregistered");
+    }
+
+    [TestMethod]
+    public void ReleaseTrainMakesTheEntryAvailableToTheNextCirculation()
+    {
+        // Sedno: po wypisaniu ten sam blok wejściowy i ta sama trasa mają dać się
+        // zaryglować NASTĘPNEMU pojazdowi. Test na same puste pola przeszedłby także
+        // wtedy, gdyby rezerwacja została w innym miejscu i cicho odrzucała żądania.
+        //
+        // Drugiego pojazdu nie da się tu wstawić OBOK pierwszego i to nie jest wada
+        // testu, tylko własność modelu: `RegisterTrain` odmawia postawienia składu na
+        // bloku zajętym przez kogoś innego, a A zajmuje blok wejściowy. Dlatego
+        // kolejność jest: A rygluje, A się wypisuje, C wjeżdża i rygluje to samo.
+        var system = System(requireRoute: true);
+        var route = system.Plan.Routes[0].Id;
+
+        system.RegisterTrain("A", 0.0, TrainLengthM);
+        Assert.IsTrue(system.RequestRoute(route, "A"));
+        Assert.IsTrue(system.LockedRoutes.Contains(route));
+
+        // Póki A trzyma trasę, nie da się jej zaryglować drugi raz — nawet jemu.
+        Assert.IsFalse(system.RequestRoute(route, "A"), "ta sama trasa zaryglowana dwa razy");
+
+        system.ReleaseTrain("A");
+        Assert.IsFalse(system.LockedRoutes.Contains(route), "trasa została po wypisanym składzie");
+
+        system.RegisterTrain("C", 0.0, TrainLengthM);
+        Assert.IsTrue(system.RequestRoute(route, "C"),
+            "po wypisaniu A trasa nadal nie idzie do następnego obiegu");
+    }
+
+    [TestMethod]
+    public void ReleaseTrainRefusesAnUnknownTrain()
+    {
+        // Cisza przy pomyłce w identyfikatorze wyglądałaby jak udane wypisanie,
+        // a pojazd zostałby na planie i trzymał blok. Typ wyjątku jest ten sam, którym
+        // odmawia cała reszta tej klasy (`Require`), więc wołający nie musi znać dwóch.
+        var system = System(requireRoute: true);
+        system.RegisterTrain("A", 0.0, TrainLengthM);
+        var error = Assert.ThrowsException<KeyNotFoundException>(() => system.ReleaseTrain("NIE_MA"));
+        StringAssert.Contains(error.Message, "nie jest na planie");
+        Assert.AreEqual(1, system.TrainIds.Count);
+    }
 }

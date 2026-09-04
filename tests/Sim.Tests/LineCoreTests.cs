@@ -451,6 +451,137 @@ public sealed class LineCoreTests
         Assert.IsTrue(terminus.EndM > 0.0);
     }
 
+    // --- turnback ------------------------------------------------------------
+    //
+    // Decyzja właściciela z 04.09.2026: nawrót na oba końce osi. Czas nawrotu ma
+    // ŹRÓDŁO — zmierzony z feedu GTFS STIB przez połączenie kursów po `block_id` na
+    // liniach 1 i 5: 194 obiegi, 4289 nawrotów, minimum 240 s, mediana 445 s, maksimum
+    // 1005 s, ani jednego poniżej 240 s. Szczegóły i zastrzeżenia: `docs/21`.
+
+    private static LineCore RealLineWithTurnback(double seconds) => LineCore.M7(
+        SignallingPlanTests.PackageAPlan(),
+        SignallingPlanTests.PackageAAxis(),
+        new RunConditions(
+            VehicleModel.M7.MassKg(TrainLoad.Aw2), 0.0,
+            VehicleModel.M7.Adhesion(RailCondition.Dry), TrackEnvironment.Tunnel),
+        RealSettings(),
+        seconds);
+
+    [TestMethod]
+    public void Turnback_jest_domyslnie_wylaczony_i_linia_zachowuje_sie_jak_dotad()
+    {
+        // Turnback musi być opt-in, bo z nim linia NIGDY nie jest skończona — pojazdy
+        // krążą. Gdyby był domyślny, każdy dotychczasowy test kończący się na
+        // `Finished` przestałby się kończyć, a to nie jest zmiana, którą wolno wprowadzić
+        // po cichu.
+        var bez = RealLine();
+        Assert.IsFalse(bez.TurnbackEnabled);
+        Assert.AreEqual(0L, bez.TurnbackSteps);
+
+        bez.Add("A", 0L);
+        while (!bez.Finished && bez.Steps < LineRun.DefaultStepBudget)
+        {
+            bez.Step();
+        }
+
+        Assert.IsTrue(bez.Finished, "bez turnbacku linia ma się kończyć");
+        Assert.AreEqual(0, bez.Trains[0].CompletedRuns.Count,
+            "bez turnbacku nie ma obiegów zakończonych — pojazd stoi na ostatnim peronie");
+    }
+
+    [TestMethod]
+    public void Turnback_zwalnia_ostatni_peron_i_drugi_sklad_dojezdza_do_konca()
+    {
+        // TO JEST TEN TEST. Bez turnbacku drugi skład stawał na 5514,04 m, za Schumanem,
+        // bo pierwszy trzymał Merode na zawsze — a dwie kolejne trasy dzielą blok
+        // peronowy. Test `..._drugi_sklad_nie_dojedzie_do_konca_bez_turnbacku` przypina
+        // tamten stan; ten pokazuje, że z nawrotem blokady nie ma.
+        var line = RealLineWithTurnback(240.0);
+        Assert.IsTrue(line.TurnbackEnabled);
+        Assert.AreEqual(240L * FixedStep.SimulationHertz, line.TurnbackSteps);
+
+        line.Add("A", 0L);
+        line.Add("B", 30L * FixedStep.SimulationHertz);
+        for (var i = 0L; i < 300_000L; i++)
+        {
+            line.Step();
+        }
+
+        Assert.IsFalse(line.Finished, "z turnbackiem linia nie ma prawa się skończyć");
+        foreach (var train in line.Trains)
+        {
+            Assert.IsTrue(train.CompletedRuns.Count >= 2,
+                $"{train.Id}: {train.CompletedRuns.Count} obiegów, oczekiwano co najmniej dwóch");
+            foreach (var run in train.CompletedRuns)
+            {
+                Assert.AreEqual(11, run.Calls.Count,
+                    $"{train.Id}: obieg z {run.Calls.Count} zatrzymaniami zamiast 11");
+                Assert.AreEqual("turnback", run.FinishReason);
+            }
+        }
+
+        // Sprzężenie widać w LICZBIE, nie we wrażeniu: pierwszy obieg drugiego składu
+        // jest dłuższy, bo sygnalizacja go trzyma; kolejne wchodzą w rytm.
+        var pierwszyB = line.Trains[1].CompletedRuns[0].TotalSeconds;
+        var drugiB = line.Trains[1].CompletedRuns[1].TotalSeconds;
+        Assert.IsTrue(pierwszyB > drugiB + 100.0,
+            $"pierwszy obieg B {pierwszyB:F2} s nie jest wyraźnie dłuższy od drugiego {drugiB:F2} s "
+            + "— sprzężenia przez sygnalizację nie ma");
+    }
+
+    [TestMethod]
+    public void Turnback_nie_wypuszcza_pojazdu_wczesniej_niz_po_zmierzonym_czasie()
+    {
+        // Czas nawrotu ma być czasem, nie ozdobą. Bez tego testu turnback mógłby
+        // wypisywać pojazd natychmiast po dojechaniu i różnicy nikt by nie zauważył,
+        // bo przejazd i tak by się zamykał.
+        var line = RealLineWithTurnback(240.0);
+        line.Add("A", 0L);
+
+        long dojechalW = -1L, wrocilW = -1L;
+        for (var i = 0L; i < 150_000L && wrocilW < 0L; i++)
+        {
+            line.Step();
+            var train = line.Trains[0];
+            if (dojechalW < 0L && train.Drive is { Finished: true })
+            {
+                dojechalW = line.Steps;
+            }
+            else if (dojechalW > 0L && train.CompletedRuns.Count == 1 && train.OnLine)
+            {
+                wrocilW = line.Steps;
+            }
+        }
+
+        Assert.IsTrue(dojechalW > 0L, "pojazd nie dojechał do końca");
+        Assert.IsTrue(wrocilW > 0L, "pojazd nie wrócił na plan");
+        var przerwa = wrocilW - dojechalW;
+        Assert.IsTrue(przerwa >= line.TurnbackSteps,
+            $"przerwa {przerwa} kroków jest krótsza niż nawrót {line.TurnbackSteps} kroków");
+    }
+
+    [TestMethod]
+    public void Turnback_krotszy_niz_krok_jest_ODMOWA_a_nie_cichym_wylaczeniem()
+    {
+        // Czas nawrotu krótszy niż 1/120 s zaokrągliłby się do zera kroków, czyli
+        // po cichu WYŁĄCZYŁBY turnback — a wołający myślałby, że go ustawił.
+        // To jest dokładnie ta rodzina usterek, którą to repozytorium zbierało.
+        var maly = 0.5 / FixedStep.SimulationHertz;
+        var error = Assert.ThrowsException<ArgumentOutOfRangeException>(
+            () => RealLineWithTurnback(maly));
+        StringAssert.Contains(error.Message, "wyłączyłby turnback");
+
+        foreach (var zly in new[] { -1.0, -240.0, double.NaN, double.PositiveInfinity })
+        {
+            Assert.ThrowsException<ArgumentOutOfRangeException>(
+                () => RealLineWithTurnback(zly), $"czas nawrotu {zly} został przyjęty");
+        }
+
+        // Zero jest DOZWOLONE i znaczy „bez turnbacku" — to nie to samo co 0,004 s.
+        var zero = RealLineWithTurnback(0.0);
+        Assert.IsFalse(zero.TurnbackEnabled);
+    }
+
     // --- odmowy --------------------------------------------------------------
 
     [TestMethod]
