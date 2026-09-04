@@ -69,48 +69,134 @@ $ python3 tools/tests/test_all.py
 
 ## 3. Model jest szybszy od rozkładu na wszystkich 49 odcinkach sieci
 
+**Przeliczone 04.09.2026 na commicie `7d15987`.** Liczby w tej sekcji i w §4 zmieniły
+się od pierwszej wersji raportu; przyczyna jest w §3a i nie jest usterką modelu.
+
 Sześć pakietów, limit 72 km/h, wymiana pasażerów 10,5 s, AW0:
 
-| pakiet | zatrzymań | droga | czas | odcinków dopasowanych | model wolniejszy od rozkładu |
-|---|---:|---:|---:|---:|---:|
-| L1_A | 11 | 6686,69 m | 725,43 s | 10 z 10 | **0** |
-| L1_B | 8 | 5083,40 m | 533,67 s | 7 z 7 | **0** |
-| L2_E | 16 | 9021,01 m | 1029,60 s | 15 z 15 | **0** |
-| L5_C | 8 | 5386,67 m | 548,87 s | 7 z 7 | **0** |
-| L5_D | 6 | 3847,18 m | 396,73 s | 5 z 5 | **0** |
-| L6_F | 6 | 4456,80 m | 427,53 s | 5 z 5 | **0** |
+| pakiet | zatrzymań | droga | czas | kroków | odcinków dopasowanych | model wolniejszy |
+|---|---:|---:|---:|---:|---:|---:|
+| L1_A | 11 | 6686,05 m | 725,42 s | 89 332 | 10 z 10 | **0** |
+| L1_B | 8 | 5082,93 m | 533,67 s | 66 321 | 7 z 7 | **0** |
+| L2_E | 16 | 9020,47 m | 1029,59 s | 125 832 | 15 z 15 | **0** |
+| L5_C | 8 | 5386,11 m | 548,78 s | 68 135 | 7 z 7 | **0** |
+| L5_D | 6 | 3846,93 m | 396,76 s | 49 892 | 5 z 5 | **0** |
+| L6_F | 6 | 4456,36 m | 427,57 s | 53 589 | 5 z 5 | **0** |
 
 **49 z 49 odcinków dopasowanych** do rozkładu i na żadnym model nie jest wolniejszy.
-Dopasowanie idzie po `stop_id`, nie po nazwie — patrz §6.
+Dopasowanie idzie po `stop_id`, nie po nazwie — patrz §6. Wniosek jest ten sam co
+w pierwszej wersji; zmieniły się wyłącznie liczby.
+
+Najciaśniejszy odcinek sieci przy 72 km/h to **Gare Centrale → Parc** z rezerwą
+**+3,63 s** — i to nie jest ten sam odcinek, który wiąże limit prędkości (§4).
+Przy pełnym limicie decyduje najkrótszy postój rozkładowy, a przy limicie obniżanym
+decyduje odcinek najdłuższy; te dwa pytania mają różne odpowiedzi.
+
+### 3a. Dlaczego te liczby różnią się od pierwszej wersji raportu
+
+Pierwsza wersja podawała dla L1_A **6686,69 m i 89 333 kroków**. Dziś wychodzi
+**6686,05 m i 89 332 kroki** — mniej o 0,64 m i o jeden krok. Wszystkie sześć pakietów
+skróciło się o 0,25–0,64 m.
+
+Powód ustalony **bisekcją po commitach**, a nie z domysłu:
+
+```
+543b303  T-401 (ten raport)                   6686.69 m, 89333 kroków
+3c378d9  T-313 (bloki stałe i ochrona)        6686.05 m, 89332 kroki
+da278ae  T-314                                6686.05 m, 89332 kroki
+93b4c59  #112                                 6686.05 m, 89332 kroki
+196c43f  T-320 trasa                          6686.05 m, 89332 kroki
+90a8c31  T-320 LineDrive                      6686.05 m, 89332 kroki
+ba93903  .NET 8 -> 10                         6686.05 m, 89332 kroki
+HEAD     7d15987                              6686.05 m, 89332 kroki
+```
+
+Zmiana wchodzi między `543b303` i `3c378d9`, ale **nie jest w kodzie rdzenia**:
+w tym zakresie `src/Sim/Train/` i `src/Sim/Physics/` nie są tknięte. Zmieniły się
+**dane osi**. Commit `4a03982` („Kilometraż stacji liczony na osi, która trafia do
+pliku", #86) przeliczył kilometraże stacji na tej polilinii, która faktycznie leży
+w pliku, zamiast na źródłowej przed przepróbkowaniem. Dla L1_A:
+
+| stacja | przed #86 | po #86 |
+|---|---:|---:|
+| Beekkant | 509,74 | 509,73 |
+| Étangs Noirs | 1452,00 | 1451,90 |
+| Schuman | 5467,98 | 5467,35 |
+| **Merode** (ostatnia) | **6686,99** | **6686,35** |
+
+`length_m` osi to 6686,35 m, więc **przed #86 ostatnia stacja leżała 0,64 m ZA końcem
+zadeklarowanej osi**. Po #86 leży dokładnie na nim. Skrócenie przejazdu o 0,64 m jest
+więc dokładnie tą poprawką, a nie regresem — dane zrobiły się dokładniejsze.
+
+Że stary plik był niespójny, mówi `tools/track/validate.py` puszczony na wersji
+z `543b303`. Jest to **ostrzeżenie, nie błąd** — pierwsza wersja tego akapitu pisała
+„przekroczenie", i to było za mocne:
+
+```
+$ python3 -c "... V.validate(L1_A z 543b303)"
+PRZED #86  ok=True błędów=0 ostrzeżeń=2
+     OSTRZ: rzut ostatniej stacji wypada 0.636 m za końcem osi (6686.99 m wobec
+            6686.35 m); mieści się w ostatnim odcinku (14.99 m), ale kilometraż
+            jest obcinany przy odczycie pozycji
+DZIŚ       ok=True błędów=0 ostrzeżeń=1     (zostaje tylko brak głębokości stacji)
+```
+
+Ostrzeżenie samo nazywa mechanizm: kilometraż był **obcinany przy odczycie pozycji**.
+Dlatego 0,636 m nie przekładało się na 0,636 m przejazdu — po #86 nie ma czego obcinać
+i różnica wychodzi na 0,64 m drogi oraz jeden krok.
+
+Stara wartość nie zniknęła: #86 dopisał do każdej stacji `source_chainage_m`
+z kilometrażem źródłowym, więc obie liczby są w pliku i da się je porównać.
+
+**Czego to NIE tłumaczy.** Limity z §4 przesunęły się po stronie C# o 0,02–0,27 km/h,
+a po stronie Pythona o najwyżej 0,01 km/h. Przy odcinkach, których długości zmieniły
+się o centymetry, asymetria tego rzędu nie wynika wprost z #86 i **nie ustaliłem jej
+przyczyny**. Drugą możliwością jest metoda wyszukiwania limitu: pierwsza wersja raportu
+nie zapisała swojej, więc nie da się jej powtórzić. Dzisiejsza jest opisana w §4 wprost,
+żeby następny przebieg był porównywalny — i to jest cała nauka z tego miejsca.
 
 ## 4. Dwie niezależne implementacje wskazują te same sześć odcinków
 
-T-113 policzył dolne ograniczenie prędkości liniowej **w Pythonie**, profilem idealnym:
+T-113 liczy dolne ograniczenie prędkości liniowej **w Pythonie**, profilem idealnym:
 rozpęd, jazda ustalona, hamowanie ze wzoru zamkniętego, przyjazd dokładnie na czas.
 Tutaj liczy je **C#**, krok po kroku, pętlą sprzężenia zwrotnego, z hamulcem narastającym
 przez ograniczenie zrywu i z oporami ruchu działającymi przez cały przejazd.
 
-Najmniejszy limit prędkości, przy którym cały pakiet mieści się w rozkładzie:
+**Metoda po stronie C#, żeby dała się powtórzić:** bisekcja po `--limit-kmh`
+w przedziale [40,00; 72,00] km/h, dwanaście połowień, kryterium to kod wyjścia
+`line --timetable` (0 = cały pakiet mieści się w rozkładzie, 1 = model wolniejszy
+na co najmniej jednym odcinku). Rozdzielczość wynikowa 0,01 km/h. Odcinek wiążący
+wskazany osobno: przebieg o 0,02 km/h poniżej znalezionego limitu, pierwszy odcinek
+z ujemną rezerwą. Po stronie Pythona: `tools/physics/schedule_envelope.py --mass AW0`,
+najwyższe `min_top_speed_kmh` w pakiecie.
+
+Najmniejszy limit prędkości, przy którym cały pakiet mieści się w rozkładzie
+(04.09.2026, commit `7d15987`, `build/timetable.json` z feedu `2_20_20260831_010702`):
 
 | pakiet | Python (T-113) | C# (ta pętla) | różnica | odcinek wiążący — Python | odcinek wiążący — C# |
 |---|---:|---:|---:|---|---|
-| L1_A | 57,41 | **58,36** | +0,95 | Schuman → Merode | Schuman → Merode |
-| L1_B | 56,46 | **57,58** | +1,12 | Roodebeek → Vandervelde | Roodebeek → Vandervelde |
-| L2_E | 57,47 | **58,75** | +1,28 | Ribaucourt → Yser | Ribaucourt → Yser |
-| L5_C | 57,03 | **58,36** | +1,33 | Aumale → Saint-Guidon | Aumale → Saint-Guidon |
-| L5_D | 57,65 | **58,75** | +1,10 | Beaulieu → Demey | Beaulieu → Demey |
-| L6_F | 54,11 | **55,23** | +1,12 | Bockstael → Stuyvenbergh | Bockstael → Stuyvenbergh |
+| L1_A | 57,41 | **58,09** | +0,68 | Schuman → Merode | Schuman → Merode |
+| L1_B | 56,45 | **57,56** | +1,11 | Roodebeek → Vandervelde | Roodebeek → Vandervelde |
+| L2_E | 57,47 | **58,49** | +1,02 | Ribaucourt → Yser | Ribaucourt → Yser |
+| L5_C | 57,02 | **58,34** | +1,32 | Aumale → Saint-Guidon | Aumale → Saint-Guidon |
+| L5_D | 57,64 | **58,68** | +1,04 | Beaulieu → Demey | Beaulieu → Demey |
+| L6_F | 54,10 | **55,05** | +0,95 | Bockstael → Stuyvenbergh | Bockstael → Stuyvenbergh |
 
-**Wszystkie sześć odcinków wiążących jest identycznych**, a różnica jest systematyczna
-i ma jeden znak: 0,95–1,33 km/h. To jest cena prowadzenia po sprzężeniu zwrotnym zamiast
-po profilu idealnym — maszynista, który reaguje, jest wolniejszy od profilu policzonego
+**Wszystkie sześć odcinków wiążących jest identycznych** — tak samo jak w pierwszej
+wersji raportu, i to jest wynik, który się nie ruszył. Różnica ma jeden znak
+i mieści się w 0,68–1,32 km/h. To jest cena prowadzenia po sprzężeniu zwrotnym zamiast
+po profilu idealnym: maszynista, który reaguje, jest wolniejszy od profilu policzonego
 z góry. Kierunek jest ten, którego się oczekuje; gdyby C# wyszło **szybsze** od profilu
 idealnego, znaczyłoby to błąd w jednym z dwóch modeli.
 
-Dolne ograniczenie prędkości liniowej dla sieci rośnie więc z 57,65 km/h (T-113)
-do **58,75 km/h**. Nadal jest to ograniczenie **dolne i warunkowe** względem modelu
-rozpędzania i hamowania, a nie pomiar prędkości dopuszczalnej — patrz
-`docs/21-measured-vs-assumed.md` §4d.
+Dolne ograniczenie prędkości liniowej dla sieci rośnie więc z **57,64 km/h** (Python,
+wiąże Beaulieu → Demey) do **58,68 km/h** (C#, ten sam odcinek). Nadal jest to
+ograniczenie **dolne i warunkowe** względem modelu rozpędzania i hamowania, a nie
+pomiar prędkości dopuszczalnej — patrz `docs/21-measured-vs-assumed.md` §4d.
+
+Koperta Pythona obejmuje **55 odcinków** rozkładowych, z czego 0 niewykonalnych;
+pętla C# porównuje 49, bo liczy tylko odcinki między zatrzymaniami na osi pakietu.
+Ta różnica jest z definicji zakresu, nie z niezgodności.
 
 ## 5. Trzy usterki sterowania, które wyszły dopiero na śladzie
 
