@@ -8,14 +8,17 @@ zerowa skala i utracone UV eksportują się bez ani jednego ostrzeżenia.
 """
 import argparse
 import json
-import math
 import os
 import sys
 
 import bpy
 
-TOLERANCE_M = 0.01
-COUNT_TOLERANCE = 0.10
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import glb_report as GR  # noqa: E402
+
+# Progi i cały werdykt siedzą w `glb_report.py`, bo tamten moduł da się
+# zaimportować bez Blendera, a ten nie. Tu zostaje wyłącznie to, co bez `bpy`
+# nie ma sensu: czyszczenie sceny, import glTF i chodzenie po obiektach.
 
 
 def parse_args():
@@ -41,23 +44,20 @@ def main():
     meshes = [o for o in bpy.data.objects if o.type == "MESH"]
     if not meshes:
         raise SystemExit("BŁĄD: po ponownym imporcie nie ma ani jednego mesha")
-    lo = [math.inf] * 3
-    hi = [-math.inf] * 3
     vertices = faces = 0
     without_uv = []
+    corner_groups = []
     for obj in meshes:
         vertices += len(obj.data.vertices)
         faces += len(obj.data.polygons)
         if not obj.data.uv_layers:
             without_uv.append(obj.name)
-        for corner in obj.bound_box:
-            world = obj.matrix_world @ type(obj.location)(corner)
-            for i in range(3):
-                lo[i] = min(lo[i], world[i])
-                hi[i] = max(hi[i], world[i])
-    for value in lo + hi:
-        if math.isnan(value) or math.isinf(value):
-            raise SystemExit("BŁĄD: bbox po imporcie zawiera NaN/Inf")
+        corner_groups.append([obj.matrix_world @ type(obj.location)(corner)
+                              for corner in obj.bound_box])
+    lo, hi = GR.bbox_from_corners(corner_groups)
+    if not GR.finite_bbox(lo, hi):
+        raise SystemExit("BŁĄD: bbox po imporcie zawiera NaN/Inf")
+    size_m = GR.bbox_size(lo, hi)
 
     result = {
         "file": args.inp,
@@ -67,33 +67,25 @@ def main():
         "faces": faces,
         "bbox_min_m": [round(v, 4) for v in lo],
         "bbox_max_m": [round(v, 4) for v in hi],
-        "bbox_size_m": [round(hi[i] - lo[i], 4) for i in range(3)],
+        "bbox_size_m": [round(v, 4) for v in size_m],
         "objects_without_uv": without_uv,
     }
     print(f"[ROUNDTRIP] obiekty={result['objects']} wierzcholki={vertices} sciany={faces}")
     print(f"[ROUNDTRIP] bbox_m: {result['bbox_size_m']}")
 
-    problems = []
-    if vertices == 0 or faces == 0:
-        problems.append("geometria pusta po imporcie")
-    if without_uv and not args.allow_missing_uv:
-        problems.append(f"obiekty bez UV: {without_uv}")
-    if args.expect_objects is not None and len(meshes) != args.expect_objects:
-        problems.append(f"obiektów {len(meshes)}, oczekiwano {args.expect_objects}")
+    expected = None
     if args.expect_metrics:
         with open(args.expect_metrics, encoding="utf-8") as handle:
             expected = json.load(handle)
         result["expected_bbox_size_m"] = expected["bbox_size_m"]
-        for i, axis in enumerate("XYZ"):
-            delta = abs(result["bbox_size_m"][i] - expected["bbox_size_m"][i])
-            if delta > TOLERANCE_M:
-                problems.append(f"bbox {axis} rozjazd {delta:.4f} m > {TOLERANCE_M} m")
-        # eksport glTF rozszczepia wierzchołki na szwach UV — porównujemy rząd wielkości
-        allowed = max(1.0, expected["vertices"] * (1.0 + COUNT_TOLERANCE))
-        if vertices < expected["vertices"] or vertices > allowed * 4:
-            problems.append(f"wierzchołków {vertices}, generator zgłosił {expected['vertices']}")
-        if faces < expected["faces"]:
-            problems.append(f"ścian {faces} < {expected['faces']} zgłoszonych przez generator")
+    # Do bramki idą rozmiary ZAOKRĄGLONE, dokładnie jak przed wydzieleniem. Surowe
+    # byłyby precyzyjniejsze i to jest ta sama rodzina, co znalezisko z #153
+    # (porównywanie surowych odległości zamiast zaokrąglonych) — ale to decyzja
+    # o zachowaniu bramki, a nie o jej rozmieszczeniu, i nie należy do tego zadania.
+    problems = GR.roundtrip_problems(
+        objects=len(meshes), vertices=vertices, faces=faces, without_uv=without_uv,
+        size_m=result["bbox_size_m"], expect_objects=args.expect_objects,
+        expected=expected, allow_missing_uv=args.allow_missing_uv)
 
     if args.out:
         os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)

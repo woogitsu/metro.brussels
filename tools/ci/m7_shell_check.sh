@@ -3,6 +3,15 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
+# Blender jest przypięty po wersji i leży POZA workspace (`tools/ci/blender_install.sh`),
+# więc woła się go przez `BLENDER_BIN`, a nie przez goły `blender` z PATH. To nie jest
+# ozdoba: na maszynie, która kiedykolwiek miała `apt-get install blender`, w PATH stoi
+# 4.0.2, czyli LEGACY EEVEE — a baseline projektu jest z EEVEE Next i te dwie generacje
+# nie są porównywalne (`tools/visual/capture_plan.py`, `EEVEE_NEXT_SINCE`). Fallback na
+# PATH zostaje, żeby uruchomienie z ręki na maszynie z jednym Blenderem dalej działało.
+# Ta sama konwencja co `GODOT_BIN`.
+BLENDER_EXE="${BLENDER_BIN:-blender}"
 cd "$ROOT"
 
 OUT="build/t220"
@@ -33,9 +42,9 @@ echo
 echo "[ENV] runner"
 uname -a
 require_command python3 || exit $?
-require_command blender || exit $?
+require_command "$BLENDER_EXE" || exit $?
 python3 --version
-blender --version | sed -n '1,3p'
+"$BLENDER_EXE" --version | sed -n '1,3p'
 
 echo
 echo "[VERIFY] testy narzędzi"
@@ -44,7 +53,7 @@ python3 tools/tests/test_all.py
 echo
 echo "[GENERATE] bryła M7 ze skryptu"
 rm -f build/M7_shell.glb build/M7_envelope.glb build/M7_shell.json
-blender --background --python-exit-code 7 --python tools/blender/m7_shell.py -- \
+"$BLENDER_EXE" --background --python-exit-code 7 --python tools/blender/m7_shell.py -- \
   --out build/M7_shell.glb --envelope-out build/M7_envelope.glb --report build/M7_shell.json \
   >"$OUT/generate.log" 2>&1 || { tail -n 40 "$OUT/generate.log"; fail "generator M7 nie powiódł się"; }
 grep -E '^\[RAPORT\]' "$OUT/generate.log"
@@ -155,7 +164,7 @@ registry["parameters"]["length_m"]["status"] = "design_model"
 json.dump(registry, open("build/t220/broken-spec.json", "w", encoding="utf-8"), ensure_ascii=False)
 print("[SETUP] rejestr z length_m oznaczonym jako design_model")
 PY
-if blender --background --python-exit-code 7 --python tools/blender/m7_shell.py -- \
+if "$BLENDER_EXE" --background --python-exit-code 7 --python tools/blender/m7_shell.py -- \
     --spec build/t220/broken-spec.json --out build/t220/should-not-exist.glb \
     --envelope-out build/t220/should-not-exist-env.glb --report build/t220/broken.json \
     >"$OUT/negative-spec.log" 2>&1; then
@@ -176,7 +185,7 @@ door = [d for d in layout.double_doors() if d['side'] == 1][0]
 print(f\"{door['center_x']},{layout.half_width},{(door['z0'] + door['z1']) / 2}\")")"
 echo "kotwica drzwi: $DOOR_ANCHOR"
 rm -rf renders/m7
-blender --background --python-exit-code 7 --python tools/visual/capture_blender.py -- \
+"$BLENDER_EXE" --background --python-exit-code 7 --python tools/visual/capture_blender.py -- \
   --in build/M7_shell.glb --set vehicle --prefix M7_shell --out renders/m7 \
   --anchor "door=$DOOR_ANCHOR" >"$OUT/capture.log" 2>&1 \
   || { tail -n 40 "$OUT/capture.log"; fail "render kontrolny nie powiódł się"; }
@@ -260,12 +269,12 @@ echo "[TOPOLOGIA] dwa eksporty tej samej bryły muszą dać tę samą topologię
 # wierzchołków po re-imporcie o ok. 1 % — bo rozszczepienie na szwach UV i normalnych
 # nie ma ustalonej kolejności. Liczba ŚCIAN natomiast nie waha się wcale, więc to ona
 # jest niezmiennikiem nadającym się na kontrolę regresji topologii.
-blender --background --python-exit-code 7 --python tools/blender/m7_shell.py -- \
+"$BLENDER_EXE" --background --python-exit-code 7 --python tools/blender/m7_shell.py -- \
   --out "$OUT/M7_repeat.glb" --envelope-out "$OUT/M7_repeat_env.glb" \
   --report "$OUT/M7_repeat.json" --skip-roundtrip >/dev/null
-blender --background --python-exit-code 7 --python tools/blender/glb_roundtrip.py -- \
+"$BLENDER_EXE" --background --python-exit-code 7 --python tools/blender/glb_roundtrip.py -- \
   --in build/M7_shell.glb --allow-missing-uv --out "$OUT/topology_a.json" >/dev/null
-blender --background --python-exit-code 7 --python tools/blender/glb_roundtrip.py -- \
+"$BLENDER_EXE" --background --python-exit-code 7 --python tools/blender/glb_roundtrip.py -- \
   --in "$OUT/M7_repeat.glb" --allow-missing-uv --out "$OUT/topology_b.json" >/dev/null
 python3 - "$OUT/topology_a.json" "$OUT/topology_b.json" <<'TOPOPY'
 import json, sys

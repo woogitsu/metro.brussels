@@ -1,7 +1,19 @@
-# Pakiety dla jobów, które renderują w Blenderze headless.
+# Biblioteki systemowe dla jobów, które renderują w Blenderze headless.
 # Ten plik jest KLUCZEM CACHE'A: zmiana listy unieważnia cache automatycznie,
 # więc nie da się zapomnieć o jego przebiciu.
-blender
-python3-numpy
+#
+# SAMEGO BLENDERA TU NIE MA i to jest celowe. `apt-get install blender` na Ubuntu
+# 24.04 daje 4.0.2 i będzie dawać 4.0.2 do końca życia wydania — a 4.0.2 renderuje
+# LEGACY EEVEE, podczas gdy baseline projektu jest z EEVEE Next. Blender przychodzi
+# z przypiętego tarballa przez `tools/ci/blender_install.sh`, razem z kontrolą
+# sumy SHA-256 i z własnym Pythonem 3.13 oraz numpy 2.3.
+#
+# Zostają wyłącznie biblioteki, których tarball NIE wozi, bo są systemowe:
+# kontekst EGL i programowy sterownik GL. Bez nich Blender startuje i wywraca się
+# dopiero przy pierwszym renderze.
+#
+# `python3-numpy` też tu był i też wypadł: był potrzebny WYŁĄCZNIE dlatego, że
+# Blender z apt linkuje się z systemowym Pythonem. Żaden moduł w `tools/` ani `src/`
+# nie importuje numpy poza Blenderem — sprawdzone grepem po całym drzewie.
 libegl1
 libgl1-mesa-dri

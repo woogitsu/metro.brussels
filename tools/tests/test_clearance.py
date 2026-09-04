@@ -29,6 +29,95 @@ def test_clearance_versine_matches_the_closed_form():
     assert CL.versine(10.0, None) == 0.0
 
 
+def test_clearance_versine_refuses_a_non_positive_radius():
+    """Odmowa dla promienia niedodatniego. Bez niej `math.sqrt` dostaje liczbę ujemną.
+
+    Uwaga do przeglądu mutacyjnego: ten test NIE zabija mutacji progu `0.0 -> 0.001`.
+    Żeby ją zabić, trzeba by promienia 0,5 mm, a taki nie jest łukiem toru w żadnym
+    sensie. Ta mutacja jest RÓWNOWAŻNA w dziedzinie zadania i tak jest zapisana
+    w `reports/mutation-sweep.md` — dopisywanie testu z absurdalnym wejściem tylko po
+    to, żeby licznik ładnie wyglądał, byłoby dopasowywaniem testu do narzędzia.
+    """
+    assert CL.versine(10.0, 0.0) == 0.0
+    assert CL.versine(10.0, -5.0) == 0.0
+    assert CL.versine(10.0, 1000.0) > 0.0
+
+
+def test_clearance_versine_saturates_exactly_at_the_half_chord():
+    # Granica `half >= radius_m` jest NIEOBSERWOWALNA z zewnątrz: przy połowie cięciwy
+    # równej promieniowi obie gałęzie zwracają `radius_m`. Test przypina zachowanie,
+    # ale nie udaje, że łapie mutację — mutant `>=` -> `>` jest tu równoważny i tak
+    # jest sklasyfikowany.
+    assert CL.versine(20.0, 10.0) == 10.0
+    assert abs(CL.versine(19.98, 10.0) - (10.0 - math.sqrt(10.0 ** 2 - 9.99 ** 2))) < 1e-12
+
+
+def test_clearance_circumradius_threshold_separates_noise_from_an_arc():
+    """Próg `area2 < 1e-12` rozdziela szum digitalizacji od łuku — i to po OBU stronach.
+
+    Istniejący test podawał punkty DOKŁADNIE współliniowe (`area2` = 0), więc próg mógł
+    mieć dowolną wartość i mutacja `1e-12 -> 1.01e-12` przeżywała. Tu obie strony są
+    przypięte wejściem dobranym tak, żeby `area2` wypadło MIĘDZY jedną a drugą wartością.
+    """
+    def area2_of(y):
+        return abs(1.0 * 0.0 - y * 2.0)
+
+    # area2 = 1,004e-12: powyżej progu 1e-12, poniżej zmutowanego 1,01e-12.
+    between = 5.02e-13
+    assert 1e-12 < area2_of(between) < 1.01e-12, area2_of(between)
+    radius = CL.circumradius((0.0, 0.0), (1.0, between), (2.0, 0.0))
+    assert radius is not None, "trójka tuż nad progiem ma dać promień, nie None"
+    assert radius > 1e11, f"promień {radius} — przy takiej trójce ma być absurdalnie duży"
+
+    # A tuż pod progiem — odrzucona.
+    below = 1e-13
+    assert area2_of(below) < 1e-12
+    assert CL.circumradius((0.0, 0.0), (1.0, below), (2.0, 0.0)) is None
+
+
+def test_clearance_point_at_returns_both_ends_of_the_axis():
+    """Krańce osi należą do dziedziny, a nie leżą poza nią.
+
+    Mutacja `target < stations[0]` -> `<=` sprawia, że kilometraż RÓWNY początkowi osi
+    dostaje `None` zamiast pierwszego punktu. Przy cięciwie zerowej albo stacji leżącej
+    dokładnie na krańcu to nie jest przypadek teoretyczny.
+    """
+    points = [(0.0, 0.0, 0.0), (10.0, 0.0, 0.0), (20.0, 0.0, 0.0)]
+    stations = [0.0, 10.0, 20.0]
+
+    assert CL._point_at(points, stations, 0.0) == (0.0, 0.0, 0.0)
+    assert CL._point_at(points, stations, 20.0) == (20.0, 0.0, 0.0)
+    assert CL._point_at(points, stations, 10.0) == (10.0, 0.0, 0.0), "węzeł wewnętrzny"
+    assert CL._point_at(points, stations, 5.0) == (5.0, 0.0, 0.0), "interpolacja w środku"
+
+    # Kontrola negatywna: POZA osią nadal `None`, więc rozszerzenie dziedziny
+    # do krańców nie zamieniło się w brak dziedziny.
+    assert CL._point_at(points, stations, -0.001) is None
+    assert CL._point_at(points, stations, 20.001) is None
+
+
+def test_clearance_point_at_survives_a_repeated_vertex():
+    """Powtórzony wierzchołek osi daje odcinek o zerowej długości.
+
+    Łamane z danych STIB potrafią nieść zdublowany punkt. Bez strażnika `span <= 0.0`
+    interpolacja dzieli przez zero i cały przejazd po osi wywala się wyjątkiem zamiast
+    zwrócić punkt. Przegląd mutacyjny 02.09.2026 pokazał, że nic tego nie sprawdzało.
+    """
+    points = [(0.0, 0.0, 0.0), (10.0, 0.0, 0.0), (10.0, 0.0, 0.0), (20.0, 0.0, 0.0)]
+    stations = [0.0, 10.0, 10.0, 20.0]
+
+    assert CL._point_at(points, stations, 10.0) == (10.0, 0.0, 0.0)
+    assert CL._point_at(points, stations, 15.0) == (15.0, 0.0, 0.0), "za duplikatem"
+    assert CL._point_at(points, stations, 5.0) == (5.0, 0.0, 0.0), "przed duplikatem"
+
+    # Duplikat na POCZĄTKU osi to jedyne miejsce, w którym strażnik `span <= 0.0`
+    # jest w ogóle osiągalny: pętla zwraca przy PIERWSZYM pasującym przedziale, więc
+    # zdublowany punkt w środku zawsze zostaje przykryty przez przedział poprzedni.
+    # Pierwsza wersja tego testu miała duplikat w środku i mutacji nie zabijała.
+    leading = [(0.0, 0.0, 0.0), (0.0, 0.0, 0.0), (10.0, 0.0, 0.0)]
+    assert CL._point_at(leading, [0.0, 0.0, 10.0], 0.0) == (0.0, 0.0, 0.0)
+
+
 def test_clearance_circumradius_recovers_a_known_circle():
     points = [(100.0, 0.0), (0.0, 100.0), (-100.0, 0.0)]
     assert abs(CL.circumradius(*points) - 100.0) < 1e-6

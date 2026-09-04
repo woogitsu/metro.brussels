@@ -39,6 +39,7 @@ i powiedz o tym. Nie próbuj obejść.
 | `docs/06-worked-example.md` | **wzorcowo wykonane zadanie** — przeczytaj przed pierwszym |
 | `docs/07-open-data-research.md` | hierarchia źródeł, publiczne dane i repozytoria referencyjne |
 | `docs/22-heartbeat.md` | puls sesji — kiedy zakładać i dlaczego ma milczeć |
+| `docs/23-environment.md` | **skąd wziąć** Blender, .NET i Godota — wersje, adresy, sumy |
 | `docs/TASKS.md` | lista zadań |
 | `docs/TASK-TEMPLATE.md` | format nowego zadania |
 | `data/network/lines.json` | dane sieci maszynowo |
@@ -178,13 +179,28 @@ GitHub Actions. Poprzednia wersja tego punktu mówiła, że standardem jest
   (`clean` domyślnie `true`, czyli `git clean -ffdx`, a `-x` obejmuje pliki ignorowane).
   Każdy workflow ma krok, który to **sprawdza**, bo bramki tego projektu oglądają pliki
   wyjściowe i stary plik przeszedłby je tak samo dobrze jak świeży.
-- **Narzędzia instalują się warunkowo.** Krok sondujący sprawdza `command -v`;
+- **Narzędzia instalują się warunkowo.** Krok sondujący sprawdza, czego brakuje;
   instalacja i cache odpalają się tylko przy braku. Świeży runner nadal działa bez
-  ręcznego przygotowania, a trwały nie wywołuje `sudo apt-get` na 190 MB przy każdym
-  przebiegu. Godot leży poza workspace (`runner.tool_cache`), bo w workspace kasował
-  go `git clean` przy każdym checkoucie.
+  ręcznego przygotowania, a trwały nie wywołuje `sudo apt-get` przy każdym przebiegu.
+- **Godot i Blender leżą POZA workspace** (`runner.tool_cache`), bo w workspace kasował
+  je `git clean -ffdx` z checkoutu przy każdym przebiegu.
+- **Blender jest przypięty po wersji, nie brany z apt.** Od 03.09.2026, i ten punkt jest
+  przepisany, a nie dopisany obok: poprzednia wersja mówiła, że sonda sprawdza
+  `command -v blender`, i to już nieprawda. `apt` na Ubuntu 24.04 daje 4.0.2 do końca
+  życia wydania, a 4.0.2 renderuje **legacy EEVEE**, podczas gdy baseline projektu jest
+  z EEVEE Next — `enum_items` dla `engine` zwraca `['BLENDER_EEVEE']` na obu, więc nazwa
+  silnika ich nie odróżnia. Sonda na obecność byłaby tu wręcz szkodliwa: na maszynie,
+  która kiedykolwiek dostała Blendera z apt, uznałaby środowisko za gotowe.
+  Wersja i suma SHA-256 są w `tools/ci/blender-version.txt`, instaluje
+  `tools/ci/blender_install.sh`, a skrypty wołają `${BLENDER_BIN:-blender}` — tak samo
+  jak `GODOT_BIN`. Z apt zostały wyłącznie biblioteki systemowe.
 - Nie uznawaj `queued` za weryfikację; zadanie jest zweryfikowane dopiero po zakończonym,
   zielonym jobie i sprawdzeniu wymaganych artefaktów. Na jednym runnerze `queued` znaczy
   też „kolejka", nie tylko „zepsute" — ale nadal nie znaczy „zweryfikowane".
+- **Akcje są przypięte po SHA commita, nie po tagu.** `actions/checkout@v6` wskazuje na
+  to, co właściciel akcji ostatnio tam przesunął; te joby chodzą na maszynie właściciela
+  tego repozytorium, z dostępem do workspace'u, `runner.tool_cache` i `GITHUB_TOKEN`.
+  Przy każdym SHA stoi komentarz z wersją — bez niego przypięcie jest nieczytelne i przez
+  to nieaktualizowalne. Ta sama akcja ma wszędzie ten sam SHA.
 - Reguły powyżej są pilnowane testami w `tools/tests/test_ci_workflows.py`; każda ma
   kontrolę negatywną wypisaną w commicie, który ją wprowadził.

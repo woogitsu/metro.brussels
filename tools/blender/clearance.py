@@ -63,7 +63,11 @@ def circumradius(a, b, c):
     bc = math.dist(b, c)
     ca = math.dist(c, a)
     area2 = abs((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]))
-    if area2 < 1e-12 or ab * bc * ca == 0.0:
+    # Warunek `ab * bc * ca == 0.0` stał tu obok i był MARTWY: iloczyn zeruje się
+    # tylko wtedy, gdy dwa punkty się pokrywają, a wtedy `area2` też jest zerem
+    # i pierwszy warunek już odrzuca trójkę. Przegląd mutacyjny 02.09.2026 pokazał
+    # to wprost — mutacja tego zera przeżywała, bo nie da się jej zaobserwować.
+    if area2 < 1e-12:
         return None
     return ab * bc * ca / (2.0 * area2)
 
