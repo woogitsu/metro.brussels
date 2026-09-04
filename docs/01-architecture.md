@@ -9,14 +9,25 @@ Rdzeń symulacji linii działa krokiem stałym **1/120 s**, bez grafiki. Stan ob
 ```text
 src/
   Sim/                    rdzeń — ZERO zależności od Godota
+    Line/                 oś, trasa, kilometraż
     Physics/              trakcja, opory, hamowanie, dynamika
+    Signalling/           bloki stałe, ochrona pociągu, plany tras
     Train/                skład, drzwi, postój
-    Line/                 oś, bloki, sygnalizacja, rozkład, LineCore
-    Passengers/           popyt i perony
+  Sim.Runner/             CLI rdzenia — przejazdy i pomiary, bez silnika
   Game/                   warstwa Godota — bez logiki symulacji
-    Views/Cab, Platform, Dispatcher
-    Input/, Audio/, UI/
+    Assets/               ładowanie i streaming zasobów
+    Input/                wejście gracza
+    Scenes/               sceny .tscn
+    UI/                   HUD i pulpit
+    World/                tunel, tor, widok składu
 ```
+
+Jeden katalog w jednym wierszu, i to nie jest kosmetyka: `tools/tests/test_architecture_doc.py`
+porównuje ten blok z prawdziwym drzewem w OBIE strony, a poprzedni zapis ściskał kilka
+katalogów w wiersz (`Views/Cab, Platform, Dispatcher`, `Input/, Audio/, UI/`), czego nie da
+się porównać maszynowo. Dryf, który przez to przeszedł niezauważony do 04.09.2026:
+`Sim/Passengers/`, `Game/Views/` i `Game/Audio/` nie istniały, a `Sim/Signalling/`
+(8 plików) i cały `Sim.Runner/` nie były wymienione.
 
 **Reguła twarda:** nic w `src/Sim/` nie może importować niczego z Godota.
 
