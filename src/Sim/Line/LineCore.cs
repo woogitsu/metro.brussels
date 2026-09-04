@@ -283,6 +283,19 @@ public sealed class LineCore
     public IReadOnlyList<LineTrain> Trains => _trains;
 
     /// <summary>
+    /// Ograniczenie prędkości, którym linia prowadzi każdy swój skład — ten sam obiekt
+    /// <see cref="LineRunSettings"/> dostaje w <see cref="Step"/> każde nowe
+    /// <see cref="LineDrive"/>, więc jest to liczba prowadzenia, nie jej kopia.
+    ///
+    /// <para>Widok musi mieć skąd ją wziąć PRZED pierwszym krokiem: prowadzenie powstaje
+    /// leniwie, w fazie wyjazdów, więc w chwili wypisywania nagłówka
+    /// <see cref="LineTrain.Drive"/> jest jeszcze nullem. Tą dziurą nagłówek wracał do
+    /// limitu ze scenariusza — 80 km/h prędkości konstrukcyjnej M7 — przy przejeździe
+    /// jadącym 70 km/h.</para>
+    /// </summary>
+    public double SpeedLimitMps => _settings.SpeedLimitMps;
+
+    /// <summary>
     /// Prawda, gdy każdy zgłoszony skład wszedł na plan i dojechał do ostatniej stacji.
     /// Na krótkiej osi z krótkim odstępem nie nastąpi to nigdy — patrz akapit o turnbacku
     /// w opisie klasy.

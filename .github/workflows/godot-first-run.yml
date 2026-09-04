@@ -351,10 +351,20 @@ jobs:
             --brake-usage 1.0 --stop-window-m 5 \
             --calls build/t400/linia/core-calls.csv
           "$GODOT_BIN" --headless --path src/Game -- \
-            --line --limit-kmh=70 --calls="$PWD/build/t400/linia/scene-calls.csv"
+            --line --limit-kmh=70 --calls="$PWD/build/t400/linia/scene-calls.csv" \
+            | tee build/t400/linia/scene.log
           python3 tools/ci/assert_line_calls_match.py \
             build/t400/linia/core-calls.csv build/t400/linia/scene-calls.csv \
             --expect-calls 11
+          # Nagłówek ma mówić TĘ SAMĄ liczbę, którą jedzie rdzeń. Do 04.09.2026 mówił
+          # `limit=80.0 km/h` przy `--limit-kmh=70`, bo brał ją z `DriveScenario`, czyli
+          # z rejestru pojazdu — 80 km/h to prędkość KONSTRUKCYJNA M7. Krok wyżej tego
+          # NIE łapie: porównuje zatrzymania, a te były poprawne — kłamał wyłącznie napis.
+          # Testy jednostkowe `RunHeaderTests` pilnują `RunHeader`; tutaj sprawdzany jest
+          # ten sam wiersz wypisany przez SCENĘ, bo usterka siedziała w `FirstRun.cs`.
+          grep -q "^\[PRZEJAZD\] .* limit=70\.0 km/h$" build/t400/linia/scene.log \
+            || { echo "BŁĄD: nagłówek nie pokazuje limitu z --limit-kmh=70" >&2
+                 grep "^\[PRZEJAZD\]" build/t400/linia/scene.log >&2; exit 1; }
 
       - name: Negative control of the line comparison
         shell: bash
@@ -399,6 +409,14 @@ jobs:
           grep -q "^\[SYGNALIZACJA\] 23 bloków, 11 tras, wymaga tras: True" \
             build/t400/linia/signalling.log \
             || { echo "BŁĄD: scena nie wczytała planu, którego wymaga ten krok" >&2; exit 1; }
+          # Ta sama kontrola co przy przejeździe bez sygnalizacji, i tu WAŻNIEJSZA:
+          # prowadzenie składu (`LineDrive`) powstaje leniwie, dopiero w pierwszym kroku,
+          # więc w chwili wypisania nagłówka jest jeszcze nullem. Tą właśnie dziurą limit
+          # wracał do scenariusza. Liczba musi wyjść z `LineCore`, a nie z planu
+          # sygnalizacji — ten ma swój własny wiersz i swoją własną liczbę.
+          grep -q "^\[PRZEJAZD\] .* limit=70\.0 km/h$" build/t400/linia/signalling.log \
+            || { echo "BŁĄD: nagłówek pod sygnalizacją nie pokazuje limitu przejazdu" >&2
+                 grep "^\[PRZEJAZD\]" build/t400/linia/signalling.log >&2; exit 1; }
           python3 tools/ci/assert_line_calls_match.py \
             build/t400/linia/core-calls.csv \
             build/t400/linia/scene-signalling-calls.csv --expect-calls 11

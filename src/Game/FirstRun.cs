@@ -492,11 +492,14 @@ public sealed partial class FirstRun : Node3D
 
     private void LogHeader()
     {
-        GD.Print(string.Create(
-            CultureInfo.InvariantCulture,
-            $"[PRZEJAZD] tryb={_mode} widok={_view} scenariusz={_scenario.Id} " +
-            $"krok=1/{FixedStep.SimulationHertz} s masa={_conditions.MassKg:F0} kg " +
-            $"limit={Units.MpsToKmh(_scenario.SpeedLimitMps):F1} km/h"));
+        // Składanie tego wiersza siedzi w `RunHeader`, czyli w pliku BEZ GODOTA, i to
+        // nie jest przenoszenie kodu dla porządku. Do 04.09.2026 pole `limit=` brało
+        // liczbę z `_scenario.SpeedLimitMps` — z rejestru pojazdu — więc przy
+        // `--limit-kmh=70` nagłówek mówił 80,0 km/h, a rdzeń jechał 70,00 km/h.
+        // Nagłówek nie dostaje już ŻADNEJ liczby parametrem: dostaje obiekty, które
+        // prowadzą przebieg, i czyta liczby z nich.
+        GD.Print(RunHeader.Line(
+            _plan!, _view, _scenario, _step, _conditions, _lineCore, _line));
         GD.Print($"[OŚ] {_axis}");
 
         foreach (var assumption in _scenario.Assumptions)
@@ -676,7 +679,7 @@ public sealed partial class FirstRun : Node3D
         // ile kroków wypada w klatce, i to jest właściwe miejsce.
         var effective = _stations?.Filter(_state, _command, ChainageM) ?? _command;
         _state = _controller.Advance(
-            _state, _conditions, effective, _scenario.SpeedLimitMps, _step, out var forces);
+            _state, _conditions, effective, SpeedLimitMps, _step, out var forces);
         _acceleration = forces.AccelerationMps2;
         return true;
     }
@@ -685,6 +688,19 @@ public sealed partial class FirstRun : Node3D
         ?? (_lineCore is not null
             ? _axis.Stations[0].ChainageM
             : _scenario.StartChainageM + _state.DistanceM);
+
+    /// <summary>
+    /// Ograniczenie prędkości tego przebiegu — JEDNA liczba dla fizyki i dla nagłówka.
+    ///
+    /// <para>Nie jest to skrót zapisu. Nagłówek kłamał o limicie właśnie dlatego, że
+    /// wypisywał SWOJĄ liczbę obok tej, którą jechał rdzeń; dopóki obie liczby są tym
+    /// samym wyrażeniem, rozjazd między nimi nie ma się gdzie wziąć. W trybie ręcznym
+    /// i skryptowym `RunHeader.SpeedLimitMps` wraca do scenariusza, czyli do liczby,
+    /// którą ten sam wiersz podawał kontrolerowi wcześniej — przebieg jest bez zmian
+    /// i telemetria porównywana z rdzeniem CO DO BITU to potwierdza.</para>
+    /// </summary>
+    private double SpeedLimitMps
+        => RunHeader.SpeedLimitMps(_lineMode, _scenario, _lineCore, _line);
 
     // --- widok -------------------------------------------------------------------
 
