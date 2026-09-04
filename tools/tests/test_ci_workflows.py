@@ -646,6 +646,36 @@ def test_godot_scene_gates_the_axis_against_the_manifest():
 # --- self-hosted runner (2026-09-02, wyczerpane minuty GitHub Actions) ----------
 
 
+def _runner_labels(job):
+    """Etykiety `runs-on` joba, niezależnie od formy zapisu — albo `None`.
+
+    GitHub przyjmuje na `runs-on` trzy różne typy dla tej samej rzeczy: napis
+    (`runs-on: self-hosted`), listę (`runs-on:` i pod nim `- self-hosted`) oraz mapę
+    (`group:` / `labels:`). Sprawdzanie tego wyrażeniem regularnym po tekście widzi
+    wyłącznie pierwszą z tych form — patrz komentarz o mutacji w teście niżej.
+
+    Grupa wraca jako pseudo-etykieta `group:<nazwa>`, żeby wywróciła porównanie
+    i pokazała się w komunikacie: grupa to ZBIÓR maszyn dobierany po stronie
+    GitHuba, a nie gołe `self-hosted`, którego pilnuje `CLAUDE.md` §9.
+    """
+    if "runs-on" not in job:
+        return None
+    value = job["runs-on"]
+    if isinstance(value, str):
+        return [value.strip()]
+    if isinstance(value, (list, tuple)):
+        return [str(item).strip() for item in value]
+    if isinstance(value, dict):
+        labels = value.get("labels", [])
+        if isinstance(labels, str):
+            labels = [labels]
+        found = [str(item).strip() for item in labels]
+        if value.get("group"):
+            found.append(f"group:{value['group']}")
+        return found
+    return [repr(value)]
+
+
 def test_every_job_runs_on_the_self_hosted_runner():
     """Etykieta `runs-on` decyduje o tym, czy job w ogóle wystartuje.
 
@@ -655,17 +685,103 @@ def test_every_job_runs_on_the_self_hosted_runner():
     w matmaxalez/osadale 2026-08-19 zdjęto `wsl2`, bo maszyna z tą etykietą została
     wyłączona i joby zawisły. Gołe `self-hosted` łapie każdego runnera, jakiego
     właściciel zarejestruje.
+
+    Czytane ze SPARSOWANEGO YAML-a, nie gremem po tekście. Mutacja, która tego
+    testu NIE wywracała, zmierzona 04.09.2026 na `python-tests.yml`: zapis `runs-on`
+    w formie listy —
+
+        runs-on:
+          - self-hosted
+          - wsl2
+
+    Poprzedni wzorzec `^    runs-on: (.+)$` nie ma tu czego dopasować (po dwukropku
+    nie stoi nic), więc pętla przechodziła ZERO razy i test kończył się zielony.
+    Konsekwencja jest dokładnie tą awarią, przed którą ta bramka stoi: wrócenie
+    etykiety `wsl2` — tej samej, po której 02.08.2026 joby zawisły w `queued`, bo
+    maszyna z nią została wyłączona — było dla testu niewidoczne. Bramka wtedy nie
+    broni, tylko cichnie.
     """
     wrong = []
+    checked = 0
     for name in _workflows():
-        for match in re.finditer(r"(?m)^    runs-on: (.+)$", _text(name)):
-            label = match.group(1).strip()
-            if label != "self-hosted":
-                wrong.append(f"{name}: {label}")
-    assert not wrong, wrong
+        document = yaml.safe_load(_text(name))
+        for job_id, job in document["jobs"].items():
+            checked += 1
+            labels = _runner_labels(job)
+            if labels is None:
+                wrong.append(f"{name}:{job_id}: job bez `runs-on`")
+            elif labels != ["self-hosted"]:
+                wrong.append(
+                    f"{name}:{job_id}: runs-on = {labels}, "
+                    "oczekiwano dokładnie jednej etykiety ['self-hosted']")
+    assert not wrong, f"joby na złym runnerze: {wrong}"
+    # Liczba jak w bramce fork-PR niżej: pętla po samych znalezionych jobach
+    # przeszłaby pusta i zielona, gdyby `jobs:` przestało być czytane.
+    assert checked >= 7, f"sprawdzono tylko {checked} jobów — pętla nie widzi `jobs:`"
 
     hosted = [name for name in _workflows() if "ubuntu-latest" in _text(name)]
     assert not hosted, f"GitHub-hosted runner nadal wymieniony w: {hosted}"
+
+
+def _unwrap_expression(condition):
+    """Warunek `if:` sprowadzony do samego wyrażenia, ze zbitą spacją.
+
+    `if:` wolno zapisać i bez `${{ }}`, i w nim; zapis wielowierszowy (`>-`) wstawia
+    dodatkowo znaki nowej linii. Bez tej normalizacji ta sama logika w innym zapisie
+    wyglądałaby dla testu jak inna.
+    """
+    text = " ".join(str(condition).split())
+    if text.startswith("${{") and text.endswith("}}"):
+        text = text[3:-2].strip()
+    return text
+
+
+def _strip_parens(expression):
+    """Zdejmuje nawiasy OTACZAJĄCE całe wyrażenie, i tylko takie.
+
+    `(a || b) && c` nawiasu otwierającego na początku ma, ale on nie obejmuje całości
+    — dlatego liczona jest głębokość, a nie sprawdzane pierwszy i ostatni znak.
+    """
+    text = expression.strip()
+    while len(text) > 1 and text.startswith("(") and text.endswith(")"):
+        depth = 0
+        for index, char in enumerate(text):
+            if char == "(":
+                depth += 1
+            elif char == ")":
+                depth -= 1
+                if depth == 0 and index != len(text) - 1:
+                    return text
+        text = text[1:-1].strip()
+    return text
+
+
+def _split_top_level(expression, operator):
+    """Członki wyrażenia GitHub Actions rozdzielone `operator` na NAJWYŻSZYM poziomie.
+
+    Nie `str.split`: `||` wewnątrz nawiasu albo wewnątrz napisu nie jest tym samym
+    operatorem, a test, który tego nie odróżnia, znowu czyta napis, a nie strukturę.
+    """
+    parts, depth, quote, start, index = [], 0, None, 0, 0
+    while index < len(expression):
+        char = expression[index]
+        if quote is not None:
+            if char == quote:
+                quote = None
+        elif char in "'\"":
+            quote = char
+        elif char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+        elif depth == 0 and expression.startswith(operator, index):
+            parts.append(expression[start:index])
+            index += len(operator)
+            start = index
+            continue
+        index += 1
+    parts.append(expression[start:])
+    return [part.strip() for part in parts]
 
 
 def test_every_job_refuses_pull_requests_from_forks():
@@ -679,6 +795,16 @@ def test_every_job_refuses_pull_requests_from_forks():
     true`), więc uzasadnienie z matmaxalez/osadale — „forka nie da się zrobić" —
     tutaj nie obowiązuje. Warunek nosi każdy job osobno; `needs:` nie jest
     zamiennikiem, bo job dopisany bez łańcucha zależności nie miałby ochrony.
+
+    Sprawdzana jest STRUKTURA warunku, nie obecność podnapisów. Mutacja, która tego
+    testu NIE wywracała, zmierzona 04.09.2026 na `python-tests.yml`: zamiana `||`
+    na `&&` w warunku joba. Poprzednia wersja pytała tylko, czy oba napisy gdzieś
+    w warunku stoją — a po tej zamianie stoją oba, więc test przechodził zielony.
+    Skutek jest podwójnie zły. Job z `&&` nie wystartuje NIGDY: na `push`
+    `github.event_name != 'pull_request'` jest prawdą, ale drugi człon czyta pola
+    `pull_request`, których na `push` nie ma, więc koniunkcja jest fałszem; na
+    `pull_request` fałszem jest pierwszy człon. Bramka wtedy nie broni, tylko
+    cichnie — a to jest ten sam rodzaj awarii, co job wiszący w `queued`.
     """
     required_terms = (
         "github.event_name != 'pull_request'",
@@ -690,9 +816,15 @@ def test_every_job_refuses_pull_requests_from_forks():
         document = yaml.safe_load(_text(name))
         for job_id, job in document["jobs"].items():
             checked += 1
-            condition = str(job.get("if", ""))
-            if not all(term in condition for term in required_terms):
-                unguarded.append(f"{name}:{job_id}")
+            if "if" not in job:
+                unguarded.append(f"{name}:{job_id}: job bez `if:`")
+                continue
+            members = [_strip_parens(part) for part
+                       in _split_top_level(_unwrap_expression(job["if"]), "||")]
+            if sorted(members) != sorted(required_terms):
+                unguarded.append(
+                    f"{name}:{job_id}: `if:` nie jest ALTERNATYWĄ (`||`) dwóch "
+                    f"wymaganych członów, tylko {members}")
     assert not unguarded, f"joby bez strażnika fork-PR: {unguarded}"
     assert checked >= 7, checked
 
