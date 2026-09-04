@@ -17,10 +17,10 @@ tego podziału trzymać się przy instalacji:
 
 | poziom | narzędzia | bez tego nie działa |
 |---|---|---|
-| baza | `python3` (3.11+), `git` | `tools/tests/test_all.py` — 692 testy |
-| rdzeń symulacji | .NET SDK 8.0 | `dotnet test tests/Sim.Tests` — 289 testów |
+| baza | `python3` (3.11+), `git` | `tools/tests/test_all.py` — 1338 testów |
+| rdzeń symulacji | .NET SDK 10.0 | `dotnet test tests/Sim.Tests` — 331 testów |
 | zadania geometryczne | Blender | T-010, T-011, T-012, T-2xx |
-| scena | Godot 4.3 mono + `xvfb` | T-400 |
+| scena | Godot 4.7.2 mono + `xvfb` | T-400 |
 
 Python i git są w każdym sensownym obrazie. Trzy pozostałe pozycje trzeba pobrać
 i to one są treścią tego dokumentu.
@@ -207,7 +207,7 @@ version=5.2.1
 sha256=a31f524fa99a527d3d52b7f5aaa68c34e1a19d5a1c9473f79c5cc610fd5b10e9
 ```
 
-Pięć kopii numeru w pięciu workflowach to pięć okazji, żeby jedna została w tyle
+Siedem kopii numeru w siedmiu workflowach to pięć okazji, żeby jedna została w tyle
 i żeby baseline został porównany z klatką z innego silnika EEVEE. Test pilnuje, że
 żaden workflow nie wpisuje numeru u siebie.
 
@@ -261,18 +261,30 @@ tools/blender/render_check.py:113
 Na 5.x to ostrzeżenie, nie błąd. Na 6.0 będzie błąd i wtedy zniknie render, nie
 tylko ostrzeżenie.
 
-## 3. .NET SDK 8.0
+## 3. .NET SDK 10.0
 
-CI pina `dotnet-version: '8.0.x'` przez `actions/setup-dotnet@v4`
-(`sim-tests.yml`, `blender-smoke.yml`, `godot-first-run.yml`). Lokalnie noble ma to
-w repozytorium własnym, bez dokładania źródeł Microsoftu:
+**Ta sekcja jest przepisana 04.09.2026, a nie dopisana obok.** Poprzednia wersja
+mówiła „SDK 8.0", `dotnet-sdk-8.0` i „zmierzone: 8.0.130" — to już nieprawda i było
+nieprawdą od `ba93903`, czyli od podniesienia projektów na `net10.0`. Świeża maszyna
+postawiona z tamtej wersji tego dokumentu wywracała się na
+`NETSDK1045: The current .NET SDK does not support targeting .NET 10.0` (zmierzone
+04.09.2026 na tym kontenerze). Pilnuje tego dziś
+`tools/tests/test_dotnet_version.py::test_the_document_declares_the_same_sdk_major`.
+
+CI pina `dotnet-version: '10.0.x'` przez `actions/setup-dotnet`
+(`sim-tests.yml`, `blender-smoke.yml`, `godot-first-run.yml`). **Noble nie ma SDK 10
+w repozytorium własnym** — `apt` daje najwyżej 8.0.x, więc apt tu nie wystarcza:
 
 ```bash
-sudo apt-get install -y --no-install-recommends dotnet-sdk-8.0
-dotnet --version        # zmierzone: 8.0.130
+curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh
+bash /tmp/dotnet-install.sh --channel 10.0 --install-dir "$HOME/.dotnet"
+export PATH="$HOME/.dotnet:$PATH"
+dotnet --version        # zmierzone 04.09.2026: 10.0.400
 ```
 
-Pakiet: `dotnet-sdk-8.0` w wersji `8.0.130-0ubuntu1~24.04.1`.
+`doctor.sh` sprawdza to twardo: czyta major z `<TargetFramework>` w `src/Sim/Sim.csproj`
+i wymaga SDK **nie starszego**, więc SDK 8 na maszynie z tym drzewem jest wykrywany
+jako brak, a nie jako ostrzeżenie.
 
 Rdzeń w `src/Sim/` nie ma zależności NuGet, ale `tests/Sim.Tests` ma trzy pakiety —
 **pierwsze uruchomienie na czystej maszynie potrzebuje sieci na `restore`**, potem
@@ -282,21 +294,27 @@ liczy się z cache. Warto ustawić `DOTNET_CLI_TELEMETRY_OPTOUT=1` i `DOTNET_NOL
 Alternatywa, gdy dystrybucja nie ma pakietu: skrypt `https://dot.net/v1/dotnet-install.sh`
 (`--channel 8.0`). Na noble jest niepotrzebny.
 
-## 4. Godot 4.3-stable mono
+## 4. Godot 4.7.2-stable mono
+
+**Ta sekcja jest przepisana 04.09.2026, a nie dopisana obok.** Poprzednia mówiła
+„4.3-stable" i — co gorsze — podawała jako CYTAT z `project.godot` treść, której
+w tym pliku nie ma. Silnik został podniesiony w `60ea54f`; dokument stał obok trzy
+dni, bo nie był jednym z miejsc pilnowanych przez `test_engine_version.py`. Jest nim
+od 04.09.2026 (`test_the_document_declares_the_same_engine_version`).
 
 Dwie rzeczy, które łatwo zrobić źle: wziąć wersję bez mono i położyć ją w workspace.
 
 Wersję dyktuje `src/Game/project.godot`:
 
 ```
-config/features=PackedStringArray("4.3", "C#", "Forward Plus")
+config/features=PackedStringArray("4.7", "C#", "Forward Plus")
 ```
 
-i `GODOT_VERSION: 4.3-stable` w `.github/workflows/godot-first-run.yml`. Dystrybucje
+i `GODOT_VERSION: 4.7.2-stable` w `.github/workflows/godot-first-run.yml`. Dystrybucje
 **nie pakują wariantu mono**, więc apt tu nie pomoże:
 
 ```bash
-GODOT_VERSION=4.3-stable
+GODOT_VERSION=4.7.2-stable
 DIR=/opt/metro-godot/$GODOT_VERSION
 sudo mkdir -p "$DIR"
 curl -fsSL -o /tmp/godot-mono.zip \
@@ -305,7 +323,7 @@ unzip -q /tmp/godot-mono.zip -d /tmp/godot-mono
 sudo mv /tmp/godot-mono/Godot_v${GODOT_VERSION}_mono_linux_x86_64/* "$DIR"/
 
 export GODOT_BIN="$DIR/Godot_v${GODOT_VERSION}_mono_linux.x86_64"
-"$GODOT_BIN" --headless --version    # zmierzone: 4.3.stable.mono.official.77dcf97d8
+"$GODOT_BIN" --headless --version    # zmierzone: 4.7.2.stable.mono.official.ed1daf0bf
 ```
 
 Rozmiar po rozpakowaniu: 162 MB. `GODOT_BIN` to **ta sama zmienna, o którą pyta
@@ -320,7 +338,7 @@ Trzy, wszystkie opcjonalne w tym sensie, że bez nich też się zbuduje — tylk
 
 ```bash
 export BLENDER_BIN="$(bash tools/ci/blender_install.sh)"
-export GODOT_BIN=/opt/metro-godot/4.3-stable/Godot_v4.3-stable_mono_linux.x86_64
+export GODOT_BIN=/opt/metro-godot/4.7.2-stable/Godot_v4.7.2-stable_mono_linux.x86_64
 export DOTNET_CLI_TELEMETRY_OPTOUT=1
 export DOTNET_NOLOGO=1
 ```
@@ -354,7 +372,7 @@ Wymagane dla rdzenia symulacji (T-310 jest zrobione, src/Sim istnieje):
 Wymagane dopiero przez konkretne zadania:
   ok    blender w PATH
   ok    blender headless
-  ok    godot (/opt/metro-godot/4.3-stable/Godot_v4.3-stable_mono_linux.x86_64)
+  ok    godot (/opt/metro-godot/4.7.2-stable/Godot_v4.7.2-stable_mono_linux.x86_64)
 
 Testy narzędzi:
   ok    692/692 przeszło
@@ -378,8 +396,8 @@ skrypt bez błędu potrafi wyprodukować pustą scenę.
 | Blender (CI) | 4.0.2+dfsg-1ubuntu8 | `apt`, noble/universe, przez `tools/ci/apt_install.sh --set blender` |
 | Blender (LTS) | 5.2.1 LTS | <https://download.blender.org/release/Blender5.2/blender-5.2.1-linux-x64.tar.xz> |
 | suma Blendera | — | <https://download.blender.org/release/Blender5.2/blender-5.2.1.sha256> |
-| .NET SDK | 8.0.130 | `apt`, `dotnet-sdk-8.0`; awaryjnie <https://dot.net/v1/dotnet-install.sh> |
-| Godot mono | 4.3-stable | <https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_mono_linux_x86_64.zip> |
+| .NET SDK | 10.0.400 | <https://dot.net/v1/dotnet-install.sh> `--channel 10.0`; `apt` w noble daje najwyżej 8.0.x |
+| Godot mono | 4.7.2-stable | <https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_mono_linux_x86_64.zip> |
 | numpy dla Blendera z apt | 1.26.4 | `apt`, `python3-numpy` |
 | numpy w tarballu 5.2.1 | 2.3.4 | w środku tarballa, nic nie trzeba |
 | `xvfb` | 21.1.12 | `apt`, zestaw `blender-xvfb` |

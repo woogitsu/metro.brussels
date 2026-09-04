@@ -15,6 +15,15 @@ import re
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 WORKFLOWS = os.path.join(ROOT, ".github", "workflows")
 
+#: Dokument, z którego CZŁOWIEK stawia środowisko. Dopisany do pilnowanych miejsc
+#: 04.09.2026 z tego samego powodu co przy silniku: po podniesieniu net8 -> net10
+#: (`ba93903`) `docs/23-environment.md` nadal kazał instalować `dotnet-sdk-8.0`
+#: i podawał „zmierzone: 8.0.130". Testy zgodności csproj <-> workflow świeciły
+#: zielono, bo dokument nie był dla nich jednym z pilnowanych miejsc. Świeża
+#: maszyna postawiona z tego dokumentu wywraca się na `NETSDK1045: The current
+#: .NET SDK does not support targeting .NET 10.0` — zmierzone 04.09.2026.
+DOC = os.path.join(ROOT, "docs", "23-environment.md")
+
 PROJECTS = [
     os.path.join("src", "Sim", "Sim.csproj"),
     os.path.join("src", "Sim.Runner", "Sim.Runner.csproj"),
@@ -55,6 +64,46 @@ def setup_dotnet_versions(text):
 
 def _workflows():
     return sorted(f for f in os.listdir(WORKFLOWS) if f.endswith((".yml", ".yaml")))
+
+
+def doc_sdk_majors(text):
+    """Główne wersje SDK .NET podane w dokumencie jako STAN AKTUALNY.
+
+    Pomija wiersze, które dokument sam oznacza jako historyczne — przepisywanie
+    reguły z podaniem poprzedniej wersji jest w tym projekcie regułą, nie błędem.
+    """
+    out = set()
+    for line in text.splitlines():
+        stripped = line.strip()
+        if re.search(r"poprzedni|było|dawn|do 0[0-9]\.0[0-9]\.20|wcześniej", stripped, re.I):
+            continue
+        for match in re.finditer(r"dotnet-sdk-([0-9]+)\.[0-9]+", stripped):
+            out.add(match.group(1))
+        for match in re.finditer(r"dotnet-version:\s*'?([0-9]+)\.[0-9]+\.?x?'?", stripped):
+            out.add(match.group(1))
+        for match in re.finditer(r"\.NET SDK\D{0,4}([0-9]+)\.[0-9]+", stripped):
+            out.add(match.group(1))
+    return out
+
+
+def test_the_document_declares_the_same_sdk_major():
+    """Dokument stawiania środowiska musi podawać ten SDK, którego wymagają projekty."""
+    major = tfm_major(target_framework(_read(os.path.join(ROOT, PROJECTS[0]))))
+    declared = doc_sdk_majors(_read(DOC))
+    assert declared, "dokument nie podaje ani jednej wersji SDK .NET"
+    obce = sorted(v for v in declared if v != str(major))
+    assert not obce, (
+        f"docs/23-environment.md podaje jako aktualne SDK .NET {obce}, "
+        f"a projekty celują w net{major}.0 — instrukcja nie zadziała")
+
+
+def test_the_document_parser_ignores_a_historical_note():
+    # Bez tej kontroli bramka wyżej przechodziłaby także wtedy, gdyby parser
+    # zwracał pusty zbiór na wszystkim — a wtedy `obce` jest puste zawsze.
+    assert doc_sdk_majors("apt-get install -y dotnet-sdk-10.0") == {"10"}
+    assert doc_sdk_majors("poprzednio: dotnet-sdk-8.0") == set()
+    assert doc_sdk_majors("## 3. .NET SDK 8.0") == {"8"}
+    assert doc_sdk_majors("dotnet-version: '10.0.x'") == {"10"}
 
 
 def test_every_project_declares_a_target_framework():
