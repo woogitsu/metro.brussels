@@ -42,6 +42,59 @@ def _train(length=94.0, bodies=6):
 
 # --- luz jako przekrój półpłaszczyzn -----------------------------------------
 
+def test_clearance_profile_hull_orders_a_triangle_counter_clockwise():
+    """Trzy punkty to już otoczka, ale KOLEJNOŚĆ ma znaczenie.
+
+    Przegląd mutacyjny 02.09.2026: mutacja `len(pts) <= 2` -> `<= 3` przeżywała, bo
+    nic nie sprawdzało trójkąta. Skrót zwróciłby wtedy punkty POSORTOWANE
+    LEKSYKOGRAFICZNIE zamiast obiegu przeciwnego do zegara, a `halfplanes` chodzi po
+    pierścieniu i liczy normalne z kolejnych krawędzi — przy złej kolejności wyszłyby
+    normalne skierowane na zewnątrz i luz zmieniłby znak.
+    """
+    triangle = [(0.0, 0.0), (2.0, 0.0), (1.0, 1.0)]
+    hull = CP.hull_2d(triangle)
+
+    assert len(hull) == 3
+    assert hull != sorted(set(triangle)), (
+        "otoczka trójkąta wyszła w kolejności leksykograficznej, nie po obiegu")
+    # Obieg przeciwny do zegara: pole ze wzoru sznurowadła jest DODATNIE.
+    area2 = sum(a[0] * b[1] - b[0] * a[1]
+                for a, b in zip(hull, hull[1:] + hull[:1]))
+    assert area2 > 0.0, f"pole {area2} — obieg zgodny z zegarem"
+
+
+def test_clearance_profile_halfplanes_accepts_a_triangle():
+    # Trójkąt jest wypukłym obrysem i ma prawo przejść. Mutacje `count < 3` -> `<= 3`
+    # oraz `3` -> `4` odrzucałyby go; nic tego nie sprawdzało.
+    planes = CP.halfplanes(CP.hull_2d([(0.0, 0.0), (2.0, 0.0), (1.0, 1.0)]))
+    assert len(planes) == 3
+
+    # Kontrola negatywna: DWA punkty to nie obrys i mają zostać odrzucone,
+    # więc rozluźnienie progu nie zamieniło się w brak progu.
+    try:
+        CP.halfplanes([(0.0, 0.0), (1.0, 1.0)])
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("dwa punkty przeszły jako obrys profilu")
+
+
+def test_clearance_profile_halfplanes_refuses_a_zero_length_edge():
+    """Zdublowany wierzchołek obrysu daje krawędź o zerowej długości.
+
+    Bez strażnika `length <= 0.0` normalna dzieli się przez zero i zamiast czytelnej
+    odmowy leci `ZeroDivisionError` z wnętrza pętli. Przegląd mutacyjny pokazał, że
+    nic tego nie sprawdzało.
+    """
+    doubled = [(0.0, 0.0), (0.0, 0.0), (2.0, 0.0), (1.0, 1.0)]
+    try:
+        CP.halfplanes(doubled)
+    except ValueError as error:
+        assert "zerow" in str(error), str(error)
+    else:
+        raise AssertionError("obrys z zerową krawędzią przeszedł")
+
+
 def test_clearance_profile_halfplane_clearance_matches_distance_to_boundary():
     """Sedno przyspieszenia: dla punktu wewnątrz obie drogi muszą dać tę samą liczbę."""
     for name in PR.PROFILES:

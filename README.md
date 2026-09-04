@@ -7,45 +7,78 @@ Zasada architektoniczna, z której wynika cała reszta:
 
 > **Linia jest symulacją, która działa bez gracza. Kabina jest jednym z jej widoków.**
 
-Reguły pracy: `CLAUDE.md`. Architektura: `docs/01-architecture.md`.
+Reguły pracy: `CLAUDE.md`. Architektura: `docs/01-architecture.md`. Kolejność zadań
+i lista tego, co blokuje co: `docs/TASKS.md`.
 
 ## Start
 
 ```bash
 bash doctor.sh                       # kontrola środowiska i testów
 python3 tools/tests/test_all.py      # testy narzędzi, bez Blendera i bez sieci
+dotnet test tests/Sim.Tests          # rdzeń symulacji, bez Godota
 ```
 
 ## Stan: co działa, a czego nie ma
 
-**Działa i jest zweryfikowane wizualnie:**
+**Rdzeń symulacji — `src/Sim/`, 44 pliki `.cs`, kompiluje się i testuje bez silnika:**
 
-- pipeline Blendera — generacja, render kontrolny, wykrywanie regresji, odrzucanie pustej klatki;
-- oś pozioma pakietu A (Gare de l'Ouest — Merode, 12 stacji, 6686 m) z oficjalnej geometrii STIB;
-- proceduralny tunel pakietu A: 12 chunków, szczelina na szwie 0,000 mm, normalne do wnętrza;
-- eksport per chunk plus manifest streamingowy dla Godota;
+- fizyka: model trakcji M7, opór Davisa, hamowanie służbowe i granica przyczepności,
+  krok stały 1/120 s liczony **licznikiem kroków**, nigdy `t += dt`;
+- sygnalizacja: bloki stałe, autoryzacja jazdy, ochrona pociągu, obszar testowy CBTC;
+- prowadzenie: scenariusz jazdy, przejazd linią, cykl drzwi, postój na stacji;
+- każdy parametr niesie status (`spec`, `source_backed`, `design_assumption`, `unknown`) —
+  wartość bez źródła nie da się podstawić po cichu.
+
+**Warstwa silnika — `src/Game/`, projekt Godot 4.7 mono:**
+
+- jeden skład M7 jedzie 6,56 km po pakiecie A, napędzany rdzeniem;
+- rozjazd Godot ↔ rdzeń **0,000 m**, ten sam odcisk telemetrii przy nierównym podziale
+  klatek (`reports/T-400-first-run.md`);
+- zrzuty z silnika idą przez tę samą kontrolę wizualną co geometria, odtwarzalne co do
+  bajtu również między maszynami (`reports/T-012-godot-capture.md`).
+
+**Geometria — zweryfikowana wizualnie:**
+
+- pipeline Blendera — generacja, render kontrolny, wykrywanie regresji, odrzucanie
+  pustej klatki;
+- osie sześciu pakietów z oficjalnej geometrii STIB: `L1_A`, `L1_B`, `L2_E`, `L5_C`,
+  `L5_D`, `L6_F`, każda z własnym plikiem provenance;
+- proceduralne tunele pakietów: szczelina na szwie 0,000 mm, normalne do wnętrza,
+  eksport per chunk plus manifest streamingowy dla Godota;
 - proceduralna skorupa M7: 94,0 m, 6 członów, 18 drzwi podwójnych na stronę;
-- skrajnia M7 w tunelu, mierzona **dwiema niezależnymi drogami** zgodnymi do 3,9 mm.
+- skrajnia M7 w tunelu, mierzona **dwiema niezależnymi drogami** zgodnymi do 3,9 mm;
+- rozkład jazdy odtworzony z GTFS: 49 z 49 odcinków sieci dopasowanych.
 
 **Czego nie ma i dlaczego:**
 
-- **kodu gry.** `src/` jest pusty. Nie ma projektu Godota, rdzenia fizyki ani kabiny.
-  Najkrótsza droga do pierwszego przejazdu to T-310 (#20) i T-400 (#26);
 - **profilu pionowego.** Brak publicznych rzędnych główki szyny, a dwa oficjalne źródła
   podają sprzeczne głębokości stacji. Cały tunel jest wariantem `flat-preview` na Z = 0,
-  a generator **odrzuca** `--variant production`. Zablokowane: T-112 (#10);
-- **stacji.** Brak długości peronów, wyjść i komunikacji pionowej. Zablokowane: R-004 (#16);
-- **toru, trzeciej szyny, rozjazdów.** Zablokowane: R-005 (#17).
+  a generator **odrzuca** `--variant production`. Zablokowane: T-112, czeka na T-901.
+  To samo blokuje scenę z **dwoma** pakietami — przy Z = 0 rury A i E przenikają się
+  w rejonie Arts-Loi;
+- **stacji jako brył.** `tools/track/station_layout.py` liczy perony pakietu A
+  z kilometrażem i odsunięciem krawędzi, ale pierwsza stacja typowa (T-212) jest
+  dopiero w planie. Wyjścia i komunikacja pionowa zostają `unknown`;
+- **wielu składów.** Rdzeń prowadzi jeden skład. T-320 jest następnym zadaniem;
+- **kabiny i wnętrz.** Nie ma ich ani w geometrii, ani w scenie;
+- **ciągłego kilometrażu linii.** `data/track/` pokrywa pakiety, nie linie; między
+  pakietami zostaje 4034 m bez geometrii. Zakres pakietów to decyzja właściciela.
 
 Pełny audyt tego, co jest faktem o brukselskim metrze, a co decyzją projektową:
 **`docs/21-measured-vs-assumed.md`**.
 
-## Pipeline geometrii
+## Weryfikacja
 
-Każdy z tych skryptów kończy się nieprzechodzącym statusem, jeżeli geometria jest zła.
-Wszystkie chodzą na GitHub-hosted `ubuntu-latest`.
+Bramki nie mają być zielone — mają **odrzucać**. Każda ma kontrolę negatywną wypisaną
+w commicie, który ją wprowadził, a od audytu mutacyjnego z 02.09.2026 obowiązuje zasada
+**dwóch niezależnych dróg do tej samej liczby**. Zielona bramka bez pokrycia jest gorsza
+niż brak bramki, bo usypia.
 
 ```bash
+python3 tools/tests/test_all.py             # testy narzędzi
+dotnet test tests/Sim.Tests                 # rdzeń, bez Godota
+dotnet test tests/Game.Tests/Game.Tests.csproj   # warstwa silnika (poza MetroBxl.sln)
+
 bash tools/ci/blender_smoke.sh       # T-010: generacja + render + testy negatywne
 bash tools/ci/visual_smoke.sh        # T-012: determinizm, regresja, pusta klatka
 bash tools/ci/m7_shell_check.sh      # T-220: skorupa M7 i jej wymiary
@@ -53,23 +86,30 @@ bash tools/ci/tunnel_alignment.sh    # T-210: tunel pakietu A, chunki, manifest
 bash tools/ci/vehicle_clearance.sh   # skrajnia M7 w tunelu, pomiar na siatce
 ```
 
-Pojedyncze wywołania:
-
-```bash
-# tunel z rzeczywistej osi, z podziałem na chunki
-blender --background --python tools/blender/tunnel_sweep.py -- \
-  --centerline data/track/L1_A.json --profile box_double --name L1_A \
-  --out build/L1_A.glb --metrics build/L1_A-metrics.json \
-  --chunk-dir build/chunks --chunk-manifest build/chunks/L1_A-chunks.json
-
-# render kontrolny wg canonical manifestu kamer
-blender --background --python tools/visual/capture_blender.py -- \
-  --in build/L1_A.glb --set alignment --prefix L1_A --out renders \
-  --centerline data/track/L1_A.json
-```
+`tests/Game.Tests` celowo **nie jest w `MetroBxl.sln`**: solucja pilnuje reguły 9
+(nic w `src/Sim/` nie importuje Godota), a projekt testowy warstwy silnika by tę bramkę
+rozmontował. Uruchamia się go po ścieżce i osobnym krokiem w `godot-first-run.yml`.
 
 **Rendery trzeba obejrzeć.** Metryka automatyczna nie zastępuje oględzin — jednolita
 szara klatka przechodzi kontrolę „nie jest pusta". Szczegóły: `docs/17-visual-regression.md`.
+
+## CI
+
+Dziesięć workflowów: `blender-smoke`, `visual-regression`, `tunnel-alignment`,
+`m7-shell`, `material-style-smoke`, `station-details`, `python-tests`, `sim-tests`,
+`godot-first-run`, `prune-merged-branches`.
+
+Wszystkie oprócz ostatniego są bramkami, po jednej na zadanie weryfikacyjne;
+`prune-merged-branches` jest utrzymaniowy i odpala się wyłącznie ręcznie
+(`workflow_dispatch`).
+
+**Wszystkie chodzą na self-hosted runnerze**, na gołej etykiecie `self-hosted`, po
+wyczerpaniu minut GitHub Actions 02.09.2026. Każdy job osobno odrzuca pull requesty
+z forków, każdy sprawdza, że workspace jest czysty, i każdy instaluje narzędzia
+warunkowo. Powody i pułapki: `CLAUDE.md` §9, testy: `tools/tests/test_ci_workflows.py`.
+
+`queued` **nie jest weryfikacją**. Zadanie jest zweryfikowane po zakończonym, zielonym
+jobie i sprawdzeniu wymaganych artefaktów.
 
 ## Struktura
 
@@ -77,18 +117,23 @@ szara klatka przechodzi kontrolę „nie jest pusta". Szczegóły: `docs/17-visu
 |---|---|
 | `CLAUDE.md` | konstytucja pracy agentów |
 | `docs/` | architektura, symulacja, konwencje, legal, research, audyt wymiarów |
+| `docs/TASKS.md` | rozpiska zadań, plan faz i tabela „co blokuje co" |
 | `reports/` | raporty z wykonanych zadań, z rzeczywistymi wynikami weryfikacji |
 | `data/network/` | snapshot sieci, rejestr źródeł i licencji, głębokości do T-901 |
-| `data/track/` | oś pakietu A i jej provenance |
+| `data/track/` | osie sześciu pakietów i ich provenance |
 | `data/vehicle/` | specyfikacja M7 |
+| `src/Sim/` | rdzeń symulacji — fizyka, sygnalizacja, prowadzenie. **Bez Godota** |
+| `src/Sim.Runner/` | uruchamianie scenariuszy rdzenia z linii poleceń |
+| `src/Game/` | projekt Godot 4.7 mono — scena, widok składu, tunel, HUD, wejście |
+| `tests/Sim.Tests/` | testy rdzenia |
+| `tests/Game.Tests/` | testy warstwy silnika, poza `MetroBxl.sln` |
 | `tools/track/` | pobieranie i budowa danych trasy, transformacje CRS, kontrole krzyżowe |
 | `tools/blender/` | profile, generator tunelu, skorupa M7, osadzenie pojazdu, skrajnia |
 | `tools/visual/` | canonical manifest kamer, kadrowanie, porównanie renderów |
 | `tools/ci/` | pipeline'y weryfikacyjne, jeden na zadanie |
 | `tools/tests/` | testy bez Blendera i bez sieci |
-| `src/` | **pusty** — rdzeń symulacji jeszcze nie istnieje |
 
-Skille w `.claude/skills/`: `blender-asset`, `track-data`, `sim-physics`.
+Skille w `.claude/skills/`: `blender-asset`, `track-data`, `sim-physics`, `heartbeat`.
 
 ## Zasady, które łatwo złamać przez przypadek
 
@@ -112,6 +157,10 @@ Bazowa geometria trasy pochodzi z oficjalnych danych STIB, regionalne dane Bruss
 Mobility/Paradigm służą jako niezależna kontrola, OSM jako źródło szczegółów torowych
 i kolejna kontrola. **Rozbieżności między źródłami są liczone i zapisywane, nigdy
 uśredniane.**
+
+Snapshoty niosą własne okna ważności i część z nich jest **wygaśnięta** — INSPIRE Rails
+w snapshocie z 01.09.2026 ma `tn:validFrom/validTo` 02.03.2026–28.06.2026. Rejestr to
+odnotowuje zamiast ukrywać; odświeżenie snapshotów jest zadaniem utrzymaniowym.
 
 ## Zastrzeżenie
 

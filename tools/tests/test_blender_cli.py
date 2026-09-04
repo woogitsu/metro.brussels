@@ -53,6 +53,7 @@ def _stub_blender():
 
 _stub_blender()
 
+import glb_report as GRP  # noqa: E402
 import glb_roundtrip as GR  # noqa: E402
 import place_vehicle as PV  # noqa: E402
 import profiles  # noqa: E402
@@ -82,27 +83,32 @@ def test_glb_roundtrip_tolerances_are_pinned():
 
     * `compare.GEOMETRY_TOLERANCE_M` = 0,001 m porównuje dwa **pliki metadanych**
       z tego samego generatora, więc mierzy powtarzalność samego generatora;
-    * `GR.TOLERANCE_M` = 0,01 m porównuje bbox **po przejściu przez glTF**, czyli
+    * `GRP.TOLERANCE_M` = 0,01 m porównuje bbox **po przejściu przez glTF**, czyli
       po zapisie i odczycie w formacie o skończonej precyzji.
 
     Wymaganie od round-tripu milimetra byłoby wymaganiem od formatu czegoś, czego
     format nie obiecuje. Ten test przypina obie liczby i ich RELACJĘ, żeby żadna
     nie pojechała po cichu w drugą stronę.
+
+    Progi przeprowadziły się do `glb_report.py` razem z werdyktem, który je czyta.
+    Ten test celuje w nowy adres, a nie został usunięty: usunięty test nie pada,
+    więc jego brak przeszedłby na zielono i nikt by nie zauważył, że relacja
+    między tolerancjami przestała być pilnowana.
     """
-    assert GR.TOLERANCE_M == 0.01
-    assert GR.COUNT_TOLERANCE == 0.10
+    assert GRP.TOLERANCE_M == 0.01
+    assert GRP.COUNT_TOLERANCE == 0.10
 
     sys.path.insert(0, os.path.join(ROOT, "tools", "visual"))
     import compare  # noqa: E402
     assert compare.GEOMETRY_TOLERANCE_M == 0.001
-    assert GR.TOLERANCE_M > compare.GEOMETRY_TOLERANCE_M, (
+    assert GRP.TOLERANCE_M > compare.GEOMETRY_TOLERANCE_M, (
         "round-trip przez glTF nie może być pilnowany ostrzej niż powtarzalność "
         "samego generatora — to by znaczyło, że wymagamy od formatu więcej, "
         "niż obiecuje")
-    assert GR.TOLERANCE_M <= 10.0 * compare.GEOMETRY_TOLERANCE_M, (
+    assert GRP.TOLERANCE_M <= 10.0 * compare.GEOMETRY_TOLERANCE_M, (
         "luz round-tripu urósł ponad dziesięciokrotność tolerancji generatora — "
         "przy takim progu utrata geometrii przestaje być wykrywalna")
-    assert GR.COUNT_TOLERANCE == compare.GEOMETRY_COUNT_TOLERANCE, (
+    assert GRP.COUNT_TOLERANCE == compare.GEOMETRY_COUNT_TOLERANCE, (
         "obie kontrole liczą te same wierzchołki i ściany, więc ich tolerancja "
         "licznikowa musi być ta sama")
 

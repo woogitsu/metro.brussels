@@ -133,9 +133,11 @@ których agent nie ruszy bez decyzji właściciela.
   jako `unknown` i `docs/11` zabrania liczenia wind z listy wyjść
 - **Zależy od:** T-010, R-004 (zrobione), R-005 (zrobione), R-007 (zrobione)
 
-### [ ] T-212 · Pierwsza stacja typowa — **ZABLOKOWANE tylko przez T-211**
-- **Stan:** blokada danych zdjęta przez R-007; zostaje kolejność zadań
-- **Zależy od:** T-211 (odblokowane, ale niezrobione), T-210 (zrobione)
+### [ ] T-212 · Pierwsza stacja typowa — **ODBLOKOWANE**
+- **Stan:** blokada danych zdjęta przez R-007 (wysokość peronu 1,03 m `source_backed`),
+  blokada zadaniowa zdjęta przez T-211 — oba etapy scalone (#110). Zostaje kolejność:
+  faza 3 planu, po T-320
+- **Zależy od:** T-211 (zrobione), T-210 (zrobione), R-007 (zrobione)
 
 ### [x] T-220 · Bryła zewnętrzna M7
 - **Wyjście:** `tools/blender/m7_shell.py`, `m7_layout.py`, `reports/M7-shell.md`
@@ -216,7 +218,23 @@ których agent nie ruszy bez decyzji właściciela.
   wystawia niczego, czym dałoby się prowadzić skład
 - **Zależy od:** T-313 (zrobione), R-003 (zrobione)
 
-### [ ] T-320 · Rdzeń linii — wiele składów naraz — **ODBLOKOWANE, następne w kolejce**
+### [~] T-320 · Rdzeń linii — wiele składów naraz — **W TOKU**
+- **Zrobione (etap 1):** `LineDrive` — skład krokowany z zewnątrz. Ciało pętli przeniesione
+  z `LineRun` bez zmiany kolejności; ślad co krok identyczny co do bajtu (PR #123)
+- **Zrobione (etap 2):** `src/Sim/Line/LineCore.cs` — N składów na jednym zegarze, jednej
+  osi i jednym planie bloków z T-313. Krok idzie w trzech fazach nad wszystkimi składami
+  (wyjazdy → odczyt autorytetów ze stanu sprzed kroku → jazda i meldunek ruchu), przez co
+  wynik nie zależy od kolejności zgłoszenia. Zmierzone na osi syntetycznej 0/600/1400/2000 m,
+  takt 30 s: drugi skład przejeżdża pierwszy odcinek w 96,03 s wobec 50,37 s na pustej linii,
+  staje 0,29 m przed blokiem zajętym przez poprzedzający i zostaje tam; **zero naruszeń
+  autorytetu** w całym przebiegu
+- **Decyzja modelowa podjęta po drodze (do rewizji przez właściciela):** skład, który stanął
+  przed autorytetem, **stoi**, zamiast dopełzać do granicy. Bez tego `Command` przy prędkości
+  zero daje pełną trakcję — zmierzone 0,30 m w 58 s i przekroczenie autorytetu o 1,1 mm.
+  Warunek nie wnosi ani jednej liczby; do stacji podpełznąć nadal wolno, bo tam łapie okno
+  zatrzymania
+- **Zostaje:** takt i obiegi z T-113 (48 kursów naraz, 71 obiegów) — bez turnbacku nie da się
+  ich domknąć, bo skład, który dojechał do ostatniej stacji, zajmuje peron na zawsze
 - **Wejście z T-113:** takt 5:10 (L1/L5) i 5:40 (L2/L6), 48 kursów naraz w ruchu,
   71 obiegów pojazdów, rozkładowe czasy jazdy i postoju per odcinek (`build/timetable.json`)
 - **Wejście z T-313:** plan bloków pakietu A, zajętość, movement authority i ATP
@@ -238,14 +256,21 @@ których agent nie ruszy bez decyzji właściciela.
 ## Silnik
 
 ### [~] T-400 · Scena Godota i pierwszy przejazd
-- **Zrobione (etap 1):** `src/Game/` — Godot 4.3 mono, jeden skład M7 jedzie 6,56 km po
+- **Zrobione (etap 1):** `src/Game/` — Godot 4.7.2 mono, jeden skład M7 jedzie 6,56 km po
   pakiecie A, napędzany rdzeniem. Rozjazd Godot ↔ rdzeń **0,000 m** przy progu 0, ten sam
   odcisk telemetrii przy nierównym podziale kroków. `reports/T-400-first-run.md`
 - **Zrobione (etap 2):** zrzuty z silnika idą przez kontrolę wizualną z T-012,
   odtwarzalne co do bajtu również między maszynami (`reports/T-012-godot-capture.md`)
-- **Zostaje:** wiele składów (T-320), sygnalizacja (T-313), stacje (T-212),
-  streamowanie chunków, przełączanie LOD. Cykl drzwi jest w rdzeniu (T-312, `DoorCycle`),
-  ale **scena go jeszcze nie woła** — przejazd nadal nie zatrzymuje się na stacjach
+- **Zrobione (etap 3a):** scena **streamuje** chunki i przełącza LOD. `TunnelView.Stream`
+  zastąpił `LoadAll`; predykat okna i wybór poziomu liczy `StreamingPlan` (#174), scena
+  go woła (#177). Zmierzone na pakiecie A, w trójkątach, co 50 m na całej osi 6686,7 m
+  (134 próbki): rezydentne **22,6 % szczytowo i 14,9 % średnio** z 16 176 trójkątów
+  pakietu, od 1 do 3 chunków z 12. Predykat jest przybity **z dwóch stron** — wzorcowa
+  implementacja w Pythonie (`sweep`, `lod`) i runtime C# stoją przy jednej tablicy
+  oczekiwań na 138 wierszach, oba kierunki jazdy, wszystkie 13 szwów trafione dokładnie
+- **Zostaje:** wiele składów (T-320), sygnalizacja (T-313), stacje (T-212). Cykl drzwi
+  jest w rdzeniu (T-312, `DoorCycle`), ale **scena go jeszcze nie woła** — przejazd
+  nadal nie zatrzymuje się na stacjach
 - **Uwaga:** scena wczytuje **jeden** pakiet. Przy `vertical.status = not_modelled` cała
   sieć leży na Z = 0, więc pakiety A i E przenikają się w planie w rejonie Arts-Loi
   (`reports/network-chainage.md`) — sceny z dwoma pakietami nie da się zbudować uczciwie
@@ -348,10 +373,133 @@ Po T-320. Blokada danych zdjęta przez R-007, T-211 scalone.
 ### Faza 4 — T-400 etap 3
 
 Wpiąć w scenę to, co **już jest w rdzeniu i przetestowane, a scena tego nie woła**:
-`DoorCycle`, `StationStop`, `FixedBlockSystem`, `TrainProtection`. Do tego streamowanie
-chunków i przełączanie LOD. Ta faza dotknie miejsc wymagających decyzji właściciela.
+`DoorCycle`, `StationStop`, `FixedBlockSystem`, `TrainProtection`. Streamowanie chunków
+i przełączanie LOD **wypadły z tej fazy, bo są zrobione** (#174, #177 — wpis T-400 wyżej).
+Ta faza dotknie miejsc wymagających decyzji właściciela.
+
+### Faza 5 — kolejka, która nie kończy się na czekaniu
+
+Zadania poniżej **nie wymagają ani jednej decyzji właściciela**. Nie dotykają `data/`
+zapisem, nie wymagają oceny estetycznej, nie ruszają `docs/03-legal.md` i nie potrzebują
+danych, których repo nie ma. Agent bierze je w tej kolejności, gdy fazy 1–4 są zamknięte
+albo gdy faza w toku czeka na cudzy przebieg CI.
+
+Kolejność wynika z jednej zasady: **najpierw to, co może pokazać, że coś innego jest
+nieprawdą.** Zadanie, które ujawnia błąd, jest warte więcej niż zadanie, które dokłada
+funkcję do kodu, o którym nie wiadomo, czy działa.
+
+| # | zadanie | dlaczego bez decyzji | jak się kończy |
+|---|---|---|---|
+| 5.1 | **Przegląd mutacyjny wszystkich bramek** — po jednej mutacji na każdą kontrolę w `tools/ci/*.sh` i `tools/tests/test_*.py`, z rejestrem, która przeżyła | audyt z 02.09.2026 znalazł **cztery zielone bramki, które niczego nie sprawdzały**, i wszystkie cztery znalazła mutacja, nie czytanie kodu. Do tego dwie kolejne w tej samej sesji (`RUNNER_TOOL_CACHE` w komentarzu, szczyt prędkości na osi bez ograniczenia). Sześć na sześć prób — to nie jest wyjątek, to stan | `reports/mutation-sweep.md` z listą bramek, mutacji i wyniku; każda ocalała mutacja to osobne zadanie naprawcze |
+| 5.2 | **Świeże snapshoty STIB — raport różnic, bez zapisu do `data/`** | `data/` zostaje tylko do odczytu: pobranie idzie do `build/`, a wynikiem jest **diff**, nie podmiana. Decyzja, czy podmieniać, zostaje właścicielowi — ale bez raportu nie ma na czym jej oprzeć | `reports/snapshot-drift.md`: co się zmieniło w GTFS, `ACTU_LIGNES_BRUTES`, Stop Details i INSPIRE Rails wobec commitów w `data/`, z liczbami. INSPIRE Rails miał okno ważności **02.03–28.06.2026** i był wygaśnięty już w chwili pobrania 01.09.2026 |
+| 5.6 | **Domknąć „Czego brakuje w tej rozpisce"** — T-114, R-002…R-007, T-401 mają Issues, ale nie mają wpisu tutaj | ten plik sam deklaruje, że dopóki wpisu nie ma, **Issues są jedynym źródłem prawdy** — czyli rozjazd jest zapisany, ale niezamknięty | sekcja znika, bo każde zadanie ma wpis z sześcioma polami |
+| 5.7 | **Budżet kroków dla wielu składów** — ile kosztuje 120 Hz przy N składach na osi | czysty pomiar na istniejącym kodzie; nie wymaga ani jednej nowej liczby o sieci | `reports/linecore-budget.md`: kroki na sekundę wobec N, i przy jakim N krok stały przestaje się mieścić w klatce |
+| 5.8 | **Pokrycie dwóch modułów `tools/` bez testu jednostkowego** | oba mają dziś wyłącznie pokrycie integracyjne, czyli takie, które mówi „przeszło", ale nie mówi, co dokładnie | testy jednostkowe z kontrolami negatywnymi, jak reszta |
+
+#### Domknięte i zdjęte z kolejki
+
+Pozycja zrobiona znika z tabeli wyżej, a jej wynik stoi w odpowiednim wpisie w tym pliku.
+Tabela jest tu po to, żeby numer, który kiedyś istniał, nie wyglądał na zgubiony.
+
+**Licznik zapasu tej sekcji NIE liczy** i pilnuje tego `tools/tests/test_backlog.py`.
+Bez tego wykluczenia domknięcie pozycji podnosiłoby zapas zamiast go obniżać: wiersz
+`| 6.C1 | ... |` wygląda dla parsera dokładnie tak samo, niezależnie od tego, w której
+tabeli stoi. Zmierzone przy pisaniu tej sekcji — licznik pokazywał 28 przy 25 pozycjach
+realnych.
+
+| # | co było | gdzie zostało zrobione |
+|---|---|---|
+| 5.3 | T-401 zmierzone tylko na L1_A, i to na kilometrażach przed #86 | `reports/T-401-line-run.md` §3 i §4 przeliczone 04.09.2026 na sześciu pakietach: 49 z 49 odcinków dopasowanych, 0 wolniejszych, wszystkie sześć odcinków wiążących identycznych z pierwszą wersją. §3a dokumentuje, że stare liczby były sprzed #86, z bisekcją po commitach i metodą wyszukiwania limitu zapisaną wprost |
+| 5.4 | ten sam blok preflightu w dziesięciu workflowach (kontrola czystego workspace) i w siedmiu (sonda narzędzi) | `.github/actions/check-workspace` i `.github/actions/probe-tools`; **warunek odrzucający forki ZOSTAJE w każdym jobie** i nie mógł się przenieść — akcja lokalna uruchamia się dopiero po checkoucie, czyli gdy kod z forka już leży na maszynie. Utrzymanie pilnują `test_no_workflow_reinlines_what_the_local_actions_now_own` i `test_the_local_actions_carry_the_rule_they_took_over` |
+| 5.5 | akcje GitHuba przypięte po tagu, nie po SHA | wszystkie cztery `uses:` mają pełny SHA i komentarz z wersją; pilnują tego `test_ci_workflows.py::test_every_action_is_pinned_to_a_commit_not_a_moving_tag`, `..._every_pinned_action_says_which_version_the_commit_is` i `..._the_same_action_is_pinned_to_the_same_commit_everywhere` |
+| 6.C1 | scena wczytywała wszystkie chunki naraz | #174 (predykat i LOD po stronie sceny), #177 (`TunnelView.Stream` zamiast `LoadAll`) — wpis T-400, etap 3a |
+| 6.C2 | poziomy LOD istniały, scena ich nie używała | to samo, `StreamingPlan.LodPlan`; przybite tablicą oczekiwań wspólną dla Pythona i C# |
+
+**Czego w tej kolejce świadomie NIE ma:** wszystkiego, co wymagałoby wymyślenia liczby
+o brukselskim metrze. Zmyślona głębokość stacji wygląda dokładnie tak samo jak prawdziwa,
+a zadanie „na przeczekanie" jest najgorszym momentem, żeby o tym zapomnieć.
+
+**Cztery z tych ośmiu są generatorami, nie pozycjami.** 5.1 daje jedno zadanie naprawcze
+na każdą ocalałą mutację, 5.2 jedno na każdy wykryty rozjazd danych, 5.3 jedno na każdy
+odcinek, gdzie model nie mieści się w rozkładzie, 5.8 jedno na każdy moduł bez pokrycia.
+Ile ich będzie, wiadomo dopiero po wykonaniu — i **to jest właściwa własność kolejki**:
+kolejka złożona z samych pozycji stałych wyczerpuje się z definicji.
+
+### Reguła zapasu
+
+> **Agent nigdy nie ma mniej niż 24 godziny pracy przed sobą. Uzupełnienie zapasu jest
+> zadaniem samo w sobie i ma pierwszeństwo przed zatrzymaniem się.**
+
+Powód nie jest wydajnościowy, tylko taki: agent, który skończył kolejkę, ma do wyboru
+stanąć albo **wymyślić sobie zadanie na miejscu**. Drugie jest gorsze, bo zadanie
+wymyślone w pośpiechu omija format z sekcji 6 `CLAUDE.md` i zwykle ląduje w miejscu,
+które akurat wygląda na niedokończone — czyli w kodzie, którego nikt nie prosił o zmianę.
+
+Mechanika:
+
+1. Przed wzięciem zadania agent liczy **niezrobione** pozycje w fazie 5 i 6.
+2. Poniżej **dwunastu** pierwszym zadaniem jest uzupełnienie fazy 6 — nowe pozycje muszą
+   mieć wszystkie sześć pól z `docs/TASK-TEMPLATE.md` i kolumnę „dlaczego bez decyzji".
+3. Pilnuje tego `tools/tests/test_backlog.py`; bramka jest czerwona, gdy zapas spadnie
+   poniżej progu, więc nie da się tego przeoczyć między sesjami.
+4. Zadanie, którego nie da się zrobić bez decyzji, **nie liczy się do zapasu** i wędruje
+   do sekcji „Czego agent nie ruszy bez decyzji".
+
+Szacunki godzin niżej są zgrubne i celowo podane jako przedziały. Podstawa: w sesji
+02.09.2026 jedno zadanie z pełną weryfikacją, przeglądem mutacyjnym, commitem i PR-em
+zajmowało **20–45 minut**. Zadanie oznaczone `L` to takie, które ma więcej niż jeden
+przyrost i kończy się osobnym PR-em na każdy.
+
+### Faza 6 — zapas
+
+Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można przeplatać;
+`docs/22-heartbeat.md` opisuje, kiedy agent w ogóle po tę listę sięga.
+
+#### Pasmo A — rdzeń symulacji (`src/Sim`, bez Godota, bez nowych danych o sieci)
+
+| # | zadanie | dlaczego bez decyzji | rozmiar |
+|---|---|---|---|
+| 6.A1 | **Autorytet jazdy w `LineDrive`** — skład pyta `FixedBlockSystem` o zajętość bloku przed sobą i hamuje przed zajętym | plan bloków jest **wynikiem reguły**, nie tabelką (T-313, `SignallingPlan.FromAxis`); ATP korzysta z krzywej T-311. Nic nowego do zgadnięcia | L |
+| 6.A2 | **`LineCore`: N składów na wspólnym zegarze** z autorytetem z 6.A1 | takt 310 s / 340 s jest **zmierzony** z GTFS (T-113), nie założony | L |
+| 6.A3 | **Odtworzenie doby służby z bloków GTFS** — 71 obiegów, maks. 56 równocześnie o 07:06:44 | wszystkie liczby zmierzone w T-113, leżą w `build/timetable.json` | L |
+| 6.A4 | **Propagacja opóźnienia przy zmierzonym rozkładzie postojów** — co robi z taktem jeden skład spóźniony o 30 s | rozkład postojów jest **zmierzony** (29 554 zatrzymań, 12–45 s), więc perturbacja nie jest zmyślona; sama polityka reakcji dyspozytora zostaje poza zakresem | M |
+| 6.A5 | **Bilans energii przejazdu z odzyskiem i bez** | model energii jest w rdzeniu od T-310; to pomiar na istniejącym kodzie | M |
+| 6.A6 | **Wybieg zamiast trakcji: ile kosztuje w czasie, ile oszczędza w energii** | czysty eksperyment na modelu, żadnych nowych danych | M |
+| 6.A7 | **Testy własnościowe fizyki** — monotoniczność drogi hamowania po prędkości i masie, zachowanie energii, brak ujemnego czasu | wzmacnia to, co jest; nie dodaje ani jednej liczby o metrze | M |
+
+#### Pasmo B — narzędzia i geometria (`tools/`)
+
+| # | zadanie | dlaczego bez decyzji | rozmiar |
+|---|---|---|---|
+| 6.B1 | **`station_layout.py` na pakietach B–F**, dziś liczy tylko pakiet A | osie sześciu pakietów są w `data/track/`, wysokość peronu `source_backed` z R-007 | M |
+| 6.B2 | **Znaczniki kilometrażu (T-011) na pozostałych pakietach** | to samo narzędzie, inne wejście | S |
+| 6.B3 | **LOD tuneli pakietów B–F** | wzorzec z pakietu A, `reports/L1_A-lod.md` | M |
+| 6.B4 | **Kontrola krzyżowa osi B–F wobec OSM**, jak `reports/L1_A-crosscheck.md` dla A | hierarchia źródeł rozstrzygnięta w `docs/07`; rozbieżności się **liczy i zapisuje**, nigdy nie uśrednia | M |
+| 6.B5 | **Wykrywanie łuków o najmniejszym promieniu na każdej osi** i sprawdzenie skrajni M7 punkt po punkcie | metoda zmierzona i opisana (`reports/M7-curve-clearance.md`), zostaje zastosowanie | M |
+
+#### Pasmo C — warstwa silnika (`src/Game`)
+
+| # | zadanie | dlaczego bez decyzji | rozmiar |
+|---|---|---|---|
+| 6.C3 | **Odtwarzanie przejazdu z pliku telemetrii** — scena jako widok zapisanego przebiegu | wynika wprost z zasady „linia jest symulacją, kabina jednym z jej widoków" | M |
+| 6.C4 | **Kamera inspekcyjna** do oglądania geometrii bez jazdy | narzędzie weryfikacji, nie decyzja estetyczna: nie zmienia ani jednego materiału | S |
+
+#### Pasmo D — weryfikacja i CI
+
+| # | zadanie | dlaczego bez decyzji | rozmiar |
+|---|---|---|---|
+| 6.D1 | **Wzorcowy ślad jako bramka CI** — to, co przy `LineDrive` robiłem ręcznie (453 107 wierszy, sześć osi, porównanie co do bajtu), ma chodzić samo przy każdej zmianie rdzenia | metoda sprawdzona i udowodniona kontrolą negatywną: próg przesunięty o 0,1 % daje rozjazd w wierszu 2910 | M |
+| 6.D2 | **Bramka na czas przebiegu** — regres wydajności rdzenia widoczny, zanim zablokuje N składów | pomiar, nie decyzja | S |
+| 6.D3 | **Kontrola, że każdy `reports/*.md` niesie commit i datę pomiaru** | konwencja już obowiązuje, brakuje bramki | S |
+| 6.D4 | **Kontrola spójności liczb między `reports/` a kodem** — wartość wypisana w raporcie musi dać się odtworzyć z repo | dokładnie ta klasa rozjazdu, którą audyt znalazł w README | M |
+
+**Aktualizacja tej listy jest częścią pracy, nie dodatkiem do niej.** Pozycja zrobiona
+znika stąd i pojawia się jako wpis z sześcioma polami wyżej w tym pliku.
 
 ### Czego agent nie ruszy bez decyzji
+
+Poniższe **nie są kolejką** — są listą rzeczy, które czekają na właściciela. Agent po nie
+nie sięga, nawet gdy nie ma nic innego do roboty; wtedy sięga po fazę 5.
 
 | | dlaczego |
 |---|---|
@@ -365,8 +513,9 @@ chunków i przełączanie LOD. Ta faza dotknie miejsc wymagających decyzji wła
 
 ### Znane rozjazdy w dokumentach
 
-- `CLAUDE.md` §2 mówi „**25 testów narzędzi**". Jest **691**. Liczba pochodzi z czasów,
-  gdy `test_all.py` był jednym plikiem; dziś zbiera 30 modułów.
+- ~~`CLAUDE.md` §2 mówi „25 testów narzędzi"~~ — **zamknięte**: liczba zeszła z pliku,
+  bo zaszywanie jej w konstytucji generowało rozjazd przy każdym nowym module.
+  Dla porządku: `test_all.py` zbiera dziś **700** testów z 31 modułów.
 - Dziesięć Issues jest otwartych, choć zadanie leży w `main` (#9, #15–#17, #20–#24, #27).
   Ten plik deklaruje Issues źródłem prawdy o statusie, więc rozjazd jest realny.
   Część z nich właściciel poprosił, żeby zostawić otwarte.

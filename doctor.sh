@@ -20,13 +20,48 @@ chk_required "git" "git --version" "zainstaluj git"
 
 echo ""
 echo "Wymagane dla rdzenia symulacji (T-310 jest zrobione, src/Sim istnieje):"
-chk_required "dotnet SDK" "dotnet --version" "zainstaluj .NET SDK 8.0+ (https://dotnet.microsoft.com/download)"
+chk_required "dotnet SDK" "dotnet --version" "zainstaluj .NET SDK 10.0+ (https://dotnet.microsoft.com/download)"
+
+# Sama obecność `dotnet` nie wystarczy i to jest zmierzone, nie przewidywane.
+# Po podniesieniu rdzenia na `net10.0` (04.09.2026) doctor na SDK 8.0.130 wypisywał
+# `ok dotnet SDK`, a dwadzieścia wierszy niżej `BLAD dotnet test nie przechodzi`
+# z błędem NETSDK1045 — czyli mówił „ok" o tym samym SDK, przez które przed chwilą
+# padł. Podpowiedź obiecywała „10.0+", ale nikt tego nie sprawdzał.
+#
+# Wymagana wersja NIE jest tu wpisana z ręki: czyta się ją z `<TargetFramework>`
+# w `src/Sim/Sim.csproj`, czyli z jedynego miejsca, które o niej decyduje. Wpisanie
+# jej drugi raz dałoby dwa źródła prawdy i rozjazd przy następnym podniesieniu.
+REQUIRED_TFM="$(sed -n 's/.*<TargetFramework>net\([0-9]*\)\..*/\1/p' src/Sim/Sim.csproj 2>/dev/null | head -1)"
+HAVE_SDK_MAJOR="$(dotnet --version 2>/dev/null | cut -d. -f1)"
+if [ -n "$REQUIRED_TFM" ] && [ -n "$HAVE_SDK_MAJOR" ]; then
+  chk_required "dotnet SDK >= $REQUIRED_TFM (jest $HAVE_SDK_MAJOR)" \
+    "[ \"$HAVE_SDK_MAJOR\" -ge \"$REQUIRED_TFM\" ]" \
+    "src/Sim/Sim.csproj celuje w net${REQUIRED_TFM}.0, a to SDK tego nie zbuduje (NETSDK1045); pobierz nowsze z https://dotnet.microsoft.com/download"
+fi
 
 echo ""
 echo "Wymagane dopiero przez konkretne zadania:"
-chk_optional "blender w PATH" "blender --version" "wymagany od T-010/T-2xx"
-if command -v blender >/dev/null 2>&1; then
-  chk_optional "blender headless" "blender --background --python-expr 'pass'" "napraw tryb headless przed T-010"
+# Blender bywa instalowany poza PATH: `tools/ci/blender_install.sh` rozpakowuje
+# przypiętą wersję do katalogu poza workspace, bo `git clean -ffdx` z checkoutu
+# skasowałby ją przy każdym przebiegu. `BLENDER_BIN` jest tą samą zmienną, której
+# używają skrypty CI, więc doctor pyta o to samo co CI, a nie o coś innego.
+BLENDER_CMD="${BLENDER_BIN:-blender}"
+chk_optional "blender ($BLENDER_CMD)" "\"$BLENDER_CMD\" --version" \
+  "wymagany od T-010/T-2xx; ustaw BLENDER_BIN albo uruchom tools/ci/blender_install.sh"
+if "$BLENDER_CMD" --version >/dev/null 2>&1; then
+  chk_optional "blender headless" "\"$BLENDER_CMD\" --background --python-expr 'pass'" \
+    "napraw tryb headless przed T-010"
+  # Wersja NIE jest drobiazgiem informacyjnym. Rozstrzyga, która generacja EEVEE stoi
+  # za nazwą `BLENDER_EEVEE`, a rendery z legacy i z Next nie są porównywalne. Doctor
+  # porównuje z pinem z `tools/ci/blender-version.txt`, czyli z tym samym numerem,
+  # którego wymaga CI — inaczej „ok" u siebie i czerwona bramka w CI to ten sam stan.
+  PINNED_BLENDER="$(sed -n 's/^version=//p' tools/ci/blender-version.txt 2>/dev/null)"
+  HAVE_BLENDER="$("$BLENDER_CMD" --version 2>/dev/null | sed -n '1s/^Blender \([0-9.]*\).*/\1/p')"
+  if [ -n "$PINNED_BLENDER" ]; then
+    chk_optional "blender w wersji z pinu ($PINNED_BLENDER, jest $HAVE_BLENDER)" \
+      "[ \"$HAVE_BLENDER\" = \"$PINNED_BLENDER\" ]" \
+      "CI wymaga $PINNED_BLENDER; uruchom tools/ci/blender_install.sh i ustaw BLENDER_BIN"
+  fi
 fi
 # Godot bywa instalowany poza PATH (dystrybucje nie pakują wersji mono, a workflow
 # `godot-first-run.yml` rozpakowuje ją do własnego katalogu). `GODOT_BIN` jest tą samą

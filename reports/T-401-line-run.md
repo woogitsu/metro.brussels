@@ -22,95 +22,186 @@ Rdzeń nie importuje Godota (reguła 9); `data/` nietknięte (reguła 6).
 
 ## 2. Weryfikacja — rzeczywiste wyjście
 
+**Przeliczone 04.09.2026 na commicie `28e0d82`.** Poprzednia wersja tej sekcji niosła
+wyjście sprzed commita `4a03982` (#86) — ta sama zaległość, którą §3a opisuje dla §3
+i §4. Skutek był gorszy niż w tamtych sekcjach: **raport przeczył sam sobie**, bo §2
+podawało 6686,69 m i 89 333 kroki, a §3 w tym samym pliku 6686,05 m i 89 332. Sekcja
+„rzeczywiste wyjście" jest w tym repozytorium dowodem w rozumieniu `CLAUDE.md` §5 i §7,
+więc stary blok w niej był najgorszym miejscem na nieaktualne liczby.
+
 ```
 $ dotnet run --project src/Sim.Runner -- line --axis data/track/L1_A.json \
     --limit-kmh 72 --exchange-s 10.5 --load AW0 --timetable build/timetable.json
 ```
 
 ```
-[LINIA] L1_A: 11 zatrzymań, 6686.69 m, 725.43 s, postoje 209.09 s, kroków 89333, koniec=arrived
+[LINIA] L1_A: 11 zatrzymań, 6686.05 m, 725.42 s, postoje 209.09 s, kroków 89332, koniec=arrived
 [LINIA] limit 72.00 km/h, wymiana 10.5 s, hamulec 100 % służbowego, okno stacji 5.0 m, obciążenie AW0 170000 kg
 [ZAŁOŻENIE] SpeedLimitMps = 20 — jedno ograniczenie na całą oś; speed_limits w data/track/*.json jest puste we wszystkich sześciu pakietach, a 80 km/h z rejestru M7 to prędkość konstrukcyjna pojazdu (design_model), nie prędkość dopuszczalna na torze
 [ZAŁOŻENIE] PassengerExchangeSeconds = 10.5 — brak źródła (T-312). T-113 ogranicza od góry: postój rozkładowy minus cykl drzwi 8,5 s, czyli ≤ 10,5 s przy medianowym postoju 19 s
 [ZAŁOŻENIE] BrakeUsageFraction = 1 — ułamek hamulca służbowego, przy którym maszynista zaczyna hamować; praktyka prowadzenia STIB nie jest publikowana
 [ZAŁOŻENIE] StopWindowM = 5 — okno rozpoznania stacji przez pętlę, nie dokładność zatrzymania M7 — rzeczywisty błąd zatrzymania jest mierzony i wychodzi w StationCall.StopErrorM
-[STACJA] Beekkant: przyjazd 43.27 s na 509.43 m (błąd -0.306 m), jazda 43.27 s na 509.43 m, szczyt 72.00 km/h
-[STACJA] Étangs Noirs|Zwarte Vijvers: przyjazd 127.77 s na 1451.69 m (błąd -0.305 m), jazda 65.50 s na 942.26 m, szczyt 72.00 km/h
-[STACJA] Comte de Flandre|Graaf van Vlaanderen: przyjazd 195.31 s na 2054.62 m (błąd -0.304 m), jazda 48.53 s na 602.92 m, szczyt 72.00 km/h
-[STACJA] Sainte-Catherine|Sint-Katelijne: przyjazd 266.00 s na 2720.71 m (błąd -0.304 m), jazda 51.68 s na 666.09 m, szczyt 72.00 km/h
-[STACJA] De Brouckère: przyjazd 323.83 s na 3130.07 m (błąd -0.294 m), jazda 38.82 s na 409.36 m, szczyt 69.83 km/h
-[STACJA] Gare Centrale|Centraal Station: przyjazd 391.31 s na 3732.06 m (błąd -0.299 m), jazda 48.47 s na 601.99 m, szczyt 72.00 km/h
-[STACJA] Parc|Park: przyjazd 445.70 s na 4075.95 m (błąd -0.296 m), jazda 35.38 s na 343.89 m, szczyt 65.07 km/h
-[STACJA] Arts-Loi|Kunst-Wet: przyjazd 507.34 s na 4561.28 m (błąd -0.299 m), jazda 42.63 s na 485.33 m, szczyt 72.00 km/h
-[STACJA] Maelbeek|Maalbeek: przyjazd 574.31 s na 5152.74 m (błąd -0.306 m), jazda 47.96 s na 591.46 m, szczyt 72.00 km/h
-[STACJA] Schuman: przyjazd 627.11 s na 5467.68 m (błąd -0.303 m), jazda 33.79 s na 314.93 m, szczyt 62.75 km/h
-[STACJA] Merode: przyjazd 725.43 s na 6686.69 m (błąd -0.300 m), jazda 79.32 s na 1219.01 m, szczyt 72.00 km/h
-[LINIA] największy błąd zatrzymania: 0.306 m
-[ROZKŁAD] Beekkant → Étangs Noirs|Zwarte Vijvers: model 65.50 s, rozkład 78 s, rezerwa +12.50 s
+[STACJA] Beekkant: przyjazd 43.27 s na 509.42 m (błąd -0.307 m), jazda 43.27 s na 509.42 m, szczyt 72.00 km/h
+[STACJA] Étangs Noirs|Zwarte Vijvers: przyjazd 127.75 s na 1451.60 m (błąd -0.300 m), jazda 65.47 s na 942.18 m, szczyt 72.00 km/h
+[STACJA] Comte de Flandre|Graaf van Vlaanderen: przyjazd 195.28 s na 2054.48 m (błąd -0.302 m), jazda 48.53 s na 602.88 m, szczyt 72.00 km/h
+[STACJA] Sainte-Catherine|Sint-Katelijne: przyjazd 265.98 s na 2720.44 m (błąd -0.307 m), jazda 51.68 s na 665.96 m, szczyt 72.00 km/h
+[STACJA] De Brouckère: przyjazd 323.81 s na 3129.64 m (błąd -0.300 m), jazda 38.82 s na 409.20 m, szczyt 69.81 km/h
+[STACJA] Gare Centrale|Centraal Station: przyjazd 391.29 s na 3731.55 m (błąd -0.303 m), jazda 48.48 s na 601.91 m, szczyt 72.00 km/h
+[STACJA] Parc|Park: przyjazd 445.68 s na 4075.37 m (błąd -0.289 m), jazda 35.38 s na 343.82 m, szczyt 65.07 km/h
+[STACJA] Arts-Loi|Kunst-Wet: przyjazd 507.33 s na 4560.64 m (błąd -0.306 m), jazda 42.65 s na 485.27 m, szczyt 72.00 km/h
+[STACJA] Maelbeek|Maalbeek: przyjazd 574.30 s na 5152.11 m (błąd -0.307 m), jazda 47.96 s na 591.47 m, szczyt 72.00 km/h
+[STACJA] Schuman: przyjazd 627.10 s na 5467.05 m (błąd -0.303 m), jazda 33.79 s na 314.93 m, szczyt 62.75 km/h
+[STACJA] Merode: przyjazd 725.42 s na 6686.05 m (błąd -0.299 m), jazda 79.32 s na 1219.00 m, szczyt 72.00 km/h
+[LINIA] największy błąd zatrzymania: 0.307 m
+[ROZKŁAD] Beekkant → Étangs Noirs|Zwarte Vijvers: model 65.47 s, rozkład 78 s, rezerwa +12.53 s
 [ROZKŁAD] Étangs Noirs|Zwarte Vijvers → Comte de Flandre|Graaf van Vlaanderen: model 48.53 s, rozkład 58 s, rezerwa +9.47 s
 [ROZKŁAD] Comte de Flandre|Graaf van Vlaanderen → Sainte-Catherine|Sint-Katelijne: model 51.68 s, rozkład 71 s, rezerwa +19.32 s
 [ROZKŁAD] Sainte-Catherine|Sint-Katelijne → De Brouckère: model 38.82 s, rozkład 51 s, rezerwa +12.18 s
-[ROZKŁAD] De Brouckère → Gare Centrale|Centraal Station: model 48.47 s, rozkład 61 s, rezerwa +12.53 s
-[ROZKŁAD] Gare Centrale|Centraal Station → Parc|Park: model 35.38 s, rozkład 39 s, rezerwa +3.62 s
-[ROZKŁAD] Parc|Park → Arts-Loi|Kunst-Wet: model 42.63 s, rozkład 51 s, rezerwa +8.37 s
+[ROZKŁAD] De Brouckère → Gare Centrale|Centraal Station: model 48.48 s, rozkład 61 s, rezerwa +12.53 s
+[ROZKŁAD] Gare Centrale|Centraal Station → Parc|Park: model 35.38 s, rozkład 39 s, rezerwa +3.63 s
+[ROZKŁAD] Parc|Park → Arts-Loi|Kunst-Wet: model 42.65 s, rozkład 51 s, rezerwa +8.35 s
 [ROZKŁAD] Arts-Loi|Kunst-Wet → Maelbeek|Maalbeek: model 47.96 s, rozkład 54 s, rezerwa +6.04 s
 [ROZKŁAD] Maelbeek|Maalbeek → Schuman: model 33.79 s, rozkład 45 s, rezerwa +11.21 s
 [ROZKŁAD] Schuman → Merode: model 79.32 s, rozkład 90 s, rezerwa +10.68 s
 [ROZKŁAD] dopasowanych odcinków: 10 z 10
 ```
 
-```
-$ dotnet test tests/Sim.Tests
-Passed!  - Failed: 0, Passed: 205, Skipped: 0, Total: 205
-
-$ python3 tools/tests/test_all.py
-  406/406 przeszło
-```
+Wszystkie jedenaście kilometraży stacji przesunęło się względem starej wersji tej sekcji
+(np. Beekkant 509,43 → 509,42 m, Comte de Flandre 2054,62 → 2054,48 m, Schuman
+5467,68 → 5467,05 m), bo #86 przeliczył je na polilinii, która faktycznie leży w pliku.
+Największy błąd zatrzymania to dziś **0,307 m** (było 0,306 m), a rezerwy rozkładowe
+zmieniły się w trzecim miejscu znaczącym. Mechanizm i dowód bisekcją — §3a.
 
 ## 3. Model jest szybszy od rozkładu na wszystkich 49 odcinkach sieci
 
+**Przeliczone 04.09.2026 na commicie `7d15987`.** Liczby w tej sekcji i w §4 zmieniły
+się od pierwszej wersji raportu; przyczyna jest w §3a i nie jest usterką modelu.
+
 Sześć pakietów, limit 72 km/h, wymiana pasażerów 10,5 s, AW0:
 
-| pakiet | zatrzymań | droga | czas | odcinków dopasowanych | model wolniejszy od rozkładu |
-|---|---:|---:|---:|---:|---:|
-| L1_A | 11 | 6686,69 m | 725,43 s | 10 z 10 | **0** |
-| L1_B | 8 | 5083,40 m | 533,67 s | 7 z 7 | **0** |
-| L2_E | 16 | 9021,01 m | 1029,60 s | 15 z 15 | **0** |
-| L5_C | 8 | 5386,67 m | 548,87 s | 7 z 7 | **0** |
-| L5_D | 6 | 3847,18 m | 396,73 s | 5 z 5 | **0** |
-| L6_F | 6 | 4456,80 m | 427,53 s | 5 z 5 | **0** |
+| pakiet | zatrzymań | droga | czas | kroków | odcinków dopasowanych | model wolniejszy |
+|---|---:|---:|---:|---:|---:|---:|
+| L1_A | 11 | 6686,05 m | 725,42 s | 89 332 | 10 z 10 | **0** |
+| L1_B | 8 | 5082,93 m | 533,67 s | 66 321 | 7 z 7 | **0** |
+| L2_E | 16 | 9020,47 m | 1029,59 s | 125 832 | 15 z 15 | **0** |
+| L5_C | 8 | 5386,11 m | 548,78 s | 68 135 | 7 z 7 | **0** |
+| L5_D | 6 | 3846,93 m | 396,76 s | 49 892 | 5 z 5 | **0** |
+| L6_F | 6 | 4456,36 m | 427,57 s | 53 589 | 5 z 5 | **0** |
 
 **49 z 49 odcinków dopasowanych** do rozkładu i na żadnym model nie jest wolniejszy.
-Dopasowanie idzie po `stop_id`, nie po nazwie — patrz §6.
+Dopasowanie idzie po `stop_id`, nie po nazwie — patrz §6. Wniosek jest ten sam co
+w pierwszej wersji; zmieniły się wyłącznie liczby.
+
+Najciaśniejszy odcinek sieci przy 72 km/h to **Gare Centrale → Parc** z rezerwą
+**+3,63 s** — i to nie jest ten sam odcinek, który wiąże limit prędkości (§4).
+Przy pełnym limicie decyduje najkrótszy postój rozkładowy, a przy limicie obniżanym
+decyduje odcinek najdłuższy; te dwa pytania mają różne odpowiedzi.
+
+### 3a. Dlaczego te liczby różnią się od pierwszej wersji raportu
+
+Pierwsza wersja podawała dla L1_A **6686,69 m i 89 333 kroków**. Dziś wychodzi
+**6686,05 m i 89 332 kroki** — mniej o 0,64 m i o jeden krok. Wszystkie sześć pakietów
+skróciło się o 0,25–0,64 m.
+
+Powód ustalony **bisekcją po commitach**, a nie z domysłu:
+
+```
+543b303  T-401 (ten raport)                   6686.69 m, 89333 kroków
+3c378d9  T-313 (bloki stałe i ochrona)        6686.05 m, 89332 kroki
+da278ae  T-314                                6686.05 m, 89332 kroki
+93b4c59  #112                                 6686.05 m, 89332 kroki
+196c43f  T-320 trasa                          6686.05 m, 89332 kroki
+90a8c31  T-320 LineDrive                      6686.05 m, 89332 kroki
+ba93903  .NET 8 -> 10                         6686.05 m, 89332 kroki
+HEAD     7d15987                              6686.05 m, 89332 kroki
+```
+
+Zmiana wchodzi między `543b303` i `3c378d9`, ale **nie jest w kodzie rdzenia**:
+w tym zakresie `src/Sim/Train/` i `src/Sim/Physics/` nie są tknięte. Zmieniły się
+**dane osi**. Commit `4a03982` („Kilometraż stacji liczony na osi, która trafia do
+pliku", #86) przeliczył kilometraże stacji na tej polilinii, która faktycznie leży
+w pliku, zamiast na źródłowej przed przepróbkowaniem. Dla L1_A:
+
+| stacja | przed #86 | po #86 |
+|---|---:|---:|
+| Beekkant | 509,74 | 509,73 |
+| Étangs Noirs | 1452,00 | 1451,90 |
+| Schuman | 5467,98 | 5467,35 |
+| **Merode** (ostatnia) | **6686,99** | **6686,35** |
+
+`length_m` osi to 6686,35 m, więc **przed #86 ostatnia stacja leżała 0,64 m ZA końcem
+zadeklarowanej osi**. Po #86 leży dokładnie na nim. Skrócenie przejazdu o 0,64 m jest
+więc dokładnie tą poprawką, a nie regresem — dane zrobiły się dokładniejsze.
+
+Że stary plik był niespójny, mówi `tools/track/validate.py` puszczony na wersji
+z `543b303`. Jest to **ostrzeżenie, nie błąd** — pierwsza wersja tego akapitu pisała
+„przekroczenie", i to było za mocne:
+
+```
+$ python3 -c "... V.validate(L1_A z 543b303)"
+PRZED #86  ok=True błędów=0 ostrzeżeń=2
+     OSTRZ: rzut ostatniej stacji wypada 0.636 m za końcem osi (6686.99 m wobec
+            6686.35 m); mieści się w ostatnim odcinku (14.99 m), ale kilometraż
+            jest obcinany przy odczycie pozycji
+DZIŚ       ok=True błędów=0 ostrzeżeń=1     (zostaje tylko brak głębokości stacji)
+```
+
+Ostrzeżenie samo nazywa mechanizm: kilometraż był **obcinany przy odczycie pozycji**.
+Dlatego 0,636 m nie przekładało się na 0,636 m przejazdu — po #86 nie ma czego obcinać
+i różnica wychodzi na 0,64 m drogi oraz jeden krok.
+
+Stara wartość nie zniknęła: #86 dopisał do każdej stacji `source_chainage_m`
+z kilometrażem źródłowym, więc obie liczby są w pliku i da się je porównać.
+
+**Czego to NIE tłumaczy.** Limity z §4 przesunęły się po stronie C# o 0,02–0,27 km/h,
+a po stronie Pythona o najwyżej 0,01 km/h. Przy odcinkach, których długości zmieniły
+się o centymetry, asymetria tego rzędu nie wynika wprost z #86 i **nie ustaliłem jej
+przyczyny**. Drugą możliwością jest metoda wyszukiwania limitu: pierwsza wersja raportu
+nie zapisała swojej, więc nie da się jej powtórzić. Dzisiejsza jest opisana w §4 wprost,
+żeby następny przebieg był porównywalny — i to jest cała nauka z tego miejsca.
 
 ## 4. Dwie niezależne implementacje wskazują te same sześć odcinków
 
-T-113 policzył dolne ograniczenie prędkości liniowej **w Pythonie**, profilem idealnym:
+T-113 liczy dolne ograniczenie prędkości liniowej **w Pythonie**, profilem idealnym:
 rozpęd, jazda ustalona, hamowanie ze wzoru zamkniętego, przyjazd dokładnie na czas.
 Tutaj liczy je **C#**, krok po kroku, pętlą sprzężenia zwrotnego, z hamulcem narastającym
 przez ograniczenie zrywu i z oporami ruchu działającymi przez cały przejazd.
 
-Najmniejszy limit prędkości, przy którym cały pakiet mieści się w rozkładzie:
+**Metoda po stronie C#, żeby dała się powtórzić:** bisekcja po `--limit-kmh`
+w przedziale [40,00; 72,00] km/h, dwanaście połowień, kryterium to kod wyjścia
+`line --timetable` (0 = cały pakiet mieści się w rozkładzie, 1 = model wolniejszy
+na co najmniej jednym odcinku). Rozdzielczość wynikowa 0,01 km/h. Odcinek wiążący
+wskazany osobno: przebieg o 0,02 km/h poniżej znalezionego limitu, pierwszy odcinek
+z ujemną rezerwą. Po stronie Pythona: `tools/physics/schedule_envelope.py --mass AW0`,
+najwyższe `min_top_speed_kmh` w pakiecie.
+
+Najmniejszy limit prędkości, przy którym cały pakiet mieści się w rozkładzie
+(04.09.2026, commit `7d15987`, `build/timetable.json` z feedu `2_20_20260831_010702`):
 
 | pakiet | Python (T-113) | C# (ta pętla) | różnica | odcinek wiążący — Python | odcinek wiążący — C# |
 |---|---:|---:|---:|---|---|
-| L1_A | 57,41 | **58,36** | +0,95 | Schuman → Merode | Schuman → Merode |
-| L1_B | 56,46 | **57,58** | +1,12 | Roodebeek → Vandervelde | Roodebeek → Vandervelde |
-| L2_E | 57,47 | **58,75** | +1,28 | Ribaucourt → Yser | Ribaucourt → Yser |
-| L5_C | 57,03 | **58,36** | +1,33 | Aumale → Saint-Guidon | Aumale → Saint-Guidon |
-| L5_D | 57,65 | **58,75** | +1,10 | Beaulieu → Demey | Beaulieu → Demey |
-| L6_F | 54,11 | **55,23** | +1,12 | Bockstael → Stuyvenbergh | Bockstael → Stuyvenbergh |
+| L1_A | 57,41 | **58,09** | +0,68 | Schuman → Merode | Schuman → Merode |
+| L1_B | 56,45 | **57,56** | +1,11 | Roodebeek → Vandervelde | Roodebeek → Vandervelde |
+| L2_E | 57,47 | **58,49** | +1,02 | Ribaucourt → Yser | Ribaucourt → Yser |
+| L5_C | 57,02 | **58,34** | +1,32 | Aumale → Saint-Guidon | Aumale → Saint-Guidon |
+| L5_D | 57,64 | **58,68** | +1,04 | Beaulieu → Demey | Beaulieu → Demey |
+| L6_F | 54,10 | **55,05** | +0,95 | Bockstael → Stuyvenbergh | Bockstael → Stuyvenbergh |
 
-**Wszystkie sześć odcinków wiążących jest identycznych**, a różnica jest systematyczna
-i ma jeden znak: 0,95–1,33 km/h. To jest cena prowadzenia po sprzężeniu zwrotnym zamiast
-po profilu idealnym — maszynista, który reaguje, jest wolniejszy od profilu policzonego
+**Wszystkie sześć odcinków wiążących jest identycznych** — tak samo jak w pierwszej
+wersji raportu, i to jest wynik, który się nie ruszył. Różnica ma jeden znak
+i mieści się w 0,68–1,32 km/h. To jest cena prowadzenia po sprzężeniu zwrotnym zamiast
+po profilu idealnym: maszynista, który reaguje, jest wolniejszy od profilu policzonego
 z góry. Kierunek jest ten, którego się oczekuje; gdyby C# wyszło **szybsze** od profilu
 idealnego, znaczyłoby to błąd w jednym z dwóch modeli.
 
-Dolne ograniczenie prędkości liniowej dla sieci rośnie więc z 57,65 km/h (T-113)
-do **58,75 km/h**. Nadal jest to ograniczenie **dolne i warunkowe** względem modelu
-rozpędzania i hamowania, a nie pomiar prędkości dopuszczalnej — patrz
-`docs/21-measured-vs-assumed.md` §4d.
+Dolne ograniczenie prędkości liniowej dla sieci rośnie więc z **57,64 km/h** (Python,
+wiąże Beaulieu → Demey) do **58,68 km/h** (C#, ten sam odcinek). Nadal jest to
+ograniczenie **dolne i warunkowe** względem modelu rozpędzania i hamowania, a nie
+pomiar prędkości dopuszczalnej — patrz `docs/21-measured-vs-assumed.md` §4d.
+
+Koperta Pythona obejmuje **55 odcinków** rozkładowych, z czego 0 niewykonalnych;
+pętla C# porównuje 49, bo liczy tylko odcinki między zatrzymaniami na osi pakietu.
+Ta różnica jest z definicji zakresu, nie z niezgodności.
 
 ## 5. Trzy usterki sterowania, które wyszły dopiero na śladzie
 
@@ -170,7 +261,7 @@ identyfikatory nie.
 ## 7. Czego świadomie nie zrobiłem
 
 - **Nie wpisałem prędkości liniowej do `data/track/*.json`.** `data/` jest tylko do
-  odczytu, a 58,75 km/h jest ograniczeniem dolnym warunkowym względem modelu. W polu
+  odczytu, a 58,68 km/h jest ograniczeniem dolnym warunkowym względem modelu. W polu
   `speed_limits` wyglądałoby dokładnie tak samo jak ograniczenie ze źródła STIB.
 - **Nie wpisałem czasu wymiany pasażerów jako domyślnego.** `LineRunSettings` nie ma
   wartości domyślnych w konstruktorze — ta sama decyzja, co brak konstruktora

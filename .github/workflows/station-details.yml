@@ -1,0 +1,124 @@
+name: Station platforms and wayside details
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/station-details.yml'
+      - 'tools/blender/station_kit.py'
+      - 'tools/blender/detail_markers.py'
+      - 'tools/blender/glb_roundtrip.py'
+      - 'tools/blender/render_check.py'
+      - 'tools/blender/profiles.py'
+      - 'tools/track/station_layout.py'
+      - 'tools/track/detail_layout.py'
+      # Cały tools/ci, nie pojedynczy skrypt: job uruchamia też apt_install.sh,
+      # blender_install.sh i listy pakietów. Przy wąskim wzorcu zmiana takiego
+      # pliku nie odpalała własnego CI.
+      - 'tools/ci/**'
+      - 'tools/visual/**'
+      - 'tools/tests/**'
+      - 'data/track/L1_A.json'
+      - 'data/vehicle/m7-spec.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  station-details:
+    # Ten job chodzi na MASZYNIE WŁAŚCICIELA, nie na jednorazowej maszynie GitHuba.
+    # Kroki wykonują kod ze sprawdzonego refa — `tools/**`, `doctor.sh`, skrypty CI —
+    # więc bez tego warunku wystarczyłby pull request z forka, żeby uruchomić tam
+    # dowolny kod. `metro.brussels` jest prywatne, ale ma WŁĄCZONE forkowanie
+    # (`allow_forking: true`), więc uzasadnienie „forka nie da się zrobić" tu nie
+    # obowiązuje. Warunek nosi KAŻDY job; `needs:` nie jest zamiennikiem, bo job
+    # dopisany bez łańcucha zależności nie miałby żadnej ochrony.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: self-hosted
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      # Kontrola czystego workspace: JEDNA implementacja w
+      # `.github/actions/check-workspace`, nie kopia w każdym workflow. Powód
+      # i mechanika są w samej akcji.
+      - name: Workspace jest czysty po checkoucie
+        uses: ./.github/actions/check-workspace
+
+      # Sonda narzędzi: JEDNA implementacja w `.github/actions/probe-tools`.
+      # Wyjście `libs` ma tę samą umowę co przed wydzieleniem, więc warunki
+      # `if: steps.tools.outputs.libs == 'missing'` niżej zostają bez zmian.
+      - name: Czy biblioteki systemowe renderu już są
+        id: tools
+        uses: ./.github/actions/probe-tools
+        with:
+          libraries: libEGL.so.1
+
+      - name: Cache pakietów apt
+        if: steps.tools.outputs.libs == 'missing'
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cache/metro-apt
+          key: apt-${{ runner.os }}-blender-${{ hashFiles('tools/ci/apt-packages/blender.txt') }}
+          restore-keys: apt-${{ runner.os }}-blender-
+
+      - name: Install render libraries
+        if: steps.tools.outputs.libs == 'missing'
+        shell: bash
+        timeout-minutes: 30
+        run: |
+          set -euo pipefail
+          export APT_CACHE_DIR="$HOME/.cache/metro-apt"
+          bash tools/ci/apt_install.sh --set blender
+          # Bramka, nie ozdoba: pod `pipefail` brak biblioteki kończy krok błędem.
+          # Poprzednia wersja miała tu `|| true`, czyli wypisywała i przemilczała.
+          ldconfig -p | grep -E 'libEGL\.so\.1|libGL\.so\.1'
+
+      # Blender w PRZYPIĘTEJ wersji, z oficjalnego tarballa, POZA workspace.
+      #
+      # Bez `if:`, i to jest celowe. Skrypt jest własną sondą: czyta numer z
+      # `tools/ci/blender-version.txt`, porównuje go z tym, co faktycznie stoi w jego
+      # katalogu, i pobiera tylko przy rozjeździe. Gdy wersja się zgadza, kończy w 0,12 s.
+      # Bramkowanie tego `if:` z workflow oznaczałoby drugą, słabszą sondę obok mocnej.
+      #
+      # Katalog jest poza workspace, bo `actions/checkout` robi `git clean -ffdx`,
+      # a `-x` obejmuje pliki ignorowane — Blender w workspace schodziłby z sieci
+      # (366 MB) raz na przebieg. Ta sama decyzja i ten sam katalog co przy Godocie.
+      - name: Blender w przypiętej wersji
+        shell: bash
+        timeout-minutes: 30
+        run: |
+          set -euo pipefail
+          bin="$(bash tools/ci/blender_install.sh)"
+          echo "BLENDER_BIN=$bin" >> "$GITHUB_ENV"
+          "$bin" --version | sed -n '1,2p'
+          "$bin" --background --python-expr 'import numpy; print("numpy", numpy.__version__)'
+
+      # DLACZEGO TEN JOB ISTNIEJE. Do 03.09.2026 ani `station_kit.py`, ani
+      # `detail_markers.py` nie były wołane z ŻADNEGO workflow ani skryptu
+      # w `tools/ci` — sprawdzone grepem. Oba generują geometrię, oba noszą jawne
+      # stałe projektowe, i oba miały wyłącznie pokrycie testami jednostkowymi
+      # przez atrapę `bpy`, czyli takie, które nigdy nie dotyka Blendera.
+      #
+      # Ich bramki ODMOWY nie były sprawdzane nigdy i nigdzie: `--only-station`
+      # z literówką, okno bez znaczników, słupek wchodzący w skrajnię pojazdu,
+      # słupek przebijający ścianę profilu. To są dokładnie te ścieżki, których
+      # atrapa nie umie wykonać, bo każda z nich potrzebuje wczytanej scenki.
+      - name: Generate and verify platforms and wayside details
+        shell: bash
+        run: bash tools/ci/station_details.sh
+
+      - name: Upload T-211/T-011 verification artifacts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: t-211-details-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            build/t211details/report.txt
+            build/t211details/*.json
+            build/t211details/*.log
+            build/t211details/renders/**

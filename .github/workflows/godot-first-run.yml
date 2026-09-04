@@ -3,7 +3,7 @@ name: Godot first run
 # T-400, pierwszy etap. Job odpowiada na jedno pytanie: czy przejazd policzony
 # w Godocie jest tym samym przejazdem, co policzony samym rdzeniem.
 #
-# CLAUDE.md §9: runner właściciela. Godot 4.3 mono i Blender są doinstalowywane
+# CLAUDE.md §9: runner właściciela. Godot 4.7.2 mono i Blender są doinstalowywane
 # tylko wtedy, gdy ich nie ma — na maszynie właściciela zostają między przebiegami.
 
 on:
@@ -37,7 +37,7 @@ permissions:
   contents: read
 
 env:
-  GODOT_VERSION: 4.3-stable
+  GODOT_VERSION: 4.7.2-stable
 
 jobs:
   first-run:
@@ -54,44 +54,52 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
-      # Workspace self-hosted runnera JEST WSPÓŁDZIELONY między przebiegami — inaczej
-      # niż jednorazowa maszyna GitHuba, która zawsze startuje pusta.
-      #
-      # Dla tego projektu to nie jest drobiazg, tylko dziura w samej weryfikacji:
-      # `CLAUDE.md` §5 mówi, że skrypt bez błędu potrafi wyprodukować pustą scenę,
-      # więc bramki sprawdzają PLIKI WYJŚCIOWE. Plik z poprzedniego przebiegu
-      # przechodzi te bramki tak samo dobrze jak świeży — job byłby zielony,
-      # nie wygenerowawszy niczego.
-      #
-      # Sprzątaniem zajmuje się samo `actions/checkout`: jego wejście `clean`
-      # ma domyślnie `true`, czyli wykonuje `git clean -ffdx && git reset --hard HEAD`,
-      # a `-x` obejmuje pliki ignorowane — więc `build/` i `renders/` znikają.
-      # Ten krok NIE sprząta, tylko to SPRAWDZA: gdyby ktoś ustawił `clean: false`
-      # albo usunął checkout, bramki zaczęłyby oglądać stare wyjścia i nikt by się
-      # o tym nie dowiedział. Zaklęcie „rm -rf" nie odróżniłoby tych dwóch sytuacji.
+      # Kontrola czystego workspace: JEDNA implementacja w
+      # `.github/actions/check-workspace`, nie kopia w każdym workflow. Powód
+      # i mechanika są w samej akcji.
       - name: Workspace jest czysty po checkoucie
+        uses: ./.github/actions/check-workspace
+
+      # `setup-dotnet` domyślnie instaluje do `/usr/share/dotnet`, a runner
+      # właściciela nie ma tam prawa zapisu — cały krok kończył się serią
+      # `mkdir: Permission denied` i `cp: cannot create directory
+      # '/usr/share/dotnet/sdk/10.0.400/': Permission denied`. Na jednorazowej
+      # maszynie GitHuba działało, bo tam runner jest rootem.
+      #
+      # Katalog idzie więc tam, gdzie już leży Godot: `RUNNER_TOOL_CACHE`, czyli
+      # `_tool`, rodzeństwo workspace'u. Załatwia to dwie rzeczy naraz — prawa
+      # zapisu ORAZ przetrwanie `git clean -ffdx` z `actions/checkout`.
+      #
+      # `runner.tool_cache` NIE działa w `env:` na poziomie workflow ani joba
+      # (GitHub odrzuca wtedy cały workflow), więc zmienna powstaje w kroku.
+      - name: Katalog SDK poza /usr/share i poza workspace
         shell: bash
         run: |
           set -euo pipefail
-          stale=""
-          for path in build renders; do
-            [ -e "$path" ] && stale="$stale $path"
-          done
-          if [ -n "$stale" ]; then
-            echo "::error::wyjścia z poprzedniego przebiegu przetrwały checkout:$stale"
-            echo "Sprawdź, czy actions/checkout nie ma clean: false — bramki tego"
-            echo "projektu sprawdzają pliki wyjściowe i stary plik je przejdzie."
-            ls -la $stale
-            exit 1
-          fi
-          echo "build/ i renders/ nie istnieją — bramki zobaczą wyłącznie to, co powstanie w tym przebiegu"
+          cache="${RUNNER_TOOL_CACHE:-$HOME/.cache/metro-tools}"
+          dir="$cache/metro-dotnet"
+          case "$dir" in
+            "$GITHUB_WORKSPACE"/*)
+              echo "::error::katalog SDK $dir leży W WORKSPACE — checkout skasuje go przy następnym przebiegu"
+              exit 1
+              ;;
+            /usr/*)
+              echo "::error::katalog SDK $dir leży w /usr — runner nie ma tam prawa zapisu"
+              exit 1
+              ;;
+          esac
+          mkdir -p "$dir"
+          echo "DOTNET_INSTALL_DIR=$dir" >> "$GITHUB_ENV"
+          echo "DOTNET_ROOT=$dir" >> "$GITHUB_ENV"
+          echo "$dir" >> "$GITHUB_PATH"
+          echo "SDK poleci do $dir"
 
       - name: Install .NET SDK
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: '10.0.x'
 
       # Katalog silnika leży POZA workspace, świadomie. `actions/checkout` wykonuje
       # `git clean -ffdx`, a `-x` obejmuje pliki ignorowane — więc silnik trzymany
@@ -218,46 +226,55 @@ jobs:
         shell: bash
         run: dotnet test tests/Game.Tests/Game.Tests.csproj --configuration Release
 
-      # Na jednorazowej maszynie GitHuba Blender trzeba było instalować za każdym
-      # razem — 162 pakiety, 190 MB. Na maszynie właściciela zostaje zainstalowany,
-      # więc instalacja przy każdym przebiegu byłaby marnotrawstwem i niepotrzebnym
-      # `sudo`. Ten krok sprawdza, czy jest; instalacja i cache odpalają się tylko,
-      # gdy go brak. Świeży runner nadal działa bez ręcznego przygotowania.
-      - name: Czy Blender i renderer programowy już są
+      # Sonda narzędzi: JEDNA implementacja w `.github/actions/probe-tools`.
+      # Wyjście `libs` ma tę samą umowę co przed wydzieleniem, więc warunki
+      # `if: steps.tools.outputs.libs == 'missing'` niżej zostają bez zmian.
+      - name: Czy biblioteki systemowe renderu już są
         id: tools
-        shell: bash
-        run: |
-          set -euo pipefail
-          # Ten job potrzebuje OBU: Blendera do geometrii i `xvfb-run` do zrzutów,
-          # bo `--headless` wyłącza renderer. Brak któregokolwiek znaczy instalację
-          # całego zestawu `blender-xvfb` — sprawdzanie ich osobno dałoby stan,
-          # w którym cache jest pominięty, a instalacja i tak potrzebna.
-          if command -v blender >/dev/null 2>&1 && command -v xvfb-run >/dev/null 2>&1; then
-            echo "blender=present" >> "$GITHUB_OUTPUT"
-            blender --version | sed -n '1,2p'
-          else
-            echo "blender=missing" >> "$GITHUB_OUTPUT"
-            command -v blender >/dev/null 2>&1 || echo "brak: blender"
-            command -v xvfb-run >/dev/null 2>&1 || echo "brak: xvfb-run"
-          fi
+        uses: ./.github/actions/probe-tools
+        with:
+          libraries: libEGL.so.1
+          commands: xvfb-run
 
       - name: Cache pakietów apt
-        if: steps.tools.outputs.blender == 'missing'
-        uses: actions/cache@v4
+        if: steps.tools.outputs.libs == 'missing'
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/.cache/metro-apt
           key: apt-${{ runner.os }}-blender-xvfb-${{ hashFiles('tools/ci/apt-packages/blender-xvfb.txt') }}
           restore-keys: apt-${{ runner.os }}-blender-xvfb-
 
-      - name: Install Blender and a software renderer
-        if: steps.tools.outputs.blender == 'missing'
+      - name: Install render libraries
+        if: steps.tools.outputs.libs == 'missing'
         shell: bash
         timeout-minutes: 30
         run: |
           set -euo pipefail
           export APT_CACHE_DIR="$HOME/.cache/metro-apt"
           bash tools/ci/apt_install.sh --set blender-xvfb
-          blender --version | sed -n '1,2p'
+          # Bramka, nie ozdoba: pod `pipefail` brak biblioteki kończy krok błędem.
+          # Poprzednia wersja miała tu `|| true`, czyli wypisywała i przemilczała.
+          ldconfig -p | grep -E 'libEGL\.so\.1|libGL\.so\.1'
+
+      # Blender w PRZYPIĘTEJ wersji, z oficjalnego tarballa, POZA workspace.
+      #
+      # Bez `if:`, i to jest celowe. Skrypt jest własną sondą: czyta numer z
+      # `tools/ci/blender-version.txt`, porównuje go z tym, co faktycznie stoi w jego
+      # katalogu, i pobiera tylko przy rozjeździe. Gdy wersja się zgadza, kończy w 0,12 s.
+      # Bramkowanie tego `if:` z workflow oznaczałoby drugą, słabszą sondę obok mocnej.
+      #
+      # Katalog jest poza workspace, bo `actions/checkout` robi `git clean -ffdx`,
+      # a `-x` obejmuje pliki ignorowane — Blender w workspace schodziłby z sieci
+      # (366 MB) raz na przebieg. Ta sama decyzja i ten sam katalog co przy Godocie.
+      - name: Blender w przypiętej wersji
+        shell: bash
+        timeout-minutes: 30
+        run: |
+          set -euo pipefail
+          bin="$(bash tools/ci/blender_install.sh)"
+          echo "BLENDER_BIN=$bin" >> "$GITHUB_ENV"
+          "$bin" --version | sed -n '1,2p'
+          "$bin" --background --python-expr 'import numpy; print("numpy", numpy.__version__)'
 
       - name: Generate package A geometry
         shell: bash
@@ -266,11 +283,11 @@ jobs:
         # świeżo wygenerowaną geometrię, a nie kopię sprzed miesięcy.
         run: |
           set -euo pipefail
-          blender --background --python-exit-code 7 --python tools/blender/tunnel_sweep.py -- \
+          "$BLENDER_BIN" --background --python-exit-code 7 --python tools/blender/tunnel_sweep.py -- \
             --centerline data/track/L1_A.json --profile box_double --name L1_A \
             --out build/t400/L1_A.glb --metrics build/t400/L1_A-metrics.json \
             --chunk-dir build/t400/chunks --chunk-manifest build/t400/chunks/L1_A-chunks.json
-          blender --background --python-exit-code 7 --python tools/blender/m7_shell.py -- \
+          "$BLENDER_BIN" --background --python-exit-code 7 --python tools/blender/m7_shell.py -- \
             --out build/t400/M7_shell.glb --envelope-out build/t400/M7_envelope.glb \
             --report build/t400/M7_shell.json
           ls -la build/t400 build/t400/chunks | sed -n '1,20p'
@@ -387,6 +404,7 @@ jobs:
           python3 tools/ci/assert_shot_metadata.py \
             --metadata build/t400/visual/GODOT_metadata.json \
             --axis data/track/L1_A.json \
+            --manifest build/t400/chunks/L1_A-chunks.json \
             --resolution 1280x720 \
             --view cab --at-chainage 976
 
@@ -422,7 +440,7 @@ jobs:
 
       - name: Upload verification artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: t-400-first-run-${{ github.run_id }}-${{ github.run_attempt }}
           if-no-files-found: warn

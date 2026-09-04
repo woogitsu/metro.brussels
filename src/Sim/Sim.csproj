@@ -2,14 +2,14 @@
 
   <!--
     Rdzeń symulacji. CLAUDE.md reguła 9: nic tutaj nie importuje Godota.
-    Projekt jest zwykłą biblioteką net8.0 bez ani jednego PackageReference —
+    Projekt jest zwykłą biblioteką net10.0 bez ani jednego PackageReference —
     JSON czyta System.Text.Json z shared framework, nie z NuGeta.
   -->
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>MetroBxl.Sim</RootNamespace>
     <AssemblyName>MetroBxl.Sim</AssemblyName>
-    <LangVersion>12.0</LangVersion>
+    <LangVersion>14.0</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>

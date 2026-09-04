@@ -65,6 +65,22 @@ COLLISION_INSET_M = round(COLLISION_MAX_SAGITTA_M + COLLISION_INSET_MARGIN_M, 6)
 # ZAŁOŻENIE PROJEKTOWE: promień, w którym bryła kolizyjna musi być rezydentna —
 # długość składu M7 (94,0 m) z zapasem po obu stronach.
 COLLISION_RADIUS_M = 150.0
+# ZAŁOŻENIE PROJEKTOWE, decyzja właściciela z 03.09.2026: najmniejszy zapas między
+# skrajnią M7 a bryłą kolizyjną, który kontrola manifestu uznaje za zapas.
+#
+# Do 03.09.2026 stało tu zero: meldowany był dopiero zapas ujemny albo dokładnie zerowy.
+# Zapas 0,5 mm przechodził, a pół milimetra między skrajnią pojazdu a ścianą kolizji
+# nie jest zapasem — to styk, w którym o wyniku decyduje zaokrąglenie double, a nie
+# geometria. Przegląd mutacyjny pokazał to jako ocalałą mutację `0.0 -> 0.001`
+# (`reports/mutation-triage-lod.md`): nie było testu, który odróżniłby te dwa progi,
+# bo nie było progu do odróżnienia.
+#
+# TA LICZBA NIE JEST POMIAREM. Rzeczywistej skrajni STIB nie ma w żadnym publicznym
+# źródle — `data/signalling/ground-truth.json` i R-005 wymieniają wymiary skrajni wśród
+# parametrów nieznanych. Milimetr jest wybrany jako najmniejsza wielkość, która w budowie
+# tunelu w ogóle bywa wymiarowana; gdy R-005 dostanie liczbę ze STIB, ta stała ma iść
+# do wymiany, a nie do obrony.
+COLLISION_GAUGE_MARGIN_MIN_M = 0.001
 
 
 def level_params(level):
@@ -532,7 +548,8 @@ def lod_triangles(manifest, plan):
 
 # --- kontrola manifestu -------------------------------------------------------
 
-def lod_problems(manifest, seam_tolerance_m=1e-6):
+def lod_problems(manifest, seam_tolerance_m=1e-6,
+                 gauge_margin_min_m=COLLISION_GAUGE_MARGIN_MIN_M):
     """Kontrola części LOD/kolizja manifestu — lista problemów, pusta znaczy OK.
 
     Osobna funkcja obok `sweep.manifest_problems`, żeby stare manifesty schematu 1
@@ -573,7 +590,16 @@ def lod_problems(manifest, seam_tolerance_m=1e-6):
             problems.append(f"{chunk['id']}: LOD 0 ma niezerowy błąd wobec siebie")
         for previous, current in zip(sorted(lods, key=lambda l: l["level"])[:-1],
                                      sorted(lods, key=lambda l: l["level"])[1:]):
-            if int(current["triangles"]) > int(previous["triangles"]):
+            # RÓWNA liczba trójkątów też jest złamaniem: wiadomość mówi „nie jest
+            # tańszy", a poziom o tej samej cenie tańszy nie jest. Przed przeglądem
+            # mutacyjnym stało tu `>`, czyli równość przechodziła — i różniło się to
+            # od kontroli kolizji dziesięć wierszy niżej, która od początku liczy `>=`.
+            # Nasycenie, przy którym dwa poziomy legalnie zeszłyby do tyle samo
+            # pierścieni, jest przy tych parametrach nieosiągalne: najkrótszy chunk to
+            # 120 m (`sweep.DEFAULT_MIN_CHUNK_M`), krok pierścienia 5 m, więc na prostej
+            # wychodzi 25/6/3 pierścienie, a na łuku tym bardziej. Równość znaczy tu
+            # zatem usterkę generatora, nie krótki chunk.
+            if int(current["triangles"]) >= int(previous["triangles"]):
                 problems.append(f"{chunk['id']}: LOD {current['level']} nie jest tańszy "
                                 f"od LOD {previous['level']}")
             if float(current["max_deviation_m"]) < float(previous["max_deviation_m"]):
@@ -598,8 +624,10 @@ def lod_problems(manifest, seam_tolerance_m=1e-6):
         if float(collision["wall_margin_m"]) < 0.0:
             problems.append(f"{chunk['id']}: bryła kolizyjna wystaje poza światło tunelu "
                             f"({collision['wall_margin_m']} m)")
-        if float(collision["gauge_margin_m"]) <= 0.0:
-            problems.append(f"{chunk['id']}: bryła kolizyjna nie mieści skrajni M7")
+        if float(collision["gauge_margin_m"]) < gauge_margin_min_m:
+            problems.append(
+                f"{chunk['id']}: zapas skrajni M7 {collision['gauge_margin_m']} m jest "
+                f"mniejszy niż wymagane {gauge_margin_min_m} m")
         if float(collision["volume_m3"]) <= 0.0:
             problems.append(f"{chunk['id']}: objętość bryły kolizyjnej nie jest dodatnia")
         if abs(float(collision["start_m"]) - float(chunk["start_m"])) > seam_tolerance_m or \

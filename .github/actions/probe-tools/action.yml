@@ -1,0 +1,107 @@
+name: Sonda narzędzi runnera
+description: >
+  Sprawdza, których bibliotek współdzielonych i poleceń brakuje, żeby instalacja
+  odpalała się tylko przy braku. Jedna implementacja zamiast siedmiu kopii.
+
+# DLACZEGO TA AKCJA ISTNIEJE.
+#
+# Do 04.09.2026 ta sonda stała w SIEDMIU workflowach: w sześciu bajt w bajt,
+# w `godot-first-run.yml` z jedną dodatkową kontrolą (`xvfb-run`). Zmierzone sumami
+# SHA-256 treści kroków, nie na oko.
+#
+# Sonda pyta o BIBLIOTEKI I POLECENIA, nie o Blendera ani Godota. Blender przychodzi
+# z przypiętego tarballa przez `tools/ci/blender_install.sh`, który sam sprawdza wersję
+# i sam jest tanią operacją, gdy się zgadza. Sonda na `command -v blender` byłaby tu
+# wręcz szkodliwa: na maszynie, która kiedykolwiek dostała Blendera z apt, znalazłaby
+# 4.0.2 i uznała środowisko za gotowe — a 4.0.2 to legacy EEVEE, czyli rendery
+# nieporównywalne z baseline'em (`CLAUDE.md` §9).
+
+# WARUNEK ODRZUCAJĄCY PULL REQUESTY Z FORKÓW NIE MOŻE BYĆ TUTAJ.
+#
+# Zostaje jako `if:` w KAŻDYM jobie osobno. Powód jest techniczny i rozstrzygający:
+# akcja lokalna (`uses: ./.github/actions/...`) mieszka W REPOZYTORIUM, więc GitHub
+# potrafi ją uruchomić dopiero PO `actions/checkout`. Do tego momentu kod z forka już
+# leży na dysku maszyny właściciela, a job już się na niej uruchomił. Warunek na
+# poziomie joba nie dopuszcza do żadnej z tych rzeczy — krok w akcji dopuszcza do obu
+# i pada dopiero potem. Przeniesienie go tu OSŁABIŁOBY ochronę, czyli zrobiłoby
+# odwrotność tego, po co te akcje powstały.
+#
+# Pilnuje tego `tools/tests/test_ci_workflows.py`, test
+# `test_every_job_refuses_pull_requests_from_forks`: wymaga warunku w każdym jobie
+# i nie uznaje akcji za zamiennik.
+
+inputs:
+  libraries:
+    description: >
+      Biblioteki współdzielone sondowane w katalogu `ldconfig -p`, rozdzielone spacją
+      (np. "libEGL.so.1"). Puste pomija sondę bibliotek.
+    required: false
+    default: ""
+  commands:
+    description: >
+      Polecenia sondowane przez `command -v`, rozdzielone spacją (np. "xvfb-run").
+      Puste pomija sondę poleceń.
+    required: false
+    default: ""
+
+outputs:
+  libs:
+    description: >
+      `present`, gdy wszystko z `libraries` i `commands` jest na miejscu; `missing`,
+      gdy czegoś brakuje. Ta sama umowa co przed wydzieleniem, więc warunki
+      `if: steps.tools.outputs.libs == 'missing'` w workflowach zostają bez zmian.
+    value: ${{ steps.probe.outputs.libs }}
+
+runs:
+  using: composite
+  steps:
+    # Na jednorazowej maszynie GitHuba narzędzia trzeba było instalować za każdym
+    # razem. Na maszynie właściciela zostają zainstalowane, więc instalacja przy
+    # każdym przebiegu byłaby marnotrawstwem i niepotrzebnym `sudo`. Ten krok
+    # sprawdza, czego brakuje; instalacja i cache odpalają się tylko przy braku.
+    # Świeży runner nadal działa bez ręcznego przygotowania.
+    #
+    # Dopasowanie bibliotek idzie do pełnego pola nazwy w katalogu `ldconfig -p`,
+    # a nie do podciągu — inaczej `libEGL.so.1` trafiałoby w `libEGL.so.10`.
+    # Kontrola negatywna 04.09.2026: sonda na `libc.so` (prawdziwy podciąg
+    # istniejącego `libc.so.6`) ma zwrócić `missing`, i zwraca.
+    #
+    # `ldconfig` woła się RAZ, do zmiennej, i dopasowanie jest czystym shellem bez
+    # potoku. Dwa powody, oba zmierzone w tym projekcie. Pierwszy: `ldconfig -p |
+    # grep -q ...` pod `set -o pipefail` to ten sam wyścig, co `| head` — `grep -q`
+    # zamyka potok po pierwszym trafieniu, piszący dostaje SIGPIPE i kończy się 141,
+    # a `pipefail` przenosi to na cały krok. Wyjście `ldconfig -p` ma tu ponad tysiąc
+    # wierszy, czyli znacznie więcej niż 64 kB bufora potoku, więc wyścig jest realny
+    # — nawet jeśli w pojedynczej próbie kończy się zerem, co jest właśnie tym, co
+    # czyni ten błąd trudnym. Wszystkie siedem poprzednich kopii tej sondy miało tam
+    # dokładnie ten potok; sklejając je w jedno miejsce nie sklejam wyścigu.
+    # Drugi powód: sonda z kilkoma bibliotekami wołała `ldconfig` raz na bibliotekę.
+    - name: Czego brakuje na runnerze
+      id: probe
+      shell: bash
+      env:
+        WANT_LIBRARIES: ${{ inputs.libraries }}
+        WANT_COMMANDS: ${{ inputs.commands }}
+      run: |
+        set -euo pipefail
+        missing=""
+        catalogue=""
+        if [ -n "${WANT_LIBRARIES// /}" ]; then
+          catalogue="$(ldconfig -p)"
+        fi
+        for soname in ${WANT_LIBRARIES:-}; do
+          case "$catalogue" in
+            *"	$soname ("*) : ;;
+            *) missing="$missing $soname" ;;
+          esac
+        done
+        for tool in ${WANT_COMMANDS:-}; do
+          command -v "$tool" >/dev/null 2>&1 || missing="$missing $tool"
+        done
+        if [ -z "$missing" ]; then
+          echo "libs=present" >> "$GITHUB_OUTPUT"
+          echo "wszystko sondowane jest na miejscu: ${WANT_LIBRARIES:-} ${WANT_COMMANDS:-}"
+        else
+          echo "libs=missing" >> "$GITHUB_OUTPUT"
+          echo "brakuje:$missing — krok instalacji je doinstaluje"
+        fi

@@ -1,0 +1,244 @@
+{
+  "$comment": "T-903 rights matrix. This is a project risk-control registry, not legal advice. Checked 2026-08-31.",
+  "schema_version": 1,
+  "as_of": "2026-08-31",
+  "policy_default": "If rights are unclear, use a neutral original replacement and keep the reference out of production assets.",
+  "statuses": [
+    "allowed_with_terms",
+    "licence_specific_review",
+    "permission_required",
+    "replace_with_original",
+    "reference_only",
+    "excluded_until_cleared",
+    "inventory_pending"
+  ],
+  "sources": {
+    "stib_website_legal_terms": {
+      "publisher": "STIB/MIVB",
+      "url": "https://www.stib-mivb.be/Footer/Legal-terms",
+      "role": ["website_content_rights", "logos", "brands", "reproduction_permission"],
+      "checked_at": "2026-08-31"
+    },
+    "stib_open_data_terms": {
+      "publisher": "STIB/MIVB Open Data",
+      "url": "https://data.stib-mivb.brussels/terms/terms-and-conditions.pdf",
+      "role": ["open_data_reuse", "attribution", "line_colours", "open_data_logo_display_rules"],
+      "checked_at": "2026-08-31"
+    },
+    "stib_recording_rules": {
+      "publisher": "STIB/MIVB",
+      "url": "https://www.stib-mivb.be/entreprises/presse-et-media/regles-pour-prise-de-vue-et-tournage-sur-le-reseau-stib",
+      "role": ["filming", "photography", "accreditation", "public_relations_contact"],
+      "checked_at": "2026-08-31"
+    },
+    "stib_recording_general_conditions_2024": {
+      "publisher": "STIB/MIVB",
+      "url": "https://www.stib-mivb.be/files/live/sites/STIBMIVB/files/Professionals/Press-Media/conditions_generales_prise_de_vue_et_tournage_2024.pdf",
+      "role": ["filming_conditions", "logo_permission", "artwork_rights"],
+      "checked_at": "2026-08-31"
+    },
+    "brussels_movable_heritage": {
+      "publisher": "Brussels-Capital Region",
+      "url": "https://collections.heritage.brussels/",
+      "role": ["artwork_identification", "artist", "station", "date"],
+      "checked_at": "2026-08-31",
+      "limitations": "Inventory metadata identifies works and creators; it is not a production-asset reproduction licence."
+    },
+    "beliris_central_corridor": {
+      "publisher": "Beliris",
+      "url": "https://www.beliris.be/projets/couloir-gare-centrale.html",
+      "role": ["central_station_corridor_artwork_identification"],
+      "checked_at": "2026-08-31"
+    },
+    "stib_parc_renovation": {
+      "publisher": "STIB/MIVB",
+      "url": "https://www.stib-mivb.be/travel/works-and-projects/works-in-progress/station-parc-park-renovated-and-accessible",
+      "role": ["parc_artwork_current_project", "mers_et_oceans"],
+      "checked_at": "2026-08-31"
+    }
+  },
+  "open_data_logo_rule": {
+    "status": "licence_specific_review",
+    "summary": "The Open Data terms contain a specific graphical charter for Producer name, line colours and logos in products reusing the Information. This is not treated as a general licence for decorative branding, vehicle livery, station signage or marketing endorsement.",
+    "implementation": [
+      "Keep Open Data attribution/compliance presentation logically separate from world assets and livery.",
+      "If the Open Data licence requires a Producer logo in a data-reuse interface/communication, use only the exact unmodified asset and scope allowed by that licence after legal/compliance review.",
+      "Do not infer permission for STIB logo placement on trains, station meshes, splash screens or store marketing from the Open Data clause."
+    ],
+    "source_ids": ["stib_open_data_terms", "stib_website_legal_terms"]
+  },
+  "asset_classes": [
+    {
+      "asset_or_element": "factual_open_data_geometry_and_timetables",
+      "intended_use": "derive own network geometry, station/order facts and simulation data",
+      "status": "allowed_with_terms",
+      "rights_holder": "dataset publisher / upstream operator as stated by dataset",
+      "source_ids": ["stib_open_data_terms"],
+      "permission_ref": null,
+      "fallback": "none; preserve attribution/provenance and dataset-specific terms"
+    },
+    {
+      "asset_or_element": "station_names_and_route_numbers_as_facts",
+      "intended_use": "navigation, timetable and world labels using own typography",
+      "status": "allowed_with_terms",
+      "rights_holder": "n/a for factual names; trademark presentation still reviewed separately",
+      "source_ids": ["stib_open_data_terms"],
+      "permission_ref": null,
+      "fallback": "own neutral typography and layout"
+    },
+    {
+      "asset_or_element": "official_line_colours_in_data_driven_maps_or_route_ui",
+      "intended_use": "display lines directly derived from STIB Open Data",
+      "status": "licence_specific_review",
+      "rights_holder": "STIB/MIVB",
+      "source_ids": ["stib_open_data_terms"],
+      "permission_ref": null,
+      "fallback": "neutral project palette outside Open Data compliance surfaces"
+    },
+    {
+      "asset_or_element": "stib_logo_for_open_data_attribution_or_licence_compliance",
+      "intended_use": "only the narrow display required/permitted by Open Data terms in a data-reuse interface or communication",
+      "status": "licence_specific_review",
+      "rights_holder": "STIB/MIVB",
+      "source_ids": ["stib_open_data_terms", "stib_website_legal_terms"],
+      "permission_ref": null,
+      "fallback": "textual attribution until compliance/legal review determines the exact logo obligation"
+    },
+    {
+      "asset_or_element": "stib_mivb_logo_as_world_asset_livery_or_marketing_brand",
+      "intended_use": "train livery, station signage, splash/store/marketing, decorative branding",
+      "status": "permission_required",
+      "rights_holder": "STIB/MIVB",
+      "source_ids": ["stib_website_legal_terms", "stib_recording_general_conditions_2024"],
+      "permission_ref": null,
+      "fallback": "original neutral Metro BXL branding with no confusingly similar logo"
+    },
+    {
+      "asset_or_element": "m7_real_stib_livery_and_operational_markings",
+      "intended_use": "production vehicle exterior",
+      "status": "permission_required",
+      "rights_holder": "STIB/MIVB and possibly other rights holders for individual graphical elements",
+      "source_ids": ["stib_website_legal_terms"],
+      "permission_ref": null,
+      "fallback": "neutral technical/realistic livery using factual dimensions only"
+    },
+    {
+      "asset_or_element": "corporate_or_station_signage_typeface",
+      "intended_use": "station signs and UI",
+      "status": "replace_with_original",
+      "rights_holder": "font rights holder / licensee to be verified",
+      "source_ids": ["stib_website_legal_terms"],
+      "permission_ref": null,
+      "fallback": "project-owned or properly licensed font"
+    },
+    {
+      "asset_or_element": "official_network_maps_and_district_maps_as_images_or_textures",
+      "intended_use": "maps/signage/textures in game",
+      "status": "permission_required",
+      "rights_holder": "STIB/MIVB and possible third-party contributors",
+      "source_ids": ["stib_website_legal_terms"],
+      "permission_ref": null,
+      "fallback": "generate an original map from licensed factual/open data"
+    },
+    {
+      "asset_or_element": "facts_extracted_from_stib_textual_station_descriptions",
+      "intended_use": "entrance/topology constraints for own procedural model",
+      "status": "allowed_with_terms",
+      "rights_holder": "facts are reused as facts; source text itself remains protected content",
+      "source_ids": ["stib_website_legal_terms"],
+      "permission_ref": null,
+      "fallback": "store concise facts/provenance, never the full source text as a game asset"
+    },
+    {
+      "asset_or_element": "official_station_signage_pictograms_and_ui_screens",
+      "intended_use": "production station/cab world assets",
+      "status": "permission_required",
+      "rights_holder": "STIB/MIVB and/or individual design rights holders",
+      "source_ids": ["stib_website_legal_terms"],
+      "permission_ref": null,
+      "fallback": "own neutral accessible signage and UI"
+    },
+    {
+      "asset_or_element": "station_artworks_and_murals",
+      "intended_use": "3D/texture reproduction in stations",
+      "status": "permission_required",
+      "rights_holder": "artist/estate and/or collecting society; installation/commission contract with STIB/Region must be verified",
+      "source_ids": ["stib_recording_general_conditions_2024", "brussels_movable_heritage"],
+      "permission_ref": null,
+      "fallback": "neutral wall or original commissioned project artwork not derived from the protected work"
+    },
+    {
+      "asset_or_element": "stib_photos_videos_website_or_app_screenshots",
+      "intended_use": "research reference",
+      "status": "reference_only",
+      "rights_holder": "STIB/MIVB and/or credited third parties",
+      "source_ids": ["stib_website_legal_terms"],
+      "permission_ref": null,
+      "fallback": "do not ship; recreate only factual geometry with original assets"
+    },
+    {
+      "asset_or_element": "caf_or_other_manufacturer_reference_photos_and_drawings",
+      "intended_use": "research reference for factual dimensions/components",
+      "status": "reference_only",
+      "rights_holder": "manufacturer / document rights holder",
+      "source_ids": [],
+      "permission_ref": null,
+      "fallback": "extract only sourced facts; do not redistribute drawings/photos without explicit licence"
+    },
+    {
+      "asset_or_element": "permit_drawings_and_public_planning_documents",
+      "intended_use": "read dimensions/topology/provenance",
+      "status": "reference_only",
+      "rights_holder": "document author/applicant/authority as applicable",
+      "source_ids": [],
+      "permission_ref": null,
+      "fallback": "store facts and drawing/page reference, not the drawing as a production texture or bundled asset"
+    },
+    {
+      "asset_or_element": "own_photography_or_video_on_stib_network_for_organized_asset_capture",
+      "intended_use": "production reference/photogrammetry/texture capture",
+      "status": "permission_required",
+      "rights_holder": "project owns capture subject to location/third-party rights and STIB conditions",
+      "source_ids": ["stib_recording_rules", "stib_recording_general_conditions_2024"],
+      "permission_ref": null,
+      "fallback": "no organized production shoot until STIB confirms conditions; use public facts and neutral assets"
+    }
+  ],
+  "package_a_artworks": [
+    {"station_id":"gare_de_l_ouest","station":"Gare de l'Ouest / Weststation","work":null,"creator":null,"inventory_state":"inventory_pending","status":"excluded_until_cleared","source_url":null,"notes":"No production artwork assumption. Complete station artwork inventory before any branded/final art pass."},
+    {"station_id":"beekkant","station":"Beekkant","work":null,"creator":null,"inventory_state":"inventory_pending","status":"excluded_until_cleared","source_url":null,"notes":"No production artwork assumption. Complete station artwork inventory before any branded/final art pass."},
+    {"station_id":"etangs_noirs","station":"Étangs Noirs / Zwarte Vijvers","work":"Zwarte Vijvers","creator":"Jan Burssens","inventory_state":"identified","status":"permission_required","source_url":"https://collections.heritage.brussels/fr/objects/44047"},
+    {"station_id":"comte_de_flandre","station":"Comte de Flandre / Graaf van Vlaanderen","work":"16 x Icarus","creator":"Paul Van Hoeydonck","inventory_state":"identified","status":"permission_required","source_url":"https://collections.heritage.brussels/fr/objects/44033"},
+    {"station_id":"sainte_catherine","station":"Sainte-Catherine / Sint-Katelijne","work":"Millefeuille","creator":"Thierry Renard","inventory_state":"identified","status":"permission_required","source_url":"https://collections.heritage.brussels/fr/objects/44108"},
+    {"station_id":"de_brouckere","station":"De Brouckère","work":"De Stad Beweegt In De Palm Van Mijn Hand","creator":"Jan Vanriet","inventory_state":"identified","status":"permission_required","source_url":"https://collections.heritage.brussels/fr/objects/44034"},
+    {"station_id":"de_brouckere","station":"De Brouckère","work":"Fietsersportretten","creator":"An Van Gijsegem","inventory_state":"identified_temporary_presence_requires_2026_check","status":"excluded_until_cleared","source_url":"https://collections.heritage.brussels/","notes":"Temporary/dynamic installation reported in prior inventory; verify whether it physically exists on 2026-08-31 before modelling anything."},
+    {"station_id":"gare_centrale","station":"Gare Centrale / Centraal Station","work":"enamel-panel corridor artwork","creator":"Daniel Deltour","inventory_state":"identified_shared_corridor","status":"permission_required","source_url":"https://www.beliris.be/projets/couloir-gare-centrale.html","notes":"Work is in the corridor linking railway and metro stations; distinguish STIB and SNCB/NMBS/shared-space scope."},
+    {"station_id":"parc","station":"Parc / Park","work":"Happy Metro To You","creator":"Marc Mendelson","inventory_state":"identified","status":"permission_required","source_url":"https://collections.heritage.brussels/fr/objects/44092"},
+    {"station_id":"parc","station":"Parc / Park","work":"La Ville","creator":"Roger Dudant","inventory_state":"identified","status":"permission_required","source_url":"https://collections.heritage.brussels/fr/objects/44094"},
+    {"station_id":"parc","station":"Parc / Park","work":"Mers et Océans","creator":"Marie-Françoise Plissart","inventory_state":"identified_current_project","status":"permission_required","source_url":"https://www.stib-mivb.be/travel/works-and-projects/works-in-progress/station-parc-park-renovated-and-accessible"},
+    {"station_id":"arts_loi","station":"Arts-Loi / Kunst-Wet","work":"Ortem","creator":"Jean Rets","inventory_state":"identified","status":"permission_required","source_url":"https://collections.heritage.brussels/fr/objects/44020"},
+    {"station_id":"arts_loi","station":"Arts-Loi / Kunst-Wet","work":"Isjtar","creator":"Gilbert Decock","inventory_state":"identified","status":"permission_required","source_url":"https://collections.heritage.brussels/fr/objects/44019"},
+    {"station_id":"maelbeek","station":"Maelbeek / Maalbeek","work":"Portraits - Portretten","creator":"Benoît Van Innis","inventory_state":"identified","status":"permission_required","source_url":"https://collections.heritage.brussels/fr/objects/44073"},
+    {"station_id":"maelbeek","station":"Maelbeek / Maalbeek","work":"L'Olivier","creator":"Benoît Van Innis","inventory_state":"identified","status":"permission_required","source_url":"https://collections.heritage.brussels/fr/objects/44074"},
+    {"station_id":"schuman","station":"Schuman","work":"Pourquoi Bruxelles Est-Elle Devenue La Capitale De L'Europe?","creator":"Calogero Belluzzo / Philippe Van Parijs","inventory_state":"identified_temporary_presence_requires_2026_check","status":"excluded_until_cleared","source_url":"https://collections.heritage.brussels/fr/objects/44128","notes":"Regional inventory labels it a 2019 temporary/dynamic cultural work. Verify 2026 physical presence before any model decision."},
+    {"station_id":"merode","station":"Merode","work":"Ensor : Vive La Sociale","creator":"Roger Raveel","inventory_state":"identified","status":"permission_required","source_url":"https://collections.heritage.brussels/fr/objects/44084"},
+    {"station_id":"merode","station":"Merode","work":"Carrelage Cinq","creator":"Jean Glibert","inventory_state":"identified","status":"permission_required","source_url":"https://collections.heritage.brussels/nl/objects/44082"}
+  ],
+  "contributor_policy": {
+    "required_metadata": ["asset_id", "creator_or_source", "source_url", "licence_or_permission_ref", "intended_use", "redistribution_allowed", "notes"],
+    "rules": [
+      "No third-party binary/reference material enters production asset directories without an explicit compatible licence or written permission reference.",
+      "Public availability is not a licence.",
+      "GitHub repositories without an explicit compatible licence are reference_only.",
+      "Screenshots, maps, plans and photographs used for research are not committed as production assets merely because they are publicly viewable.",
+      "Facts may be extracted with provenance; copyrighted expression is not copied into textures, meshes, audio or UI.",
+      "When rights are unclear, choose a neutral original replacement and record the unresolved rights item here."
+    ]
+  },
+  "permission_contact": {
+    "organization": "STIB/MIVB Public Relations",
+    "email": "relationspubliques@stib-mivb.brussels",
+    "source_id": "stib_recording_rules",
+    "status": "contact_only_not_permission"
+  }
+}

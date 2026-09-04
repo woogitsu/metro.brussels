@@ -34,6 +34,7 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.insert(0, os.path.join(ROOT, "tools", "blender"))
 
 import profiles  # noqa: E402
+import lod as LD  # noqa: E402
 import sweep as SW  # noqa: E402
 
 #: Tolerancja porównania długości osi. Ta sama liczba i to samo uzasadnienie,
@@ -55,7 +56,7 @@ def axis_length_m(axis_path):
     return SW.chainages(axis_points(axis_path))[-1]
 
 
-def axis_scene_bbox(axis_path):
+def axis_scene_bbox(axis_path, low_m=None, high_m=None):
     """Bbox osi w układzie SCENY — kotwica bezwzględna dla bryły tunelu.
 
     `SceneAxis.ToScene` zamienia punkt danych (X wschód, Y północ, Z w górę) na
@@ -66,12 +67,68 @@ def axis_scene_bbox(axis_path):
     Bez tego przesunięcie CAŁEJ sceny przechodzi: `size_m` zostaje spójne z bboxem,
     bo min i max jadą razem. Zmierzone: bbox przesunięty o 1000 m na każdej osi
     przechodził wszystkie pozostałe kontrole tego pliku.
+
+    `low_m` i `high_m` zawężają oś do OKNA STREAMOWANIA. Odkąd scena streamuje,
+    bryła tunelu nie obejmuje całej osi i nie ma prawa obejmować — obejmuje ten jej
+    kawałek, który predykat kazał trzymać w pamięci. Kotwica jest przez to CIAŚNIEJSZA
+    niż przed streamowaniem, a nie luźniejsza: przed zmianą wystarczyło zawrzeć oś
+    długą na 6,7 km, teraz trzeba trafić w odcinek 900-metrowy we właściwym miejscu.
     """
     points = axis_points(axis_path)
+    if low_m is not None or high_m is not None:
+        chainages = SW.chainages(points)
+        lo = -float("inf") if low_m is None else float(low_m)
+        hi = float("inf") if high_m is None else float(high_m)
+        # Przedział domknięty, tak samo jak w `sweep.chunks_in_range`: punkt dokładnie
+        # na granicy okna należy do okna.
+        points = [p for p, c in zip(points, chainages) if lo <= c <= hi]
+        if not points:
+            raise ValueError(f"okno [{low_m}, {high_m}] m nie zawiera ani jednego punktu osi")
     xs = [p[0] for p in points]
     ys = [p[1] for p in points]
     zs = [p[2] for p in points]
     return ([min(xs), min(zs), -max(ys)], [max(xs), max(zs), -min(ys)])
+
+
+def load_manifest(manifest_path):
+    with open(manifest_path, encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+def streaming_expectations(manifest, chainage_m):
+    """Czego predykat POWINIEN był zażądać od sceny na tym chainage.
+
+    Liczone implementacją wzorcową w Pythonie (`sweep`, `lod`), a nie odczytane
+    z metadanych — czyli tą samą drogą, którą `tests/Game.Tests/StreamingPlanTests.cs`
+    przybija stronę C#. Bramka porównuje więc scenę z niezależnym rachunkiem,
+    a nie ze sobą samą.
+
+    Kierunek jazdy jest tu na sztywno „do przodu": scena T-400 jedzie w stronę
+    rosnącego chainage i nic w niej nie umie zawrócić. Gdyby to się zmieniło,
+    ten rachunek trzeba przekazać, a nie zgadywać.
+    """
+    axis_end = float(manifest["axis_length_m"])
+    clamped = min(float(chainage_m), axis_end)
+    low, high = SW.stream_window(clamped, heading=1.0)
+    resident = SW.chunks_for_train(manifest, clamped, heading=1.0)
+    plan = LD.lod_plan(manifest, clamped, heading=1.0)
+
+    # Zakres osi, który bryła sceny ma OBEJMOWAĆ, to nie jest okno streamowania.
+    # Chunk wchodzi do pamięci w całości, więc rezydentny chunk wystaje poza krawędź
+    # okna o tyle, ile sam ma długości — na pakiecie A do 725 m. Kotwica liczy się
+    # więc na sumie zakresów chunków rezydentnych, a nie na oknie. Zmierzone:
+    # przy oknie [1700, 2600] m bryła sięgała 709 m dalej wzdłuż X i to było
+    # zachowanie POPRAWNE, a nie usterka.
+    span = (min(float(c["start_m"]) for c in resident),
+            max(float(c["end_m"]) for c in resident)) if resident else (None, None)
+
+    return {
+        "chainage_m": clamped,
+        "window": (low, high),
+        "span": span,
+        "resident_ids": [c["id"] for c in resident],
+        "faces": LD.lod_triangles(manifest, plan),
+    }
 
 
 #: Skorupa M7 to 6 pudeł i 5 mieszków między nimi. Liczba brył jest więc funkcją
@@ -145,7 +202,7 @@ def check_train(metadata, spec_path):
     return problems
 
 
-def check(metadata, axis_path, resolution, view, chainage_m):
+def check(metadata, axis_path, resolution, view, chainage_m, manifest=None):
     problems = []
     scene = metadata.get("scene") or {}
 
@@ -154,12 +211,47 @@ def check(metadata, axis_path, resolution, view, chainage_m):
 
     declared = scene.get("chunks_declared")
     loaded = scene.get("chunks_loaded")
-    if loaded != declared:
-        problems.append(
-            f"manifest deklaruje {declared} chunków, a scena wczytała {loaded} — "
-            "metadane są wewnętrznie sprzeczne")
     if not declared:
         problems.append(f"chunks_declared = {declared}; manifest bez chunków nie jest sceną")
+
+    # Do 03.09.2026 stało tu `loaded != declared` — „scena ma mieć wczytane wszystko".
+    # Warunek jest przepisany, a nie dopisany obok, bo scena STREAMUJE i wczytanie
+    # wszystkiego byłoby teraz usterką, nie poprawnością. Zamiast liczby chunków
+    # z manifestu porównujemy z tym, czego na tym chainage żąda predykat, policzony
+    # tu niezależnie implementacją pythonową. To jest kontrola MOCNIEJSZA od poprzedniej:
+    # „12 z 12" spełniała każda scena, która wczytała wszystko, także wtedy gdy okno
+    # streamowania było policzone źle albo wcale.
+    # Predykat liczy się na chainage, na którym scena NAPRAWDĘ stanęła, a nie na
+    # żądanym: skład zatrzymuje się na najbliższym całym kroku, więc żądane 2000 m
+    # to w metadanych 2000,068 m, a okno przesunięte o te 68 mm nie jest usterką.
+    # Że `last_shot.chainage_m` odpowiada żądaniu, sprawdza osobno kontrola niżej —
+    # obie razem są ciaśniejsze niż którakolwiek z osobna.
+    last_chainage = (metadata.get("last_shot") or {}).get("chainage_m")
+    expected = None
+    if manifest is not None and isinstance(last_chainage, (int, float)):
+        expected = streaming_expectations(manifest, last_chainage)
+        if loaded != len(expected["resident_ids"]):
+            problems.append(
+                f"scena trzyma {loaded} chunków, a predykat na chainage "
+                f"{expected['chainage_m']:.3f} m żąda {len(expected['resident_ids'])} "
+                f"({', '.join(expected['resident_ids'])})")
+
+        low, high = expected["window"]
+        for key, want in (("window_low_m", low), ("window_high_m", high)):
+            got = scene.get(key)
+            if not isinstance(got, (int, float)) or abs(got - want) > 1e-3:
+                problems.append(
+                    f"{key} = {got}, a predykat daje {want:.3f} m — scena streamuje "
+                    "z innego okna, niż wynika z manifestu")
+
+        faces = scene.get("faces")
+        if faces != expected["faces"]:
+            problems.append(
+                f"faces = {faces}, a chunki rezydentne w policzonych poziomach LOD "
+                f"dają {expected['faces']} — metadane opisują inną geometrię niż scena")
+    elif loaded is not None and declared is not None and loaded > declared:
+        problems.append(
+            f"scena trzyma {loaded} chunków, a manifest deklaruje tylko {declared}")
 
     for key in ("mesh_objects", "vertices", "faces"):
         value = scene.get(key)
@@ -184,7 +276,10 @@ def check(metadata, axis_path, resolution, view, chainage_m):
     # profilu w każdą stronę.
     profile_width_m = max(profiles.dimensions("box_double"))
     if len(lo) == 3 and len(hi) == 3:
-        axis_lo, axis_hi = axis_scene_bbox(axis_path)
+        # Kotwica jest liczona na OKNIE, nie na całej osi: bryła streamowanej sceny
+        # obejmuje ten kawałek osi, który predykat kazał trzymać, i tylko ten.
+        span = expected["span"] if expected else (None, None)
+        axis_lo, axis_hi = axis_scene_bbox(axis_path, span[0], span[1])
         for axis, name in enumerate("XYZ"):
             if lo[axis] > axis_lo[axis] + 1e-6 or hi[axis] < axis_hi[axis] - 1e-6:
                 problems.append(
@@ -228,6 +323,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--metadata", required=True)
     parser.add_argument("--axis", required=True, help="oś, z której liczona jest prawda niezależna")
+    parser.add_argument("--manifest",
+                        help="manifest chunków — pozwala policzyć predykat streamowania "
+                             "niezależnie i porównać go z tym, co scena wczytała")
     parser.add_argument("--resolution", help="np. 1280x720")
     parser.add_argument("--view", help="widok ostatniego zrzutu")
     parser.add_argument("--at-chainage", type=float, help="chainage ostatniego zrzutu")
@@ -243,7 +341,8 @@ def main():
         resolution = [int(part) for part in args.resolution.lower().split("x")]
 
     expected = axis_length_m(args.axis)
-    problems = check(metadata, args.axis, resolution, args.view, args.at_chainage)
+    manifest = load_manifest(args.manifest) if args.manifest else None
+    problems = check(metadata, args.axis, resolution, args.view, args.at_chainage, manifest)
     problems += check_train(metadata, args.m7_spec)
     if problems:
         print(f"BŁĄD: metadane zrzutu nie opisują tej sceny ({args.metadata}):", file=sys.stderr)
@@ -252,7 +351,7 @@ def main():
         return 1
 
     scene = metadata["scene"]
-    print(f"[METADANE] {scene['chunks_loaded']}/{scene['chunks_declared']} chunków, "
+    print(f"[METADANE] {scene['chunks_loaded']}/{scene['chunks_declared']} chunków rezydentnych, "
           f"{scene['mesh_objects']} obiektów, {scene['vertices']} wierzchołków, "
           f"oś {scene['axis_length_m']:.3f} m == {expected:.3f} m policzone niezależnie")
     train = metadata["train"]
