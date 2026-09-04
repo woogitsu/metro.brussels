@@ -3,7 +3,7 @@ name: Godot first run
 # T-400, pierwszy etap. Job odpowiada na jedno pytanie: czy przejazd policzony
 # w Godocie jest tym samym przejazdem, co policzony samym rdzeniem.
 #
-# CLAUDE.md §9: runner właściciela. Godot 4.3 mono i Blender są doinstalowywane
+# CLAUDE.md §9: runner właściciela. Godot 4.7.2 mono i Blender są doinstalowywane
 # tylko wtedy, gdy ich nie ma — na maszynie właściciela zostają między przebiegami.
 
 on:
@@ -37,7 +37,7 @@ permissions:
   contents: read
 
 env:
-  GODOT_VERSION: 4.3-stable
+  GODOT_VERSION: 4.7.2-stable
 
 jobs:
   first-run:

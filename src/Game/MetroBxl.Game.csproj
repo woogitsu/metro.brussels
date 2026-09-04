@@ -1,4 +1,4 @@
-<Project Sdk="Godot.NET.Sdk/4.3.0">
+<Project Sdk="Godot.NET.Sdk/4.7.2">
 
   <!--
     Warstwa silnika. CLAUDE.md reguła 9 działa w drugą stronę niż w rdzeniu: tutaj
