@@ -99,17 +99,96 @@ public sealed class DeterminismTests
     /// Rejestr wystawia ścieżki w ustalonym porządku, nie w kolejności iteracji po
     /// słowniku. Bez tego raport parametrów potrafiłby wyglądać inaczej po każdym
     /// uruchomieniu, a diff przestałby cokolwiek znaczyć.
+    ///
+    /// <para>Ten test jest PRZEPISANY, nie dopisany obok, i warto powiedzieć dlaczego.
+    /// Kończył się porównaniem <c>CollectionAssert.AreEqual(VehicleRegistry.M7.Paths
+    /// .ToList(), VehicleRegistry.M7.Paths.ToList())</c> — czyli tej samej, raz
+    /// posortowanej i zapamiętanej w konstruktorze listy z SOBĄ SAMĄ. Takie
+    /// porównanie nie może się nie udać i nie mierzy niczego.</para>
+    ///
+    /// <para>Zmierzone 04.09.2026, dwie mutacje w <c>VehicleRegistry</c>, każda
+    /// przechodziła cały zestaw 331/331:</para>
+    /// <list type="bullet">
+    /// <item><c>PathsWithStatus</c> iterujące po <c>_entries.Keys</c>, czyli po
+    /// kolejności SŁOWNIKA — dokładnie po tym, czego nazwa tego testu zabrania.</item>
+    /// <item><c>sourceIds.Sort(StringComparer.Ordinal)</c> zamienione na
+    /// <c>Reverse()</c>, wbrew temu, co obiecuje dokumentacja <c>SourceIds</c>.</item>
+    /// </list>
+    ///
+    /// <para>Dlatego każda deklarowana kolejność ma teraz NIEZALEŻNY punkt
+    /// odniesienia, a nie samą siebie.</para>
     /// </summary>
     [TestMethod]
     public void Kolejnosc_parametrow_rejestru_jest_ustalona()
     {
-        var paths = VehicleRegistry.M7.Paths;
-        var sorted = paths.OrderBy(p => p, StringComparer.Ordinal).ToList();
+        var registry = VehicleRegistry.M7;
+        var paths = registry.Paths.ToList();
 
-        CollectionAssert.AreEqual(sorted, paths.ToList());
+        // 1. Porządek jest ordinalny, a nie „jakiś stały".
         CollectionAssert.AreEqual(
-            VehicleRegistry.M7.Paths.ToList(),
-            VehicleRegistry.M7.Paths.ToList());
+            paths.OrderBy(p => p, StringComparer.Ordinal).ToList(),
+            paths,
+            "Paths nie jest w porządku ordinalnym");
+
+        // 2. Odniesienie z DRUGIEJ STRONY: ten sam osadzony JSON, czytany tu jeszcze
+        //    raz. Porównanie z sobą samą nie odróżniało listy pełnej od takiej, która
+        //    zgubiła wpis — ta asercja odróżnia.
+        using var document = JsonDocument.Parse(VehicleRegistry.ReadEmbeddedJson());
+        var fromJson = new List<string>();
+        foreach (var section in new[] { "parameters", "reference_model" })
+        {
+            foreach (var property in document.RootElement.GetProperty(section).EnumerateObject())
+            {
+                fromJson.Add(section + "." + property.Name);
+            }
+        }
+
+        CollectionAssert.AreEqual(
+            fromJson.OrderBy(p => p, StringComparer.Ordinal).ToList(),
+            paths,
+            "Paths nie zgadza się ze zbiorem kluczy osadzonego rejestru");
+
+        // Pułapka na samą tę bramkę. Gdyby klucze w `m7-spec.json` stały JUŻ w porządku
+        // ordinalnym, warunek 1 przechodziłby także z wyrzuconym `paths.Sort(...)`
+        // i przestałby cokolwiek mierzyć — utajona luka, ta sama rodzina co
+        // `next(iter(document["jobs"]))` w bramkach CI. Ta asercja mówi to wprost,
+        // zamiast pozwolić bramce ucichnąć.
+        CollectionAssert.AreNotEqual(
+            fromJson,
+            paths,
+            "kolejność kluczy w m7-spec.json zrównała się z porządkiem ordinalnym — "
+            + "sortowanie w VehicleRegistry przestało być tym testem mierzalne");
+
+        // 3. Widok pochodny trzyma TĘ SAMĄ kolejność. `PathsWithStatus` obiecuje ją
+        //    w dokumentacji, jest jedynym wyjściem, którego używa `DesignModelAuditTests`,
+        //    i jedynym, które mutacja mogła cofnąć do kolejności słownika.
+        var covered = 0;
+        foreach (var status in Enum.GetValues<ParameterStatus>())
+        {
+            var subset = registry.PathsWithStatus(status).ToList();
+            CollectionAssert.AreEqual(
+                subset.OrderBy(p => p, StringComparer.Ordinal).ToList(),
+                subset,
+                $"PathsWithStatus({status}) nie jest w porządku ordinalnym");
+            // Podciąg, nie tylko posortowany zbiór: kolejność ma być kolejnością `Paths`.
+            CollectionAssert.AreEqual(
+                paths.Where(subset.Contains).ToList(),
+                subset,
+                $"PathsWithStatus({status}) nie jest podciągiem Paths");
+            covered += subset.Count;
+        }
+
+        // Licznik, żeby pętla po statusach nie przeszła pusta i zielona.
+        Assert.AreEqual(paths.Count, covered, "statusy nie pokrywają wszystkich wpisów");
+
+        // 4. `SourceIds` deklaruje porządek ordinalny w tym samym pliku i nie miał
+        //    dotąd ani jednej bramki — mutacja `Reverse()` przechodziła cały zestaw.
+        var sources = registry.SourceIds.ToList();
+        CollectionAssert.AreEqual(
+            sources.OrderBy(s => s, StringComparer.Ordinal).ToList(),
+            sources,
+            "SourceIds nie jest w porządku ordinalnym");
+        Assert.IsTrue(sources.Count >= 2, $"rejestr podaje tylko {sources.Count} źródeł");
     }
 
     /// <summary>
