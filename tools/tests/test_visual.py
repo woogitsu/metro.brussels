@@ -5,11 +5,14 @@ Dowodzą tego, czego wymaga #27: identyczny render przechodzi, czarny obraz i z�
 rozmiar są odrzucane, przesunięty obiekt przekracza próg, drobny szum nie, a brak
 baseline nigdy nie prowadzi do automatycznego nadpisania.
 """
+import hashlib
 import json
 import os
 import shutil
+import struct
 import sys
 import tempfile
+import zlib
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.insert(0, os.path.join(ROOT, "tools", "visual"))
@@ -678,3 +681,724 @@ def test_visual_check_image_still_reports_the_empty_reason():
     result = _check(_uniform(), None)
     assert result["status"] == "fail" and result["checks"]["not_empty"] is False
     assert "pusty" in result["reason"]
+
+
+# --- pngio: PNG-e, których pngio NIE pisze --------------------------------------
+#
+# Każdy dotychczasowy test czyta plik, który sam przed chwilą zapisał przez
+# `write_gray`/`write_rgb`. To zawsze ten sam PNG: 8 bitów, typ koloru 0 albo 2,
+# filtr 0 w każdym wierszu, trzy chunki (IHDR, IDAT, IEND) i nic poza nimi.
+# Blender produkuje szerszy zbiór — 16 bitów, kanał alfa, filtry 1–4 dobierane per
+# wiersz, chunki `tEXt`/`tIME` wokół obrazu. Przegląd mutacyjny 03.09.2026 pokazał
+# to wprost: cały dekoder filtrów (`_unfilter`), gałąź 16-bitowa i pominięcie
+# chunków dodatkowych stały bez pokrycia — 25 z 38 mutacji `pngio.py` przeżyło.
+#
+# Dlatego poniższe testy budują PNG-e bajt po bajcie, zamiast prosić o nie `pngio`.
+
+
+def _png_chunk(tag, payload):
+    return (struct.pack(">I", len(payload)) + tag + payload
+            + struct.pack(">I", zlib.crc32(tag + payload) & 0xFFFFFFFF))
+
+
+def _png_bytes(width, height, bit_depth, color_type, rows, filters,
+               before=(), after=(), tail=b"", interlace=0, stream_len=None):
+    """PNG złożony ręcznie: `rows` to bajty NIEfiltrowane, `filters` — typ na wiersz.
+
+    Filtrowanie liczone jest tutaj, w drugą stronę niż w `pngio._unfilter`, więc
+    round-trip porównuje dwie niezależne implementacje tej samej definicji z PNG-spec.
+
+    `stream_len` skraca albo wydłuża strumień PRZED kompresją, nie ruszając chunków:
+    plik zostaje złożony z całych, poprawnie zCRC-owanych IDAT-ów, w których jest
+    inna liczba bajtów obrazu, niż deklaruje IHDR. Tak wygląda strumień urwany
+    u kodera, w odróżnieniu od pliku urwanego na dysku.
+    """
+    channels = {0: 1, 2: 3, 3: 1, 4: 2, 6: 4}[color_type]
+    bpp = channels * (bit_depth // 8)
+    stream = bytearray()
+    prev = bytes(len(rows[0]))
+    for row, ftype in zip(rows, filters):
+        encoded = bytearray([ftype])
+        for i, value in enumerate(row):
+            left = row[i - bpp] if i >= bpp else 0
+            up = prev[i]
+            upleft = prev[i - bpp] if i >= bpp else 0
+            if ftype == 1:
+                value -= left
+            elif ftype == 2:
+                value -= up
+            elif ftype == 3:
+                value -= (left + up) >> 1
+            elif ftype == 4:
+                value -= pngio._paeth(left, up, upleft)
+            encoded.append(value & 0xFF)
+        stream += encoded
+        prev = row
+    if stream_len is not None:
+        stream = (stream + bytearray(max(0, stream_len - len(stream))))[:stream_len]
+    body = _png_chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, bit_depth,
+                                           color_type, 0, 0, interlace))
+    for tag, payload in before:
+        body += _png_chunk(tag, payload)
+    body += _png_chunk(b"IDAT", zlib.compress(bytes(stream), 6))
+    for tag, payload in after:
+        body += _png_chunk(tag, payload)
+    body += _png_chunk(b"IEND", b"")
+    return pngio.MAGIC + body + tail
+
+
+def _read_blob(blob):
+    """Wczytuje surowe bajty przez `pngio.read_gray`, przez plik tymczasowy."""
+    tmp = tempfile.mkdtemp()
+    try:
+        path = os.path.join(tmp, "hand.png")
+        with open(path, "wb") as handle:
+            handle.write(blob)
+        return pngio.read_gray(path)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def _raises(blob):
+    try:
+        _read_blob(blob)
+    except Exception as exc:  # noqa: BLE001 — interesuje nas KAŻDA odmowa
+        return exc
+    return None
+
+
+#: Dwa wiersze po trzy bajty. Pierwszy bajt wiersza jest CELOWO niezerowy: filtry
+#: 3 i 4 sięgają po lewego sąsiada dopiero od indeksu `bpp`, a przy zerze w tym
+#: miejscu błąd w warunku `i >= bpp` nie zmieniłby ani jednego piksela.
+_GREY_ROWS = [bytes([200, 17, 91]), bytes([44, 250, 3])]
+_GREY_VALUES = [200, 17, 91, 44, 250, 3]
+
+
+def _as_bytes(image):
+    return [round(value * 255) for value in image.gray]
+
+
+def test_visual_png_reads_every_filter_type_the_spec_defines():
+    """Pięć typów filtra PNG musi dać ten sam obraz; szósty musi zostać odrzucony.
+
+    `write_gray` pisze wyłącznie filtr 0, więc gałęzie 1–4 w `_unfilter` nie były
+    wykonywane przez żaden test. Blender dobiera filtr per wiersz i realnie używa
+    wszystkich pięciu.
+
+    Kontrola negatywna jest podwójna: filtr spoza zakresu musi dać `PngError`,
+    a wiersze o dwóch RÓŻNYCH filtrach muszą dać ten sam obraz co jednorodne —
+    inaczej test przechodziłby też wtedy, gdyby dekoder ignorował bajt filtra.
+    """
+    for ftype in range(5):
+        image = _read_blob(_png_bytes(3, 2, 8, 0, _GREY_ROWS, [ftype, ftype]))
+        assert image.size == (3, 2), (ftype, image.size)
+        assert _as_bytes(image) == _GREY_VALUES, (ftype, _as_bytes(image))
+
+    mixed = _read_blob(_png_bytes(3, 2, 8, 0, _GREY_ROWS, [4, 3]))
+    assert _as_bytes(mixed) == _GREY_VALUES, _as_bytes(mixed)
+
+    broken = _raises(_png_bytes(2, 1, 8, 0, [bytes([1, 2])], [7]))
+    assert isinstance(broken, pngio.PngError) and "filtr" in str(broken), broken
+
+
+def test_visual_png_paeth_breaks_ties_the_way_the_spec_requires():
+    """Predyktor Paeth przy remisie musi wybrać a, potem b — nigdy c.
+
+    PNG-spec rozstrzyga remisy kolejnością `pa <= pb <= pc`, i to jedyne, co
+    odróżnia `<=` od `<` w tej funkcji. Trójki dobrane tak, żeby remis WYSTĄPIŁ,
+    a zwycięzcy różnili się wartością:
+
+    * `(3, 6, 5)`: pa = 1, pb = 2, pc = 1 — remis pa/pc, wygrywa a = 3.
+      Przy `pa < pc` wygrałoby c = 5.
+    * `(6, 3, 5)`: pa = 2, pb = 1, pc = 1 — remis pb/pc, wygrywa b = 3.
+      Przy `pb < pc` wygrałoby c = 5.
+
+    Trzeci wariant remisu — `pa == pb` — jest NIEROZSTRZYGALNY: z pa == pb wynika
+    a + b = 2c, a stąd pc = 0 < pa, więc pierwsza gałąź i tak nie jest brana.
+    Sprawdzone wyczerpująco na wszystkich 16 777 216 trójkach bajtów: zamiana
+    `pa <= pb` na `pa < pb` nie zmienia ani jednego wyniku.
+    """
+    assert pngio._paeth(3, 6, 5) == 3, "remis pa/pc musi iść do a (lewego sąsiada)"
+    assert pngio._paeth(6, 3, 5) == 3, "remis pb/pc musi iść do b (górnego sąsiada)"
+    # Kontrola negatywna: bez remisu wybór jest jednoznaczny i nie zależy od `<=`.
+    assert pngio._paeth(10, 60, 20) == 60, "bez remisu wygrywa b (górny sąsiad)"
+    assert pngio._paeth(90, 10, 20) == 90, "bez remisu wygrywa a (lewy sąsiad)"
+    assert pngio._paeth(0, 0, 200) == 0
+
+
+def test_visual_png_luminance_uses_all_three_colour_channels():
+    """Luminancja musi ważyć R, G i B — nie brać samego R jako „szarości".
+
+    Wszystkie dotychczasowe obrazy testowe były szare (r == g == b), więc pomylenie
+    gałęzi kolorowej z monochromatyczną nie zmieniało ani jednego piksela. Render
+    z Blendera szary nie jest.
+
+    Kontrola negatywna: czysty zielony i czysty niebieski MUSZĄ dać różne wyniki —
+    gdyby dekoder czytał tylko pierwszy kanał, oba wyszłyby na 0.
+    """
+    row = bytes([255, 0, 0, 0, 255, 0, 0, 0, 255])
+    image = _read_blob(_png_bytes(3, 1, 8, 2, [row], [0]))
+    assert image.color_type == 2 and image.bit_depth == 8
+    assert abs(image.at(0, 0) - 0.2126) < 1e-9, image.at(0, 0)
+    assert abs(image.at(1, 0) - 0.7152) < 1e-9, image.at(1, 0)
+    assert abs(image.at(2, 0) - 0.0722) < 1e-9, image.at(2, 0)
+    assert image.at(1, 0) != image.at(2, 0), "zielony i niebieski nie mogą się zlać"
+
+    # Ten sam obraz przepuszczony filtrem Paeth — kolor i filtrowanie naraz.
+    second = bytes([9, 200, 30, 40, 5, 60, 70, 80, 255])
+    filtered = _read_blob(_png_bytes(3, 2, 8, 2, [row, second], [4, 4]))
+    assert abs(filtered.at(0, 0) - 0.2126) < 1e-9, filtered.at(0, 0)
+    assert abs(filtered.at(1, 1) - (0.2126 * 40 + 0.7152 * 5 + 0.0722 * 60) / 255.0) < 1e-9
+
+
+def test_visual_png_reads_sixteen_bit_samples():
+    """Blender zapisuje 16 bitów na kanał; ta gałąź składa próbkę z dwóch bajtów.
+
+    Sprawdzane są obie odnogi: kolorowa (trzy próbki po dwa bajty) i monochromatyczna.
+    Kontrola negatywna siedzi w samej skali — 16-bitowy biały musi wyjść na 1.0,
+    a nie na 255/65535, co wychodziłoby przy pomylonym dzielniku.
+    """
+    row = struct.pack(">HHHHHHHHH", 65535, 0, 0, 0, 65535, 0, 0, 0, 65535)
+    image = _read_blob(_png_bytes(3, 1, 16, 2, [row], [0]))
+    assert image.bit_depth == 16 and image.color_type == 2
+    assert abs(image.at(0, 0) - 0.2126) < 1e-9, image.at(0, 0)
+    assert abs(image.at(1, 0) - 0.7152) < 1e-9, image.at(1, 0)
+    assert abs(image.at(2, 0) - 0.0722) < 1e-9, image.at(2, 0)
+
+    white = _read_blob(_png_bytes(1, 1, 16, 2, [struct.pack(">HHH", 65535, 65535, 65535)], [0]))
+    assert abs(white.at(0, 0) - 1.0) < 1e-12, white.at(0, 0)
+
+    grey = _read_blob(_png_bytes(2, 1, 16, 0, [struct.pack(">HH", 65535, 0)], [0]))
+    assert abs(grey.at(0, 0) - 1.0) < 1e-12 and grey.at(1, 0) == 0.0
+
+
+def test_visual_png_accepts_an_alpha_channel_and_refuses_a_palette():
+    """Typ 4 i 6 (z alfą) są obsługiwane, typ 3 (paleta) musi zostać odrzucony.
+
+    `_CHANNELS` zawiera wpis dla palety, więc sam brak klucza jej nie zatrzymuje —
+    zatrzymuje ją dopiero osobny warunek. Bez niego indeksy palety zostałyby wzięte
+    za jasności i dekoder zwróciłby obraz, tyle że nie ten.
+
+    Kontrola negatywna: greyA musi PRZEJŚĆ i dać wartości z kanału szarości,
+    a nie z kanału alfa.
+    """
+    grey_alpha = _read_blob(_png_bytes(2, 1, 8, 4, [bytes([200, 255, 10, 128])], [0]))
+    assert grey_alpha.color_type == 4
+    assert _as_bytes(grey_alpha) == [200, 10], _as_bytes(grey_alpha)
+
+    rgba = _read_blob(_png_bytes(2, 1, 8, 6,
+                                 [bytes([255, 0, 0, 255, 0, 0, 255, 128])], [0]))
+    assert abs(rgba.at(0, 0) - 0.2126) < 1e-9 and abs(rgba.at(1, 0) - 0.0722) < 1e-9
+
+    palette = _raises(_png_bytes(2, 1, 8, 3, [bytes([0, 1])], [0],
+                                 before=[(b"PLTE", bytes([255, 0, 0, 0, 255, 0]))]))
+    assert isinstance(palette, pngio.PngError), palette
+    assert "color_type=3" in str(palette), palette
+
+    interlaced = _raises(_png_bytes(3, 2, 8, 0, _GREY_ROWS, [0, 0], interlace=1))
+    assert isinstance(interlaced, pngio.PngError) and "przeplot" in str(interlaced)
+
+
+def test_visual_png_skips_the_chunks_blender_puts_around_the_image():
+    """Chunki poza IHDR/IDAT/IEND muszą być pominięte, a nie zakończyć czytanie.
+
+    Blender zapisuje `tEXt` z nazwą oprogramowania przed IDAT i bywa, że `tIME`
+    po nim. Gdyby pętla kończyła się na pierwszym nieznanym chunku, IDAT nigdy by
+    się nie uzbierał, a `zlib` wysypałby się na pustym strumieniu — awarią, nie
+    komunikatem bramki.
+
+    Kontrola negatywna: śmieci ZA chunkiem IEND muszą zostać zignorowane, bo tam
+    czytanie ma się właśnie zatrzymać.
+    """
+    around = _png_bytes(3, 2, 8, 0, _GREY_ROWS, [0, 0],
+                        before=[(b"tEXt", b"Software\x00Blender")],
+                        after=[(b"tIME", struct.pack(">HBBBBB", 2026, 9, 3, 10, 0, 0))])
+    assert _as_bytes(_read_blob(around)) == _GREY_VALUES
+
+    with_tail = _png_bytes(3, 2, 8, 0, _GREY_ROWS, [0, 0], tail=b"SMIECI" * 8)
+    assert _as_bytes(_read_blob(with_tail)) == _GREY_VALUES
+
+
+def test_visual_png_truncated_header_is_not_reported_as_a_missing_header():
+    """Plik urwany W ŚRODKU IHDR nie może twierdzić, że IHDR w nim nie ma.
+
+    Ośmiobajtowa końcówka (długość + tag, bez danych i bez CRC) to jedyne miejsce,
+    w którym warunek pętli `pos + 8 <= len(blob)` różni się od `pos + 8 < len(blob)`.
+    Przy `<` taki nagłówek nie zostaje nawet obejrzany i `read_gray` melduje
+    „brak IHDR" — o pliku, w którym IHDR STOI. Komunikat wysyłałby czytającego
+    log CI w złą stronę: kazałby szukać brakującego chunku zamiast uciętego pliku.
+
+    Test pilnuje diagnozy, nie typu wyjątku: dziś ucięty nagłówek wychodzi jako
+    `struct.error` z `struct.unpack` i to jest osobna, zapisana w raporcie usterka
+    (`read_gray` deklaruje `PngError`). Test przechodzi dla obu typów — nie
+    przechodzi dla kłamliwej treści.
+
+    Kontrola negatywna: plik, w którym IHDR NAPRAWDĘ nie ma, musi dostać
+    dokładnie ten komunikat.
+    """
+    cut = pngio.MAGIC + b"\x00\x00\x00\x0dIHDR"
+    exc = _raises(cut)
+    assert exc is not None, "plik bez danych IHDR został wczytany jak obraz"
+    assert "brak IHDR" not in str(exc), (
+        f"IHDR w tym pliku jest, tylko ucięty; komunikat kłamie: {exc}")
+
+    without = (pngio.MAGIC + _png_chunk(b"IDAT", zlib.compress(b"\x00\x01", 6))
+               + _png_chunk(b"IEND", b""))
+    missing = _raises(without)
+    assert isinstance(missing, pngio.PngError) and "brak IHDR" in str(missing), missing
+
+
+def test_visual_png_writers_clamp_out_of_range_values_to_black_and_white():
+    """Wartości spoza 0.0–1.0 mają być przycięte, a nie wysadzić zapis.
+
+    `compare.py` liczy obraz różnicowy z wartości, które mogą minimalnie wyjść poza
+    zakres po arytmetyce zmiennoprzecinkowej. Bez przycięcia `int(round(1.002 * 255))`
+    daje 256, a `bytearray.append` rzuca wtedy `ValueError` — bramka wizualna padłaby
+    na zapisie diffa, nie na porównaniu.
+
+    Granica jest sprawdzana TUŻ nad progiem, nie daleko od niego: 1.002 to najmniejsza
+    z okrągłych wartości, przy której brak przycięcia realnie przekracza bajt
+    (1.001 * 255 = 255.255 zaokrągla się jeszcze do 255).
+
+    Kontrola negatywna: 1.0 i 0.0 to wartości LEGALNE i muszą przejść nietknięte,
+    a wartość ujemna ma wyjść na czerń, nie na przepełnienie w drugą stronę.
+    """
+    tmp = tempfile.mkdtemp()
+    try:
+        path = os.path.join(tmp, "clamp.png")
+        pngio.write_gray(path, 4, 1, [-3.0, 0.0, 1.0, 1.002])
+        image = pngio.read_gray(path)
+        assert _as_bytes(image) == [0, 0, 255, 255], _as_bytes(image)
+
+        pngio.write_rgb(path, 3, 1, [(-3.0, -1e-9, 0.0), (1.0, 1.0, 1.0), (1.002, 5.0, 1.5)])
+        image = pngio.read_gray(path)
+        assert image.at(0, 0) == 0.0, image.at(0, 0)
+        assert abs(image.at(1, 0) - 1.0) < 1e-12, image.at(1, 0)
+        assert abs(image.at(2, 0) - 1.0) < 1e-12, image.at(2, 0)
+
+        # Kontrola negatywna: wartości w zakresie NIE są przycinane do skrajności.
+        pngio.write_gray(path, 2, 1, [0.5, 0.25])
+        assert _as_bytes(pngio.read_gray(path)) == [128, 64]
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+# --- kompletność chunku -------------------------------------------------------
+# `read_gray` deklaruje własny wyjątek `PngError`, ale plik urwany w środku chunku
+# wychodził spod `struct.unpack` jako `struct.error`, a urwany w środku IDAT — spod
+# `zlib.decompress` jako `zlib.error`. Bramka wizualna łapie `PngError` i zamienia go
+# na komunikat; wyjątek spoza kontraktu przelatuje przez nią jako traceback i nie mówi
+# ani który chunk jest ucięty, ani ile w nim brakuje. Poniższe testy pilnują typu
+# wyjątku ORAZ treści komunikatu, bo to komunikat trafia do logu CI.
+
+
+def _good_png():
+    """Poprawny plik odniesienia: MAGIC + IHDR + IDAT + IEND, bez ogona."""
+    return _png_bytes(3, 2, 8, 0, _GREY_ROWS, [0, 0])
+
+
+def _good_ihdr():
+    """Poprawny chunk IHDR 3x2, 8 bitów, szarość — do sklejania ułomków ręcznie."""
+    return _png_chunk(b"IHDR", struct.pack(">IIBBBBB", 3, 2, 8, 0, 0, 0, 0))
+
+
+def test_visual_png_truncated_idat_is_a_png_error_not_a_struct_or_zlib_error():
+    """Plik urwany w środku IDAT ma dać `PngError`, nie `zlib.error`.
+
+    Tak wygląda render przerwany w połowie zapisu — dysk zapełniony, ubity Blender,
+    artefakt CI ściągnięty częściowo. Bramka wizualna ma wtedy powiedzieć „plik jest
+    ucięty", a nie wysypać się wyjątkiem z wnętrza `zlib`, po którym nie widać nawet,
+    o który plik chodzi.
+
+    Komunikat musi podać LICZBĘ brakujących bajtów, bo to jedyna informacja, która
+    odróżnia plik ucięty o ogon od pliku uszkodzonego w środku.
+
+    Kontrola negatywna jest podwójna: ten sam plik NIEucięty musi się wczytać i dać
+    dokładnie te same wartości co zawsze, a komunikat o ucięciu nie może nazywać
+    chunku IHDR — ten w pliku stoi cały.
+    """
+    good = _good_png()
+    assert _as_bytes(_read_blob(good)) == _GREY_VALUES, "plik odniesienia jest zły"
+
+    # Ucinamy IEND (12 B) i pięć bajtów ogona IDAT: 4 B CRC + 1 B danych.
+    cut = good[:len(good) - 12 - 5]
+    exc = _raises(cut)
+    assert isinstance(exc, pngio.PngError), f"oczekiwano PngError, dostano {exc!r}"
+    assert not isinstance(exc, (struct.error, zlib.error)), repr(exc)
+    assert "IDAT" in str(exc), exc
+    assert "IHDR" not in str(exc), f"IHDR w tym pliku jest cały; komunikat kłamie: {exc}"
+    assert "brakuje 5 B" in str(exc), exc
+
+
+def test_visual_png_truncated_chunk_header_is_a_png_error_too():
+    """Plik urwany w środku 8-bajtowego nagłówka chunku też ma dać `PngError`.
+
+    To druga, cichsza połowa tej samej usterki: przy mniej niż ośmiu bajtach pętla
+    `while pos + 8 <= len(blob)` po prostu się kończy, ogryzek zostaje przemilczany
+    i błąd wychodzi dopiero z `zlib` — albo wcale, gdy IDAT zdążył się uzbierać
+    wcześniej. Wtedy bramka porównałaby NIEPEŁNY obraz z baseline i orzekła regresję
+    tam, gdzie jest ucięty plik.
+
+    Kontroli negatywnych dwie. Pierwsza: plik urwany DOKŁADNIE na granicy chunku nie
+    może dostać tego komunikatu — nie ma tam żadnego ogryzka nagłówka, a komunikat
+    o urwanym nagłówku byłby kłamstwem. Druga: śmieci ZA chunkiem IEND nadal muszą
+    być ignorowane (`test_visual_png_skips_the_chunks_blender_puts_around_the_image`
+    tego pilnuje od strony pliku poprawnego — tu pilnujemy, że nowa kontrola tego
+    nie zepsuła), bo tam czytanie kończy się przez `break`, a nie przez wyczerpanie
+    bufora.
+    """
+    head = len(pngio.MAGIC) + 8 + 13 + 4          # MAGIC + cały IHDR
+    good = _good_png()
+
+    stub = good[:head + 5]                         # pięć z ośmiu bajtów nagłówka IDAT
+    exc = _raises(stub)
+    assert isinstance(exc, pngio.PngError), f"oczekiwano PngError, dostano {exc!r}"
+    assert not isinstance(exc, (struct.error, zlib.error)), repr(exc)
+    assert "urwany w nagłówku chunku" in str(exc), exc
+    assert "zostało 5 B" in str(exc), exc
+
+    on_boundary = _raises(good[:head])
+    assert on_boundary is not None, "plik bez IDAT nie może przejść jako obraz"
+    assert "urwany w nagłówku chunku" not in str(on_boundary), (
+        f"plik urwany na granicy chunku nie ma ogryzka nagłówka: {on_boundary}")
+
+    with_tail = _png_bytes(3, 2, 8, 0, _GREY_ROWS, [0, 0], tail=b"SMIECI" * 8)
+    assert _as_bytes(_read_blob(with_tail)) == _GREY_VALUES, "ogon za IEND-em ma być pominięty"
+
+
+def test_visual_png_truncation_message_names_the_chunk_that_is_actually_cut():
+    """Komunikat ma wskazać TEN chunk, który jest ucięty — dowolny, nie tylko IDAT.
+
+    Blender wsuwa przed IDAT `tEXt`, a po nim `tIME`. Gdyby komunikat nazywał zawsze
+    IDAT (albo chunk poprzedni), log CI kazałby szukać uszkodzenia w danych obrazu,
+    podczas gdy plik urywa się w metadanych — i odwrotnie.
+
+    Sprawdzana jest też odporność samej nazwy: w uszkodzonym pliku w miejscu tagu
+    stoją dowolne bajty, a `decode("ascii")` rzuciłby na nich `UnicodeDecodeError`,
+    czyli znowu wyjątek spoza kontraktu modułu.
+
+    Kontrola negatywna: dla uciętego `tEXt` komunikat NIE może zawierać słowa IDAT,
+    a dla tagu z bajtami niedrukowalnymi nie może udawać, że przeczytał nazwę.
+    """
+    text = b"Software\x00Blender"
+    with_text = _png_bytes(3, 2, 8, 0, _GREY_ROWS, [0, 0], before=[(b"tEXt", text)])
+    # Ucinamy w środku danych tEXt: zostaje nagłówek + 3 bajty z `len(text)` + 4 CRC.
+    head = len(pngio.MAGIC) + 8 + 13 + 4
+    cut = with_text[:head + 8 + 3]
+    exc = _raises(cut)
+    assert isinstance(exc, pngio.PngError), f"oczekiwano PngError, dostano {exc!r}"
+    assert "tEXt" in str(exc), exc
+    assert "IDAT" not in str(exc), f"ucięty jest tEXt, nie IDAT: {exc}"
+    assert f"brakuje {len(text) - 3 + 4} B" in str(exc), exc
+
+    # Tag z bajtami niedrukowalnymi: ma wyjść `PngError`, nie `UnicodeDecodeError`.
+    bogus = pngio.MAGIC + _good_ihdr() + b"\x00\x00\x00\x20" + b"\x01\x02\xffZ"
+    exc = _raises(bogus)
+    assert isinstance(exc, pngio.PngError), f"oczekiwano PngError, dostano {exc!r}"
+    assert not isinstance(exc, UnicodeDecodeError), repr(exc)
+    assert repr(b"\x01\x02\xffZ") in str(exc), exc
+    assert "brakuje 36 B" in str(exc), exc  # 32 B danych + 4 B CRC
+
+
+def test_visual_png_completeness_check_leaves_correct_files_byte_for_byte():
+    """Kontrola kompletności nie może ruszyć ANI JEDNEJ wartości w pliku poprawnym.
+
+    Nowy warunek stoi na ścieżce każdego chunku każdego pliku, więc pomyłka o jeden
+    (`>=` zamiast `>`) odrzucałaby PNG-i całkiem zdrowe — a IEND kończy się dokładnie
+    na końcu bufora, czyli na tej właśnie granicy. Test przechodzi przez warianty,
+    które realnie wychodzą z Blendera: 8 i 16 bitów, szarość, RGB, kanał alfa, filtry
+    per wiersz i chunki dodatkowe po obu stronach IDAT.
+
+    Porównanie jest bajt w bajt względem wartości WPISANYCH do pliku, a nie względem
+    drugiego przebiegu `read_gray` — inaczej test przeszedłby też wtedy, gdyby dekoder
+    psuł obraz w ten sam sposób za każdym razem.
+
+    Kontrola negatywna: `write_gray` → `read_gray` w pełnym obiegu musi dać te same
+    bajty, a plik z chunkami dookoła — te same co bez nich.
+    """
+    plain = _read_blob(_good_png())
+    assert plain.size == (3, 2) and plain.bit_depth == 8 and plain.color_type == 0
+    assert _as_bytes(plain) == _GREY_VALUES, _as_bytes(plain)
+
+    for ftype in range(5):
+        image = _read_blob(_png_bytes(3, 2, 8, 0, _GREY_ROWS, [ftype, ftype]))
+        assert _as_bytes(image) == _GREY_VALUES, (ftype, _as_bytes(image))
+
+    around = _png_bytes(3, 2, 8, 0, _GREY_ROWS, [0, 0],
+                        before=[(b"tEXt", b"Software\x00Blender")],
+                        after=[(b"tIME", struct.pack(">HBBBBB", 2026, 9, 3, 10, 0, 0))])
+    assert _as_bytes(_read_blob(around)) == _GREY_VALUES
+
+    rgb = _read_blob(_png_bytes(3, 1, 8, 2, [bytes([255, 0, 0, 0, 255, 0, 0, 0, 255])], [0]))
+    assert abs(rgb.at(0, 0) - 0.2126) < 1e-9 and abs(rgb.at(2, 0) - 0.0722) < 1e-9
+
+    deep = _read_blob(_png_bytes(2, 1, 16, 0, [struct.pack(">HH", 65535, 0)], [0]))
+    assert abs(deep.at(0, 0) - 1.0) < 1e-12 and deep.at(1, 0) == 0.0
+
+    alpha = _read_blob(_png_bytes(2, 1, 8, 4, [bytes([200, 255, 10, 128])], [0]))
+    assert _as_bytes(alpha) == [200, 10], _as_bytes(alpha)
+
+    tmp = tempfile.mkdtemp()
+    try:
+        path = os.path.join(tmp, "roundtrip.png")
+        pngio.write_gray(path, 3, 2, [v / 255.0 for v in _GREY_VALUES])
+        assert _as_bytes(pngio.read_gray(path)) == _GREY_VALUES
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+# --- długość rozpakowanego strumienia IDAT ------------------------------------
+# Kompletność chunków (sekcja wyżej) i długość strumienia to DWIE różne usterki.
+# Plik może być złożony z samych całych, poprawnie zCRC-owanych chunków i mieć
+# w nich mniej bajtów obrazu, niż deklaruje IHDR — tak wygląda strumień urwany
+# u kodera, nie plik urwany na dysku. Zmierzone 03.09.2026 na wersji `read_gray`
+# bez kontroli długości, height=4, filtr 0 w każdym wierszu:
+#
+#   color_type 0 / 2 / 0-16bit, brak 1 B i więcej -> `IndexError` z wnętrza pętli
+#   color_type 4 / 6 (greyA, RGBA), brak 1 B      -> PLIK PRZECHODZI jako obraz
+#
+# Druga linia jest tą groźną, bo Blender pisze dokładnie te typy: zmierzone na
+# `renders/TEST_*.png` z Blendera 5.2.1 — color_type 6, 960x576. Brakującego bajtu
+# alfa ostatniego piksela `read_gray` nie czytał, więc bramka porównywała z baseline
+# obraz złożony z niekompletnego strumienia. Pierwsza linia też jest usterką:
+# `IndexError` jest spoza kontraktu modułu (`read_gray` deklaruje `PngError`),
+# a bramka wizualna łapie tylko `PngError` — reszta leci przez nią jako traceback.
+#
+# Nadwyżka jest natomiast dozwolona: warunek jest `<`, nie `!=`. Zmierzone na ośmiu
+# PNG-ach, które projekt realnie produkuje (trzy `renders/TEST_*.png` z `render_check.py`
+# i pięć `renders/vis/TESTVIS_*.png` z `capture_blender.py`): nadwyżka 0 B w każdym,
+# czyli `!=` byłoby dziś równoważne — ale koder ma prawo dopisać wyrównanie, a wtedy
+# `!=` odrzucałoby pliki zdrowe.
+
+#: RGBA 2x2, szare piksele z pełną alfą — kształt, który realnie wychodzi z Blendera.
+_RGBA_ROWS = [bytes([200, 200, 200, 255, 17, 17, 17, 255]),
+              bytes([44, 44, 44, 255, 250, 250, 250, 255])]
+_RGBA_VALUES = [200, 17, 44, 250]
+
+
+def test_visual_png_rejects_a_stream_one_byte_short_of_what_ihdr_declares():
+    """Granica jest CAŁKOWITA: `height * (stride + 1)` przechodzi, o 1 B mniej nie.
+
+    Dotykana jest granica DOKŁADNA i obie jej strony, bo inaczej test nie odróżnia
+    `<` od `<=`: strumień o długości równej `height * (stride + 1)` musi dać obraz,
+    a strumień krótszy o jeden jedyny bajt — `PngError`. Liczba bajtów jest liczbą
+    całkowitą, więc żadnego zapasu na błąd zaokrąglenia tu nie ma i nie trzeba go
+    udawać `nextafter`-em.
+
+    Komunikat musi podać LICZBY (ile jest, ile potrzeba, `height`, `stride`), bo
+    w logu CI to jedyne, co odróżnia strumień urwany o ogon od pliku o zupełnie
+    złym nagłówku.
+
+    Wariant RGBA jest osobno, bo tylko on przechodził po cichu przed tą kontrolą,
+    i to jest typ, który pisze Blender.
+
+    Kontrole negatywne trzy: (1) ten sam plik z pełnym strumieniem musi dać dokładnie
+    te same wartości pikseli co zawsze; (2) strumień DŁUŻSZY niż potrzeba musi
+    przejść i dać ten sam obraz — inaczej warunek byłby `!=`; (3) komunikat nie może
+    mówić o uciętym chunku, bo wszystkie chunki w tym pliku są całe.
+    """
+    for color_type, rows, values, stride in ((0, _GREY_ROWS, _GREY_VALUES, 3),
+                                             (6, _RGBA_ROWS, _RGBA_VALUES, 8)):
+        height = 2
+        full = height * (stride + 1)
+
+        exact = _png_bytes(3 if color_type == 0 else 2, height, 8, color_type,
+                           rows, [0, 0], stream_len=full)
+        image = _read_blob(exact)
+        assert _as_bytes(image) == values, (color_type, _as_bytes(image))
+
+        surplus = 7
+        longer = _png_bytes(3 if color_type == 0 else 2, height, 8, color_type,
+                            rows, [0, 0], stream_len=full + surplus)
+        assert _as_bytes(_read_blob(longer)) == values, (
+            f"nadwyżka {surplus} B ma być pomijana, nie odrzucana "
+            f"(color_type={color_type})")
+
+        short = _png_bytes(3 if color_type == 0 else 2, height, 8, color_type,
+                           rows, [0, 0], stream_len=full - 1)
+        exc = _raises(short)
+        assert isinstance(exc, pngio.PngError), (
+            f"color_type={color_type}: oczekiwano PngError, dostano {exc!r}")
+        assert not isinstance(exc, (struct.error, zlib.error, IndexError)), repr(exc)
+        text = str(exc)
+        assert f"{full - 1} B" in text, text
+        assert f"{full} B" in text, text
+        assert f"height={height}" in text and f"stride={stride}" in text, text
+        assert "brakuje 1 B" in text, text
+        assert "ucięty" not in text, f"chunki w tym pliku są całe; komunikat kłamie: {text}"
+
+    # Strumień pusty i strumień krótszy o cały wiersz — ta sama odmowa, nie IndexError.
+    for stream_len in (0, 4):
+        exc = _raises(_png_bytes(3, 2, 8, 0, _GREY_ROWS, [0, 0], stream_len=stream_len))
+        assert isinstance(exc, pngio.PngError), f"stream_len={stream_len}: {exc!r}"
+        assert f"brakuje {8 - stream_len} B" in str(exc), (stream_len, str(exc))
+
+
+# --- scalenie ścieżki zapisu --------------------------------------------------
+# `write_gray` i `write_rgb` miały po własnej kopii pętli wierszy, przycięcia,
+# skalowania i składania chunków; różniły się liczbą kanałów i `color_type`.
+# Sumy poniżej są policzone na wersji PRZED scaleniem (`git show main:tools/visual/pngio.py`,
+# 03.09.2026) i są jedynym dowodem, że scalenie nie zmieniło ani jednego bajtu.
+
+_WRITE_GRAY_SHA256 = "8d92639b459e34b1c8b2900207c83d7dbbdbfa9fb2bac639292b69788860eb3a"
+_WRITE_RGB_SHA256 = "1ed04d40d93f7527dcb0e995964dd503b545b64bcd3c28bc51192f8a296a0c53"
+
+#: 5x3. Wartości spoza zakresu z OBU stron (przycięcie), dokładne 1/255, ćwiartki
+#: i połówki (zaokrąglenie), więcej niż jeden wiersz (bajt filtra na wiersz).
+_WRITE_GRAY_INPUT = [-3.0, -1e-9, 0.0, 1.0 / 255.0, 0.25,
+                     0.5, 0.5 + 1e-12, 0.75, 1.0, 1.0 + 1e-9,
+                     1.002, 5.0, 0.2126, 0.7152, 0.0722]
+_WRITE_GRAY_EXPECTED = [0, 0, 0, 1, 64, 128, 128, 191, 255, 255, 255, 255, 54, 182, 18]
+
+#: 4x2 trójek, ten sam zamysł: przycięcie z obu stron i małe wartości całkowite.
+_WRITE_RGB_INPUT = [(-1.0, 0.0, 0.5), (0.25, 0.5, 0.75), (1.0, 1.5, -0.5),
+                    (1.0 / 255.0, 2.0 / 255.0, 3.0 / 255.0),
+                    (0.1, 0.2, 0.3), (0.9, 0.8, 0.7), (0.0, 0.0, 0.0), (1.0, 1.0, 1.0)]
+
+
+def test_visual_png_write_path_stays_byte_identical_after_merging_gray_and_rgb():
+    """Scalona ścieżka zapisu musi dać plik CO DO BAJTU taki jak dwie osobne.
+
+    Cała regresja wizualna stoi na tych plikach: `compare.py` pisze nimi mapy różnic,
+    a `visual_smoke.sh` i `test_visual_gates.py` budują nimi syntetyczne rendery,
+    które potem służą jako baseline. Zmiana o jeden bajt w kompresji albo w kolejności
+    chunków znaczyłaby, że baseline sprzed zmiany nie jest porównywalny z niczym.
+
+    Wzorcem jest sha256 policzony na wersji PRZED scaleniem, a nie drugi przebieg
+    wersji po scaleniu — inaczej test przechodziłby też wtedy, gdyby obie funkcje
+    psuły plik w ten sam sposób.
+
+    Kontrola negatywna podwójna: zapisany plik musi się dać wczytać z powrotem na
+    te same wartości (plik o poprawnym haszu, ale nieczytelny, nie jest sukcesem),
+    a nagłówek musi nadal deklarować color_type 0 dla szarości i 2 dla RGB.
+    """
+    tmp = tempfile.mkdtemp()
+    try:
+        gray_path = os.path.join(tmp, "gray.png")
+        pngio.write_gray(gray_path, 5, 3, _WRITE_GRAY_INPUT)
+        with open(gray_path, "rb") as handle:
+            blob = handle.read()
+        got = hashlib.sha256(blob).hexdigest()
+        assert got == _WRITE_GRAY_SHA256, (
+            f"write_gray zmienił bajty: {got} != {_WRITE_GRAY_SHA256}")
+        assert struct.unpack(">IIBBBBB", blob[16:29])[3] == 0, "szarość to color_type 0"
+        image = pngio.read_gray(gray_path)
+        assert image.size == (5, 3) and image.color_type == 0
+        assert _as_bytes(image) == _WRITE_GRAY_EXPECTED, _as_bytes(image)
+
+        rgb_path = os.path.join(tmp, "rgb.png")
+        pngio.write_rgb(rgb_path, 4, 2, _WRITE_RGB_INPUT)
+        with open(rgb_path, "rb") as handle:
+            blob = handle.read()
+        got = hashlib.sha256(blob).hexdigest()
+        assert got == _WRITE_RGB_SHA256, (
+            f"write_rgb zmienił bajty: {got} != {_WRITE_RGB_SHA256}")
+        assert struct.unpack(">IIBBBBB", blob[16:29])[3] == 2, "RGB to color_type 2"
+        image = pngio.read_gray(rgb_path)
+        assert image.size == (4, 2) and image.color_type == 2
+        # (-1.0, 0.0, 0.5) -> bajty (0, 0, 128); liczy się tylko waga niebieskiego.
+        assert abs(image.at(0, 0) - 0.0722 * 128 / 255.0) < 1e-12, image.at(0, 0)
+        # (0.25, 0.5, 0.75) -> bajty (64, 128, 191).
+        expected = (0.2126 * 64 + 0.7152 * 128 + 0.0722 * 191) / 255.0
+        assert abs(image.at(1, 0) - expected) < 1e-12, image.at(1, 0)
+        # (1.0, 1.5, -0.5) -> przycięcie z obu stron: (255, 255, 0).
+        expected = (0.2126 * 255 + 0.7152 * 255) / 255.0
+        assert abs(image.at(2, 0) - expected) < 1e-12, image.at(2, 0)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def _corrupt_crc(blob, tag, bit=0xFF):
+    """Kopia pliku z przekręconym pierwszym bajtem CRC wskazanego chunku.
+
+    Rusza WYŁĄCZNIE pola CRC: długość, tag i dane zostają, więc plik jest nadal
+    kompletny w sensie kontroli ucięcia. Odmowa musi więc przyjść z kontroli sumy,
+    a nie z kontroli długości — inaczej test przechodziłby dla złego powodu.
+    """
+    out = bytearray(blob)
+    pos = len(pngio.MAGIC)
+    while pos + 8 <= len(out):
+        (length,) = struct.unpack(">I", out[pos:pos + 4])
+        if out[pos + 4:pos + 8] == tag:
+            out[pos + 8 + length] ^= bit
+            return bytes(out)
+        pos = pos + 12 + length
+    raise AssertionError(f"nie ma chunku {tag!r} w pliku")
+
+
+def test_visual_png_refuses_a_chunk_whose_crc_does_not_match_its_data():
+    """CRC jest sprawdzany, a nie przeskakiwany.
+
+    Zmierzone 03.09.2026 PRZED zmianą, na PNG-u 4x3 z `write_gray`: przekręcenie
+    jednego bajtu w polu CRC dowolnego z trzech chunków — IHDR, IDAT, IEND — dawało
+    plik czytany BEZ SŁOWA jako poprawny obraz 4x3. Cztery bajty, które są w pliku
+    wyłącznie po to, żeby wykryć uszkodzenie, nie były czytane ani razu.
+
+    Dlaczego to nie jest hipotetyczne: bramka wizualna porównuje zrzuty bajt po
+    bajcie i orzeka na tej podstawie „regresja" albo „bez zmian". Zrzut uszkodzony
+    w transporcie wchodził do tego porównania jako pełnoprawne wejście.
+    """
+    good = _png_bytes(3, 2, 8, 0, _GREY_ROWS, [0, 0],
+                      before=[(b"tEXt", b"Software\x00Blender")],
+                      after=[(b"tIME", struct.pack(">HBBBBB", 2026, 9, 3, 10, 0, 0))])
+    assert _as_bytes(_read_blob(good)) == _GREY_VALUES, "wzorzec do psucia jest zły"
+
+    # Także chunki, z których ten moduł NIC nie czyta: uszkodzony plik jest
+    # uszkodzony niezależnie od tego, czy akurat potrzebujemy tego chunku.
+    for tag in (b"IHDR", b"IDAT", b"IEND", b"tEXt", b"tIME"):
+        error = _raises(_corrupt_crc(good, tag))
+        assert isinstance(error, pngio.PngError), (tag, error)
+        assert "CRC" in str(error), (tag, str(error))
+        assert tag.decode("ascii") in str(error), (tag, str(error))
+
+
+def test_visual_png_crc_message_carries_both_sums_so_the_log_says_what_differs():
+    """Sama informacja „CRC się nie zgadza" nie pozwala odróżnić zepsutego pliku
+    od zepsutego czytnika. W logu CI mają stać obie liczby.
+    """
+    good = _png_bytes(3, 2, 8, 0, _GREY_ROWS, [0, 0])
+    blob = _corrupt_crc(good, b"IDAT")
+
+    pos = len(pngio.MAGIC)
+    while blob[pos + 4:pos + 8] != b"IDAT":
+        (length,) = struct.unpack(">I", blob[pos:pos + 4])
+        pos = pos + 12 + length
+    (length,) = struct.unpack(">I", blob[pos:pos + 4])
+    stored = struct.unpack(">I", blob[pos + 8 + length:pos + 12 + length])[0]
+    actual = zlib.crc32(blob[pos + 4:pos + 8 + length]) & 0xFFFFFFFF
+    assert stored != actual
+
+    message = str(_raises(blob))
+    assert f"{stored:08x}" in message, (message, f"{stored:08x}")
+    assert f"{actual:08x}" in message, (message, f"{actual:08x}")
+
+
+def test_visual_png_a_truncated_file_still_gets_the_truncation_message_not_a_crc_one():
+    """Kolejność kontroli: ucięcie ma własną, dokładniejszą diagnozę i pada pierwsze.
+
+    Gdyby kontrola CRC stanęła przed kontrolą ucięcia, sięgnęłaby po bajty, których
+    w buforze nie ma, i plik ucięty meldowałby się jako „zły CRC" — czyli mylnie,
+    bo o uszkodzeniu danych, a nie o brakującym końcu pliku.
+    """
+    good = _png_bytes(3, 2, 8, 0, _GREY_ROWS, [0, 0])
+    for missing in (1, 4, 9):
+        error = _raises(good[:-missing])
+        assert isinstance(error, pngio.PngError), (missing, error)
+        assert "CRC w pliku" not in str(error), (missing, str(error))
+
+
+def test_visual_png_every_render_this_project_produces_has_sound_crcs():
+    """Kontrola nie może odrzucać plików, które projekt naprawdę wypuszcza.
+
+    Blender pisze PNG-i z siedmioma rodzajami chunków dodatkowych (sRGB, gAMA, cHRM,
+    eXIf, oFFs, pHYs, tEXt) i z IDAT-em pociętym na kilkadziesiąt kawałków. Każdy
+    z nich przechodzi teraz przez kontrolę sumy, więc test bierze plik złożony tak
+    samo i sprawdza, że nadal się czyta.
+    """
+    ancillary = [(b"sRGB", b"\x00"), (b"gAMA", struct.pack(">I", 45455)),
+                 (b"cHRM", struct.pack(">8I", *([31270, 32900] * 4))),
+                 (b"pHYs", struct.pack(">IIB", 2835, 2835, 1)),
+                 (b"oFFs", struct.pack(">iiB", 0, 0, 0)),
+                 (b"tEXt", b"Software\x00Blender")]
+    blob = _png_bytes(3, 2, 8, 0, _GREY_ROWS, [0, 0], before=ancillary)
+    assert _as_bytes(_read_blob(blob)) == _GREY_VALUES, _as_bytes(_read_blob(blob))

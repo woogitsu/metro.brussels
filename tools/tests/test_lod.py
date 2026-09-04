@@ -535,3 +535,415 @@ def test_lod_uv_along_the_axis_does_not_shift_between_levels():
     sparse = SW.build_chunk_from_rings(frames, station, BOX, kept)
     for row, ring in enumerate(kept):
         assert sparse["uvs"][row * columns] == base["uvs"][ring * columns]
+
+
+# --- triaż mutacyjny: granice, które wyglądały na pokryte -----------------------
+#
+# Wszystko poniżej powstało z przeglądu mutacyjnego `tools/tests/mutation_sweep.py`
+# na tym module: 105 mutacji, 75 ocalałych. Każdy test tutaj zabija konkretną,
+# wypisaną w komentarzu mutację — a mutacja jest jego kontrolą negatywną.
+# Klasyfikacja całej siedemdziesiątki piątki: `reports/mutation-triage-lod.md`.
+
+
+def test_lod_level_params_returns_the_level_it_was_asked_for():
+    """Mutacja: 72 `==` -> `!=` — zwracałby PIERWSZY poziom o innym numerze.
+
+    Bez tego testu `level_params(0)` mogło oddawać parametry poziomu 1 i cały LOD 0
+    generowałby się z cięciwą 25 m, czyli jako LOD 1 pod cudzą nazwą.
+    """
+    for entry in LD.LOD_LEVELS:
+        assert LD.level_params(entry["level"])["level"] == entry["level"]
+        assert LD.level_params(entry["level"]) is entry
+    try:
+        LD.level_params(len(LD.LOD_LEVELS))
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("nieistniejący poziom nie został odrzucony")
+
+
+def test_lod_selection_rejects_a_chunk_of_one_ring():
+    """Mutacja: 125 `<=` -> `<` — `first == last` przechodziłoby dalej."""
+    station_m = [0.0, 10.0]
+    positions = [(x, 0.0, 0.0) for x in station_m]
+    try:
+        LD.select_rings(positions, station_m, 1, 1, 10.0, 0.0)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("chunk o jednym pierścieniu nie został odrzucony")
+
+
+def test_lod_chord_exactly_at_the_limit_is_still_allowed():
+    """Mutacja: 135 `>` -> `>=` — cięciwa RÓWNA limitowi zaczęłaby go łamać.
+
+    Limit znaczy „nie dłuższa niż", więc równość mieści się w limicie. Poprzedni
+    zestaw testów tego nie odróżniał, bo stacje leżały co 10 m przy limicie 10 m —
+    tam obie wersje dają ten sam wynik. Tutaj limit wypada dokładnie na DRUGIM
+    kroku, więc różnica jest widoczna: `[0, 2, 3]` wobec `[0, 1, 2, 3]`.
+    """
+    station_m = [0.0, 5.0, 10.0, 15.0]
+    positions = [(x, 0.0, 0.0) for x in station_m]
+    assert LD.select_rings(positions, station_m, 0, 3, 10.0, 0.0) == [0, 2, 3]
+    assert LD.select_rings(positions, station_m, 0, 3, 9.999, 0.0) == [0, 1, 2, 3]
+
+
+def test_lod_sagitta_exactly_at_the_limit_is_still_allowed():
+    """Mutacja: 137 `>` -> `>=` — strzałka RÓWNA limitowi zaczęłaby go łamać."""
+    positions = [(math.cos(math.radians(a)) * 100.0, math.sin(math.radians(a)) * 100.0, 0.0)
+                 for a in (0.0, 3.0, 6.0, 9.0)]
+    station_m = SW.chainages(positions)
+    limit = LD.sagitta_m(positions, 0, 2)
+    assert limit > 0.0
+    assert LD.select_rings(positions, station_m, 0, 3, 0.0, limit)[1] == 2
+    assert LD.select_rings(positions, station_m, 0, 3, 0.0, limit * 0.999)[1] == 1
+
+
+def test_lod_point_to_segment_survives_a_segment_of_zero_length():
+    """Mutacje: 110 i 183 `<= 0.0` -> `< 0.0` — dzielenie przez zero dla a == b.
+
+    Zdublowany punkt osi nie jest hipotezą: `sweep.dedupe` istnieje właśnie dlatego,
+    że surowe dane je zawierają. Gdy mimo to trafi tu odcinek zerowy, ma wyjść
+    odległość od punktu, a nie `ZeroDivisionError`.
+    """
+    assert LD._point_to_segment((1.0, 0.0, 0.0), (0.0, 0.0, 0.0), (0.0, 0.0, 0.0)) == 1.0
+    assert LD._point_to_segment_2d((1.0, 0.0), (0.0, 0.0), (0.0, 0.0)) == 1.0
+
+
+def test_lod_volume_of_a_two_ring_tube_is_not_zero():
+    """Mutacje: 265 `< 2` -> `<= 2` i `2` -> `3` — rura o dwóch pierścieniach dawałaby 0.
+
+    Dwa pierścienie to najkrótsza rura, jaka w ogóle powstaje, i ma dodatnią objętość.
+    Zwrócenie zera byłoby cichym „nie umiem" w miejscu, gdzie kontrola manifestu pyta
+    `volume_m3 <= 0` i zameldowałaby pustą bryłę kolizyjną tam, gdzie jej nie ma.
+    """
+    frames = SW.rmf_frames(SW.dedupe([(0.0, 0.0, 0.0), (10.0, 0.0, 0.0)]))
+    volume = LD.tube_volume_m3(LD.rings_of(frames, BOX, [0, 1]))
+    assert volume > 0.0, volume
+    assert abs(volume - LD.polygon_area_m2(BOX) * 10.0) < 1e-6, volume
+
+
+def test_lod_weld_keeps_a_quad_that_collapsed_into_a_triangle():
+    """Mutacje: 301 `>= 3` -> `> 3` i `3` -> `4` — trójkąt po sklejeniu wypadałby.
+
+    Czworobok, którego dwa wierzchołki leżą w tym samym punkcie, jest trójkątem,
+    a nie śmieciem. Wyrzucenie go zrobiłoby dziurę w bryle kolizyjnej i test
+    zamknięcia poprzecznego zgłosiłby ją jako brzeg — ale dopiero po fakcie.
+    """
+    count, faces = LD.weld([(0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (1.0, 1.0, 0.0), (1.0, 1.0, 0.0)],
+                           [(0, 1, 2, 3)])
+    assert count == 3
+    assert faces == [(0, 1, 2)], faces
+
+
+def test_lod_inset_accepts_a_triangle_and_rejects_a_zero_length_edge():
+    """Mutacje: 199 `< 3` -> `<= 3` i `3` -> `4`, 206 `<= 0.0` -> `< 0.0`.
+
+    Trzy punkty to najmniejszy wielobok, jaki ma wnętrze; odrzucenie go zabrałoby
+    profilowi trójkątnemu bryłę kolizyjną. Krawędź zerowej długości nie ma normalnej,
+    więc musi być odmową, a nie dzieleniem przez zero.
+    """
+    inset = LD.inset_polygon([(0.0, 0.0), (4.0, 0.0), (0.0, 4.0)], 0.1)
+    assert len(inset) == 3
+    assert LD.polygon_area_m2(inset) < LD.polygon_area_m2([(0.0, 0.0), (4.0, 0.0), (0.0, 4.0)])
+    try:
+        LD.inset_polygon([(0.0, 0.0), (0.0, 0.0), (4.0, 0.0), (0.0, 4.0)], 0.1)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("krawędź zerowej długości nie została odrzucona")
+
+
+def test_lod_threshold_distance_is_inclusive():
+    """Mutacja: 480 `>=` -> `>` — chunk DOKŁADNIE na progu zostawałby na poziomie niżej.
+
+    Próg jest opisany jako „dystans, od którego wolno LOD k+1", więc równość należy
+    do poziomu wyższego. Dotychczasowy test sprawdzał 250 m przy progu 200 m, czyli
+    punkt, w którym obie wersje dają to samo.
+    """
+    assert LD.lod_for_distance(200.0, [200.0, 400.0]) == 1
+    assert LD.lod_for_distance(199.999, [200.0, 400.0]) == 0
+    assert LD.lod_for_distance(400.0, [200.0, 400.0]) == 2
+
+
+def test_lod_manifest_thresholds_are_one_per_level_above_zero():
+    """Mutacja: 487 `> 0` -> `> 1` — próg poziomu 1 wypadałby z listy.
+
+    Wtedy `lod_plan` liczyłby poziomy z listy o jeden krótszej i chunk, który miał
+    dostać LOD 1, dostawałby LOD 0 — czyli pełną siatkę w dalekim planie, po cichu
+    i bez żadnego błędu. Trójka poziomów w manifeście musi dać dwa progi.
+    """
+    manifest = _manifest()
+    thresholds = LD.manifest_thresholds(manifest)
+    header = sorted(manifest["lod_levels"], key=lambda e: e["level"])
+    assert thresholds == [e["switch_distance_m"] for e in header[1:]], thresholds
+    assert len(thresholds) == len(header) - 1
+
+
+def test_collision_plan_holds_a_chunk_exactly_at_the_radius():
+    """Mutacja: 519 `<=` -> `<` — chunk dokładnie na promieniu wypadałby z listy.
+
+    Chunk `T_c01` zaczyna się na 500 m, więc przy pociągu na 350 m jego odległość
+    wynosi dokładnie 150 m, czyli tyle, ile `COLLISION_RADIUS_M`. Promień znaczy
+    „w tym promieniu", więc równość jest w środku.
+    """
+    manifest = _manifest()
+    assert LD.chunk_distance_m(manifest["chunks"][1], 350.0) == LD.COLLISION_RADIUS_M
+    assert "T_c01" in LD.collision_plan(manifest, 350.0)
+    assert "T_c01" not in LD.collision_plan(manifest, 349.999)
+
+
+def test_lod_triangles_counts_the_level_it_was_given():
+    """Mutacja: 528 `==` -> `!=` — liczyłby pierwszy poziom INNY niż zadany."""
+    manifest = _manifest()
+    for level in (0, 1, 2):
+        plan = {chunk["id"]: level for chunk in manifest["chunks"]}
+        expected = sum(next(l["triangles"] for l in chunk["lods"] if l["level"] == level)
+                       for chunk in manifest["chunks"])
+        assert LD.lod_triangles(manifest, plan) == expected, (level, plan)
+
+
+# --- kontrola manifestu: równość jest złamaniem, a nie zapasem -----------------
+
+def test_lod_manifest_problems_detects_two_levels_with_the_same_switch_distance():
+    """Mutacja: 552 `<=` -> `<` — dwa poziomy o TYM SAMYM progu przeszłyby.
+
+    Dwa równe progi znaczą, że pomiędzy nimi nie ma przedziału odległości i jeden
+    z poziomów nigdy nie zostanie wybrany — czyli generuje się siatka, której nikt
+    nigdy nie zobaczy.
+    """
+    manifest = _manifest()
+    manifest["lod_levels"][2]["switch_distance_m"] = manifest["lod_levels"][1]["switch_distance_m"]
+    problems = LD.lod_problems(manifest)
+    assert any("nie jest dalszy" in p for p in problems), problems
+
+
+def test_lod_manifest_problems_detects_two_levels_with_the_same_chord():
+    """Mutacje: 554 `<=` -> `<` oraz `> 0` -> `> 1`.
+
+    Równa cięciwa znaczy „nie rzadszy", a więc poziom bez powodu. Druga mutacja jest
+    subtelniejsza: `previous["level"] > 1` wyłączyłaby tę kontrolę dla pary 1-2,
+    czyli dla jedynej pary, w której w ogóle da się ją złamać — poziom 0 ma cięciwę
+    zero i nigdy nie wchodzi w porównanie.
+    """
+    manifest = _manifest()
+    manifest["lod_levels"][2]["max_chord_m"] = manifest["lod_levels"][1]["max_chord_m"]
+    problems = LD.lod_problems(manifest)
+    assert any("nie jest rzadszy" in p for p in problems), problems
+
+
+def test_lod_manifest_problems_detects_a_level_with_the_same_triangle_count():
+    """Mutacja: 576 `>` -> `>=` — i to ta mutacja miała rację.
+
+    Wiadomość mówi „nie jest tańszy", a poziom o TEJ SAMEJ liczbie trójkątów tańszy
+    nie jest. Kontrola kolizji obok (`>=` w wierszu 594) liczy tak samo, więc te dwa
+    miejsca różniły się tylko przez przeoczenie. Operator jest teraz `>=` w obu.
+    """
+    manifest = _manifest()
+    for chunk in manifest["chunks"]:
+        chunk["lods"][2]["triangles"] = chunk["lods"][1]["triangles"]
+    problems = LD.lod_problems(manifest)
+    assert any("nie jest tańszy" in p for p in problems), problems
+
+
+def test_lod_manifest_problems_accepts_a_level_with_the_same_deviation():
+    """Mutacja: 579 `<` -> `<=` — zameldowałaby równy błąd jako mniejszy.
+
+    Tu równość jest w porządku i to jest różnica wobec testu wyżej: warunek pyta,
+    czy błąd ZMALAŁ, a nie czy nie urósł. Rzadsza siatka o tym samym błędzie jest
+    dziwna, ale nie jest sprzecznością, a kontrola ma meldować sprzeczności.
+    """
+    manifest = _manifest()
+    for chunk in manifest["chunks"]:
+        chunk["lods"][2]["max_deviation_m"] = chunk["lods"][1]["max_deviation_m"]
+    problems = LD.lod_problems(manifest)
+    assert not any("mniejszy błąd" in p for p in problems), problems
+
+
+def test_lod_manifest_problems_detects_geometry_that_is_exactly_empty():
+    """Mutacje: 583 `<= 0` -> `< 0` (dwie) i `0` -> `1` (dwie).
+
+    Zero trójkątów albo zero wierzchołków to pusty plik, a nie mała siatka. Mutacja
+    w drugą stronę (`<= 1`) zgłaszałaby jako pustą siatkę o jednym trójkącie, która
+    pusta nie jest — dlatego test sprawdza obie strony granicy.
+    """
+    for field in ("triangles", "vertices"):
+        manifest = _manifest()
+        manifest["chunks"][0]["lods"][2][field] = 0
+        problems = LD.lod_problems(manifest)
+        assert any("pustą geometrię" in p for p in problems), (field, problems)
+
+    manifest = _manifest()
+    for chunk in manifest["chunks"]:
+        chunk["lods"][2]["triangles"] = 1
+        chunk["lods"][2]["vertices"] = 1
+    assert not any("pustą geometrię" in p for p in LD.lod_problems(manifest))
+
+
+def test_lod_manifest_problems_detects_a_collision_as_heavy_as_the_visual_mesh():
+    """Mutacja: 594 `>=` -> `>` — kolizja o TEJ SAMEJ liczbie trójkątów przeszłaby.
+
+    Bryła kolizyjna, która nie jest tańsza od siatki wizualnej, nie ma powodu istnieć:
+    jest osobnym plikiem i osobną rezydencją właśnie po to, żeby była tańsza.
+    """
+    manifest = _manifest()
+    for chunk in manifest["chunks"]:
+        chunk["collision"]["triangles"] = chunk["lods"][0]["triangles"]
+    problems = LD.lod_problems(manifest)
+    assert any("nie jest tańsza" in p for p in problems), problems
+
+
+def test_lod_manifest_problems_treats_a_collision_touching_the_wall_as_still_inside():
+    """Mutacje: 598 `< 0.0` -> `<= 0.0` i `0.0` -> `0.001`.
+
+    Zapas zero znaczy „dotyka światła tunelu", a nie „wystaje w mur" — pytanie brzmi,
+    czy bryła WYSTAJE, i odpowiedź na styk jest przecząca. Granica jest przeciwna niż
+    przy skrajni niżej i ta różnica jest zamierzona: tam zero znaczy, że pociąg dotyka
+    bryły, czyli jednak w nią wchodzi.
+    """
+    manifest = _manifest()
+    for chunk in manifest["chunks"]:
+        chunk["collision"]["wall_margin_m"] = 0.0
+    assert not any("wystaje poza światło" in p for p in LD.lod_problems(manifest))
+
+    for chunk in manifest["chunks"]:
+        chunk["collision"]["wall_margin_m"] = -1e-9
+    assert any("wystaje poza światło" in p for p in LD.lod_problems(manifest))
+
+
+def test_lod_manifest_problems_wants_at_least_a_millimetre_of_gauge_margin():
+    """Decyzja właściciela z 03.09.2026: próg zapasu skrajni podniesiony z zera na 1 mm.
+
+    Do tej pory kontrola pytała `gauge_margin_m <= 0.0`, więc zapas 0,5 mm przechodził.
+    Pół milimetra między skrajnią pojazdu a ścianą bryły kolizyjnej nie jest zapasem —
+    to styk, w którym o wyniku decyduje zaokrąglenie `double`, a nie geometria.
+
+    Przegląd mutacyjny pokazał to jako ocalałą mutację `0.0 -> 0.001`
+    (`reports/mutation-triage-lod.md`): żaden test nie odróżniał tych dwóch progów, bo
+    progu do odróżnienia nie było. Teraz jest i obie strony granicy są przypięte.
+
+    **Milimetr nie jest pomiarem.** Rzeczywistej skrajni STIB nie ma w żadnym publicznym
+    źródle (R-005), więc `COLLISION_GAUGE_MARGIN_MIN_M` jest jawnym założeniem
+    projektowym i ma iść do wymiany, gdy pojawi się liczba ze STIB.
+    """
+    def margins(value):
+        manifest = _manifest()
+        for chunk in manifest["chunks"]:
+            chunk["collision"]["gauge_margin_m"] = value
+        return [p for p in LD.lod_problems(manifest) if "zapas skrajni" in p]
+
+    assert margins(0.0), "zerowy zapas przeszedł"
+    assert margins(0.0005), "zapas 0,5 mm przeszedł — to jest styk, nie zapas"
+    assert margins(0.0009), "zapas tuż pod progiem przeszedł"
+    assert not margins(LD.COLLISION_GAUGE_MARGIN_MIN_M), \
+        "zapas RÓWNY progowi ma się mieścić — próg znaczy „nie mniej niż\""
+    assert not margins(0.65), "typowy zapas został zgłoszony jako za mały"
+
+    assert LD.COLLISION_GAUGE_MARGIN_MIN_M == 0.001, LD.COLLISION_GAUGE_MARGIN_MIN_M
+    assert margins(0.0005)[0].endswith("0.001 m"), \
+        "komunikat nie mówi, jakiego zapasu wymaga — bez tego czytający nie wie, o ile poprawić"
+
+
+def test_lod_manifest_problems_gauge_threshold_is_a_parameter_not_a_constant_in_the_condition():
+    """Próg musi dać się podać z zewnątrz, bo jest ZAŁOŻENIEM, a nie prawem natury.
+
+    Kontrola negatywna do testu wyżej: gdyby liczba siedziała wpisana w warunek,
+    podniesienie jej po odpowiedzi ze STIB wymagałoby zmiany kodu kontroli, a nie
+    jednej stałej — i nikt by nie zauważył, że stary próg został gdzieś indziej.
+    """
+    manifest = _manifest()
+    for chunk in manifest["chunks"]:
+        chunk["collision"]["gauge_margin_m"] = 0.05
+    assert not [p for p in LD.lod_problems(manifest) if "zapas skrajni" in p]
+    assert [p for p in LD.lod_problems(manifest, gauge_margin_min_m=0.10)
+            if "zapas skrajni" in p], "podniesiony próg nic nie zmienił"
+
+
+def test_lod_manifest_problems_detects_a_collision_volume_of_exactly_zero():
+    """Mutacje: 603 `<= 0.0` -> `< 0.0` i `0.0` -> `0.001`."""
+    manifest = _manifest()
+    for chunk in manifest["chunks"]:
+        chunk["collision"]["volume_m3"] = 0.0
+    problems = LD.lod_problems(manifest)
+    assert any("objętość" in p for p in problems), problems
+
+
+def test_lod_manifest_problems_accepts_a_seam_shift_exactly_at_the_tolerance():
+    """Mutacje: 585, 595, 605 i 615 `>` -> `>=`.
+
+    Tolerancja znaczy „do tyle wolno", więc przesunięcie RÓWNE tolerancji jeszcze
+    mieści się w normie, a większe już nie.
+
+    **Tolerancja jest potęgą dwójki i to nie jest ozdobnik.** Pierwsza wersja tego
+    testu brała `1e-6` i przesuwała szew o `+1e-6`. Dla początku chunka (0,0 m) różnica
+    wychodziła dokładnie `1e-6` i mutacja ginęła, ale dla końca (1000,0 m) wychodziło
+    `9,999999974752427e-07`, czyli MNIEJ niż tolerancja — równość nigdy nie zachodziła
+    i obie wersje warunku dawały to samo. Test wyglądał na kontrolę granicy, a granicy
+    nie dotykał: dwie z czterech mutacji przeżywały. `2**-20` jest reprezentowalne
+    dokładnie przy każdej z tych podstaw, więc równość jest równością.
+
+    Założenie jest tu sprawdzane wprost, a nie zakładane — inaczej ta sama pułapka
+    wróci przy pierwszej zmianie liczb w `_manifest`.
+    """
+    tolerance = 2.0 ** -20
+    for owner, field in (("lods", "start_m"), ("lods", "end_m"),
+                         ("collision", "start_m"), ("collision", "end_m")):
+        manifest = _manifest()
+        for chunk in manifest["chunks"]:
+            target = chunk[owner][2] if owner == "lods" else chunk[owner]
+            target[field] = chunk[field] + tolerance
+            assert abs(target[field] - chunk[field]) == tolerance, \
+                (owner, field, target[field], chunk[field])
+        assert not any("zakres chainage" in p for p in LD.lod_problems(manifest, tolerance)), \
+            (owner, field)
+
+        manifest = _manifest()
+        for chunk in manifest["chunks"]:
+            target = chunk[owner][2] if owner == "lods" else chunk[owner]
+            target[field] = chunk[field] + tolerance * 2.0
+        assert any("zakres chainage" in p for p in LD.lod_problems(manifest, tolerance)), \
+            (owner, field)
+
+
+def test_lod_chunk_distance_is_zero_on_both_ends_and_never_negative():
+    """Mutacja: 471 pierwszy `<=` -> `<` — pociąg DOKŁADNIE na początku chunka.
+
+    Zmierzone na mutancie: chunk [500, 1000] przy pociągu na 500 m daje **-500,0 m**,
+    bo strażnik przestaje łapać i ścieżka zapasowa wybiera gałąź `value - end`.
+    Dzisiaj nikt tego nie zauważa — ujemna odległość i tak wypada na poziom 0 i i tak
+    mieści się w promieniu kolizji — ale odległość ujemna jest liczbą bez znaczenia
+    i pierwszy konsument, który ją posortuje albo podniesie do kwadratu, dostanie
+    wynik nie do wytłumaczenia.
+
+    Dlatego test pyta o obie rzeczy naraz: zero na obu krańcach i BRAK wartości
+    ujemnej gdziekolwiek. Sam warunek „zero na krańcu" zabija tylko jedną z dwóch
+    mutacji tego wiersza.
+    """
+    chunk = {"start_m": 500.0, "end_m": 1000.0}
+    assert LD.chunk_distance_m(chunk, 500.0) == 0.0
+    assert LD.chunk_distance_m(chunk, 1000.0) == 0.0
+    assert LD.chunk_distance_m(chunk, 750.0) == 0.0
+    assert LD.chunk_distance_m(chunk, 250.0) == 250.0
+    assert LD.chunk_distance_m(chunk, 1200.0) == 200.0
+
+    chainage = 0.0
+    while chainage <= 1500.0:
+        assert LD.chunk_distance_m(chunk, chainage) >= 0.0, chainage
+        chainage += 0.5
+
+
+def test_lod_a_span_that_fits_the_limit_keeps_exactly_the_two_ends():
+    """Mutacja: 134 `while candidate <= last` -> `< last`.
+
+    Ostatni pierścień przestaje być kandydatem, więc pętla stawia przedostatni,
+    a `keep[-1] != last` dokłada ostatni z powrotem — i zostaje pierścień, którego
+    nikt nie potrzebował. Zmierzone na łuku 91,5 m: `[..., 56, 59, 60]` zamiast
+    `[..., 56, 60]`; na prostej `[0, 3, 4]` zamiast `[0, 4]`.
+
+    Nadmiarowy pierścień jest cichy: siatka jest poprawna, szew się zgadza, tylko
+    LOD oszczędza mniej, niż deklaruje manifest. Test bierze przypadek skrajny —
+    cały odcinek mieści się w limicie — bo tam nadmiar to 50 % pierścieni.
+    """
+    station_m = [0.0, 5.0, 10.0, 15.0, 20.0]
+    positions = [(x, 0.0, 0.0) for x in station_m]
+    assert LD.select_rings(positions, station_m, 0, 4, 25.0, 0.0) == [0, 4]

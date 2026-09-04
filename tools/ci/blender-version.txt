@@ -1,0 +1,18 @@
+# JEDNO źródło prawdy o wersji Blendera dla całego CI i dla `doctor.sh`.
+#
+# Dlaczego plik, a nie `env:` w pięciu workflowach: wersja Blendera rozstrzyga, KTÓRY
+# silnik EEVEE stoi za nazwą `BLENDER_EEVEE` (patrz `tools/visual/capture_plan.py`,
+# `EEVEE_NEXT_SINCE`), a rendery z dwóch generacji nie są porównywalne. Pięć kopii
+# numeru to pięć okazji, żeby jedna została w tyle i żeby baseline został porównany
+# z klatką z innego silnika. Kosztowało to już dwie czerwone bramki
+# (`tunnel-alignment` L1_B i L2_E, 02.09.2026).
+#
+# Suma kontrolna jest z pliku `blender-<wersja>.sha256` na serwerze Blender Foundation,
+# nie z opisu na stronie. Pobranie bez sprawdzenia sumy nie jest instalacją, tylko
+# nadzieją: archiwum ucięte w połowie rozpakowuje się częściowo i wywraca się dopiero
+# w środku renderu.
+#
+# Format: dwie linie `klucz=wartość`. Czyta to `tools/ci/blender_install.sh`
+# i `tools/tests/test_ci_workflows.py`.
+version=5.2.1
+sha256=a31f524fa99a527d3d52b7f5aaa68c34e1a19d5a1c9473f79c5cc610fd5b10e9

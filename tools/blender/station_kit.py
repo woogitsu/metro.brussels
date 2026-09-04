@@ -105,6 +105,39 @@ def slab_sections(gap_m, minimum_offset_m, wall_m, height_m, track_offset_m, sid
     return slab, strip
 
 
+def selected_platforms(platforms, only_station):
+    """Perony do zbudowania. `only_station` puste albo `None` znaczy WSZYSTKIE.
+
+    Wyjęte z `main()` na poziom modułu, bo tam siedziało za `bpy.ops` i żaden test
+    nie mógł tego dotknąć — przemiatanie mutacyjne z 03.09.2026 pokazało tu mutację
+    ocalałą. Sam filtr nie potrzebuje Blendera i jest bramką: `--only-station`
+    z literówką ma dać PUSTĄ listę, a nie po cichu zbudować wszystko.
+
+    Nazwa musi zgadzać się dokładnie. Dopasowanie po fragmencie byłoby gorsze niż
+    brak filtru: „Arts" trafiałoby w „Arts-Loi" i w każdą inną stację z tym słowem.
+    """
+    if not only_station:
+        return list(platforms)
+    return [p for p in platforms if p["name"] == only_station]
+
+
+def side_tag(side):
+    """'R' dla strony dodatniej, 'L' dla ujemnej — to trafia do NAZWY bryły.
+
+    Też wyjęte z `main()`. Pomyłka tutaj nie wywraca niczego: bryły powstają
+    poprawne, tylko z zamienionymi nazwami, więc wszystkie kontrole geometryczne
+    przechodzą, a peron prawy nazywa się lewym. Taki błąd wychodzi dopiero wtedy,
+    gdy ktoś w scenie szuka peronu po nazwie.
+
+    Zero nie jest stroną i nie ma tu cichej odpowiedzi: wołający podaje +1 albo -1.
+    """
+    if side > 0:
+        return "R"
+    if side < 0:
+        return "L"
+    raise ValueError("strona peronu musi być dodatnia albo ujemna, nie zero")
+
+
 def sweep_section(points, stations, from_m, to_m, section, step_m):
     """Zamiata przekrój `(y, z)` wzdłuż odcinka osi. Zwraca (wierzchołki, ściany)."""
     ring_at = []
@@ -178,15 +211,13 @@ def main():
         bpy.data.objects.remove(obj, do_unlink=True)
 
     built = []
-    for platform in layout["platforms"]:
-        if args.only_station and platform["name"] != args.only_station:
-            continue
+    for platform in selected_platforms(layout["platforms"], args.only_station):
         minimum = platform["minimum_edge_offset_m"]
         safe = "".join(c if c.isalnum() else "_" for c in (platform["name"] or "x"))[:24]
         for side, track in ((1.0, max(track_offsets)), (-1.0, min(track_offsets))):
             slab, strip = slab_sections(args.platform_gap_m, minimum, wall_m, height_m,
                                         track, side)
-            tag = "R" if side > 0 else "L"
+            tag = side_tag(side)
             for kind, section in (("slab", slab), ("edge", strip)):
                 verts, faces = sweep_section(points, stations, platform["from_m"],
                                              platform["to_m"], section, args.ring_step_m)

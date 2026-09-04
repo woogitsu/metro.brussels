@@ -24,9 +24,27 @@ chk_required "dotnet SDK" "dotnet --version" "zainstaluj .NET SDK 8.0+ (https://
 
 echo ""
 echo "Wymagane dopiero przez konkretne zadania:"
-chk_optional "blender w PATH" "blender --version" "wymagany od T-010/T-2xx"
-if command -v blender >/dev/null 2>&1; then
-  chk_optional "blender headless" "blender --background --python-expr 'pass'" "napraw tryb headless przed T-010"
+# Blender bywa instalowany poza PATH: `tools/ci/blender_install.sh` rozpakowuje
+# przypiętą wersję do katalogu poza workspace, bo `git clean -ffdx` z checkoutu
+# skasowałby ją przy każdym przebiegu. `BLENDER_BIN` jest tą samą zmienną, której
+# używają skrypty CI, więc doctor pyta o to samo co CI, a nie o coś innego.
+BLENDER_CMD="${BLENDER_BIN:-blender}"
+chk_optional "blender ($BLENDER_CMD)" "\"$BLENDER_CMD\" --version" \
+  "wymagany od T-010/T-2xx; ustaw BLENDER_BIN albo uruchom tools/ci/blender_install.sh"
+if "$BLENDER_CMD" --version >/dev/null 2>&1; then
+  chk_optional "blender headless" "\"$BLENDER_CMD\" --background --python-expr 'pass'" \
+    "napraw tryb headless przed T-010"
+  # Wersja NIE jest drobiazgiem informacyjnym. Rozstrzyga, która generacja EEVEE stoi
+  # za nazwą `BLENDER_EEVEE`, a rendery z legacy i z Next nie są porównywalne. Doctor
+  # porównuje z pinem z `tools/ci/blender-version.txt`, czyli z tym samym numerem,
+  # którego wymaga CI — inaczej „ok" u siebie i czerwona bramka w CI to ten sam stan.
+  PINNED_BLENDER="$(sed -n 's/^version=//p' tools/ci/blender-version.txt 2>/dev/null)"
+  HAVE_BLENDER="$("$BLENDER_CMD" --version 2>/dev/null | sed -n '1s/^Blender \([0-9.]*\).*/\1/p')"
+  if [ -n "$PINNED_BLENDER" ]; then
+    chk_optional "blender w wersji z pinu ($PINNED_BLENDER, jest $HAVE_BLENDER)" \
+      "[ \"$HAVE_BLENDER\" = \"$PINNED_BLENDER\" ]" \
+      "CI wymaga $PINNED_BLENDER; uruchom tools/ci/blender_install.sh i ustaw BLENDER_BIN"
+  fi
 fi
 # Godot bywa instalowany poza PATH (dystrybucje nie pakują wersji mono, a workflow
 # `godot-first-run.yml` rozpakowuje ją do własnego katalogu). `GODOT_BIN` jest tą samą

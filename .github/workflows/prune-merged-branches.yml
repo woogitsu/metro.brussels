@@ -1,0 +1,168 @@
+name: Prune merged branches
+
+# Kasowanie zdalnych gałęzi ręcznie, przez GitHuba, a nie przez agenta.
+#
+# Po co to istnieje. Agent pracujący w środowisku Claude Code dostaje 403 na
+# usuwanie refów — to ograniczenie środowiska, nie błąd GitHuba i nie brak
+# uprawnień właściciela. Lista 79 gałęzi zweryfikowanych jako bezpieczne wisiała
+# przez to w opisie PR-a i czekała, aż ktoś wklei polecenie ręcznie. Ten workflow
+# przenosi tę robotę tam, gdzie uprawnienia są: na runnera z `GITHUB_TOKEN`.
+#
+# Czego ten workflow NIE robi: nie ufa żadnej wklejonej liście. Listę wyznacza sam,
+# za każdym razem od nowa, i każdą pozycję sprawdza trzema niezależnymi warunkami
+# (niżej). Wklejona lista sprzed tygodnia opisuje repozytorium sprzed tygodnia.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Tylko wypisz, nie kasuj"
+        type: boolean
+        default: true
+      base:
+        description: "Gałąź, względem której liczy się scalenie"
+        type: string
+        default: main
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  prune:
+    # Ten job chodzi na MASZYNIE WŁAŚCICIELA, nie na jednorazowej maszynie GitHuba.
+    # Warunek nosi KAŻDY job osobno; `needs:` nie jest zamiennikiem, bo job dopisany
+    # bez łańcucha zależności nie miałby żadnej ochrony. `metro.brussels` jest
+    # prywatne, ale ma WŁĄCZONE forkowanie, więc „forka nie da się zrobić" tu nie
+    # obowiązuje. Przy `workflow_dispatch` pierwszy człon i tak jest prawdziwy —
+    # warunek stoi tu dla jednolitości i dlatego, że trigger może kiedyś dojść.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: self-hosted
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          fetch-depth: 0
+
+      # Workspace self-hosted runnera JEST WSPÓŁDZIELONY między przebiegami.
+      # Sprzątaniem zajmuje się `actions/checkout` (`clean` domyślnie `true`, czyli
+      # `git clean -ffdx`); ten krok tego NIE powtarza, tylko SPRAWDZA — `rm -rf`
+      # nie odróżniłby „posprzątane" od „checkout przestał sprzątać".
+      - name: Workspace jest czysty po checkoucie
+        shell: bash
+        run: |
+          set -euo pipefail
+          stale=""
+          for path in build renders; do
+            [ -e "$path" ] && stale="$stale $path"
+          done
+          if [ -n "$stale" ]; then
+            echo "::error::wyjścia z poprzedniego przebiegu przetrwały checkout:$stale"
+            exit 1
+          fi
+          echo "build/ i renders/ nie istnieją"
+
+      - name: Wyznacz gałęzie do skasowania
+        id: plan
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE: ${{ inputs.base }}
+        run: |
+          set -euo pipefail
+          git fetch --prune --quiet origin
+
+          if ! git rev-parse --verify --quiet "origin/$BASE" >/dev/null; then
+            echo "::error::nie ma origin/$BASE"
+            exit 1
+          fi
+
+          # Gałęzie z OTWARTYM pull requestem są nietykalne niezależnie od tego, czy
+          # są scalone. To jest ten warunek, który chroni cudzą pracę w toku, i dlatego
+          # jest liczony z API, a nie zgadywany z nazwy.
+          open_prs="$(gh pr list --state open --limit 200 --json headRefName \
+            --jq '.[].headRefName' | sort -u | tr '\n' ' ')"
+          echo "gałęzie z otwartym PR-em:$open_prs"
+
+          : > /tmp/prune-plan.txt
+          : > /tmp/prune-skipped.txt
+          while read -r ref; do
+            branch="${ref#origin/}"
+
+            # 1. baza i HEAD zdalny nigdy nie wchodzą w grę
+            if [ "$branch" = "$BASE" ] || [ "$branch" = "HEAD" ]; then
+              echo "$branch: baza" >> /tmp/prune-skipped.txt
+              continue
+            fi
+
+            # 2. otwarty pull request. Dopasowanie przez `case`, a nie przez `grep`:
+            # `grep` na nieistniejącym pliku kończy się kodem 2, a `if grep` czyta to
+            # jak „brak trafień" — czyli jak „nie ma otwartego PR-a" — i skasowałby
+            # gałąź właśnie wtedy, gdy lista się nie pobrała. `case` po zmiennej nie
+            # ma jak zawieść po cichu.
+            case " $open_prs " in
+              *" $branch "*)
+                echo "$branch: otwarty PR" >> /tmp/prune-skipped.txt
+                continue
+                ;;
+            esac
+
+            # 3. TRZECI I NAJWAŻNIEJSZY warunek: czubek gałęzi musi być przodkiem bazy.
+            # Pytanie o samą nazwę gałęzi bywa mylące przy scaleniach ze squashem, więc
+            # pytamy wprost o relację commitów. Gałąź, która ma choć jeden commit spoza
+            # bazy, zostaje — nawet jeśli PR był zamknięty jako scalony.
+            sha="$(git rev-parse "$ref")"
+            if git merge-base --is-ancestor "$sha" "origin/$BASE"; then
+              echo "$branch $sha" >> /tmp/prune-plan.txt
+            else
+              ahead="$(git rev-list --count "origin/$BASE".."$sha")"
+              echo "$branch: $ahead commitów poza $BASE" >> /tmp/prune-skipped.txt
+            fi
+          done < <(git for-each-ref --format='%(refname:short)' refs/remotes/origin)
+
+          planned="$(wc -l < /tmp/prune-plan.txt)"
+          skipped="$(wc -l < /tmp/prune-skipped.txt)"
+          echo "planned=$planned" >> "$GITHUB_OUTPUT"
+          {
+            echo "## Gałęzie do skasowania: $planned"
+            echo
+            echo '```'
+            cat /tmp/prune-plan.txt
+            echo '```'
+            echo
+            echo "## Zostawione: $skipped"
+            echo
+            echo '```'
+            cat /tmp/prune-skipped.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Skasuj
+        if: inputs.dry_run == false && steps.plan.outputs.planned != '0'
+        shell: bash
+        run: |
+          set -euo pipefail
+          deleted=0
+          failed=0
+          while read -r branch sha; do
+            if git push origin --delete "$branch"; then
+              echo "skasowana $branch ($sha)"
+              deleted=$((deleted + 1))
+            else
+              echo "::warning::nie udało się skasować $branch"
+              failed=$((failed + 1))
+            fi
+          done < /tmp/prune-plan.txt
+          echo "skasowanych: $deleted, nieudanych: $failed"
+          echo "skasowanych: $deleted, nieudanych: $failed" >> "$GITHUB_STEP_SUMMARY"
+          test "$failed" -eq 0
+
+      - name: Podsumowanie próby na sucho
+        if: inputs.dry_run
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Próba na sucho — nic nie skasowano."
+          echo "Uruchom ponownie z 'Tylko wypisz' odznaczonym, żeby skasować."
