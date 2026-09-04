@@ -68,9 +68,25 @@ FRAME_WINDOW_M = 12.0
 # co do bitu na wszystkich sprawdzonych pozycjach.
 FRAME_CANDIDATES = 3
 # Odstęp chainage, powyżej którego dwa punkty pod progiem to dwa różne miejsca.
-# Nieco więcej niż cięciwa najdłuższej bryły M7 (15,12 m), żeby jeden ciasny łuk
-# nie rozpadł się na kilkanaście wpisów w raporcie.
-CRITICAL_CLUSTER_GAP_M = 25.0
+#
+# WYNIKA Z KROKU SKANU, nie z geometrii pudła — i to jest poprawka, nie ozdoba.
+# Poprzednia wersja tego komentarza uzasadniała 25,0 m jako „nieco więcej niż cięciwa
+# najdłuższej bryły M7 (15,12 m)". Zmierzone na pakiecie A (pozycja 5 `docs/24`):
+# największy odstęp między SĄSIEDNIMI rekordami pod progiem WEWNĄTRZ jednego miejsca
+# to 5,01 m, czyli krok skanu — a dwie luki, które dzielą prawdziwie różne miejsca,
+# mają 844,5 m i 1524,6 m. Zadaniem tej stałej jest więc być wyraźnie większą od
+# GĘSTOŚCI PRÓBKOWANIA, żeby jeden łuk nie rozpadł się na wpis na pozycję. Cięciwa
+# bryły nie ma z tym nic wspólnego; zmierzona wynosi zresztą 15,1167 m, nie 15,12.
+#
+# Zmierzony zakres nieczułości: każda wartość od ~5,1 m do ~844 m daje na pakiecie A
+# IDENTYCZNĄ liczbę wpisów przy progu 1,000 m. Poniżej — 5,0 m rozbija trzy miejsca
+# na pięć, bo odstępy 5,01 m przestają się mieścić. Powyżej — 50 m i więcej scala
+# przy progu 0,900 m dwa miejsca w jedno.
+#
+# Krotność, nie liczba, bo `--step 25` znaczy, że osi nie da się rozróżnić drobniej
+# niż 25 m, i wtedy scalanie miejsc 30 m od siebie jest POPRAWNE, a nie stratą.
+CLUSTER_GAP_STEPS = 5
+CRITICAL_CLUSTER_GAP_M = CLUSTER_GAP_STEPS * DEFAULT_STEP_M
 # Progi raportowania luzu. 0,30 m NIE jest nowym założeniem — to `profiles.CLEARANCE_M`,
 # czyli projektowy luz skrajni pojazdu, który już jest w repozytorium. Pozostałe progi
 # są okrągłymi pasmami do czytania profilu i nie mają statusu wymiaru projektowego.
@@ -481,7 +497,15 @@ def scan_positions(axis_length_m, train_length_m, step_m=DEFAULT_STEP_M):
     if step_m <= 0.0:
         raise ValueError("krok musi być dodatni")
     last = axis_length_m - train_length_m
-    if last <= 0.0:
+    # RÓWNOŚĆ NIE JEST ODMOWĄ (decyzja właściciela, pozycja 7 `docs/24`). Skład tak
+    # długi jak oś ma dokładnie jedną dopuszczalną pozycję — czoło w zerze — i ta
+    # pozycja zajmuje całą oś, więc jest sensowna. Poprzednie `<= 0.0` odmawiało jej,
+    # co dawało nieciągłość zmierzoną wprost: skład 93,999 m na osi 94,0 m daje dwie
+    # pozycje `[0.0, 0.001]`, a skład 94,0 m dawał wyjątek. Na żadnym pakiecie
+    # w `data/track/` to nie zachodzi (najciaśniej L5_D: 3847,23 m na 94 m, 41:1),
+    # ale zachodzi dla ręcznie podanego wycinka osi, czyli w normalnym trybie pracy
+    # przy badaniu jednego łuku.
+    if last < 0.0:
         raise ValueError(f"skład {train_length_m} m nie mieści się na osi {axis_length_m} m")
     count = int(math.floor(last / step_m))
     out = [round(index * step_m, 6) for index in range(count + 1)]
@@ -491,18 +515,51 @@ def scan_positions(axis_length_m, train_length_m, step_m=DEFAULT_STEP_M):
 
 
 def coverage_gaps(records, train_length_m, axis_length_m, step_m):
-    """Dziury w pokryciu osi: pozycje odległe o więcej niż krok, albo brak końców."""
+    """Dziury w pokryciu osi: pozycje odległe o więcej niż krok, albo brak końców.
+
+    POMIAR IDZIE W MILIMETRACH CAŁKOWITYCH (decyzja właściciela, pozycja 6 `docs/24`),
+    tą samą drogą, którą poszła decyzja 1 o pasmie progu — jedno wyprowadzenie
+    rozdzielczości na cały moduł, nie dwa.
+
+    Poprzednia wersja porównywała floaty z tolerancją `1e-6`, a `1e-6` NIE JEST
+    reprezentowalne, więc granica rozstrzygała się kilometrażem, nie decyzją.
+    Zmierzone — `(L + 1e-6) - L` dla realnych kilometraży pakietów:
+
+        L = 0 m         -> 1e-06                    (dokładnie)
+        L = 94 m        -> 9.999999974752427e-07    (MNIEJ niż próg)
+        L = 1500 m      -> 1.0000001111620804e-06   (WIĘCEJ niż próg)
+        L = 3847,23 m   -> 9.99999883788405e-07     (MNIEJ)
+        L = 6700 m      -> 1.0000003385357559e-06   (WIĘCEJ)
+
+    Warunek „przerwa większa od kroku o dokładnie tolerancję" nie zachodził więc
+    nigdy, a po której stronie granicy wypadnie konkretny przypadek, decydowała
+    podstawa. To ta sama pułapka, która w `test_lod.py` sprawiła, że test napisany
+    pod cztery mutacje zabijał dwie (`reports/mutation-triage-lod.md`).
+
+    Cena jest jawna: tolerancja rośnie z mikrometra do milimetra, czyli tysiąckrotnie.
+    Oś ma pierścienie co 5 m i chainage zapisany z dokładnością do centymetra, więc
+    milimetr jest wciąż o rząd drobniejszy niż wszystko, co ta oś potrafi rozróżnić.
+
+    Granica wypada poniżej POŁOWY milimetra, nie na milimetrze, bo `_millimetres`
+    zaokrągla do najbliższego. I jest jedno miejsce, w którym niezależność od
+    kilometrażu NIE zachodzi: różnica dokładnie pół milimetra rozstrzyga się
+    parzystością licznika, bo `round()` zaokrągla połowę do liczby parzystej.
+    Zmierzone i przybite testem `..._exactly_half_a_millimetre_depends_on_parity` —
+    zapisane tutaj, bo bez tego zdania łatwo napisać „granica jest teraz dokładna
+    przy każdym kilometrażu", co jest prawdą o 0,4 i 0,6 mm, a nieprawdą o 0,5 mm.
+    """
     problems = []
     if not records:
         return ["profil nie ma ani jednej pozycji"]
     starts = [r["start_m"] for r in records]
-    if abs(starts[0]) > 1e-6:
+    if _millimetres(starts[0]) != 0:
         problems.append(f"pierwsza pozycja czoła w {starts[0]} m, nie w 0")
     expected_last = axis_length_m - train_length_m
-    if abs(starts[-1] - expected_last) > 1e-6:
+    if _millimetres(starts[-1]) != _millimetres(expected_last):
         problems.append(f"ostatnia pozycja czoła w {starts[-1]} m, oczekiwano {expected_last:.3f} m")
+    limit_mm = _millimetres(step_m)
     for a, b in zip(starts, starts[1:]):
-        if b - a > step_m + 1e-6:
+        if _millimetres(b) - _millimetres(a) > limit_mm:
             problems.append(f"dziura {b - a:.3f} m między pozycjami {a} m i {b} m")
     return problems
 
@@ -606,6 +663,20 @@ def between_stations(stations_doc, chainage_m):
         elif after is None:
             after = station
     return {"after": (before or {}).get("name", ""), "before": (after or {}).get("name", "")}
+
+
+def cluster_gap_m(step_m=DEFAULT_STEP_M):
+    """Odstęp grupowania miejsc krytycznych dla ZADANEGO kroku skanu.
+
+    Sama stała `CRITICAL_CLUSTER_GAP_M` jest wyprowadzona z kroku DOMYŚLNEGO, więc
+    przy `--step` innym niż 5 m przestałaby być tym, czym mówi, że jest. Komentarz,
+    który uzasadnia liczbę wielkością, od której liczba nie zależy, to dokładnie ta
+    rodzina usterek, którą ten moduł zbierał: opis nie jest wynikiem, więc nic go
+    nie porównuje. Ta funkcja robi z opisu wynik.
+    """
+    if step_m <= 0.0:
+        raise ValueError("krok musi być dodatni")
+    return CLUSTER_GAP_STEPS * step_m
 
 
 def critical_places(records, threshold_m, stations_doc, gap_m=CRITICAL_CLUSTER_GAP_M):

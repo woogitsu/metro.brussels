@@ -376,7 +376,8 @@ def main():
     thresholds = list(CP.DEFAULT_THRESHOLDS_M)
     critical = []
     for threshold in thresholds:
-        critical.extend(CP.critical_places(records, threshold, document.get("stations", [])))
+        critical.extend(CP.critical_places(records, threshold, document.get("stations", []),
+                                           gap_m=CP.cluster_gap_m(args.step)))
 
     report = {
         "tool": "tools/blender/profile_vehicle.py",
