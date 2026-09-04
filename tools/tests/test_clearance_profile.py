@@ -458,3 +458,276 @@ def test_clearance_profile_envelope_clearance_is_never_better_than_the_scan():
     assert where is not None
     assert envelope_min <= scan_min + 1e-9, (envelope_min, scan_min)
     assert envelope_min > scan_min - 0.05, (envelope_min, scan_min)
+
+
+# --- strażniki wejścia zdegenerowanego ---------------------------------------
+#
+# Klasa „strażnik zdegenerowany" z `reports/mutation-triage-clearance.md`: puste
+# listy, zerowe kroki, jednoelementowe pierścienie. Każdy test poniżej trafia
+# w JEDEN warunek i jest ZMIERZONY przeglądem mutacyjnym — nie „dotyka funkcji",
+# tylko rozstrzyga próg. Lekcja z triażu `clearance.py`: test, który wygląda na
+# pokrycie progu, może nie dotykać tego progu wcale.
+
+
+def test_clearance_profile_hull_of_at_most_two_points_is_the_points_themselves():
+    """Skrót `len(pts) <= 2` — wejście, na którym otoczki nie ma.
+
+    Mutacja `<=` -> `<` jest tu **równoważna** i jest to ZMIERZONE, nie wyczytane
+    z kodu: na 99 840 losowych wejściach o dokładnie dwóch różnych punktach
+    oryginał i mutant dały ten sam wynik 99 840 razy, inny 0 razy. Dla dwóch
+    punktów łańcuch monotoniczny zwraca `lower[:-1] + upper[:-1]`, czyli tę samą
+    parę w tej samej kolejności co skrót. Test zostaje jako pokrycie samego
+    zejścia do wejścia zdegenerowanego, nie jako zabójca mutacji.
+    """
+    assert CP.hull_2d([]) == []
+    assert CP.hull_2d([(1.0, 2.0)]) == [(1.0, 2.0)]
+    assert CP.hull_2d([(2.0, 0.0), (0.0, 1.0)]) == [(0.0, 1.0), (2.0, 0.0)]
+    # Zdublowany punkt to jeden punkt, nie dwa.
+    assert CP.hull_2d([(0.0, 0.0), (0.0, 0.0)]) == [(0.0, 0.0)]
+
+
+def test_clearance_profile_positive_bucket_still_buckets_when_it_is_tiny():
+    """`bucket_m <= 0.0` znaczy „pasma dokładne"; KAŻDA wartość dodatnia kubełkuje.
+
+    Mutacja progu `0.0` -> `0.001` sprawia, że krok 1 mm przestaje być kubełkiem
+    i zaczyna znaczyć „dokładnie" — cicha zmiana znaczenia parametru. Dwa
+    wierzchołki 0,5 mm od siebie: przy kubełku 1 mm są JEDNYM pasmem, przy
+    pasmach dokładnych dwoma.
+    """
+    vertices = [(0.0, -1.0, 0.0), (0.0, 1.0, 0.0),
+                (0.0005, -1.0, 1.0), (0.0005, 1.0, 1.0)]
+    bucketed = CP.candidate_bands(vertices, 0.001)
+    assert len(bucketed) == 1, bucketed
+    assert len(bucketed[0]["points"]) == 4, bucketed
+
+    # Kontrola negatywna: zero nadal znaczy „dokładnie", więc te same wierzchołki
+    # rozpadają się na dwa pasma.
+    exact = CP.candidate_bands(vertices, 0.0)
+    assert len(exact) == 2, exact
+
+
+def test_clearance_profile_orientation_follows_the_sign_of_the_area_not_its_size():
+    """Znak pola decyduje o kierunku normalnych — jego WIELKOŚĆ nie decyduje o niczym.
+
+    Mutacja `area2 > 0.0` -> `> 0.001` odwraca orientację każdego obrysu o polu
+    mniejszym niż 0,001, więc trójkąt 2 cm x 2 cm (`area2 = 4e-4`) dostaje
+    normalne na zewnątrz i wypada z bramki wypukłości jako wklęsły.
+    """
+    small = [(0.0, 0.0), (0.02, 0.0), (0.0, 0.02)]
+    planes = CP.halfplanes(small)
+    assert len(planes) == 3
+    # Środek ciężkości leży wewnątrz, więc luz musi być DODATNI.
+    clearance, _label = CP.clearance_in_planes(planes, 0.005, 0.005)
+    assert clearance > 0.0, (clearance, planes)
+
+
+def test_clearance_profile_halfplanes_accept_a_half_millimetre_edge():
+    """Strażnik `length <= 0.0` broni przed dzieleniem przez zero, nie przed krótkim.
+
+    Mutacja progu `0.0` -> `0.001` odrzuca każdą krawędź krótszą niż milimetr,
+    a obrys z takim odcinkiem jest poprawnym obrysem wypukłym. Wierzchołek 0,5 mm
+    za poprzednim leży na tej samej prostej, więc wypukłość zostaje nienaruszona.
+    """
+    ring = [(0.0, 0.0), (1.0, 0.0), (1.0005, 0.0), (2.0, 0.0), (2.0, 1.0), (0.0, 1.0)]
+    planes = CP.halfplanes(ring)
+    assert len(planes) == len(ring)
+    # Punkt wewnątrz nadal ma dodatni luz — obrys nie rozjechał się na tej krawędzi.
+    clearance, label = CP.clearance_in_planes(planes, 1.0, 0.4)
+    assert clearance > 0.0, (clearance, label)
+
+
+def test_clearance_profile_nearest_frame_ignores_a_hint_off_the_axis():
+    """„Wynik nie zależy od trafności podpowiedzi" — z podpowiedzią 600 m za osią.
+
+    Pętla rozszerza okno, dopóki nie obejmie choć jednej ramki; warunek `high > low`
+    jest jedyną rzeczą, która ją do tego zmusza. Po mutacji na `>=` pętla wychodzi
+    natychmiast, bo `bisect_left <= bisect_right` zawsze, i funkcja zwraca indeks
+    WSTAWIENIA — tu 81 przy 81 ramkach, czyli indeks poza tablicą.
+    """
+    points = _straight()
+    stations = SW.chainages(points)
+    frames = SW.rmf_frames(points)
+    index = CP.nearest_frame(frames, stations, (400.0, 0.0, 0.0),
+                             window_m=1.0, hint_m=1000.0)
+    assert index < len(frames), (index, len(frames))
+    assert index == len(frames) - 1, index
+
+
+def test_clearance_profile_nearest_frame_accepts_a_window_grown_to_the_limit():
+    """Granica rozszerzania okna: przy rozpiętości DOKŁADNIE równej limitowi wolno szukać.
+
+    Limit to `4 * (długość osi + 1)`. Oś [0; 1] daje limit 8,0; okno startowe 4,0
+    z podpowiedzią 6,0 nie łapie nic, więc rozpiętość rośnie do 8,0 — dokładnie do
+    limitu. Mutacja `>` -> `>=` odmawia w tym miejscu obsługi osi, która ramki MA.
+    """
+    points = [(0.0, 0.0, 0.0), (1.0, 0.0, 0.0)]
+    stations = SW.chainages(points)
+    frames = SW.rmf_frames(points)
+    index = CP.nearest_frame(frames, stations, (1.0, 0.0, 0.0),
+                             window_m=4.0, hint_m=6.0)
+    assert index == 1, index
+
+    # Kontrola negatywna: oś bez ani jednej ramki nadal kończy się odmową.
+    try:
+        CP.nearest_frame([], [0.0, 1.0], (1.0, 0.0, 0.0), window_m=4.0, hint_m=1e9)
+    except ValueError as exc:
+        assert "ramki" in str(exc), str(exc)
+    else:
+        raise AssertionError("pusta lista ramek przeszła")
+
+
+def test_clearance_profile_scan_positions_refuses_a_zero_step():
+    """Zerowy krok: bez strażnika leci `ZeroDivisionError` z `floor(last / step)`.
+
+    Mutacja `step_m <= 0.0` -> `< 0.0` przepuszcza dokładnie zero.
+    """
+    try:
+        CP.scan_positions(1000.0, 94.0, 0.0)
+    except ValueError as exc:
+        assert "dodatni" in str(exc), str(exc)
+    else:
+        raise AssertionError("krok zerowy przeszedł")
+
+    # Kontrola negatywna: krok ujemny też jest odmawiany.
+    try:
+        CP.scan_positions(1000.0, 94.0, -5.0)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("krok ujemny przeszedł")
+
+
+def test_clearance_profile_scan_positions_accept_a_millimetre_step():
+    """Strażnik kroku pilnuje ZNAKU, nie rzędu wielkości.
+
+    Mutacja progu `0.0` -> `0.001` odrzuca krok milimetrowy, a doszlifowanie
+    chodzi krokiem 0,25 m i nic nie zabrania zejść niżej.
+    """
+    positions = CP.scan_positions(95.0, 94.0, 0.001)
+    assert len(positions) == 1001, len(positions)
+    assert positions[0] == 0.0
+    assert abs(positions[-1] - 1.0) < 1e-9, positions[-1]
+
+
+def test_clearance_profile_scan_positions_refuse_a_train_as_long_as_the_axis():
+    """Skład dokładnie tak długi jak oś: zakres skanu ma zerową długość.
+
+    Test PRZYPINA obowiązujący kontrakt, a nie rozstrzyga go od nowa: komunikat
+    strażnika mówi „nie mieści się", więc równość jest odmową. Mutacja
+    `last <= 0.0` -> `< 0.0` zwracała w tym miejscu profil z jednej pozycji.
+    Gdyby właściciel chciał, żeby równość była dopuszczalna, zmienia się strażnik
+    i ten test razem z nim.
+    """
+    try:
+        CP.scan_positions(94.0, 94.0, 5.0)
+    except ValueError as exc:
+        assert "nie mieści się" in str(exc), str(exc)
+    else:
+        raise AssertionError("skład równy długości osi przeszedł")
+
+
+def test_clearance_profile_scan_positions_accept_half_a_millimetre_of_room():
+    """Strażnik „nie mieści się" pilnuje ZNAKU zapasu, nie jego rzędu wielkości.
+
+    Mutacja progu `0.0` -> `0.001` odmawia osi dłuższej od składu o 0,5 mm.
+    Oryginał daje wtedy dwie pozycje: początek i dokładny koniec zakresu.
+    """
+    positions = CP.scan_positions(94.0005, 94.0, 5.0)
+    assert positions[0] == 0.0
+    assert len(positions) == 2, positions
+    assert abs(positions[-1] - 0.0005) < 1e-9, positions[-1]
+
+
+def test_clearance_profile_point_at_survives_a_duplicated_last_vertex():
+    """Zerowe rozpięcie w `point_at` jest osiągalne WYŁĄCZNIE na końcu osi.
+
+    Odwrotnie niż w `clearance._point_at`, gdzie duplikat musiał stać na POCZĄTKU:
+    tam pętla zwracała przy pierwszym pasującym przedziale, tu indeks wychodzi
+    z `bisect_right` i przycięcia do `len(points) - 2`. Dla duplikatu na początku
+    albo w środku `bisect_right` przeskakuje nad nim i rozpięcie jest dodatnie;
+    zerowe wychodzi dopiero wtedy, gdy przycięcie wskaże ostatnią, zdublowaną parę.
+    Bez strażnika `span <= 0.0` leci tam `ZeroDivisionError`.
+    """
+    points = [(0.0, 0.0, 0.0), (5.0, 0.0, 0.0), (10.0, 0.0, 0.0), (10.0, 0.0, 0.0)]
+    stations = [0.0, 5.0, 10.0, 10.0]
+    assert CP.point_at(points, stations, 10.0) == (10.0, 0.0, 0.0)
+
+    # Duplikat na POCZĄTKU osi tego warunku nie uruchamia — zapisane, żeby nikt
+    # nie „naprawiał" tego testu przenoszeniem duplikatu.
+    start = [(0.0, 0.0, 0.0), (0.0, 0.0, 0.0), (5.0, 0.0, 0.0), (10.0, 0.0, 0.0)]
+    assert CP.point_at(start, [0.0, 0.0, 5.0, 10.0], 0.0) == (0.0, 0.0, 0.0)
+
+
+def test_clearance_profile_point_at_interpolates_inside_a_half_millimetre_span():
+    """Strażnik zerowego rozpięcia nie ma prawa zjeść interpolacji w krótkim odcinku.
+
+    Mutacja progu `0.0` -> `0.001` zwraca w odcinku 0,5 mm lewy koniec zamiast
+    punktu w środku — 0,25 mm błędu w funkcji, którą `min_radius_on_chord` woła
+    dwa razy na każdy pierścień osi.
+    """
+    points = [(0.0, 0.0, 0.0), (0.0005, 0.0, 0.0), (5.0, 0.0, 0.0)]
+    stations = [0.0, 0.0005, 5.0]
+    got = CP.point_at(points, stations, 0.00025)
+    assert abs(got[0] - 0.00025) < 1e-12, got
+
+
+def test_clearance_profile_support_directions_accept_exactly_three():
+    """Komunikat mówi „co najmniej 3", więc trzy MUSZĄ przejść.
+
+    Mutacje `count < 3` -> `<= 3` i `3` -> `4` odrzucały trzy kierunki; nic tego
+    nie sprawdzało, bo wszystkie testy obwiedni chodzą po 24 albo 32 kierunkach.
+    """
+    directions = CP.support_directions(3)
+    assert len(directions) == 3, directions
+    for dx, dy in directions:
+        assert abs(math.hypot(dx, dy) - 1.0) < 1e-12, (dx, dy)
+
+    # Kontrola negatywna: dwa kierunki nie wyznaczają obrysu i nadal są odmawiane.
+    try:
+        CP.support_directions(2)
+    except ValueError as exc:
+        assert "3 kierunków" in str(exc), str(exc)
+    else:
+        raise AssertionError("dwa kierunki podparcia przeszły")
+
+
+def test_clearance_profile_support_polygon_from_three_directions_is_a_triangle():
+    """Trzy kierunki dają trzy wierzchołki — dokładnie na progu `len(out) < 3`.
+
+    Mutacje `< 3` -> `<= 3` i `3` -> `4` odrzucały ten wynik jako zdegenerowany.
+    """
+    directions = CP.support_directions(3)
+    points = [(1.35, 0.95), (-1.35, 0.95), (-1.35, 3.60), (1.35, 3.60)]
+    heights = [max(d[0] * p[0] + d[1] * p[1] for p in points) for d in directions]
+    polygon = CP.support_polygon(directions, heights)
+    assert len(polygon) == 3, polygon
+    for point in points:
+        assert PL.distance_to_boundary(polygon, *point) >= -1e-9, point
+
+    # Kontrola negatywna: dwa kierunki przeciwne dają wyznacznik zerowy, więc
+    # z trzech prostych zostają dwa wierzchołki i odmowa musi zostać odmową.
+    try:
+        CP.support_polygon([(1.0, 0.0), (-1.0, 0.0), (0.0, 1.0)], [1.0, 1.0, 1.0])
+    except ValueError as exc:
+        assert "3 wierzchołków" in str(exc), str(exc)
+    else:
+        raise AssertionError("obrys z dwóch wierzchołków przeszedł")
+
+
+def test_clearance_profile_swept_mesh_from_exactly_two_rings():
+    """Dwa pierścienie to najkrótsza rura, która jeszcze jest rurą.
+
+    `test_..._swept_mesh_rejects_a_single_ring` pilnuje odmowy dla JEDNEGO
+    pierścienia, ale nie odróżnia progu `< 2` od `<= 2` ani od `< 3` — przy jednym
+    pierścieniu odmawiają wszystkie trzy. Rozstrzygają dopiero dokładnie dwa:
+    osiem wierzchołków, cztery ściany boczne i dwie zaślepki.
+    """
+    points = _straight(20.0)
+    frames = SW.rmf_frames(points)
+    polygon = [(-1.0, 0.0), (1.0, 0.0), (1.0, 2.0), (-1.0, 2.0)]
+    mesh = CP.swept_mesh(frames, [(0, polygon), (1, polygon)])
+    assert mesh["rings"] == 2 and mesh["columns"] == 4
+    assert len(mesh["vertices"]) == 8, len(mesh["vertices"])
+    assert len(mesh["faces"]) == 4 + 2, mesh["faces"]
+    low, high = CP.mesh_bbox(mesh)
+    assert abs((high[0] - low[0]) - 5.0) < 1e-9, (low, high)
