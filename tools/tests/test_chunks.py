@@ -87,8 +87,12 @@ def test_chunk_every_station_lands_in_exactly_one_chunk():
 
 
 def test_chunk_station_beyond_the_axis_end_is_clamped_not_dropped():
-    # Merode ma chainage 6686,99 m przy osi 6686,74 m — stacja spoza końca osi nie
-    # może zniknąć z manifestu, bo Godot nie zobaczyłby peronu ostatniej stacji.
+    # Wejście jest SYNTETYCZNE (1000,64 m przy granicy 1000,0 m) i takie zostaje:
+    # przycinanie ma działać dla stacji za końcem osi niezależnie od tego, czy
+    # w bieżących danych taka stacja jest. Do #86 była — Merode miało 6686,99 m przy
+    # osi 6686,74 m. Dziś nie ma ani jednej: ostatnia stacja każdego z sześciu
+    # pakietów ma kilometraż równy `length_m`, więc przypadek graniczny jest regułą.
+    # Stacja nie może zniknąć z manifestu, bo Godot nie zobaczyłby peronu ostatniej.
     bounds = [(0.0, 500.0), (500.0, 1000.0)]
     slots = SW.stations_by_chunk(bounds, [0.0, 1000.64])
     assert slots == [[0], [1]], slots

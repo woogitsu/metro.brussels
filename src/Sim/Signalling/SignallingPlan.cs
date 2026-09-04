@@ -353,12 +353,23 @@ public sealed class SignallingPlan
     ///   w konflikcie.</item>
     /// </list>
     ///
-    /// <para><b>Dlaczego plan może sięgać dalej niż oś.</b> W bieżących danych pakietu A
-    /// kilometraż ostatniej stacji (Merode, 6686,99 m) leży 0,25 m **za** końcem osi
-    /// zagęszczonej (6686,739 m). Blok peronowy przycięty do końca osi nie zawierałby
-    /// więc punktu zatrzymania własnej stacji, a od tego zależy zwolnienie drzwi.
-    /// Plan idzie zatem do dalszego z dwóch końców, a rozbieżność jest opisana
-    /// w <c>docs/15-classic-signalling.md</c> jako usterka danych osi, nie modelu.</para>
+    /// <para><b>Dlaczego plan może sięgać dalej niż oś.</b> Ostatnia stacja pakietu
+    /// leży <b>dokładnie na końcu osi</b>, a blok peronowy jest wyśrodkowany na
+    /// kilometrażu stacji — więc jego dalsza połowa z konieczności wystaje za oś.
+    /// Zmierzone na pakiecie A: <c>length_m</c> 6686,35 m, kilometraż Merode
+    /// 6686,35 m, koniec ostatniego bloku 6733,35 m, czyli 47,00 m za osią — połowa
+    /// 94-metrowego składu M7. Blok przycięty do końca osi nie zawierałby punktu
+    /// zatrzymania po całej długości peronu, a od tego zależy zwolnienie drzwi.
+    /// Plan idzie zatem do dalszego z dwóch końców.</para>
+    ///
+    /// <para>Do #86 (<c>4a03982</c>, 02.09.2026) ten akapit mówił co innego: że
+    /// kilometraż Merode (6686,99 m) leży 0,25 m ZA końcem osi zagęszczonej
+    /// (6686,739 m) i że jest to usterka danych. #86 przeliczyło kilometraże na osi,
+    /// która trafia do pliku, i ta rozbieżność zniknęła — na wszystkich sześciu
+    /// pakietach ostatnia stacja ma dziś kilometraż równy <c>length_m</c> co do
+    /// setnej metra, a stacji ZA końcem osi nie ma ani jednej. Wniosek się nie
+    /// zmienił, zmieniła się jego przesłanka; pilnuje tego
+    /// <c>tools/tests/test_axis_claims.py</c>.</para>
     /// </summary>
     /// <param name="axis">Oś pakietu z kilometrażami stacji.</param>
     /// <param name="platformBlockLengthM">Długość bloku peronowego.</param>

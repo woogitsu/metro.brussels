@@ -514,9 +514,16 @@ VOLATILE_CHUNK_KEYS = ("sha256", "bytes")
 def stations_by_chunk(bounds, station_chainages):
     """Indeksy stacji przypisane do chunków — każda stacja trafia do dokładnie jednego.
 
-    Chainage stacji pochodzi z łamanej źródłowej, a granice chunków z osi zagęszczonej,
-    więc skrajna stacja potrafi wypaść o ułamek metra za końcem osi (Merode: 6686,99 m
-    przy osi 6686,74 m). Zamiast gubić taką stację, chainage jest przycinany do osi.
+    Skrajna stacja leży DOKŁADNIE na końcu osi, a granice chunków biegną po osi
+    zagęszczonej, więc ostatnia stacja trafia na sam kraniec ostatniego chunka.
+    Zamiast ryzykować jej zgubienie na granicy, chainage jest przycinany do osi.
+
+    Do #86 (`4a03982`, 02.09.2026) ten akapit mówił, że chainage stacji pochodzi
+    z łamanej ŹRÓDŁOWEJ i skrajna stacja potrafi wypaść o ułamek metra ZA końcem osi
+    (Merode 6686,99 m przy osi 6686,74 m). #86 przeliczyło kilometraże na osi, która
+    trafia do pliku: dziś na wszystkich sześciu pakietach ostatnia stacja ma
+    kilometraż równy `length_m`, a stacji za końcem osi nie ma ani jednej. Przycinanie
+    zostaje, bo przypadek graniczny jest teraz REGUŁĄ, nie wyjątkiem.
     """
     total = bounds[-1][1]
     out = [[] for _ in bounds]

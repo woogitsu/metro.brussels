@@ -228,12 +228,27 @@ ile daje sama pętla prowadzenia z T-401, więc sygnalizacja nic do niego nie do
 - **Symulatora ruchu.** Prowadzenie dwóch składów w scenariuszu jest kodem testu, a nie
   klasą w `src/Sim/` — wielopociągowy runtime to T-320.
 
-## 12. Znaleziona rozbieżność w danych osi
+## 12. Dlaczego plan sięga dalej niż oś
 
-Kilometraż ostatniej stacji pakietu A (Merode, **6686,99 m**) leży **0,25 m za** końcem
-osi zagęszczonej (**6686,739 m**). Blok peronowy przycięty do końca osi nie zawierałby
-punktu zatrzymania własnej stacji, a od tego zależy zwolnienie drzwi — dlatego plan sięga
-do dalszego z dwóch końców i kończy się na 6733,99 m.
+Ostatnia stacja pakietu leży **dokładnie na końcu osi**, a blok peronowy jest
+wyśrodkowany na kilometrażu stacji — więc jego dalsza połowa z konieczności wystaje
+za oś. Zmierzone na pakiecie A: `length_m` **6686,35 m**, kilometraż Merode
+**6686,35 m**, koniec ostatniego bloku **6733,35 m**, czyli **47,00 m** za osią —
+połowa 94-metrowego składu M7. Blok przycięty do końca osi nie zawierałby punktu
+zatrzymania po całej długości peronu, a od tego zależy zwolnienie drzwi; plan idzie
+zatem do dalszego z dwóch końców.
 
-To jest **usterka danych osi, nie modelu**, i T-313 jej nie naprawia: `data/` jest tylko
-do odczytu (reguła 6), a przesunięcie kilometrażu stacji byłoby zmianą faktu o sieci.
+Do #86 (`4a03982`, 02.09.2026) ta sekcja nosiła tytuł „Znaleziona rozbieżność
+w danych osi" i mówiła co innego: że kilometraż Merode (**6686,99 m**) leży 0,25 m
+**za** końcem osi zagęszczonej (6686,739 m) i że jest to **usterka danych osi**.
+#86 przeliczyło kilometraże na osi, która trafia do pliku, i ta rozbieżność
+zniknęła — na wszystkich sześciu pakietach ostatnia stacja ma dziś kilometraż równy
+`length_m` co do setnej metra, a stacji za końcem osi nie ma ani jednej. Wniosek
+o zasięgu planu się nie zmienił, zmieniła się jego przesłanka.
+
+Do #86 stało tu, że jest to **usterka danych osi, nie modelu**, i że T-313 jej nie
+naprawia, bo `data/` jest tylko do odczytu (reguła 6). Naprawiło ją #86, po stronie
+generatora osi — nie przez przesunięcie kilometrażu w pliku, a przez liczenie go na
+tej samej łamanej, która do pliku trafia. Zasięg planu za koniec osi **nie był
+skutkiem tej usterki** i dlatego został: wynika z wyśrodkowania bloku peronowego
+na stacji, która leży na krańcu osi. Pilnuje tego `tools/tests/test_axis_claims.py`.
