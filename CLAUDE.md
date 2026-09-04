@@ -151,6 +151,17 @@ Wzór: `docs/06-worked-example.md`.
 **Zatrzymanie się w tych miejscach jest poprawnym wynikiem pracy, nie porażką.**
 Zgadywanie w tym projekcie jest kosztowniejsze niż czekanie na odpowiedź.
 
+**Ale zatrzymanie się z powodu pustej kolejki nią nie jest.** Powyższa lista mówi, kiedy
+przerwać **konkretne zadanie** — nie kiedy przestać pracować. Gdy zadanie utknie na cudzej
+decyzji albo na cudzym przebiegu CI, agent bierze następną pozycję z fazy 5 lub 6
+w `docs/TASKS.md`; są tam wyłącznie zadania, które nie wymagają ani jednej decyzji
+właściciela. Gdy kolejka zejdzie poniżej dwunastu pozycji, **pierwszym zadaniem jest jej
+uzupełnienie**, nie zatrzymanie się. Pilnuje tego `tools/tests/test_backlog.py`, żeby
+reguła nie była życzeniem zapisanym w dokumencie.
+
+Zadania wymyślonego na miejscu, bo akurat skończyła się kolejka, nie bierze się nigdy:
+omija format z sekcji 6 i zwykle ląduje w kodzie, którego nikt nie prosił o zmianę.
+
 ## 9. CI / GitHub Actions
 
 **Od 02.09.2026 całe CI chodzi na self-hosted runnerze**, po wyczerpaniu minut

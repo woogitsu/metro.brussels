@@ -389,6 +389,85 @@ funkcję do kodu, o którym nie wiadomo, czy działa.
 o brukselskim metrze. Zmyślona głębokość stacji wygląda dokładnie tak samo jak prawdziwa,
 a zadanie „na przeczekanie" jest najgorszym momentem, żeby o tym zapomnieć.
 
+**Cztery z tych ośmiu są generatorami, nie pozycjami.** 5.1 daje jedno zadanie naprawcze
+na każdą ocalałą mutację, 5.2 jedno na każdy wykryty rozjazd danych, 5.3 jedno na każdy
+odcinek, gdzie model nie mieści się w rozkładzie, 5.8 jedno na każdy moduł bez pokrycia.
+Ile ich będzie, wiadomo dopiero po wykonaniu — i **to jest właściwa własność kolejki**:
+kolejka złożona z samych pozycji stałych wyczerpuje się z definicji.
+
+### Reguła zapasu
+
+> **Agent nigdy nie ma mniej niż 24 godziny pracy przed sobą. Uzupełnienie zapasu jest
+> zadaniem samo w sobie i ma pierwszeństwo przed zatrzymaniem się.**
+
+Powód nie jest wydajnościowy, tylko taki: agent, który skończył kolejkę, ma do wyboru
+stanąć albo **wymyślić sobie zadanie na miejscu**. Drugie jest gorsze, bo zadanie
+wymyślone w pośpiechu omija format z sekcji 6 `CLAUDE.md` i zwykle ląduje w miejscu,
+które akurat wygląda na niedokończone — czyli w kodzie, którego nikt nie prosił o zmianę.
+
+Mechanika:
+
+1. Przed wzięciem zadania agent liczy **niezrobione** pozycje w fazie 5 i 6.
+2. Poniżej **dwunastu** pierwszym zadaniem jest uzupełnienie fazy 6 — nowe pozycje muszą
+   mieć wszystkie sześć pól z `docs/TASK-TEMPLATE.md` i kolumnę „dlaczego bez decyzji".
+3. Pilnuje tego `tools/tests/test_backlog.py`; bramka jest czerwona, gdy zapas spadnie
+   poniżej progu, więc nie da się tego przeoczyć między sesjami.
+4. Zadanie, którego nie da się zrobić bez decyzji, **nie liczy się do zapasu** i wędruje
+   do sekcji „Czego agent nie ruszy bez decyzji".
+
+Szacunki godzin niżej są zgrubne i celowo podane jako przedziały. Podstawa: w sesji
+02.09.2026 jedno zadanie z pełną weryfikacją, przeglądem mutacyjnym, commitem i PR-em
+zajmowało **20–45 minut**. Zadanie oznaczone `L` to takie, które ma więcej niż jeden
+przyrost i kończy się osobnym PR-em na każdy.
+
+### Faza 6 — zapas
+
+Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można przeplatać;
+`docs/22-heartbeat.md` opisuje, kiedy agent w ogóle po tę listę sięga.
+
+#### Pasmo A — rdzeń symulacji (`src/Sim`, bez Godota, bez nowych danych o sieci)
+
+| # | zadanie | dlaczego bez decyzji | rozmiar |
+|---|---|---|---|
+| 6.A1 | **Autorytet jazdy w `LineDrive`** — skład pyta `FixedBlockSystem` o zajętość bloku przed sobą i hamuje przed zajętym | plan bloków jest **wynikiem reguły**, nie tabelką (T-313, `SignallingPlan.FromAxis`); ATP korzysta z krzywej T-311. Nic nowego do zgadnięcia | L |
+| 6.A2 | **`LineCore`: N składów na wspólnym zegarze** z autorytetem z 6.A1 | takt 310 s / 340 s jest **zmierzony** z GTFS (T-113), nie założony | L |
+| 6.A3 | **Odtworzenie doby służby z bloków GTFS** — 71 obiegów, maks. 56 równocześnie o 07:06:44 | wszystkie liczby zmierzone w T-113, leżą w `build/timetable.json` | L |
+| 6.A4 | **Propagacja opóźnienia przy zmierzonym rozkładzie postojów** — co robi z taktem jeden skład spóźniony o 30 s | rozkład postojów jest **zmierzony** (29 554 zatrzymań, 12–45 s), więc perturbacja nie jest zmyślona; sama polityka reakcji dyspozytora zostaje poza zakresem | M |
+| 6.A5 | **Bilans energii przejazdu z odzyskiem i bez** | model energii jest w rdzeniu od T-310; to pomiar na istniejącym kodzie | M |
+| 6.A6 | **Wybieg zamiast trakcji: ile kosztuje w czasie, ile oszczędza w energii** | czysty eksperyment na modelu, żadnych nowych danych | M |
+| 6.A7 | **Testy własnościowe fizyki** — monotoniczność drogi hamowania po prędkości i masie, zachowanie energii, brak ujemnego czasu | wzmacnia to, co jest; nie dodaje ani jednej liczby o metrze | M |
+
+#### Pasmo B — narzędzia i geometria (`tools/`)
+
+| # | zadanie | dlaczego bez decyzji | rozmiar |
+|---|---|---|---|
+| 6.B1 | **`station_layout.py` na pakietach B–F**, dziś liczy tylko pakiet A | osie sześciu pakietów są w `data/track/`, wysokość peronu `source_backed` z R-007 | M |
+| 6.B2 | **Znaczniki kilometrażu (T-011) na pozostałych pakietach** | to samo narzędzie, inne wejście | S |
+| 6.B3 | **LOD tuneli pakietów B–F** | wzorzec z pakietu A, `reports/L1_A-lod.md` | M |
+| 6.B4 | **Kontrola krzyżowa osi B–F wobec OSM**, jak `reports/L1_A-crosscheck.md` dla A | hierarchia źródeł rozstrzygnięta w `docs/07`; rozbieżności się **liczy i zapisuje**, nigdy nie uśrednia | M |
+| 6.B5 | **Wykrywanie łuków o najmniejszym promieniu na każdej osi** i sprawdzenie skrajni M7 punkt po punkcie | metoda zmierzona i opisana (`reports/M7-curve-clearance.md`), zostaje zastosowanie | M |
+
+#### Pasmo C — warstwa silnika (`src/Game`)
+
+| # | zadanie | dlaczego bez decyzji | rozmiar |
+|---|---|---|---|
+| 6.C1 | **Streamowanie chunków** — scena wczytuje dziś wszystkie naraz | manifest streamingowy istnieje od T-210 | L |
+| 6.C2 | **Przełączanie LOD w scenie** | poziomy istnieją, scena ich nie używa | M |
+| 6.C3 | **Odtwarzanie przejazdu z pliku telemetrii** — scena jako widok zapisanego przebiegu | wynika wprost z zasady „linia jest symulacją, kabina jednym z jej widoków" | M |
+| 6.C4 | **Kamera inspekcyjna** do oglądania geometrii bez jazdy | narzędzie weryfikacji, nie decyzja estetyczna: nie zmienia ani jednego materiału | S |
+
+#### Pasmo D — weryfikacja i CI
+
+| # | zadanie | dlaczego bez decyzji | rozmiar |
+|---|---|---|---|
+| 6.D1 | **Wzorcowy ślad jako bramka CI** — to, co przy `LineDrive` robiłem ręcznie (453 107 wierszy, sześć osi, porównanie co do bajtu), ma chodzić samo przy każdej zmianie rdzenia | metoda sprawdzona i udowodniona kontrolą negatywną: próg przesunięty o 0,1 % daje rozjazd w wierszu 2910 | M |
+| 6.D2 | **Bramka na czas przebiegu** — regres wydajności rdzenia widoczny, zanim zablokuje N składów | pomiar, nie decyzja | S |
+| 6.D3 | **Kontrola, że każdy `reports/*.md` niesie commit i datę pomiaru** | konwencja już obowiązuje, brakuje bramki | S |
+| 6.D4 | **Kontrola spójności liczb między `reports/` a kodem** — wartość wypisana w raporcie musi dać się odtworzyć z repo | dokładnie ta klasa rozjazdu, którą audyt znalazł w README | M |
+
+**Aktualizacja tej listy jest częścią pracy, nie dodatkiem do niej.** Pozycja zrobiona
+znika stąd i pojawia się jako wpis z sześcioma polami wyżej w tym pliku.
+
 ### Czego agent nie ruszy bez decyzji
 
 Poniższe **nie są kolejką** — są listą rzeczy, które czekają na właściciela. Agent po nie
