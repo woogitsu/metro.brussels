@@ -840,34 +840,76 @@ def test_every_workflow_proves_the_workspace_was_clean():
     `true`, czyli `git clean -ffdx && git reset --hard HEAD`, a `-x` obejmuje pliki
     ignorowane. Krok w workflow tego NIE powtarza, tylko SPRAWDZA: `rm -rf` nie
     odróżniłby „posprzątane" od „checkout przestał sprzątać".
+
+    Test idzie za odnośnikiem `uses:` I ZA JEGO ARGUMENTAMI. Dwa razy zmierzone,
+    dwa razy ta sama luka o jeden poziom głębiej:
+
+    * 04.09.2026, wydzielenie do akcji: poprzednia wersja sprawdzała WYŁĄCZNIE
+      nazwę kroku i przeszła bez jednej modyfikacji, choć cała treść bramki
+      wyprowadziła się do innego pliku;
+    * ta zmiana: krok `uses: ./.github/actions/check-workspace` z dopisanym
+      `with: paths: ""` też przechodził — a puste `paths` wprowadza akcję
+      w gałąź `exit 0` („preflight: nie zadano katalogów do sprawdzenia"),
+      czyli bramka przestaje sprawdzać cokolwiek, a job zostaje zielony.
     """
     missing = []
+    toothless = []
+    unclean = []
+    checked = 0
+
+    # Wywołanie bez `with:` bierze wartość domyślną akcji — więc puste `paths`
+    # w SAMEJ akcji wyłączyłoby bramkę we wszystkich dziesięciu workflowach
+    # naraz, nie zmieniając w nich ani jednego znaku.
+    declared = ((_action(CLEAN_ACTION).get("inputs") or {}).get("paths") or {})
+    default_paths = str(declared.get("default", ""))
+    assert default_paths.strip(), (
+        f"{CLEAN_ACTION}: domyślne `paths` jest puste, więc wywołanie bez `with:` "
+        "wchodzi w gałąź `exit 0` i nie sprawdza żadnego katalogu")
+
     for name in _workflows():
         text = _text(name)
         if "Workspace jest czysty po checkoucie" not in text:
             missing.append(name)
 
-        # Od 04.09.2026 ten krok NIE jest kopią w workflow, tylko odnośnikiem do
-        # jednej akcji lokalnej. Test idzie ZA odnośnikiem, bo sama nazwa kroku
-        # niczego nie dowodzi: `- name: Workspace jest czysty` wskazujące na akcję
-        # bez treści przechodziłoby tak samo dobrze. Zmierzone przy tej zmianie —
-        # poprzednia wersja tego testu sprawdzała WYŁĄCZNIE nazwę i po wydzieleniu
-        # przeszła bez jednej modyfikacji, choć cała treść bramki wyprowadziła się
-        # do innego pliku.
         document = yaml.safe_load(text)
-        references = [str(s.get("uses", "")) for job in document["jobs"].values()
-                      for s in job["steps"]]
-        assert CLEAN_ACTION in references, \
-            f"{name}: krok czystego workspace nie woła {CLEAN_ACTION}"
+        calls = [step for job in document["jobs"].values() for step in job["steps"]
+                 if str(step.get("uses", "")) == CLEAN_ACTION]
+        assert calls, f"{name}: krok czystego workspace nie woła {CLEAN_ACTION}"
+        for call in calls:
+            checked += 1
+            given = call.get("with") or {}
+            # Klucz nieobecny znaczy „wartość domyślna akcji", a klucz obecny
+            # i pusty znaczy „nie sprawdzaj". To dwie różne rzeczy i tylko druga
+            # jest luką, więc rozstrzyga OBECNOŚĆ klucza, nie sama wartość.
+            paths = str(given["paths"]) if "paths" in given else default_paths
+            if not paths.strip():
+                toothless.append(f"{name}: {CLEAN_ACTION} z pustym `paths`")
+
         # `clean: false` wyłączyłoby jedyny mechanizm, który realnie sprząta.
         # Sprawdzane na SPARSOWANYM YAML-u, nie gremem po tekście: komentarz przy
         # tym kroku sam zawiera napis `clean: false`, więc wersja tekstowa wywracała
         # się na własnym opisie — ta sama pułapka, co przy bramce reguły 9.
-        for step in yaml.safe_load(text)["jobs"][next(iter(yaml.safe_load(text)["jobs"]))]["steps"]:
-            if str(step.get("uses", "")).startswith("actions/checkout"):
-                assert (step.get("with") or {}).get("clean") is not False, \
-                    f"{name}: checkout z clean: false"
+        #
+        # KAŻDY job, nie pierwszy. Poprzednia wersja czytała
+        # `next(iter(document["jobs"]))`, czyli wyłącznie job zadeklarowany jako
+        # pierwszy. Dziś każdy workflow ma dokładnie jeden job, więc luka była
+        # utajona — ale zmierzona: drugi job z `clean: false` w checkoucie
+        # przechodził ten test i całą suitę.
+        for job_id, job in document["jobs"].items():
+            for step in job["steps"]:
+                if not str(step.get("uses", "")).startswith("actions/checkout"):
+                    continue
+                given = step.get("with") or {}
+                # Cokolwiek innego niż jawne `true` — `false`, `"false"`, `0` —
+                # wyłącza sprzątanie. Brak klucza to domyślne `true`.
+                if "clean" in given and str(given["clean"]).strip().lower() != "true":
+                    unclean.append(f"{name}:{job_id}: clean: {given['clean']!r}")
+
     assert not missing, f"workflow bez bramki czystego workspace: {missing}"
+    assert not toothless, \
+        f"bramka woła akcję, ale nie zadaje jej ani jednego katalogu: {toothless}"
+    assert not unclean, f"checkout, który nie sprząta workspace'u: {unclean}"
+    assert checked >= 10, checked
 
 
 def test_no_workflow_reinlines_what_the_local_actions_now_own():
@@ -1451,7 +1493,65 @@ def test_prune_workflow_asks_for_the_write_permission_it_needs_and_no_more():
 
 # --- akcje przypięte po SHA ----------------------------------------------------
 
-ACTION_USE = re.compile(r"(?m)^\s*uses:\s*(\S+)\s*(?:#\s*(\S+))?\s*$")
+# Komentarz łapany LENIWIE i do końca wiersza (`(.*?)`), nie jako jeden token.
+# Z `(\S+)` wiersz `uses: actions/cache@v4 # nie wersja` nie pasował do wzorca
+# W CAŁOŚCI, więc wywołanie na ruchomym tagu wypadało z zasięgu obu bramek —
+# nie było „bez wersji", było niewidzialne.
+#
+# `(?:-\s*)?` NIE jest ostrożnością. YAML zapisuje krok na dwa sposoby i oba są
+# poprawne: `- name: …` z `uses:` w następnym wierszu, albo `- uses: …` jednym
+# wierszem. Dziś wszystkie 44 wywołania w tym repozytorium są w pierwszej formie,
+# więc dziura była UTAJONA — dokładnie jak `next(iter(...))` niżej, gdzie wszystkie
+# workflowy miały po jednym jobie. Zmierzone 04.09.2026: krok `- uses: actions/cache@v4`
+# dopisany do `.github/actions/probe-tools/action.yml` przechodził wszystkie trzy
+# bramki przypinania (`3/3 przeszło`), bo `^\s*uses:` nie pasuje do wiersza
+# z myślnikiem. Rozszerzenie zasięgu na akcje lokalne bez tego nie domykało reguły
+# §9 — zamykało ją dla jednej z dwóch składni.
+ACTION_USE = re.compile(r"(?m)^\s*(?:-\s*)?uses:\s*(\S+)\s*(?:#\s*(.*?))?\s*$")
+
+
+def _pinned_sources():
+    """Pliki, w których `uses:` może stać: workflowy I akcje lokalne.
+
+    Akcje lokalne nie z ostrożności. Po wydzieleniu 04.09.2026 treść kroków
+    wyprowadziła się z dziesięciu workflowów DO `.github/actions/`, a trzy bramki
+    przypinania zostały przy `_workflows()`. Zmierzone: krok `uses: actions/cache@v4`
+    (ruchomy tag, bez komentarza z wersją) dopisany do
+    `.github/actions/probe-tools/action.yml` przechodził wszystkie trzy — i całą
+    suitę, 47/47. Akcja `composite` wolno wołać inne akcje, więc to nie jest
+    hipoteza: reguła `CLAUDE.md` §9 nie obowiązywała dokładnie tam, gdzie dziś
+    mieszka treść kroków. Ten sam powód i ten sam wzór, co
+    `_action_files()` w `test_ci_no_pipe_into_head_under_pipefail`.
+    """
+    sources = [(name, _text(name)) for name in _workflows()]
+    for path in _action_files():
+        label = f"{os.path.basename(os.path.dirname(path))}/{os.path.basename(path)}"
+        sources.append((label, open(path, encoding="utf-8").read()))
+    return sources
+
+
+def _external_uses(text):
+    """Pary (odnośnik, komentarz) dla `uses:` wskazujących POZA to repozytorium.
+
+    Komentarze pomijane, i to nie z pobłażliwości: oba pliki w `.github/actions/`
+    OPISUJĄ w prozie własne wywołanie — `uses: ./.github/actions/...` stoi tam
+    w komentarzu — a komentarze workflowów odsyłają do tych akcji tym samym
+    napisem. Bramka czytająca cały plik łapie własne uzasadnienie i każe poprawić
+    wyjaśnienie zamiast kodu. Ta sama pułapka, co przy bramce `| head` i przy
+    bramkach `prune-merged-branches`.
+    """
+    for line in text.splitlines():
+        if line.lstrip().startswith("#"):
+            continue
+        match = ACTION_USE.match(line)
+        if not match:
+            continue
+        ref, comment = match.group(1), match.group(2)
+        # `./…` to akcja lokalna: mieszka w tym repozytorium, więc nie ma czego
+        # przypinać — jej treść jest w tym samym commicie co workflow.
+        if "@" not in ref or ref.startswith("./"):
+            continue
+        yield ref, comment
 
 
 def test_every_action_is_pinned_to_a_commit_not_a_moving_tag():
@@ -1467,18 +1567,17 @@ def test_every_action_is_pinned_to_a_commit_not_a_moving_tag():
     zmiana wersji akcji staje się widocznym commitem w tym repozytorium.
 
     Zmierzone przy wprowadzaniu: 21 wywołań, 4 różne akcje, wszystkie na tagach `v4`/`v6`.
+
+    Zasięg to workflowy I akcje lokalne (`_pinned_sources()`) — powód tam.
     """
     unpinned = []
     checked = 0
-    for name in _workflows():
-        for match in ACTION_USE.finditer(_text(name)):
-            ref = match.group(1)
-            if "@" not in ref or ref.startswith("./"):
-                continue
+    for label, text in _pinned_sources():
+        for ref, _comment in _external_uses(text):
             checked += 1
-            _action, version = ref.rsplit("@", 1)
+            _name, version = ref.rsplit("@", 1)
             if not re.fullmatch(r"[0-9a-f]{40}", version):
-                unpinned.append(f"{name}: {ref}")
+                unpinned.append(f"{label}: {ref}")
     assert not unpinned, f"akcje na ruchomym tagu: {unpinned}"
     assert checked >= 20, checked
 
@@ -1490,16 +1589,18 @@ def test_every_pinned_action_says_which_version_the_commit_is():
     wersja sprzed roku, ani zdecydować, czy warto podnieść. Komentarz z wersją zamienia
     przypięcie z bariery w informację — i jest jedyną rzeczą, która sprawia, że
     przypinanie po SHA nie zamienia się w porzucanie akcji na zawsze.
+
+    Zasięg to workflowy I akcje lokalne (`_pinned_sources()`) — powód tam.
     """
     missing = []
-    for name in _workflows():
-        for match in ACTION_USE.finditer(_text(name)):
-            ref, comment = match.group(1), match.group(2)
-            if "@" not in ref or ref.startswith("./"):
-                continue
+    checked = 0
+    for label, text in _pinned_sources():
+        for ref, comment in _external_uses(text):
+            checked += 1
             if not re.fullmatch(r"v\d+(\.\d+)*", comment or ""):
-                missing.append(f"{name}: {ref} # {comment}")
+                missing.append(f"{label}: {ref} # {comment}")
     assert not missing, f"przypięcia bez czytelnej wersji: {missing}"
+    assert checked >= 20, checked
 
 
 def test_the_same_action_is_pinned_to_the_same_commit_everywhere():
@@ -1508,15 +1609,14 @@ def test_the_same_action_is_pinned_to_the_same_commit_everywhere():
     Bez tej kontroli aktualizacja „wszystkich checkoutów" zostawia jeden na starym
     commicie i nikt tego nie widzi — a właśnie ten jeden będzie potem tłumaczył, czemu
     jeden job zachowuje się inaczej niż wszystkie pozostałe.
+
+    Zasięg to workflowy I akcje lokalne (`_pinned_sources()`) — powód tam.
     """
     seen = {}
-    for name in _workflows():
-        for match in ACTION_USE.finditer(_text(name)):
-            ref = match.group(1)
-            if "@" not in ref or ref.startswith("./"):
-                continue
+    for label, text in _pinned_sources():
+        for ref, _comment in _external_uses(text):
             action, sha = ref.rsplit("@", 1)
-            seen.setdefault(action, {}).setdefault(sha, []).append(name)
+            seen.setdefault(action, {}).setdefault(sha, []).append(label)
     split = {a: v for a, v in seen.items() if len(v) > 1}
     assert not split, f"ta sama akcja na różnych commitach: {split}"
     assert len(seen) >= 4, seen
