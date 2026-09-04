@@ -50,17 +50,98 @@ def _geodetic_to_ecef(lon, lat, a, f, h=0.0):
             (n * (1 - e2) + h) * math.sin(p))
 
 
-def _ecef_to_geodetic(x, y, z, a, f):
+def _ecef_to_geodetic(x, y, z, a, f, tolerance_m=1e-9, iterations=40):
+    """ECEF -> (lon, lat, h) iteracyjnie, z warunkiem zbieżności zamiast stałej 12.
+
+    Pętla kręciła się dokładnie 12 razy i zwracała ostatni iterat, cokolwiek by
+    z niego nie wyszło. Zmierzone 03.09.2026 (wejścia z `_geodetic_to_ecef` dla
+    lon=4,35 lat=50,85, kryterium `a * |dlat| < 1e-9 m`):
+
+        h =        0 m   ->  1 iteracja
+        h =      100 m   ->  5 iteracji
+        h =   400 km     ->  6 iteracji
+        h = -6000 km     -> 14 iteracji   <- 12 NIE wystarczało
+
+    Warunek przerwania jest na przyroście szerokości przeliczonym na długość łuku
+    (`a * |dlat|`), więc próg ma wymiar metra i da się go porównać z czymkolwiek
+    w tym pliku. Górna granica 40 iteracji jest ponad dwukrotnym zapasem wobec
+    najgorszego zmierzonego przypadku.
+
+    Co dokładnie daje wczesne wyjście, zmierzone na 4035 wejściach (siedem
+    szerokości po pięć wysokości plus 4000 punktów losowych z sześcianu +-7000 km),
+    wobec wariantu kręcącego zawsze pełne 40 obrotów:
+
+        wyników identycznych co do bitu   4030 z 4035
+        wyników różnych                      5, najwięcej o 1,86e-09
+        iteracji łącznie              23 980 zamiast 161 400 (6,7x mniej)
+
+    Czyli jest to przede wszystkim oszczędność, a nie zmiana wyniku — i tak to jest
+    tu opisane, zamiast udawać, że pilnuje poprawności. Poprawności pilnuje druga
+    strona tego samego warunku: przerwanie ZA WCZEŚNIE psuje wynik natychmiast
+    i widać to w testach (kontrola negatywna „przerwij po pierwszym obrocie"
+    wywraca pięć testów, w tym zbieżność inwersji Lamberta).
+
+    **Czego ta zmiana świadomie NIE robi.** Nie odrzuca wyniku niezbieżnego, bo
+    próg, poniżej którego wynik jest jeszcze współrzędną, a powyżej śmieciem, nie
+    jest zapisany w żadnym dokumencie projektu i nie da się go wyprowadzić
+    z pomiaru. Zmierzone residuum round-tripu przy z na powierzchni i malejącym
+    `p` (odległość od osi obrotu), przy 400 iteracjach, czyli już na granicy
+    samego wzoru, a nie liczby powtórzeń:
+
+        p = 1e+06 m  ->  0        m        p = 1e+03 m  ->  1,9e-06 m
+        p = 1e+05 m  ->  3,7e-08 m         p = 1e+02 m  ->  4,4e-05 m
+        p = 1e+04 m  ->  3,3e-07 m         p = 1e+00 m  ->  7,2e-04 m
+                                           p = 1e-06 m  ->  3,97e+03 m
+                                           p = 1e-09 m  ->  9,93e+06 m
+
+    Nie ma tu progu do znalezienia: degradacja jest ciągła i nieograniczona, więc
+    każda tolerancja rozcinałaby to continuum w miejscu wybranym arbitralnie.
+    Punkty o `p` rzędu kilometrów projekt realnie liczy — biegun odwzorowania
+    Lamberta 72 — i ich residuum (1e-06..2e-03 m) jest bez znaczenia fizycznego,
+    ale formalnie leży w tym samym continuum, co śmieci: 17,5 m przy h = -6300 km
+    i 26 133 m przy h = -6370 km, gdzie funkcja zwraca szerokość -18,8 st. dla
+    wejścia o szerokości 50,85 st. Wybór progu jest decyzją projektową i czeka
+    na odpowiedź właściciela (CLAUDE.md §8).
+
+    Do zmierzenia residuum bez czekania na tę decyzję jest
+    `ecef_to_geodetic_residual_m`.
+    """
+    p = math.hypot(x, y)
+    if p == 0.0:
+        # Na osi obrotu `n + h` jest dokładnie zerem i dzielenie w kolejnym kroku
+        # podnosiło `ZeroDivisionError` — wyjątek spoza kontraktu tego modułu,
+        # niemówiący nic o tym, co jest z wejściem nie tak. Wynik jest tu zresztą
+        # znany bez iterowania: punkt leży na osi, więc szerokość to +-90 st.,
+        # długość jest nieokreślona (przyjmujemy 0), a wysokość liczy się wprost.
+        lat_deg = 90.0 if z >= 0.0 else -90.0
+        b = a * (1 - f)
+        return 0.0, lat_deg, abs(z) - b
+
     e2 = f * (2 - f)
     l = math.atan2(y, x)
-    p = math.hypot(x, y)
     lat = math.atan2(z, p * (1 - e2))
-    for _ in range(12):
+    for _ in range(iterations):
         n = a / math.sqrt(1 - e2 * math.sin(lat) ** 2)
         h = p / math.cos(lat) - n
-        lat = math.atan2(z, p * (1 - e2 * n / (n + h)))
+        step = math.atan2(z, p * (1 - e2 * n / (n + h)))
+        converged = abs(step - lat) * a < tolerance_m
+        lat = step
+        if converged:
+            break
     n = a / math.sqrt(1 - e2 * math.sin(lat) ** 2)
     return math.degrees(l), math.degrees(lat), p / math.cos(lat) - n
+
+
+def ecef_to_geodetic_residual_m(x, y, z, a, f):
+    """O ile metrów powrót przez `_geodetic_to_ecef` rozmija się z punktem wejścia.
+
+    Odpowiednik `lambert_inverse_residual_m` dla drugiej iteracji w tym pliku.
+    Istnieje po to, żeby „czy ten wynik jest jeszcze współrzędną" dało się
+    ROZSTRZYGNĄĆ, a nie tylko założyć — nawet zanim zapadnie decyzja o progu.
+    """
+    lon, lat, h = _ecef_to_geodetic(x, y, z, a, f)
+    bx, by, bz = _geodetic_to_ecef(lon, lat, a, f, h)
+    return math.dist((bx, by, bz), (x, y, z))
 
 
 def _helmert(x, y, z, dx, dy, dz, rx, ry, rz, ds):
@@ -137,13 +218,32 @@ def lambert72_to_wgs84(x, y, tolerance_m=1e-6, iterations=60):
 
     Potrzebne tam, gdzie z osi w Lambercie 72 trzeba zbudować zapytanie do
     źródła w WGS84 (OSM, UrbIS) — czyli w kontroli krzyżowej pakietów.
+
+    **Niezbieżność jest błędem, nie wynikiem.** Wcześniej funkcja po wyczerpaniu
+    `iterations` zwracała ostatni iterat bez słowa: dla `(1e9, 1e9)` była to
+    szerokość -46040,3° przy residuum 9,98e+08 m na składową (1,41e+09 m
+    euklidesowo), a dla bieguna odwzorowania długość 395,8° przy 2433 m na
+    składową (2435 m euklidesowo). Rozjeżdżało to całą geometrię, bo
+    residuum mierzy osobna funkcja `lambert_inverse_residual_m`, której nikt nie
+    wołał. Teraz brak zbieżności podnosi `ValueError` — tą samą konwencją, co
+    zdegenerowany jakobian poniżej, żeby wołający miał jeden wzorzec obsługi.
+
+    Kryterium zbieżności jest **na składową i ostre**: `max(|dx|, |dy|)` musi być
+    *mniejsze* od `tolerance_m`. Residuum równe dokładnie `tolerance_m` jest więc
+    porażką, nie sukcesem — dokładnie jak w warunku przerwania pętli, którego ta
+    zmiana nie rusza. Uwaga: `lambert_inverse_residual_m` mierzy odległość
+    **euklidesową**, więc jej wynik może być do sqrt(2) raza większy od progu
+    i to nie jest sprzeczność.
+
+    Residuum w komunikacie jest zapisane przez `repr`, żeby dało się je odczytać
+    z powrotem bez straty bitów — na tym opiera się test progu.
     """
     lon, lat = LAMBERT_INVERSE_SEED
     for _ in range(iterations):
         fx, fy = wgs84_to_lambert72(lon, lat)
         dx, dy = fx - x, fy - y
         if abs(dx) < tolerance_m and abs(dy) < tolerance_m:
-            break
+            return lon, lat
         h = 1e-7
         x_lon, y_lon = wgs84_to_lambert72(lon + h, lat)
         x_lat, y_lat = wgs84_to_lambert72(lon, lat + h)
@@ -154,7 +254,14 @@ def lambert72_to_wgs84(x, y, tolerance_m=1e-6, iterations=60):
             raise ValueError(f"inwersja Lamberta rozbieżna w punkcie {x}, {y}")
         lon -= (dx * j22 - dy * j12) / determinant
         lat -= (dy * j11 - dx * j21) / determinant
-    return lon, lat
+    fx, fy = wgs84_to_lambert72(lon, lat)
+    residual_m = max(abs(fx - x), abs(fy - y))
+    if residual_m < tolerance_m:
+        return lon, lat
+    raise ValueError(
+        f"inwersja Lamberta rozbieżna w punkcie {x}, {y}: "
+        f"residuum {residual_m!r} m nie zeszło pod tolerancję {tolerance_m!r} m "
+        f"po {iterations} iteracjach")
 
 
 def lambert_inverse_residual_m(x, y):
@@ -216,24 +323,45 @@ def wgs84_to_laea3035(lon, lat):
     return east, north
 
 
-def _authalic_to_geodetic(beta, e, q_p):
+def _authalic_to_geodetic(beta, e, q_p, tolerance_rad=1e-14, iterations=8):
     """Odwrotność `q` przez Newtona zamiast szeregu Snydera.
 
     Szereg w e^6 zostawia ułamki milimetra, a iteracja schodzi do precyzji maszynowej
     w trzech krokach i jest krótsza do przeczytania niż cztery współczynniki.
+
+    **Niezbieżność jest błędem, nie wynikiem** — ta sama konwencja i to samo
+    brzmienie komunikatu, co w `lambert72_to_wgs84`. Krok Newtona dzieli przez
+    `2*cos(phi)`, więc przy `beta` dążącym do ±90° iteracja przestaje się
+    domykać: dla `beta = -90°` osiem kroków dawało wcześniej `phi = 270,355°`
+    zwrócone bez żadnego sygnału.
+
+    Kryterium jest **ostre**: `|step|` musi być *mniejsze* od `tolerance_rad`,
+    czyli krok równy dokładnie progowi jest porażką. Zgadza się to z warunkiem
+    przerwania pętli, którego ta zmiana nie rusza — domyślne `1e-14` rad i osiem
+    iteracji są dokładnie te, co wcześniej, tylko dostały nazwy, żeby test mógł
+    odczytać próg z wnętrza funkcji, a nie zgadywać go z zewnątrz.
+
+    Zasięg, w którym osiem kroków nie domyka `1e-14` rad, zaczyna się przy
+    |beta| ≈ 85,1°. Oś brukselska ma `beta` w [50,67°, 50,78°], czyli ponad 34°
+    zapasu, a `laea3035_to_wgs84` liczy `beta` przez `asin`, więc nigdy nie
+    wyjdzie poza ±90°.
     """
     q = q_p * math.sin(beta)
     phi = beta
-    for _ in range(8):
+    step = None
+    for _ in range(iterations):
         sin_phi = math.sin(phi)
         es = e * sin_phi
         residual = (q / (1 - e ** 2) - sin_phi / (1 - es ** 2)
                     + (1 / (2 * e)) * math.log((1 - es) / (1 + es)))
         step = residual * (1 - es ** 2) ** 2 / (2 * math.cos(phi))
         phi += step
-        if abs(step) < 1e-14:
-            break
-    return phi
+        if abs(step) < tolerance_rad:
+            return phi
+    raise ValueError(
+        f"inwersja szerokości autalicznej rozbieżna dla beta {math.degrees(beta)} deg: "
+        f"krok {abs(step)!r} rad nie zeszedł pod tolerancję {tolerance_rad!r} rad "
+        f"po {iterations} iteracjach")
 
 
 def laea3035_to_wgs84(east, north):

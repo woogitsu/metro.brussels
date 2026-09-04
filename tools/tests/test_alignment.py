@@ -143,7 +143,7 @@ def test_alignment_projection_finds_perpendicular_foot():
 
 def test_alignment_slice_cuts_between_chainages():
     line = [(0.0, 0.0), (100.0, 0.0), (200.0, 0.0)]
-    sliced = [p for p, _ in B.slice_polyline(line, 50.0, 150.0)]
+    sliced = B.slice_polyline(line, 50.0, 150.0)
     assert abs(B.polyline_length(sliced) - 100.0) < 1e-9
     assert sliced[0] == (50.0, 0.0) and sliced[-1] == (150.0, 0.0)
 
@@ -241,3 +241,533 @@ def test_alignment_committed_crosscheck_reports_other_sources():
     for entry in prov["crosscheck"]:
         if entry["status"] == "ok":
             assert entry["deviation_median_m"] is not None
+
+
+# --- triaż ocalałych mutacji: geometria osi ----------------------------------
+#
+# Przemiatanie mutacyjne z 03.09.2026 dało dla `build_alignment.py` 69 mutacji
+# i 57 ocalałych — największa pula w czystym Pythonie, jaka została. Testy powyżej
+# sprawdzają, że funkcje LICZĄ dobrze na wejściu grzecznym. Nie sprawdzały,
+# co robią NA GRANICY: przy zdublowanym wierzchołku, przy cięciu dokładnie
+# w wierzchołku, przy rzucie wypadającym za segment. Tam mieszkały wszystkie
+# ocalałe. Poniżej są testy właśnie tych miejsc.
+
+
+def test_alignment_projection_skips_zero_length_segments():
+    """Zdublowany wierzchołek w źródle STIB nie jest hipotezą — jest w danych.
+
+    Bez pominięcia takiego segmentu rzut dzieli przez zero. Test przechodzi tylko
+    wtedy, gdy pominięcie NAPRAWDĘ jest, bo inaczej leci ZeroDivisionError.
+    """
+    line = [(0.0, 0.0), (50.0, 0.0), (50.0, 0.0), (100.0, 0.0)]
+    chainage, offset, _segment = B.project_on_polyline(line, (70.0, 3.0))
+    assert abs(chainage - 70.0) < 1e-9, chainage
+    assert abs(offset - 3.0) < 1e-9, offset
+
+
+def test_alignment_projection_uses_segments_shorter_than_a_decimetre():
+    """Pomijany ma być segment ZEROWY, nie po prostu krótki.
+
+    Warunek stoi na kwadracie długości, więc próg podniesiony do 0.001 wycinałby
+    wszystko poniżej 3,2 cm — a wtedy oś złożona z krótkich segmentów nie miałaby
+    do czego się rzutować i wynik wracałby jako `inf`.
+    """
+    line = [(0.0, 0.0), (0.02, 0.0), (0.04, 0.0)]
+    chainage, offset, _segment = B.project_on_polyline(line, (0.03, 0.0))
+    assert math.isfinite(offset), offset
+    assert abs(chainage - 0.03) < 1e-9, chainage
+
+
+def test_alignment_projection_keeps_a_foot_just_past_the_start_of_a_segment():
+    """Rzut 0,5 m za początek 1000-metrowego segmentu to t = 0,0005.
+
+    Zaokrąglenie takiego t do zera przesunęłoby kotwicę stacji o pół metra
+    i nie zostawiło po sobie żadnego śladu w metrykach.
+    """
+    line = [(0.0, 0.0), (1000.0, 0.0)]
+    chainage, offset, _segment = B.project_on_polyline(line, (0.5, 1.0))
+    assert abs(chainage - 0.5) < 1e-9, chainage
+    assert abs(offset - 1.0) < 1e-9, offset
+
+
+def test_alignment_projection_clamps_a_foot_past_the_end_of_the_polyline():
+    """Cel 5 m za końcem osi ma dać rzut NA koniec, z odległością 5 m.
+
+    Bez domknięcia t do 1 rzut wyjechałby poza polilinię: kilometraż 1005 m
+    na osi, która ma 1000 m, i odległość 0 m zamiast 5 m.
+    """
+    line = [(0.0, 0.0), (1000.0, 0.0)]
+    chainage, offset, _segment = B.project_on_polyline(line, (1005.0, 0.0))
+    assert abs(chainage - 1000.0) < 1e-9, chainage
+    assert abs(offset - 5.0) < 1e-9, offset
+
+
+def test_alignment_projection_keeps_the_first_of_two_equally_close_feet():
+    """Oś zawrócona sama na siebie daje dwa rzuty o identycznej odległości.
+
+    Rozstrzygnięcie musi być deterministyczne i musi wskazywać MNIEJSZY kilometraż,
+    bo inaczej kotwica stacji skakałaby na drugą stronę pętli przy tej samej
+    geometrii wejściowej.
+    """
+    line = [(0.0, 0.0), (100.0, 0.0), (0.0, 0.0)]
+    chainage, offset, _segment = B.project_on_polyline(line, (50.0, 10.0))
+    assert abs(offset - 10.0) < 1e-9, offset
+    assert abs(chainage - 50.0) < 1e-9, chainage
+
+
+def test_alignment_slice_cuts_inside_a_segment_and_keeps_the_vertex_between():
+    line = [(0.0, 0.0), (100.0, 0.0), (200.0, 0.0)]
+    sliced = B.slice_polyline(line, 50.0, 150.0)
+    assert sliced == [(50.0, 0.0), (100.0, 0.0), (150.0, 0.0)], sliced
+
+
+def test_alignment_slice_starting_exactly_on_a_vertex_returns_it_once():
+    line = [(0.0, 0.0), (100.0, 0.0), (200.0, 0.0)]
+    sliced = B.slice_polyline(line, 100.0, 150.0)
+    assert sliced == [(100.0, 0.0), (150.0, 0.0)], sliced
+
+
+def test_alignment_slice_from_zero_keeps_the_first_vertex():
+    line = [(0.0, 0.0), (100.0, 0.0), (200.0, 0.0)]
+    sliced = B.slice_polyline(line, 0.0, 150.0)
+    assert sliced == [(0.0, 0.0), (100.0, 0.0), (150.0, 0.0)], sliced
+
+
+def test_alignment_slice_ending_exactly_on_a_vertex_keeps_it_once():
+    line = [(0.0, 0.0), (100.0, 0.0), (200.0, 0.0)]
+    sliced = B.slice_polyline(line, 0.0, 100.0)
+    assert sliced == [(0.0, 0.0), (100.0, 0.0)], sliced
+
+
+def test_alignment_slice_of_the_whole_polyline_reaches_the_last_vertex():
+    """Regresja z pakietu D: bez domknięcia prawego końca ginęło 86,8 m osi."""
+    line = [(0.0, 0.0), (100.0, 0.0), (200.0, 0.0)]
+    sliced = B.slice_polyline(line, 0.0, 200.0)
+    assert sliced == [(0.0, 0.0), (100.0, 0.0), (200.0, 0.0)], sliced
+    assert abs(B.polyline_length(sliced) - 200.0) < 1e-9
+
+
+def test_alignment_slice_dedup_threshold_is_a_micrometre_not_more():
+    """Dwa punkty oddalone o 1,005 µm to nadal DWA punkty.
+
+    Próg sklejania jest po to, żeby wyrzucić duplikat co do bitu, a nie żeby
+    czyścić geometrię. Test stoi tuż nad progiem, bo tylko tam widać różnicę
+    między „usuwam duplikat" a „upraszczam oś".
+    """
+    line = [(0.0, 0.0), (1.005e-6, 0.0), (100.0, 0.0)]
+    sliced = B.slice_polyline(line, 0.0, 100.0)
+    assert len(sliced) == 3, sliced
+
+
+def test_alignment_slice_dedup_threshold_is_open_at_exactly_a_micrometre():
+    """Warunek sklejania jest OSTRY: odległość równa mikrometrowi jeszcze zostaje."""
+    line = [(0.0, 0.0), (1e-6, 0.0), (100.0, 0.0)]
+    sliced = B.slice_polyline(line, 0.0, 100.0)
+    assert len(sliced) == 3, sliced
+
+
+def test_alignment_point_at_interpolates_inside_the_first_segment():
+    """Kilometraż 0,5 m ma dać punkt 0,5 m od początku, nie sam początek."""
+    line = [(0.0, 0.0), (100.0, 0.0)]
+    assert B.point_at(line, 0.5) == (0.5, 0.0)
+    assert B.point_at(line, 0.0) == (0.0, 0.0)
+
+
+def test_alignment_point_at_survives_a_duplicated_vertex():
+    """Segment zerowej długości nie może dzielić przez zero."""
+    line = [(0.0, 0.0), (50.0, 0.0), (50.0, 0.0), (100.0, 0.0)]
+    assert B.point_at(line, 50.0) == (50.0, 0.0)
+    assert B.point_at(line, 75.0) == (75.0, 0.0)
+
+
+def test_alignment_point_at_interpolates_inside_segments_shorter_than_a_metre():
+    """Zabezpieczenie dotyczy segmentu ZEROWEGO, nie krótkiego.
+
+    Oś STIB ma w łukach segmenty poniżej metra; podniesienie progu do 1 m
+    zamieniłoby interpolację na skok do najbliższego wierzchołka.
+    """
+    line = [(0.0, 0.0), (0.5, 0.0), (1.0, 0.0)]
+    assert B.point_at(line, 0.25) == (0.25, 0.0)
+    assert B.point_at(line, 0.75) == (0.75, 0.0)
+
+
+def test_alignment_point_at_clamps_outside_the_polyline():
+    line = [(0.0, 0.0), (100.0, 0.0)]
+    assert B.point_at(line, -5.0) == (0.0, 0.0)
+    assert B.point_at(line, 100.0) == (100.0, 0.0)
+    assert B.point_at(line, 500.0) == (100.0, 0.0)
+
+
+def test_alignment_resample_drops_a_candidate_exactly_half_a_step_from_an_anchor():
+    """Próbka dokładnie pół kroku od kotwicy ma ZNIKNĄĆ — kotwica ma pierwszeństwo.
+
+    Warunek jest ostry (`>`), więc granica należy do kotwicy. Gdyby był
+    nieostry, przy kotwicy 5 m i kroku 10 m zostałyby obok siebie punkty
+    0, 5 i 10 — dwa razy gęściej, niż mówi krok, i akurat przy peronie.
+    """
+    line = [(0.0, 0.0), (100.0, 0.0)]
+    sampled = B.resample_uniform(line, 10.0, [5.0])
+    xs = [round(p[0], 6) for p, _ in sampled]
+    assert 0.0 not in xs, xs
+    assert 10.0 not in xs, xs
+    assert 5.0 in xs and 20.0 in xs, xs
+    assert xs[0] == 5.0, xs
+
+
+def test_alignment_densify_does_not_duplicate_a_vertex_at_an_exact_step():
+    """Segment długości dokładnie jednego kroku nie dostaje punktu pośredniego.
+
+    Dodanie go zdublowałoby wierzchołek b: raz jako punkt pośredni, raz jako
+    początek następnego segmentu. Statystyki odsunięcia liczą się PO punktach,
+    więc duplikat cicho przeważyłby medianę.
+    """
+    assert B.densify([(0.0, 0.0), (10.0, 0.0), (20.0, 0.0)], 10.0) == \
+        [(0.0, 0.0), (10.0, 0.0), (20.0, 0.0)]
+
+
+def test_alignment_densify_splits_a_segment_longer_than_the_step():
+    out = B.densify([(0.0, 0.0), (25.0, 0.0)], 10.0)
+    assert out[0] == (0.0, 0.0) and out[-1] == (25.0, 0.0), out
+    assert max(math.dist(a, b) for a, b in zip(out, out[1:])) <= 10.0 + 1e-9, out
+
+
+def test_alignment_radius_of_collinear_points_is_infinite():
+    assert B._radius((0.0, 0.0), (1.0, 0.0), (2.0, 0.0)) == float("inf")
+
+
+def test_alignment_radius_matches_a_known_circle():
+    """Trzy punkty na okręgu o promieniu 91,5 m — najciaśniejszy łuk sieci STIB."""
+    radius = 91.5
+    pts = [(radius * math.cos(a), radius * math.sin(a)) for a in (0.0, 0.4, 0.8)]
+    assert abs(B._radius(*pts) - radius) < 1e-6, B._radius(*pts)
+
+
+def test_alignment_pick_line_requires_both_code_and_variante_to_match():
+    lines = [_line_row("1", 1), _line_row("1", 2), _line_row("5", 1)]
+    assert B.pick_line(lines, "1", 2)["attributes"]["Variante"] == 2
+    for code, variante in (("1", 3), ("2", 1), ("5", 2)):
+        try:
+            B.pick_line(lines, code, variante)
+        except SystemExit as err:
+            assert "brak polilinii" in str(err), err
+        else:
+            raise AssertionError(f"{code}/{variante} przeszło, a nie ma go w danych")
+
+
+def test_alignment_pick_line_refuses_two_candidates():
+    """Dwie polilinie na tej samej parze to niejednoznaczność, nie wybór.
+
+    Bez tego warunku brany byłby po prostu pierwszy — a kolejność w shapefile
+    nie jest niczym gwarantowana.
+    """
+    lines = [_line_row("1", 1), _line_row("1", 1)]
+    try:
+        B.pick_line(lines, "1", 1)
+    except SystemExit as err:
+        assert "2 polilinii" in str(err), err
+    else:
+        raise AssertionError("dwie polilinie przeszły jako jedna")
+
+
+def test_alignment_pick_line_refuses_multipart_geometry():
+    row = _line_row("1", 1)
+    row["geometry"]["parts"] = [0, 4]
+    try:
+        B.pick_line([row], "1", 1)
+    except SystemExit as err:
+        assert "2 części" in str(err), err
+    else:
+        raise AssertionError("polilinia dwuczęściowa przeszła")
+
+
+def _line_row(code, variante):
+    return {"attributes": {"LineCode": code, "Variante": variante},
+            "geometry": {"parts": [0], "points": [(0.0, 0.0), (100.0, 0.0)]}}
+
+
+def test_alignment_package_bounds_matches_the_identifier_exactly():
+    import tempfile
+    network = {"build_packages": [{"id": "A", "from": "Beekkant", "to": "Merode",
+                                   "stations": 12},
+                                  {"id": "B", "from": "Merode", "to": "Stockel",
+                                   "stations": 9}]}
+    handle = tempfile.NamedTemporaryFile("w", suffix=".json", delete=False,
+                                         encoding="utf-8")
+    json.dump(network, handle)
+    handle.close()
+    try:
+        assert B.package_bounds(handle.name, "B")["to"] == "Stockel"
+        try:
+            B.package_bounds(handle.name, "C")
+        except SystemExit as err:
+            assert "pakiet C nie istnieje" in str(err), err
+        else:
+            raise AssertionError("nieistniejący pakiet C przeszedł")
+    finally:
+        os.unlink(handle.name)
+
+
+def test_alignment_slice_starting_on_a_duplicated_vertex_does_not_divide_by_zero():
+    """Ostre `<` w `c0 < start <= c1` to nie jest tylko zakres — to zabezpieczenie.
+
+    Gdy oś ma zdublowany wierzchołek (a oś STIB ma), segment między kopiami ma
+    `c1 - c0 == 0`. Nieostry warunek wpuszcza ten segment do interpolacji i cięcie
+    dzieli przez zero. Znalezione różnicowo: mutacja `<` → `<=` przeżyła cały
+    zestaw testów, a wywraca się na TYM wejściu.
+    """
+    line = [(0.0, 0.0), (50.0, 0.0), (50.0, 0.0), (100.0, 0.0)]
+    assert B.slice_polyline(line, 50.0, 75.0) == \
+        [(50.0, 0.0), (75.0, 0.0)]
+    assert B.slice_polyline(line, 50.0, 50.0) == [(50.0, 0.0)]
+
+
+def test_alignment_slice_ending_on_a_duplicated_vertex_does_not_divide_by_zero():
+    """To samo od drugiej strony: ostre `<` w `c0 <= end < c1`."""
+    line = [(0.0, 0.0), (50.0, 0.0), (50.0, 0.0), (100.0, 0.0)]
+    assert B.slice_polyline(line, 0.0, 50.0) == \
+        [(0.0, 0.0), (50.0, 0.0)]
+    assert B.slice_polyline(line, 25.0, 50.0) == \
+        [(25.0, 0.0), (50.0, 0.0)]
+
+
+def test_alignment_point_at_the_very_end_returns_the_last_vertex_itself():
+    """Na końcu osi ma wrócić TEN wierzchołek, nie jego przeliczenie.
+
+    Bez skrótu `chainage >= chain[-1]` punkt idzie przez interpolację i wychodzi
+    z błędem zaokrąglenia rzędu 3e-14 m. Fizycznie nieistotne — ale kotwice stacji
+    porównuje się z końcem osi na równość, a nie z tolerancją, więc wynik ma być
+    identyczny co do bitu.
+    """
+    line = [(0.0, 0.0), (30.0, 40.0), (60.0, 80.0)]
+    assert B.point_at(line, B.polyline_length(line)) == line[-1]
+    # Łamana, na której `cumulative` NARASTAJĄCO się myli: bez skrótu interpolacja
+    # wraca (359.2019492051856, 450.22394968265843) zamiast wierzchołka.
+    skew = [(-218.06927767326232, -354.32360754201943),
+            (34.59096230010357, 109.81243525699688),
+            (-181.38831888811347, -374.508487504023),
+            (359.20194920518566, 450.2239496826585)]
+    assert B.point_at(skew, B.polyline_length(skew)) == skew[-1]
+
+
+def test_alignment_the_nanometre_guard_is_dominated_by_the_micrometre_dedup():
+    """Próg 1e-9 przy domknięciu prawego końca nie ma jak zadziałać — i to jest wynik.
+
+    Warunek `math.dist(out[-1][0], last) > 1e-9` decyduje wyłącznie o punktach
+    leżących o mniej niż 1e-9 od poprzednika. Każdy taki punkt jest potem usuwany
+    przez dedupikację, która sklaja wszystko bliżej niż **1e-6**. Próg nanometrowy
+    jest więc martwy wobec mikrometrowego, który po nim następuje.
+
+    Sprawdzone wykonaniem na ośmiu wejściach trafiających DOKŁADNIE w granicę
+    (`end == chain[-1] - 1e-9` oraz łamane, których ostatni segment ma 1e-9)
+    dla trzech mutacji naraz — zero różnic. Bez policzenia trafień w granicę
+    „zero różnic" nic by nie znaczyło: losowa bateria w punkt równości nie trafia.
+    """
+    line = [(0.0, 0.0), (1.005e-9, 0.0)]
+    assert B.slice_polyline(line, 0.0, 1.005e-9) == [(0.0, 0.0)]
+    for length in (1.0, 100.0, 6700.0):
+        straight = [(0.0, 0.0), (length, 0.0)]
+        at_edge = B.slice_polyline(straight, 0.0, length - 1e-9)
+        to_end = B.slice_polyline(straight, 0.0, length)
+        assert at_edge[0] == (0.0, 0.0) and to_end[0] == (0.0, 0.0)
+        assert to_end[-1] == (length, 0.0), (length, to_end)
+# --- CRS: granice bramek, nie tylko punkty odniesienia --------------------------
+#
+# Przegląd mutacyjny z 03.09.2026: osiem mutacji na osiem przeżyło w `crs.py`.
+# Testy wyżej sprawdzają WARTOŚCI (punkty odniesienia, powtarzalność), więc żaden
+# z nich nie dotyka warunków sterujących. Poniższe dotykają.
+
+
+def test_crs_lambert_inverse_ignores_a_lone_x_residual_equal_to_the_tolerance():
+    """Warunek stopu Newtona wymaga OBU składowych poniżej tolerancji, nie jednej.
+
+    Bramka brzmi `abs(dx) < tol and abs(dy) < tol`. Rozluźnienie pierwszego
+    porównania do `<=` widać dopiero wtedy, gdy `abs(dx)` jest **dokładnie** równe
+    tolerancji, a `abs(dy)` mniejsze. Skutek nie jest subtelny: pętla przerywa się
+    w iteracji zerowej i funkcja zwraca `LAMBERT_INVERSE_SEED`, czyli środek sieci —
+    2,1 km od punktu, o który pytano.
+
+    **Jak trafiamy dokładnie w granicę.** Naiwne „weź próg i dodaj epsilon" tu nie
+    działa: `abs((6700.0 + 0.01) - 6700.0)` daje 0,010000000000218, czyli powyżej
+    progu, i granicy się nie dotyka. Odejmowanie jest dokładne tylko wtedy, gdy
+    jedna strona jest zerem albo obie leżą blisko tej samej potęgi dwójki.
+    Dlatego nie KONSTRUUJEMY wartości równej progowi — my ją ODCZYTUJEMY: `dx`
+    liczone jest w środku funkcji jako `fx - x` z ustalonego ziarna, więc ten sam
+    wyraz policzony tutaj daje ten sam bit w bit float. Podany jako `tolerance_m`
+    jest równy `abs(dx)` co do ostatniego bitu — bez żadnego zaokrąglenia po drodze.
+    """
+    x, y = 146566.821, 171067.752
+    seed_lon, seed_lat = CRS.LAMBERT_INVERSE_SEED
+    fx, fy = CRS.wgs84_to_lambert72(seed_lon, seed_lat)
+    dx, dy = fx - x, fy - y
+    assert abs(dy) < abs(dx), (dx, dy)          # tylko dx siedzi na granicy
+
+    lon, lat = CRS.lambert72_to_wgs84(x, y, tolerance_m=abs(dx))
+    assert (lon, lat) != (seed_lon, seed_lat), "pętla stanęła w iteracji zerowej"
+    assert math.dist(CRS.wgs84_to_lambert72(lon, lat), (x, y)) < 10.0
+    # Miara tego, ile kosztowałoby przepuszczenie granicy: samo ziarno leży 2,1 km dalej.
+    assert math.dist((fx, fy), (x, y)) > 1000.0
+
+
+def test_crs_lambert_inverse_ignores_a_lone_y_residual_equal_to_the_tolerance():
+    """To samo dla drugiego porównania w tej samej bramce.
+
+    Osobny test, bo osobna mutacja: przy `abs(dy) <= tol` granicę trzeba postawić
+    na `dy`, a `dx` musi być od niej MNIEJSZE, inaczej pierwsze porównanie i tak
+    zatrzyma warunek i mutacja zostanie niezauważona. Wartość progu odczytana tak
+    samo jak wyżej — jako float policzony tym samym wyrażeniem.
+    """
+    x, y = 148799.079, 170688.565
+    seed_lon, seed_lat = CRS.LAMBERT_INVERSE_SEED
+    fx, fy = CRS.wgs84_to_lambert72(seed_lon, seed_lat)
+    dx, dy = fx - x, fy - y
+    assert abs(dx) < abs(dy), (dx, dy)          # teraz na granicy siedzi dy
+
+    lon, lat = CRS.lambert72_to_wgs84(x, y, tolerance_m=abs(dy))
+    assert (lon, lat) != (seed_lon, seed_lat), "pętla stanęła w iteracji zerowej"
+    assert math.dist(CRS.wgs84_to_lambert72(lon, lat), (x, y)) < 10.0
+
+
+def test_crs_lambert_inverse_converges_across_the_whole_network_extent():
+    """Residuum inwersji na siatce pokrywającej całą sieć, nie na jednym punkcie.
+
+    `lambert72_to_wgs84` nie sprawdza zbieżności — zwraca to, co zostało po
+    sześćdziesięciu krokach. Jedyną kontrolą jest `lambert_inverse_residual_m`,
+    więc musi ją ktoś wołać; inaczej nikt się nie dowie, że inwersja przestała
+    zbiegać. Zakres siatki bierze się z rozpiętości sieci metra w Lambercie 72.
+    """
+    worst = 0.0
+    for x in range(142000, 160001, 3000):
+        for y in range(163000, 178001, 3000):
+            worst = max(worst, CRS.lambert_inverse_residual_m(float(x), float(y)))
+    assert worst < 1e-3, worst
+
+
+def test_crs_laea_origin_is_the_only_point_taking_the_degenerate_branch():
+    """Strażnik `rho < 1e-12` w LAEA jest w praktyce testem „rho jest zerem".
+
+    W początku odwzorowania kierunek jest nieokreślony i wzór dzieli przez `rho`;
+    bez strażnika to `ZeroDivisionError`. Ale próg 1e-12 jest nieosiągalny inaczej
+    niż przez dokładne zero: `east` i `north` są odległościami od 4 321 000 i
+    3 210 000 m, a najmniejszy niezerowy krok float64 przy tych wartościach to
+    ok. 4,7e-10 m — czyli **466 razy więcej niż próg**. Test pokazuje obie strony:
+    dokładny początek wchodzi w gałąź zdegenerowaną, a sąsiedni reprezentowalny
+    punkt już nie, mimo że dzieli je pół nanometra.
+
+    `test_inspire_laea_origin_maps_to_declared_centre` sprawdza sam początek, ale
+    z tolerancją 1e-9 — a tolerancja nie odróżnia gałęzi zdegenerowanej od zwykłej,
+    bo obie trafiają w 10°/52° z tą dokładnością. Tutaj równość jest DOKŁADNA
+    (gałąź zdegenerowana zwraca stałe wprost) i dopiero to pozwala orzec, którędy
+    poszło wykonanie.
+    """
+    assert CRS.laea3035_to_wgs84(CRS.LAEA_FE, CRS.LAEA_FN) == (10.0, 52.0)
+    for east, north in [(math.nextafter(CRS.LAEA_FE, math.inf), CRS.LAEA_FN),
+                        (math.nextafter(CRS.LAEA_FE, -math.inf), CRS.LAEA_FN),
+                        (CRS.LAEA_FE, math.nextafter(CRS.LAEA_FN, math.inf))]:
+        lon, lat = CRS.laea3035_to_wgs84(east, north)
+        assert (lon, lat) != (10.0, 52.0), (east, north)
+        assert abs(lon - 10.0) < 1e-9 and abs(lat - 52.0) < 1e-9, (lon, lat)
+
+
+def test_crs_laea_roundtrip_holds_from_brussels_to_the_equator():
+    """LAEA 3035 wraca do punktu wyjścia także daleko poza obszarem projektu.
+
+    INSPIRE publikuje sieć STIB w tym układzie, więc odwrotność `wgs84_to_laea3035`
+    jest na ścieżce wczytywania. Zero geograficzne i szerokość początku odwzorowania
+    są tu osobno, bo to dwa miejsca, w których wzory LAEA mają osobliwości:
+    `beta = beta_0` przy 52°N i `q = 0` na równiku.
+    """
+    for lon, lat in [(4.3517, 50.8466), (10.0, 52.0), (0.0, 0.0),
+                     (4.32, 50.85), (-9.0, 35.0), (30.0, 70.0)]:
+        east, north = CRS.wgs84_to_laea3035(lon, lat)
+        back_lon, back_lat = CRS.laea3035_to_wgs84(east, north)
+        assert abs(back_lon - lon) < 1e-9 and abs(back_lat - lat) < 1e-9, (lon, lat, back_lon, back_lat)
+
+
+def test_crs_inspire_shortcut_equals_the_two_step_conversion():
+    """`laea3035_to_lambert72` ma być złożeniem, a nie drugą implementacją.
+
+    Skrót istnieje po to, żeby założenie ETRS89 ≈ WGS84 stało w jednym miejscu.
+    Gdyby rozjechał się z parą funkcji, którą składa, oś z INSPIRE i oś z OSM
+    przestałyby być porównywalne bez żadnego widocznego objawu.
+    """
+    for lon, lat in [(4.3517, 50.8466), (4.32, 50.85), (4.39, 50.84)]:
+        east, north = CRS.wgs84_to_laea3035(lon, lat)
+        assert CRS.laea3035_to_lambert72(east, north) == CRS.wgs84_to_lambert72(
+            *CRS.laea3035_to_wgs84(east, north))
+
+
+# --- shapefile: bramki długości liczone na granicy ------------------------------
+#
+# Przegląd mutacyjny: sześć mutacji na siedemnaście przeżyło w `shapefile.py`,
+# wszystkie w warunkach długości bufora. Testy wyżej sprawdzają PLIKI POPRAWNE
+# i jeden zły magic; żaden nie stoi na granicy „jeszcze nagłówek / już nie".
+
+
+def test_alignment_shapefile_accepts_a_header_with_no_records():
+    """Nagłówek `.shp` ma dokładnie 100 bajtów i sam w sobie jest poprawnym plikiem.
+
+    Warstwa bez geometrii to normalny wynik eksportu z GIS-a. Zaostrzenie bramki
+    o jeden bajt (`<= 100` albo `< 101`) odrzuca taki plik jako „krótszy niż
+    nagłówek", czyli myli plik pusty z uciętym — a to dwie zupełnie różne diagnozy
+    przy pobieraniu 856 KB archiwum STIB.
+
+    Granica jest tu całkowitoliczbowa i trafia się w nią wprost: `len(data)` wynosi
+    dokładnie 100. Test podaje obie strony — 100 bajtów ma przejść, 99 ma odpaść.
+    """
+    header = _shp([], S.TYPE_POLYLINE)
+    assert len(header) == 100, len(header)
+    assert S.read_shp(header) == []
+    try:
+        S.read_shp(header[:99])
+    except S.ShapefileError as exc:
+        assert "krótszy niż nagłówek" in str(exc)
+    else:
+        raise AssertionError("99 bajtów to za mało na nagłówek .shp")
+
+
+def test_alignment_dbf_accepts_a_header_with_no_fields():
+    """To samo dla `.dbf`: 32 bajty nagłówka bez żadnego pola są poprawne.
+
+    Ta bramka pilnuje wyłącznie tego, czy da się odczytać `record_count`,
+    `header_length` i `record_length` z bajtów 4..12 — a do tego wystarczy
+    dokładnie 32 bajty. Test stoi po obu stronach: 32 przechodzi, 31 odpada.
+    """
+    header = _dbf([], [])
+    assert len(header) == 33, len(header)      # `_dbf` dokleja terminator 0x0D
+    assert S.read_dbf(header[:32]) == []
+    try:
+        S.read_dbf(header[:31])
+    except S.ShapefileError as exc:
+        assert "krótszy niż nagłówek" in str(exc)
+    else:
+        raise AssertionError("31 bajtów to za mało na nagłówek .dbf")
+
+
+def test_alignment_dbf_field_table_stops_at_the_end_of_the_buffer():
+    """Tablica pól `.dbf` kończy się bajtem 0x0D — którego w pliku uciętym NIE MA.
+
+    Pętla ma dwa warunki: „jest jeszcze bufor" **i** „to nie terminator". Pierwszy
+    nie jest ozdobnikiem — bez niego plik urwany dokładnie na końcu tablicy pól
+    daje `IndexError`, czyli wyjątek, który nie mówi wołającemu nic o tym, że
+    archiwum jest niekompletne. Kontrakt modułu to `ShapefileError` albo poprawny
+    odczyt, nigdy `IndexError` z indeksowania bajtów.
+
+    Granica: `offset` równy `len(data)` co do jednego bajtu — plik to nagłówek
+    (32 B) plus jeden deskryptor pola (32 B) i ani bajtu więcej.
+    """
+    truncated = _dbf([], [("NAZWA", "C", 8)])[:64]
+    assert len(truncated) == 64, len(truncated)
+    assert S.read_dbf(truncated) == []
+
+
+def test_alignment_shapefile_ignores_a_record_header_flush_with_the_end_of_file():
+    """Osiem bajtów ogona za ostatnim rekordem to nagłówek bez treści.
+
+    Sprawdzane, bo to jedyny przypadek, w którym warunek pętli `offset + 8 <= len`
+    zachowuje się inaczej niż `<`. Wynik ma być ten sam co dla pliku bez ogona:
+    treść rekordu zaczyna się poza buforem, więc jest pusta i rekord nie powstaje.
+    """
+    intact = _shp([[(150000.0, 170000.0)]], S.TYPE_POINT)
+    tail = intact + struct.pack(">ii", 2, 0)
+    assert S.read_shp(tail) == S.read_shp(intact)
+    assert len(S.read_shp(tail)) == 1

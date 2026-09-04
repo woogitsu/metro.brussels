@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using Godot;
@@ -14,41 +15,117 @@ namespace MetroBxl.Game.World;
 /// </summary>
 public sealed partial class TunnelView : Node3D
 {
-    private readonly List<string> _loaded = new();
+    private readonly Dictionary<string, int> _levels = new(StringComparer.Ordinal);
 
-    /// <summary>Liczba wczytanych chunków.</summary>
-    public int LoadedChunks => _loaded.Count;
+    /// <summary>Liczba chunków rezydentnych w tej chwili.</summary>
+    public int LoadedChunks => _levels.Count;
 
     /// <summary>Łączna liczba węzłów siatki w tunelu.</summary>
     public int MeshNodes { get; private set; }
 
     /// <summary>
-    /// Wczytuje wszystkie chunki poziomu 0 z manifestu. Zwraca liczbę wczytanych plików.
+    /// Doprowadza zawartość węzła do stanu, jakiego dla tego chainage żąda
+    /// <see cref="StreamingPlan"/>: dokłada brakujące chunki, zwalnia te, które wypadły
+    /// z okna, i przeładowuje te, którym zmienił się poziom szczegółowości.
     ///
-    /// <b>Bez streamowania.</b> Cały pakiet A to 12 plików, 867 kB i 16176 trójkątów —
-    /// mniej niż jeden budżetowy próg czegokolwiek. Predykat okna z
-    /// <c>tools/blender/sweep.py</c> jest gotowy i przetestowany **po stronie Pythona**;
-    /// przepisanie go tutaj bez przeniesienia jego testów dałoby drugą implementację
-    /// bez kontroli, a to jest gorsze niż jawny brak streamowania.
+    /// <para><b>Skąd ta zmiana.</b> W tym miejscu stało <c>LoadAll</c> z uzasadnieniem,
+    /// że predykat okna jest przetestowany tylko po stronie Pythona, więc przepisanie go
+    /// tutaj dałoby „drugą implementację bez kontroli, a to jest gorsze niż jawny brak
+    /// streamowania". Zarzut był słuszny i został zdjęty osobno: <c>StreamingPlan</c>
+    /// jest przybity do tej samej tablicy oczekiwań, co implementacja pythonowa
+    /// (138 wierszy, oba kierunki jazdy, wszystkie 13 szwów), więc rozjazd którejkolwiek
+    /// strony psuje jej własną bramkę. Dopiero to pozwala tu streamować.</para>
+    ///
+    /// <para>Zwraca liczbę chunków rezydentnych po tej klatce.</para>
     /// </summary>
-    public int LoadAll(ChunkManifest manifest, string assetDirectory, StandardMaterial3D material)
+    public int Stream(ChunkManifest manifest, string assetDirectory,
+        StandardMaterial3D material, double chainageM, double heading = 1.0)
     {
-        foreach (var chunk in manifest.Chunks)
+        var plan = StreamingPlan.LodPlan(manifest, chainageM, heading);
+        var window = StreamingPlan.Window(manifest, chainageM, heading);
+        WindowLowM = window.LowM;
+        WindowHighM = window.HighM;
+
+        // Zwalnianie idzie w kolejności posortowanej — ta sama trasa przejechana
+        // dwa razy ma zwalniać pamięć w tej samej kolejności, inaczej porównanie
+        // dwóch przebiegów przestaje cokolwiek znaczyć.
+        var departed = new List<string>();
+        foreach (var (id, _level) in _levels)
         {
-            var path = assetDirectory.TrimEnd('/') + "/" + chunk.File;
+            if (!plan.TryGetValue(id, out var wanted) || wanted != _level)
+            {
+                departed.Add(id);
+            }
+        }
+
+        departed.Sort(StringComparer.Ordinal);
+        foreach (var id in departed)
+        {
+            var node = GetNodeOrNull<Node3D>(id);
+            if (node is not null)
+            {
+                RemoveChild(node);
+                node.QueueFree();
+            }
+
+            _levels.Remove(id);
+            Freed++;
+        }
+
+        foreach (var chunk in StreamingPlan.ChunksForTrain(manifest, chainageM, heading))
+        {
+            if (_levels.ContainsKey(chunk.Id))
+            {
+                continue;
+            }
+
+            var level = plan[chunk.Id];
+            var path = assetDirectory.TrimEnd('/') + "/" + chunk.Lod(level).File;
             var scene = GlbLoader.Load(path);
             if (scene is null)
             {
+                // Brak pliku poziomu to NIE jest powód do cichego zejścia na poziom 0:
+                // scena narysowałaby wtedy pełną siatkę na horyzoncie i nikt by tego
+                // nie zauważył poza spadkiem klatek. Chunk zostaje niewczytany, a
+                // `GlbLoader.Load` zdążył już zgłosić błąd.
                 continue;
             }
 
             scene.Name = chunk.Id;
             AddChild(scene);
-            MeshNodes += GlbLoader.ApplyNeutralMaterial(scene, material);
-            _loaded.Add(chunk.Id);
+            GlbLoader.ApplyNeutralMaterial(scene, material);
+            _levels[chunk.Id] = level;
+            Loaded++;
         }
 
-        return _loaded.Count;
+        MeshNodes = CountMeshes(this);
+        return _levels.Count;
+    }
+
+    /// <summary>Poziom, w jakim wisi każdy rezydentny chunk. Do metadanych zrzutu.</summary>
+    public IReadOnlyDictionary<string, int> ResidentLevels => _levels;
+
+    /// <summary>Dolny koniec okna streamowania z ostatniej klatki.</summary>
+    public double WindowLowM { get; private set; }
+
+    /// <summary>Górny koniec okna streamowania z ostatniej klatki.</summary>
+    public double WindowHighM { get; private set; }
+
+    /// <summary>Ile razy w tym przejeździe coś wczytano.</summary>
+    public int Loaded { get; private set; }
+
+    /// <summary>Ile razy w tym przejeździe coś zwolniono.</summary>
+    public int Freed { get; private set; }
+
+    private static int CountMeshes(Node node)
+    {
+        var count = node is MeshInstance3D ? 1 : 0;
+        foreach (var child in node.GetChildren())
+        {
+            count += CountMeshes(child);
+        }
+
+        return count;
     }
 
     /// <summary>
@@ -90,7 +167,9 @@ public sealed partial class TunnelView : Node3D
     /// <summary>Jedna linia do logu przejazdu.</summary>
     public string Describe(ChunkManifest manifest) => string.Create(
         CultureInfo.InvariantCulture,
-        $"[TUNEL] {manifest.Id} {manifest.Variant}: wczytano {LoadedChunks}/{manifest.Chunks.Count} chunków, " +
-        $"{MeshNodes} siatek, profil {manifest.Profile} {manifest.ProfileWidthM:F2}×{manifest.ProfileHeightM:F2} m, " +
+        $"[TUNEL] {manifest.Id} {manifest.Variant}: rezydentne {LoadedChunks}/{manifest.Chunks.Count} chunków " +
+        $"w oknie [{WindowLowM:F1}, {WindowHighM:F1}] m, {MeshNodes} siatek, " +
+        $"wczytań {Loaded} zwolnień {Freed}, profil {manifest.Profile} " +
+        $"{manifest.ProfileWidthM:F2}×{manifest.ProfileHeightM:F2} m, " +
         $"production_ready={manifest.ProductionReady}");
 }
