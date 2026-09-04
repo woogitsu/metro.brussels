@@ -6,6 +6,7 @@ konkretnego odcinka zależy od rozkładu, który się zmienia; własność „kr
 wymaga wyższej prędkości" nie zmienia się nigdy i to ona pilnuje, żeby dolne
 ograniczenie było dolnym ograniczeniem.
 """
+import math
 import os
 import sys
 
@@ -180,3 +181,119 @@ def test_envelope_carries_the_braking_parameters_it_actually_used():
     assert report["service_brake_mps2"] == CFG["service"]
     assert report["jerk_mps3"] == CFG["jerk"]
     assert report["mass_kg"] == CFG["aw0_kg"]
+
+
+# --- co przeżywało mutację ------------------------------------------------------
+
+def test_envelope_any_positive_speed_still_has_a_braking_distance():
+    """Próg strażnika postoju ma stać na ZERZE, nie na małej liczbie dodatniej.
+
+    Zmierzone 03.09.2026 audytem mutacyjnym: `v0_ms <= 0.0` -> `v0_ms <= 0.001`
+    przeżywało. `test_envelope_standstill_brake_is_zero_not_a_negative_closed_form`
+    sprawdza wyłącznie v0 = 0, a przesunięty próg zwraca (0, 0) dla wszystkiego poniżej
+    0,001 m/s — przy 0,001 m/s zamiast 3,44e-5 m i 0,0516 s wychodzi „pociąg już stoi".
+    Pociąg stojący i pociąg toczący się 3,6 mm/s to dwa różne zdarzenia: drugi ma
+    jeszcze drogę do przejechania i strażnik nie ma prawa mu jej odbierać.
+
+    Granica jest tu ZEREM, więc trafia się w nią dokładnie i bez zastrzeżeń: `v0 == 0.0`
+    jest równością ścisłą (zero jest jedyną wartością, przy której odejmowanie
+    zmiennoprzecinkowe nie gubi nic). Wartości po dodatniej stronie bierzemy w kilku
+    rzędach wielkości, żeby przesunięcie progu w JAKIEKOLWIEK miejsce dodatnie
+    zostało zauważone.
+    """
+    assert SE.brake_profile(0.0, CFG["service"], CFG["jerk"]) == (0.0, 0.0)
+    for v0 in (1e-9, 1e-6, 1e-4, 0.001, 0.01, 0.1):
+        distance, time = SE.brake_profile(v0, CFG["service"], CFG["jerk"])
+        assert distance > 0.0 and time > 0.0, v0
+        # Przy tak małej prędkości cel wypada w trakcie narastania hamulca, więc
+        # obowiązuje sam zryw — druga droga do tej samej liczby.
+        assert distance == B.ramp_only_distance_m(v0, 0.0, CFG["jerk"]), v0
+        assert time == (2.0 * v0 / CFG["jerk"]) ** 0.5, v0
+
+
+def test_envelope_schedule_equal_to_the_floor_time_is_feasible_not_infeasible():
+    """Rozkład równy CO DO BITU najkrótszemu możliwemu czasowi jest realizowalny.
+
+    Zmierzone 03.09.2026: `fastest_time_s(...) > scheduled_s` -> `>=` w bramce
+    realizowalności przeżywało. Skutek nie jest kosmetyczny: odcinek dostaje `None`,
+    wpada do licznika `infeasible`, wypada z sortowania i przestaje móc być odcinkiem
+    wiążącym — a to on wyznacza dolne ograniczenie prędkości dla całej sieci.
+
+    W granicę trafiamy DOKŁADNIE, bo rozkładowy czas jest tu WYLICZONY tym samym
+    wywołaniem `fastest_time_s`, którego wynik bramka potem porównuje: ten sam model,
+    ten sam cache prędkości, ten sam bit. Wariant „prawie na granicy" nie zadziałałby:
+    `(t + 1e-9) - t` nie jest 1e-9, więc dodanie epsilonu mija granicę zamiast w nią
+    trafić. Zejście o JEDEN bit robi `math.nextafter`, i to jest kontrola negatywna
+    poniżej.
+    """
+    model = _model()
+    for distance in (200.0, 900.0, 1500.0):
+        floor = model.fastest_time_s(distance, SE.SEARCH_CEILING_KMH)
+        speed = model.minimum_top_speed_kmh(distance, floor)
+        assert speed is not None, (
+            f"{distance} m w {floor} s: rozkład równy czasowi granicznemu ma być "
+            "realizowalny, a nie odrzucony jako za ciasny")
+        assert model.fastest_time_s(distance, speed) <= floor, (distance, speed)
+    # Kontrola: o jeden bit ciaśniejszy rozkład JEST nierealizowalny.
+    floor = model.fastest_time_s(900.0, SE.SEARCH_CEILING_KMH)
+    assert model.minimum_top_speed_kmh(900.0, math.nextafter(floor, 0.0)) is None
+
+
+def test_envelope_minimum_speed_never_exceeds_a_speed_known_to_fit():
+    """Remis w bisekcji prędkości musi iść na stronę „mieści się".
+
+    Zmierzone 03.09.2026: `fastest_time_s(distance_m, mid) > scheduled_s` -> `>=`
+    przeżywało. Na długim odcinku kosztuje to jeden krok bisekcji, czyli 1,1e-10 km/h
+    i nic więcej. Na KRÓTKIM odcinku jest inaczej: powyżej prędkości szczytowej trójkąta
+    czas przejazdu przestaje zależeć od sufitu, więc odrzucony remis wyrzuca całą tę
+    płaską półkę naraz. Zmierzone: 200 m z rozkładem 26,00 s wychodzi wtedy jako
+    90,00 km/h zamiast 52,03 km/h. To 38 km/h błędu w liczbie, która ma być DOLNYM
+    ograniczeniem prędkości liniowej sieci — czyli w jedynym wyniku tego modułu.
+
+    Test nie przypina żadnej z tych liczb, bo obie zależą od rozkładu. Przypina
+    niezawodną implikację: skoro sufit `v` dowozi rozkład `T`, to najmniejszy sufit
+    dowożący `T` nie może być od `v` WYŻSZY. W granicę trafiamy dokładnie, bo `T` jest
+    wyliczone jako `fastest_time_s(d, v)` tym samym wywołaniem, które bisekcja powtórzy
+    dla `mid == v`; przy 40 podziałach przedziału (0, 120) środki 60,0 i 30,0 są
+    dokładne w dwójce, więc porównanie wypada na ścisłej równości.
+    """
+    model = _model()
+    for distance in (200.0, 900.0, 1500.0):
+        for anchor in (0.5 * SE.SEARCH_CEILING_KMH, 0.25 * SE.SEARCH_CEILING_KMH):
+            scheduled = model.fastest_time_s(distance, anchor)
+            speed = model.minimum_top_speed_kmh(distance, scheduled)
+            assert speed is not None, (distance, anchor)
+            assert speed <= anchor, (
+                f"{distance} m: {anchor} km/h dowozi rozkład {scheduled} s, więc "
+                f"najmniejszy sufit nie może wyjść wyżej — wyszedł {speed}")
+    # Odcinek krótki, na którym ta pomyłka kosztuje najwięcej: sufit przeszukiwania
+    # nie jest osiągany, bo profil jest trójkątem.
+    short = 200.0
+    assert model.peak_speed_kmh(short, SE.SEARCH_CEILING_KMH) < 0.5 * SE.SEARCH_CEILING_KMH
+
+
+def test_envelope_bisection_guard_does_not_truncate_a_very_loose_schedule():
+    """Strażnik bisekcji ma stać na ZERZE — dodatni próg ucina wyszukiwanie w pół drogi.
+
+    Zmierzone 03.09.2026: `mid <= 0.0` -> `mid <= 0.001` przeżywało. Przy rozkładzie
+    tak luźnym, że wystarcza ułamek km/h, bisekcja schodzi poniżej 0,001 km/h;
+    przesunięty próg przerywa ją w tym miejscu i zwraca 0,00183 km/h zamiast
+    0,0005 km/h. Zwrócona liczba przestaje być NAJMNIEJSZYM sufitem mieszczącym się
+    w rozkładzie, a moduł liczy właśnie dolne ograniczenie — zawyżenie go trzy i pół
+    raza jest zawyżeniem całego wyniku.
+
+    Test nie przypina liczby, tylko WŁASNOŚĆ ciasności: zwrócona prędkość ma mieścić
+    się w rozkładzie, a obniżona o promil — już nie. Rozdzielczość bisekcji na
+    przedziale (0, 120) po 40 podziałach to ok. 1,1e-10 km/h, czyli o rzędy wielkości
+    mniej niż ten promil; własność jest więc prawdziwa dla poprawnej implementacji
+    przy każdej z badanych par, a fałszywa, gdy strażnik obetnie wyszukiwanie.
+    """
+    model = _model()
+    for distance, scheduled in ((900.0, 90.0), (900.0, 1.0e5), (900.0, 6.48e6),
+                                (200.0, 1.0e9), (1500.0, 120.0)):
+        speed = model.minimum_top_speed_kmh(distance, scheduled)
+        assert speed is not None and speed > 0.0, (distance, scheduled)
+        assert model.fastest_time_s(distance, speed) <= scheduled, (distance, scheduled)
+        assert model.fastest_time_s(distance, speed * 0.999) > scheduled, (
+            f"{distance} m / {scheduled} s: {speed} km/h nie jest NAJMNIEJSZYM sufitem "
+            "mieszczącym się w rozkładzie — bisekcja została ucięta")

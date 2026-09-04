@@ -273,3 +273,91 @@ def test_gtfs_committed_manifest_has_provenance_and_no_secrets():
     blob = json.dumps(manifest).lower()
     for secret in ("authorization", "subscription-key", "bearer ", "apikey", "api_key"):
         assert secret not in blob, secret
+
+
+# --- main(): porównanie z deklaracją i skrót listy odrzuconych -------------------
+#
+# Przegląd mutacyjny z 03.09.2026 zostawił w tym module trzy ocalałe mutacje i
+# wszystkie trzy siedzą w `main()`, poza `normalize()`. Testy wyżej wołają wyłącznie
+# `normalize()`, więc cała warstwa raportowania — ta, która ma KRZYCZEĆ, gdy dane
+# nie zgadzają się z `docs/00-network-data.md` — nie była dotknięta niczym.
+
+
+def _run_main(members, declared, extra_argv=()):
+    """`main()` na feedzie z pamięci, z podstawioną deklaracją liczby stacji.
+
+    Zwraca `(dokument wynikowy, wypisany tekst)`. Nie dotyka `data/` — wszystkie
+    trzy ścieżki (feed, wynik, sieć) idą do katalogu tymczasowego, a `--manifest`
+    celowo wskazuje plik nieistniejący, żeby wynik nie zależał od stanu repo.
+    """
+    import contextlib
+    tmp = tempfile.mkdtemp()
+    try:
+        gtfs = _zip(members, os.path.join(tmp, "feed.zip"))
+        network = os.path.join(tmp, "lines.json")
+        with open(network, "w", encoding="utf-8") as handle:
+            json.dump({"network": {"metro_stations": declared}}, handle)
+        out = os.path.join(tmp, "stops.json")
+        buffer = io.StringIO()
+        with contextlib.redirect_stdout(buffer):
+            N.main(["--gtfs", gtfs, "--out", out, "--network", network,
+                    "--manifest", os.path.join(tmp, "brak-manifestu.json"), *extra_argv])
+        with open(out, encoding="utf-8") as handle:
+            return json.load(handle), buffer.getvalue()
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_gtfs_declared_count_agreeing_with_the_data_is_not_reported_as_a_discrepancy():
+    """`matches_declared` steruje jedynym ostrzeżeniem, jakie ten moduł ma wypisać.
+
+    Zasada modułu brzmi: liczba stacji wychodzi z danych, a rozbieżność z
+    `docs/00-network-data.md` jest RAPORTOWANA, nie naprawiana. Odwrócenie tego
+    porównania zamienia raport w jego przeciwieństwo — narzędzie milczy dokładnie
+    wtedy, gdy dane rozjechały się z dokumentacją, i alarmuje, gdy wszystko gra.
+    Objaw jest niewidoczny w pliku wyjściowym: stacje są te same, zmienia się tylko
+    jedno pole i jedna linia na wyjściu.
+
+    Feed testowy daje jedną stację metra, więc obie strony granicy da się pokazać
+    na tym samym feedzie: deklaracja 1 ma się zgadzać, deklaracja 2 nie.
+    """
+    document, printed = _run_main(_feed(), declared=1)
+    assert document["summary"]["metro_stations"] == 1
+    assert document["summary"]["declared_metro_stations"] == 1
+    assert document["summary"]["matches_declared"] is True
+    assert "[ROZBIEŻNOŚĆ]" not in printed, printed
+
+    document, printed = _run_main(_feed(), declared=2)
+    assert document["summary"]["matches_declared"] is False
+    assert "[ROZBIEŻNOŚĆ]" in printed, printed
+    assert "deklaruje 2 stacji" in printed, printed
+
+
+def _orphans(count):
+    """`count` peronów wskazujących na nieistniejącą stację — tyle samo odrzuceń."""
+    return [{"stop_id": f"x{i}", "stop_name": f"SIEROTA {i}",
+             "stop_lat": "50.9", "stop_lon": "4.4",
+             "location_type": "0", "parent_station": "NIE_ISTNIEJE"}
+            for i in range(count)]
+
+
+def test_gtfs_rejected_list_is_cut_at_ten_and_says_how_many_are_left():
+    """Wypisywanych jest pierwszych dziesięć odrzuceń; reszta ma być POLICZONA.
+
+    Ta linia jest jedynym miejscem, z którego czytający dowiaduje się, że lista na
+    ekranie jest ucięta i że pełna leży w `--report`. Bez niej dziesiąte odrzucenie
+    wygląda jak ostatnie.
+
+    Granica całkowitoliczbowa, więc trafiona wprost i z obu stron: przy DOKŁADNIE
+    dziesięciu odrzuceniach dopisku ma nie być (`>= 10` wypisałoby „i 0 więcej"),
+    przy jedenastu ma być i ma mówić „1" (`> 11` przemilczałoby to jedno).
+    """
+    document, printed = _run_main(_feed(extra_stops=_orphans(10)), declared=1)
+    assert document["summary"]["rejected_records"] == 10
+    assert printed.count("[ODRZUCONO]") == 10, printed
+    assert "więcej" not in printed, printed
+
+    document, printed = _run_main(_feed(extra_stops=_orphans(11)), declared=1)
+    assert document["summary"]["rejected_records"] == 11
+    assert "[ODRZUCONO] ... i 1 więcej" in printed, printed
+    assert printed.count("[ODRZUCONO]") == 11, printed

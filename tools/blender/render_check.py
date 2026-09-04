@@ -17,6 +17,7 @@ from mathutils import Vector, Matrix
 
 HERE=os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0,HERE); sys.path.insert(0,os.path.join(HERE,"..","visual"))
+import camera_aim as CA
 import placement, sweep
 import compare, pngio
 
@@ -58,7 +59,7 @@ def vertical_mid_on_axis(vertices,point,tangent,scene_size):
     a render wychodził jednolitą płaszczyzną — i **przechodził** kontrolę pustej klatki.
     """
     normal=Vector(tangent)
-    if normal.length<1e-9: return local_vertical_mid(vertices,point.x,scene_size)
+    if CA.is_degenerate(tuple(tangent)): return local_vertical_mid(vertices,point.x,scene_size)
     origin=Vector(point)
     return _vertical_mid(origin,normal,vertices,scene_size,
                          f"os=({origin.x:.1f},{origin.y:.1f})")
@@ -79,16 +80,17 @@ def load_centerline(path):
     with open(path,encoding="utf-8") as f: data=json.load(f)
     raw=data["points"] if isinstance(data,dict) else data
     points=[Vector(tuple(map(float,p))) for p in raw]
-    if len(points)<2: raise SystemExit("BŁĄD: centerline do renderu musi mieć co najmniej 2 punkty")
+    if not CA.enough_centerline_points(len(points)):
+        raise SystemExit(f"BŁĄD: centerline do renderu musi mieć co najmniej {CA.MIN_CENTERLINE_POINTS} punkty")
     return points
 
 def point_on_centerline(points,fraction):
-    pos=(len(points)-1)*fraction; lo=int(math.floor(pos)); hi=min(lo+1,len(points)-1); t=pos-lo
+    lo,hi,t=CA.centerline_position(len(points),fraction)
     return points[lo].lerp(points[hi],t)
 
 def level_camera(cam,direction):
-    forward=Vector(direction).normalized(); world_up=Vector((0.0,0.0,1.0))
-    if abs(forward.dot(world_up))>0.995: world_up=Vector((0.0,1.0,0.0))
+    forward=Vector(direction).normalized()
+    world_up=Vector(CA.up_reference((direction[0],direction[1],direction[2])))
     right=forward.cross(world_up).normalized(); up=right.cross(forward).normalized(); back=-forward
     rotation=Matrix((right,up,back)).transposed()
     cam.rotation_mode="QUATERNION"; cam.rotation_quaternion=rotation.to_quaternion()

@@ -23,6 +23,7 @@ ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(ROOT, "tools", "blender"))
 
+import capture_plan as CPL  # noqa: E402
 import framing  # noqa: E402
 import placement as PL  # noqa: E402
 import render_check as rc  # noqa: E402
@@ -57,17 +58,15 @@ def sha256(path):
     return digest.hexdigest()
 
 
-#: Wersja Blendera, od której `BLENDER_EEVEE`/`BLENDER_EEVEE_NEXT` znaczy EEVEE Next.
-#: Legacy EEVEE usunięto w 4.2 (blender/blender#122433); nowy silnik nosił wtedy
-#: identyfikator `BLENDER_EEVEE_NEXT`, a w 5.0 przemianowano go z powrotem na
-#: `BLENDER_EEVEE`. Sama nazwa silnika NIE identyfikuje więc renderera — rozstrzyga
-#: dopiero wersja Blendera.
-EEVEE_NEXT_SINCE = (4, 2, 0)
+# Progi i decyzje wokół renderu siedzą w `capture_plan.py`, bo tamten moduł da się
+# zaimportować bez Blendera, a ten nie. Nazwy zostają dostępne pod starym adresem,
+# bo `EEVEE_NEXT_SINCE` jest cytowane w komunikacie odmowy i w docstringach.
+EEVEE_NEXT_SINCE = CPL.EEVEE_NEXT_SINCE
 
 
 def eevee_generation():
     """'next' albo 'legacy' — który EEVEE naprawdę stoi za nazwą `BLENDER_EEVEE`."""
-    return "next" if bpy.app.version >= EEVEE_NEXT_SINCE else "legacy"
+    return CPL.eevee_generation(bpy.app.version)
 
 
 def apply_render_settings(scene, render_cfg, resolution):
@@ -77,14 +76,10 @@ def apply_render_settings(scene, render_cfg, resolution):
     # za baseline i nikt by się nie dowiedział, że renderer się zmienił: w logu stał
     # ten sam `engine=BLENDER_EEVEE`. Kosztowało to dwie czerwone bramki
     # (`tunnel-alignment` L1_B i L2_E) przy przejściu CI na maszynę właściciela.
-    expected = render_cfg.get("eevee_generation")
-    actual = eevee_generation()
-    if expected and actual != expected:
-        raise SystemExit(
-            f"BŁĄD: baseline projektu to EEVEE '{expected}', a ten Blender "
-            f"({bpy.app.version_string}) daje EEVEE '{actual}'. Rendery z obu "
-            "silników NIE są porównywalne — patrz EEVEE_NEXT_SINCE."
-        )
+    conflict = CPL.eevee_conflict(render_cfg.get("eevee_generation"),
+                                  eevee_generation(), bpy.app.version_string)
+    if conflict:
+        raise SystemExit(conflict)
 
     engine = render_cfg.get("engine", "BLENDER_EEVEE_NEXT")
     try:
@@ -124,7 +119,7 @@ def build_camera(solved, name):
     data = bpy.data.cameras.new(name)
     data.clip_start = solved["clip_start"]
     data.clip_end = solved["clip_end"]
-    if solved["projection"] == "ORTHO":
+    if CPL.is_orthographic(solved):
         data.type = "ORTHO"
         data.ortho_scale = solved["ortho_scale"]
     else:
@@ -177,15 +172,10 @@ def build_headlight(cam_solved, cfg):
 
 
 def named_anchors_from_args(args, vertices, scene_size, fractions="0.05,0.25,0.5,0.75"):
-    anchors = {}
-    for item in args.anchor:
-        if "=" not in item:
-            raise SystemExit(f"BŁĄD: zła kotwica {item!r}, oczekiwano nazwa=X,Y,Z")
-        name, raw = item.split("=", 1)
-        parts = [float(v) for v in raw.split(",")]
-        if len(parts) != 3:
-            raise SystemExit(f"BŁĄD: kotwica {name} musi mieć trzy współrzędne")
-        anchors[name.strip()] = parts
+    try:
+        anchors = CPL.parse_anchors(args.anchor)
+    except ValueError as err:
+        raise SystemExit(f"BŁĄD: {err}")
     if args.centerline:
         raw = rc.load_centerline(args.centerline)
         axis = [(p.x, p.y, p.z) for p in raw]
@@ -225,15 +215,12 @@ def named_anchors_from_args(args, vertices, scene_size, fractions="0.05,0.25,0.5
 
 
 def _point_at_chainage(axis, stations, chainage):
-    """Punkt na osi w zadanym chainage, jako Vector (kotwice liczymy w metrach, nie w ułamkach)."""
-    chainage = max(stations[0], min(stations[-1], chainage))
-    for index in range(len(stations) - 1):
-        if stations[index] <= chainage <= stations[index + 1]:
-            span = stations[index + 1] - stations[index]
-            t = 0.0 if span <= 0.0 else (chainage - stations[index]) / span
-            a, b = axis[index], axis[index + 1]
-            return Vector(tuple(a[i] + t * (b[i] - a[i]) for i in range(3)))
-    return Vector(axis[-1])
+    """Punkt na osi w zadanym chainage, jako Vector.
+
+    Samo szukanie jest w `capture_plan.point_at_chainage` i zwraca krotkę; tutaj
+    zostaje wyłącznie owinięcie w `Vector`, bo `mathutils` istnieje tylko w Blenderze.
+    """
+    return Vector(CPL.point_at_chainage(axis, stations, chainage))
 
 
 def main():
@@ -246,10 +233,9 @@ def main():
     # Zestaw `godot` opisuje ujęcia z SILNIKA: kamery są w scenie Godota, a tutaj są
     # tylko identyfikatory i progi dla `compare.py`. Bez tej odmowy Blender wygenerowałby
     # z niego klatki z domyślną kamerą i nikt by nie zauważył, że to nie są te ujęcia.
-    renderer = scene_set.get("renderer", "blender")
-    if renderer != "blender":
-        raise SystemExit(f"BŁĄD: zestaw {args.scene_set} jest renderowany przez '{renderer}', "
-                         "nie przez Blendera — tu nie ma czego renderować")
+    conflict = CPL.renderer_conflict(args.scene_set, scene_set.get("renderer", "blender"))
+    if conflict:
+        raise SystemExit(conflict)
     if not os.path.isfile(args.inp):
         raise SystemExit(f"BŁĄD: brak pliku wejściowego {args.inp}")
 

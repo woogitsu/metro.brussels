@@ -53,6 +53,100 @@ def test_layout_denser_step_gives_proportionally_more_marks():
     assert len(D.hectometre_marks(1000.0, 100.0)) == 11
 
 
+def test_layout_hectometre_limit_is_derived_from_the_two_numbers_it_claims():
+    """`MAX_MARKS` ma być ilorazem, nie okrągłą liczbą wpisaną z ręki.
+
+    Bez tego testu można podnieść `MAX_MARKS` do dowolnej wartości i nadal mieć
+    komunikat błędu, który powołuje się na 40 km i 1 m — czyli opis rozjechany
+    z liczbą. Granica jest tu **czytana z modułu** w całości.
+    """
+    assert D.MAX_MARKS == int(D.MAX_AXIS_LENGTH_M / D.MIN_SENSIBLE_STEP_M)
+    assert D.MAX_AXIS_LENGTH_M == 40000.0
+    assert D.MIN_SENSIBLE_STEP_M == 1.0
+    # Realna oś pakietu przy konwencyjnym kroku ma być daleko pod granicą, inaczej
+    # ogranicznik bramkowałby poprawne wejście, a nie awarię.
+    assert len(D.hectometre_marks(6686.35)) < D.MAX_MARKS / 100.0
+
+
+def test_layout_hectometre_grid_stops_at_max_marks_and_says_so_with_numbers():
+    """Ogranicznik pętli stoi DOKŁADNIE na progu, przy dodatnim kroku.
+
+    Którą drogą omijam pułapkę „granicy, która granicy nie dotyka": wartość graniczną
+    **czytam z modułu** (`D.MAX_MARKS`, `D.MIN_SENSIBLE_STEP_M`) i dodatkowo krok
+    1,0 m jest potęgą dwójki, więc `index * step_m` dla całkowitego `index` jest
+    w double **dokładne**. Długość `(MAX_MARKS - 1) * 1,0` naprawdę stoi na ostatnim
+    dopuszczonym znaczniku, a `MAX_MARKS * 1,0` naprawdę jest pierwszym za nim.
+    Fikstura typu `granica + 0.01` nie odróżniłaby `>=` od `>` w żadną stronę.
+
+    Krok jest tu dodatni, więc to nie strażnik `step_m` odrzuca to wejście —
+    odrzuca je ogranicznik. To jedyne wejście, na którym ta liczba o czymkolwiek
+    decyduje.
+    """
+    step = D.MIN_SENSIBLE_STEP_M
+    at_limit = D.hectometre_marks((D.MAX_MARKS - 1) * step, step)
+    assert len(at_limit) == D.MAX_MARKS, len(at_limit)
+    assert at_limit[-1] == (D.MAX_MARKS - 1) * step
+    try:
+        D.hectometre_marks(D.MAX_MARKS * step, step)
+    except ValueError as exc:
+        message = str(exc)
+        assert str(D.MAX_MARKS) in message, message
+        assert "40000" in message and "1 m" in message, message
+        return
+    raise AssertionError("oś dłuższa niż MAX_MARKS kroków powinna dać ValueError")
+
+
+def test_layout_hectometre_grid_terminates_with_the_step_guard_removed():
+    """Dowód, że ogranicznik jest NIEZALEŻNY od strażnika, a nie tylko stoi obok.
+
+    Strażnik `step_m <= 0.0` był jedyną rzeczą, która trzymała tę pętlę: przy kroku
+    zerowym `index * step_m <= length_m` jest prawdziwe zawsze. Osłabienie go nie
+    dawało złego wyniku, tylko proces, który się nie kończy — i dlatego przemiatanie
+    mutacyjne nie mogło tej mutacji zaraportować jako zabitej, a jedynie jako
+    nierozstrzygniętą (`timeout 20` -> kod 124).
+
+    Braku zatrzymania nie da się zaobserwować w tym samym procesie, więc test
+    wycina strażnika ze **źródła** modułu, uruchamia okaleczoną wersję w osobnym
+    procesie i wymaga, żeby ten proces się ZAKOŃCZYŁ, i to przez `ValueError`.
+    Kontrola negatywna: bez `MAX_MARKS` podproces wisi i test pada na `timeout`.
+    """
+    import subprocess
+    import tempfile
+
+    module = os.path.join(ROOT, "tools", "track", "detail_layout.py")
+    with open(module, encoding="utf-8") as handle:
+        source = handle.read()
+    guard = ('    if step_m <= 0.0:\n'
+             '        raise ValueError("krok hektometrów musi być dodatni")\n')
+    assert guard in source, "strażnik zmienił kształt — test przestał go wycinać"
+    weakened = source.replace(guard, "")
+    assert weakened != source
+
+    with tempfile.TemporaryDirectory() as tmp:
+        mutant = os.path.join(tmp, "detail_layout_bez_straznika.py")
+        with open(mutant, "w", encoding="utf-8") as handle:
+            handle.write(weakened)
+        driver = os.path.join(tmp, "driver.py")
+        with open(driver, "w", encoding="utf-8") as handle:
+            handle.write(
+                "import sys\n"
+                f"sys.path.insert(0, {os.path.join(ROOT, 'tools', 'physics')!r})\n"
+                f"sys.path.insert(0, {os.path.join(ROOT, 'tools', 'data')!r})\n"
+                f"sys.path.insert(0, {tmp!r})\n"
+                "import detail_layout_bez_straznika as M\n"
+                "assert 'if step_m <= 0.0' not in open(M.__file__, encoding='utf-8').read()\n"
+                "try:\n"
+                "    M.hectometre_marks(500.0, 0.0)\n"
+                "except ValueError:\n"
+                "    print('OGRANICZNIK')\n"
+                "    raise SystemExit(0)\n"
+                "raise SystemExit('brak ValueError: petla zwrocila wynik bez ogranicznika')\n")
+        done = subprocess.run([sys.executable, driver], capture_output=True,
+                              text=True, timeout=20)
+    assert done.returncode == 0, (done.returncode, done.stdout, done.stderr)
+    assert "OGRANICZNIK" in done.stdout, done.stdout
+
+
 # --- pierwszeństwo w tym samym miejscu ----------------------------------------
 
 def test_layout_station_wins_over_a_hectometre_at_the_same_place():
