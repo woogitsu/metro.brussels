@@ -297,6 +297,160 @@ public sealed class LineCoreTests
         Assert.AreEqual(10L, line.Steps);
     }
 
+    // --- PRAWDZIWY plan: RequireRoute = true ---------------------------------
+    //
+    // Do 04.09.2026 KAŻDY test tej klasy budował plan przez
+    // `SyntheticPlan(requireRoute: false, ...)`. Cały rdzeń wielu składów był więc
+    // sprawdzony na konfiguracji, której prawdziwy plan projektu NIE UŻYWA:
+    // `data/design/signalling/classic-2026.json` ma `RequireRoute = true`. Zmierzone
+    // na tym planie przed wprowadzeniem nastawni: skład dojeżdżał do 46,7 m i stawał,
+    // autorytet 47,00 m, powód `BlockNotReserved`. Zielony zestaw testów nie zauważał,
+    // że linia nie rusza — bo pytał o inny plan.
+
+    private static LineCore RealLine() => LineCore.M7(
+        SignallingPlanTests.PackageAPlan(),
+        SignallingPlanTests.PackageAAxis(),
+        new RunConditions(
+            VehicleModel.M7.MassKg(TrainLoad.Aw2), 0.0,
+            VehicleModel.M7.Adhesion(RailCondition.Dry), TrackEnvironment.Tunnel),
+        RealSettings());
+
+    private static LineRunSettings RealSettings() =>
+        new(Units.KmhToMps(70.0), 8.0, 1.0, 5.0);
+
+    [TestMethod]
+    public void Na_prawdziwym_planie_wymagajacym_tras_linia_przejezdza_cala_os()
+    {
+        var line = RealLine();
+        line.Add("A", 0L);
+        while (!line.Finished && line.Steps < LineRun.DefaultStepBudget)
+        {
+            line.Step();
+        }
+
+        var result = line.Trains[0].Drive!.Result(line.Finished ? "arrived" : "step-budget");
+
+        Assert.AreEqual("arrived", result.FinishReason,
+            $"linia nie dojechała: {line.Dispatcher}, chainage {line.Trains[0].Drive!.ChainageM:F2} m");
+        Assert.AreEqual(11, result.Calls.Count, "pakiet A ma 12 stacji, czyli 11 wywołań");
+        Assert.AreEqual(11, line.Dispatcher.Locked, "jedna trasa na odcinek międzystacyjny");
+        Assert.AreEqual(0, line.Dispatcher.Refused,
+            "samotny skład na pustej linii nie ma prawa dostać ani jednej odmowy");
+    }
+
+    [TestMethod]
+    public void Na_prawdziwym_planie_samotny_sklad_jedzie_tak_samo_jak_bez_sygnalizacji()
+    {
+        // Ta sama zasada, co w teście tożsamości na osi syntetycznej, ale na planie,
+        // który tras WYMAGA: nastawnia nie ma prawa zmienić przejazdu samotnego składu.
+        // Gdyby zmieniała, znaczyłoby to, że ryglowanie tras dokłada opóźnienie —
+        // a wtedy każdy zmierzony czas jazdy w tym repozytorium byłby do przeliczenia.
+        var line = RealLine();
+        line.Add("A", 0L);
+        var withSignalling = new List<LineRun.TracePoint>();
+        line.Run(LineRun.DefaultStepBudget, (id, point) =>
+        {
+            if (string.Equals(id, "A", StringComparison.Ordinal))
+            {
+                withSignalling.Add(point);
+            }
+        });
+
+        var without = new List<LineRun.TracePoint>();
+        LineRun.M7.Run(
+            SignallingPlanTests.PackageAAxis(),
+            new RunConditions(
+                VehicleModel.M7.MassKg(TrainLoad.Aw2), 0.0,
+                VehicleModel.M7.Adhesion(RailCondition.Dry), TrackEnvironment.Tunnel),
+            RealSettings(), LineRun.DefaultStepBudget, without.Add);
+
+        Assert.AreEqual(without.Count, withSignalling.Count, "różna liczba kroków");
+        for (var i = 0; i < without.Count; i++)
+        {
+            Assert.AreEqual(without[i], withSignalling[i], $"rozjazd w kroku {i}");
+        }
+    }
+
+    [TestMethod]
+    public void Na_prawdziwym_planie_dwa_sklady_nigdy_nie_stoja_w_jednym_bloku()
+    {
+        // Sprzężenie na planie, który tras wymaga. Odmowy są tu NORMALNĄ odpowiedzią,
+        // nie usterką: drugi skład pyta o trasę, której pierwszy jeszcze nie zwolnił.
+        // Zmierzone: pierwsza odmowa w kroku 4399, najmniejszy odstęp czół 462,70 m.
+        var line = RealLine();
+        line.Add("A", 0L);
+        line.Add("B", 30L * FixedStep.SimulationHertz);
+
+        var minSpacing = double.MaxValue;
+        var shared = 0;
+        for (var i = 0L; i < 60_000L; i++)
+        {
+            line.Step();
+            if (line.Trains[0].Drive is null || line.Trains[1].Drive is null)
+            {
+                continue;
+            }
+
+            var spacing = line.Trains[0].Drive!.ChainageM - line.Trains[1].Drive!.ChainageM;
+            if (spacing > 0.0 && spacing < minSpacing)
+            {
+                minSpacing = spacing;
+            }
+
+            var byA = line.Signalling.BlocksOccupiedBy("A");
+            foreach (var block in line.Signalling.BlocksOccupiedBy("B"))
+            {
+                if (byA.Contains(block))
+                {
+                    shared++;
+                }
+            }
+        }
+
+        Assert.AreEqual(0, shared, "dwa składy zajęły ten sam blok");
+        Assert.IsTrue(line.Dispatcher.Refused > 0,
+            $"sygnalizacja ani razu nie odmówiła — sprzężenia nie ma: {line.Dispatcher}");
+        Assert.IsTrue(minSpacing > 94.0,
+            $"odstęp czół {minSpacing:F2} m nie przekracza długości składu");
+    }
+
+    [TestMethod]
+    public void Na_prawdziwym_planie_drugi_sklad_nie_dojedzie_do_konca_bez_turnbacku()
+    {
+        // To NIE jest test naprawy, to test PRZYPINAJĄCY znaną dziurę. Pierwszy skład
+        // kończy przejazd na ostatnim peronie i **nigdy z niego nie odjeżdża**, bo
+        // turnbacku w modelu nie ma (T-320, punkt „Zostaje": „bez turnbacku nie da się
+        // ..."). Ostatni blok peronowy zostaje więc zajęty na zawsze i drugi skład nie
+        // ma jak zaryglować ostatniej trasy.
+        //
+        // Zmierzone przy budżecie 200 000 kroków: A robi 11 zatrzymań i staje na
+        // 6686,05 m, B robi 10 i staje na 5514,04 m, czyli za Schumanem. Dzień, w którym
+        // turnback wejdzie, ten test ZAUWAŻY — i wtedy trzeba go przepisać, a nie usunąć.
+        var line = RealLine();
+        line.Add("A", 0L);
+        line.Add("B", 30L * FixedStep.SimulationHertz);
+        for (var i = 0L; i < 200_000L; i++)
+        {
+            line.Step();
+        }
+
+        var a = line.Trains[0].Drive!.Result("x");
+        var b = line.Trains[1].Drive!.Result("x");
+
+        Assert.AreEqual(11, a.Calls.Count, "pierwszy skład ma przejechać całą oś");
+        Assert.AreEqual(10, b.Calls.Count,
+            $"drugi skład zrobił {b.Calls.Count} zatrzymań — jeżeli 11, turnback wszedł "
+            + "i ten test trzeba przepisać");
+        Assert.IsFalse(line.Finished, "linia nie ma prawa być skończona, dopóki B stoi");
+
+        var terminus = line.Signalling.Plan.Blocks[^1];
+        var lastPlatform = line.Signalling.Plan.Blocks
+            .Where(block => block.IsPlatform).Last();
+        Assert.AreEqual("A", line.Signalling.OccupantOf(lastPlatform.Id),
+            $"ostatni peron {lastPlatform.Id} nie jest zajęty przez A, więc blokada ma inny powód");
+        Assert.IsTrue(terminus.EndM > 0.0);
+    }
+
     // --- odmowy --------------------------------------------------------------
 
     [TestMethod]
