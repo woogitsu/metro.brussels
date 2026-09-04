@@ -13,7 +13,14 @@ import yaml
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 WORKFLOWS = os.path.join(ROOT, ".github", "workflows")
+ACTIONS = os.path.join(ROOT, ".github", "actions")
 HELPER = os.path.join(ROOT, "tools", "ci", "apt_install.sh")
+
+#: Akcje lokalne, w których stoi JEDNA implementacja reguł powtarzanych wcześniej
+#: w każdym workflow. Testy niżej idą ZA tym odnośnikiem, a nie uznają go za dowód:
+#: krok `uses:` wskazujący na akcję bez treści przechodziłby inaczej tak samo dobrze.
+CLEAN_ACTION = "./.github/actions/check-workspace"
+PROBE_ACTION = "./.github/actions/probe-tools"
 
 
 def _workflows():
@@ -22,6 +29,29 @@ def _workflows():
 
 def _text(name):
     return open(os.path.join(WORKFLOWS, name), encoding="utf-8").read()
+
+
+def _action(reference):
+    """Sparsowana akcja lokalna wskazana przez `uses:` w kroku workflow."""
+    relative = reference[len("./.github/actions/"):]
+    path = os.path.join(ACTIONS, relative, "action.yml")
+    assert os.path.isfile(path), f"krok wskazuje na akcję, której nie ma: {reference}"
+    return yaml.safe_load(open(path, encoding="utf-8").read())
+
+
+def _action_body(reference):
+    """Treść wszystkich `run:` akcji, sklejona — czyli to, co naprawdę się wykona."""
+    action = _action(reference)
+    return "\n".join(str(step.get("run", "")) for step in action["runs"]["steps"])
+
+
+def _action_files():
+    out = []
+    for entry in sorted(os.listdir(ACTIONS)) if os.path.isdir(ACTIONS) else []:
+        candidate = os.path.join(ACTIONS, entry, "action.yml")
+        if os.path.isfile(candidate):
+            out.append(candidate)
+    return out
 
 
 def test_ci_no_workflow_calls_apt_get_directly():
@@ -210,14 +240,31 @@ def test_ci_no_pipe_into_head_under_pipefail():
     `sed -n '1,Np'` czyta do końca, więc piszący nigdy nie dostaje SIGPIPE.
     """
     offenders = []
+    paths = []
     for directory in (WORKFLOWS, os.path.join(ROOT, "tools", "ci")):
-        for name in sorted(os.listdir(directory)):
-            if not name.endswith((".yml", ".yaml", ".sh")):
+        paths += [os.path.join(directory, n) for n in sorted(os.listdir(directory))
+                  if n.endswith((".yml", ".yaml", ".sh"))]
+    # Akcje lokalne też, i to nie z ostrożności: po wydzieleniu 04.09.2026 właśnie
+    # tam przeniosła się treść kroków, które ten test dotąd sprawdzał w workflowach.
+    # Bez tej linijki reguła zostałaby zapisana, a jej przedmiot wyprowadziłby się
+    # poza zasięg — dokładnie ten sposób, w jaki bramki cichną.
+    paths += _action_files()
+    for path in paths:
+        text = open(path, encoding="utf-8").read()
+        for number, line in enumerate(text.splitlines(), 1):
+            # Komentarze pomijane, i to nie z pobłażliwości: ta reguła jest w tym
+            # repozytorium OPISANA w komentarzach — akcja `probe-tools` wyjaśnia
+            # w prozie, dlaczego nie używa `ldconfig -p | grep -q`, i wymienia przy
+            # tym `| head` jako rodzinę tego samego wyścigu. Bramka grepująca po
+            # całym pliku łapie własne uzasadnienie i każe usunąć wyjaśnienie,
+            # zamiast kodu. Ta sama pułapka, co przy bramkach `prune-merged-branches`.
+            # Dotyczy to również komentarzy shellowych wewnątrz `run: |`, bo `| head`
+            # za `#` też się nie wykonuje.
+            if line.lstrip().startswith("#"):
                 continue
-            text = open(os.path.join(directory, name), encoding="utf-8").read()
-            for number, line in enumerate(text.splitlines(), 1):
-                if re.search(r"\|\s*head\b", line):
-                    offenders.append(f"{name}:{number}")
+            if re.search(r"\|\s*head\b", line):
+                offenders.append(f"{os.path.basename(os.path.dirname(path))}/"
+                                 f"{os.path.basename(path)}:{number}")
     assert not offenders, offenders
 
 
@@ -667,6 +714,19 @@ def test_every_workflow_proves_the_workspace_was_clean():
         text = _text(name)
         if "Workspace jest czysty po checkoucie" not in text:
             missing.append(name)
+
+        # Od 04.09.2026 ten krok NIE jest kopią w workflow, tylko odnośnikiem do
+        # jednej akcji lokalnej. Test idzie ZA odnośnikiem, bo sama nazwa kroku
+        # niczego nie dowodzi: `- name: Workspace jest czysty` wskazujące na akcję
+        # bez treści przechodziłoby tak samo dobrze. Zmierzone przy tej zmianie —
+        # poprzednia wersja tego testu sprawdzała WYŁĄCZNIE nazwę i po wydzieleniu
+        # przeszła bez jednej modyfikacji, choć cała treść bramki wyprowadziła się
+        # do innego pliku.
+        document = yaml.safe_load(text)
+        references = [str(s.get("uses", "")) for job in document["jobs"].values()
+                      for s in job["steps"]]
+        assert CLEAN_ACTION in references, \
+            f"{name}: krok czystego workspace nie woła {CLEAN_ACTION}"
         # `clean: false` wyłączyłoby jedyny mechanizm, który realnie sprząta.
         # Sprawdzane na SPARSOWANYM YAML-u, nie gremem po tekście: komentarz przy
         # tym kroku sam zawiera napis `clean: false`, więc wersja tekstowa wywracała
@@ -676,6 +736,84 @@ def test_every_workflow_proves_the_workspace_was_clean():
                 assert (step.get("with") or {}).get("clean") is not False, \
                     f"{name}: checkout z clean: false"
     assert not missing, f"workflow bez bramki czystego workspace: {missing}"
+
+
+def test_no_workflow_reinlines_what_the_local_actions_now_own():
+    """Reguła powtórzona w dziesięciu plikach wraca do dziesięciu plików sama.
+
+    Do 04.09.2026 kontrola czystego workspace stała w DZIESIĘCIU workflowach
+    (w dziewięciu bajt w bajt, w jednym skrócona), a sonda narzędzi w SIEDMIU
+    (w sześciu bajt w bajt). Dziesiąta kopia sondy powstała tego samego dnia przez
+    skopiowanie bloku z sąsiedniego workflow — czyli dokładnie tym mechanizmem,
+    przed którym ten test ma bronić.
+
+    Wydzielenie do akcji lokalnej samo tego nie utrzyma: następny workflow równie
+    łatwo wklei blok z powrotem, a wszystkie pozostałe bramki będą wtedy zielone.
+    Ten test pyta o jedno: czy treść, która ma jednego właściciela, nie stoi znowu
+    w workflow.
+    """
+    # Fragmenty CIAŁA, nie nazwy kroków. Nazwa zostaje w workflow i ma zostać — to ona
+    # mówi czytającemu logi, co się właśnie dzieje.
+    #
+    # Lista jest WYPROWADZONA Z POMIARU, nie z intuicji. Pierwsza wersja miała tu
+    # `ldconfig -p` jako własność sondy i test od razu wskazał siedem workflowów —
+    # słusznie co do faktu, błędnie co do wniosku. Tamto `ldconfig -p | grep -E` stoi
+    # w kroku `Install render libraries` i jest BRAMKĄ PO INSTALACJI, czyli zupełnie
+    # inną robotą niż sonda przed nią: sprawdza, że apt naprawdę położył biblioteki.
+    # Wpisanie go tutaj kazałoby usunąć działającą bramkę w imię porządków.
+    #
+    # Zostają fragmenty, które są wyłączne — sprawdzone: żaden nie występuje dziś
+    # w treści kroków ani jednego workflow.
+    owned = (
+        ('stale=""', CLEAN_ACTION),
+        ("::error::wyjścia z poprzedniego przebiegu", CLEAN_ACTION),
+        ("MUST_BE_ABSENT", CLEAN_ACTION),
+        ("libs=present", PROBE_ACTION),
+        ("libs=missing", PROBE_ACTION),
+        ("catalogue=", PROBE_ACTION),
+    )
+    offenders = []
+    for name in _workflows():
+        document = yaml.safe_load(_text(name))
+        bodies = "\n".join(str(step.get("run", ""))
+                           for job in document["jobs"].values()
+                           for step in job["steps"])
+        # Liczy się TREŚĆ KROKÓW `run:`, a nie cały plik: komentarz w workflow wolno
+        # napisać o czymkolwiek, a właśnie komentarze odsyłają do tych akcji.
+        for fragment, owner in owned:
+            if fragment in bodies:
+                offenders.append(f"{name}: {fragment!r} należy do {owner}")
+    assert not offenders, offenders
+
+
+def test_the_local_actions_carry_the_rule_they_took_over():
+    """Akcja bez treści przechodzi przez każdy test, który pyta tylko o `uses:`.
+
+    Ten test jest drugą połową poprzedniego: tam sprawdza się, że reguły NIE MA
+    w workflowach, tu — że JEST tam, gdzie się przeniosła. Bez tej pary da się
+    przejść całą suitę z akcją, która nie robi nic.
+    """
+    clean = _action_body(CLEAN_ACTION)
+    assert 'stale=""' in clean, "akcja nie zbiera listy przetrwałych katalogów"
+    assert "exit 1" in clean, "akcja nie przewraca kroku, gdy coś przetrwało"
+    assert "::error::" in clean, "akcja nie zgłasza błędu w formacie, który GitHub pokaże"
+    # Kontrola czystości NIE MOŻE sprzątać. `rm -rf` nie odróżnia „posprzątane"
+    # od „checkout przestał sprzątać", a to drugie jest tym, co ma wyjść na wierzch.
+    assert "rm -rf" not in clean, "akcja sprząta, zamiast sprawdzać"
+
+    probe = _action_body(PROBE_ACTION)
+    assert "ldconfig" in probe, "akcja sondy nie pyta o biblioteki"
+    assert "command -v" in probe, "akcja sondy nie pyta o polecenia"
+    assert "libs=present" in probe and "libs=missing" in probe, \
+        "akcja sondy nie ustawia wyjścia, na które patrzą warunki w workflowach"
+
+    # Wyjście musi być ZADEKLAROWANE, inaczej `steps.tools.outputs.libs` jest puste
+    # i każdy warunek `== 'missing'` wychodzi fałszywy — czyli instalacja nigdy się
+    # nie odpali, a job padnie dopiero na braku biblioteki, kilka kroków dalej.
+    declared = _action(PROBE_ACTION).get("outputs") or {}
+    assert "libs" in declared, "akcja sondy nie deklaruje wyjścia `libs`"
+    assert "steps.probe.outputs.libs" in str(declared["libs"].get("value")), \
+        "wyjście `libs` nie jest podłączone do kroku sondującego"
 
 
 def test_tool_installation_is_conditional_on_the_tool_being_missing():
@@ -701,10 +839,20 @@ def test_tool_installation_is_conditional_on_the_tool_being_missing():
         # `command -v blender` na maszynie, która kiedykolwiek dostała Blendera z apt,
         # znajduje 4.0.2 i uznaje środowisko za gotowe — a to legacy EEVEE. Wersję
         # sprawdza `tools/ci/blender_install.sh`, który jest własną sondą.
-        assert "ldconfig" in probe[0]["run"], \
-            f"{name}: sonda nie sprawdza bibliotek renderu"
-        assert "command -v blender" not in probe[0]["run"], \
-            f"{name}: sonda pyta o obecność Blendera zamiast o jego wersję"
+        # Treść sondy leży od 04.09.2026 w akcji lokalnej, więc test czyta ją stamtąd.
+        # `probe[0]["run"]` przestało istnieć i to jest właściwy moment, żeby test
+        # poszedł za odnośnikiem, a nie żeby warunek złagodzić do „jakoś sonduje".
+        assert str(probe[0].get("uses", "")) == PROBE_ACTION, \
+            f"{name}: sonda nie woła {PROBE_ACTION}"
+        body = _action_body(PROBE_ACTION)
+        assert "ldconfig" in body, "akcja sondy nie sprawdza bibliotek renderu"
+        assert "command -v blender" not in body, \
+            "akcja sondy pyta o obecność Blendera zamiast o jego wersję"
+        # Biblioteka, o którą pyta TEN workflow, musi być podana w `with:` — inaczej
+        # akcja z domyślnie pustym wejściem nie sonduje niczego i mówi `present`.
+        wanted = (probe[0].get("with") or {})
+        assert wanted.get("libraries"), \
+            f"{name}: sonda nie podaje ani jednej biblioteki, więc zawsze zwróci present"
 
         for step in steps:
             run = str(step.get("run", ""))

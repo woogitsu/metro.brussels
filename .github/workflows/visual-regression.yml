@@ -35,65 +35,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
-      # Workspace self-hosted runnera JEST WSPÓŁDZIELONY między przebiegami — inaczej
-      # niż jednorazowa maszyna GitHuba, która zawsze startuje pusta.
-      #
-      # Dla tego projektu to nie jest drobiazg, tylko dziura w samej weryfikacji:
-      # `CLAUDE.md` §5 mówi, że skrypt bez błędu potrafi wyprodukować pustą scenę,
-      # więc bramki sprawdzają PLIKI WYJŚCIOWE. Plik z poprzedniego przebiegu
-      # przechodzi te bramki tak samo dobrze jak świeży — job byłby zielony,
-      # nie wygenerowawszy niczego.
-      #
-      # Sprzątaniem zajmuje się samo `actions/checkout`: jego wejście `clean`
-      # ma domyślnie `true`, czyli wykonuje `git clean -ffdx && git reset --hard HEAD`,
-      # a `-x` obejmuje pliki ignorowane — więc `build/` i `renders/` znikają.
-      # Ten krok NIE sprząta, tylko to SPRAWDZA: gdyby ktoś ustawił `clean: false`
-      # albo usunął checkout, bramki zaczęłyby oglądać stare wyjścia i nikt by się
-      # o tym nie dowiedział. Zaklęcie „rm -rf" nie odróżniłoby tych dwóch sytuacji.
+      # Kontrola czystego workspace: JEDNA implementacja w
+      # `.github/actions/check-workspace`, nie kopia w każdym workflow. Powód
+      # i mechanika są w samej akcji.
       - name: Workspace jest czysty po checkoucie
-        shell: bash
-        run: |
-          set -euo pipefail
-          stale=""
-          for path in build renders; do
-            [ -e "$path" ] && stale="$stale $path"
-          done
-          if [ -n "$stale" ]; then
-            echo "::error::wyjścia z poprzedniego przebiegu przetrwały checkout:$stale"
-            echo "Sprawdź, czy actions/checkout nie ma clean: false — bramki tego"
-            echo "projektu sprawdzają pliki wyjściowe i stary plik je przejdzie."
-            ls -la $stale
-            exit 1
-          fi
-          echo "build/ i renders/ nie istnieją — bramki zobaczą wyłącznie to, co powstanie w tym przebiegu"
+        uses: ./.github/actions/check-workspace
 
-      # Na jednorazowej maszynie GitHuba Blender trzeba było instalować za każdym
-      # razem — 162 pakiety, 190 MB. Na maszynie właściciela zostaje zainstalowany,
-      # więc instalacja przy każdym przebiegu byłaby marnotrawstwem i niepotrzebnym
-      # `sudo`. Ten krok sprawdza, czy jest; instalacja i cache odpalają się tylko,
-      # gdy go brak. Świeży runner nadal działa bez ręcznego przygotowania.
+      # Sonda narzędzi: JEDNA implementacja w `.github/actions/probe-tools`.
+      # Wyjście `libs` ma tę samą umowę co przed wydzieleniem, więc warunki
+      # `if: steps.tools.outputs.libs == 'missing'` niżej zostają bez zmian.
       - name: Czy biblioteki systemowe renderu już są
         id: tools
-        shell: bash
-        # Sonda pyta o BIBLIOTEKI, nie o Blendera, i to jest zmiana względem poprzedniej
-        # wersji tego kroku. Blender nie przychodzi już z apt — przychodzi z przypiętego
-        # tarballa przez `tools/ci/blender_install.sh`, który sam sprawdza, czy w jego
-        # katalogu stoi WŁAŚCIWA WERSJA, i sam jest tanią operacją, gdy stoi (zmierzone:
-        # 0,12 s). Sonda na `command -v blender` byłaby tu wręcz szkodliwa: na maszynie,
-        # która kiedykolwiek dostała Blendera z apt, znalazłaby 4.0.2 i uznała
-        # środowisko za gotowe — a 4.0.2 to legacy EEVEE, czyli rendery nieporównywalne
-        # z baseline'em. Z apt zostają wyłącznie biblioteki, których tarball nie wozi.
-        run: |
-          set -euo pipefail
-          missing=""
-          ldconfig -p | grep -q 'libEGL\.so\.1' || missing="$missing libEGL.so.1"
-          if [ -z "$missing" ]; then
-            echo "libs=present" >> "$GITHUB_OUTPUT"
-            echo "biblioteki renderu są na miejscu"
-          else
-            echo "libs=missing" >> "$GITHUB_OUTPUT"
-            echo "brakuje:$missing — krok instalacji je doinstaluje"
-          fi
+        uses: ./.github/actions/probe-tools
+        with:
+          libraries: libEGL.so.1
 
       - name: Cache pakietów apt
         if: steps.tools.outputs.libs == 'missing'

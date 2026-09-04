@@ -46,23 +46,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Workspace self-hosted runnera JEST WSPÓŁDZIELONY między przebiegami.
-      # Sprzątaniem zajmuje się `actions/checkout` (`clean` domyślnie `true`, czyli
-      # `git clean -ffdx`); ten krok tego NIE powtarza, tylko SPRAWDZA — `rm -rf`
-      # nie odróżniłby „posprzątane" od „checkout przestał sprzątać".
+      # Kontrola czystego workspace: JEDNA implementacja w
+      # `.github/actions/check-workspace`, nie kopia w każdym workflow. Powód
+      # i mechanika są w samej akcji.
       - name: Workspace jest czysty po checkoucie
-        shell: bash
-        run: |
-          set -euo pipefail
-          stale=""
-          for path in build renders; do
-            [ -e "$path" ] && stale="$stale $path"
-          done
-          if [ -n "$stale" ]; then
-            echo "::error::wyjścia z poprzedniego przebiegu przetrwały checkout:$stale"
-            exit 1
-          fi
-          echo "build/ i renders/ nie istnieją"
+        uses: ./.github/actions/check-workspace
 
       - name: Wyznacz gałęzie do skasowania
         id: plan

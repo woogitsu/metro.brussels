@@ -30,37 +30,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
-      # Workspace self-hosted runnera JEST WSPÓŁDZIELONY między przebiegami — inaczej
-      # niż jednorazowa maszyna GitHuba, która zawsze startuje pusta.
-      #
-      # Dla tego projektu to nie jest drobiazg, tylko dziura w samej weryfikacji:
-      # `CLAUDE.md` §5 mówi, że skrypt bez błędu potrafi wyprodukować pustą scenę,
-      # więc bramki sprawdzają PLIKI WYJŚCIOWE. Plik z poprzedniego przebiegu
-      # przechodzi te bramki tak samo dobrze jak świeży — job byłby zielony,
-      # nie wygenerowawszy niczego.
-      #
-      # Sprzątaniem zajmuje się samo `actions/checkout`: jego wejście `clean`
-      # ma domyślnie `true`, czyli wykonuje `git clean -ffdx && git reset --hard HEAD`,
-      # a `-x` obejmuje pliki ignorowane — więc `build/` i `renders/` znikają.
-      # Ten krok NIE sprząta, tylko to SPRAWDZA: gdyby ktoś ustawił `clean: false`
-      # albo usunął checkout, bramki zaczęłyby oglądać stare wyjścia i nikt by się
-      # o tym nie dowiedział. Zaklęcie „rm -rf" nie odróżniłoby tych dwóch sytuacji.
+      # Kontrola czystego workspace: JEDNA implementacja w
+      # `.github/actions/check-workspace`, nie kopia w każdym workflow. Powód
+      # i mechanika są w samej akcji.
       - name: Workspace jest czysty po checkoucie
-        shell: bash
-        run: |
-          set -euo pipefail
-          stale=""
-          for path in build renders; do
-            [ -e "$path" ] && stale="$stale $path"
-          done
-          if [ -n "$stale" ]; then
-            echo "::error::wyjścia z poprzedniego przebiegu przetrwały checkout:$stale"
-            echo "Sprawdź, czy actions/checkout nie ma clean: false — bramki tego"
-            echo "projektu sprawdzają pliki wyjściowe i stary plik je przejdzie."
-            ls -la $stale
-            exit 1
-          fi
-          echo "build/ i renders/ nie istnieją — bramki zobaczą wyłącznie to, co powstanie w tym przebiegu"
+        uses: ./.github/actions/check-workspace
 
       # `setup-dotnet` domyślnie instaluje do `/usr/share/dotnet`, a runner
       # właściciela nie ma tam prawa zapisu — cały krok kończył się serią
