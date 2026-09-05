@@ -121,7 +121,12 @@ public sealed class RunResetTests
         /// <summary>Reset przejazdu tą samą drogą, co scena: przez <see cref="RunReset"/>.</summary>
         public void Reset()
         {
-            var start = RunReset.Apply(Accumulator, Notch, Input, Stations, Recorder, Telemetry);
+            // Ochrona kabiny jest `null`, bo ten przyrząd jedzie BEZ `--signalling` —
+            // tak samo jak wzorzec `manual-keys.log`, na którym stoi cały ten plik.
+            // Że reset zeruje także ją, przybija `CabProtectionTests` po stronie rdzenia,
+            // czyli tam, gdzie od G-5 mieszka odpowiedź „co reset zeruje" (`RunRestart`).
+            var start = RunReset.Apply(
+                Accumulator, Notch, Input, Stations, null, Recorder, Telemetry);
             State = start.Drive;
             Command = start.Command;
             EffectiveCommand = start.EffectiveCommand;
@@ -365,11 +370,66 @@ public sealed class RunResetTests
         var notch = new DriverNotch(DesignAssumptions.ControlNotchRatePerSecond);
         notch.Advance(DriverKeys.Powering, FixedStep.Simulation);
 
-        var start = RunReset.Apply(accumulator, notch, new DriverInput(), null, null, null);
+        var start = RunReset.Apply(accumulator, notch, new DriverInput(), null, null, null, null);
 
         Assert.AreEqual(DriveState.AtRest, start.Drive);
         Assert.AreEqual(0.0, accumulator.CarrySeconds, 0.0);
         Assert.AreEqual(DriverCommand.Coast, notch.Command);
+    }
+
+    /// <summary>
+    /// Reset sceny PRZEKAZUJE ochronę kabiny do rdzenia, a nie zeruje jej u siebie.
+    ///
+    /// <para>Od G-5 tryb ręczny z <c>--signalling</c> ma sygnalizację: skład stoi na
+    /// blokach i ma zaryglowane trasy. Od #255 reset jest wpisem w zapisie wejść, więc
+    /// ten sam reset wykonuje <c>Sim.Runner replay</c> — a on <see cref="RunReset"/>
+    /// nie widzi. Gdyby scena zerowała ochronę własnym wołaniem obok
+    /// <see cref="RunRestart"/>, sygnalizacja wracałaby do początku TYLKO w Godocie,
+    /// a bramka porównująca obie strony przy progu 0 zgadzałaby się dokładnie do
+    /// pierwszego kroku, w którym ochrona ingeruje.</para>
+    /// </summary>
+    [TestMethod]
+    public void ResetPassesTheCabProtectionDownToTheCore()
+    {
+        var axis = PackageAAxis();
+        var plan = SignallingPlan.FromAxis(
+            axis,
+            VehicleRegistry.M7.RequireValue("parameters.length_m", ParameterStatus.Spec),
+            Units.KmhToMps(72.0),
+            0.0,
+            ProtectionVariant.LegacyFixedBlock,
+            requireRoute: true);
+        var cab = CabProtection.M7(plan, "KABINA", 94.0);
+
+        cab.Supervise(0L, 94.0, 0.0);
+        cab.Move(600.0);
+        cab.Supervise(120L, 600.0, Units.KmhToMps(90.0));
+
+        Console.WriteLine(string.Create(
+            CultureInfo.InvariantCulture,
+            $"[PRZED RESETEM] czoło={cab.Signalling.FrontOf("KABINA"):F3} m " +
+            $"tras={cab.Dispatcher.Locked} ostrzeżeń={cab.Warnings}"));
+
+        RunReset.Apply(
+            new StepAccumulator(FixedStep.Simulation),
+            new DriverNotch(DesignAssumptions.ControlNotchRatePerSecond),
+            new DriverInput(),
+            null,
+            cab,
+            null,
+            null);
+
+        Console.WriteLine(string.Create(
+            CultureInfo.InvariantCulture,
+            $"[PO RESECIE]    czoło={cab.Signalling.FrontOf("KABINA"):F3} m " +
+            $"tras={cab.Dispatcher.Locked} ostrzeżeń={cab.Warnings}"));
+
+        Assert.AreEqual(
+            94.0, cab.Signalling.FrontOf("KABINA"), 1e-9,
+            "reset sceny nie cofnął składu na planie — scena i rdzeń zresetują dwie różne rzeczy");
+        Assert.AreEqual(0, cab.Dispatcher.Locked, "nastawnia pamięta trasy sprzed resetu");
+        Assert.AreEqual(0L, cab.Warnings);
+        Assert.IsNull(cab.Decision);
     }
 
     [TestMethod]
@@ -379,11 +439,11 @@ public sealed class RunResetTests
         var notch = new DriverNotch(DesignAssumptions.ControlNotchRatePerSecond);
 
         Assert.ThrowsException<ArgumentNullException>(
-            () => RunReset.Apply(null!, notch, new DriverInput(), null, null, null));
+            () => RunReset.Apply(null!, notch, new DriverInput(), null, null, null, null));
         Assert.ThrowsException<ArgumentNullException>(
-            () => RunReset.Apply(accumulator, null!, new DriverInput(), null, null, null));
+            () => RunReset.Apply(accumulator, null!, new DriverInput(), null, null, null, null));
         Assert.ThrowsException<ArgumentNullException>(
-            () => RunReset.Apply(accumulator, notch, null!, null, null, null));
+            () => RunReset.Apply(accumulator, notch, null!, null, null, null, null));
     }
 
     /// <summary>

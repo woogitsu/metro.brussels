@@ -1,0 +1,60 @@
+# METRO BXL — zapis wejść maszynisty, wzorzec dla KABINY POD SYGNALIZACJĄ (G-5).
+#
+# PO CO TRZECI PLIK, SKORO SĄ JUŻ DWA. Bo żaden z nich nie odpowiada na pytanie,
+# które zadaje G-5: „czy ATP hamuje za maszynistę". `manual-keys.log` dochodzi do
+# 65,22 km/h i kończy się na 569,7 m, czyli przed pierwszym miejscem, w którym
+# autorytet jazdy w ogóle ma szansę się skończyć. `manual-keys-limit.log` to jeden
+# wpis — pełny ciąg — więc nie ma w nim ani jednego zatrzymania na stacji, a G-5
+# wymaga pokazania, że drzwi NIE otwierają się poza oknem ±5,0 m także wtedy, gdy
+# ochrona wchodzi w polecenie.
+#
+# Ten plik robi trzy rzeczy, których tamte dwa nie robią naraz:
+#
+#   1. dojeżdża do Beekkantu i staje w oknie — jedno wywołanie stacji, błąd −0,023 m;
+#   2. po odjeździe jedzie PEŁNYM CIĄGIEM przez trzy kolejne perony bez zatrzymania,
+#      więc raz po raz dobija do końca autorytetu, który sięga tylko do peronu
+#      docelowego zaryglowanej trasy;
+#   3. przy suficie maszynisty podniesionym ponad limit planu (`--limit-kmh 76`)
+#      przekracza prędkość dopuszczalną także tam, gdzie autorytet jest długi —
+#      czyli wywołuje ingerencję SŁUŻBOWĄ, a nie tylko awaryjną.
+#
+# PRZEJAZD, oś L1_A, czoło startuje na 94,000 m, krok 1/120 s:
+#
+#   krok  klawisz
+#   0     W  pełny ciąg do Beekkantu
+#   2800  S  hamowanie do peronu (ten sam krok, co w `manual-keys.log`)
+#   7000  W  pełny ciąg do końca zapisu; postój kończy się w kroku 6957
+#
+# ZMIERZONY PRZEBIEG (commit tej zmiany, `Sim.Runner replay`, plan classic-2026-L1_A,
+# `--notch-rate 0.80 --exchange-s 8 --stop-window-m 5`):
+#
+#   sufit maszynisty | ATP | czoło na końcu | szczyt     | ostrzeżeń | służbowe | awaryjne
+#   72,00 (z planu)  | nie |     3080,499 m | 72,000 km/h |         — |        — |        —
+#   72,00 (z planu)  | tak |     2913,007 m | 72,000 km/h |      2118 |        0 |     2118
+#   76,00            | tak |     2896,475 m | 72,012 km/h |      5406 |     3253 |     2153
+#
+# Czyli: ochrona kosztuje 167,492 m na 200 s przy tym samym suficie, a przy suficie
+# podniesionym o 4 km/h nie pozwala przekroczyć limitu planu o więcej niż 0,012 km/h.
+# Beekkant jest w każdym z tych trzech przejazdów obsłużony IDENTYCZNIE: postój od
+# 41,475 s do 57,975 s, błąd zatrzymania −0,023 m — bo do pierwszego zatrzymania
+# ochrona nie ingeruje ani razu.
+#
+# INGERENCJE AWARYJNE SĄ TU REGUŁĄ, NIE WYPADKIEM, i to jest własność modelu, nie
+# usterka wzorca. Trasa `R0n` sięga do końca bloku peronowego stacji docelowej i nie
+# da się jej zwolnić, zanim czoło do tego peronu wjedzie (`docs/15` §6). Skład, który
+# przez peron PRZEJEŻDŻA z prędkością liniową, dobija więc do końca autorytetu za
+# każdym razem — a prędkość dopuszczalna liczona z krzywej hamowania spada wtedy
+# poniżej bieżącej, przy czym samo jej przekroczenie wymaga już opóźnienia większego
+# niż służbowe (bo to służbowy tę krzywą wyznacza). Autopilot `LineDrive` tego nie
+# widzi, bo staje na każdej stacji.
+#
+# DLACZEGO 24000 KROKÓW: 24000 = 2⁵·3·5³, więc przy 120 krokach na klatkę wychodzi
+# równe 200 klatek, a przy 7 — 24000 = 3428·7 + 4, czyli OSTATNIA klatka jest niepełna
+# i akumulator musi przenieść resztę. Ta sama własność i ten sam powód, co przy dwóch
+# poprzednich wzorcach: rytm klatek nie ma prawa zmienić wyniku.
+wersja=1
+kroki=24000
+krok;klawisze
+0;W
+2800;S
+7000;W

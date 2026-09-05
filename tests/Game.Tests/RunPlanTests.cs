@@ -102,8 +102,13 @@ public sealed class RunPlanTests
             ["line"] = new[] { "--limit-kmh=70" },
             ["limit-kmh"] = new[] { "--line" },
             ["calls"] = new[] { "--line", "--limit-kmh=70" },
-            ["signalling"] = new[] { "--line", "--limit-kmh=70" },
         };
+
+        // `--signalling` ZESZŁO z tej listy 05.09.2026 i to jest treść G-5, a nie
+        // rozluźnienie testu: plan podany samotnie znaczy „kabina jedzie pod tym
+        // planem" — bloki, autorytet jazdy i ATP ingerujące w polecenie człowieka —
+        // więc argument nie jest już bezczynny. Że nadal jest bezczynny w przebiegu
+        // SKRYPTOWYM i tam odmawia, pilnuje `SignallingWithoutLineIsTheCabUnderSignalling`.
 
         foreach (var name in RunPlan.KnownArguments)
         {
@@ -682,15 +687,79 @@ public sealed class RunPlanTests
     }
 
     [TestMethod]
-    public void SignallingOnlyMakesSenseWithLineMode()
+    public void SignallingWithoutLineIsTheCabUnderSignalling()
     {
-        // Przebieg skryptowy i ręczny nie mają składu zarejestrowanego w sygnalizacji,
-        // więc plan byłby wczytany i nieużyty. Argument, który nic nie robi, jest gorszy
-        // od nieznanego: nieznany zatrzymuje przebieg, a bezczynny wygląda jak działający.
-        var samo = Parse("--signalling=/tmp/plan.json");
-        Assert.IsFalse(samo.IsValid, "--signalling przeszło bez --line");
-        Assert.IsTrue(samo.Error!.Contains("--signalling"), samo.Error);
-        Assert.AreEqual(BadArgumentValue, samo.ExitCode);
+        // PRZEPISANE 05.09.2026 (G-5), a nie dopisane obok. Poprzednia wersja nazywała
+        // się `SignallingOnlyMakesSenseWithLineMode` i twierdziła, że „przebieg
+        // skryptowy i ręczny nie mają składu zarejestrowanego w sygnalizacji, więc plan
+        // byłby wczytany i nieużyty". Dla przebiegu ręcznego to już nieprawda: skład
+        // wchodzi na bloki, dostaje autorytet jazdy i ochronę, która ingeruje
+        // w polecenie człowieka.
+        var reczny = Parse("--signalling=/tmp/plan.json");
+        Assert.IsTrue(reczny.IsValid, reczny.Error);
+        Assert.IsTrue(reczny.ManualSignalling, "tryb ręczny z planem nie jest kabiną pod sygnalizacją");
+        Assert.AreEqual("manual", reczny.Mode);
+        Assert.AreEqual("/tmp/plan.json", reczny.SignallingPath);
+
+        // Odtworzenie z zapisu wejść jest trybem ręcznym z klawiszami z pliku, więc
+        // tak samo wolno mu jechać pod ochroną — i to jest jedyny sposób, żeby przejazd
+        // pod ATP dało się porównać z rdzeniem przy progu 0.
+        var odtworzenie = Parse("--replay=/tmp/keys.log", "--signalling=/tmp/plan.json");
+        Assert.IsTrue(odtworzenie.IsValid, odtworzenie.Error);
+        Assert.IsTrue(odtworzenie.ManualSignalling);
+        Assert.AreEqual("replay", odtworzenie.Mode);
+    }
+
+    [TestMethod]
+    public void SignallingStillRefusesToJoinAScriptedRun()
+    {
+        // Druga połowa tej samej reguły i to ona nie może zniknąć razem z pierwszą.
+        // Przebieg skryptowy prowadzi `ScenarioDrive`, a jego telemetria jest
+        // porównywana z rdzeniem CO DO BITU — ochrona zmieniłaby przejazd, którego
+        // zgodność jest całą treścią tamtej bramki.
+        foreach (var skryptowy in new[]
+                 {
+                     new[] { "--signalling=/tmp/plan.json", "--telemetry=/tmp/out.csv" },
+                     new[] { "--signalling=/tmp/plan.json", "--shot=/tmp/a.png", "--at-chainage=2000" },
+                 })
+        {
+            var plan = Parse(skryptowy);
+            Assert.IsFalse(plan.IsValid, $"--signalling przeszło z {string.Join(" ", skryptowy)}");
+            Assert.IsTrue(plan.Error!.Contains("--signalling"), plan.Error);
+            Assert.AreEqual(BadArgumentValue, plan.ExitCode);
+        }
+
+        // `--line --shot --signalling` PRZECHODZI: `--shot` nie jest sterownikiem,
+        // tylko migawką, i po to jest, żeby dało się obejrzeć skład pod blokadami.
+        var migawka = Parse(
+            "--line", "--limit-kmh=70", "--signalling=/tmp/plan.json",
+            "--shot=/tmp/a.png", "--at-chainage=2000");
+        Assert.IsTrue(migawka.IsValid, migawka.Error);
+        Assert.IsFalse(migawka.ManualSignalling, "przebieg linii nie jest kabiną pod sygnalizacją");
+    }
+
+    [TestMethod]
+    public void TheDriverCeilingNeedsSomebodyToWatchIt()
+    {
+        // `--limit-kmh` w trybie ręcznym jest SUFITEM MASZYNISTY, a nie prędkością
+        // dopuszczalną. Bez planu nikt go nie pilnuje i przejazd byłby ręcznym
+        // przejazdem z wymyśloną prędkością — dokładnie usterką z #246, w której
+        // nagłówek mówił `limit=80.0 km/h`, czyli prędkość KONSTRUKCYJNĄ M7.
+        var bezNadzoru = Parse("--limit-kmh=76");
+        Assert.IsFalse(bezNadzoru.IsValid, "--limit-kmh przeszło bez --line i bez --signalling");
+        Assert.IsTrue(bezNadzoru.Error!.Contains("--signalling"), bezNadzoru.Error);
+        Assert.AreEqual(BadArgumentValue, bezNadzoru.ExitCode);
+
+        var zNadzorem = Parse("--limit-kmh=76", "--signalling=/tmp/plan.json");
+        Assert.IsTrue(zNadzorem.IsValid, zNadzorem.Error);
+        Assert.IsTrue(zNadzorem.ManualSignalling);
+        Assert.AreEqual(76.0, zNadzorem.LimitKmh, 1e-12);
+
+        // Sufit jest opcją, a nie warunkiem: bez niego kabina jedzie limitem planu,
+        // czyli tą samą liczbą, której ochrona pilnuje.
+        var bezSufitu = Parse("--signalling=/tmp/plan.json");
+        Assert.IsTrue(bezSufitu.IsValid, bezSufitu.Error);
+        Assert.AreEqual(0.0, bezSufitu.LimitKmh, 1e-12);
     }
 
     [TestMethod]

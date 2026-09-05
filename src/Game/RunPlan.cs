@@ -56,12 +56,20 @@ public sealed class RunPlan
     /// w nagłówku: kopia zgadza się z oryginałem tylko dopóty, dopóki nikt nie zmieni
     /// jednego z nich.</para>
     ///
-    /// <para><b>Dlaczego domyślna ścieżka, a nie argument.</b> <c>--signalling</c>
-    /// znaczy „prowadź linię przez nastawnię i ochronę pociągu" i dlatego łączy się
-    /// wyłącznie z <c>--line</c>; tryb ręczny nie rejestruje składu w sygnalizacji
-    /// i nie dostaje autorytetu jazdy. Czyta z planu JEDNĄ liczbę — prędkość
-    /// dopuszczalną — i mówi o tym wprost wierszem <c>[LIMIT]</c>. Gdy pliku nie ma,
-    /// scena ODMAWIA startu; cichy odwrót na 80 km/h byłby powrotem do usterki.</para>
+    /// <para><b>Dlaczego domyślna ścieżka, a nie argument.</b> Bo tryb ręczny BEZ
+    /// <c>--signalling</c> czyta z planu jedną jedyną liczbę — prędkość dopuszczalną —
+    /// i mówi o tym wprost wierszem <c>[LIMIT]</c>: skład nie jest wtedy zarejestrowany
+    /// w sygnalizacji, nie dostaje autorytetu jazdy i nie ma ochrony pociągu. Gdy pliku
+    /// nie ma, scena ODMAWIA startu; cichy odwrót na 80 km/h byłby powrotem do usterki.</para>
+    ///
+    /// <para><b>Ta stała jest domyślną, a nie jedyną — od 05.09.2026.</b> Poprzednia
+    /// wersja tego akapitu mówiła, że <c>--signalling</c> „łączy się wyłącznie
+    /// z <c>--line</c>", i jest tu PRZEPISANA, a nie zostawiona obok: G-5 dopuszcza
+    /// <c>--signalling</c> także w trybie ręcznym i wtedy plan nie tylko DAJE limit,
+    /// ale go PILNUJE — skład wchodzi na bloki, dostaje autorytet i ochronę
+    /// (<see cref="MetroBxl.Sim.Signalling.CabProtection"/>). Ścieżka z argumentu
+    /// zastępuje wtedy tę stałą w całości, bo dwa plany w jednym przejeździe — jeden
+    /// od limitu, drugi od bloków — byłyby dwiema prawdami o tej samej osi.</para>
     /// </summary>
     public const string ManualSpeedLimitPlanPath = "data/design/signalling/classic-2026.json";
 
@@ -183,11 +191,19 @@ public sealed class RunPlan
     /// ograniczenia: <b>od dołu 58,68 km/h</b> z rozkładu T-401, <b>od góry 80 km/h</b>
     /// z rejestru pojazdu. Dlatego liczba musi przyjść od wołającego, tak samo jak
     /// w <c>LineRunSettings</c>, gdzie konstruktor celowo nie ma domyślnych.</para>
+    ///
+    /// <para><b>W trybie ręcznym ta liczba znaczy co innego niż w <c>--line</c>.</b>
+    /// Tam jest prędkością dopuszczalną, którą jedzie autopilot; tu jest SUFITEM
+    /// MASZYNISTY — tym, o co człowiek może poprosić — a prędkością dopuszczalną
+    /// zostaje limit planu, którego pilnuje ochrona. Dwie różne liczby, i dopiero
+    /// ich rozdzielenie czyni ingerencję ATP obserwowalną: przy suficie równym limitowi
+    /// planu sterownik i tak nie przekroczy 72,00 km/h, więc ochrona nie ma czego łapać.
+    /// Zero znaczy „nie podano" i wtedy sufitem jest limit planu.</para>
     /// </summary>
     public double LimitKmh { get; private init; }
 
     /// <summary>
-    /// Plan sygnalizacji dla przejazdu linią; <c>null</c> znaczy „bez sygnalizacji".
+    /// Plan sygnalizacji przejazdu; <c>null</c> znaczy „bez sygnalizacji".
     ///
     /// <para><b>Jawny argument, a nie ciche wykrywanie.</b> Scena mogłaby próbować
     /// znaleźć plan dla osi sama i po cichu jechać bez sygnalizacji, gdy go nie ma —
@@ -196,10 +212,32 @@ public sealed class RunPlan
     /// argumentu przejazd jedzie bez blokad i HUD mówi to wprost; z nim prowadzi
     /// <c>LineCore</c>, czyli linia z nastawnią i autorytetem jazdy.</para>
     ///
+    /// <para><b>Od 05.09.2026 argument działa też BEZ <c>--line</c></b> i wtedy znaczy
+    /// „kabina jedzie pod tym planem": skład wchodzi na bloki, dostaje autorytet jazdy
+    /// i ochronę, która ingeruje w polecenie człowieka
+    /// (<see cref="MetroBxl.Sim.Signalling.CabProtection"/>, <see cref="ManualSignalling"/>).
+    /// Podany plan zastępuje wtedy <see cref="ManualSpeedLimitPlanPath"/> także jako
+    /// źródło prędkości dopuszczalnej — dwa plany w jednym przejeździe byłyby dwiema
+    /// prawdami o tej samej osi.</para>
+    ///
     /// <para>Plan musi pochodzić z TEJ SAMEJ osi — <c>LineCore</c> odrzuca niezgodną
-    /// parę, bo autorytet i cel hamowania liczyłyby się wtedy w dwóch układach.</para>
+    /// parę, bo autorytet i cel hamowania liczyłyby się wtedy w dwóch układach;
+    /// w trybie ręcznym tę samą parę sprawdza scena, zanim zbuduje ochronę.</para>
     /// </summary>
     public string? SignallingPath { get; private init; }
+
+    /// <summary>
+    /// Czy KABINA jedzie pod sygnalizacją: przejazd prowadzony poleceniem maszynisty
+    /// (z klawiatury albo z zapisu wejść) i mający plan podany argumentem.
+    ///
+    /// <para>Jedno miejsce na tę decyzję, bo odpowiedź jest potrzebna w trzech: scena
+    /// pyta o nią, zanim zbuduje <see cref="MetroBxl.Sim.Signalling.CabProtection"/>,
+    /// nagłówek — zanim wybierze źródło limitu, a HUD — zanim pokaże wiersz
+    /// sygnalizacji. Trzy kopie warunku rozjechałyby się dokładnie tak, jak rozjechał
+    /// się kiedyś limit w nagłówku: HUD mówiący „ATP pilnuje" nad przejazdem bez ATP
+    /// wygląda tak samo jak wiersz prawdziwy.</para>
+    /// </summary>
+    public bool ManualSignalling => SignallingPath is not null && !LineMode && !ScriptedMode;
 
     /// <summary>Nazwa trybu do nagłówka logu i do HUD-a.</summary>
     public string Mode => ReplayPath is not null ? "replay"
@@ -354,19 +392,46 @@ public sealed class RunPlan
                 + "T-401, od góry 80 km/h z rejestru pojazdu");
         }
 
-        if (arguments.ContainsKey("signalling") && !arguments.ContainsKey("line"))
+        // `--signalling` BEZ `--line` jest od 05.09.2026 POPRAWNE i to jest cała treść
+        // G-5. Poprzednia wersja tego warunku odmawiała — „przebieg skryptowy i ręczny
+        // nie mają składu zarejestrowanego w sygnalizacji" — i jest tu PRZEPISANA,
+        // a nie zostawiona obok: tryb ręczny taki skład teraz rejestruje
+        // (`CabProtection`), więc tamto zdanie jest nieprawdą o dzisiejszym kodzie.
+        // Dopóki obowiązywało, jedyny tryb, w którym prowadzi człowiek, był jedynym,
+        // w którym nie ma ani blokad, ani ochrony pociągu
+        // (`reports/droga-do-grywalnosci.md` §1.3).
+        //
+        // Odmowa ZOSTAJE dla przebiegu skryptowego i z niezmienionego powodu:
+        // polecenie podaje w nim `ScenarioDrive`, a jego telemetria jest porównywana
+        // z rdzeniem CO DO BITU — ochrona zmieniłaby przejazd, którego zgodność jest
+        // całą treścią tamtej bramki. `--line --shot` przechodzi, bo `--shot` nie jest
+        // sterownikiem, tylko migawką.
+        var scriptedWithoutLine = !arguments.ContainsKey("line")
+            && (arguments.ContainsKey("shot")
+                || (arguments.ContainsKey("telemetry") && !arguments.ContainsKey("replay")));
+        if (arguments.ContainsKey("signalling") && scriptedWithoutLine)
         {
             return Refusal(arguments, exitBadArgumentValue,
-                "[ARGUMENT] --signalling ma sens tylko z --line: przebieg skryptowy i ręczny "
-                + "nie mają składu zarejestrowanego w sygnalizacji");
+                "[ARGUMENT] --signalling nie łączy się z przebiegiem skryptowym: polecenie "
+                + "podaje w nim scenariusz, a jego telemetria jest porównywana z rdzeniem "
+                + "co do bitu, więc ochrona pociągu zmieniłaby przejazd, którego zgodność "
+                + "jest całą treścią tamtej bramki");
         }
 
-        if (arguments.ContainsKey("limit-kmh") && !arguments.ContainsKey("line"))
+        // `--limit-kmh` w trybie ręcznym jest SUFITEM MASZYNISTY, a prędkość dopuszczalna
+        // przychodzi z planu — to dwie różne liczby i dopiero ich rozdzielenie czyni
+        // ochronę widoczną. Bez `--signalling` sufitu nie miałby kto pilnować, więc
+        // byłby przejazdem ręcznym z wymyśloną prędkością: dokładnie tą usterką, którą
+        // naprawiło #246 (nagłówek mówił `limit=80.0 km/h`, czyli prędkość
+        // KONSTRUKCYJNĄ M7, i ta liczba szła do kontrolera).
+        if (arguments.ContainsKey("limit-kmh")
+            && !arguments.ContainsKey("line") && !arguments.ContainsKey("signalling"))
         {
             return Refusal(arguments, exitBadArgumentValue,
-                "[ARGUMENT] --limit-kmh ma sens tylko z --line: przebieg skryptowy bierze "
-                + "limit ze scenariusza, a ręczny z planu sygnalizacji "
-                + ManualSpeedLimitPlanPath);
+                "[ARGUMENT] --limit-kmh wymaga --line albo --signalling: przebieg skryptowy "
+                + "bierze limit ze scenariusza, a ręczny bez ochrony pociągu — z planu "
+                + ManualSpeedLimitPlanPath
+                + "; sufit ponad limit planu ma sens tylko wtedy, gdy ktoś go pilnuje");
         }
 
         if (arguments.ContainsKey("calls") && !arguments.ContainsKey("line"))

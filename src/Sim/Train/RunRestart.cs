@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using MetroBxl.Sim.Signalling;
 
 namespace MetroBxl.Sim.Train;
 
@@ -30,9 +31,19 @@ public readonly record struct RunRestartValues(
 /// musi leżeć tutaj.</para>
 ///
 /// <para><b>Podział jest po tym, kto co ma.</b> Tutaj stoi wszystko, co ma rdzeń:
-/// dźwignia, obsługa stacji, stan składu i zebrane wiersze telemetrii.
-/// <c>Game.RunReset</c> dokłada to, czego rdzeń nie zna: akumulator kroków klatki,
-/// odczyt klawiatury i zapis wejść — i woła tę funkcję zamiast powtarzać jej treść.</para>
+/// dźwignia, obsługa stacji, ochrona pociągu kabiny, stan składu i zebrane wiersze
+/// telemetrii. <c>Game.RunReset</c> dokłada to, czego rdzeń nie zna: akumulator kroków
+/// klatki, odczyt klawiatury i zapis wejść — i woła tę funkcję zamiast powtarzać jej
+/// treść.</para>
+///
+/// <para><b>Ochrona kabiny doszła tu 05.09.2026 razem z G-5 i nie jest wyjątkiem od
+/// zdania wyżej — jest jego kolejnym przypadkiem.</b> <c>CabProtection</c> trzyma stan
+/// SYGNALIZACJI przejazdu: położenie składu na planie, zaryglowane trasy, liczniki
+/// ingerencji. Bez zresetowania go pierwszy meldunek ruchu po resecie skończyłby się
+/// wyjątkiem, bo <c>FixedBlockSystem.MoveTrain</c> odmawia cofnięcia czoła — model nie
+/// odtacza składów w tył. A gdyby zerowała go tylko scena, <c>Sim.Runner replay</c>
+/// odtwarzałby ten sam zapis wejść z inną sygnalizacją i bramka przy progu 0 zgadzałaby
+/// się dokładnie do pierwszego kroku, w którym ochrona ingeruje.</para>
 ///
 /// <para><b>Czego reset NIE obejmuje:</b> osi, składu, warunków przejazdu ani planu
 /// sygnalizacji. To są NASTAWY przejazdu, a reset znaczy „ten sam przejazd od nowa",
@@ -51,12 +62,18 @@ public static class RunRestart
     /// </summary>
     /// <param name="notch">Dźwignia maszynisty; wraca na wybieg.</param>
     /// <param name="stations">Obsługa stacji albo <c>null</c>, gdy przejazd jej nie ma.</param>
+    /// <param name="cab">
+    /// Ochrona pociągu kabiny albo <c>null</c>, gdy przejazd jedzie bez sygnalizacji.
+    /// Brak obiektu jest tu poprawnym stanem, a nie błędem — tak samo jak brak obsługi
+    /// stacji poza trybem ręcznym.
+    /// </param>
     /// <param name="telemetry">Zebrane wiersze telemetrii albo <c>null</c>.</param>
     /// <returns>Wartości stanu przejazdu po resecie.</returns>
     /// <exception cref="ArgumentNullException">Dźwignia jest <c>null</c>.</exception>
     public static RunRestartValues Apply(
         DriverNotch notch,
         StationService? stations,
+        CabProtection? cab,
         IList<string>? telemetry)
     {
         ArgumentNullException.ThrowIfNull(notch);
@@ -70,6 +87,11 @@ public static class RunRestart
         // Cała obsługa stacji od nowa — kolejka, rejestry wywołań i minięć, trwający
         // cykl drzwi. To jest usterka G-4 i to jest miejsce, w którym była.
         stations?.Reset();
+
+        // Sygnalizacja kabiny od nowa: skład wraca na kilometraż startu, trasy i bloki
+        // są puste, liczniki ingerencji zerowe. Bez tego reset byłby WYJĄTKIEM, a nie
+        // resetem — patrz akapit przy klasie.
+        cab?.Reset();
 
         DropSamples(telemetry);
         return start;

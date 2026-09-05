@@ -249,8 +249,8 @@ przejazd jej nie wywołuje, jest osobno przybite testem.
 Trasa to uporządkowany zbiór bloków. Cały interlocking sprowadza się do czterech reguł:
 
 - żądanie odrzucone, gdy trasa jest już zaryglowana, gdy skład ma inną trasę, gdy skład
-  nie stoi w bloku początkowym trasy, gdy któryś blok jest zajęty przez inny skład albo
-  zarezerwowany pod inną trasę;
+  **nie zajmuje** bloku początkowego trasy, gdy któryś blok jest zajęty przez inny skład
+  albo zarezerwowany pod inną trasę;
 - zaryglowanie rezerwuje **wszystkie** bloki trasy;
 - authority przechodzi tylko przez bloki zarezerwowane pod trasę tego składu
   (gdy `require_route`);
@@ -266,6 +266,78 @@ w bloku poprzednim.
 Odmowa trasy **nie jest wyjątkiem** — jest zdarzeniem `RouteRejected` z powodem. Wyjątkiem
 jest tylko postawienie składu na zajętym bloku, bo to błąd scenariusza, a nie sytuacja
 ruchowa.
+
+### „Stoi w bloku" znaczy „zajmuje blok", a nie „ma w nim czoło"
+
+**Przepisane 05.09.2026, a nie dopisane obok.** Do tego dnia kod pytał wyłącznie o blok,
+w którym stoi **czoło** (`FixedBlockSystem.RejectionReason`), i to wystarczało, bo jedyny
+wołający — `LineCore` — wstawia skład na plan z czołem dokładnie na kilometrażu pierwszej
+stacji, czyli w bloku peronowym.
+
+Powód zmiany jest wymiarowy, nie estetyczny: **skład M7 ma 94 m i blok peronowy ma
+dokładnie tyle samo**, więc skład przy peronie nigdy nie mieści się w jednym bloku.
+Kabina prowadzona ręcznie (G-5) zaczyna przejazd z czołem na **94,000 m** — bo cały skład
+ma stać na osi — a to na pakiecie A jest już blok szlakowy `S01`; w peronowym `P01` stoi
+wtedy **ogon**. [ZMIERZONE] Dopóki warunek patrzył na samo czoło, nastawnia nie zamawiała
+dla takiego składu **ani jednej trasy**: autorytet kończył się na **462,730 m** z powodem
+`BlockNotReserved`, a ochrona hamowała skład **awaryjnie przez 1998 kroków**, zanim ten
+dojechał do pierwszej stacji.
+
+To jest ta sama konwencja, którą `ComputeAuthority` stosuje kilkadziesiąt linii wyżej
+w tym samym pliku („blok czoła liczony po **zajętości**, nie po samym punkcie"). Warunek
+niczego nie rozluźnia — skład dalej musi być fizycznie w bloku początkowym trasy —
+i został wprowadzony jako **suma** dwóch członów, a nie zamiana jednego na drugi:
+stary człon (blok czoła) został nietknięty, więc każde żądanie, które przechodziło
+przedtem, przechodzi tak samo teraz, a nowy może wyłącznie zamienić odmowę na zgodę.
+[ZMIERZONE] Przejazd `--line` po pakiecie A przy 70 i przy 76 km/h, z ATP i bez,
+daje po tej zmianie plik zatrzymań **identyczny co do bajtu** z plikiem sprzed niej.
+
+### Kabina pod sygnalizacją: człowiek prowadzi, ATP pilnuje
+
+`CabProtection` stawia pod planem **jeden skład prowadzony przez człowieka**: bloki,
+nastawnia, autorytet jazdy i ochrona, która ingeruje w polecenie. Kolejność w kroku jest
+ta sama, co w `LineCore.Step` — nastawnia, odczyt autorytetu i nadzór ze stanu sprzed
+kroku, filtr polecenia, meldunek ruchu po kroku.
+
+Dwie rzeczy odróżniają ją od linii i obie są treścią:
+
+- **Regułę stacji ma `StationService`, nie `LineDrive`.** Autopilot uznaje zatrzymanie za
+  wywołanie stacji przy `chainage >= cel − okno`, bez ograniczenia z góry; dla człowieka
+  znaczyłoby to drzwi otwarte 200 m za peronem. `CabProtection` nie wie o stacjach nic
+  i nie ma jak się z tamtą regułą rozjechać.
+- **Ochrona jest OSTATNIM filtrem polecenia**, za nastawnikiem i za blokadą drzwi:
+  `DriverNotch → StationService.Filter → CabProtection.Apply → TrainController`. Issue #26
+  wymaga wprost, żeby „nie można było ominąć ATP przez input gracza", a filtr postawiony
+  wcześniej dałby się nadpisać — przez człowieka albo przez cykl drzwi.
+
+Sufit maszynisty (`--limit-kmh`) i prędkość dopuszczalna (limit planu) to **dwie różne
+liczby**. Sufit ogranicza to, o co człowiek może poprosić; prędkości dopuszczalnej pilnuje
+ochrona. Przy suficie równym limitowi planu sterownik i tak nie przekroczy 72,00 km/h,
+więc ochrona nie ma czego łapać — dlatego sufit bez ochrony jest odmową argumentu, a nie
+opcją.
+
+[ZMIERZONE] Wzorzec `tests/data/manual-overspeed.log` (24 000 kroków, pełny ciąg,
+zatrzymanie na Beekkancie, potem pełny ciąg przez trzy perony), pakiet A, plan
+`classic-2026`:
+
+| sufit maszynisty | ATP | czoło na końcu | szczyt | ostrzeżeń | służbowe | awaryjne |
+|---|---|---:|---:|---:|---:|---:|
+| 76,00 km/h | nie | 3203,714 m | 76,000 km/h | — | — | — |
+| 76,00 km/h | tak | 2896,475 m | 72,012 km/h | 5406 | 3253 | 2153 |
+| 72,00 km/h (= plan) | tak | 2913,007 m | 72,000 km/h | 2118 | 0 | 2118 |
+
+Wzorzec `tests/data/manual-keys.log` — przejazd prowadzony poprawnie, ze szczytem
+65,39 km/h — daje pod ochroną **0 ostrzeżeń, 0 ingerencji i ślad identyczny co do bitu**
+z tym samym przejazdem bez ochrony. To jest ta sama własność, co wiersz „72,0 km/h"
+w tabeli §5: pod limitem planu ochrona nie rusza ani jednego kroku.
+
+**Ingerencje awaryjne w przejeździe przez peron są własnością modelu, nie usterką.**
+Trasa `R0n` sięga do końca bloku peronowego stacji docelowej i nie da się jej zwolnić,
+zanim czoło do tego peronu wjedzie. Skład, który przez peron **przejeżdża** z prędkością
+liniową, dobija więc do końca autorytetu za każdym razem, a prędkość dopuszczalna liczona
+z krzywej hamowania spada wtedy poniżej bieżącej — przy czym samo jej przekroczenie
+wymaga już opóźnienia większego niż służbowe, bo to hamulec służbowy tę krzywą wyznacza.
+Autopilot `LineDrive` tego nie widzi, bo staje na każdej stacji.
 
 ## 7. Duże `dt` nie przepuszcza składu przez blok
 

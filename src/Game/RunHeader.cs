@@ -54,6 +54,14 @@ public static class RunHeader
     /// podaje autopilotowi pod <c>--signalling</c>, więc drugiej kopii nie ma gdzie
     /// trzymać.</para>
     ///
+    /// <para><b>Wyjątek: kabina POD OCHRONĄ ma sufit maszynisty.</b> Gdy tryb ręczny
+    /// dostał plan argumentem (<see cref="RunPlan.ManualSignalling"/>) i podano
+    /// <c>--limit-kmh</c>, kontroler jedzie tą liczbą, a prędkość dopuszczalna z planu
+    /// zostaje tym, czego PILNUJE ochrona. Nagłówek pokazuje wtedy sufit, bo to on jest
+    /// liczbą, którą naprawdę dostaje rdzeń — czyli ta sama zasada, która stoi za całym
+    /// tym plikiem, a nie odstępstwo od niej. Prędkość dopuszczalna ma swój własny
+    /// wiersz: <c>[SYGNALIZACJA]</c> w logu i <c>v_dop</c> w HUD-zie.</para>
+    ///
     /// <para>Scenariusz jest OSTATNI i wyłącznie dla trybu SKRYPTOWEGO
     /// (<c>--telemetry</c>, <c>--shot</c>) — tam limit ze scenariusza jest tym, którym
     /// jedzie <c>ScenarioDrive</c> w rdzeniu, a telemetria sceny jest z rdzeniem
@@ -103,6 +111,23 @@ public static class RunHeader
         if (plan.ScriptedMode)
         {
             return scenario.SpeedLimitMps;
+        }
+
+        // TRYB RĘCZNY POD OCHRONĄ: `--limit-kmh` jest tu SUFITEM MASZYNISTY, a nie
+        // prędkością dopuszczalną. Kontroler dostaje sufit, bo tyle wolno maszyniście
+        // POPROSIĆ; prędkości dopuszczalnej pilnuje ochrona z planu i to ona wychodzi
+        // w wierszu HUD-u jako `v_dop`. Rozdzielenie tych dwóch liczb jest jedynym
+        // sposobem, żeby ingerencja ATP mogła się w ogóle zdarzyć — przy suficie równym
+        // limitowi planu sterownik nie przekroczy 72,00 km/h, więc ochrona nie ma czego
+        // łapać (`docs/15-classic-signalling.md` §5, wiersz „72,0 km/h": 0/0).
+        //
+        // Warunek stoi PRZED odmową „przejazd ręczny bez planu", nie za nią, i to nie
+        // jest kolejność dowolna: `RunPlan` dopuszcza `--limit-kmh` w trybie ręcznym
+        // WYŁĄCZNIE razem z `--signalling`, więc plan tu wtedy jest — ten podany
+        // argumentem. Sufit bez planu nie przejdzie przez `RunPlan.Parse` w ogóle.
+        if (plan.ManualSignalling && plan.LimitKmh > 0.0)
+        {
+            return Units.KmhToMps(plan.LimitKmh);
         }
 
         if (manualPlan is null)
