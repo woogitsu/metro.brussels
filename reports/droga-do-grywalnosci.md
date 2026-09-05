@@ -65,27 +65,35 @@ plikiem **dwa** trafienia — `FirstRun.cs:66` (pole) i `FirstRun.cs:314` (konst
 
 `RunPlan` rozstrzyga tryb z wiersza poleceń [Z KODU, `src/Game/RunPlan.cs:129–131`]:
 
+> **TA SEKCJA JEST PRZEPISANA 05.09.2026 I OPISYWAŁA STAN, KTÓRY JUŻ NIE ISTNIEJE.**
+> Stało w niej, że „**jedyny tryb, w którym prowadzi człowiek, jest jedynym trybem,
+> w którym nie ma ani blokad, ani ochrony pociągu, ani prędkości dopuszczalnej
+> z zewnątrz**", i że „kabina i sygnalizacja nie spotykają się dziś nigdzie". Rozpoznanie
+> było trafne i z niego wzięło się zadanie G-5; **G-5 zostało zrobione w #257** i to
+> zdanie przestało być prawdziwe. Przepisane, a nie dopisane obok — konwencja jak w §5.1.
+
 | tryb | jak się uruchamia | kto podaje polecenie | sygnalizacja / ATP | koniec |
 |---|---|---|---|---|
-| `manual` | bez argumentów | **człowiek** (`DriverInput`) | **nie da się włączyć** | **brak** |
+| `manual` | bez argumentów | **człowiek** (`DriverInput`) | **`--signalling` → tak, z ATP** (#257) | brak, dopóki nie ma zapisu wejść |
+| `replay` | `--replay=PLIK` | zapis wejść, tą samą drogą co człowiek | jw. | koniec zapisu (#239) |
 | `line` | `--line --limit-kmh=N` | `LineDrive` albo `LineCore` (autopilot) | `--signalling` → tak, z ATP | ostatnia stacja |
 | `telemetry` | `--telemetry=PLIK` | `ScenarioDrive` (skrypt) | nie | koniec scenariusza |
 | `shot` | `--shot=PLIK --at-chainage=X` | jw. albo `LineDrive` | jw. | migawka |
 
-Rozłączność jest **wymuszona odmowami w `RunPlan`**, nie przypadkowa:
+Z trzech odmów w `RunPlan` została **jedna, i to celowo**: `--limit-kmh` bez `--line`
+dalej jest błędem, bo sufit prędkości bez prowadzenia z rdzenia nie ma skąd wziąć
+liczby innej niż konstrukcyjna prędkość M7 — to usterka naprawiona w #246 i odmowa jest
+tu treścią, nie pozostałością. `--signalling` bez `--line` **przestało** być błędem:
+to jest właśnie G-5.
 
-- `src/Game/RunPlan.cs:246` — `--signalling` bez `--line` jest błędem;
-- `src/Game/RunPlan.cs:253` — `--limit-kmh` bez `--line` jest błędem;
-- `src/Game/RunPlan.cs:237` — `--line` **wymaga** `--limit-kmh`.
+Prędkość dopuszczalną tryb ręczny bierze od #246 z planu sygnalizacji
+(`data/design/signalling/classic-2026.json`, 72,00 km/h), a nie z rejestru pojazdu —
+także wtedy, gdy plan jest tylko czytany i nie prowadzi.
 
-Skutek jest jednozdaniowy: **jedyny tryb, w którym prowadzi człowiek, jest jedynym
-trybem, w którym nie ma ani blokad, ani ochrony pociągu, ani prędkości dopuszczalnej
-z zewnątrz.** Kabina i sygnalizacja nie spotykają się dziś nigdzie.
-
-Co gorsza — w trybie `--line` wejście gracza **jest odczytywane i wyrzucane**.
-`FirstRun.cs:602` ustawia `_command` z klawiatury, a `FirstRun.cs:678` i `:698`
-nadpisują je poleceniem z autopilota w tym samym przebiegu klatki. Trzymanie W przy
-`--line` nie robi nic i nic o tym nie mówi.
+**Wejście gracza w trybie `--line` nadal jest odczytywane i wyrzucane** — to zdanie
+zostaje prawdziwe. Zmieniło się co innego: od #256 HUD to **mówi**. Ostatni wiersz
+pod `--line` brzmi `C widok · Esc wyjście · prowadzi rdzeń: W, S, X, Spacja, R nie
+działają`, więc trzymanie W nadal nic nie robi, ale już nie milczy o tym.
 
 ### 1.4 Przejazd ręczny nie ma końca — i dlatego nie ma bramki
 
@@ -372,6 +380,41 @@ pozycje fazy 6 albo jako etapy T-400, o czym rozstrzyga właściciel, nie ten ra
 - **Zależy od:** G-1 (weryfikacja wymaga odtwarzalnego wejścia).
 
 ### G-5 · Kabina pod sygnalizacją: człowiek prowadzi, ATP pilnuje
+
+> **G-5 JEST ZROBIONE — #257, 05.09.2026.** Ten akapit jest dopisany po to samo, co
+> blok nad §G-1: żeby propozycja nie wysłała nikogo drugi raz w to samo miejsce. Sekcja
+> niżej zostaje jako zapis tego, co proponowano, i **nie opisuje dzisiejszego stanu**.
+> Sprawdzone lekturą drzewa na `6fa604c`:
+>
+> | czego G-5 żądało | co jest |
+> |---|---|
+> | źródło polecenia jako parametr, autopilot bez zmiany śladu | tożsamość `--line` zmierzona: trzy pliki zatrzymań identyczne co do bajtu wobec drzewa sprzed zmiany |
+> | `--signalling` dopuszczone bez `--line` | tak; `--limit-kmh` bez `--line` **zostaje odmową** i to jest treść, nie pozostałość (usterka z #246) |
+> | ATP wpięte tym samym hakiem, co w `LineCore` | `src/Sim/Signalling/CabProtection.cs` + `tests/Sim.Tests/CabProtectionTests.cs` |
+> | wiersz sygnalizacji HUD działający w trybie ręcznym | `src/Game/SignallingHud.cs` + `tests/Game.Tests/SignallingHudTests.cs` |
+>
+> **Zmierzone, nie zadeklarowane:** sufit 76 km/h wobec limitu planu 72 daje **307,239 m**
+> różnicy drogi i 3253 ingerencje służbowe; przy suficie równym limitowi planu ślad jest
+> **identyczny co do bitu** z przejazdem bez ochrony (`manual-keys.log`: 0 ostrzeżeń,
+> 0 ingerencji). Scena wobec rdzenia pod ATP: 201 wierszy identycznych co do bajtu,
+> próg 0.
+>
+> **Znalezisko, którego ta propozycja nie przewidziała:** przejazd ręczny startuje
+> z czołem na 94,000 m, czyli już w bloku szlakowym S01, z ogonem w peronowym P01.
+> Dopóki nastawnia pytała tylko o blok czoła, kabina nie dostawała **ani jednej trasy** —
+> autorytet 462,730 m, `BlockNotReserved`, 1998 kroków hamowania awaryjnego przed
+> pierwszą stacją. „Stoi w bloku" czyta się teraz jako „zajmuje blok".
+>
+> **Zostało otwarte i czeka na decyzję właściciela:** przy suficie równym limitowi planu
+> przejazd dostaje 2118 ingerencji **awaryjnych** — nie przez większość przejazdu, tylko
+> przez **8,8 %**: trzy epizody po 5,883 s na ostatnich 102,3 m dojazdu do peronu, każdy
+> kończący się przy wjeździe czoła w blok peronowy, przy prędkości dokładnie 72,00 km/h.
+> Maszynista niczego nie łamie — kończy się autorytet, a krzywą prędkości dopuszczalnej
+> wyznacza hamulec służbowy, więc jej przekroczenie od razu wymaga więcej niż służbowego.
+> Pytanie brzmi: **czy nastawnia ma ryglować trasę o odcinek do przodu.** Nie zgadnięte.
+>
+> **Bramki CI dla kabiny pod sygnalizacją nadal nie ma** — `godot-first-run.yml` był poza
+> zakresem #257. To jedyna część G-5, która została niezrobiona.
 
 - **Skąd:** §1.3 tego raportu (tryb ręczny i tryb z sygnalizacją są rozłączne
   z powodu trzech odmów w `RunPlan`) oraz Issue #26 §Weryfikacja funkcjonalna:
