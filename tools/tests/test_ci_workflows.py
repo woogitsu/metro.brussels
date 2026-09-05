@@ -1077,8 +1077,9 @@ def _runner_labels(job):
     wyłącznie pierwszą z tych form — patrz komentarz o mutacji w teście niżej.
 
     Grupa wraca jako pseudo-etykieta `group:<nazwa>`, żeby wywróciła porównanie
-    i pokazała się w komunikacie: grupa to ZBIÓR maszyn dobierany po stronie
-    GitHuba, a nie gołe `self-hosted`, którego pilnuje `CLAUDE.md` §9.
+    i pokazała się w komunikacie: grupa to ZBIÓR maszyn dobierany po stronie GitHuba,
+    a nie komplet etykiet z `CLAUDE.md` §9, i o tym, co do niej należy, decyduje
+    ustawienie w organizacji, którego w tym repozytorium nie widać.
     """
     if "runs-on" not in job:
         return None
@@ -1098,15 +1099,52 @@ def _runner_labels(job):
     return [repr(value)]
 
 
-def test_every_job_runs_on_the_self_hosted_runner():
-    """Etykieta `runs-on` decyduje o tym, czy job w ogóle wystartuje.
+#: Komplet etykiet puli organizacji `woogitsu` (`CLAUDE.md` §9). Dokładnie ten komplet
+#: noszą cztery maszyny `woogitsu-wsl-DOM-NEW-01` … `-04`.
+REQUIRED_RUNNER_LABELS = ("self-hosted", "Linux", "X64", "wsl2", "woogitsu")
+
+
+def _runner_mismatch(labels):
+    """Powód, dla którego ten `runs-on` nie jest pulą z §9 — albo `None`.
+
+    Porównanie idzie ZBIOREM, nie listą w zapisanej kolejności: GitHub traktuje
+    `runs-on` jak koniunkcję etykiet, więc przestawienie ich nie zmienia doboru
+    maszyny, a bramka wywracająca się na kolejności świeciłaby na czerwono przy
+    zmianie, która niczego nie psuje. Z tego samego powodu nie liczy się wielkość
+    liter — `X64` i `x64` dobierają tę samą maszynę.
+
+    Za to LICZBA etykiet znaczy, i to w obie strony. Brak którejkolwiek rozszerza
+    dobór poza pulę: samo `self-hosted` łapie dziś także stare runnery repozytoryjne
+    (`metro-wsl-DOM-NEW`, `-2`, `-3`), które do czasu centralnego usunięcia wciąż są
+    zarejestrowane. Nadmiar zawęża dobór do maszyn noszących etykietę dopisaną ponad
+    komplet — czyli odtwarza awarię z 02.08.2026, kiedy joby zawisły w `queued` po
+    wyłączeniu jedynej maszyny z `wsl2`. Dlatego nadmiar jest błędem tak samo jak brak.
+    """
+    if labels is None:
+        return "job bez `runs-on`"
+    found = sorted(label.lower() for label in labels)
+    expected = sorted(label.lower() for label in REQUIRED_RUNNER_LABELS)
+    if found != expected:
+        return (f"runs-on = {labels}, oczekiwano kompletu "
+                f"{list(REQUIRED_RUNNER_LABELS)}")
+    return None
+
+
+def test_every_job_runs_on_the_woogitsu_runner_pool():
+    """Etykiety `runs-on` decydują o tym, czy job wystartuje i na czyjej maszynie.
 
     `runs-on` z etykietą, której żaden zarejestrowany runner nie nosi, oznacza job
     wiszący w `queued` bez końca — a `CLAUDE.md` §9 mówi wprost: „Nie uznawaj
-    `queued` za weryfikację". Etykieta jest gołe `self-hosted`, bez `wsl2`:
-    w matmaxalez/osadale 2026-08-19 zdjęto `wsl2`, bo maszyna z tą etykietą została
-    wyłączona i joby zawisły. Gołe `self-hosted` łapie każdego runnera, jakiego
-    właściciel zarejestruje.
+    `queued` za weryfikację".
+
+    **Ta bramka jest przepisana, a nie poluzowana.** Poprzednia wersja wymagała
+    dokładnie jednej etykiety `['self-hosted']` i uzasadniała to tym, że
+    w matmaxalez/osadale 02.08.2026 zdjęto `wsl2`, bo JEDYNA maszyna z tą etykietą
+    została wyłączona i joby zawisły. Od 05.09.2026 pula organizacji `woogitsu` ma
+    CZTERY maszyny z tym samym kompletem etykiet, więc wyłączenie jednej nie zawiesza
+    niczego, a ochroną przestaje być szerokość selektora — jest nią liczebność puli.
+    Gołe `self-hosted` przestało być w tej konfiguracji bezpieczniejsze: łapie też
+    stare runnery repozytoryjne, które nadal są zarejestrowane.
 
     Czytane ze SPARSOWANEGO YAML-a, nie gremem po tekście. Mutacja, która tego
     testu NIE wywracała, zmierzona 04.09.2026 na `python-tests.yml`: zapis `runs-on`
@@ -1118,10 +1156,9 @@ def test_every_job_runs_on_the_self_hosted_runner():
 
     Poprzedni wzorzec `^    runs-on: (.+)$` nie ma tu czego dopasować (po dwukropku
     nie stoi nic), więc pętla przechodziła ZERO razy i test kończył się zielony.
-    Konsekwencja jest dokładnie tą awarią, przed którą ta bramka stoi: wrócenie
-    etykiety `wsl2` — tej samej, po której 02.08.2026 joby zawisły w `queued`, bo
-    maszyna z nią została wyłączona — było dla testu niewidoczne. Bramka wtedy nie
-    broni, tylko cichnie.
+    Dziś komplet z §9 jest listą, więc ta forma zapisu jest formą POPRAWNĄ — tym
+    bardziej nie wolno wrócić do czytania regexem: pętla znów przeszłaby zero razy
+    i przepuściła każdy selektor, jaki ktoś tu wpisze.
     """
     wrong = []
     checked = 0
@@ -1129,13 +1166,9 @@ def test_every_job_runs_on_the_self_hosted_runner():
         document = yaml.safe_load(_text(name))
         for job_id, job in document["jobs"].items():
             checked += 1
-            labels = _runner_labels(job)
-            if labels is None:
-                wrong.append(f"{name}:{job_id}: job bez `runs-on`")
-            elif labels != ["self-hosted"]:
-                wrong.append(
-                    f"{name}:{job_id}: runs-on = {labels}, "
-                    "oczekiwano dokładnie jednej etykiety ['self-hosted']")
+            reason = _runner_mismatch(_runner_labels(job))
+            if reason:
+                wrong.append(f"{name}:{job_id}: {reason}")
     assert not wrong, f"joby na złym runnerze: {wrong}"
     # Liczba jak w bramce fork-PR niżej: pętla po samych znalezionych jobach
     # przeszłaby pusta i zielona, gdyby `jobs:` przestało być czytane.
@@ -1143,6 +1176,39 @@ def test_every_job_runs_on_the_self_hosted_runner():
 
     hosted = [name for name in _workflows() if "ubuntu-latest" in _text(name)]
     assert not hosted, f"GitHub-hosted runner nadal wymieniony w: {hosted}"
+
+
+def test_the_runner_gate_fails_on_every_selector_that_would_miss_the_pool():
+    """Kontrola negatywna do bramki wyżej — wykonywana, nie wyrozumowana.
+
+    Bramka poluzowana bez negatywu jest gorsza niż jej brak: „zielono" znaczy wtedy
+    tyle samo przy komplecie z §9, co przy czymkolwiek innym. Każdy przypadek niżej
+    to selektor, który naprawdę wysyła joba gdzie indziej niż do puli `woogitsu`.
+    """
+    # Stan sprzed migracji. Musi być błędem, inaczej migracja nie jest wymuszona
+    # i pierwszy dopisany workflow wróci na gołą etykietę bez żadnego sygnału.
+    assert _runner_mismatch(["self-hosted"])
+    # Brak jednej etykiety z kompletu — dobór wychodzi poza pulę organizacji.
+    assert _runner_mismatch(["self-hosted", "Linux", "X64", "wsl2"])
+    assert _runner_mismatch(["Linux", "X64", "wsl2", "woogitsu"])
+    # Nadmiar — dokładnie awaria z 02.08.2026: selektor zawężony do jednej maszyny.
+    assert _runner_mismatch([*REQUIRED_RUNNER_LABELS, "gpu"])
+    # Duplikat: zbiór by się zgadzał, lista posortowana nie — i słusznie, bo
+    # powtórzona etykieta jest literówką, a nie zapisem tej samej pary maszyn.
+    assert _runner_mismatch([*REQUIRED_RUNNER_LABELS, "wsl2"])
+    # Grupa: zbiór maszyn dobierany po stronie GitHuba, niewidoczny z repozytorium.
+    assert _runner_mismatch(_runner_labels({"runs-on": {"group": "own"}}))
+    # Maszyna GitHuba, czyli minuty, których na koncie nie ma.
+    assert _runner_mismatch(["ubuntu-latest"])
+    assert _runner_mismatch(None)
+
+    # …a komplet z §9 przechodzi niezależnie od kolejności i wielkości liter, bo
+    # GitHub dobiera maszynę koniunkcją etykiet. Bez tych dwóch asercji „wszystko
+    # jest błędem" byłoby dla bramki nie do odróżnienia od poprawnej detekcji.
+    assert _runner_mismatch(list(REQUIRED_RUNNER_LABELS)) is None
+    assert _runner_mismatch(["woogitsu", "wsl2", "x64", "linux", "SELF-HOSTED"]) is None
+    assert _runner_mismatch(
+        _runner_labels({"runs-on": list(REQUIRED_RUNNER_LABELS)})) is None
 
 
 def _unwrap_expression(condition):
