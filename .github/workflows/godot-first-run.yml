@@ -309,8 +309,14 @@ jobs:
           # wstawiana w przebieg tunelu. To jest zakres osobnego zadania i do tego
           # czasu scena pokazuje płytę i pas ostrzegawczy, czyli to, co leży w tunelu,
           # który naprawdę ma.
+          # `--platform-length-m design` bierze DECYZJĘ WŁAŚCICIELA (95,0 m, T-212)
+          # ze `station_components.DESIGN_PLATFORM_LENGTH_M`, zamiast przepisywać tu
+          # liczbę po raz drugi. Bez tego słowa generator brał wartość domyślną, czyli
+          # dolną granicę z R-007 (94,0 m = długość składu), i scena dostawała perony
+          # o metr krótsze niż decyzja. Pilnuje tego
+          # `tools/tests/test_platform_length_in_pipeline.py`, mierząc wynik generatora.
           python3 tools/track/station_layout.py --axis data/track/L1_A.json \
-            --out build/t400/L1_A-platforms.json
+            --out build/t400/L1_A-platforms.json --platform-length-m design
           "$BLENDER_BIN" --background --python-exit-code 7 --python tools/blender/station_kit.py -- \
             --axis data/track/L1_A.json --layout build/t400/L1_A-platforms.json \
             --platform-gap-m 0.08 --component platform --component edge \

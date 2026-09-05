@@ -2,7 +2,7 @@
 """Rozmieszczenie peronów wzdłuż osi — połowa danych, zero decyzji projektowych.
 
     python3 tools/track/station_layout.py --axis data/track/L1_A.json \
-        --out build/L1_A-platforms.json --platform-length-m 94.0
+        --out build/L1_A-platforms.json --platform-length-m design
 
 Ten sam podział, co w T-011: **tu liczą się kilometraże i granice**, a bryły buduje
 osobne narzędzie w Blenderze. Pierwsza połowa nie ma ani jednej decyzji projektowej
@@ -19,6 +19,13 @@ Co ten plik liczy i skąd to bierze:
 
 Czego ten plik NIE robi:
 
+* **nie wymyśla długości peronu i nie trzyma jej drugiej kopii.** Długość jest
+  parametrem wywołania — tak chce R-007 §5 pkt 2. Wołający, który chce DECYZJI
+  WŁAŚCICIELA (T-212), pisze `--platform-length-m design`, a wtedy liczba przychodzi
+  z `station_components.DESIGN_PLATFORM_LENGTH_M` i nie jest tu przepisana. Bez tego
+  słowa pipeline dostawał 94,0 m, czyli dolną granicę zamiast decyzji, i przez dwa
+  dni budował perony o metr za krótkie — 04.09.2026, zmierzone na Beekkant
+  (462,73–556,73 m) i Parc (4028,66–4122,66 m);
 * **nie wymyśla szczeliny peron–pudło.** R-007 (`reports/R-007-platform-dimensions.md`)
   ustalił, że nie podaje jej żadne publiczne źródło. `--platform-gap-m` NIE MA wartości
   domyślnej: bez niej `edge_offset_m` wychodzi `None`, a nie liczba. Zero znaczyłoby
@@ -37,13 +44,22 @@ import sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.insert(0, os.path.join(ROOT, "tools", "blender"))
+sys.path.insert(0, os.path.join(ROOT, "tools", "track"))
 
 import clearance as CL  # noqa: E402
 import profiles  # noqa: E402
+import station_components as SC  # noqa: E402
 import sweep as SW  # noqa: E402
 
 #: Krok zagęszczania osi, ten sam co w generatorze tuneli i w rdzeniu.
 RING_STEP_M = 5.0
+
+#: Słowo, którym wołający prosi o DECYZJĘ WŁAŚCICIELA zamiast przepisywać liczbę.
+#: Istnieje po to, żeby 95,0 m stało w repozytorium dokładnie raz. Wołających jest
+#: dwóch (`tools/ci/station_details.sh`, `.github/workflows/godot-first-run.yml`)
+#: i gdyby każdy niósł własne `--platform-length-m 95.0`, byłyby to dwie kopie
+#: liczby, która już raz się rozjechała.
+DESIGN_LENGTH_KEYWORD = "design"
 
 
 def _spec():
@@ -76,6 +92,36 @@ def radius_within(points, chord_m, from_m, to_m):
     radii = [r for s, r in CL.radii_along(points, chord_m)
              if r is not None and from_m <= s <= to_m]
     return min(radii) if radii else None
+
+
+def resolve_platform_length_m(value):
+    """Zamienia wartość `--platform-length-m` na parę (metry, skąd ta liczba).
+
+    Trzy przypadki i każdy mówi wprost, czyja jest liczba:
+
+    * `design` — DECYZJA WŁAŚCICIELA z T-212, czytana z `station_components`. To jedyna
+      droga, którą 95,0 m wchodzi do pipeline'u, i dlatego jest jedna: liczba nie jest
+      tu przepisana ani razu;
+    * liczba — wołający bierze odpowiedzialność za swoją wartość (tak wołają testy
+      granic i pojedyncze eksperymenty);
+    * brak — dolna granica z R-007 §5 pkt 2, czyli długość składu M7. To NIE jest
+      decyzja o długości peronu, tylko jej ograniczenie wyprowadzone z faktu STIB.
+    """
+    if value is None:
+        return train_length_m(), (
+            "R-007 §5 pkt 2: dolna granica = długość składu M7 (spec STIB); "
+            "to nie jest decyzja o długości peronu, tylko jej ograniczenie")
+    if str(value).strip().lower() == DESIGN_LENGTH_KEYWORD:
+        return float(SC.DESIGN_PLATFORM_LENGTH_M), (
+            "decyzja właściciela T-212: station_components.DESIGN_PLATFORM_LENGTH_M "
+            f"= {SC.DESIGN_PLATFORM_LENGTH_M:.1f} m (skład M7 + 1,0 m zapasu)")
+    try:
+        return float(value), "wartość podana jawnie w wywołaniu"
+    except ValueError:
+        raise SystemExit(
+            f"--platform-length-m dostało '{value}': ani liczby, ani słowa "
+            f"'{DESIGN_LENGTH_KEYWORD}' (które znaczy: weź decyzję właściciela "
+            "ze station_components.DESIGN_PLATFORM_LENGTH_M)")
 
 
 def layout(axis_document, platform_length_m, platform_gap_m=None, footprint_m=None,
@@ -156,8 +202,10 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="Rozmieszczenie peronów wzdłuż osi")
     parser.add_argument("--axis", required=True)
     parser.add_argument("--out")
-    parser.add_argument("--platform-length-m", type=float, default=None,
-                        help="domyślnie długość składu M7 — dolna granica z R-007")
+    parser.add_argument("--platform-length-m", default=None,
+                        help=f"metry albo '{DESIGN_LENGTH_KEYWORD}' = decyzja właściciela "
+                             "(station_components.DESIGN_PLATFORM_LENGTH_M); domyślnie "
+                             "długość składu M7, czyli dolna granica z R-007")
     parser.add_argument("--platform-gap-m", type=float, default=None,
                         help="szczelina peron–pudło; BEZ WARTOŚCI DOMYŚLNEJ, bo nie ma źródła")
     parser.add_argument("--footprint-m", type=float, default=None,
@@ -168,13 +216,18 @@ def main(argv=None):
     with open(args.axis, encoding="utf-8") as handle:
         document = json.load(handle)
 
-    length = args.platform_length_m if args.platform_length_m is not None else train_length_m()
+    length, length_source = resolve_platform_length_m(args.platform_length_m)
     report = layout(document, length, args.platform_gap_m, args.footprint_m, args.ring_step_m)
+    # Skąd wzięła się długość — zapisane W WYJŚCIU, nie tylko w logu. Bramka
+    # `tools/tests/test_platform_length_in_pipeline.py` mierzy perony z tego pliku;
+    # ten napis mówi człowiekowi, który go otworzy, czyja jest liczba, którą widzi.
+    report["platform_length_source"] = length_source
 
     clipped = sum(1 for p in report["platforms"] if p["clipped_at_start"] or p["clipped_at_end"])
     offsets = [p["minimum_edge_offset_m"] for p in report["platforms"]]
     print(f"[PERONY] {report['axis_id']}: {len(report['platforms'])} peronów po "
           f"{report['platform_length_m']:.2f} m na osi {report['axis_length_m']:.1f} m")
+    print(f"[PERONY] długość peronu — {length_source}")
     print(f"[PERONY] wysokość {report['platform_height_m']:.2f} m "
           f"({report['platform_height_status']}), cięciwa członu {report['car_chord_m']:.3f} m")
     print(f"[PERONY] minimalne odsunięcie krawędzi {min(offsets):.4f}–{max(offsets):.4f} m "

@@ -73,7 +73,15 @@ test -f "$AXIS" || fail "brak osi wejściowej $AXIS"
 
 echo
 echo "[PERONY 1/4] layout z osi — czysty Python, bez Blendera"
-python3 tools/track/station_layout.py --axis "$AXIS" --out "$OUT/platforms.json"
+# `--platform-length-m design` bierze DECYZJĘ WŁAŚCICIELA (95,0 m, T-212) ze stałej
+# `station_components.DESIGN_PLATFORM_LENGTH_M`, zamiast przepisywać tu liczbę drugi
+# raz. Bez tego słowa generator brał wartość domyślną, czyli dolną granicę z R-007
+# (94,0 m = długość składu M7), i ta bramka od 03.09.2026 budowała perony o metr
+# krótsze niż decyzja — zmierzone 04.09.2026: Beekkant 462,73–556,73 m.
+# Pilnuje tego `tools/tests/test_platform_length_in_pipeline.py`, który MIERZY
+# perony w wyjściu, a nie sprawdza obecności tego napisu w tym pliku.
+python3 tools/track/station_layout.py --axis "$AXIS" --out "$OUT/platforms.json" \
+  --platform-length-m design
 python3 - "$OUT/platforms.json" <<'PY'
 import json, sys
 layout = json.load(open(sys.argv[1], encoding="utf-8"))
