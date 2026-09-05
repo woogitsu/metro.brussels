@@ -89,7 +89,7 @@ obejrzeć stojący przy peronie z otwartymi drzwiami**.
 | `src/Game/FirstRun.cs` | pętla trybu `--line`, kolejność warunków w `StepOnce`, wypis zatrzymań | +216 −10 |
 | `src/Game/DesignAssumptions.cs` | `LineBrakeUsageFraction` | +15 |
 | `src/Sim.Runner/Program.cs` | `line --calls PLIK.csv` — zatrzymania w postaci maszynowej | +23 −1 |
-| `src/Sim/Line/LineDrive.cs` | dokumentacja jednostronnego okna (znalezisko z #210) | +18 |
+| `src/Sim/Train/LineDrive.cs` | dokumentacja jednostronnego okna (znalezisko z #210) | +18 |
 | `tools/ci/assert_line_calls_match.py` | **nowa bramka**: zatrzymania sceny vs rdzenia, próg **zerowy** | +85 |
 | `tools/tests/test_line_calls_gate.py` | **nowe.** Testy samej bramki | +97 |
 | `tests/Game.Tests/RunPlanTests.cs` | argumenty trybu linii | +122 −4 |
@@ -446,10 +446,36 @@ tekstem, nie ma logo, mapy sieci, piktogramów ani wystroju STIB/MIVB
 
 ---
 
-## 5. Czego nie ma
+## 5. Czego nie ma — *stan 04.09.2026; §5.1–5.3 zamknięte, patrz tabela*
 
-Trzy rzeczy poniżej są **znane i nazwane**, dwie z nich stoją w kolejce fazy 6.
-Żadna nie blokuje tego, co etap 3b miał dowieść, i żadna nie jest przemilczana.
+Trzy rzeczy poniżej były **znane i nazwane**, dwie z nich stały w kolejce fazy 6.
+Żadna nie blokowała tego, co etap 3b miał dowieść, i żadna nie była przemilczana.
+
+> **Ta sekcja jest przepisana, a nie dopisana obok — stan sprawdzony 05.09.2026 na
+> `9f4ae98`.** Poprzednia wersja mówiła w czasie teraźniejszym „czego **nie ma**",
+> a **wszystkie trzy pozycje zostały od tamtej pory domknięte**. Raport, który
+> zostawia taką listę bez daty i bez stanu, wygląda jak opis dzisiejszego repozytorium
+> i wysyła następną sesję do pracy leżącej w `main`; usterkę tej rodziny #240 wycięło
+> z `docs/TASKS.md` i nie ma powodu, żeby przeżyła tutaj. Opisy niżej zostają w całości,
+> bo to one tłumaczą, co dokładnie było naprawiane i po czym poznano, że jest źle.
+>
+> | poz. | stan na `9f4ae98` | czym |
+> |---|---|---|
+> | **5.1** peronu nie ma w scenie | **zamknięta** #223 | `src/Game/World/StationView.cs` — perony pakietu A z jednego GLB od `tools/blender/station_kit.py`, plus `src/Game/World/PlatformFit.cs` (pomiary bez silnika) i `tests/Game.Tests/PlatformFitTests.cs`. Zdanie „w `src/Game/World/` nie ma trzeciego widoku" jest więc dziś fałszywe: są cztery |
+> | **5.2** kamera w geometrii, 6.B11 | **zamknięta** #226 + #236 | KIERUNEK: `src/Game/World/ChaseCameraAim.cs` i bramka `tools/ci/assert_no_godot_warnings.py`. GEOMETRIA: decyzja właściciela z 05.09.2026 — widok `chase` jest niedostępny, dopóki cały skład nie wjedzie na oś, a `--shot --view=chase` w tym paśmie odmawia kodem 13 |
+> | **5.3** `TrainView.PlaceAt` bez testu, 6.B12 | **zamknięta** #217 | decyzja o widoczności wyszła z silnika do funkcji czystej `TrainLayout`, granicą jest `ITrainBody`; `dotnet test tests/Game.Tests` → 97/97 |
+>
+> **Poprawka liczby, i to jest część tego samego znaleziska.** §5.2 niżej podaje
+> „kamera obserwacyjna siedzi wewnątrz geometrii przez pierwsze **~106 m**" i wyprowadza
+> to z rachunku 94 + 12. **Ta liczba jest nieprawdziwa** i rozstrzygnął to pomiar
+> z 05.09.2026 zapisany w `docs/TASKS.md` (wiersz 6.B11): 106,0 m to kilometraż, od
+> którego kamera odzyskuje pełne 12,0 m odstępu, a **nie** koniec pasma w geometrii.
+> W skorupie kamera siedzi przez **0..94,0 m** (długość M7, `data/vehicle/m7-spec.json`,
+> status `spec`), a kierunek jest nieokreślony przez **0..47,0 m**. Ułamek pikseli
+> jaśniejszych niż 0,80 w górnych 60 % kadru, `--line --limit-kmh=70`: 20 m → 0,1 %,
+> 48 m → 56,4 %, 50 m → 38,3 %, 90 m → 0,0 %, 96 m → 42,0 %, 110 m → 0,0 %,
+> 2000 m → 0,0 %. Rachunek 94 + 12 był rachunkiem na odstępie kamery, a przedstawiono
+> go jako pomiar pasma — i tak właśnie liczba stojąca w prozie dryfuje w ciszy.
 
 ### 5.1 Na stacji nie ma peronu w scenie
 
@@ -537,13 +563,17 @@ czystej, tak jak `StreamingPlan` w #174) jest jednak niezależne i mocniejsze.
 
 ### 5.4 Reszta, poza kolejką
 
-| brakuje | dlaczego |
-|---|---|
-| **wiele składów na linii** | T-320 (`LineCore`, dyspozytor); tryb `--line` prowadzi **jeden** skład |
-| **przejęcie składu w ruchu** | nie ma czego przejmować, dopóki nie ma drugiego składu |
-| **sygnalizacja w kabinie** | T-313 jest w rdzeniu, ale HUD nie pokazuje ani prędkości dopuszczalnej, ani autorytetu jazdy |
-| **przejazd ręczny obejrzany** | tryb ręczny czyta klawiaturę przez `IsPhysicalKeyPressed`; headless nie ma czego nacisnąć. Tryb `--line` jest odpowiedzią na tę dziurę „z drugiej strony", nie jej zasypaniem |
-| **drugi pakiet w scenie** | przy `vertical.status = not_modelled` cała sieć leży na Z = 0, więc pakiety A i E przenikają się w planie w rejonie Arts-Loi (`reports/network-chainage.md`) |
+Stan każdego wiersza sprawdzony ponownie 05.09.2026 na `9f4ae98` — poprzednia wersja
+tej tabeli miała tylko dwie kolumny i czytała się jako lista braków dzisiejszych,
+a trzy z pięciu pozycji już nie są brakami:
+
+| brakuje | dlaczego (04.09.2026) | stan 05.09.2026 |
+|---|---|---|
+| **wiele składów na linii** | T-320 (`LineCore`, dyspozytor); tryb `--line` prowadzi **jeden** skład | `src/Sim/Line/LineCore.cs` istnieje wraz z `RouteDispatcher` i `LineCoreTests`; w **scenie** tryb `--line` nadal prowadzi jeden skład, więc brak zwęził się do warstwy widoku |
+| **przejęcie składu w ruchu** | nie ma czego przejmować, dopóki nie ma drugiego składu | otwarte |
+| **sygnalizacja w kabinie** | T-313 jest w rdzeniu, ale HUD nie pokazuje ani prędkości dopuszczalnej, ani autorytetu jazdy | **zamknięte** #215 — `src/Game/UI/Hud.cs` ma dziś wiersz „prędkość dopuszczalna, autorytet i powód jego końca" |
+| **przejazd ręczny obejrzany** | tryb ręczny czyta klawiaturę przez `IsPhysicalKeyPressed`; headless nie ma czego nacisnąć | **zamknięte** #239 — `--input-log` zapisuje wciśnięcia **po numerze kroku** (`src/Sim/Train/InputLog.cs`), `--replay` je odtwarza, więc przejazd ręczny da się dziś uruchomić headless i porównać |
+| **drugi pakiet w scenie** | przy `vertical.status = not_modelled` cała sieć leży na Z = 0, więc pakiety A i E przenikają się w planie w rejonie Arts-Loi (`reports/network-chainage.md`) | otwarte |
 
 ---
 
@@ -662,10 +692,25 @@ to zadanie nie obejmuje. Co zmierzyłem: **zero** takich wyjątków i **zero** w
 
 ---
 
-## 8. Zauważone przy okazji, nie tknięte
+## 8. Zauważone przy okazji, nie tknięte — *cztery z pięciu zamknięte, patrz tabela*
 
-Ten raport nie zmienia ani jednego pliku poza sobą. Poniższe pięć rzeczy zauważyłem
-przy pomiarze i **żadnej nie poprawiłem** — na tych plikach pracują teraz inne gałęzie.
+Ten raport nie zmieniał ani jednego pliku poza sobą. Poniższe pięć rzeczy zauważyłem
+przy pomiarze 04.09.2026 i **żadnej wtedy nie poprawiłem** — na tych plikach pracowały
+wówczas inne gałęzie.
+
+> **Ta sekcja jest przepisana, a nie dopisana obok — stan sprawdzony 05.09.2026 na
+> `9f4ae98`.** Gałęzie, o których mówi zdanie wyżej, scaliły się i **cztery z pięciu
+> pozycji przestały być prawdziwe**. Każda z nich jest sformułowana w czasie
+> teraźniejszym („wypisuje", „nie jest włączone", „są nieaktualne"), więc bez tej
+> tabeli sekcja czyta się jak lista otwartych usterek dzisiejszego drzewa:
+>
+> | poz. | stan | czym, sprawdzone lekturą |
+> |---|---|---|
+> | **8.1** dziesięć ostrzeżeń `colinear` | **zamknięta** #226 | `src/Game/World/ChaseCameraAim.cs` podstawia kierunek osi tam, gdzie kamera i cel wypadają w jednym punkcie; liczba ostrzeżeń na przebieg `--line` zeszła do zera i pilnuje tego bramka `tools/ci/assert_no_godot_warnings.py`. Kryterium „naprawa 6.B11 powinna zejść z dziesięciu ostrzeżeń do zera", postawione w tym punkcie, zostało użyte dokładnie jako kryterium |
+> | **8.2** nagłówek mówi 80,0 km/h w `--line` | **zamknięta** #220 | składanie wiersza `[PRZEJAZD]` wyszło do `src/Game/RunHeader.cs`, czyli do pliku bez Godota; `RunHeader.SpeedLimitMps` bierze limit z `LineCore`/`LineDrive`, a dla `lineMode` bez prowadzenia z rdzenia **rzuca wyjątkiem** zamiast wpisać 80 km/h ze scenariusza. `FirstRun.SpeedLimitMps` jest dziś jedną linią delegującą tam |
+> | **8.3** osierocony `<summary>` | **zamknięta** #222 i #224 | `src/Sim/Line/TrackAxis.cs`: `CoversChord` ma jeden blok, `MaxDeviationFromSourceM` ma swój własny plus `<returns>`. Zdanie „generowanie dokumentacji XML nie jest włączone" jest **osobno nieprawdziwe**: `src/Sim/Sim.csproj` i `src/Game/MetroBxl.Game.csproj` mają dziś `<GenerateDocumentationFile>true</GenerateDocumentationFile>`, a CS1570–CS1574 i CS1591 są w `WarningsAsErrors`. Dokumentacji pilnuje więc kompilator, nie skan tekstowy — i to jest dokładnie ten drugi wniosek, który ten punkt podpowiadał |
+> | **8.4** dwie liczby o peronie | **zamknięta** #222 | komentarz przy `DesignAssumptions.StationStopWindowM` podaje dziś peron 95,0 m z odsyłaczem do `tools/track/station_components.py: DESIGN_PLATFORM_LENGTH_M`, dolne ograniczenie 94,0 m nazwane wprost długością składu M7, a udział liczony do **połowy peronu 47,5 m**: „5,0 m to 10,5 % tej połowy — jedna podstawa, ta sama w obu zdaniach". Obie usterki wskazane w punkcie 8.4 zostały poprawione tak, jak je opisał |
+> | **8.5** `doctor.sh` nie uruchomiony | **zostaje jako zapis** | to nie jest usterka repozytorium, tylko oświadczenie o przebiegu tamtej sesji, i przepisywać go nie ma czego |
 
 ### 8.1 Dziesięć ostrzeżeń `Target and up vectors are colinear` na przebieg linią
 

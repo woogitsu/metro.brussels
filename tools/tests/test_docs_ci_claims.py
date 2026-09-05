@@ -41,6 +41,7 @@ import yaml
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 WORKFLOWS = os.path.join(ROOT, ".github", "workflows")
 DOCS = os.path.join(ROOT, "docs")
+REPORTS = os.path.join(ROOT, "reports")
 README = os.path.join(ROOT, "README.md")
 
 #: Markery, po których akapit jest opisem przeszłości albo cytatem z pomiaru,
@@ -67,7 +68,16 @@ HOSTED_NAME = re.compile(
     r"\b(?:ubuntu|windows|macos)-(?:latest|[0-9]{2}\.[0-9]{2}|[0-9]{1,2})\b", re.I)
 
 #: „GitHub-hosted runner" jako klasa maszyny.
-GITHUB_HOSTED = re.compile(r"\bgithub[-\s]hosted\b", re.I)
+#:
+#: Lookaroundy `(?<![\w/-])` i `(?![\w-])` odsiewają **identyfikator**, w którym ten
+#: napis jest tylko członem. Nie jest to ostrożność, tylko naprawa zmierzonego
+#: fałszywego trafienia: po włączeniu `reports/` do bramki (05.09.2026) sam `\b`
+#: łapał nazwę gałęzi `chore/github-hosted-actions` w rejestrze skasowanych gałęzi
+#: (`reports/branch-audit.md`, wiersze 108 i 218) i raportował ją jako twierdzenie
+#: o runnerze. Nazwa gałęzi z 08.2026 jest faktem historycznym o repozytorium, a nie
+#: zdaniem o tym, gdzie dziś chodzą joby — i przepisać jej się nie da, bo z niej
+#: odtwarza się `git branch <nazwa> <sha>`.
+GITHUB_HOSTED = re.compile(r"(?<![\w/-])github[-\s]hosted(?![\w-])", re.I)
 
 #: Miejsca, po których w prozie stoi lista etykiet: `self-hosted …` i `runs-on …`.
 LABEL_ANCHOR = re.compile(r"\bself-hosted\b|\bruns-on\b", re.I)
@@ -206,9 +216,36 @@ def claims_in_line(line, allowed):
 
 
 def documents():
-    """Pliki objęte bramką: `docs/*.md` i `README.md`."""
+    """Pliki objęte bramką: `docs/*.md`, `reports/*.md` i `README.md`.
+
+    **Dlaczego `reports/` doszło 05.09.2026.** Ten sam dryf, który ta bramka wycięła
+    z `docs/`, siedział przez trzy dni w `reports/` — bo nic tam nie patrzyło.
+    Zmierzone na `9f4ae98`: pięć raportów opisywało runnera, którego nie ma
+    (`T-400-first-run.md` dwa razy, `T-310-physics.md`, `T-311-braking.md`,
+    `L1_A-geometry.md`, `m7-ground-truth-verification.md`), a `T-310-physics.md` §7
+    robił to **z odsyłaczem do `CLAUDE.md` §9**, który od 02.09.2026 mówi coś
+    dokładnie przeciwnego. Odsyłacz do dokumentu, który zaprzecza zdaniu, przy którym
+    stoi, jest gorszy niż brak odsyłacza: wygląda na sprawdzony.
+
+    **Dlaczego to nie kłóci się z datowanym pomiarem.** Raport z etapu 1 ma prawo
+    opisywać maszynę z etapu 1 — pod warunkiem że mówi to wprost. Pomijanie idzie
+    z granulacją akapitu i `HISTORICAL_MARKERS` zawiera „zmierzone"/„zmierzono", więc
+    zdanie „Zmierzone 01.09.2026 na GitHub-hosted `ubuntu-latest`, ~32 s" przechodzi,
+    a „job chodzi na `ubuntu-latest`" nie. To jest dokładnie ta granica, o którą
+    chodzi: nie wolno przeliczać cytatu, wolno wymagać, żeby cytat był oznaczony.
+
+    **Czego to NIE obejmuje i dlaczego nie da się objąć tak samo tanio.** Bramka
+    porównuje prozę z **jednym** źródłem prawdy sparsowanym maszynowo — etykietami
+    `runs-on` z YAML-a. Rodzina „nieaktualna liczba w prozie raportu" nie ma jednego
+    takiego źródła: `reports/` cytuje wyjścia poleceń, bloki kodu sprzed poprawki
+    i liczby z przebiegów, których nie da się odróżnić od twierdzeń o stanie
+    bieżącym bez czytania zdania. Bramka, która by je przeliczała zbiorczo, psułaby
+    datowane pomiary — powód rozpisany w `tools/tests/test_report_hygiene.py`.
+    """
     found = sorted(os.path.join(DOCS, name) for name in os.listdir(DOCS)
                    if name.endswith(".md"))
+    found += sorted(os.path.join(REPORTS, name) for name in os.listdir(REPORTS)
+                    if name.endswith(".md"))
     if os.path.exists(README):
         found.append(README)
     return found
@@ -257,14 +294,19 @@ def test_allowed_labels_come_from_the_parsed_workflows():
 
 
 def test_no_document_states_a_runner_that_no_workflow_uses():
-    """Główna bramka: proza w `docs/` i `README.md` wobec sparsowanych workflowów."""
+    """Główna bramka: proza w `docs/`, `reports/` i `README.md` wobec workflowów."""
     allowed = allowed_labels()
     drift, checked = scan(documents(), allowed)
     assert not drift, ("dokumenty opisują runnera, którego nie ma w CI: "
                        + "; ".join(drift))
     # Liczba jak w bramkach CI: pętla, która nie znalazła ani jednego dokumentu,
-    # przeszłaby pusta i zielona — a to jest awaria bramki, nie brak dryfu.
-    assert checked >= 20, f"przejrzano tylko {checked} dokumentów — pętla ich nie widzi"
+    # przeszłaby pusta i zielona — a to jest awaria bramki, nie brak dryfu. Próg
+    # podniesiony z 20 na 60, gdy doszło `reports/`: samych raportów jest 48, więc
+    # próg 20 przeszedłby również wtedy, gdyby cały katalog wypadł z pętli.
+    assert checked >= 60, f"przejrzano tylko {checked} dokumentów — pętla ich nie widzi"
+    reports = [p for p in documents() if os.path.dirname(p) == REPORTS]
+    assert len(reports) >= 40, (
+        f"w pętli jest tylko {len(reports)} raportów — `reports/` wypadło z bramki")
 
 
 def test_the_detector_catches_the_drifts_that_were_measured_on_main():
@@ -286,6 +328,17 @@ def test_the_detector_catches_the_drifts_that_were_measured_on_main():
     assert not claims_in_line("job `ubuntu-latest`", {"ubuntu-latest"})
     assert not claims_in_line("na GitHub-hosted runnerze", {"ubuntu-latest"})
     assert not claims_in_line("na self-hosted WSL2", {"self-hosted", "wsl2"})
+
+    # NAZWA GAŁĘZI NIE JEST TWIERDZENIEM O RUNNERZE — kontrola negatywna na dokładnie
+    # tym fałszywym trafieniu, które wyszło przy włączaniu `reports/` do bramki.
+    # Bez lookaroundów w `GITHUB_HOSTED` oba wiersze niżej były raportowane jako dryf.
+    assert not claims_in_line(
+        "| `chore/github-hosted-actions` | #40 | `2fa599de` |", allowed)
+    assert not claims_in_line("    chore/github-hosted-actions \\", allowed)
+    # …ale sama klasa maszyny w prozie nadal musi być łapana, inaczej lookaroundy
+    # zjadłyby detekcję razem z fałszywym trafieniem.
+    assert claims_in_line("job chodzi na GitHub-hosted runnerze", allowed)
+    assert claims_in_line("(GitHub-hosted `ubuntu-latest`, ~32 s)", allowed)
 
 
 def test_a_sentence_marked_as_history_is_not_treated_as_drift():

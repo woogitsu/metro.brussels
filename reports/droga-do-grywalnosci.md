@@ -178,6 +178,24 @@ Pięć pozycji. Tyle wynika z §2 po odjęciu decyzji właściciela i po odjęci
 zależy od T-320. **Numeracja `G-n` jest robocza** — do `docs/TASKS.md` wejdą jako
 pozycje fazy 6 albo jako etapy T-400, o czym rozstrzyga właściciel, nie ten raport.
 
+> **G-1 JEST ZROBIONE. Ten akapit jest dopisany 05.09.2026 właśnie po to, żeby
+> propozycja nie wysłała nikogo drugi raz w to samo miejsce.** Rozpoznanie mierzyło
+> na `3c242f7`; jeszcze tego samego dnia #239 (`c787198`, gałąź `2c19026`) zrobiło
+> G-1 co do litery — z tymi samymi liczbami pomiaru „przed", które stoją w §5.1
+> tego raportu. Sprawdzone lekturą drzewa na `9f4ae98`:
+>
+> | czego G-1 żądało | co jest |
+> |---|---|
+> | `--input-log=PLIK` i `--replay=PLIK` w `RunPlan.KnownArguments` | `src/Game/RunPlan.cs:38` — `"input-log", "replay"`, z odmowami dla `--replay` razem z `--line` i z `--shot` |
+> | format zapisu w `src/Sim/Train/`, bez Godota, kolumny „krok, klawisze" | `src/Sim/Train/InputLog.cs` — `InputLogEntry(long Step, DriverKeys Keys)`, nagłówek `wersja=`/`kroki=`, wiersze `krok;klawisze`; plus `InputLogRecorder.cs`, `DriverKeys.cs` |
+> | przesuw nastawnika **wewnątrz** kroku, nie raz na klatkę | `src/Game/FirstRun.cs` — komentarz przy `StepOnce` mówi wprost „na krok symulacji — nie raz na klatkę", nastawnik żyje w `src/Sim/Train/DriverNotch.cs` (`tests/Sim.Tests/DriverNotchTests.cs`) |
+> | testy | `tests/Sim.Tests/InputLogTests.cs`, `tests/Sim.Tests/DriverNotchTests.cs`, `tests/Sim.Tests/StepAccumulatorTests.cs` |
+>
+> **Reszta pozycji (G-2 … G-5) nie została sprawdzona pod tym kątem w tym przeglądzie
+> i zostaje jako propozycja** — nie jest to milczące zapewnienie, że są otwarte, tylko
+> jawne ograniczenie zakresu: przegląd `reports/` szukał twierdzeń nieprawdziwych,
+> a nie odhaczał kolejki.
+
 ### G-1 · Wejście gracza krokowane numerem kroku i zapisywalne
 
 - **Skąd:** `docs/01-architecture.md` §Determinizm („wejścia gracza ze znacznikiem
@@ -455,9 +473,18 @@ problem, którego #26 nie mógł znać:
 
 ## 5. Ryzyka
 
-### 5.1 Wejście gracza jest próbkowane czasem klatki — przejazd zależy od FPS
+### 5.1 Wejście gracza było próbkowane czasem klatki — **ryzyko zdjęte przez #239**
 
-**Największe ryzyko techniczne w tym rozpoznaniu**, bo uderza wprost w regułę
+> **Ten punkt jest przepisany, a nie dopisany obok.** Jego poprzednia wersja mówiła
+> „wejście gracza **jest** próbkowane czasem klatki" i kończyła się zdaniem
+> „**Lekarstwo jest w G-1**". Lekarstwo weszło tego samego dnia jako #239 (gałąź
+> `2c19026`, scalona jako `c787198`), więc czas teraźniejszy tu kłamie.
+> Pomiar zostaje **nieprzeliczony i w całości**, bo to on jest uzasadnieniem tamtej
+> naprawy — te same pięć wierszy stoi w komunikacie commita `2c19026` jako „pomiar
+> przed naprawą". Rozjazd 0,234166 m na 60 s jest faktem o drzewie `3c242f7`, a nie
+> o dzisiejszym.
+
+**Było to największe ryzyko techniczne tego rozpoznania**, bo uderzało wprost w regułę
 z `docs/01-architecture.md` i w kryterium odbioru z #26.
 
 Pętla wygląda tak [Z KODU, `FirstRun.cs:602` i `:636–658`]: raz na klatkę
@@ -515,10 +542,15 @@ samych commandach**"*. Czyli: zapis wejść staje się scenariuszem, a bramka po
 odtworzenie z odtworzeniem. To jest G-1 + G-2 i **nie da się tego obejść** —
 porównywanie „na żywo" prowadzonego przejazdu z czymkolwiek nie ma sensu.
 
-Drobna przeszkoda techniczna, na którą warto się przygotować:
+~~Drobna przeszkoda techniczna, na którą warto się przygotować:
 `DriveTelemetry.Row` przyjmuje **wyłącznie** `ScenarioDrive`
 (`src/Sim/Train/DriveTelemetry.cs:28`), więc przejazd ręczny nie umie dziś nawet
-wypisać wiersza w formacie, którym mierzy się wszystko inne.
+wypisać wiersza w formacie, którym mierzy się wszystko inne.~~
+**Przeszkoda zniknęła w #239 i to zdanie jest przepisane, a nie dopisane obok:**
+`DriveTelemetry` ma dziś **dwa** przeciążenia `Row` — jedno bierze `ScenarioDrive`,
+drugie składniki (`DriveState`, `FixedStep`, chainage, przyspieszenie, …), a
+`FirstRun.ManualTelemetryRow()` woła to drugie. Przejazd ręczny wypisuje więc wiersz
+w tym samym formacie co reszta i wiersz zerowy przed pierwszym krokiem także.
 
 ### 5.3 `LineDrive` ma okno zatrzymania **jednostronne** — dla człowieka to znaczy drzwi w tunelu
 

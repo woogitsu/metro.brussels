@@ -433,7 +433,13 @@ $ python3 tools/tests/test_all.py | tail -1
   389/389 przeszło
 ```
 
-### 5.8 CI na `ubuntu-latest` (PR #78)
+### 5.8 CI (PR #78)
+
+Zmierzone 01.09.2026. Poprzednia wersja tego śródtytułu brzmiała „CI na
+`ubuntu-latest`"; przestało to być prawdą 02.09.2026, gdy całe CI zeszło na gołą
+etykietę `self-hosted` (`CLAUDE.md` §9), więc nazwa runnera jest tu skreślona,
+a nie podmieniona — wyjście joba niżej pochodzi z tamtej maszyny i pozostaje jego
+zapisem.
 
 `CLAUDE.md` §9: `queued` nie jest weryfikacją. Wyjście zakończonego joba `Sim core tests`
 (`.github/workflows/sim-tests.yml`), razem z nowym krokiem bramkującym:
@@ -516,8 +522,13 @@ tego zadania i nie zostały tknięte; ich stan jest widoczny na PR.
    Liczba ta sama, znaczenie inne; opisałem to w obu miejscach, ale gdyby R-005
    przyniósł kiedyś prawdziwy układ napędu i hamulca, są to dwa różne parametry
    i trzeba je rozdzielić.
-4. **`doctor.sh` nadal kończy się zdaniem „Następne zadanie: T-010"**, choć T-010
-   i pakiet T-2xx są zrobione. Odnotowane już w T-310 §9.2; nadal poza zakresem.
+4. ~~**`doctor.sh` nadal kończy się zdaniem „Następne zadanie: T-010"**, choć T-010
+   i pakiet T-2xx są zrobione. Odnotowane już w T-310 §9.2; nadal poza zakresem.~~
+   **Zamknięte; przepisane, nie dopisane obok.** `doctor.sh` czyta dziś następne
+   zadanie z `docs/TASKS.md`, nie z napisu w skrypcie — patrz `reports/T-310-physics.md`
+   §9.2, gdzie ta sama pozycja jest rozpisana z numerem wiersza. Słowo „nadal" jest
+   tu pouczające: ten punkt powtarzał obserwację z T-310 bez ponownego sprawdzenia
+   kodu, i dokładnie tak nieaktualna liczba przechodzi z raportu do raportu.
 5. **Bezpiecznik pętli `BrakingRun` to 120 s, jak w `ServiceBrakingRun`.** Na
    pochyleniu stromszym niż ok. −10 % przy hamowaniu służbowym skład nie zatrzyma się
    w ogóle i przebieg skończy się `RunOutcome.TimeLimit`. Jest to zachowanie poprawne

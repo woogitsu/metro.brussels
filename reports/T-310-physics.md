@@ -325,7 +325,12 @@ exit=1
 Stała została przywrócona; różnica 0,4 m na 337 m to rozjazd rzędu jednego promila
 i kontrola go łapie.
 
-### CI na `ubuntu-latest` (PR #69)
+### CI (PR #69)
+
+Zmierzone 01.09.2026, gdy joby chodziły jeszcze na maszynie GitHuba — poprzednia
+wersja tego śródtytułu brzmiała „CI na `ubuntu-latest`" i przestała być prawdą
+02.09.2026, kiedy całe CI zeszło na gołą etykietę `self-hosted` (`CLAUDE.md` §9).
+Śródtytuł jest tu przepisany, a nie dopisany obok; liczby przebiegów zostają.
 
 `CLAUDE.md` §9: `queued` nie jest weryfikacją. Stan po zakończonych jobach:
 
@@ -338,8 +343,9 @@ i kontrola go łapie.
 
 Blender smoke ma znaczenie osobne: `tools/ci/blender_smoke.sh` uruchamia `bash doctor.sh`
 pod `set -euo pipefail`, więc zielony job jest dowodem, że `doctor.sh` z `dotnet`
-w sekcji **wymaganej** i z sekcją testów rdzenia przechodzi na czystym runnerze
-GitHuba, a nie tylko na maszynie, na której pisałem kod. Pozostałe trzy workflow
+w sekcji **wymaganej** i z sekcją testów rdzenia przechodzi na czystej maszynie,
+a nie tylko na tej, na której pisałem kod. (Zmierzone 01.09.2026 — była to wtedy
+maszyna GitHuba; dziś ten sam job chodzi na `self-hosted`.) Pozostałe trzy workflow
 (`tunnel-alignment`, `visual-regression`, `m7-shell`) mają filtry ścieżek, których ten
 PR nie rusza, więc się nie uruchamiają.
 
@@ -354,7 +360,15 @@ oraz trzy pozycje w kontroli struktury: `data/vehicle/m7-spec.json`, `src/Sim`,
 `tests/Sim.Tests`. Sekcja testów rdzenia jest pomijana z komunikatem, gdy `dotnet`
 nie istnieje, żeby raport nie sypał dwa razy tym samym błędem.
 
-`.github/workflows/sim-tests.yml`, nowy, na `ubuntu-latest` (`CLAUDE.md` §9), pięć
+> Poprzednia wersja akapitu niżej opisywała ten workflow jako stojący „na
+> `ubuntu-latest` (`CLAUDE.md` §9)". **To już nieprawda i było mylące podwójnie**:
+> od 02.09.2026 §9 mówi coś przeciwnego — całe CI chodzi na gołej etykiecie
+> `self-hosted` — więc odsyłacz kierował czytelnika do dokumentu, który zaprzecza
+> zdaniu, przy którym stał. Nazwa runnera jest tu skreślona, a nie podmieniona na
+> dzisiejszą: opis kroków jest pomiarem z 01.09.2026 i nie staje się przez to
+> opisem dzisiejszego pliku.
+
+`.github/workflows/sim-tests.yml`, nowy, pięć
 kroków po instalacji SDK przez `actions/setup-dotnet@v4`:
 restore → build Release (ostrzeżenia w `src/Sim` są błędami) → `dotnet test` → kontrola
 braku odwołań do Godota w `src/Sim` → kontrola braku `PackageReference` w rdzeniu →
@@ -409,9 +423,17 @@ strony: na czystym drzewie nie znajdują nic, a po wstawieniu `using Godot;` do
    ograniczenie przyspieszenia, czy dokument ma przestać deklarować limit — jest decyzją projektową
    (`CLAUDE.md` §8), a nie zmianą w rdzeniu. Dotyczy tego samego `design_model`, który
    generuje punkt przejścia 31,24 km/h.
-2. **`doctor.sh` kończy się zdaniem „Następne zadanie: T-010"**, choć T-010 i cały
-   pakiet T-2xx są zrobione. Napis jest zaszyty na stałe i wprowadza w błąd, ale
-   poprawianie go w tym PR to zmiana spoza zadania.
+2. ~~**`doctor.sh` kończy się zdaniem „Następne zadanie: T-010"**, choć T-010 i cały
+   pakiet T-2xx są zrobione. Napis jest zaszyty na stałe i wprowadza w błąd.~~
+   **Zamknięte; ten punkt jest przepisany, a nie dopisany obok.** Napis nie jest już
+   zaszyty na stałe: `doctor.sh` wyprowadza następne zadanie z `docs/TASKS.md`
+   (`grep -E '^### \[ \]'` z odsianiem pozycji `ZABLOKOWANE` i `CZŁOWIEK`), a nad tym
+   miejscem stoi komentarz z powodem — „wpisane na sztywno przestaje być prawdą
+   pierwszego dnia po zrobieniu tego zadania i wysyła kolejną sesję do roboty, która
+   już leży w main". Sprawdzone lekturą `doctor.sh` na `9f4ae98`. Ta sama obserwacja
+   stała jeszcze w `reports/T-311-braking.md` §7.4 i `reports/T-400-first-run.md` §8.2
+   i tam też jest przepisana — trzy raporty niosły ją niezależnie, bo każdy odsyłał
+   do poprzedniego zamiast do kodu.
 3. **W repo są dwa sposoby zapisu statusu wartości**: `design_model` w
    `data/vehicle/m7-spec.json` i `design_assumption` w `docs/21-measured-vs-assumed.md`.
    Rdzeń rozumie ten pierwszy, bo taki jest w rejestrze. Ujednolicenie słownika

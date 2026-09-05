@@ -47,4 +47,13 @@ These are model outputs, not claimed M7 performance measurements.
 
 ## CI evidence
 
-Repository policy changed on 2026-09-01 to GitHub-hosted Actions. Completion requires a green `Python tool tests` run for the final PR head; the concrete run ID and conclusion are recorded in the PR/Issue verification comment rather than hard-coded here before CI executes.
+Zmierzone/obowiązujące 01.09.2026: repository policy had changed that day to
+GitHub-hosted Actions. **This sentence is rewritten, not appended to, because it is
+no longer true of the repository**: on 02.09.2026 the GitHub Actions minutes ran out
+and every job moved to the bare `self-hosted` label (`CLAUDE.md` §9). The clause is
+kept in the past tense so the verification record still says under which policy it
+was accepted, without asserting that policy today.
+
+Completion requires a green `Python tool tests` run for the final PR head; the
+concrete run ID and conclusion are recorded in the PR/Issue verification comment
+rather than hard-coded here before CI executes.

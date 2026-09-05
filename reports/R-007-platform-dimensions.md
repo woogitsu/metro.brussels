@@ -120,6 +120,20 @@ ograniczenie nie obowiązuje** i tak jest zapisane w `sources.json`.
    generatora** o wartości domyślnej **94,0 m = długość składu** (fakt STIB), a **nie**
    94,76 m (pomiar OSM, klasa niżej w hierarchii). Peron długości składu jest najkrótszym
    peronem zgodnym z ruchem i najmniej zmyślonym wyborem, jaki mamy.
+
+   > **Wartość liczbowa tego punktu została zmieniona 04.09.2026 i ten dopisek jest
+   > przepisaniem, nie przypisem.** Decyzja właściciela przy T-212 podniosła parametr
+   > z 94,0 m na **95,0 m** i tak stoi w kodzie: `tools/track/station_components.py:
+   > DESIGN_PLATFORM_LENGTH_M = 95.0`, `docs/21-measured-vs-assumed.md` §4e,
+   > `reports/T-212-station.md` §2. Zmiana **nie** unieważnia rozstrzygnięcia wyżej,
+   > tylko je uszczegóławia: 94,0 m pozostaje **dolnym ograniczeniem** udowodnionym
+   > w §4 (peron krótszy od składu jest sprzeczny z ruchem bez selektywnego otwierania
+   > drzwi), a dołożony 1,00 m zapasu (po 0,50 m z każdej strony) to 3,2× największy
+   > zmierzony błąd zatrzymania autopilota na pakiecie A, 0,307 m. To jest ta sama
+   > zbieżność, na której potknął się komentarz w `DesignAssumptions.cs` i którą
+   > naprawiało #222: **94,0 m i 95,0 m są obie prawdziwe, tylko o czym innym** —
+   > pierwsza o składzie, druga o peronie. Wpis, który nie mówi tego wprost, jest
+   > dla czytającego nieodróżnialny od aktualnej wartości parametru.
 3. Górne ograniczenie z UrbIS zostaje jako **kontrola**: generator dający peron dłuższy niż
    obrys stacji jest na pewno błędny. Najciaśniejszy przypadek: **Parc, 109,1 m**.
 4. **Schuman zostaje otwarty.** 111,6 m z `source=knowledge` wobec 94,8 gdzie indziej to
