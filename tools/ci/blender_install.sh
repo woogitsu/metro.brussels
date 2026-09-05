@@ -72,7 +72,7 @@ if [ -n "$have" ]; then
     echo "[BLENDER] w $DIR stoi $have, a przypięte jest $VERSION — pobieram od nowa" >&2
 fi
 
-TARBALL="/tmp/blender-${VERSION}-linux-x64.tar.xz"
+TARBALL="${RUNNER_TEMP:-/tmp}/blender-${VERSION}-linux-x64.tar.xz"
 URL="https://download.blender.org/release/Blender${SERIES}/blender-${VERSION}-linux-x64.tar.xz"
 
 echo "[BLENDER] pobieram $URL" >&2
