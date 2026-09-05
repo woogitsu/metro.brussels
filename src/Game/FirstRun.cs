@@ -1166,23 +1166,42 @@ public sealed partial class FirstRun : Node3D
         var resetKey = Godot.Input.IsActionPressed(DriverActions.Reset);
         if (resetKey && !_resetKeyHeld)
         {
-            _state = DriveState.AtRest;
-            _accumulator.DropCarry();
-            _input.Clear();
-            _notch.Set(DriverCommand.Coast);
-            _keys = DriverKeys.None;
-            _command = DriverCommand.Coast;
-
-            // Zapis wejść idzie po NUMERZE KROKU, a reset cofa licznik kroków do zera —
-            // dalsze nagrywanie nadpisywałoby numery, które już padły. Zapis zaczyna się
-            // więc od nowa, razem z przejazdem. To, czego reset NIE obejmuje, to
-            // `StationService` (kolejka stacji zostaje tam, gdzie dojechał skład) —
-            // usterka opisana w reports/droga-do-grywalnosci.md §5.4 i zadanie G-4,
-            // świadomie nietknięte tutaj, żeby zapis wejść nie udawał, że ją naprawia.
-            _recorder?.Clear();
+            ResetRun();
         }
 
         _resetKeyHeld = resetKey;
+    }
+
+    /// <summary>
+    /// Przejazd od nowa. CO reset obejmuje, rozstrzyga <see cref="RunReset.Apply"/> —
+    /// tutaj zostaje wyłącznie nadpisanie pól węzła i wiersz zerowy telemetrii.
+    ///
+    /// <para><b>Dlaczego decyzja wyszła z tej metody.</b> Do 05.09.2026 stała tu lista
+    /// sześciu przypisań, której nie wołał żaden test, bo <c>FirstRun</c> jest węzłem
+    /// silnika. Brakowało w niej <c>StationService</c>: skład wracał na 94,0 m
+    /// z kolejką stacji ustawioną tam, dokąd dojechał, a trwający cykl drzwi przeżywał
+    /// reset (<c>reports/droga-do-grywalnosci.md</c> §5.4, zadanie G-4). Lista, której
+    /// nie da się wywołać, nie da się też sprawdzić — i dlatego brak w niej trzech
+    /// pozycji naraz nie miał czego przewrócić.</para>
+    /// </summary>
+    private void ResetRun()
+    {
+        var start = RunReset.Apply(_accumulator, _notch, _input, _stations, _recorder, _telemetry);
+        _state = start.Drive;
+        _keys = start.Keys;
+        _activeKeys = start.ActiveKeys;
+        _command = start.Command;
+        _effectiveCommand = start.EffectiveCommand;
+        _acceleration = start.AccelerationMps2;
+
+        // Wiersz zerowy — stan PRZED pierwszym krokiem — składa się tak samo jak
+        // w `_Ready`, bo po resecie przejazd jest przed pierwszym krokiem. Warunek
+        // patrzy na listę, a nie tylko na ścieżkę: przebieg skryptowy ma swój wiersz
+        // zerowy z `ScenarioDrive`, a klawiszy w ogóle nie czyta.
+        if (_telemetryPath is not null && _telemetry.Count > 0)
+        {
+            _telemetry.Add(ManualTelemetryRow());
+        }
     }
 
     private void UpdateHud()
