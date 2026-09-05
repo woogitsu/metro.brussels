@@ -15,6 +15,7 @@ Testy pilnują trzech rzeczy, z których każda ma tryb cichej awarii:
 """
 import ast
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -734,3 +735,199 @@ def test_every_real_target_except_the_blender_entry_points_is_reachable():
     for path, reason in unreachable.items():
         assert "bpy" in reason, f"{path}: nieoczekiwany powód {reason}"
     assert len(unreachable) < len(sweep.targets()) // 2, len(unreachable)
+
+
+# --- dryf pokrycia mutacyjnego po triażu (6.D5) ------------------------------------
+#
+# PO CO TA BRAMKA. `reports/mutation-drift.md` zestawia dla każdego modułu z raportem
+# triażu liczbę ocalałych z dnia triażu i liczbę zmierzoną dziś. Obie strony tego
+# zestawienia starzeją się w ten sam sposób, w jaki zestarzały się liczby, które ten
+# raport w ogóle opisuje: ktoś dopisuje do modułu porównanie, liczba mutacji rośnie,
+# a tabela w raporcie zostaje na wczoraj i **czyta się jak stan bieżący**. Dokładnie
+# tak `tools/ci/assert_shot_metadata.py` doszedł z 33 mutacji do 65 (`a643f05` i
+# `2c916de`), a `tools/track/crs.py` z 8 do 14 (`d419437` i `16726cd`).
+#
+# CZEGO TA BRAMKA NIE ROBI, ŚWIADOMIE. Nie sprawdza liczby OCALAŁYCH — jej pomiar to
+# jeden pełny przebieg zestawu testów na mutację: 686 mutacji razy zestaw, który sam
+# w sobie chodzi 45 s, czyli ponad trzy godziny przy czterech robotnikach. Tego nie
+# da się postawić w bramce chodzącej przy każdym commicie i próba skończyłaby się
+# wyłączeniem bramki, nie
+# skróceniem przebiegu. Sprawdzana jest liczba MUTACJI, bo liczy się ją z AST w ułamku
+# sekundy — a to ona jest mianownikiem i to jej zmiana jest pierwszym objawem dryfu:
+# w obu znanych przypadkach ocalałe przybyły razem z mutacjami, nie osobno.
+#
+# Innymi słowy: bramka nie mówi „pokrycie jest nadal takie", tylko „moduł, dla którego
+# ten raport podał liczby, od tamtego pomiaru nie urósł o ani jedno porównanie".
+# Gdy urośnie, raport trzeba przeliczyć — i o tym mówi komunikat.
+
+DRIFT_REPORT = os.path.join(ROOT, "reports", "mutation-drift.md")
+
+#: Wiersz tabeli modułów: ścieżka w grawisach, dalej kolumny oddzielone `|`.
+DRIFT_ROW = re.compile(r"^\|\s*`(tools/[^`]+\.py)`\s*\|")
+
+#: Raporty triażu objęte pozycją 6.D5. Lista jest ZAMROŻONA i to jest wybór, nie
+#: przeoczenie: gdyby test wyliczał ją z `glob`, nowy raport triażu — na przykład ten,
+#: który kiedyś powstanie dla `tools/blender/clearance_profile.py` — wywracałby bramkę
+#: w cudzym PR-ze, zamiast dopisywać się do audytu wtedy, gdy ktoś ten audyt liczy.
+#: Test niżej pilnuje tylko tego, że każdy z tych dwunastu plików nadal istnieje.
+TRIAGE_REPORTS = (
+    "mutation-triage-alignment.md",
+    "mutation-triage-clearance.md",
+    "mutation-triage-fizyka.md",
+    "mutation-triage-inspire-rail.md",
+    "mutation-triage-lod.md",
+    "mutation-triage-parametry.md",
+    "mutation-triage-placement.md",
+    "mutation-triage-png-metadata.md",
+    "mutation-triage-surface-width.md",
+    "mutation-triage-validate.md",
+    "mutation-triage-wczytywanie.md",
+    "mutation-triage-wizualna.md",
+)
+
+
+#: Ile kolumn ma wiersz tabeli modułów. Liczba stoi tu, bo bez niej detektor łapie
+#: KAŻDY wiersz zaczynający się od ścieżki w grawisach — a raport ma drugą tabelę,
+#: czterokolumnową, o tych samych ścieżkach w pierwszej kolumnie. Zmierzone przy
+#: kontroli negatywnej nr 2: bez tego warunku `_drift_table` zwracał dla siedmiu
+#: modułów wiersze tamtej tabeli i test padał `IndexError`, zamiast czegokolwiek
+#: sprawdzić. Test padający z IndexError jest bramką tak samo zepsutą jak zielona.
+DRIFT_COLUMNS = 8
+
+
+def _drift_table(text):
+    """Wiersze tabeli modułów jako `{ścieżka: [kolumny]}`, bez pogrubień."""
+    rows = {}
+    for line in text.splitlines():
+        if not DRIFT_ROW.match(line):
+            continue
+        cells = [c.strip().replace("*", "") for c in line.strip().strip("|").split("|")]
+        if len(cells) != DRIFT_COLUMNS:
+            continue
+        rows[cells[0].strip("`")] = cells[1:]
+    return rows
+
+
+def _drift_text():
+    with open(DRIFT_REPORT, encoding="utf-8") as handle:
+        return handle.read()
+
+
+def test_drift_report_exists_and_has_a_row_per_module():
+    """Tabela ma wiersz dla każdego modułu z dwunastu raportów triażu.
+
+    Liczba 28 nie jest okrągła i taka ma być: dwanaście raportów opisuje dwadzieścia
+    osiem modułów, bo siedem z nich (fizyka, parametry, wczytywanie, png-metadata,
+    surface-width, validate, wizualna) bierze po kilka plików naraz.
+    """
+    rows = _drift_table(_drift_text())
+    assert len(rows) == 28, f"wierszy modułów: {len(rows)}, oczekiwano 28"
+    for path in rows:
+        assert os.path.isfile(os.path.join(ROOT, path)), path
+
+
+def test_drift_report_mutation_count_is_the_one_the_tool_gives_today():
+    """Kolumna „mutacji dziś" ma się zgadzać z tym, co narzędzie liczy Z DRZEWA.
+
+    To jest cała bramka. Liczba ocalałych jest w raporcie z przebiegu i zostaje
+    w nim jako pomiar z datą; liczba mutacji jest sprawdzalna tu i teraz, więc jest
+    sprawdzana — i to ona pęka pierwsza, gdy ktoś dopisze do modułu porównanie.
+
+    **Liczone ZESTAWEM STARYM (`LEGACY_KINDS`), i to jest treść, nie wygoda.** Audyt
+    porównuje dzisiejsze liczby z liczbami z raportów triażu, a te powstały wszystkie
+    przed 05.09.2026, czyli zestawem `operator, prog`. Policzenie kolumny „dziś"
+    zestawem pełnym dałoby porównanie DWÓCH RÓŻNYCH RZECZY pod jednym nagłówkiem —
+    dokładnie tę rodzinę usterek, którą audyt tropi. Zmierzone przy scaleniu #258:
+    ta sama bramka liczona zestawem pełnym pokazuje rozjazd we **wszystkich 28**
+    modułach (np. `crs.py` 14 wobec 29), choć w drzewie nie zmienił się ani jeden
+    z nich — zmieniło się narzędzie.
+
+    Przeliczenie audytu zestawem pełnym jest osobnym zadaniem i osobnym przebiegiem
+    (1940 mutacji osiągalnych wobec 985), a nie poprawką w tym teście.
+    """
+    rows = _drift_table(_drift_text())
+    wrong = []
+    for path, cells in rows.items():
+        with open(os.path.join(ROOT, path), encoding="utf-8") as handle:
+            found = len(sweep.mutations_for(
+                os.path.join(ROOT, path), handle.read(), kinds=sweep.LEGACY_KINDS))
+        written = int(cells[5])
+        if written != found:
+            wrong.append(f"{path}: raport mówi {written}, narzędzie liczy {found}")
+    assert not wrong, (
+        "reports/mutation-drift.md rozjechał się z drzewem — przelicz audyt "
+        f"dla tych modułów: {wrong}")
+
+
+def test_drift_report_attributes_every_difference():
+    """Każda różnica ma powód: commit w grawisach albo jawne „nie przypisano".
+
+    „Prawdopodobnie z powodu X" jest zakazane przez samą pozycję 6.D5. Test pilnuje
+    kształtu, którego nie da się spełnić domysłem: SHA albo przyznanie się.
+    """
+    sha = re.compile(r"`[0-9a-f]{7,40}`")
+    bez_powodu = []
+    for path, cells in _drift_table(_drift_text()).items():
+        delta, why = cells[3], cells[6]
+        if delta in ("0", "—"):
+            continue
+        if not sha.search(why) and "nie przypisano" not in why:
+            bez_powodu.append(f"{path}: {why!r}")
+    assert not bez_powodu, f"różnice bez commita i bez przyznania się: {bez_powodu}"
+
+
+def test_drift_report_pins_the_two_cases_the_task_names():
+    """Dwa przypadki z treści 6.D5 stoją w tabeli z liczbami po obu stronach.
+
+    6.D5 nazywa je wprost: `tools/track/crs.py` **6** ocalałych po triażu
+    (`reports/mutation-triage-wczytywanie.md`) i `tools/ci/assert_shot_metadata.py`
+    **2** (`reports/mutation-triage-png-metadata.md`). Te dwie liczby są historyczne
+    i nie wolno ich „odświeżyć": raport ma pokazywać rozjazd, a rozjazd znika, gdy
+    ktoś przepisze stronę „przed" na dzisiejszą wartość. To najłatwiejszy sposób,
+    w jaki ten audyt mógłby skłamać, i dlatego jest zabramkowany.
+
+    **Nie jest tu przypięta dzisiejsza liczba ocalałych** — ani 4, ani 32. Jej pomiar
+    kosztuje pełny przebieg zestawu na mutację, więc bramka nie umiałaby sprawdzić
+    nowej wartości, a przypięta stara robiłaby się czerwona po każdym dopisanym
+    teście, czyli po każdej DOBREJ zmianie. Sprawdzane jest to, co sprawdzalne:
+    obie liczby stoją, różnią się od siebie, a powód różnicy nosi commit.
+    """
+    rows = _drift_table(_drift_text())
+    sha = re.compile(r"`[0-9a-f]{7,40}`")
+    for path, po_triazu in (("tools/track/crs.py", "6"),
+                            ("tools/ci/assert_shot_metadata.py", "2")):
+        cells = rows[path]
+        assert cells[1] == po_triazu, f"{path}: liczba z raportu triażu to {cells[1]}"
+        assert int(cells[2]) != int(po_triazu), (
+            f"{path}: obie liczby są równe — rozjazd zniknął z tabeli?")
+        assert sha.search(cells[6]), f"{path}: różnica bez commita: {cells[6]!r}"
+
+
+def test_drift_report_names_every_triage_report_it_audits():
+    """Dwanaście raportów wejściowych istnieje i każdy jest w audycie zacytowany."""
+    text = _drift_text()
+    for name in TRIAGE_REPORTS:
+        assert os.path.isfile(os.path.join(ROOT, "reports", name)), name
+        assert name[len("mutation-triage-"):-len(".md")] in text, name
+    assert len(TRIAGE_REPORTS) == 12
+
+
+def test_the_drift_table_detector_is_not_matching_prose():
+    """Kontrola detektora: bez niej cztery testy wyżej byłyby zielone na pustej tabeli.
+
+    Trzy wiersze, z których tylko pierwszy jest wierszem tabeli modułów. Gdyby
+    wyrażenie łapało zdanie z prozy albo nagłówek sekcji, „28 wierszy" dałoby się
+    uzyskać bez ani jednej zmierzonej liczby.
+    """
+    text = (
+        "| `tools/track/crs.py` | wczytywanie | 6 | 8 | +2 | 8 | 14 | `d419437` |\n"
+        "Moduł `tools/track/crs.py` urósł o sześć mutacji.\n"
+        "### `tools/track/crs.py` — 6 -> 8\n"
+        "| `tools/track/crs.py` | `d419437` | 5 | 3 |\n")
+    rows = _drift_table(text)
+    assert list(rows) == ["tools/track/crs.py"], rows
+    assert rows["tools/track/crs.py"][5] == "14", rows["tools/track/crs.py"]
+    # Ostatni wiersz to druga tabela raportu, o czterech kolumnach i o tej samej
+    # ścieżce. Gdyby wszedł, nadpisałby wiersz właściwy — i tak było, dopóki nie
+    # doszedł warunek na liczbę kolumn.
+    assert len(rows["tools/track/crs.py"]) == DRIFT_COLUMNS - 1, rows
