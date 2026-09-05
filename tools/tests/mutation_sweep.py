@@ -396,6 +396,41 @@ if _root and _out:
 '''
 
 
+#: Treść, którą dostaje `test_mutation_sweep.py` w drzewie roboczym. Moduł zostaje
+#: na swoim miejscu, ale nie ma w nim ani jednego testu.
+OWN_TESTS_STUB = '''"""Zaślepka: testy narzędzia mutacyjnego, zdjęte na czas przeglądu.
+
+Prawdziwa treść jest w repozytorium; tutaj jej nie ma, bo mierzy narzędzie,
+a nie kod pod testem. Plik ZOSTAJE, bo jego ścieżkę wymieniają raporty.
+"""
+'''
+
+
+def neutralise_own_tests(root: str) -> str | None:
+    """Zdejmuje testy narzędzia z drzewa `root`, NIE kasując pliku.
+
+    **Dlaczego nie `os.remove`.** Do 05.09.2026 ta funkcja plik kasowała, i to
+    działało dopóty, dopóki nikt nie patrzył na drzewo jako całość. `809e6f1` dodał
+    bramkę `test_kazda_sciezka_wymieniona_w_raporcie_rozwiazuje_sie_w_drzewie`, która
+    sprawdza, czy każda ścieżka wymieniona w `reports/` rozwiązuje się w drzewie —
+    a `reports/mutation-drift.md` i `reports/mutation-sweep.md` wymieniają właśnie
+    `tools/tests/test_mutation_sweep.py`, cztery razy. Od tamtego commita zestaw padał
+    w KAŻDYM drzewie roboczym, bez żadnej mutacji, więc każda mutacja była zapisywana
+    jako ZABITA. Pomiar z 05.09.2026 na `8c3f752`: `m7_report.py` dał „31/31 zabitych,
+    0 ocalałych", podczas gdy ręczne wstawienie mutacji z wiersza 46 zostawia zestaw
+    zielonym — mutacja przeżywa.
+
+    Narzędzie skłamało w tę samą stronę co przy OOM w wersji z 02.09.2026: zawyżyło
+    pokrycie. Zaślepka zdejmuje testy tak samo skutecznie, a ścieżkę zostawia.
+    """
+    own = os.path.join(root, "tools", "tests", "test_mutation_sweep.py")
+    if not os.path.isfile(own):
+        return None
+    with open(own, "w", encoding="utf-8") as handle:
+        handle.write(OWN_TESTS_STUB)
+    return own
+
+
 def add_worktree(path: str) -> None:
     """Kopia `HEAD` w podanym miejscu, bez testów samego narzędzia.
 
@@ -406,9 +441,7 @@ def add_worktree(path: str) -> None:
     """
     subprocess.run(["git", "worktree", "add", "--detach", "--quiet", path, "HEAD"],
                    cwd=ROOT, check=True, capture_output=True)
-    own = os.path.join(path, "tools", "tests", "test_mutation_sweep.py")
-    if os.path.isfile(own):
-        os.remove(own)
+    neutralise_own_tests(path)
 
 
 def coverage_map(out_dir: str, timeout: int) -> dict[str, set[int]] | None:
@@ -535,6 +568,34 @@ def run_suite(worktree: str, timeout: int) -> tuple[bool | None, list[str], int 
     if passed == total and done.returncode == 0:
         return True, failed, done.returncode
     return False, failed, done.returncode
+
+
+def baseline_problem(worktree: str, timeout: int, run=run_suite) -> str | None:
+    """Czy drzewo BEZ mutacji przechodzi zestaw. `None` znaczy „tak".
+
+    **Po co osobny przebieg.** Wyrocznia tego narzędzia brzmi „zestaw padł, czyli
+    mutacja została wykryta". Zdanie jest prawdziwe wyłącznie wtedy, gdy zestaw
+    NIE PADA bez mutacji. Gdy przestaje, narzędzie melduje 100 % zabić i nie ma
+    w wyniku niczego, co by to zdradziło: sto procent wygląda jak sukces.
+
+    Zdarzyło się to dwa razy z dwóch różnych przyczyn — 02.09.2026 zestaw ubijał OOM,
+    05.09.2026 drzewo robocze łamała własna przygotowawcza kasacja pliku (patrz
+    `neutralise_own_tests`). Za pierwszym razem obroną był kod wyjścia, za drugim
+    nie było żadnej. Ta funkcja jest obroną niezależną od przyczyny: mierzy dokładnie
+    to założenie, na którym stoi każdy wiersz dziennika.
+
+    Kosztuje jeden przebieg zestawu na cały przegląd — przy 31 mutacjach 3 %, przy
+    600 poniżej dwóch promili.
+    """
+    passed, failed, code = run(worktree, timeout)
+    if passed is True:
+        return None
+    if passed is None:
+        return (f"zestaw w czystym drzewie nie doszedł do podsumowania (kod {code}): "
+                f"{failed}")
+    return (f"zestaw PADA w czystym drzewie, bez żadnej mutacji (kod {code}): {failed} "
+            "— dopóki tak jest, każda mutacja zostanie zapisana jako zabita, "
+            "a przegląd nie mierzy niczego")
 
 
 def check_one(worktree: str, mutation: Mutation, timeout: int,
@@ -942,6 +1003,21 @@ def main() -> int:
           f"commit {commit}, klasy {','.join(kinds)}, dziennik {journal}")
 
     with tempfile.TemporaryDirectory(prefix="metro-mutacje-") as work:
+        # Kalibracja wyroczni PRZED pomiarem. Bez niej „zabitych 31/31" znaczy
+        # dokładnie tyle samo, co „zestaw pada zawsze" — i wygląda lepiej.
+        print("[MUTACJE] kalibracja wyroczni: zestaw w drzewie BEZ mutacji")
+        base = os.path.join(work, "wtbase")
+        add_worktree(base)
+        try:
+            problem = baseline_problem(base, args.timeout)
+        finally:
+            subprocess.run(["git", "worktree", "remove", "--force", base],
+                           cwd=ROOT, capture_output=True)
+        if problem is not None:
+            print(f"[MUTACJE] PRZERWANE — {problem}", file=sys.stderr)
+            return 2
+        print("[MUTACJE] drzewo bazowe zielone, wyrocznia ma prawo mówić „zabita”")
+
         coverage = None
         if not args.no_coverage:
             # Sonda liczy wiersze, więc chodzi kilka razy wolniej od zwykłego
