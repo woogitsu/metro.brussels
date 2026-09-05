@@ -84,3 +84,9 @@ text = "stacja"
 
 [node name="Signalling" type="Label" parent="Hud/Panel/Rows"]
 text = "sygnalizacja"
+
+; Wiersz o widoku. Startuje UKRYTY tak samo jak Station i Signalling, i z tego samego
+; powodu: tekst zastępczy jest po to, żeby scena dała się otworzyć w edytorze, a nie
+; po to, żeby trafił na pierwszą klatkę zrzutu. Widoczność ustawia dopiero `Hud.Update`.
+[node name="View" type="Label" parent="Hud/Panel/Rows"]
+text = "widok"

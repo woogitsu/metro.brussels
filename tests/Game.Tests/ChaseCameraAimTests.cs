@@ -2,6 +2,7 @@ using System;
 using Godot;
 using MetroBxl.Game;
 using MetroBxl.Game.World;
+using MetroBxl.Sim.Physics;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace MetroBxl.Game.Tests;
@@ -26,7 +27,19 @@ namespace MetroBxl.Game.Tests;
 [TestClass]
 public sealed class ChaseCameraAimTests
 {
-    private const double TrainM = 94.0;
+    /// <summary>
+    /// Długość składu — z REJESTRU POJAZDU, nie z literału.
+    ///
+    /// <para>Ta liczba jest granicą pasma, w którym widok goniący ma być niedostępny
+    /// (decyzja właściciela z 05.09.2026), więc przepisanie jej tutaj ręcznie znaczyłoby,
+    /// że zmiana w <c>data/vehicle/m7-spec.json</c> przesuwa scenę, a testu nie rusza.
+    /// Wymuszony status <c>spec</c> dokłada drugie zabezpieczenie: awans wartości
+    /// z <c>design_model</c> wywraca test, zamiast po cichu zmienić znaczenie granicy.
+    /// Ta sama droga, którą <c>RunHeaderTests</c> bierze długość składu do nagłówka.</para>
+    /// </summary>
+    private static readonly double TrainM =
+        VehicleRegistry.M7.RequireValue("parameters.length_m", ParameterStatus.Spec);
+
     private const double AxisM = 6686.739;
     private const double BehindM = DesignAssumptions.ChaseBehindM;
 
@@ -121,6 +134,101 @@ public sealed class ChaseCameraAimTests
         var framing = At(100.0);
         Assert.IsFalse(framing.CameraWithinTrainSpan);
         Assert.AreEqual(6.0, framing.RearChainageM - framing.CameraChainageM, 1e-9);
+    }
+
+    // --- dostępność widoku ---------------------------------------------------
+
+    [TestMethod]
+    public void TheChaseViewIsUnavailableUntilTheWholeTrainIsOnTheAxis()
+    {
+        // Decyzja właściciela z 05.09.2026: widok jest NIEDOSTĘPNY, dopóki cały skład
+        // nie wjedzie na oś. Granica to długość składu — i to ta z rejestru, nie 106 m
+        // przepisane z pozycji 6.B11.
+        Assert.IsFalse(ChaseCameraAim.IsAvailable(0.0, TrainM));
+        Assert.IsFalse(ChaseCameraAim.IsAvailable(20.0, TrainM), "zmierzone: kadr to płyta pudła");
+        Assert.IsFalse(ChaseCameraAim.IsAvailable(48.0, TrainM), "zmierzone: 56,4 % bieli");
+        Assert.IsFalse(ChaseCameraAim.IsAvailable(90.0, TrainM));
+        Assert.IsFalse(
+            ChaseCameraAim.IsAvailable(TrainM, TrainM),
+            "granica NALEŻY do pasma ukrycia — ogon leży dokładnie na kamerze");
+        Assert.IsTrue(ChaseCameraAim.IsAvailable(TrainM + 0.001, TrainM));
+        Assert.IsTrue(ChaseCameraAim.IsAvailable(110.0, TrainM));
+        Assert.IsTrue(ChaseCameraAim.IsAvailable(2000.0, TrainM));
+    }
+
+    [TestMethod]
+    public void TheBandBoundaryIsTheRegisteredTrainLength()
+    {
+        // Granica ma pochodzić z `data/vehicle/m7-spec.json`, a nie z liczby wpisanej
+        // obok. Test pyta rejestr DRUGI RAZ, wprost, żeby mutacja podmieniająca `TrainM`
+        // na literał (choćby na 95,0 m z decyzji o długości peronu, T-212) miała gdzie paść.
+        var registered = VehicleRegistry.M7.RequireValue("parameters.length_m", ParameterStatus.Spec);
+        Assert.AreEqual(registered, TrainM, 1e-12, "granica pasma nie jest liczbą z rejestru");
+        Assert.AreEqual(
+            registered,
+            ChaseCameraAim.Availability(0.0, TrainM).FromChainageM,
+            1e-12,
+            "widok ma się otwierać na kilometrażu równym długości składu ze spec");
+        Assert.IsFalse(
+            ChaseCameraAim.IsAvailable(registered, registered),
+            "dokładnie na długości składu widok jest jeszcze niedostępny");
+    }
+
+    [TestMethod]
+    public void AvailabilityAgreesWithTheFramingItIsAbout()
+    {
+        // Predykat pyta o DWIE liczby, `CameraWithinTrainSpan` liczy się z czterech.
+        // Jeśli te dwa twierdzenia o tej samej geometrii rozjadą się choćby na jednym
+        // kilometrażu, HUD mówiłby co innego niż kadr. Przemiatanie co 0,25 m.
+        for (var front = 0.0; front <= 300.0; front += 0.25)
+        {
+            Assert.AreEqual(
+                At(front).CameraWithinTrainSpan,
+                !ChaseCameraAim.IsAvailable(front, TrainM),
+                $"kilometraż {front} m");
+        }
+    }
+
+    [TestMethod]
+    public void TheRemainingDistanceCountsDownToTheBoundary()
+    {
+        Assert.AreEqual(TrainM, ChaseCameraAim.Availability(0.0, TrainM).RemainingM, 1e-9);
+        Assert.AreEqual(74.0, ChaseCameraAim.Availability(20.0, TrainM).RemainingM, 1e-9);
+        Assert.AreEqual(0.0, ChaseCameraAim.Availability(TrainM, TrainM).RemainingM, 1e-9);
+        Assert.AreEqual(
+            0.0,
+            ChaseCameraAim.Availability(2000.0, TrainM).RemainingM,
+            1e-9,
+            "za pasmem brakuje zera metrów, a nie ujemnych");
+    }
+
+    [TestMethod]
+    public void AnUnavailableViewSaysWhyAndFromWhere()
+    {
+        // Wiersz HUD-u i komunikat odmowy zrzutu biorą się z TEGO zdania — jedno
+        // źródło, więc nie mają jak podać dwóch różnych kilometraży.
+        var reason = ChaseCameraAim.Availability(20.0, TrainM).Reason;
+        StringAssert.Contains(reason, "niedostępny");
+        StringAssert.Contains(reason, "94.0 m", "zdanie ma mówić, OD KIEDY widok będzie");
+        StringAssert.Contains(reason, "74.0 m", "zdanie ma mówić, ile jeszcze zostało");
+
+        // Na samej granicy nie ma czego dopisywać: 94,0 m to jeszcze pasmo ukrycia,
+        // a „jeszcze 0,0 m" czytałoby się jak usterka, nie jak odmowa.
+        var naGranicy = ChaseCameraAim.Availability(TrainM, TrainM).Reason;
+        StringAssert.Contains(naGranicy, "po minięciu 94.0 m");
+        Assert.IsFalse(naGranicy.Contains("jeszcze"), naGranicy);
+
+        Assert.AreEqual(
+            string.Empty,
+            ChaseCameraAim.Availability(2000.0, TrainM).Reason,
+            "widok dostępny nie ma o czym mówić — inaczej HUD kłamałby przez cały przejazd");
+    }
+
+    [TestMethod]
+    public void AvailabilityRefusesANegativeTrainLength()
+    {
+        Assert.ThrowsException<ArgumentOutOfRangeException>(
+            () => ChaseCameraAim.Availability(0.0, -1.0));
     }
 
     // --- degeneracja kierunku ------------------------------------------------
