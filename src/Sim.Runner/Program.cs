@@ -47,6 +47,7 @@ public static class Program
             return args[0] switch
             {
                 "drive" => Drive(args),
+                "replay" => Replay(args),
                 "compare" => Compare(args),
                 "axis" => Axis(args),
                 "parity" => Parity(),
@@ -75,6 +76,9 @@ public static class Program
             MetroBxl.Sim.Runner — konsolowy gospodarz rdzenia symulacji
 
               drive   [--out PLIK] [--sample-every N]     telemetria przejazdu z rdzenia
+              replay  --keys PLIK [--out CSV]              przejazd ręczny z zapisu wejść, bez silnika
+                      [--axis PLIK] [--notch-rate X]
+                      [--exchange-s X] [--stop-window-m X] [--sample-every N]
               compare PLIK_A PLIK_B [--tolerance METRY]   rozjazd dwóch telemetrii
               axis    --axis PLIK [--manifest PLIK]       kontrola osi wobec manifestu chunków
               parity                                      kontroler vs AccelerationRun z T-310
@@ -139,6 +143,130 @@ public static class Program
             scenario,
             new RunConditions(model.MassKg(TrainLoad.Aw2), 0.0, model.Adhesion(RailCondition.Dry), TrackEnvironment.Tunnel),
             FixedStep.Simulation);
+
+    // --- replay -------------------------------------------------------------------
+
+    /// <summary>
+    /// Przejazd ręczny odtworzony z zapisu wejść — <b>bez silnika</b>.
+    ///
+    /// <para><b>Po co to jest.</b> Scena umie odtworzyć zapis wejść (<c>--replay</c>),
+    /// ale porównanie jej wyniku z nią samą nie mówi nic. Ta metoda liczy TEN SAM
+    /// przejazd tą samą drogą przez rdzeń — <see cref="DriverNotch"/>,
+    /// <see cref="StationService"/>, <see cref="TrainController"/> — i dopiero różnica
+    /// między nią a sceną jest odpowiedzią na pytanie „czy warstwa silnika czegoś nie
+    /// dokłada". Ta sama rola, co <c>drive</c> wobec przebiegu skryptowego.</para>
+    ///
+    /// <para><b>Kolejność w kroku jest ta sama, co w <c>FirstRun.StepOnce</c>, i to jest
+    /// warunek sensu porównania przy progu 0.</b> Klawisze bierze się po numerze kroku
+    /// PRZED przesunięciem stanu, kilometraż do filtra stacji liczy się ze stanu SPRZED
+    /// kroku, a telemetria pokazuje polecenie PO filtrze stacji. Zamiana którejkolwiek
+    /// z tych trzech rzeczy miejscami daje przejazd, który wygląda tak samo, a nie jest
+    /// ten sam.</para>
+    ///
+    /// <para><b>Liczby bez źródła są argumentami, nie stałymi.</b> Tempo nastawnika,
+    /// czas wymiany pasażerów i okno zatrzymania mieszkają po stronie silnika
+    /// w <c>Game.DesignAssumptions</c>, a <c>src/Sim</c> nie ma prawa tego pliku
+    /// zobaczyć (<c>CLAUDE.md</c> §4.9). Kopia stałej tutaj byłaby drugą prawdą, która
+    /// rozjeżdża się po cichu, więc wartości podaje WOŁAJĄCY — tak samo, jak krok
+    /// <c>line</c> w CI podaje <c>--limit-kmh</c>, <c>--exchange-s</c>
+    /// i <c>--stop-window-m</c>. Domyślne wartości są tu wyłącznie po to, żeby
+    /// polecenie dało się uruchomić ręcznie.</para>
+    /// </summary>
+    private static int Replay(string[] args)
+    {
+        var keysPath = Option(args, "--keys")
+            ?? throw new ArgumentException("replay wymaga --keys PLIK z zapisem wejść");
+        var axisPath = Option(args, "--axis") ?? "data/track/L1_A.json";
+        var output = Option(args, "--out");
+        var sampleEvery = long.Parse(
+            Option(args, "--sample-every") ?? DriveTelemetry.DefaultSampleEverySteps.ToString(Inv), Inv);
+        var notchRate = OptionalNumber(args, "--notch-rate") ?? 0.80;
+        var exchangeSeconds = OptionalNumber(args, "--exchange-s") ?? 8.0;
+        var stopWindowM = OptionalNumber(args, "--stop-window-m") ?? 5.0;
+
+        var log = InputLog.Parse(File.ReadAllText(keysPath));
+        var axis = TrackAxis.FromJson(File.ReadAllText(axisPath));
+
+        var model = VehicleModel.M7;
+        var scenario = DriveScenario.PackageAFirstRun(model);
+        var step = FixedStep.Simulation;
+
+        // Te same warunki, co w `Drive` i w `FirstRun.BuildSimulation`: pochylenie 0,
+        // bo profil pionowy pakietu A ma status `not_modelled`.
+        var conditions = new RunConditions(
+            model.MassKg(TrainLoad.Aw2), 0.0, model.Adhesion(RailCondition.Dry), TrackEnvironment.Tunnel);
+
+        var controller = new TrainController(model);
+        var notch = new DriverNotch(notchRate);
+
+        // Obsługa stacji istnieje wyłącznie wtedy, gdy oś ma co obsługiwać — ten sam
+        // warunek, co w scenie (`_axis.Stations.Count >= 2`). Pierwszą stację
+        // `StationService` pomija jako punkt startowy.
+        var stations = axis.Stations.Count >= 2
+            ? new StationService(axis.Stations, new DoorCycle(exchangeSeconds), step, stopWindowM)
+            : null;
+
+        var state = DriveState.AtRest;
+        var command = DriverCommand.Coast;
+        var acceleration = 0.0;
+        var speedLimitMps = scenario.SpeedLimitMps;
+
+        double Chainage() => scenario.StartChainageM + state.DistanceM;
+
+        var lines = new List<string> { DriveTelemetry.Header };
+
+        // Wiersz zerowy: stan PRZED pierwszym krokiem, dokładnie jak w `_Ready` sceny.
+        lines.Add(DriveTelemetry.Row(
+            state, step, Chainage(), acceleration, command, DriveTelemetry.ManualPhase));
+
+        while (state.Steps < log.Steps)
+        {
+            var keys = log.KeysAt(state.Steps);
+            var requested = notch.Advance(keys, step);
+
+            // `Filter` posuwa licznik cyklu drzwi, więc DOKŁADNIE RAZ na krok.
+            var effective = stations?.Filter(state, requested, Chainage()) ?? requested;
+
+            state = controller.Advance(state, conditions, effective, speedLimitMps, step, out var forces);
+            acceleration = forces.AccelerationMps2;
+            command = effective;
+
+            if (DriveTelemetry.IsSample(state.Steps, sampleEvery) || state.Steps >= log.Steps)
+            {
+                lines.Add(DriveTelemetry.Row(
+                    state, step, Chainage(), acceleration, command, DriveTelemetry.ManualPhase));
+            }
+        }
+
+        if (output is null)
+        {
+            foreach (var line in lines)
+            {
+                Console.Out.WriteLine(line);
+            }
+        }
+        else
+        {
+            File.WriteAllLines(output, lines);
+        }
+
+        var served = stations?.Calls.Count ?? 0;
+        var missed = stations?.Missed.Count ?? 0;
+        Console.Error.WriteLine(string.Create(
+            Inv,
+            $"[ODTWORZENIE] {keysPath}: kroków={state.Steps} t={state.TimeSeconds(step):F3} s " +
+            $"chainage={Chainage():F3} m droga={state.DistanceM:F3} m " +
+            $"zmian klawiszy={log.Entries.Count} stacji obsłużonych={served} przejechanych={missed}"));
+        foreach (var call in stations?.Calls ?? (IReadOnlyList<StationCall>)Array.Empty<StationCall>())
+        {
+            Console.Error.WriteLine(string.Create(
+                Inv,
+                $"[ODTWORZENIE] stacja {call.Name}: postój od {call.ArrivalSeconds:F3} s " +
+                $"do {call.DepartureSeconds:F3} s, błąd zatrzymania {call.StopErrorM:F3} m"));
+        }
+
+        return 0;
+    }
 
     // --- compare ------------------------------------------------------------------
 

@@ -34,6 +34,12 @@ on:
       # Ten sam błąd trafił się już w `blender-smoke.yml` przy wąskim wzorcu na
       # `tools/ci`; komentarz tamże opisuje go tymi samymi słowami.
       - 'tests/Game.Tests/**'
+      # Wzorzec wejść maszynisty (`tests/data/manual-keys.log`) jest WEJŚCIEM bramki
+      # trybu ręcznego i jedynym plikiem tego porównania, którego nie liczy żadna
+      # z porównywanych stron. Bez tego wpisu PR ruszający sam wzorzec nie odpaliłby
+      # jedynego joba, który go uruchamia — czyli zmiana wejścia bramki szłaby do
+      # `main` NIESPRAWDZONA. Ten sam błąd, co przy `tests/Game.Tests/**` wyżej.
+      - 'tests/data/**'
   push:
     branches: [main]
   workflow_dispatch:
@@ -377,6 +383,162 @@ jobs:
           python3 tools/ci/assert_no_godot_warnings.py build/t400/godot-jitter.log
           dotnet run --project src/Sim.Runner -c Release --no-build -- \
             compare build/t400/core.csv build/t400/godot_jitter.csv --tolerance 0
+
+      - name: Manual run — the replayed input log must be the core's own drive
+        shell: bash
+        # BRAMKA TRYBU RĘCZNEGO (G-2). Do 05.09.2026 nie było jej w ogóle: żaden krok
+        # tego workflow nie uruchamiał sceny bez `--line`, `--shot` i `--telemetry`
+        # sterowanego scenariuszem, więc gałąź `DriverInput → DriverNotch →
+        # StationService → TrainController` nie miała ANI JEDNEJ bramki. Powód był
+        # mechaniczny, a nie z niedopatrzenia: tryb ręczny nie kończył się nigdy
+        # (`timeout 60` → kod 124), więc nie dało się go postawić w CI. Zapis wejść
+        # z G-1 daje mu koniec — pole `kroki=` w nagłówku — i dopiero to otwiera ten krok.
+        #
+        # PORÓWNANIE IDZIE Z RDZENIEM, nie sceny ze sceną. `Sim.Runner replay` liczy
+        # ten sam zapis wejść bez silnika, tą samą drogą przez rdzeń. Bez tej strony
+        # bramka pytałaby wyłącznie „czy Godot zgadza się z Godotem".
+        #
+        # ZAPIS WEJŚĆ JEST W REPOZYTORIUM (`tests/data/manual-keys.log`), a nie
+        # generowany tu przez scenę. Zapis nagrany w locie wychodziłby z tego samego
+        # przebiegu, który potem sprawdza, więc obie strony zgadzałyby się także wtedy,
+        # gdyby nagrywanie było zepsute. Plik pokrywa rozruch, zatrzymanie na Beekkant
+        # w oknie ±5,000 m, PEŁNY cykl drzwi, wybieg i hamowanie do postoju.
+        #
+        # LICZBY BEZ ŹRÓDŁA STOJĄ TU JAWNIE, po obu stronach porównania. Tempo
+        # nastawnika, wymiana pasażerów i okno zatrzymania mieszkają w
+        # `Game.DesignAssumptions`, czyli po stronie silnika, a `src/Sim` nie ma prawa
+        # tego pliku zobaczyć (CLAUDE.md §4.9). Kopia stałej w `Sim.Runner` byłaby drugą
+        # prawdą rozjeżdżającą się po cichu, więc wartości podaje CI — ta sama decyzja
+        # i ten sam zapis, co `--limit-kmh 70 --exchange-s 8 --stop-window-m 5`
+        # w kroku `line` niżej.
+        #
+        # DWA RYTMY KLATEK, i to jest właściwość, którą wywalczyło G-1: położenie
+        # nastawnika zależy od liczby KROKÓW, przez które klawisz był trzymany, a nie
+        # od tego, jak kroki rozłożyły się na klatki. Przed G-1 ta sama sekwencja dawała
+        # 566,407 m przy 120 kl./s i 566,641 m przy 60 kl./s, przy bramkach z progiem 0.
+        #
+        # DLACZEGO AKURAT 120 i 7 kroków na klatkę:
+        #   * 8880 = 2⁴·3·5·37, a 7 jest z tą liczbą względnie pierwsze — 8880 = 1268·7 + 4,
+        #     więc OSTATNIA klatka jest niepełna i akumulator musi przenieść resztę oraz
+        #     przerwać w środku klatki. Przy 37 (dzielnik 8880) tego przypadku by nie było.
+        #   * 1269 klatek wobec 74 to siedemnastokrotnie inny podział tych samych kroków.
+        #   * `--steps-per-frame=1` NIE jest tu użyte świadomie: pętla klatek headless
+        #     Godota jest ograniczona zegarem, nie procesorem (zmierzone ~135 kl./s), więc
+        #     8880 klatek to ~62 s czekania — i nie wnosi ani jednego bitu, bo przebieg
+        #     przy 1 kroku na klatkę wychodzi z tą samą sumą md5 co przy 7 i przy 120.
+        run: |
+          set -euo pipefail
+          mkdir -p build/t400/reczny
+          dotnet run --project src/Sim.Runner -c Release --no-build -- \
+            replay --keys tests/data/manual-keys.log --axis data/track/L1_A.json \
+            --notch-rate 0.80 --exchange-s 8 --stop-window-m 5 \
+            --out build/t400/reczny/core.csv 2>&1 | tee build/t400/reczny/core.log
+          # Rdzeń ma OBSŁUŻYĆ stację, a nie ją przejechać. Bez tego warunku zapis
+          # przesunięty o kilkadziesiąt metrów dałby przejazd bez zatrzymania — obie
+          # strony policzyłyby go tak samo dobrze i bramka nadal byłaby zielona,
+          # tyle że cykl drzwi nie wykonałby się ani razu.
+          grep -q "stacji obsłużonych=1 przejechanych=0" build/t400/reczny/core.log \
+            || { echo "BŁĄD: wzorzec wejść nie zatrzymuje składu na stacji" >&2
+                 cat build/t400/reczny/core.log >&2; exit 1; }
+          for spf in 120 7; do
+            "$GODOT_BIN" --headless --path src/Game -- \
+              --replay="$PWD/tests/data/manual-keys.log" \
+              --telemetry="$PWD/build/t400/reczny/scene-spf$spf.csv" \
+              --steps-per-frame="$spf" \
+              2>&1 | tee "build/t400/reczny/scene-spf$spf.log"
+            python3 tools/ci/assert_no_godot_warnings.py "build/t400/reczny/scene-spf$spf.log"
+            # Przebieg ma się skończyć SAM, na ostatnim kroku zapisu, i ma być
+            # prowadzony poleceniem maszynisty — nie scenariuszem i nie autopilotem.
+            # Kod wyjścia 0 tego nie odróżnia: scena, która przerwałaby po pierwszej
+            # klatce, też wychodzi zerem.
+            grep -q "^\[ODTWORZENIE\] koniec: kroków=8880 " "build/t400/reczny/scene-spf$spf.log" \
+              || { echo "BŁĄD: odtworzenie przy $spf krokach na klatkę nie doszło do końca zapisu" >&2
+                   grep "^\[ODTWORZENIE\]" "build/t400/reczny/scene-spf$spf.log" >&2; exit 1; }
+            grep -q "^\[PRZEJAZD\] tryb=replay " "build/t400/reczny/scene-spf$spf.log" \
+              || { echo "BŁĄD: scena nie jest w trybie odtworzenia" >&2
+                   grep "^\[PRZEJAZD\]" "build/t400/reczny/scene-spf$spf.log" >&2; exit 1; }
+            dotnet run --project src/Sim.Runner -c Release --no-build -- \
+              compare build/t400/reczny/core.csv "build/t400/reczny/scene-spf$spf.csv" \
+              --tolerance 0
+          done
+          # Oba rytmy klatek wobec SIEBIE. Zgodność każdego z rdzeniem już to implikuje,
+          # ale ta linijka nazywa właściwość, o którą chodzi, więc jej zniknięcie
+          # z workflow będzie widoczne.
+          dotnet run --project src/Sim.Runner -c Release --no-build -- \
+            compare build/t400/reczny/scene-spf120.csv build/t400/reczny/scene-spf7.csv \
+            --tolerance 0
+          # ŚLAD CYKLU DRZWI W SAMEJ TELEMETRII. Maszynista trzyma W od 45,0 s, więc
+          # nastawnik dobija do 1,0 — a `throttle` w telemetrii zostaje ZERO do 57,975 s,
+          # bo `StationService` trzyma blokadę trakcji. Jedenaście próbek stoi przy tym
+          # z hamulcem zwolnionym do zera: skład nie jedzie, choć nic go nie trzyma poza
+          # drzwiami. Samo porównanie z rdzeniem tego nie nazwie — obie strony mogłyby
+          # zgodnie nie mieć cyklu drzwi w ogóle.
+          python3 - <<'DRZWI'
+          import csv
+
+          with open("build/t400/reczny/core.csv", encoding="utf-8") as handle:
+              rows = list(csv.DictReader(handle))
+          # `step > 0` odsiewa wiersz zerowy, czyli stan PRZED pierwszym krokiem:
+          # skład stoi tam z zerowym nastawnikiem i zerowym hamulcem, bo jeszcze nic
+          # nie zrobił, a nie dlatego, że trzymają go drzwi.
+          held = [r for r in rows
+                  if int(r["step"]) > 0
+                  and float(r["speed_mps"]) == 0.0
+                  and float(r["brake"]) == 0.0
+                  and float(r["throttle"]) == 0.0]
+          assert len(held) == 11, f"próbek pod blokadą drzwi: {len(held)}, oczekiwano 11"
+          print(f"[DRZWI] {len(held)} próbek stoi bez hamulca i bez ciągu — "
+                f"od {held[0]['t_s']} s do {held[-1]['t_s']} s")
+          DRZWI
+
+      - name: Negative control of the manual comparison
+        shell: bash
+        # Bramka, która mówi „ok" także wtedy, gdy nic nie sprawdza, jest bezużyteczna
+        # (reports/T-310-physics.md §6). Dwie mutacje, dwa różne sposoby oszukania
+        # kroku wyżej — obie MUSZĄ zostać odrzucone.
+        #
+        #  1. TELEMETRIA o milimetr. Próg jest zerowy, więc milimetr wystarcza; to jest
+        #     ten sam negatyw, co przy porównaniu `--line`.
+        #  2. ZAPIS WEJŚĆ o jeden krok. Ta mutacja odpowiada na pytanie, którego pierwsza
+        #     nie zadaje: czy scena naprawdę CZYTA plik wzorca, czy tylko jedzie obok
+        #     niego. Gdyby `--replay` ignorowało zawartość zapisu, mutacja przeszłaby
+        #     porównanie — bo rdzeń policzyłby wtedy przejazd inny, a scena ten sam.
+        run: |
+          set -euo pipefail
+          python3 - <<'NEGCSV'
+          import csv
+
+          rows = list(csv.reader(open("build/t400/reczny/scene-spf120.csv", encoding="utf-8")))
+          rows[40][2] = repr(float(rows[40][2]) + 0.001)
+          with open("build/t400/reczny/scene-bad.csv", "w", newline="", encoding="utf-8") as h:
+              csv.writer(h).writerows(rows)
+          NEGCSV
+          rc=0
+          dotnet run --project src/Sim.Runner -c Release --no-build -- \
+            compare build/t400/reczny/core.csv build/t400/reczny/scene-bad.csv \
+            --tolerance 0 || rc=$?
+          test "$rc" -ne 0 \
+            || { echo "BŁĄD: różnica 1 mm w telemetrii przeszła porównanie" >&2; exit 1; }
+          echo "[NEGATYW] różnica 1 mm w jednym wierszu telemetrii odrzucona, tak jak ma być"
+
+          sed 's/^2800;S$/2801;S/' tests/data/manual-keys.log \
+            > build/t400/reczny/manual-keys-bad.log
+          cmp -s tests/data/manual-keys.log build/t400/reczny/manual-keys-bad.log \
+            && { echo "BŁĄD: mutacja zapisu wejść niczego nie zmieniła" >&2; exit 1; }
+          "$GODOT_BIN" --headless --path src/Game -- \
+            --replay="$PWD/build/t400/reczny/manual-keys-bad.log" \
+            --telemetry="$PWD/build/t400/reczny/scene-keys-bad.csv" \
+            --steps-per-frame=120 \
+            2>&1 | tee build/t400/reczny/scene-keys-bad.log
+          python3 tools/ci/assert_no_godot_warnings.py build/t400/reczny/scene-keys-bad.log
+          rc=0
+          dotnet run --project src/Sim.Runner -c Release --no-build -- \
+            compare build/t400/reczny/core.csv build/t400/reczny/scene-keys-bad.csv \
+            --tolerance 0 || rc=$?
+          test "$rc" -ne 0 \
+            || { echo "BŁĄD: przesunięcie hamowania o jeden krok przeszło porównanie — scena nie czyta zapisu" >&2
+                 exit 1; }
+          echo "[NEGATYW] hamowanie przesunięte o jeden krok odrzucone, tak jak ma być"
 
       - name: Line run — scene must call the same stations as the core
         shell: bash
@@ -792,3 +954,8 @@ jobs:
             # żaden z nich nie wychodził z runnera.
             build/t400/linia/*.csv
             build/t400/linia/*.log
+            # Przejazd ręczny odtworzony z zapisu wejść: telemetria rdzenia, telemetria
+            # sceny przy obu rytmach klatek i logi obu przebiegów. Ten sam powód, co
+            # przy przejazdach linią — bramki tego kroku czyta się z tych plików.
+            build/t400/reczny/*.csv
+            build/t400/reczny/*.log
