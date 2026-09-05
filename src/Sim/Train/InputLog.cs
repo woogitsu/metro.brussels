@@ -20,13 +20,19 @@ public readonly record struct InputLogEntry(long Step, DriverKeys Keys);
 ///
 /// <code>
 /// # METRO BXL — zapis wejść maszynisty
-/// # klawisze: W ciąg, S hamulec, X wybieg, - nic
+/// # klawisze: W ciąg, S hamulec, X wybieg, E hamulec awaryjny (= pełny służbowy), - nic
 /// wersja=1
 /// kroki=7200
 /// krok;klawisze
 /// 0;W
 /// 3600;S
 /// </code>
+///
+/// <para><b>Znak <c>E</c> jest dopisany do zestawu 05.09.2026, a wersja formatu została
+/// przy <c>1</c> — świadomie.</b> Kod klawiszy jest zbiorem znaków, więc plik bez
+/// hamulca awaryjnego zapisuje się i czyta bajt w bajt tak samo jak przedtem; zmieniła
+/// się wyłącznie linia komentarza z legendą, której <see cref="Parse"/> nie czyta.
+/// Stary plik odtwarza się w nowym kodzie, nowy bez <c>E</c> — w starym.</para>
 ///
 /// <para><b>Zapisywane są ZMIANY, nie każdy krok.</b> Przejazd całą linią to ponad
 /// 88 000 kroków, a człowiek przestawia nastawnik kilkadziesiąt razy — plik po jednym
@@ -150,7 +156,8 @@ public sealed class InputLog
         var text = new StringBuilder();
         text.Append("# METRO BXL — zapis wejść maszynisty\n");
         text.Append($"# klawisze: {DriverKeys.PowerCode} ciąg, {DriverKeys.BrakeCode} hamulec, ");
-        text.Append($"{DriverKeys.CoastCode} wybieg, {DriverKeys.NoneCode} nic\n");
+        text.Append($"{DriverKeys.CoastCode} wybieg, {DriverKeys.EmergencyCode} hamulec awaryjny ");
+        text.Append($"(= pełny służbowy), {DriverKeys.NoneCode} nic\n");
         text.Append("# wpis obowiązuje od swojego kroku do kroku następnego wpisu\n");
         text.Append(CultureInfo.InvariantCulture, $"{VersionField}={Version}\n");
         text.Append(CultureInfo.InvariantCulture, $"{StepsField}={Steps}\n");

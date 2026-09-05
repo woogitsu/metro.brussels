@@ -9,6 +9,10 @@ namespace MetroBxl.Game.UI;
 /// czyli prędkość dopuszczalna z autorytetem jazdy, i widok, gdy pokazywany jest inny
 /// niż zamówiony.
 ///
+/// <b>Hamulec awaryjny nie dostaje siódmego pola.</b> Jego wiersz dokleja się do pola
+/// nastawników, bo mówi o tym samym hamulcu, którego wskaźnik stoi obok — i dlatego,
+/// że HUD bez trzymanego klawisza ma wyjść napisem identycznym jak przed 05.09.2026.
+///
 /// <b>Bez brandingu.</b> <c>docs/03-legal.md</c> zabrania logo, map sieci, piktogramów
 /// i wystroju STIB/MIVB. HUD jest gołym tekstem na półprzezroczystym tle i nie udaje
 /// żadnego istniejącego pulpitu.
@@ -80,6 +84,16 @@ public sealed partial class Hud : CanvasLayer
     /// a to dwie różne rzeczy. Gracz, który wcisnął C i zobaczył kabinę, musi wiedzieć,
     /// czy widok goniący nie działa, czy jeszcze nie jest dostępny.</para>
     /// </param>
+    /// <param name="emergency">
+    /// Wiersz o hamulcu awaryjnym, złożony po stronie wołającego przez
+    /// <c>MetroBxl.Game.Input.EmergencyBrake.Notice</c> — z tego samego powodu, co dwa
+    /// poprzednie: liczba w nim ma pochodzić z polecenia, którym pojechał kontroler.
+    /// Puste znaczy „klawisz nie jest trzymany".
+    ///
+    /// <para>Dokleja się do wiersza nastawników, a nie zajmuje własnego: mówi
+    /// o hamulcu, którego wskaźnik stoi obok, a HUD bez trzymanego klawisza ma wyjść
+    /// napisem IDENTYCZNYM jak przedtem — bramka wizualna ogląda te wiersze.</para>
+    /// </param>
     public void Update(
         double speedKmh,
         double accelerationMps2,
@@ -92,7 +106,8 @@ public sealed partial class Hud : CanvasLayer
         string mode,
         string station,
         string signalling,
-        string view)
+        string view,
+        string emergency)
     {
         if (_speed is null || _position is null || _controls is null
             || _station is null || _signalling is null || _view is null)
@@ -105,9 +120,10 @@ public sealed partial class Hud : CanvasLayer
         _position.Text = string.Create(
             CultureInfo.InvariantCulture,
             $"chainage {chainageM,9:F1} m / {axisLengthM:F1} m     {nextStation} za {toStationM:F0} m");
+        var emergencySuffix = emergency.Length > 0 ? "   " + emergency : string.Empty;
         _controls.Text = string.Create(
             CultureInfo.InvariantCulture,
-            $"ciąg {Bar(throttle)} {throttle:F2}   hamulec {Bar(brake)} {brake:F2}   [{mode}]");
+            $"ciąg {Bar(throttle)} {throttle:F2}   hamulec {Bar(brake)} {brake:F2}   [{mode}]{emergencySuffix}");
         _station.Text = station;
         _station.Visible = station.Length > 0;
         _signalling.Text = signalling;

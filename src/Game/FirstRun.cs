@@ -79,12 +79,27 @@ public sealed partial class FirstRun : Node3D
     /// </summary>
     private DriverKeys _keys = DriverKeys.None;
 
+    /// <summary>
+    /// Klawisze OSTATNIEGO wykonanego kroku — z klawiatury albo z zapisu wejść. HUD
+    /// czyta to, a nie <see cref="_keys"/>: w odtworzeniu klawiatura milczy, a wiersz
+    /// o hamulcu awaryjnym ma mówić o przejeździe, który się odbywa, a nie o tym, czy
+    /// ktoś akurat trzyma klawisz przy oglądaniu.
+    /// </summary>
+    private DriverKeys _activeKeys = DriverKeys.None;
+
     private FixedStep _step;
 
     private ScenarioDrive? _scripted;
     private StationService? _stations;
     private LineDrive? _line;
     private LineCore? _lineCore;
+
+    /// <summary>
+    /// Plan sygnalizacji, z którego tryb ręczny bierze prędkość dopuszczalną;
+    /// <c>null</c> w trybie linii i w przebiegu skryptowym. Plan jest tu CZYTANY,
+    /// a nie prowadzi — patrz <see cref="RunPlan.ManualSpeedLimitPlanPath"/>.
+    /// </summary>
+    private SignallingPlan? _manualPlan;
     private DriveState _state;
     private DriverCommand _command = DriverCommand.Coast;
 
@@ -497,7 +512,52 @@ public sealed partial class FirstRun : Node3D
         {
             _scripted = new ScenarioDrive(_controller, _scenario, _conditions, _step);
         }
-        else if (_axis.Stations.Count >= 2)
+        else
+        {
+            // TRYB RĘCZNY (i odtworzenie, które jest nim z klawiszami z pliku) bierze
+            // prędkość dopuszczalną Z PLANU SYGNALIZACJI — decyzja właściciela
+            // z 05.09.2026. Do tego dnia jechał limitem ze scenariusza, czyli 80 km/h,
+            // prędkością KONSTRUKCYJNĄ M7: dokładnie tą liczbą, którą `RunHeader`
+            // naprawił dla `--line` (#220), tyle że ścieżka ręczna została wtedy
+            // pominięta i liczba trafiała nie tylko do napisu, ale i do kontrolera.
+            //
+            // Plan jest CZYTANY, nie prowadzi: skład nie jest zarejestrowany
+            // w sygnalizacji, nie dostaje autorytetu jazdy i nie ma ochrony pociągu.
+            // Z pliku bierze się jedna liczba i tylko ta jedna — a wiersz [LIMIT] niżej
+            // mówi, która i skąd. Brak pliku jest ODMOWĄ startu: cichy odwrót na
+            // scenariusz byłby powrotem do usterki, a wygląda tak samo jak przejazd
+            // poprawny.
+            var planPath = RepoPath(RunPlan.ManualSpeedLimitPlanPath);
+            _manualPlan = ReadSignallingPlan(planPath);
+            if (_manualPlan is null)
+            {
+                return;
+            }
+
+            if (!string.Equals(_manualPlan.AxisId, _axis.Id, StringComparison.Ordinal))
+            {
+                Abort(ExitBadArgumentValue,
+                    $"[LIMIT] plan {planPath} opisuje oś {_manualPlan.AxisId}, a przejazd "
+                    + $"idzie po {_axis.Id}: prędkość dopuszczalna z cudzej osi nie jest "
+                    + "prędkością dopuszczalną tej");
+                return;
+            }
+
+            GD.Print(string.Create(
+                CultureInfo.InvariantCulture,
+                $"[LIMIT] tryb ręczny: {Units.MpsToKmh(_manualPlan.PermittedSpeedMps):F2} km/h z planu {_manualPlan.PlanId} ({RunPlan.ManualSpeedLimitPlanPath}); plan jest czytany, nie prowadzi — bez blokad i bez ochrony pociągu"));
+
+            BuildStationService();
+        }
+    }
+
+    /// <summary>
+    /// Obsługa stacji dla przejazdu prowadzonego z klawiatury albo odtwarzanego
+    /// z zapisu wejść.
+    /// </summary>
+    private void BuildStationService()
+    {
+        if (_axis.Stations.Count >= 2)
         {
             // Obsługa stacji jest WYŁĄCZNIE w trybie ręcznym, i to nie jest oszczędność.
             // Przebieg skryptowy odtwarza `ScenarioDrive` z rdzenia i jego telemetria jest
@@ -684,7 +744,7 @@ public sealed partial class FirstRun : Node3D
         // Nagłówek nie dostaje już ŻADNEJ liczby parametrem: dostaje obiekty, które
         // prowadzą przebieg, i czyta liczby z nich.
         GD.Print(RunHeader.Line(
-            _plan!, _view, _scenario, _step, _conditions, _lineCore, _line));
+            _plan!, _view, _scenario, _step, _conditions, _lineCore, _line, _manualPlan));
         GD.Print($"[OŚ] {_axis}");
 
         foreach (var assumption in _scenario.Assumptions)
@@ -890,6 +950,7 @@ public sealed partial class FirstRun : Node3D
         // fizykę odbierałaby porównaniu gracza z rdzeniem wszelkie znaczenie.
         var keys = _replay?.KeysAt(stepIndex) ?? _keys;
         _recorder?.Record(stepIndex, keys);
+        _activeKeys = keys;
 
         // JEDEN krok dźwigni na JEDEN krok symulacji. Klatka obejmująca N kroków
         // wykona to N razy z tym samym `keys` — stan klawiszy jest stały w obrębie
@@ -949,13 +1010,13 @@ public sealed partial class FirstRun : Node3D
     ///
     /// <para>Nie jest to skrót zapisu. Nagłówek kłamał o limicie właśnie dlatego, że
     /// wypisywał SWOJĄ liczbę obok tej, którą jechał rdzeń; dopóki obie liczby są tym
-    /// samym wyrażeniem, rozjazd między nimi nie ma się gdzie wziąć. W trybie ręcznym
-    /// i skryptowym `RunHeader.SpeedLimitMps` wraca do scenariusza, czyli do liczby,
-    /// którą ten sam wiersz podawał kontrolerowi wcześniej — przebieg jest bez zmian
-    /// i telemetria porównywana z rdzeniem CO DO BITU to potwierdza.</para>
+    /// samym wyrażeniem, rozjazd między nimi nie ma się gdzie wziąć. W trybie RĘCZNYM
+    /// to jest limit z planu sygnalizacji (72,00 km/h z `classic-2026`), w SKRYPTOWYM —
+    /// limit ze scenariusza, czyli liczba, którą rdzeń podaje `ScenarioDrive`; tamten
+    /// przebieg jest z rdzeniem porównywany CO DO BITU i musi zostać bez zmian.</para>
     /// </summary>
     private double SpeedLimitMps
-        => RunHeader.SpeedLimitMps(_lineMode, _scenario, _lineCore, _line);
+        => RunHeader.SpeedLimitMps(_plan!, _scenario, _lineCore, _line, _manualPlan);
 
     // --- widok -------------------------------------------------------------------
 
@@ -1156,7 +1217,8 @@ public sealed partial class FirstRun : Node3D
         _hud.Update(
             _state.SpeedKmh, _acceleration, chainage, _axis.LengthM,
             name, distance, _command.Throttle, _command.Brake, _mode,
-            StationLine(), SignallingLine(), _viewLine);
+            StationLine(), SignallingLine(), _viewLine,
+            EmergencyBrake.Notice(_activeKeys, _command));
     }
 
     /// <summary>

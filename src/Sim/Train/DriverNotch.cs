@@ -78,6 +78,16 @@ public sealed class DriverNotch
     /// <para>Pierwszeństwo klawiszy jest takie samo, jak było w <c>DriverInput.Poll</c>:
     /// ciąg, potem hamulec, potem wybieg. Ciąg zdejmuje hamulec, zanim zacznie narastać —
     /// na M7 nie ma pozycji „ciągnij i hamuj naraz" i model jej nie udaje.</para>
+    ///
+    /// <para><b><see cref="DriverKeys.Emergency"/> idzie PRZED wszystkimi i nie jest
+    /// nowym stopniem hamowania.</b> Wynikiem jest dokładnie
+    /// <see cref="DriverCommand.FullServiceBrake"/> — ta sama liczba, do której dochodzi
+    /// trzymany <see cref="DriverKeys.Brake"/> po 1/<see cref="RatePerSecond"/> sekundy.
+    /// Różni się wyłącznie tym, że dźwignia trafia tam OD RAZU, bez przesuwu: to jest
+    /// gest maszynisty, nie osobna fizyka. Decyzja właściciela z 05.09.2026 mówi to
+    /// wprost i tak samo mówi HUD — dokładanie trzeciego stopnia do
+    /// <see cref="DriverCommand"/> byłoby wymyśleniem hamulca, którego rdzeń nie
+    /// modeluje.</para>
     /// </summary>
     /// <param name="keys">Stan trzymanych klawiszy w tym kroku.</param>
     /// <param name="step">Krok symulacji; jego długość jest jedyną miarą czasu tutaj.</param>
@@ -86,6 +96,12 @@ public sealed class DriverNotch
     public DriverCommand Advance(DriverKeys keys, FixedStep step)
     {
         step.RequireValid();
+
+        if (keys.Emergency)
+        {
+            Command = DriverCommand.FullServiceBrake;
+            return Command;
+        }
 
         var stepValue = _ratePerSecond * step.Seconds;
         var throttle = Command.Throttle;

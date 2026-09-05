@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using MetroBxl.Sim.Train;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -110,13 +111,63 @@ public sealed class InputLogTests
         // Bezstratność: pierwszeństwo W nad S jest regułą DriverNotch, nie własnością
         // zapisu. Gdyby zapis trzymał już rozstrzygnięty klawisz, zmiana tej reguły
         // cicho zmieniłaby znaczenie starych plików.
-        var both = new DriverKeys(Power: true, Brake: true, Coast: false);
+        var both = new DriverKeys(Power: true, Brake: true, Coast: false, Emergency: false);
         var log = new InputLog(5, new[] { new InputLogEntry(0, both) });
 
         var again = InputLog.Parse(log.ToText());
 
         Assert.AreEqual("WS", both.Code());
         Assert.AreEqual(both, again.KeysAt(0));
+    }
+
+    /// <summary>
+    /// Hamulec awaryjny przechodzi przez zapis. Bez tego przejazd, w którym maszynista
+    /// go użył, odtworzyłby się BEZ hamowania — a odtworzenie, które gubi jeden
+    /// klawisz, wygląda dokładnie tak samo jak odtworzenie poprawne, tyle że kończy się
+    /// gdzie indziej.
+    /// </summary>
+    [TestMethod]
+    public void EmergencyBrakeSurvivesTheRoundTrip()
+    {
+        var log = new InputLog(20, new[]
+        {
+            new InputLogEntry(0, DriverKeys.Powering),
+            new InputLogEntry(10, DriverKeys.EmergencyBraking),
+        });
+
+        var again = InputLog.Parse(log.ToText());
+
+        Assert.AreEqual("E", DriverKeys.EmergencyBraking.Code());
+        Assert.AreEqual(DriverKeys.Powering, again.KeysAt(9));
+        Assert.AreEqual(DriverKeys.EmergencyBraking, again.KeysAt(10));
+        Assert.IsTrue(again.KeysAt(10).Emergency);
+    }
+
+    /// <summary>
+    /// Dopisanie znaku <c>E</c> do zestawu NIE zmieniło zapisu przejazdów, w których
+    /// go nie użyto: wiersze wpisów wychodzą bajt w bajt takie same jak przed
+    /// 05.09.2026. Zmieniła się wyłącznie linia komentarza z legendą, której
+    /// <see cref="InputLog.Parse"/> nie czyta — i dlatego stary plik odtwarza się bez
+    /// zmian, a bramka porównująca zapis z fixture'em nie ma się o co potknąć.
+    /// </summary>
+    [TestMethod]
+    public void AddingTheEmergencyKeyDidNotMoveASingleByteOfOlderRuns()
+    {
+        var log = new InputLog(7200, new[]
+        {
+            new InputLogEntry(0, DriverKeys.Powering),
+            new InputLogEntry(1800, DriverKeys.Coasting),
+            new InputLogEntry(3600, DriverKeys.Braking),
+        });
+
+        var rows = log.ToText().Split('\n');
+        CollectionAssert.AreEqual(
+            new[] { "0;W", "1800;X", "3600;S" },
+            rows.Where(row => row.Length > 0 && char.IsAsciiDigit(row[0])).ToArray());
+        Assert.IsFalse(
+            rows.Any(row => row.StartsWith("wersja=", StringComparison.Ordinal)
+                && row != "wersja=1"),
+            "wersja formatu nie miała się zmienić: zestaw znaków tylko urósł");
     }
 
     // --- odmowy -------------------------------------------------------------------

@@ -2,6 +2,7 @@ using System;
 using System.Globalization;
 using MetroBxl.Sim.Line;
 using MetroBxl.Sim.Physics;
+using MetroBxl.Sim.Signalling;
 using MetroBxl.Sim.Train;
 
 namespace MetroBxl.Game;
@@ -43,20 +44,41 @@ public static class RunHeader
     /// leci przed nim. To jest ta sama kolejność warunków, którą ma <c>StepOnce</c>
     /// i <c>FastForwardToShot</c> w <c>FirstRun.cs</c>, i z tego samego powodu.</para>
     ///
-    /// <para>Scenariusz jest OSTATNI i wyłącznie dla trybu ręcznego i skryptowego —
-    /// tam limit ze scenariusza jest tym, którym jedzie kontroler, bo <c>--limit-kmh</c>
-    /// się z tymi trybami nie łączy (<see cref="RunPlan"/> odmawia). Przejazd linią bez
-    /// prowadzenia z rdzenia nie ma prawa dostać tu wartości domyślnej: cichy odwrót na
-    /// 80 km/h jest dokładnie tą usterką, którą ten plik naprawia, więc jest tu
-    /// wyjątkiem, a nie liczbą.</para>
+    /// <para><b>Tryb RĘCZNY bierze limit z PLANU SYGNALIZACJI, nie ze scenariusza.</b>
+    /// Decyzja właściciela z 05.09.2026: kabina jedzie tym samym limitem, co autopilot
+    /// pod sygnalizacją, czyli 72,00 km/h z planu <c>classic-2026</c>. Do tego dnia
+    /// jechała 80 km/h ze scenariusza — czyli prędkością KONSTRUKCYJNĄ M7, i to jest ta
+    /// sama usterka, którą ten plik naprawił dla <c>--line</c>, tyle że ścieżka ręczna
+    /// została wtedy pominięta. Liczba nie jest tu wpisana: przychodzi
+    /// <see cref="SignallingPlan.PermittedSpeedMps"/> z pliku, który to samo repozytorium
+    /// podaje autopilotowi pod <c>--signalling</c>, więc drugiej kopii nie ma gdzie
+    /// trzymać.</para>
+    ///
+    /// <para>Scenariusz jest OSTATNI i wyłącznie dla trybu SKRYPTOWEGO
+    /// (<c>--telemetry</c>, <c>--shot</c>) — tam limit ze scenariusza jest tym, którym
+    /// jedzie <c>ScenarioDrive</c> w rdzeniu, a telemetria sceny jest z rdzeniem
+    /// porównywana CO DO BITU. Ani przejazd linią bez prowadzenia z rdzenia, ani
+    /// przejazd ręczny bez planu nie mają prawa dostać tu wartości domyślnej: cichy
+    /// odwrót na 80 km/h jest dokładnie tą usterką, którą ten plik naprawia, więc oba
+    /// są wyjątkiem, a nie liczbą.</para>
     /// </summary>
-    /// <param name="lineMode">Czy to przejazd linią (<c>--line</c>).</param>
-    /// <param name="scenario">Scenariusz przebiegu ręcznego i skryptowego.</param>
+    /// <param name="plan">Rozstrzygnięty wiersz poleceń: tryb przebiegu.</param>
+    /// <param name="scenario">Scenariusz przebiegu skryptowego.</param>
     /// <param name="core">Linia z sygnalizacją albo <c>null</c>.</param>
     /// <param name="line">Prowadzenie tego składu albo <c>null</c>.</param>
+    /// <param name="manualPlan">
+    /// Plan sygnalizacji, z którego tryb ręczny bierze prędkość dopuszczalną; wczytuje
+    /// go scena z <see cref="RunPlan.ManualSpeedLimitPlanPath"/>. Poza trybem ręcznym
+    /// i odtworzeniem jest <c>null</c> i nie jest czytany.
+    /// </param>
+    /// <exception cref="ArgumentException">
+    /// Przejazd linią bez prowadzenia z rdzenia albo przejazd ręczny bez planu.
+    /// </exception>
     public static double SpeedLimitMps(
-        bool lineMode, DriveScenario scenario, LineCore? core, LineDrive? line)
+        RunPlan plan, DriveScenario scenario, LineCore? core, LineDrive? line,
+        SignallingPlan? manualPlan)
     {
+        ArgumentNullException.ThrowIfNull(plan);
         ArgumentNullException.ThrowIfNull(scenario);
 
         if (core is not null)
@@ -69,16 +91,30 @@ public static class RunHeader
             return line.SpeedLimitMps;
         }
 
-        if (lineMode)
+        if (plan.LineMode)
         {
             throw new ArgumentException(
                 "Przejazd linią bez prowadzenia z rdzenia nie ma skąd wziąć limitu, "
                 + "a scenariusz podaje 80 km/h — prędkość konstrukcyjną M7, nie "
                 + "ograniczenie na torze.",
-                nameof(lineMode));
+                nameof(plan));
         }
 
-        return scenario.SpeedLimitMps;
+        if (plan.ScriptedMode)
+        {
+            return scenario.SpeedLimitMps;
+        }
+
+        if (manualPlan is null)
+        {
+            throw new ArgumentException(
+                "Przejazd ręczny bez planu sygnalizacji nie ma skąd wziąć limitu, "
+                + "a scenariusz podaje 80 km/h — prędkość konstrukcyjną M7, nie "
+                + "ograniczenie na torze.",
+                nameof(manualPlan));
+        }
+
+        return manualPlan.PermittedSpeedMps;
     }
 
     /// <summary>
@@ -88,11 +124,12 @@ public static class RunHeader
     /// </summary>
     /// <param name="plan">Rozstrzygnięty wiersz poleceń: tryb i to, czy jedzie linia.</param>
     /// <param name="view">Widok aktywny w chwili wypisania nagłówka.</param>
-    /// <param name="scenario">Scenariusz przebiegu ręcznego i skryptowego.</param>
+    /// <param name="scenario">Scenariusz przebiegu skryptowego.</param>
     /// <param name="step">Krok stały, którym idzie rdzeń — nie stała klasy.</param>
     /// <param name="conditions">Warunki podane rdzeniowi: masa, pochylenie, przyczepność.</param>
     /// <param name="core">Linia z sygnalizacją albo <c>null</c>.</param>
     /// <param name="line">Prowadzenie tego składu albo <c>null</c>.</param>
+    /// <param name="manualPlan">Plan, z którego limit bierze tryb ręczny; poza nim <c>null</c>.</param>
     public static string Line(
         RunPlan plan,
         ViewKind view,
@@ -100,13 +137,14 @@ public static class RunHeader
         FixedStep step,
         RunConditions conditions,
         LineCore? core,
-        LineDrive? line)
+        LineDrive? line,
+        SignallingPlan? manualPlan)
     {
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentNullException.ThrowIfNull(scenario);
         ArgumentNullException.ThrowIfNull(conditions);
 
-        var limitMps = SpeedLimitMps(plan.LineMode, scenario, core, line);
+        var limitMps = SpeedLimitMps(plan, scenario, core, line, manualPlan);
         return string.Create(
             CultureInfo.InvariantCulture,
             $"[PRZEJAZD] tryb={plan.Mode} widok={view} scenariusz={scenario.Id} " +
