@@ -522,3 +522,117 @@ def test_the_finished_entry_field_is_the_one_the_template_adds():
         "wtedy zakaz wyżej wywraca każdy poprawny blok")
     assert "**%s:**" % DONE_ONLY_FIELD in _tasks(), (
         "pole wpisu zrobionego zniknęło z całego planu — miara straciła desygnat")
+
+
+#: Napis, którym wiersz tabeli mówi, że pozycja jest już wykonana, a stoi w kolejce
+#: wyłącznie z powodu zapadki. Wzór ustalił właściciel 05.09.2026 dla 6.D6 i powtarzają
+#: go 6.B10, 6.B1, 6.B8 i 6.D5.
+DONE_ROW_MARKER = "ZROBIONE"
+
+
+def declared_report_outputs(body):
+    """Ścieżki `reports/*.md` wymienione w polu **Wyjście** bloku szczegółów."""
+    at = body.find("- **Wyjście:**")
+    if at < 0:
+        return []
+    rest = body[at:]
+    nxt = re.search(r"\n- \*\*", rest)
+    field = rest if nxt is None else rest[:nxt.start()]
+    return sorted(set(re.findall(r"reports/[A-Za-z0-9._-]+\.md", field)))
+
+
+def queue_row(text, number):
+    """Wiersz tabeli kolejki dla tego numeru — albo pusty napis."""
+    for line in text.splitlines():
+        match = re.match(r"^\|\s*(\d+\.[A-Za-z]?\d+)\s*\|", line)
+        if match and match.group(1) == number:
+            return line
+    return ""
+
+
+def finished_but_still_silent(text, exists=os.path.exists):
+    """Pozycje, których WSZYSTKIE zadeklarowane raporty istnieją, a wiersz milczy.
+
+    `exists` jest wstrzykiwane, żeby kontrola negatywna mogła podstawić własne
+    odpowiedzi zamiast tworzyć pliki w `reports/` — test, który zaśmieca katalog,
+    którego pilnuje inna bramka, jest gorszy niż brak testu.
+    """
+    sections = detail_sections(text)
+    late = []
+    for number in ready_items(text):
+        outputs = declared_report_outputs(sections.get(number, ""))
+        if not outputs:
+            continue
+        if all(exists(os.path.join(ROOT, path)) for path in outputs):
+            if DONE_ROW_MARKER not in queue_row(text, number):
+                late.append(f"{number}: {', '.join(outputs)} już istnieje")
+    return late
+
+
+def test_a_documented_item_whose_reports_all_exist_says_so_in_its_row():
+    """Kolejka nie ma prawa opisywać stanu sprzed pracy, która już weszła.
+
+    **Skąd ta bramka.** 05.09.2026, w jednej sesji, SZEŚĆ pozycji okazało się
+    wykonanych, a wszystkie stały w kolejce jak otwarte: 5.1 (#184), 5.2 (`470632d`),
+    5.8 i 6.B8 (`f5126a3`, jedno wykonanie zamknęło obie), 6.D5 (#259) oraz 6.B3
+    (LOD dla B i E istnieje od T-210). Cztery z nich wyszły dopiero wtedy, gdy ktoś
+    wziął pozycję do zrobienia i **pomiar obalił jej założenie** — czyli najdroższym
+    możliwym sposobem. `docs/TASKS.md` mówi wprost: „Aktualizacja tej listy jest
+    częścią pracy, nie dodatkiem do niej", i to zdanie nie miało dotąd żadnej bramki.
+
+    **Co ta bramka łapie.** Pozycję udokumentowaną, której pole **Wyjście** nazywa
+    raporty, i wszystkie te raporty już leżą w `reports/`. Wtedy albo praca jest
+    zrobiona i wiersz ma to mówić, albo pole **Wyjście** obiecuje plik, który znaczy
+    co innego niż to, co powstało — i jedno, i drugie jest usterką planu.
+
+    **Czego NIE łapie, i to jest granica, nie przeoczenie.** Pozycji bez bloku
+    sześciu pól (5.1 i 5.2 były właśnie takie — ich dowodem był commit, nie plik),
+    pozycji, których wyjściem jest kod bez raportu, ani pozycji, której raport
+    **rozszerza** plik już istniejący. Ten ostatni przypadek jest jedynym źródłem
+    fałszywego trafienia i ma tanie lekarstwo: pole **Wyjście** ma wtedy nazwać nowy
+    plik albo sekcję, a nie cały istniejący raport — czyli dokumentację, która i tak
+    jest lepsza.
+    """
+    late = finished_but_still_silent(_tasks())
+    assert not late, (
+        "kolejka opisuje stan sprzed pracy, która już weszła — wiersz ma dostać "
+        f"adnotację „{DONE_ROW_MARKER} w #NNN” albo wyjść do tabeli domknięć: {late}")
+
+
+def test_the_finished_item_detector_reacts_to_both_halves_of_its_condition():
+    """Kontrola do bramki wyżej — obie połowy warunku, każda osobno.
+
+    Detektor stoi na koniunkcji „raport istnieje" AND „wiersz milczy". Test, który
+    ćwiczy tylko jedną z nich, przechodziłby także dla detektora zwracającego stałą.
+    """
+    plan = (
+        "| # | zadanie |\n"
+        "| 6.Z1 | **Coś do zrobienia** | bo tak | M |\n"
+        "| 6.Z2 | **ZROBIONE w #999.** Coś innego | bo tak | M |\n"
+        "\n##### 6.Z1 · pozycja bez adnotacji\n"
+        "- **Wejście:** cokolwiek\n- **Wyjście:** `reports/zmyslony.md`\n"
+        "- **Weryfikacja:** cokolwiek\n- **Skończone, gdy:** cokolwiek\n"
+        "- **Poza zakresem:** cokolwiek\n- **Zależy od:** nic.\n"
+        "\n##### 6.Z2 · pozycja z adnotacją\n"
+        "- **Wejście:** cokolwiek\n- **Wyjście:** `reports/zmyslony.md`\n"
+        "- **Weryfikacja:** cokolwiek\n- **Skończone, gdy:** cokolwiek\n"
+        "- **Poza zakresem:** cokolwiek\n- **Zależy od:** nic.\n")
+
+    # 1. Raport istnieje, wiersz milczy → trafienie, i tylko na tej pozycji.
+    late = finished_but_still_silent(plan, exists=lambda path: True)
+    assert [entry.split(":")[0] for entry in late] == ["6.Z1"], late
+
+    # 2. Ten sam plan, ale raportu nie ma → cisza. Bez tego bramka mogłaby zgłaszać
+    #    każdą pozycję z polem Wyjście i nadal wyglądać na działającą.
+    assert finished_but_still_silent(plan, exists=lambda path: False) == []
+
+    # 3. Pole Wyjście bez ścieżki do raportu jest poza zasięgiem — pozycja z samym
+    #    kodem na wyjściu nie ma jak zapalić tej bramki.
+    assert declared_report_outputs("- **Wyjście:** testy w `tools/tests/`.") == []
+    assert declared_report_outputs("- **Wyjście:** `reports/a.md` i `reports/b.md`.") == [
+        "reports/a.md", "reports/b.md"]
+
+    # 4. Pole Wyjście kończy się na następnym polu, a nie na końcu bloku: raport
+    #    wymieniony w „Weryfikacji" albo w „Poza zakresem" NIE jest wyjściem pozycji.
+    assert declared_report_outputs(
+        "- **Wyjście:** testy.\n- **Weryfikacja:** patrz `reports/cudzy.md`.") == []
