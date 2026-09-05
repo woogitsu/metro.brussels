@@ -308,4 +308,92 @@ public sealed class DriverActionsTests
         Assert.Inconclusive("Test uruchomiony poza drzewem repozytorium.");
         throw new InvalidOperationException();
     }
+
+    /// <summary>
+    /// Wiersz pomocy pod <c>--line</c> ma mówić PRAWDĘ o tym trybie: skład prowadzi
+    /// <c>LineDrive</c>, więc z siedmiu klawiszy działają dwa.
+    ///
+    /// <para>Test nie sprawdza brzmienia napisu — sprawdza, że każdy przejęty klawisz
+    /// jest w nim nazwany po stronie „nie działają", a żaden działający nie wpadł tam
+    /// przez pomyłkę. Asercja na cały napis pękałaby przy każdej zmianie interpunkcji
+    /// i zostałaby przepisana bez patrzenia, co jest dokładnie tym trybem cichej awarii,
+    /// przed którym ten plik broni.</para>
+    /// </summary>
+    [TestMethod]
+    public void PodAutopilotemPomocNazywaKlawiszeKtoreNieDzialaja()
+    {
+        var pomoc = DriverActions.HelpWhenTheCoreDrives;
+        var przejete = new HashSet<string>(DriverActions.TakenOverByTheCore);
+
+        var ogon = pomoc[(pomoc.IndexOf("prowadzi rdzeń:", StringComparison.Ordinal))..];
+
+        foreach (var binding in DriverActions.All)
+        {
+            if (przejete.Contains(binding.Action))
+            {
+                StringAssert.Contains(
+                    ogon, binding.KeyName,
+                    $"klawisz '{binding.KeyName}' nie działa pod --line, a pomoc o tym nie mówi");
+                Assert.IsFalse(
+                    pomoc.Contains($"{binding.KeyName} {binding.Meaning}", StringComparison.Ordinal),
+                    $"pomoc obiecuje '{binding.KeyName} {binding.Meaning}', a ten klawisz nie działa");
+            }
+            else
+            {
+                StringAssert.Contains(
+                    pomoc, $"{binding.KeyName} {binding.Meaning}",
+                    $"klawisz '{binding.KeyName}' działa pod --line, a pomoc go nie wymienia");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Podział akcji na przejęte przez rdzeń i działające pod <c>--line</c> jest
+    /// WYPISANY TU IMIENNIE — obie strony, po nazwie.
+    ///
+    /// <para><b>Dlaczego imiennie, a nie regułą.</b> Pierwsza wersja tego testu
+    /// sprawdzała, że dwie listy „pokrywają tabelę bez reszty", i jej docstring głosił,
+    /// że dzięki temu dopisanie klawisza wymusza decyzję. <b>Nie wymuszało.</b> Warunek
+    /// arytmetyczny <c>|All| − |przejęte| = |All \ przejęte|</c> jest prawdziwy dla
+    /// KAŻDEGO nowego wpisu, więc klawisz dopisany do <see cref="DriverActions.All"/>
+    /// wpadał po cichu po stronie „działa" i pomoc obiecywała go pod <c>--line</c> —
+    /// nie dlatego, że ktoś tak postanowił, tylko dlatego, że nikt nie został o to
+    /// zapytany. Test przechodził. To jest dokładnie ta rodzina usterek, którą ten
+    /// projekt goni: kontrola, która mówi „ok" także wtedy, gdy nic nie sprawdza.</para>
+    ///
+    /// <para>Dwie wypisane listy są brzydsze i działają: nowy klawisz wywala ten test,
+    /// a jego autor musi dopisać go po jednej ze stron, czyli odpowiedzieć na pytanie,
+    /// czy pod <c>--line</c> ten klawisz coś robi.</para>
+    /// </summary>
+    [TestMethod]
+    public void KazdaAkcjaStoiPoDokladnieJednejStronie()
+    {
+        var wszystkie = DriverActions.All.Select(b => b.Action).ToList();
+
+        CollectionAssert.AreEqual(
+            new List<string>
+            {
+                DriverActions.Power, DriverActions.Brake, DriverActions.Coast,
+                DriverActions.Emergency, DriverActions.ViewToggle,
+                DriverActions.Reset, DriverActions.Quit,
+            },
+            wszystkie,
+            "tabela przypisań się zmieniła — rozstrzygnij, po której stronie stoi nowy klawisz");
+
+        CollectionAssert.AreEqual(
+            new List<string>
+            {
+                DriverActions.Power, DriverActions.Brake, DriverActions.Coast,
+                DriverActions.Emergency, DriverActions.Reset,
+            },
+            new List<string>(DriverActions.TakenOverByTheCore),
+            "lista klawiszy przejętych przez rdzeń się zmieniła");
+
+        foreach (var action in DriverActions.TakenOverByTheCore)
+        {
+            CollectionAssert.Contains(
+                wszystkie, action,
+                $"'{action}' jest na liście przejętych, a nie ma go w tabeli przypisań");
+        }
+    }
 }

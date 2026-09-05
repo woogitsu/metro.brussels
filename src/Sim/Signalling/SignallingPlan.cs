@@ -321,12 +321,26 @@ public sealed class SignallingPlan
     /// Trasa prowadząca z bloku peronowego zawierającego <paramref name="fromChainageM"/>
     /// do następnego bloku peronowego, albo <c>null</c>, gdy takiej nie ma.
     /// </summary>
-    public Route? NextRouteFrom(double fromChainageM)
+    public Route? NextRouteFrom(double fromChainageM) =>
+        RouteOutOf(_blocks[BlockIndexAt(fromChainageM)].Id);
+
+    /// <summary>
+    /// Trasa wychodząca z zadanego bloku, albo <c>null</c>, gdy z tego bloku żadna nie
+    /// wychodzi (czyli gdy blok jest szlakowy albo peronowy końcowy).
+    ///
+    /// <para>Wydzielone z <see cref="NextRouteFrom(double)"/>, bo pytanie „która trasa
+    /// wychodzi z tego bloku" pada też o blok, którego nie da się wskazać kilometrażem
+    /// JEDNEGO punktu: skład o długości 94 m stoi naraz w dwóch blokach i wolno mu
+    /// zamówić trasę z każdego z nich (<see cref="FixedBlockSystem.NextRouteForTrain"/>).</para>
+    /// </summary>
+    /// <param name="blockId">Blok początkowy trasy.</param>
+    /// <returns>Pierwsza trasa o takim bloku początkowym albo <c>null</c>.</returns>
+    public Route? RouteOutOf(string blockId)
     {
-        var from = _blocks[BlockIndexAt(fromChainageM)].Id;
+        ArgumentNullException.ThrowIfNull(blockId);
         foreach (var route in _routes)
         {
-            if (string.Equals(route.FromBlockId, from, StringComparison.Ordinal))
+            if (string.Equals(route.FromBlockId, blockId, StringComparison.Ordinal))
             {
                 return route;
             }

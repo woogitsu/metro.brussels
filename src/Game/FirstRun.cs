@@ -100,6 +100,21 @@ public sealed partial class FirstRun : Node3D
     /// a nie prowadzi — patrz <see cref="RunPlan.ManualSpeedLimitPlanPath"/>.
     /// </summary>
     private SignallingPlan? _manualPlan;
+
+    /// <summary>
+    /// Ochrona pociągu dla KABINY: bloki, nastawnia, autorytet jazdy i ingerencja
+    /// w polecenie człowieka. <c>null</c> poza trybem ręcznym pod <c>--signalling</c>
+    /// — i wtedy przejazd jest bit w bit taki, jak przed wprowadzeniem G-5.
+    ///
+    /// <para>Nie jest to drugi <see cref="LineCore"/>. <see cref="LineDrive"/> uznaje
+    /// zatrzymanie za wywołanie stacji przy <c>chainage &gt;= cel − okno</c>, bez
+    /// ograniczenia z góry — dla człowieka znaczyłoby to drzwi otwarte 200 m za peronem
+    /// (<c>reports/droga-do-grywalnosci.md</c> §5.3). Regułę stacji ma tu
+    /// <see cref="StationService"/> i to ona zostaje; <see cref="CabProtection"/> nie wie
+    /// o stacjach nic.</para>
+    /// </summary>
+    private CabProtection? _cabProtection;
+
     private DriveState _state;
     private DriverCommand _command = DriverCommand.Coast;
 
@@ -180,6 +195,14 @@ public sealed partial class FirstRun : Node3D
 
     /// <summary>Skorupa M7 się nie wczytała. Scena bez składu nie jest przejazdem.</summary>
     private const int ExitTrainMissing = 11;
+
+    /// <summary>
+    /// Identyfikator składu w sygnalizacji. Jeden na całą scenę, bo sygnalizacja linii
+    /// (<c>LineCore</c>) i sygnalizacja kabiny (<c>CabProtection</c>) nigdy nie działają
+    /// naraz, a zdarzenia obu stron mają dać się porównać z rdzeniem po NAZWIE, a nie po
+    /// domysłach — <c>Sim.Runner</c> używa tego samego napisu.
+    /// </summary>
+    private const string SignalledTrainId = "KABINA";
 
     /// <summary>
     /// Perony się nie wczytały. Odmowa, a nie cichy przejazd bez nich — i to jest
@@ -529,7 +552,7 @@ public sealed partial class FirstRun : Node3D
                     return;
                 }
 
-                _lineCore.Add("KABINA", 0L);
+                _lineCore.Add(SignalledTrainId, 0L);
                 GD.Print(string.Create(
                     CultureInfo.InvariantCulture,
                     $"[SYGNALIZACJA] {signalling.Blocks.Count} bloków, {signalling.Routes.Count} tras, "
@@ -557,7 +580,15 @@ public sealed partial class FirstRun : Node3D
             // mówi, która i skąd. Brak pliku jest ODMOWĄ startu: cichy odwrót na
             // scenariusz byłby powrotem do usterki, a wygląda tak samo jak przejazd
             // poprawny.
-            var planPath = RepoPath(RunPlan.ManualSpeedLimitPlanPath);
+            //
+            // OD 05.09.2026 (G-5) TO NIE JEST JUŻ CAŁA PRAWDA i akapit wyżej zostaje
+            // jako opis trybu BEZ `--signalling`. Z `--signalling` plan nie tylko daje
+            // liczbę, ale PILNUJE: skład wchodzi na bloki, nastawnia rygluje mu trasy,
+            // dostaje autorytet jazdy, a ochrona ingeruje w polecenie człowieka. Plan
+            // podany argumentem zastępuje wtedy stałą w CAŁOŚCI — dwa plany w jednym
+            // przejeździe, jeden od limitu i drugi od bloków, byłyby dwiema prawdami
+            // o tej samej osi.
+            var planPath = _signallingPath ?? RepoPath(RunPlan.ManualSpeedLimitPlanPath);
             _manualPlan = ReadSignallingPlan(planPath);
             if (_manualPlan is null)
             {
@@ -573,9 +604,43 @@ public sealed partial class FirstRun : Node3D
                 return;
             }
 
+            // Wiersz `[LIMIT]` do ścieżki planu włącznie jest STAŁY, bo tyle wycina
+            // `grep -o` w bramce „Manual mode — both sides must hold the same speed
+            // ceiling"; obie strony porównania mają wypowiedzieć tę samą liczbę i ten
+            // sam plan. Zmienia się ogon, i ma się zmieniać: przejazd pod ochroną
+            // a przejazd czytający z planu jedną liczbę to dwie różne rzeczy.
+            var planNameForLog = _signallingPath ?? RunPlan.ManualSpeedLimitPlanPath;
+            var limitTail = _plan!.ManualSignalling
+                ? string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"plan PILNUJE — bloki, autorytet jazdy i ATP; " +
+                    $"sufit maszynisty {Units.MpsToKmh(SpeedLimitMps):F2} km/h")
+                : "plan jest czytany, nie prowadzi — bez blokad i bez ochrony pociągu";
             GD.Print(string.Create(
                 CultureInfo.InvariantCulture,
-                $"[LIMIT] tryb ręczny: {Units.MpsToKmh(_manualPlan.PermittedSpeedMps):F2} km/h z planu {_manualPlan.PlanId} ({RunPlan.ManualSpeedLimitPlanPath}); plan jest czytany, nie prowadzi — bez blokad i bez ochrony pociągu"));
+                $"[LIMIT] tryb ręczny: {Units.MpsToKmh(_manualPlan.PermittedSpeedMps):F2} km/h " +
+                $"z planu {_manualPlan.PlanId} ({planNameForLog}); {limitTail}"));
+
+            if (_plan!.ManualSignalling)
+            {
+                // Skład wchodzi na plan z czołem tam, gdzie NAPRAWDĘ startuje przejazd
+                // ręczny — 94,000 m, czyli z ogonem dokładnie na początku osi. Nie jest
+                // to kilometraż pierwszej stacji, którym wchodzi `LineCore`, i to jest
+                // różnica z konsekwencjami: na pakiecie A czoło stoi wtedy już w bloku
+                // SZLAKOWYM S01, a ogon w peronowym P01. Trasę rygluje się z bloku,
+                // który skład ZAJMUJE (`FixedBlockSystem.NextRouteForTrain`), więc R01
+                // wychodzi z P01 i przejazd rusza.
+                _cabProtection = CabProtection.M7(
+                    _manualPlan, SignalledTrainId, _scenario.StartChainageM);
+                GD.Print(string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"[SYGNALIZACJA] {_manualPlan.Blocks.Count} bloków, {_manualPlan.Routes.Count} tras, "
+                    + $"wymaga tras: {_manualPlan.RequireRoute}, "
+                    + $"limit planu {Units.MpsToKmh(_manualPlan.PermittedSpeedMps):F2} km/h, "
+                    + $"margines autorytetu {_manualPlan.AuthorityMarginM:F2} m, "
+                    + $"hamulec {_cabProtection.Protection.ServiceBrakeMps2:F2}"
+                    + $"/{_cabProtection.Protection.EmergencyBrakeMps2:F2} m/s²"));
+            }
 
             BuildStationService();
         }
@@ -993,6 +1058,17 @@ public sealed partial class FirstRun : Node3D
         _recorder?.Record(stepIndex, keys);
         _activeKeys = keys;
 
+        // NASTAWNIA I NADZÓR PRZED KROKIEM, ze stanu sprzed kroku — fazy 1b i 2 kroku
+        // `LineCore`. Decyzja powstaje tutaj, a stosuje się ją niżej, ZA filtrem stacji.
+        //
+        // Zegarem nastawni jest `_state.Steps`, czyli numer kroku PRZEJAZDU, a NIE
+        // `stepIndex` (numer kroku sesji, który po resecie nie wraca). Ochrona powstaje
+        // po resecie od nowa razem z całym stanem sygnalizacji, więc jej odstęp żądań
+        // tras ma liczyć się od zera razem z nią; sesja dałaby tu zegar, który przeżył
+        // przejazd, i pierwsze żądanie trasy po resecie spóźniłoby się o tyle kroków,
+        // ile trwał poprzedni przejazd. `Sim.Runner replay` podaje tę samą liczbę.
+        _cabProtection?.Supervise(_state.Steps, ChainageM, _state.SpeedMps);
+
         // JEDEN krok dźwigni na JEDEN krok symulacji. Klatka obejmująca N kroków
         // wykona to N razy z tym samym `keys` — stan klawiszy jest stały w obrębie
         // klatki, położenie nastawnika nie. Dlaczego akurat tak: `DriverNotch`.
@@ -1003,17 +1079,31 @@ public sealed partial class FirstRun : Node3D
         // ile kroków wypada w klatce, i to jest właściwe miejsce.
         var effective = _stations?.Filter(_state, _command, ChainageM) ?? _command;
 
-        // Telemetria pokazuje polecenie, którym NAPRAWDĘ pojechał kontroler, czyli po
-        // filtrze stacji — a nie surowe położenie dźwigni. Ta sama zasada, co
-        // w `RunHeader`: kolumna, która nie jest wejściem fizyki, przepuściłaby
+        // ATP JEST OSTATNIM FILTREM POLECENIA i to jest wprost kryterium z Issue #26:
+        // „nie można ominąć ATP przez input gracza". Gdyby ochrona stała przed filtrem
+        // stacji, blokada trakcji na czas cyklu drzwi nadpisywałaby jej hamulec; gdyby
+        // stała przed nastawnikiem — nadpisywałby ją człowiek. Bez `--signalling`
+        // `_cabProtection` jest nullem i polecenie idzie do kontrolera dokładnie takie,
+        // jak przed wprowadzeniem G-5.
+        effective = _cabProtection is null ? effective : _cabProtection.Apply(effective);
+
+        // Telemetria pokazuje polecenie, którym NAPRAWDĘ pojechał kontroler — czyli po
+        // filtrze stacji I po ochronie, a nie surowe położenie dźwigni. Ta sama zasada,
+        // co w `RunHeader`: kolumna, która nie jest wejściem fizyki, przepuściłaby
         // rozjazd w obsłudze drzwi przy porównaniu z progiem 0 i nikt by nie wiedział,
-        // że blokada trakcji zadziałała w innym kroku.
+        // że blokada trakcji zadziałała w innym kroku. Tak samo `LineDrive` wpisuje do
+        // śladu polecenie PO ingerencji: inaczej ślad mówiłby, czego maszynista chciał,
+        // a nie czym pojechał.
         _effectiveCommand = effective;
 
         _state = _controller.Advance(
             _state, _conditions, effective, SpeedLimitMps, _step, out var forces);
         _acceleration = forces.AccelerationMps2;
         _logStep++;
+
+        // MELDUNEK RUCHU PO KROKU — faza 3 kroku `LineCore`. Przed krokiem opisywałby
+        // położenie, z którego skład właśnie odjechał.
+        _cabProtection?.Move(ChainageM);
 
         if (_replay is null)
         {
@@ -1219,7 +1309,17 @@ public sealed partial class FirstRun : Node3D
     /// </summary>
     private void ResetRun()
     {
-        var start = RunReset.Apply(_accumulator, _notch, _input, _stations, _recorder, _telemetry);
+        // SYGNALIZACJA KABINY WRACA RAZEM Z RESZTĄ — jako ARGUMENT, a nie jako osobne
+        // wołanie obok. Bez tego reset nie byłby resetem, tylko WYJĄTKIEM:
+        // `FixedBlockSystem.MoveTrain` odmawia cofnięcia czoła, więc pierwszy meldunek
+        // ruchu po resecie próbowałby przesunąć skład z miejsca, do którego dojechał,
+        // z powrotem na 94,0 m i wywaliłby pętlę klatek. A że reset jest od #255 wpisem
+        // w zapisie wejść, ten sam reset wykonuje `Sim.Runner replay` — więc odpowiedź
+        // „co reset zeruje" musi być JEDNA i leżeć w rdzeniu (`RunRestart`), inaczej
+        // bramka przy progu 0 porównywałaby dwie różne definicje resetu.
+        var start = RunReset.Apply(
+            _accumulator, _notch, _input, _stations, _cabProtection, _recorder, _telemetry);
+
         _state = start.Drive;
         _keys = start.Keys;
         _activeKeys = start.ActiveKeys;
@@ -1300,9 +1400,18 @@ public sealed partial class FirstRun : Node3D
     /// <c>tools/visual/compare.py --set godot</c> są zmierzone na klatce bez geometrii,
     /// czyli na samym HUD-zie, i stały napis w każdej klatce podniósłby dokładnie tę
     /// metrykę, którą ta bramka odrzuca pustą klatkę.</para>
+    ///
+    /// <para><b>W trybie <c>--line</c> wiersz mówi co innego</b>, bo co innego jest
+    /// prawdą: skład prowadzi <c>LineDrive</c>, więc z siedmiu klawiszy działają dwa.
+    /// Do 05.09.2026 stał tu ten sam napis, co nad przejazdem gracza — obietnica
+    /// siedmiu klawiszy, z których pięć nic nie robiło i nic o tym nie mówiło
+    /// (<c>reports/droga-do-grywalnosci.md</c> §5.4). Decyzja właściciela z 05.09.2026:
+    /// zachowanie zostaje, HUD ma to powiedzieć.</para>
     /// </summary>
     /// <returns>Opis sterowania albo pusty napis.</returns>
-    private string HelpLine() => _readsKeyboard ? DriverInput.Help : string.Empty;
+    private string HelpLine() => _readsKeyboard
+        ? (_lineMode ? DriverActions.HelpWhenTheCoreDrives : DriverInput.Help)
+        : string.Empty;
 
     /// <summary>
     /// Wiersz HUD o sygnalizacji: prędkość dopuszczalna, autorytet jazdy, powód jego
@@ -1322,6 +1431,26 @@ public sealed partial class FirstRun : Node3D
     /// </summary>
     private string SignallingLine()
     {
+        // KABINA POD SYGNALIZACJĄ idzie pierwsza, bo `_lineMode` jest wtedy fałszem,
+        // a wiersz ma być. Do 05.09.2026 metoda zaczynała się od `if (!_lineMode) return
+        // string.Empty;` i to zdanie jest tu PRZEPISANE, a nie zostawione obok: tryb
+        // ręczny z `--signalling` ma dziś bloki, autorytet i ochronę, więc milczenie
+        // HUD-u opisywałoby przejazd, którego nie ma.
+        if (_cabProtection is not null)
+        {
+            if (_cabProtection.Authority is not MovementAuthority cabAuthority
+                || _cabProtection.Decision is not ProtectionDecision cabDecision)
+            {
+                return SignallingHud.BeforeFirstStep;
+            }
+
+            return SignallingHud.Line(
+                cabAuthority,
+                cabDecision,
+                _cabProtection.Dispatcher.Locked,
+                _cabProtection.Dispatcher.Refused);
+        }
+
         if (!_lineMode)
         {
             return string.Empty;
@@ -1329,30 +1458,22 @@ public sealed partial class FirstRun : Node3D
 
         if (_lineCore is null)
         {
-            return "bez sygnalizacji — przejazd bez blokad (podaj --signalling)";
+            return SignallingHud.WithoutSignalling;
         }
 
         var train = _lineCore.Trains[0];
         if (train.Drive is null || train.Authority is not MovementAuthority authority)
         {
-            return "sygnalizacja: skład jeszcze nie wjechał na plan";
+            return SignallingHud.NotOnPlanYet;
         }
 
         if (train.Protection is not ProtectionDecision decision)
         {
-            return "sygnalizacja: linia bez ochrony pociągu";
+            return SignallingHud.WithoutProtection;
         }
 
-        var ostrzezenie = decision.Overspeed ? "  PRZEKROCZENIE" : string.Empty;
-        var ingerencja = decision.Action == ProtectionAction.None
-            ? string.Empty
-            : $"  ATP HAMUJE: {decision.Action} {decision.BrakeDemandMps2:F2} m/s²";
-        return string.Create(
-            CultureInfo.InvariantCulture,
-            $"v_dop {Units.MpsToKmh(decision.PermittedSpeedMps),5:F1} km/h   "
-            + $"autorytet {authority.DistanceM,7:F0} m ({authority.Reason}, blok {authority.LimitBlockId})   "
-            + $"tras {_lineCore.Dispatcher.Locked}/odmów {_lineCore.Dispatcher.Refused}"
-            + $"{ostrzezenie}{ingerencja}");
+        return SignallingHud.Line(
+            authority, decision, _lineCore.Dispatcher.Locked, _lineCore.Dispatcher.Refused);
     }
 
     /// <summary>Wiersz HUD o stacji: cykl drzwi albo dojazd, plus rejestr wywołań.</summary>
@@ -1469,6 +1590,24 @@ public sealed partial class FirstRun : Node3D
             + $"chainage={ChainageM:F3} m droga={_state.DistanceM:F3} m klatek={_frames} "
             + $"sesja={_logStep} kroków resetów={_replay?.Resets.Count ?? 0} "
             + $"zapis={_replayPath}"));
+
+        // Podsumowanie ochrony LICZBAMI, w tym samym kształcie, co wypisuje
+        // `Sim.Runner replay --atp`. Telemetria nie ma kolumny o ingerencji — polecenie
+        // po niej wygląda tak samo jak polecenie maszynisty, który sam nacisnął hamulec
+        // — więc bez tego wiersza obie strony mogłyby zgodzić się co do bitu, robiąc
+        // ochronę w dwóch różnych miejscach. Zero ingerencji jest wynikiem, nie brakiem
+        // wyniku, więc wiersz wychodzi zawsze, gdy ochrona była wpięta.
+        if (_cabProtection is CabProtection cab)
+        {
+            GD.Print(string.Create(
+                CultureInfo.InvariantCulture,
+                $"[ATP] ostrzeżeń={cab.Warnings} ingerencji służbowych={cab.ServiceInterventions} "
+                + $"awaryjnych={cab.EmergencyInterventions} "
+                + $"max żądanie={cab.MaxBrakeDemandMps2:F3} m/s² "
+                + $"(hamulec służbowy {cab.Protection.ServiceBrakeMps2:F3} m/s²) "
+                + $"tras zaryglowanych={cab.Dispatcher.Locked} odmów={cab.Dispatcher.Refused}"));
+        }
+
         GetTree().Quit();
     }
 

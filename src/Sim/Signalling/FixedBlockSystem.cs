@@ -144,6 +144,57 @@ public sealed class FixedBlockSystem
         return occupied;
     }
 
+    /// <summary>
+    /// Trasa, o którą ten skład ma prawo poprosić: pierwsza wychodząca z bloku, który
+    /// skład ZAJMUJE, licząc od ogona w stronę czoła. <c>null</c>, gdy z żadnego
+    /// zajętego bloku trasa nie wychodzi.
+    ///
+    /// <para><b>Po co „z bloku, który zajmuje", a nie „z bloku, w którym jest czoło".</b>
+    /// Bo skład M7 ma 94 m i blok peronowy ma dokładnie tyle samo — więc skład stojący
+    /// przy peronie NIGDY nie mieści się w jednym bloku. Do 05.09.2026 nie miało to
+    /// znaczenia, bo jedyny wołający (<see cref="Line.LineCore"/>) wstawia skład na plan
+    /// z czołem dokładnie na kilometrażu pierwszej stacji, czyli w bloku peronowym.
+    /// Kabina prowadzona ręcznie zaczyna przejazd z czołem na 94,000 m — bo cały skład
+    /// ma stać na osi (<c>DriveScenario.PackageAFirstRun</c>) — a to na pakiecie A jest
+    /// już blok SZLAKOWY <c>S01</c>. Zmierzone: nastawnia nie zamawiała wtedy ANI JEDNEJ
+    /// trasy, autorytet kończył się na 462,730 m z powodem <c>BlockNotReserved</c>,
+    /// a ochrona hamowała skład awaryjnie przez 1998 kroków, zanim ten dojechał do
+    /// pierwszej stacji. Skład stał wtedy ogonem w <c>P01</c> — czyli w bloku
+    /// początkowym trasy <c>R01</c> — i to jest dokładnie ten sam blok, który
+    /// <c>docs/15-classic-signalling.md</c> §6 nazywa blokiem, w którym skład
+    /// „stoi".</para>
+    ///
+    /// <para><b>Ta metoda niczego nie rozluźnia.</b> Warunek dalej brzmi „skład jest
+    /// fizycznie w bloku początkowym trasy" — zmienia się wyłącznie to, że zajętość
+    /// liczy się po CAŁYM składzie, a nie po jednym punkcie. Zaryglowanie przebiegu
+    /// „po drugiej stronie linii" jest tak samo niemożliwe jak przedtem, bo blok
+    /// niezajęty przez ten skład nie wejdzie do tej pętli.</para>
+    ///
+    /// <para>Kolejność od ogona jest treścią: trasa wychodząca z bloku bliżej ogona
+    /// obejmuje CAŁY skład, a trasa z bloku bliżej czoła zostawiłaby ogon poza
+    /// rezerwacją.</para>
+    /// </summary>
+    /// <param name="trainId">Skład zarejestrowany na planie.</param>
+    /// <returns>Trasa do zamówienia albo <c>null</c>.</returns>
+    public Route? NextRouteForTrain(string trainId)
+    {
+        var train = Require(trainId);
+        for (var i = 0; i < _occupant.Length; i++)
+        {
+            if (!string.Equals(_occupant[i], train.Id, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (_plan.RouteOutOf(_plan.Blocks[i].Id) is Route route)
+            {
+                return route;
+            }
+        }
+
+        return null;
+    }
+
     // --- składy --------------------------------------------------------------------
 
     /// <summary>
@@ -652,10 +703,35 @@ public sealed class FixedBlockSystem
 
         // Trasa zaczyna się tam, gdzie stoi skład. Bez tego dałoby się zaryglować
         // przebieg po drugiej stronie linii i pojechać po nim „z niczego".
-        var entry = _plan.Blocks[_plan.BlockIndexAt(train.FrontM)].Id;
-        if (!string.Equals(entry, route.FromBlockId, StringComparison.Ordinal))
+        //
+        // „STOI W BLOKU" ZNACZY „ZAJMUJE BLOK", a nie „ma w nim czoło" — i to jest ta
+        // sama konwencja, którą stosuje `ComputeAuthority` kilkadziesiąt linii wyżej
+        // („liczony po zajętości, nie po samym punkcie"). Powód jest wymiarowy: skład
+        // M7 ma 94 m, blok peronowy ma dokładnie tyle samo, więc skład przy peronie
+        // nigdy nie mieści się w jednym bloku. Do 05.09.2026 warunek patrzył wyłącznie
+        // na czoło i wystarczał, bo jedyny wołający — `LineCore` — wstawia skład
+        // z czołem dokładnie na kilometrażu pierwszej stacji. Kabina prowadzona ręcznie
+        // zaczyna z czołem na 94,000 m, czyli w bloku SZLAKOWYM S01, mając ogon w P01:
+        // nastawnia nie zamawiała wtedy ani jednej trasy, a ochrona hamowała skład
+        // awaryjnie przez 1998 kroków, bo autorytet kończył się na 462,730 m.
+        // `docs/15-classic-signalling.md` §6 mówi „skład nie stoi w bloku początkowym
+        // trasy" — i skład, którego ogon jest w tym bloku, w nim stoi.
+        //
+        // Warunek jest SUMĄ dwóch, a nie zamianą jednego na drugi, i to jest celowe:
+        // stary człon (blok czoła) zostaje nietknięty, więc każde żądanie, które
+        // przechodziło przedtem, przechodzi tak samo teraz. Nowy człon może wyłącznie
+        // ZAMIENIĆ ODMOWĘ NA ZGODĘ i nigdy odwrotnie — dzięki temu tożsamość przejazdu
+        // `--line` nie zależy od tego, w którym dokładnie kroku blok peronowy przechodzi
+        // z „czoło w nim jest" na „skład go zajmuje" (`Block.Overlaps` przy czole
+        // dokładnie na granicy daje jeszcze fałsz).
+        var frontBlockId = _plan.Blocks[_plan.BlockIndexAt(train.FrontM)].Id;
+        var entryIndex = _plan.IndexOf(route.FromBlockId);
+        var standsAtEntry =
+            string.Equals(frontBlockId, route.FromBlockId, StringComparison.Ordinal) ||
+            string.Equals(_occupant[entryIndex], train.Id, StringComparison.Ordinal);
+        if (!standsAtEntry)
         {
-            return "train-not-at-route-entry:" + entry;
+            return "train-not-at-route-entry:" + frontBlockId;
         }
 
         foreach (var blockId in route.BlockIds)
