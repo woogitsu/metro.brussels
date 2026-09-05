@@ -55,9 +55,27 @@ z wypisanym komunikatem, każda MUSI paść:
   8. do `NOTATIONS` dopisany wzorzec `.?`, czyli łapiący WSZYSTKO
      -> L1_A-chunks.md: wzorzec daty łapie coś po usunięciu wszystkich dat z nagłówka
 
+  9. pięciu raportom zdjęty SHA i dopisany wyjątek z długim powodem, lista 2 -> 7
+     (05.09.2026, `6c1048b`) — PRZED zapadką `MAX_COMMIT_EXCEPTIONS` cały moduł
+     przechodził na zielono, PO niej pada dokładnie jeden test, ten
+     -> lista wyjątków od commita urosła do 7 przy zapadce 2: ['T-113-timetable.md',
+        'T-310-physics.md', 'T-311-braking.md', 'T-312-doors.md', 'T-401-line-run.md']
+        ponad limit — raport bez commita ma dostać nagłówek, a nie miejsce na liście
+ 10. zapadka podniesiona „na zapas" do 3 przy dwóch wyjątkach na liście
+     -> zapadka 3 stoi wyżej niż lista (2) — obniż ją do stanu faktycznego
+
 Kontrole 7 i 8 są parą i pilnują dwóch przeciwnych sposobów, w które ta bramka mogłaby
 udawać pomiar: wzorzec martwy (nie łapie nic, więc niczego nie sprawdza) i wzorzec
-zbyt szeroki (łapie wszystko, więc każdy raport „ma datę").
+zbyt szeroki (łapie wszystko, więc każdy raport „ma datę"). Kontrole 9 i 10 są taką
+samą parą dla listy wyjątków: lista rosnąca po cichu i miejsce zrobione na zapas.
+
+DLACZEGO WYJĄTKI, A NIE DOPISANE NAGŁÓWKI — to jest wybór, nie przeoczenie. Dwa
+raporty commita nie mają i mieć go nie mogą: `R-006-line-speed.md` mierzono PRZED
+commitem, który go wniósł, a `T-401-line-run.md` ma sekcje mierzone na różnych
+commitach i każda go nazywa u siebie. Dopisanie im wspólnego SHA byłoby dorobieniem
+liczby do formularza — `CLAUDE.md` §4.1 — więc wyjątek jest tu uczciwszy od nagłówka.
+Cena za to jest jedna: lista wyjątków musi być **zamknięta**, inaczej wyjątek robi się
+tańszym wyjściem niż nagłówek. Zamyka ją `MAX_COMMIT_EXCEPTIONS` i kontrola 9.
 """
 
 import os
@@ -87,13 +105,43 @@ NOTATIONS = {
 COMMIT = re.compile(r'`([0-9a-f]{7,40})`')
 
 #: Ile raportów musi wpaść do pętli. Bez tego progu wskazanie katalogu na pusty
-#: albo literówka w globie dawałyby pustą pętlę i zieloną bramkę. Dziś raportów
-#: jest 44; próg stoi niżej, żeby nie trzeba go było ruszać przy każdym nowym.
+#: albo literówka w globie dawałyby pustą pętlę i zieloną bramkę. Raportów jest
+#: **48** (zmierzone 05.09.2026 na `6c1048b`); liczba 44 stała tu od `839ad78`
+#: i przestała być prawdziwa po czterech nowych raportach — jest więc przepisana,
+#: a nie dopisana obok. Próg stoi niżej, żeby nie trzeba go było ruszać przy
+#: każdym nowym raporcie.
 MIN_REPORTS = 40
+
+#: ZAPADKA NA DŁUGOŚĆ LISTY WYJĄTKÓW. Wolno ją tylko OBNIŻAĆ — jak
+#: `MINIMUM_DOCUMENTED_ITEMS` w `tools/tests/test_backlog.py`, tylko w drugą stronę.
+#:
+#: SKĄD SIĘ WZIĘŁA, ZMIERZONE 05.09.2026 na `6c1048b`. Do tej zmiany lista wyjątków
+#: nie miała ŻADNEGO ograniczenia rozmiaru, a jedyny test, który ją pilnował
+#: (`test_lista_wyjatkow_nie_gnije`), sprawdza po jednym wpisie — czy powód jest
+#: dłuższy niż 40 znaków i czy raport nadal pola nie ma. Wpis, który oba te warunki
+#: spełnia, przechodził bez względu na to, ilu takich wpisów już jest. Pomiar: sześciu
+#: raportom (`T-310-physics.md`, `T-311-braking.md`, `T-312-doors.md`,
+#: `T-113-timetable.md`, `M7-shell.md`, `clearance-BE.md`) zdjęty SHA z nagłówka
+#: i dopisany wyjątek z długim powodem — **wszystkie osiem testów tego modułu
+#: zostało zielonych**, a lista urosła z 2 do 8. Bramka na „każdy raport niesie
+#: commit" umiała więc przestać obejmować raporty jeden po drugim i nie powiedzieć
+#: o tym ani słowa.
+#:
+#: Drugie ostrze tego samego: podłoga w `test_konwencja_naglowka_...` liczyła się
+#: jako `MIN_REPORTS - len(COMMIT_EXCEPTIONS)`, czyli **malała o jeden z każdym
+#: dopisanym wyjątkiem** (38 przy dwóch, 32 przy ośmiu, −8 przy czterdziestu ośmiu).
+#: Dziś liczy się od zapadki, więc dopisanie wyjątku podłogi nie obniża.
+MAX_COMMIT_EXCEPTIONS = 2
+
+#: To samo dla daty. Zero jest wynikiem pomiaru — każdy raport datę ma — więc
+#: zapadka mówi wprost: pierwszy raport bez daty nie prześlizgnie się przez listę
+#: wyjątków, tylko dostanie datę albo zatrzyma bramkę.
+MAX_DATE_EXCEPTIONS = 0
 
 #: JAWNE WYJĄTKI OD WYMOGU COMMITA. Każdy z powodem, każdy pilnowany przez
 #: `test_lista_wyjatkow_nie_gnije` — wyjątek, który przestał być potrzebny, wywraca
-#: bramkę, więc lista nie może po cichu rosnąć ani po cichu zostać.
+#: bramkę, więc lista nie może po cichu rosnąć ani po cichu zostać. Ilu ich może być,
+#: mówi `MAX_COMMIT_EXCEPTIONS` i pilnuje `test_lista_wyjatkow_jest_zamknieta`.
 COMMIT_EXCEPTIONS = {
     "R-006-line-speed.md":
         "Raport z 02.09.2026 nie zapisał commita pomiaru w chwili powstania, a dziś "
@@ -197,7 +245,10 @@ def test_konwencja_naglowka_jest_wyczytana_z_raportow_ktore_ja_juz_maja():
     assert checked >= MIN_REPORTS, f"tylko {checked} raportów w pętli"
     unused = [label for label, count in usage.items() if count == 0]
     assert not unused, f"notacje daty, których nie używa żaden raport: {unused}"
-    assert len(reference) >= MIN_REPORTS - len(COMMIT_EXCEPTIONS), (
+    # PODŁOGA LICZY SIĘ OD ZAPADKI, NIE OD DŁUGOŚCI LISTY. Z `len(COMMIT_EXCEPTIONS)`
+    # malała o jeden przy każdym dopisanym wyjątku, czyli sama sobie ustępowała:
+    # zmierzone 05.09.2026 — 38 przy dwóch wyjątkach, 32 przy ośmiu.
+    assert len(reference) >= MIN_REPORTS - MAX_COMMIT_EXCEPTIONS, (
         f"tylko {len(reference)} raportów ma oba pola — konwencja, którą bramka "
         "czyta z repozytorium, przestała być konwencją")
     for name, header in reference:
@@ -264,6 +315,53 @@ def test_lista_wyjatkow_nie_gnije():
             assert not reader(header), (
                 f"{name} ma już {what} w nagłówku — zdejmij go z listy wyjątków")
     assert checked == len(COMMIT_EXCEPTIONS) + len(DATE_EXCEPTIONS)
+
+
+def test_lista_wyjatkow_jest_zamknieta():
+    """Lista wyjątków ma ROZMIAR, nie tylko wpisy — inaczej rośnie po cichu.
+
+    `test_lista_wyjatkow_nie_gnije` ogląda każdy wpis OSOBNO: powód dłuższy niż 40
+    znaków, bez obietnicy własnego usunięcia, raport nadal bez pola. Wpis spełniający
+    te trzy warunki przechodził niezależnie od tego, ilu takich wpisów już jest —
+    a wyjątek jest tańszy niż nagłówek, więc lista rośnie w jedną stronę z definicji.
+
+    KONTROLA NEGATYWNA WYKONANA 05.09.2026 na `6c1048b`: pięciu raportom zdjęty SHA
+    z nagłówka i dopisany wyjątek z długim powodem, lista 2 -> 7. PRZED tą zapadką
+    komplet testów modułu był zielony przy takiej mutacji — zmierzone, nie
+    przewidziane. PO niej pada ten jeden test i tylko on:
+
+        lista wyjątków od commita urosła do 7 przy zapadce 2: ['T-113-timetable.md',
+        'T-310-physics.md', 'T-311-braking.md', 'T-312-doors.md', 'T-401-line-run.md']
+        ponad limit — raport bez commita ma dostać nagłówek, a nie miejsce na liście
+
+    Zapadkę wolno tylko OBNIŻAĆ. Podniesienie jej jest widoczną zmianą stałej w diffie
+    i wymaga powodu tam, gdzie powody tego repozytorium stoją — w treści commita —
+    a nie jednej dopisanej linijki w słowniku.
+    """
+    assert len(COMMIT_EXCEPTIONS) <= MAX_COMMIT_EXCEPTIONS, (
+        f"lista wyjątków od commita urosła do {len(COMMIT_EXCEPTIONS)} przy zapadce "
+        f"{MAX_COMMIT_EXCEPTIONS}: {sorted(COMMIT_EXCEPTIONS)[MAX_COMMIT_EXCEPTIONS:]} "
+        "ponad limit — raport bez commita ma dostać nagłówek, a nie miejsce na liście")
+    assert len(DATE_EXCEPTIONS) <= MAX_DATE_EXCEPTIONS, (
+        f"lista wyjątków od daty urosła do {len(DATE_EXCEPTIONS)} przy zapadce "
+        f"{MAX_DATE_EXCEPTIONS}: {sorted(DATE_EXCEPTIONS)} — daty da się ustalić "
+        "dla każdego raportu, więc wyjątku od niej nie ma")
+    # ZAPADKA NIE MOŻE STAĆ WYŻEJ, NIŻ POTRZEBA. Gdyby wolno jej było wyprzedzać
+    # listę, podniesienie „na zapas" otwierałoby miejsce na przyszłe wyjątki bez
+    # ani jednego raportu, który by ich potrzebował — czyli dokładnie ta cicha
+    # rezerwa, której ta bramka ma nie dopuszczać.
+    assert MAX_COMMIT_EXCEPTIONS == len(COMMIT_EXCEPTIONS), (
+        f"zapadka {MAX_COMMIT_EXCEPTIONS} stoi wyżej niż lista "
+        f"({len(COMMIT_EXCEPTIONS)}) — obniż ją do stanu faktycznego")
+    assert MAX_DATE_EXCEPTIONS == len(DATE_EXCEPTIONS), (
+        f"zapadka {MAX_DATE_EXCEPTIONS} stoi wyżej niż lista "
+        f"({len(DATE_EXCEPTIONS)}) — obniż ją do stanu faktycznego")
+    # Podłoga w `test_konwencja_naglowka_...` liczy się od zapadki, więc zapadka
+    # równa MIN_REPORTS zdjęłaby tamtą kontrolę do zera. Ten limit mówi, że wyjątek
+    # jest wyjątkiem: najwyżej co dziesiąty raport przy dzisiejszym progu.
+    assert MAX_COMMIT_EXCEPTIONS + MAX_DATE_EXCEPTIONS <= MIN_REPORTS // 10, (
+        f"zapadki wyjątków ({MAX_COMMIT_EXCEPTIONS} + {MAX_DATE_EXCEPTIONS}) sięgają "
+        f"dziesiątej części progu {MIN_REPORTS} — wyjątek przestaje być wyjątkiem")
 
 
 # --- ścieżka w raporcie musi wskazywać na plik, który istnieje --------------------
