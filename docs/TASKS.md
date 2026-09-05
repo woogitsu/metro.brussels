@@ -462,6 +462,25 @@ Mechanika:
    poniżej progu, więc nie da się tego przeoczyć między sesjami.
 4. Zadanie, którego nie da się zrobić bez decyzji, **nie liczy się do zapasu** i wędruje
    do sekcji „Czego agent nie ruszy bez decyzji".
+5. Pozycja liczona do zapasu ma mieć **blok szczegółów** `##### <numer> · tytuł`
+   z sześcioma polami. Wiersz tabeli mówi, *dlaczego* pozycja nie wymaga decyzji;
+   dopiero blok mówi, *jak ją wykonać i po czym poznać, że jest skończona*.
+
+**Zapas udokumentowany:** punkt 5 wszedł 05.09.2026 i od razu pokazał, że reguła
+zapasu mierzyła dotąd nie to, co deklaruje. Zmierzone na `b41c158`: kolejka ma
+**33 pozycje**, ale blok z sześcioma polami ma **8** z nich — 6.A8, 6.B6, 6.B7, 6.B8,
+6.B9, 6.B10, 6.D5 i 6.D6, czyli dokładnie te dopisane 04.09.2026. Pozostałe **25**
+to wiersz tabeli i nic więcej: żadnego Wejścia, Wyjścia, Weryfikacji, „Skończone, gdy",
+„Poza zakresem" ani „Zależy od". Próg doby pracy wynosi dwanaście, więc **brakuje
+czterech** udokumentowanych pozycji.
+
+Tej luki **nie domyka się dopisywaniem pól z głowy.** `CLAUDE.md` §8 zabrania brać
+zadanie wymyślone na miejscu, a wymyślenie cudzej „Weryfikacji" jest tym samym o jeden
+krok wcześniej. Pola dopisuje ten, kto ma z czego je odczytać — z `docs/`, `reports/`
+albo `data/` — i mówi w commicie, skąd wzięło się każde. Bramką jest zapadka
+`MINIMUM_DOCUMENTED_ITEMS` w `tools/tests/test_backlog.py`: wolno ją tylko podnosić,
+a gdy dojdzie do dwunastu, ten akapit ma zniknąć — i wtedy jego zniknięcia pilnuje
+`test_the_documented_shortfall_is_written_down_while_it_lasts`.
 
 Szacunki godzin niżej są zgrubne i celowo podane jako przedziały. Podstawa: w sesji
 02.09.2026 jedno zadanie z pełną weryfikacją, przeglądem mutacyjnym, commitem i PR-em
