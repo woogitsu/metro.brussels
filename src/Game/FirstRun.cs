@@ -807,8 +807,6 @@ public sealed partial class FirstRun : Node3D
             DesignAssumptions.CabEyeLateralM);
         _cab.LookAtFromPosition(eye, eye + forward, Vector3.Up);
 
-        var middle = _sceneAxis.CabPoint(chainage - (trainLength * 0.5), 0.0, 1.8, 0.0).Position;
-
         if (_view == ViewKind.Outside)
         {
             // Kamera stoi na sąsiednim torze, przed czołem składu, i patrzy wzdłuż
@@ -825,10 +823,25 @@ public sealed partial class FirstRun : Node3D
         }
         else
         {
-            var behind = Math.Max(0.0, chainage - trainLength - DesignAssumptions.ChaseBehindM);
-            var (position, _) = _sceneAxis.CabPoint(
-                behind, 0.0, DesignAssumptions.ChaseHeightM, DesignAssumptions.CabEyeLateralM);
-            _chase.LookAtFromPosition(position, middle, Vector3.Up);
+            // Kilometraże kamery i celu liczy `ChaseCameraAim`, a nie ten plik, bo była
+            // to jedyna arytmetyka kadru bez ani jednego testu — i przechodziło przez nią
+            // 10 ostrzeżeń `Target and up vectors are colinear` na przebieg `--line`.
+            // Przy czole ≤ 47 m oba kilometraże przycinają się do zera, kamera stoi
+            // 2,60 m nad główką szyny, cel 1,80 m, a odcinek między nimi jest wtedy
+            // PIONOWY. `LookTarget` podstawia w takim razie kierunek osi — dokładnie ten,
+            // który dostaje kamera kabinowa w tym samym miejscu.
+            var framing = ChaseCameraAim.Frame(
+                chainage, trainLength, _axis.LengthM, DesignAssumptions.ChaseBehindM);
+            var (position, forwardAtCamera) = _sceneAxis.CabPoint(
+                framing.CameraChainageM,
+                0.0,
+                DesignAssumptions.ChaseHeightM,
+                DesignAssumptions.CabEyeLateralM);
+            var middle = _sceneAxis.CabPoint(framing.TargetChainageM, 0.0, 1.8, 0.0).Position;
+            _chase.LookAtFromPosition(
+                position,
+                ChaseCameraAim.LookTarget(position, middle, forwardAtCamera, Vector3.Up),
+                Vector3.Up);
         }
     }
 
