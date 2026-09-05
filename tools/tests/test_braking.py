@@ -372,3 +372,203 @@ def test_braking_adhesion_verdict_is_inclusive_at_the_exact_ceiling():
     row = next(r for r in B.adhesion_table(tuned)
                if (r["rail"], r["variant"]) == ("dry", "all-axles"))
     assert row["service_ok"] is False, row["ceiling_mps2"]
+
+
+# --- wypis referencyjny `report()` ------------------------------------------------
+#
+# 6.B10 z kolejki: `report()` nie było wykonywane PRZEZ NIC. Znalezisko pochodzi
+# z `reports/mutation-triage-fizyka.md` §6: „Funkcja drukuje trzy tablice referencyjne
+# T-311 i mogłaby przestać się składać bez skutku dla CI. To jest osobne zadanie, nie
+# triaż." Sprawdzone ponownie przed napisaniem tych testów: jedynym wołającym był blok
+# `__main__` w wierszu 313 `tools/physics/braking.py`, a `grep -rn "report()" tools/`
+# nie pokazywał ani jednego pliku z `tools/tests/` ani żadnego `tools/ci/*.sh`.
+
+T311_REPORT = os.path.join(ROOT, "reports", "T-311-braking.md")
+
+#: Nagłówki trzech tablic, które `report()` ma wypisać — CAŁE WIERSZE, nie fragmenty.
+#: Trzy, nie cztery: „PROGI KRYTYCZNE" jest listą progów, nie tablicą, i jego pilnuje
+#: osobna asercja niżej.
+#:
+#: **Dlaczego cały wiersz, a nie sam napis.** Pierwsza wersja tego testu sprawdzała
+#: `"DROGA HAMOWANIA" in text` i została obalona kontrolą negatywną wykonaną
+#: 05.09.2026: podmiana nagłówka w `braking.py` na `DROGA HAMOWANIA_MUTANT`
+#: przechodziła OBA testy, bo napis nadal się zawierał, a `startswith` w parserze
+#: wierszy nadal trafiał. Zawieranie się nie odróżnia nagłówka od nagłówka z ogonem.
+#:
+#: Te trzy wiersze są umową testu z wypisem, a nie cytatem z dokumentu: sprawdzone
+#: gremem po `reports/` i `docs/`, **żaden raport nie cytuje ich dosłownie** —
+#: cytowana jest tablica liczb z §4 `reports/T-311-braking.md` i tę pilnuje osobno
+#: `test_report_distance_table_matches_the_reference_table_it_claims_to_print`.
+REPORT_TABLES = (
+    "SUFIT PRZYCZEPNOSCIOWY (design_assumption: udzial osi hamowanych)",
+    "DROGA HAMOWANIA, hamulec sluzbowy, krok 1/120 s",
+    "SOLVER PUNKTU HAMOWANIA (bez oporow, z ograniczeniem zrywu)",
+)
+
+#: Nagłówek tablicy drogi hamowania, po którym parser wierszy zaczyna czytać.
+DISTANCE_TABLE_HEAD = REPORT_TABLES[1]
+
+
+def report_text():
+    """Wypis `report()` przechwycony ze standardowego wyjścia."""
+    import contextlib
+    import io
+
+    buffer = io.StringIO()
+    with contextlib.redirect_stdout(buffer):
+        B.report()
+    return buffer.getvalue()
+
+
+def missing_tables(text):
+    """Których z trzech tablic nie ma w wypisie — pusta lista znaczy komplet.
+
+    Porównanie do CAŁEGO wiersza, nie `in text`: nagłówek z doklejonym ogonem jest
+    innym nagłówkiem, a wersja na zawieranie się przepuszczała go bez słowa.
+    """
+    lines = set(text.splitlines())
+    return [head for head in REPORT_TABLES if head not in lines]
+
+
+def printed_distance_rows(text):
+    """Wiersze tablicy „DROGA HAMOWANIA" z wypisu, jako krotki dziewięciu liczb.
+
+    Wiersz nagłówka kolumn ma dokładnie tyle samo pól co wiersz danych (dziewięć),
+    więc odsiewa go pierwsza kolumna: `v0[km/h]` nie jest liczbą, a `30` jest.
+    """
+    rows = []
+    inside = False
+    for line in text.splitlines():
+        if line == DISTANCE_TABLE_HEAD:
+            inside = True
+            continue
+        if not inside:
+            continue
+        if not line.strip():
+            break
+        parts = line.split()
+        if len(parts) != 9 or not parts[0].replace(".", "", 1).isdigit():
+            continue
+        rows.append(tuple(float(part) for part in parts))
+    return rows
+
+
+def reference_distance_rows():
+    """Ta sama tablica, ale z `reports/T-311-braking.md` §4 — źródła, nie z kodu.
+
+    Ostatnia kolumna raportu niesie DWIE liczby („tunel / pow."), więc krotka ma
+    dziewięć pól przy ośmiu komórkach. Gwiazdki pogrubienia z wiersza 80 km/h idą
+    precz przed parsowaniem, przecinek dziesiętny zamienia się na kropkę.
+    """
+    with open(T311_REPORT, encoding="utf-8") as handle:
+        text = handle.read()
+    section = text.split("## 4. Droga hamowania z oporami")[1].split("\n### ")[0]
+    rows = []
+    for line in section.splitlines():
+        if not line.startswith("|"):
+            continue
+        cells = [cell.strip().replace("**", "") for cell in line.strip("|").split("|")]
+        if len(cells) != 8:
+            continue
+        first = cells[0].replace(",", ".")
+        if not first.replace(".", "", 1).isdigit():
+            continue
+        head = [float(cell.replace(",", ".")) for cell in cells[:7]]
+        tail = [float(part.strip().replace(",", ".")) for part in cells[7].split("/")]
+        rows.append(tuple(head + tail))
+    return rows
+
+
+def distance_mismatches(text, reference=None):
+    """Rozjazdy wypisu wobec tablicy referencyjnej — pusta lista znaczy zgodność."""
+    printed = printed_distance_rows(text)
+    expected = reference_distance_rows() if reference is None else reference
+    if len(printed) != len(expected):
+        return [f"wypis ma {len(printed)} wierszy, raport {len(expected)}"]
+    problems = []
+    for row, want in zip(printed, expected):
+        for column, (got, expect) in enumerate(zip(row, want)):
+            if got != expect:
+                problems.append(
+                    f"v0={row[0]:.0f} km/h, kolumna {column}: wypis {got}, raport {expect}")
+    return problems
+
+
+def test_report_is_actually_executed_and_prints_every_reference_table():
+    """`report()` wykonuje się i drukuje komplet — do 05.09.2026 nie wołał go nikt.
+
+    To jest cała treść pozycji 6.B10: funkcja mogła przestać się składać
+    (`NameError`, zła liczba argumentów `_fmt`, literówka w kluczu słownika)
+    i **żadna bramka by tego nie zauważyła**, bo jedynym wołającym był
+    `if __name__ == "__main__"`. Test wywołuje ją naprawdę, więc każdy taki błąd
+    kończy się wyjątkiem tutaj, a nie ciszą.
+    """
+    text = report_text()
+    assert not missing_tables(text), missing_tables(text)
+    # „PROGI KRYTYCZNE" nie jest tablicą, ale jest częścią wypisu i ma tu być.
+    assert "PROGI KRYTYCZNE" in text
+    # Wypis ma nieść liczby, nie same nagłówki: sześć wierszy drogi hamowania,
+    # osiem wierszy sufitu (cztery warianty × dwie szyny) i pięć wierszy solvera.
+    assert len(printed_distance_rows(text)) == len(B.REFERENCE_SPEEDS_KMH), text
+    assert len(B.adhesion_table(CFG)) >= 4, "tablica sufitu zrobiła się pusta"
+    assert text.count("s = ") >= 5, text
+
+
+def test_report_distance_table_matches_the_reference_table_it_claims_to_print():
+    """Wypis kontra `reports/T-311-braking.md` §4 — liczba w liczbę, bez tolerancji.
+
+    Porównanie jest DOKŁADNE i to nie jest przeoczenie: obie strony niosą trzy
+    miejsca po przecinku, więc parsowanie daje ten sam float. Gdyby tu stała
+    tolerancja, test przepuszczałby dokładnie tę zmianę, przed którą stoi —
+    ciche przesunięcie liczby w modelu, którego raport już nie opisuje.
+
+    Kierunek jest zamierzony: wypis jest sprawdzany WOBEC RAPORTU, bo to raport
+    jest tablicą referencyjną T-311, na którą powołuje się `docs/02-simulation.md`
+    („Tablice referencyjne: `reports/T-311-braking.md`"). Rozjazd znaczy więc albo
+    zmianę modelu bez aktualizacji raportu, albo odwrotnie — i w obie strony jest
+    to ta sama usterka.
+    """
+    reference = reference_distance_rows()
+    assert len(reference) == 6, (
+        f"parser wyciągnął {len(reference)} wierszy z §4 raportu — tablica ma sześć "
+        "prędkości (30…80 km/h); pusta lista znaczy, że przestał trafiać w sekcję")
+    assert not distance_mismatches(report_text(), reference), \
+        distance_mismatches(report_text(), reference)
+
+
+def test_the_report_check_catches_a_table_that_stopped_being_printed():
+    """Kontrola negatywna wykonana: bramka bez tego testu byłaby zielona zawsze.
+
+    Trzy mutacje na wypisie i jedna na liczbie. Każda musi zostać zgłoszona
+    Z NAZWĄ, żeby komunikat mówił, co przestało się drukować — a nie „coś nie gra".
+    """
+    text = report_text()
+    assert not missing_tables(text), "punkt wyjścia nie jest czysty"
+
+    # 1. Każda z trzech tablic po kolei znika z wypisu.
+    for head in REPORT_TABLES:
+        okrojony = text.replace(head, "")
+        assert okrojony != text, f"mutacja {head} nie weszła — kontrola nic nie mierzy"
+        assert missing_tables(okrojony) == [head], missing_tables(okrojony)
+
+    # 2. Jedna liczba przesunięta o ostatnią cyfrę — tyle, ile znaczy 1 mm drogi.
+    podmieniony = text.replace("233.723", "233.724")
+    assert podmieniony != text, "mutacja liczby nie weszła"
+    problems = distance_mismatches(podmieniony)
+    assert len(problems) == 1, problems
+    assert "v0=80" in problems[0] and "233.724" in problems[0], problems[0]
+
+    # 3. Wiersz usunięty w całości — wypis krótszy od tablicy referencyjnej.
+    bez_wiersza = "\n".join(line for line in text.splitlines()
+                            if not line.strip().startswith("80 "))
+    assert bez_wiersza != text, "mutacja wiersza nie weszła"
+    assert distance_mismatches(bez_wiersza), "brak wiersza przeszedł niezauważony"
+
+    # 4. Kontrola w drugą stronę: parser czyta z raportu, nie z kodu. Podstawiona
+    #    tablica referencyjna o innej liczbie musi dać rozjazd na czystym wypisie.
+    podmieniona_referencja = list(reference_distance_rows())
+    zepsuty = list(podmieniona_referencja[0])
+    zepsuty[1] += 0.001
+    podmieniona_referencja[0] = tuple(zepsuty)
+    assert distance_mismatches(text, podmieniona_referencja), (
+        "porównanie ignoruje tablicę referencyjną — czytałoby wtedy samo siebie")
