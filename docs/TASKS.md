@@ -336,7 +336,7 @@ Poniższe zadania istnieją jako Issues, ale nie mają tu wpisu. Dopóki go nie 
 | brakująca dana | blokuje | gdzie szukać |
 |---|---|---|
 | rzędne główki szyny, głębokości stacji | T-112 → produkcyjny tunel | T-901, `data/network/station-depths.csv` |
-| ~~długość i wysokość peronu~~ | ~~T-211~~ → T-212 | **rozstrzygnięte przez R-007**: wysokość 1,03 m `source_backed`, długość zostaje `unknown`, ale generator ma jawny parametr 94,0 m i kontrolę górną 109,1 m |
+| ~~długość i wysokość peronu~~ | ~~T-211~~ → T-212 | **rozstrzygnięte przez R-007**: wysokość 1,03 m `source_backed`, długość zostaje `unknown`, ale generator ma jawny parametr 95,0 m (`DESIGN_PLATFORM_LENGTH_M`, decyzja właściciela T-212 z #137), między dolnym ograniczeniem 94,0 m — długością składu M7, nie parametrem — a kontrolą górną 109,1 m |
 | przekrój tunelu, geometria odbioru prądu | wiarygodność wymiarów w `profiles.py` | R-005 jest w `main`: 1435 mm to `secondary_reference_only`, `contact_geometry` = `unknown` |
 | ~~ground truth sygnalizacji, CBTC, ATS, KCV~~ | ~~T-313~~ → T-314, T-320 | **odblokowane** — R-003 w `main` (#34), T-313 zrobione (#91) |
 | prędkość dopuszczalna na torze | T-320; `speed_limits` puste we wszystkich osiach | **rozstrzygnięte przez R-006 (#85): źródła nie ma.** 72/50 km/h pochodzi z notatki DH z 11.02.2008 o sieci sprzed układu z 2009 — klasa `manufacturer_or_trade_press`, poniżej OSM. Ograniczenie dolne z T-401: 58,68 km/h |

@@ -418,17 +418,17 @@ public sealed class LineCore
     /// </summary>
     public double SpeedLimitMps => _settings.SpeedLimitMps;
 
-    /// <summary>
-    /// Prawda, gdy każdy zgłoszony skład wszedł na plan i dojechał do ostatniej stacji.
-    /// Na krótkiej osi z krótkim odstępem nie nastąpi to nigdy — patrz akapit o turnbacku
-    /// w opisie klasy.
-    /// </summary>
     /// <summary>Czy ta linia ma włączony turnback (pojazdy krążą i nigdy nie kończą).</summary>
     public bool TurnbackEnabled => _turnbackSteps > 0L;
 
     /// <summary>Czas nawrotu w krokach; zero, gdy turnback wyłączony.</summary>
     public long TurnbackSteps => _turnbackSteps;
 
+    /// <summary>
+    /// Prawda, gdy każdy zgłoszony skład wszedł na plan i dojechał do ostatniej stacji.
+    /// Na krótkiej osi z krótkim odstępem nie nastąpi to nigdy — patrz akapit o turnbacku
+    /// w opisie klasy.
+    /// </summary>
     public bool Finished
     {
         get

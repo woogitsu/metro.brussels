@@ -6,6 +6,9 @@ dobre chęci nie działa — zmyślona głębokość stacji wygląda dokładnie 
 prawdziwa. Ten test pilnuje, żeby każda stała, na której stoi geometria, była wypisana
 w `docs/21-measured-vs-assumed.md` razem ze statusem. Dopisanie parametru bez wpisu
 wywraca testy, więc autor musi świadomie zadeklarować, czy to fakt, czy decyzja.
+
+Od 04.09.2026 audyt patrzy też na `docs/TASKS.md` — sekcja „długość peronu w prozie"
+na końcu pliku. Powód jest wypisany tam, przy stałej `PLATFORM_LENGTH_PROSE`.
 """
 import json
 import os
@@ -198,3 +201,66 @@ def test_audit_covers_every_station_component_constant():
     missing = [n for n in constants if f"`{n}`" not in text]
     assert not missing, f"stałe T-212 bez wpisu w audycie: {missing}"
     assert "design_assumption" in text
+
+
+# --- długość peronu w prozie -----------------------------------------------------
+
+TASKS = os.path.join(ROOT, "docs", "TASKS.md")
+
+#: Dokumenty, w których długość peronu z generatora stoi jako liczba w zdaniu, a nie
+#: jako wynik czegokolwiek. `docs/21` audyt sprawdzał od początku, `docs/TASKS.md` nie —
+#: i dlatego wiersz „Co blokuje co" niósł 94,0 m przez dwa dni po decyzji T-212 (#137),
+#: podczas gdy generator, `docs/21` §4e i `reports/T-212-station.md` miały 95,0 m.
+#: 94,0 m to długość składu M7, czyli DOLNE OGRANICZENIE z R-007, a nie parametr —
+#: liczba wyglądała więc sensownie i nic jej nie porównywało.
+PLATFORM_LENGTH_PROSE = (AUDIT, TASKS)
+
+#: Zdania, które przedstawiają liczbę jako parametr peronu w generatorze.
+NAMES_THE_PLATFORM_PARAMETER = re.compile(
+    r"DESIGN_PLATFORM_LENGTH_M|jawny parametr|peron w generatorze")
+
+#: „…jawny parametr 95,0 m…" — sama liczba podana jako wartość parametru.
+PARAMETER_VALUE = re.compile(r"jawny parametr \*{0,2}(\d+,\d+) m")
+
+
+def _polish(value):
+    return f"{value:.1f}".replace(".", ",")
+
+
+def _prose_lines():
+    for path in PLATFORM_LENGTH_PROSE:
+        with open(path, encoding="utf-8") as handle:
+            for number, line in enumerate(handle.read().splitlines(), 1):
+                yield path, number, line
+
+
+def test_prose_naming_the_platform_parameter_carries_the_value_from_the_code():
+    expected = _polish(station_components.DESIGN_PLATFORM_LENGTH_M)
+    seen = {path: 0 for path in PLATFORM_LENGTH_PROSE}
+    offenders = []
+    for path, number, line in _prose_lines():
+        if not NAMES_THE_PLATFORM_PARAMETER.search(line):
+            continue
+        seen[path] += 1
+        if expected not in line:
+            offenders.append(f"{os.path.relpath(path, ROOT)}:{number}: {line.strip()[:160]}")
+    assert not offenders, f"długość peronu inna niż {expected} m w kodzie: {offenders}"
+    missing = [os.path.relpath(p, ROOT) for p, count in seen.items() if count == 0]
+    assert not missing, f"zdanie o parametrze peronu zniknęło — bramka przestałaby patrzeć: {missing}"
+
+
+def test_no_document_calls_a_different_number_the_explicit_platform_parameter():
+    """Osobno od testu wyżej: łapie liczbę PODANĄ jako wartość parametru.
+
+    Test wyżej wymaga obecności 95,0 m w zdaniu; ten wymaga, żeby przy słowach
+    „jawny parametr" nie stała inna liczba. Wiersz z 04.09.2026 przechodziłby pierwszy
+    z nich, gdyby ktoś dopisał 95,0 m obok pozostawionego 94,0 m.
+    """
+    expected = _polish(station_components.DESIGN_PLATFORM_LENGTH_M)
+    offenders = []
+    for path, number, line in _prose_lines():
+        for found in PARAMETER_VALUE.findall(line):
+            if found != expected:
+                offenders.append(
+                    f"{os.path.relpath(path, ROOT)}:{number}: „jawny parametr {found} m", )
+    assert not offenders, f"kod ma {expected} m: {offenders}"
