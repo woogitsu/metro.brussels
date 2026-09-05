@@ -20,28 +20,32 @@ namespace MetroBxl.Game.Input;
 /// silnik nie potrafi podać częściej niż raz na klatkę — i dlatego jedyna, która
 /// zostaje po tej stronie.</para>
 ///
-/// <para>Klawisze są odczytywane fizycznie (<see cref="Godot.Input.IsPhysicalKeyPressed"/>),
-/// czyli po położeniu na klawiaturze, a nie po znaku — układ AZERTY, w Brukseli
-/// nieprzypadkowy, nie przestawia wtedy sterowania. Mapa akcji <c>InputMap</c>
-/// z konfiguracją w projekcie należy do zadania o sterowaniu (G-3), nie tutaj.</para>
+/// <para>Klawisze idą przez <b>akcje <c>InputMap</c></b>, a nie po kodach klawiszy.
+/// Do 05.09.2026 stało tu <c>Godot.Input.IsPhysicalKeyPressed(Key.W)</c> i pięć
+/// podobnych wierszy; zmiana klawisza wymagała wtedy poprawki w tym pliku,
+/// w <c>FirstRun.HandleViewKeys</c> i w opisie sterowania — w trzech miejscach, które
+/// nic o sobie nie wiedziały. Teraz nazwy akcji i klawisze pod nimi są jedną tabelą
+/// w <see cref="DriverActions"/>, a przypisania siedzą w <c>project.godot</c>.</para>
+///
+/// <para>Odczyt fizyczny NIE ZNIKA — przenosi się do <c>project.godot</c>, gdzie każde
+/// zdarzenie ma <c>physical_keycode</c> przy <c>keycode</c> równym zeru. Klawisz jest
+/// więc dalej brany po położeniu, a nie po znaku, i układ AZERTY, w Brukseli
+/// nieprzypadkowy, dalej nie przestawia sterowania.</para>
 /// </summary>
 public sealed class DriverInput
 {
     /// <summary>
-    /// Opis sterowania do wypisania w HUD.
+    /// Opis sterowania wypisywany w HUD-zie — składany z tej samej tabeli
+    /// <see cref="DriverActions.All"/>, z której biorą się przypisania klawiszy.
     ///
-    /// <para>Nazwa klawisza hamulca awaryjnego jest sklejana z
-    /// <see cref="EmergencyBrake.KeyName"/>, a nie wpisana tu drugi raz — wiersz HUD-u
-    /// i ten opis mówią wtedy o tym samym klawiszu z definicji.</para>
-    ///
-    /// <para><b>Ta stała jest dziś martwa</b> — nic jej nie woła, i to jest zadanie G-3
-    /// (mapa akcji <c>InputMap</c> plus wiersz pomocy), nie to. Nowy klawisz jest tu
-    /// dopisany właśnie dlatego: stała bez niego rozjechałaby się ze sterowaniem
-    /// jeszcze zanim ktokolwiek zacznie ją pokazywać.</para>
+    /// <para><b>Do 05.09.2026 była to stała MARTWA</b>: nic jej nie wołało, więc gracz
+    /// nie miał skąd wiedzieć, czym prowadzi, a napis mógł opisywać klawisze, których
+    /// scena nie czytała — i opisywał, bo hamulec awaryjny dopisano do niego „na zapas".
+    /// Teraz wiersz wychodzi na ekran (<c>Hud.Update</c>, siódmy wiersz) i nie jest
+    /// osobnym napisem: zmiana klawisza w tabeli przechodzi do opisu i do
+    /// <c>project.godot</c> naraz albo nie przechodzi nigdzie.</para>
     /// </summary>
-    public const string Help = "W ciąg  ·  S hamulec  ·  X wybieg  ·  "
-        + EmergencyBrake.KeyName + " hamulec awaryjny (= pełny służbowy)  ·  "
-        + "C widok  ·  R od nowa  ·  Esc wyjście";
+    public static string Help => DriverActions.Help;
 
     /// <summary>Stan klawiszy odczytany ostatnim <see cref="Read"/>.</summary>
     public DriverKeys Keys { get; private set; } = DriverKeys.None;
@@ -54,17 +58,21 @@ public sealed class DriverInput
     /// <returns>Stan trzymanych klawiszy w tej klatce.</returns>
     public DriverKeys Read()
     {
+        // Warianty klawiszy (strzałki obok liter) siedzą w przypisaniu akcji, a nie
+        // w tym `||`. Jedna akcja to jedno pytanie do silnika, bez względu na to, ile
+        // klawiszy jest pod nią podpiętych — i to jest cała różnica wobec wersji
+        // sprzed 05.09.2026.
         Keys = new DriverKeys(
-            Godot.Input.IsPhysicalKeyPressed(Key.W) || Godot.Input.IsPhysicalKeyPressed(Key.Up),
-            Godot.Input.IsPhysicalKeyPressed(Key.S) || Godot.Input.IsPhysicalKeyPressed(Key.Down),
-            Godot.Input.IsPhysicalKeyPressed(Key.X),
+            Godot.Input.IsActionPressed(DriverActions.Power),
+            Godot.Input.IsActionPressed(DriverActions.Brake),
+            Godot.Input.IsActionPressed(DriverActions.Coast),
 
             // Spacja, bo jest jedynym dużym klawiszem poza zestawem już zajętym
             // (W/S/X prowadzenie, C widok, R od nowa, Esc wyjście) i trafia się w nią
             // bez patrzenia — a hamulec awaryjny jest gestem, w którym patrzenie na
-            // klawiaturę jest dokładnie tym, czego się nie robi. Odczyt jest FIZYCZNY,
-            // tak samo jak reszta: na AZERTY spacja leży tam, gdzie na QWERTY.
-            Godot.Input.IsPhysicalKeyPressed(Key.Space));
+            // klawiaturę jest dokładnie tym, czego się nie robi. Sam klawisz stoi
+            // w `DriverActions.All`, tu jest tylko nazwa akcji.
+            Godot.Input.IsActionPressed(DriverActions.Emergency));
         return Keys;
     }
 

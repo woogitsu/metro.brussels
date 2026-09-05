@@ -106,6 +106,30 @@ public sealed class RunPlan
     public bool ScriptedMode => (TelemetryPath is not null && ReplayPath is null) || ShotPath is not null;
 
     /// <summary>
+    /// Czy scena w tym przebiegu CZYTA KLAWIATURĘ — czyli czy przy sterowaniu siedzi
+    /// człowiek.
+    ///
+    /// <para>Jedno miejsce na tę decyzję, bo odpowiedź jest potrzebna w dwóch: pętla
+    /// klatek pyta o nią, zanim zawoła <c>DriverInput.Read</c>, a HUD, zanim pokaże
+    /// wiersz pomocy. Dwie kopie warunku rozjechałyby się w stronę, której nikt by nie
+    /// zauważył od razu: wiersz „W ciąg · S hamulec" nad przejazdem, w którym W i S nic
+    /// nie robią, wygląda dokładnie tak samo jak wiersz prawdziwy.</para>
+    ///
+    /// <para><b>Dlaczego to nie jest po prostu „nie skryptowy".</b> Odtworzenie
+    /// z <c>--replay</c> też nie czyta klawiatury — polecenie przychodzi z zapisu po
+    /// numerze kroku — a <see cref="ScriptedMode"/> jest w nim FAŁSZYWE, bo zapis wejść
+    /// pochodzi od maszynisty. Warunek musi więc wymienić oba tryby, a nie zaprzeczyć
+    /// jednemu.</para>
+    ///
+    /// <para>Skutek uboczny jest tu skutkiem głównym: w przebiegu skryptowym wiersz
+    /// pomocy NIE WYCHODZI na zrzut. Bramka wizualna <c>tools/visual/compare.py</c>
+    /// mierzy zawartość klatki z progami zmierzonymi na klatce bez geometrii, czyli na
+    /// samym HUD-zie; dopisanie do niej stałego napisu podniosłoby „ink" w klatce,
+    /// którą ta bramka ma ODRZUCAĆ.</para>
+    /// </summary>
+    public bool ReadsKeyboard => !ScriptedMode && !ReplayMode;
+
+    /// <summary>
     /// Plik, do którego zapisuje się wejścia maszynisty (numer kroku + klawisze),
     /// albo <c>null</c>. Format czyta i pisze <c>MetroBxl.Sim.Train.InputLog</c>.
     /// </summary>
