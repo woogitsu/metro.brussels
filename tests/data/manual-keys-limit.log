@@ -1,0 +1,44 @@
+# METRO BXL — zapis wejść maszynisty, wzorzec bramki CI na PRĘDKOŚĆ DOPUSZCZALNĄ.
+#
+# PO CO OSOBNY PLIK, SKORO `manual-keys.log` JUŻ JEST. Bo tamten wzorca limitu nie
+# dotyka i nie może go sprawdzić. Jego szczyt to 65,22 km/h, a limit trybu ręcznego
+# wynosi 72,00 km/h — więc tamten przejazd wychodzi CO DO BAJTU tak samo przy limicie
+# 72 i przy 80 km/h. Zmierzone, nie wyrozumowane:
+#
+#   $ …replay --keys tests/data/manual-keys.log --signalling <plan 72>  → 569,701 m
+#   $ …replay --keys tests/data/manual-keys.log --signalling <plan 80>  → 569,701 m
+#   $ …compare  → wierszy=75  identyczne co do bajtu=TAK
+#
+# Między #246 (scena wzięła 72 km/h z planu) a #248 (rdzeń wziął to samo) obie strony
+# bramki jechały RÓŻNYM limitem, a bramka była zielona przez cały ten czas — bo jej
+# jedyny wzorzec limitu nie dotykał. Ten plik istnieje po to, żeby ta różnica miała
+# gdzie się pokazać.
+#
+# PRZEJAZD, oś L1_A, czoło startuje na 94,000 m, krok 1/120 s:
+#
+#   krok  klawisz
+#   0     W  pełny ciąg i nic więcej do końca zapisu
+#
+# Jeden wpis to CAŁA treść — i to jest zamierzone. Wzorzec ma odpowiadać na jedno
+# pytanie („czy obie strony trzymają ten sam sufit prędkości"), a każdy dodatkowy
+# klawisz dokładałby do odpowiedzi coś, o co ten plik nie pyta. Cykl drzwi, wybieg
+# i hamowanie sprawdza `manual-keys.log` i to się nie dubluje.
+#
+# ZMIERZONY PRZEBIEG (commit tej zmiany, `Sim.Runner replay`, plan classic-2026-L1_A):
+#   * 72,00 km/h osiągnięte w kroku 3420, czyli w 28,500 s, i trzymane do końca;
+#   * koniec: 7200 kroków = 60,000 s, czoło na 1056,464 m, droga 962,464 m;
+#   * ten sam zapis przy limicie 80 km/h kończy się na 1120,969 m — 64,505 m dalej.
+#     To jest odległość, którą bramka zobaczy, jeśli strony się rozjadą.
+#
+# Beekkant (509,730 m) jest tu PRZEJECHANY bez zatrzymania — `stacji obsłużonych=0
+# przejechanych=1`. To skutek uboczny pełnego ciągu, nie cel pliku; gałąź „stacja
+# minięta" ma własny test jednostkowy (`MissingAStationOnlyCountsItAndLetsTheDriveGoOn`).
+#
+# DLACZEGO 7200 KROKÓW: 7200 = 2⁵·3²·5², więc przy 120 krokach na klatkę wychodzi
+# równe 60 klatek, a przy 7 — 7200 = 1028·7 + 4, czyli OSTATNIA klatka jest niepełna
+# i akumulator musi przenieść resztę. Ta sama własność, dla której `manual-keys.log`
+# ma 8880 kroków, i ten sam powód: rytm klatek nie ma prawa zmienić wyniku.
+wersja=1
+kroki=7200
+krok;klawisze
+0;W

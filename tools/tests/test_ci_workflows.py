@@ -2337,3 +2337,94 @@ def test_the_same_action_is_pinned_to_the_same_commit_everywhere():
     split = {a: v for a, v in seen.items() if len(v) > 1}
     assert not split, f"ta sama akcja na różnych commitach: {split}"
     assert len(seen) >= 4, seen
+
+
+#: Stała sceny, z której tryb ręczny czyta prędkość dopuszczalną. `Sim.Runner` nie ma
+#: prawa jej zobaczyć — `src/Sim.Runner` nie zależy od `src/Game`, bo tam mieszka Godot
+#: (CLAUDE.md §4.9) — więc ścieżkę podaje CI. To znaczy, że w repozytorium leżą DWA
+#: napisy, które muszą być tym samym napisem, i nic tego nie trzymało.
+RUN_PLAN = os.path.join("src", "Game", "RunPlan.cs")
+MANUAL_PLAN_CONST = re.compile(
+    r'public const string ManualSpeedLimitPlanPath\s*=\s*"([^"]+)"')
+#: Wywołanie `Sim.Runner replay` w kroku workflow, razem z jego argumentami. Szukane
+#: w tekście z ROZWINIĘTYM łamaniem wiersza (`_unwrapped`), bo polecenia w tych krokach
+#: są łamane odwrotnym ukośnikiem i wzorzec liniowy widziałby wyłącznie `--keys`.
+REPLAY_CALL = re.compile(r"replay --keys [^\n]*")
+
+
+def _manual_plan_path():
+    text = open(os.path.join(ROOT, RUN_PLAN), encoding="utf-8").read()
+    found = MANUAL_PLAN_CONST.findall(text)
+    assert len(found) == 1, f"{RUN_PLAN}: stałych ManualSpeedLimitPlanPath {len(found)}"
+    return found[0]
+
+
+def _unwrapped(text):
+    """Tekst workflow z rozwiniętym łamaniem wiersza odwrotnym ukośnikiem."""
+    return re.sub(r"\\\n\s*", " ", text)
+
+
+def _replay_calls():
+    for name in _workflows():
+        for call in REPLAY_CALL.findall(_unwrapped(_text(name))):
+            yield name, " ".join(call.split())
+
+
+def test_every_replayed_manual_run_reads_the_limit_from_the_scene_own_plan():
+    """Rdzeń i scena mają brać prędkość dopuszczalną z JEDNEGO pliku.
+
+    Powód jest zmierzony, nie hipotetyczny. #246 przestawiło scenę na 72,00 km/h
+    z planu sygnalizacji, a `Sim.Runner replay` został wtedy pominięty i dalej brał
+    80 km/h z `DriveScenario` — prędkość konstrukcyjną M7. Bramka trybu ręcznego
+    porównuje obie strony przy progu 0 i była zielona przez cały ten czas, bo jej
+    wzorzec wejść dochodzi do 65,22 km/h i limitu nie dotyka.
+
+    Sam przebieg CI też to dziś łapie (obie strony wypisują wiersz `[LIMIT]`, a krok
+    robi na nich `diff`), ale tamto wymaga runnera z Godotem. Ta kontrola pada
+    natychmiast i bez niego.
+    """
+    expected = _manual_plan_path()
+    calls = list(_replay_calls())
+    assert len(calls) >= 4, f"wywołań replay w workflowach: {len(calls)}"
+
+    # DOKŁADNIE JEDNO wywołanie wolno mieć bez planu: negatyw, który sprawdza, że taki
+    # przejazd jest ODMOWĄ. Gdyby zwolnienie było regułą („pomiń wywołania bez planu"),
+    # to każde nowe wywołanie bez `--signalling` wchodziłoby przez tę samą furtkę.
+    bare = [(name, call) for name, call in calls if "--signalling" not in call]
+    assert len(bare) == 1, (
+        "wywołań `replay` bez --signalling: "
+        + str([f"{n}: {c}" for n, c in bare])
+        + " — wolno mieć jedno, i to negatyw odmowy")
+    negative_name = bare[0][0]
+    assert "replay wymaga --signalling" in _text(negative_name), (
+        f"{negative_name}: jest wywołanie `replay` bez planu, ale nic nie sprawdza, "
+        f"że to odmowa")
+
+    for name, call in calls:
+        if "--signalling" not in call:
+            continue
+        path = call.split("--signalling", 1)[1].split()[0]
+        # Negatyw bramki sufitu celowo podaje plan podmieniony, w `build/`. To jest
+        # jego treść, a nie usterka — ale plan spoza `build/` musi być TYM planem.
+        if path.startswith("build/"):
+            continue
+        assert path == expected, (
+            f"{name}: replay czyta plan `{path}`, a scena `{expected}` "
+            f"({RUN_PLAN}) — dwa napisy, które miały być jednym")
+
+
+def test_the_manual_plan_constant_is_the_one_the_scene_actually_reads():
+    """Kontrola negatywna do testu wyżej, wykonana w pamięci.
+
+    Sam test wyżej przeszedłby tak samo dobrze, gdyby `MANUAL_PLAN_CONST` przestał
+    cokolwiek znajdować i `_manual_plan_path()` zwracał pustą ścieżkę — a wtedy
+    porównywałby napis z workflow z niczym. Ta kontrola trzyma oba końce: stała
+    istnieje, wskazuje na plik, który leży w repozytorium, i to jest plan.
+    """
+    path = _manual_plan_path()
+    assert path.endswith(".json"), path
+    full = os.path.join(ROOT, path)
+    assert os.path.isfile(full), f"stała wskazuje na plik, którego nie ma: {path}"
+    plan = open(full, encoding="utf-8").read()
+    assert '"default_permitted_speed_kmh"' in plan, (
+        f"{path} nie ma pola, z którego tryb ręczny bierze limit")
