@@ -413,8 +413,18 @@ pozycje fazy 6 albo jako etapy T-400, o czym rozstrzyga właściciel, nie ten ra
 > wyznacza hamulec służbowy, więc jej przekroczenie od razu wymaga więcej niż służbowego.
 > Pytanie brzmi: **czy nastawnia ma ryglować trasę o odcinek do przodu.** Nie zgadnięte.
 >
-> **Bramki CI dla kabiny pod sygnalizacją nadal nie ma** — `godot-first-run.yml` był poza
-> zakresem #257. To jedyna część G-5, która została niezrobiona.
+> **Bramka CI dla kabiny pod sygnalizacją** — jedyna część G-5 niezrobiona w #257 —
+> **jest od #261**. Krok „Cab under signalling…" porównuje scenę z rdzeniem przy progu 0
+> na obu rytmach klatek i osobno sprawdza, że obie strony wypisały ten sam wiersz `[ATP]`;
+> telemetria nie ma kolumny z ochroną, więc bez tego dwie strony mogłyby trafić w ten sam
+> przejazd, licząc ostrzeżenia inaczej.
+>
+> Przy zakładaniu tej bramki wyszła pułapka: **`--signalling` znaczy po każdej stronie co
+> innego.** Scena nie ma przełącznika ATP, bo plan `classic_2026` JEST systemem z ochroną
+> (ten sam argument, co przy `LineCore.M7(atp: true)` w #234), a `Sim.Runner replay` ma
+> `--atp` osobno, bo bez tego nie dałoby się zbudować negatywu „ten sam przejazd bez
+> ochrony musi się różnić". Zmierzone: scena z samym `--signalling` zgadza się co do bajtu
+> z rdzeniem `--signalling --atp` (201 wierszy), a z rdzeniem bez `--atp` **nie**.
 
 - **Skąd:** §1.3 tego raportu (tryb ręczny i tryb z sygnalizacją są rozłączne
   z powodu trzech odmów w `RunPlan`) oraz Issue #26 §Weryfikacja funkcjonalna:

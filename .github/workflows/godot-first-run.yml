@@ -820,6 +820,108 @@ jobs:
             || { echo "BŁĄD: zapis 'wersja=1' z wpisem resetu został przyjęty" >&2; exit 1; }
           echo "[NEGATYW] zapis w wersji 1 z wpisem resetu odrzucony, tak jak ma być"
 
+      - name: Cab under signalling — the scene and the core must protect identically
+        shell: bash
+        # G-5 (#257) wpuściło kabinę prowadzoną przez człowieka pod blokady i ochronę
+        # pociągu, ale nie zostawiło na to bramki — i to była jedyna niezrobiona część
+        # tamtego zadania. Ten krok ją zakłada.
+        #
+        # UWAGA, PUŁAPKA: `--signalling` ZNACZY CO INNEGO PO KAŻDEJ STRONIE.
+        # Scena nie ma przełącznika ATP — plan w trybie `classic_2026` JEST systemem
+        # z ochroną, a osobny przełącznik znaczyłby, że istnieje sieć z blokadami i bez
+        # ochrony (tego samego argumentu użyło #234 przy `LineCore.M7(atp: true)`).
+        # `Sim.Runner replay` ma natomiast `--atp` osobno, bo bez tego nie dałoby się
+        # zbudować negatywu „ten sam przejazd bez ochrony musi się różnić".
+        # Skutek zmierzony: scena z samym `--signalling` zgadza się co do bajtu
+        # z rdzeniem `--signalling --atp`, a z rdzeniem `--signalling` BEZ `--atp`
+        # NIE — i to jest dokładnie ta rodzina rozjazdu, którą zamknęło #248 dla limitu
+        # prędkości. Negatyw niżej trzyma tę różnicę widoczną, zamiast pozwolić jej
+        # wrócić po cichu.
+        run: |
+          set -euo pipefail
+          mkdir -p build/t400/atp-kabina
+          dotnet run --project src/Sim.Runner -c Release --no-build -- \
+            replay --keys tests/data/manual-overspeed.log --axis data/track/L1_A.json \
+            --signalling data/design/signalling/classic-2026.json --atp \
+            --notch-rate 0.80 --exchange-s 8 --stop-window-m 5 \
+            --out build/t400/atp-kabina/core.csv 2>&1 | tee build/t400/atp-kabina/core.log
+          # OCHRONA MA NAPRAWDĘ INGEROWAĆ. Bez tego warunku wzorzec skrócony albo
+          # osłabiony przestałby ćwiczyć ATP, a porównanie niżej nadal wychodziłoby
+          # zielone — obie strony zgodnie nie robiłyby nic.
+          grep -q "^\[ATP\] ostrzeżeń=2118 ingerencji służbowych=0 awaryjnych=2118 " \
+            build/t400/atp-kabina/core.log \
+            || { echo "BŁĄD: ochrona kabiny nie ingeruje tak, jak opisuje to wzorzec" >&2
+                 grep "^\[ATP\]" build/t400/atp-kabina/core.log >&2; exit 1; }
+          grep -o "^\[ATP\] .*" build/t400/atp-kabina/core.log \
+            > build/t400/atp-kabina/core-atp.txt
+          for spf in 120 7; do
+            "$GODOT_BIN" --headless --path src/Game -- \
+              --replay="$PWD/tests/data/manual-overspeed.log" \
+              --signalling="$PWD/data/design/signalling/classic-2026.json" \
+              --telemetry="$PWD/build/t400/atp-kabina/scene-spf$spf.csv" \
+              --steps-per-frame="$spf" \
+              2>&1 | tee "build/t400/atp-kabina/scene-spf$spf.log"
+            python3 tools/ci/assert_no_godot_warnings.py "build/t400/atp-kabina/scene-spf$spf.log"
+            # WIERSZ [ATP] MUSI BYĆ TEN SAM PO OBU STRONACH. Telemetria nie ma kolumny
+            # z ochroną, więc dwie strony mogłyby trafić w ten sam przejazd, licząc
+            # ostrzeżenia i ingerencje inaczej — ta sama zasada, co przy `[LIMIT]` w #248.
+            grep -o "^\[ATP\] .*" "build/t400/atp-kabina/scene-spf$spf.log" \
+              > "build/t400/atp-kabina/scene-atp-spf$spf.txt"
+            diff -u build/t400/atp-kabina/core-atp.txt \
+              "build/t400/atp-kabina/scene-atp-spf$spf.txt" \
+              || { echo "BŁĄD: rdzeń i scena liczą ochronę inaczej" >&2; exit 1; }
+            dotnet run --project src/Sim.Runner -c Release --no-build -- \
+              compare build/t400/atp-kabina/core.csv \
+              "build/t400/atp-kabina/scene-spf$spf.csv" --tolerance 0
+          done
+
+      - name: Negative control of the cab-protection gate
+        shell: bash
+        # Dwie mutacje, dwa różne zdania.
+        #
+        #  1. RDZEŃ BEZ `--atp`. Scena ochrony nie wyłącza, więc porównanie MUSI paść.
+        #     To nie jest hipotetyczna literówka: `--signalling` znaczy po każdej stronie
+        #     co innego i bez tego warunku ta różnica wróciłaby po cichu.
+        #  2. PLAN Z INNEJ OSI. Ochrona zbudowana na cudzym planie to ODMOWA, a nie
+        #     przejazd bez blokad — bo autorytet i cel hamowania liczyłyby się wtedy
+        #     w dwóch układach.
+        run: |
+          set -euo pipefail
+          dotnet run --project src/Sim.Runner -c Release --no-build -- \
+            replay --keys tests/data/manual-overspeed.log --axis data/track/L1_A.json \
+            --signalling data/design/signalling/classic-2026.json \
+            --notch-rate 0.80 --exchange-s 8 --stop-window-m 5 \
+            --out build/t400/atp-kabina/bez-atp.csv 2>&1 \
+            | tee build/t400/atp-kabina/bez-atp.log
+          rc=0
+          dotnet run --project src/Sim.Runner -c Release --no-build -- \
+            compare build/t400/atp-kabina/bez-atp.csv \
+            build/t400/atp-kabina/scene-spf120.csv --tolerance 0 || rc=$?
+          test "$rc" -ne 0 \
+            || { echo "BŁĄD: przejazd bez ochrony przeszedł porównanie ze sceną, która ją ma" >&2
+                 exit 1; }
+          echo "[NEGATYW] rdzeń bez --atp odrzucony wobec sceny z ochroną, tak jak ma być"
+
+          python3 - <<'CUDZA_OS'
+          import json
+
+          with open("data/design/signalling/classic-2026.json", encoding="utf-8") as handle:
+              plan = json.load(handle)
+          assert plan["axis_id"] == "L1_A", "plan nie opisuje dziś osi L1_A"
+          plan["axis_id"] = "L1_B"
+          with open("build/t400/atp-kabina/plan-cudza-os.json", "w", encoding="utf-8") as handle:
+              json.dump(plan, handle, ensure_ascii=False, indent=2)
+          CUDZA_OS
+          rc=0
+          dotnet run --project src/Sim.Runner -c Release --no-build -- \
+            replay --keys tests/data/manual-overspeed.log --axis data/track/L1_A.json \
+            --signalling build/t400/atp-kabina/plan-cudza-os.json --atp \
+            --out build/t400/atp-kabina/cudza-os.csv \
+            > build/t400/atp-kabina/cudza-os.txt 2>&1 || rc=$?
+          test "$rc" -ne 0 \
+            || { echo "BŁĄD: plan cudzej osi został przyjęty" >&2; exit 1; }
+          echo "[NEGATYW] plan cudzej osi odrzucony, tak jak ma być"
+
       - name: Line run — scene must call the same stations as the core
         shell: bash
         # Przejazd całą linią z zatrzymaniami, prowadzony rdzeniem (`LineDrive`), liczony
@@ -1251,3 +1353,8 @@ jobs:
             build/t400/reset/*.csv
             build/t400/reset/*.log
             build/t400/reset/*.txt
+            # Bramka kabiny pod sygnalizacją: bez `core-atp.txt` i `scene-atp-spf*.txt`
+            # nie da się sprawdzić, czy obie strony policzyły ochronę tak samo.
+            build/t400/atp-kabina/*.csv
+            build/t400/atp-kabina/*.log
+            build/t400/atp-kabina/*.txt

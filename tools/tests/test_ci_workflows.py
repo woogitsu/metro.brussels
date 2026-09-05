@@ -2428,3 +2428,51 @@ def test_the_manual_plan_constant_is_the_one_the_scene_actually_reads():
     plan = open(full, encoding="utf-8").read()
     assert '"default_permitted_speed_kmh"' in plan, (
         f"{path} nie ma pola, z którego tryb ręczny bierze limit")
+
+
+#: Wywołanie SCENY w trybie odtworzenia z planem sygnalizacji — czyli z ochroną kabiny.
+SCENE_REPLAY_WITH_PLAN = ("--replay=", "--signalling=")
+
+
+def _steps_with_run(name):
+    """Kroki workflow, które mają blok `run:`, jako pary (nazwa kroku, treść)."""
+    text = _unwrapped(_text(name))
+    for match in re.finditer(r"^      - name: (.+?)$(.*?)(?=^      - name: |\Z)",
+                             text, re.M | re.S):
+        yield match.group(1).strip(), match.group(2)
+
+
+def test_the_scene_and_the_core_switch_cab_protection_on_the_same_way():
+    """`--signalling` znaczy po każdej stronie CO INNEGO i bramka musi to obejść.
+
+    Scena nie ma przełącznika ATP: plan w trybie `classic_2026` JEST systemem
+    z ochroną, a osobny przełącznik znaczyłby, że istnieje sieć z blokadami i bez
+    ochrony (ten sam argument, co przy `LineCore.M7(atp: true)` w #234).
+    `Sim.Runner replay` ma natomiast `--atp` osobno, bo bez tego nie dałoby się
+    zbudować negatywu „ten sam przejazd bez ochrony musi się różnić".
+
+    Skutek jest ZMIERZONY, nie teoretyczny: scena z samym `--signalling` zgadza się
+    co do bajtu z rdzeniem `--signalling --atp` (201 wierszy), a z rdzeniem
+    `--signalling` bez `--atp` NIE. Krok, który porównuje te dwie strony i zapomni
+    `--atp`, pada dopiero na runnerze z Godotem — ta kontrola pada natychmiast
+    i bez niego.
+    """
+    seen = 0
+    for name in _workflows():
+        for step, body in _steps_with_run(name):
+            if not all(needle in body for needle in SCENE_REPLAY_WITH_PLAN):
+                continue
+
+            seen += 1
+            calls = [" ".join(call.split()) for call in REPLAY_CALL.findall(body)]
+            assert calls, (
+                f"{name} / '{step}': scena dostaje plan sygnalizacji, a krok nie woła "
+                f"rdzenia ani razu — nie ma czego z czym porównać")
+            assert any("--atp" in call for call in calls), (
+                f"{name} / '{step}': scena z `--signalling` MA ochronę kabiny, a rdzeń "
+                f"bez `--atp` jej nie ma — porównanie przy progu 0 nie ma prawa przejść. "
+                f"Wywołania rdzenia w tym kroku: {calls}")
+
+    assert seen >= 1, (
+        "żaden krok nie porównuje sceny pod sygnalizacją z rdzeniem — bramka kabiny "
+        "pod ochroną zniknęła z workflow")
