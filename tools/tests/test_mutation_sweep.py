@@ -98,6 +98,256 @@ def test_integer_threshold_moves_by_one():
     assert [t.now for t in thresholds] == ["4"]
 
 
+# --- łączniki logiczne ------------------------------------------------------------
+
+
+def test_and_becomes_or():
+    source = "def f(a, b):\n    return a and b\n"
+    found = [m for m in _mutations(source) if m.kind == "logika"]
+    assert len(found) == 1, [m.describe() for m in found]
+    assert found[0].apply(source) == "def f(a, b):\n    return a or b\n"
+
+
+def test_or_becomes_and():
+    source = "def f(a, b):\n    return a or b\n"
+    found = [m for m in _mutations(source) if m.kind == "logika"]
+    assert len(found) == 1
+    assert found[0].apply(source) == "def f(a, b):\n    return a and b\n"
+
+
+def test_three_operands_give_two_connectors():
+    # `a and b and c` to JEDEN węzeł `BoolOp` z trzema wartościami. Naiwna
+    # implementacja „jeden węzeł, jedna mutacja" zgubiłaby drugi łącznik i cicho
+    # zmniejszyła zakres przeglądu.
+    source = "def f(a, b, c):\n    return a and b and c\n"
+    found = [m for m in _mutations(source) if m.kind == "logika"]
+    assert len(found) == 2, [m.describe() for m in found]
+    assert sorted(m.start for m in found) == [m.start for m in found]
+    for mutation in found:
+        assert mutation.apply(source).count(" or ") == 1
+
+
+def test_connector_after_a_comment_is_not_taken_from_the_comment():
+    # Komentarz WEWNĄTRZ wyrażenia jest legalny, gdy całość stoi w nawiasach.
+    # Bez maskowania komentarzy `re.search` trafiłby w słowo „and" z komentarza,
+    # splice rozwaliłby składnię, a mutacja, która się nie parsuje, liczy się jako
+    # zabita — czyli błąd w stronę ZAWYŻANIA pokrycia.
+    source = "def f(a, b):\n    return (a  # tu and tam\n            and b)\n"
+    found = [m for m in _mutations(source) if m.kind == "logika"]
+    assert len(found) == 1, [m.describe() for m in found]
+    mutated = found[0].apply(source)
+    assert "# tu and tam" in mutated, mutated
+    assert "or b" in mutated, mutated
+    ast.parse(mutated)
+
+
+def test_mask_comments_keeps_the_length():
+    # Maskowanie służy wyłącznie do szukania; indeks trafienia wraca na oryginalny
+    # napis. Zmiana długości przesunęłaby splice.
+    span = "  # and\n  and "
+    masked = sweep.mask_comments(span)
+    assert len(masked) == len(span)
+    assert masked.count("\n") == span.count("\n")
+    assert masked.strip() == "and"
+
+
+# --- przypisania augmentowane -----------------------------------------------------
+
+
+def test_augmented_assignment_loses_its_accumulation():
+    source = "def f(dt):\n    t = 0.0\n    t += dt\n    return t\n"
+    found = [m for m in _mutations(source) if m.kind == "przypisanie"]
+    assert len(found) == 1, [m.describe() for m in found]
+    assert found[0].apply(source) == "def f(dt):\n    t = 0.0\n    t = dt\n    return t\n"
+
+
+def test_two_character_augmented_operator_is_replaced_whole():
+    # `**=`, `//=` i `>>=` mają po trzy znaki. Wzorzec zbudowany z samych operatorów
+    # jednoznakowych trafiłby w OGON tokenu: z `x **= y` zrobiłby `x *= y` — mutację
+    # inną niż deklarowana, za to poprawną składniowo, więc niewidoczną dla wszystkich
+    # strażników parsowania.
+    for op in ("**=", "//=", ">>=", "|="):
+        source = f"def f(x, y):\n    x {op} y\n    return x\n"
+        found = [m for m in _mutations(source) if m.kind == "przypisanie"]
+        assert [m.was for m in found] == [op], (op, [m.describe() for m in found])
+        assert found[0].apply(source) == f"def f(x, y):\n    x = y\n    return x\n"
+
+
+def test_augmented_assignment_to_a_subscript():
+    source = "def f(d, k):\n    d[k] += 1\n"
+    found = [m for m in _mutations(source) if m.kind == "przypisanie"]
+    assert len(found) == 1, [m.describe() for m in found]
+    assert found[0].apply(source) == "def f(d, k):\n    d[k] = 1\n"
+
+
+# --- argumenty wywołań ------------------------------------------------------------
+
+
+def test_call_argument_number_is_moved():
+    source = "def f(x):\n    return round(x, 3)\n"
+    found = [m for m in _mutations(source) if m.kind == "argument"]
+    assert [(m.was, m.now) for m in found] == [("3", "4")], [m.describe() for m in found]
+
+
+def test_call_keyword_argument_is_mutated_too():
+    # Tolerancje jadą w tym repozytorium prawie zawsze jako argument nazwany
+    # (`abs_tol=`, `rel_tol=`). Pominięcie `keywords` wycięłoby z przeglądu
+    # dokładnie te liczby, dla których przegląd powstał.
+    source = "def f(a, b):\n    return isclose(a, b, abs_tol=1e-09)\n"
+    found = [m for m in _mutations(source) if m.kind == "argument"]
+    assert len(found) == 1, [m.describe() for m in found]
+    assert float(found[0].now) != 1e-09
+    assert abs(float(found[0].now) / 1e-09 - 1.01) < 1e-12
+
+
+def test_boolean_call_argument_is_flipped_not_incremented():
+    # `True` jest podklasą `int`; bez osobnej gałęzi wyszłoby `2` — zapis, który
+    # w miejscu flagi zachowuje się jak `True` i mutacja byłaby równoważna z definicji.
+    source = "def f(p):\n    return open(p, closefd=True)\n"
+    found = [m for m in _mutations(source) if m.kind == "argument"]
+    assert [(m.was, m.now) for m in found] == [("True", "False")]
+
+
+def test_string_call_argument_is_left_alone():
+    # Podmiana napisu daje albo natychmiastowy wyjątek, albo mutanta o niczym.
+    # Ani jedno, ani drugie nie mówi nic o bramkach.
+    source = "def f():\n    return open('plik.json', 'r')\n"
+    assert [m for m in _mutations(source) if m.kind == "argument"] == []
+
+
+def test_a_comparison_constant_is_not_also_counted_as_an_argument():
+    # Kontrola negatywna do rozdziału klas: `3` w `f(x) < 3` jest progiem porównania
+    # i nie ma prawa pojawić się drugi raz jako argument. Podwójne liczenie zawyżyłoby
+    # przyrost, którego to zadanie ma dowieść.
+    source = "def f(x):\n    return g(x) < 3\n"
+    found = _mutations(source)
+    assert sorted(m.kind for m in found) == ["operator", "prog"], \
+        [m.describe() for m in found]
+
+
+def test_negative_literal_argument_is_skipped():
+    # `f(-1)` to `UnaryOp(USub, Constant(1))`, nie `Constant(-1)`. Splice na samej
+    # jedynce dałby `f(-2)`, czyli mutację o innym znaczeniu niż opisana.
+    source = "def f():\n    return g(-1)\n"
+    assert [m for m in _mutations(source) if m.kind == "argument"] == []
+
+
+# --- stary zestaw operatorów jest odtwarzalny -------------------------------------
+
+
+def test_legacy_kinds_are_a_subset_of_the_new_run():
+    """Kontrola regresji na całym repozytorium.
+
+    Dopisanie trzech klas mutacji nie może przesunąć ANI JEDNEGO identyfikatora
+    ze starego zestawu — inaczej porównanie „przed/po" byłoby porównaniem dwóch
+    różnych rzeczy, a wznowienie z dziennika przypisałoby stary wynik nowej mutacji.
+    """
+    legacy = [(m.id, m.was, m.now) for m in sweep.collect(sweep.LEGACY_KINDS)]
+    from_full = [(m.id, m.was, m.now) for m in sweep.collect()
+                 if m.kind in sweep.LEGACY_KINDS]
+    assert legacy == from_full, (len(legacy), len(from_full))
+    assert len(legacy) > 500, len(legacy)
+
+
+def test_the_new_kinds_add_mutations_rather_than_replace_them():
+    legacy = sweep.collect(sweep.LEGACY_KINDS)
+    full = sweep.collect()
+    assert len(full) > len(legacy), (len(full), len(legacy))
+    assert set(m.id for m in legacy) < set(m.id for m in full)
+
+
+def test_unknown_operator_class_is_rejected_by_the_cli():
+    done = subprocess.run(
+        [sys.executable, os.path.join(ROOT, "tools", "tests", "mutation_sweep.py"),
+         "--operators", "kolor", "--list"],
+        capture_output=True, text=True)
+    assert done.returncode == 2, done.stdout[-400:]
+    assert "kolor" in done.stderr, done.stderr[-400:]
+
+
+def test_cli_lists_only_the_requested_class():
+    done = subprocess.run(
+        [sys.executable, os.path.join(ROOT, "tools", "tests", "mutation_sweep.py"),
+         "--operators", "przypisanie", "--only", "tools/track/", "--list",
+         "--journal", os.path.join(tempfile.gettempdir(), "metro-mutacje-nieistniejacy.jsonl")],
+        capture_output=True, text=True)
+    assert done.returncode == 0, done.stderr[-400:]
+    body = [line for line in done.stdout.splitlines() if line.startswith("tools/")]
+    assert body, done.stdout[-400:]
+    assert all(" przypisanie " in line for line in body), body[:5]
+
+
+# --- ocalała, ale czy w ogóle uruchomiona -----------------------------------------
+
+
+def test_was_executed_is_unknown_without_a_measurement():
+    """Brak pomiaru musi dawać `None`, a nie `False`.
+
+    `False` znaczy „wiersz się nie wykonał" i zdejmuje mutację z licznika pokrycia.
+    Zwrócenie go, gdy sondy w ogóle nie było, wypisałoby całe repozytorium jako
+    martwy kod i pokazało pokrycie 100 % z pustego mianownika.
+    """
+    mutation = sweep.Mutation("tools/a.py", 7, 0, 1, "<", "<=", "operator")
+    assert sweep.was_executed(None, mutation) is None
+    assert sweep.was_executed({"tools/a.py": {7}}, mutation) is True
+    assert sweep.was_executed({"tools/a.py": {8}}, mutation) is False
+    assert sweep.was_executed({}, mutation) is False
+
+
+def test_tracer_records_the_lines_that_ran_and_only_those():
+    """Licznik wierszy z `TRACER`, sprawdzony wykonaniem, w tym w PODPROCESIE.
+
+    Podproces jest tu sednem: `test_all.py` część bramek uruchamia przez
+    `sys.executable`. Licznik działający tylko w procesie głównym uznałby wiersze
+    pokryte wyłącznie przez podproces za niewykonane — a to fałsz w najgorszą stronę,
+    bo kazałby uznać prawdziwą dziurę w pokryciu za martwy kod.
+    """
+    import json
+    with tempfile.TemporaryDirectory() as tmp:
+        site = os.path.join(tmp, "site")
+        hits = os.path.join(tmp, "hits")
+        tools = os.path.join(tmp, "tools")
+        os.makedirs(site)
+        os.makedirs(tools)
+        with open(os.path.join(site, "sitecustomize.py"), "w", encoding="utf-8") as handle:
+            handle.write(sweep.TRACER)
+        modul = os.path.join(tools, "modul.py")
+        with open(modul, "w", encoding="utf-8") as handle:
+            handle.write("def wolany():\n"
+                         "    return 1\n"
+                         "\n"
+                         "def nigdy():\n"
+                         "    return 2\n")
+        runner = os.path.join(tmp, "runner.py")
+        with open(runner, "w", encoding="utf-8") as handle:
+            handle.write("import subprocess, sys, os\n"
+                         "sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'tools'))\n"
+                         "import modul\n"
+                         "subprocess.run([sys.executable, '-c',\n"
+                         " \"import sys, os; sys.path.insert(0, os.path.join(os.environ['DIR'], 'tools'));\"\n"
+                         " \"import modul; modul.wolany()\"], check=True)\n")
+
+        env = dict(os.environ)
+        env["PYTHONPATH"] = site
+        env["METRO_COVER_ROOT"] = tools + os.sep
+        env["METRO_COVER_OUT"] = hits
+        env["DIR"] = tmp
+        done = subprocess.run([sys.executable, runner], env=env,
+                              capture_output=True, text=True)
+        assert done.returncode == 0, done.stderr[-400:]
+
+        seen = set()
+        files = sorted(os.listdir(hits))
+        assert len(files) >= 2, f"licznik nie zapisał podprocesu: {files}"
+        for name in files:
+            with open(os.path.join(hits, name), encoding="utf-8") as handle:
+                for path, rows in json.load(handle).items():
+                    if os.path.basename(path) == "modul.py":
+                        seen.update(rows)
+        assert 2 in seen, f"ciało `wolany` nie zostało policzone: {sorted(seen)}"
+        assert 5 not in seen, f"ciało `nigdy` policzone, choć nikt go nie wołał: {sorted(seen)}"
+
+
 # --- co jest mutowane, a co nie ---------------------------------------------------
 
 
@@ -130,11 +380,19 @@ def test_a_comparison_next_to_the_guard_is_still_mutated():
     source = ('def f(a):\n    return a < 3\n\n\n'
               'if __name__ == "__main__":\n    f(1)\n')
     found = _mutations(source)
-    assert len(found) == 2, [m.describe() for m in found]
-    assert all(m.line == 2 for m in found), [m.describe() for m in found]
+    at_gate = [m for m in found if m.line == 2]
+    assert len(at_gate) == 2, [m.describe() for m in found]
+    assert not [m for m in found if m.line == 5], [m.describe() for m in found]
+    # Wywołanie w ciele strażnika mutowane JEST — to kod, nie konwencja. Tego, że
+    # żaden test go nie wykona, nie rozstrzyga generator mutacji, tylko sonda pokrycia.
+    assert [m.describe() for m in found if m.line == 6] == [
+        "tools/x.py:6 argument `1` -> `2`"]
 
 
-def test_assignment_is_not_a_comparison():
+def test_plain_assignment_is_not_mutated():
+    # Zwykłe `a = 3` nie ma czego zabrać: podmiana wartości byłaby mutacją stałej,
+    # a tej narzędzie robi wyłącznie tam, gdzie stała czymś steruje — w porównaniu
+    # albo w argumencie wywołania.
     source = "def f():\n    a = 3\n    return a\n"
     assert _mutations(source) == []
 
@@ -210,7 +468,11 @@ def test_there_is_something_to_sweep():
     found = sweep.collect()
     assert len(found) > 500, f"tylko {len(found)} mutacji — generator przestał generować"
     kinds = {m.kind for m in found}
-    assert kinds == {"operator", "prog"}, kinds
+    assert kinds == set(sweep.KINDS), kinds
+    # Każda klasa musi mieć w tym repozytorium co najmniej po kilkanaście sztuk.
+    # Klasa, która nigdzie nie trafia, jest kodem martwym udającym pokrycie.
+    counts = {kind: sum(1 for m in found if m.kind == kind) for kind in sweep.KINDS}
+    assert all(n > 10 for n in counts.values()), counts
 
 
 # --- raport -----------------------------------------------------------------------
@@ -228,6 +490,81 @@ def test_report_names_the_survivors():
     assert "tools/a.py" in text
     assert "| 7 |" in text, "ocalała nie trafiła do tabeli"
     assert "| 9 |" not in text, "zabita mutacja nie ma czego szukać w tabeli ocalałych"
+
+
+def _entry(line, przezyla, wykonana, rodzaj="argument"):
+    return {"plik": "tools/a.py", "wiersz": line, "rodzaj": rodzaj, "bylo": "1",
+            "jest": "2", "przezyla": przezyla, "wykonana": wykonana, "opis": "",
+            "id": f"a{line}", "padly": [], "ile_padlo": 0}
+
+
+def test_report_does_not_mix_survivors_that_never_ran_with_real_holes():
+    """Sedno rozszerzenia zestawu operatorów.
+
+    Mutacja przypisania albo argumentu wywołania trafia często w kod, do którego
+    wykonanie nigdy nie dochodzi. Taka ocalała nie mówi nic o bramkach. Policzona
+    razem z ocalałą, która przeżyła MIMO wykonania, zamienia raport o pokryciu
+    w raport o rozmiarze repozytorium — i to w stronę zaniżania pokrycia, czyli
+    kierującą triaż na kod, w którym nie ma czego naprawiać.
+    """
+    text = sweep.report([_entry(7, True, True), _entry(9, True, False),
+                         _entry(11, False, True)], "abc1234")
+    assert "| **ocalałych mimo wykonania** | **1** |" in text, text
+    assert "| ocalałych nieuruchomionych | 1 |" in text, text
+    # Zabita (1) na wykonane (zabita + ocalała mimo wykonania = 2) to 50 %,
+    # a nie 33 %, które wyszłyby z wrzucenia nieuruchomionej do jednego worka.
+    assert "| **pokrycie kodu wykonanego** | **50.0 %** |" in text, text
+    assert "| pokrycie (z rozstrzygniętych) | 33.3 % |" in text, text
+    assert "Ocalałe MIMO wykonania" in text and "żaden test nie uruchomił" in text
+
+
+def test_report_counts_a_journal_without_the_measurement_as_unmeasured():
+    """Dziennik sprzed sondy pokrycia nie może udawać, że wszystko się wykonało.
+
+    Brak pola `wykonana` to „nie wiem", a nie „tak" — inaczej wznowiony stary
+    przebieg wyglądałby na zmierzony i wpisywałby martwy kod do dziur w bramkach.
+    """
+    stary = _entry(7, True, None)
+    del stary["wykonana"]
+    text = sweep.report([stary], "abc1234")
+    assert "| ocalałych o niezmierzonym wykonaniu | 1 |" in text, text
+    assert "| **ocalałych mimo wykonania** | **0** |" in text, text
+
+
+def test_report_separates_a_hanging_mutant_from_a_broken_machine():
+    """Dwa różne zdania, dziś liczone jedną liczbą „nierozstrzygnięte".
+
+    Przekroczony czas znaczy, że zestaw się ZAPĘTLIŁ — mutant jest obserwowalny,
+    tylko nie przez tę wyrocznię, bo jej dowodem jest linia podsumowania.
+    Zabicie sygnałem (OOM) nie mówi o mutancie nic. Sklejone w jedną liczbę
+    czyta się jedno i drugie jako awarię narzędzia i triaż idzie w złą stronę.
+    """
+    wisi = {"plik": "tools/a.py", "wiersz": 5, "rodzaj": "przypisanie", "bylo": "+=",
+            "jest": "=", "przezyla": False, "rozstrzygniete": False, "kod": None,
+            "opis": "tools/a.py:5 przypisanie", "id": "a5",
+            "padly": ["<przekroczony czas>"], "ile_padlo": 1}
+    oom = {"plik": "tools/a.py", "wiersz": 9, "rodzaj": "operator", "bylo": "<",
+           "jest": "<=", "przezyla": False, "rozstrzygniete": False, "kod": -9,
+           "opis": "tools/a.py:9 operator", "id": "a9",
+           "padly": ["<zabity sygnałem, kod -9>"], "ile_padlo": 1}
+    text = sweep.report([wisi, oom], "abc1234")
+    assert "| **nierozstrzygniętych** | **2** |" in text, text
+    assert "| — z przekroczonego czasu | 1 |" in text, text
+    assert "| — z awarii poza mutacją | 1 |" in text, text
+    assert "<przekroczony czas>" in text and "<zabity sygnałem, kod -9>" in text
+
+
+def test_report_breaks_the_survivors_down_by_mutation_class():
+    """Przyrost ocalałych ma być rozbity na klasy, nie podany jedną liczbą.
+
+    Bez rozbicia nie widać, czy nowe klasy cokolwiek wnoszą, czy tylko puchną.
+    """
+    text = sweep.report([_entry(7, True, True, "logika"),
+                         _entry(9, False, True, "operator"),
+                         _entry(11, True, False, "przypisanie")], "abc1234")
+    assert "| `logika` | 1 | 0 | 1 | 0 |" in text, text
+    assert "| `operator` | 1 | 1 | 0 | 0 |" in text, text
+    assert "| `przypisanie` | 1 | 0 | 0 | 1 |" in text, text
 
 
 def test_report_says_so_when_nothing_survived():
