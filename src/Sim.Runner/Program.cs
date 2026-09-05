@@ -76,8 +76,8 @@ public static class Program
             MetroBxl.Sim.Runner — konsolowy gospodarz rdzenia symulacji
 
               drive   [--out PLIK] [--sample-every N]     telemetria przejazdu z rdzenia
-              replay  --keys PLIK [--out CSV]              przejazd ręczny z zapisu wejść, bez silnika
-                      [--axis PLIK] [--notch-rate X]
+              replay  --keys PLIK --signalling PLIK.json  przejazd ręczny z zapisu wejść, bez silnika
+                      [--out CSV] [--axis PLIK] [--notch-rate X]
                       [--exchange-s X] [--stop-window-m X] [--sample-every N]
               compare PLIK_A PLIK_B [--tolerance METRY]   rozjazd dwóch telemetrii
               axis    --axis PLIK [--manifest PLIK]       kontrola osi wobec manifestu chunków
@@ -171,11 +171,32 @@ public static class Program
     /// <c>line</c> w CI podaje <c>--limit-kmh</c>, <c>--exchange-s</c>
     /// i <c>--stop-window-m</c>. Domyślne wartości są tu wyłącznie po to, żeby
     /// polecenie dało się uruchomić ręcznie.</para>
+    ///
+    /// <para><b>Prędkość dopuszczalna jest wyjątkiem od zdania wyżej: nie ma
+    /// domyślnej.</b> Do 05.09.2026 brała się z <c>DriveScenario.SpeedLimitMps</c>,
+    /// czyli z rejestru pojazdu — 80 km/h to prędkość KONSTRUKCYJNA M7, nie
+    /// ograniczenie na torze. Scena od #246 czyta ją z planu sygnalizacji
+    /// (<c>data/design/signalling/classic-2026.json</c>, 72,00 km/h), a to polecenie
+    /// zostało wtedy pominięte — i bramka CI tego nie zobaczyła, bo jej wzorzec wejść
+    /// dochodzi najwyżej do 65,22 km/h, więc obie strony liczyły to samo mimo różnicy
+    /// ośmiu km/h w limicie. Zmierzone na wzorcu, który limit PRZEKRACZA: 870,554 m
+    /// przy 80 km/h wobec 869,969 m przy 72 km/h.</para>
+    ///
+    /// <para>Dlatego <c>--signalling</c> jest OBOWIĄZKOWE, a plan musi opisywać tę samą
+    /// oś. Brak argumentu albo plan cudzej osi to odmowa — dokładnie tak, jak w scenie
+    /// (<c>FirstRun.BuildSimulation</c>). Cichy odwrót na 80 km/h wygląda tak samo, jak
+    /// przejazd poprawny, i to jest jedyny powód, dla którego ta ścieżka nie ma
+    /// wartości domyślnej.</para>
     /// </summary>
     private static int Replay(string[] args)
     {
         var keysPath = Option(args, "--keys")
             ?? throw new ArgumentException("replay wymaga --keys PLIK z zapisem wejść");
+        var signallingPath = Option(args, "--signalling")
+            ?? throw new ArgumentException(
+                "replay wymaga --signalling PLIK.json: prędkość dopuszczalną tryb ręczny "
+                + "bierze z planu sygnalizacji, a scenariusz podaje 80 km/h — prędkość "
+                + "konstrukcyjną M7, nie ograniczenie na torze");
         var axisPath = Option(args, "--axis") ?? "data/track/L1_A.json";
         var output = Option(args, "--out");
         var sampleEvery = long.Parse(
@@ -186,6 +207,15 @@ public static class Program
 
         var log = InputLog.Parse(File.ReadAllText(keysPath));
         var axis = TrackAxis.FromJson(File.ReadAllText(axisPath));
+        var manualPlan = SignallingPlan.FromFile(signallingPath);
+        if (!string.Equals(manualPlan.AxisId, axis.Id, StringComparison.Ordinal))
+        {
+            throw new ArgumentException(string.Create(
+                Inv,
+                $"plan {signallingPath} opisuje oś {manualPlan.AxisId}, a przejazd idzie " +
+                $"po {axis.Id}: prędkość dopuszczalna z cudzej osi nie jest prędkością " +
+                $"dopuszczalną tej"));
+        }
 
         var model = VehicleModel.M7;
         var scenario = DriveScenario.PackageAFirstRun(model);
@@ -209,9 +239,19 @@ public static class Program
         var state = DriveState.AtRest;
         var command = DriverCommand.Coast;
         var acceleration = 0.0;
-        var speedLimitMps = scenario.SpeedLimitMps;
+        var speedLimitMps = manualPlan.PermittedSpeedMps;
 
         double Chainage() => scenario.StartChainageM + state.DistanceM;
+
+        // Ten sam wiersz, co `[LIMIT]` sceny, i to nie jest ozdoba: bramka CI porównuje
+        // telemetrię CO DO BITU, a telemetria nie ma kolumny z limitem. Gdyby obie
+        // strony wzięły inną liczbę, a przejazd jej nie dotknął, porównanie i tak
+        // wyszłoby zielone — dokładnie to działo się między #246 a tą zmianą.
+        Console.Error.WriteLine(string.Create(
+            Inv,
+            $"[LIMIT] tryb ręczny: {Units.MpsToKmh(manualPlan.PermittedSpeedMps):F2} km/h " +
+            $"z planu {manualPlan.PlanId} ({signallingPath}); plan jest czytany, nie " +
+            $"prowadzi — bez blokad i bez ochrony pociągu"));
 
         var lines = new List<string> { DriveTelemetry.Header };
 

@@ -34,9 +34,10 @@ on:
       # Ten sam błąd trafił się już w `blender-smoke.yml` przy wąskim wzorcu na
       # `tools/ci`; komentarz tamże opisuje go tymi samymi słowami.
       - 'tests/Game.Tests/**'
-      # Wzorzec wejść maszynisty (`tests/data/manual-keys.log`) jest WEJŚCIEM bramki
-      # trybu ręcznego i jedynym plikiem tego porównania, którego nie liczy żadna
-      # z porównywanych stron. Bez tego wpisu PR ruszający sam wzorzec nie odpaliłby
+      # Wzorce wejść maszynisty (`tests/data/manual-keys.log` — prowadzenie i cykl
+      # drzwi, `tests/data/manual-keys-limit.log` — prędkość dopuszczalna) są WEJŚCIEM
+      # bramki trybu ręcznego i jedynymi plikami tego porównania, których nie liczy
+      # żadna z porównywanych stron. Bez tego wpisu PR ruszający sam wzorzec nie odpaliłby
       # jedynego joba, który go uruchamia — czyli zmiana wejścia bramki szłaby do
       # `main` NIESPRAWDZONA. Ten sam błąd, co przy `tests/Game.Tests/**` wyżej.
       - 'tests/data/**'
@@ -404,6 +405,14 @@ jobs:
         # gdyby nagrywanie było zepsute. Plik pokrywa rozruch, zatrzymanie na Beekkant
         # w oknie ±5,000 m, PEŁNY cykl drzwi, wybieg i hamowanie do postoju.
         #
+        # CZEGO TEN WZORZEC NIE POKRYWA — i to jest sprostowanie, nie przypis. Do
+        # 05.09.2026 stało tu, że plik „pokrywa" przejazd ręczny. Nie pokrywał
+        # PRĘDKOŚCI DOPUSZCZALNEJ: jego szczyt to 65,22 km/h przy limicie 72,00 km/h,
+        # więc wychodzi CO DO BAJTU tak samo przy 72 i przy 80 km/h. Między #246
+        # (scena wzięła 72 km/h z planu) a #248 (rdzeń wziął to samo) obie strony
+        # jechały RÓŻNYM limitem, a ten krok był zielony przez cały ten czas. Limit
+        # sprawdza osobny wzorzec i osobny krok niżej.
+        #
         # LICZBY BEZ ŹRÓDŁA STOJĄ TU JAWNIE, po obu stronach porównania. Tempo
         # nastawnika, wymiana pasażerów i okno zatrzymania mieszkają w
         # `Game.DesignAssumptions`, czyli po stronie silnika, a `src/Sim` nie ma prawa
@@ -431,6 +440,7 @@ jobs:
           mkdir -p build/t400/reczny
           dotnet run --project src/Sim.Runner -c Release --no-build -- \
             replay --keys tests/data/manual-keys.log --axis data/track/L1_A.json \
+            --signalling data/design/signalling/classic-2026.json \
             --notch-rate 0.80 --exchange-s 8 --stop-window-m 5 \
             --out build/t400/reczny/core.csv 2>&1 | tee build/t400/reczny/core.log
           # Rdzeń ma OBSŁUŻYĆ stację, a nie ją przejechać. Bez tego warunku zapis
@@ -539,6 +549,149 @@ jobs:
             || { echo "BŁĄD: przesunięcie hamowania o jeden krok przeszło porównanie — scena nie czyta zapisu" >&2
                  exit 1; }
           echo "[NEGATYW] hamowanie przesunięte o jeden krok odrzucone, tak jak ma być"
+
+      - name: Manual mode — both sides must hold the same speed ceiling
+        shell: bash
+        # DLACZEGO OSOBNY KROK, SKORO PORÓWNANIE WYŻEJ JUŻ JEST. Bo tamto porównanie
+        # nie umie zobaczyć limitu. Telemetria nie ma kolumny z prędkością
+        # dopuszczalną: limit widać w niej wyłącznie wtedy, gdy przejazd o niego
+        # ZAHACZY. Wzorzec `manual-keys.log` dochodzi do 65,22 km/h, więc wychodzi
+        # co do bajtu tak samo przy 72 i przy 80 km/h — zmierzone, negatyw niżej.
+        #
+        # I to nie jest hipotetyczne. #246 przestawiło scenę na 72,00 km/h z planu
+        # `data/design/signalling/classic-2026.json`, a `Sim.Runner replay` został
+        # wtedy pominięty i dalej brał 80 km/h z `DriveScenario` — czyli prędkość
+        # KONSTRUKCYJNĄ M7, nie ograniczenie na torze. Obie strony bramki jechały
+        # różnym limitem, a bramka była zielona. Ten krok jest po to, żeby drugi raz
+        # nie była.
+        #
+        # WZORZEC `manual-keys-limit.log` to jeden wpis: pełny ciąg przez 7200 kroków.
+        # Limit osiąga w kroku 3420 (28,500 s) i trzyma go do końca, więc różnica
+        # w suficie prędkości przekłada się wprost na drogę: 1056,464 m przy 72 km/h
+        # wobec 1120,969 m przy 80 km/h.
+        run: |
+          set -euo pipefail
+          mkdir -p build/t400/limit
+          dotnet run --project src/Sim.Runner -c Release --no-build -- \
+            replay --keys tests/data/manual-keys-limit.log --axis data/track/L1_A.json \
+            --signalling data/design/signalling/classic-2026.json \
+            --notch-rate 0.80 --exchange-s 8 --stop-window-m 5 \
+            --out build/t400/limit/core.csv 2>&1 | tee build/t400/limit/core.log
+          # Przejazd ma NAPRAWDĘ dobić do sufitu. Bez tego warunku wzorzec skrócony
+          # albo osłabiony przestałby sprawdzać limit, a porównanie niżej nadal
+          # wychodziłoby zielone — dokładnie ta usterka, którą ten krok zamyka.
+          python3 - <<'SUFIT'
+          import csv
+
+          with open("build/t400/limit/core.csv", encoding="utf-8") as handle:
+              rows = list(csv.DictReader(handle))
+          top = max(float(r["speed_kmh"]) for r in rows)
+          at_ceiling = [r for r in rows if abs(float(r["speed_kmh"]) - 72.0) < 1e-9]
+          assert abs(top - 72.0) < 1e-9, f"szczyt przejazdu {top} km/h, oczekiwano 72,0"
+          assert len(at_ceiling) >= 25, (
+              f"próbek na suficie: {len(at_ceiling)}, za mało żeby limit cokolwiek związał")
+          print(f"[SUFIT] szczyt {top} km/h, {len(at_ceiling)} próbek na suficie "
+                f"od {at_ceiling[0]['t_s']} s")
+          SUFIT
+          # Obie strony mają WYPOWIEDZIEĆ tę samą liczbę i ten sam plan. Sama zgodność
+          # telemetrii tego nie mówi: dwie strony mogą trafić w ten sam przejazd,
+          # czytając limit z dwóch różnych miejsc, dopóki liczby są równe.
+          grep -o "^\[LIMIT\] tryb ręczny: [0-9.]* km/h z planu [^ ]*" \
+            build/t400/limit/core.log > build/t400/limit/core-limit.txt
+          test -s build/t400/limit/core-limit.txt \
+            || { echo "BŁĄD: rdzeń nie wypisał wiersza [LIMIT]" >&2; exit 1; }
+          for spf in 120 7; do
+            "$GODOT_BIN" --headless --path src/Game -- \
+              --replay="$PWD/tests/data/manual-keys-limit.log" \
+              --telemetry="$PWD/build/t400/limit/scene-spf$spf.csv" \
+              --steps-per-frame="$spf" \
+              2>&1 | tee "build/t400/limit/scene-spf$spf.log"
+            python3 tools/ci/assert_no_godot_warnings.py "build/t400/limit/scene-spf$spf.log"
+            grep -q "^\[ODTWORZENIE\] koniec: kroków=7200 " "build/t400/limit/scene-spf$spf.log" \
+              || { echo "BŁĄD: odtworzenie przy $spf krokach na klatkę nie doszło do końca zapisu" >&2
+                   grep "^\[ODTWORZENIE\]" "build/t400/limit/scene-spf$spf.log" >&2; exit 1; }
+            grep -o "^\[LIMIT\] tryb ręczny: [0-9.]* km/h z planu [^ ]*" \
+              "build/t400/limit/scene-spf$spf.log" > "build/t400/limit/scene-limit-spf$spf.txt"
+            diff -u build/t400/limit/core-limit.txt "build/t400/limit/scene-limit-spf$spf.txt" \
+              || { echo "BŁĄD: rdzeń i scena nazywają inny limit albo inny plan" >&2; exit 1; }
+            dotnet run --project src/Sim.Runner -c Release --no-build -- \
+              compare build/t400/limit/core.csv "build/t400/limit/scene-spf$spf.csv" \
+              --tolerance 0
+          done
+
+      - name: Negative control of the speed-ceiling gate
+        shell: bash
+        # Dwie mutacje, dwa różne zdania do udowodnienia.
+        #
+        #  1. PLAN o osiem km/h. Rdzeń dostaje plan z 80 km/h zamiast 72; scena nadal
+        #     czyta `RunPlan.ManualSpeedLimitPlanPath`. Porównanie MUSI paść — to jest
+        #     dokładnie stan sprzed tej zmiany, odtworzony.
+        #  2. TEN SAM PLAN NA STARYM WZORCU. Porównanie MUSI PRZEJŚĆ, i to jest sedno:
+        #     pokazuje, że stary wzorzec tej różnicy nie widzi, czyli że nowy nie jest
+        #     dubletem. Bez tej połowy nikt nie wie, po co w repozytorium leży drugi
+        #     plik wejść.
+        run: |
+          set -euo pipefail
+          python3 - <<'PLAN80'
+          import json
+
+          with open("data/design/signalling/classic-2026.json", encoding="utf-8") as handle:
+              plan = json.load(handle)
+          assert plan["default_permitted_speed_kmh"]["value"] == 72, "plan nie ma dziś 72 km/h"
+          plan["default_permitted_speed_kmh"]["value"] = 80
+          with open("build/t400/limit/plan-80.json", "w", encoding="utf-8") as handle:
+              json.dump(plan, handle, ensure_ascii=False, indent=2)
+          PLAN80
+          dotnet run --project src/Sim.Runner -c Release --no-build -- \
+            replay --keys tests/data/manual-keys-limit.log --axis data/track/L1_A.json \
+            --signalling build/t400/limit/plan-80.json \
+            --notch-rate 0.80 --exchange-s 8 --stop-window-m 5 \
+            --out build/t400/limit/core-80.csv 2>&1 | tee build/t400/limit/core-80.log
+          rc=0
+          dotnet run --project src/Sim.Runner -c Release --no-build -- \
+            compare build/t400/limit/core-80.csv build/t400/limit/scene-spf120.csv \
+            --tolerance 0 || rc=$?
+          test "$rc" -ne 0 \
+            || { echo "BŁĄD: limit podniesiony o 8 km/h przeszedł porównanie" >&2; exit 1; }
+          echo "[NEGATYW] limit 80 km/h wobec 72 km/h w scenie odrzucony, tak jak ma być"
+
+          # Stary wzorzec przy OBU limitach, policzony tu od zera. Sięgnięcie po
+          # `build/t400/reczny/core.csv` z kroku wyżej byłoby tańsze, ale wtedy brak
+          # tamtego pliku wyglądałby jak „stary wzorzec widzi zmianę" — czyli komunikat
+          # mówiłby coś innego, niż się stało.
+          #
+          # Oba wywołania są rozpisane, bo pętla po zmiennej `--signalling "$plan"`
+          # ukrywa ścieżkę przed `test_every_replayed_manual_run_reads_the_limit_from…`,
+          # a wtedy bramka pilnująca, że CI i scena czytają ten sam plan, przestaje
+          # widzieć akurat te wywołania. Powtórzenie jest tu tańsze niż furtka.
+          dotnet run --project src/Sim.Runner -c Release --no-build -- \
+            replay --keys tests/data/manual-keys.log --axis data/track/L1_A.json \
+            --signalling data/design/signalling/classic-2026.json \
+            --notch-rate 0.80 --exchange-s 8 --stop-window-m 5 \
+            --out build/t400/limit/stary-72.csv 2>&1 \
+            | tee build/t400/limit/stary-72.log
+          dotnet run --project src/Sim.Runner -c Release --no-build -- \
+            replay --keys tests/data/manual-keys.log --axis data/track/L1_A.json \
+            --signalling build/t400/limit/plan-80.json \
+            --notch-rate 0.80 --exchange-s 8 --stop-window-m 5 \
+            --out build/t400/limit/stary-80.csv 2>&1 \
+            | tee build/t400/limit/stary-80.log
+          cmp build/t400/limit/stary-72.csv build/t400/limit/stary-80.csv \
+            || { echo "BŁĄD: stary wzorzec JEDNAK widzi zmianę limitu — wtedy nowy jest dubletem i ten krok trzeba przemyśleć" >&2
+                 exit 1; }
+          echo "[NEGATYW] stary wzorzec przy 72 i przy 80 km/h daje ten sam plik co do bajtu — dlatego istnieje drugi"
+
+          # Brak planu to ODMOWA, nie cichy odwrót na 80 km/h ze scenariusza.
+          rc=0
+          dotnet run --project src/Sim.Runner -c Release --no-build -- \
+            replay --keys tests/data/manual-keys-limit.log --axis data/track/L1_A.json \
+            --out build/t400/limit/bez-planu.csv > build/t400/limit/bez-planu.log 2>&1 || rc=$?
+          test "$rc" -ne 0 \
+            || { echo "BŁĄD: replay bez --signalling policzył przejazd zamiast odmówić" >&2; exit 1; }
+          grep -q "replay wymaga --signalling" build/t400/limit/bez-planu.log \
+            || { echo "BŁĄD: odmowa nie mówi, czego brakuje" >&2
+                 cat build/t400/limit/bez-planu.log >&2; exit 1; }
+          echo "[NEGATYW] replay bez planu odmawia, tak jak scena"
 
       - name: Line run — scene must call the same stations as the core
         shell: bash
@@ -959,3 +1112,9 @@ jobs:
             # przy przejazdach linią — bramki tego kroku czyta się z tych plików.
             build/t400/reczny/*.csv
             build/t400/reczny/*.log
+            # Bramka sufitu prędkości i jej negatyw: bez `core.log` i `scene-spf*.log`
+            # nie da się sprawdzić, czy obie strony wypisały ten sam wiersz `[LIMIT]`,
+            # a bez `core-80.csv` — czy negatyw naprawdę policzył inny przejazd.
+            build/t400/limit/*.csv
+            build/t400/limit/*.log
+            build/t400/limit/*.txt
