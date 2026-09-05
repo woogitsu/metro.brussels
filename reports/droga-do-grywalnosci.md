@@ -649,9 +649,15 @@ zamawia `--view`.
 
 W trybie `--line` klawisz R jest **bezgłośnie bezskuteczny** — `_state` jest
 w następnym kroku nadpisywane z `_line.State`. Nie jest to usterka, ale jest to
-zachowanie, o którym HUD nie mówi ani słowa. **Decyzja właściciela z 05.09.2026: HUD
-ma to powiedzieć**, a samo zachowanie zostaje. Nie jest to zrobione w tej zmianie —
-dotyczy warstwy widoku, a nie formatu zapisu, i idzie osobno.
+zachowanie, o którym HUD **do 05.09.2026** nie mówił ani słowa. Decyzja właściciela
+z tego dnia: zachowanie zostaje, HUD ma to powiedzieć — i mówi.
+
+Przy okazji okazało się, że sprawa jest szersza niż sam `R`: pod `--line` nie działa
+też `W`, `S`, `X` ani `Spacja`, bo `StepOnce` nadpisuje stan składu z `_line.State`.
+Wiersz pomocy obiecywał **siedem** klawiszy, z których działały **dwa**.
+[OBEJRZANE, klatka `--line` z Movie Makera 1280×720] ostatni wiersz HUD-u brzmi dziś:
+`C widok · Esc wyjście · prowadzi rdzeń: W, S, X, Spacja, R nie działają`.
+W trybie ręcznym wiersz jest bez zmian — pełne siedem pozycji.
 
 ### 5.5 Tryb ręczny nie ma żadnej bramki i wisi w nieskończoność
 

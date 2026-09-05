@@ -1300,9 +1300,18 @@ public sealed partial class FirstRun : Node3D
     /// <c>tools/visual/compare.py --set godot</c> są zmierzone na klatce bez geometrii,
     /// czyli na samym HUD-zie, i stały napis w każdej klatce podniósłby dokładnie tę
     /// metrykę, którą ta bramka odrzuca pustą klatkę.</para>
+    ///
+    /// <para><b>W trybie <c>--line</c> wiersz mówi co innego</b>, bo co innego jest
+    /// prawdą: skład prowadzi <c>LineDrive</c>, więc z siedmiu klawiszy działają dwa.
+    /// Do 05.09.2026 stał tu ten sam napis, co nad przejazdem gracza — obietnica
+    /// siedmiu klawiszy, z których pięć nic nie robiło i nic o tym nie mówiło
+    /// (<c>reports/droga-do-grywalnosci.md</c> §5.4). Decyzja właściciela z 05.09.2026:
+    /// zachowanie zostaje, HUD ma to powiedzieć.</para>
     /// </summary>
     /// <returns>Opis sterowania albo pusty napis.</returns>
-    private string HelpLine() => _readsKeyboard ? DriverInput.Help : string.Empty;
+    private string HelpLine() => _readsKeyboard
+        ? (_lineMode ? DriverActions.HelpWhenTheCoreDrives : DriverInput.Help)
+        : string.Empty;
 
     /// <summary>
     /// Wiersz HUD o sygnalizacji: prędkość dopuszczalna, autorytet jazdy, powód jego

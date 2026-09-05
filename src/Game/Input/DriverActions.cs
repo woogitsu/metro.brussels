@@ -126,4 +126,52 @@ public static class DriverActions
     /// </summary>
     public static string Help { get; } =
         string.Join(HelpSeparator, All.Select(binding => $"{binding.KeyName} {binding.Meaning}"));
+
+    /// <summary>
+    /// Akcje, które w przejeździe prowadzonym przez rdzeń (<c>--line</c>) NIE DZIAŁAJĄ,
+    /// choć scena je odczytuje.
+    ///
+    /// <para><b>Skąd to się wzięło.</b> W trybie <c>--line</c> skład prowadzi
+    /// <c>LineDrive</c>: <c>StepOnce</c> nadpisuje stan składu z <c>_line.State</c>,
+    /// więc polecenie maszynisty nie dojeżdża do fizyki, a reset przejazdu jest
+    /// cofany w następnym kroku. Do 05.09.2026 HUD wypisywał nad takim przejazdem ten
+    /// sam wiersz pomocy, co nad przejazdem gracza — czyli obiecywał siedem klawiszy,
+    /// z których działały dwa. <c>reports/droga-do-grywalnosci.md</c> §5.4 nazywał to
+    /// „bezgłośnie bezskuteczne"; decyzja właściciela z 05.09.2026 brzmi: zachowanie
+    /// zostaje, ale HUD ma to powiedzieć.</para>
+    ///
+    /// <para>Lista jest tu, a nie w scenie, z tego samego powodu, co cała tabela: żeby
+    /// dało się ją przeczytać bez uruchomionego silnika i przybić testem. Test pilnuje
+    /// też, że ta lista i <see cref="All"/> DZIELĄ zbiór akcji na dwie części bez reszty
+    /// — dopisanie klawisza wymaga wtedy rozstrzygnięcia, po której stronie stoi,
+    /// zamiast cichego wpadnięcia do tej, która akurat jest domyślna.</para>
+    /// </summary>
+    public static readonly IReadOnlyList<string> TakenOverByTheCore = new[]
+    {
+        Power, Brake, Coast, Emergency, Reset,
+    };
+
+    /// <summary>
+    /// Opis sterowania dla przejazdu prowadzonego przez rdzeń — składany z tej samej
+    /// tabeli, co <see cref="Help"/>.
+    ///
+    /// <para>Wymienia klawisze, które DZIAŁAJĄ, i osobno mówi, które przejął rdzeń.
+    /// Nie jest to skrócony <see cref="Help"/>: pominięcie klawiszy bez słowa
+    /// zostawiłoby gracza z pytaniem, czemu ich nie ma, a wypisanie ich razem z resztą
+    /// jest obietnicą, której ten tryb nie dotrzymuje.</para>
+    /// </summary>
+    public static string HelpWhenTheCoreDrives { get; } = BuildCoreDrivesHelp();
+
+    private static string BuildCoreDrivesHelp()
+    {
+        var taken = new HashSet<string>(TakenOverByTheCore);
+        var working = All.Where(binding => !taken.Contains(binding.Action));
+        var inactive = All.Where(binding => taken.Contains(binding.Action));
+
+        return string.Join(HelpSeparator, working.Select(b => $"{b.KeyName} {b.Meaning}"))
+            + HelpSeparator
+            + "prowadzi rdzeń: "
+            + string.Join(", ", inactive.Select(b => b.KeyName))
+            + " nie działają";
+    }
 }
