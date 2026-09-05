@@ -213,11 +213,33 @@ if [ "$required_bad" -eq 0 ]; then
       | grep -v 'ZABLOKOWANE' | grep -v 'CZŁOWIEK' \
       | head -1 | sed -E 's/^### \[ \] //')
   fi
+  # GDY NIE MA ODBLOKOWANEGO ZADANIA, DOCTOR MA WSKAZAĆ KOLEJKĘ, A NIE TABELĘ ZALEŻNOŚCI.
+  #
+  # `CLAUDE.md` §8 mówi wprost: „Zatrzymanie się z powodu pustej kolejki nie jest
+  # poprawnym wynikiem […] agent bierze następną pozycję z fazy 5 lub 6". Poprzednia
+  # wersja tej gałęzi odsyłała do tabeli „Co blokuje co", czyli do miejsca, które mówi,
+  # CZEGO NIE DA SIĘ zrobić — dokładnie odwrotnie niż konstytucja.
+  #
+  # Zobaczyliśmy to dopiero 05.09.2026, po odhaczeniu T-212 (#240): do tego dnia zawsze
+  # istniał jakiś wpis `### [ ]` i ta gałąź nigdy się nie wykonywała. Nie była martwym
+  # kodem — była kodem, którego nikt nie widział, bo poprzedzał go stan nieaktualny.
+  #
+  # Pozycja jest brana z pierwszego wiersza kolejki faz 5 i 6, tym samym prefiksem
+  # (`5.` albo `6.`), którego używa `tools/tests/test_backlog.py` jako `QUEUE_PREFIXES`.
+  queue_item=""
+  if [ -f docs/TASKS.md ]; then
+    queue_item=$(grep -E '^\| [56]\.[0-9]+ \|' docs/TASKS.md \
+      | head -1 | sed -E 's/^\| ([56]\.[0-9]+) \| \*\*([^*]+)\*\*.*/\1 · \2/')
+  fi
   if [ -n "$next_task" ]; then
     echo "  Baza projektu jest gotowa. Następne zadanie: $next_task"
+  elif [ -n "$queue_item" ]; then
+    echo "  Baza projektu jest gotowa. Rozpiska nie ma odblokowanego zadania z numerem,"
+    echo "  więc zgodnie z CLAUDE.md §8 bierzesz pierwszą pozycję z kolejki faz 5 i 6:"
+    echo "    $queue_item"
   else
-    echo "  Baza projektu jest gotowa. W rozpisce nie ma odblokowanego zadania —"
-    echo "  patrz tabela Co blokuje co na końcu docs/TASKS.md."
+    echo "  Baza projektu jest gotowa, ale KOLEJKA JEST PUSTA — a to znaczy, że pierwszym"
+    echo "  zadaniem jest jej uzupełnienie (CLAUDE.md §8), nie zatrzymanie się."
   fi
   if [ "$optional_bad" -gt 0 ]; then echo "  $optional_bad narzędzi opcjonalnych brakuje; instaluj je dopiero przed zadaniem, które ich wymaga."; fi
 else

@@ -225,3 +225,79 @@ def test_the_reader_of_delivery_marks_actually_reads():
     assert selectable_entries("")[:] == [], "pusty plik nie ma wpisów"
     body = selectable_entries(sample)[0][1]
     assert "T-011" not in body, "treść wpisu przelewa się przez następny nagłówek"
+
+
+# --- kolejka faz 5 i 6, gdy nie ma odblokowanego zadania z numerem -------------------
+#
+# `CLAUDE.md` §8 mówi wprost: „Zatrzymanie się z powodu pustej kolejki nie jest poprawnym
+# wynikiem […] agent bierze następną pozycję z fazy 5 lub 6". Do 05.09.2026 doctor w tej
+# sytuacji odsyłał do tabeli „Co blokuje co", czyli do miejsca, które mówi, CZEGO NIE DA
+# SIĘ zrobić — dokładnie odwrotnie niż konstytucja.
+#
+# Gałąź nigdy się nie wykonywała, bo zawsze istniał jakiś wpis `### [ ]`. Zobaczyliśmy ją
+# dopiero po odhaczeniu T-212 (#240). Nie była martwym kodem — była kodem, którego nikt
+# nie widział, bo poprzedzał go stan nieaktualny.
+
+#: Podstawienie z `doctor.sh`, w którym mieszka wybór pozycji kolejki.
+DOCTOR_QUEUE = re.compile(r"queue_item=\$\((.*?)\)\n", re.S)
+
+#: Prefiksy kolejki — te same, co `QUEUE_PREFIXES` w `tools/tests/test_backlog.py`.
+QUEUE_ROW = re.compile(r"^\| ([56]\.\d+) \| \*\*([^*]+)\*\*", re.M)
+
+
+def doctor_queue_command():
+    """Treść podstawienia `queue_item=$(…)` wycięta z `doctor.sh`."""
+    match = DOCTOR_QUEUE.search(_read(DOCTOR))
+    return None if match is None else match.group(1)
+
+
+def run_doctor_queue(workdir):
+    """Wynik podstawienia kolejki, puszczonego bashem w `workdir`."""
+    command = doctor_queue_command()
+    script = "%s\nprintf '%%s' \"$queue_item\"\n" % ("queue_item=$(%s)" % command)
+    done = subprocess.run(["bash", "-c", script], cwd=workdir,
+                          capture_output=True, text=True)
+    return done.stdout.strip()
+
+
+def test_doctor_points_at_the_queue_and_the_rule_is_not_retyped():
+    """Wybór pozycji kolejki jest WYCIĘTY z doctora i uruchomiony, nie przepisany.
+
+    Bramka na napis nie odróżniłaby kodu wykonywanego od komentarza — repozytorium
+    odrzuciło tę formę osobno w #200.
+    """
+    command = doctor_queue_command()
+    assert command is not None, (
+        "nie znalazłem podstawienia `queue_item=$(…)` w doctor.sh — bramka straciła "
+        "przedmiot i przestałaby cokolwiek sprawdzać")
+
+    wybrane = run_doctor_queue(ROOT)
+    wiersze = QUEUE_ROW.findall(_read(os.path.join(ROOT, "docs", "TASKS.md")))
+    assert wiersze, "w docs/TASKS.md nie ma ani jednego wiersza kolejki faz 5 i 6"
+
+    numer, tytul = wiersze[0]
+    assert wybrane.startswith(numer), (
+        f"doctor wskazuje {wybrane!r}, a pierwsza pozycja kolejki to {numer}")
+    assert tytul.strip() in wybrane, (
+        f"doctor nie podaje tytułu pozycji {numer}: {wybrane!r}")
+
+
+def test_doctor_says_the_queue_is_empty_instead_of_going_silent():
+    """Pusta kolejka ma dać PUSTY wynik podstawienia, a nie pierwszy lepszy wiersz.
+
+    Kontrola przeciwna do poprzedniego testu: bez niej podstawienie mogłoby łapać
+    dowolny wiersz tabeli i zawsze coś zwracać, co wyglądałoby jak działająca bramka.
+    """
+    with tempfile.TemporaryDirectory() as katalog:
+        docs = os.path.join(katalog, "docs")
+        os.makedirs(docs)
+        with io.open(os.path.join(docs, "TASKS.md"), "w", encoding="utf-8") as uchwyt:
+            uchwyt.write(
+                "# Rozpiska bez kolejki\n\n"
+                "| # | co | dlaczego |\n"
+                "|---|---|---|\n"
+                "| T-999 | **Zadanie spoza kolejki** — nie ma numeru fazy | powód |\n")
+
+        assert run_doctor_queue(katalog) == "", (
+            "doctor wskazał pozycję kolejki, choć w rozpisce nie ma ani jednego wiersza "
+            "faz 5 i 6 — podstawienie łapie za szeroko")
