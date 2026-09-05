@@ -214,6 +214,58 @@ public sealed class LineCoreTests
     }
 
     [TestMethod]
+    public void Krok_wjazdu_na_plan_jest_krokiem_wjazdu_a_nie_krokiem_wyjazdu()
+    {
+        // `EnteredAtStep` było do 05.09.2026 polem, którego W PRODUKCJI nie czytał nikt:
+        // jedyny odczyt w całym repozytorium stał w teście wyżej i brzmiał `> 0L`, czyli
+        // „nie od razu". Taka asercja przechodzi dla KAŻDEJ dodatniej wartości — także
+        // dla `Steps + 1` i dla dowolnej liczby wziętej z sufitu. Ten test mówi, czym to
+        // pole jest: krokiem, na którym skład wszedł na plan, zmierzonym niezależnie,
+        // przez obserwację `OnLine` co krok.
+        //
+        // Dlaczego pole zostaje, a nie znika jak `NextReleaseStep`: tamto UDAWAŁO, że
+        // przesuwa wyjazd, i mutacja przywracająca stary `ReleaseStep` przechodziła
+        // 363/363. To niczego nie steruje — jest jedyną obserwowalną różnicą między
+        // „wyjechał o czasie" a „stał, bo peron był zajęty".
+        var line = Line();
+        var a = line.Add("A", 0L);
+        var b = line.Add("B", 0L);
+
+        long wejscieA = -1L, wejscieB = -1L;
+        for (var i = 0L; i < 20L * 60L * FixedStep.SimulationHertz && wejscieB < 0L; i++)
+        {
+            line.Step();
+
+            // `Step()` liczy fazy na kroku `Steps`, a dopiero na końcu robi `Steps++`,
+            // więc krok, który się właśnie odbył, to `Steps - 1`.
+            var krok = line.Steps - 1L;
+            if (wejscieA < 0L && a.OnLine)
+            {
+                wejscieA = krok;
+            }
+
+            if (wejscieB < 0L && b.OnLine)
+            {
+                wejscieB = krok;
+            }
+        }
+
+        Assert.AreEqual(0L, wejscieA, "pierwszy skład miał wejść na planie na kroku wyjazdu");
+        Assert.IsTrue(wejscieB > wejscieA, $"drugi skład wszedł na kroku {wejscieB}, czyli razem z pierwszym");
+
+        Assert.IsTrue(a.EnteredAtStep.HasValue, "pierwszy skład jest na planie i nie ma kroku wjazdu");
+        Assert.IsTrue(b.EnteredAtStep.HasValue, "drugi skład jest na planie i nie ma kroku wjazdu");
+
+        Assert.AreEqual(wejscieA, a.EnteredAtStep!.Value, "krok wjazdu pierwszego składu nie jest krokiem, na którym wszedł");
+        Assert.AreEqual(wejscieB, b.EnteredAtStep!.Value, "krok wjazdu drugiego składu nie jest krokiem, na którym wszedł");
+
+        // I to, po co pole jest: różnica wobec kroku wyjazdu. Oba składy zgłoszone na
+        // krok 0, więc dla pierwszego zero, a dla drugiego cała zajętość peronu.
+        Assert.AreEqual(0L, a.EnteredAtStep!.Value - a.ReleaseStep, "pierwszy skład czekał na peron");
+        Assert.AreEqual(wejscieB, b.EnteredAtStep!.Value - b.ReleaseStep, "drugi skład nie czekał tyle, ile stał peron");
+    }
+
+    [TestMethod]
     public void Sklad_ktory_nie_wyjechal_nie_ma_wyniku_przejazdu()
     {
         // Wynik zerowy dla składu, którego nie było, byłby nie do odróżnienia od
@@ -863,6 +915,53 @@ public sealed class LineCoreTests
         var przerwa = wrocilW - dojechalW;
         Assert.IsTrue(przerwa >= line.TurnbackSteps,
             $"przerwa {przerwa} kroków jest krótsza niż nawrót {line.TurnbackSteps} kroków");
+    }
+
+    [TestMethod]
+    public void Po_nawrocie_skladu_nie_ma_na_planie_i_nie_ma_kroku_wjazdu()
+    {
+        // Nawrót zeruje `EnteredAtStep` i to zerowanie jest obserwowalne **przez jeden
+        // krok**: pojazd wypisywany jest w fazie 4 kroku N, a faza wyjazdów kroku N+1
+        // wpisuje go z powrotem. Bez tego testu skasowanie wiersza `EnteredAtStep = null`
+        // nie zmieniłoby niczego widocznego — pole dostałoby nową wartość krok później
+        // i nikt by nie zauważył, że w międzyczasie skład stojący POZA planem miał krok
+        // wjazdu z poprzedniego obiegu.
+        var line = RealLineWithTurnback(240.0);
+        var train = line.Add("A", 0L);
+
+        long pierwszyWjazd = -1L, poNawrocie = -1L, drugiWjazd = -1L;
+        var kroknaNawrocie = 0L;
+        for (var i = 0L; i < 200_000L && drugiWjazd < 0L; i++)
+        {
+            line.Step();
+            var krok = line.Steps - 1L;
+
+            if (pierwszyWjazd < 0L && train.OnLine)
+            {
+                pierwszyWjazd = krok;
+            }
+
+            if (poNawrocie < 0L && train.CompletedRuns.Count == 1 && !train.OnLine)
+            {
+                poNawrocie = krok;
+                kroknaNawrocie = train.EnteredAtStep ?? -1L;
+            }
+
+            if (poNawrocie > 0L && drugiWjazd < 0L && train.OnLine)
+            {
+                drugiWjazd = krok;
+            }
+        }
+
+        Assert.AreEqual(0L, pierwszyWjazd, "pojazd nie wszedł na plan na kroku wyjazdu");
+        Assert.IsTrue(poNawrocie > 0L, "pojazd nigdy nie zszedł z planu po nawrocie");
+        Assert.AreEqual(-1L, kroknaNawrocie,
+            $"pojazd zszedł z planu na kroku {poNawrocie}, a nadal miał krok wjazdu {kroknaNawrocie}");
+
+        Assert.IsTrue(drugiWjazd > poNawrocie, "pojazd nie wrócił na plan");
+        Assert.IsTrue(train.EnteredAtStep.HasValue, "pojazd wrócił na plan bez kroku wjazdu");
+        Assert.AreEqual(drugiWjazd, train.EnteredAtStep!.Value,
+            "krok wjazdu w drugim obiegu nie jest krokiem, na którym pojazd wrócił na plan");
     }
 
     [TestMethod]
