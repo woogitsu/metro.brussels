@@ -133,10 +133,57 @@ których agent nie ruszy bez decyzji właściciela.
   jako `unknown` i `docs/11` zabrania liczenia wind z listy wyjść
 - **Zależy od:** T-010, R-004 (zrobione), R-005 (zrobione), R-007 (zrobione)
 
-### [ ] T-212 · Pierwsza stacja typowa — **ODBLOKOWANE**
-- **Stan:** blokada danych zdjęta przez R-007 (wysokość peronu 1,03 m `source_backed`),
-  blokada zadaniowa zdjęta przez T-211 — oba etapy scalone (#110). Zostaje kolejność:
-  faza 3 planu, po T-320
+### [x] T-212 · Pierwsza stacja typowa
+- **Przepisane 05.09.2026, a nie dopisane obok.** Ten wpis stał do dziś jako `[ ]`
+  z notatką „Stan: […] Zostaje kolejność: faza 3 planu, po T-320" — to nieprawda od
+  **04.09.2026**, bo zadanie jest w `main` jako **#137** (`fe14d72`). Rozjazd nie był
+  kosmetyczny: `doctor.sh` bierze **pierwszy niezahaczony wpis** `^### [ ]` z tego pliku,
+  więc pierwszą rzeczą, jaką widziała nowa sesja, było „Następne zadanie: T-212 ·
+  Pierwsza stacja typowa — **ODBLOKOWANE**", czyli polecenie zrobienia pracy, która już
+  leży w `main`. Powód rozjazdu stoi w samym commicie `a665536`, w sekcji „Czego
+  świadomie nie ma": „Wpisu T-212 w `docs/TASKS.md` — konflikt przebazowania na tym
+  pliku rozwiązany na rzecz `main`". Pilnuje tego teraz `tools/tests/test_next_task.py`
+- **Wejście:** `data/track/L1_A.json`, `build/L1_A-platforms.json` z `station_layout.py`,
+  profil `station` z `tools/blender/profiles.py`, `reports/R-007-platform-dimensions.md`
+- **Wyjście:** `tools/track/station_components.py` (cała matematyka, **ani jednej linii
+  `bpy`**), `tools/blender/station_kit.py --component`,
+  `tools/tests/test_station_components.py`, `reports/T-212-station.md`,
+  `docs/21-measured-vs-assumed.md` §4e
+- **Weryfikacja:** `python3 tools/tests/test_all.py` → **1455/1455** w chwili scalenia
+  #137; sześć kontroli negatywnych wypisanych w `reports/T-212-station.md` §4, każda
+  wykonana — pięć mutacją, szósta **wykonaniem generatora**, bo wołanie kontroli siedzi
+  za `bpy` i żaden test Pythona go nie dosięga
+- **Wynik:** zespół dostępu nad peronem — **37 brył, 596 wierzchołków, 522 ściany** na
+  stacji Parc (`corridor=1, edge=2, lift=1, mezzanine=2, platform=2, portal=1,
+  stairs=28`), peron **95,0 m** na 4028,2–4123,2 m, krawędź 1,4374 m od toru.
+  Antresola idzie **nad stropem komory** (podłoga 5,70 m, sufit 8,30 m), bo nad peronem
+  zostaje 4,27 m, a płyta 0,40 m i światło 2,60 m zostawiają górnemu poziomowi 1,27 m —
+  poniżej wzrostu człowieka. Wznoszenie **4,67 m** to **27 stopni po 0,1730 m**; liczba
+  stopni jest wynikiem podziału, nie wartością nominalną (przy nominalnych 0,17 m
+  wychodziło 27,47 stopnia). **18 jawnych założeń projektowych** w
+  `SC.DESIGN_ASSUMPTIONS`, **22 testy** modułu — przed T-212 warstwa brył stacji nie
+  miała ani jednego
+- **Kontrola R-007 jest w kodzie, nie w komentarzu:** `SC.DESIGN_PLATFORM_LENGTH_M` = 95,0 m
+  (skład M7 94,0 m ze statusem `spec` plus metr zapasu, po 0,50 m na stronę)
+  i `SC.TIGHTEST_STATION_FOOTPRINT_M` = 109,1 m (**pomiar** obrysu Parc z UrbIS, więc
+  świadomie poza `DESIGN_ASSUMPTIONS`). `platform_fits_the_station()` woła
+  `station_kit.py` **przed** zapisem GLB: peron 110 m kończy się odmową i brakiem pliku
+- **Domknięte po #137 dwoma PR-ami i to jest część tego wpisu:** **#223** wstawił peron
+  **do sceny Godota** — `StationView` wczytuje 48 brył pakietu A (3456 ścian, 294 kB)
+  bez transformacji, `PlatformFit` mierzy je poza silnikiem (11 testów w
+  `tests/Game.Tests`), brak pliku peronów **zatrzymuje przebieg** kodem 12, a
+  `assert_shot_metadata.py` żąda **4 brył** przy zrzucie z Beekkant i **zera** przy
+  zrzucie ze szwu c01/c02 między stacjami. **#225** doprowadził decyzję 95,0 m **do
+  pipeline'u**: obaj wołający `station_layout.py` szli bez `--platform-length-m`, czyli
+  na domyślnych 94,0 m, więc do sceny wchodziły perony długości składu (Beekkant
+  462,73–556,73 m); po poprawce 462,23–557,23 m, a liczba mieszka w **jednym** miejscu,
+  bo `--platform-length-m design` czyta 95,0 m z `SC.DESIGN_PLATFORM_LENGTH_M`
+- **Świadomie nie zrobione:** w scenie stoją **wyłącznie** `platform` i `edge`. Schody,
+  winda, antresola, korytarz i portal sięgają 8,30 m nad główkę szyny, a strop profilu
+  `box_double`, którym zamiatany jest tunel pakietu A, stoi na 4,70 m — komora stacyjna
+  nie jest jeszcze wstawiana w przebieg tunelu, więc te bryły przebijałyby strop.
+  Poza tym: słupy, balustrady, bramki, kasy i rzut którejkolwiek brukselskiej stacji —
+  układ jest **kanoniczny**, bo STIB nie publikuje rzutów, a UrbIS daje sam obrys
 - **Zależy od:** T-211 (zrobione), T-210 (zrobione), R-007 (zrobione)
 
 ### [x] T-220 · Bryła zewnętrzna M7
@@ -233,8 +280,13 @@ których agent nie ruszy bez decyzji właściciela.
   zero daje pełną trakcję — zmierzone 0,30 m w 58 s i przekroczenie autorytetu o 1,1 mm.
   Warunek nie wnosi ani jednej liczby; do stacji podpełznąć nadal wolno, bo tam łapie okno
   zatrzymania
-- **Zostaje:** takt i obiegi z T-113 (48 kursów naraz, 71 obiegów) — bez turnbacku nie da się
-  ich domknąć, bo skład, który dojechał do ostatniej stacji, zajmuje peron na zawsze
+- **Zostaje (przepisane 05.09.2026, a nie dopisane obok):** takt i obiegi z T-113 —
+  **48 kursów naraz na 71 obiegach**. Poprzednia wersja tego punktu dodawała „bez
+  turnbacku nie da się ich domknąć, bo skład, który dojechał do ostatniej stacji,
+  zajmuje peron na zawsze" i to już nieprawda: nawrót wszedł w **#218** na oba końce
+  osi, a jego czas jest **zmierzony z GTFS STIB**, nie zmyślony — 194 obiegi,
+  4289 nawrotów, minimum 240 s, mediana 445 s, **ani jednego poniżej 240 s**
+  (`docs/21-measured-vs-assumed.md` §4f). Zostaje samo domknięcie taktu i obiegów
 - **Wejście z T-113:** takt 5:10 (L1/L5) i 5:40 (L2/L6), 48 kursów naraz w ruchu,
   71 obiegów pojazdów, rozkładowe czasy jazdy i postoju per odcinek (`build/timetable.json`)
 - **Wejście z T-313:** plan bloków pakietu A, zajętość, movement authority i ATP
@@ -285,23 +337,49 @@ których agent nie ruszy bez decyzji właściciela.
   z postojami 181,59 s. Pilnuje tego `tools/ci/assert_line_calls_match.py` przy progu
   **zerowym**. Migawka z peronu Beekkant łapie skład o prędkości 0,0 km/h na 509,4 m
   z drzwiami w fazie `Open`
-- **Zostaje:** wiele składów (T-320), sygnalizacja w kabinie (T-313 jest w rdzeniu, ale
-  HUD nie pokazuje ani prędkości dopuszczalnej, ani autorytetu jazdy), stacje jako
-  geometria (T-212). **Na stacji nie ma dziś czego zobaczyć:** zrzut kabinowy z Beekkant
-  to pusty tunel, bo peronu w scenie nie ma
+- **Zostaje (przepisane 05.09.2026, a nie dopisane obok):** **wiele składów (T-320)** —
+  i tylko to. Poprzednia wersja wymieniała jeszcze dwie pozycje i obie przestały być
+  prawdziwe. Pierwsza: „sygnalizacja w kabinie (T-313 jest w rdzeniu, ale HUD nie
+  pokazuje ani prędkości dopuszczalnej, ani autorytetu jazdy)" — HUD pokazuje oba od
+  **#215**, piątym wierszem `v_dop 72.0 km/h   autorytet 989 m (BlockNotReserved,
+  blok S03)`, a od **#221** ochrona nie tylko pokazuje, lecz **wchodzi w polecenie**:
+  pod limitem planu ślad jest identyczny **co do bitu**, a nad nim limit planu staje się
+  faktycznym pułapem — 74, 76 i 80 km/h dają ten sam przejazd (94 060 kroków,
+  4576 ostrzeżeń i 4576 ingerencji). Druga: „stacje jako geometria (T-212). **Na stacji
+  nie ma dziś czego zobaczyć:** zrzut kabinowy z Beekkant to pusty tunel, bo peronu
+  w scenie nie ma" — peron jest w scenie od **#223**, `StationView` wczytuje 48 brył
+  pakietu A, a bramka zrzutów żąda **4 brył** przy Beekkant i **zera** przy szwie
+  c01/c02 między stacjami
 - **Uwaga:** scena wczytuje **jeden** pakiet. Przy `vertical.status = not_modelled` cała
   sieć leży na Z = 0, więc pakiety A i E przenikają się w planie w rejonie Arts-Loi
   (`reports/network-chainage.md`) — sceny z dwoma pakietami nie da się zbudować uczciwie
   przed T-112
-- **Zależy od:** T-210 (zrobione), T-212, T-320
+- **Zależy od:** T-210 (zrobione), T-212 (zrobione), T-320
 
 ## Zadania dla człowieka
 
-### [ ] **[CZŁOWIEK]** T-906 · Jedenaście progów w `clearance_profile.py`
-`docs/24-clearance-profile-decisions.md`. Triaż 72 ocalałych mutacji tego modułu — najwięcej
-w repozytorium — czeka na te odpowiedzi. Każde pytanie ma zmierzoną konsekwencję obu
-odpowiedzi. Najpilniejsze: krawędzie 12 i 17 profilu `bore_single` mają `|ny| = 0,892173`,
-czyli 0,0078 poniżej progu, który decyduje o tym, czy są stropem, czy ścięciem naroża.
+### [x] **[CZŁOWIEK]** T-906 · Jedenaście progów w `clearance_profile.py`
+**Przepisane 05.09.2026, a nie dopisane obok.** Poprzednia wersja tego wpisu stała jako
+`[ ]` i mówiła: „Triaż 72 ocalałych mutacji tego modułu — najwięcej w repozytorium —
+czeka na te odpowiedzi". Nieprawdziwe są dziś obie połowy tego zdania.
+- **Odpowiedzi padły 04.09.2026.** `docs/24-clearance-profile-decisions.md` ma **zero
+  otwartych pozycji**: wszystkie trzynaście nosi nagłówek `ROZSTRZYGNIĘTE` albo
+  `SKREŚLONE`. Pozycje 6, 7 i 8 rozstrzygnął właściciel, pozycje 1, 2, 3, 5, 9, 10 i 11
+  poszły pod **pomiar** wypisany w dokumencie (#209), a pozycje 12 i 13 doszły i zostały
+  rozstrzygnięte razem z nim (#207, #208)
+- **Wynik:** triaż, który na te odpowiedzi czekał, jest wykonany —
+  `tools/blender/clearance_profile.py` zszedł z **45 ocalałych mutacji na 76 do 17**
+  (#206: dwadzieścia nowych testów zabiło 28 mutacji), po wcześniejszym etapie
+  `reports/mutation-triage-clearance.md` (#128), który zszedł z **72 do 66**.
+  „Najwięcej w repozytorium" przestało być prawdą przy tej samej okazji: największym
+  zestawem ocalałych jest dziś `tools/blender/sweep.py` (**37**), czyli pozycja 6.B6
+- **Świadomie zostaje do zrobienia w CI, i to nie jest decyzja właściciela:** minimum
+  luzu 0,899948 m z pozycji 3 zmierzono przy kilometrażach sprzed #86, a ponowny skan
+  wymaga Blendera **5.2.1** z przypięcia. `docs/24` §„Co z liczbami po #86" mówi wprost,
+  że 52 µm z tej pozycji to rząd wielkości, nie przypięty pomiar
+- **Uwaga:** `reports/mutation-sweep.md` nadal wypisuje dla tego modułu **66 / 77** —
+  ten przebieg jest z `66b8301` i **poprzedza** #206. Ten rozjazd jest przedmiotem
+  pozycji 6.D5, nie tego wpisu
 
 ### [ ] **[CZŁOWIEK]** T-901 · Głębokości stacji pakietu A
 Wypełnić `data/network/station-depths.csv`; agent nie zgaduje.
@@ -336,7 +414,7 @@ Poniższe zadania istnieją jako Issues, ale nie mają tu wpisu. Dopóki go nie 
 | brakująca dana | blokuje | gdzie szukać |
 |---|---|---|
 | rzędne główki szyny, głębokości stacji | T-112 → produkcyjny tunel | T-901, `data/network/station-depths.csv` |
-| ~~długość i wysokość peronu~~ | ~~T-211~~ → T-212 | **rozstrzygnięte przez R-007**: wysokość 1,03 m `source_backed`, długość zostaje `unknown`, ale generator ma jawny parametr 95,0 m (`DESIGN_PLATFORM_LENGTH_M`, decyzja właściciela T-212 z #137), między dolnym ograniczeniem 94,0 m — długością składu M7, nie parametrem — a kontrolą górną 109,1 m |
+| ~~długość i wysokość peronu~~ | ~~T-211~~ → ~~T-212~~ (oba zrobione) | **rozstrzygnięte przez R-007**: wysokość 1,03 m `source_backed`, długość zostaje `unknown`, ale generator ma jawny parametr 95,0 m (`DESIGN_PLATFORM_LENGTH_M`, decyzja właściciela T-212 z #137), między dolnym ograniczeniem 94,0 m — długością składu M7, nie parametrem — a kontrolą górną 109,1 m |
 | przekrój tunelu, geometria odbioru prądu | wiarygodność wymiarów w `profiles.py` | R-005 jest w `main`: 1435 mm to `secondary_reference_only`, `contact_geometry` = `unknown` |
 | ~~ground truth sygnalizacji, CBTC, ATS, KCV~~ | ~~T-313~~ → T-314, T-320 | **odblokowane** — R-003 w `main` (#34), T-313 zrobione (#91) |
 | prędkość dopuszczalna na torze | T-320; `speed_limits` puste we wszystkich osiach | **rozstrzygnięte przez R-006 (#85): źródła nie ma.** 72/50 km/h pochodzi z notatki DH z 11.02.2008 o sieci sprzed układu z 2009 — klasa `manufacturer_or_trade_press`, poniżej OSM. Ograniczenie dolne z T-401: 58,68 km/h |
@@ -347,6 +425,16 @@ Poniższe zadania istnieją jako Issues, ale nie mają tu wpisu. Dopóki go nie 
 
 Zmierzone alternatywy dla wymiarów projektowych i powody, dla których **nie zostały
 podstawione do kodu**: `docs/21-measured-vs-assumed.md`.
+
+**Jeśli trafiłeś do tej tabeli z `doctor.sh`** — a od 05.09.2026 trafisz, bo po
+odhaczeniu T-212 nie ma w tym pliku ani jednego wpisu `### [ ]`, który nie byłby
+`ZABLOKOWANE` albo `[CZŁOWIEK]` — **to nie jest koniec pracy i nie jest powód, żeby
+stanąć.** Tabela wyżej mówi, czego brakuje, a nie co robić. Praca czeka niżej, w sekcji
+**Plan**: faza 2 (T-320, wpis `[~]` wyżej) jest w toku, a fazy **5 i 6** trzymają
+31 pozycji, z których żadna nie wymaga decyzji właściciela. Tak mówi `CLAUDE.md` §8:
+„agent bierze następną pozycję z fazy 5 lub 6 w `docs/TASKS.md`". Sam komunikat doctora
+nadal odsyła wyłącznie do tabeli wyżej i to jest **znalezisko zgłoszone, nie naprawione**
+— poprawka po stronie `doctor.sh` jest poza zakresem zadania, które ten akapit dopisało.
 
 ## Plan
 
@@ -384,16 +472,26 @@ i **23 testy warstwy silnika** (nie było żadnego). Moduły `tools/` bez testu:
 Rdzeń bez Godota, bez estetyki, bez nowych danych o sieci — najbezpieczniejsza duża
 praca do wykonania autonomicznie. Zakres i kryteria: wpis T-320 wyżej.
 
-### Faza 3 — T-212 pierwsza stacja typowa
+### Faza 3 — T-212 pierwsza stacja typowa · ZROBIONE 04.09.2026
 
-Po T-320. Blokada danych zdjęta przez R-007, T-211 scalone.
+**Przepisane 05.09.2026, a nie dopisane obok.** Poprzednia wersja tego punktu mówiła
+„Po T-320. Blokada danych zdjęta przez R-007, T-211 scalone" — to nieprawda: faza
+**wyprzedziła** fazę 2. T-212 jest scalone jako **#137** (`fe14d72`, 04.09.2026),
+zanim T-320 doszło do końca; peron wszedł do sceny w **#223**, a decyzja 95,0 m dotarła
+do pipeline'u w **#225**. Liczby są we wpisie T-212 wyżej.
 
-### Faza 4 — T-400 etap 3
+### Faza 4 — T-400 etap 3 · ZROBIONE 05.09.2026
 
-Wpiąć w scenę to, co **już jest w rdzeniu i przetestowane, a scena tego nie woła**:
-`DoorCycle`, `StationStop`, `FixedBlockSystem`, `TrainProtection`. Streamowanie chunków
-i przełączanie LOD **wypadły z tej fazy, bo są zrobione** (#174, #177 — wpis T-400 wyżej).
-Ta faza dotknie miejsc wymagających decyzji właściciela.
+**Przepisane 05.09.2026, a nie dopisane obok.** Poprzednia wersja brzmiała „Wpiąć
+w scenę to, co **już jest w rdzeniu i przetestowane, a scena tego nie woła**:
+`DoorCycle`, `StationStop`, `FixedBlockSystem`, `TrainProtection`" — to już nieprawda
+dla **wszystkich czterech**. `DoorCycle` i `StationStop` scena woła od #210 i #212
+(etap 3b wpisu T-400 wyżej: 11 zatrzymań, wszystkie kolumny max |Δ| = 0,000E+00),
+`FixedBlockSystem` od #215 (`--signalling=PLIK`, HUD z prędkością dopuszczalną
+i autorytetem jazdy), a `TrainProtection` od #221 — i to nie jako odczyt, tylko jako
+filtr polecenia przed kontrolerem. Streamowanie chunków i przełączanie LOD wypadły
+z tej fazy wcześniej, bo są zrobione (#174, #177). Zostaje to, co stoi w „Zostaje"
+wpisu T-400: **wiele składów**, czyli T-320.
 
 ### Faza 5 — kolejka, która nie kończy się na czekaniu
 
@@ -430,6 +528,7 @@ realnych.
 | 5.3 | T-401 zmierzone tylko na L1_A, i to na kilometrażach przed #86 | `reports/T-401-line-run.md` §3 i §4 przeliczone 04.09.2026 na sześciu pakietach: 49 z 49 odcinków dopasowanych, 0 wolniejszych, wszystkie sześć odcinków wiążących identycznych z pierwszą wersją. §3a dokumentuje, że stare liczby były sprzed #86, z bisekcją po commitach i metodą wyszukiwania limitu zapisaną wprost |
 | 5.4 | ten sam blok preflightu w dziesięciu workflowach (kontrola czystego workspace) i w siedmiu (sonda narzędzi) | `.github/actions/check-workspace` i `.github/actions/probe-tools`; **warunek odrzucający forki ZOSTAJE w każdym jobie** i nie mógł się przenieść — akcja lokalna uruchamia się dopiero po checkoucie, czyli gdy kod z forka już leży na maszynie. Utrzymanie pilnują `test_no_workflow_reinlines_what_the_local_actions_now_own` i `test_the_local_actions_carry_the_rule_they_took_over` |
 | 5.5 | akcje GitHuba przypięte po tagu, nie po SHA | wszystkie cztery `uses:` mają pełny SHA i komentarz z wersją; pilnują tego `test_ci_workflows.py::test_every_action_is_pinned_to_a_commit_not_a_moving_tag`, `..._every_pinned_action_says_which_version_the_commit_is` i `..._the_same_action_is_pinned_to_the_same_commit_everywhere` |
+| 6.B12 | `TrainView.PlaceAt` nie miał ani jednego testu — mutacja `body.Node.Visible = covered` → `= true` przeżyła przegląd przy #212, sprawdzone ponownie na `619b179`: 84/84 przeszło z mutacją w środku | **#217**, i pozycja **stała w tabeli kolejki jeszcze po scaleniu** — dopisana przy #213, zrobiona przy #217, zdjęta stąd dopiero 05.09.2026. Decyzja o widoczności wyszła z silnika do `TrainLayout`, `PlaceAt` jest jedną linią, granicą jest `ITrainBody`. Przybite liczbami dla prawdziwego składu M7 (11 brył, 94,0 m) na osi prostej 300 m: czoło na 0 m → **11 ukrytych**, 20 m → 8, 50 m → 4, 94 m → 0. `dotnet test tests/Game.Tests` → 97/97 |
 | 6.C1 | scena wczytywała wszystkie chunki naraz | #174 (predykat i LOD po stronie sceny), #177 (`TunnelView.Stream` zamiast `LoadAll`) — wpis T-400, etap 3a |
 | 6.C2 | poziomy LOD istniały, scena ich nie używała | to samo, `StreamingPlan.LodPlan`; przybite tablicą oczekiwań wspólną dla Pythona i C# |
 | 6.B11 | kamera obserwacyjna miała siedzieć wewnątrz geometrii „przez pierwsze ~106 m", a klatka wychodzić białą plamą — i sama ta liczba była nieprawdziwa | **Dwie połowy, obie zrobione.** KIERUNEK — #226: `ChaseCameraAim.LookTarget` podstawia kierunek osi tam, gdzie kamera i cel wypadają w jednym punkcie; 10 ostrzeżeń `Target and up vectors are colinear` na przebieg `--line` zeszło do zera i pilnuje tego `tools/ci/assert_no_godot_warnings.py`. GEOMETRIA — decyzja właściciela z 05.09.2026: widok `chase` jest NIEDOSTĘPNY, dopóki cały skład nie wjedzie na oś. Scena schodzi wtedy do kabiny i mówi o tym szóstym wierszem HUD-u, a `--shot --view=chase` w tym paśmie ODMAWIA kodem 13 zamiast zapisać białą płytę pod nazwą `chase`. **Poprawka liczby:** 106,0 m to kilometraż, od którego kamera odzyskuje pełne 12,0 m odstępu, a NIE koniec pasma w geometrii; w skorupie kamera siedzi przez **0..94,0 m** (długość M7 z `data/vehicle/m7-spec.json`, status `spec`), a kierunek jest nieokreślony przez **0..47,0 m** (połowa składu). Zmierzone 05.09.2026 na `--line --limit-kmh=70`, ułamek pikseli o jasności > 0,80 w górnych 60 % kadru: 20 m → 0,1 %, 48 m → 56,4 %, 50 m → 38,3 %, 90 m → 0,0 %, 96 m → 42,0 %, 110 m → 0,0 %, 2000 m → 0,0 %. Pasmo 94..106 m zostaje jasne ŚWIADOMIE — patrz „Czego agent nie ruszy bez decyzji" |
@@ -468,12 +567,19 @@ Mechanika:
    dopiero blok mówi, *jak ją wykonać i po czym poznać, że jest skończona*.
 
 **Zapas udokumentowany:** punkt 5 wszedł 05.09.2026 i od razu pokazał, że reguła
-zapasu mierzyła dotąd nie to, co deklaruje. Zmierzone na `b41c158`: kolejka ma
-**33 pozycje**, ale blok z sześcioma polami ma **8** z nich — 6.A8, 6.B6, 6.B7, 6.B8,
-6.B9, 6.B10, 6.D5 i 6.D6, czyli dokładnie te dopisane 04.09.2026. Pozostałe **25**
-to wiersz tabeli i nic więcej: żadnego Wejścia, Wyjścia, Weryfikacji, „Skończone, gdy",
-„Poza zakresem" ani „Zależy od". Próg doby pracy wynosi dwanaście, więc **brakuje
-czterech** udokumentowanych pozycji.
+zapasu mierzyła dotąd nie to, co deklaruje. Blok z sześcioma polami ma **8** pozycji —
+6.A8, 6.B6, 6.B7, 6.B8, 6.B9, 6.B10, 6.D5 i 6.D6, czyli dokładnie te dopisane
+04.09.2026. Reszta to wiersz tabeli i nic więcej: żadnego Wejścia, Wyjścia,
+Weryfikacji, „Skończone, gdy", „Poza zakresem" ani „Zależy od". Próg doby pracy wynosi
+dwanaście, więc **brakuje czterech** udokumentowanych pozycji.
+
+**Liczba pozycji w tym akapicie jest przepisana, a nie dopisana obok.** Pierwsza wersja
+mówiła „Zmierzone na `b41c158`: kolejka ma **33 pozycje** […] Pozostałe **25**" i to
+przestało być prawdą, zanim akapit zdążył się zestarzeć: 6.B11 wyszło do tabeli
+domknięć (#226 i #236), a 6.B12 **było zrobione już przy #217** i stało w kolejce
+o dwanaście scaleń za długo. Zmierzone 05.09.2026 tym samym licznikiem
+(`tools/tests/test_backlog.py`): kolejka ma **31 pozycji**, udokumentowanych jest **8**,
+bez kompletu sześciu pól zostają **23**.
 
 Tej luki **nie domyka się dopisywaniem pól z głowy.** `CLAUDE.md` §8 zabrania brać
 zadanie wymyślone na miejscu, a wymyślenie cudzej „Weryfikacji" jest tym samym o jeden
@@ -515,11 +621,10 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.B3 | **LOD tuneli pakietów B–F** | wzorzec z pakietu A, `reports/L1_A-lod.md` | M |
 | 6.B4 | **Kontrola krzyżowa osi B–F wobec OSM**, jak `reports/L1_A-crosscheck.md` dla A | hierarchia źródeł rozstrzygnięta w `docs/07`; rozbieżności się **liczy i zapisuje**, nigdy nie uśrednia | M |
 | 6.B5 | **Wykrywanie łuków o najmniejszym promieniu na każdej osi** i sprawdzenie skrajni M7 punkt po punkcie | metoda zmierzona i opisana (`reports/M7-curve-clearance.md`), zostaje zastosowanie | M |
-| 6.B6 | **Triaż 37 ocalałych mutacji `tools/blender/sweep.py`** — największy niezablokowany zestaw w repozytorium; wynik idzie do `reports/mutation-triage-sweep.md`, którego dziś nie ma | `reports/mutation-triage-lod.md` §„Czego ten triaż nie ruszał" mówi wprost: „**`sweep.py`** — ocalałe tego modułu są osobną pozycją kolejki". Triaż klasyfikuje mutacje i dopisuje testy, nie zmienia ani jednej stałej — a stałe generatora są jawnie decyzją właściciela (`docs/21-measured-vs-assumed.md` §4) i zostają poza zakresem | L |
+| 6.B6 | **Triaż 37 ocalałych mutacji `tools/blender/sweep.py`** — **największy** zestaw ocalałych w repozytorium (od #206, gdy `clearance_profile.py` zszedł z 45 do 17; wcześniej ten wiersz mówił „największy **niezablokowany**", bo tamten czekał na T-906 — dziś T-906 jest rozstrzygnięte); wynik idzie do `reports/mutation-triage-sweep.md`, którego dziś nie ma | `reports/mutation-triage-lod.md` §„Czego ten triaż nie ruszał" mówi wprost: „**`sweep.py`** — ocalałe tego modułu są osobną pozycją kolejki". Triaż klasyfikuje mutacje i dopisuje testy, nie zmienia ani jednej stałej — a stałe generatora są jawnie decyzją właściciela (`docs/21-measured-vs-assumed.md` §4) i zostają poza zakresem | L |
 | 6.B7 | **Triaż 9 ocalałych mutacji `tools/blender/m7_report.py`** — jedyny moduł z co najmniej pięcioma ocalałymi, który nie ma w `reports/` żadnego raportu triażu | wszystkie dziewięć to operatory porównań w progach raportu dopasowania M7; klasyfikacja i testy graniczne, żadnej nowej liczby o taborze — wymiary M7 pochodzą z `data/vehicle/m7-spec.json` (T-904, zrobione) | M |
 | 6.B8 | **Triaż 2 ocalałych mutacji `tools/track/make_test_track.py`** — pierwszy wiersz tabeli „Kolejność triażu — po udziale" w `reports/mutation-sweep.md`, udział 100 % (2 / 2) | moduł generuje `BROKEN.json`, czyli kontrolę negatywną dla walidatora osi, i karmi dwie bramki CI (`tools/ci/blender_smoke.sh`, `tools/ci/visual_smoke.sh`); obie ocalałe siedzą w warunku, który decyduje, **gdzie** oś jest zepsuta — mutant przesuwa uszkodzenie, a bramki nadal świecą zielono. Oś jest syntetyczna, więc nie ma tu ani jednego faktu o Brukseli | S |
 | 6.B9 | **Wyciągnięcie czystej logiki spod `bpy` z `material_test_scene.py` (12), `station_kit.py` (11) i `detail_markers.py` (9)** — 32 z 51 nieosiągalnych mutacji w trzech plikach | `reports/mutation-sweep.md` §„Moduły nieosiągalne" nazywa lekarstwo wprost: „Lekarstwem tutaj nie są testy, tylko dalsze wyciąganie logiki spod `bpy`", i ma dla tego zmierzony precedens z tego samego przebiegu (`m7_shell.py` 35 → 2, `tunnel_sweep.py` 35 → 6, `profile_vehicle.py` 26 → 7). Przeniesienie funkcji czystych nie zmienia geometrii wyjściowej — kontrolą jest identyczny GLB | L |
-| 6.B12 | **`TrainView.PlaceAt` nie ma ani jednego testu** — mutacja `body.Node.Visible = covered` → `= true` przeżyła przegląd przy #212 | `dotnet test` nie jest silnikiem, więc wczytanie GLB w teście nie przejdzie; lekarstwem jest ta sama droga, którą repozytorium już przeszło dla sześciu modułów `bpy` — wyciągnąć decyzję o widoczności i o transformacie do funkcji czystej i przybić ją w `tests/Game.Tests`, jak `StreamingPlan` (#174). `TrackAxis.CoversChord` jest już czysty i przetestowany, więc brakuje wyłącznie strony wywołania | S |
 | 6.B10 | **`report()` w `tools/physics/braking.py` nie jest wykonywane przez nic** — ani test, ani skrypt `tools/ci/*.sh`; jedyny wołający to `if __name__ == "__main__"` w wierszu 313 | `reports/mutation-triage-fizyka.md` §6 zapisał to jako znalezisko poza triażem: „Funkcja drukuje trzy tablice referencyjne T-311 i mogłaby przestać się składać bez skutku dla CI. To jest osobne zadanie, nie triaż". Tablice referencyjne T-311 są już w `docs/02-simulation.md`, więc test porównuje wypis z tym, co repo już deklaruje | S |
 
 #### Pasmo C — warstwa silnika (`src/Game`)
@@ -585,9 +690,12 @@ co dochodzi ponad ten wspólny zakaz.
 
 - **Skąd:** `reports/mutation-triage-lod.md` §„Czego ten triaż nie ruszał", ostatni
   punkt: „**`sweep.py`** — ocalałe tego modułu są osobną pozycją kolejki". Liczba jest
-  z `reports/mutation-sweep.md` §„Kolejność triażu — po udziale": **37 / 79, 47 %** —
-  drugi zestaw w repozytorium po `clearance_profile.py`, a ten jest zablokowany przez
-  T-906, więc `sweep.py` jest **największym niezablokowanym**.
+  z `reports/mutation-sweep.md` §„Kolejność triażu — po udziale": **37 / 79, 47 %**.
+  Przy zakładaniu tej pozycji był to drugi zestaw w repozytorium po
+  `clearance_profile.py`, a tamten był zablokowany przez T-906 — **to już nieprawda**
+  i dlatego zdanie jest przepisane, a nie dopisane obok: T-906 jest rozstrzygnięte,
+  a `clearance_profile.py` zszedł do 17 ocalałych (#206), więc `sweep.py` jest po
+  prostu **największym** zestawem ocalałych w repozytorium.
 - **Wejście:** `tools/blender/sweep.py`, `reports/mutation-sweep.md`
   §`tools/blender/sweep.py` (37 wierszy z numerem wiersza i rodzajem mutacji),
   `tools/tests/mutation_sweep.py`, istniejące `tools/tests/test_sweep.py`
@@ -825,7 +933,16 @@ nie sięga, nawet gdy nie ma nic innego do roboty; wtedy sięga po fazę 5.
 
 - ~~`CLAUDE.md` §2 mówi „25 testów narzędzi"~~ — **zamknięte**: liczba zeszła z pliku,
   bo zaszywanie jej w konstytucji generowało rozjazd przy każdym nowym module.
-  Dla porządku: `test_all.py` zbiera dziś **700** testów z 31 modułów.
-- Dziesięć Issues jest otwartych, choć zadanie leży w `main` (#9, #15–#17, #20–#24, #27).
-  Ten plik deklaruje Issues źródłem prawdy o statusie, więc rozjazd jest realny.
-  Część z nich właściciel poprosił, żeby zostawić otwarte.
+  **Przepisane 05.09.2026:** poprzednia wersja dopisywała tu „dla porządku:
+  `test_all.py` zbiera dziś **700** testów z 31 modułów" — i wpadła dokładnie w rozjazd,
+  przed którym ten punkt ostrzega, bo liczba przestała być prawdziwa przy pierwszym
+  nowym module (tego dnia było ich 68). Liczby nie ma sensu tu utrwalać; podaje ją
+  `python3 tools/tests/test_all.py` i wypisuje `doctor.sh`.
+- **Przepisane 05.09.2026, a nie dopisane obok.** Poprzednia wersja mówiła „Dziesięć
+  Issues jest otwartych, choć zadanie leży w `main` (#9, #15–#17, #20–#24, #27)" —
+  nieprawdziwa jest i liczba, i lista. Odpytane tego dnia przez API GitHuba: **#9, #20,
+  #21, #22, #23, #24 i #27 są zamknięte**. Otwartych Issues z pracą leżącą w `main` jest
+  **pięć**: #15, #16 i #17 (R-003, R-004, R-005 — wszystkie trzy w `main`), #18 (T-211,
+  wpis `[x]` wyżej) i #19 (T-212, wpis `[x]` wyżej). Ten plik deklaruje Issues źródłem
+  prawdy o statusie, więc rozjazd jest realny; część z nich właściciel poprosił,
+  żeby zostawić otwarte.
