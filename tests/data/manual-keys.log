@@ -1,0 +1,40 @@
+# METRO BXL — zapis wejść maszynisty, wzorzec bramki CI trybu ręcznego (G-2).
+#
+# TEN PLIK LEŻY W REPOZYTORIUM I TO JEST JEGO CAŁA TREŚĆ. Zapis wygenerowany
+# w locie przez samą scenę dałby bramkę porównującą przejazd z samym sobą: oba
+# przebiegi wyszłyby z tego samego wejścia, więc zgadzałyby się nawet wtedy,
+# gdyby wejście zostało zapisane błędnie. Wzorzec w repozytorium jest jedynym
+# wejściem tego porównania, którego nie liczy żadna z porównywanych stron.
+#
+# PRZEJAZD, oś L1_A, czoło startuje na 94,000 m, krok 1/120 s:
+#
+#   krok  klawisz
+#   0     W  rozruch z Gare de l'Ouest; nastawnik narasta 0,80 1/s
+#   2800  S  hamowanie do Beekkant (509,730 m). Zatrzymanie 41,475 s,
+#            czoło na 509,707 m, czyli błąd −0,023 m — w oknie ±5,000 m,
+#            więc `StationService` uznaje to za wywołanie stacji i otwiera drzwi
+#   5400  W  maszynista prosi o ciąg 45,0 s, czyli W ŚRODKU CYKLU DRZWI.
+#            Hamulec schodzi (0,80 1/s, więc do zera w 1,25 s), nastawnik dobija
+#            do 1,0 — a telemetria pokazuje `throttle = 0` aż do 57,975 s,
+#            bo `StationService` trzyma blokadę trakcji. To jest jedenaście
+#            próbek stojących z ZEROWYM hamulcem i ZEROWYM ciągiem i to jest
+#            jedyny ślad pełnego cyklu drzwi, jaki telemetria potrafi pokazać.
+#            Cykl trwa 8,5 s faz stałych + 8,0 s wymiany pasażerów = 16,500 s
+#   7560  X  wybieg — trzecia gałąź `DriverNotch`, obok ciągu i hamulca
+#   8160  S  hamowanie do postoju w tunelu; skład staje dokładnie w ostatnim kroku
+#
+# Przejazd ma 8880 kroków = 74,000 s. Krótszy nie objąłby całego cyklu drzwi,
+# dłuższy dokładałby CI wyłącznie stanie na zaciągniętym hamulcu.
+#
+# CZEGO TU NIE MA: klawiszy widoku (C) i resetu (R). `InputLogRecorder` zbiera
+# WYŁĄCZNIE klawisze prowadzenia, więc przejazd z resetem nie odtworzyłby się
+# identycznie i żadna sztuczka w tym pliku tego nie obejdzie. Wzorzec jest więc
+# przejazdem bez resetu; odtwarzalny reset to osobne zadanie (G-4).
+wersja=1
+kroki=8880
+krok;klawisze
+0;W
+2800;S
+5400;W
+7560;X
+8160;S
