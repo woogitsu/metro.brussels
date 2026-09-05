@@ -931,3 +931,90 @@ def test_the_drift_table_detector_is_not_matching_prose():
     # ścieżce. Gdyby wszedł, nadpisałby wiersz właściwy — i tak było, dopóki nie
     # doszedł warunek na liczbę kolumn.
     assert len(rows["tools/track/crs.py"]) == DRIFT_COLUMNS - 1, rows
+
+
+# --- wyrocznia: drzewo robocze musi być zielone BEZ mutacji ----------------------
+
+#: DLACZEGO TE DWA TESTY ISTNIEJĄ.
+#:
+#: Całe narzędzie stoi na jednym zdaniu: „zestaw padł, czyli mutacja została wykryta".
+#: Zdanie jest prawdziwe tylko wtedy, gdy zestaw nie pada BEZ mutacji. Gdy przestaje,
+#: narzędzie melduje 100 % zabić — a sto procent wygląda jak sukces, nie jak awaria.
+#: Zdarzyło się to dwa razy: OOM (02.09.2026) i własna kasacja pliku przygotowująca
+#: drzewo (05.09.2026, opis w `neutralise_own_tests`). Pierwszy raz kosztował 16 z 20
+#: fałszywych zabić, drugi — cały wynik `m7_report.py`: „31/31 zabitych" przy dziewięciu
+#: mutacjach, które ręcznie wstawione zestaw przepuszcza.
+
+
+def test_przygotowanie_drzewa_zdejmuje_testy_narzedzia_nie_kasujac_pliku():
+    """Zaślepka zamiast `os.remove`: ścieżka zostaje, testów nie ma.
+
+    Kasacja pliku była poprawna dopóty, dopóki żadna bramka nie patrzyła na drzewo
+    jako całość. `test_kazda_sciezka_wymieniona_w_raporcie_rozwiazuje_sie_w_drzewie`
+    właśnie tak patrzy, a cztery miejsca w `reports/` wymieniają ten plik z nazwy.
+    """
+    with tempfile.TemporaryDirectory() as root:
+        tests = os.path.join(root, "tools", "tests")
+        os.makedirs(tests)
+        own = os.path.join(tests, "test_mutation_sweep.py")
+        with open(own, "w", encoding="utf-8") as handle:
+            handle.write("def test_cokolwiek():\n    assert True\n")
+        inny = os.path.join(tests, "test_all.py")
+        with open(inny, "w", encoding="utf-8") as handle:
+            handle.write("def test_inny():\n    assert True\n")
+
+        zwrot = sweep.neutralise_own_tests(root)
+
+        assert zwrot == own, zwrot
+        # 1. Plik ZOSTAJE — to jest cała różnica wobec wersji, która go kasowała.
+        assert os.path.isfile(own), "przygotowanie skasowało plik, który raporty cytują"
+        # 2. Ale nie ma w nim ani jednego testu — inaczej zaślepka nie robi swojego.
+        tresc = open(own, encoding="utf-8").read()
+        assert "def test_" not in tresc, tresc
+        assert ast.parse(tresc).body and isinstance(
+            ast.parse(tresc).body[0], ast.Expr), "zaślepka ma być samym docstringiem"
+        # 3. Żaden inny plik nie jest ruszony.
+        assert open(inny, encoding="utf-8").read() == "def test_inny():\n    assert True\n"
+
+
+def test_ten_plik_jest_wymieniony_w_raportach_wiec_nie_wolno_go_kasowac():
+    """Powód zaślepki, zmierzony na drzewie, a nie przepisany z pamięci.
+
+    Gdyby żaden raport tej ścieżki nie wymieniał, zaślepka byłaby ostrożnością bez
+    przyczyny i ten test by o tym powiedział — zamiast pozwolić jej trwać jako
+    obrzędowi po nieaktualnym zdarzeniu.
+    """
+    igla = "`tools/tests/test_mutation_sweep.py`"
+    trafienia = []
+    katalog = os.path.join(ROOT, "reports")
+    for name in sorted(os.listdir(katalog)):
+        if not name.endswith(".md"):
+            continue
+        if igla in open(os.path.join(katalog, name), encoding="utf-8").read():
+            trafienia.append(name)
+    assert trafienia, (
+        "żaden raport nie wymienia już tego pliku — zaślepka straciła powód, "
+        "sprawdź, czy zamiast niej nie wystarczy kasacja")
+
+
+def test_przeglad_odmawia_pomiaru_gdy_czyste_drzewo_nie_jest_zielone():
+    """`baseline_problem` mówi „nie" dokładnie w tych trzech przypadkach, w których ma.
+
+    Kontrola negatywna jest tu WBUDOWANA: pierwszy przypadek to drzewo zielone i on
+    musi dać `None`. Bez niego funkcja zwracająca zawsze komunikat przechodziłaby
+    trzy czwarte tego testu i zatrzymałaby każdy przegląd świata.
+    """
+    zielone = sweep.baseline_problem("/nieistotne", 1, run=lambda *_: (True, [], 0))
+    assert zielone is None, zielone
+
+    czerwone = sweep.baseline_problem(
+        "/nieistotne", 1,
+        run=lambda *_: (False, ["test_kazda_sciezka_wymieniona_w_raporcie:"], 1))
+    assert czerwone is not None
+    assert "PADA w czystym drzewie" in czerwone, czerwone
+    assert "test_kazda_sciezka_wymieniona_w_raporcie:" in czerwone, czerwone
+
+    nieznane = sweep.baseline_problem(
+        "/nieistotne", 1, run=lambda *_: (None, ["<zabity sygnałem, kod -9>"], -9))
+    assert nieznane is not None
+    assert "nie doszedł do podsumowania" in nieznane, nieznane
