@@ -1,81 +1,53 @@
-using System;
 using Godot;
 using MetroBxl.Sim.Train;
 
 namespace MetroBxl.Game.Input;
 
 /// <summary>
-/// Klawiatura na <see cref="DriverCommand"/>. Cała warstwa wejścia zadania T-400.
+/// Odczyt klawiatury na <see cref="DriverKeys"/>. Cała warstwa wejścia zadania T-400.
 ///
-/// Klasa **nie liczy fizyki** i nie zna prędkości: zamienia trzymane klawisze na
-/// położenie nastawnika i hamulca, a co z tego wynika, decyduje
-/// <see cref="TrainController"/> w rdzeniu.
+/// <para><b>Ta klasa nie liczy już nic.</b> Do 05.09.2026 miała metodę
+/// <c>Poll(deltaSeconds)</c>, która przesuwała nastawnik o <c>tempo · Δt_klatki</c>
+/// i była wołana raz na KLATKĘ — czyli położenie dźwigni zależało od liczby klatek,
+/// a nie od czasu symulacji. Zmierzony skutek: ta sama sekwencja klawiszy przez 60 s
+/// dawała 566,407284 m przy 120 kl./s i 566,641450 m przy 60 kl./s, rozjazd 0,234166 m
+/// przy bramkach porównujących telemetrię z progiem <b>0</b>
+/// (<c>reports/droga-do-grywalnosci.md</c> §5.1).</para>
 ///
-/// Klawisze są odczytywane fizycznie (<see cref="Godot.Input.IsPhysicalKeyPressed"/>),
+/// <para>Przesuw dźwigni przeniósł się do <see cref="DriverNotch"/> w rdzeniu i jest
+/// wykonywany <b>raz na krok symulacji</b>. Tutaj zostało to, czego bez silnika zrobić
+/// nie można: zapytanie klawiatury, co jest trzymane. To jest jedyna rzecz, której
+/// silnik nie potrafi podać częściej niż raz na klatkę — i dlatego jedyna, która
+/// zostaje po tej stronie.</para>
+///
+/// <para>Klawisze są odczytywane fizycznie (<see cref="Godot.Input.IsPhysicalKeyPressed"/>),
 /// czyli po położeniu na klawiaturze, a nie po znaku — układ AZERTY, w Brukseli
 /// nieprzypadkowy, nie przestawia wtedy sterowania. Mapa akcji <c>InputMap</c>
-/// z konfiguracją w projekcie należy do zadania o sterowaniu, nie do pierwszego przejazdu.
+/// z konfiguracją w projekcie należy do zadania o sterowaniu (G-3), nie tutaj.</para>
 /// </summary>
 public sealed class DriverInput
 {
-    private readonly double _ratePerSecond;
-
-    /// <summary>Wejście z zadanym tempem przestawiania nastawnika.</summary>
-    public DriverInput(double ratePerSecond)
-    {
-        if (!double.IsFinite(ratePerSecond) || ratePerSecond <= 0.0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(ratePerSecond), ratePerSecond,
-                "Tempo przestawiania nastawnika musi być dodatnie.");
-        }
-
-        _ratePerSecond = ratePerSecond;
-    }
-
-    /// <summary>Bieżące położenie nastawnika i hamulca.</summary>
-    public DriverCommand Command { get; private set; } = DriverCommand.Coast;
-
     /// <summary>Opis sterowania do wypisania w HUD.</summary>
     public const string Help = "W ciąg  ·  S hamulec  ·  X wybieg  ·  C widok  ·  R od nowa  ·  Esc wyjście";
 
+    /// <summary>Stan klawiszy odczytany ostatnim <see cref="Read"/>.</summary>
+    public DriverKeys Keys { get; private set; } = DriverKeys.None;
+
     /// <summary>
-    /// Przelicza stan klawiatury na nowe położenie nastawników.
+    /// Odczytuje trzymane klawisze. Wołane raz na klatkę — częściej się nie da, bo
+    /// silnik nie ma historii klawiatury wewnątrz klatki, a zmyślanie jej byłoby
+    /// wymyślaniem danych wejściowych gracza.
     /// </summary>
-    /// <param name="deltaSeconds">Czas od poprzedniego wywołania.</param>
-    public DriverCommand Poll(double deltaSeconds)
+    /// <returns>Stan trzymanych klawiszy w tej klatce.</returns>
+    public DriverKeys Read()
     {
-        var stepValue = _ratePerSecond * deltaSeconds;
-        var throttle = Command.Throttle;
-        var brake = Command.Brake;
-
-        if (Godot.Input.IsPhysicalKeyPressed(Key.W) || Godot.Input.IsPhysicalKeyPressed(Key.Up))
-        {
-            // Ciąg zdejmuje hamulec, zanim zacznie narastać — na M7 nie ma pozycji
-            // „ciągnij i hamuj naraz" i model jej nie udaje.
-            brake = Math.Max(0.0, brake - stepValue);
-            if (brake <= 0.0)
-            {
-                throttle = Math.Min(1.0, throttle + stepValue);
-            }
-        }
-        else if (Godot.Input.IsPhysicalKeyPressed(Key.S) || Godot.Input.IsPhysicalKeyPressed(Key.Down))
-        {
-            throttle = Math.Max(0.0, throttle - stepValue);
-            if (throttle <= 0.0)
-            {
-                brake = Math.Min(1.0, brake + stepValue);
-            }
-        }
-        else if (Godot.Input.IsPhysicalKeyPressed(Key.X))
-        {
-            throttle = Math.Max(0.0, throttle - stepValue);
-            brake = Math.Max(0.0, brake - stepValue);
-        }
-
-        Command = new DriverCommand(throttle, brake).Clamped();
-        return Command;
+        Keys = new DriverKeys(
+            Godot.Input.IsPhysicalKeyPressed(Key.W) || Godot.Input.IsPhysicalKeyPressed(Key.Up),
+            Godot.Input.IsPhysicalKeyPressed(Key.S) || Godot.Input.IsPhysicalKeyPressed(Key.Down),
+            Godot.Input.IsPhysicalKeyPressed(Key.X));
+        return Keys;
     }
 
-    /// <summary>Ustawia położenie nastawników wprost — do resetu przejazdu.</summary>
-    public void Set(DriverCommand command) => Command = command.Clamped();
+    /// <summary>Zapomina odczytany stan — do resetu przejazdu.</summary>
+    public void Clear() => Keys = DriverKeys.None;
 }

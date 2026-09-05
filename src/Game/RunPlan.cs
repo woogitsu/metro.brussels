@@ -35,6 +35,7 @@ public sealed class RunPlan
         "at-chainage", "view", "axis", "no-geometry", "assets", "manifest", "shell",
         "platforms",
         "line", "calls", "limit-kmh", "signalling",
+        "input-log", "replay",
     };
 
     /// <summary>Widoki, jakie scena potrafi ustawić. Inna wartość jest BŁĘDEM, nie domyślną.</summary>
@@ -69,8 +70,35 @@ public sealed class RunPlan
     /// <summary>Ścieżka zrzutu albo <c>null</c>.</summary>
     public string? ShotPath { get; private init; }
 
-    /// <summary>Przebieg bez interakcji: telemetria albo zrzut.</summary>
-    public bool ScriptedMode => TelemetryPath is not null || ShotPath is not null;
+    /// <summary>
+    /// Przebieg bez interakcji, prowadzony przez <c>ScenarioDrive</c>: telemetria
+    /// albo zrzut.
+    ///
+    /// <para><c>--telemetry</c> RAZEM z <c>--replay</c> nie jest przebiegiem
+    /// skryptowym — polecenie pochodzi wtedy z zapisu wejść maszynisty, a telemetria
+    /// jest tylko sposobem zapisania wyniku. To rozróżnienie jest tu, a nie w scenie,
+    /// bo od niego zależy, który sterownik scena w ogóle zbuduje.</para>
+    /// </summary>
+    public bool ScriptedMode => (TelemetryPath is not null && ReplayPath is null) || ShotPath is not null;
+
+    /// <summary>
+    /// Plik, do którego zapisuje się wejścia maszynisty (numer kroku + klawisze),
+    /// albo <c>null</c>. Format czyta i pisze <c>MetroBxl.Sim.Train.InputLog</c>.
+    /// </summary>
+    public string? InputLogPath { get; private init; }
+
+    /// <summary>
+    /// Plik zapisu wejść, z którego przejazd ma być odtworzony, albo <c>null</c>.
+    ///
+    /// <para>Odtworzenie prowadzi ten sam <c>DriverNotch</c> i ten sam
+    /// <c>TrainController</c>, co człowiek przy klawiaturze — różni się WYŁĄCZNIE
+    /// źródłem stanu klawiszy. Gdyby odtwarzanie miało własną ścieżkę przez fizykę,
+    /// porównanie z przejazdem gracza nie znaczyłoby nic.</para>
+    /// </summary>
+    public string? ReplayPath { get; private init; }
+
+    /// <summary>Przejazd odtwarzany z zapisu wejść.</summary>
+    public bool ReplayMode => ReplayPath is not null;
 
     /// <summary>
     /// Przejazd całą linią z zatrzymaniami na stacjach, prowadzony rdzeniem
@@ -126,7 +154,8 @@ public sealed class RunPlan
     public string? SignallingPath { get; private init; }
 
     /// <summary>Nazwa trybu do nagłówka logu i do HUD-a.</summary>
-    public string Mode => TelemetryPath is not null ? "telemetry"
+    public string Mode => ReplayPath is not null ? "replay"
+        : TelemetryPath is not null ? "telemetry"
         : ShotPath is not null ? "shot"
         : LineMode ? "line" : "manual";
 
@@ -229,6 +258,40 @@ public sealed class RunPlan
                 + "z rdzeniem CO DO BITU, więc pomyłka tutaj wyglądałaby jak rozjazd fizyki");
         }
 
+        // `--replay` jest TRZECIM źródłem polecenia dla tego samego składu, obok
+        // klawiatury i autopilota. Ta sama zasada, co przy `--line` z `--telemetry`:
+        // dwa źródła naraz nie dają się rozróżnić po wyniku, więc pomyłka wyglądałaby
+        // jak rozjazd fizyki. `--shot` nie jest sterownikiem, ale odtworzenie kończy się
+        // na ostatnim kroku ZAPISU, a zrzut na zadanym kilometrażu — dwa różne warunki
+        // końca tego samego przebiegu, więc też odmowa.
+        if (arguments.ContainsKey("replay") && arguments.ContainsKey("line"))
+        {
+            return Refusal(arguments, exitBadArgumentValue,
+                "[ARGUMENT] --replay nie łączy się z --line: zapis wejść i autopilot to dwa "
+                + "różne źródła polecenia dla tego samego składu");
+        }
+
+        if (arguments.ContainsKey("replay") && arguments.ContainsKey("shot"))
+        {
+            return Refusal(arguments, exitBadArgumentValue,
+                "[ARGUMENT] --replay nie łączy się z --shot: odtworzenie kończy się na ostatnim "
+                + "kroku zapisu, a zrzut na zadanym kilometrażu — to dwa warunki końca naraz");
+        }
+
+        // Zapisywać można TYLKO to, co naprawdę przyszło od maszynisty. W przebiegu
+        // skryptowym i w `--line` polecenie liczy rdzeń, więc plik nazwany „zapisem
+        // wejść" opisywałby przejazd, którego nikt nie prowadził — i odtworzony
+        // wyglądałby jak dowód determinizmu wejścia gracza, którym by nie był.
+        if (arguments.ContainsKey("input-log") && !arguments.ContainsKey("replay")
+            && (arguments.ContainsKey("line") || arguments.ContainsKey("shot")
+                || arguments.ContainsKey("telemetry")))
+        {
+            return Refusal(arguments, exitBadArgumentValue,
+                "[ARGUMENT] --input-log ma sens tylko w przejeździe prowadzonym z klawiatury "
+                + "albo odtwarzanym z --replay: w --line, --shot i --telemetry polecenie "
+                + "pochodzi z rdzenia, a nie od maszynisty");
+        }
+
         if (!TryDouble(arguments, "limit-kmh", 0.0, out var limitKmh, out error))
         {
             return Refusal(arguments, exitBadArgumentValue, error!);
@@ -269,6 +332,8 @@ public sealed class RunPlan
             TelemetryPath = Argument(arguments, "telemetry"),
             ShotPath = Argument(arguments, "shot"),
             CallsPath = Argument(arguments, "calls"),
+            InputLogPath = Argument(arguments, "input-log"),
+            ReplayPath = Argument(arguments, "replay"),
             LimitKmh = limitKmh,
             SignallingPath = Argument(arguments, "signalling"),
             SampleEvery = sampleEvery,
