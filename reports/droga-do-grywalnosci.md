@@ -191,10 +191,48 @@ pozycje fazy 6 albo jako etapy T-400, o czym rozstrzyga właściciel, nie ten ra
 > | przesuw nastawnika **wewnątrz** kroku, nie raz na klatkę | `src/Game/FirstRun.cs` — komentarz przy `StepOnce` mówi wprost „na krok symulacji — nie raz na klatkę", nastawnik żyje w `src/Sim/Train/DriverNotch.cs` (`tests/Sim.Tests/DriverNotchTests.cs`) |
 > | testy | `tests/Sim.Tests/InputLogTests.cs`, `tests/Sim.Tests/DriverNotchTests.cs`, `tests/Sim.Tests/StepAccumulatorTests.cs` |
 >
-> **Reszta pozycji (G-2 … G-5) nie została sprawdzona pod tym kątem w tym przeglądzie
-> i zostaje jako propozycja** — nie jest to milczące zapewnienie, że są otwarte, tylko
-> jawne ograniczenie zakresu: przegląd `reports/` szukał twierdzeń nieprawdziwych,
-> a nie odhaczał kolejki.
+> **G-2, G-3 i G-4 TEŻ SĄ ZROBIONE. To zdanie jest przepisane, a nie dopisane obok:**
+> do 05.09.2026 stało tu, że „reszta pozycji (G-2 … G-5) nie została sprawdzona pod tym
+> kątem w tym przeglądzie i zostaje jako propozycja". Wtedy była to prawda i jawne
+> ograniczenie zakresu; kilka godzin później przestała nią być, a zdanie o nieznanym
+> stanie czyta się dokładnie tak samo, jak zdanie o stanie otwartym. Sprawdzone lekturą
+> drzewa na `4284fc1`:
+>
+> | pozycja | co ją zrobiło | sprawdzone w drzewie |
+> |---|---|---|
+> | **G-2** · bramka CI na tryb ręczny | #245 (bramka) i #248 (limit po obu stronach) | `godot-first-run.yml` ma **cztery** kroki tej rodziny: „Manual run — the replayed input log must be the core's own drive", „Negative control of the manual comparison", „Manual mode — both sides must hold the same speed ceiling", „Negative control of the speed-ceiling gate"; `Sim.Runner replay` istnieje; `DriveTelemetry.Row` ma dziś **dwa** przeciążenia — jedno bierze `ScenarioDrive`, drugie przejazd ręczny |
+> | **G-3** · `InputMap` i wiersz pomocy | #249 | `grep -cE '^(driver_\|view_\|run_)' src/Game/project.godot` = **7**; `grep -rn IsPhysicalKeyPressed src/Game --include=*.cs \| grep -v '///'` = **0 trafień**; `src/Game/Input/DriverActions.cs`; `Hud` bierze węzeł `Panel/Rows/Help`; `tests/Game.Tests/DriverActionsTests.cs` |
+> | **G-4** · reset resetuje cały przejazd | #251 | `src/Game/RunReset.cs`; `StationService` ma `public void Reset() => StartFromScratch()`, czyli reset dzieli inicjalizator z konstruktorem; `tests/Game.Tests/RunResetTests.cs` |
+>
+> Numerów wierszy w tej tabeli nie ma celowo: liczba w prozie, której nikt nie
+> porównuje, rozjeżdża się przy pierwszym `git rebase` i wygląda potem tak samo
+> wiarygodnie jak prawdziwa. Nazwy kroków, ścieżki i sygnatury są greppowalne
+> i mówią, gdzie sprawdzić.
+>
+> **G-5 (kabina pod sygnalizacją) zostaje otwarte** i to jest jedyna pozycja z tej
+> piątki, która jeszcze nie ma swojego PR-a.
+>
+> **UWAGA DO §G-2 NIŻEJ: wypisane tam polecenie weryfikacji już nie zadziała.**
+> Propozycja podaje `replay --keys tests/data/manual-keys.log --out build/g2/core.csv`,
+> a od #248 `--signalling` jest **obowiązkowe** i takie wywołanie kończy się odmową
+> („replay wymaga --signalling PLIK.json"). Polecenie zostaje w propozycji jako zapis
+> tego, co proponowano; działa dziś to:
+>
+> ```bash
+> dotnet run --project src/Sim.Runner -c Release -- \
+>   replay --keys tests/data/manual-keys.log \
+>   --signalling data/design/signalling/classic-2026.json \
+>   --notch-rate 0.80 --exchange-s 8 --stop-window-m 5 --out build/g2/core.csv
+> "$GODOT_BIN" --headless --path src/Game -- \
+>   --replay="$PWD/tests/data/manual-keys.log" --telemetry="$PWD/build/g2/scene.csv"
+> dotnet run --project src/Sim.Runner -c Release -- \
+>   compare build/g2/core.csv build/g2/scene.csv --tolerance 0
+> ```
+>
+> Powód odmowy jest treścią, nie formalnością: bez planu tryb ręczny brał 80 km/h
+> ze scenariusza — prędkość konstrukcyjną M7 — podczas gdy scena od #246 czyta
+> 72 km/h z planu, i bramka tego nie widziała, bo ten wzorzec wejść dochodzi
+> do 65,22 km/h. Limitu pilnuje osobny wzorzec `tests/data/manual-keys-limit.log`.
 
 ### G-1 · Wejście gracza krokowane numerem kroku i zapisywalne
 
