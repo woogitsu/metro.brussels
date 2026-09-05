@@ -23,7 +23,7 @@ jobs:
     # obowiązuje. Warunek nosi KAŻDY job; `needs:` nie jest zamiennikiem, bo job
     # dopisany bez łańcucha zależności nie miałby żadnej ochrony.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: self-hosted
+    runs-on: [self-hosted, Linux, X64, wsl2, woogitsu]
     timeout-minutes: 15
 
     steps:
@@ -150,7 +150,12 @@ jobs:
         # przestaną dawać tę samą liczbę.
         run: |
           set -euo pipefail
-          dotnet run --project src/Sim.Runner --configuration Release --no-build -- braking > /tmp/braking_core.txt
-          python3 tools/physics/braking.py > /tmp/braking_reference.txt
-          diff -u /tmp/braking_reference.txt /tmp/braking_core.txt
+          # Pliki w RUNNER_TEMP, nie we współdzielonym /tmp: cztery runnery puli
+          # stoją na jednej maszynie, a ta bramka porównuje DWA pliki. Przy stałych
+          # nazwach dwa równoległe joby nadpisywałyby je sobie nawzajem i `diff`
+          # zestawiałby rdzeń z jednego przebiegu z referencją z drugiego — wynik
+          # zielony albo czerwony, w obu wypadkach nie o tym, o co pyta bramka.
+          dotnet run --project src/Sim.Runner --configuration Release --no-build -- braking > "$RUNNER_TEMP/braking_core.txt"
+          python3 tools/physics/braking.py > "$RUNNER_TEMP/braking_reference.txt"
+          diff -u "$RUNNER_TEMP/braking_reference.txt" "$RUNNER_TEMP/braking_core.txt"
           echo "tablice hamowania: rdzeń == referencja, co do bajtu"

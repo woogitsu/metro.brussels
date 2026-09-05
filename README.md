@@ -116,8 +116,10 @@ Wszystkie oprócz ostatniego są bramkami, po jednej na zadanie weryfikacyjne;
 `prune-merged-branches` jest utrzymaniowy i odpala się wyłącznie ręcznie
 (`workflow_dispatch`).
 
-**Wszystkie chodzą na self-hosted runnerze**, na gołej etykiecie `self-hosted`, po
-wyczerpaniu minut GitHub Actions 02.09.2026. Każdy job osobno odrzuca pull requesty
+**Wszystkie chodzą na self-hosted runnerze**, na komplecie etykiet `self-hosted, Linux,
+X64, wsl2, woogitsu` — czteromaszynowa pula organizacji, od 05.09.2026 (do tego dnia:
+goła etykieta `self-hosted`, od wyczerpania minut GitHub Actions 02.09.2026). Każdy job
+osobno odrzuca pull requesty
 z forków, każdy sprawdza, że workspace jest czysty, i każdy instaluje narzędzia
 warunkowo. Powody i pułapki: `CLAUDE.md` §9, testy: `tools/tests/test_ci_workflows.py`.
 
