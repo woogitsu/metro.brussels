@@ -265,9 +265,33 @@ public static class Program
         lines.Add(DriveTelemetry.Row(
             state, step, Chainage(), acceleration, command, DriveTelemetry.ManualPhase));
 
-        while (state.Steps < log.Steps)
+        // DWA LICZNIKI, i to jest treść, nie porządek. `sessionStep` indeksuje ZAPIS
+        // i nie wraca nigdy; `state.Steps` indeksuje PRZEJAZD i po resecie zaczyna od
+        // zera. Do 05.09.2026 była tu jedna liczba, bo reset nie mógł wystąpić w zapisie;
+        // od wariantu W1 może, a pętla po `state.Steps` liczyłaby po resecie te same
+        // kroki drugi raz i nigdy nie doszłaby do końca pliku.
+        var sessionStep = 0L;
+        var resets = 0;
+        while (sessionStep < log.Steps)
         {
-            var keys = log.KeysAt(state.Steps);
+            // Reset obowiązuje PRZED swoim krokiem — ta sama kolejność, co w scenie.
+            // `RunRestart` jest jedną odpowiedzią na pytanie „co reset zeruje" dla obu
+            // stron porównania; osobna lista tutaj rozjechałaby się po cichu.
+            if (log.IsResetAt(sessionStep))
+            {
+                var restarted = RunRestart.Apply(notch, stations, lines);
+                state = restarted.Drive;
+                command = restarted.Command;
+                acceleration = restarted.AccelerationMps2;
+                resets++;
+
+                // Wiersz zerowy nowego przejazdu — tak samo jak przy starcie, bo po
+                // resecie przejazd jest przed pierwszym krokiem.
+                lines.Add(DriveTelemetry.Row(
+                    state, step, Chainage(), acceleration, command, DriveTelemetry.ManualPhase));
+            }
+
+            var keys = log.KeysAt(sessionStep);
             var requested = notch.Advance(keys, step);
 
             // `Filter` posuwa licznik cyklu drzwi, więc DOKŁADNIE RAZ na krok.
@@ -276,8 +300,11 @@ public static class Program
             state = controller.Advance(state, conditions, effective, speedLimitMps, step, out var forces);
             acceleration = forces.AccelerationMps2;
             command = effective;
+            sessionStep++;
 
-            if (DriveTelemetry.IsSample(state.Steps, sampleEvery) || state.Steps >= log.Steps)
+            // Próbkowanie idzie po numerze kroku PRZEJAZDU — po resecie od zera, tak samo
+            // jak wiersz zerowy. Koniec pliku jest natomiast pytaniem o SESJĘ.
+            if (DriveTelemetry.IsSample(state.Steps, sampleEvery) || sessionStep >= log.Steps)
             {
                 lines.Add(DriveTelemetry.Row(
                     state, step, Chainage(), acceleration, command, DriveTelemetry.ManualPhase));
@@ -302,6 +329,7 @@ public static class Program
             Inv,
             $"[ODTWORZENIE] {keysPath}: kroków={state.Steps} t={state.TimeSeconds(step):F3} s " +
             $"chainage={Chainage():F3} m droga={state.DistanceM:F3} m " +
+            $"sesja={sessionStep} kroków resetów={resets} " +
             $"zmian klawiszy={log.Entries.Count} stacji obsłużonych={served} przejechanych={missed}"));
         foreach (var call in stations?.Calls ?? (IReadOnlyList<StationCall>)Array.Empty<StationCall>())
         {

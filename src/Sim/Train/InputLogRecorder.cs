@@ -13,15 +13,27 @@ namespace MetroBxl.Sim.Train;
 /// <para>Numer kroku musi rosnąć. Nagrywanie „w tył" znaczyłoby, że ktoś woła to
 /// z pętli klatek zamiast z pętli kroków, czyli dokładnie z tego miejsca, którego
 /// pozbywa się ta zmiana — i wtedy zapis udawałby determinizm, którego by nie było.</para>
+///
+/// <para><b>Reset przejazdu NIE kasuje zapisu — zostaje w nim jako wpis</b> (decyzja
+/// właściciela z 05.09.2026, wariant W1). Do tego dnia stało tu <c>Clear()</c>, bo
+/// licznik kroków przejazdu wracał do zera i dalsze nagrywanie nadpisywałoby numery,
+/// które już padły. Rozwiązaniem nie było kasowanie, tylko rozdzielenie dwóch liczb:
+/// <see cref="NextStep"/> liczy SESJĘ i nie wraca nigdy, a <c>DriveState.Steps</c> liczy
+/// PRZEJAZD i po resecie zaczyna od zera. Dzięki temu przejazd z resetem odtwarza się
+/// z pliku co do bitu, czyli da się na niego założyć bramkę.</para>
 /// </summary>
 public sealed class InputLogRecorder
 {
     private readonly List<InputLogEntry> _entries = new();
+    private readonly List<long> _resets = new();
     private long _nextStep;
     private bool _started;
 
     /// <summary>Ile wpisów (zmian stanu) zebrano do tej pory.</summary>
     public int EntryCount => _entries.Count;
+
+    /// <summary>Ile resetów zapisano do tej pory.</summary>
+    public int ResetCount => _resets.Count;
 
     /// <summary>Numer kroku, którego oczekuje następne wywołanie <see cref="Record"/>.</summary>
     public long NextStep => _nextStep;
@@ -49,15 +61,19 @@ public sealed class InputLogRecorder
         }
     }
 
+    /// <summary>
+    /// Zapisuje reset przejazdu: przed krokiem, którego zapis właśnie oczekuje, przejazd
+    /// zaczyna się od nowa.
+    ///
+    /// <para>Stanu klawiszy nie dotyka i to nie jest przeoczenie. Reset przestawia
+    /// pulpit, a nie rękę maszynisty: gracz trzyma dalej to, co trzymał, a
+    /// <see cref="InputLog.KeysAt"/> szuka po całej sesji, więc wpis sprzed resetu
+    /// obowiązuje dalej. Domykanie tu stanu klawiszy dopisywałoby zmianę, której
+    /// nie było.</para>
+    /// </summary>
+    public void RecordReset() => _resets.Add(_nextStep);
+
     /// <summary>Składa zapis z zebranych zmian; długością przejazdu jest liczba zapisanych kroków.</summary>
     /// <returns>Zapis wejść gotowy do zapisania na dysk.</returns>
-    public InputLog Build() => new(_nextStep, _entries);
-
-    /// <summary>Zapomina wszystko — do resetu przejazdu.</summary>
-    public void Clear()
-    {
-        _entries.Clear();
-        _nextStep = 0;
-        _started = false;
-    }
+    public InputLog Build() => new(_nextStep, _entries, _resets);
 }

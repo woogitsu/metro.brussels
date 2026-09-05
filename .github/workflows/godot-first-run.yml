@@ -693,6 +693,133 @@ jobs:
                  cat build/t400/limit/bez-planu.log >&2; exit 1; }
           echo "[NEGATYW] replay bez planu odmawia, tak jak scena"
 
+      - name: Manual mode — a run with a reset replays to the same bytes
+        shell: bash
+        # RESET BYŁ JEDYNĄ GAŁĘZIĄ TRYBU RĘCZNEGO BEZ BRAMKI, i nie z lenistwa: do
+        # 05.09.2026 `InputLogRecorder` kasował zapis przy resecie, więc przejazdu
+        # z resetem nie dało się odtworzyć — a czego nie da się odtworzyć, tego nie da
+        # się porównać. Decyzja właściciela (wariant W1) wprowadziła wersję 2 formatu
+        # z wpisem `krok;reset`; ten krok jest tym, po co ta wersja powstała.
+        #
+        # WZORZEC `manual-keys-reset.log` ma dwie połowy po 5400 kroków z TĄ SAMĄ
+        # sekwencją klawiszy liczoną od swojego początku, a reset stoi między nimi —
+        # w kroku 5400, czyli w 45,000 s, dokładnie w środku cyklu drzwi na Beekkant
+        # (postój od 41,475 s do 57,975 s). To jest ta usterka, którą naprawiło G-4.
+        #
+        # DRUGIE PORÓWNANIE JEST WAŻNIEJSZE OD PIERWSZEGO. Zgodność sceny z rdzeniem
+        # mówi tylko, że obie strony liczą tak samo — także wtedy, gdyby obie tak samo
+        # ŹLE resetowały. Dopiero porównanie przejazdu PO RESECIE z niezależnym
+        # przejazdem BEZ RESETU (`manual-keys.log`, którego pierwsze 5400 kroków ma tę
+        # samą sekwencję klawiszy) odpowiada na pytanie, o które tu chodzi: czy przez
+        # reset cokolwiek przeżyło — kolejka stacji, licznik cyklu drzwi, dźwignia,
+        # reszta czasu klatki.
+        run: |
+          set -euo pipefail
+          mkdir -p build/t400/reset
+          dotnet run --project src/Sim.Runner -c Release --no-build -- \
+            replay --keys tests/data/manual-keys-reset.log --axis data/track/L1_A.json \
+            --signalling data/design/signalling/classic-2026.json \
+            --notch-rate 0.80 --exchange-s 8 --stop-window-m 5 \
+            --out build/t400/reset/core.csv 2>&1 | tee build/t400/reset/core.log
+          # Reset ma się NAPRAWDĘ wykonać, i to raz. Bez tego warunku wzorzec
+          # z usuniętym wpisem przeszedłby porównania tak samo dobrze, tyle że
+          # nie sprawdziłby resetu ani razu.
+          grep -q "sesja=10800 kroków resetów=1" build/t400/reset/core.log \
+            || { echo "BŁĄD: wzorzec nie wykonał dokładnie jednego resetu" >&2
+                 cat build/t400/reset/core.log >&2; exit 1; }
+          grep -q "stacji obsłużonych=1 przejechanych=0" build/t400/reset/core.log \
+            || { echo "BŁĄD: przejazd po resecie nie obsłużył stacji" >&2
+                 cat build/t400/reset/core.log >&2; exit 1; }
+          for spf in 120 7; do
+            "$GODOT_BIN" --headless --path src/Game -- \
+              --replay="$PWD/tests/data/manual-keys-reset.log" \
+              --telemetry="$PWD/build/t400/reset/scene-spf$spf.csv" \
+              --steps-per-frame="$spf" \
+              2>&1 | tee "build/t400/reset/scene-spf$spf.log"
+            python3 tools/ci/assert_no_godot_warnings.py "build/t400/reset/scene-spf$spf.log"
+            grep -q "sesja=10800 kroków resetów=1" "build/t400/reset/scene-spf$spf.log" \
+              || { echo "BŁĄD: scena przy $spf krokach na klatkę nie wykonała resetu z zapisu" >&2
+                   grep "^\[ODTWORZENIE\]" "build/t400/reset/scene-spf$spf.log" >&2; exit 1; }
+            dotnet run --project src/Sim.Runner -c Release --no-build -- \
+              compare build/t400/reset/core.csv "build/t400/reset/scene-spf$spf.csv" \
+              --tolerance 0
+          done
+          # PRZEJAZD PO RESECIE == PRZEJAZD BEZ RESETU, co do bajtu. Telemetria po
+          # resecie zaczyna się od nowa (wiersze sprzed niego opisywałyby inny przejazd
+          # tymi samymi numerami), więc plik z resetem zawiera wyłącznie drugi przejazd.
+          # Ostatni wiersz odpada, bo jest wierszem KOŃCA zapisu, którego przejazd bez
+          # resetu w tym miejscu nie ma.
+          wspolne=$(( $(wc -l < build/t400/reset/core.csv) - 1 ))
+          test "$wspolne" -ge 40 \
+            || { echo "BŁĄD: do porównania zostało $wspolne wierszy — za mało, żeby cokolwiek znaczyło" >&2
+                 exit 1; }
+          head -n "$wspolne" build/t400/reset/core.csv > build/t400/reset/po-resecie.csv
+          head -n "$wspolne" build/t400/reczny/core.csv > build/t400/reset/bez-resetu.csv
+          cmp build/t400/reset/po-resecie.csv build/t400/reset/bez-resetu.csv \
+            || { echo "BŁĄD: przez reset coś przeżyło — przejazd po nim nie jest tym samym przejazdem" >&2
+                 diff build/t400/reset/po-resecie.csv build/t400/reset/bez-resetu.csv \
+                   > build/t400/reset/rozjazd.txt || true
+                 head -20 build/t400/reset/rozjazd.txt >&2
+                 exit 1; }
+          echo "[RESET] $wspolne wierszy przejazdu po resecie identycznych co do bajtu z przejazdem bez resetu"
+
+      - name: Negative control of the reset gate
+        shell: bash
+        # Trzy mutacje, trzy różne zdania do udowodnienia.
+        #
+        #  1. WPIS RESETU USUNIĘTY. Plik mówi wtedy `wersja=2` i nie ma ani jednego
+        #     resetu — ODMOWA odczytu. Bez tej kontroli wersja w nagłówku byłaby
+        #     napisem, którego nikt nie porównuje z treścią.
+        #  2. RESET PRZESUNIĘTY O JEDEN KROK. Odpowiada na pytanie, którego pierwsza
+        #     nie zadaje: czy reset naprawdę pada TAM, gdzie stoi w zapisie, czy tylko
+        #     gdzieś w pobliżu. Rytm klatek ma go nie ruszać.
+        #  3. WERSJA COFNIĘTA NA 1. Plik z resetem w wersji 1 to ODMOWA — w drugą
+        #     stronę niż mutacja 1, i dlatego jest osobno.
+        run: |
+          set -euo pipefail
+          grep -v '^5400;reset$' tests/data/manual-keys-reset.log \
+            > build/t400/reset/bez-wpisu.log
+          cmp -s tests/data/manual-keys-reset.log build/t400/reset/bez-wpisu.log \
+            && { echo "BŁĄD: mutacja nie usunęła wpisu resetu" >&2; exit 1; }
+          rc=0
+          dotnet run --project src/Sim.Runner -c Release --no-build -- \
+            replay --keys build/t400/reset/bez-wpisu.log --axis data/track/L1_A.json \
+            --signalling data/design/signalling/classic-2026.json \
+            --out build/t400/reset/bez-wpisu.csv > build/t400/reset/bez-wpisu.txt 2>&1 || rc=$?
+          test "$rc" -ne 0 \
+            || { echo "BŁĄD: zapis 'wersja=2' bez ani jednego resetu został przyjęty" >&2; exit 1; }
+          echo "[NEGATYW] zapis w wersji 2 bez wpisu resetu odrzucony, tak jak ma być"
+
+          sed 's/^5400;reset$/5401;reset/' tests/data/manual-keys-reset.log \
+            > build/t400/reset/przesuniety.log
+          cmp -s tests/data/manual-keys-reset.log build/t400/reset/przesuniety.log \
+            && { echo "BŁĄD: mutacja nie przesunęła resetu" >&2; exit 1; }
+          dotnet run --project src/Sim.Runner -c Release --no-build -- \
+            replay --keys build/t400/reset/przesuniety.log --axis data/track/L1_A.json \
+            --signalling data/design/signalling/classic-2026.json \
+            --notch-rate 0.80 --exchange-s 8 --stop-window-m 5 \
+            --out build/t400/reset/przesuniety.csv 2>&1 | tee build/t400/reset/przesuniety.txt
+          rc=0
+          dotnet run --project src/Sim.Runner -c Release --no-build -- \
+            compare build/t400/reset/przesuniety.csv build/t400/reset/scene-spf120.csv \
+            --tolerance 0 || rc=$?
+          test "$rc" -ne 0 \
+            || { echo "BŁĄD: reset przesunięty o jeden krok przeszedł porównanie" >&2; exit 1; }
+          echo "[NEGATYW] reset przesunięty o jeden krok odrzucony, tak jak ma być"
+
+          sed 's/^wersja=2$/wersja=1/' tests/data/manual-keys-reset.log \
+            > build/t400/reset/wersja-1.log
+          cmp -s tests/data/manual-keys-reset.log build/t400/reset/wersja-1.log \
+            && { echo "BŁĄD: mutacja nie cofnęła wersji" >&2; exit 1; }
+          rc=0
+          dotnet run --project src/Sim.Runner -c Release --no-build -- \
+            replay --keys build/t400/reset/wersja-1.log --axis data/track/L1_A.json \
+            --signalling data/design/signalling/classic-2026.json \
+            --out build/t400/reset/wersja-1.csv > build/t400/reset/wersja-1.txt 2>&1 || rc=$?
+          test "$rc" -ne 0 \
+            || { echo "BŁĄD: zapis 'wersja=1' z wpisem resetu został przyjęty" >&2; exit 1; }
+          echo "[NEGATYW] zapis w wersji 1 z wpisem resetu odrzucony, tak jak ma być"
+
       - name: Line run — scene must call the same stations as the core
         shell: bash
         # Przejazd całą linią z zatrzymaniami, prowadzony rdzeniem (`LineDrive`), liczony
@@ -1118,3 +1245,9 @@ jobs:
             build/t400/limit/*.csv
             build/t400/limit/*.log
             build/t400/limit/*.txt
+            # Bramka resetu: bez `core.log` i `scene-spf*.log` nie da się sprawdzić,
+            # czy reset naprawdę padł, a bez `po-resecie.csv` / `bez-resetu.csv` — czym
+            # dokładnie różnią się przejazdy, gdy porównanie kiedyś padnie.
+            build/t400/reset/*.csv
+            build/t400/reset/*.log
+            build/t400/reset/*.txt

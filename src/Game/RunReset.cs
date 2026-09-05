@@ -64,12 +64,12 @@ public static class RunReset
     /// kroków, zero drogi i zero prędkości; dźwignie na wybiegu, klawisze puszczone.
     /// </summary>
     public static RunStart Values => new(
-        DriveState.AtRest,
+        RunRestart.Values.Drive,
         DriverKeys.None,
         DriverKeys.None,
-        DriverCommand.Coast,
-        DriverCommand.Coast,
-        0.0);
+        RunRestart.Values.Command,
+        RunRestart.Values.Command,
+        RunRestart.Values.AccelerationMps2);
 
     /// <summary>
     /// Zeruje cały stan przejazdu i zwraca wartości, którymi wołający ma nadpisać swoje.
@@ -100,52 +100,37 @@ public static class RunReset
         ArgumentNullException.ThrowIfNull(notch);
         ArgumentNullException.ThrowIfNull(input);
 
-        var start = Values;
-
         // Nierozliczona reszta czasu klatki należała do poprzedniego przejazdu.
         // Przeniesiona dalej dołożyłaby nowemu przejazdowi krok, którego nikt nie zamówił.
         accumulator.DropCarry();
 
-        // Dźwignia wraca na wybieg tą samą drogą, co przy starcie sceny: `Set`, a nie
-        // przesuw. Reset jest przestawieniem pulpitu, a nie jazdą do zera.
-        notch.Set(start.Command);
+        // Dźwignia, obsługa stacji, telemetria i stan składu — czyli wszystko, co ma
+        // także rdzeń bez silnika. Ta lista NIE jest tu powtórzona: `Sim.Runner replay`
+        // odtwarza ten sam zapis wejść i musi zresetować dokładnie to samo, a dwie listy
+        // rozjechałyby się po cichu (`RunRestart`).
+        var core = RunRestart.Apply(notch, stations, telemetry);
 
-        // Cała obsługa stacji od nowa — kolejka, rejestry wywołań i minięć, trwający
-        // cykl drzwi. To jest usterka G-4 i to jest miejsce, w którym była.
-        stations?.Reset();
-
-        // Zapis wejść idzie po NUMERZE KROKU, a reset cofa licznik kroków do zera —
-        // dalsze nagrywanie nadpisywałoby numery, które już padły. Zapis zaczyna się
-        // więc od nowa, razem z przejazdem.
-        recorder?.Clear();
-
-        // Telemetria z tego samego powodu: po resecie numery kroków zaczynają się od
-        // zera, więc wiersze sprzed resetu opisywałyby inny przejazd tymi samymi
-        // numerami. Nagłówek zostaje — jest opisem pliku, a nie próbką przejazdu.
-        DropSamples(telemetry);
+        // ZAPIS WEJŚĆ ZOSTAJE I DOSTAJE WPIS. Do 05.09.2026 stało tu `recorder?.Clear()`,
+        // bo licznik kroków przejazdu wracał do zera i dalsze nagrywanie nadpisywałoby
+        // numery, które już padły. Decyzja właściciela (wariant W1) rozdzieliła te dwie
+        // liczby: zapis indeksuje SESJĘ i nie wraca nigdy, `DriveState.Steps` indeksuje
+        // PRZEJAZD i zaczyna od zera. Dzięki temu przejazd z resetem odtwarza się z pliku.
+        recorder?.RecordReset();
 
         input.Clear();
-        return start;
+        return new RunStart(
+            core.Drive,
+            DriverKeys.None,
+            DriverKeys.None,
+            core.Command,
+            core.Command,
+            core.AccelerationMps2);
     }
 
     /// <summary>
-    /// Zdejmuje z telemetrii próbki, zostawiając sam wiersz nagłówka.
-    ///
-    /// <para>Lista pusta znaczy „przejazd nie zbiera telemetrii" i wychodzi z tego
-    /// pusta — dopisanie nagłówka tutaj byłoby włączeniem zapisu, o który nikt nie
-    /// prosił.</para>
+    /// Zdejmuje z telemetrii próbki, zostawiając sam wiersz nagłówka —
+    /// <see cref="RunRestart.DropSamples"/> pod nazwą, której używa scena.
     /// </summary>
     /// <param name="telemetry">Zebrane wiersze albo <c>null</c>.</param>
-    public static void DropSamples(IList<string>? telemetry)
-    {
-        if (telemetry is null)
-        {
-            return;
-        }
-
-        while (telemetry.Count > 1)
-        {
-            telemetry.RemoveAt(telemetry.Count - 1);
-        }
-    }
+    public static void DropSamples(IList<string>? telemetry) => RunRestart.DropSamples(telemetry);
 }
