@@ -27,9 +27,23 @@ namespace MetroBxl.Sim.Signalling;
 /// <para><b>Żądanie idzie RAZ NA SEKUNDĘ, nie co krok.</b> Odmowa jest normalną odpowiedzią
 /// — blok przed nosem bywa zajęty i wtedy sygnał ma stać na stój — a każde żądanie i każda
 /// odmowa trafiają do strumienia zdarzeń (<see cref="SignallingEvent"/>). Pytanie 120 razy
-/// na sekundę zalałoby ten strumień niczym. Zmierzone: dwa składy na pakiecie A dają
-/// <b>3050 odmów</b> przy odstępie sekundy, czyli około 25 minut czekania drugiego składu
-/// — przy pytaniu co krok byłoby ich 366 000.</para>
+/// na sekundę zalałoby ten strumień niczym.</para>
+///
+/// <para><b>Liczba odmów NIE JEST faktem o sieci</b> i nie wolno jej tak cytować.
+/// Poprzednia wersja tego akapitu mówiła „dwa składy na pakiecie A dają 3050 odmów",
+/// a komentarz przy teście odstępu mówił w tym samym czasie 1118 i 158 — trzy liczby
+/// o tej samej rzeczy. Żadna nie była błędem pomiaru: to były trzy różne budżety pętli.
+/// Po zakleszczeniu linii (drugi skład staje przed zajętym peronem końcowym, bo model
+/// nie zna zawracania) pytanie trwa w nieskończoność, więc licznik rośnie tak długo,
+/// jak długo ktoś kręci zegarem. Zmierzone na pakiecie A, dwa składy, odstęp wyjazdu
+/// 30 s: <b>155</b> odmów po 60 000 krokach, <b>451</b> po 120 000, <b>951</b> po
+/// 180 000, <b>2451</b> po 360 000.</para>
+///
+/// <para><b>Faktem o dławiku jest TEMPO, nie suma.</b> W zakleszczeniu przyrost wynosi
+/// dokładnie <b>500 odmów na 60 000 kroków, czyli jedną na sekundę</b> — tyle, ile
+/// wynosi odstęp. Przy pytaniu co krok byłoby ich 120 razy więcej. Ta własność jest
+/// przybita testem <c>Po_zakleszczeniu_odmowy_rosna_dokladnie_w_tempie_odstepu</c>,
+/// bo tempo da się sprawdzić bez wybierania budżetu, a suma nie.</para>
 ///
 /// <para><b>Przy planie, który nie wymaga tras</b> (<see cref="SignallingPlan.RequireRoute"/>
 /// równe <c>false</c>) dyspozytor <b>nie robi nic</b>, i to nie jest optymalizacja.

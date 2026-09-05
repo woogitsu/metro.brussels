@@ -90,9 +90,14 @@ public sealed class RouteDispatcherTests
     public void AsksAtMostOncePerIntervalAndTheIntervalIsMeasuredInSteps()
     {
         // Odstęp jest treścią, nie ozdobą: odmowa jest normalną odpowiedzią i trafia
-        // do strumienia zdarzeń, więc pytanie co krok zalałoby go niczym. Zmierzone
-        // na pakiecie A: dwa składy dają 1118 odmów przy odstępie sekundy w 60 000
-        // krokach; przy pytaniu co krok byłoby ich dwa rzędy wielkości więcej.
+        // do strumienia zdarzeń, więc pytanie co krok zalałoby go niczym.
+        //
+        // Tu NIE MA liczby odmów z pakietu A i to jest świadome. Poprzednia wersja tego
+        // komentarza podawała 1118, dokumentacja XML dyspozytora 3050, a komentarz niżej
+        // 158 — trzy liczby o tej samej rzeczy, wszystkie „zmierzone" i wszystkie prawdziwe
+        // przy swoim budżecie pętli. Suma odmów rośnie, dopóki ktoś kręci zegarem, więc
+        // nie opisuje sieci. Opisuje ją TEMPO, i ono ma własny test:
+        // `Po_zakleszczeniu_odmowy_rosna_dokladnie_w_tempie_odstepu`.
         var plan = Plan(requireRoute: true);
         var system = new FixedBlockSystem(plan);
         system.RegisterTrain("A", 0.0, TrainLengthM);
@@ -162,8 +167,10 @@ public sealed class RouteDispatcherTests
         // czyli od jedynej wartości, przy której `steps - last` i `steps + last` są TYM
         // SAMYM wyrażeniem — bo `last == 0`. Mutacja `steps - last` → `steps + last`
         // przeżyła przez to dwie niezależne przeglądy mutacyjne, 376/376 bez mrugnięcia,
-        // choć na pakiecie A podnosiła liczbę odmów ze 158 do 18 748 (119×), a strumień
-        // zdarzeń sygnalizacji z 513 do 37 693. Po pierwszym żądaniu `last` przestaje być
+        // choć na pakiecie A podnosiła liczbę odmów ze 158 do 18 748 (119×) PRZY BUDŻECIE
+        // 60 000 kroków, a strumień zdarzeń z 513 do 37 693. Budżet jest tu wymieniony,
+        // bo bez niego liczba nic nie znaczy — patrz dokumentacja `RouteDispatcher`.
+        // Po pierwszym żądaniu `last` przestaje być
         // zerem i suma natychmiast przekracza odstęp, więc dławik milknie na zawsze.
         //
         // Dlatego tu: pierwsze żądanie pada na kroku NIEZEROWYM, a odstęp jest sprawdzany

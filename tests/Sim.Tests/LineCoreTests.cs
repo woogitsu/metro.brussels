@@ -520,6 +520,60 @@ public sealed class LineCoreTests
     }
 
     [TestMethod]
+    public void Po_zakleszczeniu_odmowy_rosna_dokladnie_w_tempie_odstepu()
+    {
+        // LICZBA ODMÓW NIE JEST FAKTEM O SIECI — TEMPO JEST.
+        //
+        // Do 05.09.2026 trzy miejsca w repozytorium podawały trzy różne „zmierzone"
+        // liczby odmów dla tego samego zdania „dwa składy na pakiecie A": dokumentacja
+        // `RouteDispatcher` 3050, komentarz przy teście odstępu 1118, komentarz przy
+        // teście dławika 158. Żadna nie była błędem pomiaru — to były trzy różne
+        // budżety pętli.
+        //
+        // Powód jest w modelu, nie w liczeniu: model nie zna zawracania, więc drugi
+        // skład staje przed zajętym peronem końcowym i pyta o trasę w nieskończoność.
+        // Suma odmów rośnie tak długo, jak długo ktoś kręci zegarem — zmierzone przy
+        // odstępie wyjazdu 30 s: 155 odmów po 60 000 krokach, 451 po 120 000, 951 po
+        // 180 000, 2451 po 360 000.
+        //
+        // Sprawdzalną własnością jest PRZYROST: w zakleszczeniu wynosi dokładnie tyle,
+        // ile mieści się odstępów w upływie czasu. Ten test mierzy różnicę między dwoma
+        // budżetami, więc nie zależy od tego, kiedy zakleszczenie nastąpiło — a każda
+        // zmiana odstępu żądań rozjeżdża go natychmiast.
+        const long Wczesniej = 180_000L;
+        const long Pozniej = 360_000L;
+
+        long OdmowyPo(long budzet)
+        {
+            var line = RealLine();
+            line.Add("A", 0L);
+            line.Add("B", 30L * FixedStep.SimulationHertz);
+            while (line.Steps < budzet && !line.Finished)
+            {
+                line.Step();
+            }
+
+            Assert.IsFalse(line.Finished,
+                "linia się skończyła, więc nie ma zakleszczenia i ten test mierzy co innego");
+            return line.Dispatcher.Refused;
+        }
+
+        var przyrost = OdmowyPo(Pozniej) - OdmowyPo(Wczesniej);
+        var odstepow = (Pozniej - Wczesniej) / RouteDispatcher.DefaultRequestIntervalSteps;
+
+        Assert.AreEqual(odstepow, przyrost,
+            $"między krokiem {Wczesniej} a {Pozniej} minęło {odstepow} odstępów żądań, "
+            + $"więc odmów ma przybyć dokładnie tyle; przybyło {przyrost}");
+        // DRUGA ASERCJA NIE JEST POWTÓRZENIEM PIERWSZEJ i bez niej test byłby słabszy,
+        // niż wygląda. Pierwsza liczy `odstepow` z tej samej stałej, którą sprawdza, więc
+        // przy zmianie odstępu OBIE STRONY przesuwają się razem i porównanie nadal
+        // wychodzi. Zmierzone kontrolą negatywną: po podwojeniu
+        // `DefaultRequestIntervalSteps` przyrost spada do 750, a pierwsza asercja tego
+        // nie widzi — zapala się dopiero ta.
+        Assert.AreEqual(1500L, przyrost, "zmierzone 05.09.2026: 1500 odmów na 180 000 kroków");
+    }
+
+    [TestMethod]
     public void Ochrona_pociagu_jest_domyslnie_wylaczona()
     {
         // Opt-in, bo brak ochrony tez jest stanem: przejazd bez planu sygnalizacji
