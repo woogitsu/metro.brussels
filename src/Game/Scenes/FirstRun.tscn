@@ -90,3 +90,9 @@ text = "sygnalizacja"
 ; po to, żeby trafił na pierwszą klatkę zrzutu. Widoczność ustawia dopiero `Hud.Update`.
 [node name="View" type="Label" parent="Hud/Panel/Rows"]
 text = "widok"
+
+; Wiersz pomocy — opis sterowania. Startuje UKRYTY jak trzy powyższe, a jego treść
+; przychodzi z `DriverActions.Help`, czyli z tej samej tabeli, co przypisania `InputMap`
+; w project.godot. Tekst zastępczy jest po to, żeby scena dała się otworzyć w edytorze.
+[node name="Help" type="Label" parent="Hud/Panel/Rows"]
+text = "sterowanie"

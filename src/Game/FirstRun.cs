@@ -208,6 +208,17 @@ public sealed partial class FirstRun : Node3D
     /// <summary>Przejazd odtwarzany z zapisu wejść (<c>--replay</c>).</summary>
     private bool _replayMode;
 
+    /// <summary>
+    /// Czy przy sterowaniu siedzi człowiek — rozstrzyga to
+    /// <see cref="RunPlan.ReadsKeyboard"/>, a nie osobny warunek tutaj.
+    ///
+    /// <para>Pole odpowiada na to samo pytanie w dwóch miejscach pętli: czy wołać
+    /// <see cref="DriverInput.Read"/> i czy HUD ma pokazać wiersz pomocy. Wcześniej
+    /// pierwsze z nich miało własny warunek <c>!_scriptedMode &amp;&amp; !_replayMode</c>,
+    /// a drugiego nie było wcale, bo wiersza pomocy nie było.</para>
+    /// </summary>
+    private bool _readsKeyboard;
+
     /// <summary>Zapis wejść do odtworzenia; <c>null</c> poza <c>--replay</c>.</summary>
     private InputLog? _replay;
 
@@ -342,6 +353,7 @@ public sealed partial class FirstRun : Node3D
         _scriptedMode = plan.ScriptedMode;
         _lineMode = plan.LineMode;
         _replayMode = plan.ReplayMode;
+        _readsKeyboard = plan.ReadsKeyboard;
         _inputLogPath = plan.InputLogPath;
         _replayPath = plan.ReplayPath;
         _callsPath = plan.CallsPath;
@@ -787,7 +799,7 @@ public sealed partial class FirstRun : Node3D
             return;
         }
 
-        if (!_scriptedMode && !_replayMode)
+        if (_readsKeyboard)
         {
             // KLATKA CZYTA KLAWISZE, KROK PRZESUWA DŹWIGNIĘ. Do 05.09.2026 stało tu
             // `_command = _input.Poll(delta)`, czyli przesuw nastawnika o
@@ -1136,13 +1148,13 @@ public sealed partial class FirstRun : Node3D
 
     private void HandleViewKeys()
     {
-        if (Godot.Input.IsPhysicalKeyPressed(Key.Escape))
+        if (Godot.Input.IsActionPressed(DriverActions.Quit))
         {
             GetTree().Quit();
             return;
         }
 
-        var viewKey = Godot.Input.IsPhysicalKeyPressed(Key.C);
+        var viewKey = Godot.Input.IsActionPressed(DriverActions.ViewToggle);
         if (viewKey && !_viewKeyHeld)
         {
             _view = _view == ViewKind.Cab ? ViewKind.Chase : ViewKind.Cab;
@@ -1151,7 +1163,7 @@ public sealed partial class FirstRun : Node3D
 
         _viewKeyHeld = viewKey;
 
-        var resetKey = Godot.Input.IsPhysicalKeyPressed(Key.R);
+        var resetKey = Godot.Input.IsActionPressed(DriverActions.Reset);
         if (resetKey && !_resetKeyHeld)
         {
             _state = DriveState.AtRest;
@@ -1218,8 +1230,27 @@ public sealed partial class FirstRun : Node3D
             _state.SpeedKmh, _acceleration, chainage, _axis.LengthM,
             name, distance, _command.Throttle, _command.Brake, _mode,
             StationLine(), SignallingLine(), _viewLine,
-            EmergencyBrake.Notice(_activeKeys, _command));
+            EmergencyBrake.Notice(_activeKeys, _command),
+            HelpLine());
     }
+
+    /// <summary>
+    /// Wiersz HUD z opisem sterowania; pusty w przebiegu, którego nie prowadzi człowiek.
+    ///
+    /// <para><b>Ten sam warunek, co przy czytaniu klawiatury</b>, i to jest cała treść
+    /// tej metody. Wiersz „W ciąg · S hamulec · X wybieg…" nad przejazdem skryptowym
+    /// albo odtwarzanym z zapisu wygląda dokładnie tak samo jak nad przejazdem gracza,
+    /// a mówi wtedy o klawiszach, których scena w tym przebiegu nie czyta. Milczenie
+    /// jest tu informacją: pomoc jest wtedy, kiedy jest komu pomóc.</para>
+    ///
+    /// <para>Drugi powód jest mierzalny: przebieg z <c>--shot</c> jest skryptowy, więc
+    /// zrzuty kontrolne wychodzą z HUD-em IDENTYCZNYM jak przed tą zmianą. Progi bramki
+    /// <c>tools/visual/compare.py --set godot</c> są zmierzone na klatce bez geometrii,
+    /// czyli na samym HUD-zie, i stały napis w każdej klatce podniósłby dokładnie tę
+    /// metrykę, którą ta bramka odrzuca pustą klatkę.</para>
+    /// </summary>
+    /// <returns>Opis sterowania albo pusty napis.</returns>
+    private string HelpLine() => _readsKeyboard ? DriverInput.Help : string.Empty;
 
     /// <summary>
     /// Wiersz HUD o sygnalizacji: prędkość dopuszczalna, autorytet jazdy, powód jego

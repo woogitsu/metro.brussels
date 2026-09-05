@@ -4,10 +4,10 @@ using Godot;
 namespace MetroBxl.Game.UI;
 
 /// <summary>
-/// Podgląd stanu przejazdu. Sześć pól tekstowych i nic więcej: prędkość, położenie na
+/// Podgląd stanu przejazdu. Siedem pól tekstowych i nic więcej: prędkość, położenie na
 /// osi, to co robią nastawniki, stacja — dojazd albo faza cyklu drzwi — sygnalizacja,
-/// czyli prędkość dopuszczalna z autorytetem jazdy, i widok, gdy pokazywany jest inny
-/// niż zamówiony.
+/// czyli prędkość dopuszczalna z autorytetem jazdy, widok, gdy pokazywany jest inny niż
+/// zamówiony, i opis sterowania, gdy przy sterowaniu siedzi człowiek.
 ///
 /// <b>Hamulec awaryjny nie dostaje siódmego pola.</b> Jego wiersz dokleja się do pola
 /// nastawników, bo mówi o tym samym hamulcu, którego wskaźnik stoi obok — i dlatego,
@@ -25,6 +25,7 @@ public sealed partial class Hud : CanvasLayer
     private Label? _station;
     private Label? _signalling;
     private Label? _view;
+    private Label? _help;
 
     /// <inheritdoc/>
     public override void _Ready()
@@ -35,8 +36,9 @@ public sealed partial class Hud : CanvasLayer
         _station = GetNode<Label>("Panel/Rows/Station");
         _signalling = GetNode<Label>("Panel/Rows/Signalling");
         _view = GetNode<Label>("Panel/Rows/View");
+        _help = GetNode<Label>("Panel/Rows/Help");
 
-        foreach (var label in new[] { _speed, _position, _controls, _station, _signalling, _view })
+        foreach (var label in new[] { _speed, _position, _controls, _station, _signalling, _view, _help })
         {
             label.AddThemeFontSizeOverride("font_size", 20);
             label.AddThemeColorOverride("font_color", new Color(0.92f, 0.94f, 0.96f));
@@ -51,9 +53,16 @@ public sealed partial class Hud : CanvasLayer
         _station.Visible = false;
         _signalling.Visible = false;
         _view.Visible = false;
+
+        // Wiersz pomocy startuje ukryty z tego samego powodu co trzy powyższe, i z jednym
+        // powodem więcej: w przebiegu skryptowym ma NIE WYJŚĆ WCALE. Progi bramki
+        // `tools/visual/compare.py --set godot` są zmierzone na klatce bez geometrii,
+        // czyli na samym HUD-zie — stały napis w każdej klatce podniósłby dokładnie tę
+        // metrykę, którą ta bramka odrzuca pustą klatkę.
+        _help.Visible = false;
     }
 
-    /// <summary>Odświeża wszystkie sześć wierszy.</summary>
+    /// <summary>Odświeża wszystkie siedem wierszy.</summary>
     /// <param name="speedKmh">Prędkość w km/h.</param>
     /// <param name="accelerationMps2">Przyspieszenie ze znakiem.</param>
     /// <param name="chainageM">Chainage czoła składu.</param>
@@ -94,6 +103,17 @@ public sealed partial class Hud : CanvasLayer
     /// o hamulcu, którego wskaźnik stoi obok, a HUD bez trzymanego klawisza ma wyjść
     /// napisem IDENTYCZNYM jak przedtem — bramka wizualna ogląda te wiersze.</para>
     /// </param>
+    /// <param name="help">
+    /// Opis sterowania — składa go <c>MetroBxl.Game.Input.DriverActions</c> z tej samej
+    /// tabeli, z której biorą się przypisania <c>InputMap</c> w <c>project.godot</c>.
+    /// Puste znaczy „tego przejazdu nie prowadzi człowiek", czyli przebieg skryptowy
+    /// albo odtworzenie z zapisu wejść.
+    ///
+    /// <para>HUD tego napisu NIE SKŁADA — ta sama zasada, co przy trzech poprzednich
+    /// wierszach. Druga kopia listy klawiszy tutaj rozjechałaby się z pierwszą przy
+    /// pierwszej zmianie sterowania, a rozjechałaby się CICHO: wiersz pomocy mówiący
+    /// o niewłaściwym klawiszu wygląda dokładnie tak samo jak wiersz prawdziwy.</para>
+    /// </param>
     public void Update(
         double speedKmh,
         double accelerationMps2,
@@ -107,10 +127,11 @@ public sealed partial class Hud : CanvasLayer
         string station,
         string signalling,
         string view,
-        string emergency)
+        string emergency,
+        string help)
     {
         if (_speed is null || _position is null || _controls is null
-            || _station is null || _signalling is null || _view is null)
+            || _station is null || _signalling is null || _view is null || _help is null)
         {
             return;
         }
@@ -130,6 +151,8 @@ public sealed partial class Hud : CanvasLayer
         _signalling.Visible = signalling.Length > 0;
         _view.Text = view;
         _view.Visible = view.Length > 0;
+        _help.Text = help;
+        _help.Visible = help.Length > 0;
     }
 
     private static string Bar(double value)
