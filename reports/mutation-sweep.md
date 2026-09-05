@@ -21,7 +21,15 @@ i rozjazd trzeba nazwać, zanim ktoś przeczyta liczby jako odpowiedź na tamto 
 |---|---|
 | kontrole w `tools/ci/*.sh` | nic — mutuje wyłącznie Pythona; skrypty shellowe są nietknięte |
 | kontrole w `tools/tests/test_*.py` | nic — mutuje **kod pod testem**, a testy pozostawia jako wyrocznię |
-| „każdą kontrolę" | wyłącznie **operatory porównań i progi liczbowe**; nie mutuje przypisań, wywołań ani łączników logicznych |
+| „każdą kontrolę" | **pięć klas**: operatory porównań, progi liczbowe, łączniki logiczne, stałe w argumentach wywołań, akumulacja w przypisaniach augmentowanych |
+
+**Trzeci wiersz jest przepisany 05.09.2026, a nie dopisany obok.** Do pozycji 6.D6 mówił
+„wyłącznie **operatory porównań i progi liczbowe**; nie mutuje przypisań, wywołań ani
+łączników logicznych" i to przestało być prawdą — pozycja 6.D6 domknęła ten rozjazd.
+Wszystkie liczby w sekcjach „Wynik", „Kolejność triażu" i „Ocalałe, per plik" pochodzą
+**sprzed** tej zmiany, ze starego zestawu dwóch klas; nowy zestaw jest zmierzony na
+dwóch modułach w sekcji „Rozszerzony zestaw operatorów" niżej. Pierwsze dwa wiersze
+tabeli stoją bez zmian: bramki shellowe i same testy nadal są nietknięte.
 
 Wyjątkiem, i to pozornym, jest `tools/ci/assert_shot_metadata.py` — leży w `tools/ci`,
 ale jest modułem Pythona i wchodzi do przebiegu jako kod pod testem, nie jako bramka.
@@ -29,6 +37,155 @@ ale jest modułem Pythona i wchodzi do przebiegu jako kod pod testem, nie jako b
 To nie znaczy, że pozycja 5.1 jest zła. Znaczy, że **domyka ją tylko częściowo**:
 mutowanie bramek shellowych i samych testów wymagałoby drugiego narzędzia i osobnej
 wyroczni, bo dla testu wyrocznią byłby wtedy kod, a nie odwrotnie.
+
+## Rozszerzony zestaw operatorów — pomiar 05.09.2026, gałąź `wiecej-operatorow-mutacji`
+
+Pozycja 6.D6. Dwie zmiany naraz i obie są potrzebne osobno: doszły **trzy klasy
+mutacji**, a ocalałe przestały być jedną kupką.
+
+### Co doszło
+
+| klasa | przykład | ile w drzewie `c1563d0` |
+|---|---|---:|
+| `operator` *(było)* | `a < b` → `a <= b` | 799 |
+| `prog` *(było)* | `a < 1.5` → `a < 1.515` | 239 |
+| `logika` | `a and b` → `a or b` | 344 |
+| `argument` | `round(x, 3)` → `round(x, 4)` | 824 |
+| `przypisanie` | `t += dt` → `t = dt` | 84 |
+
+**1038 → 2290 mutacji** w całym drzewie, **985 → 1940** po odjęciu modułów
+nieosiągalnych. Stary zestaw odtwarza `--operators operator,prog` i robi to **co do
+identyfikatora**, nie „mniej więcej tyle samo": `test_legacy_kinds_are_a_subset_of_the_new_run`
+porównuje listy `plik:wiersz:przesunięcie` pozycja po pozycji na całym drzewie.
+
+Liczba 1038 nie kłóci się z 980 z nagłówka tego raportu: 980 zmierzono na `66b8301`,
+1038 na `c1563d0`. To dryf drzewa przez kilkanaście scaleń, nie skutek zmiany
+operatorów — obie liczby są ze **starego** zestawu dwóch klas.
+
+`argument` mutuje stałą liczbową i flagę logiczną **stojącą w argumencie wywołania**,
+a nie podmienia argumentu na wartość neutralną. Podmiana na `None` albo `0` daje
+w Pythonie natychmiastowy `TypeError`, czyli mutanta zabijanego przez sam import
+i niemówiącego nic o bramkach; przesunięcie liczby pyta o to samo, o co pyta `prog`,
+tylko w miejscu, gdzie w tym repozytorium siedzą tolerancje (`abs_tol=`, `rel_tol=`,
+`round(x, n)`) — a te były dotąd poza zasięgiem narzędzia.
+
+### Ocalała ≠ nieprzetestowana
+
+Mutacja przypisania albo argumentu wywołania trafia często w kod, do którego wykonanie
+nigdy nie dochodzi: gałąź `if __name__ == "__main__"`, funkcja drukująca raport,
+obsługa błędu. Taka mutacja przeżywa **nie dlatego, że bramka nie bramkuje, tylko
+dlatego, że nikt jej nie odpalił** — a policzona razem z prawdziwą dziurą kieruje triaż
+na kod, w którym nie ma czego naprawiać.
+
+Przebieg mierzy więc raz, **przed mutowaniem**, które wiersze zestaw testów naprawdę
+wykonuje: jeden przebieg `test_all.py` z licznikiem wierszy wstrzykniętym przez
+`sitecustomize` na `PYTHONPATH`, czyli tak, żeby licznik działał również
+w podprocesach (część bramek chodzi przez `sys.executable`). Mierzone jest wykonanie
+**wiersza**, nie zmutowanego podwyrażenia — „nieuruchomiona" jest przez to twarda,
+a „wykonana" jest ograniczeniem z góry.
+
+To **nie jest** ta sama rzecz co „nierozstrzygnięta". Nierozstrzygnięta mówi o wyroczni,
+która nie doszła do końca; nieuruchomiona mówi o mutancie, do którego nie doszło
+wykonanie. Nierozstrzygnięte są dodatkowo rozbite na dwa powody, bo i one mówią
+o różnych rzeczach: **przekroczony czas** znaczy, że zestaw się zapętlił, czyli mutant
+JEST obserwowalny, tylko nie w postaci, którą ta wyrocznia umie odczytać; **awaria poza
+mutacją** (sygnał, OOM) nie mówi o mutancie nic.
+
+### Zmierzone na dwóch modułach
+
+Przebieg „przed" puszczony na `c1563d0` (`main`, przed tą pozycją), przebieg „po" na
+`fcda419` — commicie tej gałęzi przed ostatnim `--amend`, różniącym się od scalanej
+wersji dwoma wierszami prozy w `report()`. Żaden z tych commitów nie tyka
+`braking.py` ani `crs.py`, więc drzewo pod mutacją jest po obu stronach identyczne —
+i **wyrocznia też**: robotnik kasuje `tools/tests/test_mutation_sweep.py` z drzewa
+roboczego w obu przebiegach, więc testy dopisane w tej pozycji nie wchodzą do
+porównania.
+
+| | `braking.py` przed | `braking.py` po | `crs.py` przed | `crs.py` po |
+|---|---:|---:|---:|---:|
+| mutacji | 11 | 23 | 14 | 29 |
+| zabitych | 6 | 8 | 10 | 24 |
+| **ocalałych razem** | **5** | **13** | **4** | **5** |
+| — w tym mimo wykonania | *nie mierzone* | 5 | *nie mierzone* | 5 |
+| — w tym nieuruchomionych | *nie mierzone* | 8 | *nie mierzone* | 0 |
+| nierozstrzygniętych | 0 | 2 | 0 | 0 |
+
+Per klasa, przebieg „po":
+
+| klasa | `braking.py` zabite / ocalałe wykonane / nieuruchomione / nieroz. | `crs.py` zabite / ocalałe wykonane / nieuruchomione / nieroz. |
+|---|---|---|
+| `operator` | 6 / 3 / 1 / 0 | 8 / 2 / 0 / 0 |
+| `prog` | 0 / 0 / 1 / 0 | 2 / 2 / 0 / 0 |
+| `logika` | 0 / 1 / 0 / 1 | 1 / 0 / 0 / 0 |
+| `argument` | 0 / 1 / 6 / 0 | 7 / 1 / 0 / 0 |
+| `przypisanie` | 2 / 0 / 0 / 1 | 6 / 0 / 0 / 0 |
+
+### Co z tego widać, czego wcześniej nie było widać
+
+**1. Dwie z pięciu „ocalałych" `braking.py` z tego raportu to martwy kod, nie dziura
+w bramce.** Sekcja „Ocalałe, per plik" wymienia dla `braking.py` wiersze 163, 165
+i **287** (dwa razy). Licznik wierszy mówi, że **287 nie wykonuje się ani razu**: stoi
+w `report()`, funkcji drukującej tabele na konsolę, której żaden test nie woła. Ta sama
+funkcja daje kolejnych sześć nieuruchomionych z nowej klasy `argument` (wiersze 277,
+278, 303, 304, 306, 307). Triaż `braking.py` prowadzony z tego raportu zaczynałby więc
+od pisania testu na `print`.
+
+**2. Nowa klasa `przypisanie` potrafi zabić, i to nie przypadkiem.** `braking.py:205`
+i `:206` — zdjęcie akumulacji z `s += ds` i `resistance_per_kg += a_res * ds` — są
+zabite przez zestaw; w `crs.py` zabitych jest **wszystkie sześć** (iteracje Helmerta
+`x += xw - fx`, Newton `lon -= …`, szerokość autaliczna `phi += step`). Klasa, która
+w drzewie daje tylko 84 mutacje, ma w tych dwóch modułach 8 zabitych na 9
+rozstrzygniętych — trafia w pętle iteracyjne, czyli w miejsca, gdzie stary zestaw
+mutował co najwyżej warunek stopu.
+
+**3. Nowa klasa `logika` znajduje ocalałą tam, gdzie stary zestaw znajdował tylko
+operatory.** `braking.py:163`, `if mid <= low or mid >= high:` — `or` → `and` przeżywa
+wykonanie. W tym samym wierszu stary zestaw miał już dwie ocalałe (`<=` → `<`
+i `>=` → `>`), więc to nie jest nowe miejsce, tylko **trzecia niesprawdzona rzecz
+w miejscu, o którym raport twierdził, że wie o nim wszystko**.
+
+**4. Dwie nierozstrzygnięte i obie z przekroczonego czasu, obie z nowych klas.**
+`braking.py:200` (`and` → `or` w warunku pętli) i `braking.py:207` (`n += 1` → `n = 1`)
+zawieszają `sim_brake`. Zmierzone wykonaniem, poza przeglądem, na wywołaniu
+`sim_brake(200/3.6, 0.0, cfg, None, dt=1/120, limit_s=120)`:
+
+```
+=== BEZ MUTACJI (kontrola)
+    wrocilo po 0.005 s: droga=6666.7 m, czas=120.0 s, krokow=14400
+=== braking.py:207  n += 1  ->  n = 1
+    NIE WROCILO w 25 s — petla nieskonczona
+=== braking.py:200  and -> or
+    NIE WROCILO w 25 s — petla nieskonczona
+```
+
+To jest znalezisko tej samej rodziny co opisana niżej nierozstrzygnięta
+z `detail_layout.py`, tylko o poziom głębiej: `sim_brake` **ma** ogranicznik kroków
+(`max_steps`), ale ogranicznik przestaje ograniczać, gdy zmutowany zostaje licznik,
+od którego zależy. Naprawa leży w kodzie pod testem i **nie należy do tej pozycji**.
+
+**5. `crs.py` wypada odwrotnie niż `braking.py` i to też jest informacja.** 29 mutacji,
+**zero nieuruchomionych**, zero nierozstrzygniętych, 24 zabite — moduł nie ma kodu,
+którego zestaw nie dotyka, a nowe klasy zabijają w nim 14 mutacji z 15. Ta sama zmiana
+narzędzia daje w jednym module „osiem ocalałych, których nikt nie uruchamia", a w drugim
+„czternaście nowych zabić". Bez rozdzielenia ocalałych na dwie kupki oba moduły
+wyglądałyby na pogorszone.
+
+**6. Jedyna nowa ocalała w `crs.py` to podręcznikowy mutant równoważny.**
+`crs.py:212`, `for _ in range(6)` → `range(7)` w odwrotności Helmerta. Docstring tej
+funkcji mówi, że „iteracja schodzi do precyzji maszynowej"; siódmy obrót nie ma czego
+poprawić, więc żaden test nie ma prawa tego zobaczyć. Kwalifikacja: **mutant
+równoważny**, nie dziura — i warto ją zapisać, bo budżet iteracji jest wielkością,
+której stary zestaw operatorów nie umiał tknąć w ogóle (to argument wywołania, nie
+porównanie).
+
+### Czego ten pomiar NIE obejmuje
+
+Pełny przebieg na nowym zestawie **nie został wykonany**. To 1940 mutacji osiągalnych
+wobec 985 w przebiegu z nagłówka; przy tempie tamtego przebiegu (12,6 mutacji na minutę,
+4 robotniki) daje to ponad dwie i pół godziny maszyny, a przy dzisiejszym zestawie
+testów — dłużej. Tabele „Wynik", „Kolejność triażu" i „Ocalałe, per plik" niżej
+pochodzą więc **ze starego zestawu operatorów** i tak trzeba je czytać, dopóki ktoś
+nie przeliczy całości.
 
 ## Wynik
 
@@ -138,10 +295,12 @@ wierszu z operatorem, jeżeli wiersz zawiera dwa takie same operatory.
 ## Jak czytać ocalałe
 
 Ocalała mutacja **nie jest** automatycznie usterką. Trzeba ją zakwalifikować do jednej
-z trzech klas, a narzędzie tego nie zrobi za czytającego:
+z czterech klas; pierwszą narzędzie rozstrzyga pomiarem od pozycji 6.D6, trzy pozostałe
+zostają czytającemu:
 
 | klasa | co znaczy | co z tym zrobić |
 |---|---|---|
+| **kod nieuruchomiony** | wiersz nie wykonał się w przebiegu bez mutacji ani razu — mierzone licznikiem wierszy, nie zgadywane | osobna sekcja w raporcie narzędzia; nie liczy się do pokrycia kodu wykonanego |
 | **realna dziura** | zmiana zmienia zachowanie, które ktoś kiedyś zobaczy, a żaden test tego nie sprawdza | dopisać test z kontrolą negatywną |
 | **mutant równoważny** | zmiany nie da się zaobserwować (np. tolerancja `1e-12` przesunięta o procent) | zapisać jako równoważną, nie „naprawiać" |
 | **remis bez znaczenia** | `<` kontra `<=` przy wyborze minimum: przy remisie obie gałęzie dają tę samą wartość | jak wyżej, chyba że liczy się INDEKS |
@@ -269,6 +428,14 @@ duża liczba przy niskim udziale znaczy tylko, że moduł jest duży.
 ```bash
 git checkout 66b8301
 python3 tools/tests/mutation_sweep.py --workers 4 \
+    --journal /tmp/mutacje.jsonl --json /tmp/mutacje.json --out /tmp/sweep.md
+```
+
+Na drzewie po scaleniu pozycji 6.D6 to polecenie daje **nowy, pięcioklasowy** zestaw.
+Żeby powtórzyć dokładnie liczby z tego raportu, trzeba zawęzić klasy:
+
+```bash
+python3 tools/tests/mutation_sweep.py --workers 4 --operators operator,prog \
     --journal /tmp/mutacje.jsonl --json /tmp/mutacje.json --out /tmp/sweep.md
 ```
 
