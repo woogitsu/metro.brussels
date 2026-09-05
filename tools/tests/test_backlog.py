@@ -8,6 +8,25 @@ i nigdzie niesprawdzana jest życzeniem — ten test robi z niej bramkę.
 Powód nie jest wydajnościowy. Agent, który skończył kolejkę, ma do wyboru stanąć albo
 wymyślić sobie zadanie na miejscu. Drugie jest gorsze: zadanie wymyślone w pośpiechu
 omija format z sekcji 6 `CLAUDE.md` i ląduje w kodzie, którego nikt nie prosił o zmianę.
+
+Do 05.09.2026 ten plik liczył WYŁĄCZNIE, ile pozycji stoi w kolejce — nigdy, czy
+pozycja jest zadaniem. Zmierzone tego dnia: wycięcie z `docs/TASKS.md` całej sekcji
+`#### Szczegóły ośmiu pozycji dopisanych 04.09.2026`, **15 802 znaki** z sześcioma
+polami dla ośmiu pozycji, przechodziło **1467/1467** testów. Licznik widział 33 wiersze
+tabel tak samo przed wycięciem, jak po nim, bo wiersz tabeli zostaje wierszem tabeli
+niezależnie od tego, czy gdziekolwiek w pliku stoi opis, jak to zadanie wykonać.
+
+Stąd druga połowa tego pliku: `detail_sections` czyta bloki `##### <numer> · …`
+i sprawdza sześć pól z `docs/TASK-TEMPLATE.md`. Numery liczone do zapasu i numery
+udokumentowane to **dwie różne liczby** — pierwsza mówi, ile pozycji ktoś wpisał,
+druga, ile z nich da się wziąć bez dopytywania właściciela.
+
+Pozycja ODHACZONA jest z tego wymagania wyłączona **jawnie**, a nie przez przeoczenie:
+domknięte numery stoją w tabeli `#### Domknięte i zdjęte z kolejki`, której kolumny to
+`| # | co było | gdzie zostało zrobione |`. Tam nie ma sześciu pól i nie ma ich mieć —
+odpowiednikiem „Wyniku" z `docs/TASK-TEMPLATE.md` jest trzecia kolumna, a `ready_items`
+i tak wyklucza te numery z licznika. Wymaganie sześciu pól obowiązuje dokładnie te
+pozycje, które licznik zapasu liczy.
 """
 import os
 import re
@@ -28,6 +47,30 @@ QUEUE_PREFIXES = ("5.", "6.")
 #: Nagłówek tabeli kolejki. Służy do jednego: sprawdzenia, że wycinanie sekcji
 #: domknięć nie zabrało ze sobą tabeli, z której ta sekcja pochodzi.
 QUEUE_TABLE_HEADER = "| # | zadanie |"
+
+#: Sześć pól z `CLAUDE.md` §6 i `docs/TASK-TEMPLATE.md`, dokładnie w tym brzmieniu,
+#: w jakim stoją w `docs/TASKS.md`: `- **Wejście:** …`.
+REQUIRED_FIELDS = (
+    "Wejście",
+    "Wyjście",
+    "Weryfikacja",
+    "Skończone, gdy",
+    "Poza zakresem",
+    "Zależy od",
+)
+
+#: Ile pozycji kolejki ma DZIŚ komplet sześciu pól. Zmierzone 05.09.2026 na `b41c158`:
+#: 8 z 33. To jest zapadka, nie cel — wolno ją tylko podnosić. Celem jest
+#: `MINIMUM_READY_ITEMS`, czyli tyle udokumentowanych pozycji, ile licznik zapasu
+#: uznaje za dobę pracy; brakujące cztery są **znaleziskiem do zgłoszenia**, nie
+#: zaproszeniem do wymyślenia treści (`CLAUDE.md` §8 zabrania brać zadanie wymyślone
+#: na miejscu, a dopisanie sobie „Weryfikacji" do cudzej pozycji jest tym samym).
+MINIMUM_DOCUMENTED_ITEMS = 8
+
+#: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
+#: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
+#: usunąć — inaczej plan niesie nieprawdę o samym sobie.
+SHORTFALL_MARKER = "**Zapas udokumentowany:**"
 
 
 def _tasks():
@@ -76,6 +119,57 @@ def ready_items(text):
     """Pozycje kolejki, które są PRACĄ: bez zablokowanych i bez domkniętych."""
     excluded = set(queue_items(blocked_section(text))) | set(queue_items(closed_section(text)))
     return [item for item in queue_items(text) if item not in excluded]
+
+
+def detail_sections(text):
+    """Bloki `##### <numer> · tytuł` → treść, np. {'6.A8': '##### 6.A8 · …\n- …'}.
+
+    Blok kończy się na PIERWSZYM kolejnym nagłówku dowolnego poziomu, nie tylko
+    piątego: sekcja szczegółów jest ostatnia w fazie 6 i sąsiaduje z `### Czego agent
+    nie ruszy bez decyzji`, więc szukanie samego `\n##### ` wciągnęłoby do ostatniej
+    pozycji całą listę decyzji właściciela — i „Zależy od" znalazłoby się tam, gdzie
+    go nie ma.
+    """
+    lines = text.splitlines()
+    heads = [(i, m.group(1)) for i, line in enumerate(lines)
+             for m in [re.match(r"^#####\s+(\d+\.[A-Za-z]?\d+)\s*·", line)] if m]
+    sections = {}
+    for position, (start, number) in enumerate(heads):
+        end = len(lines)
+        for j in range(start + 1, len(lines)):
+            if lines[j].startswith("#"):
+                end = j
+                break
+        sections[number] = "\n".join(lines[start:end])
+    return sections
+
+
+def missing_fields(body):
+    """Których z sześciu pól brakuje w bloku — pusta lista znaczy komplet.
+
+    Pole musi mieć TREŚĆ, nie tylko nagłówek. `- **Weryfikacja:**` bez niczego dalej
+    jest dokładnie tym, przed czym `CLAUDE.md` §6 ostrzega: polem odhaczonym zamiast
+    wypełnionego.
+    """
+    missing = []
+    for field in REQUIRED_FIELDS:
+        marker = "- **%s:**" % field
+        at = body.find(marker)
+        if at < 0:
+            missing.append(field)
+            continue
+        rest = body[at + len(marker):]
+        nxt = re.search(r"\n- \*\*", rest)
+        if not (rest if nxt is None else rest[:nxt.start()]).strip():
+            missing.append(field)
+    return missing
+
+
+def documented_items(text):
+    """Pozycje liczone do zapasu, które mają komplet sześciu pól z `CLAUDE.md` §6."""
+    sections = detail_sections(text)
+    return [item for item in ready_items(text)
+            if item in sections and not missing_fields(sections[item])]
 
 
 def test_tasks_file_exists():
@@ -199,3 +293,147 @@ def test_the_threshold_is_not_trivially_satisfied():
     # obniżył `MINIMUM_READY_ITEMS` do wartości, przy której bramka nigdy nie zaświeci.
     assert MINIMUM_READY_ITEMS >= 12, (
         "próg poniżej dwunastu pozycji przestaje odpowiadać dobie pracy")
+
+
+# ---------------------------------------------------------------------------
+# Format pozycji, a nie tylko jej liczba.
+# ---------------------------------------------------------------------------
+
+
+def test_the_detail_scan_actually_finds_something():
+    """Bramka bez przedmiotu ma PAŚĆ, nie przechodzić na pustym zbiorze.
+
+    To jest ta sama pułapka, którą ten plik już raz złapał przy sekcji domknięć,
+    tylko o poziom wyżej. Gdyby ktoś zmienił poziom nagłówka `#####` na `####`,
+    przeniósł szczegóły do osobnego pliku albo wyciął całą sekcję — `detail_sections`
+    zwróciłoby `{}`, a test „każdy blok ma sześć pól" byłby zielony, bo nie miałby
+    czego sprawdzić. Zmierzone 05.09.2026: wycięcie 15 802 znaków tej sekcji
+    przechodziło 1467/1467.
+    """
+    sections = detail_sections(_tasks())
+    assert len(sections) >= MINIMUM_DOCUMENTED_ITEMS, (
+        f"skan znalazł {len(sections)} bloków szczegółów przy zapadce "
+        f"{MINIMUM_DOCUMENTED_ITEMS}; albo sekcja z sześcioma polami zniknęła "
+        "lub zmieniła kształt nagłówka i bramka przestała mieć na co patrzeć, "
+        "albo ktoś podniósł zapadkę bez dopisania bloków")
+
+
+def test_every_detail_block_carries_all_six_fields():
+    # Blok, który ma nagłówek i trzy pola, jest gorszy niż brak bloku: wygląda
+    # na wypełniony i przechodzi wzrokiem. Sześć pól albo żadnego.
+    for number, body in sorted(detail_sections(_tasks()).items()):
+        missing = missing_fields(body)
+        assert not missing, f"{number} bez pól: {', '.join(missing)}"
+
+
+def test_no_detail_block_describes_a_number_that_left_the_tables():
+    # Odwrotna strona tego samego rozjazdu: opis został, wiersz zniknął.
+    # Taki blok wygląda jak zadanie do wzięcia, a nie ma go w żadnej kolejce.
+    text = _tasks()
+    numbers = set(queue_items(text))
+    for number in sorted(detail_sections(text)):
+        assert number in numbers, (
+            f"blok szczegółów {number} nie ma wiersza w żadnej tabeli")
+
+
+def test_the_documented_reserve_does_not_regress():
+    """Zapadka na liczbie pozycji, które naprawdę da się wziąć.
+
+    `MINIMUM_READY_ITEMS` mówi, ile pozycji ktoś WPISAŁ. Ta liczba mówi, ile z nich
+    niesie sześć pól, czyli ile agent może wziąć bez dopytywania właściciela.
+    Zmierzone 05.09.2026 na `b41c158`: **8 z 33**. Wolno tylko podnosić — a podnosi
+    się ją, dopisując pola tam, gdzie da się je ODCZYTAĆ z `docs/`, `reports/`
+    i `data/`, nie zmyślając ich.
+    """
+    text = _tasks()
+    documented = documented_items(text)
+    assert len(documented) >= MINIMUM_DOCUMENTED_ITEMS, (
+        f"pozycji z kompletem sześciu pól jest {len(documented)} "
+        f"przy zapadce {MINIMUM_DOCUMENTED_ITEMS}: "
+        f"{sorted(set(ready_items(text)) - set(documented))} są bez kompletu")
+
+
+def test_the_documented_shortfall_is_written_down_while_it_lasts():
+    """Różnica między zapadką a progiem nie ma prawa zniknąć po cichu.
+
+    Dziś zapadka stoi na 8, a próg zapasu na 12 — cztery pozycje kolejki są
+    wierszem tabeli bez opisu, jak je wykonać. Dopóki tak jest, `docs/TASKS.md`
+    ma to mówić wprost. Gdy ktoś doprowadzi zapadkę do progu, ma ten akapit
+    usunąć: plan, który po domknięciu luki nadal ją opisuje, jest tak samo
+    nieprawdziwy jak plan, który jej nigdy nie opisał.
+    """
+    text = _tasks()
+    if MINIMUM_DOCUMENTED_ITEMS < MINIMUM_READY_ITEMS:
+        assert SHORTFALL_MARKER in text, (
+            "zapas udokumentowany jest poniżej progu, a plan o tym milczy")
+    else:
+        assert SHORTFALL_MARKER not in text, (
+            "zapadka doszła do progu, a plan nadal opisuje lukę")
+
+
+def test_the_ratchet_cannot_be_set_above_what_it_guards():
+    # Zapadka wyższa od progu zapasu byłaby wymaganiem bez pokrycia w regule:
+    # `docs/TASKS.md` żąda dwunastu pozycji, nie dwudziestu udokumentowanych.
+    assert 0 < MINIMUM_DOCUMENTED_ITEMS <= MINIMUM_READY_ITEMS, (
+        "zapadka udokumentowanych stoi poza przedziałem (0, próg zapasu]")
+
+
+def test_closed_items_are_exempt_from_the_six_fields_on_purpose():
+    """Rozstrzygnięcie wprost: pozycja ODHACZONA nie ma sześciu pól i nie ma ich mieć.
+
+    `docs/TASK-TEMPLATE.md` daje pozycji niezrobionej sześć pól, a zrobionej dokłada
+    „Wynik". W tabelach 5.x/6.x odpowiednikiem „Wyniku" jest trzecia kolumna tabeli
+    domknięć — `| # | co było | gdzie zostało zrobione |`. Wymaganie kompletu
+    dotyczy więc dokładnie `ready_items`, i ten test pilnuje, żeby to zwolnienie
+    było ŻYWE: gdyby wszystkie domknięte numery miały nagle bloki szczegółów,
+    zwolnienie byłoby martwym zapisem i nikt by nie zauważył, że przestało cokolwiek
+    znaczyć.
+    """
+    text = _tasks()
+    closed = queue_items(closed_section(text))
+    assert closed, "sekcja domknięć nie wymienia ani jednego numeru"
+
+    sections = detail_sections(text)
+    without = [n for n in closed if n not in sections]
+    assert without, (
+        "każdy domknięty numer ma blok szczegółów — zwolnienie z sześciu pól "
+        "przestało cokolwiek zwalniać")
+
+    documented = set(documented_items(text))
+    for number in closed:
+        assert number not in documented, (
+            f"{number} jest domknięte, a liczy się do zapasu udokumentowanego")
+
+    # I to, co domknięta pozycja mieć MUSI zamiast sześciu pól: wskazanie, gdzie
+    # została zrobiona. Pusta trzecia kolumna zamieniłaby tabelę domknięć
+    # w listę numerów bez śladu po pracy.
+    for line in closed_section(text).splitlines():
+        if re.match(r"^\|\s*\d+\.[A-Za-z]?\d+\s*\|", line):
+            cells = [c.strip() for c in line.strip("|").split("|")]
+            assert len(cells) >= 3 and cells[2], (
+                f"domknięta pozycja bez wskazania, gdzie ją zrobiono: {line[:60]}")
+
+
+def test_the_field_parser_actually_parses():
+    # Kontrole negatywne samego czytnika pól. Bez nich testy wyżej przechodziłyby
+    # także wtedy, gdyby `missing_fields` zwracał pustą listę na wszystkim.
+    complete = "\n".join("- **%s:** treść." % f for f in REQUIRED_FIELDS)
+    assert missing_fields(complete) == []
+    assert missing_fields("") == list(REQUIRED_FIELDS), "pusty blok ma być bez pól"
+    assert missing_fields(complete.replace("- **Wyjście:** treść.", "")) == ["Wyjście"]
+    assert missing_fields(complete.replace("- **Weryfikacja:** treść.",
+                                           "- **Weryfikacja:**")) == ["Weryfikacja"], \
+        "sam nagłówek pola bez treści nie jest polem"
+    assert missing_fields("Wejście: bez pogrubienia") == list(REQUIRED_FIELDS), \
+        "wzmianka w prozie nie jest polem"
+
+    # I czytnik bloków.
+    sample = ("##### 6.Z9 · tytuł\n- **Wejście:** a\n"
+              "### inny nagłówek\n- **Wyjście:** nie moje\n")
+    parsed = detail_sections(sample)
+    assert list(parsed) == ["6.Z9"], parsed
+    assert "nie moje" not in parsed["6.Z9"], "blok przelewa się przez nagłówek"
+    assert detail_sections("#### 6.Z9 · zły poziom") == {}, \
+        "nagłówek innego poziomu nie jest blokiem szczegółów"
+    assert detail_sections("##### T-010 · nie numer kolejki") == {}
+
