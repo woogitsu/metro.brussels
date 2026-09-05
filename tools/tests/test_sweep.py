@@ -306,3 +306,161 @@ def test_sweep_strictly_increasing_removes_a_repeated_tail():
     assert SW._strictly_increasing([0, 3, 3], 3) == [0, 3]
     assert SW._strictly_increasing([0, 0, 0], 5) == [0, 1, 5]
     assert SW._strictly_increasing([0, 2, 4], 4) == [0, 2, 4]
+
+
+# --- granice porównań w sweep.py (triaż 6.B6) -----------------------------------
+
+#: DLACZEGO TE TESTY SIEDZĄ RAZEM I DLACZEGO PODAJĄ PROGI JAWNIE.
+#:
+#: Wszystkie pochodzą z triażu ocalałych mutacji `tools/blender/sweep.py`
+#: (`reports/mutation-triage-sweep.md`). Każdy przybija **granicę porównania**, czyli
+#: zachowanie DOKŁADNIE na progu — miejsce, którego dotychczasowe testy nie dotykały,
+#: bo operowały wartościami wyraźnie po jednej albo po drugiej stronie.
+#:
+#: Progi są podawane **jawnie jako argumenty**, nigdy przez wartość domyślną. Blok 6.B6
+#: w `docs/TASKS.md` wyklucza ruszanie ośmiu stałych generatora z
+#: `docs/21-measured-vs-assumed.md` §4: test ma sprawdzać, co się dzieje NA progu,
+#: a nie ile ten próg wynosi. `assert SW.DEFAULT_MIN_CHUNK_M == 120.0` byłby dokładnie
+#: tym, czego ten zakaz zabrania.
+
+
+def test_sweep_a_vector_shorter_than_a_millimetre_still_has_a_direction():
+    """Mutacja 54 `0.0` -> `0.001`: próg zerowej długości nie jest progiem milimetrowym.
+
+    `unit` odmawia kierunku wektorowi ZEROWEMU. Podniesienie progu do 0,001 odmawia
+    także wektorom krótszym niż milimetr — a takie występują w `tangents` na gęsto
+    próbkowanej osi i w `rmf_frames`, gdzie różnica dwóch sąsiednich punktów bywa
+    mniejsza od kroku zagęszczania.
+    """
+    assert SW.unit((5e-4, 0.0, 0.0)) == (1.0, 0.0, 0.0)
+    try:
+        SW.unit((0.0, 0.0, 0.0))
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("wektor zerowy dostał kierunek")
+
+
+def test_sweep_a_point_exactly_one_epsilon_away_is_a_duplicate():
+    """Mutacja 65 `>` -> `>=`: „dalej niż eps" znaczy dalej, nie „co najmniej".
+
+    `dedupe` zostawia punkt, gdy jest DALEJ niż `eps`. Punkt odległy dokładnie o `eps`
+    jest duplikatem i ma wypaść — inaczej oś zagęszczona krokiem równym `eps` podwaja
+    każdy punkt, a `rmf_frames` dostaje segment o zerowej długości.
+    """
+    para = [(0.0, 0.0, 0.0), (1e-6, 0.0, 0.0)]
+    assert SW.dedupe(para, 1e-6) == [(0.0, 0.0, 0.0)]
+    assert SW.dedupe([(0.0, 0.0, 0.0), (2e-6, 0.0, 0.0)], 1e-6) == para[:1] + [(2e-6, 0.0, 0.0)]
+
+
+def test_sweep_a_sub_millimetre_step_still_densifies():
+    """Mutacja 92 `0.0` -> `0.001`: „krok niedodatni" nie znaczy „krok mniejszy niż milimetr".
+
+    `step <= 0.0` jest wyłącznikiem zagęszczania. Przy progu 0,001 krok 0,5 mm cicho
+    zwracałby łamaną źródłową — czyli oś BEZ wygładzenia, wyglądającą w manifeście
+    dokładnie tak samo jak wygładzona.
+    """
+    assert len(SW.catmull_rom([(0, 0, 0), (1, 0, 0), (2, 0, 0)], 5e-4)) == 4001
+    assert SW.catmull_rom([(0, 0, 0), (1, 0, 0), (2, 0, 0)], 0.0) == [(0, 0, 0), (1, 0, 0), (2, 0, 0)]
+
+
+def test_sweep_a_three_centimetre_segment_is_not_degenerate():
+    """Mutacja 126 `0.0` -> `0.001`: `seg` jest KWADRATEM długości, więc próg zwodzi.
+
+    Próg 0,001 na kwadracie długości wycina segmenty krótsze niż ~3,16 cm — a `max_deviation`
+    mierzy odległość od łamanej ŹRÓDŁOWEJ, której segmenty na łuku o małym promieniu
+    bywają właśnie tak krótkie. Odległość liczona wtedy do końca segmentu zamiast do
+    rzutu zawyża rozjazd.
+    """
+    odcinek = [(0.0, 0.0, 0.0), (0.03, 0.0, 0.0)]
+    assert round(SW.point_to_polyline((0.015, 1.0, 0.0), odcinek), 6) == 1.0
+
+
+def test_sweep_the_projection_clamp_stops_exactly_at_both_ends_of_a_segment():
+    """Mutacje 130 `0.0` -> `0.001` i `1.0` -> `1.01`: mutowane są PROGI, nie wartości klamry.
+
+    W tym wierszu stoją cztery literały i łatwo przypiąć nie te. Pierwsza wersja tego
+    testu sprawdzała **wartości klamry** (kolumny 12 i 33) — i przegląd pokazał, że
+    obie mutacje nadal żyją, bo dziennik wskazuje kolumny **23 i 44**, czyli PROGI:
+
+        t = 0.0 if t < 0.0 else (1.0 if t > 1.0 else t)
+                        ^^^                  ^^^
+
+    Próg `t < 0.001` klamruje do zera każdy rzut z pierwszego promila odcinka, próg
+    `t > 1.01` przepuszcza rzut do 1 % ZA jego koniec. Zmierzone na odcinku 100 m:
+
+        punkt (0.05, 0, 0)   oryginał 0.0   mutant 0.05
+        punkt (100.5, 0, 0)  oryginał 0.5   mutant 1.42e-14
+
+    Assercje niżej idą parami: dwie na progi (te zabijają mutacje z przeglądu) i dwie
+    na wartości klamry (te pilnują, żeby rzut poza odcinek trafiał w jego koniec).
+    """
+    dlugi = [(0.0, 0.0, 0.0), (100.0, 0.0, 0.0)]
+    assert SW.point_to_polyline((0.05, 0.0, 0.0), dlugi) == 0.0
+    assert round(SW.point_to_polyline((100.5, 0.0, 0.0), dlugi), 6) == 0.5
+
+    krotki = [(0.0, 0.0, 0.0), (1.0, 0.0, 0.0)]
+    assert round(SW.point_to_polyline((5.0, 0.0, 0.0), krotki), 6) == 4.0
+    assert round(SW.point_to_polyline((-5.0, 0.0, 0.0), krotki), 6) == 5.0
+
+
+def test_sweep_a_face_whose_normal_is_perpendicular_counts_as_inside():
+    """Mutacja 380 `>` -> `>=`: normalna PROSTOPADŁA do promienia nie jest „na zewnątrz".
+
+    `outward_faces` liczy ściany zwrócone na zewnątrz rury i poprawny wynik to zero.
+    Iloczyn skalarny dokładnie zerowy znaczy „ani do środka, ani na zewnątrz" — ściana
+    styczna. Zaliczenie jej do wywróconych dałoby fałszywy alarm na każdym profilu,
+    którego krawędź jest równoległa do promienia.
+    """
+    chunk = {"vertices": [(0, 0, 0), (0, 1, 0), (1, 0, 0), (1, 1, 0)],
+             "faces": [[0, 1, 3, 2]], "first_ring": 0, "last_ring": 1}
+    ramki = [((0.5, 0.5, 0.0), None, None, None)] * 2
+    assert SW.outward_faces(chunk, ramki, 2) == 0
+
+
+def test_sweep_a_face_exactly_at_the_minimum_area_is_not_degenerate():
+    """Mutacja 386 `<` -> `<=`: „mniejsza niż próg" znaczy mniejsza, nie „nie większa".
+
+    Próg podany jawnie, nie przez `DEGENERATE_AREA_M2` — blok 6.B6 zabrania przypinać
+    wartość tej stałej, a ten test pyta o zachowanie NA progu, nie o jego wysokość.
+    """
+    chunk = {"vertices": [(0, 0, 0), (2e-6, 0, 0), (2e-6, 1.0, 0), (0, 1.0, 0)],
+             "faces": [[0, 1, 2, 3]]}
+    assert SW.degenerate_faces(chunk, min_area=2e-6) == []
+    assert SW.degenerate_faces(chunk, min_area=3e-6) == [[0, 1, 2, 3]]
+
+
+def test_sweep_a_uv_span_of_exactly_the_epsilon_is_still_ignored():
+    """Mutacja 410 `>` -> `>=`: rozpiętość UV równa progowi jest szumem, nie pomiarem.
+
+    Stosunek metrów do UV przy `duv` równym 1e-9 wychodzi rzędu 2·10⁹ i wywraca
+    `uv_stretch` na obu końcach zakresu. Wiersz bez rozpiętości UV ma być pominięty,
+    a granicą „bez rozpiętości" jest właśnie ten próg.
+    """
+    chunk = {"vertices": [(0, 0, 0), (0, 1, 0), (2.0, 0, 0), (2.0, 1, 0)],
+             "uvs": [(0.0, 0.0), (0.0, 1.0), (1e-9, 0.0), (1e-9, 1.0)], "faces": []}
+    assert SW.uv_stretch(chunk, 2) == (0.0, 0.0)
+
+
+def test_sweep_a_chainage_exactly_between_two_frames_picks_the_earlier_one():
+    """Mutacja 477 `<` -> `<=`: reguła rozstrzygania remisu jest umową, nie przypadkiem.
+
+    Kilometraż dokładnie w połowie między dwiema ramkami ma wskazać ramkę WCZEŚNIEJSZĄ.
+    Z `<=` wskazywałby późniejszą — a od tego zależy, który pierścień jest pierwszym
+    w chunku, czyli gdzie wypada szew.
+    """
+    assert SW._nearest_ring([0.0, 10.0, 20.0], 5.0) == 0
+    assert SW._nearest_ring([0.0, 10.0, 20.0], 15.0) == 1
+    assert SW._nearest_ring([0.0, 10.0, 20.0], 5.1) == 1
+
+
+def test_sweep_strictly_increasing_survives_a_single_ring_and_trims_a_pair():
+    """Mutacje 487 `1` -> `>= 1` i `1` -> `2`: pętla przycinająca ogon ma dwie granice.
+
+    Przy `>= 1` lista jednoelementowa wywraca funkcję `IndexError`-em na `out[-2]`;
+    przy progu 2 para `[0, 0]` zostaje nieprzycięta, czyli wynik przestaje być ściśle
+    rosnący — a to jest jedyne, co ta funkcja obiecuje.
+    """
+    assert SW._strictly_increasing([5], 10) == [10]
+    assert SW._strictly_increasing([0, 5], 0) == [0]
+    assert SW._strictly_increasing([2, 7], 2) == [2]
