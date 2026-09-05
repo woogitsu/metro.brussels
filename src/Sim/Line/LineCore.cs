@@ -28,8 +28,31 @@ public sealed class LineTrain
 
     /// <summary>
     /// Krok zegara linii, na którym skład faktycznie wszedł na plan; <c>null</c>, dopóki
-    /// czeka. Różnica wobec <see cref="ReleaseStep"/> to czas, o który peron początkowy
-    /// był zajęty — nie jest to regulacja ruchu, tylko brak miejsca.
+    /// czeka — i znowu <c>null</c> od nawrotu do ponownego wjazdu.
+    ///
+    /// <para><b>Po co to pole istnieje.</b> Jest jedyną rzeczą, która odróżnia skład,
+    /// który wyjechał o czasie, od składu, który stał, bo peron początkowy był zajęty:
+    /// <see cref="OnLine"/> mówi tylko „jest na planie teraz", a <see cref="ReleaseStep"/>
+    /// tylko „miał wyjechać wtedy". Bez tego pola różnica między rozkładem a wykonaniem
+    /// wyjazdu nie jest w tym modelu obserwowalna z zewnątrz w ogóle.</para>
+    ///
+    /// <para><b>Dlaczego nie podzieliło losu <c>NextReleaseStep</c>.</b> Tamto pole
+    /// zostało usunięte (komentarz przy nawrocie w <see cref="LineCore.Step"/>), bo
+    /// <b>wyglądało, jakby coś robiło</b> — miało przesuwać wyjazd i nie przesuwało go,
+    /// a mutacja przywracająca stary <see cref="ReleaseStep"/> przechodziła przez całą
+    /// suitę. To pole nie udaje, że działa: jest pomiarem, nie sterowaniem, i żaden krok
+    /// symulacji nie ma prawa go czytać. Nie zwalnia to go z obowiązku posiadania
+    /// desygnatu — mówi go <c>Krok_wjazdu_na_plan_jest_krokiem_wjazdu_a_nie_krokiem_wyjazdu</c>
+    /// w <c>tests/Sim.Tests/LineCoreTests.cs</c> i to ten test, a nie ten akapit, pada
+    /// przy podmianie <c>Steps</c> na <c>ReleaseStep</c> albo na <c>Steps + 1</c>.</para>
+    ///
+    /// <para><b>Zastrzeżenie do różnicy wobec <see cref="ReleaseStep"/>.</b> Na PIERWSZYM
+    /// wjeździe różnica <c>EnteredAtStep - ReleaseStep</c> jest czasem, o który peron
+    /// początkowy był zajęty — nie regulacją ruchu, tylko brakiem miejsca. Po nawrocie
+    /// przestaje nim być: <see cref="ReleaseStep"/> się nie rusza (nawrót pilnuje
+    /// wyłącznie <c>FinishedAtStep</c>), więc różnica obejmowałaby cały poprzedni obieg.
+    /// Dla obiegu drugiego i dalszych to pole znaczy tyle, ile mówi jego nazwa: krok
+    /// wjazdu na plan, i nic ponadto.</para>
     /// </summary>
     public long? EnteredAtStep { get; internal set; }
 
