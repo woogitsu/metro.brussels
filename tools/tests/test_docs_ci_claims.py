@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """Dokumentacja nie opisuje runnera, którego nie ma w `.github/workflows/`.
 
-**Skąd się wzięło.** `CLAUDE.md` §9 mówi, że od 02.09.2026 całe CI chodzi na gołej
-etykiecie `self-hosted`, a etykietę `wsl2` zdjęto 02.08.2026, bo maszyna, która ją
-nosiła, została wyłączona i joby zawisły w `queued`. Same workflowy to spełniają
+**Skąd się wzięło.** `CLAUDE.md` §9 mówi, że od 02.09.2026 całe CI chodzi na maszynie
+właściciela, a od 05.09.2026 na komplecie etykiet puli `woogitsu`
+(`[self-hosted, Linux, X64, wsl2, woogitsu]`). Poprzednia wersja tego akapitu mówiła
+„na gołej etykiecie `self-hosted`, a etykietę `wsl2` zdjęto 02.08.2026" — pierwsza
+połowa to już nieprawda, druga jest faktem historycznym i dlatego stoi niżej, przy
+wyjaśnieniu, po co ta bramka w ogóle istnieje. Same workflowy to spełniają
 i pilnuje tego `test_ci_workflows.py`. Zmierzone 04.09.2026 na `main` (e982bc0):
 `docs/17-visual-regression.md` nadal opisywał job jako `ubuntu-latest` i skrypt
 bramki jako uruchamiany „na GitHub-hosted runnerze", a `docs/20-art-direction.md`
@@ -64,8 +67,16 @@ HISTORICAL_MARKERS = (
 #: Nazwy runnerów GitHub-hosted rozpoznawane po KSZTAŁCIE (`system-latest`,
 #: `system-wersja`), a nie po spisie. Kształt wystarcza, bo o tym, czy taka nazwa
 #: jest dziś prawdą, decyduje `allowed_labels()` przeczytane z workflowów.
+#:
+#: Rocznik (`[0-9]{4}`) doszedł 05.09.2026, razem z przepisaniem `github_hosted_in_use`
+#: na ten wzorzec. Obrazy Windowsa nazywają się `windows-2022` i `windows-2019`, a
+#: `[0-9]{1,2}` łapało z tego samo `20` i wywracało się na `\b` przed `22` — czyli
+#: żadna z tych dwóch nazw nie była rozpoznawana ani w prozie, ani (od dziś) w `runs-on`.
+#: Zmierzone na kontroli negatywnej `{"self-hosted", "wsl2", "windows-2022"}`, która
+#: przed tą poprawką przechodziła jako „to nie jest maszyna GitHuba".
 HOSTED_NAME = re.compile(
-    r"\b(?:ubuntu|windows|macos)-(?:latest|[0-9]{2}\.[0-9]{2}|[0-9]{1,2})\b", re.I)
+    r"\b(?:ubuntu|windows|macos)-(?:latest|[0-9]{2}\.[0-9]{2}|[0-9]{4}|[0-9]{1,2})\b",
+    re.I)
 
 #: „GitHub-hosted runner" jako klasa maszyny.
 #:
@@ -136,8 +147,18 @@ def allowed_labels():
 
 
 def github_hosted_in_use(allowed):
-    """Czy którykolwiek job chodzi na maszynie GitHuba, a nie na własnej."""
-    return any(not label.startswith("self-hosted") for label in allowed)
+    """Czy którykolwiek job chodzi na maszynie GitHuba, a nie na własnej.
+
+    Rozstrzyga KSZTAŁT nazwy (`HOSTED_NAME`: `ubuntu-latest`, `windows-2022`,
+    `macos-14`), a nie to, czy etykieta jest różna od `self-hosted`. Poprzednia
+    wersja pytała o to drugie i była prawdziwa tylko dopóty, dopóki selektor był
+    gołym `self-hosted`. Od 05.09.2026 komplet z §9 to pięć etykiet
+    (`Linux`, `X64`, `wsl2`, `woogitsu` obok `self-hosted`) — przy tamtym warunku
+    każda z tych czterech ogłaszała „jakiś job chodzi na maszynie GitHuba"
+    i bramka przestawała łapać zapis „GitHub-hosted runner" w prozie, czyli cichła
+    dokładnie tam, gdzie ma bronić.
+    """
+    return any(HOSTED_NAME.fullmatch(label) for label in allowed)
 
 
 def paragraphs(text):
@@ -284,6 +305,16 @@ def test_allowed_labels_come_from_the_parsed_workflows():
     assert not github_hosted_in_use(allowed), (
         f"jakiś job chodzi na maszynie GitHuba: {sorted(allowed)}")
     assert len(workflow_files()) >= 7, workflow_files()
+
+    # Kontrola do `github_hosted_in_use` po zmianie z 05.09.2026: rozstrzyga kształt
+    # nazwy, nie „etykieta inna niż self-hosted". Bez pierwszej asercji komplet z §9
+    # ogłaszałby maszynę GitHuba (tak robiła poprzednia wersja), a bez pozostałych
+    # trzech funkcja mogłaby zwracać stałe False i nikt by tego nie zobaczył.
+    assert not github_hosted_in_use({"self-hosted", "linux", "x64", "wsl2", "woogitsu"})
+    assert not github_hosted_in_use({"self-hosted"})
+    assert github_hosted_in_use({"ubuntu-latest"})
+    assert github_hosted_in_use({"self-hosted", "wsl2", "windows-2022"}), (
+        "mieszanka self-hosted z maszyną GitHuba musi się liczyć jako maszyna GitHuba")
 
     # Kontrola parsera: trzy formy `runs-on` i job bez `runs-on`.
     assert runner_labels({"runs-on": "self-hosted"}) == ["self-hosted"]

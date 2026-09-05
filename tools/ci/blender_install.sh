@@ -72,7 +72,22 @@ if [ -n "$have" ]; then
     echo "[BLENDER] w $DIR stoi $have, a przypięte jest $VERSION — pobieram od nowa" >&2
 fi
 
-TARBALL="/tmp/blender-${VERSION}-linux-x64.tar.xz"
+# TARBALL IDZIE DO KATALOGU RUNNERA, NIE DO WSPÓŁDZIELONEGO /tmp.
+# Cztery runnery puli `woogitsu` stoją na JEDNEJ maszynie
+# (`~/actions-runner-woogitsu-01` … `-04`), więc dzielą jedno `/tmp`. Przy stałej
+# nazwie pliku dwa joby instalujące Blendera równocześnie pisały `curl -o` do tego
+# samego pliku, a ten, który skończył pierwszy, kasował go drugiemu — zmierzone
+# 05.09.2026 na `tunnel-alignment (L1_A)`, run 33981627757:
+#
+#     [BLENDER] sprawdzam sumę SHA-256
+#     /tmp/blender-5.2.1-linux-x64.tar.xz: OK
+#     tar (child): /tmp/blender-5.2.1-linux-x64.tar.xz: Cannot open: No such file
+#
+# Suma zgadza się, a chwilę później pliku nie ma. Cichszy wariant tego samego
+# wyścigu jest gorszy: dwa równoległe `curl -o` do jednego pliku mogą dać tarball,
+# który przechodzi `sha256sum` u jednego z nich tylko dlatego, że drugi akurat
+# skończył zapis. `RUNNER_TEMP` jest per runner, więc kolizji nie ma z definicji.
+TARBALL="${RUNNER_TEMP:-$(mktemp -d)}/blender-${VERSION}-linux-x64.tar.xz"
 URL="https://download.blender.org/release/Blender${SERIES}/blender-${VERSION}-linux-x64.tar.xz"
 
 echo "[BLENDER] pobieram $URL" >&2
