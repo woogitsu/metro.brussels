@@ -128,7 +128,7 @@ public sealed class DriverNotchTests
         var notch = Notch();
         var step = FixedStep.Simulation;
 
-        var command = notch.Advance(new DriverKeys(Power: true, Brake: true, Coast: false), step);
+        var command = notch.Advance(new DriverKeys(Power: true, Brake: true, Coast: false, Emergency: false), step);
 
         Assert.AreEqual(Rate * step.Seconds, command.Throttle, 0.0);
         Assert.AreEqual(0.0, command.Brake, 0.0);
@@ -146,6 +146,107 @@ public sealed class DriverNotchTests
 
         Assert.AreEqual(0.4, command.Throttle, 0.0);
         Assert.AreEqual(0.0, command.Brake, 0.0);
+    }
+
+    // --- DECYZJA 3 (05.09.2026): osobny klawisz = pełny służbowy, jawnie -------------
+
+    /// <summary>
+    /// Hamulec awaryjny daje DOKŁADNIE pełny hamulec służbowy, w jednym kroku i bez
+    /// przesuwu dźwigni. „Dokładnie" jest tu porównaniem z
+    /// <see cref="DriverCommand.FullServiceBrake"/>, a nie z liczbą 1,00 wpisaną obok:
+    /// gdyby ktoś dołożył trzeci stopień, ta asercja pada, a asercja na 1,00
+    /// przeszłaby.
+    /// </summary>
+    [TestMethod]
+    public void EmergencyKeyIsExactlyTheFullServiceBrakeAtOnce()
+    {
+        var notch = Notch();
+        var step = FixedStep.Simulation;
+
+        // Z pełnej trakcji, czyli z miejsca najdalszego od hamulca: przesuw dźwigni
+        // potrzebowałby stąd 2/Rate sekundy, a to jest dwie i pół sekundy jazdy.
+        notch.Set(DriverCommand.FullPower);
+
+        var command = notch.Advance(DriverKeys.EmergencyBraking, step);
+
+        Assert.AreEqual(DriverCommand.FullServiceBrake, command);
+        Assert.AreEqual(1.0, command.Brake, 0.0);
+        Assert.AreEqual(0.0, command.Throttle, 0.0);
+    }
+
+    /// <summary>
+    /// Ten sam klawisz trzymany dalej nie robi nic więcej — bo nie ma czego dołożyć.
+    /// Trzeci stopień hamowania w tym modelu nie istnieje i ten test jest miejscem,
+    /// w którym to widać liczbą.
+    /// </summary>
+    [TestMethod]
+    public void HoldingEmergencyLongerChangesNothing()
+    {
+        var notch = Notch();
+        var step = FixedStep.Simulation;
+
+        var first = notch.Advance(DriverKeys.EmergencyBraking, step);
+        for (var i = 0; i < 1200; i++)
+        {
+            Assert.AreEqual(first, notch.Advance(DriverKeys.EmergencyBraking, step));
+        }
+    }
+
+    /// <summary>
+    /// Hamulec awaryjny bije KAŻDY inny klawisz, także trzymany ciąg. Pierwszeństwo
+    /// ciągu nad hamulcem jest regułą <see cref="DriverNotch"/> dla dźwigni, a nie
+    /// dla gestu „rzuć ją na pełny hamulec".
+    /// </summary>
+    [TestMethod]
+    public void EmergencyWinsOverEveryOtherKey()
+    {
+        var notch = Notch();
+        var step = FixedStep.Simulation;
+
+        var command = notch.Advance(
+            new DriverKeys(Power: true, Brake: true, Coast: true, Emergency: true), step);
+
+        Assert.AreEqual(DriverCommand.FullServiceBrake, command);
+    }
+
+    /// <summary>
+    /// Puszczenie klawisza zostawia dźwignię na pełnym hamulcu — tak samo jak
+    /// puszczenie każdego innego (<see cref="NoKeysLeaveTheNotchWhereItWas"/>).
+    /// Hamulec awaryjny nie odpuszcza się sam, bo w tym modelu nie jest osobnym
+    /// urządzeniem: jest położeniem tej samej dźwigni.
+    /// </summary>
+    [TestMethod]
+    public void ReleasingEmergencyLeavesTheLeverOnFullBrake()
+    {
+        var notch = Notch();
+        var step = FixedStep.Simulation;
+        notch.Advance(DriverKeys.EmergencyBraking, step);
+
+        var command = notch.Advance(DriverKeys.None, step);
+
+        Assert.AreEqual(DriverCommand.FullServiceBrake, command);
+    }
+
+    /// <summary>
+    /// Ciąg po hamulcu awaryjnym odpuszcza go tym samym tempem, co po zwykłym pełnym
+    /// hamowaniu — czyli ścieżka wyjścia jest jedna. Gdyby awaryjny miał własne wyjście,
+    /// byłby osobnym stopniem, którym nie jest.
+    /// </summary>
+    [TestMethod]
+    public void LeavingEmergencyGoesThroughTheOrdinaryNotchRate()
+    {
+        var step = FixedStep.Simulation;
+
+        var poAwaryjnym = Notch();
+        poAwaryjnym.Advance(DriverKeys.EmergencyBraking, step);
+        var zAwaryjnego = poAwaryjnym.Advance(DriverKeys.Powering, step);
+
+        var poSluzbowym = Notch();
+        poSluzbowym.Set(DriverCommand.FullServiceBrake);
+        var zeSluzbowego = poSluzbowym.Advance(DriverKeys.Powering, step);
+
+        Assert.AreEqual(zeSluzbowego, zAwaryjnego);
+        Assert.AreEqual(1.0 - (Rate * step.Seconds), zAwaryjnego.Brake, 1e-12);
     }
 
     [TestMethod]

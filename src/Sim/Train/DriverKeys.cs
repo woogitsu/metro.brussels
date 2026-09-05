@@ -13,16 +13,25 @@ namespace MetroBxl.Sim.Train;
 /// wejść da się odtworzyć przejazd"). Klawiatura zostaje w <c>src/Game</c>; to, co
 /// z niej wyszło, jest już danymi rdzenia.</para>
 ///
-/// <para><b>Trzy pola, nie jeden klawisz.</b> Zapis jest bezstratny: człowiek potrafi
+/// <para><b>Cztery pola, nie jeden klawisz.</b> Zapis jest bezstratny: człowiek potrafi
 /// trzymać W i S naraz, a pierwszeństwo między nimi jest regułą modelu
 /// (<see cref="DriverNotch"/>), nie własnością klawiatury. Gdyby log trzymał już
 /// rozstrzygnięty klawisz, zmiana tej reguły cicho zmieniłaby znaczenie starych
 /// plików.</para>
+///
+/// <para><b><see cref="Emergency"/> nie jest czwartym stopniem hamowania.</b>
+/// <see cref="DriverCommand"/> ma nastawnik i hamulec SŁUŻBOWY i nic poza tym —
+/// hamulec awaryjny jako osobna fizyka w tym modelu nie istnieje. Ten klawisz jest
+/// GESTEM maszynisty: „rzuć dźwignię na pełny hamulec od razu", bez przesuwu
+/// <see cref="DriverNotch.RatePerSecond"/>. Decyzja właściciela z 05.09.2026: osobny
+/// klawisz ma robić dokładnie to samo, co pełny hamulec służbowy, a HUD ma to mówić
+/// wprost, zamiast udawać fizykę, której nie ma.</para>
 /// </summary>
 /// <param name="Power">Klawisz ciągu (W / strzałka w górę).</param>
 /// <param name="Brake">Klawisz hamulca (S / strzałka w dół).</param>
 /// <param name="Coast">Klawisz wybiegu (X).</param>
-public readonly record struct DriverKeys(bool Power, bool Brake, bool Coast)
+/// <param name="Emergency">Klawisz hamulca awaryjnego — pełny hamulec służbowy naraz.</param>
+public readonly record struct DriverKeys(bool Power, bool Brake, bool Coast, bool Emergency)
 {
     /// <summary>Znak pustego stanu w zapisie. Pusty napis wyglądałby jak uszkodzony wiersz.</summary>
     public const char NoneCode = '-';
@@ -36,25 +45,37 @@ public readonly record struct DriverKeys(bool Power, bool Brake, bool Coast)
     /// <summary>Znak klawisza wybiegu w zapisie.</summary>
     public const char CoastCode = 'X';
 
+    /// <summary>
+    /// Znak klawisza hamulca awaryjnego w zapisie. Dopisany NA KOŃCU kodu, za
+    /// <see cref="CoastCode"/>, żeby każdy stan bez tego klawisza zapisywał się
+    /// dokładnie tak samo jak przed 05.09.2026 — stare pliki zapisu odtwarzają się
+    /// bez zmiany ani jednego bajtu.
+    /// </summary>
+    public const char EmergencyCode = 'E';
+
     /// <summary>Nic nie jest trzymane.</summary>
     public static DriverKeys None => default;
 
     /// <summary>Sam ciąg.</summary>
-    public static DriverKeys Powering => new(true, false, false);
+    public static DriverKeys Powering => new(true, false, false, false);
 
     /// <summary>Sam hamulec.</summary>
-    public static DriverKeys Braking => new(false, true, false);
+    public static DriverKeys Braking => new(false, true, false, false);
 
     /// <summary>Sam wybieg.</summary>
-    public static DriverKeys Coasting => new(false, false, true);
+    public static DriverKeys Coasting => new(false, false, true, false);
+
+    /// <summary>Sam hamulec awaryjny.</summary>
+    public static DriverKeys EmergencyBraking => new(false, false, false, true);
 
     /// <summary>Czy trzymany jest którykolwiek klawisz.</summary>
-    public bool Any => Power || Brake || Coast;
+    public bool Any => Power || Brake || Coast || Emergency;
 
     /// <summary>
     /// Zapis stanu do jednego pola tekstowego: <c>-</c>, albo znaki <c>W</c>, <c>S</c>,
-    /// <c>X</c> w tej stałej kolejności. Kolejność jest stała, żeby ten sam stan dawał
-    /// zawsze ten sam napis — plik zapisu jest porównywany <c>cmp</c>, nie „na oko".
+    /// <c>X</c>, <c>E</c> w tej stałej kolejności. Kolejność jest stała, żeby ten sam
+    /// stan dawał zawsze ten sam napis — plik zapisu jest porównywany <c>cmp</c>,
+    /// nie „na oko".
     /// </summary>
     /// <returns>Kod stanu klawiszy, nigdy pusty napis.</returns>
     public string Code()
@@ -64,7 +85,7 @@ public readonly record struct DriverKeys(bool Power, bool Brake, bool Coast)
             return NoneCode.ToString();
         }
 
-        Span<char> buffer = stackalloc char[3];
+        Span<char> buffer = stackalloc char[4];
         var length = 0;
         if (Power)
         {
@@ -79,6 +100,11 @@ public readonly record struct DriverKeys(bool Power, bool Brake, bool Coast)
         if (Coast)
         {
             buffer[length++] = CoastCode;
+        }
+
+        if (Emergency)
+        {
+            buffer[length++] = EmergencyCode;
         }
 
         return new string(buffer[..length]);
@@ -109,6 +135,7 @@ public readonly record struct DriverKeys(bool Power, bool Brake, bool Coast)
         var power = false;
         var brake = false;
         var coast = false;
+        var emergency = false;
         foreach (var character in code)
         {
             switch (character)
@@ -122,14 +149,18 @@ public readonly record struct DriverKeys(bool Power, bool Brake, bool Coast)
                 case CoastCode when !coast:
                     coast = true;
                     break;
+                case EmergencyCode when !emergency:
+                    emergency = true;
+                    break;
                 default:
                     throw new FormatException(
                         $"Kod klawiszy '{code}' zawiera nieznany albo powtórzony znak '{character}'. "
-                        + $"Znane: {PowerCode}, {BrakeCode}, {CoastCode}, albo samo {NoneCode}.");
+                        + $"Znane: {PowerCode}, {BrakeCode}, {CoastCode}, {EmergencyCode}, "
+                        + $"albo samo {NoneCode}.");
             }
         }
 
-        return new DriverKeys(power, brake, coast);
+        return new DriverKeys(power, brake, coast, emergency);
     }
 
     /// <inheritdoc/>

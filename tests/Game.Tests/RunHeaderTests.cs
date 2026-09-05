@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using System.IO;
 using System.Text.RegularExpressions;
 using MetroBxl.Game;
 using MetroBxl.Sim.Line;
@@ -81,14 +82,17 @@ public sealed class RunHeaderTests
         new BrakingPointSolver(VehicleModel.M7),
         FixedStep.Simulation);
 
+    /// <summary>Plan sygnalizacji osi testowej, z limitem <see cref="PlanLimitKmh"/>.</summary>
+    private static SignallingPlan Plan(TrackAxis axis) => SignallingPlan.FromAxis(
+        axis,
+        VehicleRegistry.M7.RequireValue("parameters.length_m", ParameterStatus.Spec),
+        Units.KmhToMps(PlanLimitKmh),
+        0.0,
+        ProtectionVariant.LegacyFixedBlock,
+        requireRoute: false);
+
     private static LineCore Core(double limitKmh, TrackAxis axis) => LineCore.M7(
-        SignallingPlan.FromAxis(
-            axis,
-            VehicleRegistry.M7.RequireValue("parameters.length_m", ParameterStatus.Spec),
-            Units.KmhToMps(PlanLimitKmh),
-            0.0,
-            ProtectionVariant.LegacyFixedBlock,
-            requireRoute: false),
+        Plan(axis),
         axis,
         Conditions(),
         Settings(limitKmh));
@@ -129,7 +133,7 @@ public sealed class RunHeaderTests
 
         var header = RunHeader.Line(
             plan, ViewKind.Cab, scenario, FixedStep.Simulation, Conditions(),
-            core: null, line: Drive(plan.LimitKmh, Axis()));
+            core: null, line: Drive(plan.LimitKmh, Axis()), manualPlan: null);
 
         // 0,05 km/h to połowa ostatniej wypisywanej cyfry (format F1), a nie zapas
         // na rozjazd: nagłówek pokazuje jedno miejsce po przecinku.
@@ -155,7 +159,7 @@ public sealed class RunHeaderTests
 
         var header = RunHeader.Line(
             plan, ViewKind.Cab, Scenario(), FixedStep.Simulation, Conditions(),
-            core, line: null);
+            core, line: null, manualPlan: null);
         var limit = LimitFromHeader(header);
 
         Assert.AreEqual(plan.LimitKmh, limit, 0.05, header);
@@ -179,7 +183,7 @@ public sealed class RunHeaderTests
 
             var header = RunHeader.Line(
                 plan, ViewKind.Cab, Scenario(), FixedStep.Simulation, Conditions(),
-                core: null, line: Drive(plan.LimitKmh, Axis()));
+                core: null, line: Drive(plan.LimitKmh, Axis()), manualPlan: null);
 
             Assert.AreEqual(limitKmh, LimitFromHeader(header), 0.05, header);
         }
@@ -198,35 +202,144 @@ public sealed class RunHeaderTests
 
         Assert.ThrowsException<ArgumentException>(() => RunHeader.Line(
             plan, ViewKind.Cab, Scenario(), FixedStep.Simulation, Conditions(),
-            core: null, line: null));
+            core: null, line: null, manualPlan: null));
     }
 
-    // --- tryb ręczny i skryptowy: limit ze scenariusza JEST tym, którym się jedzie ---
+    // --- tryb skryptowy: limit ze scenariusza JEST tym, którym się jedzie ------------
 
     /// <summary>
-    /// Bez <c>--line</c> limit ze scenariusza jest limitem prowadzenia — <c>--limit-kmh</c>
-    /// się z tymi trybami nie łączy (<see cref="RunPlan"/> odmawia), a <c>StepOnce</c>
-    /// podaje kontrolerowi to samo wyrażenie, które czyta nagłówek.
+    /// Przebieg SKRYPTOWY (<c>--telemetry</c>, <c>--shot</c>) jedzie limitem ze
+    /// scenariusza, bo tym limitem jedzie <c>ScenarioDrive</c> w rdzeniu, a telemetria
+    /// sceny jest z rdzeniem porównywana CO DO BITU. Zmiana z 05.09.2026 dotyczy
+    /// wyłącznie trybu ręcznego i ten test jest tym, co trzyma ją po swojej stronie.
     /// </summary>
     [TestMethod]
-    public void BezLiniiNaglowekPokazujeLimitScenariusza()
+    public void PrzebiegSkryptowyNadalPokazujeLimitScenariusza()
+    {
+        var plan = Parse("--telemetry=przebieg.csv");
+        Assert.IsTrue(plan.IsValid, plan.Error);
+        Assert.IsTrue(plan.ScriptedMode);
+        Assert.IsFalse(plan.LineMode);
+
+        var scenario = Scenario();
+        var header = RunHeader.Line(
+            plan, ViewKind.Cab, scenario, FixedStep.Simulation, Conditions(),
+            core: null, line: null, manualPlan: null);
+
+        Assert.AreEqual(Units.MpsToKmh(scenario.SpeedLimitMps), LimitFromHeader(header), 0.05, header);
+        Assert.AreEqual(
+            RunHeader.SpeedLimitMps(plan, scenario, null, null, null),
+            scenario.SpeedLimitMps,
+            1e-12,
+            "fizyka przebiegu skryptowego i nagłówek mają czytać JEDNO wyrażenie");
+    }
+
+    // --- DECYZJA 1 (05.09.2026): tryb ręczny jedzie limitem PLANU -------------------
+
+    /// <summary>
+    /// Tryb ręczny bierze limit z planu sygnalizacji, a nie ze scenariusza. To jest ta
+    /// sama usterka, którą <see cref="RunHeader"/> naprawił dla <c>--line</c>: ścieżka
+    /// ręczna jechała 80 km/h, czyli prędkością KONSTRUKCYJNĄ M7, i ta liczba trafiała
+    /// nie tylko do napisu, ale i do kontrolera.
+    /// </summary>
+    [TestMethod]
+    public void TrybRecznyJedzieLimitemPlanuANieScenariusza()
     {
         var plan = Parse();
         Assert.IsTrue(plan.IsValid, plan.Error);
         Assert.IsFalse(plan.LineMode);
+        Assert.IsFalse(plan.ScriptedMode, "brak argumentów znaczy tryb ręczny");
 
         var scenario = Scenario();
-        var conditions = Conditions();
-        var header = RunHeader.Line(
-            plan, ViewKind.Cab, scenario, FixedStep.Simulation, conditions,
-            core: null, line: null);
+        var signalling = Plan(Axis());
 
-        Assert.AreEqual(Units.MpsToKmh(scenario.SpeedLimitMps), LimitFromHeader(header), 0.05, header);
+        var limitMps = RunHeader.SpeedLimitMps(plan, scenario, null, null, signalling);
+
+        Assert.AreEqual(signalling.PermittedSpeedMps, limitMps, 0.0,
+            "limit trybu ręcznego ma być TĄ SAMĄ liczbą, co limit planu — nie równą jej");
+        Assert.AreEqual(PlanLimitKmh, Units.MpsToKmh(limitMps), 1e-9);
+        Assert.AreNotEqual(
+            VehicleModel.M7.DesignMaxSpeedKmh, Units.MpsToKmh(limitMps), 1e-9,
+            "80 km/h to prędkość konstrukcyjna M7, a nie ograniczenie na torze");
+
+        var header = RunHeader.Line(
+            plan, ViewKind.Cab, scenario, FixedStep.Simulation, Conditions(),
+            core: null, line: null, manualPlan: signalling);
+        Assert.AreEqual(PlanLimitKmh, LimitFromHeader(header), 0.05, header);
+    }
+
+    /// <summary>
+    /// Odtworzenie z zapisu wejść jest trybem ręcznym z klawiszami z pliku, więc jedzie
+    /// tym samym limitem. Gdyby brało inny, przejazd gracza i jego odtworzenie
+    /// rozjechałyby się na fizyce, a nie na wejściu — czyli porównanie, po które ten
+    /// zapis w ogóle istnieje, przestałoby cokolwiek znaczyć.
+    /// </summary>
+    [TestMethod]
+    public void OdtworzenieJedzieTymSamymLimitemCoTrybReczny()
+    {
+        var reczny = Parse();
+        var odtworzenie = Parse("--replay=zapis.log");
+        Assert.IsTrue(odtworzenie.IsValid, odtworzenie.Error);
+        Assert.IsFalse(odtworzenie.ScriptedMode);
+
+        var signalling = Plan(Axis());
         Assert.AreEqual(
-            RunHeader.SpeedLimitMps(plan.LineMode, scenario, null, null),
-            scenario.SpeedLimitMps,
-            1e-12,
-            "fizyka trybu ręcznego i nagłówek mają czytać JEDNO wyrażenie");
+            RunHeader.SpeedLimitMps(reczny, Scenario(), null, null, signalling),
+            RunHeader.SpeedLimitMps(odtworzenie, Scenario(), null, null, signalling),
+            0.0);
+    }
+
+    /// <summary>
+    /// Tryb ręczny bez planu wywraca się, a nie wraca po cichu na 80 km/h. Ta sama
+    /// decyzja i ten sam powód, co przy przejeździe linią bez prowadzenia: cichy odwrót
+    /// na prędkość konstrukcyjną przeszedł wszystkie bramki tego repozytorium przez
+    /// pięć miesięcy.
+    /// </summary>
+    [TestMethod]
+    public void TrybRecznyBezPlanuNieDostajeLimituZeScenariusza()
+    {
+        var plan = Parse();
+
+        var error = Assert.ThrowsException<ArgumentException>(() => RunHeader.SpeedLimitMps(
+            plan, Scenario(), null, null, null));
+        StringAssert.Contains(error.Message, "80 km/h", error.Message);
+    }
+
+    /// <summary>
+    /// Liczba 72 nie jest wpisana w kodzie: pochodzi z pliku planu, tego samego, który
+    /// scena podaje autopilotowi pod <c>--signalling</c>. Ten test jest jedynym
+    /// miejscem, w którym ścieżka z <see cref="RunPlan.ManualSpeedLimitPlanPath"/> jest
+    /// przypięta do pliku na dysku — gdyby plik zniknął albo zmienił limit, tryb ręczny
+    /// zmieniłby prędkość, a nie „nic by się nie stało".
+    /// </summary>
+    [TestMethod]
+    public void LimitTrybuRecznegoPochodziZPlikuPlanuANieZKodu()
+    {
+        var path = Path.Combine(RepositoryRoot(), RunPlan.ManualSpeedLimitPlanPath);
+        Assert.IsTrue(File.Exists(path), path);
+
+        var signalling = SignallingPlan.FromJson(File.ReadAllText(path));
+        var limitMps = RunHeader.SpeedLimitMps(Parse(), Scenario(), null, null, signalling);
+
+        Assert.AreEqual(PlanLimitKmh, Units.MpsToKmh(limitMps), 1e-9, path);
+        Assert.AreEqual("classic_2026", signalling.Mode, path);
+    }
+
+    private static string RepositoryRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "CLAUDE.md")))
+            {
+                return directory.FullName;
+            }
+
+            directory = directory.Parent;
+        }
+
+        Assert.Inconclusive("Test uruchomiony poza drzewem repozytorium.");
+        throw new InvalidOperationException();
     }
 
     // --- pozostałe liczby nagłówka ------------------------------------------------
@@ -241,11 +354,13 @@ public sealed class RunHeaderTests
     {
         var plan = Parse();
         var pinned = RunHeader.Line(
-            plan, ViewKind.Cab, Scenario(), FixedStep.Simulation, Conditions(), null, null);
+            plan, ViewKind.Cab, Scenario(), FixedStep.Simulation, Conditions(),
+            null, null, Plan(Axis()));
         StringAssert.Contains(pinned, "krok=1/120 s", pinned);
 
         var slower = RunHeader.Line(
-            plan, ViewKind.Cab, Scenario(), FixedStep.FromHertz(60), Conditions(), null, null);
+            plan, ViewKind.Cab, Scenario(), FixedStep.FromHertz(60), Conditions(),
+            null, null, Plan(Axis()));
         StringAssert.Contains(slower, "krok=1/60 s", slower);
     }
 
@@ -258,7 +373,8 @@ public sealed class RunHeaderTests
             123456.0, 0.0, VehicleModel.M7.Adhesion(RailCondition.Dry), TrackEnvironment.Tunnel);
 
         var header = RunHeader.Line(
-            plan, ViewKind.Cab, Scenario(), FixedStep.Simulation, conditions, null, null);
+            plan, ViewKind.Cab, Scenario(), FixedStep.Simulation, conditions,
+            null, null, Plan(Axis()));
 
         Assert.AreEqual(123456.0, NumberFromHeader(header, "masa", "kg"), 0.5, header);
     }
@@ -272,7 +388,7 @@ public sealed class RunHeaderTests
 
         var header = RunHeader.Line(
             plan, plan.View, Scenario(), FixedStep.Simulation, Conditions(),
-            core: null, line: Drive(plan.LimitKmh, Axis()));
+            core: null, line: Drive(plan.LimitKmh, Axis()), manualPlan: null);
 
         StringAssert.StartsWith(header, "[PRZEJAZD] tryb=line widok=Outside", header);
     }

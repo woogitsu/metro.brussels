@@ -41,6 +41,30 @@ public sealed class RunPlan
     /// <summary>Widoki, jakie scena potrafi ustawić. Inna wartość jest BŁĘDEM, nie domyślną.</summary>
     public static readonly string[] KnownViews = { "cab", "chase", "outside" };
 
+    /// <summary>
+    /// Plan sygnalizacji, z którego <b>tryb ręczny</b> bierze prędkość dopuszczalną,
+    /// względem katalogu repozytorium.
+    ///
+    /// <para><b>Ścieżka, a nie liczba — i to jest cała treść tej stałej.</b> Decyzja
+    /// właściciela z 05.09.2026 mówi „72 km/h, limit planu <c>classic-2026</c>", czyli
+    /// ten sam limit, którym jedzie autopilot pod <c>--signalling</c>. Liczba mieszka
+    /// w <c>data/design/signalling/classic-2026.json</c> w polu
+    /// <c>default_permitted_speed_kmh</c>, opisanym tam swoim źródłem (R-006: żaden
+    /// dokument STIB nie podaje prędkości na torze, 72 km/h wolno używać wyłącznie jako
+    /// jawnego parametru scenariusza). Wpisanie 72 do kodu zrobiłoby drugą kopię liczby
+    /// bez źródła — a to jest ta sama rodzina usterek, co <c>limit=80.0 km/h</c>
+    /// w nagłówku: kopia zgadza się z oryginałem tylko dopóty, dopóki nikt nie zmieni
+    /// jednego z nich.</para>
+    ///
+    /// <para><b>Dlaczego domyślna ścieżka, a nie argument.</b> <c>--signalling</c>
+    /// znaczy „prowadź linię przez nastawnię i ochronę pociągu" i dlatego łączy się
+    /// wyłącznie z <c>--line</c>; tryb ręczny nie rejestruje składu w sygnalizacji
+    /// i nie dostaje autorytetu jazdy. Czyta z planu JEDNĄ liczbę — prędkość
+    /// dopuszczalną — i mówi o tym wprost wierszem <c>[LIMIT]</c>. Gdy pliku nie ma,
+    /// scena ODMAWIA startu; cichy odwrót na 80 km/h byłby powrotem do usterki.</para>
+    /// </summary>
+    public const string ManualSpeedLimitPlanPath = "data/design/signalling/classic-2026.json";
+
     /// <summary>Domyślna liczba kroków między próbkami telemetrii.</summary>
     public const long DefaultSampleEvery = 120L;
 
@@ -316,8 +340,9 @@ public sealed class RunPlan
         if (arguments.ContainsKey("limit-kmh") && !arguments.ContainsKey("line"))
         {
             return Refusal(arguments, exitBadArgumentValue,
-                "[ARGUMENT] --limit-kmh ma sens tylko z --line: przebieg skryptowy i ręczny "
-                + "biorą limit ze scenariusza");
+                "[ARGUMENT] --limit-kmh ma sens tylko z --line: przebieg skryptowy bierze "
+                + "limit ze scenariusza, a ręczny z planu sygnalizacji "
+                + ManualSpeedLimitPlanPath);
         }
 
         if (arguments.ContainsKey("calls") && !arguments.ContainsKey("line"))

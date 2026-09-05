@@ -27,8 +27,21 @@ namespace MetroBxl.Game.Input;
 /// </summary>
 public sealed class DriverInput
 {
-    /// <summary>Opis sterowania do wypisania w HUD.</summary>
-    public const string Help = "W ciąg  ·  S hamulec  ·  X wybieg  ·  C widok  ·  R od nowa  ·  Esc wyjście";
+    /// <summary>
+    /// Opis sterowania do wypisania w HUD.
+    ///
+    /// <para>Nazwa klawisza hamulca awaryjnego jest sklejana z
+    /// <see cref="EmergencyBrake.KeyName"/>, a nie wpisana tu drugi raz — wiersz HUD-u
+    /// i ten opis mówią wtedy o tym samym klawiszu z definicji.</para>
+    ///
+    /// <para><b>Ta stała jest dziś martwa</b> — nic jej nie woła, i to jest zadanie G-3
+    /// (mapa akcji <c>InputMap</c> plus wiersz pomocy), nie to. Nowy klawisz jest tu
+    /// dopisany właśnie dlatego: stała bez niego rozjechałaby się ze sterowaniem
+    /// jeszcze zanim ktokolwiek zacznie ją pokazywać.</para>
+    /// </summary>
+    public const string Help = "W ciąg  ·  S hamulec  ·  X wybieg  ·  "
+        + EmergencyBrake.KeyName + " hamulec awaryjny (= pełny służbowy)  ·  "
+        + "C widok  ·  R od nowa  ·  Esc wyjście";
 
     /// <summary>Stan klawiszy odczytany ostatnim <see cref="Read"/>.</summary>
     public DriverKeys Keys { get; private set; } = DriverKeys.None;
@@ -44,7 +57,14 @@ public sealed class DriverInput
         Keys = new DriverKeys(
             Godot.Input.IsPhysicalKeyPressed(Key.W) || Godot.Input.IsPhysicalKeyPressed(Key.Up),
             Godot.Input.IsPhysicalKeyPressed(Key.S) || Godot.Input.IsPhysicalKeyPressed(Key.Down),
-            Godot.Input.IsPhysicalKeyPressed(Key.X));
+            Godot.Input.IsPhysicalKeyPressed(Key.X),
+
+            // Spacja, bo jest jedynym dużym klawiszem poza zestawem już zajętym
+            // (W/S/X prowadzenie, C widok, R od nowa, Esc wyjście) i trafia się w nią
+            // bez patrzenia — a hamulec awaryjny jest gestem, w którym patrzenie na
+            // klawiaturę jest dokładnie tym, czego się nie robi. Odczyt jest FIZYCZNY,
+            // tak samo jak reszta: na AZERTY spacja leży tam, gdzie na QWERTY.
+            Godot.Input.IsPhysicalKeyPressed(Key.Space));
         return Keys;
     }
 

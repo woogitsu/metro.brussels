@@ -174,6 +174,48 @@ public sealed class StationServiceTests
         Assert.AreEqual(0, service.Calls.Count);
     }
 
+    /// <summary>
+    /// DECYZJA 2 (05.09.2026): minięta stacja to <b>licznik miniętych</b>, a jazda
+    /// trwa dalej.
+    ///
+    /// <para>Nieodwracalność pilnuje <see cref="PassingTheWindowMissesTheStationForGood"/>.
+    /// Tu przybite jest to, czego tamten test nie sprawdza, a co jest drugą połową tej
+    /// decyzji: <b>polecenie maszynisty wychodzi z filtra NIETKNIĘTE</b>. Gdyby minięcie
+    /// dokładało hamulec albo zdejmowało trakcję „za karę", byłaby to inna decyzja niż
+    /// ta, którą podjął właściciel — i wyglądałaby w kabinie dokładnie tak samo jak
+    /// zadziałanie ochrony pociągu, której w trybie ręcznym nie ma.</para>
+    /// </summary>
+    [TestMethod]
+    public void MissingAStationOnlyCountsItAndLetsTheDriveGoOn()
+    {
+        var service = Service(windowM: 5.0);
+        var pelnyCiag = DriverCommand.FullPower;
+
+        // Krok TUŻ przed granicą okna: stacja jeszcze nie jest minięta.
+        var przed = service.Filter(Moving(504.99, 15.0), pelnyCiag, 504.99);
+        Assert.AreEqual(pelnyCiag, przed);
+        Assert.AreEqual(0, service.Missed.Count);
+
+        // Krok za granicą: minięta, licznik rośnie, polecenie wychodzi to samo.
+        var minieta = service.Filter(Moving(505.01, 15.0), pelnyCiag, 505.01);
+
+        Assert.AreEqual(pelnyCiag, minieta, "filtr dołożył coś do polecenia maszynisty");
+        Assert.AreEqual(1, service.Missed.Count);
+        Assert.AreEqual("Pierwsza", service.Missed[0].Name);
+        Assert.AreEqual(0, service.Calls.Count, "minięta stacja nie jest obsłużona");
+        Assert.IsFalse(service.AtStation);
+        Assert.IsFalse(service.Finished, "jazda trwa dalej — jest jeszcze Druga");
+        Assert.IsTrue(service.TractionAllowed, "minięcie nie blokuje trakcji");
+
+        // I dalej: następna stacja obsługuje się normalnie, czyli przejazd nie jest
+        // „zepsuty" minięciem — licznik miniętych zostaje, licznik obsłużonych rośnie.
+        Assert.AreEqual("Druga", service.Approach(505.01).Name);
+        service.Filter(Stopped(1200.0), DriverCommand.Coast, 1200.0);
+        Assert.IsTrue(service.AtStation);
+        Assert.AreEqual(1, service.Calls.Count);
+        Assert.AreEqual(1, service.Missed.Count);
+    }
+
     [TestMethod]
     public void FullCycleReleasesTractionOnlyAfterTheCheck()
     {
