@@ -625,7 +625,7 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 
 | # | zadanie | dlaczego bez decyzji | rozmiar |
 |---|---|---|---|
-| 6.B1 | **`station_layout.py` na pakietach B–F**, dziś liczy tylko pakiet A | osie sześciu pakietów są w `data/track/`, wysokość peronu `source_backed` z R-007 | M |
+| 6.B1 | **ZROBIONE w #265 (05.09.2026) — wpis zostaje w kolejce z powodu zapadki, nie dlatego, że jest do zrobienia**, tak samo jak 6.D6 i 6.B10. Wykonane: 49 peronów pakietów B–F (61 w sześciu pakietach), `reports/T-211-stations-BF.md` z tabelą bramkowaną przez `tools/tests/test_station_layout.py`. Najciaśniejszy peron sieci to Trône|Troon na `L2_E`, R = 97,11 m — **nie jest w pakiecie A**; każda oś ma dokładnie dwa perony przycięte, bo zaczyna się i kończy w środku stacji krańcowej. Treść pierwotna: **`station_layout.py` na pakietach B–F**, dziś liczy tylko pakiet A | osie sześciu pakietów są w `data/track/`, wysokość peronu `source_backed` z R-007 | M |
 | 6.B2 | **Znaczniki kilometrażu (T-011) na pozostałych pakietach** | to samo narzędzie, inne wejście | S |
 | 6.B3 | **LOD tuneli pakietów B–F** | wzorzec z pakietu A, `reports/L1_A-lod.md` | M |
 | 6.B4 | **Kontrola krzyżowa osi B–F wobec OSM**, jak `reports/L1_A-crosscheck.md` dla A | hierarchia źródeł rozstrzygnięta w `docs/07`; rozbieżności się **liczy i zapisuje**, nigdy nie uśrednia | M |

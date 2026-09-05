@@ -190,3 +190,211 @@ def test_report_names_what_it_does_not_model():
     joined = " ".join(report["not_modelled"])
     assert "czopów skrętu" in joined, "brak zastrzeżenia o wychyleniu końców składu"
     assert "R-007" in joined, "brak zastrzeżenia o szczelinie bez źródła"
+
+
+# --- pakiety B–F: to samo narzędzie, inne wejście (6.B1) -------------------------
+#
+# Do 05.09.2026 `station_layout.py` był uruchamiany wyłącznie na pakiecie A — tak
+# w testach, jak w `tools/ci/station_details.sh`. Pięć pozostałych osi leży
+# w `data/track/` od T-111 i nikt nigdy nie policzył na nich peronów, więc każdy błąd
+# zależny od kształtu osi (ciasny łuk, stacja w punkcie zero, oś krótsza od dwóch
+# peronów) był poza zasięgiem CI.
+#
+# Liczby są porównywane Z RAPORTEM, nie wpisane tutaj drugi raz. Kopia liczb w teście
+# starzeje się osobno od raportu — to jest ta sama rodzina rozjazdu, którą
+# `test_report_hygiene.py` łapie dla dat i commitów.
+
+import re  # noqa: E402
+
+BF_REPORT = os.path.join(ROOT, "reports", "T-211-stations-BF.md")
+
+#: Sześć osi pakietów A–F. Kolejność jak w `data/track/`, nie jak w raporcie:
+#: raport grupuje po literze pakietu, a plik po nazwie osi.
+PACKAGE_AXES = ("L1_A", "L1_B", "L2_E", "L5_C", "L5_D", "L6_F")
+
+
+def _axis_document(axis_id):
+    with open(os.path.join(ROOT, "data", "track", f"{axis_id}.json"), encoding="utf-8") as h:
+        return json.load(h)
+
+
+def _layout_for(axis_id):
+    """Przebieg narzędzia na prawdziwej osi, z długością peronu z decyzji T-212."""
+    length, _basis = SL.resolve_platform_length_m("design")
+    return SL.layout(_axis_document(axis_id), length)
+
+
+def _cells(line):
+    """Komórki wiersza tabeli markdown, z `\\|` w nazwie stacji zamienionym na `|`."""
+    parts = re.split(r"(?<!\\)\|", line.strip())
+    return [cell.strip().replace("\\|", "|") for cell in parts[1:-1]]
+
+
+def _number(text):
+    return float(text.replace(" ", "").replace(" ", "").replace(",", "."))
+
+
+def report_package_rows():
+    """Tabela §1 raportu → {oś: {peronów, przyciętych, nazwa, R, strzałka, offset, rozpiętość}}."""
+    with open(BF_REPORT, encoding="utf-8") as handle:
+        section = handle.read().split("## 1. Sześć pakietów")[1].split("\n## ")[0]
+    rows = {}
+    for line in section.splitlines():
+        if not line.startswith("|"):
+            continue
+        cells = _cells(line)
+        if len(cells) != 10 or not cells[1].startswith("`L"):
+            continue
+        rows[cells[1].strip("`")] = {
+            "platforms": int(cells[3]),
+            "clipped": int(cells[4]),
+            "name": cells[5],
+            "radius_m": _number(cells[6]),
+            "versine_m": _number(cells[7]),
+            "offset_m": _number(cells[8]),
+            "spread_m": _number(cells[9]),
+        }
+    return rows
+
+
+def measured_package_rows():
+    """To samo, ale policzone teraz z `data/track/` — bez zaglądania do raportu."""
+    rows = {}
+    for axis_id in PACKAGE_AXES:
+        platforms = _layout_for(axis_id)["platforms"]
+        worst = max(platforms, key=lambda r: r["minimum_edge_offset_m"])
+        best = min(platforms, key=lambda r: r["minimum_edge_offset_m"])
+        rows[axis_id] = {
+            "platforms": len(platforms),
+            "clipped": sum(1 for r in platforms
+                           if r["clipped_at_start"] or r["clipped_at_end"]),
+            "name": worst["name"],
+            "radius_m": round(worst["min_radius_m"], 2),
+            "versine_m": round(worst["versine_m"], 4),
+            "offset_m": round(worst["minimum_edge_offset_m"], 4),
+            "spread_m": round(worst["minimum_edge_offset_m"]
+                              - best["minimum_edge_offset_m"], 4),
+        }
+    return rows
+
+
+def package_mismatches(reported=None, measured=None):
+    """Rozjazdy raportu wobec przebiegu — pusta lista znaczy zgodność."""
+    reported = report_package_rows() if reported is None else reported
+    measured = measured_package_rows() if measured is None else measured
+    problems = []
+    if set(reported) != set(measured):
+        problems.append(f"raport opisuje osie {sorted(reported)}, "
+                        f"a policzone są {sorted(measured)}")
+        return problems
+    for axis_id in sorted(measured):
+        for key, got in measured[axis_id].items():
+            want = reported[axis_id][key]
+            if got != want:
+                problems.append(f"{axis_id}.{key}: przebieg {got}, raport {want}")
+    return problems
+
+
+def test_station_layout_runs_on_every_package_axis_not_only_A():
+    """Sześć osi, nie jedna — i każda ma tyle peronów, ile stacji w pliku osi.
+
+    Liczba peronów to jedyne miejsce, gdzie zgubienie stacji jest widoczne bez
+    oglądania geometrii: narzędzie nie ma prawa ani pominąć wpisu ze `stations`,
+    ani dołożyć peronu, którego w osi nie ma.
+    """
+    total = 0
+    for axis_id in PACKAGE_AXES:
+        document = _axis_document(axis_id)
+        platforms = _layout_for(axis_id)["platforms"]
+        assert len(platforms) == len(document["stations"]), (
+            axis_id, len(platforms), len(document["stations"]))
+        total += len(platforms)
+    assert total == 61, f"sześć pakietów ma dać 61 peronów, policzono {total}"
+
+
+def test_minimum_edge_offset_holds_the_same_invariant_on_all_six_axes():
+    """`minimum_edge_offset_m = pół szerokości M7 + strzałka` — na 61 peronach.
+
+    Ten sam niezmiennik sprawdza wyżej `test_minimum_edge_offset_is_half_width_plus_
+    the_versine`, ale na osi SYNTETYCZNEJ o zadanym promieniu. Tutaj wchodzą osie
+    prawdziwe, z promieniami od 97,11 m (Trône) do ponad 700 m (Demey) — czyli
+    zakres, którego oś testowa nie ćwiczy.
+    """
+    checked = 0
+    for axis_id in PACKAGE_AXES:
+        layout = _layout_for(axis_id)
+        half = layout["m7_half_width_m"]
+        for row in layout["platforms"]:
+            assert abs(row["minimum_edge_offset_m"]
+                       - (half + row["versine_m"])) < 1e-9, (axis_id, row["name"])
+            checked += 1
+    assert checked == 61, checked
+
+
+def test_every_axis_clips_exactly_its_two_terminus_platforms():
+    """Perony krańcowe są przycięte na KAŻDEJ osi — to własność danych, nie usterka.
+
+    Oś każdego pakietu zaczyna się i kończy w środku stacji krańcowej (T-111), więc
+    peron wyśrodkowany na tym kilometrażu wystaje poza oś dokładnie połową. Test
+    pilnuje trzech rzeczy naraz: że przyciętych jest dokładnie dwa, że są to peron
+    pierwszy i ostatni, i że przycięcie jest ZGŁOSZONE, a nie ciche skrócenie długości.
+    """
+    for axis_id in PACKAGE_AXES:
+        platforms = _layout_for(axis_id)["platforms"]
+        clipped = [i for i, r in enumerate(platforms)
+                   if r["clipped_at_start"] or r["clipped_at_end"]]
+        assert clipped == [0, len(platforms) - 1], (axis_id, clipped)
+        assert platforms[0]["clipped_at_start"] is True, axis_id
+        assert platforms[-1]["clipped_at_end"] is True, axis_id
+        # Peron przycięty na starcie to dokładnie połowa: oś zaczyna się na kilometrażu
+        # stacji, więc zostaje `length/2`. To jest liczba, nie wrażenie.
+        assert abs(platforms[0]["length_m"] - 47.5) < 1e-6, platforms[0]["length_m"]
+        # …a peron nieprzycięty ma pełne 95,0 m z decyzji T-212.
+        middle = [r for r in platforms[1:-1]]
+        assert middle, axis_id
+        for row in middle:
+            assert abs(row["length_m"] - 95.0) < 1e-6, (axis_id, row["name"])
+
+
+def test_the_BF_report_numbers_are_reproducible_from_the_axes():
+    """Raport kontra przebieg — liczba w liczbę, bez tolerancji.
+
+    `reports/T-211-stations-BF.md` §1 podaje dla każdego pakietu najciaśniejszy peron,
+    jego promień, strzałkę, odsunięcie i rozpiętość. Wszystkie te liczby dają się
+    policzyć z `data/track/`, więc raport nie ma prawa się z nimi rozjechać — a bez
+    tej bramki rozjechałby się po cichu przy pierwszej zmianie osi albo narzędzia.
+    """
+    reported = report_package_rows()
+    assert len(reported) == 6, (
+        f"parser wyciągnął {len(reported)} wierszy z §1 raportu — mają być sześć osi; "
+        "pusta lista znaczy, że przestał trafiać w sekcję albo w kształt tabeli")
+    assert not package_mismatches(), package_mismatches()
+
+
+def test_the_BF_report_check_catches_a_number_that_drifted():
+    """Kontrola negatywna wykonana: bez niej porównanie mogłoby czytać samo siebie."""
+    reported = report_package_rows()
+    measured = measured_package_rows()
+    assert not package_mismatches(reported, measured), "punkt wyjścia nie jest czysty"
+
+    # 1. Jedna liczba w raporcie przesunięta o ostatnią cyfrę.
+    dryf = {axis: dict(row) for axis, row in reported.items()}
+    dryf["L2_E"]["offset_m"] += 0.0001
+    problems = package_mismatches(dryf, measured)
+    assert len(problems) == 1 and "L2_E.offset_m" in problems[0], problems
+
+    # 2. Zgubiony peron w przebiegu — liczność jest częścią porównania.
+    braki = {axis: dict(row) for axis, row in measured.items()}
+    braki["L5_D"]["platforms"] -= 1
+    assert package_mismatches(reported, braki), "zgubiony peron przeszedł niezauważony"
+
+    # 3. Cała oś zniknięta z raportu — komunikat ma nazwać zbiory, nie milczeć.
+    bez_osi = {axis: row for axis, row in reported.items() if axis != "L6_F"}
+    problems = package_mismatches(bez_osi, measured)
+    assert len(problems) == 1 and "L6_F" in problems[0], problems
+
+    # 4. Kontrola w drugą stronę: parser NAPRAWDĘ czyta nazwy z raportu, razem
+    #    z `\|` w nazwie dwujęzycznej. Gdyby zwracał puste napisy, porównanie nazw
+    #    byłoby zawsze prawdziwe i punkt 1 nadal by przechodził.
+    assert reported["L2_E"]["name"] == "Trône|Troon", reported["L2_E"]["name"]
+    assert reported["L5_D"]["name"] == "Demey", reported["L5_D"]["name"]
