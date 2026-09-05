@@ -108,8 +108,48 @@ public sealed class StationService
         _cycle = cycle;
         _step = step;
         _windowM = windowM;
-        _next = stations.Count > 0 ? 1 : 0;
-        _departedFromM = stations.Count > 0 ? stations[0].ChainageM : 0.0;
+        StartFromScratch();
+    }
+
+    /// <summary>
+    /// Zeruje obsługę stacji do stanu z chwili utworzenia: kolejka wraca na pierwszą
+    /// stację po punkcie startowym, rejestry wywołań i minięć są puste, a trwający
+    /// cykl drzwi przestaje istnieć.
+    ///
+    /// <para><b>Po co to jest.</b> Reset przejazdu w kabinie
+    /// (<c>src/Game/FirstRun.cs</c>, akcja <c>run_reset</c>) cofał skład na początek
+    /// osi i zerował stan dynamiczny, ale tej klasy nie dotykał. Skutek był taki, że
+    /// skład stał na 94,0 m z kolejką ustawioną na stację, do której zdążył dojechać,
+    /// a <see cref="_next"/> idzie tylko w przód — pominiętych peronów nie dało się już
+    /// obsłużyć. Trwający cykl drzwi przeżywał reset i blokował trakcję w tunelu.
+    /// Opisane w <c>reports/droga-do-grywalnosci.md</c> §5.4 i §G-4.</para>
+    ///
+    /// <para><b>Dlaczego metoda w rdzeniu, a nie budowanie obiektu od nowa w scenie.</b>
+    /// Wołający musiałby wtedy trzymać u siebie wszystkie cztery argumenty konstruktora
+    /// i składać je drugi raz — czyli drugą kopię wiedzy o tym, jak wygląda POCZĄTEK
+    /// przejazdu. Tutaj początek jest jednym prywatnym
+    /// <see cref="StartFromScratch"/>, wołanym i przez konstruktor, i przez tę metodę,
+    /// więc stan po resecie nie ma jak różnić się od stanu po utworzeniu.</para>
+    ///
+    /// <para><b>Czego ta metoda NIE zmienia:</b> osi, cyklu drzwi, kroku ani okna
+    /// zatrzymania. To są nastawy przejazdu, a nie jego stan — reset przejazdu nie jest
+    /// zmianą scenariusza.</para>
+    /// </summary>
+    public void Reset() => StartFromScratch();
+
+    /// <summary>
+    /// Stan początkowy obsługi stacji. JEDNO miejsce dla konstruktora i dla
+    /// <see cref="Reset"/> — patrz uzasadnienie przy <see cref="Reset"/>.
+    /// </summary>
+    private void StartFromScratch()
+    {
+        _calls.Clear();
+        _missed.Clear();
+        _stop = null;
+        _next = _stations.Count > 0 ? 1 : 0;
+        _departedAtSeconds = 0.0;
+        _departedFromM = _stations.Count > 0 ? _stations[0].ChainageM : 0.0;
+        _topSpeedMps = 0.0;
     }
 
     /// <summary>Cykl drzwi tej obsługi.</summary>

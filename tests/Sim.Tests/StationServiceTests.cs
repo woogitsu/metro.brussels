@@ -311,6 +311,129 @@ public sealed class StationServiceTests
         Assert.AreEqual(1.0, held.Throttle, 1e-12);
     }
 
+    // --- reset przejazdu (G-4) ----------------------------------------------------
+
+    /// <summary>
+    /// Jeden przejazd tą samą sekwencją zatrzymań, przez obsługę podaną z zewnątrz.
+    /// Sekwencja jest tu po to, żeby dwa przejazdy dało się porównać co do bitu —
+    /// dlatego numer kroku startuje od zera przy każdym wywołaniu, tak samo jak
+    /// <see cref="DriveState.Steps"/> po resecie przejazdu.
+    /// </summary>
+    private static List<StationCall> DriveBothStations(StationService service)
+    {
+        var step = 0L;
+        var dwell = (long)Math.Round(service.Cycle.DwellSeconds / Step.Seconds) + 2;
+        foreach (var chainage in new[] { 500.0, 1200.0 })
+        {
+            // Dojazd: 200 m przed peronem, w ruchu — żeby licznik prędkości szczytowej
+            // i odległości od poprzedniej stacji też miały co zbierać.
+            for (var i = 0; i < 3; i++)
+            {
+                service.Filter(Moving(chainage - 200.0, 12.0, step++), DriverCommand.Coast,
+                               chainage - 200.0);
+            }
+
+            for (var i = 0L; i < dwell; i++)
+            {
+                service.Filter(Stopped(chainage, step++), DriverCommand.FullPower, chainage);
+            }
+        }
+
+        return new List<StationCall>(service.Calls);
+    }
+
+    /// <summary>
+    /// USTERKA G-4: trwający cykl drzwi przeżywał reset przejazdu.
+    ///
+    /// <para>Scena zerowała stan dynamiczny składu i nie dotykała tej klasy
+    /// (<c>reports/droga-do-grywalnosci.md</c> §5.4). Skład wracał na początek osi,
+    /// a licznik postoju szedł dalej z poprzedniego przejazdu — z blokadą trakcji,
+    /// czyli w tunelu i przy zamkniętych drzwiach.</para>
+    /// </summary>
+    [TestMethod]
+    public void ResetEndsARunningDoorCycle()
+    {
+        var service = Service(windowM: 5.0, exchangeSeconds: 8.0);
+        var half = (long)Math.Round(0.5 * service.Cycle.DwellSeconds / Step.Seconds);
+        for (var i = 0L; i <= half; i++)
+        {
+            service.Filter(Stopped(500.0, i), DriverCommand.FullPower, 500.0);
+        }
+
+        // Pomiar PRZED resetem — inaczej „po resecie zero" nie znaczyłoby nic.
+        Assert.IsTrue(service.AtStation, "cykl drzwi w ogóle się nie zaczął");
+        Assert.IsTrue(service.DwellRemainingSeconds > 0.0,
+            $"licznik postoju stał na {service.DwellRemainingSeconds:F3} s jeszcze przed resetem");
+        Assert.IsFalse(service.TractionAllowed);
+        Assert.AreEqual(1, service.Calls.Count);
+
+        service.Reset();
+
+        Assert.IsFalse(service.AtStation, "trwający cykl drzwi przeżył reset");
+        Assert.AreEqual(0.0, service.DwellRemainingSeconds, 0.0,
+            "licznik cyklu drzwi nie stoi po resecie na zerze");
+        Assert.AreEqual(DoorPhase.Closed, service.Phase);
+        Assert.IsTrue(service.TractionAllowed, "trakcja została zablokowana przez poprzedni przejazd");
+        Assert.AreEqual(0, service.Calls.Count, "wywołania poprzedniego przejazdu zostały w rejestrze");
+        Assert.AreEqual(0, service.Missed.Count);
+        Assert.IsFalse(service.Finished);
+    }
+
+    /// <summary>
+    /// „Przejechana stacja jest przejechana na zawsze" — ale <b>w obrębie przejazdu</b>.
+    /// Reset kończy przejazd, więc kolejka wraca na pierwszą stację za punktem startowym;
+    /// gdyby nie wracała, skład stałby na 94,0 m z kolejką ustawioną tam, dokąd dojechał,
+    /// a <c>_next</c> idzie tylko w przód.
+    /// </summary>
+    [TestMethod]
+    public void ResetBringsBackTheStationsThatWereAlreadyPassed()
+    {
+        var service = Service(windowM: 5.0);
+        service.Filter(Moving(520.0, 10.0), DriverCommand.Coast, 520.0);
+        service.Filter(Moving(1300.0, 10.0), DriverCommand.Coast, 1300.0);
+        Assert.IsTrue(service.Finished, "przejazd nie minął obu stacji");
+        Assert.AreEqual(2, service.Missed.Count);
+
+        service.Reset();
+
+        Assert.IsFalse(service.Finished, "kolejka stacji została na końcu osi");
+        Assert.AreEqual(0, service.Missed.Count);
+        Assert.AreEqual("Pierwsza", service.Approach(0.0).Name, "kolejka nie wróciła na początek");
+
+        // I stacja minięta w poprzednim przejeździe daje się obsłużyć w nowym.
+        service.Filter(Stopped(500.0), DriverCommand.Coast, 500.0);
+        Assert.IsTrue(service.AtStation);
+        Assert.AreEqual(1, service.Calls.Count);
+        Assert.AreEqual("Pierwsza", service.Calls[0].Name);
+    }
+
+    /// <summary>
+    /// Dowód wprost z kryterium G-4: przejazd po resecie ma tę samą sekwencję wywołań
+    /// stacji, co ten sam przejazd na świeżo zbudowanej obsłudze, przy progu <b>0</b>.
+    ///
+    /// <para>Próg zero jest tu dosłowny: <see cref="StationCall"/> jest rekordem, więc
+    /// porównanie idzie po WSZYSTKICH polach — kilometrażu, błędzie zatrzymania, czasach
+    /// przyjazdu i odjazdu, drodze od poprzedniej stacji i prędkości szczytowej. Gdyby
+    /// reset zostawiał którykolwiek z liczników wewnętrznych (<c>_departedAtSeconds</c>,
+    /// <c>_departedFromM</c>, <c>_topSpeedMps</c>), rozjazd wyszedłby właśnie tutaj,
+    /// a nie na licznikach, które widać z HUD-u.</para>
+    /// </summary>
+    [TestMethod]
+    public void RunAfterResetIsBitIdenticalWithARunOnAFreshService()
+    {
+        var wzorzec = DriveBothStations(Service(windowM: 5.0, exchangeSeconds: 8.0));
+
+        var uzywana = Service(windowM: 5.0, exchangeSeconds: 8.0);
+        DriveBothStations(uzywana);
+        uzywana.Reset();
+        var poResecie = DriveBothStations(uzywana);
+
+        Assert.AreEqual(2, wzorzec.Count, "przejazd wzorcowy nie obsłużył obu stacji");
+        CollectionAssert.AreEqual(
+            wzorzec, poResecie,
+            "wywołania po resecie: " + string.Join(" | ", poResecie));
+    }
+
     [TestMethod]
     public void WindowMustBePositiveAndFinite()
     {

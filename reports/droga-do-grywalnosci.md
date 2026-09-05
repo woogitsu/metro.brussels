@@ -569,12 +569,33 @@ a `LineDrive` dostać źródło polecenia jako parametr — inaczej dwie reguły
 zaczną się rozjeżdżać, a to jest wprost ta klasa błędu, przed którą broni się cały
 ten kod („dwie kopie tej samej wiedzy w jednym przebiegu rozjechałyby się").
 
-### 5.4 Reset (R) rozsynchronizowuje obsługę stacji
+### 5.4 Reset (R) rozsynchronizowywał obsługę stacji — **ryzyko zdjęte przez G-4**
 
-`FirstRun.cs:865–872` zeruje stan dynamiczny i nie dotyka `StationService`.
-Po resecie skład stoi na 94,0 m, a kolejka stacji wskazuje tę, do której zdążył
-dojechać; `_next` idzie tylko w przód, więc pominiętych peronów nie da się obsłużyć.
-Trwający cykl drzwi przeżywa reset. Naprawa: G-4.
+> **Ten punkt jest przepisany, a nie dopisany obok.** Jego poprzednia wersja mówiła
+> „`FirstRun.cs:865–872` zeruje stan dynamiczny i **nie dotyka** `StationService`"
+> i kończyła się zdaniem „Naprawa: G-4". Naprawa weszła, więc czas teraźniejszy tu
+> kłamie. Odczyt z kodu zostaje jako opis usterki, bo to on jest uzasadnieniem tamtej
+> zmiany.
+
+**Było:** reset zerował stan dynamiczny składu i nie dotykał `StationService`.
+Po resecie skład stał na 94,0 m, a kolejka stacji wskazywała tę, do której zdążył
+dojechać; `_next` idzie tylko w przód, więc pominiętych peronów nie dało się obsłużyć.
+Trwający cykl drzwi przeżywał reset.
+
+**Jest:** decyzja „co reset obejmuje" wyszła z węzła Godota do `src/Game/RunReset.cs`
+(bez Godota, więc wołalna z testu), a `StationService` dostał jawny `Reset()`, którego
+konstruktor i reset dzielą jeden prywatny `StartFromScratch()` — stan po resecie nie ma
+jak różnić się od stanu po utworzeniu. [ZMIERZONE, `RunResetTests`] przejazd wzorcową
+sekwencją klawiszy z `tests/data/manual-keys.log`, 5401 kroków: przed resetem
+`drzwi=Open postoj=12,975 s trakcja=ZABLOKOWANA obsluzone=1`, po resecie
+`drzwi=Closed postoj=0,000 s trakcja=WOLNA obsluzone=0 nastepna=Beekkant`.
+Przejazd powtórzony po resecie daje ten sam `StationCall` co przejazd bez resetu,
+przy progu **0** na wszystkich polach rekordu.
+
+**Zostało otwarte:** `C` i `R` nadal nie trafiają do zapisu wejść, więc przejazd
+Z RESETEM nie odtworzy się z pliku — pomiar wyżej idzie przez `RunReset.Apply`, czyli
+tę samą funkcję, którą woła scena, a nie przez `--replay`. Rozstrzygnięcie wymaga
+decyzji właściciela (wariant formatu zapisu), i dlatego nie zostało zgadnięte.
 
 W trybie `--line` klawisz R jest **bezgłośnie bezskuteczny** — `_state` jest
 w następnym kroku nadpisywane z `_line.State` (`FirstRun.cs:703`). Nie jest to
