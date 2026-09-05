@@ -203,6 +203,39 @@ być: to nadzór, a nie regulator prędkości. Ingeruje **po** przekroczeniu i p
 prędkość wróci pod krzywą, więc jazda nad limitem planu jest piłą, a nie płaskim
 ograniczeniem. Kto chce jechać szybko, ma nie przekraczać.
 
+#### Granica: prędkość dokładnie równa dopuszczalnej NIE jest przekroczeniem
+
+Wiersz `72,0 km/h` z tabeli wyżej jest **granicą**, a nie kolejnym pomiarem: limit
+scenariusza jest tam dokładnie limitem planu. Warunek w `Supervise` brzmi
+`speedMps > permitted`, i to `>`, a nie `>=`, jest treścią — jazda po limicie limit
+respektuje. Uzasadnienie jest ze źródeł, nie z tego, że taki operator akurat stoi w kodzie:
+
+- ten sam dokument mówi, że ochrona ingeruje **po** przekroczeniu, a tabela pokazuje przy
+  72,0 km/h ślad identyczny co do bitu i `0 / 0`;
+- `data/signalling/ground-truth.json`, `legacy_automatic_speed_protection`: ochrona
+  reaguje, „when the protected separation is **not respected**";
+- ta sama konwencja równości stoi już w `DemandExceedsServiceBrake` (żądanie równe
+  pełnemu hamulcowi jeszcze go nie przekracza) — dwie różne konwencje w jednym pliku
+  byłyby usterką;
+- przy `>=` limit planu przestałby być **osiągalny**: sterownik dociąga prędkość dokładnie
+  do limitu, więc ochrona hamowałaby każdy skład, który dojechał do własnego pułapu.
+
+**Zmierzone 05.09.2026**, przejazd samotnego składu po pakiecie A przy limicie scenariusza
+72,00 km/h, czysty kod wobec mutacji `>` → `>=`:
+
+| | czysty kod | z mutacją |
+|---|---:|---:|
+| kroki przejazdu | 89 667 | 89 672 |
+| kroki z prędkością **dokładnie** równą dopuszczalnej | 4492 | 4492 |
+| ostrzeżenia | 0 | 0 |
+| ingerencje służbowe | 0 | **4492** |
+
+Czyli mutacja hamuje przez 37,43 s skład, który niczego nie łamie, i **nie zapisuje przy
+tym ani jednego ostrzeżenia** — bo flaga `Overspeed` zostaje przy `>`, a rozjazd dwóch
+porównań tej samej pary liczb jest właśnie tym, co czyni ingerencję niewidoczną. Do
+05.09.2026 cały zestaw 376 testów tego nie widział, bo żaden nie jechał po granicy
+(były 70 oraz 74/76/80). Przybija to `TrainProtectionTests`.
+
 **Ingerencji awaryjnych jest zero i to trzeba powiedzieć, a nie przemilczeć.** Największe
 żądanie ochrony w tym przejeździe to 0,863 m/s², czyli 78 % hamulca służbowego — żeby
 ochrona sięgnęła po hamowanie awaryjne, hamulec służbowy musiałby **nie wystarczyć** do

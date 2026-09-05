@@ -11,11 +11,19 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace MetroBxl.Sim.Tests;
 
 /// <summary>
-/// Ochrona pociągu i jazda dwóch składów w trybie <c>classic_2026</c>.
+/// SCENARIUSZE jazdy w trybie <c>classic_2026</c>: hamowanie na żądanie ATP i dwa
+/// składy na rzeczywistej osi pakietu A.
 ///
 /// <para>To jest miejsce, w którym T-313 spotyka się z T-311 i T-312: krzywa hamowania
 /// jest **ta sama**, którą prowadzi się skład, a blokada drzwi wisi na tym samym
 /// warunku zatrzymania, co cykl drzwi.</para>
+///
+/// <para><b>Czego tu już nie ma.</b> Testy samej klasy <c>TrainProtection</c> —
+/// krzywa dopuszczalna, progi ingerencji, strażnicy argumentów, drzwi i KCV,
+/// <c>ProtectionDecision.Apply</c> — przeniosły się 05.09.2026 do
+/// <c>TrainProtectionTests</c>. Powód jest zmierzony, a nie porządkowy: rozsypane
+/// po scenariuszach dawały tej klasie najgorsze pokrycie mutacyjne z całej piątki
+/// rdzenia, bo scenariusz jedzie po środku dziedziny i nie zagląda w jej brzegi.</para>
 /// </summary>
 [TestClass]
 public sealed class ClassicSignallingScenarioTests
@@ -31,169 +39,6 @@ public sealed class ClassicSignallingScenarioTests
         SignallingPlanTests.SyntheticPlan(requireRoute, 0.0, 600.0, 1400.0, 2000.0);
 
     private static TrainProtection Protection(SignallingPlan plan) => new(plan, Model);
-
-    // --- krzywa hamowania -------------------------------------------------------------
-
-    /// <summary>
-    /// Zasada 4 z T-313: ATP nie ma własnej fizyki. Prędkość dopuszczalna wyznaczona
-    /// przez ochronę musi zgadzać się z drogą hamowania solvera z T-311 co do metra,
-    /// a nie „mniej więcej".
-    /// </summary>
-    [TestMethod]
-    public void Predkosc_dopuszczalna_jest_odwrotnoscia_krzywej_z_T_311()
-    {
-        var plan = Plan();
-        var protection = Protection(plan);
-        var solver = new BrakingPointSolver(Model);
-
-        foreach (var distance in new[] { 10.0, 50.0, 120.0, 300.0, 700.0 })
-        {
-            var permitted = protection.PermittedSpeedMps(distance);
-            if (permitted >= plan.PermittedSpeedMps)
-            {
-                Assert.IsTrue(
-                    solver.Solve(plan.PermittedSpeedMps, 0.0, Model.DesignServiceBrakeMps2).DistanceM <= distance,
-                    $"{distance:F0} m: limit planu ma się zmieścić w authority");
-                continue;
-            }
-
-            var need = solver.Solve(permitted, 0.0, Model.DesignServiceBrakeMps2).DistanceM;
-            Assert.IsTrue(need <= distance + 1e-6, $"{distance:F0} m: droga {need:F6} m nie mieści się w authority");
-
-            var faster = solver.Solve(permitted + 0.01, 0.0, Model.DesignServiceBrakeMps2).DistanceM;
-            Assert.IsTrue(faster > distance, $"{distance:F0} m: o 0,01 m/s szybciej wciąż by się mieściło");
-        }
-    }
-
-    [TestMethod]
-    public void Predkosc_dopuszczalna_spada_do_zera_na_koncu_authority()
-    {
-        var protection = Protection(Plan());
-
-        Assert.AreEqual(0.0, protection.PermittedSpeedMps(0.0), 0.0);
-        Assert.IsTrue(protection.PermittedSpeedMps(1.0) > 0.0);
-        Assert.IsTrue(protection.PermittedSpeedMps(1.0) < protection.PermittedSpeedMps(100.0));
-    }
-
-    // --- ingerencja --------------------------------------------------------------------
-
-    /// <summary>Scenariusz „overspeed ponad curve → intervention".</summary>
-    [TestMethod]
-    public void Predkosc_ponad_krzywa_wywoluje_ostrzezenie_i_ingerencje()
-    {
-        var plan = Plan();
-        var system = new FixedBlockSystem(plan);
-        var protection = Protection(plan);
-        system.RegisterTrain("A", 1400.0, TrainLengthM);
-        system.RegisterTrain("B", 200.0, TrainLengthM);
-
-        var authority = system.Authority("B");
-        var permitted = protection.PermittedSpeedMps(authority.DistanceM);
-        var before = system.Events.Count;
-
-        var calm = protection.Supervise(system, "B", permitted * 0.5);
-        Assert.AreEqual(ProtectionAction.None, calm.Action);
-        Assert.IsFalse(calm.Overspeed);
-
-        var decision = protection.Supervise(system, "B", permitted * 1.05);
-        Assert.IsTrue(decision.Overspeed);
-        Assert.AreEqual(ProtectionAction.ServiceIntervention, decision.Action);
-        Assert.IsTrue(decision.BrakeDemandMps2 > 0.0);
-        Assert.IsTrue(decision.BrakeDemandMps2 <= Model.DesignServiceBrakeMps2);
-
-        var kinds = system.Events.Skip(before).Select(e => e.Kind).ToList();
-        CollectionAssert.Contains(kinds, SignallingEventKind.OverspeedWarning);
-        CollectionAssert.Contains(kinds, SignallingEventKind.OverspeedIntervention);
-    }
-
-    /// <summary>
-    /// Próg ingerencji awaryjnej nie jest przyjętym marginesem — jest policzony:
-    /// wypada tam, gdzie hamulec służbowy przestaje wystarczać na pozostałą drogę.
-    /// </summary>
-    [TestMethod]
-    public void Gdy_hamulec_sluzbowy_nie_wystarcza_ingerencja_jest_awaryjna()
-    {
-        var plan = Plan();
-        var system = new FixedBlockSystem(plan);
-        var protection = Protection(plan);
-        system.RegisterTrain("A", 1400.0, TrainLengthM);
-        system.RegisterTrain("B", 600.0, TrainLengthM);
-
-        var authority = system.Authority("B");
-        Assert.IsTrue(authority.DistanceM < 50.0, $"do końca authority zostało {authority.DistanceM:F2} m");
-
-        var decision = protection.Supervise(system, "B", Units.KmhToMps(60.0));
-        Assert.AreEqual(ProtectionAction.EmergencyIntervention, decision.Action);
-        Assert.AreEqual(Model.DesignEmergencyBrakeMps2, decision.BrakeDemandMps2, 0.0);
-        Assert.IsTrue(
-            system.Events.Any(e => e.Kind == SignallingEventKind.EmergencyIntervention),
-            "ingerencja awaryjna musi zostawić ślad w zapisie");
-    }
-
-    /// <summary>
-    /// Sam próg służbowy → awaryjny, a nie tylko jego okolice.
-    ///
-    /// <para>Zmierzone 02.09.2026 mutacją: podmiana warunku
-    /// <c>need &lt;= _serviceBrakeMps2</c> na <c>need &lt;= _emergencyBrakeMps2</c> —
-    /// czyli zgoda na ingerencję służbową tam, gdzie służbowy nie wystarcza —
-    /// przechodziła przez cały zestaw (Passed: 255). Istniejące testy używają
-    /// prędkości tak wysokich, że potrzebne opóźnienie przekracza także hamulec
-    /// awaryjny; obie strony podmienionego warunku dają wtedy ten sam wynik.</para>
-    ///
-    /// <para>Ten test kalibruje się na rzeczywistej odległości authority: liczy
-    /// potrzebne opóźnienie solverem z T-311, a potem buduje ochronę tak, żeby ta
-    /// liczba wypadła DOKŁADNIE między hamulcem służbowym a awaryjnym. To jedyne
-    /// miejsce, w którym oba warunki się rozchodzą.</para>
-    /// </summary>
-    [TestMethod]
-    public void Prog_miedzy_sluzbowym_a_awaryjnym_wypada_tam_gdzie_sluzbowy_przestaje_wystarczac()
-    {
-        var plan = Plan();
-        var system = new FixedBlockSystem(plan);
-        system.RegisterTrain("A", 1400.0, TrainLengthM);
-        system.RegisterTrain("B", 200.0, TrainLengthM);
-
-        var solver = new BrakingPointSolver(Model);
-        var distance = system.Authority("B").DistanceM;
-        var speed = Units.KmhToMps(40.0);
-        var need = solver.RequiredDeceleration(speed, 0.0, distance).DecelerationMps2;
-        Assert.IsTrue(need > 0.0, $"potrzebne opóźnienie {need:F4} m/s² nie nadaje się na próg");
-
-        // Hamulec służbowy poniżej potrzeby, awaryjny powyżej — czyli dokładnie
-        // sytuacja „służbowy nie wystarcza, ale awaryjny tak".
-        var tooWeak = new TrainProtection(plan, solver, need * 0.5, need * 2.0);
-        var escalated = tooWeak.Supervise(system, "B", speed);
-        Assert.AreEqual(ProtectionAction.EmergencyIntervention, escalated.Action,
-            $"potrzeba {need:F4} m/s², służbowy {need * 0.5:F4} m/s²");
-        StringAssert.Contains(escalated.Reason, "service-brake-insufficient");
-        Assert.AreEqual(need * 2.0, escalated.BrakeDemandMps2, 0.0);
-
-        // Ta sama sytuacja z hamulcem służbowym mocniejszym od potrzeby: bez eskalacji.
-        // Nie żądam tu ingerencji służbowej, bo mocniejszy hamulec podnosi też samą
-        // krzywą — skład może się zmieścić pod nią i nie być w ogóle w nadmiernej
-        // prędkości. Istotne jest, że hamulec awaryjny NIE wchodzi.
-        var strongEnough = new TrainProtection(plan, solver, need * 2.0, need * 4.0);
-        var served = strongEnough.Supervise(system, "B", speed);
-        Assert.AreNotEqual(ProtectionAction.EmergencyIntervention, served.Action,
-            $"potrzeba {need:F4} m/s², służbowy {need * 2.0:F4} m/s²");
-    }
-
-    [TestMethod]
-    public void Wyczerpane_authority_przy_ruchu_to_zawsze_ingerencja_awaryjna()
-    {
-        var plan = Plan();
-        var system = new FixedBlockSystem(plan);
-        var protection = Protection(plan);
-        system.RegisterTrain("A", 1400.0, TrainLengthM);
-        system.RegisterTrain("B", 200.0, TrainLengthM);
-        system.MoveTrain("B", system.Authority("B").EndChainageM);
-
-        Assert.AreEqual(0.0, system.Authority("B").DistanceM, 0.0);
-        var decision = protection.Supervise(system, "B", 1.0);
-
-        Assert.AreEqual(ProtectionAction.EmergencyIntervention, decision.Action);
-        StringAssert.Contains(decision.Reason, "authority-exhausted");
-    }
 
     /// <summary>
     /// Scenariusz „stopping curve pozwala zatrzymać przed endpointem": skład rusza
@@ -232,65 +77,6 @@ public sealed class ClassicSignallingScenarioTests
             system.Events.Any(e => e.Kind == SignallingEventKind.AuthorityViolation),
             "hamowanie w granicach krzywej nie może naruszyć authority");
     }
-
-    // --- drzwi i KCV --------------------------------------------------------------------
-
-    [TestMethod]
-    public void Drzwi_zwalniaja_sie_tylko_na_postoju_w_bloku_peronowym()
-    {
-        var plan = Plan();
-        var system = new FixedBlockSystem(plan);
-        var protection = Protection(plan);
-        system.RegisterTrain("A", 600.0, TrainLengthM);
-
-        Assert.IsTrue(protection.DoorRelease(system, "A", 0.0, kcvAvailable: false).Released,
-            "skład stoi w bloku peronowym P02");
-
-        var moving = protection.DoorRelease(system, "A", 3.0, kcvAvailable: false);
-        Assert.IsFalse(moving.Released);
-        Assert.AreEqual("moving", moving.Reason);
-
-        system.MoveTrain("A", 800.0);
-        var offPlatform = protection.DoorRelease(system, "A", 0.0, kcvAvailable: false);
-        Assert.IsFalse(offPlatform.Released);
-        StringAssert.Contains(offPlatform.Reason, "not-at-platform");
-
-        var kinds = system.Events.Select(e => e.Kind).ToList();
-        CollectionAssert.Contains(kinds, SignallingEventKind.DoorRelease);
-        CollectionAssert.Contains(kinds, SignallingEventKind.DoorInhibit);
-    }
-
-    /// <summary>
-    /// KCV jako interfejs, nie jako urządzenie: w wariancie linii 2/6 brak potwierdzenia
-    /// z KCV blokuje zwolnienie drzwi. Telegramów, balis ani protokołu tu nie ma i nie
-    /// będzie — <c>ground-truth.json</c> wymienia je jako nieznane.
-    /// </summary>
-    [TestMethod]
-    public void W_wariancie_KCV_brak_potwierdzenia_blokuje_drzwi()
-    {
-        var axis = SignallingPlanTests.SyntheticAxis(0.0, 600.0, 1400.0);
-        var plan = SignallingPlan.FromAxis(
-            axis, TrainLengthM, Units.KmhToMps(72.0), 0.0, ProtectionVariant.LegacyWithKcv, requireRoute: false);
-        var system = new FixedBlockSystem(plan);
-        var protection = new TrainProtection(plan, Model);
-        system.RegisterTrain("A", 600.0, TrainLengthM);
-
-        protection.RequireKcv();
-        Assert.IsFalse(protection.DoorRelease(system, "A", 0.0, kcvAvailable: false).Released);
-        Assert.AreEqual("kcv-unavailable", protection.DoorRelease(system, "A", 0.0, kcvAvailable: false).Reason);
-        Assert.IsTrue(protection.DoorRelease(system, "A", 0.0, kcvAvailable: true).Released);
-    }
-
-    [TestMethod]
-    public void Lista_funkcji_KCV_jest_dokladnie_ta_ktora_podaje_STIB() =>
-        CollectionAssert.AreEqual(
-            new[]
-            {
-                KcvFunction.SecureAutomaticDoorOpening,
-                KcvFunction.StationAnnouncements,
-                KcvFunction.WheelLubrication,
-            },
-            TrainProtection.SourceBackedKcvFunctions.ToArray());
 
     // --- dwa składy na pakiecie A ---------------------------------------------------------
 
@@ -387,98 +173,6 @@ public sealed class ClassicSignallingScenarioTests
     /// przez movement authority i nadzorowana przez ATP. Nie jest to symulator ruchu
     /// (to T-320) — jest to najmniejsze, co pozwala przejechać scenariusz z T-313.
     /// </summary>
-    // --- ATP INGERUJE: decyzja właściciela z 04.09.2026 ---------------------
-    //
-    // „Ostrzeżenie, potem hamulec służbowy". Do tej pory `Supervise` liczyło decyzję,
-    // a nikt jej nie stosował — HUD pokazywał liczbę i tyle. Poniżej testy tej jednej
-    // rzeczy, która zamienia liczbę w zachowanie: `ProtectionDecision.Apply`.
-
-    private static ProtectionDecision Decision(ProtectionAction action, double demand) =>
-        new(0.0, 100.0, action, demand, action != ProtectionAction.None, "test");
-
-    [TestMethod]
-    public void Bez_ingerencji_polecenie_maszynisty_przechodzi_bez_zmiany()
-    {
-        // Samo przekroczenie prędkości jest OSTRZEŻENIEM, nie hamowaniem: dopóki krzywa
-        // wyrabia, ochrona nie ma prawa odebrać jazdy. Gdyby `None` też hamowało,
-        // przejazd z limitem planu przestałby być tym zweryfikowanym przejazdem.
-        var wanted = new DriverCommand(0.65, 0.0);
-        var passed = Decision(ProtectionAction.None, 0.0).Apply(wanted, 1.1);
-
-        Assert.AreEqual(wanted.Throttle, passed.Throttle, 0.0, "trakcja ma przejść nietknięta");
-        Assert.AreEqual(wanted.Brake, passed.Brake, 0.0, "hamulec ma przejść nietknięty");
-    }
-
-    [TestMethod]
-    public void Ingerencja_sluzbowa_zeruje_trakcje_i_podaje_zadany_hamulec()
-    {
-        // 0,55 m/s² przy hamulcu służbowym 1,10 m/s² to dokładnie połowa nastawnika.
-        // Liczba jest wybrana tak, żeby dała się sprawdzić w głowie, a nie żeby zgodzić
-        // się z implementacją.
-        var passed = Decision(ProtectionAction.ServiceIntervention, 0.55)
-            .Apply(new DriverCommand(1.0, 0.0), 1.1);
-
-        Assert.AreEqual(0.0, passed.Throttle, 0.0, "trakcja przy ingerencji musi zniknąć");
-        Assert.AreEqual(0.5, passed.Brake, 1e-12, "0,55 / 1,10 = połowa nastawnika hamulca");
-    }
-
-    [TestMethod]
-    public void Ochrona_nie_odpuszcza_hamulca_ktory_maszynista_juz_podal()
-    {
-        // Ingerencja idzie TYLKO w stronę mocniejszego hamowania. Gdyby ochrona
-        // wstawiała swój ułamek zamiast brać większy z dwóch, maszynista hamujący
-        // pełnym hamulcem dostałby przy ostrzeżeniu hamulec SŁABSZY — czyli ochrona
-        // przyspieszałaby skład, którego ma pilnować.
-        var passed = Decision(ProtectionAction.ServiceIntervention, 0.55)
-            .Apply(new DriverCommand(0.0, 1.0), 1.1);
-
-        Assert.AreEqual(1.0, passed.Brake, 0.0,
-            "pełny hamulec maszynisty ma zostać pełnym, a nie spaść do połowy");
-    }
-
-    [TestMethod]
-    public void Ingerencja_awaryjna_daje_pelny_hamulec_niezaleznie_od_zadania()
-    {
-        foreach (var demand in new[] { 0.0, 0.4, 1.3, 9.9 })
-        {
-            var passed = Decision(ProtectionAction.EmergencyIntervention, demand)
-                .Apply(new DriverCommand(1.0, 0.0), 1.1);
-            Assert.AreEqual(0.0, passed.Throttle, 0.0, $"żądanie {demand:F1} m/s²");
-            Assert.AreEqual(1.0, passed.Brake, 0.0, $"żądanie {demand:F1} m/s²");
-        }
-    }
-
-    [TestMethod]
-    public void Zadanie_ponad_hamulec_sluzbowy_jest_widoczne_a_nie_zamiecione()
-    {
-        // `BrakeCommandFraction` obcina ułamek do 1,0, więc żądanie 2,00 m/s² i żądanie
-        // 1,10 m/s² dają ten sam nastawnik. Obcięcie jest poprawne — polecenie kończy
-        // się na pełnym hamulcu — ale gdyby to była jedyna informacja, przekroczenie
-        // stałoby się niewidoczne.
-        var ledwo = Decision(ProtectionAction.ServiceIntervention, 1.1);
-        var ponad = Decision(ProtectionAction.ServiceIntervention, 2.0);
-
-        Assert.AreEqual(1.0, ledwo.BrakeCommandFraction(1.1), 1e-12);
-        Assert.AreEqual(1.0, ponad.BrakeCommandFraction(1.1), 1e-12);
-        Assert.IsFalse(ledwo.DemandExceedsServiceBrake(1.1),
-            "żądanie równe pełnemu hamulcowi jeszcze go nie przekracza");
-        Assert.IsTrue(ponad.DemandExceedsServiceBrake(1.1),
-            "żądanie 2,00 m/s² przy hamulcu 1,10 m/s² przekracza go i musi to powiedzieć");
-    }
-
-    [TestMethod]
-    public void Apply_i_DemandExceeds_odmawiaja_niedodatniego_hamulca()
-    {
-        var decision = Decision(ProtectionAction.ServiceIntervention, 0.55);
-        foreach (var bad in new[] { 0.0, -1.1, double.NaN, double.PositiveInfinity })
-        {
-            Assert.ThrowsException<ArgumentOutOfRangeException>(
-                () => decision.DemandExceedsServiceBrake(bad), $"{bad}");
-            Assert.ThrowsException<ArgumentOutOfRangeException>(
-                () => decision.Apply(new DriverCommand(1.0, 0.0), bad), $"{bad}");
-        }
-    }
-
     private sealed class Runner
     {
         private const double StopWindowM = 5.0;
