@@ -171,25 +171,38 @@ def test_every_mutation_lands_on_what_it_expects():
     # `apply` asertuje, że w pliku stoi dokładnie to, co mutacja zamierza podmienić.
     # Gdyby pozycje były policzone źle, asercja padnie tutaj, a nie w środku przebiegu
     # trwającego godzinę.
+    #
+    # Licznik obrotów i asercja na jego wartość NIE są ozdobą. Cała treść tego testu
+    # siedzi w pętli; gdyby `collect()` przestało zwracać cokolwiek, pętla nie
+    # wykonałaby się ani razu, a test wypisałby `ok` tak samo jak dziś.
+    # Zmierzone bramką asercji 05.09.2026: przed tą poprawką test przechodził,
+    # wykonując zero własnych asercji.
     cache = {}
+    checked = 0
     for mutation in sweep.collect():
         path = os.path.join(ROOT, mutation.path)
         if path not in cache:
             with open(path, encoding="utf-8") as handle:
                 cache[path] = handle.read()
         mutation.apply(cache[path])
+        checked += 1
+    assert checked > 500, f"sprawdzono tylko {checked} mutacji"
 
 
 def test_every_mutation_still_parses():
     # Mutacja, która nie parsuje, wywala przebieg i liczy się jako zabita — czyli
     # ZAWYŻA pokrycie. To najkosztowniejsza możliwa cicha awaria tego narzędzia.
+    # Licznik obrotów jak wyżej i z tego samego powodu.
     cache = {}
+    checked = 0
     for mutation in sweep.collect():
         path = os.path.join(ROOT, mutation.path)
         if path not in cache:
             with open(path, encoding="utf-8") as handle:
                 cache[path] = handle.read()
         ast.parse(mutation.apply(cache[path]))
+        checked += 1
+    assert checked > 500, f"sparsowano tylko {checked} mutacji"
 
 
 def test_there_is_something_to_sweep():

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using MetroBxl.Sim.Physics;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -186,21 +187,35 @@ public sealed class ReferenceParityTests
     [TestMethod]
     public void Tabela_parytetu_do_raportu()
     {
-        Print("accel_0_80", "AW0",
+        // Wiersze idą najpierw do listy, a na konsolę dopiero po policzeniu. Powód jest
+        // zmierzony, nie estetyczny: audyt asercji z 05.09.2026 pokazał, że ten test
+        // przechodził, wykonując ZERO asercji — drukował cztery wiersze i podnosił
+        // licznik `Passed` tak samo, jak podniósłby go, nie drukując ani jednego.
+        // Tabela, która wyszła pusta, jest awarią raportu, a nie pustym raportem.
+        var rows = new List<string>();
+
+        Row("accel_0_80", "AW0",
             PythonReference.Accel80Aw0TimeS, PythonReference.Accel80Aw0DistanceM,
             AccelerationRun.M7.ToSpeed(RunConditions.Level(Model, TrainLoad.Aw0), 80.0));
 
-        Print("accel_0_80", "AW2",
+        Row("accel_0_80", "AW2",
             PythonReference.Accel80Aw2TimeS, PythonReference.Accel80Aw2DistanceM,
             AccelerationRun.M7.ToSpeed(RunConditions.Level(Model, TrainLoad.Aw2), 80.0));
 
         var brake = ServiceBrakingRun.M7.ToStop(80.0);
-        Print("brake_service_80_0", "AW0", PythonReference.ServiceBrake80TimeS, PythonReference.ServiceBrake80DistanceM, brake);
-        Print("brake_service_80_0", "AW2", PythonReference.ServiceBrake80TimeS, PythonReference.ServiceBrake80DistanceM, brake);
+        Row("brake_service_80_0", "AW0", PythonReference.ServiceBrake80TimeS, PythonReference.ServiceBrake80DistanceM, brake);
+        Row("brake_service_80_0", "AW2", PythonReference.ServiceBrake80TimeS, PythonReference.ServiceBrake80DistanceM, brake);
 
-        static void Print(string name, string load, double refTime, double refDistance, RunResult run)
+        Assert.AreEqual(4, rows.Count, "tabela parytetu wyszła niepełna");
+        foreach (string row in rows)
         {
-            Console.WriteLine(string.Create(
+            Assert.IsTrue(row.EndsWith(" |", StringComparison.Ordinal), row);
+            Console.WriteLine(row);
+        }
+
+        void Row(string name, string load, double refTime, double refDistance, RunResult run)
+        {
+            rows.Add(string.Create(
                 CultureInfo.InvariantCulture,
                 $"| {name} | {load} | {refTime:F1} | {run.TimeSeconds:F1} | {refDistance:F1} | {run.DistanceM:F1} | " +
                 $"{run.Steps} | dt={run.TimeSeconds - refTime:E3} s | ds={run.DistanceM - refDistance:E3} m |"));
