@@ -44,8 +44,13 @@ src/Sim.Runner/                        konsolowy gospodarz rdzenia: drive/compar
 tests/Sim.Tests/TrainControllerTests.cs   trakcja częściowa, zryw, brak obcięcia, bilans energii
 tests/Sim.Tests/ScenarioDriveTests.cs     determinizm krokowy, bezpiecznik pętli, telemetria
 tests/Sim.Tests/TrackAxisTests.cs         przypadki brzegowe osi + kontrola na pakiecie A
-.github/workflows/godot-first-run.yml  CI na ubuntu-latest, Godot z GitHub Releases
+.github/workflows/godot-first-run.yml  CI, Godot z GitHub Releases
 ```
+
+Zmierzone 01.09.2026: workflow powstał wtedy na `ubuntu-latest`. Od 02.09.2026 całe CI
+tego repozytorium chodzi na gołej etykiecie `self-hosted` (`CLAUDE.md` §9), więc
+poprzednia wersja wiersza wyżej — „CI na ubuntu-latest" — przestała być prawdą
+o dzisiejszym pliku i dlatego jest tu przepisana, a nie dopisana obok.
 
 Nic z `build/` ani `renders/` nie jest komitowane (reguła 8). `.gitignore` dostał
 sekcję na to, co Godot generuje obok projektu.
@@ -117,12 +122,33 @@ Cena, powiedziana wprost: nie ma wstępnego przetworzenia siatek, a wczytanie
 kosztuje czas przy starcie sceny. Dla 12 chunków (867 kB, 16176 trójkątów) jest to
 nieistotne; dla całej sieci trzeba będzie do tej decyzji wrócić.
 
-### 1.5 **Streamowania nie ma. Wczytywane jest wszystkie 12 chunków naraz.**
+### 1.5 **Streamowania nie ma. Wczytywane jest wszystkie 12 chunków naraz.** — *stan etapu 1, zniesiony przez #174 i #177*
 
-To jest świadoma decyzja, nie przeoczenie, i tak brzmi w kodzie
-(`World/TunnelView.LoadAll`).
+> **Ten punkt jest przepisany, a nie dopisany obok.** Jego poprzednia wersja mówiła
+> w czasie teraźniejszym „streamowania **nie ma**" i wskazywała miejsce w kodzie:
+> *„tak brzmi w kodzie (`World/TunnelView.LoadAll`)"*. **Oba zdania są dziś
+> nieprawdziwe.** `LoadAll` nie istnieje od #177 — zastąpił go `TunnelView.Stream`,
+> który dokłada brakujące chunki, zwalnia te poza oknem i przeładowuje te ze zmienionym
+> LOD-em, a predykat okna i wybór poziomu liczy `StreamingPlan` z #174, przybity do tej
+> samej tablicy oczekiwań co implementacja pythonowa. Sprawdzone lekturą
+> `src/Game/World/TunnelView.cs` na `9f4ae98`: jedyne wystąpienie napisu `LoadAll`
+> w całym drzewie to komentarz w tym pliku, mówiący, co tam **stało**.
+>
+> Zdanie miało też drugie życie poza tym raportem: `docs/TASKS.md` (wiersz 6.C1) mówi
+> od #177 o `Stream`, więc oba dokumenty czytane obok siebie mówiły różne rzeczy
+> o tej samej klasie — a ten raport wyglądał na świeższy, bo nie miał przy tym punkcie
+> żadnej daty.
+>
+> **Tabela i uzasadnienie niżej zostają nieprzeliczone i nie są usterką.** To pomiar
+> etapu 1 z 01.09.2026 i liczba „12 z 12 rezydentnych" jest prawdą o tamtym drzewie;
+> przeliczenie jej na dzisiejsze zachowanie zniszczyłoby zapis punktu wyjścia,
+> względem którego #174 i #177 się mierzyły. Kolumna „co jest teraz" znaczy więc
+> „co było w etapie 1".
 
-| | co jest teraz | co dałby predykat okna |
+Odłożenie streamowania było świadomą decyzją etapu 1, nie przeoczeniem, i tak brzmiało
+wtedy w kodzie (`World/TunnelView.LoadAll`).
+
+| | co było w etapie 1 | co dałby predykat okna |
 |---|---|---|
 | chunków rezydentnych | 12 z 12 | maks. **4 z 12** |
 | bajtów rezydentnych | 867,1 kB | **275,9 kB** (najgorszy przypadek okna) |
@@ -138,6 +164,11 @@ dziurą w tunelu pod pociągiem, czyli dokładnie tym, czego te testy pilnują.
 Manifest jest już czytany w scenie (`Assets/ChunkManifest`), razem z zakresami
 chainage, poziomami LOD i domyślnym oknem 600/300 m, więc port jest następnym
 krokiem o jasno zarysowanym zakresie, a nie odległym pomysłem.
+
+Port został zrobiony w #174 (`StreamingPlan` — predykat okna i wybór LOD jako kod
+bez Godota, z tablicą oczekiwań wspólną z Pythonem) i #177 (`TunnelView.Stream`
+w miejscu `LoadAll`). Zastrzeżenie „druga implementacja bez kontroli" zostało zdjęte
+dokładnie tak, jak ten akapit tego żądał — tablicą oczekiwań, nie zaufaniem.
 
 ### 1.6 Zakresy członów czytane z bryły, nie przepisane
 
@@ -532,7 +563,10 @@ i ta tabela wystarczają, żeby nic nie zniknęło.
 
 ## 6. CI
 
-`.github/workflows/godot-first-run.yml`, `ubuntu-latest`, 18 kroków:
+`.github/workflows/godot-first-run.yml`, 18 kroków. Zmierzone 01.09.2026, gdy job
+chodził jeszcze na maszynie GitHuba; od 02.09.2026 stoi na gołej etykiecie
+`self-hosted` (`CLAUDE.md` §9), a poprzednia wersja tego zdania nazywała tu wprost
+runnera `ubuntu-latest` i to już nieprawda:
 
 1. .NET SDK 8.0.x przez `actions/setup-dotnet@v4`;
 2. Godot **4.3 mono** z GitHub Releases (~70 MB), z cache po wersji. Sam plik
@@ -632,6 +666,18 @@ tekst, nie ma logo, map sieci, piktogramów, livery ani wystroju STIB/MIVB
 ---
 
 ## 8. Zauważone przy okazji, nie tknięte
+
+> **Stan pozycji, przepisany 05.09.2026 na `9f4ae98`.** Lista niżej jest zapisem
+> obserwacji z 01.09.2026 i trzy z sześciu pozycji **przestały być prawdziwe** —
+> poprzednia wersja tej sekcji nie mówiła tego ani słowem, więc czytało się ją jako
+> listę rzeczy nadal do zrobienia. Każdy stan sprawdzony lekturą pliku, nie datą:
+>
+> | poz. | stan na `9f4ae98` |
+> |---:|---|
+> | 1 | **w połowie zamknięta.** `doctor.sh:121` woła `GODOT_CMD="${GODOT_BIN:-godot}"`, czyli dokładnie tę zmienną, o którą ten punkt prosił, i mówi o niej w podpowiedzi. **Nie** sprawdza istnienia `GodotSharp/Api` — ta połowa punktu zostaje otwarta |
+> | 2 | **zamknięta.** Napis nie jest już zaszyty: `doctor.sh` czyta następne zadanie z `docs/TASKS.md` (`grep -E '^### \[ \]'`) i ma nad tym komentarz mówiący, po co — „wpisane na sztywno przestaje być prawdą pierwszego dnia po zrobieniu tego zadania". Ta sama pozycja stoi też w `reports/T-310-physics.md` §9.2 i `reports/T-311-braking.md` §7.4 i tam też jest przepisana |
+> | 3, 5, 6 | **otwarte.** `speed_limits: []` nadal we wszystkich pakietach; skorupa M7 nadal bez wózków; `_col.glb` nadal generowane i nieużywane |
+> | 4 | **zamknięta.** `docs/21-measured-vs-assumed.md` (wiersz `DEFAULT_RING_STEP_M`) podaje dziś **obie** odchyłki z nazwaniem bazy: 0,1064 m od surowej łamanej STIB (345 punktów, odstęp 19,44 m) i 0,2499 m od skomitowanej łamanej 15 m, „tę drugą raportuje generator jako `smoothing_max_deviation_m`". Podejrzenie z punktu 4 było więc trafne i zostało rozstrzygnięte w dokumencie |
 
 1. **`doctor.sh` szuka `godot` w `PATH`.** W tym środowisku silnik leży pod
    `/opt/godot/godot4` i nie ma dowiązania, więc kontrola daje `WARN` mimo że Godot

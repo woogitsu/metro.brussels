@@ -452,8 +452,14 @@ Nic z tego nie jest twierdzeniem o metrze brukselskim i nic nie zmienia `data/`.
    dla chunków dalekich — bo dla chunków dalekich kolizja po prostu nie jest wczytywana
    (promień 150 m). Gdyby okazało się, że fizyka potrzebuje zasięgu większego niż
    okno kolizji, trzeba będzie dorobić drugi poziom kolizji.
-9. **Nic z tego nie dotyczy stacji, torowiska ani wyposażenia**, bo tej geometrii
-   nadal nie ma. Chunk ze stacją jest w każdym poziomie zwykłą rurą.
+9. **Nic z tego nie dotyczy stacji, torowiska ani wyposażenia.** Zdanie „bo tej
+   geometrii nadal nie ma" jest tu **sprostowane 05.09.2026, a nie dopisane obok**:
+   geometria peronów powstała w T-212 (`tools/blender/station_kit.py`) i jest
+   w scenie od #223 (`src/Game/World/StationView.cs`) — jako **osobny GLB obok
+   chunków**, więc nie wchodzi do tej tabeli LOD-ów i nie ma dla niej poziomów.
+   Prawdziwa zostaje druga połowa: **chunk ze stacją jest w każdym poziomie zwykłą
+   rurą**, bo halo stacji w `tools/blender/sweep.py` wpływa wyłącznie na miejsce
+   cięcia chunka, a nie na profil przekroju.
 10. **Profil pionowy dalej nie istnieje** (T-112, #10). Wszystko leży na Z = 0, więc
     bbox nie odpowiada na pytania o głębokość, a błąd LOD-a jest zmierzony wyłącznie
     w planie — na trasie z pochyleniami dojdzie składowa pionowa, której tu nie ma.
@@ -481,15 +487,20 @@ Nic z tego nie jest twierdzeniem o metrze brukselskim i nic nie zmienia `data/`.
 
 ## 11. Zauważone przy okazji, nietknięte
 
-- **`docs/20-art-direction.md` nie istnieje** w tym repo, choć zadanie się na niego
-  powołuje jako na miejsce, gdzie mają wylądować budżety T-400. Progi zostały więc
-  opisane w manifeście i w tym raporcie; gdy dokument powstanie, będzie co do niego
-  przenieść.
-- **`tools/visual/capture_blender.py` w `main` nie ma logu `[POKRYCIE]`** ani
+- ~~**`docs/20-art-direction.md` nie istnieje** w tym repo, choć zadanie się na niego
+  powołuje jako na miejsce, gdzie mają wylądować budżety T-400.~~ **Ten punkt jest
+  przepisany, a nie dopisany obok: dokument istnieje** (`docs/20-art-direction.md`).
+  Progi zostały opisane w manifeście i w tym raporcie i nadal tam są; przeniesienie
+  ich do `docs/20` jest osobną robotą i ten raport jej nie wykonał.
+- ~~**`tools/visual/capture_blender.py` w `main` nie ma logu `[POKRYCIE]`** ani
   automatycznego liczenia kotwic w zakresie wczytanej geometrii — kotwice trzeba
-  podawać jawnie przez `--anchor`, jak robi to istniejący blok `[CHUNKI]`. Ten plik
-  jest na liście nietykalnych (praca równoległa), więc rendery LOD-a korzystają
-  z tych samych, jawnie policzonych kotwic co render chunka.
+  podawać jawnie przez `--anchor`.~~ **Też przepisane: log jest.**
+  `tools/visual/capture_blender.py:190` wypisuje `[POKRYCIE] geometria zajmuje
+  chainage …`, a `named_anchors_from_args` liczy kotwice z ułamków osi, gdy
+  `--anchor` nie podano. Zdanie „w `main` nie ma" było prawdą 01.09.2026 i nie
+  przestało wyglądać na prawdę, bo nic go z kodem nie porównywało. Rendery LOD-a
+  w tym raporcie nadal korzystają z jawnie policzonych kotwic — to zostaje faktem
+  o tym pomiarze, niezależnie od tego, co potrafi dzisiejsze narzędzie.
 - **`switch_distance_m` dla poziomu 0 wychodzi 0 m** i jest tak zapisane w manifeście.
   Czytelnik może to wziąć za „LOD 0 obowiązuje od 0 m", co jest prawdą, ale wygląda
   jak brakująca wartość. Zostawione, bo alternatywą jest `null`, którego kontrola

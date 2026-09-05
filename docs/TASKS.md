@@ -377,9 +377,14 @@ czeka na te odpowiedzi". Nieprawdziwe są dziś obie połowy tego zdania.
   luzu 0,899948 m z pozycji 3 zmierzono przy kilometrażach sprzed #86, a ponowny skan
   wymaga Blendera **5.2.1** z przypięcia. `docs/24` §„Co z liczbami po #86" mówi wprost,
   że 52 µm z tej pozycji to rząd wielkości, nie przypięty pomiar
-- **Uwaga:** `reports/mutation-sweep.md` nadal wypisuje dla tego modułu **66 / 77** —
-  ten przebieg jest z `66b8301` i **poprzedza** #206. Ten rozjazd jest przedmiotem
-  pozycji 6.D5, nie tego wpisu
+- ~~**Uwaga:** `reports/mutation-sweep.md` nadal wypisuje dla tego modułu **66 / 77** —
+  ten przebieg jest z `66b8301` i **poprzedza** #206.~~ **Zdjęte 05.09.2026 i przepisane,
+  a nie dopisane obok:** `reports/mutation-sweep.md` nosi dziś przy tym wierszu pomiar
+  z `9f4ae98` — **77 mutacji, 61 zabitych, 16 ocalałych, 20,8 %** — obok liczby
+  historycznej, wraz z powodem różnicy 16 wobec 17 z etapu trzeciego (`82cc22e`
+  i `df36903` dołożyły jedną mutację i jedno zabicie). Pozostała część rozjazdu
+  pokrycia mutacyjnego w `reports/` — jedenaście modułów poza `clearance_profile.py`
+  — nadal należy do **6.D5**, którego zakres jawnie wyłącza ten moduł
 
 ### [ ] **[CZŁOWIEK]** T-901 · Głębokości stacji pakietu A
 Wypełnić `data/network/station-depths.csv`; agent nie zgaduje.

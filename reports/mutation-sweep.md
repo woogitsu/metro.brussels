@@ -184,10 +184,59 @@ dziś istnieje.
 Wysoki udział znaczy, że testy tego modułu sprawdzają co innego, niż deklarują;
 duża liczba przy niskim udziale znaczy tylko, że moduł jest duży.
 
+> **Ta kolejka jest nieaktualna dla dwóch pierwszych pozycji `clearance*`, i jest tu
+> przepisana, a nie dopisana obok.** Tabela niżej jest zdjęciem drzewa `66b8301`
+> z 04.09.2026, a jednocześnie **listą tego, co robić dalej** — i w tej drugiej roli
+> kłamie, bo `clearance_profile.py` przeszedł od tamtego przebiegu **dwa pełne
+> triaże**: etap drugi (66 → 49) i etap trzeci (45 → 17), oba rozpisane
+> w `reports/mutation-triage-clearance.md`. Wiersz „66 / 77 | 86 %" wskazywał więc
+> jako najpilniejszy moduł, który jest dziś jednym z lepiej pokrytych.
+>
+> **Zmierzone ponownie 05.09.2026 na `9f4ae98`**, tym samym narzędziem i tą samą
+> miarą, 4 robotników:
+>
+> ```
+> $ python3 tools/tests/mutation_sweep.py --only clearance_profile.py --workers 4 \
+>       --journal /tmp/cp.jsonl --json /tmp/cp.json
+> [MUTACJE] 77 mutacji do policzenia, 4 robotników, commit 9f4ae98
+> [MUTACJE] rozstrzygniętych 77/77, zabitych 61, ocalałych 16, nierozstrzygniętych 0
+> ```
+>
+> | `tools/blender/clearance_profile.py` | ocalałe / mutacje | udział |
+> |---|---:|---:|
+> | `66b8301`, ten raport | 66 / 77 | 86 % |
+> | `9f4ae98`, dziś | **16 / 77** | **20,8 %** |
+>
+> Z 86 % na 20,8 % — moduł spada z drugiego miejsca kolejki poniżej połowy tabeli.
+> Sekcja „Ocalałe, per plik" niżej wymienia dla niego 66 wierszy i **żaden z nich nie
+> jest listą do zrobienia**; jest to zapis punktu wyjścia obu triaży i dlatego zostaje
+> nieprzeliczony. Szesnaście dzisiejszych ocalałych jest rozpisanych po jednej
+> — dziewięć zmierzonych równoważności i pytania do właściciela — w `docs/24` i w §„Etap
+> trzeci" tamtego raportu.
+>
+> **Różnica 17 (tamten raport) wobec 16 (dziś) nie jest szumem pomiaru.** Etap trzeci
+> mierzył na `68da7da` i podawał 76 mutacji; dziś jest ich 77, bo po nim weszły
+> `82cc22e` (próg wypukłości, pozycja 13 z `docs/24`) i `df36903` (dziewięć pozycji
+> `docs/24` rozstrzygniętych). Przebieg jest deterministyczny — mutacje powstają z AST
+> w ustalonej kolejności — więc dwa przebiegi na `9f4ae98` dadzą te same 16.
+>
+> **Kontrola przy okazji, bo dotyczy wiarygodności tej tabeli:** w dzienniku tego
+> przebiegu **ani jedno** z 61 zabić nie pochodzi od
+> `test_ci_blender_installer_refuses_a_tarball_whose_checksum_does_not_match` —
+> policzone wprost po polu `padly`, 0 wpisów na 77. Ten test produkował fałszywe
+> zabicia przy trzech robotnikach do czasu #207; przy czterech robotnikach na
+> dzisiejszym drzewie nie produkuje ich wcale.
+>
+> **Pozostałych wierszy tej tabeli NIE przeliczałem** i nie wolno ich czytać jako
+> stanu dzisiejszego: `clearance.py`, `placement.py`, `build_alignment.py` i reszta
+> mają własne raporty triażu w `reports/mutation-triage-*.md`, każdy z własną datą
+> i własnym commitem. Przeliczenie całej tabeli to nowy pełny przebieg (929 mutacji,
+> 74 minuty), czyli osobne zadanie, a nie akapit w cudzym.
+
 | plik | ocalałe / mutacje | udział |
 |---|---:|---:|
 | `tools/track/make_test_track.py` | 2 / 2 | 100 % |
-| `tools/blender/clearance_profile.py` | 66 / 77 | 86 % |
+| `tools/blender/clearance_profile.py` | 66 / 77 (dziś 16 / 77) | 86 % |
 | `tools/blender/placement.py` | 26 / 40 | 65 % |
 | `tools/track/crs.py` | 8 / 14 | 57 % |
 | `tools/track/build_alignment.py` | 39 / 69 | 57 % |
@@ -246,7 +295,11 @@ plik — sprawdzając przy okazji, że przesunięcie faktycznie wskazuje na `byl
 | 99 | operator | `<=` | `<` |
 | 101 | prog | `0.0` | `0.001` |
 
-### `tools/blender/clearance_profile.py` — 66
+### `tools/blender/clearance_profile.py` — 66 *(na `66b8301`; dziś 16 — patrz „Kolejność triażu")*
+
+Lista niżej jest **punktem wyjścia dwóch triaży**, nie listą do zrobienia. Numery
+wierszy odnoszą się do drzewa `66b8301` i po `82cc22e` oraz `df36903` nie wskazują już
+tych samych miejsc w pliku.
 
 | wiersz | rodzaj | było | jest |
 |---|---|---|---|

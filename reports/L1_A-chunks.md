@@ -290,6 +290,19 @@ jako streaming w grze:
    żeby doczepić scenę stacji po kilometrażu. Ale samej komory stacyjnej w geometrii
    nie ma — profil `station` istnieje w `profiles.py`, brakuje długości i głębokości
    peronów w `data/`. Chunk ze stacją jest w tej chwili zwykłą rurą.
+
+   > **Ten punkt jest sprostowany 05.09.2026, a nie dopisany obok.** Zdanie „chunk ze
+   > stacją jest zwykłą rurą" **pozostaje prawdziwe** — sprawdzone w `tools/blender/sweep.py`:
+   > „halo stacji" wpływa wyłącznie na to, gdzie NIE wolno ciąć chunka, a nie na profil
+   > przekroju, więc `tunnel_sweep.py` nadal zamiata `box_double` przez kilometraż stacji.
+   > **Nieprawdziwy jest natomiast wniosek, który się z tego akapitu czytał**, że peronów
+   > nie ma w ogóle: T-212 (#137) dołożyło `tools/track/station_components.py` i
+   > `tools/blender/station_kit.py`, a #223 wstawiło ich wynik do sceny jako
+   > `src/Game/World/StationView.cs` — perony pakietu A jadą osobnym GLB, obok chunków
+   > tunelu, nie w nich. Z dwóch brakujących liczb **długość przestała być brakiem**:
+   > decyzją właściciela z 04.09.2026 jest jawnym parametrem generatora 95,0 m
+   > (`DESIGN_PLATFORM_LENGTH_M`). W `data/` nadal jej nie ma i to jest zamierzone
+   > (R-007 §5 pkt 2: brak źródła STIB). Brakiem została **głębokość**.
 6. **Profil pionowy.** Wszystko na Z = 0 (T-112, #10). `bbox_min_m[2]` = −1,20 m
    i `bbox_max_m[2]` = 4,70 m w każdym chunku — czyli bbox nie nadaje się jeszcze do
    pytań o głębokość ani do occlusion culling po wysokości.

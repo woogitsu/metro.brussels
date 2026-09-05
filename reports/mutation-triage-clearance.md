@@ -573,11 +573,33 @@ to `bore_single` z 0,0606 — 7,8 rzędu powyżej progu.
 
 Dziewięć równoważności, osiem pytań. **Żadna ocalała nie jest już nierozpoznana.**
 
-### Zauważone przy okazji, nietknięte
+### Zauważone przy okazji, nietknięte — **ZAMKNIĘTE 04.09.2026 przez #207**
 
-**`test_ci_blender_installer_refuses_a_tarball_whose_checksum_does_not_match` jest
-flaky przy przebiegu współbieżnym** — i to on wyprodukował fałszywe zabicie
-w przebiegu „przed". Nazwa tarballa jest w nim zaszyta na stałe:
+> **Ten akapit jest przepisany, a nie dopisany obok.** Jego poprzednia wersja kończyła
+> się zdaniem „`tools/tests/test_ci_workflows.py` jest poza zakresem tego zadania, więc
+> nie ruszony. Poprawka jest jednozdaniowa (katalog tymczasowy zamiast `/tmp` na stałe)"
+> — i **to już nieprawda**. Poprawka weszła tego samego dnia jako #207 (`afefc2e`,
+> gałąź `7368ad9`), czyli o jedno scalenie po #206, w którym ten raport powstał.
+> Zapis o „poprawce, która czeka" wysyłałby dziś kolejną sesję do roboty leżącej
+> w `main`. Opis usterki niżej zostaje w czasie przeszłym, bo to on tłumaczy, skąd
+> w tabeli „przed" wzięło się jedno fałszywe zabicie.
+>
+> Czego dokładnie nie ma już w kodzie, sprawdzone lekturą `tools/tests/test_ci_workflows.py`
+> na `9f4ae98`: stałej `FAKE_BLENDER_VERSION` nie ma wcale, a wersję atrapy wydaje
+> funkcja `fake_blender_version()` zwracająca `0.<secrets.randbits(24)>.<secrets.randbits(24)>`,
+> czyli inną ścieżkę w `/tmp` dla **każdego wywołania**. Pilnuje tego osobny test
+> `test_ci_blender_fake_version_is_unique_so_the_gate_cannot_race_itself`. Pierwsza
+> wersja tamtej naprawy szła po PID i **padła w pomiarze** (10 z 12 wątków dostało tę
+> samą wersję), więc unikalność nie opiera się dziś na modelu równoległości.
+>
+> **Wniosek z ostatniego akapitu zostaje w mocy i nie jest historyczny:** narzędzie
+> nadal liczy „padł jakikolwiek test" jako zabicie, więc każdy przegląd nadal musi
+> czytać dziennik, a nie tylko podsumowanie. Ta lekcja przeżyła usterkę, która ją
+> wywołała.
+
+**Jak było.** `test_ci_blender_installer_refuses_a_tarball_whose_checksum_does_not_match`
+**był** flaky przy przebiegu współbieżnym — i to on wyprodukował fałszywe zabicie
+w przebiegu „przed". Nazwa tarballa była w nim zaszyta na stałe:
 
 ```python
 leftover = f"/tmp/blender-{FAKE_BLENDER_VERSION}-linux-x64.tar.xz"
@@ -590,9 +612,8 @@ czyli tylko raz przekłamał werdykt. W przebiegu „po" każdy dotknięty flaki
 miał też prawdziwe padnięcie, więc **żadne z 59 zabić nie jest fałszywe** —
 sprawdzone wpis po wpisie w dzienniku, nie założone.
 
-`tools/tests/test_ci_workflows.py` jest poza zakresem tego zadania, więc nie ruszony.
-Poprawka jest jednozdaniowa (katalog tymczasowy zamiast `/tmp` na stałe), ale
-dotyczy pliku, którego to zadanie nie miało dotykać — i jest to zarazem powód, żeby
+`tools/tests/test_ci_workflows.py` był poza zakresem **tamtego** zadania, więc #206 go
+nie ruszyło; zrobiło to #207 nazajutrz. Zostaje z tego powód, żeby
 **każdy przyszły przegląd czytał dziennik, a nie tylko podsumowanie**: narzędzie
 liczy „padł jakikolwiek test" jako zabicie i nie ma jak wiedzieć, że padł test
 o niczym.

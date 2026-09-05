@@ -496,6 +496,29 @@ Lista brakujących testów, każdy opisany na tyle konkretnie, żeby dało się 
 pozycję kolejki w formacie z `CLAUDE.md` §6. **Do `docs/TASKS.md` nie są wpisane** — to
 osobna zmiana, poza zakresem tego raportu (§10), i wchodzi tam bramka formatu z #227/#228.
 
+> **Stan pozycji, przepisany 05.09.2026 na `9f4ae98` — a nie dopisany obok.** Poprzednia
+> wersja tej sekcji przedstawiała wszystkie trzynaście pozycji jako **otwarte**, bo taka
+> była prawda w chwili pomiaru (`3c242f7`). **To już nieprawda dla pięciu z nich**: #233
+> (`519b814`) i #234 (`8c3512d`) scaliły się po tym pomiarze. Lista, która o tym milczy,
+> wysyła następną sesję do pracy leżącej w `main` — usterka, którą #240 wycięło z
+> `docs/TASKS.md`, i nie ma powodu, żeby przeżyła tutaj. Kolumna „stan" niżej jest
+> sprawdzona **lekturą plików testowych na `9f4ae98`**, po jednej nazwie metody na
+> pozycję, a nie odczytana z tytułów PR-ów:
+>
+> | poz. | stan | czym |
+> |---:|---|---|
+> | 1 | **zamknięta** #233 | `RouteDispatcherTests.MeasuresEachIntervalFromTheLastRequestAndNotFromStepZero` — pierwsze żądanie na kroku 1000, żądania na 1000/1120/1240/1360 |
+> | 2 | **zamknięta** #234 | `TrainProtectionTests.Predkosc_dokladnie_rowna_dopuszczalnej_nie_jest_przekroczeniem` + `..._Na_pakiecie_A_jazda_dokladnie_po_limicie_planu_nie_budzi_ochrony` |
+> | 3 | **zamknięta** #234 | `TrainProtectionTests.Ingerencja_sluzbowa_zawsze_jest_tez_ostrzezeniem` |
+> | 9 | **zamknięta** #234 | `TrainProtectionTests.Droga_hamowania_z_postoju_jest_zerem_a_nie_wyjatkiem`, z kontrolą negatywną na solverze |
+> | 10 | **zamknięta** #234 | `TrainProtectionTests.Konstruktor_odmawia_hamulcow_bez_sensu` — 0, ujemny, `NaN`, `+∞` po obu stronach pary hamulców |
+> | 4, 5, 7, 8, 11, 12, 13 | **otwarte** | żaden test w drzewie nie spełnia kryterium „skończone, gdy" tych pozycji |
+> | 6 | **otwarta, choć plik już jest** | `TrainProtectionTests.Drzwi_zwalniaja_sie_tylko_na_postoju_w_bloku_peronowym` istnieje, ale podaje prędkości **liczbami** (`0.0`, `3.0`), a kryterium pozycji 6 żąda odwołania **do stałej** `StandstillSpeedMps`. `grep -rn StandstillSpeedMps tests/` nie daje ani jednego trafienia, więc mutacja `1e-6` → `1e-3` nadal nie ma czego wywrócić |
+>
+> Pozycja 6 jest tu ważniejsza niż pięć zamkniętych: pokazuje, że **powstanie pliku
+> nie jest zamknięciem pozycji**, a raport, który by je zrównał, przekłamałby stan
+> w drugą stronę.
+
 Kolejność: szkodliwość × pewność. Pozycje 1–4 są potwierdzone przez oba przeglądy.
 
 | # | co przybić | gdzie | kryterium „skończone, gdy" |
@@ -588,19 +611,27 @@ ten test ma zabijać. Widać to w wyniku obu przeglądów.
 
 Dwa niezależne przeglądy, dwa różne zbiory mutacji, ten sam ranking na obu krańcach:
 `TrainProtection` i `RouteDispatcher` na dole, `LineDrive` i `LineCore` na górze.
-Przyczyna jest jednym poleceniem:
+Przyczyną **była** jedna rzecz, którą widać było jednym poleceniem:
 
 ```
-$ ls tests/Sim.Tests/TrainProtectionTests.cs
+$ ls tests/Sim.Tests/TrainProtectionTests.cs          # 05.09.2026, przed #234
 ls: cannot access 'tests/Sim.Tests/TrainProtectionTests.cs': No such file or directory
 ```
 
-**Klasa o najgorszym wyniku w obu przeglądach jest jedyną z piątki bez własnego pliku
-testów.** Ochrona jest testowana wyłącznie od strony scenariusza
+> **Ten akapit jest przepisany, a nie dopisany obok.** Jego poprzednia wersja mówiła
+> w czasie teraźniejszym: „Klasa o najgorszym wyniku w obu przeglądach **jest** jedyną
+> z piątki bez własnego pliku testów" i „pięć z trzynastu pozycji sekcji 8 trafia
+> do pliku, **który nie istnieje**". **To już nieprawda.** Plik powstał tego samego
+> dnia w #234 (`8c3512d`) i ma 672 wiersze oraz 25 metod testowych; polecenie wyżej
+> daje dziś ścieżkę, a nie błąd. Zdanie zostawione w czasie teraźniejszym opisywałoby
+> lukę, której nie ma, i tym samym proponowało pracę leżącą już w `main` — dokładnie
+> ten defekt, który #240 wyciął z `docs/TASKS.md`.
+
+**Jak było.** Ochrona była testowana wyłącznie od strony scenariusza
 (`ClassicSignallingScenarioTests`, `LineCoreTests`), więc jej granice i strażniki
-argumentów nie mają gdzie być sprawdzone punktowo. **Pięć z trzynastu pozycji sekcji 8
-(#2, #3, #6, #9, #10) trafia do pliku, który nie istnieje** — i to jest jedno zadanie
-założycielskie, nie pięć osobnych.
+argumentów nie miały gdzie być sprawdzone punktowo. **Pięć z trzynastu pozycji sekcji 8
+(#2, #3, #6, #9, #10) trafiało do pliku, którego nie było** — i było to jedno zadanie
+założycielskie, nie pięć osobnych. Tak też zostało zrobione: jednym PR-em.
 
 `RouteDispatcher` na drugim miejscu od dołu ma inną przyczynę, też ustaloną przez oba
 przeglądy niezależnie: nie ma mało testów, tylko **wszystkie jego testy stoją w jednym

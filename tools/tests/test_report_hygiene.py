@@ -264,3 +264,115 @@ def test_lista_wyjatkow_nie_gnije():
             assert not reader(header), (
                 f"{name} ma już {what} w nagłówku — zdejmij go z listy wyjątków")
     assert checked == len(COMMIT_EXCEPTIONS) + len(DATE_EXCEPTIONS)
+
+
+# --- ścieżka w raporcie musi wskazywać na plik, który istnieje --------------------
+
+#: DLACZEGO TO JEST W TYM MODULE, A NIE NOWY.
+#:
+#: Docstring wyżej mówi, czego ta bramka świadomie NIE robi: nie pilnuje, czy liczby
+#: w raporcie są aktualne, bo z tekstu nie da się odróżnić cytatu wyjścia polecenia od
+#: zdania o stanie bieżącym. **Ścieżka nie jest liczbą i tej dwuznaczności nie ma.**
+#: `src/Sim/Line/LineDrive.cs` albo się rozwiązuje, albo nie, i sprawdza to system
+#: plików, a nie druga lista w teście.
+#:
+#: SKĄD SIĘ WZIĘŁO. Zmierzone 05.09.2026 na `9f4ae98`, skan 48 raportów: dokładnie
+#: jedna ścieżka nie rozwiązywała się w drzewie — `reports/T-400-stage-3b.md` §1
+#: wymieniało w tabeli zmian `src/Sim/Line/LineDrive.cs`, podczas gdy plik od chwili
+#: powstania (`90a8c31`, T-320) leży w `src/Sim/Train/`. `git log --follow` nie
+#: pokazuje ani jednego przeniesienia, więc nie jest to zapis historyczny — to była
+#: literówka, prawdziwa już w dniu pomiaru, i przeżyła przegląd PR-a, bo nazwa pliku
+#: się zgadzała, a katalog wyglądał sensownie (`Line/` obok `LineDrive`).
+#:
+#: DLACZEGO SYGNAŁ JEST CZYSTY. Jedno trafienie na 48 plików i ~1500 tokenów w
+#: grawisach. Wzorzec bierze wyłącznie tokeny z ukośnikiem i ze znanym rozszerzeniem,
+#: więc `sweep.max_deviation` czy `docs/24` przez niego nie przechodzą.
+PATH_TOKEN = re.compile(r'`([A-Za-z0-9_][A-Za-z0-9_./-]*\.'
+                        r'(?:py|cs|md|json|sh|yml|yaml|txt|csproj|tscn|geojson|csv))`')
+
+#: Przedrostki, których nie ma po co sprawdzać: wytwory przebiegu (reguła 8 zabrania
+#: ich komitować, więc ich BRAK jest stanem poprawnym), ścieżki Godota, katalogi
+#: tymczasowe i adresy.
+IGNORED_PREFIXES = ("build/", "renders/", "res://", "/tmp/", "http://", "https://",
+                    "/opt/", "/usr/", "~/")
+
+#: JAWNE WYJĄTKI: ścieżki, które w raporcie stoją słusznie, choć w drzewie ich nie ma.
+#: Pusto — i to jest wynik pomiaru, nie założenie. Gdy pierwszy raport będzie musiał
+#: nazwać plik skasowany albo przemianowany, wyjątek wchodzi tutaj z powodem, tak samo
+#: jak `COMMIT_EXCEPTIONS` wyżej, i tak samo pilnowany przez test „nie gnije".
+PATH_EXCEPTIONS = {}
+
+
+def _paths_in(text):
+    """Ścieżki repozytoryjne wymienione w grawisach: `(token, numer wiersza)`."""
+    for number, line in enumerate(text.splitlines(), 1):
+        for token in PATH_TOKEN.findall(line):
+            if "/" not in token or token.startswith(IGNORED_PREFIXES):
+                continue
+            yield token, number
+
+
+def test_kazda_sciezka_wymieniona_w_raporcie_rozwiazuje_sie_w_drzewie():
+    """Raport, który nazywa nieistniejący plik, wysyła czytelnika w puste miejsce.
+
+    Kontrola negatywna WYKONANA 05.09.2026, na kopii katalogu w `/tmp` (opis metody
+    niżej, w teście detektora): po przywróceniu w `reports/T-400-stage-3b.md`
+    poprzedniego zapisu `src/Sim/Line/LineDrive.cs` ten test pada komunikatem
+
+        ścieżki, których nie ma w drzewie:
+        ['T-400-stage-3b.md:92: `src/Sim/Line/LineDrive.cs`']
+    """
+    missing = []
+    checked = 0
+    seen = 0
+    for name, text in _reports():
+        checked += 1
+        for token, number in _paths_in(text):
+            seen += 1
+            if token in PATH_EXCEPTIONS:
+                continue
+            if not os.path.exists(os.path.join(ROOT, token)):
+                missing.append(f"{name}:{number}: `{token}`")
+    assert not missing, f"ścieżki, których nie ma w drzewie: {missing}"
+    assert checked >= MIN_REPORTS, (
+        f"bramka przeszła tylko {checked} raportów, a w `reports/` jest ich "
+        f"co najmniej {MIN_REPORTS} — skan przestał czytać katalog")
+    # Bez tego progu literówka we WZORCU dawałaby zero tokenów, zero braków i zieloną
+    # bramkę. Zmierzone 05.09.2026: 623 trafienia w 48 raportach; próg stoi niżej,
+    # żeby nie trzeba go było ruszać przy każdym nowym raporcie.
+    assert seen >= 500, (
+        f"wzorzec znalazł tylko {seen} ścieżek w {checked} raportach — przestał łapać")
+
+
+def test_wzorzec_sciezki_lapie_to_co_ma_i_nie_lapie_prozy():
+    """Kontrola detektora: bez niej test wyżej byłby zielony także przy martwym wzorcu.
+
+    Cztery pary, każda z powodem — po jednej na sposób, w jaki ten wzorzec mógłby
+    cicho przestać być pomiarem.
+    """
+    def found(line):
+        return [t for t, _n in _paths_in(line)]
+
+    # 1. Ścieżka repozytoryjna — musi wejść.
+    assert found("zmiana w `src/Sim/Train/LineDrive.cs` i nic więcej") == [
+        "src/Sim/Train/LineDrive.cs"]
+    # 2. Kwalifikowana nazwa w kodzie NIE jest ścieżką — brak ukośnika.
+    assert found("`sweep.max_deviation` i `lod.lod_plan`") == []
+    # 3. Wytwór przebiegu NIE jest brakiem — reguła 8 zabrania go komitować.
+    assert found("artefakt `build/t400/scene-line.log`") == []
+    # 4. Odsyłacz bez rozszerzenia nie jest ścieżką pliku.
+    assert found("patrz `docs/24` i `tools/ci`") == []
+
+
+def test_lista_wyjatkow_od_sciezek_nie_gnije():
+    """Wyjątek, który przestał być potrzebny, musi z listy ZNIKNĄĆ — jak wyżej.
+
+    Dziś lista jest pusta i ten test to sprawdza wprost: pusta lista jest wynikiem
+    pomiaru („żaden raport nie potrzebuje wyjątku"), a nie miejscem, w którym nic
+    jeszcze nie zdążyło się nazbierać.
+    """
+    for token, reason in PATH_EXCEPTIONS.items():
+        assert len(reason) > 40, f"wyjątek na {token} bez powodu: {reason!r}"
+        assert not os.path.exists(os.path.join(ROOT, token)), (
+            f"`{token}` już istnieje — zdejmij go z listy wyjątków")
+    assert isinstance(PATH_EXCEPTIONS, dict)

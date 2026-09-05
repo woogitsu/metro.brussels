@@ -94,7 +94,12 @@ nie twierdzeniem o rzeczywistości.
 
 ## 4. Kontrole automatyczne
 
-`bash tools/ci/tunnel_alignment.sh` (GitHub-hosted `ubuntu-latest`, Blender 4.0.2, ~32 s):
+`bash tools/ci/tunnel_alignment.sh`. Zmierzone 01.09.2026 na GitHub-hosted
+`ubuntu-latest` z Blenderem 4.0.2 z apt, ~32 s — i **oba te warunki dziś nie
+obowiązują**, dlatego zdanie jest przepisane, a nie zostawione jako opis stanu:
+od 02.09.2026 CI chodzi na gołej etykiecie `self-hosted`, a od 03.09.2026 Blender
+jest przypięty po wersji i sumie SHA-256 z `tools/ci/blender-version.txt`, nie brany
+z apt (`CLAUDE.md` §9). Kroki same się nie zmieniły:
 
 1. generacja obu wariantów + wewnętrzne kontrole generatora,
 2. **test negatywny**: `--variant production` musi zostać odrzucony przy `vertical.status != "modelled"`,
