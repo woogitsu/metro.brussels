@@ -1,7 +1,60 @@
 using System;
+using System.Globalization;
 using Godot;
 
 namespace MetroBxl.Game.World;
+
+/// <summary>
+/// Odpowiedź na jedno pytanie: czy widok goniący da się w tej chwili pokazać, a jeśli
+/// nie — od kiedy.
+/// </summary>
+/// <param name="Available">Czy widok goniący jest dostępny.</param>
+/// <param name="FromChainageM">
+/// Kilometraż czoła, PO MINIĘCIU którego widok się otwiera — sama ta liczba należy
+/// jeszcze do pasma ukrycia. Równa długości składu i to nie jest zbieg okoliczności —
+/// patrz <see cref="ChaseCameraAim.Availability"/>.
+/// </param>
+/// <param name="RemainingM">Ile jeszcze metrów do tego kilometrażu; zero, gdy dostępny.</param>
+public readonly record struct ChaseAvailability(
+    bool Available,
+    double FromChainageM,
+    double RemainingM)
+{
+    /// <summary>
+    /// Zdanie dla HUD-u i dla odmowy zrzutu; puste, gdy widok jest dostępny.
+    ///
+    /// <para>Treść jest TUTAJ, a nie w <c>FirstRun</c>, z tego samego powodu, dla
+    /// którego tutaj jest arytmetyka kadru: <c>dotnet test</c> nie uruchamia silnika,
+    /// więc napis złożony w węźle sceny nie ma jak dostać testu. Jedno źródło zdania
+    /// znaczy też, że wiersz HUD-u i komunikat odmowy nie mogą podać dwóch różnych
+    /// kilometraży.</para>
+    ///
+    /// <para><b>„po minięciu", nie „od".</b> Granica należy do pasma ukrycia, więc
+    /// zdanie „dostępny od 94,0 m" byłoby na kilometrażu 94,0 m odmową i obietnicą
+    /// naraz. „Jeszcze 0,0 m" z tego samego powodu nie jest dopisywane — przy czole
+    /// dokładnie na granicy nie brakuje żadnej wielkości, którą da się wypisać
+    /// z jednym miejscem po przecinku, a napis „jeszcze 0,0 m" czytałoby się jak
+    /// usterka.</para>
+    /// </summary>
+    public string Reason
+    {
+        get
+        {
+            if (Available)
+            {
+                return string.Empty;
+            }
+
+            var ile = RemainingM > 0.0
+                ? string.Create(CultureInfo.InvariantCulture, $", jeszcze {RemainingM:F1} m")
+                : string.Empty;
+            return string.Create(
+                CultureInfo.InvariantCulture,
+                $"widok chase niedostępny — kamera siedzi w skorupie składu; "
+                + $"dostępny po minięciu {FromChainageM:F1} m{ile}");
+        }
+    }
+}
 
 /// <summary>
 /// Kadr kamery goniącej: kilometraż kamery, kilometraż celu i to, czy oś ma je czym
@@ -120,6 +173,64 @@ public static class ChaseCameraAim
         var target = Math.Clamp(front - (trainLengthM * 0.5), 0.0, axisLengthM);
         return new ChaseFraming(camera, target, front, trainLengthM);
     }
+
+    /// <summary>
+    /// Czy widok goniący jest dostępny przy czole składu w
+    /// <paramref name="frontChainageM"/>, a jeśli nie — od kiedy będzie.
+    ///
+    /// <para><b>Decyzja właściciela z 05.09.2026:</b> widok <c>chase</c> jest
+    /// NIEDOSTĘPNY, dopóki cały skład nie wjedzie na oś. Nie „przyciągany do
+    /// minimalnego kilometraża" i nie pokazywany mimo wszystko — niedostępny, i
+    /// mówiący o tym wprost. Powodem jest to, co widać na zrzutach z pasma:
+    /// kamera przyciśnięta przycięciem do początku osi stoi WEWNĄTRZ skorupy M7
+    /// i kadr jest płytą pudła z bliska. Zmierzone 05.09.2026 na
+    /// <c>--line --limit-kmh=70</c>, ułamek pikseli o jasności &gt; 0,80 w górnych
+    /// 60 % kadru: 20 m → 0,1 %, 48 m → <b>56,4 %</b>, 50 m → <b>38,3 %</b>,
+    /// 90 m → 0,0 %, 2000 m → 0,0 %.</para>
+    ///
+    /// <para><b>Skąd granica.</b> „Cały skład na osi" to dokładnie
+    /// <paramref name="trainLengthM"/>, bo ogon stoi o długość składu za czołem.
+    /// Predykat pyta więc o kilometraż i o długość składu — <b>i o nic więcej</b>:
+    /// ani o odstęp kamery, ani o długość osi. Wynik jest tożsamy z
+    /// <see cref="ChaseFraming.CameraWithinTrainSpan"/> policzonym przez
+    /// <see cref="Frame"/> i to jest przybite testem, a nie założone.</para>
+    ///
+    /// <para>Granica NALEŻY do pasma ukrycia: przy czole równym długości składu ogon
+    /// leży dokładnie tam, gdzie stoi przycięta kamera, więc kamera jest jeszcze w
+    /// płaszczyźnie czoła pudła, a nie za nim. Ta sama granica co w
+    /// <c>CameraWithinTrainSpan</c>, żeby dwa twierdzenia o tej samej geometrii nie
+    /// rozjechały się o jeden metr.</para>
+    ///
+    /// <para>To NIE jest koniec pasma, w którym kadr jest płytą pudła. Kamera wychodzi
+    /// ze skorupy przy długości składu, ale pełne <c>ChaseBehindM</c> odstępu odzyskuje
+    /// dopiero przy 106 m — zmierzone 96 m → 42,0 % bieli. Pasmo 94..106 m zostaje
+    /// świadomie odsłonięte, bo decyzja mówi „dopóki cały skład nie wjedzie na oś",
+    /// a nie „dopóki kadr nie przestanie być jasny".</para>
+    /// </summary>
+    /// <param name="frontChainageM">Kilometraż czoła składu.</param>
+    /// <param name="trainLengthM">Długość składu [m].</param>
+    public static ChaseAvailability Availability(double frontChainageM, double trainLengthM)
+    {
+        if (trainLengthM < 0.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(trainLengthM), trainLengthM, "skład nie ma ujemnej długości");
+        }
+
+        return new ChaseAvailability(
+            frontChainageM > trainLengthM,
+            trainLengthM,
+            Math.Max(0.0, trainLengthM - frontChainageM));
+    }
+
+    /// <summary>
+    /// Sam predykat: czy widok goniący jest dostępny. Szczegóły i pomiary przy
+    /// <see cref="Availability"/>.
+    /// </summary>
+    /// <param name="frontChainageM">Kilometraż czoła składu.</param>
+    /// <param name="trainLengthM">Długość składu [m].</param>
+    public static bool IsAvailable(double frontChainageM, double trainLengthM)
+        => Availability(frontChainageM, trainLengthM).Available;
 
     /// <summary>
     /// Czy odcinek <paramref name="aim"/> niesie kierunek nadający się dla

@@ -150,6 +150,18 @@ public sealed partial class FirstRun : Node3D
     /// </summary>
     private const int ExitPlatformsMissing = 12;
 
+    /// <summary>
+    /// Zrzut zamówiony w widoku, którego na tym kilometrażu nie ma.
+    ///
+    /// <para>Odmowa, a nie podstawienie innego kadru — i to jest ta sama decyzja, co
+    /// przy <see cref="ExitPlatformsMissing"/>. Zrzut jest artefaktem WERYFIKACJI:
+    /// plik nazwany <c>..._chase.png</c>, w którym po cichu siedzi kadr z kabiny,
+    /// przeszedłby każdą bramkę oglądającą metryki klatki, bo klatka jest poprawna —
+    /// tylko nie ta. Wołający zrzut umie odczytać kod wyjścia; gracz w kabinie nie ma
+    /// gdzie go zobaczyć, więc tam odpowiedzią jest wiersz HUD-u, nie odmowa.</para>
+    /// </summary>
+    private const int ExitViewUnavailable = 13;
+
     private bool _scriptedMode;
     private bool _lineMode;
     private string? _callsPath;
@@ -165,6 +177,27 @@ public sealed partial class FirstRun : Node3D
     private double _shotChainageM;
     private int _shotCountdown = int.MaxValue;
     private ViewKind _view = ViewKind.Cab;
+
+    /// <summary>
+    /// Czy widok goniący da się w tej chwili pokazać. Liczy to
+    /// <see cref="ChaseCameraAim.Availability"/> z kilometrażu i długości składu;
+    /// tutaj jest tylko zapamiętane, żeby <see cref="ApplyView"/> i
+    /// <see cref="UpdateHud"/> mówiły to samo w tej samej klatce.
+    ///
+    /// <para>Startuje na <c>true</c>, bo <see cref="ApplyView"/> leci w
+    /// <c>_Ready</c> PRZED pierwszym <see cref="PlaceEverything"/>, a długość składu
+    /// jest znana dopiero po wczytaniu skorupy. Godot rysuje po powrocie z
+    /// <c>_Ready</c>, więc ta jedna klatka i tak nie ma jak trafić na ekran.</para>
+    /// </summary>
+    private bool _chaseAvailable = true;
+
+    /// <summary>
+    /// Wiersz HUD-u o niedostępnym widoku; pusty, gdy widok jest dostępny albo
+    /// nieproszony. Składa go <see cref="PlaceEverything"/>, czyta
+    /// <see cref="UpdateHud"/> — te dwie metody chodzą zawsze parą.
+    /// </summary>
+    private string _viewLine = string.Empty;
+
     private bool _viewKeyHeld;
     private bool _resetKeyHeld;
     private bool _done;
@@ -759,16 +792,29 @@ public sealed partial class FirstRun : Node3D
 
     // --- widok -------------------------------------------------------------------
 
+    /// <summary>
+    /// Widok, który scena naprawdę stawia — <see cref="_view"/> albo kabina, gdy
+    /// zamówiony <c>chase</c> jest w tej chwili niedostępny.
+    ///
+    /// <para>Zejście do kabiny, a nie zostawienie kamery goniącej w skorupie: gracz
+    /// dostaje kadr, który coś pokazuje, i wiersz HUD-u mówiący, czego nie dostał
+    /// i od kiedy dostanie. Sam <c>chase</c> zostaje w <see cref="_view"/>, więc gdy
+    /// skład wjedzie na oś, widok wraca sam — bez drugiego naciśnięcia klawisza.</para>
+    /// </summary>
+    private ViewKind EffectiveView =>
+        _view == ViewKind.Chase && !_chaseAvailable ? ViewKind.Cab : _view;
+
     private void ApplyView()
     {
-        _cab.Current = _view == ViewKind.Cab;
-        _chase.Current = _view != ViewKind.Cab;
+        var view = EffectiveView;
+        _cab.Current = view == ViewKind.Cab;
+        _chase.Current = view != ViewKind.Cab;
 
         // Z kabiny nie widać własnego pudła: kamera stoi wewnątrz skorupy M7, a ta ma
         // po solidify obie powierzchnie, więc bez ukrycia składu widać z bliska jego
         // wnętrze i nic poza tym. Kabina jako model wnętrza nie istnieje (T-220 jej
         // świadomie nie robi), więc jedyne uczciwe rozwiązanie to schować bryłę.
-        _train.Visible = _view != ViewKind.Cab;
+        _train.Visible = view != ViewKind.Cab;
     }
 
     private void PlaceEverything()
@@ -799,6 +845,21 @@ public sealed partial class FirstRun : Node3D
         // pochodzi teraz zawsze z wczytanej geometrii.
         var trainLength = _train.LengthM;
         _train.PlaceAt(_sceneAxis, chainage);
+
+        // Dostępność widoku goniącego — decyzja właściciela z 05.09.2026, cała
+        // arytmetyka w `ChaseCameraAim.Availability`. Długość bierze się STĄD, czyli
+        // z wczytanej geometrii, a nie z rejestru: pytanie brzmi „czy kamera siedzi
+        // w skorupie", a skorupa jest tym, co naprawdę stoi w scenie. Że ta liczba
+        // ma się zgadzać z `parameters.length_m` ze spec M7, pilnuje osobny test —
+        // rozjazd między spec a geometrią jest usterką danych, nie powodem, żeby
+        // widok liczył się z liczby, której w kadrze nie ma.
+        var availability = ChaseCameraAim.Availability(chainage, trainLength);
+        _viewLine = _view == ViewKind.Chase ? availability.Reason : string.Empty;
+        if (availability.Available != _chaseAvailable)
+        {
+            _chaseAvailable = availability.Available;
+            ApplyView();
+        }
 
         var (eye, forward) = _sceneAxis.CabPoint(
             chainage,
@@ -918,7 +979,7 @@ public sealed partial class FirstRun : Node3D
         _hud.Update(
             _state.SpeedKmh, _acceleration, chainage, _axis.LengthM,
             name, distance, _command.Throttle, _command.Brake, _mode,
-            StationLine(), SignallingLine());
+            StationLine(), SignallingLine(), _viewLine);
     }
 
     /// <summary>
@@ -1222,6 +1283,23 @@ public sealed partial class FirstRun : Node3D
 
         PlaceEverything();
         UpdateHud();
+
+        // Widok zamówiony, ale na TYM kilometrażu go nie ma — odmowa, nie podmiana.
+        // Warunek stoi tutaj, a nie w `RunPlan`, bo do rozstrzygnięcia potrzeba
+        // długości wczytanej skorupy i kilometraża, na którym przewijanie naprawdę
+        // stanęło; jedno i drugie jest znane dopiero teraz. `--at-chainage` jest CELEM,
+        // a nie wynikiem: w trybie skryptowym przejazd zaczyna się na 94,0 m, więc
+        // każdy cel poniżej tej liczby zatrzymuje się na niej.
+        if (_view == ViewKind.Chase && !_chaseAvailable)
+        {
+            var availability = ChaseCameraAim.Availability(
+                Math.Min(ChainageM, _axis.LengthM), _train.LengthM);
+            Abort(ExitViewUnavailable, string.Create(
+                CultureInfo.InvariantCulture,
+                $"[ZRZUT] {availability.Reason}; zrzut na {ChainageM:F1} m nie powstaje — "
+                + $"kadr byłby płytą pudła, a plik nazywałby się chase"));
+            return;
+        }
 
         // Kilka klatek na dojście świateł i materiałów, zanim zapadnie migawka.
         _shotCountdown = 5;
