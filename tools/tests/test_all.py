@@ -3,8 +3,9 @@
 import sys, os, json, tempfile, math, threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),"..",".."))
-sys.path.insert(0,os.path.join(ROOT,"tools","blender")); sys.path.insert(0,os.path.join(ROOT,"tools","track")); sys.path.insert(0,os.path.join(ROOT,"tools","physics")); sys.path.insert(0,os.path.join(ROOT,"tools","data"))
+sys.path.insert(0,os.path.join(ROOT,"tools","blender")); sys.path.insert(0,os.path.join(ROOT,"tools","track")); sys.path.insert(0,os.path.join(ROOT,"tools","physics")); sys.path.insert(0,os.path.join(ROOT,"tools","data")); sys.path.insert(0,os.path.join(ROOT,"tools","tests"))
 import profiles, validate as V, reference as R, make_test_track as M, provenance as P
+import assertion_gate as AG
 
 def _tmp(d):
     f=tempfile.NamedTemporaryFile("w",suffix=".json",delete=False,encoding="utf-8"); json.dump(d,f,ensure_ascii=False); f.close(); return f.name
@@ -308,22 +309,43 @@ def test_traction_substation_count_not_claimed_as_metro_only():
     assert "unsplit" in f["scope"]
 
 def _discover():
-    """Testy z tego pliku plus wszystkie moduły tools/tests/test_*.py."""
-    import glob, importlib.util
-    tests=[(n,f) for n,f in sorted(globals().items()) if n.startswith("test_") and callable(f)]
-    here=os.path.dirname(os.path.abspath(__file__))
-    for path in sorted(glob.glob(os.path.join(here,"test_*.py"))):
-        if os.path.basename(path)=="test_all.py": continue
+    """Wszystkie moduły `tools/tests/test_*.py`, ten plik włącznie.
+
+    Każdy idzie przez `assertion_gate.load_instrumented`, czyli z licznikiem asercji
+    wstrzykniętym w AST. Ten plik też — inaczej jego własne testy byłyby jedynymi,
+    których bramka nie mierzy, a to dokładnie ta luka, którą bramka ma zamykać.
+    Kopia dostaje inną nazwę modułu, więc strażnik `__name__=="__main__"` na jej
+    końcu nie odpala `main()` rekurencyjnie.
+    """
+    tests=[]
+    for path in AG.paths():
         name=os.path.basename(path)[:-3]
-        spec=importlib.util.spec_from_file_location(name,path); mod=importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
+        if name=="test_all": name="test_all__mierzony"
+        mod=AG.load_instrumented(path,name)
         tests+=[(n,f) for n,f in sorted(vars(mod).items()) if n.startswith("test_") and callable(f)]
     return tests
 
 def main():
-    tests=_discover(); passed=0; failed=[]
+    """Uruchom zestaw. Test, który przeszedł bez asercji, jest awarią, nie sukcesem.
+
+    Licznik `przeszło` liczy WYŁĄCZNIE testy, które coś sprawdziły. Pominięte mają
+    własną linię i własny mianownik — dopisanie `skip()` nie może po cichu poprawić
+    statystyki.
+    """
+    tests=_discover(); passed=0; skipped=[]; failed=[]; checks_total=0
     for name,fn in tests:
-        try: fn(); print(f"  ok   {name}"); passed+=1
-        except Exception as e: print(f"  FAIL {name}: {e}"); failed.append(name)
-    print(); print(f"  {passed}/{len(tests)} przeszło"); return 1 if failed else 0
+        AG.reset(); outcome=None
+        try: fn()
+        except Exception as e: outcome=e
+        checks=AG.hits(); checks_total+=checks
+        state,message=AG.verdict(outcome,checks)
+        if state=="ok": print(f"  ok   {name}"); passed+=1
+        elif state=="skip": print(f"  SKIP {name}: {message}"); skipped.append(name)
+        else: print(f"  FAIL {name}: {message}"); failed.append(name)
+    print(); print(f"  {passed}/{len(tests)-len(skipped)} przeszło")
+    if skipped: print(f"  pominięto (nie liczy się jako zaliczone): {len(skipped)} — {', '.join(skipped)}")
+    broken=AG.suite_verdict(len(tests),checks_total)
+    if broken: print(f"  FAIL <bramka asercji>: {broken}"); return 1
+    return 1 if failed else 0
 
 if __name__=="__main__": sys.exit(main())
