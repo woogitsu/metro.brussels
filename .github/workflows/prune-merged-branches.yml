@@ -74,14 +74,20 @@ jobs:
             --jq '.[].headRefName' | sort -u | tr '\n' ' ')"
           echo "gałęzie z otwartym PR-em:$open_prs"
 
-          : > /tmp/prune-plan.txt
-          : > /tmp/prune-skipped.txt
+          # PLAN LEŻY W RUNNER_TEMP, NIE WE WSPÓŁDZIELONYM /tmp. Cztery runnery puli
+          # stoją na jednej maszynie i dzielą jedno /tmp, a ten plik STERUJE
+          # KASOWANIEM GAŁĘZI: dwa przebiegi naraz dopisywałyby do niego na przemian
+          # i krok „Skasuj" wykonałby plan, którego ten przebieg nigdy nie sprawdził
+          # swoimi trzema warunkami. RUNNER_TEMP jest per runner i trzyma się przez
+          # cały job, więc krok „Skasuj" czyta dokładnie to, co zapisał krok wyżej.
+          : > "$RUNNER_TEMP/prune-plan.txt"
+          : > "$RUNNER_TEMP/prune-skipped.txt"
           while read -r ref; do
             branch="${ref#origin/}"
 
             # 1. baza i HEAD zdalny nigdy nie wchodzą w grę
             if [ "$branch" = "$BASE" ] || [ "$branch" = "HEAD" ]; then
-              echo "$branch: baza" >> /tmp/prune-skipped.txt
+              echo "$branch: baza" >> "$RUNNER_TEMP/prune-skipped.txt"
               continue
             fi
 
@@ -92,7 +98,7 @@ jobs:
             # ma jak zawieść po cichu.
             case " $open_prs " in
               *" $branch "*)
-                echo "$branch: otwarty PR" >> /tmp/prune-skipped.txt
+                echo "$branch: otwarty PR" >> "$RUNNER_TEMP/prune-skipped.txt"
                 continue
                 ;;
             esac
@@ -103,27 +109,27 @@ jobs:
             # bazy, zostaje — nawet jeśli PR był zamknięty jako scalony.
             sha="$(git rev-parse "$ref")"
             if git merge-base --is-ancestor "$sha" "origin/$BASE"; then
-              echo "$branch $sha" >> /tmp/prune-plan.txt
+              echo "$branch $sha" >> "$RUNNER_TEMP/prune-plan.txt"
             else
               ahead="$(git rev-list --count "origin/$BASE".."$sha")"
-              echo "$branch: $ahead commitów poza $BASE" >> /tmp/prune-skipped.txt
+              echo "$branch: $ahead commitów poza $BASE" >> "$RUNNER_TEMP/prune-skipped.txt"
             fi
           done < <(git for-each-ref --format='%(refname:short)' refs/remotes/origin)
 
-          planned="$(wc -l < /tmp/prune-plan.txt)"
-          skipped="$(wc -l < /tmp/prune-skipped.txt)"
+          planned="$(wc -l < "$RUNNER_TEMP/prune-plan.txt")"
+          skipped="$(wc -l < "$RUNNER_TEMP/prune-skipped.txt")"
           echo "planned=$planned" >> "$GITHUB_OUTPUT"
           {
             echo "## Gałęzie do skasowania: $planned"
             echo
             echo '```'
-            cat /tmp/prune-plan.txt
+            cat "$RUNNER_TEMP/prune-plan.txt"
             echo '```'
             echo
             echo "## Zostawione: $skipped"
             echo
             echo '```'
-            cat /tmp/prune-skipped.txt
+            cat "$RUNNER_TEMP/prune-skipped.txt"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -142,7 +148,7 @@ jobs:
               echo "::warning::nie udało się skasować $branch"
               failed=$((failed + 1))
             fi
-          done < /tmp/prune-plan.txt
+          done < "$RUNNER_TEMP/prune-plan.txt"
           echo "skasowanych: $deleted, nieudanych: $failed"
           echo "skasowanych: $deleted, nieudanych: $failed" >> "$GITHUB_STEP_SUMMARY"
           test "$failed" -eq 0

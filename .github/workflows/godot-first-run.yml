@@ -178,9 +178,14 @@ jobs:
           set -euo pipefail
           mkdir -p "$GODOT_DIR"
           url="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_mono_linux_x86_64.zip"
-          curl -fsSL -o /tmp/godot-mono.zip "$url"
-          unzip -q /tmp/godot-mono.zip -d /tmp/godot-mono
-          mv /tmp/godot-mono/Godot_v${GODOT_VERSION}_mono_linux_x86_64/* "$GODOT_DIR/"
+          # RUNNER_TEMP, nie współdzielone /tmp — ten sam wyścig, który 05.09.2026
+          # wywrócił instalację Blendera na `tunnel-alignment (L1_A)`: cztery runnery
+          # puli dzielą jedno /tmp, więc przy stałej nazwie jeden job kasuje albo
+          # nadpisuje archiwum drugiemu w trakcie rozpakowywania.
+          rm -rf "$RUNNER_TEMP/godot-mono"
+          curl -fsSL -o "$RUNNER_TEMP/godot-mono.zip" "$url"
+          unzip -q "$RUNNER_TEMP/godot-mono.zip" -d "$RUNNER_TEMP/godot-mono"
+          mv "$RUNNER_TEMP/godot-mono/Godot_v${GODOT_VERSION}_mono_linux_x86_64"/* "$GODOT_DIR/"
           ls -la "$GODOT_DIR"
 
       - name: Report tool versions

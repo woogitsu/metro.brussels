@@ -1211,6 +1211,111 @@ def test_the_runner_gate_fails_on_every_selector_that_would_miss_the_pool():
         _runner_labels({"runs-on": list(REQUIRED_RUNNER_LABELS)})) is None
 
 
+#: Ścieżka pod `/tmp`, wpisana na sztywno. Lookbehind odsiewa człony dłuższych
+#: napisów (`$RUNNER_TEMP/tmp`, `/var/tmp`), bo tam katalog wybiera runner, a nie
+#: autor skryptu — a to jest cała różnica, o którą tej bramce chodzi.
+FIXED_TMP_PATH = re.compile(r"(?<![\w/$}])/tmp(?:/|\b)")
+
+
+def _fixed_tmp_paths(text):
+    """`[(numer wiersza, wiersz)]` dla wierszy KODU, które piszą pod stałe `/tmp`.
+
+    Wiersz komentarza się nie liczy: powód, dla którego ta bramka istnieje, trzeba
+    dało się opisać przy kodzie, którego dotyczy, a opis musi móc zacytować ścieżkę,
+    która ten wyścig wywołała. Konsekwencja: komentarz DOKLEJONY na końcu wiersza
+    kodu zostanie zgłoszony. To jest świadome — łatwiej przenieść komentarz do
+    osobnego wiersza niż zgadywać, gdzie w wierszu kończy się polecenie.
+    """
+    found = []
+    for number, line in enumerate(text.splitlines(), start=1):
+        if line.lstrip().startswith("#"):
+            continue
+        if FIXED_TMP_PATH.search(line):
+            found.append((number, line.strip()))
+    return found
+
+
+def _shared_machine_files():
+    """Wszystko, co runner wykonuje: workflowy, akcje lokalne, skrypty `tools/ci`."""
+    found = [os.path.join(WORKFLOWS, name) for name in _workflows()]
+    found += _action_files()
+    found += sorted(glob.glob(os.path.join(ROOT, "tools", "ci", "*.sh")))
+    return found
+
+
+def test_no_ci_file_writes_to_a_hardcoded_tmp_path():
+    """Cztery runnery puli stoją na JEDNEJ maszynie i dzielą jedno `/tmp`.
+
+    Stała nazwa pliku w `/tmp` przestała być wtedy nazwą pliku tego joba i stała się
+    nazwą WSPÓŁDZIELONĄ. Zmierzone 05.09.2026 na `tunnel-alignment (L1_A)`
+    (run 33981627757), krok „Blender w przypiętej wersji":
+
+        [BLENDER] sprawdzam sumę SHA-256
+        /tmp/blender-5.2.1-linux-x64.tar.xz: OK
+        tar (child): /tmp/blender-5.2.1-linux-x64.tar.xz: Cannot open: No such file
+
+    Suma zgadza się, a chwilę później pliku nie ma — drugi job skończył swój `tar`
+    i wykonał `rm -f` na tej samej nazwie. Wyścig był w skrypcie wcześniej, ale
+    strzelał rzadko: dopiero pula czterech równoległych jobów robi z niego regułę.
+
+    TRZY RODZINY SKUTKÓW, i tylko pierwsza jest głośna:
+
+    1. plik znika między `sha256sum` a `tar` — job pada, widać w logu;
+    2. dwa `curl -o` piszą do jednego pliku — suma może przejść u tego, kto akurat
+       trafił w moment po cudzym zapisie, i rozpakuje się archiwum, którego ten job
+       nie pobrał;
+    3. bramka porównująca DWA pliki (`sim-tests`: rdzeń kontra referencja hamowania)
+       zestawia wtedy wynik jednego przebiegu z wynikiem drugiego. Wychodzi zielona
+       albo czerwona, ale nie o tym, o co pyta — i nikt się nie dowie.
+
+    Dlatego bramka nie pyta o żaden konkretny plik, tylko o KLASĘ zapisu: żaden
+    plik wykonywany przez runnera nie podaje ścieżki pod `/tmp` z ręki. Katalog
+    daje `RUNNER_TEMP`, per runner i per job.
+    """
+    wrong = []
+    checked = 0
+    for path in _shared_machine_files():
+        checked += 1
+        text = open(path, encoding="utf-8").read()
+        for number, line in _fixed_tmp_paths(text):
+            wrong.append(f"{os.path.relpath(path, ROOT)}:{number}: {line}")
+    assert not wrong, (
+        "stała ścieżka w /tmp na maszynie z czterema runnerami — użyj "
+        f"\"$RUNNER_TEMP/…\": {wrong}")
+    # Pętla, która nie znalazła plików, przeszłaby pusta i zielona. Dziesięć
+    # workflowów, dwie akcje lokalne i dwa skrypty `tools/ci` to dzisiejsze minimum.
+    assert checked >= 12, f"przejrzano tylko {checked} plików — pętla ich nie widzi"
+
+
+def test_the_tmp_gate_catches_the_write_that_broke_l1_a():
+    """Kontrola do bramki wyżej — na dokładnie tym zapisie, który padł 05.09.2026.
+
+    Bez niej „brak trafień" znaczyłoby tyle samo przy sprawnym detektorze, co przy
+    wyrażeniu, które nie łapie niczego.
+    """
+    # Zapis, który wywrócił `tunnel-alignment (L1_A)`, i trzy jego odmiany.
+    assert _fixed_tmp_paths('TARBALL="/tmp/blender-5.2.1-linux-x64.tar.xz"')
+    assert _fixed_tmp_paths("          curl -fsSL -o /tmp/godot-mono.zip \"$url\"")
+    assert _fixed_tmp_paths("          : > /tmp/prune-plan.txt")
+    assert _fixed_tmp_paths("          diff -u /tmp/a.txt /tmp/b.txt")
+    assert _fixed_tmp_paths("cd /tmp && rm -rf robota")
+
+    # …i to, co ma przechodzić: katalog od runnera, `mktemp`, oraz ścieżka, w której
+    # `tmp` jest tylko członem cudzej nazwy. Bez tych czterech asercji bramka mogłaby
+    # zwracać trafienie na wszystkim i nadal wyglądać na działającą.
+    assert _fixed_tmp_paths('TARBALL="${RUNNER_TEMP:-$(mktemp -d)}/blender.tar.xz"') == []
+    assert _fixed_tmp_paths('curl -o "$RUNNER_TEMP/godot-mono.zip" "$url"') == []
+    assert _fixed_tmp_paths('echo x > "$RUNNER_TEMP/tmp/plan.txt"') == []
+    assert _fixed_tmp_paths("mv archiwum /var/tmp/gdziekolwiek") == []
+
+    # Komentarz cytujący awarię ma przechodzić — inaczej ta bramka kazałaby usunąć
+    # opis powodu, dla którego istnieje.
+    assert _fixed_tmp_paths("    # padło na /tmp/blender-5.2.1-linux-x64.tar.xz") == []
+    # Numer wiersza musi być numerem WIERSZA, nie indeksem od zera: komunikat bramki
+    # jest jedyną rzeczą, po której ktoś ten zapis znajdzie.
+    assert _fixed_tmp_paths("czysto\nczysto\nrm /tmp/x")[0][0] == 3
+
+
 def _unwrap_expression(condition):
     """Warunek `if:` sprowadzony do samego wyrażenia, ze zbitą spacją.
 
