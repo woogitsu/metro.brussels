@@ -20,7 +20,7 @@ namespace MetroBxl.Sim.Physics;
 /// jest ograniczona przez <c>μ · m · f · g</c>, gdzie <c>m</c> to masa rzeczywista
 /// (masa wirująca nie dociska szyny). Opóźnienie **pudła** wychodzi z podzielenia tej
 /// siły przez masę efektywną <c>m · λ</c>, bo tak samo liczy ruch
-/// <see cref="TrainController"/>: <see cref="MaxDecelerationMps2"/>. Gdyby zignorować
+/// <see cref="Train.TrainController"/>: <see cref="MaxDecelerationMps2"/>. Gdyby zignorować
 /// bezwładność wirującą, wyszłoby o <c>λ</c> więcej:
 /// <see cref="MaxRigidBodyDecelerationMps2"/>. Rozdziału bezwładności wirującej na osie
 /// hamowane i niehamowane nie ma w danych, więc model nie wybiera za czytelnika —
@@ -110,7 +110,7 @@ public sealed class BrakeAdhesionLimit
     /// <summary>
     /// Sufit opóźnienia pudła: <c>μ · f · g / λ</c>. Nie zależy od masy składu.
     /// To jest liczba porównywalna z 1,10 i 1,30 m/s² z <c>docs/02-simulation.md</c>,
-    /// bo <see cref="TrainController"/> zamienia opóźnienie na ruch przez masę efektywną.
+    /// bo <see cref="Train.TrainController"/> zamienia opóźnienie na ruch przez masę efektywną.
     /// </summary>
     public double MaxDecelerationMps2(double adhesion)
     {

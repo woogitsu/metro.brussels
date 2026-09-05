@@ -136,7 +136,21 @@ public sealed class LineRun
     /// <param name="axis">Oś z chainage stacji.</param>
     /// <param name="conditions">Masa, pochylenie, przyczepność, otoczenie toru.</param>
     /// <param name="settings">Założenia przejazdu — wszystkie bez źródła, patrz <see cref="LineRunSettings"/>.</param>
-    /// <param name="stepBudget">Bezpiecznik pętli.</param>
+    /// <param name="stepBudget">
+    /// Bezpiecznik pętli. Po tylu krokach przejazd kończy się BEZ dojazdu do ostatniej
+    /// stacji i mówi o tym wprost: <c>FinishReason</c> ma wtedy wartość
+    /// <c>"step-budget"</c>, a nie <c>"arrived"</c>. Nie jest to wyjątek — wynik jest
+    /// pełny i daje się obejrzeć.
+    /// </param>
+    /// <param name="trace">
+    /// Ślad przejazdu; wołany po KAŻDYM kroku, gdy podany, i pomijany, gdy null.
+    /// Nie wpływa na wynik — przejazd bez śladu i ze śladem daje ten sam
+    /// <see cref="LineRunResult"/> co do bitu.
+    /// </param>
+    /// <returns>
+    /// Czas, droga, suma postojów, liczba kroków, lista zatrzymań i powód zakończenia
+    /// pętli. Powodu trzeba zawsze przeczytać — patrz <paramref name="stepBudget"/>.
+    /// </returns>
     public LineRunResult Run(
         TrackAxis axis,
         RunConditions conditions,

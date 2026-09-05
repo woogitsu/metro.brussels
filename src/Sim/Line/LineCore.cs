@@ -186,6 +186,24 @@ public sealed class LineCore
     /// (1126 nawrotów, minimum 377 s); nawrót na Merode wynika z cięcia sieci na
     /// pakiety i z decyzji właściciela z 04.09.2026.</para>
     /// </summary>
+    /// <param name="plan">
+    /// Plan bloków. Musi być zbudowany dla tej samej osi co <paramref name="axis"/> —
+    /// niezgodne <c>AxisId</c> jest odmową, bo kilometraż bloków i kilometraż stacji
+    /// muszą pochodzić z jednego przebiegu.
+    /// </param>
+    /// <param name="axis">Oś z kilometrażem stacji; po niej jedzie każdy skład tej linii.</param>
+    /// <param name="conditions">Masa, pochylenie, przyczepność i otoczenie toru, wspólne dla linii.</param>
+    /// <param name="settings">
+    /// Założenia przejazdu — ten sam obiekt dostaje każde prowadzenie, więc
+    /// <see cref="SpeedLimitMps"/> jest liczbą prowadzenia, a nie jej kopią.
+    /// </param>
+    /// <param name="controller">Kontroler ruchu z T-310; jeden na linię, bo jest bezstanowy.</param>
+    /// <param name="solver">Solver punktu hamowania z T-311, wołany przy każdym podejściu do stacji.</param>
+    /// <param name="step">Krok stały zegara linii; ten sam dla wszystkich składów, inaczej nie ma determinizmu.</param>
+    /// <param name="trainLengthM">
+    /// Długość składu w metrach; z rejestru pojazdu, nie z powietrza. Linia zajmuje nią
+    /// bloki: ogon leży o tyle za czołem i to on zwalnia blok za sobą.
+    /// </param>
     /// <param name="turnbackSeconds">
     /// Czas nawrotu w sekundach. <b>Zero wyłącza turnback</b> i wtedy linia zachowuje
     /// się dokładnie tak, jak przed tą zmianą: pojazd kończy na ostatnim peronie i tam
@@ -229,6 +247,20 @@ public sealed class LineCore
     /// i puszcza. Gdyby zatrzaskiwała, skład raz zwolniony przez ATP dojeżdżałby do
     /// stacji wybiegiem, bo zatrzask nie wraca do trakcji.</para>
     /// </summary>
+    /// <param name="plan">Plan bloków dla tej samej osi.</param>
+    /// <param name="axis">Oś z kilometrażem stacji.</param>
+    /// <param name="conditions">Masa, pochylenie, przyczepność, otoczenie toru.</param>
+    /// <param name="settings">Założenia przejazdu — wszystkie bez źródła.</param>
+    /// <param name="controller">Kontroler z T-310.</param>
+    /// <param name="solver">Solver punktu hamowania z T-311.</param>
+    /// <param name="step">Krok stały; ten sam dla całej linii.</param>
+    /// <param name="trainLengthM">Długość składu; z rejestru pojazdu, nie z powietrza.</param>
+    /// <param name="turnbackSeconds">
+    /// Czas nawrotu w sekundach. <b>Zero wyłącza turnback</b> i wtedy linia zachowuje
+    /// się tak, jak przed jego wprowadzeniem: pojazd kończy na ostatnim peronie i tam
+    /// zostaje. Wartość ujemna jest odmową, nie wyłączeniem; czas krótszy niż jeden
+    /// krok symulacji też, bo zaokrągliłby się do zera i wyłączył nawrót po cichu.
+    /// </param>
     /// <param name="protection">
     /// Ochrona pociągu. Musi być zbudowana na TYM SAMYM obiekcie planu — inaczej
     /// nadzorowałaby limit i bloki innego planu niż ten, po którym linia jedzie,
@@ -336,10 +368,16 @@ public sealed class LineCore
     /// kontroler i solver linii. Solvera ochrona ma własnego, ale z tego samego modelu,
     /// więc krzywa hamowania jest ta z T-311, a nie druga obok niej.</para>
     /// </summary>
+    /// <param name="plan">Plan bloków; ten sam obiekt dostaje ochrona, więc nadzoruje tę linię.</param>
+    /// <param name="axis">Oś z kilometrażem stacji; musi być tą, dla której powstał plan.</param>
+    /// <param name="conditions">Masa, pochylenie, przyczepność, otoczenie toru.</param>
+    /// <param name="settings">Założenia przejazdu — wszystkie bez źródła.</param>
+    /// <param name="turnbackSeconds">Czas nawrotu; zero wyłącza turnback, ujemny jest odmową.</param>
     /// <param name="atp">
     /// <c>false</c> daje linię bez ochrony i przejazd bit w bit taki jak przed
     /// wprowadzeniem ATP; <c>true</c> włącza nadzór i ingerencję.
     /// </param>
+    /// <returns>Linia gotowa na pierwszy krok; składy dokłada <see cref="Add"/>.</returns>
     public static LineCore M7(
         SignallingPlan plan, TrackAxis axis, RunConditions conditions,
         LineRunSettings settings, double turnbackSeconds, bool atp) =>
@@ -427,7 +465,7 @@ public sealed class LineCore
     /// <summary>
     /// Prawda, gdy każdy zgłoszony skład wszedł na plan i dojechał do ostatniej stacji.
     /// Na krótkiej osi z krótkim odstępem nie nastąpi to nigdy — patrz akapit o turnbacku
-    /// w opisie klasy.
+    /// w opisie klasy. Linia bez ani jednego zgłoszonego składu nie jest skończona.
     /// </summary>
     public bool Finished
     {

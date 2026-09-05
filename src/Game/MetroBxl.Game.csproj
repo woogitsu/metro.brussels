@@ -17,6 +17,21 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
     <InvariantGlobalization>true</InvariantGlobalization>
+
+    <!--
+      Dokumentacji XML pilnuje kompilator — powód i pomiar przy tym samym przełączniku
+      w `src/Sim/Sim.csproj`. Zmierzone 04.09.2026 na `74d323c`: w tej warstwie
+      2 ostrzeżenia (2x CS1570 w `FirstRun.cs`), obydwa naprawione w tym samym commicie.
+
+      `WarningsAsErrors` zamiast `TreatWarningsAsErrors`, i to jest różnica wobec
+      rdzenia: ten projekt buduje się przez Godot.NET.Sdk, który dokłada własne źródła
+      generowane, a rdzeń ma się kompilować bez silnika. Podniesienie WSZYSTKICH
+      ostrzeżeń do błędów wiązałoby zielony build z tym, co dołoży kolejna wersja SDK;
+      wymieniona szóstka to wyłącznie rodzina dokumentacji XML, czyli dokładnie to,
+      co ta bramka ma bramkować.
+    -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <WarningsAsErrors>$(WarningsAsErrors);CS1570;CS1571;CS1572;CS1573;CS1574;CS1591</WarningsAsErrors>
   </PropertyGroup>
 
   <ItemGroup>

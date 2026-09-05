@@ -182,6 +182,12 @@ public sealed class LineRoute
             $"Kilometraż poza trasą {Id} (0 … {LengthM:F1} m).");
     }
 
+    /// <summary>
+    /// Zapis diagnostyczny trasy: ile osi, ile przerw między nimi, jaka długość łączna
+    /// i ile stacji. Przerwy są wypisane osobno od osi, bo trasa z przerwą i trasa
+    /// ciągła o tej samej długości to nie to samo.
+    /// </summary>
+    /// <returns>Napis postaci <c>LineRoute(L1: 2 osi + 1 przerw, 1234,5 m, 9 stacji)</c>.</returns>
     public override string ToString() => string.Create(
         CultureInfo.InvariantCulture,
         $"LineRoute({Id}: {_axes.Count} osi + {_gaps.Count} przerw, {LengthM:F1} m, {_stations.Length} stacji)");

@@ -30,6 +30,12 @@ public sealed class StepAccumulator
     private readonly FixedStep _step;
     private double _carry;
 
+    /// <summary>
+    /// Akumulator dla zadanego kroku. Krok jest sprawdzany od razu, a nie przy pierwszej
+    /// klatce: <c>default(FixedStep)</c> ma zero sekund i dzieliłby przez zero dopiero
+    /// w trakcie przejazdu, czyli daleko od miejsca, w którym powstał błąd.
+    /// </summary>
+    /// <param name="step">Krok rdzenia; musi przejść <see cref="FixedStep.RequireValid"/>.</param>
     public StepAccumulator(FixedStep step)
     {
         step.RequireValid();
@@ -79,6 +85,12 @@ public sealed class StepAccumulator
     /// </summary>
     public void DropCarry() => _carry = 0.0;
 
+    /// <summary>
+    /// Zapis diagnostyczny: licznik kroków i nierozliczona reszta. Kultura niezmienna
+    /// i format <c>R</c> z tego samego powodu co w <see cref="FixedStep.ToString"/> —
+    /// reszta rzędu 1E-16 s ma być widoczna, a nie zaokrąglona do zera.
+    /// </summary>
+    /// <returns>Napis postaci <c>StepAccumulator(kroki=240, reszta=0 s)</c>.</returns>
     public override string ToString() => string.Create(
         CultureInfo.InvariantCulture,
         $"StepAccumulator(kroki={TotalSteps}, reszta={_carry:R} s)");

@@ -93,16 +93,43 @@ public readonly struct FixedStep : IEquatable<FixedStep>
         }
     }
 
+    /// <summary>
+    /// Równość po <see cref="Seconds"/>, bit w bit. Krok 1/120 s zbudowany dwiema
+    /// różnymi drogami jest tym samym krokiem tylko wtedy, gdy wyszła z nich ta sama
+    /// liczba — porównanie z tolerancją ukryłoby dryf zegara, który ta struktura ma
+    /// wykluczać.
+    /// </summary>
+    /// <param name="other">Krok do porównania.</param>
+    /// <returns>Prawda, gdy oba kroki mają identyczną długość w sekundach.</returns>
     public bool Equals(FixedStep other) => Seconds.Equals(other.Seconds);
 
+    /// <summary>Równość dla świata nietypowanego; wszystko, co nie jest krokiem, jest różne.</summary>
+    /// <param name="obj">Dowolny obiekt, także null.</param>
+    /// <returns>Prawda tylko dla <see cref="FixedStep"/> o tej samej długości.</returns>
     public override bool Equals(object? obj) => obj is FixedStep other && Equals(other);
 
+    /// <summary>Skrót liczony z <see cref="Seconds"/>, żeby zgadzał się z <see cref="Equals(FixedStep)"/>.</summary>
+    /// <returns>Skrót długości kroku.</returns>
     public override int GetHashCode() => Seconds.GetHashCode();
 
+    /// <summary>
+    /// Zapis diagnostyczny w kulturze niezmiennej i w formacie <c>R</c>, czyli
+    /// odtwarzalny co do bitu. Kropka dziesiętna jest tu wymuszona celowo: log
+    /// przejazdu ma wyjść identyczny na każdej maszynie.
+    /// </summary>
+    /// <returns>Napis postaci <c>FixedStep(0.008333333333333333 s)</c>.</returns>
     public override string ToString() =>
         string.Create(CultureInfo.InvariantCulture, $"FixedStep({Seconds:R} s)");
 
+    /// <summary>Ta sama równość co <see cref="Equals(FixedStep)"/>.</summary>
+    /// <param name="left">Lewy krok.</param>
+    /// <param name="right">Prawy krok.</param>
+    /// <returns>Prawda, gdy oba kroki mają identyczną długość w sekundach.</returns>
     public static bool operator ==(FixedStep left, FixedStep right) => left.Equals(right);
 
+    /// <summary>Zaprzeczenie <see cref="op_Equality(FixedStep, FixedStep)"/>.</summary>
+    /// <param name="left">Lewy krok.</param>
+    /// <param name="right">Prawy krok.</param>
+    /// <returns>Prawda, gdy kroki różnią się długością.</returns>
     public static bool operator !=(FixedStep left, FixedStep right) => !left.Equals(right);
 }
