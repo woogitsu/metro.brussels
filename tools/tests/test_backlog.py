@@ -66,13 +66,16 @@ REQUIRED_FIELDS = (
 #: odhaczeniem T-212 i T-906 było 15 wpisów i 12 pól.)
 DONE_ONLY_FIELD = "Wynik"
 
-#: Ile pozycji kolejki ma DZIŚ komplet sześciu pól. Zmierzone 05.09.2026: **8 z 31**
-#: (na `b41c158` było 8 z 33; 6.B11 i 6.B12 wyszły do tabeli domknięć). To jest zapadka, nie cel — wolno ją tylko podnosić. Celem jest
-#: `MINIMUM_READY_ITEMS`, czyli tyle udokumentowanych pozycji, ile licznik zapasu
-#: uznaje za dobę pracy; brakujące cztery są **znaleziskiem do zgłoszenia**, nie
-#: zaproszeniem do wymyślenia treści (`CLAUDE.md` §8 zabrania brać zadanie wymyślone
-#: na miejscu, a dopisanie sobie „Weryfikacji" do cudzej pozycji jest tym samym).
-MINIMUM_DOCUMENTED_ITEMS = 8
+#: Ile pozycji kolejki ma DZIŚ komplet sześciu pól. **Wartość przepisana, a nie
+#: dopisana obok:** poprzednie wersje mówiły 8 z 33 (`b41c158`) i 8 z 31, a zmierzone
+#: 05.09.2026 po dopisaniu bloków 6.A7, 6.B1, 6.B2 i 6.D2 jest **12 z 29** pozycji
+#: będących pracą. Zapadka zrównała się z `MINIMUM_READY_ITEMS`, czyli z progiem doby
+#: pracy — od tej chwili bramka żąda „dwanaście pozycji, każda z sześcioma polami",
+#: a nie samych dwunastu wierszy tabeli. Wolno ją tylko podnosić, a podnosi się ją
+#: polami ODCZYTANYMI z `docs/`, `reports/` i `data/` (`CLAUDE.md` §8 zabrania brać
+#: zadanie wymyślone na miejscu, a dopisanie sobie „Weryfikacji" do cudzej pozycji
+#: jest tym samym o krok wcześniej).
+MINIMUM_DOCUMENTED_ITEMS = 12
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
@@ -348,10 +351,11 @@ def test_the_documented_reserve_does_not_regress():
 
     `MINIMUM_READY_ITEMS` mówi, ile pozycji ktoś WPISAŁ. Ta liczba mówi, ile z nich
     niesie sześć pól, czyli ile agent może wziąć bez dopytywania właściciela.
-    Zmierzone 05.09.2026: **8 z 31** (na `b41c158` było 8 z 33 — 6.B11 i 6.B12 wyszły
-    do tabeli domknięć, więc zapadka nie drgnęła, a mianownik tak). Wolno tylko podnosić — a podnosi
-    się ją, dopisując pola tam, gdzie da się je ODCZYTAĆ z `docs/`, `reports/`
-    i `data/`, nie zmyślając ich.
+    Zmierzone 05.09.2026 po dopisaniu czterech bloków: **12 z 29**. Poprzednie wersje
+    tego zdania mówiły 8 z 31 i 8 z 33 (`b41c158`) — mianownik zmieniał się dwa razy
+    bez ruchu zapadki, bo 6.B11 i 6.B12 wyszły do tabeli domknięć. Wolno tylko
+    podnosić — a podnosi się ją, dopisując pola tam, gdzie da się je ODCZYTAĆ
+    z `docs/`, `reports/` i `data/`, nie zmyślając ich.
     """
     text = _tasks()
     documented = documented_items(text)
@@ -364,11 +368,17 @@ def test_the_documented_reserve_does_not_regress():
 def test_the_documented_shortfall_is_written_down_while_it_lasts():
     """Różnica między zapadką a progiem nie ma prawa zniknąć po cichu.
 
-    Dziś zapadka stoi na 8, a próg zapasu na 12 — cztery pozycje kolejki są
-    wierszem tabeli bez opisu, jak je wykonać. Dopóki tak jest, `docs/TASKS.md`
-    ma to mówić wprost. Gdy ktoś doprowadzi zapadkę do progu, ma ten akapit
-    usunąć: plan, który po domknięciu luki nadal ją opisuje, jest tak samo
-    nieprawdziwy jak plan, który jej nigdy nie opisał.
+    **Ten docstring jest przepisany, a nie dopisany obok.** Poprzednia wersja mówiła
+    „Dziś zapadka stoi na 8, a próg zapasu na 12 — cztery pozycje kolejki są wierszem
+    tabeli bez opisu, jak je wykonać", i to już nieprawda: 05.09.2026 doszły bloki
+    6.A7, 6.B1, 6.B2 i 6.D2, zapadka zrównała się z progiem, a akapit o niedoborze
+    **zniknął z `docs/TASKS.md`** — czego pilnuje gałąź `else` tego testu.
+
+    Test zostaje mimo domknięcia luki, bo pilnuje obu kierunków. Gdyby ktoś obniżył
+    `MINIMUM_DOCUMENTED_ITEMS` (dziś zakazane osobną zapadką) albo podniósł
+    `MINIMUM_READY_ITEMS`, niedobór wróciłby — i wtedy plan ma go znowu opisać.
+    Plan, który po domknięciu luki nadal ją opisuje, jest tak samo nieprawdziwy jak
+    plan, który jej nigdy nie opisał; ten test łapie oba te stany.
     """
     text = _tasks()
     if MINIMUM_DOCUMENTED_ITEMS < MINIMUM_READY_ITEMS:

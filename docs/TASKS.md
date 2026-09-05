@@ -572,28 +572,31 @@ Mechanika:
    z sześcioma polami. Wiersz tabeli mówi, *dlaczego* pozycja nie wymaga decyzji;
    dopiero blok mówi, *jak ją wykonać i po czym poznać, że jest skończona*.
 
-**Zapas udokumentowany:** punkt 5 wszedł 05.09.2026 i od razu pokazał, że reguła
-zapasu mierzyła dotąd nie to, co deklaruje. Blok z sześcioma polami ma **8** pozycji —
-6.A8, 6.B6, 6.B7, 6.B8, 6.B9, 6.B10, 6.D5 i 6.D6, czyli dokładnie te dopisane
-04.09.2026. Reszta to wiersz tabeli i nic więcej: żadnego Wejścia, Wyjścia,
-Weryfikacji, „Skończone, gdy", „Poza zakresem" ani „Zależy od". Próg doby pracy wynosi
-dwanaście, więc **brakuje czterech** udokumentowanych pozycji.
+**Luka jest domknięta 05.09.2026, a ten akapit jest przepisany, a nie dopisany obok.**
+Dwie poprzednie wersje opisywały niedobór: najpierw „kolejka ma **33 pozycje** […]
+Pozostałe **25**" na `b41c158`, potem „kolejka ma **31 pozycji**, udokumentowanych jest
+**8**, bez kompletu sześciu pól zostają **23**" — i obie przestały być prawdą.
+Zmierzone tym samym licznikiem (`tools/tests/test_backlog.py`) po dopisaniu czterech
+bloków: kolejka ma **29 pozycji będących pracą**, udokumentowanych jest **12**, bez
+kompletu sześciu pól zostaje **17**. Zapadka `MINIMUM_DOCUMENTED_ITEMS` stoi na
+dwunastu, czyli **równo z progiem doby pracy** — od tej chwili obie liczby mówią to
+samo i bramka działa z pełną siłą: „dwanaście pozycji, każda z sześcioma polami".
 
-**Liczba pozycji w tym akapicie jest przepisana, a nie dopisana obok.** Pierwsza wersja
-mówiła „Zmierzone na `b41c158`: kolejka ma **33 pozycje** […] Pozostałe **25**" i to
-przestało być prawdą, zanim akapit zdążył się zestarzeć: 6.B11 wyszło do tabeli
-domknięć (#226 i #236), a 6.B12 **było zrobione już przy #217** i stało w kolejce
-o dwanaście scaleń za długo. Zmierzone 05.09.2026 tym samym licznikiem
-(`tools/tests/test_backlog.py`): kolejka ma **31 pozycji**, udokumentowanych jest **8**,
-bez kompletu sześciu pól zostają **23**.
+Mianownik spadł z 31 na 29 nie dlatego, że coś zniknęło: 6.B11 i 6.B12 wyszły
+wcześniej do tabeli domknięć, a licznik liczy `ready_items`, czyli pozycje **będące
+pracą** — bez domkniętych i bez czekających na decyzję właściciela.
 
-Tej luki **nie domyka się dopisywaniem pól z głowy.** `CLAUDE.md` §8 zabrania brać
-zadanie wymyślone na miejscu, a wymyślenie cudzej „Weryfikacji" jest tym samym o jeden
-krok wcześniej. Pola dopisuje ten, kto ma z czego je odczytać — z `docs/`, `reports/`
-albo `data/` — i mówi w commicie, skąd wzięło się każde. Bramką jest zapadka
-`MINIMUM_DOCUMENTED_ITEMS` w `tools/tests/test_backlog.py`: wolno ją tylko podnosić,
-a gdy dojdzie do dwunastu, ten akapit ma zniknąć — i wtedy jego zniknięcia pilnuje
-`test_the_documented_shortfall_is_written_down_while_it_lasts`.
+Tej luki **nie domykało się dopisywaniem pól z głowy** i następnej też nie wolno.
+`CLAUDE.md` §8 zabrania brać zadanie wymyślone na miejscu, a wymyślenie cudzej
+„Weryfikacji" jest tym samym o jeden krok wcześniej. Pola dopisuje ten, kto ma z czego
+je odczytać — z `docs/`, `reports/` albo `data/` — i mówi w commicie, skąd wzięło się
+każde. Cztery bloki dopisane 05.09.2026 mają to zapisane w polu **Skąd**: 6.A7 z tablicy
+referencyjnej T-311 w `docs/02-simulation.md`, 6.B1 z wpisu T-211 i klucza `stations`
+w pięciu plikach osi, 6.B2 z wpisu T-011 i `reports/T-011-detail-markers.md`, 6.D2
+z `reports/linecore-budget.md` §8.4. Zapadki wolno tylko podnosić i nie wolno jej
+ustawić wyżej niż próg — pilnują tego `test_the_documented_reserve_does_not_regress`,
+`test_the_documented_ratchet_does_not_lag_behind_the_file`
+i `test_the_ratchet_cannot_be_set_above_what_it_guards`.
 
 Szacunki godzin niżej są zgrubne i celowo podane jako przedziały. Podstawa: w sesji
 02.09.2026 jedno zadanie z pełną weryfikacją, przeglądem mutacyjnym, commitem i PR-em
@@ -650,14 +653,19 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.D5 | **Audyt dryfu pokrycia mutacyjnego po triażu** — które moduły odzyskały ocalałe od czasu swojego raportu triażu, i przybicie ich z powrotem | rozjazd jest już zmierzony i leży w dwóch plikach naraz: `tools/track/crs.py` miał po triażu 6 ocalałych na 8 mutacji (`reports/mutation-triage-wczytywanie.md` §Wynik), a przebieg z `66b8301` w `reports/mutation-sweep.md` pokazuje **8 na 14**; `tools/ci/assert_shot_metadata.py` miał **2 na 33** (`reports/mutation-triage-png-metadata.md` §Wynik), a dziś ma **6 na 39**. Porównanie dwóch raportów, które już istnieją — żadnej nowej danej | M |
 | 6.D6 | **ZROBIONE w #258 (05.09.2026) — wpis zostaje w kolejce z powodu zapadki, nie dlatego, że jest do zrobienia.** `test_backlog.py` trzyma `MINIMUM_DOCUMENTED_ITEMS = 8`, a udokumentowanych pozycji jest dokładnie osiem; przeniesienie którejkolwiek do tabeli domknięć zbija licznik do siedmiu i wywraca `test_the_documented_reserve_does_not_regress`, a komentarz przy zapadce mówi, że wolno ją tylko podnosić. Decyzja właściciela z 05.09.2026: wpis zostaje z tą adnotacją. Treść pierwotna: **rozszerzenie zestawu operatorów `tools/tests/mutation_sweep.py`** poza porównania i progi liczbowe — przypisania, wywołania i łączniki logiczne. Wykonane: dwie klasy urosły do pięciu (`logika`, `argument`, `przypisanie`), a stary zestaw odtwarza `--operators operator,prog` co do sztuki (1038 = 1038) | `reports/mutation-sweep.md` §„Czego ten przebieg NIE pokrywa, choć pozycja 5.1 tak brzmi" wypisuje ten brak w tabeli: pozycja 5.1 mówi „każdą kontrolę", a narzędzie mutuje „wyłącznie **operatory porównań i progi liczbowe**; nie mutuje przypisań, wywołań ani łączników logicznych". Praca w samym narzędziu pomiaru; baza do porównania jest zmierzona (980 mutacji, 51 nieosiągalnych, 929 policzonych na `66b8301`) | L |
 
-#### Szczegóły ośmiu pozycji dopisanych 04.09.2026
+#### Szczegóły pozycji z kompletem sześciu pól
+
+**Nagłówek przepisany, a nie dopisany obok.** Poprzednia wersja mówiła „Szczegóły
+**ośmiu** pozycji dopisanych 04.09.2026" i przestała być prawdą 05.09.2026, gdy doszły
+cztery kolejne — 6.A7, 6.B1, 6.B2 i 6.D2. Osiem pierwszych pochodzi z 04.09.2026,
+cztery ostatnie domykają lukę do progu zapasu; która jest która, mówi pole **Skąd**.
 
 Wiersze tabel wyżej mówią, **dlaczego** pozycja nie wymaga decyzji. Poniżej stoi to,
 czego wymaga `CLAUDE.md` §6 i `docs/TASK-TEMPLATE.md`: sześć pól na pozycję, plus jedno
 zdanie o tym, **z czego ta pozycja się wzięła** — plik i sekcja. Pozycja bez takiego
 odnośnika byłaby zadaniem wymyślonym na miejscu, a §8 zabrania takie brać.
 
-Wspólne dla wszystkich ośmiu: **Poza zakresem** zawiera zawsze `docs/03-legal.md`,
+Wspólne dla wszystkich dwunastu: **Poza zakresem** zawiera zawsze `docs/03-legal.md`,
 zapis do `data/`, ocenę estetyczną i podnoszenie albo obniżanie jakiejkolwiek stałej
 wymienionej w `docs/21-measured-vs-assumed.md`. Pozycje wypisują poniżej tylko to,
 co dochodzi ponad ten wspólny zakaz.
@@ -914,6 +922,127 @@ co dochodzi ponad ten wspólny zakaz.
   której tu **nie zakładam**; nie zmienia ani jednego pliku pod testem.
 - **Zależy od:** nic. Wykonane po 6.D5 unieważnia jego tabelę bazową, więc kolejność
   6.D5 → 6.D6 jest tańsza.
+
+##### 6.A7 · Testy własnościowe fizyki
+
+- **Skąd:** wiersz `| 6.A7 |` pasma A („wzmacnia to, co jest; nie dodaje ani jednej
+  liczby o metrze") plus tablica referencyjna T-311 w `docs/02-simulation.md`, którą
+  `CLAUDE.md` §3 nazywa wprost „tablicą referencyjną **dla testów fizyki**". Pozycja
+  dopisana 04.09.2026 jako wiersz tabeli; sześć pól dopisane 05.09.2026.
+- **Wejście:** `src/Sim` (model trakcji z T-310, solver punktu hamowania z T-311),
+  `docs/02-simulation.md`, istniejące `tests/Sim.Tests/BrakingTests.cs`
+  i `tests/Sim.Tests/EnergyAndProfileTests.cs` — żeby nie powtórzyć tego, co już jest.
+- **Wyjście:** osobny plik testów własnościowych w `tests/Sim.Tests/`.
+- **Weryfikacja:**
+  ```bash
+  dotnet test tests/Sim.Tests
+  ```
+  Oczekiwane: zielony zestaw z liczbą testów większą niż dzisiejsze 455.
+- **Skończone, gdy:** trzy własności wymienione w wierszu tabeli mają test —
+  monotoniczność drogi hamowania po prędkości **i** po masie, zachowanie energii, brak
+  ujemnego czasu — a każda ma **wykonaną** kontrolę negatywną z wklejonym wyjściem
+  (odwrócenie nierówności w mutancie musi wywrócić dokładnie tę własność, a nie zestaw).
+- **Poza zakresem:** żadnej nowej stałej fizycznej ani zmiany w `src/Sim` — test opisuje
+  zachowanie, które kod ma dziś; jeżeli własność nie zachodzi, wynikiem jest zgłoszenie,
+  nie poprawka modelu przy okazji.
+- **Zależy od:** T-310, T-311 (oba zrobione).
+
+##### 6.B1 · `station_layout.py` na pakietach B–F
+
+- **Skąd:** wiersz `| 6.B1 |` pasma B („osie sześciu pakietów są w `data/track/`,
+  wysokość peronu `source_backed` z R-007") plus wpis T-211, który ma komplet pól dla
+  pakietu A i którego metodę ta pozycja wyłącznie **stosuje do innego wejścia**.
+  Wiersz tabeli z 04.09.2026, sześć pól z 05.09.2026.
+- **Wejście:** `data/track/L1_B.json`, `L2_E.json`, `L5_C.json`, `L5_D.json`,
+  `L6_F.json` (klucz `stations`: 9, 17, 9, 7, 7 — razem **49 peronów**),
+  `data/vehicle/m7-spec.json`, `reports/R-007-platform-dimensions.md`,
+  `tools/track/station_layout.py` (CLI: `--axis`, `--out`, `--platform-length-m`,
+  `--platform-gap-m`, `--footprint-m`, `--ring-step-m`).
+- **Wyjście:** raport w `reports/` z układem peronów pięciu pakietów oraz testy
+  w `tools/tests/test_station_layout.py` na to, co w tych pakietach jest inne niż w A.
+- **Weryfikacja:**
+  ```bash
+  for AXIS in L1_B L2_E L5_C L5_D L6_F; do
+      python3 tools/track/station_layout.py --axis "data/track/$AXIS.json" \
+          --out "build/stations/$AXIS.json"
+  done
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: pięć plików wyjściowych i zielony zestaw.
+- **Skończone, gdy:** wszystkie **49** peronów ma kilometraż, promień lokalny
+  i policzoną dolną granicę odsunięcia krawędzi, a raport podaje **najciaśniejszy peron
+  każdego pakietu** tak, jak T-211 podaje Gare Centrale dla A (R = 137 m → strzałka
+  22,5 cm → krawędź 1,5748 m zamiast 1,35 m). Rozpiętość wewnątrz pakietu podana
+  liczbą, bo to ona rozstrzyga, czy peron z prostej wchodzi w kolizję na łuku —
+  dla A wyszło 22,4 cm.
+- **Poza zakresem:** `--platform-gap-m` **nie dostaje wartości domyślnej**. R-007
+  ustalił, że szczeliny peron–pudło nie podaje żadne źródło, więc `edge_offset_m`
+  zostaje `None`, nie zero (T-211, „Świadomie nie zrobione"). Bryły w Blenderze są
+  etapem 2 T-211, nie tą pozycją.
+- **Zależy od:** T-111 (osie B–F, zrobione), T-211 (zrobione), R-007 (zrobione).
+
+##### 6.B2 · Znaczniki kilometrażu i detale na pakietach B–F
+
+- **Skąd:** wiersz `| 6.B2 |` pasma B („to samo narzędzie, inne wejście") plus wpis
+  T-011 i `reports/T-011-detail-markers.md`, który podaje wynik dla pakietu A i sam
+  nazywa brak wartości domyślnej dla punktów hamowania. Wiersz z 04.09.2026, sześć pól
+  z 05.09.2026.
+- **Wejście:** te same pięć osi co w 6.B1, `tools/track/detail_layout.py`
+  (CLI: `--axis`, `--out`, `--step-m`, `--brake-from-kmh`),
+  `tools/blender/detail_markers.py`.
+- **Wyjście:** raport z liczbą miejsc na pakiet i testy w `tools/tests/`.
+- **Weryfikacja:**
+  ```bash
+  for AXIS in L1_B L2_E L5_C L5_D L6_F; do
+      python3 tools/track/detail_layout.py --axis "data/track/$AXIS.json" \
+          --out "build/details/$AXIS.json"
+  done
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: pięć plików i zielony zestaw. Bryły znaczników wymagają Blendera
+  (`BLENDER_BIN`) i pętli weryfikacji z `CLAUDE.md` §5 — bez niego kończy się
+  na kilometrażach.
+- **Skończone, gdy:** każdy z pięciu pakietów ma hektometry co 100 m i wszystkie
+  stacje ze `stop_id`, a raport podaje rozbicie jak dla A: **89 miejsc na 6686,4 m
+  osi = 66 hektometrów + 12 stacji + 11 punktów hamowania**. Suma hektometrów zgadza
+  się z `length_m` osi podzieloną przez `--step-m`.
+- **Poza zakresem:** punkty hamowania bez jawnego `--brake-from-kmh`. Prędkość
+  dopuszczalna na torze **nie ma źródła** (R-006), 72 km/h wolno użyć wyłącznie jako
+  zadeklarowanego parametru scenariusza, a bez niego `braking_distance_m` wychodzi
+  `None`, nie `0.0` (T-011, „Uwaga").
+- **Zależy od:** T-010, T-011 (zrobione), T-111 (zrobione).
+
+##### 6.D2 · Bramka na czas kroku rdzenia
+
+- **Skąd:** wiersz `| 6.D2 |` pasma D („pomiar, nie decyzja") plus
+  `reports/linecore-budget.md`, który domknął pozycję 5.7 i zostawił gotowe narzędzie
+  pomiarowe. Wiersz z 04.09.2026, sześć pól z 05.09.2026.
+- **Wejście:** polecenie `budget` w `src/Sim.Runner` (`Program.cs`, wymaga `--axis`,
+  `--signalling`, `--steps`, `--trains`), `tests/Sim.Tests/LineBudgetTests.cs`,
+  `reports/linecore-budget.md` §8.4 jako baza progu.
+- **Wyjście:** krok bramkowy w `.github/workflows/sim-tests.yml` i próg zapisany
+  w repozytorium w jednym miejscu, nie wpisany w YAML z ręki.
+- **Weryfikacja:**
+  ```bash
+  dotnet build src/Sim.Runner -c Release
+  dotnet run --project src/Sim.Runner -c Release -- budget \
+      --axis data/track/L1_A.json --signalling <plan> --steps <N> --trains 1,2,4,8,32
+  dotnet test tests/Sim.Tests
+  ```
+  Oczekiwane: koszt kroku przy pełnej obsadzie osi poniżej progu, a przy sztucznie
+  spowolnionym kroku — bramka czerwona.
+- **Skończone, gdy:** bramka wywraca job, gdy koszt `LineCore.Step` przy **9 składach**
+  przekroczy próg, a próg wynika ze **zmierzonej powtarzalności**, nie z życzenia:
+  §8.4 daje różnicę **2,2 %** (9 składów) i **2,3 %** (12 składów) między `dfbde8f`
+  a `6c1048b` przy różnym obciążeniu maszyny, więc próg ciaśniejszy od tego pasma
+  świeciłby czerwono od samego sąsiedztwa na runnerze. Punktem odniesienia jest
+  4,56 µs na krok = 0,055 % budżetu 1/120 s.
+- **Poza zakresem:** próg oparty na ekstrapolacji `N ≈ 330–390`. §7 raportu mówi
+  wprost, że to ekstrapolacja **56–65× poza zakres pomiaru** (N ≤ 6,9), więc nie jest
+  materiałem na bramkę. Pozycja nie zmienia `FixedStep` ani niczego w `src/Sim`.
+- **Zależy od:** 5.7 (zrobione, `reports/linecore-budget.md`). Wykonana przed
+  domknięciem T-320 przybija stan przejściowy — to jest zamierzone, bo bramka ma
+  pokazać regres, a nie czekać na koniec zadania, którego pilnuje.
 
 **Aktualizacja tej listy jest częścią pracy, nie dodatkiem do niej.** Pozycja zrobiona
 znika stąd i pojawia się jako wpis z sześcioma polami wyżej w tym pliku.
