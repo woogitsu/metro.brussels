@@ -390,15 +390,28 @@ EXACT_TOL = 2.0 ** -20
 def test_chunk_a_span_exactly_at_the_cap_is_not_split():
     """Odcinek RÓWNY limitowi nie jest dzielony. Limit znaczy „nie dłuższy niż".
 
-    **Mutacja 219 `<=` -> `<` jest równoważna i ten test tego nie zmienia.**
-    Napisałem go w przekonaniu, że ją zabije; nie zabija — sprawdzone wykonaniem,
-    mutant daje 730/730. Powód: przy równości `pieces = ceil((b - a) / max_chunk_m)`
-    wychodzi 1, więc `range(1, 1)` jest puste i pętla i tak nic nie dokłada. `continue`
-    w tym wierszu jest optymalizacją, nie bramką.
+    **SPROSTOWANIE z 05.09.2026 (triaż 6.B6).** Poprzednia wersja tego docstringa
+    twierdziła: „Mutacja 219 `<=` -> `<` jest równoważna i ten test tego nie zmienia
+    […] sprawdzone wykonaniem, mutant daje 730/730". **To była nieprawda** i dlatego
+    zdanie jest przepisane, a nie dopisane obok.
 
-    Test zostaje, bo przypina zachowanie, które jest umową („nie dłuższy niż"), i
-    złapie każdą zmianę, która tę umowę naprawdę złamie — na przykład przejście na
-    `floor` albo dzielenie z zapasem. Ale nie udaję, że zabija mutację.
+    Rachunek był dobry do połowy: przy równości `pieces = ceil(1)`, więc `range(1, 1)`
+    jest puste i pętla nic nie dokłada. Przeoczony został **`break` tuż za tą pętlą**.
+    Mutant nie robi `continue`, przelatuje przez pustą pętlę i trafia na `break` —
+    wychodzi z przeglądu krawędzi, `changed` zostaje `False`, więc kończy się także
+    `while`, i wszystko ZA tym odcinkiem zostaje niepodzielone. Zmierzone na kopii
+    modułu z wstawioną mutacją, oś 350 m przy limicie 100 m:
+
+        oryginał : [100.0, 183.33333333333331, 266.66666666666663]
+        mutant   : [100.0]
+
+    Ten test tego nie widział, bo w obu jego przypadkach odcinek równy limitowi jest
+    JEDYNY — za nim nie ma czego pominąć. Zabija ją
+    `test_chunk_a_span_exactly_at_the_cap_does_not_stop_the_later_splitting` niżej.
+
+    Test zostaje, bo przypina umowę („nie dłuższy niż") i złapie każdą zmianę, która
+    tę umowę naprawdę złamie — na przykład przejście na `floor` albo dzielenie
+    z zapasem.
     """
     assert SW._split_long([], 400.0, 400.0, [], 10.0) == []
     assert SW._split_long([], 400.1, 400.0, [], 10.0) != []
@@ -561,3 +574,126 @@ def test_chunk_a_shifted_cut_may_land_exactly_one_halo_from_another_station():
     """
     assert SW._push_out_of_stations(120.0, [100.0, 200.0], 50.0, 0.0, 1000.0) == 50.0
     assert SW._push_out_of_stations(120.0, [100.0, 200.0], 50.0, 60.0, 1000.0) == 150.0
+
+
+# --- granice porównań w podziale na chunki (triaż 6.B6) -------------------------
+
+#: Te testy pochodzą z triażu ocalałych mutacji `tools/blender/sweep.py`
+#: (`reports/mutation-triage-sweep.md`) i wszystkie przybijają zachowanie DOKŁADNIE
+#: na progu porównania. Progi idą **jawnie w argumentach**, nigdy przez wartość
+#: domyślną: blok 6.B6 w `docs/TASKS.md` zabrania ruszać ośmiu stałych generatora,
+#: a test pytający „ile wynosi `DEFAULT_MIN_CHUNK_M`" byłby dokładnie tym.
+
+
+def test_chunk_two_stations_symmetric_about_zero_do_not_make_an_empty_chunk():
+    """Mutacja 204 pierwszy `<` -> `<=`: cięcie w kilometrażu 0 to chunk o zerowej długości.
+
+    Cięcie bazowe idzie w połowie między stacjami. Dwie stacje symetryczne wobec zera
+    dają połowę dokładnie w zerze — a zero jest już początkiem osi, więc dołożenie go
+    jako cięcia produkuje chunk `(0.0, 0.0)`.
+    """
+    kw = dict(max_chunk_m=1e9, min_chunk_m=0.0, halo_m=0.0)
+    assert SW.chunk_boundaries(1000.0, [-100.0, 100.0], **kw) == [(0.0, 1000.0)]
+
+
+def test_chunk_a_cut_landing_on_the_end_of_the_axis_is_not_a_chunk():
+    """Mutacja 204 drugi `<` -> `<=`: to samo na drugim końcu.
+
+    Stacja za końcem osi (oś jest wycinkiem linii, stacja krańcowa bywa dalej) daje
+    połowę wypadającą dokładnie na `total_m`. Z `<=` powstałby chunk `(1000.0, 1000.0)`.
+    """
+    kw = dict(max_chunk_m=1e9, min_chunk_m=0.0, halo_m=0.0)
+    assert SW.chunk_boundaries(1000.0, [900.0, 1100.0], **kw) == [(0.0, 1000.0)]
+
+
+def test_chunk_a_sub_millimetre_cut_is_still_a_cut():
+    """Mutacja 204 `0.0` -> `0.001`: warunek odsiewa cięcia POZA osią, nie cięcia małe.
+
+    Dwie stacje odległe o milimetr dają cięcie w 0,5 mm. Jest wewnątrz osi, więc ma
+    wejść; próg 0,001 wyrzuciłby je i obie stacje wylądowałyby w jednym chunku —
+    cicho, bo `chunk_boundaries` niczego nie zgłasza.
+    """
+    kw = dict(max_chunk_m=1e9, min_chunk_m=0.0, halo_m=0.0)
+    assert SW.chunk_boundaries(1000.0, [0.0, 0.001], **kw) == [(0.0, 0.0005), (0.0005, 1000.0)]
+
+
+def test_chunk_a_span_exactly_at_the_cap_does_not_stop_the_later_splitting():
+    """Mutacja 219 `<=` -> `<` JEST zabijalna — wbrew temu, co mówił test obok.
+
+    `test_chunk_a_span_exactly_at_the_cap_is_not_split` twierdził w docstringu, że ta
+    mutacja jest równoważna, bo przy równości `pieces = ceil(1)` i `range(1, 1)` jest
+    puste. To prawda i to nie wystarcza: **za pustą pętlą stoi `break`**. Mutant nie
+    robi `continue`, przelatuje przez pustą pętlę, trafia na `break` i wychodzi
+    z przeglądu krawędzi, a że `changed` zostało `False`, kończy się także `while` —
+    więc WSZYSTKO ZA tym odcinkiem zostaje niepodzielone.
+
+    Tamten test tego nie widział, bo w obu jego przypadkach odcinek równy limitowi
+    był JEDYNY; za nim nie było czego pominąć. Zmierzone na kopii modułu z wstawioną
+    mutacją, oś 350 m przy limicie 100 m:
+
+        oryginał : [100.0, 183.33333333333331, 266.66666666666663]
+        mutant   : [100.0]
+    """
+    wynik = SW._split_long([100.0], 350.0, 100.0, [], 90.0)
+    assert len(wynik) == 3, wynik
+    assert max(b - a for a, b in zip([0.0] + wynik, wynik + [350.0])) <= 100.0, wynik
+
+
+def test_chunk_a_candidate_exactly_one_micron_from_an_existing_cut_is_a_duplicate():
+    """Mutacje 224 `>` -> `>=` i `1e-6` -> `1.01e-6`: próg zlepiania cięć jest granicą.
+
+    Dwa cięcia bliżej niż mikrometr to jedno cięcie — inaczej powstaje chunk
+    o długości mikrometra. Kandydat odległy DOKŁADNIE o próg jest jeszcze duplikatem;
+    kandydat odległy o 1,005e-6 już nie.
+    """
+    assert SW._split_long([0.0], 2e-6, 1e-6, [], 0.0) == [0.0]
+    assert SW._split_long([0.0], 2.01e-6, 1.005e-6, [], 0.0) == [0.0, 1.005e-06]
+
+
+def test_chunk_a_shifted_cut_exactly_on_the_margin_is_refused_at_both_ends():
+    """Mutacje 237, oba `<` -> `<=`: odsunięte cięcie musi zostać WEWNĄTRZ marginesu.
+
+    Kandydat wypchnięty poza halo stacji ląduje czasem dokładnie na granicy przedziału
+    `(low + 1e-6, high - 1e-6)`. Granica jest wyłączona z obu stron: cięcie dokładnie
+    na niej stykałoby się z krawędzią dzielonego odcinka, czyli dawałoby chunk krótszy
+    niż mikrometr.
+    """
+    # dolne odsunięcie (stop - halo) wypada dokładnie na `low + 1e-6`
+    assert SW._push_out_of_stations(100.0, [100.0], 10.0, 90.0 - 1e-6, 500.0) == 110.0
+    # górne (stop + halo) wypada dokładnie na `high - 1e-6`, a dolne jest już odrzucone
+    assert SW._push_out_of_stations(100.0, [100.0], 10.0, 95.0, 110.0 + 1e-6) is None
+
+
+def test_chunk_a_tail_exactly_at_the_minimum_length_is_kept():
+    """Mutacja 250 `<` -> `<=`: ogon RÓWNY minimum jest wystarczająco długi.
+
+    Minimum znaczy „nie krótszy niż". Z `<=` ostatnie cięcie znikałoby przy ogonie
+    dokładnie równym progowi, sklejając go z poprzednim chunkiem — czyli robiąc chunk
+    dwa razy dłuższy, niż zakłada plan streamowania.
+    """
+    assert SW._drop_short([100.0], 200.0, 100.0) == [100.0]
+    assert SW._drop_short([100.0], 199.0, 100.0) == []
+
+
+def test_chunk_manifest_accepts_a_first_chunk_shifted_exactly_by_the_tolerance():
+    """Mutacja 683 `>` -> `>=`: tolerancja szwu jest tolerancją, nie granicą wyłączną.
+
+    Pierwszy chunk odsunięty od zera DOKŁADNIE o tolerancję mieści się w niej. Z `>=`
+    każdy manifest wyeksportowany z takim odsunięciem — czyli dokładnie na granicy,
+    którą sam eksporter przyjmuje za dopuszczalną — byłby odrzucany.
+    """
+    manifest = _manifest(edges=(0.0, 400.0, 900.0))
+    manifest["chunks"][0]["start_m"] = 1e-6
+    assert [p for p in SW.manifest_problems(manifest) if "nie w 0" in p] == []
+
+
+def test_chunk_manifest_accepts_a_span_of_half_a_millimetre():
+    """Mutacja 690 `0.0` -> `0.001`: „zakres nie rośnie" znaczy nie rośnie, nie „rośnie mało".
+
+    `test_chunk_manifest_problems_detects_a_span_of_exactly_zero` bada span zerowy
+    i mutacji nie widzi, bo zero pada po obu stronach progu. Chunk o rozpiętości pół
+    milimetra jest degeneratem geometrycznym, ale NIE jest błędem kolejności — a to
+    dwie różne diagnozy i manifest ma je rozróżniać.
+    """
+    manifest = _manifest(edges=(0.0, 0.0005, 400.0))
+    assert [p for p in SW.manifest_problems(manifest) if "chainage" in p] == []
