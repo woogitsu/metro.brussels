@@ -27,13 +27,6 @@ namespace MetroBxl.Sim.Train;
 /// </summary>
 public sealed class LineDrive
 {
-    /// <summary>
-    /// Tolerancja porównań chainage; ta sama co w <see cref="MetroBxl.Sim.Signalling.FixedBlockSystem"/>.
-    /// Nie jest zapasem bezpieczeństwa — jest granicą, poniżej której dwie liczby double
-    /// opisujące to samo miejsce nie mają prawa być uznane za różne.
-    /// </summary>
-    public const double PositionEpsilonM = 1e-9;
-
     private readonly TrainController _controller;
     private readonly BrakingPointSolver _solver;
     private readonly FixedStep _step;
@@ -259,7 +252,7 @@ public sealed class LineDrive
         // do trakcji, więc skład, raz zatrzymany przed sygnałem, dojechałby do stacji
         // wybiegiem albo wcale. Przy jeździe do stacji cel się nie rusza, więc warunek
         // nigdy nie zachodzi i ślad przejazdu solo jest ten sam co przed tą zmianą.
-        if (_braking && stopAt > _brakingToM + PositionEpsilonM)
+        if (_braking && stopAt > _brakingToM + TrackAxis.PositionEpsilonM)
         {
             _braking = false;
         }

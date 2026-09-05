@@ -120,7 +120,7 @@ public sealed class SignallingPlan
                 throw new ArgumentException($"blok {blocks[i].Id} ma niedodatnią długość", nameof(blocks));
             }
 
-            if (i > 0 && Math.Abs(blocks[i].StartM - blocks[i - 1].EndM) > 1e-9)
+            if (i > 0 && Math.Abs(blocks[i].StartM - blocks[i - 1].EndM) > TrackAxis.PositionEpsilonM)
             {
                 throw new ArgumentException(
                     $"bloki {blocks[i - 1].Id} i {blocks[i].Id} nie stykają się — plan musi być ciągły",

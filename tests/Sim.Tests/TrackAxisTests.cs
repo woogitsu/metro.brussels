@@ -2,6 +2,7 @@ using System;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using MetroBxl.Sim.Line;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -265,5 +266,51 @@ public sealed class TrackAxisTests
         // bryłę na klatkę i nie ma sensownej reakcji na NaN poza „nie rysuj".
         Assert.IsFalse(axis.CoversChord(double.NaN, 10.0));
         Assert.IsFalse(axis.CoversChord(0.0, double.PositiveInfinity));
+    }
+
+    /// <summary>
+    /// Tolerancja kilometrażu jest JEDNĄ liczbą w jednym miejscu — i to jest cały ten test.
+    /// </summary>
+    [TestMethod]
+    public void Tolerancja_kilometrazu_jest_jedna_liczba_w_calym_rdzeniu()
+    {
+        // Do 05.09.2026 `PositionEpsilonM` stała w dwóch egzemplarzach: w
+        // `Signalling.FixedBlockSystem` i w `Train.LineDrive`. Komentarz przy drugiej
+        // mówił „ta sama co w FixedBlockSystem", ale komentarz nie jest bramką: rozjazd
+        // wartości nie dałby ani błędu kompilacji, ani czerwonego testu — dałby dwa różne
+        // progi „to jest to samo miejsce" w dwóch warstwach jednego modelu
+        // (reports/mutacje-rdzen-sygnalizacji.md §9.2, pozycja 8 z sekcji 8).
+        //
+        // Test czyta metadane zestawu, a nie źródła, bo interesuje go DEKLARACJA, a nie
+        // to, jak wygląda: `const` jest wstawiany w miejscu użycia, więc drugi egzemplarz
+        // o innej wartości byłby niewidoczny w zachowaniu jednej warstwy z punktu widzenia
+        // testów drugiej. Ponowne dopisanie stałej gdziekolwiek w `src/Sim` wywraca ten
+        // test na pierwszej asercji.
+        var declarations = typeof(TrackAxis).Assembly.GetTypes()
+            .SelectMany(type => type.GetFields(
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.DeclaredOnly))
+            .Where(field => field.IsLiteral
+                && !field.IsInitOnly
+                && string.Equals(field.Name, nameof(TrackAxis.PositionEpsilonM), StringComparison.Ordinal))
+            .OrderBy(field => field.DeclaringType!.FullName, StringComparer.Ordinal)
+            .ToList();
+
+        Assert.AreEqual(
+            1,
+            declarations.Count,
+            "tolerancja kilometrażu jest zadeklarowana w: "
+                + string.Join("; ", declarations.Select(f => f.DeclaringType!.FullName)));
+
+        Assert.AreEqual(
+            typeof(TrackAxis).FullName,
+            declarations[0].DeclaringType!.FullName,
+            "kilometraż jest współrzędną osi, więc granica jego rozdzielczości należy do osi");
+
+        // Wartość przypięta liczbą, nie wyprowadzeniem, bo wyprowadzenia nie ma: 1e-9 m
+        // to granica rozdzielczości `double` na kilometrażu rzędu 10 km, a nie odległość
+        // dobrana z modelu. Przybicie progu ZACHOWANIEM (cofnięcie o 1e-8 m jest odmową,
+        // o 1e-10 m przechodzi) jest osobną pozycją kolejki — sekcja 8, pozycja 7 tego
+        // samego raportu — i nie należy do tej zmiany.
+        Assert.AreEqual(1e-9, (double)declarations[0].GetRawConstantValue()!, 0.0);
     }
 }
