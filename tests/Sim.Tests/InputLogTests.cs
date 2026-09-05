@@ -188,12 +188,37 @@ public sealed class InputLogTests
         Assert.Fail("zapis bez liczby kroków został przyjęty — odtworzenie nie wiedziałoby, kiedy skończyć");
     }
 
+    /// <summary>
+    /// Do 05.09.2026 ten test sprawdzał, że `wersja=2` jest ODRZUCANA — bo wtedy druga
+    /// wersja formatu nie istniała. Przepisany, a nie dopisany obok: wersja 2 jest dziś
+    /// czytana, a odrzucana jest wersja, której program nie zna.
+    /// </summary>
     [TestMethod]
     public void UnknownFormatVersionIsRefused()
     {
         try
         {
-            InputLog.Parse("wersja=2\nkroki=5\nkrok;klawisze\n0;W\n");
+            InputLog.Parse("wersja=3\nkroki=5\nkrok;klawisze\n0;W\n");
+        }
+        catch (FormatException error)
+        {
+            StringAssert.Contains(error.Message, "wersji 3");
+            return;
+        }
+
+        Assert.Fail("zapis w nieznanej wersji formatu został przyjęty");
+    }
+
+    /// <summary>
+    /// Wersja ma zgadzać się z treścią W OBIE STRONY. Plik, który mówi o sobie co innego,
+    /// niż zawiera, jest gorszy niż odrzucony, bo wygląda dokładnie tak samo jak poprawny.
+    /// </summary>
+    [TestMethod]
+    public void VersionOneWithAResetRowIsRefused()
+    {
+        try
+        {
+            InputLog.Parse("wersja=1\nkroki=5\nkrok;klawisze\n0;W\n3;reset\n");
         }
         catch (FormatException error)
         {
@@ -201,7 +226,111 @@ public sealed class InputLogTests
             return;
         }
 
-        Assert.Fail("zapis w nieznanej wersji formatu został przyjęty");
+        Assert.Fail("zapis mówiący 'wersja=1' i zawierający reset został przyjęty");
+    }
+
+    [TestMethod]
+    public void VersionTwoWithoutAnyResetRowIsRefused()
+    {
+        try
+        {
+            InputLog.Parse("wersja=2\nkroki=5\nkrok;klawisze\n0;W\n");
+        }
+        catch (FormatException error)
+        {
+            StringAssert.Contains(error.Message, "wersji 1");
+            return;
+        }
+
+        Assert.Fail("zapis mówiący 'wersja=2' bez ani jednego resetu został przyjęty");
+    }
+
+    /// <summary>
+    /// Zapis BEZ resetu wychodzi w wersji 1 — bajt w bajt tak, jak przed dopisaniem
+    /// resetów. To nie jest kosmetyka: dwa wzorce bramek CI leżą w repozytorium
+    /// w wersji 1 i porównuje się je `cmp`, więc podbicie wersji „na zapas" kazałoby
+    /// je zmigrować i unieważniłoby wszystkie liczby, które opisują.
+    /// </summary>
+    [TestMethod]
+    public void ALogWithoutResetsStaysInVersionOne()
+    {
+        var log = new InputLog(10, new[] { new InputLogEntry(0, DriverKeys.Powering) });
+
+        Assert.AreEqual(InputLog.VersionWithoutResets, log.FormatVersion);
+        StringAssert.Contains(log.ToText(), $"{InputLog.VersionField}={InputLog.VersionWithoutResets}\n");
+        Assert.AreEqual(0, log.Resets.Count);
+    }
+
+    [TestMethod]
+    public void ALogWithAResetIsVersionTwoAndSurvivesARoundTrip()
+    {
+        var log = new InputLog(
+            10,
+            new[] { new InputLogEntry(0, DriverKeys.Powering), new InputLogEntry(6, DriverKeys.Braking) },
+            new[] { 4L, 8L });
+
+        Assert.AreEqual(InputLog.VersionWithResets, log.FormatVersion);
+
+        var again = InputLog.Parse(log.ToText());
+
+        Assert.AreEqual(log.Steps, again.Steps);
+        CollectionAssert.AreEqual(new List<long>(log.Resets), new List<long>(again.Resets));
+        CollectionAssert.AreEqual(new List<InputLogEntry>(log.Entries), new List<InputLogEntry>(again.Entries));
+        Assert.AreEqual(log.ToText(), again.ToText(), "zapis nie przetrwał obiegu tekst → zapis → tekst");
+    }
+
+    /// <summary>
+    /// Reset jest ZDARZENIEM, nie stanem dźwigni: nie zmienia tego, co maszynista trzyma.
+    /// Gdyby domykał stan klawiszy, zapis niósłby zmianę, której nie było.
+    /// </summary>
+    [TestMethod]
+    public void AResetDoesNotChangeWhatTheDriverIsHolding()
+    {
+        var log = new InputLog(
+            10,
+            new[] { new InputLogEntry(0, DriverKeys.Powering) },
+            new[] { 4L });
+
+        Assert.AreEqual(DriverKeys.Powering, log.KeysAt(3));
+        Assert.IsTrue(log.IsResetAt(4));
+        Assert.AreEqual(DriverKeys.Powering, log.KeysAt(4));
+        Assert.IsFalse(log.IsResetAt(3));
+        Assert.IsFalse(log.IsResetAt(5));
+    }
+
+    /// <summary>
+    /// Reset obowiązuje PRZED swoim krokiem, więc reset w kroku równym długości przejazdu
+    /// nigdy by nie zadziałał — a zapis z zdarzeniem niewykonalnym wygląda tak samo jak
+    /// zapis poprawny. Ten sam warunek, co dla wpisów klawiszy.
+    /// </summary>
+    [TestMethod]
+    public void AResetPastTheEndOfTheRunIsRefused()
+    {
+        try
+        {
+            _ = new InputLog(10, Array.Empty<InputLogEntry>(), new[] { 10L });
+        }
+        catch (ArgumentException)
+        {
+            return;
+        }
+
+        Assert.Fail("reset za końcem przejazdu został przyjęty");
+    }
+
+    [TestMethod]
+    public void ResetsMustIncrease()
+    {
+        try
+        {
+            _ = new InputLog(10, Array.Empty<InputLogEntry>(), new[] { 5L, 5L });
+        }
+        catch (ArgumentException)
+        {
+            return;
+        }
+
+        Assert.Fail("dwa resety w tym samym kroku zostały przyjęte");
     }
 
     [TestMethod]
@@ -318,19 +447,33 @@ public sealed class InputLogTests
         Assert.Fail("zapis przyjął krok z luką — opisywałby inny przejazd niż ten, który się odbył");
     }
 
+    /// <summary>
+    /// Do 05.09.2026 stał tu <c>ClearStartsTheRecordingOver</c>: reset KASOWAŁ zapis, bo
+    /// licznik kroków przejazdu wracał do zera i dalsze nagrywanie nadpisywałoby numery,
+    /// które już padły. Test jest przepisany, a nie dopisany obok, bo jego twierdzenie
+    /// przestało być prawdziwe: decyzja właściciela (wariant W1) rozdzieliła numer kroku
+    /// SESJI od numeru kroku PRZEJAZDU, więc zapis idzie dalej i niesie reset jako wpis.
+    /// </summary>
     [TestMethod]
-    public void ClearStartsTheRecordingOver()
+    public void ResetIsRecordedAndTheStepCounterDoesNotGoBack()
     {
         var recorder = new InputLogRecorder();
         recorder.Record(0, DriverKeys.Powering);
-        recorder.Record(1, DriverKeys.Braking);
+        recorder.Record(1, DriverKeys.Powering);
 
-        recorder.Clear();
-        recorder.Record(0, DriverKeys.Coasting);
+        recorder.RecordReset();
+
+        Assert.AreEqual(2L, recorder.NextStep, "numer kroku sesji cofnął się po resecie");
+        Assert.AreEqual(1, recorder.ResetCount);
+
+        recorder.Record(2, DriverKeys.Coasting);
 
         var log = recorder.Build();
-        Assert.AreEqual(1L, log.Steps);
-        Assert.AreEqual(1, log.Entries.Count);
-        Assert.AreEqual(DriverKeys.Coasting, log.KeysAt(0));
+        Assert.AreEqual(3L, log.Steps);
+        CollectionAssert.AreEqual(new List<long> { 2L }, new List<long>(log.Resets));
+        Assert.AreEqual(DriverKeys.Powering, log.KeysAt(1));
+        Assert.IsTrue(log.IsResetAt(2));
+        Assert.AreEqual(DriverKeys.Coasting, log.KeysAt(2));
+        Assert.AreEqual(InputLog.VersionWithResets, log.FormatVersion);
     }
 }

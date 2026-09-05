@@ -1,0 +1,53 @@
+# METRO BXL — zapis wejść maszynisty, wzorzec bramki CI na RESET PRZEJAZDU (G-4/W1).
+#
+# PO CO OSOBNY PLIK. Reset był do 05.09.2026 jedyną gałęzią trybu ręcznego, której
+# żadna bramka nie umiała dotknąć: `InputLogRecorder` kasował zapis, więc przejazdu
+# z resetem nie dało się odtworzyć, a czego nie da się odtworzyć, tego nie da się
+# porównać. Decyzja właściciela (wariant W1) wprowadziła wersję 2 formatu z wpisem
+# `krok;reset` — i ten plik jest pierwszym, który z niej korzysta.
+#
+# NUMER KROKU NIE WRACA DO ZERA. Zapis indeksuje SESJĘ, `DriveState.Steps` indeksuje
+# PRZEJAZD. Dlatego drugi przejazd zaczyna się tu w kroku 5400, a nie znowu w zerze:
+# dwa różne momenty nie mogą mieć jednego numeru, bo wtedy plik przestaje być
+# jednoznaczny.
+#
+# PRZEJAZD, oś L1_A, czoło startuje na 94,000 m, krok 1/120 s:
+#
+#   krok   wpis     co to znaczy
+#   0      W        rozruch z Gare de l'Ouest
+#   2800   S        hamowanie do Beekkant (509,730 m)
+#   5400   reset    PRZED tym krokiem przejazd zaczyna się od nowa
+#   5400   W        drugi przejazd, ten sam rozruch
+#   8200   S        drugi przejazd, to samo hamowanie (5400 + 2800)
+#
+# DRUGA POŁOWA JEST POWTÓRZENIEM PIERWSZEJ CO DO KROKU — i to jest cała treść tego
+# wzorca. Obie połowy mają 5400 kroków i tę samą sekwencję klawiszy liczoną od swojego
+# początku, więc jeżeli reset naprawdę stawia przejazd w punkcie wyjścia, to drugi
+# przejazd musi wyjść identyczny z pierwszym.
+#
+# CZYM TO JEST SPRAWDZANE, dosłownie: telemetria po resecie zaczyna się od nowa (wiersze
+# sprzed niego opisywałyby inny przejazd tymi samymi numerami), więc w pliku wyjściowym
+# zostaje WYŁĄCZNIE druga połowa — porównania „połowa z połową" nie da się z niego zrobić
+# i bramka go nie udaje. Zamiast tego porównuje drugą połowę z NIEZALEŻNYM przejazdem bez
+# resetu: pierwsze 5400 kroków `manual-keys.log` ma tę samą sekwencję klawiszy, więc
+# musi dać ten sam plik co do bajtu. Jeżeli cokolwiek przeżyje reset — kolejka stacji,
+# licznik cyklu drzwi, dźwignia, reszta czasu klatki — to porównanie padnie.
+#
+# RESET PADA W ŚRODKU CYKLU DRZWI, i to jest wybór, nie przypadek. Skład staje na
+# Beekkant w 41,475 s (krok 4977), a wymiana pasażerów trwa do 57,975 s — reset w kroku
+# 5400 (45,000 s) trafia więc dokładnie w trwający cykl drzwi. To jest ta usterka,
+# którą naprawiło G-4: do 05.09.2026 cykl drzwi przeżywał reset i po „przejeździe od
+# nowa" trakcja bywała zablokowana w tunelu.
+#
+# DLACZEGO 10800 KROKÓW: 5400 + 5400, czyli 90,000 s. 10800 = 2⁴·3³·5², a 7 jest z tą
+# liczbą względnie pierwsze (10800 = 1542·7 + 6), więc przy 7 krokach na klatkę ostatnia
+# klatka jest niepełna — ta sama własność, dla której `manual-keys.log` ma 8880 kroków,
+# i z tego samego powodu: rytm klatek nie ma prawa zmienić wyniku.
+wersja=2
+kroki=10800
+krok;klawisze
+0;W
+2800;S
+5400;reset
+5400;W
+8200;S

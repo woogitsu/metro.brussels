@@ -267,6 +267,24 @@ public sealed partial class FirstRun : Node3D
 
     private bool _viewKeyHeld;
     private bool _resetKeyHeld;
+
+    /// <summary>
+    /// Numer kroku w SESJI — rośnie zawsze i nie wraca po resecie. Zapis wejść jest po
+    /// nim indeksowany, bo <c>_state.Steps</c> po resecie zaczyna od zera i dwa różne
+    /// momenty dostałyby ten sam numer.
+    /// </summary>
+    private long _logStep;
+
+    /// <summary>
+    /// Reset zamówiony klawiszem w tej klatce, czekający na granicę kroku.
+    ///
+    /// <para>Reset musi paść MIĘDZY krokami, a nie w środku klatki, i to jest ten sam
+    /// powód, dla którego przesuw nastawnika przeniósł się do <c>StepOnce</c> (#239):
+    /// zdarzenie wykonane w rytmie klatek trafia w inny krok przy 60 i przy 120 kl./s,
+    /// więc zapis wejść opisywałby przejazd, którego nie da się odtworzyć.</para>
+    /// </summary>
+    private bool _resetPending;
+
     private bool _done;
 
     /// <inheritdoc/>
@@ -835,7 +853,7 @@ public sealed partial class FirstRun : Node3D
         {
             FinishLineRun();
         }
-        else if (_replay is not null && _state.Steps >= _replay.Steps)
+        else if (_replay is not null && _logStep >= _replay.Steps)
         {
             FinishReplayRun();
         }
@@ -954,7 +972,18 @@ public sealed partial class FirstRun : Node3D
         // pod którym wejście trafia do zapisu i z którego jest odczytywane. Gdyby
         // zapis i odtworzenie brały go z dwóch różnych miejsc pętli, przejazdy
         // przesunęłyby się o jeden krok i nikt by nie wiedział który jest prawdziwy.
-        var stepIndex = _state.Steps;
+        var stepIndex = _logStep;
+
+        // RESET OBOWIĄZUJE PRZED KROKIEM — jedno miejsce dla obu źródeł. Odtworzenie
+        // bierze go z zapisu (`IsResetAt`), przejazd z klawiatury z zamówienia złożonego
+        // w tej klatce. Numer kroku sesji NIE cofa się: to on trafia do zapisu i po nim
+        // zapis jest czytany, więc cofnięcie dałoby dwa różne momenty pod jednym numerem.
+        var resetNow = _replay is not null ? _replay.IsResetAt(stepIndex) : _resetPending;
+        if (resetNow)
+        {
+            _resetPending = false;
+            ResetRun();
+        }
 
         // Odtworzenie z zapisu bierze klawisze PO NUMERZE KROKU, a nie z klawiatury.
         // Poza tym ścieżka jest ta sama co dla człowieka: ten sam `DriverNotch`,
@@ -984,13 +1013,14 @@ public sealed partial class FirstRun : Node3D
         _state = _controller.Advance(
             _state, _conditions, effective, SpeedLimitMps, _step, out var forces);
         _acceleration = forces.AccelerationMps2;
+        _logStep++;
 
         if (_replay is null)
         {
             return true;
         }
 
-        var finished = _state.Steps >= _replay.Steps;
+        var finished = _logStep >= _replay.Steps;
         if (_telemetryPath is not null
             && (DriveTelemetry.IsSample(_state.Steps, _sampleEvery) || finished))
         {
@@ -1166,7 +1196,10 @@ public sealed partial class FirstRun : Node3D
         var resetKey = Godot.Input.IsActionPressed(DriverActions.Reset);
         if (resetKey && !_resetKeyHeld)
         {
-            ResetRun();
+            // Klatka ZAMAWIA reset, krok go WYKONUJE. W odtworzeniu resety bierze
+            // wyłącznie zapis: naciśnięcie `R` w trakcie odtwarzania rozjechałoby
+            // przejazd z plikiem, który ma go opisywać, i to bez śladu w telemetrii.
+            _resetPending = !_replayMode;
         }
 
         _resetKeyHeld = resetKey;
@@ -1434,6 +1467,7 @@ public sealed partial class FirstRun : Node3D
             CultureInfo.InvariantCulture,
             $"[ODTWORZENIE] koniec: kroków={_state.Steps} t={_state.TimeSeconds(_step):F3} s "
             + $"chainage={ChainageM:F3} m droga={_state.DistanceM:F3} m klatek={_frames} "
+            + $"sesja={_logStep} kroków resetów={_replay?.Resets.Count ?? 0} "
             + $"zapis={_replayPath}"));
         GetTree().Quit();
     }

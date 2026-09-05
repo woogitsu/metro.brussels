@@ -630,14 +630,28 @@ sekwencją klawiszy z `tests/data/manual-keys.log`, 5401 kroków: przed resetem
 Przejazd powtórzony po resecie daje ten sam `StationCall` co przejazd bez resetu,
 przy progu **0** na wszystkich polach rekordu.
 
-**Zostało otwarte:** `C` i `R` nadal nie trafiają do zapisu wejść, więc przejazd
-Z RESETEM nie odtworzy się z pliku — pomiar wyżej idzie przez `RunReset.Apply`, czyli
-tę samą funkcję, którą woła scena, a nie przez `--replay`. Rozstrzygnięcie wymaga
-decyzji właściciela (wariant formatu zapisu), i dlatego nie zostało zgadnięte.
+**Domknięte 05.09.2026 decyzją właściciela — wariant W1.** Ten akapit jest przepisany,
+a nie dopisany obok: stało w nim, że „`C` i `R` nadal nie trafiają do zapisu wejść, więc
+przejazd Z RESETEM nie odtworzy się z pliku". Dla `R` przestało to być prawdą.
+Format zapisu ma wersję **2** z wpisem `krok;reset`, a numer kroku został rozdzielony
+na dwa: zapis indeksuje **sesję** i nie wraca po resecie, `DriveState.Steps` indeksuje
+**przejazd** i zaczyna od zera. [ZMIERZONE] wzorzec `tests/data/manual-keys-reset.log`
+(dwie połowy po 5400 kroków, reset między nimi, w 45,000 s, czyli w środku cyklu drzwi
+na Beekkant) odtwarza się rdzeniem i sceną **co do bajtu**, przy 120 i przy 7 krokach
+na klatkę, a przejazd po resecie jest co do bajtu tym samym przejazdem, co niezależny
+przejazd bez resetu. Bramka: krok „Manual mode — a run with a reset replays to the same
+bytes" w `godot-first-run.yml`.
+
+**`C` (widok) świadomie do zapisu NIE wchodzi** i to nie jest niedokończona połowa:
+klawisz widoku nie wpływa na fizykę o ani jeden bit, więc do odtworzenia przejazdu nie
+jest potrzebny. Miałby znaczenie wyłącznie przy odtwarzaniu ZRZUTU, a zrzuty i tak
+zamawia `--view`.
 
 W trybie `--line` klawisz R jest **bezgłośnie bezskuteczny** — `_state` jest
-w następnym kroku nadpisywane z `_line.State` (`FirstRun.cs:703`). Nie jest to
-usterka, ale jest to zachowanie, o którym HUD nie mówi ani słowa.
+w następnym kroku nadpisywane z `_line.State`. Nie jest to usterka, ale jest to
+zachowanie, o którym HUD nie mówi ani słowa. **Decyzja właściciela z 05.09.2026: HUD
+ma to powiedzieć**, a samo zachowanie zostaje. Nie jest to zrobione w tej zmianie —
+dotyczy warstwy widoku, a nie formatu zapisu, i idzie osobno.
 
 ### 5.5 Tryb ręczny nie ma żadnej bramki i wisi w nieskończoność
 

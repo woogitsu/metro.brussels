@@ -34,6 +34,28 @@ public readonly record struct InputLogEntry(long Step, DriverKeys Keys);
 /// się wyłącznie linia komentarza z legendą, której <see cref="Parse"/> nie czyta.
 /// Stary plik odtwarza się w nowym kodzie, nowy bez <c>E</c> — w starym.</para>
 ///
+/// <para><b>RESET PRZEJAZDU jest wpisem, a nie klawiszem — i dlatego dostał wersję 2.</b>
+/// Decyzja właściciela z 05.09.2026 (wariant W1). Wpis <c>krok;reset</c> znaczy: PRZED
+/// wykonaniem tego kroku zacznij przejazd od nowa. Reset nie jest stanem dźwigni, tylko
+/// zdarzeniem, więc nie mógł wejść do <see cref="DriverKeys"/>: <see cref="KeysAt"/>
+/// zwracałoby wtedy „reset" jako położenie nastawnika, a przez to samo miejsce chodzi
+/// polecenie do <see cref="DriverNotch"/>.</para>
+///
+/// <para><b>Numer kroku NIE wraca do zera po resecie.</b> Zapis indeksuje SESJĘ,
+/// a <see cref="DriveState.Steps"/> indeksuje PRZEJAZD — po resecie te dwie liczby się
+/// rozjeżdżają i to jest poprawne, bo opisują różne rzeczy. Gdyby zapis wracał do zera,
+/// dwa wpisy z tym samym numerem opisywałyby dwa różne momenty i plik przestałby być
+/// jednoznaczny. Dzięki temu <see cref="Steps"/> zostaje tym, czym był: liczbą kroków,
+/// które odtworzenie ma wykonać.</para>
+///
+/// <para><b>Wersję pliku decyduje TREŚĆ, nie data.</b> Zapis bez resetu wychodzi jako
+/// <c>wersja=1</c> — bajt w bajt taki, jak przed tą zmianą, więc dwa wzorce bramek CI
+/// (<c>tests/data/manual-keys.log</c>, <c>tests/data/manual-keys-limit.log</c>) nie
+/// wymagały migracji i dalej czyta je również stary kod. Zapis z resetem wychodzi jako
+/// <c>wersja=2</c>. Odczyt bierze obie, ale każdą dosłownie: <c>wersja=1</c> z wierszem
+/// resetu i <c>wersja=2</c> bez ani jednego są ODMOWĄ, bo w obu plik mówi o sobie co
+/// innego, niż zawiera.</para>
+///
 /// <para><b>Zapisywane są ZMIANY, nie każdy krok.</b> Przejazd całą linią to ponad
 /// 88 000 kroków, a człowiek przestawia nastawnik kilkadziesiąt razy — plik po jednym
 /// wierszu na krok byłby nieczytelny dokładnie dla tego, kto ma go czytać. Wpis
@@ -48,8 +70,14 @@ public readonly record struct InputLogEntry(long Step, DriverKeys Keys);
 /// </summary>
 public sealed class InputLog
 {
-    /// <summary>Wersja formatu, którą ta klasa czyta i pisze.</summary>
-    public const int Version = 1;
+    /// <summary>Najstarsza wersja formatu, którą ta klasa czyta: zapis bez resetów.</summary>
+    public const int VersionWithoutResets = 1;
+
+    /// <summary>Wersja formatu z wpisami resetu.</summary>
+    public const int VersionWithResets = 2;
+
+    /// <summary>Napis w kolumnie klawiszy oznaczający reset przejazdu.</summary>
+    public const string ResetCode = "reset";
 
     /// <summary>Nazwa pola nagłówka z wersją formatu.</summary>
     public const string VersionField = "wersja";
@@ -61,9 +89,10 @@ public sealed class InputLog
     public const string ColumnHeader = "krok;klawisze";
 
     private readonly InputLogEntry[] _entries;
+    private readonly long[] _resets;
 
     /// <summary>
-    /// Zapis z jawnej listy wpisów.
+    /// Zapis bez resetów — z jawnej listy wpisów.
     /// </summary>
     /// <param name="steps">Liczba kroków przejazdu; nieujemna.</param>
     /// <param name="entries">Wpisy w rosnącej kolejności numerów kroków.</param>
@@ -71,8 +100,24 @@ public sealed class InputLog
     /// <exception cref="ArgumentOutOfRangeException">Liczba kroków jest ujemna.</exception>
     /// <exception cref="ArgumentException">Numery kroków nie rosną, są ujemne albo wychodzą poza przejazd.</exception>
     public InputLog(long steps, IReadOnlyList<InputLogEntry> entries)
+        : this(steps, entries, Array.Empty<long>())
+    {
+    }
+
+    /// <summary>
+    /// Zapis z jawnej listy wpisów i jawną listą kroków, w których przejazd zaczyna się
+    /// od nowa.
+    /// </summary>
+    /// <param name="steps">Liczba kroków przejazdu; nieujemna.</param>
+    /// <param name="entries">Wpisy w rosnącej kolejności numerów kroków.</param>
+    /// <param name="resets">Numery kroków z resetem, rosnąco; reset obowiązuje PRZED swoim krokiem.</param>
+    /// <exception cref="ArgumentNullException">Lista wpisów albo lista resetów jest <c>null</c>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Liczba kroków jest ujemna.</exception>
+    /// <exception cref="ArgumentException">Numery kroków nie rosną, są ujemne albo wychodzą poza przejazd.</exception>
+    public InputLog(long steps, IReadOnlyList<InputLogEntry> entries, IReadOnlyList<long> resets)
     {
         ArgumentNullException.ThrowIfNull(entries);
+        ArgumentNullException.ThrowIfNull(resets);
         if (steps < 0)
         {
             throw new ArgumentOutOfRangeException(nameof(steps), steps,
@@ -108,8 +153,42 @@ public sealed class InputLog
             previous = entry.Step;
         }
 
+        var resetCopy = new long[resets.Count];
+        var previousReset = -1L;
+        for (var i = 0; i < resets.Count; i++)
+        {
+            var reset = resets[i];
+            if (reset <= previousReset)
+            {
+                throw new ArgumentException(
+                    $"Numery kroków z resetem muszą rosnąć: reset {i} ma krok {reset}, "
+                    + $"a poprzedni {previousReset}.", nameof(resets));
+            }
+
+            if (reset < 0)
+            {
+                throw new ArgumentException(
+                    $"Reset {i} ma ujemny numer kroku {reset}.", nameof(resets));
+            }
+
+            // Ten sam warunek, co dla wpisów, i z tego samego powodu: reset obowiązuje
+            // PRZED swoim krokiem, więc reset w kroku równym długości przejazdu albo
+            // dalszym nigdy by nie zadziałał — a zapis, który zawiera zdarzenie
+            // niewykonalne, wygląda dokładnie tak samo jak zapis poprawny.
+            if (reset >= steps && steps > 0)
+            {
+                throw new ArgumentException(
+                    $"Reset {i} obowiązuje przed krokiem {reset}, a przejazd ma {steps} kroków — "
+                    + "taki reset nigdy by nie zadziałał.", nameof(resets));
+            }
+
+            resetCopy[i] = reset;
+            previousReset = reset;
+        }
+
         Steps = steps;
         _entries = copy;
+        _resets = resetCopy;
     }
 
     /// <summary>Liczba kroków przejazdu. Odtworzenie kończy się po tylu krokach.</summary>
@@ -117,6 +196,18 @@ public sealed class InputLog
 
     /// <summary>Wpisy zapisu, w rosnącej kolejności numerów kroków.</summary>
     public IReadOnlyList<InputLogEntry> Entries => _entries;
+
+    /// <summary>
+    /// Numery kroków, przed którymi przejazd zaczyna się od nowa, rosnąco.
+    /// Pusta lista znaczy zapis w wersji <see cref="VersionWithoutResets"/>.
+    /// </summary>
+    public IReadOnlyList<long> Resets => _resets;
+
+    /// <summary>
+    /// Wersja formatu, w której ten zapis zostanie zapisany. Decyduje TREŚĆ: zapis bez
+    /// resetu wychodzi w wersji 1, czyli bajt w bajt jak przed dopisaniem resetów.
+    /// </summary>
+    public int FormatVersion => _resets.Length == 0 ? VersionWithoutResets : VersionWithResets;
 
     /// <summary>
     /// Stan klawiszy obowiązujący w zadanym kroku. Wyszukiwanie binarne, nie skan —
@@ -147,6 +238,39 @@ public sealed class InputLog
     }
 
     /// <summary>
+    /// Czy przed tym krokiem przejazd zaczyna się od nowa. Wyszukiwanie binarne
+    /// z tego samego powodu, co w <see cref="KeysAt"/>: metoda jest wołana raz na krok
+    /// symulacji, czyli 120 razy na sekundę przejazdu.
+    /// </summary>
+    /// <param name="step">Numer kroku sesji, od zera.</param>
+    /// <returns><c>true</c>, jeżeli w zapisie stoi reset dokładnie w tym kroku.</returns>
+    public bool IsResetAt(long step)
+    {
+        var low = 0;
+        var high = _resets.Length - 1;
+        while (low <= high)
+        {
+            var middle = low + ((high - low) / 2);
+            var candidate = _resets[middle];
+            if (candidate == step)
+            {
+                return true;
+            }
+
+            if (candidate < step)
+            {
+                low = middle + 1;
+            }
+            else
+            {
+                high = middle - 1;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// Zapis do tekstu. Kultura niezmienna i <c>\n</c> jako koniec wiersza, żeby plik
     /// wyszedł identyczny co do bajtu na każdej maszynie — jest porównywany <c>cmp</c>.
     /// </summary>
@@ -159,13 +283,39 @@ public sealed class InputLog
         text.Append($"{DriverKeys.CoastCode} wybieg, {DriverKeys.EmergencyCode} hamulec awaryjny ");
         text.Append($"(= pełny służbowy), {DriverKeys.NoneCode} nic\n");
         text.Append("# wpis obowiązuje od swojego kroku do kroku następnego wpisu\n");
-        text.Append(CultureInfo.InvariantCulture, $"{VersionField}={Version}\n");
+        if (_resets.Length > 0)
+        {
+            text.Append(CultureInfo.InvariantCulture,
+                $"# wpis '{ResetCode}' znaczy: PRZED tym krokiem przejazd zaczyna się od nowa;\n");
+            text.Append("# numer kroku NIE wraca wtedy do zera, bo zapis indeksuje sesję, nie przejazd\n");
+        }
+
+        text.Append(CultureInfo.InvariantCulture, $"{VersionField}={FormatVersion}\n");
         text.Append(CultureInfo.InvariantCulture, $"{StepsField}={Steps}\n");
         text.Append(ColumnHeader);
         text.Append('\n');
-        foreach (var entry in _entries)
+
+        // Wiersze idą po numerze kroku, a przy równym numerze reset stoi PRZED zmianą
+        // klawiszy — bo tak też się wykonują. Plik czytany od góry do dołu opisuje więc
+        // tę samą kolejność zdarzeń, którą wykona odtworzenie; inna kolejność zapisu
+        // dałaby plik poprawny dla `Parse` i mylący dla człowieka.
+        var nextEntry = 0;
+        var nextReset = 0;
+        while (nextEntry < _entries.Length || nextReset < _resets.Length)
         {
-            text.Append(CultureInfo.InvariantCulture, $"{entry.Step};{entry.Keys.Code()}\n");
+            var takeReset = nextReset < _resets.Length
+                && (nextEntry >= _entries.Length || _resets[nextReset] <= _entries[nextEntry].Step);
+            if (takeReset)
+            {
+                text.Append(CultureInfo.InvariantCulture, $"{_resets[nextReset]};{ResetCode}\n");
+                nextReset++;
+            }
+            else
+            {
+                var entry = _entries[nextEntry];
+                text.Append(CultureInfo.InvariantCulture, $"{entry.Step};{entry.Keys.Code()}\n");
+                nextEntry++;
+            }
         }
 
         return text.ToString();
@@ -188,6 +338,7 @@ public sealed class InputLog
         long? steps = null;
         var inRows = false;
         var entries = new List<InputLogEntry>();
+        var resets = new List<long>();
         var lineNumber = 0;
 
         foreach (var raw in text.Split('\n'))
@@ -254,10 +405,17 @@ public sealed class InputLog
                     $"Wiersz {lineNumber}: '{stepText}' nie jest numerem kroku.");
             }
 
+            var field = line[(semicolon + 1)..];
+            if (field == ResetCode)
+            {
+                resets.Add(entryStep);
+                continue;
+            }
+
             DriverKeys keys;
             try
             {
-                keys = DriverKeys.Parse(line[(semicolon + 1)..]);
+                keys = DriverKeys.Parse(field);
             }
             catch (FormatException error)
             {
@@ -272,10 +430,29 @@ public sealed class InputLog
             throw new FormatException($"Brak pola nagłówka '{VersionField}='.");
         }
 
-        if (version != Version)
+        if (version != VersionWithoutResets && version != VersionWithResets)
         {
             throw new FormatException(
-                $"Zapis wejść jest w wersji {version}, a ta wersja programu czyta {Version}.");
+                $"Zapis wejść jest w wersji {version}, a ta wersja programu czyta "
+                + $"{VersionWithoutResets} i {VersionWithResets}.");
+        }
+
+        // WERSJA MA ZGADZAĆ SIĘ Z TREŚCIĄ W OBIE STRONY. Plik, który mówi o sobie co
+        // innego, niż zawiera, jest gorszy niż plik odrzucony, bo wygląda dokładnie tak
+        // samo jak poprawny — a to jest ta sama zasada, dla której każda niezgodność
+        // w tym pliku jest błędem, a nie wartością domyślną.
+        if (version == VersionWithoutResets && resets.Count > 0)
+        {
+            throw new FormatException(
+                $"Zapis mówi '{VersionField}={VersionWithoutResets}', a zawiera {resets.Count} "
+                + $"wpisów '{ResetCode}'; reset istnieje dopiero od wersji {VersionWithResets}.");
+        }
+
+        if (version == VersionWithResets && resets.Count == 0)
+        {
+            throw new FormatException(
+                $"Zapis mówi '{VersionField}={VersionWithResets}', a nie ma ani jednego wpisu "
+                + $"'{ResetCode}'; zapis bez resetu jest w wersji {VersionWithoutResets}.");
         }
 
         if (steps is null)
@@ -288,6 +465,6 @@ public sealed class InputLog
             throw new FormatException($"Brak wiersza kolumn '{ColumnHeader}'.");
         }
 
-        return new InputLog(steps.Value, entries);
+        return new InputLog(steps.Value, entries, resets);
     }
 }

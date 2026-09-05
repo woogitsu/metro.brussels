@@ -128,16 +128,27 @@ public sealed class RunResetTests
             AccelerationMps2 = start.AccelerationMps2;
         }
 
+        /// <summary>
+        /// Numer kroku w SESJI — jak `FirstRun._logStep`. Nie wraca po resecie, bo po nim
+        /// indeksowany jest zapis wejść, a `State.Steps` zaczyna wtedy od zera.
+        /// </summary>
+        public long LogStep { get; private set; }
+
         private void StepOnce()
         {
-            var index = State.Steps;
-            var keys = KeysAt(index);
-            Recorder.Record(index, keys);
+            // DWA INDEKSY, bo to dwie różne rzeczy. Klawisze bierze się po numerze kroku
+            // PRZEJAZDU, bo ten stanowisko modeluje maszynistę, który po resecie robi
+            // DOKŁADNIE TO SAMO — inaczej „przejazd po resecie powtarza przejazd" nie
+            // miałoby czego powtarzać. Zapis wejść idzie po numerze kroku SESJI, bo taki
+            // jest format: jeden plik opisuje całą sesję, razem z resetem.
+            var keys = KeysAt(State.Steps);
+            Recorder.Record(LogStep, keys);
             Command = Notch.Advance(keys, _step);
             EffectiveCommand = Stations.Filter(State, Command, ChainageM);
             State = _controller.Advance(
                 State, _conditions, EffectiveCommand, _limitMps, _step, out var forces);
             AccelerationMps2 = forces.AccelerationMps2;
+            LogStep++;
             Telemetry.Add(State.Steps.ToString(CultureInfo.InvariantCulture));
         }
     }
@@ -259,8 +270,14 @@ public sealed class RunResetTests
         Assert.AreEqual(DriverCommand.Coast, cab.Notch.Command, "dźwignia została tam, gdzie była");
         Assert.AreEqual(DriverKeys.None, cab.Input.Keys);
         Assert.AreEqual(0.0, cab.Accumulator.CarrySeconds, 0.0, "reszta czasu klatki przeżyła reset");
-        Assert.AreEqual(0L, cab.Recorder.NextStep, "zapis wejść nadpisywałby numery kroków");
-        Assert.AreEqual(0, cab.Recorder.EntryCount);
+        // ZAPIS WEJŚĆ NIE JEST ZEROWANY — i to zdanie jest przepisane, a nie dopisane obok.
+        // Do 05.09.2026 stało tu `Assert.AreEqual(0L, …, "zapis wejść nadpisywałby numery
+        // kroków")`, bo reset kasował zapis. Decyzja właściciela (wariant W1) rozdzieliła
+        // numer kroku SESJI od numeru kroku PRZEJAZDU: pierwszy nie wraca nigdy, drugi
+        // wraca do zera — więc zapis idzie dalej i niesie reset jako wpis.
+        Assert.AreEqual(5401L, cab.Recorder.NextStep, "numer kroku sesji cofnął się po resecie");
+        Assert.AreEqual(1, cab.Recorder.ResetCount, "reset nie trafił do zapisu wejść");
+        Assert.IsTrue(cab.Recorder.EntryCount > 0, "zapis wejść został wykasowany razem z przejazdem");
         Assert.AreEqual(1, cab.Telemetry.Count, "próbki poprzedniego przejazdu zostały w telemetrii");
         Assert.AreEqual(DriveTelemetry.Header, cab.Telemetry[0], "nagłówek telemetrii zniknął");
     }
@@ -295,7 +312,17 @@ public sealed class RunResetTests
         Assert.AreEqual(wzorzec.ChainageM, zResetem.ChainageM, 0.0);
         Assert.AreEqual(wzorzec.Command, zResetem.Command);
         Assert.AreEqual(wzorzec.EffectiveCommand, zResetem.EffectiveCommand);
-        Assert.AreEqual(wzorzec.Recorder.NextStep, zResetem.Recorder.NextStep);
+        // Liczniki SESJI mają się różnić dokładnie o długość przejazdu sprzed resetu —
+        // to jest ta sama liczba widziana z drugiej strony, a nie rozjazd. Zapis
+        // porzucony razem z przejazdem dałby tu równość i wyglądałby na poprawny.
+        Assert.AreEqual(5401L, wzorzec.Recorder.NextStep);
+        Assert.AreEqual(10802L, zResetem.Recorder.NextStep, "zapis sesji nie objął obu przejazdów");
+        Assert.AreEqual(
+            wzorzec.Recorder.NextStep * 2,
+            zResetem.Recorder.NextStep,
+            "zapis sesji nie jest sumą obu przejazdów");
+        Assert.AreEqual(1, zResetem.Recorder.ResetCount);
+        Assert.AreEqual(wzorzec.State.Steps, zResetem.State.Steps, "przejazd po resecie ma inną długość");
         Assert.AreEqual(wzorzec.Telemetry.Count, zResetem.Telemetry.Count);
 
         Console.WriteLine(string.Create(
