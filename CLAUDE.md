@@ -169,9 +169,22 @@ omija format z sekcji 6 i zwykle ląduje w kodzie, którego nikt nie prosił o z
 GitHub Actions. Poprzednia wersja tego punktu mówiła, że standardem jest
 `ubuntu-latest`; to już nieprawda i dlatego jest tu przepisana, a nie dopisana obok.
 
-- `runs-on: self-hosted`, **gołe, bez dodatkowych etykiet**. W `matmaxalez/osadale`
-  zdjęto etykietę `wsl2` 02.08.2026, bo maszyna, która ją nosiła, została wyłączona
-  i joby zawisły w `queued`. Gołe `self-hosted` łapie każdego zarejestrowanego runnera.
+- **`runs-on: [self-hosted, Linux, X64, wsl2, woogitsu]`** — komplet pięciu etykiet puli
+  organizacji `woogitsu`. Od 05.09.2026, i ten punkt jest przepisany, a nie dopisany
+  obok: poprzednia wersja mówiła „gołe `self-hosted`, **bez dodatkowych etykiet**", i to
+  już nieprawda. Powód tamtej reguły był **jeden**: w `matmaxalez/osadale` zdjęto
+  etykietę `wsl2` 02.08.2026, bo maszyna, która ją nosiła, była JEDNA i została
+  wyłączona, a joby zawisły w `queued`. Ochroną było wtedy to, że gołe `self-hosted`
+  łapie każdego zarejestrowanego runnera.
+  Dziś tę samą ochronę daje **sama pula**: cztery maszyny `woogitsu-wsl-DOM-NEW-01`
+  … `-04`, każda z tym samym kompletem etykiet, więc wyłączenie jednej nie zawiesza
+  niczego — selektor łapie pozostałe trzy. Litera reguły jest inna, jej sens ten sam,
+  i to jest **warunek**, pod którym wolno było ją zmienić: gdyby pula zeszła do jednej
+  maszyny, wraca gołe `self-hosted`.
+  Etykieta `woogitsu` nie jest ozdobą. Pula należy do organizacji i jest wspólna dla jej
+  repozytoriów, a stare runnery repozytoryjne (`metro-wsl-DOM-NEW`, `-2`, `-3`) do czasu
+  centralnego usunięcia **nadal są zarejestrowane i nadal noszą `self-hosted`** — gołym
+  selektorem job trafiłby dziś i tam, i tam.
 - **Każdy job odrzuca pull requesty z forków.** To warunek bezpieczeństwa, nie higiena:
   joby wykonują kod ze sprawdzonego refa na maszynie właściciela. `metro.brussels` jest
   prywatne, ale ma włączone forkowanie, więc „forka nie da się zrobić" tu nie działa.

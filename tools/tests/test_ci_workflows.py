@@ -1077,8 +1077,9 @@ def _runner_labels(job):
     wyłącznie pierwszą z tych form — patrz komentarz o mutacji w teście niżej.
 
     Grupa wraca jako pseudo-etykieta `group:<nazwa>`, żeby wywróciła porównanie
-    i pokazała się w komunikacie: grupa to ZBIÓR maszyn dobierany po stronie
-    GitHuba, a nie gołe `self-hosted`, którego pilnuje `CLAUDE.md` §9.
+    i pokazała się w komunikacie: grupa to ZBIÓR maszyn dobierany po stronie GitHuba,
+    a nie komplet etykiet z `CLAUDE.md` §9, i o tym, co do niej należy, decyduje
+    ustawienie w organizacji, którego w tym repozytorium nie widać.
     """
     if "runs-on" not in job:
         return None
@@ -1098,15 +1099,52 @@ def _runner_labels(job):
     return [repr(value)]
 
 
-def test_every_job_runs_on_the_self_hosted_runner():
-    """Etykieta `runs-on` decyduje o tym, czy job w ogóle wystartuje.
+#: Komplet etykiet puli organizacji `woogitsu` (`CLAUDE.md` §9). Dokładnie ten komplet
+#: noszą cztery maszyny `woogitsu-wsl-DOM-NEW-01` … `-04`.
+REQUIRED_RUNNER_LABELS = ("self-hosted", "Linux", "X64", "wsl2", "woogitsu")
+
+
+def _runner_mismatch(labels):
+    """Powód, dla którego ten `runs-on` nie jest pulą z §9 — albo `None`.
+
+    Porównanie idzie ZBIOREM, nie listą w zapisanej kolejności: GitHub traktuje
+    `runs-on` jak koniunkcję etykiet, więc przestawienie ich nie zmienia doboru
+    maszyny, a bramka wywracająca się na kolejności świeciłaby na czerwono przy
+    zmianie, która niczego nie psuje. Z tego samego powodu nie liczy się wielkość
+    liter — `X64` i `x64` dobierają tę samą maszynę.
+
+    Za to LICZBA etykiet znaczy, i to w obie strony. Brak którejkolwiek rozszerza
+    dobór poza pulę: samo `self-hosted` łapie dziś także stare runnery repozytoryjne
+    (`metro-wsl-DOM-NEW`, `-2`, `-3`), które do czasu centralnego usunięcia wciąż są
+    zarejestrowane. Nadmiar zawęża dobór do maszyn noszących etykietę dopisaną ponad
+    komplet — czyli odtwarza awarię z 02.08.2026, kiedy joby zawisły w `queued` po
+    wyłączeniu jedynej maszyny z `wsl2`. Dlatego nadmiar jest błędem tak samo jak brak.
+    """
+    if labels is None:
+        return "job bez `runs-on`"
+    found = sorted(label.lower() for label in labels)
+    expected = sorted(label.lower() for label in REQUIRED_RUNNER_LABELS)
+    if found != expected:
+        return (f"runs-on = {labels}, oczekiwano kompletu "
+                f"{list(REQUIRED_RUNNER_LABELS)}")
+    return None
+
+
+def test_every_job_runs_on_the_woogitsu_runner_pool():
+    """Etykiety `runs-on` decydują o tym, czy job wystartuje i na czyjej maszynie.
 
     `runs-on` z etykietą, której żaden zarejestrowany runner nie nosi, oznacza job
     wiszący w `queued` bez końca — a `CLAUDE.md` §9 mówi wprost: „Nie uznawaj
-    `queued` za weryfikację". Etykieta jest gołe `self-hosted`, bez `wsl2`:
-    w matmaxalez/osadale 2026-08-19 zdjęto `wsl2`, bo maszyna z tą etykietą została
-    wyłączona i joby zawisły. Gołe `self-hosted` łapie każdego runnera, jakiego
-    właściciel zarejestruje.
+    `queued` za weryfikację".
+
+    **Ta bramka jest przepisana, a nie poluzowana.** Poprzednia wersja wymagała
+    dokładnie jednej etykiety `['self-hosted']` i uzasadniała to tym, że
+    w matmaxalez/osadale 02.08.2026 zdjęto `wsl2`, bo JEDYNA maszyna z tą etykietą
+    została wyłączona i joby zawisły. Od 05.09.2026 pula organizacji `woogitsu` ma
+    CZTERY maszyny z tym samym kompletem etykiet, więc wyłączenie jednej nie zawiesza
+    niczego, a ochroną przestaje być szerokość selektora — jest nią liczebność puli.
+    Gołe `self-hosted` przestało być w tej konfiguracji bezpieczniejsze: łapie też
+    stare runnery repozytoryjne, które nadal są zarejestrowane.
 
     Czytane ze SPARSOWANEGO YAML-a, nie gremem po tekście. Mutacja, która tego
     testu NIE wywracała, zmierzona 04.09.2026 na `python-tests.yml`: zapis `runs-on`
@@ -1118,10 +1156,9 @@ def test_every_job_runs_on_the_self_hosted_runner():
 
     Poprzedni wzorzec `^    runs-on: (.+)$` nie ma tu czego dopasować (po dwukropku
     nie stoi nic), więc pętla przechodziła ZERO razy i test kończył się zielony.
-    Konsekwencja jest dokładnie tą awarią, przed którą ta bramka stoi: wrócenie
-    etykiety `wsl2` — tej samej, po której 02.08.2026 joby zawisły w `queued`, bo
-    maszyna z nią została wyłączona — było dla testu niewidoczne. Bramka wtedy nie
-    broni, tylko cichnie.
+    Dziś komplet z §9 jest listą, więc ta forma zapisu jest formą POPRAWNĄ — tym
+    bardziej nie wolno wrócić do czytania regexem: pętla znów przeszłaby zero razy
+    i przepuściła każdy selektor, jaki ktoś tu wpisze.
     """
     wrong = []
     checked = 0
@@ -1129,13 +1166,9 @@ def test_every_job_runs_on_the_self_hosted_runner():
         document = yaml.safe_load(_text(name))
         for job_id, job in document["jobs"].items():
             checked += 1
-            labels = _runner_labels(job)
-            if labels is None:
-                wrong.append(f"{name}:{job_id}: job bez `runs-on`")
-            elif labels != ["self-hosted"]:
-                wrong.append(
-                    f"{name}:{job_id}: runs-on = {labels}, "
-                    "oczekiwano dokładnie jednej etykiety ['self-hosted']")
+            reason = _runner_mismatch(_runner_labels(job))
+            if reason:
+                wrong.append(f"{name}:{job_id}: {reason}")
     assert not wrong, f"joby na złym runnerze: {wrong}"
     # Liczba jak w bramce fork-PR niżej: pętla po samych znalezionych jobach
     # przeszłaby pusta i zielona, gdyby `jobs:` przestało być czytane.
@@ -1143,6 +1176,144 @@ def test_every_job_runs_on_the_self_hosted_runner():
 
     hosted = [name for name in _workflows() if "ubuntu-latest" in _text(name)]
     assert not hosted, f"GitHub-hosted runner nadal wymieniony w: {hosted}"
+
+
+def test_the_runner_gate_fails_on_every_selector_that_would_miss_the_pool():
+    """Kontrola negatywna do bramki wyżej — wykonywana, nie wyrozumowana.
+
+    Bramka poluzowana bez negatywu jest gorsza niż jej brak: „zielono" znaczy wtedy
+    tyle samo przy komplecie z §9, co przy czymkolwiek innym. Każdy przypadek niżej
+    to selektor, który naprawdę wysyła joba gdzie indziej niż do puli `woogitsu`.
+    """
+    # Stan sprzed migracji. Musi być błędem, inaczej migracja nie jest wymuszona
+    # i pierwszy dopisany workflow wróci na gołą etykietę bez żadnego sygnału.
+    assert _runner_mismatch(["self-hosted"])
+    # Brak jednej etykiety z kompletu — dobór wychodzi poza pulę organizacji.
+    assert _runner_mismatch(["self-hosted", "Linux", "X64", "wsl2"])
+    assert _runner_mismatch(["Linux", "X64", "wsl2", "woogitsu"])
+    # Nadmiar — dokładnie awaria z 02.08.2026: selektor zawężony do jednej maszyny.
+    assert _runner_mismatch([*REQUIRED_RUNNER_LABELS, "gpu"])
+    # Duplikat: zbiór by się zgadzał, lista posortowana nie — i słusznie, bo
+    # powtórzona etykieta jest literówką, a nie zapisem tej samej pary maszyn.
+    assert _runner_mismatch([*REQUIRED_RUNNER_LABELS, "wsl2"])
+    # Grupa: zbiór maszyn dobierany po stronie GitHuba, niewidoczny z repozytorium.
+    assert _runner_mismatch(_runner_labels({"runs-on": {"group": "own"}}))
+    # Maszyna GitHuba, czyli minuty, których na koncie nie ma.
+    assert _runner_mismatch(["ubuntu-latest"])
+    assert _runner_mismatch(None)
+
+    # …a komplet z §9 przechodzi niezależnie od kolejności i wielkości liter, bo
+    # GitHub dobiera maszynę koniunkcją etykiet. Bez tych dwóch asercji „wszystko
+    # jest błędem" byłoby dla bramki nie do odróżnienia od poprawnej detekcji.
+    assert _runner_mismatch(list(REQUIRED_RUNNER_LABELS)) is None
+    assert _runner_mismatch(["woogitsu", "wsl2", "x64", "linux", "SELF-HOSTED"]) is None
+    assert _runner_mismatch(
+        _runner_labels({"runs-on": list(REQUIRED_RUNNER_LABELS)})) is None
+
+
+#: Ścieżka pod `/tmp`, wpisana na sztywno. Lookbehind odsiewa człony dłuższych
+#: napisów (`$RUNNER_TEMP/tmp`, `/var/tmp`), bo tam katalog wybiera runner, a nie
+#: autor skryptu — a to jest cała różnica, o którą tej bramce chodzi.
+FIXED_TMP_PATH = re.compile(r"(?<![\w/$}])/tmp(?:/|\b)")
+
+
+def _fixed_tmp_paths(text):
+    """`[(numer wiersza, wiersz)]` dla wierszy KODU, które piszą pod stałe `/tmp`.
+
+    Wiersz komentarza się nie liczy: powód, dla którego ta bramka istnieje, trzeba
+    dało się opisać przy kodzie, którego dotyczy, a opis musi móc zacytować ścieżkę,
+    która ten wyścig wywołała. Konsekwencja: komentarz DOKLEJONY na końcu wiersza
+    kodu zostanie zgłoszony. To jest świadome — łatwiej przenieść komentarz do
+    osobnego wiersza niż zgadywać, gdzie w wierszu kończy się polecenie.
+    """
+    found = []
+    for number, line in enumerate(text.splitlines(), start=1):
+        if line.lstrip().startswith("#"):
+            continue
+        if FIXED_TMP_PATH.search(line):
+            found.append((number, line.strip()))
+    return found
+
+
+def _shared_machine_files():
+    """Wszystko, co runner wykonuje: workflowy, akcje lokalne, skrypty `tools/ci`."""
+    found = [os.path.join(WORKFLOWS, name) for name in _workflows()]
+    found += _action_files()
+    found += sorted(glob.glob(os.path.join(ROOT, "tools", "ci", "*.sh")))
+    return found
+
+
+def test_no_ci_file_writes_to_a_hardcoded_tmp_path():
+    """Cztery runnery puli stoją na JEDNEJ maszynie i dzielą jedno `/tmp`.
+
+    Stała nazwa pliku w `/tmp` przestała być wtedy nazwą pliku tego joba i stała się
+    nazwą WSPÓŁDZIELONĄ. Zmierzone 05.09.2026 na `tunnel-alignment (L1_A)`
+    (run 33981627757), krok „Blender w przypiętej wersji":
+
+        [BLENDER] sprawdzam sumę SHA-256
+        /tmp/blender-5.2.1-linux-x64.tar.xz: OK
+        tar (child): /tmp/blender-5.2.1-linux-x64.tar.xz: Cannot open: No such file
+
+    Suma zgadza się, a chwilę później pliku nie ma — drugi job skończył swój `tar`
+    i wykonał `rm -f` na tej samej nazwie. Wyścig był w skrypcie wcześniej, ale
+    strzelał rzadko: dopiero pula czterech równoległych jobów robi z niego regułę.
+
+    TRZY RODZINY SKUTKÓW, i tylko pierwsza jest głośna:
+
+    1. plik znika między `sha256sum` a `tar` — job pada, widać w logu;
+    2. dwa `curl -o` piszą do jednego pliku — suma może przejść u tego, kto akurat
+       trafił w moment po cudzym zapisie, i rozpakuje się archiwum, którego ten job
+       nie pobrał;
+    3. bramka porównująca DWA pliki (`sim-tests`: rdzeń kontra referencja hamowania)
+       zestawia wtedy wynik jednego przebiegu z wynikiem drugiego. Wychodzi zielona
+       albo czerwona, ale nie o tym, o co pyta — i nikt się nie dowie.
+
+    Dlatego bramka nie pyta o żaden konkretny plik, tylko o KLASĘ zapisu: żaden
+    plik wykonywany przez runnera nie podaje ścieżki pod `/tmp` z ręki. Katalog
+    daje `RUNNER_TEMP`, per runner i per job.
+    """
+    wrong = []
+    checked = 0
+    for path in _shared_machine_files():
+        checked += 1
+        text = open(path, encoding="utf-8").read()
+        for number, line in _fixed_tmp_paths(text):
+            wrong.append(f"{os.path.relpath(path, ROOT)}:{number}: {line}")
+    assert not wrong, (
+        "stała ścieżka w /tmp na maszynie z czterema runnerami — użyj "
+        f"\"$RUNNER_TEMP/…\": {wrong}")
+    # Pętla, która nie znalazła plików, przeszłaby pusta i zielona. Dziesięć
+    # workflowów, dwie akcje lokalne i dwa skrypty `tools/ci` to dzisiejsze minimum.
+    assert checked >= 12, f"przejrzano tylko {checked} plików — pętla ich nie widzi"
+
+
+def test_the_tmp_gate_catches_the_write_that_broke_l1_a():
+    """Kontrola do bramki wyżej — na dokładnie tym zapisie, który padł 05.09.2026.
+
+    Bez niej „brak trafień" znaczyłoby tyle samo przy sprawnym detektorze, co przy
+    wyrażeniu, które nie łapie niczego.
+    """
+    # Zapis, który wywrócił `tunnel-alignment (L1_A)`, i trzy jego odmiany.
+    assert _fixed_tmp_paths('TARBALL="/tmp/blender-5.2.1-linux-x64.tar.xz"')
+    assert _fixed_tmp_paths("          curl -fsSL -o /tmp/godot-mono.zip \"$url\"")
+    assert _fixed_tmp_paths("          : > /tmp/prune-plan.txt")
+    assert _fixed_tmp_paths("          diff -u /tmp/a.txt /tmp/b.txt")
+    assert _fixed_tmp_paths("cd /tmp && rm -rf robota")
+
+    # …i to, co ma przechodzić: katalog od runnera, `mktemp`, oraz ścieżka, w której
+    # `tmp` jest tylko członem cudzej nazwy. Bez tych czterech asercji bramka mogłaby
+    # zwracać trafienie na wszystkim i nadal wyglądać na działającą.
+    assert _fixed_tmp_paths('TARBALL="${RUNNER_TEMP:-$(mktemp -d)}/blender.tar.xz"') == []
+    assert _fixed_tmp_paths('curl -o "$RUNNER_TEMP/godot-mono.zip" "$url"') == []
+    assert _fixed_tmp_paths('echo x > "$RUNNER_TEMP/tmp/plan.txt"') == []
+    assert _fixed_tmp_paths("mv archiwum /var/tmp/gdziekolwiek") == []
+
+    # Komentarz cytujący awarię ma przechodzić — inaczej ta bramka kazałaby usunąć
+    # opis powodu, dla którego istnieje.
+    assert _fixed_tmp_paths("    # padło na /tmp/blender-5.2.1-linux-x64.tar.xz") == []
+    # Numer wiersza musi być numerem WIERSZA, nie indeksem od zera: komunikat bramki
+    # jest jedyną rzeczą, po której ktoś ten zapis znajdzie.
+    assert _fixed_tmp_paths("czysto\nczysto\nrm /tmp/x")[0][0] == 3
 
 
 def _unwrap_expression(condition):
