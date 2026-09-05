@@ -160,18 +160,44 @@ echo ""
 echo "Testy rdzenia symulacji:"
 # Rdzeń nie ma zależności NuGet, ale testy mają trzy pakiety — pierwsze uruchomienie
 # na czystej maszynie wymaga sieci na czas `restore`. Później liczy się z cache.
-if command -v "${DOTNET_BIN:-dotnet}" >/dev/null 2>&1; then
+# DOCTOR NIE MOŻE MÓWIĆ „testy nie przechodzą", KIEDY TESTY W OGÓLE NIE POBIEGŁY.
+#
+# Zmierzone 05.09.2026, dwa razy niezależnie: na maszynie, gdzie `dotnet` z `PATH`
+# to 8.0.130, a 10.0.400 stoi obok w `$HOME/.dotnet`, doctor kończył twardym
+# `BLAD  dotnet test nie przechodzi`. W logu nie było ani jednego niezaliczonego
+# testu — było `NETSDK1045: The current .NET SDK does not support targeting
+# .NET 10.0`. Testy nie padły; one się nie odbyły, bo nie było czym zbudować.
+#
+# To jest ta sama rodzina defektu, którą to repozytorium tropi w kodzie: KOMUNIKAT
+# NIE JEST WYNIKIEM. „Testy nie przechodzą" wysyła czytającego w kod symulacji,
+# a usterka leży w `PATH`. Dwa raporty z 05.09.2026 zgłosiły to jako blokadę
+# środowiska; oba się myliły co do przyczyny właśnie przez ten komunikat.
+#
+# Rozstrzygnięcie: gdy SDK nie umie zbudować docelowej wersji, testy się NIE
+# uruchamiają, a doctor mówi wprost, czego brakuje. Nadal liczy się to jako błąd
+# wymagany — środowisko jest niesprawne — ale powód jest prawdziwy.
+if ! command -v "${DOTNET_BIN:-dotnet}" >/dev/null 2>&1; then
+  echo "  pomijam — brak dotnet"
+elif [ -n "$REQUIRED_TFM" ] && [ -n "$HAVE_SDK_MAJOR" ] \
+     && [ "$HAVE_SDK_MAJOR" -lt "$REQUIRED_TFM" ] 2>/dev/null; then
+  echo "  BLAD  testy NIE URUCHOMIONE — SDK ${HAVE_SDK_MAJOR}.x nie zbuduje net${REQUIRED_TFM}.0 (NETSDK1045)"
+  echo "        to nie jest niezaliczony test, tylko brak czym zbudować; patrz podpowiedź wyżej"
+  required_bad=$((required_bad + 1))
+else
   sim_log="${TMPDIR:-/tmp}/mbxl_sim_tests.log"
   if "${DOTNET_BIN:-dotnet}" test tests/Sim.Tests --nologo -v q >"$sim_log" 2>&1; then
     sim_passed=$(grep -oE "Passed: +[0-9]+" "$sim_log" | tail -1 | grep -oE "[0-9]+")
     sim_total=$(grep -oE "Total( tests)?: +[0-9]+" "$sim_log" | tail -1 | grep -oE "[0-9]+")
     echo "  ok    ${sim_passed}/${sim_total} przeszło"
+  elif grep -q "NETSDK1045" "$sim_log" 2>/dev/null; then
+    # Sonda wersji wyżej mogła nie zadziałać (np. `dotnet --version` milczy),
+    # a mimo to build padł dokładnie na tym. Log jest tu rozstrzygający.
+    echo "  BLAD  testy NIE URUCHOMIONE — build padł na NETSDK1045, zobacz $sim_log"
+    required_bad=$((required_bad + 1))
   else
     echo "  BLAD  dotnet test nie przechodzi — zobacz $sim_log"
     required_bad=$((required_bad + 1))
   fi
-else
-  echo "  pomijam — brak dotnet"
 fi
 fi
 

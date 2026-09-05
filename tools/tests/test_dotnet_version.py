@@ -511,3 +511,140 @@ def test_doctor_cannot_recurse_into_itself():
     assert "Testy rdzenia symulacji:" not in out, out[-800:]
     # Kontrola środowiska musi się nadal wykonać — inaczej marker wyłączałby wszystko.
     assert "dotnet SDK" in out, out[-800:]
+
+# --- doctor.sh nie mówi „testy nie przechodzą", gdy testy nie pobiegły ---------------
+#
+# Zmierzone 05.09.2026, dwa razy niezależnie: na maszynie, gdzie `dotnet` z PATH to
+# 8.0.130, a 10.0.400 stoi obok w `$HOME/.dotnet`, doctor kończył twardym
+# `BLAD  dotnet test nie przechodzi`. W logu nie było ANI JEDNEGO niezaliczonego
+# testu — było `NETSDK1045`. Testy nie padły; one się nie odbyły.
+#
+# KOMUNIKAT NIE JEST WYNIKIEM. „Testy nie przechodzą" wysyła czytającego w `src/Sim`,
+# a usterka leży w PATH. Oba przeglądy zgłosiły to jako blokadę środowiska i oba
+# pomyliły się co do przyczyny — właśnie przez ten komunikat.
+#
+# DLACZEGO TEN TEST WYCINA GAŁĄŹ, A NIE URUCHAMIA CAŁEGO DOCTORA.
+#
+# Pierwsza wersja wołała `bash doctor.sh` z podstawionym `dotnet`. Przechodziła
+# lokalnie i PADAŁA w CI, w jobie `blender-smoke` — bo tam `test_all.py` jest
+# uruchamiany PRZEZ doctora, więc zagnieżdżony doctor trafiał na strażnik
+# `MBXL_DOCTOR_RUNNING` i pomijał obie sekcje testów. Asercja o „NIE URUCHOMIONE"
+# nie miała wtedy czego zobaczyć.
+#
+# Strażnika nie wolno osłabić: jest celowy i przybity osobnym testem
+# (`test_doctor_cannot_recurse_into_itself`), a mutacja, która go zdjęła, zostawiła
+# 04.09.2026 w systemie 174 procesy. Dlatego ten test idzie drogą, którą ten plik już
+# zna z `test_doctor_sdk_condition_actually_rejects_an_old_sdk`: WYCINA fragment
+# doctora i URUCHAMIA go. Bramka na napis nie odróżniłaby kodu wykonywanego od
+# komentarza, więc czytanie tekstu nie wchodzi w grę.
+
+#: Kotwice gałęzi decyzyjnej w `doctor.sh`. Gdy któraś zniknie, test PADA zamiast
+#: cicho przejść na pustym zbiorze — bramka bez wejścia jest gorsza niż jej brak.
+DECISION_OPEN = 'if ! command -v "${DOTNET_BIN:-dotnet}" >/dev/null 2>&1; then'
+DECISION_CLOSE = '  echo "  BLAD  dotnet test nie przechodzi — zobacz $sim_log"'
+
+
+def _decision_branch():
+    """Sama gałąź „co zrobić z testami rdzenia", wycięta z doctora."""
+    doctor = _read(DOCTOR)
+    assert DECISION_OPEN in doctor, (
+        "nie znalazłem początku gałęzi decyzyjnej w doctor.sh — kotwica się rozjechała "
+        "i ten test przestałby cokolwiek sprawdzać")
+    assert DECISION_CLOSE in doctor, (
+        'nie znalazłem gałęzi o niezaliczonych testach w doctor.sh '
+        '— kotwica się rozjechała')
+    begin = doctor.index(DECISION_OPEN)
+    # Gałąź ma zagnieżdżone `if`, więc szukamy `fi` w PIERWSZEJ kolumnie — tego,
+    # które domyka blok zewnętrzny. `doctor.index("fi", ...)` trafiłby w domknięcie
+    # wewnętrzne i wyciął fragment niedomknięty; złapane wykonaniem, nie na oko.
+    end = doctor.index("\nfi\n", doctor.index(DECISION_CLOSE)) + len("\nfi")
+    branch = doctor[begin:end]
+    assert branch.count("if ") - branch.count("elif ") == branch.count("fi"), (
+        "wycięty fragment nie ma domkniętych warunków — kotwice się rozjechały:\n" + branch)
+    return branch
+
+
+def _run_decision(tmp_path, reported_major, required_major):
+    """Uruchamia wyciętą gałąź z podstawionym `dotnet` i zadanymi wersjami.
+
+    Atrapa odmawia `test` komunikatem NETSDK1045 — dokładnie tak, jak robi to
+    prawdziwe SDK 8 wobec `net10.0`.
+    """
+    import subprocess
+    import stat
+
+    shim = os.path.join(tmp_path, "dotnet")
+    with open(shim, "w", encoding="utf-8") as handle:
+        handle.write(
+            "#!/bin/sh\n"
+            "if [ \"$1\" = test ]; then\n"
+            "  echo 'error NETSDK1045: The current .NET SDK does not support"
+            " targeting .NET 10.0.' >&2\n"
+            "  exit 1\n"
+            "fi\n"
+            f'echo "{reported_major}.0.130"\n')
+    os.chmod(shim, os.stat(shim).st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+
+    script = os.path.join(tmp_path, "branch.sh")
+    with open(script, "w", encoding="utf-8") as handle:
+        handle.write(
+            f'DOTNET_BIN="{shim}"\n'
+            f'REQUIRED_TFM="{required_major}"\n'
+            f'HAVE_SDK_MAJOR="{reported_major}"\n'
+            "required_bad=0\n"
+            f'TMPDIR="{tmp_path}"\n'
+            + _decision_branch()
+            + "\necho \"required_bad=$required_bad\"\n")
+
+    syntax = subprocess.run(["bash", "-n", script], capture_output=True, text=True)
+    assert syntax.returncode == 0, (
+        "wycięty fragment doctora nie jest poprawnym shellem — test mierzyłby wtedy "
+        "błąd składni, a nie decyzję:\n" + syntax.stderr)
+
+    done = subprocess.run(["bash", script], cwd=ROOT, capture_output=True,
+                          text=True, timeout=300)
+    return done.stdout + done.stderr
+
+
+def test_doctor_does_not_call_an_unbuilt_project_a_failing_test():
+    """Za stare SDK ma dać „testy NIE URUCHOMIONE", a nie „testy nie przechodzą"."""
+    import tempfile
+
+    required = tfm_major(target_framework(_read(os.path.join(ROOT, PROJECTS[0]))))
+    assert required is not None
+
+    with tempfile.TemporaryDirectory() as tmp_path:
+        output = _run_decision(tmp_path, required - 2, required)
+
+    assert "dotnet test nie przechodzi" not in output, (
+        "doctor twierdzi, że testy nie przechodzą, choć wcale ich nie uruchomił — "
+        "to wysyła czytającego w kod symulacji zamiast w PATH:\n" + output)
+    assert "NIE URUCHOMIONE" in output, (
+        "doctor nie mówi wprost, że testy się nie odbyły:\n" + output)
+    assert "NETSDK1045" in output, (
+        "doctor nie nazywa błędu, przez który nie da się zbudować:\n" + output)
+    assert "required_bad=1" in output, (
+        "niesprawne środowisko przestało się liczyć jako błąd wymagany:\n" + output)
+
+
+def test_doctor_reads_the_log_when_the_version_probe_said_nothing_useful():
+    """Sonda wersji mogła zawieść, a build i tak padł na NETSDK1045 — rozstrzyga log.
+
+    Kontrola przeciwna do poprzedniego testu: tutaj sonda podaje wersję DOSTATECZNĄ,
+    więc gałąź „za stare SDK" nie zachodzi i doctor MUSI dojść do uruchomienia. Bez
+    tego testu poprzedni przechodziłby także wtedy, gdyby doctor przestał uruchamiać
+    testy w ogóle.
+    """
+    import tempfile
+
+    required = tfm_major(target_framework(_read(os.path.join(ROOT, PROJECTS[0]))))
+
+    with tempfile.TemporaryDirectory() as tmp_path:
+        output = _run_decision(tmp_path, required, required)
+
+    assert "NIE URUCHOMIONE" in output, (
+        "doctor doszedł do uruchomienia, build padł na NETSDK1045, a mimo to nazywa "
+        "to niezaliczonym testem:\n" + output)
+    assert "nie zbuduje net" not in output, (
+        "doctor zatrzymał się na sondzie wersji, choć wersja jest dostateczna:\n" + output)
+    assert "required_bad=1" in output, output
