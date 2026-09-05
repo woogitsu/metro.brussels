@@ -123,11 +123,34 @@ def test_gate_does_not_count_a_try_except_that_only_swallows():
 
 
 def test_gate_catches_the_pr139_shape_of_a_silent_skip():
-    """Dokładny kształt z PR #139: wyjście na nieistniejącym artefakcie z `build/`."""
+    """Dokładny kształt z PR #139: wyjście na nieistniejącym artefakcie z `build/`.
+
+    ŚCIEŻKA NIE MOŻE WSKAZYWAĆ NA PRAWDZIWY `build/` — i to jest cała historia tego
+    testu. Pierwsza wersja brała dosłownie `build/t400/chunks/L1_A-chunks.json`, czyli
+    plik, który generatory tego repozytorium naprawdę tworzą. W CI przechodziła, bo
+    `actions/checkout` robi `git clean -ffdx`. Na maszynie, na której ktoś uruchomił
+    `blender_smoke.sh`, plik ISTNIEJE, ciało atrapy się wykonuje, bramka liczy jedną
+    asercję zamiast zera i test pada:
+
+        FAIL test_gate_catches_the_pr139_shape_of_a_silent_skip: 1
+
+    Zmierzone 05.09.2026, na czystym `main`, u kogoś z zabudowanym `build/`.
+
+    Bramka na testy zależne od artefaktów była więc sama zależna od artefaktu —
+    dokładnie ta usterka, którą łapie, o jeden poziom wyżej. Ścieżka idzie teraz do
+    katalogu tymczasowego, który na pewno nie istnieje; kształt kodu atrapy zostaje
+    ten sam co w #139, bo o kształt tu chodzi, a nie o konkretny plik.
+    """
+    nieistniejacy = os.path.join(
+        tempfile.gettempdir(), "mbxl-bramka-asercji-nie-ma-takiego-pliku", "chunks.json")
+    assert not os.path.exists(nieistniejacy), (
+        'ścieżka udająca brakujący artefakt jednak istnieje, '
+        f'więc test mierzyłby co innego niż cichy skip: {nieistniejacy}')
+
     module = _load(
         "import os\n"
         "def test_x():\n"
-        "    path = os.path.join('build', 't400', 'chunks', 'L1_A-chunks.json')\n"
+        f"    path = {nieistniejacy!r}\n"
         "    if not os.path.isfile(path):\n"
         "        return\n"
         "    assert os.path.getsize(path) > 0\n")
@@ -135,6 +158,32 @@ def test_gate_catches_the_pr139_shape_of_a_silent_skip():
     assert checks == 0, checks
     assert state == "fail", state
     assert "cichy skip" in message, message
+
+
+def test_gate_catches_the_silent_skip_even_when_the_artefact_is_there():
+    """Kontrola przeciwna: ten sam kształt, ale plik ISTNIEJE.
+
+    Wtedy ciało się wykonuje, asercja pada w liczniku i bramka NIE ma prawa zgłosić
+    cichego skipu — bo go nie było. Bez tego testu poprzedni przechodziłby także wtedy,
+    gdyby bramka zaczęła zgłaszać cichy skip na sam WIDOK `os.path.isfile`, nie patrząc,
+    czy ciało się wykonało.
+    """
+    with tempfile.TemporaryDirectory() as katalog:
+        istniejacy = os.path.join(katalog, "chunks.json")
+        with open(istniejacy, "w", encoding="utf-8") as uchwyt:
+            uchwyt.write("{}\n")
+
+        module = _load(
+            "import os\n"
+            "def test_x():\n"
+            f"    path = {istniejacy!r}\n"
+            "    if not os.path.isfile(path):\n"
+            "        return\n"
+            "    assert os.path.getsize(path) > 0\n")
+        state, _message, checks = _run(module.test_x)
+
+    assert checks == 1, f"ciało się wykonało, więc asercja musi być policzona: {checks}"
+    assert state == "ok", state
 
 
 def test_gate_catches_a_loop_over_an_empty_set():
