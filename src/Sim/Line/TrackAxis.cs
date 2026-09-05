@@ -44,6 +44,32 @@ public sealed class TrackAxis
     /// <summary>Krok zagęszczania z <c>tools/blender/sweep.py: DEFAULT_RING_STEP_M</c>.</summary>
     public const double DefaultRingStepM = 5.0;
 
+    /// <summary>
+    /// Tolerancja porównań kilometrażu. Nie jest zapasem bezpieczeństwa — jest granicą,
+    /// poniżej której dwie liczby <c>double</c> opisujące to samo miejsce na osi nie mają
+    /// prawa być uznane za różne.
+    ///
+    /// <para><b>Dlaczego stoi przy osi, a nie przy tym, kto porównuje.</b> Kilometraż
+    /// jest współrzędną tej klasy (<see cref="ChainagesM"/>, <see cref="AxisStation.ChainageM"/>),
+    /// więc granica jego rozdzielczości jest własnością osi, a nie warstwy, która akurat
+    /// pyta. Do 05.09.2026 ta sama liczba stała w dwóch egzemplarzach — w
+    /// <c>Signalling.FixedBlockSystem</c> i w <c>Train.LineDrive</c> — a ich równości nie
+    /// pilnowało nic poza komentarzem „ta sama co w <c>FixedBlockSystem</c>". Rozjazd nie
+    /// dałby ani błędu kompilacji, ani czerwonego testu; dałby dwa różne progi „to jest to
+    /// samo miejsce" w dwóch warstwach jednego modelu (raport
+    /// <c>reports/mutacje-rdzen-sygnalizacji.md</c> §9.2).</para>
+    ///
+    /// <para><b>Dlaczego nie sklejono ich ze sobą.</b> <c>Signalling</c> zależy dziś od
+    /// <c>Train</c> (<c>TrainProtection.Apply</c> zwraca <c>DriverCommand</c>), a
+    /// <c>Train</c> od <c>Signalling</c> nie zależy w ani jednym miejscu kodu — i jest to
+    /// świadome: <c>LineDrive.AuthorityEndM</c> przyjmuje goły <c>double?</c>, a nie
+    /// <c>MovementAuthority</c>, żeby prowadzenie nie wiedziało o sygnalizacji. Odesłanie
+    /// z <c>LineDrive</c> do <c>FixedBlockSystem</c> cofnęłoby tę decyzję dla stałej.
+    /// Obie warstwy zależą natomiast od <c>Line</c>, więc tutaj liczba może być jedna
+    /// i nie przybywa ani jedna krawędź w grafie zależności.</para>
+    /// </summary>
+    public const double PositionEpsilonM = 1e-9;
+
     private const double DedupeEpsilonM = 1e-6;
 
     private readonly AxisPoint[] _source;

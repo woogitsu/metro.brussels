@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
+using MetroBxl.Sim.Line;
 
 namespace MetroBxl.Sim.Signalling;
 
@@ -33,12 +34,6 @@ namespace MetroBxl.Sim.Signalling;
 /// </summary>
 public sealed class FixedBlockSystem
 {
-    /// <summary>
-    /// Tolerancja porównań chainage. Nie jest to zapas bezpieczeństwa — jest to
-    /// odległość, poniżej której dwie liczby <c>double</c> opisują to samo miejsce.
-    /// </summary>
-    public const double PositionEpsilonM = 1e-9;
-
     private sealed class TrainRecord
     {
         public TrainRecord(string id, double lengthM, double frontM)
@@ -270,7 +265,7 @@ public sealed class FixedBlockSystem
             throw new ArgumentOutOfRangeException(nameof(frontChainageM), frontChainageM, "Chainage musi być skończony.");
         }
 
-        if (frontChainageM < train.FrontM - PositionEpsilonM)
+        if (frontChainageM < train.FrontM - TrackAxis.PositionEpsilonM)
         {
             throw new ArgumentOutOfRangeException(
                 nameof(frontChainageM), frontChainageM, string.Create(
@@ -281,7 +276,7 @@ public sealed class FixedBlockSystem
 
         var authority = ComputeAuthority(train);
         var target = Clamp(frontChainageM);
-        if (target > authority.EndChainageM + PositionEpsilonM)
+        if (target > authority.EndChainageM + TrackAxis.PositionEpsilonM)
         {
             Emit(SignallingEventKind.AuthorityViolation, authority.LimitBlockId, trainId, target,
                 string.Create(CultureInfo.InvariantCulture,
@@ -700,7 +695,7 @@ public sealed class FixedBlockSystem
         }
 
         var last = _plan.BlockById(_plan.RouteById(routeId).ToBlockId);
-        if (train.FrontM >= last.StartM - PositionEpsilonM)
+        if (train.FrontM >= last.StartM - TrackAxis.PositionEpsilonM)
         {
             ReleaseRoute(routeId);
         }
