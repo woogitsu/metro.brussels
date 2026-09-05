@@ -26,8 +26,16 @@
     <PackageReference Include="MSTest.TestFramework" Version="3.0.4" />
   </ItemGroup>
 
+  <!--
+    Drugą referencją jest RUNNER, nie druga część rdzenia. Wchodzi tu razem
+    z poleceniem `budget` (pozycja 5.7): pomiar kosztu kroku ma własną klasę
+    `LineBudget`, a klasa, której nikt nie testuje, mierzy dokładnie tyle, ile
+    twierdzi, że mierzy. Rdzeń `src/Sim` tej referencji nie widzi — zależność
+    idzie w jedną stronę, testy → runner → rdzeń.
+  -->
   <ItemGroup>
     <ProjectReference Include="../../src/Sim/Sim.csproj" />
+    <ProjectReference Include="../../src/Sim.Runner/Sim.Runner.csproj" />
   </ItemGroup>
 
 </Project>

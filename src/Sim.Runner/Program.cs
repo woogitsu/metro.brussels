@@ -53,6 +53,7 @@ public static class Program
                 "parity" => Parity(),
                 "braking" => Braking(),
                 "line" => LineCommand(args),
+                "budget" => Budget(args),
                 _ => Unknown(args[0]),
             };
         }
@@ -88,6 +89,11 @@ public static class Program
                       [--brake-usage X] [--stop-window-m X] [--timetable PLIK]
                       [--trace PLIK.csv] [--calls PLIK.csv]
                       [--signalling PLIK.json]              przejazd pod blokadami i z ATP
+              budget  --axis PLIK --signalling PLIK.json    koszt kroku rdzenia przy N składach
+                      --limit-kmh X --exchange-s X
+                      --headway-s X --trains 1,2,4,8 --steps N
+                      [--repeats R] [--warmup W] [--turnback-s X]
+                      [--atp] [--load AW0|AW2] [--out PLIK.csv]
             """);
     }
 
@@ -813,6 +819,176 @@ public static class Program
         }
 
         return 0;
+    }
+
+    // --- budget -------------------------------------------------------------------
+
+    /// <summary>
+    /// Ile kosztuje krok rdzenia linii przy N składach na osi — pozycja 5.7
+    /// z <c>docs/TASKS.md</c>.
+    ///
+    /// <para><b>Dlaczego to nie jest opcja polecenia <c>line</c>.</b> <c>line</c> zgłasza
+    /// dokładnie jeden skład (<c>KABINA</c>), bo odpowiada na pytanie „czy rdzeń liczy ten
+    /// sam przejazd, co scena". Doklejenie do niego N składów zmieniłoby to, co porównuje
+    /// bramka CI, więc pomiar dostaje własne polecenie, a <c>line</c> zostaje bit w bit
+    /// takie, jak było.</para>
+    ///
+    /// <para><b>Co polecenie wypisuje i czego nie wypisuje.</b> Wypisuje medianę i rozstęp
+    /// z powtórzeń, stosunek czasu procesora do ściennego oraz obsadę linii — ile składów
+    /// naprawdę było na planie, bo to ona, a nie liczba zgłoszonych, jest tym N, o którym
+    /// mówi raport. Nie wypisuje jednej ładnej liczby: na maszynie dzielonej z innymi
+    /// procesami byłaby ona zmyśleniem o dokładności, której pomiar nie ma.</para>
+    /// </summary>
+    private static int Budget(string[] args)
+    {
+        var axisPath = Option(args, "--axis") ?? throw new ArgumentException("budget wymaga --axis");
+        var signallingPath = Option(args, "--signalling")
+            ?? throw new ArgumentException(
+                "budget wymaga --signalling: bez planu bloków nie ma LineCore, a bez LineCore "
+                + "nie ma kroku linii, którego koszt można zmierzyć");
+        var limitKmh = RequiredNumber(args, "--limit-kmh");
+        var exchange = RequiredNumber(args, "--exchange-s");
+        var headway = RequiredNumber(args, "--headway-s");
+        var brakeUsage = OptionalNumber(args, "--brake-usage") ?? 1.0;
+        var stopWindow = OptionalNumber(args, "--stop-window-m") ?? 5.0;
+        var turnback = OptionalNumber(args, "--turnback-s") ?? 0.0;
+        var load = Option(args, "--load") ?? "AW0";
+        var atp = Array.IndexOf(args, "--atp") >= 0;
+        var steps = long.Parse(
+            Option(args, "--steps") ?? throw new ArgumentException("budget wymaga --steps"), Inv);
+        var repeats = int.Parse(Option(args, "--repeats") ?? "7", Inv);
+        var warmup = int.Parse(Option(args, "--warmup") ?? "2", Inv);
+        var counts = ParseTrainCounts(Option(args, "--trains")
+            ?? throw new ArgumentException("budget wymaga --trains, np. --trains 1,2,4,8"));
+
+        var axis = TrackAxis.FromJson(File.ReadAllText(axisPath));
+        var plan = SignallingPlan.FromJson(File.ReadAllText(signallingPath));
+        var model = VehicleModel.M7;
+        var trainLoad = load switch
+        {
+            "AW0" => TrainLoad.Aw0,
+            "AW2" => TrainLoad.Aw2,
+            _ => throw new ArgumentException($"nieznane obciążenie: {load}; dozwolone AW0 albo AW2"),
+        };
+
+        var conditions = RunConditions.Level(model, trainLoad);
+        var settings = new LineRunSettings(Units.KmhToMps(limitKmh), exchange, brakeUsage, stopWindow);
+        var budgetSeconds = FixedStep.Simulation.Seconds;
+
+        Console.Out.WriteLine(string.Create(
+            Inv,
+            $"[BUDŻET] oś {axis.Id}, plan {plan.PlanId} ({plan.Blocks.Count} bloków), "
+            + $"{axis.Stations.Count} stacji, ATP={(atp ? "tak" : "nie")}, "
+            + $"nawrót {turnback:F0} s, odstęp {headway:F0} s"));
+        Console.Out.WriteLine(string.Create(
+            Inv,
+            $"[BUDŻET] okno {steps} kroków, rozgrzewka {warmup}, powtórzeń {repeats}, "
+            + $"rdzeni {Environment.ProcessorCount}, budżet kroku 1/{FixedStep.SimulationHertz} s "
+            + $"= {budgetSeconds * 1e6:F1} µs"));
+        Console.Out.WriteLine(
+            "[BUDŻET] N_zgł;N_max;N_śr;czeka_śr;mediana_kroków_s;min;max;rozstęp_%;µs_krok;CPU/ścienny;%budżetu");
+
+        var rows = new List<string>
+        {
+            "trains_declared,trains_on_line_max,trains_on_line_mean,trains_waiting_mean,steps,repeats,"
+            + "median_steps_per_s,min_steps_per_s,max_steps_per_s,spread_pct,"
+            + "us_per_step,cpu_over_wall,frame_budget_pct",
+        };
+
+        var scenarios = new List<LineBudgetScenario>(counts.Count);
+        foreach (var trains in counts)
+        {
+            scenarios.Add(new LineBudgetScenario(
+                plan, axis, conditions, settings, trains, headway, turnback, atp));
+        }
+
+        var measured = LineBudget.Sweep(scenarios, steps, warmup, repeats);
+
+        var fits = 0;
+        var lastMicroseconds = 0.0;
+        var lastOnLine = 0;
+        for (var index = 0; index < counts.Count; index++)
+        {
+            var trains = counts[index];
+            var (census, runs) = measured[index];
+
+            var median = LineBudget.MedianStepsPerSecond(runs);
+            var slowest = double.MaxValue;
+            var fastest = 0.0;
+            var cpu = 0.0;
+            var wall = 0.0;
+            foreach (var run in runs)
+            {
+                slowest = Math.Min(slowest, run.StepsPerSecond);
+                fastest = Math.Max(fastest, run.StepsPerSecond);
+                cpu += run.CpuSeconds;
+                wall += run.WallSeconds;
+            }
+
+            var spreadPct = 100.0 * (fastest - slowest) / median;
+            var microseconds = 1e6 / median;
+            var frameBudgetPct = 100.0 * microseconds / (budgetSeconds * 1e6);
+            if (frameBudgetPct <= 100.0)
+            {
+                fits++;
+            }
+
+            lastMicroseconds = microseconds;
+            lastOnLine = census.MaxOnLine;
+
+            Console.Out.WriteLine(string.Create(
+                Inv,
+                $"[BUDŻET] {trains};{census.MaxOnLine};{census.MeanOnLine:F2};{census.MeanWaiting:F2};{median:F0};{slowest:F0};"
+                + $"{fastest:F0};{spreadPct:F1};{microseconds:F3};{cpu / wall:F2};{frameBudgetPct:F2}"));
+
+            rows.Add(string.Create(
+                Inv,
+                $"{trains},{census.MaxOnLine},{census.MeanOnLine:F4},{census.MeanWaiting:F4},{steps},{repeats},"
+                + $"{median:F1},{slowest:F1},{fastest:F1},{spreadPct:F2},"
+                + $"{microseconds:F4},{cpu / wall:F3},{frameBudgetPct:F3}"));
+        }
+
+        Console.Out.WriteLine(string.Create(
+            Inv,
+            $"[BUDŻET] mieści się w 1/{FixedStep.SimulationHertz} s: {fits} z {counts.Count} "
+            + $"zmierzonych N; największe zmierzone N={counts[^1]} zajmuje "
+            + $"{100.0 * lastMicroseconds / (budgetSeconds * 1e6):F2}% budżetu kroku "
+            + $"przy {lastOnLine} składach faktycznie na planie"));
+
+        var outPath = Option(args, "--out");
+        if (outPath is not null)
+        {
+            File.WriteAllLines(outPath, rows);
+            Console.Out.WriteLine($"[BUDŻET] {rows.Count - 1} wierszy -> {outPath}");
+        }
+
+        return 0;
+    }
+
+    /// <summary>
+    /// Lista N z przecinkami. Pusta lista, zero i wartość ujemna są odmową: pomiar
+    /// „przy zerze składów" mierzyłby pustą pętlę, a nie koszt składu.
+    /// </summary>
+    private static List<int> ParseTrainCounts(string text)
+    {
+        var counts = new List<int>();
+        foreach (var part in text.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var value = int.Parse(part, Inv);
+            if (value < 1)
+            {
+                throw new ArgumentException($"--trains ma mieć liczby dodatnie, a ma {value}");
+            }
+
+            counts.Add(value);
+        }
+
+        if (counts.Count == 0)
+        {
+            throw new ArgumentException("--trains nie zawiera ani jednej liczby");
+        }
+
+        return counts;
     }
 
     // --- pomocnicze ---------------------------------------------------------------
