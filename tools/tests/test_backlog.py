@@ -60,13 +60,14 @@ REQUIRED_FIELDS = (
 )
 
 #: Pole, które `docs/TASK-TEMPLATE.md` DOKŁADA do wpisu odhaczonego, a którego nie ma
-#: wpis czekający w kolejce. Zmierzone na tym drzewie: wpisów `### [x] T-NNN` jest 15,
-#: żaden nie ma „Skończone, gdy", a 12 ma to pole — jest więc jednoznacznym
-#: znacznikiem wpisu zamkniętego.
+#: wpis czekający w kolejce. Zmierzone 05.09.2026 na tym drzewie: wpisów `### [x]` jest
+#: **17**, żaden nie ma „Skończone, gdy", a **14** ma to pole — jest więc jednoznacznym
+#: znacznikiem wpisu zamkniętego. (Liczby przepisane, a nie dopisane obok: przed
+#: odhaczeniem T-212 i T-906 było 15 wpisów i 12 pól.)
 DONE_ONLY_FIELD = "Wynik"
 
-#: Ile pozycji kolejki ma DZIŚ komplet sześciu pól. Zmierzone 05.09.2026 na `b41c158`:
-#: 8 z 33. To jest zapadka, nie cel — wolno ją tylko podnosić. Celem jest
+#: Ile pozycji kolejki ma DZIŚ komplet sześciu pól. Zmierzone 05.09.2026: **8 z 31**
+#: (na `b41c158` było 8 z 33; 6.B11 i 6.B12 wyszły do tabeli domknięć). To jest zapadka, nie cel — wolno ją tylko podnosić. Celem jest
 #: `MINIMUM_READY_ITEMS`, czyli tyle udokumentowanych pozycji, ile licznik zapasu
 #: uznaje za dobę pracy; brakujące cztery są **znaleziskiem do zgłoszenia**, nie
 #: zaproszeniem do wymyślenia treści (`CLAUDE.md` §8 zabrania brać zadanie wymyślone
@@ -347,7 +348,8 @@ def test_the_documented_reserve_does_not_regress():
 
     `MINIMUM_READY_ITEMS` mówi, ile pozycji ktoś WPISAŁ. Ta liczba mówi, ile z nich
     niesie sześć pól, czyli ile agent może wziąć bez dopytywania właściciela.
-    Zmierzone 05.09.2026 na `b41c158`: **8 z 33**. Wolno tylko podnosić — a podnosi
+    Zmierzone 05.09.2026: **8 z 31** (na `b41c158` było 8 z 33 — 6.B11 i 6.B12 wyszły
+    do tabeli domknięć, więc zapadka nie drgnęła, a mianownik tak). Wolno tylko podnosić — a podnosi
     się ją, dopisując pola tam, gdzie da się je ODCZYTAĆ z `docs/`, `reports/`
     i `data/`, nie zmyślając ich.
     """
@@ -484,10 +486,11 @@ def test_no_detail_block_carries_the_field_of_a_finished_entry():
     licznik znów pokazuje więcej zapasu, niż jest.
 
     Miara jest ta sama, którą posługuje się `docs/TASK-TEMPLATE.md`: pole „Wynik",
-    dokładane do wpisu odhaczonego. Zmierzone na tym drzewie: wpisów
-    `### [x] T-NNN` jest 15, **żaden** nie ma pola „Skończone, gdy", a 12 ma
+    dokładane do wpisu odhaczonego. Zmierzone 05.09.2026 na tym drzewie: wpisów
+    `### [x]` jest **17**, **żaden** nie ma pola „Skończone, gdy", a **14** ma
     „Wynik" — to pole jest więc jednoznacznym znacznikiem wpisu zamkniętego,
-    a nie przypadkowym słowem.
+    a nie przypadkowym słowem. Przed odhaczeniem T-212 (#137, stało `[ ]` przez
+    dwanaście scaleń) i T-906 (#209) było 15 wpisów i 12 pól.
     """
     text = _tasks()
     ready = set(ready_items(text))
