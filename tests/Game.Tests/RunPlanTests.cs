@@ -708,4 +708,110 @@ public sealed class RunPlanTests
         Assert.AreEqual("/tmp/plan.json", z.SignallingPath);
         Assert.IsTrue(z.LineMode);
     }
+
+    // --- zapis i odtworzenie wejść gracza -----------------------------------------
+
+    [TestMethod]
+    public void ReplayIsItsOwnModeAndIsNotScripted()
+    {
+        // `--replay` prowadzi ten sam `DriverNotch`, co człowiek — różni się wyłącznie
+        // źródłem stanu klawiszy. Gdyby wpadło w `ScriptedMode`, scena zbudowałaby
+        // `ScenarioDrive` i odtworzenie jechałoby scenariuszem T-400 zamiast zapisem.
+        var plan = Parse("--replay=/tmp/keys.log");
+
+        Assert.IsTrue(plan.IsValid, plan.Error);
+        Assert.AreEqual("replay", plan.Mode);
+        Assert.IsTrue(plan.ReplayMode);
+        Assert.IsFalse(plan.ScriptedMode);
+        Assert.AreEqual("/tmp/keys.log", plan.ReplayPath);
+    }
+
+    [TestMethod]
+    public void TelemetryWithReplayIsNotAScriptedRun()
+    {
+        // To jest para, na której stoi cała weryfikacja G-1: ten sam zapis wejść puszczony
+        // przy różnym `--steps-per-frame` ma dać telemetrię identyczną co do bitu.
+        // Bez tego rozróżnienia `--telemetry` samo z siebie robiło z przebiegu scenariusz.
+        var plan = Parse("--replay=/tmp/keys.log", "--telemetry=/tmp/out.csv", "--steps-per-frame=4");
+
+        Assert.IsTrue(plan.IsValid, plan.Error);
+        Assert.AreEqual("replay", plan.Mode);
+        Assert.IsFalse(plan.ScriptedMode, "telemetria z --replay zrobiła z przebiegu scenariusz");
+        Assert.AreEqual("/tmp/out.csv", plan.TelemetryPath);
+        Assert.AreEqual(4L, plan.StepsPerFrame);
+    }
+
+    [TestMethod]
+    public void TelemetryWithoutReplayIsStillAScriptedRun()
+    {
+        // Kontrola w drugą stronę: rozróżnienie wyżej nie ma prawa rozbroić istniejącej
+        // bramki `--telemetry`, która porównuje przebieg sceny z rdzeniem przy progu 0.
+        var plan = Parse("--telemetry=/tmp/out.csv");
+
+        Assert.IsTrue(plan.IsValid, plan.Error);
+        Assert.AreEqual("telemetry", plan.Mode);
+        Assert.IsTrue(plan.ScriptedMode);
+        Assert.IsFalse(plan.ReplayMode);
+    }
+
+    [TestMethod]
+    public void ReplayRefusesASecondSourceOfCommand()
+    {
+        var zLinia = Parse("--replay=/tmp/keys.log", "--line", "--limit-kmh=70");
+        Assert.IsFalse(zLinia.IsValid, "--replay przeszło razem z --line");
+        Assert.IsTrue(zLinia.Error!.Contains("--replay"), zLinia.Error);
+        Assert.AreEqual(BadArgumentValue, zLinia.ExitCode);
+
+        var zeZrzutem = Parse("--replay=/tmp/keys.log", "--shot=/tmp/a.png", "--at-chainage=2000");
+        Assert.IsFalse(zeZrzutem.IsValid, "--replay przeszło razem z --shot");
+        Assert.AreEqual(BadArgumentValue, zeZrzutem.ExitCode);
+    }
+
+    [TestMethod]
+    public void InputLogOnlyMakesSenseWhereTheDriverGivesTheCommand()
+    {
+        // Plik nazwany „zapisem wejść", powstały z przebiegu, którego nikt nie prowadził,
+        // wyglądałby po odtworzeniu jak dowód determinizmu wejścia gracza — i nim nie był.
+        foreach (var tryb in new[] { "--line --limit-kmh=70", "--shot=/tmp/a.png", "--telemetry=/tmp/o.csv" })
+        {
+            var arguments = new List<string> { "--input-log=/tmp/keys.log" };
+            arguments.AddRange(tryb.Split(' '));
+            var plan = RunPlan.Parse(arguments, UnknownArgument, BadArgumentValue);
+
+            Assert.IsFalse(plan.IsValid, $"--input-log przeszło z {tryb}");
+            Assert.IsTrue(plan.Error!.Contains("--input-log"), plan.Error);
+            Assert.AreEqual(BadArgumentValue, plan.ExitCode, tryb);
+        }
+    }
+
+    [TestMethod]
+    public void InputLogIsAllowedFromTheKeyboardAndFromAReplay()
+    {
+        var zKlawiatury = Parse("--input-log=/tmp/keys.log");
+        Assert.IsTrue(zKlawiatury.IsValid, zKlawiatury.Error);
+        Assert.AreEqual("manual", zKlawiatury.Mode);
+        Assert.AreEqual("/tmp/keys.log", zKlawiatury.InputLogPath);
+
+        // Zapis odtworzenia jest sprawdzeniem samego formatu w obie strony:
+        // `cmp` wejścia z wyjściem musi wyjść zerowy.
+        var zOdtworzenia = Parse("--replay=/tmp/in.log", "--input-log=/tmp/out.log");
+        Assert.IsTrue(zOdtworzenia.IsValid, zOdtworzenia.Error);
+        Assert.AreEqual("/tmp/out.log", zOdtworzenia.InputLogPath);
+        Assert.AreEqual("/tmp/in.log", zOdtworzenia.ReplayPath);
+    }
+
+    [TestMethod]
+    public void NeitherNewArgumentIsSilentlyIgnored()
+    {
+        // Ta sama zasada, co przy `--at-chainag`: literówka ma ZATRZYMAĆ przebieg.
+        foreach (var literowka in new[] { "--input-logs=/tmp/a", "--replays=/tmp/a" })
+        {
+            var plan = Parse(literowka);
+            Assert.IsFalse(plan.IsValid, $"{literowka} przeszło");
+            Assert.AreEqual(UnknownArgument, plan.ExitCode, literowka);
+        }
+
+        CollectionAssert.Contains(RunPlan.KnownArguments, "input-log");
+        CollectionAssert.Contains(RunPlan.KnownArguments, "replay");
+    }
 }

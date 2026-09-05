@@ -64,6 +64,21 @@ public sealed partial class FirstRun : Node3D
     private RunConditions _conditions = null!;
     private TrainController _controller = null!;
     private DriverInput _input = null!;
+
+    /// <summary>
+    /// Dźwignia nastawnika. Siedzi w rdzeniu, bo przesuwa się o <c>tempo · krok</c>
+    /// RAZ NA KROK SYMULACJI, a nie raz na klatkę — patrz <see cref="DriverNotch"/>
+    /// i <c>reports/droga-do-grywalnosci.md</c> §5.1.
+    /// </summary>
+    private DriverNotch _notch = null!;
+
+    /// <summary>
+    /// Stan klawiszy tej klatki. Odczytany raz w <see cref="_Process"/>, użyty przez
+    /// wszystkie kroki, które w tej klatce wypadną — silnik nie ma historii klawiatury
+    /// wewnątrz klatki i model jej nie udaje.
+    /// </summary>
+    private DriverKeys _keys = DriverKeys.None;
+
     private FixedStep _step;
 
     private ScenarioDrive? _scripted;
@@ -72,6 +87,16 @@ public sealed partial class FirstRun : Node3D
     private LineCore? _lineCore;
     private DriveState _state;
     private DriverCommand _command = DriverCommand.Coast;
+
+    /// <summary>
+    /// Polecenie po filtrze stacji — to, które dostał kontroler. HUD pokazuje
+    /// <see cref="_command"/> (dźwignię pod ręką maszynisty), telemetria pokazuje TO
+    /// (wejście fizyki). Rozróżnienie ma znaczenie tylko w trybie ręcznym, bo tylko
+    /// tam działa <see cref="StationService"/>, i tylko tam blokada trakcji na czas
+    /// cyklu drzwi rozjeżdża jedno z drugim.
+    /// </summary>
+    private DriverCommand _effectiveCommand = DriverCommand.Coast;
+
     private double _acceleration;
 
     private TunnelView _tunnel = null!;
@@ -164,6 +189,22 @@ public sealed partial class FirstRun : Node3D
 
     private bool _scriptedMode;
     private bool _lineMode;
+
+    /// <summary>Przejazd odtwarzany z zapisu wejść (<c>--replay</c>).</summary>
+    private bool _replayMode;
+
+    /// <summary>Zapis wejść do odtworzenia; <c>null</c> poza <c>--replay</c>.</summary>
+    private InputLog? _replay;
+
+    /// <summary>Zbieranie wejść do zapisu; <c>null</c> bez <c>--input-log</c>.</summary>
+    private InputLogRecorder? _recorder;
+
+    private string? _inputLogPath;
+    private string? _replayPath;
+
+    /// <summary>Zapis wejść już poszedł na dysk. Bez tego wyszedłby dwa razy: z końca przebiegu i z <c>_ExitTree</c>.</summary>
+    private bool _inputLogWritten;
+
     private string? _callsPath;
     private double _limitKmh;
     private string? _signallingPath;
@@ -242,7 +283,13 @@ public sealed partial class FirstRun : Node3D
         if (_telemetryPath is not null)
         {
             _telemetry.Add(DriveTelemetry.Header);
-            _telemetry.Add(DriveTelemetry.Row(_scripted!));
+
+            // Wiersz zerowy: stan PRZED pierwszym krokiem. W przebiegu skryptowym
+            // podaje go `ScenarioDrive`; w odtworzeniu takiego obiektu nie ma, więc
+            // wiersz składa się z tych samych składników, co każdy następny.
+            _telemetry.Add(_scripted is not null
+                ? DriveTelemetry.Row(_scripted)
+                : ManualTelemetryRow());
         }
 
         PlaceEverything();
@@ -279,6 +326,9 @@ public sealed partial class FirstRun : Node3D
         _shotPath = plan.ShotPath;
         _scriptedMode = plan.ScriptedMode;
         _lineMode = plan.LineMode;
+        _replayMode = plan.ReplayMode;
+        _inputLogPath = plan.InputLogPath;
+        _replayPath = plan.ReplayPath;
         _callsPath = plan.CallsPath;
         _limitKmh = plan.LimitKmh;
         _signallingPath = plan.SignallingPath;
@@ -344,8 +394,28 @@ public sealed partial class FirstRun : Node3D
             TrackEnvironment.Tunnel);
 
         _controller = new TrainController(_model);
-        _input = new DriverInput(DesignAssumptions.ControlNotchRatePerSecond);
+        _input = new DriverInput();
+        _notch = new DriverNotch(DesignAssumptions.ControlNotchRatePerSecond);
         _state = DriveState.AtRest;
+
+        if (_replayPath is not null)
+        {
+            _replay = ReadInputLog(_replayPath);
+            if (_replay is null)
+            {
+                return;
+            }
+
+            GD.Print(string.Create(
+                CultureInfo.InvariantCulture,
+                $"[WEJŚCIE] odtworzenie z {_replayPath}: {_replay.Steps} kroków, "
+                + $"{_replay.Entries.Count} zmian klawiszy"));
+        }
+
+        if (_inputLogPath is not null)
+        {
+            _recorder = new InputLogRecorder();
+        }
 
         if (_lineMode)
         {
@@ -465,6 +535,33 @@ public sealed partial class FirstRun : Node3D
         catch (Exception error) when (error is ArgumentException or FormatException)
         {
             Abort(ExitBadArgumentValue, $"[SYGNALIZACJA] {path} nie jest planem: {error.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Zapis wejść maszynisty z pliku. Czytany przez <see cref="FileAccess"/> z tego
+    /// samego powodu co plan sygnalizacji: ścieżka spod `res://` ma działać.
+    /// </summary>
+    /// <param name="path">Ścieżka pliku zapisu.</param>
+    /// <returns>Odczytany zapis albo <c>null</c>, gdy przebieg został przerwany.</returns>
+    private InputLog? ReadInputLog(string path)
+    {
+        using var file = FileAccess.Open(path, FileAccess.ModeFlags.Read);
+        if (file is null)
+        {
+            Abort(ExitMissingInput,
+                $"[WEJŚCIE] nie da się otworzyć {path}: {FileAccess.GetOpenError()}");
+            return null;
+        }
+
+        try
+        {
+            return InputLog.Parse(file.GetAsText());
+        }
+        catch (Exception error) when (error is ArgumentException or FormatException)
+        {
+            Abort(ExitBadArgumentValue, $"[WEJŚCIE] {path} nie jest zapisem wejść: {error.Message}");
             return null;
         }
     }
@@ -630,16 +727,30 @@ public sealed partial class FirstRun : Node3D
             return;
         }
 
-        if (!_scriptedMode)
+        if (!_scriptedMode && !_replayMode)
         {
-            _command = _input.Poll(delta);
+            // KLATKA CZYTA KLAWISZE, KROK PRZESUWA DŹWIGNIĘ. Do 05.09.2026 stało tu
+            // `_command = _input.Poll(delta)`, czyli przesuw nastawnika o
+            // `tempo · Δt_klatki`, a wszystkie kroki tej klatki dostawały to samo
+            // polecenie. Skutkiem było, że o położeniu dźwigni decydowała LICZBA KLATEK:
+            // ta sama sekwencja klawiszy dawała 566,407284 m przy 120 kl./s i
+            // 566,641450 m przy 60 kl./s (reports/droga-do-grywalnosci.md §5.1),
+            // przy bramkach porównujących telemetrię z progiem 0.
+            //
+            // Odczyt klawiatury zostaje raz na klatkę, bo silnik nie daje jej częściej
+            // i zmyślanie historii wewnątrz klatki byłoby wymyślaniem wejścia gracza.
+            // Przesuw dźwigni przeniósł się do `StepOnce`, czyli pod licznik kroków.
+            _keys = _input.Read();
             HandleViewKeys();
         }
 
         // Przebieg z `--calls` jest WERYFIKACYJNY, więc leci syntetycznym rytmem:
         // 853 s przejazdu w czasie ściennym to 853 s czekania w CI. Bez `--calls`
         // tryb `--line` idzie czasem ściennym, bo wtedy ktoś na to patrzy.
-        var synthetic = _scriptedMode || (_lineMode && _callsPath is not null);
+        // Odtworzenie z zapisu wejść leci tak samo i z tego samego powodu — a przy
+        // okazji to `--steps-per-frame` jest w nim JEDYNYM sposobem, żeby ten sam
+        // zapis puścić przy różnym podziale kroków na klatki.
+        var synthetic = _scriptedMode || _replayMode || (_lineMode && _callsPath is not null);
         AdvanceBy(synthetic ? SyntheticFrameSeconds() : delta);
         PlaceEverything();
         UpdateHud();
@@ -651,6 +762,10 @@ public sealed partial class FirstRun : Node3D
         else if (_lineMode && (_lineCore?.Finished ?? _line?.Finished ?? false))
         {
             FinishLineRun();
+        }
+        else if (_replay is not null && _state.Steps >= _replay.Steps)
+        {
+            FinishReplayRun();
         }
     }
 
@@ -762,15 +877,67 @@ public sealed partial class FirstRun : Node3D
             return true;
         }
 
+        // Numer kroku, który zaraz się wykona. `_state.Steps` rośnie dopiero w
+        // `Advance`, więc TU jest jeszcze indeks tego kroku — i to jest ten sam numer,
+        // pod którym wejście trafia do zapisu i z którego jest odczytywane. Gdyby
+        // zapis i odtworzenie brały go z dwóch różnych miejsc pętli, przejazdy
+        // przesunęłyby się o jeden krok i nikt by nie wiedział który jest prawdziwy.
+        var stepIndex = _state.Steps;
+
+        // Odtworzenie z zapisu bierze klawisze PO NUMERZE KROKU, a nie z klawiatury.
+        // Poza tym ścieżka jest ta sama co dla człowieka: ten sam `DriverNotch`,
+        // ten sam `StationService`, ten sam `TrainController`. Osobna ścieżka przez
+        // fizykę odbierałaby porównaniu gracza z rdzeniem wszelkie znaczenie.
+        var keys = _replay?.KeysAt(stepIndex) ?? _keys;
+        _recorder?.Record(stepIndex, keys);
+
+        // JEDEN krok dźwigni na JEDEN krok symulacji. Klatka obejmująca N kroków
+        // wykona to N razy z tym samym `keys` — stan klawiszy jest stały w obrębie
+        // klatki, położenie nastawnika nie. Dlaczego akurat tak: `DriverNotch`.
+        _command = _notch.Advance(keys, _step);
+
         // `Filter` posuwa licznik cyklu drzwi, więc musi zostać zawołane DOKŁADNIE RAZ
         // na krok symulacji — nie raz na klatkę. `AdvanceBy` woła `StepOnce` tyle razy,
         // ile kroków wypada w klatce, i to jest właściwe miejsce.
         var effective = _stations?.Filter(_state, _command, ChainageM) ?? _command;
+
+        // Telemetria pokazuje polecenie, którym NAPRAWDĘ pojechał kontroler, czyli po
+        // filtrze stacji — a nie surowe położenie dźwigni. Ta sama zasada, co
+        // w `RunHeader`: kolumna, która nie jest wejściem fizyki, przepuściłaby
+        // rozjazd w obsłudze drzwi przy porównaniu z progiem 0 i nikt by nie wiedział,
+        // że blokada trakcji zadziałała w innym kroku.
+        _effectiveCommand = effective;
+
         _state = _controller.Advance(
             _state, _conditions, effective, SpeedLimitMps, _step, out var forces);
         _acceleration = forces.AccelerationMps2;
-        return true;
+
+        if (_replay is null)
+        {
+            return true;
+        }
+
+        var finished = _state.Steps >= _replay.Steps;
+        if (_telemetryPath is not null
+            && (DriveTelemetry.IsSample(_state.Steps, _sampleEvery) || finished))
+        {
+            _telemetry.Add(ManualTelemetryRow());
+        }
+
+        // Koniec przebiegu zgłasza `_Process`, tak samo jak dla scenariusza i dla linii.
+        // Tutaj tylko przerywa się pętla kroków tej klatki, żeby kroki spoza zapisu
+        // nie wykonały się „z rozpędu" na przeniesionej reszcie akumulatora.
+        return !finished;
     }
+
+    /// <summary>
+    /// Wiersz telemetrii przejazdu bez scenariusza — prowadzonego z klawiatury albo
+    /// odtwarzanego z zapisu wejść. Format składa <see cref="DriveTelemetry"/>, żeby
+    /// wiersz wyszedł identyczny co do bajtu z wierszem rdzenia.
+    /// </summary>
+    /// <returns>Wiersz CSV zgodny z <see cref="DriveTelemetry.Header"/>.</returns>
+    private string ManualTelemetryRow() => DriveTelemetry.Row(
+        _state, _step, ChainageM, _acceleration, _effectiveCommand, DriveTelemetry.ManualPhase);
 
     private double ChainageM => _line?.ChainageM
         ?? (_lineCore is not null
@@ -928,8 +1095,18 @@ public sealed partial class FirstRun : Node3D
         {
             _state = DriveState.AtRest;
             _accumulator.DropCarry();
-            _input.Set(DriverCommand.Coast);
+            _input.Clear();
+            _notch.Set(DriverCommand.Coast);
+            _keys = DriverKeys.None;
             _command = DriverCommand.Coast;
+
+            // Zapis wejść idzie po NUMERZE KROKU, a reset cofa licznik kroków do zera —
+            // dalsze nagrywanie nadpisywałoby numery, które już padły. Zapis zaczyna się
+            // więc od nowa, razem z przejazdem. To, czego reset NIE obejmuje, to
+            // `StationService` (kolejka stacji zostaje tam, gdzie dojechał skład) —
+            // usterka opisana w reports/droga-do-grywalnosci.md §5.4 i zadanie G-4,
+            // świadomie nietknięte tutaj, żeby zapis wejść nie udawał, że ją naprawia.
+            _recorder?.Clear();
         }
 
         _resetKeyHeld = resetKey;
@@ -1123,6 +1300,70 @@ public sealed partial class FirstRun : Node3D
             $"chainage={ChainageM:F3} m droga={_state.DistanceM:F3} m klatek={_frames} " +
             $"powód={_scripted!.FinishReason}"));
         GetTree().Quit();
+    }
+
+    /// <summary>
+    /// Koniec odtworzenia z zapisu wejść: zapis ma skończoną liczbę kroków, więc
+    /// przebieg też. To jest jedyny tryb prowadzony poleceniem maszynisty, który
+    /// KOŃCZY SIĘ SAM — przejazd z klawiatury nie ma dziś warunku końca
+    /// (<c>reports/droga-do-grywalnosci.md</c> §1.4) i to jest osobne zadanie.
+    /// </summary>
+    private void FinishReplayRun()
+    {
+        if (_done)
+        {
+            return;
+        }
+
+        _done = true;
+        WriteTelemetry();
+        WriteInputLog();
+        GD.Print(string.Create(
+            CultureInfo.InvariantCulture,
+            $"[ODTWORZENIE] koniec: kroków={_state.Steps} t={_state.TimeSeconds(_step):F3} s "
+            + $"chainage={ChainageM:F3} m droga={_state.DistanceM:F3} m klatek={_frames} "
+            + $"zapis={_replayPath}"));
+        GetTree().Quit();
+    }
+
+    /// <summary>
+    /// Zapis wejść na dysk. Idempotentny, bo woła go i koniec przebiegu, i
+    /// <see cref="_ExitTree"/> — przejazd z klawiatury nie ma warunku końca, więc
+    /// jedynym momentem, w którym plik może powstać, jest wyjście z gry.
+    /// </summary>
+    private void WriteInputLog()
+    {
+        if (_inputLogPath is null || _recorder is null || _inputLogWritten)
+        {
+            return;
+        }
+
+        _inputLogWritten = true;
+        using var file = FileAccess.Open(_inputLogPath, FileAccess.ModeFlags.Write);
+        if (file is null)
+        {
+            GD.PrintErr($"[WEJŚCIE] nie da się zapisać {_inputLogPath}: {FileAccess.GetOpenError()}");
+            return;
+        }
+
+        var log = _recorder.Build();
+
+        // `StoreString`, nie `StoreLine`: `InputLog.ToText` kończy każdy wiersz sam,
+        // znakiem `\n`. Plik ma wyjść identyczny co do bajtu na każdej maszynie, więc
+        // o końcach wierszy decyduje format, a nie silnik.
+        file.StoreString(log.ToText());
+        GD.Print(string.Create(
+            CultureInfo.InvariantCulture,
+            $"[WEJŚCIE] {log.Steps} kroków, {log.Entries.Count} zmian klawiszy -> {_inputLogPath}"));
+    }
+
+    /// <inheritdoc/>
+    public override void _ExitTree()
+    {
+        // Jedyne miejsce, w którym zapis wejść z przejazdu KLAWIATUROWEGO może powstać:
+        // taki przejazd nie kończy się sam, kończy go Esc albo zamknięcie okna.
+        WriteInputLog();
+        base._ExitTree();
     }
 
     private void FinishLineRun()
