@@ -59,6 +59,12 @@ REQUIRED_FIELDS = (
     "Zależy od",
 )
 
+#: Pole, które `docs/TASK-TEMPLATE.md` DOKŁADA do wpisu odhaczonego, a którego nie ma
+#: wpis czekający w kolejce. Zmierzone na tym drzewie: wpisów `### [x] T-NNN` jest 15,
+#: żaden nie ma „Skończone, gdy", a 12 ma to pole — jest więc jednoznacznym
+#: znacznikiem wpisu zamkniętego.
+DONE_ONLY_FIELD = "Wynik"
+
 #: Ile pozycji kolejki ma DZIŚ komplet sześciu pól. Zmierzone 05.09.2026 na `b41c158`:
 #: 8 z 33. To jest zapadka, nie cel — wolno ją tylko podnosić. Celem jest
 #: `MINIMUM_READY_ITEMS`, czyli tyle udokumentowanych pozycji, ile licznik zapasu
@@ -437,3 +443,69 @@ def test_the_field_parser_actually_parses():
         "nagłówek innego poziomu nie jest blokiem szczegółów"
     assert detail_sections("##### T-010 · nie numer kolejki") == {}
 
+
+
+def test_the_documented_ratchet_does_not_lag_behind_the_file():
+    """Zapadka, która nigdy się nie zaciska, jest licznikiem, nie zapadką.
+
+    `test_the_documented_reserve_does_not_regress` pilnuje jednego kierunku:
+    skasowanie bloku zapala bramkę. Drugiego kierunku nie pilnuje nic — a to jest
+    ta sama rodzina defektu, którą ten plik już dwa razy łapał: kontrola, która
+    ma na co patrzeć, ale patrzy tylko w jedną stronę.
+
+    Zmierzone 05.09.2026 na `8b7b767`, czyli na tej właśnie bramce: dopisanie
+    dziewiątego bloku szczegółów (`6.C4`, sześć pól z treścią) **przechodziło
+    cały zestaw**, 1475/1475. Zapadka zostawała na ósemce i od tej chwili
+    zwalniała jedną udokumentowaną pozycję — próg mówił „co najmniej 8", a plik
+    miał 9. Po dziesięciu takich krokach `MINIMUM_DOCUMENTED_ITEMS = 8`
+    pilnowałoby stanu sprzed dziesięciu commitów, a nie stanu pliku.
+
+    Ten test wymusza podniesienie stałej w tym samym commicie, w którym rośnie
+    liczba opisanych pozycji — aż do `MINIMUM_READY_ITEMS`. Wyżej nie ma po co:
+    tam warunek zlewa się z progiem zapasu i bramka działa z pełną siłą, czyli
+    „dwanaście pozycji, każda z sześcioma polami".
+    """
+    reached = len(documented_items(_tasks()))
+    target = min(reached, MINIMUM_READY_ITEMS)
+    assert MINIMUM_DOCUMENTED_ITEMS >= target, (
+        f"opisanych pozycji jest {reached}, a zapadka stoi na "
+        f"{MINIMUM_DOCUMENTED_ITEMS} — podnieś ją do {target} w tym samym "
+        "commicie, w którym dopisujesz blok")
+
+
+def test_no_detail_block_carries_the_field_of_a_finished_entry():
+    """Pozycja ZROBIONA ma inne pola i nie ma prawa zostać w zapasie.
+
+    `test_closed_items_are_exempt_from_the_six_fields_on_purpose` rozstrzyga
+    przypadek, w którym pozycja **przeniosła się** do tabeli domknięć. Zostaje
+    przypadek odwrotny i cichszy: pozycja została zrobiona, ktoś dopisał jej wynik
+    do bloku szczegółów i **nie ruszył** wiersza w tabeli kolejki. Blok ma wtedy
+    komplet sześciu pól, więc liczy się do `documented_items`, a pracy już nie ma —
+    licznik znów pokazuje więcej zapasu, niż jest.
+
+    Miara jest ta sama, którą posługuje się `docs/TASK-TEMPLATE.md`: pole „Wynik",
+    dokładane do wpisu odhaczonego. Zmierzone na tym drzewie: wpisów
+    `### [x] T-NNN` jest 15, **żaden** nie ma pola „Skończone, gdy", a 12 ma
+    „Wynik" — to pole jest więc jednoznacznym znacznikiem wpisu zamkniętego,
+    a nie przypadkowym słowem.
+    """
+    text = _tasks()
+    ready = set(ready_items(text))
+    marker = "- **%s:**" % DONE_ONLY_FIELD
+    for number, body in sorted(detail_sections(text).items()):
+        if number in ready:
+            assert marker not in body, (
+                "%s ma pole %s, czyli jest zrobione, a jego wiersz nadal stoi "
+                "w tabeli kolejki i liczy sie do zapasu; miejsce takiego numeru "
+                "jest w sekcji domkniec" % (number, DONE_ONLY_FIELD))
+
+
+def test_the_finished_entry_field_is_the_one_the_template_adds():
+    # Kontrola negatywna do miary wyżej. Gdyby `DONE_ONLY_FIELD` przestało być
+    # polem, którego szablon NIE wymaga od pozycji niezrobionej, test wyżej albo
+    # wywracałby każdy poprawny blok, albo nie zapalałby się nigdy.
+    assert DONE_ONLY_FIELD not in REQUIRED_FIELDS, (
+        "pole wpisu zrobionego trafiło do sześciu pól wymaganych — "
+        "wtedy zakaz wyżej wywraca każdy poprawny blok")
+    assert "**%s:**" % DONE_ONLY_FIELD in _tasks(), (
+        "pole wpisu zrobionego zniknęło z całego planu — miara straciła desygnat")
