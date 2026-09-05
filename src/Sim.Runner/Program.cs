@@ -80,6 +80,8 @@ public static class Program
               replay  --keys PLIK --signalling PLIK.json  przejazd ręczny z zapisu wejść, bez silnika
                       [--out CSV] [--axis PLIK] [--notch-rate X]
                       [--exchange-s X] [--stop-window-m X] [--sample-every N]
+                      [--atp]                              plan nie tylko daje limit, ale PILNUJE
+                      [--limit-kmh X]                      sufit maszynisty; wymaga --atp
               compare PLIK_A PLIK_B [--tolerance METRY]   rozjazd dwóch telemetrii
               axis    --axis PLIK [--manifest PLIK]       kontrola osi wobec manifestu chunków
               parity                                      kontroler vs AccelerationRun z T-310
@@ -193,6 +195,25 @@ public static class Program
     /// (<c>FirstRun.BuildSimulation</c>). Cichy odwrót na 80 km/h wygląda tak samo, jak
     /// przejazd poprawny, i to jest jedyny powód, dla którego ta ścieżka nie ma
     /// wartości domyślnej.</para>
+    ///
+    /// <para><b><c>--atp</c>: plan nie tylko DAJE limit, ale go PILNUJE.</b> Bez tej
+    /// flagi przejazd jest dokładnie taki, jak przed 05.09.2026 — plan jest czytany,
+    /// skład nie jest zarejestrowany w sygnalizacji, nie dostaje autorytetu jazdy i nikt
+    /// nie ingeruje w polecenie. Z flagą wchodzi <see cref="CabProtection"/>: bloki,
+    /// nastawnia, autorytet i ochrona, która hamuje za maszynistę. Flaga jest opcją, bo
+    /// jej brak jest dziś stanem WSZYSTKICH bramek trybu ręcznego w CI i te bramki mają
+    /// zostać co do bitu tym, czym są; nie jest to wyłącznik ochrony w rozgrywce —
+    /// w scenie ATP włącza się razem z argumentem <c>--signalling</c> i nie da się go
+    /// z kabiny zdjąć (Issue #26: „nie można ominąć ATP przez input gracza").</para>
+    ///
+    /// <para><b><c>--limit-kmh</c> jest SUFITEM MASZYNISTY, a nie prędkością
+    /// dopuszczalną.</b> To dwie różne liczby i dopiero ich rozdzielenie czyni ochronę
+    /// obserwowalną: sufit ogranicza to, o co maszynista MOŻE poprosić
+    /// (<c>TrainController</c>), a prędkość dopuszczalna z planu jest tym, czego ochrona
+    /// PILNUJE. Póki sufit jest równy limitowi planu, ochrona nie ma czego łapać —
+    /// sterownik i tak nie przekroczy 72,00 km/h. Dlatego <c>--limit-kmh</c> bez
+    /// <c>--atp</c> jest ODMOWĄ: byłby wtedy przejazdem ręcznym z wymyślonym sufitem
+    /// i bez żadnego nadzoru, czyli dokładnie tą usterką, którą naprawiło #246.</para>
     /// </summary>
     private static int Replay(string[] args)
     {
@@ -210,6 +231,21 @@ public static class Program
         var notchRate = OptionalNumber(args, "--notch-rate") ?? 0.80;
         var exchangeSeconds = OptionalNumber(args, "--exchange-s") ?? 8.0;
         var stopWindowM = OptionalNumber(args, "--stop-window-m") ?? 5.0;
+        var atp = Array.IndexOf(args, "--atp") >= 0;
+        var limitKmh = OptionalNumber(args, "--limit-kmh");
+        if (limitKmh is not null && !atp)
+        {
+            throw new ArgumentException(
+                "replay --limit-kmh wymaga --atp: sufit maszynisty ponad limit planu bez "
+                + "ochrony pociągu jest przejazdem ręcznym z wymyśloną prędkością i bez "
+                + "nadzoru — dokładnie tym, co naprawiło #246");
+        }
+
+        if (limitKmh is double ceiling && (!double.IsFinite(ceiling) || ceiling <= 0.0))
+        {
+            throw new ArgumentException(
+                $"replay --limit-kmh={ceiling.ToString(Inv)} nie jest dodatnią prędkością");
+        }
 
         var log = InputLog.Parse(File.ReadAllText(keysPath));
         var axis = TrackAxis.FromJson(File.ReadAllText(axisPath));
@@ -242,10 +278,24 @@ public static class Program
             ? new StationService(axis.Stations, new DoorCycle(exchangeSeconds), step, stopWindowM)
             : null;
 
+        // Ochrona pociągu dla kabiny: bloki, nastawnia, autorytet i ingerencja. `null`
+        // znaczy „plan jest czytany, nie prowadzi" i wtedy przejazd jest bit w bit taki,
+        // jak przed dodaniem tej gałęzi — ani jedno wołanie `Supervise` się nie odbywa.
+        var cab = atp
+            ? CabProtection.M7(manualPlan, SignalledTrainId, scenario.StartChainageM)
+            : null;
+
         var state = DriveState.AtRest;
         var command = DriverCommand.Coast;
         var acceleration = 0.0;
-        var speedLimitMps = manualPlan.PermittedSpeedMps;
+
+        // SUFIT MASZYNISTY i PRĘDKOŚĆ DOPUSZCZALNA to dwie różne liczby, i dopiero ich
+        // rozdzielenie czyni ochronę obserwowalną. Bez `--limit-kmh` są tą samą liczbą
+        // z planu i wtedy ochronie nie ma czego łapać — sterownik nie przekroczy limitu,
+        // którego mu nie wolno przekroczyć.
+        var speedLimitMps = limitKmh is double kmh
+            ? Units.KmhToMps(kmh)
+            : manualPlan.PermittedSpeedMps;
 
         double Chainage() => scenario.StartChainageM + state.DistanceM;
 
@@ -253,11 +303,21 @@ public static class Program
         // telemetrię CO DO BITU, a telemetria nie ma kolumny z limitem. Gdyby obie
         // strony wzięły inną liczbę, a przejazd jej nie dotknął, porównanie i tak
         // wyszłoby zielone — dokładnie to działo się między #246 a tą zmianą.
+        //
+        // Początek wiersza — do ścieżki planu włącznie — jest STAŁY, bo tyle wycina
+        // `grep -o` w bramce „Manual mode — both sides must hold the same speed ceiling".
+        // Zmienia się dopiero ogon, i ma się zmieniać: przejazd pod ochroną a przejazd
+        // czytający tę samą liczbę to dwie różne rzeczy i log ma je odróżniać.
+        var limitTail = cab is null
+            ? "plan jest czytany, nie prowadzi — bez blokad i bez ochrony pociągu"
+            : string.Create(
+                Inv,
+                $"plan PILNUJE — bloki, autorytet jazdy i ATP; sufit maszynisty " +
+                $"{Units.MpsToKmh(speedLimitMps):F2} km/h");
         Console.Error.WriteLine(string.Create(
             Inv,
             $"[LIMIT] tryb ręczny: {Units.MpsToKmh(manualPlan.PermittedSpeedMps):F2} km/h " +
-            $"z planu {manualPlan.PlanId} ({signallingPath}); plan jest czytany, nie " +
-            $"prowadzi — bez blokad i bez ochrony pociągu"));
+            $"z planu {manualPlan.PlanId} ({signallingPath}); {limitTail}"));
 
         var lines = new List<string> { DriveTelemetry.Header };
 
@@ -272,14 +332,19 @@ public static class Program
         // kroki drugi raz i nigdy nie doszłaby do końca pliku.
         var sessionStep = 0L;
         var resets = 0;
+        var topSpeedMps = 0.0;
         while (sessionStep < log.Steps)
         {
             // Reset obowiązuje PRZED swoim krokiem — ta sama kolejność, co w scenie.
             // `RunRestart` jest jedną odpowiedzią na pytanie „co reset zeruje" dla obu
-            // stron porównania; osobna lista tutaj rozjechałaby się po cichu.
+            // stron porównania; osobna lista tutaj rozjechałaby się po cichu. Ochrona
+            // kabiny jest w tej odpowiedzi, a nie obok niej: `FixedBlockSystem.MoveTrain`
+            // odmawia cofnięcia czoła, więc pierwszy meldunek ruchu po resecie
+            // skończyłby się wyjątkiem, a bramka porównująca scenę z rdzeniem przy
+            // progu 0 wymaga, żeby obie strony zerowały DOKŁADNIE to samo.
             if (log.IsResetAt(sessionStep))
             {
-                var restarted = RunRestart.Apply(notch, stations, lines);
+                var restarted = RunRestart.Apply(notch, stations, cab, lines);
                 state = restarted.Drive;
                 command = restarted.Command;
                 acceleration = restarted.AccelerationMps2;
@@ -292,15 +357,39 @@ public static class Program
             }
 
             var keys = log.KeysAt(sessionStep);
+
+            // Nastawnia i nadzór PRZED krokiem, ze stanu sprzed kroku — fazy 1b i 2
+            // `LineCore.Step`. Decyzja powstaje tu, a stosuje się ją niżej, za filtrem
+            // stacji: ochrona ma być OSTATNIM filtrem polecenia.
+            //
+            // Zegarem nastawni jest numer kroku PRZEJAZDU, a nie sesji, i to jest ta
+            // sama liczba, którą podaje scena. Po resecie ochrona powstaje od nowa
+            // (`CabProtection.Reset`), więc jej odstęp żądań tras ma liczyć się od zera
+            // razem z nią; `sessionStep` dałby tu zegar, który przeżył przejazd.
+            cab?.Supervise(state.Steps, Chainage(), state.SpeedMps);
+
             var requested = notch.Advance(keys, step);
 
             // `Filter` posuwa licznik cyklu drzwi, więc DOKŁADNIE RAZ na krok.
             var effective = stations?.Filter(state, requested, Chainage()) ?? requested;
 
+            // ATP na samym końcu łańcucha poleceń — Issue #26: „nie można ominąć ATP
+            // przez input gracza". Bez ochrony `Apply` nie istnieje i polecenie idzie
+            // do kontrolera dokładnie takie, jak przedtem.
+            effective = cab is null ? effective : cab.Apply(effective);
+
             state = controller.Advance(state, conditions, effective, speedLimitMps, step, out var forces);
             acceleration = forces.AccelerationMps2;
             command = effective;
             sessionStep++;
+            if (state.SpeedMps > topSpeedMps)
+            {
+                topSpeedMps = state.SpeedMps;
+            }
+
+            // Meldunek ruchu PO kroku — faza 3 `LineCore.Step`. Przed krokiem opisywałby
+            // położenie, z którego skład właśnie odjechał.
+            cab?.Move(Chainage());
 
             // Próbkowanie idzie po numerze kroku PRZEJAZDU — po resecie od zera, tak samo
             // jak wiersz zerowy. Koniec pliku jest natomiast pytaniem o SESJĘ.
@@ -330,7 +419,22 @@ public static class Program
             $"[ODTWORZENIE] {keysPath}: kroków={state.Steps} t={state.TimeSeconds(step):F3} s " +
             $"chainage={Chainage():F3} m droga={state.DistanceM:F3} m " +
             $"sesja={sessionStep} kroków resetów={resets} " +
+            $"szczyt={Units.MpsToKmh(topSpeedMps):F3} km/h " +
             $"zmian klawiszy={log.Entries.Count} stacji obsłużonych={served} przejechanych={missed}"));
+
+        // Podsumowanie ochrony jest LICZBAMI, a nie zdaniem „ATP działało". Zero ingerencji
+        // przy przejeździe pod limitem planu jest wynikiem, nie brakiem wyniku — dlatego
+        // wiersz wychodzi zawsze, gdy ochrona była wpięta.
+        if (cab is not null)
+        {
+            Console.Error.WriteLine(string.Create(
+                Inv,
+                $"[ATP] ostrzeżeń={cab.Warnings} ingerencji służbowych={cab.ServiceInterventions} " +
+                $"awaryjnych={cab.EmergencyInterventions} " +
+                $"max żądanie={cab.MaxBrakeDemandMps2:F3} m/s² " +
+                $"(hamulec służbowy {cab.Protection.ServiceBrakeMps2:F3} m/s²) " +
+                $"tras zaryglowanych={cab.Dispatcher.Locked} odmów={cab.Dispatcher.Refused}"));
+        }
         foreach (var call in stations?.Calls ?? (IReadOnlyList<StationCall>)Array.Empty<StationCall>())
         {
             Console.Error.WriteLine(string.Create(

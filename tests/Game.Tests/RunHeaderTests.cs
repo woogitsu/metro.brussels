@@ -268,6 +268,51 @@ public sealed class RunHeaderTests
         Assert.AreEqual(PlanLimitKmh, LimitFromHeader(header), 0.05, header);
     }
 
+    [TestMethod]
+    public void KabinaPodOchronaJedzieSUFITEMMaszynistyANieLimitemPlanu()
+    {
+        // To są DWIE RÓŻNE LICZBY i dopiero ich rozdzielenie czyni ingerencję ATP
+        // możliwą. Sufit dostaje kontroler, bo tyle wolno maszyniście poprosić;
+        // limitu planu pilnuje ochrona i on wychodzi osobno, jako `v_dop` w HUD-zie.
+        // Przy suficie równym limitowi planu sterownik nie przekroczy 72,00 km/h,
+        // więc ochrona nie miałaby czego łapać.
+        var plan = Parse("--signalling=/tmp/plan.json", "--limit-kmh=76");
+        Assert.IsTrue(plan.IsValid, plan.Error);
+        Assert.IsTrue(plan.ManualSignalling);
+
+        var scenario = Scenario();
+        var signalling = Plan(Axis());
+        var limitMps = RunHeader.SpeedLimitMps(plan, scenario, null, null, signalling);
+
+        Assert.AreEqual(76.0, Units.MpsToKmh(limitMps), 1e-9,
+            "kontroler dostał limit planu zamiast sufitu maszynisty");
+        Assert.AreNotEqual(
+            PlanLimitKmh, Units.MpsToKmh(limitMps), 1e-9,
+            "sufit ponad limit planu zniknął — ochrona nie miałaby czego łapać");
+
+        var header = RunHeader.Line(
+            plan, ViewKind.Cab, scenario, FixedStep.Simulation, Conditions(),
+            core: null, line: null, manualPlan: signalling);
+        Assert.AreEqual(76.0, LimitFromHeader(header), 0.05, header);
+    }
+
+    [TestMethod]
+    public void KabinaPodOchronaBezSufituJedzieLimitemPlanu()
+    {
+        // Sufit jest OPCJĄ. Bez niego wpięcie ochrony nie zmienia ani jednej liczby
+        // w nagłówku — a to jest warunek tożsamości: przejazd pod ATP przy limicie
+        // planu ma być tym samym przejazdem, co bez ATP.
+        var plan = Parse("--signalling=/tmp/plan.json");
+        Assert.IsTrue(plan.IsValid, plan.Error);
+        Assert.IsTrue(plan.ManualSignalling);
+
+        var signalling = Plan(Axis());
+        var limitMps = RunHeader.SpeedLimitMps(plan, Scenario(), null, null, signalling);
+
+        Assert.AreEqual(signalling.PermittedSpeedMps, limitMps, 0.0,
+            "limit kabiny bez sufitu ma być TĄ SAMĄ liczbą, co limit planu — nie równą jej");
+    }
+
     /// <summary>
     /// Odtworzenie z zapisu wejść jest trybem ręcznym z klawiszami z pliku, więc jedzie
     /// tym samym limitem. Gdyby brało inny, przejazd gracza i jego odtworzenie

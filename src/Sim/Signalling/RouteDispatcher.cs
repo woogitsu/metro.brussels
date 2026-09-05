@@ -119,7 +119,20 @@ public sealed class RouteDispatcher
             return false;
         }
 
-        if (_plan.NextRouteFrom(frontChainageM) is not Route next)
+        // Blok CZOŁA najpierw, zajętość całego składu dopiero jako uzupełnienie.
+        // Kolejność jest treścią, nie stylem: pierwszy człon jest dokładnie tym, co ta
+        // metoda robiła do 05.09.2026, więc każdy skład, który dostawał przedtem trasę,
+        // dostaje tę samą trasę teraz. Drugi człon może wyłącznie ZNALEŹĆ trasę tam,
+        // gdzie przedtem nie było żadnej — a „nie było żadnej" znaczyło dla składu
+        // z czołem w bloku szlakowym: stać na zawsze.
+        //
+        // Zmierzone na kabinie prowadzonej ręcznie (pakiet A, czoło startuje na
+        // 94,000 m, czyli już w bloku szlakowym S01, ogon w P01): bez drugiego członu
+        // nastawnia nie zamawiała ANI JEDNEJ trasy, autorytet kończył się na 462,730 m
+        // z powodem `BlockNotReserved`, a ochrona hamowała skład awaryjnie przez
+        // 1998 kroków, zanim ten dojechał do pierwszej stacji.
+        if ((_plan.NextRouteFrom(frontChainageM) ?? system.NextRouteForTrain(trainId))
+            is not Route next)
         {
             // Za ostatnim peronem nie ma dokąd ryglować. Nie jest to usterka: skład
             // dojechał do końca planu i autorytet kończy się na `EndOfLine`.

@@ -20,7 +20,7 @@ dotnet test tests/Sim.Tests          # rdzeń symulacji, bez Godota
 
 ## Stan: co działa, a czego nie ma
 
-**Rdzeń symulacji — `src/Sim/`, 51 plików `.cs`, kompiluje się i testuje bez silnika:**
+**Rdzeń symulacji — `src/Sim/`, 52 plików `.cs`, kompiluje się i testuje bez silnika:**
 
 - fizyka: model trakcji M7, opór Davisa, hamowanie służbowe i granica przyczepności,
   krok stały 1/120 s liczony **licznikiem kroków**, nigdy `t += dt`;
@@ -39,9 +39,12 @@ dotnet test tests/Sim.Tests          # rdzeń symulacji, bez Godota
   w liczniku miniętych; błąd zatrzymania jest mierzony i pokazywany;
 - **tryb `--line`**: scena przejeżdża całą linię z 11 zatrzymaniami, prowadzona rdzeniem;
   zatrzymania sceny i rdzenia są identyczne co do wszystkich kolumn (próg **zerowy**);
-- **sygnalizacja w kabinie** (`--signalling`): HUD pokazuje prędkość dopuszczalną,
-  autorytet jazdy z powodem jego końca i licznik zaryglowanych tras. Odczyt, nie
-  ingerencja — czy ATP ma hamować za maszynistę, jest decyzją o rozgrywce;
+- **sygnalizacja w kabinie** (`--signalling`, działa też BEZ `--line`): skład wchodzi
+  na bloki, nastawnia rygluje mu trasy, a ATP **naprawdę hamuje za maszynistę** —
+  ostrzeżenie, potem hamulec służbowy. HUD pokazuje prędkość dopuszczalną, autorytet
+  jazdy z powodem jego końca, licznik zaryglowanych tras i rodzaj ingerencji. Pod
+  limitem planu ochrona nie rusza ani jednego kroku i ślad jest identyczny co do bitu
+  z przejazdem bez niej; wyłączyć jej z kabiny nie można;
 - rozjazd Godot ↔ rdzeń **0,000 m**, ten sam odcisk telemetrii przy nierównym podziale
   klatek (`reports/T-400-first-run.md`);
 - zrzuty z silnika idą przez tę samą kontrolę wizualną co geometria, odtwarzalne co do
