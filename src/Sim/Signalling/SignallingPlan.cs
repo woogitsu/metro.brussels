@@ -498,6 +498,34 @@ public sealed class SignallingPlan
 
     // --- wczytanie i zapis --------------------------------------------------------
 
+    /// <summary>
+    /// Pole, ktorego brak znaczy „to nie jest plan sygnalizacji", a nie „plan jest zly".
+    /// </summary>
+    /// <remarks>
+    /// Zmierzone 06.09.2026 przy 6.A12 (`reports/obsada-planu.md` §5):
+    /// <c>budget --signalling data/design/signalling/cbtc-test-2026.json</c> konczylo sie
+    /// kodem <b>134</b> i stosem wywolan. Powodem nie byly dane — ten plik opisuje obszar
+    /// i tryb (<c>area_id</c>, <c>mode</c>, <c>status</c>), a nie plan blokow — tylko
+    /// reakcja: <c>JsonElement.GetProperty</c> rzuca <c>KeyNotFoundException</c>, ktorego
+    /// wspolny handler w <c>Sim.Runner</c> nie lapie (lapie <c>IOException</c>,
+    /// <c>ArgumentException</c>, <c>FormatException</c>, <c>InvalidOperationException</c>).
+    /// <c>FormatException</c> jest tam od poczatku i uzywaja jej wszystkie pozostale
+    /// odmowy tego loadera, wiec ta poprawka nie wprowadza nowego kodu wyjscia.
+    /// </remarks>
+    private static JsonElement Required(JsonElement owner, string field, string what)
+    {
+        if (!owner.TryGetProperty(field, out var value))
+        {
+            throw new FormatException(
+                $"{what} nie ma pola '{field}' — to nie wyglada na plan sygnalizacji. "
+                + "Plan blokow ma plan_id, axis_id, protection_variant, generation, blocks "
+                + "i routes; plik opisujacy obszar i tryb (area_id, mode, status) planem "
+                + "nie jest.");
+        }
+
+        return value;
+    }
+
     /// <summary>Plan z treści pliku <c>data/design/signalling/*.json</c>.</summary>
     public static SignallingPlan FromJson(string json)
     {
@@ -505,14 +533,14 @@ public sealed class SignallingPlan
         using var document = JsonDocument.Parse(json);
         var root = document.RootElement;
 
-        var schema = root.GetProperty("schema_version").GetInt32();
+        var schema = Required(root, "schema_version", "dokument").GetInt32();
         if (schema != CurrentSchemaVersion)
         {
             throw new FormatException(
                 $"plan sygnalizacji ma schema_version {schema}, a rdzeń zna {CurrentSchemaVersion}");
         }
 
-        var status = ParameterStatusParser.Parse(root.GetProperty("status").GetString() ?? string.Empty);
+        var status = ParameterStatusParser.Parse(Required(root, "status", "dokument").GetString() ?? string.Empty);
         if (status != ParameterStatus.DesignModel)
         {
             // Awans planu na spec/observed bez identyfikatora źródła jest dokładnie tym,
@@ -522,22 +550,22 @@ public sealed class SignallingPlan
             if (string.IsNullOrWhiteSpace(sourceId))
             {
                 throw new FormatException(
-                    $"plan {root.GetProperty("plan_id").GetString()} ma status " +
+                    $"plan {Required(root, "plan_id", "dokument").GetString()} ma status " +
                     $"'{ParameterStatusParser.ToRegistryString(status)}' bez source_id — " +
                     "plan bez źródła musi zostać design_model");
             }
         }
 
-        var variant = (root.GetProperty("protection_variant").GetString() ?? string.Empty) switch
+        var variant = (Required(root, "protection_variant", "dokument").GetString() ?? string.Empty) switch
         {
             "legacy_fixed_block" => ProtectionVariant.LegacyFixedBlock,
             "legacy_with_kcv" => ProtectionVariant.LegacyWithKcv,
             var other => throw new FormatException($"nieznany protection_variant: '{other}'"),
         };
 
-        var generation = root.GetProperty("generation");
+        var generation = Required(root, "generation", "dokument");
         var blocks = new List<Block>();
-        foreach (var element in root.GetProperty("blocks").EnumerateArray())
+        foreach (var element in Required(root, "blocks", "dokument").EnumerateArray())
         {
             blocks.Add(new Block(
                 element.GetProperty("id").GetString() ?? throw new FormatException("blok bez id"),
@@ -553,7 +581,7 @@ public sealed class SignallingPlan
         }
 
         var routes = new List<Route>();
-        foreach (var element in root.GetProperty("routes").EnumerateArray())
+        foreach (var element in Required(root, "routes", "dokument").EnumerateArray())
         {
             var ids = new List<string>();
             foreach (var id in element.GetProperty("blocks").EnumerateArray())
@@ -578,15 +606,15 @@ public sealed class SignallingPlan
         }
 
         return new SignallingPlan(
-            root.GetProperty("plan_id").GetString() ?? "?",
-            root.GetProperty("mode").GetString() ?? "?",
-            root.GetProperty("axis_id").GetString() ?? "?",
+            Required(root, "plan_id", "dokument").GetString() ?? "?",
+            Required(root, "mode", "dokument").GetString() ?? "?",
+            Required(root, "axis_id", "dokument").GetString() ?? "?",
             status,
             variant,
-            root.GetProperty("require_route").GetBoolean(),
+            Required(root, "require_route", "dokument").GetBoolean(),
             Units.KmhToMps(DesignValue(root, "default_permitted_speed_kmh")),
             DesignValue(root, "authority_margin_m"),
-            generation.GetProperty("platform_block_length_m").GetDouble(),
+            Required(generation, "platform_block_length_m", "pole generation").GetDouble(),
             blocks.ToArray(),
             routes.ToArray(),
             unknown.ToArray());
@@ -729,7 +757,7 @@ public sealed class SignallingPlan
     /// </summary>
     private static double DesignValue(JsonElement root, string name)
     {
-        var element = root.GetProperty(name);
+        var element = Required(root, name, "dokument");
         if (element.ValueKind != JsonValueKind.Object)
         {
             throw new FormatException(
