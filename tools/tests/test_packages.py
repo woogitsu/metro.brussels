@@ -17,15 +17,20 @@ sys.path.insert(0, os.path.join(ROOT, "tools", "track"))
 import build_alignment as B  # noqa: E402
 import crosscheck_alignment as X  # noqa: E402
 import crs as CRS  # noqa: E402
+import validate as V  # noqa: E402
 
 NETWORK = os.path.join(ROOT, "data", "network", "lines.json")
 # id osi -> (pakiet, linia w lines.json)
 PACKAGE_FILES = {"L1_A": ("A", "L1"), "L1_B": ("B", "L1"), "L5_C": ("C", "L5"),
                  "L5_D": ("D", "L5"), "L2_E": ("E", "L2"), "L6_F": ("F", "L6")}
-# Granice z tools/track/validate.py — oś, która ich nie spełnia, nie przejdzie walidatora.
-MAX_POINT_GAP_M = 25.0
-MIN_POINT_GAP_M = 0.5
-MIN_RADIUS_M = 90.0
+#: Granice CZYTANE z `tools/track/validate.py`, nie przepisane z niego. Do 6.B25 stały
+#: tu trzy liczby wpisane z ręki pod komentarzem „Granice z tools/track/validate.py";
+#: komentarz mówił, skąd są, i nic nie pilnowało, żeby nadal stamtąd były. Kopia progu
+#: walidatora rozjeżdża się w jedną stronę po cichu: oś, która przestaje spełniać
+#: prawdziwy próg, przechodzi tutaj, bo tutejszy został przy starej wartości.
+#: Nazwa `MIN_RADIUS_M` znika przy okazji — była w repozytorium zajęta drugi raz,
+#: przy innej wartości (20,0 w `tools/blender/clearance.py`, stała martwa od #50).
+VALIDATOR = V.LIMITS
 
 
 def _network():
@@ -183,7 +188,7 @@ def test_packages_resample_at_line_end_has_no_zero_gap():
     sliced = B.slice_polyline(line, 0.0, 586.8)
     sampled = [p for p, _ in B.resample_uniform(sliced, 15.0, [0.0, 586.8])]
     gaps = [math.dist(a, b) for a, b in zip(sampled, sampled[1:])]
-    assert min(gaps) > MIN_POINT_GAP_M, min(gaps)
+    assert min(gaps) > VALIDATOR["min_point_gap_m"], min(gaps)
 
 
 def test_packages_densify_keeps_vertices_and_respects_step():
@@ -324,8 +329,8 @@ def test_packages_committed_axes_have_finite_points_and_sane_gaps():
         for x, y in points:
             assert math.isfinite(x) and math.isfinite(y), name
         gaps = [math.dist(a, b) for a, b in zip(points, points[1:])]
-        assert min(gaps) > MIN_POINT_GAP_M, (name, min(gaps))
-        assert max(gaps) < MAX_POINT_GAP_M, (name, max(gaps))
+        assert min(gaps) > VALIDATOR["min_point_gap_m"], (name, min(gaps))
+        assert max(gaps) < VALIDATOR["max_point_gap_m"], (name, max(gaps))
 
 
 def test_packages_committed_axes_keep_radius_above_validator_limit():
@@ -334,7 +339,7 @@ def test_packages_committed_axes_keep_radius_above_validator_limit():
         if document is None:
             continue
         radii = B.radius_stats([(p[0], p[1]) for p in document["points"]])
-        assert radii["min_m"] >= MIN_RADIUS_M, (name, radii)
+        assert radii["min_m"] >= VALIDATOR["min_radius_m"], (name, radii)
 
 
 def test_packages_committed_station_order_follows_lines_json():

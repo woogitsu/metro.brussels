@@ -1828,8 +1828,16 @@ def test_clearance_profile_the_hand_rolled_absolute_value_is_measured_equivalenc
     wymaga DWÓCH kandydatów bliżej niż milimetr od swoich kilometraży. Kandydaci to
     sąsiednie pierścienie osi, czyli 5 m od siebie — zmierzone: 0 takich par na
     24 800 sprawdzonych wierzchołków. Na osi zdegenerowanej (łuk R = 0,01 m,
-    pierścienie co 0,5 mm) różnica pojawia się i wynosi 2,47e-05 m, ale
-    `MIN_RADIUS_M` w tym repozytorium to 20 m, a pierścienie stoją co 5 m.
+    pierścienie co 0,5 mm) różnica pojawia się i wynosi 2,47e-05 m, ale najmniejszy
+    dopuszczalny promień osi to `LIMITS["min_radius_m"]` walidatora, czyli **90 m**,
+    a pierścienie stoją co 5 m — więc oś zdegenerowana nie przejdzie walidatora.
+
+    Zdanie jest przepisane, a nie dopisane obok (6.B25). Poprzednia wersja powoływała
+    się na `MIN_RADIUS_M` „w tym repozytorium" równe 20 m — stałą z
+    `tools/blender/clearance.py`, która od swojego pierwszego commita (#50) **nie była
+    czytana przez żaden kod**, a tę samą nazwę nosił drugi próg, o innej wartości.
+    Argument nie tylko powoływał się na liczbę martwą; powoływał się na **słabszą**,
+    niż obowiązuje: 90 m tym bardziej wyklucza zdegenerowany łuk niż 20 m.
 
     Ten test przybija to, po co ta gałąź stoi: że wybierana jest ramka NAJBLIŻSZA
     wzdłuż stycznej, po obu stronach kilometrażu jednakowo.

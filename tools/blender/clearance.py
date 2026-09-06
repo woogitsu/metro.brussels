@@ -39,7 +39,6 @@ import m7_layout  # noqa: E402
 import profiles  # noqa: E402
 import sweep  # noqa: E402
 
-MIN_RADIUS_M = 20.0
 #: Odstęp, przy którym dwa niemieszczące się punkty należą jeszcze do tego samego
 #: przedziału. Punkty osi stoją co 7,6-22,4 m (zmierzone na sześciu osiach
 #: `data/track/`), więc próg musi być powyżej największego z tych odstępów.
