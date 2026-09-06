@@ -61,7 +61,7 @@ uruchomienia, tylko własność trybu: §1.4 niżej.
 plikiem **dwa** trafienia — `FirstRun.cs:66` (pole) i `FirstRun.cs:314` (konstrukcja).
 `DriverInput.Help` nie ma **ani jednego**.
 
-### 1.3 Cztery tryby, i to, że sterowanie i sygnalizacja są rozłączne
+### 1.3 Sześć trybów, i to, że sterowanie i sygnalizacja są rozłączne
 
 `RunPlan` rozstrzyga tryb z wiersza poleceń [Z KODU, `src/Game/RunPlan.cs:129–131`]:
 
@@ -81,9 +81,14 @@ plikiem **dwa** trafienia — `FirstRun.cs:66` (pole) i `FirstRun.cs:314` (konst
 | `from-telemetry` | `--from-telemetry=PLIK` | **nikt — ruch jest zadany plikiem**, fizyka nie liczy się ani razu (6.C3) | nie, i to jest odmowa: ochrona ingeruje w polecenie, którego tu nie ma | ostatnia próbka pliku |
 | `shot` | `--shot=PLIK --at-chainage=X` | jw. albo `LineDrive` | jw. | migawka |
 
-> Wiersz `from-telemetry` dopisany 06.09.2026 (6.C3). Nagłówek sekcji mówi „cztery
-> tryby" i mówił tak już przy pięciu wierszach tabeli — liczby w nim nie poprawiam,
-> bo nie jest ona wynikiem żadnego pomiaru, a tabela stoi obok i liczy się sama.
+> Wiersz `from-telemetry` dopisany 06.09.2026 (6.C3). **Nagłówek sekcji jest
+> PRZEPISANY 06.09.2026 (6.C5), a nie zostawiony obok:** mówił „cztery tryby" i
+> mówił tak już przy pięciu wierszach tabeli — 6.C3 tej liczby świadomie nie ruszył,
+> bo nie była wynikiem JEGO pomiaru. 6.C5 policzył ją naprawdę, z trzech miejsc
+> osobno — ile odrębnych nazw zwraca `RunPlan.Mode` w kodzie, ile podaje ten
+> nagłówek, ile ma tabela obok — i wszystkie trzy zgodziły się na tej samej
+> liczbie, więc nagłówek dostał liczbę z pomiaru zamiast liczby z pamięci. Zgodność
+> tych trzech pilnuje odtąd `tools/tests/test_run_mode_claims.py`.
 > **`--telemetry` a `--from-telemetry` to ten sam format pliku w dwóch różnych rolach**:
 > pierwszy jest wyjściem, drugi wejściem. Odtwarzanie z `--from-telemetry` jest przy
 > tym czymś innym niż odtworzenie z `--replay`, i to jest cała różnica między dwoma
