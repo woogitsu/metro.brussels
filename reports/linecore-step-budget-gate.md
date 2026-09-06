@@ -105,9 +105,19 @@ Obie kontrole chodzą też w CI, jako krok „Core step gate can actually go red
 
 ## 7. Czego ta bramka NIE mierzy, świadomie
 
-**Przejazdu z wybiegiem.** `budget` nie zna `--coast-from-m` — to jest pozycja 6.A18,
-otwarta — więc mierzony jest przejazd **bez wybiegu**. Bramka mówi to w wypisie przy
-każdym przebiegu, zamiast milcząco mierzyć jeden wariant i nazywać go „kosztem kroku".
+**Przejazdu z wybiegiem.** Mierzony jest przejazd **bez wybiegu**. Bramka mówi to
+w wypisie przy każdym przebiegu, zamiast milcząco mierzyć jeden wariant i nazywać go
+„kosztem kroku".
+
+> **Adnotacja z 06.09.2026 (6.A18).** Pomiar powyżej zostaje nietknięty — zmienia się
+> tylko powód tego zdania. Gdy je pisano, `budget` **nie znał** `--coast-from-m`, więc
+> pomiar z wybiegiem był niewykonalny. Od 6.A18 zna, i brak wybiegu jest tu **wyborem**:
+> `coast_from_m: null` stoi w `tools/ci/linecore-step-budget.json` i stamtąd biorą go
+> naraz wywołanie i zdanie w wypisie. `null` zostaje, bo próg 8,0 µs pochodzi
+> z przejazdu bez wybiegu, a wybieg zmienia **przejazd**, nie tylko jego koszt —
+> zmierzone przy 6.A18 na tej samej osi: `N_śr` 6,69 bez wybiegu, 6,67 przy 250 m,
+> 6,40 przy 120 m, przy `µs/krok` nierozróżnialnym w szumie (3,73–3,84). Pomiar
+> z wybiegiem wymaga więc **nowego progu i nowego raportu**, nie samej liczby w polu.
 
 **Progu klatki z ekstrapolacji `N ≈ 330–390`.** `reports/linecore-budget.md` §7 mówi
 wprost, że to ekstrapolacja **56–65× poza zakres pomiaru** (N ≤ 6,9). Pole „Poza

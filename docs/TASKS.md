@@ -717,7 +717,8 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.D23 | **ZROBIONE (06.09.2026).** `provenance.write_manifest_if_changed()` — JEDNA implementacja, oba fetchery ja wolaja. Dwa przebiegi z rzedu na niezmienionym zrodle: pierwszy `manifest utworzony`, drugi `manifest bez zmian: content_sha256 ten sam, plik nietkniety`, ta sama suma i **ten sam `mtime`** — rowny mtime jest tu wazniejszy od rownej sumy, bo zapis identycznych bajtow tez wyglada jak praca, ktorej nie bylo. Po zmianie tresci zrodla: `manifest zmieniony`, inna suma. `git status --short data/` puste. Kryterium jest **waskie celowo**: wylacznie `content_sha256`, nie caly `diff_manifests` — pytanie o inne pola wariant C dopiero otwiera i nalezy do wlasciciela; osobny test to przybija. `CLAUDE.md` §4.6 NIETKNIETY. Dwie WYKONANE kontrole negatywne, druga pilnuje wlasnie tej granicy. **Czego pomiar nie pokazal**: przebiegi uzyly syntetycznego archiwum i manifestu w katalogu tymczasowym, bo archiwum zrodlowe lezy poza repozytorium — na prawdziwym pliku z `data/` nie zostalo to wykonane i raport mowi to wprost. Pomiar w `reports/manifest-przy-zmianie-tresci.md`. Tresc pierwotna: **Wariant C: fetchery pisza manifest tylko przy zmianie tresci** — `provenance.diff_manifests()` istnieje i porownuje `content_sha256`, a `fetch_gtfs.py` i `fetch_stib_shapes.py` **go nie wolaja** | **DECYZJA WLASCICIELA z 06.09.2026** na warianty z `reports/zapisy-do-data.md` §3. Regula `CLAUDE.md` §4.6 zostaje NIETKNIETA — zmieniaja sie narzedzia, nie regula. Wariant E domyka przy tym `build_alignment.py` i `normalize_stops.py` bez zmiany ich kodu | M |
 | 6.D24 | **Brakujaca biblioteka natywna runtime'u jako niezbadany mechanizm** — `libhostfxr.so` / `libcoreclr.so`, w odroznieniu od brakujacego assembly | znalezione przy 6.D21, ktore szescioma wykonanymi probami NIE odtworzylo zawieszenia i nazwalo ten mechanizm jako niezbadany, zamiast go domniemywac | S |
 | 6.A17 | **Czlon obciecia w bilansie energii to 96,89 MJ i nikt go nie mierzy osobno** — ~27 kWh przy 142,45 kWh trakcji, czyli 19 % | znalezione przy 6.A6 (#323). Bilans domyka sie wzglednie do 2,1E-15, wiec liczba nie jest bledem — jest miara tego, jak dlugo sklad wisi na limicie z pelnym nastawnikiem, i nikt jej nie sledzi | M |
-| 6.A18 | **`--coast-from-m` istnieje w `line`, nie istnieje w `budget` ani `replay`** — trzy polecenia czytaja ten sam `LineRunSettings`, ale wybieg widzi jedno | znalezione przy 6.A6 (#323), ktore swiadomie nie wyszlo poza `line`. Pomiar kosztu kroku przy wybiegu (6.D2) i odtworzenie przejazdu z wybiegiem (`replay`) sa dzis niewykonalne | S |
+| 6.A18 | **ZROBIONE (06.09.2026).** `budget` przyjmuje `--coast-from-m`, a naglowek `[BUDZET]` wypisuje nastawe z powrotem — bo sam kod 0 dowodzi tylko, ze opcja jest PRZYJMOWANA, i przeszedlby przy dopisaniu samej nazwy do tabeli. Dowodem, ze nastawa dochodzi do `LineCore`, jest pomiar trojstronny na jednym scenariuszu: `N_sr` **6.69** bez wybiegu, **6.67** przy 250 m, **6.40** przy 120 m, przy `czeka_sr` rosnacym 2.09 -> 2.11 -> 2.39. Kolumna `us/krok` tego NIE pokazuje (3.73-3.84 to szum), wiec gdyby dowodem miala byc ona, dowodu by nie bylo. **Zdanie pozycji bylo nieprawdziwe i pomiar to pokazal**: `LineRunSettings` buduja **dwa** polecenia, nie trzy — `replay` odtwarza ZAPIS WEJSC przez `TrainController`, wiec nastawa automatu nadpisywalaby wejscia z `--keys` i odtworzenie przestaloby byc odtworzeniem. Dzisiejsza odmowa `replay` jest przybita testem, a pytanie oddane do kolejki jako **6.A19**. Bramka 6.D2 przestala mowic o niemozliwosci: `coast_from_m` stoi w scenariuszu i stamtad biora go NARAZ wywolanie i zdanie w wypisie, wiec nie moga sie rozjechac; `null` zostaje, bo prog 8,0 us pochodzi z przejazdu bez wybiegu. Kontrola negatywna WYKONANA. **Znalezisko obok**: 84 z 89 modulow `tools/tests/` nie ma bloku `__main__`, wiec `python3 tools/tests/<modul>.py` konczy sie **kodem 0 przy zero wykonanych testach** — na tym wlasnie pierwsza probe kontroli negatywnej odczytalem jako „bramka nie zapala sie"; dopisane jako **6.D25**. Pomiar w `reports/wybieg-poza-poleceniem-line.md`. Tresc pierwotna: **`--coast-from-m` istnieje w `line`, nie istnieje w `budget` ani `replay`** | znalezione przy 6.A6 (#323), ktore swiadomie nie wyszlo poza `line`. Pomiar kosztu kroku przy wybiegu (6.D2) i odtworzenie przejazdu z wybiegiem (`replay`) sa dzis niewykonalne | S |
+| 6.D25 | **`python3 tools/tests/<modul>.py` konczy sie kodem 0 przy zero wykonanych testach** — 84 z 89 modulow nie ma bloku `__main__` | zmierzone przy 6.A18, na wlasnej kontroli negatywnej: bramka odczytana jako zielona nie zostala uruchomiona ani raz. Ten sam ksztalt usterki, ktory zestaw lapie u innych — `assertion_gate` od #139, `grep FAIL` slepy na blad importu od 6.D19 | M |
 | 6.B25 | **`MIN_RADIUS_M` w `clearance.py` jest martwe, a nazwa zajeta drugi raz z INNA wartoscia** — 20,0 w `tools/blender/clearance.py`, 90,0 w `tools/tests/test_packages.py`, obie zyja obok siebie | znalezione przy 6.B5 (#324). Zmierzone: stala w `clearance.py` nie jest czytana przez zaden kod, a `test_clearance_profile.py` opisuje ja w docstringu jako obowiazujaca | S |
 | 6.B26 | **Najciasniejszy luk pakietu D lezy na odcinku, ktorego OSM nie widzi jako tunel** — zapas +0,7043 m liczony jest wobec sciany, ktorej moze nie byc | znalezione przy 6.B5 (#324): 0,0-0,2 m od przedzialu bez tunelu, wobec >= 314 m na pozostalych pieciu osiach. Roznica jest o trzy rzedy wielkosci, wiec nie jest szumem pomiaru | M |
 
@@ -2784,6 +2785,42 @@ znika stąd i pojawia się jako wpis z sześcioma polami wyżej w tym pliku.
   6.B27: wymagałoby rozbioru składni C#, a nie czytania tekstu.
 - **Zależy od:** 6.B27.
 
+##### 6.D25 · Moduł testowy uruchomiony wprost kończy się zerem, nie uruchomiwszy testu
+
+- **Skąd:** zmierzone 06.09.2026 przy 6.A18, **na własnej kontroli negatywnej**. Opcja
+  została zdjęta z tabeli `KnownOptions`, bramka uruchomiona przez
+  `python3 tools/tests/test_runner_options.py`, wynik: `kod: 0` — i został odczytany jako
+  „bramka się nie zapala". Nieprawda: moduł nie ma bloku `if __name__ == "__main__"`,
+  więc uruchomiony wprost wykonuje same definicje, **zero testów**, i kończy się zerem
+  nieodróżnialnie od przebiegu, w którym wszystko przeszło. Ta sama kontrola powtórzona
+  przez `test_all.py` dała `FAIL` wskazujący wpis po nazwie.
+- **Ile tego jest:** `ls tools/tests/test_*.py | wc -l` → **89**;
+  `grep -l '__main__' tools/tests/test_*.py | wc -l` → **5**. Czyli **84 moduły**
+  zachowują się tak samo. Blok mają: `test_all`, `test_braking`, `test_ci_workflows`,
+  `test_mutation_sweep`, `test_reference_snapshot`.
+- **Wejście:** `tools/tests/test_all.py` (jedyny prawomocny sposób uruchomienia zestawu),
+  `tools/tests/assertion_gate.py` jako precedens z #139, `reports/wybieg-poza-poleceniem-line.md` §6.
+- **Wyjście:** uruchomienie pojedynczego modułu wprost przestaje kłamać. Kształt do
+  wyboru **na podstawie pomiaru, nie założenia**: albo wspólny blok `__main__` wołający
+  ten sam przebiegacz co `test_all.py` na jednym module, albo odmowa z kodem różnym od
+  zera i zdaniem, którym poleceniem uruchomić zestaw. Czego NIE wolno: zostawić kodu 0.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_runner_options.py; echo "kod: $?"
+  python3 tools/tests/test_all.py; echo "kod: $?"
+  ```
+  Oczekiwane: pierwsze polecenie albo naprawdę wykonuje testy tego modułu i wypisuje ich
+  liczbę, albo kończy się kodem różnym od zera z instrukcją; **nigdy** kodem 0 przy
+  zerze wykonanych testów. Drugie: bez zmian, kod 0.
+- **Skończone, gdy:** żaden moduł `tools/tests/test_*.py` uruchomiony wprost nie kończy
+  się kodem 0, nie wykonawszy ani jednego testu — sprawdzone **pętlą po wszystkich 89**,
+  której wynik jest wklejony, a nie na jednym przykładzie. Kontrola negatywna WYKONANA:
+  test celowo zepsuty w jednym module jest widoczny przy uruchomieniu wprost tego modułu.
+- **Poza zakresem:** zamiana zestawu na `pytest` albo `unittest`. To jest zmiana
+  zależności i przebiegacza (`CLAUDE.md` §8), a ta pozycja dotyczy jednego zachowania
+  przy uruchomieniu wprost.
+- **Zależy od:** nic.
+
 ### Czego agent nie ruszy bez decyzji
 
 Poniższe **nie są kolejką** — są listą rzeczy, które czekają na właściciela. Agent po nie
@@ -2799,6 +2836,7 @@ nie sięga, nawet gdy nie ma nic innego do roboty; wtedy sięga po fazę 5.
 | pakiety **C, D, F** bez tuneli | decyzja, co budować zamiast rury |
 | **6.A4** propagacja opóźnienia | przeniesione z kolejki 05.09.2026. Wpis T-320 ma sekcję STOP: „model perturbacji i polityka dyspozytora **nie są opisane w żadnym dokumencie**. Agent zatrzymuje się i pyta, zamiast wybierać sam”. Wiersz kolejki bronił się liczbą — „rozkład postojów jest zmierzony, 29 554 zatrzymań, 12–45 s” — ale zmierzony jest **rozkład postojów**, nie wielkość zaburzenia. Skąd wzięło się 30 s, nie mówi żadne źródło, a to jest właśnie model perturbacji |
 | **6.B3** LOD tuneli pakietów B–F | przeniesione z kolejki 05.09.2026, po tym jak audyt (`reports/kolejka-audyt-aktualnosci.md` §1) pokazał, że pozycja opisuje trzy różne stany naraz. **B i E mają LOD od T-210** — wpis T-210 podaje „szczelina między chunkami, poziomami LOD i w bryle kolizyjnej 0,0000 mm w każdym pakiecie”. **C, D i F czekają na wiersz wyżej**, czyli na decyzję, co budować zamiast rury: `reports/surface-vs-tunnel.md` §1 podaje, że wszystkie 81 punktów sprzecznych między UrbIS a OSM leży w D (48) i F (33). Zostaje więc zero pracy, której nie blokuje tamta decyzja |
+| **6.A19** wybieg w `replay` | wyszło przy 6.A18. Pozycja 6.A18 zakładała, że `LineRunSettings` czytają **trzy** polecenia; `grep -n "new LineRunSettings" src/Sim.Runner/Program.cs` daje **dwa** — `LineCommand` i `Budget`. `replay` odtwarza **zapis wejść** z `--keys` przez `TrainController` i `DriverNotch`, więc nastawa automatu zdejmująca trakcję od X metra nadpisywałaby to, co maszynista zrobił, i odtworzenie przestałoby być odtworzeniem — przy zielonym porównaniu telemetrii, bo porównanie mierzy zgodność dwóch przebiegów, a nie to, czy któryś z nich cokolwiek odtwarza. Odczytania wykluczają się: (a) odmowa zostaje na stałe i jest udokumentowana jako własność polecenia, (b) wybieg nadpisuje zapis, a polecenie dostaje inną nazwę, (c) `replay` uczy się drugiego trybu, w którym prowadzi automat, a zapis służy za scenariusz stacji. Dzisiejsza odmowa jest przybita testem `Replay_nie_zna_wybiegu_bo_odtwarza_zapis_wejsc`, żeby jej zniesienie było decyzją podjętą, a nie skutkiem ubocznym. Rozbiór: `reports/wybieg-poza-poleceniem-line.md` §1 |
 | **turnback, perturbacje, dispatcher** w T-320 | nie ma ich w żadnym dokumencie |
 | **pasmo 94..106 m** kamery goniącej | decyzja z 05.09.2026 domyka 6.B11 na paśmie 0..94,0 m — „dopóki cały skład nie wjedzie na oś". Za tą granicą kamera jest już za ogonem, ale bliżej niż nominalne 12,0 m, i kadr bywa nadal jasny: zmierzone 96 m → **42,0 %** pikseli jaśniejszych niż 0,80 w górnych 60 % kadru, wobec 0,0 % od 110 m. Czy ukrywać także to pasmo, jest kolejną decyzją o rozgrywce — liczba 94,0 m padła wprost i agent jej nie rozciąga |
 

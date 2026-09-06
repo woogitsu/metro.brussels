@@ -128,9 +128,52 @@ def test_the_config_names_its_basis_and_the_expected_occupancy():
 
 
 def test_the_gate_says_which_run_it_measures():
-    """`budget` nie zna --coast-from-m (6.A18), wiec mierzy przejazd BEZ wybiegu.
-    Bramka ma to mowic, a nie milczaco mierzyc jeden wariant."""
-    with open(gate.__file__, encoding="utf-8") as handle:
-        source = handle.read()
-    assert "--coast-from-m" in source and "6.A18" in source, (
-        "bramka nie mowi, ktory wariant przejazdu mierzy")
+    """Bramka ma mowic, ktory wariant przejazdu mierzy, a nie milczaco mierzyc jeden.
+
+    **Test przepisany, nie dopisany obok.** Do 6.A18 sprawdzal, ze w zrodle bramki stoi
+    tekst "--coast-from-m" i "6.A18" — czyli ze zdanie ZOSTALO NAPISANE. Zdanie napisane
+    raz i wpisane na sztywno starzeje sie po cichu; ta wersja sprawdza, ze zdanie zgadza
+    sie z tym, co bramka NAPRAWDE uruchamia, bo obie strony czytaja `coast_from_m`.
+    """
+    config = _config()
+    assert "coast_from_m" in config["scenario"], (
+        "scenariusz nie wypowiada sie o wybiegu, wiec zdanie o nim nie ma z czego wynikac")
+    zdanie = gate.coasting(config)
+    if config["scenario"]["coast_from_m"] is None:
+        assert "BEZ wybiegu" in zdanie, zdanie
+    else:
+        assert "Z WYBIEGIEM" in zdanie, zdanie
+        assert str(config["scenario"]["coast_from_m"]) in zdanie, zdanie
+
+
+def test_the_sentence_about_coasting_follows_the_scenario_both_ways():
+    """Oba kierunki na kopii scenariusza — bo tego wlasnie nie sprawdzal test na tekst.
+
+    Wpisanie liczby do scenariusza ma zmienic ZDANIE i WYWOLANIE naraz; brak wybiegu ma
+    usunac opcje z wywolania. Rozjazd ktoregokolwiek z tych dwoch znaczy, ze bramka mowi
+    o innym przejezdzie, niz mierzy.
+    """
+    config = _config()
+    bez = json.loads(json.dumps(config))
+    bez["scenario"]["coast_from_m"] = None
+    assert "BEZ wybiegu" in gate.coasting(bez)
+    assert "--coast-from-m" not in gate.command(bez)
+
+    z_wybiegiem = json.loads(json.dumps(config))
+    z_wybiegiem["scenario"]["coast_from_m"] = 250
+    zdanie = gate.coasting(z_wybiegiem)
+    assert "Z WYBIEGIEM" in zdanie and "250" in zdanie, zdanie
+    argv = gate.command(z_wybiegiem)
+    assert "--coast-from-m" in argv, argv
+    assert argv[argv.index("--coast-from-m") + 1] == "250", argv
+
+
+def test_the_measured_scenario_still_runs_without_coasting():
+    """Prog 8,0 us zmierzono 06.09.2026 na przejezdzie BEZ wybiegu, a wybieg zmienia
+    przejazd, nie tylko jego koszt (N_sr 6.69 bez, 6.40 przy 120 m — zmierzone przy
+    6.A18). Wlaczenie wybiegu w scenariuszu bez nowego pomiaru porownywaloby wynik
+    z progiem wzietym z innego przejazdu, wiec `null` jest tu warunkiem waznosci progu,
+    a nie zaniedbaniem."""
+    assert _config()["scenario"]["coast_from_m"] is None, (
+        "scenariusz wlaczyl wybieg — prog w tym samym pliku musi wtedy pochodzic "
+        "z pomiaru Z WYBIEGIEM, razem z nowym raportem")
