@@ -667,6 +667,8 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.B17 | **ZROBIONE w #289 (06.09.2026).** Ścieżka domyślna jest teraz **jedna na przebieg** (commit + klasy operatorów + zawężenie `--only`), a dziennik z wpisami spoza przebiegu **przerywa start** kodem 2; raport `reports/dziennik-mutacyjny.md`, zestaw **1697 → 1700**. **Wiersz opisywał to za słabo:** nie chodziło o to, że dwa przebiegi sobie przeszkadzają, tylko o **mieszanie wyników** — wynik czytany jest z CAŁEGO dziennika, więc cudze wpisy wchodziły do raportu jako wynik tego pomiaru. Wykonana kontrola: dziennik z jednym obcym wpisem daje raport z pełną sekcją modułu, którego przebieg nie dotykał. **Znalezione obok i świadomie nietknięte:** wpis nie niesie commita, a identyfikator mutacji to przesunięcie bajtowe — pole Poza zakresem tej pozycji zabrania ruszać format, więc to osobna pozycja | znalezione przy 6.B14, gdzie dwa agenty liczyły równolegle; narzędzie samo tego nie sygnalizuje. Pomiar i poprawka domyślnej ścieżki, żadnej decyzji | S |
 | 6.B18 | **ZROBIONE CZESCIOWO w #293 (06.09.2026), i to jest wynik, a nie wymowka.** Zmierzone czesci, raport `reports/czas-przegladu-mutacyjnego.md`: `git worktree add` **0,10 s** (nie „nie jest tani”), zestaw w swiezym worktree **50,9 s** wobec **65,0 s** w cieplym — czyli swiezy jest SZYBSZY, a roznice robi zaslepka zdejmujaca 64 testy narzedzia, nie brak pamieci podrecznej bajtkodu. Sonda pokrycia liczy sie **RAZ na przebieg**, kosztuje **~272 s** i to jest **84 % narzutu przed pierwsza mutacja**; licznik wierszy spowalnia zestaw **5,3-krotnie**. **CZEGO POMIAR NIE WYJASNIA:** suma czesci daje ~6,2 min wobec obserwowanych ponad 20 — **co najmniej dziesieciu minut nie umiemy przypisac**, i raport mowi to wprost, zamiast dopasowywac liczby. Nie zmierzono tez mutacji na minute przy 1, 2 i 4 robotnikach, czego zadalo pole Wyjscie. Reszta w 6.B20 | pomiar narzedzia pomiarowego: gdzie idzie czas, ile kosztuje `git worktree add` na mutacje, czy sonda pokrycia liczy sie raz czy za kazdym razem | M |
 | 6.B19 | **Wpis dziennika mutacyjnego nie wie, z jakiego drzewa pochodzi** — nie niesie commita, a identyfikator mutacji to `plik:wiersz:przesunięcie bajtowe`, więc dziennik z wcześniejszego drzewa może podstawić wynik zapisany dla innego kodu | znalezione przy 6.B17 i tam świadomie nietknięte, bo tamta pozycja dotyczyła **ścieżki**, nie formatu. Pomiar i poprawka, żadnej decyzji | S |
+| 6.B21 | **`test_xml_doc_blocks.py` sprawdza tylko drzewo, ktore JEST czyste** — nikt nie wstrzykuje tam sztucznie zdublowanego bloku `<summary>`, wiec bramka nie ma dowodu, ze umie zaswiecic | znalezione przy 6.B15. Naprawa tania, kontrola negatywna wykonalna bez zadnego narzedzia zewnetrznego | S |
+| 6.B22 | **Tresc 30 z 38 modulow z fraza `kontrola negatywna` nie zostala sprawdzona** — 6.B15 zweryfikowal probke 8 z 38 i powiedzial to wprost | modul moze nazwac kontrole i jej nie wykonac; fraza jest przyblizeniem, nie dowodem. Doczytanie reszty to pomiar, nie decyzja | M |
 | 6.B20 | **Dziesieciu minut przegladu mutacyjnego nadal nikt nie umie przypisac** — 6.B18 zmierzyl czesci i wyszlo ~6,2 min wobec obserwowanych ponad 20 | pomiar, nie decyzja: 6.B18 rozlozyl narzut na czesci i **powiedzial wprost**, ze suma sie nie zgadza; zostaje znalezc reszte i domierzyc mutacje na minute przy 1, 2 i 4 robotnikach, czego tamta pozycja nie zdazyla | M |
 
 #### Pasmo C — warstwa silnika (`src/Game`)
@@ -675,6 +677,7 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 |---|---|---|---|
 | 6.C3 | **Odtwarzanie przejazdu z pliku telemetrii** — scena jako widok zapisanego przebiegu | wynika wprost z zasady „linia jest symulacją, kabina jednym z jej widoków" | M |
 | 6.C4 | **Kamera inspekcyjna** do oglądania geometrii bez jazdy | narzędzie weryfikacji, nie decyzja estetyczna: nie zmienia ani jednego materiału | S |
+| 6.C5 | **Naglowek §1.3 raportu o drodze do grywalnosci liczy tryby recznie** — mowi „Cztery tryby" nad tabela, ktora ma dzis szesc wierszy | znalezione przy 6.C3, ktory dopisal zdanie obok, ale liczby nie ruszyl. Ta sama rodzina usterki co #273: liczba stojaca w jednym miejscu i nigdzie nie liczona rozjezdza sie bezszelestnie | S |
 
 #### Pasmo D — weryfikacja i CI
 
@@ -692,6 +695,9 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.D11 | **Bramka na czas przebiegu `test_all.py`** — 1638 testów w 62,8 s, i nikt tego nie pilnuje | bliźniak 6.D2 po stronie Pythona: pomiar, nie decyzja | S |
 | 6.D12 | **Które narzędzia piszą do `data/`, choć katalog jest tylko do odczytu** — `tools/track/fetch_gtfs.py` aktualizuje manifest proweniencji przy każdym pobraniu | `CLAUDE.md` §4.6 nie przewiduje wyjątku, a narzędzie robi to celowo. Pozycja **mierzy rozjazd i wypisuje warianty**, nie rozstrzyga go — wybór między zmianą reguły a zmianą narzędzia zostaje właścicielowi | S |
 | 6.D13 | **Wzorzec SHA w bramce higieny raportow lapie tez to, co SHA nie jest** — token `9e2066aef7ef` w naglowku jednego raportu to hash builda Blendera, nie commit | znalezione przy 6.D10. Pomiar, ile takich falszywych trafien jest w 71 raportach, i zawezenie wzorca albo nazwanie wyjatku — bez decyzji wlasciciela | S |
+| 6.D15 | **Ile komend z pol „Weryfikacja" w blokach kolejki da sie w ogole uruchomic** — komenda z bloku 6.C3 jest odrzucana przez istniejaca odmowe, kod wyjscia 9 | znalezione przy 6.C3. Pole „Weryfikacja" jest obietnica, ktorej nikt nie sprawdza; pomiar, ile z nich klamie, nie wymaga zadnej decyzji | M |
+| 6.D16 | **`docs/09-data-provenance.md` twierdzi cos, co dla dwoch miejsc jest nieprawda** — ze `retrieved_at` nie moze zmieniac byte-deterministycznego wyjscia, a w `build_alignment.py` i `normalize_stops.py` trafia wprost do commitowanego pliku | znalezione przy 6.D12. Pomiar i przepisanie zdania, ktore przestalo byc prawdziwe | S |
+| 6.D17 | **`docs/23-environment.md` nie mowi, ze Godot wymaga `DOTNET_ROOT`, nie tylko `PATH`** — bez tego pada `Failed to load hostfxr` sygnalem 11, a przy brakujacym assembly wisi bez ani jednego wiersza na stdout do wypalenia limitu czasu | znalezione przy 6.C3, na wlasnej skorze. Dokument ma powiedziec to, co trzeba ustawic | S |
 
 #### Szczegóły pozycji z kompletem sześciu pól
 
@@ -1914,6 +1920,163 @@ co dochodzi ponad ten wspólny zakaz.
   a nie zapis do wzorca — zwłaszcza że kwestionowany token jest **poprawną i pożyteczną
   informacją** o środowisku pomiaru.
 - **Zależy od:** #292 (scalone).
+
+##### 6.B21 · Bramka bloków XML sprawdza tylko drzewo, które JEST czyste
+
+- **Skąd:** znalezione przy pozycji 6.B15 (#296). `tools/tests/test_xml_doc_blocks.py`
+  sprawdza dziś prawdziwe `src/`, które jest aktualnie czyste — i przechodzi. Nikt nie
+  wstrzykuje tam **sztucznie** zdublowanego bloku `<summary>` ani opisu osieroconego,
+  więc bramka **nie ma dowodu, że umie zaświecić**. To jest dokładnie ten stan, przed
+  którym ostrzega `CLAUDE.md` §5: zielona bramka bez pokrycia usypia.
+- **Wejście:** `tools/tests/test_xml_doc_blocks.py`, `src/Sim/Sim.csproj` (komentarz
+  o `GenerateDocumentationFile` i o tym, że CS1591 łapie blok osierocony — to on
+  wyłapał trzy z czterech sztuk w #222), `reports/negative-control-audit.md`.
+- **Wyjście:** kontrola negatywna w `tools/tests/test_xml_doc_blocks.py`, wykonana
+  na wstrzykniętym w pamięci albo w katalogu tymczasowym pliku `.cs`.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py
+  ```
+  plus **wykonana i wklejona** kontrola: plik z dwoma blokami `<summary>` przy jednym
+  składniku zapala bramkę, plik czysty jej nie zapala.
+- **Skończone, gdy:** bramka ma kontrolę negatywną **wykonaną w obu kierunkach** —
+  zdublowany blok zapala, czysty nie zapala — i nie wymaga do tego ani `dotnet`,
+  ani żadnego innego narzędzia zewnętrznego, bo zestaw narzędzi chodzi tam, gdzie
+  `doctor.sh` przepuszcza ich brak.
+- **Poza zakresem:** zmiana czegokolwiek w `src/`. Bramka ma dowieść, że umie
+  zaświecić, a nie znaleźć realną usterkę — realnych dziś nie ma i to jest w porządku.
+- **Zależy od:** nic.
+
+##### 6.B22 · Treść trzydziestu modułów z frazą niesprawdzona
+
+- **Skąd:** pozycja 6.B15 (#296) policzyła moduły z frazą „kontrola negatywna" i
+  **powiedziała wprost**, że sprawdziła treść tylko **ośmiu z trzydziestu ośmiu**.
+  Fraza jest przybliżeniem, nie dowodem: moduł może kontrolę **nazwać i jej nie
+  wykonać**, dokładnie tak samo, jak może ją wykonać i nie nazwać (czterdzieści takich
+  6.B15 znalazło czytaniem treści). Pozycja domyka drugą połowę tego pomiaru.
+- **Wejście:** `reports/negative-control-audit.md` (lista modułów i kryterium),
+  trzydzieści modułów `tools/tests/test_*.py` z frazą, których treści tamta pozycja
+  nie przejrzała, `CLAUDE.md` §5.
+- **Wyjście:** adnotacja w `reports/negative-control-audit.md` z werdyktem dla każdego
+  z brakujących modułów oraz — tam, gdzie fraza okaże się pusta — **wykonana** kontrola.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py
+  ```
+  plus tabela: moduł → czy fraza ma za sobą wykonaną kontrolę → czym to sprawdzono.
+- **Skończone, gdy:** wszystkie trzydzieści osiem modułów z frazą ma werdykt oparty
+  na **treści**, a nie na obecności frazy, a każdy przypadek „fraza bez kontroli" ma
+  albo dopisaną kontrolę, albo nazwany powód, dla której jej nie ma.
+- **Poza zakresem:** zmiana zachowania jakiejkolwiek bramki i pisanie nowych bramek —
+  ta pozycja domyka pomiar, nie rozszerza zakresu.
+- **Zależy od:** #296 (scalone).
+
+##### 6.C5 · Nagłówek raportu o drodze do grywalności liczy tryby ręcznie
+
+- **Skąd:** znalezione przy pozycji 6.C3 (#297). Nagłówek §1.3
+  `reports/droga-do-grywalnosci.md` mówi „Cztery tryby" nad tabelą, która miała pięć
+  wierszy, a po dopisaniu `--from-telemetry` ma **sześć**. 6.C3 dopisał obok zdanie,
+  ale liczby nie ruszył — i słusznie, bo nie była wynikiem jego pomiaru. To ta sama
+  rodzina usterki, którą opisuje bramka z #273: **liczba stojąca w jednym miejscu
+  i nigdzie nie liczona rozjeżdża się bezszelestnie**.
+- **Wejście:** `reports/droga-do-grywalnosci.md` §1.3, `src/Game/RunPlan.cs`
+  (`KnownViews` i rozpoznawanie trybów — źródło prawdy o ich liczbie),
+  `tools/tests/test_report_claims.py` i `tools/tests/test_readme_claims.py` jako
+  precedensy liczenia liczby z kodu, a nie z pamięci autora.
+- **Wyjście:** poprawiony nagłówek **albo** zdjęta z niego liczba, plus bramka
+  w `tools/tests/`, jeżeli pomiar pokaże, że da się ją policzyć z kodu.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py
+  ```
+  plus wypis: ile trybów widzi kod, ile mówi nagłówek, ile ma tabela.
+- **Skończone, gdy:** trzy liczby — z kodu, z nagłówka i z tabeli — są **zgodne albo
+  nagłówek przestaje którąkolwiek podawać**, a decyzja między tymi dwoma wariantami
+  jest w raporcie uzasadniona pomiarem. Precedens jest: `CLAUDE.md` §2 zdjął liczbę
+  testów narzędzi, bo zaszywanie jej generowało rozjazd przy każdym nowym module.
+- **Poza zakresem:** dopisywanie nowych trybów jazdy i zmiana `RunPlan.cs`.
+- **Zależy od:** #297 (scalone).
+
+##### 6.D15 · Ile komend z pól „Weryfikacja" da się w ogóle uruchomić
+
+- **Skąd:** znalezione przy pozycji 6.C3 (#297). Komenda z pola „Weryfikacja" bloku
+  6.C3 jest **niewykonalna** — `--no-geometry --line --telemetry=…` odrzuca istniejąca
+  odmowa łączenia źródeł, kod wyjścia 9. Agent musiał zbudować własną drogę pomiaru
+  i to zrobił, ale pole obiecywało coś, czego nie da się wpisać do terminala.
+  Pole „Weryfikacja" jest w tym projekcie **obietnicą, której nikt nie sprawdza**,
+  a bloków z sześcioma polami jest dziś kilkadziesiąt.
+- **Wejście:** wszystkie bloki `##### <numer> ·` w `docs/TASKS.md` (pole „Weryfikacja"),
+  `tools/tests/test_backlog.py` (parser pól — `missing_fields` sprawdza, czy pole ma
+  treść, ale nie czy ta treść działa), `docs/TASK-TEMPLATE.md`.
+- **Wyjście:** raport w `reports/` z werdyktem dla każdej komendy — **uruchamialna**,
+  **wymaga narzędzia, którego tu nie ma**, albo **niewykonalna z powodu w kodzie** —
+  oraz poprawione pola tam, gdzie komenda jest po prostu błędna.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py
+  ```
+  plus wypis: ile komend zebrano, ile uruchomiono, ile odmówiło i dlaczego.
+- **Skończone, gdy:** raport podaje liczbę komend w trzech kategoriach i wymienia
+  z nazwy **każdą niewykonalną**, a pola „Weryfikacja" bloków niezrobionych pozycji są
+  poprawione tam, gdzie komenda kłamie. Poprawka bloku pozycji **ZROBIONEJ** jest poza
+  zakresem: to zapis historyczny, a nie instrukcja do wykonania.
+- **Poza zakresem:** wykonywanie komend, które wymagają sieci albo trwają dłużej niż
+  kilka minut — wystarczy rozstrzygnąć, że **dają się** uruchomić. Poza zakresem także
+  zmiana kodu, żeby komenda z bloku zaczęła działać: to blok ma opisywać kod, nie odwrotnie.
+- **Zależy od:** nic.
+
+##### 6.D16 · Zdanie o proweniencji, które dla dwóch miejsc jest nieprawdą
+
+- **Skąd:** znalezione przy pozycji 6.D12 (#295). `docs/09-data-provenance.md` twierdzi,
+  że `retrieved_at` „nie może zmieniać byte-deterministycznego canonical outputu".
+  Zmierzone: `build_alignment.py` i `normalize_stops.py` **osadzają to pole wprost
+  w plikach, które są commitowane** — więc dla tych dwóch miejsc zdanie jest dziś
+  nieprawdziwe.
+- **Wejście:** `docs/09-data-provenance.md`, `reports/zapisy-do-data.md` §8 (pomiar),
+  `tools/track/build_alignment.py`, `tools/track/normalize_stops.py`,
+  `tools/data/provenance.py`, wpis T-114.
+- **Wyjście:** zdanie **przepisane, a nie dopisane obok**, plus — jeżeli pomiar to
+  uzasadni — bramka w `tools/tests/` na to, żeby nie wróciło.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py
+  ```
+  plus wypis pokazujący, gdzie `retrieved_at` trafia do pliku commitowanego.
+- **Skończone, gdy:** dokument mówi o tych dwóch miejscach prawdę, a różnica między
+  „manifest proweniencji" a „plik wynikowy" jest w nim nazwana — bo to ona rozstrzyga,
+  kiedy zdanie zachodzi, a kiedy nie.
+- **Poza zakresem:** **rozstrzygnięcie, czy to narzędzia mają przestać osadzać
+  `retrieved_at`, czy reguła ma dopuścić wyjątek.** To jest ta sama decyzja
+  właściciela, której nie podjęła 6.D12, i ta pozycja też jej nie podejmuje —
+  poprawia wyłącznie zdanie, które opisuje stan.
+- **Zależy od:** #295 (scalone).
+
+##### 6.D17 · Godot wymaga `DOTNET_ROOT`, a dokument o tym nie mówi
+
+- **Skąd:** znalezione przy pozycji 6.C3 (#297), na własnej skórze. Bez `DOTNET_ROOT`
+  Godot pada z `Failed to load hostfxr` i sygnałem 11, a przy brakującym assembly
+  **wisi bez ani jednego wiersza na stdout** do wypalenia limitu czasu — czyli objaw
+  nie wskazuje przyczyny. `docs/23-environment.md` mówi, skąd wziąć Godota, ale nie
+  mówi, co ustawić, żeby wystartował.
+- **Wejście:** `docs/23-environment.md`, `.github/workflows/godot-first-run.yml`
+  (jak zmienne są ustawiane w CI — tam działa, więc różnica jest w opisie, nie w CI),
+  `doctor.sh` (sonda Godota), `src/Game/`.
+- **Wyjście:** uzupełniony `docs/23-environment.md` oraz — jeżeli sonda `doctor.sh`
+  tego nie łapie — jej poprawka, żeby brak `DOTNET_ROOT` był widoczny **przed**
+  pierwszym zawieszonym przebiegiem.
+- **Weryfikacja:**
+  ```bash
+  bash doctor.sh
+  python3 tools/tests/test_all.py
+  ```
+  plus **wykonana** kontrola: uruchomienie Godota bez `DOTNET_ROOT` i z nim, z wklejonym
+  wyjściem obu przebiegów.
+- **Skończone, gdy:** dokument podaje komplet zmiennych potrzebnych do uruchomienia
+  Godota, a `doctor.sh` zgłasza ich brak **komunikatem nazywającym przyczynę**, nie
+  ciszą do limitu czasu. Kontrola negatywna wykonana w obie strony.
+- **Poza zakresem:** zmiana czegokolwiek w `.github/workflows/` — w CI to działa,
+  więc różnica jest w dokumencie i w sondzie, nie w workflow.
+- **Zależy od:** #297 (scalone).
 
 **Aktualizacja tej listy jest częścią pracy, nie dodatkiem do niej.** Pozycja zrobiona
 znika stąd i pojawia się jako wpis z sześcioma polami wyżej w tym pliku.
