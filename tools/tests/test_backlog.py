@@ -77,10 +77,18 @@ DONE_ONLY_FIELD = "Wynik"
 #: **dlatego, że wykonano pracę**, a jedynym sposobem jej zaspokojenia było dopisanie
 #: nowego bloku w tym samym commicie.
 #:
-#: Rozstrzyga to arytmetyka, nie gust: pozycji do wzięcia bez bloku zostały **dwie**
-#: (5.6 i 6.B5, przy czym 6.B5 czeka na decyzję o pakietach C, D, F). Po ich zużyciu
-#: bramki **nie dałoby się już spełnić**, a domknięta praca nie dałaby się zacommitować.
-#: Bramka, której da się zadośćuczynić tylko przez chwilę, nie jest bramką.
+#: Rozstrzyga to arytmetyka, nie gust. **Zdanie przepisane, a nie dopisane obok:**
+#: poprzednia wersja mówiła „pozycji do wzięcia bez bloku zostały **dwie** (5.6 i 6.B5,
+#: przy czym 6.B5 czeka na decyzję o pakietach C, D, F)", i nieprawdziwe są w niej oba
+#: członki. Obie te pozycje dostały bloki 06.09.2026, więc pozycji bez bloku jest **zero**
+#: — a 6.B5 na tamtą decyzję **nie czeka**: promień łuku i skrajnia liczą się z osi,
+#: która dla wszystkich sześciu pakietów leży w `data/track/` od #86. Na decyzję „co
+#: budować zamiast rury" czeka 6.B3 (LOD tuneli), i to ona stoi w „Czego agent nie
+#: ruszy bez decyzji" — pomyłka polegała na przeniesieniu blokady z sąsiedniego wiersza.
+#:
+#: Sens tamtej arytmetyki zostaje: po zużyciu pozycji bez bloku bramki **nie dałoby się
+#: już spełnić**, a domknięta praca nie dałaby się zacommitować. Bramka, której da się
+#: zadośćuczynić tylko przez chwilę, nie jest bramką.
 #:
 #: Rola „nie wolno kasować" przeniosła się na `MINIMUM_DETAIL_BLOCKS` — tam jest
 #: monotoniczna i tam ma sens. Ta liczba jest **podłogą alarmową**: wolno jej opadać,
@@ -89,7 +97,15 @@ DONE_ONLY_FIELD = "Wynik"
 #: opisuje akapit w `docs/TASKS.md`, którego pilnuje
 #: `test_the_documented_shortfall_is_written_down_while_it_lasts`.
 #:
-#: Zmierzone 06.09.2026: udokumentowanych i niezrobionych **10**, podłoga **6**.
+#: **Liczba przepisana, a nie dopisana obok, i to w tym samym dniu.** Poprzednia wersja
+#: mówiła „udokumentowanych i niezrobionych **10**", a po scaleniu #275…#279 tego samego
+#: dnia było ich **osiem** — bo każde z tych pięciu zadań dostało w swoim wierszu
+#: `ZROBIONE`, a `open_items` takie wiersze odsiewa. To jest ta sama mechanika, której
+#: ten komentarz broni dwa akapity wyżej: **licznik zapasu opada od wykonywania pracy**,
+#: więc każda jego liczba wpisana ręcznie starzeje się w tempie scaleń.
+#: Zmierzone 06.09.2026 po uzupełnieniu kolejki: udokumentowanych i niezrobionych **18**,
+#: podłoga **6**. Podłogi nie podnoszę do osiemnastu i to jest decyzja, nie zaniedbanie:
+#: równanie jej z zapasem odtworzyłoby dokładnie to sprzężenie, które #274 rozplątywało.
 MINIMUM_DOCUMENTED_ITEMS = 6
 
 #: ZAPADKA na liczbę **napisanych** bloków szczegółów, niezależnie od tego, czy
@@ -98,9 +114,17 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 #: przeciwieństwie do zapasu, który maleje od wykonywania pracy.
 #:
 #: Chroni dokładnie to, co chroniła stara zapadka: skasowanie bloku zapala bramkę,
-#: a dopisanie dziewiętnastego wymusza podniesienie stałej w tym samym commicie.
-#: Zmierzone 06.09.2026: **19** bloków, wszystkie z kompletem sześciu pól.
-MINIMUM_DETAIL_BLOCKS = 19
+#: a dopisanie kolejnego wymusza podniesienie stałej w tym samym commicie.
+#:
+#: **Liczba przepisana, a nie dopisana obok.** Poprzednia wersja mówiła **19** i była
+#: prawdziwa; commit uzupełniający kolejkę dopisał dziesięć bloków — dwa dla pozycji,
+#: które stały w tabeli bez opisu (5.6, 6.B5), dwa dla pozycji dopisanych 06.09.2026
+#: bez bloków (6.B13, 6.B14) i sześć dla pozycji nowych (6.A9, 6.B15, 6.B16, 6.D9,
+#: 6.D10, 6.D11). Zmierzone 06.09.2026 po tym commicie: **29** bloków, wszystkie
+#: z kompletem sześciu pól. W przeciwieństwie do podłogi zapasu ta liczba **nie opada
+#: od wykonywania pracy** — blok pozycji zrobionej zostaje napisany — i dlatego tylko
+#: tutaj „wolno wyłącznie podnosić" jest zdaniem, które da się utrzymać.
+MINIMUM_DETAIL_BLOCKS = 29
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
