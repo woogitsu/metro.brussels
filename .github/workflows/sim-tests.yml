@@ -142,6 +142,68 @@ jobs:
           python3 tools/physics/reference.py
           python3 tools/tests/test_reference_snapshot.py
 
+      - name: Golden line trace matches the core byte for byte
+        shell: bash
+        # 6.D1. Do 2026-09 to porównanie zostało wykonane RAZ, ręcznie, w commicie
+        # `90a8c31`: sześć osi, 453 107 wierszy, „IDENTYCZNY" przy każdej. Od tamtej
+        # pory nie chodziło — i przestało być prawdą. Zmierzone 2026-09-06: sześć osi
+        # daje 515 807 wierszy, o 62 700 więcej, dokładnie +1140 na każdy postój.
+        #
+        # DLACZEGO WZORZEC NIE JEST PLIKIEM. Pełne ślady to 32,0 MiB, a `CLAUDE.md`
+        # §4.8 zabrania komitować plików > 10 MB. Wzorzec jest więc parą: suma
+        # SHA-256 całego pliku WYKRYWA rozjazd co do bajtu, a próbka co 100 wierszy
+        # leżąca w `tests/data/golden-trace/` go LOKALIZUJE. Sama próbka
+        # przepuściłaby rozjazd między jej wierszami; sama suma nie powie, gdzie.
+        run: |
+          set -euo pipefail
+          # RUNNER_TEMP, nie współdzielone /tmp: cztery runnery puli stoją na jednej
+          # maszynie, a ślad ma stałą nazwę na oś. Z tego samego powodu, co bramka
+          # tablic hamowania wyżej.
+          TRACES="$RUNNER_TEMP/trace"
+          rm -rf "$TRACES"; mkdir -p "$TRACES"
+          for AXIS in L1_A L1_B L2_E L5_C L5_D L6_F; do
+              dotnet run --project src/Sim.Runner --configuration Release --no-build -- line \
+                  --axis "data/track/$AXIS.json" --limit-kmh 72 --exchange-s 20 \
+                  --trace "$TRACES/$AXIS.csv" > /dev/null
+          done
+          wc -l "$TRACES"/*.csv
+          python3 tools/ci/assert_line_trace.py --traces "$TRACES"
+
+      - name: Golden trace gate can actually go red
+        shell: bash
+        # Bramka, która nigdy nie zaświeciła, jest zdaniem o sobie, nie pomiarem.
+        # Ten krok psuje JEDEN znak w JEDNYM wierszu kopii śladu i wymaga, żeby
+        # narzędzie odmówiło. Odwrotność (`! python3 …`) jest tu warunkiem: krok
+        # zielony przy nietkniętym pliku nie dowodziłby niczego.
+        run: |
+          set -euo pipefail
+          TRACES="$RUNNER_TEMP/trace-uszkodzony"
+          rm -rf "$TRACES"; cp -r "$RUNNER_TEMP/trace" "$TRACES"
+          python3 - "$TRACES/L5_D.csv" <<'PSUJ'
+          import sys
+          path = sys.argv[1]
+          rows = open(path, encoding="utf-8").read().splitlines()
+          rows[2909] = rows[2909].replace(",0,", ",1,", 1)
+          open(path, "w", encoding="utf-8").write("\n".join(rows) + "\n")
+          PSUJ
+          if python3 tools/ci/assert_line_trace.py --traces "$TRACES"; then
+              echo "BŁĄD: bramka przyjęła uszkodzony ślad" >&2
+              exit 1
+          fi
+          echo "kontrola negatywna: bramka odmówiła uszkodzonego śladu"
+
+      - name: Upload traces on failure
+        # Bramka podaje PRZEDZIAŁ wierszy, bo próbka ma krok 100. Dokładny numer daje
+        # `Sim.Runner compare` na dwóch pełnych plikach — a pełnego wzorca w repo nie
+        # ma i mieć nie może. Artefakt jest więc tym brakującym drugim plikiem: bez
+        # niego „przedział 2903..3002" byłby końcem śledztwa, a nie jego początkiem.
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: line-trace-${{ github.run_id }}
+          path: ${{ runner.temp }}/trace/*.csv
+          retention-days: 7
+
       - name: Braking reference matches the core byte for byte
         shell: bash
         # T-311: tablice hamowania powstają dwa razy — raz w rdzeniu (src/Sim.Runner
