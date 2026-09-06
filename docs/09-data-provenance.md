@@ -28,7 +28,26 @@ Manifest zawiera co najmniej:
 - `source_metadata` i `stats` do audytowalnego diffu;
 - dla zapytań OSM jedynie `query_sha256`, nie pełny query string w manifeście.
 
-`retrieved_at`, ETag i Last-Modified są metadanymi obserwacji. Nie są częścią hasha treści i nie mogą zmieniać byte-deterministycznego canonical outputu.
+`retrieved_at`, ETag i Last-Modified są metadanymi obserwacji **manifestu** — nie są
+częścią hasha treści (`content_sha256` surowego wejścia), więc sam manifest jest pod
+tym względem byte-deterministyczny niezależnie od tego, kiedy powstał.
+
+To jednak nie znaczy, że `retrieved_at` nigdzie nie dotyka canonical outputu. Gdy
+downstream generator kopiuje to pole z manifestu do **pliku wynikowego**, który sam
+commituje, pole staje się częścią bajtów tego pliku — i canonical output przestaje
+być byte-deterministyczny względem czasu pobrania. Dziś robią tak dwa narzędzia:
+`build_alignment.py` zapisuje `manifest["retrieved_at"]` jako
+`document["source"]["retrieved_at"]` w commitowanym `data/track/*.json`, a
+`normalize_stops.py` — jako `document["feed"]["retrieved_at"]` w commitowanym
+`data/network/stops.json` (zmierzone w `reports/zapisy-do-data.md` §4.3–4.4: ten sam
+`retrieved_at` z manifestu wraca bajt w bajt w pliku wynikowym). Rozstrzyga to,
+kiedy zdanie o niezmienności zachodzi, a kiedy nie: dla **manifestu proweniencji**
+zachodzi zawsze (pole jest tam z definicji tylko obserwacją i nie liczy się do
+`content_sha256`); dla **pliku wynikowego**, do którego to pole zostało przepisane,
+nie zachodzi — tam `retrieved_at` jest częścią treści commitowanej, tak jak każde
+inne pole dokumentu. Czy narzędzia mają przestać je tam osadzać, czy reguła ma
+dostać jawny wyjątek — to decyzja właściciela (patrz 6.D12/6.D16 w `docs/TASKS.md`),
+nierozstrzygnięta w tym dokumencie.
 
 ## Bezpieczeństwo sekretów
 
