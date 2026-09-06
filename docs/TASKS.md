@@ -645,6 +645,7 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.A7 | **ZROBIONE w #281 (06.09.2026).** `tests/Sim.Tests/BrakingPropertyTests.cs`, cztery własności na losowych wejściach ze stałym ziarnem; rdzeń **494 → 498**. Każda kontrola negatywna wywraca **1 z 4** testów własnościowych — i to jest właściwy pomiar, bo test własnościowy padający razem z całym zestawem nie mówi nic o SWOJEJ własności (promienie rażenia w pełnym zestawie: 31, 66, 6 i 2 testy). **Wiersz mówił o monotoniczności drogi hamowania po prędkości i masie, i co do masy był nieścisły:** model T-311 jest matematycznie NIEZALEŻNY od masy — opór Davisa na tonę, sufit przyczepnościowy i hamulec jako polecenie kasują ją w każdym torze obliczeń. Własność zachodzi więc jako **nie-malejąca**, nie rosnąca, i tak jest zapisana w teście. To nie jest błąd modelu, tylko jego udokumentowany wybór (`ServiceBrakingRun.cs`, `TrainController.cs`), nazwany już przez istniejący `Droga_hamowania_z_oporami_nie_zalezy_od_masy_skladu` | wzmacnia to, co jest; nie dodaje ani jednej liczby o metrze | M |
 | 6.A8 | **ZROBIONE w #279 (06.09.2026).** **39 testów** w trzech plikach (`EnergyAccountTests.cs`, `MovementAuthorityTests.cs`, `SpeedProfileTests.cs`) i `reports/typy-sim-bez-testu.md`; rdzeń **455 → 494**, `src/Sim/` bez ani jednej zmiany. Pomiar obalił liczbę z bloku: nie 6 z 45, tylko **5 z 52** — `MovementAuthority` zszedł z listy, bo nazywa go zaślepka w `tests/Game.Tests`, ale testu jednostkowego nadal nie miał i dostał go razem z resztą. **Licznik z pola Weryfikacja tego bloku jest zepsuty i to jest główne znalezisko:** po pierwszym `dotnet test` daje **fałszywe zero**, bo `grep -r tests/` wchodzi do `tests/Sim.Tests/bin/`, gdzie leży skompilowany `MetroBxl.Sim.dll` z nazwą każdego typu rdzenia, a `find src/Sim` wciąga wygenerowane pliki z `obj/`. Narzędzie weryfikujące, które po jednym przebiegu testów zawsze melduje „wszystko pokryte” — ta sama klasa usterki co fałszywa wyrocznia mutacyjna z #268. 39 kontroli negatywnych, po jednej na test, każda jako osobna mutacja `src/Sim` z natychmiastowym przywróceniem pliku; `BEZ KONTROLI: []`. Jedną z nich powtórzyłem samodzielnie: zdjęcie osłony `TractionWorkJ == 0.0` daje `Expected <0>, actual <Infinity>`, a cały istniejący `EnergyAndProfileTests` zostaje przy tej mutacji **zielony** — treść pierwotna: **Testy jednostkowe sześciu typów `src/Sim`, których nie nazywa żaden plik z `tests/`** — `EnergyAccount`, `BrakingEnergyAccount`, `SpeedProfile`, `MovementAuthority`, `Block`, `DesignParameter` | zmierzone licznikiem, nie na oko (polecenie w szczegółach pozycji); praca idzie wyłącznie do `tests/Sim.Tests/`, więc nie dotyka ani jednej liczby o sieci ani kodu produkcyjnego | M |
 | 6.A9 | **ZROBIONE w #291 (06.09.2026).** Polecenia `Sim.Runner` bez testu — osiem poleceń, nazwy siedmiu z nich nie wymienia ani jeden plik w `tests/Sim.Tests/` | bliźniak 6.A8 po stronie CLI: pomiar na istniejącym kodzie, ani jednej nowej liczby o Brukseli | M |
+| 6.A10 | **Dziewiate polecenie `Sim.Runner` bez testu kodu wyjscia** — `service-day`, dopisane w #286, gdy blok 6.A9 wymienial juz osiem | 6.A9 swiadomie nie wyszlo poza swoja osemke i to byla wlasciwa decyzja, ale luka zostaje. Przy okazji: `compare` zwraca 2 tam, gdzie reszta odmow zwraca 1, a `Unknown()` i galaz pustych argumentow daja te sama stala dwiema niezaleznymi sciezkami | S |
 
 #### Pasmo B — narzędzia i geometria (`tools/`)
 
@@ -666,6 +667,7 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.B17 | **ZROBIONE w #289 (06.09.2026).** Ścieżka domyślna jest teraz **jedna na przebieg** (commit + klasy operatorów + zawężenie `--only`), a dziennik z wpisami spoza przebiegu **przerywa start** kodem 2; raport `reports/dziennik-mutacyjny.md`, zestaw **1697 → 1700**. **Wiersz opisywał to za słabo:** nie chodziło o to, że dwa przebiegi sobie przeszkadzają, tylko o **mieszanie wyników** — wynik czytany jest z CAŁEGO dziennika, więc cudze wpisy wchodziły do raportu jako wynik tego pomiaru. Wykonana kontrola: dziennik z jednym obcym wpisem daje raport z pełną sekcją modułu, którego przebieg nie dotykał. **Znalezione obok i świadomie nietknięte:** wpis nie niesie commita, a identyfikator mutacji to przesunięcie bajtowe — pole Poza zakresem tej pozycji zabrania ruszać format, więc to osobna pozycja | znalezione przy 6.B14, gdzie dwa agenty liczyły równolegle; narzędzie samo tego nie sygnalizuje. Pomiar i poprawka domyślnej ścieżki, żadnej decyzji | S |
 | 6.B18 | **Ile naprawdę trwa przegląd jednego modułu** — `compare.py` (25 mutacji, zestaw 63 s, 4 robotników) nie domknął się w 20 minut, choć arytmetyka mówi ~7 | pomiar narzędzia pomiarowego: gdzie idzie czas, ile kosztuje `git worktree add` na mutację, czy sonda pokrycia liczy się raz czy za każdym razem | M |
 | 6.B19 | **Wpis dziennika mutacyjnego nie wie, z jakiego drzewa pochodzi** — nie niesie commita, a identyfikator mutacji to `plik:wiersz:przesunięcie bajtowe`, więc dziennik z wcześniejszego drzewa może podstawić wynik zapisany dla innego kodu | znalezione przy 6.B17 i tam świadomie nietknięte, bo tamta pozycja dotyczyła **ścieżki**, nie formatu. Pomiar i poprawka, żadnej decyzji | S |
+| 6.B20 | **Dziesieciu minut przegladu mutacyjnego nadal nikt nie umie przypisac** — 6.B18 zmierzyl czesci i wyszlo ~6,2 min wobec obserwowanych ponad 20 | pomiar, nie decyzja: 6.B18 rozlozyl narzut na czesci i **powiedzial wprost**, ze suma sie nie zgadza; zostaje znalezc reszte i domierzyc mutacje na minute przy 1, 2 i 4 robotnikach, czego tamta pozycja nie zdazyla | M |
 
 #### Pasmo C — warstwa silnika (`src/Game`)
 
@@ -689,6 +691,7 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.D10 | **ZROBIONE w #292 (06.09.2026).** Zmierzone na HEAD (`08d12b6`), nie na `51d324a` z opisu pozycji — w tej sesji doszło 8 raportów od tamtego pomiaru: **69** raportów (nie 48) niosą SHA w nagłówku. Dla każdego zbadana relacja (`git log --follow` / `git merge-base --is-ancestor` na commicie, który wpisał ten konkretny token, przez pickaxe `-S`, nie na pierwszym dodaniu pliku — węższa wersja fałszywie dawała ŻADNA sześciu raportom, którym SHA był przodkiem edycji nagłówka): **23 dotyka, 41 przodek wprowadzenia, 4 ŻADNA (z nazwy: `bpy-extraction-round-2.md`, `bpy-extraction-round-3.md`, `energy-balance.md`, `mutation-triage-round-2-modules.md` — wszystkie ten sam wzorzec: SHA gałęzi sesyjnej, `main` dostał inny obiekt przy scaleniu), 1 NIEOSIĄGALNY (`mutation-triage-lod.md` / `c572eb3`, już opisany w `test_report_hygiene.py`)**. Bramki **nie dopisano**: cztery przypadki ŻADNA to powtarzalny tryb pracy tej sesji, nie zamknięta lista wyjątków, a relacja i tak nie przetrwałaby CI — sprawdzone wprost na płytkim klonie (`--depth 1`), gdzie `git merge-base --is-ancestor` nie ma historii do rozstrzygnięcia, dokładnie jak `actions/checkout` na self-hosted runnerze (`CLAUDE.md` §9) — pomiar w `reports/commit-naglowka-a-raport.md` | pozycja mierzy relację, a nie decyduje o niej; dopiero pomiar mówi, którą wolno przybić bramką, a której nie wolno | S |
 | 6.D11 | **Bramka na czas przebiegu `test_all.py`** — 1638 testów w 62,8 s, i nikt tego nie pilnuje | bliźniak 6.D2 po stronie Pythona: pomiar, nie decyzja | S |
 | 6.D12 | **Które narzędzia piszą do `data/`, choć katalog jest tylko do odczytu** — `tools/track/fetch_gtfs.py` aktualizuje manifest proweniencji przy każdym pobraniu | `CLAUDE.md` §4.6 nie przewiduje wyjątku, a narzędzie robi to celowo. Pozycja **mierzy rozjazd i wypisuje warianty**, nie rozstrzyga go — wybór między zmianą reguły a zmianą narzędzia zostaje właścicielowi | S |
+| 6.D13 | **Wzorzec SHA w bramce higieny raportow lapie tez to, co SHA nie jest** — token `9e2066aef7ef` w naglowku jednego raportu to hash builda Blendera, nie commit | znalezione przy 6.D10. Pomiar, ile takich falszywych trafien jest w 71 raportach, i zawezenie wzorca albo nazwanie wyjatku — bez decyzji wlasciciela | S |
 
 #### Szczegóły pozycji z kompletem sześciu pól
 
@@ -1824,6 +1827,93 @@ co dochodzi ponad ten wspólny zakaz.
   ich (`reports/mutation-drift.md`). Poza zakresem także domyślna ścieżka dziennika:
   to jest zrobione w #289.
 - **Zależy od:** #289 (scalone).
+
+##### 6.B20 · Reszta czasu przeglądu mutacyjnego
+
+- **Skąd:** pozycja 6.B18 (#293) rozłożyła narzut na części i **powiedziała wprost, że
+  suma się nie zgadza**: `git worktree add` 0,10 s, kalibracja wyroczni 50,9 s, sonda
+  pokrycia ~272 s, dwie mutacje na dwóch robotnikach ~51 s — razem **~6,2 min** wobec
+  **obserwowanych ponad 20**. Co najmniej dziesięciu minut nikt nie umie przypisać.
+  Tamta pozycja nie zdążyła też domierzyć mutacji na minutę przy 1, 2 i 4 robotnikach,
+  czego żądało jej pole „Wyjście".
+- **Wejście:** `reports/czas-przegladu-mutacyjnego.md` (rozbicie na części i metoda
+  pomiaru), `tools/tests/mutation_sweep.py` (`sweep`, `worker`, `check_one`, sonda
+  pokrycia i jej limit czasu), `tools/tests/assertion_gate.py` (instrumentacja AST —
+  6.B18 zmierzył, że kosztuje tyle samo w ciepłym i świeżym drzewie), `tools/tests/test_all.py`.
+- **Wyjście:** raport w `reports/` domykający rachunek — albo wskazujący liczbą, gdzie
+  idzie brakujący czas, albo pokazujący, że obserwacja „ponad 20 minut" była mierzona
+  inaczej, niż zakładał rachunek części.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py
+  ```
+  plus wykonany przebieg na module o **dwóch** mutacjach, ze zmierzonym czasem
+  całkowitym i czasem każdej części osobno, przy 1, 2 i 4 robotnikach.
+- **Skończone, gdy:** suma zmierzonych części **zgadza się z czasem całkowitym** tego
+  samego przebiegu, z dokładnością, którą raport podaje liczbą — albo raport nazywa
+  konkretną przyczynę, dla której zgodzić się nie może. Tabela mutacji na minutę przy
+  1, 2 i 4 robotnikach jest wypełniona.
+- **Poza zakresem:** przyspieszanie zestawu testów (6.D11) oraz zmiana limitu czasu
+  mutacji — limit jest **wyrocznią** dla mutacji powodujących pętlę nieskończoną
+  (zmierzone w 6.B14), więc jego zmiana zmienia znaczenie wyników i wymaga osobnej
+  kontroli negatywnej. Poza zakresem także wyłączanie sondy pokrycia: bez niej ocalałe
+  trafiają do kupki „niezmierzone", co narzędzie mówi wprost w pomocy.
+- **Zależy od:** #293 (scalone).
+
+##### 6.A10 · Dziewiąte polecenie `Sim.Runner`
+
+- **Skąd:** blok 6.A9 wymieniał **osiem** poleceń, bo powstał przed scaleniem #286,
+  które dopisało dziewiąte — `service-day`. Agent wykonujący 6.A9 świadomie nie wyszedł
+  poza wymienioną ósemkę i **to była właściwa decyzja**, ale luka została: `service-day`
+  nie ma testu kodu wyjścia, choć osiem pozostałych ma go od #291.
+- **Wejście:** `src/Sim.Runner/Program.cs` (rozdzielacz poleceń, `ServiceDayCommand`,
+  `ParseClock`), `tests/Sim.Tests/RunnerCommandTests.cs` (wzorzec z #291 — testy wołają
+  wyłącznie `Program.Main`), `src/Sim/Line/ServiceDay.cs`,
+  `reports/polecenia-runnera-bez-testu.md`.
+- **Wyjście:** testy w `tests/Sim.Tests/RunnerCommandTests.cs` i adnotacja w raporcie
+  z #291, że dziewiąte polecenie zostało domknięte.
+- **Weryfikacja:**
+  ```bash
+  dotnet test tests/Sim.Tests
+  ```
+  Oczekiwane: zielony zestaw o liczbie testów większej niż stan po #291.
+- **Skończone, gdy:** `service-day` ma test kodu wyjścia przy braku `--timetable`
+  i przy niepoprawnym formacie `--at`, każdy z **wykonaną** kontrolą negatywną, która
+  wywraca **tylko** ten test. Raport nazywa też dwa znaleziska z #291, których tamta
+  pozycja nie ruszyła: `compare` zwraca 2 tam, gdzie reszta odmów zwraca 1, a `Unknown()`
+  i gałąź pustych argumentów dają tę samą stałą **dwiema niezależnymi ścieżkami**.
+- **Poza zakresem:** **ujednolicanie kodów wyjścia.** To jest zmiana zachowania
+  `Program.cs`, a nie dopisanie testu — i decyzja, czy `compare` ma zwracać 1 czy 2,
+  nie należy do pozycji, która ma przybić stan.
+- **Zależy od:** #291 i #286 (oba scalone).
+
+##### 6.D13 · Wzorzec SHA łapie to, co SHA nie jest
+
+- **Skąd:** znalezione przy pozycji 6.D10 (#292). Nagłówek jednego raportu cytuje token
+  `9e2066aef7ef` — wygląda jak skrócony SHA i łapie go ten sam wzorzec, którego używa
+  `tools/tests/test_report_hygiene.py`, ale to **hash builda Blendera 5.2.1**,
+  zacytowany w opisie środowiska pomiaru. Docstring tamtej bramki opisuje już jeden
+  taki filtr („`1339` z «1339/1339 przeszło» trafi się jako fałszywy SHA") i mówi, że
+  `{7,40}` odsiewa go sam — ten przypadek pokazuje, że nie odsiewa wszystkiego.
+- **Wejście:** `tools/tests/test_report_hygiene.py` (wzorzec commita i jego docstring),
+  `reports/commit-naglowka-a-raport.md` §4 (opis fałszywego trafienia), wszystkie
+  `reports/*.md`.
+- **Wyjście:** pomiar, ile fałszywych trafień jest we wszystkich raportach, oraz
+  zawężenie wzorca albo nazwanie wyjątku — plus testy w `tools/tests/`.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py
+  ```
+  plus wypis wszystkich tokenów łapanych przez wzorzec, z werdyktem dla każdego.
+- **Skończone, gdy:** raport podaje **dla każdego** tokenu łapanego przez wzorzec, czy
+  jest commitem, czy nie, a bramka albo przestaje łapać te, które nie są, albo ma
+  zamkniętą listę wyjątków z powodem przy każdym. Kontrola negatywna **wykonana**:
+  zawężony wzorzec nadal łapie prawdziwe SHA, bo wzorzec, który przestał łapać
+  wszystko, jest gorszy niż ten, który łapie za dużo.
+- **Poza zakresem:** zmiana nagłówków raportów. Wzorzec ma się dopasować do zapisu,
+  a nie zapis do wzorca — zwłaszcza że kwestionowany token jest **poprawną i pożyteczną
+  informacją** o środowisku pomiaru.
+- **Zależy od:** #292 (scalone).
 
 **Aktualizacja tej listy jest częścią pracy, nie dodatkiem do niej.** Pozycja zrobiona
 znika stąd i pojawia się jako wpis z sześcioma polami wyżej w tym pliku.
