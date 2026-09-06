@@ -1,0 +1,222 @@
+using System;
+using System.IO;
+using MetroBxl.Sim.Runner;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+namespace MetroBxl.Sim.Tests;
+
+/// <summary>
+/// Kod wyjścia ośmiu poleceń <c>Sim.Runner</c> (<see cref="Program.Main"/>) — pozycja
+/// 6.A9, bliźniak 6.A8 po stronie CLI. Zmierzone 06.09.2026: nazwę polecenia wymieniał
+/// dotąd tylko jeden plik testowy — i to przypadkiem, w komentarzu
+/// <c>CabProtectionTests.cs</c> niezwiązanym z rozbiorem argumentów. Rozbiór i kod
+/// wyjścia siedmiu pozostałych poleceń (<c>drive</c>, <c>replay</c>, <c>compare</c>,
+/// <c>parity</c>, <c>braking</c>, <c>line</c>, <c>budget</c>) nie miały ani jednego
+/// testu: literówka w nazwie przełącznika albo odwrócony warunek przeszłyby cały
+/// zestaw, bo istniejące testy wołają metody rdzenia bezpośrednio, z pominięciem
+/// <c>Program.Main</c>.
+///
+/// <para><b>Czego te testy NIE robią.</b> Nie sprawdzają treści telemetrii ani liczb
+/// o sieci — to robią <c>LineRunTests</c>, <c>LineBudgetTests</c>, <c>TrackAxisTests</c>
+/// i <c>ClassicSignallingScenarioTests</c>, wołając rdzeń bezpośrednio. Tu wchodzi się
+/// WYŁĄCZNIE przez <see cref="Program.Main"/> — tą samą drogą, którą idzie CI
+/// i człowiek z terminala — i patrzy wyłącznie na kod wyjścia oraz na to, czy komunikat
+/// wygląda jak odmowa, a nie na zawartość przejazdu.</para>
+///
+/// <para><b>Poza zakresem, świadomie (docs/TASKS.md, 6.A9).</b> Zmiana zachowania
+/// <c>Program.cs</c> — w tym „poprawienie" kodu wyjścia czy komunikatu. Testy przybijają
+/// stan, jaki jest DZIŚ; <c>compare</c> zwraca 2 przy złej liczbie argumentów, a reszta
+/// odmów (<c>replay</c>, <c>axis</c>, <c>line</c>, <c>budget</c>) zwraca 1 przez wspólny
+/// handler wyjątków — dwie różne liczby dla tej samej kategorii błędu. To jest
+/// ZGŁOSZENIE, przybite testami niżej, nie poprawka przy okazji.</para>
+/// </summary>
+[TestClass]
+public sealed class RunnerCommandTests
+{
+    // --- pomocnicze -------------------------------------------------------------
+
+    /// <summary>
+    /// Wołanie <see cref="Program.Main"/> z przechwyceniem obu strumieni — dokładnie
+    /// tak, jak widziałby je proces wywołujący <c>dotnet MetroBxl.Sim.Runner.dll</c>.
+    /// Strumienie wracają na miejsce w <c>finally</c>, żeby awaria jednego testu nie
+    /// zabrała stdout/stderr reszcie zestawu.
+    /// </summary>
+    private static (int ExitCode, string StdOut, string StdErr) Run(params string[] args)
+    {
+        var originalOut = Console.Out;
+        var originalError = Console.Error;
+        using var outWriter = new StringWriter();
+        using var errWriter = new StringWriter();
+        Console.SetOut(outWriter);
+        Console.SetError(errWriter);
+        try
+        {
+            var exitCode = Program.Main(args);
+            return (exitCode, outWriter.ToString(), errWriter.ToString());
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+            Console.SetError(originalError);
+        }
+    }
+
+    // --- polecenia bez wymaganych argumentów: kod wyjścia przy poprawnym wywołaniu --
+
+    /// <summary>
+    /// <c>drive</c> nie ma ani jednego wymaganego argumentu — scenariusz startowy jest
+    /// wpisany w kod (<see cref="Program.NewDrive"/>). Test na kod wyjścia jest tu więc
+    /// testem POPRAWNEGO wywołania: 0, a nie odmowy.
+    /// </summary>
+    [TestMethod]
+    public void Drive_bez_argumentow_konczy_sie_kodem_zero()
+    {
+        var result = Run("drive");
+
+        Assert.AreEqual(0, result.ExitCode);
+        StringAssert.Contains(result.StdErr, "[RDZEŃ]");
+    }
+
+    /// <summary>
+    /// <c>parity</c> nie bierze żadnego argumentu z linii poleceń — porównuje kontroler
+    /// z <c>AccelerationRun</c> na stałym, wbudowanym scenariuszu. Zgodność bitową
+    /// przybijają już <c>ReferenceParityTests</c>; tu chodzi wyłącznie o to, że
+    /// wywołanie z linii poleceń kończy się kodem 0.
+    /// </summary>
+    [TestMethod]
+    public void Parity_bez_argumentow_konczy_sie_kodem_zero()
+    {
+        var result = Run("parity");
+
+        Assert.AreEqual(0, result.ExitCode);
+        StringAssert.Contains(result.StdOut, "[PARYTET]");
+    }
+
+    /// <summary>
+    /// <c>braking</c> nie bierze żadnego argumentu i zawsze kończy się kodem 0 — to jest
+    /// wydruk tablic referencyjnych T-311, nie test niczego. Wart osobnego testu
+    /// wyłącznie dlatego, że to jedno z ośmiu poleceń bez ani jednego testu kodu
+    /// wyjścia (stąd zadanie 6.A9).
+    /// </summary>
+    [TestMethod]
+    public void Braking_bez_argumentow_konczy_sie_kodem_zero()
+    {
+        var result = Run("braking");
+
+        Assert.AreEqual(0, result.ExitCode);
+        StringAssert.Contains(result.StdOut, "DROGA HAMOWANIA");
+    }
+
+    // --- polecenia z wymaganymi argumentami: kod wyjścia przy ich braku ----------
+
+    /// <summary>
+    /// <c>replay</c> wymaga <c>--keys</c> PRZED odczytem jakiegokolwiek pliku — bez
+    /// niego rzuca <see cref="ArgumentException"/>, którą łapie wspólny handler
+    /// w <see cref="Program.Main"/> i zwraca 1. Test nie podaje żadnego pliku:
+    /// literówka w rozbiorze <c>--keys</c> ujawniłaby się tu przed literówką gdziekolwiek
+    /// dalej w tym poleceniu.
+    /// </summary>
+    [TestMethod]
+    public void Replay_bez_wymaganego_argumentu_konczy_sie_kodem_jeden()
+    {
+        var result = Run("replay");
+
+        Assert.AreEqual(1, result.ExitCode);
+        StringAssert.Contains(result.StdErr, "--keys");
+    }
+
+    /// <summary>
+    /// <c>compare</c> to jedyne z ośmiu poleceń, które sprawdza liczbę argumentów
+    /// RĘCZNIE (<c>args.Length &lt; 3</c>) i wraca z kodem 2 — zamiast rzucić wyjątek
+    /// złapany wspólnym handlerem (kod 1), jak reszta odmów. Ta niespójność jest warta
+    /// zgłoszenia, nie poprawki w tym zadaniu (poza zakresem 6.A9); ten test właśnie ją
+    /// PRZYBIJA, żeby nikt nie zmienił jej po cichu przy okazji czegoś innego.
+    /// </summary>
+    [TestMethod]
+    public void Compare_bez_dwoch_plikow_konczy_sie_kodem_dwa()
+    {
+        var result = Run("compare");
+
+        Assert.AreEqual(2, result.ExitCode);
+        StringAssert.Contains(result.StdErr, "dwóch plików");
+    }
+
+    /// <summary>
+    /// <c>axis</c> wymaga <c>--axis</c>; brak rzuca <see cref="ArgumentException"/> —
+    /// ten sam handler i ten sam kod 1, co <c>replay</c>, <c>line</c> i <c>budget</c>.
+    /// </summary>
+    [TestMethod]
+    public void Axis_bez_wymaganego_argumentu_konczy_sie_kodem_jeden()
+    {
+        var result = Run("axis");
+
+        Assert.AreEqual(1, result.ExitCode);
+        StringAssert.Contains(result.StdErr, "--axis");
+    }
+
+    /// <summary>
+    /// <c>line</c> ma trzy argumenty obowiązkowe bez wartości domyślnej (<c>--axis</c>,
+    /// <c>--limit-kmh</c>, <c>--exchange-s</c>) — patrz komentarz przy
+    /// <see cref="Program"/> o czterech obowiązkowych liczbach wejściowych. Bez żadnego
+    /// z nich pierwszy w kolejności rozbioru jest <c>--axis</c>.
+    /// </summary>
+    [TestMethod]
+    public void Line_bez_wymaganego_argumentu_konczy_sie_kodem_jeden()
+    {
+        var result = Run("line");
+
+        Assert.AreEqual(1, result.ExitCode);
+        StringAssert.Contains(result.StdErr, "line wymaga --axis");
+    }
+
+    /// <summary>
+    /// <c>budget</c> ma siedem argumentów obowiązkowych (<c>--axis</c>,
+    /// <c>--signalling</c>, <c>--limit-kmh</c>, <c>--exchange-s</c>, <c>--headway-s</c>,
+    /// <c>--trains</c>, <c>--steps</c>) — więcej niż jakiekolwiek inne polecenie. Bez
+    /// żadnego z nich pierwszy w kolejności rozbioru jest <c>--axis</c>, tak jak
+    /// w <c>line</c>.
+    /// </summary>
+    [TestMethod]
+    public void Budget_bez_wymaganego_argumentu_konczy_sie_kodem_jeden()
+    {
+        var result = Run("budget");
+
+        Assert.AreEqual(1, result.ExitCode);
+        StringAssert.Contains(result.StdErr, "budget wymaga --axis");
+    }
+
+    // --- nazwa polecenia, którego nie ma -----------------------------------------
+
+    /// <summary>
+    /// Nazwa spoza ósemki (<c>drive</c>, <c>replay</c>, <c>compare</c>, <c>axis</c>,
+    /// <c>parity</c>, <c>braking</c>, <c>line</c>, <c>budget</c>) trafia w
+    /// <see cref="Program.Unknown"/> — kod 2, tą samą liczbą co brak argumentów
+    /// w ogóle (<see cref="Brak_argumentow_w_ogole_konczy_sie_kodem_dwa"/>), ale przez
+    /// ODDZIELNĄ ścieżkę kodu: gałąź <c>_ =&gt; Unknown(args[0])</c> wewnątrz
+    /// <c>switch</c> w <c>try</c>, a nie sprawdzenie <c>args.Length == 0</c> przed nim.
+    /// </summary>
+    [TestMethod]
+    public void Nieznane_polecenie_konczy_sie_kodem_dwa()
+    {
+        var result = Run("nie-ma-takiego-polecenia");
+
+        Assert.AreEqual(2, result.ExitCode);
+        StringAssert.Contains(result.StdErr, "nieznane polecenie: nie-ma-takiego-polecenia");
+    }
+
+    /// <summary>
+    /// Wywołanie bez ŻADNEGO argumentu to inna ścieżka kodu niż nieznana nazwa —
+    /// sprawdzana PRZED wejściem w <c>try</c>/<c>switch</c>, na samym początku
+    /// <c>Program.Main</c>. Ten sam kod wyjścia (2), inny powód; test dodatkowy, poza
+    /// minimalnym wymogiem zadania 6.A9 (ono mówi o NAZWIE polecenia, którego nie ma —
+    /// nie o jej braku), ale ta sama rodzina odmowy i ta sama metoda pomocnicza, więc
+    /// tani do dodania obok.
+    /// </summary>
+    [TestMethod]
+    public void Brak_argumentow_w_ogole_konczy_sie_kodem_dwa()
+    {
+        var result = Run();
+
+        Assert.AreEqual(2, result.ExitCode);
+    }
+}
