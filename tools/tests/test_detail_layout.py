@@ -332,3 +332,140 @@ def test_marker_gauge_below_the_rail_head_has_no_points_and_says_so():
     except ValueError:
         return
     raise AssertionError("skrajnia bez punktów poniżej progu powinna dać ValueError")
+
+
+# --- narzędzie wypuszczone na prawdziwe osie (T-011 na pakietach B–F) -----------
+
+#: DLACZEGO TE PIĘĆ TESTÓW STOI OSOBNO OD RESZTY MODUŁU.
+#:
+#: Osiem testów wyżej bada REGUŁY na figurach liczonych w locie: co się dzieje, gdy
+#: hektometr wypada dokładnie na końcu osi, gdy stacja i hektometr trafiają w to samo
+#: miejsce, gdy punkt hamowania wypada przed poprzednią stacją. Żaden z nich nie
+#: uruchamia narzędzia na prawdziwej osi — a między „reguła jest poprawna" a „na
+#: sześciu osiach sieci wychodzi to, co raport twierdzi" jest cała pozycja 6.B2.
+#:
+#: Liczby są **odczytywane z raportu**, nie wpisane tutaj. Gdyby stały w teście,
+#: byłyby drugą kopią tej samej wiedzy i rozjechałyby się dokładnie tak samo jak
+#: pierwsza — to zdanie jest przepisane z `test_readme_claims.py`, bo dotyczy tej
+#: samej pułapki.
+
+import json  # noqa: E402
+import re  # noqa: E402
+
+DETAILS_REPORT = os.path.join(ROOT, "reports", "T-011-details-BF.md")
+TRACK_DIR = os.path.join(ROOT, "data", "track")
+
+#: Prędkość, przy której powstała tabela §1 raportu. NIE jest prędkością dopuszczalną
+#: na torze — ta nie ma źródła (R-006) — tylko zadeklarowanym parametrem przebiegu,
+#: dokładnie tym samym, który stoi w wierszu polecenia w §1.
+REPORT_SPEED_KMH = 72.0
+
+#: Wiersz tabeli §1: `| A | `L1_A` | 6686,4 | 66 | 12 | 11 | **89** |`
+REPORT_ROW = re.compile(
+    r"^\|\s*([A-F])\s*\|\s*`([A-Z0-9_]+)`\s*\|\s*([\d\s,]+)\s*\|\s*(\d+)\s*\|"
+    r"\s*(\d+)\s*\|\s*(\d+)\s*\|\s*\*\*(\d+)\*\*\s*\|")
+
+
+def _report_rows():
+    """`{oś: (pakiet, długość, hektometry, stacje, hamowania, razem)}` z tabeli §1."""
+    rows = {}
+    with open(DETAILS_REPORT, encoding="utf-8") as handle:
+        for line in handle:
+            found = REPORT_ROW.match(line.strip())
+            if found:
+                package, axis, length, hecto, stations, brakes, total = found.groups()
+                rows[axis] = (package, float(length.replace(" ", "").replace(",", ".")),
+                              int(hecto), int(stations), int(brakes), int(total))
+    return rows
+
+
+def _measure(axis_id, speed_kmh=REPORT_SPEED_KMH):
+    with open(os.path.join(TRACK_DIR, f"{axis_id}.json"), encoding="utf-8") as handle:
+        axis = json.load(handle)
+    return D.survey(axis, axis_id, speed_kmh=speed_kmh, cfg=CFG)
+
+
+def test_detail_the_report_table_is_read_and_covers_all_six_packages():
+    """Kontrola detektora: bez niej cztery testy niżej byłyby zielone na pustej tabeli.
+
+    Wyrażenie czyta wiersze tabeli §1. Gdyby przestało pasować — inny separator,
+    inne pogrubienie, przestawiona kolumna — pętla po zerowej liczbie wierszy
+    przechodziłaby każdy assert w tym pliku.
+    """
+    rows = _report_rows()
+    assert sorted(package for package, *_rest in rows.values()) == list("ABCDEF"), rows
+    assert len(rows) == 6, rows
+    # Wiersz „razem" NIE ma litery pakietu, więc nie może wejść na listę osi.
+    assert "razem" not in rows
+
+
+def test_detail_every_package_axis_matches_the_report_count_by_count():
+    """Sześć osi, cztery liczby na oś, zero tolerancji.
+
+    Kryterium pozycji 6.B2 podaje wiersz pakietu A wprost: **89 miejsc = 66 hektometrów
+    + 12 stacji + 11 punktów hamowania**. Ten test sprawdza go razem z pięcioma
+    pozostałymi, tą samą drogą.
+    """
+    mismatches = []
+    for axis_id, (package, length, hecto, stations, brakes, total) in _report_rows().items():
+        survey = _measure(axis_id)
+        counts = survey["counts"]
+        measured = (round(survey["axis_length_m"], 1),
+                    counts.get("hectometre", 0), counts.get("station", 0),
+                    counts.get("brake", 0), sum(counts.values()))
+        expected = (round(length, 1), hecto, stations, brakes, total)
+        if measured != expected:
+            mismatches.append(f"{package} ({axis_id}): raport {expected}, pomiar {measured}")
+    assert not mismatches, mismatches
+
+
+def test_detail_hectometres_are_the_floor_of_the_axis_length():
+    """Hektometrów jest `floor(długość / krok)`, bo kilometraż 0 jest stacją.
+
+    Ta zależność wiąże tabelę z geometrią: gdyby narzędzie zaczęło liczyć znacznik
+    na zerze albo gubić ostatni, liczby w tabeli nadal by się zgadzały same ze sobą,
+    a przestałyby zgadzać z długością osi.
+    """
+    wrong = []
+    for axis_id in _report_rows():
+        survey = _measure(axis_id)
+        expected = int(survey["axis_length_m"] // survey["hectometre_step_m"])
+        found = survey["counts"].get("hectometre", 0)
+        if found != expected:
+            wrong.append(f"{axis_id}: {found} hektometrów, oczekiwano {expected}")
+    assert not wrong, wrong
+
+
+def test_detail_every_station_on_every_package_axis_carries_a_stop_id():
+    """Stacja bez `stop_id` jest znacznikiem, którego nie da się powiązać z rozkładem.
+
+    61 stacji na sześciu osiach — liczba większa od 59 stacji sieci, bo osie zachodzą
+    na siebie na krańcówkach i ta sama stacja bywa policzona dwa razy. Raport §3
+    mówi o tym wprost; tu liczy się tylko to, że **żadna** nie jest bez identyfikatora.
+    """
+    missing = []
+    seen = 0
+    for axis_id in _report_rows():
+        for mark in _measure(axis_id)["marks"]:
+            if mark["kind"] != "station":
+                continue
+            seen += 1
+            if not mark.get("stop_id"):
+                missing.append(f"{axis_id}: {mark.get('label')}")
+    assert not missing, missing
+    assert seen >= 55, f"policzono tylko {seen} stacji na sześciu osiach — skan przestał czytać"
+
+
+def test_detail_without_a_declared_speed_no_axis_gets_a_single_brake_point():
+    """Bez `--brake-from-kmh` znika dokładnie tyle miejsc, ile jest punktów hamowania.
+
+    Prędkość dopuszczalna na torze **nie ma źródła** (R-006), więc 72 km/h jest
+    parametrem scenariusza, nie danymi. Bez niego `braking_distance_m` ma być `None`,
+    a nie `0.0`: zero znaczyłoby, że pociąg hamuje na długości zerowej, a `None` —
+    że nikt nie zadeklarował, z jakiej prędkości.
+    """
+    for axis_id, (_package, _length, _hecto, _stations, brakes, total) in _report_rows().items():
+        bez = _measure(axis_id, speed_kmh=None)
+        assert bez["counts"].get("brake", 0) == 0, axis_id
+        assert bez["braking_distance_m"] is None, axis_id
+        assert sum(bez["counts"].values()) == total - brakes, axis_id
