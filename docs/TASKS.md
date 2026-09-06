@@ -1957,8 +1957,18 @@ co dochodzi ponad ten wspólny zakaz.
 - **Wejście:** `reports/negative-control-audit.md` (lista modułów i kryterium),
   trzydzieści modułów `tools/tests/test_*.py` z frazą, których treści tamta pozycja
   nie przejrzała, `CLAUDE.md` §5.
-- **Wyjście:** adnotacja w `reports/negative-control-audit.md` z werdyktem dla każdego
-  z brakujących modułów oraz — tam, gdzie fraza okaże się pusta — **wykonana** kontrola.
+- **Wyjście:** **nowy** raport `reports/negative-control-audit-tresc.md` z werdyktem
+  dla każdego z brakujących modułów oraz — tam, gdzie fraza okaże się pusta —
+  **wykonana** kontrola.
+
+  **Dlaczego nowy plik, a nie dopisek do audytu z 6.B15.** Pierwsza wersja tego pola
+  nazywała istniejący raport i **położyła `main` na czerwono**: scalenie #299 (ten blok)
+  i #296 (tamten raport) były osobno zielone, a razem zapaliły
+  `test_a_documented_item_whose_reports_all_exist_says_so_in_its_row` — bo pozycja
+  udokumentowana, której całe „Wyjście" już leży w `reports/`, wygląda dla bramki na
+  zrobioną. Docstring tej bramki przewidział dokładnie ten przypadek („pozycja, której
+  raport **rozszerza** plik już istniejący") i podał to lekarstwo: pole ma nazwać nowy
+  plik albo sekcję. Tu jest zastosowane.
 - **Weryfikacja:**
   ```bash
   python3 tools/tests/test_all.py
