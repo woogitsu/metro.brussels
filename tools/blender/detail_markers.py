@@ -24,9 +24,17 @@ import sys
 import bpy
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import marker_gates as MG  # noqa: E402
 import placement as PL  # noqa: E402
 import sweep as SW  # noqa: E402
 from profiles import profile_points, vehicle_gauge  # noqa: E402
+
+# Wybór okna i obie bramki luzu mieszkają w `marker_gates`, module BEZ `bpy`.
+# Zostają tu pod starymi nazwami: woła je `main()`, a ekstrakcja nie ma prawa
+# zmienić ani jednej nazwy widocznej dla reszty pliku.
+select_marks = MG.select_marks
+side_sign = MG.side_sign
+clearance_problems = MG.clearance_problems
 
 #: Rozpiętość cięciwy, na której stoi słupek. Krótka, żeby znacznik stał stycznie
 #: do osi, ale niezerowa — `place_spans` odrzuca cięciwę zerowej długości.
@@ -60,67 +68,10 @@ def parse_args():
     return parser.parse_args(argv)
 
 
-def select_marks(marks, from_m, to_m):
-    """Znaczniki mieszczące się w oknie kilometrażu. Puste okno jest błędem, nie zerem.
-
-    **Po co osobna funkcja.** Wybór okna siedział w `main()` razem z `bpy`, więc nie
-    dawał się dotknąć testem — a decyduje o tym, czy render kontrolny w ogóle coś
-    pokaże. Bez okna kadr obejmuje 5,4 km i każdy słupek ma 0,03 piksela; scena
-    wychodzi pusta, mimo że geometria jest. Zmierzone, nie przewidziane: pierwszy
-    przebieg dał dokładnie taki pusty render.
-
-    Puste okno kończy się `SystemExit`, a nie pustą listą, bo skrypt bez ani jednego
-    znacznika wyprodukowałby pustą scenę i zapisał ją jako poprawny GLB.
-    """
-    low = from_m if from_m is not None else float("-inf")
-    high = to_m if to_m is not None else float("inf")
-    if low > high:
-        raise SystemExit(f"BŁĄD: okno {low}–{high} m jest puste")
-    selected = [m for m in marks if low <= m["chainage_m"] <= high]
-    if not selected:
-        raise SystemExit(f"BŁĄD: w oknie {low}–{high} m nie ma ani jednego znacznika")
-    return selected, low, high
 
 
-def side_sign(side):
-    """'right' -> +1, 'left' -> -1. Odmawia zamiast zgadywać.
-
-    Wyjęte z `main()` na poziom modułu, bo tam siedziało za `bpy.ops` i żaden test
-    nie mógł tego dotknąć — przemiatanie mutacyjne z 03.09.2026 pokazało tu mutację
-    ocalałą. Strona osi jest JEDNYM Z CZTERECH założeń projektowych tego modułu
-    i sam docstring modułu obiecuje, że są „sprawdzane, nie tylko zadeklarowane".
-
-    Poprzednia wersja, `1.0 if side == "right" else -1.0`, odpowiadała „lewa"
-    na KAŻDĄ wartość różną od „right", literówkę włącznie. `argparse` ma tu
-    `choices`, więc na drodze z CLI to nie zdarzy się — ale ta funkcja jest
-    wołana także z testów i z innych narzędzi, a cicha odpowiedź „lewa"
-    postawiłaby wszystkie słupki po drugiej stronie toru.
-    """
-    if side == "right":
-        return 1.0
-    if side == "left":
-        return -1.0
-    raise ValueError(f"strona osi musi być 'right' albo 'left', nie {side!r}")
 
 
-def clearance_problems(worst_gauge_m, worst_wall_m, profile_name):
-    """Lista zarzutów wobec zmierzonych luzów. Pusta lista = słupki wolno wypuścić.
-
-    Dwie bramki tego modułu, wyjęte z `main()` razem, bo odpowiadają na to samo
-    pytanie i mają wspólną granicę: luz DOKŁADNIE zerowy jest jeszcze dopuszczony,
-    ujemny nie. Zero jest tu granicą, a nie przypadkiem brzegowym — słupek stykający
-    się ze skrajnią jeszcze się w niej nie znajduje.
-
-    Kolejność zarzutów jest ustalona, bo trafia do komunikatu błędu.
-    """
-    problems = []
-    if worst_gauge_m < 0.0:
-        problems.append(f"słupek wchodzi w skrajnię pojazdu o {-worst_gauge_m:.3f} m — "
-                        "zwiększ --offset-m")
-    if worst_wall_m < 0.0:
-        problems.append(f"słupek przebija ścianę profilu {profile_name} o "
-                        f"{-worst_wall_m:.3f} m — zmniejsz --offset-m")
-    return problems
 
 
 def post_mesh(name, placement, lateral_m, foot_m, height_m, thick_m, wide_m):
