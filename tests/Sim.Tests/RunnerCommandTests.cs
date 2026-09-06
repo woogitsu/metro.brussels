@@ -420,4 +420,44 @@ public sealed class RunnerCommandTests
         Assert.AreEqual(0, result.ExitCode, result.StdErr);
         StringAssert.Contains(result.StdOut, "[BUDŻET]");
     }
+
+    // --- komunikat odmowy nazywa wolane polecenie (6.D20) -------------------------
+
+    /// <summary>
+    /// Sedno pozycji 6.D20. <c>RequiredNumber</c> jest wspolny dla <c>line</c>,
+    /// <c>budget</c> i <c>replay</c>, a nazwe polecenia mial zaszyta jako
+    /// <c>line</c> — wiec <c>budget</c> bez <c>--limit-kmh</c> odsylal czytajacego
+    /// do polecenia, ktorego nie uruchamial.
+    /// </summary>
+    [TestMethod]
+    public void Budget_bez_limitu_nazywa_budget_a_nie_line()
+    {
+        var result = Run(
+            "budget", "--axis", "data/track/L1_A.json",
+            "--signalling", "data/design/signalling/classic-2026.json",
+            "--headway-s", "120", "--steps", "1000", "--trains", "1");
+
+        Assert.AreEqual(1, result.ExitCode);
+        StringAssert.Contains(result.StdErr, "budget wymaga --limit-kmh");
+        Assert.IsFalse(
+            result.StdErr.Contains("line wymaga", StringComparison.Ordinal),
+            "komunikat nadal nazywa line: " + result.StdErr);
+    }
+
+    /// <summary>
+    /// Drugie polecenie, bo poprawka biorąca nazwę z <c>args[0]</c> musi dawać
+    /// poprawny wynik takze tam, gdzie stara stala byla przypadkiem trafna —
+    /// inaczej test na samym <c>budget</c> przeszedlby rowniez dla poprawki,
+    /// ktora zaszywa nowa, tak samo sztywna nazwe.
+    /// </summary>
+    [TestMethod]
+    public void Line_bez_limitu_nadal_nazywa_line()
+    {
+        var result = Run(
+            "line", "--axis", "data/track/L1_A.json", "--exchange-s", "20",
+            "--trace", "build/x.csv");
+
+        Assert.AreEqual(1, result.ExitCode);
+        StringAssert.Contains(result.StdErr, "line wymaga --limit-kmh");
+    }
 }
