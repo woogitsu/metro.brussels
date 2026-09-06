@@ -216,10 +216,45 @@ TASKS = os.path.join(ROOT, "docs", "TASKS.md")
 PLATFORM_LENGTH_PROSE = (AUDIT, TASKS)
 
 #: Zdania, które przedstawiają liczbę jako parametr peronu w generatorze.
+#:
+#: WZORZEC I JEGO ZWĘŻENIE — metodą z `tools/tests/test_report_claims.py`, czyli
+#: pomiarem przed i po, nie przeczuciem.
+#:
+#: Wersja pierwsza brała **goły napis „jawny parametr"** i żądała od takiego wiersza
+#: wartości 95,0 m. To nie jest wzorzec na długość peronu, tylko na dowolny parametr:
+#: „jawny parametr" jest w tym repozytorium zwrotem technicznym o wszystkim, co zostało
+#: wystawione zamiast zgadnięte. Zmierzone 06.09.2026 na korpusie bramki
+#: (`PLATFORM_LENGTH_PROSE`) w brzmieniu sprzed obejścia: **5 trafień, 1 fałszywe** —
+#: zdanie z bloku 6.A5 `docs/TASKS.md` o **udziale odzysku energii** („dwa warianty
+#: skrajne, 0 % i 100 %, jako jawny parametr") zapaliło bramkę długości peronu. Autor
+#: #272 obszedł to przeformułowaniem **własnej prozy**, co jest ceną płaconą przez
+#: teksty, które z peronem nie mają nic wspólnego.
+#:
+#: Zwężenie: sam zwrot już nie wystarcza. Wchodzi wiersz, który albo **nazywa stałą**
+#: (`DESIGN_PLATFORM_LENGTH_M`, także z przedrostkiem `SC.` — nazwa jest jednoznaczna
+#: sama w sobie), albo **mówi o peronie** i dopiero wtedy nazywa go jawnym parametrem.
+#: Odmiana zwrotu wchodzi (`jawn\w+ parametr\w*`), bo „jest jawnym parametrem" znaczy
+#: dokładnie to samo co „ma jawny parametr", a wersja pierwsza tej formy nie łapała.
+#: Zmierzone na tym samym korpusie: **4 trafienia, 0 fałszywych, 0 utraconych
+#: prawdziwych**. Poglądowo na `docs/` + `reports/` (85 plików, poza korpusem bramki):
+#: 18 → 14; cztery zdjęte to trzy wiersze **o samym wzorcu** w raportach 6.D4 i #272
+#: oraz jeden akapit `reports/T-212-station.md`, w którym „jawny parametr" i słowo
+#: „peron" rozeszły się na dwa wiersze przez zawinięcie tekstu.
+#:
+#: `re.IGNORECASE`, bo „Peron w generatorze…" na początku zdania jest tym samym
+#: zdaniem co „…peron w generatorze…" w środku, a wielkość litery zależy tu wyłącznie
+#: od tego, gdzie autor zaczął akapit.
 NAMES_THE_PLATFORM_PARAMETER = re.compile(
-    r"DESIGN_PLATFORM_LENGTH_M|jawny parametr|peron w generatorze")
+    r"DESIGN_PLATFORM_LENGTH_M"
+    r"|peron\w* w generatorze"
+    r"|^(?=.*\bperon)[^\n]*jawn\w+ parametr\w*",
+    re.IGNORECASE)
 
 #: „…jawny parametr 95,0 m…" — sama liczba podana jako wartość parametru.
+#: Ten wzorzec zostaje szeroki ŚWIADOMIE i to jest różnica mierzalna, nie gust: żąda
+#: wartości **w metrach**, więc zdanie o udziale odzysku („0 % i 100 %") go nie zapala,
+#: a wiersz „generator dostał jawny parametr 94,0 m" bez słowa „peron" zostaje po
+#: zwężeniu wyżej jedyną rzeczą, która taki wiersz jeszcze widzi.
 PARAMETER_VALUE = re.compile(r"jawny parametr \*{0,2}(\d+,\d+) m")
 
 
@@ -235,6 +270,32 @@ def _prose_lines():
 
 
 def test_prose_naming_the_platform_parameter_carries_the_value_from_the_code():
+    """Zdanie o parametrze peronu niesie liczbę, którą ma generator.
+
+    Kontrola negatywna WYKONANA 06.09.2026 po zwężeniu wzorca, dwa razy, oba na
+    `docs/21-measured-vs-assumed.md`, plik za każdym razem przywrócony.
+
+    1. Wartość w wierszu tabeli 95,0 -> 94,0 m:
+
+        FAIL test_prose_naming_the_platform_parameter_carries_the_value_from_the_code:
+        długość peronu inna niż 95,0 m w kodzie:
+        ['docs/21-measured-vs-assumed.md:290: | `DESIGN_PLATFORM_LENGTH_M` | 94,0 m |
+        długość peronu, na której stoi zespół dostępu — decyzja właściciela
+        z 04.09.2026 (patrz akapit niżej) |']
+
+    2. Zdanie dopisane **bez nazwy stałej**, samym zwrotem w odmianie — kontrola, że
+       zwężenie nie zeszło do „szukaj `DESIGN_PLATFORM_LENGTH_M`" i że gałąź
+       współwystąpienia naprawdę strzela:
+
+        FAIL test_prose_naming_the_platform_parameter_carries_the_value_from_the_code:
+        długość peronu inna niż 95,0 m w kodzie:
+        ['docs/21-measured-vs-assumed.md:293: Dla peronu generator dostał wartość
+        jawnym parametrem: 94,0 m.']
+
+       Wzorca sprzed zwężenia tego zdania **nie łapał** — „jawnym parametrem" nie jest
+       napisem „jawny parametr". Zwężenie o odmianę jest więc zarazem rozszerzeniem
+       zasięgu na zdania o peronie.
+    """
     expected = _polish(station_components.DESIGN_PLATFORM_LENGTH_M)
     seen = {path: 0 for path in PLATFORM_LENGTH_PROSE}
     offenders = []
@@ -247,6 +308,44 @@ def test_prose_naming_the_platform_parameter_carries_the_value_from_the_code():
     assert not offenders, f"długość peronu inna niż {expected} m w kodzie: {offenders}"
     missing = [os.path.relpath(p, ROOT) for p, count in seen.items() if count == 0]
     assert not missing, f"zdanie o parametrze peronu zniknęło — bramka przestałaby patrzeć: {missing}"
+
+
+def test_the_platform_pattern_takes_platform_sentences_and_leaves_the_rest_alone():
+    """Kontrola detektora: co ma wejść i co ma NIE wejść, zdanie po zdaniu.
+
+    Bez tego testu bramka wyżej jest zielona zarówno przy wzorcu martwym, jak i przy
+    wzorcu rozszerzonym z powrotem do gołego „jawny parametr" — a wtedy każde zdanie
+    o dowolnym parametrze znów zaczyna być mierzone długością peronu.
+    """
+    def lapie(line):
+        return NAMES_THE_PLATFORM_PARAMETER.search(line) is not None
+
+    # WCHODZĄ — cztery postacie zmierzone w korpusie bramki 06.09.2026.
+    assert lapie("| `DESIGN_PLATFORM_LENGTH_M` | 95,0 m | długość peronu … |")
+    assert lapie("- **Kontrola R-007 jest w kodzie:** `SC.DESIGN_PLATFORM_LENGTH_M` = 95,0 m")
+    assert lapie("bo `--platform-length-m design` czyta 95,0 m z `SC.DESIGN_PLATFORM_LENGTH_M`")
+    assert lapie("| ~~długość peronu~~ | generator ma jawny parametr 95,0 m (T-212) |")
+    # WCHODZI ODMIANA — „jest jawnym parametrem" znaczy to samo; wersja pierwsza
+    # wzorca łapała wyłącznie mianownik i takie zdanie przepuszczała.
+    assert lapie("długość peronu jest jawnym parametrem generatora: 95,0 m")
+    # WCHODZI trzecia postać, ta z wcześniejszego brzmienia raportu T-400 — i ta sama
+    # od wielkiej litery, bo o tym decyduje tylko miejsce w akapicie.
+    assert lapie("peron w generatorze ma 95,0 m (R-007 daje kontrolę górną 109,1 m)")
+    assert lapie("Peron w generatorze ma 95,0 m, a dolne ograniczenie to 94,0 m")
+
+    # NIE WCHODZI — zdanie z bloku 6.A5 `docs/TASKS.md`, dla którego ta pozycja
+    # powstała: mówi o udziale odzysku energii, a zapalało bramkę długości peronu.
+    assert not lapie(
+        "  wariantów skrajnych odzysku, 0 % i 100 %**, jako jawny parametr — dokładnie")
+    # NIE WCHODZI — udział osi hamowanych, `docs/TASKS.md` wiersz 213. Drugi parametr
+    # tej samej klasy, dziś w odmianie, którą zwężony wzorzec musi rozpoznawać
+    # w zdaniach o peronie i mijać w każdym innym.
+    assert not lapie(
+        "  Udział osi hamowanych jest jawnym parametrem o dwóch wariantach skrajnych")
+    # NIE WCHODZI — meta-zdanie o samej bramce; takich są w `reports/` trzy.
+    assert not lapie('łapie sam napis „jawny parametr" i przy #272 zapalił się na zdaniu')
+    # NIE WCHODZI — peron bez ani jednego słowa o parametrze.
+    assert not lapie("Peron najciaśniejszej stacji sieci leży w łuku R = 97,11 m")
 
 
 def test_no_document_calls_a_different_number_the_explicit_platform_parameter():
