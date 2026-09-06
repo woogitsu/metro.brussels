@@ -317,24 +317,38 @@ def _discover():
     Kopia dostaje inną nazwę modułu, więc strażnik `__name__=="__main__"` na jej
     końcu nie odpala `main()` rekurencyjnie.
 
-    Zwraca `(tests, module_of)`: `tests` jest płaską listą `(nazwa, funkcja)` —
-    kształt, którego `len(tests)` używa reszta tego pliku i którego literalnie
-    szuka `test_assertion_gate.py` — a `module_of` to lista tej samej długości,
-    plik źródłowy (bez `.py`) dla każdego testu na tym samym indeksie. Osobna
-    lista, nie słownik `nazwa -> moduł`, bo dwa różne pliki testowe mogą mieć
-    funkcję o tej samej nazwie (żaden dziś nie ma, ale nic tego nie gwarantuje).
+    Zwraca `(tests, module_of, import_failures)`: `tests` jest płaską listą
+    `(nazwa, funkcja)` — kształt, którego `len(tests)` używa reszta tego pliku
+    i którego literalnie szuka `test_assertion_gate.py` — a `module_of` to lista
+    tej samej długości, plik źródłowy (bez `.py`) dla każdego testu na tym samym
+    indeksie. Osobna lista, nie słownik `nazwa -> moduł`, bo dwa różne pliki
+    testowe mogą mieć funkcję o tej samej nazwie (żaden dziś nie ma, ale nic tego
+    nie gwarantuje).
+
+    `import_failures` to lista `(plik, wyjątek)` dla modułów, których
+    `AG.load_instrumented` nie zdołało załadować — np. błąd składni. Bez tego
+    taki wyjątek leciałby nieprzechwycony z `main()`: proces kończyłby się
+    kodem 1 (poprawnie), ale bez ani jednego wiersza `FAIL` i bez wiersza
+    `N/M przeszło` — niewidoczne dla `grep -cE '^\\s*FAIL'` (zmierzone 06.09.2026
+    przy 6.D15, #301, na module z błędem składni: `SyntaxError` na stderr,
+    zero dopasowań na grepie).
     """
     tests=[]
     module_of=[]
+    import_failures=[]
     for path in AG.paths():
         module_file=os.path.basename(path)[:-3]
         name=module_file
         if name=="test_all": name="test_all__mierzony"
-        mod=AG.load_instrumented(path,name)
+        try:
+            mod=AG.load_instrumented(path,name)
+        except Exception as e:
+            import_failures.append((module_file,e))
+            continue
         found=[(n,f) for n,f in sorted(vars(mod).items()) if n.startswith("test_") and callable(f)]
         tests+=found
         module_of+=[module_file]*len(found)
-    return tests, module_of
+    return tests, module_of, import_failures
 
 def main():
     """Uruchom zestaw. Test, który przeszedł bez asercji, jest awarią, nie sukcesem.
@@ -352,9 +366,13 @@ def main():
     maszyny w setki fałszywych „zabić" naraz — tej samej klasy usterki, jaką opisuje
     `reports/wyrocznia-mutacyjna-falszywe-zabicia.md`, tylko odwróconej w drugą stronę.
     """
-    tests,module_of=_discover(); passed=0; skipped=[]; failed=[]; checks_total=0
+    tests,module_of,import_failures=_discover(); passed=0; skipped=[]; failed=[]; checks_total=0
     module_seconds={}; module_counts={}
     suite_start=time.perf_counter()
+    for module_file,error in import_failures:
+        line=f"<import>{module_file}"
+        print(f"  FAIL {line}: {error.__class__.__name__}: {error}")
+        failed.append(line)
     for (name,fn),module_file in zip(tests,module_of):
         AG.reset(); outcome=None
         test_start=time.perf_counter()
