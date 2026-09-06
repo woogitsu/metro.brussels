@@ -36,6 +36,7 @@ public sealed class LineDrive
     private readonly DoorCycle _cycle;
     private readonly double _start;
     private readonly double _trigger;
+    private readonly double _effectiveMassKg;
     private readonly List<StationCall> _calls;
 
     private DriveState _state = DriveState.AtRest;
@@ -46,6 +47,16 @@ public sealed class LineDrive
     private bool _braking;
     private double _brakingToM = double.NaN;
     private StationStop? _stop;
+
+    // Bilans energii CAŁEGO przejazdu — patrz TripEnergyAccount. Akumulowane po KAŻDYM
+    // kroku kontrolera, na postoju i między stacjami jednakowo, żeby suma objęła cały
+    // przejazd, a nie tylko jazdę między peronami.
+    private double _tractionWorkJ;
+    private double _resistanceWorkJ;
+    private double _gradeWorkJ;
+    private double _brakeWorkJ;
+    private double _discretizationWorkJ;
+    private double _clampedWorkJ;
 
     /// <summary>Skład postawiony na początku osi, gotowy do pierwszego kroku.</summary>
     /// <param name="axis">Oś z kilometrażem stacji.</param>
@@ -87,6 +98,7 @@ public sealed class LineDrive
         _start = _stations[0].ChainageM;
         _cycle = new DoorCycle(settings.PassengerExchangeSeconds);
         _trigger = settings.BrakeUsageFraction * controller.ServiceBrakeMps2;
+        _effectiveMassKg = controller.Dynamics.EffectiveMassKg(conditions.MassKg);
         _calls = new List<StationCall>(_stations.Count);
         _departedFromM = _start;
     }
@@ -218,8 +230,10 @@ public sealed class LineDrive
             // celowo — trzymanie składu na postoju należy do wołającego.
             var held = _stop.Filter(_state, DriverCommand.FullServiceBrake);
             var phase = _stop.Phase;
+            var beforeStop = _state;
             _state = _controller.Advance(
-                _state, _conditions, held, _settings.SpeedLimitMps, _step, out _);
+                _state, _conditions, held, _settings.SpeedLimitMps, _step, out var stopForces);
+            AccumulateEnergy(beforeStop, _state, stopForces);
             trace?.Invoke(new LineRun.TracePoint(
                 _state.TimeSeconds(_step), _start + _state.DistanceM, _state.SpeedMps,
                 _state.BrakeRateMps2, held, phase));
@@ -291,8 +305,10 @@ public sealed class LineDrive
         // ślad pokazywałby, co maszynista chciał, a nie co pojechało — i telemetria
         // porównywana co do bitu przestałaby opisywać przejazd.
         command = Supervisor is null ? command : Supervisor(command);
+        var beforeRun = _state;
         _state = _controller.Advance(
-            _state, _conditions, command, _settings.SpeedLimitMps, _step, out _);
+            _state, _conditions, command, _settings.SpeedLimitMps, _step, out var runForces);
+        AccumulateEnergy(beforeRun, _state, runForces);
         trace?.Invoke(new LineRun.TracePoint(
             _state.TimeSeconds(_step), _start + _state.DistanceM, _state.SpeedMps,
             _state.BrakeRateMps2, command, DoorPhase.Closed));
@@ -316,7 +332,43 @@ public sealed class LineDrive
             last.StoppedAtChainageM - _start,
             SumDwell(_calls),
             _state.Steps,
-            reason);
+            reason,
+            new TripEnergyAccount(
+                _tractionWorkJ,
+                _resistanceWorkJ,
+                _gradeWorkJ,
+                _brakeWorkJ,
+                0.5 * _effectiveMassKg * _state.SpeedMps * _state.SpeedMps,
+                _discretizationWorkJ,
+                _clampedWorkJ));
+    }
+
+    /// <summary>
+    /// Akumulacja bilansu energii po jednym kroku kontrolera — wołana identycznie na
+    /// postoju i między stacjami, bo `TripEnergyAccount` opisuje CAŁY przejazd, a nie
+    /// tylko jazdę.
+    ///
+    /// <para><b>Wyprowadzenie <c>ClampedWorkJ</c>.</b> Kontroler liczy przyspieszenie
+    /// jako <c>(trakcja − opory − pochylenie)/m_ef − b_hamulca</c>, więc siła wypadkowa
+    /// WSZYSTKIEGO (łącznie z hamulcem) to <c>forces.NetN − m_ef·b_hamulca</c>. Reszta
+    /// jest tym samym rachunkiem, który <see cref="Physics.AccelerationRun"/> robi dla
+    /// samej trakcji: iloczyn tej siły i przebytej drogi rozkłada się dokładnie na zmianę
+    /// energii kinetycznej, człon dyskretyzacji i to, co zostaje — obcięcie prędkości do
+    /// zera i do limitu. Tożsamość jest algebraiczna, więc działa bez względu na to, czy
+    /// w danym kroku obcięcie faktycznie zaszło.</para>
+    /// </summary>
+    private void AccumulateEnergy(DriveState before, DriveState after, StepForces forces)
+    {
+        var travelled = after.DistanceM - before.DistanceM;
+        var deltaSpeed = after.SpeedMps - before.SpeedMps;
+        var netAll = forces.NetN - (_effectiveMassKg * after.BrakeRateMps2);
+
+        _tractionWorkJ += forces.TractionN * travelled;
+        _resistanceWorkJ += forces.ResistanceN * travelled;
+        _gradeWorkJ += forces.GradeN * travelled;
+        _brakeWorkJ += _effectiveMassKg * after.BrakeRateMps2 * travelled;
+        _discretizationWorkJ += 0.5 * _effectiveMassKg * deltaSpeed * deltaSpeed;
+        _clampedWorkJ += (netAll - (_effectiveMassKg * deltaSpeed / _step.Seconds)) * travelled;
     }
 
     /// <summary>

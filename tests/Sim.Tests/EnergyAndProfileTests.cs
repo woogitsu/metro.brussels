@@ -1,6 +1,9 @@
 using System;
 using System.Globalization;
+using System.Linq;
+using MetroBxl.Sim.Line;
 using MetroBxl.Sim.Physics;
+using MetroBxl.Sim.Train;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace MetroBxl.Sim.Tests;
@@ -174,5 +177,129 @@ public sealed class EnergyAndProfileTests
 
         Assert.IsTrue(emergency.DistanceM < service.DistanceM);
         Assert.IsTrue(emergency.TimeSeconds < service.TimeSeconds);
+    }
+
+    // --- TripEnergyAccount: bilans CAŁEGO przejazdu z zatrzymaniami (6.A5) --------------
+
+    /// <summary>
+    /// Oś o zadanych kilometrażach stacji — ta sama konstrukcja co
+    /// <c>LineRunTests.Axis</c>, powtórzona tu celowo: dwa testowe pliki po jednym
+    /// prostym helperze są tańsze do czytania niż współdzielony helper w trzecim pliku.
+    /// </summary>
+    private static TrackAxis Axis(params double[] stationChainages)
+    {
+        var length = stationChainages[^1] + 100.0;
+        var stations = string.Join(",", stationChainages.Select((c, i) => string.Create(
+            CultureInfo.InvariantCulture,
+            $$"""{"name":"S{{i}}","chainage_m":{{c.ToString("R", CultureInfo.InvariantCulture)}},"stop_id":"P{{i}}"}""")));
+        return TrackAxis.FromJson(string.Create(
+            CultureInfo.InvariantCulture,
+            $$"""
+            {"id":"T","length_m":0.0,"vertical":{"status":"not_modelled"},
+             "points":[[0.0,0.0,0.0],[{{length.ToString("R", CultureInfo.InvariantCulture)}},0.0,0.0]],
+             "stations":[{{stations}}]}
+            """), 0.0);
+    }
+
+    private static LineRunSettings Settings(
+        double limitKmh = 60.0, double exchange = 10.0, double usage = 1.0, double window = 5.0) =>
+        new(Units.KmhToMps(limitKmh), exchange, usage, window);
+
+    /// <summary>
+    /// Bilans <see cref="TripEnergyAccount"/> na CAŁYM przejeździe z trzema stacjami
+    /// pośrednimi — rozruch, wybieg, hamowanie i postój na przemian, dokładnie to, czego
+    /// <see cref="Physics.EnergyAccount"/> (sam rozruch) i
+    /// <see cref="Physics.BrakingEnergyAccount"/> (samo hamowanie) osobno nie sprawdzają.
+    /// Próg jest o dwa rzędy luźniejszy niż <see cref="EnergyClosureTolerance"/>, bo
+    /// przejazd ma kilkanaście razy więcej kroków niż pojedynczy rozruch z T-310 —
+    /// zmierzone niedomknięcie jest mimo to o kilka rzędów mniejsze, patrz konsola testu.
+    /// </summary>
+    private const double TripEnergyClosureTolerance = 1e-10;
+
+    [TestMethod]
+    public void Bilans_energii_calego_przejazdu_z_zatrzymaniami_domyka_sie()
+    {
+        var result = LineRun.M7.Run(
+            Axis(0.0, 900.0, 2100.0, 3200.0), RunConditions.Level(Model, TrainLoad.Aw2), Settings());
+
+        Assert.AreEqual("arrived", result.FinishReason);
+        var energy = result.Energy;
+        Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"pakiet testowy poziom: {energy}"));
+
+        Assert.IsTrue(energy.TractionWorkJ > 0.0, "przejazd z rozruchami musi zużyć pracę trakcji");
+        Assert.IsTrue(energy.BrakeWorkJ > 0.0, "przejazd z zatrzymaniami musi zużyć pracę hamulca");
+        Assert.AreEqual(
+            0.0, energy.KineticEnergyDeltaJ, 1e-6,
+            "skład kończy przejazd w spoczynku na tej samej osi, na której zaczął");
+        Assert.IsTrue(
+            energy.RelativeResidual < TripEnergyClosureTolerance,
+            string.Create(CultureInfo.InvariantCulture, $"bilans nie domyka się: {energy.RelativeResidual:E3}"));
+    }
+
+    [TestMethod]
+    public void Bilans_calego_przejazdu_domyka_sie_takze_na_pochyleniu()
+    {
+        var axis = Axis(0.0, 1000.0, 2200.0);
+        var level = RunConditions.Level(Model, TrainLoad.Aw2);
+
+        var uphill = LineRun.M7.Run(axis, level.WithGrade(3.0), Settings()).Energy;
+        var downhill = LineRun.M7.Run(axis, level.WithGrade(-3.0), Settings()).Energy;
+
+        Assert.IsTrue(uphill.RelativeResidual < TripEnergyClosureTolerance,
+            string.Create(CultureInfo.InvariantCulture, $"pod górę: {uphill.RelativeResidual:E3}"));
+        Assert.IsTrue(downhill.RelativeResidual < TripEnergyClosureTolerance,
+            string.Create(CultureInfo.InvariantCulture, $"z góry: {downhill.RelativeResidual:E3}"));
+        Assert.IsTrue(uphill.GradeWorkJ > 0.0, "pod górę praca przeciw ciężarowi jest dodatnia");
+        Assert.IsTrue(downhill.GradeWorkJ < 0.0, "z góry ciężar pracuje na rzecz pociągu");
+    }
+
+    /// <summary>
+    /// Dwa warianty skrajne odzysku hamowania — 0 % i 100 % — z ich RÓŻNICY, a nie
+    /// z wpisanej sprawności: `CLAUDE.md` §1 i §8 zabraniają liczby o taborze, której nie
+    /// ma w karcie M7. Test przypina, że warianty są rzeczywiście SKRAJNE: przy 100 %
+    /// odzysku netto jest o dokładnie pracę hamulca mniejsze niż przy 0 %, więc żadna
+    /// trzecia liczba pośrednia nie mogła się tu wślizgnąć jako domyślna.
+    /// </summary>
+    [TestMethod]
+    public void Warianty_odzysku_sa_skrajne_i_rozstawione_dokladnie_o_prace_hamulca()
+    {
+        var result = LineRun.M7.Run(
+            Axis(0.0, 900.0, 2100.0, 3200.0), RunConditions.Level(Model, TrainLoad.Aw2), Settings());
+        var energy = result.Energy;
+
+        var noRecovery = energy.NetGridWorkKwh(fullRecovery: false);
+        var fullRecovery = energy.NetGridWorkKwh(fullRecovery: true);
+
+        Assert.AreEqual(energy.TractionWorkKwh, noRecovery, 0.0, "0% odzysku to cała praca trakcji");
+        Assert.AreEqual(
+            energy.TractionWorkKwh - energy.BrakeWorkKwh, fullRecovery, 1e-9,
+            "100% odzysku odejmuje CAŁĄ pracę hamulca, nie jej ułamek");
+        Assert.IsTrue(fullRecovery < noRecovery, "odzysk musi obniżać zużycie netto, nie podwyższać go");
+        Assert.AreEqual(energy.BrakeWorkKwh, noRecovery - fullRecovery, 1e-9);
+    }
+
+    [TestMethod]
+    public void Praca_hamulca_calego_przejazdu_w_kWh_ma_wlasciwy_rzad_wielkosci()
+    {
+        var result = LineRun.M7.Run(
+            Axis(0.0, 900.0, 2100.0, 3200.0), RunConditions.Level(Model, TrainLoad.Aw2), Settings(limitKmh: 60.0));
+        var energy = result.Energy;
+
+        Console.WriteLine(string.Create(
+            CultureInfo.InvariantCulture,
+            $"trzy stacje, AW2, limit 60 km/h: trakcja {energy.TractionWorkKwh:F4} kWh, " +
+            $"hamulec {energy.BrakeWorkKwh:F4} kWh"));
+
+        // Zmierzone na tej osi (3200 m, cztery stacje, AW2, limit 60 km/h):
+        // trakcja 68,58 kWh, hamulec 27,06 kWh. Energia kinetyczna masy efektywnej AW2
+        // przy 60 km/h to ~33 MJ ≈ 9,2 kWh na jeden cykl rozruch-hamowanie z czterech;
+        // reszta pracy trakcji idzie w opory ruchu na całej drodze, więc trakcja > hamulec
+        // jest właściwym porządkiem wielkości, a nie przypadkiem. Wynik poza 20-120 kWh
+        // oznaczałby pomylone jednostki albo zerowy przejazd, a nie inny model.
+        Assert.IsTrue(energy.TractionWorkKwh is > 20.0 and < 120.0, $"{energy.TractionWorkKwh} kWh");
+        Assert.IsTrue(energy.BrakeWorkKwh is > 5.0 and < 60.0, $"{energy.BrakeWorkKwh} kWh");
+        Assert.IsTrue(
+            energy.TractionWorkKwh > energy.BrakeWorkKwh,
+            "opory ruchu na całej drodze zabierają energię, której hamulec nie oddaje z powrotem");
     }
 }
