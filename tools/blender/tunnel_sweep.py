@@ -33,9 +33,15 @@ import bpy
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import lod as LD  # noqa: E402
+import lod_paths as LP  # noqa: E402
 import sweep as SW  # noqa: E402
 import tunnel_manifest as TM  # noqa: E402
 from profiles import PROFILES, profile_points, dimensions, fits_gauge, vehicle_gauge  # noqa: E402
+
+# Nazwa pliku i pochodzenie siatki poziomu LOD mieszkają w `lod_paths`, module
+# BEZ `bpy`. Zob. `reports/bpy-extraction-round-3.md`.
+is_base_level = LP.is_base_level
+lod_output_path = LP.lod_output_path
 
 
 def parse_args():
@@ -98,11 +104,11 @@ def lod_entries(chunk, chunk_id, name_prefix, base_object, chunk_dir, frames, st
     entries, meshes = [], []
     for params in LD.LOD_LEVELS:
         level = params["level"]
-        if level == 0:
-            mesh, path = chunk, os.path.join(chunk_dir, f"{chunk_id}.glb")
+        path = os.path.join(chunk_dir, lod_output_path(chunk_id, level))
+        if is_base_level(level):
+            mesh = chunk
         else:
             mesh = LD.lod_chunk(frames, station_m, profile, first, last, level, uv_scale)
-            path = os.path.join(chunk_dir, f"{chunk_id}_lod{level}.glb")
             obj = build_object(mesh, level, chunk_id, material,
                                mesh_name=f"{chunk_id}_lod{level}")
             export_selected([obj], path)

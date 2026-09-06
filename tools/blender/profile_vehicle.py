@@ -32,7 +32,14 @@ import m7_layout  # noqa: E402
 import placement as PL  # noqa: E402
 import profile_scan as PS  # noqa: E402
 import profiles  # noqa: E402
+import scan_gates as SG  # noqa: E402
 import sweep as SW  # noqa: E402
+
+# Bramki „czy ten etap ma się wykonać" mieszkają w `scan_gates`, module BEZ `bpy`.
+# Zob. `reports/bpy-extraction-round-3.md`.
+should_refine = SG.should_refine
+should_verify = SG.should_verify
+is_not_vehicle_tag = SG.is_not_vehicle_tag
 
 DEFAULT_RING_STEP_M = 5.0
 UV_METRES_PER_UNIT = 4.0
@@ -185,7 +192,7 @@ def main():
     refined = {"step_m": args.refine_step, "windows": 0, "positions": 0,
                "min_before_m": round(coarse_min, 6), "min_after_m": round(coarse_min, 6),
                "gain_mm": 0.0, "seconds": 0.0}
-    if args.refine_step > 0.0:
+    if should_refine(args.refine_step):
         windows = CP.refine_windows(records, args.step)
         extra = PS.refine_positions(windows, args.refine_step, axis_length,
                                     train_length, positions)
@@ -221,7 +228,7 @@ def main():
     # Dowód, że redukcje nie gubią minimum: te same pozycje liczone naiwnie,
     # po WSZYSTKICH wierzchołkach i przez placement.distance_to_boundary.
     verification = []
-    if args.verify_full > 0:
+    if should_verify(args.verify_full):
         t0 = time.time()
         for record in PS.verification_sample(records, args.verify_full):
             naive = CP.measure_position_naive(points, frames, stations, ring, bodies,
@@ -367,7 +374,7 @@ def main():
             if args.tunnel:
                 import_glb(args.tunnel, "tunnel")
             everything = [o for o in bpy.data.objects
-                          if o.type == "MESH" and o.get("metro_source") != "vehicle"]
+                          if o.type == "MESH" and is_not_vehicle_tag(o.get("metro_source"))]
             swept["scene_glb_bytes"] = export(everything, args.swept_scene_out)
             swept["scene_glb"] = args.swept_scene_out
             print(f"[OBWIEDNIA] scena={args.swept_scene_out} "
