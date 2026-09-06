@@ -14,6 +14,9 @@ import os
 import sys
 
 import bpy
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import material_specs as MS  # noqa: E402
 from mathutils import Vector
 
 
@@ -63,7 +66,7 @@ def make_material(spec):
     if transmission is not None:
         transmission.default_value = float(spec.get("transmission_weight", 0.0))
 
-    if float(spec.get("alpha", 1.0)) < 1.0:
+    if MS.is_transparent(spec):
         if hasattr(mat, "surface_render_method"):
             try:
                 mat.surface_render_method = "DITHERED"
@@ -83,7 +86,7 @@ def add_sample(spec, index, columns=5):
     y = -row * 2.55
     z = 0.95
 
-    if spec["id"] == "glass":
+    if MS.is_glass(spec):
         bpy.ops.mesh.primitive_uv_sphere_add(segments=48, ring_count=24, location=(x, y, z))
         obj = bpy.context.active_object
         obj.scale = (0.82, 0.82, 0.82)
@@ -196,7 +199,7 @@ def render(cam, path, resolution):
     scene.render.image_settings.file_format = "PNG"
     scene.render.filepath = path
     bpy.ops.render.render(write_still=True)
-    if not os.path.isfile(path) or os.path.getsize(path) <= 1024:
+    if MS.artefact_is_missing(path):
         raise SystemExit(f"BŁĄD: render nie powstał lub jest podejrzanie mały: {path}")
     print(f"[RENDER] {path} {os.path.getsize(path)} B")
 
@@ -218,9 +221,10 @@ def main():
     materials = cfg.get("material_presets", [])
     if not materials:
         raise SystemExit("BŁĄD: material_presets jest puste")
-    ids = [m.get("id") for m in materials]
-    if len(ids) != len(set(ids)) or any(not x for x in ids):
-        raise SystemExit("BŁĄD: material IDs muszą być niepuste i unikalne")
+    problems = MS.spec_id_problems(materials)
+    if problems:
+        raise SystemExit("BŁĄD: material IDs muszą być niepuste i unikalne — "
+                         + "; ".join(problems))
 
     clear_scene()
     columns = min(5, len(materials))
@@ -254,7 +258,7 @@ def main():
     cam_close = add_camera("cam_close", close_target + Vector((0.0, -7.6, 3.2)), close_target + Vector((0.0, 0.0, 0.15)), 50)
 
     bpy.ops.export_scene.gltf(filepath=args.out, export_format="GLB")
-    if not os.path.isfile(args.out) or os.path.getsize(args.out) <= 1024:
+    if MS.artefact_is_missing(args.out):
         raise SystemExit(f"BŁĄD: eksport GLB nie powstał: {args.out}")
 
     res = render_cfg["resolution"]
