@@ -74,7 +74,7 @@ wysokość pojazdu nad główką szyny (3,60 m obejmuje przestrzeń pod pudłem)
 
 ## Kontrole automatyczne
 
-Rozkład (`tools/tests/test_m7_shell.py`, bez Blendera) — 22 testy:
+Rozkład (`tools/tests/test_m7_shell.py`, bez Blendera) — 21 testów:
 
 - wymiary czytane wyłącznie z rejestru i tylko o statusie `spec`;
 - podmiana wartości w rejestrze zmienia model (dowód, że nic nie jest wpisane na sztywno);
@@ -85,6 +85,17 @@ Rozkład (`tools/tests/test_m7_shell.py`, bez Blendera) — 22 testy:
 - rozkład drzwi niezmienniczy na obrót 180° (skład jest dwukierunkowy);
 - przekrój osiąga dokładnie 2,700 m między ścięciami i nigdzie go nie przekracza;
 - skrajnia pojazdu i wszystkie trzy istniejące profile tuneli.
+
+**SPROSTOWANIE z 06.09.2026 (pozycja 6.D8).** Poprzednia wersja zdania nad tą listą
+mówiła „**22 testy**". **To była nieprawda** — i nie jest to datowany pomiar, który
+się zestarzał, więc liczba jest przepisana, a nie dopisana obok. Plik nigdy tylu
+testów nie miał: wnosi go do drzewa ten sam commit, co ten raport (`de574ff`,
+squash-merge PR-a #43), przez całą historię ma jeden niezmieniony blob i w każdej
+osiągalnej wersji — łącznie z jedynym commitem gałęzi przed squashem — daje 21 przy
+`grep -c '^def test_'`. Dwudziestka dwójka to liczba wszystkich definicji na
+marginesie modułu, czyli 21 testów **plus pomocnik** `_layout()`, który testem nie
+jest i którego `tools/tests/test_all.py` nie zbiera. Całe rozstrzygnięcie, z pomiarami
+i z odtworzeniem: `reports/M7-shell-liczba-testow.md`.
 
 Siatka (`tools/ci/m7_shell_check.sh`, w Blenderze):
 
