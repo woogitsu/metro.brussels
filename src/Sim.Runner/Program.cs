@@ -895,9 +895,29 @@ public static class Program
         return slower;
     }
 
+    /// <summary>
+    /// Liczba spod opcji, ktorej brak jest odmowa nazywajaca <b>wolane</b> polecenie.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Nazwa polecenia bierze sie z <c>args[0]</c>, a nie ze stalej w tresci komunikatu,
+    /// i to jest cala tresc pozycji 6.D20. Zmierzone 06.09.2026 przy 6.D15 (#301):
+    /// <c>budget</c> bez <c>--limit-kmh</c> konczyl sie komunikatem
+    /// <c>BLAD: line wymaga --limit-kmh</c>, czyli kierowal czytajacego do polecenia,
+    /// ktorego nie uruchamial. Ten pomocnik jest wspolny dla <c>line</c>, <c>budget</c>
+    /// i <c>replay</c>, wiec zaszyta nazwa mylila w dwoch przypadkach na trzy.
+    /// </para>
+    /// <para>
+    /// Wszystkie POZOSTALE komunikaty „X wymaga …" w tym pliku sa literalami stojacymi
+    /// w ciele jednego polecenia i nazywaja je poprawnie; sprawdzone po jednym.
+    /// Poprawka dotyczy wylacznie tego miejsca, bo tylko tutaj nazwa moze sie rozjechac
+    /// z wywolaniem.
+    /// </para>
+    /// </remarks>
     private static double RequiredNumber(string[] args, string name)
     {
-        var text = Option(args, name) ?? throw new ArgumentException($"line wymaga {name}");
+        var command = args.Length > 0 ? args[0] : "polecenie";
+        var text = Option(args, name) ?? throw new ArgumentException($"{command} wymaga {name}");
         return double.Parse(text, Inv);
     }
 
