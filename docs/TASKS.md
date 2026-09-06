@@ -572,26 +572,35 @@ Mechanika:
    z sześcioma polami. Wiersz tabeli mówi, *dlaczego* pozycja nie wymaga decyzji;
    dopiero blok mówi, *jak ją wykonać i po czym poznać, że jest skończona*.
 
-**Zapas udokumentowany:** 11 pozycji przy progu 12. Ten akapit jest przepisany, a nie
-dopisany obok — i to trzeci raz, bo za każdym razem przestawał być prawdą. Poprzednie
-wersje mówiły „kolejka ma **33 pozycje** […] Pozostałe **25**" (`b41c158`), potem
-„**31 pozycji**, udokumentowanych **8**", a wreszcie „**29 pozycji**, udokumentowanych
-**12** […] luka jest domknięta". To ostatnie zdanie było **prawdziwe co do liczby
-i fałszywe co do sensu**, i dlatego znika.
+**Akapit przepisany, a nie dopisany obok — i to czwarty raz, bo za każdym razem
+przestawał być prawdą.** Poprzednie wersje mówiły „kolejka ma **33 pozycje** […] Pozostałe
+**25**" (`b41c158`), potem „**31 pozycji**, udokumentowanych **8**", potem „**29 pozycji**,
+udokumentowanych **12** […] luka jest domknięta" — zdanie prawdziwe co do liczby i fałszywe
+co do sensu — a wreszcie „**24 pozycje w tabeli, 14 do wzięcia, 11 z nich udokumentowanych**".
+Ta ostatnia wersja niosła **nagłówek `Zapas udokumentowany:`**, którego bramka
+`test_the_documented_shortfall_is_written_down_while_it_lasts` żąda dokładnie wtedy, gdy
+zapas jest pod progiem — i to jest powód, dla którego nagłówek stąd znika, a nie ozdoba.
 
-Licznik liczył `ready_items`, czyli wszystko, co stoi w tabeli jako praca — **razem
-z pozycjami wykonanymi i zostawionymi**. Takich było 05.09.2026 dziesięć na dwadzieścia
-cztery, a zostawały tam z powodu samej zapadki: zdjęcie udokumentowanej pozycji ją
-zbijało, a zbijać nie wolno. Reguła zapasu obróciła się przeciwko sobie — chroniąc
-licznik, kazała trzymać w kolejce pracę skończoną. Udokumentowanych **i jednocześnie
-niezrobionych** zostało wtedy **pięć**, przy zapadce stojącej na dwunastu i świecącej
-na zielono.
+**Dlaczego przestała być prawdą, i to nie przez niedopatrzenie.** Ta wersja mówiła
+„11 udokumentowanych przy progu 12", a zmierzone 06.09.2026 na `51d324a`, przed tym
+commitem, było ich **osiem**. Różnicy nie zrobiła żadna zmiana w planie: zrobiło ją
+**scalenie pięciu zadań** (#275, #276, #277, #278, #279). Każde z nich dostało w swoim
+wierszu adnotację `ZROBIONE`, a `open_items` takie wiersze odsiewa — więc licznik
+udokumentowanego zapasu **opada wtedy, gdy praca idzie dobrze**. Liczba wpisana do planu
+ręcznie nie ma jak za tym nadążyć i dlatego rozjechała się o trzy w ciągu jednego dnia.
 
-Od tej chwili licznikiem jest `open_items` — pozycje bez adnotacji `ZROBIONE`. Zmierzone
-po dopisaniu sześciu bloków (6.A5, 6.A6, 6.C3, 6.C4, 6.D1, 6.D4): **24 pozycje w tabeli,
-14 do wzięcia, 11 z nich udokumentowanych** przy progu 12. Brakuje jednej i ten akapit
-o tym mówi, bo `test_the_documented_shortfall_is_written_down_while_it_lasts` nie
-pozwala luce zniknąć po cichu.
+Ten sam dzień pokazał drugą połowę tej mechaniki. Kolejka zeszła do **12 pozycji do
+wzięcia**, czyli równo do progu `MINIMUM_READY_ITEMS`, przy pięciu dalszych zadaniach
+**w robocie** — których scalenie zbiłoby ją do siedmiu i **zapaliłoby**
+`test_the_queue_holds_at_least_a_day_of_work`. Bramka złapałaby to dopiero po fakcie,
+na czerwonym zestawie w cudzym pull requeście. `CLAUDE.md` §8 mówi o tym wprost:
+„Gdy kolejka zejdzie poniżej dwunastu pozycji, **pierwszym zadaniem jest jej
+uzupełnienie**" — i to jest ten commit.
+
+**Zmierzone po uzupełnieniu, na tym drzewie:** **18 pozycji do wzięcia, wszystkie 18
+udokumentowane**, bloków z kompletem sześciu pól **29**. Po scaleniu pięciu zadań
+w robocie zostanie 13 do wzięcia i 13 udokumentowanych — nadal nad progiem, i to jest
+zapas policzony **na stan po**, nie na stan przed.
 
 **Od 06.09.2026 te dwie rzeczy pilnują dwie różne liczby**, bo jedna nie mogła pilnować
 obu naraz. `MINIMUM_DETAIL_BLOCKS` jest **zapadką** na liczbę *napisanych* bloków —
@@ -635,6 +644,7 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.A6 | **Wybieg zamiast trakcji: ile kosztuje w czasie, ile oszczędza w energii** | czysty eksperyment na modelu, żadnych nowych danych | M |
 | 6.A7 | **Testy własnościowe fizyki** — monotoniczność drogi hamowania po prędkości i masie, zachowanie energii, brak ujemnego czasu | wzmacnia to, co jest; nie dodaje ani jednej liczby o metrze | M |
 | 6.A8 | **ZROBIONE w #279 (06.09.2026).** **39 testów** w trzech plikach (`EnergyAccountTests.cs`, `MovementAuthorityTests.cs`, `SpeedProfileTests.cs`) i `reports/typy-sim-bez-testu.md`; rdzeń **455 → 494**, `src/Sim/` bez ani jednej zmiany. Pomiar obalił liczbę z bloku: nie 6 z 45, tylko **5 z 52** — `MovementAuthority` zszedł z listy, bo nazywa go zaślepka w `tests/Game.Tests`, ale testu jednostkowego nadal nie miał i dostał go razem z resztą. **Licznik z pola Weryfikacja tego bloku jest zepsuty i to jest główne znalezisko:** po pierwszym `dotnet test` daje **fałszywe zero**, bo `grep -r tests/` wchodzi do `tests/Sim.Tests/bin/`, gdzie leży skompilowany `MetroBxl.Sim.dll` z nazwą każdego typu rdzenia, a `find src/Sim` wciąga wygenerowane pliki z `obj/`. Narzędzie weryfikujące, które po jednym przebiegu testów zawsze melduje „wszystko pokryte” — ta sama klasa usterki co fałszywa wyrocznia mutacyjna z #268. 39 kontroli negatywnych, po jednej na test, każda jako osobna mutacja `src/Sim` z natychmiastowym przywróceniem pliku; `BEZ KONTROLI: []`. Jedną z nich powtórzyłem samodzielnie: zdjęcie osłony `TractionWorkJ == 0.0` daje `Expected <0>, actual <Infinity>`, a cały istniejący `EnergyAndProfileTests` zostaje przy tej mutacji **zielony** — treść pierwotna: **Testy jednostkowe sześciu typów `src/Sim`, których nie nazywa żaden plik z `tests/`** — `EnergyAccount`, `BrakingEnergyAccount`, `SpeedProfile`, `MovementAuthority`, `Block`, `DesignParameter` | zmierzone licznikiem, nie na oko (polecenie w szczegółach pozycji); praca idzie wyłącznie do `tests/Sim.Tests/`, więc nie dotyka ani jednej liczby o sieci ani kodu produkcyjnego | M |
+| 6.A9 | **Polecenia `Sim.Runner` bez testu** — osiem poleceń, nazwy siedmiu z nich nie wymienia ani jeden plik w `tests/Sim.Tests/` | bliźniak 6.A8 po stronie CLI: pomiar na istniejącym kodzie, ani jednej nowej liczby o Brukseli | M |
 
 #### Pasmo B — narzędzia i geometria (`tools/`)
 
@@ -649,6 +659,10 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.B8 | **ZROBIONE — i to nie w tej pozycji, tylko w 5.8 (`f5126a3`). Wpis zostaje w kolejce z powodu zapadki**, tak jak 6.D6, 6.B10 i 6.B1. Zmierzone 05.09.2026 na `ec926a2`, na TYM SAMYM zestawie klas, na którym powstał wiersz 2 / 2: `--operators operator,prog` daje **2 mutacje, 2 zabite, 0 ocalałych**, a pełny dzisiejszy zestaw 13 / 13 zabitych. Zabijają je testy z `test_make_test_track.py`, nie rozszerzenie zestawu operatorów — rozpisane w `reports/mutation-triage-make-test-track.md`. Treść pierwotna: **Triaż 2 ocalałych mutacji `tools/track/make_test_track.py`** — pierwszy wiersz tabeli „Kolejność triażu — po udziale" w `reports/mutation-sweep.md`, udział 100 % (2 / 2) | moduł generuje `BROKEN.json`, czyli kontrolę negatywną dla walidatora osi, i karmi dwie bramki CI (`tools/ci/blender_smoke.sh`, `tools/ci/visual_smoke.sh`); obie ocalałe siedzą w warunku, który decyduje, **gdzie** oś jest zepsuta — mutant przesuwa uszkodzenie, a bramki nadal świecą zielono. Oś jest syntetyczna, więc nie ma tu ani jednego faktu o Brukseli | S |
 | 6.B9 | **ZROBIONE w #276 (06.09.2026) — wpis zostaje w kolejce z powodu zapadki.** Wykonane: trzy moduły bez `bpy` (`station_sections.py`, `marker_gates.py`, `material_specs.py`) i `reports/bpy-extraction-round-2.md`. **Nieosiągalne 53 → 24** przy progu 25, mierzone starym zestawem operatorów — tylko on jest porównywalny z liczbą 51 z raportu, bo na dzisiejszym pełnym zestawie pięciu klas jest ich 350 (#258 rozszerzyło zestaw). Rozbicie: `station_kit.py` 13 → 1, `detail_markers.py` 9 → 0, `material_test_scene.py` 12 → 4. **Refaktor nie zmienił ani jednego wierzchołka**: GLB identyczny co do bajtu, wszystkie trzy rendery identyczne co do pikseli. Suma SHA-256 pliku PNG nie mogła być wyrocznią, bo Blender stempluje w każdym renderze `Date` i `RenderTime` — stąd `tools/ci/png_pixels_sha256.py`, liczące sumę po blokach `IDAT`. **Pomyłka metody warta zapamiętania:** klasyfikacja po funkcjach („czy pada tu `bpy`”) mówiła, że w `material_test_scene.py` nie ma czego wyciągać, zero z dwunastu; klasyfikacja po wierszach dała osiem — predykaty zamurowane w funkcjach z `bpy`, ale same o Blenderze nie wiedzące. Granicą do przecięcia jest wiersz, nie funkcja. Treść pierwotna: **wyciągnięcie czystej logiki spod `bpy` z trzech modułów scen** | `reports/mutation-sweep.md` §„Moduły nieosiągalne" nazywa lekarstwo wprost: „Lekarstwem tutaj nie są testy, tylko dalsze wyciąganie logiki spod `bpy`", i ma dla tego zmierzony precedens z tego samego przebiegu (`m7_shell.py` 35 → 2, `tunnel_sweep.py` 35 → 6, `profile_vehicle.py` 26 → 7). Przeniesienie funkcji czystych nie zmienia geometrii wyjściowej — kontrolą jest identyczny GLB | L |
 | 6.B10 | **ZROBIONE w #264 (05.09.2026) — wpis zostaje w kolejce z powodu zapadki, nie dlatego, że jest do zrobienia**, tak samo jak 6.D6 i z tego samego powodu: zdjęcie udokumentowanej pozycji zbija `MINIMUM_DOCUMENTED_ITEMS`, a zapadkę wolno tylko podnosić. Wykonane: trzy testy w `tools/tests/test_braking.py` wołają `report()` i porównują wypis z tablicą referencyjną z `reports/T-311-braking.md` §4 — sześć wierszy po dziewięć liczb, bez tolerancji. Kontrola negatywna obaliła pierwszą wersję testu: mutacja nagłówka na `DROGA HAMOWANIA_MUTANT` przechodziła sprawdzenie `"DROGA HAMOWANIA" in text`, więc oczekiwaniem jest teraz cały wiersz. Treść pierwotna: **`report()` w `tools/physics/braking.py` nie jest wykonywane przez nic** — ani test, ani skrypt `tools/ci/*.sh`; jedyny wołający to `if __name__ == "__main__"` w wierszu 313 | `reports/mutation-triage-fizyka.md` §6 zapisał to jako znalezisko poza triażem: „Funkcja drukuje trzy tablice referencyjne T-311 i mogłaby przestać się składać bez skutku dla CI. To jest osobne zadanie, nie triaż". Tablice referencyjne T-311 są już w `docs/02-simulation.md`, więc test porównuje wypis z tym, co repo już deklaruje | S |
+| 6.B13 | **Trzecia runda wyciągania spod `bpy`: `profile_vehicle.py` (7) i `tunnel_sweep.py` (6)** — dwa największe pozostałe źródła nieosiągalnych mutacji po #276 | metoda jest zmierzona i opisana w `reports/bpy-extraction-round-2.md` §3: granicą do przecięcia jest **wiersz**, nie funkcja. Oba moduły przeszły pierwszą rundę klasyfikowaną po funkcjach, więc to, co w nich zostało, jest dokładnie tą klasą, którą tamta metoda gubiła | M |
+| 6.B14 | **Triaż funkcji, które ekstrakcja z #276 uczyniła osiągalnymi** — dziewięć funkcji w trzech nowych modułach nie ma ani jednego testu bezpośredniego | pozycja 6.B9 świadomie ich nie dopisała: celem było uczynić je **mierzalnymi**, a ile z nich przeżyje przegląd, mówi dopiero pomiar. Żadnej nowej liczby o Brukseli, żadnej decyzji — wejściem jest przegląd mutacyjny na `station_sections.py`, `marker_gates.py` i `material_specs.py` | M |
+| 6.B15 | **Bramki bez wykonanej kontroli negatywnej** — 73 moduły w `tools/tests/`, wyrażenie „kontrola negatywna" stoi w 33 | `CLAUDE.md` §5 nazywa tę kontrolę częścią pętli weryfikacji, a nie jej ozdobą; policzenie, gdzie jej nie ma, i dołożenie jej tam, gdzie da się ją wykonać, nie wymaga ani jednej decyzji | M |
+| 6.B16 | **Triaż ośmiu mutacji ocalałych na `tools/track/detail_layout.py`** — module, który wpis T-011 opisuje jako ten z **0 założeń** | `reports/mutation-drift.md` podaje dla niego 8 ocalałych z 9 mutacji; werdykt dla każdej z nich jest pomiarem, nie decyzją | M |
 
 #### Pasmo C — warstwa silnika (`src/Game`)
 
@@ -666,17 +680,24 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.D4 | **ZROBIONE w #273 (06.09.2026) — wpis zostaje w kolejce z powodu zapadki.** Wykonane: `tools/tests/test_report_claims.py` i `reports/report-claims-audit.md`. **Pierwszy pomiar zawęził zakres pozycji i to jest jej główny wynik:** z ośmiu twierdzeń postaci „`plik_testowy`, N testów” **siedem rozjechało się z drzewem i siedem jest poprawnych** — raport opisywał plik w dniu pomiaru, a plik urósł; bramka żądająca tam równości kazałaby przeliczać datowany pomiar, czego zakazuje 6.D3. Sprawdzalna jest **wartość stałej**: 65 nazw pada w raportach, 37 ma definicję w kodzie, **12 jest zacytowanych z wartością i wszystkie 12 się zgadzają**. Wzorzec trzeba było zwęzić — wersja pierwsza dała **3 fałszywe alarmy na 15** przez tabele odwzorowań `219 → NAZWA, 237 → INNA`, w których brała numer wiersza następnej pary za wartość poprzedniej. Druga poprawka wyszła z tego, że bramka **wywróciła się na własnym raporcie**: cytat z kontroli negatywnej wygląda jak twierdzenie, więc bloki ogrodzone są pomijane. Zgłoszone, nie poprawione: `M7-shell.md` mówi 22 testy przy 21 w pliku — jedyny rozjazd w stronę, której datowanie nie tłumaczy. Treść pierwotna: **kontrola spójności liczb między `reports/` a kodem** — wartość wypisana w raporcie musi dać się odtworzyć z repo | dokładnie ta klasa rozjazdu, którą audyt znalazł w README | M |
 | 6.D5 | **ZROBIONE w #259 (`08d9650`, 05.09.2026) — wpis zostaje w kolejce z powodu zapadki**, jak 6.D6, 6.B10, 6.B1 i 6.B8. Wykonane: `reports/mutation-drift.md` obejmuje **28 modułów** zamiast wymaganych dwunastu, a `tools/tests/test_mutation_sweep.py` ma sześć testów dryfu, w tym `test_drift_report_pins_the_two_cases_the_task_names`, czyli dokładnie kryterium „Skończone, gdy”. Znalezione audytem kolejki 05.09.2026, nie zgłoszone przy scaleniu. Treść pierwotna: **Audyt dryfu pokrycia mutacyjnego po triażu** — które moduły odzyskały ocalałe od czasu swojego raportu triażu, i przybicie ich z powrotem | rozjazd jest już zmierzony i leży w dwóch plikach naraz: `tools/track/crs.py` miał po triażu 6 ocalałych na 8 mutacji (`reports/mutation-triage-wczytywanie.md` §Wynik), a przebieg z `66b8301` w `reports/mutation-sweep.md` pokazuje **8 na 14**; `tools/ci/assert_shot_metadata.py` miał **2 na 33** (`reports/mutation-triage-png-metadata.md` §Wynik), a dziś ma **6 na 39**. Porównanie dwóch raportów, które już istnieją — żadnej nowej danej | M |
 | 6.D6 | **ZROBIONE w #258 (05.09.2026) — wpis zostaje w kolejce z powodu zapadki, nie dlatego, że jest do zrobienia.** `test_backlog.py` trzyma `MINIMUM_DOCUMENTED_ITEMS = 8`, a udokumentowanych pozycji jest dokładnie osiem; przeniesienie którejkolwiek do tabeli domknięć zbija licznik do siedmiu i wywraca `test_the_documented_reserve_does_not_regress`, a komentarz przy zapadce mówi, że wolno ją tylko podnosić. Decyzja właściciela z 05.09.2026: wpis zostaje z tą adnotacją. Treść pierwotna: **rozszerzenie zestawu operatorów `tools/tests/mutation_sweep.py`** poza porównania i progi liczbowe — przypisania, wywołania i łączniki logiczne. Wykonane: dwie klasy urosły do pięciu (`logika`, `argument`, `przypisanie`), a stary zestaw odtwarza `--operators operator,prog` co do sztuki (1038 = 1038) | `reports/mutation-sweep.md` §„Czego ten przebieg NIE pokrywa, choć pozycja 5.1 tak brzmi" wypisuje ten brak w tabeli: pozycja 5.1 mówi „każdą kontrolę", a narzędzie mutuje „wyłącznie **operatory porównań i progi liczbowe**; nie mutuje przypisań, wywołań ani łączników logicznych". Praca w samym narzędziu pomiaru; baza do porównania jest zmierzona (980 mutacji, 51 nieosiągalnych, 929 policzonych na `66b8301`) | L |
-| 6.B13 | **Trzecia runda wyciągania spod `bpy`: `profile_vehicle.py` (7) i `tunnel_sweep.py` (6)** — dwa największe pozostałe źródła nieosiągalnych mutacji po #276 | metoda jest zmierzona i opisana w `reports/bpy-extraction-round-2.md` §3: granicą do przecięcia jest **wiersz**, nie funkcja. Oba moduły przeszły pierwszą rundę klasyfikowaną po funkcjach, więc to, co w nich zostało, jest dokładnie tą klasą, którą tamta metoda gubiła | M |
-| 6.B14 | **Triaż funkcji, które ekstrakcja z #276 uczyniła osiągalnymi** — dziewięć funkcji w trzech nowych modułach nie ma ani jednego testu bezpośredniego | pozycja 6.B9 świadomie ich nie dopisała: celem było uczynić je **mierzalnymi**, a ile z nich przeżyje przegląd, mówi dopiero pomiar. Żadnej nowej liczby o Brukseli, żadnej decyzji — wejściem jest przegląd mutacyjny na `station_sections.py`, `marker_gates.py` i `material_specs.py` | M |
 | 6.D7 | **ZROBIONE w #278 (06.09.2026).** `NAMES_THE_PLATFORM_PARAMETER` wymaga teraz **współwystąpienia słowa „peron"** z wyrażeniem o jawnym parametrze i przyjmuje odmianę (`jawn\w+ parametr\w*`), więc zwężenie jest zarazem rozszerzeniem. W korpusie bramki **5 → 4 trafienia**: wypadło dokładnie to fałszywe (udział odzysku energii z bloku 6.A5), nie ubyło ani jedno prawdziwe, a doszły zdania w rodzaju „długość peronu **jest jawnym parametrem**", których stara wersja nie widziała, bo szukała frazy w mianowniku. Dwie kontrole negatywne wykonane; **druga jest tu ważniejsza** — zdanie dopisane bez nazwy stałej, samym zwrotem w odmianie, zapala bramkę, czego stary wzorzec nie robił. Bez niej „zwężenie” mogłoby po cichu zejść do szukania samej nazwy `DESIGN_PLATFORM_LENGTH_M` i przestać sprawdzać prozę. `PARAMETER_VALUE` zostawiony szeroki z powodem przy stałej: żąda wartości w metrach, więc zdania o procentach nie zapala, a jest ostatnią rzeczą widzącą wiersz, w którym generator dostaje wartość jawnym parametrem bez słowa „peron” obok — treść pierwotna: **`NAMES_THE_PLATFORM_PARAMETER` w `test_dimension_audit.py` łapie samo wyrażenie „jawny parametr"** i żąda od niego wartości 95,0 m — także wtedy, gdy zdanie mówi o zupełnie innym parametrze | zmierzone 06.09.2026 przy #272: zdanie o udziale odzysku energii w bloku 6.A5 zapaliło bramkę długości peronu. Zwężenie wzorca to ta sama praca co przy `test_report_claims.py` (#273), gdzie zwężenie zdjęło 3 fałszywe alarmy na 15 | S |
 | 6.D8 | **ZROBIONE w #277 (06.09.2026).** Rozstrzygnięte: **liczba była nieprawdziwa od początku**, nie zestarzała się. `reports/M7-shell-liczba-testow.md` pokazuje to pomiarem, nie argumentem: plik testowy i raport wnosi do drzewa **ten sam commit** (`de574ff`, squash-merge PR-a #43), plik ma przez całą historię **jeden niezmieniony blob** `efae116`, a w każdej osiągalnej wersji — łącznie z jedynym commitem gałęzi przed squashem — `grep -c '^def test_'` daje **21**. Nie ma w historii momentu, w którym obie liczby byłyby zgodne, więc możliwość „testy usunięto” jest wykluczona pomiarem. Skąd wzięło się 22: `grep -c '^def '` daje 22, bo liczy też pomocnika `_layout()`, którego `test_all.py` nie zbiera — policzono definicje zamiast testów. `reports/M7-shell.md` **przepisany**, nie dopisany obok, z pomiarem zostawionym w wierszu 77, żeby odsyłacz z §1 audytu dalej w niego trafiał — treść pierwotna: **`reports/M7-shell.md` mówi „22 testy" przy 21 w pliku** — jedyny rozjazd liczby testów, którego datowanie NIE tłumaczy | siedem pozostałych rozjazdów z `reports/report-claims-audit.md` §1 idzie w stronę „raport mniej, plik więcej", czyli plik urósł po pomiarze. Ten idzie w drugą: raport nie mógł policzyć więcej testów, niż plik miał. Rozstrzyga `git log --follow` po `tools/tests/test_m7_shell.py`, bez ani jednej decyzji | S |
+| 6.D9 | **Wzorcem klatki jest suma pikseli, nie suma pliku** — `idat_sha256` leży w repo z czterema testami i nie jest wołane z żadnego workflowu ani skryptu | narzędzie i dowód, że suma całego pliku PNG jest bezużyteczna jako wyrocznia, są już w repo; zostaje zastosowanie | M |
+| 6.D10 | **Czy commit z nagłówka raportu ma cokolwiek wspólnego z raportem** — 25 z 48 raportów podaje SHA, który nigdy nie dotknął ich pliku | pozycja mierzy relację, a nie decyduje o niej; dopiero pomiar mówi, którą wolno przybić bramką, a której nie wolno | S |
+| 6.D11 | **Bramka na czas przebiegu `test_all.py`** — 1638 testów w 62,8 s, i nikt tego nie pilnuje | bliźniak 6.D2 po stronie Pythona: pomiar, nie decyzja | S |
 
 #### Szczegóły pozycji z kompletem sześciu pól
 
-**Nagłówek przepisany, a nie dopisany obok.** Poprzednia wersja mówiła „Szczegóły
-**ośmiu** pozycji dopisanych 04.09.2026" i przestała być prawdą 05.09.2026, gdy doszły
-cztery kolejne — 6.A7, 6.B1, 6.B2 i 6.D2. Osiem pierwszych pochodzi z 04.09.2026,
-cztery ostatnie domykają lukę do progu zapasu; która jest która, mówi pole **Skąd**.
+**Nagłówek przepisany, a nie dopisany obok — trzeci raz i z tego samego powodu.**
+Pierwsza wersja mówiła „Szczegóły **ośmiu** pozycji dopisanych 04.09.2026", druga
+poprawiła ją na dwanaście („doszły cztery kolejne — 6.A7, 6.B1, 6.B2 i 6.D2"), i obie
+przestały być prawdą, bo **liczba bloków stała w nagłówku wypisana ręcznie**. Bloków
+jest dziś **29**: dwanaście z 04–05.09.2026 i siedemnaście z 06.09.2026, z czego dziesięć
+z jednego commita uzupełniającego kolejkę. Który blok jest z kiedy, mówi pole **Skąd**
+przy nim — i to jest jedyne miejsce, w którym ta informacja się nie starzeje.
+
+Liczby nie ma sensu tu utrwalać niczym więcej niż zdaniem o pomiarze: pilnuje jej
+`MINIMUM_DETAIL_BLOCKS` w `tools/tests/test_backlog.py`, a nie ten akapit.
 
 Wiersze tabel wyżej mówią, **dlaczego** pozycja nie wymaga decyzji. Poniżej stoi to,
 czego wymaga `CLAUDE.md` §6 i `docs/TASK-TEMPLATE.md`: sześć pól na pozycję, plus jedno
@@ -1336,6 +1357,332 @@ co dochodzi ponad ten wspólny zakaz.
   archiwum GTFS nie leży w drzewie (`data/gtfs/` i `build/` są w `.gitignore`).
   `fetch_gtfs.py --offline` odmawia pobierania, więc brak sieci jest widoczny od razu,
   a nie w postaci pustego rozkładu.
+
+##### 5.6 · Domknąć „Czego brakuje w tej rozpisce"
+
+- **Skąd:** sekcja `## Czego brakuje w tej rozpisce` w tym pliku otwiera się zdaniem
+  „Dopóki go nie mają, **Issues są jedynym źródłem prawdy** o ich zakresie" — a plan
+  deklaruje wyżej, że to on jest mapą zależności i zakresów. Rozjazd jest więc zapisany
+  wprost i **niezamknięty**: siedem pozycji (T-114, R-002…R-007, T-401, T-901) ma zakres
+  poza tym plikiem. Zmierzone 06.09.2026: z tych siedmiu **pięć jest już w `main`**
+  (R-003, R-004, R-005, R-006, R-007), T-114 i T-401 sekcja sama nazywa zrobionymi,
+  a T-901 jest pozycją właściciela i ma wpis w „Czego agent nie ruszy bez decyzji".
+  Do dopisania zostaje więc **R-002**, a resztę sekcji zamyka przeniesienie faktów,
+  nie nowa praca.
+- **Wejście:** sekcja `## Czego brakuje w tej rozpisce` w `docs/TASKS.md`, wpisy `[x]`
+  wyżej w tym pliku (wzorzec formy wpisu zamkniętego), `docs/TASK-TEMPLATE.md`,
+  `tools/tests/test_backlog.py` (bramki liczące wpisy i pola),
+  `reports/kolejka-audyt-aktualnosci.md` (metoda audytu: fakt kontra zapis).
+- **Wyjście:** wpisy z kompletem pól dla pozycji, które ich nie mają, w `docs/TASKS.md`;
+  sekcja `## Czego brakuje w tej rozpisce` **usunięta**, bo nie ma już czego wymieniać.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py
+  grep -n "Czego brakuje w tej rozpisce" docs/TASKS.md
+  ```
+  Oczekiwane: zestaw zielony, a `grep` **nic nie zwraca** — sekcja zniknęła.
+- **Skończone, gdy:** każda z siedmiu pozycji wymienionych dziś w tej sekcji ma w tym
+  pliku albo wpis `[x]` z artefaktami, albo wiersz w „Czego agent nie ruszy bez decyzji"
+  z powodem — a `grep` na nazwę sekcji nie zwraca nic. Status każdej z siedmiu jest
+  **sprawdzony w drzewie**, nie przepisany z sekcji: plik, który sam siebie nazywa mapą,
+  nie ma prawa nieść cudzej deklaracji o gotowości.
+- **Poza zakresem:** wykonywanie którejkolwiek z siedmiu pozycji. To jest zamknięcie
+  rozjazdu w zapisie, nie praca nad zadaniami. Poza zakresem także zmiana zdania o tym,
+  że **Issues są źródłem prawdy o statusie** — pozycja usuwa wyjątek, nie regułę.
+- **Zależy od:** nic.
+
+##### 6.B5 · Łuk o najmniejszym promieniu na każdej osi
+
+- **Skąd:** `reports/M7-curve-clearance.md` ma metodę zmierzoną i opisaną, ale zastosowaną
+  do jednego przypadku. Wiersz `| 6.B5 |` mówi wprost: „metoda zmierzona i opisana,
+  zostaje zastosowanie". Sześć osi pakietów A–F leży w `data/track/`, a skrajnia M7
+  jest w `data/vehicle/m7-spec.json` — czyli oba wejścia istnieją i pozycja nie dodaje
+  ani jednej nowej liczby o sieci.
+- **Wejście:** `data/track/L1_A.json`, `L1_B.json`, `L2_E.json`, `L5_C.json`,
+  `L5_D.json`, `L6_F.json`, `data/vehicle/m7-spec.json`,
+  `reports/M7-curve-clearance.md` (metoda i wzór raportu),
+  `tools/track/profile_scan.py` i `tools/blender/placement.py` (`marker_clearances`),
+  `docs/24-clearance-profile-decisions.md` — **progi luzu czekają tam na właściciela**
+  i pozycja ich nie rozstrzyga.
+- **Wyjście:** raport w `reports/` z łukiem o najmniejszym promieniu **na każdej z sześciu
+  osi**, z kilometrażem i promieniem w metrach, oraz testy w `tools/tests/` na to,
+  co w pakietach B–F jest inne niż w A.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py
+  ```
+  plus wypis narzędzia dla każdej z sześciu osi, wklejony do raportu.
+- **Skończone, gdy:** dla każdej z sześciu osi raport podaje **promień najmniejszego
+  łuku, jego kilometraż i wynik sprawdzenia skrajni punkt po punkcie** — a oś, na której
+  skrajnia nie przechodzi, jest nazwana wprost razem z liczbą, o jaką nie przechodzi.
+  To jest wynik, nie porażka.
+- **Poza zakresem:** **wybór progu luzu.** `docs/24-clearance-profile-decisions.md` trzyma
+  tę decyzję dla właściciela; pozycja podaje zmierzony luz i mówi, przy którym progu
+  przechodzi, a przy którym nie — nie wybiera progu. Poza zakresem także jakikolwiek
+  zapis do `data/`.
+- **Zależy od:** nic. Osie pakietów B–F są w drzewie od #86. **Ta pozycja nie czeka na
+  decyzję „co budować zamiast rury"** — czeka na nią 6.B3 (LOD tuneli pakietów C, D, F),
+  wiersz obok w tabeli decyzji właściciela. Komentarz w `tools/tests/test_backlog.py`
+  przypisywał tę blokadę 6.B5 i jest w tym samym commicie przepisany: promień łuku
+  i skrajnia liczą się **z osi**, a nie z tunelu, więc brak tunelu w C, D i F niczego
+  tu nie blokuje.
+
+##### 6.B13 · Trzecia runda wyciągania spod `bpy`
+
+- **Skąd:** `reports/bpy-extraction-round-2.md` §3 — ustalenie drugiej rundy (#276) brzmi:
+  **granicą do przecięcia jest wiersz, nie funkcja.** Klasyfikacja po funkcjach dała
+  w `material_test_scene.py` 0 z 12 kandydatów, po wierszach 8 z 12. `profile_vehicle.py`
+  i `tunnel_sweep.py` przeszły pierwszą rundę klasyfikowaną po funkcjach, więc to, co
+  w nich zostało nieosiągalne, jest dokładnie tą klasą, którą tamta metoda gubiła.
+  Wiersz kolejki podaje 7 i 6 mutacji — liczby z pomiaru przy #276, do potwierdzenia.
+- **Wejście:** `tools/blender/profile_vehicle.py`, `tools/blender/tunnel_sweep.py`,
+  `reports/bpy-extraction-round-2.md` (metoda i wzór raportu), trzy moduły z #276 —
+  `tools/blender/station_sections.py`, `tools/blender/marker_gates.py`,
+  `tools/blender/material_specs.py` — jako **wzorzec kształtu**, zwłaszcza re-eksport
+  wyciągniętych nazw w module źródłowym, żeby nic wołające stare nazwy nie przestało
+  działać; `tools/tests/mutation_sweep.py` jako narzędzie pomiaru osiągalności.
+- **Wyjście:** nowe moduły bez `bpy` w `tools/blender/`, re-eksporty w modułach
+  źródłowych, testy w `tools/tests/` na każdą wyciągniętą funkcję i raport
+  `reports/bpy-extraction-round-3.md` w formie raportu z rundy drugiej.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py
+  python3 tools/tests/mutation_sweep.py --only tools/blender/profile_vehicle.py --workers 4
+  python3 tools/tests/mutation_sweep.py --only tools/blender/tunnel_sweep.py --workers 4
+  ```
+  Oczekiwane: zestaw zielony, a liczba mutacji **nieosiągalnych** w obu modułach mniejsza
+  niż przed ekstrakcją — obie liczby zmierzone tym samym narzędziem.
+- **Skończone, gdy:** raport podaje liczbę nieosiągalnych **przed** i **po** dla obu
+  modułów, zmierzoną na **tym samym zestawie klas operatorów** i z nazwaniem tego
+  zestawu wprost (`operator,prog` i pięć klas dają różne mianowniki i **nie są
+  porównywalne**), a każda wyciągnięta funkcja ma co najmniej jeden test bezpośredni.
+- **Poza zakresem:** zmiana **zachowania** czegokolwiek — to jest przeniesienie kodu,
+  nie jego poprawianie; błąd zobaczony przy okazji jest zgłoszeniem, nie poprawką.
+  Poza zakresem także `material_test_scene.py` i moduły z rund pierwszej i drugiej.
+- **Zależy od:** #276 (scalone).
+
+##### 6.B14 · Triaż funkcji, które ekstrakcja z #276 uczyniła osiągalnymi
+
+- **Skąd:** wiersz `| 6.B14 |` i `reports/bpy-extraction-round-2.md`. Pozycja 6.B9 (#276)
+  wyciągnęła spod `bpy` trzynaście funkcji do trzech modułów i **świadomie nie dopisała
+  im testów** — jej celem było uczynić je *mierzalnymi*. Ile z nich przeżyje przegląd,
+  mówi dopiero pomiar. Wiersz kolejki mówi o dziewięciu funkcjach bez ani jednego testu
+  bezpośredniego; potwierdzenie albo obalenie tej liczby jest pierwszym krokiem pozycji.
+- **Wejście:** `tools/blender/station_sections.py`, `tools/blender/marker_gates.py`,
+  `tools/blender/material_specs.py`, `reports/bpy-extraction-round-2.md`,
+  `tools/tests/mutation_sweep.py`, istniejące moduły w `tools/tests/` (żeby nie dublować
+  pokrycia pośredniego), oraz `reports/mutation-triage-sweep.md`
+  i `reports/mutation-triage-m7-report.md` jako **wzorzec formy triażu**: werdykt dla
+  każdej ocalałej z osobna i osobna kategoria dla mutantów równoważnych.
+- **Wyjście:** testy w `tools/tests/` (po jednym nowym pliku na moduł) i raport triażu
+  w `reports/`.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/mutation_sweep.py --only tools/blender/station_sections.py --workers 4
+  python3 tools/tests/mutation_sweep.py --only tools/blender/marker_gates.py --workers 4
+  python3 tools/tests/mutation_sweep.py --only tools/blender/material_specs.py --workers 4
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: liczba zabitych rośnie na każdym z trzech modułów, przy zielonym zestawie.
+- **Skończone, gdy:** każda mutacja, która przeżyła przegląd na tych trzech modułach,
+  ma w raporcie werdykt — **zabita nowym testem**, **równoważna** (z dowodem, dlaczego
+  żadne wejście jej nie odróżni, i z zapisem, czego szukano, żeby to obalić), albo
+  **ocalała i dlaczego zostaje** — a raport nazywa wprost zestaw klas operatorów,
+  na którym mierzono.
+- **Poza zakresem:** zmiana **zachowania** któregokolwiek z trzech modułów; test opisuje
+  kod, jaki jest dziś, a błąd ujawniony testem jest zgłoszeniem, nie poprawką przy
+  okazji. Poza zakresem także `profile_vehicle.py` i `tunnel_sweep.py` — to jest 6.B13.
+- **Zależy od:** #276 (scalone). **Kalibracja wyrocznii jest warunkiem, nie formalnością:**
+  przegląd, który zabija wszystko, jest podejrzany, nie znakomity — dokładnie tak kłamało
+  to narzędzie przed #268.
+
+##### 6.A9 · Polecenia `Sim.Runner` bez testu
+
+- **Skąd:** `src/Sim.Runner/Program.cs` rozdziela osiem poleceń — `drive`, `replay`,
+  `compare`, `axis`, `parity`, `braking`, `line`, `budget`. Zmierzone 06.09.2026 na
+  `51d324a`: nazwę polecenia wymienia jakikolwiek plik w `tests/Sim.Tests/` **tylko dla
+  `axis`**; pozostałych siedmiu nie wymienia ani jeden. Testy wołają metody rdzenia
+  bezpośrednio, więc **rozbiór argumentów i kody wyjścia nie mają pokrycia** — literówka
+  w nazwie przełącznika przejdzie zestaw. Pozycja jest bliźniakiem 6.A8 (#279), tylko
+  po stronie CLI, nie typów.
+- **Wejście:** `src/Sim.Runner/Program.cs`, `tests/Sim.Tests/LineRunTests.cs`,
+  `tests/Sim.Tests/LineBudgetTests.cs`, `tests/Sim.Tests/TrackAxisTests.cs`,
+  `tests/Sim.Tests/ClassicSignallingScenarioTests.cs` (żeby nie dublować tego, co jest),
+  `reports/typy-sim-bez-testu.md` jako wzorzec formy raportu z 6.A8.
+- **Wyjście:** testy w nowym pliku w `tests/Sim.Tests/` oraz raport w `reports/`
+  z tabelą polecenie → liczba testów przed i po.
+- **Weryfikacja:**
+  ```bash
+  dotnet test tests/Sim.Tests
+  ```
+  Oczekiwane: zielony zestaw o liczbie testów większej niż dzisiejsze **494**.
+- **Skończone, gdy:** każde z ośmiu poleceń ma test na **kod wyjścia** — przy braku
+  wymaganego argumentu tam, gdzie polecenie argumenty ma, i przy nazwie polecenia,
+  którego nie ma — a każdy test ma **wykonaną** kontrolę negatywną z wklejonym wyjściem.
+- **Poza zakresem:** zmiana zachowania `Program.cs`, w tym „poprawienie" kodu wyjścia
+  albo komunikatu. Test przybija stan, jaki jest; błąd rozbioru ujawniony testem jest
+  zgłoszeniem, nie poprawką przy okazji.
+- **Zależy od:** nic. 6.A8 zrobione (#279), ale ta pozycja go nie potrzebuje.
+
+##### 6.B15 · Bramki bez wykonanej kontroli negatywnej
+
+- **Skąd:** `CLAUDE.md` §5 wymienia „skrypt wykonał się bez błędu" i „powinno działać"
+  jako **zakazane formy weryfikacji**, a konwencja projektu żąda kontroli negatywnej
+  *wykonanej*, nie opisanej. Zmierzone 06.09.2026 na `51d324a`: modułów `test_*.py`
+  w `tools/tests/` jest **73**, a wyrażenie „kontrola negatywna" stoi w **33**. Czterdzieści
+  modułów nie mówi więc o sobie, czy ktokolwiek sprawdził, że ich bramka **umie
+  zaświecić** — a bramka, która nigdy nie zaświeciła, jest zdaniem o sobie, nie pomiarem.
+  Dokładnie taka była wyrocznia mutacyjna przed #268: zielona, bo zepsuta.
+- **Wejście:** wszystkie moduły `tools/tests/test_*.py`, `CLAUDE.md` §5,
+  `reports/wyrocznia-mutacyjna-falszywe-zabicia.md` (przypadek bramki, która nie umiała
+  zaświecić), oraz moduły z tych 33 jako **wzorzec zapisu** kontroli — zwłaszcza te,
+  które wklejają wyjście, a nie tylko je opisują.
+- **Wyjście:** raport w `reports/` z listą modułów bez zapisanej kontroli negatywnej
+  i werdyktem dla każdego, oraz **wykonane i zapisane** kontrole dla tych, w których
+  da się je wykonać bez Blendera i Godota.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py
+  grep -rlEi "kontrola negatywna" tools/tests/test_*.py | wc -l
+  ls tools/tests/test_*.py | wc -l
+  ```
+  Oczekiwane: zestaw zielony, a pierwsza liczba większa niż dzisiejsze 33 przy tej
+  samej albo większej drugiej.
+- **Skończone, gdy:** raport podaje dla **każdego** z 73 modułów jedną z trzech
+  odpowiedzi — kontrola **wykonana i zapisana**, kontrola **niewykonalna w tym
+  środowisku** (z nazwaniem brakującego narzędzia), albo kontrola **niepotrzebna**
+  (z powodem: moduł nie jest bramką) — i żaden nie zostaje bez odpowiedzi.
+- **Poza zakresem:** zmiana zachowania jakiejkolwiek bramki, w tym rozluźnienie progu,
+  żeby kontrola „ładniej wychodziła". Poza zakresem także pisanie nowych bramek —
+  pozycja mierzy i domyka to, co jest.
+- **Zależy od:** nic.
+
+##### 6.B16 · Triaż mutacji ocalałych na `tools/track/detail_layout.py`
+
+- **Skąd:** `reports/mutation-drift.md` podaje dla tego modułu **8 ocalałych z 9**
+  mutacji — najgorszy stosunek w tabeli, a moduł nie jest byle jaki: wpis T-011 opisuje
+  go jako ten liczący kilometraże z **0 założeń**, w odróżnieniu od
+  `tools/blender/detail_markers.py`, który ma cztery i każde wypisuje. Moduł bez założeń
+  i bez zabijanych mutacji to moduł, o którym nie wiadomo, czy liczy dobrze.
+- **Wejście:** `tools/track/detail_layout.py`, `tools/tests/test_detail_layout.py`,
+  `reports/mutation-drift.md` (wiersz tego modułu i polecenie przeglądu),
+  `reports/T-011-detail-markers.md` i `reports/T-011-details-BF.md` (liczby, które ten
+  moduł produkuje — 89 miejsc na osi pakietu A, 457 na sześciu osiach),
+  `reports/mutation-triage-sweep.md` jako wzorzec formy triażu.
+- **Wyjście:** testy w `tools/tests/test_detail_layout.py` i raport triażu w `reports/`.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/mutation_sweep.py --only tools/track/detail_layout.py --workers 4
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: liczba zabitych większa niż dzisiejsza, przy zielonym zestawie.
+- **Skończone, gdy:** każda z ocalałych ma werdykt — **zabita nowym testem**,
+  **równoważna** (z dowodem i z zapisem, czego szukano, żeby ten dowód obalić), albo
+  **ocalała i dlaczego zostaje** — a raport nazywa wprost zestaw klas operatorów,
+  na którym mierzono, bo mianowniki różnych zestawów nie są porównywalne.
+- **Poza zakresem:** zmiana wyniku, jaki moduł liczy. Jeżeli test ujawni, że kilometraż
+  wychodzi inaczej, niż mówią raporty T-011 — **wynikiem jest zgłoszenie**, nie cicha
+  poprawka ani modułu, ani raportu.
+- **Zależy od:** nic.
+
+##### 6.D9 · Wzorcem klatki jest suma pikseli, nie suma pliku
+
+- **Skąd:** `tools/visual/capture_blender.py` wpisuje do manifestu `sha256` **całego
+  pliku** PNG. Blender stempluje w PNG chunk `tEXt` z kluczami `Date` i `RenderTime`,
+  więc suma całego pliku zmienia się przy każdym renderze tej samej sceny — a suma
+  samych chunków `IDAT` nie. Narzędzie liczące tę drugą leży w
+  `tools/ci/png_pixels_sha256.py` z czterema testami i zmierzone 06.09.2026 na `51d324a`
+  **nie jest wołane z żadnego workflowu ani skryptu**: jedyne odwołanie w drzewie
+  pochodzi z jego własnego testu. Narzędzie napisane i nieużyte jest tym samym rodzajem
+  rzeczy co bramka, która nigdy nie zaświeciła.
+- **Wejście:** `tools/ci/png_pixels_sha256.py` (`idat_sha256`),
+  `tools/tests/test_png_pixels.py`, `tools/visual/capture_blender.py`,
+  `tools/visual/compare.py`, `tools/visual/pngio.py`, `docs/17-visual-regression.md`,
+  `.github/workflows/visual-regression.yml`, `tools/tests/test_ci_workflows.py`.
+- **Wyjście:** suma `IDAT` w manifeście zrzutów obok sumy pliku (nie zamiast — obie
+  liczby mówią co innego i obie są potrzebne), użycie jej w porównaniu, oraz raport
+  w `reports/` z pomiarem: dwa rendery tej samej sceny, suma pliku różna, suma `IDAT`
+  identyczna.
+- **Weryfikacja:**
+  ```bash
+  "$BLENDER_BIN" --background --python tools/visual/capture_blender.py -- --help
+  python3 tools/ci/png_pixels_sha256.py <dwa PNG z dwóch przebiegów tej samej sceny>
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: dwie różne sumy plików i **jedna** suma `IDAT` dla obu klatek.
+- **Skończone, gdy:** raport pokazuje **wykonanym pomiarem**, że suma całego pliku
+  różni się między dwoma renderami tej samej sceny, a suma `IDAT` nie — i że porównanie
+  zrzutów opiera się na tej drugiej. Kontrola negatywna: podmiana jednego piksela
+  zmienia sumę `IDAT`, a podmiana wpisu `tEXt` jej nie zmienia; obie **wykonane**.
+- **Poza zakresem:** progi tolerancji porównania klatek i cokolwiek z oceny estetycznej
+  (`docs/03-legal.md`, T-902). Pozycja zmienia **wyrocznię**, nie kryterium.
+- **Zależy od:** **Blendera w wersji z pinu** — kontrola pozytywna wymaga dwóch renderów
+  tej samej sceny, więc na maszynie bez Blendera pozycji nie da się domknąć i agent
+  ma przerwać, a nie ją obejść (`CLAUDE.md` §2).
+
+##### 6.D10 · Czy commit z nagłówka raportu ma cokolwiek wspólnego z raportem
+
+- **Skąd:** `tools/tests/test_report_hygiene.py` wymaga, żeby raport podawał commit,
+  na którym mierzono, i **świadomie nie sprawdza osiągalności tego SHA** — powód stoi
+  w docstringu: po scaleniu z rebase albo squashem SHA przebiegu wskazuje na obiekt,
+  którego już nie ma. Nie sprawdza natomiast **żadnej** relacji między tym SHA
+  a raportem. Zmierzone 06.09.2026 na `51d324a`: raportów z SHA w nagłówku jest **48**,
+  a commit podany w nagłówku **nigdy nie dotknął pliku raportu w 25 z nich**; sam
+  `51fd842` stoi w siedmiu. Ta liczba nie jest jednak dowodem błędu i to jest sedno
+  pozycji: naturalna kolejność pracy to zmierzyć na HEAD, a raport dopisać commitem
+  następnym — przy której „SHA dotyka raportu" jest relacją **niewłaściwą**.
+- **Wejście:** wszystkie `reports/*.md`, `tools/tests/test_report_hygiene.py`
+  (wzorzec nagłówka, lista wyjątków i uzasadnienie, dlaczego osiągalność nie jest
+  sprawdzana), `tools/tests/test_report_claims.py`, `git log --follow` jako narzędzie
+  pomiaru.
+- **Wyjście:** raport w `reports/` z pomiarem dla każdego raportu z SHA w nagłówku,
+  oraz — **tylko jeśli pomiar to uzasadni** — bramka w `tools/tests/` na tę relację,
+  którą pomiar pokaże jako prawdziwą.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py
+  ```
+  plus wypis pomiaru wklejony do raportu: dla każdego raportu SHA z nagłówka i werdykt.
+- **Skończone, gdy:** raport podaje dla każdego z 48 raportów, która z relacji zachodzi
+  — **SHA dotyka pliku raportu**, **raport dopisany commitem będącym potomkiem tego SHA**,
+  albo **żadna** — i wymienia z nazwy każdy przypadek trzeciej klasy. Bramka powstaje
+  **tylko wtedy**, gdy pomiar pokaże relację prawdziwą dla wszystkich poza wymienionymi
+  wyjątkami, i ma **wykonaną** kontrolę negatywną. Wynik „żadnej relacji nie wolno
+  przybić bramką, bo historia jest przepisywana" jest **poprawnym zakończeniem pozycji**.
+- **Poza zakresem:** dopisywanie albo podmienianie SHA w nagłówkach raportów. Pozycja
+  mierzy zapis, nie poprawia go; poprawka bez pomiaru zamazałaby dowód.
+- **Zależy od:** nic.
+
+##### 6.D11 · Bramka na czas przebiegu `test_all.py`
+
+- **Skąd:** zmierzone 06.09.2026 na `51d324a`: `python3 tools/tests/test_all.py` zbiera
+  **1638** testów i chodzi **62,8 s**. Nikt tego nie pilnuje, a zestaw rośnie z każdym
+  zadaniem — w tej sesji o kilkadziesiąt testów dziennie. Bramka `tools` chodzi przy
+  każdym pull requeście, więc jej czas jest kosztem stałym każdej zmiany. Pozycja jest
+  bliźniakiem 6.D2 po stronie Pythona i różni się od niego jednym: rdzeń mierzy
+  wydajność **modelu**, ten pomiar mierzy wydajność **własnych bramek**.
+- **Wejście:** `tools/tests/test_all.py`, `.github/workflows/python-tests.yml`,
+  `tools/tests/test_ci_workflows.py`, `doctor.sh` (wypisuje liczbę testów),
+  `reports/` — wzorzec raportu z pomiarem czasu; `tools/tests/mutation_sweep.py`
+  jako przykład narzędzia, które **samo** raportuje swój czas.
+- **Wyjście:** wypis czasu przebiegu z `test_all.py` (per moduł i razem), krok bramki
+  w `.github/workflows/python-tests.yml` z progiem, oraz raport w `reports/`
+  z rozkładem czasu po modułach.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: wypis kończy się czasem przebiegu, a bramka zapala się przy przekroczeniu
+  progu — pokazane **wykonaną** kontrolą negatywną, nie opisem.
+- **Skończone, gdy:** raport podaje czas **per moduł** dla wszystkich 73 modułów
+  i wskazuje trzy najdroższe z liczbami, próg bramki jest **wyliczony z tego pomiaru,
+  a nie wpisany z głowy** (i raport mówi, jak go wyliczono), a kontrola negatywna
+  — próg obniżony pod zmierzony czas — jest wykonana i wklejona.
+- **Poza zakresem:** **przyspieszanie testów.** Pozycja stawia miarę, nie optymalizuje;
+  moduł drogi jest wynikiem pomiaru i osobnym zadaniem, nie okazją do przepisania go
+  przy okazji. Poza zakresem także kasowanie albo pomijanie testu, żeby zmieścić się
+  w progu — `CLAUDE.md` §5 nazywa to wprost zakazaną formą weryfikacji.
+- **Zależy od:** nic.
 
 **Aktualizacja tej listy jest częścią pracy, nie dodatkiem do niej.** Pozycja zrobiona
 znika stąd i pojawia się jako wpis z sześcioma polami wyżej w tym pliku.
