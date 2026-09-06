@@ -566,8 +566,20 @@ public static class Program
     {
         if (args.Length < 3)
         {
-            Console.Error.WriteLine("compare wymaga dwóch plików");
-            return 2;
+            // 6.A16, decyzja wlasciciela z 06.09.2026: kazda odmowa argumentowa konczy
+            // sie kodem 1, a 2 zostaje wylacznie dla „nie wiem, co uruchomic" — czyli
+            // dla nieznanego polecenia i dla wywolania bez ani jednego argumentu.
+            //
+            // To jest jedyne miejsce, ktore sie zmienilo. `compare` sprawdzalo liczbe
+            // argumentow RECZNIE i wracalo kodem 2, zamiast rzucic wyjatek lapany
+            // wspolnym handlerem jak wszystkie pozostale odmowy. Cztery pozycje
+            // (6.A10, 6.A11, 6.A13, 6.D20) nazwaly te niespojnosc i zostawily wybor
+            // wlascicielowi, przybijajac stan testem; test zmienil sie razem z kodem.
+            //
+            // Wyjatek, a nie `return 1`: dzieki temu komunikat dostaje ten sam
+            // przedrostek `BLAD: `, co reszta odmow, wiec ujednolica sie nie tylko
+            // liczba, ale i ksztalt wyjscia.
+            throw new ArgumentException("compare wymaga dwóch plików");
         }
 
         var tolerance = double.Parse(Option(args, "--tolerance") ?? "1E-9", Inv);
