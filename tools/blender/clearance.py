@@ -40,6 +40,10 @@ import profiles  # noqa: E402
 import sweep  # noqa: E402
 
 MIN_RADIUS_M = 20.0
+#: Odstęp, przy którym dwa niemieszczące się punkty należą jeszcze do tego samego
+#: przedziału. Punkty osi stoją co 7,6-22,4 m (zmierzone na sześciu osiach
+#: `data/track/`), więc próg musi być powyżej największego z tych odstępów.
+SPAN_GAP_M = 25.0
 
 
 def versine(chord_m, radius_m):
@@ -104,6 +108,69 @@ def _point_at(points, stations, target):
     return points[-1]
 
 
+def margin_at(profile_name, chord_m, radius_m, static_clearance_m):
+    """Zapas skrajni w JEDNYM punkcie o zadanym promieniu.
+
+    Wielkością odejmowaną jest strzałka cięciwy, nie szerokość pojazdu: skrajnia
+    pojazdu jest inflatowana o `versine`, a M7 zostaje taka, jaka jest
+    (`test_clearance_never_shrinks_the_train_to_make_it_fit`).
+    """
+    needed = versine(chord_m, radius_m)
+    fits, message = profiles.fits_gauge(profile_name, needed)
+    return needed, static_clearance_m - needed, bool(fits), message
+
+
+def merge_spans(stations, gap_m):
+    """Kilometraże w rosnącej kolejności sklejone w przedziały.
+
+    Dwa sąsiednie punkty osi dzieli 7,6-22,4 m, więc punkty tej samej dziury
+    w skrajni muszą się skleić w JEDEN przedział, inaczej raport podaje trzydzieści
+    „miejsc", w których nie przechodzi, zamiast jednego.
+    """
+    spans = []
+    for station in sorted(stations):
+        if spans and station - spans[-1][1] <= gap_m:
+            spans[-1][1] = station
+        else:
+            spans.append([station, station])
+    return [(round(lo, 1), round(hi, 1)) for lo, hi in spans]
+
+
+def scan(points, profile_name, chord_m, span_gap_m=SPAN_GAP_M):
+    """Skrajnia sprawdzona W KAŻDYM punkcie osi, nie tylko w najciaśniejszym łuku.
+
+    `evaluate` odpowiada na pytanie „czy przechodzi w najgorszym miejscu" i to
+    wystarcza do werdyktu, bo strzałka rośnie monotonicznie, gdy promień maleje.
+    Nie wystarcza jednak do opisu osi: nie mówi, ILE punktów jest ciasnych ani
+    GDZIE leżą. Ten przebieg woła `profiles.fits_gauge` osobno w każdym punkcie,
+    czyli nie zakłada monotoniczności, tylko ją sprawdza.
+    """
+    available = profiles.min_clearance(profile_name)
+    samples = [(s, r) for s, r in radii_along(points, chord_m) if r is not None]
+    margins = []
+    failing = []
+    for station, radius in samples:
+        _needed, margin, fits, _message = margin_at(profile_name, chord_m, radius,
+                                                    available)
+        margins.append((station, radius, margin, fits))
+        if not fits:
+            failing.append((station, margin))
+    worst = min(margins, key=lambda item: item[2]) if margins else None
+    shortfall = min((m for _s, m in failing), default=None)
+    return {
+        "profile": profile_name,
+        "static_clearance_m": available,
+        "samples": len(margins),
+        "failing_samples": len(failing),
+        "fits_everywhere": not failing,
+        "min_margin_m": round(worst[2], 4) if worst else None,
+        "min_margin_chainage_m": round(worst[0], 1) if worst else None,
+        "min_margin_radius_m": round(worst[1], 2) if worst else None,
+        "worst_shortfall_m": round(shortfall, 4) if shortfall is not None else None,
+        "failing_spans_m": merge_spans([s for s, _m in failing], span_gap_m),
+    }
+
+
 def evaluate(points, profile_name, chord_m):
     """Najgorszy punkt osi: najmniejszy promień i wynikający z niego zapas skrajni."""
     available = profiles.min_clearance(profile_name)
@@ -142,6 +209,8 @@ def main(argv=None):
     parser.add_argument("--out", help="ścieżka na wynik JSON")
     parser.add_argument("--report-only", action="store_true",
                         help="nie kończ błędem, gdy profil nie przechodzi — tylko zaraportuj")
+    parser.add_argument("--scan", action="store_true",
+                        help="sprawdź skrajnię punkt po punkcie, nie tylko w najciaśniejszym łuku")
     args = parser.parse_args(argv)
 
     path = args.alignment if os.path.isabs(args.alignment) else os.path.join(ROOT, args.alignment)
@@ -177,6 +246,24 @@ def main(argv=None):
         print(f"[SKRAJNIA] {name:11s}: Rmin {item['min_radius_m']} m @ {item['min_radius_chainage_m']} m, "
               f"P05 {item['p05_radius_m']} m, strzałka {item['versine_at_min_radius_m']*1000:.1f} mm, "
               f"zapas {item['margin_m']:+.3f} m -> {'MIEŚCI SIĘ' if item['fits_on_curve'] else 'NIE MIEŚCI SIĘ'}")
+    if args.scan:
+        result["scan"] = {
+            "pessimistic": scan(source, args.profile, chord),
+            "optimistic": scan(sweep.catmull_rom(source, args.ring_step), args.profile, chord),
+        }
+        for name in ("pessimistic", "optimistic"):
+            item = result["scan"][name]
+            shortfall = ("brak" if item["worst_shortfall_m"] is None
+                         else f"{item['worst_shortfall_m']:+.4f} m")
+            print(f"[PUNKT PO PUNKCIE] {name:11s}: {item['samples']} punktów, "
+                  f"nie przechodzi {item['failing_samples']}, "
+                  f"najmniejszy zapas {item['min_margin_m']:+.4f} m "
+                  f"@ {item['min_margin_chainage_m']} m (R {item['min_margin_radius_m']} m), "
+                  f"niedobór {shortfall}")
+            if item["failing_spans_m"]:
+                spans = "; ".join(f"{lo}-{hi} m" for lo, hi in item["failing_spans_m"])
+                print(f"[PUNKT PO PUNKCIE] {name:11s}: przedziały bez skrajni: {spans}")
+
     for item in pessimistic["not_modelled"]:
         print(f"[SKRAJNIA] nieliczone: {item}")
 

@@ -111,7 +111,7 @@ nie podaje liczby po triażu, więc jego wiersz ma w tej kolumnie kreskę, a nie
 | moduł | raport triażu | ocalałe po triażu | ocalałe dziś | Δ | mutacji wtedy | mutacji dziś | skąd różnica |
 |---|---|---:|---:|---:|---:|---:|---|
 | `tools/track/build_alignment.py` | alignment | 39 | 39 | 0 | 69 | 69 | `14ceed2` zmienił moduł, liczba mutacji bez zmian (69), ocalałe te same |
-| `tools/blender/clearance.py` | clearance | 6 | 6 | 0 | 11 | 11 | moduł bez zmian od `7545e45` — `git diff` pusty |
+| `tools/blender/clearance.py` | clearance | 6 | 6 | 0 | 11 | **12** | 6.B5 dopisało `scan`, `margin_at` i `merge_spans` — jedna mutacja więcej (granica sklejania przedziałów kilometrażu), zabita przez `test_curve_radius_span_merge_joins_neighbours_and_splits_a_real_gap`; przeliczone 06.09.2026 tym samym poleceniem i zestawem `operator,prog`, wypis w `reports/promien-luku-szesc-osi.md` §7 |
 | `tools/physics/braking.py` | fizyka | 5 | 5 | 0 | 11 | 11 | moduł bez zmian od `f1eb803` — `git diff` pusty |
 | `tools/physics/reference.py` | fizyka | 3 | 3 | 0 | 8 | 8 | moduł bez zmian od `f1eb803` — `git diff` pusty |
 | `tools/physics/schedule_envelope.py` | fizyka | 5 | 5 | 0 | 10 | 10 | moduł bez zmian od `f1eb803` — `git diff` pusty |
