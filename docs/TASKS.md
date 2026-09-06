@@ -696,7 +696,7 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.D12 | **ZROBIONE (06.09.2026).** Cztery miejsca piszą do `data/`: `fetch_gtfs.py` i `fetch_stib_shapes.py` bezpośrednio (manifest proweniencji zmienia się przy każdym uruchomieniu, **także w `--offline`** — zmierzone dwoma realnymi przebiegami `fetch_gtfs.py` dziś, identyczny `content_sha256`, różny tylko `retrieved_at`), `build_alignment.py` i `normalize_stops.py` pośrednio — oba osadzają `retrieved_at` manifestu w commitowanym pliku wynikowym (`data/track/*.json`, `data/network/stops.json`), więc dziedziczą tę samą niestabilność bez własnego wywołania zegara. Sprawdzone i odrzucone: `snapshot_source.py`, `data_freshness.py` i dziewięć pozostałych narzędzi `tools/track/*.py` — `--out` wymagane lub domyślnie poza `data/`, żadne udokumentowane wywołanie ich tam nie kieruje. Pomiar w `reports/zapisy-do-data.md`, cztery warianty na klasę zapisu wypisane obok siebie z kosztem każdego — treść pierwotna: **Które narzędzia piszą do `data/`, choć katalog jest tylko do odczytu** — `tools/track/fetch_gtfs.py` aktualizuje manifest proweniencji przy każdym pobraniu | `CLAUDE.md` §4.6 nie przewiduje wyjątku, a narzędzie robi to celowo. Pozycja **mierzy rozjazd i wypisuje warianty**, nie rozstrzyga go — wybór między zmianą reguły a zmianą narzędzia zostaje właścicielowi | S |
 | 6.D13 | **Wzorzec SHA w bramce higieny raportow lapie tez to, co SHA nie jest** — token `9e2066aef7ef` w naglowku jednego raportu to hash builda Blendera, nie commit | znalezione przy 6.D10. Pomiar, ile takich falszywych trafien jest w 71 raportach, i zawezenie wzorca albo nazwanie wyjatku — bez decyzji wlasciciela | S |
 | 6.D14 | **Czy `--offline` w `fetch_gtfs.py`/`fetch_stib_shapes.py` naprawdę nie dotyka sieci** — zmierzone przy 6.D12 czytaniem kodu (`P.utc_now_iso()` zamiast `P.fetch_url()` w tej gałęzi), nie testem z zablokowaną siecią | dowód sieciowy jest testem: podmiana funkcji pobierającej na wersję rzucającą wyjątek i sprawdzenie, że `--offline` mimo to kończy się sukcesem — bez ani jednej decyzji właściciela | S |
-| 6.D15 | **Ile komend z pol „Weryfikacja" w blokach kolejki da sie w ogole uruchomic** — komenda z bloku 6.C3 jest odrzucana przez istniejaca odmowe, kod wyjscia 9 | znalezione przy 6.C3. Pole „Weryfikacja" jest obietnica, ktorej nikt nie sprawdza; pomiar, ile z nich klamie, nie wymaga zadnej decyzji | M |
+| 6.D15 | **ZROBIONE (06.09.2026).** Zebrane **82** komendy z **42** blokow (stan bloku szczegolow w chwili pomiaru). Werdykty: **73** uruchamialne, **4** wymagaja Blendera albo geometrii, ktora Blender produkuje, **5** niewykonalnych tak, jak pole obiecuje. Piec niewykonalnych z nazwy: 6.D2 (pole wymienialo 3 z 7 opcji, ktorych wymaga `Budget` — kod 1 na `BLAD: line wymaga --limit-kmh`), 6.A6, 6.C3 (kod 9, odmowa laczenia zrodel — to znalezisko otworzylo te pozycje), 6.D9 i 6.B18 (miejsce do wypelnienia w nawiasie ostrokatnym). Najciezsze znalezisko jest w 6.A6: `--coast-from-m` nie wystepuje nigdzie w `src/`, a `Sim.Runner` **nieznana opcje przyjmuje w milczeniu**, wiec obie komendy pola koncza sie kodem 0 i daja pliki **identyczne co do bajtu** — te weryfikacje spelnia NIEZROBIENIE zadania. Poprawione trzy pola pozycji niezrobionych (6.D2, 6.A6, 6.C4 o brakujacy warunek wstepny: kod 4, `[ASSETS] brak manifestu`); bloki pozycji ZROBIONYCH zostaly nietkniete jako zapis historyczny. Kolektor komend jest w `tools/tests/backlog_commands.py`, bramka na miejsca do wypelnienia w `tools/tests/test_backlog_commands.py` (trzy WYKONANE kontrole negatywne), pomiar w `reports/komendy-weryfikacji.md`. Tresc pierwotna: **Ile komend z pol „Weryfikacja" w blokach kolejki da sie w ogole uruchomic** — komenda z bloku 6.C3 jest odrzucana przez istniejaca odmowe, kod wyjscia 9 | znalezione przy 6.C3. Pole „Weryfikacja" jest obietnica, ktorej nikt nie sprawdza; pomiar, ile z nich klamie, nie wymaga zadnej decyzji | M |
 | 6.D16 | **`docs/09-data-provenance.md` twierdzi cos, co dla dwoch miejsc jest nieprawda** — ze `retrieved_at` nie moze zmieniac byte-deterministycznego wyjscia, a w `build_alignment.py` i `normalize_stops.py` trafia wprost do commitowanego pliku | znalezione przy 6.D12. Pomiar i przepisanie zdania, ktore przestalo byc prawdziwe | S |
 | 6.D17 | **`docs/23-environment.md` nie mowi, ze Godot wymaga `DOTNET_ROOT`, nie tylko `PATH`** — bez tego pada `Failed to load hostfxr` sygnalem 11, a przy brakujacym assembly wisi bez ani jednego wiersza na stdout do wypalenia limitu czasu | znalezione przy 6.C3, na wlasnej skorze. Dokument ma powiedziec to, co trzeba ustawic | S |
 | 6.A11 | **`Sim.Runner` przyjmuje nieznana opcje w milczeniu** — `line ... --coast-from-m X` konczy sie kodem 0, choc ani opcji, ani wartosci `X` nie ma w kodzie | zmierzone przy 6.D15 (#301): dwie komendy z pola „Weryfikacja" pozycji 6.A6 daly pliki identyczne co do bajtu. Wyrocznia zepsuta w strone „wszystko w porzadku" | M |
@@ -1098,9 +1098,17 @@ co dochodzi ponad ten wspólny zakaz.
   ```bash
   dotnet build src/Sim.Runner -c Release
   dotnet run --project src/Sim.Runner -c Release -- budget \
-      --axis data/track/L1_A.json --signalling <plan> --steps <N> --trains 1,2,4,8,32
+      --axis data/track/L1_A.json \
+      --signalling data/design/signalling/classic-2026.json \
+      --limit-kmh 72 --exchange-s 20 --headway-s 120 --steps 1000 \
+      --trains 1,2,4,8,32
   dotnet test tests/Sim.Tests
   ```
+  **Komenda przepisana 06.09.2026 przy 6.D15, a nie dopisana obok.** Poprzednia
+  wersja mowila `--signalling <plan> --steps <N>` i wymieniala trzy opcje z siedmiu,
+  ktorych `Budget` wymaga; uruchomiona doslownie konczyla sie kodem 1 na
+  `BLAD: line wymaga --limit-kmh`. Powyzsza zostala wykonana i konczy sie kodem 0.
+  Polecenie `budget` **juz istnieje** w `Program.cs` — brakuje bramki, nie polecenia.
   Oczekiwane: koszt kroku przy pełnej obsadzie osi poniżej progu, a przy sztucznie
   spowolnionym kroku — bramka czerwona.
 - **Skończone, gdy:** bramka wywraca job, gdy koszt `LineCore.Step` przy **9 składach**
@@ -1254,6 +1262,12 @@ co dochodzi ponad ten wspólny zakaz.
   python3 tools/ci/assert_shot_metadata.py build/inspect.png
   "$GODOT_BIN" --headless --path src/Game -- --view=zmyslony
   ```
+  **Warunek wstepny dopisany 06.09.2026 przy 6.D15:** pierwsza komenda wymaga
+  wygenerowanych chunkow (`build/t400/chunks/L1_A-chunks.json`), czyli Blendera.
+  Bez nich konczy sie kodem 4 i komunikatem `[ASSETS] brak manifestu ...` — zmierzone,
+  ze znanym widokiem `--view=cab`, zeby nie mylic tego z brakiem widoku `inspect`.
+  Na maszynie bez Blendera ta pozycja nie da sie zweryfikowac i to jest odpowiedz,
+  a nie usterka pola.
   Oczekiwane: zrzut z metadanymi opisującymi tę scenę; ostatnie polecenie kończy się
   **błędem argumentu** wymieniającym cztery znane widoki, a nie cichym zejściem do kabiny.
 - **Skończone, gdy:** każda nowa stała kamery jest w `DesignAssumptions` jako
@@ -1285,9 +1299,17 @@ co dochodzi ponad ten wspólny zakaz.
   dotnet run --project src/Sim.Runner -c Release -- line --axis data/track/L1_A.json \
       --limit-kmh 72 --exchange-s 20 --trace build/coast-off.csv
   dotnet run --project src/Sim.Runner -c Release -- line --axis data/track/L1_A.json \
-      --limit-kmh 72 --exchange-s 20 --coast-from-m X --trace build/coast-on.csv
+      --limit-kmh 72 --exchange-s 20 --coast-from-m 250 --trace build/coast-on.csv
+  sha256sum build/coast-off.csv build/coast-on.csv   # sumy MUSZA sie roznic
   dotnet test tests/Sim.Tests
   ```
+  **Komenda przepisana 06.09.2026 przy 6.D15, a nie dopisana obok**, i wiersz
+  `sha256sum` nie jest ozdoba. Poprzednia wersja mowila `--coast-from-m X`, gdzie `X`
+  nie jest wartoscia. Zmierzone: `--coast-from-m` nie wystepuje dzis nigdzie w `src/`,
+  a `Sim.Runner` **nieznana opcje przyjmuje w milczeniu** — obie komendy skonczyly sie
+  kodem 0 i daly pliki identyczne co do bajtu
+  (`11d298315379ba7fbb4673250daeab830d80a3fc084bf4bd731f84a1d811b079` oba).
+  Bez porownania sum ta weryfikacja jest spelniona przez NIEZROBIENIE zadania.
   Oczekiwane: przyrost czasu i ubytek pracy trakcji podane **per odcinek**, nie jako
   jedna liczba na całą oś.
 - **Skończone, gdy:** dla każdego z jedenastu odcinków pakietu A raport mówi, czy
