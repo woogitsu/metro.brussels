@@ -706,6 +706,11 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.D18 | **`--only` w `mutation_sweep.py` dopasowuje podciag, nie nazwe pliku** — `--only sweep.py` obejmuje `tools/blender/sweep.py` (117 mutacji) **i** `tools/blender/tunnel_sweep.py` (68) | zmierzone przy 6.D15 (#301). Kazdy raport z przegladu mutacyjnego wolany basename'em mowi o innym zbiorze plikow, niz nazywa | M |
 | 6.D19 | **Modul, ktory sie nie importuje, nie daje ani jednego wiersza `FAIL` ani wiersza `N/M przeszlo`** — `test_all.py` konczy sie wtedy kodem 1, ale kazdy grep po `FAIL` pokazuje zero i wyglada jak zielono | zmierzone przy 6.D15 (#301) na wlasnym module z bledem skladni. Ta sesja sprawdzala zielonosc grepem i przez chwile wierzyla, ze drzewo jest zielone | M |
 | 6.D20 | **ZROBIONE (06.09.2026).** Nazwa polecenia bierze sie teraz z `args[0]`, a nie ze stalej w tresci komunikatu — i to jest cala poprawka, jeden wiersz. Zmierzone: `budget` bez `--limit-kmh` dawal `BLAD: line wymaga --limit-kmh`, dzis daje `BLAD: budget wymaga --limit-kmh`; `line` bez `--limit-kmh` nadal daje `BLAD: line wymaga --limit-kmh`. Oba kod 1. `RequiredNumber` jest wspolny dla **trzech** polecen (`line`, `budget`, `replay`), wiec zaszyta nazwa mylila w dwoch przypadkach na trzy. Sprawdzone po jednym: **wszystkie pozostale** komunikaty „X wymaga …" w `Program.cs` sa literalami w ciele jednego polecenia i nazywaja je poprawnie — poprawka dotyczy wylacznie tego jednego miejsca. Dwie WYKONANE kontrole negatywne, kazda wywraca dokladnie jeden test: przywrocona stala `line` wywraca `Budget_bez_limitu_nazywa_budget_a_nie_line`, a nowa, tak samo sztywna stala `budget` wywraca `Line_bez_limitu_nadal_nazywa_line` — para testow lapie wiec rozjazd w obie strony, nie tylko powrot starego bledu. `dotnet test` 534 -> **536**. Tresc pierwotna: **`RequiredNumber` w `Program.cs` nazywa `line` niezaleznie od polecenia** — `budget` bez `--limit-kmh` konczy sie komunikatem `BLAD: line wymaga --limit-kmh` | zmierzone przy 6.D15 (#301). Komunikat kieruje czytajacego do niewlasciwego polecenia; osiem pozostalych polecen ma ten sam problem, bo dziela ten sam pomocnik | S |
+| 6.A14 | **Nieliczbowa wartosc opcji daje komunikat po angielsku, bez nazwy opcji** — `line ... --limit-kmh abc` konczy sie `BLAD: The input string 'abc' was not in a correct format.` | znalezione przy 6.D20 (#312). Komunikat nie mowi ANI ktorej opcji dotyczy, ANI ktorego polecenia — a jest to jedyny slad, jaki dostaje czytajacy | S |
+| 6.A15 | **Odmowa nieznanej opcji nie widzi czlonu z JEDNYM minusem** — `line ... -zmyslona 7` konczy sie kodem **0**, tak jak przed 6.A11 | znalezione przy 6.A11 (#307) i wypisane tam jako nietkniete; zmierzone ponownie 06.09.2026. Dziura jest waska, ale to dokladnie ta sama wyrocznia zepsuta w strone „wszystko w porzadku" | S |
+| 6.B24 | **`test_dimension_audit.py` ma kontrole negatywna wykonana RECZNIE, nie jako test regresyjny** — dowod jest wklejony w docstringu, ale zaden przebieg `test_all.py` go nie powtarza | znalezione przy 6.B22 (#317), §5 raportu, ktore swiadomie tego nie ruszylo. Kontrola, ktora odbyla sie raz, nie chroni przed regresja wzorca | M |
+| 6.D21 | **Drugi objaw z 6.D17 nie zostal odtworzony** — zawieszenie Godota bez ani jednego wiersza na stdout przy brakujacym assembly, z zaladowanym hostfxr | znalezione przy 6.D17 (#305), ktore powiedzialo wprost, ze tego nie pokazalo. Objaw, ktorego nikt nie odtworzyl, jest w dokumencie zdaniem z drugiej reki | M |
+| 6.D22 | **Raporty z przegladow wolanych `--only` basename'em nie mowia, ile modulow objely** — 6.D18 rozstrzygnela, ze podciag jest zamierzony, i wprost zostawila oznaczenie starych raportow poza zakresem | znalezione przy 6.D18 (#310). Datowanego pomiaru sie nie przelicza, ale wolno go OZNACZYC — i dopoki nie jest oznaczony, czyta sie jak pomiar jednego modulu | S |
 
 #### Szczegóły pozycji z kompletem sześciu pól
 
@@ -2354,6 +2359,145 @@ znika stąd i pojawia się jako wpis z sześcioma polami wyżej w tym pliku.
   ma dac odmowe, a nie sygnal. Poza zakresem takze ujednolicanie kodow wyjscia — ta
   sama granica, ktora postawily 6.A10 i 6.A11.
 - **Zależy od:** nic.
+
+##### 6.A14 · Nieliczbowa wartość opcji: komunikat bez nazwy opcji i po angielsku
+
+- **Skąd:** zmierzone 06.09.2026 przy 6.D20 (#312). Wykonane:
+  `line --axis data/track/L1_A.json --limit-kmh abc --exchange-s 20 --trace build/x.csv`
+  daje `BŁĄD: The input string 'abc' was not in a correct format.` i kod 1. Komunikat
+  pochodzi wprost z `double.Parse` i nie mówi **ani** której opcji dotyczy, **ani**
+  którego polecenia — a jest jedynym śladem, jaki dostaje czytający. 6.D20 poprawiła
+  komunikat o BRAKU opcji; ten o złej WARTOŚCI został nietknięty i to było świadome.
+- **Wejście:** `src/Sim.Runner/Program.cs` (`RequiredNumber`, `OptionalNumber`,
+  `ParseTrainCounts`, `ParseClock`), `tests/Sim.Tests/RunnerCommandTests.cs`
+  (wzorzec testu kodu wyjścia i treści komunikatu z #291, #302, #312).
+- **Wyjście:** komunikat nazywający opcję, jej wartość i polecenie, plus test kodu
+  wyjścia **i treści** dla co najmniej dwóch różnych opcji.
+- **Weryfikacja:**
+  ```bash
+  dotnet run --project src/Sim.Runner -c Release -- line --axis data/track/L1_A.json \
+      --limit-kmh abc --exchange-s 20 --trace build/x.csv
+  dotnet test tests/Sim.Tests
+  ```
+  Oczekiwane: komunikat wymienia `--limit-kmh` i `abc`, kod 1; zestaw rdzenia zielony
+  o liczbie testów większej niż przed zmianą.
+- **Skończone, gdy:** każda opcja liczbowa odmawia komunikatem nazywającym siebie,
+  a kontrola negatywna WYKONANA (przywrócone gołe `double.Parse`) wywraca dokładnie
+  nowe testy. Nazwa polecenia bierze się z `args[0]`, tak jak w 6.D20 — nie z nowej
+  zaszytej stałej.
+- **Poza zakresem:** tłumaczenie pozostałych komunikatów platformy .NET i zmiana
+  kodów wyjścia. Ta sama granica, którą postawiły 6.A10, 6.A11, 6.A13 i 6.D20.
+- **Zależy od:** #312 (scalone).
+
+##### 6.A15 · Człon z jednym minusem przechodzi obok odmowy
+
+- **Skąd:** 6.A11 (#307) dopisała odmowę nieznanej opcji i **sama wypisała tę dziurę**
+  jako nietkniętą: sprawdzane są wyłącznie człony zaczynające się od dwóch minusów.
+  Zmierzone ponownie 06.09.2026:
+  `line --axis … --limit-kmh 72 --exchange-s 20 -zmyslona 7 --trace build/x.csv`
+  kończy się **kodem 0**, dokładnie tak jak przed 6.A11.
+- **Wejście:** `src/Sim.Runner/Program.cs` (`RejectUnknownOptions`, `KnownOptions`),
+  `tools/tests/test_runner_options.py` (bramka zgodności tabeli z kodem),
+  `tests/Sim.Tests/RunnerCommandTests.cs`, `reports/nieznana-opcja-runnera.md` §6.
+- **Wyjście:** odmowa obejmująca także człony z jednym minusem — albo **pomiar
+  pokazujący, że nie wolno jej rozszerzyć**, jeżeli któreś polecenie przyjmuje dziś
+  wartość ujemną jako argument pozycyjny. Rozstrzygnięcie ma być zmierzone, nie
+  założone: liczba ujemna po opcji z wartością jest pomijana razem z nią, ale
+  pozycyjna nie.
+- **Weryfikacja:**
+  ```bash
+  dotnet run --project src/Sim.Runner -c Release -- line --axis data/track/L1_A.json \
+      --limit-kmh 72 --exchange-s 20 -zmyslona 7 --trace build/x.csv
+  dotnet test tests/Sim.Tests
+  ```
+  Oczekiwane: pierwsza komenda kończy się odmową, a nie kodem 0.
+- **Skończone, gdy:** człon z jednym minusem, którego polecenie nie zna, kończy się
+  odmową, żadna istniejąca komenda z `docs/` ani z workflow nie zaczyna odmawiać —
+  sprawdzone uruchomieniem, nie czytaniem — a kontrola negatywna WYKONANA wywraca
+  dokładnie nowy test.
+- **Poza zakresem:** dodanie form krótkich (`-o` jako skrót `--out`). To jest nowa
+  funkcja, a nie domknięcie odmowy.
+- **Zależy od:** #307 (scalone).
+
+##### 6.B24 · Kontrola negatywna, która odbyła się raz
+
+- **Skąd:** 6.B22 (#317) przeczytała treść 29 modułów i w §5 raportu nazwała jeden
+  niuans, którego świadomie nie ruszyła: `tools/tests/test_dimension_audit.py` (l. 275)
+  i częściowo `tools/tests/test_report_hygiene.py` (l. 35) dokumentują kontrolę
+  **wykonaną naprawdę**, z wklejonym `FAIL` z uruchomienia na czasowo zmutowanym
+  pliku — ale nie jako test, który psuje wejście przy KAŻDYM przebiegu. Kontrola,
+  która odbyła się raz, jest dowodem historycznym; nie chroni przed regresją wzorca.
+- **Wejście:** `tools/tests/test_dimension_audit.py`, `tools/tests/test_report_hygiene.py`,
+  `reports/negative-control-audit-tresc.md` §5, `tools/tests/test_xml_doc_blocks.py`
+  jako wzorzec kontroli wstrzykiwanej w katalogu tymczasowym (6.B21, #303).
+- **Wyjście:** test regresyjny w każdym z tych dwóch modułów, budujący wejście
+  w katalogu tymczasowym albo w pamięci — bez mutowania prawdziwych plików repozytorium.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py
+  ```
+  plus **wykonana i wklejona** kontrola: zepsuty wzorzec zapala nowy test, poprawny
+  go nie zapala.
+- **Skończone, gdy:** oba moduły mają kontrolę powtarzaną przy każdym przebiegu,
+  docstring odsyła do niej zamiast cytować jednorazowy pomiar, a `git status` po
+  przebiegu jest czysty — test, który mutuje plik w repozytorium i go nie przywraca,
+  jest gorszy niż brak testu.
+- **Poza zakresem:** przepisywanie datowanych pomiarów wklejonych w docstringach.
+  To są zapisy historyczne i zostają.
+- **Zależy od:** #317 (scalone).
+
+##### 6.D21 · Objaw, którego nikt nie odtworzył
+
+- **Skąd:** 6.D17 (#305) opisała dwa objawy braku konfiguracji .NET dla Godota
+  i **odtworzyła jeden**: brak `DOTNET_ROOT` daje `Failed to load hostfxr` i sygnał 11,
+  wykonane, z wklejonym wyjściem. Drugi — zawieszenie bez ani jednego wiersza na
+  stdout przy brakującym assembly, z hostfxr JUŻ załadowanym — został w dokumencie
+  jako zdanie, którego ta pozycja nie pokazała, i sama to napisała wprost.
+- **Wejście:** `docs/23-environment.md` §4.1, `src/Game/`, `.github/workflows/godot-first-run.yml`,
+  `doctor.sh` (sonda `godot .NET hostfxr` z #305).
+- **Wyjście:** albo odtworzenie objawu z wklejonym wyjściem i limitem czasu, po którym
+  proces został ubity, albo **pomiar pokazujący, że dziś nie da się go odtworzyć** —
+  i wtedy zdanie w dokumencie przepisane tak, żeby mówiło, czego dotyczyło.
+- **Weryfikacja:**
+  ```bash
+  bash doctor.sh
+  python3 tools/tests/test_all.py
+  ```
+  plus **wykonana** próba: Godot uruchomiony z celowo usuniętym assembly, z limitem
+  czasu i wklejonym wyjściem (albo jego brakiem) oraz kodem wyjścia.
+- **Skończone, gdy:** dokument mówi o tym objawie **wyłącznie to, co zostało
+  zmierzone**, a jeśli objaw jest nieodtwarzalny — mówi to wprost, z datą próby.
+  Zdanie z drugiej ręki znika stąd tak samo jak z każdego innego miejsca w tym repo.
+- **Poza zakresem:** zmiana czegokolwiek w `.github/workflows/` i dodawanie nowych
+  sond do `doctor.sh` ponad tę z #305, jeżeli pomiar ich nie uzasadni.
+- **Zależy od:** #305 (scalone).
+
+##### 6.D22 · Raporty z przeglądów wołanych basename'em nie mówią, ile modułów objęły
+
+- **Skąd:** 6.D18 (#310) rozstrzygnęła, że dopasowanie `--only` po podciągu jest
+  **zamierzone** — istnieje test opierający się na `--only tools/track/` łapiącym cały
+  katalog — i dopisała komunikat mówiący, ile modułów złapano. Stare raporty tego
+  komunikatu nie mają: powstały wcześniej. 6.D18 wprost zostawiła je poza zakresem,
+  z zasady „datowanego pomiaru się nie przelicza, wolno go co najwyżej OZNACZYĆ".
+- **Wejście:** `reports/mutation-sweep.md` i pozostałe raporty z przeglądów mutacyjnych
+  wołanych basename'em (bloki 6.B6, 6.B7, 6.B8, 6.D5 podają użyte komendy),
+  `tools/tests/mutation_sweep.py` (`--only`, komunikat z #310).
+- **Wyjście:** adnotacja przy każdym takim raporcie mówiąca, ile modułów objęła jego
+  komenda — policzona **dziś**, przez `--only … --list`, a nie przepisana z pamięci —
+  wraz z jawnym zdaniem, że liczby w raporcie pozostają liczbami z dnia pomiaru.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/mutation_sweep.py --only sweep.py --list
+  python3 tools/tests/test_all.py
+  ```
+  plus wypis: które raporty oznaczono i ile modułów objęła komenda każdego z nich.
+- **Skończone, gdy:** każdy raport wołany basename'em pasującym do więcej niż jednego
+  modułu ma adnotację z liczbą, a raport wołany jednoznacznie **nie dostaje jej wcale**
+  — adnotacja bez powodu jest szumem. Żadna liczba wewnątrz datowanego pomiaru nie
+  zostaje przeliczona.
+- **Poza zakresem:** ponowne uruchamianie przeglądów mutacyjnych. Ta pozycja oznacza
+  zakres komend, nie odtwarza wyników.
+- **Zależy od:** #310.
 
 ### Czego agent nie ruszy bez decyzji
 
