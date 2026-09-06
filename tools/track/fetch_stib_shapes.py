@@ -111,9 +111,11 @@ def main(argv=None):
     manifest["shapefiles"] = details
     manifest["dataset_validity"] = details["dataset_validity"]
     manifest["attribution"] = source.get("attribution")
-    os.makedirs(os.path.dirname(manifest_path) or ".", exist_ok=True)
-    with open(manifest_path, "wb") as handle:
-        handle.write(P.canonical_json(manifest))
+    # 6.D23, wariant C wybrany przez wlasciciela 06.09.2026: manifest jest nadpisywany
+    # TYLKO przy zmianie `content_sha256`. Bez tego `retrieved_at` zmienial plik w `data/`
+    # przy kazdym uruchomieniu, takze w `--offline` (zmierzone przy 6.D12, #295).
+    # Komunikat nizej nie jest ozdoba: to on zastepuje sygnal, ktory dawal `git diff`.
+    stan = P.write_manifest_if_changed(manifest_path, manifest)
 
     print(f"[RAPORT] sha256={manifest['content_sha256']}")
     print(f"[RAPORT] linie={details['line_records']} przystanki={details['stop_records']}")
@@ -121,6 +123,10 @@ def main(argv=None):
     print(f"[RAPORT] CRS źródła: {details['prj']['name']}")
     validity = details["dataset_validity"]
     print(f"[RAPORT] okno ważności datasetu: {validity['date_debut']} .. {validity['date_fin']}")
+    if stan == "bez zmian":
+        print("[RAPORT] manifest bez zmian: content_sha256 ten sam, plik nietkniety")
+    else:
+        print(f"[RAPORT] manifest {stan}")
     print(f"[RAPORT] manifest={manifest_path}")
     return 0
 

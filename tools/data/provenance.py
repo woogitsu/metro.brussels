@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import urllib.parse
 import urllib.request
@@ -164,6 +165,39 @@ def diff_manifests(old: Mapping[str, Any], new: Mapping[str, Any]) -> dict[str, 
         "url_changed": old.get("final_url") != new.get("final_url"),
         "changes": changes,
     }
+
+
+def write_manifest_if_changed(path: str, manifest: Mapping[str, Any]) -> str:
+    """Zapisz manifest TYLKO wtedy, gdy zmienila sie tresc zrodla.
+
+    Zwraca `"utworzony"`, `"zmieniony"` albo `"bez zmian"` — wywolujacy ma to
+    wypisac, bo inaczej traci jedyny sygnal, ze pobranie w ogole sie odbylo.
+
+    **Skad ta funkcja.** 6.D12 (#295) zmierzyla, ze `retrieved_at` zmienia sie przy
+    KAZDYM uruchomieniu fetchera, takze w trybie `--offline`, wiec manifest w `data/`
+    rozjezdzal sie z repozytorium bez zmiany tresci zrodla. `CLAUDE.md` §4.6 mowi, ze
+    `data/` jest tylko do odczytu. Wlasciciel wybral 06.09.2026 wariant **C**
+    z `reports/zapisy-do-data.md` §3: zmieniaja sie NARZEDZIA, nie regula.
+
+    **Kryterium jest jedno i jest waskie: `content_sha256`.** Nie caly `diff_manifests`.
+    Pytanie, czy zmiana INNYCH pol manifestu przy niezmienionej tresci tez ma nadpisywac
+    plik, wariant C dopiero otwiera — i nalezy do wlasciciela, nie do tej funkcji.
+    Dlatego czytany jest `source_changed`, a nie `status`.
+    """
+    fresh = dict(manifest)
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    if not os.path.exists(path):
+        with open(path, "wb") as handle:
+            handle.write(canonical_json(fresh))
+        return "utworzony"
+
+    with open(path, encoding="utf-8") as handle:
+        old = json.load(handle)
+    if diff_manifests(old, fresh)["source_changed"]:
+        with open(path, "wb") as handle:
+            handle.write(canonical_json(fresh))
+        return "zmieniony"
+    return "bez zmian"
 
 
 def fetch_url(url: str, *, expected_format: str, headers: Mapping[str, str] | None = None,
