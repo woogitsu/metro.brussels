@@ -47,6 +47,7 @@ import ast
 import concurrent.futures
 import dataclasses
 import json
+import hashlib
 import os
 import re
 import subprocess
@@ -667,6 +668,33 @@ def worker(slot: int, chunk: list[Mutation], timeout: int, out_dir: str,
     return done
 
 
+def default_journal(commit: str, kinds: tuple, only: str) -> str:
+    """Domyślna ścieżka dziennika — JEDNA NA PRZEBIEG, nie jedna na maszynę.
+
+    **Co było nie tak.** Do 06.09.2026 domyślną ścieżką było
+    `tempfile.gettempdir()/metro-mutacje.jsonl` — ta sama dla wszystkiego, co się
+    na tej maszynie uruchomi. A wynik przebiegu czytany jest z CAŁEGO dziennika
+    (`sweep`, wiersz z `read_journal`), więc dwa przeglądy naraz nie tyle sobie
+    przeszkadzały, co **mieszały wyniki**: raport przebiegu na jednym module
+    dostawał sekcję modułu, którego ten przebieg w ogóle nie dotykał.
+
+    Zmierzone 06.09.2026 wykonaną kontrolą: dziennik z jednym wpisem obcego modułu
+    daje raport zawierający `### tools/track/detail_layout.py — 1`, choć przebieg
+    dotyczył wyłącznie `lod_paths.py`. Znalezione przy 6.B14, gdzie dwa agenty
+    liczyły równolegle na jednej maszynie.
+
+    **Dlaczego nazwa zawiera właśnie to.** Commit, klasy operatorów i zawężenie
+    `--only` to trzy rzeczy, które rozstrzygają, CZEGO przebieg dotyczy. Dwa
+    przebiegi różniące się którąkolwiek z nich mierzą co innego i nie mają prawa
+    dzielić pliku; dwa przebiegi zgodne we wszystkich trzech to ten sam pomiar,
+    więc wznowienie ma je znaleźć.
+    """
+    znacznik = hashlib.sha256(
+        "|".join([commit, ",".join(sorted(kinds)), only or ""]).encode("utf-8")
+    ).hexdigest()[:12]
+    return os.path.join(tempfile.gettempdir(), f"metro-mutacje-{znacznik}.jsonl")
+
+
 def read_journal(path: str) -> list[dict]:
     """Wyniki z dziennika; wiersz ucięty w połowie zapisu jest pomijany."""
     if not os.path.isfile(path):
@@ -935,9 +963,34 @@ def main() -> int:
         parser.error(f"nieznane klasy mutacji: {unknown_kinds or ['(pusto)']}; "
                      f"dozwolone: {', '.join(KINDS)}")
 
+    # Commit policzony TUTAJ, a nie tuż przed raportem: nazwa domyślnego dziennika
+    # go zawiera, bo przebiegi z różnych drzew mierzą co innego.
+    commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT,
+                            capture_output=True, text=True).stdout.strip()
+
     found = collect(kinds)
-    journal = args.journal or os.path.join(tempfile.gettempdir(), "metro-mutacje.jsonl")
+
+    # `--only` zawęża PRZED czytaniem dziennika, a nie po. Powód jest jeden: bez
+    # znajomości zbioru plików tego przebiegu nie da się sprawdzić, czy dziennik
+    # niesie cudze wyniki — a właśnie to sprawdzenie jest niżej. Dla przebiegu bez
+    # `--only` kolejność niczego nie zmienia, bo zbiorem jest wtedy wszystko.
+    if args.only:
+        found = [m for m in found if args.only in m.path]
+    pliki_przebiegu = {m.path for m in found}
+
+    journal = args.journal or default_journal(commit, kinds, args.only)
     done = read_journal(journal)
+
+    obce = [entry for entry in done if entry.get("plik") not in pliki_przebiegu]
+    if obce:
+        skad = sorted({entry.get("plik", "?") for entry in obce})
+        print(f"[MUTACJE] PRZERWANE — dziennik {journal} niesie {len(obce)} wpisów "
+              f"spoza tego przebiegu, z plików: {', '.join(skad)}.\n"
+              "  Wynik przebiegu czytany jest Z CAŁEGO dziennika, więc te wpisy "
+              "trafiłyby do raportu jako wynik TEGO pomiaru.\n"
+              "  Podaj własny --journal albo skasuj tamten plik.", file=sys.stderr)
+        return 2
+
     if done:
         # Wznowienie liczy tylko to, czego jeszcze nie ma — ale WYŁĄCZNIE dla mutacji
         # o tym samym identyfikatorze, więc zmiana kodu między przebiegami nie przemyci
@@ -948,8 +1001,6 @@ def main() -> int:
         print(f"[MUTACJE] wznowienie z {journal}: {before - len(found)} z {before} "
               "już policzonych")
 
-    if args.only:
-        found = [m for m in found if args.only in m.path]
     if args.limit:
         found = found[:args.limit]
 
@@ -997,8 +1048,6 @@ def main() -> int:
         print("brak mutacji do sprawdzenia po odfiltrowaniu nieosiągalnych", file=sys.stderr)
         return 1
 
-    commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT,
-                            capture_output=True, text=True).stdout.strip()
     print(f"[MUTACJE] {len(found)} mutacji do policzenia, {args.workers} robotników, "
           f"commit {commit}, klasy {','.join(kinds)}, dziennik {journal}")
 

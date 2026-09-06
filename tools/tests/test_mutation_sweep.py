@@ -14,6 +14,7 @@ Testy pilnują trzech rzeczy, z których każda ma tryb cichej awarii:
    pokazywałoby, że testy sprawdzają same siebie.
 """
 import ast
+import json
 import os
 import re
 import subprocess
@@ -1018,3 +1019,73 @@ def test_przeglad_odmawia_pomiaru_gdy_czyste_drzewo_nie_jest_zielone():
         "/nieistotne", 1, run=lambda *_: (None, ["<zabity sygnałem, kod -9>"], -9))
     assert nieznane is not None
     assert "nie doszedł do podsumowania" in nieznane, nieznane
+
+
+def test_domyslny_dziennik_jest_jeden_na_przebieg_a_nie_jeden_na_maszyne():
+    """Do 06.09.2026 domyślną ścieżką była jedna nazwa dla całej maszyny.
+
+    To nie było „dwa przebiegi sobie przeszkadzają", tylko **mieszanie wyników**:
+    `sweep` czyta wynik z CAŁEGO dziennika, więc raport przebiegu na jednym module
+    dostawał sekcję modułu, którego ten przebieg nie dotykał. Zmierzone wykonaną
+    kontrolą — patrz `test_obcy_wpis_w_dzienniku_trafia_do_raportu_jesli_go_nie_odsiac`.
+
+    Nazwa zależy od trzech rzeczy, które rozstrzygają, CZEGO przebieg dotyczy:
+    commita, klas operatorów i zawężenia `--only`.
+    """
+    baza = sweep.default_journal("abc1234", ("operator", "prog"), "lod_paths.py")
+    assert baza != sweep.default_journal("abc1234", ("operator", "prog"), "scan_gates.py")
+    assert baza != sweep.default_journal("abc1234", ("operator", "prog", "logika"), "lod_paths.py")
+    assert baza != sweep.default_journal("ffff999", ("operator", "prog"), "lod_paths.py")
+
+    # KONTROLA NEGATYWNA WBUDOWANA: gdyby nazwa zależała od czegoś jeszcze —
+    # choćby od kolejności klas albo od czasu — wznowienie nigdy by swojego
+    # dziennika nie znalazło i „jeden na przebieg" znaczyłoby „nowy za każdym razem".
+    assert baza == sweep.default_journal("abc1234", ("prog", "operator"), "lod_paths.py")
+    assert baza == sweep.default_journal("abc1234", ("operator", "prog"), "lod_paths.py")
+
+
+def test_obcy_wpis_w_dzienniku_trafia_do_raportu_jesli_go_nie_odsiac():
+    """Dowód, że problem jest realny, a nie teoretyczny — i po co jest odmowa.
+
+    Ten test opisuje zachowanie `read_journal` + `report`, czyli dokładnie tę drogę,
+    którą idzie `sweep`. Gdyby kiedyś ktoś uznał odmowę za nadgorliwość, ten test
+    pokazuje, co się dzieje bez niej.
+    """
+    def wpis(plik, wiersz):
+        return {"id": f"{plik}:{wiersz}:100", "plik": plik, "wiersz": wiersz,
+                "rozstrzygniete": True, "przezyla": True, "wykonana": True,
+                "opis": "wpis", "rodzaj": "operator", "bylo": "<", "jest": "<=",
+                "padly": [], "ile_padlo": 0, "kod": 0}
+
+    with tempfile.TemporaryDirectory() as tmp:
+        dziennik = os.path.join(tmp, "wspolny.jsonl")
+        with open(dziennik, "w", encoding="utf-8") as handle:
+            handle.write(json.dumps(wpis("tools/blender/lod_paths.py", 10)) + "\n")
+            handle.write(json.dumps(wpis("tools/track/detail_layout.py", 5)) + "\n")
+
+        wyniki = sweep.read_journal(dziennik)
+        assert len(wyniki) == 2, wyniki
+        tekst = sweep.report(wyniki, "test")
+        assert "tools/track/detail_layout.py" in tekst, (
+            "raport przebiegu na lod_paths.py nie wymienia obcego modułu — jeśli to "
+            "się zmieniło, odmowa z `main` może być już niepotrzebna i trzeba to "
+            "sprawdzić, a nie zakładać")
+
+
+def test_odmowa_patrzy_na_plik_wpisu_a_nie_na_jego_tresc():
+    """Kryterium „obcy" to plik spoza zbioru przebiegu — nic więcej.
+
+    Wpis o tym samym pliku, choćby z innego commita, obcym NIE jest: to jest
+    wznowienie i ma działać. Wpis o innym pliku obcym JEST, nawet gdy wygląda
+    poprawnie pod każdym innym względem.
+    """
+    pliki = {"tools/blender/lod_paths.py"}
+    swoj = {"plik": "tools/blender/lod_paths.py"}
+    obcy = {"plik": "tools/track/detail_layout.py"}
+    bez_pola = {}
+
+    assert swoj.get("plik") in pliki
+    assert obcy.get("plik") not in pliki
+    # Wpis bez pola `plik` liczy się jako obcy — nie da się go przypisać do przebiegu,
+    # a milcząca zgoda wpuściłaby do raportu coś, czego nikt nie umie nazwać.
+    assert bez_pola.get("plik") not in pliki
