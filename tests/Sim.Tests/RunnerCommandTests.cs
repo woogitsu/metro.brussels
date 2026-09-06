@@ -359,4 +359,65 @@ public sealed class RunnerCommandTests
             result.StdErr.Contains("nie zna opcji", StringComparison.Ordinal),
             "flaga --atp została odrzucona: " + result.StdErr);
     }
+
+    // --- plik, ktory planem nie jest (6.A13) --------------------------------------
+
+    /// <summary>Katalog repozytorium — po pliku <c>CLAUDE.md</c>, tak jak w innych testach.</summary>
+    private static string RepoRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "CLAUDE.md")))
+            {
+                return directory.FullName;
+            }
+
+            directory = directory.Parent;
+        }
+
+        throw new FileNotFoundException("nie znalazłem katalogu repozytorium (brak CLAUDE.md w górę drzewa)");
+    }
+
+    /// <summary>
+    /// Sedno pozycji 6.A13. Plik <c>cbtc-test-2026.json</c> LEŻY w <c>data/</c> i nie jest
+    /// atrapą — to on wywrócił proces: <c>JsonElement.GetProperty</c> rzucało
+    /// <c>KeyNotFoundException</c>, którego wspólny handler nie łapie, więc proces kończył
+    /// się kodem <b>134</b> i stosem wywołań. Test używa prawdziwego pliku właśnie dlatego;
+    /// atrapa dowodziłaby czegoś innego niż to, co się zdarzyło.
+    /// </summary>
+    [TestMethod]
+    public void Plik_ktory_nie_jest_planem_konczy_sie_odmowa_a_nie_sygnalem()
+    {
+        var plan = Path.Combine(RepoRoot(), "data", "design", "signalling", "cbtc-test-2026.json");
+        Assert.IsTrue(File.Exists(plan), "plik z data/ zniknął — test straciłby swój przedmiot: " + plan);
+
+        var result = Run(
+            "budget", "--axis", Path.Combine(RepoRoot(), "data", "track", "L1_A.json"),
+            "--signalling", plan,
+            "--limit-kmh", "72", "--exchange-s", "20", "--headway-s", "10",
+            "--steps", "2000", "--trains", "2");
+
+        Assert.AreEqual(1, result.ExitCode);
+        StringAssert.Contains(result.StdErr, "protection_variant");
+        StringAssert.Contains(result.StdErr, "nie wyglada na plan sygnalizacji");
+    }
+
+    /// <summary>
+    /// Kontrola drugiego kierunku: plan, który planem JEST, ma nadal przechodzić.
+    /// Odmowa zbudowana zbyt szeroko odrzuciłaby oba pliki i test wyżej nadal byłby
+    /// zielony — dlatego ten stoi obok niego, a nie zamiast niego.
+    /// </summary>
+    [TestMethod]
+    public void Prawdziwy_plan_nadal_przechodzi()
+    {
+        var result = Run(
+            "budget", "--axis", Path.Combine(RepoRoot(), "data", "track", "L1_A.json"),
+            "--signalling", Path.Combine(RepoRoot(), "data", "design", "signalling", "classic-2026.json"),
+            "--limit-kmh", "72", "--exchange-s", "20", "--headway-s", "10",
+            "--steps", "2000", "--trains", "2");
+
+        Assert.AreEqual(0, result.ExitCode, result.StdErr);
+        StringAssert.Contains(result.StdOut, "[BUDŻET]");
+    }
 }
