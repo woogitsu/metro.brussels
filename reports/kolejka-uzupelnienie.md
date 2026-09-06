@@ -91,7 +91,9 @@ w robocie zostanie **13 do wzięcia i 13 udokumentowanych**, nadal nad progiem 1
 Liczenie zapasu na stan przed jest dokładnie tym błędem, który postawił kolejkę
 na progu w chwili, gdy pięć zadań było w robocie.
 
-Zapadka `MINIMUM_DETAIL_BLOCKS` = 32. Ten commit podniósł ją z 19 na 29; na 32 poszła jeszcze tego samego dnia, przy **drugim** uzupełnieniu — bo domknięcie 6.A3 i 6.D9 zbiło zapas do 11, czyli poniżej progu, i bramka to zapaliła. Liczba jest tu przepisana, a nie dopisana obok, i to jest ta sama mechanika, którą opisuje §2: **licznik opada od wykonywania pracy**, więc wartość zacytowana w raporcie starzeje się w tempie scaleń, nie edycji. Pilnuje tego `test_every_constant_quoted_in_a_report_carries_the_value_from_the_code` i to on wywrócił tę linijkę. Podłoga `MINIMUM_DOCUMENTED_ITEMS`
+Zapadka `MINIMUM_DETAIL_BLOCKS`, podniesiona w tym commicie z 19 na 29. **Dzisiejszej wartości ten raport już nie podaje i to jest poprawka, nie przeoczenie.** Podawał ją dwa razy i dwa razy przestała być prawdą tego samego dnia — najpierw przy drugim uzupełnieniu kolejki, potem przy dopisaniu pozycji 6.B19 — bo zapadka rośnie przy każdym nowym bloku, a raport jest pomiarem z datą i pomiarów się nie przelicza. Wyłapywał to za każdym razem `test_every_constant_quoted_in_a_report_carries_the_value_from_the_code`, czyli bramka dopisana rano w #273. Trzecie z rzędu zderzenie znaczy, że problemem nie jest liczba, tylko **miejsce**: wartość bieżącą podaje kod, a nie datowany raport. Ten sam wniosek zapisał już `CLAUDE.md` §2, gdy zniknęła z niego liczba testów narzędzi.
+
+Podłoga `MINIMUM_DOCUMENTED_ITEMS`
 zostaje na 6 i **to jest decyzja, nie zaniedbanie**: zrównanie jej z zapasem odtworzyłoby
 sprzężenie, które #274 rozplątywało.
 

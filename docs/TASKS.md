@@ -665,6 +665,7 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.B16 | **Triaż ośmiu mutacji ocalałych na `tools/track/detail_layout.py`** — module, który wpis T-011 opisuje jako ten z **0 założeń** | `reports/mutation-drift.md` podaje dla niego 8 ocalałych z 9 mutacji; werdykt dla każdej z nich jest pomiarem, nie decyzją | M |
 | 6.B17 | **ZROBIONE w #289 (06.09.2026).** Ścieżka domyślna jest teraz **jedna na przebieg** (commit + klasy operatorów + zawężenie `--only`), a dziennik z wpisami spoza przebiegu **przerywa start** kodem 2; raport `reports/dziennik-mutacyjny.md`, zestaw **1697 → 1700**. **Wiersz opisywał to za słabo:** nie chodziło o to, że dwa przebiegi sobie przeszkadzają, tylko o **mieszanie wyników** — wynik czytany jest z CAŁEGO dziennika, więc cudze wpisy wchodziły do raportu jako wynik tego pomiaru. Wykonana kontrola: dziennik z jednym obcym wpisem daje raport z pełną sekcją modułu, którego przebieg nie dotykał. **Znalezione obok i świadomie nietknięte:** wpis nie niesie commita, a identyfikator mutacji to przesunięcie bajtowe — pole Poza zakresem tej pozycji zabrania ruszać format, więc to osobna pozycja | znalezione przy 6.B14, gdzie dwa agenty liczyły równolegle; narzędzie samo tego nie sygnalizuje. Pomiar i poprawka domyślnej ścieżki, żadnej decyzji | S |
 | 6.B18 | **Ile naprawdę trwa przegląd jednego modułu** — `compare.py` (25 mutacji, zestaw 63 s, 4 robotników) nie domknął się w 20 minut, choć arytmetyka mówi ~7 | pomiar narzędzia pomiarowego: gdzie idzie czas, ile kosztuje `git worktree add` na mutację, czy sonda pokrycia liczy się raz czy za każdym razem | M |
+| 6.B19 | **Wpis dziennika mutacyjnego nie wie, z jakiego drzewa pochodzi** — nie niesie commita, a identyfikator mutacji to `plik:wiersz:przesunięcie bajtowe`, więc dziennik z wcześniejszego drzewa może podstawić wynik zapisany dla innego kodu | znalezione przy 6.B17 i tam świadomie nietknięte, bo tamta pozycja dotyczyła **ścieżki**, nie formatu. Pomiar i poprawka, żadnej decyzji | S |
 
 #### Pasmo C — warstwa silnika (`src/Game`)
 
@@ -1787,6 +1788,42 @@ co dochodzi ponad ten wspólny zakaz.
   podejmuje — kończy się na pomiarze i wariantach. Poza zakresem także zmiana
   czegokolwiek w `data/`.
 - **Zależy od:** nic.
+
+##### 6.B19 · Wpis dziennika mutacyjnego nie wie, z jakiego drzewa pochodzi
+
+- **Skąd:** znalezione przy pozycji 6.B17 (#289) i tam **świadomie nietknięte**, bo
+  pole „Poza zakresem" tamtej pozycji mówiło wprost: dotyczy **ścieżki**, nie tego, co
+  się w dzienniku zapisuje. Wpis powstający w `check_one` niesie `id`, `plik`, `wiersz`,
+  `rodzaj`, `bylo`, `jest` i wynik — **ale nie commit**. Identyfikatorem mutacji jest
+  `plik:wiersz:przesunięcie bajtowe`, więc dwie różne mutacje z dwóch różnych drzew
+  mogą mieć **ten sam identyfikator**, jeśli przesunięcie wypadnie tak samo. Docstring
+  przy wznawianiu twierdzi, że „zmiana kodu między przebiegami nie przemyci starego
+  wyniku pod nową mutację" — i jest to prawdą **tylko wtedy**, gdy zmiana przesunie
+  offsety. Poprawka z #289 tego nie dotyka: ona pilnuje, żeby dziennik nie mieszał
+  **modułów**, a nie żeby nie mieszał **drzew**.
+- **Wejście:** `tools/tests/mutation_sweep.py` (`check_one` — literał wpisu; `Mutation.id`;
+  miejsce wznawiania w `main`; `default_journal` z #289),
+  `tools/tests/test_mutation_sweep.py`, `reports/dziennik-mutacyjny.md` §5,
+  `reports/wyrocznia-mutacyjna-falszywe-zabicia.md` jako precedens usterki w samym
+  narzędziu pomiarowym.
+- **Wyjście:** commit w każdym wpisie dziennika plus odmowa wznowienia z dziennika
+  o innym commicie, oraz testy w `tools/tests/test_mutation_sweep.py`.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py
+  ```
+  plus **wykonany** pokaz: dziennik zapisany na jednym drzewie, wznowienie próbowane
+  na drugim — narzędzie ma powiedzieć, że to inne drzewo, a nie policzyć cudzy wynik.
+- **Skończone, gdy:** wznowienie z dziennika zapisanego na innym commicie **odmawia
+  albo liczy od nowa**, nigdy nie przyjmuje cudzego wyniku po cichu — a kontrola
+  negatywna jest wykonana i wklejona **w obie strony**: dziennik z tego samego commita
+  ma nadal wznawiać, bo poprawka odmawiająca zawsze przeszłaby połowę tego testu.
+- **Poza zakresem:** zmiana samego identyfikatora mutacji na coś innego niż
+  przesunięcie bajtowe. To by przeliczyło wszystkie dotychczasowe dzienniki i zerwało
+  porównywalność z raportami triażu — a te są datowanymi pomiarami i nie przelicza się
+  ich (`reports/mutation-drift.md`). Poza zakresem także domyślna ścieżka dziennika:
+  to jest zrobione w #289.
+- **Zależy od:** #289 (scalone).
 
 **Aktualizacja tej listy jest częścią pracy, nie dodatkiem do niej.** Pozycja zrobiona
 znika stąd i pojawia się jako wpis z sześcioma polami wyżej w tym pliku.
