@@ -227,6 +227,22 @@ Ocalała czternastka to dokładnie cztery równoważne z §3 i dziesięć nieroz
 z §4 — czyli żadna z 22 zabijalnych nie przeżyła, i żadna z pozostałych nie zginęła
 przypadkiem.
 
+## Adnotacja 06.09.2026 (pozycja 6.D22) — ile modułów łapie komenda z §6
+
+6.D18 rozstrzygnęła, że `--only` w `tools/tests/mutation_sweep.py` dopasowuje
+**podciąg ścieżki, nie nazwę pliku** — to jest zamierzone. Komenda z §6,
+`--only sweep.py`, jest z tej rodziny: **sprawdzone dziś, `--only sweep.py --list`,
+tym samym zestawem operatorów co w §6 (`--operators operator,prog`), łapie DWA
+moduły — `tools/blender/sweep.py` i `tools/blender/tunnel_sweep.py`** (79 + 4 = 83
+mutacji tym zestawem; 117 + 68 = 185 dzisiejszym pełnym, domyślnym zestawem pięciu
+klas). Ten raport, wołany tą samą komendą 05.09.2026, zmierzył 79 mutacji, wszystkie
+w `tools/blender/sweep.py` — `tunnel_sweep.py` na tamtym drzewie dawał tym zestawem
+operatorów zero dopasowań.
+
+**Liczby w §0 i §6 (79 mutacji, 36 → 14 ocalałych, 45,6 % → 17,7 %) pozostają liczbami
+z dnia pomiaru** i dotyczą wyłącznie `tools/blender/sweep.py` — ta adnotacja niczego
+w nich nie przelicza, mówi tylko, ile modułów łapie sama komenda **dziś**.
+
 ## 7. Zauważone przy okazji, nie tknięte
 
 - **Dziewięć funkcji `sweep.py` nie ma ani jednego wywołania w testach**: `scale`, `cross`,
