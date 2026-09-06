@@ -103,8 +103,12 @@ DONE_ONLY_FIELD = "Wynik"
 #: `ZROBIONE`, a `open_items` takie wiersze odsiewa. To jest ta sama mechanika, której
 #: ten komentarz broni dwa akapity wyżej: **licznik zapasu opada od wykonywania pracy**,
 #: więc każda jego liczba wpisana ręcznie starzeje się w tempie scaleń.
-#: Zmierzone 06.09.2026 po uzupełnieniu kolejki: udokumentowanych i niezrobionych **18**,
-#: podłoga **6**. Podłogi nie podnoszę do osiemnastu i to jest decyzja, nie zaniedbanie:
+#: Zmierzone 06.09.2026 po pierwszym uzupełnieniu kolejki: udokumentowanych
+#: i niezrobionych **18**, podłoga **6**. Po domknięciu 6.A3 i 6.D9 tego samego dnia
+#: zapas zszedł do **11** — czyli PONIŻEJ progu doby pracy — i bramka to zapaliła.
+#: To jest ta sama mechanika opisana wyżej, tym razem widziana od strony skutku:
+#: zapas spadł nie przez zaniedbanie, tylko przez wykonanie dwóch zadań. Drugie
+#: uzupełnienie podniosło go do **15**. Podłogi nie podnoszę do osiemnastu i to jest decyzja, nie zaniedbanie:
 #: równanie jej z zapasem odtworzyłoby dokładnie to sprzężenie, które #274 rozplątywało.
 MINIMUM_DOCUMENTED_ITEMS = 6
 
@@ -124,7 +128,7 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 #: z kompletem sześciu pól. W przeciwieństwie do podłogi zapasu ta liczba **nie opada
 #: od wykonywania pracy** — blok pozycji zrobionej zostaje napisany — i dlatego tylko
 #: tutaj „wolno wyłącznie podnosić" jest zdaniem, które da się utrzymać.
-MINIMUM_DETAIL_BLOCKS = 29
+MINIMUM_DETAIL_BLOCKS = 32
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je

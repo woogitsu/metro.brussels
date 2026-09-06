@@ -663,6 +663,8 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.B14 | **ZROBIONE w #285 (06.09.2026).** `reports/mutation-triage-round-2-modules.md` i 23 testy; zestaw narzędzi **1638 → 1661**. **Pomiar obalił liczbę z tego wiersza:** funkcji bez ani jednego testu bezpośredniego było nie dziewięć, tylko **5 z 13** — cały `material_specs.py` i `straight_prism` w `station_sections.py`; reszta miała pokrycie pośrednie. Zabite mutacje na pełnym zestawie pięciu klas: `material_specs.py` **0 → 9 z 10**, `station_sections.py` **9 → 10 z 15**, `marker_gates.py` **9 z 9 już przed**. Pozostałe ocalałe mają werdykt **równoważna** z dowodem. **Jedna mutacja (`sweep_section`, `+=` → `=`) jest zapisana jako NIEROZSTRZYGNIĘTA**, nie zabita i nie ocalała: narzędzie padło na limicie czasu, a bezpośrednie wykonanie zmutowanego kodu pokazuje pętlę nieskończoną — czyli pod prawdziwym przebiegiem skończyłaby się timeoutem. Trzeci stan istnieje właśnie po to, żeby go nie zgadywać. Kalibracja wyroczni z #268 potwierdzona przed każdym z trzech pomiarów | pozycja 6.B9 świadomie ich nie dopisała: celem było uczynić je **mierzalnymi**, a ile z nich przeżyje przegląd, mówi dopiero pomiar | M |
 | 6.B15 | **Bramki bez wykonanej kontroli negatywnej** — 73 moduły w `tools/tests/`, wyrażenie „kontrola negatywna" stoi w 33 | `CLAUDE.md` §5 nazywa tę kontrolę częścią pętli weryfikacji, a nie jej ozdobą; policzenie, gdzie jej nie ma, i dołożenie jej tam, gdzie da się ją wykonać, nie wymaga ani jednej decyzji | M |
 | 6.B16 | **Triaż ośmiu mutacji ocalałych na `tools/track/detail_layout.py`** — module, który wpis T-011 opisuje jako ten z **0 założeń** | `reports/mutation-drift.md` podaje dla niego 8 ocalałych z 9 mutacji; werdykt dla każdej z nich jest pomiarem, nie decyzją | M |
+| 6.B17 | **Wspólny dziennik przeglądu mutacyjnego** — `mutation_sweep.py` wiersz 939 bierze domyślnie `tempfile.gettempdir()/metro-mutacje.jsonl`, więc dwa przebiegi na jednej maszynie dopisują do TEGO SAMEGO pliku, a wznowienie pomija cudze wyniki jako swoje | znalezione przy 6.B14, gdzie dwa agenty liczyły równolegle; narzędzie samo tego nie sygnalizuje. Pomiar i poprawka domyślnej ścieżki, żadnej decyzji | S |
+| 6.B18 | **Ile naprawdę trwa przegląd jednego modułu** — `compare.py` (25 mutacji, zestaw 63 s, 4 robotników) nie domknął się w 20 minut, choć arytmetyka mówi ~7 | pomiar narzędzia pomiarowego: gdzie idzie czas, ile kosztuje `git worktree add` na mutację, czy sonda pokrycia liczy się raz czy za każdym razem | M |
 
 #### Pasmo C — warstwa silnika (`src/Game`)
 
@@ -685,6 +687,7 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.D9 | **Wzorcem klatki jest suma pikseli, nie suma pliku** — `idat_sha256` leży w repo z czterema testami i nie jest wołane z żadnego workflowu ani skryptu | narzędzie i dowód, że suma całego pliku PNG jest bezużyteczna jako wyrocznia, są już w repo; zostaje zastosowanie | M |
 | 6.D10 | **Czy commit z nagłówka raportu ma cokolwiek wspólnego z raportem** — 25 z 48 raportów podaje SHA, który nigdy nie dotknął ich pliku | pozycja mierzy relację, a nie decyduje o niej; dopiero pomiar mówi, którą wolno przybić bramką, a której nie wolno | S |
 | 6.D11 | **Bramka na czas przebiegu `test_all.py`** — 1638 testów w 62,8 s, i nikt tego nie pilnuje | bliźniak 6.D2 po stronie Pythona: pomiar, nie decyzja | S |
+| 6.D12 | **Które narzędzia piszą do `data/`, choć katalog jest tylko do odczytu** — `tools/track/fetch_gtfs.py` aktualizuje manifest proweniencji przy każdym pobraniu | `CLAUDE.md` §4.6 nie przewiduje wyjątku, a narzędzie robi to celowo. Pozycja **mierzy rozjazd i wypisuje warianty**, nie rozstrzyga go — wybór między zmianą reguły a zmianą narzędzia zostaje właścicielowi | S |
 
 #### Szczegóły pozycji z kompletem sześciu pól
 
@@ -1682,6 +1685,107 @@ co dochodzi ponad ten wspólny zakaz.
   moduł drogi jest wynikiem pomiaru i osobnym zadaniem, nie okazją do przepisania go
   przy okazji. Poza zakresem także kasowanie albo pomijanie testu, żeby zmieścić się
   w progu — `CLAUDE.md` §5 nazywa to wprost zakazaną formą weryfikacji.
+- **Zależy od:** nic.
+
+##### 6.B17 · Wspólny dziennik przeglądu mutacyjnego
+
+- **Skąd:** `tools/tests/mutation_sweep.py` wiersz 939 —
+  `journal = args.journal or os.path.join(tempfile.gettempdir(), "metro-mutacje.jsonl")`.
+  Ścieżka domyślna jest **jedna dla całej maszyny**, a dziennik służy do wznawiania:
+  przebieg pomija to, co w nim już jest. Dwa przeglądy na jednej maszynie dopisują
+  więc do tego samego pliku, a każdy z nich uzna cudze wpisy za swoje i ich nie
+  policzy. Znalezione 06.09.2026 przy pozycji 6.B14, kiedy dwa agenty liczyły
+  równolegle; obejściem był własny `--journal`, ale **narzędzie samo tego nie
+  sygnalizuje** i nic nie chroni następnego, który o tym nie będzie wiedział.
+- **Wejście:** `tools/tests/mutation_sweep.py` (wiersz 939 i miejsce wznawiania),
+  `tools/tests/test_mutation_sweep.py`, `reports/mutation-triage-round-2-modules.md`
+  (opis przypadku), `reports/wyrocznia-mutacyjna-falszywe-zabicia.md` jako precedens
+  usterki w samym narzędziu pomiarowym.
+- **Wyjście:** poprawiona ścieżka domyślna (albo odmowa użycia cudzego dziennika)
+  w `mutation_sweep.py` plus testy w `tools/tests/test_mutation_sweep.py`.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py
+  ```
+  plus **wykonany** pokaz: dwa przebiegi na tym samym module z domyślnym dziennikiem,
+  drugi nie ma prawa uznać wyników pierwszego za swoje ani po cichu ich pominąć.
+- **Skończone, gdy:** dwa równoległe przeglądy na jednej maszynie albo **nie dzielą
+  dziennika**, albo **odmawiają startu z komunikatem**, a kontrola negatywna jest
+  wykonana i wklejona: przebieg wystartowany na cudzym dzienniku zachowuje się
+  dokładnie tak, jak mówi poprawka, a nie „jakoś".
+- **Poza zakresem:** zmiana formatu dziennika i mechaniki wznawiania — pozycja dotyczy
+  **ścieżki**, nie tego, co się w niej zapisuje. Poza zakresem także zmiana klas
+  operatorów ani czegokolwiek, co przesuwałoby mianowniki dotychczasowych pomiarów.
+- **Zależy od:** nic.
+
+##### 6.B18 · Ile naprawdę trwa przegląd jednego modułu
+
+- **Skąd:** zmierzone 06.09.2026. `tools/visual/compare.py` ma **25** mutacji zestawem
+  starym, zestaw testów chodzi **63 s**, robotników było **4** — arytmetyka daje
+  rząd siedmiu minut. Przebieg **nie domknął się w dwadzieścia** i został przerwany;
+  dziennik nie powstał, więc nie było nawet wyniku częściowego. To samo, w większej
+  skali, zatrzymało pomiary w pozycjach 6.B13 i 6.B14, gdzie cztery mutacje
+  `scan_gates.py` i jedna `station_sections.py` wyszły jako **nierozstrzygnięte**.
+  Po przegonieniu szeregowym `scan_gates.py` dało 5 z 5 zabitych — czyli tamte cztery
+  były **artefaktem obciążenia**, a nie własnością kodu.
+- **Wejście:** `tools/tests/mutation_sweep.py` (przygotowanie worktree, sonda pokrycia,
+  pętla robotników, limit czasu), `tools/tests/test_all.py` (czas zestawu),
+  `reports/mutation-drift.md` i `reports/mutation-triage-round-2-modules.md` §5
+  (opisy przerwanych przebiegów), pozycja 6.D11 (bramka na czas zestawu — ta sama
+  rodzina pomiaru, inny obiekt).
+- **Wyjście:** raport w `reports/` z rozbiciem czasu przebiegu na części — utworzenie
+  worktree na mutację, sonda pokrycia, sam zestaw — oraz liczbą mutacji na minutę
+  przy 1, 2 i 4 robotnikach.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/mutation_sweep.py --only tools/visual/compare.py \
+      --operators operator,prog --workers 1 --journal <własny dziennik>
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: przebieg **domyka się** i raport podaje, ile z jego czasu poszło na co.
+- **Skończone, gdy:** raport odpowiada liczbą na pytanie „dlaczego 25 mutacji przy
+  zestawie 63 s i czterech robotnikach nie mieści się w dwudziestu minutach" —
+  a jeśli odpowiedzią jest narzut, którego da się uniknąć, mówi **ile** go jest.
+  Wynik „narzutu nie da się uniknąć i oto z czego się składa" jest **poprawnym
+  zakończeniem pozycji**.
+- **Poza zakresem:** przyspieszanie samego zestawu testów — to jest 6.D11. Poza
+  zakresem także zmiana limitu czasu mutacji: limit jest **wyrocznią** dla mutacji
+  powodujących pętlę nieskończoną (zmierzone w 6.B14), więc jego podniesienie zmienia
+  znaczenie wyniku i wymaga osobnej kontroli negatywnej.
+- **Zależy od:** nic, ale **6.B17 jest jego naturalnym sąsiadem**: pomiar czasu na
+  maszynie dzielonej z drugim przebiegiem mierzyłby obciążenie, nie narzędzie.
+
+##### 6.D12 · Które narzędzia piszą do `data/`
+
+- **Skąd:** `CLAUDE.md` §4.6 mówi „**`data/` jest tylko do odczytu**, chyba że zadanie
+  mówi inaczej wprost". Zmierzone 06.09.2026 przy pozycji 6.A3:
+  `tools/track/fetch_gtfs.py` przy każdym pobraniu aktualizuje
+  `data/network/gtfs-manifest.json` — pole `retrieved_at`. Robi to **celowo**, jako
+  zapis proweniencji z T-114, a reguła nie przewiduje wyjątku. W 6.A3 plik został
+  przywrócony, bo pole „Poza zakresem" tamtej pozycji zabraniało zapisu — ale rozjazd
+  między narzędziem a regułą został.
+- **Wejście:** `CLAUDE.md` §4.6, `tools/data/provenance.py` i wpis T-114,
+  `tools/track/fetch_gtfs.py`, pozostałe narzędzia w `tools/` (skan po zapisach),
+  `data/network/sources.json`, `docs/09` (proweniencja), `reports/service-day.md` §8.
+- **Wyjście:** raport w `reports/` z listą **każdego** miejsca w `tools/`, które pisze
+  do `data/`, co dokładnie zapisuje i czy zapis jest deterministyczny (czyli czy
+  ponowne pobranie tych samych bajtów zmienia plik).
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py
+  git status --short data/
+  ```
+  Oczekiwane: raport wymienia wszystkie miejsca, a `git status` po przebiegu narzędzi
+  pokazuje **dokładnie to**, co raport zapowiada — ani mniej, ani więcej.
+- **Skończone, gdy:** raport podaje dla każdego znalezionego miejsca trzy rzeczy —
+  **co pisze**, **czy to zmienia plik przy niezmienionej treści źródła**, i **jaki
+  wariant proponuje** — a warianty są wypisane obok siebie z kosztem każdego.
+  Zmierzone przy 6.A3: suma treści feedu była identyczna z zapisaną, a plik i tak się
+  zmienił; to jest dokładnie ta klasa zapisu, o którą pyta pozycja.
+- **Poza zakresem:** **rozstrzygnięcie rozjazdu.** Wybór między zmianą reguły
+  a zmianą narzędzia jest decyzją właściciela (`CLAUDE.md` §8) i pozycja go nie
+  podejmuje — kończy się na pomiarze i wariantach. Poza zakresem także zmiana
+  czegokolwiek w `data/`.
 - **Zależy od:** nic.
 
 **Aktualizacja tej listy jest częścią pracy, nie dodatkiem do niej.** Pozycja zrobiona

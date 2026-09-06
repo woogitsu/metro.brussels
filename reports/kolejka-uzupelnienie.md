@@ -91,7 +91,7 @@ w robocie zostanie **13 do wzięcia i 13 udokumentowanych**, nadal nad progiem 1
 Liczenie zapasu na stan przed jest dokładnie tym błędem, który postawił kolejkę
 na progu w chwili, gdy pięć zadań było w robocie.
 
-Zapadka `MINIMUM_DETAIL_BLOCKS` = 29 (poprzednio 19). Podłoga `MINIMUM_DOCUMENTED_ITEMS`
+Zapadka `MINIMUM_DETAIL_BLOCKS` = 32. Ten commit podniósł ją z 19 na 29; na 32 poszła jeszcze tego samego dnia, przy **drugim** uzupełnieniu — bo domknięcie 6.A3 i 6.D9 zbiło zapas do 11, czyli poniżej progu, i bramka to zapaliła. Liczba jest tu przepisana, a nie dopisana obok, i to jest ta sama mechanika, którą opisuje §2: **licznik opada od wykonywania pracy**, więc wartość zacytowana w raporcie starzeje się w tempie scaleń, nie edycji. Pilnuje tego `test_every_constant_quoted_in_a_report_carries_the_value_from_the_code` i to on wywrócił tę linijkę. Podłoga `MINIMUM_DOCUMENTED_ITEMS`
 zostaje na 6 i **to jest decyzja, nie zaniedbanie**: zrównanie jej z zapasem odtworzyłoby
 sprzężenie, które #274 rozplątywało.
 
