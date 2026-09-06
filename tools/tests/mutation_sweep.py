@@ -39,6 +39,19 @@ do końca, to mówi o **mutancie**, do którego nie doszło wykonanie.
 
 **Determinizm.** Mutacje powstają z AST w ustalonej kolejności (plik, wiersz, kolumna),
 więc dwa przebiegi na tym samym drzewie dają tę samą listę i te same identyfikatory.
+
+**`--only` dopasowuje PODCIĄG ścieżki, nie nazwę pliku — to jest zamierzone.**
+Zdecydowane 06.09.2026 (6.D18, #301), pomiarem, nie gustem: `test_cli_lists_only_the_requested_class`
+woła `--only tools/track/` i oczekuje mutacji z CAŁEGO katalogu naraz — dopasowanie
+wyłącznie po nazwie pliku by to zablokowało, bo `tools/track/` nie jest nazwą żadnego
+pliku. Cena podciągu: `--only sweep.py` łapie też `tunnel_sweep.py` (zmierzone przy
+6.D15: 117 mutacji z `tools/blender/sweep.py` i 68 z `tools/blender/tunnel_sweep.py`
+pod jedną etykietą). Cztery przebiegi sprzed tej decyzji (6.B6, 6.B7, 6.B8, 6.D5) wołały
+`--only` basename'em, nie wiedząc, że złapały drugi moduł — ich raporty są **datowanymi
+pomiarami** i się ich nie przelicza. Od 6.D18 przebieg z `--only` wypisuje, ZANIM
+dotknie dziennika czy zmutuje choć jeden plik, ile modułów i ile mutacji złapał, z ich
+nazwami — więc rozjazd jak przy 6.D15 jest widoczny w pierwszym wierszu wyjścia, także
+dla `--list`, zamiast czekać na czyjeś porównanie liczb.
 """
 from __future__ import annotations
 
@@ -930,7 +943,10 @@ def main() -> int:
     parser.add_argument("--timeout", type=int, default=300)
     parser.add_argument("--limit", type=int, default=0,
                         help="tylko pierwsze N mutacji; 0 = wszystkie")
-    parser.add_argument("--only", default="", help="mutuj wyłącznie pliki z tym fragmentem ścieżki")
+    parser.add_argument("--only", default="",
+                        help="mutuj wyłącznie pliki, których ścieżka zawiera ten PODCIĄG "
+                             "(nie: nazwę pliku) — `sweep.py` łapie też `tunnel_sweep.py`; "
+                             "przebieg wypisuje, ile modułów złapał, zanim ruszy dalej")
     parser.add_argument("--operators", default=",".join(KINDS),
                         help="klasy mutacji po przecinku, z " + ", ".join(KINDS) +
                              f". `{','.join(LEGACY_KINDS)}` odtwarza zestaw sprzed "
@@ -976,7 +992,22 @@ def main() -> int:
     # `--only` kolejność niczego nie zmienia, bo zbiorem jest wtedy wszystko.
     if args.only:
         found = [m for m in found if args.only in m.path]
-    pliki_przebiegu = {m.path for m in found}
+    pliki_przebiegu = sorted({m.path for m in found})
+
+    # `--only` dopasowuje PODCIĄG ścieżki, nie nazwę pliku — to jest zamierzone:
+    # `--only tools/track/` musi łapać cały katalog naraz (patrz
+    # `test_cli_lists_only_the_requested_class`), a dopasowanie tylko po nazwie
+    # pliku by to zablokowało. Cena podciągu jest jednak taka, że `sweep.py`
+    # łapie też `tunnel_sweep.py` — zmierzone przy 6.D15 (#301): 117 mutacji
+    # z `tools/blender/sweep.py` i 68 z `tools/blender/tunnel_sweep.py` pod
+    # jedną etykietą `--only sweep.py`. Cztery przebiegi (6.B6, 6.B7, 6.B8, 6.D5)
+    # wołały `--only` basename'em bez wiedzy, że złapały drugi moduł. Dlatego
+    # ten komunikat nazywa złapane moduły PRZED czytaniem dziennika i PRZED
+    # jakąkolwiek mutacją — nawet dla `--list` — więc rozjazd jest widoczny
+    # w pierwszym wierszu wyjścia, a nie odkrywany przez porównanie liczb.
+    if args.only:
+        print(f"[MUTACJE] --only {args.only!r} złapało {len(found)} mutacji "
+              f"z {len(pliki_przebiegu)} moduł(ów): {', '.join(pliki_przebiegu)}")
 
     journal = args.journal or default_journal(commit, kinds, args.only)
     done = read_journal(journal)

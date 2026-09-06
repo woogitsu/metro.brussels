@@ -279,6 +279,42 @@ def test_cli_lists_only_the_requested_class():
     assert all(" przypisanie " in line for line in body), body[:5]
 
 
+def test_only_is_a_substring_match_by_design_and_says_how_many_modules_it_caught():
+    """6.D18: `--only` dopasowuje PODCIĄG ścieżki, nie nazwę pliku — zdecydowane,
+    bo `test_cli_lists_only_the_requested_class` (wyżej) już opiera się na tym, że
+    `--only tools/track/` łapie cały katalog naraz. Cena podciągu, zmierzona przy
+    6.D15: `--only sweep.py` łapie też `tunnel_sweep.py`. Od 6.D18 przebieg musi to
+    NAZWAĆ w pierwszym wierszu wyjścia, zanim tknie dziennik albo jedną mutację —
+    nawet dla samego `--list`.
+    """
+    done = subprocess.run(
+        [sys.executable, os.path.join(ROOT, "tools", "tests", "mutation_sweep.py"),
+         "--only", "sweep.py", "--list",
+         "--journal", os.path.join(tempfile.gettempdir(),
+                                    "metro-mutacje-nieistniejacy-6d18.jsonl")],
+        capture_output=True, text=True)
+    assert done.returncode == 0, done.stderr[-400:]
+    lines = done.stdout.splitlines()
+    assert lines, done.stdout[-400:]
+    pierwszy = lines[0]
+    assert pierwszy.startswith("[MUTACJE] --only"), pierwszy
+    assert "sweep.py" in pierwszy, pierwszy
+    assert "2 moduł" in pierwszy, pierwszy
+    assert "tools/blender/sweep.py" in pierwszy, pierwszy
+    assert "tools/blender/tunnel_sweep.py" in pierwszy, pierwszy
+    # Pojedynczy plik: dalej nazwany, ale liczba modułów to 1, nie 2.
+    solo = subprocess.run(
+        [sys.executable, os.path.join(ROOT, "tools", "tests", "mutation_sweep.py"),
+         "--only", "tools/blender/sweep.py", "--list",
+         "--journal", os.path.join(tempfile.gettempdir(),
+                                    "metro-mutacje-nieistniejacy-6d18b.jsonl")],
+        capture_output=True, text=True)
+    assert solo.returncode == 0, solo.stderr[-400:]
+    pierwszy_solo = solo.stdout.splitlines()[0]
+    assert "1 moduł" in pierwszy_solo, pierwszy_solo
+    assert "tunnel_sweep.py" not in pierwszy_solo, pierwszy_solo
+
+
 # --- ocalała, ale czy w ogóle uruchomiona -----------------------------------------
 
 
