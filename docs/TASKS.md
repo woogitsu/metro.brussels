@@ -714,6 +714,10 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.A16 | **Ujednolicic kody wyjscia `Sim.Runner`: kazda odmowa argumentowa = 1** — `compare` przestaje byc wyjatkiem, a **2** zostaje wylacznie dla „nie wiem, co uruchomic" | **DECYZJA WLASCICIELA z 06.09.2026.** Cztery pozycje (6.A10, 6.A11, 6.A13, 6.D20) odmowily ruszenia tego bez niej i przybily stan testami. Teraz jest wybor, wiec testy przybijajace dwojke dla `compare` zmieniaja sie razem z kodem | M |
 | 6.D23 | **Wariant C: fetchery pisza manifest tylko przy zmianie tresci** — `provenance.diff_manifests()` istnieje i porownuje `content_sha256`, a `fetch_gtfs.py` i `fetch_stib_shapes.py` **go nie wolaja** | **DECYZJA WLASCICIELA z 06.09.2026** na warianty z `reports/zapisy-do-data.md` §3. Regula `CLAUDE.md` §4.6 zostaje NIETKNIETA — zmieniaja sie narzedzia, nie regula. Wariant E domyka przy tym `build_alignment.py` i `normalize_stops.py` bez zmiany ich kodu | M |
 | 6.D24 | **Brakujaca biblioteka natywna runtime'u jako niezbadany mechanizm** — `libhostfxr.so` / `libcoreclr.so`, w odroznieniu od brakujacego assembly | znalezione przy 6.D21, ktore szescioma wykonanymi probami NIE odtworzylo zawieszenia i nazwalo ten mechanizm jako niezbadany, zamiast go domniemywac | S |
+| 6.A17 | **Czlon obciecia w bilansie energii to 96,89 MJ i nikt go nie mierzy osobno** — ~27 kWh przy 142,45 kWh trakcji, czyli 19 % | znalezione przy 6.A6 (#323). Bilans domyka sie wzglednie do 2,1E-15, wiec liczba nie jest bledem — jest miara tego, jak dlugo sklad wisi na limicie z pelnym nastawnikiem, i nikt jej nie sledzi | M |
+| 6.A18 | **`--coast-from-m` istnieje w `line`, nie istnieje w `budget` ani `replay`** — trzy polecenia czytaja ten sam `LineRunSettings`, ale wybieg widzi jedno | znalezione przy 6.A6 (#323), ktore swiadomie nie wyszlo poza `line`. Pomiar kosztu kroku przy wybiegu (6.D2) i odtworzenie przejazdu z wybiegiem (`replay`) sa dzis niewykonalne | S |
+| 6.B25 | **`MIN_RADIUS_M` w `clearance.py` jest martwe, a nazwa zajeta drugi raz z INNA wartoscia** — 20,0 w `tools/blender/clearance.py`, 90,0 w `tools/tests/test_packages.py`, obie zyja obok siebie | znalezione przy 6.B5 (#324). Zmierzone: stala w `clearance.py` nie jest czytana przez zaden kod, a `test_clearance_profile.py` opisuje ja w docstringu jako obowiazujaca | S |
+| 6.B26 | **Najciasniejszy luk pakietu D lezy na odcinku, ktorego OSM nie widzi jako tunel** — zapas +0,7043 m liczony jest wobec sciany, ktorej moze nie byc | znalezione przy 6.B5 (#324): 0,0-0,2 m od przedzialu bez tunelu, wobec >= 314 m na pozostalych pieciu osiach. Roznica jest o trzy rzedy wielkosci, wiec nie jest szumem pomiaru | M |
 
 #### Szczegóły pozycji z kompletem sześciu pól
 
@@ -2599,6 +2603,125 @@ znika stąd i pojawia się jako wpis z sześcioma polami wyżej w tym pliku.
   Każda podmieniona biblioteka wraca na miejsce, a raport podaje sumę kontrolną albo
   rozmiar jako dowód przywrócenia — tak jak zrobiła to 6.D21.
 - **Zależy od:** 6.D21 (w locie).
+
+##### 6.A17 · Człon obcięcia w bilansie energii
+
+- **Skąd:** zmierzone 06.09.2026 przy 6.A6 (#323). Wypis `[ENERGIA]` przejazdu L1_A bez
+  wybiegu podaje `obcięcie = 96 889 720,4 J` przy `E_trakcji = 142,4515 kWh`, a bilans
+  domyka się **względnie do 2,147E-015**. Liczba nie jest więc błędem zamknięcia — jest
+  osobną, nazwaną pozycją bilansu, wielkości **~27 kWh, czyli 19 % pracy trakcji**,
+  i nikt jej nie śledzi. 6.A6 nazwała ją miarą tego, jak długo skład wisi na limicie
+  z pełnym nastawnikiem, ale tego nie zmierzyła — to jest praca tej pozycji.
+- **Wejście:** `src/Sim/` (miejsce, w którym powstaje człon obcięcia — bilans energii
+  z 6.A5), `src/Sim.Runner/Program.cs` (`LineCommand`, wypis `[ENERGIA]`),
+  `reports/energy-balance.md` (6.A5), `reports/coasting.md` (6.A6),
+  `tests/Sim.Tests/` (testy bilansu energii).
+- **Wyjście:** raport wiążący człon obcięcia z czasem spędzonym na limicie — per odcinek,
+  nie jedną liczbą na całą oś — plus test przybijający tę zależność, jeżeli pomiar
+  pokaże, że jest monotoniczna.
+- **Weryfikacja:**
+  ```bash
+  dotnet run --project src/Sim.Runner -c Release -- line --axis data/track/L1_A.json \
+      --limit-kmh 72 --exchange-s 20 --trace build/energia.csv
+  dotnet run --project src/Sim.Runner -c Release -- line --axis data/track/L1_A.json \
+      --limit-kmh 50 --exchange-s 20 --trace build/energia-50.csv
+  dotnet test tests/Sim.Tests
+  ```
+  Oczekiwane: przy niższym limicie człon obcięcia **rośnie albo maleje w sposób, który
+  raport tłumaczy** — dwie liczby obok siebie, nie jedna.
+- **Skończone, gdy:** raport podaje człon obcięcia dla co najmniej **dwóch** limitów
+  prędkości i tłumaczy kierunek zmiany mechanizmem z kodu, a nie domysłem. Jeżeli
+  zależność nie jest monotoniczna, pozycja mówi to wprost i nie dopisuje testu.
+- **Poza zakresem:** zmiana modelu oporów, krzywej hamowania i sposobu liczenia bilansu.
+  Ta pozycja **mierzy** człon, który już tam jest.
+- **Zależy od:** #323 (6.A6).
+
+##### 6.A18 · Wybieg widzi jedno polecenie z trzech
+
+- **Skąd:** 6.A6 (#323) dopisała `--coast-from-m` do polecenia `line` i **świadomie nie
+  wyszła poza nie**, wypisując to jako niezrobione. Ale `LineRunSettings` czytają trzy
+  polecenia: `line`, `budget` i `replay`. Skutek jest konkretny: pomiar kosztu kroku
+  przy włączonym wybiegu (czyli 6.D2 z wybiegiem) i odtworzenie przejazdu z wybiegiem
+  przez `replay` są dziś **niewykonalne**, bo nie ma jak podać tej nastawy.
+- **Wejście:** `src/Sim.Runner/Program.cs` (`LineCommand`, `Budget`, `Replay`,
+  tabela `KnownOptions`), `src/Sim/Line/LineCore.cs` (`LineRunSettings`),
+  `tools/tests/test_runner_options.py` (bramka zgodności tabeli z kodem),
+  `tests/Sim.Tests/RunnerCommandTests.cs`.
+- **Wyjście:** `--coast-from-m` przyjmowane przez `budget` i `replay`, w tabeli
+  `KnownOptions` przy obu, z testem kodu wyjścia dla każdego.
+- **Weryfikacja:**
+  ```bash
+  dotnet run --project src/Sim.Runner -c Release -- budget \
+      --axis data/track/L1_A.json \
+      --signalling data/design/signalling/classic-2026.json \
+      --limit-kmh 72 --exchange-s 20 --headway-s 10 --steps 200000 \
+      --trains 9 --coast-from-m 250
+  dotnet test tests/Sim.Tests
+  ```
+  Oczekiwane: kod 0 i wypis `[BUDŻET]`; dziś ta sama komenda kończy się odmową
+  `polecenie budget nie zna opcji --coast-from-m`.
+- **Skończone, gdy:** oba polecenia przyjmują nastawę, bramka zgodności tabeli
+  z kodem jest zielona, a kontrola negatywna WYKONANA (opcja zdjęta z tabeli przy
+  jednym z nich) wywraca dokładnie ten jeden wpis.
+- **Poza zakresem:** **wybór profilu jazdy dla gry.** 250 m to wartość pomiarowa
+  z 6.A6, nie praktyka STIB, i ta pozycja jej nie utrwala jako domyślnej.
+- **Zależy od:** #323 (6.A6).
+
+##### 6.B25 · Martwa stała i nazwa zajęta drugi raz przy innej wartości
+
+- **Skąd:** znalezione przy 6.B5 (#324), potwierdzone grepem 06.09.2026:
+  `MIN_RADIUS_M = 20.0` w `tools/blender/clearance.py:42` i `MIN_RADIUS_M = 90.0`
+  w `tools/tests/test_packages.py:28`. Ta sama nazwa, **inna wartość, inne znaczenie**,
+  obie żyją obok siebie. Pierwsza z nich nie jest czytana przez żaden kod — a
+  `tools/tests/test_clearance_profile.py:1832` opisuje ją w docstringu jako
+  obowiązującą, więc czytający ma dziś dwa sprzeczne sygnały.
+- **Wejście:** `tools/blender/clearance.py`, `tools/tests/test_packages.py`,
+  `tools/tests/test_clearance_profile.py` (docstring), `tools/tests/test_clearance.py`.
+- **Wyjście:** martwa stała usunięta albo — jeżeli pomiar pokaże, że coś ją jednak
+  czyta — dopisany test na to. Nazwa w `test_packages.py` przemianowana tak, żeby
+  mówiła, czego dotyczy (próg pakietu, nie promień skrajni), a docstring poprawiony.
+- **Weryfikacja:**
+  ```bash
+  grep -rn "MIN_RADIUS_M" tools/ src/ docs/
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: grep pokazuje **jedną** nazwę w jednym znaczeniu, zestaw zielony.
+- **Skończone, gdy:** w repozytorium nie ma dwóch stałych o tej samej nazwie i różnych
+  wartościach — sprawdzone grepem, którego wynik jest wklejony — a docstring nie
+  odsyła do stałej, która przestała istnieć.
+- **Poza zakresem:** zmiana **wartości** progu 90 m w `test_packages.py`. To jest próg
+  akceptacji pakietu i jego wybór nie należy do porządkowania nazw.
+- **Zależy od:** #324 (6.B5).
+
+##### 6.B26 · Zapas skrajni liczony wobec ściany, której może nie być
+
+- **Skąd:** zmierzone 06.09.2026 przy 6.B5 (#324). Najciaśniejszy łuk pakietu D leży
+  **0,0–0,2 m** od przedziału, którego OSM nie widzi jako tunel, podczas gdy na
+  pozostałych pięciu osiach ta odległość wynosi **co najmniej 314 m**. Różnica jest
+  o trzy rzędy wielkości, więc nie jest szumem pomiaru. Zapas **+0,7043 m** podany dla
+  tego łuku jest więc liczony wobec ściany, o której nie wiadomo, czy istnieje.
+- **Wejście:** `data/track/L5_D.json` i jego `*.provenance.json`,
+  `reports/surface-vs-tunnel.md` (81 punktów sprzecznych między UrbIS a OSM, wszystkie
+  w D i F), `tools/blender/clearance.py` (`--scan` z #324), `reports/M7-curve-clearance.md`,
+  `docs/07-open-data-research.md` (hierarchia źródeł).
+- **Wyjście:** raport rozstrzygający, czy ten konkretny odcinek jest w tunelu — po
+  hierarchii źródeł, nie po jednym z nich — albo stwierdzający, że **na dostępnych
+  danych rozstrzygnąć się nie da**, i wtedy zapas +0,7043 m zostaje w raportach
+  oznaczony jako warunkowy.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py
+  ```
+  plus wypis: kilometraż łuku, odległość do najbliższego przedziału tunelowego w każdym
+  ze źródeł osobno, i to samo dla łuku porównawczego z osi, gdzie odległość jest duża.
+- **Skończone, gdy:** raport podaje odpowiedź **z nazwanym źródłem** albo mówi wprost,
+  że jej nie ma — i w tym drugim przypadku każdy zapas liczony na tym odcinku jest
+  oznaczony jako warunkowy tam, gdzie jest podany. `CLAUDE.md` §4.1: czego nie da się
+  potwierdzić, tego się nie zgaduje.
+- **Poza zakresem:** **zmiana `data/track/L5_D.json`.** `data/` jest tylko do odczytu,
+  a poprawianie przebiegu osi na podstawie rozstrzygnięcia o tunelu byłoby osobną,
+  znacznie większą pracą — i wymagałoby decyzji właściciela.
+- **Zależy od:** #324 (6.B5).
 
 ### Czego agent nie ruszy bez decyzji
 
