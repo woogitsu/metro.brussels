@@ -224,6 +224,19 @@ def block_summary(blocks):
             "first_departure": clock(ordered[0][0]),
             "last_arrival": clock(max(end for _s, end in ordered)),
             "span_s": max(end for _s, end in ordered) - ordered[0][0],
+            # Okna kursów, sekundy od północy. DLACZEGO SUROWE SEKUNDY, A NIE `clock`:
+            # doba służby wychodzi poza 24:00 (ostatni przyjazd bywa o 24:36:14),
+            # a `clock` to zapisuje tekstem, którego żaden parser czasu nie przyjmie
+            # bez wiedzy o tej konwencji. Sekundy przenoszą tę samą informację bez
+            # konwencji do zgubienia.
+            #
+            # DLACZEGO W OGÓLE SĄ W PLIKU. Pole `overlapping_trips_in_a_block` mówi,
+            # czy kursy jednego obiegu się nakładają — ale mówi to SŁOWEM narzędzia,
+            # które samo je policzyło. Bez okien kursów rdzeń nie ma z czego policzyć
+            # tego drugi raz, więc porównanie dwóch stron sprowadzałoby się do
+            # przepisania liczby Pythona do C#. Pozycja 6.A3 żąda czegoś odwrotnego:
+            # żeby obie strony miały czym się różnić.
+            "trip_windows": [[start, end] for start, end in ordered],
         })
     concurrent, at = peak_concurrency(
         [(row_trips[0][0], max(end for _s, end in row_trips))
