@@ -12,7 +12,9 @@ Portal `data.stib-mivb.brussels` jest zresztą wygaszony i przekierowuje na
 endpointów z testu byłoby dodatkowo bez sensu.
 """
 import io
+import json
 import os
+import struct
 import sys
 import tempfile
 import zipfile
@@ -20,8 +22,10 @@ import zipfile
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.insert(0, os.path.join(ROOT, "tools", "track"))
 
+import fetch_gtfs as GTFS  # noqa: E402
 import fetch_osm_routes as OSM  # noqa: E402
 import fetch_stib_shapes as STIB  # noqa: E402
+import shapefile as S  # noqa: E402
 
 
 # --- fetch_osm_routes: numer linii z identyfikatora pakietu ----------------------
@@ -310,3 +314,139 @@ def test_osm_way_with_exactly_two_nodes_survives_the_length_gate():
     ways = _with_fake_api(responses, lambda _f: OSM.fetch_relation_ways(900, 5.0))
     assert [w["id"] for w in ways] == [11], ways
     assert len(ways[0]["geometry"]) == 2
+
+
+# --- fetch_gtfs / fetch_stib_shapes: `--offline` naprawdę nie dotyka sieci -------
+#
+# 6.D14: do 06.09.2026 to, że gałąź `--offline` czyta plik z dysku zamiast wołać
+# sieć, było ustalone WYŁĄCZNIE czytaniem kodu (`reports/zapisy-do-data.md`
+# §4.1/§4.2). Testy niżej podmieniają `provenance.fetch_url` — jedyną funkcję,
+# przez którą oba narzędzia w ogóle wychodzą w sieć — na funkcję rzucającą
+# `RuntimeError`, i sprawdzają, że `main(["--offline", ...])` mimo to kończy się
+# kodem 0, na pliku przygotowanym w katalogu tymczasowym (`data/` zostaje
+# nietknięte). Kontrola negatywna — to samo wywołanie BEZ `--offline`, więc
+# podmieniona funkcja faktycznie zostaje wywołana — jest opisana w raporcie
+# zadania, nie tutaj: usunięcie `--offline` z argumentów poniżej ma dać
+# `SystemExit`, złapany jawnie i zamieniony w `AssertionError` — inaczej
+# uciekłby z testu jako `BaseException`, którego `test_all.py` nie łapie
+# (`except Exception`), i wywróciłby CAŁY zestaw zamiast tylko tych dwóch testów.
+
+def _fetch_url_that_refuses_to_fetch(*_args, **_kwargs):
+    raise RuntimeError("provenance.fetch_url wywołane mimo --offline")
+
+
+def _source_registry(path, source_id, url):
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump({"sources": [{"id": source_id, "download_url": url,
+                                "attribution": "test — nigdy nie pobrane"}]}, handle)
+
+
+def _minimal_gtfs_zip(path):
+    """Najmniejszy GTFS, który `inspect_zip` przyjmie: pięć wymaganych plików,
+    każdy z samym nagłówkiem — `inspect_zip` sprawdza obecność członków i liczy
+    wiersze, nie treść."""
+    with zipfile.ZipFile(path, "w") as archive:
+        for name in GTFS.REQUIRED_MEMBERS:
+            archive.writestr(name, "col_a,col_b\n")
+
+
+def test_fetch_gtfs_offline_never_calls_provenance_fetch_url():
+    """Podmienia `fetch_gtfs.P.fetch_url` (czyli `provenance.fetch_url`) na funkcję
+    rzucającą `RuntimeError`, uruchamia `main(["--offline", ...])` na ZIP-ie
+    przygotowanym w katalogu tymczasowym i sprawdza kod wyjścia 0."""
+    with tempfile.TemporaryDirectory() as tmp:
+        out = os.path.join(tmp, "gtfs.zip")
+        _minimal_gtfs_zip(out)
+        manifest = os.path.join(tmp, "gtfs-manifest.json")
+        registry = os.path.join(tmp, "sources.json")
+        _source_registry(registry, "test_gtfs", "https://example.invalid/gtfs.zip")
+
+        original = GTFS.P.fetch_url
+        GTFS.P.fetch_url = _fetch_url_that_refuses_to_fetch
+        try:
+            code = GTFS.main(["--offline", "--out", out, "--manifest", manifest,
+                              "--registry", registry, "--source-id", "test_gtfs"])
+        except SystemExit as exc:
+            raise AssertionError(f"--offline jednak sięgnęło do sieci: {exc}") from exc
+        finally:
+            GTFS.P.fetch_url = original
+        assert code == 0, code
+
+
+def _shp(shapes, shape_type):
+    body = b""
+    for number, points in enumerate(shapes, start=1):
+        if shape_type == S.TYPE_POINT:
+            content = struct.pack("<i", shape_type) + struct.pack("<dd", *points[0])
+        else:
+            xs = [p[0] for p in points]
+            ys = [p[1] for p in points]
+            content = (struct.pack("<i", shape_type)
+                       + struct.pack("<dddd", min(xs), min(ys), max(xs), max(ys))
+                       + struct.pack("<ii", 1, len(points))
+                       + struct.pack("<i", 0)
+                       + b"".join(struct.pack("<dd", x, y) for x, y in points))
+        body += struct.pack(">ii", number, len(content) // 2) + content
+    header = struct.pack(">i", S.SHP_MAGIC) + b"\x00" * 20
+    header += struct.pack(">i", (100 + len(body)) // 2) + struct.pack("<ii", 1000, shape_type)
+    header += struct.pack("<dddd", 0, 0, 0, 0) + b"\x00" * 32
+    return header + body
+
+
+def _dbf(rows, fields):
+    header_length = 32 + 32 * len(fields) + 1
+    record_length = 1 + sum(f[2] for f in fields)
+    out = bytearray(struct.pack("<B3B", 3, 26, 1, 1))
+    out += struct.pack("<iHH", len(rows), header_length, record_length)
+    out += b"\x00" * 20
+    for name, kind, length in fields:
+        out += name.encode("latin-1")[:11].ljust(11, b"\x00")
+        out += kind.encode("latin-1")
+        out += b"\x00" * 4 + bytes([length, 0]) + b"\x00" * 14
+    out += b"\x0D"
+    for row in rows:
+        out += b" "
+        for name, _kind, length in fields:
+            out += str(row.get(name, "")).encode("utf-8")[:length].ljust(length, b" ")
+    return bytes(out)
+
+
+def _minimal_shapes_zip(path):
+    """Najmniejsze archiwum, które `inspect_archive` przyjmie: dwa shapefile'y
+    (linie + przystanki) zbudowane w locie, bez prefiksu katalogu nadrzędnego —
+    `REQUIRED` z `fetch_stib_shapes.py` mówi dokładnie, których pięciu plików
+    trzeba, i tylko tyle tu jest."""
+    lines_shp = _shp([[(148000.0, 170000.0), (148100.0, 170050.0)]], S.TYPE_POLYLINE)
+    lines_dbf = _dbf([{"LineCode": "001m"}], [("LineCode", "C", 8)])
+    lines_prj = b'PROJCS["Belgian Lambert 2008"]'
+    stops_shp = _shp([[(148000.0, 170000.0)]], S.TYPE_POINT)
+    stops_dbf = _dbf([{"Stop_id": "8733"}], [("Stop_id", "C", 8)])
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr("ACTU_LIGNES_BRUTES.shp", lines_shp)
+        archive.writestr("ACTU_LIGNES_BRUTES.dbf", lines_dbf)
+        archive.writestr("ACTU_LIGNES_BRUTES.prj", lines_prj)
+        archive.writestr("ACTU_STOPS.shp", stops_shp)
+        archive.writestr("ACTU_STOPS.dbf", stops_dbf)
+
+
+def test_fetch_stib_shapes_offline_never_calls_provenance_fetch_url():
+    """Podmienia `fetch_stib_shapes.P.fetch_url` (czyli `provenance.fetch_url`) na
+    funkcję rzucającą `RuntimeError`, uruchamia `main(["--offline", ...])` na
+    archiwum przygotowanym w katalogu tymczasowym i sprawdza kod wyjścia 0."""
+    with tempfile.TemporaryDirectory() as tmp:
+        out = os.path.join(tmp, "stib_shapefiles.zip")
+        _minimal_shapes_zip(out)
+        manifest = os.path.join(tmp, "shapes-manifest.json")
+        registry = os.path.join(tmp, "sources.json")
+        _source_registry(registry, "test_shapes", "https://example.invalid/shapes.zip")
+
+        original = STIB.P.fetch_url
+        STIB.P.fetch_url = _fetch_url_that_refuses_to_fetch
+        try:
+            code = STIB.main(["--offline", "--out", out, "--manifest", manifest,
+                              "--registry", registry, "--source-id", "test_shapes"])
+        except SystemExit as exc:
+            raise AssertionError(f"--offline jednak sięgnęło do sieci: {exc}") from exc
+        finally:
+            STIB.P.fetch_url = original
+        assert code == 0, code
