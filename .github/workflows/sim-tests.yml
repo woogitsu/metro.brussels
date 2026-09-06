@@ -204,6 +204,49 @@ jobs:
           path: ${{ runner.temp }}/trace/*.csv
           retention-days: 7
 
+      - name: Core step cost at nine trains is under budget
+        shell: bash
+        # 6.D2. `reports/linecore-budget.md` zmierzył koszt kroku RAZ, 05.09.2026,
+        # i na tym się skończyło. Pomiar wykonany raz mówi o dniu, w którym go
+        # wykonano; regres wyszedłby dopiero wtedy, gdyby ktoś zechciał go powtórzyć.
+        #
+        # PRÓG NIE STOI W TYM PLIKU i to jest warunek, nie wygoda. Stoi w
+        # `tools/ci/linecore-step-budget.json` razem ze scenariuszem, bo liczba
+        # wpisana w dwóch miejscach rozjeżdża się przy pierwszej zmianie — dokładnie
+        # ta rodzina usterki, którą łapie bramka z #273. Krok woła skrypt i nic
+        # nie porównuje sam; pilnuje tego `tools/tests/test_linecore_budget_gate.py`.
+        run: |
+          set -euo pipefail
+          python3 tools/ci/assert_linecore_budget.py
+
+      - name: Core step gate can actually go red
+        shell: bash
+        # Bramka, która nigdy nie zaświeciła, jest zdaniem o sobie, nie pomiarem.
+        # DWIE kontrole, bo bramka ma dwa niezależne warunki, a druga jest ważniejsza
+        # od pierwszej: 6.A12 (#308) zmierzyła, że `budget --trains 32` melduje
+        # `N_max = 1`, kiedy okno jest krótsze niż jeden odstęp. Kolumna µs/krok ma
+        # wtedy wartość — tylko opisuje przejazd JEDNEGO składu, mieszczący się
+        # w progu z ogromnym zapasem. Bramka czytająca samą liczbę mikrosekund
+        # przeszłaby wtedy na zielono i nazwała ten pomiar dziewięcioma składami.
+        run: |
+          set -euo pipefail
+          POMIARY="$RUNNER_TEMP/budzet-kontrola"
+          rm -rf "$POMIARY"; mkdir -p "$POMIARY"
+          naglowek='[BUDŻET] N_zgł;N_max;N_śr;czeka_śr;mediana_kroków_s;min;max;rozstęp_%;µs_krok;CPU/ścienny;%budżetu'
+          printf '%s\n[BUDŻET] 32;9;5.08;0.98;110000;100000;120000;9.1;9.091;1.00;0.11\n' \
+              "$naglowek" > "$POMIARY/wolny.txt"
+          printf '%s\n[BUDŻET] 32;1;1.00;0.00;265081;223360;268544;17.0;3.772;1.01;0.05\n' \
+              "$naglowek" > "$POMIARY/jeden.txt"
+          if python3 tools/ci/assert_linecore_budget.py --from-output "$POMIARY/wolny.txt"; then
+              echo "BŁĄD: bramka przyjęła krok wolniejszy od progu" >&2
+              exit 1
+          fi
+          if python3 tools/ci/assert_linecore_budget.py --from-output "$POMIARY/jeden.txt"; then
+              echo "BŁĄD: bramka przyjęła pomiar JEDNEGO składu jako pomiar dziewięciu" >&2
+              exit 1
+          fi
+          echo "kontrola negatywna: bramka odmówiła wolnego kroku i pomiaru jednego składu"
+
       - name: Braking reference matches the core byte for byte
         shell: bash
         # T-311: tablice hamowania powstają dwa razy — raz w rdzeniu (src/Sim.Runner
