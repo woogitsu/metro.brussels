@@ -657,7 +657,7 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 |---|---|---|---|
 | 6.D1 | **Wzorcowy ślad jako bramka CI** — to, co przy `LineDrive` robiłem ręcznie (453 107 wierszy, sześć osi, porównanie co do bajtu), ma chodzić samo przy każdej zmianie rdzenia | metoda sprawdzona i udowodniona kontrolą negatywną: próg przesunięty o 0,1 % daje rozjazd w wierszu 2910 | M |
 | 6.D2 | **Bramka na czas przebiegu** — regres wydajności rdzenia widoczny, zanim zablokuje N składów | pomiar, nie decyzja | S |
-| 6.D4 | **Kontrola spójności liczb między `reports/` a kodem** — wartość wypisana w raporcie musi dać się odtworzyć z repo | dokładnie ta klasa rozjazdu, którą audyt znalazł w README | M |
+| 6.D4 | **ZROBIONE w #273 (06.09.2026) — wpis zostaje w kolejce z powodu zapadki.** Wykonane: `tools/tests/test_report_claims.py` i `reports/report-claims-audit.md`. **Pierwszy pomiar zawęził zakres pozycji i to jest jej główny wynik:** z ośmiu twierdzeń postaci „`plik_testowy`, N testów” **siedem rozjechało się z drzewem i siedem jest poprawnych** — raport opisywał plik w dniu pomiaru, a plik urósł; bramka żądająca tam równości kazałaby przeliczać datowany pomiar, czego zakazuje 6.D3. Sprawdzalna jest **wartość stałej**: 65 nazw pada w raportach, 37 ma definicję w kodzie, **12 jest zacytowanych z wartością i wszystkie 12 się zgadzają**. Wzorzec trzeba było zwęzić — wersja pierwsza dała **3 fałszywe alarmy na 15** przez tabele odwzorowań `219 → NAZWA, 237 → INNA`, w których brała numer wiersza następnej pary za wartość poprzedniej. Druga poprawka wyszła z tego, że bramka **wywróciła się na własnym raporcie**: cytat z kontroli negatywnej wygląda jak twierdzenie, więc bloki ogrodzone są pomijane. Zgłoszone, nie poprawione: `M7-shell.md` mówi 22 testy przy 21 w pliku — jedyny rozjazd w stronę, której datowanie nie tłumaczy. Treść pierwotna: **kontrola spójności liczb między `reports/` a kodem** — wartość wypisana w raporcie musi dać się odtworzyć z repo | dokładnie ta klasa rozjazdu, którą audyt znalazł w README | M |
 | 6.D5 | **ZROBIONE w #259 (`08d9650`, 05.09.2026) — wpis zostaje w kolejce z powodu zapadki**, jak 6.D6, 6.B10, 6.B1 i 6.B8. Wykonane: `reports/mutation-drift.md` obejmuje **28 modułów** zamiast wymaganych dwunastu, a `tools/tests/test_mutation_sweep.py` ma sześć testów dryfu, w tym `test_drift_report_pins_the_two_cases_the_task_names`, czyli dokładnie kryterium „Skończone, gdy”. Znalezione audytem kolejki 05.09.2026, nie zgłoszone przy scaleniu. Treść pierwotna: **Audyt dryfu pokrycia mutacyjnego po triażu** — które moduły odzyskały ocalałe od czasu swojego raportu triażu, i przybicie ich z powrotem | rozjazd jest już zmierzony i leży w dwóch plikach naraz: `tools/track/crs.py` miał po triażu 6 ocalałych na 8 mutacji (`reports/mutation-triage-wczytywanie.md` §Wynik), a przebieg z `66b8301` w `reports/mutation-sweep.md` pokazuje **8 na 14**; `tools/ci/assert_shot_metadata.py` miał **2 na 33** (`reports/mutation-triage-png-metadata.md` §Wynik), a dziś ma **6 na 39**. Porównanie dwóch raportów, które już istnieją — żadnej nowej danej | M |
 | 6.D6 | **ZROBIONE w #258 (05.09.2026) — wpis zostaje w kolejce z powodu zapadki, nie dlatego, że jest do zrobienia.** `test_backlog.py` trzyma `MINIMUM_DOCUMENTED_ITEMS = 8`, a udokumentowanych pozycji jest dokładnie osiem; przeniesienie którejkolwiek do tabeli domknięć zbija licznik do siedmiu i wywraca `test_the_documented_reserve_does_not_regress`, a komentarz przy zapadce mówi, że wolno ją tylko podnosić. Decyzja właściciela z 05.09.2026: wpis zostaje z tą adnotacją. Treść pierwotna: **rozszerzenie zestawu operatorów `tools/tests/mutation_sweep.py`** poza porównania i progi liczbowe — przypisania, wywołania i łączniki logiczne. Wykonane: dwie klasy urosły do pięciu (`logika`, `argument`, `przypisanie`), a stary zestaw odtwarza `--operators operator,prog` co do sztuki (1038 = 1038) | `reports/mutation-sweep.md` §„Czego ten przebieg NIE pokrywa, choć pozycja 5.1 tak brzmi" wypisuje ten brak w tabeli: pozycja 5.1 mówi „każdą kontrolę", a narzędzie mutuje „wyłącznie **operatory porównań i progi liczbowe**; nie mutuje przypisań, wywołań ani łączników logicznych". Praca w samym narzędziu pomiaru; baza do porównania jest zmierzona (980 mutacji, 51 nieosiągalnych, 929 policzonych na `66b8301`) | L |
 
@@ -1284,6 +1284,48 @@ co dochodzi ponad ten wspólny zakaz.
 - **Zależy od:** nic. Pozycja dotyka tych samych dwóch typów co 6.A8 (nienazwane przez
   żaden test) — wykonana po 6.A8 dostanie je już opisane, wykonana przed niczego jej
   nie brakuje.
+
+##### 6.A3 · Odtworzenie doby służby z bloków GTFS
+
+- **Skąd:** `reports/T-113-timetable.md` wiersz 41 i 213 — wypis narzędzia:
+  „[SŁUŻBY] obiegów pojazdów (block_id): **71**, naraz w służbie **56 o 07:06:44**,
+  kursów na obieg 6–35, czas w służbie mediana 13 h 27 min", dzień odniesienia
+  **2026-09-02, środa**. Rdzeń tego nie umie: `Sim.Runner line` dodaje **jeden** skład,
+  a `budget` dodaje N składów na **równym takcie**, nie z obiegów. Wpis T-320 wypisuje
+  to wprost jako część, która „Zostaje".
+- **Wejście:** `tools/track/fetch_gtfs.py` (pobiera archiwum i zapisuje manifest
+  źródła), `tools/track/timetable.py` (`--gtfs`, `--out`, `--date`, `--axis`),
+  `reports/T-113-timetable.md`, `src/Sim/Line/LineCore.cs` (`Add(trainId,
+  releaseStep)`, `Step()`, `TurnbackSteps`), `src/Sim/Line/LineRoute.cs`,
+  `data/network/sources.json`, `docs/21-measured-vs-assumed.md` §4d i §4f.
+- **Wyjście:** polecenie doby służby w `src/Sim.Runner`, testy w
+  `tests/Sim.Tests/LineCoreTests.cs` i `reports/service-day.md`.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/track/fetch_gtfs.py --out build/gtfs/stib_gtfs.zip
+  python3 tools/track/timetable.py --gtfs build/gtfs/stib_gtfs.zip \
+      --out build/timetable.json --date 2026-09-02
+  dotnet run --project src/Sim.Runner -c Release -- service-day \
+      --timetable build/timetable.json --out build/service-day.csv
+  dotnet test tests/Sim.Tests
+  ```
+  Oczekiwane: liczba obiegów odtworzonych przez rdzeń wynosi **71**, maksimum składów
+  jednocześnie w służbie **56** i wypada o **07:06:44**, a żadna para kursów z tym samym
+  `block_id` się nie nakłada.
+- **Skończone, gdy:** trzy liczby z T-113 (71, 56, 07:06:44) wychodzą z **rdzenia**,
+  a nie z narzędzia Pythona, i różnią się od tamtych o zero. Rozjazd choćby o jeden
+  obieg jest wynikiem do zapisania, nie do zaokrąglenia — `reports/T-113-timetable.md`
+  wiersz 231 mówi, że nakładanie się kursów w jednym `block_id` jest już sprawdzane po
+  stronie Pythona, więc obie strony mają czym się różnić.
+- **Poza zakresem:** **perturbacje i polityka dyspozytora** — to jest 6.A4, przeniesione
+  05.09.2026 do „Czego agent nie ruszy bez decyzji" na mocy sekcji STOP z T-320. Doba
+  służby ma być odtworzeniem rozkładu, nie modelem zakłóceń. Poza zakresem także
+  zapis czegokolwiek do `data/`: archiwum GTFS i `build/timetable.json` są wytworami
+  przebiegu i `CLAUDE.md` §4.8 zabrania ich komitować.
+- **Zależy od:** nic w repozytorium, ale **wymaga sieci** przy pierwszym przebiegu —
+  archiwum GTFS nie leży w drzewie (`data/gtfs/` i `build/` są w `.gitignore`).
+  `fetch_gtfs.py --offline` odmawia pobierania, więc brak sieci jest widoczny od razu,
+  a nie w postaci pustego rozkładu.
 
 **Aktualizacja tej listy jest częścią pracy, nie dodatkiem do niej.** Pozycja zrobiona
 znika stąd i pojawia się jako wpis z sześcioma polami wyżej w tym pliku.
