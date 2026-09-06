@@ -126,19 +126,26 @@ public sealed class RunnerCommandTests
     }
 
     /// <summary>
-    /// <c>compare</c> to jedyne z ośmiu poleceń, które sprawdza liczbę argumentów
-    /// RĘCZNIE (<c>args.Length &lt; 3</c>) i wraca z kodem 2 — zamiast rzucić wyjątek
-    /// złapany wspólnym handlerem (kod 1), jak reszta odmów. Ta niespójność jest warta
-    /// zgłoszenia, nie poprawki w tym zadaniu (poza zakresem 6.A9); ten test właśnie ją
-    /// PRZYBIJA, żeby nikt nie zmienił jej po cichu przy okazji czegoś innego.
+    /// <c>compare</c> było jedynym z dziewięciu poleceń, które sprawdzało liczbę
+    /// argumentów RĘCZNIE (<c>args.Length &lt; 3</c>) i wracało z kodem 2 — zamiast
+    /// rzucić wyjątek złapany wspólnym handlerem (kod 1), jak reszta odmów.
+    ///
+    /// <para><b>Test przepisany, a nie dopisany obok, i to jest cała treść 6.A16.</b>
+    /// Poprzednia wersja przybijała kod <b>2</b> i mówiła wprost, że niespójność jest
+    /// warta zgłoszenia, ale nie poprawki — bo wybór między 1 a 2 nie należał do
+    /// pozycji, która ma opisać zastane zachowanie. Cztery pozycje (6.A10, 6.A11,
+    /// 6.A13, 6.D20) zatrzymały się na tej granicy. Właściciel wybrał 06.09.2026:
+    /// każda odmowa argumentowa kończy się kodem <b>1</b>, a <b>2</b> zostaje wyłącznie
+    /// dla „nie wiem, co uruchomić".</para>
     /// </summary>
     [TestMethod]
-    public void Compare_bez_dwoch_plikow_konczy_sie_kodem_dwa()
+    public void Compare_bez_dwoch_plikow_konczy_sie_kodem_jeden()
     {
         var result = Run("compare");
 
-        Assert.AreEqual(2, result.ExitCode);
+        Assert.AreEqual(1, result.ExitCode);
         StringAssert.Contains(result.StdErr, "dwóch plików");
+        StringAssert.Contains(result.StdErr, "BŁĄD:");
     }
 
     /// <summary>
