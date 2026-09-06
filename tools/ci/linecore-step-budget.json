@@ -1,0 +1,20 @@
+{
+  "$comment": "6.D2. Próg kosztu kroku LineCore i scenariusz, na którym jest mierzony. JEDNO miejsce: czyta go tools/ci/assert_linecore_budget.py, a krok w .github/workflows/sim-tests.yml woła wyłącznie ten skrypt. Progu ani parametrów NIE wpisuje się do YAML-a z ręki — wpisany dwa razy rozjeżdża się przy pierwszej zmianie.",
+  "schema_version": 1,
+  "scenario": {
+    "axis": "data/track/L1_A.json",
+    "signalling": "data/design/signalling/classic-2026.json",
+    "limit_kmh": 72,
+    "exchange_s": 20,
+    "headway_s": 90,
+    "turnback_s": 240,
+    "steps": 120000,
+    "warmup": 3,
+    "repeats": 9,
+    "trains_declared": 32
+  },
+  "trains_on_line_expected": 9,
+  "microseconds_per_step_max": 8.0,
+  "frame_budget_pct_max": 1.0,
+  "basis": "reports/linecore-step-budget-gate.md"
+}
