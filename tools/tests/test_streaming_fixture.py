@@ -75,6 +75,41 @@ def test_python_reference_still_produces_every_row_of_the_fixture():
         assert collision == row["collision"], (where, collision, row["collision"])
 
 
+def test_a_planted_mismatch_in_the_fixture_actually_fails_the_comparison():
+    """Kontrola negatywna do testu wyżej: dowód, że porównanie umie zaświecić.
+
+    6.B15: bez tego `test_python_reference_still_produces_every_row_of_the_fixture`
+    mógłby przechodzić zielono nawet wtedy, gdyby porównanie samo z siebie było
+    bezzębne (np. gdyby ktoś kiedyś zamienił `assert resident == row["resident"]` na
+    coś, co po cichu nie porównuje list punkt po punkcie) — akapit wyżej w tym
+    module ostrzega wprost: „rozjazd między nimi nie wywala niczego”. Ten test
+    psuje JEDNO pole JEDNEGO wiersza w PAMIĘCI (plik na dysku zostaje nietknięty)
+    i sprawdza, że dokładnie ta sama pętla, która stoi w teście wyżej, tę usterkę
+    łapie.
+    """
+    manifest = _manifest()
+    plans = _plans()
+    row = dict(plans[0])
+    chainage, heading = row["chainage_m"], row["heading"]
+
+    real_resident = [c["id"] for c in SW.chunks_for_train(manifest, chainage, heading=heading)]
+    assert real_resident == row["resident"], (
+        "wiersz 0 ma się zgadzać PRZED psuciem — inaczej test niżej nie mierzy nic")
+
+    # Psucie: dopisanie chunku, którego pociąg w tym punkcie naprawdę nie ma na
+    # pokładzie. Plik `L1_A-streaming-plans.json` na dysku nie jest ruszany.
+    row["resident"] = real_resident + ["ŻADEN_TAKI_CHUNK"]
+
+    resident = [c["id"] for c in SW.chunks_for_train(manifest, chainage, heading=heading)]
+    try:
+        assert resident == row["resident"], (chainage, heading, resident, row["resident"])
+        zapalila_sie = False
+    except AssertionError:
+        zapalila_sie = True
+    assert zapalila_sie, (
+        "porównanie NIE złapało dopisanego chunku — pętla z testu wyżej jest bezzębna")
+
+
 def test_the_fixture_samples_sit_exactly_on_the_seams():
     """Bez tego wzorzec sprawdzałby wnętrza chunków i nigdy granicy (§5.1)."""
     manifest = _manifest()
