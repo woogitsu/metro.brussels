@@ -131,9 +131,11 @@ def main(argv=None):
     )
     manifest["gtfs"] = details
     manifest["attribution"] = source.get("attribution")
-    os.makedirs(os.path.dirname(manifest_path) or ".", exist_ok=True)
-    with open(manifest_path, "wb") as handle:
-        handle.write(P.canonical_json(manifest))
+    # 6.D23, wariant C wybrany przez wlasciciela 06.09.2026: manifest jest nadpisywany
+    # TYLKO przy zmianie `content_sha256`. Bez tego `retrieved_at` zmienial plik w `data/`
+    # przy kazdym uruchomieniu, takze w `--offline` (zmierzone przy 6.D12, #295).
+    # Komunikat nizej nie jest ozdoba: to on zastepuje sygnal, ktory dawal `git diff`.
+    stan = P.write_manifest_if_changed(manifest_path, manifest)
 
     counts = details["member_counts"]
     print(f"[RAPORT] sha256={manifest['content_sha256']}")
@@ -148,6 +150,10 @@ def main(argv=None):
     for name in ("stops.txt", "routes.txt", "trips.txt", "stop_times.txt", "shapes.txt"):
         if name in counts:
             print(f"[RAPORT] {name}: {counts[name]} rekordów")
+    if stan == "bez zmian":
+        print("[RAPORT] manifest bez zmian: content_sha256 ten sam, plik nietkniety")
+    else:
+        print(f"[RAPORT] manifest {stan}")
     print(f"[RAPORT] manifest={manifest_path}")
     return 0
 
