@@ -673,7 +673,7 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 
 | # | zadanie | dlaczego bez decyzji | rozmiar |
 |---|---|---|---|
-| 6.C3 | **Odtwarzanie przejazdu z pliku telemetrii** — scena jako widok zapisanego przebiegu | wynika wprost z zasady „linia jest symulacją, kabina jednym z jej widoków" | M |
+| 6.C3 | **ZROBIONE (06.09.2026).** Tryb `--from-telemetry=PLIK` rozstrzyga `src/Game/RunPlan.cs`, prowadzi `src/Game/FirstRun.cs`, a format czyta nowy `src/Game/TelemetryTrack.cs` (bez Godota, więc z testami jednostkowymi). Czwarta odmowa łączenia źródeł ruchu weszła w ten sam wzorzec co trzy istniejące i wymienia oba tryby z nazwy — sześć par: z `--line`, `--replay`, `--input-log`, `--shot`, `--signalling` i `--sample-every`. Testy: `tests/Game.Tests/RunPlanTests.cs` i `tests/Game.Tests/TelemetryTrackTests.cs`; bramka i kontrola negatywna w `.github/workflows/godot-first-run.yml`. Zmierzone: echo wczytanego pliku wychodzi identyczne co do bajtu przy 319 i przy 5457 klatkach, a rozjazd 0,0001 m w jednym wierszu `compare` odrzuca ze wskazaniem numeru wiersza. **Blok sześciu pól niżej ma dwie liczby nieaktualne i jedną komendę niewykonalną** — odmowy stoją w wierszach 339, 353 i 360, nie 356 i 363, a `--line --telemetry` z pola „Weryfikacja" istniejąca odmowa odrzuca kodem 9; nietknięte, bo zadanie dotyczyło wiersza kolejki, nie bloku. Treść pierwotna: **Odtwarzanie przejazdu z pliku telemetrii** — scena jako widok zapisanego przebiegu | wynika wprost z zasady „linia jest symulacją, kabina jednym z jej widoków" | M |
 | 6.C4 | **Kamera inspekcyjna** do oglądania geometrii bez jazdy | narzędzie weryfikacji, nie decyzja estetyczna: nie zmienia ani jednego materiału | S |
 
 #### Pasmo D — weryfikacja i CI

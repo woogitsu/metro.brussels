@@ -883,4 +883,110 @@ public sealed class RunPlanTests
         CollectionAssert.Contains(RunPlan.KnownArguments, "input-log");
         CollectionAssert.Contains(RunPlan.KnownArguments, "replay");
     }
+
+    // --- odtwarzanie telemetrii jako ruchu zadanego -------------------------------
+
+    [TestMethod]
+    public void FromTelemetryIsItsOwnModeAndIsNeitherScriptedNorReplay()
+    {
+        // `--from-telemetry` jest CZWARTYM źródłem ruchu i jedynym, w którym fizyka
+        // nie liczy się wcale. Gdyby wpadło w `ScriptedMode`, scena zbudowałaby
+        // `ScenarioDrive` i „odtworzenie" wypisałoby scenariusz T-400 zamiast
+        // wczytanego przejazdu — z kodem wyjścia zero.
+        var plan = Parse("--from-telemetry=/tmp/przejazd.csv");
+
+        Assert.IsTrue(plan.IsValid, plan.Error);
+        Assert.AreEqual("from-telemetry", plan.Mode);
+        Assert.IsTrue(plan.FromTelemetryMode);
+        Assert.AreEqual("/tmp/przejazd.csv", plan.FromTelemetryPath);
+        Assert.IsFalse(plan.ScriptedMode, "ruch zadany zrobił się przebiegiem skryptowym");
+        Assert.IsFalse(plan.ReplayMode, "ruch zadany zrobił się odtworzeniem zapisu wejść");
+        Assert.IsFalse(plan.LineMode);
+        Assert.IsFalse(plan.ReadsKeyboard, "scena czytałaby klawiaturę w przebiegu, którym nikt nie steruje");
+    }
+
+    [TestMethod]
+    public void TelemetryOutputIsAllowedNextToFromTelemetryAndDoesNotScriptTheRun()
+    {
+        // To jest para, na której stoi CAŁA weryfikacja tego trybu: plik wczytany
+        // i ten sam plik wypisany, porównane przy progu 0. Bez tego rozróżnienia
+        // `--telemetry` samo z siebie robiło z przebiegu scenariusz — dokładnie tak,
+        // jak robiło przed `TelemetryWithReplayIsNotAScriptedRun`.
+        var plan = Parse(
+            "--from-telemetry=/tmp/wejscie.csv", "--telemetry=/tmp/echo.csv", "--steps-per-frame=7");
+
+        Assert.IsTrue(plan.IsValid, plan.Error);
+        Assert.AreEqual("from-telemetry", plan.Mode, "nazwa trybu poszła za wyjściem, nie za źródłem ruchu");
+        Assert.IsFalse(plan.ScriptedMode, "telemetria z --from-telemetry zrobiła z przebiegu scenariusz");
+        Assert.AreEqual("/tmp/echo.csv", plan.TelemetryPath);
+        Assert.AreEqual("/tmp/wejscie.csv", plan.FromTelemetryPath);
+        Assert.AreEqual(7L, plan.StepsPerFrame);
+    }
+
+    [TestMethod]
+    public void FromTelemetryRefusesEverySecondSourceOfMovementByName()
+    {
+        // CZWARTA ODMOWA, w tym samym wzorcu co trzy istniejące. Wymaganie jest
+        // ostrzejsze niż „nie przechodzi": komunikat ma wymienić OBA tryby, bo cichy
+        // wybór jednego z dwóch źródeł daje przejazd nie do odróżnienia po wyniku.
+        var pary = new (string Argument, string Nazwa)[]
+        {
+            ("--line --limit-kmh=72", "--line"),
+            ("--replay=/tmp/keys.log", "--replay"),
+            ("--input-log=/tmp/keys.log", "--input-log"),
+            ("--shot=/tmp/a.png --at-chainage=2000", "--shot"),
+            ("--signalling=/tmp/plan.json", "--signalling"),
+            ("--sample-every=1", "--sample-every"),
+        };
+
+        foreach (var (argument, nazwa) in pary)
+        {
+            var arguments = new List<string> { "--from-telemetry=/tmp/przejazd.csv" };
+            arguments.AddRange(argument.Split(' '));
+            var plan = RunPlan.Parse(arguments, UnknownArgument, BadArgumentValue);
+
+            Assert.IsFalse(plan.IsValid, $"--from-telemetry przeszło razem z {nazwa}");
+            Assert.IsTrue(plan.Error!.Contains("--from-telemetry", StringComparison.Ordinal),
+                $"komunikat nie nazywa pierwszego trybu: {plan.Error}");
+            Assert.IsTrue(plan.Error!.Contains(nazwa, StringComparison.Ordinal),
+                $"komunikat nie nazywa drugiego trybu ({nazwa}): {plan.Error}");
+            Assert.AreEqual(BadArgumentValue, plan.ExitCode, nazwa);
+        }
+    }
+
+    [TestMethod]
+    public void FromTelemetryStillAllowsWhatChangesOnlyTheFrameRhythmOrTheView()
+    {
+        // Kontrola w drugą stronę do testu wyżej: zestaw odmów nie ma prawa zamknąć
+        // argumentów, które w tym trybie NAPRAWDĘ coś robią. `--steps-per-frame`
+        // i `--jitter` zmieniają podział kroków na klatki, a widok wybiera kamerę —
+        // i to jest jedyny sposób, żeby ten sam plik puścić przy innym rytmie klatek
+        // i sprawdzić, że wychodzi z niego to samo.
+        var plan = Parse(
+            "--from-telemetry=/tmp/przejazd.csv", "--steps-per-frame=37", "--jitter=0.45",
+            "--view=outside", "--no-geometry");
+
+        Assert.IsTrue(plan.IsValid, plan.Error);
+        Assert.AreEqual(37L, plan.StepsPerFrame);
+        Assert.AreEqual(0.45, plan.Jitter, 1e-12);
+        Assert.AreEqual(ViewKind.Outside, plan.View);
+        Assert.AreEqual("from-telemetry", plan.Mode);
+    }
+
+    [TestMethod]
+    public void FromTelemetryIsNotSilentlyIgnoredWhenMisspelled()
+    {
+        // Ta sama zasada, co przy `--at-chainag`: literówka ma ZATRZYMAĆ przebieg.
+        // Tutaj kosztowałaby więcej niż zwykle — `--from-telemetri=plik` bez tej
+        // bramki dałoby przejazd RĘCZNY, który nie kończy się nigdy, czyli wypalony
+        // limit czasu w CI zamiast komunikatu.
+        foreach (var literowka in new[] { "--from-telemetri=/tmp/a.csv", "--from-telemetries=/tmp/a.csv" })
+        {
+            var plan = Parse(literowka);
+            Assert.IsFalse(plan.IsValid, $"{literowka} przeszło");
+            Assert.AreEqual(UnknownArgument, plan.ExitCode, literowka);
+        }
+
+        CollectionAssert.Contains(RunPlan.KnownArguments, "from-telemetry");
+    }
 }
