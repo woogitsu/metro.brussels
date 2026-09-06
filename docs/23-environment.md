@@ -393,12 +393,24 @@ literówka) NIE korzysta z tego skrótu i silnik z powrotem próbuje `dotnet` pr
 powłokę — czyli awaria wygląda tak samo jak brak zmiennej w ogóle, ze wskazówką
 `try_get_dotnet_root_from_command_line` w logu.
 
-**Druga postać tej samej usterki, opisana w `6.D17` przy 6.C3 (#297), nie
-odtworzona tutaj z braku brakującego assembly do zademonstrowania**: gdy silnik
-znajdzie hostfxr, ale zabraknie konkretnego zestawu (assembly) w załadowanej scenie,
-proces potrafi zawiesić się bez żadnego wiersza na stdout aż do wypalenia limitu
-czasu joba — czyli objaw ("cisza") nie wskazuje przyczyny tak samo jak sygnał 11 nie
-wskazywał brakującego `DOTNET_ROOT`, dopóki nie przeczyta się `stderr`.
+**Druga postać tej samej usterki, opisana w `6.D17` przy 6.C3 (#297), zmierzona
+06.09.2026 przy 6.D21 (#306) i nieodtworzona.** Sześć wariantów brakującego albo
+uszkodzonego zestawu — z hostfxr już załadowanym przez `DOTNET_ROOT` — na tym samym
+binarnym pliku, z limitem czasu 20 s i wklejonym wyjściem każdego przebiegu:
+usunięty `MetroBxl.Sim.dll` (zależność projektu gry), usunięty `MetroBxl.Game.dll`
+(sam projekt gry), usunięty i osobno obcięty do 200 bajtów `GodotPlugins.dll` silnika
+(punkt wejścia, który hostfxr faktycznie ładuje), usunięty `GodotSharp.dll` silnika,
+`version` w `runtimeconfig.json` podmieniona na nieistniejącą, i `project/assembly_name`
+w `project.godot` podmieniona na nazwę bez odpowiadającego pliku — żaden nie zawiesił
+procesu. Każdy skończył się w 0,2–0,9 s: albo normalnym dalszym biegiem (silnik ma
+własną, osobną kopię `GodotSharp.dll`/`GodotPlugins.dll` obok binarki i z niej korzysta,
+niezależnie od kopii w katalogu projektu), albo `System.TypeLoadException` na stdout
+i kodem wyjścia 0, albo sygnałem 11 z komunikatem `Failed to get GodotPlugins
+initialization function pointer`. W żadnym z sześciu wariantów proces nie zamilkł.
+Zdanie z `6.D17` o „ciszy do wypalenia limitu czasu" opisywało więc coś, czego ta
+próba nie zastała: albo scenariusz wymaga innego rodzaju braku niż testowane tu sześć,
+albo objaw powstał w innej wersji Godota/.NET niż 4.7.2/10.0.11 z tego środowiska.
+Pełne wyjścia: `reports/6d21-objaw-nieodtworzony.md`.
 
 Stąd `export DOTNET_ROOT="$HOME/.dotnet"` (albo katalog, do którego trafiło SDK) jest
 **wymagany obok `GODOT_BIN`**, nie opcjonalny — patrz sekcja 5.
