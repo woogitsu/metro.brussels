@@ -80,6 +80,7 @@ tańszym wyjściem niż nagłówek. Zamyka ją `MAX_COMMIT_EXCEPTIONS` i kontrol
 
 import os
 import re
+import tempfile
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 REPORTS = os.path.join(ROOT, "reports")
@@ -182,13 +183,23 @@ COMMIT_EXCEPTIONS = {
 DATE_EXCEPTIONS = {}
 
 
-def _reports():
-    """(nazwa, treść) dla każdego raportu, posortowane."""
-    for name in sorted(os.listdir(REPORTS)):
+def _reports_in(directory):
+    """(nazwa, treść) dla każdego `.md` w KATALOGU, posortowane.
+
+    6.B24: wydzielone z `_reports()` tak, żeby kontrola regresyjna niżej mogła
+    zawołać dokładnie tę samą funkcję nad katalogiem tymczasowym zamiast nad
+    `reports/` — bez mutowania żadnego prawdziwego raportu.
+    """
+    for name in sorted(os.listdir(directory)):
         if not name.endswith(".md"):
             continue
-        with open(os.path.join(REPORTS, name), encoding="utf-8") as handle:
+        with open(os.path.join(directory, name), encoding="utf-8") as handle:
             yield name, handle.read()
+
+
+def _reports():
+    """(nazwa, treść) dla każdego raportu w `reports/`, posortowane."""
+    yield from _reports_in(REPORTS)
 
 
 def _header(text):
@@ -205,19 +216,38 @@ def _commits(header):
     return COMMIT.findall(header)
 
 
+def _date_offenders(items, exceptions=frozenset()):
+    """Raporty z `items` (nazwa, treść) bez daty pomiaru w nagłówku.
+
+    6.B24: rdzeń `test_kazdy_raport_podaje_date_pomiaru`, wydzielony tak, żeby
+    kontrola regresyjna niżej mogła zawołać dokładnie tę funkcję nad raportami
+    wstrzykniętymi w katalogu tymczasowym.
+    """
+    return [name for name, text in items
+            if name not in exceptions and not _dates(_header(text))]
+
+
+def _commit_offenders(items, exceptions=frozenset()):
+    """To samo dla commita — rdzeń `test_kazdy_raport_podaje_commit_na_ktorym_mierzono`."""
+    return [name for name, text in items
+            if name not in exceptions and not _commits(_header(text))]
+
+
+def _no_subheading_offenders(items):
+    """Raporty bez ani jednego śródtytułu `## ` — nagłówek równy całemu plikowi.
+
+    Rdzeń `test_data_i_commit_stoja_w_naglowku_a_nie_gdziekolwiek_w_raporcie`.
+    """
+    return [name for name, text in items if len(_header(text)) >= len(text)]
+
+
 def test_kazdy_raport_podaje_date_pomiaru():
     """Data gdziekolwiek w treści nie mówi, kiedy mierzono — musi być w nagłówku."""
-    missing = []
-    checked = 0
-    for name, text in _reports():
-        checked += 1
-        if name in DATE_EXCEPTIONS:
-            continue
-        if not _dates(_header(text)):
-            missing.append(name)
+    items = list(_reports())
+    missing = _date_offenders(items, DATE_EXCEPTIONS)
     assert not missing, f"raporty bez daty pomiaru w nagłówku: {missing}"
-    assert checked >= MIN_REPORTS, (
-        f"bramka przeszła tylko {checked} raportów, a w `reports/` jest ich "
+    assert len(items) >= MIN_REPORTS, (
+        f"bramka przeszła tylko {len(items)} raportów, a w `reports/` jest ich "
         f"co najmniej {MIN_REPORTS} — skan przestał czytać katalog")
 
 
@@ -227,17 +257,11 @@ def test_kazdy_raport_podaje_commit_na_ktorym_mierzono():
     Mutacja, która przed tą bramką przechodziła całą suitę: skasowanie linii
     `**Zmierzone na commicie:**` z dowolnego z 32 raportów, które ją dostały.
     """
-    missing = []
-    checked = 0
-    for name, text in _reports():
-        checked += 1
-        if name in COMMIT_EXCEPTIONS:
-            continue
-        if not _commits(_header(text)):
-            missing.append(name)
+    items = list(_reports())
+    missing = _commit_offenders(items, COMMIT_EXCEPTIONS)
     assert not missing, f"raporty bez commita pomiaru w nagłówku: {missing}"
-    assert checked >= MIN_REPORTS, (
-        f"bramka przeszła tylko {checked} raportów, a w `reports/` jest ich "
+    assert len(items) >= MIN_REPORTS, (
+        f"bramka przeszła tylko {len(items)} raportów, a w `reports/` jest ich "
         f"co najmniej {MIN_REPORTS} — skan przestał czytać katalog")
 
 
@@ -322,16 +346,55 @@ def test_data_i_commit_stoja_w_naglowku_a_nie_gdziekolwiek_w_raporcie():
     Raport bez ani jednego śródtytułu `## ` daje nagłówek równy całej treści —
     i wtedy data wspomniana w §9 „co zauważyłem" liczyłaby się jak data pomiaru.
     """
-    bez_srodtytulu = []
-    checked = 0
-    for name, text in _reports():
-        checked += 1
-        if len(_header(text)) >= len(text):
-            bez_srodtytulu.append(name)
+    items = list(_reports())
+    bez_srodtytulu = _no_subheading_offenders(items)
     assert not bez_srodtytulu, (
         f"raporty bez śródtytułu `## `, w których nagłówek to cały plik: "
         f"{bez_srodtytulu}")
-    assert checked >= MIN_REPORTS, f"tylko {checked} raportów w pętli"
+    assert len(items) >= MIN_REPORTS, f"tylko {len(items)} raportów w pętli"
+
+
+def test_missing_date_commit_and_subheading_offenders_light_up_on_injected_reports():
+    """Kontrola regresyjna 6.B24 dla trzech bramek wyżej — katalog tymczasowy, nie `reports/`.
+
+    Docstring modułu (KONTROLE NEGATYWNE, punkty 1, 2 i 5) opisuje kontrole
+    wykonane NAPRAWDĘ — na kopii `reports/` w katalogu tymczasowym — ale jako
+    dowód historyczny jednego przebiegu, a nie test uruchamiany przy KAŻDYM
+    przebiegu. Ten test woła DOKŁADNIE `_date_offenders`, `_commit_offenders`
+    i `_no_subheading_offenders` — te same funkcje, na których stoją bramki
+    wyżej — nad czterema `.md` napisanymi tutaj do świeżego `tempfile
+    .TemporaryDirectory()`, przez `_reports_in()`. Żaden plik w `reports/` nie
+    jest dotykany.
+    """
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        with open(os.path.join(tmp_dir, "czysty.md"), "w", encoding="utf-8") as h:
+            h.write("Zmierzone: 2026-09-06.\n\n"
+                    "**Zmierzone na commicie:** `abc1234`\n\n"
+                    "## Sekcja\n\ntreść.\n")
+        with open(os.path.join(tmp_dir, "bez-daty.md"), "w", encoding="utf-8") as h:
+            h.write("**Zmierzone na commicie:** `abc1234`\n\n## Sekcja\n\ntreść.\n")
+        with open(os.path.join(tmp_dir, "bez-commita.md"), "w", encoding="utf-8") as h:
+            h.write("Zmierzone: 2026-09-06.\n\n## Sekcja\n\ntreść.\n")
+        with open(os.path.join(tmp_dir, "bez-srodtytulu.md"), "w", encoding="utf-8") as h:
+            h.write("Zmierzone: 2026-09-06. **Zmierzone na commicie:** `abc1234` "
+                     "treść bez ani jednego śródtytułu w całym pliku.\n")
+
+        items = list(_reports_in(tmp_dir))
+        assert len(items) == 4, items
+
+        assert _date_offenders(items) == ["bez-daty.md"]
+        assert _commit_offenders(items) == ["bez-commita.md"]
+        assert _no_subheading_offenders(items) == ["bez-srodtytulu.md"]
+
+        # ten sam raport z wyjątkiem przestaje być offenderem — jak dla
+        # prawdziwych COMMIT_EXCEPTIONS/DATE_EXCEPTIONS wyżej.
+        assert _date_offenders(items, exceptions={"bez-daty.md"}) == []
+        assert _commit_offenders(items, exceptions={"bez-commita.md"}) == []
+
+        # kontrola w drugą stronę: czysty raport nie zapala żadnej z trzech bramek.
+        assert "czysty.md" not in _date_offenders(items)
+        assert "czysty.md" not in _commit_offenders(items)
+        assert "czysty.md" not in _no_subheading_offenders(items)
 
 
 def test_lista_wyjatkow_nie_gnije():
