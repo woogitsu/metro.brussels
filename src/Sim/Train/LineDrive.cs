@@ -58,6 +58,13 @@ public sealed class LineDrive
     private double _discretizationWorkJ;
     private double _clampedWorkJ;
 
+    // Praca trakcji odczytana w chwili ODJAZDU z poprzedniej stacji. Różnica wobec
+    // bieżącej daje pracę trakcji NA ODCINKU — jedyną postać, w której da się
+    // odpowiedzieć na pytanie 6.A6 („ile wybieg oszczędza") inaczej niż jedną liczbą
+    // na całą oś. Migawka, a nie drugi akumulator: dwa liczniki tej samej wielkości
+    // rozjechałyby się przy pierwszej zmianie w AccumulateEnergy.
+    private double _tractionWorkAtDepartureJ;
+
     /// <summary>Skład postawiony na początku osi, gotowy do pierwszego kroku.</summary>
     /// <param name="axis">Oś z kilometrażem stacji.</param>
     /// <param name="conditions">Masa, pochylenie, przyczepność, otoczenie toru.</param>
@@ -220,7 +227,8 @@ public sealed class LineDrive
                 double.NaN,
                 _state.TimeSeconds(_step) - _departedAtSeconds,
                 chainage - _departedFromM,
-                _topSpeed));
+                _topSpeed,
+                _tractionWorkJ - _tractionWorkAtDepartureJ));
         }
 
         if (_stop is not null)
@@ -243,6 +251,7 @@ public sealed class LineDrive
                 _calls[^1] = _calls[^1] with { DepartureSeconds = _state.TimeSeconds(_step) };
                 _departedAtSeconds = _state.TimeSeconds(_step);
                 _departedFromM = _start + _state.DistanceM;
+                _tractionWorkAtDepartureJ = _tractionWorkJ;
                 _topSpeed = 0.0;
                 _braking = false;
                 _brakingToM = double.NaN;
@@ -402,7 +411,12 @@ public sealed class LineDrive
 
         if (!_braking && need.DecelerationMps2 < _trigger)
         {
-            return _state.SpeedMps < _settings.SpeedLimitMps
+            // WYBIEG (6.A6) wchodzi DOKŁADNIE tutaj i nigdzie indziej: w jedynej gałęzi,
+            // w której maszynista sam decyduje, czy ciągnąć. Poniżej próg już zdecydował
+            // za niego i tam wybieg nie ma czego zmieniać — dlatego odcinek, na którym
+            // hamowanie zaczyna się przed zadanym metrem, jedzie się bit w bit tak samo
+            // jak bez wybiegu, a nie „prawie tak samo".
+            return _state.SpeedMps < _settings.SpeedLimitMps && !Coasting
                 ? DriverCommand.FullPower
                 : DriverCommand.Coast;
         }
@@ -437,6 +451,17 @@ public sealed class LineDrive
         return new DriverCommand(
             0.0, Math.Clamp((required - passive) / _controller.ServiceBrakeMps2, 0.0, 1.0));
     }
+
+    /// <summary>
+    /// Czy skład minął już metr odcinka, od którego <see cref="LineRunSettings.CoastFromM"/>
+    /// każe zdjąć trakcję. Fałsz zawsze, gdy wybieg jest wyłączony.
+    ///
+    /// <para>Odległość liczy się od ODJAZDU z poprzedniej stacji, a nie od początku osi:
+    /// pytanie 6.A6 jest per odcinek, a próg mierzony od początku osi zdjąłby trakcję
+    /// raz i na zawsze, czyli mierzyłby zupełnie inną rzecz.</para>
+    /// </summary>
+    private bool Coasting =>
+        _settings.CoastFromM is double from && _start + _state.DistanceM - _departedFromM >= from;
 
     private static double SumDwell(IReadOnlyList<StationCall> calls)
     {

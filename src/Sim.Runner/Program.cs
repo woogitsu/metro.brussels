@@ -41,11 +41,20 @@ public static class Program
     /// <para>
     /// Powód jest zmierzony, nie wymyślony. 6.D15 (#301) uruchomiło komendę z pola
     /// „Weryfikacja" pozycji 6.A6: <c>line … --coast-from-m X</c>. Opcji
-    /// <c>--coast-from-m</c> nie ma nigdzie w <c>src/</c>, <c>X</c> nie jest liczbą —
-    /// a proces kończył się <b>kodem 0</b> i normalnym przebiegiem. Dwa wywołania,
-    /// z opcją i bez niej, dały pliki identyczne co do bajtu. Literówka w nazwie opcji
-    /// była więc nieodróżnialna od opcji działającej, a weryfikacja oparta na takiej
-    /// komendzie spełniała się przez NIEZROBIENIE zadania.
+    /// <c>--coast-from-m</c> nie było wtedy nigdzie w <c>src/</c>, <c>X</c> nie jest
+    /// liczbą — a proces kończył się <b>kodem 0</b> i normalnym przebiegiem. Dwa
+    /// wywołania, z opcją i bez niej, dały pliki identyczne co do bajtu. Literówka
+    /// w nazwie opcji była więc nieodróżnialna od opcji działającej, a weryfikacja
+    /// oparta na takiej komendzie spełniała się przez NIEZROBIENIE zadania.
+    /// </para>
+    /// <para>
+    /// <b>Ten akapit jest przepisany przy 6.A6, a nie dopisany obok.</b> Poprzednia
+    /// wersja mówiła o <c>--coast-from-m</c> w czasie teraźniejszym — „nie ma jej
+    /// nigdzie w <c>src/</c>" — i to już nieprawda: 6.A6 dopisała wybieg do polecenia
+    /// <c>line</c>, więc ta konkretna nazwa jest dziś opcją ZNANĄ. Przykładem literówki
+    /// nieodróżnialnej od opcji działającej jest teraz <c>--headway-s</c> podane
+    /// poleceniu <c>line</c> (istnieje, ale w <c>budget</c>) i taką parę trzyma
+    /// <c>RunnerCommandTests</c>. Sam powód istnienia tabeli się nie zmienił.
     /// </para>
     /// <para>
     /// Kształt odmowy jest wzięty z <c>RunPlan.KnownArguments</c> po stronie Godota,
@@ -75,8 +84,9 @@ public static class Program
             ["braking"] = (Array.Empty<string>(), Array.Empty<string>()),
             ["line"] = (new[]
             {
-                "--axis", "--brake-usage", "--calls", "--exchange-s", "--limit-kmh",
-                "--load", "--signalling", "--stop-window-m", "--timetable", "--trace",
+                "--axis", "--brake-usage", "--calls", "--coast-from-m", "--exchange-s",
+                "--limit-kmh", "--load", "--signalling", "--stop-window-m", "--timetable",
+                "--trace",
             }, Array.Empty<string>()),
             ["budget"] = (new[]
             {
@@ -191,6 +201,7 @@ public static class Program
                       --exchange-s X [--load AW0|AW2]
                       [--brake-usage X] [--stop-window-m X] [--timetable PLIK]
                       [--trace PLIK.csv] [--calls PLIK.csv]
+                      [--coast-from-m X]                    wybieg od X metra KAŻDEGO odcinka
                       [--signalling PLIK.json]              przejazd pod blokadami i z ATP
               service-day --timetable PLIK.json            doba służby odtworzona z obiegów
                       [--out PLIK.csv] [--at HH:MM:SS]
@@ -698,6 +709,12 @@ public static class Program
         var stopWindow = OptionalNumber(args, "--stop-window-m") ?? 5.0;
         var load = Option(args, "--load") ?? "AW0";
 
+        // WYBIEG (6.A6). Brak opcji to `null`, a nie liczba — przejazd jest wtedy bit
+        // w bit ten sam, co przed dopisaniem tej opcji. `?? 0.0` byłoby tu usterką:
+        // znaczyłoby „wybieg od zerowego metra", czyli przejazd BEZ ani jednego metra
+        // trakcji, i to przy opcji, której nikt nie podał.
+        var coastFromM = OptionalNumber(args, "--coast-from-m");
+
         var axis = TrackAxis.FromJson(File.ReadAllText(axisPath));
         var model = VehicleModel.M7;
         var trainLoad = load switch
@@ -710,7 +727,7 @@ public static class Program
         var conditions = RunConditions.Level(model, trainLoad);
         var massKg = conditions.MassKg;
         var settings = new LineRunSettings(
-            Units.KmhToMps(limitKmh), exchange, brakeUsage, stopWindow);
+            Units.KmhToMps(limitKmh), exchange, brakeUsage, stopWindow, coastFromM);
         var tracePath = Option(args, "--trace");
         var traceRows = tracePath is null ? null : new List<string> { "t_s,chainage_m,speed_mps,brake_mps2,throttle,brake,door" };
         Action<LineRun.TracePoint>? trace = traceRows is null ? null : point => traceRows.Add(string.Create(
@@ -804,6 +821,23 @@ public static class Program
             Inv,
             $"[ENERGIA] netto z sieci przy odzysku 0%: {energy.NetGridWorkKwh(fullRecovery: false):F4} kWh, " +
             $"przy odzysku 100%: {energy.NetGridWorkKwh(fullRecovery: true):F4} kWh"));
+
+        // Rozkład tej samej pracy trakcji NA ODCINKI (6.A6). Jedna liczba na całą oś nie
+        // odpowiada na pytanie „ile wybieg kosztuje i ile oszczędza", bo rezerwa
+        // rozkładowa z T-113 jest wielkością odcinkową — najciaśniejszy odcinek pakietu A
+        // ma jej kilka sekund, a najluźniejszy kilkanaście.
+        for (var index = 0; index < result.Calls.Count; index++)
+        {
+            var call = result.Calls[index];
+            var from = index == 0 ? axis.Stations[0].Name : result.Calls[index - 1].Name;
+            var work = call.TractionWorkFromPreviousJ is double joules
+                ? string.Create(Inv, $"{joules / 3_600_000.0:F4} kWh")
+                : "brak pomiaru";
+            Console.Out.WriteLine(string.Create(
+                Inv,
+                $"[ODCINEK] {from} → {call.Name}: {call.DistanceFromPreviousM:F2} m " +
+                $"w {call.RunSecondsFromPrevious:F2} s, trakcja {work}"));
+        }
 
         if (core is not null)
         {

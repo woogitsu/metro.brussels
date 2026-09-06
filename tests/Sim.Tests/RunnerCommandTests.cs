@@ -280,22 +280,52 @@ public sealed class RunnerCommandTests
     // --- nieznana opcja (6.A11) --------------------------------------------------
 
     /// <summary>
-    /// Sedno pozycji 6.A11. Przed nią <c>line ... --coast-from-m X</c> kończyło się
-    /// <b>kodem 0</b>: nieznana opcja była przemilczana, a jej wartość — nawet
-    /// nieliczbowa — nigdy nie czytana. Zmierzone przy 6.D15 (#301): dwa przejazdy,
-    /// z tą opcją i bez niej, dały pliki identyczne co do bajtu, więc weryfikacja
-    /// oparta na takiej komendzie spełniała się przez NIEZROBIENIE zadania.
+    /// Sedno pozycji 6.A11. Przed nią nieznana opcja polecenia <c>line</c> kończyła się
+    /// <b>kodem 0</b>: była przemilczana, a jej wartość — nawet nieliczbowa — nigdy
+    /// nie czytana. Zmierzone przy 6.D15 (#301): dwa przejazdy, z taką opcją i bez niej,
+    /// dały pliki identyczne co do bajtu, więc weryfikacja oparta na takiej komendzie
+    /// spełniała się przez NIEZROBIENIE zadania.
+    ///
+    /// <para><b>Opcja w tym teście jest przepisana, a nie dopisana obok.</b> Do 6.A6
+    /// stało tu <c>--coast-from-m X</c> — dokładnie ta nazwa, na której 6.D15 złapało
+    /// milczenie. 6.A6 dopisała <c>--coast-from-m</c> do polecenia <c>line</c>, więc
+    /// nazwa przestała być nieznana: test padał teraz na rozbiorze <c>X</c> jako liczby,
+    /// czyli sprawdzałby coś innego, niż mówi jego nazwa. Rolę przejmuje
+    /// <c>--headway-s</c> — opcja, która NAPRAWDĘ istnieje, tyle że w <c>budget</c>,
+    /// a nie w <c>line</c>. Jest to mocniejsza kontrola niż wymyślona nazwa: literówka
+    /// w wierszu poleceń rzadko jest ciągiem znaków, którego nikt nigdy nie napisał,
+    /// a znacznie częściej opcją wziętą z innego polecenia.</para>
     /// </summary>
     [TestMethod]
     public void Line_z_nieznana_opcja_konczy_sie_kodem_jeden()
     {
         var result = Run(
             "line", "--axis", "data/track/L1_A.json", "--limit-kmh", "72",
-            "--exchange-s", "20", "--coast-from-m", "X", "--trace", "build/x.csv");
+            "--exchange-s", "20", "--headway-s", "X", "--trace", "build/x.csv");
 
         Assert.AreEqual(1, result.ExitCode);
-        StringAssert.Contains(result.StdErr, "--coast-from-m");
+        StringAssert.Contains(result.StdErr, "--headway-s");
         StringAssert.Contains(result.StdErr, "nie zna opcji");
+    }
+
+    /// <summary>
+    /// Druga strona tej samej pary: <c>--coast-from-m</c> jest od 6.A6 opcją ZNANĄ
+    /// poleceniu <c>line</c>, więc odmowa ma o niej milczeć, a przejazd ma się odbyć.
+    /// Bez tego testu dopisanie opcji do samej tabeli <c>KnownOptions</c>, bez wpięcia
+    /// jej w kod, wyglądałoby tu tak samo jak zrobione zadanie.
+    /// </summary>
+    [TestMethod]
+    public void Line_zna_wybieg_i_nie_odmawia_go()
+    {
+        var result = Run(
+            "line", "--axis", Path.Combine(RepoRoot(), "data", "track", "L1_A.json"),
+            "--limit-kmh", "72", "--exchange-s", "20", "--coast-from-m", "250");
+
+        Assert.AreEqual(0, result.ExitCode, result.StdErr);
+        Assert.IsFalse(
+            result.StdErr.Contains("nie zna opcji", StringComparison.Ordinal), result.StdErr);
+        StringAssert.Contains(result.StdOut, "CoastFromM = 250");
+        StringAssert.Contains(result.StdOut, "[ODCINEK]");
     }
 
     /// <summary>
