@@ -11,7 +11,9 @@
     "steps": 120000,
     "warmup": 3,
     "repeats": 9,
-    "trains_declared": 32
+    "trains_declared": 32,
+    "$comment_coast_from_m": "6.A18 dopisala --coast-from-m do polecenia budget, wiec brak wybiegu jest tu WYBOREM, a nie brakiem mozliwosci. null zostaje celowo: prog 8.0 us zmierzono 06.09.2026 na przejezdzie bez wybiegu, a wybieg zmienia przejazd (N_sr 6.69 bez, 6.40 przy 120 m) — pomiar z wybiegiem porownywalby sie z progiem wziętym z innego przejazdu. Wartosc liczbowa tutaj wlacza wybieg i zada nowego progu.",
+    "coast_from_m": null
   },
   "trains_on_line_expected": 9,
   "microseconds_per_step_max": 8.0,

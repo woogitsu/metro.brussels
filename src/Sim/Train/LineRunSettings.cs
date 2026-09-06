@@ -116,6 +116,19 @@ public sealed class LineRunSettings
     public double? CoastFromM { get; }
 
     /// <summary>
+    /// Wybieg jednym członem, do wypisu nagłówkowego.
+    ///
+    /// <para>Istnieje po to, żeby to zdanie stało w JEDNYM miejscu. Od 6.A18
+    /// wypisują je dwie strony — <see cref="ToString"/> i nagłówek <c>[BUDŻET]</c>
+    /// polecenia <c>budget</c> — a dwa osobne wyrażenia rozjechałyby się przy
+    /// pierwszej zmianie formatu, przy czym rozjazd wyglądałby jak różnica nastawy,
+    /// nie jak różnica wypisu.</para>
+    /// </summary>
+    public string CoastDescription => CoastFromM is double coast
+        ? string.Create(CultureInfo.InvariantCulture, $"wybieg {coast:F1} m odcinka")
+        : "wybieg wyłączony";
+
+    /// <summary>
     /// Katalog założeń tego przejazdu, w kolejności deklaracji — czyli stałej.
     ///
     /// <para>Wybieg dopisuje **piątą** pozycję, ale wyłącznie wtedy, gdy jest włączony.
@@ -167,7 +180,7 @@ public sealed class LineRunSettings
         CultureInfo.InvariantCulture,
         $"limit {Units.MpsToKmh(SpeedLimitMps):F2} km/h, wymiana {PassengerExchangeSeconds:F1} s, " +
         $"hamulec {BrakeUsageFraction:P0} służbowego, okno stacji {StopWindowM:F1} m, " +
-        $"wybieg {(CoastFromM is double coast ? coast.ToString("F1", CultureInfo.InvariantCulture) + " m odcinka" : "wyłączony")}");
+        $"{CoastDescription}");
 
     private static void Require(double value, string name, string label, bool allowZero = false)
     {

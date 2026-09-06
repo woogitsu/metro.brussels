@@ -335,6 +335,84 @@ public sealed class RunnerCommandTests
         StringAssert.Contains(result.StdOut, "[ODCINEK]");
     }
 
+    // --- wybieg poza poleceniem `line` (6.A18) -----------------------------------
+
+    /// <summary>
+    /// 6.A18. <c>budget</c> i <c>line</c> budują ten sam <c>LineRunSettings</c>, ale do
+    /// tej pozycji tylko <c>line</c> umiał podać wybieg — więc pomiar kosztu kroku
+    /// przy wybiegu (bramka 6.D2) był NIEWYKONALNY, a nie „pominięty".
+    ///
+    /// <para>Test sprawdza <b>dwie</b> rzeczy, bo pierwsza bez drugiej niczego nie
+    /// dowodzi: że odmowa milczy (nastawa jest w tabeli) ORAZ że nagłówek
+    /// <c>[BUDŻET]</c> wypisuje ją z powrotem (nastawa doszła do <c>LineRunSettings</c>).
+    /// Sama zielona odmowa przeszłaby przy dopisaniu nazwy do samej tabeli, bez
+    /// jednej linijki działającego kodu — czyli dokładnie przy zadaniu niezrobionym.</para>
+    /// </summary>
+    [TestMethod]
+    public void Budget_zna_wybieg_i_wypisuje_go_w_naglowku()
+    {
+        var result = Run(
+            "budget", "--axis", Path.Combine(RepoRoot(), "data", "track", "L1_A.json"),
+            "--signalling", Path.Combine(
+                RepoRoot(), "data", "design", "signalling", "classic-2026.json"),
+            "--limit-kmh", "72", "--exchange-s", "20", "--headway-s", "90",
+            "--steps", "200", "--repeats", "1", "--warmup", "0", "--trains", "1",
+            "--coast-from-m", "250");
+
+        Assert.AreEqual(0, result.ExitCode, result.StdErr);
+        Assert.IsFalse(
+            result.StdErr.Contains("nie zna opcji", StringComparison.Ordinal), result.StdErr);
+        StringAssert.Contains(result.StdOut, "wybieg 250.0 m odcinka");
+    }
+
+    /// <summary>
+    /// Druga strona tej samej pary. Bez wybiegu nagłówek ma powiedzieć „wyłączony",
+    /// a nie milczeć: pomiar bez tej nastawy i pomiar z nią różnią się przejazdem,
+    /// więc wypis, który o niej nie wspomina, pozwala porównać dwa różne przejazdy
+    /// jako jeden. To jest ta sama usterka, którą wiersz <c>[LIMIT]</c> naprawił
+    /// w <c>replay</c> przy #246 — tam też liczba istniała i nie była wypisywana.
+    /// </summary>
+    [TestMethod]
+    public void Budget_bez_wybiegu_melduje_ze_jest_wylaczony()
+    {
+        var result = Run(
+            "budget", "--axis", Path.Combine(RepoRoot(), "data", "track", "L1_A.json"),
+            "--signalling", Path.Combine(
+                RepoRoot(), "data", "design", "signalling", "classic-2026.json"),
+            "--limit-kmh", "72", "--exchange-s", "20", "--headway-s", "90",
+            "--steps", "200", "--repeats", "1", "--warmup", "0", "--trains", "1");
+
+        Assert.AreEqual(0, result.ExitCode, result.StdErr);
+        StringAssert.Contains(result.StdOut, "wybieg wyłączony");
+    }
+
+    /// <summary>
+    /// <c>replay</c> wybiegu NIE dostaje, i to jest wynik pomiaru, nie przeoczenie.
+    /// Pozycja 6.A18 mówiła o „trzech poleceniach czytających ten sam
+    /// <c>LineRunSettings</c>"; w kodzie buduje go <b>dwa</b> — <c>line</c>
+    /// i <c>budget</c>. <c>replay</c> odtwarza ZAPIS WEJŚĆ przez
+    /// <c>TrainController</c> i <c>DriverNotch</c>, więc nastawa automatu, która
+    /// zdejmuje trakcję od X metra, nadpisywałaby wejścia z <c>--keys</c> — po czym
+    /// odtworzenie przestałoby być odtworzeniem, przy zielonym teście.
+    ///
+    /// <para>Ten test przybija dzisiejszą odmowę, żeby dopisanie tam wybiegu było
+    /// decyzją podjętą, a nie skutkiem ubocznym. Pytanie „co ma znaczyć wybieg
+    /// w odtworzeniu zapisu wejść" jest w kolejce jako 6.A19.</para>
+    /// </summary>
+    [TestMethod]
+    public void Replay_nie_zna_wybiegu_bo_odtwarza_zapis_wejsc()
+    {
+        var result = Run(
+            "replay", "--keys", "build/nie-istnieje.keys",
+            "--signalling", Path.Combine(
+                RepoRoot(), "data", "design", "signalling", "classic-2026.json"),
+            "--coast-from-m", "250");
+
+        Assert.AreEqual(1, result.ExitCode);
+        StringAssert.Contains(result.StdErr, "--coast-from-m");
+        StringAssert.Contains(result.StdErr, "nie zna opcji");
+    }
+
     /// <summary>
     /// Odmowa ma być per polecenie, a nie wspólną listą wszystkich opcji runnera:
     /// <c>--trains</c> istnieje w <c>budget</c> i nie istnieje w <c>service-day</c>.

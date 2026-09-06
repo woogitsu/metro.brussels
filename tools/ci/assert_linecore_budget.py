@@ -13,10 +13,15 @@ wartość, tylko opisuje zupełnie inny przejazd. Bramka, która czyta wyłączn
 przechodziłaby wtedy na zielono z pomiarem jednego składu i nazywała go dziewięcioma.
 Dlatego `trains_on_line_expected` jest warunkiem **twardym**, nie ozdobą raportu.
 
-**Czego ta bramka NIE mierzy, świadomie.** Przejazdu z wybiegiem: `budget` nie zna
-`--coast-from-m` (pozycja 6.A18), więc mierzony jest przejazd **bez wybiegu**. To jest
-powiedziane tutaj, w wypisie i w raporcie, zamiast milcząco mierzyć jeden wariant
-i nazywać go „kosztem kroku". Nie mierzy też progu klatki z ekstrapolacji `N ≈ 330–390`
+**Czego ta bramka NIE mierzy, świadomie.** Przejazdu z wybiegiem — i od 6.A18 jest to
+**wybór, a nie brak możliwości**; poprzednia wersja tego akapitu mówiła, że `budget` nie
+zna `--coast-from-m`, i to już nieprawda, dlatego jest tu przepisana, a nie dopisana obok.
+Nastawa stoi w scenariuszu jako `coast_from_m: null` i stamtąd bierze ją zarówno
+wywołanie, jak i zdanie w wypisie, więc jej włączenie nie wymaga tknięcia tego pliku.
+`null` zostaje celowo: próg 8,0 µs zmierzono na przejeździe **bez** wybiegu, a wybieg
+zmienia przejazd, nie tylko jego koszt — pomiar z wybiegiem porównywałby się z progiem
+wziętym z innego przejazdu. To jest powiedziane tutaj, w wypisie i w raporcie, zamiast
+milcząco mierzyć jeden wariant i nazywać go „kosztem kroku". Nie mierzy też progu klatki z ekstrapolacji `N ≈ 330–390`
 — `reports/linecore-budget.md` §7 mówi wprost, że to ekstrapolacja 56–65× poza zakres
 pomiaru, więc nie jest materiałem na bramkę.
 
@@ -76,7 +81,8 @@ def command(config, project="src/Sim.Runner"):
         "--warmup", str(s["warmup"]),
         "--repeats", str(s["repeats"]),
         "--trains", str(s["trains_declared"]),
-    ]
+    ] + ([] if s.get("coast_from_m") is None
+         else ["--coast-from-m", str(s["coast_from_m"])])
 
 
 def verdict(config, output):
@@ -107,6 +113,22 @@ def verdict(config, output):
             "krok zajmuje %.3f %% budzetu klatki przy progu %.3f %%"
             % (row["frame_budget_pct"], frame))
     return not problems, problems
+
+
+def coasting(config):
+    """Zdanie o wybiegu — wyprowadzone ze scenariusza, nie wpisane z reki.
+
+    Do 6.A18 stalo tu zdanie na sztywno: „budget nie zna --coast-from-m". Bylo prawdziwe
+    w dniu, w ktorym je napisano, i przestaloby byc prawdziwe po cichu — bo nic nie
+    laczylo go z tym, co bramka NAPRAWDE uruchamia. Teraz laczy: obie strony czytaja
+    `scenario.coast_from_m`, wiec zdanie nie moze sie rozjechac z wywolaniem.
+    """
+    coast = config["scenario"].get("coast_from_m")
+    if coast is None:
+        return ("mierzony jest przejazd BEZ wybiegu — scenariusz ma coast_from_m: null; "
+                "od 6.A18 `budget` zna --coast-from-m, wiec to jest wybor, nie brak")
+    return ("mierzony jest przejazd Z WYBIEGIEM od %s m odcinka — prog musi pochodzic "
+            "z tego samego wariantu przejazdu" % coast)
 
 
 def describe(config, output):
@@ -146,8 +168,7 @@ def main(argv=None):
             return 1
 
     print("[BUDZET-BRAMKA] " + describe(config, output))
-    print("[BUDZET-BRAMKA] mierzony jest przejazd BEZ wybiegu: `budget` nie zna "
-          "--coast-from-m (6.A18)")
+    print("[BUDZET-BRAMKA] " + coasting(config))
     ok, problems = verdict(config, output)
     for problem in problems:
         sys.stderr.write("BLAD: " + problem + "\n")

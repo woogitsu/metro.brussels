@@ -90,8 +90,8 @@ public static class Program
             }, Array.Empty<string>()),
             ["budget"] = (new[]
             {
-                "--axis", "--brake-usage", "--exchange-s", "--headway-s", "--limit-kmh",
-                "--load", "--out", "--repeats", "--signalling", "--steps",
+                "--axis", "--brake-usage", "--coast-from-m", "--exchange-s", "--headway-s",
+                "--limit-kmh", "--load", "--out", "--repeats", "--signalling", "--steps",
                 "--stop-window-m", "--trains", "--turnback-s", "--warmup",
             }, new[] { "--atp" }),
             ["service-day"] = (new[] { "--at", "--out", "--timetable" }, Array.Empty<string>()),
@@ -210,6 +210,7 @@ public static class Program
                       --headway-s X --trains 1,2,4,8 --steps N
                       [--repeats R] [--warmup W] [--turnback-s X]
                       [--atp] [--load AW0|AW2] [--out PLIK.csv]
+                      [--coast-from-m X]                    wybieg od X metra KAŻDEGO odcinka
             """);
     }
 
@@ -1235,6 +1236,13 @@ public static class Program
         var stopWindow = OptionalNumber(args, "--stop-window-m") ?? 5.0;
         var turnback = OptionalNumber(args, "--turnback-s") ?? 0.0;
         var load = Option(args, "--load") ?? "AW0";
+
+        // WYBIEG (6.A18). Ta sama nastawa i ta sama decyzja o `null`, co w `line`
+        // (6.A6): brak opcji to `null`, nie `0.0`, wiec pomiar bez tej opcji jest bit
+        // w bit tym samym pomiarem, co przed jej dopisaniem — a to jest warunek, pod
+        // ktorym `reports/linecore-budget.md` i prog w `linecore-step-budget.json`
+        // pozostaja porownywalne z dzisiejszym przebiegiem.
+        var coastFromM = OptionalNumber(args, "--coast-from-m");
         var atp = Array.IndexOf(args, "--atp") >= 0;
         var steps = long.Parse(
             Option(args, "--steps") ?? throw new ArgumentException("budget wymaga --steps"), Inv);
@@ -1254,14 +1262,16 @@ public static class Program
         };
 
         var conditions = RunConditions.Level(model, trainLoad);
-        var settings = new LineRunSettings(Units.KmhToMps(limitKmh), exchange, brakeUsage, stopWindow);
+        var settings = new LineRunSettings(
+            Units.KmhToMps(limitKmh), exchange, brakeUsage, stopWindow, coastFromM);
         var budgetSeconds = FixedStep.Simulation.Seconds;
 
         Console.Out.WriteLine(string.Create(
             Inv,
             $"[BUDŻET] oś {axis.Id}, plan {plan.PlanId} ({plan.Blocks.Count} bloków), "
             + $"{axis.Stations.Count} stacji, ATP={(atp ? "tak" : "nie")}, "
-            + $"nawrót {turnback:F0} s, odstęp {headway:F0} s"));
+            + $"nawrót {turnback:F0} s, odstęp {headway:F0} s, "
+            + $"{settings.CoastDescription}"));
         Console.Out.WriteLine(string.Create(
             Inv,
             $"[BUDŻET] okno {steps} kroków, rozgrzewka {warmup}, powtórzeń {repeats}, "
