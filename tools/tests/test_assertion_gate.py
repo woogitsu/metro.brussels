@@ -338,3 +338,55 @@ def test_gate_paths_cover_this_file_and_test_all():
     assert "test_all.py" in found, sorted(found)[:5]
     assert "test_assertion_gate.py" in found, sorted(found)[:5]
     assert len(found) > 50, len(found)
+
+
+# --- 6.D19: import nieudany musi być widoczny dla grepa, nie tylko dla kodu wyjścia -
+
+
+def test_gate_a_broken_import_produces_a_grep_visible_fail_line_and_keeps_the_summary():
+    """Moduł, który się nie importuje, nie może być niewidzialny dla `grep FAIL`.
+
+    Zmierzone 06.09.2026 przy 6.D15 (#301): moduł z błędem składni w `tools/tests/`
+    kończył `test_all.py` kodem 1 (poprawnie) — ale bez ani jednego wiersza `FAIL`
+    i bez wiersza `N/M przeszło`. Sesja sprawdzająca zieloność przez
+    `grep -cE '^\\s*FAIL'` dostawała zero i widziała zielono.
+
+    Test podmienia `AG.paths()` (ta sama współdzielona funkcja modułu, którą woła
+    `_discover()` w `test_all.py`) na dwa pliki w piaskownicy — jeden zepsuty, jeden
+    poprawny — i uruchamia prawdziwe `main()` z `test_all.py` w tym samym procesie,
+    bez dotykania prawdziwego `tools/tests/`. Podmiana jest cofana w `finally`
+    niezależnie od wyniku, bo inaczej kolejne testy w tym samym przebiegu (np.
+    `test_gate_paths_cover_this_file_and_test_all`) dostałyby okrojoną listę ścieżek.
+    """
+    import contextlib
+    import io
+    import re
+
+    broken = os.path.join(_SANDBOX, "test_d19_broken_import_probe.py")
+    with open(broken, "w", encoding="utf-8") as handle:
+        handle.write("def test_broken(:\n    assert True\n")
+    good = os.path.join(_SANDBOX, "test_d19_good_probe.py")
+    with open(good, "w", encoding="utf-8") as handle:
+        handle.write("def test_probe_ok():\n    assert True\n")
+
+    test_all = AG.load_instrumented(TEST_ALL, "test_all_d19_probe")
+    original_paths = AG.paths
+    AG.paths = lambda: [broken, good]
+    buf = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(buf):
+            code = test_all.main()
+    finally:
+        AG.paths = original_paths
+
+    output = buf.getvalue()
+    assert code == 1, (code, output[-2000:])
+    fail_lines = re.findall(r"^\s*FAIL.*$", output, re.MULTILINE)
+    assert any("test_d19_broken_import_probe" in line for line in fail_lines), (
+        "żaden wiersz FAIL nie nazywa modułu z błędem składni", fail_lines, output[-2000:])
+    assert re.search(r"^\s*\d+/\d+ przeszło\s*$", output, re.MULTILINE), (
+        "brak wiersza „N/M przeszło\" — mutation_sweep.py czyta z tego procesu "
+        "dokładnie tę linię (6.D11)", output[-2000:])
+    # Kontrola negatywna wbudowana: moduł POPRAWNY nie może zniknąć z powodu tego,
+    # że jego sąsiad w tej samej podmianie padł na imporcie.
+    assert "  ok   test_probe_ok" in output, output[-2000:]
