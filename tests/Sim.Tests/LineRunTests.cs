@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using MetroBxl.Sim.Line;
@@ -25,8 +26,8 @@ public sealed class LineRunTests
 
     private static LineRunSettings Settings(
         double limitKmh = 60.0, double exchange = 10.0,
-        double usage = 1.0, double window = 5.0) =>
-        new(Units.KmhToMps(limitKmh), exchange, usage, window);
+        double usage = 1.0, double window = 5.0, double? coast = null) =>
+        new(Units.KmhToMps(limitKmh), exchange, usage, window, coast);
 
     /// <summary>Prosta oś o zadanych kilometrażach stacji.</summary>
     private static TrackAxis Axis(params double[] stationChainages)
@@ -306,5 +307,154 @@ public sealed class LineRunTests
         var result = Run.Run(axis, Level(), Settings());
 
         Assert.AreEqual(string.Empty, result.Calls[0].StopId);
+    }
+
+    // --- wybieg (6.A6) -------------------------------------------------------
+
+    /// <summary>
+    /// Ślad co krok, w postaci porównywalnej **co do bitu**. Tego samego kształtu używa
+    /// <c>--trace</c> w <c>Sim.Runner</c>, więc test porównuje to samo, co bramka CI.
+    /// </summary>
+    private static string[] Trace(LineRunSettings settings, TrackAxis axis)
+    {
+        var rows = new List<string>();
+        Run.Run(axis, Level(), settings, LineRun.DefaultStepBudget, point => rows.Add(string.Create(
+            CultureInfo.InvariantCulture,
+            $"{point.TimeSeconds:R},{point.ChainageM:R},{point.SpeedMps:R}," +
+            $"{point.BrakeRateMps2:R},{point.Command.Throttle:R},{point.Command.Brake:R}")));
+        return rows.ToArray();
+    }
+
+    [TestMethod]
+    public void Bez_wybiegu_ustawienia_nie_wymyslaja_metra_od_ktorego_zdjac_trakcje()
+    {
+        Assert.IsNull(Settings().CoastFromM);
+        Assert.AreEqual(4, Settings().Assumptions.Count,
+            "przejazd bez wybiegu nie ma o czym założyć — wpis „CoastFromM = 0” mówiłby " +
+            "coś wprost przeciwnego do stanu faktycznego");
+        Assert.AreEqual(5, Settings(coast: 250.0).Assumptions.Count);
+        Assert.AreEqual(
+            250.0,
+            Settings(coast: 250.0).Assumptions.Single(a => a.Name == "CoastFromM").Value);
+    }
+
+    [TestMethod]
+    public void Ustawienia_odrzucaja_wybieg_bez_sensu()
+    {
+        Assert.ThrowsException<ArgumentOutOfRangeException>(() => Settings(coast: -1.0));
+        Assert.ThrowsException<ArgumentOutOfRangeException>(() => Settings(coast: double.NaN));
+        Assert.ThrowsException<ArgumentOutOfRangeException>(
+            () => Settings(coast: double.PositiveInfinity));
+    }
+
+    /// <summary>
+    /// Próg dalszy niż cały odcinek nie ma gdzie zadziałać — i przejazd musi być wtedy
+    /// identyczny **co do bitu**, a nie „prawie taki sam”. To jest kontrola, że wybieg
+    /// wchodzi wyłącznie w gałąź „nie hamuję jeszcze”, a nie zmienia czegokolwiek po drodze.
+    /// </summary>
+    [TestMethod]
+    public void Wybieg_dalszy_niz_odcinek_nie_zmienia_ani_jednego_kroku()
+    {
+        var axis = Axis(0.0, 800.0, 1600.0);
+
+        CollectionAssert.AreEqual(Trace(Settings(), axis), Trace(Settings(coast: 5000.0), axis));
+    }
+
+    [TestMethod]
+    public void Wybieg_wydluza_jazde_i_zmniejsza_prace_trakcji()
+    {
+        var axis = Axis(0.0, 1500.0, 3000.0);
+        var bez = Run.Run(axis, Level(), Settings());
+        var zWybiegiem = Run.Run(axis, Level(), Settings(coast: 300.0));
+
+        Assert.AreEqual("arrived", zWybiegiem.FinishReason);
+        Assert.AreEqual(bez.Calls.Count, zWybiegiem.Calls.Count);
+        Assert.IsTrue(zWybiegiem.TotalSeconds > bez.TotalSeconds,
+            $"wybieg ma KOSZTOWAĆ czas: bez {bez.TotalSeconds:F3} s, z wybiegiem {zWybiegiem.TotalSeconds:F3} s");
+        Assert.IsTrue(zWybiegiem.Energy.TractionWorkJ < bez.Energy.TractionWorkJ,
+            $"wybieg ma OSZCZĘDZAĆ trakcję: bez {bez.Energy.TractionWorkJ:E6} J, "
+            + $"z wybiegiem {zWybiegiem.Energy.TractionWorkJ:E6} J");
+
+        for (var index = 0; index < bez.Calls.Count; index++)
+        {
+            Assert.IsTrue(
+                zWybiegiem.Calls[index].TractionWorkFromPreviousJ
+                    < bez.Calls[index].TractionWorkFromPreviousJ,
+                $"odcinek {index}: praca trakcji nie spadła");
+            Assert.IsTrue(
+                zWybiegiem.Calls[index].RunSecondsFromPrevious
+                    > bez.Calls[index].RunSecondsFromPrevious,
+                $"odcinek {index}: czas jazdy nie urósł");
+        }
+    }
+
+    /// <summary>
+    /// Wybieg zdejmuje TRAKCJĘ, a nie dokłada hamulca. Bez tej kontroli „oszczędność
+    /// energii” dałoby się osiągnąć hamowaniem, czyli zmianą krzywej hamowania —
+    /// wprost poza zakresem 6.A6.
+    /// </summary>
+    [TestMethod]
+    public void Wybieg_zdejmuje_nastawnik_i_nie_dotyka_hamulca()
+    {
+        var rows = Trace(Settings(coast: 300.0), Axis(0.0, 1500.0));
+        var wybieg = 0;
+        // Próg pyta o kilometraż PRZED krokiem, a ślad zapisuje ten PO nim, więc
+        // wierszem rozstrzygającym jest poprzedni. Bez tego przesunięcia test wywracałby
+        // się na jednym kroku — tym, który zaczął się przed 300 m, a skończył za nim.
+        for (var index = 1; index < rows.Length; index++)
+        {
+            var poprzedni = double.Parse(
+                rows[index - 1].Split(',')[1], CultureInfo.InvariantCulture);
+            var pola = rows[index].Split(',');
+            var predkosc = double.Parse(pola[2], CultureInfo.InvariantCulture);
+            var nastawnik = double.Parse(pola[4], CultureInfo.InvariantCulture);
+            var hamulec = double.Parse(pola[5], CultureInfo.InvariantCulture);
+            if (poprzedni < 300.0 || predkosc <= 0.0 || hamulec > 0.0)
+            {
+                continue;
+            }
+
+            Assert.AreEqual(0.0, nastawnik, $"za {poprzedni:F2} m nastawnik nadal ciągnie");
+            wybieg++;
+        }
+
+        Assert.IsTrue(wybieg > 100, $"kroków wybiegu tylko {wybieg} — próg nie zadziałał");
+    }
+
+    /// <summary>
+    /// Praca trakcji rozłożona na odcinki musi domykać się do pracy CAŁEGO przejazdu.
+    /// Bez tej równości liczba w kolumnie „ubytek pracy trakcji” byłaby drugim,
+    /// niezależnym rachunkiem, który wolno rozjechać się z pierwszym.
+    /// </summary>
+    [TestMethod]
+    public void Praca_trakcji_odcinkow_domyka_sie_do_pracy_przejazdu()
+    {
+        foreach (var coast in new double?[] { null, 300.0 })
+        {
+            var result = Run.Run(Axis(0.0, 1500.0, 3000.0, 4200.0), Level(), Settings(coast: coast));
+            var suma = result.Calls.Sum(c => c.TractionWorkFromPreviousJ ?? double.NaN);
+
+            Assert.AreEqual(
+                result.Energy.TractionWorkJ, suma, Math.Abs(result.Energy.TractionWorkJ) * 1e-12,
+                $"wybieg {coast}: suma odcinków nie domyka się do przejazdu");
+        }
+    }
+
+    /// <summary>
+    /// Odcinek, na którym hamowanie zaczyna się PRZED zadanym metrem, ma jechać się
+    /// bit w bit tak samo jak bez wybiegu — także wtedy, gdy na tej samej osi inne
+    /// odcinki wybiegiem jadą. Inaczej „per odcinek” byłoby napisem, a nie własnością.
+    /// </summary>
+    [TestMethod]
+    public void Odcinek_krotszy_niz_prog_jedzie_sie_tak_samo_jak_bez_wybiegu()
+    {
+        var axis = Axis(0.0, 320.0, 1820.0);
+        var bez = Run.Run(axis, Level(), Settings());
+        var zWybiegiem = Run.Run(axis, Level(), Settings(coast: 300.0));
+
+        Assert.AreEqual(bez.Calls[0], zWybiegiem.Calls[0],
+            "pierwszy odcinek jest krótszy niż droga hamowania — wybieg nie ma tam czego zmienić");
+        Assert.AreNotEqual(bez.Calls[1], zWybiegiem.Calls[1],
+            "drugi odcinek jest długi — gdyby i on się nie zmienił, próg nigdy by nie zadziałał");
     }
 }

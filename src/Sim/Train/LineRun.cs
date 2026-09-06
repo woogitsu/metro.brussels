@@ -17,6 +17,20 @@ namespace MetroBxl.Sim.Train;
 /// <param name="RunSecondsFromPrevious">Czas jazdy od ruszenia z poprzedniej stacji.</param>
 /// <param name="DistanceFromPreviousM">Droga od poprzedniej stacji.</param>
 /// <param name="TopSpeedMps">Najwyższa prędkość osiągnięta na tym odcinku.</param>
+/// <param name="TractionWorkFromPreviousJ">
+/// Praca siły pociągowej wykonana NA TYM ODCINKU — od odjazdu z poprzedniej stacji do
+/// zatrzymania na tej. Ta sama wielkość co <see cref="TripEnergyAccount.TractionWorkJ"/>,
+/// tylko rozłożona na odcinki: suma po wszystkich zatrzymaniach domyka się do sumy
+/// przejazdu, bo na postoju nastawnik stoi na zerze i praca trakcji nie przyrasta.
+///
+/// <para><b>Dlaczego <c>null</c>, a nie zero, gdy jej nie ma.</b> Ta droga przejazdu
+/// jest jedna z dwóch: <see cref="LineDrive"/> prowadzi bilans energii i wypełnia to
+/// pole, a <see cref="StationService"/> — obsługa stacji dla sceny — bilansu nie
+/// prowadzi i nie ma czego wpisać. Zero znaczyłoby „odcinek przejechany bez ani jednego
+/// dżula trakcji", czyli twierdzenie o fizyce zamiast przyznania się do braku pomiaru.
+/// Bez tego pola nie da się odpowiedzieć na pytanie 6.A6 — ile wybieg oszczędza —
+/// **per odcinek**, a jedną liczbą na całą oś to pytanie nie jest.</para>
+/// </param>
 public readonly record struct StationCall(
     string Name,
     string StopId,
@@ -27,7 +41,8 @@ public readonly record struct StationCall(
     double DepartureSeconds,
     double RunSecondsFromPrevious,
     double DistanceFromPreviousM,
-    double TopSpeedMps)
+    double TopSpeedMps,
+    double? TractionWorkFromPreviousJ = null)
 {
     /// <summary>Jedna linia raportu; kultura niezmienna, żeby wyjście nie zależało od maszyny.</summary>
     public override string ToString() => string.Create(
