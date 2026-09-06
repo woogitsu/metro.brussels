@@ -128,7 +128,7 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 #: z kompletem sześciu pól. W przeciwieństwie do podłogi zapasu ta liczba **nie opada
 #: od wykonywania pracy** — blok pozycji zrobionej zostaje napisany — i dlatego tylko
 #: tutaj „wolno wyłącznie podnosić" jest zdaniem, które da się utrzymać.
-MINIMUM_DETAIL_BLOCKS = 55
+MINIMUM_DETAIL_BLOCKS = 58
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je

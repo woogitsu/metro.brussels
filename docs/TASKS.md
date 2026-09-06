@@ -711,6 +711,9 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.B24 | **`test_dimension_audit.py` ma kontrole negatywna wykonana RECZNIE, nie jako test regresyjny** — dowod jest wklejony w docstringu, ale zaden przebieg `test_all.py` go nie powtarza | znalezione przy 6.B22 (#317), §5 raportu, ktore swiadomie tego nie ruszylo. Kontrola, ktora odbyla sie raz, nie chroni przed regresja wzorca | M |
 | 6.D21 | **Drugi objaw z 6.D17 nie zostal odtworzony** — zawieszenie Godota bez ani jednego wiersza na stdout przy brakujacym assembly, z zaladowanym hostfxr | znalezione przy 6.D17 (#305), ktore powiedzialo wprost, ze tego nie pokazalo. Objaw, ktorego nikt nie odtworzyl, jest w dokumencie zdaniem z drugiej reki | M |
 | 6.D22 | **Raporty z przegladow wolanych `--only` basename'em nie mowia, ile modulow objely** — 6.D18 rozstrzygnela, ze podciag jest zamierzony, i wprost zostawila oznaczenie starych raportow poza zakresem | znalezione przy 6.D18 (#310). Datowanego pomiaru sie nie przelicza, ale wolno go OZNACZYC — i dopoki nie jest oznaczony, czyta sie jak pomiar jednego modulu | S |
+| 6.A16 | **Ujednolicic kody wyjscia `Sim.Runner`: kazda odmowa argumentowa = 1** — `compare` przestaje byc wyjatkiem, a **2** zostaje wylacznie dla „nie wiem, co uruchomic" | **DECYZJA WLASCICIELA z 06.09.2026.** Cztery pozycje (6.A10, 6.A11, 6.A13, 6.D20) odmowily ruszenia tego bez niej i przybily stan testami. Teraz jest wybor, wiec testy przybijajace dwojke dla `compare` zmieniaja sie razem z kodem | M |
+| 6.D23 | **Wariant C: fetchery pisza manifest tylko przy zmianie tresci** — `provenance.diff_manifests()` istnieje i porownuje `content_sha256`, a `fetch_gtfs.py` i `fetch_stib_shapes.py` **go nie wolaja** | **DECYZJA WLASCICIELA z 06.09.2026** na warianty z `reports/zapisy-do-data.md` §3. Regula `CLAUDE.md` §4.6 zostaje NIETKNIETA — zmieniaja sie narzedzia, nie regula. Wariant E domyka przy tym `build_alignment.py` i `normalize_stops.py` bez zmiany ich kodu | M |
+| 6.D24 | **Brakujaca biblioteka natywna runtime'u jako niezbadany mechanizm** — `libhostfxr.so` / `libcoreclr.so`, w odroznieniu od brakujacego assembly | znalezione przy 6.D21, ktore szescioma wykonanymi probami NIE odtworzylo zawieszenia i nazwalo ten mechanizm jako niezbadany, zamiast go domniemywac | S |
 
 #### Szczegóły pozycji z kompletem sześciu pól
 
@@ -2498,6 +2501,104 @@ znika stąd i pojawia się jako wpis z sześcioma polami wyżej w tym pliku.
 - **Poza zakresem:** ponowne uruchamianie przeglądów mutacyjnych. Ta pozycja oznacza
   zakres komend, nie odtwarza wyników.
 - **Zależy od:** #310.
+
+##### 6.A16 · Ujednolicenie kodów wyjścia — decyzja właściciela
+
+- **Skąd:** **decyzja właściciela z 06.09.2026.** Cztery pozycje po kolei zatrzymały się
+  na tej samej granicy i wypisały ją jako poza zakresem: 6.A10 (#302), 6.A11 (#307),
+  6.A13 (#313) i 6.D20 (#312). Każda przybiła stan testem, zamiast go poprawić —
+  bo wybór między 1 a 2 nie należał do pozycji, która ma opisać zastane zachowanie.
+  Zmierzone: `Compare` zwraca **2** przy złej liczbie argumentów (`Program.cs`, gałąź
+  `compare wymaga dwóch plików`), a wszystkie odmowy przechodzące przez wspólny handler
+  `ArgumentException`/`FormatException` zwracają **1**.
+- **Wejście:** `src/Sim.Runner/Program.cs` (`Compare`, `Unknown`, sprawdzenie
+  `args.Length == 0`, wspólny handler wyjątków w `Main`),
+  `tests/Sim.Tests/RunnerCommandTests.cs` — **trzy** testy przybijają dziś dwójkę:
+  `Compare_bez_dwoch_plikow_konczy_sie_kodem_dwa`,
+  `Nieznane_polecenie_konczy_sie_kodem_dwa`,
+  `Brak_argumentow_w_ogole_konczy_sie_kodem_dwa`.
+- **Wyjście:** `compare` bez dwóch plików kończy się kodem **1**, jak każda inna odmowa
+  argumentowa. Kod **2** zostaje wyłącznie dla „nie wiem, co uruchomić": nieznane
+  polecenie i brak argumentów — obie te ścieżki zostają nietknięte. Pierwszy z trzech
+  testów wyżej zmienia oczekiwanie na 1 **razem ze zmianą kodu**, dwa pozostałe zostają
+  bez zmian i to jest ich nowa rola: pilnują, że dwójka nie rozlała się z powrotem.
+- **Weryfikacja:**
+  ```bash
+  dotnet run --project src/Sim.Runner -c Release -- compare
+  dotnet run --project src/Sim.Runner -c Release -- nie-ma-takiego-polecenia
+  dotnet test tests/Sim.Tests
+  ```
+  Oczekiwane: pierwsza komenda kod **1**, druga kod **2**, zestaw rdzenia zielony.
+- **Skończone, gdy:** w `Program.cs` nie ma już `return 2` poza `Unknown()` i gałęzią
+  pustych argumentów — sprawdzone grepem i wypisane w raporcie — a kontrola negatywna
+  WYKONANA (przywrócona dwójka w `compare`) wywraca dokładnie jeden test.
+- **Poza zakresem:** wprowadzanie **trzeciej** wartości kodu wyjścia. Właściciel wybrał
+  wariant dwuwartościowy, nie rozdzielenie znaczeń — ten drugi był osobną opcją i nie
+  został wybrany.
+- **Zależy od:** #302, #307, #312, #313 (wszystkie scalone).
+
+##### 6.D23 · Manifest proweniencji pisany tylko przy zmianie treści — decyzja właściciela
+
+- **Skąd:** **decyzja właściciela z 06.09.2026**, wariant **C** z `reports/zapisy-do-data.md`
+  §3, wybrany spośród czterech wypisanych tam z kosztem każdego. 6.D12 (#295) zmierzyła
+  problem i świadomie go nie rozstrzygnęła, 6.D16 (#311) poprawiła zdanie w dokumencie,
+  które dla dwóch miejsc było nieprawdą. Zmierzone dziś na tym drzewie:
+  `provenance.diff_manifests()` **istnieje** (`tools/data/provenance.py`) i porównuje
+  `content_sha256`, a żaden z dwóch fetcherów go nie woła — `grep` po nazwie w obu
+  plikach nie daje ani jednego trafienia.
+- **Wejście:** `tools/track/fetch_gtfs.py`, `tools/track/fetch_stib_shapes.py`,
+  `tools/data/provenance.py` (`diff_manifests`, `utc_now_iso`), `tools/tests/test_fetchers.py`
+  (w tym testy `--offline` z 6.D14, #315), `reports/zapisy-do-data.md` §3 i §4.
+- **Wyjście:** oba fetchery wczytują istniejący manifest przed zapisem i **nadpisują go
+  tylko wtedy, gdy `content_sha256` się różni**. Gdy treść jest ta sama — plik zostaje
+  nietknięty, a proces wypisuje na konsolę, że sprawdził i nie było zmian. Ten komunikat
+  nie jest ozdobą: dziś jedynym sygnałem „pobranie się odbyło" jest `git diff`, a wariant C
+  ten sygnał zabiera.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/track/fetch_gtfs.py --offline --out build/gtfs/stib_gtfs.zip
+  git status --short data/
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: `git status --short data/` **puste** po dwóch przebiegach z rzędu na
+  niezmienionym źródle, a na konsoli komunikat o braku zmian.
+- **Skończone, gdy:** dwa przebiegi z rzędu na tym samym źródle zostawiają `data/`
+  bajt w bajt nietknięte — **wykonane i wklejone, oba** — a kontrola negatywna WYKONANA
+  (podmieniony `content_sha256`) pokazuje, że manifest JEST wtedy nadpisywany. Testy
+  `--offline` z #315 nadal zielone.
+- **Poza zakresem:** **zmiana `CLAUDE.md` §4.6.** Właściciel wybrał wariant zmieniający
+  narzędzia, nie regułę — `data/` zostaje tylko do odczytu bez żadnego wyjątku.
+  Poza zakresem także wariant D (przeniesienie `retrieved_at` poza plik śledzony) i
+  rozstrzyganie, czy zmiana innych pól manifestu bez zmiany treści ma nadpisywać plik:
+  to drugie jest pytaniem, które wariant C dopiero otwiera, i należy do właściciela.
+- **Zależy od:** #295, #311, #315 (wszystkie scalone).
+
+##### 6.D24 · Brakująca biblioteka natywna runtime'u — mechanizm niezbadany
+
+- **Skąd:** 6.D21 wykonała **sześć** niezależnych prób odtworzenia zawieszenia Godota
+  bez wyjścia na stdout i **żadna go nie odtworzyła** — każda skończyła się w 0,2–0,9 s
+  z komunikatem i kodem wyjścia. Ta pozycja nazwała przy tym jeden mechanizm, którego
+  celowo nie tknęła, bo jest inny niż „brakujący assembly" z opisu usterki: brak
+  **biblioteki natywnej samego runtime'u** (`libhostfxr.so`, `libcoreclr.so`).
+- **Wejście:** `reports/6d21-objaw-nieodtworzony.md`, `docs/23-environment.md` §4.1,
+  `$DOTNET_ROOT/host/fxr/`, `$DOTNET_ROOT/shared/Microsoft.NETCore.App/`, `doctor.sh`
+  (sonda `godot .NET hostfxr` z #305).
+- **Wyjście:** pomiar zachowania Godota przy przemianowanej albo obciętej bibliotece
+  natywnej — z limitem czasu, wklejonym wyjściem (albo jego brakiem) i kodem wyjścia —
+  oraz adnotacja w `docs/23-environment.md`, jeżeli objaw da się tą drogą odtworzyć.
+- **Weryfikacja:**
+  ```bash
+  bash doctor.sh
+  python3 tools/tests/test_all.py
+  ```
+  plus **wykonana** próba z `timeout`, z wypisanym czasem i kodem wyjścia każdego wariantu.
+- **Skończone, gdy:** dokument mówi o tym mechanizmie wyłącznie to, co zostało zmierzone,
+  a jeżeli objaw nadal jest nieodtwarzalny — mówi to wprost, z datą, tak samo jak 6.D21.
+  **Nieodtworzenie jest pełnoprawnym wynikiem tej pozycji**, nie jej porażką.
+- **Poza zakresem:** trwałe uszkodzenie instalacji .NET albo Godota poza repozytorium.
+  Każda podmieniona biblioteka wraca na miejsce, a raport podaje sumę kontrolną albo
+  rozmiar jako dowód przywrócenia — tak jak zrobiła to 6.D21.
+- **Zależy od:** 6.D21 (w locie).
 
 ### Czego agent nie ruszy bez decyzji
 
