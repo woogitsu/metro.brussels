@@ -122,6 +122,29 @@ GODOT_CMD="${GODOT_BIN:-godot}"
 chk_optional "godot ($GODOT_CMD)" "\"$GODOT_CMD\" --version" \
   "wymagany od T-400; ustaw GODOT_BIN, jeśli silnik jest poza PATH"
 
+# `--version` NIE dotyka mono — kończy proces, zanim silnik sięgnie po .NET, więc
+# przechodzi identycznie z `DOTNET_ROOT` i bez niego. Zmierzone 06.09.2026
+# (docs/23-environment.md §4.1): bez `DOTNET_ROOT` i bez `dotnet` w PATH ten sam
+# binarny plik, który przed chwilą podał wersję, przy `--path src/Game` pada
+# sygnałem 11 (`Failed to load hostfxr`) w niecałą sekundę — albo, przy brakującym
+# assembly zamiast brakującego hostfxr, wisi bez ani jednego wiersza na stdout aż do
+# limitu czasu joba. Sonda na SAMĄ obecność `--version` nic z tego nie łapie, więc
+# to osobne sprawdzenie: `DOTNET_ROOT` wskazujący katalog z `host/fxr/*/libhostfxr.so`
+# (dokładnie ten, który stawia `dotnet-install.sh`), albo `dotnet` osiągalny przez
+# goły `command -v` — silnik próbuje TO jako drugie, dopiero gdy `DOTNET_ROOT` się
+# nie zgadza, i awaria wygląda wtedy identycznie jak brak zmiennej w ogóle.
+if "$GODOT_CMD" --version >/dev/null 2>&1; then
+  HOSTFXR_OK=0
+  if [ -n "${DOTNET_ROOT:-}" ] \
+     && [ -n "$(find "$DOTNET_ROOT/host/fxr" -maxdepth 2 -name 'libhostfxr.so' 2>/dev/null)" ]; then
+    HOSTFXR_OK=1
+  elif command -v dotnet >/dev/null 2>&1; then
+    HOSTFXR_OK=1
+  fi
+  chk_optional "godot .NET hostfxr" "[ $HOSTFXR_OK -eq 1 ]" \
+    "ustaw DOTNET_ROOT na katalog SDK z host/fxr/*/libhostfxr.so (np. \$HOME/.dotnet) albo dodaj dotnet do PATH — inaczej Godot mono pada sygnałem 11 (Failed to load hostfxr) albo wisi bez wyjścia przy starcie sceny z C#"
+fi
+
 echo ""
 echo "Struktura projektu:"
 for d in CLAUDE.md docs docs/07-open-data-research.md data/network/lines.json data/network/sources.json data/vehicle/m7-spec.json tools/blender tools/track tools/tests .claude/skills src/Sim tests/Sim.Tests; do

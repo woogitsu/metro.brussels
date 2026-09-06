@@ -332,13 +332,88 @@ Rozmiar po rozpakowaniu: 162 MB. `GODOT_BIN` to **ta sama zmienna, o którą pyt
 Zrzuty z Godota idą przez `xvfb-run -a "$GODOT_BIN" --rendering-driver opengl3`, więc
 dla T-400 potrzebny jest zestaw `blender-xvfb`, nie `blender`.
 
+### 4.1 Bez `DOTNET_ROOT` ten sam binarny plik nie startuje
+
+`Godot_v4.7.2-stable_mono_linux.x86_64 --version` działa bez żadnej zmiennej .NET —
+`--version` kończy proces, zanim silnik w ogóle sięgnie po mono. To jedyny powód,
+dla którego ta usterka łatwo przechodzi niezauważona: sonda, która sprawdza samo
+uruchomienie binarki, nic tu nie złapie (patrz `doctor.sh` niżej). Awaria pojawia się
+dopiero, gdy Godot faktycznie ładuje scenę z C# — czyli w każdym prawdziwym
+uruchomieniu `--path src/Game`, i tego właśnie dotyczy `godot-first-run.yml`.
+
+**Zmierzone 06.09.2026, ten sam plik binarny, dwa przebiegi `--headless --path
+src/Game` na zbudowanym `src/Game`:**
+
+Bez `DOTNET_ROOT` i bez `dotnet` w `PATH` — silnik próbuje ustalić katalog SDK,
+odpalając `dotnet` przez powłokę, nie znajduje go i pada sygnałem 11 w niecałą
+sekundę (0,34 s), zanim padnie choć jeden wiersz o samej grze:
+
+```
+$ env -u DOTNET_ROOT -u DOTNET_INSTALL_DIR PATH="/usr/bin:/bin:/usr/local/bin" \
+    "$GODOT_BIN" --headless --path src/Game --quit-after 3
+Godot Engine v4.7.2.stable.mono.official.ed1daf0bf - https://godotengine.org
+
+ERROR: sh: 1: dotnet: not found
+
+   at: try_get_dotnet_root_from_command_line (modules/mono/mono_gd/gd_mono.cpp:122)
+ERROR: .NET: One of the dependent libraries is missing. Typically when the `hostfxr`,
+`hostpolicy` or `coreclr` dynamic libraries are not present in the expected locations.
+   at: find_hostfxr (modules/mono/mono_gd/gd_mono.cpp:182)
+Unable to load .NET runtime, specifically hostfxr.
+ERROR: .NET: Failed to load hostfxr
+   at: initialize (modules/mono/mono_gd/gd_mono.cpp:676)
+handle_crash: Program crashed with signal 11
+```
+
+Z `DOTNET_ROOT="$HOME/.dotnet"` (i to samo dzieje się z `PATH` bez `dotnet` w ogóle —
+sama zmienna wystarcza) silnik znajduje `$DOTNET_ROOT/host/fxr/<wersja>/libhostfxr.so`
+bezpośrednio, bez odpalania `dotnet` przez powłokę, i idzie dalej do własnego kodu gry:
+
+```
+$ env DOTNET_ROOT="$HOME/.dotnet" PATH="/usr/bin:/bin:/usr/local/bin" \
+    "$GODOT_BIN" --headless --path src/Game --quit-after 3
+Godot Engine v4.7.2.stable.mono.official.ed1daf0bf - https://godotengine.org
+
+[LIMIT] tryb ręczny: 72.00 km/h z planu classic-2026-L1_A (…)
+ERROR: [ASSETS] brak manifestu …/build/t400/chunks/L1_A-chunks.json. Wygeneruj chunki
+(tools/blender/tunnel_sweep.py --chunk-dir ...) albo uruchom z --no-geometry.
+   at: void MetroBxl.Game.FirstRun.Abort(int, string) (res://FirstRun.cs:462)
+```
+
+Ten drugi przebieg pada z innego, niepowiązanego powodu (brak chunków geometrii — w
+tym środowisku nie ma Blendera, więc `tools/blender/tunnel_sweep.py` się nie odpalił;
+poza zakresem tej pozycji). Ważne jest miejsce awarii: `FirstRun.cs`, kod samej gry,
+nie `gd_mono.cpp`. hostfxr się załadował.
+
+**Wniosek, zmierzony, nie przypuszczony:** `DOTNET_ROOT` sam wystarcza — `dotnet` w
+`PATH` jest zbędny, jeśli `DOTNET_ROOT` wskazuje katalog z `host/fxr/*/libhostfxr.so`
+(dokładnie ten, który stawia `dotnet-install.sh` z sekcji 3, i dokładnie ten, na który
+CI ustawia `DOTNET_ROOT` w `godot-first-run.yml`). Ustawiony, ale zły katalog (np.
+literówka) NIE korzysta z tego skrótu i silnik z powrotem próbuje `dotnet` przez
+powłokę — czyli awaria wygląda tak samo jak brak zmiennej w ogóle, ze wskazówką
+`try_get_dotnet_root_from_command_line` w logu.
+
+**Druga postać tej samej usterki, opisana w `6.D17` przy 6.C3 (#297), nie
+odtworzona tutaj z braku brakującego assembly do zademonstrowania**: gdy silnik
+znajdzie hostfxr, ale zabraknie konkretnego zestawu (assembly) w załadowanej scenie,
+proces potrafi zawiesić się bez żadnego wiersza na stdout aż do wypalenia limitu
+czasu joba — czyli objaw ("cisza") nie wskazuje przyczyny tak samo jak sygnał 11 nie
+wskazywał brakującego `DOTNET_ROOT`, dopóki nie przeczyta się `stderr`.
+
+Stąd `export DOTNET_ROOT="$HOME/.dotnet"` (albo katalog, do którego trafiło SDK) jest
+**wymagany obok `GODOT_BIN`**, nie opcjonalny — patrz sekcja 5.
+
 ## 5. Zmienne środowiskowe
 
-Trzy, wszystkie opcjonalne w tym sensie, że bez nich też się zbuduje — tylko gorzej:
+Cztery, i tylko trzy z nich są opcjonalne w tym sensie, że bez nich też się zbuduje —
+tylko gorzej. Czwarta, `DOTNET_ROOT`, jest wymagana od chwili, gdy w grę wchodzi
+Godot mono (sekcja 4.1): bez niej ten sam binarny plik, który przed chwilą podał
+`--version`, pada sygnałem 11 albo wisi bez wyjścia, gdy tylko dotknie sceny z C#.
 
 ```bash
 export BLENDER_BIN="$(bash tools/ci/blender_install.sh)"
 export GODOT_BIN=/opt/metro-godot/4.7.2-stable/Godot_v4.7.2-stable_mono_linux.x86_64
+export DOTNET_ROOT="$HOME/.dotnet"
 export DOTNET_CLI_TELEMETRY_OPTOUT=1
 export DOTNET_NOLOGO=1
 ```
@@ -349,6 +424,15 @@ z pinem, więc rozjazd „u mnie ok, w CI czerwono" widać u siebie:
 
 ```
   WARN  blender w wersji z pinu (5.2.1, jest 4.0.2)  -> CI wymaga 5.2.1; uruchom tools/ci/blender_install.sh
+```
+
+Od 06.09.2026 `doctor.sh` pyta też, czy Godot znajdzie hostfxr — nie samą obecnością
+binarki (to sprawdza `--version`, które nie łapie braku `DOTNET_ROOT`, patrz sekcja
+4.1), tylko czy `DOTNET_ROOT` wskazuje katalog z `host/fxr/*/libhostfxr.so` albo czy
+`dotnet` jest w `PATH`. Bez żadnego z dwóch:
+
+```
+  WARN  godot .NET hostfxr  -> ustaw DOTNET_ROOT na katalog SDK z host/fxr/*/libhostfxr.so (np. $HOME/.dotnet) albo dodaj dotnet do PATH — inaczej Godot mono pada sygnałem 11 (Failed to load hostfxr) albo wisi bez wyjścia przy starcie sceny z C#
 ```
 
 ## 6. Kontrola, że to naprawdę stoi
