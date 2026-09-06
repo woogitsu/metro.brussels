@@ -225,3 +225,24 @@ $ python3 tools/tests/test_all.py 2>&1 | tail -3
   kategorię odmowy („nie wiadomo, co uruchomić") i dają tę samą liczbę; zanotowane,
   bo dwa niezależne miejsca w kodzie dające tę samą stałą to coś, co następna zmiana
   mogłaby rozjechać po cichu, gdyby zmieniła jedno bez drugiego.
+
+## 7. Domknięcie luki — 6.A10 (06.09.2026)
+
+Dziewiąte polecenie, `service-day`, wymienione w §5 jako świadomie nieruszone, ma teraz
+własne testy kodu wyjścia w `RunnerCommandTests.cs`: brak `--timetable` (kod 1, komunikat
+zawiera „--timetable") i niepoprawny format `--at` (kod 1, komunikat zawiera „HH:MM:SS"),
+oba przez ten sam wspólny handler wyjątków co `replay`/`axis`/`line`/`budget`. Obie
+kontrole negatywne wykonane osobno (mutacja treści komunikatu wyjątku, nie kodu wyjścia
+handlera — bo ten drugi jest współdzielony z czterema testami już istniejącymi
+i mutacja tam wywróciłaby więcej niż jeden test): każda zepsuła wyłącznie swój jeden
+test, reszta zestawu została zielona, kod źródłowy przywrócony bit w bit po każdej
+serii (`git diff --stat src/` puste na końcu).
+
+Dwa znaleziska z §2 i §6 powyżej **nie zostały tym ruszone** — pozycja 6.A10 przybija
+stan, nie poprawia go:
+
+* `compare` nadal zwraca **2** tam, gdzie reszta odmów z argumentami wymaganymi
+  (`replay`, `axis`, `line`, `budget`, a teraz i `service-day`) zwraca **1** przez
+  wspólny handler wyjątków.
+* `Unknown(string)` i gałąź pustych argumentów w `Program.Main` nadal dają tę samą
+  stałą (2) dwiema niezależnymi ścieżkami kodu, nie jedną.

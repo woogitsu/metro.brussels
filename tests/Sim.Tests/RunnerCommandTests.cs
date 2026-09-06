@@ -185,6 +185,63 @@ public sealed class RunnerCommandTests
         StringAssert.Contains(result.StdErr, "budget wymaga --axis");
     }
 
+    // --- service-day: dziewiąte polecenie, dopisane w 6.A10 ----------------------
+
+    /// <summary>
+    /// Minimalny, poprawny rozkład na potrzeby testów <c>service-day</c> — jeden obieg,
+    /// jeden kurs. Zapisywany do pliku tymczasowego, bo <c>--timetable</c> czyta
+    /// z dysku (<see cref="File.ReadAllText"/>), nie z argumentu wprost.
+    /// </summary>
+    private static string NapiszTymczasowyRozklad()
+    {
+        var path = Path.GetTempFileName();
+        File.WriteAllText(path,
+            "{\"date\":\"20260906\",\"duties\":{\"rows\":["
+            + "{\"block_id\":\"A\",\"trips\":1,\"trip_windows\":[[100,200]]}"
+            + "]}}");
+        return path;
+    }
+
+    /// <summary>
+    /// <c>service-day</c> wymaga <c>--timetable</c> PRZED odczytem czegokolwiek innego
+    /// (patrz komentarz przy <see cref="Program.ServiceDayCommand"/>: „bez pliku nie ma
+    /// czego odtwarzać") — rzuca <see cref="ArgumentException"/>, którą łapie wspólny
+    /// handler w <see cref="Program.Main"/> i zwraca 1, tak samo jak <c>replay</c>,
+    /// <c>axis</c>, <c>line</c> i <c>budget</c>.
+    /// </summary>
+    [TestMethod]
+    public void ServiceDay_bez_wymaganego_argumentu_konczy_sie_kodem_jeden()
+    {
+        var result = Run("service-day");
+
+        Assert.AreEqual(1, result.ExitCode);
+        StringAssert.Contains(result.StdErr, "--timetable");
+    }
+
+    /// <summary>
+    /// <c>--at</c> w niepoprawnym formacie (nie <c>HH:MM:SS</c>) trafia w
+    /// <see cref="Program.ParseClock"/>, która rzuca <see cref="ArgumentException"/> —
+    /// złapaną tym samym wspólnym handlerem, kod 1. Test podaje POPRAWNY
+    /// <c>--timetable</c>, żeby błąd, który testujemy, był naprawdę w rozbiorze
+    /// <c>--at</c>, a nie w braku pliku sprzed niego.
+    /// </summary>
+    [TestMethod]
+    public void ServiceDay_z_niepoprawnym_formatem_at_konczy_sie_kodem_jeden()
+    {
+        var timetable = NapiszTymczasowyRozklad();
+        try
+        {
+            var result = Run("service-day", "--timetable", timetable, "--at", "nie-jest-zegarem");
+
+            Assert.AreEqual(1, result.ExitCode);
+            StringAssert.Contains(result.StdErr, "HH:MM:SS");
+        }
+        finally
+        {
+            File.Delete(timetable);
+        }
+    }
+
     // --- nazwa polecenia, którego nie ma -----------------------------------------
 
     /// <summary>
