@@ -66,29 +66,41 @@ REQUIRED_FIELDS = (
 #: odhaczeniem T-212 i T-906 było 15 wpisów i 12 pól.)
 DONE_ONLY_FIELD = "Wynik"
 
-#: Ile pozycji kolejki ma DZIŚ komplet sześciu pól **i nie jest jeszcze zrobiona**.
+#: PODŁOGA zapasu pozycji **do wzięcia**: udokumentowanych i niezrobionych.
 #:
-#: **Ta liczba jest przebazowana, nie obniżona, i dlatego cały ten komentarz jest
-#: przepisany, a nie dopisany obok.** Poprzednie wersje mówiły 8 z 33 (`b41c158`),
-#: 8 z 31, a potem 12 z 29 — i wszystkie liczyły `ready_items`, czyli także pozycje
-#: **wykonane i zostawione w tabeli**. Takich było 05.09.2026 dziesięć na dwadzieścia
-#: cztery, a zostawały tam z powodu tej właśnie zapadki: zdjęcie udokumentowanej
-#: pozycji ją zbijało, a zbijać nie wolno. Reguła zapasu obróciła się przeciwko sobie
-#: — chroniąc licznik, kazała trzymać w kolejce pracę skończoną, aż udokumentowanych
-#: i jednocześnie niezrobionych zostało **pięć** przy zapadce stojącej na dwunastu
-#: i świecącej na zielono.
+#: **To NIE jest zapadka i cały ten komentarz jest z tego powodu przepisany.**
+#: Do 06.09.2026 jedna stała niosła dwie sprzeczne role: „bloków nie wolno kasować"
+#: (wielkość rosnąca) i „zapas ma starczyć na dobę pracy" (wielkość, która **maleje,
+#: gdy praca jest wykonywana**). Po zmianie liczenia z #272 sprzeczność wyszła
+#: natychmiast i dwa razy pod rząd: adnotowanie 6.D4 jako `ZROBIONE` zbiło licznik
+#: z 11 na 10, adnotowanie 6.B2 — z 11 na 10 znowu. Bramka świeciła na czerwono
+#: **dlatego, że wykonano pracę**, a jedynym sposobem jej zaspokojenia było dopisanie
+#: nowego bloku w tym samym commicie.
 #:
-#: Od tej chwili licznikiem jest `open_items`, więc **liczba przed zmianą i po niej
-#: nie są porównywalne** i „wolno tylko podnosić" zaczyna biec od nowa. Zmierzone
-#: 05.09.2026 po dopisaniu sześciu bloków (6.A5, 6.A6, 6.C3, 6.C4, 6.D1, 6.D4):
-#: **11 z 14** pozycji do wzięcia. Do progu `MINIMUM_READY_ITEMS` brakuje jednej
-#: i `docs/TASKS.md` musi o tym mówić, czego pilnuje
+#: Rozstrzyga to arytmetyka, nie gust: pozycji do wzięcia bez bloku zostały **dwie**
+#: (5.6 i 6.B5, przy czym 6.B5 czeka na decyzję o pakietach C, D, F). Po ich zużyciu
+#: bramki **nie dałoby się już spełnić**, a domknięta praca nie dałaby się zacommitować.
+#: Bramka, której da się zadośćuczynić tylko przez chwilę, nie jest bramką.
+#:
+#: Rola „nie wolno kasować" przeniosła się na `MINIMUM_DETAIL_BLOCKS` — tam jest
+#: monotoniczna i tam ma sens. Ta liczba jest **podłogą alarmową**: wolno jej opadać,
+#: gdy zadania są domykane, a zapala się dopiero wtedy, gdy zapas naprawdę cienieje.
+#: Docelowa wielkość zapasu to nadal `MINIMUM_READY_ITEMS`, a odległość do niej
+#: opisuje akapit w `docs/TASKS.md`, którego pilnuje
 #: `test_the_documented_shortfall_is_written_down_while_it_lasts`.
 #:
-#: Podnosi się ją polami ODCZYTANYMI z `docs/`, `reports/` i `data/` — `CLAUDE.md` §8
-#: zabiera prawo do zadania wymyślonego na miejscu, a dopisanie sobie „Weryfikacji"
-#: do cudzej pozycji jest tym samym o krok wcześniej.
-MINIMUM_DOCUMENTED_ITEMS = 11
+#: Zmierzone 06.09.2026: udokumentowanych i niezrobionych **10**, podłoga **6**.
+MINIMUM_DOCUMENTED_ITEMS = 6
+
+#: ZAPADKA na liczbę **napisanych** bloków szczegółów, niezależnie od tego, czy
+#: pozycja jest już zrobiona. Ta wielkość rośnie tylko przez pisanie i maleje tylko
+#: przez kasowanie, więc „wolno tylko podnosić" jest tu zdaniem sensownym — w
+#: przeciwieństwie do zapasu, który maleje od wykonywania pracy.
+#:
+#: Chroni dokładnie to, co chroniła stara zapadka: skasowanie bloku zapala bramkę,
+#: a dopisanie dziewiętnastego wymusza podniesienie stałej w tym samym commicie.
+#: Zmierzone 06.09.2026: **19** bloków, wszystkie z kompletem sześciu pól.
+MINIMUM_DETAIL_BLOCKS = 19
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
@@ -417,26 +429,32 @@ def test_the_documented_shortfall_is_written_down_while_it_lasts():
     6.A7, 6.B1, 6.B2 i 6.D2, zapadka zrównała się z progiem, a akapit o niedoborze
     **zniknął z `docs/TASKS.md`** — czego pilnuje gałąź `else` tego testu.
 
-    Test zostaje mimo domknięcia luki, bo pilnuje obu kierunków. Gdyby ktoś obniżył
-    `MINIMUM_DOCUMENTED_ITEMS` (dziś zakazane osobną zapadką) albo podniósł
-    `MINIMUM_READY_ITEMS`, niedobór wróciłby — i wtedy plan ma go znowu opisać.
+    **Od 06.09.2026 warunek patrzy na POMIAR, nie na stałą.** Wcześniej porównywał
+    `MINIMUM_DOCUMENTED_ITEMS` z `MINIMUM_READY_ITEMS`, czyli dwie liczby wpisane
+    w ten plik — a po rozdzieleniu podłogi od zapadki pierwsza z nich stoi celowo
+    nisko i porównanie byłoby zawsze prawdziwe, czyli martwe. Teraz liczy się
+    rzeczywisty zapas: akapit ma stać w planie dokładnie wtedy, gdy zapas jest poniżej
+    progu doby pracy, i zniknąć, gdy go dogoni.
     Plan, który po domknięciu luki nadal ją opisuje, jest tak samo nieprawdziwy jak
     plan, który jej nigdy nie opisał; ten test łapie oba te stany.
     """
     text = _tasks()
-    if MINIMUM_DOCUMENTED_ITEMS < MINIMUM_READY_ITEMS:
+    reserve = len(documented_items(text))
+    if reserve < MINIMUM_READY_ITEMS:
         assert SHORTFALL_MARKER in text, (
-            "zapas udokumentowany jest poniżej progu, a plan o tym milczy")
+            f"zapas udokumentowany to {reserve} przy progu {MINIMUM_READY_ITEMS}, "
+            "a plan o tym milczy")
     else:
         assert SHORTFALL_MARKER not in text, (
-            "zapadka doszła do progu, a plan nadal opisuje lukę")
+            "zapas doszedł do progu, a plan nadal opisuje lukę")
 
 
 def test_the_ratchet_cannot_be_set_above_what_it_guards():
     # Zapadka wyższa od progu zapasu byłaby wymaganiem bez pokrycia w regule:
     # `docs/TASKS.md` żąda dwunastu pozycji, nie dwudziestu udokumentowanych.
-    assert 0 < MINIMUM_DOCUMENTED_ITEMS <= MINIMUM_READY_ITEMS, (
-        "zapadka udokumentowanych stoi poza przedziałem (0, próg zapasu]")
+    assert 0 < MINIMUM_DOCUMENTED_ITEMS < MINIMUM_READY_ITEMS, (
+        "podłoga zapasu stoi poza przedziałem (0, próg doby pracy)")
+    assert MINIMUM_DETAIL_BLOCKS > 0, "zapadka bloków wyzerowana"
 
 
 def test_closed_items_are_exempt_from_the_six_fields_on_purpose():
@@ -501,31 +519,70 @@ def test_the_field_parser_actually_parses():
 
 
 def test_the_documented_ratchet_does_not_lag_behind_the_file():
-    """Zapadka, która nigdy się nie zaciska, jest licznikiem, nie zapadką.
+    """Zapadka na liczbę NAPISANYCH bloków ma nadążać za plikiem.
 
-    `test_the_documented_reserve_does_not_regress` pilnuje jednego kierunku:
-    skasowanie bloku zapala bramkę. Drugiego kierunku nie pilnuje nic — a to jest
-    ta sama rodzina defektu, którą ten plik już dwa razy łapał: kontrola, która
-    ma na co patrzeć, ale patrzy tylko w jedną stronę.
+    **Ten docstring jest przepisany, a nie dopisany obok.** Poprzednia wersja pilnowała
+    `documented_items`, czyli pozycji udokumentowanych i niezrobionych — wielkości,
+    która maleje, gdy praca jest wykonywana. Od 06.09.2026 zapadka patrzy na
+    `detail_sections`: bloki napisane, niezależnie od tego, czy pozycja jest już
+    domknięta. Powód rozdzielenia stoi przy `MINIMUM_DOCUMENTED_ITEMS`.
 
-    Zmierzone 05.09.2026 na `8b7b767`, czyli na tej właśnie bramce: dopisanie
-    dziewiątego bloku szczegółów (`6.C4`, sześć pól z treścią) **przechodziło
-    cały zestaw**, 1475/1475. Zapadka zostawała na ósemce i od tej chwili
-    zwalniała jedną udokumentowaną pozycję — próg mówił „co najmniej 8", a plik
-    miał 9. Po dziesięciu takich krokach `MINIMUM_DOCUMENTED_ITEMS = 8`
-    pilnowałoby stanu sprzed dziesięciu commitów, a nie stanu pliku.
-
-    Ten test wymusza podniesienie stałej w tym samym commicie, w którym rośnie
-    liczba opisanych pozycji — aż do `MINIMUM_READY_ITEMS`. Wyżej nie ma po co:
-    tam warunek zlewa się z progiem zapasu i bramka działa z pełną siłą, czyli
-    „dwanaście pozycji, każda z sześcioma polami".
+    Ochrona zostaje ta sama i z tego samego powodu co dawniej. Zmierzone 05.09.2026
+    na `8b7b767`: dopisanie dziewiątego bloku **przechodziło cały zestaw**, 1475/1475,
+    a zapadka zostawała na ósemce i od tej chwili zwalniała jedną opisaną pozycję.
+    Ten test wymusza podniesienie stałej w tym samym commicie, w którym rośnie liczba
+    bloków.
     """
-    reached = len(documented_items(_tasks()))
-    target = min(reached, MINIMUM_READY_ITEMS)
-    assert MINIMUM_DOCUMENTED_ITEMS >= target, (
-        f"opisanych pozycji jest {reached}, a zapadka stoi na "
-        f"{MINIMUM_DOCUMENTED_ITEMS} — podnieś ją do {target} w tym samym "
-        "commicie, w którym dopisujesz blok")
+    blocks = [item for item, body in detail_sections(_tasks()).items()
+              if not missing_fields(body)]
+    assert MINIMUM_DETAIL_BLOCKS >= len(blocks), (
+        f"bloków z kompletem sześciu pól jest {len(blocks)}, a zapadka stoi na "
+        f"{MINIMUM_DETAIL_BLOCKS} — podnieś ją do {len(blocks)} w tym samym commicie, "
+        "w którym dopisujesz blok")
+    assert len(blocks) >= MINIMUM_DETAIL_BLOCKS, (
+        f"bloków jest {len(blocks)} przy zapadce {MINIMUM_DETAIL_BLOCKS} — "
+        "któryś zniknął albo stracił jedno z sześciu pól")
+
+
+def test_the_reserve_floor_falls_when_work_is_done_and_the_ratchet_does_not():
+    """Dwie liczby, dwa zachowania — i to jest cała treść rozdzielenia.
+
+    **Skąd.** Do 06.09.2026 jedna stała niosła obie role. Po zmianie liczenia z #272
+    sprzeczność zapaliła bramkę dwa razy pod rząd, przy 6.D4 i przy 6.B2: domknięcie
+    udokumentowanej pozycji zbijało licznik, więc **wykonanie pracy** wywracało zestaw.
+    Zaspokoić to dało się tylko dopisaniem nowego bloku w tym samym commicie, a pozycji
+    bez bloku zostały wtedy dwie — po ich zużyciu bramki nie dałoby się już spełnić.
+
+    Ten test przybija różnicę na sztucznym planie, więc nie zależy od tego, ile pozycji
+    stoi dziś w `docs/TASKS.md`.
+    """
+    def plan(zrobione):
+        znacznik = f"**{DONE_ROW_MARKER} w #1** — " if zrobione else ""
+        return (
+            "## Faza 6\n\n"
+            "| # | zadanie | dlaczego bez decyzji | rozmiar |\n"
+            "|---|---|---|---|\n"
+            f"| 6.X1 | {znacznik}**Coś** | powód | S |\n\n"
+            "##### 6.X1 · Coś\n\n"
+            "- **Skąd:** stąd.\n- **Wejście:** plik.\n- **Wyjście:** plik.\n"
+            "- **Weryfikacja:** polecenie.\n- **Skończone, gdy:** liczba.\n"
+            "- **Poza zakresem:** reszta.\n- **Zależy od:** nic.\n")
+
+    otwarte, domkniete = plan(False), plan(True)
+
+    # 1. Zapas maleje, gdy pozycja zostaje domknięta — i tak ma być.
+    assert len(documented_items(otwarte)) == 1, documented_items(otwarte)
+    assert len(documented_items(domkniete)) == 0, documented_items(domkniete)
+
+    # 2. Liczba NAPISANYCH bloków się nie zmienia — blok stoi tam dalej.
+    assert len(detail_sections(otwarte)) == len(detail_sections(domkniete)) == 1
+
+    # 3. Podłoga stoi wyraźnie niżej od progu doby pracy, więc domknięcie jednej
+    #    pozycji nie wywraca zestawu. Gdyby ktoś podniósł ją do progu, wróciłby
+    #    dokładnie ten defekt, który to rozdzielenie usuwa.
+    assert MINIMUM_DOCUMENTED_ITEMS < MINIMUM_READY_ITEMS, (
+        "podłoga zapasu zrównana z progiem doby pracy — domknięcie udokumentowanej "
+        "pozycji znowu będzie wywracać zestaw")
 
 
 def test_no_detail_block_carries_the_field_of_a_finished_entry():

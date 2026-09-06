@@ -593,8 +593,14 @@ po dopisaniu sześciu bloków (6.A5, 6.A6, 6.C3, 6.C4, 6.D1, 6.D4): **24 pozycje
 o tym mówi, bo `test_the_documented_shortfall_is_written_down_while_it_lasts` nie
 pozwala luce zniknąć po cichu.
 
-**Liczba przed tą zmianą i po niej nie są porównywalne**, bo zapadka mierzy inny zbiór.
-„Wolno tylko podnosić" biegnie więc od nowa, od jedenastu.
+**Od 06.09.2026 te dwie rzeczy pilnują dwie różne liczby**, bo jedna nie mogła pilnować
+obu naraz. `MINIMUM_DETAIL_BLOCKS` jest **zapadką** na liczbę *napisanych* bloków —
+rośnie tylko przez pisanie, maleje tylko przez kasowanie, więc „wolno tylko podnosić"
+ma tu sens. `MINIMUM_DOCUMENTED_ITEMS` jest **podłogą alarmową** zapasu pozycji do
+wzięcia — tej wolno opadać, gdy zadania są domykane, bo inaczej **wykonanie pracy
+wywracałoby zestaw**. Zdarzyło się to dwa razy tego samego wieczoru, przy 6.D4
+i przy 6.B2, a pozycji bez bloku zostały wtedy dwie; po ich zużyciu bramki nie dałoby
+się już spełnić. Opis rozdzielenia: `reports/zapadka-dwie-role.md`.
 
 Tej luki **nie domykało się dopisywaniem pól z głowy** i następnej też nie wolno.
 `CLAUDE.md` §8 zabrania brać zadanie wymyślone na miejscu, a wymyślenie cudzej
