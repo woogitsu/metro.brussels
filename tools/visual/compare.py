@@ -23,6 +23,11 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import pngio
 
+# Suma pikseli liczona jest narzędziem z `tools/ci`, a nie przepisana tutaj:
+# dwie implementacje jednej wyroczni to jedna z nich niesprawdzona przez testy drugiej.
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "ci"))
+import png_pixels_sha256  # noqa: E402
+
 BACKGROUND_TOLERANCE = 0.02
 
 # Podłoga „to nie jest pusta klatka" dla renderów bez manifestu i bez baseline.
@@ -142,7 +147,8 @@ def write_diff_image(path, current, baseline, amplify=4.0):
     pngio.write_gray(path, current.width, current.height, gray)
 
 
-def check_image(path, expected_size, thresholds, baseline_path=None, diff_path=None):
+def check_image(path, expected_size, thresholds, baseline_path=None, diff_path=None,
+                require_identical_pixels=False):
     result = {"current": path, "baseline": baseline_path, "checks": {}, "metrics": {}}
     if not os.path.isfile(path) or os.path.getsize(path) == 0:
         result["checks"]["exists"] = False
@@ -231,6 +237,34 @@ def check_image(path, expected_size, thresholds, baseline_path=None, diff_path=N
     if regressed:
         result["reason"] = (f"regresja: MAE={metrics['mean_abs_diff']:.5f} "
                             f"p95={metrics['p95_abs_diff']:.5f} SSIM={metrics['ssim']:.5f}")
+
+    # ZGODNOŚĆ CO DO BAJTU, obok progów, nie zamiast nich.
+    #
+    # Progi odpowiadają na pytanie „czy klatka jest DOSTATECZNIE podobna" i do
+    # porównania z baselinem po zmianie sceny to jest właściwe pytanie. Ale test
+    # determinizmu pyta o co innego: to samo wejście ma dać to samo wyjście. Tam
+    # „mieści się w progach" jest odpowiedzią za słabą — przepuszcza różnicę, której
+    # przy identycznym wejściu nie ma prawa być, i przepuszczałby ją po cichu.
+    #
+    # Wyrocznią jest suma SAMYCH PIKSELI (`IDAT`), a nie suma pliku: Blender stempluje
+    # w `tEXt` klucze `Date` i `RenderTime`, więc suma pliku różni się przy KAŻDYM
+    # renderze tej samej sceny i jako wyrocznia determinizmu jest bezużyteczna.
+    # Zmierzone 06.09.2026 na trzech klatkach: sumy plików różne na wszystkich trzech,
+    # sumy `IDAT` identyczne na wszystkich trzech.
+    if require_identical_pixels:
+        current_pixels = png_pixels_sha256.idat_sha256(path)
+        baseline_pixels = png_pixels_sha256.idat_sha256(baseline_path)
+        identical = current_pixels == baseline_pixels
+        result["checks"]["identical_pixels"] = identical
+        result["metrics"]["idat_sha256"] = current_pixels
+        result["metrics"]["baseline_idat_sha256"] = baseline_pixels
+        if not identical:
+            result["status"] = "fail"
+            result["reason"] = (
+                f"piksele różnią się co do bajtu: IDAT {current_pixels[:16]} "
+                f"wobec {baseline_pixels[:16]} — przy identycznym wejściu to jest "
+                "regres determinizmu, nawet gdy metryki mieszczą się w progach")
+
     return result
 
 
@@ -304,7 +338,8 @@ def load_manifest(path):
         return json.load(handle)
 
 
-def run(manifest, set_name, current_dir, prefix, baseline_dir, diff_dir, cameras=None):
+def run(manifest, set_name, current_dir, prefix, baseline_dir, diff_dir, cameras=None,
+        require_identical_pixels=False):
     scene_set = manifest["scene_sets"][set_name]
     thresholds = scene_set["thresholds"]
     expected = scene_set["resolution"]
@@ -314,7 +349,9 @@ def run(manifest, set_name, current_dir, prefix, baseline_dir, diff_dir, cameras
         name = f"{prefix}_{camera_id}.png"
         baseline_path = os.path.join(baseline_dir, name) if baseline_dir else None
         diff_path = os.path.join(diff_dir, f"{prefix}_{camera_id}_diff.png") if diff_dir else None
-        entry = check_image(os.path.join(current_dir, name), expected, thresholds, baseline_path, diff_path)
+        entry = check_image(os.path.join(current_dir, name), expected, thresholds,
+                            baseline_path, diff_path,
+                            require_identical_pixels=require_identical_pixels)
         entry["camera"] = camera_id
         entries.append(entry)
     meta_name = f"{prefix}_metadata.json"
@@ -341,6 +378,10 @@ def main():
     parser.add_argument("--diff-dir", help="katalog na before/current/diff przy regresji")
     parser.add_argument("--cameras", help="ograniczenie do wybranych kamer, po przecinku")
     parser.add_argument("--out", help="ścieżka raportu JSON")
+    parser.add_argument(
+        "--require-identical-pixels", action="store_true",
+        help="żądaj ZGODNOŚCI CO DO BAJTU pikseli z baselinem (suma IDAT), "
+             "a nie tylko mieszczenia się w progach")
     parser.add_argument("--markdown", help="ścieżka raportu Markdown")
     parser.add_argument("--allow-new-baseline", action="store_true",
                         help="brak baseline nie jest błędem (świadoma decyzja w zadaniu)")
@@ -350,7 +391,9 @@ def main():
 
     manifest = load_manifest(args.manifest)
     cameras = [c.strip() for c in args.cameras.split(",")] if args.cameras else None
-    report = run(manifest, args.scene_set, args.current, args.prefix, args.baseline, args.diff_dir, cameras)
+    report = run(manifest, args.scene_set, args.current, args.prefix, args.baseline,
+                 args.diff_dir, cameras,
+                 require_identical_pixels=args.require_identical_pixels)
 
     entries = report["images"] + [report["geometry"]]
     failed = [e for e in entries if e["status"] == "fail"]

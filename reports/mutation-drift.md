@@ -136,7 +136,7 @@ nie podaje liczby po triażu, więc jego wiersz ma w tej kolumnie kreskę, a nie
 | `tools/track/fetch_osm_routes.py` | wczytywanie | 0 | 0 | 0 | 9 | 9 | moduł bez zmian od `ff13aa6` — `git diff` pusty |
 | `tools/track/shapefile.py` | wczytywanie | 1 | 1 | 0 | 17 | 17 | moduł bez zmian od `ff13aa6` — `git diff` pusty |
 | `tools/track/normalize_stops.py` | wczytywanie | 0 | 0 | 0 | 9 | 9 | moduł bez zmian od `ff13aa6` — `git diff` pusty |
-| `tools/visual/compare.py` | wizualna | 0 | 0 | 0 | 24 | 24 | `ac7d0d0` zmienił moduł, liczba mutacji bez zmian (24), ocalałych nadal zero |
+| `tools/visual/compare.py` | wizualna | 0 | 0 | 0 | 24 | 25 | **6.D9 dołożył jedno porównanie** (zgodność sum `IDAT`), więc 24 → 25. Nowa mutacja jest **ZABITA** — pomiar celowany 06.09.2026: `==` → `!=` wywraca trzy testy (`test_te_same_piksele_z_innym_tEXt_sa_zgodne_co_do_bajtu`, `test_jeden_inny_piksel_zapala_bramke_mimo_ze_progi_go_przepuszczaja`, `test_json_wyniku_da_sie_zserializowac`), 1699/1703. Ocalałych nadal zero |
 | `tools/visual/framing.py` | wizualna | 1 | 1 | 0 | 22 | 22 | moduł bez zmian od `a9d6011` — `git diff` pusty |
 
 Kolumna „mutacji wtedy" jest liczbą z raportu triażu, „mutacji dziś" — policzoną z AST

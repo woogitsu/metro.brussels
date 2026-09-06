@@ -58,6 +58,32 @@ def sha256(path):
     return digest.hexdigest()
 
 
+# `idat_sha256` jest WOŁANE z tools/ci, a nie przepisane tutaj. Kopia dawałaby dwie
+# implementacje jednej wyroczni i jedną z nich niesprawdzoną przez testy tamtej.
+_CI_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "ci")
+if _CI_DIR not in sys.path:
+    sys.path.insert(0, _CI_DIR)
+import png_pixels_sha256 as PNGSUM  # noqa: E402
+
+
+def idat_sha256(path):
+    """Suma SHA-256 SAMYCH pikseli — chunków `IDAT`, bez metadanych PNG.
+
+    **Po co obok sumy całego pliku, a nie zamiast niej.** Obie liczby mówią co innego
+    i obie są potrzebne. Suma pliku identyfikuje **plik** — po niej poznaje się, że to
+    dokładnie ten artefakt, który wyszedł z tamtego przebiegu. Suma `IDAT` identyfikuje
+    **obraz** — i tylko ona nadaje się na wyrocznię determinizmu renderu.
+
+    **Zmierzone 06.09.2026** na dwóch przebiegach tej samej scenyodpowiednio (ten sam GLB,
+    te same kamery, ten sam Blender 5.2.1): z 18 chunków PNG różnią się **dwa**, oba
+    `tEXt` — `Date` (`2026/09/06 09:52:07` wobec `09:52:50`) i `RenderTime` (`00:29.17`
+    wobec `00:14.73`). Wszystkie trzy chunki `IDAT` są identyczne co do bajtu. Suma
+    całego pliku różni się więc na każdej z trzech klatek, a suma `IDAT` na żadnej —
+    i to jest cała przyczyna, dla której ta druga tu jest.
+    """
+    return PNGSUM.idat_sha256(path)
+
+
 # Progi i decyzje wokół renderu siedzą w `capture_plan.py`, bo tamten moduł da się
 # zaimportować bez Blendera, a ten nie. Nazwy zostają dostępne pod starym adresem,
 # bo `EEVEE_NEXT_SINCE` jest cytowane w komunikacie odmowy i w docstringach.
@@ -308,6 +334,7 @@ def main():
         record["file"] = path
         record["bytes"] = os.path.getsize(path)
         record["sha256"] = sha256(path)
+        record["idat_sha256"] = idat_sha256(path)
         record["wire_overlay"] = camera_id in wire_ids
         record["corner_visibility"] = round(framing.corner_visibility(cam_solved, bmin, bmax), 4)
         records.append(record)

@@ -92,11 +92,72 @@ tail -n 3 "$OUT/no-baseline.log"
 test ! -d visual-baseline || fail "baseline powstał bez jawnego zatwierdzenia"
 
 echo
-echo "[TEST 2/5] determinizm: przebieg B względem przebiegu A musi przejść"
+echo "[TEST 2/5] determinizm: przebieg B względem przebiegu A musi przejść CO DO BAJTU"
+# `--require-identical-pixels` od 2026-09-06 (pozycja 6.D9). Do tej pory ten test
+# pytał wyłącznie o progi — czyli „czy klatka jest DOSTATECZNIE podobna". Przy
+# identycznym wejściu to jest pytanie za słabe: różnica jednego piksela mieści się
+# w progach z manifestu i przechodziła tędy po cichu. Teraz porównywana jest suma
+# SAMYCH PIKSELI (chunki `IDAT`), a nie suma pliku — bo Blender stempluje w `tEXt`
+# klucze `Date` i `RenderTime`, więc suma pliku różni się przy KAŻDYM renderze tej
+# samej sceny. Zmierzone 2026-09-06 na sześciu klatkach: sumy plików różne na
+# wszystkich, sumy `IDAT` identyczne na wszystkich.
 python3 tools/visual/compare.py --set infrastructure --current renders/ci_b --prefix VIS_TUNNEL \
   --baseline renders/ci_a --diff-dir "$OUT/diff-determinism" \
+  --require-identical-pixels \
   --out "$OUT/determinism.json" --markdown "$OUT/determinism.md" \
-  || fail "dwa identyczne przebiegi renderu nie są zgodne"
+  || fail "dwa identyczne przebiegi renderu nie są zgodne co do bajtu"
+
+echo
+echo "[TEST 2b/5] kontrola negatywna: JEDEN piksel psuje zgodność co do bajtu"
+# Bramka, która nigdy nie zaświeciła, jest zdaniem o sobie. Ta zaświeca na różnicy
+# mniejszej, niż widzi próg — i to jest cała jej wartość.
+rm -rf renders/ci_pixel
+cp -r renders/ci_b renders/ci_pixel
+python3 - <<'PSUJ'
+import struct
+import zlib
+
+# Jeden bajt w strumieniu pikseli, bez ruszania czegokolwiek innego. Przepisanie
+# obrazu przez `pngio.write_*` zmieniłoby przy okazji kompresję i filtry, więc
+# różnica przestałaby być „jednym pikselem" — a to właśnie ona ma tu zaświecić.
+SCIEZKA = "renders/ci_pixel/VIS_TUNNEL_iso.png"
+with open(SCIEZKA, "rb") as handle:
+    surowe = handle.read()
+
+naglowek, reszta, chunki = surowe[:8], surowe[8:], []
+while reszta:
+    (dlugosc,) = struct.unpack(">I", reszta[:4])
+    rodzaj, dane = reszta[4:8], reszta[8:8 + dlugosc]
+    chunki.append((rodzaj, dane))
+    reszta = reszta[12 + dlugosc:]
+
+piksele = bytearray(zlib.decompress(
+    b"".join(d for r, d in chunki if r == b"IDAT")))
+# Bajt 1 to pierwszy kanał pierwszego piksela; bajt 0 to znacznik filtra wiersza.
+piksele[1] = (piksele[1] + 1) % 256
+nowy_idat = zlib.compress(bytes(piksele))
+
+wyjscie = [naglowek]
+wstawiony = False
+for rodzaj, dane in chunki:
+    if rodzaj == b"IDAT":
+        if wstawiony:
+            continue
+        dane, wstawiony = nowy_idat, True
+    wyjscie.append(struct.pack(">I", len(dane)) + rodzaj + dane
+                   + struct.pack(">I", zlib.crc32(rodzaj + dane) & 0xFFFFFFFF))
+with open(SCIEZKA, "wb") as handle:
+    handle.write(b"".join(wyjscie))
+print("[SETUP] zmieniono JEDEN kanał JEDNEGO piksela w klatce iso")
+PSUJ
+if python3 tools/visual/compare.py --set infrastructure --current renders/ci_pixel \
+    --prefix VIS_TUNNEL --baseline renders/ci_a --require-identical-pixels \
+    --out "$OUT/one-pixel.json" >"$OUT/one-pixel.log" 2>&1; then
+  cat "$OUT/one-pixel.log"
+  fail "zmiana jednego piksela przeszła przez bramkę zgodności co do bajtu"
+fi
+grep -q 'co do bajtu' "$OUT/one-pixel.log" || fail "bramka odmówiła, ale nie z powodu pikseli"
+echo "kontrola negatywna: jeden piksel zapala bramkę"
 
 echo
 echo "[TEST 3/5] pusta/czarna klatka musi zostać odrzucona"
