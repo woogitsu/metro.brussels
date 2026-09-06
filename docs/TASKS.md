@@ -700,7 +700,8 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.D16 | **`docs/09-data-provenance.md` twierdzi cos, co dla dwoch miejsc jest nieprawda** — ze `retrieved_at` nie moze zmieniac byte-deterministycznego wyjscia, a w `build_alignment.py` i `normalize_stops.py` trafia wprost do commitowanego pliku | znalezione przy 6.D12. Pomiar i przepisanie zdania, ktore przestalo byc prawdziwe | S |
 | 6.D17 | **ZROBIONE (06.09.2026).** `docs/23-environment.md` ma nową §4.1 z dwoma **wykonanymi** przebiegami tego samego pliku binarnego (`Godot_v4.7.2-stable_mono_linux.x86_64 --headless --path src/Game`): bez `DOTNET_ROOT` i bez `dotnet` w `PATH` — sygnał 11, `Failed to load hostfxr`, 0,34 s; z `DOTNET_ROOT="$HOME/.dotnet"` — hostfxr się ładuje i proces idzie dalej do kodu gry (pada dopiero na osobnym, niepowiązanym braku manifestu chunków — w tym środowisku nie ma Blendera). Zmierzone: `DOTNET_ROOT` sam wystarcza, `dotnet` w `PATH` jest zbędny, jeśli `DOTNET_ROOT` wskazuje katalog z `host/fxr/*/libhostfxr.so`; zły katalog **nie** korzysta z tego skrótu i wraca do tej samej awarii przez `dotnet` odpalane przez powłokę. `doctor.sh` dostał nową sondę **`godot .NET hostfxr`**, bo istniejąca (`--version`) przechodzi identycznie z `DOTNET_ROOT` i bez niego — nie dotyka mono, więc nic by nie złapała; nowa sonda sprawdza `DOTNET_ROOT` (z `host/fxr/*/libhostfxr.so`) albo `dotnet` w `PATH` i nazywa przyczynę zamiast milczeć do limitu czasu, potwierdzone w trzech wariantach (brak obu, sam `DOTNET_ROOT`, sam `dotnet` w `PATH`). Zestaw narzędzi **1716/1716** w 81 modułach, `dotnet test tests/Sim.Tests` **528/528**. Druga postać usterki z opisu tej pozycji (zawieszenie bez wyjścia przy brakującym assembly) nie została odtworzona osobno — nie ma tu scenariusza z hostfxr załadowanym i brakującym konkretnym assembly do zademonstrowania; dokument nazywa ją i mówi wprost, że nie jest tu pokazana. Poza zakresem: `.github/workflows/` nietknięte. Treść pierwotna: **`docs/23-environment.md` nie mowi, ze Godot wymaga `DOTNET_ROOT`, nie tylko `PATH`** — bez tego pada `Failed to load hostfxr` sygnalem 11, a przy brakujacym assembly wisi bez ani jednego wiersza na stdout do wypalenia limitu czasu | znalezione przy 6.C3, na wlasnej skorze. Dokument ma powiedziec to, co trzeba ustawic | S |
 | 6.A11 | **ZROBIONE (06.09.2026).** `Sim.Runner` odmawia nieznanej opcji w kazdym z **dziewieciu** polecen: `line ... --coast-from-m X` konczy sie teraz kodem **1** i komunikatem `BLAD: polecenie line nie zna opcji --coast-from-m. Zna: ...` — wczesniej kod 0 i przebieg nie do odroznienia od poprawnego. Kod wyjscia NIE jest nowa stala: to ta sama, ktora `Program.cs` daje wszystkim odmowom argumentowym przez wspolny handler `ArgumentException`. Tabela `KnownOptions` jest reczna, zeby komunikat wymienial opcje TEGO polecenia, a nie sume wszystkich — i dlatego dostala bramke `tools/tests/test_runner_options.py`, ktora czyta `Program.cs` jako tekst, wyprowadza nazwy z wywolan `Option`/`RequiredNumber`/`OptionalNumber`/`Array.IndexOf` i porownuje oba zbiory w OBIE strony, bez `dotnet`. Nietkniete i sprawdzone uruchomieniem: argument pozycyjny (`compare A B`) przechodzi, flaga `--atp` nie zjada nastepnego czlonu, ta sama komenda bez nieznanej opcji nadal konczy sie kodem 0. Cztery WYKONANE kontrole negatywne, kazda wywraca dokladnie te testy, ktore ma (`dotnet test` 528 -> **532**). Pomiar w `reports/nieznana-opcja-runnera.md`. Tresc pierwotna: **`Sim.Runner` przyjmuje nieznana opcje w milczeniu** — `line ... --coast-from-m X` konczy sie kodem 0, choc ani opcji, ani wartosci `X` nie ma w kodzie | zmierzone przy 6.D15 (#301): dwie komendy z pola „Weryfikacja" pozycji 6.A6 daly pliki identyczne co do bajtu. Wyrocznia zepsuta w strone „wszystko w porzadku" | M |
-| 6.A12 | **`budget --trains 32` melduje `N_max=1`** — kolumna `N_zgl` nie jest liczba skladow, ktore bieglyby po planie | zmierzone przy 6.D15 (#301). Pomiar wydajnosci, ktory nie obciaza tego, co obiecuje obciazyc, jest bramka bez zebow — a na tej liczbie ma stanac 6.D2 | M |
+| 6.A12 | **ZROBIONE (06.09.2026).** Dwa mechanizmy, oba zmierzone, zaden nie jest bledem. **Pierwszy: okno krotsze niz jeden odstep.** Sklady sa zglaszane na krok `i x odstep`, wiec przy `--headway-s 120` (14 400 krokow) i `--steps 1000` (okno **8,3 s**) sklad numer 1 wypada poza okno pomiaru — `N_max = 1` niezaleznie od `--trains`. **Drugi: sufit 12 skladow na tej osi.** Przy oknie 1667 s i odstepie 30 s ORAZ 10 s `N_max` przestaje rosnac na **12**, a `N_sr` stoi na **7,56** — dla 12, 13, 16 i 24 zgloszonych identycznie co do cyfry; przybywa wylacznie kolumna „czeka" (4,05 -> 4,97 -> 7,72 -> 14,79). Mechanizmem jest **brama wjazdowa** `LineCore.EntryIsClear`: sklad wjezdza tylko, gdy zaden blok nakladajacy sie na jego obrys w punkcie wjazdu nie jest zajety, a plan ma 23 bloki. Dla 6.D2 istotne: **dziewiec skladow jest osiagalne** (`N_max = 9` przy odstepie 10 s i oknie 200 000 krokow), koszt **4,540 us/krok** = 0,05 % budzetu 1/120 s, a przy suficie 12 — **5,995 us/krok** = 0,07 %. Pomiar w `reports/obsada-planu.md`. Tresc pierwotna: **`budget --trains 32` melduje `N_max=1`** — kolumna `N_zgl` nie jest liczba skladow, ktore bieglyby po planie | zmierzone przy 6.D15 (#301). Pomiar wydajnosci, ktory nie obciaza tego, co obiecuje obciazyc, jest bramka bez zebow — a na tej liczbie ma stanac 6.D2 | M |
+| 6.A13 | **Plan CBTC wywraca `Sim.Runner` sygnalem, nie odmowa** — `budget --signalling data/design/signalling/cbtc-test-2026.json` konczy sie kodem **134** i stosem wywolan, bo `KeyNotFoundException` z `SignallingPlan.FromJson` nie jest lapany przez wspolny handler `Program.Main` | znalezione przy 6.A12. Plik jest opisem obszaru i trybu (`area_id`, `mode`, `status`), a nie planem blokow — komunikat ma to powiedziec, a nie sypnac stosem | S |
 | 6.B23 | **Licznik „modul `src/Sim` bez testu" skanuje razem z `obj/`** — po `dotnet build` wypisuje cztery falszywe wiersze `BRAK TESTU` dla plikow generowanych | zmierzone przy 6.D15 (#301). Licznik zyje dzis wylacznie jako wiersz powloki w zapisie historycznym 6.A8; jako bramka w `tools/tests/` nie istnieje | S |
 | 6.D18 | **`--only` w `mutation_sweep.py` dopasowuje podciag, nie nazwe pliku** — `--only sweep.py` obejmuje `tools/blender/sweep.py` (117 mutacji) **i** `tools/blender/tunnel_sweep.py` (68) | zmierzone przy 6.D15 (#301). Kazdy raport z przegladu mutacyjnego wolany basename'em mowi o innym zbiorze plikow, niz nazywa | M |
 | 6.D19 | **Modul, ktory sie nie importuje, nie daje ani jednego wiersza `FAIL` ani wiersza `N/M przeszlo`** — `test_all.py` konczy sie wtedy kodem 1, ale kazdy grep po `FAIL` pokazuje zero i wyglada jak zielono | zmierzone przy 6.D15 (#301) na wlasnym module z bledem skladni. Ta sesja sprawdzala zielonosc grepem i przez chwile wierzyla, ze drzewo jest zielone | M |
@@ -2314,6 +2315,44 @@ znika stąd i pojawia się jako wpis z sześcioma polami wyżej w tym pliku.
   WYKONANA (przywrocona zaszyta nazwa) wywraca dokladnie nowe testy.
 - **Poza zakresem:** zmiana kodow wyjscia i ujednolicanie ich — ta sama granica,
   ktora postawila 6.A10.
+- **Zależy od:** nic.
+
+##### 6.A13 · Plan, ktorego rdzen nie umie wczytac, wywraca proces sygnalem
+
+- **Skąd:** zmierzone 06.09.2026 przy 6.A12 (`reports/obsada-planu.md` §5). Proba
+  uzycia `data/design/signalling/cbtc-test-2026.json` jako planu dla polecenia
+  `budget` konczy sie kodem **134** i stosem wywolan z
+  `SignallingPlan.FromJson … JsonElement.GetProperty`. Powod jest prosty i nie jest
+  bledem danych: ten plik opisuje **obszar i tryb** (`area_id`, `mode`, `status`),
+  a nie plan blokow — brakuje mu `blocks` i `plan_id`. Bledem jest reakcja:
+  `KeyNotFoundException` nie stoi na liscie wyjatkow lapanych przez wspolny handler
+  w `Program.Main` (`IOException`, `ArgumentException`, `FormatException`,
+  `InvalidOperationException`), wiec zamiast odmowy z komunikatem leci stos.
+- **Wejście:** `src/Sim/Signalling/SignallingPlan.cs` (`FromJson`),
+  `src/Sim.Runner/Program.cs` (handler wyjatkow w `Main`),
+  `data/design/signalling/cbtc-test-2026.json`, `data/design/signalling/classic-2026.json`
+  (plik, ktory sie wczytuje — roznica miedzy nimi jest tu cala trescia),
+  `tests/Sim.Tests/RunnerCommandTests.cs` (wzorzec testu kodu wyjscia z #291 i #302).
+- **Wyjście:** odmowa nazywajaca brakujace pole i plik, kod wyjscia z rodziny odmow
+  argumentowych, plus test kodu wyjscia na pliku, ktory planem nie jest.
+- **Weryfikacja:**
+  ```bash
+  dotnet run --project src/Sim.Runner -c Release -- budget \
+      --axis data/track/L1_A.json \
+      --signalling data/design/signalling/cbtc-test-2026.json \
+      --limit-kmh 72 --exchange-s 20 --headway-s 10 --steps 2000 --trains 2
+  dotnet test tests/Sim.Tests
+  ```
+  Oczekiwane: pierwsza komenda konczy sie odmowa nazywajaca brakujace pole, a nie
+  kodem 134 ze stosem; zestaw rdzenia zielony o liczbie testow wiekszej niz przed.
+- **Skończone, gdy:** kazdy plik JSON, ktory nie jest planem blokow, konczy sie odmowa
+  z nazwa brakujacego pola, a kontrola negatywna WYKONANA (zdjeta obsluga) wywraca
+  dokladnie nowy test. Test uzywa pliku z `data/`, ktory naprawde tam lezy — nie
+  atrapy — bo to ten plik wywrocil proces.
+- **Poza zakresem:** **dopisywanie planu CBTC w formacie, ktory rdzen czyta.** To jest
+  praca projektowa i osobna decyzja; ta pozycja zajmuje sie wylacznie tym, ze zly plik
+  ma dac odmowe, a nie sygnal. Poza zakresem takze ujednolicanie kodow wyjscia — ta
+  sama granica, ktora postawily 6.A10 i 6.A11.
 - **Zależy od:** nic.
 
 ### Czego agent nie ruszy bez decyzji
