@@ -102,7 +102,29 @@ NOTATIONS = {
 #: (`reports/T-211-station-layout.md`). Z filtrem oba raporty raportowały brak
 #: commita, mając go w nagłówku. Bez filtru fałszywych trafień nie ma ani jednego:
 #: przeskan 44 nagłówków daje 43 tokeny i wszystkie są SHA.
-COMMIT = re.compile(r'`([0-9a-f]{7,40})`')
+#:
+#: DŁUGOŚĆ JEST DOKŁADNA (`{7}` lub `{40}`), NIE ZAKRESEM (`{7,40}`) — poprawka
+#: 6.D13, znaleziona przy 6.D10. `{7,40}` łapało też `9e2066aef7ef` w nagłówku
+#: `reports/T-400-stage-3b.md` — 12 znaków samego hexu, WYGLĄDA jak skrócony SHA
+#: i trafia w ten sam wzorzec, ale to hash builda Blendera 5.2.1 LTS, zacytowany
+#: w opisie środowiska pomiaru, a nie commit (`reports/commit-naglowka-a-raport.md`
+#: §4 opisuje to pierwszy raz; `git cat-file -e` na nim zawodzi, bo obiektu o takiej
+#: treści nikt nigdy nie stworzył). Zmierzone 06.09.2026 na całym `reports/` (80
+#: plików): wzorzec `{7,40}` łapie w nagłówkach **90** tokenów, a ich długości to
+#: `{7: 78, 12: 1, 40: 11}` — **dokładnie jeden** ma długość inną niż 7 albo 40,
+#: i to jest właśnie ten token. Pełny werdykt na wszystkich 90:
+#: `reports/wzorzec-commita-falszywe-trafienia.md`.
+#:
+#: Dlaczego zawężenie do zbioru {7, 40}, a nie np. `{7,11}` (odcięcie tuż przed
+#: 12) — te dwie liczby nie są arbitralnym cięciem, tylko dwoma jedynymi formami,
+#: jakie faktycznie produkuje `git`: `git rev-parse --short` (domyślnie 7 znaków)
+#: i `git rev-parse` (40 znaków, pełny SHA-1). Skrócenie do jakiejkolwiek innej
+#: długości nie jest czymś, co ten projekt kiedykolwiek robi — zmierzone: w 90
+#: tokenach nie ma ANI JEDNEGO w przedziale 8..39 poza tym jednym 12-znakowym,
+#: który i tak nie jest commitem. Test `test_wzorzec_commita_lapie_realne_dlugosci_i_nie_lapie_hasza_narzedzia`
+#: pilnuje obu stron tego zawężenia: że skrócony i pełny SHA nadal wpadają, i że
+#: hash builda Blendera już nie.
+COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 
 #: Ile raportów musi wpaść do pętli. Bez tego progu wskazanie katalogu na pusty
 #: albo literówka w globie dawałyby pustą pętlę i zieloną bramkę. Raportów jest
@@ -259,6 +281,39 @@ def test_konwencja_naglowka_jest_wyczytana_z_raportow_ktore_ja_juz_maja():
             f"{name}: wzorzec daty łapie coś po usunięciu wszystkich dat z nagłówka")
         assert not _commits(COMMIT.sub("", header)), (
             f"{name}: wzorzec commita łapie coś po usunięciu wszystkich SHA")
+
+
+def test_wzorzec_commita_lapie_realne_dlugosci_i_nie_lapie_hasza_narzedzia():
+    """Kontrola detektora dla 6.D13 — para w obie strony, jak dla wzorca ścieżki.
+
+    `9e2066aef7ef` (hash builda Blendera w nagłówku `T-400-stage-3b.md`) jest
+    sam hexem, w grawisach, długości 12 — nierozróżnialny od SHA samą treścią.
+    Jedyny sygnał, na którym da się to rozstrzygnąć bez zgadywania semantyki
+    zdania, to długość: ten projekt cytuje commity WYŁĄCZNIE jako skrócone (7)
+    albo pełne (40) SHA — zmierzone na wszystkich 90 tokenach w `reports/`,
+    zobacz `reports/wzorzec-commita-falszywe-trafienia.md`. Test pilnuje, żeby
+    zawężenie z `{7,40}` (zakres) do `{7}`/`{40}` (dokładne długości) złapało
+    TYLKO ten jeden fałszywy przypadek, a nie zamieniło wzorzec w martwy.
+    """
+    # 1. Skrócony SHA (7 znaków) — najczęstsza forma w tym repo (78/90 tokenów).
+    assert COMMIT.findall("**Zmierzone na commicie:** `619b179`") == ["619b179"]
+    # 2. Pełny SHA (40 znaków) — druga realna forma (11/90 tokenów).
+    pelny = "fc5db5ff09eb3257e18ac6d8aaa7c5811f32fa18"
+    assert COMMIT.findall(f"scalone na `{pelny}`") == [pelny]
+    # 3. KONTROLA NEGATYWNA — token, który wywołał tę poprawkę. Sam hex, w
+    #    grawisach, 12 znaków: dokładnie ta postać, którą stary wzorzec `{7,40}`
+    #    łapał jako SHA. Musi PRZESTAĆ być łapany.
+    assert COMMIT.findall(
+        "Blender **5.2.1 LTS** (hash `9e2066aef7ef`)") == []
+    # 4. Wzorzec nie stał się martwy w drugą stronę: długość spoza {7, 40}, ale
+    #    NIE 12 (żeby nie było to zawężenie „na jeden token"), też odpada —
+    #    zawężenie jest do dwóch długości, nie do wykluczenia jednej.
+    assert COMMIT.findall("build `abc1234567890abcdef`") == []  # 20 znaków
+    # 5. Sam stary wzorzec `{7,40}` (zakres) łapał token z kontroli 3 — to jest
+    #    DOWÓD, że problem istniał, nie tylko twierdzenie o nim.
+    stary_wzorzec = re.compile(r'`([0-9a-f]{7,40})`')
+    assert stary_wzorzec.findall(
+        "Blender **5.2.1 LTS** (hash `9e2066aef7ef`)") == ["9e2066aef7ef"]
 
 
 def test_data_i_commit_stoja_w_naglowku_a_nie_gdziekolwiek_w_raporcie():
