@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Testy bazowych narzędzi Metro BXL, bez Blendera i bez pytest."""
-import sys, os, json, tempfile, math, threading
+import sys, os, json, tempfile, math, threading, time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),"..",".."))
 sys.path.insert(0,os.path.join(ROOT,"tools","blender")); sys.path.insert(0,os.path.join(ROOT,"tools","track")); sys.path.insert(0,os.path.join(ROOT,"tools","physics")); sys.path.insert(0,os.path.join(ROOT,"tools","data")); sys.path.insert(0,os.path.join(ROOT,"tools","tests"))
@@ -316,14 +316,25 @@ def _discover():
     których bramka nie mierzy, a to dokładnie ta luka, którą bramka ma zamykać.
     Kopia dostaje inną nazwę modułu, więc strażnik `__name__=="__main__"` na jej
     końcu nie odpala `main()` rekurencyjnie.
+
+    Zwraca `(tests, module_of)`: `tests` jest płaską listą `(nazwa, funkcja)` —
+    kształt, którego `len(tests)` używa reszta tego pliku i którego literalnie
+    szuka `test_assertion_gate.py` — a `module_of` to lista tej samej długości,
+    plik źródłowy (bez `.py`) dla każdego testu na tym samym indeksie. Osobna
+    lista, nie słownik `nazwa -> moduł`, bo dwa różne pliki testowe mogą mieć
+    funkcję o tej samej nazwie (żaden dziś nie ma, ale nic tego nie gwarantuje).
     """
     tests=[]
+    module_of=[]
     for path in AG.paths():
-        name=os.path.basename(path)[:-3]
+        module_file=os.path.basename(path)[:-3]
+        name=module_file
         if name=="test_all": name="test_all__mierzony"
         mod=AG.load_instrumented(path,name)
-        tests+=[(n,f) for n,f in sorted(vars(mod).items()) if n.startswith("test_") and callable(f)]
-    return tests
+        found=[(n,f) for n,f in sorted(vars(mod).items()) if n.startswith("test_") and callable(f)]
+        tests+=found
+        module_of+=[module_file]*len(found)
+    return tests, module_of
 
 def main():
     """Uruchom zestaw. Test, który przeszedł bez asercji, jest awarią, nie sukcesem.
@@ -331,19 +342,39 @@ def main():
     Licznik `przeszło` liczy WYŁĄCZNIE testy, które coś sprawdziły. Pominięte mają
     własną linię i własny mianownik — dopisanie `skip()` nie może po cichu poprawić
     statystyki.
+
+    6.D11: obok werdyktu każdego testu mierzony jest jego czas, zsumowany per plik
+    źródłowy. To WYŁĄCZNIE wypis — próg czasu żyje w `test_suite_runtime_budget.py`
+    i w kroku CI, nie tutaj. Powód jest zmierzony na `mutation_sweep.py` (którego
+    nie wolno mi dotykać w tym zadaniu): `run_suite` czyta z tego procesu WYŁĄCZNIE
+    linię `N/M przeszło` i kod wyjścia, i uznaje mutację za PRZEŻYTĄ dokładnie wtedy,
+    gdy oba mówią „ok". Kod wyjścia zależny od czasu zamieniłby zwykłe spowolnienie
+    maszyny w setki fałszywych „zabić" naraz — tej samej klasy usterki, jaką opisuje
+    `reports/wyrocznia-mutacyjna-falszywe-zabicia.md`, tylko odwróconej w drugą stronę.
     """
-    tests=_discover(); passed=0; skipped=[]; failed=[]; checks_total=0
-    for name,fn in tests:
+    tests,module_of=_discover(); passed=0; skipped=[]; failed=[]; checks_total=0
+    module_seconds={}; module_counts={}
+    suite_start=time.perf_counter()
+    for (name,fn),module_file in zip(tests,module_of):
         AG.reset(); outcome=None
+        test_start=time.perf_counter()
         try: fn()
         except Exception as e: outcome=e
+        module_seconds[module_file]=module_seconds.get(module_file,0.0)+(time.perf_counter()-test_start)
+        module_counts[module_file]=module_counts.get(module_file,0)+1
         checks=AG.hits(); checks_total+=checks
         state,message=AG.verdict(outcome,checks)
         if state=="ok": print(f"  ok   {name}"); passed+=1
         elif state=="skip": print(f"  SKIP {name}: {message}"); skipped.append(name)
         else: print(f"  FAIL {name}: {message}"); failed.append(name)
+    suite_elapsed=time.perf_counter()-suite_start
     print(); print(f"  {passed}/{len(tests)-len(skipped)} przeszło")
     if skipped: print(f"  pominięto (nie liczy się jako zaliczone): {len(skipped)} — {', '.join(skipped)}")
+    print(); print("  czas per moduł (malejąco):")
+    for module_file in sorted(module_seconds,key=lambda m:-module_seconds[m]):
+        secs=module_seconds[module_file]; n=module_counts[module_file]
+        print(f"    {secs:8.3f} s  {module_file}.py  ({n} testów)")
+    print(f"  RAZEM {suite_elapsed:.3f} s, {len(tests)} testów, {len(module_seconds)} modułów")
     broken=AG.suite_verdict(len(tests),checks_total)
     if broken: print(f"  FAIL <bramka asercji>: {broken}"); return 1
     return 1 if failed else 0

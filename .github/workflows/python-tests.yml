@@ -44,7 +44,34 @@ jobs:
 
       - name: Run tool tests
         shell: bash
-        run: python3 tools/tests/test_all.py
+        # 6.D11: ten sam krok mierzy CZAS ŚCIANY całego procesu obok poprawności.
+        # Zestaw jest bramką KAŻDEGO PR-a i do 06.09.2026 nikt tego czasu nie
+        # pilnował, mimo że rośnie z każdym zadaniem.
+        #
+        # Kod wyjścia `test_all.py` zostaje WYŁĄCZNIE o poprawności testów —
+        # `tools/tests/mutation_sweep.py` (`run_suite`) czyta z tego procesu
+        # TYLKO linię `N/M przeszło` i kod wyjścia, i bierze zero + równość za
+        # PRZEŻYCIE mutacji. Gdyby kod wyjścia zależał też od czasu, zwykłe
+        # spowolnienie maszyny zamieniłoby się w falę fałszywych „zabić" — dlatego
+        # próg jest sprawdzany TU, w bash, PO zakończeniu procesu, a nie przez
+        # zmianę `return` w `main()`.
+        #
+        # Próg NIE jest wpisany tu z ręki: `tools/tests/test_suite_runtime_budget.py`
+        # niesie `SUITE_RUNTIME_BUDGET_S`, jedno miejsce prawdy z uzasadnieniem
+        # marginesu w docstringu, i to jego czyta poniższy `python3 -c`. Podniesienie
+        # progu w tamtym pliku wystarcza, bez zmiany tego YAML-a.
+        run: |
+          set -euo pipefail
+          budget="$(python3 -c "import sys; sys.path.insert(0,'tools/tests'); import test_suite_runtime_budget as B; print(B.SUITE_RUNTIME_BUDGET_S)")"
+          start=$(date +%s.%N)
+          python3 tools/tests/test_all.py
+          end=$(date +%s.%N)
+          elapsed=$(python3 -c "print(f'{$end - $start:.3f}')")
+          echo "czas sciany test_all.py: ${elapsed} s (prog ${budget} s)"
+          python3 -c "import sys; sys.exit(0 if float('$elapsed') <= float('$budget') else 1)" || {
+            echo "::error::zestaw test_all.py przekroczyl prog czasu sciany: ${elapsed} s > ${budget} s"
+            exit 1
+          }
 
       - name: Validate committed alignments
         shell: bash
