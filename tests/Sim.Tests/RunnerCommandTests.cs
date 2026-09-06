@@ -276,4 +276,87 @@ public sealed class RunnerCommandTests
 
         Assert.AreEqual(2, result.ExitCode);
     }
+
+    // --- nieznana opcja (6.A11) --------------------------------------------------
+
+    /// <summary>
+    /// Sedno pozycji 6.A11. Przed nią <c>line ... --coast-from-m X</c> kończyło się
+    /// <b>kodem 0</b>: nieznana opcja była przemilczana, a jej wartość — nawet
+    /// nieliczbowa — nigdy nie czytana. Zmierzone przy 6.D15 (#301): dwa przejazdy,
+    /// z tą opcją i bez niej, dały pliki identyczne co do bajtu, więc weryfikacja
+    /// oparta na takiej komendzie spełniała się przez NIEZROBIENIE zadania.
+    /// </summary>
+    [TestMethod]
+    public void Line_z_nieznana_opcja_konczy_sie_kodem_jeden()
+    {
+        var result = Run(
+            "line", "--axis", "data/track/L1_A.json", "--limit-kmh", "72",
+            "--exchange-s", "20", "--coast-from-m", "X", "--trace", "build/x.csv");
+
+        Assert.AreEqual(1, result.ExitCode);
+        StringAssert.Contains(result.StdErr, "--coast-from-m");
+        StringAssert.Contains(result.StdErr, "nie zna opcji");
+    }
+
+    /// <summary>
+    /// Odmowa ma być per polecenie, a nie wspólną listą wszystkich opcji runnera:
+    /// <c>--trains</c> istnieje w <c>budget</c> i nie istnieje w <c>service-day</c>.
+    /// Test pilnuje, że komunikat wymienia opcje TEGO polecenia — bez tego lista
+    /// znanych nazw byłaby sumą i odmowa przestałaby cokolwiek znaczyć.
+    /// </summary>
+    [TestMethod]
+    public void Odmowa_wymienia_opcje_tego_polecenia_a_nie_wszystkich()
+    {
+        var result = Run("service-day", "--timetable", "build/nie-ma.json", "--trains", "8");
+
+        Assert.AreEqual(1, result.ExitCode);
+        StringAssert.Contains(result.StdErr, "--trains");
+        StringAssert.Contains(result.StdErr, "--at");
+        Assert.IsFalse(
+            result.StdErr.Contains("--headway-s", StringComparison.Ordinal),
+            "komunikat wymienia opcje innego polecenia: " + result.StdErr);
+    }
+
+    /// <summary>
+    /// Kontrola drugiego kierunku: argument POZYCYJNY nie zaczyna się od <c>--</c>
+    /// i ma przejść nietknięty. <c>compare</c> bierze dwie ścieżki pozycyjnie, więc
+    /// odmowa zbudowana na „wszystko, czego nie znam" wywróciłaby to polecenie
+    /// w całości. Kod 1 pochodzi tu z czytania pliku, nie z rozbioru argumentów —
+    /// i to jest cała treść tego testu.
+    /// </summary>
+    [TestMethod]
+    public void Argument_pozycyjny_nie_jest_brany_za_nieznana_opcje()
+    {
+        var result = Run("compare", "build/nie-ma-a.csv", "build/nie-ma-b.csv", "--tolerance", "0");
+
+        Assert.IsFalse(
+            result.StdErr.Contains("nie zna opcji", StringComparison.Ordinal),
+            "argument pozycyjny wzięty za opcję: " + result.StdErr);
+    }
+
+    /// <summary>
+    /// Flaga bez wartości (<c>--atp</c>) nie może zjadać następnego członu. Gdyby
+    /// pomijanie wartości objęło także flagi, <c>--atp --axis …</c> zjadłoby
+    /// <c>--axis</c> i polecenie odmówiłoby z powodu BRAKU osi zamiast z powodu
+    /// nieczytelnego pliku. Test nie ogląda kodu wyjścia (oba warianty dają 1) tylko
+    /// POWÓD odmowy — bo to on odróżnia zjedzony człon od przeczytanego. Ścieżka
+    /// celowo wskazuje plik, którego nie ma: test ma nie zależeć od katalogu
+    /// roboczego, w którym uruchomiono zestaw.
+    /// </summary>
+    [TestMethod]
+    public void Flaga_bez_wartosci_nie_zjada_nastepnego_czlonu()
+    {
+        var result = Run(
+            "budget", "--atp", "--axis", "data/track/nie-ma-takiej-osi.json",
+            "--signalling", "data/design/signalling/classic-2026.json",
+            "--limit-kmh", "72", "--exchange-s", "20", "--headway-s", "120",
+            "--steps", "200", "--trains", "1");
+
+        Assert.IsFalse(
+            result.StdErr.Contains("budget wymaga --axis", StringComparison.Ordinal),
+            "flaga --atp zjadła następny człon: " + result.StdErr);
+        Assert.IsFalse(
+            result.StdErr.Contains("nie zna opcji", StringComparison.Ordinal),
+            "flaga --atp została odrzucona: " + result.StdErr);
+    }
 }

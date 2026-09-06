@@ -33,6 +33,60 @@ public static class Program
 
     private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
+    /// <summary>
+    /// Opcje, które każde polecenie naprawdę czyta — osobno te z wartością i osobno
+    /// flagi bez wartości.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Powód jest zmierzony, nie wymyślony. 6.D15 (#301) uruchomiło komendę z pola
+    /// „Weryfikacja" pozycji 6.A6: <c>line … --coast-from-m X</c>. Opcji
+    /// <c>--coast-from-m</c> nie ma nigdzie w <c>src/</c>, <c>X</c> nie jest liczbą —
+    /// a proces kończył się <b>kodem 0</b> i normalnym przebiegiem. Dwa wywołania,
+    /// z opcją i bez niej, dały pliki identyczne co do bajtu. Literówka w nazwie opcji
+    /// była więc nieodróżnialna od opcji działającej, a weryfikacja oparta na takiej
+    /// komendzie spełniała się przez NIEZROBIENIE zadania.
+    /// </para>
+    /// <para>
+    /// Kształt odmowy jest wzięty z <c>RunPlan.KnownArguments</c> po stronie Godota,
+    /// która odmawia nieznanemu argumentowi od dawna; tu chodziło o to, żeby rdzeń
+    /// przestał być pod tym względem łagodniejszy od sceny.
+    /// </para>
+    /// <para>
+    /// Tabela jest ręczna, ale nie jest zdana na czyjąś pamięć:
+    /// <c>tools/tests/test_runner_options.py</c> wyprowadza te same nazwy z wywołań
+    /// <c>Option</c>, <c>RequiredNumber</c>, <c>OptionalNumber</c> i
+    /// <c>Array.IndexOf</c> w treści każdego polecenia i porównuje zbiory. Opcja
+    /// dopisana do kodu bez dopisania jej tutaj zapala tę bramkę.
+    /// </para>
+    /// </remarks>
+    private static readonly IReadOnlyDictionary<string, (string[] Values, string[] Flags)> KnownOptions =
+        new Dictionary<string, (string[] Values, string[] Flags)>(StringComparer.Ordinal)
+        {
+            ["drive"] = (new[] { "--out", "--sample-every" }, Array.Empty<string>()),
+            ["replay"] = (new[]
+            {
+                "--axis", "--exchange-s", "--keys", "--limit-kmh", "--notch-rate",
+                "--out", "--sample-every", "--signalling", "--stop-window-m",
+            }, new[] { "--atp" }),
+            ["compare"] = (new[] { "--tolerance" }, Array.Empty<string>()),
+            ["axis"] = (new[] { "--axis", "--dump-points", "--manifest" }, Array.Empty<string>()),
+            ["parity"] = (Array.Empty<string>(), Array.Empty<string>()),
+            ["braking"] = (Array.Empty<string>(), Array.Empty<string>()),
+            ["line"] = (new[]
+            {
+                "--axis", "--brake-usage", "--calls", "--exchange-s", "--limit-kmh",
+                "--load", "--signalling", "--stop-window-m", "--timetable", "--trace",
+            }, Array.Empty<string>()),
+            ["budget"] = (new[]
+            {
+                "--axis", "--brake-usage", "--exchange-s", "--headway-s", "--limit-kmh",
+                "--load", "--out", "--repeats", "--signalling", "--steps",
+                "--stop-window-m", "--trains", "--turnback-s", "--warmup",
+            }, new[] { "--atp" }),
+            ["service-day"] = (new[] { "--at", "--out", "--timetable" }, Array.Empty<string>()),
+        };
+
     /// <summary>Punkt wejścia.</summary>
     public static int Main(string[] args)
     {
@@ -44,6 +98,7 @@ public static class Program
 
         try
         {
+            RejectUnknownOptions(args[0], args);
             return args[0] switch
             {
                 "drive" => Drive(args),
@@ -62,6 +117,51 @@ public static class Program
         {
             Console.Error.WriteLine("BŁĄD: " + exception.Message);
             return 1;
+        }
+    }
+
+    /// <summary>
+    /// Odmawia, gdy polecenie dostało opcję, której nie czyta.
+    /// </summary>
+    /// <remarks>
+    /// Sprawdzane są wyłącznie człony zaczynające się od <c>--</c>; argumenty
+    /// pozycyjne (dwie ścieżki polecenia <c>compare</c>) przechodzą nietknięte.
+    /// Człon następujący po znanej opcji z wartością jest pomijany, żeby wartość
+    /// nigdy nie została wzięta za opcję. Polecenia nieznanego ta metoda nie tyka —
+    /// zajmuje się nim <see cref="Unknown"/> i to on ma o nim powiedzieć.
+    /// </remarks>
+    private static void RejectUnknownOptions(string command, string[] args)
+    {
+        if (!KnownOptions.TryGetValue(command, out var known))
+        {
+            return;
+        }
+
+        for (var i = 1; i < args.Length; i++)
+        {
+            var token = args[i];
+            if (!token.StartsWith("--", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (Array.IndexOf(known.Values, token) >= 0)
+            {
+                i++;
+                continue;
+            }
+
+            if (Array.IndexOf(known.Flags, token) >= 0)
+            {
+                continue;
+            }
+
+            var all = new List<string>(known.Values);
+            all.AddRange(known.Flags);
+            all.Sort(StringComparer.Ordinal);
+            throw new ArgumentException(
+                $"polecenie {command} nie zna opcji {token}. Zna: "
+                + (all.Count == 0 ? "żadnej" : string.Join(", ", all)));
         }
     }
 
