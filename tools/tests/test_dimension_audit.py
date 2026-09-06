@@ -269,6 +269,29 @@ def _prose_lines():
                 yield path, number, line
 
 
+def _platform_prose_offenders(lines, expected):
+    """Rdzeń testu niżej, wydzielony nad DOWOLNYM źródłem wierszy `(ścieżka, numer, linia)`.
+
+    6.B24: to wydzielenie istnieje wyłącznie po to, żeby kontrola regresyjna
+    `test_platform_prose_offender_lights_up_on_synthetic_input_and_stays_quiet_on_correct_one`
+    mogła zawołać DOKŁADNIE tę samą funkcję, którą woła bramka nad prawdziwymi
+    plikami — nad wierszami zbudowanymi w pamięci, bez dotykania
+    `docs/21-measured-vs-assumed.md`. Kontrola z 06.09.2026 opisana w docstringu
+    testu niżej mutowała ten plik naprawdę i go przywracała; to był dowód
+    historyczny, że wzorzec umie zaświecić — nie test chroniący przed jego regresją
+    przy każdym przebiegu.
+    """
+    offenders = []
+    seen = set()
+    for path, number, line in lines:
+        if not NAMES_THE_PLATFORM_PARAMETER.search(line):
+            continue
+        seen.add(path)
+        if expected not in line:
+            offenders.append(f"{path}:{number}: {line.strip()[:160]}")
+    return offenders, seen
+
+
 def test_prose_naming_the_platform_parameter_carries_the_value_from_the_code():
     """Zdanie o parametrze peronu niesie liczbę, którą ma generator.
 
@@ -295,19 +318,59 @@ def test_prose_naming_the_platform_parameter_carries_the_value_from_the_code():
        Wzorca sprzed zwężenia tego zdania **nie łapał** — „jawnym parametrem" nie jest
        napisem „jawny parametr". Zwężenie o odmianę jest więc zarazem rozszerzeniem
        zasięgu na zdania o peronie.
+
+    6.B24: powyższa kontrola odbyła się raz, na prawdziwym pliku, i tylko o niej
+    świadczy ten docstring — regresję wzorca pilnuje teraz
+    `test_platform_prose_offender_lights_up_on_synthetic_input_and_stays_quiet_on_correct_one`
+    niżej, nad wejściem zbudowanym w pamięci.
     """
     expected = _polish(station_components.DESIGN_PLATFORM_LENGTH_M)
-    seen = {path: 0 for path in PLATFORM_LENGTH_PROSE}
-    offenders = []
-    for path, number, line in _prose_lines():
-        if not NAMES_THE_PLATFORM_PARAMETER.search(line):
-            continue
-        seen[path] += 1
-        if expected not in line:
-            offenders.append(f"{os.path.relpath(path, ROOT)}:{number}: {line.strip()[:160]}")
+    offenders, seen = _platform_prose_offenders(_prose_lines(), expected)
     assert not offenders, f"długość peronu inna niż {expected} m w kodzie: {offenders}"
-    missing = [os.path.relpath(p, ROOT) for p, count in seen.items() if count == 0]
+    missing = [os.path.relpath(p, ROOT) for p in PLATFORM_LENGTH_PROSE if p not in seen]
     assert not missing, f"zdanie o parametrze peronu zniknęło — bramka przestałaby patrzeć: {missing}"
+
+
+def test_platform_prose_offender_lights_up_on_synthetic_input_and_stays_quiet_on_correct_one():
+    """Kontrola regresyjna 6.B24 dla testu wyżej — bez mutowania żadnego pliku repo.
+
+    6.B22 (#317) zauważyła, że kontrola negatywna opisana w docstringu testu wyżej
+    była WYKONANA naprawdę 06.09.2026, ale przez mutację `docs/21-measured-vs-assumed.md`
+    i jej przywrócenie — dowód historyczny, nie test chroniący przed regresją wzorca
+    przy każdym przebiegu. Ten test woła DOKŁADNIE `_platform_prose_offenders`,
+    czyli funkcję, na której stoi bramka wyżej, nad trzema wierszami zbudowanymi
+    tutaj, w pamięci: taki sam wiersz tabeli i takie samo zdanie prozy jak w obu
+    mutacjach z 06.09.2026, tylko że tym razem żaden plik repozytorium nie jest
+    dotykany.
+    """
+    expected = _polish(station_components.DESIGN_PLATFORM_LENGTH_M)
+    wrong = "93,0" if expected != "93,0" else "92,0"
+
+    # Wariant 1 z docstringu wyżej: wiersz tabeli z NAZWĄ stałej i ZŁĄ wartością.
+    broken_row = [("synthetic.md", 1,
+                   f"| `DESIGN_PLATFORM_LENGTH_M` | {wrong} m | dolne ograniczenie |")]
+    offenders, seen = _platform_prose_offenders(broken_row, expected)
+    assert len(offenders) == 1, offenders
+    assert offenders[0] == f"synthetic.md:1: | `DESIGN_PLATFORM_LENGTH_M` | {wrong} m | dolne ograniczenie |"
+    assert seen == {"synthetic.md"}
+
+    # Wariant 2 z docstringu wyżej: zdanie BEZ nazwy stałej, samym zwrotem w
+    # odmianie, ze ZŁĄ wartością — gałąź współwystąpienia musi strzelić tak samo.
+    broken_prose = [("synthetic.md", 2,
+                     f"Dla peronu generator dostał wartość jawnym parametrem: {wrong} m.")]
+    offenders2, seen2 = _platform_prose_offenders(broken_prose, expected)
+    assert len(offenders2) == 1, offenders2
+    assert seen2 == {"synthetic.md"}
+
+    # Kontrola w drugą stronę: te same dwa zdania, tym razem z POPRAWNĄ wartością,
+    # mają milczeć — inaczej powyższe dowodziłyby tylko, że funkcja zapala się zawsze.
+    clean = [
+        ("synthetic.md", 1, f"| `DESIGN_PLATFORM_LENGTH_M` | {expected} m | dolne ograniczenie |"),
+        ("synthetic.md", 2, f"Dla peronu generator dostał wartość jawnym parametrem: {expected} m."),
+    ]
+    offenders3, seen3 = _platform_prose_offenders(clean, expected)
+    assert not offenders3, offenders3
+    assert seen3 == {"synthetic.md"}
 
 
 def test_the_platform_pattern_takes_platform_sentences_and_leaves_the_rest_alone():
