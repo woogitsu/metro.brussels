@@ -54,6 +54,7 @@ public static class Program
                 "braking" => Braking(),
                 "line" => LineCommand(args),
                 "budget" => Budget(args),
+                "service-day" => ServiceDayCommand(args),
                 _ => Unknown(args[0]),
             };
         }
@@ -91,6 +92,8 @@ public static class Program
                       [--brake-usage X] [--stop-window-m X] [--timetable PLIK]
                       [--trace PLIK.csv] [--calls PLIK.csv]
                       [--signalling PLIK.json]              przejazd pod blokadami i z ATP
+              service-day --timetable PLIK.json            doba służby odtworzona z obiegów
+                      [--out PLIK.csv] [--at HH:MM:SS]
               budget  --axis PLIK --signalling PLIK.json    koszt kroku rdzenia przy N składach
                       --limit-kmh X --exchange-s X
                       --headway-s X --trains 1,2,4,8 --steps N
@@ -962,6 +965,76 @@ public static class Program
         }
 
         return 0;
+    }
+
+    // --- service-day ----------------------------------------------------------------
+
+    /// <summary>
+    /// Doba służby odtworzona z obiegów rozkładu — liczby liczy RDZEŃ, nie narzędzie
+    /// Pythona, i o to w pozycji 6.A3 chodzi.
+    /// </summary>
+    private static int ServiceDayCommand(string[] args)
+    {
+        var timetablePath = Option(args, "--timetable")
+            ?? throw new ArgumentException(
+                "service-day wymaga --timetable: doba służby powstaje z obiegów rozkładu, "
+                + "a nie z osi — bez pliku nie ma czego odtwarzać");
+
+        var day = ServiceDay.FromJson(File.ReadAllText(timetablePath));
+
+        var peak = day.Peak;
+        Console.WriteLine(string.Create(Inv,
+            $"[SŁUŻBA] dzień {day.Date}: obiegów {day.BlockCount}, "
+            + $"naraz w służbie {peak.Blocks} o {peak.AtClock}"));
+        Console.WriteLine(string.Create(Inv,
+            $"[SŁUŻBA] nakładających się par kursów w jednym obiegu: {day.OverlappingTripsInABlock}"));
+
+        var at = Option(args, "--at");
+        if (at is not null)
+        {
+            var seconds = ParseClock(at);
+            Console.WriteLine(string.Create(Inv,
+                $"[SŁUŻBA] o {ServiceDay.Clock(seconds)} w służbie {day.ConcurrentAt(seconds)} obiegów"));
+        }
+
+        var output = Option(args, "--out");
+        if (output is not null)
+        {
+            var directory = Path.GetDirectoryName(Path.GetFullPath(output));
+            if (!string.IsNullOrEmpty(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            var lines = new List<string> { "block_id,first_departure_s,last_arrival_s,span_s,trips" };
+            foreach (var block in day.Blocks)
+            {
+                lines.Add(string.Create(Inv,
+                    $"{block.Id},{block.FirstDepartureS},{block.LastArrivalS},{block.SpanSeconds},{block.Trips}"));
+            }
+
+            File.WriteAllLines(output, lines);
+            Console.WriteLine($"[SŁUŻBA] zapisano {output}");
+        }
+
+        return 0;
+    }
+
+    /// <summary>
+    /// <c>HH:MM:SS</c> na sekundy od północy. Godzina wolno przekroczyć 24 — doba
+    /// służby kończy się po północy i GTFS zapisuje to właśnie tak.
+    /// </summary>
+    private static double ParseClock(string text)
+    {
+        var parts = text.Split(':');
+        if (parts.Length != 3)
+        {
+            throw new ArgumentException($"czas ma mieć postać HH:MM:SS, a jest „{text}”", nameof(text));
+        }
+
+        return (double.Parse(parts[0], Inv) * 3600.0)
+            + (double.Parse(parts[1], Inv) * 60.0)
+            + double.Parse(parts[2], Inv);
     }
 
     // --- budget -------------------------------------------------------------------

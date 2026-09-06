@@ -285,6 +285,43 @@ def test_timetable_reads_vehicle_blocks_from_the_feed():
     assert duties["overlapping_trips_in_a_block"] == 0
 
 
+def test_timetable_exports_trip_windows_so_the_core_can_recount_them():
+    """Bez okien kursów rdzeń nie ma z czego policzyć doby DRUGI RAZ.
+
+    Pozycja 6.A3 żąda, żeby trzy liczby (obiegi, szczyt, godzina szczytu) wyszły
+    z rdzenia, a nie z tego narzędzia. Pole `overlapping_trips_in_a_block` podaje
+    wynik, ale nie dane — porównanie dwóch stron sprowadzałoby się do przepisania
+    liczby Pythona do C#. Okna kursów są tym, czym obie strony mogą się różnić.
+    """
+    row = TT.survey(_feed(), "20260902", {6})["duties"]["rows"][0]
+    # Okno kursu zaczyna się od ODJAZDU z pierwszego przystanku (06:00:15 = 21615),
+    # nie od przyjazdu na niego. Pierwsza wersja tego testu pisała 21600 i bramka
+    # ją wywróciła — literał był mój, nie kodu.
+    assert row["trip_windows"] == [[21615, 21840], [21915, 22150]], row["trip_windows"]
+    assert len(row["trip_windows"]) == row["trips"]
+
+
+def test_timetable_trip_windows_are_seconds_not_clock_text():
+    """Doba służby wychodzi poza 24:00, a `clock` zapisuje to tekstem, którego żaden
+    parser czasu nie przyjmie bez wiedzy o tej konwencji. Sekundy przenoszą tę samą
+    informację bez konwencji do zgubienia.
+    """
+    for row in TT.survey(_feed(), "20260902", {6})["duties"]["rows"]:
+        for start, end in row["trip_windows"]:
+            assert isinstance(start, int) and isinstance(end, int), (start, end)
+            assert end >= start
+
+
+def test_timetable_trip_windows_agree_with_the_span_the_same_row_reports():
+    """Kontrola spójności wewnątrz wiersza: gdyby okna liczyły się z innego zbioru
+    kursów niż `span_s`, obie liczby dałoby się czytać osobno i obie wyglądałyby
+    poprawnie.
+    """
+    for row in TT.survey(_feed(), "20260902", {6})["duties"]["rows"]:
+        okna = row["trip_windows"]
+        assert row["span_s"] == max(e for _s, e in okna) - min(s for s, _e in okna)
+
+
 def test_timetable_block_span_runs_from_first_departure_to_last_arrival():
     duties = TT.survey(_feed(), "20260902", {6})["duties"]
     row = duties["rows"][0]
