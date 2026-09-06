@@ -572,19 +572,29 @@ Mechanika:
    z sześcioma polami. Wiersz tabeli mówi, *dlaczego* pozycja nie wymaga decyzji;
    dopiero blok mówi, *jak ją wykonać i po czym poznać, że jest skończona*.
 
-**Luka jest domknięta 05.09.2026, a ten akapit jest przepisany, a nie dopisany obok.**
-Dwie poprzednie wersje opisywały niedobór: najpierw „kolejka ma **33 pozycje** […]
-Pozostałe **25**" na `b41c158`, potem „kolejka ma **31 pozycji**, udokumentowanych jest
-**8**, bez kompletu sześciu pól zostają **23**" — i obie przestały być prawdą.
-Zmierzone tym samym licznikiem (`tools/tests/test_backlog.py`) po dopisaniu czterech
-bloków: kolejka ma **29 pozycji będących pracą**, udokumentowanych jest **12**, bez
-kompletu sześciu pól zostaje **17**. Zapadka `MINIMUM_DOCUMENTED_ITEMS` stoi na
-dwunastu, czyli **równo z progiem doby pracy** — od tej chwili obie liczby mówią to
-samo i bramka działa z pełną siłą: „dwanaście pozycji, każda z sześcioma polami".
+**Zapas udokumentowany:** 11 pozycji przy progu 12. Ten akapit jest przepisany, a nie
+dopisany obok — i to trzeci raz, bo za każdym razem przestawał być prawdą. Poprzednie
+wersje mówiły „kolejka ma **33 pozycje** […] Pozostałe **25**" (`b41c158`), potem
+„**31 pozycji**, udokumentowanych **8**", a wreszcie „**29 pozycji**, udokumentowanych
+**12** […] luka jest domknięta". To ostatnie zdanie było **prawdziwe co do liczby
+i fałszywe co do sensu**, i dlatego znika.
 
-Mianownik spadł z 31 na 29 nie dlatego, że coś zniknęło: 6.B11 i 6.B12 wyszły
-wcześniej do tabeli domknięć, a licznik liczy `ready_items`, czyli pozycje **będące
-pracą** — bez domkniętych i bez czekających na decyzję właściciela.
+Licznik liczył `ready_items`, czyli wszystko, co stoi w tabeli jako praca — **razem
+z pozycjami wykonanymi i zostawionymi**. Takich było 05.09.2026 dziesięć na dwadzieścia
+cztery, a zostawały tam z powodu samej zapadki: zdjęcie udokumentowanej pozycji ją
+zbijało, a zbijać nie wolno. Reguła zapasu obróciła się przeciwko sobie — chroniąc
+licznik, kazała trzymać w kolejce pracę skończoną. Udokumentowanych **i jednocześnie
+niezrobionych** zostało wtedy **pięć**, przy zapadce stojącej na dwunastu i świecącej
+na zielono.
+
+Od tej chwili licznikiem jest `open_items` — pozycje bez adnotacji `ZROBIONE`. Zmierzone
+po dopisaniu sześciu bloków (6.A5, 6.A6, 6.C3, 6.C4, 6.D1, 6.D4): **24 pozycje w tabeli,
+14 do wzięcia, 11 z nich udokumentowanych** przy progu 12. Brakuje jednej i ten akapit
+o tym mówi, bo `test_the_documented_shortfall_is_written_down_while_it_lasts` nie
+pozwala luce zniknąć po cichu.
+
+**Liczba przed tą zmianą i po niej nie są porównywalne**, bo zapadka mierzy inny zbiór.
+„Wolno tylko podnosić" biegnie więc od nowa, od jedenastu.
 
 Tej luki **nie domykało się dopisywaniem pól z głowy** i następnej też nie wolno.
 `CLAUDE.md` §8 zabrania brać zadanie wymyślone na miejscu, a wymyślenie cudzej
@@ -1054,6 +1064,226 @@ co dochodzi ponad ten wspólny zakaz.
 - **Zależy od:** 5.7 (zrobione, `reports/linecore-budget.md`). Wykonana przed
   domknięciem T-320 przybija stan przejściowy — to jest zamierzone, bo bramka ma
   pokazać regres, a nie czekać na koniec zadania, którego pilnuje.
+
+##### 6.D1 · Wzorcowy ślad jako bramka CI
+
+- **Skąd:** treść commita **`90a8c31`** („T-320: skład krokowany z zewnątrz, ślad
+  identyczny co do bajtu"), i **wyłącznie ona** — liczb 453 107 i 2910 nie ma w żadnym
+  pliku `reports/` ani `docs/`. Tamten commit podaje tabelę sześciu osi
+  (`L1_A` 89 333, `L1_B` 66 322, `L2_E` 125 833, `L5_C` 68 136, `L5_D` 49 893,
+  `L6_F` 53 590 wierszy, razem **453 107**) i kontrolę negatywną metody: „próg hamowania
+  przesunięty o 0,1 % daje rozjazd **w wierszu 2910** pliku L1_A". Porównanie zostało
+  więc wykonane raz, ręcznie, i od tamtej pory nie chodzi.
+- **Wejście:** `src/Sim.Runner/Program.cs` (polecenia `line --trace PLIK.csv` i
+  `compare PLIK_A PLIK_B [--tolerance METRY]`, wiersze 51, 55, 85), sześć osi
+  `data/track/*.json`, `data/design/signalling/classic-2026.json`,
+  `.github/workflows/sim-tests.yml` (wzorzec bramki parytetu: kroki „Reference parity is
+  still reproducible from Python" i „Braking reference matches the core byte for byte"),
+  `.github/workflows/godot-first-run.yml` (wzorzec pary „bramka + kontrola negatywna"),
+  `tools/tests/test_ci_workflows.py`.
+- **Wyjście:** krok w `.github/workflows/sim-tests.yml` z kontrolą negatywną obok,
+  wzorce śladów tam, gdzie rozstrzygnie pomiar rozmiaru (patrz **Poza zakresem**), oraz
+  `reports/golden-trace-gate.md` z liczbą wierszy na oś i czasem przebiegu.
+- **Weryfikacja:**
+  ```bash
+  for AXIS in L1_A L1_B L2_E L5_C L5_D L6_F; do
+      dotnet run --project src/Sim.Runner -c Release -- line \
+          --axis "data/track/$AXIS.json" --limit-kmh 72 --exchange-s 20 \
+          --trace "build/trace/$AXIS.csv"
+  done
+  wc -l build/trace/*.csv
+  ```
+  Oczekiwane: sześć plików, razem **453 107 wierszy**, każdy identyczny co do bajtu
+  z wzorcem; przebieg całej szóstki mieści się w czasie, który raport podaje liczbą.
+- **Skończone, gdy:** bramka chodzi przy każdej zmianie `src/Sim`, a jej kontrola
+  negatywna jest **wykonana i wklejona**: próg hamowania przesunięty o 0,1 % zapala ją
+  i wskazuje **numer wiersza** rozjazdu, a nie samo „różni się". Bez tej pary bramka
+  jest zdaniem o sobie, nie pomiarem.
+- **Poza zakresem:** zmiana czegokolwiek w `src/Sim` — bramka ma przybić stan, nie
+  poprawić go. **Nierozstrzygnięte i do rozstrzygnięcia pomiarem w tej pozycji:** gdzie
+  mieszkają wzorce. 453 107 wierszy CSV to rząd 40–60 MB, a `CLAUDE.md` §4.8 zabrania
+  komitować plików > 10 MB; jeśli pomiar to potwierdzi, wzorcem musi być suma SHA-256
+  na oś albo artefakt CI, nie plik w repo.
+- **Zależy od:** nic. T-320 jest domknięte w części, której ta pozycja dotyczy
+  (`90a8c31`, `8f2d118`).
+
+##### 6.D4 · Kontrola spójności liczb między `reports/` a kodem
+
+- **Skąd:** docstring `tools/tests/test_readme_claims.py`: na `e982bc0` README twierdził
+  „41 plików" w `src/Sim/` (było 44), „Siedem workflowów" (było 10) i „Godot 4.3 mono"
+  w dwóch miejscach. „Żadna bramka tego nie łapała, bo README był jedynym miejscem,
+  w którym te liczby stały — a **liczba stojąca w jednym miejscu i nigdzie nie liczona
+  rozjeżdża się bezszelestnie**." `reports/` jest dziś dokładnie takim miejscem: 48
+  plików, żadnej pętli po liczbach.
+- **Wejście:** pięć precedensów, każdy z innej rodziny —
+  `tools/tests/test_readme_claims.py` (liczby liczone `os.walk`/`glob`),
+  `tools/tests/test_t401_citation.py` (jedna liczba w ośmiu wystąpieniach w pięciu
+  plikach), `tools/tests/test_axis_claims.py` (twierdzenia o geometrii wobec
+  `data/track/*.json`), `tools/tests/test_dimension_audit.py` (parametr bez wpisu
+  w `docs/21-measured-vs-assumed.md`), `tools/tests/test_report_hygiene.py:413`
+  (`test_kazda_sciezka_wymieniona_w_raporcie_rozwiazuje_sie_w_drzewie` — ta sama pętla
+  po `reports/`, tylko dla ścieżek). Do tego `reports/*.md` w komplecie.
+- **Wyjście:** bramka w `tools/tests/test_report_claims.py` i
+  `reports/report-claims-audit.md` z listą rozjazdów znalezionych przy pierwszym
+  przebiegu.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py
+  python3 tools/tests/test_report_claims.py
+  ```
+  Oczekiwane: pętla obejmuje wszystkie **48** raportów, liczba sprawdzanych twierdzeń
+  jest podana i większa od zera, a każdy rozjazd nazywa plik, wiersz i obie liczby.
+- **Skończone, gdy:** bramka ma **próg na liczbę sprawdzonych twierdzeń** (jak
+  `seen >= 500` w bramce ścieżek), bo literówka we wzorcu dałaby inaczej zero trafień
+  i zieloną bramkę; lista wyjątków jest **zamknięta zapadką** wzorem
+  `MAX_COMMIT_EXCEPTIONS = 2` z 6.D3, gdzie lista otwarta obniżała podłogę 38 → 32;
+  a kontrola negatywna jest wykonana i wklejona z nazwą padającego testu.
+- **Poza zakresem:** liczby, których nie da się odtworzyć z repozytorium — czasy
+  przebiegów, rozmiary plików w `build/`, wyniki pomiarów wykonanych na cudzej maszynie.
+  Raport jest **stroną porównywaną, nigdy źródłem**; bramka nie ma prawa nieść ani
+  jednej oczekiwanej liczby wpisanej z ręki.
+- **Zależy od:** 6.D3 (zrobione, #247) — nagłówek raportu z datą i SHA jest tym, co
+  pozwala odróżnić datowany pomiar od zdania o stanie bieżącym.
+
+##### 6.C3 · Odtwarzanie przejazdu z pliku telemetrii
+
+- **Skąd:** `README.md:8` — „linia jest symulacją, kabina jest jednym z jej widoków".
+  Dziś `--telemetry` jest wyłącznie **wyjściem**: `src/Game/FirstRun.cs:1717` otwiera
+  plik w trybie zapisu. Odtwarzanie istnieje, ale z **zapisu wejść** (`--replay=PLIK`,
+  `src/Sim/Train/InputLog.cs`, #239), co jest inną rzeczą — zapis wejść przechodzi przez
+  fizykę, telemetria byłaby odtwarzana jako gotowy ruch.
+- **Wejście:** `src/Sim/Train/DriveTelemetry.cs` (format przybity trzema stałymi:
+  `Header` z dziesięcioma kolumnami, `ColumnCount = 10`, `DefaultSampleEverySteps = 120`),
+  `src/Game/RunPlan.cs` (rozpoznawanie trybów i **odmowy łączenia źródeł polecenia**,
+  wiersze 335–377), `src/Game/FirstRun.cs`, `src/Sim.Runner/Program.cs` (`compare`),
+  `reports/droga-do-grywalnosci.md` §1.3 (tabela pięciu trybów),
+  `.github/workflows/godot-first-run.yml`, `tests/Game.Tests/RunPlanTests.cs`.
+- **Wyjście:** tryb `--from-telemetry=PLIK` w `src/Game`, testy w
+  `tests/Game.Tests/RunPlanTests.cs` i krok w `.github/workflows/godot-first-run.yml`
+  z kontrolą negatywną obok.
+- **Weryfikacja:**
+  ```bash
+  "$GODOT_BIN" --headless --path src/Game -- --no-geometry --line --limit-kmh=72 \
+      --telemetry=build/ref.csv
+  "$GODOT_BIN" --headless --path src/Game -- --no-geometry \
+      --from-telemetry=build/ref.csv --telemetry=build/echo.csv
+  dotnet run --project src/Sim.Runner -- compare build/ref.csv build/echo.csv --tolerance 0
+  ```
+  Oczekiwane: `compare` przy tolerancji **0** mówi „identyczne", a kontrola negatywna —
+  jeden wiersz zmieniony na czwartym miejscu po przecinku — wskazuje **numer wiersza**
+  rozjazdu.
+- **Skończone, gdy:** czwarte źródło polecenia wchodzi w ten sam wzorzec odmów co trzy
+  istniejące (`RunPlan.cs:339`, `:356`, `:363`) — `--from-telemetry` **nie daje się
+  połączyć** z `--line`, `--replay` ani sterowaniem ręcznym, a próba kończy się błędem
+  argumentu z nazwą obu trybów, nie cichym wyborem jednego.
+- **Poza zakresem:** zmiana formatu `DriveTelemetry` — dziesięć kolumn zostaje, bo
+  czyta je dziś bramka CI i `Sim.Runner compare`. Pozycja nie dotyka fizyki: telemetria
+  jest odtwarzana jako **ruch zadany**, a nie liczona ponownie.
+- **Zależy od:** nic. `--replay` (#239) jest precedensem, nie warunkiem.
+
+##### 6.C4 · Kamera inspekcyjna
+
+- **Skąd:** `src/Game/RunPlan.cs:42` — `KnownViews = { "cab", "chase", "outside" }`.
+  Oglądanie geometrii wymaga dziś przejechania do niej: `--shot --at-chainage` robi
+  migawkę, ale z kamery jednego z trzech widoków jazdy. Sprawdzanie, czy tunel wygląda
+  tak, jak mówi manifest, odbywa się więc renderami z `tools/blender/render_check.py`,
+  czyli **poza sceną**.
+- **Wejście:** `src/Game/RunPlan.cs` (wiersze 42, 325–332 — nieznany widok jest
+  **błędem**, nie cichą kabiną; 457–461 — mapowanie na `ViewKind`),
+  `src/Game/FirstRun.cs` (`enum ViewKind` w wierszu 19, wybór kamery w 1165–1177),
+  `src/Game/DesignAssumptions.cs` (stałe kamer jako `ViewAssumption`, wiersze 35–50
+  i 123–133), `tools/visual/cameras.json` (precedens deklarowania kamery danymi),
+  `tools/ci/assert_shot_metadata.py`, `tests/Game.Tests/DesignAssumptionsTests.cs`.
+- **Wyjście:** czwarty widok w `KnownViews` i `ViewKind`, jego stałe w
+  `DesignAssumptions` jako `ViewAssumption`, testy w `tests/Game.Tests/RunPlanTests.cs`.
+- **Weryfikacja:**
+  ```bash
+  "$GODOT_BIN" --headless --path src/Game -- --shot=build/inspect.png \
+      --view=inspect --at-chainage=2521.1
+  python3 tools/ci/assert_shot_metadata.py build/inspect.png
+  "$GODOT_BIN" --headless --path src/Game -- --view=zmyslony
+  ```
+  Oczekiwane: zrzut z metadanymi opisującymi tę scenę; ostatnie polecenie kończy się
+  **błędem argumentu** wymieniającym cztery znane widoki, a nie cichym zejściem do kabiny.
+- **Skończone, gdy:** każda nowa stała kamery jest w `DesignAssumptions` jako
+  `ViewAssumption` — czyli łapie ją `DesignAssumptionsTests` — a `--view=inspect`
+  z `--at-chainage` daje zrzut w zadanym kilometrażu **bez przejeżdżania trasy**,
+  co pokazuje pomiar czasu obu wariantów.
+- **Poza zakresem:** materiały i światło (`docs/03-legal.md` i T-902 — ocena
+  estetyczna), oraz **pasmo 94..106 m kamery goniącej**, które jest osobną decyzją
+  właściciela w tabeli niżej. Nowy widok nie ma być obejściem tamtej decyzji.
+- **Zależy od:** nic.
+
+##### 6.A6 · Wybieg zamiast trakcji
+
+- **Skąd:** `DriverCommand.Coast` istnieje (`src/Sim/Train/DriverCommand.cs:22`) i jest
+  używane jako **stan domyślny** poza fazą ciągu i hamowania (`LineDrive.cs:355`), ale
+  nie jako **strategia jazdy**: `src/Sim.Runner/Program.cs` nie ma ani jednego
+  przełącznika z „coast", więc nikt nigdy nie zmierzył, ile wybieg kosztuje w czasie
+  i ile oszczędza w energii.
+- **Wejście:** `src/Sim/Train/DriverCommand.cs`, `src/Sim/Train/LineDrive.cs`,
+  `src/Sim/Physics/EnergyAccount.cs`, `src/Sim/Physics/DavisResistance.cs`,
+  `src/Sim.Runner/Program.cs` (polecenia `drive` i `line`),
+  `reports/T-113-timetable.md` (rezerwa rozkładowa **4,3 s najciaśniej, 45,3 s
+  najluźniej**, wiersz 149 — to jest budżet czasu, jaki wybieg ma do wydania),
+  `reports/T-401-line-run.md`.
+- **Wyjście:** przełącznik wybiegu w `src/Sim.Runner` i `reports/coasting.md` z tabelą
+  per odcinek: przyrost czasu, ubytek pracy trakcji, i obie liczby wobec rezerwy z T-113.
+- **Weryfikacja:**
+  ```bash
+  dotnet run --project src/Sim.Runner -c Release -- line --axis data/track/L1_A.json \
+      --limit-kmh 72 --exchange-s 20 --trace build/coast-off.csv
+  dotnet run --project src/Sim.Runner -c Release -- line --axis data/track/L1_A.json \
+      --limit-kmh 72 --exchange-s 20 --coast-from-m X --trace build/coast-on.csv
+  dotnet test tests/Sim.Tests
+  ```
+  Oczekiwane: przyrost czasu i ubytek pracy trakcji podane **per odcinek**, nie jako
+  jedna liczba na całą oś.
+- **Skończone, gdy:** dla każdego z jedenastu odcinków pakietu A raport mówi, czy
+  przyrost czasu **mieści się w rezerwie rozkładowej z T-113** — a odcinek, który się
+  nie mieści, jest nazwany wprost. To jest wynik, nie porażka: rezerwa 4,3 s przy
+  najciaśniejszym odcinku jest liczbą zmierzoną i wybieg może się w nią nie zmieścić.
+- **Poza zakresem:** dobór strategii wybiegu jako **decyzji projektowej** — pozycja
+  mierzy koszt i zysk, nie wybiera profilu jazdy dla gry. Żadnej zmiany w modelu oporów
+  ani w krzywej hamowania.
+- **Zależy od:** nic. Model energii jest w rdzeniu od T-310.
+
+##### 6.A5 · Bilans energii przejazdu z odzyskiem i bez
+
+- **Skąd:** `src/Sim/Physics/EnergyAccount.cs` i `BrakingEnergyAccount.cs` są w rdzeniu
+  od T-310/T-311, ale **żaden przejazd liniowy nie raportuje kilowatogodzin** — w
+  `reports/` nie ma ani jednego pliku o energii. Klasy liczą, nikt nie pyta.
+- **Wejście:** `src/Sim/Physics/EnergyAccount.cs` (`TractionWorkJ`, `ResidualJ`,
+  `RelativeResidual`, `TractionWorkKwh`), `src/Sim/Physics/BrakingEnergyAccount.cs`
+  (`BrakeWorkJ`, `ResistanceShorteningM`), `src/Sim/Train/LineRun.cs`,
+  `src/Sim.Runner/Program.cs`, `tests/Sim.Tests/EnergyAndProfileTests.cs`,
+  `reports/T-310-physics.md`, `reports/T-311-braking.md` §4.1 („Bilans energii — druga
+  droga, także na pochyleniu"), `docs/02-simulation.md`,
+  `docs/21-measured-vs-assumed.md` §4b.
+- **Wyjście:** raport `reports/energy-balance.md` z bilansem na całym przejeździe
+  pakietu A i pracą hamulca podaną osobno.
+- **Weryfikacja:**
+  ```bash
+  dotnet run --project src/Sim.Runner -c Release -- line --axis data/track/L1_A.json \
+      --limit-kmh 72 --exchange-s 20 --trace build/energy-A.csv
+  dotnet test tests/Sim.Tests
+  ```
+  Oczekiwane: `RelativeResidual` bilansu na całym przejeździe poniżej progu, który
+  `reports/T-310-physics.md` już podaje — czyli druga, niezależna droga do tej samej
+  liczby.
+- **Skończone, gdy:** praca trakcji i praca hamulca są podane w kWh dla **dwóch
+  wariantów skrajnych odzysku, 0 % i 100 %**, podawanych wprost jako nastawa przebiegu
+  — dokładnie tak, jak T-311 potraktowało udział osi hamowanych: dwa warianty skrajne
+  zamiast jednej liczby, której nikt nie opublikował.
+- **Poza zakresem:** **wpisanie jakiejkolwiek sprawności odzysku.**
+  `BrakingEnergyAccount.cs` mówi wprost: „To jest energia mechaniczna, nie odzysk. Karta
+  M7 potwierdza sam fakt hamowania odzyskowego i nic ponadto — nie ma sprawności
+  odzysku, nie ma podziału na hamulec elektrodynamiczny i pneumatyczny, nie ma progu
+  zanikania ED przy niskiej prędkości." Liczba wpisana z głowy byłaby zmyśloną liczbą
+  o taborze (`CLAUDE.md` §1 i §8).
+- **Zależy od:** nic. Pozycja dotyka tych samych dwóch typów co 6.A8 (nienazwane przez
+  żaden test) — wykonana po 6.A8 dostanie je już opisane, wykonana przed niczego jej
+  nie brakuje.
 
 **Aktualizacja tej listy jest częścią pracy, nie dodatkiem do niej.** Pozycja zrobiona
 znika stąd i pojawia się jako wpis z sześcioma polami wyżej w tym pliku.

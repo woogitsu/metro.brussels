@@ -66,16 +66,29 @@ REQUIRED_FIELDS = (
 #: odhaczeniem T-212 i T-906 było 15 wpisów i 12 pól.)
 DONE_ONLY_FIELD = "Wynik"
 
-#: Ile pozycji kolejki ma DZIŚ komplet sześciu pól. **Wartość przepisana, a nie
-#: dopisana obok:** poprzednie wersje mówiły 8 z 33 (`b41c158`) i 8 z 31, a zmierzone
-#: 05.09.2026 po dopisaniu bloków 6.A7, 6.B1, 6.B2 i 6.D2 jest **12 z 29** pozycji
-#: będących pracą. Zapadka zrównała się z `MINIMUM_READY_ITEMS`, czyli z progiem doby
-#: pracy — od tej chwili bramka żąda „dwanaście pozycji, każda z sześcioma polami",
-#: a nie samych dwunastu wierszy tabeli. Wolno ją tylko podnosić, a podnosi się ją
-#: polami ODCZYTANYMI z `docs/`, `reports/` i `data/` (`CLAUDE.md` §8 zabrania brać
-#: zadanie wymyślone na miejscu, a dopisanie sobie „Weryfikacji" do cudzej pozycji
-#: jest tym samym o krok wcześniej).
-MINIMUM_DOCUMENTED_ITEMS = 12
+#: Ile pozycji kolejki ma DZIŚ komplet sześciu pól **i nie jest jeszcze zrobiona**.
+#:
+#: **Ta liczba jest przebazowana, nie obniżona, i dlatego cały ten komentarz jest
+#: przepisany, a nie dopisany obok.** Poprzednie wersje mówiły 8 z 33 (`b41c158`),
+#: 8 z 31, a potem 12 z 29 — i wszystkie liczyły `ready_items`, czyli także pozycje
+#: **wykonane i zostawione w tabeli**. Takich było 05.09.2026 dziesięć na dwadzieścia
+#: cztery, a zostawały tam z powodu tej właśnie zapadki: zdjęcie udokumentowanej
+#: pozycji ją zbijało, a zbijać nie wolno. Reguła zapasu obróciła się przeciwko sobie
+#: — chroniąc licznik, kazała trzymać w kolejce pracę skończoną, aż udokumentowanych
+#: i jednocześnie niezrobionych zostało **pięć** przy zapadce stojącej na dwunastu
+#: i świecącej na zielono.
+#:
+#: Od tej chwili licznikiem jest `open_items`, więc **liczba przed zmianą i po niej
+#: nie są porównywalne** i „wolno tylko podnosić" zaczyna biec od nowa. Zmierzone
+#: 05.09.2026 po dopisaniu sześciu bloków (6.A5, 6.A6, 6.C3, 6.C4, 6.D1, 6.D4):
+#: **11 z 14** pozycji do wzięcia. Do progu `MINIMUM_READY_ITEMS` brakuje jednej
+#: i `docs/TASKS.md` musi o tym mówić, czego pilnuje
+#: `test_the_documented_shortfall_is_written_down_while_it_lasts`.
+#:
+#: Podnosi się ją polami ODCZYTANYMI z `docs/`, `reports/` i `data/` — `CLAUDE.md` §8
+#: zabiera prawo do zadania wymyślonego na miejscu, a dopisanie sobie „Weryfikacji"
+#: do cudzej pozycji jest tym samym o krok wcześniej.
+MINIMUM_DOCUMENTED_ITEMS = 11
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
@@ -175,10 +188,37 @@ def missing_fields(body):
     return missing
 
 
+def open_items(text):
+    """Pozycje kolejki, które są pracą **DO WZIĘCIA**: bez tych z adnotacją ZROBIONE.
+
+    **DLACZEGO TO NIE JEST `ready_items`.** `ready_items` odsiewa zablokowane i domknięte,
+    ale przepuszcza pozycję, która **została wykonana i została w tabeli** — a takich jest
+    dziś dziesięć. Zostają tam nie przez niedopatrzenie, tylko z powodu zapisanego przy
+    każdej z nich: zdjęcie udokumentowanej pozycji zbijało `MINIMUM_DOCUMENTED_ITEMS`,
+    a tę wolno tylko podnosić. Reguła zapasu obróciła się więc przeciwko sobie: chroniąc
+    licznik, kazała trzymać w kolejce pracę już skończoną.
+
+    Zmierzone 05.09.2026 po scaleniu #271: pozycji pracy jest **24**, z czego **10** nosi
+    `ZROBIONE`, więc realnie do wzięcia jest **14**. Zapadka stała wtedy na 12 i była
+    zielona — mimo że udokumentowanych i **jednocześnie niezrobionych** pozycji było
+    **pięć**. Gwarancja „doby pracy przed agentem" mierzyła w większości wspomnienia
+    po pracy.
+    """
+    zrobione = {item for item in ready_items(text)
+                if DONE_ROW_MARKER in (queue_row(text, item) or "")}
+    return [item for item in ready_items(text) if item not in zrobione]
+
+
 def documented_items(text):
-    """Pozycje liczone do zapasu, które mają komplet sześciu pól z `CLAUDE.md` §6."""
+    """Pozycje liczone do zapasu: **niezrobione** i z kompletem sześciu pól.
+
+    Do 05.09.2026 liczyło to `ready_items`, czyli także pozycje wykonane i zostawione
+    w tabeli. Zdanie jest przepisane, a nie dopisane obok, bo zmienia się **zbiór**,
+    który zapadka mierzy — i dlatego jej liczba po tej zmianie nie jest porównywalna
+    z liczbą sprzed niej.
+    """
     sections = detail_sections(text)
-    return [item for item in ready_items(text)
+    return [item for item in open_items(text)
             if item in sections and not missing_fields(sections[item])]
 
 
@@ -193,7 +233,10 @@ def test_the_reserve_rule_is_written_down():
 
 
 def test_the_queue_holds_at_least_a_day_of_work():
-    items = ready_items(_tasks())
+    # `open_items`, nie `ready_items`: pozycja z adnotacją ZROBIONE stoi w tabeli
+    # z powodu zapadki, a nie dlatego, że jest pracą. Doba pracy przed agentem
+    # liczy się z tego, co da się wziąć.
+    items = open_items(_tasks())
     assert len(items) >= MINIMUM_READY_ITEMS, (
         f"kolejka ma {len(items)} pozycji przy progu {MINIMUM_READY_ITEMS}; "
         "pierwszym zadaniem jest uzupełnienie fazy 6, nie zatrzymanie się")
@@ -636,3 +679,57 @@ def test_the_finished_item_detector_reacts_to_both_halves_of_its_condition():
     #    wymieniony w „Weryfikacji" albo w „Poza zakresem" NIE jest wyjściem pozycji.
     assert declared_report_outputs(
         "- **Wyjście:** testy.\n- **Weryfikacja:** patrz `reports/cudzy.md`.") == []
+
+
+def test_the_reserve_counts_work_to_take_not_work_already_done():
+    """Pozycja z adnotacją ZROBIONE nie liczy się ani do zapasu, ani do zapadki.
+
+    **Skąd ta bramka.** Do 05.09.2026 obie liczby brały `ready_items`, czyli wszystko,
+    co stoi w tabeli jako praca — razem z pozycjami wykonanymi i zostawionymi tam
+    **z powodu tej właśnie zapadki**. Reguła zapasu obróciła się przeciwko sobie:
+    chroniąc licznik, kazała trzymać w kolejce pracę skończoną, aż udokumentowanych
+    i jednocześnie niezrobionych zostało pięć przy zapadce stojącej na dwunastu
+    i świecącej na zielono.
+
+    Ta bramka pilnuje, żeby liczenie nie wróciło po cichu do starego. Sprawdza obie
+    strony na tym samym tekście, więc nie da się jej spełnić przez samo `ready_items`.
+    """
+    text = _tasks()
+    gotowe = ready_items(text)
+    do_wziecia = open_items(text)
+    zrobione = [item for item in gotowe if item not in do_wziecia]
+
+    # 1. Zbiory są w tej relacji, w jakiej mają być.
+    assert set(do_wziecia) <= set(gotowe), "open_items wypuszcza pozycję spoza kolejki"
+    assert zrobione, (
+        "żadna pozycja kolejki nie nosi dziś adnotacji ZROBIONE — jeśli to prawda, "
+        "ta bramka straciła powód i trzeba ją zdjąć, a nie zostawić jako obrzęd")
+
+    # 2. Każda odsiana NAPRAWDĘ nosi znacznik, a nie wypadła z innego powodu.
+    for item in zrobione:
+        assert DONE_ROW_MARKER in (queue_row(text, item) or ""), item
+
+    # 3. Zapadka mierzy pozycje DO WZIĘCIA. Bez tego zdania `documented_items`
+    #    mogłoby wrócić do `ready_items`, a wszystkie liczby dalej by się zgadzały.
+    assert set(documented_items(text)) <= set(do_wziecia), (
+        "zapadka liczy pozycję, której nie da się wziąć: "
+        f"{sorted(set(documented_items(text)) - set(do_wziecia))}")
+
+
+def test_the_open_item_filter_reacts_to_the_marker_and_not_to_something_else():
+    """Kontrola detektora: bez niej `open_items` mogłoby odsiewać cokolwiek.
+
+    Trzy wiersze na jednym sztucznym planie. Pierwszy nosi znacznik i ma wypaść,
+    drugi go nie nosi i ma zostać, trzeci zawiera słowo o podobnym kształcie
+    („do zrobienia") i **też ma zostać** — inaczej filtr łapałby prozę zamiast
+    adnotacji.
+    """
+    plan = (
+        "## Faza 6\n\n"
+        "| # | zadanie | dlaczego bez decyzji | rozmiar |\n"
+        "|---|---|---|---|\n"
+        "| 6.X1 | **ZROBIONE w #999** — treść pierwotna: coś tam | powód | S |\n"
+        "| 6.X2 | **Coś otwartego** | powód | M |\n"
+        "| 6.X3 | **Coś do zrobienia jeszcze** | powód | L |\n")
+    assert sorted(queue_items(plan)) == ["6.X1", "6.X2", "6.X3"], queue_items(plan)
+    assert sorted(open_items(plan)) == ["6.X2", "6.X3"], open_items(plan)
