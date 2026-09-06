@@ -45,6 +45,7 @@ public readonly record struct StationCall(
 /// <param name="DwellSeconds">Suma postojów na stacjach pośrednich.</param>
 /// <param name="Steps">Liczba kroków symulacji.</param>
 /// <param name="FinishReason">Dlaczego pętla się skończyła.</param>
+/// <param name="Energy">Bilans energii CAŁEGO przejazdu — patrz <see cref="TripEnergyAccount"/>.</param>
 public readonly record struct LineRunResult(
     string AxisId,
     IReadOnlyList<StationCall> Calls,
@@ -52,7 +53,108 @@ public readonly record struct LineRunResult(
     double TotalDistanceM,
     double DwellSeconds,
     long Steps,
-    string FinishReason);
+    string FinishReason,
+    TripEnergyAccount Energy);
+
+/// <summary>
+/// Bilans energii CAŁEGO przejazdu z zatrzymaniami — druga, niezależna droga do tej
+/// samej liczby, na wzór <see cref="Physics.EnergyAccount"/> (T-310) i
+/// <see cref="Physics.BrakingEnergyAccount"/> (T-311), ale scalona na jeden przejazd,
+/// który miesza rozruch, wybieg, hamowanie **i** postój na każdej stacji pośredniej.
+///
+/// <para><b>Dlaczego to osobny typ, a nie jeden z tamtych dwóch.</b>
+/// <see cref="Physics.EnergyAccount"/> zna tylko trakcję (T-310: sam rozruch),
+/// a <see cref="Physics.BrakingEnergyAccount"/> zna tylko hamulec (T-311: samo
+/// hamowanie). Przejazd liniowy robi oba na przemian w jednej pętli — dopisanie pracy
+/// hamulca do <see cref="Physics.EnergyAccount"/> zmieniłoby znaczenie pola, które
+/// T-310 już opisał i przypiął testem, a rozdzielenie na dwa osobne bilanse dla jednego
+/// przejazdu policzyłoby energię kinetyczną między stacjami dwa razy.</para>
+///
+/// <para><b>Wyprowadzenie równania kroku</b> jest tym samym rachunkiem co w obu
+/// tamtych typach, tylko z dodatkowym członem hamulca w sile wypadkowej:
+/// <c>a = (F_trakcji − F_oporu − F_pochylenia)/m_ef − b_hamulca</c>. Per krok:</para>
+///
+/// <code>
+/// F_netto_wszystko · przebyta = ΔE_kin + dyskretyzacja + obcięcie
+/// </code>
+///
+/// <para>gdzie <c>F_netto_wszystko = (trakcja − opory − pochylenie) − m_ef·b_hamulca</c>
+/// i <c>ΔE_kin</c> jest zmianą energii kinetycznej W TYM kroku — dokładnie ta sama
+/// tożsamość, którą <see cref="Physics.AccelerationRun"/> wyprowadza dla samej trakcji.
+/// Zsumowana po WSZYSTKICH krokach przejazdu (rozruch, wybieg, hamowanie, postój)
+/// teleskopuje do <see cref="ResidualJ"/> poniżej.</para>
+/// </summary>
+/// <param name="TractionWorkJ">Praca siły pociągowej, sumowana po całym przejeździe.</param>
+/// <param name="ResistanceWorkJ">Praca oporów ruchu; zawsze dodatnia.</param>
+/// <param name="GradeWorkJ">Praca przeciw ciężarowi; ujemna przy jeździe z góry.</param>
+/// <param name="BrakeWorkJ">
+/// Praca hamulca — mechaniczna, na obwodzie kół. Tak jak w
+/// <see cref="Physics.BrakingEnergyAccount"/>: **cała** praca hamulca, bez podziału na
+/// odzysk i straty, bo karta M7 potwierdza sam fakt hamowania odzyskowego i nic więcej.
+/// </param>
+/// <param name="KineticEnergyDeltaJ">
+/// Zmiana energii kinetycznej masy efektywnej: koniec minus początek przejazdu. Skład
+/// zaczyna i kończy przejazd w spoczynku, więc przy przejeździe zakończonym „arrived"
+/// ta wartość jest zerem — a nie zerem z definicji typu, tylko zmierzonym zerem.
+/// </param>
+/// <param name="DiscretizationWorkJ">Człon schematu <c>½·m_ef·Σ(Δv)²</c>, sumowany po całym przejeździe.</param>
+/// <param name="ClampedWorkJ">
+/// Praca odrzucona przez obcięcia modelu: obcięcie prędkości do zera i do limitu.
+/// Artefakt schematu całkowania, nie fizyka — patrz <see cref="Physics.EnergyAccount"/>.
+/// </param>
+public readonly record struct TripEnergyAccount(
+    double TractionWorkJ,
+    double ResistanceWorkJ,
+    double GradeWorkJ,
+    double BrakeWorkJ,
+    double KineticEnergyDeltaJ,
+    double DiscretizationWorkJ,
+    double ClampedWorkJ)
+{
+    /// <summary>Domknięcie bilansu. Zero oznacza, że rachunek sił i całkowanie mówią to samo.</summary>
+    public double ResidualJ =>
+        TractionWorkJ - ResistanceWorkJ - GradeWorkJ - BrakeWorkJ
+        - KineticEnergyDeltaJ - DiscretizationWorkJ - ClampedWorkJ;
+
+    /// <summary>
+    /// Domknięcie odniesione do przepływu energii w obie strony — trakcji I hamulca
+    /// razem, a nie do samej trakcji. Przejazd złożony wyłącznie z hamowania (autorytet
+    /// ucięty tuż za startem) miałby TractionWorkJ bliskie zeru i odniesienie do niego
+    /// dzieliłoby przez prawie zero; suma obu prac nie ma tej wady.
+    /// </summary>
+    public double RelativeResidual
+    {
+        get
+        {
+            var scale = Math.Abs(TractionWorkJ) + Math.Abs(BrakeWorkJ);
+            return scale == 0.0 ? 0.0 : Math.Abs(ResidualJ) / scale;
+        }
+    }
+
+    /// <summary>Praca trakcji w kWh — energia pobrana z sieci, licząc na obwodzie kół i bez sprawności.</summary>
+    public double TractionWorkKwh => TractionWorkJ / 3_600_000.0;
+
+    /// <summary>Praca hamulca w kWh — mechaniczna, przed jakimkolwiek podziałem na odzysk.</summary>
+    public double BrakeWorkKwh => BrakeWorkJ / 3_600_000.0;
+
+    /// <summary>
+    /// Energia netto pobrana z sieci przy zadanym WARIANCIE SKRAJNYM odzysku hamowania:
+    /// <c>false</c> = 0 % (cały hamulec grzeje opory, nic nie wraca do sieci),
+    /// <c>true</c> = 100 % (cała praca mechaniczna hamulca wraca do sieci). Żadna wartość
+    /// pośrednia nie jest tu dostępna świadomie — karta M7 nie podaje sprawności odzysku,
+    /// więc liczba między 0 a 100 % byłaby zmyśloną liczbą o taborze (`CLAUDE.md` §1 i §8).
+    /// </summary>
+    public double NetGridWorkKwh(bool fullRecovery) =>
+        fullRecovery ? TractionWorkKwh - BrakeWorkKwh : TractionWorkKwh;
+
+    /// <inheritdoc/>
+    public override string ToString() => string.Create(
+        CultureInfo.InvariantCulture,
+        $"E_trakcji = {TractionWorkKwh:F4} kWh, E_hamulca = {BrakeWorkKwh:F4} kWh, " +
+        $"opory = {ResistanceWorkJ / 1e6:F3} MJ, pochylenie = {GradeWorkJ / 1e6:F3} MJ, " +
+        $"ΔE_kin = {KineticEnergyDeltaJ / 1e6:F3} MJ, dyskretyzacja = {DiscretizationWorkJ:F1} J, " +
+        $"obcięcie = {ClampedWorkJ:F1} J, reszta = {ResidualJ:E3} J, względnie = {RelativeResidual:E3}");
+}
 
 /// <summary>
 /// Przejazd całej osi z zatrzymaniem na **każdej** stacji: rozpęd, hamowanie liczone

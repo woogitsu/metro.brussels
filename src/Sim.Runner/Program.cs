@@ -691,6 +691,17 @@ public static class Program
         Console.Out.WriteLine(string.Create(
             Inv, $"[LINIA] największy błąd zatrzymania: {worstStopError:F3} m"));
 
+        // Bilans energii CAŁEGO przejazdu (6.A5) — druga, niezależna droga do wyniku,
+        // dokładnie jak T-310 i T-311: rachunek sił i całkowanie muszą dać tę samą
+        // liczbę. Dwa warianty odzysku są SKRAJNE (0 % i 100 %), nie jedną wpisaną
+        // sprawnością — karta M7 potwierdza sam fakt hamowania odzyskowego i nic ponadto.
+        var energy = result.Energy;
+        Console.Out.WriteLine(string.Create(Inv, $"[ENERGIA] {energy}"));
+        Console.Out.WriteLine(string.Create(
+            Inv,
+            $"[ENERGIA] netto z sieci przy odzysku 0%: {energy.NetGridWorkKwh(fullRecovery: false):F4} kWh, " +
+            $"przy odzysku 100%: {energy.NetGridWorkKwh(fullRecovery: true):F4} kWh"));
+
         if (core is not null)
         {
             // Liczniki są WYNIKIEM, nie napisem: podnosi je ta sama gałąź, która stosuje
