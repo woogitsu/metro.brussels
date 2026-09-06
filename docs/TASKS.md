@@ -699,6 +699,12 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.D15 | **Ile komend z pol „Weryfikacja" w blokach kolejki da sie w ogole uruchomic** — komenda z bloku 6.C3 jest odrzucana przez istniejaca odmowe, kod wyjscia 9 | znalezione przy 6.C3. Pole „Weryfikacja" jest obietnica, ktorej nikt nie sprawdza; pomiar, ile z nich klamie, nie wymaga zadnej decyzji | M |
 | 6.D16 | **`docs/09-data-provenance.md` twierdzi cos, co dla dwoch miejsc jest nieprawda** — ze `retrieved_at` nie moze zmieniac byte-deterministycznego wyjscia, a w `build_alignment.py` i `normalize_stops.py` trafia wprost do commitowanego pliku | znalezione przy 6.D12. Pomiar i przepisanie zdania, ktore przestalo byc prawdziwe | S |
 | 6.D17 | **`docs/23-environment.md` nie mowi, ze Godot wymaga `DOTNET_ROOT`, nie tylko `PATH`** — bez tego pada `Failed to load hostfxr` sygnalem 11, a przy brakujacym assembly wisi bez ani jednego wiersza na stdout do wypalenia limitu czasu | znalezione przy 6.C3, na wlasnej skorze. Dokument ma powiedziec to, co trzeba ustawic | S |
+| 6.A11 | **`Sim.Runner` przyjmuje nieznana opcje w milczeniu** — `line ... --coast-from-m X` konczy sie kodem 0, choc ani opcji, ani wartosci `X` nie ma w kodzie | zmierzone przy 6.D15 (#301): dwie komendy z pola „Weryfikacja" pozycji 6.A6 daly pliki identyczne co do bajtu. Wyrocznia zepsuta w strone „wszystko w porzadku" | M |
+| 6.A12 | **`budget --trains 32` melduje `N_max=1`** — kolumna `N_zgl` nie jest liczba skladow, ktore bieglyby po planie | zmierzone przy 6.D15 (#301). Pomiar wydajnosci, ktory nie obciaza tego, co obiecuje obciazyc, jest bramka bez zebow — a na tej liczbie ma stanac 6.D2 | M |
+| 6.B23 | **Licznik „modul `src/Sim` bez testu" skanuje razem z `obj/`** — po `dotnet build` wypisuje cztery falszywe wiersze `BRAK TESTU` dla plikow generowanych | zmierzone przy 6.D15 (#301). Licznik zyje dzis wylacznie jako wiersz powloki w zapisie historycznym 6.A8; jako bramka w `tools/tests/` nie istnieje | S |
+| 6.D18 | **`--only` w `mutation_sweep.py` dopasowuje podciag, nie nazwe pliku** — `--only sweep.py` obejmuje `tools/blender/sweep.py` (117 mutacji) **i** `tools/blender/tunnel_sweep.py` (68) | zmierzone przy 6.D15 (#301). Kazdy raport z przegladu mutacyjnego wolany basename'em mowi o innym zbiorze plikow, niz nazywa | M |
+| 6.D19 | **Modul, ktory sie nie importuje, nie daje ani jednego wiersza `FAIL` ani wiersza `N/M przeszlo`** — `test_all.py` konczy sie wtedy kodem 1, ale kazdy grep po `FAIL` pokazuje zero i wyglada jak zielono | zmierzone przy 6.D15 (#301) na wlasnym module z bledem skladni. Ta sesja sprawdzala zielonosc grepem i przez chwile wierzyla, ze drzewo jest zielone | M |
+| 6.D20 | **`RequiredNumber` w `Program.cs` nazywa `line` niezaleznie od polecenia** — `budget` bez `--limit-kmh` konczy sie komunikatem `BLAD: line wymaga --limit-kmh` | zmierzone przy 6.D15 (#301). Komunikat kieruje czytajacego do niewlasciwego polecenia; osiem pozostalych polecen ma ten sam problem, bo dziela ten sam pomocnik | S |
 
 #### Szczegóły pozycji z kompletem sześciu pól
 
@@ -2119,6 +2125,173 @@ znika stąd i pojawia się jako wpis z sześcioma polami wyżej w tym pliku.
 - **Poza zakresem:** samo pytanie 6.D12 — czy manifest proweniencji ma się zmieniać
   przy niezmienionej treści źródła. Ta pozycja dowodzi wyłącznie, że `--offline` nie
   sięga do sieci; nie zajmuje się plikiem, który mimo to zapisuje.
+- **Zależy od:** nic.
+
+##### 6.A11 · Nieznana opcja `Sim.Runner` przyjmowana w milczeniu
+
+- **Skąd:** zmierzone 06.09.2026 przy 6.D15 (#301). Komenda z pola „Weryfikacja"
+  pozycji 6.A6 wola `line ... --coast-from-m X`. Opcji `--coast-from-m` nie ma dzis
+  nigdzie w `src/`, `X` nie jest liczba — a proces konczy sie **kodem 0** i wypisuje
+  normalny przebieg. Dwie komendy tego pola daly pliki identyczne co do bajtu
+  (`11d298315379ba7fbb4673250daeab830d80a3fc084bf4bd731f84a1d811b079` oba). Jest to
+  wyrocznia zepsuta w strone „wszystko w porzadku": literowka w nazwie opcji nie
+  odroznia sie od opcji dzialajacej.
+- **Wejście:** `src/Sim.Runner/Program.cs` (`Option`, `RequiredNumber`,
+  `OptionalNumber`, rozdzielacz polecen), `tests/Sim.Tests/RunnerCommandTests.cs`
+  (wzorzec z #291 i #302 — testy wolaja wylacznie `Program.Main`),
+  `src/Game/RunPlan.cs` (`KnownArguments` — strona Godota **juz** odmawia nieznanemu
+  argumentowi i to jest precedens, z ktorego bierze sie ksztalt odmowy).
+- **Wyjście:** odmowa przy nieznanej opcji w `Sim.Runner`, z komunikatem wymieniajacym
+  opcje znane danemu poleceniu, plus testy kodu wyjscia dla co najmniej dwoch polecen.
+- **Weryfikacja:**
+  ```bash
+  dotnet build src/Sim.Runner -c Release
+  dotnet run --project src/Sim.Runner -c Release -- line --axis data/track/L1_A.json \
+      --limit-kmh 72 --exchange-s 20 --zmyslona-opcja 7 --trace build/x.csv
+  dotnet test tests/Sim.Tests
+  ```
+  Oczekiwane: druga komenda konczy sie **odmowa** nazywajaca nieznana opcje, a nie
+  kodem 0; zestaw rdzenia zielony o liczbie testow wiekszej niz przed zmiana.
+- **Skończone, gdy:** nieznana opcja konczy sie odmowa w kazdym z dziewieciu polecen,
+  a kontrola negatywna WYKONANA pokazuje, ze zdjecie odmowy wywraca dokladnie nowe
+  testy. Komunikat wymienia opcje znane **temu** poleceniu, nie wszystkim.
+- **Poza zakresem:** **wybor kodu wyjscia dla tej odmowy, jesli mialby byc nowy.**
+  Pozycja uzywa stalej, ktora `Program.cs` juz ma dla odmow argumentowych; wprowadzenie
+  kolejnej wartosci jest decyzja z tej samej rodziny, ktora 6.A10 zostawila wlascicielowi
+  (`compare` zwraca 2 tam, gdzie reszta zwraca 1).
+- **Zależy od:** #302 (scalone albo w locie — wzorzec testu kodu wyjscia).
+
+##### 6.A12 · `--trains 32` melduje `N_max=1`
+
+- **Skąd:** zmierzone 06.09.2026 przy 6.D15 (#301) przy okazji naprawiania komendy
+  z bloku 6.D2. Wykonane wyjscie:
+  `[BUDZET] 32;1;1.00;0.00;132528;...` i podsumowanie „najwieksze zmierzone N=32
+  zajmuje 0.09% budzetu kroku **przy 1 skladach faktycznie na planie**". Kolumna
+  `N_zgl` mowi wiec, ile skladow **zglooszono**, a nie ile ich bieglo — i zdanie
+  podsumowania samo to przyznaje, tyle ze na koncu wiersza.
+- **Wejście:** `src/Sim.Runner/Program.cs` (`Budget`, `ParseTrainCounts`),
+  `src/Sim/Line/` (wpuszczanie skladu na plan, odstep `--headway-s`),
+  `data/design/signalling/classic-2026.json`.
+- **Wyjście:** raport w `reports/` mowiacy, **dlaczego** przy `--trains 32` na planie
+  stoi jeden sklad (odstep? dlugosc osi? nawrot?), oraz — jesli pomiar pokaze, ze da
+  sie obciazyc plan naprawde — komenda, ktora to robi, wpisana do bloku 6.D2.
+- **Weryfikacja:**
+  ```bash
+  dotnet build src/Sim.Runner -c Release
+  dotnet run --project src/Sim.Runner -c Release -- budget \
+      --axis data/track/L1_A.json \
+      --signalling data/design/signalling/classic-2026.json \
+      --limit-kmh 72 --exchange-s 20 --headway-s 120 --steps 1000 --trains 1,2,4,8,32
+  ```
+  plus ten sam przebieg z odstepem, przy ktorym `N_max` przestaje byc rowne 1.
+- **Skończone, gdy:** raport podaje liczbe skladow, ktore **faktycznie** biegly, dla
+  co najmniej dwoch roznych wartosci `--headway-s`, i nazywa mechanizm, ktory ogranicza
+  ta liczbe. Jesli mechanizmem jest blad, pozycja go **nazywa**, a nie poprawia.
+- **Poza zakresem:** bramka na czas kroku — to jest 6.D2, i to ona ma stanac **na tej
+  liczbie**. Poza zakresem takze zmiana modelu wpuszczania skladow.
+- **Zależy od:** nic. Blokuje 6.D2.
+
+##### 6.B23 · Licznik modulow bez testu liczy pliki generowane
+
+- **Skąd:** zmierzone 06.09.2026 przy 6.D15 (#301). Wiersz powloki z bloku 6.A8 —
+  jedyne miejsce, gdzie ten licznik dzis zyje — wypisuje na drzewie po `dotnet build`
+  cztery wiersze `BRAK TESTU`, wszystkie dla plikow **generowanych**:
+  `src/Sim/obj/{Debug,Release}/net10.0/Sim.AssemblyInfo.cs` i
+  `.NETCoreApp,Version=v10.0.AssemblyAttributes.cs`. Blok 6.A8 obiecywal „po zadaniu
+  ma wypisac zero wierszy"; obietnica jest dzis nie do spelnienia na drzewie, ktore
+  ktokolwiek zbudowal.
+- **Wejście:** blok `##### 6.A8` w `docs/TASKS.md` (zapis historyczny, **nietykany**),
+  `src/Sim/`, `tests/Sim.Tests/`, `tools/tests/test_xml_doc_blocks.py` jako precedens
+  bramki chodzacej po `src/` bez `dotnet`, `.gitignore`.
+- **Wyjście:** bramka w `tools/tests/`, ktora liczy skladniki `src/Sim` bez testu,
+  pomijajac `obj/` i `bin/`, z lista wyjatkow, jesli pomiar pokaze, ze jakis skladnik
+  testu miec nie moze.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py
+  ```
+  plus wypis: ile plikow `.cs` widzi bramka przed pominieciem `obj/` i `bin/`, ile po,
+  i ile z nich nie ma testu.
+- **Skończone, gdy:** bramka jest zielona na czystym drzewie **i na drzewie po
+  `dotnet build`** — oba przebiegi wykonane i wklejone — a kontrola negatywna
+  (skladnik dopisany do `src/Sim` bez testu) ja zapala.
+- **Poza zakresem:** dopisywanie brakujacych testow do `src/Sim`. Ta pozycja stawia
+  licznik, ktory nie klamie; co pokaze, jest praca na osobna pozycje.
+- **Zależy od:** nic.
+
+##### 6.D18 · `--only` dopasowuje podciag, nie nazwe pliku
+
+- **Skąd:** zmierzone 06.09.2026 przy 6.D15 (#301). `--only sweep.py` zwraca mutacje
+  z **dwoch** modulow: `tools/blender/sweep.py` (117) i `tools/blender/tunnel_sweep.py`
+  (68). Bloki 6.B6, 6.B7, 6.B8 i 6.D5 wolaja `--only` basename'em, wiec kazdy raport
+  z tych przebiegow mowi o innym zbiorze plikow, niz nazywa jego komenda.
+- **Wejście:** `tools/tests/mutation_sweep.py` (dopasowanie `--only`),
+  `tools/tests/test_mutation_sweep.py`, bloki 6.B6/6.B7/6.B8/6.D5 w `docs/TASKS.md`
+  (tylko do odczytu — zapis historyczny), `reports/mutation-sweep.md`.
+- **Wyjście:** rozstrzygniecie, ktore z dwoch znaczen `--only` jest zamierzone,
+  wpisane do docstringa narzedzia, plus test na to znaczenie. Jesli zamierzone jest
+  dopasowanie po nazwie pliku — poprawka dopasowania; jesli po podciagu — komunikat
+  wypisujacy, ILE modulow zostalo zlapanych, zanim przeglad ruszy.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/mutation_sweep.py --only sweep.py --list
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: pierwsza komenda mowi wprost, ile modulow objela.
+- **Skończone, gdy:** wywolanie `--only` basename'em, ktory pasuje do wiecej niz
+  jednego pliku, **nazywa te pliki** albo odmawia, a kontrola negatywna WYKONANA
+  pokazuje, ze poprzednie zachowanie wywraca nowy test.
+- **Poza zakresem:** przeliczanie raportow z przegladow, ktore uzyly starego `--only`.
+  To sa datowane pomiary i ich sie nie przelicza; wolno je co najwyzej **oznaczyc**.
+- **Zależy od:** nic.
+
+##### 6.D19 · Modul, ktory sie nie importuje, jest niewidzialny dla grepa
+
+- **Skąd:** zmierzone 06.09.2026 przy 6.D15 (#301) na wlasnym module z bledem skladni.
+  `test_all.py` wypisuje wtedy `SyntaxError` i konczy sie **kodem 1** — to dziala. Ale
+  nie produkuje ani jednego wiersza `FAIL`, ani wiersza `N/M przeszlo`. Sesja, ktora
+  sprawdza zielonosc przez `grep -cE '^\s*FAIL'`, dostaje **zero** i widzi zielono.
+  Ta sesja tak wlasnie robila.
+- **Wejście:** `tools/tests/test_all.py` (zbieranie i importowanie modulow),
+  `tools/tests/assertion_gate.py`, `.github/workflows/python-tests.yml` (czy krok CI
+  patrzy na kod wyjscia, czy na tresc wyjscia), `CLAUDE.md` §5,
+  `tools/tests/mutation_sweep.py` (czyta z tego procesu linie `N/M przeszlo`
+  **i** kod wyjscia — patrz 6.D11).
+- **Wyjście:** wiersz, ktory `test_all.py` wypisuje przy nieudanym imporcie i ktory
+  wyglada jak porazka takze dla czytajacego grepem, plus test na to zachowanie.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py
+  ```
+  plus **wykonana** kontrola: modul z bledem skladni wrzucony do `tools/tests/`
+  w katalogu tymczasowym, z wklejonym wyjsciem i kodem wyjscia przed i po zmianie.
+- **Skończone, gdy:** nieudany import produkuje wiersz dajacy sie zlapac tym samym
+  wzorcem co porazka testu, kod wyjscia nadal wynosi 1, a `mutation_sweep.py` nadal
+  czyta z tego procesu to, czego potrzebuje — sprawdzone uruchomieniem, nie czytaniem.
+- **Poza zakresem:** zmiana tego, jak `test_all.py` liczy testy, i zmiana kroku CI.
+  Kod wyjscia juz jest poprawny; brakuje **widocznosci**, nie wyroczni.
+- **Zależy od:** nic.
+
+##### 6.D20 · Komunikat odmowy nazywa niewlasciwe polecenie
+
+- **Skąd:** zmierzone 06.09.2026 przy 6.D15 (#301). `budget` bez `--limit-kmh` konczy
+  sie komunikatem `BLAD: line wymaga --limit-kmh`. Pomocnik `RequiredNumber` ma nazwe
+  polecenia zaszyta na sztywno, wiec kieruje czytajacego do polecenia, ktorego nie
+  uruchamial. Osiem pozostalych polecen dzieli ten sam pomocnik.
+- **Wejście:** `src/Sim.Runner/Program.cs` (`RequiredNumber`, `OptionalNumber`,
+  wszystkie miejsca wolania), `tests/Sim.Tests/RunnerCommandTests.cs`.
+- **Wyjście:** komunikat nazywajacy polecenie, ktore faktycznie wolano, plus test
+  kodu wyjscia **i tresci komunikatu** dla co najmniej dwoch roznych polecen.
+- **Weryfikacja:**
+  ```bash
+  dotnet test tests/Sim.Tests
+  ```
+  plus wykonane: `budget` bez `--limit-kmh` i `line` bez `--limit-kmh`, z wklejonymi
+  komunikatami obu.
+- **Skończone, gdy:** oba komunikaty nazywaja swoje polecenie, a kontrola negatywna
+  WYKONANA (przywrocona zaszyta nazwa) wywraca dokladnie nowe testy.
+- **Poza zakresem:** zmiana kodow wyjscia i ujednolicanie ich — ta sama granica,
+  ktora postawila 6.A10.
 - **Zależy od:** nic.
 
 ### Czego agent nie ruszy bez decyzji
