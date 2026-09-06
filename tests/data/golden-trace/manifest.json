@@ -1,0 +1,49 @@
+{
+  "krok_probki": 100,
+  "opis": "Wzorzec śladu przejazdu liniowego. Suma SHA-256 wykrywa rozjazd, próbka co krok_probki wierszy go lokalizuje. Pełne ślady mają 32,0 MiB i do repozytorium nie wchodzą (CLAUDE.md §4.8).",
+  "osie": {
+    "L1_A": {
+      "bajty": 6610778,
+      "sha256": "11d298315379ba7fbb4673250daeab830d80a3fc084bf4bd731f84a1d811b079",
+      "wiersze": 101873,
+      "wiersze_probki": 1020
+    },
+    "L1_B": {
+      "bajty": 4910123,
+      "sha256": "b7f1d3f9fa81a5f55bc8547ac335462d18f3e39a995e78610c10e14c4a8ef526",
+      "wiersze": 75442,
+      "wiersze_probki": 756
+    },
+    "L2_E": {
+      "bajty": 9413882,
+      "sha256": "4118286112364004868cd4acc66199a73c7ec1fbaeee5c8f3576aae135b82150",
+      "wiersze": 144073,
+      "wiersze_probki": 1442
+    },
+    "L5_C": {
+      "bajty": 5021362,
+      "sha256": "a7687ee63b113db0cc689c45353c3faf380694231e9a39211fa5c736755d266d",
+      "wiersze": 77256,
+      "wiersze_probki": 774
+    },
+    "L5_D": {
+      "bajty": 3686193,
+      "sha256": "c2fa6049d0ed688b8f1c900e6d817910d886704c63845d7b05551bd5e482dcd6",
+      "wiersze": 56733,
+      "wiersze_probki": 569
+    },
+    "L6_F": {
+      "bajty": 3914215,
+      "sha256": "a443e8507d59e174b740cd3bb4eef7e32535fb68940caf55a5b860fa47e646fe",
+      "wiersze": 60430,
+      "wiersze_probki": 606
+    }
+  },
+  "przebieg": {
+    "exchange_s": "20",
+    "limit_kmh": "72"
+  },
+  "srodowisko": {
+    "runtime": "10.0.11"
+  }
+}
