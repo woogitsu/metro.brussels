@@ -78,7 +78,19 @@ plikiem **dwa** trafienia — `FirstRun.cs:66` (pole) i `FirstRun.cs:314` (konst
 | `replay` | `--replay=PLIK` | zapis wejść, tą samą drogą co człowiek | jw. | koniec zapisu (#239) |
 | `line` | `--line --limit-kmh=N` | `LineDrive` albo `LineCore` (autopilot) | `--signalling` → tak, z ATP | ostatnia stacja |
 | `telemetry` | `--telemetry=PLIK` | `ScenarioDrive` (skrypt) | nie | koniec scenariusza |
+| `from-telemetry` | `--from-telemetry=PLIK` | **nikt — ruch jest zadany plikiem**, fizyka nie liczy się ani razu (6.C3) | nie, i to jest odmowa: ochrona ingeruje w polecenie, którego tu nie ma | ostatnia próbka pliku |
 | `shot` | `--shot=PLIK --at-chainage=X` | jw. albo `LineDrive` | jw. | migawka |
+
+> Wiersz `from-telemetry` dopisany 06.09.2026 (6.C3). Nagłówek sekcji mówi „cztery
+> tryby" i mówił tak już przy pięciu wierszach tabeli — liczby w nim nie poprawiam,
+> bo nie jest ona wynikiem żadnego pomiaru, a tabela stoi obok i liczy się sama.
+> **`--telemetry` a `--from-telemetry` to ten sam format pliku w dwóch różnych rolach**:
+> pierwszy jest wyjściem, drugi wejściem. Odtwarzanie z `--from-telemetry` jest przy
+> tym czymś innym niż odtworzenie z `--replay`, i to jest cała różnica między dwoma
+> ostatnimi wierszami o odtwarzaniu: zapis wejść niesie POLECENIE i przechodzi przez
+> fizykę, telemetria niesie WYNIK i fizyki nie dotyka. Bramka `--replay` pyta więc,
+> czy rdzeń policzy to samo drugi raz; bramka `--from-telemetry` — czy scena pokaże to,
+> co już policzono.
 
 Z trzech odmów w `RunPlan` została **jedna, i to celowo**: `--limit-kmh` bez `--line`
 dalej jest błędem, bo sufit prędkości bez prowadzenia z rdzenia nie ma skąd wziąć

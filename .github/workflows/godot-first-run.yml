@@ -390,6 +390,164 @@ jobs:
           dotnet run --project src/Sim.Runner -c Release --no-build -- \
             compare build/t400/core.csv build/t400/godot_jitter.csv --tolerance 0
 
+      - name: Telemetry played back as prescribed movement must echo the file it read
+        shell: bash
+        # BRAMKA RUCHU ZADANEGO (`--from-telemetry`). Wejściem jest telemetria z kroku
+        # „Godot run, 120 steps per frame", czyli plik już porównany z rdzeniem co do
+        # bitu — więc echo, które się z nim zgadza, zgadza się przez niego również
+        # z rdzeniem. Osobnego przebiegu wzorcowego ten krok nie potrzebuje.
+        #
+        # CZYM TO SIĘ RÓŻNI OD `--replay`, bo różnica jest cała: `--replay` odtwarza
+        # ZAPIS WEJŚĆ i przechodzi przez fizykę, a `--from-telemetry` odtwarza WYNIK
+        # i fizyki nie liczy ani razu. Tamten krok pyta „czy rdzeń policzy to samo
+        # drugi raz", ten — „czy scena pokaże to, co już policzono".
+        #
+        # DWA RYTMY KLATEK, i to nie jest ozdoba przepisana z kroku wyżej. Głowica
+        # odtwarzania idzie po JEDNYM kroku rdzenia i przyjmuje próbkę, gdy w nią
+        # trafi; gdyby zegarem odtwarzania był numer klatki albo stan próbki, cały
+        # plik wyszedłby w jednej klatce — telemetria zgadzałaby się co do bajtu,
+        # a ruchu nie byłoby żadnego. Różnica 319 klatek wobec 5457 przy identycznym
+        # wyjściu jest tym, co odróżnia te dwa przypadki.
+        run: |
+          set -euo pipefail
+          mkdir -p build/t400/zadany
+          test -f build/t400/godot.csv \
+            || { echo "BŁĄD: brak telemetrii wzorcowej z kroku o 120 krokach na klatkę" >&2; exit 1; }
+          # Liczba próbek jest CZYTANA z pliku, a nie wpisana z ręki. Wpisana
+          # starzeje się przy pierwszej zmianie scenariusza i wtedy albo bramka
+          # kłamie, albo pada z powodu, który nie ma nic wspólnego z tym trybem.
+          probek=$(( $(wc -l < build/t400/godot.csv) - 1 ))
+          test "$probek" -gt 100 \
+            || { echo "BŁĄD: telemetria wzorcowa ma $probek próbek, za mało na przejazd" >&2; exit 1; }
+          for spf in 120 7; do
+            "$GODOT_BIN" --headless --path src/Game -- \
+              --from-telemetry="$PWD/build/t400/godot.csv" \
+              --telemetry="$PWD/build/t400/zadany/echo-spf$spf.csv" \
+              --steps-per-frame="$spf" \
+              2>&1 | tee "build/t400/zadany/echo-spf$spf.log"
+            python3 tools/ci/assert_no_godot_warnings.py "build/t400/zadany/echo-spf$spf.log"
+            # Przebieg ma dojść do OSTATNIEJ próbki pliku i ma być w trybie ruchu
+            # zadanego. Kod wyjścia 0 tego nie odróżnia: scena, która przyjęłaby
+            # pierwszą próbkę i uznała przebieg za skończony, wychodzi zerem tak samo.
+            grep -q "^\[RUCH ZADANY\] koniec: próbek przyjętych=$probek z $probek " \
+              "build/t400/zadany/echo-spf$spf.log" \
+              || { echo "BŁĄD: odtwarzanie przy $spf krokach na klatkę nie doszło do końca pliku" >&2
+                   grep "^\[RUCH ZADANY\]" "build/t400/zadany/echo-spf$spf.log" >&2; exit 1; }
+            grep -q "^\[PRZEJAZD\] tryb=from-telemetry " "build/t400/zadany/echo-spf$spf.log" \
+              || { echo "BŁĄD: scena nie jest w trybie ruchu zadanego" >&2
+                   grep "^\[PRZEJAZD\]" "build/t400/zadany/echo-spf$spf.log" >&2; exit 1; }
+            dotnet run --project src/Sim.Runner -c Release --no-build -- \
+              compare build/t400/godot.csv "build/t400/zadany/echo-spf$spf.csv" \
+              --tolerance 0
+            # `compare` porównuje LICZBY po sparsowaniu, więc sam nie odpowiada na
+            # pytanie o bajty. Plik odtworzony ma wyjść bajt w bajt taki, jaki wszedł.
+            cmp build/t400/godot.csv "build/t400/zadany/echo-spf$spf.csv" \
+              || { echo "BŁĄD: echo różni się od wczytanego pliku bajtowo" >&2; exit 1; }
+          done
+          # RÓŻNY RYTM KLATEK MUSI BYĆ NAPRAWDĘ RÓŻNY. Bez tego warunku oba przebiegi
+          # mogłyby lecieć tym samym podziałem kroków na klatki — porównania wyżej
+          # nadal byłyby zielone, a właściwość, o którą chodzi, nie byłaby sprawdzona
+          # ani raz.
+          python3 - <<'KLATKI'
+          import re
+
+          def frames(path):
+              with open(path, encoding="utf-8") as handle:
+                  for line in handle:
+                      found = re.search(r"^\[RUCH ZADANY\] koniec:.* klatek=(\d+) ", line)
+                      if found:
+                          return int(found.group(1))
+              raise AssertionError(f"{path}: brak wiersza końca odtwarzania")
+
+          gesty = frames("build/t400/zadany/echo-spf7.log")
+          rzadki = frames("build/t400/zadany/echo-spf120.log")
+          assert gesty > rzadki * 10, (
+              f"klatek przy 7 krokach: {gesty}, przy 120: {rzadki} — "
+              "to nie są dwa różne rytmy klatek")
+          print(f"[RYTM] {rzadki} klatek wobec {gesty} przy identycznym wyjściu")
+          KLATKI
+
+      - name: Negative control of the telemetry playback
+        shell: bash
+        # Bramka, która mówi „ok" także wtedy, gdy nic nie sprawdza, jest bezużyteczna
+        # (reports/T-310-physics.md §6). Psujemy JEDNĄ liczbę na CZWARTYM miejscu po
+        # przecinku — w pliku WCZYTYWANYM, nie w wyjściu — i wymagamy dwóch rzeczy
+        # naraz:
+        #
+        #  1. żeby echo poszło za zepsutym wejściem, czyli żeby scena naprawdę CZYTAŁA
+        #     plik, a nie jechała obok niego. Gdyby `--from-telemetry` ignorowało
+        #     zawartość, echo wyszłoby nadal zgodne z oryginałem i mutacja przeszłaby.
+        #  2. żeby `compare` przy progu 0 wskazało NUMER WIERSZA rozjazdu, a nie samo
+        #     „różnią się". Numer wiersza jest tym, co odróżnia użyteczną bramkę od
+        #     czerwonego światła bez adresu.
+        #
+        # Liczby idą formatem `R` rdzenia, więc mutacja też musi: `repr` w Pythonie
+        # daje `1094.0` tam, gdzie C# daje `1094`, a wczytywanie odrzuca wiersz, który
+        # nie składa się z powrotem co do bajtu — i słusznie, tylko nie o to tu chodzi.
+        run: |
+          set -euo pipefail
+          python3 - <<'NEGZAD'
+          import csv
+
+          WIERSZ = 40
+          KOLUMNA = 2  # chainage_m
+
+          def jak_rdzen(value):
+              text = repr(value)
+              return text[:-2] if text.endswith(".0") else text
+
+          rows = list(csv.reader(open("build/t400/godot.csv", encoding="utf-8")))
+          before = rows[WIERSZ][KOLUMNA]
+          rows[WIERSZ][KOLUMNA] = jak_rdzen(float(before) + 0.0001)
+          assert rows[WIERSZ][KOLUMNA] != before, "mutacja niczego nie zmieniła"
+          with open("build/t400/zadany/wejscie-bad.csv", "w", newline="", encoding="utf-8") as h:
+              csv.writer(h, lineterminator="\n").writerows(rows)
+          print(f"[NEGATYW] wiersz {WIERSZ}, chainage_m: {before} -> {rows[WIERSZ][KOLUMNA]}")
+          NEGZAD
+          "$GODOT_BIN" --headless --path src/Game -- \
+            --from-telemetry="$PWD/build/t400/zadany/wejscie-bad.csv" \
+            --telemetry="$PWD/build/t400/zadany/echo-bad.csv" \
+            2>&1 | tee build/t400/zadany/echo-bad.log
+          python3 tools/ci/assert_no_godot_warnings.py build/t400/zadany/echo-bad.log
+          rc=0
+          dotnet run --project src/Sim.Runner -c Release --no-build -- \
+            compare build/t400/godot.csv build/t400/zadany/echo-bad.csv \
+            --tolerance 0 > build/t400/zadany/compare-bad.txt 2>&1 || rc=$?
+          cat build/t400/zadany/compare-bad.txt
+          test "$rc" -ne 0 \
+            || { echo "BŁĄD: różnica na czwartym miejscu po przecinku przeszła porównanie — scena nie czyta pliku" >&2
+                 exit 1; }
+          grep -q "chainage_m .*(wiersz 40) PONAD PRÓG" build/t400/zadany/compare-bad.txt \
+            || { echo "BŁĄD: porównanie nie wskazało wiersza 40 w kolumnie chainage_m" >&2; exit 1; }
+          echo "[NEGATYW] rozjazd 0,0001 m w wierszu 40 odrzucony i zaadresowany, tak jak ma być"
+          # DRUGA MUTACJA, na inne pytanie: plik, którego rdzeń NIE MÓGŁ napisać, ma
+          # zostać ODRZUCONY, a nie odtworzony. Czas w kolumnie `t_s` jest liczony
+          # z numeru kroku, więc wpisany z ręki rozjeżdża się z nim — i wtedy
+          # odtworzony przejazd miałby dwa zegary.
+          sed '2s/^0,0,/0,7,/' build/t400/godot.csv > build/t400/zadany/wejscie-zegar.csv
+          cmp -s build/t400/godot.csv build/t400/zadany/wejscie-zegar.csv \
+            && { echo "BŁĄD: mutacja zegara niczego nie zmieniła" >&2; exit 1; }
+          # `|| rc=$?` PO potoku, a nie przekierowanie do pliku: log ma iść przez
+          # `tee` i przez bramkę ostrzeżeń, tak samo jak każde inne uruchomienie sceny
+          # w tym pliku. Pod `pipefail` kod potoku jest kodem Godota, więc jedno i drugie
+          # da się mieć naraz. Przebieg ODRZUCONY też może wypisać ostrzeżenie silnika
+          # i wtedy chcemy o nim wiedzieć — a nie dowiedzieć się, że „przecież padł".
+          rc=0
+          "$GODOT_BIN" --headless --path src/Game -- \
+            --from-telemetry="$PWD/build/t400/zadany/wejscie-zegar.csv" \
+            --telemetry="$PWD/build/t400/zadany/echo-zegar.csv" \
+            2>&1 | tee build/t400/zadany/echo-zegar.log || rc=$?
+          python3 tools/ci/assert_no_godot_warnings.py build/t400/zadany/echo-zegar.log
+          test "$rc" -ne 0 \
+            || { echo "BŁĄD: plik z czasem niezgodnym z liczbą kroków został odtworzony" >&2
+                 cat build/t400/zadany/echo-zegar.log >&2; exit 1; }
+          grep -q "nie składa się z powrotem formatem rdzenia" build/t400/zadany/echo-zegar.log \
+            || { echo "BŁĄD: odmowa nie nazywa powodu" >&2
+                 cat build/t400/zadany/echo-zegar.log >&2; exit 1; }
+          test ! -f build/t400/zadany/echo-zegar.csv \
+            || { echo "BŁĄD: odrzucony plik i tak wyprodukował telemetrię" >&2; exit 1; }
+          echo "[NEGATYW] plik z dwoma zegarami odrzucony z podaniem wiersza, tak jak ma być"
+
       - name: Manual run — the replayed input log must be the core's own drive
         shell: bash
         # BRAMKA TRYBU RĘCZNEGO (G-2). Do 05.09.2026 nie było jej w ogóle: żaden krok

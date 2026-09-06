@@ -35,7 +35,7 @@ public sealed class RunPlan
         "at-chainage", "view", "axis", "no-geometry", "assets", "manifest", "shell",
         "platforms",
         "line", "calls", "limit-kmh", "signalling",
-        "input-log", "replay",
+        "input-log", "replay", "from-telemetry",
     };
 
     /// <summary>Widoki, jakie scena potrafi ustawić. Inna wartość jest BŁĘDEM, nie domyślną.</summary>
@@ -110,8 +110,17 @@ public sealed class RunPlan
     /// skryptowym — polecenie pochodzi wtedy z zapisu wejść maszynisty, a telemetria
     /// jest tylko sposobem zapisania wyniku. To rozróżnienie jest tu, a nie w scenie,
     /// bo od niego zależy, który sterownik scena w ogóle zbuduje.</para>
+    ///
+    /// <para>Tak samo <c>--telemetry</c> RAZEM z <c>--from-telemetry</c>: przebieg
+    /// prowadzi wtedy PLIK, a telemetria jest jego echem — i to echo jest całą
+    /// weryfikacją tamtego trybu, więc musi się dać zamówić. Gdyby ta para wpadała
+    /// w przebieg skryptowy, scena zbudowałaby <c>ScenarioDrive</c> i „odtworzenie"
+    /// wypisałoby scenariusz T-400 zamiast wczytanego przejazdu — z kodem wyjścia
+    /// zero i telemetrią, która wygląda poprawnie.</para>
     /// </summary>
-    public bool ScriptedMode => (TelemetryPath is not null && ReplayPath is null) || ShotPath is not null;
+    public bool ScriptedMode =>
+        (TelemetryPath is not null && ReplayPath is null && FromTelemetryPath is null)
+        || ShotPath is not null;
 
     /// <summary>
     /// Czy scena w tym przebiegu CZYTA KLAWIATURĘ — czyli czy przy sterowaniu siedzi
@@ -126,8 +135,9 @@ public sealed class RunPlan
     /// <para><b>Dlaczego to nie jest po prostu „nie skryptowy".</b> Odtworzenie
     /// z <c>--replay</c> też nie czyta klawiatury — polecenie przychodzi z zapisu po
     /// numerze kroku — a <see cref="ScriptedMode"/> jest w nim FAŁSZYWE, bo zapis wejść
-    /// pochodzi od maszynisty. Warunek musi więc wymienić oba tryby, a nie zaprzeczyć
-    /// jednemu.</para>
+    /// pochodzi od maszynisty. Tak samo <c>--from-telemetry</c>, gdzie polecenia nie ma
+    /// w ogóle: jest gotowy ruch. Warunek musi więc wymienić WSZYSTKIE trzy tryby,
+    /// a nie zaprzeczyć jednemu.</para>
     ///
     /// <para>Skutek uboczny jest tu skutkiem głównym: w przebiegu skryptowym wiersz
     /// pomocy NIE WYCHODZI na zrzut. Bramka wizualna <c>tools/visual/compare.py</c>
@@ -135,7 +145,7 @@ public sealed class RunPlan
     /// samym HUD-zie; dopisanie do niej stałego napisu podniosłoby „ink" w klatce,
     /// którą ta bramka ma ODRZUCAĆ.</para>
     /// </summary>
-    public bool ReadsKeyboard => !ScriptedMode && !ReplayMode;
+    public bool ReadsKeyboard => !ScriptedMode && !ReplayMode && !FromTelemetryMode;
 
     /// <summary>
     /// Plik, do którego zapisuje się wejścia maszynisty (numer kroku + klawisze),
@@ -155,6 +165,27 @@ public sealed class RunPlan
 
     /// <summary>Przejazd odtwarzany z zapisu wejść.</summary>
     public bool ReplayMode => ReplayPath is not null;
+
+    /// <summary>
+    /// Plik telemetrii, z którego przejazd ma być odtworzony jako RUCH ZADANY,
+    /// albo <c>null</c>. Format czyta <see cref="TelemetryTrack"/>.
+    ///
+    /// <para><b>Czwarte źródło polecenia — i jedyne, w którym polecenia nie ma.</b>
+    /// Autopilot, klawiatura i zapis wejść podają polecenie, które przechodzi przez
+    /// fizykę; telemetria podaje WYNIK i fizyka nie liczy się drugi raz. Stąd nazwa
+    /// argumentu jest inna niż <c>--telemetry</c>, choć plik ten sam: tamten to
+    /// wyjście, ten to wejście, a jeden argument w dwóch rolach byłby dokładnie tą
+    /// dwuznacznością, którą reszta tego pliku wycina.</para>
+    ///
+    /// <para>Scena jest tu WIDOKIEM w najczystszej postaci, jaką to repozytorium ma —
+    /// <c>docs/01-architecture.md</c>: „Linia jest symulacją, która działa bez gracza.
+    /// Kabina jest jednym z jej widoków." W tym trybie symulacja już się odbyła
+    /// i leży w pliku; kabina tylko na nią patrzy.</para>
+    /// </summary>
+    public string? FromTelemetryPath { get; private init; }
+
+    /// <summary>Przejazd odtwarzany z pliku telemetrii jako ruch zadany.</summary>
+    public bool FromTelemetryMode => FromTelemetryPath is not null;
 
     /// <summary>
     /// Przejazd całą linią z zatrzymaniami na stacjach, prowadzony rdzeniem
@@ -239,8 +270,17 @@ public sealed class RunPlan
     /// </summary>
     public bool ManualSignalling => SignallingPath is not null && !LineMode && !ScriptedMode;
 
-    /// <summary>Nazwa trybu do nagłówka logu i do HUD-a.</summary>
-    public string Mode => ReplayPath is not null ? "replay"
+    /// <summary>
+    /// Nazwa trybu do nagłówka logu i do HUD-a.
+    ///
+    /// <para>Kolejność nie jest dowolna i to jest ta sama reguła, co przy
+    /// <c>--replay</c>: tryb, który <c>--telemetry</c> tylko ZAPISUJE, musi stać PRZED
+    /// nim, inaczej odtwarzanie z pliku nazwałoby się „telemetry" i log przestałby
+    /// odróżniać przebieg policzony od odtworzonego. Bramka CI czyta ten napis
+    /// grepem, więc pomyłka tutaj byłaby zieloną bramką nad złym trybem.</para>
+    /// </summary>
+    public string Mode => FromTelemetryPath is not null ? "from-telemetry"
+        : ReplayPath is not null ? "replay"
         : TelemetryPath is not null ? "telemetry"
         : ShotPath is not null ? "shot"
         : LineMode ? "line" : "manual";
@@ -364,6 +404,67 @@ public sealed class RunPlan
                 + "kroku zapisu, a zrzut na zadanym kilometrażu — to dwa warunki końca naraz");
         }
 
+        // `--from-telemetry` jest CZWARTYM źródłem ruchu tego samego składu, obok
+        // autopilota, klawiatury i zapisu wejść — i jedynym, w którym fizyka nie liczy
+        // się wcale: ruch jest ZADANY plikiem. Odmowy są tu z tego samego powodu, co
+        // trzy wyżej, i wymieniają OBA tryby z nazwy, bo cichy wybór jednego z dwóch
+        // źródeł daje przejazd, którego po wyniku nie da się odróżnić od zamówionego.
+        //
+        // Powód dodatkowy, którego tamte trzy nie mają: te dwa źródła nawet nie
+        // rozjeżdżałyby się „trochę". Ruch zadany bierze kilometraż WPROST z pliku,
+        // więc skład stałby w miejscu z pliku, a nie tam, dokąd doprowadziłby go
+        // sterownik — i telemetria wyszłaby echem pliku bez względu na to, co robił
+        // rdzeń. Bramka porównująca ją z rdzeniem byłaby wtedy zielona zawsze.
+        if (arguments.ContainsKey("from-telemetry") && arguments.ContainsKey("line"))
+        {
+            return Refusal(arguments, exitBadArgumentValue,
+                "[ARGUMENT] --from-telemetry nie łączy się z --line: odtwarzany ruch zadany "
+                + "i autopilot to dwa różne źródła ruchu dla tego samego składu");
+        }
+
+        if (arguments.ContainsKey("from-telemetry") && arguments.ContainsKey("replay"))
+        {
+            return Refusal(arguments, exitBadArgumentValue,
+                "[ARGUMENT] --from-telemetry nie łączy się z --replay: telemetria jest WYNIKIEM "
+                + "odtwarzanym bez fizyki, a zapis wejść POLECENIEM przechodzącym przez fizykę");
+        }
+
+        if (arguments.ContainsKey("from-telemetry") && arguments.ContainsKey("input-log"))
+        {
+            return Refusal(arguments, exitBadArgumentValue,
+                "[ARGUMENT] --from-telemetry nie łączy się z --input-log: w ruchu zadanym scena "
+                + "nie czyta klawiatury, więc plik nazwany zapisem wejść byłby pusty albo "
+                + "opisywałby przejazd, którego nikt nie prowadził");
+        }
+
+        if (arguments.ContainsKey("from-telemetry") && arguments.ContainsKey("shot"))
+        {
+            return Refusal(arguments, exitBadArgumentValue,
+                "[ARGUMENT] --from-telemetry nie łączy się z --shot: odtwarzanie kończy się na "
+                + "ostatniej próbce pliku, a zrzut na zadanym kilometrażu — to dwa warunki "
+                + "końca naraz");
+        }
+
+        if (arguments.ContainsKey("from-telemetry") && arguments.ContainsKey("signalling"))
+        {
+            return Refusal(arguments, exitBadArgumentValue,
+                "[ARGUMENT] --from-telemetry nie łączy się z --signalling: ochrona pociągu "
+                + "ingeruje w POLECENIE, a w ruchu zadanym polecenia nie ma — hamulec ATP "
+                + "nie zmieniłby ani jednego metra i wyszedłby przejazd z ochroną, "
+                + "która niczego nie chroni");
+        }
+
+        // `--sample-every` w ruchu zadanym byłby argumentem BEZCZYNNYM, a taki jest
+        // gorszy od nieznanego: nieznany zatrzymuje przebieg, bezczynny wygląda jak
+        // działający. Gęstość próbek jest właściwością PLIKU — odtwarzanie wypisuje
+        // dokładnie te próbki, które wczytało, i żadnej innej.
+        if (arguments.ContainsKey("from-telemetry") && arguments.ContainsKey("sample-every"))
+        {
+            return Refusal(arguments, exitBadArgumentValue,
+                "[ARGUMENT] --from-telemetry nie łączy się z --sample-every: gęstość próbek "
+                + "przychodzi z odtwarzanego pliku, a nie z argumentu");
+        }
+
         // Zapisywać można TYLKO to, co naprawdę przyszło od maszynisty. W przebiegu
         // skryptowym i w `--line` polecenie liczy rdzeń, więc plik nazwany „zapisem
         // wejść" opisywałby przejazd, którego nikt nie prowadził — i odtworzony
@@ -448,6 +549,7 @@ public sealed class RunPlan
             CallsPath = Argument(arguments, "calls"),
             InputLogPath = Argument(arguments, "input-log"),
             ReplayPath = Argument(arguments, "replay"),
+            FromTelemetryPath = Argument(arguments, "from-telemetry"),
             LimitKmh = limitKmh,
             SignallingPath = Argument(arguments, "signalling"),
             SampleEvery = sampleEvery,

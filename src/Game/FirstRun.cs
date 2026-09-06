@@ -37,12 +37,19 @@ public enum ViewKind
 /// kamer, odczyt klawiatury, HUD i pętla klatkowa. <c>docs/01-architecture.md</c>:
 /// linia jest symulacją, kabina jednym z jej widoków.
 ///
-/// <b>Trzy tryby.</b>
+/// <b>Pięć trybów.</b> (Wykaz jest PRZEPISANY, a nie dopisany obok: mówił „trzy tryby"
+/// przy trzech wymienionych i nie znał ani <c>--replay</c>, ani <c>--from-telemetry</c>.
+/// Szósty tryb — <c>--line</c> — jest osobno, w <see cref="RunPlan.LineMode"/>.)
 /// <list type="bullet">
 /// <item>bez argumentów — prowadzenie z klawiatury;</item>
 /// <item><c>--telemetry=PLIK</c> — przejazd po zapisanym scenariuszu, bez interakcji,
 /// z telemetrią w formacie rdzenia. To jest odpowiednik testu: te same liczby przy
 /// każdym powtórzeniu i te same, co z <c>src/Sim.Runner</c>;</item>
+/// <item><c>--replay=PLIK</c> — odtworzenie ZAPISU WEJŚĆ maszynisty, tą samą drogą
+/// przez fizykę, co człowiek przy klawiaturze;</item>
+/// <item><c>--from-telemetry=PLIK</c> — odtworzenie ZAPISANEGO WYNIKU jako ruchu
+/// zadanego: fizyka nie liczy się ani razu, scena jest czystym widokiem przejazdu,
+/// który już się odbył;</item>
 /// <item><c>--shot=PLIK --at-chainage=X</c> — przewinięcie przejazdu i zrzut ekranu.</item>
 /// </list>
 ///
@@ -248,8 +255,30 @@ public sealed partial class FirstRun : Node3D
     /// <summary>Zbieranie wejść do zapisu; <c>null</c> bez <c>--input-log</c>.</summary>
     private InputLogRecorder? _recorder;
 
+    /// <summary>Przejazd odtwarzany z pliku telemetrii jako ruch zadany (<c>--from-telemetry</c>).</summary>
+    private bool _fromTelemetryMode;
+
+    /// <summary>Wczytany zapis telemetrii; <c>null</c> poza <c>--from-telemetry</c>.</summary>
+    private TelemetryTrack? _track;
+
+    /// <summary>Numer próbki, którą scena właśnie pokazuje.</summary>
+    private int _trackIndex;
+
+    /// <summary>
+    /// Głowica odtwarzania: numer kroku, do którego doszło odtwarzanie.
+    ///
+    /// <para>Osobna od <c>_state.Steps</c>, i to nie jest duplikat. <c>_state</c>
+    /// przeskakuje w tym trybie z próbki na próbkę — o 120 kroków przy domyślnej
+    /// gęstości — a głowica idzie po JEDNYM kroku, bo to ona decyduje, kiedy wypada
+    /// następna próbka. Gdyby zegar odtwarzania był tym samym polem, co stan, przejazd
+    /// przyjmowałby każdą próbkę natychmiast i cały plik wyszedłby w jednej klatce:
+    /// telemetria zgadzałaby się co do bajtu, a ruchu nie byłoby żadnego.</para>
+    /// </summary>
+    private long _playbackStep;
+
     private string? _inputLogPath;
     private string? _replayPath;
+    private string? _fromTelemetryPath;
 
     /// <summary>Zapis wejść już poszedł na dysk. Bez tego wyszedłby dwa razy: z końca przebiegu i z <c>_ExitTree</c>.</summary>
     private bool _inputLogWritten;
@@ -354,9 +383,16 @@ public sealed partial class FirstRun : Node3D
             // Wiersz zerowy: stan PRZED pierwszym krokiem. W przebiegu skryptowym
             // podaje go `ScenarioDrive`; w odtworzeniu takiego obiektu nie ma, więc
             // wiersz składa się z tych samych składników, co każdy następny.
+            //
+            // W RUCHU ZADANYM wiersz zerowy jest PIERWSZĄ PRÓBKĄ PLIKU, przepisaną
+            // z jej własną fazą. `ManualTelemetryRow` wpisałby tu `manual` i echo
+            // rozjechałoby się z oryginałem w dziesiątej kolumnie już w pierwszym
+            // wierszu — a `compare` odrzuca różnicę fazy przed policzeniem czegokolwiek.
             _telemetry.Add(_scripted is not null
                 ? DriveTelemetry.Row(_scripted)
-                : ManualTelemetryRow());
+                : _track is not null
+                    ? FromTelemetryRow()
+                    : ManualTelemetryRow());
         }
 
         PlaceEverything();
@@ -395,8 +431,10 @@ public sealed partial class FirstRun : Node3D
         _lineMode = plan.LineMode;
         _replayMode = plan.ReplayMode;
         _readsKeyboard = plan.ReadsKeyboard;
+        _fromTelemetryMode = plan.FromTelemetryMode;
         _inputLogPath = plan.InputLogPath;
         _replayPath = plan.ReplayPath;
+        _fromTelemetryPath = plan.FromTelemetryPath;
         _callsPath = plan.CallsPath;
         _limitKmh = plan.LimitKmh;
         _signallingPath = plan.SignallingPath;
@@ -478,6 +516,27 @@ public sealed partial class FirstRun : Node3D
                 CultureInfo.InvariantCulture,
                 $"[WEJŚCIE] odtworzenie z {_replayPath}: {_replay.Steps} kroków, "
                 + $"{_replay.Entries.Count} zmian klawiszy"));
+        }
+
+        if (_fromTelemetryPath is not null)
+        {
+            _track = ReadTelemetryTrack(_fromTelemetryPath);
+            if (_track is null)
+            {
+                return;
+            }
+
+            // Pierwsza próbka JEST stanem początkowym, a nie stanem po pierwszym
+            // kroku. Bez tego wiersz zerowy telemetrii wyjścia opisywałby skład
+            // stojący na 94 m z zerową prędkością — czyli `DriveState.AtRest`
+            // z konstruktora — zamiast tego, od czego zaczyna się odtwarzany plik.
+            _playbackStep = _track.FirstStep;
+            AdoptTelemetrySample();
+
+            GD.Print(string.Create(
+                CultureInfo.InvariantCulture,
+                $"[RUCH ZADANY] {_fromTelemetryPath}: {_track.Samples.Count} próbek, "
+                + $"kroki {_track.FirstStep}..{_track.LastStep}"));
         }
 
         if (_inputLogPath is not null)
@@ -564,6 +623,17 @@ public sealed partial class FirstRun : Node3D
         else if (_scriptedMode)
         {
             _scripted = new ScenarioDrive(_controller, _scenario, _conditions, _step);
+        }
+        else if (_fromTelemetryMode)
+        {
+            // NIC TU NIE POWSTAJE, i to jest treść tej gałęzi, a nie jej brak.
+            // W ruchu zadanym nie ma sterownika, bo nie ma czego sterować: stan
+            // przychodzi z pliku gotowy. Gałąź istnieje po to, żeby przebieg NIE
+            // wpadł do trybu ręcznego niżej — tamten wczytałby plan sygnalizacji,
+            // zbudował obsługę stacji z cyklem drzwi i filtrowałby nim polecenie,
+            // którego w tym trybie nie ma. Odtwarzanie wyszłoby wtedy takie samo
+            // (filtr niczego nie dotyka), ale przebieg odmawiałby startu, gdy planu
+            // nie ma na dysku — czyli z powodu, który tego trybu nie dotyczy.
         }
         else
         {
@@ -720,6 +790,56 @@ public sealed partial class FirstRun : Node3D
             return null;
         }
     }
+
+    /// <summary>
+    /// Zapis telemetrii z pliku. Ta sama droga i ten sam powód, co przy
+    /// <see cref="ReadInputLog"/>: czyta <c>FileAccess</c>, więc ścieżka spod
+    /// <c>res://</c> też działa, a odmowa jest KODEM WYJŚCIA, nie wyjątkiem
+    /// w środku <c>_Ready</c> — wyjątek zostawiłby pętlę klatek kręcącą się
+    /// na niezbudowanym stanie do wypalenia limitu czasu w CI.
+    /// </summary>
+    /// <param name="path">Ścieżka pliku telemetrii.</param>
+    /// <returns>Wczytany zapis albo <c>null</c>, gdy przebieg został przerwany.</returns>
+    private TelemetryTrack? ReadTelemetryTrack(string path)
+    {
+        using var file = FileAccess.Open(path, FileAccess.ModeFlags.Read);
+        if (file is null)
+        {
+            Abort(ExitMissingInput,
+                $"[TELEMETRIA] nie da się otworzyć {path}: {FileAccess.GetOpenError()}");
+            return null;
+        }
+
+        if (!TelemetryTrack.TryParse(file.GetAsText(), _step, out var track, out var error))
+        {
+            Abort(ExitBadArgumentValue, $"{error} (plik {path})");
+            return null;
+        }
+
+        return track;
+    }
+
+    /// <summary>
+    /// Przenosi próbkę <see cref="_trackIndex"/> do stanu sceny.
+    ///
+    /// <para>To jest CAŁA „fizyka" ruchu zadanego: przypisanie. Nie ma tu ani jednego
+    /// mnożenia, bo każda liczba, którą scena pokazuje, została policzona wcześniej
+    /// i leży w pliku. Polecenie idzie do obu pól — <see cref="_command"/> czyta HUD,
+    /// <see cref="_effectiveCommand"/> telemetria — i w tym trybie są tym samym:
+    /// filtru stacji ani ochrony pociągu nie ma czego filtrować.</para>
+    /// </summary>
+    private void AdoptTelemetrySample()
+    {
+        var sample = _track!.Samples[_trackIndex];
+        _state = sample.State;
+        _acceleration = sample.AccelerationMps2;
+        _command = sample.Command;
+        _effectiveCommand = sample.Command;
+    }
+
+    /// <summary>Wiersz telemetrii wyjścia dla próbki, którą scena właśnie pokazuje.</summary>
+    /// <returns>Wiersz zgodny z <see cref="DriveTelemetry.Header"/>.</returns>
+    private string FromTelemetryRow() => _track!.Samples[_trackIndex].Row(_step);
 
     private void BuildEnvironment()
     {
@@ -905,7 +1025,8 @@ public sealed partial class FirstRun : Node3D
         // Odtworzenie z zapisu wejść leci tak samo i z tego samego powodu — a przy
         // okazji to `--steps-per-frame` jest w nim JEDYNYM sposobem, żeby ten sam
         // zapis puścić przy różnym podziale kroków na klatki.
-        var synthetic = _scriptedMode || _replayMode || (_lineMode && _callsPath is not null);
+        var synthetic = _scriptedMode || _replayMode || _fromTelemetryMode
+            || (_lineMode && _callsPath is not null);
         AdvanceBy(synthetic ? SyntheticFrameSeconds() : delta);
         PlaceEverything();
         UpdateHud();
@@ -921,6 +1042,10 @@ public sealed partial class FirstRun : Node3D
         else if (_replay is not null && _logStep >= _replay.Steps)
         {
             FinishReplayRun();
+        }
+        else if (_track is not null && _trackIndex >= _track.Samples.Count - 1)
+        {
+            FinishFromTelemetryRun();
         }
     }
 
@@ -1010,6 +1135,50 @@ public sealed partial class FirstRun : Node3D
             // się z nią. Krok jest stały, więc iloraz jest dokładny, nie przybliżony.
             _acceleration = (_state.SpeedMps - before) / _step.Seconds;
             return true;
+        }
+
+        if (_track is not null)
+        {
+            // RUCH ZADANY. Krok NIE liczy fizyki — przesuwa głowicę odtwarzania o jeden
+            // krok rdzenia i sprawdza, czy właśnie wypadła następna próbka. Ta gałąź
+            // stoi PRZED `_scriptedMode` z tego samego powodu, dla którego linia stoi
+            // przed nią obiema: warunek na ŹRÓDŁO RUCHU musi być sprawdzany przed
+            // warunkiem na SPOSÓB ZAPISU wyniku. Przy `--from-telemetry --telemetry`
+            // `_scriptedMode` jest fałszem (pilnuje tego `RunPlan`), ale kolejność ma
+            // być czytelna, a nie zależeć od tamtego warunku.
+            //
+            // MIĘDZY PRÓBKAMI STAN STOI, i to jest decyzja, nie niedoróbka. Przy
+            // domyślnej gęstości próbka wypada co 120 kroków, czyli co sekundę, więc
+            // skład skacze po sekundzie zamiast płynąć. Wygładzanie stawiałoby go na
+            // kilometrażach, których NIE MA W ŻADNYM PLIKU — czyli pokazywałoby ruch
+            // wymyślony przez widok. Płynność jest tu właściwością nagrania
+            // (`--sample-every=1` daje próbkę na krok), a nie sceny.
+            if (_trackIndex >= _track.Samples.Count - 1)
+            {
+                return false;
+            }
+
+            _playbackStep++;
+            if (_playbackStep < _track.Samples[_trackIndex + 1].Steps)
+            {
+                return true;
+            }
+
+            _trackIndex++;
+            AdoptTelemetrySample();
+            if (_telemetryPath is not null)
+            {
+                // KAŻDA przyjęta próbka wychodzi na wyjście, bez pytania o
+                // `IsSample`: gęstość jest właściwością wczytanego pliku, a drugie
+                // przerzedzenie zrobiłoby z echa podzbiór oryginału. Porównanie przy
+                // progu 0 zgłosiłoby wtedy „różna liczba wierszy", i słusznie.
+                _telemetry.Add(FromTelemetryRow());
+            }
+
+            // Koniec zgłasza `_Process`, tak samo jak w pozostałych trybach. Tutaj
+            // przerywa się tylko pętla kroków tej klatki, żeby kroki spoza pliku nie
+            // wykonały się „z rozpędu" na przeniesionej reszcie akumulatora.
+            return _trackIndex < _track.Samples.Count - 1;
         }
 
         if (_scriptedMode)
@@ -1132,10 +1301,22 @@ public sealed partial class FirstRun : Node3D
     private string ManualTelemetryRow() => DriveTelemetry.Row(
         _state, _step, ChainageM, _acceleration, _effectiveCommand, DriveTelemetry.ManualPhase);
 
-    private double ChainageM => _line?.ChainageM
-        ?? (_lineCore is not null
-            ? _axis.Stations[0].ChainageM
-            : _scenario.StartChainageM + _state.DistanceM);
+    /// <summary>
+    /// Kilometraż czoła składu — jedno miejsce dla wszystkich trybów.
+    ///
+    /// <para>RUCH ZADANY idzie pierwszy i bierze liczbę WPROST Z PLIKU, a nie z sumy
+    /// „początek scenariusza + droga". Te dwie liczby są równe tylko dla przebiegu,
+    /// który zaczyna się tam, gdzie pakiet A: telemetria nagrana przejazdem
+    /// <c>--line</c> startuje na kilometrażu pierwszej stacji, więc fallback
+    /// przesunąłby cały odtwarzany przejazd i skład jechałby obok własnego zapisu.
+    /// Kolumna <c>chainage_m</c> jest w formacie po to, żeby jej użyć.</para>
+    /// </summary>
+    private double ChainageM => _track is not null
+        ? _track.Samples[_trackIndex].ChainageM
+        : _line?.ChainageM
+            ?? (_lineCore is not null
+                ? _axis.Stations[0].ChainageM
+                : _scenario.StartChainageM + _state.DistanceM);
 
     /// <summary>
     /// Ograniczenie prędkości tego przebiegu — JEDNA liczba dla fizyki i dla nagłówka.
@@ -1608,6 +1789,36 @@ public sealed partial class FirstRun : Node3D
                 + $"tras zaryglowanych={cab.Dispatcher.Locked} odmów={cab.Dispatcher.Refused}"));
         }
 
+        GetTree().Quit();
+    }
+
+    /// <summary>
+    /// Koniec odtwarzania telemetrii: plik ma skończoną liczbę próbek, więc przebieg
+    /// też. Drugi — obok <see cref="FinishReplayRun"/> — tryb, który KOŃCZY SIĘ SAM,
+    /// i z tego samego powodu: warunek końca przychodzi z pliku, a nie ze scenariusza.
+    ///
+    /// <para>Wiersz podsumowania podaje LICZBĘ PRZYJĘTYCH PRÓBEK obok liczby wczytanych.
+    /// Kod wyjścia zero tych dwóch liczb nie odróżnia: scena, która przyjęłaby pierwszą
+    /// próbkę i uznała przebieg za skończony, wychodzi zerem tak samo jak ta, która
+    /// przeszła cały plik — a jej telemetria miałaby jeden wiersz i wywaliła się
+    /// dopiero na porównaniu, bez powiedzenia dlaczego.</para>
+    /// </summary>
+    private void FinishFromTelemetryRun()
+    {
+        if (_done)
+        {
+            return;
+        }
+
+        _done = true;
+        WriteTelemetry();
+        GD.Print(string.Create(
+            CultureInfo.InvariantCulture,
+            $"[RUCH ZADANY] koniec: próbek przyjętych={_trackIndex + 1} "
+            + $"z {_track!.Samples.Count} kroków={_state.Steps} "
+            + $"t={_state.TimeSeconds(_step):F3} s chainage={ChainageM:F3} m "
+            + $"droga={_state.DistanceM:F3} m klatek={_frames} "
+            + $"głowica={_playbackStep} zapis={_fromTelemetryPath}"));
         GetTree().Quit();
     }
 

@@ -89,6 +89,21 @@ public static class RunHeader
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentNullException.ThrowIfNull(scenario);
 
+        // ODTWARZANIE TELEMETRII NIE MA PRĘDKOŚCI DOPUSZCZALNEJ i to jest wynik, nie
+        // brak wyniku. Ruch jest zadany plikiem: nikt nie liczy fizyki, więc nie ma
+        // liczby, którą kontroler by dostał — a każda inna byłaby tu wpisana z ręki
+        // i nie byłaby wynikiem NICZEGO. Dokładnie ta usterka, którą naprawiał ten
+        // plik: `limit=80.0 km/h` obok przejazdu jadącego 70. Warunek stoi PIERWSZY,
+        // bo w tym trybie żaden z obiektów niżej nie prowadzi przebiegu.
+        if (plan.FromTelemetryMode)
+        {
+            throw new ArgumentException(
+                "Odtwarzanie telemetrii nie ma prędkości dopuszczalnej: ruch jest zadany "
+                + "plikiem, a nie liczony, więc żadna liczba nie byłaby tu wynikiem "
+                + "prowadzenia przebiegu.",
+                nameof(plan));
+        }
+
         if (core is not null)
         {
             return core.SpeedLimitMps;
@@ -168,6 +183,22 @@ public static class RunHeader
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentNullException.ThrowIfNull(scenario);
         ArgumentNullException.ThrowIfNull(conditions);
+
+        // NAGŁÓWEK RUCHU ZADANEGO MA INNY KSZTAŁT, bo co innego jest o nim prawdą.
+        // Z czterech liczb wiersza podstawowego w tym trybie nie znaczy nic aż
+        // TRZY: limitu nie ma (patrz `SpeedLimitMps`), masa i scenariusz nie wchodzą
+        // do niczego, bo fizyka nie liczy się ani razu. Wypisanie ich mimo to byłoby
+        // powtórzeniem usterki, dla której ten plik powstał — liczby w nagłówku, która
+        // nie jest wynikiem niczego i której nic nie porównuje. Zostaje to, co w tym
+        // trybie NAPRAWDĘ działa: tryb, widok i krok, z którego liczy się kolumna
+        // czasu odtwarzanego pliku.
+        if (plan.FromTelemetryMode)
+        {
+            return string.Create(
+                CultureInfo.InvariantCulture,
+                $"[PRZEJAZD] tryb={plan.Mode} widok={view} krok=1/{step.Hertz} s " +
+                $"ruch=zadany z pliku {plan.FromTelemetryPath}");
+        }
 
         var limitMps = SpeedLimitMps(plan, scenario, core, line, manualPlan);
         return string.Create(
