@@ -62,20 +62,31 @@ których agent nie ruszy bez decyzji właściciela.
   (`reports/network-chainage.md`)
 - **Zależy od:** T-110
 
-### [ ] T-112 · Profil pionowy pakietu A — **ZABLOKOWANE**
-- **Blokada:** brak publicznych rzędnych główki szyny; dwa oficjalne źródła podają
-  **sprzeczne** głębokości stacji (Schuman 15 m vs 17,42 m; Botanique 21,5 vs 20 m).
-  Dopóki to trwa, tunel jest wariantem `flat-preview`, a generator odrzuca `--variant production`
+### [ ] T-112 · Profil pionowy pakietu A — **CZĘŚCIOWO ODBLOKOWANE 07.09.2026**
+- **Wpis przepisany, a nie dopisany obok.** Poprzednia wersja zaczynała się od
+  „**Blokada:** brak publicznych rzędnych główki szyny" i to zdanie było prawdziwe
+  jako opis danych, a **nieprawdziwe jako opis tego, co da się zrobić**: decyzja
+  właściciela z 07.09.2026 mówi budować z jawnym `unknown`. Blokada wariantu
+  `production` zostaje; blokada zbudowania czegokolwiek — nie.
+- **Decyzja właściciela 07.09.2026:** trzy znane głębokości wchodzą do profilu,
+  dziewięć pozostałych stacji zostaje **nazwane niewiadomą**, a nie zinterpolowane.
+  Interpolacja przez wiersz `unknown` jest zabroniona wprost: odcinek między dwiema
+  niewiadomymi jest niewiadomą, nie prostą. Wykonuje to pozycja **6.B44** w fazie 6.
+- **Co nadal jest blokadą:** dwa oficjalne źródła podają **sprzeczne** głębokości
+  (Schuman 15 m vs 17,42 m; Botanique 21,5 vs 20 m), więc wariant `production` nadal
+  nie ma z czego powstać i generator go odrzuca. Decyzja z 07.09.2026 **nie wybiera
+  strony konfliktu** — wybór zostaje przy T-901.
 - **Ruszyło się przy R-007:** EIE Métro 3 (Livre III Colignon) podaje głębokości peronów
   **trzech** stacji pakietu A — De Brouckère i Arts-Loi ok. 11 m, Parc 19 m — wpisane do
   `station-depths.csv` ze statusem `estimated` i notatką o dwóch przekształceniach
   (peron → główka szyny, oraz „environ" w zdaniu porównawczym, nie w tabeli pomiarowej).
-  **To nie odblokowuje zadania:** trzy z dwunastu stacji nie dają profilu, a Schuman
-  zostaje pusty, bo 15 m potwierdza jedną stronę konfliktu. Znane jest za to górne
-  ograniczenie na całą sieć: **21,5 m** (Botanique, najgłębsza stacja)
+  Znane jest za to górne ograniczenie na całą sieć: **21,5 m** (Botanique, najgłębsza
+  stacja). Poprzednia wersja tego punktu kończyła się zdaniem „**To nie odblokowuje
+  zadania**" — zdjęte, bo od 07.09.2026 jest nieprawdziwe co do zakresu: trzy z dwunastu
+  stacji nie dają profilu **produkcyjnego**, ale dają profil z nazwaną dziurą.
 - **Wejście:** oś + `station-depths.csv`
-- **Skończone, gdy:** pochylenia interpolowanego profilu są 0–4%, a każda wygenerowana wartość ma `interpolated:true` i `design_assumption`
-- **Zależy od:** T-111, T-901
+- **Skończone, gdy:** pochylenia interpolowanego profilu są 0–4%, a każda wygenerowana wartość ma `interpolated:true` i `design_assumption`, **a każdy odcinek bez danych ma `confidence: unknown`** i nie ma wartości wcale
+- **Zależy od:** T-111. **Już nie od T-901** dla wariantu z jawną niewiadomą — tylko dla `production`
 
 ### [x] T-113 · Rozkład jazdy i służby
 - **Zależy od:** T-110 (zrobione); odległości wymagają osi z T-210
@@ -755,6 +766,9 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.D30 | **ZROBIONE (07.09.2026).** Przejscie `czlonkowie()` sciagniete do `csharp_test_methods` (modul nizszy, wiec zaleznosc jest jednokierunkowa i nie ma cyklu), starsze `_poziom_bezposredni` skasowane, test zgodnosci zada **rownosci**, nie pasma. **Sprostowanie wlasnego wpisu**: zdanie „juz raz podaly rozne liczby (670 vs 674)" bylo mylace — tamte 670 wyszlo pod CELOWA mutacja w KN-2 przy 6.D28, a w normalnej pracy czytniki nigdy sie nie rozjechaly (zmierzone przed zmiana: 676 i 676, roznica **zero**). Zepsute bylo wiec co innego i trzeba to nazwac dokladnie: dwa przejscia po tym samym drzewie oraz pasmo `<= 20` postawione nie dlatego, ze 20 cokolwiek znaczylo, ale dlatego, ze majac dwa rozbiory nie umialem postawic rownosci. **Rownosc sama nie wystarcza** — byla by prawdziwa takze przy dwoch przejsciach zgadzajacych sie na dzisiejszym drzewie, dokladnie jak przy 6.D28 — wiec doszedl drugi test patrzacy na KOD: `czlonkowie` w jednym module, drugi je wola, nie kopiuje. Ten test tez wymagal poprawki tej samej co dwa razy dzisiaj: zabranial NAZWY w calym pliku i zapalil sie na komentarzu wyjasniajacym usuniecie; wzmianka nie jest powrotem, wiec warunek dotyczy `def _poziom_bezposredni(`. **KN-3 mierzy wartosc calej pozycji**: rozjazd szesciu metod (670 vs 676) lezy WEWNATRZ starego pasma, wiec test z 6.D28 przepuscilby go bez slowa — i jeszcze czternascie takich. Pomiar w `reports/jeden-czytnik-csharp.md`. Tresc pierwotna: **Dwa czytniki C# chodza po tym samym drzewie i juz raz podaly rozne liczby** | zmierzone 07.09.2026 przy 6.D28 | M |
 | 6.B31 | **ZROBIONE (07.09.2026).** `tools/tests/test_dead_constants_csharp.py`: 124 pliki `.cs`, **233** deklaracje `const`/`static readonly`, 193 roznych nazw, **zero** nieczytanych i **pusta** lista uzasadnien. **Wpis mylil sie dwa razy i oba razy pomiar to pokazal**: katalogu `godot/` nie ma (scena lezy w `src/Game/`, czyli w drzewie, ktore bramka 6.B29 juz obchodzila — brak byl brakiem JEZYKA, nie katalogu), a C# pisze stale **PascalCase**, wiec kryterium „wielkimi literami" z tego wpisu nie zlapaloby ani jednej. Jedyna martwa stala — `StationChainagesM`, prywatne pole `RunHeaderTests` — zostala **usunieta, nie usprawiedliwiona**: inaczej niz `LOCATION_STATION` po stronie Pythona nie nalezala do zadnego udokumentowanego zbioru, bo wszyscy jej sasiedzi sa czytani. Oba zestawy C# po usunieciu zielone (552 + 205). Kierunek pomylki wybrany swiadomie: odczyt liczony jako wystapienie identyfikatora, wiec stala o nazwie zbiegajacej sie z metoda wyjdzie jako ZYWA, choc martwa — falszywy negatyw jest tansza pomylka, ta sama asymetria co w 6.B29 i 6.D27. Sprawdzone tez `.tscn`, `.gd`, `*.sh` i `.github/`: zero odczytow, ale warunek zostaje. **Pierwsza wersja bramki kosztowala 20,7 s** — dwie trzecie tego, co 6.B30 wlasnie zdjelo z CALEGO zestawu — bo szla po kazdej nazwie osobno; jedno przejscie z licznikiem daje **0,42 s** i ten sam wynik, sprawdzony po zmianie. Cztery kontrole negatywne, w tym **KN-2** dowodzaca, ze bramka zlapalaby stala usunieta w tym samym commicie, i **KN-4** pokazujaca, po co jest prog na liczbe deklaracji: bez niego literowka we wzorcu dawalaby zielona bramke mierzaca zero. Pomiar w `reports/martwe-stale-csharp.md`. Tresc pierwotna: **Bramka martwych stalych widzi tylko Pythona** | zmierzone 07.09.2026 przy 6.B29 | M |
 | 6.B30 | **ZROBIONE (07.09.2026).** Pamiec na `_layout_for` i `_axis_document`: modul **35,1 s -> 11,0 s** (3,2x), caly zestaw **105,3 s -> 76,5 s** przy tej samej liczbie testow (1800) i tym samym werdykcie, trzy przebiegi 76,5 / 76,8 / 76,6 s. **Pytanie, ktore wpis zostawil otwarte, zostalo zmierzone PRZED zmiana**, nie odczytane z kodu: sonda zalozyla pamiec i po KAZDYM z 17 testow liczyla odcisk SHA-256 kazdego zapamietanego obiektu — testow, ktore zmutowaly strukture, jest **zero**. Odczyt pieciu miejsc wolania pokazalby `max`, `min`, `len` i iteracje, ale nie zobaczylby mutacji schowanej w wyrazeniu; odcisk widzi kazda. Docstring mowi, co robic, gdyby to przestalo byc prawda: kopia przy wydaniu albo struktura niezmienna, NIE zdjecie pamieci. **Kryterium „ponizej 10 s" NIE zostalo spelnione i liczba w nim byla bledna** — 10 s bylo moim szacunkiem przy wpisywaniu pozycji, a pomiar pokazuje dno ~11 s: 6,08 s nieusuwalnego wypelnienia pamieci (szesc osi po ~1 s, placi je pierwszy alfabetycznie test dotykajacy wszystkich) plus ~5 s testow na osiach SYNTETYCZNYCH, ktore `_layout_for` nie wolaja wcale. Zejscie ponizej 10 s wymagaloby zmniejszenia tego, co testy licza. Pomiar w `reports/pamiec-ukladu-peronow.md`. Tresc pierwotna: **`_layout_for` w `test_station_layout.py` nie ma pamieci i liczy uklad od nowa przy kazdym wolaniu** | zmierzone 07.09.2026 przy 6.D25: 17 testow, z czego cztery po ~6,0 s, a `_layout_for` jest wolane z pieciu miejsc, kazde w petli po szesciu osiach — czyli ~30 pelnych przebiegow narzedzia na tych samych szesciu plikach | S |
+| 6.A19 | **Odmowa `replay --coast-from-m` mówi „nie zna opcji" o opcji, którą projekt zna** — a decyzja właściciela z 07.09.2026 czyni z tej odmowy trwałą WŁASNOŚĆ polecenia, więc komunikat ma podać powód: odtworzenie zapisu wejść nie może dostać nastawy automatu, bo przestałoby być odtworzeniem | rozstrzygnięte 07.09.2026, odczytanie (a) z wiersza w „Czego agent nie ruszy bez decyzji". Ta sama rodzina usterki co 6.A22, i tam już zmierzona: zdanie „nie zna opcji" jest poprawne dla literówki i **mylące** dla nazwy, którą runner zna z innego polecenia. Zakres jest treścią komunikatu i dokumentacją, nie zachowaniem — kod wyjścia i sama odmowa zostają | S |
+| 6.B43 | **Ukrycie widoku goniącego kończy się na długości składu, a kadr jest jasny jeszcze przy 96 m** — decyzja właściciela z 07.09.2026 rozciąga pasmo do **110 m**, więc `ChaseCameraAim.Availability` przestaje być funkcją samej długości składu | rozstrzygnięte 07.09.2026. Liczba 110 m pochodzi z pomiaru, nie z gustu: 96 m → **42,0 %** pikseli jaśniejszych niż 0,80 w górnych 60 % kadru, 110 m → **0,0 %**. Seria jest przy tym **niemonotoniczna** (90 m → 0,0 %, 96 m → 42,0 %), więc pozycja ma pasmo domierzyć gęściej, a nie przepisać jeden punkt | M |
+| 6.B44 | **Profil pionowy pakietu A nie istnieje, bo trzy z dwunastu stacji mają głębokość, a dziewięć `unknown`** — decyzja właściciela z 07.09.2026 mówi budować z jawną niewiadomą, więc brakuje narzędzia, które czyta `station-depths.csv` i **nazywa dziurę**, zamiast interpolować przez nią | rozstrzygnięte 07.09.2026. Dziś `data/network/station-depths.csv` nie ma w drzewie ani jednego konsumenta poza `tools/tests/test_platform_dimensions.py` — sprawdzone `grep -rln`. Pozycja nie zgaduje ani jednej głębokości: bierze trzy wpisane (`-12,0`, `-20,0`, `-12,0`, wszystkie `estimated`) i dziewięć pustych, a konflikt Schuman 15 m vs 17,42 m zostaje nierozstrzygnięty i tak oznaczony. Czysty Python w `tools/track/`, bez Blendera | M |
 
 #### Szczegóły pozycji z kompletem sześciu pól
 
@@ -4258,6 +4272,147 @@ MINIMUM_DETAIL_BLOCKS = 73
   raportu.
 - **Zależy od:** 6.D3, 6.B32.
 
+##### 6.A19 · Odmowa `replay` mówi nieprawdę o tym, czego odmawia
+
+- **Skąd:** wiersz w „Czego agent nie ruszy bez decyzji" wyliczał trzy wykluczające się
+  odczytania; **rozstrzygnięte 07.09.2026 na (a)** — odmowa zostaje na stałe i jest
+  udokumentowaną własnością polecenia. Zmierzone dziś w
+  `tests/Sim.Tests/RunnerCommandTests.cs:594`: `replay … --coast-from-m 250` kończy się
+  kodem **1** i komunikatem zawierającym `nie zna opcji`. Zdanie jest **nieprawdziwe
+  co do sensu**: runner tę opcję zna, przyjmuje ją w `line` i w `budget` (6.A18), a
+  `replay` jej odmawia **z powodu**, nie z niewiedzy. Czytający dostaje diagnozę
+  „literówka" na zachowanie, które jest projektem.
+- **Dlaczego to ta sama rodzina, co 6.A22:** tam `line --limit-kmh=72` dostawało
+  `nie zna opcji --limit-kmh=72` o opcji stojącej w `KnownOptions`, i poprawką była
+  treść komunikatu, nie zachowanie. Tu jest to samo o jeden krok dalej: nie postać
+  członu, a przynależność opcji do polecenia.
+- **Wejście:** `src/Sim.Runner/Program.cs` (`Replay`, `Nieznana`, tabela `KnownOptions`),
+  `tests/Sim.Tests/RunnerCommandTests.cs`
+  (`Replay_nie_zna_wybiegu_bo_odtwarza_zapis_wejsc`, wiersz 594),
+  `tools/tests/test_runner_options.py` (bramka zgodności tabeli z kodem),
+  `reports/wybieg-poza-poleceniem-line.md` §1 (rozbiór trzech odczytań),
+  blok 6.A18 wyżej w tym pliku (pomiar, z którego wyszło pytanie).
+- **Wyjście:** odmowa `replay --coast-from-m` z komunikatem, który **nazywa powód**
+  — odtworzenie zapisu wejść z `--keys` idzie przez `TrainController` i `DriverNotch`,
+  więc nastawa automatu nadpisałaby to, co zrobił maszynista. Do tego zdanie o decyzji
+  właściciela w dokumentacji XML polecenia, z datą, żeby zniesienie odmowy było
+  decyzją podjętą, a nie skutkiem ubocznym czyjegoś refaktoru.
+- **Weryfikacja:**
+  ```bash
+  dotnet test tests/Sim.Tests
+  python3 tools/tests/test_all.py test_runner_options.py
+  ```
+  Oczekiwane: `replay … --coast-from-m 250` nadal kończy się kodem **1**, ale komunikat
+  wymienia `--keys` albo `zapis wejść` jako powód; bramka zgodności tabeli z kodem
+  zielona — opcja **nie** wchodzi do `KnownOptions` przy `replay`.
+- **Skończone, gdy:** komunikat odmowy nie zawiera już frazy `nie zna opcji` dla
+  `--coast-from-m` w `replay`, a zawiera powód; kod wyjścia jest **niezmieniony**
+  (1, pokazane wykonaniem obu przebiegów); kontrola negatywna WYKONANA — zdjęcie
+  powodu z komunikatu wywraca dokładnie jeden test, a wpisanie `--coast-from-m` do
+  `KnownOptions` przy `replay` wywraca bramkę Pythona. Liczba testów `dotnet test`
+  podana przed i po.
+- **Poza zakresem:** odczytania **(b)** i **(c)** z wiersza decyzji — wybieg
+  nadpisujący zapis pod inną nazwą polecenia oraz drugi tryb `replay`, w którym
+  prowadzi automat. Decyzja wybrała (a); wprowadzenie któregokolwiek z tamtych byłoby
+  zmianą decyzji, nie wykonaniem tej pozycji. Poza zakresem także dołożenie wybiegu
+  do jakiegokolwiek dalszego polecenia.
+- **Zależy od:** 6.A18 (pomiar trójstronny, z którego wyszło pytanie), 6.A22 (wzorzec
+  poprawki treści odmowy), 6.A11 (mechanizm odmowy nieznanej opcji).
+
+##### 6.B43 · Ukrycie kamery goniącej kończy się tam, gdzie kadr jest jeszcze biały
+
+- **Skąd:** decyzja właściciela z 05.09.2026 ukryła widok `chase` na paśmie
+  **0..94,0 m** — „dopóki cały skład nie wjedzie na oś" — a `ChaseCameraAim.Availability`
+  realizuje to jako `frontChainageM > trainLengthM`, czyli funkcję samej długości M7.
+  Pasmo **94..106 m** zostało wtedy świadomie odsłonięte i wpisane do „Czego agent nie
+  ruszy bez decyzji", bo za granicą kamera jest już za ogonem, ale bliżej niż nominalne
+  12,0 m. **Rozstrzygnięte 07.09.2026: rozciągnąć ukrycie do 110 m.**
+- **Czego pomiar NIE mówi, a wyglądałby, jakby mówił:** seria z 05.09.2026 jest
+  niemonotoniczna. Ułamek pikseli o jasności > 0,80 w górnych 60 % kadru:
+  20 m → 0,1 %, 48 m → 56,4 %, 50 m → 38,3 %, **90 m → 0,0 %**, **96 m → 42,0 %**,
+  110 m → 0,0 %, 2000 m → 0,0 %. Między 90 m i 110 m jest więc dziura 20 m z jednym
+  jasnym punktem w środku, a 110 m to **najniższy zmierzony czysty punkt powyżej 96 m**,
+  nie zmierzony początek czystego pasma. Pozycja ma tę dziurę domierzyć.
+- **Wejście:** `src/Game/World/ChaseCameraAim.cs` (`Availability`, `IsAvailable`,
+  `ChaseAvailability.Reason`, `ChaseFraming.CameraWithinTrainSpan`),
+  `src/Game/FirstRun.cs` (`_chaseAvailable`, odmowa `--shot --view=chase`, szósty
+  wiersz HUD-u), `src/Game/DesignAssumptions.cs`,
+  `tests/Game.Tests/ChaseCameraAimTests.cs`, `data/vehicle/m7-spec.json` (94,0 m,
+  status `spec`), wiersz 6.B11 w tabeli fazy 6 (pełny pomiar z 05.09.2026).
+- **Wyjście:** próg odsłonięcia jako **osobna stała** obok długości składu — ukrycie
+  do `max(trainLengthM, próg)` — z pomiarem gęstszym niż dzisiejsza siatka: co **2 m**
+  na paśmie 90..112 m, wynik w raporcie w `reports/`. Jeżeli pomiar pokaże, że czyste
+  pasmo zaczyna się wcześniej niż 110 m, **liczba właściciela zostaje** (110 m jest
+  decyzją, nie wynikiem pomiaru), a raport nazywa różnicę.
+- **Weryfikacja:**
+  ```bash
+  dotnet test tests/Game.Tests
+  $GODOT_BIN --path src/Game -- --shot --view=chase --at-m=96 --out=build/chase-96.png
+  ```
+  Oczekiwane: przy czole 96 m zrzut **odmawia** (kod 13, tak jak dziś odmawia przy
+  50 m), a przy 112 m zapisuje plik; `ChaseAvailability.Reason` podaje 110,0 m, nie
+  94,0 m, i podaje **jedną** liczbę — HUD i odmowa nie mogą się rozjechać.
+- **Skończone, gdy:** pasmo 90..112 m jest zmierzone co 2 m (**12 punktów**), każdy
+  z ułamkiem jasnych pikseli w raporcie; odmowa i wiersz HUD-u mówią 110,0 m; test na
+  tożsamość `Availability` z `CameraWithinTrainSpan` jest **przepisany, a nie usunięty**
+  — po zmianie te dwa twierdzenia przestają być tożsame i to musi być w kodzie
+  napisane, nie przemilczane. Kontrola negatywna WYKONANA: powrót progu do długości
+  składu wywraca dokładnie test na nową granicę.
+- **Poza zakresem:** cokolwiek estetycznego w samym kadrze goniącym — odstęp, wysokość,
+  punkt celowania. Pozycja rusza **granicę dostępności**, nie kompozycję. Poza zakresem
+  także wyciszanie ostrzeżeń Godota; tym zajęło się #226 i bramka
+  `tools/ci/assert_no_godot_warnings.py`.
+- **Zależy od:** 6.B11 (obie połowy, w `main`), decyzji właściciela z 05.09.2026
+  (pasmo 0..94,0 m) i z 07.09.2026 (rozciągnięcie do 110 m). **Wymaga Godota** — sam
+  `dotnet test` przybije arytmetykę, ale nie zmierzy ani jednego piksela.
+
+##### 6.B44 · Profil pionowy pakietu A z dziurą nazwaną, a nie zinterpolowaną
+
+- **Skąd:** T-112 stoi zablokowane od początku, bo dwa oficjalne źródła podają sprzeczne
+  głębokości stacji. R-007 wpisało **trzy** wartości do `data/network/station-depths.csv`
+  (De Brouckère `-12,0`, Parc `-20,0`, Arts-Loi `-12,0`, wszystkie `estimated`), a
+  dziewięć wierszy zostało `unknown`. **Rozstrzygnięte 07.09.2026: budować z jawnym
+  `unknown`** — trzy znane wchodzą do profilu, dziewięć zostaje nazwane niewiadomą.
+- **Co jest dziś mierzalnie nie tak:** `grep -rln station-depths` daje w całym drzewie
+  **jeden** konsument — `tools/tests/test_platform_dimensions.py`. Plik z danymi, po
+  który nie sięga ani jedno narzędzie, nie ma jak się zestarzeć widocznie: wpisanie
+  do niego dziesiątej głębokości nie zmieni dziś ani jednego bajtu wyjścia.
+- **Wejście:** `data/network/station-depths.csv` (**tylko do odczytu**, `CLAUDE.md`
+  §4.6), `data/track/L1_A.json` (oś i kilometraże stacji po #86),
+  `tools/track/build_alignment.py` i `tools/track/network_chainage.py` (wzorzec
+  narzędzia i wzorzec czytania kilometraży), `tools/blender/tunnel_manifest.py`
+  (`flat-preview` / `production`, wiersze 178–186), `docs/21-measured-vs-assumed.md`,
+  `reports/R-007-platform-dimensions.md` (skąd trzy wartości i dlaczego `estimated`).
+- **Wyjście:** `tools/track/vertical_profile.py` — czyta oś i CSV, pisze do `build/`
+  profil, w którym **każdy** punkt niesie albo rzędną z interpolacji między dwiema
+  ZNANYMI stacjami, albo `"depth_m": null, "confidence": "unknown"`. Interpolacja
+  **nie przechodzi** przez wiersz `unknown`: odcinek między dwiema niewiadomymi jest
+  niewiadomą, nie prostą. Do tego testy w `tools/tests/` i raport z pokryciem osi
+  w metrach i procentach.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/track/vertical_profile.py --axis data/track/L1_A.json \
+      --depths data/network/station-depths.csv --out build/L1_A-vertical.json
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: kod 0, wypis z liczbą metrów osi ze rzędną i bez, oraz zestaw zielony.
+- **Skończone, gdy:** raport podaje **ile metrów z 6686,35 m osi pakietu A dostaje
+  rzędną, a ile zostaje `unknown`**, obie liczby z wykonanego przebiegu; ani jedna
+  głębokość nie jest zgadnięta — liczba niepustych rzędnych w wyjściu równa się liczbie
+  niepustych wierszy w CSV (**3**), sprawdzone testem; pochylenia na odcinkach ze
+  rzędną mieszczą się w 0–4 % albo pozycja nazywa ten, który nie mieści, razem
+  z liczbą; konflikt Schuman 15 m vs 17,42 m jest w wyjściu **oznaczony**, a nie
+  rozstrzygnięty. Kontrola negatywna WYKONANA: interpolacja puszczona przez wiersz
+  `unknown` wywraca dokładnie ten test, który liczy niepuste rzędne.
+- **Poza zakresem:** **zapis czegokolwiek do `data/`** — wyjście idzie do `build/`,
+  którego `CLAUDE.md` §4.8 zabrania commitować. Poza zakresem także wybór strony
+  konfliktu Schuman (to nadal T-901, wiersz właściciela zostaje), zdjęcie z T-112
+  statusu `flat-preview` dla wariantu `production` oraz jakakolwiek geometria
+  w Blenderze — ta pozycja produkuje **dane**, nie siatkę.
+- **Zależy od:** T-111 i #86 (oś i kilometraże), R-007 (trzy głębokości), decyzji
+  właściciela z 07.09.2026. **Nie zależy** od T-901: cała jej treść to zbudowanie
+  profilu, w którym brak danych z T-901 jest widoczny.
+
 ### Czego agent nie ruszy bez decyzji
 
 Poniższe **nie są kolejką** — są listą rzeczy, które czekają na właściciela. Agent po nie
@@ -4265,7 +4420,7 @@ nie sięga, nawet gdy nie ma nic innego do roboty; wtedy sięga po fazę 5.
 
 | | dlaczego |
 |---|---|
-| **T-901** głębokości stacji | 9 z 12 stacji pakietu A `unknown`; Schuman ma konflikt 15 m vs 17,42 m. Blokuje T-112, a przez to scenę z dwoma pakietami |
+| **T-901** głębokości stacji | 9 z 12 stacji pakietu A `unknown`; Schuman ma konflikt 15 m vs 17,42 m, i **wyboru strony konfliktu ta lista nie zdejmuje**. **Wiersz przepisany 07.09.2026, a nie dopisany obok:** poprzednia wersja kończyła się słowami „Blokuje T-112, a przez to scenę z dwoma pakietami", i to już nieprawda. Decyzja właściciela z 07.09.2026 (budować z jawnym `unknown`) odblokowała T-112 dla wariantu z nazwaną dziurą — wykonuje to 6.B44 — a `production` blokuje nadal, bo do niego trzeba rozstrzygnąć konflikt. Blokada zeszła więc z „profilu" na „profil produkcyjny", i to jest cała różnica |
 | **T-902** kierunek artystyczny | ocena estetyczna (`CLAUDE.md` §8) |
 | **T-903** kontakt ze STIB | `docs/03-legal.md` |
 | **T-905** nagrania | praca w terenie |
@@ -4273,9 +4428,26 @@ nie sięga, nawet gdy nie ma nic innego do roboty; wtedy sięga po fazę 5.
 | pakiety **C, D, F** bez tuneli | decyzja, co budować zamiast rury |
 | **6.A4** propagacja opóźnienia | przeniesione z kolejki 05.09.2026. Wpis T-320 ma sekcję STOP: „model perturbacji i polityka dyspozytora **nie są opisane w żadnym dokumencie**. Agent zatrzymuje się i pyta, zamiast wybierać sam”. Wiersz kolejki bronił się liczbą — „rozkład postojów jest zmierzony, 29 554 zatrzymań, 12–45 s” — ale zmierzony jest **rozkład postojów**, nie wielkość zaburzenia. Skąd wzięło się 30 s, nie mówi żadne źródło, a to jest właśnie model perturbacji |
 | **6.B3** LOD tuneli pakietów B–F | przeniesione z kolejki 05.09.2026, po tym jak audyt (`reports/kolejka-audyt-aktualnosci.md` §1) pokazał, że pozycja opisuje trzy różne stany naraz. **B i E mają LOD od T-210** — wpis T-210 podaje „szczelina między chunkami, poziomami LOD i w bryle kolizyjnej 0,0000 mm w każdym pakiecie”. **C, D i F czekają na wiersz wyżej**, czyli na decyzję, co budować zamiast rury: `reports/surface-vs-tunnel.md` §1 podaje, że wszystkie 81 punktów sprzecznych między UrbIS a OSM leży w D (48) i F (33). Zostaje więc zero pracy, której nie blokuje tamta decyzja |
-| **6.A19** wybieg w `replay` | wyszło przy 6.A18. Pozycja 6.A18 zakładała, że `LineRunSettings` czytają **trzy** polecenia; `grep -n "new LineRunSettings" src/Sim.Runner/Program.cs` daje **dwa** — `LineCommand` i `Budget`. `replay` odtwarza **zapis wejść** z `--keys` przez `TrainController` i `DriverNotch`, więc nastawa automatu zdejmująca trakcję od X metra nadpisywałaby to, co maszynista zrobił, i odtworzenie przestałoby być odtworzeniem — przy zielonym porównaniu telemetrii, bo porównanie mierzy zgodność dwóch przebiegów, a nie to, czy któryś z nich cokolwiek odtwarza. Odczytania wykluczają się: (a) odmowa zostaje na stałe i jest udokumentowana jako własność polecenia, (b) wybieg nadpisuje zapis, a polecenie dostaje inną nazwę, (c) `replay` uczy się drugiego trybu, w którym prowadzi automat, a zapis służy za scenariusz stacji. Dzisiejsza odmowa jest przybita testem `Replay_nie_zna_wybiegu_bo_odtwarza_zapis_wejsc`, żeby jej zniesienie było decyzją podjętą, a nie skutkiem ubocznym. Rozbiór: `reports/wybieg-poza-poleceniem-line.md` §1 |
 | **turnback, perturbacje, dispatcher** w T-320 | nie ma ich w żadnym dokumencie |
-| **pasmo 94..106 m** kamery goniącej | decyzja z 05.09.2026 domyka 6.B11 na paśmie 0..94,0 m — „dopóki cały skład nie wjedzie na oś". Za tą granicą kamera jest już za ogonem, ale bliżej niż nominalne 12,0 m, i kadr bywa nadal jasny: zmierzone 96 m → **42,0 %** pikseli jaśniejszych niż 0,80 w górnych 60 % kadru, wobec 0,0 % od 110 m. Czy ukrywać także to pasmo, jest kolejną decyzją o rozgrywce — liczba 94,0 m padła wprost i agent jej nie rozciąga |
+
+#### Rozstrzygnięte 07.09.2026 — cztery decyzje właściciela
+
+Cztery pozycje przedstawione właścicielowi w formie klikalnej 07.09.2026 dostały
+odpowiedzi. Zapis jest **tutaj, w drzewie**, a nie tylko w rozmowie, i to nie jest
+formalność: kopia decyzji żyjąca w czacie starzeje się osobno od repozytorium, a ta
+sesja trzy razy tego dnia zobaczyła, co z tego wynika (6.A22, 6.A26, 6.B32 — za każdym
+razem liczba albo reguła stała w jednym miejscu i nigdzie nie była pilnowana).
+
+Trzy z czterech decyzji **odblokowują pracę** i mają w fazie 6 pozycję z kompletem
+sześciu pól: 6.A19, 6.B43 i 6.B44. Czwarta nie odblokowuje niczego, bo dotyczy pulsu
+sesji, a nie repozytorium — i to też jest wynik, nie luka.
+
+| decyzja | odpowiedź właściciela | co z tego wynika |
+|---|---|---|
+| **6.A19** — wybieg w `replay` | **odczytanie (a): odmowa zostaje**, i to na stałe, jako udokumentowana **własność** polecenia | pozycja **6.A19** w fazie 6: odmowa dostaje treść mówiącą POWÓD, a nie zdanie „nie zna opcji" o opcji, którą projekt ma. Wariantów (b) „wybieg nadpisuje zapis pod inną nazwą" i (c) „`replay` uczy się drugiego trybu" nie realizuje nic i nie wolno ich wprowadzać skutkiem ubocznym |
+| **pasmo 94..106 m** kamery goniącej | **rozciągnąć ukrycie do 110 m** | pozycja **6.B43** w fazie 6. Granica przestaje być tożsama z długością składu i to jest istotne: `Availability` pyta dziś o kilometraż i długość składu **i o nic więcej**, a po zmianie musi znać jeszcze jeden próg — próg jasności kadru, który z długością M7 nie ma nic wspólnego |
+| **T-901** głębokości stacji | **budować z jawnym `unknown`** — trzy znane głębokości wchodzą do profilu, dziewięć pozostałych zostaje nazwane niewiadomą, a nie zinterpolowane | pozycja **6.B44** w fazie 6 i zmiana statusu **T-112** wyżej w tym pliku. Konflikt Schuman 15 m vs 17,42 m zostaje **nierozstrzygnięty** i tak oznaczony; decyzja mówi „buduj z dziurą widoczną", a nie „wybierz jedną ze stron" |
+| **puls sesji** co godzinę | **zostawić godzinę** | zero pracy w repozytorium poza jednym: `docs/22-heartbeat.md` §5 przepisane, bo mówiło o stanie z 01.09.2026. Decyzja nazywa też przyczynę, dla której pytanie w ogóle padło — usterka była w **zachowaniu agenta** (punktem zatrzymania było „PR otwarty" zamiast „PR scalony"), nie w kadencji pobudki. Zagęszczenie pulsu tej usterki by nie tknęło |
 
 ### Znane rozjazdy w dokumentach
 
