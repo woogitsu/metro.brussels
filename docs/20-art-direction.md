@@ -183,10 +183,18 @@ Do tego czasu kod i assety mają pozostać kompatybilne z neutralnym fallbackiem
 
 ## Weryfikacja po odblokowaniu runnera
 
-Poprzednia wersja tego rozdziału — i dwa miejsca wyżej — mówiła „na self-hosted
+Runner jest self-hosted, na komplecie etykiet `[self-hosted, Linux, X64, woogitsu,
+i5-10400f, nvidia-gtx1070]` — pula `woogitsu-linux-01` … `-10` (`CLAUDE.md` §9).
+Ten akapit jest **przepisany, a nie dopisany obok**, i to po raz drugi; obie
+poprzednie wersje są niżej, bo bez nich nie widać, czemu selektor ma dziś sześć
+etykiet.
+
+Wersja pierwsza tego rozdziału — i dwa miejsca wyżej — mówiła „na self-hosted
 WSL2"; etykietę `wsl2` zdjęto 02.08.2026, bo maszyna, która ją nosiła, została
-wyłączona i joby zawisły w `queued`. Dlatego jest tu przepisana, a nie dopisana
-obok: runner jest gołe `self-hosted`, bez dodatkowych etykiet (`CLAUDE.md` §9).
+wyłączona i joby zawisły w `queued`. Wersja druga mówiła „gołe `self-hosted`, bez
+dodatkowych etykiet", a od 05.09.2026 obowiązywał komplet `[self-hosted, Linux, X64,
+wsl2, woogitsu]` na czterech maszynach `woogitsu-wsl-DOM-NEW-*`. Oba te zapisy są
+dziś **nieprawdziwe co do stanu bieżącego** i stoją tu wyłącznie jako historia.
 
 Na runnerze self-hosted:
 
