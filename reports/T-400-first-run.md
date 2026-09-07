@@ -230,6 +230,15 @@ czyli 32,95 m przed końcem osi (6686,739 m).
 
 ### 3.1 `dotnet build MetroBxl.sln --configuration Release`
 
+> **Adnotacja z 07.09.2026 (6.A31). Pomiaru poniżej NIE przeliczono.** Ścieżki
+> `bin/Release/net8.0` w cytowanym wyjściu `dotnet build` pochodzą z dnia pomiaru
+> i wtedy były prawdziwe: wszystkie pięć plików projektu celowało wówczas w `net8.0`.
+> Od migracji z 02.09.2026 (`ba93903`) `<TargetFramework>` to `net10.0`, więc katalog
+> `net8.0` **dziś nie powstaje**. Cytat wyjścia zostaje nietknięty — jego wartością
+> jest to, co wyszło tamtego dnia — a spójnością ścieżek z plikiem projektu zajmuje
+> się od dziś bramka `tools/tests/test_bin_path_framework.py`, w której to wystąpienie
+> stoi na liście usprawiedliwień z powodem. Pomiar w `reports/ramka-w-sciezce.md`.
+
 ```
   Sim -> src/Sim/bin/Release/net8.0/MetroBxl.Sim.dll
   Sim.Runner -> src/Sim.Runner/bin/Release/net8.0/MetroBxl.Sim.Runner.dll
