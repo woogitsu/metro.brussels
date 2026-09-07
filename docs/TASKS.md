@@ -722,6 +722,9 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.B25 | **ZROBIONE (06.09.2026).** Stala z `clearance.py` byla martwa **od pierwszego commita**, a nie „przestala byc czytana": `git log -S` daje wylacznie #50, ktory ja wprowadzil, i nic wiecej. Usunieta. Drugiego progu **nie przemianowano** — wpis kolejki proponowal nowa nazwe, a pomiar pokazal lepsze wyjscie: te trzy liczby byly **kopia** `validate.LIMITS` z komentarzem mowiacym, skad sa, i bez niczego, co pilnowaloby, zeby nadal stamtad byly. Kopia progu rozjezdza sie w JEDNA strone po cichu — os, ktora przestaje spelniac prawdziwy prog, przechodzi test, bo tutejszy zostal przy starej wartosci; przemianowanie zostawiloby te usterke pod ladniejsza nazwa. Teraz `VALIDATOR = V.LIMITS`, czytane po kluczu, wartosci nietkniete. Docstring powolywal sie na liczbe nie tylko martwa, ale **slabsza niz obowiazuje** (20 m zamiast 90 m) — przepisany, argument wychodzi z tego mocniejszy. **Pola „Skonczone, gdy" NIE nalezalo spelnic doslownie**: pomiar dal 5 nazw o roznych wartosciach i **cztery sa poprawne** (`SOURCE_ID`, `DEFAULT_SOURCE_ID`, `SOURCE_CRS` to tozsamosc modulu, `TOLERANCE_M` rozni sie tym, co mierzy), wiec regula „zadnych powtorzonych nazw" zapalilaby sie na czterech przypadkach zrobionych dobrze. Zamiast niej zapadka z uzasadnieniami, pilnowana w obie strony. **CZTERY kontrole negatywne, jedna z nich NIE zapala bramki i raport mowi to wprost**: sama martwa stala przywrocona nie tworzy kolizji, bo bramka lapie kolizje, nie martwote. Czy bramka na martwote jest wykonalna, zmierzone: 696 stalych, **jedna** nieczytana i uzasadniona (`LOCATION_STATION` z wyliczenia GTFS) — w kolejce jako **6.B29**. Pomiar w `reports/nazwa-zajeta-drugi-raz.md`. Tresc pierwotna: **`MIN_RADIUS_M` w `clearance.py` jest martwe, a nazwa zajeta drugi raz z INNA wartoscia** | znalezione przy 6.B5 (#324). Zmierzone: stala w `clearance.py` nie jest czytana przez zaden kod, a `test_clearance_profile.py` opisuje ja w docstringu jako obowiazujaca | S |
 | 6.B29 | **Stala modulowa, ktorej nikt nie czyta, nie jest przez nic zglaszana** — `MIN_RADIUS_M` przezylo tak piec dni i zdazylo zostac zacytowane w docstringu jako obowiazujace | zmierzone przy 6.B25: 696 stalych modulowych w `tools/` i `src/`, **jedna** nieczytana nigdzie (`LOCATION_STATION`, brakujacy element wyliczenia GTFS — wyjatek uzasadniony). Bramka jest wiec wykonalna dzis, z lista o jednym wpisie; kontrola negatywna KN-1 z 6.B25 pokazala, ze bramka na kolizje tego NIE lapie | S |
 | 6.B26 | **Najciasniejszy luk pakietu D lezy na odcinku, ktorego OSM nie widzi jako tunel** — zapas +0,7043 m liczony jest wobec sciany, ktorej moze nie byc | znalezione przy 6.B5 (#324): 0,0-0,2 m od przedzialu bez tunelu, wobec >= 314 m na pozostalych pieciu osiach. Roznica jest o trzy rzedy wielkosci, wiec nie jest szumem pomiaru | M |
+| 6.A20 | **Zaden CSV z `Sim.Runner` nie zapisuje nastaw, ktore go wyprodukowaly** — piec pisarzy, od 5 do 13 kolumn pomiaru, zero kolumn scenariusza | zmierzone 07.09.2026 przy 6.A18. Naglowek `[BUDZET]` mowi od tej pozycji o wybiegu, ale plik z `--out` nie: `trains_declared,...,frame_budget_pct` to 13 kolumn liczb bez odstepu, nawrotu, limitu, ATP, obciazenia i wybiegu. CSV jest artefaktem, ktory PRZEZYWA proces i trafia do raportow — dwa przebiegi o roznych nastawach daja pliki nieodroznialne | M |
+| 6.D26 | **`MEASURED_MAX_WALL_S = 77.04` jest nizsze od tego, co maszyna dziś pokazuje** — trzy stabilne przebiegi 98,9 / 100,9 / 102,1 s | zmierzone 07.09.2026 przy 6.D25. Test `test_budget_stays_above_the_measured_maximum_with_a_real_margin` pilnuje, ze prog 150 s przewyższa **zapisany** pomiar — a zapisany pomiar jest o 24 % nizszy od rzeczywistego, wiec pilnowany margines to 1,47×, nie 1,95×. Ten sam modul mierzy 22,7 s albo 34,9 s w zaleznosci od obciazenia hosta (1,54×), i tego rozrzutu nie zapisuje nic | S |
+| 6.B30 | **`_layout_for` w `test_station_layout.py` nie ma pamieci i liczy uklad od nowa przy kazdym wolaniu** — 35,1 s z ~100 s calego zestawu, jeden modul | zmierzone 07.09.2026 przy 6.D25: 17 testow, z czego cztery po ~6,0 s, a `_layout_for` jest wolane z pieciu miejsc, kazde w petli po szesciu osiach — czyli ~30 pelnych przebiegow narzedzia na tych samych szesciu plikach | S |
 
 #### Szczegóły pozycji z kompletem sześciu pól
 
@@ -2861,6 +2864,135 @@ znika stąd i pojawia się jako wpis z sześcioma polami wyżej w tym pliku.
   zależności i przebiegacza (`CLAUDE.md` §8), a ta pozycja dotyczy jednego zachowania
   przy uruchomieniu wprost.
 - **Zależy od:** nic.
+
+##### 6.A20 · Pomiar zapisany bez nastaw, które go wyprodukowały
+
+- **Skąd:** 6.A18 (#330) naprawiła to po stronie **wypisu**: nagłówek `[BUDŻET]` mówi od
+  niej, czy przejazd był z wybiegiem, bo bez tego dwa pomiary — z nim i bez niego — dawały
+  się porównać jako jeden. Ale wypis leci na konsolę i giń wraz z nią; **plik z `--out`
+  przeżywa proces i to on trafia do raportów.** Zmierzone 07.09.2026: żaden z pięciu
+  pisarzy CSV w `src/Sim.Runner/Program.cs` nie zapisuje ani jednej kolumny scenariusza.
+  `budget --out` daje 13 kolumn pomiaru
+  (`trains_declared,…,us_per_step,cpu_over_wall,frame_budget_pct`) i **zero** kolumn
+  z odstępem, nawrotem, limitem, ATP, obciążeniem i wybiegiem — a te sześć nastaw
+  zmienia przejazd, nie tylko jego koszt (tabela w `reports/wybieg-poza-poleceniem-line.md`
+  §3: `N_śr` 6,69 / 6,67 / 6,40 przy tym samym `--trains 9`).
+- **Wejście:** `src/Sim.Runner/Program.cs` — pisarze w wierszach ~228 i ~437
+  (`DriveTelemetry.Header`, polecenia `drive` i `replay`), ~745 (`line --trace`),
+  ~791 (`line --calls`), ~1176 (`service-day --out`), ~1285 (`budget --out`);
+  `tools/ci/assert_linecore_budget.py` (czyta wypis, nie plik — więc jego nie dotyczy);
+  `src/Sim/Train/LineRunSettings.cs` (`Assumptions`, `CoastDescription`).
+- **Wyjście:** każdy plik z `--out` niesie nastawy, z których powstał. Kształt do wyboru
+  **na podstawie pomiaru**: komentarz `#` przed nagłówkiem, dodatkowe kolumny stałe
+  w każdym wierszu, albo plik-rodzeństwo z manifestem. Warunek jest jeden i nie zależy
+  od kształtu: czytający plik **nie może** nie wiedzieć, jaki przejazd go wyprodukował.
+  Jeżeli wybrany kształt zmienia format czytany przez cokolwiek — `assert_linecore_budget.py`,
+  bramkę CI, `compare` — to musi się zmienić razem z nim, w tym samym commicie.
+- **Weryfikacja:**
+  ```bash
+  dotnet run --project src/Sim.Runner -c Release -- budget \
+      --axis data/track/L1_A.json \
+      --signalling data/design/signalling/classic-2026.json \
+      --limit-kmh 72 --exchange-s 20 --headway-s 10 --steps 200000 \
+      --trains 9 --coast-from-m 250 --out build/z-wybiegiem.csv
+  dotnet run --project src/Sim.Runner -c Release -- budget \
+      --axis data/track/L1_A.json \
+      --signalling data/design/signalling/classic-2026.json \
+      --limit-kmh 72 --exchange-s 20 --headway-s 10 --steps 200000 \
+      --trains 9 --out build/bez-wybiegu.csv
+  diff build/z-wybiegiem.csv build/bez-wybiegu.csv
+  python3 tools/tests/test_all.py
+  dotnet test tests/Sim.Tests
+  ```
+  Oczekiwane: `diff` pokazuje **różnicę w nastawie**, nie tylko w liczbach pomiaru.
+  Dziś oba pliki różnią się wyłącznie szumem czasu i wartościami ruchu, a nastawy,
+  która je rozróżnia, nie ma w żadnym z nich.
+- **Skończone, gdy:** dwa przebiegi różniące się jedną nastawą dają pliki, z których
+  **da się odczytać, którą** — pokazane `diff`em wklejonym do raportu. Kontrola
+  negatywna WYKONANA: nastawa usunięta z zapisu przy zachowanym wypisie zapala test.
+- **Poza zakresem:** zmiana **formatu** telemetrii porównywanej co do bitu przez
+  `compare` i przez bramkę `visual-regression`, jeżeli pomiar pokaże, że dopisanie
+  nastaw ją rusza. Wtedy `drive`/`replay` zostają na osobną pozycję, a ta domyka
+  `budget`, `line` i `service-day`. Poza zakresem także wybór wartości domyślnych.
+- **Zależy od:** #330 (6.A18).
+
+##### 6.D26 · Zapisany maksymalny czas zestawu jest niższy od tego, co maszyna pokazuje
+
+- **Skąd:** zmierzone 07.09.2026 przy 6.D25. `MEASURED_MAX_WALL_S = 77.04`
+  w `tools/tests/test_suite_runtime_budget.py`, a trzy kolejne przebiegi tego samego
+  drzewa dały **98,9 / 100,9 / 102,1 s** — stabilnie, więc nie jest to szum jednego
+  przebiegu.
+- **Co przez to nie działa tak, jak wygląda:**
+  `test_budget_stays_above_the_measured_maximum_with_a_real_margin` pilnuje, żeby próg
+  nie spadł poniżej **zapisanego** pomiaru. Zapisany pomiar jest o 24 % niższy od
+  rzeczywistego, więc pilnowany margines to w istocie **1,47×**, a nie ~1,95×, jaki
+  sugeruje para liczb w pliku. Test nie jest zepsuty — mierzy dokładnie to, co mówi;
+  zepsuta jest jedna z dwóch liczb, które porównuje.
+- **Czego pomiar NIE pokazał, i to jest tu najważniejsze:** to **nie jest regres**.
+  Rozstrzygnięte zmierzeniem tego samego modułu w dwóch drzewach:
+  `test_station_layout.py` daje **34,86 s** w drzewie sprzed 6.A18 (`a6463db`)
+  i **34,91 s** na `main` — a wcześniej tego samego dnia mierzył 22,7 s. Ten sam moduł,
+  ten sam kod, **1,54× rozrzutu** od obciążenia hosta. Pozycja dotyczy więc zapisu
+  pomiaru, nie wydajności kodu.
+- **Wejście:** `tools/tests/test_suite_runtime_budget.py`, `.github/workflows/python-tests.yml`
+  (krok czytający stałą), `reports/modul-uruchomiony-wprost.md` §7.
+- **Wyjście:** zapis maksimum, który mówi, **na czym** został zmierzony, albo próg
+  wyrażony tak, żeby rozrzut hosta nie wchodził do marginesu. Czego NIE wolno: podnieść
+  `MEASURED_MAX_WALL_S` do 102 bez powiedzenia, że to liczba z hosta pod obciążeniem —
+  wtedy następny czytający zobaczy dokładnie ten sam problem, tylko z drugiej strony.
+  Dat pomiarów się nie przelicza: 77,04 zostaje jako pomiar swojego dnia.
+- **Weryfikacja:**
+  ```bash
+  for i in 1 2 3; do python3 tools/tests/test_all.py | grep RAZEM; done
+  python3 tools/tests/test_all.py test_suite_runtime_budget
+  ```
+  Oczekiwane: trzy czasy i zapis, w którym da się je odnaleźć — a nie liczba niższa
+  od wszystkich trzech.
+- **Skończone, gdy:** w pliku nie stoi obok siebie próg i pomiar, których stosunek
+  nazywa marginesem coś innego, niż margines naprawdę wynosi — sprawdzone trzema
+  przebiegami, których wynik jest wklejony. Kontrola negatywna WYKONANA.
+- **Poza zakresem:** przyspieszanie zestawu. To jest 6.B30 i osobna praca.
+- **Zależy od:** nic.
+
+##### 6.B30 · Jeden moduł to trzecia część czasu zestawu, bo liczy to samo trzydzieści razy
+
+- **Skąd:** zmierzone 07.09.2026 przy 6.D25. `test_station_layout.py` zajmuje
+  **35,1 s** z ~100 s całego zestawu, przy 17 testach — z czego **cztery po ~6,0 s**:
+  ```
+  6.22 s  test_station_layout_runs_on_every_package_axis_not_only_A
+  6.04 s  test_the_BF_report_numbers_are_reproducible_from_the_axes
+  6.02 s  test_minimum_edge_offset_holds_the_same_invariant_on_all_six_axes
+  5.97 s  test_every_axis_clips_exactly_its_two_terminus_platforms
+  ```
+  `_layout_for(axis_id)` czyta plik osi i woła `SL.layout()` **bez żadnej pamięci**,
+  a jest wołane z **pięciu** miejsc, każde w pętli po **sześciu** osiach — czyli około
+  trzydziestu pełnych przebiegów narzędzia na tych samych sześciu plikach z `data/track/`.
+- **Wejście:** `tools/tests/test_station_layout.py` (`_layout_for`, `_axis_document`),
+  `tools/track/station_layout.py` (`layout`, `resolve_platform_length_m`).
+- **Wyjście:** ten sam zestaw testów, ten sam wynik, bez trzydziestu przebiegów tego
+  samego. Najprostszy kształt to pamięć na `_layout_for` — ale **wymaga pomiaru, nie
+  założenia**: funkcja zwraca strukturę, a test, który ją modyfikuje, dostałby wtedy
+  cudzy obiekt i psułby następny test w sposób zależny od kolejności. Jeżeli pomiar
+  pokaże, że którykolwiek test ją modyfikuje, kształtem jest kopia przy wydaniu albo
+  struktura niezmienna, a nie zdjęcie pamięci.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_station_layout
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: ten sam licznik testów (17) i ten sam werdykt, przy czasie modułu
+  **poniżej 10 s**; cały zestaw bez ani jednego nowego `FAIL`.
+- **Skończone, gdy:** moduł schodzi poniżej 10 s przy niezmienionym licznikiem testów
+  i niezmienionym werdykcie — oba wklejone — a `python3 tools/tests/test_all.py` jest
+  zielony **kodem wyjścia**. Kontrola negatywna WYKONANA: pamięć oddająca współdzieloną
+  strukturę, którą test modyfikuje, zapala zestaw — albo pomiar pokazuje, że żaden test
+  jej nie modyfikuje, i to jest wtedy wypisane.
+- **Poza zakresem:** przyspieszanie `test_mutation_sweep.py` (16,3 s) i
+  `test_curve_radius_axes.py` (14,3 s). Mają inne przyczyny i każda jest osobną pracą;
+  ta pozycja dotyczy jednego modułu i jednego mechanizmu. Poza zakresem także zmiana
+  progu czasu zestawu — to jest 6.D26.
+- **Zależy od:** #332 (6.D25), bo `test_all.py <modul>` z tamtej pozycji jest tu
+  narzędziem weryfikacji.
 
 ### Czego agent nie ruszy bez decyzji
 
