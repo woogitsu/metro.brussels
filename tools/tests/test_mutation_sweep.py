@@ -1005,11 +1005,29 @@ def test_przygotowanie_drzewa_zdejmuje_testy_narzedzia_nie_kasujac_pliku():
         assert zwrot == own, zwrot
         # 1. Plik ZOSTAJE — to jest cała różnica wobec wersji, która go kasowała.
         assert os.path.isfile(own), "przygotowanie skasowało plik, który raporty cytują"
-        # 2. Ale nie ma w nim ani jednego testu — inaczej zaślepka nie robi swojego.
+        # 2. Ale nie ma w nim PRAWDZIWYCH testów — inaczej zaślepka nie robi swojego.
+        #
+        # **Asercja przepisana 07.09.2026 przy 6.B35, nie dopisana obok.** Poprzednia
+        # wersja żądała, żeby zaślepka nie miała ANI JEDNEJ funkcji `test_` i była
+        # „samym docstringiem" — i to właśnie ona przybijała usterkę: moduł testowy
+        # bez strażnika `__main__` i bez ani jednego testu nie spełnia reguł, których
+        # bramka `test_module_entrypoints.py` (6.D25) żąda od każdego `test_*.py`,
+        # więc od jej scalenia kalibracja wyroczni widziała zestaw jako padający
+        # w KAŻDYM czystym drzewie i przerywała przegląd kodem 2.
+        #
+        # Intencja zostaje ta sama: prawdziwej treści testów narzędzia w zaślepce
+        # nie ma. Zmienia się to, co z tego wynika dla KSZTAŁTU pliku — zaślepka jest
+        # dziś pełnoprawnym modułem z jednym testem tożsamości, a pilnuje tego
+        # `test_the_stub_is_a_full_test_module_not_just_a_docstring`.
         tresc = open(own, encoding="utf-8").read()
-        assert "def test_" not in tresc, tresc
-        assert ast.parse(tresc).body and isinstance(
-            ast.parse(tresc).body[0], ast.Expr), "zaślepka ma być samym docstringiem"
+        assert "def test_cokolwiek(" not in tresc, (
+            "zaślepka niesie prawdziwy test z drzewa: " + tresc)
+        wlasne = [w.name for w in ast.parse(tresc).body
+                  if isinstance(w, ast.FunctionDef) and w.name.startswith("test_")]
+        assert wlasne == ["test_this_file_is_the_stub_not_the_real_tests"], (
+            "zaślepka ma nieść DOKŁADNIE jeden test — swojej tożsamości: " + repr(wlasne))
+        assert isinstance(ast.parse(tresc).body[0], ast.Expr), (
+            "zaślepka bez docstringu nie mówi, czym jest")
         # 3. Żaden inny plik nie jest ruszony.
         assert open(inny, encoding="utf-8").read() == "def test_inny():\n    assert True\n"
 
@@ -1209,6 +1227,45 @@ def test_resume_still_works_when_the_journal_is_from_the_same_tree():
         assert done.returncode == 0, (done.stdout, done.stderr)
         assert "wznowienie z" in done.stdout, done.stdout
         assert "innego drzewa" not in done.stderr, done.stderr
+
+
+def test_the_stub_is_a_full_test_module_not_just_a_docstring():
+    """Zaslepka narzedzia musi spelniac te same reguly, co kazdy modul testowy (6.B35).
+
+    **Sprawdzane TYM SAMYM przyrzadem, ktory ja odrzucil.** Bramka
+    `test_module_entrypoints.py` zada od kazdego `test_*.py` wykonywalnego strazniku
+    `__main__` i delegacji do `test_all` — ale widzi tylko pliki LEZACE w drzewie,
+    a zaslepka powstaje dopiero w drzewie roboczym przegladu. Od scalenia 6.D25 do
+    07.09.2026 nikt wiec nie sprawdzal, ze tresc, ktora narzedzie tam wpisuje, te
+    reguly spelnia — i nie spelniala: byla samym docstringiem, wiec kalibracja
+    wyroczni widziala zestaw jako padajacy w KAZDYM czystym drzewie i przerywala
+    przeglad kodem 2, zanim policzyl pierwsza mutacje.
+
+    Ten test zamyka luke, w ktorej ta usterka mogla zyc: zaslepka jest tu czytana
+    tak samo, jak bramka czyta prawdziwy modul, wiec nie da sie jej znowu zepsuc
+    w sposob niewidoczny dla zestawu.
+    """
+    import test_module_entrypoints as WEJSCIA
+
+    zrodlo = sweep.OWN_TESTS_STUB
+    assert WEJSCIA.ma_straznik(zrodlo), (
+        "zaslepka bez wykonywalnego strazniku `__main__` — kalibracja wyroczni "
+        "zobaczy zestaw jako padajacy i przerwie przeglad kodem 2")
+    assert WEJSCIA.DELEGACJA in zrodlo, (
+        "zaslepka nie deleguje do wspolnego przebiegacza (" + WEJSCIA.DELEGACJA
+        + "), a bramka 6.D25 tego zada od kazdego modulu testowego")
+    drzewo = ast.parse(zrodlo)
+    testy = [w.name for w in drzewo.body
+             if isinstance(w, ast.FunctionDef) and w.name.startswith("test_")]
+    assert testy, (
+        "zaslepka bez ani jednej funkcji `test_` — `test_all.main(<plik>)` odmawia "
+        "przy zerze testow, wiec straznik sam nie wystarcza")
+    for wezel in drzewo.body:
+        if isinstance(wezel, ast.FunctionDef) and wezel.name in testy:
+            asercje = [w for w in ast.walk(wezel) if isinstance(w, ast.Assert)]
+            assert asercje, (
+                "test `" + wezel.name + "` w zaslepce nie ma ani jednej asercji — "
+                "`assertion_gate` liczy taki test jako PORAZKE od #139")
 
 
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
