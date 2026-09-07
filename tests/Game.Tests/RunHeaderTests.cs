@@ -39,8 +39,6 @@ public sealed class RunHeaderTests
     private const double PlanLimitKmh = 72.0;
 
     /// <summary>Stacje osi syntetycznej; te same co w <c>LineCoreTests</c> rdzenia.</summary>
-    private static readonly double[] StationChainagesM = { 0.0, 600.0, 1400.0, 2000.0 };
-
     private static RunPlan Parse(params string[] arguments)
         => RunPlan.Parse(arguments, UnknownArgument, BadArgumentValue);
 
