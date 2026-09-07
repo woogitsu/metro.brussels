@@ -1572,12 +1572,32 @@ def test_the_fingerprint_is_computed_once_per_file_not_once_per_mutation():
         assert len(wartosc) == sweep.ODCISK_ZNAKOW, (path, wartosc)
         assert wartosc == sweep.odcisk_tresci(path), path
 
-    zrodlo = open(os.path.join(ROOT, "tools", "tests", "mutation_sweep.py"),
-                  encoding="utf-8").read()
-    kod = "\n".join(w for w in zrodlo.splitlines() if not w.strip().startswith("#"))
-    assert kod.count("odciski_przebiegu(") == 2, (
-        "`odciski_przebiegu` ma byc DEFINIOWANE raz i WOLANE raz — inaczej odcisk "
-        "wraca do liczenia raz na mutacje: " + str(kod.count("odciski_przebiegu(")))
+    # **Asercja PRZEKIEROWANA 07.09.2026 przy 6.B38, nie oslabiona.** Stala tu
+    # liczba WYSTAPIEN napisu `odciski_przebiegu(` w pliku i zadanie „dokladnie 2"
+    # (definicja + jedno wolanie). Byl to PROXY, i to slaby w obie strony: przechodzil
+    # takze wtedy, gdyby to jedno wolanie stalo WEWNATRZ petli po mutacjach — czyli
+    # przy dokladnie tej usterce, przed ktora mial bronic — a zapalal sie przy
+    # dolozeniu drugiego, poprawnego rozmowcy (pamiec `collect`, 6.B38).
+    #
+    # Nowa asercja mierzy ZACHOWANIE i jest MOCNIEJSZA: liczy prawdziwe wywolania
+    # `odcisk_tresci` i zada, zeby na jedno `collect()` bylo ich tyle, ile CELOW —
+    # nie tyle, ile mutacji. Wolanie w petli po mutacjach dalo by 2346 zamiast 63
+    # i pada natychmiast, czego licznik tekstowy nie widzial.
+    prawdziwy = sweep.odcisk_tresci
+    wywolania = []
+    sweep.odcisk_tresci = lambda path: (wywolania.append(path), prawdziwy(path))[1]
+    try:
+            sweep.collect()
+    finally:
+        sweep.odcisk_tresci = prawdziwy
+
+    celow = len(sweep.targets())
+    assert len(wywolania) == celow, (
+        f"odcisk liczony {len(wywolania)} razy na {celow} celow — ma byc raz na PLIK, "
+        f"nie raz na mutacje (tych jest dziś ponad 2000)")
+    assert len(set(wywolania)) == celow, (
+        "ten sam plik odciskany wiecej niz raz: "
+        + repr([x for x in wywolania if wywolania.count(x) > 1][:3]))
 
 
 
@@ -2227,6 +2247,105 @@ def test_przebieg_bez_plikow_mowi_BRAK_a_nie_odcisk_niczego():
 
     assert "brak" in tekst.split("Narzędzie:")[0], tekst[:400]
     assert "| moduł | odcisk treści |" not in tekst, tekst[:600]
+
+
+# --- 6.B38: pamiec `collect` w obrebie procesu ------------------------------------
+
+def test_pamiec_collect_zwraca_to_samo_i_nie_liczy_dwa_razy():
+    """6.B38: modul wolal `collect()` DZIESIEC razy po 0,224 s.
+
+    Zmierzone 07.09.2026 na `665bd98`: 2,24 s z 17,34 s calego modulu szlo na
+    dziesiec przeliczen tej samej listy. Zadne z tych wywolan nie potrzebuje
+    swiezego przeliczenia — potrzebuje wyniku dla tresci lezacej w drzewie.
+    """
+
+    kluczy = len(sweep._PAMIEC_COLLECT)
+    pierwsze = sweep.collect()
+    drugie = sweep.collect()
+
+    assert [m.id for m in pierwsze] == [m.id for m in drugie]
+    # DELTA, nie stan absolutny: inne testy tego modulu tez zapelniaja pamiec, a ten
+    # test nie ma prawa ich przeliczen wyrzucac — czyszczenie calej pamieci kosztowaloby
+    # 0,224 s kazdemu, kto po nim wola `collect()`, czyli zjadloby oszczednosc 6.B38.
+    assert len(sweep._PAMIEC_COLLECT) - kluczy <= 1, (
+        f"dwa wywolania dolozyly {len(sweep._PAMIEC_COLLECT) - kluczy} kluczy")
+
+
+def test_pamiec_collect_zwraca_KOPIE_a_nie_te_sama_liste():
+    """Wolajacy, ktory posortuje albo obetnie wynik, nie moze zepsuc nastepnemu.
+
+    `Mutation` jest niezmienna, ale lista nie — a `collect()` jest w tym module
+    wolane z dziesieciu miejsc, z ktorych czesc robi z wynikiem swoje.
+    """
+    pierwsze = sweep.collect()
+    pierwsze.clear()
+
+    drugie = sweep.collect()
+
+    assert len(drugie) > 500, len(drugie)
+
+
+def _z_dopiskiem(cel, dopisek):
+    """Wykonaj `collect()` z dopiskiem w pliku celu i przywroc plik."""
+    zastane = open(cel, encoding="utf-8").read()
+    try:
+        with open(cel, "a", encoding="utf-8") as handle:
+            handle.write(dopisek)
+        return sweep.collect()
+    finally:
+        with open(cel, "w", encoding="utf-8") as handle:
+            handle.write(zastane)
+
+
+def test_pamiec_collect_UNIEWAZNIA_SIE_gdy_tresc_celu_sie_zmieni():
+    """**Najwazniejszy test tej pozycji**, bo bez niego pamiec jest usterka.
+
+    Testy tego narzedzia ZMIENIAJA pliki celow w trakcie jednego procesu — robia to
+    kontrole negatywne 6.B32, 6.B39 i 6.B40. Pamiec kluczowana samymi klasami
+    podstawialaby wtedy mutacje policzone dla INNEJ tresci, czyli dokladnie te
+    usterke, ktora 6.B32 zamykalo w dzienniku, tylko przeniesiona do pamieci procesu.
+
+    Ze klucz z odciskami jest darmowy, jest zmierzone: odczyt i sha256 wszystkich
+    63 celow zajmuje 0,0013 s przy 0,224 s na jedno `collect()`.
+    """
+    cel = os.path.join(ROOT, "tools", "blender", "lod_paths.py")
+    przed = sweep.collect()
+    kluczy = len(sweep._PAMIEC_COLLECT)
+
+    po = _z_dopiskiem(cel, "\n\ndef _f38(a):\n    return a >= 1\n")
+
+    assert len(sweep._PAMIEC_COLLECT) == kluczy + 1, (
+        "zmiana tresci celu NIE uniewaznila pamieci — mutacje policzone dla innej "
+        "tresci wrocilyby jako wynik biezacego przebiegu")
+    assert len(po) > len(przed), (len(po), len(przed))
+    assert [m.id for m in sweep.collect()] == [m.id for m in przed], (
+        "po przywroceniu tresci pamiec nie wrocila do klucza pierwszego przebiegu")
+
+
+def test_pamiec_uniewaznia_sie_takze_przy_zmianie_BEZ_ani_jednej_mutacji():
+    """Zmiana tresci, ktora nie dodaje ani jednej mutacji, TEZ musi uniewazniac.
+
+    **To nie jest przypadek wymyslony — na nim padla pierwsza wersja testu wyzej.**
+    Dopisek `DODANE = 1` zmienia plik i jego odcisk, ale `mutations_for` daje z niego
+    ZERO mutacji (zmierzone: 0), wiec lista mutacji jest identyczna. Asercja
+    „inna tresc znaczy inna lista" jest wiec NIEPRAWDZIWA jako zdanie ogolne, i test
+    poprawilem wedlug pomiaru, nie pomiar wedlug testu (wzorzec 6.A28).
+
+    Wlasciwa wlasnoscia jest **uniewaznienie klucza**, a roznica list to tylko jej
+    skutek — i to tylko wtedy, gdy zmiana jest mutowalna. Ten test przybija te
+    pierwsza, bo bez niego pamiec, ktora ignoruje zmiany „nieciekawe", przechodzilaby
+    caly zestaw.
+    """
+    cel = os.path.join(ROOT, "tools", "blender", "lod_paths.py")
+    przed = sweep.collect()
+    kluczy = len(sweep._PAMIEC_COLLECT)
+
+    po = _z_dopiskiem(cel, "\nDODANE_PRZEZ_TEST_6B38 = 1\n")
+
+    assert len(sweep._PAMIEC_COLLECT) == kluczy + 1, (
+        "zmiana tresci bez nowych mutacji NIE uniewaznila pamieci")
+    assert [m.id for m in po] == [m.id for m in przed], (
+        "dopisek bez mutacji zmienil liste — zmienil sie pomiar, nie test")
 
 
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —

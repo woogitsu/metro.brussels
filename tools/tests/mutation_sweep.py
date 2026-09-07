@@ -355,12 +355,45 @@ def unreachable_modules(paths) -> dict[str, str]:
     return out
 
 
+#: Pamiec `collect` w OBREBIE PROCESU: (klasy, odciski wszystkich celow) -> mutacje.
+#:
+#: **Klucz niesie odciski, a nie sam zestaw klas, i to jest cala rzecz.** Testy tego
+#: narzedzia ZMIENIAJA pliki celow w trakcie jednego procesu — robia to kontrole
+#: negatywne 6.B32, 6.B39 i 6.B40 — wiec pamiec kluczowana samymi klasami
+#: podstawialaby mutacje policzone dla INNEJ tresci. Bylaby to dokladnie ta usterka,
+#: ktora 6.B32 zamykalo w dzienniku, tylko przeniesiona do pamieci procesu.
+#:
+#: **Ze klucz jest darmowy, jest ZMIERZONE**, a nie zalozone (07.09.2026, `665bd98`):
+#: odczyt i sha256 wszystkich 63 celow zajmuje **0,0013 s**, a jedno `collect()` —
+#: **0,224 s**. Klucz kosztuje 0,6 % tego, co oszczedza.
+#:
+#: Pamiec zwraca KOPIE listy, a nie ja sama: `Mutation` jest niezmienna, ale lista
+#: nie, a wolajacy, ktory ja posortuje albo obetnie, zepsulby wynik nastepnemu.
+_PAMIEC_COLLECT: dict[tuple, list] = {}
+
+
 def collect(kinds=KINDS) -> list[Mutation]:
+    """Mutacje wszystkich celow, policzone raz na (klasy, tresc) w tym procesie.
+
+    Pomiar, ktory to uzasadnia (6.B38, 07.09.2026 na `665bd98`): modul
+    `test_mutation_sweep.py` wola `collect()` **dziesiec razy**, po 0,224 s, czyli
+    2,24 s z 17,34 s calego modulu. Zadne z tych wywolan nie potrzebuje swiezego
+    przeliczenia — potrzebuje wyniku dla tresci, ktora w tej chwili lezy w drzewie,
+    i wlasnie to jest kluczem pamieci.
+    """
+    klucz = (tuple(sorted(kinds)),
+             tuple(sorted(odciski_przebiegu(
+                 [os.path.relpath(c, ROOT) for c in targets()]).items())))
+    zapamietane = _PAMIEC_COLLECT.get(klucz)
+    if zapamietane is not None:
+        return list(zapamietane)
+
     found: list[Mutation] = []
     for path in targets():
         with open(path, encoding="utf-8") as handle:
             found.extend(mutations_for(path, handle.read(), kinds))
-    return found
+    _PAMIEC_COLLECT[klucz] = found
+    return list(found)
 
 
 #: Dlugosc odcisku w dzienniku. Szesnascie znakow szesnastkowych to 64 bity — przy
