@@ -6,6 +6,22 @@ wolnej, żeby nie mierzyć cudzego przebiegu (to jest warunek z pozycji 6.B17).
 **Metoda:** nie pełny przegląd, tylko CZĘŚCI osobno. Suma części kontra obserwowana
 całość.
 
+> **Adnotacja z 6.B20 (07.09.2026, `reports/reszta-czasu-przegladu.md`).** Liczby
+> niżej ZOSTAJĄ — to jest datowany pomiar na maszynie wolnej (obciążenie 0,46) i się
+> go nie przelicza. Ale metoda z §6 (suma OSOBNO zmierzonych części) jest dokładnie
+> to, czego 6.B20 nie powtarza: tamta pozycja zmierzyła te same fazy JEDNEGO ciągłego
+> przebiegu i suma zgodziła się z całością co do 0,001 s. Na maszynie współdzielonej
+> (obciążenie 1,8–6,9) sonda pokrycia z §5 dokończyła się w całości i zajęła
+> **416,7–426,6 s** — **1,53–1,57×** więcej niż ekstrapolacja „~272 s" niżej, która
+> była policzona z przebiegu UCIĘTEGO po 210 s na maszynie czterokrotnie mniej
+> obciążonej. Różnica jest więc obciążeniem maszyny i ekstrapolacją, nie błędem tego
+> pomiaru — obie liczby są prawidłowe dla swoich warunków, tylko warunki są inne.
+> Pełny przebieg dwóch mutacji (kalibracja + sonda + robotnicy, workers=1/2/4) dał
+> **534,3–600,3 s (8,9–10,0 min)**, wobec sumy „~6,2 min" z §6 niżej — bo ta suma
+> sumowała OSOBNE uruchomienia, a jeden ciągły przebieg tego nie robi. Nadal zostaje
+> 10–11 minut do historycznej obserwacji „ponad 20 minut", nazwane w 6.B20 jako
+> niepotwierdzona hipoteza, nie wynik.
+
 ## 1. Pytanie
 
 Dwie mutacje `tools/blender/lod_paths.py` przy dwóch robotnikach nie domknęły się
