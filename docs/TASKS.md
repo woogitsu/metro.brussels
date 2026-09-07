@@ -727,6 +727,8 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.D26 | **ZROBIONE (07.09.2026).** Maksimum jest teraz WYPROWADZANE z listy `POMIARY` — pieciu przebiegow z data i kontekstem — a `MARGIN` jest dzialaniem, nie zdaniem. **Zdanie z wpisu, ze „rozrzut hosta nie jest nigdzie zapisany", bylo NIEPRAWDA** i pierwsze czytanie pliku to pokazalo: docstring opisywal kontener dzielony, `ps aux` z rownoleglym `dotnet build` i rozrzut 10,84 s. Zepsute bylo wezsze i gorsze: maksimum wpisane z reki jako jedna liczba z minionej sesji, a margines liczony wobec niej — 107,331 s zmierzone dzis to o **39 %** wiecej niz zapisane 77,04. **Co to realnie przepuszczalo, zmierzone**: obnizenie progu do 100 s przechodzilo wszystkie testy (100 > 77,04, margines 1,298 > 1,2) i dawalo CZERWONE CI na drzewie bez ani jednej usterki; po zmianie jest odmowa. Prog 150,0 **nietkniety** — jego zmiana to decyzja o czulosci bramki. Nowa bramka odmawia, gdy proza podaje mnoznik, ktorego nie daje `MARGIN`, a jej ksztalt to wynik **czterech wlasnych potkniec**, kazdego zlapanego przez inne narzedzie: brala pomiar za mnoznik; skanowala wlasny docstring, ktory te mnozniki WYMIENIA jako przyklady; po wycieciu go przeszla **bez ani jednej asercji** (zlapala to bramka asercji z #139) — wiec sprawdza teraz NARZEDZIE, nie tylko dzisiejszy tekst; a okno zdania urywalo sie na kropce dziesietnej. Cztery kontrole negatywne, z ktorych **KN-4 przed ta zmiana przechodzila**. Pomiar w `reports/zapis-czasu-zestawu.md`. Tresc pierwotna: **`MEASURED_MAX_WALL_S = 77.04` jest nizsze od tego, co maszyna dziś pokazuje** | zmierzone 07.09.2026 przy 6.D25 | S |
 | 6.D27 | **ZROBIONE (07.09.2026).** Miedzy nazwa stalej a liczba nie wolno teraz postawic takze `§` ani `#`. **Powod, dla ktorego to nie jest kosmetyka**: bramka swiecaca na poprawnym tekscie zostaje **wylaczona, nie poprawiona** — a obejsciem, ktore zastosowalem przy 6.D26, bylo przepisanie ZDANIA, nie naprawienie przyrzadu. Trzy wiersze mojego wlasnego raportu z tego samego dnia mialy juz ten ksztalt i przechodzily WYLACZNIE przypadkiem: zadna z tych trzech stalych nie trafia do slownika wartosci (jedna usunieta, jedna napisowa, jedna o dwoch wartosciach). Roznica miedzy zdaniem, ktore przeszlo, i tym, ktore padlo, nie lezala wiec w zdaniu. **`#` doszlo z pomiaru, nie z przewidywania**: `kolejka-uzupelnienie.md:42` pisze „`MINIMUM_DOCUMENTED_ITEMS`: sprzezenie, ktore #274" i jest przepuszczane dzis tylko dlatego, ze stoi tam przecinek. Cena zwezenia powiedziana wprost: „`STALA` (§4) to 30,0" przestaje byc twierdzeniem — ten sam wybor, co przy przecinku, i ta sama asymetria, bo przemilczane twierdzenie lapie prog `MINIMUM_CLAIMS`, a falszywy alarm tylko czyjas cierpliwosc. Po zwezeniu bramka sprawdza **15** twierdzen przy progu 10. Dwie kontrole negatywne, z ktorych **KN-2 jest wazniejsza**: dowodzi, ze zwezenie NIE zjadlo tego, po co bramka istnieje — najprostszym sposobem uciszenia falszywego alarmu jest zwezenie wzorca tak, zeby nie lapal niczego, i taka zmiana byla by zielona bez niej. Ta sama para stoi w tresci testu i chodzi przy kazdym przebiegu. Nie tknieto `pkt`, `rozdz.`, `str.` — pomiar daje **zero** wystapien, a wykluczanie form, ktorych nie ma, zwezal oby bramke o twierdzenia, ktorych juz nie sprawdzi. Pomiar w `reports/odsylacz-nie-jest-wartoscia.md`. Tresc pierwotna: **`test_report_claims.py` bierze odsylacz do sekcji za WARTOSC stalej** | zmierzone 07.09.2026 przy 6.D26, gdzie bramka zapalila sie na POPRAWNYM zdaniu | S |
 | 6.D28 | **ZROBIONE (07.09.2026).** 674 metody testowe C#, **674** z asercja w tresci, **zero** bez. Dojscie do tego zera wymagalo DWOCH poprawek w czytniku i obie mowia wiecej niz sam wynik. **Pierwsza: czytnik zglaszal wlasna niewiedze jako brak.** Cialo metody C# ma dwie postacie — blok i wyrazenie `=> …;` — a pierwsza wersja znala tylko blok i zglosila `Lista_funkcji_KCV_jest_dokladnie_ta_ktora_podaje_STIB` jako metode bez asercji, choc ona asertuje `CollectionAssert` w ciele wyrazeniowym; gorzej, klamra inicjatora `new[] { … }` byla brana za poczatek bloku, wiec asercja nie trafiala nigdzie. **Druga: pomocnik `Assert*` to asercja** — bez tego wychodzilo PIEC brakow, z czego cztery asertuja przez lokalny `AssertBits`. Sprawdzone tez rozwiazywanie pomocnikow po CIELE, nie po nazwie: **nie daje ani jednej metody wiecej**, wiec zostaje regula prostsza. **Granica postawiona swiadomie**: liczone sa asercje OBECNE w tresci, nie WYKONANE — `assertion_gate` robi to drugie i dlatego zlapal moj test z asercja w petli, do ktorej nic nie weszlo. Slabsza wlasnosc, zapisana w docstringu, nie przemilczana. Cztery kontrole negatywne, kazda na innym trybie awarii; **KN-4 jest najwazniejsza**, bo drzewo ma zero brakow, wiec bramka „zero brakow" jest zielona takze wtedy, gdy czytnik uznaje za asertujaca KAZDA metode — kontrola pozytywna na syntetycznej metodzie bez asercji chodzi przy kazdym przebiegu i to ona odroznia jedno od drugiego. Bramka kosztuje 0,50 s. Liczba 674 zgadza sie z 6.B27: tam 708 atrybutow i 668 objetych ksztaltem; roznica to 34 metody Z ARGUMENTAMI, czyli **6.B28**, nietknieta. Pomiar w `reports/asercje-w-testach-csharp.md`. Tresc pierwotna: **Asercje w testach C# nie sa liczone przez nic** | nazwane jako odlozone wprost przez 6.B27 (#329) | M |
+| 6.D29 | **Asercja stojaca WYLACZNIE w galezi, do ktorej moze nic nie wejsc, jest dla bramki 6.D28 nierozroznialna od asercji zawsze wykonywanej** | zmierzone 07.09.2026 przy 6.D28: **82** metody testowe C# maja wszystkie asercje w bloku zagniezdzonym, ale podzial jest ostry — **65** to `for`/`foreach` po zbiorze zadanym w tescie (wykonuja sie), a interesujacych jest **17**: 7 w `try`, 4 w `if`, 2 w `while`, 4 bez rozpoznanego slowa. Bramka zbudowana na samej zagniezdzonosci zapalilaby sie na 65 testach POPRAWNYCH | M |
+| 6.D30 | **Dwa czytniki C# chodza po tym samym drzewie i juz raz podaly rozne liczby** — `csharp_test_methods` i `csharp_assertions` | zmierzone 07.09.2026 przy 6.D28: kontrola negatywna KN-2 dala **670 vs 674** metod, a test zgodnosci przybija to pasmem `<= 20`, czyli **fudge'em**, nie rownoscia. Kazdy z modulow ma wlasne przejscie po ciele klasy: `_poziom_bezposredni` WYCINA ciala czlonow, `czlonkowie` je ZOSTAWIA — i tylko drugie zna cialo wyrazeniowe. Dwie kopie tego samego rozbioru rozjezdzaja sie po cichu; ta juz sie rozjechala | M |
 | 6.B31 | **ZROBIONE (07.09.2026).** `tools/tests/test_dead_constants_csharp.py`: 124 pliki `.cs`, **233** deklaracje `const`/`static readonly`, 193 roznych nazw, **zero** nieczytanych i **pusta** lista uzasadnien. **Wpis mylil sie dwa razy i oba razy pomiar to pokazal**: katalogu `godot/` nie ma (scena lezy w `src/Game/`, czyli w drzewie, ktore bramka 6.B29 juz obchodzila — brak byl brakiem JEZYKA, nie katalogu), a C# pisze stale **PascalCase**, wiec kryterium „wielkimi literami" z tego wpisu nie zlapaloby ani jednej. Jedyna martwa stala — `StationChainagesM`, prywatne pole `RunHeaderTests` — zostala **usunieta, nie usprawiedliwiona**: inaczej niz `LOCATION_STATION` po stronie Pythona nie nalezala do zadnego udokumentowanego zbioru, bo wszyscy jej sasiedzi sa czytani. Oba zestawy C# po usunieciu zielone (552 + 205). Kierunek pomylki wybrany swiadomie: odczyt liczony jako wystapienie identyfikatora, wiec stala o nazwie zbiegajacej sie z metoda wyjdzie jako ZYWA, choc martwa — falszywy negatyw jest tansza pomylka, ta sama asymetria co w 6.B29 i 6.D27. Sprawdzone tez `.tscn`, `.gd`, `*.sh` i `.github/`: zero odczytow, ale warunek zostaje. **Pierwsza wersja bramki kosztowala 20,7 s** — dwie trzecie tego, co 6.B30 wlasnie zdjelo z CALEGO zestawu — bo szla po kazdej nazwie osobno; jedno przejscie z licznikiem daje **0,42 s** i ten sam wynik, sprawdzony po zmianie. Cztery kontrole negatywne, w tym **KN-2** dowodzaca, ze bramka zlapalaby stala usunieta w tym samym commicie, i **KN-4** pokazujaca, po co jest prog na liczbe deklaracji: bez niego literowka we wzorcu dawalaby zielona bramke mierzaca zero. Pomiar w `reports/martwe-stale-csharp.md`. Tresc pierwotna: **Bramka martwych stalych widzi tylko Pythona** | zmierzone 07.09.2026 przy 6.B29 | M |
 | 6.B30 | **ZROBIONE (07.09.2026).** Pamiec na `_layout_for` i `_axis_document`: modul **35,1 s -> 11,0 s** (3,2x), caly zestaw **105,3 s -> 76,5 s** przy tej samej liczbie testow (1800) i tym samym werdykcie, trzy przebiegi 76,5 / 76,8 / 76,6 s. **Pytanie, ktore wpis zostawil otwarte, zostalo zmierzone PRZED zmiana**, nie odczytane z kodu: sonda zalozyla pamiec i po KAZDYM z 17 testow liczyla odcisk SHA-256 kazdego zapamietanego obiektu — testow, ktore zmutowaly strukture, jest **zero**. Odczyt pieciu miejsc wolania pokazalby `max`, `min`, `len` i iteracje, ale nie zobaczylby mutacji schowanej w wyrazeniu; odcisk widzi kazda. Docstring mowi, co robic, gdyby to przestalo byc prawda: kopia przy wydaniu albo struktura niezmienna, NIE zdjecie pamieci. **Kryterium „ponizej 10 s" NIE zostalo spelnione i liczba w nim byla bledna** — 10 s bylo moim szacunkiem przy wpisywaniu pozycji, a pomiar pokazuje dno ~11 s: 6,08 s nieusuwalnego wypelnienia pamieci (szesc osi po ~1 s, placi je pierwszy alfabetycznie test dotykajacy wszystkich) plus ~5 s testow na osiach SYNTETYCZNYCH, ktore `_layout_for` nie wolaja wcale. Zejscie ponizej 10 s wymagaloby zmniejszenia tego, co testy licza. Pomiar w `reports/pamiec-ukladu-peronow.md`. Tresc pierwotna: **`_layout_for` w `test_station_layout.py` nie ma pamieci i liczy uklad od nowa przy kazdym wolaniu** | zmierzone 07.09.2026 przy 6.D25: 17 testow, z czego cztery po ~6,0 s, a `_layout_for` jest wolane z pieciu miejsc, kazde w petli po szesciu osiach — czyli ~30 pelnych przebiegow narzedzia na tych samych szesciu plikach | S |
 
@@ -3163,6 +3165,95 @@ znika stąd i pojawia się jako wpis z sześcioma polami wyżej w tym pliku.
 - **Zależy od:** #334 (6.B29).
 
 MINIMUM_DETAIL_BLOCKS = 73
+
+##### 6.D29 · Asercja w gałęzi, do której może nic nie wejść
+
+- **Skąd:** 6.D28 (#341) postawiła granicę swojej bramki wprost: liczy asercje **obecne
+  w treści**, nie **wykonane**. `assertion_gate` po stronie Pythona robi to drugie
+  i dlatego złapał 07.09.2026 mój własny test, który po zawężeniu zakresu przestał
+  cokolwiek sprawdzać — asercja stała w pętli, do której nic nie weszło. Po stronie C#
+  taki test przechodzi.
+- **Ile tego jest, i dlaczego liczba surowa jest myląca:** 82 metody testowe mają
+  **wszystkie** asercje w bloku zagnieżdżonym. Podział po słowie otwierającym najbliższy
+  blok jest jednak ostry:
+  ```
+  foreach     46      for     19      try      7
+  if           4      while    2      (brak)   4
+  ```
+  **65 z 82 to pętle po zbiorze zadanym w samym teście** — wykonują się, więc bramka
+  zbudowana na samej zagnieżdżoności zapaliłaby się na 65 testach **poprawnych**.
+  Interesujących jest **17**.
+- **Wejście:** `tools/tests/csharp_assertions.py`, `tools/tests/test_csharp_assertions.py`,
+  `tools/tests/assertion_gate.py` (jak to robi strona Pythona),
+  `reports/asercje-w-testach-csharp.md` §5, oraz te 17 metod:
+  `MovementAuthorityTests`, `DriverActionsTests`, `EnergyAccountTests`, `LineDriveTests`
+  i pozostałe z wypisu.
+- **Wyjście:** **najpierw klasyfikacja tych 17**, dopiero potem decyzja o bramce.
+  Każda ma jedną z trzech własności i tylko trzecia jest usterką: (a) gałąź wchodzi
+  zawsze, bo warunek jest w teście ustawiony — asercja jest wykonywana; (b) gałąź
+  może nie wejść, ale sam brak wejścia jest sprawdzany osobno (np. `Assert.Fail()`
+  w drugiej gałęzi); (c) gałąź może nie wejść i nikt tego nie sprawdza — wtedy test
+  przechodzi, nie sprawdziwszy nic. Bramka ma sens **tylko** na (c), a jej kształt
+  ma wyjść z liczby przypadków (c), nie z góry.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/csharp_assertions.py
+  python3 tools/tests/test_all.py
+  dotnet test tests/Sim.Tests
+  dotnet test tests/Game.Tests
+  ```
+  plus wypis: ile metod w kategorii (a), (b) i (c), **z nazwami** dla (c).
+- **Skończone, gdy:** liczba metod w kategorii (c) jest zerem albo jest **uzasadniona
+  pomiarem** wpisanym do raportu, a klasyfikacja wszystkich 17 jest w raporcie
+  wypisana z nazwami — nie podsumowana liczbą. Jeżeli powstaje bramka, kontrola
+  negatywna WYKONANA: test z asercją tylko w niewchodzącej gałęzi ją zapala, a żaden
+  z 65 testów pętlowych **nie** zapala. Liczba testów w `dotnet test` nie spada.
+- **Poza zakresem:** instrumentacja C# licząca asercje wykonane. To jest ta sama
+  granica, którą 6.D28 postawiła wprost: wymagałoby rozbioru składni albo wpięcia
+  w runner testów. Poza zakresem także zmiana treści testów pętlowych.
+- **Zależy od:** #341 (6.D28).
+
+##### 6.D30 · Dwa czytniki C# i pasmo zamiast równości
+
+- **Skąd:** 6.D28 dopisała `csharp_assertions.py` obok `csharp_test_methods.py` z 6.B27.
+  Nowy importuje z tamtego `KLASA`, `METODA` i `ATRYBUTY_TESTU` — ale ma **własne
+  przejście po ciele klasy**, bo tamto go nie obsłuży: `_poziom_bezposredni` **wycina**
+  ciała członów (po to, żeby znaleźć sam poziom deklaracji), a `czlonkowie` je
+  **zostawia** i dodatkowo zna ciało wyrażeniowe `=> …;`.
+- **Rozjazd nie jest hipotetyczny — już był:** kontrola negatywna KN-2 przy 6.D28 dała
+  `nowy czytnik widzi MNIEJ metod (670) niz starszy (674)`. Test zgodności przybija
+  to dziś **pasmem**:
+  ```python
+  assert nowy - stary <= 20, ...
+  ```
+  a pasmo 20 jest liczbą wziętą z palca, nie z pomiaru — postawioną dlatego, że
+  równości nie dało się postawić, mając dwa różne rozbiory. To jest fudge i wpis mówi
+  o nim wprost, zamiast czekać, aż ktoś go znajdzie.
+- **Wejście:** `tools/tests/csharp_test_methods.py` (`_cialo_klasy`,
+  `_poziom_bezposredni`, `metody`, `coverage`), `tools/tests/csharp_assertions.py`
+  (`_koniec_bloku`, `czlonkowie`, `metody_testowe`, `coverage`),
+  `tools/tests/test_csharp_test_methods.py`, `tools/tests/test_csharp_assertions.py`.
+- **Wyjście:** **jedno** przejście po ciele klasy, z którego korzystają oba
+  zastosowania — wykrywanie brakującego atrybutu (6.B27) i liczenie asercji (6.D28) —
+  a test zgodności zamienia pasmo na **równość**. Czego NIE wolno: zostawić dwóch
+  przejść i podnieść pasma.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/csharp_test_methods.py
+  python3 tools/tests/csharp_assertions.py
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: **te same** liczby metod z atrybutem z obu narzędzi, wypisane obok
+  siebie, i zestaw zielony kodem wyjścia.
+- **Skończone, gdy:** oba narzędzia podają identyczną liczbę metod z atrybutem
+  testowym — wklejoną — a test zgodności żąda równości, nie pasma. Kontrole negatywne
+  WYKONANE, obie z 6.B27 i 6.D28 nadal zapalają się na swoich usterkach: zdjęty
+  `[TestMethod]` nazywa test z imienia, zdjęta asercja nazywa metodę bez asercji.
+  Liczba testów w `dotnet test` nie spada.
+- **Poza zakresem:** rozbiór C# biblioteką zewnętrzną. To zmiana zależności
+  (`CLAUDE.md` §8), a oba narzędzia stoją na czytaniu tekstu ze świadomością głębokości
+  klamer i taki zostają. Poza zakresem także obejmowanie metod z argumentami — to 6.B28.
+- **Zależy od:** #341 (6.D28), #329 (6.B27).
 
 ### Czego agent nie ruszy bez decyzji
 
