@@ -612,9 +612,16 @@ def baseline_problem(worktree: str, timeout: int, run=run_suite) -> str | None:
             "a przegląd nie mierzy niczego")
 
 
-def check_one(worktree: str, mutation: Mutation, timeout: int,
+def check_one(worktree: str, mutation: Mutation, timeout: int, commit: str,
               executed: bool | None = None) -> dict:
-    """Jedna mutacja w jednym drzewie roboczym, z przywróceniem pliku."""
+    """Jedna mutacja w jednym drzewie roboczym, z przywróceniem pliku.
+
+    `commit` idzie do wpisu dziennika obok `id`, bo `id` sam w sobie NIE mówi,
+    z jakiego drzewa pochodzi — to `plik:wiersz:przesunięcie bajtowe`, a dwie różne
+    mutacje z dwóch różnych drzew mogą wypaść pod tym samym przesunięciem (6.B19).
+    Bez tego pola wznowienie z dziennika zapisanego na innym commicie podstawiłoby
+    cudzy wynik pod dzisiejszą mutację po cichu.
+    """
     path = os.path.join(worktree, mutation.path)
     with open(path, encoding="utf-8") as handle:
         original = handle.read()
@@ -629,6 +636,7 @@ def check_one(worktree: str, mutation: Mutation, timeout: int,
 
     return {
         "id": mutation.id,
+        "commit": commit,
         "rozstrzygniete": passed is not None,
         "kod": code,
         "opis": mutation.describe(),
@@ -648,7 +656,7 @@ def check_one(worktree: str, mutation: Mutation, timeout: int,
 
 
 def worker(slot: int, chunk: list[Mutation], timeout: int, out_dir: str,
-           journal: str, coverage=None) -> int:
+           journal: str, commit: str, coverage=None) -> int:
     """Jeden robotnik na własnym drzewie roboczym git.
 
     Wynik KAŻDEJ mutacji leci od razu do dziennika, wiersz po wierszu. Pierwsza wersja
@@ -667,7 +675,7 @@ def worker(slot: int, chunk: list[Mutation], timeout: int, out_dir: str,
     done = 0
     try:
         for mutation in chunk:
-            entry = check_one(worktree, mutation, timeout,
+            entry = check_one(worktree, mutation, timeout, commit,
                               was_executed(coverage, mutation))
             with JOURNAL_LOCK:
                 with open(journal, "a", encoding="utf-8") as handle:
@@ -726,14 +734,14 @@ def read_journal(path: str) -> list[dict]:
 
 
 def sweep(mutations: list[Mutation], workers: int, timeout: int, out_dir: str,
-          journal: str, coverage=None) -> list[dict]:
+          journal: str, commit: str, coverage=None) -> list[dict]:
     os.makedirs(out_dir, exist_ok=True)
     chunks: list[list[Mutation]] = [[] for _ in range(workers)]
     for index, mutation in enumerate(mutations):
         chunks[index % workers].append(mutation)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
-        futures = [pool.submit(worker, slot, chunk, timeout, out_dir, journal, coverage)
+        futures = [pool.submit(worker, slot, chunk, timeout, out_dir, journal, commit, coverage)
                    for slot, chunk in enumerate(chunks) if chunk]
         for future in concurrent.futures.as_completed(futures):
             future.result()
@@ -1022,10 +1030,32 @@ def main() -> int:
               "  Podaj własny --journal albo skasuj tamten plik.", file=sys.stderr)
         return 2
 
+    # 6.B19: identyfikator mutacji (plik:wiersz:przesunięcie bajtowe) NIE mówi, z jakiego
+    # drzewa pochodzi. Dwie różne mutacje z dwóch różnych commitów mogą wypaść pod tym
+    # samym przesunięciem, więc samo dopasowanie po `id` (niżej) by je pomyliło. Wpis
+    # bez pola `commit` jest starszy niż ta poprawka i nie da się go zweryfikować —
+    # liczy się jako obcy z tego samego powodu, dla którego wpis bez pola `plik` liczy
+    # się jako obcy wyżej: milcząca zgoda wpuściłaby cudzy wynik pod dzisiejszą mutację.
+    inny_commit = [entry for entry in done if entry.get("commit") != commit]
+    if inny_commit:
+        skad = sorted({str(entry.get("commit")) for entry in inny_commit})
+        print(f"[MUTACJE] PRZERWANE — dziennik {journal} niesie {len(inny_commit)} "
+              f"wpisów z innego drzewa: commit {', '.join(skad)}, a ten przebieg liczy "
+              f"na {commit!r}.\n"
+              "  Identyfikator mutacji (plik:wiersz:przesunięcie bajtowe) nie niesie "
+              "commita, więc wznowienie mogłoby po cichu podstawić wynik zapisany dla "
+              "innego kodu pod dzisiejszą mutację.\n"
+              "  Podaj własny --journal na inną ścieżkę albo skasuj tamten plik.",
+              file=sys.stderr)
+        return 2
+
     if done:
-        # Wznowienie liczy tylko to, czego jeszcze nie ma — ale WYŁĄCZNIE dla mutacji
-        # o tym samym identyfikatorze, więc zmiana kodu między przebiegami nie przemyci
-        # starego wyniku pod nową mutację.
+        # Wznowienie liczy tylko to, czego jeszcze nie ma — WYŁĄCZNIE dla mutacji o tym
+        # samym identyfikatorze. Samo dopasowanie po `id` nie odróżnia drzew — o to dba
+        # odmowa wyżej: gdy do tego miejsca dojdzie, każdy wpis w `done` jest z TEGO
+        # samego commita, więc zmiana kodu MIĘDZY przebiegami na tym samym commicie
+        # (drzewo z `--dirty`) jest jedynym przypadkiem, którego to dopasowanie już
+        # nie chroni — a ten jest poza zakresem 6.B19.
         seen = {entry["id"] for entry in done}
         before = len(found)
         found = [m for m in found if m.id not in seen]
@@ -1114,7 +1144,7 @@ def main() -> int:
                       f"mutacji; pozostałe {len(found) - hit} siedzą w kodzie, którego "
                       "zestaw nie uruchamia")
 
-        results = sweep(found, args.workers, args.timeout, work, journal, coverage)
+        results = sweep(found, args.workers, args.timeout, work, journal, commit, coverage)
 
     decided = [r for r in results if r.get("rozstrzygniete", True)]
     survived = [r for r in decided if r["przezyla"]]
