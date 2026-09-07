@@ -150,3 +150,10 @@ def test_parsers_reject_a_mismatch_and_read_what_is_really_there():
     section = section_1_3(sample_report)
     assert "1.4" not in section, "sekcja 1.3 wciągnęła zawartość sekcji 1.4"
     assert table_modes(section) == ["manual", "line"]
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

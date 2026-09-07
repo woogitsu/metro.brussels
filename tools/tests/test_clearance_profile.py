@@ -1921,3 +1921,10 @@ def test_clearance_profile_convexity_threshold_still_accepts_real_profiles():
     # że zaostrzenie zjadło tolerancję na szum, a nie tylko jej granicę.
     lagodny = [(0.0, 0.0), (1.0, 0.0), (2.0, -1e-10), (3.0, 0.0), (3.0, 2.0), (0.0, 2.0)]
     assert len(CP.halfplanes(lagodny)) == 6
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

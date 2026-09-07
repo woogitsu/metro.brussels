@@ -232,3 +232,10 @@ def test_snapshot_source_diff_returns_two_only_when_asked_to_fail():
     finally:
         for path in (old, new, same):
             os.unlink(path)
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

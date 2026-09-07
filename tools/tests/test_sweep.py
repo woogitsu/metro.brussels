@@ -464,3 +464,10 @@ def test_sweep_strictly_increasing_survives_a_single_ring_and_trims_a_pair():
     assert SW._strictly_increasing([5], 10) == [10]
     assert SW._strictly_increasing([0, 5], 0) == [0]
     assert SW._strictly_increasing([2, 7], 2) == [2]
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

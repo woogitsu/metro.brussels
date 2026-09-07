@@ -370,3 +370,10 @@ def test_station_registry_schema_declares_the_invariants():
     station_required = set(defs["station"]["required"])
     assert {"as_of", "works_state", "exits", "future_changes", "variants",
             "geometry_not_in_this_registry"} <= station_required
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

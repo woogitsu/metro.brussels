@@ -563,3 +563,10 @@ def test_m7_body_offset_by_exactly_one_millimetre_from_the_origin_passes():
     assert not any("origin/zasięg X" in p for p in _messages(layout, cars, joints))
     cars[0]["vertices"] = [(RP.TOLERANCE_M * 1.01, 0.0, 0.0)]
     assert any("origin/zasięg X" in p for p in _messages(layout, cars, joints))
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

@@ -141,3 +141,10 @@ def test_rights_matrix_is_referenced_from_the_hard_legal_document():
         legal = handle.read()
     assert "18-rights-matrix" in legal or "rights-matrix.json" in legal, (
         "docs/03-legal.md nie odsyła do macierzy praw")
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

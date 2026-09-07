@@ -42,3 +42,10 @@ def test_higher_levels_get_their_own_suffixed_file():
 def test_two_different_chunks_never_collide_on_the_same_level():
     assert (LP.lod_output_path("L1_A_c00", 1)
             != LP.lod_output_path("L1_A_c01", 1))
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

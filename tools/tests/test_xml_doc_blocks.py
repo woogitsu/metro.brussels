@@ -202,3 +202,10 @@ def test_a_clean_synthetic_file_lights_up_neither_gate():
         path = _write_temp_cs(tmp_dir, "Clean.cs", _CLEAN_MEMBER_CS)
         assert not _duplicate_summary_offenders([path])
         assert not _unclosed_summary_offenders([path])
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

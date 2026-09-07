@@ -120,3 +120,10 @@ def test_line_gate_is_wired_into_the_workflow_that_needs_it():
         assert "core-calls.csv" in argumenty, (
             "przejazd pod sygnalizacją porównuje się z czymś innym niż plik rdzenia: "
             + argumenty.strip())
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

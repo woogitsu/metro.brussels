@@ -308,8 +308,34 @@ def test_traction_substation_count_not_claimed_as_metro_only():
     assert f["value"]==120
     assert "unsplit" in f["scope"]
 
-def _discover():
-    """Wszystkie moduły `tools/tests/test_*.py`, ten plik włącznie.
+def _only_path(only):
+    """`only` -> pelna sciezka modulu testowego albo `ValueError`.
+
+    Przyjmuje nazwe (`test_runner_options`), nazwe z rozszerzeniem i sciezke — bo
+    strazniki `__main__` w modulach podaja `__file__`, a czlowiek w wierszu polecen
+    poda nazwe. Nieznany modul jest ODMOWA, nie pustym przebiegiem: pusty przebieg
+    to dokladnie ten wynik, ktorego ta gałąź ma nie dawac (6.D25).
+    """
+    wanted = os.path.basename(only)
+    if not wanted.endswith(".py"):
+        wanted += ".py"
+    # Istniejaca sciezka do pliku `test_*.py` jest brana wprost, takze spoza
+    # `AG.paths()` — tak wchodza moduly piaskownicy bramki 6.D25, lezace w katalogu
+    # tymczasowym. Literowki to nie przepuszcza: nazwa z bledem nie jest plikiem.
+    if wanted.startswith("test_") and os.path.isfile(only):
+        return os.path.abspath(only)
+    for path in AG.paths():
+        if os.path.basename(path) == wanted:
+            return path
+    raise ValueError(f"nie ma takiego modulu testowego: {only}")
+
+def _discover(only=None):
+    """Moduły `tools/tests/test_*.py`, ten plik włącznie — albo JEDEN, gdy `only`.
+
+    `only` (6.D25) zawęża odkrywanie do jednego pliku i jest jedyną różnicą między
+    przebiegiem całego zestawu a przebiegiem pojedynczego modułu. Reszta drogi —
+    licznik asercji, werdykt, wypis, kod wyjścia — jest ta sama, więc uruchomienie
+    jednego modułu nie może być łagodniejsze od uruchomienia wszystkich.
 
     Każdy idzie przez `assertion_gate.load_instrumented`, czyli z licznikiem asercji
     wstrzykniętym w AST. Ten plik też — inaczej jego własne testy byłyby jedynymi,
@@ -336,7 +362,7 @@ def _discover():
     tests=[]
     module_of=[]
     import_failures=[]
-    for path in AG.paths():
+    for path in ([_only_path(only)] if only else AG.paths()):
         module_file=os.path.basename(path)[:-3]
         name=module_file
         if name=="test_all": name="test_all__mierzony"
@@ -350,8 +376,8 @@ def _discover():
         module_of+=[module_file]*len(found)
     return tests, module_of, import_failures
 
-def main():
-    """Uruchom zestaw. Test, który przeszedł bez asercji, jest awarią, nie sukcesem.
+def main(only=None):
+    """Uruchom zestaw — albo jeden moduł, gdy `only`. Test, który przeszedł bez asercji, jest awarią, nie sukcesem.
 
     Licznik `przeszło` liczy WYŁĄCZNIE testy, które coś sprawdziły. Pominięte mają
     własną linię i własny mianownik — dopisanie `skip()` nie może po cichu poprawić
@@ -366,7 +392,7 @@ def main():
     maszyny w setki fałszywych „zabić" naraz — tej samej klasy usterki, jaką opisuje
     `reports/wyrocznia-mutacyjna-falszywe-zabicia.md`, tylko odwróconej w drugą stronę.
     """
-    tests,module_of,import_failures=_discover(); passed=0; skipped=[]; failed=[]; checks_total=0
+    tests,module_of,import_failures=_discover(only); passed=0; skipped=[]; failed=[]; checks_total=0
     module_seconds={}; module_counts={}
     suite_start=time.perf_counter()
     for module_file,error in import_failures:
@@ -397,4 +423,9 @@ def main():
     if broken: print(f"  FAIL <bramka asercji>: {broken}"); return 1
     return 1 if failed else 0
 
-if __name__=="__main__": sys.exit(main())
+# `main()` bez argumentu zostaje przebiegiem CAŁEGO zestawu i to jest warunek, pod
+# ktorym wolno bylo dopisac `only`: wolaja je tak `mutation_sweep.py` (podproces bez
+# argumentow) i `test_assertion_gate.py` (wprost, w tym samym procesie). Rozbior
+# wiersza polecen stoi wiec TUTAJ, a nie w `main()` — w `main()` wyjmowalby argumenty
+# spod tamtych dwoch wywolan.
+if __name__=="__main__": sys.exit(main(sys.argv[1]) if len(sys.argv)>1 else main())

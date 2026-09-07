@@ -332,3 +332,10 @@ def test_components_mezzanine_pieces_still_cover_the_full_length():
     widest = max(max(y for y, _z in s["section"]) - min(y for y, _z in s["section"])
                  for s in at_void)
     assert widest > 1.0, f"pas przy otworze ma tylko {widest:.2f} m — to nie jest antresola"
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

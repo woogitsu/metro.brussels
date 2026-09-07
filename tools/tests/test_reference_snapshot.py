@@ -100,27 +100,18 @@ def test_reference_snapshot_matches_python_to_full_precision():
     assert not mismatched, mismatched
 
 
-def main():
-    """Uruchamialny osobno, żeby krok CI w sim-tests.yml był bramką, a nie wydrukiem."""
-    failed = []
-    for name, fn in sorted(globals().items()):
-        if not name.startswith("test_") or not callable(fn):
-            continue
-        try:
-            fn()
-            print(f"  ok   {name}")
-        except Exception as e:
-            print(f"  FAIL {name}: {e}")
-            failed.append(name)
-    if failed:
-        print(f"\n  snapshot C# rozjechał się z tools/physics/reference.py: {failed}")
-        return 1
-    print("\n  PythonReference.cs == tools/physics/reference.py, co do bitu")
-    return 0
-
-
+# Uruchamialny osobno, żeby krok CI w `sim-tests.yml` był bramką, a nie wydrukiem —
+# to się nie zmienia. Zmienia się DROGA (6.D25): własna pętla po `globals()` została
+# zastąpiona wspólnym przebiegaczem z `test_all.py`, bo miała dokładnie tę usterkę,
+# przed którą ta pozycja broni. Gdyby `globals()` przestało dawać funkcje `test_` —
+# po zmianie nazwy, po przeniesieniu do klasy — pętla nie miałaby czego wykonać,
+# wypisałaby „PythonReference.cs == …, co do bitu" i zwróciła **0**. Zero testów
+# meldowane jako zgodność co do bitu jest gorsze od czerwonego kroku CI.
+# Wspólny przebiegacz odmawia przy zerze testów (`AG.suite_verdict`) i przy okazji
+# liczy asercje, czego ta pętla nie robiła.
 if __name__ == "__main__":
-    sys.exit(main())
+    import test_all
+    raise SystemExit(test_all.main(__file__))
 
 
 def test_reference_inputs_are_pinned_including_the_ones_nothing_derives():

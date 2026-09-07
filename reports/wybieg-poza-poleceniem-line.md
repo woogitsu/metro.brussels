@@ -152,7 +152,19 @@ modulow test_*.py: 89; z blokiem __main__: 5; bez: 84
 ```
 
 **84 z 89 modułów zachowuje się tak samo** — pięć wyjątków (`test_all`, `test_braking`,
-`test_ci_workflows`, `test_mutation_sweep`, `test_reference_snapshot`) blok mają. Wzorzec
+`test_ci_workflows`, `test_mutation_sweep`, `test_reference_snapshot`) blok mają.
+
+> **Poprawka z 07.09.2026 (6.D25). Ta liczba była zaniżona, bo zmierzyłem ją grepem.**
+> `grep -l '__main__'` liczy **wystąpienia słowa**, a nie strażniki. Przejście `ast` po
+> tym samym drzewie daje **2** wykonywalne strażniki na poziomie modułu, nie 5:
+> `test_all.py` i `test_reference_snapshot.py`. Pozostałe trzy trafienia to słowo
+> `__main__` w prozie docstringów (`test_braking`, `test_ci_workflows`) i w **danych
+> testowych** `test_mutation_sweep.py`, który sprawdza, że generator mutacji nie mutuje
+> strażnika — więc trzyma jego tekst jako napis. Prawdziwa proporcja to **89 z 91**,
+> czyli usterka była szersza, niż ją tu opisałem. Zmierzone zdanie zostaje w tekście
+> powyżej nietknięte, bo tak brzmiał pomiar tego dnia; poprawia je ta adnotacja.
+> Ironia jest na temat: przyrząd, którym mierzyłem usterkę przyrządów, miał tę samą
+> wadę — patrzył na tekst, nie na strukturę. Bramka z 6.D25 czyta `ast`. Wzorzec
 `python3 tools/tests/<moduł>.py` jest naturalnym odruchem przy sprawdzaniu jednej bramki
 i w 84 przypadkach na 89 daje **zielony kod wyjścia z zera wykonanych testów** — czyli
 dokładnie ten kształt usterki, który zestaw łapie u innych (`assertion_gate` od #139,

@@ -421,3 +421,10 @@ def test_curve_radius_span_gap_is_above_the_largest_point_spacing_of_all_six_axe
     assert widest > 20.0, widest
     assert CL.SPAN_GAP_M > widest, (CL.SPAN_GAP_M, widest)
     assert CL.SPAN_GAP_M < 2.0 * widest, (CL.SPAN_GAP_M, widest)
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

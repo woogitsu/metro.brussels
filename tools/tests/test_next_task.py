@@ -301,3 +301,10 @@ def test_doctor_says_the_queue_is_empty_instead_of_going_silent():
         assert run_doctor_queue(katalog) == "", (
             "doctor wskazał pozycję kolejki, choć w rozpisce nie ma ani jednego wiersza "
             "faz 5 i 6 — podstawienie łapie za szeroko")
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

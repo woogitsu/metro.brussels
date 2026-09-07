@@ -145,3 +145,11 @@ def test_the_package_limits_are_read_from_the_validator_not_copied():
     for przepisana in ("MIN_RADIUS_M = ", "MIN_POINT_GAP_M = ", "MAX_POINT_GAP_M = "):
         assert przepisana not in tresc, (
             "granica walidatora wrocila do test_packages.py jako kopia: " + przepisana)
+
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

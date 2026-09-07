@@ -420,3 +420,10 @@ def test_sha256_of_a_file_matches_hashlib_over_its_bytes():
         assert TM.sha256_file(handle.name) == hashlib.sha256(payload).hexdigest()
     finally:
         os.unlink(handle.name)
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

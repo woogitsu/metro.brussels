@@ -88,3 +88,10 @@ def test_png_pixels_a_png_without_idat_is_refused():
             assert "bez ani jednego bloku IDAT" in str(blad), blad
         else:
             raise AssertionError("PNG bez IDAT przeszedł")
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

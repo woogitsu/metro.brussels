@@ -56,3 +56,10 @@ def test_select_marks_and_side_sign_are_the_same_objects_detail_markers_calls():
     assert DM.select_marks is MG.select_marks
     assert DM.side_sign is MG.side_sign
     assert DM.clearance_problems is MG.clearance_problems
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

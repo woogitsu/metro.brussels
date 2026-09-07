@@ -170,3 +170,10 @@ def test_the_csharp_side_reads_the_same_two_fixture_files():
         source = handle.read()
     for name in (os.path.basename(MANIFEST), os.path.basename(PLANS)):
         assert f'FixturePath("{name}")' in source, name
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

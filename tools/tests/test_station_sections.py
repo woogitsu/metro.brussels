@@ -109,3 +109,10 @@ def test_slab_sections_at_side_zero_takes_the_negative_branch_without_raising():
     # ujemnej strony — potwierdza, że poszło przez `else`, nie przez `if`.
     strip_far = max(outer, inner - SS.DESIGN_EDGE_STRIP_M)
     assert min(y for y, _z in strip) == strip_far
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

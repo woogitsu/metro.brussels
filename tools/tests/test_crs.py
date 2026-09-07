@@ -255,3 +255,10 @@ def test_crs_lambert_jacobian_never_comes_near_its_degenerate_gate():
     # Najmniejszy zmierzony wyznacznik jest ponad szesnaście rzędów wielkości nad
     # bramką — pasmo, w którym mutacja progu cokolwiek by zmieniła, jest puste.
     assert abs(determinant(4.35, 89.99999)) / 1e-12 > 1e16
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

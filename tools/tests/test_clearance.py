@@ -232,3 +232,10 @@ def test_clearance_versine_formula_is_conservative_for_an_off_centre_body():
     # luz przewidziany z ciaśniejszego promienia jest mniejszy, czyli bezpieczny
     static = 1.25
     assert static - CL.versine(chord, tight) < static - CL.versine(chord, gentle)
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

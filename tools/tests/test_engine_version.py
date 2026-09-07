@@ -163,3 +163,10 @@ def test_parsers_do_not_accept_a_mismatch():
     assert doc_versions("do 02.09.2026 stał tu Godot 4.3-stable") == set()
     assert "4.3" in doc_versions("## 4. Godot 4.3-stable mono"), \
         "parser przestał widzieć wersję w nagłówku sekcji"
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

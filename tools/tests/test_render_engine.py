@@ -138,3 +138,10 @@ def test_the_solver_does_not_invent_a_headlight_for_the_slicing_cameras():
         solved = framing.solve_camera(camera, (-5.0, -5.0, -2.0), (40.0, 5.0, 5.0),
                                       960, 576, anchors, None)
         assert "headlight" not in solved, camera["id"]
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

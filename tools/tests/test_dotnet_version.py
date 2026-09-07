@@ -648,3 +648,10 @@ def test_doctor_reads_the_log_when_the_version_probe_said_nothing_useful():
     assert "nie zbuduje net" not in output, (
         "doctor zatrzymał się na sondzie wersji, choć wersja jest dostateczna:\n" + output)
     assert "required_bad=1" in output, output
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

@@ -379,3 +379,10 @@ def test_profile_formula_exactly_equal_to_the_measurement_is_not_optimistic():
     assert got["predicted_clearance_m"] == got["measured_clearance_m"], got
     assert got["formula_optimistic"] is False, got
     assert got["delta_mm"] == 0.0, got
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

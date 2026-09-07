@@ -297,3 +297,10 @@ def test_envelope_bisection_guard_does_not_truncate_a_very_loose_schedule():
         assert model.fastest_time_s(distance, speed * 0.999) > scheduled, (
             f"{distance} m / {scheduled} s: {speed} km/h nie jest NAJMNIEJSZYM sufitem "
             "mieszczącym się w rozkładzie — bisekcja została ucięta")
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

@@ -947,3 +947,10 @@ def test_lod_a_span_that_fits_the_limit_keeps_exactly_the_two_ends():
     station_m = [0.0, 5.0, 10.0, 15.0, 20.0]
     positions = [(x, 0.0, 0.0) for x in station_m]
     assert LD.select_rings(positions, station_m, 0, 4, 25.0, 0.0) == [0, 4]
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

@@ -84,3 +84,10 @@ def test_the_shape_is_recognised_on_an_injected_class(tmp=None):
         assert len(znalezione) == 2, znalezione
         brak = czytnik.bez_atrybutu(katalog)
         assert [m for _, _, m in brak] == ["Nieuruchamiany"], brak
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

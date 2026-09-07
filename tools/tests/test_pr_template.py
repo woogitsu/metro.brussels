@@ -97,3 +97,10 @@ def test_template_does_not_promise_a_fixed_test_count():
     # Ten sam błąd, który konstytucja miała w §2: zaszyta liczba testów
     # rozjeżdża się przy każdym nowym module.
     assert not re.search(r"\b\d+\s+test", _template())
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

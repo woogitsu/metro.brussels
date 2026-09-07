@@ -692,3 +692,10 @@ def test_freshness_data_fetched_on_the_last_valid_day_is_not_fetched_after_expir
         {"validity": {"valid_to": end.isoformat()},
          "retrieved_at": (end + datetime.timedelta(days=1)).isoformat() + "T10:00:00Z"}, today)
     assert rows[0]["retrieved_after_expiry"] is True
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

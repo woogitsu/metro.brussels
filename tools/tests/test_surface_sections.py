@@ -688,3 +688,10 @@ def test_surface_main_prints_only_the_contradictions():
     # z tego, że pętla w ogóle nie doszła do wypisywania
     assert "niveau=0 na 7 punktach" in printed, printed
     assert "urbis=poza_tunelem|osm=None: 3" in printed, printed
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))
