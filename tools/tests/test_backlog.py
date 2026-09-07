@@ -147,7 +147,18 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 #: go nie zrobił), a dwie z ścieżek, które nie istnieją w drzewie — jedną z nich
 #: znalazł niezależnie agent wykonujący 6.A30, próbując wykonać pole „Weryfikacja"
 #: własnego bloku.
-MINIMUM_DETAIL_BLOCKS = 106
+#: **Liczba przepisana, a nie dopisana obok — 106 → 111 (07.09.2026, trzecie
+#: uzupełnienie tego dnia).** Kolejka zeszła po 6.D35 do **dwunastu, czyli RÓWNO do
+#: progu** `MINIMUM_READY_ITEMS`, więc następne domknięcie zapaliłoby bramkę zapasu.
+#: `CLAUDE.md` §8 mówi wtedy jedno: pierwszym zadaniem jest uzupełnienie kolejki.
+#:
+#: Wszystkie pięć pozycji (6.B45, 6.B46, 6.D36, 6.D37, 6.D38) wyszło z **pomiarów
+#: wykonanych przy zadaniach tego dnia** i z sekcji „Zauważone przy okazji" ich
+#: raportów — czyli z rzeczy, które ktoś zobaczył i świadomie nie tknął, bo nie były
+#: jego pozycją. Żadna nie jest wymyślona na miejscu, i to jest warunek, pod którym
+#: wolno je było dopisać: zadanie wymyślone, bo skończyła się kolejka, omija format
+#: z sekcji 6 i ląduje w kodzie, którego nikt nie prosił o zmianę.
+MINIMUM_DETAIL_BLOCKS = 111
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
