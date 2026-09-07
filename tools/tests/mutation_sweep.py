@@ -1149,7 +1149,8 @@ KOD_NIC_DO_LICZENIA = 1
 
 def przyczyna_pustego_zbioru(zebrane, po_wznowieniu, po_limicie, po_filtrze,
                              only: str = "", journal: str = "",
-                             limit: int = 0) -> tuple[str, int]:
+                             limit: int = 0,
+                             dopasowane_pliki: int | None = None) -> tuple[str, int]:
     """Nazywa RZECZYWISTĄ przyczynę pustego zbioru mutacji i daje jej kod wyjścia.
 
     **Po co (6.B41).** Do 07.09.2026 `main` miał na pusty zbiór dwie gałęzie i żadna
@@ -1177,6 +1178,11 @@ def przyczyna_pustego_zbioru(zebrane, po_wznowieniu, po_limicie, po_filtrze,
     nie chodził na tej drodze" i nigdy nie jest przyczyną.
     """
     if zebrane == 0:
+        if only and dopasowane_pliki:
+            return (f"brak mutacji do sprawdzenia: --only {only!r} dopasowało "
+                    f"{dopasowane_pliki} plik(ów) docelowych, ale żaden nie dał ani "
+                    "jednej mutacji w podanych klasach — zawężenie trafiło, klasy nie",
+                    KOD_NIC_DO_LICZENIA)
         if only:
             return (f"brak mutacji do sprawdzenia: --only {only!r} nie dopasowało "
                     "ani jednego pliku", KOD_NIC_DO_LICZENIA)
@@ -1255,6 +1261,19 @@ def main() -> int:
         found = [m for m in found if args.only in m.path]
     pliki_przebiegu = sorted({m.path for m in found})
 
+    # 6.B39: pliki DOCELOWE dopasowane przez `--only`, liczone niezaleznie od tego, czy
+    # dały mutację. Bez tego licznika nie da się odróżnić dwóch przyczyn pustego zbioru,
+    # a wcześniej komunikat mówił „nie dopasowało ani jednego pliku" także wtedy, gdy
+    # dopasował — zmierzone 07.09.2026: `--only tools/blender/camera_aim.py
+    # --operators prog` dopasowuje DOKŁADNIE JEDEN cel i daje zero mutacji, bo ten plik
+    # nie ma ani jednego progu. Modułów bez mutacji danej klasy jest dziś od 2
+    # (`operator`) do 36 (`przypisanie`) na 63 cele, więc to nie jest przypadek
+    # teoretyczny. Licznik idzie do `przyczyna_pustego_zbioru`, a nie do drugiej
+    # gałęzi: dwa czytniki jednej rzeczy rozjeżdżają się po cichu (6.B28).
+    dopasowane_cele = ([os.path.relpath(c, ROOT) for c in targets()
+                        if args.only in os.path.relpath(c, ROOT)]
+                       if args.only else [])
+
     # `--only` dopasowuje PODCIĄG ścieżki, nie nazwę pliku — to jest zamierzone:
     # `--only tools/track/` musi łapać cały katalog naraz (patrz
     # `test_cli_lists_only_the_requested_class`), a dopasowanie tylko po nazwie
@@ -1267,7 +1286,12 @@ def main() -> int:
     # jakąkolwiek mutacją — nawet dla `--list` — więc rozjazd jest widoczny
     # w pierwszym wierszu wyjścia, a nie odkrywany przez porównanie liczb.
     if args.only:
-        print(f"[MUTACJE] --only {args.only!r} złapało {len(found)} mutacji "
+        # Dwie liczby, nie jedna: ile CELÓW zawężenie dopasowało i z ilu z nich
+        # wyszła choć jedna mutacja. Do 07.09.2026 stała tu tylko druga, więc
+        # zawężenie trafione w plik bez mutacji wyglądało identycznie jak literówka
+        # w ścieżce — oba dawały „0 moduł(ów)".
+        print(f"[MUTACJE] --only {args.only!r} dopasowało {len(dopasowane_cele)} "
+              f"plik(ów) docelowych i złapało {len(found)} mutacji "
               f"z {len(pliki_przebiegu)} moduł(ów): {', '.join(pliki_przebiegu)}")
 
     # Rozmiar zbioru, o KTÓRY POPROSZONO, zapamiętany przed pierwszym zawężeniem.
@@ -1364,6 +1388,20 @@ def main() -> int:
     po_limicie = len(found)
 
     if args.list:
+        # 6.B39: do 07.09.2026 ta gałąź wychodziła ZEREM także przy zbiorze pustym,
+        # bo odmowa `brak mutacji do sprawdzenia` stoi ZA nią. Zmierzone:
+        # `--only tools/nie-ma-takiego-pliku.py --list` dawało `razem: 0` i kod 0,
+        # czyli przebieg CI z literówką w zawężeniu dostawał zielone zero.
+        # Odmowa idzie przez `przyczyna_pustego_zbioru` — ten sam przyrząd, co droga
+        # bez `--list` — więc obie nie mogą podać różnych przyczyn tego samego stanu.
+        # Zawężenie BEZ trafień i przebieg bez `--only` to osobne sprawy: ta pozycja
+        # dotyczy `--only`, a pusty zbiór bez zawężenia zostaje poza jej zakresem.
+        if args.only and not found:
+            komunikat, kod = przyczyna_pustego_zbioru(
+                len(found), None, None, None, only=args.only, journal=journal,
+                limit=args.limit, dopasowane_pliki=len(dopasowane_cele))
+            print(komunikat, file=sys.stderr)
+            return kod
         for mutation in found:
             print(mutation.describe())
         print(f"razem: {len(found)}")
@@ -1377,7 +1415,8 @@ def main() -> int:
     if not found:
         komunikat, kod = przyczyna_pustego_zbioru(
             zebrane, po_wznowieniu, po_limicie, None,
-            only=args.only, journal=journal, limit=args.limit)
+            only=args.only, journal=journal, limit=args.limit,
+            dopasowane_pliki=len(dopasowane_cele))
         print(komunikat, file=sys.stderr)
         return kod
 
