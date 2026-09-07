@@ -759,18 +759,111 @@ def test_unreachable_modules_of_nothing_is_empty():
     assert sweep.unreachable_modules([]) == {}
 
 
-def test_every_real_target_except_the_blender_entry_points_is_reachable():
-    """Sonda nie może wycinać modułów, które da się przetestować.
+#: Piec modulow WYCIAGNIETYCH spod `bpy` w 6.B9 (#276) i 6.B13 (#284), zeby dalo sie
+#: je testowac jednostkowo. Kazdy nadal WSPOMINA `bpy` — w funkcji, nie w ciele modulu
+#: — wiec tekstowy `grep` liczy ich razem z wejsciami Blenderowymi: 15 wobec 10.
+#:
+#: **Lista jest utrzymywana recznie i to jest decyzja, nie zaniedbanie.** Rownosc
+#: „nieosiagalne == importujace bpy w ciele modulu" NIE broni tych pieciu, i to jest
+#: ZMIERZONE, nie zalozone: dopisanie `import bpy` na poziomie modulu do
+#: `lod_paths.py` dodaje go do OBU zbiorow naraz, wiec rownosc zostaje spelniona,
+#: a stary prog (11 < 31) tez przechodzi. Regres wraca wiec po cichu przez oba
+#: strazniki i tylko lista imienna go zatrzymuje.
+MODULY_WYCIAGNIETE_SPOD_BPY = (
+    "tools/blender/lod_paths.py",
+    "tools/blender/marker_gates.py",
+    "tools/blender/scan_gates.py",
+    "tools/blender/station_sections.py",
+    "tools/blender/vehicle_fit.py",
+)
 
-    Zmierzone: 9 z 44 modułów `tools/` jest nieosiągalnych i wszystkie dziewięć to
-    wejścia Blenderowe. Gdyby sonda zaczęła zgłaszać cokolwiek innego, przegląd
-    po cichu zmniejszyłby swój zakres — a liczba „ocalałych" spadłaby, wyglądając
-    na poprawę pokrycia.
+
+def _bpy_na_poziomie_modulu(path):
+    """Czy modul importuje `bpy` w SWOIM CIELE, a nie wewnatrz funkcji.
+
+    Rozroznienie jest cala trescia tej pomocniczej: `import bpy` schowany w funkcji
+    nie przeszkadza zaimportowac modulu, wiec sonda go nie odrzuca. Tekstowy `grep`
+    za `import bpy` daje dzis **15** modulow, a nieosiagalnych jest **10** —
+    piec roznicy to dokladnie moduly wyciagniete spod `bpy` w 6.B9 i 6.B13
+    (`lod_paths.py`, `marker_gates.py`, `scan_gates.py`, `station_sections.py`,
+    `vehicle_fit.py`). Bramka na `grep` zglaszalaby wiec pieciu poprawnych.
+    """
+    drzewo = ast.parse(open(os.path.join(ROOT, path), encoding="utf-8").read())
+    for wezel in drzewo.body:
+        if isinstance(wezel, ast.Import):
+            if any(a.name.split(".")[0] == "bpy" for a in wezel.names):
+                return True
+        elif isinstance(wezel, ast.ImportFrom):
+            if (wezel.module or "").split(".")[0] == "bpy":
+                return True
+    return False
+
+
+def test_every_real_target_except_the_blender_entry_points_is_reachable():
+    """Sonda nie moze wycinac modulow, ktore da sie przetestowac — i to jest
+    WYPROWADZONE z drzewa, nie wpisane liczba.
+
+    **Docstring przepisany 07.09.2026 (6.B45), a poprzednia wersja NIE byla
+    nieprawdziwa — byla pomiarem bez daty.** Mowila „Zmierzone: 9 z 44 modulow
+    `tools/` jest nieosiagalnych" i na dzien wpisania zgadzala sie co do sztuki.
+    Sprawdzone na commicie, ktory ja wprowadzil::
+
+        ff99d13 (03.09.2026)  celow 44   nieosiagalnych  9
+        6bbbf37 (04.09.2026)  celow 55   nieosiagalnych 10
+        d9d8709 (07.09.2026)  celow 63   nieosiagalnych 10
+
+    Czyli w cztery dni celow przybylo dziewietnascie, a nieosiagalnych — jeden.
+    Liczba w docstringu zestarzala sie po cichu, bo asercja stala na PROGU
+    (`< len(targets()) // 2`, czyli 10 < 31): przechodzi przy 9, przy 10 i przy 30.
+
+    **Co jest tu przybite od dzis.** Zbior nieosiagalnych rowna sie DOKLADNIE
+    zbiorowi modulow importujacych `bpy` na poziomie modulu — zmierzone 07.09.2026:
+    10 = 10, zbiory identyczne. Rownosc nie wymaga utrzymywania zadnej liczby, bo
+    rosnie razem z drzewem, i lapie sonde odrzucajaca modul, ktory `bpy` w ciele nie
+    importuje, oraz odwrotnie.
+
+    **Czego rownosc NIE lapie, i to jest zmierzone, nie zalozone.** Pierwsza wersja
+    tego docstringu twierdzila, ze rownosc broni pieciu modulow wyciagnietych spod
+    `bpy` w 6.B9 i 6.B13. Kontrola pokazala, ze nie: `import bpy` dopisany na poziomie
+    modulu do `lod_paths.py` wchodzi do OBU zbiorow naraz, wiec rownosc zostaje
+    spelniona, a prog (11 < 31) tez przechodzi. Regres przeszedlby przez oba
+    strazniki, i dlatego tych pieciu broni osobna asercja na liscie imiennej
+    (`MODULY_WYCIAGNIETE_SPOD_BPY`) — utrzymywanej recznie, bo wyprowadzic jej
+    z drzewa nie da sie: „modul, ktory kiedys importowal bpy i przestal" nie jest
+    wlasnoscia dzisiejszego drzewa.
     """
     unreachable = sweep.unreachable_modules(sweep.targets())
-    assert unreachable, "sonda nie znalazła nic — na tej maszynie bpy jest dostępne?"
+    assert unreachable, "sonda nie znalazla nic — na tej maszynie bpy jest dostepne?"
     for path, reason in unreachable.items():
-        assert "bpy" in reason, f"{path}: nieoczekiwany powód {reason}"
+        assert "bpy" in reason, f"{path}: nieoczekiwany powod {reason}"
+
+    # Klucze `unreachable` sa TAKIE, jak podana lista — `sweep.targets()` zwraca
+    # sciezki bezwzgledne. Normalizuje OBIE strony, bo porownanie sciezki bezwzglednej
+    # ze wzgledna daje zbiory rozlaczne przy identycznej tresci: ten sam blad zlapal
+    # mnie dzis przy 6.B39 (`targets()` wobec `Mutation.path`) i jest wart komentarza,
+    # a nie tylko poprawki.
+    cele = [os.path.relpath(c, ROOT) for c in sweep.targets()]
+    nieosiagalne = {os.path.relpath(k, ROOT) if os.path.isabs(k) else k
+                    for k in unreachable}
+    z_bpy = {p for p in cele if _bpy_na_poziomie_modulu(p)}
+    assert nieosiagalne == z_bpy, (
+        "sonda odrzuca inny zbior niz moduly importujace `bpy` w swoim ciele; "
+        f"tylko sonda: {sorted(nieosiagalne - z_bpy)}, "
+        f"tylko import: {sorted(z_bpy - nieosiagalne)}")
+
+
+    # **Piec modulow z 6.B9 i 6.B13 musi zostac OSIAGALNE.** Rownosc wyzej tego nie
+    # pilnuje i sprawdzilem to kontrola: `import bpy` dopisany na poziomie modulu do
+    # `lod_paths.py` wchodzi do OBU zbiorow naraz, wiec rownosc zostaje prawdziwa,
+    # a prog (11 < 31) tez przechodzi — regres przeszedlby przez oba strazniki.
+    wrocily = sorted(set(MODULY_WYCIAGNIETE_SPOD_BPY) & nieosiagalne)
+    assert not wrocily, (
+        "modul wyciagniety spod `bpy` w 6.B9/6.B13 znow importuje go w swoim ciele "
+        f"i przestal byc testowalny: {wrocily}")
+
+    # Prog zostaje, i nie jest po zmianie zbedny: rownosc wyzej jest spelniona takze
+    # wtedy, gdy OBA zbiory sa puste, wiec sama nie odroznia „sonda widzi tyle, ile
+    # ma" od „bpy jest na tej maszynie dostepne i nie ma czego odrzucac".
     assert len(unreachable) < len(sweep.targets()) // 2, len(unreachable)
 
 
