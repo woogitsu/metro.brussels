@@ -69,32 +69,32 @@ public static class Program
     /// dopisana do kodu bez dopisania jej tutaj zapala tę bramkę.
     /// </para>
     /// </remarks>
-    private static readonly IReadOnlyDictionary<string, (string[] Values, string[] Flags)> KnownOptions =
-        new Dictionary<string, (string[] Values, string[] Flags)>(StringComparer.Ordinal)
+    private static readonly IReadOnlyDictionary<string, (string[] Values, string[] Flags, int Positional)> KnownOptions =
+        new Dictionary<string, (string[] Values, string[] Flags, int Positional)>(StringComparer.Ordinal)
         {
-            ["drive"] = (new[] { "--out", "--sample-every" }, Array.Empty<string>()),
+            ["drive"] = (new[] { "--out", "--sample-every" }, Array.Empty<string>(), 0),
             ["replay"] = (new[]
             {
                 "--axis", "--exchange-s", "--keys", "--limit-kmh", "--notch-rate",
                 "--out", "--sample-every", "--signalling", "--stop-window-m",
-            }, new[] { "--atp" }),
-            ["compare"] = (new[] { "--tolerance" }, Array.Empty<string>()),
-            ["axis"] = (new[] { "--axis", "--dump-points", "--manifest" }, Array.Empty<string>()),
-            ["parity"] = (Array.Empty<string>(), Array.Empty<string>()),
-            ["braking"] = (Array.Empty<string>(), Array.Empty<string>()),
+            }, new[] { "--atp" }, 0),
+            ["compare"] = (new[] { "--tolerance" }, Array.Empty<string>(), 2),
+            ["axis"] = (new[] { "--axis", "--dump-points", "--manifest" }, Array.Empty<string>(), 0),
+            ["parity"] = (Array.Empty<string>(), Array.Empty<string>(), 0),
+            ["braking"] = (Array.Empty<string>(), Array.Empty<string>(), 0),
             ["line"] = (new[]
             {
                 "--axis", "--brake-usage", "--calls", "--coast-from-m", "--exchange-s",
                 "--limit-kmh", "--load", "--signalling", "--stop-window-m", "--timetable",
                 "--trace",
-            }, Array.Empty<string>()),
+            }, Array.Empty<string>(), 0),
             ["budget"] = (new[]
             {
                 "--axis", "--brake-usage", "--coast-from-m", "--exchange-s", "--headway-s",
                 "--limit-kmh", "--load", "--out", "--repeats", "--signalling", "--steps",
                 "--stop-window-m", "--trains", "--turnback-s", "--warmup",
-            }, new[] { "--atp" }),
-            ["service-day"] = (new[] { "--at", "--out", "--timetable" }, Array.Empty<string>()),
+            }, new[] { "--atp" }, 0),
+            ["service-day"] = (new[] { "--at", "--out", "--timetable" }, Array.Empty<string>(), 0),
         };
 
     /// <summary>
@@ -185,6 +185,26 @@ public static class Program
         // wartosc; sprawdzone uruchomieniem (kod 0 przed zmiana i po niej).
         var seen = new HashSet<string>(StringComparer.Ordinal);
 
+        // Czlony POZYCYJNE, czyli te bez minusa i nie bedace wartoscia znanej opcji
+        // (6.A25). Do tej pozycji nie liczyl ich nikt, wiec `budget ... --atp 1`
+        // konczylo sie kodem 0 i wypisem NIEODROZNIALNYM od `budget ... --atp`:
+        // `1` przechodzilo jako czlon pozycyjny, ktorego zadna odmowa nie widzi.
+        // To samo robil `budget ... zmyslony_czlon`.
+        //
+        // Odmowa 6.A11 i 6.A15 odsiewa czlony bez minusa CELOWO — `compare` bierze
+        // dwie sciezki pozycyjnie, wiec „odmawiaj wszystkiemu, czego nie znam"
+        // wywrociloby to polecenie w calosci. Zaleta tamtej decyzji zostaje; brakowalo
+        // jedynie LICZBY, ile czlonow pozycyjnych polecenie naprawde czyta.
+        //
+        // Jedna liczba przy poleceniu, a nie nowy rozbior — i to jest ZMIERZONE, nie
+        // zalozone: w calym `Program.cs` jedynymi odczytami `args[N]` dla N > 0 poza
+        // samym rozbiorem opcji sa `args[1]` i `args[2]` w `Compare`. Zadne inne
+        // polecenie nie czyta ani jednego czlonu pozycyjnego, wiec zero stoi wszedzie
+        // indziej. Pilnuje tego bramka po stronie Pythona, ktora wyprowadza te liczby
+        // z odczytow `args[N]` w cialach polecen i porownuje z tabela — tak samo jak
+        // robi to od 6.A11 dla samych nazw opcji. Pomiar: `reports/czlon-pozycyjny.md`.
+        var positional = 0;
+
         for (var i = 1; i < args.Length; i++)
         {
             var token = args[i];
@@ -207,6 +227,19 @@ public static class Program
             // odmowa czegos, co nie jest literowka.
             if (!token.StartsWith("-", StringComparison.Ordinal) || token == "-")
             {
+                positional++;
+                if (positional > known.Positional)
+                {
+                    throw new ArgumentException(
+                        $"polecenie {command} dostało człon pozycyjny {token}, "
+                        + (known.Positional == 0
+                            ? "a nie bierze ani jednego. Człon bez minusa nie jest "
+                              + "opcją, więc wartość podana po fladze (np. --atp 1) "
+                              + "trafia właśnie tutaj"
+                            : $"a bierze ich {known.Positional} — ten jest "
+                              + $"{positional} w kolejności"));
+                }
+
                 continue;
             }
 
@@ -308,7 +341,7 @@ public static class Program
     /// (czlon bez rownosci i przedrostek czlonu z rownoscia), a dwoch pisarzy
     /// rozjezdza sie przy pierwszej poprawce; ta sama zasada co przy 6.A20 i 6.A14.
     /// </summary>
-    private static string Nieznana(string command, string option, (string[] Values, string[] Flags) known)
+    private static string Nieznana(string command, string option, (string[] Values, string[] Flags, int Positional) known)
     {
         var all = new List<string>(known.Values);
         all.AddRange(known.Flags);

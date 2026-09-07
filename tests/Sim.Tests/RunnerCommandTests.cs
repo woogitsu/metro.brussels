@@ -1255,4 +1255,142 @@ public sealed class RunnerCommandTests
             File.Delete(dobry);
         }
     }
+    // --- czlon pozycyjny ponad liczbe, jaka polecenie czyta (6.A25) --------------
+
+    /// <summary>
+    /// Wartosc podana po FLADZE jest czlonem pozycyjnym i do 07.09.2026 przechodzila
+    /// bez slowa.
+    /// </summary>
+    /// <remarks>
+    /// Zmierzone przy 6.A22, ktore swiadomie tego nie tknelo: `--atp 1` i samo `--atp`
+    /// dawaly wypis NIEODROZNIALNY, oba kodem 0. Komunikat 6.A22 radzi fladze „podaj
+    /// samo --atp" wlasnie dlatego, ze `--atp 1` przechodzi — rada jest poprawna, ale
+    /// jej powodem byla ta dziura, a dopoki dziura jest, literowka w wartosci flagi
+    /// wyglada dokladnie jak przebieg poprawny.
+    /// </remarks>
+    [TestMethod]
+    public void Wartosc_po_fladze_jest_czlonem_pozycyjnym_i_konczy_sie_odmowa()
+    {
+        var result = Run(
+            "budget", "--axis", Path.Combine(RepoRoot(), "data", "track", "L1_A.json"),
+            "--signalling", Path.Combine(
+                RepoRoot(), "data", "design", "signalling", "classic-2026.json"),
+            "--limit-kmh", "72", "--exchange-s", "20", "--headway-s", "90",
+            "--trains", "2", "--steps", "100", "--atp", "1");
+
+        Assert.AreEqual(1, result.ExitCode, result.StdOut);
+        StringAssert.Contains(result.StdErr, "człon pozycyjny 1");
+        StringAssert.Contains(result.StdErr, "nie bierze ani jednego");
+    }
+
+    /// <summary>
+    /// Czlon bez minusa, ktory nie jest wartoscia zadnej opcji — druga polowa tej samej
+    /// dziury. `budget ... zmyslony_czlon` konczylo sie kodem 0 i wypisem `ATP=nie`.
+    /// </summary>
+    [TestMethod]
+    public void Czlon_pozycyjny_nieznany_poleceniu_konczy_sie_odmowa()
+    {
+        var result = Run(
+            "budget", "--axis", Path.Combine(RepoRoot(), "data", "track", "L1_A.json"),
+            "--signalling", Path.Combine(
+                RepoRoot(), "data", "design", "signalling", "classic-2026.json"),
+            "--limit-kmh", "72", "--exchange-s", "20", "--headway-s", "90",
+            "--trains", "2", "--steps", "100", "zmyslony_czlon");
+
+        Assert.AreEqual(1, result.ExitCode, result.StdOut);
+        StringAssert.Contains(result.StdErr, "człon pozycyjny zmyslony_czlon");
+    }
+
+    /// <summary>
+    /// Kontrola drugiego kierunku, i to ONA jest tu wazniejsza od odmow wyzej.
+    /// </summary>
+    /// <remarks>
+    /// Odmowa 6.A11 i 6.A15 odsiewa czlony bez minusa CELOWO, bo `compare` bierze dwie
+    /// sciezki pozycyjnie. Odmowa zbudowana na „wszystko, czego nie znam" wywrocilaby
+    /// to polecenie w calosci — a testy odmowy wyzej bylyby wtedy nadal zielone. To
+    /// jest dokladnie ta kontrola negatywna, ktorej pozycja 6.A25 zazadala: zdjecie
+    /// liczby czlonow pozycyjnych z tabeli wywraca TEN test, nie tamte.
+    /// </remarks>
+    [TestMethod]
+    public void Compare_z_dwiema_sciezkami_nadal_przechodzi()
+    {
+        var (dobry, _) = DwaPlikiTelemetrii(3, 0, "abc");
+        try
+        {
+            var result = Run("compare", dobry, dobry);
+
+            Assert.AreEqual(0, result.ExitCode, result.StdErr);
+            StringAssert.Contains(result.StdOut, "[PORÓWNANIE]");
+        }
+        finally
+        {
+            File.Delete(dobry);
+        }
+    }
+
+    /// <summary>
+    /// Trzecia sciezka jest odmowa, i komunikat podaje LICZBE, ktora polecenie bierze,
+    /// zamiast mowic „nie bierze zadnego" — inaczej odmowa dla `compare` czytalaby sie
+    /// jak sprzecznosc z faktem, ze dwie sciezki wlasnie przeszly.
+    /// </summary>
+    [TestMethod]
+    public void Compare_z_trzecia_sciezka_nazywa_liczbe_ktora_bierze()
+    {
+        var (dobry, _) = DwaPlikiTelemetrii(3, 0, "abc");
+        try
+        {
+            var result = Run("compare", dobry, dobry, dobry);
+
+            Assert.AreEqual(1, result.ExitCode, result.StdOut);
+            StringAssert.Contains(result.StdErr, "bierze ich 2");
+            StringAssert.Contains(result.StdErr, "3 w kolejności");
+        }
+        finally
+        {
+            File.Delete(dobry);
+        }
+    }
+
+    /// <summary>
+    /// Wartosc znanej opcji NIE liczy sie jako czlon pozycyjny, bo jest pomijana razem
+    /// z opcja. Bez tego testu odmowa liczaca kazdy czlon bez minusa wywrocilaby
+    /// KAZDA komende z jakakolwiek opcja wartosciowa — a to widac tylko wtedy, gdy
+    /// ktos tego zada wprost.
+    /// </summary>
+    [TestMethod]
+    public void Wartosci_znanych_opcji_nie_licza_sie_jako_czlony_pozycyjne()
+    {
+        var result = Run(
+            "line", "--axis", Path.Combine(RepoRoot(), "data", "track", "L1_A.json"),
+            "--limit-kmh", "72", "--exchange-s", "20", "--stop-window-m", "1.5",
+            "--brake-usage", "0.8");
+
+        Assert.AreEqual(0, result.ExitCode, result.StdErr);
+        StringAssert.Contains(result.StdOut, "[LINIA]");
+    }
+
+    /// <summary>
+    /// Wartosc UJEMNA po znanej opcji nie jest ani nieznana opcja, ani czlonem
+    /// pozycyjnym — pomijanie dziala na czlonie NASTEPUJACYM po opcji, nie na jego
+    /// kształcie.
+    /// </summary>
+    /// <remarks>
+    /// Test sprawdza TRESC odmowy, a nie kod wyjscia, i jest to pomiar, nie wygoda:
+    /// pierwsza wersja zadala kodu 0 i padla — `--coast-from-m -1` konczy sie kodem 1
+    /// z komunikatem „Poczatek wybiegu musi byc skonczone i nieujemne", czyli odmowa
+    /// DZIEDZINY, ktora do rozbioru argumentow nie ma nic. Zadanie kodu 0 mierzylo
+    /// wiec zakres wartosci opcji, a nie to, co ta pozycja zmienia. Wlasciwym pomiarem
+    /// jest: wartosc ujemna dochodzi do dziedziny, czyli rozbior jej nie przechwycil.
+    /// </remarks>
+    [TestMethod]
+    public void Wartosc_ujemna_po_znanej_opcji_nie_jest_czlonem_pozycyjnym()
+    {
+        var result = Run(
+            "line", "--axis", Path.Combine(RepoRoot(), "data", "track", "L1_A.json"),
+            "--limit-kmh", "72", "--exchange-s", "20", "--coast-from-m", "-1");
+
+        Assert.IsFalse(result.StdErr.Contains("człon pozycyjny"), result.StdErr);
+        Assert.IsFalse(result.StdErr.Contains("nie zna opcji"), result.StdErr);
+        StringAssert.Contains(result.StdErr, "Początek wybiegu");
+    }
 }

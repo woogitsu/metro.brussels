@@ -274,6 +274,108 @@ def test_the_refusal_catches_a_repeated_value_option_but_not_a_repeated_flag():
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
 # z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
 # tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+
+# --- ile czlonow pozycyjnych bierze polecenie (6.A25) ---------------------------
+
+
+def declared_positional(source):
+    """Trzecie pole `KnownOptions` -> {polecenie: liczba czlonow pozycyjnych}.
+
+    Osobny czytnik od `declared_table`, i to jest zamierzone: tamten wyprowadza ZBIORY
+    nazw i jego wyrazenie regularne szuka `new[] {...}` albo `Array.Empty<string>()`,
+    wiec liczby by nie zobaczylo. Doklejanie trzeciego pola do tamtego czytnika
+    zmusiloby go do zwracania trojki wszedzie, gdzie dzis zwraca pare — a wtedy
+    poprawka w jednym z dwoch pomiarow psulaby drugi.
+    """
+    at = source.index("KnownOptions =")
+    end = source.index("\n        };", at)
+    body = source[at:end + 1]
+    found = {}
+    for match in re.finditer(r'\["([a-z-]+)"\]\s*=\s*\((.*?)\),\n', body, re.S):
+        command, krotka = match.group(1), match.group(2)
+        ogon = re.search(r",\s*(\d+)\s*$", krotka)
+        assert ogon, (
+            f"wpis {command!r} w KnownOptions nie ma liczby czlonow pozycyjnych "
+            "jako trzeciego pola: " + krotka[-60:])
+        found[command] = int(ogon.group(1))
+    return found
+
+
+def positional_by_code(source):
+    """Ile czlonow pozycyjnych CIALO kazdego polecenia naprawde czyta.
+
+    Miara: najwyzszy indeks `args[N]` dla N >= 1 w ciele metody. `args[0]` to nazwa
+    polecenia, a nie czlon pozycyjny, wiec sie nie liczy. Brak jakiegokolwiek odczytu
+    znaczy zero.
+
+    Komentarze zdjete: `Program.cs` MOWI o `args[1]` i `args[2]` w prozie przy
+    `RejectUnknownOptions` i w dokumentacji `Command`, a bramka zapalajaca sie na
+    tekscie, ktory tylko wyjasnia mechanizm, zostaje wylaczona, nie naprawiona
+    (nauczka 6.D27 i 6.D30).
+    """
+    kod = _kod_bez_komentarzy(source)
+    positions = []
+    for method in HANDLERS:
+        match = re.search(r"\n    private static int " + method + r"\(", kod)
+        if match:
+            positions.append((match.start(), method))
+    positions.sort()
+    found = {}
+    for index, (start, method) in enumerate(positions):
+        end = positions[index + 1][0] if index + 1 < len(positions) else len(kod)
+        indeksy = [int(n) for n in re.findall(r"\bargs\[(\d+)\]", kod[start:end])]
+        found[HANDLERS[method]] = max([n for n in indeksy if n >= 1], default=0)
+    return found
+
+
+def test_the_positional_count_matches_what_each_command_reads():
+    """Liczba w tabeli ma byc POMIAREM z kodu, nie czyjas pamiecia.
+
+    Sedno 6.A25: do 07.09.2026 czlon pozycyjny nie byl liczony wcale, wiec
+    `budget ... --atp 1` konczylo sie kodem 0 z wypisem nieodroznialnym od
+    `budget ... --atp` — wartosc po fladze jest czlonem pozycyjnym. Odmowa stoi teraz
+    na liczbie przy poleceniu, a liczba recznie wypisana starzeje sie po cichu
+    dokladnie tak samo, jak starzala sie tabela nazw (powod tego modulu).
+    """
+    source = _source()
+    assert declared_positional(source) == positional_by_code(source), (
+        "tabela i kod nie zgadzaja sie co do liczby czlonow pozycyjnych: "
+        f"tabela {declared_positional(source)} vs kod {positional_by_code(source)}")
+
+
+def test_only_compare_takes_positional_members_and_it_takes_two():
+    """Pomiar, o ktory prosilo pole „Wyjscie" 6.A25 — wprost i jedna liczba.
+
+    Pozycja zadala rozstrzygniecia POMIAREM, ile polecen bierze dzis choc jeden czlon
+    pozycyjny, bo od tego zalezalo, czy wystarcza jedna liczba przy poleceniu, czy
+    trzeba nowego rozbioru. Wyszlo: JEDNO polecenie, dwa czlony. Dlatego jedna liczba
+    wystarcza — i ten test przybija tamto rozstrzygniecie, zeby trzecie polecenie
+    z czlonem pozycyjnym nie doszlo w milczeniu.
+    """
+    source = _source()
+    z_czlonami = {k: v for k, v in positional_by_code(source).items() if v > 0}
+    assert z_czlonami == {"compare": 2}, (
+        "czlony pozycyjne czyta dzis inny zestaw polecen niz przy 6.A25 "
+        f"({z_czlonami}) — sprawdz, czy jedna liczba przy poleceniu nadal wystarcza")
+
+
+def test_the_refusal_counts_positional_members_against_the_table():
+    """Odmowa ma czytac `known.Positional`, a nie mieć wlasnej stalej.
+
+    Kontrola przyrzadu, nie kodu: liczba w tabeli bez odczytu w odmowie byla by
+    dokumentacja, a `test_the_positional_count_matches_what_each_command_reads`
+    wyzej nadal by przechodzil. Bramka porownujaca dwa martwe pola zgadza sie
+    zawsze — to usterka 6.D30.
+    """
+    kod = _kod_bez_komentarzy(_source())
+    at = kod.index("private static void RejectUnknownOptions")
+    body = kod[at:kod.index("private static string Nieznana", at)]
+    assert "known.Positional" in body, (
+        "odmowa nie czyta liczby czlonow pozycyjnych z tabeli")
+    assert "człon pozycyjny" in body, (
+        "odmowa nie nazywa czlonu pozycyjnego po imieniu")
+
+
 if __name__ == "__main__":
     import test_all
     raise SystemExit(test_all.main(__file__))
