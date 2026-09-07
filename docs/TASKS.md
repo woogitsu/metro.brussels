@@ -740,6 +740,8 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.B36 | **Sonda pokrycia zjada 78 % czasu przegladu mutacyjnego** — 416,7-426,6 s z 534,3-600,3 s calego przebiegu na module o DWOCH mutacjach | zmierzone 07.09.2026 przy 6.B20 jako fazy jednego ciaglego przebiegu, przy 1, 2 i 4 robotnikach. Dla dwoch mutacji sonda kosztuje wiecej niz sama praca (115,5 s przy jednym robotniku, 57,5-59,6 s przy dwoch i czterech), a jej wynik jest potrzebny wylacznie do rozdzielenia ocalalych na „przezyla mimo odpalenia" i „nieodpalona". Pozycja ma zmierzyc, czy da sie ja policzyc RAZ na commit i zapamietac, zanim ktokolwiek zacznie ja skracac | M |
 | 6.A28 | **Scena przyjmuje `--telemetry=` z PUSTA sciezka jako plan poprawny** — pojechalaby z pusta sciezka pliku telemetrii | zmierzone 07.09.2026 przy 6.D31, licznikiem, ktory mial wyjsc 9 na dziewiec paskudnych wejsc, a wyszedl **8**. Wartosc tej opcji jest napisem, wiec pustka nie wywraca zadnego rozbioru; pozostale osiem wejsc (`--sample-every=`, `--view=`, `----`, `=`, `--=1`, `--jitter=--`, `--at-chainage=`, `--at-chainage=1e999`) rozbior odrzuca poprawnie, wiec rodzina jako calosc dziala i pustka wyglada na przeoczenie, nie decyzje. Fakt jest dziś PRZYBITY `CollectionAssert` w `RunPlanTests.NoInputThrows`, wiec poprawka zazada zmiany tamtej listy razem z soba | S |
 | 6.B38 | **Jeden modul zjada piata czesc czasu zestawu** — `test_mutation_sweep.py` to **15,3 s** z 76 s, bo jego testy uruchamiaja procesy i zakladaja drzewa `git worktree` | zmierzone 07.09.2026 przy 6.B37, przez zdjecie i przywrocenie dwoch nowych testow: modul **14,196 s → 15,315 s** (69 → 71 testow). Nie jest to dzis awaria, ale jest to jedyny modul, ktory sam z siebie zbliza sie do progu z 6.D26 — i kazdy nastepny test narzedzia bedzie go podnosil, bo tak wlasnie testuje sie narzedzie uruchamiane jako proces | M |
+| 6.A29 | **Test `Zepsuta_komorka_nazywa_zepsuty_plik_a_nie_pierwszy` przechodzi z calkiem innego powodu, niz sadzi** — jego trzy asercje spelnia dowolna odmowa, ktora nazwie PIERWSZA sciezke, wiec test nie mierzy komunikatu 6.A24 | zmierzone 07.09.2026 przy 6.A25, kontrola KN-1: przy `compare` z zerowa liczba czlonow pozycyjnych piec testow `compare` pada, a TEN zostaje zielony — bo `BLAD: polecenie compare dostalo czlon pozycyjny build/zepsuty.csv, a nie bierze ani jednego` daje kod 1, zawiera `zepsuty` i nie zawiera `dobry` | S |
+| 6.B39 | **`mutation_sweep.py --list` z `--only` pasujacym do niczego konczy sie kodem 0** — przebieg CI, ktory przez pomylke zawezi `--only`, dostanie zielone zero i `razem: 0` | zmierzone 07.09.2026 przy 6.B37: odmowa `brak mutacji do sprawdzenia` (kod 1) stoi ZA galezia `--list`, wiec wypisu nie dotyczy. Jedyny sygnal w wypisie to `0 modul(ow)` z pusta lista nazw | S |
 | 6.D26 | **ZROBIONE (07.09.2026).** Maksimum jest teraz WYPROWADZANE z listy `POMIARY` — pieciu przebiegow z data i kontekstem — a `MARGIN` jest dzialaniem, nie zdaniem. **Zdanie z wpisu, ze „rozrzut hosta nie jest nigdzie zapisany", bylo NIEPRAWDA** i pierwsze czytanie pliku to pokazalo: docstring opisywal kontener dzielony, `ps aux` z rownoleglym `dotnet build` i rozrzut 10,84 s. Zepsute bylo wezsze i gorsze: maksimum wpisane z reki jako jedna liczba z minionej sesji, a margines liczony wobec niej — 107,331 s zmierzone dzis to o **39 %** wiecej niz zapisane 77,04. **Co to realnie przepuszczalo, zmierzone**: obnizenie progu do 100 s przechodzilo wszystkie testy (100 > 77,04, margines 1,298 > 1,2) i dawalo CZERWONE CI na drzewie bez ani jednej usterki; po zmianie jest odmowa. Prog 150,0 **nietkniety** — jego zmiana to decyzja o czulosci bramki. Nowa bramka odmawia, gdy proza podaje mnoznik, ktorego nie daje `MARGIN`, a jej ksztalt to wynik **czterech wlasnych potkniec**, kazdego zlapanego przez inne narzedzie: brala pomiar za mnoznik; skanowala wlasny docstring, ktory te mnozniki WYMIENIA jako przyklady; po wycieciu go przeszla **bez ani jednej asercji** (zlapala to bramka asercji z #139) — wiec sprawdza teraz NARZEDZIE, nie tylko dzisiejszy tekst; a okno zdania urywalo sie na kropce dziesietnej. Cztery kontrole negatywne, z ktorych **KN-4 przed ta zmiana przechodzila**. Pomiar w `reports/zapis-czasu-zestawu.md`. Tresc pierwotna: **`MEASURED_MAX_WALL_S = 77.04` jest nizsze od tego, co maszyna dziś pokazuje** | zmierzone 07.09.2026 przy 6.D25 | S |
 | 6.D27 | **ZROBIONE (07.09.2026).** Miedzy nazwa stalej a liczba nie wolno teraz postawic takze `§` ani `#`. **Powod, dla ktorego to nie jest kosmetyka**: bramka swiecaca na poprawnym tekscie zostaje **wylaczona, nie poprawiona** — a obejsciem, ktore zastosowalem przy 6.D26, bylo przepisanie ZDANIA, nie naprawienie przyrzadu. Trzy wiersze mojego wlasnego raportu z tego samego dnia mialy juz ten ksztalt i przechodzily WYLACZNIE przypadkiem: zadna z tych trzech stalych nie trafia do slownika wartosci (jedna usunieta, jedna napisowa, jedna o dwoch wartosciach). Roznica miedzy zdaniem, ktore przeszlo, i tym, ktore padlo, nie lezala wiec w zdaniu. **`#` doszlo z pomiaru, nie z przewidywania**: `kolejka-uzupelnienie.md:42` pisze „`MINIMUM_DOCUMENTED_ITEMS`: sprzezenie, ktore #274" i jest przepuszczane dzis tylko dlatego, ze stoi tam przecinek. Cena zwezenia powiedziana wprost: „`STALA` (§4) to 30,0" przestaje byc twierdzeniem — ten sam wybor, co przy przecinku, i ta sama asymetria, bo przemilczane twierdzenie lapie prog `MINIMUM_CLAIMS`, a falszywy alarm tylko czyjas cierpliwosc. Po zwezeniu bramka sprawdza **15** twierdzen przy progu 10. Dwie kontrole negatywne, z ktorych **KN-2 jest wazniejsza**: dowodzi, ze zwezenie NIE zjadlo tego, po co bramka istnieje — najprostszym sposobem uciszenia falszywego alarmu jest zwezenie wzorca tak, zeby nie lapal niczego, i taka zmiana byla by zielona bez niej. Ta sama para stoi w tresci testu i chodzi przy kazdym przebiegu. Nie tknieto `pkt`, `rozdz.`, `str.` — pomiar daje **zero** wystapien, a wykluczanie form, ktorych nie ma, zwezal oby bramke o twierdzenia, ktorych juz nie sprawdzi. Pomiar w `reports/odsylacz-nie-jest-wartoscia.md`. Tresc pierwotna: **`test_report_claims.py` bierze odsylacz do sekcji za WARTOSC stalej** | zmierzone 07.09.2026 przy 6.D26, gdzie bramka zapalila sie na POPRAWNYM zdaniu | S |
 | 6.D28 | **ZROBIONE (07.09.2026).** 674 metody testowe C#, **674** z asercja w tresci, **zero** bez. Dojscie do tego zera wymagalo DWOCH poprawek w czytniku i obie mowia wiecej niz sam wynik. **Pierwsza: czytnik zglaszal wlasna niewiedze jako brak.** Cialo metody C# ma dwie postacie — blok i wyrazenie `=> …;` — a pierwsza wersja znala tylko blok i zglosila `Lista_funkcji_KCV_jest_dokladnie_ta_ktora_podaje_STIB` jako metode bez asercji, choc ona asertuje `CollectionAssert` w ciele wyrazeniowym; gorzej, klamra inicjatora `new[] { … }` byla brana za poczatek bloku, wiec asercja nie trafiala nigdzie. **Druga: pomocnik `Assert*` to asercja** — bez tego wychodzilo PIEC brakow, z czego cztery asertuja przez lokalny `AssertBits`. Sprawdzone tez rozwiazywanie pomocnikow po CIELE, nie po nazwie: **nie daje ani jednej metody wiecej**, wiec zostaje regula prostsza. **Granica postawiona swiadomie**: liczone sa asercje OBECNE w tresci, nie WYKONANE — `assertion_gate` robi to drugie i dlatego zlapal moj test z asercja w petli, do ktorej nic nie weszlo. Slabsza wlasnosc, zapisana w docstringu, nie przemilczana. Cztery kontrole negatywne, kazda na innym trybie awarii; **KN-4 jest najwazniejsza**, bo drzewo ma zero brakow, wiec bramka „zero brakow" jest zielona takze wtedy, gdy czytnik uznaje za asertujaca KAZDA metode — kontrola pozytywna na syntetycznej metodzie bez asercji chodzi przy kazdym przebiegu i to ona odroznia jedno od drugiego. Bramka kosztuje 0,50 s. Liczba 674 zgadza sie z 6.B27: tam 708 atrybutow i 668 objetych ksztaltem; roznica to 34 metody Z ARGUMENTAMI, czyli **6.B28**, nietknieta. Pomiar w `reports/asercje-w-testach-csharp.md`. Tresc pierwotna: **Asercje w testach C# nie sa liczone przez nic** | nazwane jako odlozone wprost przez 6.B27 (#329) | M |
@@ -3905,6 +3907,93 @@ MINIMUM_DETAIL_BLOCKS = 73
   jest tu droższa od sekund, a 6.B37 właśnie pokazała, ile kosztuje jej brak.
   Poza zakresem także podnoszenie progu z 6.D26.
 - **Zależy od:** 6.B37 — **zrobione 07.09.2026**, pomiar w `reports/straznik-na-main.md`. Pierwsza wersja tego pola wskazywała gałąź i numer PR, którego jeszcze nie było; odsyłacz idzie dziś do raportu, bo ten istnieje niezależnie od tego, jak nazwano gałąź.
+
+##### 6.A29 · Test, który przechodzi z całkiem innego powodu, niż sądzi
+
+- **Skąd:** zmierzone 07.09.2026 przy 6.A25, kontrolą negatywną KN-1 (liczba członów
+  pozycyjnych `compare` zdjęta z 2 na 0). Pięć testów `compare` wtedy padło, a
+  `Zepsuta_komorka_nazywa_zepsuty_plik_a_nie_pierwszy` **został zielony** — mimo że
+  mierzy tę samą komendę. Powód, wykonany:
+  ```
+  $ compare build/zepsuty.csv build/dobry.csv     # przy compare Positional=0
+  BŁĄD: polecenie compare dostało człon pozycyjny build/zepsuty.csv, a nie bierze ani
+  jednego. Człon bez minusa nie jest opcją, …
+  kod=1
+  ```
+  Trzy asercje tego testu — kod 1, treść zawiera `zepsuty`, treść NIE zawiera `dobry` —
+  są spełnione przez komunikat o rzeczy zupełnie innej.
+- **Dlaczego to nie jest drobiazg:** test wierzy, że przybija komunikat 6.A24 („odmowa
+  nazywa zepsuty plik, a nie pierwszy"). Przybija w rzeczywistości zdanie słabsze:
+  „gdzieś w treści stoi pierwsza ścieżka". Każda przyszła regresja w numerze wiersza,
+  numerze kolumny albo nazwie kolumny przejdzie przez niego bez śladu, a raport z jego
+  zieloności będzie brzmiał tak samo jak dziś. To ten sam gatunek usterki, co 6.D30
+  (dwa martwe pola zgadzają się zawsze) i 6.B28 (dwa czytniki z jednym błędem).
+- **Wejście:** `tests/Sim.Tests/RunnerCommandTests.cs`
+  (`Zepsuta_komorka_nazywa_zepsuty_plik_a_nie_pierwszy` oraz trzy sąsiednie testy
+  z 6.A24), `src/Sim.Runner/Program.cs` (`Cell` — pisarz komunikatu),
+  `reports/komorka-csv.md`, `reports/czlon-pozycyjny.md` §7.
+- **Wyjście:** asercja na te części komunikatu, które 6.A24 wprowadziła i które
+  odróżniają go od każdej innej odmowy: numer wiersza, numer kolumny **i** nazwa
+  kolumny. **Najpierw pomiar, potem poprawka**: ile z czterech testów 6.A24 ma dziś
+  asercję rozstrzygającą, a ile tylko na nazwę pliku — bo jeżeli wszystkie cztery,
+  poprawka jest jedna i wspólna, a nie cztery osobne.
+- **Weryfikacja:**
+  ```bash
+  dotnet test tests/Sim.Tests
+  ```
+  Oczekiwane: cztery testy 6.A24 przechodzą, a kontrola negatywna je wywraca.
+- **Skończone, gdy:** kontrola negatywna WYKONANA — ta sama, która to znalazła
+  (`compare` z zerową liczbą członów pozycyjnych) — wywraca **wszystkie** testy 6.A24,
+  a nie cztery z pięciu. Raport podaje, ile testów miało asercję rozstrzygającą przed
+  poprawką i ile po.
+- **Poza zakresem:** zmiana treści komunikatu 6.A24 — on ma rację, słaby jest test.
+  Poza zakresem także reszta `RunnerCommandTests`: audyt wszystkich asercji tego pliku
+  to inna pozycja niż naprawa czterech, które ta wskazuje z nazwy.
+- **Zależy od:** 6.A24, 6.A25.
+
+##### 6.B39 · Zawężenie `--only` na nic kończy się zielonym zerem
+
+- **Skąd:** zmierzone 07.09.2026 przy 6.B37. Wykonane:
+  ```
+  $ python3 tools/tests/mutation_sweep.py --only tools/nie-ma-takiego-pliku.py --list \
+        --journal /tmp/n2.jsonl
+  [MUTACJE] --only 'tools/nie-ma-takiego-pliku.py' złapało 0 mutacji z 0 moduł(ów):
+  razem: 0
+  kod: 0
+  ```
+  Odmowa `brak mutacji do sprawdzenia` (kod 1) stoi **za** gałęzią `--list`, więc
+  wypisu nie dotyczy wcale.
+- **Dlaczego to nie jest drobiazg:** `--only` dopasowuje **podciąg** ścieżki i to jest
+  decyzja z 6.D18, która ma swoje powody. Cena podciągu jest jednak dwustronna: raz
+  łapie za dużo (`--only sweep.py` bierze też `tunnel_sweep.py`, zmierzone przy 6.D15)
+  i raz za mało — literówka w ścieżce daje zbiór pusty, a wypis wygląda jak poprawny
+  przebieg, który po prostu nie miał co robić. Pierwszą stronę 6.D18 już nazwało
+  w pierwszym wierszu wypisu; druga nadal milczy kodem 0.
+- **Wejście:** `tools/tests/mutation_sweep.py` (`main`, gałąź `--list`, odmowa
+  `brak mutacji do sprawdzenia`), `tools/tests/test_mutation_sweep.py`
+  (`test_the_cli_lists_mutations_as_a_process_and_exits_zero` i sąsiednie testy CLI),
+  `reports/straznik-na-main.md` §8.
+- **Wyjście:** odmowa dla `--only`, które nie złapało **ani jednego** modułu — z kodem
+  różnym od 0 i z komunikatem nazywającym wzorzec. **Do rozstrzygnięcia pomiarem, nie
+  z góry**: czy odmowa ma być na pustym zbiorze MODUŁÓW, czy MUTACJI, bo to nie to samo
+  (moduł bez ani jednej mutacji jest możliwy i nie jest błędem wywołania), i czy któryś
+  przebieg w `reports/` albo w workflowach polega dziś na `--only` łapiącym zero.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/mutation_sweep.py --only tools/nie-ma-takiego-pliku.py --list
+  python3 tools/tests/test_all.py test_mutation_sweep.py
+  ```
+  Oczekiwane: pierwsza komenda odmawia i nazywa wzorzec; druga przechodzi w całości,
+  bo `--only tools/track/` i `--only sweep.py` łapią po kilka modułów i mają zostać.
+- **Skończone, gdy:** `--only` bez trafień kończy się kodem różnym od 0 i nazywa
+  wzorzec, a kontrola negatywna WYKONANA: `--only` z trafieniami (`tools/track/`,
+  `sweep.py`, jeden plik) nadal kończy się kodem 0 — z wklejonym wyjściem wszystkich
+  trzech, bo odmowa zbudowana zbyt szeroko wywróciłaby całą drogę `--list`, a testy
+  odmowy byłyby wtedy nadal zielone.
+- **Poza zakresem:** zmiana dopasowania `--only` z podciągu na nazwę pliku — decyzja
+  6.D18, z powodem wypisanym w kodzie; ta pozycja dotyczy zbioru PUSTEGO, nie za
+  szerokiego. Poza zakresem także odmowa dla przebiegu bez `--only`.
+- **Zależy od:** 6.D18, 6.B37.
 
 ### Czego agent nie ruszy bez decyzji
 
