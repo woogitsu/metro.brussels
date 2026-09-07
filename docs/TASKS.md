@@ -719,7 +719,8 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.A17 | **Czlon obciecia w bilansie energii to 96,89 MJ i nikt go nie mierzy osobno** — ~27 kWh przy 142,45 kWh trakcji, czyli 19 % | znalezione przy 6.A6 (#323). Bilans domyka sie wzglednie do 2,1E-15, wiec liczba nie jest bledem — jest miara tego, jak dlugo sklad wisi na limicie z pelnym nastawnikiem, i nikt jej nie sledzi | M |
 | 6.A18 | **ZROBIONE (06.09.2026).** `budget` przyjmuje `--coast-from-m`, a naglowek `[BUDZET]` wypisuje nastawe z powrotem — bo sam kod 0 dowodzi tylko, ze opcja jest PRZYJMOWANA, i przeszedlby przy dopisaniu samej nazwy do tabeli. Dowodem, ze nastawa dochodzi do `LineCore`, jest pomiar trojstronny na jednym scenariuszu: `N_sr` **6.69** bez wybiegu, **6.67** przy 250 m, **6.40** przy 120 m, przy `czeka_sr` rosnacym 2.09 -> 2.11 -> 2.39. Kolumna `us/krok` tego NIE pokazuje (3.73-3.84 to szum), wiec gdyby dowodem miala byc ona, dowodu by nie bylo. **Zdanie pozycji bylo nieprawdziwe i pomiar to pokazal**: `LineRunSettings` buduja **dwa** polecenia, nie trzy — `replay` odtwarza ZAPIS WEJSC przez `TrainController`, wiec nastawa automatu nadpisywalaby wejscia z `--keys` i odtworzenie przestaloby byc odtworzeniem. Dzisiejsza odmowa `replay` jest przybita testem, a pytanie oddane do kolejki jako **6.A19**. Bramka 6.D2 przestala mowic o niemozliwosci: `coast_from_m` stoi w scenariuszu i stamtad biora go NARAZ wywolanie i zdanie w wypisie, wiec nie moga sie rozjechac; `null` zostaje, bo prog 8,0 us pochodzi z przejazdu bez wybiegu. Kontrola negatywna WYKONANA. **Znalezisko obok**: 84 z 89 modulow `tools/tests/` nie ma bloku `__main__`, wiec `python3 tools/tests/<modul>.py` konczy sie **kodem 0 przy zero wykonanych testach** — na tym wlasnie pierwsza probe kontroli negatywnej odczytalem jako „bramka nie zapala sie"; dopisane jako **6.D25**. Pomiar w `reports/wybieg-poza-poleceniem-line.md`. Tresc pierwotna: **`--coast-from-m` istnieje w `line`, nie istnieje w `budget` ani `replay`** | znalezione przy 6.A6 (#323), ktore swiadomie nie wyszlo poza `line`. Pomiar kosztu kroku przy wybiegu (6.D2) i odtworzenie przejazdu z wybiegiem (`replay`) sa dzis niewykonalne | S |
 | 6.D25 | **`python3 tools/tests/<modul>.py` konczy sie kodem 0 przy zero wykonanych testach** — 84 z 89 modulow nie ma bloku `__main__` | zmierzone przy 6.A18, na wlasnej kontroli negatywnej: bramka odczytana jako zielona nie zostala uruchomiona ani raz. Ten sam ksztalt usterki, ktory zestaw lapie u innych — `assertion_gate` od #139, `grep FAIL` slepy na blad importu od 6.D19 | M |
-| 6.B25 | **`MIN_RADIUS_M` w `clearance.py` jest martwe, a nazwa zajeta drugi raz z INNA wartoscia** — 20,0 w `tools/blender/clearance.py`, 90,0 w `tools/tests/test_packages.py`, obie zyja obok siebie | znalezione przy 6.B5 (#324). Zmierzone: stala w `clearance.py` nie jest czytana przez zaden kod, a `test_clearance_profile.py` opisuje ja w docstringu jako obowiazujaca | S |
+| 6.B25 | **ZROBIONE (06.09.2026).** Stala z `clearance.py` byla martwa **od pierwszego commita**, a nie „przestala byc czytana": `git log -S` daje wylacznie #50, ktory ja wprowadzil, i nic wiecej. Usunieta. Drugiego progu **nie przemianowano** — wpis kolejki proponowal nowa nazwe, a pomiar pokazal lepsze wyjscie: te trzy liczby byly **kopia** `validate.LIMITS` z komentarzem mowiacym, skad sa, i bez niczego, co pilnowaloby, zeby nadal stamtad byly. Kopia progu rozjezdza sie w JEDNA strone po cichu — os, ktora przestaje spelniac prawdziwy prog, przechodzi test, bo tutejszy zostal przy starej wartosci; przemianowanie zostawiloby te usterke pod ladniejsza nazwa. Teraz `VALIDATOR = V.LIMITS`, czytane po kluczu, wartosci nietkniete. Docstring powolywal sie na liczbe nie tylko martwa, ale **slabsza niz obowiazuje** (20 m zamiast 90 m) — przepisany, argument wychodzi z tego mocniejszy. **Pola „Skonczone, gdy" NIE nalezalo spelnic doslownie**: pomiar dal 5 nazw o roznych wartosciach i **cztery sa poprawne** (`SOURCE_ID`, `DEFAULT_SOURCE_ID`, `SOURCE_CRS` to tozsamosc modulu, `TOLERANCE_M` rozni sie tym, co mierzy), wiec regula „zadnych powtorzonych nazw" zapalilaby sie na czterech przypadkach zrobionych dobrze. Zamiast niej zapadka z uzasadnieniami, pilnowana w obie strony. **CZTERY kontrole negatywne, jedna z nich NIE zapala bramki i raport mowi to wprost**: sama martwa stala przywrocona nie tworzy kolizji, bo bramka lapie kolizje, nie martwote. Czy bramka na martwote jest wykonalna, zmierzone: 696 stalych, **jedna** nieczytana i uzasadniona (`LOCATION_STATION` z wyliczenia GTFS) — w kolejce jako **6.B29**. Pomiar w `reports/nazwa-zajeta-drugi-raz.md`. Tresc pierwotna: **`MIN_RADIUS_M` w `clearance.py` jest martwe, a nazwa zajeta drugi raz z INNA wartoscia** | znalezione przy 6.B5 (#324). Zmierzone: stala w `clearance.py` nie jest czytana przez zaden kod, a `test_clearance_profile.py` opisuje ja w docstringu jako obowiazujaca | S |
+| 6.B29 | **Stala modulowa, ktorej nikt nie czyta, nie jest przez nic zglaszana** — `MIN_RADIUS_M` przezylo tak piec dni i zdazylo zostac zacytowane w docstringu jako obowiazujace | zmierzone przy 6.B25: 696 stalych modulowych w `tools/` i `src/`, **jedna** nieczytana nigdzie (`LOCATION_STATION`, brakujacy element wyliczenia GTFS — wyjatek uzasadniony). Bramka jest wiec wykonalna dzis, z lista o jednym wpisie; kontrola negatywna KN-1 z 6.B25 pokazala, ze bramka na kolizje tego NIE lapie | S |
 | 6.B26 | **Najciasniejszy luk pakietu D lezy na odcinku, ktorego OSM nie widzi jako tunel** — zapas +0,7043 m liczony jest wobec sciany, ktorej moze nie byc | znalezione przy 6.B5 (#324): 0,0-0,2 m od przedzialu bez tunelu, wobec >= 314 m na pozostalych pieciu osiach. Roznica jest o trzy rzedy wielkosci, wiec nie jest szumem pomiaru | M |
 
 #### Szczegóły pozycji z kompletem sześciu pól
@@ -2695,6 +2696,46 @@ znika stąd i pojawia się jako wpis z sześcioma polami wyżej w tym pliku.
 - **Poza zakresem:** zmiana **wartości** progu 90 m w `test_packages.py`. To jest próg
   akceptacji pakietu i jego wybór nie należy do porządkowania nazw.
 - **Zależy od:** #324 (6.B5).
+
+##### 6.B29 · Stała, której nikt nie czyta, nie jest przez nic zgłaszana
+
+- **Skąd:** 6.B25. `MIN_RADIUS_M = 20.0` stało w `tools/blender/clearance.py`
+  **od swojego pierwszego commita** (#50, 01.09.2026), nieczytane przez nic — i zdążyło
+  w tym czasie zostać zacytowane w docstringu `test_clearance_profile.py` jako granica
+  obowiązująca. Bramka z 6.B25 (`tools/tests/test_constant_names.py`) tego **nie łapie**
+  i jej kontrola negatywna KN-1 pokazała to wprost: łapie **kolizję** nazw, nie
+  **martwotę**. Sama stała przywrócona do `clearance.py` nie tworzy kolizji, bo drugiej
+  definicji już nie ma.
+- **Że jest wykonalna, jest zmierzone, a nie założone:** przejście `ast` po `tools/`
+  i `src/` daje **696** stałych modułowych o nazwie wielkimi literami i **jedną**
+  nieczytaną nigdzie w drzewie — `LOCATION_STATION` w `tools/track/normalize_stops.py`.
+  Ta jedna jest **uzasadniona**: stoi w trójce `LOCATION_STOP` / `LOCATION_STATION` /
+  `LOCATION_ENTRANCE`, spisującej wyliczenie `location_type` z GTFS; dwie wartości są
+  czytane, trzecia nie, a jej usunięcie zepsułoby czytelność zbioru zamiast zdjąć
+  ciężar. Żadna z nieczytanych nie występuje też w `*.sh` ani w `.github/`.
+- **Wejście:** `tools/tests/test_constant_names.py` (precedens kształtu: zapadka
+  z uzasadnieniami, pilnowana w obie strony), `tools/track/normalize_stops.py`,
+  `reports/nazwa-zajeta-drugi-raz.md` §6.
+- **Wyjście:** bramka zgłaszająca stałą modułową, której żaden moduł w `tools/` ani
+  `src/` nie czyta, z listą uzasadnień o **jednym** wpisie na dziś. Odczyt liczony
+  przez `ast` — po `Name` w kontekście `Load` i po `Attribute`, bo stałą czyta się też
+  jako `M.NAZWA` — a nie grepem, który złapałby nazwę w komentarzu i w napisie.
+  Sprawdzone muszą być także `*.sh` i `.github/`, bo skrypty CI wołają moduły przez
+  `python3 -c` i stała czytana wyłącznie stamtąd nie jest martwa.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py
+  ```
+  plus wypis: ile stałych modułowych jest w drzewie, ile nieczytanych i które.
+- **Skończone, gdy:** bramka jest zielona na dzisiejszym drzewie, a kontrola negatywna
+  WYKONANA — stała bez odczytu, dopisana do dowolnego modułu, zapala ją i **nazywa
+  plik oraz nazwę**. Druga kontrola, też WYKONANA: wpis na liście uzasadnień, który
+  przestał opisywać stałą martwą, również zapala bramkę, żeby lista nie gniła.
+- **Poza zakresem:** funkcje i klasy nieużywane. To jest znacznie szersza praca —
+  wymaga rozstrzygnięcia, czym jest publiczne API modułu — a ta pozycja dotyczy stałych
+  modułowych o wartości prostej, czyli dokładnie tego kształtu, który przeżył w #50.
+  Poza zakresem także usuwanie `LOCATION_STATION`.
+- **Zależy od:** 6.B25.
 
 ##### 6.B26 · Zapas skrajni liczony wobec ściany, której może nie być
 
