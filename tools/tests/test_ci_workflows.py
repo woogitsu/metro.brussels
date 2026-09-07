@@ -1102,9 +1102,22 @@ def _runner_labels(job):
     return [repr(value)]
 
 
-#: Komplet etykiet puli organizacji `woogitsu` (`CLAUDE.md` §9). Dokładnie ten komplet
-#: noszą cztery maszyny `woogitsu-wsl-DOM-NEW-01` … `-04`.
-REQUIRED_RUNNER_LABELS = ("self-hosted", "Linux", "X64", "wsl2", "woogitsu")
+#: Komplet etykiet nowej puli organizacji `woogitsu` (`CLAUDE.md` §9).
+#:
+#: **Przepisane, a nie dopisane obok — 07.09.2026.** Poprzedni komplet brzmial
+#: `("self-hosted", "Linux", "X64", "wsl2", "woogitsu")` i nosily go cztery maszyny
+#: `woogitsu-wsl-DOM-NEW-01` … `-04`. Tamten komplet jest dzis BLEDEM, nie wariantem
+#: dopuszczalnym — i sprawdza to osobna asercja w kontroli negatywnej nizej.
+#:
+#: Etykiety `i5-10400f` i `nvidia-gtx1070` nie sa opisem sprzetu dla ozdoby. Nowa pula
+#: `woogitsu-linux-01` … `-10` nosi je obok czterech pozostalych, a stare maszyny maja
+#: WYLACZNIE `self-hosted`, `Linux`, `X64`, `wsl2`, `woogitsu`. Bez tych dwoch etykiet
+#: selektor lapie oba zbiory naraz: `wsl2` jest w starym komplecie i nie ma go w nowym,
+#: wiec nie da sie odsiac starych maszyn ODJECIEM etykiety — tylko DODANIEM takiej,
+#: ktorej stare nie maja. Odwrotnosc tej sztuczki (`runs-on` po nazwie maszyny) zawezila
+#: by dobor do jednej z dziesieciu, czyli odtworzylaby awarie z 02.08.2026.
+REQUIRED_RUNNER_LABELS = ("self-hosted", "Linux", "X64", "woogitsu",
+                          "i5-10400f", "nvidia-gtx1070")
 
 
 def _runner_mismatch(labels):
@@ -1140,14 +1153,22 @@ def test_every_job_runs_on_the_woogitsu_runner_pool():
     wiszący w `queued` bez końca — a `CLAUDE.md` §9 mówi wprost: „Nie uznawaj
     `queued` za weryfikację".
 
-    **Ta bramka jest przepisana, a nie poluzowana.** Poprzednia wersja wymagała
-    dokładnie jednej etykiety `['self-hosted']` i uzasadniała to tym, że
-    w matmaxalez/osadale 02.08.2026 zdjęto `wsl2`, bo JEDYNA maszyna z tą etykietą
-    została wyłączona i joby zawisły. Od 05.09.2026 pula organizacji `woogitsu` ma
-    CZTERY maszyny z tym samym kompletem etykiet, więc wyłączenie jednej nie zawiesza
-    niczego, a ochroną przestaje być szerokość selektora — jest nią liczebność puli.
-    Gołe `self-hosted` przestało być w tej konfiguracji bezpieczniejsze: łapie też
-    stare runnery repozytoryjne, które nadal są zarejestrowane.
+    **Ta bramka jest przepisana, a nie poluzowana**, i to po raz drugi. Pierwsza
+    wersja wymagała dokładnie jednej etykiety `['self-hosted']`, bo w
+    matmaxalez/osadale 02.08.2026 zdjęto `wsl2` i joby zawisły po wyłączeniu JEDYNEJ
+    maszyny z tą etykietą — ochroną była wtedy szerokość selektora. Druga wersja
+    (05.09.2026) wymagała kompletu `[self-hosted, Linux, X64, wsl2, woogitsu]`, bo
+    ochroną przestała być szerokość, a stała się liczebność puli: cztery maszyny
+    `woogitsu-wsl-DOM-NEW-01` … `-04` z tym samym kompletem.
+
+    Trzecia wersja (07.09.2026) wymaga kompletu z etykietami sprzętowymi, bo pula
+    została wymieniona na `woogitsu-linux-01` … `-10`. Powód, dla którego doszły
+    DWIE etykiety zamiast zdjęcia jednej, jest rozstrzygający i nie jest kwestią
+    gustu: `wsl2` noszą **wyłącznie stare** maszyny, a nowe nie noszą jej wcale —
+    ale cztery pozostałe etykiety starego kompletu (`self-hosted`, `Linux`, `X64`,
+    `woogitsu`) noszą **oba** zbiory. Samo zdjęcie `wsl2` dałoby więc selektor
+    łapiący stare maszyny razem z nowymi, czyli dokładnie to, czego ta zmiana ma nie
+    dopuścić. Odsiać stare da się tylko **dodaniem** etykiety, której one nie mają.
 
     Czytane ze SPARSOWANEGO YAML-a, nie gremem po tekście. Mutacja, która tego
     testu NIE wywracała, zmierzona 04.09.2026 na `python-tests.yml`: zapis `runs-on`
@@ -1187,18 +1208,36 @@ def test_the_runner_gate_fails_on_every_selector_that_would_miss_the_pool():
     Bramka poluzowana bez negatywu jest gorsza niż jej brak: „zielono" znaczy wtedy
     tyle samo przy komplecie z §9, co przy czymkolwiek innym. Każdy przypadek niżej
     to selektor, który naprawdę wysyła joba gdzie indziej niż do puli `woogitsu`.
+
+    **Przepisana, a nie poluzowana — 07.09.2026.** Po zmianie puli ta kontrola
+    sprawdza WIĘCEJ niż przed nią, a nie mniej: doszła asercja na komplet, który
+    do 07.09.2026 był tu jedynym POPRAWNYM (`self-hosted, Linux, X64, wsl2,
+    woogitsu`). Bez niej migracja nie byłaby wymuszona — stary selektor przechodziłby
+    jako „coś innego niż dziś, ale nie sprawdzamy co", i pierwszy skopiowany workflow
+    wróciłby na stare maszyny bez ani jednego sygnału.
     """
-    # Stan sprzed migracji. Musi być błędem, inaczej migracja nie jest wymuszona
-    # i pierwszy dopisany workflow wróci na gołą etykietę bez żadnego sygnału.
+    # Stan sprzed migracji 05.09.2026. Musi być błędem, inaczej migracja nie jest
+    # wymuszona i pierwszy dopisany workflow wróci na gołą etykietę bez sygnału.
     assert _runner_mismatch(["self-hosted"])
+    # STARY KOMPLET PULI, poprawny do 07.09.2026. Dziś błąd, i to jest cała treść
+    # tej zmiany: `wsl2` noszą WYŁĄCZNIE maszyny `woogitsu-wsl-DOM-NEW-*`, więc
+    # selektor z nią wysyła joba dokładnie tam, skąd ma go nie brać.
+    assert _runner_mismatch(["self-hosted", "Linux", "X64", "wsl2", "woogitsu"])
+    # Nowy komplet POMNIEJSZONY o etykietę sprzętową łapie oba zbiory maszyn naraz —
+    # stary i nowy — bo stare maszyny mają cztery pierwsze etykiety z tej listy.
+    assert _runner_mismatch(["self-hosted", "Linux", "X64", "woogitsu"])
+    assert _runner_mismatch(["self-hosted", "Linux", "X64", "woogitsu", "i5-10400f"])
+    assert _runner_mismatch(["self-hosted", "Linux", "X64", "woogitsu", "nvidia-gtx1070"])
     # Brak jednej etykiety z kompletu — dobór wychodzi poza pulę organizacji.
-    assert _runner_mismatch(["self-hosted", "Linux", "X64", "wsl2"])
-    assert _runner_mismatch(["Linux", "X64", "wsl2", "woogitsu"])
+    assert _runner_mismatch(["Linux", "X64", "woogitsu", "i5-10400f", "nvidia-gtx1070"])
     # Nadmiar — dokładnie awaria z 02.08.2026: selektor zawężony do jednej maszyny.
     assert _runner_mismatch([*REQUIRED_RUNNER_LABELS, "gpu"])
+    # Nazwa maszyny zamiast etykiet: dziesięciomaszynowa pula zwężona do jednej,
+    # czyli ta sama awaria, tylko wpisana wprost.
+    assert _runner_mismatch([*REQUIRED_RUNNER_LABELS, "woogitsu-linux-01"])
     # Duplikat: zbiór by się zgadzał, lista posortowana nie — i słusznie, bo
     # powtórzona etykieta jest literówką, a nie zapisem tej samej pary maszyn.
-    assert _runner_mismatch([*REQUIRED_RUNNER_LABELS, "wsl2"])
+    assert _runner_mismatch([*REQUIRED_RUNNER_LABELS, "woogitsu"])
     # Grupa: zbiór maszyn dobierany po stronie GitHuba, niewidoczny z repozytorium.
     assert _runner_mismatch(_runner_labels({"runs-on": {"group": "own"}}))
     # Maszyna GitHuba, czyli minuty, których na koncie nie ma.
@@ -1209,7 +1248,8 @@ def test_the_runner_gate_fails_on_every_selector_that_would_miss_the_pool():
     # GitHub dobiera maszynę koniunkcją etykiet. Bez tych dwóch asercji „wszystko
     # jest błędem" byłoby dla bramki nie do odróżnienia od poprawnej detekcji.
     assert _runner_mismatch(list(REQUIRED_RUNNER_LABELS)) is None
-    assert _runner_mismatch(["woogitsu", "wsl2", "x64", "linux", "SELF-HOSTED"]) is None
+    assert _runner_mismatch(["nvidia-gtx1070", "woogitsu", "i5-10400f",
+                             "x64", "linux", "SELF-HOSTED"]) is None
     assert _runner_mismatch(
         _runner_labels({"runs-on": list(REQUIRED_RUNNER_LABELS)})) is None
 

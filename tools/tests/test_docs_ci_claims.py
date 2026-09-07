@@ -2,11 +2,14 @@
 """Dokumentacja nie opisuje runnera, którego nie ma w `.github/workflows/`.
 
 **Skąd się wzięło.** `CLAUDE.md` §9 mówi, że od 02.09.2026 całe CI chodzi na maszynie
-właściciela, a od 05.09.2026 na komplecie etykiet puli `woogitsu`
-(`[self-hosted, Linux, X64, wsl2, woogitsu]`). Poprzednia wersja tego akapitu mówiła
-„na gołej etykiecie `self-hosted`, a etykietę `wsl2` zdjęto 02.08.2026" — pierwsza
-połowa to już nieprawda, druga jest faktem historycznym i dlatego stoi niżej, przy
-wyjaśnieniu, po co ta bramka w ogóle istnieje. Same workflowy to spełniają
+właściciela, a od 07.09.2026 na komplecie etykiet nowej puli `woogitsu`
+(`[self-hosted, Linux, X64, woogitsu, i5-10400f, nvidia-gtx1070]`, maszyny
+`woogitsu-linux-01` … `-10`). Ten akapit jest przepisany dwukrotnie i oba poprzednie
+brzmienia to już nieprawda: „na gołej etykiecie `self-hosted`, a etykietę `wsl2`
+zdjęto 02.08.2026" oraz „na komplecie `[self-hosted, Linux, X64, wsl2, woogitsu]`".
+Stoją tu jako historia — `wsl2` noszą wyłącznie stare maszyny puli, a etykiety
+sprzętowe są jedynym sposobem, żeby ich nie dobierać, bo cztery pozostałe etykiety
+starego kompletu noszą oba zbiory maszyn. Same workflowy to spełniają
 i pilnuje tego `test_ci_workflows.py`. Zmierzone 04.09.2026 na `main` (e982bc0):
 `docs/17-visual-regression.md` nadal opisywał job jako `ubuntu-latest` i skrypt
 bramki jako uruchamiany „na GitHub-hosted runnerze", a `docs/20-art-direction.md`

@@ -117,9 +117,16 @@ Wszystkie oprócz ostatniego są bramkami, po jednej na zadanie weryfikacyjne;
 (`workflow_dispatch`).
 
 **Wszystkie chodzą na self-hosted runnerze**, na komplecie etykiet `self-hosted, Linux,
-X64, wsl2, woogitsu` — czteromaszynowa pula organizacji, od 05.09.2026 (do tego dnia:
-goła etykieta `self-hosted`, od wyczerpania minut GitHub Actions 02.09.2026). Każdy job
-osobno odrzuca pull requesty
+X64, woogitsu, i5-10400f, nvidia-gtx1070` — dziesięciomaszynowa pula organizacji
+`woogitsu-linux-01` … `-10`, od 07.09.2026. Dwie etykiety sprzętowe nie są opisem
+sprzętu dla ozdoby: `wsl2` noszą wyłącznie **stare** maszyny puli, ale cztery pierwsze
+etykiety z tej listy noszą **oba** zbiory, więc odsiać stare da się tylko dodaniem
+etykiety, której one nie mają. Runnera nie wybiera się po nazwie — to zwężałoby pulę
+do jednej maszyny. Poprzednie litery tej reguły, przepisane a nie dopisane obok: do
+05.09.2026 goła etykieta `self-hosted` (od wyczerpania minut GitHub Actions
+02.09.2026), a od 05.09.2026 do 07.09.2026 komplet `self-hosted, Linux, X64, wsl2,
+woogitsu` na czterech maszynach `woogitsu-wsl-DOM-NEW-*`.
+Każdy job osobno odrzuca pull requesty
 z forków, każdy sprawdza, że workspace jest czysty, i każdy instaluje narzędzia
 warunkowo. Powody i pułapki: `CLAUDE.md` §9, testy: `tools/tests/test_ci_workflows.py`.
 
