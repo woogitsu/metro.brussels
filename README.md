@@ -117,8 +117,11 @@ Wszystkie oprócz ostatniego są bramkami, po jednej na zadanie weryfikacyjne;
 (`workflow_dispatch`).
 
 **Wszystkie chodzą na self-hosted runnerze**, na komplecie etykiet `self-hosted, Linux,
-X64, woogitsu, i5-10400f, nvidia-gtx1070` — dziesięciomaszynowa pula organizacji
-`woogitsu-linux-01` … `-10`, od 07.09.2026. Dwie etykiety sprzętowe nie są opisem
+X64, woogitsu, i5-10400f, nvidia-gtx1070` — pula organizacji `woogitsu`, od 07.09.2026.
+Nazw ani liczby maszyn README nie podaje: dobór idzie po etykietach, a liczebności puli
+nie da się sprawdzić z repozytorium. Poprzednia wersja mówiła „`woogitsu-linux-01` …
+`-10`" i zestarzała się tego samego dnia — maszyny widziane w logach należą do **dwóch**
+rodzin nazw, `woogitsu-linux-*` i `woogitsu-host-*`. Dwie etykiety sprzętowe nie są opisem
 sprzętu dla ozdoby: `wsl2` noszą wyłącznie **stare** maszyny puli, ale cztery pierwsze
 etykiety z tej listy noszą **oba** zbiory, więc odsiać stare da się tylko dodaniem
 etykiety, której one nie mają. Runnera nie wybiera się po nazwie — to zwężałoby pulę
