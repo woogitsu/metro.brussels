@@ -2061,6 +2061,88 @@ def test_przyczyna_odroznia_zawezenie_nietrafione_od_trafionego_bez_mutacji():
     assert "dopasowało 3 plik" in trafione, trafione
 
 
+# --- 6.B40: odcisk tresci przebiegu w nazwie dziennika ----------------------------
+
+def test_dwie_tresci_na_tym_samym_commicie_maja_rozne_dzienniki():
+    """6.B40: nazwa byla funkcja TRZECH rzeczy, a rozstrzygaly juz cztery.
+
+    Po 6.B32 wpis dziennika niesie odcisk tresci i odmowa poprawnie odrzuca cudza
+    tresc — ale nazwa pliku zostala funkcja commita, klas operatorow i `--only`,
+    wiec dwa przebiegi na tym samym commicie i roznej tresci DZIELILY sciezke
+    i drugi z nich konczyl sie odmowa zamiast pomiaru. Zmierzone 07.09.2026::
+
+        czyste: /tmp/metro-mutacje-58804969c2a4.jsonl
+        brudne: /tmp/metro-mutacje-58804969c2a4.jsonl     <- ta sama nazwa
+
+    Docstring obiecywal wtedy „trzy rzeczy, ktore rozstrzygaja, CZEGO przebieg
+    dotyczy" — i to ta rozbieznosc miedzy obietnica i dzialaniem byla trescia
+    pozycji, nie sama odmowa (ona dziala i zostaje).
+    """
+    argumenty = ("abc1234", ("operator", "prog"), "lod_paths.py")
+
+    czyste = sweep.default_journal(*argumenty, "fcb923b7000e0dca")
+    brudne = sweep.default_journal(*argumenty, "4657e1519785c683")
+
+    assert czyste != brudne, czyste
+
+
+def test_ta_sama_tresc_trafia_w_ten_sam_dziennik():
+    """Kontrola ujemna: wznowienie na tresci NIEZMIENIONEJ nie moze zgubic pliku.
+
+    To jest polowa, ktora poprawka musiala zachowac. Nazwa zmieniajaca sie przy
+    kazdym wywolaniu — a nie przy kazdej zmianie tresci — zamienilaby wznowienie
+    w fikcje, i pole „Wyjscie" pozycji zadalo sprawdzenia dokladnie tego.
+    """
+    argumenty = ("abc1234", ("operator", "prog"), "lod_paths.py")
+
+    pierwszy = sweep.default_journal(*argumenty, "fcb923b7000e0dca")
+    drugi = sweep.default_journal(*argumenty, "fcb923b7000e0dca")
+
+    assert pierwszy == drugi, (pierwszy, drugi)
+
+
+def test_odcisk_przebiegu_sklada_PARY_a_nie_kolejnosc_i_nie_same_wartosci():
+    """Odcisk przebiegu zalezy od PAR plik→odcisk: nie od kolejnosci i nie od
+    samych wartosci.
+
+    **Pierwsza wersja tego testu nie lapala polowy tego, co obiecuje, i pokazala to
+    moja wlasna kontrola negatywna.** Test uzywal par `{x: aaaa, y: bbbb}` wobec
+    `{x: aaaa, y: cccc}`, wiec odcisk liczony z SAMYCH WARTOSCI (bez nazw plikow)
+    tez je odroznial — KN-2 przechodzila 99/99. Do zlapania tej mutacji potrzebne sa
+    dwa slowniki o tym samym multizbiorze wartosci i innym przypisaniu; odcisk
+    z wartosci uzna je za rowne, poprawny nie moze.
+
+    To ta sama klasa usterki, ktora ta sesja tropila caly dzien: asercja prawdziwa,
+    ale nie rozstrzygajaca (6.A32, 6.A29).
+    """
+    a = sweep.odcisk_przebiegu({"x.py": "aaaa", "y.py": "bbbb"})
+    b = sweep.odcisk_przebiegu({"y.py": "bbbb", "x.py": "aaaa"})
+    przestawione = sweep.odcisk_przebiegu({"x.py": "bbbb", "y.py": "aaaa"})
+    inna_wartosc = sweep.odcisk_przebiegu({"x.py": "aaaa", "y.py": "cccc"})
+
+    # kolejnosc wstawiania nie ma znaczenia
+    assert a == b, (a, b)
+    # ale przypisanie odciskow do NAZW ma — i to jest czlon, ktorego brakowalo
+    assert a != przestawione, (a, przestawione)
+    assert a != inna_wartosc, (a, inna_wartosc)
+
+
+def test_pusty_przebieg_ma_odcisk_PUSTY_a_nie_odcisk_pustego_napisu():
+    """`sha256("")` jest wartoscia, ktora WYGLADALABY jak zmierzona.
+
+    Przebieg bez ani jednego pliku nie ma czego odrozniac, wiec odcisk jest pusty
+    i nazwa dziennika wraca do trzech skladnikow. Gdyby zamiast tego wchodzil tam
+    odcisk pustego napisu, czytajacy nazwy nie mialby jak odroznic „przebieg bez
+    plikow" od „przebieg, ktorego pliki maja akurat taki odcisk".
+    """
+    assert sweep.odcisk_przebiegu({}) == ""
+
+    trzy = sweep.default_journal("abc1234", ("operator",), "x.py")
+    cztery_z_pustym = sweep.default_journal("abc1234", ("operator",), "x.py", "")
+
+    assert trzy == cztery_z_pustym, (trzy, cztery_z_pustym)
+
+
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
 # z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
 # tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
