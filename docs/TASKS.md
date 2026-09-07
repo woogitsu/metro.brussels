@@ -742,6 +742,9 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.B38 | **Jeden modul zjada piata czesc czasu zestawu** — `test_mutation_sweep.py` to **15,3 s** z 76 s, bo jego testy uruchamiaja procesy i zakladaja drzewa `git worktree` | zmierzone 07.09.2026 przy 6.B37, przez zdjecie i przywrocenie dwoch nowych testow: modul **14,196 s → 15,315 s** (69 → 71 testow). Nie jest to dzis awaria, ale jest to jedyny modul, ktory sam z siebie zbliza sie do progu z 6.D26 — i kazdy nastepny test narzedzia bedzie go podnosil, bo tak wlasnie testuje sie narzedzie uruchamiane jako proces | M |
 | 6.A29 | **Test `Zepsuta_komorka_nazywa_zepsuty_plik_a_nie_pierwszy` przechodzi z calkiem innego powodu, niz sadzi** — jego trzy asercje spelnia dowolna odmowa, ktora nazwie PIERWSZA sciezke, wiec test nie mierzy komunikatu 6.A24 | zmierzone 07.09.2026 przy 6.A25, kontrola KN-1: przy `compare` z zerowa liczba czlonow pozycyjnych piec testow `compare` pada, a TEN zostaje zielony — bo `BLAD: polecenie compare dostalo czlon pozycyjny build/zepsuty.csv, a nie bierze ani jednego` daje kod 1, zawiera `zepsuty` i nie zawiera `dobry` | S |
 | 6.B39 | **`mutation_sweep.py --list` z `--only` pasujacym do niczego konczy sie kodem 0** — przebieg CI, ktory przez pomylke zawezi `--only`, dostanie zielone zero i `razem: 0` | zmierzone 07.09.2026 przy 6.B37: odmowa `brak mutacji do sprawdzenia` (kod 1) stoi ZA galezia `--list`, wiec wypisu nie dotyczy. Jedyny sygnal w wypisie to `0 modul(ow)` z pusta lista nazw | S |
+| 6.A30 | **Piec wypisow informacyjnych idzie na stderr, a te same znaczniki ida takze na stdout** — czytajacy, ktory potokuje stdout, dostaje czesc wierszy `[ODTWORZENIE]` i nie dostaje reszty | zmierzone 07.09.2026 przy 6.A27: przejscie po `Program.cs` bez komentarzy daje 47 wypisow `[XXX]` na stdout i **5** na stderr — wiersze 426 `[RDZEŃ]`, 612 `[LIMIT]`, 712 i 735 `[ODTWORZENIE]`, 725 `[ATP]` — a `[RDZEŃ]`, `[ODTWORZENIE]` i `[ATP]` wystepuja NA OBU strumieniach. Ksztalt wyjscia jest wyrocznia dla logu CI (6.A16, 6.A27) | S |
+| 6.A31 | **Dwie komendy w `reports/` cytuja katalog, ktorego nie ma** — `Sim.Runner/bin/Release/net8.0/MetroBxl.Sim.Runner.dll`, a projekt buduje `net10.0`; nic nie pilnuje, ze komenda cytowana w polu „Weryfikacja" da sie wykonac | zmierzone 07.09.2026 przy 6.A26: `reports/T-311-braking.md:257` i `reports/T-400-first-run.md:235` niosa `net8.0`, `reports/linecore-budget.md:91` niesie `net10.0`, a `<TargetFramework>` to `net10.0`. Pomiary z data sie nie przeliczaja, ale bramka na sciezke w komendzie NIE ISTNIEJE | S |
+| 6.A32 | **Nic nie pilnuje, ze asercja jest ROZSTRZYGAJACA, a nie tylko prawdziwa** — cztery przypadki zmierzone w jednym dniu, kazdy inny, wszystkie tego samego kroju | zmierzone 07.09.2026: 6.A25 (KN-2 — odmowa z wlasna stala zostawia wszystkie 584 testy C# zielone), 6.A26 (KN-D — regula pierwszenstwa sceny pilnowana wylacznie komentarzem, 15/15 zielone), 6.A27 (KN-2 — `throw` istnieje, cztery `Console.Error` obok, bramka zielona), 6.A29 (KN-1 — `Contains(sciezka)` spelnione przez odmowe o czym innym). Wspolna cecha: asercja na OBECNOSC czegos dobrego zamiast na BRAK czegos zlego albo na LICZBE | L |
 | 6.D26 | **ZROBIONE (07.09.2026).** Maksimum jest teraz WYPROWADZANE z listy `POMIARY` — pieciu przebiegow z data i kontekstem — a `MARGIN` jest dzialaniem, nie zdaniem. **Zdanie z wpisu, ze „rozrzut hosta nie jest nigdzie zapisany", bylo NIEPRAWDA** i pierwsze czytanie pliku to pokazalo: docstring opisywal kontener dzielony, `ps aux` z rownoleglym `dotnet build` i rozrzut 10,84 s. Zepsute bylo wezsze i gorsze: maksimum wpisane z reki jako jedna liczba z minionej sesji, a margines liczony wobec niej — 107,331 s zmierzone dzis to o **39 %** wiecej niz zapisane 77,04. **Co to realnie przepuszczalo, zmierzone**: obnizenie progu do 100 s przechodzilo wszystkie testy (100 > 77,04, margines 1,298 > 1,2) i dawalo CZERWONE CI na drzewie bez ani jednej usterki; po zmianie jest odmowa. Prog 150,0 **nietkniety** — jego zmiana to decyzja o czulosci bramki. Nowa bramka odmawia, gdy proza podaje mnoznik, ktorego nie daje `MARGIN`, a jej ksztalt to wynik **czterech wlasnych potkniec**, kazdego zlapanego przez inne narzedzie: brala pomiar za mnoznik; skanowala wlasny docstring, ktory te mnozniki WYMIENIA jako przyklady; po wycieciu go przeszla **bez ani jednej asercji** (zlapala to bramka asercji z #139) — wiec sprawdza teraz NARZEDZIE, nie tylko dzisiejszy tekst; a okno zdania urywalo sie na kropce dziesietnej. Cztery kontrole negatywne, z ktorych **KN-4 przed ta zmiana przechodzila**. Pomiar w `reports/zapis-czasu-zestawu.md`. Tresc pierwotna: **`MEASURED_MAX_WALL_S = 77.04` jest nizsze od tego, co maszyna dziś pokazuje** | zmierzone 07.09.2026 przy 6.D25 | S |
 | 6.D27 | **ZROBIONE (07.09.2026).** Miedzy nazwa stalej a liczba nie wolno teraz postawic takze `§` ani `#`. **Powod, dla ktorego to nie jest kosmetyka**: bramka swiecaca na poprawnym tekscie zostaje **wylaczona, nie poprawiona** — a obejsciem, ktore zastosowalem przy 6.D26, bylo przepisanie ZDANIA, nie naprawienie przyrzadu. Trzy wiersze mojego wlasnego raportu z tego samego dnia mialy juz ten ksztalt i przechodzily WYLACZNIE przypadkiem: zadna z tych trzech stalych nie trafia do slownika wartosci (jedna usunieta, jedna napisowa, jedna o dwoch wartosciach). Roznica miedzy zdaniem, ktore przeszlo, i tym, ktore padlo, nie lezala wiec w zdaniu. **`#` doszlo z pomiaru, nie z przewidywania**: `kolejka-uzupelnienie.md:42` pisze „`MINIMUM_DOCUMENTED_ITEMS`: sprzezenie, ktore #274" i jest przepuszczane dzis tylko dlatego, ze stoi tam przecinek. Cena zwezenia powiedziana wprost: „`STALA` (§4) to 30,0" przestaje byc twierdzeniem — ten sam wybor, co przy przecinku, i ta sama asymetria, bo przemilczane twierdzenie lapie prog `MINIMUM_CLAIMS`, a falszywy alarm tylko czyjas cierpliwosc. Po zwezeniu bramka sprawdza **15** twierdzen przy progu 10. Dwie kontrole negatywne, z ktorych **KN-2 jest wazniejsza**: dowodzi, ze zwezenie NIE zjadlo tego, po co bramka istnieje — najprostszym sposobem uciszenia falszywego alarmu jest zwezenie wzorca tak, zeby nie lapal niczego, i taka zmiana byla by zielona bez niej. Ta sama para stoi w tresci testu i chodzi przy kazdym przebiegu. Nie tknieto `pkt`, `rozdz.`, `str.` — pomiar daje **zero** wystapien, a wykluczanie form, ktorych nie ma, zwezal oby bramke o twierdzenia, ktorych juz nie sprawdzi. Pomiar w `reports/odsylacz-nie-jest-wartoscia.md`. Tresc pierwotna: **`test_report_claims.py` bierze odsylacz do sekcji za WARTOSC stalej** | zmierzone 07.09.2026 przy 6.D26, gdzie bramka zapalila sie na POPRAWNYM zdaniu | S |
 | 6.D28 | **ZROBIONE (07.09.2026).** 674 metody testowe C#, **674** z asercja w tresci, **zero** bez. Dojscie do tego zera wymagalo DWOCH poprawek w czytniku i obie mowia wiecej niz sam wynik. **Pierwsza: czytnik zglaszal wlasna niewiedze jako brak.** Cialo metody C# ma dwie postacie — blok i wyrazenie `=> …;` — a pierwsza wersja znala tylko blok i zglosila `Lista_funkcji_KCV_jest_dokladnie_ta_ktora_podaje_STIB` jako metode bez asercji, choc ona asertuje `CollectionAssert` w ciele wyrazeniowym; gorzej, klamra inicjatora `new[] { … }` byla brana za poczatek bloku, wiec asercja nie trafiala nigdzie. **Druga: pomocnik `Assert*` to asercja** — bez tego wychodzilo PIEC brakow, z czego cztery asertuja przez lokalny `AssertBits`. Sprawdzone tez rozwiazywanie pomocnikow po CIELE, nie po nazwie: **nie daje ani jednej metody wiecej**, wiec zostaje regula prostsza. **Granica postawiona swiadomie**: liczone sa asercje OBECNE w tresci, nie WYKONANE — `assertion_gate` robi to drugie i dlatego zlapal moj test z asercja w petli, do ktorej nic nie weszlo. Slabsza wlasnosc, zapisana w docstringu, nie przemilczana. Cztery kontrole negatywne, kazda na innym trybie awarii; **KN-4 jest najwazniejsza**, bo drzewo ma zero brakow, wiec bramka „zero brakow" jest zielona takze wtedy, gdy czytnik uznaje za asertujaca KAZDA metode — kontrola pozytywna na syntetycznej metodzie bez asercji chodzi przy kazdym przebiegu i to ona odroznia jedno od drugiego. Bramka kosztuje 0,50 s. Liczba 674 zgadza sie z 6.B27: tam 708 atrybutow i 668 objetych ksztaltem; roznica to 34 metody Z ARGUMENTAMI, czyli **6.B28**, nietknieta. Pomiar w `reports/asercje-w-testach-csharp.md`. Tresc pierwotna: **Asercje w testach C# nie sa liczone przez nic** | nazwane jako odlozone wprost przez 6.B27 (#329) | M |
@@ -3994,6 +3997,139 @@ MINIMUM_DETAIL_BLOCKS = 73
   6.D18, z powodem wypisanym w kodzie; ta pozycja dotyczy zbioru PUSTEGO, nie za
   szerokiego. Poza zakresem także odmowa dla przebiegu bez `--only`.
 - **Zależy od:** 6.D18, 6.B37.
+
+##### 6.A30 · Pięć wypisów informacyjnych idzie na stderr, a te same znaczniki także na stdout
+
+- **Skąd:** zmierzone 07.09.2026 przy 6.A27, przejściem po `Program.cs` bez komentarzy.
+  Wypisów `[XXX]` jest **52**: **47** na stdout i **5** na stderr:
+  ```
+  426  [RDZEŃ]
+  612  [LIMIT]
+  712  [ODTWORZENIE]
+  725  [ATP]
+  735  [ODTWORZENIE]
+  ```
+  Rzecz, która czyni z tego usterkę, a nie decyzję: `[RDZEŃ]`, `[ODTWORZENIE]`
+  i `[ATP]` występują **na obu strumieniach**. Czytający, który potokuje stdout,
+  dostaje część wierszy `[ODTWORZENIE]` i nie dostaje reszty.
+- **Dlaczego to nie kosmetyka:** ten sam powód, który 6.A16 i 6.A27 podały dla odmów.
+  Kształt wyjścia jest wyrocznią dla czytającego log CI i dla `grep`; znacznik, który
+  raz idzie tu, a raz tam, psuje rozpoznanie jednym wzorcem. Dodatkowo `2>/dev/null`
+  — odruch przy skryptach — usuwa wtedy część **wyniku**, nie tylko diagnostyki.
+- **Wejście:** `src/Sim.Runner/Program.cs` (pięć wierszy wyżej, `Drive`, `Replay`),
+  `tests/Sim.Tests/RunnerCommandTests.cs`, `tools/tests/test_runner_exit_codes.py`,
+  `reports/przedrostek-compare.md`, `reports/kody-wyjscia-runnera.md` (6.A16).
+- **Wyjście:** **najpierw pomiar, potem kierunek.** Do zmierzenia: które z tych pięciu
+  wierszy są duplikatem wiersza, który już idzie na stdout, a które są unikalne — bo
+  duplikat wolno usunąć, a unikalny trzeba przenieść. Do sprawdzenia osobno, czy
+  któryś test C# albo krok CI czyta te wiersze **ze stderr** (`result.StdErr`,
+  `2>&1`), bo wtedy przeniesienie wywróci przebieg, który dziś działa. Dopiero z tymi
+  dwiema liczbami wolno przenosić.
+- **Weryfikacja:**
+  ```bash
+  grep -rn "StdErr" tests/Sim.Tests/ | grep -c "RDZEŃ\|ODTWORZENIE\|ATP\|LIMIT"
+  dotnet run --project src/Sim.Runner -c Release -- replay --keys data/keys/L1_A-manual.json 2>/dev/null
+  dotnet test tests/Sim.Tests
+  ```
+  Oczekiwane: liczba miejsc czytających te wiersze ze stderr jest podana, a przebieg
+  z `2>/dev/null` nie traci ani jednego wiersza `[XXX]`.
+- **Skończone, gdy:** żaden znacznik `[XXX]` nie występuje na obu strumieniach —
+  pokazane pomiarem przed i po — a kontrola negatywna WYKONANA: przywrócenie jednego
+  wiersza na stderr wywraca dokładnie nowy test, a nie tylko liczbę wypisów. Raport
+  podaje, ile z pięciu było duplikatami, a ile unikalnymi.
+- **Poza zakresem:** treść samych wypisów i to, które polecenia je produkują. Poza
+  zakresem także `BŁĄD:` i `nieznane polecenie:` — one na stderr **należą** i to
+  rozstrzygnęły 6.A16 oraz 6.A27.
+- **Zależy od:** 6.A16, 6.A27.
+
+##### 6.A31 · Dwie komendy w `reports/` cytują katalog, którego nie ma
+
+- **Skąd:** zmierzone 07.09.2026 przy 6.A26, przy okazji wykrywania wołań runnera:
+  ```
+  reports/T-311-braking.md:257    Sim.Runner/bin/Release/net8.0/…
+  reports/T-400-first-run.md:235  Sim.Runner/bin/Release/net8.0/…
+  reports/linecore-budget.md:91   Sim.Runner/bin/Release/net10.0/…
+  $ grep TargetFramework src/Sim.Runner/Sim.Runner.csproj
+      <TargetFramework>net10.0</TargetFramework>
+  ```
+- **Dlaczego to jednak pozycja, choć pomiarów się nie przelicza:** te dwa raporty są
+  pomiarami z datą i miały rację w dniu, w którym je wykonano — ich się **nie rusza**.
+  Rzeczą, której brakuje, jest **bramka**: `test_report_hygiene.py` sprawdza, czy każda
+  ścieżka wymieniona w raporcie rozwiązuje się w drzewie, ale ścieżka **w komendzie**
+  wskazująca na katalog wytworzony przez budowanie nie jest tym samym co ścieżka do
+  pliku w repozytorium — i nikt jej nie sprawdza. Pole „Weryfikacja" pozycji cytujące
+  taką ścieżkę byłoby niewykonalne, a nikt by tego nie zauważył.
+- **Wejście:** `tools/tests/test_report_hygiene.py`, `reports/T-311-braking.md`,
+  `reports/T-400-first-run.md`, `reports/linecore-budget.md`,
+  `src/Sim.Runner/Sim.Runner.csproj` (`TargetFramework`), `docs/TASKS.md` (pola
+  „Weryfikacja" wszystkich pozycji).
+- **Wyjście:** bramka wyprowadzająca `TargetFramework` **z pliku projektu** i zgłaszająca
+  każdą komendę w `reports/` i w `docs/`, która cytuje inny `netX.Y` w ścieżce
+  `bin/`. **Do rozstrzygnięcia pomiarem:** ile takich ścieżek jest w całym drzewie
+  i ile z nich stoi w polu „Weryfikacja" (te są groźne) wobec prozy raportu (te są
+  pomiarem z datą i dostają adnotację, nie poprawkę).
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_report_hygiene.py
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: bramka podaje liczbę ścieżek z niezgodnym `netX.Y` i wskazuje plik
+  z numerem wiersza; kontrola dodatnia na wstrzykniętej ścieżce zgłasza ją.
+- **Skończone, gdy:** bramka jest zielona na dzisiejszym drzewie po dopisaniu
+  adnotacji do dwóch raportów (albo po dodaniu ich do listy usprawiedliwień z powodem),
+  kontrola dodatnia WYKONANA na wstrzykniętej ścieżce `net8.0`, a kontrola ujemna
+  WYKONANA pokazuje, że ścieżka `net10.0` **nie** jest zgłaszana. Liczba ścieżek jest
+  w raporcie podana, także jeśli wynosi trzy.
+- **Poza zakresem:** przeliczanie pomiarów w tych dwóch raportach — one mają datę.
+  Poza zakresem także zmiana `TargetFramework` i sprawdzanie, czy komenda **działa**;
+  to jest bramka na spójność ścieżki z plikiem projektu, nie na wykonanie.
+- **Zależy od:** 6.D3, 6.A26.
+
+##### 6.A32 · Nic nie pilnuje, że asercja jest rozstrzygająca, a nie tylko prawdziwa
+
+- **Skąd:** cztery przypadki zmierzone **w jednym dniu**, każdy inną kontrolą
+  negatywną, wszystkie tego samego kroju:
+
+  | pozycja | co pokazała kontrola |
+  |---|---|
+  | 6.A25 (KN-2) | odmowa z własną stałą zamiast odczytu z tabeli — **wszystkie 584 testy C# zielone** |
+  | 6.A26 (KN-D) | reguła pierwszeństwa sceny pilnowana wyłącznie komentarzem — **15/15 zielone** |
+  | 6.A27 (KN-2) | `throw` istnieje, cztery `Console.Error` obok — **stara bramka zielona** |
+  | 6.A29 (KN-1) | `Contains(ścieżka)` spełnione przez odmowę o czymś zupełnie innym |
+
+  Wspólna cecha wszystkich czterech: asercja na **obecność** czegoś dobrego zamiast na
+  **brak** czegoś złego albo na **liczbę**.
+- **Dlaczego to nie jest pozycja wymyślona na miejscu:** nie jest pomysłem, a czterema
+  wykonanymi pomiarami z jednego dnia, każdy z wklejonym wyjściem w swoim raporcie.
+  Wzorzec jest przy tym **wykrywalny mechanicznie**: asercja postaci
+  `assert X in Y` / `StringAssert.Contains` bez towarzyszącego licznika albo bez
+  asercji na brak.
+- **Wejście:** `tools/tests/*.py` (wszystkie asercje `in`), `tests/**/*.cs`
+  (`StringAssert.Contains`, `Assert.IsTrue(... .Contains(...))`),
+  `tools/tests/csharp_assertions.py`, raporty `czlon-pozycyjny.md` §3,
+  `pomiar-rownosci.md` §3, `przedrostek-compare.md` §4, `asercja-rozstrzygajaca.md` §2.
+- **Wyjście:** **najpierw pomiar, i to on rozstrzyga, czy jest tu w ogóle pozycja.**
+  Do zmierzenia: ile asercji w zestawie ma postać „obecność bez licznika i bez
+  asercji na brak", w rozbiciu na Pythona i C#. Dopiero z tą liczbą wolno wybierać
+  między bramką (jeżeli liczba jest mała i da się ją utrzymać na liście), progiem
+  (jeżeli jest duża) i **niczym** (jeżeli okaże się, że większość takich asercji jest
+  rozstrzygająca z innego powodu — na przykład sąsiaduje z asercją na brak).
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: liczba podana w rozbiciu, a każdy wybór kierunku uzasadniony tą liczbą,
+  nie przekonaniem.
+- **Skończone, gdy:** liczba jest podana dla Pythona i dla C# osobno, a jeżeli
+  powstaje bramka — kontrola dodatnia WYKONANA na jednej z czterech asercji wymienionych
+  wyżej (przywróconej do stanu przed poprawką) i kontrola ujemna WYKONANA pokazująca,
+  że asercje rozstrzygające **nie** są zgłaszane. Jeżeli pomiar pokaże, że bramki nie
+  warto stawiać, raport mówi to wprost i pozycja kończy się bez zmiany w kodzie —
+  **to też jest poprawnym wynikiem**.
+- **Poza zakresem:** poprawianie asercji hurtem. Cztery przypadki z tego dnia są już
+  naprawione u siebie; ta pozycja dotyczy tego, czy da się je wykrywać, a nie
+  przepisywania zestawu.
+- **Zależy od:** 6.A25, 6.A26, 6.A27, 6.A29, 6.D28.
 
 ### Czego agent nie ruszy bez decyzji
 
