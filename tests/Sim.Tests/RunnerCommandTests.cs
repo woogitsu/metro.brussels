@@ -766,4 +766,174 @@ public sealed class RunnerCommandTests
         Assert.AreEqual(1, result.ExitCode);
         StringAssert.Contains(result.StdErr, "line wymaga --limit-kmh");
     }
+
+    // --- nieliczbowa wartosc nazywa siebie (6.A14) -------------------------------
+
+    /// <summary>
+    /// Sedno pozycji 6.A14. Do 07.09.2026 wartosc nieliczbowa konczyla sie komunikatem
+    /// platformy .NET — <c>The input string 'abc' was not in a correct format.</c> —
+    /// ktory nie mowil ANI ktorej opcji dotyczy, ANI ktorego polecenia. 6.D20 poprawila
+    /// komunikat o BRAKU opcji; ten o zlej WARTOSCI zostal wtedy nietkniety.
+    /// </summary>
+    [TestMethod]
+    public void Line_z_nieliczbowym_limitem_nazywa_polecenie_opcje_i_wartosc()
+    {
+        var result = Run(
+            "line", "--axis", "data/track/L1_A.json", "--limit-kmh", "abc",
+            "--exchange-s", "20", "--trace", "build/x.csv");
+
+        Assert.AreEqual(1, result.ExitCode);
+        StringAssert.Contains(result.StdErr, "line");
+        StringAssert.Contains(result.StdErr, "--limit-kmh");
+        StringAssert.Contains(result.StdErr, "abc");
+        Assert.IsFalse(
+            result.StdErr.Contains("was not in a correct format", StringComparison.Ordinal),
+            "komunikat platformy .NET nadal wychodzi na wierzch: " + result.StdErr);
+    }
+
+    /// <summary>
+    /// Ta sama opcja w innym poleceniu. Bez tego testu poprawka zaszywajaca nowa,
+    /// tak samo sztywna nazwe <c>line</c> przeszlaby test wyzej — to ta sama pulapka,
+    /// ktora 6.D20 wyjela z <c>RequiredNumber</c>, i ten sam ksztalt kontroli
+    /// (<see cref="Budget_bez_limitu_nazywa_budget_a_nie_line"/>).
+    /// </summary>
+    [TestMethod]
+    public void Budget_z_nieliczbowym_limitem_nazywa_budget_a_nie_line()
+    {
+        var result = Run(
+            "budget", "--axis", "data/track/L1_A.json",
+            "--signalling", "data/design/signalling/classic-2026.json",
+            "--limit-kmh", "abc", "--exchange-s", "20", "--headway-s", "90",
+            "--trains", "2", "--steps", "100");
+
+        Assert.AreEqual(1, result.ExitCode);
+        StringAssert.Contains(result.StdErr, "budget");
+        StringAssert.Contains(result.StdErr, "--limit-kmh");
+        Assert.IsFalse(
+            result.StdErr.Contains("line nie rozumie", StringComparison.Ordinal),
+            "komunikat nazywa line, choc uruchomiono budget: " + result.StdErr);
+    }
+
+    /// <summary>
+    /// Druga droga wartosci do liczby: <c>OptionalNumber</c>. Opcja bez wartosci
+    /// domyslnej i opcja z wartoscia domyslna to dwa osobne pomocniki, wiec poprawka
+    /// jednego nie dowodzi niczego o drugim.
+    /// </summary>
+    [TestMethod]
+    public void Line_z_nieliczbowym_oknem_stacji_nazywa_opcje()
+    {
+        var result = Run(
+            "line", "--axis", "data/track/L1_A.json", "--limit-kmh", "72",
+            "--exchange-s", "20", "--stop-window-m", "abc", "--trace", "build/x.csv");
+
+        Assert.AreEqual(1, result.ExitCode);
+        StringAssert.Contains(result.StdErr, "--stop-window-m");
+        StringAssert.Contains(result.StdErr, "abc");
+    }
+
+    /// <summary>
+    /// Trzecia droga: <c>LongValue</c>. <c>--steps</c> jest <c>long</c>, nie
+    /// <c>double</c>, i szlo osobnym <c>long.Parse</c> — komunikat platformy byl tam
+    /// dokladnie ten sam, a poprawka innym pomocnikiem.
+    /// </summary>
+    [TestMethod]
+    public void Budget_z_nieliczbowa_liczba_krokow_nazywa_steps()
+    {
+        var result = Run(
+            "budget", "--axis", "data/track/L1_A.json",
+            "--signalling", "data/design/signalling/classic-2026.json",
+            "--limit-kmh", "72", "--exchange-s", "20", "--headway-s", "90",
+            "--trains", "2", "--steps", "abc");
+
+        Assert.AreEqual(1, result.ExitCode);
+        StringAssert.Contains(result.StdErr, "--steps");
+        StringAssert.Contains(result.StdErr, "abc");
+    }
+
+    /// <summary>
+    /// Czwarta droga: <c>IntValue</c>. <c>--repeats</c> jest <c>int</c> i ma wartosc
+    /// domyslna, wiec przechodzi przez pomocnika, ktorego nie dotyka zaden test wyzej.
+    /// </summary>
+    [TestMethod]
+    public void Budget_z_nieliczbowa_liczba_powtorzen_nazywa_repeats()
+    {
+        var result = Run(
+            "budget", "--axis", "data/track/L1_A.json",
+            "--signalling", "data/design/signalling/classic-2026.json",
+            "--limit-kmh", "72", "--exchange-s", "20", "--headway-s", "90",
+            "--trains", "2", "--steps", "100", "--repeats", "abc");
+
+        Assert.AreEqual(1, result.ExitCode);
+        StringAssert.Contains(result.StdErr, "--repeats");
+        StringAssert.Contains(result.StdErr, "abc");
+    }
+
+    /// <summary>
+    /// <c>--trains</c> jest LISTA, wiec cytowany jest zly CZLON, a nie cala wartosc:
+    /// przy <c>1,2,4,abc</c> czytajacy ma zobaczyc, ktory z czterech jest zly. Test
+    /// pilnuje obu polowek tej decyzji — czlon jest w komunikacie, cala lista nie.
+    /// </summary>
+    [TestMethod]
+    public void Trains_cytuje_zly_czlon_a_nie_cala_liste()
+    {
+        var result = Run(
+            "budget", "--axis", "data/track/L1_A.json",
+            "--signalling", "data/design/signalling/classic-2026.json",
+            "--limit-kmh", "72", "--exchange-s", "20", "--headway-s", "90",
+            "--trains", "1,2,4,abc", "--steps", "100");
+
+        Assert.AreEqual(1, result.ExitCode);
+        StringAssert.Contains(result.StdErr, "--trains");
+        StringAssert.Contains(result.StdErr, "abc");
+        Assert.IsFalse(
+            result.StdErr.Contains("1,2,4,abc", StringComparison.Ordinal),
+            "komunikat cytuje cala liste zamiast zlego czlonu: " + result.StdErr);
+    }
+
+    /// <summary>
+    /// <c>--at</c> jest jedna wartoscia o trzech czlonach, wiec cytowana jest CALA:
+    /// <c>xx</c> wyjete z <c>10:xx:00</c> nie powiedzialoby, ktora opcje poprawic.
+    /// Odwrotna decyzja niz przy <c>--trains</c> i test pilnuje tej roznicy, zeby nie
+    /// zostala przypadkiem — a nie z dwoch osobnych powodow.
+    /// </summary>
+    [TestMethod]
+    public void Zegar_cytuje_cala_wartosc_a_nie_zly_czlon()
+    {
+        var timetable = NapiszTymczasowyRozklad();
+        try
+        {
+            var result = Run("service-day", "--timetable", timetable, "--at", "10:xx:00");
+
+            Assert.AreEqual(1, result.ExitCode);
+            StringAssert.Contains(result.StdErr, "--at");
+            StringAssert.Contains(result.StdErr, "10:xx:00");
+            Assert.IsFalse(
+                result.StdErr.Contains("was not in a correct format", StringComparison.Ordinal),
+                result.StdErr);
+        }
+        finally
+        {
+            File.Delete(timetable);
+        }
+    }
+
+    /// <summary>
+    /// Kontrola drugiego kierunku, bez ktorej testy wyzej byly by zielone rowniez dla
+    /// poprawki ZWEZAJACEJ zbior przyjmowanych postaci. <c>double.Parse(text, Inv)</c>
+    /// przyjmowal <see cref="System.Globalization.NumberStyles.Float"/> razem
+    /// z <see cref="System.Globalization.NumberStyles.AllowThousands"/>; kropka
+    /// dziesietna i wykladnik musza przechodzic dalej.
+    /// </summary>
+    [TestMethod]
+    public void Kropka_dziesietna_i_wykladnik_nadal_przechodza()
+    {
+        var result = Run(
+            "line", "--axis", Path.Combine(RepoRoot(), "data", "track", "L1_A.json"),
+            "--limit-kmh", "7.2E1", "--exchange-s", "20", "--stop-window-m", "5.5");
+
+        Assert.AreEqual(0, result.ExitCode, result.StdErr);
+        Assert.IsFalse(
+            result.StdErr.Contains("nie rozumie", StringComparison.Ordinal), result.StdErr);
+        StringAssert.Contains(result.StdOut, "[ODCINEK]");
+    }
 }
