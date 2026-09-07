@@ -148,11 +148,23 @@ def test_the_refusal_is_actually_wired_into_main():
 def test_the_refusal_skips_positional_arguments():
     """`compare` bierze dwie sciezki pozycyjnie. Odmowa zbudowana na „wszystko, czego
     nie znam" wywrocilaby to polecenie w calosci, wiec sprawdzenie ogranicza sie do
-    czlonow zaczynajacych sie od dwoch minusow — i ten warunek ma stac w kodzie."""
+    czlonow zaczynajacych sie od minusa — i ten warunek ma stac w kodzie.
+
+    **Test przepisany, a nie dopisany obok (6.A15.)** Do tej pozycji zadal literalnie
+    `StartsWith("--"`, bo odmowa z 6.A11 patrzyla wylacznie na dwa minusy. 6.A11 SAMA
+    wypisala te dziure: `-zmyslona 7` konczylo sie kodem 0. Warunek jest teraz na
+    JEDNYM minusie, wiec literalna asercja przestala opisywac kod — a **intencja jest
+    ta sama i to ona jest sprawdzana**: sciezki polecenia `compare` nie zaczynaja sie
+    od minusa, wiec nadal przechodza nietknięte.
+    """
     source = _source()
     at = source.index("private static void RejectUnknownOptions")
     body = source[at:source.index("\n    private static int Unknown", at)]
-    assert 'StartsWith("--"' in body, "odmowa nie odsiewa argumentow pozycyjnych"
+    assert 'StartsWith("-", StringComparison.Ordinal)' in body, (
+        "odmowa nie odsiewa argumentow pozycyjnych")
+    assert 'token == "-"' in body, (
+        "goly minus jest konwencja standardowego wejscia, nie literowka: odmowa nie ma "
+        "prawa go zglaszac")
     assert "known.Flags" in body and "known.Values" in body, (
         "odmowa nie rozroznia flagi od opcji z wartoscia — flaga zjadlaby nastepny czlon")
 

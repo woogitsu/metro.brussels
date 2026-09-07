@@ -182,7 +182,24 @@ public static class Program
         for (var i = 1; i < args.Length; i++)
         {
             var token = args[i];
-            if (!token.StartsWith("--", StringComparison.Ordinal))
+
+            // JEDEN minus tez sie liczy (6.A15). 6.A11 sprawdzala wylacznie czlony
+            // z dwoma minusami i SAMA wypisala te dziure: `-zmyslona 7` konczylo sie
+            // kodem 0, dokladnie tak jak przed ta odmowa.
+            //
+            // Rozszerzenie jest bezpieczne i to jest ZMIERZONE, nie zalozone
+            // (`reports/jeden-minus.md`): w calym repozytorium nie ma ani jednej
+            // komendy podajacej `Sim.Runner` czlon z jednym minusem — `-c Release`
+            // stoi PRZED separatorem `--`, wiec jest flaga `dotnet run` i nigdy nie
+            // dochodzi do `args`. Nie ma tez ani jednej wartosci ujemnej, a jedyne
+            // argumenty pozycyjne to dwie SCIEZKI polecenia `compare`.
+            //
+            // Wartosc ujemna nadal przechodzi, bo czlon po znanej opcji z wartoscia
+            // jest pomijany razem z nia (i++ nizej) — `--brake-usage -0.5` dziala.
+            // Czlon `-` sam w sobie nie jest opcja: to konwencja „standardowe
+            // wejscie", ktorej to repozytorium nie uzywa, ale odmawianie jej byloby
+            // odmowa czegos, co nie jest literowka.
+            if (!token.StartsWith("-", StringComparison.Ordinal) || token == "-")
             {
                 continue;
             }

@@ -335,6 +335,74 @@ public sealed class RunnerCommandTests
         StringAssert.Contains(result.StdOut, "[ODCINEK]");
     }
 
+    // --- jeden minus też się liczy (6.A15) ---------------------------------------
+
+    /// <summary>
+    /// 6.A15. 6.A11 dopisała odmowę nieznanej opcji i <b>sama wypisała tę dziurę</b>:
+    /// sprawdzane były wyłącznie człony z DWOMA minusami, więc <c>-zmyslona 7</c>
+    /// kończyło się <b>kodem 0</b>, dokładnie tak jak przed tamtą odmową.
+    ///
+    /// <para>Rozszerzenie było bezpieczne i to jest ZMIERZONE, nie założone
+    /// (<c>reports/jeden-minus.md</c>): w całym repozytorium nie ma ani jednej komendy
+    /// podającej runnerowi człon z jednym minusem — <c>-c Release</c> stoi PRZED
+    /// separatorem <c>--</c>, więc jest flagą <c>dotnet run</c> i nigdy nie dochodzi
+    /// do <c>args</c>. Nie ma też ani jednej wartości ujemnej, a jedyne argumenty
+    /// pozycyjne to dwie ŚCIEŻKI polecenia <c>compare</c>.</para>
+    /// </summary>
+    [TestMethod]
+    public void Line_z_jednym_minusem_konczy_sie_kodem_jeden()
+    {
+        var result = Run(
+            "line", "--axis", Path.Combine(RepoRoot(), "data", "track", "L1_A.json"),
+            "--limit-kmh", "72", "--exchange-s", "20", "-zmyslona", "7");
+
+        Assert.AreEqual(1, result.ExitCode, result.StdOut + result.StdErr);
+        StringAssert.Contains(result.StdErr, "-zmyslona");
+        StringAssert.Contains(result.StdErr, "nie zna opcji");
+    }
+
+    /// <summary>
+    /// Druga strona pary, bez której pierwsza mówi tylko „coś odmawia": wartość
+    /// UJEMNA znanej opcji nadal przechodzi przez odmowę, bo człon po opcji
+    /// z wartością jest pomijany razem z nią.
+    ///
+    /// <para>Odmowa, która zjadłaby <c>-5</c>, meldowałaby „nie znam opcji -5" i to
+    /// byłby najgorszy możliwy wynik tej pozycji: zamiana jednej cichej dziury na
+    /// komunikat mówiący nieprawdę. Test żąda więc, żeby <c>-5</c> doszło do
+    /// walidacji dziedzinowej i zostało odrzucone Z JEJ powodu — bo okno stacji
+    /// musi być dodatnie, a nie bo runner nie zna opcji.</para>
+    /// </summary>
+    [TestMethod]
+    public void Wartosc_ujemna_znanej_opcji_nie_jest_brana_za_opcje()
+    {
+        var result = Run(
+            "line", "--axis", Path.Combine(RepoRoot(), "data", "track", "L1_A.json"),
+            "--limit-kmh", "72", "--exchange-s", "20", "--stop-window-m", "-5");
+
+        Assert.AreEqual(1, result.ExitCode, result.StdOut + result.StdErr);
+        Assert.IsFalse(
+            result.StdErr.Contains("nie zna opcji", StringComparison.Ordinal),
+            "wartość ujemna wzięta za nieznaną opcję: " + result.StdErr);
+        StringAssert.Contains(result.StdErr, "Okno stacji");
+    }
+
+    /// <summary>
+    /// Goły minus nie jest literówką — to konwencja standardowego wejścia. To
+    /// repozytorium jej nie używa, ale odmawianie jej byłoby odmową czegoś, co nie
+    /// jest pomyłką, a odmowa ma łapać pomyłki.
+    /// </summary>
+    [TestMethod]
+    public void Goly_minus_nie_jest_zglaszany_jako_nieznana_opcja()
+    {
+        var result = Run(
+            "line", "--axis", Path.Combine(RepoRoot(), "data", "track", "L1_A.json"),
+            "--limit-kmh", "72", "--exchange-s", "20", "-");
+
+        Assert.IsFalse(
+            result.StdErr.Contains("nie zna opcji", StringComparison.Ordinal),
+            "goły minus zgłoszony jako nieznana opcja: " + result.StdErr);
+    }
+
     // --- nastawy w pliku, nie tylko w wypisie (6.A20) ----------------------------
 
     /// <summary>
