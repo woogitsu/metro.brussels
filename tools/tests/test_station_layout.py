@@ -8,6 +8,7 @@ w przeszłości:
 2. brakująca dana zostaje `None`, a nie zerem (T-011: `braking_distance_m`);
 3. przycięcie do końca osi jest zgłaszane, a nie chowane (R-007: `CbtcTestSpan`).
 """
+import functools
 import json
 import os
 import sys
@@ -213,13 +214,34 @@ BF_REPORT = os.path.join(ROOT, "reports", "T-211-stations-BF.md")
 PACKAGE_AXES = ("L1_A", "L1_B", "L2_E", "L5_C", "L5_D", "L6_F")
 
 
+@functools.lru_cache(maxsize=None)
 def _axis_document(axis_id):
+    """Plik osi z `data/track/`. Też z pamięcią (6.B30): czytany jest wielokrotnie,
+    a `data/` jest tylko do odczytu (`CLAUDE.md` §4.6), więc treść nie ma jak się
+    zmienić w trakcie przebiegu."""
     with open(os.path.join(ROOT, "data", "track", f"{axis_id}.json"), encoding="utf-8") as h:
         return json.load(h)
 
 
+@functools.lru_cache(maxsize=None)
 def _layout_for(axis_id):
-    """Przebieg narzędzia na prawdziwej osi, z długością peronu z decyzji T-212."""
+    """Przebieg narzędzia na prawdziwej osi, z długością peronu z decyzji T-212.
+
+    **Pamięć (6.B30), i nie jest ona założona, tylko zmierzona.** Ta funkcja jest
+    wołana z pięciu miejsc, każde w pętli po sześciu osiach, czyli **około trzydziestu**
+    pełnych przebiegów `SL.layout` na tych samych sześciu plikach z `data/track/`.
+    Kosztowało to **35,1 s** z ~100 s całego zestawu — trzecią część czasu na jeden
+    moduł, który liczył to samo trzydzieści razy.
+
+    Pamięć oddaje **ten sam obiekt** każdemu wołającemu, więc test, który by go
+    zmodyfikował, psułby następny test w sposób zależny od kolejności — usterka gorsza
+    od tych 35 s, bo niewidoczna. Zmierzone, zanim pamięć weszła: sonda zapamiętała
+    układ, po **każdym** z 17 testów policzyła odcisk każdego zapamiętanego obiektu
+    i porównała z odciskiem z chwili zapamiętania. Testów, które zmutowały strukturę:
+    **zero**. Gdyby kiedykolwiek przestało to być prawdą, właściwą odpowiedzią jest
+    kopia przy wydaniu albo struktura niezmienna, a nie zdjęcie pamięci — bo wtedy
+    wraca trzydzieści przebiegów.
+    """
     length, _basis = SL.resolve_platform_length_m("design")
     return SL.layout(_axis_document(axis_id), length)
 
