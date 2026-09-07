@@ -158,7 +158,19 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 #: jego pozycją. Żadna nie jest wymyślona na miejscu, i to jest warunek, pod którym
 #: wolno je było dopisać: zadanie wymyślone, bo skończyła się kolejka, omija format
 #: z sekcji 6 i ląduje w kodzie, którego nikt nie prosił o zmianę.
-MINIMUM_DETAIL_BLOCKS = 111
+#: **Liczba przepisana, a nie dopisana obok — 111 → 112 (07.09.2026).** Jeden blok
+#: (6.D40) i ten JEDEN nie jest uzupełnieniem kolejki — jest zapisem usterki, która
+#: **zatrzymała dziewięć jobów CI naraz** i której żadna bramka nie widziała, bo sonda
+#: pytała o jedną bibliotekę z dziesięciu i odpowiadała „wszystko na miejscu" zgodnie
+#: z prawdą. Powód, dla którego dostała blok, jest ten sam co przy decyzjach właściciela
+#: wyżej: usterka bez bloku wygląda w tabeli identycznie jak usterka nieistniejąca.
+#: Kolejka nie była tu powodem — stała RÓWNO na dwunastu i po tej pozycji stoi tyle
+#: samo, bo 6.D40 weszła i wyszła w jednym commicie.
+#:
+#: **Uwaga przy scalaniu:** gałąź 6.D39 podnosi tę samą liczbę do tej samej wartości
+#: z tego samego powodu. Zapadka wymaga RÓWNOŚCI w obie strony, więc druga z tych
+#: dwóch gałęzi, która wejdzie do `main`, musi w rozwiązaniu konfliktu dać 113.
+MINIMUM_DETAIL_BLOCKS = 112
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je

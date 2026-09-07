@@ -8,12 +8,36 @@
 # z przypiętego tarballa przez `tools/ci/blender_install.sh`, razem z kontrolą
 # sumy SHA-256 i z własnym Pythonem 3.13 oraz numpy 2.3.
 #
-# Zostają wyłącznie biblioteki, których tarball NIE wozi, bo są systemowe:
-# kontekst EGL i programowy sterownik GL. Bez nich Blender startuje i wywraca się
-# dopiero przy pierwszym renderze.
-#
 # `python3-numpy` też tu był i też wypadł: był potrzebny WYŁĄCZNIE dlatego, że
 # Blender z apt linkuje się z systemowym Pythonem. Żaden moduł w `tools/` ani `src/`
 # nie importuje numpy poza Blenderem — sprawdzone grepem po całym drzewie.
+#
+# LISTA JEST PRZEPISANA, A NIE DOPISANA OBOK — 07.09.2026. Poprzednia wersja miała
+# dwa pakiety (`libegl1`, `libgl1-mesa-dri`) i zdanie „zostają wyłącznie biblioteki,
+# których tarball NIE wozi: kontekst EGL i programowy sterownik GL. Bez nich Blender
+# startuje i wywraca się dopiero przy pierwszym renderze". Druga połowa tego zdania
+# była NIEPRAWDZIWA: bez dziewięciu pakietów niżej Blender **nie startuje wcale**,
+# a `libgl1-mesa-dri` nie dostarcza ani jednego pliku `libGL.so` (`dpkg -L` daje 0
+# dopasowań) — wozi wyłącznie sterowniki DRI.
+#
+# Skąd te dziewięć. Zmierzone 07.09.2026 na przypiętym tarballu 5.2.1, suma SHA-256
+# zgodna z `tools/ci/blender-version.txt`: `readelf -d` po wszystkich 201 plikach ELF
+# w archiwum, odjęte 283 sonames dostarczane przez samo archiwum, a z pozostałych 28
+# policzone DOMKNIĘCIE STARTOWE binarium `blender` — to, co ładowacz rozwiązuje przed
+# `main()`. Rachunek i lista „czego NIE instalować" (backendy GPU denoisera i moduły
+# Pythona, które startu nie blokują) stoją w `reports/biblioteki-startowe-blendera.md`.
+#
+# Powód, dla którego to wyszło dopiero teraz: stare maszyny puli miały te biblioteki
+# z innych powodów, więc brak nigdy się nie ujawnił. Nowa pula `woogitsu-linux-*` ich
+# nie ma i 07.09.2026 zatrzymało to dziewięć jobów naraz.
 libegl1
+libgl1
 libgl1-mesa-dri
+libx11-6
+libxext6
+libxrender1
+libxfixes3
+libxi6
+libxkbcommon0
+libice6
+libsm6

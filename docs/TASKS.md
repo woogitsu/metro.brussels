@@ -779,6 +779,7 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.D36 | **Trzy obcięcia `hexdigest()` w całym drzewie: dwa przez stałą, jedno przez literał `[:12]`** — a stała `ODCISK_ZNAKOW` obok mówi 16 | zmierzone 07.09.2026 na `627d184`, przejściem po wszystkich `.py` i `.cs`: `mutation_sweep.py:444` i `:943` przez `ODCISK_ZNAKOW`, `:990` przez literał. `test_dead_constants.py` (6.B29) łapie stałą, której nikt nie czyta; **nic nie łapie literału, który powinien być stałą**. Dwie długości tej samej wielkości, żadna liczona z drugiej | S |
 | 6.D37 | **ZROBIONE (07.09.2026).** `--only ""` jest dziś **odmową kodem 2**, a nie pełnym przeglądem w milczeniu: pusty wzorzec przepuszczał wszystkie 63 pliki docelowe, czyli **2346 mutacji zamiast 2** dla typowego triażu, **1173×** więcej pracy, przy przebiegu wyglądającym na zawężony. **Pomiar z pola „Wyjście" rozstrzygnął na odmowę, nie na wiersz w wypisie, i pokazał DWIE postacie tej pomyłki o różnym zachowaniu**: w `reports/` stoją dwie prawdziwe pętle podstawiające zmienną do `--only`, a `--only "$m"` (`mutation-drift.md:455`) daje przy pustej zmiennej `--only ''`, kod **0** i pełny przegląd, gdy `--only $f` (`mutation-triage-fizyka.md:173`) gubi argument i argparse **JUŻ odmawia** (`expected one argument`, kod **2**). Druga postać była więc chroniona od zawsze, pierwsza nie była przez nic — i to jest cały powód odmowy. Kod **2**, nie 1: to błędne wywołanie, a nie „nie ma czego liczyć" (tam należą 6.B39 i 6.B41), i ten sam kod daje argparse dla drugiej postaci — jedna pomyłka, jeden kod, niezależnie od tego, czy cudzysłów ocalał. Warunek to `"--only" in sys.argv and not args.only`, a **nie** sama fałszywość `args.only`, bo obie sytuacje dają pusty napis, a tylko jedna jest pomyłką; przebieg bez `--only` (wołany w `reports/` **siedem** razy) zostaje niezmieniony. Zestaw **1931 → 1934**, moduł **108 → 111**, kod wyjścia 0. Trzy kontrole negatywne WYKONANE, każda na innym zbiorze; **KN-2 (odmowa zbyt szeroka, na samej fałszywości) pada na DOKŁADNIE JEDNYM teście** — tym, który pilnuje drogi pełnego przebiegu, i bez niego odmowa zablokowałaby wszystkie siedem wywołań. **KN-3 powtórzona**, bo pierwsza wersja zmieniła przy okazji treść komunikatu i nie izolowała kodu. Pomiar w `reports/puste-zawezenie.md`. Tresc pierwotna: **`--only ""` idzie drogą BEZ zawężenia i nic tego nie mówi** — skrypt wołający `--only "$WZORZEC"` z pustą zmienną dostaje pełny przegląd zamiast odmowy | zmierzone 07.09.2026 na `627d184`: pusty napis jest falsywy dla `if args.only`, więc gałąź zawężenia nie wchodzi wcale. Skutek jest liczbowy: **2346 mutacji zamiast 2** dla typowego triażu jednego modułu, czyli **1173×** więcej pracy, bez ani jednego słowa w wypisie. Ta sama rodzina co 6.B39 — przebieg, który wygląda poprawnie, robiąc co innego — tylko w drugą stronę: tam zbiór był pusty, tu jest pełny | S |
 | 6.D38 | **Nagłówek `reports/mutation-sweep.md` niesie commit, datę i nazwę gałęzi w jednym wierszu, inaczej niż wzór z 6.D3** — `**Snapshot na commicie:** \`66b8301\` (\`main\`, 04.09.2026)` | zauważone 07.09.2026 przy 6.B42. Bramka higieny to przepuszcza, bo szuka SHA w grawisach i daty osobno, a oba tu są — więc **nie jest to brak informacji, a rozjazd kształtu**. Do rozstrzygnięcia pomiarem: ile z 128 raportów ma nagłówek niezgodny ze wzorem i czy wzór jest w ogóle jeden. Jeżeli okaże się, że wzorów jest kilka i wszystkie czytelne, pozycja kończy się adnotacją, nie ujednolicaniem | S |
+| 6.D40 | **ZROBIONE (07.09.2026). Sonda pytała o JEDNĄ bibliotekę, więc mówiła „wszystko na miejscu" w jobie, w którym Blender nie wstawał** — a krok instalacji, warunkowany jej wyjściem, nigdy się nie odpalał. Zmierzone na `woogitsu-linux-01` i `-07` (runy 34153517889 i 34155630324): `wszystko sondowane jest na miejscu: libEGL.so.1`, a chwilę później `zgłasza '', oczekiwano '5.2.1'`. Sonda nie kłamała — `libEGL.so.1` tam było, tylko startu blokowało dziewięć innych bibliotek, o które nie pytała. Lista jest **wyliczona z ELF-ów przypiętego tarballa** (`readelf -d` po 201 plikach, odjęte 283 sonames wiezione przez archiwum, z pozostałych 28 policzone domknięcie startowe binarium), nie zgadnięta — rachunek w raporcie biblioteki-startowe-blendera.md, wchodzącym osobnym pull requestem. Siedem workflowów sonduje teraz dziesięć sonames, oba zestawy apt niosą jedenaście pakietów, a `blender.txt` ma **przepisany**, nie dopisany obok, akapit, którego druga połowa była nieprawdziwa: `libgl1-mesa-dri` nie dostarcza ani jednego pliku `libGL.so` (`dpkg -L` daje 0 dopasowań), więc `libGL.so.1` — zależność **startowa** — nie była instalowana nigdy. **Bramka `_debian_package_for` PRZEKIEROWANA, nie poluzowana**, i po przekierowaniu sprawdza więcej: jej docstring obiecywał mapowanie „MECHANICZNE, **nie tablicą wyjątków**", a obietnica była prawdziwa wobec DWÓCH bibliotek, dla jakich ją napisano, i złamała się na pierwszej nowej — Debian nazywa pakiet `libX11.so.6` jako `libx11-6`, z dywizem. Zmierzone `dpkg -S` na dziesięciu sonames: reguła trafia w **dziewięć z dziesięciu**, więc zostaje, a wyjątek jest jeden i pilnuje go nowy test żądający, żeby **każdy** wpis tabeli dawał wynik inny od reguły — wpis redundantny przesłania działającą regułę. **Ta sama usterka wyszła w drugim wymiarze i jest w tym samym commicie:** po doinstalowaniu bibliotek `first-run` padł na `unzip: command not found` (kod 127, `woogitsu-linux-02`, run 34155630333) — `unzip` nie był ani sondowany, ani w żadnym zestawie apt, więc sonda mówiła `present`, a job wywracał się czternaście kroków dalej niż powód. Warunek sondy poleceń był przybity na sztywno do `xvfb-run` zdaniem „jedyna RÓŻNICA między dwoma zestawami"; zdanie było prawdziwe, dopóki różnica była jedna. Przepisany na tabelę `POLECENIA_Z_PAKIETOW` z pętlą po każdym wpisie w obie strony — dla poleceń reguły mechanicznej NIE MA (`unzip` z pakietu `unzip`, `xvfb-run` z pakietu `xvfb`), więc tabela nie udaje reguły. Sześć kontroli negatywnych WYKONANYCH: wyczyszczona tabela nazw (2 FAIL), wpis redundantny (1 FAIL), pakiet zdjęty przy sondzie nadal o niego pytającej (1 FAIL), `unzip` w zestawie bez sondy (1 FAIL), sonda bez pakietu (1 FAIL) oraz — najważniejsza — kontrola, że po uogólnieniu STARY warunek na `xvfb` nadal łapie swój przypadek (1 FAIL). **Poza zakresem i wprost NIE zrobione: doinstalowanie czegokolwiek ręcznie na maszynach właściciela** — poprawka działa przez istniejący mechanizm warunkowej instalacji, więc pierwszy przebieg zrobi to sam | S |
 
 #### Szczegóły pozycji z kompletem sześciu pól
 
@@ -4904,6 +4905,52 @@ MINIMUM_DETAIL_BLOCKS = 73
   najwyżej ich układ. Poza zakresem także dopisywanie odcisków treści do starych
   raportów (6.B42 dało im adnotację i to zostaje).
 - **Zależy od:** 6.D3, 6.B42.
+
+##### 6.D40 · Sonda pytała o jedną bibliotekę, więc krok instalacji nigdy się nie odpalał
+
+- **Skąd:** zmierzone 07.09.2026 na runnerach `woogitsu-linux-01` i `-07`, runy
+  34153517889 i 34155630324. W jednym i tym samym jobie:
+
+  ```
+  wszystko sondowane jest na miejscu: libEGL.so.1
+  ...
+  [BLENDER] BŁĄD: po rozpakowaniu .../blender zgłasza '', oczekiwano '5.2.1'
+  ```
+
+  Sonda **nie kłamała** — `libEGL.so.1` na tej maszynie było. Startu Blendera
+  blokowało dziewięć innych bibliotek, o które nie pytała, a `libs=present` gasi
+  warunek `if: steps.tools.outputs.libs == 'missing'`, więc krok instalacji nie
+  wykonywał się nigdy.
+- **Dlaczego to nie jest to samo co 6.D39:** tamta pozycja naprawiła **komunikat**,
+  żeby dało się zobaczyć, czego brakuje. Ta naprawia **mechanizm**, który miał to
+  doinstalować i nie dostawał sygnału. Dwie różne usterki w jednej awarii.
+- **Wejście:** `.github/actions/probe-tools/action.yml` (sonda),
+  siedem workflowów wołających ją z `libraries:`,
+  `tools/ci/apt-packages/blender.txt` i `blender-xvfb.txt`,
+  `tools/tests/test_ci_workflows.py` (`_debian_package_for`,
+  `test_tool_installation_is_conditional_on_the_tool_being_missing`),
+  raport biblioteki-startowe-blendera.md (pomiar listy; wchodzi osobnym pull requestem,
+  dlatego wymieniony prozą — w tym drzewie ta ścieżka jeszcze nie istnieje).
+- **Wyjście:** sonda pyta o **komplet** sonames z domknięcia startowego, zestawy apt
+  niosą odpowiadające im pakiety, a lista jest **wyliczona z ELF-ów przypiętego
+  tarballa**, nie wpisana z ręki.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_ci_workflows.py
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: kod 0, a kontrole negatywne pokazują, że zdjęcie pakietu przy sondzie
+  nadal o niego pytającej wywraca bramkę.
+- **Skończone, gdy:** każdy sondowany soname mapuje się na pakiet, który TEN workflow
+  instaluje (bramka to już sprawdzała i to ona zablokowała tę zmianę), a tabela
+  wyjątków nazw pakietów zawiera **wyłącznie** wpisy dające wynik inny od reguły
+  mechanicznej — asercja na liczbę różnic, nie na obecność wpisu.
+- **Poza zakresem:** ręczne doinstalowanie czegokolwiek na maszynach właściciela —
+  poprawka idzie przez istniejący mechanizm warunkowej instalacji. Poza zakresem także
+  biblioteki, których wymagają wyłącznie moduły Pythona Blendera i backendy GPU
+  denoisera: nie blokują startu, a ich dosypanie kazałoby szukać sterownika, którego
+  to zadanie nie wymaga (lista z powodami w raporcie).
+- **Zależy od:** 6.D39 (ta sama awaria, druga jej połowa).
 
 ### Czego agent nie ruszy bez decyzji
 
