@@ -147,6 +147,59 @@ def test_layout_hectometre_grid_terminates_with_the_step_guard_removed():
     assert "OGRANICZNIK" in done.stdout, done.stdout
 
 
+def test_layout_hectometre_index_must_actually_advance_or_the_grid_never_ends():
+    """Ten sam kształt usterki co strażnik `MAX_MARKS` wyżej, inna przyczyna.
+
+    6.B16: przemiatanie mutacyjne z 07.09.2026 mutacji `index += 1` -> `index = 1`
+    (wiersz 91) NIE ROZSTRZYGNĘŁO — narzędzie zgłosiło `<przekroczony czas>` na
+    domyślnym limicie 300 s. Powód jest ten sam co przy strażniku `step_m`: gdyby
+    `index` przestał sam siebie zwiększać, warunek pętli `index * step_m <= length_m`
+    zostałby prawdziwy NA ZAWSZE — `index` nigdy by nie doszedł do `MAX_MARKS`, więc
+    ogranicznik, który miał kończyć pętlę, sam nigdy by się nie uruchomił. To NIE jest
+    to samo ryzyko co brak strażnika `step_m` (tam kończy ogranicznik, tu nie kończy
+    nic) — dlatego to osobny test, a nie rozszerzenie poprzedniego.
+
+    Braku zatrzymania nie da się zaobserwować w tym samym procesie (zawiesiłby też
+    ten test), więc — tą samą drogą co wyżej — mutacja siedzi w kopii źródła
+    uruchomionej w osobnym procesie, a asercją jest to, że proces NIE KOŃCZY SIĘ
+    we własnym, krótkim limicie czasu (2 s starczają z zapasem: bez inkrementacji
+    pętla wykonuje miliony obrotów na sekundę i nigdy nie trafia w żaden warunek
+    wyjścia).
+    """
+    import subprocess
+    import tempfile
+
+    module = os.path.join(ROOT, "tools", "track", "detail_layout.py")
+    with open(module, encoding="utf-8") as handle:
+        source = handle.read()
+    original = "        index += 1\n"
+    assert original in source, "przypisanie zmieniło kształt — test przestał je wycinać"
+    mutated = source.replace(original, "        index = 1\n")
+    assert mutated != source
+
+    with tempfile.TemporaryDirectory() as tmp:
+        mutant = os.path.join(tmp, "detail_layout_bez_inkrementacji.py")
+        with open(mutant, "w", encoding="utf-8") as handle:
+            handle.write(mutated)
+        driver = os.path.join(tmp, "driver.py")
+        with open(driver, "w", encoding="utf-8") as handle:
+            handle.write(
+                "import sys\n"
+                f"sys.path.insert(0, {os.path.join(ROOT, 'tools', 'physics')!r})\n"
+                f"sys.path.insert(0, {os.path.join(ROOT, 'tools', 'data')!r})\n"
+                f"sys.path.insert(0, {tmp!r})\n"
+                "import detail_layout_bez_inkrementacji as M\n"
+                "M.hectometre_marks(300.0)\n"
+                "print('DOKONCZONE')\n")
+        try:
+            done = subprocess.run([sys.executable, driver], capture_output=True,
+                                  text=True, timeout=2)
+        except subprocess.TimeoutExpired:
+            return
+    raise AssertionError(
+        f"pętla zakończyła się bez prawdziwej inkrementacji indeksu: {done.stdout!r}")
+
+
 # --- pierwszeństwo w tym samym miejscu ----------------------------------------
 
 def test_layout_station_wins_over_a_hectometre_at_the_same_place():
@@ -237,6 +290,41 @@ def test_layout_without_a_speed_there_are_no_brake_points_at_all():
     assert skipped == []
 
 
+# --- precyzja zaokrągleń (6.B16) -----------------------------------------------
+#
+# Cztery pola w tym module zaokrąglają NIEZALEŻNIE, każde swoim własnym wywołaniem
+# `round(x, 2)`. Wejścia niżej mają CELOWO trzeci znak po przecinku różny od zera
+# w każdym zaokrąglanym polu — inaczej podniesienie precyzji o jedno miejsce
+# (przemiatanie mutacyjne: `round(x, 2)` -> `round(x, 3)`) byłoby nieobserwowalne,
+# bo dla wielu wejść trzeci znak i tak wychodzi zerem.
+
+def test_layout_skipped_brake_point_rounds_every_field_to_two_decimals_independently():
+    """Trzy pola pominiętego punktu hamowania mają TRZY osobne wywołania `round`."""
+    stations = [{"name": "A", "chainage_m": 0.123456},
+                {"name": "B", "chainage_m": 50.987654}]
+    _marks, skipped = D.braking_marks(stations, 30.0, CFG["service"], CFG["jerk"])
+    assert skipped[0]["previous_station_at_m"] == 0.12
+    assert skipped[0]["chainage_m"] == 50.99
+    assert skipped[0]["would_be_at_m"] == -380.0
+
+
+def test_layout_kept_brake_point_rounds_chainage_and_distance_to_two_decimals():
+    """To samo dla punktu, który NIE zostaje pominięty — inna gałąź, inne pole."""
+    stations = [{"name": "A", "chainage_m": 0.0},
+                {"name": "B", "chainage_m": 1234.567891}]
+    marks, skipped = D.braking_marks(stations, 20.0, CFG["service"], CFG["jerk"])
+    assert skipped == []
+    assert marks[0]["chainage_m"] == 1038.18
+    assert marks[0]["braking_distance_m"] == 196.39
+
+
+def test_layout_station_entry_chainage_rounds_to_two_decimals():
+    """Kilometraż stacji w `layout()` ma własne zaokrąglenie, osobne od pozostałych."""
+    marks, _skipped = D.layout(_axis(200.0, [("A", 0.0), ("B", 123.456789)]))
+    station_b = [m for m in marks if m["kind"] == "station" and m["label"] == "B"][0]
+    assert station_b["chainage_m"] == 123.46
+
+
 # --- raport -------------------------------------------------------------------
 
 def test_layout_survey_counts_every_kind_and_carries_its_assumptions():
@@ -261,6 +349,22 @@ def test_layout_station_marks_carry_the_stop_id_for_joining_with_the_timetable()
     report = D.survey(_axis(900.0, [("A", 0.0), ("B", 900.0)]), "T", cfg=CFG)
     stations = _kinds(report["marks"], "station")
     assert [s["stop_id"] for s in stations] == ["P0", "P1"]
+
+
+def test_layout_survey_axis_length_rounds_to_three_decimals_not_two():
+    """`axis_length_m` jest JEDYNYM polem z precyzją 3, nie 2 — reszta modułu
+    zaokrągla kilometraże do centymetra, to pole do milimetra."""
+    axis = {"id": "T", "length_m": 1234.56789, "stations": []}
+    report = D.survey(axis, "T", cfg=CFG)
+    assert report["axis_length_m"] == 1234.568
+
+
+def test_layout_survey_braking_distance_rounds_to_two_decimals():
+    """Pole `braking_distance_m` w raporcie to OSOBNE przeliczenie tej samej drogi,
+    z własnym `round` — nie kopia pola z `braking_marks`."""
+    axis = _axis(3000.0, [("A", 0.0), ("B", 3000.0)])
+    report = D.survey(axis, "T", speed_kmh=72.0, cfg=CFG)
+    assert report["braking_distance_m"] == 196.39
 
 
 # --- prawdziwe osie -----------------------------------------------------------
@@ -332,6 +436,82 @@ def test_marker_gauge_below_the_rail_head_has_no_points_and_says_so():
     except ValueError:
         return
     raise AssertionError("skrajnia bez punktów poniżej progu powinna dać ValueError")
+
+
+# --- CLI: `main()` i zapis pliku (6.B16) ----------------------------------------
+#
+# Osiem testów wyżej wywołują funkcje modułu wprost — żaden nie przechodzi przez
+# `main()`, więc nikt nie sprawdzał, CZYM ten moduł naprawdę zapisuje plik: czy
+# katalog docelowy powstaje, gdy jeszcze nie istnieje, czy klucze są posortowane,
+# jakim wcięciem i czy polskie znaki stoją wprost, czy jako `\uXXXX`. Przemiatanie
+# mutacyjne 6.B16 złapało to jako siedem ocalałych, wszystkie NIEURUCHOMIONE — nie
+# dlatego, że są bezpieczne, tylko dlatego, że zestaw sprzed tego zadania nigdy
+# tędy nie przechodził.
+
+def _write_axis_fixture(path):
+    axis = {"id": "T", "length_m": 500.0,
+            "stations": [{"name": "A", "chainage_m": 0.0, "stop_id": "P0"},
+                         {"name": "B", "chainage_m": 500.0, "stop_id": "P1"}]}
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(axis, handle)
+
+
+def test_main_requires_both_axis_and_out_arguments():
+    """`required=True` na obu (wiersze 191, 192) — bez któregokolwiek argparse ma
+    dać `SystemExit`, a nie cichy `None` przekazany dalej do `open()`."""
+    for argv in (["--out", "raport.json"], ["--axis", "os.json"]):
+        try:
+            D.parse_args(argv)
+        except SystemExit:
+            continue
+        raise AssertionError(f"brakujący argument powinien dać SystemExit: {argv}")
+
+
+def test_main_creates_missing_output_directories_and_writes_sorted_indented_utf8():
+    """Cztery własności zapisu naraz, każda z osobną mutacją (wiersze 210, 212):
+
+    * katalog docelowy powstaje, NAWET gdy żaden jego segment jeszcze nie istnieje
+      (`os.path.dirname(out) or "."` — mutant `and` tworzyłby zawsze `.`, a plik
+      trafiłby do katalogu, który nie jest tym zadanym, i zapis padłby);
+    * klucze najwyższego poziomu są posortowane (`sort_keys=True`);
+    * wcięcie to DOKŁADNIE jedna spacja (`indent=1`);
+    * polskie znaki stoją w pliku wprost, nie jako `\\uXXXX` (`ensure_ascii=False`).
+    """
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        axis_path = os.path.join(tmp, "axis.json")
+        _write_axis_fixture(axis_path)
+        out_path = os.path.join(tmp, "jeszcze", "nie", "istnieje", "raport.json")
+        rc = D.main(["--axis", axis_path, "--out", out_path, "--brake-from-kmh", "72"])
+        assert rc == 0
+        assert os.path.isfile(out_path), "katalog docelowy nie powstał"
+
+        with open(out_path, encoding="utf-8") as handle:
+            text = handle.read()
+
+        top_level = [line for line in text.splitlines() if line.startswith(' "')]
+        keys = [line.split(":", 1)[0].strip().strip('"') for line in top_level]
+        assert keys == sorted(keys), keys
+
+        indent = len(top_level[0]) - len(top_level[0].lstrip(" "))
+        assert indent == 1, indent
+
+        assert "ł" in text, "znak spoza ASCII powinien stać w pliku wprost"
+        assert "\\u0142" not in text, "ensure_ascii=True uciekłoby ten sam znak"
+
+
+def test_main_output_directory_may_already_exist():
+    """`exist_ok=True` (wiersz 210): druga oś zapisana do TEGO SAMEGO katalogu nie
+    wywraca zapisu, bo katalog już istnieje po pierwszym wywołaniu."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        axis_path = os.path.join(tmp, "axis.json")
+        _write_axis_fixture(axis_path)
+        out_path = os.path.join(tmp, "raport.json")
+        assert D.main(["--axis", axis_path, "--out", out_path]) == 0
+        assert D.main(["--axis", axis_path, "--out", out_path]) == 0
 
 
 # --- narzędzie wypuszczone na prawdziwe osie (T-011 na pakietach B–F) -----------
