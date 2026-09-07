@@ -1393,4 +1393,171 @@ public sealed class RunnerCommandTests
         Assert.IsFalse(result.StdErr.Contains("nie zna opcji"), result.StdErr);
         StringAssert.Contains(result.StdErr, "Początek wybiegu");
     }
+    // --- ksztalt wyjscia kazdej odmowy `compare` (6.A27) ------------------------
+
+    /// <summary>
+    /// Telemetria z rdzenia plus jej kopia zmieniona jednym przekształceniem wierszy.
+    /// Pliki powstaja przez `drive --out`, nie z atrapy — `compare` odmawia naglowka
+    /// niezgodnego z `DriveTelemetry.Header`, wiec atrapa dowodzilaby czegos innego.
+    /// </summary>
+    private static (string Dobry, string Inny) DwaPlikiPrzez(Func<string[], string[]> zmiana)
+    {
+        var dobry = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".csv");
+        var inny = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".csv");
+        var wynik = Run("drive", "--out", dobry);
+        Assert.AreEqual(0, wynik.ExitCode, wynik.StdErr);
+        File.WriteAllLines(inny, zmiana(File.ReadAllLines(dobry)));
+        return (dobry, inny);
+    }
+
+    /// <summary>
+    /// Wspolny ksztalt wszystkich czterech odmow: przedrostek `BŁĄD:` i kod 1.
+    /// </summary>
+    /// <remarks>
+    /// 6.A16 ujednolicila KOD wyjscia kazdej odmowy argumentowej. Ksztalt zostal
+    /// nieujednolicony w czterech miejscach `Compare`, ktore pisaly na stderr wprost
+    /// i wracaly `return 1`, omijajac wspolny handler w `Main` — a on jest jedynym
+    /// miejscem dodajacym przedrostek. Ksztalt wyjscia jest wyrocznia dla czytajacego
+    /// log CI i dla `grep`; wyjatek od wzorca psuje go tak samo, jak komunikat
+    /// mowiacy nieprawde psul odmowe przy 6.A22.
+    /// </remarks>
+    /// <remarks>
+    /// Pomocnik sprawdza WYLACZNIE to, co wspolne — kod 1 i przedrostek na poczatku.
+    /// Tresc kazdej z czterech odmow asercjonuje jej wlasny test, w swoim ciele,
+    /// i nie jest to podzial estetyczny: bramka 6.D28 zapalila sie na pierwszej
+    /// wersji tych testow, bo dwie z nich delegowaly do pomocnika WSZYSTKIE asercje
+    /// i mialy ciala bez ani jednej. Test bez asercji w ciele przechodzi takze wtedy,
+    /// gdy pomocnik przestanie cokolwiek sprawdzac.
+    /// </remarks>
+    private static void OdmowaMaWspolnyKsztalt(
+        (int ExitCode, string StdOut, string StdErr) wynik)
+    {
+        Assert.AreEqual(1, wynik.ExitCode, wynik.StdOut);
+        Assert.IsTrue(
+            wynik.StdErr.TrimStart().StartsWith("BŁĄD: ", StringComparison.Ordinal),
+            "przedrostek ma stac na POCZATKU odmowy, nie gdziekolwiek w tresci: "
+            + wynik.StdErr);
+    }
+
+    [TestMethod]
+    public void Rozna_liczba_wierszy_ma_przedrostek_bledu()
+    {
+        var (dobry, krotszy) = DwaPlikiPrzez(w => w[..^3]);
+        try
+        {
+            var wynik = Run("compare", dobry, krotszy);
+            OdmowaMaWspolnyKsztalt(wynik);
+            StringAssert.Contains(wynik.StdErr, "różna liczba wierszy:");
+        }
+        finally
+        {
+            File.Delete(dobry);
+            File.Delete(krotszy);
+        }
+    }
+
+    [TestMethod]
+    public void Zly_naglowek_telemetrii_ma_przedrostek_bledu()
+    {
+        var (dobry, zly) = DwaPlikiPrzez(w =>
+        {
+            var kopia = (string[])w.Clone();
+            kopia[0] = "zly,naglowek";
+            return kopia;
+        });
+        try
+        {
+            var wynik = Run("compare", zly, zly);
+            OdmowaMaWspolnyKsztalt(wynik);
+            StringAssert.Contains(
+                wynik.StdErr, "nagłówki telemetrii nie zgadzają się z formatem rdzenia");
+        }
+        finally
+        {
+            File.Delete(dobry);
+            File.Delete(zly);
+        }
+    }
+
+    /// <summary>
+    /// Trzecia odmowa. Pole „Poza zakresem" 6.A27 wylaczalo ja WARUNKOWO — „jezeli
+    /// pomiar pokaze, ze ona juz przedrostek ma". Pomiar pokazal, ze NIE mial:
+    /// `Console.Error` + `return 1`, tak samo jak dwie wyzej.
+    /// </summary>
+    [TestMethod]
+    public void Zla_liczba_kolumn_ma_przedrostek_bledu()
+    {
+        var (dobry, zly) = DwaPlikiPrzez(w =>
+        {
+            var kopia = (string[])w.Clone();
+            kopia[5] = "1,2,3";
+            return kopia;
+        });
+        try
+        {
+            var wynik = Run("compare", zly, dobry);
+            OdmowaMaWspolnyKsztalt(wynik);
+            StringAssert.Contains(wynik.StdErr, "zła liczba kolumn");
+            StringAssert.Contains(wynik.StdErr, "wiersz 5");
+        }
+        finally
+        {
+            File.Delete(dobry);
+            File.Delete(zly);
+        }
+    }
+
+    /// <summary>
+    /// Czwarta odmowa — ta, o ktorej wpis 6.A27 nie wiedzial wcale. Pozycja mowila
+    /// o DWOCH; pomiar w ciele `Compare` znalazl cztery `Console.Error` + `return 1`.
+    /// </summary>
+    [TestMethod]
+    public void Rozna_faza_scenariusza_ma_przedrostek_bledu()
+    {
+        var (dobry, zly) = DwaPlikiPrzez(w =>
+        {
+            var kopia = (string[])w.Clone();
+            var komorki = kopia[5].Split(',');
+            komorki[^1] = "INNA-FAZA";
+            kopia[5] = string.Join(",", komorki);
+            return kopia;
+        });
+        try
+        {
+            var wynik = Run("compare", zly, dobry);
+            OdmowaMaWspolnyKsztalt(wynik);
+            StringAssert.Contains(wynik.StdErr, "różna faza scenariusza");
+            StringAssert.Contains(wynik.StdErr, "INNA-FAZA");
+        }
+        finally
+        {
+            File.Delete(dobry);
+            File.Delete(zly);
+        }
+    }
+
+    /// <summary>
+    /// Kontrola drugiego kierunku: dwa poprawne pliki nadal koncza sie kodem 0
+    /// i wypisem na STDOUT. Odmowa zbudowana zbyt szeroko odrzucalaby kazde
+    /// porownanie, a cztery testy wyzej nadal bylyby zielone.
+    /// </summary>
+    [TestMethod]
+    public void Dwa_identyczne_pliki_nadal_koncza_sie_kodem_zero()
+    {
+        var (dobry, kopia) = DwaPlikiPrzez(w => w);
+        try
+        {
+            var wynik = Run("compare", dobry, kopia);
+
+            Assert.AreEqual(0, wynik.ExitCode, wynik.StdErr);
+            StringAssert.Contains(wynik.StdOut, "[PORÓWNANIE]");
+            Assert.IsFalse(wynik.StdErr.Contains("BŁĄD", StringComparison.Ordinal),
+                "porownanie dwoch poprawnych plikow wypisalo odmowe: " + wynik.StdErr);
+        }
+        finally
+        {
+            File.Delete(dobry);
+            File.Delete(kopia);
+        }
+    }
 }
