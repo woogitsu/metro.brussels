@@ -1954,6 +1954,113 @@ def test_filtr_nieosiagalnych_ktory_odsial_wszystko_konczy_sie_jedynka():
     assert "kalibracja" not in done.stdout, done.stdout
 
 
+# --- 6.B39: pusty zbior na drodze `--list` -----------------------------------------
+
+def _sweep_6b39(*argv):
+    """Narzedzie wolane jego wlasna droga (`main()`), nie przez import."""
+    return subprocess.run(
+        [sys.executable, os.path.join(ROOT, "tools", "tests", "mutation_sweep.py"),
+         *argv, "--journal",
+         os.path.join(tempfile.gettempdir(), "metro-mutacje-6b39-nieistniejacy.jsonl")],
+        capture_output=True, text=True)
+
+
+def test_only_bez_trafien_z_lista_nie_konczy_sie_zerem():
+    """6.B39: `--list` wychodzila ZEREM takze przy zbiorze pustym.
+
+    Odmowa `brak mutacji do sprawdzenia` stoi ZA galezia `--list`, wiec wypisu nie
+    dotyczyla wcale. Zmierzone 07.09.2026 na `b019436`::
+
+        $ mutation_sweep.py --only tools/nie-ma-takiego-pliku.py --list
+        razem: 0
+        kod: 0
+
+    Przebieg CI, ktory przez literowke zawezil `--only`, dostawal zielone zero
+    i wyglad poprawnego przebiegu, ktory po prostu nie mial co robic.
+    """
+    done = _sweep_6b39("--only", "tools/nie-ma-takiego-pliku.py", "--list")
+
+    assert done.returncode != 0, (done.returncode, done.stdout[-400:])
+    assert "tools/nie-ma-takiego-pliku.py" in done.stderr, done.stderr[-400:]
+    assert "nie dopasowało ani jednego pliku" in done.stderr, done.stderr[-400:]
+    assert "razem: 0" not in done.stdout, done.stdout[-400:]
+
+
+def test_zawezenie_trafione_w_plik_bez_mutacji_nie_mowi_ze_nie_trafilo():
+    """Druga przyczyna pustego zbioru, i do 07.09.2026 komunikat o niej KLAMAL.
+
+    `--only tools/blender/camera_aim.py --operators prog` dopasowuje DOKLADNIE JEDEN
+    plik docelowy i daje zero mutacji, bo ten plik nie ma ani jednego progu. Komunikat
+    mowil wtedy `nie dopasowało ani jednego pliku` — zdanie nieprawdziwe, bo dopasowal
+    dokladnie jeden. To ta sama rodzina usterki co 6.B41: gałąź nazywajaca przyczyne,
+    ktora nie zachodzi.
+
+    Ze to nie przypadek teoretyczny, mowi pomiar z 07.09.2026: modulow bez ani jednej
+    mutacji danej klasy jest od **2** (`operator`) do **36** (`przypisanie`) na **63**
+    cele. Sam licznik mutacji tego nie odroznia, bo `pliki_przebiegu` wyprowadza sie
+    ze zbioru mutacji — zero mutacji znaczy tam zawsze zero modulow.
+    """
+    done = _sweep_6b39("--only", "tools/blender/camera_aim.py",
+                      "--operators", "prog", "--list")
+
+    assert done.returncode != 0, (done.returncode, done.stdout[-400:])
+    assert "dopasowało 1 plik" in done.stderr, done.stderr[-400:]
+    assert "nie dopasowało ani jednego pliku" not in done.stderr, done.stderr[-400:]
+
+
+def test_obie_drogi_podaja_te_sama_przyczyne_tego_samego_stanu():
+    """Wlasnosc, po ktora przyrzad jest JEDEN: `--list` i przebieg pelny nie moga
+    sie roznic w opisie tego samego stanu.
+
+    Do 07.09.2026 roznily sie maksymalnie: jedna wychodzila kodem 0 bez slowa,
+    druga kodem 1 z komunikatem. Rozdzielenie ich dalo by dwa czytniki tych samych
+    licznikow, a dwa czytniki jednej rzeczy rozjezdzaja sie po cichu (6.B28).
+    """
+    z_lista = _sweep_6b39("--only", "tools/blender/camera_aim.py",
+                         "--operators", "prog", "--list")
+    bez_listy = _sweep_6b39("--only", "tools/blender/camera_aim.py",
+                           "--operators", "prog")
+
+    assert z_lista.returncode == bez_listy.returncode, (
+        z_lista.returncode, bez_listy.returncode)
+    assert z_lista.stderr.strip() == bez_listy.stderr.strip(), (
+        z_lista.stderr, bez_listy.stderr)
+
+
+def test_only_z_trafieniami_nadal_konczy_sie_zerem():
+    """Kontrola ujemna z pola „Skonczone, gdy" pozycji, WYKONANA w zestawie.
+
+    Odmowa zbudowana zbyt szeroko wywrocilaby cala droge `--list`, a testy odmowy
+    zostalyby wtedy zielone. Trzy ksztalty zawezenia: katalog, podciag lapiacy dwa
+    moduly (6.D18) i jeden plik.
+    """
+    for wzorzec, ile_celow in (("tools/track/", 19), ("sweep.py", 2),
+                               ("tools/blender/lod_paths.py", 1)):
+        done = _sweep_6b39("--only", wzorzec, "--list")
+
+        assert done.returncode == 0, (wzorzec, done.returncode, done.stderr[-300:])
+        assert f"dopasowało {ile_celow} plik" in done.stdout, (wzorzec, done.stdout[:200])
+        assert "razem: 0" not in done.stdout, (wzorzec, done.stdout[-200:])
+
+
+def test_przyczyna_odroznia_zawezenie_nietrafione_od_trafionego_bez_mutacji():
+    """Sam przyrzad, bez procesu: dwie przyczyny, dwa zdania, ten sam kod.
+
+    Test na FUNKCJI, obok trzech na procesie, i to nie jest powtorzenie: proces
+    dowodzi, ze `main` woła przyrzad w obu galeziach, a to dowodzi, ze przyrzad
+    odroznia stany, ktorych `main` sam nie odrozni — bo `zebrane` jest w obu zerem.
+    """
+    nietrafione, kod_a = sweep.przyczyna_pustego_zbioru(
+        0, None, None, None, only="zmyslony", dopasowane_pliki=0)
+    trafione, kod_b = sweep.przyczyna_pustego_zbioru(
+        0, None, None, None, only="zmyslony", dopasowane_pliki=3)
+
+    assert kod_a == kod_b == sweep.KOD_NIC_DO_LICZENIA, (kod_a, kod_b)
+    assert nietrafione != trafione
+    assert "nie dopasowało ani jednego pliku" in nietrafione, nietrafione
+    assert "dopasowało 3 plik" in trafione, trafione
+
+
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
 # z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
 # tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
