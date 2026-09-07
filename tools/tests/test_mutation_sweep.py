@@ -1172,14 +1172,33 @@ def test_check_one_records_the_commit_it_ran_on():
         assert entry["id"] == mutation.id, entry
 
 
-def _dziennik_z_wpisem(sciezka, commit):
-    return {
+#: Wartownik: `None` jako odcisk znaczy „wpis BEZ tego pola" (dziennik starszy niz
+#: 6.B32), a brak argumentu — „policz prawdziwy odcisk dzisiejszego drzewa".
+_BRAK = object()
+
+
+def _dziennik_z_wpisem(sciezka, commit, odcisk=_BRAK):
+    """Wpis dziennika POPRAWNY na dzisiejszym drzewie, o ile nie zepsuje sie pola.
+
+    **Pole `odcisk` domyslnie prawdziwe, nie stale (6.B32).** Kazdy test tej rodziny
+    psuje DOKLADNIE JEDNO pole — commit albo odcisk — a reszta wpisu ma byc dzisiejsza.
+    Wpis ze stalym odciskiem sprawialby, ze testy 6.B19 wywracalyby sie na odmowie
+    6.B32 i przestalyby mierzyc to, co mierza z nazwy. Zdarzylo sie to przy pisaniu
+    6.B32: `test_resume_still_works_when_the_journal_is_from_the_same_tree` padl
+    z komunikatem o INNEJ TRESCI, a mierzy zgodnosc commita.
+    """
+    if odcisk is _BRAK:
+        odcisk = sweep.odcisk_tresci(sciezka)
+    wpis = {
         "id": "tools/blender/lod_paths.py:28:0", "commit": commit,
         "plik": "tools/blender/lod_paths.py", "wiersz": 28,
         "rozstrzygniete": True, "przezyla": False, "wykonana": True,
         "opis": "wpis testowy", "rodzaj": "operator", "bylo": "==", "jest": "!=",
         "padly": ["jakis_test"], "ile_padlo": 1, "kod": 1,
     }
+    if odcisk is not None:
+        wpis["odcisk"] = odcisk
+    return wpis
 
 
 def test_resume_refuses_a_journal_written_on_another_tree():
@@ -1410,6 +1429,200 @@ def test_the_worktree_probe_can_tell_a_guardless_stub_apart():
         "bez straznika, czyli nie odroznia jej od poprawnej")
     assert wypis.strip() == "", (
         "modul bez straznika mial nie wypisac niczego: " + repr(wypis[-300:]))
+
+
+
+# --- dziennik odroznia dwa przebiegi na TYM SAMYM commicie (6.B32) ---------------
+
+
+def _sweep_z_dziennikiem(journal, *dodatkowe):
+    return subprocess.run(
+        [sys.executable, os.path.join(ROOT, "tools", "tests", "mutation_sweep.py"),
+         "--only", "tools/blender/lod_paths.py", "--journal", journal, "--list",
+         *dodatkowe],
+        capture_output=True, text=True, timeout=300)
+
+
+def _biezacy_commit():
+    return subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT,
+                          capture_output=True, text=True, check=True).stdout.strip()
+
+
+def test_resume_refuses_a_journal_written_on_other_content_of_the_same_commit():
+    """Sedno 6.B32, i to jest przypadek, ktorego odmowa z 6.B19 NIE WIDZI.
+
+    6.B19 dopisala do wpisu `commit` i odmawia, gdy dziennik niesie inny commit. Przy
+    niezacommitowanej zmianie — a `--dirty` jest po to, zeby takie przebiegi robic —
+    commit jest w obu przebiegach TEN SAM, a tresc mutowanego pliku juz nie. 6.B19
+    nazwala to wprost jako to, czego nie lapie.
+
+    Wpis ma wiec commit DZISIEJSZY (zeby odmowa z 6.B19 nie zadzialala i nie zaslonila
+    pomiaru) i odcisk cudzy. Odmowa ma nazwac PLIK i OBA odciski, bo przy `--only` na
+    katalog rozjazd dotyczy zwykle jednego modulu z kilkunastu.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        journal = os.path.join(tmp, "dziennik.jsonl")
+        with open(journal, "w", encoding="utf-8") as handle:
+            handle.write(json.dumps(_dziennik_z_wpisem(
+                "tools/blender/lod_paths.py", _biezacy_commit(),
+                odcisk="0123456789abcdef")) + "\n")
+
+        done = _sweep_z_dziennikiem(journal)
+
+        assert done.returncode == 2, (done.stdout, done.stderr)
+        assert "INNEJ TRESCI" in done.stderr, done.stderr
+        assert "0123456789abcdef" in done.stderr, done.stderr
+        assert "tools/blender/lod_paths.py" in done.stderr, done.stderr
+        # Odmowa 6.B19 NIE zadzialala: commit sie zgadza, wiec komunikat o innym
+        # drzewie nie ma prawa sie tu pojawic. Bez tej asercji test przechodzilby
+        # takze wtedy, gdyby lapala go tamta odmowa — i mierzylby cudza prace.
+        assert "innego drzewa" not in done.stderr, done.stderr
+
+
+def test_resume_refuses_a_journal_entry_without_the_content_fingerprint():
+    """Wpis BEZ pola `odcisk` jest starszy niz 6.B32 i nie da sie go zweryfikowac.
+
+    Ta sama zasada, ktora 6.B19 postawila dla wpisu bez pola `commit`: milczaca zgoda
+    wpuscilaby cudzy wynik pod dzisiejsza mutacje. Dziennik z przed tej poprawki jest
+    wiec obcy — i lepiej, zeby narzedzie odmowilo, niz zeby policzylo go jako swoj.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        journal = os.path.join(tmp, "dziennik.jsonl")
+        with open(journal, "w", encoding="utf-8") as handle:
+            handle.write(json.dumps(_dziennik_z_wpisem(
+                "tools/blender/lod_paths.py", _biezacy_commit(), odcisk=None)) + "\n")
+
+        done = _sweep_z_dziennikiem(journal)
+
+        assert done.returncode == 2, (done.stdout, done.stderr)
+        assert "INNEJ TRESCI" in done.stderr, done.stderr
+        assert "None" in done.stderr, (
+            "odmowa nie pokazuje, ze wpis nie ma odcisku wcale: " + done.stderr)
+
+
+def test_resume_still_works_when_the_content_matches():
+    """Kontrola drugiego kierunku, i to ONA jest tu wazniejsza od odmow wyzej.
+
+    Straznik, ktory odrzuca kazdy dziennik, przeszedlby polowe tego zadania i nazywalby
+    sie gotowy. Wpis z dzisiejszym commitem I dzisiejszym odciskiem ma dalej wznawiac.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        journal = os.path.join(tmp, "dziennik.jsonl")
+        with open(journal, "w", encoding="utf-8") as handle:
+            handle.write(json.dumps(_dziennik_z_wpisem(
+                "tools/blender/lod_paths.py", _biezacy_commit())) + "\n")
+
+        done = _sweep_z_dziennikiem(journal)
+
+        assert done.returncode == 0, (done.stdout, done.stderr)
+        assert "PRZERWANE" not in done.stderr, done.stderr
+        assert "wznowienie" in done.stdout, done.stdout
+
+
+def test_the_fingerprint_reads_the_working_tree_not_the_worker_copy():
+    """**Odcisk MUSI byc liczony z drzewa roboczego** — i to jest cala rzecz 6.B32.
+
+    `collect` liczy mutacje z drzewa roboczego (`open(path)` wzgledem `ROOT`), a
+    `check_one` stosuje je na kopii `git worktree add --detach HEAD`. Te dwa zrodla sa
+    tym samym plikiem dopoki drzewo jest czyste, i ROZNYMI plikami przy `--dirty`.
+    Odcisk liczony z kopii robotnika mialby wiec wartosc commita: bylby slepy dokladnie
+    na przypadek, dla ktorego powstal.
+
+    Test mierzy to bez zakladania drzewa roboczego: `odcisk_tresci` czyta plik pod
+    `ROOT`, wiec zmiana pliku w drzewie roboczym MUSI zmienic odcisk, mimo ze `HEAD`
+    stoi w miejscu.
+    """
+    plik = "tools/blender/lod_paths.py"
+    pelna = os.path.join(ROOT, plik)
+    commit_przed = _biezacy_commit()
+    with open(pelna, encoding="utf-8") as uchwyt:
+        oryginal = uchwyt.read()
+    przed = sweep.odcisk_tresci(plik)
+    try:
+        with open(pelna, "w", encoding="utf-8") as uchwyt:
+            uchwyt.write(oryginal + "\n# 6.B32: zmiana bez commita\n")
+        po = sweep.odcisk_tresci(plik)
+    finally:
+        with open(pelna, "w", encoding="utf-8") as uchwyt:
+            uchwyt.write(oryginal)
+
+    assert sweep.odcisk_tresci(plik) == przed, "przywrocenie pliku sie nie udalo"
+    assert po != przed, (
+        "odcisk nie zmienil sie po zmianie pliku w drzewie roboczym — czytnik siega "
+        "gdzie indziej niz `collect`")
+    assert _biezacy_commit() == commit_przed, (
+        "commit sie zmienil, wiec test nie mierzy tego, co obiecuje")
+
+
+def test_the_fingerprint_is_computed_once_per_file_not_once_per_mutation():
+    """Koszt: raz na PLIK, nie raz na mutacje — i to jest asercja o kodzie, nie o czasie.
+
+    Czas mierzy sie osobno (0,045 s na 2346 mutacji, raport §2) i nie da sie z niego
+    zrobic bramki: prog czasowy na tak malej liczbie jest szumem. To, co da sie przybic,
+    to KSZTALT — `odciski_przebiegu` zwraca slownik po plikach, a `main` wola go raz.
+    """
+    pliki = ["tools/blender/lod_paths.py", "tools/blender/lod_paths.py",
+             "tools/track/build_alignment.py"]
+    odciski = sweep.odciski_przebiegu(pliki)
+
+    assert set(odciski) == set(pliki), odciski
+    assert len(odciski) == 2, (
+        "powtorzona sciezka policzona dwa razy: " + repr(odciski))
+    for path, wartosc in odciski.items():
+        assert len(wartosc) == sweep.ODCISK_ZNAKOW, (path, wartosc)
+        assert wartosc == sweep.odcisk_tresci(path), path
+
+    zrodlo = open(os.path.join(ROOT, "tools", "tests", "mutation_sweep.py"),
+                  encoding="utf-8").read()
+    kod = "\n".join(w for w in zrodlo.splitlines() if not w.strip().startswith("#"))
+    assert kod.count("odciski_przebiegu(") == 2, (
+        "`odciski_przebiegu` ma byc DEFINIOWANE raz i WOLANE raz — inaczej odcisk "
+        "wraca do liczenia raz na mutacje: " + str(kod.count("odciski_przebiegu(")))
+
+
+
+def test_the_fingerprint_refusal_names_the_dirty_tree_when_that_is_the_cause():
+    """Znalezisko na WLASNEJ poprawce: odmowa odciskow zaslaniala jasniejszy komunikat.
+
+    Odmowa odciskow stoi w `main` PRZED `dirty_sources`, bo musi dzialac takze dla
+    `--list` — tamta odmowa jest za galezia `--list`. Skutek, zmierzony: przy brudnym
+    drzewie BEZ `--dirty` czytajacy dostawal komunikat o DZIENNIKU, choc prawdziwym
+    problemem byla jego wlasna niezacommitowana zmiana, a jasniejszy komunikat
+    `dirty_sources` nie dochodzil do glosu wcale.
+
+    Przestawienie kolejnosci nie jest rozwiazaniem: zdjeloby odmowe odciskow z drogi
+    `--list`, czyli z jedynej taniej drogi, ktora ja sprawdza. Komunikat NAZYWA wiec
+    druga mozliwa przyczyne — i tylko wtedy, gdy ona faktycznie zachodzi.
+    """
+    plik = "tools/blender/lod_paths.py"
+    # 1. brudne drzewo bez `--dirty` -> zdanie jest, i wymienia plik z nazwy.
+    zdanie = sweep.brudne_wyjasnienie([plik], dirty_flag=False)
+    pelna = os.path.join(ROOT, plik)
+    with open(pelna, encoding="utf-8") as uchwyt:
+        oryginal = uchwyt.read()
+    try:
+        with open(pelna, "w", encoding="utf-8") as uchwyt:
+            uchwyt.write(oryginal + "\n# 6.B32: zmiana bez commita\n")
+        brudne = sweep.brudne_wyjasnienie([plik], dirty_flag=False)
+        # 2. z `--dirty` przebieg jest ZAMIERZONY, wiec zdania nie ma — inaczej
+        #    komunikat radzilby zacommitowac to, co ktos swiadomie zostawil.
+        z_dirty = sweep.brudne_wyjasnienie([plik], dirty_flag=True)
+    finally:
+        with open(pelna, "w", encoding="utf-8") as uchwyt:
+            uchwyt.write(oryginal)
+
+    assert "niezacommitowane zmiany" in brudne, brudne
+    assert plik in brudne, brudne
+    assert "--dirty" in brudne, brudne
+    assert z_dirty == "", (
+        "przy --dirty komunikat radzi zacommitowac zmiane, ktora ktos zostawil "
+        "swiadomie: " + z_dirty)
+    # 3. drzewo czyste -> zdania nie ma; bez tego kierunku zdanie dopisywane zawsze
+    #    byloby szumem przy dzienniku z innego drzewa.
+    assert zdanie == "", (
+        "zdanie o brudnym drzewie dopisane przy drzewie czystym: " + zdanie)
+    assert sweep.brudne_wyjasnienie([plik], dirty_flag=False) == "", (
+        "przywrocenie pliku sie nie udalo")
 
 
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
