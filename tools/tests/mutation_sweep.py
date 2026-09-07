@@ -1373,6 +1373,35 @@ def main() -> int:
         parser.error(f"nieznane klasy mutacji: {unknown_kinds or ['(pusto)']}; "
                      f"dozwolone: {', '.join(KINDS)}")
 
+    # 6.D37: `--only ""` to ZLE WYWOLANIE, nie puste zawezenie — i do 07.09.2026
+    # przechodzilo w milczeniu. Pusty napis jest falszywy dla `if args.only`, wiec
+    # nie wchodzil ani filtr, ani wypis „dopasowalo N plikow", ani odmowa z 6.B39:
+    # przebieg robil PELNY przeglad (2346 mutacji zamiast 2 dla typowego triazu
+    # jednego modulu, czyli 1173x wiecej pracy) i wygladal przy tym na zawezony,
+    # bo wolajacy o zawezenie prosil.
+    #
+    # Ze to nie jest przypadek teoretyczny, mowi pomiar 07.09.2026: w `reports/`
+    # stoja DWIE petle podstawiajace zmienna do `--only`. Ich zachowanie sie ROZNI
+    # i tylko jedna wymaga tej odmowy:
+    #   `--only "$m"`  (mutation-drift.md:455)         -> `--only ""`, kod 0, pelny
+    #                                                     przeglad w milczeniu
+    #   `--only $f`    (mutation-triage-fizyka.md:173) -> argument znika, a argparse
+    #                                                     JUZ odmawia: `expected one
+    #                                                     argument`, kod 2
+    # Druga postac jest wiec chroniona od zawsze, pierwsza nie byla przez nic.
+    #
+    # Kod 2, nie 1: to nie „nie ma czego liczyc" (`KOD_NIC_DO_LICZENIA`, gdzie zbior
+    # jest pusty z powodu, ktory przebieg umie nazwac), a bledne wywolanie — i taki
+    # sam kod daje argparse dla drugiej postaci tej samej pomylki. Jedna pomylka,
+    # jeden kod, niezaleznie od tego, czy cudzyslow ocalal.
+    if "--only" in sys.argv and not args.only:
+        parser.error(
+            "--only '' nie jest zawężeniem: pusty wzorzec przepuszcza WSZYSTKIE "
+            f"{len(targets())} plików docelowych, czyli robi pełny przegląd. "
+            "Jeżeli chodziło o przebieg bez zawężenia — nie podawaj --only wcale; "
+            "jeżeli wzorzec bierze się z podstawienia zmiennej, sprawdź, czy nie "
+            "jest pusta.")
+
     # Commit policzony TUTAJ, a nie tuż przed raportem: nazwa domyślnego dziennika
     # go zawiera, bo przebiegi z różnych drzew mierzą co innego.
     commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT,

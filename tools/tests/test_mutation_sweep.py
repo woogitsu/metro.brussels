@@ -2348,6 +2348,59 @@ def test_pamiec_uniewaznia_sie_takze_przy_zmianie_BEZ_ani_jednej_mutacji():
         "dopisek bez mutacji zmienil liste — zmienil sie pomiar, nie test")
 
 
+# --- 6.D37: puste zawezenie ------------------------------------------------------
+
+def test_only_z_pustym_wzorcem_jest_odmowa_a_nie_pelny_przeglad():
+    """6.D37: `--only ""` przechodzilo w milczeniu i robilo PELNY przeglad.
+
+    Pusty napis jest falszywy dla `if args.only`, wiec nie wchodzil ani filtr, ani
+    wypis „dopasowalo N plikow", ani odmowa z 6.B39. Zmierzone 07.09.2026:
+    **2346 mutacji zamiast 2** dla typowego triazu jednego modulu, czyli **1173x**
+    wiecej pracy — i przebieg wygladal przy tym na zawezony, bo wolajacy o zawezenie
+    prosil. Ta sama rodzina co 6.B39, odwrocona: tam zbior byl pusty, tu jest pelny.
+    """
+    done = _sweep_6b39("--only", "", "--list")
+
+    assert done.returncode != 0, (done.returncode, done.stdout[-300:])
+    assert "--only" in done.stderr, done.stderr[-400:]
+    assert "razem: 2346" not in done.stdout, done.stdout[-200:]
+
+
+def test_przebieg_BEZ_only_zostaje_niezmieniony():
+    """Kontrola ujemna z pola „Skonczone, gdy": odmowa nie moze objac przebiegu,
+    ktory o zawezenie nie prosil.
+
+    Odmowa kluczuje po `"--only" in sys.argv`, a NIE po samej falszywosci
+    `args.only` — bo obie sytuacje daja pusty napis, a tylko jedna jest pomylka.
+    Bez tego testu odmowa zbudowana na falszywosci przeszlaby test wyzej i zablokowala
+    kazdy przebieg pelny, czyli droge, ktora `reports/` wola siedem razy.
+    """
+    done = _sweep_6b39("--list")
+
+    assert done.returncode == 0, (done.returncode, done.stderr[-300:])
+    assert "razem:" in done.stdout, done.stdout[-200:]
+
+
+def test_dwie_postacie_tej_samej_pomylki_daja_ten_sam_kod():
+    """Podstawienie pustej zmiennej ma DWIE postacie i tylko jedna byla chroniona.
+
+    Zmierzone 07.09.2026 na dwoch prawdziwych petlach w `reports/`::
+
+        --only "$m"   (mutation-drift.md:455)          -> --only ''
+        --only $f     (mutation-triage-fizyka.md:173)  -> argument znika
+
+    Druga postac argparse odmawia od zawsze (`expected one argument`, kod 2);
+    pierwsza nie byla chroniona przez nic. Po 6.D37 obie daja **ten sam kod**, bo
+    jedna pomylka nie ma prawa dawac dwoch roznych odpowiedzi zaleznie od tego, czy
+    cudzyslow ocalal.
+    """
+    w_cudzyslowie = _sweep_6b39("--only", "", "--list")
+    bez_cudzyslowu = _sweep_6b39("--only", "--workers", "4", "--list")
+
+    assert w_cudzyslowie.returncode == bez_cudzyslowu.returncode == 2, (
+        w_cudzyslowie.returncode, bez_cudzyslowu.returncode)
+
+
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
 # z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
 # tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
