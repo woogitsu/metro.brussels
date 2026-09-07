@@ -1052,4 +1052,79 @@ public sealed class RunnerCommandTests
             }
         }
     }
+
+    // --- powtorzona opcja jest odmowa, nie nadpisaniem (6.A23) -------------------
+
+    /// <summary>
+    /// Sedno 6.A23. Do 07.09.2026 `--limit-kmh 72 --limit-kmh 50` jechalo **72**,
+    /// a odwrotna kolejnosc **50** — oba kodem 0 i bez ani jednego zdania o tym, ze
+    /// druga wartosc zniknela. `Option` szuka pierwszego wystapienia i nie patrzy
+    /// dalej. Wartosc skuteczna nie byla niewidoczna (`[LINIA]` ja podaje, zasluga
+    /// 6.A5/6.A6), ale czytajacy nie mial powodu przypuszczac, ze wiersz polecen
+    /// mowil takze 50.
+    /// </summary>
+    [TestMethod]
+    public void Powtorzona_opcja_konczy_sie_odmowa()
+    {
+        var result = Run(
+            "line", "--axis", "data/track/L1_A.json", "--limit-kmh", "72",
+            "--limit-kmh", "50", "--exchange-s", "20");
+
+        Assert.AreEqual(1, result.ExitCode);
+        StringAssert.Contains(result.StdErr, "--limit-kmh");
+        StringAssert.Contains(result.StdErr, "więcej niż raz");
+    }
+
+    /// <summary>
+    /// Odwrotna kolejnosc, bo do tej pozycji wygrywala PIERWSZA wartosc — czyli obie
+    /// kolejnosci dawaly INNY przejazd, oba kodem 0. Test na jednej kolejnosci
+    /// przeszedlby rowniez dla poprawki, ktora odmawia tylko przy malejacych
+    /// wartosciach albo w innym takim przypadkowym ukladzie.
+    /// </summary>
+    [TestMethod]
+    public void Powtorzona_opcja_odmawia_w_obu_kolejnosciach()
+    {
+        var result = Run(
+            "line", "--axis", "data/track/L1_A.json", "--limit-kmh", "50",
+            "--limit-kmh", "72", "--exchange-s", "20");
+
+        Assert.AreEqual(1, result.ExitCode);
+        StringAssert.Contains(result.StdErr, "więcej niż raz");
+    }
+
+    /// <summary>
+    /// Kontrola drugiego kierunku: opcja podana RAZ przechodzi nietknieta. Ta pozycja
+    /// nie ma prawa tknac przejazdu, a odmowa zbudowana zbyt szeroko odrzucalaby
+    /// kazda komende i testy wyzej nadal bylyby zielone.
+    /// </summary>
+    [TestMethod]
+    public void Opcja_podana_raz_nadal_przechodzi()
+    {
+        var result = Run(
+            "line", "--axis", Path.Combine(RepoRoot(), "data", "track", "L1_A.json"),
+            "--limit-kmh", "72", "--exchange-s", "20");
+
+        Assert.AreEqual(0, result.ExitCode, result.StdErr);
+        StringAssert.Contains(result.StdOut, "[LINIA]");
+    }
+
+    /// <summary>
+    /// FLAGA powtorzona przechodzi i to jest pole „Poza zakresem" tej pozycji, nie
+    /// przeoczenie: `--atp --atp` znaczy dokladnie to samo, co `--atp`, wiec nie ginie
+    /// tam zadna wartosc. Test przybija te granice, zeby jej pozniejsze przesuniecie
+    /// bylo widoczne, a nie ciche.
+    /// </summary>
+    [TestMethod]
+    public void Powtorzona_flaga_nie_jest_odmowa()
+    {
+        var result = Run(
+            "budget", "--axis", Path.Combine(RepoRoot(), "data", "track", "L1_A.json"),
+            "--signalling", Path.Combine(
+                RepoRoot(), "data", "design", "signalling", "classic-2026.json"),
+            "--limit-kmh", "72", "--exchange-s", "20", "--headway-s", "90",
+            "--trains", "2", "--steps", "100", "--atp", "--atp");
+
+        Assert.AreEqual(0, result.ExitCode, result.StdErr);
+        StringAssert.Contains(result.StdOut, "ATP=tak");
+    }
 }

@@ -179,6 +179,12 @@ public static class Program
             return;
         }
 
+        // Opcje z wartoscia widziane w tym wierszu polecen — do wykrycia powtorzenia
+        // (6.A23). FLAG to NIE dotyczy i jest to pole „Poza zakresem" tamtej pozycji:
+        // `--atp --atp` znaczy dokladnie to samo, co `--atp`, wiec nie ginie tam zadna
+        // wartosc; sprawdzone uruchomieniem (kod 0 przed zmiana i po niej).
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
         for (var i = 1; i < args.Length; i++)
         {
             var token = args[i];
@@ -206,6 +212,31 @@ public static class Program
 
             if (Array.IndexOf(known.Values, token) >= 0)
             {
+                // Powtorzona opcja jest ODMOWA, nie nadpisaniem (6.A23). `Option`
+                // szuka PIERWSZEGO wystapienia i nie patrzy dalej, wiec do 07.09.2026
+                // `--limit-kmh 72 --limit-kmh 50` jechalo 72, a odwrotna kolejnosc 50,
+                // oba kodem 0 i bez ani jednego zdania o tym, ze druga wartosc
+                // zniknela. Wartosc skuteczna nie byla niewidoczna — `[LINIA]`
+                // i `[ZALOZENIE]` ja podaja, to zasluga 6.A5/6.A6 — ale czytajacy
+                // widzial 72 i nie mial powodu przypuszczac, ze wiersz polecen mowil
+                // takze 50. Od 6.A20 nastawy ida rowniez do plikow z `--out`, wiec ta
+                // sama luka byla w artefakcie, ktory PRZEZYWA proces.
+                //
+                // Odmowa, a nie wypis o nadpisaniu: jest spojna z 6.A16 („kazda odmowa
+                // argumentowa = 1") i wolno ja tu postawic, bo ZMIERZONE — w calym
+                // repozytorium nie ma ani jednej komendy podajacej `Sim.Runner` tej
+                // samej opcji dwa razy. Cztery dopasowania, ktore znalazl licznik, to
+                // proza raportow i pole „Weryfikacja" tej pozycji; `--no-build` stoi
+                // PRZED separatorem `--`, wiec jest flaga `dotnet run`.
+                // Pomiar: `reports/powtorzona-opcja.md`.
+                if (!seen.Add(token))
+                {
+                    throw new ArgumentException(
+                        $"polecenie {command} dostało opcję {token} więcej niż raz. "
+                        + "Wygrałaby pierwsza wartość, a pozostałe zniknęłyby bez słowa "
+                        + "— podaj ją dokładnie raz");
+                }
+
                 i++;
                 continue;
             }

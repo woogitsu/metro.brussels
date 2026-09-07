@@ -245,6 +245,32 @@ def test_no_message_writes_a_known_option_in_the_equals_form():
         "komunikat albo kod pisze znana opcje w postaci z rownoscia, ktorej runner "
         "nie przyjmuje: " + repr(sorted(set(winne))))
 
+def test_the_refusal_catches_a_repeated_value_option_but_not_a_repeated_flag():
+    """Powtorzona opcja z wartoscia jest odmowa; powtorzona FLAGA nie (6.A23).
+
+    `Option` bierze PIERWSZE wystapienie, wiec do 6.A23 druga wartosc znikala bez
+    slowa — a od 6.A20 nastawy ida rowniez do plikow z `--out`, czyli ta sama luka
+    byla w artefakcie, ktory przezywa proces. Flaga to inna sprawa i jest to pole
+    „Poza zakresem" tamtej pozycji: `--atp --atp` znaczy to samo, co `--atp`, wiec
+    nie ginie zadna wartosc. Bramka pilnuje OBU polowek, bo przesuniecie tej granicy
+    ma byc widoczne, a nie ciche.
+    """
+    source = _source()
+    at = source.index("private static void RejectUnknownOptions")
+    body = source[at:source.index("\n    private static int Unknown", at)]
+    assert "new HashSet<string>(StringComparer.Ordinal)" in body, (
+        "odmowa nie pamieta, ktore opcje juz byly w tym wierszu polecen")
+    assert body.count("seen.Add(token)") == 1, (
+        "zbior widzianych opcji ma byc dotykany dokladnie w JEDNYM miejscu — "
+        "w galezi opcji z wartoscia, nie w galezi flagi")
+    galaz_flagi = body[body.index("Array.IndexOf(known.Flags, token)"):]
+    assert "seen" not in galaz_flagi, (
+        "galaz flagi dotyka zbioru widzianych opcji — powtorzona flaga zaczelaby "
+        "byc odmowa, a to jest poza zakresem 6.A23")
+    assert "wiecej niz raz".replace("wiecej", "więcej").replace("niz", "niż") in body, (
+        "brak komunikatu o powtorzeniu")
+
+
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
 # z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
 # tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
