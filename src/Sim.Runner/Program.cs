@@ -769,15 +769,21 @@ public static class Program
 
         if (left.Length != right.Length)
         {
-            Console.Error.WriteLine($"różna liczba wierszy: {left.Length} vs {right.Length}");
-            return 1;
+            // 6.A27: wyjatek, nie `Console.Error` + `return 1`. Kod wyjscia byl juz
+            // dobry — ujednolicila go 6.A16 — ale KSZTALT wyjscia nie: przedrostka
+            // `BLAD: ` dodaje wspolny handler w `Main`, a te odmowy go omijaly.
+            // Ksztalt jest wyrocznia dla czytajacego log CI i dla `grep`; wyjatek od
+            // wzorca psuje go tak samo, jak komunikat mowiacy nieprawde psul odmowe
+            // przy 6.A22. Tresc bez zmian, to pole „Poza zakresem" tej pozycji.
+            throw new ArgumentException(
+                $"różna liczba wierszy: {left.Length} vs {right.Length}");
         }
 
         if (!string.Equals(left[0], right[0], StringComparison.Ordinal) ||
             !string.Equals(left[0], DriveTelemetry.Header, StringComparison.Ordinal))
         {
-            Console.Error.WriteLine("nagłówki telemetrii nie zgadzają się z formatem rdzenia");
-            return 1;
+            throw new ArgumentException(
+                "nagłówki telemetrii nie zgadzają się z formatem rdzenia");
         }
 
         var worst = new double[DriveTelemetry.ColumnCount - 1];
@@ -801,14 +807,18 @@ public static class Program
             var b = right[i].Split(',');
             if (a.Length != DriveTelemetry.ColumnCount || b.Length != DriveTelemetry.ColumnCount)
             {
-                Console.Error.WriteLine($"wiersz {i}: zła liczba kolumn");
-                return 1;
+                // Trzecia i czwarta odmowa tej petli. Pole „Poza zakresem" 6.A27
+                // wylaczalo je WARUNKOWO — „jezeli pomiar pokaze, ze ona juz
+                // przedrostek ma". Pomiar pokazal, ze NIE ma: `Console.Error` +
+                // `return 1`, tak samo jak dwie wyzej. Warunek nie zaszedl, wiec
+                // pozycja obejmuje cztery odmowy, nie dwie.
+                throw new ArgumentException($"wiersz {i}: zła liczba kolumn");
             }
 
             if (!string.Equals(a[^1], b[^1], StringComparison.Ordinal))
             {
-                Console.Error.WriteLine($"wiersz {i}: różna faza scenariusza ({a[^1]} vs {b[^1]})");
-                return 1;
+                throw new ArgumentException(
+                    $"wiersz {i}: różna faza scenariusza ({a[^1]} vs {b[^1]})");
             }
 
             for (var c = 0; c < DriveTelemetry.ColumnCount - 1; c++)
