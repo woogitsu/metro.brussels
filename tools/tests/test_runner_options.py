@@ -25,6 +25,7 @@ robi to, co obiecuje jej nazwa — to jest praca testow C#.
 """
 import os
 import re
+import subprocess
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 PROGRAM = os.path.join(ROOT, "src", "Sim.Runner", "Program.cs")
@@ -374,6 +375,265 @@ def test_the_refusal_counts_positional_members_against_the_table():
         "odmowa nie czyta liczby czlonow pozycyjnych z tabeli")
     assert "człon pozycyjny" in body, (
         "odmowa nie nazywa czlonu pozycyjnego po imieniu")
+
+
+# --- pomiar, na ktorym stoi decyzja 6.A22, jest pilnowany (6.A26) ----------------
+
+#: Postac `--opcja=wartosc`. Sam przedrostek z rownoscia, bez wartosci — bo `--out=`
+#: z pusta wartoscia jest ta sama postacia i ma sie liczyc.
+POSTAC_Z_ROWNOSCIA = re.compile(r"--[a-z0-9][a-z0-9-]*=")
+
+#: Komenda wolajaca `Sim.Runner`. Dwie postaci, obie ZMIERZONE w drzewie
+#: (`git grep`): `dotnet run --project src/Sim.Runner` (89 trafien) i wolanie DLL
+#: wprost (4 trafienia, w tym trzy sciezki `bin/Release/...`).
+WOLANIE_RUNNERA = re.compile(
+    r"dotnet run\s+--project\s+src/Sim\.Runner|MetroBxl\.Sim\.Runner\.dll")
+
+#: Komenda wolajaca SCENE Godota. Scena postaci z rownoscia WYMAGA — taki jest jej
+#: `RunPlan`, przybity testami w `tests/Game.Tests` — wiec bramka, ktora by ja
+#: zglaszala, zostalaby wylaczona w tym samym tygodniu. Dlatego scena jest wykrywana
+#: PIERWSZA i wygrywa z wykryciem runnera: wiersz niosacy oba markery jest proza
+#: o dwoch polowach projektu, nie komenda runnera.
+WOLANIE_SCENY = re.compile(r"GODOT_BIN|--path\s+src/Game")
+
+#: Rozszerzenia plikow, ktore moga niesc komende. Binarne i zasoby odsiane, zeby
+#: bramka nie zalezala od tego, co `git ls-files` wypisze po dodaniu nowego formatu.
+ROZSZERZENIA = (".yml", ".yaml", ".md", ".sh", ".py", ".cs", ".txt", ".json")
+
+#: Komendy runnera w postaci z rownoscia, ktore MAJA tam stac, z powodem przy kazdej.
+#: Klucz to (sciezka, fragment komendy) — nie numer wiersza, bo numer przesuwa kazdy
+#: commit dopisujacy cokolwiek wyzej w pliku, a wtedy bramka zapalalaby sie na tekscie
+#: poprawnym i zostalaby wylaczona (nauczka 6.D27).
+USPRAWIEDLIWIENIA = {
+    ("docs/TASKS.md", "line --axis data/track/L1_A.json"):
+        "pole `Weryfikacja` pozycji 6.A22 — komenda, ktorej CALYM sensem jest "
+        "pokazanie odmowy dla postaci z rownoscia. Gdyby ja przepisac na dwa czlony, "
+        "pozycja przestalaby weryfikowac to, co zrobila.",
+}
+
+
+def _sklej_kontynuacje(tekst):
+    """Wiersze polaczone znakiem `\\` na koncu -> jeden wiersz logiczny.
+
+    Bez tego klasyfikacja jest nieprawdziwa w te sama strone, w ktora klamie kazdy
+    zly przyrzad tej sesji — w strone „wszystko w porzadku". Komenda CI lamana na
+    trzy wiersze niesie `dotnet run --project src/Sim.Runner` w pierwszym, a
+    `--limit-kmh=72` w drugim; liczone osobno, drugi wiersz nie ma zadnego markera
+    i wpada do prozy.
+
+    Zwraca listy `(numer pierwszego wiersza, tresc)`.
+    """
+    out, buf, start = [], "", None
+    for numer, linia in enumerate(tekst.splitlines(), 1):
+        if start is None:
+            start = numer
+        goly = linia.rstrip()
+        if goly.endswith("\\"):
+            buf += goly[:-1] + " "
+            continue
+        out.append((start, buf + goly))
+        buf, start = "", None
+    if buf:
+        out.append((start or 1, buf))
+    return out
+
+
+def _pliki_repozytorium():
+    wypis = subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True,
+                           text=True, check=True).stdout
+    return [p for p in wypis.split("\n") if p.endswith(ROZSZERZENIA)]
+
+
+def klasyfikacja_rownosci():
+    """Kazde wystapienie postaci `--opcja=` podzielone po WOLANYM programie.
+
+    Zwraca `(liczby, komendy_runnera)`, gdzie `liczby` to
+    `{"razem", "runner", "scena", "proza"}`, a `komendy_runnera` to lista
+    `(sciezka, numer wiersza, tresc)`.
+    """
+    liczby = {"razem": 0, "runner": 0, "scena": 0, "proza": 0}
+    komendy = []
+    for sciezka in _pliki_repozytorium():
+        pelna = os.path.join(ROOT, sciezka)
+        try:
+            with open(pelna, encoding="utf-8") as uchwyt:
+                tekst = uchwyt.read()
+        except (UnicodeDecodeError, FileNotFoundError, IsADirectoryError):
+            continue
+        for numer, wiersz in _sklej_kontynuacje(tekst):
+            ile = len(POSTAC_Z_ROWNOSCIA.findall(wiersz))
+            if not ile:
+                continue
+            liczby["razem"] += ile
+            if WOLANIE_SCENY.search(wiersz):
+                liczby["scena"] += ile
+            elif WOLANIE_RUNNERA.search(wiersz):
+                liczby["runner"] += ile
+                komendy.append((sciezka, numer, wiersz.strip()))
+            else:
+                liczby["proza"] += ile
+    return liczby, komendy
+
+
+#: Prog na LACZNA liczbe wystapien. Bez niego literowka we wzorcu daje zero komend
+#: runnera i zielono — dokladnie ten sposob, w ktory bramka klamie w strone „wszystko
+#: w porzadku"; kontrola KN-B to wykonala.
+#:
+#: Zmierzone 07.09.2026, trzy razy, kazdy raz na nazwanym drzewie:
+#:   409 / 1 / 99 / 309   `main` przed 6.A25 i przed ta bramka
+#:   419 / 1 / 99 / 319   ta galaz przed przestawieniem na `main` z 6.A25
+#:   426 / 1 / 100 / 325  ta galaz po przestawieniu — stan do scalenia
+#: Caly przyrost jest rozliczony po plikach: +1 w `docs/TASKS.md` (wiersze 6.A25
+#: i 6.A26), +5 w `reports/pomiar-rownosci.md`, +11 w TYM pliku (klasyfikator i jego
+#: kontrole, 4 -> 15). Bramka, ktora liczy takze siebie, ma to powiedziec wprost —
+#: inaczej pierwszy commit dopisujacy do niej test wygladalby jak wzrost liczby
+#: komend w repozytorium.
+#:
+#: Prog stoi nizej niz pomiar, bo proza rosnie i maleje razem z raportami; ma lapac
+#: zejscie do zera, nie wahanie o kilkadziesiat.
+MINIMUM_WYSTAPIEN_ROWNOSCI = 250
+
+
+def test_no_runner_command_in_the_repository_uses_the_equals_form():
+    """Pomiar, na ktorym stoi decyzja 6.A22, jest PILNOWANY, a nie zapisany raz.
+
+    **To jest sprostowanie do wlasnego raportu.** §10 `reports/postac-z-rownosciem.md`
+    napisal, ze gdyby komenda CI zaczela tej postaci uzywac wobec runnera, „bramka
+    z §5 pokaze to jako FAIL, zamiast czekac na czyjes oko". Nieprawda: bramka z §5
+    (`test_no_message_writes_a_known_option_in_the_equals_form`) czyta WYLACZNIE
+    `src/Sim.Runner/Program.cs`. Komenda w `.github/workflows/*.yml` albo w `docs/`
+    byla poza jej zasiegiem.
+
+    6.A22 odrzucila postac `--opcja=wartosc` na podstawie pomiaru — decyzja jest dobra
+    dokladnie tak dlugo, jak dlugo pomiar jest prawdziwy. Ta bramka mierzy go po
+    kazdym commicie.
+    """
+    liczby, komendy = klasyfikacja_rownosci()
+    nieuzasadnione = [
+        (p, nr, w) for p, nr, w in komendy
+        if not any(p == plik and fragment in w
+                   for plik, fragment in USPRAWIEDLIWIENIA)
+    ]
+    assert nieuzasadnione == [], (
+        "komenda `Sim.Runner` w postaci `--opcja=wartość`, ktorej runner od 6.A22 "
+        "nie przyjmuje — konczy sie kodem 1:\n"
+        + "\n".join(f"    {p}:{nr}  {w[:140]}" for p, nr, w in nieuzasadnione))
+
+
+def test_the_equals_form_count_has_not_collapsed_to_nothing():
+    """Prog na laczna liczbe — inaczej literowka we wzorcu daje zielono.
+
+    Bramka wyzej jest zielona takze wtedy, gdy `POSTAC_Z_ROWNOSCIA` przestanie
+    cokolwiek lapac: zero komend runnera to zero. Ten test odbiera jej te droge
+    do falszywej zgody.
+    """
+    liczby, _ = klasyfikacja_rownosci()
+    assert liczby["razem"] >= MINIMUM_WYSTAPIEN_ROWNOSCI, (
+        f"postac z rownoscia wystepuje {liczby['razem']} razy przy progu "
+        f"{MINIMUM_WYSTAPIEN_ROWNOSCI} — wzorzec albo lista plikow przestaly lapac "
+        "to, co lapaly 07.09.2026 (426 wystapien na drzewie do scalenia)")
+    assert liczby["scena"] > 0, (
+        "ani jedna komenda SCENY nie uzywa postaci z rownoscia, a scena jej WYMAGA "
+        "(`RunPlan`, 27 testow w tests/Game.Tests) — wykrywanie sceny jest zepsute, "
+        f"a wtedy jej komendy poleca do kubelka runnera. Liczby: {liczby}")
+    assert liczby["razem"] == liczby["runner"] + liczby["scena"] + liczby["proza"], (
+        f"kubelki nie sumuja sie do calosci: {liczby}")
+
+
+def test_the_gate_catches_a_runner_command_written_in_the_equals_form():
+    """Kontrola DODATNIA na wstrzykniętym wejsciu, z plikiem i numerem wiersza.
+
+    Bramka odmawiajaca zawsze i bramka nieodmawiajaca nigdy wygladaja identycznie na
+    czystym drzewie. Ten test sprawdza, ze klasyfikator NAPRAWDE lapie komende
+    runnera — i ze lapie ja takze wtedy, gdy jest zlamana na trzy wiersze znakiem
+    `\\`, bo tak wyglada kazda komenda w `docs/` i w workflowach.
+    """
+    komenda = ("dotnet run --project src/Sim.Runner -c Release -- line \\\n"
+               "    --axis data/track/L1_A.json \\\n"
+               "    --limit-kmh=72 --exchange-s 20\n")
+    wiersze = _sklej_kontynuacje("pierwszy wiersz bez niczego\n" + komenda)
+    trafione = [(nr, w) for nr, w in wiersze
+                if POSTAC_Z_ROWNOSCIA.search(w) and WOLANIE_RUNNERA.search(w)
+                and not WOLANIE_SCENY.search(w)]
+    assert len(trafione) == 1, (
+        "klasyfikator nie widzi wstrzykniętej komendy runnera jako jednego wiersza "
+        f"logicznego: {wiersze}")
+    nr, _ = trafione[0]
+    assert nr == 2, (
+        "numer wiersza ma wskazywac PIERWSZY wiersz komendy, nie ten z rownoscia — "
+        f"dostal {nr}")
+
+    # Ta sama komenda BEZ rownosci nie jest zgloszeniem.
+    czysta = komenda.replace("--limit-kmh=72", "--limit-kmh 72")
+    assert not [w for _, w in _sklej_kontynuacje(czysta)
+                if POSTAC_Z_ROWNOSCIA.search(w)], (
+        "klasyfikator zglasza komende runnera bez postaci z rownoscia")
+
+
+def test_no_scene_command_is_reported_as_a_runner_command():
+    """Kontrola UJEMNA: ani jedna z komend sceny nie jest zglaszana.
+
+    Scena postaci z rownoscia WYMAGA. Bramka lapiaca scene bylaby wylaczona w tym
+    samym tygodniu, w ktorym powstala — i dlatego wykrycie sceny wygrywa z wykryciem
+    runnera, takze dla wiersza niosacego oba markery.
+    """
+    _, komendy = klasyfikacja_rownosci()
+    ze_scena = [(p, nr) for p, nr, w in komendy if WOLANIE_SCENY.search(w)]
+    assert ze_scena == [], (
+        "komenda sceny trafila do kubelka runnera: " + repr(ze_scena))
+
+    wzor_sceny = ('"$GODOT_BIN" --headless --path src/Game -- --line '
+                  '--limit-kmh=70 --calls=3')
+    assert POSTAC_Z_ROWNOSCIA.search(wzor_sceny), "wzorzec kontrolny nie ma rownosci"
+    assert WOLANIE_SCENY.search(wzor_sceny), "wykrywanie sceny nie widzi wzorca"
+
+
+def test_a_line_naming_both_programs_counts_as_scene_not_runner():
+    """Pierwszenstwo sceny nad runnerem — pilnowane NA WEJSCIU, nie w komentarzu.
+
+    **Rzecz warta powiedzenia wprost, bo mowi, ile ten test jest wart.** Kontrola
+    negatywna KN-D (przestawienie kolejnosci tak, ze runner sprawdzany jest pierwszy)
+    zostawia zestaw ZIELONY: w dzisiejszym drzewie nie ma ani jednego wiersza, ktory
+    niesie oba markery, wiec kolejnosc nie ma na czym zadzialac. Regula jest wiec
+    zabezpieczeniem na przyszlosc, nie wnioskiem z pomiaru — a regula opisana samym
+    komentarzem nie jest pilnowana wcale.
+
+    Wiersz niosacy oba markery jest proza o dwoch polowach projektu (albo krokiem CI,
+    ktory wola jedno i drugie), a nie komenda runnera. Zaklasyfikowanie go do runnera
+    daloby FAIL na tekscie poprawnym — a bramka zapalajaca sie na poprawnym tekscie
+    zostaje wylaczona, nie naprawiona (6.D27, 6.D30).
+    """
+    oba = ('scena `"$GODOT_BIN" --headless --path src/Game -- --limit-kmh=70` '
+           'wymaga rownosci, a `dotnet run --project src/Sim.Runner -- line '
+           '--limit-kmh 70` jej nie przyjmuje')
+    assert WOLANIE_SCENY.search(oba), "wykrywanie sceny nie widzi tego wiersza"
+    assert WOLANIE_RUNNERA.search(oba), "wykrywanie runnera nie widzi tego wiersza"
+    assert POSTAC_Z_ROWNOSCIA.search(oba), "wiersz kontrolny nie ma rownosci"
+
+    # Ta sama gałąź decyzyjna, co w `klasyfikacja_rownosci`, na jednym wierszu:
+    # scena sprawdzana PIERWSZA, wiec kubelkiem jest scena.
+    kubelek = ("scena" if WOLANIE_SCENY.search(oba)
+               else "runner" if WOLANIE_RUNNERA.search(oba) else "proza")
+    assert kubelek == "scena", (
+        "wiersz niosacy oba markery poszedl do kubelka " + kubelek
+        + " — pierwszenstwo sceny jest zdjete")
+
+
+def test_every_justification_still_describes_a_command_that_exists():
+    """Usprawiedliwienie nie moze przezyc komendy, ktora opisuje.
+
+    Wpis, ktorego nie ma czego usprawiedliwiac, jest dziura w bramce ubrana w proze —
+    ta sama zasada, ktora 6.D29 postawilo dla listy wyjatkow raportow i 6.B34 dla
+    usprawiedliwien martwych stalych.
+    """
+    _, komendy = klasyfikacja_rownosci()
+    martwe = [klucz for klucz in USPRAWIEDLIWIENIA
+              if not any(p == klucz[0] and klucz[1] in w for p, _, w in komendy)]
+    assert martwe == [], (
+        "usprawiedliwienie bez komendy, ktora opisuje: " + repr(martwe))
+    puste = [k for k, v in USPRAWIEDLIWIENIA.items() if len(v.strip()) < 40]
+    assert puste == [], (
+        "usprawiedliwienie bez powodu podanego zdaniem: " + repr(puste))
 
 
 if __name__ == "__main__":

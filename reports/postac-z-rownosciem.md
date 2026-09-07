@@ -231,6 +231,17 @@ Zestaw narzędzi 1838 → **1841**: trzy nowe testy w `test_runner_options.py`
   z góry. Gdyby kiedyś jakaś komenda CI zaczęła jej wobec runnera używać, pomiar wyjdzie
   inaczej i wtedy wraca pierwsza droga; bramka z §5 pokaże to jako FAIL, zamiast czekać
   na czyjeś oko.
+
+  > **Adnotacja z 07.09.2026, dopisana przy 6.A26 — zdanie wyżej BYŁO NIEPRAWDZIWE.**
+  > Bramka z §5 (`test_no_message_writes_a_known_option_in_the_equals_form`) czyta
+  > **wyłącznie** `src/Sim.Runner/Program.cs` i pilnuje, żeby komunikaty runnera nie
+  > były pisane w odrzuconej postaci. Komenda w `.github/workflows/*.yml`, w `docs/`
+  > albo w `tools/**/*.sh` była **poza jej zasięgiem**, więc obietnica „pokaże to jako
+  > FAIL, zamiast czekać na czyjeś oko" nie miała pokrycia w kodzie. Zdanie zostaje
+  > tam, gdzie było — pomiar i tekst z datą się nie przelicza — a domyka je 6.A26:
+  > `test_no_runner_command_in_the_repository_uses_the_equals_form` klasyfikuje **każde**
+  > wystąpienie tej postaci w repozytorium po wołanym programie i odmawia, gdy trafi
+  > w komendę runnera. Pomiar w `reports/pomiar-rownosci.md`.
 - **Nie tknięto konwencji sceny.** `RunPlan` postaci z równością wymaga i to jest jej
   wybór, przybity 27 testami w `tests/Game.Tests`. Ujednolicanie dwóch połów projektu
   jest decyzją właściciela, nie skutkiem ubocznym poprawki komunikatu.
