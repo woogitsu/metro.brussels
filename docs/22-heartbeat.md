@@ -86,8 +86,48 @@ dla martwego powiązania jest `delete_trigger` i utworzenie nowego.
 
 Kiedy sesja kończy pracę na dobre, wypada po sobie posprzątać.
 
-## 5. Stan na 2026-09-01
+## 5. Stan na 2026-09-07 — i decyzja właściciela o kadencji
 
-Aktywna Routine: `METRO BXL — pobudka co godzinę`, cron `48 * * * *`, wpięta w sesję,
-która ją utworzyła. Numer (`trig_...`) celowo nie jest tu zapisany — zmienia się przy
-każdym odtworzeniu, a rozpoznawanie po nazwie jest jedyną rzeczą, która się nie starzeje.
+**Sekcja przepisana, a nie dopisana obok.** Poprzednia wersja nosiła nagłówek
+„Stan na 2026-09-01" i podawała cron `48 * * * *`; obie te rzeczy są dziś nieprawdziwe,
+a sekcja o stanie, która niesie stan cudzy, jest gorsza od braku sekcji.
+
+Odpytane z API 07.09.2026 (`list_triggers`, `enabled: true`):
+
+```
+name:              METRO BXL — pobudka co godzinę
+cron_expression:   37 * * * *
+created_at:        2026-09-05T17:37:03Z
+last_fired_at:     2026-09-07T12:37:24Z
+next_run_at:       2026-09-07T13:37:00Z
+persist_session:   true   (persistent_session_id ustawiony jawnie)
+```
+
+Numer (`trig_...`) celowo nie jest tu zapisany — zmienia się przy każdym odtworzeniu,
+a rozpoznawanie po nazwie jest jedyną rzeczą, która się nie starzeje. Tego samego dnia
+`list_triggers` pokazało na koncie **dwie** włączone pobudki, i tylko jedna z nich należy
+do tego projektu. Nie jest to patologia z §4 — druga budzi żywą sesję innego repozytorium
+— ale jest to dokładnie ten powód, dla którego nazwa jest stała: bez niej nie da się
+powiedzieć, która jest która.
+
+### DECYZJA WŁAŚCICIELA 07.09.2026 — godzina zostaje
+
+Pytanie padło, bo właściciel zapytał wprost: „Czemu nie działasz? I czemu triger cię
+nie obudził?". Odpowiedź jest **zmierzona**, nie domyślona, i jest w niej rzecz
+niewygodna dla tego dokumentu:
+
+- **Routine zadziałała.** `last_fired_at` tamtego przebiegu to 09:37:22, `enabled: true`,
+  `next_run_at` 10:37. Pobudka doszła i zrobiła dokładnie to, co §2 nakazuje jej zrobić,
+  gdy praca trwa: **nic**.
+- **Usterka była w zachowaniu agenta, nie w kadencji.** Punktem zatrzymania było
+  „PR otwarty", a powinno być „PR scalony" — między jednym a drugim zostało
+  **9 minut bezczynności**, przy niekorzystnym ułożeniu do 17. Puls nie miał czego
+  wznawiać, bo formalnie „czekanie na CI" jest pracą trwającą.
+- **Zagęszczenie pulsu tego nie tknęłoby.** Gęstsza pobudka trafiałaby w to samo
+  „czekam na CI" i tak samo milczała. Poprawką jest **próg zatrzymania**, a nie okres:
+  tura nie kończy się, dopóki własny PR czeka na CI.
+
+Właściciel wybrał **zostawić godzinę**. Argument z §3 zostaje w mocy i dostaje drugą
+połowę: puls jest zabezpieczeniem przed zatrzymaniem na wiele godzin i **nie jest
+narzędziem do naprawiania złego progu zatrzymania**. Próg mieszka w `CLAUDE.md` i w
+nawyku agenta, nie w cronie.

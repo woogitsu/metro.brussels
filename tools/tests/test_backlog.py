@@ -128,7 +128,13 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 #: z kompletem sześciu pól. W przeciwieństwie do podłogi zapasu ta liczba **nie opada
 #: od wykonywania pracy** — blok pozycji zrobionej zostaje napisany — i dlatego tylko
 #: tutaj „wolno wyłącznie podnosić" jest zdaniem, które da się utrzymać.
-MINIMUM_DETAIL_BLOCKS = 98
+#: **Liczba przepisana, a nie dopisana obok — 98 → 101 (07.09.2026).** Trzy nowe bloki
+#: (6.A19, 6.B43, 6.B44) nie są uzupełnieniem kolejki na przeczekanie: każdy z nich
+#: istnieje, bo właściciel **rozstrzygnął** 07.09.2026 pozycję, która stała dotąd
+#: w „Czego agent nie ruszy bez decyzji". Zapadka jest tu potrzebna z tego samego
+#: powodu co zawsze: decyzja właściciela, po której nikt nie napisał, jak ją wykonać,
+#: wygląda w tabeli identycznie jak decyzja niepodjęta.
+MINIMUM_DETAIL_BLOCKS = 101
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je

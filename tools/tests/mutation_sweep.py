@@ -606,6 +606,99 @@ def coverage_map(out_dir: str, timeout: int) -> dict[str, set[int]] | None:
     return out
 
 
+#: Wersja kształtu zapamiętanej mapy pokrycia. Plik o innej wersji jest ODRZUCANY,
+#: nie czytany „na tyle, na ile się da": mapa przeczytana źle daje etykietę
+#: „nieodpalona" mutacji, która się odpaliła — czyli kłamstwo w stronę „jest dziura
+#: w bramce", i to takie, którego nic w wyniku nie zdradza.
+POKRYCIE_WERSJA = 1
+
+
+def pokrycie_w_celach(mapa: dict[str, set[int]]) -> dict[str, set[int]]:
+    """Mapa pokrycia obcięta do plików, które są CELAMI mutacji.
+
+    **Po co obcinać, skoro nadmiar nie przeszkadza.** Przeszkadza dwojako, i oba
+    powody są ZMIERZONE, nie przewidziane (07.09.2026, `reports/pamiec-pokrycia.md`):
+
+    1. **Mapa bez obcięcia nie jest stabilna między przebiegami na TYM SAMYM
+       commicie.** Dwie sondy z tego samego drzewa dały 162 klucze każda i te same
+       25 732 wiersze, ale **różne zbiory kluczy**: różnica to piaskownice, które
+       zestaw zakłada sam — `tools/tests/test_dwa_<losowe>/test_dwa_testy.py`
+       i `tools/tests/test_pusty_<losowe>/test_bez_zadnego_testu.py` (bramka 6.D25).
+       Losowy przyrostek zmienia się co przebieg. W ANI JEDNYM module wspólnym dla
+       obu map zbiory wierszy się nie różniły — niestabilne były wyłącznie te
+       efemeryczne ścieżki. Bez obcięcia każdy test porównujący mapę zapamiętaną
+       z policzoną od nowa byłby więc chwiejny, i to nie z winy pokrycia.
+    2. **Nadmiar jest większy od treści.** Z 162 kluczy celami mutacji jest **57**
+       (celów jest 63, sześciu zestaw nie uruchamia wcale), a z 25 732 wierszy
+       w celach leży **7 582**. Sto pięć kluczy to `tools/tests/` — zestaw
+       obserwujący sam siebie.
+
+    **Obcięcie nie zmienia ani jednego werdyktu**, bo `was_executed` pyta wyłącznie
+    o `mutation.path`, a ten jest zawsze celem. To jest jedyny czytnik tej mapy.
+    """
+    cele = {os.path.relpath(path, ROOT) for path in targets()}
+    return {path: lines for path, lines in mapa.items() if path in cele}
+
+
+def sciezka_pokrycia(commit: str) -> str:
+    """Gdzie stoi zapamiętana mapa dla tego commita.
+
+    Obok dziennika, w katalogu tymczasowym — nie w repozytorium: mapa jest
+    pochodną drzewa, nie jego treścią, a `git clean -ffdx` z checkoutu CI i tak by
+    ją zdjął przy każdym przebiegu (`docs/CLAUDE.md`, punkt o narzędziach poza
+    workspace). Commit w nazwie z tego samego powodu, z którego ma go
+    `default_journal`: dwie rewizje mierzą co innego.
+    """
+    return os.path.join(tempfile.gettempdir(), f"metro-pokrycie-{commit}.json")
+
+
+def zapisz_pokrycie(path: str, commit: str, mapa: dict[str, set[int]]) -> None:
+    """Mapa na dysk, z commitem WEWNĄTRZ pliku, nie tylko w nazwie.
+
+    Nazwa da się zmienić jednym `mv`, a wtedy mapa z innego drzewa weszłaby jako
+    swoja. Ta sama zasada, którą 6.B19 postawiła dla wpisu dziennika i 6.B32 dla
+    odcisku treści: dowód pochodzenia jedzie razem z danymi.
+    """
+    dane = {
+        "wersja": POKRYCIE_WERSJA,
+        "commit": commit,
+        "pokrycie": {plik: sorted(wiersze) for plik, wiersze in sorted(mapa.items())},
+    }
+    tymczasowy = path + ".czesciowy"
+    with open(tymczasowy, "w", encoding="utf-8") as handle:
+        json.dump(dane, handle)
+    # Podmiana atomowa: przebieg ubity w połowie zapisu nie zostawia pliku, który
+    # da się przeczytać do połowy. `read_journal` radzi sobie z uciętym wierszem,
+    # bo dziennik jest linia-na-wpis; mapa jest jednym obiektem JSON i ucięta
+    # byłaby nieczytelna — albo, gorzej, czytelna i niepełna.
+    os.replace(tymczasowy, path)
+
+
+def wczytaj_pokrycie(path: str, commit: str) -> dict[str, set[int]] | None:
+    """Zapamiętana mapa dla TEGO commita albo `None`.
+
+    Odrzuca — nie naprawia — plik z innego commita, z inną wersją kształtu i plik
+    nieczytelny. Powód jest ten sam, dla którego 6.B19 odrzuca wpis dziennika
+    z innego drzewa: mapa z innego kodu przypisze etykietę „nieodpalona" mutacji,
+    która się odpaliła, i nic w wyniku tego nie zdradzi.
+    """
+    try:
+        with open(path, encoding="utf-8") as handle:
+            dane = json.load(handle)
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(dane, dict):
+        return None
+    if dane.get("wersja") != POKRYCIE_WERSJA:
+        return None
+    if dane.get("commit") != commit:
+        return None
+    pokrycie = dane.get("pokrycie")
+    if not isinstance(pokrycie, dict):
+        return None
+    return {plik: set(wiersze) for plik, wiersze in pokrycie.items()}
+
+
 def was_executed(coverage, mutation: Mutation) -> bool | None:
     """Czy wiersz tej mutacji wykonał się w przebiegu bez mutacji."""
     if coverage is None:
@@ -1268,8 +1361,34 @@ def main() -> int:
             # Sonda liczy wiersze, więc chodzi kilka razy wolniej od zwykłego
             # przebiegu zestawu. Własny, hojniejszy limit, żeby nie wywracała się
             # o `--timeout` dobrany do przebiegu bez licznika.
-            print("[MUTACJE] sonda pokrycia: jeden przebieg zestawu z licznikiem wierszy")
-            coverage = coverage_map(work, args.timeout * 4)
+            # 6.B36: mapa pokrycia NIE zalezy od mutowanego modulu. `coverage_map`
+            # nie bierze zadnego argumentu o module — jeden przebieg zestawu
+            # z licznikiem wierszy w kopii `HEAD`, sledzone jest cale `tools/`.
+            # Wolno ja wiec policzyc RAZ na commit i zapamietac miedzy przebiegami.
+            #
+            # ZMIERZONE, nie zalozone (`reports/pamiec-pokrycia.md`): zestaw bez
+            # sondy 54,49 s, z sonda 332,57 s i 331,92 s w dwoch przebiegach na tym
+            # samym drzewie — narzut instrumentacji to okolo 278 s, czyli sonda
+            # kosztuje 6,1 raza tyle, co goly zestaw.
+            #
+            # Klucz to COMMIT, nie odcisk tresci z 6.B32, i to jest roznica warta
+            # nazwania: sonda czyta kopie `git worktree add --detach HEAD`, wiec
+            # jej wynik zalezy od HEAD i tylko od HEAD. Mutacje przeciwnie — liczy
+            # je `collect` z DRZEWA ROBOCZEGO, dlatego tam kluczem musi byc tresc.
+            # Dwa klucze do dwoch roznych rzeczy, kazdy zmierzony.
+            plik_pokrycia = sciezka_pokrycia(commit)
+            coverage = wczytaj_pokrycie(plik_pokrycia, commit)
+            if coverage is not None:
+                print(f"[MUTACJE] sonda pokrycia: mapa z pamieci {plik_pokrycia} "
+                      f"({len(coverage)} modulow) — commit {commit} bez zmian")
+            else:
+                print("[MUTACJE] sonda pokrycia: jeden przebieg zestawu z licznikiem wierszy")
+                surowa = coverage_map(work, args.timeout * 4)
+                if surowa is not None:
+                    coverage = pokrycie_w_celach(surowa)
+                    zapisz_pokrycie(plik_pokrycia, commit, coverage)
+                    print(f"[MUTACJE] mapa zapamietana w {plik_pokrycia}: "
+                          f"{len(coverage)} modulow z {len(surowa)} sledzonych")
             if coverage is None:
                 print("[MUTACJE] sonda pokrycia nie doszła do końca — ocalałe będą "
                       "policzone jako niezmierzone", file=sys.stderr)

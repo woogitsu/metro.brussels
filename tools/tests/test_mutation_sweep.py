@@ -1625,6 +1625,157 @@ def test_the_fingerprint_refusal_names_the_dirty_tree_when_that_is_the_cause():
         "przywrocenie pliku sie nie udalo")
 
 
+
+# --- mapa pokrycia liczona RAZ na commit i zapamietana (6.B36) -------------------
+
+
+def test_the_remembered_map_survives_a_round_trip():
+    """Zapis i odczyt nie gubia ani jednego wiersza.
+
+    Zbiory nie sa serializowalne do JSON, wiec zapis idzie przez sortowane listy —
+    a to jest dokladnie miejsce, w ktorym mapa mogla by po cichu stracic wiersz.
+    """
+    mapa = {
+        "tools/blender/lod_paths.py": {1, 2, 28, 300},
+        "tools/track/crs.py": {7},
+    }
+    with tempfile.TemporaryDirectory() as tmp:
+        plik = os.path.join(tmp, "pokrycie.json")
+        sweep.zapisz_pokrycie(plik, "aaaaaaa", mapa)
+
+        assert sweep.wczytaj_pokrycie(plik, "aaaaaaa") == mapa
+        # Wartosci maja byc ZBIORAMI po odczycie, nie listami: `was_executed` pyta
+        # `mutation.line in coverage.get(path, ())`, a `in` na liscie jest liniowe
+        # i przy 7582 wierszach robi z tego pytania petle.
+        for wiersze in sweep.wczytaj_pokrycie(plik, "aaaaaaa").values():
+            assert isinstance(wiersze, set), type(wiersze)
+
+
+def test_a_remembered_map_from_another_commit_is_refused():
+    """Kontrola negatywna, ktorej zadalo pole „Skonczone, gdy" pozycji 6.B36.
+
+    Mapa z innego kodu przypisze etykiete „nieodpalona" mutacji, ktora sie odpalila —
+    czyli klamstwo w strone „jest dziura w bramce", i to takie, ktorego nic w wyniku
+    nie zdradza. Odrzucenie, nie proba naprawy.
+
+    Commit siedzi WEWNATRZ pliku, nie tylko w nazwie: nazwe da sie zmienic jednym
+    `mv`, a wtedy mapa z innego drzewa weszlaby jako swoja. Ta sama zasada, ktora
+    6.B19 postawila dla wpisu dziennika i 6.B32 dla odcisku tresci — dowod
+    pochodzenia jedzie razem z danymi. Ten test przenosi plik POD NAZWE innego
+    commita wlasnie po to, zeby sprawdzic, ze nazwa nie wystarcza.
+    """
+    mapa = {"tools/blender/lod_paths.py": {28}}
+    with tempfile.TemporaryDirectory() as tmp:
+        swoj = sweep.sciezka_pokrycia("aaaaaaa").replace(tempfile.gettempdir(), tmp)
+        sweep.zapisz_pokrycie(swoj, "aaaaaaa", mapa)
+
+        assert sweep.wczytaj_pokrycie(swoj, "bbbbbbb") is None, (
+            "mapa z innego commita zostala przyjeta")
+
+        # Przeniesiona pod nazwe innego commita nadal jest odrzucana, bo commit
+        # stoi w tresci.
+        cudzy = sweep.sciezka_pokrycia("bbbbbbb").replace(tempfile.gettempdir(), tmp)
+        os.replace(swoj, cudzy)
+        assert sweep.wczytaj_pokrycie(cudzy, "bbbbbbb") is None, (
+            "wystarczylo zmienic NAZWE pliku, zeby cudza mapa weszla jako swoja")
+        # ...a pod swoim commitem dalej dziala, wiec odrzucenie nie jest odrzucaniem
+        # wszystkiego.
+        assert sweep.wczytaj_pokrycie(cudzy, "aaaaaaa") == mapa
+
+
+def test_a_broken_or_older_remembered_map_is_refused_not_repaired():
+    """Plik nieczytelny i plik o innym KSZTALCIE ida tam samo, co plik z innego drzewa.
+
+    Mapa przeczytana „na tyle, na ile sie da" jest gorsza od braku mapy: brak daje
+    etykiete „niezmierzone", ktora narzedzie mowi wprost, a mapa niepelna daje
+    „nieodpalona" bez zadnego zastrzezenia.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        plik = os.path.join(tmp, "pokrycie.json")
+
+        assert sweep.wczytaj_pokrycie(plik, "aaaaaaa") is None, "plik, ktorego nie ma"
+
+        with open(plik, "w", encoding="utf-8") as handle:
+            handle.write("{ to nie jest json")
+        assert sweep.wczytaj_pokrycie(plik, "aaaaaaa") is None, "plik nieczytelny"
+
+        with open(plik, "w", encoding="utf-8") as handle:
+            json.dump({"wersja": sweep.POKRYCIE_WERSJA + 1, "commit": "aaaaaaa",
+                       "pokrycie": {}}, handle)
+        assert sweep.wczytaj_pokrycie(plik, "aaaaaaa") is None, "inna wersja ksztaltu"
+
+        with open(plik, "w", encoding="utf-8") as handle:
+            json.dump(["nie", "slownik"], handle)
+        assert sweep.wczytaj_pokrycie(plik, "aaaaaaa") is None, "nie slownik"
+
+        with open(plik, "w", encoding="utf-8") as handle:
+            json.dump({"wersja": sweep.POKRYCIE_WERSJA, "commit": "aaaaaaa",
+                       "pokrycie": "nie slownik"}, handle)
+        assert sweep.wczytaj_pokrycie(plik, "aaaaaaa") is None, "pokrycie nie slownikiem"
+
+
+def test_the_write_is_atomic_and_leaves_no_half_file():
+    """Przebieg ubity w polowie zapisu nie zostawia mapy czytelnej i niepelnej.
+
+    Dziennik jest linia-na-wpis i `read_journal` radzi sobie z ucietym wierszem.
+    Mapa jest JEDNYM obiektem JSON: ucieta byla by nieczytelna — albo, gorzej,
+    czytelna i niepelna. Dlatego zapis idzie przez plik tymczasowy i `os.replace`.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        plik = os.path.join(tmp, "pokrycie.json")
+        sweep.zapisz_pokrycie(plik, "aaaaaaa", {"tools/track/crs.py": {1}})
+
+        assert os.path.exists(plik)
+        assert not os.path.exists(plik + ".czesciowy"), (
+            "plik tymczasowy zostal po zapisie")
+        # `os.replace` musi stac w kodzie: bez niego zapis jest zwyklym `open(w)`,
+        # a ten obcina plik NA MIEJSCU i tworzy dokladnie stan polowiczny.
+        zrodlo = open(os.path.join(ROOT, "tools", "tests", "mutation_sweep.py"),
+                      encoding="utf-8").read()
+        at = zrodlo.index("def zapisz_pokrycie(")
+        cialo = zrodlo[at:zrodlo.index("\ndef ", at + 10)]
+        assert "os.replace(" in cialo, "zapis mapy nie jest atomowy"
+
+
+def test_the_map_is_trimmed_to_mutation_targets():
+    """Obciecie do celow mutacji — bo bez niego mapa nie jest stabilna miedzy przebiegami.
+
+    **Zmierzone 07.09.2026, i to jest powod istnienia `pokrycie_w_celach`.** Dwie
+    sondy z TEGO SAMEGO drzewa daly 162 klucze kazda i te same 25 732 wiersze, ale
+    ROZNE zbiory kluczy: roznica to piaskownice, ktore zestaw zaklada sam —
+    `tools/tests/test_dwa_<losowe>/...` i `tools/tests/test_pusty_<losowe>/...`
+    (bramka 6.D25). Losowy przyrostek zmienia sie co przebieg. W ani jednym module
+    wspolnym dla obu map zbiory wierszy sie NIE roznily.
+
+    Obciecie nie zmienia zadnego werdyktu, bo `was_executed` pyta wylacznie
+    o `mutation.path`, a ten jest zawsze celem — i to jest jedyny czytnik tej mapy.
+    """
+    surowa = {
+        "tools/blender/lod_paths.py": {28},
+        "tools/tests/test_all.py": {1, 2, 3},
+        "tools/tests/test_dwa_4ydu68u1/test_dwa_testy.py": {1},
+        "tools/tests/test_pusty_xfz551js/test_bez_zadnego_testu.py": {1},
+    }
+    obcieta = sweep.pokrycie_w_celach(surowa)
+
+    assert "tools/blender/lod_paths.py" in obcieta, obcieta
+    assert obcieta["tools/blender/lod_paths.py"] == {28}
+    for klucz in surowa:
+        if klucz.startswith("tools/tests/"):
+            assert klucz not in obcieta, (
+                "efemeryczna albo testowa sciezka zostala w mapie: " + klucz)
+
+    # Kontrola przyrzadu: obciecie ma zostawiac CZESC, a nie wszystko wyrzucac.
+    # Bez tej asercji `pokrycie_w_celach` zwracajace pusty slownik przeszlo by
+    # wszystkie asercje wyzej.
+    assert len(obcieta) == 1, obcieta
+    # I ma czytac cele z `targets()`, a nie z listy wpisanej z pamieci.
+    cele = {os.path.relpath(p, ROOT) for p in sweep.targets()}
+    assert "tools/blender/lod_paths.py" in cele, "lod_paths.py przestal byc celem"
+    assert not any(c.startswith("tools/tests/") for c in cele), (
+        "cel mutacji lezy pod tools/tests/ — obciecie zaczelo by gubic prawdziwy modul")
+
+
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
 # z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
 # tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
