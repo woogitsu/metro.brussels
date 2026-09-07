@@ -110,6 +110,9 @@ public sealed class RunPlanTests
         // więc argument nie jest już bezczynny. Że nadal jest bezczynny w przebiegu
         // SKRYPTOWYM i tam odmawia, pilnuje `SignallingWithoutLineIsTheCabUnderSignalling`.
 
+        var samotnych = 0;
+        var zZaleznoscia = 0;
+
         foreach (var name in RunPlan.KnownArguments)
         {
             var value = name switch
@@ -125,6 +128,7 @@ public sealed class RunPlanTests
             {
                 var plan = Parse($"--{name}={value}");
                 Assert.IsTrue(plan.IsValid, $"--{name}={value}: {plan.Error}");
+                samotnych++;
                 continue;
             }
 
@@ -141,7 +145,20 @@ public sealed class RunPlanTests
             lista.AddRange(potrzebne);
             var razem = Parse(lista.ToArray());
             Assert.IsTrue(razem.IsValid, $"--{name} z towarzyszem nadal odmawia: {razem.Error}");
+            zZaleznoscia++;
         }
+
+        // POMIAR, nie ozdoba (6.D31): wszystkie asercje tego testu stoją w pętli po
+        // `RunPlan.KnownArguments`, więc opróżniona tablica dawałaby test zielony
+        // bez ani jednej wykonanej asercji. Liczby niżej są ZMIERZONE przebiegiem,
+        // nie policzone z tablicy w kodzie — dlatego rozjazd w którąkolwiek stronę
+        // (argument dopisany, usunięty, przesunięty między rodzinami) jest tu FAIL-em,
+        // a nie cichą zmianą pokrycia.
+        Assert.AreEqual(17, samotnych, "argumentów bez zależności");
+        Assert.AreEqual(3, zZaleznoscia, "argumentów z zależnością");
+        Assert.AreEqual(
+            RunPlan.KnownArguments.Length, samotnych + zZaleznoscia,
+            "pętla nie odwiedziła każdego znanego argumentu");
     }
 
     // --- USTERKA 2: nieznany widok -------------------------------------------------
@@ -375,6 +392,9 @@ public sealed class RunPlanTests
             "=", "--=1", "--telemetry=", "----", "--at-chainage=1e999",
         };
 
+        var odrzuconych = 0;
+        var przyjete = new List<string>();
+
         foreach (var argument in nasty)
         {
             var plan = Parse(argument);
@@ -384,8 +404,33 @@ public sealed class RunPlanTests
                 Assert.IsTrue(plan.ExitCode is UnknownArgument or BadArgumentValue,
                     $"{argument}: kod {plan.ExitCode}");
                 Assert.IsFalse(string.IsNullOrWhiteSpace(plan.Error), argument);
+                odrzuconych++;
+            }
+            else
+            {
+                przyjete.Add(argument);
             }
         }
+
+        // POMIAR, nie ozdoba (6.D31): wszystkie asercje poza `IsNotNull` stały
+        // w gałęzi `if (!plan.IsValid)`. Gdyby rozbiór zaczął PRZYJMOWAĆ te wejścia
+        // jako poprawne, gałąź przestałaby być wchodzona, test nie sprawdzałby już
+        // niczego poza „plan nie jest nullem" — i nie powiedziałby o tym ani słowa.
+        // Liczba niżej jest ZMIERZONA przebiegiem, nie policzona z listy w kodzie.
+        Assert.AreEqual(8, odrzuconych,
+            "paskudnych wejść odrzuconych; przyjęte: " + string.Join(" | ", przyjete));
+
+        // **Dziewiąte wejście jest PRZYJMOWANE i to jest ZNALEZISKO, nie zamiar.**
+        // `--telemetry=` (pusta ścieżka) przechodzi jako plan poprawny, bo wartość
+        // tej opcji jest napisem i pustka nie wywraca żadnego rozbioru. Scena
+        // pojechałaby więc z pustą ścieżką pliku telemetrii. Nie poprawiam tego tutaj:
+        // 6.D31 wzmacnia TESTY, a zmiana rozbioru argumentów sceny jest zmianą jej
+        // zachowania. Zgłoszone; do czasu poprawki fakt jest PRZYBITY z imienia,
+        // żeby nie zniknął po cichu ani nie wyglądał na przeoczenie.
+        CollectionAssert.AreEqual(
+            new[] { "--telemetry=" }, przyjete,
+            "zmienił się zbiór paskudnych wejść, które rozbiór PRZYJMUJE — jeżeli "
+            + "poprawka jest zamierzona, zmień tę listę razem z nią");
     }
 
     /// <summary>Poprawny plan nie ma powodu odmowy ani kodu wyjścia.</summary>

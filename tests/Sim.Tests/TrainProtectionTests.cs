@@ -245,6 +245,9 @@ public sealed class TrainProtectionTests
         var protection = Protection(plan);
         var solver = new BrakingPointSolver(Model);
 
+        var przyLimiciePlanu = 0;
+        var ponizejLimitu = 0;
+
         foreach (var distance in new[] { 10.0, 50.0, 120.0, 300.0, 700.0 })
         {
             var permitted = protection.PermittedSpeedMps(distance);
@@ -253,6 +256,7 @@ public sealed class TrainProtectionTests
                 Assert.IsTrue(
                     solver.Solve(plan.PermittedSpeedMps, 0.0, Model.DesignServiceBrakeMps2).DistanceM <= distance,
                     $"{distance:F0} m: limit planu ma się zmieścić w authority");
+                przyLimiciePlanu++;
                 continue;
             }
 
@@ -261,7 +265,17 @@ public sealed class TrainProtectionTests
 
             var faster = solver.Solve(permitted + 0.01, 0.0, Model.DesignServiceBrakeMps2).DistanceM;
             Assert.IsTrue(faster > distance, $"{distance:F0} m: o 0,01 m/s szybciej wciąż by się mieściło");
+            ponizejLimitu++;
         }
+
+        // POMIAR, nie ozdoba (6.D31): ten test ma DWIE gałęzie i każda ma własne
+        // asercje, ale nic nie pilnowało, że którakolwiek jest wchodzona. Gdyby model
+        // albo plan zmieniły się tak, że wszystkie pięć odległości trafia w jedną
+        // gałąź, druga przestałaby cokolwiek sprawdzać i test nadal byłby zielony —
+        // a to właśnie ta druga gałąź (odwrotność krzywej hamowania) jest tym, o czym
+        // test mówi w nazwie. Liczby niżej są ZMIERZONE przebiegiem.
+        Assert.AreEqual(2, przyLimiciePlanu, "odległości, na których authority mieści limit planu");
+        Assert.AreEqual(3, ponizejLimitu, "odległości, na których prędkość dopuszczalna jest niższa od limitu planu");
     }
 
     [TestMethod]
