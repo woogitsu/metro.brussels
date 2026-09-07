@@ -12,6 +12,8 @@ import secrets
 
 import yaml
 
+import assertion_gate as AG
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 WORKFLOWS = os.path.join(ROOT, ".github", "workflows")
 ACTIONS = os.path.join(ROOT, ".github", "actions")
@@ -648,7 +650,7 @@ def test_ci_blender_fake_version_is_unique_so_the_gate_cannot_race_itself():
         assert re.fullmatch(r"[0-9]+(\.[0-9]+)+", version), version
 
 
-def _fake_blender_archive(root, version):
+def _fake_blender_archive(root, version, cialo=None):
     """Poprawny `.tar.xz` z atrapą `blender` w środku. Zwraca (ścieżka, suma).
 
     Atrapa musi być PRAWDZIWYM archiwum, nie śmieciem: na śmieciu wywraca się
@@ -664,10 +666,11 @@ def _fake_blender_archive(root, version):
     payload = os.path.join(root, "payload", tree)
     os.makedirs(payload)
     binary = os.path.join(payload, "blender")
+    if cialo is None:
+        cialo = (f'echo "Blender {version}"\n'
+                 'echo "\tbuild date: atrapa testowa"\n')
     with open(binary, "w", encoding="utf-8") as handle:
-        handle.write("#!/usr/bin/env bash\n"
-                     f'echo "Blender {version}"\n'
-                     'echo "\tbuild date: atrapa testowa"\n')
+        handle.write("#!/usr/bin/env bash\n" + cialo)
     os.chmod(binary, 0o755)
 
     archive = os.path.join(root, "atrapa.tar.xz")
@@ -2654,3 +2657,129 @@ def test_the_scene_and_the_core_switch_cab_protection_on_the_same_way():
 if __name__ == "__main__":
     import test_all
     raise SystemExit(test_all.main(__file__))
+
+
+def test_ci_blender_installer_NAZYWA_powod_gdy_wersja_wyszla_pusta():
+    """6.D39: `2>/dev/null` zamieniało trzy przyczyny w jeden pusty napis.
+
+    Zmierzone 07.09.2026 na runnerze `woogitsu-linux-01`, run 34153517889, job
+    `tunnel-alignment (L1_B)`: pobranie udane, suma SHA-256 zgodna, a jedyne, co
+    job powiedział o przyczynie, to `zgłasza '', oczekiwano '5.2.1'`. Czytający
+    nie miał z czego rozstrzygnąć, czy rozpakowanie poszło w złe miejsce, czy
+    Blender nie wystartował — a różnią się one tym, kto ma co zrobić.
+
+    Ta bramka jest WYKONAWCZA i sprawdza DWIE przyczyny osobno, bo bramka na jedną
+    przechodziłaby z komunikatem, który mówi zawsze to samo zdanie.
+    """
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as root:
+        # PRZYCZYNA 1: Blender nie startuje — ładowacz pisze na stderr, stdout pusty.
+        # Dokładnie ten kształt, który `2>/dev/null` wyrzucało.
+        brak = ("echo \"blender: error while loading shared libraries: "
+                "libXi.so.6: cannot open shared object file\" >&2\n"
+                "exit 127\n")
+        archive, sha = _fake_blender_archive(os.path.join(root, "a"), "0.0.2", cialo=brak)
+        wynik, _, wolany = _run_blender_installer(root, "nie-startuje", sha, archive, "0.0.2")
+
+        assert wolany, "curl nie został wywołany, więc ścieżka rozpakowania się nie wykonała"
+        assert wynik.returncode == 1, (wynik.returncode, wynik.stderr[-400:])
+        assert "libXi.so.6" in wynik.stderr, (
+            "instalator nie powtórzył stderr Blendera, czyli nadal gubi jedyną "
+            f"informację o przyczynie: {wynik.stderr[-400:]}")
+        assert "powód:" in wynik.stderr, wynik.stderr[-400:]
+
+        # PRZYCZYNA 2: Blender startuje, kończy się zerem i NIC nie wypisuje.
+        # Przedtem nieodróżnialne od przyczyny 1 — ten sam pusty napis.
+        cicho = "exit 0\n"
+        archive2, sha2 = _fake_blender_archive(os.path.join(root, "b"), "0.0.3", cialo=cicho)
+        wynik2, _, _ = _run_blender_installer(root, "cichy", sha2, archive2, "0.0.3")
+
+        assert wynik2.returncode == 1, (wynik2.returncode, wynik2.stderr[-400:])
+        assert "nie wypisuje numeru" in wynik2.stderr, wynik2.stderr[-400:]
+
+        # ROZSTRZYGAJĄCE: dwie przyczyny dają DWA RÓŻNE zdania. Bez tego bramka
+        # przechodziłaby na komunikacie, który zawsze mówi to samo — czyli na
+        # przyrządzie, który nadal nie mierzy.
+        powod = lambda t: [w for w in t.splitlines() if "powód:" in w][0]
+        assert powod(wynik.stderr) != powod(wynik2.stderr), (
+            "obie przyczyny dostały ten sam komunikat, więc nadal są "
+            f"nierozróżnialne: {powod(wynik.stderr)}")
+
+
+def _prawdziwy_elf_bez_biblioteki(katalog, version):
+    """Prawdziwy ELF, któremu BRAKUJE biblioteki współdzielonej. `None` bez gcc.
+
+    Atrapa w postaci skryptu bash nie nadaje się do sprawdzenia gałęzi `ldd`:
+    `ldd` na skrypcie mówi „not a dynamic executable" i nie wypisuje ani jednego
+    `=> not found`, więc ta gałąź — jedyna, która na zepsutej maszynie podaje
+    NAZWY brakujących pakietów — zostałaby bez kontroli.
+
+    Konstrukcja odtwarza objaw dosłownie: program linkuje się z `libatrapa.so`,
+    biblioteka jest po zlinkowaniu USUWANA, a ładowacz wypisuje wtedy dokładnie
+    ten komunikat, który przyszedł z runnera `woogitsu-linux-01`:
+
+        ./blender: error while loading shared libraries: libatrapa.so:
+        cannot open shared object file: No such file or directory
+    """
+    import shutil
+    import subprocess
+
+    if shutil.which("gcc") is None or shutil.which("ldd") is None:
+        return None
+
+    tree = f"blender-{version}-linux-x64"
+    payload = os.path.join(katalog, "payload", tree)
+    os.makedirs(payload, exist_ok=True)
+    with open(os.path.join(katalog, "lib.c"), "w", encoding="utf-8") as handle:
+        handle.write("int fake_symbol(void){return 7;}\n")
+    with open(os.path.join(katalog, "main.c"), "w", encoding="utf-8") as handle:
+        handle.write('#include <stdio.h>\nint fake_symbol(void);\n'
+                     f'int main(void){{printf("Blender {version}\\n");'
+                     'return fake_symbol()-7;}\n')
+    lib = os.path.join(katalog, "libatrapa.so")
+    binary = os.path.join(payload, "blender")
+    for cmd in (["gcc", "-shared", "-fPIC", "-o", lib, os.path.join(katalog, "lib.c")],
+                ["gcc", "-o", binary, os.path.join(katalog, "main.c"),
+                 "-L" + katalog, "-latrapa", "-Wl,-rpath,$ORIGIN"]):
+        if subprocess.run(cmd, capture_output=True).returncode != 0:
+            return None
+    os.unlink(lib)          # od tej chwili ładowacz nie ma czego wczytać
+    return payload, tree
+
+
+def test_ci_blender_installer_WYLICZA_brakujace_biblioteki_z_ldd():
+    """6.D39: na zepsutej maszynie to JEDYNY komunikat, z którego wynika działanie.
+
+    Pozostałe gałęzie mówią „coś nie tak z plikiem"; ta podaje NAZWY bibliotek,
+    czyli wprost listę pakietów do doinstalowania. Lista jest wyliczona przez
+    `ldd`, nie wpisana z ręki — wpisana z ręki byłaby zgadnięta, a zgadnięta lista
+    braków wygląda jak pomiar i nim nie jest.
+    """
+    import hashlib
+    import tarfile
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as root:
+        zrobione = _prawdziwy_elf_bez_biblioteki(root, "0.0.4")
+        if zrobione is None:
+            AG.skip("brak gcc albo ldd — tej gałęzi nie da się sprawdzić uczciwie")
+        payload, tree = zrobione
+
+        archive = os.path.join(root, "atrapa-elf.tar.xz")
+        with tarfile.open(archive, "w:xz") as tar:
+            tar.add(payload, arcname=tree)
+        with open(archive, "rb") as handle:
+            sha = hashlib.sha256(handle.read()).hexdigest()
+
+        wynik, _, wolany = _run_blender_installer(root, "elf", sha, archive, "0.0.4")
+
+        assert wolany, "curl nie został wywołany, więc ścieżka rozpakowania się nie wykonała"
+        assert wynik.returncode == 1, (wynik.returncode, wynik.stderr[-500:])
+        powod = [w for w in wynik.stderr.splitlines() if "powód:" in w]
+        assert powod, wynik.stderr[-500:]
+        assert "brakuje bibliotek systemowych" in powod[0], (
+            "instalator nie doszedł do gałęzi `ldd`, więc nie podał NAZW brakujących "
+            f"bibliotek: {powod[0]}")
+        assert "libatrapa.so" in powod[0], (
+            f"komunikat mówi o brakach, ale żadnego nie nazywa: {powod[0]}")

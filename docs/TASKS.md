@@ -779,6 +779,7 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.D36 | **Trzy obcięcia `hexdigest()` w całym drzewie: dwa przez stałą, jedno przez literał `[:12]`** — a stała `ODCISK_ZNAKOW` obok mówi 16 | zmierzone 07.09.2026 na `627d184`, przejściem po wszystkich `.py` i `.cs`: `mutation_sweep.py:444` i `:943` przez `ODCISK_ZNAKOW`, `:990` przez literał. `test_dead_constants.py` (6.B29) łapie stałą, której nikt nie czyta; **nic nie łapie literału, który powinien być stałą**. Dwie długości tej samej wielkości, żadna liczona z drugiej | S |
 | 6.D37 | **ZROBIONE (07.09.2026).** `--only ""` jest dziś **odmową kodem 2**, a nie pełnym przeglądem w milczeniu: pusty wzorzec przepuszczał wszystkie 63 pliki docelowe, czyli **2346 mutacji zamiast 2** dla typowego triażu, **1173×** więcej pracy, przy przebiegu wyglądającym na zawężony. **Pomiar z pola „Wyjście" rozstrzygnął na odmowę, nie na wiersz w wypisie, i pokazał DWIE postacie tej pomyłki o różnym zachowaniu**: w `reports/` stoją dwie prawdziwe pętle podstawiające zmienną do `--only`, a `--only "$m"` (`mutation-drift.md:455`) daje przy pustej zmiennej `--only ''`, kod **0** i pełny przegląd, gdy `--only $f` (`mutation-triage-fizyka.md:173`) gubi argument i argparse **JUŻ odmawia** (`expected one argument`, kod **2**). Druga postać była więc chroniona od zawsze, pierwsza nie była przez nic — i to jest cały powód odmowy. Kod **2**, nie 1: to błędne wywołanie, a nie „nie ma czego liczyć" (tam należą 6.B39 i 6.B41), i ten sam kod daje argparse dla drugiej postaci — jedna pomyłka, jeden kod, niezależnie od tego, czy cudzysłów ocalał. Warunek to `"--only" in sys.argv and not args.only`, a **nie** sama fałszywość `args.only`, bo obie sytuacje dają pusty napis, a tylko jedna jest pomyłką; przebieg bez `--only` (wołany w `reports/` **siedem** razy) zostaje niezmieniony. Zestaw **1931 → 1934**, moduł **108 → 111**, kod wyjścia 0. Trzy kontrole negatywne WYKONANE, każda na innym zbiorze; **KN-2 (odmowa zbyt szeroka, na samej fałszywości) pada na DOKŁADNIE JEDNYM teście** — tym, który pilnuje drogi pełnego przebiegu, i bez niego odmowa zablokowałaby wszystkie siedem wywołań. **KN-3 powtórzona**, bo pierwsza wersja zmieniła przy okazji treść komunikatu i nie izolowała kodu. Pomiar w `reports/puste-zawezenie.md`. Tresc pierwotna: **`--only ""` idzie drogą BEZ zawężenia i nic tego nie mówi** — skrypt wołający `--only "$WZORZEC"` z pustą zmienną dostaje pełny przegląd zamiast odmowy | zmierzone 07.09.2026 na `627d184`: pusty napis jest falsywy dla `if args.only`, więc gałąź zawężenia nie wchodzi wcale. Skutek jest liczbowy: **2346 mutacji zamiast 2** dla typowego triażu jednego modułu, czyli **1173×** więcej pracy, bez ani jednego słowa w wypisie. Ta sama rodzina co 6.B39 — przebieg, który wygląda poprawnie, robiąc co innego — tylko w drugą stronę: tam zbiór był pusty, tu jest pełny | S |
 | 6.D38 | **Nagłówek `reports/mutation-sweep.md` niesie commit, datę i nazwę gałęzi w jednym wierszu, inaczej niż wzór z 6.D3** — `**Snapshot na commicie:** \`66b8301\` (\`main\`, 04.09.2026)` | zauważone 07.09.2026 przy 6.B42. Bramka higieny to przepuszcza, bo szuka SHA w grawisach i daty osobno, a oba tu są — więc **nie jest to brak informacji, a rozjazd kształtu**. Do rozstrzygnięcia pomiarem: ile z 128 raportów ma nagłówek niezgodny ze wzorem i czy wzór jest w ogóle jeden. Jeżeli okaże się, że wzorów jest kilka i wszystkie czytelne, pozycja kończy się adnotacją, nie ujednolicaniem | S |
+| 6.D39 | **ZROBIONE (07.09.2026). `blender_install.sh` gubił stderr Blendera, więc trzy różne przyczyny dawały jeden nierozróżnialny pusty napis** — `installed_version()` miało `"$BIN" --version 2>/dev/null`, a Blender, który nie startuje, pisze `error while loading shared libraries: <nazwa>` WYŁĄCZNIE na stderr i nic na stdout. Zmierzone na runnerze `woogitsu-linux-01` (run 34153517889, job `tunnel-alignment (L1_B)`): pobranie udane, suma SHA-256 **zgodna**, i jedyne zdanie o przyczynie to `zgłasza '', oczekiwano '5.2.1'`. Poprawka rozdziela **cztery** przyczyny (brak pliku, brak `+x`, brakujące biblioteki, wypis bez numeru) i **wylicza** brakujące biblioteki przez `ldd`, zamiast wpisywać listę z ręki — zgadnięta lista braków wygląda jak pomiar i nim nie jest. Trzy bramki wykonawcze, wszystkie trzy kontrole negatywne WYKONANE, w tym jedna na prawdziwym ELF-ie zlinkowanym z biblioteką usuniętą po zlinkowaniu (atrapa w bashu nie nadaje się: `ldd` na skrypcie nie wypisuje ani jednego `=> not found`, więc jedyna gałąź podająca NAZWY pakietów zostałaby bez kontroli). **Pierwsza wersja poprawki nie działała i złapała to kontrola, nie przegląd kodu**: `installed_version` woła się jako `$(installed_version)`, czyli w podshellu, więc przypisanie do zmiennej nie wychodziło do rodzica — komunikat mówił „startuje i nie wypisuje numeru" o Blenderze, który nie startował wcale, czyli poprawka miała tę samą usterkę, którą naprawia, o poziom głębiej. Raport: `reports/pusta-wersja-blendera.md`. **Poza zakresem i wprost NIE zrobione: doinstalowanie pakietów na `woogitsu-linux-01`** — to maszyna właściciela; ta pozycja daje wyłącznie komunikat, z którego wynika, co doinstalować | S |
 
 #### Szczegóły pozycji z kompletem sześciu pól
 
@@ -4904,6 +4905,54 @@ MINIMUM_DETAIL_BLOCKS = 73
   najwyżej ich układ. Poza zakresem także dopisywanie odcisków treści do starych
   raportów (6.B42 dało im adnotację i to zostaje).
 - **Zależy od:** 6.D3, 6.B42.
+
+##### 6.D39 · Pusty numer wersji Blendera bez ani jednego słowa o przyczynie
+
+- **Skąd:** zmierzone 07.09.2026 na runnerze `woogitsu-linux-01`, run 34153517889,
+  job `tunnel-alignment (L1_B)` — cztery joby Blenderowe padły na PR-ze, którego diff
+  nie tyka niczego, co czyta Blender, a `tunnel-alignment (L1_A)` przeszedł
+  **na tym samym commicie**, w tej samej sekundzie startu. Log podał jedno zdanie
+  o przyczynie:
+
+  ```
+  [BLENDER] sprawdzam sumę SHA-256
+  /home/matma/.../_temp/blender-5.2.1-linux-x64.tar.xz: OK
+  [BLENDER] BŁĄD: po rozpakowaniu .../blender zgłasza '', oczekiwano '5.2.1'
+  ```
+
+  Pobranie udane, suma **zgodna**, i pusty napis. Z tego nie wynika, czy rozpakowanie
+  poszło w złe miejsce, czy Blender nie startuje — a różnią się one tym, kto ma
+  co zrobić: pierwsze jest usterką skryptu, drugie brakiem pakietu na maszynie.
+- **Co było mierzalnie nie tak:** `installed_version()` w `tools/ci/blender_install.sh`
+  miało `"$BIN" --version 2>/dev/null`. Blender, który nie wstaje, pisze
+  `error while loading shared libraries: <nazwa>` **wyłącznie na stderr** i nic
+  na stdout — czyli `2>/dev/null` wyrzucało dokładnie tę jedną informację, która
+  jest tu potrzebna. Do tego `[ -x "$BIN" ] || return 1` daje ten sam pusty napis
+  przy braku pliku, więc przyczyn nierozróżnialnych było **trzy**.
+- **Wejście:** `tools/ci/blender_install.sh` (`installed_version`, gałąź błędu po
+  rozpakowaniu), `tools/tests/test_ci_workflows.py` (`_fake_blender_archive`,
+  `_run_blender_installer` — istniejący mechanizm bramek wykonawczych),
+  `.github/actions/probe-tools/action.yml` (sonda bibliotek),
+  `tools/ci/apt-packages/blender.txt` (zestaw pakietów).
+- **Wyjście:** komunikat, który **nazywa przyczynę**, z rozdziałem na brak pliku,
+  brak prawa wykonywania, brakujące biblioteki systemowe i wypis bez numeru wersji.
+  Lista brakujących bibliotek **wyliczona przez `ldd`**, nie wpisana z ręki.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_ci_workflows.py
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: kod 0, a kontrole negatywne pokazują, że rozbrojenie przechwytu stderr
+  albo zdjęcie gałęzi `ldd` wywraca dokładnie po jednym teście.
+- **Skończone, gdy:** dwie przyczyny, które przedtem dawały ten sam pusty napis,
+  dają **dwa różne zdania** (asercja porównuje je ze sobą, nie sprawdza obecności
+  napisu), a gałąź `ldd` jest sprawdzona na **prawdziwym ELF-ie** — atrapa w bashu
+  nie nadaje się, bo `ldd` na skrypcie nie wypisuje ani jednego `=> not found`.
+- **Poza zakresem:** **doinstalowanie brakujących pakietów na `woogitsu-linux-01`** —
+  to maszyna właściciela i nie ma tu obejścia. Poza zakresem także rozszerzanie
+  `tools/ci/apt-packages/blender.txt`: lista musi wyjść z **pomiaru** na tej maszynie,
+  którego ta pozycja dopiero umożliwia, a nie ze zgadywania.
+- **Zależy od:** nic; usterka jest w skrypcie, nie w kolejce.
 
 ### Czego agent nie ruszy bez decyzji
 

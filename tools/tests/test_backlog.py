@@ -158,7 +158,15 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 #: jego pozycją. Żadna nie jest wymyślona na miejscu, i to jest warunek, pod którym
 #: wolno je było dopisać: zadanie wymyślone, bo skończyła się kolejka, omija format
 #: z sekcji 6 i ląduje w kodzie, którego nikt nie prosił o zmianę.
-MINIMUM_DETAIL_BLOCKS = 111
+#: **Liczba przepisana, a nie dopisana obok — 111 → 112 (07.09.2026).** Jeden blok
+#: (6.D39) i ten JEDEN nie jest uzupełnieniem kolejki — jest zapisem usterki, która
+#: **w tej samej godzinie zatrzymała cztery joby CI**, a której log nie umiał nazwać.
+#: Powód, dla którego dostała blok, zanim została zrobiona, jest ten sam co przy
+#: decyzjach właściciela wyżej: usterka bez bloku wygląda w tabeli identycznie jak
+#: usterka nieistniejąca, a ta zostawiła po sobie jedno zdanie `zgłasza ''` i nic
+#: więcej. Kolejka nie była tu powodem: stała RÓWNO na dwunastu i po tej pozycji
+#: stoi tyle samo, bo 6.D39 weszła i wyszła w jednym commicie.
+MINIMUM_DETAIL_BLOCKS = 112
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
