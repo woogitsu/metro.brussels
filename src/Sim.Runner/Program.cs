@@ -215,13 +215,75 @@ public static class Program
                 continue;
             }
 
-            var all = new List<string>(known.Values);
-            all.AddRange(known.Flags);
-            all.Sort(StringComparer.Ordinal);
-            throw new ArgumentException(
-                $"polecenie {command} nie zna opcji {token}. Zna: "
-                + (all.Count == 0 ? "żadnej" : string.Join(", ", all)));
+            // Postac `--opcja=wartosc` (6.A22). Do 07.09.2026 `--limit-kmh=72` konczylo
+            // sie komunikatem „nie zna opcji --limit-kmh=72", ktory jest SPRZECZNY
+            // z faktem: `--limit-kmh` stoi w tabeli. Runner nie zna POSTACI, a to jest
+            // inna wiadomosc — i wazna, bo wartosc odmowy z 6.A11 lezy w tym, ze
+            // czytajacy jej wierzy. Komunikat mowiacy raz na jakis czas nieprawde
+            // o zawartosci tabeli uczy czytac go z zastrzezeniem, a wtedy przestaje
+            // dzialac takze tam, gdzie mial racje.
+            //
+            // Dlaczego postac jest ODRZUCANA, a nie obslugiwana: w calym repozytorium
+            // nie ma ani jednej komendy podajacej `Sim.Runner` czlon z rownosciem.
+            // Zmierzone przez sklejenie kontynuacji wierszy i klasyfikacje kazdego
+            // wystapienia po wolanym programie: `--limit-kmh=` wystepuje **70** razy,
+            // z tego **11** w komendach SCENY Godota, **58** w prozie i w testach
+            // rozbioru argumentow sceny, a **1** w komendzie `Sim.Runner` — i jest nia
+            // pole „Weryfikacja" TEJ pozycji w `docs/TASKS.md`. Scena
+            // (`$GODOT_BIN --path src/Game -- --line --limit-kmh=70`) postaci
+            // z rownosciem WYMAGA, bo taki jest jej `RunPlan`.
+            // Szczegoly: `reports/postac-z-rownosciem.md`.
+            // Dwie polowy projektu maja wiec dwie konwencje i to jest wlasnie powod,
+            // dla ktorego komunikat ma nazywac postac: czytajacy przychodzi tu
+            // z drugiej polowy i pisze to, co tam dziala.
+            var equals = token.IndexOf('=', StringComparison.Ordinal);
+            if (equals > 0)
+            {
+                var prefix = token[..equals];
+                if (Array.IndexOf(known.Values, prefix) >= 0)
+                {
+                    throw new ArgumentException(
+                        $"polecenie {command} nie przyjmuje postaci --opcja=wartość. "
+                        + $"Opcję {prefix} zna — podaj ją jako dwa człony: "
+                        + $"{prefix} {token[(equals + 1)..]}");
+                }
+
+                // Flaga to inna rada, i to wyszlo z WLASNEGO sondowania tej pozycji:
+                // pierwsza wersja komunikatu mowila flagom „podaj jako dwa czlony:
+                // --atp 1", co jest nieprawda — flaga wartosci nie bierze, a `1`
+                // zostaloby czlonem pozycyjnym, ktorego odmowa nie widzi. Komunikat
+                // radzacy rzecz niedzialajaca jest dokladnie ta usterka, ktora ta
+                // pozycja zamyka, tylko przesunieta o jedno miejsce.
+                if (Array.IndexOf(known.Flags, prefix) >= 0)
+                {
+                    throw new ArgumentException(
+                        $"polecenie {command} nie przyjmuje postaci --opcja=wartość, "
+                        + $"a {prefix} jest flagą i wartości nie bierze — podaj samo {prefix}");
+                }
+
+                // Przedrostek TEZ nieznany: komunikat o nieznanej opcji zostaje, ale
+                // nazywa `--zmyslona`, a nie `--zmyslona=7` — bo opcja, ktorej nie ma
+                // w tabeli, nazywa sie `--zmyslona`. To nie jest osobna funkcja,
+                // tylko druga polowa tego samego rozbioru.
+                throw new ArgumentException(Nieznana(command, prefix, known));
+            }
+
+            throw new ArgumentException(Nieznana(command, token, known));
         }
+    }
+
+    /// <summary>
+    /// Tresc odmowy nieznanej opcji — JEDEN pisarz, bo od 6.A22 wola ja dwoch
+    /// (czlon bez rownosci i przedrostek czlonu z rownoscia), a dwoch pisarzy
+    /// rozjezdza sie przy pierwszej poprawce; ta sama zasada co przy 6.A20 i 6.A14.
+    /// </summary>
+    private static string Nieznana(string command, string option, (string[] Values, string[] Flags) known)
+    {
+        var all = new List<string>(known.Values);
+        all.AddRange(known.Flags);
+        all.Sort(StringComparer.Ordinal);
+        return $"polecenie {command} nie zna opcji {option}. Zna: "
+            + (all.Count == 0 ? "żadnej" : string.Join(", ", all));
     }
 
     private static int Unknown(string command)
@@ -409,7 +471,11 @@ public static class Program
         if (limitKmh is double ceiling && (!double.IsFinite(ceiling) || ceiling <= 0.0))
         {
             throw new ArgumentException(
-                $"replay --limit-kmh={ceiling.ToString(Inv)} nie jest dodatnią prędkością");
+                // Dwa czlony, nie rownosc (6.A22): od tej pozycji runner postac
+                // `--opcja=wartosc` ODRZUCA, wiec komunikat pisany w tej postaci
+                // radzilby komende, ktora sam odmowi wykonac. Znalezione wlasnym
+                // sondowaniem tej pozycji, nie wpisem.
+                $"replay --limit-kmh {ceiling.ToString(Inv)} nie jest dodatnią prędkością");
         }
 
         var log = InputLog.Parse(File.ReadAllText(keysPath));

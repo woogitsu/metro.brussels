@@ -168,6 +168,83 @@ def test_the_refusal_skips_positional_arguments():
     assert "known.Flags" in body and "known.Values" in body, (
         "odmowa nie rozroznia flagi od opcji z wartoscia — flaga zjadlaby nastepny czlon")
 
+
+def _kod_bez_komentarzy(source):
+    """`Program.cs` bez wierszy komentarza — wzmianka w komentarzu nie jest komunikatem.
+
+    Bez tego bramka nizej zapalalaby sie na akapicie, ktory WYJASNIA odrzucona postac,
+    czyli na poprawnym tekscie. Bramka zapalajaca sie na poprawnym tekscie zostaje
+    wylaczona, nie naprawiona (nauczka 6.D27 i 6.D30).
+    """
+    return "\n".join(
+        line for line in source.splitlines()
+        if not line.strip().startswith("//") and not line.strip().startswith("///"))
+
+
+def test_the_refusal_splits_a_token_on_the_equals_sign():
+    """Postac `--opcja=wartosc` ma dostac komunikat o POSTACI, nie o nieznanej opcji.
+
+    Sedno 6.A22: `--limit-kmh=72` konczylo sie zdaniem „nie zna opcji --limit-kmh=72",
+    ktore jest sprzeczne z tabela — `--limit-kmh` w niej stoi. Wartosc odmowy z 6.A11
+    lezy w tym, ze czytajacy jej wierzy; komunikat mowiacy nieprawde o zawartosci
+    tabeli uczy czytac go z zastrzezeniem i wtedy przestaje dzialac takze tam, gdzie
+    mial racje.
+    """
+    source = _source()
+    at = source.index("private static void RejectUnknownOptions")
+    body = source[at:source.index("\n    /// <summary>\n    /// Tresc odmowy", at)]
+    assert "IndexOf('=', StringComparison.Ordinal)" in body, (
+        "odmowa nie rozbiera czlonu na przedrostek i wartosc")
+    assert "nie przyjmuje postaci" in body, (
+        "brak komunikatu nazywajacego POSTAC")
+    assert body.count("nie przyjmuje postaci") == 2, (
+        "komunikat o postaci ma dwie wersje — dla opcji z wartoscia i dla FLAGI, "
+        "ktora wartosci nie bierze; rada podana fladze musi byc inna, bo `--atp 1` "
+        "zostawiloby `1` czlonem pozycyjnym, ktorego odmowa nie widzi")
+    assert "known.Flags, prefix" in body, (
+        "odmowa nie sprawdza, czy przedrostek jest FLAGA")
+
+
+def test_there_is_one_writer_of_the_unknown_option_message():
+    """Tresc odmowy nieznanej opcji ma jednego pisarza, choc wolaja ja dwa miejsca.
+
+    Od 6.A22 odmowa wychodzi z dwoch miejsc — czlon bez rownosci i przedrostek czlonu
+    z rownoscia. Dwoch pisarzy tej samej tresci rozjezdza sie przy pierwszej poprawce;
+    ta sama zasada, ktora przy 6.A20 wydzielila `Provenance`, a przy 6.A14
+    `NotANumber`.
+    """
+    source = _source()
+    kod = _kod_bez_komentarzy(source)
+    assert kod.count("private static string Nieznana(") == 1, (
+        "pomocnik tresci odmowy ma byc zadeklarowany dokladnie raz")
+    assert kod.count("nie zna opcji") == 1, (
+        "tresc odmowy nieznanej opcji stoi w %d miejscach zamiast w jednym"
+        % kod.count("nie zna opcji"))
+    assert source.count("Nieznana(command,") == 2, (
+        "pomocnik ma byc wolany z DWOCH miejsc — czlonu bez rownosci i przedrostka "
+        "czlonu z rownoscia; jedno wywolanie znaczy, ze jedna z drog zniknela")
+
+
+def test_no_message_writes_a_known_option_in_the_equals_form():
+    """Zaden komunikat runnera nie radzi postaci, ktora runner sam odrzuca.
+
+    Znalezione WLASNYM sondowaniem 6.A22, nie wpisem: `replay --limit-kmh={ceiling}
+    nie jest dodatnia predkoscia` bylo pisane z rownoscia, czyli w postaci, ktora
+    od tej pozycji konczy sie odmowa. Komunikat radzacy komende niedzialajaca jest
+    ta sama usterka co ta pozycja, przesunieta o jedno miejsce.
+    """
+    source = _source()
+    kod = _kod_bez_komentarzy(source)
+    table = declared_table(source)
+    winne = []
+    for command, (values, flags) in table.items():
+        for option in sorted(values | flags):
+            if option + "=" in kod:
+                winne.append((command, option))
+    assert winne == [], (
+        "komunikat albo kod pisze znana opcje w postaci z rownoscia, ktorej runner "
+        "nie przyjmuje: " + repr(sorted(set(winne))))
+
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
 # z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
 # tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.

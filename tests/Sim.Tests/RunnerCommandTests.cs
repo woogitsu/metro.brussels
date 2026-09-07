@@ -936,4 +936,120 @@ public sealed class RunnerCommandTests
             result.StdErr.Contains("nie rozumie", StringComparison.Ordinal), result.StdErr);
         StringAssert.Contains(result.StdOut, "[ODCINEK]");
     }
+
+    // --- postac --opcja=wartosc nazywa POSTAC, nie nieznajomosc opcji (6.A22) -----
+
+    /// <summary>
+    /// Sedno 6.A22. Do 07.09.2026 <c>--limit-kmh=72</c> konczylo sie komunikatem
+    /// „polecenie line nie zna opcji --limit-kmh=72", ktory jest SPRZECZNY z tabela:
+    /// <c>--limit-kmh</c> w niej stoi. Runner nie zna POSTACI, a to jest inna
+    /// wiadomosc — i wazna, bo cala wartosc odmowy z 6.A11 lezy w tym, ze czytajacy
+    /// jej wierzy.
+    /// </summary>
+    [TestMethod]
+    public void Postac_z_rownosciem_nazywa_postac_a_nie_nieznana_opcje()
+    {
+        var result = Run(
+            "line", "--axis", "data/track/L1_A.json", "--limit-kmh=72",
+            "--exchange-s", "20");
+
+        Assert.AreEqual(1, result.ExitCode);
+        StringAssert.Contains(result.StdErr, "nie przyjmuje postaci");
+        StringAssert.Contains(result.StdErr, "--limit-kmh 72");
+        Assert.IsFalse(
+            result.StdErr.Contains("nie zna opcji", StringComparison.Ordinal),
+            "komunikat nadal twierdzi, ze runner nie zna opcji z tabeli: " + result.StdErr);
+    }
+
+    /// <summary>
+    /// Flaga dostaje INNA rade i to wyszlo z sondowania tej pozycji, nie z wpisu:
+    /// pierwsza wersja komunikatu mowila fladze „podaj jako dwa czlony: --atp 1",
+    /// co jest nieprawda — flaga wartosci nie bierze, a <c>1</c> zostaloby czlonem
+    /// pozycyjnym, ktorego odmowa nie widzi. Komunikat radzacy rzecz niedzialajaca
+    /// jest ta sama usterka, ktora ta pozycja zamyka.
+    /// </summary>
+    [TestMethod]
+    public void Postac_z_rownosciem_na_fladze_nie_radzi_dwoch_czlonow()
+    {
+        var result = Run(
+            "budget", "--axis", "data/track/L1_A.json",
+            "--signalling", "data/design/signalling/classic-2026.json",
+            "--limit-kmh", "72", "--exchange-s", "20", "--headway-s", "90",
+            "--trains", "2", "--steps", "100", "--atp=1");
+
+        Assert.AreEqual(1, result.ExitCode);
+        StringAssert.Contains(result.StdErr, "jest flagą i wartości nie bierze");
+        StringAssert.Contains(result.StdErr, "podaj samo --atp");
+        Assert.IsFalse(
+            result.StdErr.Contains("--atp 1", StringComparison.Ordinal),
+            "komunikat radzi fladze wartosc: " + result.StdErr);
+    }
+
+    /// <summary>
+    /// Kontrola drugiego kierunku, wprost z pola „Skonczone, gdy" tej pozycji:
+    /// literowka nadal daje komunikat o nieznanej opcji i kod 1, czyli poprawka nie
+    /// uciszyla odmowy, ktora 6.A11 wprowadzila. Bez tego testu odmowa zdjeta w calosci
+    /// przeszlaby oba testy wyzej.
+    /// </summary>
+    [TestMethod]
+    public void Literowka_nadal_dostaje_komunikat_o_nieznanej_opcji()
+    {
+        var result = Run(
+            "line", "--axis", "data/track/L1_A.json", "--zmyslona", "7",
+            "--limit-kmh", "72", "--exchange-s", "20");
+
+        Assert.AreEqual(1, result.ExitCode);
+        StringAssert.Contains(result.StdErr, "nie zna opcji --zmyslona");
+        Assert.IsFalse(
+            result.StdErr.Contains("nie przyjmuje postaci", StringComparison.Ordinal),
+            result.StdErr);
+    }
+
+    /// <summary>
+    /// Przedrostek TEZ nieznany: komunikat zostaje o nieznanej opcji, ale nazywa
+    /// <c>--zmyslona</c>, a nie <c>--zmyslona=7</c> — bo opcja, ktorej nie ma
+    /// w tabeli, nazywa sie <c>--zmyslona</c>. To druga polowa tego samego rozbioru,
+    /// nie osobna funkcja.
+    /// </summary>
+    [TestMethod]
+    public void Nieznany_przedrostek_z_rownosciem_nazywa_sam_przedrostek()
+    {
+        var result = Run(
+            "line", "--axis", "data/track/L1_A.json", "--zmyslona=7",
+            "--limit-kmh", "72", "--exchange-s", "20");
+
+        Assert.AreEqual(1, result.ExitCode);
+        StringAssert.Contains(result.StdErr, "nie zna opcji --zmyslona.");
+        Assert.IsFalse(
+            result.StdErr.Contains("--zmyslona=7", StringComparison.Ordinal),
+            "komunikat cytuje caly czlon zamiast nazwy opcji: " + result.StdErr);
+    }
+
+    /// <summary>
+    /// Rownosc w WARTOSCI znanej opcji nie jest postacia `--opcja=wartosc`: sciezka
+    /// `build/a=b.csv` stoi po `--trace`, wiec jest pomijana razem z opcja (i++).
+    /// Odmowa zbudowana na samym wystapieniu znaku rownosci wywrocilaby ten przejazd.
+    /// </summary>
+    [TestMethod]
+    public void Rownosc_w_wartosci_znanej_opcji_przechodzi()
+    {
+        var trace = Path.Combine(Path.GetTempPath(), "a=b.csv");
+        try
+        {
+            var result = Run(
+                "line", "--axis", Path.Combine(RepoRoot(), "data", "track", "L1_A.json"),
+                "--limit-kmh", "72", "--exchange-s", "20", "--trace", trace);
+
+            Assert.AreEqual(0, result.ExitCode, result.StdErr);
+            Assert.IsFalse(
+                result.StdErr.Contains("postaci", StringComparison.Ordinal), result.StdErr);
+        }
+        finally
+        {
+            if (File.Exists(trace))
+            {
+                File.Delete(trace);
+            }
+        }
+    }
 }
