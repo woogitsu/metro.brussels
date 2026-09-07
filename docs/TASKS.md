@@ -725,6 +725,9 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.A20 | **ZROBIONE (07.09.2026), DWA pisarze z pieciu — i pole „Poza zakresem" tej pozycji przewidzialo dokladnie ten wynik.** `budget --out` i `service-day --out` niosa nastawy w wierszach `#` przed naglowkiem CSV; `diff` dwoch przebiegow roznionych jedna nastawa pokazuje teraz **ta nastawe**, nie tylko liczby. **Stan wyjsciowy byl gorszy, niz wygladal**: caly plik mial DWA wiersze, a w tej konkretnej parze przebieg Z wybiegiem wyszedl SZYBSZY (88 935 vs 77 237 krokow/s), bo przy krotkim oknie szum przewyzsza efekt nastawy — czytajacy wyciagnalby wniosek przeciwny do prawdziwego i nie mial czym tego sprawdzic. Trzech pisarzy odlozono, kazdego z INNEGO, zmierzonego powodu: `drive`/`replay` (Compare wymaga, by `left[0]` byl dokladnie `DriveTelemetry.Header`, a ten sam format pisze scena Godota), `line --calls` (godot-first-run.yml porownuje plik rdzenia z plikiem SCENY), `line --trace` (assert_line_trace.py liczy SHA-256 CALEGO pliku wobec wzorcow przybitych do rodziny runtime'u — a **tamta bramka wymaga**, zeby przeliczanie wzorcow stalo w commicie zmieniajacym wersje srodowiska, wiec dopisanie metadanych przeliczyloby je jako skutek uboczny, czyli zlamaloby cudza regule). Szosty pisarz, `axis --dump-points`, nie nalezy tu z innego powodu: zapisuje surowe punkty bez naglowka i bez pomiaru, a grep nie pokazuje ani jednego konsumenta. Bramka `test_csv_provenance.py` **nie** wymaga nastaw od kazdego — wymaga, zeby **zaden nie milczal bez powodu**. **Pierwsza wersja bramki sama sie zapalila i miala racje**: kluczowala po nazwie zmiennej, a `lines` i `rows` sa uzywane ponownie przez pisarzy o ROZNYCH formatach; klucz jest teraz metoda polecenia. Cztery kontrole negatywne, w tym **KN-4 na zamiane zadania w liste wymowek**: `budget` wyjety z `Provenance` i wpisany do listy powodow z wiarygodnie brzmiacym uzasadnieniem — kontrola pozytywna przybija zakres i to lapie. Pomiar w `reports/nastawy-w-pliku-nie-w-wypisie.md`. Tresc pierwotna: **Zaden CSV z `Sim.Runner` nie zapisuje nastaw, ktore go wyprodukowaly** | zmierzone 07.09.2026 przy 6.A18. Naglowek `[BUDZET]` mowi od tej pozycji o wybiegu, ale plik z `--out` nie: 13 kolumn liczb bez odstepu, nawrotu, limitu, ATP, obciazenia i wybiegu. CSV jest artefaktem, ktory PRZEZYWA proces i trafia do raportow | M |
 | 6.A21 | **Trzy pisarze CSV, ktorych format jest przybity z zewnatrz, nadal nie niosa nastaw** — `drive`/`replay`, `line --calls`, `line --trace` | zmierzone 07.09.2026 przy 6.A20, ktore swiadomie nie weszlo w te trzy i wypisalo powod kazdego osobno. Kazdy wymaga zmiany po DRUGIEJ stronie porownania: sceny Godota (dwa pierwsze) albo przeliczenia wzorcow SHA-256 w commicie zmieniajacym wersje srodowiska (trzeci). Bramka `test_csv_provenance.py` trzyma te trzy powody z nazwami, wiec zniesienie ktoregokolwiek jest widoczne, nie ciche | M |
 | 6.D26 | **ZROBIONE (07.09.2026).** Maksimum jest teraz WYPROWADZANE z listy `POMIARY` — pieciu przebiegow z data i kontekstem — a `MARGIN` jest dzialaniem, nie zdaniem. **Zdanie z wpisu, ze „rozrzut hosta nie jest nigdzie zapisany", bylo NIEPRAWDA** i pierwsze czytanie pliku to pokazalo: docstring opisywal kontener dzielony, `ps aux` z rownoleglym `dotnet build` i rozrzut 10,84 s. Zepsute bylo wezsze i gorsze: maksimum wpisane z reki jako jedna liczba z minionej sesji, a margines liczony wobec niej — 107,331 s zmierzone dzis to o **39 %** wiecej niz zapisane 77,04. **Co to realnie przepuszczalo, zmierzone**: obnizenie progu do 100 s przechodzilo wszystkie testy (100 > 77,04, margines 1,298 > 1,2) i dawalo CZERWONE CI na drzewie bez ani jednej usterki; po zmianie jest odmowa. Prog 150,0 **nietkniety** — jego zmiana to decyzja o czulosci bramki. Nowa bramka odmawia, gdy proza podaje mnoznik, ktorego nie daje `MARGIN`, a jej ksztalt to wynik **czterech wlasnych potkniec**, kazdego zlapanego przez inne narzedzie: brala pomiar za mnoznik; skanowala wlasny docstring, ktory te mnozniki WYMIENIA jako przyklady; po wycieciu go przeszla **bez ani jednej asercji** (zlapala to bramka asercji z #139) — wiec sprawdza teraz NARZEDZIE, nie tylko dzisiejszy tekst; a okno zdania urywalo sie na kropce dziesietnej. Cztery kontrole negatywne, z ktorych **KN-4 przed ta zmiana przechodzila**. Pomiar w `reports/zapis-czasu-zestawu.md`. Tresc pierwotna: **`MEASURED_MAX_WALL_S = 77.04` jest nizsze od tego, co maszyna dziś pokazuje** | zmierzone 07.09.2026 przy 6.D25 | S |
+| 6.D27 | **`test_report_claims.py` bierze odsylacz do sekcji za WARTOSC stalej** — `` `PROG_M` — §4 `` czyta jako „raport mowi 4" | zmierzone 07.09.2026 przy 6.D26, gdzie bramka zapalila sie na POPRAWNYM zdaniu („Nie tknieto `SUITE_RUNTIME_BUDGET_S` — §4", kod 150.0). W raportach sa **trzy** wiersze o tym samym ksztalcie i przechodza WYLACZNIE przypadkiem: `MIN_RADIUS_M` usunieta przy 6.B25, `LOCATION_STATION` ma wartosc napisowa, `TOLERANCE_M` ma trzy definicje o dwoch wartosciach — zadna nie trafia do slownika, wiec nie ma z czym porownac. Bramka swiecaca na poprawnym tekscie zostaje wylaczona, nie poprawiona | S |
+| 6.D28 | **Asercje w testach C# nie sa liczone przez nic** — 2289 wywolan `Assert`/`StringAssert`/`CollectionAssert` w 124 plikach, zero nadzoru | nazwane jako odlozone wprost przez 6.B27 (#329) w polu „Poza zakresem". Zestaw Pythona ma `assertion_gate` od #139: test, ktory przeszedl bez ani jednej asercji, jest tam awaria, nie sukcesem — i zlapal to naprawde dwa razy dzisiaj (6.D26). Po stronie C# ten sam test przeszedlby cicho | M |
+| 6.B31 | **Bramka martwych stalych widzi tylko Pythona** — 705 stalych z `.py` objetych, **213** deklaracji `const` i `static readonly` w `.cs` poza zasiegiem | zmierzone 07.09.2026 przy 6.B29, ktore samo wypisalo ten brak — ale nazwalo go katalogiem `godot/`, ktory w tym repozytorium **nie istnieje**: scena lezy w `src/Game/`, czyli w drzewie, ktore bramka juz obchodzi, tylko filtruje po `.py`. `MIN_RADIUS_M` przezylo piec dni po stronie Pythona i zdazylo zostac zacytowane jako granica obowiazujaca; po stronie C# nie ma nic, co by to lapalo | M |
 | 6.B30 | **ZROBIONE (07.09.2026).** Pamiec na `_layout_for` i `_axis_document`: modul **35,1 s -> 11,0 s** (3,2x), caly zestaw **105,3 s -> 76,5 s** przy tej samej liczbie testow (1800) i tym samym werdykcie, trzy przebiegi 76,5 / 76,8 / 76,6 s. **Pytanie, ktore wpis zostawil otwarte, zostalo zmierzone PRZED zmiana**, nie odczytane z kodu: sonda zalozyla pamiec i po KAZDYM z 17 testow liczyla odcisk SHA-256 kazdego zapamietanego obiektu — testow, ktore zmutowaly strukture, jest **zero**. Odczyt pieciu miejsc wolania pokazalby `max`, `min`, `len` i iteracje, ale nie zobaczylby mutacji schowanej w wyrazeniu; odcisk widzi kazda. Docstring mowi, co robic, gdyby to przestalo byc prawda: kopia przy wydaniu albo struktura niezmienna, NIE zdjecie pamieci. **Kryterium „ponizej 10 s" NIE zostalo spelnione i liczba w nim byla bledna** — 10 s bylo moim szacunkiem przy wpisywaniu pozycji, a pomiar pokazuje dno ~11 s: 6,08 s nieusuwalnego wypelnienia pamieci (szesc osi po ~1 s, placi je pierwszy alfabetycznie test dotykajacy wszystkich) plus ~5 s testow na osiach SYNTETYCZNYCH, ktore `_layout_for` nie wolaja wcale. Zejscie ponizej 10 s wymagaloby zmniejszenia tego, co testy licza. Pomiar w `reports/pamiec-ukladu-peronow.md`. Tresc pierwotna: **`_layout_for` w `test_station_layout.py` nie ma pamieci i liczy uklad od nowa przy kazdym wolaniu** | zmierzone 07.09.2026 przy 6.D25: 17 testow, z czego cztery po ~6,0 s, a `_layout_for` jest wolane z pieciu miejsc, kazde w petli po szesciu osiach — czyli ~30 pelnych przebiegow narzedzia na tych samych szesciu plikach | S |
 
 #### Szczegóły pozycji z kompletem sześciu pól
@@ -3043,6 +3046,123 @@ znika stąd i pojawia się jako wpis z sześcioma polami wyżej w tym pliku.
   `axis --dump-points`, który nastaw nie ma z innego powodu (surowe punkty, bez pomiaru
   i bez ani jednego konsumenta — sprawdzone grepem przy 6.A20).
 - **Zależy od:** 6.A20.
+
+##### 6.D27 · Odsyłacz do sekcji czytany jako wartość stałej
+
+- **Skąd:** zmierzone 07.09.2026 przy 6.D26. Bramka zapaliła się na **poprawnym**
+  zdaniu raportu: „Nie tknięto `SUITE_RUNTIME_BUDGET_S` — §4. Decyzja o czułości
+  bramki." → `raporty podają inną wartość niż kod: SUITE_RUNTIME_BUDGET_S mówi 4,
+  kod 150.0`. Wzorzec `CLAIM` bierze pierwszą liczbę w 40 znakach po nazwie stałej,
+  a numer sekcji jest liczbą.
+- **Ile tego już jest:** trzy wiersze w `reports/` mają dokładnie ten kształt
+  (`nazwa-zajeta-drugi-raz.md:63, :172, :176`) i przechodzą **wyłącznie przypadkiem** —
+  żadna z tych trzech stałych nie trafia do słownika wartości: `MIN_RADIUS_M` została
+  usunięta przy 6.B25, `LOCATION_STATION` ma wartość napisową, a `TOLERANCE_M` ma trzy
+  definicje o dwóch wartościach, więc jest wykluczona jako niejednoznaczna. Pierwszy
+  raport, który postawi numer sekcji za nazwą **jednoznacznej liczbowej** stałej,
+  zapali bramkę na poprawnym tekście.
+- **Dlaczego to nie jest kosmetyka:** bramka, która świeci na poprawnym tekście,
+  zostaje wyłączona, nie poprawiona. To samo zdanie stoi w `test_suite_runtime_budget.py`
+  po 6.D26 jako powód wycięcia własnego docstringa ze skanowania.
+- **Wejście:** `tools/tests/test_report_claims.py` (`CLAIM`, `claims_in_reports`,
+  `test_the_claim_pattern_takes_values_and_leaves_mapping_tables_alone`),
+  `reports/nazwa-zajeta-drugi-raz.md`, `reports/zapis-czasu-zestawu.md` §7.
+- **Wyjście:** wzorzec, który **nie** bierze za wartość liczby poprzedzonej znakiem
+  odsyłacza (`§`, `#`, `pkt`, `rozdz.`) ani numeru w cudzym cytacie. Kryterium kształtu
+  ma wyjść z pomiaru na dzisiejszych raportach, a nie z listy znaków wymyślonej z góry:
+  wąskie kryterium przepuszcza fałszywe trafienie, szerokie przestaje łapać prawdziwe
+  rozjazdy — a te bramka łapie od #139 i tego nie wolno stracić.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py
+  python3 tools/tests/test_all.py test_report_claims
+  ```
+  Oczekiwane: zielono, a wypis mówi, ile twierdzeń w raportach bramka **sprawdziła** —
+  liczba, nie samo „ok", bo wzorzec zawężony za mocno przechodziłby przez sprawdzenie
+  zera twierdzeń.
+- **Skończone, gdy:** zdanie `` `STAŁA` — §4 `` przechodzi, a `` `STAŁA` to 4 ``
+  przy kodzie mówiącym 150 nadal **odmawia** — oba pokazane WYKONANĄ kontrolą, nie
+  opisane. Liczba sprawdzanych twierdzeń nie spada.
+- **Poza zakresem:** rozbiór markdownu na drzewo. To jest bramka na tekst i taka
+  zostaje; zmiana narzędzia byłaby zmianą zależności (`CLAUDE.md` §8).
+- **Zależy od:** nic.
+
+##### 6.D28 · Asercje w testach C# nie są liczone przez nic
+
+- **Skąd:** 6.B27 (#329) nazwała to wprost w polu „Poza zakresem", dokładając bramkę na
+  brakujący `[TestMethod]`, ale nie na puste ciało. Zestaw Pythona ma `assertion_gate`
+  od #139: test, który przeszedł **bez ani jednej asercji**, jest tam awarią, nie
+  sukcesem. Dziś ta bramka zadziałała **dwa razy** — przy 6.D26, na moim własnym teście,
+  który po zawężeniu zakresu skanowania przestał cokolwiek sprawdzać, i to był jedyny
+  ślad, że przestał.
+- **Ile tego jest:** `grep -rhoE "\b(Assert|StringAssert|CollectionAssert)\.[A-Za-z]+"`
+  po `tests/` daje **2289** wywołań w **124** plikach `.cs`. Liczba testów C# to dziś
+  552 (`dotnet test`), więc średnio ponad cztery asercje na test — ale **średnia nie
+  wyklucza zera** w pojedynczym teście, i to właśnie jest do zmierzenia.
+- **Wejście:** `tools/tests/csharp_test_methods.py` (precedens: czytanie `tests/**/*.cs`
+  jako tekstu, ze świadomością głębokości klamer, bez `dotnet`),
+  `tools/tests/assertion_gate.py` (precedens po stronie Pythona, #139),
+  `tests/Sim.Tests/`, `reports/test-csharp-bez-atrybutu.md`.
+- **Wyjście:** wypis, ile metod testowych C# nie zawiera ani jednego wywołania
+  `Assert`/`StringAssert`/`CollectionAssert` **ani** `Assert.Throws`-podobnego wyrażenia,
+  i bramka na tę liczbę. Kształt musi wyjść z pomiaru: test, którego cała treść to
+  wywołanie rzucające wyjątek, jest testem bez asercji, ale **nie** jest testem pustym —
+  i pomiar ma powiedzieć, ile takich jest, zanim ktoś zdecyduje, czy je zgłaszać.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py
+  dotnet test tests/Sim.Tests
+  ```
+  plus wypis: ile metod testowych, ile z asercją, ile bez i **które**.
+- **Skończone, gdy:** liczba metod bez asercji jest zerem albo jest **uzasadniona
+  pomiarem** wpisanym do raportu, a kontrola negatywna WYKONANA — asercje usunięte
+  z jednego istniejącego testu zapalają bramkę i **nazywają go z imienia**. Bramka nie
+  może wymagać `dotnet`: zestaw narzędzi chodzi tam, gdzie `doctor.sh` przepuszcza brak
+  SDK. Liczba testów C# w `dotnet test` nie może spaść.
+- **Poza zakresem:** liczenie asercji **wykonanych** w czasie przebiegu, jak to robi
+  `assertion_gate` przez instrumentację AST. Po stronie C# wymagałoby to rozbioru
+  składni albo wpięcia w runner testów — inna, znacznie większa praca. Ta pozycja
+  dotyczy asercji **obecnych w treści**, czyli tego, co da się przeczytać z tekstu.
+- **Zależy od:** #329 (6.B27).
+
+##### 6.B31 · Bramka martwych stałych widzi tylko Pythona
+
+- **Skąd:** 6.B29 (#334) samo wypisało ten brak w polu „czego nie zrobiono" — ale
+  **nazwało go katalogiem `godot/`, który w tym repozytorium nie istnieje**. Sprawdzone
+  07.09.2026: `ls -d */` daje `data docs reports src tests tools`, a scena Godota leży
+  w `src/Game/` (`src/Game/Scenes/FirstRun.tscn`), czyli w drzewie, które bramka **już
+  obchodzi** — tylko filtruje pliki po `.py`. Brak jest więc realny, ale jest brakiem
+  **języka**, nie katalogu.
+- **Ile tego jest:** bramka obejmuje **705** stałych modułowych z plików `.py`.
+  Deklaracji `const` i `static readonly` o nazwie wielkimi literami w `src/` i `tests/`
+  jest **213** i żadnej nie widzi nic. `MIN_RADIUS_M` przeżyło pięć dni po stronie
+  Pythona i zdążyło zostać zacytowane w docstringu jako granica obowiązująca; po
+  stronie C# nie ma odpowiednika tej bramki.
+- **Wejście:** `tools/tests/test_dead_constants.py` (kształt: zapadka z uzasadnieniami,
+  pilnowana w obie strony), `tools/tests/csharp_test_methods.py` (precedens czytania
+  C# jako tekstu, ze świadomością głębokości klamer), `src/Sim/`, `src/Game/`,
+  `reports/stala-ktorej-nikt-nie-czyta.md` §7.
+- **Wyjście:** stała `const` albo `static readonly`, której żaden plik `.cs` w `src/`
+  ani `tests/` nie czyta, jest zgłaszana albo uzasadniona — z listą wyjątków, której
+  rozmiar wychodzi z pomiaru, a nie z założenia. Odczyt musi obejmować `NAZWA`
+  i `Typ.NAZWA`, bo stałą C# czyta się przez nazwę klasy; sprawdzone muszą być także
+  `*.tscn` i `*.gd`, jeżeli scena odwołuje się do nazw stałych.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py
+  ```
+  plus wypis: ile deklaracji, ile nieczytanych i które.
+- **Skończone, gdy:** bramka jest zielona na dzisiejszym drzewie, a kontrole negatywne
+  WYKONANE w **obie** strony: stała bez odczytu dopisana do dowolnego pliku `.cs` zapala
+  bramkę i nazywa plik oraz nazwę; wpis na liście wyjątków, który przestał opisywać
+  stałą nieczytaną, też ją zapala. Bramka nie może wymagać `dotnet`.
+- **Poza zakresem:** pola, właściwości, metody i klasy nieużywane. To wymagałoby
+  rozstrzygnięcia, czym jest publiczne API typu — a ta pozycja dotyczy stałych, czyli
+  tego samego kształtu, który przeżył w #50. Poza zakresem także `src/Game/*.tscn` jako
+  źródło definicji: scena nie definiuje stałych, tylko je czyta.
+- **Zależy od:** #334 (6.B29).
+
+MINIMUM_DETAIL_BLOCKS = 73
 
 ### Czego agent nie ruszy bez decyzji
 
