@@ -417,20 +417,32 @@ public sealed class RunPlanTests
         // jako poprawne, gałąź przestałaby być wchodzona, test nie sprawdzałby już
         // niczego poza „plan nie jest nullem" — i nie powiedziałby o tym ani słowa.
         // Liczba niżej jest ZMIERZONA przebiegiem, nie policzona z listy w kodzie.
-        Assert.AreEqual(8, odrzuconych,
+        // **Liczba PRZEPISANA 07.09.2026 przy 6.A28, nie dopisana obok: 8 -> 9.**
+        Assert.AreEqual(9, odrzuconych,
             "paskudnych wejść odrzuconych; przyjęte: " + string.Join(" | ", przyjete));
 
-        // **Dziewiąte wejście jest PRZYJMOWANE i to jest ZNALEZISKO, nie zamiar.**
-        // `--telemetry=` (pusta ścieżka) przechodzi jako plan poprawny, bo wartość
-        // tej opcji jest napisem i pustka nie wywraca żadnego rozbioru. Scena
-        // pojechałaby więc z pustą ścieżką pliku telemetrii. Nie poprawiam tego tutaj:
-        // 6.D31 wzmacnia TESTY, a zmiana rozbioru argumentów sceny jest zmianą jej
-        // zachowania. Zgłoszone; do czasu poprawki fakt jest PRZYBITY z imienia,
-        // żeby nie zniknął po cichu ani nie wyglądał na przeoczenie.
+        // **Dziewiąte wejście było PRZYJMOWANE do 07.09.2026 i jest to już naprawione.**
+        // `--telemetry=` (pusta ścieżka) przechodziło jako plan poprawny, bo wartość
+        // tej opcji jest napisem i pustka nie wywracała żadnego rozbioru — a
+        // `TelemetryPath` wychodziło napisem PUSTYM, nie `null`, więc scena zbierała
+        // wiersze telemetrii i próbowała je zapisać pod pustą nazwą. 6.D31 tego nie
+        // ruszyło świadomie (wzmacniało TESTY, a to jest zmiana zachowania sceny)
+        // i przybiło fakt z imienia. 6.A28 zmienia tę listę RAZEM z poprawką, tak jak
+        // żądało tego pole „Skończone, gdy" tamtej pozycji.
+        //
+        // Pomiar, który rozstrzygnął zakres poprawki: pustkę przyjmowało **dziewięć
+        // z dziesięciu** opcji ścieżkowych, a dziesiąta (`--calls`) była odrzucana
+        // z powodu niezwiązanego z pustką. Poprawka jest więc jedna i wspólna —
+        // `RunPlan.PathArguments` — a nie dziesięć osobnych.
+        //
+        // Lista pusta, a nie skasowana asercja: `CollectionAssert.AreEqual` na pustym
+        // zbiorze jest asercją BEZWARUNKOWĄ i wywraca się, gdy rozbiór zacznie
+        // cokolwiek z tej dziewiątki przyjmować. Skasowanie jej zostawiłoby test
+        // z samym licznikiem, a licznik nie mówi KTÓRE wejście przeszło.
         CollectionAssert.AreEqual(
-            new[] { "--telemetry=" }, przyjete,
-            "zmienił się zbiór paskudnych wejść, które rozbiór PRZYJMUJE — jeżeli "
-            + "poprawka jest zamierzona, zmień tę listę razem z nią");
+            System.Array.Empty<string>(), przyjete,
+            "rozbiór PRZYJMUJE paskudne wejście, którego nie przyjmował po 6.A28 — "
+            + "jeżeli poprawka jest zamierzona, zmień tę listę razem z nią");
     }
 
     /// <summary>Poprawny plan nie ma powodu odmowy ani kodu wyjścia.</summary>
@@ -1033,5 +1045,141 @@ public sealed class RunPlanTests
         }
 
         CollectionAssert.Contains(RunPlan.KnownArguments, "from-telemetry");
+    }
+    // --- pusta wartosc opcji sciezkowej (6.A28) ---------------------------------
+
+    /// <summary>
+    /// KAZDA opcja sciezkowa odmawia pustej wartosci, i to wypisana z listy, nie
+    /// z jednego przykladu.
+    /// </summary>
+    /// <remarks>
+    /// Pomiar, ktory rozstrzygnal zakres poprawki: pustke przyjmowalo DZIEWIEC
+    /// z dziesieciu opcji sciezkowych (kod 0, `IsValid` prawdziwe, wartosc rowna
+    /// napisowi pustemu), a dziesiata — `--calls` — byla odrzucana z powodu
+    /// niezwiazanego z pustka, bo wymaga `--line`. Poprawka jest wiec jedna
+    /// i wspolna, i to pole „Wyjscie" 6.A28 kazalo rozstrzygnac pomiarem.
+    ///
+    /// PO poprawce odmawiaja wszystkie DZIESIEC i kazda z powodu pustki, bo
+    /// sprawdzenie stoi w `Parse` przed sprawdzeniem zaleznosci miedzy argumentami.
+    /// Tez zmierzone: pierwsza wersja tego testu zadala, zeby `--calls` szlo inna
+    /// droga, i padla.
+    ///
+    /// Petla po `RunPlan.PathArguments`, a nie dziesiec osobnych testow: opcja
+    /// dopisana do tamtej listy dostaje ten test za darmo, a opcja z niej usunieta
+    /// przestaje byc sprawdzana — i to widac w tescie nizej, ktory pilnuje liczby.
+    /// </remarks>
+    [TestMethod]
+    public void KazdaOpcjaSciezkowaOdmawiaPustejWartosci()
+    {
+        var inna_droga = new List<string>();
+        foreach (var nazwa in RunPlan.PathArguments)
+        {
+            var plan = Parse("--" + nazwa + "=");
+
+            Assert.IsFalse(plan.IsValid, nazwa + ": plan z pusta sciezka jest poprawny");
+            Assert.AreEqual(BadArgumentValue, plan.ExitCode, nazwa);
+            Assert.IsFalse(string.IsNullOrWhiteSpace(plan.Error), nazwa);
+            if (plan.Error!.Contains("wymaga ścieżki", StringComparison.Ordinal))
+            {
+                StringAssert.Contains(plan.Error, "--" + nazwa,
+                    "odmowa nie nazywa opcji, ktorej dotyczy");
+            }
+            else
+            {
+                inna_droga.Add(nazwa + " -> " + plan.Error);
+            }
+        }
+
+        // **Zmierzone, nie zalozone — i pierwsza wersja tego testu byla tu w bledzie.**
+        // Zakladalem, ze `--calls=` odmowi WCZESNIEJ i z innego powodu (wymaga
+        // `--line`), i test zadal takiej wlasnie listy. Przebieg pokazal liste PUSTA:
+        // sprawdzenie pustej sciezki stoi w `Parse` PRZED sprawdzeniem zaleznosci
+        // miedzy argumentami, wiec wszystkie dziesiec odmawia z powodu wlasciwego —
+        // pustki — i kazda odmowa nazywa swoja opcje.
+        //
+        // Lista pusta, a nie skasowany warunek: gdyby ktos przesunal sprawdzenie
+        // pustki ZA sprawdzenie zaleznosci, ta asercja to pokaze wraz z komunikatem,
+        // ktory wtedy padnie — a sam licznik odmow nie pokazalby niczego, bo odmowa
+        // by byla, tylko o czym innym.
+        CollectionAssert.AreEqual(
+            System.Array.Empty<string>(), inna_droga,
+            "opcja sciezkowa odmawia pustki z INNEGO powodu niz sama pustka: "
+            + string.Join(" | ", inna_droga));
+    }
+
+    /// <summary>
+    /// Wartosc z samych bialych znakow to ta sama usterka, tylko trudniejsza
+    /// do zauwazenia w wierszu polecen.
+    /// </summary>
+    [TestMethod]
+    public void OpcjaSciezkowaOdmawia_takze_samych_bialych_znakow()
+    {
+        var plan = Parse("--telemetry= ");
+
+        Assert.IsFalse(plan.IsValid, plan.Error);
+        Assert.AreEqual(BadArgumentValue, plan.ExitCode);
+        StringAssert.Contains(plan.Error!, "--telemetry");
+    }
+
+    /// <summary>
+    /// Kontrola drugiego kierunku, i to ONA jest tu wazniejsza od odmow wyzej:
+    /// wartosc NIEPUSTA nadal przechodzi. Odmowa zbudowana zbyt szeroko odrzucalaby
+    /// kazdy plan ze sciezka, a testy odmowy nadal bylyby zielone.
+    /// </summary>
+    [TestMethod]
+    public void Niepusta_sciezka_nadal_przechodzi_dla_kazdej_opcji()
+    {
+        foreach (var nazwa in RunPlan.PathArguments)
+        {
+            if (nazwa == "calls")
+            {
+                // `--calls` wymaga `--line`, a `--line` wymaga `--limit-kmh`.
+                continue;
+            }
+
+            var plan = Parse("--" + nazwa + "=jakas/sciezka.json");
+
+            Assert.IsTrue(plan.IsValid, nazwa + ": " + plan.Error);
+            Assert.AreEqual("jakas/sciezka.json", plan.Argument(nazwa), nazwa);
+        }
+    }
+
+    /// <summary>
+    /// Lista opcji sciezkowych jest podzbiorem znanych argumentow, a jej liczba jest
+    /// przybita. Bez tego opcja usunieta z `PathArguments` przestalaby byc sprawdzana,
+    /// a petla wyzej nadal bylaby zielona — na mniejszym zbiorze.
+    /// </summary>
+    [TestMethod]
+    public void Lista_opcji_sciezkowych_jest_podzbiorem_znanych_i_ma_dziesiec_pozycji()
+    {
+        Assert.AreEqual(10, RunPlan.PathArguments.Length,
+            "opcji sciezkowych bylo 10 przy 6.A28: " + string.Join(" ", RunPlan.PathArguments));
+        foreach (var nazwa in RunPlan.PathArguments)
+        {
+            Assert.IsTrue(Array.IndexOf(RunPlan.KnownArguments, nazwa) >= 0,
+                nazwa + " jest na liscie sciezkowych, a nie ma go w KnownArguments");
+        }
+        CollectionAssert.AllItemsAreUnique(RunPlan.PathArguments);
+    }
+
+    /// <summary>
+    /// Pusta sciezka dawala `TelemetryPath` rowne napisowi PUSTEMU, nie `null` — i to
+    /// jest mechanizm usterki, nie jej objaw. Warunek `_telemetryPath is not null`
+    /// w scenie byl wiec prawdziwy: scena zbierala wiersze telemetrii przez caly
+    /// przejazd i probowala je zapisac pod pusta nazwa. Ten test przybija, ze do tego
+    /// stanu nie da sie juz dojsc.
+    /// </summary>
+    [TestMethod]
+    public void Pusta_sciezka_nie_dochodzi_do_TelemetryPath()
+    {
+        var plan = Parse("--telemetry=");
+
+        Assert.IsFalse(plan.IsValid);
+        Assert.AreEqual(BadArgumentValue, plan.ExitCode);
+
+        // Kontrola przyrzadu: przy sciezce NIEPUSTEJ `TelemetryPath` ja niesie,
+        // wiec asercja wyzej nie jest spelniona przez to, ze pole jest zawsze puste.
+        var dobry = Parse("--telemetry=build/t.csv");
+        Assert.AreEqual("build/t.csv", dobry.TelemetryPath);
     }
 }
