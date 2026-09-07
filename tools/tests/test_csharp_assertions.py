@@ -16,8 +16,17 @@ import csharp_test_methods as CTM  # noqa: E402
 #: Ile metod testowych bramka ma WIDZIEC, zeby pomiar byl pomiarem. Bez tego progu
 #: literowka w czytniku dalaby zero metod, zero brakow i zielona bramke — ta sama
 #: pulapka, ktora zamyka `MINIMUM_CLAIMS` w `test_report_claims.py` i prog deklaracji
-#: w `test_dead_constants_csharp.py`. Zmierzone 07.09.2026: **674**.
-MINIMUM_METOD = 600
+#: w `test_dead_constants_csharp.py`.
+#:
+#: **Liczba przepisana 07.09.2026 przy 6.B28, razem ze sprostowaniem.** Poprzednia
+#: wersja mowila „zmierzone 07.09.2026: **674**" i stawiala prog na 600. Tamte 674
+#: byly liczone przejsciem, ktore liczylo klamry w literalach napisowych i gubilo
+#: przez to **27 prawdziwych metod** (`ServiceDayTests.cs` w calosci), a do tego
+#: pomijalo 13 metod `[DataTestMethod]` z argumentami. Po obu poprawkach z 6.B28
+#: metod testowych jest **719** — tyle, ile atrybutow testowych w plikach. Prog 600
+#: przechodzil rowniez wtedy, gdy czytnik gubil te 27; prog, ktory nie zauwaza utraty
+#: jednej metody z dwudziestu piu, nie mierzy tego, co obiecuje mierzyc.
+MINIMUM_METOD = 700
 
 
 def test_the_gate_sees_the_test_methods_it_is_supposed_to_see():
