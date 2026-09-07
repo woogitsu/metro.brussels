@@ -751,6 +751,12 @@ public static class Program
         var worstRow = new int[DriveTelemetry.ColumnCount - 1];
         var identicalBytes = true;
 
+        // Nazwy kolumn potrzebne SA JUZ TUTAJ, nie tylko w podsumowaniu (6.A24):
+        // odmowa na nieliczbowej komorce ma powiedziec, KTORA to kolumna, a nie sam
+        // jej numer. To ten sam odczyt naglowka, ktory stal nizej — jedno miejsce,
+        // przesuniete w gore, bez drugiego pisarza.
+        var columnNames = DriveTelemetry.Header.Split(',');
+
         for (var i = 1; i < left.Length; i++)
         {
             if (!string.Equals(left[i], right[i], StringComparison.Ordinal))
@@ -774,7 +780,8 @@ public static class Program
 
             for (var c = 0; c < DriveTelemetry.ColumnCount - 1; c++)
             {
-                var delta = Math.Abs(double.Parse(a[c], Inv) - double.Parse(b[c], Inv));
+                var delta = Math.Abs(
+                    Cell(args[1], i, c, columnNames, a[c]) - Cell(args[2], i, c, columnNames, b[c]));
                 if (delta > worst[c])
                 {
                     worst[c] = delta;
@@ -783,7 +790,7 @@ public static class Program
             }
         }
 
-        var names = DriveTelemetry.Header.Split(',');
+        var names = columnNames;
         var failed = false;
         Console.Out.WriteLine($"[PORÓWNANIE] wierszy={left.Length - 1} identyczne co do bajtu={(identicalBytes ? "TAK" : "NIE")}");
         for (var c = 0; c < worst.Length; c++)
@@ -1144,7 +1151,20 @@ public static class Program
     /// </para>
     /// </remarks>
     private static string NotANumber(string command, string name, string text) =>
-        $"{command} nie rozumie wartości {name}: „{text}” nie jest liczbą";
+        $"{command} nie rozumie wartości {name}: " + NieJestLiczba(text);
+
+    /// <summary>
+    /// Końcówka wspólna dla odmowy wartości OPCJI (<see cref="NotANumber"/>)
+    /// i odmowy KOMÓRKI pliku (<see cref="Cell"/>) — jeden pisarz, dwa nagłówki.
+    /// </summary>
+    /// <remarks>
+    /// Wydzielona przy 6.A24, bo bramka `test_one_writer_of_the_message` zapaliła się
+    /// na drugim wystąpieniu tego samego zdania i **miała rację**: dwa pisarze tej
+    /// samej treści rozjeżdżają się przy pierwszej poprawce. Nagłówek musi być inny —
+    /// zła komórka nie jest złą opcją — ale zdanie o tym, że wartość nie jest liczbą,
+    /// jest jedno.
+    /// </remarks>
+    private static string NieJestLiczba(string text) => $"„{text}” nie jest liczbą";
 
     /// <summary>
     /// Rozbiór wartości zmiennoprzecinkowej z komunikatem nazywającym polecenie,
@@ -1158,6 +1178,43 @@ public static class Program
         if (!double.TryParse(text, NumberStyles.Float | NumberStyles.AllowThousands, Inv, out var value))
         {
             throw new ArgumentException(NotANumber(command, name, text));
+        }
+
+        return value;
+    }
+
+    /// <summary>
+    /// Rozbiór KOMÓRKI pliku telemetrii z komunikatem nazywającym plik, wiersz
+    /// i kolumnę (6.A24).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Osobny pisarz niż <see cref="NotANumber"/> i to jest sedno tej pozycji, a nie
+    /// jej niedoróbka: 6.A14 przeszła po jedenastu drogach wartości OPCJI do liczby
+    /// i tę jedną zostawiła nietkniętą, wpisując ją jako jedyne usprawiedliwienie
+    /// w <c>tools/tests/test_runner_number_parsing.py</c> — bo zła komórka nie jest
+    /// złą opcją i komunikat 6.A14 byłby tu nieprawdą. Nietknięta nie znaczyła jednak
+    /// dobra: komunikat był tam dokładnie ten, który 6.A14 wyjęła z opcji —
+    /// <c>The input string 'x' was not in a correct format.</c> — bez pliku, bez
+    /// wiersza i bez kolumny.
+    /// </para>
+    /// <para>
+    /// <c>compare</c> jest <b>wyrocznią parzystości</b> rdzenia i sceny; jego odmowa
+    /// jest jedynym śladem, jaki dostaje czytający, gdy jeden z dwóch plików jest
+    /// zepsuty. Numer wiersza jest indeksem w tablicy wierszy pliku, w której nagłówek
+    /// ma numer <b>0</b> — tak samo jak w dwóch sąsiednich odmowach tej pętli
+    /// („zła liczba kolumn", „różna faza scenariusza") — i komunikat mówi to wprost,
+    /// zamiast zostawiać do zgadnięcia.
+    /// </para>
+    /// </remarks>
+    private static double Cell(string path, int row, int column, string[] names, string text)
+    {
+        if (!double.TryParse(text, NumberStyles.Float | NumberStyles.AllowThousands, Inv, out var value))
+        {
+            var name = column < names.Length ? names[column] : "?";
+            throw new ArgumentException(
+                $"{path}: wiersz {row} (nagłówek to wiersz 0), kolumna {column + 1} "
+                + $"„{name}” — " + NieJestLiczba(text));
         }
 
         return value;

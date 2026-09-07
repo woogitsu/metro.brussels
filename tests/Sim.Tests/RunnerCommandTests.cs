@@ -1127,4 +1127,132 @@ public sealed class RunnerCommandTests
         Assert.AreEqual(0, result.ExitCode, result.StdErr);
         StringAssert.Contains(result.StdOut, "ATP=tak");
     }
+
+    // --- zepsuta komorka CSV nazywa plik, wiersz i kolumne (6.A24) ---------------
+
+    /// <summary>
+    /// Telemetria z rdzenia plus jej kopia z JEDNA zepsuta komorka. Pliki powstaja
+    /// przez `drive --out`, a nie z atrapy, bo `compare` odmawia naglowka niezgodnego
+    /// z `DriveTelemetry.Header` — atrapa dowodzilaby czegos innego niz to, co sie
+    /// zdarza na prawdziwym pliku.
+    /// </summary>
+    private static (string Dobry, string Zepsuty) DwaPlikiTelemetrii(int wiersz, int kolumna, string czym)
+    {
+        var dobry = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".csv");
+        var zepsuty = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".csv");
+        var wynik = Run("drive", "--out", dobry);
+        Assert.AreEqual(0, wynik.ExitCode, wynik.StdErr);
+
+        var wiersze = File.ReadAllLines(dobry);
+        var komorki = wiersze[wiersz].Split(',');
+        komorki[kolumna] = czym;
+        wiersze[wiersz] = string.Join(",", komorki);
+        File.WriteAllLines(zepsuty, wiersze);
+        return (dobry, zepsuty);
+    }
+
+    /// <summary>
+    /// Sedno 6.A24. Do 07.09.2026 zepsuta komorka konczyla sie komunikatem platformy
+    /// .NET — `The input string 'abc' was not in a correct format.` — bez pliku, bez
+    /// wiersza i bez kolumny. 6.A14 przeszla po jedenastu drogach wartosci OPCJI
+    /// i te jedna zostawila nietknieta, bo zla komorka nie jest zla opcja; nietknieta
+    /// nie znaczylo jednak dobra.
+    /// </summary>
+    [TestMethod]
+    public void Zepsuta_komorka_nazywa_plik_wiersz_i_kolumne()
+    {
+        var (dobry, zepsuty) = DwaPlikiTelemetrii(3, 0, "abc");
+        try
+        {
+            var result = Run("compare", dobry, zepsuty);
+
+            Assert.AreEqual(1, result.ExitCode);
+            StringAssert.Contains(result.StdErr, zepsuty);
+            StringAssert.Contains(result.StdErr, "wiersz 3");
+            StringAssert.Contains(result.StdErr, "kolumna 1");
+            StringAssert.Contains(result.StdErr, "step");
+            StringAssert.Contains(result.StdErr, "abc");
+            Assert.IsFalse(
+                result.StdErr.Contains("was not in a correct format", StringComparison.Ordinal),
+                "komunikat platformy .NET nadal wychodzi na wierzch: " + result.StdErr);
+        }
+        finally
+        {
+            File.Delete(dobry);
+            File.Delete(zepsuty);
+        }
+    }
+
+    /// <summary>
+    /// Komunikat nazywa plik ZEPSUTY, a nie pierwszy z wiersza polecen. Bez tego testu
+    /// poprawka wypisujaca zawsze `args[1]` przeszlaby test wyzej, a czytajacy szukalby
+    /// usterki w pliku, ktory jest w porzadku.
+    /// </summary>
+    [TestMethod]
+    public void Zepsuta_komorka_nazywa_zepsuty_plik_a_nie_pierwszy()
+    {
+        var (dobry, zepsuty) = DwaPlikiTelemetrii(5, 2, "nie-liczba");
+        try
+        {
+            var result = Run("compare", zepsuty, dobry);
+
+            Assert.AreEqual(1, result.ExitCode);
+            StringAssert.Contains(result.StdErr, zepsuty);
+            Assert.IsFalse(
+                result.StdErr.Contains(dobry, StringComparison.Ordinal),
+                "komunikat nazywa plik, ktory jest w porzadku: " + result.StdErr);
+        }
+        finally
+        {
+            File.Delete(dobry);
+            File.Delete(zepsuty);
+        }
+    }
+
+    /// <summary>
+    /// Numer kolumny idzie z pozycji w wierszu, nie ze stalej: druga kolumna ma inna
+    /// nazwe i inny numer niz pierwsza. Test na jednej kolumnie przeszedlby rowniez
+    /// dla poprawki wypisujacej zawsze `kolumna 1 step`.
+    /// </summary>
+    [TestMethod]
+    public void Numer_i_nazwa_kolumny_ida_z_pozycji_w_wierszu()
+    {
+        var (dobry, zepsuty) = DwaPlikiTelemetrii(7, 4, "abc");
+        try
+        {
+            var result = Run("compare", dobry, zepsuty);
+
+            Assert.AreEqual(1, result.ExitCode);
+            StringAssert.Contains(result.StdErr, "kolumna 5");
+            StringAssert.Contains(result.StdErr, "speed_mps");
+            StringAssert.Contains(result.StdErr, "wiersz 7");
+        }
+        finally
+        {
+            File.Delete(dobry);
+            File.Delete(zepsuty);
+        }
+    }
+
+    /// <summary>
+    /// Kontrola drugiego kierunku: dwa POPRAWNE pliki nadal przechodza kodem 0.
+    /// Odmowa zbudowana zbyt szeroko odrzucalaby kazde porownanie, a testy wyzej
+    /// nadal bylyby zielone.
+    /// </summary>
+    [TestMethod]
+    public void Dwa_poprawne_pliki_nadal_przechodza()
+    {
+        var (dobry, _) = DwaPlikiTelemetrii(3, 0, "abc");
+        try
+        {
+            var result = Run("compare", dobry, dobry);
+
+            Assert.AreEqual(0, result.ExitCode, result.StdErr);
+            StringAssert.Contains(result.StdOut, "[PORÓWNANIE]");
+        }
+        finally
+        {
+            File.Delete(dobry);
+        }
+    }
 }

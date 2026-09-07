@@ -46,21 +46,31 @@ DEKLARACJA = re.compile(
 
 #: Metody, ktorym goly `Parse` przysluguje, i POWOD kazdej. Powod jest czescia
 #: wpisu, bo lista wymowek bez powodow rosnie sama.
-USPRAWIEDLIWIENIA = {
-    "Compare": (
-        2,
-        "rozbior komorek CSV (`a[c]`, `b[c]`), nie wartosci opcji — komunikat "
-        "nazywajacy opcje bylby tu nieprawda, bo zla komorka nie jest zla opcja",
-    ),
-}
+#:
+#: **Pusto od 07.09.2026, i wpis zdjety, a nie zostawiony na zapas.** Jedynym wpisem
+#: byl `Compare` z powodem „rozbior komorek CSV, nie wartosci opcji — komunikat
+#: nazywajacy opcje bylby tu nieprawda". Powod byl prawdziwy i nadal jest: zla komorka
+#: nie jest zla opcja. Ale 6.A24 pokazala, ze nie wynika z niego prawo do KOMUNIKATU
+#: PLATFORMY — wynika z niego tylko inny naglowek. `Compare` rozbiera dziś komorki
+#: przez `Cell`, ktory nazywa plik, wiersz i kolumne, wiec golego `Parse` nie ma
+#: w `Program.cs` ani jednego. Test zgodnosci w obie strony sam tego zazadal.
+USPRAWIEDLIWIENIA = {}
 
-#: Ile miejsc rozbioru liczby ma byc w `Program.cs` co najmniej. ZMIERZONE
-#: 07.09.2026: 2 gole (komorki CSV w `Compare`) + 4 przez `TryParse`
-#: (`NumberValue`, `LongValue`, `IntValue`, `ParseClock`) = **6**.
-#: Prog byl najpierw wpisany jako 7 — z mojego szacunku, nie z pomiaru — i wlasnie
-#: ten prog to pokazal FAIL-em przy pierwszym przebiegu. Podnosi sie razem
-#: z dopisaniem miejsca, nie zamiast.
-MINIMUM_MIEJSC = 6
+#: Ile miejsc rozbioru liczby ma byc w `Program.cs` co najmniej.
+#:
+#: **Liczba przepisana 07.09.2026 przy 6.A24, i jako jedyna w tym repozytorium ZESZLA
+#: w dol — dlatego stoi tu powod, a nie sama cyfra.** Poprzednia wersja mowila 6 i byla
+#: prawdziwa: 2 gole `Parse` (komorki CSV w `Compare`) + 4 przez `TryParse`
+#: (`NumberValue`, `LongValue`, `IntValue`, `ParseClock`). 6.A24 zamienila te DWA gole
+#: wywolania na JEDEN wspolny pomocnik `Cell` z `TryParse`, wiec miejsc jest teraz
+#: 0 + 5 = **5**. Spadek nie jest tu zluzowaniem bramki: gole `Parse` znikly z pliku
+#: calkiem, co pilnuje osobny test, a ten prog pilnuje wylacznie tego, zeby literowka
+#: we wzorcu nie dawala zera znalezisk i zielono.
+#:
+#: Przy DOPISANIU miejsca rosnie w tym samym commicie. Przy zamianie miejsca na inne
+#: przelicza sie razem z pomiarem, tak jak tutaj — a nie zostaje na zapas, bo prog
+#: wyzszy od stanu faktycznego padlby przy pierwszym przebiegu.
+MINIMUM_MIEJSC = 5
 
 #: Trzy pomocniki, ktore maja byc JEDYNA droga wartosci opcji do liczby.
 POMOCNIKI = ("NumberValue", "LongValue", "IntValue")
@@ -74,6 +84,20 @@ KONCOWKA = "nie jest liczb"
 def _source():
     with open(PROGRAM, encoding="utf-8") as handle:
         return handle.read()
+
+
+def _kod_bez_komentarzy(source):
+    """`Program.cs` bez wierszy komentarza — wzmianka nie jest komunikatem.
+
+    Dopisane przy 6.A24: docstring pomocnika `NieJestLiczba` WYJASNIA tresc
+    komunikatu, wiec licznik pisarzy szukajacy zdania w surowym tekscie widzial
+    dwoch tam, gdzie jest jeden. Bramka zapalajaca sie na poprawnym tekscie zostaje
+    wylaczona, nie naprawiona (6.D27) — to ten sam warunek, ktory ma
+    `test_runner_options.py`, i z tego samego powodu.
+    """
+    return "\n".join(
+        line for line in source.splitlines()
+        if not line.strip().startswith("//") and not line.strip().startswith("///"))
 
 
 def metoda_dla_wiersza(lines, index):
@@ -132,6 +156,15 @@ def test_the_allow_list_is_exact_in_both_directions():
     w tej samej metodzie.
     """
     znaleziska = gole_parse(_source())
+    # Asercja BEZWARUNKOWA, nie petla po wpisach: przy pustej liscie petla nie
+    # wykonalaby ani jednej asercji i test bylby cichym skipem — co przy 6.A24
+    # zlapal `assertion_gate` (#139), gdy lista opustoszala. Zbior metod z golym
+    # `Parse` ma byc DOKLADNIE zbiorem kluczy listy, w obie strony naraz.
+    z_golym = sorted({m for m, _ in znaleziska})
+    assert z_golym == sorted(USPRAWIEDLIWIENIA), (
+        "metody z golym Parse: " + repr(z_golym) + ", a lista usprawiedliwien mowi "
+        + repr(sorted(USPRAWIEDLIWIENIA)) + " — wpis bez znaleziska opisuje stan "
+        "miniony i przepusci nastepny goly Parse w tej samej metodzie")
     for metoda, (ile, powod) in USPRAWIEDLIWIENIA.items():
         rzeczywiste = [l for m, l in znaleziska if m == metoda]
         assert len(rzeczywiste) == ile, (
@@ -153,13 +186,20 @@ def test_parse_site_count_is_above_the_floor():
 def test_one_writer_of_the_message():
     """`NotANumber` jest jedynym pisarzem tresci — trzy pomocniki go WOLAJA."""
     source = _source()
-    assert source.count("private static string NotANumber(") == 1, (
+    kod = _kod_bez_komentarzy(source)
+    assert kod.count("private static string NotANumber(") == 1, (
         "NotANumber ma byc zadeklarowany dokladnie raz")
-    assert source.count(KOMUNIKAT) == 1, (
-        "tresc komunikatu o nieliczbowej wartosci stoi w " + str(source.count(KOMUNIKAT))
+    assert kod.count(KOMUNIKAT) == 1, (
+        "tresc komunikatu o nieliczbowej wartosci stoi w " + str(kod.count(KOMUNIKAT))
         + " miejscach zamiast w jednym — dwoch pisarzy rozjedzie sie przy pierwszej "
         "poprawce, dokladnie jak przy 6.A20")
-    assert source.count(KONCOWKA) == 1, "koncowka komunikatu tez ma miec jednego pisarza"
+    assert kod.count(KONCOWKA) == 1, (
+        "koncowka komunikatu stoi w " + str(kod.count(KONCOWKA)) + " miejscach zamiast "
+        "w jednym. Od 6.A24 sa DWA naglowki (opcja i komorka pliku) i to jest wlasciwe "
+        "— zla komorka nie jest zla opcja — ale zdanie o tym, ze wartosc nie jest "
+        "liczba, ma jednego pisarza: `NieJestLiczba`")
+    assert kod.count("private static string NieJestLiczba(") == 1, (
+        "wspolna koncowka ma byc zadeklarowana dokladnie raz")
     for pomocnik in POMOCNIKI:
         assert "private static " in source and pomocnik + "(" in source, (
             "brak pomocnika " + pomocnik)
