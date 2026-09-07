@@ -724,6 +724,8 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.B26 | **Najciasniejszy luk pakietu D lezy na odcinku, ktorego OSM nie widzi jako tunel** — zapas +0,7043 m liczony jest wobec sciany, ktorej moze nie byc | znalezione przy 6.B5 (#324): 0,0-0,2 m od przedzialu bez tunelu, wobec >= 314 m na pozostalych pieciu osiach. Roznica jest o trzy rzedy wielkosci, wiec nie jest szumem pomiaru | M |
 | 6.A20 | **ZROBIONE (07.09.2026), DWA pisarze z pieciu — i pole „Poza zakresem" tej pozycji przewidzialo dokladnie ten wynik.** `budget --out` i `service-day --out` niosa nastawy w wierszach `#` przed naglowkiem CSV; `diff` dwoch przebiegow roznionych jedna nastawa pokazuje teraz **ta nastawe**, nie tylko liczby. **Stan wyjsciowy byl gorszy, niz wygladal**: caly plik mial DWA wiersze, a w tej konkretnej parze przebieg Z wybiegiem wyszedl SZYBSZY (88 935 vs 77 237 krokow/s), bo przy krotkim oknie szum przewyzsza efekt nastawy — czytajacy wyciagnalby wniosek przeciwny do prawdziwego i nie mial czym tego sprawdzic. Trzech pisarzy odlozono, kazdego z INNEGO, zmierzonego powodu: `drive`/`replay` (Compare wymaga, by `left[0]` byl dokladnie `DriveTelemetry.Header`, a ten sam format pisze scena Godota), `line --calls` (godot-first-run.yml porownuje plik rdzenia z plikiem SCENY), `line --trace` (assert_line_trace.py liczy SHA-256 CALEGO pliku wobec wzorcow przybitych do rodziny runtime'u — a **tamta bramka wymaga**, zeby przeliczanie wzorcow stalo w commicie zmieniajacym wersje srodowiska, wiec dopisanie metadanych przeliczyloby je jako skutek uboczny, czyli zlamaloby cudza regule). Szosty pisarz, `axis --dump-points`, nie nalezy tu z innego powodu: zapisuje surowe punkty bez naglowka i bez pomiaru, a grep nie pokazuje ani jednego konsumenta. Bramka `test_csv_provenance.py` **nie** wymaga nastaw od kazdego — wymaga, zeby **zaden nie milczal bez powodu**. **Pierwsza wersja bramki sama sie zapalila i miala racje**: kluczowala po nazwie zmiennej, a `lines` i `rows` sa uzywane ponownie przez pisarzy o ROZNYCH formatach; klucz jest teraz metoda polecenia. Cztery kontrole negatywne, w tym **KN-4 na zamiane zadania w liste wymowek**: `budget` wyjety z `Provenance` i wpisany do listy powodow z wiarygodnie brzmiacym uzasadnieniem — kontrola pozytywna przybija zakres i to lapie. Pomiar w `reports/nastawy-w-pliku-nie-w-wypisie.md`. Tresc pierwotna: **Zaden CSV z `Sim.Runner` nie zapisuje nastaw, ktore go wyprodukowaly** | zmierzone 07.09.2026 przy 6.A18. Naglowek `[BUDZET]` mowi od tej pozycji o wybiegu, ale plik z `--out` nie: 13 kolumn liczb bez odstepu, nawrotu, limitu, ATP, obciazenia i wybiegu. CSV jest artefaktem, ktory PRZEZYWA proces i trafia do raportow | M |
 | 6.A21 | **Trzy pisarze CSV, ktorych format jest przybity z zewnatrz, nadal nie niosa nastaw** — `drive`/`replay`, `line --calls`, `line --trace` | zmierzone 07.09.2026 przy 6.A20, ktore swiadomie nie weszlo w te trzy i wypisalo powod kazdego osobno. Kazdy wymaga zmiany po DRUGIEJ stronie porownania: sceny Godota (dwa pierwsze) albo przeliczenia wzorcow SHA-256 w commicie zmieniajacym wersje srodowiska (trzeci). Bramka `test_csv_provenance.py` trzyma te trzy powody z nazwami, wiec zniesienie ktoregokolwiek jest widoczne, nie ciche | M |
+| 6.A22 | **Odmowa mowi, ze runner nie zna opcji, ktora zna** — `line --limit-kmh=72` konczy sie `BLAD: polecenie line nie zna opcji --limit-kmh=72` | zmierzone 07.09.2026 przy sondowaniu wiersza polecen: postac `--opcja=wartosc` nie jest obslugiwana i wpada w odmowe z 6.A11, ktora — poprawnie dla literowki — jest tu **mylaca**, bo `--limit-kmh` jest w tabeli `KnownOptions`. Czytajacy dostaje zdanie sprzeczne z faktem | S |
+| 6.A23 | **Powtorzona opcja jest przyjmowana w milczeniu, wygrywa PIERWSZA** — `--limit-kmh 72 --limit-kmh 50` jedzie 72, odwrotna kolejnosc jedzie 50, kod 0 w obu | zmierzone 07.09.2026. Wypis `[LINIA]` i `[ZALOZENIE]` podaja wartosc skuteczna, wiec nie jest niewidoczna — ale **nic nie mowi, ze druga zostala odrzucona**. Od 6.A20 nastawy trafiaja tez do plikow `--out`, wiec czytajacy CSV nie ma jak zobaczyc, ze wiersz polecen mial konflikt | S |
 | 6.D26 | **ZROBIONE (07.09.2026).** Maksimum jest teraz WYPROWADZANE z listy `POMIARY` — pieciu przebiegow z data i kontekstem — a `MARGIN` jest dzialaniem, nie zdaniem. **Zdanie z wpisu, ze „rozrzut hosta nie jest nigdzie zapisany", bylo NIEPRAWDA** i pierwsze czytanie pliku to pokazalo: docstring opisywal kontener dzielony, `ps aux` z rownoleglym `dotnet build` i rozrzut 10,84 s. Zepsute bylo wezsze i gorsze: maksimum wpisane z reki jako jedna liczba z minionej sesji, a margines liczony wobec niej — 107,331 s zmierzone dzis to o **39 %** wiecej niz zapisane 77,04. **Co to realnie przepuszczalo, zmierzone**: obnizenie progu do 100 s przechodzilo wszystkie testy (100 > 77,04, margines 1,298 > 1,2) i dawalo CZERWONE CI na drzewie bez ani jednej usterki; po zmianie jest odmowa. Prog 150,0 **nietkniety** — jego zmiana to decyzja o czulosci bramki. Nowa bramka odmawia, gdy proza podaje mnoznik, ktorego nie daje `MARGIN`, a jej ksztalt to wynik **czterech wlasnych potkniec**, kazdego zlapanego przez inne narzedzie: brala pomiar za mnoznik; skanowala wlasny docstring, ktory te mnozniki WYMIENIA jako przyklady; po wycieciu go przeszla **bez ani jednej asercji** (zlapala to bramka asercji z #139) — wiec sprawdza teraz NARZEDZIE, nie tylko dzisiejszy tekst; a okno zdania urywalo sie na kropce dziesietnej. Cztery kontrole negatywne, z ktorych **KN-4 przed ta zmiana przechodzila**. Pomiar w `reports/zapis-czasu-zestawu.md`. Tresc pierwotna: **`MEASURED_MAX_WALL_S = 77.04` jest nizsze od tego, co maszyna dziś pokazuje** | zmierzone 07.09.2026 przy 6.D25 | S |
 | 6.D27 | **ZROBIONE (07.09.2026).** Miedzy nazwa stalej a liczba nie wolno teraz postawic takze `§` ani `#`. **Powod, dla ktorego to nie jest kosmetyka**: bramka swiecaca na poprawnym tekscie zostaje **wylaczona, nie poprawiona** — a obejsciem, ktore zastosowalem przy 6.D26, bylo przepisanie ZDANIA, nie naprawienie przyrzadu. Trzy wiersze mojego wlasnego raportu z tego samego dnia mialy juz ten ksztalt i przechodzily WYLACZNIE przypadkiem: zadna z tych trzech stalych nie trafia do slownika wartosci (jedna usunieta, jedna napisowa, jedna o dwoch wartosciach). Roznica miedzy zdaniem, ktore przeszlo, i tym, ktore padlo, nie lezala wiec w zdaniu. **`#` doszlo z pomiaru, nie z przewidywania**: `kolejka-uzupelnienie.md:42` pisze „`MINIMUM_DOCUMENTED_ITEMS`: sprzezenie, ktore #274" i jest przepuszczane dzis tylko dlatego, ze stoi tam przecinek. Cena zwezenia powiedziana wprost: „`STALA` (§4) to 30,0" przestaje byc twierdzeniem — ten sam wybor, co przy przecinku, i ta sama asymetria, bo przemilczane twierdzenie lapie prog `MINIMUM_CLAIMS`, a falszywy alarm tylko czyjas cierpliwosc. Po zwezeniu bramka sprawdza **15** twierdzen przy progu 10. Dwie kontrole negatywne, z ktorych **KN-2 jest wazniejsza**: dowodzi, ze zwezenie NIE zjadlo tego, po co bramka istnieje — najprostszym sposobem uciszenia falszywego alarmu jest zwezenie wzorca tak, zeby nie lapal niczego, i taka zmiana byla by zielona bez niej. Ta sama para stoi w tresci testu i chodzi przy kazdym przebiegu. Nie tknieto `pkt`, `rozdz.`, `str.` — pomiar daje **zero** wystapien, a wykluczanie form, ktorych nie ma, zwezal oby bramke o twierdzenia, ktorych juz nie sprawdzi. Pomiar w `reports/odsylacz-nie-jest-wartoscia.md`. Tresc pierwotna: **`test_report_claims.py` bierze odsylacz do sekcji za WARTOSC stalej** | zmierzone 07.09.2026 przy 6.D26, gdzie bramka zapalila sie na POPRAWNYM zdaniu | S |
 | 6.D28 | **ZROBIONE (07.09.2026).** 674 metody testowe C#, **674** z asercja w tresci, **zero** bez. Dojscie do tego zera wymagalo DWOCH poprawek w czytniku i obie mowia wiecej niz sam wynik. **Pierwsza: czytnik zglaszal wlasna niewiedze jako brak.** Cialo metody C# ma dwie postacie — blok i wyrazenie `=> …;` — a pierwsza wersja znala tylko blok i zglosila `Lista_funkcji_KCV_jest_dokladnie_ta_ktora_podaje_STIB` jako metode bez asercji, choc ona asertuje `CollectionAssert` w ciele wyrazeniowym; gorzej, klamra inicjatora `new[] { … }` byla brana za poczatek bloku, wiec asercja nie trafiala nigdzie. **Druga: pomocnik `Assert*` to asercja** — bez tego wychodzilo PIEC brakow, z czego cztery asertuja przez lokalny `AssertBits`. Sprawdzone tez rozwiazywanie pomocnikow po CIELE, nie po nazwie: **nie daje ani jednej metody wiecej**, wiec zostaje regula prostsza. **Granica postawiona swiadomie**: liczone sa asercje OBECNE w tresci, nie WYKONANE — `assertion_gate` robi to drugie i dlatego zlapal moj test z asercja w petli, do ktorej nic nie weszlo. Slabsza wlasnosc, zapisana w docstringu, nie przemilczana. Cztery kontrole negatywne, kazda na innym trybie awarii; **KN-4 jest najwazniejsza**, bo drzewo ma zero brakow, wiec bramka „zero brakow" jest zielona takze wtedy, gdy czytnik uznaje za asertujaca KAZDA metode — kontrola pozytywna na syntetycznej metodzie bez asercji chodzi przy kazdym przebiegu i to ona odroznia jedno od drugiego. Bramka kosztuje 0,50 s. Liczba 674 zgadza sie z 6.B27: tam 708 atrybutow i 668 objetych ksztaltem; roznica to 34 metody Z ARGUMENTAMI, czyli **6.B28**, nietknieta. Pomiar w `reports/asercje-w-testach-csharp.md`. Tresc pierwotna: **Asercje w testach C# nie sa liczone przez nic** | nazwane jako odlozone wprost przez 6.B27 (#329) | M |
@@ -3254,6 +3256,94 @@ MINIMUM_DETAIL_BLOCKS = 73
   (`CLAUDE.md` §8), a oba narzędzia stoją na czytaniu tekstu ze świadomością głębokości
   klamer i taki zostają. Poza zakresem także obejmowanie metod z argumentami — to 6.B28.
 - **Zależy od:** #341 (6.D28), #329 (6.B27).
+
+##### 6.A22 · Odmowa mówi, że runner nie zna opcji, którą zna
+
+- **Skąd:** zmierzone 07.09.2026 przy sondowaniu powierzchni wiersza poleceń
+  `Sim.Runner` (pomiar zrobiony przy okazji 6.D30, przed wzięciem 6.A15):
+  ```
+  --zmyslona 7                     kod=1  BŁĄD: polecenie line nie zna opcji --zmyslona. Zna: --axis, …
+  --limit-kmh=72                   kod=1  BŁĄD: polecenie line nie zna opcji --limit-kmh=72. Zna: --axis, …
+  ```
+  Pierwsze zdanie jest poprawne. Drugie **jest sprzeczne z faktem**: `--limit-kmh`
+  stoi w tabeli `KnownOptions` polecenia `line`, więc runner tę opcję zna. Nie zna
+  **postaci** `--opcja=wartość` — a to jest inna wiadomość niż ta, którą wypisuje.
+- **Dlaczego to nie jest kosmetyka:** odmowa z 6.A11 istnieje po to, żeby literówka nie
+  przechodziła w milczeniu, i jej wartość leży w tym, że czytający jej **wierzy**.
+  Komunikat, który raz na jakiś czas mówi nieprawdę o zawartości tabeli, uczy czytać go
+  z zastrzeżeniem — a wtedy przestaje działać także w tym przypadku, w którym miał rację.
+- **Wejście:** `src/Sim.Runner/Program.cs` (`RejectUnknownOptions`, tabela
+  `KnownOptions`), `tools/tests/test_runner_options.py`,
+  `tests/Sim.Tests/RunnerCommandTests.cs`, `reports/nieznana-opcja-runnera.md` (6.A11).
+- **Wyjście:** komunikat mówiący, co jest naprawdę nie tak. **Do wyboru na podstawie
+  pomiaru, nie z góry**: albo postać `--opcja=wartość` zostaje obsłużona (i wtedy
+  `--limit-kmh=72` po prostu działa), albo zostaje odrzucona z komunikatem nazywającym
+  **postać**, nie nieznajomość opcji. Pierwsza droga jest większa i dotyka każdego
+  polecenia; druga jest mniejsza i nie zmienia niczego, co dziś działa. Pomiar ma
+  powiedzieć, ile miejsc w repozytorium (skrypty CI, `docs/`, README) używa postaci
+  z równością — bo jeżeli zero, to druga droga wystarcza.
+- **Weryfikacja:**
+  ```bash
+  dotnet run --project src/Sim.Runner -c Release -- line --axis data/track/L1_A.json \
+      --limit-kmh=72 --exchange-s 20
+  dotnet run --project src/Sim.Runner -c Release -- line --axis data/track/L1_A.json \
+      --zmyslona 7 --limit-kmh 72 --exchange-s 20
+  dotnet test tests/Sim.Tests
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: pierwsze albo działa, albo odmawia komunikatem o **postaci**; drugie nadal
+  odmawia komunikatem o nieznanej opcji, **niezmienionym** — bo ono było poprawne.
+- **Skończone, gdy:** żaden komunikat odmowy nie twierdzi o opcji z tabeli, że runner
+  jej nie zna — sprawdzone WYKONANĄ próbą obu wariantów, z wklejonym wyjściem. Kontrola
+  negatywna WYKONANA: literówka (`--zmyslona`) nadal daje komunikat o nieznanej opcji
+  i kod 1, czyli poprawka nie uciszyła odmowy, którą 6.A11 wprowadziła.
+- **Poza zakresem:** przepisanie wiersza poleceń na bibliotekę do rozbioru argumentów.
+  To zmiana zależności (`CLAUDE.md` §8), a `Option`/`RequiredNumber`/`OptionalNumber`
+  są dziś jednym miejscem, które `test_runner_options.py` umie czytać.
+- **Zależy od:** #303 (6.A11).
+
+##### 6.A23 · Powtórzona opcja przyjmowana w milczeniu
+
+- **Skąd:** zmierzone 07.09.2026, tym samym sondowaniem co 6.A22:
+  ```
+  --limit-kmh 72 --limit-kmh 50    kod=0   [LINIA] limit 72.00 km/h
+  --limit-kmh 50 --limit-kmh 72    kod=0   [LINIA] limit 50.00 km/h
+  ```
+  **Wygrywa pierwsza**, druga jest odrzucana bez słowa. `Option` szuka pierwszego
+  wystąpienia i nie patrzy dalej.
+- **Co jest, a co nie jest tu problemem:** wartość skuteczna **nie jest** niewidoczna —
+  `[LINIA]` i `[ZAŁOŻENIE]` ją podają, i to jest zasługa 6.A5/6.A6. Problemem jest brak
+  informacji, że **coś zostało odrzucone**: czytający wypis widzi 72 i nie ma powodu
+  przypuszczać, że wiersz poleceń mówił także 50. Od 6.A20 nastawy trafiają również do
+  plików z `--out`, więc ta sama luka jest teraz w artefakcie, który przeżywa proces.
+- **Wejście:** `src/Sim.Runner/Program.cs` (`Option`, `RequiredNumber`,
+  `OptionalNumber`, `RejectUnknownOptions`, `Provenance`),
+  `tests/Sim.Tests/RunnerCommandTests.cs`, `reports/nastawy-w-pliku-nie-w-wypisie.md`
+  (6.A20), `reports/nieznana-opcja-runnera.md` (6.A11).
+- **Wyjście:** powtórzona opcja przestaje być milcząca. **Kierunek do wyboru na
+  podstawie pomiaru**: odmowa (kod 1, jak dla każdej innej złej nastawy) albo wypis
+  mówiący, że wartość została nadpisana. Odmowa jest spójniejsza z 6.A16 („każda odmowa
+  argumentowa = 1"), ale trzeba **najpierw sprawdzić**, czy któryś skrypt CI albo
+  `docs/` nie podaje świadomie tej samej opcji dwa razy — jeżeli tak, odmowa wywróci
+  przebieg, który dziś działa.
+- **Weryfikacja:**
+  ```bash
+  grep -rn -- "--limit-kmh" .github/ tools/ docs/ | grep -c "limit-kmh.*limit-kmh"
+  dotnet run --project src/Sim.Runner -c Release -- line --axis data/track/L1_A.json \
+      --limit-kmh 72 --limit-kmh 50 --exchange-s 20
+  dotnet test tests/Sim.Tests
+  ```
+  Oczekiwane: grep podaje **liczbę** miejsc z powtórzeniem (zero pozwala na odmowę),
+  a przebieg albo odmawia kodem 1, albo mówi wprost, która wartość została odrzucona.
+- **Skończone, gdy:** przebieg z powtórzoną opcją nie kończy się kodem 0 bez ani jednego
+  zdania o powtórzeniu — pokazane WYKONANĄ próbą w obu kolejnościach, z wklejonym
+  wyjściem. Kontrola negatywna WYKONANA: przebieg z opcją podaną **raz** jest
+  niezmieniony, bit w bit dla telemetrii, bo ta pozycja nie ma prawa tknąć przejazdu.
+- **Poza zakresem:** rozstrzyganie konfliktów między opcjami RÓŻNYMI (np. `--limit-kmh`
+  ponad limit planu sygnalizacji) — to osobne zagadnienie, opisane przy #246, i ta
+  pozycja go nie dotyka. Poza zakresem także flagi (`--atp`), których powtórzenie
+  niczego nie zmienia.
+- **Zależy od:** #303 (6.A11), #336 (6.A20).
 
 ### Czego agent nie ruszy bez decyzji
 
