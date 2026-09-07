@@ -877,7 +877,27 @@ def worker(slot: int, chunk: list[Mutation], timeout: int, out_dir: str,
     return done
 
 
-def default_journal(commit: str, kinds: tuple, only: str) -> str:
+def odcisk_przebiegu(odciski: dict) -> str:
+    """Jeden odcisk CALEGO przebiegu, zlozony z odciskow jego plikow.
+
+    Osobna funkcja, a nie wyrazenie w `default_journal`, bo tej wartosci pyta sie
+    dwoch rozmowcow: nazwa dziennika (6.B40) i — po scaleniu — naglowek raportu
+    (6.B42). Dwa niezalezne skladania tej samej listy rozjechalyby sie po cichu,
+    i to jest ta sama zasada, dla ktorej `przyczyna_pustego_zbioru` jest jedna
+    (6.B28, 6.B41).
+
+    Pusty przebieg ma odcisk pusty, nie odcisk pustego napisu: nazwa dziennika dla
+    zbioru bez plikow nie ma czego odrozniac, a `sha256("")` jest wartoscia, ktora
+    wygladalaby jak zmierzona.
+    """
+    if not odciski:
+        return ""
+    material = "|".join(f"{path}:{odcisk}" for path, odcisk in sorted(odciski.items()))
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()[:ODCISK_ZNAKOW]
+
+
+def default_journal(commit: str, kinds: tuple, only: str,
+                    odcisk: str = "") -> str:
     """Domyślna ścieżka dziennika — JEDNA NA PRZEBIEG, nie jedna na maszynę.
 
     **Co było nie tak.** Do 06.09.2026 domyślną ścieżką było
@@ -892,14 +912,34 @@ def default_journal(commit: str, kinds: tuple, only: str) -> str:
     dotyczył wyłącznie `lod_paths.py`. Znalezione przy 6.B14, gdzie dwa agenty
     liczyły równolegle na jednej maszynie.
 
-    **Dlaczego nazwa zawiera właśnie to.** Commit, klasy operatorów i zawężenie
-    `--only` to trzy rzeczy, które rozstrzygają, CZEGO przebieg dotyczy. Dwa
-    przebiegi różniące się którąkolwiek z nich mierzą co innego i nie mają prawa
-    dzielić pliku; dwa przebiegi zgodne we wszystkich trzech to ten sam pomiar,
-    więc wznowienie ma je znaleźć.
+    **Dlaczego nazwa zawiera właśnie to.** Commit, klasy operatorów, zawężenie
+    `--only` i — od 6.B40 — **odcisk treści przebiegu** to cztery rzeczy, które
+    rozstrzygają, CZEGO przebieg dotyczy. Dwa przebiegi różniące się którąkolwiek
+    z nich mierzą co innego i nie mają prawa dzielić pliku; dwa przebiegi zgodne we
+    wszystkich czterech to ten sam pomiar, więc wznowienie ma je znaleźć.
+
+    **Czwarty składnik jest tu dlatego, że trzy przestały wystarczać** — i to nie
+    domysł, a skutek 6.B32. Odcisk treści wszedł wtedy do WPISU dziennika i odmowa
+    zaczęła poprawnie odrzucać cudzą treść; nazwa pliku pozostała jednak funkcją
+    trzech rzeczy, więc dwa przebiegi na tym samym commicie i różnej treści
+    **dzieliły ścieżkę** i drugi z nich kończył się odmową zamiast pomiaru.
+    Zmierzone 07.09.2026 przy 6.B32::
+
+        czyste: /tmp/metro-mutacje-58804969c2a4.jsonl
+        brudne: /tmp/metro-mutacje-58804969c2a4.jsonl     <- ta sama nazwa
+        odcisk: 4e495be9c4159f96                          <- inna tresc
+
+    Docstring obiecywał wtedy „trzy rzeczy, które rozstrzygają, CZEGO przebieg
+    dotyczy", a rozstrzygały już cztery. Ta rozbieżność między obietnicą funkcji
+    i jej działaniem była właściwą treścią pozycji 6.B40 — odmowa z 6.B32 działa
+    i zostaje niezależnie od nazwy.
+
+    **Czego to NIE zmienia.** Wznowienie na treści niezmienionej trafia w ten sam
+    plik, bo odcisk jest wtedy ten sam; przebieg po zacommitowaniu zmiany nadal nie
+    znajdzie dziennika sprzed commita, bo różni się już samym commitem.
     """
     znacznik = hashlib.sha256(
-        "|".join([commit, ",".join(sorted(kinds)), only or ""]).encode("utf-8")
+        "|".join([commit, ",".join(sorted(kinds)), only or "", odcisk]).encode("utf-8")
     ).hexdigest()[:12]
     return os.path.join(tempfile.gettempdir(), f"metro-mutacje-{znacznik}.jsonl")
 
@@ -1304,7 +1344,8 @@ def main() -> int:
     # Raz na plik, nie raz na mutacje (6.B32).
     odciski = odciski_przebiegu(pliki_przebiegu)
 
-    journal = args.journal or default_journal(commit, kinds, args.only)
+    journal = args.journal or default_journal(
+        commit, kinds, args.only, odcisk_przebiegu(odciski))
     done = read_journal(journal)
 
     obce = [entry for entry in done if entry.get("plik") not in pliki_przebiegu]
