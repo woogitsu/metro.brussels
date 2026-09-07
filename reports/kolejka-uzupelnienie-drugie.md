@@ -30,34 +30,56 @@ nie bierze się nigdy (`CLAUDE.md` §8). Każda ma źródło i liczbę:
 
 | pozycja | skąd | liczba |
 |---|---|---|
-| **6.A33** | `reports/audyt-asercji.md` §7 nazwał ten pomiar **rozstrzygającym** i świadomie go nie wykonał | **16 z 68** igieł niejednoznacznych; najgorsza `line` w **11** komunikatach |
+| **6.A33** | `reports/audyt-asercji.md` §7 nazwał ten pomiar **rozstrzygającym** i świadomie go nie wykonał | ~~16 z 68; `line` w 11~~ — **liczby unieważnione, patrz §3**; prawdziwe: **15** niejednoznacznych, **7** po poprawce |
 | **6.D32** | dwie ścieżki, których nie ma w drzewie — jedna z mojego pomiaru, druga znaleziona **niezależnie** przez agenta 6.A30 | **387 / 40 / 149** ścieżek w trzech polach, **2** usterki, **4** poprawne wyjątki |
 | **6.D33** | 6.D15 nie zostawiło bramki, więc pokrycie audytu opada samo | audyt objął **82** komendy z **42** bloków; dziś jest **279** komend w **101** blokach, czyli **29 %** |
 | **6.D34** | `reports/audyt-asercji.md` §7: „o tamtych 53 asercjach ten raport nie mówi nic" | **63** asercje kształtu `Contains` w **7** plikach `Game.Tests` |
 | **6.D35** | to samo zdanie §7 nazywa `InputLogTests.cs` testem Godota | plik leży w `tests/Sim.Tests/`, `namespace MetroBxl.Sim.Tests`, **0** odwołań do Godota w pliku projektu |
 
-## 3. Pomiar 6.A33 — swoistość igły
+## 3. Pomiar 6.A33 — **UNIEWAŻNIONY 07.09.2026, przyrząd był zepsuty**
+
+**Ta sekcja jest przepisana, a nie dopisana obok, i jest to sprostowanie, nie
+aktualizacja.** Poniższe liczby nie były pomiarem swoistości igły — były pomiarem
+komentarzy i kodu. Zostawiam je w cudzysłowie, bo bez nich sprostowanie nie ma czego
+sprostować:
 
 ```
-komunikatow wielowyrazowych w Program.cs: 209
-igiel roznych w RunnerCommandTests.cs:     68   niejednoznacznych: 16
-   11 komunikatow zawiera: 'line'
-   10 komunikatow zawiera: 'budget'
-    9 komunikatow zawiera: '--limit-kmh'
-    8 komunikatow zawiera: 'step'
-    6 komunikatow zawiera: '[BUDŻET]'
-    6 komunikatow zawiera: '[LINIA]'
+   « komunikatow wielowyrazowych w Program.cs: 209                    »
+   « igiel roznych w RunnerCommandTests.cs:     68  niejednoznacznych: 16 »
+   «    11 komunikatow zawiera: 'line'                                »
+   «    10 komunikatow zawiera: 'budget'                              »
 ```
 
-To jest dokładnie ta własność, którą 6.A32 wskazało jako rozstrzygającą: nie **kształt**
-asercji, a **swoistość igły**. `StringAssert.Contains(err, "line")` przechodzi przy
-odmowie o czymkolwiek — i przechodziłby także wtedy, gdyby odmowa mówiła o zupełnie
-innym błędzie, co jest dosłownie usterką 6.A29.
+**Co było zepsute.** Wzorzec wyłuskujący literały ze źródła C# — `"((?:[^"\\]|\\.)*)"`
+na surowym pliku — paruje cudzysłów **zamykający** jednego literału z **otwierającym**
+następnego i łapie wszystko pomiędzy: kod i komentarze. Zmierzone ponownie 07.09.2026
+na tym samym commicie `a4a3975`:
 
-Powód, dla którego to jest wykonalne, choć 6.A32 nie było: rodzina komunikatów jest
-**zamknięta** — 209 literałów w jednym pliku. 6.A32 pytało o kształt asercji w całym
-zestawie, gdzie żadnej zamkniętej rodziny nie ma, i dlatego jego przyrząd łapał 0 z 4.
+```
+'komunikatow' razem: 209
+z nich zawierajacych KOD albo KOMENTARZ: 53  (25 %)
 
+' pozycji 6.A6: <c>line … --coast-from-m X</c>. Opcji\n    /// <c>--coast-from-m</c> …'
+'. Ta sama rola, co <c>drive</c> wobec przebiegu skryptowego.</para>\n    ///\n    …'
+```
+
+Oba przykłady to **komentarze dokumentacyjne XML**, nie komunikaty. `line` „w jedenastu
+komunikatach" to `line` w komentarzach, w znacznikach sekcji `// --- line ---` i w
+zmiennej `File.WriteAllLines(output, lines)`.
+
+**Prawdziwe liczby są w `reports/swoistosc-igly.md`** i pochodzą z bramki, która
+została z tej pozycji: **68** różnych igieł (ten zbiór był policzony poprawnie),
+**15** niejednoznacznych przed poprawką i **7** po niej, każda z siedmiu z wpisanym
+powodem. Trzeciej liczby tutaj **nie podaję** i to jest świadome: dwie moje kolejne
+próby własnego wyłuskiwacza literałów dały wyniki wewnętrznie sprzeczne (0
+wielowyrazowych literałów z 6381 fragmentów), a trzeci domysł dopisany do sprostowania
+byłby tą samą usterką jeszcze raz.
+
+**Co z tego zostaje prawdziwe.** Własność, na którą wskazało 6.A32 — że rozstrzyga
+**swoistość igły**, a nie kształt asercji — jest prawdziwa i została przybita bramką.
+`StringAssert.Contains(err, "line")` naprawdę przechodzi przy odmowie o czymkolwiek.
+Nieprawdziwa była **liczba**, nie wniosek; i to jest najgorszy możliwy układ, bo wniosek
+uwiarygodnia liczbę, której nikt nie sprawdza.
 ## 4. Pomiar 6.D32 — ścieżki w polach bloków
 
 ```
