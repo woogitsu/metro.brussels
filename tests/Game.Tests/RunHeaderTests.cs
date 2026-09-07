@@ -345,7 +345,7 @@ public sealed class RunHeaderTests
 
         var error = Assert.ThrowsException<ArgumentException>(() => RunHeader.SpeedLimitMps(
             plan, Scenario(), null, null, null));
-        StringAssert.Contains(error.Message, "80 km/h", error.Message);
+        StringAssert.Contains(error.Message, "Przejazd ręczny bez planu sygnalizacji", error.Message);
     }
 
     /// <summary>

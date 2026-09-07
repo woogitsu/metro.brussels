@@ -1,0 +1,582 @@
+#!/usr/bin/env python3
+"""Swoistosc igly asercji wobec komunikatow `src/Game/` — druga rodzina, ta sama metoda.
+
+**Po co ta bramka istnieje.** `reports/audyt-asercji.md` §7 konczy sie zdaniem, ktorego
+nie da sie czytac inaczej: „o tamtych 53 asercjach ten raport nie mowi nic — i nie udaje,
+ze mowi". Cztery przypadki asercji nierozstrzygajacej z 07.09.2026 byly wszystkie
+z runnera i z `tools/tests/`, wiec wniosek 6.A32 („przyrzad lapie 0 z 4") jest zdaniem
+o TAMTEJ czworce, nie o `tests/Game.Tests`. 6.A33 zamknelo bramka rodzine komunikatow
+runnera (`src/Sim.Runner/Program.cs`); ta pozycja stosuje **te sama metode** do drugiej
+zamknietej rodziny i nie wymysla drugiej metody.
+
+**Jeden czytnik C#, nie drugi (6.D30).** Literaly, maske i zszywanie konkatenacji
+bierzemy WPROST z `test_needle_specificity` — `komunikaty`, `_spany`, `tresc_literalu`.
+Drugi czytnik tego samego jezyka rozjechalby sie po cichu, a rozjazd dwoch przejsc po
+jednym drzewie jest w tym repozytorium zmierzona usterka, nie przewidywana.
+
+**Co jest KOMUNIKATEM.** Maksymalna grupa literalow zszytych `+`, wielowyrazowa —
+definicja 6.A33, bez zmian. Rodzina to WSZYSTKIE pliki `.cs` pod `src/Game/`
+(bez wygenerowanego `.godot/`), bo `tests/Game.Tests` testuje ten jeden zestaw i jedna
+klase z niego wola drugiej: `EmergencyBrakeTests` asertuje `DriverInput.Help`, ktorego
+tresc stoi w `Input/DriverActions.cs`, wiec rodzina zawezona do pliku o pasujacej nazwie
+zglaszalaby te igle jako „bez dopasowania", czyli milczalaby o niej.
+
+**Co jest IGLA — i dwa zawezenia, oba z powodem.**
+
+1. Ksztalty: `StringAssert.Contains(co, "igla")` oraz `.Contains("igla")` WEWNATRZ
+   `Assert.IsTrue(...)`. Ten drugi ksztalt jest w `Game.Tests` liczny i robi dokladnie
+   to samo, co pierwszy.
+2. `Assert.IsFalse(x.Contains("igla"))` **nie jest igla tej bramki** i to jest
+   rozstrzygniecie, nie przeoczenie. Przy asercji na BRAK igla pospolita jest MOCNIEJSZA
+   od swoistej — `Assert.IsFalse(naGranicy.Contains("jeszcze"))` w
+   `ChaseCameraAimTests` ma zlapac kazde zdanie z tym slowem, a nie jedno. Rodzina
+   usterki, o ktorej mowi 6.A32, dotyczy asercji na OBECNOSC.
+3. Igla interpolowana (`$"--{name}"`) jest pomijana razem z igla trzymana w zmiennej.
+   Napis, ktory test naprawde poda, sklada sie w czasie wykonania; dopasowanie
+   `$"--{name}"` z tekstu do literalu `$"--{name}"` w `RunPlan.cs` jest zbieznoscia
+   ZAPISU ZRODLA, a nie zdaniem o komunikacie. Bez tego zawezenia bramka policzylaby
+   `--{name}` jako igle w czterech komunikatach i zazadala jej wzmocnienia — czego
+   zrobic nie sposob, bo tam nie ma zadnej igly do wzmocnienia.
+
+**Trzy szczeble, bo trzy rozne rzeczy.**
+
+1. Igla zawarta w WIECEJ NIZ JEDNYM komunikacie `src/Game/` — zgloszenie. Naprawia sie
+   **w tescie**, nie w programie: tresc komunikatow jest poza zakresem 6.D34. Komunikat
+   awarii mowi przy tym, czy kolizja jest WEWNATRZ jednego pliku (ostrzejsza: ten sam
+   program moze wypisac oba zdania), czy MIEDZY plikami.
+2. Igla niejednoznaczna Z DOBREGO POWODU — wpis w `POWODY` z powodem podanym zdaniem.
+   Lista zamknieta zapadka z OBU stron (wzorzec 6.A31), bo wpis tanszy od wzmocnienia
+   igly rosnie po cichu, a wpis, ktory przestal opisywac niejednoznacznosc, gnije.
+3. Igla bez ani jednego dopasowania — poza zakresem werdyktu, ale POD ZAPADKA. Bez niej
+   najtanszym uciszeniem szczebla 1 byloby przepisanie igly na tekst, ktorego
+   w literalach nie ma wcale, czyli zamiana niejednoznacznosci na niewidzialnosc.
+
+**KONTROLE — kazda WYKONANA, wypisane w `reports/swoistosc-igly-game.md`:**
+
+  KD (dodatnia)  oslabienie igly `--replay nie laczy sie z --line` do `--replay`
+                 wywraca szczebel 1 i nic poza tym modulem.
+                 Pilnuje tego `test_a_weakened_needle_lights_up_the_first_rung`.
+  KU (ujemna)    igla jednoznaczna NIE jest zglaszana, a mutacja warunku `> 1` na
+                 `>= 1` PRZENOSI zbior zgloszen — „nie zglasza" jest rozroznieniem,
+                 nie pustym zbiorem.
+                 Pilnuje tego `test_a_specific_needle_is_never_reported`.
+  KP (przyrzad)  dopisanie do `src/Game/RunPlan.cs` drugiego komunikatu z istniejaca
+                 igla PODNOSI jej licznik, a ten sam dopisek w komentarzu NIE.
+                 Pilnuje tego `test_the_verdict_follows_the_source_files`.
+  KW (wzorzec)   zepsuty wzorzec daje zero komunikatow i zero igiel, a wtedy caly modul
+                 swieci zielono. Pilnuja tego progi `MIN_GAME_MESSAGES`,
+                 `MIN_GAME_NEEDLES` i `MIN_GAME_SOURCES` oraz dwa testy granicy
+                 na wejsciu syntetycznym.
+"""
+
+import collections
+import glob
+import os
+import re
+import sys
+
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import csharp_test_methods as CTM  # noqa: E402
+import test_needle_specificity as NS  # noqa: E402
+
+#: Drzewo, z ktorego bierze sie rodzina komunikatow. Cale `src/Game/`, bo klasy tego
+#: zestawu wolaja siebie wzajemnie — patrz docstring modulu.
+GAME_SOURCE_GLOB = os.path.join("src", "Game", "**", "*.cs")
+
+#: Wygenerowane przez Godota, nie pisane rekami — `.godot/mono/temp/obj/...`.
+GAME_SOURCE_SKIP = ".godot"
+
+#: Pliki z iglami.
+GAME_TEST_GLOB = os.path.join("tests", "Game.Tests", "*.cs")
+
+#: Igly niejednoznaczne Z POWODEM. Klucz to TRESC igly, nie numer wiersza: numer
+#: przesuwa kazdy commit dopisujacy cokolwiek wyzej, a bramka zapalajaca sie na tekscie
+#: poprawnym zostaje wylaczona, nie naprawiona (6.D27).
+POWODY = {
+    "--from-telemetry":
+        "Cala tresc testu `FromTelemetryRefusesEveryOtherSourceOfMovement`: szesc par "
+        "wymienionych z nazwy (6.C3), a asercja obok tej sprawdza, ze komunikat nazywa "
+        "DRUGI tryb pary. Igla jest nazwa PIERWSZEGO trybu i MA pasowac do wszystkich "
+        "szesciu odmow — inaczej nie byloby czym sprawdzic, ze kazda z nich sie nim "
+        "przedstawia. Wzmocnienie do calego zdania odmowy zabraloby testowi to, co "
+        "mierzy z nazwy, a szescioro roznych zdan trzeba by wpisac do testu z reki.",
+    "--telemetry":
+        "Po wzmocnieniu zostal JEDEN uzytek: "
+        "`OpcjaSciezkowaOdmawia_takze_samych_bialych_znakow` asertuje odmowe o PUSTEJ "
+        "sciezce, a ta jest skladana interpolacja (`--{name} wymaga sciezki`), wiec "
+        "swoistej igly dla niej nie ma w zadnym literale. Oba dopasowania — odmowa "
+        "`--line` z `--telemetry` i odmowa o `--input-log` — dotycza komunikatow INNYCH "
+        "niz mierzony. To ten sam przypadek, co `--steps` w 6.A33.",
+    "skończoną":
+        "Kolizja MIEDZY plikami: `RunPlan.cs` i `TelemetryTrack.cs` koncza swoje odmowy "
+        "tym samym zwrotem „nie jest skonczona liczba\", bo obie mowia o tej samej "
+        "rodzinie wartosci. Test stoi na `RunPlan.Parse` i komunikatu `TelemetryTrack` "
+        "nie ma jak zobaczyc; czesc rozstrzygajaca zdania `RunPlan` (`[ARGUMENT]` "
+        "i nazwa opcji) jest po drugiej stronie dziury interpolacyjnej, wiec igla "
+        "swoista nie istnieje. Obok stoi druga igla tego testu (`abc`).",
+    "skończoną liczbą":
+        "Ta sama kolizja miedzyplikowa widziana z drugiej strony: test "
+        "`AnUnparsableNumberIsRefusedWithItsColumn` stoi na `TelemetryTrack` i odmowy "
+        "`RunPlan` nie ma jak zobaczyc. Numer wiersza i nazwa kolumny, czyli jedyne "
+        "czlony rozstrzygajace, sa interpolowane; obok stoi druga igla tego testu "
+        "(`chainage_m`).",
+}
+
+#: Zapadka na liste wyzej, z OBU stron — wzorzec 6.A31. Zmierzone 07.09.2026: cztery
+#: wpisy. Bez dolnego ostrza zapadka stalaby wyzej niz lista i przyjmowalaby nowy wpis
+#: bez sladu w diffie.
+MAX_GAME_JUSTIFIED_NEEDLES = 4
+
+#: Zapadka na igly bez ani jednego dopasowania (szczebel 3). Zmierzone 07.09.2026:
+#: **16 z 45**. Rosnie tylko przez przepisanie igly na tekst, ktorego w literalach nie
+#: ma — czyli przez zamiane niejednoznacznosci na niewidzialnosc.
+MAX_GAME_UNMATCHED_NEEDLES = 16
+
+#: Progi KW. Literowka we wzorcu daje zero dopasowan i caly modul zielony; te trzy
+#: liczby sa jedynym powodem, dla ktorego taka literowka jest widoczna. Zmierzone
+#: 07.09.2026: **142** wielowyrazowe grupy literalow w **18** plikach `src/Game/`
+#: i **45** roznych igiel w **53** mierzalnych wywolaniach z **64** o tym ksztalcie.
+MIN_GAME_MESSAGES = 142
+MIN_GAME_NEEDLES = 45
+MIN_GAME_SOURCES = 18
+
+#: Igla, na ktorej stoja kontrole dodatnia i przyrzadu. Musi byc SWOISTA i musi stac
+#: w tescie; oba testy mowia to wprost w komunikacie awarii, bo bez tego zniknieci
+#: probki wygladaloby jak zepsuta bramka.
+GAME_PROBKA = "--replay nie łączy się z --line"
+
+#: Plik, w ktorym stoi komunikat probki — kontrola przyrzadu dopisuje do niego drugi.
+GAME_PROBKA_PLIK = os.path.join("src", "Game", "RunPlan.cs")
+
+
+def _read(path):
+    with open(os.path.join(ROOT, path), encoding="utf-8") as handle:
+        return handle.read()
+
+
+def zrodla():
+    """Sciezki plikow `src/Game/`, wzgledne, bez wygenerowanych przez Godota."""
+    znalezione = glob.glob(os.path.join(ROOT, GAME_SOURCE_GLOB), recursive=True)
+    return sorted(os.path.relpath(p, ROOT) for p in znalezione
+                  if GAME_SOURCE_SKIP not in os.path.relpath(p, ROOT).split(os.sep))
+
+
+def testy():
+    """Sciezki plikow testowych `tests/Game.Tests/`, wzgledne."""
+    return sorted(os.path.relpath(p, ROOT)
+                  for p in glob.glob(os.path.join(ROOT, GAME_TEST_GLOB)))
+
+
+def _zamkniecie(maska, start):
+    """Indeks nawiasu zamykajacego wywolanie otwarte na `start`, albo `None`."""
+    glebokosc = 0
+    for i in range(start, len(maska)):
+        if maska[i] == "(":
+            glebokosc += 1
+        elif maska[i] == ")":
+            glebokosc -= 1
+            if glebokosc == 0:
+                return i
+    return None
+
+
+def _argumenty(maska, start, koniec):
+    """Granice `(od, do)` argumentow wywolania, ciete po MASCE i po nawiasach.
+
+    Nie regexem na jednym wierszu: wywolanie rozbite na dwa wiersze wzorzec wierszowy
+    gubi, a przecinek w literale zamienilby jeden argument na dwa.
+    """
+    granice = []
+    glebokosc = 0
+    ostatni = start + 1
+    for i in range(start + 1, koniec):
+        znak = maska[i]
+        if znak in "([{":
+            glebokosc += 1
+        elif znak in ")]}":
+            glebokosc -= 1
+        elif znak == "," and glebokosc == 0:
+            granice.append((ostatni, i))
+            ostatni = i + 1
+    granice.append((ostatni, koniec))
+    return granice
+
+
+def _igla_z_argumentu(source, od, do):
+    """Tresc igly, albo `None`, gdy argument nie jest ZWYKLYM literalem.
+
+    Odrzucane sa dwa przypadki i oba z tego samego powodu — z tekstu nie da sie
+    powiedziec, jaki napis test naprawde poda: igla w zmiennej albo w wyrazeniu
+    (`EmergencyBrake.KeyName`, `"--" + nazwa`) i igla interpolowana (`$"--{name}"`).
+    """
+    surowy = source[od:do].strip()
+    spany = NS._spany(surowy)
+    if len(spany) != 1 or spany[0] != (0, len(surowy)):
+        return None
+    przedrostek = surowy[:len(surowy) - len(surowy.lstrip("@$"))]
+    if "$" in przedrostek:
+        return None
+    return NS.tresc_literalu(surowy)
+
+
+def igly(source):
+    """`{igla: [wiersze]}` dla obu ksztaltow asercji na OBECNOSC.
+
+    `Assert.IsFalse(x.Contains(...))` nie wchodzi — przy asercji na brak igla pospolita
+    jest mocniejsza od swoistej, patrz docstring modulu.
+    """
+    maska = CTM.maska(source)
+    out = {}
+    for wywolanie in re.finditer(r"StringAssert\.Contains\s*\(", maska):
+        start = wywolanie.end() - 1
+        koniec = _zamkniecie(maska, start)
+        if koniec is None:
+            continue
+        granice = _argumenty(maska, start, koniec)
+        if len(granice) < 2:
+            continue
+        od, do = granice[1]
+        igla = _igla_z_argumentu(source, od, do)
+        if igla is not None:
+            out.setdefault(igla, []).append(source.count("\n", 0, od) + 1)
+    for wywolanie in re.finditer(r"Assert\.IsTrue\s*\(", maska):
+        start = wywolanie.end() - 1
+        koniec = _zamkniecie(maska, start)
+        if koniec is None:
+            continue
+        for wewnetrzne in re.finditer(r"\.Contains\s*\(", maska[start:koniec]):
+            wnetrze = start + wewnetrzne.end() - 1
+            zamkniecie = _zamkniecie(maska, wnetrze)
+            if zamkniecie is None:
+                continue
+            od, do = _argumenty(maska, wnetrze, zamkniecie)[0]
+            igla = _igla_z_argumentu(source, od, do)
+            if igla is not None:
+                out.setdefault(igla, []).append(source.count("\n", 0, od) + 1)
+    return out
+
+
+def wywolania(source):
+    """Ile wywolan obu ksztaltow stoi w pliku, niezaleznie od tego, czy sa mierzalne.
+
+    Osobno od `igly`, bo roznica miedzy ta liczba a liczba wywolan mierzalnych JEST
+    wynikiem pomiaru — mowi, ile igiel z tekstu nie da sie odczytac.
+    """
+    maska = CTM.maska(source)
+    ile = len(re.findall(r"StringAssert\.Contains\s*\(", maska))
+    for wywolanie in re.finditer(r"Assert\.IsTrue\s*\(", maska):
+        start = wywolanie.end() - 1
+        koniec = _zamkniecie(maska, start)
+        if koniec is None:
+            continue
+        ile += len(re.findall(r"\.Contains\s*\(", maska[start:koniec]))
+    return ile
+
+
+def komunikaty_rodziny(nadpisz=None):
+    """`[(plik, wiersz, tekst)]` — komunikaty calej rodziny `src/Game/`.
+
+    `nadpisz` (`{sciezka: zrodlo}`) sluzy WYLACZNIE kontroli przyrzadu: podstawia tresc
+    pliku bez pisania po drzewie.
+    """
+    nadpisz = nadpisz or {}
+    out = []
+    for sciezka in zrodla():
+        source = nadpisz.get(sciezka, _read(sciezka))
+        for wiersz, tekst in NS.komunikaty(source):
+            out.append((sciezka, wiersz, tekst))
+    return out
+
+
+def igly_rodziny(nadpisz=None):
+    """`{igla: [(plik, wiersz)]}` dla calego `tests/Game.Tests`."""
+    nadpisz = nadpisz or {}
+    out = {}
+    for sciezka in testy():
+        source = nadpisz.get(sciezka, _read(sciezka))
+        for igla, wiersze in igly(source).items():
+            out.setdefault(igla, []).extend((sciezka, w) for w in wiersze)
+    return out
+
+
+def licznik(nadpisz=None):
+    """`{igla: {plik: ile komunikatow tego pliku zawiera igle}}`."""
+    wiadomosci = komunikaty_rodziny(nadpisz)
+    wynik = {}
+    for igla in igly_rodziny(nadpisz):
+        per = collections.Counter()
+        for plik, _wiersz, tekst in wiadomosci:
+            if igla in tekst:
+                per[plik] += 1
+        wynik[igla] = dict(per)
+    return wynik
+
+
+def razem(per_plik):
+    return sum(per_plik.values())
+
+
+def w_jednym_pliku(per_plik):
+    return max(per_plik.values()) if per_plik else 0
+
+
+def zgloszenia(nadpisz=None, prog=1):
+    """Igly przekraczajace `prog` dopasowan w rodzinie, BEZ wpisu w `POWODY`.
+
+    `prog` sluzy WYLACZNIE mutacji w kontroli ujemnej.
+    """
+    trafienia = licznik(nadpisz)
+    return sorted(igla for igla, per in trafienia.items()
+                  if razem(per) > prog and igla not in POWODY)
+
+
+def bez_dopasowania(nadpisz=None):
+    trafienia = licznik(nadpisz)
+    return sorted(igla for igla, per in trafienia.items() if razem(per) == 0)
+
+
+def _opis(igla, per):
+    rodzaj = ("w JEDNYM pliku" if w_jednym_pliku(per) > 1 else "miedzy plikami")
+    return "%r w %d komunikatach (%s): %s" % (igla, razem(per), rodzaj, per)
+
+
+# --------------------------------------------------------------------------- testy
+
+
+def test_the_message_family_and_the_needles_are_both_read_from_the_files():
+    """Progi KW: zepsuty wzorzec daje zero i caly modul swieci zielono.
+
+    To jest najczestszy sposob, w jaki bramka klamie w strone „wszystko w porzadku",
+    i jedyny powod, dla ktorego ten test stoi osobno od pozostalych.
+    """
+    wiadomosci = komunikaty_rodziny()
+    plikow = len({plik for plik, _w, _t in wiadomosci})
+    igielki = igly_rodziny()
+    assert len(wiadomosci) >= MIN_GAME_MESSAGES, (
+        "wzorzec zlapal %d wielowyrazowych komunikatow `src/Game/`, a 07.09.2026 bylo "
+        "ich %d — spadek znaczy zepsuty czytnik, nie posprzatany plik"
+        % (len(wiadomosci), MIN_GAME_MESSAGES))
+    assert plikow >= MIN_GAME_SOURCES, (
+        "komunikaty przyszly z %d plikow, a 07.09.2026 z %d" % (plikow, MIN_GAME_SOURCES))
+    assert len(igielki) >= MIN_GAME_NEEDLES, (
+        "wzorzec zlapal %d roznych igiel w `tests/Game.Tests`, a 07.09.2026 bylo ich %d"
+        % (len(igielki), MIN_GAME_NEEDLES))
+    assert all(wiersz > 0 for _plik, wiersz, _tekst in wiadomosci)
+
+
+def test_every_needle_matches_at_most_one_message_or_is_justified():
+    """Szczebel 1 i 2 razem: zgloszenie albo wpis z powodem, trzeciej drogi nie ma."""
+    trafienia = licznik()
+    gdzie = igly_rodziny()
+    bad = ["%s [test %s]" % (_opis(igla, trafienia[igla]), gdzie[igla])
+           for igla in zgloszenia()]
+    assert bad == [], (
+        "igla asercji pasuje do wiecej niz jednego komunikatu `src/Game/` i nie ma "
+        "wpisu z powodem — wzmocnij ja w tescie albo wpisz na liste: %s" % bad)
+
+
+def test_a_specific_needle_is_never_reported():
+    """KU: bramka lapiaca igle POPRAWNA zostalaby wylaczona w tym samym tygodniu.
+
+    Nie wystarczy, ze nic sie nie zglasza — trzeba pokazac, ze igly jednoznaczne
+    W PLIKACH SA, ze zadna z nich nie trafia do zgloszen, i ze przesuniecie warunku
+    `> 1` na `>= 1` PRZENOSI zbior zgloszen. Bez ostatniego czlonu ten test
+    przechodzilby takze wtedy, gdyby wzorzec nie lapal niczego.
+    """
+    trafienia = licznik()
+    jednoznaczne = {igla for igla, per in trafienia.items() if razem(per) == 1}
+    assert len(jednoznaczne) >= 20, sorted(jednoznaczne)
+    assert not jednoznaczne & set(zgloszenia())
+    przy_jedynce = set(zgloszenia(prog=1))
+    przy_zerze = set(zgloszenia(prog=0))
+    assert przy_zerze > przy_jedynce, (sorted(przy_jedynce), sorted(przy_zerze))
+    assert jednoznaczne <= przy_zerze, sorted(jednoznaczne - przy_zerze)
+
+
+def test_the_verdict_follows_the_source_files():
+    """KP: dopisanie DRUGIEGO komunikatu z istniejaca igla podnosi jej licznik.
+
+    Bez tego testu „bramka czytajaca `src/Game/`" bylaby nieodroznialna od tabeli liczb
+    wpisanej z pamieci: obie daja dzis ten sam werdykt. Druga polowa kontroli stoi
+    w tym samym tescie: ten sam dopisek w KOMENTARZU licznika nie podnosi, bo komentarz
+    maska zamienia na spacje.
+    """
+    program = _read(GAME_PROBKA_PLIK)
+    przed = licznik()
+    assert razem(przed.get(GAME_PROBKA, {})) == 1, (
+        "igla-przyrzad %r nie stoi juz w tescie albo nie jest swoista (licznik %r) — "
+        "kontrola przyrzadu stracila punkt odniesienia"
+        % (GAME_PROBKA, przed.get(GAME_PROBKA)))
+    drugi = GAME_PROBKA + ", i to jest drugi komunikat"
+    komentarz = program + '\n// oslona: Console.Error.WriteLine("%s");\n' % drugi
+    assert razem(licznik({GAME_PROBKA_PLIK: komentarz})[GAME_PROBKA]) == 1, (
+        "bramka policzyla literal z komentarza")
+    kod = program + '\nstatic class Oslona { const string X = "%s"; }\n' % drugi
+    po = licznik({GAME_PROBKA_PLIK: kod})
+    assert razem(po[GAME_PROBKA]) == 2, po[GAME_PROBKA]
+    assert GAME_PROBKA in zgloszenia({GAME_PROBKA_PLIK: kod}), (
+        "podniesiony licznik nie trafil do zgloszen")
+
+
+def test_a_weakened_needle_lights_up_the_first_rung():
+    """KD: oslabienie igly swoistej do wieloznacznej wywraca szczebel 1.
+
+    Na wejsciu podstawionym, bo bramka ma dzis szczebel 1 pusty i sam jego zielony
+    kolor nie dowodzi niczego (ta sama zasada, co przy 6.A31).
+    """
+    plik = os.path.join("tests", "Game.Tests", "RunPlanTests.cs")
+    source = _read(plik)
+    assert GAME_PROBKA in source, (
+        "igla-przyrzad %r zniknela z %s — kontrola dodatnia nie ma czego oslabiac"
+        % (GAME_PROBKA, plik.replace(os.sep, "/")))
+    oslabione = source.replace('"%s"' % GAME_PROBKA, '"--replay"')
+    assert oslabione != source, GAME_PROBKA
+    assert zgloszenia() == [], (
+        "szczebel 1 zapalony JUZ przed oslabieniem: %s — kontrola dodatnia nie pokazuje "
+        "wtedy niczego" % zgloszenia())
+    assert "--replay" in zgloszenia({plik: oslabione}), zgloszenia({plik: oslabione})
+
+
+def test_the_needle_reader_reads_presence_and_skips_absence():
+    """Granica czytnika igiel, w obie strony, na wejsciu syntetycznym.
+
+    Cztery rozstrzygniecia naraz, bo cztery razy mogloby byc inaczej: oba ksztalty na
+    OBECNOSC sa igla, `Assert.IsFalse` nie jest, igla w zmiennej i igla interpolowana
+    nie sa. Bez tego testu `igly` moglaby zwracac pusty slownik na wszystkim — a wtedy
+    bramka bylaby zielona zawsze.
+    """
+    probka = "\n".join([
+        'class T {',
+        '  void A() {',
+        '    StringAssert.Contains(plan.Error, "swoista igła");',
+        '    StringAssert.Contains(plan.Error, zmienna);',
+        '    StringAssert.Contains(',
+        '        plan.Error, "igła z dwóch wierszy");',
+        '    StringAssert.Contains(plan.Error, "z, przecinkiem");',
+        '    Assert.IsTrue(plan.Error!.Contains("igła z IsTrue"), plan.Error);',
+        '    Assert.IsFalse(plan.Error!.Contains("brak"), plan.Error);',
+        '    Assert.IsTrue(plan.Error!.Contains($"--{name}"), plan.Error);',
+        '  }',
+        '}',
+    ])
+    znalezione = igly(probka)
+    assert set(znalezione) == {
+        "swoista igła", "igła z dwóch wierszy", "z, przecinkiem", "igła z IsTrue",
+    }, znalezione
+    assert znalezione["igła z dwóch wierszy"] == [6], znalezione
+    # Szesc, nie siedem: `Assert.IsFalse` do tej rodziny nie nalezy, a licznik
+    # wywolan liczy dokladnie te ksztalty, ktorych igly bramka mierzy.
+    assert wywolania(probka) == 6, wywolania(probka)
+
+
+def test_the_message_reader_is_the_one_from_the_runner_gate():
+    """Jeden czytnik C#: komunikaty czyta `test_needle_specificity`, nie kopia.
+
+    Gdyby ten modul dorobil wlasny czytnik literalow, oba rozjechalyby sie po cichu —
+    a to jest w tym repozytorium usterka zmierzona (6.D30), nie przewidywana.
+    """
+    assert igly.__module__ == __name__
+    assert NS.komunikaty.__module__ == "test_needle_specificity"
+    probka = "\n".join([
+        'class P {',
+        '  static string[] Tabela = new[] { "--axis", "--limit-kmh" };',
+        '  static void M() {',
+        '    Console.Error.WriteLine("odmowa w trzech "',
+        '        + "czesciach, jedno "',
+        '        + "zdanie");',
+        '  }',
+        '}',
+    ])
+    teksty = [tekst for _wiersz, tekst in NS.komunikaty(probka)]
+    assert teksty == ["odmowa w trzech czesciach, jedno zdanie"], teksty
+
+
+def test_every_justification_still_describes_an_ambiguous_needle():
+    """Powod nie moze przezyc igly, ktora opisuje.
+
+    Wpis, ktorego nie ma czego usprawiedliwiac, jest dziura w bramce ubrana w proze —
+    ta sama zasada, ktora 6.D29 postawilo dla listy wyjatkow raportow, 6.B34 dla
+    martwych stalych i 6.A31 dla sciezek `bin/`.
+    """
+    trafienia = licznik()
+    martwe = sorted(igla for igla in POWODY
+                    if razem(trafienia.get(igla, {})) <= 1)
+    assert martwe == [], (
+        "powod igly, ktora niejednoznaczna juz nie jest: %s" % martwe)
+    puste = sorted(igla for igla, powod in POWODY.items() if len(powod.strip()) < 40)
+    assert puste == [], "powod niepodany zdaniem: %s" % puste
+
+
+def test_the_justification_list_stays_closed():
+    """Zapadka z obu stron: wpis tanszy od wzmocnienia igly rosnie po cichu."""
+    assert len(POWODY) <= MAX_GAME_JUSTIFIED_NEEDLES, (
+        "lista powodow urosla do %d przy zapadce %d — igla ma zostac wzmocniona "
+        "w tescie, a nie dostac miejsce na liscie"
+        % (len(POWODY), MAX_GAME_JUSTIFIED_NEEDLES))
+    assert MAX_GAME_JUSTIFIED_NEEDLES <= len(POWODY), (
+        "zapadka %d stoi wyzej niz lista (%d) — obniz ja do stanu faktycznego"
+        % (MAX_GAME_JUSTIFIED_NEEDLES, len(POWODY)))
+
+
+def test_needles_without_a_single_match_stay_under_a_ratchet():
+    """Szczebel 3: zamiana niejednoznacznosci na niewidzialnosc musi byc widoczna.
+
+    Igla przepisana na tekst, ktorego w literalach nie ma wcale, ucisza szczebel 1
+    i nie zglasza sie nigdzie — chyba ze jej liczba stoi pod zapadka. Wtedy trzeba ja
+    podniesc w tym samym commicie, czyli w diffie.
+    """
+    bez = bez_dopasowania()
+    assert len(bez) <= MAX_GAME_UNMATCHED_NEEDLES, (
+        "igiel bez ani jednego dopasowania jest %d przy zapadce %d: %s"
+        % (len(bez), MAX_GAME_UNMATCHED_NEEDLES, bez))
+    assert MAX_GAME_UNMATCHED_NEEDLES <= len(bez), (
+        "zapadka %d stoi wyzej niz stan faktyczny (%d) — obniz ja"
+        % (MAX_GAME_UNMATCHED_NEEDLES, len(bez)))
+
+
+def main():
+    """Inwentarz do wklejenia w raport: wszystkie igly z licznikiem i wyrokiem."""
+    wiadomosci = komunikaty_rodziny()
+    gdzie = igly_rodziny()
+    trafienia = licznik()
+    wszystkich = sum(wywolania(_read(p)) for p in testy())
+    print("komunikatow wielowyrazowych src/Game: %d w %d plikach"
+          % (len(wiadomosci), len({p for p, _w, _t in wiadomosci})))
+    print("igiel roznych: %d (mierzalnych wywolan %d z %d o tym ksztalcie)"
+          % (len(gdzie), sum(len(v) for v in gdzie.values()), wszystkich))
+    print()
+    zgl = zgloszenia()
+    for igla in sorted(trafienia, key=lambda i: (-razem(trafienia[i]), i)):
+        per = trafienia[igla]
+        ile = razem(per)
+        wyrok = ("ZGLOSZONA" if igla in zgl
+                 else "z powodem" if ile > 1
+                 else "bez dopasowania" if ile == 0 else "swoista")
+        print("  %-16s %2d %-2s %-44r %s"
+              % (wyrok, ile, "1p" if w_jednym_pliku(per) > 1 else "",
+                 igla, sorted(per)))
+    print()
+    print("  swoistych (dokladnie 1 komunikat):   %d"
+          % len([1 for per in trafienia.values() if razem(per) == 1]))
+    print("  niejednoznacznych (>1):              %d"
+          % len([1 for per in trafienia.values() if razem(per) > 1]))
+    print("    z tego w JEDNYM pliku:             %d"
+          % len([1 for per in trafienia.values() if w_jednym_pliku(per) > 1]))
+    print("    z tego z powodem:                  %d (zapadka %d)"
+          % (len(POWODY), MAX_GAME_JUSTIFIED_NEEDLES))
+    print("    z tego ZGLOSZONYCH:                %d" % len(zgl))
+    print("  bez ani jednego dopasowania:         %d (zapadka %d)"
+          % (len(bez_dopasowania()), MAX_GAME_UNMATCHED_NEEDLES))
+    for igla in zgl:
+        print("    ZGLOSZONA: %s" % _opis(igla, trafienia[igla]))
+    return 0
+
+
+if __name__ == "__main__":
+    if "--inwentarz" in sys.argv:
+        raise SystemExit(main())
+    import test_all
+
+    raise SystemExit(test_all.main(__file__))
