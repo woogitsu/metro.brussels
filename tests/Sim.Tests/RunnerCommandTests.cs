@@ -134,7 +134,7 @@ public sealed class RunnerCommandTests
         var result = Run("replay");
 
         Assert.AreEqual(1, result.ExitCode);
-        StringAssert.Contains(result.StdErr, "--keys");
+        StringAssert.Contains(result.StdErr, "replay wymaga --keys");
     }
 
     /// <summary>
@@ -170,7 +170,7 @@ public sealed class RunnerCommandTests
         var result = Run("axis");
 
         Assert.AreEqual(1, result.ExitCode);
-        StringAssert.Contains(result.StdErr, "--axis");
+        StringAssert.Contains(result.StdErr, "axis wymaga --axis");
     }
 
     /// <summary>
@@ -234,7 +234,7 @@ public sealed class RunnerCommandTests
         var result = Run("service-day");
 
         Assert.AreEqual(1, result.ExitCode);
-        StringAssert.Contains(result.StdErr, "--timetable");
+        StringAssert.Contains(result.StdErr, "service-day wymaga --timetable");
     }
 
     /// <summary>
@@ -253,7 +253,7 @@ public sealed class RunnerCommandTests
             var result = Run("service-day", "--timetable", timetable, "--at", "nie-jest-zegarem");
 
             Assert.AreEqual(1, result.ExitCode);
-            StringAssert.Contains(result.StdErr, "HH:MM:SS");
+            StringAssert.Contains(result.StdErr, "czas ma mieć postać HH:MM:SS");
         }
         finally
         {
@@ -736,7 +736,7 @@ public sealed class RunnerCommandTests
             "--steps", "2000", "--trains", "2");
 
         Assert.AreEqual(0, result.ExitCode, result.StdErr);
-        StringAssert.Contains(result.StdOut, "[BUDŻET]");
+        StringAssert.Contains(result.StdOut, "[BUDŻET] oś ");
     }
 
     // --- komunikat odmowy nazywa wolane polecenie (6.D20) -------------------------
@@ -966,7 +966,7 @@ public sealed class RunnerCommandTests
             "--exchange-s", "20");
 
         Assert.AreEqual(1, result.ExitCode);
-        StringAssert.Contains(result.StdErr, "nie przyjmuje postaci");
+        StringAssert.Contains(result.StdErr, "nie przyjmuje postaci --opcja=wartość. Opcję");
         StringAssert.Contains(result.StdErr, "--limit-kmh 72");
         Assert.IsFalse(
             result.StdErr.Contains("nie zna opcji", StringComparison.Ordinal),
@@ -1117,7 +1117,7 @@ public sealed class RunnerCommandTests
             "--limit-kmh", "72", "--exchange-s", "20");
 
         Assert.AreEqual(0, result.ExitCode, result.StdErr);
-        StringAssert.Contains(result.StdOut, "[LINIA]");
+        StringAssert.Contains(result.StdOut, "[LINIA] największy błąd zatrzymania");
     }
 
     /// <summary>
@@ -1286,7 +1286,7 @@ public sealed class RunnerCommandTests
             var result = Run("compare", dobry, dobry);
 
             Assert.AreEqual(0, result.ExitCode, result.StdErr);
-            StringAssert.Contains(result.StdOut, "[PORÓWNANIE]");
+            StringAssert.Contains(result.StdOut, "[PORÓWNANIE] wierszy=");
         }
         finally
         {
@@ -1358,7 +1358,7 @@ public sealed class RunnerCommandTests
             var result = Run("compare", dobry, dobry);
 
             Assert.AreEqual(0, result.ExitCode, result.StdErr);
-            StringAssert.Contains(result.StdOut, "[PORÓWNANIE]");
+            StringAssert.Contains(result.StdOut, "[PORÓWNANIE] wierszy=");
         }
         finally
         {
@@ -1404,7 +1404,7 @@ public sealed class RunnerCommandTests
             "--brake-usage", "0.8");
 
         Assert.AreEqual(0, result.ExitCode, result.StdErr);
-        StringAssert.Contains(result.StdOut, "[LINIA]");
+        StringAssert.Contains(result.StdOut, "[LINIA] największy błąd zatrzymania");
     }
 
     /// <summary>
@@ -1588,7 +1588,7 @@ public sealed class RunnerCommandTests
             var wynik = Run("compare", dobry, kopia);
 
             Assert.AreEqual(0, wynik.ExitCode, wynik.StdErr);
-            StringAssert.Contains(wynik.StdOut, "[PORÓWNANIE]");
+            StringAssert.Contains(wynik.StdOut, "[PORÓWNANIE] wierszy=");
             Assert.IsFalse(wynik.StdErr.Contains("BŁĄD", StringComparison.Ordinal),
                 "porownanie dwoch poprawnych plikow wypisalo odmowe: " + wynik.StdErr);
         }
