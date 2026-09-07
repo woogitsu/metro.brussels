@@ -738,6 +738,8 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.B37 | **Nic nie pilnuje, ze `mutation_sweep.main()` w ogole dochodzi do konca** — 6.B35 zyla niezauwazona przez cala dobe, bo zaden test nie uruchamia narzedzia jego wlasna droga (`main()`), tylko wola funkcje wewnetrzne | zmierzone 07.09.2026 przy 6.B20: obejscie blokera z 6.B35 polegalo na wolaniu funkcji przez `importlib`, czyli droga, ktorej nikt w praktyce nie uzywa. Bramka na `--list` jest tania (nie odpala ani jednej mutacji) i wystarczy, zeby taka awaria nie przezyla nastepnego commita | S |
 | 6.A27 | **Dwie odmowy `compare` nie maja przedrostka `BLAD:`** — `roznia liczba wierszy` i `nagloweki telemetrii nie zgadzaja sie z formatem rdzenia` wracaja `return 1`, a nie wyjatkiem, wiec omijaja wspolny handler | zmierzone 07.09.2026 przy 6.A24, ktore swiadomie tego nie ruszylo: wykonane `compare` na pliku o zlym nagłowku daje `nagłówki telemetrii nie zgadzają się z formatem rdzenia` bez przedrostka, podczas gdy nowa odmowa komorki i wszystko, co ujednolicila 6.A16, przedrostek maja. Ksztalt wyjscia jest tu wyrocznia dla czytajacego log CI | S |
 | 6.B36 | **Sonda pokrycia zjada 78 % czasu przegladu mutacyjnego** — 416,7-426,6 s z 534,3-600,3 s calego przebiegu na module o DWOCH mutacjach | zmierzone 07.09.2026 przy 6.B20 jako fazy jednego ciaglego przebiegu, przy 1, 2 i 4 robotnikach. Dla dwoch mutacji sonda kosztuje wiecej niz sama praca (115,5 s przy jednym robotniku, 57,5-59,6 s przy dwoch i czterech), a jej wynik jest potrzebny wylacznie do rozdzielenia ocalalych na „przezyla mimo odpalenia" i „nieodpalona". Pozycja ma zmierzyc, czy da sie ja policzyc RAZ na commit i zapamietac, zanim ktokolwiek zacznie ja skracac | M |
+| 6.A28 | **Scena przyjmuje `--telemetry=` z PUSTA sciezka jako plan poprawny** — pojechalaby z pusta sciezka pliku telemetrii | zmierzone 07.09.2026 przy 6.D31, licznikiem, ktory mial wyjsc 9 na dziewiec paskudnych wejsc, a wyszedl **8**. Wartosc tej opcji jest napisem, wiec pustka nie wywraca zadnego rozbioru; pozostale osiem wejsc (`--sample-every=`, `--view=`, `----`, `=`, `--=1`, `--jitter=--`, `--at-chainage=`, `--at-chainage=1e999`) rozbior odrzuca poprawnie, wiec rodzina jako calosc dziala i pustka wyglada na przeoczenie, nie decyzje. Fakt jest dziś PRZYBITY `CollectionAssert` w `RunPlanTests.NoInputThrows`, wiec poprawka zazada zmiany tamtej listy razem z soba | S |
+| 6.B38 | **Jeden modul zjada piata czesc czasu zestawu** — `test_mutation_sweep.py` to **15,3 s** z 76 s, bo jego testy uruchamiaja procesy i zakladaja drzewa `git worktree` | zmierzone 07.09.2026 przy 6.B37, przez zdjecie i przywrocenie dwoch nowych testow: modul **14,196 s → 15,315 s** (69 → 71 testow). Nie jest to dzis awaria, ale jest to jedyny modul, ktory sam z siebie zbliza sie do progu z 6.D26 — i kazdy nastepny test narzedzia bedzie go podnosil, bo tak wlasnie testuje sie narzedzie uruchamiane jako proces | M |
 | 6.D26 | **ZROBIONE (07.09.2026).** Maksimum jest teraz WYPROWADZANE z listy `POMIARY` — pieciu przebiegow z data i kontekstem — a `MARGIN` jest dzialaniem, nie zdaniem. **Zdanie z wpisu, ze „rozrzut hosta nie jest nigdzie zapisany", bylo NIEPRAWDA** i pierwsze czytanie pliku to pokazalo: docstring opisywal kontener dzielony, `ps aux` z rownoleglym `dotnet build` i rozrzut 10,84 s. Zepsute bylo wezsze i gorsze: maksimum wpisane z reki jako jedna liczba z minionej sesji, a margines liczony wobec niej — 107,331 s zmierzone dzis to o **39 %** wiecej niz zapisane 77,04. **Co to realnie przepuszczalo, zmierzone**: obnizenie progu do 100 s przechodzilo wszystkie testy (100 > 77,04, margines 1,298 > 1,2) i dawalo CZERWONE CI na drzewie bez ani jednej usterki; po zmianie jest odmowa. Prog 150,0 **nietkniety** — jego zmiana to decyzja o czulosci bramki. Nowa bramka odmawia, gdy proza podaje mnoznik, ktorego nie daje `MARGIN`, a jej ksztalt to wynik **czterech wlasnych potkniec**, kazdego zlapanego przez inne narzedzie: brala pomiar za mnoznik; skanowala wlasny docstring, ktory te mnozniki WYMIENIA jako przyklady; po wycieciu go przeszla **bez ani jednej asercji** (zlapala to bramka asercji z #139) — wiec sprawdza teraz NARZEDZIE, nie tylko dzisiejszy tekst; a okno zdania urywalo sie na kropce dziesietnej. Cztery kontrole negatywne, z ktorych **KN-4 przed ta zmiana przechodzila**. Pomiar w `reports/zapis-czasu-zestawu.md`. Tresc pierwotna: **`MEASURED_MAX_WALL_S = 77.04` jest nizsze od tego, co maszyna dziś pokazuje** | zmierzone 07.09.2026 przy 6.D25 | S |
 | 6.D27 | **ZROBIONE (07.09.2026).** Miedzy nazwa stalej a liczba nie wolno teraz postawic takze `§` ani `#`. **Powod, dla ktorego to nie jest kosmetyka**: bramka swiecaca na poprawnym tekscie zostaje **wylaczona, nie poprawiona** — a obejsciem, ktore zastosowalem przy 6.D26, bylo przepisanie ZDANIA, nie naprawienie przyrzadu. Trzy wiersze mojego wlasnego raportu z tego samego dnia mialy juz ten ksztalt i przechodzily WYLACZNIE przypadkiem: zadna z tych trzech stalych nie trafia do slownika wartosci (jedna usunieta, jedna napisowa, jedna o dwoch wartosciach). Roznica miedzy zdaniem, ktore przeszlo, i tym, ktore padlo, nie lezala wiec w zdaniu. **`#` doszlo z pomiaru, nie z przewidywania**: `kolejka-uzupelnienie.md:42` pisze „`MINIMUM_DOCUMENTED_ITEMS`: sprzezenie, ktore #274" i jest przepuszczane dzis tylko dlatego, ze stoi tam przecinek. Cena zwezenia powiedziana wprost: „`STALA` (§4) to 30,0" przestaje byc twierdzeniem — ten sam wybor, co przy przecinku, i ta sama asymetria, bo przemilczane twierdzenie lapie prog `MINIMUM_CLAIMS`, a falszywy alarm tylko czyjas cierpliwosc. Po zwezeniu bramka sprawdza **15** twierdzen przy progu 10. Dwie kontrole negatywne, z ktorych **KN-2 jest wazniejsza**: dowodzi, ze zwezenie NIE zjadlo tego, po co bramka istnieje — najprostszym sposobem uciszenia falszywego alarmu jest zwezenie wzorca tak, zeby nie lapal niczego, i taka zmiana byla by zielona bez niej. Ta sama para stoi w tresci testu i chodzi przy kazdym przebiegu. Nie tknieto `pkt`, `rozdz.`, `str.` — pomiar daje **zero** wystapien, a wykluczanie form, ktorych nie ma, zwezal oby bramke o twierdzenia, ktorych juz nie sprawdzi. Pomiar w `reports/odsylacz-nie-jest-wartoscia.md`. Tresc pierwotna: **`test_report_claims.py` bierze odsylacz do sekcji za WARTOSC stalej** | zmierzone 07.09.2026 przy 6.D26, gdzie bramka zapalila sie na POPRAWNYM zdaniu | S |
 | 6.D28 | **ZROBIONE (07.09.2026).** 674 metody testowe C#, **674** z asercja w tresci, **zero** bez. Dojscie do tego zera wymagalo DWOCH poprawek w czytniku i obie mowia wiecej niz sam wynik. **Pierwsza: czytnik zglaszal wlasna niewiedze jako brak.** Cialo metody C# ma dwie postacie — blok i wyrazenie `=> …;` — a pierwsza wersja znala tylko blok i zglosila `Lista_funkcji_KCV_jest_dokladnie_ta_ktora_podaje_STIB` jako metode bez asercji, choc ona asertuje `CollectionAssert` w ciele wyrazeniowym; gorzej, klamra inicjatora `new[] { … }` byla brana za poczatek bloku, wiec asercja nie trafiala nigdzie. **Druga: pomocnik `Assert*` to asercja** — bez tego wychodzilo PIEC brakow, z czego cztery asertuja przez lokalny `AssertBits`. Sprawdzone tez rozwiazywanie pomocnikow po CIELE, nie po nazwie: **nie daje ani jednej metody wiecej**, wiec zostaje regula prostsza. **Granica postawiona swiadomie**: liczone sa asercje OBECNE w tresci, nie WYKONANE — `assertion_gate` robi to drugie i dlatego zlapal moj test z asercja w petli, do ktorej nic nie weszlo. Slabsza wlasnosc, zapisana w docstringu, nie przemilczana. Cztery kontrole negatywne, kazda na innym trybie awarii; **KN-4 jest najwazniejsza**, bo drzewo ma zero brakow, wiec bramka „zero brakow" jest zielona takze wtedy, gdy czytnik uznaje za asertujaca KAZDA metode — kontrola pozytywna na syntetycznej metodzie bez asercji chodzi przy kazdym przebiegu i to ona odroznia jedno od drugiego. Bramka kosztuje 0,50 s. Liczba 674 zgadza sie z 6.B27: tam 708 atrybutow i 668 objetych ksztaltem; roznica to 34 metody Z ARGUMENTAMI, czyli **6.B28**, nietknieta. Pomiar w `reports/asercje-w-testach-csharp.md`. Tresc pierwotna: **Asercje w testach C# nie sa liczone przez nic** | nazwane jako odlozone wprost przez 6.B27 (#329) | M |
@@ -3805,6 +3807,90 @@ MINIMUM_DETAIL_BLOCKS = 73
   mutacji powodujących pętlę nieskończoną (zmierzone w 6.B14).
 - **Zależy od:** 6.B35 (dopóki przegląd nie dochodzi do końca, nie ma czego mierzyć),
   #349 (6.B19).
+
+##### 6.A28 · Pusta ścieżka telemetrii przechodzi jako plan poprawny
+
+- **Skąd:** zmierzone 07.09.2026 przy 6.D31, i to nie z odczytu kodu, a z licznika,
+  który miał wyjść inaczej. `RunPlanTests.NoInputThrows` idzie po dziewięciu paskudnych
+  wejściach; licznik odrzuconych miał dać **9**, dał **8**:
+  ```
+  Assert.AreEqual failed. Expected:<999>. Actual:<8>. paskudnych wejść odrzuconych;
+     przyjęte: --telemetry=
+  ```
+  Wartość tej opcji jest napisem, więc pustka nie wywraca żadnego rozbioru. Pozostałe
+  osiem wejść rozbiór odrzuca kodem `UnknownArgument` albo `BadArgumentValue`
+  z komunikatem — czyli rodzina jako całość działa i pustka wygląda na przeoczenie,
+  nie na decyzję.
+- **Co jest, a co nie jest tu problemem:** nie wiadomo — i **nie było mierzone** — co
+  scena robi przy zapisie telemetrii do pustej ścieżki. Ta pozycja ma to najpierw
+  sprawdzić, bo od tego zależy, czy pustka jest usterką cichą (plik powstaje pod
+  dziwną nazwą), czy głośną (wyjątek przy zapisie). Pierwsze jest gorsze i pilniejsze.
+- **Wejście:** `src/Game/RunPlan.cs` (rozbiór `--telemetry`, `KnownArguments`,
+  `Error`/`ExitCode`), `tests/Game.Tests/RunPlanTests.cs`
+  (`NoInputThrows` z przybitą listą `przyjete`), `reports/galaz-bez-straznika.md` §4.
+- **Wyjście:** pusta wartość opcji, która oczekuje ścieżki, kończy się odmową
+  z komunikatem nazywającym opcję — albo **pomiar pokazujący, że pustka ma tu
+  znaczenie** (np. „nie pisz telemetrii"), i wtedy jawny zapis tego znaczenia zamiast
+  poprawki. **Do rozstrzygnięcia pomiarem, nie z góry**: które z opcji ścieżkowych
+  (`--telemetry`, `--shot`, `--replay`, `--from-telemetry`, `--axis`, `--manifest`,
+  `--calls`, `--signalling`, `--input-log`) przyjmują dziś pustkę — bo jeżeli
+  wszystkie, poprawka jest jedna i wspólna, a nie dziewięć osobnych.
+- **Weryfikacja:**
+  ```bash
+  dotnet test tests/Game.Tests
+  ```
+  plus WYKONANA próba sceny z `--telemetry=` (albo, jeżeli Godota nie ma, sam rozbiór
+  przez test) z wklejonym wyjściem i kodem.
+- **Skończone, gdy:** żadna opcja ścieżkowa nie przyjmuje pustej wartości w milczeniu —
+  albo raport nazywa liczbą, ile ich przyjmuje i dlaczego to zostaje — a lista
+  `przyjete` w `NoInputThrows` jest zmieniona **razem z poprawką**, nie przy okazji.
+  Kontrola negatywna WYKONANA wywraca dokładnie nowe testy.
+- **Poza zakresem:** rozbiór wartości NIELICZBOWYCH i nieistniejących ścieżek — to
+  osobne klasy błędu, a ta pozycja dotyczy pustki. Poza zakresem także zmiana
+  `KnownArguments`.
+- **Zależy od:** #362 (6.D31).
+
+##### 6.B38 · Jeden moduł zjada piątą część czasu zestawu
+
+- **Skąd:** zmierzone 07.09.2026 przy 6.B37, przez zdjęcie i przywrócenie dwóch nowych
+  testów:
+  ```
+  test_mutation_sweep.py bez nowych testow:  14.196 s, 69 testow
+  test_mutation_sweep.py z nowymi testami:   15.315 s, 71 testow
+  caly zestaw:                               76.238 s, 1867 testow, 99 modulow
+  ```
+  Jeden moduł, **jedna piąta** czasu całego zestawu. Powód jest znany i nie jest
+  usterką: testy narzędzia mutacyjnego uruchamiają procesy i zakładają drzewa
+  `git worktree`, bo inaczej nie sprawdzają tego, co narzędzie robi naprawdę (6.B37).
+- **Dlaczego to jednak pozycja:** próg z 6.D26 stoi na czasie **całego** zestawu, a ten
+  moduł jest dziś jedynym, który sam z siebie się do niego zbliża — i każdy następny
+  test narzędzia go podnosi. Bez pomiaru, co wewnątrz kosztuje najwięcej, pierwsza
+  reakcja na przekroczony próg będzie zdjęciem testów, czyli zapłaceniem ochroną
+  za czas.
+- **Wejście:** `tools/tests/test_mutation_sweep.py` (71 testów, w tym uruchamiające
+  procesy i zakładające drzewa), `tools/tests/test_suite_runtime_budget.py` (próg
+  z 6.D26 i jego pomiary), `reports/straznik-na-main.md` §3 i §8,
+  `reports/pamiec-ukladu-peronow.md` (wzorzec: pamięć zamiast zdejmowania testów).
+- **Wyjście:** **najpierw pomiar per test**, potem kierunek. Do zmierzenia: które
+  z 71 testów kosztują ponad 0,1 s i ile ich jest; ile z tego to `git worktree add`,
+  ile uruchomienie procesu Pythona, a ile prawdziwa praca. Dopiero z tymi trzema
+  liczbami wolno wybierać między współdzieleniem jednego drzewa przez kilka testów,
+  pamięcią na wynik, a zostawieniem tego, co jest.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_mutation_sweep.py
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: czas modułu spada, liczba testów **nie**, a werdykty są te same.
+- **Skończone, gdy:** czas modułu jest podany liczbą przed i po, z co najmniej trzech
+  przebiegów, liczba testów nie spada ani o jeden, a raport nazywa, ile z oszczędności
+  wzięło się z czego. Kontrola negatywna WYKONANA: jeżeli testy zaczynają dzielić
+  drzewo, to zepsucie tego drzewa musi wywrócić testy, które z niego korzystają —
+  inaczej współdzielenie zamienia je w atrapy.
+- **Poza zakresem:** zdejmowanie albo łączenie testów, żeby zejść z czasem. Ochrona
+  jest tu droższa od sekund, a 6.B37 właśnie pokazała, ile kosztuje jej brak.
+  Poza zakresem także podnoszenie progu z 6.D26.
+- **Zależy od:** 6.B37 (gałąź `claude/6b37-straznik-na-main`, PR jeszcze nie otwarty w chwili wpisu — numer dopisze pozycja, która ją weźmie).
 
 ### Czego agent nie ruszy bez decyzji
 
