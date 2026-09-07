@@ -31,6 +31,13 @@ Pozycja 6.D5 z `docs/TASKS.md`. Pytanie: **które moduły odzyskały ocalałe mu
 czasu swojego raportu triażu** — i czy każdą różnicę da się przypisać commitowi,
 zamiast opisać słowem „prawdopodobnie".
 
+
+**Adnotacja 07.09.2026 (6.B42):** ten raport powstał, gdy nagłówek podawał **tylko
+commit**, więc nie da się z niego odczytać, z jakiej TREŚCI mutowanych plików wyszły
+poniższe liczby. Od 6.B42 nagłówek niesie odcisk treści przebiegu i tabelę
+moduł → odcisk. Liczby zostają **nieprzeliczone** — są pomiarem z datą
+(`docs/04-conventions.md`) — a ta adnotacja mówi tylko, czego w nich brakuje.
+
 ## Zakres: dwanaście raportów, dwadzieścia osiem modułów
 
 6.D5 wymienia jako wejście „wszystkie dwanaście `reports/mutation-triage-*.md`".
