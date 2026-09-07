@@ -97,6 +97,38 @@ public static class Program
             ["service-day"] = (new[] { "--at", "--out", "--timetable" }, Array.Empty<string>()),
         };
 
+    /// <summary>
+    /// Wiersze <c>#</c> z nastawami, ktore wyprodukowaly plik — przed naglowkiem CSV.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 6.A20. Wypis na konsole ginie razem z konsola; plik z <c>--out</c> PRZEZYWA
+    /// proces i to on trafia do raportow. Do tej pozycji zaden pisarz CSV nie zapisywal
+    /// ani jednej kolumny scenariusza, wiec dwa przebiegi o roznych nastawach dawaly
+    /// pliki nieodroznialne — przy nastawach, ktore zmieniaja PRZEJAZD, nie tylko jego
+    /// koszt (6.A18 zmierzyla <c>N_sr</c> 6,69 / 6,67 / 6,40 przy tym samym
+    /// <c>--trains 9</c>).
+    /// </para>
+    /// <para>
+    /// Jedna metoda, nie dwie kopie: gdyby kazdy pisarz sklejal ten naglowek sam,
+    /// rozjazd formatu wygladalby jak roznica nastawy, a nie jak roznica wypisu — ta
+    /// sama pulapka, ktora <c>LineRunSettings.CoastDescription</c> zamknelo przy 6.A18.
+    /// </para>
+    /// <para>
+    /// Wiersze <c>#</c>, a nie dodatkowe kolumny: kolumna powtorzona w kazdym wierszu
+    /// duplikuje te sama nastawe tyle razy, ile jest pomiarow, a <c>#</c> jest
+    /// pomijane przez `pandas.read_csv(comment="#")` i przez `csv` z jednym filtrem.
+    /// </para>
+    /// </remarks>
+    private static IEnumerable<string> Provenance(string command, params (string Name, string Value)[] settings)
+    {
+        yield return "# polecenie: " + command;
+        foreach (var (name, value) in settings)
+        {
+            yield return "# " + name + ": " + value;
+        }
+    }
+
     /// <summary>Punkt wejścia.</summary>
     public static int Main(string[] args)
     {
@@ -1173,7 +1205,15 @@ public static class Program
                 Directory.CreateDirectory(directory);
             }
 
-            var lines = new List<string> { "block_id,first_departure_s,last_arrival_s,span_s,trips" };
+            var lines = new List<string>(Provenance(
+                "service-day",
+                ("timetable", timetablePath),
+                ("blocks", day.Blocks.Count.ToString(Inv)),
+                ("peak_blocks", peak.Blocks.ToString(Inv)),
+                ("peak_at", peak.AtClock)))
+            {
+                "block_id,first_departure_s,last_arrival_s,span_s,trips",
+            };
             foreach (var block in day.Blocks)
             {
                 lines.Add(string.Create(Inv,
@@ -1280,7 +1320,22 @@ public static class Program
         Console.Out.WriteLine(
             "[BUDŻET] N_zgł;N_max;N_śr;czeka_śr;mediana_kroków_s;min;max;rozstęp_%;µs_krok;CPU/ścienny;%budżetu");
 
-        var rows = new List<string>
+        var rows = new List<string>(Provenance(
+            "budget",
+            ("axis", axis.Id),
+            ("signalling_plan", plan.PlanId),
+            ("limit_kmh", limitKmh.ToString("F2", Inv)),
+            ("exchange_s", exchange.ToString("F1", Inv)),
+            ("headway_s", headway.ToString("F1", Inv)),
+            ("turnback_s", turnback.ToString("F1", Inv)),
+            ("brake_usage", brakeUsage.ToString("F3", Inv)),
+            ("stop_window_m", stopWindow.ToString("F1", Inv)),
+            ("load", load),
+            ("atp", atp ? "tak" : "nie"),
+            ("coast", settings.CoastDescription),
+            ("steps", steps.ToString(Inv)),
+            ("warmup", warmup.ToString(Inv)),
+            ("repeats", repeats.ToString(Inv))))
         {
             "trains_declared,trains_on_line_max,trains_on_line_mean,trains_waiting_mean,steps,repeats,"
             + "median_steps_per_s,min_steps_per_s,max_steps_per_s,spread_pct,"

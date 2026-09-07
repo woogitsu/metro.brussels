@@ -335,6 +335,129 @@ public sealed class RunnerCommandTests
         StringAssert.Contains(result.StdOut, "[ODCINEK]");
     }
 
+    // --- nastawy w pliku, nie tylko w wypisie (6.A20) ----------------------------
+
+    /// <summary>
+    /// 6.A20. Nagłówek <c>[BUDŻET]</c> mówi od 6.A18, jaki przejazd zmierzono — ale
+    /// wypis ginie razem z konsolą, a plik z <c>--out</c> PRZEŻYWA proces i to on
+    /// trafia do raportów. Zmierzone przed tą zmianą: dwa przebiegi różniące się
+    /// <c>--coast-from-m</c> dawały pliki dwuwierszowe, w których różnił się
+    /// <b>wyłącznie wiersz pomiaru</b> — a mediana kroków wyszła w nich odwrotnie
+    /// (88 935 vs 77 237 kroków/s), więc czytający wyciągnąłby wniosek przeciwny do
+    /// prawdziwego i nie miał czym tego sprawdzić.
+    /// </summary>
+    [TestMethod]
+    public void Budget_zapisuje_nastawy_do_pliku_a_nie_tylko_na_konsole()
+    {
+        var output = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".csv");
+        try
+        {
+            var result = Run(
+                "budget", "--axis", Path.Combine(RepoRoot(), "data", "track", "L1_A.json"),
+                "--signalling", Path.Combine(
+                    RepoRoot(), "data", "design", "signalling", "classic-2026.json"),
+                "--limit-kmh", "72", "--exchange-s", "20", "--headway-s", "90",
+                "--steps", "200", "--repeats", "1", "--warmup", "0", "--trains", "1",
+                "--coast-from-m", "250", "--out", output);
+
+            Assert.AreEqual(0, result.ExitCode, result.StdErr);
+            var lines = File.ReadAllLines(output);
+            CollectionAssert.Contains(lines, "# coast: wybieg 250.0 m odcinka");
+            foreach (var nastawa in new[] { "# axis:", "# signalling_plan:", "# limit_kmh:",
+                                            "# exchange_s:", "# headway_s:", "# turnback_s:",
+                                            "# load:", "# atp:", "# steps:", "# repeats:" })
+            {
+                Assert.IsTrue(Array.Exists(lines, l => l.StartsWith(nastawa, StringComparison.Ordinal)),
+                    nastawa + " nie ma w pliku: " + string.Join(" | ", lines));
+            }
+        }
+        finally
+        {
+            File.Delete(output);
+        }
+    }
+
+    /// <summary>
+    /// Druga strona tej samej pary — a bez niej pierwsza nie dowodzi tego, co trzeba.
+    /// Kryterium 6.A20 nie brzmi „w pliku stoją nastawy", tylko „z DWÓCH plików da się
+    /// odczytać, którą nastawą się różnią". Test bierze więc dwa przebiegi różniące się
+    /// jedną nastawą i sprawdza, że różnica jest widoczna w wierszach <c>#</c>, a nie
+    /// tylko w liczbach pomiaru.
+    /// </summary>
+    [TestMethod]
+    public void Dwa_przebiegi_roznia_sie_widocznie_nastawa_a_nie_tylko_liczbami()
+    {
+        var zWybiegiem = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".csv");
+        var bezWybiegu = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".csv");
+        try
+        {
+            string[] wspolne =
+            {
+                "budget", "--axis", Path.Combine(RepoRoot(), "data", "track", "L1_A.json"),
+                "--signalling", Path.Combine(
+                    RepoRoot(), "data", "design", "signalling", "classic-2026.json"),
+                "--limit-kmh", "72", "--exchange-s", "20", "--headway-s", "90",
+                "--steps", "200", "--repeats", "1", "--warmup", "0", "--trains", "1",
+            };
+            var a = Run([.. wspolne, "--coast-from-m", "250", "--out", zWybiegiem]);
+            var b = Run([.. wspolne, "--out", bezWybiegu]);
+            Assert.AreEqual(0, a.ExitCode, a.StdErr);
+            Assert.AreEqual(0, b.ExitCode, b.StdErr);
+
+            var opisA = Array.FindAll(File.ReadAllLines(zWybiegiem), l => l.StartsWith("#", StringComparison.Ordinal));
+            var opisB = Array.FindAll(File.ReadAllLines(bezWybiegu), l => l.StartsWith("#", StringComparison.Ordinal));
+            Assert.AreEqual(opisA.Length, opisB.Length, "bloki nastaw mają różną długość");
+            var rozne = Array.Empty<string>();
+            for (var i = 0; i < opisA.Length; i++)
+            {
+                if (!string.Equals(opisA[i], opisB[i], StringComparison.Ordinal))
+                {
+                    Array.Resize(ref rozne, rozne.Length + 1);
+                    rozne[^1] = opisA[i] + " != " + opisB[i];
+                }
+            }
+
+            Assert.AreEqual(1, rozne.Length,
+                "różnić się ma DOKŁADNIE jedna nastawa, a różni się: " + string.Join(" ; ", rozne));
+            StringAssert.Contains(rozne[0], "coast");
+        }
+        finally
+        {
+            File.Delete(zWybiegiem);
+            File.Delete(bezWybiegu);
+        }
+    }
+
+    /// <summary>
+    /// Blok nastaw ma stać PRZED nagłówkiem CSV i być poprzedzony <c>#</c>, bo inaczej
+    /// przestaje być metadanymi i staje się uszkodzonym CSV-em. <c>#</c> pomija
+    /// <c>pandas.read_csv(comment="#")</c> i jeden filtr w <c>csv</c>.
+    /// </summary>
+    [TestMethod]
+    public void ServiceDay_zapisuje_nastawy_jako_komentarz_przed_naglowkiem()
+    {
+        var timetable = NapiszTymczasowyRozklad();
+        var output = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".csv");
+        try
+        {
+            var result = Run("service-day", "--timetable", timetable, "--out", output);
+
+            Assert.AreEqual(0, result.ExitCode, result.StdErr);
+            var lines = File.ReadAllLines(output);
+            Assert.IsTrue(lines[0].StartsWith("# polecenie: service-day", StringComparison.Ordinal), lines[0]);
+            var naglowek = Array.FindIndex(lines, l => !l.StartsWith("#", StringComparison.Ordinal));
+            Assert.IsTrue(naglowek > 0, "nie ma ani jednego wiersza nastaw przed nagłówkiem");
+            Assert.AreEqual("block_id,first_departure_s,last_arrival_s,span_s,trips", lines[naglowek]);
+            Assert.IsTrue(Array.Exists(lines, l => l.StartsWith("# timetable:", StringComparison.Ordinal)),
+                string.Join(" | ", lines));
+        }
+        finally
+        {
+            File.Delete(output);
+            File.Delete(timetable);
+        }
+    }
+
     // --- wybieg poza poleceniem `line` (6.A18) -----------------------------------
 
     /// <summary>
