@@ -457,4 +457,68 @@ public sealed class LineRunTests
         Assert.AreNotEqual(bez.Calls[1], zWybiegiem.Calls[1],
             "drugi odcinek jest długi — gdyby i on się nie zmienił, próg nigdy by nie zadziałał");
     }
+    // --- człon obcięcia (6.A17) -----------------------------------------------
+
+    /// <summary>
+    /// 6.A17. Człon obcięcia rośnie, gdy limit prędkości maleje — i to nie jest
+    /// przypadek, tylko wprost mechanizm z <c>LineDrive.AccumulateEnergy</c>.
+    ///
+    /// <para><b>Skąd ta zależność.</b> Obcięcie to <c>(F_netto − m·Δv/Δt)·s</c>, czyli
+    /// praca siły, której całkujący krok nie zamienił na energię kinetyczną, bo ściął
+    /// prędkość do limitu. Prędkość przejścia siła→moc to <b>31,24 km/h</b>
+    /// (2160 kW / 248,9 kN), więc na każdym limicie z tego zakresu skład wisi na
+    /// limicie w obszarze STAŁEJ MOCY: trakcja daje <c>P/v</c>, a nadwyżka nad opory
+    /// jest w całości odrzucana. Niższy limit znaczy więc dwie rzeczy naraz —
+    /// dłuższy czas na limicie i WIĘKSZĄ siłę <c>P/v</c> w tym czasie.</para>
+    ///
+    /// <para><b>Zmierzone 07.09.2026 na osi L1_A</b> (`reports/czlon-obciecia.md`):
+    /// 40 km/h → 506,3 MJ, 50 → 338,6 MJ, 60 → 210,2 MJ, 72 → 96,9 MJ, czyli
+    /// monotonicznie. Ten test bierze oś SYNTETYCZNĄ, żeby nie zależeć od pliku
+    /// z <c>data/</c> ani nie kosztować przejazdu całej linii; kierunek jest ten sam,
+    /// bo wynika z równania, nie z konkretnej osi.</para>
+    /// </summary>
+    [TestMethod]
+    public void Czlon_obciecia_rosnie_gdy_limit_predkosci_maleje()
+    {
+        var axis = Axis(0.0, 1500.0, 3000.0);
+        double Obciecie(double limitKmh) =>
+            Run.Run(axis, Level(), Settings(limitKmh: limitKmh), LineRun.DefaultStepBudget)
+                .Energy.ClampedWorkJ;
+
+        var wysoki = Obciecie(72.0);
+        var sredni = Obciecie(60.0);
+        var niski = Obciecie(45.0);
+
+        Assert.IsTrue(niski > sredni, $"45 km/h: {niski:F0} J, 60 km/h: {sredni:F0} J");
+        Assert.IsTrue(sredni > wysoki, $"60 km/h: {sredni:F0} J, 72 km/h: {wysoki:F0} J");
+    }
+
+    /// <summary>
+    /// Druga strona tej samej pary, bez której pierwsza niczego nie przybija: obcięcie
+    /// jest <b>dodatnie</b>, a nie „rośnie" z zera do zera.
+    ///
+    /// <para>Bez tej asercji test wyżej przechodziłby także wtedy, gdyby wszystkie trzy
+    /// przejazdy dały obcięcie równe zeru — bo <c>0 &gt; 0</c> jest fałszem, ale
+    /// wystarczyłby jeden krok, w którym obcięcie stałoby się ujemne, żeby porządek
+    /// zaszedł bez żadnego obcięcia. 6.A6 zmierzyła ten człon jako <b>19 %</b> pracy
+    /// trakcji przy 72 km/h; jest wielkością, nie resztą zamknięcia (reszta domyka
+    /// się względnie do 2,1E-15).</para>
+    /// </summary>
+    [TestMethod]
+    public void Czlon_obciecia_jest_dodatni_a_nie_resztka_zamkniecia()
+    {
+        var przejazd = Run.Run(
+            Axis(0.0, 1500.0, 3000.0), Level(), Settings(limitKmh: 60.0), LineRun.DefaultStepBudget);
+
+        Assert.IsTrue(przejazd.Energy.ClampedWorkJ > 0.0, $"{przejazd.Energy.ClampedWorkJ:F1} J");
+        Assert.IsTrue(
+            przejazd.Energy.ClampedWorkJ > przejazd.Energy.DiscretizationWorkJ,
+            $"obcięcie {przejazd.Energy.ClampedWorkJ:F1} J nie jest większe od członu " +
+            $"dyskretyzacji {przejazd.Energy.DiscretizationWorkJ:F1} J — a to on, nie obcięcie, " +
+            "jest członem rzędu błędu kroku");
+        Assert.AreEqual(
+            0.0, przejazd.Energy.RelativeResidual, 1e-9,
+            "bilans przestał się domykać, więc obcięcie nie znaczy już tego, co mówi jego nazwa");
+    }
+
 }
