@@ -37,7 +37,7 @@ jobs:
     # obowiązuje. Przy `workflow_dispatch` pierwszy człon i tak jest prawdziwy —
     # warunek stoi tu dla jednolitości i dlatego, że trigger może kiedyś dojść.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: [self-hosted, Linux, X64, wsl2, woogitsu]
+    runs-on: [self-hosted, Linux, X64, woogitsu, i5-10400f, nvidia-gtx1070]
     timeout-minutes: 15
 
     steps:
