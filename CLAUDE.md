@@ -169,22 +169,32 @@ omija format z sekcji 6 i zwykle ląduje w kodzie, którego nikt nie prosił o z
 GitHub Actions. Poprzednia wersja tego punktu mówiła, że standardem jest
 `ubuntu-latest`; to już nieprawda i dlatego jest tu przepisana, a nie dopisana obok.
 
-- **`runs-on: [self-hosted, Linux, X64, wsl2, woogitsu]`** — komplet pięciu etykiet puli
-  organizacji `woogitsu`. Od 05.09.2026, i ten punkt jest przepisany, a nie dopisany
-  obok: poprzednia wersja mówiła „gołe `self-hosted`, **bez dodatkowych etykiet**", i to
-  już nieprawda. Powód tamtej reguły był **jeden**: w `matmaxalez/osadale` zdjęto
-  etykietę `wsl2` 02.08.2026, bo maszyna, która ją nosiła, była JEDNA i została
-  wyłączona, a joby zawisły w `queued`. Ochroną było wtedy to, że gołe `self-hosted`
-  łapie każdego zarejestrowanego runnera.
-  Dziś tę samą ochronę daje **sama pula**: cztery maszyny `woogitsu-wsl-DOM-NEW-01`
-  … `-04`, każda z tym samym kompletem etykiet, więc wyłączenie jednej nie zawiesza
-  niczego — selektor łapie pozostałe trzy. Litera reguły jest inna, jej sens ten sam,
-  i to jest **warunek**, pod którym wolno było ją zmienić: gdyby pula zeszła do jednej
-  maszyny, wraca gołe `self-hosted`.
-  Etykieta `woogitsu` nie jest ozdobą. Pula należy do organizacji i jest wspólna dla jej
-  repozytoriów, a stare runnery repozytoryjne (`metro-wsl-DOM-NEW`, `-2`, `-3`) do czasu
-  centralnego usunięcia **nadal są zarejestrowane i nadal noszą `self-hosted`** — gołym
-  selektorem job trafiłby dziś i tam, i tam.
+- **`runs-on: [self-hosted, Linux, X64, woogitsu, i5-10400f, nvidia-gtx1070]`** — komplet
+  sześciu etykiet nowej puli organizacji `woogitsu`, maszyny `woogitsu-linux-01`
+  … `-10`. Od 07.09.2026, i ten punkt jest przepisany, a nie dopisany obok — po raz
+  **drugi**, więc obie poprzednie litery reguły są tu wymienione, bo bez nich nie widać,
+  czemu ta jest taka, jaka jest.
+  Litera pierwsza (do 05.09.2026): „gołe `self-hosted`, **bez dodatkowych etykiet**".
+  Powód był **jeden**: w `matmaxalez/osadale` zdjęto etykietę `wsl2` 02.08.2026, bo
+  maszyna, która ją nosiła, była JEDNA i została wyłączona, a joby zawisły w `queued`.
+  Ochroną była wtedy szerokość selektora.
+  Litera druga (05.09–07.09.2026): komplet `[self-hosted, Linux, X64, wsl2, woogitsu]`.
+  Ochroną przestała być szerokość, a stała się **liczebność puli**: cztery maszyny
+  `woogitsu-wsl-DOM-NEW-01` … `-04` z tym samym kompletem, więc wyłączenie jednej nie
+  zawieszało niczego.
+  Litera trzecia, dzisiejsza: pula została wymieniona, a **stare maszyny nadal są
+  zarejestrowane**. Dlatego doszły DWIE etykiety sprzętowe, zamiast zdjęcia jednej —
+  i to jest tu cała treść, nie ozdoba. `wsl2` noszą **wyłącznie stare** maszyny, nowe
+  nie noszą jej wcale; ale cztery pozostałe etykiety starego kompletu (`self-hosted`,
+  `Linux`, `X64`, `woogitsu`) noszą **oba** zbiory. Samo zdjęcie `wsl2` dałoby więc
+  selektor łapiący stare razem z nowymi. Odsiać stare da się **tylko dodaniem**
+  etykiety, której one nie mają — i to jest powód, dla którego `i5-10400f`
+  i `nvidia-gtx1070` stoją w selektorze, choć wyglądają na opis sprzętu.
+  **Runnera nie wybiera się po nazwie.** Wpisanie `woogitsu-linux-01` zwężałoby
+  dziesięciomaszynową pulę do jednej maszyny, czyli odtwarzałoby awarię z 02.08.2026
+  — tym razem z własnej ręki. Pilnuje tego osobna asercja w kontroli negatywnej.
+  Warunek, pod którym wolno tę regułę zmienić, zostaje ten sam co przy literze
+  drugiej: gdyby pula zeszła do jednej maszyny, wraca szeroki selektor.
 - **Każdy job odrzuca pull requesty z forków.** To warunek bezpieczeństwa, nie higiena:
   joby wykonują kod ze sprawdzonego refa na maszynie właściciela. `metro.brussels` jest
   prywatne, ale ma włączone forkowanie, więc „forka nie da się zrobić" tu nie działa.
