@@ -416,7 +416,33 @@ OWN_TESTS_STUB = '''"""Zaślepka: testy narzędzia mutacyjnego, zdjęte na czas 
 
 Prawdziwa treść jest w repozytorium; tutaj jej nie ma, bo mierzy narzędzie,
 a nie kod pod testem. Plik ZOSTAJE, bo jego ścieżkę wymieniają raporty.
+
+**Zaślepka musi być PEŁNOPRAWNYM modułem testowym (6.B35), nie samym docstringiem.**
+Do 07.09.2026 była samym docstringiem — i od scalenia 6.D25 wywracała każdy przegląd
+mutacyjny, zanim ten zdążył policzyć pierwszą mutację: bramka
+`test_module_entrypoints.py` żąda od każdego `test_*.py` strażnika `__main__`
+delegującego do `test_all`, więc kalibracja wyroczni widziała zestaw jako padający
+w czystym drzewie i przerywała kodem 2. Stąd jeden test niżej i strażnik na końcu:
+`test_all.main(<plik>)` odmawia przy zerze testów, a `assertion_gate` przy teście bez
+asercji, więc pełnoprawny moduł to docstring, test i strażnik — wszystkie trzy.
 """
+
+
+def test_this_file_is_the_stub_not_the_real_tests():
+    """Jedyny test zaślepki: mówi, czym ten plik jest.
+
+    Nie jest to test narzędzia — narzędzia się tu nie mierzy, bo to ono jest tym,
+    co mierzy. Jest to test TOŻSAMOŚCI pliku: czytający drzewo robocze przeglądu
+    (a także `test_all.py`, który je przebiega) ma dostać jednoznaczną odpowiedź,
+    że prawdziwe testy zostały zdjęte świadomie, a nie zginęły.
+    """
+    assert __doc__ is not None, "zaślepka bez docstringu nie mówi, czym jest"
+    assert "Zaślepka" in __doc__, "docstring nie nazywa tego pliku zaślepką"
+
+
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))
 '''
 
 
