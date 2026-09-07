@@ -287,11 +287,21 @@ Wszystkie cztery przywrócenia stanu „przed poprawką" cofnięte; `git status
   zawiera, zgłosić igły niejednoznaczne) byłby osobną pozycją z własnym pomiarem —
   nie dopisuję jej, bo pozycja wymyślona na miejscu omija format z sekcji 6
   `CLAUDE.md`.
-- **Trzy najliczniejsze pliki C# to testy Godota, nie runnera** (`RunPlanTests.cs` 20,
-  `TelemetryTrackTests.cs` 19, `InputLogTests.cs` 14 gołych asercji na obecność).
-  Cztery znane przypadki dnia są wszystkie z runnera i z `tools/tests/`, więc o tym,
-  czy tamte 53 asercje są rozstrzygające, ten raport nie mówi nic — i nie udaje, że
-  mówi.
+- **Dwa z trzech najliczniejszych plików C# to testy Godota, trzeci nie — i to zdanie
+  jest PRZEPISANE 07.09.2026 (6.D35), a nie dopisane obok.** Poprzednia wersja mówiła
+  „Trzy najliczniejsze pliki C# to testy Godota, nie runnera (`RunPlanTests.cs` 20,
+  `TelemetryTrackTests.cs` 19, `InputLogTests.cs` 14 gołych asercji na obecność)"
+  i była **nieprawdziwa co do trzeciego pliku**: `InputLogTests.cs` leży
+  w `tests/Sim.Tests/`, ma `namespace MetroBxl.Sim.Tests`, a jego plik projektu nie
+  odwołuje się do Godota ani raz (sprawdzone: 0 wystąpień w `Sim.Tests.csproj`, 1
+  w `Game.Tests.csproj`). Rozbicie w §2 **tego samego raportu** podaje pełne ścieżki
+  i mówi to wprost — sprzeczność była więc wewnątrz jednego dokumentu.
+  Poprawnie: `tests/Game.Tests/RunPlanTests.cs` **20**,
+  `tests/Game.Tests/TelemetryTrackTests.cs` **19**,
+  `tests/Sim.Tests/InputLogTests.cs` **14**. Cztery znane przypadki dnia są wszystkie
+  z runnera i z `tools/tests/`, więc o tym, czy tamte asercje są rozstrzygające, ten
+  raport nadal nie mówi nic — i nie udaje, że mówi. **Liczby 20 / 19 / 14 nie są
+  przeliczone**: pochodzą z pomiaru §2 z dnia jego wykonania (`docs/04-conventions.md`).
 - **`Assert.IsTrue(… .Contains(…))` jest w zestawie rzadkie**: 25 wystąpień wobec 226
   `StringAssert.Contains`. Wpis kolejki wymieniał obie postacie jako równorzędne;
   pomiar mówi, że pierwsza jest marginesem.
