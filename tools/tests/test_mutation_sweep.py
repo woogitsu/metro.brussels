@@ -1126,6 +1126,91 @@ def test_odmowa_patrzy_na_plik_wpisu_a_nie_na_jego_tresc():
     # a milcząca zgoda wpuściłaby do raportu coś, czego nikt nie umie nazwać.
     assert bez_pola.get("plik") not in pliki
 
+# --- 6.B19: wpis dziennika niesie commit, wznowienie z obcego drzewa jest odmówione --
+
+
+def test_check_one_records_the_commit_it_ran_on():
+    """Wpis dziennika musi nieść `commit`, obok `id` — to jest samo ładunek 6.B19.
+
+    `id` to `plik:wiersz:przesunięcie bajtowe` i sam w sobie NIE mówi, z jakiego
+    drzewa pochodzi — dwie różne mutacje z dwóch różnych commitów mogą wypaść pod
+    tym samym przesunięciem. Bez pola `commit` w samym wpisie nie ma jak tego
+    rozstrzygnąć później, choćby dziennik czytać ręcznie.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        path = os.path.join(tmp, "a.py")
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write("x = 1\n")
+        mutation = sweep.Mutation("a.py", 1, 4, 5, "1", "2", "prog")
+
+        original_run_suite = sweep.run_suite
+        sweep.run_suite = lambda *_a, **_kw: (False, [], 0)  # zestaw "złapał" mutację
+        try:
+            entry = sweep.check_one(tmp, mutation, 5, "abcdef1")
+        finally:
+            sweep.run_suite = original_run_suite
+
+        assert entry["commit"] == "abcdef1", entry
+        assert entry["id"] == mutation.id, entry
+
+
+def _dziennik_z_wpisem(sciezka, commit):
+    return {
+        "id": "tools/blender/lod_paths.py:28:0", "commit": commit,
+        "plik": "tools/blender/lod_paths.py", "wiersz": 28,
+        "rozstrzygniete": True, "przezyla": False, "wykonana": True,
+        "opis": "wpis testowy", "rodzaj": "operator", "bylo": "==", "jest": "!=",
+        "padly": ["jakis_test"], "ile_padlo": 1, "kod": 1,
+    }
+
+
+def test_resume_refuses_a_journal_written_on_another_tree():
+    """Pokaz wprost: dziennik zapisany na jednym drzewie, wznowienie próbowane na
+    drugim (6.B19) — narzędzie ma ODMÓWIĆ, nie policzyć cudzy wynik jako swój.
+
+    `--only` zawęża do jednego modułu, żeby dowód był tani: bez mutowania choćby
+    jednej linii i bez `collect()` po całym repozytorium.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        journal = os.path.join(tmp, "dziennik.jsonl")
+        with open(journal, "w", encoding="utf-8") as handle:
+            handle.write(json.dumps(_dziennik_z_wpisem(
+                "tools/blender/lod_paths.py", "0000000")) + "\n")
+
+        done = subprocess.run(
+            [sys.executable, os.path.join(ROOT, "tools", "tests", "mutation_sweep.py"),
+             "--only", "tools/blender/lod_paths.py", "--journal", journal, "--list"],
+            capture_output=True, text=True)
+
+        assert done.returncode == 2, (done.stdout, done.stderr)
+        assert "innego drzewa" in done.stderr, done.stderr
+        assert "0000000" in done.stderr, done.stderr
+
+
+def test_resume_still_works_when_the_journal_is_from_the_same_tree():
+    """Kontrola pozytywna do testu wyżej — obowiązkowa, bo strażnik, który odrzuca
+    wszystko bez wyjątku, przeszedłby połowę tego zadania i nazywałby się gotowy.
+
+    Dziennik zapisany na TYM SAMYM commicie, co uruchomienie, ma dalej wznawiać.
+    """
+    commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT,
+                            capture_output=True, text=True, check=True).stdout.strip()
+    with tempfile.TemporaryDirectory() as tmp:
+        journal = os.path.join(tmp, "dziennik.jsonl")
+        with open(journal, "w", encoding="utf-8") as handle:
+            handle.write(json.dumps(_dziennik_z_wpisem(
+                "tools/blender/lod_paths.py", commit)) + "\n")
+
+        done = subprocess.run(
+            [sys.executable, os.path.join(ROOT, "tools", "tests", "mutation_sweep.py"),
+             "--only", "tools/blender/lod_paths.py", "--journal", journal, "--list"],
+            capture_output=True, text=True)
+
+        assert done.returncode == 0, (done.stdout, done.stderr)
+        assert "wznowienie z" in done.stdout, done.stdout
+        assert "innego drzewa" not in done.stderr, done.stderr
+
+
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
 # z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
 # tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
