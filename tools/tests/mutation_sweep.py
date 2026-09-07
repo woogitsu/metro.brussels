@@ -1134,6 +1134,70 @@ def dirty_sources(paths) -> list[str]:
     return [line for line in changed.stdout.splitlines() if line]
 
 
+#: Kod wyjścia przebiegu, którego zbiór mutacji opróżniło WZNOWIENIE. Zero, i to jest
+#: cały ładunek 6.B41: przebieg zrobił wszystko, o co go proszono, a skrypt CI puszczający
+#: przegląd w pętli do skutku czyta kod wyjścia jako „gotowe"/„awaria" i z kodu 1 nie ma
+#: jak wyczytać, że liczyć już nie ma czego, bo wszystko jest policzone.
+KOD_WZNOWIENIE_KOMPLETNE = 0
+
+#: Kod wyjścia pozostałych przyczyn pustego zbioru — BEZ ZMIAN względem 07.09.2026.
+#: `--only` pasujące do niczego jest usterką wywołania (6.B39 stoi wprost na tym, że to
+#: kod 1), `--limit`, który nie przepuścił niczego, tak samo, a filtr nieosiągalnych,
+#: który odsiał wszystko, znaczy „nie ma czego mierzyć" — i to nie jest w porządku.
+KOD_NIC_DO_LICZENIA = 1
+
+
+def przyczyna_pustego_zbioru(zebrane, po_wznowieniu, po_limicie, po_filtrze,
+                             only: str = "", journal: str = "",
+                             limit: int = 0) -> tuple[str, int]:
+    """Nazywa RZECZYWISTĄ przyczynę pustego zbioru mutacji i daje jej kod wyjścia.
+
+    **Po co (6.B41).** Do 07.09.2026 `main` miał na pusty zbiór dwie gałęzie i żadna
+    nie pytała, CO go opróżniło. Zmierzone przy 6.B32, drugim przebiegiem na czystym
+    drzewie::
+
+        [MUTACJE] wznowienie z /tmp/b32/dziennik.jsonl: 2 z 2 już policzonych
+        brak mutacji do sprawdzenia po odfiltrowaniu nieosiągalnych
+        kod=1
+
+    Filtr nieosiągalnych nie odsiał wtedy NICZEGO — zbiór był pusty, bo wznowienie
+    policzyło wszystko. Komunikat nazywał przyczynę, która nie zachodziła, a kod 1
+    mówił „awaria" o przebiegu, który skończył całą robotę.
+
+    **Dlaczego komunikat i kod wychodzą z jednego miejsca.** Bo to jedna odpowiedź na
+    jedno pytanie. Rozdzielenie ich dałoby dwa czytniki tych samych liczników, a dwa
+    czytniki jednej rzeczy rozjeżdżają się po cichu — to była usterka 6.B28.
+
+    **Kolejność pytań jest kolejnością etapów zawężania w `main`**, i to nie jest
+    kosmetyka: przy zbiorze opróżnionym przez wznowienie każdy późniejszy licznik też
+    jest zerem, więc pytanie zadane w złej kolejności wskazałoby złą przyczynę —
+    dokładnie tak, jak robiła to gałąź `if not found:` z komunikatem o filtrze.
+
+    Argumenty to rozmiar zbioru PO kolejnych etapach; `None` znaczy „ten etap jeszcze
+    nie chodził na tej drodze" i nigdy nie jest przyczyną.
+    """
+    if zebrane == 0:
+        if only:
+            return (f"brak mutacji do sprawdzenia: --only {only!r} nie dopasowało "
+                    "ani jednego pliku", KOD_NIC_DO_LICZENIA)
+        return ("brak mutacji do sprawdzenia: żaden plik docelowy nie dał ani jednej "
+                "mutacji w podanych klasach", KOD_NIC_DO_LICZENIA)
+    if po_wznowieniu == 0:
+        return (f"brak mutacji do sprawdzenia: wznowienie z {journal} zastało wszystkie "
+                f"{zebrane} już policzone — przebieg zrobił wszystko, o co go proszono",
+                KOD_WZNOWIENIE_KOMPLETNE)
+    if po_limicie == 0:
+        return (f"brak mutacji do sprawdzenia: --limit {limit} nie przepuścił ani jednej "
+                f"z {po_wznowieniu}", KOD_NIC_DO_LICZENIA)
+    if po_filtrze == 0:
+        return (f"brak mutacji do sprawdzenia po odfiltrowaniu nieosiągalnych: filtr "
+                f"odsiał wszystkie {po_limicie}", KOD_NIC_DO_LICZENIA)
+    raise ValueError(
+        "przyczyna_pustego_zbioru wołana przy NIEPUSTYM zbiorze: "
+        f"zebrane={zebrane}, po_wznowieniu={po_wznowieniu}, po_limicie={po_limicie}, "
+        f"po_filtrze={po_filtrze}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--workers", type=int, default=max(1, (os.cpu_count() or 2) - 1))
@@ -1205,6 +1269,11 @@ def main() -> int:
     if args.only:
         print(f"[MUTACJE] --only {args.only!r} złapało {len(found)} mutacji "
               f"z {len(pliki_przebiegu)} moduł(ów): {', '.join(pliki_przebiegu)}")
+
+    # Rozmiar zbioru, o KTÓRY POPROSZONO, zapamiętany przed pierwszym zawężeniem.
+    # `przyczyna_pustego_zbioru` porównuje z nim liczniki kolejnych etapów, bo bez
+    # punktu wyjścia „zero po wznowieniu" nie da się odróżnić od „zero od początku".
+    zebrane = len(found)
 
     # Odciski liczone TUTAJ: zbior plikow przebiegu jest juz znany, a dziennika jeszcze
     # nie czytano — czyli dokladnie w miejscu, w ktorym odmowa nizej ma czym porownywac.
@@ -1285,13 +1354,14 @@ def main() -> int:
         # (drzewo z `--dirty`) jest jedynym przypadkiem, którego to dopasowanie już
         # nie chroni — a ten jest poza zakresem 6.B19.
         seen = {entry["id"] for entry in done}
-        before = len(found)
         found = [m for m in found if m.id not in seen]
-        print(f"[MUTACJE] wznowienie z {journal}: {before - len(found)} z {before} "
+        print(f"[MUTACJE] wznowienie z {journal}: {zebrane - len(found)} z {zebrane} "
               "już policzonych")
+    po_wznowieniu = len(found)
 
     if args.limit:
         found = found[:args.limit]
+    po_limicie = len(found)
 
     if args.list:
         for mutation in found:
@@ -1299,9 +1369,17 @@ def main() -> int:
         print(f"razem: {len(found)}")
         return 0
 
-    if not found and not done:
-        print("brak mutacji do sprawdzenia", file=sys.stderr)
-        return 1
+    # 6.B41: warunek jest gołe `not found`, a nie `not found and not done`. Tamten
+    # drugi członek był mechanizmem usterki: przy zbiorze opróżnionym przez WZNOWIENIE
+    # (`done` niepuste) gałąź milczała, a odmowę wypisywała dopiero gałąź za filtrem
+    # nieosiągalnych — nazywając przyczynę, która nie zachodziła. Tu jest też jedyne
+    # miejsce, w którym przebieg bez roboty może wyjść ZEREM.
+    if not found:
+        komunikat, kod = przyczyna_pustego_zbioru(
+            zebrane, po_wznowieniu, po_limicie, None,
+            only=args.only, journal=journal, limit=args.limit)
+        print(komunikat, file=sys.stderr)
+        return kod
 
     dirty = dirty_sources(m.path for m in found)
     if dirty and not args.dirty:
@@ -1334,8 +1412,11 @@ def main() -> int:
                   file=sys.stderr)
 
     if not found:
-        print("brak mutacji do sprawdzenia po odfiltrowaniu nieosiągalnych", file=sys.stderr)
-        return 1
+        komunikat, kod = przyczyna_pustego_zbioru(
+            zebrane, po_wznowieniu, po_limicie, len(found),
+            only=args.only, journal=journal, limit=args.limit)
+        print(komunikat, file=sys.stderr)
+        return kod
 
     print(f"[MUTACJE] {len(found)} mutacji do policzenia, {args.workers} robotników, "
           f"commit {commit}, klasy {','.join(kinds)}, dziennik {journal}")

@@ -1625,7 +1625,6 @@ def test_the_fingerprint_refusal_names_the_dirty_tree_when_that_is_the_cause():
         "przywrocenie pliku sie nie udalo")
 
 
-
 # --- mapa pokrycia liczona RAZ na commit i zapamietana (6.B36) -------------------
 
 
@@ -1774,6 +1773,185 @@ def test_the_map_is_trimmed_to_mutation_targets():
     assert "tools/blender/lod_paths.py" in cele, "lod_paths.py przestal byc celem"
     assert not any(c.startswith("tools/tests/") for c in cele), (
         "cel mutacji lezy pod tools/tests/ — obciecie zaczelo by gubic prawdziwy modul")
+
+
+# --- przyczyna pustego zbioru mutacji (6.B41) ---------------------------------------
+#
+# PO CO TA RODZINA. Do 07.09.2026 `main` mial na pusty zbior dwie galezie i zadna nie
+# pytala, CO go oproznilo. Zmierzone przy 6.B32, drugim przebiegiem na czystym drzewie:
+# `wznowienie z ...: 2 z 2 juz policzonych`, a potem `brak mutacji do sprawdzenia po
+# odfiltrowaniu nieosiagalnych` i kod 1 — komunikat o przyczynie, ktora nie zachodzila,
+# i kod „awaria" o przebiegu, ktory zrobil cala robote. Dla skryptu CI puszczajacego
+# przeglad w petli do skutku to roznica miedzy „gotowe" i „awaria".
+#
+# CZEGO TE TESTY PILNUJA, a czego nie da sie zobaczyc po samym komunikacie: KOLEJNOSCI
+# pytan. Przy zbiorze oproznionym przez wznowienie kazdy pozniejszy licznik tez jest
+# zerem, wiec przyrzad pytajacy o filtr przed wznowieniem odpowiadalby „filtr" na kazdy
+# taki przebieg — i wygladalby na dzialajacy, dopoki nikt nie wznowi kompletnego
+# dziennika. Dwa pierwsze testy ida wiec po LICZNIKACH, a nie po napisie.
+
+
+def _dziennik_kompletny(plik):
+    """Wpisy dziennika dla WSZYSTKICH dzisiejszych mutacji jednego pliku.
+
+    Buduje je z `mutations_for`, a nie z listy wpisanej z reki: identyfikator mutacji
+    to `plik:wiersz:przesuniecie bajtowe`, wiec wpis wpisany na stale przestalby
+    pasowac przy pierwszym dopisanym komentarzu w mutowanym pliku — i test „wznowienie
+    zastalo wszystko policzone" cicho zmienilby sie w test „wznowienie zastalo czesc".
+    """
+    pelna = os.path.join(ROOT, plik)
+    with open(pelna, encoding="utf-8") as uchwyt:
+        mutacje = sweep.mutations_for(pelna, uchwyt.read())
+    assert mutacje, f"{plik} nie ma dzisiaj ani jednej mutacji"
+    commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT,
+                            capture_output=True, text=True, check=True).stdout.strip()
+    odcisk = sweep.odcisk_tresci(plik)
+    return [{
+        "id": mutacja.id, "commit": commit, "odcisk": odcisk, "plik": mutacja.path,
+        "wiersz": mutacja.line, "rozstrzygniete": True, "przezyla": False,
+        "wykonana": True, "opis": mutacja.describe(), "rodzaj": mutacja.kind,
+        "bylo": mutacja.was, "jest": mutacja.now, "padly": ["jakis_test"],
+        "ile_padlo": 1, "kod": 1,
+    } for mutacja in mutacje]
+
+
+def test_pusty_zbior_po_wznowieniu_nie_klamie_o_filtrze_nieosiagalnych():
+    """Sama usterka 6.B41, zadana licznikami: wznowienie wyprzedza filtr.
+
+    Przy zbiorze oproznionym przez wznowienie liczniki PO limicie i PO filtrze tez sa
+    zerami — dokladnie tak wygladalo drzewo, na ktorym padl pomiar z 6.B32. Przyrzad
+    ma odpowiedziec „wznowienie", nie „filtr", i dac kod ZERO, bo przebieg zrobil
+    wszystko, o co go proszono.
+    """
+    komunikat, kod = sweep.przyczyna_pustego_zbioru(
+        2, 0, 0, 0, only="tools/blender/lod_paths.py",
+        journal="/tmp/b41/d.jsonl", limit=0)
+
+    assert kod == 0, (kod, komunikat)
+    assert "wznowienie" in komunikat, komunikat
+    assert "/tmp/b41/d.jsonl" in komunikat, komunikat
+    assert "2" in komunikat, komunikat
+    assert "nieosiagalnych" not in komunikat.replace("ą", "a"), (
+        "komunikat nazywa filtr nieosiagalnych, ktory niczego nie odsial: " + komunikat)
+
+
+def test_pusty_zbior_z_filtru_nieosiagalnych_dalej_mowi_o_filtrze():
+    """Kontrola pozytywna do testu wyzej — obowiazkowa.
+
+    Przyrzad, ktory na kazdy pusty zbior odpowiada „wznowienie", przeszedlby polowe
+    tej pozycji i nazywalby sie gotowy. Gdy wznowienie NIE odsialo niczego (licznik po
+    wznowieniu rowny zebranemu), a zero przyszlo dopiero po filtrze, przyczyna jest
+    filtr — i kod zostaje 1, bo nie ma czego mierzyc.
+    """
+    komunikat, kod = sweep.przyczyna_pustego_zbioru(
+        14, 14, 14, 0, only="tools/blender/glb_roundtrip.py", journal="/tmp/b41/d.jsonl")
+
+    assert kod == 1, (kod, komunikat)
+    assert "nieosiągalnych" in komunikat, komunikat
+    assert "14" in komunikat, komunikat
+    assert "wznowienie" not in komunikat, komunikat
+
+
+def test_pusty_zbior_z_only_nazywa_only_a_nie_wznowienie():
+    """Zbior pusty OD POCZATKU: `--only` nie dopasowalo pliku.
+
+    Kod zostaje 1 i to jest swiadome: 6.B39 stoi wprost na tym, ze `--only` pasujace
+    do niczego jest usterka wywolania. Komunikat ma podac WZORZEC, bo jedynym sygnalem
+    w wypisie jest dzis `0 modul(ow)` z pusta lista nazw.
+    """
+    komunikat, kod = sweep.przyczyna_pustego_zbioru(
+        0, None, None, None, only="tools/nie-ma-takiego-pliku.py",
+        journal="/tmp/b41/d.jsonl")
+
+    assert kod == 1, (kod, komunikat)
+    assert "--only" in komunikat, komunikat
+    assert "tools/nie-ma-takiego-pliku.py" in komunikat, komunikat
+    assert "wznowienie" not in komunikat, komunikat
+
+    bez_only, kod_bez = sweep.przyczyna_pustego_zbioru(0, None, None, None)
+    assert kod_bez == 1, (kod_bez, bez_only)
+    assert "--only" not in bez_only, (
+        "przebieg BEZ --only oskarza --only o pusty zbior: " + bez_only)
+
+
+def test_pusty_zbior_z_limitu_nazywa_limit():
+    """Trzecia mozliwa przyczyna, wymieniona w polu „Wyjscie" pozycji 6.B41.
+
+    `--limit` opróznia niepusty zbior tylko wartoscia ujemna (`found[:-1]` na zbiorze
+    jednoelementowym), ale przyrzad ma nazywac przyczyne, a nie zgadywac, ktora jest
+    prawdopodobna — i wlasnie dlatego pytanie o limit stoi PO wznowieniu, a nie przed.
+    """
+    komunikat, kod = sweep.przyczyna_pustego_zbioru(1, 1, 0, None, limit=-1)
+
+    assert kod == 1, (kod, komunikat)
+    assert "--limit" in komunikat, komunikat
+    assert "-1" in komunikat, komunikat
+    assert "wznowienie" not in komunikat, komunikat
+
+
+def test_przyczyna_pustego_zbioru_odmawia_przy_niepustym_zbiorze():
+    """Kontrakt przyrzadu: wolany tylko przy PUSTYM zbiorze.
+
+    Cicha odpowiedz przy niepustym zbiorze byla by najgorsza forma awarii, jaka ten
+    przyrzad umie: przebieg z robota do wykonania dostalby komunikat „brak mutacji"
+    i wyszedl bez policzenia niczego. Wyjatek jest tu widoczny.
+    """
+    try:
+        sweep.przyczyna_pustego_zbioru(14, 14, 14, 14)
+    except ValueError as blad:
+        assert "NIEPUSTYM" in str(blad), str(blad)
+    else:
+        raise AssertionError("przyrzad odpowiedzial przyczyna dla niepustego zbioru")
+
+
+def test_wznowienie_ktore_policzylo_wszystko_konczy_sie_zerem():
+    """Ta sama rzecz, ale DROGA NARZEDZIA (`main`), bo tam usterka mieszkala.
+
+    Dziennik niesie wszystkie dzisiejsze mutacje modulu, wiec wznowienie oprozni zbior
+    do zera. Bieg jest tani mimo braku `--list`: galaz pustego zbioru stoi PRZED
+    `dirty_sources`, przed sonda nieosiagalnosci i przed kalibracja wyroczni, wiec ani
+    jedno `git worktree add` ani jeden przebieg zestawu tu nie chodzi.
+    """
+    plik = "tools/blender/lod_paths.py"
+    with tempfile.TemporaryDirectory() as tmp:
+        journal = os.path.join(tmp, "dziennik.jsonl")
+        with open(journal, "w", encoding="utf-8") as uchwyt:
+            for wpis in _dziennik_kompletny(plik):
+                uchwyt.write(json.dumps(wpis) + "\n")
+
+        done = subprocess.run(
+            [sys.executable, os.path.join(ROOT, "tools", "tests", "mutation_sweep.py"),
+             "--only", plik, "--journal", journal, "--workers", "2", "--no-coverage"],
+            capture_output=True, text=True)
+
+    assert done.returncode == 0, (done.returncode, done.stdout, done.stderr)
+    assert "już policzonych" in done.stdout, done.stdout
+    assert "wznowienie" in done.stderr, done.stderr
+    assert "nieosiągalnych" not in done.stderr, done.stderr
+    # Kalibracja wyroczni to jeden pelny przebieg zestawu — gdyby galaz stanela za nia,
+    # ten test kosztowalby minute i ta asercja to pokaze, zanim ktos zmierzy czas.
+    assert "kalibracja" not in done.stdout, done.stdout
+
+
+def test_filtr_nieosiagalnych_ktory_odsial_wszystko_konczy_sie_jedynka():
+    """Kontrola pozytywna droga narzedzia: przyczyna „filtr" ma zostac przy kodzie 1.
+
+    `glb_roundtrip.py` to wejscie Blenderowe — zestaw testow go nie zaimportuje, wiec
+    filtr odsiewa WSZYSTKIE jego mutacje. Dziennik jest pusty, wiec wznowienie nie ma
+    tu nic do rzeczy i przyczyna moze byc tylko jedna.
+    """
+    plik = "tools/blender/glb_roundtrip.py"
+    with tempfile.TemporaryDirectory() as tmp:
+        done = subprocess.run(
+            [sys.executable, os.path.join(ROOT, "tools", "tests", "mutation_sweep.py"),
+             "--only", plik, "--journal", os.path.join(tmp, "pusty.jsonl"),
+             "--workers", "2", "--no-coverage"],
+            capture_output=True, text=True)
+
+    assert done.returncode == 1, (done.returncode, done.stdout, done.stderr)
+    assert "po odfiltrowaniu nieosiągalnych" in done.stderr, done.stderr
+    assert "wznowienie" not in done.stderr, done.stderr
+    assert "kalibracja" not in done.stdout, done.stdout
 
 
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
