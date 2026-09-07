@@ -67,6 +67,15 @@ public sealed class RunnerCommandTests
     /// <c>drive</c> nie ma ani jednego wymaganego argumentu — scenariusz startowy jest
     /// wpisany w kod (<see cref="Program.NewDrive"/>). Test na kod wyjścia jest tu więc
     /// testem POPRAWNEGO wywołania: 0, a nie odmowy.
+    /// <para><b>6.A30: asercja jest PRZEPISANA, nie dopisana obok.</b> Do 07.09.2026
+    /// żądała <c>[RDZEŃ]</c> na <c>StdErr</c> i to było JEDYNE miejsce w całym
+    /// repozytorium, które czytało którykolwiek z pięciu przeniesionych wierszy ze
+    /// stderr (kroków CI: zero — wszystkie składają strumienie przez
+    /// <c>2&gt;&amp;1 | tee</c>). Wiersz idzie dziś na stdout, razem z całą rodziną
+    /// <c>[XXX]</c>. Druga asercja mierzy DRUGI KIERUNEK i bez niej test byłby
+    /// spełniony także przez wypis na oba strumienia naraz — dokładnie ten gatunek
+    /// asercji „prawdziwej, ale nie rozstrzygającej", który 6.A25, 6.A26, 6.A27
+    /// i 6.A29 zmierzyły w jednym dniu.</para>
     /// </summary>
     [TestMethod]
     public void Drive_bez_argumentow_konczy_sie_kodem_zero()
@@ -74,7 +83,10 @@ public sealed class RunnerCommandTests
         var result = Run("drive");
 
         Assert.AreEqual(0, result.ExitCode);
-        StringAssert.Contains(result.StdErr, "[RDZEŃ]");
+        StringAssert.Contains(result.StdOut, "[RDZEŃ]");
+        Assert.IsFalse(
+            result.StdErr.Contains("[RDZEŃ]", StringComparison.Ordinal),
+            "wiersz [RDZEŃ] nadal idzie na stderr: " + result.StdErr);
     }
 
     /// <summary>
