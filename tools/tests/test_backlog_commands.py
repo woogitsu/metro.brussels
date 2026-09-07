@@ -126,3 +126,10 @@ def test_the_verification_field_is_cut_at_the_next_field():
     field = bc.verification_field(body)
     assert "moje.py" in field, field
     assert "cudze.py" not in field, field
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

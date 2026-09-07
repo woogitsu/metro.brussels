@@ -399,3 +399,10 @@ def test_packages_ring_package_e_is_an_open_slice_without_simonis():
     first = document["points"][0]
     last = document["points"][-1]
     assert math.dist((first[0], first[1]), (last[0], last[1])) > 1000.0
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

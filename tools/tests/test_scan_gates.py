@@ -74,3 +74,10 @@ def test_missing_tag_is_kept():
 def test_match_is_exact_not_a_prefix():
     """`"vehicle_debug"` zaczyna się tym samym słowem, ale nie jest pojazdem z `import_glb`."""
     assert SG.is_not_vehicle_tag("vehicle_debug") is True
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

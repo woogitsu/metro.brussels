@@ -231,3 +231,10 @@ def test_the_gate_checks_the_log_that_the_run_actually_wrote():
             mismatched.append(log)
 
     assert not mismatched, f"bramka nie sprawdza logów, które te przebiegi zapisały: {mismatched}"
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

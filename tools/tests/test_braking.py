@@ -572,3 +572,10 @@ def test_the_report_check_catches_a_table_that_stopped_being_printed():
     podmieniona_referencja[0] = tuple(zepsuty)
     assert distance_mismatches(text, podmieniona_referencja), (
         "porównanie ignoruje tablicę referencyjną — czytałoby wtedy samo siebie")
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

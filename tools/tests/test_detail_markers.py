@@ -244,3 +244,10 @@ def test_both_clearances_are_reported_and_named_separately():
 def test_clearance_problem_order_is_stable_because_it_becomes_an_error_message():
     assert DM.clearance_problems(-1.0, 0.0, "x")[0].startswith("słupek wchodzi")
     assert DM.clearance_problems(0.0, -1.0, "x")[0].startswith("słupek przebija")
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

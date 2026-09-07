@@ -131,3 +131,10 @@ def test_ci_gate_step_is_a_comparison_that_can_exit_non_zero():
     assert "set -euo pipefail" in step, (
         "bez tego krok kontynuowałby po awarii test_all.py aż do własnego "
         "porownania czasu i mógłby zameldować sukces mimo nieudanych testów")
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

@@ -818,3 +818,10 @@ def test_the_open_item_filter_reacts_to_the_marker_and_not_to_something_else():
         "| 6.X3 | **Coś do zrobienia jeszcze** | powód | L |\n")
     assert sorted(queue_items(plan)) == ["6.X1", "6.X2", "6.X3"], queue_items(plan)
     assert sorted(open_items(plan)) == ["6.X2", "6.X3"], open_items(plan)
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

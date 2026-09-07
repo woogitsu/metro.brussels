@@ -469,3 +469,10 @@ def test_detail_without_a_declared_speed_no_axis_gets_a_single_brake_point():
         assert bez["counts"].get("brake", 0) == 0, axis_id
         assert bez["braking_distance_m"] is None, axis_id
         assert sum(bez["counts"].values()) == total - brakes, axis_id
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

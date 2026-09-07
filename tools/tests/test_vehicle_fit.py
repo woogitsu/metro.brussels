@@ -281,3 +281,10 @@ def test_vehicle_fit_clearance_below_the_threshold_is_refused():
     assert negative is not None
     assert "-0.0123" in negative, negative
     assert "0.0000" in negative, negative
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

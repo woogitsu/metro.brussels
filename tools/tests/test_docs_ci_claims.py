@@ -417,3 +417,10 @@ def test_polish_prose_after_self_hosted_is_not_mistaken_for_a_label():
     # Kropka na końcu zdania nie jest częścią etykiety, a dywiz i kropka w środku są.
     assert extra_labels("a bramka na self-hosted WSL2.") == ["wsl2"]
     assert extra_labels("na self-hosted ubuntu-22.04 dzisiaj") == ["ubuntu-22.04"]
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

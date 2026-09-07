@@ -387,3 +387,10 @@ def test_side_tag_of_zero_is_refused_instead_of_guessing_left():
             assert "nie zero" in str(err), err
         else:
             raise AssertionError(f"side_tag({bad!r}) nie odmówiło")
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

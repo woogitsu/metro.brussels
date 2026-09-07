@@ -178,3 +178,10 @@ def test_centerline_position_weight_stays_inside_the_unit_interval():
         for step in range(0, 21):
             _, _, t = CA.centerline_position(count, step / 20.0)
             assert 0.0 <= t < 1.0 or t == 0.0, (count, step, t)
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

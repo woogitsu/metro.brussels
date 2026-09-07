@@ -12,6 +12,7 @@ Te testy pilnują samej bramki — w obie strony:
 Bez ostatniego punktu bramka byłaby dokładnie tą usterką, którą tropi: zielona,
 bo nic nie sprawdziła.
 """
+import ast
 import atexit
 import os
 import shutil
@@ -268,8 +269,29 @@ def test_gate_fails_when_instrumentation_stopped_finding_assertions():
 
 
 def test_gate_instrumented_this_suite_for_real():
-    """Kontrola pozytywna do trzech powyższych: na tym drzewie miejsca ISTNIEJĄ."""
-    assert AG.sites() > 3000, AG.sites()
+    """Kontrola pozytywna do trzech powyższych: na tym drzewie miejsca ISTNIEJĄ.
+
+    **Rozdzielona na dwie asercje przy 6.D25, i to nie jest kosmetyka.** Poprzednia
+    wersja brzmiała `AG.sites() > 3000` — a `AG.sites()` liczy miejsca załadowane
+    W TYM przebiegu, nie miejsca na drzewie. Dopóki jedynym sposobem uruchomienia był
+    cały zestaw, obie liczby były tą samą liczbą. Od 6.D25 moduł można uruchomić sam
+    i wtedy `sites()` daje 161 — próg 3000 czynił z tego awarię, choć instrumentacja
+    działała bez zarzutu. Test mówiłby wtedy „bramka nie instrumentuje", mierząc
+    w istocie „ten przebieg objął mniej modułów".
+
+    Rozdzielenie pilnuje obu rzeczy osobno i **mocniej** niż jedna asercja: że
+    instrumentacja tego przebiegu w ogóle zadziałała, i że drzewo ma ponad 3000 miejsc
+    — to drugie liczone wprost z plików, więc niezależne od tego, ile modułów wczytał
+    akurat ten przebieg.
+    """
+    assert AG.sites() > 0, (
+        "instrumentacja tego przebiegu nie znalazła ani jednego miejsca asercji")
+    na_drzewie = 0
+    for path in AG.paths():
+        with open(path, encoding="utf-8") as handle:
+            tree = ast.parse(handle.read())
+        na_drzewie += sum(1 for node in ast.walk(tree) if isinstance(node, ast.Assert))
+    assert na_drzewie > 3000, na_drzewie
 
 
 # --- instrumentacja nie psuje modułu ----------------------------------------------
@@ -390,3 +412,10 @@ def test_gate_a_broken_import_produces_a_grep_visible_fail_line_and_keeps_the_su
     # Kontrola negatywna wbudowana: moduł POPRAWNY nie może zniknąć z powodu tego,
     # że jego sąsiad w tej samej podmianie padł na imporcie.
     assert "  ok   test_probe_ok" in output, output[-2000:]
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

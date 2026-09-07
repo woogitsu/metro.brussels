@@ -17,6 +17,12 @@ import sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.insert(0, os.path.join(ROOT, "tools", "blender"))
+# `station_components` lezy w `tools/track`, nie w `tools/blender`. Do 6.D25 tej linii
+# tu nie bylo i modul dzialal WYLACZNIE w calym zestawie: `test_all.py` wklada obie
+# sciezki, zanim cokolwiek zaimportuje, wiec ten plik jechal na cudzym `sys.path`.
+# Uruchomiony sam konczyl sie `ModuleNotFoundError` — i nikt tego nie widzial, bo
+# uruchomiony sam nie robil nic (patrz 6.D25).
+sys.path.insert(0, os.path.join(ROOT, "tools", "track"))
 
 import m7_layout  # noqa: E402
 import profiles  # noqa: E402
@@ -426,3 +432,10 @@ def test_no_document_calls_a_different_number_the_explicit_platform_parameter():
                 offenders.append(
                     f"{os.path.relpath(path, ROOT)}:{number}: „jawny parametr {found} m", )
     assert not offenders, f"kod ma {expected} m: {offenders}"
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

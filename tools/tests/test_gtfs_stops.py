@@ -361,3 +361,10 @@ def test_gtfs_rejected_list_is_cut_at_ten_and_says_how_many_are_left():
     assert document["summary"]["rejected_records"] == 11
     assert "[ODRZUCONO] ... i 1 więcej" in printed, printed
     assert printed.count("[ODRZUCONO]") == 11, printed
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

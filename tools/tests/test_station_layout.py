@@ -398,3 +398,10 @@ def test_the_BF_report_check_catches_a_number_that_drifted():
     #    byłoby zawsze prawdziwe i punkt 1 nadal by przechodził.
     assert reported["L2_E"]["name"] == "Trône|Troon", reported["L2_E"]["name"]
     assert reported["L5_D"]["name"] == "Demey", reported["L5_D"]["name"]
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

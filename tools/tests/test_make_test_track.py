@@ -249,3 +249,10 @@ def test_make_test_track_default_argument_builds_the_good_axis():
     `test_all.py` i ten plik wołają `build(False)`, więc domyślna wartość nie ma
     innego świadka."""
     assert M.build() == M.build(False)
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

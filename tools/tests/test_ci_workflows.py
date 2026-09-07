@@ -2647,3 +2647,10 @@ def test_the_scene_and_the_core_switch_cab_protection_on_the_same_way():
     assert seen >= 1, (
         "żaden krok nie porównuje sceny pod sygnalizacją z rdzeniem — bramka kabiny "
         "pod ochroną zniknęła z workflow")
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

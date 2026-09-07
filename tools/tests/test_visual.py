@@ -1402,3 +1402,10 @@ def test_visual_png_every_render_this_project_produces_has_sound_crcs():
                  (b"tEXt", b"Software\x00Blender")]
     blob = _png_bytes(3, 2, 8, 0, _GREY_ROWS, [0, 0], before=ancillary)
     assert _as_bytes(_read_blob(blob)) == _GREY_VALUES, _as_bytes(_read_blob(blob))
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

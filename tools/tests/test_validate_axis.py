@@ -812,3 +812,10 @@ def test_validate_speed_limit_range_is_inclusive_at_both_ends():
         out = run(kmh)
         assert len(out.err) == 1, (kmh, out.err)
         assert _has(out.err, "poza zakresem 5–80"), (kmh, out.err)
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

@@ -244,3 +244,10 @@ def test_glb_problem_order_is_stable_because_it_becomes_an_error_message():
     assert problems[1].startswith("obiekty bez UV")
     assert problems[2].startswith("obiektów 3")
     assert problems[3].startswith("bbox X rozjazd")
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

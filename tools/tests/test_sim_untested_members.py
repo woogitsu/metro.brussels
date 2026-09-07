@@ -166,3 +166,10 @@ def test_generated_obj_files_would_have_lit_up_the_gate_before_the_exclusion():
     generated_names = ["Sim.AssemblyInfo", ".NETCoreApp,Version=v10.0.AssemblyAttributes"]
     for name in generated_names:
         assert not _has_whole_word(texts, name), name
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

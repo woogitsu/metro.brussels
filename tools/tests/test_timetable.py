@@ -488,3 +488,10 @@ def test_timetable_zero_second_dwell_is_not_non_zero_and_one_second_is():
     assert dwell["non_zero_pct"] == round(100.0 * 2 / 3, 1)
     assert set(TT.survey(feed, "20260902", {6})["dwell_histogram_s"]) == {0, 1, 20}, \
         "histogram bierze WSZYSTKIE postoje pośrednie, także zerowy"
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))

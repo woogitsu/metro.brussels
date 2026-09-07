@@ -771,3 +771,10 @@ def test_alignment_shapefile_ignores_a_record_header_flush_with_the_end_of_file(
     tail = intact + struct.pack(">ii", 2, 0)
     assert S.read_shp(tail) == S.read_shp(intact)
     assert len(S.read_shp(tail)) == 1
+
+# 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
+# z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
+# tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))
