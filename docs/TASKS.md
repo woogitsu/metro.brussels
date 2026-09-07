@@ -774,6 +774,11 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.D33 | **Audyt wykonalności komend z pól „Weryfikacja" objął 82 komendy z 42 bloków, a bloków jest dziś 101 i komend 279** — zmierzone 07.09.2026 na `a4a3975`. 6.D15 nie zostawiło bramki, więc pokrycie audytu **opada samo** z każdym nowym blokiem: dziś to 82 z 279, czyli 29 % | pozycja nie przelicza cudzego pomiaru — 6.D15 jest datowanym audytem i dostaje adnotację. Rzecz jest w tym, że liczba „73 uruchamialne" czytana dziś wygląda jak zdanie o kolejce, a jest zdaniem o 42 blokach z sześćdziesięciu dwóch mniej. Sama zmierzona różnica 82 → 279 rozstrzyga, czy warto bramkę, czy wystarczy adnotacja | M |
 | 6.D34 | **`tests/Game.Tests` nie było objęte audytem asercji i raport mówi to wprost** — `reports/audyt-asercji.md` §7: „o tamtych 53 asercjach ten raport nie mówi nic". Zmierzone 07.09.2026 na `a4a3975` szerszym wzorcem: **63** asercje kształtu `StringAssert.Contains` / `Assert.IsTrue(… .Contains(…))` w **7** plikach `Game.Tests`, najwięcej `RunPlanTests.cs` (20) i `TelemetryTrackTests.cs` (19) | cztery przypadki z 07.09.2026 były wszystkie z runnera i z `tools/tests/`, więc wniosek 6.A32 („przyrząd łapie 0 z 4") jest zdaniem o tamtej czwórce, nie o `Game.Tests`. Pozycja nie powtarza przyrządu 6.A32 — bierze **zamkniętą rodzinę** komunikatów `RunPlan` (te same, które 6.C5 policzyło: sześć trybów, sześć literałów) i pyta o swoistość igły, tak jak 6.A33 dla runnera | M |
 | 6.D35 | **ZROBIONE (07.09.2026), i pozycja kończy się BEZ bramki — pomiar to rozstrzygnął.** Zdanie §7 w `reports/audyt-asercji.md` **przepisane**, nie dopisane obok: dwa z trzech najliczniejszych plików to testy Godota, trzeci nie — `InputLogTests.cs` leży w `tests/Sim.Tests/`, ma `namespace MetroBxl.Sim.Tests`, a `Sim.Tests.csproj` ma **zero** odwołań do Godota wobec **jednego** w `Game.Tests.csproj`. **Sprzeczność była wewnątrz jednego dokumentu**: rozbicie w §2 tego samego raportu podaje pełne ścieżki i mówi to wprost, więc §7 czytał własne §2 i przepisał je z błędem. Liczby 20 / 19 / 14 **nieprzeliczone** — pomiar z datą. **Bramki nie ma i to jest wynik zmierzony, nie rezygnacja**: przyrząd na wiersze `reports/` nazywające plik `*Tests.cs` razem z markerem projektu daje **5 fałszywych alarmów na 84 trafienia (6 %) i ZERO z jednego prawdziwego** — nie zgłasza wiersza, dla którego powstał, bo `audyt-asercji.md:290` zawiera także `RunPlanTests.cs`, który **naprawdę** jest w `Game.Tests`, a mylnie opisany plik stoi w wierszu następnym. Wszystkie pięć fałszywych alarmów ma tę samą przyczynę: marker stoi w **innej komórce tabeli** niż nazwa pliku. To ta sama arytmetyka i ta sama przyczyna strukturalna, którą 6.A32 zamknęło bez bramki. Wynik dopuszczony wprost przez pole „Wyjście". Zestaw **1931 → 1931**, kod wyjścia 0 — ani jednego nowego testu, i to jest wynik pozycji. **Zauważone i NIE podane jako sprostowanie**: odtworzony klasyfikator gołych asercji daje **114**, nie 127, bo mój wzorzec uznaje za licznik także `Assert.AreEqual(x.Length, …)`; podane jako osobny pomiar o innej definicji, bo dwie liczby z dwóch definicji zlane w jedną są gorsze od obu osobno. Przy okazji proporcja dla 6.D34: w `Game.Tests` gołych jest **53 z 64** (83 %), w `Sim.Tests` **61 z 166** (37 %). Pomiar w `reports/plik-nie-z-tego-projektu.md`. Tresc pierwotna: **Raport w `main` nazywa plik z `tests/Sim.Tests` testem Godota** — `reports/audyt-asercji.md` §7 pisze „Trzy najliczniejsze pliki C# to testy Godota, nie runnera (… `InputLogTests.cs` 14)" | zmierzone 07.09.2026 na `a4a3975`, `ls` i `grep` po pliku projektu. Ta sama rodzina co 6.D4 i 6.D8: zdanie w raporcie, ktorego nikt nie liczy, i ktore przy czytaniu wyglada jak wynik pomiaru | S |
+| 6.B45 | **Docstring bramki osiągalności podaje „9 z 44 modułów", a zmierzone jest 10 z 63 — i obie liczby są nieprzybite** | zmierzone 07.09.2026 na `627d184`; znalazł to agent wykonujący 6.B41 i świadomie nie tknął. Asercja stoi na progu (`len(unreachable) < len(targets()) // 2`, czyli 10 < 31), więc przechodzi przy 9, przy 10 i przy 30. **Jakościowa połowa zdania JEST pilnowana** pętlą `"bpy" in reason` i pozostaje prawdziwa — dziesiąty moduł (`tools/visual/capture_blender.py`) też importuje `bpy`. Nieprawdziwe są wyłącznie dwie liczby, i to jest cała pozycja | S |
+| 6.B46 | **`collect()` nie ma zawężenia, więc test potrzebujący świeżego przeliczenia płaci za wszystkie 63 cele** — 0,224 s za komplet, gdy potrzebuje jednego modułu | zmierzone 07.09.2026 przy 6.B38. Pamięć z tamtej pozycji kluczuje po odciskach **wszystkich** celów, więc zmiana JEDNEGO pliku unieważnia klucz i wymusza pełne przeliczenie — poprawnie, ale drożej niż trzeba. Kierunek do rozstrzygnięcia pomiarem: zawężenie w `collect()` (klucz per plik) kontra zostawienie jak jest. Blok 6.B38 nazwał to wprost jako osobną pozycję z własnym pomiarem | M |
+| 6.D36 | **Trzy obcięcia `hexdigest()` w całym drzewie: dwa przez stałą, jedno przez literał `[:12]`** — a stała `ODCISK_ZNAKOW` obok mówi 16 | zmierzone 07.09.2026 na `627d184`, przejściem po wszystkich `.py` i `.cs`: `mutation_sweep.py:444` i `:943` przez `ODCISK_ZNAKOW`, `:990` przez literał. `test_dead_constants.py` (6.B29) łapie stałą, której nikt nie czyta; **nic nie łapie literału, który powinien być stałą**. Dwie długości tej samej wielkości, żadna liczona z drugiej | S |
+| 6.D37 | **`--only ""` idzie drogą BEZ zawężenia i nic tego nie mówi** — skrypt wołający `--only "$WZORZEC"` z pustą zmienną dostaje pełny przegląd zamiast odmowy | zmierzone 07.09.2026 na `627d184`: pusty napis jest falsywy dla `if args.only`, więc gałąź zawężenia nie wchodzi wcale. Skutek jest liczbowy: **2346 mutacji zamiast 2** dla typowego triażu jednego modułu, czyli **1173×** więcej pracy, bez ani jednego słowa w wypisie. Ta sama rodzina co 6.B39 — przebieg, który wygląda poprawnie, robiąc co innego — tylko w drugą stronę: tam zbiór był pusty, tu jest pełny | S |
+| 6.D38 | **Nagłówek `reports/mutation-sweep.md` niesie commit, datę i nazwę gałęzi w jednym wierszu, inaczej niż wzór z 6.D3** — `**Snapshot na commicie:** \`66b8301\` (\`main\`, 04.09.2026)` | zauważone 07.09.2026 przy 6.B42. Bramka higieny to przepuszcza, bo szuka SHA w grawisach i daty osobno, a oba tu są — więc **nie jest to brak informacji, a rozjazd kształtu**. Do rozstrzygnięcia pomiarem: ile z 128 raportów ma nagłówek niezgodny ze wzorem i czy wzór jest w ogóle jeden. Jeżeli okaże się, że wzorów jest kilka i wszystkie czytelne, pozycja kończy się adnotacją, nie ujednolicaniem | S |
 
 #### Szczegóły pozycji z kompletem sześciu pól
 
@@ -4678,6 +4683,217 @@ MINIMUM_DETAIL_BLOCKS = 73
   asercji `Game.Tests`; to jest 6.D34.
 - **Zależy od:** 6.A32 (scalone w #375 — raport, którego zdanie poprawia), 6.D4 (bramka
   na twierdzenia raportów), 6.D3 (nagłówek z datą i commitem).
+
+##### 6.B45 · Docstring podaje 9 z 44, a zmierzone jest 10 z 63
+
+- **Skąd:** znalazł to agent wykonujący 6.B41 i świadomie nie tknął, bo to nie był
+  jego plik ani jego pozycja. Zmierzone 07.09.2026 na `627d184`:
+
+  ```
+  celow: 63   nieosiagalnych: 10
+     tools/blender/detail_markers.py … tools/blender/tunnel_sweep.py   (dziewięć)
+     tools/visual/capture_blender.py                                   (dziesiąty)
+  ```
+
+  Docstring `test_every_real_target_except_the_blender_entry_points_is_reachable`
+  mówi „9 z 44 modułów", czyli **obie liczby są nieprawdziwe**.
+- **Co jest, a co nie jest przybite — i to rozstrzyga kształt poprawki:** asercja
+  jakościowa **jest** pilnowana pętlą `assert "bpy" in reason` i pozostaje prawdziwa
+  (dziesiąty moduł też importuje `bpy`). Asercja liczbowa to **próg**:
+  `len(unreachable) < len(targets()) // 2`, czyli 10 < 31 — przechodzi przy 9, przy 10
+  i przy 30. Liczby w docstringu nie są więc pilnowane przez nic.
+- **Dlaczego nie wolno ich po prostu przepisać na 10 i 63:** przybicie dokładnej liczby
+  zapaliłoby bramkę przy każdym dodanym albo usuniętym module z `bpy` — czyli przy
+  pracy, która jest normalna. Repozytorium ma na to wzorzec: **liczbę się WYPROWADZA,
+  nie wpisuje** (6.D26 wyprowadza maksimum z listy pomiarów, 6.A31 wyprowadza ramkę
+  z pliku projektu). Tu wyprowadzeniem jest sama lista celów.
+- **Wejście:** `tools/tests/test_mutation_sweep.py`
+  (`test_every_real_target_except_the_blender_entry_points_is_reachable`, wiersze
+  762–775), `tools/tests/mutation_sweep.py` (`unreachable_modules`, `targets`),
+  `reports/pusty-zbior-przegladu.md` §„Zauważone" (skąd znalezisko),
+  `tools/tests/test_suite_runtime_budget.py` (6.D26 — wzorzec wyprowadzania liczby).
+- **Wyjście:** docstring podający liczby **jako datowany pomiar** albo asercja
+  wyprowadzająca je z drzewa — **do rozstrzygnięcia pomiarem, które z dwojga**:
+  do zmierzenia, ile modułów z `bpy` doszło i odeszło w `tools/` od 04.09.2026, bo od
+  tej liczby zależy, czy asercja na dokładną wartość byłaby bramką, czy udręką.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_mutation_sweep.py
+  ```
+  Oczekiwane: moduł zielony, a docstring i asercja mówią tę samą liczbę co drzewo.
+- **Skończone, gdy:** żadna liczba w tym docstringu nie jest nieprawdziwa, a jeżeli
+  którakolwiek zostaje wpisana ręcznie, to **jako pomiar z datą**; kontrola negatywna
+  WYKONANA — dołożenie jedenastego modułu bez `bpy`, który się nie importuje, wywraca
+  dokładnie tę asercję, a dołożenie jedenastego Z `bpy` **nie** wywraca niczego.
+- **Poza zakresem:** zmiana progu `< len(targets()) // 2` na dokładną równość bez
+  pomiaru z pola „Wyjście". Poza zakresem także samo `unreachable_modules` — pozycja
+  dotyczy zdania o nim, nie jego zachowania.
+- **Zależy od:** 6.B41 (tam znalezione), 6.D26 (wzorzec wyprowadzania liczby).
+
+##### 6.B46 · `collect()` bez zawężenia: świeże przeliczenie kosztuje wszystkie 63 cele
+
+- **Skąd:** zmierzone 07.09.2026 przy 6.B38 i nazwane tam wprost jako osobna pozycja
+  z własnym pomiarem. `collect(kinds)` przechodzi **zawsze** po całej liście celów;
+  zawężenie `--only` działa dopiero **po** nim, w `main`. Skutek jest dwustronny:
+  - test, który potrzebuje świeżego przeliczenia dla **jednego** modułu, płaci
+    **0,224 s** za komplet 63;
+  - pamięć z 6.B38 kluczuje po odciskach **wszystkich** celów, więc zmiana treści
+    **jednego** pliku unieważnia klucz i wymusza pełne przeliczenie. Jest to poprawne
+    — inaczej podstawiałaby cudzą treść — ale drożej, niż wymaga poprawność.
+- **Dlaczego to nie jest przedwczesna optymalizacja:** kontrole negatywne tego modułu
+  zmieniają pliki celów w trakcie procesu (6.B32, 6.B39, 6.B40, 6.B38), a każda taka
+  zmiana to dziś pełne przeliczenie. Zmierzone przy 6.B38: `collect()` był wołany
+  **dziesięć razy** w jednym module i to była największa dająca się usunąć pozycja
+  jego czasu.
+- **Wejście:** `tools/tests/mutation_sweep.py` (`collect`, `_PAMIEC_COLLECT`,
+  `targets`, `mutations_for`), `tools/tests/test_mutation_sweep.py` (rodzina
+  `test_pamiec_collect_*`), `reports/czas-modulu-mutacyjnego.md` §2 i §10
+  (pomiar per test i nazwanie tej pozycji).
+- **Wyjście:** **najpierw pomiar, potem kierunek.** Do zmierzenia: ile z dzisiejszych
+  wywołań `collect()` w zestawie potrzebuje **wszystkich** celów, a ile jednego albo
+  kilku; oraz ile kosztowałoby klucz pamięci **per plik** zamiast per przebieg
+  (odcisk jednego pliku to dziś 0,00002 s, komplet 63 — 0,0013 s). Dopiero z tymi
+  liczbami wolno wybierać między parametrem zawężenia w `collect()`, pamięcią
+  per plik i zostawieniem tego, co jest.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_mutation_sweep.py
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: czas modułu podany przed i po, z co najmniej trzech przebiegów, przy
+  **niezmienionej** liczbie testów i niezmienionych werdyktach.
+- **Skończone, gdy:** raport podaje, ile wywołań potrzebuje kompletu, a ile nie, oraz
+  czas modułu przed i po; jeżeli powstaje zawężenie, **kontrola negatywna WYKONANA**:
+  `collect` z zawężeniem na jeden plik nie może zwrócić mutacji z innego, a pamięć
+  per plik musi unieważniać się przy zmianie **tego** pliku i **nie** przy zmianie
+  cudzego — obie strony pokazane wykonaniem. Jeżeli pomiar pokaże, że oszczędność
+  jest w szumie, pozycja kończy się bez zmiany w kodzie i raport mówi to wprost.
+- **Poza zakresem:** zdejmowanie albo łączenie testów (to samo, co w 6.B38) oraz
+  ruszanie `ast.parse` w `test_every_mutation_still_parses` — 6,44 s tamtego testu jest
+  pracą, nie marnotrawstwem, i 6.B38 nazwało to pomiarem.
+- **Zależy od:** 6.B38, 6.B32.
+
+##### 6.D36 · Jedno obcięcie odcisku przez literał, dwa przez stałą
+
+- **Skąd:** zmierzone 07.09.2026 na `627d184`, przejściem po wszystkich `.py` i `.cs`
+  w drzewie:
+
+  ```
+  obcięć hexdigest RAZEM: 3
+    przez STALA:  tools/tests/mutation_sweep.py:444  [:ODCISK_ZNAKOW]
+                  tools/tests/mutation_sweep.py:943  [:ODCISK_ZNAKOW]
+    przez LITERAL: tools/tests/mutation_sweep.py:990  [:12]
+  ```
+
+  Wszystkie trzy w jednym pliku. `ODCISK_ZNAKOW` mówi **16** i ma przy sobie akapit
+  wyjaśniający, skąd ta liczba (64 bity, kolizja rzędu 10⁻¹⁴ przy 2346 mutacjach);
+  znacznik nazwy dziennika obcina do **12** i nie ma przy sobie nic.
+- **Dlaczego to pozycja, a nie kosmetyka:** `tools/tests/test_dead_constants.py` (6.B29)
+  pilnuje stałej, **której nikt nie czyta**. Nic nie pilnuje odwrotności — **literału,
+  który powinien być stałą** — a to ten sam rodzaj cichego rozjazdu: dwie długości tej
+  samej wielkości, żadna liczona z drugiej, i żadna nie wie o istnieniu tamtej.
+  Dziś bez skutku, bo znacznik jest skrótem z konkatenacji, a nie z odcisku.
+- **Wejście:** `tools/tests/mutation_sweep.py` (`ODCISK_ZNAKOW`, `odcisk_tresci`,
+  `odcisk_przebiegu`, `default_journal`), `tools/tests/test_dead_constants.py`
+  (6.B29 — wzorzec bramki na stałe), `reports/sciezka-dziennika-z-odciskiem.md` §9
+  (tam zauważone), `reports/odcisk-tresci-dziennika.md` (skąd 16).
+- **Wyjście:** **do rozstrzygnięcia pomiarem, czy w ogóle warto**: albo nazwana stała
+  dla długości znacznika z własnym uzasadnieniem (12 znaków to 48 bitów — do policzenia,
+  czy przy dzisiejszej liczbie przebiegów kolizja nazw jest zaniedbywalna), albo
+  bramka na literały obcinające `hexdigest()`. Przy **trzech** wystąpieniach w całym
+  drzewie bramka może być droższa od problemu i raport ma to powiedzieć liczbą.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_dead_constants.py
+  python3 tools/tests/test_all.py test_mutation_sweep.py
+  ```
+  Oczekiwane: zestaw zielony, a jeżeli powstaje stała — czytana z co najmniej jednego
+  miejsca, więc 6.B29 jej nie zgłasza.
+- **Skończone, gdy:** długość znacznika nazwy dziennika ma **uzasadnienie liczbą**
+  (ile bitów, jaka szansa kolizji przy dzisiejszej liczbie przebiegów), a jeżeli
+  powstaje bramka — kontrola negatywna WYKONANA: literał wstawiony w miejsce stałej
+  ją wywraca. **Zmiana samej długości z 12 na 16 przenazwałaby wszystkie dzienniki
+  i jest osobną decyzją**; ta pozycja jej nie podejmuje bez pomiaru.
+- **Poza zakresem:** zmiana `ODCISK_ZNAKOW` (ma uzasadnienie i pomiar) oraz
+  przenazwanie istniejących dzienników w `/tmp`.
+- **Zależy od:** 6.B29, 6.B40.
+
+##### 6.D37 · `--only ""` przechodzi drogą bez zawężenia i nic tego nie mówi
+
+- **Skąd:** zmierzone 07.09.2026 na `627d184`. Pusty napis jest fałszywy dla
+  `if args.only`, więc gałąź zawężenia nie wchodzi wcale — ani filtr, ani wypis
+  „dopasowało N plików", ani odmowa z 6.B39. Skutek jest liczbowy:
+
+  ```
+  mutacji bez zawezenia:        2346
+  mutacji dla lod_paths.py:        2
+  stosunek:                     1173×
+  ```
+
+  Skrypt wołający `--only "$WZORZEC"` z pustą zmienną dostaje więc **pełny przegląd**
+  zamiast odmowy, i wypis nie zawiera ani jednego słowa o tym, że zawężenia nie było.
+- **Dlaczego to ta sama rodzina co 6.B39, tylko odwrócona:** tam zbiór był **pusty**,
+  a przebieg wychodził zerem, wyglądając na poprawny. Tu zbiór jest **pełny**, a
+  przebieg wygląda na zawężony, bo wołający go o to prosił. W obu przypadkach
+  przebieg robi co innego, niż czytający sądzi, i w obu milczy.
+- **Wejście:** `tools/tests/mutation_sweep.py` (`main`, gałęzie `if args.only`,
+  `przyczyna_pustego_zbioru`), `tools/tests/test_mutation_sweep.py` (rodzina
+  `test_only_*`), `reports/pusty-zbior-listy.md` §9 (tam zauważone),
+  `.github/workflows/python-tests.yml` (jedyne miejsce, gdzie napis `mutation_sweep`
+  stoi w workflow — komentarz, nie wywołanie).
+- **Wyjście:** **do rozstrzygnięcia pomiarem, czy odmowa, czy zdanie w wypisie.**
+  Do zmierzenia: czy istnieje w drzewie albo w `reports/` choć jedno wywołanie, które
+  podaje `--only` z wartością mogącą być pusta (podstawienie zmiennej). Jeżeli tak —
+  odmowa; jeżeli nie — wystarczy jeden wiersz wypisu nazywający brak zawężenia,
+  bo odmowa dla wołania podanego wprost byłaby uciążliwością bez zmierzonego powodu.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/mutation_sweep.py --only "" --list
+  python3 tools/tests/test_all.py test_mutation_sweep.py
+  ```
+  Oczekiwane: pierwsza komenda **nie milczy** o braku zawężenia; druga zielona, bo
+  przebieg bez `--only` wcale ma zostać niezmieniony.
+- **Skończone, gdy:** `--only ""` jest odróżnialne od przebiegu bez `--only` w wypisie
+  albo w kodzie wyjścia — pokazane WYKONANIEM obu — a kontrola negatywna WYKONANA:
+  przebieg **bez** `--only` nadal nie mówi nic o zawężeniu i nadal kończy się kodem 0.
+- **Poza zakresem:** odmowa dla przebiegu bez `--only` (to jest normalne wołanie
+  i 6.B39 zostawiło je poza zakresem z tego samego powodu) oraz zmiana dopasowania
+  podciągiem (6.D18).
+- **Zależy od:** 6.B39, 6.D18.
+
+##### 6.D38 · Nagłówek raportu przeglądu ma inny kształt niż wzór z 6.D3
+
+- **Skąd:** zauważone 07.09.2026 przy 6.B42. `reports/mutation-sweep.md` niesie
+  `**Snapshot na commicie:** \`66b8301\` (\`main\`, 04.09.2026)` — commit, nazwę gałęzi
+  i datę w **jednym** wierszu, gdy wzór 6.D3 rozdziela datę i commit. Bramka higieny
+  to przepuszcza, bo szuka SHA w grawisach i daty osobno, a oba tu są.
+- **Dlaczego to nie jest brak informacji:** wszystko potrzebne w tym nagłówku **jest**.
+  Rozjazd dotyczy **kształtu**, a kształt ma znaczenie tylko wtedy, gdy ktoś na nim
+  stoi — i to jest pytanie do pomiaru, nie do gustu.
+- **Wejście:** `tools/tests/test_report_hygiene.py` (`COMMIT`, `DATE`, wzorce
+  nagłówka i ich uzasadnienia), wszystkie `reports/*.md`, `docs/04-conventions.md`
+  (zapis o nagłówku), `reports/odcisk-w-naglowku-raportu.md` §8 (tam zauważone).
+- **Wyjście:** **najpierw pomiar.** Do zmierzenia: ile z dzisiejszych raportów ma
+  nagłówek w kształcie `**Zmierzone <data> na commicie:** \`<sha>\``, ile w innym,
+  i ile kształtów jest w sumie. Dopiero z tą liczbą wolno wybierać między
+  ujednoliceniem, bramką na kształt i **niczym**. Jeżeli kształtów jest kilka i każdy
+  czytelny, pozycja kończy się adnotacją w `docs/04-conventions.md` mówiącą, że wzór
+  jest zaleceniem, nie wymogiem — **co też jest poprawnym wynikiem**.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_report_hygiene.py
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: rozbicie kształtów nagłówka z liczbami w raporcie i zestaw zielony.
+- **Skończone, gdy:** liczba raportów w każdym kształcie jest podana, a wybór kierunku
+  uzasadniony tą liczbą, nie przekonaniem; jeżeli powstaje bramka na kształt, ma
+  kontrolę dodatnią i ujemną WYKONANE, w tym kontrolę na nagłówku **poprawnym**, bo
+  bramka zapalająca się na dobrym tekście zostaje wyłączona (6.D27).
+- **Poza zakresem:** **przepisywanie nagłówków datowanych pomiarów** — data i commit
+  zostają takie, jakie były w dniu pomiaru (`docs/04-conventions.md`), zmienić może się
+  najwyżej ich układ. Poza zakresem także dopisywanie odcisków treści do starych
+  raportów (6.B42 dało im adnotację i to zostaje).
+- **Zależy od:** 6.D3, 6.B42.
 
 ### Czego agent nie ruszy bez decyzji
 
