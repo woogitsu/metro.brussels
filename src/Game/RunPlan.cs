@@ -42,6 +42,46 @@ public sealed class RunPlan
     public static readonly string[] KnownViews = { "cab", "chase", "outside" };
 
     /// <summary>
+    /// Argumenty, których wartością jest ŚCIEŻKA. Pusta wartość jest dla nich błędem.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>6.A28.</b> Do 07.09.2026 <c>--telemetry=</c> z pustą wartością
+    /// przechodziło jako plan POPRAWNY: kod 0, <c>IsValid</c> prawdziwe,
+    /// <c>TelemetryPath</c> równe napisowi pustemu — a nie <c>null</c>, więc scena
+    /// zbierała wiersze telemetrii i na koniec próbowała zapisać je pod pustą nazwą.
+    /// Wartość tej opcji jest napisem, więc pustka nie wywracała żadnego rozbioru.</para>
+    ///
+    /// <para><b>Jedna lista, nie dziesięć osobnych sprawdzeń — i to jest ZMIERZONE.</b>
+    /// Pole „Wyjście" pozycji 6.A28 żądało rozstrzygnięcia pomiarem, ile opcji
+    /// ścieżkowych przyjmuje dziś pustkę, bo od tego zależało, czy poprawka jest jedna
+    /// i wspólna. Pomiar: <b>dziewięć z dziesięciu</b> przyjmowało (kod 0), a dziesiąta
+    /// (<c>--calls</c>) była odrzucana z powodu NIEZWIĄZANEGO z pustką — wymaga
+    /// <c>--line</c>. Poprawka jest więc jedna.</para>
+    ///
+    /// <para><b>Dlaczego dziesięć, a nie dziewięć.</b> Wpis wymieniał
+    /// <c>--telemetry</c>, <c>--shot</c>, <c>--replay</c>, <c>--from-telemetry</c>,
+    /// <c>--axis</c>, <c>--manifest</c>, <c>--calls</c>, <c>--signalling</c>
+    /// i <c>--input-log</c>. Dziesiąta to <c>--assets</c>, której wartość jest ścieżką
+    /// katalogu (<c>Argument("assets") ?? RepoPath("build/t400")</c> w
+    /// <c>FirstRun</c>) — wpis o niej nie wiedział.</para>
+    ///
+    /// <para>Lista jest osobna od <c>KnownArguments</c> celowo: tamta mówi, CZY
+    /// argument jest znany, ta — jakiego KSZTAŁTU jest jego wartość. Zlanie ich
+    /// w jedno zmusiłoby do wpisania kształtu przy każdym argumencie liczbowym
+    /// i przy każdej fladze. Że każda pozycja tej listy stoi też w
+    /// <c>KnownArguments</c> — i że jest ich dziesięć — pilnuje
+    /// <c>RunPlanTests.Lista_opcji_sciezkowych_jest_podzbiorem_znanych_i_ma_dziesiec_pozycji</c>.
+    /// Drugiego czytnika po stronie Pythona tu NIE MA i jest to świadome: dwa czytniki
+    /// jednej listy rozjeżdżają się po cichu, a przy jednej liście w jednym pliku
+    /// bramka C# widzi dokładnie to samo, co widziałby tekstowy czytnik (6.B28).</para>
+    /// </remarks>
+    public static readonly string[] PathArguments =
+    {
+        "telemetry", "shot", "replay", "from-telemetry", "axis",
+        "manifest", "calls", "signalling", "input-log", "assets",
+    };
+
+    /// <summary>
     /// Plan sygnalizacji, z którego <b>tryb ręczny</b> bierze prędkość dopuszczalną,
     /// względem katalogu repozytorium.
     ///
@@ -339,6 +379,26 @@ public sealed class RunPlan
             {
                 return Refusal(arguments, exitUnknownArgument,
                     $"[ARGUMENT] nieznany argument '--{name}'. Znane: --{string.Join(" --", KnownArguments)}");
+            }
+        }
+
+        // Pusta wartosc opcji SCIEZKOWEJ (6.A28). Sprawdzane TUTAJ, a nie przy kazdym
+        // uzyciu: uzyc jest wiecej niz opcji, a odmowa ma padac PRZED przejazdem, nie
+        // przy zapisie wyniku — inaczej scena przejezdza cala linie i wywala sie na
+        // koncu, a zebrane wiersze telemetrii ida do kosza.
+        //
+        // `IsNullOrWhiteSpace`, nie `Length == 0`: `--telemetry=" "` jest tym samym
+        // rodzajem wejscia i tym samym rodzajem usterki, tylko trudniejszym do
+        // zauwazenia w wierszu polecen.
+        foreach (var name in PathArguments)
+        {
+            if (arguments.TryGetValue(name, out var path) && string.IsNullOrWhiteSpace(path))
+            {
+                return Refusal(arguments, exitBadArgumentValue,
+                    $"[ARGUMENT] --{name} wymaga ścieżki, a dostało wartość pustą. "
+                    + "Pusta ścieżka nie jest sposobem na pominięcie zapisu: scena przyjęłaby plan "
+                    + "jako poprawny i przejechała cały odcinek, żeby wywrócić się "
+                    + "dopiero przy zapisie wyniku. Podaj ścieżkę albo pomiń argument");
             }
         }
 
