@@ -11,6 +11,13 @@ Narzędzie: `tools/tests/mutation_sweep.py`. Mutowany jest **kod pod testem**, n
 Mutacja, która przeżyła, znaczy jedno z dwojga: brak pokrycia albo mutant równoważny.
 Narzędzie nie zgaduje, które to.
 
+
+**Adnotacja 07.09.2026 (6.B42):** ten raport powstał, gdy nagłówek podawał **tylko
+commit**, więc nie da się z niego odczytać, z jakiej TREŚCI mutowanych plików wyszły
+poniższe liczby. Od 6.B42 nagłówek niesie odcisk treści przebiegu i tabelę
+moduł → odcisk. Liczby zostają **nieprzeliczone** — są pomiarem z datą
+(`docs/04-conventions.md`) — a ta adnotacja mówi tylko, czego w nich brakuje.
+
 ## Czego ten przebieg NIE pokrywa, choć pozycja 5.1 tak brzmi
 
 Pozycja 5.1 w `docs/TASKS.md` mówi „po jednej mutacji na każdą kontrolę

@@ -368,6 +368,20 @@ def collect(kinds=KINDS) -> list[Mutation]:
 #: dziennika zostaje czytelny. Pelne 64 znaki nie daja tu nic poza dlugoscia wiersza.
 ODCISK_ZNAKOW = 16
 
+#: Do ilu modulow raport wypisuje odciski PO JEDNYM, zamiast jednej liczby zbiorczej.
+#:
+#: Prog nie jest okragly z gustu, tylko WYPROWADZONY z pomiaru. Zmierzone 07.09.2026
+#: na `5ae1b52`, po odsianiu prozy od komend (99 wzmianek o narzedziu w `reports/`
+#: NIE jest wywolaniem — ta sama pulapka, ktora 6.A31 nazwalo dla sciezek `bin/`):
+#: prawdziwych wywolan jest **66**, a **54 z nich** obejmuje DOKLADNIE JEDEN modul.
+#: Bez `--only` chodzi **7** wywolan i te obejmuja wszystkie 63 cele.
+#:
+#: Zalozenie pozycji 6.B42 — „jezeli triaz chodzi po jednym module naraz, tabela jest
+#: darmowa" — jest wiec POTWIERDZONE: w 82 % wywolan tabela ma jeden wiersz. Prog 8
+#: przepuszcza kazdy zmierzony przebieg triazowy (najszerszy z zawezeniem to `sweep.py`
+#: z dwoma modulami) i odsiewa te 7 pelnych, gdzie tabela zajelaby 63 wiersze.
+MAX_ODCISKOW_W_RAPORCIE = 8
+
 
 def odcisk_tresci(path: str) -> str:
     """SHA-256 pliku, z ktorego POLICZONO mutacje — pierwsze `ODCISK_ZNAKOW` znakow.
@@ -980,7 +994,45 @@ def sweep(mutations: list[Mutation], workers: int, timeout: int, out_dir: str,
     return results
 
 
-def report(results: list[dict], commit: str) -> str:
+def naglowek_odciskow(odciski: dict) -> list[str]:
+    """Wiersze naglowka raportu, ktore mowia, Z JAKIEJ TRESCI powstaly liczby.
+
+    **Po co, skoro naglowek podaje commit (6.D3).** Bo commit nie odroznia dwoch
+    przebiegow na tym samym commicie — to jest dokladnie to, co zmierzylo 6.B32
+    dla dziennika, a nastepnie 6.B40 dla nazwy pliku. Raport z przebiegu `--dirty`
+    byl do 07.09.2026 nieodroznialny od raportu z drzewa czystego, choc liczby
+    dotyczyly innej tresci.
+
+    **Jeden odcisk zbiorczy ORAZ tabela, a nie jedno z dwojga** — i to rozstrzygnal
+    pomiar, nie wygoda. Odcisk zbiorczy jest krotki i zawsze obecny, ale nie mowi,
+    ktory modul sie roznil; tabela mowi, ale przy 63 celach zajmuje ekran. Zmierzone
+    07.09.2026: **54 z 66** wywolan w `reports/` obejmuje jeden modul, wiec tabela
+    kosztuje w nich JEDEN wiersz. Powyzej `MAX_ODCISKOW_W_RAPORCIE` zostaje sam
+    odcisk zbiorczy i zdanie o tym, ile modulow pominieto — nie milczenie.
+
+    Odcisk zbiorczy bierze `odcisk_przebiegu` (6.B40), a nie wlasne skladanie tej
+    samej listy: dwa czytniki jednej rzeczy rozjezdzaja sie po cichu (6.B28).
+    """
+    if not odciski:
+        return ["**Odcisk treści przebiegu:** brak — przebieg nie objął ani jednego pliku"]
+
+    zbiorczy = odcisk_przebiegu(odciski)
+    out = [f"**Odcisk treści przebiegu:** `{zbiorczy}` "
+           f"({len(odciski)} moduł(ów))"]
+    if len(odciski) <= MAX_ODCISKOW_W_RAPORCIE:
+        out += ["", "| moduł | odcisk treści |", "|---|---|"]
+        out += [f"| `{path}` | `{odcisk}` |" for path, odcisk in sorted(odciski.items())]
+    else:
+        out += ["",
+                f"Odciski poszczególnych modułów pominięte: przebieg objął "
+                f"{len(odciski)} modułów, a tabela wypisuje je do "
+                f"{MAX_ODCISKOW_W_RAPORCIE}. Odcisk zbiorczy wyżej zależy od "
+                f"każdego z nich, więc zmiana dowolnego jest w nim widoczna — "
+                f"nie widać tylko, KTÓREGO."]
+    return out
+
+
+def report(results: list[dict], commit: str, odciski: dict | None = None) -> str:
     # Starsze dzienniki nie mają pola `rozstrzygniete`; brak pola traktujemy jako
     # „rozstrzygnięte", żeby raport z nich nadal się składał.
     unknown = [r for r in results if not r.get("rozstrzygniete", True)]
@@ -1019,6 +1071,8 @@ def report(results: list[dict], commit: str) -> str:
         "# Przegląd mutacyjny bramek",
         "",
         f"**Snapshot na commicie:** `{commit}`",
+        "",
+        *naglowek_odciskow(odciski or {}),
         "",
         "Narzędzie: `tools/tests/mutation_sweep.py`. Mutowany jest **kod pod testem**,",
         "nie testy. Mutacja, która przeżyła, znaczy jedno z dwojga: brak pokrycia albo",
@@ -1579,7 +1633,7 @@ def main() -> int:
             json.dump(results, handle, ensure_ascii=False, indent=1)
     if args.out:
         with open(args.out, "w", encoding="utf-8") as handle:
-            handle.write(report(results, commit))
+            handle.write(report(results, commit, odciski))
         print(f"[MUTACJE] raport -> {args.out}")
 
     return 0

@@ -2143,6 +2143,92 @@ def test_pusty_przebieg_ma_odcisk_PUSTY_a_nie_odcisk_pustego_napisu():
     assert trzy == cztery_z_pustym, (trzy, cztery_z_pustym)
 
 
+# --- 6.B42: odciski w naglowku raportu -------------------------------------------
+
+def _wynik(rodzaj="operator", przezyla=False):
+    return {"id": "x.py:1:0", "plik": "x.py", "opis": "x", "rodzaj": rodzaj,
+            "przezyla": przezyla, "rozstrzygniete": True, "wykonana": True,
+            "padly": []}
+
+
+def test_naglowek_raportu_niesie_odcisk_tresci_a_nie_tylko_commit():
+    """6.B42: commit nie odroznia dwoch przebiegow na tym samym commicie.
+
+    To jest to samo zdanie, ktore zmierzylo 6.B32 dla WPISU dziennika i 6.B40 dla
+    NAZWY pliku. Raport z przebiegu `--dirty` byl do 07.09.2026 nieodroznialny od
+    raportu z drzewa czystego, choc liczby dotyczyly innej tresci — a 6.D3 postawilo
+    bramke wlasnie na to, zeby kazdy `reports/*.md` mowil, na czym powstaly jego
+    liczby. Commit podawal; tresci nie.
+    """
+    odciski = {"tools/blender/lod_paths.py": "fcb923b7000e0dca"}
+
+    tekst = sweep.report([_wynik()], "5ae1b52", odciski)
+
+    assert "**Odcisk treści przebiegu:**" in tekst, tekst[:400]
+    assert sweep.odcisk_przebiegu(odciski) in tekst, tekst[:400]
+    assert "fcb923b7000e0dca" in tekst, tekst[:400]
+
+
+def test_dwie_tresci_daja_ROZNE_naglowki_przy_tym_samym_commicie():
+    """Wlasnosc z pola „Skonczone, gdy": raport ma byc ODROZNIALNY.
+
+    Bez tej asercji test wyzej przechodzilby takze wtedy, gdyby odcisk byl stala —
+    obecnosc napisu w raporcie nie jest tym samym, co jego zaleznosc od tresci
+    (6.A32, 6.A29).
+    """
+    czysty = sweep.report([_wynik()], "5ae1b52", {"a.py": "fcb923b7000e0dca"})
+    brudny = sweep.report([_wynik()], "5ae1b52", {"a.py": "634df59defe0ec2a"})
+
+    assert czysty != brudny
+    naglowek = lambda t: [l for l in t.splitlines() if "Odcisk" in l][0]
+    assert naglowek(czysty) != naglowek(brudny), naglowek(czysty)
+
+
+def test_powyzej_progu_tabela_ustepuje_ZDANIU_a_nie_milczeniu():
+    """Przy 63 celach tabela zajmuje ekran, wiec powyzej progu jej nie ma —
+    ale nie ma jej JAWNIE, z liczba pominietych modulow.
+
+    Prog jest wyprowadzony z pomiaru: 54 z 66 wywolan w `reports/` obejmuje jeden
+    modul, wiec w 82 % tabela ma jeden wiersz. Milczenie zamiast zdania zamienialoby
+    raport szerokiego przebiegu w raport, ktory NIE MOWI, ze czegos nie mowi.
+    """
+    duzo = {f"m{i}.py": f"{i:016x}" for i in range(sweep.MAX_ODCISKOW_W_RAPORCIE + 1)}
+
+    tekst = sweep.report([_wynik()], "5ae1b52", duzo)
+
+    assert sweep.odcisk_przebiegu(duzo) in tekst, tekst[:400]
+    assert "| moduł | odcisk treści |" not in tekst, tekst[:600]
+    assert str(len(duzo)) in tekst, tekst[:600]
+    assert "pominięte" in tekst, tekst[:600]
+
+
+def test_na_progu_tabela_JESZCZE_jest():
+    """Granica nalezy do tabeli, nie do zdania — i to jest przybite, zeby prog
+    dal sie przesunac tylko swiadomie.
+
+    Para z testem wyzej: bez niej `<=` i `<` byly by nieodroznialne, a to jest
+    dokladnie ta klasa remisu na granicy, ktora `docs/24-clearance-profile-decisions.md`
+    rozstrzyga po jednej pozycji naraz.
+    """
+    rowno = {f"m{i}.py": f"{i:016x}" for i in range(sweep.MAX_ODCISKOW_W_RAPORCIE)}
+
+    tekst = sweep.report([_wynik()], "5ae1b52", rowno)
+
+    assert "| moduł | odcisk treści |" in tekst, tekst[:600]
+    assert "pominięte" not in tekst, tekst[:600]
+
+
+def test_przebieg_bez_plikow_mowi_BRAK_a_nie_odcisk_niczego():
+    """`sha256("")` wygladalby jak zmierzony. Ta sama zasada co w `odcisk_przebiegu`
+    (6.B40) i ten sam powod: wartosc, ktorej nikt nie policzyl, nie ma prawa
+    wygladac jak policzona.
+    """
+    tekst = sweep.report([_wynik()], "5ae1b52", {})
+
+    assert "brak" in tekst.split("Narzędzie:")[0], tekst[:400]
+    assert "| moduł | odcisk treści |" not in tekst, tekst[:600]
+
+
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
 # z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
 # tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
