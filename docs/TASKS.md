@@ -730,6 +730,10 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.A24 | **`compare` na nieliczbowej komorce CSV daje komunikat platformy, bez pliku, wiersza i kolumny** — `double.Parse(a[c], Inv)` w petli po kolumnach | zmierzone 07.09.2026 przy 6.A14, ktore swiadomie tego nie ruszylo i wpisalo jako jedyne usprawiedliwienie w `test_runner_number_parsing.py`: zla komorka nie jest zla opcja, wiec komunikat 6.A14 bylby tu nieprawda. Ale `compare` jest **wyrocznia parzystosci** rdzenia i sceny; jego odmowa ma nazwac plik, wiersz i kolumne, a nie sam napis | S |
 | 6.A25 | **Czlon pozycyjny nieznany zadnemu poleceniu przechodzi w milczeniu, kodem 0** — `budget … --atp 1` jedzie i `1` jest ignorowane, `budget … zmyslony_czlon` tez konczy sie **kodem 0** | zmierzone 07.09.2026 przy 6.A22, ktore swiadomie tego nie tknelo i wypisalo powod: odmowa z 6.A11/6.A15 odsiewa czlony bez minusa **celowo**, bo `compare` bierze dwie sciezki pozycyjnie. Ta sama wyrocznia zepsuta w strone „wszystko w porzadku", tylko po drugiej stronie minusa: literowka w wartosci flagi wyglada dokladnie jak przebieg poprawny | M |
 | 6.B32 | **Dziennik mutacyjny nie odroznia dwoch przebiegow na TYM SAMYM commicie** — przy `--dirty` (albo przy niescommitowanej zmianie) `git rev-parse --short HEAD` daje te sama wartosc, wiec odmowa z 6.B19 tego przypadku nie widzi | nazwane wprost przy 6.B19 (#349), w komentarzu przy miejscu wznawiania i w §5-6 raportu, jako to, czego tamta poprawka NIE lapie. Wznowienie podstawi wtedy wynik policzony dla innej tresci pliku pod dzisiejsza mutacje — po cichu, bo `commit` sie zgadza | M |
+| 6.D31 | **Trzy metody testowe C#, ktorych asercje stoja w galezi, do ktorej nic nie musi wejsc** — `RunPlanTests.EveryKnownArgumentIsAcceptedOnItsOwnOrNamesWhatItNeeds`, `RunPlanTests.NoInputThrows`, `TrainProtectionTests.Predkosc_dopuszczalna_jest_odwrotnoscia_krzywej_z_T_311` | zmierzone i sklasyfikowane przy 6.D29 (#352), ktore swiadomie NIE zmienialo tresci zadnej z nich: 18 metod „interesujacych", z tego 14 (a) zawsze wchodzone, 1 (b) pilnowana osobnym testem i te 3 (c). W kazdej galaz zalezy od danych produkcyjnych albo od modelu, a nic w zestawie nie pilnuje, ze kiedykolwiek wejdzie. Sprawdzone przeze mnie osobno na `NoInputThrows`: wszystkie asercje poza `IsNotNull` stoja w `if (!plan.IsValid)` | M |
+| 6.B33 | **Nic nie pilnuje wzorca „oczekiwany wyjatek" w testach C#** — `try { … } catch (E) { asercja; return; } Assert.Fail(…)` dziala tylko dlatego, ze `Assert.Fail` stoi ZA blokiem `try`/`catch`; bez niego test przechodzi, gdy wyjatek nie zostal rzucony | zmierzone 07.09.2026 przy 6.A23: dwanascie metod testowych uzywa tego wzorca i **wszystkie dwanascie** maja `Assert.Fail` na wlasciwym miejscu. Nic tego nie pilnuje, a trzynasta bez niego przeszlaby w milczeniu — dokladnie klasa 6.B27, gdzie objawem byla wylacznie liczba | M |
+| 6.B34 | **Bramka martwych stalych C# liczy wzmianke w NAPISIE i w KOMENTARZU jako odczyt** — stala wymieniona wylacznie w komentarzu wyjasniajacym jej usuniecie wyglada na ZYWA | zmierzone 07.09.2026 na wstrzyknietym wejsciu: `_odczyty` daje 1 dla stalej stojacej tylko w napisie ORAZ dla stojacej tylko w komentarzu. 6.B31 wybralo ten kierunek pomylki SWIADOMIE (falszywy negatyw jest tansza pomylka), ale od 6.B28 (#348) istnieje `maska()`, ktora zdejmuje ten koszt niemal darmowo | S |
+| 6.A26 | **Nic nie pilnuje, ze zadna komenda `Sim.Runner` w repozytorium nie uzywa postaci `--opcja=wartosc`** — a na tym pomiarze stoi decyzja 6.A22 o odrzuceniu tej postaci | zmierzone 07.09.2026 przy 6.A22 (344 wystapienia postaci, z tego 2 w komendach runnera i oba to tekst tamtej pozycji). **Raport 6.A22 §10 obiecal wiecej, niz bramka robi**: napisal, ze gdyby komenda CI zaczela tej postaci uzywac wobec runnera, „bramka z §5 pokaze to jako FAIL" — a tamta bramka czyta WYLACZNIE `src/Sim.Runner/Program.cs`, nie skrypty CI. Ta pozycja domyka obietnice i wymaga adnotacji w tamtym raporcie | S |
 | 6.D26 | **ZROBIONE (07.09.2026).** Maksimum jest teraz WYPROWADZANE z listy `POMIARY` — pieciu przebiegow z data i kontekstem — a `MARGIN` jest dzialaniem, nie zdaniem. **Zdanie z wpisu, ze „rozrzut hosta nie jest nigdzie zapisany", bylo NIEPRAWDA** i pierwsze czytanie pliku to pokazalo: docstring opisywal kontener dzielony, `ps aux` z rownoleglym `dotnet build` i rozrzut 10,84 s. Zepsute bylo wezsze i gorsze: maksimum wpisane z reki jako jedna liczba z minionej sesji, a margines liczony wobec niej — 107,331 s zmierzone dzis to o **39 %** wiecej niz zapisane 77,04. **Co to realnie przepuszczalo, zmierzone**: obnizenie progu do 100 s przechodzilo wszystkie testy (100 > 77,04, margines 1,298 > 1,2) i dawalo CZERWONE CI na drzewie bez ani jednej usterki; po zmianie jest odmowa. Prog 150,0 **nietkniety** — jego zmiana to decyzja o czulosci bramki. Nowa bramka odmawia, gdy proza podaje mnoznik, ktorego nie daje `MARGIN`, a jej ksztalt to wynik **czterech wlasnych potkniec**, kazdego zlapanego przez inne narzedzie: brala pomiar za mnoznik; skanowala wlasny docstring, ktory te mnozniki WYMIENIA jako przyklady; po wycieciu go przeszla **bez ani jednej asercji** (zlapala to bramka asercji z #139) — wiec sprawdza teraz NARZEDZIE, nie tylko dzisiejszy tekst; a okno zdania urywalo sie na kropce dziesietnej. Cztery kontrole negatywne, z ktorych **KN-4 przed ta zmiana przechodzila**. Pomiar w `reports/zapis-czasu-zestawu.md`. Tresc pierwotna: **`MEASURED_MAX_WALL_S = 77.04` jest nizsze od tego, co maszyna dziś pokazuje** | zmierzone 07.09.2026 przy 6.D25 | S |
 | 6.D27 | **ZROBIONE (07.09.2026).** Miedzy nazwa stalej a liczba nie wolno teraz postawic takze `§` ani `#`. **Powod, dla ktorego to nie jest kosmetyka**: bramka swiecaca na poprawnym tekscie zostaje **wylaczona, nie poprawiona** — a obejsciem, ktore zastosowalem przy 6.D26, bylo przepisanie ZDANIA, nie naprawienie przyrzadu. Trzy wiersze mojego wlasnego raportu z tego samego dnia mialy juz ten ksztalt i przechodzily WYLACZNIE przypadkiem: zadna z tych trzech stalych nie trafia do slownika wartosci (jedna usunieta, jedna napisowa, jedna o dwoch wartosciach). Roznica miedzy zdaniem, ktore przeszlo, i tym, ktore padlo, nie lezala wiec w zdaniu. **`#` doszlo z pomiaru, nie z przewidywania**: `kolejka-uzupelnienie.md:42` pisze „`MINIMUM_DOCUMENTED_ITEMS`: sprzezenie, ktore #274" i jest przepuszczane dzis tylko dlatego, ze stoi tam przecinek. Cena zwezenia powiedziana wprost: „`STALA` (§4) to 30,0" przestaje byc twierdzeniem — ten sam wybor, co przy przecinku, i ta sama asymetria, bo przemilczane twierdzenie lapie prog `MINIMUM_CLAIMS`, a falszywy alarm tylko czyjas cierpliwosc. Po zwezeniu bramka sprawdza **15** twierdzen przy progu 10. Dwie kontrole negatywne, z ktorych **KN-2 jest wazniejsza**: dowodzi, ze zwezenie NIE zjadlo tego, po co bramka istnieje — najprostszym sposobem uciszenia falszywego alarmu jest zwezenie wzorca tak, zeby nie lapal niczego, i taka zmiana byla by zielona bez niej. Ta sama para stoi w tresci testu i chodzi przy kazdym przebiegu. Nie tknieto `pkt`, `rozdz.`, `str.` — pomiar daje **zero** wystapien, a wykluczanie form, ktorych nie ma, zwezal oby bramke o twierdzenia, ktorych juz nie sprawdzi. Pomiar w `reports/odsylacz-nie-jest-wartoscia.md`. Tresc pierwotna: **`test_report_claims.py` bierze odsylacz do sekcji za WARTOSC stalej** | zmierzone 07.09.2026 przy 6.D26, gdzie bramka zapalila sie na POPRAWNYM zdaniu | S |
 | 6.D28 | **ZROBIONE (07.09.2026).** 674 metody testowe C#, **674** z asercja w tresci, **zero** bez. Dojscie do tego zera wymagalo DWOCH poprawek w czytniku i obie mowia wiecej niz sam wynik. **Pierwsza: czytnik zglaszal wlasna niewiedze jako brak.** Cialo metody C# ma dwie postacie — blok i wyrazenie `=> …;` — a pierwsza wersja znala tylko blok i zglosila `Lista_funkcji_KCV_jest_dokladnie_ta_ktora_podaje_STIB` jako metode bez asercji, choc ona asertuje `CollectionAssert` w ciele wyrazeniowym; gorzej, klamra inicjatora `new[] { … }` byla brana za poczatek bloku, wiec asercja nie trafiala nigdzie. **Druga: pomocnik `Assert*` to asercja** — bez tego wychodzilo PIEC brakow, z czego cztery asertuja przez lokalny `AssertBits`. Sprawdzone tez rozwiazywanie pomocnikow po CIELE, nie po nazwie: **nie daje ani jednej metody wiecej**, wiec zostaje regula prostsza. **Granica postawiona swiadomie**: liczone sa asercje OBECNE w tresci, nie WYKONANE — `assertion_gate` robi to drugie i dlatego zlapal moj test z asercja w petli, do ktorej nic nie weszlo. Slabsza wlasnosc, zapisana w docstringu, nie przemilczana. Cztery kontrole negatywne, kazda na innym trybie awarii; **KN-4 jest najwazniejsza**, bo drzewo ma zero brakow, wiec bramka „zero brakow" jest zielona takze wtedy, gdy czytnik uznaje za asertujaca KAZDA metode — kontrola pozytywna na syntetycznej metodzie bez asercji chodzi przy kazdym przebiegu i to ona odroznia jedno od drugiego. Bramka kosztuje 0,50 s. Liczba 674 zgadza sie z 6.B27: tam 708 atrybutow i 668 objetych ksztaltem; roznica to 34 metody Z ARGUMENTAMI, czyli **6.B28**, nietknieta. Pomiar w `reports/asercje-w-testach-csharp.md`. Tresc pierwotna: **Asercje w testach C# nie sa liczone przez nic** | nazwane jako odlozone wprost przez 6.B27 (#329) | M |
@@ -3471,6 +3475,174 @@ MINIMUM_DETAIL_BLOCKS = 73
   (`plik:wiersz:przesunięcie bajtowe`) — przeliczyłaby dotychczasowe dzienniki
   i zerwała porównywalność z raportami triażu; ta sama granica, którą postawiła 6.B19.
 - **Zależy od:** #349 (6.B19).
+
+##### 6.D31 · Trzy metody, których asercje stoją w gałęzi bez strażnika
+
+- **Skąd:** 6.D29 (#352) sklasyfikowała 18 metod testowych C#, u których **wszystkie**
+  asercje siedzą w bloku zagnieżdżonym, i **świadomie nie zmieniła treści żadnej** —
+  jej zadaniem była klasyfikacja, a wybór kształtu testu jest osobną decyzją. Trzy
+  wyszły jako (c): realna usterka bez żadnego strażnika.
+  ```
+  RunPlanTests.EveryKnownArgumentIsAcceptedOnItsOwnOrNamesWhatItNeeds
+  RunPlanTests.NoInputThrows
+  TrainProtectionTests.Predkosc_dopuszczalna_jest_odwrotnoscia_krzywej_z_T_311
+  ```
+  Sprawdzone osobno na `NoInputThrows`: idzie po dziewięciu paskudnych wejściach
+  i **wszystkie** asercje poza `IsNotNull` stoją w `if (!plan.IsValid)`. Gdyby rozbiór
+  zaczął przyjmować te wejścia jako poprawne, test przestałby sprawdzać cokolwiek
+  i nie powiedziałby o tym ani słowa.
+- **Wejście:** `tests/Game.Tests/RunPlanTests.cs`, `tests/Sim.Tests/TrainProtectionTests.cs`,
+  `reports/galaz-ktora-moze-nie-wejsc.md` (klasyfikacja i uzasadnienie każdej z 18).
+- **Wyjście:** każda z trzech metod ma asercję, która **wykonuje się bezwarunkowo** —
+  najprościej licznik wejść do gałęzi porównany z liczbą oczekiwaną (`Assert.AreEqual(9,
+  ile)` po pętli), ewentualnie rozbicie na `[DataRow]` po jednym wejściu. **Kształt do
+  wyboru na podstawie pomiaru**: dla każdej z trzech trzeba najpierw sprawdzić, czy
+  gałąź wchodzi dziś dla WSZYSTKICH wejść, czy dla części — bo licznik przybity do
+  złej liczby jest kolejną wyrocznią zepsutą w dobrą stronę.
+- **Weryfikacja:**
+  ```bash
+  dotnet test tests/Game.Tests
+  dotnet test tests/Sim.Tests
+  python3 tools/tests/test_all.py
+  ```
+  plus **wykonana** kontrola negatywna dla każdej z trzech: gałąź zmuszona do
+  niewchodzenia (np. `plan.IsValid` zwracające zawsze `true`) musi wywrócić dokładnie
+  ten test, a nie przechodzić.
+- **Skończone, gdy:** dla każdej z trzech metod kontrola negatywna WYKONANA — gałąź
+  zmuszona do niewchodzenia wywraca ten test — a liczba testów C# nie spada i wynik
+  pozostałych jest niezmieniony. Raport podaje dla każdej z trzech, ile razy gałąź
+  wchodzi dziś, liczbą.
+- **Poza zakresem:** budowanie bramki na ten wzorzec. 6.D29 zmierzyła, że bramka
+  syntaktyczna zapaliłaby się na 15 z 18 przypadków POPRAWNYCH, więc zostałaby
+  wyłączona; ta pozycja poprawia trzy metody, nie stawia strażnika na przyszłość.
+  Poza zakresem także pozostałe 15 metod — mają swoje uzasadnienia w raporcie 6.D29.
+- **Zależy od:** #352 (6.D29).
+
+##### 6.B33 · Wzorzec „oczekiwany wyjątek" bez strażnika
+
+- **Skąd:** zmierzone 07.09.2026 przy 6.A23. Dwanaście metod testowych używa wzorca
+  ```csharp
+  try { Cos(); } catch (FormatException error) { StringAssert.Contains(…); return; }
+  Assert.Fail("…");
+  ```
+  i **wszystkie dwanaście** mają `Assert.Fail` na właściwym miejscu — **za** blokiem
+  `try`/`catch`, więc brak wyjątku wywala test. Stan jest dziś czysty i to jest cała
+  treść tej pozycji: **nic tego nie pilnuje**, a trzynasta metoda bez `Assert.Fail`
+  przeszłaby w milczeniu za każdym razem, gdy kod przestanie rzucać. Dokładnie klasa
+  6.B27, gdzie objawem był wyłącznie licznik testów.
+- **Uwaga do wykonawcy, z pierwszej ręki:** mój własny, doraźny detektor szukał
+  `Assert.Fail` **wewnątrz** bloku `try` i zgłosił wszystkie dwanaście jako usterkę.
+  Zero z nich nią było. Wzorzec ma `Assert.Fail` **po** `catch`, nie w `try`, więc
+  bramka zbudowana na pierwszym odruchu zapali się na dwunastu poprawnych testach
+  i zostanie wyłączona. Kontrola dodatnia (wstrzyknięty test BEZ `Assert.Fail`)
+  **i** ujemna (dwanaście prawdziwych milczy) są tu obie obowiązkowe.
+- **Wejście:** `tools/tests/csharp_test_methods.py` (`maska`, `czlonkowie`,
+  `_koniec_bloku`), `tools/tests/csharp_assertions.py` (wzorzec asercji),
+  nowy moduł bramki w `tools/tests/`, `tests/Sim.Tests/InputLogTests.cs`
+  i `tests/Sim.Tests/DriverNotchTests.cs` (dwanaście prawdziwych wystąpień).
+- **Wyjście:** bramka zgłaszająca metodę testową, w której blok `catch` kończy się
+  `return` (albo pochłania wyjątek) i **za** blokiem `try`/`catch` nie ma
+  `Assert.Fail` ani innej asercji bezwarunkowej. Plus próg na liczbę rozpoznanych
+  wystąpień wzorca, żeby literówka we wzorcu nie dawała zera znalezisk i zielono.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: bramka widzi **12** wystąpień wzorca i zgłasza **zero** usterek;
+  wstrzyknięty test bez `Assert.Fail` jest zgłoszony z imienia.
+- **Skończone, gdy:** bramka podaje liczbę rozpoznanych wystąpień i zero usterek na
+  dzisiejszym drzewie, kontrola dodatnia na wstrzykniętym wejściu zgłasza metodę
+  z imienia, a kontrola ujemna WYKONANA pokazuje, że żaden z dwunastu prawdziwych
+  testów nie jest zgłaszany. Liczba testów narzędzi rośnie o liczbę nowych testów
+  i jest podana deltą.
+- **Poza zakresem:** przepisywanie dwunastu testów na `Assert.ThrowsException` —
+  to zmiana kształtu dwunastu poprawnych testów, a nie postawienie strażnika. Poza
+  zakresem także `catch` z ponownym rzuceniem (`throw;`), bo tam wyjątek nie ginie.
+- **Zależy od:** #348 (6.B28 — `maska()` jest tu warunkiem, bo bez niej przejście po
+  ciele metody gubi się na klamrach w napisach).
+
+##### 6.B34 · Wzmianka w napisie i w komentarzu liczona jako odczyt stałej
+
+- **Skąd:** zmierzone 07.09.2026 na wstrzykniętym wejściu, dwiema próbami:
+  ```
+  stala wymieniona TYLKO w napisie      -> _odczyty daje 1  (wyglada na ZYWA)
+  stala wymieniona TYLKO w komentarzu   -> _odczyty daje 1  (wyglada na ZYWA)
+  ```
+  6.B31 wybrała ten kierunek pomyłki **świadomie** i zapisała to w raporcie: fałszywy
+  negatyw (martwa stała uznana za żywą) jest tańszą pomyłką niż bramka zapalająca się
+  na poprawnym kodzie. Uzasadnienie było wtedy dobre, bo alternatywa wymagała
+  własnego rozbioru literałów. **Od 6.B28 (#348) `maska()` już istnieje** — komentarze
+  i literały zamienione na spacje znak w znak — więc koszt zniknął, a wraz z nim
+  powód, żeby fałszywy negatyw zostawić.
+- **Szczególnie kłopotliwy przypadek:** komentarz **wyjaśniający usunięcie** stałej
+  utrzymuje ją w stanie „żywa" na zawsze. Ten projekt takie komentarze pisze
+  regularnie (reguła „przepisuj, nie dopisuj obok"), więc mechanizm nie jest
+  teoretyczny.
+- **Wejście:** `tools/tests/test_dead_constants_csharp.py` (`_odczyty`, `deklaracje`,
+  `UZASADNIONE`, `MINIMUM_DEKLARACJI`), `tools/tests/csharp_test_methods.py`
+  (`maska`), `reports/martwe-stale-csharp.md` (pomiar 6.B31 i jego uzasadnienie).
+- **Wyjście:** `_odczyty` liczy identyfikatory na **masce**, nie na surowym tekście.
+  Plus pomiar: **ile stałych** przestaje być czytanych po tej zmianie — bo jeżeli
+  któraś okaże się martwa, jej los (usunięcie albo uzasadnienie) rozstrzyga się tak
+  samo jak przy 6.B31, czyli po sprawdzeniu, czy należy do udokumentowanego zbioru.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_dead_constants_csharp.py
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: liczba deklaracji niezmieniona, liczba martwych stałych podana wprost
+  (zero albo lista z werdyktem dla każdej).
+- **Skończone, gdy:** stała wymieniona wyłącznie w napisie albo w komentarzu jest
+  zgłaszana jako nieczytana — pokazane kontrolą dodatnią na wstrzykniętym wejściu —
+  a każda stała, którą zmiana ujawni jako martwą, ma werdykt: usunięta albo
+  uzasadniona wpisem z powodem. Adnotacja w `reports/martwe-stale-csharp.md` mówi, że
+  wybór kierunku pomyłki z 6.B31 przestał być konieczny i dlaczego.
+- **Poza zakresem:** rozbiór odczytów poza C# (`.tscn`, `.gd`, `*.sh`, `.github/`) —
+  6.B31 zmierzyło tam zero odczytów i warunek zostaje; maska dotyczy plików `.cs`.
+- **Zależy od:** #348 (6.B28), #334 (6.B31).
+
+##### 6.A26 · Nic nie pilnuje pomiaru, na którym stoi decyzja 6.A22
+
+- **Skąd:** 6.A22 (#351) odrzuciła postać `--opcja=wartość` **na podstawie pomiaru**:
+  344 wystąpienia tej postaci w repozytorium, z tego 96 w komendach sceny Godota
+  i **2** w komendach `Sim.Runner` — a oba te dwa są tekstem samej pozycji
+  w `docs/TASKS.md`. Decyzja jest dobra dokładnie tak długo, jak długo ten pomiar jest
+  prawdziwy.
+- **Czego brakuje, i to jest sprostowanie własnego raportu:** §10 raportu
+  `reports/postac-z-rownosciem.md` napisał, że gdyby komenda CI zaczęła tej postaci
+  używać wobec runnera, „bramka z §5 pokaże to jako FAIL, zamiast czekać na czyjeś
+  oko". **To nieprawda.** Bramka z §5
+  (`test_no_message_writes_a_known_option_in_the_equals_form`) czyta **wyłącznie**
+  `src/Sim.Runner/Program.cs` i pilnuje, żeby komunikaty runnera nie były pisane
+  w odrzuconej postaci. Komenda w `.github/workflows/*.yml` albo w `docs/` jest poza
+  jej zasięgiem.
+- **Wejście:** `tools/tests/test_runner_options.py`, `.github/workflows/*.yml`,
+  `docs/**/*.md`, `tools/**/*.sh`, `reports/postac-z-rownosciem.md` §10 (zdanie do
+  oznaczenia adnotacją).
+- **Wyjście:** bramka klasyfikująca każde wystąpienie postaci `--opcja=wartość`
+  w repozytorium po **wołanym programie** — sklejenie kontynuacji wierszy (`\`),
+  potem podział na komendy `Sim.Runner`, komendy sceny (`GODOT_BIN`,
+  `--path src/Game`) i prozę — i odmawiająca, gdy w komendzie `Sim.Runner` pojawi się
+  choć jedna. Plus próg na łączną liczbę wystąpień, żeby literówka we wzorcu nie
+  dawała zera i zielono.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: bramka podaje rozbicie liczbowe (razem / scena / runner / proza)
+  i zgłasza zero komend runnera z równością; wstrzyknięta komenda runnera z tą
+  postacią jest zgłoszona z plikiem i numerem wiersza.
+- **Skończone, gdy:** bramka jest zielona na dzisiejszym drzewie z rozbiciem podanym
+  liczbą, kontrola dodatnia na wstrzykniętym wejściu zgłasza komendę z plikiem
+  i wierszem, a kontrola ujemna WYKONANA pokazuje, że **żadna** z 96 komend sceny ani
+  z prozy nie jest zgłaszana — bo bramka łapiąca scenę zostałaby wyłączona w tym
+  samym tygodniu. `reports/postac-z-rownosciem.md` §10 dostaje adnotację mówiącą, co
+  tamto zdanie obiecywało i czym to zostało domknięte.
+- **Poza zakresem:** obsługa postaci `--opcja=wartość` w runnerze (6.A22 odrzuciła ją
+  pomiarem) oraz zmiana konwencji sceny — `RunPlan` tej postaci wymaga i to jest jej
+  wybór, przybity 27 testami w `tests/Game.Tests`. Ujednolicenie dwóch połów projektu
+  jest decyzją właściciela.
+- **Zależy od:** #351 (6.A22).
 
 ### Czego agent nie ruszy bez decyzji
 
