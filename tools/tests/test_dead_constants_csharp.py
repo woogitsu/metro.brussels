@@ -32,6 +32,11 @@ zostalo usuniete w tym samym commicie, a nie wpisane na liste wyjatkow. Lista st
 """
 import os
 import re
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import csharp_test_methods as CTM  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 DRZEWA = ("src", "tests")
@@ -133,10 +138,28 @@ def _odczyty(tresc):
 
 
 def martwe(root=ROOT):
-    """Nazwa -> pliki deklaracji, dla stalych nieczytanych NIGDZIE."""
+    """Nazwa -> pliki deklaracji, dla stalych nieczytanych NIGDZIE.
+
+    **Odczyty liczone na MASCE, nie w surowym tekscie (6.B34).** `CTM.maska` zamienia
+    komentarze i literaly napisowe na spacje znak w znak, wiec wzmianka o stalej
+    w komentarzu albo w napisie NIE liczy sie jako jej odczyt. Do 07.09.2026 liczyla
+    sie — i szczegolnie klopotliwy byl przypadek komentarza WYJASNIAJACEGO usuniecie
+    stalej, ktory utrzymywal ja w stanie „zywa" na zawsze; ten projekt takie komentarze
+    pisze regularnie, bo reguly i zdania sie tu przepisuje, nie dopisuje obok.
+
+    6.B31 wybrala tamten kierunek pomylki SWIADOMIE: falszywy negatyw (martwa stala
+    uznana za zywa) byl tanszy niz bramka zapalajaca sie na poprawnym kodzie,
+    a alternatywa wymagala wlasnego rozbioru literalow. Od 6.B28 `maska()` juz
+    istnieje, wiec koszt zniknal razem z powodem.
+
+    **Zmierzone: na dzisiejszym drzewie zmiana nie przesuwa ani jednej stalej** —
+    martwych jest zero i przed maska, i po niej. Wartosc tej poprawki jest wiec
+    wylacznie zapobiegawcza i dowodzi jej kontrola dodatnia na wstrzykniętym wejsciu,
+    nie zmiana liczby.
+    """
     tresc = _tresc_csharp(root)
     znalezione = deklaracje(tresc, root)
-    odczyty = _odczyty(tresc)
+    odczyty = _odczyty({k: CTM.maska(v) for k, v in tresc.items()})
     poza = _tresc_poza_csharp(root)
     wynik = {}
     for nazwa, gdzie in znalezione.items():
@@ -173,6 +196,85 @@ def test_no_justification_outlives_the_constant_it_describes():
     assert not martwe_wpisy, (
         "UZASADNIONE opisuje stale, ktore znikly albo znowu sa czytane: "
         + ", ".join(martwe_wpisy))
+
+
+def _wstrzyknij(katalog, zrodlo):
+    """Drzewo `<katalog>/src/Atrapa.cs` z podanym zrodlem — dla kontrol wstrzykiwanych."""
+    os.makedirs(os.path.join(katalog, "src"), exist_ok=True)
+    os.makedirs(os.path.join(katalog, "tests"), exist_ok=True)
+    with open(os.path.join(katalog, "src", "Atrapa.cs"), "w", encoding="utf-8") as uchwyt:
+        uchwyt.write(zrodlo)
+
+
+def test_a_mention_in_a_comment_is_not_a_read():
+    """Sedno 6.B34: komentarz WYJASNIAJACY usuniecie stalej nie trzyma jej przy zyciu.
+
+    Do 07.09.2026 trzymal: `_odczyty` liczylo identyfikatory w surowym tekscie, wiec
+    wzmianka w komentarzu dawala jeden odczyt i stala wygladala na zywa NA ZAWSZE.
+    Ten projekt takie komentarze pisze regularnie, wiec mechanizm nie byl teoretyczny.
+    """
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as katalog:
+        _wstrzyknij(katalog, "\n".join([
+            "public static class Atrapa",
+            "{",
+            "    private const int ZmyslonaStala = 7;",
+            "",
+            "    // ZmyslonaStala zostala zdjeta z uzycia; komentarz zostal, zeby",
+            "    // wiadomo bylo, dlaczego.",
+            "    public static int Nic() => 0;",
+            "}",
+            "",
+        ]))
+        znalezione = martwe(katalog)
+        assert "ZmyslonaStala" in znalezione, (
+            "stala wymieniona WYLACZNIE w komentarzu uznana za czytana: "
+            + repr(znalezione))
+
+
+def test_a_mention_in_a_string_is_not_a_read():
+    """To samo dla literalu napisowego — nazwa w napisie nie jest wywolaniem."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as katalog:
+        _wstrzyknij(katalog, "\n".join([
+            "public static class Atrapa",
+            "{",
+            "    private const int ZmyslonaStala = 7;",
+            "",
+            '    public static string Opis() => "ZmyslonaStala jest tu tylko wymieniona";',
+            "}",
+            "",
+        ]))
+        znalezione = martwe(katalog)
+        assert "ZmyslonaStala" in znalezione, (
+            "stala wymieniona WYLACZNIE w napisie uznana za czytana: "
+            + repr(znalezione))
+
+
+def test_a_real_read_still_counts():
+    """Kontrola drugiego kierunku: prawdziwy odczyt nadal trzyma stala przy zyciu.
+
+    Bez tego testu trzy poprzednie byly by zielone rowniez dla maski zbyt szerokiej,
+    ktora zamienia na spacje cos wiecej niz komentarze i literaly — a wtedy bramka
+    zglaszalaby jako martwe stale, ktore sa czytane, i skonczylaby wylaczona.
+    """
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as katalog:
+        _wstrzyknij(katalog, "\n".join([
+            "public static class Atrapa",
+            "{",
+            "    private const int ZmyslonaStala = 7;",
+            "",
+            "    public static int Dwa() => ZmyslonaStala * 2;",
+            "}",
+            "",
+        ]))
+        assert martwe(katalog) == {}, (
+            "prawdziwy odczyt nie policzony — maska zdejmuje wiecej niz komentarze "
+            "i literaly: " + repr(martwe(katalog)))
 
 
 def test_a_declaration_line_is_not_counted_as_a_read():
