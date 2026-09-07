@@ -769,6 +769,11 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.A19 | **Odmowa `replay --coast-from-m` mówi „nie zna opcji" o opcji, którą projekt zna** — a decyzja właściciela z 07.09.2026 czyni z tej odmowy trwałą WŁASNOŚĆ polecenia, więc komunikat ma podać powód: odtworzenie zapisu wejść nie może dostać nastawy automatu, bo przestałoby być odtworzeniem | rozstrzygnięte 07.09.2026, odczytanie (a) z wiersza w „Czego agent nie ruszy bez decyzji". Ta sama rodzina usterki co 6.A22, i tam już zmierzona: zdanie „nie zna opcji" jest poprawne dla literówki i **mylące** dla nazwy, którą runner zna z innego polecenia. Zakres jest treścią komunikatu i dokumentacją, nie zachowaniem — kod wyjścia i sama odmowa zostają | S |
 | 6.B43 | **Ukrycie widoku goniącego kończy się na długości składu, a kadr jest jasny jeszcze przy 96 m** — decyzja właściciela z 07.09.2026 rozciąga pasmo do **110 m**, więc `ChaseCameraAim.Availability` przestaje być funkcją samej długości składu | rozstrzygnięte 07.09.2026. Liczba 110 m pochodzi z pomiaru, nie z gustu: 96 m → **42,0 %** pikseli jaśniejszych niż 0,80 w górnych 60 % kadru, 110 m → **0,0 %**. Seria jest przy tym **niemonotoniczna** (90 m → 0,0 %, 96 m → 42,0 %), więc pozycja ma pasmo domierzyć gęściej, a nie przepisać jeden punkt | M |
 | 6.B44 | **Profil pionowy pakietu A nie istnieje, bo trzy z dwunastu stacji mają głębokość, a dziewięć `unknown`** — decyzja właściciela z 07.09.2026 mówi budować z jawną niewiadomą, więc brakuje narzędzia, które czyta `station-depths.csv` i **nazywa dziurę**, zamiast interpolować przez nią | rozstrzygnięte 07.09.2026. Dziś `data/network/station-depths.csv` nie ma w drzewie ani jednego konsumenta poza `tools/tests/test_platform_dimensions.py` — sprawdzone `grep -rln`. Pozycja nie zgaduje ani jednej głębokości: bierze trzy wpisane (`-12,0`, `-20,0`, `-12,0`, wszystkie `estimated`) i dziewięć pustych, a konflikt Schuman 15 m vs 17,42 m zostaje nierozstrzygnięty i tak oznaczony. Czysty Python w `tools/track/`, bez Blendera | M |
+| 6.A33 | **Igła asercji, która występuje w JEDENASTU różnych komunikatach tego samego programu** — `StringAssert.Contains(err, "line")` przechodzi przy odmowie o czymkolwiek. Zmierzone 07.09.2026 na `a4a3975`: **16 z 68** różnych igieł w `RunnerCommandTests.cs` mieści się w więcej niż jednym wielowyrazowym literale z `Program.cs`; najgorsze to `line` (11 komunikatów), `budget` (10), `--limit-kmh` (9) | to jest dokładnie ten pomiar, który `reports/audyt-asercji.md` §7 nazwał **rozstrzygającym** i którego świadomie nie wykonał, bo omijałby format z sekcji 6. Tu nie jest wymyślony na miejscu — 6.A32 wypisało go z nazwy jako osobną pozycję, a liczba stoi wyżej. W przeciwieństwie do 6.A32 rodzina komunikatów jest **zamknięta**: literały odmów `Program.cs` da się wyliczyć | M |
+| 6.D32 | **Pole bloku może nazywać plik, którego w drzewie nie ma, i nic tego nie zgłasza** — zmierzone 07.09.2026 na `a4a3975` przez 101 bloków: **387** ścieżek w polach „Wejście", **40** w „Wyjściu", **149** w „Weryfikacji". Nieistniejące i będące usterką są **dwie**: **6.B5** cytuje w „Wejściu" `tools/track/profile_scan.py`, a plik leży w `tools/blender/profile_scan.py`; **6.A30** cytuje w „Weryfikacji" `data/keys/L1_A-manual.json`, a katalogu `data/keys` **nie ma wcale** — zapisy wejść leżą w `tests/data/` | pierwsza ścieżka wysyła agenta, który weźmie 6.B5, pod adres, którego nie ma; drugą znalazł niezależnie agent 6.A30 i wykonał weryfikację na plikach istniejących. Bramka musi mieć **trzy** rodzaje wyjątku zmierzone, nie zgadnięte: plik jeszcze niezbudowany w „Wyjściu" (6.B8, 6.B44), ten sam plik w komendzie, która go tworzy (6.B44), i ścieżkę **celowo nieistniejącą**, bo to o nią w teście chodzi (6.B39, `tools/nie-ma-takiego-pliku.py`). `test_report_hygiene.py` pilnuje tego dla `reports/`, dla bloków kolejki nikt | M |
+| 6.D33 | **Audyt wykonalności komend z pól „Weryfikacja" objął 82 komendy z 42 bloków, a bloków jest dziś 101 i komend 279** — zmierzone 07.09.2026 na `a4a3975`. 6.D15 nie zostawiło bramki, więc pokrycie audytu **opada samo** z każdym nowym blokiem: dziś to 82 z 279, czyli 29 % | pozycja nie przelicza cudzego pomiaru — 6.D15 jest datowanym audytem i dostaje adnotację. Rzecz jest w tym, że liczba „73 uruchamialne" czytana dziś wygląda jak zdanie o kolejce, a jest zdaniem o 42 blokach z sześćdziesięciu dwóch mniej. Sama zmierzona różnica 82 → 279 rozstrzyga, czy warto bramkę, czy wystarczy adnotacja | M |
+| 6.D34 | **`tests/Game.Tests` nie było objęte audytem asercji i raport mówi to wprost** — `reports/audyt-asercji.md` §7: „o tamtych 53 asercjach ten raport nie mówi nic". Zmierzone 07.09.2026 na `a4a3975` szerszym wzorcem: **63** asercje kształtu `StringAssert.Contains` / `Assert.IsTrue(… .Contains(…))` w **7** plikach `Game.Tests`, najwięcej `RunPlanTests.cs` (20) i `TelemetryTrackTests.cs` (19) | cztery przypadki z 07.09.2026 były wszystkie z runnera i z `tools/tests/`, więc wniosek 6.A32 („przyrząd łapie 0 z 4") jest zdaniem o tamtej czwórce, nie o `Game.Tests`. Pozycja nie powtarza przyrządu 6.A32 — bierze **zamkniętą rodzinę** komunikatów `RunPlan` (te same, które 6.C5 policzyło: sześć trybów, sześć literałów) i pyta o swoistość igły, tak jak 6.A33 dla runnera | M |
+| 6.D35 | **Raport w `main` nazywa plik z `tests/Sim.Tests` testem Godota** — `reports/audyt-asercji.md` §7 pisze „Trzy najliczniejsze pliki C# to testy Godota, nie runnera (`RunPlanTests.cs` 20, `TelemetryTrackTests.cs` 19, `InputLogTests.cs` 14)", a `InputLogTests.cs` leży w `tests/Sim.Tests/`, ma `namespace MetroBxl.Sim.Tests` i jego projekt nie odwołuje się do Godota ani raz | zmierzone 07.09.2026 na `a4a3975`, `ls` i `grep` po pliku projektu. Ta sama rodzina co 6.D4 i 6.D8: zdanie w raporcie, którego nikt nie liczy, i które przy czytaniu wygląda jak wynik pomiaru. Poprawka jest **jednym zdaniem** — pozycja jest mała nie dlatego, że nieważna, a dlatego, że rozstrzygnięta | S |
 
 #### Szczegóły pozycji z kompletem sześciu pól
 
@@ -4412,6 +4417,267 @@ MINIMUM_DETAIL_BLOCKS = 73
 - **Zależy od:** T-111 i #86 (oś i kilometraże), R-007 (trzy głębokości), decyzji
   właściciela z 07.09.2026. **Nie zależy** od T-901: cała jej treść to zbudowanie
   profilu, w którym brak danych z T-901 jest widoczny.
+
+##### 6.A33 · Igła asercji, która pasuje do jedenastu różnych komunikatów
+
+- **Skąd:** `reports/audyt-asercji.md` §7 nazwał ten pomiar **rozstrzygającym** i świadomie
+  go nie wykonał: „czy igła asercji występuje w INNYM komunikacie tego samego programu".
+  6.A32 zamknęło się bez bramki, bo przyrząd liczący *kształt* asercji łapał 0 z 4 znanych
+  przypadków; wniosek tamtej pozycji brzmiał, że rozstrzyga **swoistość igły**, a to jest
+  zdanie o kodzie produkcyjnym, nie o tekście testu. Zmierzone 07.09.2026 na `a4a3975`:
+  **16 z 68** różnych igieł `StringAssert.Contains` w `tests/Sim.Tests/RunnerCommandTests.cs`
+  mieści się w więcej niż jednym wielowyrazowym literale z `src/Sim.Runner/Program.cs`.
+
+  | igła | ile komunikatów ją zawiera |
+  |---|---|
+  | `line` | **11** |
+  | `budget` | 10 |
+  | `--limit-kmh` | 9 |
+  | `step` | 8 |
+  | `[BUDŻET]`, `[LINIA]` | 6 |
+
+- **Dlaczego to jest wykonalne, choć 6.A32 nie było:** rodzina komunikatów jest
+  **zamknięta**. Literały odmów i wypisów `Program.cs` da się wyliczyć z jednego pliku
+  (**209** wielowyrazowych na `a4a3975`), więc pytanie „ile komunikatów zawiera tę igłę"
+  ma odpowiedź liczbową, a nie heurystykę. 6.A32 upadło na tym, że pytało o kształt
+  asercji w całym zestawie, gdzie żadnej zamkniętej rodziny nie ma.
+- **Wejście:** `src/Sim.Runner/Program.cs` (literały komunikatów),
+  `tests/Sim.Tests/RunnerCommandTests.cs` (igły), `tools/tests/csharp_test_methods.py`
+  (`maska`, `czlonkowie` — czytanie C# bez `dotnet`),
+  `tools/tests/csharp_assertions.py`, `reports/audyt-asercji.md` §2, §3 i §7,
+  `reports/asercja-rozstrzygajaca.md` §2 (6.A29: bramka trzymająca tabelę trzech igieł
+  ręcznie i nazywająca to swoją ceną).
+- **Wyjście:** bramka w `tools/tests/`, która dla każdej igły z testów runnera liczy,
+  **ile** literałów `Program.cs` ją zawiera, i zgłasza igły pasujące do więcej niż
+  jednego. Lista wyjątków **zamknięta zapadką z obu stron** — wzorzec 6.A31
+  (`MAX_JUSTIFICATIONS`) — bo igła niejednoznaczna z dobrego powodu (np. asercja
+  o nazwie polecenia, która ma pasować do wielu komunikatów) musi być wypisana z powodu,
+  a nie przemilczana.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py
+  dotnet test tests/Sim.Tests
+  ```
+  Oczekiwane: zestaw zielony kodem wyjścia, a nowa bramka wypisuje 16 zgłoszeń przy
+  starcie i schodzi do zera dopiero po wpisaniu każdego z powodem albo po wzmocnieniu
+  igły w teście.
+- **Skończone, gdy:** dla każdej z 16 igieł jest **albo** wzmocniona asercja (igła
+  pasująca do dokładnie jednego komunikatu), **albo** wpis na liście wyjątków z powodem
+  podanym zdaniem; kontrola dodatnia WYKONANA — osłabienie jednej igły do `line` wywraca
+  dokładnie nową bramkę; kontrola ujemna WYKONANA — igła jednoznaczna **nie** jest
+  zgłaszana, a mutacja warunku `> 1` na `>= 1` przenosi zbiór zgłoszeń na wszystkie 68,
+  czyli „nie zgłasza" jest rozróżnieniem, nie pustym zbiorem; kontrola przyrządu
+  WYKONANA — dopisanie do `Program.cs` drugiego komunikatu z istniejącą igłą podnosi
+  jej licznik, więc bramka czyta plik, a nie tabelę wpisaną z pamięci.
+- **Poza zakresem:** **wzmacnianie igieł hurtem w `tests/Game.Tests`** — to jest 6.D34
+  i ma osobną, też zamkniętą rodzinę komunikatów (`RunPlan`). Poza zakresem także
+  zmiana treści któregokolwiek komunikatu `Program.cs`: pozycja mierzy swoistość igły,
+  nie przepisuje komunikatów, a rozjazd naprawia się **w teście**, nie w programie.
+- **Zależy od:** 6.A32 (pomiar, który tę pozycję nazwał), 6.A29 (wzorzec bramki
+  z tabelą igieł), 6.B28 i 6.D30 (`csharp_test_methods`), 6.A31 (wzorzec zapadki
+  na liście wyjątków).
+
+##### 6.D32 · Pole bloku nazywa plik, którego w drzewie nie ma
+
+- **Skąd:** dwie ścieżki znalezione 07.09.2026 niezależnie od siebie — jedną moim
+  pomiarem, drugą przez agenta wykonującego 6.A30, który natrafił na nią, próbując
+  wykonać pole „Weryfikacja" swojego własnego bloku. Zmierzone na `a4a3975` przez
+  wszystkie 101 bloków:
+
+  | pole | ścieżek | nieistniejących | z tego usterek |
+  |---|---|---|---|
+  | „Wejście" | **387** | 1 | **1** |
+  | „Wyjście" | **40** | 2 | 0 |
+  | „Weryfikacja" | **149** | 3 | **1** |
+
+  Usterki są dwie: **6.B5** cytuje w „Wejściu" `tools/track/profile_scan.py`, a plik leży
+  w `tools/blender/profile_scan.py`; **6.A30** cytuje w „Weryfikacji"
+  `data/keys/L1_A-manual.json`, a katalogu `data/keys` nie ma w drzewie **wcale**.
+- **Dlaczego to nie jest bramka „każda ścieżka musi istnieć":** cztery z sześciu
+  nieistniejących ścieżek są **poprawne**, każda z innego powodu, i to one wyznaczają
+  kształt bramki:
+  - plik, który pozycja ma **wytworzyć** — `tools/track/vertical_profile.py` (6.B44),
+    `tools/tests/test_test_track_fixture.py` (6.B8) w polu „Wyjście";
+  - ten sam plik w komendzie, **która go tworzy** — 6.B44 w polu „Weryfikacja";
+  - ścieżka **celowo nieistniejąca**, bo o nią w teście chodzi —
+    `tools/nie-ma-takiego-pliku.py` (6.B39).
+
+  Bramka bez tego rozróżnienia zgłasza cztery poprawne pozycje na dwie usterki i zostaje
+  wyłączona w tym samym tygodniu (6.D27).
+- **Wejście:** `docs/TASKS.md` (bloki `##### <numer> · …`), `tools/tests/test_backlog.py`
+  (`detail_sections`, `REQUIRED_FIELDS` — to samo cięcie pól),
+  `tools/tests/test_report_hygiene.py`
+  (`test_kazda_sciezka_wymieniona_w_raporcie_rozwiazuje_sie_w_drzewie` — ta sama bramka
+  dla `reports/`, wzorzec do naśladowania), `tools/tests/test_bin_path_framework.py`
+  (6.A31: trzy szczeble i zapadka na liście wyjątków).
+- **Wyjście:** bramka w `tools/tests/`, która dla pola „Wejście" żąda istnienia pliku
+  **bez wyjątku możliwego do dopisania po cichu**, a dla „Wyjścia" i „Weryfikacji"
+  przyjmuje nieistnienie tylko wtedy, gdy plik stoi w polu „Wyjście" tego samego bloku
+  albo ma wpis na liście wyjątków z powodem. Plus poprawka dwóch ścieżek: 6.B5
+  i 6.A30.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py
+  python3 tools/tests/test_all.py test_backlog.py
+  ```
+  Oczekiwane: zestaw zielony kodem wyjścia, a bramka po poprawce dwóch ścieżek
+  zgłasza **zero**.
+- **Skończone, gdy:** liczba ścieżek jest podana per pole (dziś 387 / 40 / 149), obie
+  usterki poprawione, a każdy z trzech rodzajów wyjątku ma **wypisany powód i test**;
+  kontrola dodatnia WYKONANA — literówka wstawiona w pole „Wejście" dowolnego bloku
+  wywraca dokładnie nową bramkę; kontrola ujemna WYKONANA — cztery poprawne ścieżki
+  **nie** są zgłaszane, a zdjęcie rozróżnienia pól przenosi zbiór zgłoszeń z 2 na 6,
+  czyli wyjątki mierzą coś, a nie milczą; kontrola wzorca WYKONANA — zepsucie wzorca
+  ścieżki zapala próg na liczbie ścieżek, nie zostawia zielonego zera (wzorzec KW
+  z 6.A31).
+- **Poza zakresem:** sprawdzanie, czy komenda z pola „Weryfikacja" **działa** — to jest
+  6.D33 i osobny pomiar. Poza zakresem także ścieżki w polach „Skąd" i „Zależy od":
+  tam plik bywa cytowany jako historia („`reports/X.md` §3 podaje"), a nie jako wejście,
+  i objęcie ich zmieniłoby bramkę w zakaz cytowania czegokolwiek usuniętego.
+- **Zależy od:** 6.D3 (bramka higieny raportów), 6.A31 (wzorzec szczebli i zapadki),
+  6.D6 (`test_backlog.py` i cięcie bloków). **Nie zależy** od 6.B5 ani 6.A30 — poprawia
+  ich pola, nie wykonuje ich pracy.
+
+##### 6.D33 · Audyt wykonalności komend objął 82 z 279 dzisiejszych komend
+
+- **Skąd:** 6.D15 zebrało **82** komendy z **42** bloków i wydało werdykty (73
+  uruchamialne). Zmierzone 07.09.2026 na `a4a3975`: bloków jest **101**, a wierszy
+  komend w polach „Weryfikacja" — **279**. Audyt pokrywa więc **29 %** dzisiejszej
+  liczby, i to nie przez zaniedbanie: 6.D15 nie zostawiło bramki, więc pokrycie
+  **opada samo** z każdym dopisanym blokiem.
+- **Co jest tu naprawdę nie tak:** liczba „73 uruchamialne" czytana dziś wygląda jak
+  zdanie o kolejce, a jest zdaniem o czterdziestu dwóch blokach z sześćdziesięciu
+  dwóch mniej. Ta sama rodzina, którą 6.D3 zamknęło dla raportów: pomiar bez zapisu,
+  ilu rzeczy dotyczył, nie da się odtworzyć ani unieważnić.
+- **Wejście:** `docs/TASKS.md` (pola „Weryfikacja" wszystkich bloków),
+  `reports/komendy-weryfikacji.md` (metoda i werdykty 6.D15),
+  `tools/tests/test_backlog.py` (`detail_sections`),
+  `tools/tests/test_bin_path_framework.py` (6.A31 — cięcie pola „Weryfikacja" i podział
+  na komendę kontra prozę, już zrobiony i przetestowany).
+- **Wyjście:** **najpierw liczba, i ona rozstrzyga kierunek.** Do zmierzenia: ile
+  z 279 komend jest dziś uruchamialnych w tym środowisku, ile wymaga Blendera, Godota
+  albo `dotnet` (czyli jest niewykonalna nie z winy zapisu), a ile jest niewykonalna
+  **z winy zapisu** — zła ścieżka, zła nazwa opcji, brakujący argument. Dopiero z tym
+  rozbiciem wolno wybierać między bramką na liczbę pokrytych komend, adnotacją
+  w raporcie 6.D15 i **niczym**.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: rozbicie 279 komend na cztery kategorie w raporcie, każda z liczbą,
+  i zestaw zielony kodem wyjścia.
+- **Skończone, gdy:** raport podaje **279** (albo liczbę zmierzoną tego dnia) w rozbiciu
+  na uruchamialne, wymagające narzędzia nieobecnego, niewykonalne z winy zapisu
+  i nierozstrzygnięte — a `reports/komendy-weryfikacji.md` dostaje **adnotację**
+  mówiącą, ilu bloków dotyczył tamten pomiar. Jeżeli powstaje bramka, ma kontrolę
+  dodatnią i ujemną WYKONANE; jeżeli pomiar pokaże, że bramki nie warto — raport mówi
+  to wprost i pozycja kończy się na adnotacji, **co też jest poprawnym wynikiem**
+  (wzorzec 6.A32).
+- **Poza zakresem:** **przeliczanie werdyktów 6.D15**. Tamten audyt jest pomiarem
+  z datą i dostaje adnotację, nie poprawkę (`docs/04-conventions.md`). Poza zakresem
+  także poprawianie komend niewykonalnych z winy zapisu — pozycja je **liczy i nazywa**,
+  a poprawka każdej należy do jej własnego bloku.
+- **Zależy od:** 6.D15 (audyt, którego pokrycie ta pozycja mierzy), 6.A31 (cięcie pola
+  „Weryfikacja"), 6.D3 (zasada: pomiar mówi, na czym powstał).
+
+##### 6.D34 · `tests/Game.Tests` nie było objęte audytem asercji, i raport mówi to wprost
+
+- **Skąd:** `reports/audyt-asercji.md` §7 kończy się zdaniem, którego nie da się czytać
+  inaczej: „o tamtych 53 asercjach ten raport nie mówi nic — i nie udaje, że mówi".
+  Cztery przypadki asercji nierozstrzygającej z 07.09.2026 były wszystkie z runnera
+  i z `tools/tests/`, więc wniosek 6.A32 („przyrząd łapie 0 z 4") jest **zdaniem o tamtej
+  czwórce**, nie o `Game.Tests`. Zmierzone 07.09.2026 na `a4a3975` wzorcem
+  `StringAssert.Contains` / `Assert.IsTrue(… .Contains(…))` na masce:
+
+  ```
+    20  tests/Game.Tests/RunPlanTests.cs
+    19  tests/Game.Tests/TelemetryTrackTests.cs
+     7  tests/Game.Tests/SignallingHudTests.cs
+  razem Game.Tests: 63 w 7 plikach
+  ```
+
+- **Dlaczego to jest wykonalne:** tak samo jak 6.A33 i z tego samego powodu — rodzina
+  komunikatów jest **zamknięta**. `RunPlan.Mode` zwraca sześć literałów, a 6.C5 już to
+  policzyło i przybiło bramką `tools/tests/test_run_mode_claims.py`; odmowy łączenia
+  źródeł ruchu to sześć par wymienionych z nazwy (6.C3). Pytanie „ile komunikatów
+  `RunPlan` zawiera tę igłę" ma więc odpowiedź liczbową.
+- **Wejście:** `src/Game/RunPlan.cs` (literały odmów i nazwy trybów),
+  `src/Game/TelemetryTrack.cs`, `src/Game/SignallingHud.cs`,
+  `tests/Game.Tests/RunPlanTests.cs`, `TelemetryTrackTests.cs`, `SignallingHudTests.cs`,
+  `tools/tests/csharp_test_methods.py`, `tools/tests/test_run_mode_claims.py` (6.C5),
+  `reports/audyt-asercji.md` §7, `reports/liczba-trybow-run-plan.md`.
+- **Wyjście:** liczba niejednoznacznych igieł dla `Game.Tests`, policzona tą samą
+  metodą co 6.A33, i wzmocnienie tych igieł albo wpis z powodem. Jeżeli pomiar pokaże,
+  że w tej rodzinie niejednoznacznych jest zero — raport mówi to wprost i pozycja kończy
+  się bez zmiany w testach, **co jest poprawnym wynikiem**, nie porażką.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py
+  dotnet test tests/Game.Tests
+  ```
+  Oczekiwane: liczba podana, zestaw zielony kodem wyjścia, `Game.Tests` zielone.
+- **Skończone, gdy:** dla `tests/Game.Tests` podana jest liczba igieł pasujących do
+  więcej niż jednego komunikatu `src/Game/`, imiennie; każda ma wzmocnioną asercję albo
+  wpis z powodem; kontrola dodatnia WYKONANA na jednej z nich (osłabienie do igły
+  pasującej do wielu) i kontrola ujemna WYKONANA (igła jednoznaczna nie jest zgłaszana).
+  Zdanie z §7 raportu 6.A32 przestaje być prawdą i **dostaje adnotację**, a nie
+  poprawkę — tamten raport ma datę.
+- **Poza zakresem:** `tests/Sim.Tests` — to jest 6.A33. Poza zakresem także uruchamianie
+  czegokolwiek w Godocie: `Game.Tests` chodzi bez silnika i cała ta pozycja jest
+  tekstowa. Poza zakresem wreszcie zmiana treści komunikatów `RunPlan` — rozjazd
+  naprawia się w teście.
+- **Zależy od:** 6.A32 (pomiar, który wyłączył `Game.Tests` z zakresu i to zapisał),
+  6.C5 (zamknięta rodzina trybów), 6.A33 (metoda liczenia swoistości igły —
+  ta pozycja stosuje ją do drugiej rodziny, nie wymyśla drugiej metody).
+
+##### 6.D35 · Raport w `main` nazywa plik z `Sim.Tests` testem Godota
+
+- **Skąd:** `reports/audyt-asercji.md` §7, scalony do `main` w #375, pisze: „Trzy
+  najliczniejsze pliki C# to testy Godota, nie runnera (`RunPlanTests.cs` 20,
+  `TelemetryTrackTests.cs` 19, `InputLogTests.cs` 14 gołych asercji na obecność)".
+  Sprawdzone 07.09.2026 na `a4a3975`:
+
+  ```
+  $ ls tests/*/InputLogTests.cs
+  tests/Sim.Tests/InputLogTests.cs
+  $ grep -n "namespace" tests/Sim.Tests/InputLogTests.cs
+  7:namespace MetroBxl.Sim.Tests;
+  $ grep -c Godot tests/Sim.Tests/MetroBxl.Sim.Tests.csproj
+  0
+  ```
+
+  `InputLogTests.cs` nie jest testem Godota ani przez katalog, ani przez przestrzeń
+  nazw, ani przez odwołanie w pliku projektu. Zdanie jest przy tym **własnym argumentem
+  raportu** za tym, że audyt minął `Game.Tests` — a jeden z trzech plików, na których
+  ten argument stoi, do `Game.Tests` nie należy.
+- **Dlaczego to nie jest literówka bez konsekwencji:** `CLAUDE.md` §9 i cała rodzina
+  6.D3 / 6.D4 / 6.D8 stoją na jednym: zdanie w raporcie, którego nikt nie liczy,
+  czyta się identycznie jak wynik pomiaru. Tutaj czytający wyciągnąłby wniosek
+  o rozkładzie usterki między dwa projekty testowe, a rozkład jest inny.
+- **Wejście:** `reports/audyt-asercji.md` §7, `tests/Sim.Tests/InputLogTests.cs`,
+  `tests/Sim.Tests/MetroBxl.Sim.Tests.csproj`, `tests/Game.Tests/` (co tam faktycznie
+  leży), `tools/tests/test_report_claims.py` (6.D4 — bramka na twierdzenia raportów).
+- **Wyjście:** zdanie w §7 **przepisane, a nie dopisane obok**, z liczbą policzoną
+  ponownie i z podziałem na projekty testowe podanym wprost. Do rozstrzygnięcia
+  pomiarem, czy `test_report_claims.py` da się rozszerzyć o twierdzenia postaci
+  „plik X należy do projektu Y" — jeżeli tak, to wchodzi razem z poprawką; jeżeli nie,
+  raport dostaje adnotację i pozycja kończy się na niej.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_report_claims.py
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: zestaw zielony kodem wyjścia; `grep` na frazę „testy Godota" w
+  `reports/audyt-asercji.md` nie zwraca zdania wymieniającego `InputLogTests.cs`.
+- **Skończone, gdy:** zdanie §7 jest zgodne z drzewem, a rozkład gołych asercji między
+  `Sim.Tests` i `Game.Tests` podany osobno, z liczbami; jeżeli powstaje bramka, ma
+  kontrolę dodatnią WYKONANĄ (przywrócone stare zdanie ją wywraca) — a jeżeli nie,
+  raport nazywa wprost, dlaczego tego twierdzenia nie da się policzyć mechanicznie.
+- **Poza zakresem:** **przeliczanie liczb 255 / 127 / 382** z §2 tamtego raportu —
+  są pomiarem z datą i nie ta pozycja je rusza. Poza zakresem także audyt samych
+  asercji `Game.Tests`; to jest 6.D34.
+- **Zależy od:** 6.A32 (scalone w #375 — raport, którego zdanie poprawia), 6.D4 (bramka
+  na twierdzenia raportów), 6.D3 (nagłówek z datą i commitem).
 
 ### Czego agent nie ruszy bez decyzji
 

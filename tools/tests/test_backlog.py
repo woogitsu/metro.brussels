@@ -134,7 +134,20 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 #: w „Czego agent nie ruszy bez decyzji". Zapadka jest tu potrzebna z tego samego
 #: powodu co zawsze: decyzja właściciela, po której nikt nie napisał, jak ją wykonać,
 #: wygląda w tabeli identycznie jak decyzja niepodjęta.
-MINIMUM_DETAIL_BLOCKS = 101
+#: **Liczba przepisana, a nie dopisana obok — 101 → 106 (07.09.2026, drugie
+#: uzupełnienie tego dnia).** Pięć bloków (6.A33, 6.D32, 6.D33, 6.D34, 6.D35) weszło
+#: dlatego, że kolejka po scaleniu #375 i #377 miała **14 pozycji do wzięcia**, a dwa
+#: dalsze zadania w robocie zbiłyby ją do **dwunastu, czyli RÓWNO do progu** — czyli
+#: następne domknięcie zapaliłoby `test_the_queue_holds_at_least_a_day_of_work` na
+#: czerwonym zestawie w cudzym pull requeście. `docs/TASKS.md` żąda liczenia zapasu
+#: **na stan po**, nie na stan przed, i to jest ten commit.
+#:
+#: Żadna z pięciu pozycji nie jest wymyślona na miejscu: trzy wychodzą z pomiarów
+#: wykonanych tego dnia (`reports/audyt-asercji.md` §7 nazwał 6.A33 wprost i świadomie
+#: go nie zrobił), a dwie z ścieżek, które nie istnieją w drzewie — jedną z nich
+#: znalazł niezależnie agent wykonujący 6.A30, próbując wykonać pole „Weryfikacja"
+#: własnego bloku.
+MINIMUM_DETAIL_BLOCKS = 106
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
