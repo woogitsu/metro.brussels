@@ -59,8 +59,8 @@ import argparse
 import ast
 import concurrent.futures
 import dataclasses
-import json
 import hashlib
+import json
 import os
 import re
 import subprocess
@@ -363,6 +363,70 @@ def collect(kinds=KINDS) -> list[Mutation]:
     return found
 
 
+#: Dlugosc odcisku w dzienniku. Szesnascie znakow szesnastkowych to 64 bity — przy
+#: 2346 mutacjach na przebieg szansa przypadkowej kolizji jest rzedu 10^-14, a wpis
+#: dziennika zostaje czytelny. Pelne 64 znaki nie daja tu nic poza dlugoscia wiersza.
+ODCISK_ZNAKOW = 16
+
+
+def odcisk_tresci(path: str) -> str:
+    """SHA-256 pliku, z ktorego POLICZONO mutacje — pierwsze `ODCISK_ZNAKOW` znakow.
+
+    **Po co, skoro wpis niesie juz `commit` (6.B19).** Bo commit nie odroznia dwoch
+    przebiegow na TYM SAMYM commicie. Przy niezacommitowanej zmianie — a dokladnie
+    na to jest `--dirty` — `git rev-parse --short HEAD` daje w obu przebiegach te sama
+    wartosc, a tresc mutowanego pliku juz nie. Odmowa z 6.B19 tego przypadku NIE WIDZI
+    i wznowienie podstawia wynik policzony dla innej tresci pod dzisiejsza mutacje,
+    po cichu. 6.B19 nazwala to wprost jako to, czego nie lapie.
+
+    **Czytane z DRZEWA ROBOCZEGO, nie z drzewa robotnika — i to jest cala rzecz.**
+    `collect` liczy mutacje z drzewa roboczego (`open(path)` wzgledem `ROOT`), a
+    `check_one` stosuje je na kopii `git worktree add --detach HEAD`. Te dwa zrodla sa
+    tym samym plikiem dopoki drzewo jest czyste, i roznymi plikami przy `--dirty`.
+    Odcisk liczony w `check_one` z kopii robotnika mialby wiec wartosc commita: bylby
+    slepy dokladnie na przypadek, dla ktorego powstal.
+
+    **Koszt, ZMIERZONY, nie zalozony.** SHA-256 raz na kazda z 2346 mutacji pelnego
+    przegladu: **0,045 s**, przy przebiegu 534-600 s (6.B36) — 0,008 %. Odcisk liczony
+    raz na PLIK (63 moduly) jest jeszcze tanszy, i tak jest tu zrobione. Pole „Wyjscie"
+    pozycji 6.B32 kazalo wybrac miedzy tym a `git status --porcelain` (0,015 s raz na
+    przebieg) na podstawie pomiaru: tansza opcja mowi tylko „drzewo brudne", a nie CO
+    w nim jest, i przy tej roznicy kosztu nie ma powodu jej brac.
+    """
+    with open(os.path.join(ROOT, path), "rb") as handle:
+        return hashlib.sha256(handle.read()).hexdigest()[:ODCISK_ZNAKOW]
+
+
+def odciski_przebiegu(paths) -> dict[str, str]:
+    """Odcisk kazdego pliku przebiegu, liczony RAZ — nie raz na mutacje."""
+    return {path: odcisk_tresci(path) for path in sorted(set(paths))}
+
+
+def brudne_wyjasnienie(paths, dirty_flag: bool) -> str:
+    """Jedno zdanie o PRAWDZIWEJ przyczynie rozjazdu odciskow, gdy nia jest brudne drzewo.
+
+    **Zmierzone przy 6.B32, na wlasnej poprawce.** Odmowa odciskow stoi w `main` PRZED
+    `dirty_sources`, bo musi dzialac takze dla `--list` (tamta odmowa jest za galezia
+    `--list`). Skutek: przy brudnym drzewie BEZ `--dirty` czytajacy dostaje komunikat
+    o DZIENNIKU, choc prawdziwym problemem jest jego wlasna niezacommitowana zmiana —
+    a jasniejszy komunikat `dirty_sources` nie dochodzi do glosu wcale.
+
+    Przestawienie kolejnosci nie jest rozwiazaniem: zdjeloby odmowe odciskow z drogi
+    `--list`, czyli z jedynej taniej drogi, ktora ja sprawdza. Zamiast tego komunikat
+    NAZYWA druga mozliwa przyczyne — i robi to tylko wtedy, gdy ona faktycznie zachodzi,
+    bo zdanie dopisywane zawsze byloby szumem przy dzienniku z innego drzewa.
+    """
+    if dirty_flag:
+        return ""
+    brudne = dirty_sources(paths)
+    if not brudne:
+        return ""
+    return ("\n  UWAGA: te pliki maja niezacommitowane zmiany, i to jest prawdopodobna "
+            "przyczyna rozjazdu odciskow:\n"
+            + "".join(f"    {path}\n" for path in brudne)
+            + "  Zacommituj je albo uruchom z --dirty, jesli wiesz, ze robisz co innego.")
+
+
 # --- które wiersze zestaw testów w ogóle wykonuje ----------------------------------
 
 
@@ -639,7 +703,7 @@ def baseline_problem(worktree: str, timeout: int, run=run_suite) -> str | None:
 
 
 def check_one(worktree: str, mutation: Mutation, timeout: int, commit: str,
-              executed: bool | None = None) -> dict:
+              executed: bool | None = None, odcisk: str | None = None) -> dict:
     """Jedna mutacja w jednym drzewie roboczym, z przywróceniem pliku.
 
     `commit` idzie do wpisu dziennika obok `id`, bo `id` sam w sobie NIE mówi,
@@ -663,6 +727,10 @@ def check_one(worktree: str, mutation: Mutation, timeout: int, commit: str,
     return {
         "id": mutation.id,
         "commit": commit,
+        # 6.B32: odcisk tresci pliku, z ktorego POLICZONO te mutacje. `commit` nie
+        # odroznia dwoch przebiegow na tym samym commicie, a `--dirty` jest po to,
+        # zeby takie przebiegi robic.
+        "odcisk": odcisk,
         "rozstrzygniete": passed is not None,
         "kod": code,
         "opis": mutation.describe(),
@@ -682,7 +750,7 @@ def check_one(worktree: str, mutation: Mutation, timeout: int, commit: str,
 
 
 def worker(slot: int, chunk: list[Mutation], timeout: int, out_dir: str,
-           journal: str, commit: str, coverage=None) -> int:
+           journal: str, commit: str, coverage=None, odciski=None) -> int:
     """Jeden robotnik na własnym drzewie roboczym git.
 
     Wynik KAŻDEJ mutacji leci od razu do dziennika, wiersz po wierszu. Pierwsza wersja
@@ -702,7 +770,8 @@ def worker(slot: int, chunk: list[Mutation], timeout: int, out_dir: str,
     try:
         for mutation in chunk:
             entry = check_one(worktree, mutation, timeout, commit,
-                              was_executed(coverage, mutation))
+                              was_executed(coverage, mutation),
+                              (odciski or {}).get(mutation.path))
             with JOURNAL_LOCK:
                 with open(journal, "a", encoding="utf-8") as handle:
                     handle.write(json.dumps(entry, ensure_ascii=False) + "\n")
@@ -760,14 +829,15 @@ def read_journal(path: str) -> list[dict]:
 
 
 def sweep(mutations: list[Mutation], workers: int, timeout: int, out_dir: str,
-          journal: str, commit: str, coverage=None) -> list[dict]:
+          journal: str, commit: str, coverage=None, odciski=None) -> list[dict]:
     os.makedirs(out_dir, exist_ok=True)
     chunks: list[list[Mutation]] = [[] for _ in range(workers)]
     for index, mutation in enumerate(mutations):
         chunks[index % workers].append(mutation)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
-        futures = [pool.submit(worker, slot, chunk, timeout, out_dir, journal, commit, coverage)
+        futures = [pool.submit(worker, slot, chunk, timeout, out_dir, journal, commit,
+                               coverage, odciski)
                    for slot, chunk in enumerate(chunks) if chunk]
         for future in concurrent.futures.as_completed(futures):
             future.result()
@@ -1043,6 +1113,11 @@ def main() -> int:
         print(f"[MUTACJE] --only {args.only!r} złapało {len(found)} mutacji "
               f"z {len(pliki_przebiegu)} moduł(ów): {', '.join(pliki_przebiegu)}")
 
+    # Odciski liczone TUTAJ: zbior plikow przebiegu jest juz znany, a dziennika jeszcze
+    # nie czytano — czyli dokladnie w miejscu, w ktorym odmowa nizej ma czym porownywac.
+    # Raz na plik, nie raz na mutacje (6.B32).
+    odciski = odciski_przebiegu(pliki_przebiegu)
+
     journal = args.journal or default_journal(commit, kinds, args.only)
     done = read_journal(journal)
 
@@ -1072,6 +1147,40 @@ def main() -> int:
               "commita, więc wznowienie mogłoby po cichu podstawić wynik zapisany dla "
               "innego kodu pod dzisiejszą mutację.\n"
               "  Podaj własny --journal na inną ścieżkę albo skasuj tamten plik.",
+              file=sys.stderr)
+        return 2
+
+    # 6.B32: `commit` nie odroznia dwoch przebiegow na TYM SAMYM commicie. Przy
+    # niezacommitowanej zmianie — a `--dirty` jest po to, zeby takie przebiegi robic —
+    # `git rev-parse --short HEAD` daje w obu te sama wartosc, a tresc mutowanego pliku
+    # juz nie. Odmowa z 6.B19 tego przypadku NIE WIDZI; 6.B19 nazwala to wprost jako to,
+    # czego nie lapie.
+    #
+    # Wpis BEZ pola `odcisk` jest starszy niz ta poprawka i nie da sie go zweryfikowac —
+    # liczy sie jako obcy z tego samego powodu, dla ktorego wpis bez pola `commit` liczyl
+    # sie jako obcy przy 6.B19: milczaca zgoda wpuscilaby cudzy wynik pod dzisiejsza
+    # mutacje. Odmowa nazywa PLIK, a nie tylko fakt, bo przy `--only` na katalog rozjazd
+    # dotyczy zwykle jednego modulu z kilkunastu.
+    inna_tresc = [
+        entry for entry in done
+        if entry.get("odcisk") != odciski.get(entry.get("plik"))
+    ]
+    if inna_tresc:
+        skad = sorted({
+            f"{entry.get('plik')} (dziennik {entry.get('odcisk')}, "
+            f"drzewo {odciski.get(entry.get('plik'))})"
+            for entry in inna_tresc
+        })
+        print(f"[MUTACJE] PRZERWANE — dziennik {journal} niesie {len(inna_tresc)} "
+              "wpisow policzonych na INNEJ TRESCI pliku niz ta w drzewie roboczym, "
+              f"przy tym samym commicie {commit!r}:\n"
+              + "".join(f"    {wiersz}\n" for wiersz in skad)
+              + "  Identyfikator mutacji (plik:wiersz:przesuniecie bajtowe) nie niesie "
+                "tresci, a `commit` nie odroznia dwoch przebiegow na tym samym commicie "
+                "— wznowienie podstawiloby wynik policzony dla innego kodu pod dzisiejsza "
+                "mutacje.\n"
+                "  Podaj wlasny --journal na inna sciezke albo skasuj tamten plik."
+              + brudne_wyjasnienie(pliki_przebiegu, args.dirty),
               file=sys.stderr)
         return 2
 
@@ -1170,7 +1279,8 @@ def main() -> int:
                       f"mutacji; pozostałe {len(found) - hit} siedzą w kodzie, którego "
                       "zestaw nie uruchamia")
 
-        results = sweep(found, args.workers, args.timeout, work, journal, commit, coverage)
+        results = sweep(found, args.workers, args.timeout, work, journal, commit,
+                        coverage, odciski)
 
     decided = [r for r in results if r.get("rozstrzygniete", True)]
     survived = [r for r in decided if r["przezyla"]]
