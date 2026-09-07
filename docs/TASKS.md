@@ -727,6 +727,8 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.A22 | **Odmowa mowi, ze runner nie zna opcji, ktora zna** — `line --limit-kmh=72` konczy sie `BLAD: polecenie line nie zna opcji --limit-kmh=72` | zmierzone 07.09.2026 przy sondowaniu wiersza polecen: postac `--opcja=wartosc` nie jest obslugiwana i wpada w odmowe z 6.A11, ktora — poprawnie dla literowki — jest tu **mylaca**, bo `--limit-kmh` jest w tabeli `KnownOptions`. Czytajacy dostaje zdanie sprzeczne z faktem | S |
 | 6.A23 | **Powtorzona opcja jest przyjmowana w milczeniu, wygrywa PIERWSZA** — `--limit-kmh 72 --limit-kmh 50` jedzie 72, odwrotna kolejnosc jedzie 50, kod 0 w obu | zmierzone 07.09.2026. Wypis `[LINIA]` i `[ZALOZENIE]` podaja wartosc skuteczna, wiec nie jest niewidoczna — ale **nic nie mowi, ze druga zostala odrzucona**. Od 6.A20 nastawy trafiaja tez do plikow `--out`, wiec czytajacy CSV nie ma jak zobaczyc, ze wiersz polecen mial konflikt | S |
 | 6.A24 | **`compare` na nieliczbowej komorce CSV daje komunikat platformy, bez pliku, wiersza i kolumny** — `double.Parse(a[c], Inv)` w petli po kolumnach | zmierzone 07.09.2026 przy 6.A14, ktore swiadomie tego nie ruszylo i wpisalo jako jedyne usprawiedliwienie w `test_runner_number_parsing.py`: zla komorka nie jest zla opcja, wiec komunikat 6.A14 bylby tu nieprawda. Ale `compare` jest **wyrocznia parzystosci** rdzenia i sceny; jego odmowa ma nazwac plik, wiersz i kolumne, a nie sam napis | S |
+| 6.A25 | **Czlon pozycyjny nieznany zadnemu poleceniu przechodzi w milczeniu, kodem 0** — `budget … --atp 1` jedzie i `1` jest ignorowane, `budget … zmyslony_czlon` tez konczy sie **kodem 0** | zmierzone 07.09.2026 przy 6.A22, ktore swiadomie tego nie tknelo i wypisalo powod: odmowa z 6.A11/6.A15 odsiewa czlony bez minusa **celowo**, bo `compare` bierze dwie sciezki pozycyjnie. Ta sama wyrocznia zepsuta w strone „wszystko w porzadku", tylko po drugiej stronie minusa: literowka w wartosci flagi wyglada dokladnie jak przebieg poprawny | M |
+| 6.B32 | **Dziennik mutacyjny nie odroznia dwoch przebiegow na TYM SAMYM commicie** — przy `--dirty` (albo przy niescommitowanej zmianie) `git rev-parse --short HEAD` daje te sama wartosc, wiec odmowa z 6.B19 tego przypadku nie widzi | nazwane wprost przy 6.B19 (#349), w komentarzu przy miejscu wznawiania i w §5-6 raportu, jako to, czego tamta poprawka NIE lapie. Wznowienie podstawi wtedy wynik policzony dla innej tresci pliku pod dzisiejsza mutacje — po cichu, bo `commit` sie zgadza | M |
 | 6.D26 | **ZROBIONE (07.09.2026).** Maksimum jest teraz WYPROWADZANE z listy `POMIARY` — pieciu przebiegow z data i kontekstem — a `MARGIN` jest dzialaniem, nie zdaniem. **Zdanie z wpisu, ze „rozrzut hosta nie jest nigdzie zapisany", bylo NIEPRAWDA** i pierwsze czytanie pliku to pokazalo: docstring opisywal kontener dzielony, `ps aux` z rownoleglym `dotnet build` i rozrzut 10,84 s. Zepsute bylo wezsze i gorsze: maksimum wpisane z reki jako jedna liczba z minionej sesji, a margines liczony wobec niej — 107,331 s zmierzone dzis to o **39 %** wiecej niz zapisane 77,04. **Co to realnie przepuszczalo, zmierzone**: obnizenie progu do 100 s przechodzilo wszystkie testy (100 > 77,04, margines 1,298 > 1,2) i dawalo CZERWONE CI na drzewie bez ani jednej usterki; po zmianie jest odmowa. Prog 150,0 **nietkniety** — jego zmiana to decyzja o czulosci bramki. Nowa bramka odmawia, gdy proza podaje mnoznik, ktorego nie daje `MARGIN`, a jej ksztalt to wynik **czterech wlasnych potkniec**, kazdego zlapanego przez inne narzedzie: brala pomiar za mnoznik; skanowala wlasny docstring, ktory te mnozniki WYMIENIA jako przyklady; po wycieciu go przeszla **bez ani jednej asercji** (zlapala to bramka asercji z #139) — wiec sprawdza teraz NARZEDZIE, nie tylko dzisiejszy tekst; a okno zdania urywalo sie na kropce dziesietnej. Cztery kontrole negatywne, z ktorych **KN-4 przed ta zmiana przechodzila**. Pomiar w `reports/zapis-czasu-zestawu.md`. Tresc pierwotna: **`MEASURED_MAX_WALL_S = 77.04` jest nizsze od tego, co maszyna dziś pokazuje** | zmierzone 07.09.2026 przy 6.D25 | S |
 | 6.D27 | **ZROBIONE (07.09.2026).** Miedzy nazwa stalej a liczba nie wolno teraz postawic takze `§` ani `#`. **Powod, dla ktorego to nie jest kosmetyka**: bramka swiecaca na poprawnym tekscie zostaje **wylaczona, nie poprawiona** — a obejsciem, ktore zastosowalem przy 6.D26, bylo przepisanie ZDANIA, nie naprawienie przyrzadu. Trzy wiersze mojego wlasnego raportu z tego samego dnia mialy juz ten ksztalt i przechodzily WYLACZNIE przypadkiem: zadna z tych trzech stalych nie trafia do slownika wartosci (jedna usunieta, jedna napisowa, jedna o dwoch wartosciach). Roznica miedzy zdaniem, ktore przeszlo, i tym, ktore padlo, nie lezala wiec w zdaniu. **`#` doszlo z pomiaru, nie z przewidywania**: `kolejka-uzupelnienie.md:42` pisze „`MINIMUM_DOCUMENTED_ITEMS`: sprzezenie, ktore #274" i jest przepuszczane dzis tylko dlatego, ze stoi tam przecinek. Cena zwezenia powiedziana wprost: „`STALA` (§4) to 30,0" przestaje byc twierdzeniem — ten sam wybor, co przy przecinku, i ta sama asymetria, bo przemilczane twierdzenie lapie prog `MINIMUM_CLAIMS`, a falszywy alarm tylko czyjas cierpliwosc. Po zwezeniu bramka sprawdza **15** twierdzen przy progu 10. Dwie kontrole negatywne, z ktorych **KN-2 jest wazniejsza**: dowodzi, ze zwezenie NIE zjadlo tego, po co bramka istnieje — najprostszym sposobem uciszenia falszywego alarmu jest zwezenie wzorca tak, zeby nie lapal niczego, i taka zmiana byla by zielona bez niej. Ta sama para stoi w tresci testu i chodzi przy kazdym przebiegu. Nie tknieto `pkt`, `rozdz.`, `str.` — pomiar daje **zero** wystapien, a wykluczanie form, ktorych nie ma, zwezal oby bramke o twierdzenia, ktorych juz nie sprawdzi. Pomiar w `reports/odsylacz-nie-jest-wartoscia.md`. Tresc pierwotna: **`test_report_claims.py` bierze odsylacz do sekcji za WARTOSC stalej** | zmierzone 07.09.2026 przy 6.D26, gdzie bramka zapalila sie na POPRAWNYM zdaniu | S |
 | 6.D28 | **ZROBIONE (07.09.2026).** 674 metody testowe C#, **674** z asercja w tresci, **zero** bez. Dojscie do tego zera wymagalo DWOCH poprawek w czytniku i obie mowia wiecej niz sam wynik. **Pierwsza: czytnik zglaszal wlasna niewiedze jako brak.** Cialo metody C# ma dwie postacie — blok i wyrazenie `=> …;` — a pierwsza wersja znala tylko blok i zglosila `Lista_funkcji_KCV_jest_dokladnie_ta_ktora_podaje_STIB` jako metode bez asercji, choc ona asertuje `CollectionAssert` w ciele wyrazeniowym; gorzej, klamra inicjatora `new[] { … }` byla brana za poczatek bloku, wiec asercja nie trafiala nigdzie. **Druga: pomocnik `Assert*` to asercja** — bez tego wychodzilo PIEC brakow, z czego cztery asertuja przez lokalny `AssertBits`. Sprawdzone tez rozwiazywanie pomocnikow po CIELE, nie po nazwie: **nie daje ani jednej metody wiecej**, wiec zostaje regula prostsza. **Granica postawiona swiadomie**: liczone sa asercje OBECNE w tresci, nie WYKONANE — `assertion_gate` robi to drugie i dlatego zlapal moj test z asercja w petli, do ktorej nic nie weszlo. Slabsza wlasnosc, zapisana w docstringu, nie przemilczana. Cztery kontrole negatywne, kazda na innym trybie awarii; **KN-4 jest najwazniejsza**, bo drzewo ma zero brakow, wiec bramka „zero brakow" jest zielona takze wtedy, gdy czytnik uznaje za asertujaca KAZDA metode — kontrola pozytywna na syntetycznej metodzie bez asercji chodzi przy kazdym przebiegu i to ona odroznia jedno od drugiego. Bramka kosztuje 0,50 s. Liczba 674 zgadza sie z 6.B27: tam 708 atrybutow i 668 objetych ksztaltem; roznica to 34 metody Z ARGUMENTAMI, czyli **6.B28**, nietknieta. Pomiar w `reports/asercje-w-testach-csharp.md`. Tresc pierwotna: **Asercje w testach C# nie sa liczone przez nic** | nazwane jako odlozone wprost przez 6.B27 (#329) | M |
@@ -3383,6 +3385,91 @@ MINIMUM_DETAIL_BLOCKS = 73
   ten ma już własną odmowę i własny komunikat. Poza zakresem także tolerancja na
   brakującą kolumnę: to inna klasa błędu pliku.
 - **Zależy od:** 6.A14.
+
+##### 6.A25 · Człon pozycyjny nieznany żadnemu poleceniu przechodzi w milczeniu
+
+- **Skąd:** zmierzone 07.09.2026 przy 6.A22, które świadomie tego nie tknęło i wypisało
+  powód w §11 raportu. Wykonane:
+  ```
+  budget … --atp 1          kod=0   [BUDŻET] … ATP=tak …      ← `1` zignorowane
+  budget … --atp            kod=0   [BUDŻET] … ATP=tak …      ← wypis identyczny
+  budget … zmyslony_czlon   kod=0   [BUDŻET] … ATP=nie …
+  ```
+  Odmowa z 6.A11 i 6.A15 odsiewa człony bez minusa **celowo**: `compare` bierze dwie
+  ścieżki pozycyjnie, więc odmowa zbudowana na „wszystko, czego nie znam" wywróciłaby
+  to polecenie w całości. Zaleta tamtej decyzji jest realna, a jej cena jest tutaj.
+- **Dlaczego to nie jest drobiazg:** komunikat 6.A22 radzi dziś fladze „podaj samo
+  `--atp`" właśnie dlatego, że `--atp 1` przechodzi bez słowa. Rada jest poprawna, ale
+  jej powodem jest ta dziura — a dopóki dziura jest, literówka w wartości flagi
+  wygląda dokładnie jak przebieg poprawny.
+- **Wejście:** `src/Sim.Runner/Program.cs` (`RejectUnknownOptions`, tabela
+  `KnownOptions`), `tools/tests/test_runner_options.py`,
+  `tests/Sim.Tests/RunnerCommandTests.cs`, `reports/postac-z-rownosciem.md` §11,
+  `reports/jeden-minus.md` §2 (pomiar argumentów pozycyjnych).
+- **Wyjście:** liczba członów pozycyjnych, jaką bierze każde polecenie — najpewniej
+  jako trzecie pole w `KnownOptions` — plus odmowa dla członu pozycyjnego ponad tę
+  liczbę. **Do rozstrzygnięcia pomiarem, nie z góry**: ile poleceń bierze dziś choć
+  jeden człon pozycyjny (`compare` bierze dwa; pomiar ma powiedzieć, czy któreś inne
+  też), bo jeżeli tylko `compare`, wystarcza jedna liczba przy poleceniu, a nie nowy
+  rozbiór.
+- **Weryfikacja:**
+  ```bash
+  dotnet run --project src/Sim.Runner -c Release -- budget --axis data/track/L1_A.json \
+      --signalling data/design/signalling/classic-2026.json --limit-kmh 72 \
+      --exchange-s 20 --headway-s 90 --trains 2 --steps 100 --atp 1
+  dotnet run --project src/Sim.Runner -c Release -- compare build/d1.csv build/d2.csv
+  dotnet test tests/Sim.Tests
+  ```
+  Oczekiwane: pierwsza komenda odmawia i nazywa nadmiarowy człon; druga nadal kończy
+  się kodem 0, bo dwie ścieżki `compare` są członami, które to polecenie bierze.
+- **Skończone, gdy:** żaden człon, którego polecenie nie czyta, nie przechodzi
+  w milczeniu — sprawdzone WYKONANIEM obu komend z wklejonym wyjściem — a `compare`
+  z dwiema ścieżkami i każde polecenie bez członów pozycyjnych nadal kończy się kodem
+  0. Kontrola negatywna WYKONANA: zdjęta liczba członów pozycyjnych wywraca dokładnie
+  test `compare`, a nie tylko nowy test.
+- **Poza zakresem:** przepisanie wiersza poleceń na bibliotekę do rozbioru argumentów
+  — ta sama granica, którą postawiły 6.A11, 6.A15 i 6.A22. Poza zakresem także postać
+  `--opcja=wartość` (6.A22, zrobione) i powtórzona opcja (6.A23).
+- **Zależy od:** #303 (6.A11), #346 (6.A15).
+
+##### 6.B32 · Dziennik mutacyjny nie odróżnia dwóch przebiegów na tym samym commicie
+
+- **Skąd:** nazwane wprost przy 6.B19 (#349) — w komentarzu przy miejscu wznawiania
+  w `main` i w §5–6 raportu — jako to, czego tamta poprawka **nie** łapie. 6.B19
+  dopisała do każdego wpisu dziennika `commit` z `git rev-parse --short HEAD` i odmawia
+  wznowienia, gdy dziennik niesie wpis z innego commita. Przy niescommitowanej zmianie
+  (albo `--dirty`) commit się **nie zmienia**, a treść mutowanego pliku owszem — więc
+  odmowa tego przypadku nie widzi i wznowienie podstawi wynik policzony dla innej
+  treści pod dzisiejszą mutację, po cichu.
+- **Wejście:** `tools/tests/mutation_sweep.py` (`check_one`, `worker`, `sweep`, miejsce
+  wznawiania w `main`), `tools/tests/test_mutation_sweep.py`,
+  `reports/dziennik-mutacyjny-bez-drzewa.md` §5–6.
+- **Wyjście:** wpis niosący dowód treści, na której powstał — **do rozstrzygnięcia
+  pomiarem, nie z góry**: albo `git status --porcelain` zapisywane obok commita (tanie,
+  ale mówi tylko „drzewo brudne", nie CO w nim jest), albo SHA-256 samego mutowanego
+  pliku przed mutacją (dokładne i lokalne). Pomiar ma powiedzieć, ile kosztuje drugie
+  rozwiązanie na pełnym przeglądzie: liczenie odcisku raz na mutację przy dwóch
+  tysiącach mutacji może być niezauważalne albo nie, i to jest liczba, nie domysł.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/mutation_sweep.py --only tools/blender/lod_paths.py \
+      --journal /tmp/b32/dziennik.jsonl
+  # zmiana jednego znaku w tools/blender/lod_paths.py, BEZ commita
+  python3 tools/tests/mutation_sweep.py --only tools/blender/lod_paths.py \
+      --journal /tmp/b32/dziennik.jsonl
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: drugi przebieg **odmawia** wznowienia, choć `git rev-parse --short HEAD`
+  daje w obu tę samą wartość.
+- **Skończone, gdy:** dziennik zapisany na drzewie zmienionym bez commita jest przy
+  wznowieniu odrzucony — sprawdzone WYKONANIEM obu przebiegów z wklejonym wyjściem
+  i kodem wyjścia — a wznowienie na drzewie **niezmienionym** nadal działa i liczy
+  tylko to, czego brakuje. Kontrola negatywna WYKONANA wywraca dokładnie nowy test,
+  a nie odmowę z 6.B19.
+- **Poza zakresem:** zmiana schematu identyfikatora mutacji
+  (`plik:wiersz:przesunięcie bajtowe`) — przeliczyłaby dotychczasowe dzienniki
+  i zerwała porównywalność z raportami triażu; ta sama granica, którą postawiła 6.B19.
+- **Zależy od:** #349 (6.B19).
 
 ### Czego agent nie ruszy bez decyzji
 
