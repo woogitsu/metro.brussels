@@ -268,7 +268,8 @@ public static class Program
     private static int Drive(string[] args)
     {
         var output = Option(args, "--out");
-        var sampleEvery = long.Parse(Option(args, "--sample-every") ?? DriveTelemetry.DefaultSampleEverySteps.ToString(Inv), Inv);
+        var sampleEvery = LongValue(Command(args), "--sample-every",
+            Option(args, "--sample-every") ?? DriveTelemetry.DefaultSampleEverySteps.ToString(Inv));
 
         var model = VehicleModel.M7;
         var scenario = DriveScenario.PackageAFirstRun(model);
@@ -390,8 +391,8 @@ public static class Program
                 + "konstrukcyjną M7, nie ograniczenie na torze");
         var axisPath = Option(args, "--axis") ?? "data/track/L1_A.json";
         var output = Option(args, "--out");
-        var sampleEvery = long.Parse(
-            Option(args, "--sample-every") ?? DriveTelemetry.DefaultSampleEverySteps.ToString(Inv), Inv);
+        var sampleEvery = LongValue(Command(args), "--sample-every",
+            Option(args, "--sample-every") ?? DriveTelemetry.DefaultSampleEverySteps.ToString(Inv));
         var notchRate = OptionalNumber(args, "--notch-rate") ?? 0.80;
         var exchangeSeconds = OptionalNumber(args, "--exchange-s") ?? 8.0;
         var stopWindowM = OptionalNumber(args, "--stop-window-m") ?? 5.0;
@@ -632,7 +633,7 @@ public static class Program
             throw new ArgumentException("compare wymaga dwóch plików");
         }
 
-        var tolerance = double.Parse(Option(args, "--tolerance") ?? "1E-9", Inv);
+        var tolerance = NumberValue(Command(args), "--tolerance", Option(args, "--tolerance") ?? "1E-9");
         var left = File.ReadAllLines(args[1]);
         var right = File.ReadAllLines(args[2]);
 
@@ -1012,15 +1013,89 @@ public static class Program
     /// </remarks>
     private static double RequiredNumber(string[] args, string name)
     {
-        var command = args.Length > 0 ? args[0] : "polecenie";
+        var command = Command(args);
         var text = Option(args, name) ?? throw new ArgumentException($"{command} wymaga {name}");
-        return double.Parse(text, Inv);
+        return NumberValue(command, name, text);
     }
 
     private static double? OptionalNumber(string[] args, string name)
     {
         var text = Option(args, name);
-        return text is null ? null : double.Parse(text, Inv);
+        return text is null ? null : NumberValue(Command(args), name, text);
+    }
+
+    /// <summary>
+    /// Nazwa polecenia z <c>args[0]</c> — jedno miejsce, bo od 6.D20 wiadomo, ile
+    /// kosztuje zaszycie jej w treści komunikatu: <c>RequiredNumber</c> mówiło
+    /// <c>line</c> także wtedy, gdy uruchomiono <c>budget</c>.
+    /// </summary>
+    private static string Command(string[] args) => args.Length > 0 ? args[0] : "polecenie";
+
+    /// <summary>
+    /// JEDYNY pisarz komunikatu o nieliczbowej wartości opcji (6.A14). Osobny, bo
+    /// trzech rozbierających pomocników poniżej mówiłoby to samo trzy razy, a wtedy
+    /// treść rozjeżdża się przy pierwszej poprawce — ta sama zasada, która przy 6.A20
+    /// wydzieliła <see cref="Provenance"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Do 6.A14 wartość nieliczbowa kończyła się komunikatem platformy .NET —
+    /// <c>BŁĄD: The input string 'abc' was not in a correct format.</c> — który nie
+    /// mówił ANI której opcji dotyczy, ANI którego polecenia, a był jedynym śladem,
+    /// jaki dostawał czytający. Nazwa polecenia bierze się z <c>args[0]</c>, nie
+    /// z nowej zaszytej stałej; nazwę opcji podaje wołający, bo tylko on ją zna.
+    /// </para>
+    /// </remarks>
+    private static string NotANumber(string command, string name, string text) =>
+        $"{command} nie rozumie wartości {name}: „{text}” nie jest liczbą";
+
+    /// <summary>
+    /// Rozbiór wartości zmiennoprzecinkowej z komunikatem nazywającym polecenie,
+    /// opcję i wartość. Zbiór dopuszczalnych postaci jest <b>ten sam</b>, co miał
+    /// <c>double.Parse(text, Inv)</c> (<see cref="NumberStyles.Float"/> razem
+    /// z <see cref="NumberStyles.AllowThousands"/>) — ta pozycja zmienia komunikat,
+    /// nie to, co runner przyjmuje.
+    /// </summary>
+    private static double NumberValue(string command, string name, string text)
+    {
+        if (!double.TryParse(text, NumberStyles.Float | NumberStyles.AllowThousands, Inv, out var value))
+        {
+            throw new ArgumentException(NotANumber(command, name, text));
+        }
+
+        return value;
+    }
+
+    /// <summary>
+    /// To samo dla wartości całkowitych szerokich (<c>--steps</c>, <c>--sample-every</c>);
+    /// zbiór postaci ten sam, co miał <c>long.Parse(text, Inv)</c>.
+    /// </summary>
+    private static long LongValue(string command, string name, string text)
+    {
+        if (!long.TryParse(text, NumberStyles.Integer, Inv, out var value))
+        {
+            throw new ArgumentException(NotANumber(command, name, text));
+        }
+
+        return value;
+    }
+
+    /// <summary>
+    /// To samo dla wartości całkowitych wąskich (<c>--repeats</c>, <c>--warmup</c>,
+    /// człony <c>--trains</c>); zbiór postaci ten sam, co miał <c>int.Parse(text, Inv)</c>.
+    /// Osobny od <see cref="LongValue"/>, a nie rzutowanie z niego: rzutowanie
+    /// zamieniłoby wartość poza zakresem <see cref="int"/> na inną liczbę w milczeniu,
+    /// czyli na dokładnie tę klasę wyrocznia-zepsuta-w-dobrą-stronę, którą ta rodzina
+    /// pozycji zamyka.
+    /// </summary>
+    private static int IntValue(string command, string name, string text)
+    {
+        if (!int.TryParse(text, NumberStyles.Integer, Inv, out var value))
+        {
+            throw new ArgumentException(NotANumber(command, name, text));
+        }
+
+        return value;
     }
 
     // --- parity -------------------------------------------------------------------
@@ -1208,7 +1283,7 @@ public static class Program
         var at = Option(args, "--at");
         if (at is not null)
         {
-            var seconds = ParseClock(at);
+            var seconds = ParseClock(Command(args), "--at", at);
             Console.WriteLine(string.Create(Inv,
                 $"[SŁUŻBA] o {ServiceDay.Clock(seconds)} w służbie {day.ConcurrentAt(seconds)} obiegów"));
         }
@@ -1248,7 +1323,7 @@ public static class Program
     /// <c>HH:MM:SS</c> na sekundy od północy. Godzina wolno przekroczyć 24 — doba
     /// służby kończy się po północy i GTFS zapisuje to właśnie tak.
     /// </summary>
-    private static double ParseClock(string text)
+    private static double ParseClock(string command, string name, string text)
     {
         var parts = text.Split(':');
         if (parts.Length != 3)
@@ -1256,9 +1331,22 @@ public static class Program
             throw new ArgumentException($"czas ma mieć postać HH:MM:SS, a jest „{text}”", nameof(text));
         }
 
-        return (double.Parse(parts[0], Inv) * 3600.0)
-            + (double.Parse(parts[1], Inv) * 60.0)
-            + double.Parse(parts[2], Inv);
+        // Cytowana jest CALA wartosc, nie czlon: zegar jest jedna wartoscia, a `xx`
+        // wyjete z `10:xx:00` nie powiedzialoby czytajacemu, ktora opcje poprawic.
+        // Inaczej niz w ParseTrainCounts, i z tego jednego powodu.
+        var weights = new[] { 3600.0, 60.0, 1.0 };
+        var seconds = 0.0;
+        for (var i = 0; i < parts.Length; i++)
+        {
+            if (!double.TryParse(parts[i], NumberStyles.Float | NumberStyles.AllowThousands, Inv, out var part))
+            {
+                throw new ArgumentException(NotANumber(command, name, text));
+            }
+
+            seconds += part * weights[i];
+        }
+
+        return seconds;
     }
 
     // --- budget -------------------------------------------------------------------
@@ -1301,11 +1389,11 @@ public static class Program
         // pozostaja porownywalne z dzisiejszym przebiegiem.
         var coastFromM = OptionalNumber(args, "--coast-from-m");
         var atp = Array.IndexOf(args, "--atp") >= 0;
-        var steps = long.Parse(
-            Option(args, "--steps") ?? throw new ArgumentException("budget wymaga --steps"), Inv);
-        var repeats = int.Parse(Option(args, "--repeats") ?? "7", Inv);
-        var warmup = int.Parse(Option(args, "--warmup") ?? "2", Inv);
-        var counts = ParseTrainCounts(Option(args, "--trains")
+        var steps = LongValue(Command(args), "--steps",
+            Option(args, "--steps") ?? throw new ArgumentException("budget wymaga --steps"));
+        var repeats = IntValue(Command(args), "--repeats", Option(args, "--repeats") ?? "7");
+        var warmup = IntValue(Command(args), "--warmup", Option(args, "--warmup") ?? "2");
+        var counts = ParseTrainCounts(Command(args), "--trains", Option(args, "--trains")
             ?? throw new ArgumentException("budget wymaga --trains, np. --trains 1,2,4,8"));
 
         var axis = TrackAxis.FromJson(File.ReadAllText(axisPath));
@@ -1433,15 +1521,17 @@ public static class Program
     /// Lista N z przecinkami. Pusta lista, zero i wartość ujemna są odmową: pomiar
     /// „przy zerze składów" mierzyłby pustą pętlę, a nie koszt składu.
     /// </summary>
-    private static List<int> ParseTrainCounts(string text)
+    private static List<int> ParseTrainCounts(string command, string name, string text)
     {
         var counts = new List<int>();
         foreach (var part in text.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
-            var value = int.Parse(part, Inv);
+            // Cytowany jest CZLON, nie cala lista: przy `--trains 1,2,4,abc` czytajacy
+            // ma zobaczyc, ktory z czterech jest zly, a nie przepisac sobie liste.
+            var value = IntValue(command, name, part);
             if (value < 1)
             {
-                throw new ArgumentException($"--trains ma mieć liczby dodatnie, a ma {value}");
+                throw new ArgumentException($"{name} ma mieć liczby dodatnie, a ma {value}");
             }
 
             counts.Add(value);
