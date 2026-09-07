@@ -46,15 +46,35 @@ DEFINITION = re.compile(
 #: samego powodu: raport wymieniał stałe w tabeli odwzorowań `219 → NAZWA, 237 → INNA`,
 #: a wzorzec brał numer wiersza NASTĘPNEJ pary jako wartość poprzedniej.
 #:
-#: Zwężenie: między nazwą a liczbą nie wolno postawić **przecinka, strzałki ani
-#: grawisu**. To wycina wyliczenia i tabele odwzorowań, a zostawia wszystkie cztery
-#: postacie, w których raporty naprawdę podają wartość:
+#: Zwężenie: między nazwą a liczbą nie wolno postawić **przecinka, strzałki, grawisu
+#: ani znaku odsyłacza (`§`, `#`)**. Ten akapit jest przepisany, a nie dopisany obok
+#: (6.D27): pierwsze zwężenie wycinało trzy pierwsze znaki i to wystarczało, dopóki
+#: raporty nie zaczęły odsyłać do własnych sekcji.
+#:
+#: To wycina wyliczenia i tabele odwzorowań, a zostawia wszystkie cztery postacie,
+#: w których raporty naprawdę podają wartość:
 #:     `M7_WIDTH_M` 2,70                      — nazwa i liczba obok siebie
 #:     `SLAB_GROWTH_STEPS` = 6                — ze znakiem równości
 #:     `PARALLEL_M` jest granicą włącznie: 30,0 m
 #:     Szerokość równa `RUNNING_TUNNEL_MAX_M` (15,0 m)
 #: Zmierzone 06.09.2026: 12 trafień, 0 rozjazdów, 0 fałszywych alarmów.
-CLAIM = re.compile(r"`([A-Z][A-Z0-9_]{3,})`([^`,→\n]{0,40}?)(-?\d+(?:[.,]\d+)?(?:e-?\d+)?)")
+#:
+#: **Dlaczego doszły `§` i `#` (6.D27).** Bramka zapaliła się 07.09.2026 na zdaniu
+#: POPRAWNYM: „Nie tknięto `SUITE_RUNTIME_BUDGET_S` — §4. Decyzja o czułości bramki."
+#: — numer sekcji jest liczbą, a wzorzec bierze pierwszą liczbę po nazwie. Zmierzone
+#: na dzisiejszych raportach: **3 twierdzenia z 82** miały ten kształt i przechodziły
+#: WYŁĄCZNIE przypadkiem, bo żadna z tych trzech stałych nie trafia do słownika
+#: wartości (jedna usunięta, jedna napisowa, jedna o dwóch wartościach). `#` doszło
+#: z tego samego pomiaru, nie z przewidywania: `kolejka-uzupelnienie.md:42` pisze
+#: „`MINIMUM_DOCUMENTED_ITEMS`: sprzężenie, które #274" i jest dziś przepuszczane
+#: tylko dlatego, że stoi tam przecinek.
+#:
+#: Cena zwężenia, powiedziana wprost: zdanie „`STAŁA` (§4) to 30,0" przestaje być
+#: twierdzeniem, więc rozjazd w nim byłby przemilczany. To jest ten sam wybór, który
+#: podjęto przy przecinku i strzałce — bramka świecąca na poprawnym tekście zostaje
+#: wyłączona, nie poprawiona, a przemilczane twierdzenie łapie `MINIMUM_CLAIMS`.
+CLAIM = re.compile(
+    r"`([A-Z][A-Z0-9_]{3,})`([^`,→§#\n]{0,40}?)(-?\d+(?:[.,]\d+)?(?:e-?\d+)?)")
 
 #: Ile twierdzeń wzorzec ma znaleźć, żeby pomiar był pomiarem. Bez tego progu
 #: literówka we WZORCU dałaby zero trafień, zero rozjazdów i zieloną bramkę — ta sama
@@ -185,6 +205,52 @@ def test_the_claim_pattern_takes_values_and_leaves_mapping_tables_alone():
     assert found("(wiersz `DEFAULT_RING_STEP_M`) podnosił próg → 0,1064") == []
     # 7. Nazwa bez żadnej liczby po niej.
     assert found("stała `CLEARANCE_M` jest opisana wyżej") == []
+    # 8-9. ODSYŁACZE (6.D27): numer sekcji i numer PR nie są wartościami. Oba wzięte
+    #      z prawdziwych zdań, nie wymyślone: pierwsze zapaliło bramkę 07.09.2026,
+    #      drugie stoi w `kolejka-uzupelnienie.md:42` i przechodzi dziś tylko dlatego,
+    #      że rozdziela je przecinek.
+    assert found("Nie tknięto `SUITE_RUNTIME_BUDGET_S` — §4. Decyzja o czułości") == []
+    assert found("złapał już raz `MINIMUM_DOCUMENTED_ITEMS`: sprzężenie które #274") == []
+    # 10. Kontrola drugiej strony zwężenia: sama obecność `§` w wierszu nie może
+    #     unieważniać twierdzenia stojącego PRZED nim.
+    assert found("`M7_WIDTH_M` 2,70 — szerzej w §3") == [("M7_WIDTH_M", "2,70")]
+
+
+def test_a_section_reference_next_to_a_constant_does_not_fail_the_gate():
+    """6.D27, sprawdzone CAŁĄ bramką, nie samym wzorcem.
+
+    Kontrola wzorca wyżej dowodzi, że `CLAIM` nie widzi odsyłacza. Nie dowodzi, że
+    bramka na takim raporcie przechodzi — a to jest zdanie, które trzeba postawić,
+    bo 07.09.2026 nie przeszła. Podmiana `REPORTS` na katalog tymczasowy, tak jak
+    w teście bloków kodu, bo `claims_in_reports` czyta katalog, nie listę plików.
+    """
+    import tempfile
+
+    def rozjazdy(tresc):
+        with tempfile.TemporaryDirectory() as katalog:
+            with open(os.path.join(katalog, "przyklad.md"), "w", encoding="utf-8") as u:
+                u.write(tresc)
+            globalny = REPORTS
+            try:
+                globals()["REPORTS"] = katalog
+                return [(c, said, mowi) for _n, _w, c, said, mowi
+                        in claims_in_reports({"PROG_TESTOWY_S": "150.0"})
+                        if not _same_number(said, mowi)]
+            finally:
+                globals()["REPORTS"] = globalny
+
+    # Zdanie POPRAWNE z odsyłaczem — dokładnie to, na którym bramka padła.
+    assert rozjazdy("Nie tknieto `PROG_TESTOWY_S` — §4. Decyzja o czulosci bramki.\n") == [], (
+        "poprawne zdanie z odsylaczem uznane za rozjazd")
+    # To samo z odsyłaczem do PR.
+    assert rozjazdy("`PROG_TESTOWY_S`: sprzezenie ktore #274 zamknelo.\n") == []
+
+    # DRUGA STRONA, bez ktorej pierwsza nic nie znaczy: prawdziwy rozjazd nadal jest
+    # rozjazdem, czyli zwezenie nie zjadlo tego, po co ta bramka istnieje.
+    zle = rozjazdy("Stala `PROG_TESTOWY_S` to 4 i nic wiecej.\n")
+    assert len(zle) == 1, ("zwezenie zjadlo prawdziwy rozjazd: " + repr(zle))
+    # I zdanie prawdziwe o wlasciwej wartosci nie jest rozjazdem.
+    assert rozjazdy("Stala `PROG_TESTOWY_S` to 150,0 sekundy.\n") == []
 
 
 def test_a_number_quoted_inside_a_code_block_is_not_a_claim():
