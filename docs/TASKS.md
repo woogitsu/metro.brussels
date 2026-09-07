@@ -745,6 +745,9 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.A30 | **Piec wypisow informacyjnych idzie na stderr, a te same znaczniki ida takze na stdout** — czytajacy, ktory potokuje stdout, dostaje czesc wierszy `[ODTWORZENIE]` i nie dostaje reszty | zmierzone 07.09.2026 przy 6.A27: przejscie po `Program.cs` bez komentarzy daje 47 wypisow `[XXX]` na stdout i **5** na stderr — wiersze 426 `[RDZEŃ]`, 612 `[LIMIT]`, 712 i 735 `[ODTWORZENIE]`, 725 `[ATP]` — a `[RDZEŃ]`, `[ODTWORZENIE]` i `[ATP]` wystepuja NA OBU strumieniach. Ksztalt wyjscia jest wyrocznia dla logu CI (6.A16, 6.A27) | S |
 | 6.A31 | **Dwie komendy w `reports/` cytuja katalog, ktorego nie ma** — `Sim.Runner/bin/Release/net8.0/MetroBxl.Sim.Runner.dll`, a projekt buduje `net10.0`; nic nie pilnuje, ze komenda cytowana w polu „Weryfikacja" da sie wykonac | zmierzone 07.09.2026 przy 6.A26: `reports/T-311-braking.md:257` i `reports/T-400-first-run.md:235` niosa `net8.0`, `reports/linecore-budget.md:91` niesie `net10.0`, a `<TargetFramework>` to `net10.0`. Pomiary z data sie nie przeliczaja, ale bramka na sciezke w komendzie NIE ISTNIEJE | S |
 | 6.A32 | **Nic nie pilnuje, ze asercja jest ROZSTRZYGAJACA, a nie tylko prawdziwa** — cztery przypadki zmierzone w jednym dniu, kazdy inny, wszystkie tego samego kroju | zmierzone 07.09.2026: 6.A25 (KN-2 — odmowa z wlasna stala zostawia wszystkie 584 testy C# zielone), 6.A26 (KN-D — regula pierwszenstwa sceny pilnowana wylacznie komentarzem, 15/15 zielone), 6.A27 (KN-2 — `throw` istnieje, cztery `Console.Error` obok, bramka zielona), 6.A29 (KN-1 — `Contains(sciezka)` spelnione przez odmowe o czym innym). Wspolna cecha: asercja na OBECNOSC czegos dobrego zamiast na BRAK czegos zlego albo na LICZBE | L |
+| 6.B40 | **Domyslna sciezka dziennika nie niesie odcisku tresci, wiec po 6.B32 dwa przebiegi na tym samym commicie sciezke DZIELA** — odmowa dziala, ale kaze podac `--journal` recznie | zmierzone 07.09.2026 przy 6.B32: `default_journal` daje `/tmp/metro-mutacje-58804969c2a4.jsonl` i przy drzewie czystym, i przy brudnym, bo nazwa sklada sie z commita, klas i `--only`. Docstring tej funkcji mowi „trzy rzeczy, ktore rozstrzygaja, CZEGO przebieg dotyczy" — po 6.B32 jest ich CZTERY | S |
+| 6.B41 | **Galaz „nie ma czego liczyc" nazywa zla przyczyne i konczy sie kodem 1** — `brak mutacji do sprawdzenia po odfiltrowaniu nieosiagalnych` idzie takze wtedy, gdy filtr nieosiagalnych nie odsial NICZEGO, a zbior jest pusty bo wznowienie policzylo wszystko | zmierzone 07.09.2026 przy 6.B32: drugi przebieg na czystym drzewie daje `wznowienie z ...: 2 z 2 juz policzonych`, potem ten komunikat i **kod 1**. `if not found:` w `main` nie odroznia przyczyn, a dla skryptu CI w petli do skutku kod 1 to roznica miedzy „gotowe" i „awaria" | S |
+| 6.B42 | **Raport przegladu mutacyjnego identyfikuje pomiar samym commitem** — `**Snapshot na commicie:** {commit}`, a po 6.B32 wiadomo, ze commit nie odroznia dwoch przebiegow na tej samej rewizji | zmierzone 07.09.2026 przy 6.B32: `report(results, commit)` nie dostaje odciskow wcale, wiec raport z przebiegu `--dirty` jest nieodroznialny od raportu z drzewa czystego. Ta sama rodzina, ktorej 6.D3 postawilo bramke dla `reports/*.md` | S |
 | 6.D26 | **ZROBIONE (07.09.2026).** Maksimum jest teraz WYPROWADZANE z listy `POMIARY` — pieciu przebiegow z data i kontekstem — a `MARGIN` jest dzialaniem, nie zdaniem. **Zdanie z wpisu, ze „rozrzut hosta nie jest nigdzie zapisany", bylo NIEPRAWDA** i pierwsze czytanie pliku to pokazalo: docstring opisywal kontener dzielony, `ps aux` z rownoleglym `dotnet build` i rozrzut 10,84 s. Zepsute bylo wezsze i gorsze: maksimum wpisane z reki jako jedna liczba z minionej sesji, a margines liczony wobec niej — 107,331 s zmierzone dzis to o **39 %** wiecej niz zapisane 77,04. **Co to realnie przepuszczalo, zmierzone**: obnizenie progu do 100 s przechodzilo wszystkie testy (100 > 77,04, margines 1,298 > 1,2) i dawalo CZERWONE CI na drzewie bez ani jednej usterki; po zmianie jest odmowa. Prog 150,0 **nietkniety** — jego zmiana to decyzja o czulosci bramki. Nowa bramka odmawia, gdy proza podaje mnoznik, ktorego nie daje `MARGIN`, a jej ksztalt to wynik **czterech wlasnych potkniec**, kazdego zlapanego przez inne narzedzie: brala pomiar za mnoznik; skanowala wlasny docstring, ktory te mnozniki WYMIENIA jako przyklady; po wycieciu go przeszla **bez ani jednej asercji** (zlapala to bramka asercji z #139) — wiec sprawdza teraz NARZEDZIE, nie tylko dzisiejszy tekst; a okno zdania urywalo sie na kropce dziesietnej. Cztery kontrole negatywne, z ktorych **KN-4 przed ta zmiana przechodzila**. Pomiar w `reports/zapis-czasu-zestawu.md`. Tresc pierwotna: **`MEASURED_MAX_WALL_S = 77.04` jest nizsze od tego, co maszyna dziś pokazuje** | zmierzone 07.09.2026 przy 6.D25 | S |
 | 6.D27 | **ZROBIONE (07.09.2026).** Miedzy nazwa stalej a liczba nie wolno teraz postawic takze `§` ani `#`. **Powod, dla ktorego to nie jest kosmetyka**: bramka swiecaca na poprawnym tekscie zostaje **wylaczona, nie poprawiona** — a obejsciem, ktore zastosowalem przy 6.D26, bylo przepisanie ZDANIA, nie naprawienie przyrzadu. Trzy wiersze mojego wlasnego raportu z tego samego dnia mialy juz ten ksztalt i przechodzily WYLACZNIE przypadkiem: zadna z tych trzech stalych nie trafia do slownika wartosci (jedna usunieta, jedna napisowa, jedna o dwoch wartosciach). Roznica miedzy zdaniem, ktore przeszlo, i tym, ktore padlo, nie lezala wiec w zdaniu. **`#` doszlo z pomiaru, nie z przewidywania**: `kolejka-uzupelnienie.md:42` pisze „`MINIMUM_DOCUMENTED_ITEMS`: sprzezenie, ktore #274" i jest przepuszczane dzis tylko dlatego, ze stoi tam przecinek. Cena zwezenia powiedziana wprost: „`STALA` (§4) to 30,0" przestaje byc twierdzeniem — ten sam wybor, co przy przecinku, i ta sama asymetria, bo przemilczane twierdzenie lapie prog `MINIMUM_CLAIMS`, a falszywy alarm tylko czyjas cierpliwosc. Po zwezeniu bramka sprawdza **15** twierdzen przy progu 10. Dwie kontrole negatywne, z ktorych **KN-2 jest wazniejsza**: dowodzi, ze zwezenie NIE zjadlo tego, po co bramka istnieje — najprostszym sposobem uciszenia falszywego alarmu jest zwezenie wzorca tak, zeby nie lapal niczego, i taka zmiana byla by zielona bez niej. Ta sama para stoi w tresci testu i chodzi przy kazdym przebiegu. Nie tknieto `pkt`, `rozdz.`, `str.` — pomiar daje **zero** wystapien, a wykluczanie form, ktorych nie ma, zwezal oby bramke o twierdzenia, ktorych juz nie sprawdzi. Pomiar w `reports/odsylacz-nie-jest-wartoscia.md`. Tresc pierwotna: **`test_report_claims.py` bierze odsylacz do sekcji za WARTOSC stalej** | zmierzone 07.09.2026 przy 6.D26, gdzie bramka zapalila sie na POPRAWNYM zdaniu | S |
 | 6.D28 | **ZROBIONE (07.09.2026).** 674 metody testowe C#, **674** z asercja w tresci, **zero** bez. Dojscie do tego zera wymagalo DWOCH poprawek w czytniku i obie mowia wiecej niz sam wynik. **Pierwsza: czytnik zglaszal wlasna niewiedze jako brak.** Cialo metody C# ma dwie postacie — blok i wyrazenie `=> …;` — a pierwsza wersja znala tylko blok i zglosila `Lista_funkcji_KCV_jest_dokladnie_ta_ktora_podaje_STIB` jako metode bez asercji, choc ona asertuje `CollectionAssert` w ciele wyrazeniowym; gorzej, klamra inicjatora `new[] { … }` byla brana za poczatek bloku, wiec asercja nie trafiala nigdzie. **Druga: pomocnik `Assert*` to asercja** — bez tego wychodzilo PIEC brakow, z czego cztery asertuja przez lokalny `AssertBits`. Sprawdzone tez rozwiazywanie pomocnikow po CIELE, nie po nazwie: **nie daje ani jednej metody wiecej**, wiec zostaje regula prostsza. **Granica postawiona swiadomie**: liczone sa asercje OBECNE w tresci, nie WYKONANE — `assertion_gate` robi to drugie i dlatego zlapal moj test z asercja w petli, do ktorej nic nie weszlo. Slabsza wlasnosc, zapisana w docstringu, nie przemilczana. Cztery kontrole negatywne, kazda na innym trybie awarii; **KN-4 jest najwazniejsza**, bo drzewo ma zero brakow, wiec bramka „zero brakow" jest zielona takze wtedy, gdy czytnik uznaje za asertujaca KAZDA metode — kontrola pozytywna na syntetycznej metodzie bez asercji chodzi przy kazdym przebiegu i to ona odroznia jedno od drugiego. Bramka kosztuje 0,50 s. Liczba 674 zgadza sie z 6.B27: tam 708 atrybutow i 668 objetych ksztaltem; roznica to 34 metody Z ARGUMENTAMI, czyli **6.B28**, nietknieta. Pomiar w `reports/asercje-w-testach-csharp.md`. Tresc pierwotna: **Asercje w testach C# nie sa liczone przez nic** | nazwane jako odlozone wprost przez 6.B27 (#329) | M |
@@ -4130,6 +4133,130 @@ MINIMUM_DETAIL_BLOCKS = 73
   naprawione u siebie; ta pozycja dotyczy tego, czy da się je wykrywać, a nie
   przepisywania zestawu.
 - **Zależy od:** 6.A25, 6.A26, 6.A27, 6.A29, 6.D28.
+
+##### 6.B40 · Domyślna ścieżka dziennika nie niesie odcisku treści
+
+- **Skąd:** zmierzone 07.09.2026 przy 6.B32. `default_journal` składa nazwę z trzech
+  rzeczy — commita, klas operatorów i `--only` — więc po dopisaniu odcisku treści dwa
+  przebiegi na tym samym commicie **dzielą** ścieżkę:
+  ```
+  czyste: /tmp/metro-mutacje-58804969c2a4.jsonl
+  brudne: /tmp/metro-mutacje-58804969c2a4.jsonl     ← ta sama nazwa
+  odcisk: 4e495be9c4159f96                          ← inna treść
+  ```
+- **Dlaczego to pozycja, a nie usterka 6.B32:** odmowa **działa** i to jest ważne —
+  cudzy wynik nie wchodzi. Ale skutek jest taki, że przebieg `--dirty` na tym samym
+  commicie wymaga podania `--journal` **ręcznie**, a docstring `default_journal` mówi
+  wprost, że nazwa zawiera „trzy rzeczy, które rozstrzygają, CZEGO przebieg dotyczy".
+  Po 6.B32 tych rzeczy jest **cztery** — i to jest niezgodność między tym, co funkcja
+  obiecuje, a tym, co robi.
+- **Wejście:** `tools/tests/mutation_sweep.py` (`default_journal`, `main`),
+  `tools/tests/test_mutation_sweep.py`
+  (`test_domyslny_dziennik_jest_jeden_na_przebieg_a_nie_jeden_na_maszyne`),
+  `reports/odcisk-tresci-dziennika.md` §2 i §9, `reports/dziennik-mutacyjny-bez-drzewa.md`.
+- **Wyjście:** odcisk w znaczniku nazwy — **albo pomiar pokazujący, że tak być NIE ma**.
+  Do rozstrzygnięcia: czy wznowienie po **zacommitowaniu** zmiany ma znaleźć dziennik
+  z przebiegu sprzed commita. Dziś nie znajdzie (inny commit → inna nazwa) i to jest
+  poprawne; po dodaniu odcisku nie znajdzie też dziennika z tego samego commita i innej
+  treści, co też jest poprawne. Trzeba jednak sprawdzić, ile dzienników zostaje wtedy
+  w `/tmp` przy pracy na brudnym drzewie — bo nazwa zmieniająca się przy każdym
+  zapisie pliku zamienia wznowienie w fikcję.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_mutation_sweep.py
+  python3 tools/tests/mutation_sweep.py --only tools/blender/lod_paths.py --list
+  # zmiana jednego znaku bez commita, potem to samo
+  ```
+  Oczekiwane: dwie różne ścieżki domyślne dla dwóch różnych treści, przy tym samym
+  commicie — obie wypisane.
+- **Skończone, gdy:** dwa przebiegi na tym samym commicie i różnej treści używają
+  **różnych** ścieżek domyślnych, pokazane WYKONANIEM z wklejonymi obiema nazwami,
+  a wznowienie na treści **niezmienionej** nadal trafia w ten sam plik. Kontrola
+  negatywna WYKONANA: zdjęcie odcisku ze znacznika wywraca dokładnie nowy test.
+  Raport podaje, ile dzienników powstaje przy pracy na brudnym drzewie.
+- **Poza zakresem:** sprzątanie starych dzienników z `/tmp` i zmiana katalogu, w którym
+  stoją. Poza zakresem także odmowa z 6.B32 — ona zostaje niezależnie od nazwy.
+- **Zależy od:** 6.B19, 6.B32.
+
+##### 6.B41 · Gałąź „nie ma czego liczyć" nazywa złą przyczynę i kończy się kodem 1
+
+- **Skąd:** zmierzone 07.09.2026 przy 6.B32, drugim przebiegiem na czystym drzewie:
+  ```
+  [MUTACJE] wznowienie z /tmp/b32/dziennik.jsonl: 2 z 2 już policzonych
+  brak mutacji do sprawdzenia po odfiltrowaniu nieosiągalnych
+  kod=1
+  ```
+  Filtr nieosiągalnych nie odsiał **niczego** — zbiór jest pusty, bo wznowienie
+  policzyło wszystko. `if not found:` w `main` nie odróżnia tych dwóch przyczyn
+  i wypisuje jedną, nieprawdziwą.
+- **Dlaczego to dwie rzeczy w jednej pozycji:** komunikat i kod wyjścia wychodzą
+  z **tych samych trzech wierszy**. Rozbicie na dwie pozycje dałoby dwie gałęzie
+  dotykające jednego `if`, a to jest przepis na konflikt bez żadnego zysku.
+  Kod 1 znaczy tu „nie zostało nic do policzenia" — dla skryptu CI uruchamiającego
+  przegląd w pętli do skutku jest to różnica między „gotowe" i „awaria".
+- **Wejście:** `tools/tests/mutation_sweep.py` (`main`, gałąź `if not found:` oraz
+  wcześniejsza `if not found and not done:`), `tools/tests/test_mutation_sweep.py`,
+  `reports/odcisk-tresci-dziennika.md` §9, `reports/kody-wyjscia-runnera.md` (6.A16 —
+  wzorzec: kod wyjścia jest wyrocznią i ma jedno znaczenie).
+- **Wyjście:** komunikat nazywający **rzeczywistą** przyczynę pustego zbioru — filtr
+  nieosiągalnych, wznowienie, albo `--limit` — i kod wyjścia **0**, gdy przyczyną jest
+  wznowienie, bo przebieg zrobił wszystko, o co go proszono. **Do rozstrzygnięcia
+  pomiarem:** ile miejsc w `reports/` i w workflowach polega dziś na kodzie 1 z tej
+  gałęzi, bo zmiana kodu wyjścia bez tego pomiaru wywróci przebieg, który dziś działa.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/mutation_sweep.py --only tools/blender/lod_paths.py \
+      --journal /tmp/b41/d.jsonl --workers 2 --no-coverage
+  python3 tools/tests/mutation_sweep.py --only tools/blender/lod_paths.py \
+      --journal /tmp/b41/d.jsonl --workers 2 --no-coverage
+  python3 tools/tests/test_all.py test_mutation_sweep.py
+  ```
+  Oczekiwane: drugi przebieg mówi, że wszystko jest już policzone, i kończy się kodem
+  **0**; przebieg, w którym zbiór wyczyścił filtr nieosiągalnych, dalej mówi o filtrze.
+- **Skończone, gdy:** obie przyczyny mają swój komunikat, sprawdzone WYKONANIEM obu
+  przypadków z wklejonym wyjściem i kodem, a liczba miejsc polegających na dzisiejszym
+  kodzie 1 jest w raporcie podana — także jeśli wynosi zero. Kontrola negatywna
+  WYKONANA wywraca dokładnie nowe testy.
+- **Poza zakresem:** kody wyjścia pozostałych odmów przeglądu (2 dla dziennika
+  z innego drzewa i dla brudnych plików) — rozstrzygnięte przy 6.B19 i 6.B32.
+- **Zależy od:** 6.B19, 6.B32.
+
+##### 6.B42 · Raport przeglądu identyfikuje pomiar samym commitem
+
+- **Skąd:** zmierzone 07.09.2026 przy 6.B32. Nagłówek raportu przeglądu to
+  `**Snapshot na commicie:** {commit}`, a `report(results, commit)` nie dostaje odcisków
+  treści **wcale**. Po 6.B32 wiadomo, że commit nie odróżnia dwóch przebiegów na tej
+  samej rewizji — więc raport z przebiegu `--dirty` jest nieodróżnialny od raportu
+  z drzewa czystego.
+- **Dlaczego to ta sama rodzina, co 6.D3:** 6.D3 postawiło bramkę na to, żeby każdy
+  `reports/*.md` mówił, na jakim commicie powstały jego liczby. Powód był ten sam:
+  liczba bez drzewa, z którego pochodzi, nie da się odtworzyć. Raport przeglądu
+  mutacyjnego commit podaje — i to jest za mało dokładnie o tyle, o ile za mało było
+  go w dzienniku.
+- **Wejście:** `tools/tests/mutation_sweep.py` (`report`, wywołanie w `main`),
+  `tools/tests/test_mutation_sweep.py` (rodzina `test_report_*`),
+  `reports/mutation-sweep.md`, `reports/mutation-drift.md`,
+  `reports/odcisk-tresci-dziennika.md` §2, `tools/tests/test_report_hygiene.py` (6.D3).
+- **Wyjście:** odciski w nagłówku raportu — **do rozstrzygnięcia pomiarem, w jakiej
+  postaci**: jeden odcisk całego przebiegu (krótki, ale nie mówi, który moduł się
+  różni) albo tabela plik → odcisk (dokładna, ale przy 63 modułach zajmuje ekran).
+  Pomiar ma powiedzieć, ile modułów ma typowy przebieg z `reports/`: jeżeli triaż
+  chodzi po jednym module naraz, tabela jest darmowa.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_mutation_sweep.py
+  python3 tools/tests/test_all.py test_report_hygiene.py
+  ```
+  Oczekiwane: nagłówek raportu niesie odcisk każdego modułu przebiegu, a bramka
+  higieny raportów nadal przechodzi.
+- **Skończone, gdy:** raport z przebiegu na treści zmienionej bez commita jest
+  **odróżnialny** od raportu z drzewa czystego — pokazane WYKONANIEM obu i wklejonymi
+  nagłówkami — a kontrola negatywna WYKONANA (zdjęty odcisk z nagłówka) wywraca
+  dokładnie nowy test. Liczba modułów typowego przebiegu jest w raporcie podana.
+- **Poza zakresem:** przeliczanie istniejących `reports/mutation-*.md` — są pomiarami
+  z datą i dostają adnotację, nie poprawkę. Poza zakresem także format samych sekcji
+  raportu.
+- **Zależy od:** 6.D3, 6.B32.
 
 ### Czego agent nie ruszy bez decyzji
 
