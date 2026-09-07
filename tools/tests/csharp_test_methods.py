@@ -39,6 +39,10 @@ METODA = re.compile(
 
 ATRYBUTY_TESTU = ("TestMethod", "DataTestMethod")
 
+#: Nazwa metody na koncu naglowka czlonu — po niej zaczyna sie cialo. Bez tego warunku
+#: `METODA` dopasowuje sie takze do naglowka, ktory metoda nie jest.
+NAGLOWEK = re.compile(r"(\w+)\s*\([^()]*\)\s*$")
+
 
 def pliki(root=ROOT):
     return sorted(glob.glob(os.path.join(root, "tests", "*", "*.cs")))
@@ -58,22 +62,66 @@ def _cialo_klasy(source, at):
     return source[start:]
 
 
-def _poziom_bezposredni(body):
-    """Tresc ciala klasy z wycietymi wnetrzami klamr — czyli sam poziom deklaracji."""
-    out = []
+def _koniec_bloku(text, start):
+    """Indeks znaku ZA klamra zamykajaca blok otwarty na `start`."""
     depth = 0
-    for ch in body[1:]:
-        if ch == "{":
+    for i in range(start, len(text)):
+        if text[i] == "{":
             depth += 1
-            if depth == 1:
-                out.append("{")
-            continue
-        if ch == "}":
+        elif text[i] == "}":
             depth -= 1
+            if depth == 0:
+                return i + 1
+    return len(text)
+
+
+def czlonkowie(cialo_klasy):
+    """`[(naglowek, cialo)]` dla czlonow na bezposrednim poziomie ciala klasy.
+
+    Rozpoznaje **oba** ksztalty ciala: blok `{...}` i wyrazenie `=> ...;`. Przy ciele
+    wyrazeniowym `cialo` jest tekstem wyrazenia, wiec `{` w inicjatorze tablicy nie
+    jest brany za poczatek bloku metody — na tym wywrocila sie pierwsza wersja.
+    """
+    body = cialo_klasy[1:] if cialo_klasy.startswith("{") else cialo_klasy
+    out = []
+    buf = []
+    i = 0
+    while i < len(body):
+        # Cialo wyrazeniowe: `=>` PRZED najblizsza klamra otwierajaca.
+        if body.startswith("=>", i):
+            koniec = i + 2
+            depth = 0
+            while koniec < len(body):
+                znak = body[koniec]
+                if znak in "([{":
+                    depth += 1
+                elif znak in ")]}":
+                    depth -= 1
+                elif znak == ";" and depth <= 0:
+                    break
+                koniec += 1
+            out.append(("".join(buf), body[i + 2:koniec]))
+            buf = []
+            i = koniec + 1
             continue
-        if depth == 0:
-            out.append(ch)
-    return "".join(out)
+        if body[i] == "{":
+            koniec = _koniec_bloku(body, i)
+            out.append(("".join(buf), body[i + 1:koniec - 1]))
+            buf = []
+            i = koniec
+            continue
+        if body[i] == "}":
+            break
+        buf.append(body[i])
+        i += 1
+    return out
+
+
+#: Zachowane dla czytelnosci historii: `_poziom_bezposredni` wycinalo WNETRZA klamr,
+#: zeby zostawic sam poziom deklaracji. Bylo poprawne dla wykrywania brakujacego
+#: atrybutu i bezuzyteczne dla liczenia asercji, bo asercja siedzi wlasnie w tym
+#: wnetrzu — dlatego 6.D28 dopisala DRUGIE przejscie, a 6.D30 sciagnela je tutaj
+#: i skasowala pierwsze. Jedno przejscie, dwa zastosowania.
 
 
 def metody(root=ROOT):
@@ -83,14 +131,17 @@ def metody(root=ROOT):
         with open(path, encoding="utf-8") as handle:
             source = handle.read()
         for match in KLASA.finditer(source):
-            body = _poziom_bezposredni(_cialo_klasy(source, match.end()))
-            for method in METODA.finditer(body):
-                attrs = method.group("attrs")
+            for naglowek, _cialo in czlonkowie(_cialo_klasy(source, match.end())):
+                method = None
+                for method in METODA.finditer(naglowek + "{"):
+                    pass
+                if method is None or not NAGLOWEK.search(naglowek.strip()):
+                    continue
                 found.append((
                     os.path.relpath(path, root),
                     match.group(1),
                     method.group("name"),
-                    any(a in attrs for a in ATRYBUTY_TESTU),
+                    any(a in method.group("attrs") for a in ATRYBUTY_TESTU),
                 ))
     return found
 

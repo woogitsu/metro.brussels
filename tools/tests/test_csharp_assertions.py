@@ -108,22 +108,55 @@ def test_a_method_without_a_test_attribute_is_not_counted():
     assert dane == [], dane
 
 
-def test_both_readers_agree_on_how_many_methods_carry_a_test_attribute():
-    """Dwa czytniki tego samego drzewa nie moga podawac roznych liczb.
+def test_both_readers_agree_exactly_on_how_many_methods_carry_a_test_attribute():
+    """Dwa zastosowania, JEDNO przejscie — wiec rownosc, nie pasmo.
 
-    `csharp_test_methods` (6.B27) liczy metody z atrybutem po ksztalcie „bez
-    argumentow"; ten czytnik liczy te same metody, ale zna dodatkowo cialo
-    wyrazeniowe. Roznica ma wiec byc **nieujemna i mala** — a nie dowolna, bo wtedy
-    jeden z nich czyta co innego, niz mysli.
+    **Ten test jest przepisany, a nie dopisany obok (6.D30).** Wersja z 6.D28 zadala
+    `nowy - stary <= 20`, i to pasmo bylo **fudge'em**: postawilem je, bo majac dwa
+    osobne przejscia po ciele klasy nie moglem postawic rownosci, a nie bo 20 cokolwiek
+    znaczylo. Zmierzone wtedy na drzewie: roznica wynosila **0** — pasmo nie opisywalo
+    zadnego prawdziwego rozjazdu, tylko moja niepewnosc co do wlasnego kodu.
+
+    6.D30 sciagnela przejscie do `csharp_test_methods` i skasowala starsze, wiec oba
+    czytniki chodza po tej samej strukturze i roznica **musi** byc zerem. Gdyby ktos
+    dopisal drugie przejscie z powrotem, ten test upadnie na pierwszej metodzie, ktorej
+    jedno widzi, a drugie nie — czego pasmo 20 przepuszczaloby dwadziescia razy.
     """
     stary = sum(1 for _p, _k, _m, ma in CTM.metody() if ma)
     nowy = CA.coverage()["metody_testowe"]
-    assert nowy >= stary, (
-        "nowy czytnik widzi MNIEJ metod (%d) niz starszy (%d) — zna cialo wyrazeniowe, "
-        "wiec nie ma prawa widziec mniej" % (nowy, stary))
-    assert nowy - stary <= 20, (
-        "czytniki rozjechaly sie o %d metod (%d vs %d) — to za duzo, zeby tlumaczyc to "
-        "samym cialem wyrazeniowym" % (nowy - stary, nowy, stary))
+    assert nowy == stary, (
+        "czytniki podaja rozne liczby metod z atrybutem: %d vs %d — a od 6.D30 chodza "
+        "po TYM SAMYM przejsciu, wiec roznica znaczy, ze ktos dopisal drugie" % (nowy, stary))
+
+
+def test_there_is_only_one_traversal_of_a_class_body():
+    """Sedno 6.D30, sprawdzone na kodzie, a nie na liczbach.
+
+    Rownosc wyzej byla by prawdziwa takze przy dwoch przejsciach, ktore akurat zgadzaja
+    sie na dzisiejszym drzewie — tak wlasnie bylo przy 6.D28. Ten test patrzy na to, co
+    tamten test przepuszcza: `czlonkowie` ma byc zdefiniowane w JEDNYM module, a drugi
+    ma je wolac, nie kopiowac.
+    """
+    with open(CA.__file__, encoding="utf-8") as uchwyt:
+        asercje = uchwyt.read()
+    with open(CTM.__file__, encoding="utf-8") as uchwyt:
+        metody = uchwyt.read()
+    assert "def czlonkowie(" in metody, (
+        "przejscie zniknelo z modulu nizszego — a to on jest jego miejscem")
+    assert "def czlonkowie(" not in asercje, (
+        "drugie przejscie wrocilo do csharp_assertions.py; 6.D30 sciagnela je do "
+        "csharp_test_methods wlasnie po to, zeby bylo jedno")
+    assert "CTM.czlonkowie(" in asercje, (
+        "csharp_assertions nie wola wspolnego przejscia")
+    # DEFINICJA, nie sama nazwa — i to nie jest ustepstwo dla wygody. Pierwsza wersja
+    # tego testu zabraniala nazwy w calym pliku i zapalila sie na komentarzu, ktory
+    # WYJASNIA, dlaczego starsze przejscie zniknelo. Wzmianka nie jest powrotem; ta sama
+    # roznica, ktora 6.D27 postawilo miedzy twierdzeniem a odsylaczem.
+    assert "def _poziom_bezposredni(" not in metody, (
+        "starsze przejscie wrocilo — mialo wycinac wnetrza klamr, wiec asercji nie "
+        "widzi, a jego definicja znaczy, ze znowu sa dwa")
+    assert "def _poziom_bezposredni(" not in asercje, (
+        "starsze przejscie wrocilo, tym razem do csharp_assertions.py")
 
 
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw.
