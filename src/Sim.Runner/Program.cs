@@ -423,7 +423,24 @@ public static class Program
             File.WriteAllLines(output, lines);
         }
 
-        Console.Error.WriteLine(string.Create(
+        // 6.A30: KAŻDY wiersz `[XXX]` idzie na stdout — ten też, choć do 07.09.2026 szedł
+        // na stderr. Powód jest zmierzony, nie estetyczny. Znaczników `[XXX]` wypisuje ten
+        // plik 38: **33 na stdout, 5 na stderr**, a `[ATP]` stał na OBU STRUMIENIACH
+        // naraz — stdout w `line`, stderr w `replay --atp` — więc `grep '^\[ATP\]'` po
+        // jednym strumieniu widział raz jeden wiersz, raz drugi, raz żaden. Kształt
+        // wyjścia jest wyrocznią dla czytającego log CI i dla `grep` (6.A16, 6.A27),
+        // a `2>/dev/null` — odruch przy skryptach — usuwał tu część WYNIKU, nie tylko
+        // diagnostyki.
+        //
+        // Dlaczego PRZENIESIONE, a nie usunięte: pomiar pola „Wyjście" pozycji dał
+        // **0 duplikatów i 5 unikalnych** — ani jeden z tych pięciu wierszy nie miał
+        // swojego bajt w bajt odpowiednika na stdout (33 wiersze stdout z `drive`,
+        // `replay`, `replay --atp` i `line` razem), więc żadnego nie wolno było skasować.
+        //
+        // Na stderr zostają WYŁĄCZNIE odmowy — `BŁĄD: `, `nieznane polecenie:` i wiersz
+        // pomocy. Tam należą i to rozstrzygnęły 6.A16 oraz 6.A27; ta pozycja ich nie
+        // rusza. Obu kierunków pilnuje `tools/tests/test_runner_output_streams.py`.
+        Console.Out.WriteLine(string.Create(
             Inv,
             $"[RDZEŃ] {scenario.Id}: kroków={drive.State.Steps} t={drive.State.TimeSeconds(drive.TimeStep):F3} s " +
             $"chainage={drive.ChainageM:F3} m droga={drive.State.DistanceM:F3} m koniec={drive.FinishReason}"));
@@ -609,7 +626,11 @@ public static class Program
                 Inv,
                 $"plan PILNUJE — bloki, autorytet jazdy i ATP; sufit maszynisty " +
                 $"{Units.MpsToKmh(speedLimitMps):F2} km/h");
-        Console.Error.WriteLine(string.Create(
+        // 6.A30: stdout, jak cała rodzina `[XXX]` — powód i pomiar stoją przy `[RDZEŃ]`
+        // w `Drive`. Bramka CI wycina ten wiersz z logu złożonego przez `2>&1 | tee`,
+        // więc przeniesienie nie zmienia jej wejścia; zmierzone przed zmianą: żaden krok
+        // `.github/workflows/` nie czyta tych wierszy z SAMEGO stderr.
+        Console.Out.WriteLine(string.Create(
             Inv,
             $"[LIMIT] tryb ręczny: {Units.MpsToKmh(manualPlan.PermittedSpeedMps):F2} km/h " +
             $"z planu {manualPlan.PlanId} ({signallingPath}); {limitTail}"));
@@ -709,7 +730,11 @@ public static class Program
 
         var served = stations?.Calls.Count ?? 0;
         var missed = stations?.Missed.Count ?? 0;
-        Console.Error.WriteLine(string.Create(
+        // 6.A30: stdout — powód i pomiar przy `[RDZEŃ]` w `Drive`. Ten znacznik był
+        // najgorszym przypadkiem rozjazdu: scena wypisuje `[ODTWORZENIE] koniec: …` na
+        // stdout (`GD.Print`), rdzeń wypisywał swoje dwa wiersze na stderr, więc
+        // czytający, który potokował stdout, dostawał część rodziny i nie dostawał reszty.
+        Console.Out.WriteLine(string.Create(
             Inv,
             $"[ODTWORZENIE] {keysPath}: kroków={state.Steps} t={state.TimeSeconds(step):F3} s " +
             $"chainage={Chainage():F3} m droga={state.DistanceM:F3} m " +
@@ -722,7 +747,12 @@ public static class Program
         // wiersz wychodzi zawsze, gdy ochrona była wpięta.
         if (cab is not null)
         {
-            Console.Error.WriteLine(string.Create(
+            // 6.A30: stdout. To JEDYNY znacznik, który przed tą zmianą stał naprawdę na
+            // obu strumieniach jednego programu — `line` wypisuje `[ATP]` na stdout,
+            // `replay --atp` wypisywał swój tutaj na stderr. Dwa różne wiersze, ten sam
+            // wzorzec `grep`; pomiar wykluczył duplikat (treści i pola są inne), więc
+            // wiersz został przeniesiony, a nie usunięty.
+            Console.Out.WriteLine(string.Create(
                 Inv,
                 $"[ATP] ostrzeżeń={cab.Warnings} ingerencji służbowych={cab.ServiceInterventions} " +
                 $"awaryjnych={cab.EmergencyInterventions} " +
@@ -732,7 +762,8 @@ public static class Program
         }
         foreach (var call in stations?.Calls ?? (IReadOnlyList<StationCall>)Array.Empty<StationCall>())
         {
-            Console.Error.WriteLine(string.Create(
+            // 6.A30: stdout — piąty i ostatni z wierszy przeniesionych tą pozycją.
+            Console.Out.WriteLine(string.Create(
                 Inv,
                 $"[ODTWORZENIE] stacja {call.Name}: postój od {call.ArrivalSeconds:F3} s " +
                 $"do {call.DepartureSeconds:F3} s, błąd zatrzymania {call.StopErrorM:F3} m"));
