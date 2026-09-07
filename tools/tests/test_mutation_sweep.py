@@ -1268,6 +1268,150 @@ def test_the_stub_is_a_full_test_module_not_just_a_docstring():
                 "`assertion_gate` liczy taki test jako PORAZKE od #139")
 
 
+# --- czy narzedzie w ogole dochodzi do konca WLASNA droga (6.B37) --------------
+
+
+def _sweep_cli(*argumenty, journal_tag):
+    """`mutation_sweep.py` uruchomiony jako PROCES, tak jak wola go czlowiek i CI.
+
+    Dziennik na sciezke, ktorej nie ma: przebieg z domyslnym dziennikiem czytalby
+    plik zostawiony przez czyjs poprzedni pomiar i moglby na nim odmowic (6.B19),
+    czyli test padalby od stanu maszyny, nie od kodu.
+    """
+    return subprocess.run(
+        [sys.executable, os.path.join(ROOT, "tools", "tests", "mutation_sweep.py"),
+         *argumenty, "--journal",
+         os.path.join(tempfile.gettempdir(), "metro-mutacje-brak-" + journal_tag + ".jsonl")],
+        capture_output=True, text=True, timeout=300)
+
+
+def test_the_cli_lists_mutations_as_a_process_and_exits_zero():
+    """6.B37: droga CLI konczy sie kodem 0 I podaje liczbe zlapanych mutacji.
+
+    **Zalozenie pozycji 6.B37 jest w jednej trzeciej NIEPRAWDZIWE, i to jest
+    zmierzone.** Pozycja mowi „zaden test nie uruchamia narzedzia jego wlasna droga
+    (`main()`)". Pomiar na `origin/main` (przejscie po `ast`, funkcje wolajace
+    `subprocess.run` na `mutation_sweep.py`) daje **piec** takich testow:
+    `test_unknown_operator_class_is_rejected_by_the_cli`,
+    `test_cli_lists_only_the_requested_class`,
+    `test_only_is_a_substring_match_by_design_and_says_how_many_modules_it_caught`,
+    `test_resume_refuses_a_journal_written_on_another_tree`,
+    `test_resume_still_works_when_the_journal_is_from_the_same_tree`.
+    Kod wyjscia drogi CLI byl wiec pilnowany; kontrola KN-3a (`--list` wraca 3)
+    wywraca cztery testy, z ktorych trzy sa starsze od tej pozycji.
+
+    Czego NIE bylo, zmierzone kontrola KN-3b (usuniety `print(f"razem: ...")`):
+    **wiersza z liczba**. Stare testy filtruja wypis po przedrostku `tools/`, wiec
+    podsumowania nie ogladaja wcale — KN-3b wywraca WYLACZNIE ten test. Do tego
+    dochodzi porownanie dwoch niezaleznych licznikow tej samej rzeczy: liczby
+    z naglowka `--only` i liczby wypisanych mutacji.
+
+    **Usterki 6.B35 ten test nie lapie, i to tez jest zmierzone, nie zalozone.**
+    `--list` wraca kodem 0 takze z zaslepka bez straznika, bo wychodzi z `main()`
+    PRZED `add_worktree` i przed kalibracja wyroczni. Pomiar 07.09.2026, z trescia
+    zaslepki podmieniona w drzewie na sam docstring:
+
+        [MUTACJE] --only 'tools/blender/lod_paths.py' zlapalo 2 mutacji z 1 modul(ow)
+        razem: 2
+        kod: 0
+
+    Prawdziwa luka po 6.B35 jest wiec NIE w kodzie wyjscia CLI, a w **drodze
+    przygotowania drzewa**, ktorej zadna z piatki nie dotyka. Zajmuje sie nia
+    `test_a_fresh_worktree_runs_the_stub_as_a_real_module` nizej i tylko ona
+    spelnia pole „Skonczone, gdy" tej pozycji.
+    """
+    done = _sweep_cli("--only", "tools/blender/lod_paths.py", "--list",
+                      journal_tag="6b37-list")
+    assert done.returncode == 0, (
+        "CLI narzedzia mutacyjnego nie dochodzi do konca wlasna droga (kod "
+        + str(done.returncode) + "):\n" + done.stderr[-600:])
+    linie = done.stdout.splitlines()
+    naglowek = [w for w in linie if w.startswith("[MUTACJE] --only")]
+    assert len(naglowek) == 1, done.stdout[-600:]
+    razem = [w for w in linie if w.startswith("razem: ")]
+    assert len(razem) == 1, (
+        "wypis bez wiersza z liczba zlapanych mutacji: " + done.stdout[-600:])
+    ile = int(razem[0].split(":")[1])
+    # Liczba z wiersza podsumowania ma sie zgadzac z liczba wypisanych mutacji
+    # ORAZ z liczba, ktora naglowek `--only` podal przed dotknieciem dziennika.
+    # Dwa niezalezne liczniki tej samej rzeczy — rozjazd znaczy, ze filtr `--only`
+    # dziala inaczej niz wypis.
+    opisy = [w for w in linie if w.startswith("tools/")]
+    assert ile == len(opisy), (str(ile), len(opisy), done.stdout[-600:])
+    assert ile > 0, "przebieg nie zlapal ani jednej mutacji: " + done.stdout[-600:]
+    assert str(ile) + " mutacji" in naglowek[0], (naglowek[0], ile)
+
+
+def _stub_w_drzewie(zaslepka=None):
+    """Prawdziwe `git worktree` przygotowane `add_worktree`, uruchomione wprost.
+
+    Zwraca `(kod, liczba_testow, wypis)`. `zaslepka` podmienia `OWN_TESTS_STUB`
+    na czas wywolania — sluzy kontroli przyrzadu, nie produkcji.
+    """
+    import test_module_entrypoints as WEJSCIA
+
+    oryginal = sweep.OWN_TESTS_STUB
+    # `git worktree remove` MUSI pojsc przed sprzatnieciem katalogu, inaczej git
+    # zostaje z wpisem wskazujacym w nicosc i psuje kazdy nastepny przebieg
+    # w tym repozytorium — dlatego `finally` jest wewnatrz `with`, nie odwrotnie.
+    with tempfile.TemporaryDirectory(prefix="metro-6b37-") as katalog:
+        drzewo = os.path.join(katalog, "w")
+        try:
+            if zaslepka is not None:
+                sweep.OWN_TESTS_STUB = zaslepka
+            sweep.add_worktree(drzewo)
+            done = subprocess.run(
+                [sys.executable, os.path.join("tools", "tests", "test_mutation_sweep.py")],
+                cwd=drzewo, capture_output=True, text=True, timeout=300)
+            return done.returncode, WEJSCIA._liczba_testow(done.stdout), done.stdout
+        finally:
+            sweep.OWN_TESTS_STUB = oryginal
+            subprocess.run(["git", "worktree", "remove", "--force", drzewo],
+                           cwd=ROOT, capture_output=True)
+
+
+def test_a_fresh_worktree_runs_the_stub_as_a_real_module():
+    """6.B37: usterka 6.B35 lapana w PRAWDZIWYM drzewie roboczym, nie na napisie.
+
+    `test_the_stub_is_a_full_test_module_not_just_a_docstring` czyta `OWN_TESTS_STUB`
+    jako napis. Ten test przechodzi cala droge przygotowania — `git worktree add`,
+    `neutralise_own_tests`, uruchomienie modulu WPROST — czyli dokladnie to, co robi
+    robotnik przegladu, i to na pliku LEZACYM w drzewie.
+
+    **Kod wyjscia tu nie wystarcza, i to jest zmierzone.** Zaslepka bez straznika
+    daje w drzewie kod **0** i PUSTY wypis, bo modul bez `__main__` uruchomiony
+    wprost nie wykonuje niczego — to ta sama usterka, ktorej 6.D25 dala bramke.
+    Rozstrzyga wiec LICZBA wykonanych testow, czytana tym samym `_liczba_testow`,
+    ktorym czyta ja bramka 6.D25.
+    """
+    kod, ile, wypis = _stub_w_drzewie()
+    assert kod == 0, "zaslepka w swiezym drzewie nie przechodzi (kod " + str(kod) + "):\n" + wypis[-600:]
+    assert ile == 1, (
+        "zaslepka w swiezym drzewie nie zameldowala DOKLADNIE jednego wykonanego "
+        "testu (" + repr(ile) + ") — kalibracja wyroczni zobaczy zestaw jako "
+        "padajacy i przerwie przeglad kodem 2:\n" + wypis[-600:])
+
+
+def test_the_worktree_probe_can_tell_a_guardless_stub_apart():
+    """Kontrola przyrzadu z testu wyzej — WYKONANA, nie opisana.
+
+    Bramka, ktora swieci sie tak samo na tresci poprawnej i zepsutej, nie mierzy
+    niczego. Tu podmieniana jest DOKLADNIE tresc, ktora usterka 6.B35 miala:
+    sam docstring, bez straznika i bez testu. Przyrzad ma wtedy pokazac brak
+    liczby testow, mimo kodu wyjscia 0.
+    """
+    kod, ile, wypis = _stub_w_drzewie(
+        '"""Zaslepka: testy narzedzia mutacyjnego, zdjete na czas przegladu."""\n')
+    assert kod == 0, (
+        "spodziewany byl wlasnie kod 0 — o to cala rzecz: modul bez straznika "
+        "NIE zdradza sie kodem wyjscia (kod " + str(kod) + ")")
+    assert ile is None, (
+        "przyrzad zameldowal " + repr(ile) + " wykonanych testow dla zaslepki "
+        "bez straznika, czyli nie odroznia jej od poprawnej")
+    assert wypis.strip() == "", (
+        "modul bez straznika mial nie wypisac niczego: " + repr(wypis[-300:]))
+
+
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
 # z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
 # tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
