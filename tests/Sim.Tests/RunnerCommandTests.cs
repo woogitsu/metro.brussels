@@ -1188,6 +1188,26 @@ public sealed class RunnerCommandTests
     /// poprawka wypisujaca zawsze `args[1]` przeszlaby test wyzej, a czytajacy szukalby
     /// usterki w pliku, ktory jest w porzadku.
     /// </summary>
+    /// <remarks>
+    /// **Asercje wzmocnione 07.09.2026 przy 6.A29 — dopisane, nie przepisane, bo
+    /// tamte byly prawdziwe, tylko za slabe.** Do tej pozycji test sprawdzal trzy
+    /// rzeczy: kod 1, tresc zawiera sciezke pliku zepsutego, tresc NIE zawiera
+    /// sciezki dobrego. Wszystkie trzy spelnia DOWOLNA odmowa, ktora nazwie pierwsza
+    /// sciezke z wiersza polecen — a nie tylko odmowa komorki z 6.A24.
+    ///
+    /// Zmierzone kontrola negatywna KN-1 pozycji 6.A25: przy `compare` z zerowa
+    /// liczba czlonow pozycyjnych piec testow `compare` padlo, a TEN zostal zielony,
+    /// bo `BLAD: polecenie compare dostalo czlon pozycyjny build/zepsuty.csv, a nie
+    /// bierze ani jednego` daje kod 1, zawiera `zepsuty` i nie zawiera `dobry`.
+    /// Test wierzyl, ze przybija komunikat 6.A24; przybijal zdanie „gdzies w tresci
+    /// stoi pierwsza sciezka".
+    ///
+    /// Doszly wiec asercje na te czesci komunikatu, ktore 6.A24 wprowadzila i ktore
+    /// odrozniaja go od kazdej innej odmowy: numer wiersza, numer kolumny, nazwa
+    /// kolumny i sama zla wartosc. Numer kolumny jest o jeden wiekszy od indeksu
+    /// (`DwaPlikiTelemetrii(5, 2, ...)` psuje trzecia kolumne, `chainage_m`), bo
+    /// komunikat liczy kolumny od jednego — to decyzja 6.A24, nie przypadek.
+    /// </remarks>
     [TestMethod]
     public void Zepsuta_komorka_nazywa_zepsuty_plik_a_nie_pierwszy()
     {
@@ -1201,6 +1221,12 @@ public sealed class RunnerCommandTests
             Assert.IsFalse(
                 result.StdErr.Contains(dobry, StringComparison.Ordinal),
                 "komunikat nazywa plik, ktory jest w porzadku: " + result.StdErr);
+
+            // Cztery czesci, ktorych nie ma zadna inna odmowa runnera.
+            StringAssert.Contains(result.StdErr, "wiersz 5");
+            StringAssert.Contains(result.StdErr, "kolumna 3");
+            StringAssert.Contains(result.StdErr, "chainage_m");
+            StringAssert.Contains(result.StdErr, "nie-liczba");
         }
         finally
         {

@@ -169,6 +169,98 @@ def test_there_is_only_one_traversal_of_a_class_body():
 
 
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw.
+
+# --- asercja rozstrzygajaca, nie tylko prawdziwa (6.A29) -------------------------
+
+#: Testy odmowy komorki z 6.A24 i to, co KAZDY z nich musi asercjonowac, zeby
+#: odrozniac komunikat 6.A24 od dowolnej innej odmowy `compare`.
+#:
+#: **Skad ta bramka.** Zmierzone kontrola KN-1 pozycji 6.A25: przy `compare` z zerowa
+#: liczba czlonow pozycyjnych piec testow `compare` padlo, a
+#: `Zepsuta_komorka_nazywa_zepsuty_plik_a_nie_pierwszy` ZOSTAL ZIELONY — jego trzy
+#: asercje (kod 1, tresc zawiera sciezke zepsutego pliku, tresc nie zawiera dobrego)
+#: spelnia dowolna odmowa nazywajaca pierwsza sciezke z wiersza polecen. Asercja
+#: prawdziwa, ale nie rozstrzygajaca.
+#:
+#: Pomiar z 07.09.2026: z czterech testow rodziny 6.A24 asercje rozstrzygajaca mialy
+#: TRZY — ten jeden nie. Poprawka dotyczy wiec jednego testu, nie czterech, i to jest
+#: odpowiedz na pytanie z pola „Wyjscie" pozycji 6.A29.
+ASERCJE_ODMOWY_KOMORKI = {
+    "Zepsuta_komorka_nazywa_plik_wiersz_i_kolumne": ("wiersz ", "kolumna ", "step"),
+    "Zepsuta_komorka_nazywa_zepsuty_plik_a_nie_pierwszy": (
+        "wiersz ", "kolumna ", "chainage_m"),
+    "Numer_i_nazwa_kolumny_ida_z_pozycji_w_wierszu": (
+        "wiersz ", "kolumna ", "speed_mps"),
+}
+
+#: Test drugiego kierunku tej samej rodziny: dwa poprawne pliki koncza sie kodem 0.
+#: Tresci odmowy nie asercjonuje, bo odmowy nie ma — i to jest poprawne, dlatego
+#: stoi osobno, a nie w slowniku wyzej. Wypisany, zeby jego zniknięcie bylo widoczne.
+TEST_DRUGIEGO_KIERUNKU = "Dwa_poprawne_pliki_nadal_przechodza"
+
+
+def _cialo_metody(zrodlo, nazwa):
+    at = zrodlo.index("public void " + nazwa + "(")
+    return zrodlo[at:zrodlo.index("\n    }", at)]
+
+
+def test_every_cell_refusal_test_asserts_what_only_that_message_carries():
+    """Asercja ma ROZSTRZYGAC, nie tylko byc prawdziwa.
+
+    Numer wiersza, numer kolumny i nazwa kolumny sa tym, co 6.A24 wprowadzila do
+    komunikatu i czego nie ma zadna inna odmowa runnera. Test sprawdzajacy wylacznie
+    kod wyjscia i nazwe pliku przechodzi takze wtedy, gdy odmowa mowi o czym innym —
+    zmierzone, nie przewidziane.
+    """
+    sciezka = os.path.join(CTM.ROOT, "tests", "Sim.Tests", "RunnerCommandTests.cs")
+    with open(sciezka, encoding="utf-8") as uchwyt:
+        zrodlo = uchwyt.read()
+
+    braki = []
+    for nazwa, czesci in ASERCJE_ODMOWY_KOMORKI.items():
+        cialo = _cialo_metody(zrodlo, nazwa)
+        for czesc in czesci:
+            if czesc not in cialo:
+                braki.append((nazwa, czesc))
+    assert braki == [], (
+        "test odmowy komorki nie asercjonuje czesci komunikatu, ktora odroznia go od "
+        "kazdej innej odmowy `compare` — przechodzilby takze dla odmowy o czym innym "
+        "(6.A29, zmierzone kontrola KN-1 pozycji 6.A25): " + repr(braki))
+
+    # Test drugiego kierunku ISTNIEJE i ma zostac. Bez tej asercji bramka wyzej
+    # byłaby zielona takze wtedy, gdyby ktos usunal jedyny test sprawdzajacy, ze
+    # dwa poprawne pliki nadal przechodza — a wtedy odmowa zbudowana zbyt szeroko
+    # nie mialaby czego wywrocic.
+    assert "public void " + TEST_DRUGIEGO_KIERUNKU + "(" in zrodlo, (
+        "zniknal test drugiego kierunku rodziny 6.A24: " + TEST_DRUGIEGO_KIERUNKU)
+    drugi = _cialo_metody(zrodlo, TEST_DRUGIEGO_KIERUNKU)
+    assert "Assert.AreEqual(0," in drugi, (
+        TEST_DRUGIEGO_KIERUNKU + " przestal zadac kodu 0")
+
+
+def test_the_reader_of_test_bodies_is_not_matching_the_whole_file():
+    """Kontrola przyrzadu z testu wyzej — WYKONANA, nie opisana.
+
+    `_cialo_metody` wycina od naglowka metody do pierwszego `\\n    }`. Gdyby wycinal
+    za duzo (do konca pliku), bramka wyzej bylaby zielona zawsze, bo `wiersz `,
+    `kolumna ` i nazwy kolumn wystepuja w plikach gdzie indziej. Ten test mierzy, ze
+    wycinek jest WEZSZY od pliku i ze nie niesie nazwy nastepnej metody.
+    """
+    sciezka = os.path.join(CTM.ROOT, "tests", "Sim.Tests", "RunnerCommandTests.cs")
+    with open(sciezka, encoding="utf-8") as uchwyt:
+        zrodlo = uchwyt.read()
+
+    cialo = _cialo_metody(zrodlo, "Zepsuta_komorka_nazywa_zepsuty_plik_a_nie_pierwszy")
+    assert len(cialo) < len(zrodlo) / 10, (
+        "wycinek ciala metody ma %d znakow przy pliku %d — czytnik bierze za duzo"
+        % (len(cialo), len(zrodlo)))
+    assert "Numer_i_nazwa_kolumny_ida_z_pozycji_w_wierszu" not in cialo, (
+        "wycinek siega do nastepnej metody: " + cialo[-200:])
+    assert "speed_mps" not in cialo, (
+        "wycinek niesie nazwe kolumny z INNEGO testu, wiec bramka wyzej mogłaby "
+        "zaliczyc cudza asercje jako swoja")
+
+
 if __name__ == "__main__":
     import test_all
     raise SystemExit(test_all.main(__file__))
