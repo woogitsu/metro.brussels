@@ -53,8 +53,9 @@ z każdym dopisanym raportem, a bramka przez cały czas świeci na zielono.
 
 ## 3. Co się zmieniło
 
-1. `MIN_REPORTS` = **156**, czyli stan katalogu po tym commicie — i ta liczba jest
-   **drugą** wartością, jaką ta pozycja tu nosiła, co samo w sobie jest jej pomiarem.
+1. `MIN_REPORTS` = **157**, czyli stan katalogu dziś — i ta liczba jest **trzecią**,
+   jaką ten akapit nosił, co samo w sobie jest jej pomiarem. Historia obu poprzednich
+   stoi niżej, bo bez nich nie widać, po co ta zapadka istnieje.
    Gałąź powstała przy 153 raportach (152 na `a214ab9` plus ten raport) i tyle
    pierwotnie wpisała. Zanim doszła do `main`, weszły tam trzy pull requesty
    z własnymi raportami — #413, #414, #415 — więc w chwili scalenia stała była
@@ -70,6 +71,24 @@ z każdym dopisanym raportem, a bramka przez cały czas świeci na zielono.
    153 bez jednego słowa i różnica rosłaby dalej. Dowodu, że nierówność bez sufitu
    starzeje się po cichu, nie trzeba było więc szukać: dostarczyła go ta sama
    zmiana, która ją usuwa.
+
+   **I zestarzała się PO RAZ DRUGI, godzinę później.** Wartość 156 weszła do `main`
+   z #416 i przestała być prawdziwa przy **pierwszym** raporcie dopisanym po niej
+   (6.D43, `reports/pojemnosc-puli-ci.md`, katalog 157). Ta sama bramka wypisała
+   wtedy to samo zdanie o jeden krok dalej — `MIN_REPORTS mówi 156, kod 157` —
+   i znowu złapała to **zapadka, nie czyjaś czujność**.
+
+   **Dwa razy pod rząd jest mocniejszym argumentem niż pierwotne 112 pozycji
+   różnicy**, i to jest właściwy wynik tej pozycji. Sto dwanaście dawało się
+   opowiedzieć jako jedno zaniedbanie z przeszłości, które wystarczy raz nadgonić.
+   Dwa rozjazdy w odstępie godziny, przy dwóch różnych zmianach, pokazują coś
+   innego: **stała pilnująca katalogu, który rośnie, starzeje się MIĘDZY napisaniem
+   commita a jego scaleniem** — w okresie, w którym autor już nic nie mierzy, bo
+   uważa zadanie za skończone. Żadna dyscyplina po stronie autora tego nie załatwi,
+   bo nie ma momentu, w którym miałby ją zastosować. Załatwia to wyłącznie warunek,
+   który rozjazdu nie przepuszcza — i dlatego cena tej zapadki (każdy nowy raport
+   wymusza podniesienie stałej i poprawienie każdego raportu, który ją cytuje) jest
+   ceną, nie usterką.
 2. Nowy test `test_zapadka_liczby_raportow_nie_zostaje_za_katalogiem` pilnuje
    **równości** dwiema asercjami w przeciwnych kierunkach, na wzór
    `test_the_documented_ratchet_does_not_lag_behind_the_file` z

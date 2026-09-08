@@ -233,14 +233,24 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 #: został nierównością, jaką był (`>= 40`), 153 przeszłoby bez słowa i różnica
 #: rosłaby dalej.
 #:
+#: **A potem zestarzała się PO RAZ DRUGI, z tego samego powodu.** Wartość **156**,
+#: odczytana na `e1fcfc1`, weszła do `main` z #416 — i przestała być prawdziwa przy
+#: pierwszym raporcie dopisanym po niej (6.D43, `reports/pojemnosc-puli-ci.md`).
+#: Znowu złapała to zapadka, nie czujność. Dwa razy pod rząd, w odstępie godziny,
+#: przy dwóch różnych autorach zmiany — i to jest mocniejszy argument za równością
+#: niż pierwotne 112 pozycji różnicy: **stała pilnująca katalogu, który rośnie,
+#: starzeje się MIĘDZY napisaniem commita a jego scaleniem**, więc żadna dyscyplina
+#: po stronie autora tego nie załatwi. Załatwia to wyłącznie warunek, który nie
+#: przepuszcza rozjazdu.
+#:
 #: Dlatego liczba nie jest tu wyliczana z żadnej innej liczby. Jest odczytana
-#: z drzewa po scaleniu `main`, na `e1fcfc1`:
+#: z drzewa po scaleniu `main`, na `d3bd708`:
 #:
 #:     $ ls reports/*.md | wc -l
-#:     156
+#:     157
 #:     $ python3 -c 'import sys; sys.path.insert(0, "tools/tests");
 #:       import test_report_hygiene as m; print(len(list(m._reports())))'
-#:     156
+#:     157
 #:
 #: Oba pomiary stoją tu razem świadomie: asercja porównuje z `len(list(_reports()))`,
 #: nie z wyjściem `ls`, a te dwa zbiory mogłyby się różnić (glob, katalogi, pliki
@@ -250,7 +260,7 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 #: Kto dopisze następny raport, nie przepisuje tej liczby z pamięci ani z tego
 #: akapitu, tylko mierzy ją **na swoim drzewie po scaleniu `main`** — komunikat
 #: asercji podaje wynik pomiaru wprost, żeby nie było potrzeby zgadywania.
-MIN_REPORTS = 156
+MIN_REPORTS = 157
 
 #: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
 #: wierszem zaczynającym się od `**`, z którego `_header_shapes` czyta kształt.
