@@ -184,7 +184,8 @@ Do tego czasu kod i assety mają pozostać kompatybilne z neutralnym fallbackiem
 ## Weryfikacja po odblokowaniu runnera
 
 Runner jest self-hosted, na komplecie etykiet `[self-hosted, Linux, X64, woogitsu,
-i5-10400f, nvidia-gtx1070]` — pula `woogitsu-linux-01` … `-10` (`CLAUDE.md` §9).
+i5-10400f, nvidia-gtx1070]` — pula organizacji `woogitsu` (`CLAUDE.md` §9; nazw
+i liczby maszyn ten dokument nie podaje, bo dobór idzie po etykietach).
 Ten akapit jest **przepisany, a nie dopisany obok**, i to po raz drugi; obie
 poprzednie wersje są niżej, bo bez nich nie widać, czemu selektor ma dziś sześć
 etykiet.

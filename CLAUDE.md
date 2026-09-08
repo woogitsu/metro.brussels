@@ -170,8 +170,17 @@ GitHub Actions. Poprzednia wersja tego punktu mówiła, że standardem jest
 `ubuntu-latest`; to już nieprawda i dlatego jest tu przepisana, a nie dopisana obok.
 
 - **`runs-on: [self-hosted, Linux, X64, woogitsu, i5-10400f, nvidia-gtx1070]`** — komplet
-  sześciu etykiet nowej puli organizacji `woogitsu`, maszyny `woogitsu-linux-01`
-  … `-10`. Od 07.09.2026, i ten punkt jest przepisany, a nie dopisany obok — po raz
+  sześciu etykiet nowej puli organizacji `woogitsu`. **Liczby maszyn ten punkt nie
+  podaje, i to jest wybór, nie przeoczenie:** poprzednia wersja mówiła
+  „`woogitsu-linux-01` … `-10`" i przestała być prawdą tego samego dnia, w którym
+  powstała. Maszyny widziane w logach ZAKOŃCZONYCH jobów 07-08.09.2026 należą do
+  **dwóch** rodzin nazw — `woogitsu-linux-*` i `woogitsu-host-*` — a wśród nich stoi
+  `woogitsu-host-12`, więc zapis „01 … -10" był nieprawdziwy w obie strony: mylił
+  liczbę i pomijał całą rodzinę. Nowej liczby tu nie ma, bo nie da się jej sprawdzić
+  z repozytorium: zestarzałaby się po cichu, tak jak poprzednia. Dobór idzie
+  **wyłącznie po etykietach**, więc liczebność puli jest dla selektora nieistotna —
+  istotna jest tylko wtedy, gdy spadnie do jednej maszyny, i ten warunek jest opisany
+  niżej. Od 07.09.2026, i ten punkt jest przepisany, a nie dopisany obok — po raz
   **drugi**, więc obie poprzednie litery reguły są tu wymienione, bo bez nich nie widać,
   czemu ta jest taka, jaka jest.
   Litera pierwsza (do 05.09.2026): „gołe `self-hosted`, **bez dodatkowych etykiet**".
@@ -191,7 +200,7 @@ GitHub Actions. Poprzednia wersja tego punktu mówiła, że standardem jest
   etykiety, której one nie mają — i to jest powód, dla którego `i5-10400f`
   i `nvidia-gtx1070` stoją w selektorze, choć wyglądają na opis sprzętu.
   **Runnera nie wybiera się po nazwie.** Wpisanie `woogitsu-linux-01` zwężałoby
-  dziesięciomaszynową pulę do jednej maszyny, czyli odtwarzałoby awarię z 02.08.2026
+  całą pulę do jednej maszyny, czyli odtwarzałoby awarię z 02.08.2026
   — tym razem z własnej ręki. Pilnuje tego osobna asercja w kontroli negatywnej.
   Warunek, pod którym wolno tę regułę zmienić, zostaje ten sam co przy literze
   drugiej: gdyby pula zeszła do jednej maszyny, wraca szeroki selektor.
