@@ -85,6 +85,39 @@ z wypisanym komunikatem, każda MUSI paść:
      wzorzec zakotwiczony na samym grzbiecie widzi jeden i zgłasza ZERO — bramka
      ZIELONA, nie zobaczywszy zgniłego przykładu w pliku
      -> odstające (`FENCE`): 1, kod 1; odstające (`^```` bez `[ \t]*`): 0, kod 0
+ 14. ZAPADKA `MIN_REPORTS` ZEPSUTA W TRZECH KIERUNKACH (6.D45, 08.09.2026, `a214ab9`,
+     153 raporty w katalogu). Wykonane; po każdej mutacji `__pycache__` wyczyszczony,
+     bo mutacja tej samej długości bajtowej w tym samym oknie mtime zostawia nieświeży
+     `.pyc` — to przypadek z 6.D41. Suma `md5` pliku po każdym przywróceniu ta sama.
+     - o jeden W GÓRĘ (154): pada SIEDEM testów — sześć podłóg „skan czyta
+       katalog" i sam nowy test, bo nie da się ich spełnić razem z zapadką
+       wyprzedzającą katalog
+       -> raportów jest 153 przy `MIN_REPORTS` = 154 — któryś raport zniknął
+          z `reports/` albo skan przestał go czytać
+     - RÓWNO (153): 15/15, kod 0
+     - o jeden W DÓŁ (152): pada DOKŁADNIE JEDEN test, ten nowy, 14/15, kod 1
+       -> raportów w `reports/` jest 153, a `MIN_REPORTS` stoi na 152 — podnieś ją
+          do 153 w tym samym commicie, w którym dopisujesz raport
+     - na STARĄ WARTOŚĆ (40), czyli stan przed 6.D45: pada dokładnie ten sam jeden
+       test i tym samym zdaniem („podnieś ją do 153"), 14/15, kod 1. PRZED tą zmianą
+       ta wartość przechodziła cały moduł na zielono — to jest cała usterka 6.D45
+       pokazana z jednej strony.
+ 15. ZAPADKA `MAX_REPORTS_WITHOUT_FIELD_LINE` ZEPSUTA W OBIE STRONY — para do 14,
+     dla podłogi PRZEKIEROWANEJ z `MIN_REPORTS` na stan katalogu.
+     - o jeden W GÓRĘ (6): zapas na przyszłe nagłówki bez wiersza pola
+       -> zapadka 6 stoi wyżej niż stan (5) — obniż ją do stanu faktycznego
+     - o jeden W DÓŁ (4): podłoga podniesiona nad stan
+       -> tylko 148 raportów ma wiersz pola z SHA przy 153 w katalogu i zapadce 4 —
+          przyrząd przestał czytać nagłówki
+ 16. PRZYRZĄD, KTÓRY PRZESTAŁ CZYTAĆ CZĘŚĆ NAGŁÓWKÓW — kontrola, dla której to
+     przekierowanie w ogóle powstało. `_header_field_line` zawężony z `**` do
+     `**Zmierzone`, czyli przestaje widzieć wiersz pola o innej etykiecie:
+       -> tylko 140 raportów ma wiersz pola z SHA przy 153 w katalogu i zapadce 5 —
+          przyrząd przestał czytać nagłówki (14/15, kod 1)
+     Na TYM SAMYM zepsutym przyrządzie stara podłoga `sum(counts) >= MIN_REPORTS`
+     przy `MIN_REPORTS = 40` jest **zielona** (140 >= 40) — zmierzone, nie
+     przewidziane. Zielona zostaje też kontrola 7 wyżej, bo jej literał zaczyna się
+     od `**Zmierzone`. Trzynastu nieczytanych nagłówków nie zobaczyłby więc nikt.
 
 Kontrole 11 i 13 są parą jak 7 i 8, tylko dla przykładu w konwencjach: zapis zgniły
 (11) i przyrząd, który zgniłego nie widzi (13). Kontrolę na tekście POPRAWNYM — kształt
@@ -156,12 +189,96 @@ NOTATIONS = {
 COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 
 #: Ile raportów musi wpaść do pętli. Bez tego progu wskazanie katalogu na pusty
-#: albo literówka w globie dawałyby pustą pętlę i zieloną bramkę. Raportów jest
-#: **48** (zmierzone 05.09.2026 na `6c1048b`); liczba 44 stała tu od `839ad78`
-#: i przestała być prawdziwa po czterech nowych raportach — jest więc przepisana,
-#: a nie dopisana obok. Próg stoi niżej, żeby nie trzeba go było ruszać przy
-#: każdym nowym raporcie.
-MIN_REPORTS = 40
+#: albo literówka w globie dawałyby pustą pętlę i zieloną bramkę.
+#:
+#: **LICZBA I WARUNEK PRZEPISANE, A NIE DOPISANE OBOK — 6.D45, 08.09.2026.**
+#: Poprzednia wersja podawała **48** (zmierzone 05.09.2026 na `6c1048b`) i kończyła
+#: się zdaniem „Próg stoi niżej, żeby nie trzeba go było ruszać przy każdym nowym
+#: raporcie". To zdanie było całą usterką, a nie wygodą: stała stała na **40**, gdy
+#: `reports/` miało **152** pliki `.md` (zmierzone 08.09.2026 na `a214ab9`), czyli
+#: **112 pozycji** za katalogiem, którego pilnuje. Warunek `len(items) >= MIN_REPORTS`
+#: jest nierównością **bez sufitu**, więc skan mógł przestać czytać 112 ze 152
+#: raportów — niemal trzy czwarte katalogu — i przejść na zielono, a odległość
+#: między stałą a stanem rosła z każdym dopisanym raportem i nic tego nie widziało.
+#:
+#: Dziś stała jest **zapadką dwustronną**, dokładnie na wzór `MINIMUM_DETAIL_BLOCKS`
+#: z `tools/tests/test_backlog.py`:
+#: `test_zapadka_liczby_raportow_nie_zostaje_za_katalogiem` wymaga **równości**
+#: z liczbą plików `.md` w `reports/`, więc ani nowy raport nie przechodzi bez
+#: podniesienia stałej w tym samym commicie, ani zniknięcie raportu nie przechodzi
+#: wcale. Sama podniesiona liczba usterki nie usuwa — bez zmiany warunku odległość
+#: odrasta po tygodniu, i to jest powód, dla którego 6.D45 mówi wprost, że zmiana
+#: liczby bez zmiany warunku NIE jest wykonaniem pozycji.
+#:
+#: Nazwa zostaje `MIN_REPORTS`, bo rola podłogi „skan czyta katalog" się nie zmienia
+#: i niesie ją **sześć** asercji w sześciu testach: daty, commita, konwencji
+#: nagłówka, nagłówka bez śródtytułu, ścieżek i zapisu w konwencjach. Numerów
+#: wierszy tu nie ma świadomie — pole „Wejście" pozycji 6.D45 podawało „wiersze 249 i 263",
+#: a w dniu wykonania te asercje stały w 334 i 348. Liczba wierszy starzeje się
+#: przy każdym dopisanym akapicie; nazwa testu nie. Tak samo `MINIMUM_DETAIL_BLOCKS`
+#: nosi przedrostek minimum, będąc pilnowane na równość.
+#:
+#: Liczba jest POMIAREM, nie wartością zapamiętaną — i ten akapit jest tego
+#: dowodem z pierwszej ręki, bo **stała zestarzała się, zanim jej commit trafił
+#: do `main`.** Poprzednia wersja tego akapitu podawała:
+#:
+#:     $ ls reports/*.md | wc -l        # na `a214ab9`
+#:     152
+#:
+#: i wyliczała z tego **153** („152 plus raport, który ten commit dokłada"). Między
+#: tym pomiarem a scaleniem gałęzi weszły do `main` trzy pull requesty z własnymi
+#: raportami (#413, #414, #415), więc 153 było nieprawdziwe **o trzy** w chwili,
+#: w której miało zostać zapisane. Zapadka równościowa nie dała tego przepuścić —
+#: i to jest jedyny powód, dla którego ta liczba nie weszła zła. Gdyby warunek
+#: został nierównością, jaką był (`>= 40`), 153 przeszłoby bez słowa i różnica
+#: rosłaby dalej.
+#:
+#: Dlatego liczba nie jest tu wyliczana z żadnej innej liczby. Jest odczytana
+#: z drzewa po scaleniu `main`, na `e1fcfc1`:
+#:
+#:     $ ls reports/*.md | wc -l
+#:     156
+#:     $ python3 -c 'import sys; sys.path.insert(0, "tools/tests");
+#:       import test_report_hygiene as m; print(len(list(m._reports())))'
+#:     156
+#:
+#: Oba pomiary stoją tu razem świadomie: asercja porównuje z `len(list(_reports()))`,
+#: nie z wyjściem `ls`, a te dwa zbiory mogłyby się różnić (glob, katalogi, pliki
+#: bez rozszerzenia). Dziś są równe i dopóki są, `ls` wolno używać jako skrótu —
+#: rozjazd między nimi byłby osobną usterką, o której ta stała nic nie powie.
+#:
+#: Kto dopisze następny raport, nie przepisuje tej liczby z pamięci ani z tego
+#: akapitu, tylko mierzy ją **na swoim drzewie po scaleniu `main`** — komunikat
+#: asercji podaje wynik pomiaru wprost, żeby nie było potrzeby zgadywania.
+MIN_REPORTS = 156
+
+#: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
+#: wierszem zaczynającym się od `**`, z którego `_header_shapes` czyta kształt.
+#:
+#: SKĄD TA STAŁA I DLACZEGO POWSTAJE RAZEM Z 6.D45. Podłogą asercji „przyrząd
+#: przestał czytać nagłówki" w `test_zapis_o_naglowku_w_konwencjach_...` było
+#: `MIN_REPORTS`. Przy stałej 40 i 147 raportach z wierszem pola ta asercja miała
+#: **107 raportów zapasu**: przyrząd mógł przestać czytać sto siedem nagłówków i nie
+#: powiedzieć ani słowa. Podniesienie `MIN_REPORTS` do stanu katalogu zapaliłoby ją
+#: natychmiast — nie dlatego, że coś jest zepsute, tylko dlatego, że wiersza pola
+#: nie ma **pięć** raportów, i to jest prawda o katalogu. Asercja jest więc
+#: **przekierowana, a nie poluzowana**: podłoga liczy się od stanu katalogu minus ta
+#: zapadka, czyli zapas zszedł ze 107 do zera.
+#:
+#: ZMIERZONE 08.09.2026 na `a214ab9` — pięć raportów, każdy z powodem widocznym
+#: w pliku: `R-006-line-speed.md` i `T-401-line-run.md` nie mają SHA wcale (są
+#: w `COMMIT_EXCEPTIONS`, powody stoją tam), a `mutacje-rdzen-sygnalizacji.md`,
+#: `mutation-triage-fizyka.md` i `mutation-triage-parametry.md` nazywają commity
+#: w **tabeli** przeglądu, nie w wierszu pola.
+#:
+#: Czego ta zapadka NIE jest, świadomie: bramką na kształt nagłówka. 6.D38 zmierzyło,
+#: że takiej być nie może (`reports/ksztalt-naglowka-raportu.md`),
+#: a `docs/04-conventions.md` nazywa kształt **zaleceniem, nie wymogiem**. Zapadka
+#: nie mówi, JAK wiersz pola ma wyglądać — kształtów jest dziś szesnaście i wszystkie
+#: przechodzą. Mówi tylko, że liczba raportów, których przyrząd nie umie przeczytać,
+#: nie rośnie **po cichu**: rośnie za cenę podniesienia tej stałej w tym samym
+#: commicie, z powodem, tak jak przy tabeli w `mutacje-rdzen-sygnalizacji.md`.
+MAX_REPORTS_WITHOUT_FIELD_LINE = 5
 
 #: ZAPADKA NA DŁUGOŚĆ LISTY WYJĄTKÓW. Wolno ją tylko OBNIŻAĆ — jak
 #: `MINIMUM_DOCUMENTED_ITEMS` w `tools/tests/test_backlog.py`, tylko w drugą stronę.
@@ -380,6 +497,41 @@ def test_data_i_commit_stoja_w_naglowku_a_nie_gdziekolwiek_w_raporcie():
         f"raporty bez śródtytułu `## `, w których nagłówek to cały plik: "
         f"{bez_srodtytulu}")
     assert len(items) >= MIN_REPORTS, f"tylko {len(items)} raportów w pętli"
+
+
+def test_zapadka_liczby_raportow_nie_zostaje_za_katalogiem():
+    """`MIN_REPORTS` ma nadążać za `reports/` — 6.D45.
+
+    **SKĄD, ZMIERZONE 08.09.2026 na `a214ab9`.** Stała mówiła **40**, a katalog miał
+    **152** pliki `.md`. Sześć asercji w sześciu testach tego modułu używa jej jako
+    podłogi „skan czyta katalog", a każda z tych podłóg jest nierównością **bez
+    sufitu** — więc skan mógł przestać czytać **112** raportów i przejść na zielono.
+    Zapadka, która stoi sto pozycji za stanem, chroni w takim samym stopniu jak jej
+    brak.
+
+    **Dlaczego samo podniesienie liczby nie jest wykonaniem tej pozycji.** Odległość
+    między stałą a katalogiem rośnie z każdym dopisanym raportem, bo nierówność ją
+    dopuszcza. Bez zmiany warunku ta sama usterka wraca po tygodniu i wygląda wtedy
+    dokładnie tak samo. Rozstrzyga to porównanie z rodziną, która tego nie ma:
+    `MINIMUM_DETAIL_BLOCKS` w `tools/tests/test_backlog.py` jest pilnowane na
+    **równość** i dlatego nie da się jej przespać — każdy nowy blok wywraca zestaw,
+    dopóki stała nie pójdzie w górę, w tym samym commicie.
+
+    Wzorem jest więc `test_the_documented_ratchet_does_not_lag_behind_the_file`:
+    dwie asercje, dwa różne kierunki rozjazdu, dwa różne zdania. Pierwsza wywraca
+    zestaw, gdy raportów jest WIĘCEJ niż stała (zapadka została z tyłu), druga — gdy
+    MNIEJ (raport zniknął albo skan przestał go czytać). Kontrole obu kierunków
+    wykonane, wypisane w `reports/zapadka-liczby-raportow.md` §4.
+    """
+    items = list(_reports())
+    assert MIN_REPORTS >= len(items), (
+        f"raportów w `reports/` jest {len(items)}, a `MIN_REPORTS` stoi na "
+        f"{MIN_REPORTS} — podnieś ją do {len(items)} w tym samym commicie, w którym "
+        "dopisujesz raport; zapadka, która została z tyłu, zwalnia skan z czytania "
+        "różnicy")
+    assert len(items) >= MIN_REPORTS, (
+        f"raportów jest {len(items)} przy `MIN_REPORTS` = {MIN_REPORTS} — któryś "
+        "raport zniknął z `reports/` albo skan przestał go czytać")
 
 
 def test_missing_date_commit_and_subheading_offenders_light_up_on_injected_reports():
@@ -722,9 +874,27 @@ def test_zapis_o_naglowku_w_konwencjach_zgadza_sie_z_ksztaltem_z_raportow():
     items = list(_reports())
     counts = _header_shapes(items)
     assert len(items) >= MIN_REPORTS, f"tylko {len(items)} raportów w pętli"
-    assert sum(counts.values()) >= MIN_REPORTS, (
-        f"tylko {sum(counts.values())} raportów ma wiersz pola z SHA — przyrząd "
-        "przestał czytać nagłówki")
+    # PODŁOGA PRZEKIEROWANA, NIE POLUZOWANA — 6.D45. Stała tu `MIN_REPORTS`, czyli 40
+    # przy 147 raportach z wierszem pola: przyrząd mógł przestać czytać sto siedem
+    # nagłówków i przejść. Podniesienie `MIN_REPORTS` do stanu katalogu zapaliłoby tę
+    # asercję na prawdzie o katalogu, nie na usterce — wiersza pola nie ma pięć
+    # raportów i każdy z powodem (patrz `MAX_REPORTS_WITHOUT_FIELD_LINE`). Podłoga
+    # liczy się więc od STANU KATALOGU minus zapadka: zapas zszedł ze 107 do zera.
+    bez_wiersza = [name for name, text in items
+                   if _header_field_line(_header(text)) is None]
+    assert sum(counts.values()) >= len(items) - MAX_REPORTS_WITHOUT_FIELD_LINE, (
+        f"tylko {sum(counts.values())} raportów ma wiersz pola z SHA przy "
+        f"{len(items)} w katalogu i zapadce {MAX_REPORTS_WITHOUT_FIELD_LINE} — "
+        "przyrząd przestał czytać nagłówki")
+    assert MAX_REPORTS_WITHOUT_FIELD_LINE >= len(bez_wiersza), (
+        f"raportów bez wiersza pola z SHA jest {len(bez_wiersza)} przy zapadce "
+        f"{MAX_REPORTS_WITHOUT_FIELD_LINE}: {bez_wiersza} — daj nowemu raportowi "
+        "wiersz pola, a jeżeli SHA naprawdę stoi w tabeli, podnieś zapadkę w tym "
+        "samym commicie i napisz przy niej, który to raport")
+    assert len(bez_wiersza) >= MAX_REPORTS_WITHOUT_FIELD_LINE, (
+        f"zapadka {MAX_REPORTS_WITHOUT_FIELD_LINE} stoi wyżej niż stan "
+        f"({len(bez_wiersza)}) — obniż ją do stanu faktycznego, inaczej robi zapas "
+        "na przyszłe nagłówki bez wiersza pola")
     ranking = sorted(counts.items(), key=lambda para: -para[1])
     dominujacy, ile = ranking[0]
     drugi, ile_drugiego = ranking[1]
