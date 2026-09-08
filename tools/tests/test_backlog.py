@@ -158,13 +158,30 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 #: jego pozycją. Żadna nie jest wymyślona na miejscu, i to jest warunek, pod którym
 #: wolno je było dopisać: zadanie wymyślone, bo skończyła się kolejka, omija format
 #: z sekcji 6 i ląduje w kodzie, którego nikt nie prosił o zmianę.
-#: **Liczba przepisana, a nie dopisana obok — 111 → 112 (07.09.2026).** Jeden blok
-#: (6.D41) i nie jest to uzupełnienie kolejki — jest zapisem usterki, którą znalazłem,
-#: diagnozując czerwone CI: bramka budżetu kroku porównywała z progiem pomiar, o którym
-#: sama wypisywała, że ma rozstęp powtórzeń 115,9 %. Blok istnieje, bo usterka bez bloku
-#: wygląda w tabeli identycznie jak usterka nieistniejąca — a ta akurat zatrzymała
-#: scalanie ośmiu pull requestów.
-MINIMUM_DETAIL_BLOCKS = 112
+#: **Liczba przepisana, a nie dopisana obok — 112 → 118 (08.09.2026).** Sześć bloków
+#: (6.D42 … 6.D47) i to JEST uzupełnienie kolejki, w warunkach, które `CLAUDE.md` §8
+#: opisuje wprost. Powód jest policzony, nie wyczuty: `open_items` stało na
+#: **trzynastu** przy progu dwunastu, a wśród pull requestów czekających na scalenie
+#: **pięć** domyka po jednej pozycji. Pierwsze domknięcie zeszłoby RÓWNO do progu,
+#: drugie pod próg — czyli bramka zapasu zapaliłaby się na pull requeście, który
+#: wykonuje pracę. Po tym uzupełnieniu jest ich dziewiętnaście, więc po wszystkich
+#: pięciu domknięciach zostaje czternaście.
+#:
+#: Wszystkie sześć wyszło z pomiarów wykonanych **przy scalaniu tych właśnie pull
+#: requestów** — nie z pomysłów. Trzy z nich mierzą jedną rodzinę usterki, tę samą,
+#: którą 6.D41 naprawiła w bramce kroku: przyrząd, który porównuje liczbę z progiem,
+#: nie sprawdziwszy, czy dała się zmierzyć (6.D42), topologia jobów, przy której
+#: pierwszy przebieg każdego pull requesta jest niemierzalny z konstrukcji (6.D43),
+#: i pytanie, czy ponowiony job mierzy dzisiejszą bazę (6.D47).
+#:
+#: **Trzy kandydatury ODRZUCIŁEM pomiarem, i to jest część tej samej pracy.**
+#: „Nieużywane pola `depth_m` i `interpolated` w `data/track/`" — mają jedenastu
+#: i czterech czytelników. „Wznowienie przeglądu mutacyjnego kończy się kodem 1,
+#: gdy wszystko jest policzone" — `KOD_WZNOWIENIE_KOMPLETNE` wynosi już 0.
+#: „Bramka dokumentów nie widzi zdań poza `CLAUDE.md`" — obejmuje `docs/`,
+#: `reports/` i `README.md`. Pozycja dopisana bez sprawdzenia wygląda w tabeli
+#: identycznie jak pozycja prawdziwa, dopóki ktoś po nią nie sięgnie.
+MINIMUM_DETAIL_BLOCKS = 118
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
