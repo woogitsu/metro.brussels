@@ -278,6 +278,11 @@ $ python3 tools/tests/test_all.py >/dev/null 2>&1; echo "kod: $?"
 kod: 0
 ```
 
+Po wciągnięciu `main` na scaleniu #408 ten sam zestaw daje **2000/2000, kod 0**
+— cztery testy więcej należą do tamtego scalenia, nie do tej zmiany. Pomiar
+wyżej zostaje przy commicie z nagłówka i nie jest przeliczony: przepisanie go
+byłoby falsyfikacją zapisu pomiaru.
+
 ## 9. Czego nie tknąłem
 
 - **Nie utworzyłem żadnego przebiegu ani nie ponowiłem żadnego joba** — punkt 6

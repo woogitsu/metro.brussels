@@ -233,8 +233,20 @@ jobs:
           POMIARY="$RUNNER_TEMP/budzet-kontrola"
           rm -rf "$POMIARY"; mkdir -p "$POMIARY"
           naglowek='[BUDŻET] N_zgł;N_max;N_śr;czeka_śr;mediana_kroków_s;min;max;rozstęp_%;µs_krok;CPU/ścienny;%budżetu'
-          printf '%s\n[BUDŻET] 32;9;5.08;0.98;110000;100000;120000;9.1;9.091;1.00;0.11\n' \
-              "$naglowek" > "$POMIARY/wolny.txt"
+          # Kolumna µs/krok atrapy „wolnej" jest WYLICZANA z progu, nie wpisana.
+          # Do 08.09.2026 stała tu liczba 9.091 i było to uzasadnione zdaniem, że
+          # zmyślone liczby pomiaru MAJĄ być literałami, bo udają wyjście `budget`.
+          # Zdanie jest prawdziwe dla kolumn opisujących KSZTAŁT przejazdu (obsada,
+          # mediany, rozstęp) i one literałami zostają. Dla tej jednej kolumny było
+          # fałszywe i złamało się przy pierwszym ruchu progu: po podniesieniu na
+          # 14,0 µs wartość 9,091 MIEŚCI SIĘ w progu, bramka słusznie ją przyjęła,
+          # a kontrola negatywna zaczerwieniła się z komunikatem „bramka przyjęła
+          # krok wolniejszy od progu" — o pomiarze, który wolniejszy nie był.
+          # Wyliczenie z progu tego powtórzyć nie może; pilnuje tego osobny test.
+          wolny_us=$(python3 -c 'import json; print("%.3f" % (json.load(open("tools/ci/linecore-step-budget.json"))["microseconds_per_step_max"] * 1.1))')
+          wolny_pct=$(python3 -c 'import json; print("%.2f" % (json.load(open("tools/ci/linecore-step-budget.json"))["microseconds_per_step_max"] * 1.1 / (1000000.0 / 120) * 100))')
+          printf '%s\n[BUDŻET] 32;9;5.08;0.98;110000;100000;120000;9.1;%s;1.00;%s\n' \
+              "$naglowek" "$wolny_us" "$wolny_pct" > "$POMIARY/wolny.txt"
           printf '%s\n[BUDŻET] 32;1;1.00;0.00;265081;223360;268544;17.0;3.772;1.01;0.05\n' \
               "$naglowek" > "$POMIARY/jeden.txt"
           if python3 tools/ci/assert_linecore_budget.py --from-output "$POMIARY/wolny.txt"; then
