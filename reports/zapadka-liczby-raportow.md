@@ -53,7 +53,23 @@ z każdym dopisanym raportem, a bramka przez cały czas świeci na zielono.
 
 ## 3. Co się zmieniło
 
-1. `MIN_REPORTS` = **153**, czyli stan katalogu po tym commicie.
+1. `MIN_REPORTS` = **156**, czyli stan katalogu po tym commicie — i ta liczba jest
+   **drugą** wartością, jaką ta pozycja tu nosiła, co samo w sobie jest jej pomiarem.
+   Gałąź powstała przy 153 raportach (152 na `a214ab9` plus ten raport) i tyle
+   pierwotnie wpisała. Zanim doszła do `main`, weszły tam trzy pull requesty
+   z własnymi raportami — #413, #414, #415 — więc w chwili scalenia stała była
+   nieprawdziwa **o trzy**. Poprawną wartość odczytano z drzewa PO scaleniu `main`,
+   na `e1fcfc1`, dwoma niezależnymi pomiarami: `ls reports/*.md | wc -l` → 156
+   i `len(list(_reports()))` → 156.
+
+   **To nie jest anegdota, tylko wynik.** Zapadka równościowa zaczerwieniła się
+   dokładnie w miejscu, dla którego powstała, i to na własnym commicie autora —
+   `test_every_constant_quoted_in_a_report_carries_the_value_from_the_code`
+   wypisało: `zapadka-liczby-raportow.md:56: MIN_REPORTS mówi 153, kod 156`.
+   Poprzednia litera reguły (`len(items) >= MIN_REPORTS`, stała 40) przepuściłaby
+   153 bez jednego słowa i różnica rosłaby dalej. Dowodu, że nierówność bez sufitu
+   starzeje się po cichu, nie trzeba było więc szukać: dostarczyła go ta sama
+   zmiana, która ją usuwa.
 2. Nowy test `test_zapadka_liczby_raportow_nie_zostaje_za_katalogiem` pilnuje
    **równości** dwiema asercjami w przeciwnych kierunkach, na wzór
    `test_the_documented_ratchet_does_not_lag_behind_the_file` z
@@ -81,6 +97,16 @@ pola jest dziś **szesnaście** i wszystkie przechodzą; zapadka mówi tylko tyl
 liczba nagłówków, których przyrząd nie umie przeczytać, nie rośnie **po cichu**.
 
 ## 4. Kontrole negatywne — wykonane
+
+**Wyjścia niżej pochodzą z drzewa PRZED scaleniem `main`, gdzie katalog miał 153
+raporty, i dlatego mówią 153 tam, gdzie kod mówi dziś 156.** Nie są przepisane pod
+dzisiejszą liczbę świadomie: to wklejone wyjścia rzeczywistych przebiegów, a podmiana
+liczby w cytowanym wyjściu zrobiłaby z nich wyjście zmyślone — czyli dokładnie to,
+czego `CLAUDE.md` §5 zabrania, i to w pliku, którego cała treść polega na tym, że
+wyjścia są prawdziwe. Zmienia się przy tym **tylko liczba stanu katalogu**; sam
+kierunek każdej kontroli (o jeden w górę, równo, o jeden w dół, na starą wartość)
+i liczba padających testów są od niej niezależne. Kontrolę na dzisiejszym drzewie,
+przy 156, powtórzono dla wiersza „równo" — §5.
 
 Po każdej mutacji `find tools -name __pycache__ -type d -exec rm -rf {} +`, bo mutacja
 tej samej długości bajtowej w tym samym oknie mtime zostawia nieświeży `.pyc`
@@ -167,11 +193,44 @@ nikt — i to jest odpowiedź na pytanie, czy przekierowanie sprawdza więcej, c
 
 ## 5. Weryfikacja całego zestawu
 
+Na drzewie przed scaleniem `main`, przy 153 raportach:
+
 ```
 $ python3 tools/tests/test_all.py test_report_hygiene.py
   15/15 przeszło
 kod: 0
 ```
+
+### Kontrole powtórzone na drzewie PO scaleniu `main`, przy 156 raportach
+
+Powtórzone, bo stała musiała się zmienić razem ze stanem katalogu, a kontrola
+wykonana na innej liczbie nie mówi o tej. `md5` pliku przed pierwszą mutacją
+i po przywróceniu: `cfd2565f7e0dcf8906631a43d8791792` — ta sama, więc plik wrócił
+co do bajtu. Po każdej mutacji `find tools -name __pycache__ -type d -exec rm -rf {} +`.
+
+```
+=== MIN_REPORTS=157 -> kod 1
+  FAIL test_data_i_commit_stoja_w_naglowku_a_nie_gdziekolwiek_w_raporcie: tylko 156 raportów w pętli
+  FAIL test_kazda_sciezka_wymieniona_w_raporcie_rozwiazuje_sie_w_drzewie: bramka przeszła tylko 156 raportów, a w `reports/` jest ich co najmniej 157 — skan przestał czytać katalog
+  FAIL test_kazdy_raport_podaje_commit_na_ktorym_mierzono: bramka przeszła tylko 156 raportów, a w `reports/` jest ich co najmniej 157 — skan przestał czytać katalog
+  FAIL test_kazdy_raport_podaje_date_pomiaru: bramka przeszła tylko 156 raportów, a w `reports/` jest ich co najmniej 157 — skan przestał czytać katalog
+  FAIL test_konwencja_naglowka_jest_wyczytana_z_raportow_ktore_ja_juz_maja: tylko 156 raportów w pętli
+  FAIL test_zapadka_liczby_raportow_nie_zostaje_za_katalogiem: raportów jest 156 przy `MIN_REPORTS` = 157 — któryś raport zniknął z `reports/` albo skan przestał go czytać
+  FAIL test_zapis_o_naglowku_w_konwencjach_zgadza_sie_z_ksztaltem_z_raportow: tylko 156 raportów w pętli
+  8/15 przeszło
+=== MIN_REPORTS=155 -> kod 1
+  FAIL test_zapadka_liczby_raportow_nie_zostaje_za_katalogiem: raportów w `reports/` jest 156, a `MIN_REPORTS` stoi na 155 — podnieś ją do 156 w tym samym commicie, w którym dopisujesz raport; zapadka, która została z tyłu, zwalnia skan z czytania różnicy
+  14/15 przeszło
+=== MIN_REPORTS=156 -> kod 0
+  15/15 przeszło
+md5 po przywroceniu: cfd2565f7e0dcf8906631a43d8791792
+```
+
+Kształt wyniku jest ten sam co na 153 i to jest sens powtórzenia: **o jeden w górę**
+wywraca siedem testów (sześć podłóg „skan czyta katalog" i sam nowy test — nie da się
+ich spełnić razem z zapadką wyprzedzającą katalog), **o jeden w dół** wywraca
+**dokładnie jeden**, ten nowy, a jego komunikat podaje liczbę do wpisania. Kierunki
+nie zależą od stanu katalogu; zależy od niego tylko liczba w komunikacie.
 
 ## 6. Czego świadomie nie zrobiłem
 

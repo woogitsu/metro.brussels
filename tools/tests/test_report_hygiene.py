@@ -218,16 +218,39 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 #: przy każdym dopisanym akapicie; nazwa testu nie. Tak samo `MINIMUM_DETAIL_BLOCKS`
 #: nosi przedrostek minimum, będąc pilnowane na równość.
 #:
-#: Liczba jest POMIAREM, nie wartością zapamiętaną. Na `a214ab9`, przed tym commitem:
+#: Liczba jest POMIAREM, nie wartością zapamiętaną — i ten akapit jest tego
+#: dowodem z pierwszej ręki, bo **stała zestarzała się, zanim jej commit trafił
+#: do `main`.** Poprzednia wersja tego akapitu podawała:
 #:
-#:     $ ls reports/*.md | wc -l
+#:     $ ls reports/*.md | wc -l        # na `a214ab9`
 #:     152
 #:
-#: Ten commit dokłada `reports/zapadka-liczby-raportow.md`, więc stan katalogu po nim
-#: to **153** i tyle wynosi stała. Kto dopisze następny raport, nie przepisuje tej
-#: liczby z pamięci, tylko mierzy ją tym samym poleceniem — komunikat asercji podaje
-#: wynik pomiaru wprost.
-MIN_REPORTS = 153
+#: i wyliczała z tego **153** („152 plus raport, który ten commit dokłada"). Między
+#: tym pomiarem a scaleniem gałęzi weszły do `main` trzy pull requesty z własnymi
+#: raportami (#413, #414, #415), więc 153 było nieprawdziwe **o trzy** w chwili,
+#: w której miało zostać zapisane. Zapadka równościowa nie dała tego przepuścić —
+#: i to jest jedyny powód, dla którego ta liczba nie weszła zła. Gdyby warunek
+#: został nierównością, jaką był (`>= 40`), 153 przeszłoby bez słowa i różnica
+#: rosłaby dalej.
+#:
+#: Dlatego liczba nie jest tu wyliczana z żadnej innej liczby. Jest odczytana
+#: z drzewa po scaleniu `main`, na `e1fcfc1`:
+#:
+#:     $ ls reports/*.md | wc -l
+#:     156
+#:     $ python3 -c 'import sys; sys.path.insert(0, "tools/tests");
+#:       import test_report_hygiene as m; print(len(list(m._reports())))'
+#:     156
+#:
+#: Oba pomiary stoją tu razem świadomie: asercja porównuje z `len(list(_reports()))`,
+#: nie z wyjściem `ls`, a te dwa zbiory mogłyby się różnić (glob, katalogi, pliki
+#: bez rozszerzenia). Dziś są równe i dopóki są, `ls` wolno używać jako skrótu —
+#: rozjazd między nimi byłby osobną usterką, o której ta stała nic nie powie.
+#:
+#: Kto dopisze następny raport, nie przepisuje tej liczby z pamięci ani z tego
+#: akapitu, tylko mierzy ją **na swoim drzewie po scaleniu `main`** — komunikat
+#: asercji podaje wynik pomiaru wprost, żeby nie było potrzeby zgadywania.
+MIN_REPORTS = 156
 
 #: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
 #: wierszem zaczynającym się od `**`, z którego `_header_shapes` czyta kształt.
