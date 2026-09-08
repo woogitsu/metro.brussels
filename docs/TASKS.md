@@ -779,6 +779,7 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.D36 | **Trzy obcięcia `hexdigest()` w całym drzewie: dwa przez stałą, jedno przez literał `[:12]`** — a stała `ODCISK_ZNAKOW` obok mówi 16 | zmierzone 07.09.2026 na `627d184`, przejściem po wszystkich `.py` i `.cs`: `mutation_sweep.py:444` i `:943` przez `ODCISK_ZNAKOW`, `:990` przez literał. `test_dead_constants.py` (6.B29) łapie stałą, której nikt nie czyta; **nic nie łapie literału, który powinien być stałą**. Dwie długości tej samej wielkości, żadna liczona z drugiej | S |
 | 6.D37 | **ZROBIONE (07.09.2026).** `--only ""` jest dziś **odmową kodem 2**, a nie pełnym przeglądem w milczeniu: pusty wzorzec przepuszczał wszystkie 63 pliki docelowe, czyli **2346 mutacji zamiast 2** dla typowego triażu, **1173×** więcej pracy, przy przebiegu wyglądającym na zawężony. **Pomiar z pola „Wyjście" rozstrzygnął na odmowę, nie na wiersz w wypisie, i pokazał DWIE postacie tej pomyłki o różnym zachowaniu**: w `reports/` stoją dwie prawdziwe pętle podstawiające zmienną do `--only`, a `--only "$m"` (`mutation-drift.md:455`) daje przy pustej zmiennej `--only ''`, kod **0** i pełny przegląd, gdy `--only $f` (`mutation-triage-fizyka.md:173`) gubi argument i argparse **JUŻ odmawia** (`expected one argument`, kod **2**). Druga postać była więc chroniona od zawsze, pierwsza nie była przez nic — i to jest cały powód odmowy. Kod **2**, nie 1: to błędne wywołanie, a nie „nie ma czego liczyć" (tam należą 6.B39 i 6.B41), i ten sam kod daje argparse dla drugiej postaci — jedna pomyłka, jeden kod, niezależnie od tego, czy cudzysłów ocalał. Warunek to `"--only" in sys.argv and not args.only`, a **nie** sama fałszywość `args.only`, bo obie sytuacje dają pusty napis, a tylko jedna jest pomyłką; przebieg bez `--only` (wołany w `reports/` **siedem** razy) zostaje niezmieniony. Zestaw **1931 → 1934**, moduł **108 → 111**, kod wyjścia 0. Trzy kontrole negatywne WYKONANE, każda na innym zbiorze; **KN-2 (odmowa zbyt szeroka, na samej fałszywości) pada na DOKŁADNIE JEDNYM teście** — tym, który pilnuje drogi pełnego przebiegu, i bez niego odmowa zablokowałaby wszystkie siedem wywołań. **KN-3 powtórzona**, bo pierwsza wersja zmieniła przy okazji treść komunikatu i nie izolowała kodu. Pomiar w `reports/puste-zawezenie.md`. Tresc pierwotna: **`--only ""` idzie drogą BEZ zawężenia i nic tego nie mówi** — skrypt wołający `--only "$WZORZEC"` z pustą zmienną dostaje pełny przegląd zamiast odmowy | zmierzone 07.09.2026 na `627d184`: pusty napis jest falsywy dla `if args.only`, więc gałąź zawężenia nie wchodzi wcale. Skutek jest liczbowy: **2346 mutacji zamiast 2** dla typowego triażu jednego modułu, czyli **1173×** więcej pracy, bez ani jednego słowa w wypisie. Ta sama rodzina co 6.B39 — przebieg, który wygląda poprawnie, robiąc co innego — tylko w drugą stronę: tam zbiór był pusty, tu jest pełny | S |
 | 6.D38 | **Nagłówek `reports/mutation-sweep.md` niesie commit, datę i nazwę gałęzi w jednym wierszu, inaczej niż wzór z 6.D3** — `**Snapshot na commicie:** \`66b8301\` (\`main\`, 04.09.2026)` | zauważone 07.09.2026 przy 6.B42. Bramka higieny to przepuszcza, bo szuka SHA w grawisach i daty osobno, a oba tu są — więc **nie jest to brak informacji, a rozjazd kształtu**. Do rozstrzygnięcia pomiarem: ile z 128 raportów ma nagłówek niezgodny ze wzorem i czy wzór jest w ogóle jeden. Jeżeli okaże się, że wzorów jest kilka i wszystkie czytelne, pozycja kończy się adnotacją, nie ujednolicaniem | S |
+| 6.D41 | **ZROBIONE (07.09.2026). Bramka budżetu kroku porównywała z progiem pomiar, o którym SAMA wypisywała, że jest niestabilny** — kolumna `rozstęp_%` była parsowana i drukowana, ale **nigdy nie asertowana**. Zmierzone na runnerze `woogitsu-host-08` przy dwunastu jobach naraz: `koszt kroku 16.022 us przekracza prog 8.000 us` przy `rozstep powtorzen 115.9 %`. Na **tej samej treści kodu**, na maszynie niezajętej, cztery przebiegi dały **4,213–4,364 µs przy rozstępie 1,9–3,7 %** — czyli rdzeń nie zwolnił czterokrotnie, tylko maszyna nie dała się zmierzyć, a bramka nazwała to regresem wydajności. Dwa różne stany świata („rdzeń zwolnił" i „nie umiem tego zmierzyć") dawały **jeden komunikat i jeden kod wyjścia**, a pierwszy z nich każe szukać regresu w kodzie, którego nie ma. Poprawka: `spread_pct_max` **wstrzymuje porównanie** z progiem czasu (warunki OBSADY zostają sprawdzane zawsze, bo liczba składów na planie nie zależy od obciążenia) i daje **osobny kod wyjścia 3**. Granica **50 %** jest wyprowadzona z czterech pomiarów, nie zgadnięta: 22,5 % to najwyższy rozstęp z kalibracji progu 8,0 µs (`reports/linecore-step-budget-gate.md`, 06.09.2026), 17,0 % niesie atrapa `ZIELONY` w module testowym, 1,9–3,7 % maszyna niezajęta, 115,9 % maszyna obciążona — czyli 2,2× powyżej najwyższego udokumentowanego pomiaru zielonego i 2,3× poniżej zaobserwowanego niemierzalnego; wartość **tymczasowa, do zaciśnięcia** przy większej liczbie pomiarów z samych runnerów. Progu 8,0 µs **nie tknięto**. Sześć nowych testów, w tym asercja **wyprowadzona** żądająca, żeby granica leżała powyżej obu udokumentowanych pomiarów zielonych i poniżej zaobserwowanego niemierzalnego. Cztery kontrole negatywne WYKONANE: strażnik zdjęty (2 FAIL), granica zaniżona do 10 % (5 FAIL, w tym na **atrapie zielonej** — dowód, że za ciasna granica zamienia bramkę w generator fałszywych alarmów, 6.D27), granica podniesiona do 200 % (4 FAIL), kod niemierzalności zrównany z kodem przekroczenia (1 FAIL). **Przy okazji znaleziona dziura w mojej własnej procedurze kontroli:** przywrócenie pliku przez `cp` po mutacji o **identycznej długości** (`= 3` → `= 1`) w tym samym oknie rozdzielczości mtime pozostawia nieświeży `.pyc`, więc weryfikacja po przywróceniu czyta STARY bajtkod — złapane, bo sprawdzam stan po przywróceniu, i od teraz kontrole czyszczą `__pycache__`. Raport: `reports/rozstep-budzetu-kroku.md` | S |
 
 #### Szczegóły pozycji z kompletem sześciu pól
 
@@ -4904,6 +4905,49 @@ MINIMUM_DETAIL_BLOCKS = 73
   najwyżej ich układ. Poza zakresem także dopisywanie odcisków treści do starych
   raportów (6.B42 dało im adnotację i to zostaje).
 - **Zależy od:** 6.D3, 6.B42.
+
+##### 6.D41 · Bramka porównywała z progiem pomiar, który sama nazwała niestabilnym
+
+- **Skąd:** zmierzone 07.09.2026 na runnerze `woogitsu-host-08`, gdy dwanaście jobów
+  liczyło naraz. Job `sim` padł na `tools/ci/assert_linecore_budget.py`:
+
+  ```
+  BLAD: koszt kroku 16.022 us przekracza prog 8.000 us
+  [BUDZET-BRAMKA] ... 16.022 us/krok przy progu 8.000; rozstep powtorzen 115.9 %
+  ```
+
+  Na **tej samej treści kodu**, na maszynie niezajętej, cztery przebiegi dały
+  **4,213–4,364 µs przy rozstępie 1,9–3,7 %**, kod 0. Rdzeń nie zwolnił czterokrotnie
+  — maszyna nie dała się zmierzyć.
+- **Co było mierzalnie nie tak:** kolumna `rozstęp_%` była **parsowana i wypisywana,
+  ale nigdy nie asertowana** (`spread_pct` czytany w `parse`, użyty tylko w `describe`).
+  Bramka znała liczbę mówiącą, że jej własny pomiar jest niestabilny, i porównywała go
+  z progiem mimo to — a potem nazywała wynik regresem wydajności. „Rdzeń zwolnił"
+  i „nie umiem tego zmierzyć" dawały **jeden komunikat i jeden kod wyjścia**, choć
+  pierwsze każe szukać regresu w kodzie, a drugie powtórzyć pomiar.
+- **Wejście:** `tools/ci/assert_linecore_budget.py` (`parse`, `verdict`, `describe`,
+  `main`), `tools/ci/linecore-step-budget.json` (próg i scenariusz w jednym miejscu),
+  `tools/tests/test_linecore_budget_gate.py`, `reports/linecore-step-budget-gate.md`
+  (podstawa progu 8,0 µs i rozstępy z kalibracji), `reports/linecore-budget.md`.
+- **Wyjście:** granica rozstępu, która **wstrzymuje porównanie** z progiem czasu,
+  z osobnym kodem wyjścia, i granica **wyprowadzona z pomiarów**, nie wpisana z ręki.
+  Warunki obsady zostają sprawdzane zawsze — liczba składów na planie nie zależy od
+  obciążenia maszyny.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_linecore_budget_gate.py
+  python3 tools/ci/assert_linecore_budget.py
+  ```
+  Oczekiwane: moduł zielony, bramka na prawdziwym pomiarze kodem 0, a kontrole
+  negatywne pokazują, że zdjęcie strażnika wraca do porównywania niestabilnego pomiaru.
+- **Skończone, gdy:** pomiar z rozstępem powyżej granicy **nie jest** porównywany
+  z progiem, dwa werdykty mają **dwa różne kody wyjścia**, a granica ma przy sobie
+  wszystkie pomiary, z których wyszła — łącznie z tymi, które ją ograniczają od dołu.
+- **Poza zakresem:** **próg 8,0 µs**. Ma udokumentowaną podstawę z 06.09.2026 i ta
+  pozycja go nie tyka; podniesienie progu byłoby osłabieniem bramki, a nie naprawą
+  pomiaru. Poza zakresem także **automatyczne powtarzanie pomiaru** przy niestabilnym
+  wyniku: to osobna decyzja, wymagająca pomiaru, jak często powtórzenie pomaga.
+- **Zależy od:** 6.D2 (bramka i jej próg), 6.A12 (warunek obsady).
 
 ### Czego agent nie ruszy bez decyzji
 
