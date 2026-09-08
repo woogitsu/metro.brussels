@@ -65,8 +65,10 @@ def parse_args(argv=None):
     parser.add_argument("--out", required=True)
     parser.add_argument("--urbis-file", help="lokalny snapshot warstwy UrbIS Metro")
     parser.add_argument("--osm-dir", help="katalog na wycinki OSM (cache między przebiegami)")
-    parser.add_argument("--osm-file", help="snapshot Overpassa z całą siecią; wtedy klasyfikowany "
-                                           "jest KAŻDY punkt osi, a nie tylko sondy")
+    parser.add_argument("--osm-file", help="snapshot way'ów railway=subway z całą siecią; wtedy "
+                                           "klasyfikowany jest KAŻDY punkt osi, a nie tylko "
+                                           "sondy. Overpass albo droga zapasowa "
+                                           "crosscheck_alignment.py --osm-source osm-api")
     parser.add_argument("--step-inside-m", type=float, default=DEFAULT_STEP_INSIDE_M)
     parser.add_argument("--step-outside-m", type=float, default=DEFAULT_STEP_OUTSIDE_M)
     parser.add_argument("--timeout", type=float, default=120.0)
@@ -211,6 +213,25 @@ def nearest_subway(content, point):
     return best
 
 
+#: Etykieta snapshotu bez własnej deklaracji pochodzenia. Takie pliki powstały przed
+#: 6.B52, gdy jedyną drogą do całej sieci był Overpass — ale zapisanie tu wprost
+#: „overpass" byłoby przypisaniem źródła NA PODSTAWIE MILCZENIA pliku, a to jest
+#: dokładnie ten błąd, którego zakazuje `docs/07-open-data-research.md`.
+SNAPSHOT_SOURCE_UNDECLARED = "snapshot bez deklaracji osm_source"
+
+
+def snapshot_source_label(payload):
+    """Skąd pochodzi snapshot podany przez `--osm-file`, wprost z jego deklaracji.
+
+    Do 6.B52 to pole niosło stałą `"overpass snapshot"` niezależnie od zawartości
+    pliku. Odkąd `crosscheck_alignment.py --osm-source osm-api` potrafi zbudować
+    snapshot z surowego API OSM, ta stała była już nazwaniem złego źródła — i to
+    w polu, którego jedynym zadaniem jest powiedzieć, skąd są dane.
+    """
+    declared = payload.get("osm_source")
+    return f"snapshot: {declared}" if declared else SNAPSHOT_SOURCE_UNDECLARED
+
+
 def overpass_segments(payload):
     """Odcinki `railway=subway` z Overpassa w Lambert 72, z tagami poziomu.
 
@@ -312,7 +333,8 @@ def survey(alignment_path, args):
     if args.osm_file:
         with open(args.osm_file, "rb") as handle:
             content = handle.read()
-        segments = overpass_segments(json.loads(content.decode("utf-8")))
+        payload = json.loads(content.decode("utf-8"))
+        segments = overpass_segments(payload)
         index = segment_grid(segments)
         rows = []
         for point, chainage, hit in zip(points, chain, hits):
@@ -329,7 +351,8 @@ def survey(alignment_path, args):
         comparable = [r for r in rows if r["verdict"] in ("zgodne", "sprzeczne")]
         surface = [r["chainage_m"] for r in rows if r["osm_state"] == "poza_tunelem"]
         full = {
-            "source": {"status": "ok", "source": "overpass snapshot",
+            "source": {"status": "ok", "source": snapshot_source_label(payload),
+                       "declared_osm_source": payload.get("osm_source"),
                        "file": os.path.basename(args.osm_file),
                        "file_sha256": P.sha256_bytes(content),
                        "segments": len(segments),
@@ -442,8 +465,8 @@ def main(argv=None):
                   f"osm={record['osm_state']} ({record['osm']})")
     full = report.get("full_coverage")
     if full:
-        print(f"[POWIERZCHNIA] PEŁNE POKRYCIE z Overpassa: {full['points']} punktów, "
-              f"{full['source']['segments']} odcinków metra")
+        print(f"[POWIERZCHNIA] PEŁNE POKRYCIE, ŹRÓDŁO = {full['source']['source']}: "
+              f"{full['points']} punktów, {full['source']['segments']} odcinków metra")
         for key, value in full["matrix"].items():
             print(f"[POWIERZCHNIA]   {key}: {value}")
         print(f"[POWIERZCHNIA] zgodność {full['agreement_pct']}% na "

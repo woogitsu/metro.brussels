@@ -872,6 +872,7 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.D49 | **`reports/nieznana-opcja-runnera.md` §72 wymienia nazwę testu, którego już nie ma** — tabela kontroli odsyła do `Line_z_nieznana_opcja_konczy_sie_kodem_jeden`, przemianowanego przy 6.A19 | zauważone 08.09.2026 przy 6.A19 i tam świadomie nietknięte (§4.10). Dwa inne raporty niosą tę nazwę we WKLEJONYM wyjściu dawnych kontroli i tam ma zostać — różnica między zapisem pomiaru a żywym odsyłaczem jest tu całą treścią | S |
 | 6.D50 | **Akapit planu mówi o „31 pozycjach" faz 5 i 6, a `open_items` daje 12** — liczba w prozie nie jest przez nic pilnowana, inaczej niż zapadki obok | zmierzone 08.09.2026 na `docs/TASKS.md:530`. Ta sama rodzina co `MINIMUM_DETAIL_BLOCKS`, tylko bez zapadki; liczba w prozie planu, który sam siebie nazywa mapą, starzeje się po cichu przy każdym domknięciu | S |
 | 6.D51 | **Siedem narzędzi sięga do sieci, a `--offline` ma jedno z nich** — nie wiadomo, które przebiegi da się wykonać bez sieci, a które padną albo zawisną | zmierzone 08.09.2026 przejściem po drzewie: 22 pliki narzędzi, `--offline` w **3**, a z siedmiu sięgających do sieci tylko `provenance.py`. Tego samego dnia Overpass był z kontenera nieosiągalny (trzy próby), a UrbIS odpowiadał HTTP 200 — czyli „brak sieci" nie jest stanem zero-jedynkowym | M |
+| 6.D52 | **`sources.json` opisuje dostęp do OSM dwoma słowami `osm_or_overpass` i nie podaje ani jednej końcówki ani limitu** — rejestr, który ma być maszynowym zapisem dostępu, nie mówi, czym te dwie drogi się różnią | zmierzone 08.09.2026 przy 6.B52. Wpis `openstreetmap` ma `access.type = "osm_or_overpass"` i `authentication = "endpoint-dependent"` — ani `download_url`, ani limitu obszaru, ani limitu żądań. Tymczasem `/api/0.6/map` ma **twardy limit 50 000 węzłów** (zmierzony: HTTP 400 na bboxie pakietu D) i to on wymusza kaflowanie. Wpisu nie dodałem: `data/` jest tylko do odczytu (§4.6) | S |
 
 #### Szczegóły pozycji z kompletem sześciu pól
 
@@ -5586,6 +5587,49 @@ MINIMUM_DETAIL_BLOCKS = 73
   pomiar ma uzasadnić), zmiana polityki sieci, pobieranie nowych snapshotów do
   `data/` — katalog jest tylko do odczytu.
 - **Zależy od:** nic. 6.B26 na to czeka, ale nie odwrotnie.
+
+##### 6.D52 · `sources.json` opisuje dostęp do OSM dwoma słowami i żadną liczbą
+
+- **Skąd:** zmierzone 08.09.2026 przy 6.B52. Wpis `openstreetmap` w rejestrze niesie
+  `access = {"type": "osm_or_overpass", "authentication": "endpoint-dependent"}` —
+  czyli mówi, że dróg jest dwie, i **nie mówi o żadnej z nich nic więcej**. Nie ma
+  `download_url`, nie ma limitu obszaru, nie ma limitu żądań. Tymczasem obie drogi
+  różnią się właśnie tym, co rejestr pomija: Overpass ma język zapytań i filtruje po
+  stronie serwera, a `/api/0.6/map` ma **twardy limit 50 000 węzłów na wywołanie**
+  (zmierzone: `HTTP 400 — You requested too many nodes` na bboxie pakietu D po 2,77 s)
+  i dlatego wymaga kaflowania oraz pobiera o dwa rzędy wielkości więcej bajtów
+  (66,1 MB na 97 way'ów metra pakietu D).
+- **Dlaczego to nie jest kosmetyka:** rejestr jest **maszynowym** zapisem dostępu
+  i to z niego bramki czytają prawdę o źródłach (`tools/tests/test_all.py`,
+  `test_stations.py`, `test_inspire_rail.py`). Dwa słowa bez liczby znaczą, że
+  narzędzie sięgające do OSM nie ma skąd wziąć limitu i musi go nieść samo — dziś
+  niesie, jako `OSM_API_NODE_LIMIT` w `tools/track/crosscheck_alignment.py`, czyli
+  liczba o źródle stoi w kodzie, a nie w rejestrze źródeł.
+- **Wejście:** `data/network/sources.json` (wpis `openstreetmap`),
+  `docs/07-open-data-research.md` (sekcja „Dwie drogi do OSM"),
+  `tools/track/crosscheck_alignment.py` (`OSM_API_URL`, `OSM_API_NODE_LIMIT`,
+  `OSM_API_TILE_DEG`), `tools/tests/test_all.py`
+  (`test_r002_sources_have_required_audit_fields` jako wzorzec pól audytowych),
+  `reports/osm-api-droga-zapasowa.md`.
+- **Wyjście:** wpis w `data/network/sources.json` rozdzielający dwie końcówki OSM
+  z ich limitami, ORAZ bramka, która sprawdza, że liczba limitu w kodzie zgadza się
+  z liczbą w rejestrze — bo bez niej wpis rozjedzie się po cichu, tak jak rozjechały
+  się liczby maszyn w `CLAUDE.md` §9. **`data/` jest tylko do odczytu**, więc ta
+  pozycja wymaga zgody właściciela na zapis do rejestru i to jest jej pierwszy krok,
+  nie szczegół.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py; echo "kod: $?"
+  ```
+  plus wypis: limit obszaru odczytany z rejestru wobec `OSM_API_NODE_LIMIT`
+  z kodu — dwie liczby obok siebie, a nie zdanie, że się zgadzają.
+- **Skończone, gdy:** rejestr podaje dla OSM **dwie** końcówki z limitami, bramka
+  wiąże limit w kodzie z limitem w rejestrze, a kontrola negatywna WYKONANA
+  (rozjechanie jednej z dwóch liczb) zapala dokładnie tę bramkę i **nazywa obie
+  liczby**.
+- **Poza zakresem:** zmiana hierarchii źródeł (OSM zostaje klasą 4), dopisywanie
+  kluczy API, zmiana `access.authentication`, pobieranie czegokolwiek do `data/`.
+- **Zależy od:** decyzji właściciela o zapisie do `data/network/sources.json`.
 
 ### Czego agent nie ruszy bez decyzji
 

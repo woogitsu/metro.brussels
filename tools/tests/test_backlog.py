@@ -219,7 +219,13 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 #: z nazwy testu, którą sam przemianowałem przy 6.A19, zostawiając martwy odsyłacz
 #: w raporcie. Pozycja opisująca własny błąd jest warta tyle samo co każda inna:
 #: bez wpisu wygląda w tabeli identycznie jak błąd nieistniejący.
-MINIMUM_DETAIL_BLOCKS = 124
+#: Podniesione do 125 przy 6.B52 (08.09.2026): doszedł blok **6.D52**, zgłoszony
+#: z pomiaru wykonanego przy drodze zapasowej do OSM. `data/network/sources.json`
+#: opisuje dostęp do OSM dwoma słowami i żadną liczbą, choć `/api/0.6/map` ma twardy
+#: limit 50 000 węzłów — a liczba tego limitu stoi dziś w kodzie, nie w rejestrze
+#: źródeł. Wpisu do rejestru nie dodałem, bo `data/` jest tylko do odczytu (§4.6),
+#: i właśnie dlatego jest to pozycja kolejki, a nie poprawka.
+MINIMUM_DETAIL_BLOCKS = 125
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
