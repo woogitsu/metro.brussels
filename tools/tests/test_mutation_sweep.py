@@ -2347,9 +2347,14 @@ def test_przebieg_bez_plikow_mowi_BRAK_a_nie_odcisk_niczego():
 def test_pamiec_collect_zwraca_to_samo_i_nie_liczy_dwa_razy():
     """6.B38: modul wolal `collect()` DZIESIEC razy po 0,224 s.
 
-    Zmierzone 07.09.2026 na `665bd98`: 2,24 s z 17,34 s calego modulu szlo na
-    dziesiec przeliczen tej samej listy. Zadne z tych wywolan nie potrzebuje
-    swiezego przeliczenia — potrzebuje wyniku dla tresci lezacej w drzewie.
+    Zmierzone 07.09.2026 na `665bd98`, czyli PRZED ta pamiecia: 2,24 s z 17,34 s
+    calego modulu szlo na dziesiec przeliczen tej samej listy.
+
+    **Ta liczba opisuje drzewo, ktorego ten test juz nie ma** — i dlatego stoi tu
+    z commitem, a nie w czasie terazniejszym (6.B46). Zmierzone 07.09.2026 na
+    `f684e40`, z ta pamiecia: wywolan w module jest dwadziescia, a swiezych
+    przeliczen cztery. Trzy z tych czterech sa nieuniknione, wiec to nie jest
+    ubytek pamieci, tylko jej skutek.
     """
 
     kluczy = len(sweep._PAMIEC_COLLECT)
@@ -2368,7 +2373,9 @@ def test_pamiec_collect_zwraca_KOPIE_a_nie_te_sama_liste():
     """Wolajacy, ktory posortuje albo obetnie wynik, nie moze zepsuc nastepnemu.
 
     `Mutation` jest niezmienna, ale lista nie — a `collect()` jest w tym module
-    wolane z dziesieciu miejsc, z ktorych czesc robi z wynikiem swoje.
+    wolane z **dwudziestu** miejsc (zmierzone 07.09.2026 na `f684e40` przejsciem po
+    module z owinietym `collect()`; przy 6.B38, na `665bd98`, bylo ich dziesiec),
+    z ktorych czesc robi z wynikiem swoje.
     """
     pierwsze = sweep.collect()
     pierwsze.clear()
