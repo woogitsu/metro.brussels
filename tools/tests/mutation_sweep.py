@@ -375,11 +375,29 @@ _PAMIEC_COLLECT: dict[tuple, list] = {}
 def collect(kinds=KINDS) -> list[Mutation]:
     """Mutacje wszystkich celow, policzone raz na (klasy, tresc) w tym procesie.
 
-    Pomiar, ktory to uzasadnia (6.B38, 07.09.2026 na `665bd98`): modul
-    `test_mutation_sweep.py` wola `collect()` **dziesiec razy**, po 0,224 s, czyli
-    2,24 s z 17,34 s calego modulu. Zadne z tych wywolan nie potrzebuje swiezego
-    przeliczenia — potrzebuje wyniku dla tresci, ktora w tej chwili lezy w drzewie,
-    i wlasnie to jest kluczem pamieci.
+    Kluczem jest para (klasy, odciski wszystkich celow), bo wolajacy nie potrzebuje
+    swiezego przeliczenia — potrzebuje wyniku dla tresci, ktora w tej chwili lezy
+    w drzewie.
+
+    **Kazda liczba nizej ma przy sobie commit**, bo pierwsza z nich zdazyla sie
+    zestarzec i mogla zostac wzieta za stan biezacy (6.B46, wzorzec 6.B45):
+
+    - `665bd98`, 07.09.2026, drzewo BEZ tej pamieci: modul wolal `collect()`
+      **dziesiec razy** po 0,224 s, czyli 2,24 s z 17,34 s calego modulu. To pomiar,
+      **z ktorego ta pamiec wyszla** — nie opis dzisiejszego przebiegu.
+    - `f684e40`, 07.09.2026, drzewo Z ta pamiecia: wywolan jest **dwadziescia**
+      (modul urosl), ale swiezych przeliczen **cztery**, razem 0,889 s, przy 16
+      trafieniach po 0,002 s.
+
+    Z tych czterech zimne pierwsze wywolanie i wywolanie z `LEGACY_KINDS` sa
+    nieuniknione, a pozostale dwa (kontrole zmieniajace tresc jednego celu) to
+    **0,453 s**. Tyle wynosi cala stawka pamieci **per plik** — 0,40 rozrzutu miedzy
+    przebiegami tego samego kodu (1,130 s na szesciu przebiegach), wiec 6.B46 jej NIE
+    wprowadzilo. Rachunek stoi w `reports/zawezenie-collect.md` §3 i §4.
+
+    Zawezenia `collect()` do jednego celu tam tez NIE MA, i to z powodu mocniejszego
+    od czasu: **zero** z dwudziestu wywolan zaweza wynik. Dwa, ktore zmieniaja jeden
+    plik, potrzebuja calej listy wlasnie po to, zeby ja porownac.
     """
     klucz = (tuple(sorted(kinds)),
              tuple(sorted(odciski_przebiegu(

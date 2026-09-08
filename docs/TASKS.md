@@ -768,18 +768,26 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.B30 | **ZROBIONE (07.09.2026).** Pamiec na `_layout_for` i `_axis_document`: modul **35,1 s -> 11,0 s** (3,2x), caly zestaw **105,3 s -> 76,5 s** przy tej samej liczbie testow (1800) i tym samym werdykcie, trzy przebiegi 76,5 / 76,8 / 76,6 s. **Pytanie, ktore wpis zostawil otwarte, zostalo zmierzone PRZED zmiana**, nie odczytane z kodu: sonda zalozyla pamiec i po KAZDYM z 17 testow liczyla odcisk SHA-256 kazdego zapamietanego obiektu — testow, ktore zmutowaly strukture, jest **zero**. Odczyt pieciu miejsc wolania pokazalby `max`, `min`, `len` i iteracje, ale nie zobaczylby mutacji schowanej w wyrazeniu; odcisk widzi kazda. Docstring mowi, co robic, gdyby to przestalo byc prawda: kopia przy wydaniu albo struktura niezmienna, NIE zdjecie pamieci. **Kryterium „ponizej 10 s" NIE zostalo spelnione i liczba w nim byla bledna** — 10 s bylo moim szacunkiem przy wpisywaniu pozycji, a pomiar pokazuje dno ~11 s: 6,08 s nieusuwalnego wypelnienia pamieci (szesc osi po ~1 s, placi je pierwszy alfabetycznie test dotykajacy wszystkich) plus ~5 s testow na osiach SYNTETYCZNYCH, ktore `_layout_for` nie wolaja wcale. Zejscie ponizej 10 s wymagaloby zmniejszenia tego, co testy licza. Pomiar w `reports/pamiec-ukladu-peronow.md`. Tresc pierwotna: **`_layout_for` w `test_station_layout.py` nie ma pamieci i liczy uklad od nowa przy kazdym wolaniu** | zmierzone 07.09.2026 przy 6.D25: 17 testow, z czego cztery po ~6,0 s, a `_layout_for` jest wolane z pieciu miejsc, kazde w petli po szesciu osiach — czyli ~30 pelnych przebiegow narzedzia na tych samych szesciu plikach | S |
 | 6.A19 | **Odmowa `replay --coast-from-m` mówi „nie zna opcji" o opcji, którą projekt zna** — a decyzja właściciela z 07.09.2026 czyni z tej odmowy trwałą WŁASNOŚĆ polecenia, więc komunikat ma podać powód: odtworzenie zapisu wejść nie może dostać nastawy automatu, bo przestałoby być odtworzeniem | rozstrzygnięte 07.09.2026, odczytanie (a) z wiersza w „Czego agent nie ruszy bez decyzji". Ta sama rodzina usterki co 6.A22, i tam już zmierzona: zdanie „nie zna opcji" jest poprawne dla literówki i **mylące** dla nazwy, którą runner zna z innego polecenia. Zakres jest treścią komunikatu i dokumentacją, nie zachowaniem — kod wyjścia i sama odmowa zostają | S |
 | 6.B43 | **Ukrycie widoku goniącego kończy się na długości składu, a kadr jest jasny jeszcze przy 96 m** — decyzja właściciela z 07.09.2026 rozciąga pasmo do **110 m**, więc `ChaseCameraAim.Availability` przestaje być funkcją samej długości składu | rozstrzygnięte 07.09.2026. Liczba 110 m pochodzi z pomiaru, nie z gustu: 96 m → **42,0 %** pikseli jaśniejszych niż 0,80 w górnych 60 % kadru, 110 m → **0,0 %**. Seria jest przy tym **niemonotoniczna** (90 m → 0,0 %, 96 m → 42,0 %), więc pozycja ma pasmo domierzyć gęściej, a nie przepisać jeden punkt | M |
-| 6.B44 | **Profil pionowy pakietu A nie istnieje, bo trzy z dwunastu stacji mają głębokość, a dziewięć `unknown`** — decyzja właściciela z 07.09.2026 mówi budować z jawną niewiadomą, więc brakuje narzędzia, które czyta `station-depths.csv` i **nazywa dziurę**, zamiast interpolować przez nią | rozstrzygnięte 07.09.2026. Dziś `data/network/station-depths.csv` nie ma w drzewie ani jednego konsumenta poza `tools/tests/test_platform_dimensions.py` — sprawdzone `grep -rln`. Pozycja nie zgaduje ani jednej głębokości: bierze trzy wpisane (`-12,0`, `-20,0`, `-12,0`, wszystkie `estimated`) i dziewięć pustych, a konflikt Schuman 15 m vs 17,42 m zostaje nierozstrzygnięty i tak oznaczony. Czysty Python w `tools/track/`, bez Blendera | M |
+| 6.B44 | **ZROBIONE (07.09.2026), i pozycja myliła się co do tego, ile osi da się wypełnić — pomiar to obalił w pierwszym przebiegu.** Powstało `tools/track/vertical_profile.py`: czyta oś i CSV, pisze do `build/` profil, w którym **każdy** punkt niesie albo rzędną z interpolacji między dwiema **znanymi** stacjami, albo `depth_m: null, confidence: "unknown"`. Reguła „interpolacja nie przechodzi przez niewiadomą" **nie jest hipotetyczna**: **Gare Centrale (3731,85 m) leży MIĘDZY De Brouckère (3129,94 m) i Parc (4075,66 m) i rzędnej nie ma**, więc para jest rozspojona i wypełnić wolno wyłącznie Parc↔Arts-Loi. Naiwna interpolacja dałaby **1431,01 m**, reguła zostawia **485,29 m** — różnica **945,72 m** to tyle osi, ile takie narzędzie by zmyśliło. Pokrycie ma **dwie** liczby, bo mierzą dwie różne rzeczy: `defined_span_m` **485,29 m (7,26 %)** to rozpiętość, na jakiej profil jest zdefiniowany, a `with_depth_m` **468,38 m (7,01 %)** to odcinki łamanej z rzędną na obu końcach; różnica 16,904 m ma jedną przyczynę — łamana nie ma wierzchołka na kilometrażu Parc, najbliższy stoi na 4092,564 m. Podana sama, pierwsza liczba czytałaby się jako „profil pokrywa 7 % osi", co jest zdaniem o wierzchołkach, nie o profilu. **Martwy mechanizm usunięty, i to najciekawsza część:** pierwsza wersja zdejmowała znaki diakrytyczne, uzasadniając to liczbą „8 z 12", a **uzasadnienie było fałszywe** — dopasowanie ścisłe po pełnym zestawie pól daje 12 z 12 i tak, więc po zamianie normalizacji na `strip()` zestaw przeszedł 16/16. Liczba 8 z 12 opisuje wariant **jednopolowy**, którego narzędzie nigdy nie używało; ratuje sytuację **zestaw pól** (zdjęcie `name` kosztuje 2 stacje, w tym De Brouckère), a nie normalizacja. Cztery kontrole negatywne WYKONANE, w tym jedna, która **niczego nie złapała** (16/16 ze zdjętą normalizacją) i właśnie dlatego jest najcenniejsza — bez niej w drzewie zostałby kod z nieprawdziwym komentarzem. **`data/` nietknięte**, sprawdzone odciskiem SHA-256 przed i po. Raport: `reports/profil-pionowy-pakietu-A.md`. Moduł `tools/tests/test_vertical_profile.py`: 17/17 | M |
 | 6.A33 | **ZROBIONE (07.09.2026).** Bramka `tools/tests/test_needle_specificity.py` (11 testów) czyta `src/Sim.Runner/Program.cs` i `tests/Sim.Tests/RunnerCommandTests.cs` jako tekst i dla każdej igły `StringAssert.Contains` liczy, ile komunikatów ją zawiera. Zmierzone na `2ffb0b0`: **68** różnych igieł, **15** niejednoznacznych PRZED, **7** PO — osiem wzmocnionych w teście (`--keys` → `replay wymaga --keys`, `--axis` → `axis wymaga --axis`, `--timetable` → `service-day wymaga --timetable`, `HH:MM:SS` → `czas ma mieć postać HH:MM:SS`, `[BUDŻET]` → `[BUDŻET] oś `, `nie przyjmuje postaci` → wariant z `. Opcję`, `[LINIA]` → `[LINIA] największy błąd zatrzymania`, `[PORÓWNANIE]` → `[PORÓWNANIE] wierszy=`), siedem z wpisem z powodem (`budget`, `step`, `--trains`, `--limit-kmh`, `--at`, `line`, `--steps` — wszystkie są nazwą polecenia albo opcji, a nazwa opcji stoi i w wypisie pomocy, i w każdej odmowie o niej), **zero** przemilczanych. Lista wyjątków zamknięta zapadką z OBU stron (`MAX_JUSTIFIED_NEEDLES = 7`); trzeci szczebel to zapadka na **33** igły, które nie pasują do ani jednego literału, bo runner składa te zdania interpolacją — bez niej najtańszym uciszeniem bramki byłaby zamiana niejednoznaczności na niewidzialność. Zestaw narzędzi **1931 → 1942**, `dotnet test` **589 → 589**. Cztery kontrole WYKONANE: dodatnia (osłabienie `axis wymaga --axis` do `--axis` → `1939/1942`, trzy FAIL wszystkie w nowym module i ani jeden poza nim), dodatnia druga (osłabienie do `line`, czyli do igły Z listy wyjątków → szczebel 1 milczy, zapala się próg KW na `67` igieł zamiast 68, a `dotnet test` pada na treści), skasowany jeden wpis listy (→ zgłoszenie `--steps` i zapadka „stoi wyżej niż lista"), ujemna (mutacja `> 1` na `>= 1` przenosi zbiór zgłoszeń z 0 na **28**, a przy `>= 0` bez filtru listy — na **wszystkie 68**), przyrządu (dopisany do `Program.cs` drugi komunikat z istniejącą igłą podnosi jej licznik 1 → 2 i wprowadza ją do zgłoszeń; ten sam dopisek w KOMENTARZU licznika nie podnosi). **Liczb z treści pierwotnej NIE przeliczam i to jest werdykt, nie zaniedbanie:** kodu tamtego przyrządu nie ma w drzewie, a dziesięć sprawdzonych definicji „komunikatu" (na tym samym `a4a3975`) nie daje `line`=11 przy `budget`=10 — w każdej opartej na literałach `line` wypada najsłabiej z tej czwórki, bo napis `line` stoi w tym pliku w czterech literałach, a `step` w trzynastu. Zbiór **68** igieł jest natomiast identyczny na obu commitach, więc różnica siedzi wyłącznie w definicji komunikatu. Raport: `reports/swoistosc-igly.md`. **Sprostowanie liczb z treści pierwotnej, dopisane 07.09.2026 i ustalone mechanizmem, nie domysłem:** wiersz mówił „16 z 68 igieł niejednoznacznych; najgorsza `line` w 11 komunikatach", a bramka tej pozycji daje **15** przed poprawką i **7** po. Rozjazd nie jest starzeniem się pomiaru — przyrząd, którym powstały liczby pierwotne, był zepsuty. Wzorzec `"((?:[^"\\]|\\.)*)"` na surowym źródle C# paruje cudzysłów **zamykający** jednego literału z **otwierającym** następnego i łapie wszystko pomiędzy; z 209 „komunikatów" **53 (25 %)** zawiera `///`, `return `, `};` albo `Console.`, a `line` „w jedenastu komunikatach" to `line` w komentarzach dokumentacyjnych, w znacznikach `// --- line ---` i w zmiennej `File.WriteAllLines(output, lines)`. Zbiór **68 igieł był policzony poprawnie** — rozjazd siedzi wyłącznie w definicji komunikatu. Rozbiór w `reports/kolejka-uzupelnienie-drugie.md` §3. Tresc pierwotna: **Igła asercji, która występuje w JEDENASTU różnych komunikatach tego samego programu** — `StringAssert.Contains(err, "line")` przechodzi przy odmowie o czymkolwiek. Zmierzone 07.09.2026 na `a4a3975`: **16 z 68** różnych igieł w `RunnerCommandTests.cs` mieści się w więcej niż jednym wielowyrazowym literale z `Program.cs`; najgorsze to `line` (11 komunikatów), `budget` (10), `--limit-kmh` (9) | to jest dokładnie ten pomiar, który `reports/audyt-asercji.md` §7 nazwał **rozstrzygającym** i którego świadomie nie wykonał, bo omijałby format z sekcji 6. Tu nie jest wymyślony na miejscu — 6.A32 wypisało go z nazwy jako osobną pozycję, a liczba stoi wyżej. W przeciwieństwie do 6.A32 rodzina komunikatów jest **zamknięta**: literały odmów `Program.cs` da się wyliczyć | M |
 | 6.D32 | **ZROBIONE (07.09.2026).** Bramka `tools/tests/test_field_paths.py` — trzy szczeble, dwanascie testow. **Liczby przeliczone na `2ffb0b0`, nie przepisane**: blokow jest **111** (nie 101), a sciezek **442** w polach „Wejscie", **45** w „Wyjsciu" i **191** w „Weryfikacji" — razem **678** wystapien, 647 unikalnych trojek (blok, pole, sciezka). Nieistniejacych jest **7** i przeliczenie znalazlo **TRZECIA** usterke obok dwoch znanych: **6.D35** cytuje w „Wejsciu" `tests/Sim.Tests/MetroBxl.Sim.Tests.csproj`, a plik nazywa sie `tests/Sim.Tests/Sim.Tests.csproj` — `MetroBxl.Sim.Tests` jest wartoscia `<AssemblyName>` w tym wlasnie pliku. Poprawione sa wszystkie trzy, bo szczebel 1 (pole „Wejscie") nie dopuszcza wyjatku i trzeciej nie bylo jak obejsc, nie lamiac pola „Wyjscie" tej pozycji. **Cztery pozostale sciezki sa POPRAWNE i bramka ich nie zglasza**: (a) plik do wytworzenia w „Wyjsciu" (6.B44, 6.B8), (b) ten sam plik w komendzie, ktora go tworzy (6.B44, „Weryfikacja"), (c) sciezka celowo nieistniejaca (6.B39) — jedyny wpis na liscie wyjatkow, zapadka **1**, a dla pola „Wejscie" wyjatku nie ma i pilnuje tego asercja na kluczach, nie zdanie w komentarzu. **Kontrole WYKONANE, szesc.** KD: literowka w polu „Wejscie" bloku 6.D25 wywraca DOKLADNIE nowa bramke — `1941/1943`, kod 1, ani jeden z pozostalych 101 modulow nie drgnal. KD-2 i KD-3: ta sama literowka uciszana wpisem na liscie wyjatkow **nadal jest zglaszana**, a dodatkowo pada zapadka, a po jej podniesieniu — strukturalny zakaz wyjatku dla tego pola. KU: zdjecie rozroznienia pol PRZENOSI zbior zgloszen **3 -> 7** przed poprawka i **0 -> 4** po niej, a te cztery to dokladnie sciezki poprawne (a), (b), (c); liczba sciezek jest przed i po identyczna (678), bo zadna z trzech poprawek nie wyprowadza sciezki spod wzorca. KW: wzorzec zawezony do `[Q]` zapala prog („0 sciezek w polu Wejscie, a bylo ich 420"), nie zostawia zielonego zera. KW-2 pokazuje, **po co progi sa per pole**: literowka w nazwie jednego pola zabiera 45 sciezek z 678, czyli 6 %, i prog laczny by nie drgnal (633 z 678). KP: alternatywa rozszerzen w zlej kolejnosci (`cs` przed `csproj` i `csv`, `json` przed `jsonl`) produkuje **5 wystapien zgloszen z niczego** — cztery rozne uciete tokeny, wszystkie w polu „Wejscie", zaden nie istnieje. Zestaw **1931 -> 1943** testow i **101 -> 102** modulow, `1943/1943 przeszlo`, kod **0**; liczba blokow bez zmian, wiec `MINIMUM_DETAIL_BLOCKS` zostaje na 111. Pomiar w `reports/sciezki-w-polach-blokow.md`. Poza zakresem, zgodnie z polem: czy komenda z pola „Weryfikacja" DZIALA (6.D33) oraz pola „Skad" i „Zalezy od". **Zauwazone, nietkniete**: cytat `grep` w polu „Skad" bloku 6.D35 niesie te sama zla sciezke i nie mogl dac pokazanego wyjscia `0` (byloby `No such file or directory`, kod 2) — to rodzina 6.D33 i zapis z data; wzorzec sciezki w `tools/tests/test_report_hygiene.py` nie dopuszcza wiodacej kropki, wiec zadna sciezka `.github/…` nigdy nie byla w `reports/` sprawdzana, a tu takich wystapien jest 15 w 10 blokach i wszystkie istnieja. Tresc pierwotna: **Pole bloku może nazywać plik, którego w drzewie nie ma, i nic tego nie zgłasza** — zmierzone 07.09.2026 na `a4a3975` przez 101 bloków: **387** ścieżek w polach „Wejście", **40** w „Wyjściu", **149** w „Weryfikacji". Nieistniejące i będące usterką są **dwie**: **6.B5** cytuje w „Wejściu" `tools/track/profile_scan.py`, a plik leży w `tools/blender/profile_scan.py`; **6.A30** cytuje w „Weryfikacji" `data/keys/L1_A-manual.json`, a katalogu `data/keys` **nie ma wcale** — zapisy wejść leżą w `tests/data/` | pierwsza ścieżka wysyła agenta, który weźmie 6.B5, pod adres, którego nie ma; drugą znalazł niezależnie agent 6.A30 i wykonał weryfikację na plikach istniejących. Bramka musi mieć **trzy** rodzaje wyjątku zmierzone, nie zgadnięte: plik jeszcze niezbudowany w „Wyjściu" (6.B8, 6.B44), ten sam plik w komendzie, która go tworzy (6.B44), i ścieżkę **celowo nieistniejącą**, bo to o nią w teście chodzi (6.B39, `tools/nie-ma-takiego-pliku.py`). `test_report_hygiene.py` pilnuje tego dla `reports/`, dla bloków kolejki nikt | M |
-| 6.D33 | **Audyt wykonalności komend z pól „Weryfikacja" objął 82 komendy z 42 bloków, a bloków jest dziś 101 i komend 279** — zmierzone 07.09.2026 na `a4a3975`. 6.D15 nie zostawiło bramki, więc pokrycie audytu **opada samo** z każdym nowym blokiem: dziś to 82 z 279, czyli 29 % | pozycja nie przelicza cudzego pomiaru — 6.D15 jest datowanym audytem i dostaje adnotację. Rzecz jest w tym, że liczba „73 uruchamialne" czytana dziś wygląda jak zdanie o kolejce, a jest zdaniem o 42 blokach z sześćdziesięciu dwóch mniej. Sama zmierzona różnica 82 → 279 rozstrzyga, czy warto bramkę, czy wystarczy adnotacja | M |
+| 6.D33 | **ZROBIONE (07.09.2026), i pozycja kończy się BEZ bramki — rozstrzygnął to pomiar, nie zniechęcenie.** Pole „Wyjście" żądało najpierw liczby i ona jest: zmierzone na `f684e40a3af52272f9cd1d32d241e9bf3abf644d` przez wszystkie bloki (pomiar zaczął się na `2ffb0b0` i został powtórzony po czterech scaleniach; wszystkie trzy liczby są na obu commitach identyczne, a z 233 napisów zmienił się jeden) — bloków **111**, wierszy komend w polach „Weryfikacja" **297**, komend sklejonych **233** w **103** unikalnych napisach. Obie liczby z bloku przeliczone samodzielnie i obie prawdziwe w swoich jednostkach: 101 bloków i **279** wierszy odtworzone w osobnym worktree na `a4a3975`, więc 279 → 297 to dziesięć nowych bloków, a nie zmiana metody. **Rozbicie na cztery kategorie, każda komenda wpisana dosłownie i odczytana z kodu wyjścia** (komend 233 / wierszy 297): **uruchamialnych 207 / 260**, **wymagających narzędzia nieobecnego 10 / 13** (Blender i Godot, w tym dwa sweepy `tools/blender/` odrzucone przez `ModuleNotFoundError: No module named 'bpy'`), **niewykonalnych z winy zapisu 9 / 14** w **7** napisach, **nierozstrzygniętych 7 / 10**. `dotnet` 10.0.400 jest obecny, więc 30 wywołań `dotnet test tests/Sim.Tests` i 5 `dotnet test tests/Game.Tests` liczy się z wykonanego przebiegu. Pokrycie audytu 6.D15 to **42 z 111 bloków (38 %)**, **82 z 233 komend (35 %)** i **82 z 297 wierszy (28 %)** — liczba 29 % z tego bloku jest z ostatniej jednostki i po dziesięciu blokach zeszła do 28 %. **Trzy usterki zapisu są nowe, żadna nie poprawiona** (pole „Poza zakresem": pozycja je liczy i nazywa): **6.A21** cytuje w komendzie katalog tools/ci/golden, którego nie ma — wzorce śladu leżą w `tests/data/golden-trace`, a `git diff --stat` kończy kodem **128**; pomiar 6.D32 tej ścieżki nie widzi, bo jego wzorzec bierze tylko tokeny ze znanym rozszerzeniem, a to katalog. **6.B32 i 6.B41** podają `--journal` w katalogu pod `/tmp`, którego nikt nie tworzy: `mutation_sweep.py` liczy **118 s** i **121 s**, a potem wywala `FileNotFoundError` w robotniku; po jednym `mkdir -p` obie kończą kodem 0 (`rozstrzygniętych 2/2, zabitych 2`) w ok. 126 s, więc jedyną usterką jest ścieżka, a podejrzewana nazwa opcji `--no-coverage` istnieje i działa. **6.C4** — `tools/ci/assert_shot_metadata.py` żąda `--metadata` i `--axis`, a członu pozycyjnego nie bierze wcale, więc komenda pada niezależnie od braku Godota; werdykt 6.D15 **nieprzeliczony**, podany jest własny pomiar o innym kryterium. **Czwarta, 6.A30, pokazuje, że poprawka ścieżki nie musi być poprawką komendy:** 6.D32 weszło do `main` w trakcie tej sesji (#388) i poprawiło tam data/keys/L1_A-manual.json na istniejący `tests/data/manual-keys.log`, a komenda **nadal się nie wpisuje** — `BŁĄD: replay wymaga --signalling PLIK.json`, kod 1. Usterka przeszła z rodziny „zła ścieżka" do „brakujący argument", której żadna bramka na ścieżki nie zobaczy, bo plik z pola istnieje. **Bramki nie ma i to jest wynik zmierzony, w trzech wykonanych kontrolach.** Bramka na pokrycie audytu w wariancie „każda komenda objęta" (`n <= 82`) jest **CZERWONA na dzisiejszym, poprawnym `main`** (233 komendy, 151 ponad zero) — nie da się jej wprowadzić w commicie, który ją wprowadza; w wariancie zapadki (`n - 82 <= 151`) jest zielona dziś i czerwienieje **identycznym komunikatem** na dopisaniu POPRAWNEGO bloku i na dopisaniu komendy ze złą ścieżką: czułość 100 %, **swoistość 0 %**, bo mierzy tylko, ile komend jest, a to rośnie od pisania kolejki (6.D27). Bramka na istnienie ścieżki **już istnieje** — 6.D32 weszło w trakcie tej sesji (#388) jako `tools/tests/test_field_paths.py`, jest zielona (`12/12 przeszło`) i słusznie zgłasza **zero**, bo oba jej trafienia w polach „Weryfikacja" są zapisem poprawnym (6.B39 z wpisem w `EXCEPTIONS`, 6.B44 przez `in_own_output`). Nie widzi tylko jednego, i to właśnie tej usterki: jej `PATH_TOKEN` żąda znanego rozszerzenia na ostatnim segmencie, a tools/ci/golden jest katalogiem. Rozszerzenia wzorca nie robię i to też jest zmierzone: wariant dopuszczający katalog daje **2 zgłoszenia na 4 trafienia** wobec dzisiejszych 0 na 2, bo dokłada 6.B15 — urwany na gwiazdce fragment maski `tools/tests/test_*.py`, który tamta bramka odsiewa **świadomie**. Bramka na miejsca do wypełnienia **już istnieje** — 6.D15 zostawiło `tools/tests/backlog_commands.py` i `test_the_blocks_with_placeholders_are_the_ones_the_measurement_named`, trzymający **zbiór**, nie liczbę; teza „6.D15 nie zostawiło bramki" jest więc prawdziwa o pokryciu werdyktów i nieprawdziwa o nawiasach. Zostaje **adnotacja** w `reports/komendy-weryfikacji.md`, mówiąca, że tamten pomiar dotyczył **42 bloków** — bez przeliczania jego werdyktów. Zestaw narzędzi **1957 → 1957** testów i **103 → 103** modułów, kod wyjścia **0**, zmierzone dwa razy — raz na `origin/main`, raz na tej gałęzi; `dotnet test` **589 + 210** bez zmiany — ta pozycja nie dopisuje ani jednego testu i nie zmienia ani jednego pliku w `tools/`. Raport: `reports/pokrycie-audytu-komend.md`. **Zauważone i nietknięte:** kolektor 6.D15 nie zna heredoku i rozbija jedną komendę bloku 6.A24 na **pięć** (otwarcie, trzy wiersze ciała, `EOF`), więc zawyża licznik o cztery — to osobna praca na kolektorze, z własną kontrolą negatywną; `Sim.Runner` nie tworzy katalogu wyjściowego, więc na świeżym klonie 13 komend kończy się `BŁĄD: Could not find a part of the path …` **po** przebiegu (`budget --out` liczy 11 s i dopiero potem odmawia zapisu); audyt 6.D15 ma w sobie różnicę jednej komendy — jego §1 cytuje `komend zebranych: 83`, a §2 sumuje werdykty do **82**. Tresc pierwotna: **Audyt wykonalności komend z pól „Weryfikacja" objął 82 komendy z 42 bloków, a bloków jest dziś 101 i komend 279** — zmierzone 07.09.2026 na `a4a3975`. 6.D15 nie zostawiło bramki, więc pokrycie audytu **opada samo** z każdym nowym blokiem: dziś to 82 z 279, czyli 29 % | pozycja nie przelicza cudzego pomiaru — 6.D15 jest datowanym audytem i dostaje adnotację. Rzecz jest w tym, że liczba „73 uruchamialne" czytana dziś wygląda jak zdanie o kolejce, a jest zdaniem o 42 blokach z sześćdziesięciu dwóch mniej. Sama zmierzona różnica 82 → 279 rozstrzyga, czy warto bramkę, czy wystarczy adnotacja | M |
 | 6.D34 | **`tests/Game.Tests` nie było objęte audytem asercji i raport mówi to wprost** — `reports/audyt-asercji.md` §7: „o tamtych 53 asercjach ten raport nie mówi nic". Zmierzone 07.09.2026 na `a4a3975` szerszym wzorcem: **63** asercje kształtu `StringAssert.Contains` / `Assert.IsTrue(… .Contains(…))` w **7** plikach `Game.Tests`, najwięcej `RunPlanTests.cs` (20) i `TelemetryTrackTests.cs` (19) | cztery przypadki z 07.09.2026 były wszystkie z runnera i z `tools/tests/`, więc wniosek 6.A32 („przyrząd łapie 0 z 4") jest zdaniem o tamtej czwórce, nie o `Game.Tests`. Pozycja nie powtarza przyrządu 6.A32 — bierze **zamkniętą rodzinę** komunikatów `RunPlan` (te same, które 6.C5 policzyło: sześć trybów, sześć literałów) i pyta o swoistość igły, tak jak 6.A33 dla runnera | M |
 | 6.D35 | **ZROBIONE (07.09.2026), i pozycja kończy się BEZ bramki — pomiar to rozstrzygnął.** Zdanie §7 w `reports/audyt-asercji.md` **przepisane**, nie dopisane obok: dwa z trzech najliczniejszych plików to testy Godota, trzeci nie — `InputLogTests.cs` leży w `tests/Sim.Tests/`, ma `namespace MetroBxl.Sim.Tests`, a `Sim.Tests.csproj` ma **zero** odwołań do Godota wobec **jednego** w `Game.Tests.csproj`. **Sprzeczność była wewnątrz jednego dokumentu**: rozbicie w §2 tego samego raportu podaje pełne ścieżki i mówi to wprost, więc §7 czytał własne §2 i przepisał je z błędem. Liczby 20 / 19 / 14 **nieprzeliczone** — pomiar z datą. **Bramki nie ma i to jest wynik zmierzony, nie rezygnacja**: przyrząd na wiersze `reports/` nazywające plik `*Tests.cs` razem z markerem projektu daje **5 fałszywych alarmów na 84 trafienia (6 %) i ZERO z jednego prawdziwego** — nie zgłasza wiersza, dla którego powstał, bo `audyt-asercji.md:290` zawiera także `RunPlanTests.cs`, który **naprawdę** jest w `Game.Tests`, a mylnie opisany plik stoi w wierszu następnym. Wszystkie pięć fałszywych alarmów ma tę samą przyczynę: marker stoi w **innej komórce tabeli** niż nazwa pliku. To ta sama arytmetyka i ta sama przyczyna strukturalna, którą 6.A32 zamknęło bez bramki. Wynik dopuszczony wprost przez pole „Wyjście". Zestaw **1931 → 1931**, kod wyjścia 0 — ani jednego nowego testu, i to jest wynik pozycji. **Zauważone i NIE podane jako sprostowanie**: odtworzony klasyfikator gołych asercji daje **114**, nie 127, bo mój wzorzec uznaje za licznik także `Assert.AreEqual(x.Length, …)`; podane jako osobny pomiar o innej definicji, bo dwie liczby z dwóch definicji zlane w jedną są gorsze od obu osobno. Przy okazji proporcja dla 6.D34: w `Game.Tests` gołych jest **53 z 64** (83 %), w `Sim.Tests` **61 z 166** (37 %). Pomiar w `reports/plik-nie-z-tego-projektu.md`. Tresc pierwotna: **Raport w `main` nazywa plik z `tests/Sim.Tests` testem Godota** — `reports/audyt-asercji.md` §7 pisze „Trzy najliczniejsze pliki C# to testy Godota, nie runnera (… `InputLogTests.cs` 14)" | zmierzone 07.09.2026 na `a4a3975`, `ls` i `grep` po pliku projektu. Ta sama rodzina co 6.D4 i 6.D8: zdanie w raporcie, ktorego nikt nie liczy, i ktore przy czytaniu wyglada jak wynik pomiaru | S |
 | 6.B45 | **ZROBIONE (07.09.2026), i pozycja myliła się co do własnej przesłanki — pomiar to pokazał.** Wiersz twierdził, że „obie liczby są nieprawdziwe"; sprawdzone na commicie wprowadzającym zdanie: **`ff99d13` (03.09.2026) miał 44 cele i 9 nieosiągalnych**, więc „9 z 44" zgadzało się **co do sztuki w dniu wpisania**. To był pomiar **bez daty**, nie fałsz — inna usterka i inna poprawka. Dalej: `6bbbf37` (04.09) → 55 celów i 10 nieosiągalnych, dziś **63 i 10**. Odpowiedź na pytanie z pola „Wyjście": w cztery dni celów przybyło **19**, a nieosiągalnych **jeden**. Liczby nie są więc przepisane na 10 i 63 — docstring **przepisany tak, że każda liczba ma commit**, a do tego doszła własność **wyprowadzona z drzewa**: zbiór nieosiągalnych równa się dokładnie zbiorowi modułów importujących `bpy` **na poziomie modułu** (10 = 10, zbiory identyczne), co nie wymaga utrzymywania żadnej liczby. Rozróżnienie „na poziomie modułu" jest istotne: tekstowy `grep` daje **15**, a różnica pięciu to dokładnie moduły **wyciągnięte spod `bpy`** w 6.B9 i 6.B13, więc bramka na `grep` zgłaszałaby pięć poprawnych. **Czego równość NIE łapie, i to zmierzone**: `import bpy` dopisany do `lod_paths.py` wchodzi do OBU zbiorów naraz, więc równość zostaje spełniona i próg (11 < 31) też przechodzi — dlatego tych pięciu broni osobna asercja na liście imiennej, utrzymywanej ręcznie, bo „moduł, który kiedyś importował bpy i przestał" nie jest własnością dzisiejszego drzewa. Próg zostaje: równość jest spełniona także przy obu zbiorach pustych, więc sama nie odróżnia sondy widzącej od maszyny z dostępnym `bpy`. Zestaw **1957/1957**, kod 0, liczba testów modułu bez zmian (111). **Kontrola negatywna WYKONANA za CZWARTYM podejściem, a trzy pierwsze były ślepe i dwie zdążyły przekonać mnie do wniosku**: pierwsza wstrzyknęła `import bpy` w miejsce po pierwszym napisie `import `, który w tym pliku stoi **w docstringu** (mówiącym akurat o `import bpy` na poziomie modułu), więc wylądowała **wewnątrz literału**; druga powtórzyła ten błąd; trzecia szukała ostatniego importu najwyższego poziomu i padła asercją `modul nie ma importow na poziomie modulu` — bo `lod_paths.py` nie ma ani jednego, i to jest właśnie powód, dla którego 6.B9 go wyciągnęło. Czwarta, potwierdzona trzema sprawdzeniami (`ast` mówi „na poziomie modułu", import faktycznie pada, kod 1), wywraca asercję listy imiennej ze wskazaniem pliku. Pomiar w `reports/liczba-nieosiagalnych.md`. Tresc pierwotna: **Docstring bramki osiągalności podaje „9 z 44 modułów", a zmierzone jest 10 z 63 — i obie liczby są nieprzybite** | zmierzone 07.09.2026 na `627d184`; znalazł to agent wykonujący 6.B41 i świadomie nie tknął. Asercja stoi na progu (`len(unreachable) < len(targets()) // 2`, czyli 10 < 31), więc przechodzi przy 9, przy 10 i przy 30. **Jakościowa połowa zdania JEST pilnowana** pętlą `"bpy" in reason` i pozostaje prawdziwa — dziesiąty moduł (`tools/visual/capture_blender.py`) też importuje `bpy`. Nieprawdziwe są wyłącznie dwie liczby, i to jest cała pozycja | S |
-| 6.B46 | **`collect()` nie ma zawężenia, więc test potrzebujący świeżego przeliczenia płaci za wszystkie 63 cele** — 0,224 s za komplet, gdy potrzebuje jednego modułu | zmierzone 07.09.2026 przy 6.B38. Pamięć z tamtej pozycji kluczuje po odciskach **wszystkich** celów, więc zmiana JEDNEGO pliku unieważnia klucz i wymusza pełne przeliczenie — poprawnie, ale drożej niż trzeba. Kierunek do rozstrzygnięcia pomiarem: zawężenie w `collect()` (klucz per plik) kontra zostawienie jak jest. Blok 6.B38 nazwał to wprost jako osobną pozycję z własnym pomiarem | M |
+| 6.B46 | **ZROBIONE (07.09.2026), i pozycja kończy się BEZ zmiany zachowania — pomiar odrzucił oba kierunki naraz.** Przesłanka „0,224 s za komplet, gdy potrzebuje jednego modułu" była policzona **przed** pamięcią z 6.B38, czyli na drzewie, które ta pamięć zniosła. Zmierzone na `f684e40` przejściem po module z owiniętym `collect()`: wywołań jest **20**, ale świeżych przeliczeń **4** — 0,889 s, przy 16 trafieniach po 0,002 s. Z tych czterech pamięć **per plik** dosięga tylko dwóch (kontrole zmieniające jeden cel), czyli **0,453 s** — a rozrzut między sześcioma przebiegami tego samego kodu to **1,130 s**, więc stawka to **0,40 szumu** i pole „Weryfikacja" (czas przed i po z trzech przebiegów) samo tę zmianę odrzuca. Zawężenie `collect()` odpada z powodu mocniejszego od czasu: **0 z 20** wywołań zawęża, a dwa, które zmieniają jeden plik, potrzebują całej listy **właśnie po to, żeby ją porównać** — parametr zawężenia odjąłby `test_pamiec_collect_UNIEWAZNIA_SIE_gdy_tresc_celu_sie_zmieni` treść, nie czas. Przepisane, nie dopisane obok: trzy zdania mówiące „dziesięć wywołań" w czasie teraźniejszym (docstring `collect()` i dwa docstringi rodziny `test_pamiec_collect_*`) mają teraz **commit przy każdej liczbie**, wzorcem 6.B45. Rachunek per plik jest policzony i **wykonalny** (0,0014 s wobec 0,2422 s), odrzucony wyłącznie na stawce — gdyby moduł urósł tak, że przekroczy szum, zostaje w mocy. Raport: `reports/zawezenie-collect.md`. Liczba testów modułu **bez zmian (111)**, zestaw zielony kodem 0 | M |
 | 6.D36 | **Trzy obcięcia `hexdigest()` w całym drzewie: dwa przez stałą, jedno przez literał `[:12]`** — a stała `ODCISK_ZNAKOW` obok mówi 16 | zmierzone 07.09.2026 na `627d184`, przejściem po wszystkich `.py` i `.cs`: `mutation_sweep.py:444` i `:943` przez `ODCISK_ZNAKOW`, `:990` przez literał. `test_dead_constants.py` (6.B29) łapie stałą, której nikt nie czyta; **nic nie łapie literału, który powinien być stałą**. Dwie długości tej samej wielkości, żadna liczona z drugiej | S |
 | 6.D37 | **ZROBIONE (07.09.2026).** `--only ""` jest dziś **odmową kodem 2**, a nie pełnym przeglądem w milczeniu: pusty wzorzec przepuszczał wszystkie 63 pliki docelowe, czyli **2346 mutacji zamiast 2** dla typowego triażu, **1173×** więcej pracy, przy przebiegu wyglądającym na zawężony. **Pomiar z pola „Wyjście" rozstrzygnął na odmowę, nie na wiersz w wypisie, i pokazał DWIE postacie tej pomyłki o różnym zachowaniu**: w `reports/` stoją dwie prawdziwe pętle podstawiające zmienną do `--only`, a `--only "$m"` (`mutation-drift.md:455`) daje przy pustej zmiennej `--only ''`, kod **0** i pełny przegląd, gdy `--only $f` (`mutation-triage-fizyka.md:173`) gubi argument i argparse **JUŻ odmawia** (`expected one argument`, kod **2**). Druga postać była więc chroniona od zawsze, pierwsza nie była przez nic — i to jest cały powód odmowy. Kod **2**, nie 1: to błędne wywołanie, a nie „nie ma czego liczyć" (tam należą 6.B39 i 6.B41), i ten sam kod daje argparse dla drugiej postaci — jedna pomyłka, jeden kod, niezależnie od tego, czy cudzysłów ocalał. Warunek to `"--only" in sys.argv and not args.only`, a **nie** sama fałszywość `args.only`, bo obie sytuacje dają pusty napis, a tylko jedna jest pomyłką; przebieg bez `--only` (wołany w `reports/` **siedem** razy) zostaje niezmieniony. Zestaw **1931 → 1934**, moduł **108 → 111**, kod wyjścia 0. Trzy kontrole negatywne WYKONANE, każda na innym zbiorze; **KN-2 (odmowa zbyt szeroka, na samej fałszywości) pada na DOKŁADNIE JEDNYM teście** — tym, który pilnuje drogi pełnego przebiegu, i bez niego odmowa zablokowałaby wszystkie siedem wywołań. **KN-3 powtórzona**, bo pierwsza wersja zmieniła przy okazji treść komunikatu i nie izolowała kodu. Pomiar w `reports/puste-zawezenie.md`. Tresc pierwotna: **`--only ""` idzie drogą BEZ zawężenia i nic tego nie mówi** — skrypt wołający `--only "$WZORZEC"` z pustą zmienną dostaje pełny przegląd zamiast odmowy | zmierzone 07.09.2026 na `627d184`: pusty napis jest falsywy dla `if args.only`, więc gałąź zawężenia nie wchodzi wcale. Skutek jest liczbowy: **2346 mutacji zamiast 2** dla typowego triażu jednego modułu, czyli **1173×** więcej pracy, bez ani jednego słowa w wypisie. Ta sama rodzina co 6.B39 — przebieg, który wygląda poprawnie, robiąc co innego — tylko w drugą stronę: tam zbiór był pusty, tu jest pełny | S |
 | 6.D38 | **Nagłówek `reports/mutation-sweep.md` niesie commit, datę i nazwę gałęzi w jednym wierszu, inaczej niż wzór z 6.D3** — `**Snapshot na commicie:** \`66b8301\` (\`main\`, 04.09.2026)` | zauważone 07.09.2026 przy 6.B42. Bramka higieny to przepuszcza, bo szuka SHA w grawisach i daty osobno, a oba tu są — więc **nie jest to brak informacji, a rozjazd kształtu**. Do rozstrzygnięcia pomiarem: ile z 128 raportów ma nagłówek niezgodny ze wzorem i czy wzór jest w ogóle jeden. Jeżeli okaże się, że wzorów jest kilka i wszystkie czytelne, pozycja kończy się adnotacją, nie ujednolicaniem | S |
 | 6.D40 | **ZROBIONE (07.09.2026). Sonda pytała o JEDNĄ bibliotekę, więc mówiła „wszystko na miejscu" w jobie, w którym Blender nie wstawał** — a krok instalacji, warunkowany jej wyjściem, nigdy się nie odpalał. Zmierzone na `woogitsu-linux-01` i `-07` (runy 34153517889 i 34155630324): `wszystko sondowane jest na miejscu: libEGL.so.1`, a chwilę później `zgłasza '', oczekiwano '5.2.1'`. Sonda nie kłamała — `libEGL.so.1` tam było, tylko startu blokowało dziewięć innych bibliotek, o które nie pytała. Lista jest **wyliczona z ELF-ów przypiętego tarballa** (`readelf -d` po 201 plikach, odjęte 283 sonames wiezione przez archiwum, z pozostałych 28 policzone domknięcie startowe binarium), nie zgadnięta — rachunek w raporcie biblioteki-startowe-blendera.md, wchodzącym osobnym pull requestem. Siedem workflowów sonduje teraz dziesięć sonames, oba zestawy apt niosą jedenaście pakietów, a `blender.txt` ma **przepisany**, nie dopisany obok, akapit, którego druga połowa była nieprawdziwa: `libgl1-mesa-dri` nie dostarcza ani jednego pliku `libGL.so` (`dpkg -L` daje 0 dopasowań), więc `libGL.so.1` — zależność **startowa** — nie była instalowana nigdy. **Bramka `_debian_package_for` PRZEKIEROWANA, nie poluzowana**, i po przekierowaniu sprawdza więcej: jej docstring obiecywał mapowanie „MECHANICZNE, **nie tablicą wyjątków**", a obietnica była prawdziwa wobec DWÓCH bibliotek, dla jakich ją napisano, i złamała się na pierwszej nowej — Debian nazywa pakiet `libX11.so.6` jako `libx11-6`, z dywizem. Zmierzone `dpkg -S` na dziesięciu sonames: reguła trafia w **dziewięć z dziesięciu**, więc zostaje, a wyjątek jest jeden i pilnuje go nowy test żądający, żeby **każdy** wpis tabeli dawał wynik inny od reguły — wpis redundantny przesłania działającą regułę. **Ta sama usterka wyszła w drugim wymiarze i jest w tym samym commicie:** po doinstalowaniu bibliotek `first-run` padł na `unzip: command not found` (kod 127, `woogitsu-linux-02`, run 34155630333) — `unzip` nie był ani sondowany, ani w żadnym zestawie apt, więc sonda mówiła `present`, a job wywracał się czternaście kroków dalej niż powód. Warunek sondy poleceń był przybity na sztywno do `xvfb-run` zdaniem „jedyna RÓŻNICA między dwoma zestawami"; zdanie było prawdziwe, dopóki różnica była jedna. Przepisany na tabelę `POLECENIA_Z_PAKIETOW` z pętlą po każdym wpisie w obie strony — dla poleceń reguły mechanicznej NIE MA (`unzip` z pakietu `unzip`, `xvfb-run` z pakietu `xvfb`), więc tabela nie udaje reguły. Sześć kontroli negatywnych WYKONANYCH: wyczyszczona tabela nazw (2 FAIL), wpis redundantny (1 FAIL), pakiet zdjęty przy sondzie nadal o niego pytającej (1 FAIL), `unzip` w zestawie bez sondy (1 FAIL), sonda bez pakietu (1 FAIL) oraz — najważniejsza — kontrola, że po uogólnieniu STARY warunek na `xvfb` nadal łapie swój przypadek (1 FAIL). **Poza zakresem i wprost NIE zrobione: doinstalowanie czegokolwiek ręcznie na maszynach właściciela** — poprawka działa przez istniejący mechanizm warunkowej instalacji, więc pierwszy przebieg zrobi to sam | S |
+| 6.D39 | **ZROBIONE (07.09.2026). `blender_install.sh` gubił stderr Blendera, więc trzy różne przyczyny dawały jeden nierozróżnialny pusty napis** — `installed_version()` miało `"$BIN" --version 2>/dev/null`, a Blender, który nie startuje, pisze `error while loading shared libraries: <nazwa>` WYŁĄCZNIE na stderr i nic na stdout. Zmierzone na runnerze `woogitsu-linux-01` (run 34153517889, job `tunnel-alignment (L1_B)`): pobranie udane, suma SHA-256 **zgodna**, i jedyne zdanie o przyczynie to `zgłasza '', oczekiwano '5.2.1'`. Poprawka rozdziela **cztery** przyczyny (brak pliku, brak `+x`, brakujące biblioteki, wypis bez numeru) i **wylicza** brakujące biblioteki przez `ldd`, zamiast wpisywać listę z ręki — zgadnięta lista braków wygląda jak pomiar i nim nie jest. Trzy bramki wykonawcze, wszystkie trzy kontrole negatywne WYKONANE, w tym jedna na prawdziwym ELF-ie zlinkowanym z biblioteką usuniętą po zlinkowaniu (atrapa w bashu nie nadaje się: `ldd` na skrypcie nie wypisuje ani jednego `=> not found`, więc jedyna gałąź podająca NAZWY pakietów zostałaby bez kontroli). **Pierwsza wersja poprawki nie działała i złapała to kontrola, nie przegląd kodu**: `installed_version` woła się jako `$(installed_version)`, czyli w podshellu, więc przypisanie do zmiennej nie wychodziło do rodzica — komunikat mówił „startuje i nie wypisuje numeru" o Blenderze, który nie startował wcale, czyli poprawka miała tę samą usterkę, którą naprawia, o poziom głębiej. Raport: `reports/pusta-wersja-blendera.md`. **Poza zakresem i wprost NIE zrobione: doinstalowanie pakietów na `woogitsu-linux-01`** — to maszyna właściciela; ta pozycja daje wyłącznie komunikat, z którego wynika, co doinstalować | S |
+| 6.D41 | **ZROBIONE (07.09.2026). Bramka budżetu kroku porównywała z progiem pomiar, o którym SAMA wypisywała, że jest niestabilny** — kolumna `rozstęp_%` była parsowana i drukowana, ale **nigdy nie asertowana**. Zmierzone na runnerze `woogitsu-host-08` przy dwunastu jobach naraz: `koszt kroku 16.022 us przekracza prog 8.000 us` przy `rozstep powtorzen 115.9 %`. Na **tej samej treści kodu**, na maszynie niezajętej, cztery przebiegi dały **4,213–4,364 µs przy rozstępie 1,9–3,7 %** — czyli rdzeń nie zwolnił czterokrotnie, tylko maszyna nie dała się zmierzyć, a bramka nazwała to regresem wydajności. Dwa różne stany świata („rdzeń zwolnił" i „nie umiem tego zmierzyć") dawały **jeden komunikat i jeden kod wyjścia**, a pierwszy z nich każe szukać regresu w kodzie, którego nie ma. Poprawka: `spread_pct_max` **wstrzymuje porównanie** z progiem czasu (warunki OBSADY zostają sprawdzane zawsze, bo liczba składów na planie nie zależy od obciążenia) i daje **osobny kod wyjścia 3**. Granica **50 %** jest wyprowadzona z czterech pomiarów, nie zgadnięta: 22,5 % to najwyższy rozstęp z kalibracji progu 8,0 µs (`reports/linecore-step-budget-gate.md`, 06.09.2026), 17,0 % niesie atrapa `ZIELONY` w module testowym, 1,9–3,7 % maszyna niezajęta, 115,9 % maszyna obciążona — czyli 2,2× powyżej najwyższego udokumentowanego pomiaru zielonego i 2,3× poniżej zaobserwowanego niemierzalnego; wartość **tymczasowa, do zaciśnięcia** przy większej liczbie pomiarów z samych runnerów. Progu 8,0 µs **nie tknięto**. Sześć nowych testów, w tym asercja **wyprowadzona** żądająca, żeby granica leżała powyżej obu udokumentowanych pomiarów zielonych i poniżej zaobserwowanego niemierzalnego. Cztery kontrole negatywne WYKONANE: strażnik zdjęty (2 FAIL), granica zaniżona do 10 % (5 FAIL, w tym na **atrapie zielonej** — dowód, że za ciasna granica zamienia bramkę w generator fałszywych alarmów, 6.D27), granica podniesiona do 200 % (4 FAIL), kod niemierzalności zrównany z kodem przekroczenia (1 FAIL). **Przy okazji znaleziona dziura w mojej własnej procedurze kontroli:** przywrócenie pliku przez `cp` po mutacji o **identycznej długości** (`= 3` → `= 1`) w tym samym oknie rozdzielczości mtime pozostawia nieświeży `.pyc`, więc weryfikacja po przywróceniu czyta STARY bajtkod — złapane, bo sprawdzam stan po przywróceniu, i od teraz kontrole czyszczą `__pycache__`. Raport: `reports/rozstep-budzetu-kroku.md` | S |
+| 6.D42 | **Bramka czasu ściany zestawu porównuje z progiem JEDNĄ liczbę i nie ma żadnego sygnału mierzalności** — `over_budget()` to samo porównanie, a `test_all.py` chodzi raz, więc rozstępu nie ma z czego policzyć, inaczej niż w bramce kroku | zmierzone 08.09.2026 na trzech przebiegach TEJ SAMEJ treści: 335,668 s przy dwunastu jobach, 102 s na pustej puli, 81,938 s lokalnie — wszystkie z 1963/1963 zielonymi. Pozycja MIERZY, jaki sygnał jest w ogóle dostępny; nie wybiera progu | M |
+| 6.D43 | **Joby czasowe (`tools`, `sim`) chodzą równolegle z czterema renderami Blendera z TEGO SAMEGO przebiegu, więc pierwsze uruchomienie każdego pull requesta jest niemierzalne z konstrukcji** | zmierzone 08.09.2026: rozstęp 102,6 % przy JEDNYM pull requeście w puli, 84,0 % przy trzech, 4,0 % na puli pustej. Pozycja mierzy, ile jobów naraz pula znosi, i zapisuje liczbę; topologii jobów nie zmienia | M |
+| 6.D44 | **Lista sonames bibliotek renderu stoi w DZIEWIĘCIU kopiach i nic nie sprawdza, że kopie są zgodne** — siedem workflowów, jedna akcja składana i moduł testowy | zmierzone 08.09.2026 przejściem po drzewie: dziewięć plików niesie `libEGL.so.1`. Rozjazd jednej kopii daje job, który instaluje inny zestaw niż sondował — czyli dokładnie usterkę 6.D40, tylko o kopię dalej | S |
+| 6.D45 | **`MIN_REPORTS = 40` przy 140 raportach w `reports/`** — zapadka stoi sto pozycji za stanem, więc skan mógłby przestać czytać trzy czwarte katalogu i przejść na zielono | zmierzone 08.09.2026: `ls reports/*.md` daje 140, stała mówi 40. Podniesienie zapadki do stanu jest tą samą operacją, co przy `MINIMUM_DETAIL_BLOCKS`, i nie wymaga żadnej decyzji | S |
+| 6.D46 | **`data_freshness.py` ma w `main()` dokładnie jedno `return 0`, a wypisuje dziś 13 przeterminowanych okien** — krok CI nazwany „Report data freshness" nie może zaczerwienić się NIGDY, choć własnym zdaniem mówi, że oś z takiego archiwum „nie może być nazywana aktualną" | zmierzone 08.09.2026: jedno `return 0` w `main()`, 13 okien, kod wyjścia 0. Pozycja mierzy, czy w drzewie stoi choć jedno zdanie nazywające tę oś aktualną — poprawienie takiego zdania nie jest decyzją właściciela, a progu świeżości pozycja NIE ustala | M |
+| 6.D47 | **Nie wiadomo, czy ponowne uruchomienie joba pull requesta po ruszeniu bazy sprawdza starą czy nową scalankę** — a od tego zależy, czy „zielone CI" na takim jobie mówi cokolwiek o dzisiejszym `main` | zauważone 08.09.2026 przy scalaniu dziewięciu pull requestów: `rerun_failed_jobs` odtwarza przebieg z zapisanym `GITHUB_SHA`, ale tego NIE ZMIERZYŁEM i pozycja istnieje właśnie po to. Pomiar rozstrzyga bez ani jednej decyzji | S |
 
 #### Szczegóły pozycji z kompletem sześciu pól
 
@@ -4951,6 +4959,349 @@ MINIMUM_DETAIL_BLOCKS = 73
   denoisera: nie blokują startu, a ich dosypanie kazałoby szukać sterownika, którego
   to zadanie nie wymaga (lista z powodami w raporcie).
 - **Zależy od:** 6.D39 (ta sama awaria, druga jej połowa).
+##### 6.D39 · Pusty numer wersji Blendera bez ani jednego słowa o przyczynie
+
+- **Skąd:** zmierzone 07.09.2026 na runnerze `woogitsu-linux-01`, run 34153517889,
+  job `tunnel-alignment (L1_B)` — cztery joby Blenderowe padły na PR-ze, którego diff
+  nie tyka niczego, co czyta Blender, a `tunnel-alignment (L1_A)` przeszedł
+  **na tym samym commicie**, w tej samej sekundzie startu. Log podał jedno zdanie
+  o przyczynie:
+
+  ```
+  [BLENDER] sprawdzam sumę SHA-256
+  /home/matma/.../_temp/blender-5.2.1-linux-x64.tar.xz: OK
+  [BLENDER] BŁĄD: po rozpakowaniu .../blender zgłasza '', oczekiwano '5.2.1'
+  ```
+
+  Pobranie udane, suma **zgodna**, i pusty napis. Z tego nie wynika, czy rozpakowanie
+  poszło w złe miejsce, czy Blender nie startuje — a różnią się one tym, kto ma
+  co zrobić: pierwsze jest usterką skryptu, drugie brakiem pakietu na maszynie.
+- **Co było mierzalnie nie tak:** `installed_version()` w `tools/ci/blender_install.sh`
+  miało `"$BIN" --version 2>/dev/null`. Blender, który nie wstaje, pisze
+  `error while loading shared libraries: <nazwa>` **wyłącznie na stderr** i nic
+  na stdout — czyli `2>/dev/null` wyrzucało dokładnie tę jedną informację, która
+  jest tu potrzebna. Do tego `[ -x "$BIN" ] || return 1` daje ten sam pusty napis
+  przy braku pliku, więc przyczyn nierozróżnialnych było **trzy**.
+- **Wejście:** `tools/ci/blender_install.sh` (`installed_version`, gałąź błędu po
+  rozpakowaniu), `tools/tests/test_ci_workflows.py` (`_fake_blender_archive`,
+  `_run_blender_installer` — istniejący mechanizm bramek wykonawczych),
+  `.github/actions/probe-tools/action.yml` (sonda bibliotek),
+  `tools/ci/apt-packages/blender.txt` (zestaw pakietów).
+- **Wyjście:** komunikat, który **nazywa przyczynę**, z rozdziałem na brak pliku,
+  brak prawa wykonywania, brakujące biblioteki systemowe i wypis bez numeru wersji.
+  Lista brakujących bibliotek **wyliczona przez `ldd`**, nie wpisana z ręki.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_ci_workflows.py
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: kod 0, a kontrole negatywne pokazują, że rozbrojenie przechwytu stderr
+  albo zdjęcie gałęzi `ldd` wywraca dokładnie po jednym teście.
+- **Skończone, gdy:** dwie przyczyny, które przedtem dawały ten sam pusty napis,
+  dają **dwa różne zdania** (asercja porównuje je ze sobą, nie sprawdza obecności
+  napisu), a gałąź `ldd` jest sprawdzona na **prawdziwym ELF-ie** — atrapa w bashu
+  nie nadaje się, bo `ldd` na skrypcie nie wypisuje ani jednego `=> not found`.
+- **Poza zakresem:** **doinstalowanie brakujących pakietów na `woogitsu-linux-01`** —
+  to maszyna właściciela i nie ma tu obejścia. Poza zakresem także rozszerzanie
+  `tools/ci/apt-packages/blender.txt`: lista musi wyjść z **pomiaru** na tej maszynie,
+  którego ta pozycja dopiero umożliwia, a nie ze zgadywania.
+- **Zależy od:** nic; usterka jest w skrypcie, nie w kolejce.
+##### 6.D41 · Bramka porównywała z progiem pomiar, który sama nazwała niestabilnym
+
+- **Skąd:** zmierzone 07.09.2026 na runnerze `woogitsu-host-08`, gdy dwanaście jobów
+  liczyło naraz. Job `sim` padł na `tools/ci/assert_linecore_budget.py`:
+
+  ```
+  BLAD: koszt kroku 16.022 us przekracza prog 8.000 us
+  [BUDZET-BRAMKA] ... 16.022 us/krok przy progu 8.000; rozstep powtorzen 115.9 %
+  ```
+
+  Na **tej samej treści kodu**, na maszynie niezajętej, cztery przebiegi dały
+  **4,213–4,364 µs przy rozstępie 1,9–3,7 %**, kod 0. Rdzeń nie zwolnił czterokrotnie
+  — maszyna nie dała się zmierzyć.
+- **Co było mierzalnie nie tak:** kolumna `rozstęp_%` była **parsowana i wypisywana,
+  ale nigdy nie asertowana** (`spread_pct` czytany w `parse`, użyty tylko w `describe`).
+  Bramka znała liczbę mówiącą, że jej własny pomiar jest niestabilny, i porównywała go
+  z progiem mimo to — a potem nazywała wynik regresem wydajności. „Rdzeń zwolnił"
+  i „nie umiem tego zmierzyć" dawały **jeden komunikat i jeden kod wyjścia**, choć
+  pierwsze każe szukać regresu w kodzie, a drugie powtórzyć pomiar.
+- **Wejście:** `tools/ci/assert_linecore_budget.py` (`parse`, `verdict`, `describe`,
+  `main`), `tools/ci/linecore-step-budget.json` (próg i scenariusz w jednym miejscu),
+  `tools/tests/test_linecore_budget_gate.py`, `reports/linecore-step-budget-gate.md`
+  (podstawa progu 8,0 µs i rozstępy z kalibracji), `reports/linecore-budget.md`.
+- **Wyjście:** granica rozstępu, która **wstrzymuje porównanie** z progiem czasu,
+  z osobnym kodem wyjścia, i granica **wyprowadzona z pomiarów**, nie wpisana z ręki.
+  Warunki obsady zostają sprawdzane zawsze — liczba składów na planie nie zależy od
+  obciążenia maszyny.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_linecore_budget_gate.py
+  python3 tools/ci/assert_linecore_budget.py
+  ```
+  Oczekiwane: moduł zielony, bramka na prawdziwym pomiarze kodem 0, a kontrole
+  negatywne pokazują, że zdjęcie strażnika wraca do porównywania niestabilnego pomiaru.
+- **Skończone, gdy:** pomiar z rozstępem powyżej granicy **nie jest** porównywany
+  z progiem, dwa werdykty mają **dwa różne kody wyjścia**, a granica ma przy sobie
+  wszystkie pomiary, z których wyszła — łącznie z tymi, które ją ograniczają od dołu.
+- **Poza zakresem:** **próg 8,0 µs**. Ma udokumentowaną podstawę z 06.09.2026 i ta
+  pozycja go nie tyka; podniesienie progu byłoby osłabieniem bramki, a nie naprawą
+  pomiaru. Poza zakresem także **automatyczne powtarzanie pomiaru** przy niestabilnym
+  wyniku: to osobna decyzja, wymagająca pomiaru, jak często powtórzenie pomaga.
+- **Zależy od:** 6.D2 (bramka i jej próg), 6.A12 (warunek obsady).
+
+##### 6.D42 · Bramka czasu ściany porównuje jedną liczbę i nie wie, czy dała się zmierzyć
+
+- **Skąd:** zmierzone 08.09.2026 przy scalaniu dziewięciu pull requestów. Ta sama
+  treść zestawu, trzy przebiegi, trzy wyniki:
+
+  ```
+  335,668 s   woogitsu-host-*, dwanaście jobów naraz   1963/1963 przeszło
+  102     s   ta sama pula, pusta                      1963/1963 przeszło
+   81,938 s   kontener sesji, lokalnie                 1957/1957 przeszło
+  ```
+
+  Prog stoi na 150,0 s, więc pierwszy przebieg dał `##[error] przekroczyl prog
+  czasu sciany` przy zestawie, w którym **nie padł ani jeden test**. Komunikat
+  każe szukać spowolnienia w kodzie, a mówi o obciążeniu maszyny.
+- **Dlaczego to NIE jest kopia 6.D41, i to jest cała trudność:** tam dało się
+  asertować `rozstęp_%`, bo `budget` powtarza przejazd dziewięć razy i sam liczy
+  rozstęp. `test_all.py` chodzi RAZ, więc rozstępu nie ma z czego policzyć —
+  nie istnieje kolumna, którą można by dodać do warunku. Pozycja ma najpierw
+  ZMIERZYĆ, jaki sygnał mierzalności jest w ogóle dostępny (drugi przebieg
+  zestawu kosztuje ~82 s, `/proc/loadavg` nic nie kosztuje i nie wiadomo, czy
+  cokolwiek mówi), a dopiero potem wybrać. Wybranie sygnału bez tego pomiaru
+  dałoby drugą bramkę tej samej rodziny, tylko z inną liczbą wpisaną z ręki.
+- **Wejście:** `tools/tests/test_suite_runtime_budget.py` (`over_budget`, `POMIARY`,
+  `MEASURED_MAX_WALL_S`, `MARGIN`), `.github/workflows/python-tests.yml` (krok
+  porównujący `elapsed` z `budget`), `reports/test-all-runtime-gate.md` (kalibracja
+  progu przy 6.D11), `reports/zapis-czasu-zestawu.md` (6.D26 — wyprowadzenie maksimum
+  z listy pomiarów), `tools/ci/assert_linecore_budget.py` (bliźniak, który ten problem
+  ma już rozwiązany), `reports/rozstep-budzetu-kroku.md` (jak go rozwiązano).
+- **Wyjście:** `reports/mierzalnosc-czasu-zestawu.md` z pomiarem KOSZTU i WARTOŚCI
+  każdego kandydata na sygnał mierzalności — co najmniej: drugi przebieg zestawu,
+  `/proc/loadavg` w chwili startu, liczba równoległych jobów runnera. Dla każdego
+  liczba, nie zdanie: ile kosztuje i czy odróżnia przebieg z 335 s od przebiegu
+  z 102 s. Zmiana w `tools/tests/test_suite_runtime_budget.py` tylko wtedy, gdy
+  pomiar wskaże sygnał, który TO odróżnia; jeżeli żaden nie odróżnia, wyjściem jest
+  raport mówiący to wprost i pozycja kończy się BEZ bramki.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py; echo "kod: $?"
+  ```
+  oraz — jeżeli pomiar doprowadzi do zmiany warunku — kontrola negatywna pokazująca,
+  że przy sygnale mówiącym „niemierzalne" bramka NIE porównuje czasu z progiem,
+  a przy sygnale mówiącym „mierzalne" nadal odrzuca przebieg ponad progiem.
+  Obie strony wykonane, nie opisane.
+- **Skończone, gdy:** `reports/mierzalnosc-czasu-zestawu.md` podaje dla **co najmniej
+  trzech** kandydatów koszt w sekundach i rozstrzygnięcie, czy odróżniają przebieg
+  335,668 s od 102 s; prog **150,0 s zostaje nietknięty**; zestaw kończy się kodem 0.
+- **Poza zakresem:** podnoszenie progu 150,0 s — to jest osłabienie bramki, nie
+  naprawa pomiaru, i 6.D26 zostawiło tę liczbę właścicielowi. Serializacja jobów CI
+  (pozycja 6.D43). Automatyczne powtarzanie zestawu przy niestabilnym wyniku.
+- **Zależy od:** nic. 6.D41 jest wzorem rozwiązania, ale nie warunkiem — jest już
+  w `main`.
+
+##### 6.D43 · Joby czasowe konkurują z renderami tego samego przebiegu
+
+- **Skąd:** zmierzone 08.09.2026, trzy stany obciążenia puli, ta sama treść kodu:
+
+  ```
+  rozstep 102,6 %   jeden pull request w puli (#392, job 101900177486)   kod 3
+  rozstep  84,0 %   trzy pull requesty (#401, job 101890547517)          kod 3
+  rozstep   4,0 %   pula pusta, same joby tools i sim                    kod 0
+  ```
+
+  Liczba, która to tłumaczy: przebieg jednego pull requesta to **jedenaście jobów**,
+  z czego **cztery** to rendery Blendera. Bramka kroku (6.D41) odmawia wtedy
+  poprawnie — mówi „nie umiem zmierzyć" — ale skutkiem jest to, że **pierwszy
+  przebieg każdego pull requesta jest niemierzalny z konstrukcji**, a nie z powodu
+  obciążenia z zewnątrz. Zielone `sim` da się dziś dostać wyłącznie ponownym
+  uruchomieniem po opróżnieniu puli, i tak zostały scalone wszystkie pull requesty
+  z 08.09.2026.
+- **Co ta pozycja robi, a czego NIE robi:** mierzy, ile jobów naraz pula znosi,
+  zanim rozstęp przekroczy granicę 50 % z `tools/ci/linecore-step-budget.json`,
+  i zapisuje tę liczbę. **Nie zmienia topologii jobów** — dopisanie `concurrency`
+  albo `needs:` między renderami a jobami czasowymi zmienia kształt CI i czas
+  przejścia całego zestawu bramek, więc jest decyzją właściciela, nie skutkiem
+  pomiaru. Pozycja dostarcza liczbę, na której taką decyzję da się oprzeć.
+- **Wejście:** `tools/ci/assert_linecore_budget.py` (`niemierzalny`, kod 3),
+  `tools/ci/linecore-step-budget.json` (`spread_pct_max`),
+  `reports/rozstep-budzetu-kroku.md` (skąd granica 50 %),
+  `.github/workflows/sim-tests.yml` (job `sim`),
+  `.github/workflows/python-tests.yml` (job `tools`),
+  `.github/workflows/tunnel-alignment.yml` (macierz trzech renderów).
+- **Wyjście:** `reports/pojemnosc-puli-ci.md` — dla każdego zmierzonego stanu
+  obciążenia liczba równoległych jobów i rozstęp powtórzeń, a z tego **najwyższa
+  liczba jobów, przy której rozstęp trzyma się pod 50 %**. Wariant zmiany topologii
+  wypisany z kosztem, ale NIE wprowadzony.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py; echo "kod: $?"
+  ```
+  Pomiary z runnerów czytane z logów zakończonych jobów, nie z `queued` —
+  `CLAUDE.md` §9 mówi wprost, że `queued` nie jest weryfikacją.
+- **Skończone, gdy:** `reports/pojemnosc-puli-ci.md` podaje rozstęp dla **co najmniej
+  trzech** różnych liczb równoległych jobów, każdy z numerem joba, z którego wzięto
+  liczbę, i nazywa najwyższą liczbę jobów mieszczącą się pod granicą 50 %.
+- **Poza zakresem:** dopisanie `concurrency` lub `needs:` do workflowów, zmiana
+  etykiet `runs-on`, zmiana granicy `spread_pct_max` i progu 8,0 µs.
+- **Zależy od:** nic. 6.D41 jest w `main` i daje przyrząd, którym się tu mierzy.
+
+##### 6.D44 · Lista sonames stoi w dziewięciu kopiach bez kontroli zgodności
+
+- **Skąd:** zauważone przy 6.D40 i zmierzone 08.09.2026 przejściem po drzewie.
+  Napis `libEGL.so.1` niesie **dziewięć** plików: siedem workflowów
+  (`blender-smoke`, `godot-first-run`, `m7-shell`, `material-style-smoke`,
+  `station-details`, `tunnel-alignment`, `visual-regression`), jedna akcja składana
+  i jeden moduł testowy. Zgodność tych kopii nie jest przez nic sprawdzana.
+- **Dlaczego to ta sama rodzina co 6.D40, tylko o kopię dalej:** tam sonda pytała
+  o JEDNĄ bibliotekę z dziesięciu i mówiła prawdę o tej jednej, więc krok instalacji
+  nie odpalał się nigdy. Tu każda kopia może pytać o INNY zestaw — i job, który
+  sonduje jeden zestaw, a instaluje drugi, wywraca się dopiero przy pierwszym
+  renderze, na maszynie, na której nikt nie patrzy w listę.
+- **Wejście:** `.github/actions/probe-tools/action.yml`,
+  `.github/workflows/blender-smoke.yml`, `.github/workflows/godot-first-run.yml`,
+  `.github/workflows/m7-shell.yml`, `.github/workflows/material-style-smoke.yml`,
+  `.github/workflows/station-details.yml`, `.github/workflows/tunnel-alignment.yml`,
+  `.github/workflows/visual-regression.yml`, `tools/tests/test_ci_workflows.py`
+  (`NAZWY_PAKIETOW_WYJATKI`, `POLECENIA_Z_PAKIETOW`),
+  `tools/ci/apt-packages/blender.txt`, `tools/ci/apt-packages/blender-xvfb.txt`.
+- **Wyjście:** bramka w `tools/tests/test_ci_workflows.py` żądająca, żeby **każda**
+  kopia listy niosła ten sam zestaw sonames, plus `reports/kopie-listy-sonames.md`
+  z pomiarem: ile kopii, czy dziś są zgodne, i która kopia różni się od pozostałych,
+  jeżeli któraś się różni.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_ci_workflows.py; echo "kod: $?"
+  ```
+  Kontrola negatywna WYKONANA: usunięcie jednej biblioteki z JEDNEJ kopii wywraca
+  dokładnie nową bramkę i nic innego; przywrócenie wraca do zieleni. Kontrola
+  czyści `__pycache__` przed sprawdzeniem stanu po przywróceniu — mutacja nazwy
+  biblioteki może mieć identyczną długość pliku, a to jest przypadek z 6.D41.
+- **Skończone, gdy:** bramka liczy kopie z drzewa, nie z listy wpisanej w test
+  (liczba kopii jest POMIAREM), i odmawia przy rozjeździe choćby jednej;
+  `reports/kopie-listy-sonames.md` podaje dzisiejszą liczbę kopii; zestaw kończy
+  się kodem 0.
+- **Poza zakresem:** sprowadzenie dziewięciu kopii do jednej — to zmiana kształtu
+  workflowów i akcji składanej, czyli decyzja o tym, jak CI jest zbudowane.
+  Ta pozycja daje bramkę na ZGODNOŚĆ kopii, nie na ich liczbę.
+- **Zależy od:** nic.
+
+##### 6.D45 · `MIN_REPORTS` stoi sto pozycji za katalogiem, którego pilnuje
+
+- **Skąd:** zmierzone 08.09.2026. `MIN_REPORTS = 40` w `tools/tests/test_report_hygiene.py`,
+  a `reports/` zawiera **140** plików `.md`. Zapadka miała pilnować, żeby skan nie
+  przestał czytać katalogu; przy tej różnicy skan mógłby przestać czytać **sto**
+  raportów i nadal przejść na zielono.
+- **Dlaczego to ta sama rodzina co `MINIMUM_DETAIL_BLOCKS`, tylko zaniedbana:**
+  tam zapadka wymaga RÓWNOŚCI z liczbą bloków i dlatego nie da się jej przespać —
+  każdy nowy blok wywraca zestaw, dopóki stała nie pójdzie w górę. Tu warunek jest
+  nierównością bez sufitu, więc stała może zostać w miejscu dowolnie długo, a jej
+  ochrona maleje z każdym dopisanym raportem.
+- **Wejście:** `tools/tests/test_report_hygiene.py` (`MIN_REPORTS`, obie asercje
+  w wierszach 249 i 263, `COMMIT_EXCEPTIONS`), `docs/04-conventions.md` (zapis
+  o zapadkach).
+- **Wyjście:** `MIN_REPORTS` podniesione do dzisiejszej liczby raportów i — to jest
+  właściwa treść pozycji — **warunek zamieniony na taki, którego nie da się
+  przespać**, na wzór `MINIMUM_DETAIL_BLOCKS`: równość albo asercja pilnująca, że
+  różnica między stałą a stanem katalogu nie rośnie. Plus
+  `reports/zapadka-liczby-raportow.md` z pomiarem, ile raportów skan naprawdę czyta.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_report_hygiene.py; echo "kod: $?"
+  ```
+  Kontrola negatywna WYKONANA w obie strony: stała wyższa od stanu katalogu
+  odrzucona, stała niższa od stanu katalogu odrzucona. Sama zmiana liczby w górę
+  bez zmiany warunku NIE jest wykonaniem tej pozycji i test ma to pokazać.
+- **Skończone, gdy:** obniżenie `MIN_REPORTS` poniżej stanu katalogu wywraca
+  zestaw (dziś nie wywraca — to jest usterka), liczba w stałej równa się liczbie
+  raportów zmierzonej z katalogu, a zestaw kończy się kodem 0.
+- **Poza zakresem:** kasowanie ani scalanie raportów, żeby liczby się zgodziły.
+  Zmiana `COMMIT_EXCEPTIONS`.
+- **Zależy od:** nic.
+
+##### 6.D46 · Krok świeżości danych nie może zaczerwienić się nigdy
+
+- **Skąd:** zmierzone 08.09.2026. `main()` w `tools/track/data_freshness.py` ma
+  **dokładnie jedno** `return 0` i żadnej innej drogi wyjścia. Dzisiejszy przebieg:
+
+  ```
+  [ŚWIEŻOŚĆ] przeterminowanych okien: 13.
+  kod: 0
+  ```
+
+  Krok CI nazywa się „Report data freshness" i rzeczywiście tylko raportuje —
+  ale własne zdanie narzędzia mówi, że oś zbudowana z takiego archiwum „nie może
+  być nazywana aktualną". Narzędzie wypowiada więc warunek, którego nic nie pilnuje.
+- **Dlaczego to nie jest wołanie o próg świeżości:** ustalenie, po ilu dniach dane
+  STIB są za stare, jest decyzją właściciela i pozycja jej nie podejmuje. Mierzalne
+  jest coś innego i węższego: czy w drzewie stoi choć jedno zdanie **nazywające tę
+  oś aktualną**. Jeżeli stoi, to jest nieprawda dająca się poprawić bez ani jednej
+  decyzji — dokładnie tak, jak przy zdaniu o liczbie maszyn puli. Jeżeli nie stoi,
+  wyjściem jest raport mówiący to wprost i pozycja kończy się BEZ bramki.
+- **Wejście:** `tools/track/data_freshness.py` (`main`, jedyne `return 0`),
+  `tools/tests/test_data_freshness.py`, `.github/workflows/python-tests.yml`
+  (krok „Report data freshness"), `data/network/sources.json` (rejestr źródeł
+  i okien ważności), `docs/07-open-data-research.md` (hierarchia źródeł).
+- **Wyjście:** `reports/okna-waznosci-danych.md` — lista **13** przeterminowanych
+  okien z liczbą dni po terminie dla każdego, oraz wynik przejścia po `docs/`,
+  `reports/` i `README.md` w poszukiwaniu zdań nazywających oś aktualną. Poprawienie
+  takich zdań, jeżeli się znajdą; bramka na ich kształt tylko wtedy, gdy pomiar
+  pokaże więcej niż jedno miejsce.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/track/data_freshness.py; echo "kod: $?"
+  python3 tools/tests/test_all.py; echo "kod: $?"
+  ```
+  Liczba przeterminowanych okien w raporcie musi zgadzać się z liczbą, którą
+  wypisuje narzędzie — nie przepisana z tego wpisu, tylko wzięta z przebiegu.
+- **Skończone, gdy:** `reports/okna-waznosci-danych.md` podaje dla każdego z okien
+  nazwę pliku i liczbę dni po terminie, a dla całego drzewa liczbę miejsc
+  nazywających oś aktualną (zero jest tu poprawnym wynikiem); zestaw kończy się
+  kodem 0.
+- **Poza zakresem:** **odświeżanie danych** — `data/` jest tylko do odczytu
+  (`CLAUDE.md` §4.6), a pobranie nowego GTFS zmienia manifest proweniencji.
+  Ustalanie progu, po którym świeżość staje się odmową. Zmiana `data/network/sources.json`.
+- **Zależy od:** nic.
+
+##### 6.D47 · Nie wiadomo, którą scalankę sprawdza ponowione uruchomienie joba
+
+- **Skąd:** zauważone 08.09.2026 przy scalaniu dziewięciu pull requestów. Joby
+  `tools` i `sim` wychodziły czerwono na obciążonej puli i jedyną drogą do zieleni
+  było ponowne uruchomienie po jej opróżnieniu. Wtedy stanęło pytanie, na które
+  **nie mam pomiaru**: przebieg `pull_request` sprawdza scalankę bazy z gałęzią,
+  a baza w międzyczasie ruszyła — czy ponowienie bierze scalankę STARĄ (zapisaną
+  przy tworzeniu przebiegu), czy przelicza ją na dzisiejszej bazie?
+- **Dlaczego to ma znaczenie, a nie jest ciekawostką:** od odpowiedzi zależy, czy
+  zielony job po ponowieniu mówi cokolwiek o dzisiejszym `main`. Jeżeli sprawdza
+  starą scalankę, to „zielone CI" na takim jobie jest **zielonym zerem** tej samej
+  rodziny, którą ten projekt tropi od 6.D27: przyrząd pokazuje zieleń, bo zmierzył
+  co innego, niż czytający sądzi. Obejściem byłoby scalanie bazy w gałąź i push,
+  co daje nowy commit i nowy przebieg — i tak zostały zrobione scalenia 08.09.2026,
+  ale zrobione **z ostrożności, nie z pomiaru**.
+- **Wejście:** `.github/workflows/python-tests.yml`, `.github/workflows/sim-tests.yml`
+  (oba z krokiem `actions/checkout` i krokiem „Workspace jest czysty po checkoucie"),
+  `CLAUDE.md` §9 (zapis o `queued` i o tym, co jest weryfikacją),
+  `docs/04-conventions.md` (zapis o gałęziach i scaleniach).
+- **Wyjście:** `reports/ponowienie-a-scalanka.md` z pomiarem wykonanym na żywym
+  pull requeście: `GITHUB_SHA` i `git rev-parse HEAD` wypisane w jobie przed
+  ruszeniem bazy i po ruszeniu bazy, z ponowieniem pomiędzy. Z tego jedno zdanie
+  odpowiedzi. Jeżeli pomiar pokaże starą scalankę — zapis w `docs/04-conventions.md`
+  mówiący, że ponowienie NIE jest weryfikacją wobec dzisiejszej bazy, na wzór
+  zapisu o `queued`.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py; echo "kod: $?"
+  ```
+  Sam pomiar czytany z logów DWÓCH zakończonych przebiegów tego samego joba —
+  jednego przed ruszeniem bazy, jednego po ponowieniu — z numerami jobów w raporcie.
+- **Skończone, gdy:** `reports/ponowienie-a-scalanka.md` podaje dwie pary
+  `GITHUB_SHA` z numerami jobów i rozstrzyga pytanie jednym zdaniem opartym na tych
+  liczbach; jeżeli odpowiedź brzmi „stara scalanka", `docs/04-conventions.md` niesie
+  o tym zapis; zestaw kończy się kodem 0.
+- **Poza zakresem:** zmiana strategii checkoutu w workflowach, wprowadzanie
+  wymogu aktualnej gałęzi w regułach repozytorium, automatyczne scalanie bazy.
+- **Zależy od:** nic.
 
 ### Czego agent nie ruszy bez decyzji
 

@@ -2,6 +2,18 @@
 
 **Zmierzone 06.09.2026 na commicie:** `74f5b4a6a0a8060ab807fc92fa79dab230d76d04`
 
+**Adnotacja 07.09.2026 (6.D33): ten pomiar dotyczył 42 bloków, a bloków jest dziś 111.**
+Wypis w §1 („bloków z polem «Weryfikacja»: 42, komend zebranych: 83") jest cytatem
+z dnia pomiaru i zostaje **nieprzeliczony** — to pomiar z datą
+(`docs/04-conventions.md`), a nie stan bieżący. Adnotacja mówi tylko, ilu rzeczy
+dotyczyły liczby niżej: **82 werdykty** z §2 są zdaniem o **42 blokach**, nie
+o wszystkich. Zmierzone 07.09.2026 na `f684e40a3af52272f9cd1d32d241e9bf3abf644d`
+tym samym kolektorem `tools/tests/backlog_commands.py`: bloków z polem
+„Weryfikacja" jest **111**, komend sklejonych **233**, a wierszy komend **297**.
+Pokrycie tego audytu to więc **42 z 111 bloków (38 %)** i **82 z 233 komend (35 %)**.
+Nowy pomiar, z rozbiciem na cztery kategorie i z uzasadnieniem, dlaczego bramki na
+pokrycie postawić się nie da, stoi w `reports/pokrycie-audytu-komend.md`.
+
 Pole „Weryfikacja" jest w tym projekcie obietnicą, której nikt nie odbierał.
 `tools/tests/test_backlog.py` sprawdza, czy pole MA treść — i to jest jedyne, czego
 pilnuje. Pozycja 6.C3 (#297) wyszła z bloku, którego komenda jest odrzucana przez

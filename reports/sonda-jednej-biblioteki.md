@@ -201,14 +201,45 @@ kontrola pokazuje, że przypadek, który stary warunek łapał, nowy łapie nada
 
 ## 7. Zapadka bloków
 
-`MINIMUM_DETAIL_BLOCKS` ma teraz 112 — przepisane z poprzedniej wartości 111.
-Sprawdzone w obu kierunkach, bo zapadka żąda **równości**:
+`MINIMUM_DETAIL_BLOCKS` ma 120. **Pomiar niżej jest z 07.09.2026 i zostaje taki,
+jaki był** — wtedy wartością równą stanowi drzewa było 112, bo blok 6.D40 był
+jedynym dochodzącym. Ta gałąź niosła też zdanie, że druga z pary 6.D39 / 6.D40
+musi w rozwiązaniu konfliktu dać **113**; było prawdziwe, gdy w locie były tylko
+te dwie gałęzie, ale przed nimi weszły 6.D41 i sześć pozycji uzupełnienia
+kolejki, więc równość wypadła siedem wyżej, na 120. Nie przeliczam poniższego
+bloku: to była kontrola wykonana na innym stanie drzewa, a przepisanie jej liczb
+zamieniłoby zapis pomiaru w zapis przypuszczenia.
+
+**Wniosek, który z tego zostaje na przyszłość:** zapamiętana wartość zapadki
+starzeje się między napisaniem pozycji a jej scaleniem. Właściwym rozwiązaniem
+konfliktu nigdy nie jest wpisanie liczby z pamięci, tylko POMIAR liczby bloków
+w pliku i ustawienie zapadki na jego wynik.
+
+Kontrola z 07.09.2026, przy 112 blokach w drzewie:
 
 ```
 prog 113:  FAIL ... bloków jest 112 przy zapadce 113        25/26 przeszło
 prog 111:  FAIL ... bloków jest 112, a zapadka stoi na 111  25/26 przeszło
 prog 112:  26/26 przeszło
 ```
+
+Kontrola powtórzona 08.09.2026 na drzewie po scaleniu, przy 120 blokach:
+
+```
+zapadka 121 (wyzsza od stanu):  FAIL test_the_documented_ratchet_does_not_lag_behind_the_file:
+                                bloków jest 120 przy zapadce 121 — któryś zniknął albo
+                                stracił jedno z sześciu pól
+                                25/26 przeszło
+zapadka 120 (rowna stanowi):    26/26 przeszło
+zapadka 119 (nizsza od stanu):  FAIL test_the_documented_ratchet_does_not_lag_behind_the_file:
+                                bloków z kompletem sześciu pól jest 120, a zapadka stoi
+                                na 119 — podnieś ją do 120 w tym samym commicie
+                                25/26 przeszło
+```
+
+Każdy przebieg kontroli czyścił `__pycache__` przed uruchomieniem: mutacja
+`= 120` na `= 119` ma identyczną długość pliku, a to jest dokładnie ten przypadek,
+w którym przywrócenie przez `cp` zostawia nieświeży bajtkod (znalezione przy 6.D41).
 
 ## 8. Czego świadomie NIE zrobiłem
 
