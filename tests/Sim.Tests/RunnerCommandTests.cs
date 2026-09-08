@@ -314,9 +314,19 @@ public sealed class RunnerCommandTests
     /// a nie w <c>line</c>. Jest to mocniejsza kontrola niż wymyślona nazwa: literówka
     /// w wierszu poleceń rzadko jest ciągiem znaków, którego nikt nigdy nie napisał,
     /// a znacznie częściej opcją wziętą z innego polecenia.</para>
+    ///
+    /// <para><b>Nazwa i asercja przepisane 08.09.2026 przy 6.A19, a nie dopisane
+    /// obok — i to ten test pokazał, gdzie leżała usterka.</b> Rozumowanie akapitu
+    /// wyżej jest słuszne i zostaje: opcja wzięta z innego polecenia jest lepszą
+    /// kontrolą niż wymyślona nazwa. Ale skoro <c>--headway-s</c> NAPRAWDĘ istnieje,
+    /// to zdanie „nie zna opcji" było o niej nieprawdziwe — a ten test żądał tego
+    /// zdania, czyli <b>przybijał nieprawdę jako zachowanie oczekiwane</b>. Dziś żąda
+    /// komunikatu prawdziwego; niezmienny jest <b>kod wyjścia 1</b>, i to on jest
+    /// treścią odziedziczoną po 6.D15. Nazwa mówiła „nieznana opcja" o opcji znanej,
+    /// więc też została poprawiona.</para>
     /// </summary>
     [TestMethod]
-    public void Line_z_nieznana_opcja_konczy_sie_kodem_jeden()
+    public void Line_z_opcja_innego_polecenia_konczy_sie_kodem_jeden()
     {
         var result = Run(
             "line", "--axis", "data/track/L1_A.json", "--limit-kmh", "72",
@@ -324,7 +334,11 @@ public sealed class RunnerCommandTests
 
         Assert.AreEqual(1, result.ExitCode);
         StringAssert.Contains(result.StdErr, "--headway-s");
-        StringAssert.Contains(result.StdErr, "nie zna opcji");
+        Assert.IsFalse(
+            result.StdErr.Contains("nie zna opcji", StringComparison.Ordinal),
+            "komunikat twierdzi, ze runner nie zna --headway-s, a budget ja przyjmuje: "
+            + result.StdErr);
+        StringAssert.Contains(result.StdErr, "budget");
     }
 
     /// <summary>
@@ -613,7 +627,48 @@ public sealed class RunnerCommandTests
 
         Assert.AreEqual(1, result.ExitCode);
         StringAssert.Contains(result.StdErr, "--coast-from-m");
-        StringAssert.Contains(result.StdErr, "nie zna opcji");
+
+        // 6.A19: kod wyjscia jest NIEZMIENIONY (1), zmienil sie komunikat. Fraza
+        // „nie zna opcji" byla nieprawdziwa co do sensu — `line` i `budget` te opcje
+        // przyjmuja — a czytajacy dostawal diagnoze „literowka" na zachowanie, ktore
+        // jest projektem.
+        Assert.IsFalse(
+            result.StdErr.Contains("nie zna opcji", StringComparison.Ordinal),
+            "komunikat nadal twierdzi, ze runner nie zna opcji, ktora zna: " + result.StdErr);
+
+        // Powod musi byc NAZWANY, a nie tylko odmowa przeredagowana. Pole
+        // „Weryfikacja" tej pozycji zada `--keys` albo `zapis wejsc` w tresci — igla
+        // niesie OBA naraz, bo `--keys` samo trafia w 3 komunikaty tego pliku,
+        // a `zapisu wejść` w 2 (wypis pomocy tez o nich mowi). Bramka swoistosci
+        // igiel z 6.A33 zada dokladnie jednego, i ma racje: igla trafiajaca
+        // w wypis pomocy nie przybija tresci ODMOWY.
+        StringAssert.Contains(result.StdErr, "zapisu wejść z --keys");
+
+        // I musi byc widoczne, ze to decyzja, a nie brak: data rozstrzygniecia.
+        StringAssert.Contains(result.StdErr, "07.09.2026");
+    }
+
+    /// <summary>
+    /// Druga polowa 6.A19, i to ona pilnuje, zeby poprawka nie byla wpisem dla
+    /// jednej pary. Zbior polecen przyjmujacych opcje jest LICZONY z tabeli
+    /// <c>KnownOptions</c>, wiec kazda opcja znana z innego polecenia dostaje
+    /// komunikat prawdziwy — nawet bez wpisu w <c>PowodyOdmowy</c>.
+    ///
+    /// <para><c>--trains</c> stoi w <c>budget</c> i nie stoi w <c>service-day</c>;
+    /// powodu w tabeli nie ma i mieć nie musi, bo powod wymaga decyzji wlasciciela,
+    /// a prawdziwosc komunikatu nie.</para>
+    /// </summary>
+    [TestMethod]
+    public void Odmowa_opcji_znanej_z_innego_polecenia_nie_klamie_ze_jej_nie_zna()
+    {
+        var result = Run("service-day", "--timetable", "build/nie-ma.json", "--trains", "8");
+
+        Assert.AreEqual(1, result.ExitCode);
+        Assert.IsFalse(
+            result.StdErr.Contains("nie zna opcji", StringComparison.Ordinal),
+            "komunikat twierdzi, ze runner nie zna --trains, a budget ja przyjmuje: "
+            + result.StdErr);
+        StringAssert.Contains(result.StdErr, "budget");
     }
 
     /// <summary>
