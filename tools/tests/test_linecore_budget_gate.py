@@ -184,3 +184,112 @@ def test_the_measured_scenario_still_runs_without_coasting():
 if __name__ == "__main__":
     import test_all
     raise SystemExit(test_all.main(__file__))
+
+
+# --- 6.D41: pomiar niestabilny nie jest porownywany z progiem -----------------------
+
+#: Ten sam wiersz co ZIELONY, ale z rozstepem powtorzen 115,9 % — dokladnie tym, ktory
+#: przyszedl 07.09.2026 z runnera `woogitsu-host-08` przy dwunastu jobach naraz.
+#: Kolumna µs/krok NIESIE WARTOSC W PROGU, i to jest sedno: gdyby bramka porownywala
+#: tylko czas, ten pomiar przeszedlby na zielono, a nie mowi on nic o kodzie.
+NIESTABILNY_W_PROGU = ZIELONY.replace(";17.0;3.772;", ";115.9;3.772;")
+
+#: Ten sam rozstep, ale z czasem PONAD progiem — tak wygladal prawdziwy przebieg,
+#: ktory bramka nazwala regresem wydajnosci.
+NIESTABILNY_PONAD_PROGIEM = ZIELONY.replace(";17.0;3.772;1.01;0.05", ";115.9;16.022;1.00;0.19")
+
+
+def _do_pliku(tresc, katalog):
+    sciezka = os.path.join(katalog, "budget.txt")
+    with open(sciezka, "w", encoding="utf-8") as handle:
+        handle.write(tresc)
+    return sciezka
+
+
+def test_niestabilny_pomiar_NIE_JEST_porownywany_z_progiem():
+    """Sedno 6.D41. Zarzutem ma byc niemierzalnosc, a NIE przekroczony prog.
+
+    Do 07.09.2026 kolumna `rozstep_%` byla parsowana i wypisywana, ale nie asertowana:
+    bramka znala liczbe mowiaca, ze jej wlasny pomiar jest niestabilny, i porownywala go
+    z progiem mimo to. Zmierzone: 16,022 µs przy rozstepie 115,9 % na runnerze wobec
+    4,213-4,364 µs przy rozstepie 1,9-3,7 % na tej samej tresci kodu.
+    """
+    ok, problems = gate.verdict(_config(), NIESTABILNY_PONAD_PROGIEM)
+    assert not ok, "niestabilny pomiar przeszedl na zielono"
+    assert any("rozstep" in p for p in problems), problems
+    assert not any("przekracza prog" in p for p in problems), (
+        "bramka nadal porownuje niestabilny pomiar z progiem: %s" % problems)
+
+
+def test_niestabilny_pomiar_MIESZCZACY_SIE_w_progu_tez_jest_odmowa():
+    """Gdyby bramka pytala tylko o czas, ten pomiar przeszedlby na zielono.
+
+    Asercja jest tu na BRAK zieleni przy wartosci W PROGU — czyli na to, ze bramka
+    odrzuca z powodu niemierzalnosci, a nie z powodu liczby mikrosekund.
+    """
+    ok, problems = gate.verdict(_config(), NIESTABILNY_W_PROGU)
+    assert not ok, "pomiar z rozstepem 115,9 %% przeszedl, bo czas byl w progu"
+    assert any("rozstep" in p for p in problems), problems
+
+
+def test_dwa_werdykty_maja_DWA_ROZNE_kody_wyjscia():
+    """Bez tego rozroznienia „nie umiem zmierzyc" jest dla wolajacego nieodroznialne
+    od „rdzen zwolnil" — a pierwsze kaze powtorzyc pomiar, drugie szukac regresu."""
+    import tempfile
+    with tempfile.TemporaryDirectory() as katalog:
+        wolny = ZIELONY.replace(";3.772;1.01;0.05", ";9.091;1.00;0.11")
+        kod_wolny = gate.main(["--from-output", _do_pliku(wolny, katalog)])
+        kod_niestabilny = gate.main(
+            ["--from-output", _do_pliku(NIESTABILNY_PONAD_PROGIEM, katalog)])
+        kod_zielony = gate.main(["--from-output", _do_pliku(ZIELONY, katalog)])
+
+    assert kod_zielony == 0, kod_zielony
+    assert kod_wolny == gate.KOD_PRZEKROCZONY, kod_wolny
+    assert kod_niestabilny == gate.KOD_NIEMIERZALNY, kod_niestabilny
+    assert kod_wolny != kod_niestabilny, (
+        "oba werdykty wychodza tym samym kodem, wiec rozroznienia nie ma")
+
+
+def test_niemierzalnosc_NIE_PRZESLANIA_zarzutu_o_obsadzie():
+    """Liczba skladow na planie nie zalezy od obciazenia maszyny, wiec ten zarzut musi
+    przezyc niestabilny pomiar — i wyjsc kodem 1, nie kodem niemierzalnosci."""
+    import tempfile
+    zly = NIESTABILNY_PONAD_PROGIEM.replace("32;9;5.08;0.98;", "32;1;1.00;0.00;")
+    ok, problems = gate.verdict(_config(), zly)
+    assert not ok
+    assert any("skladow" in p or "składów" in p for p in problems), problems
+    with tempfile.TemporaryDirectory() as katalog:
+        kod = gate.main(["--from-output", _do_pliku(zly, katalog)])
+    assert kod == gate.KOD_PRZEKROCZONY, (
+        "pomiar niestabilny Z BLEDNA OBSADA wyszedl kodem niemierzalnosci (%d) — "
+        "zarzut niezalezny od maszyny zostal przeslonięty" % kod)
+
+
+def test_wolny_krok_przy_ZNOSNYM_rozstepie_nadal_jest_odmowa():
+    """Kontrola, ze straznik rozstepu nie polknal prawdziwej odmowy o czasie."""
+    wolny = ZIELONY.replace(";3.772;1.01;0.05", ";9.091;1.00;0.11")
+    ok, problems = gate.verdict(_config(), wolny)
+    assert not ok
+    assert any("przekracza prog" in p for p in problems), problems
+
+
+def test_granica_rozstepu_jest_POWYZEJ_udokumentowanych_pomiarow_zielonych():
+    """Wlasnosc WYPROWADZONA z podstawy progu, nie liczba wpisana z reki.
+
+    `reports/linecore-step-budget-gate.md` podaje przy kalibracji progu 8,0 µs
+    „rozstęp powtórzeń w moich przebiegach do 22,5 %", a atrapa ZIELONY w tym module
+    niesie 17,0 %. Granica ponizej ktorejkolwiek z tych liczb odrzucalaby pomiary,
+    ktore historycznie byly zielone — czyli zamienialaby bramke na generator falszywych
+    alarmow (6.D27: bramka zapalajaca sie na tekscie poprawnym zostaje wylaczona).
+    """
+    granica = _config()["spread_pct_max"]
+    z_atrapy = float(ZIELONY.strip().splitlines()[-1].split(";")[7])
+    assert z_atrapy == 17.0, z_atrapy
+    assert granica > z_atrapy, (
+        "granica %.1f %% odrzucalaby wlasna atrape zielona (%.1f %%)" % (granica, z_atrapy))
+    assert granica > 22.5, (
+        "granica %.1f %% odrzucalaby pomiary z kalibracji progu (do 22,5 %%), a te byly "
+        "zielone — patrz reports/linecore-step-budget-gate.md" % granica)
+    assert granica < 115.9, (
+        "granica %.1f %% przepuszczalaby zaobserwowany pomiar niemierzalny (115,9 %%), "
+        "czyli nie robilaby nic" % granica)
