@@ -66,6 +66,18 @@ poniżej zaobserwowanego **niemierzalnego** — czyli poza szumem w obie strony.
 jest **tymczasowa** i ma być **zaciśnięta**, gdy uzbiera się więcej rozstępów z samych
 runnerów; rozluźnienie wymagałoby pomiaru pokazującego zielony przebieg powyżej 50 %.
 
+> **Adnotacja z 08.09.2026 — ten akapit został wykonany na opak i to jest tu zapisane,
+> nie przemilczane.** Granica została **rozluźniona** do 100 %, decyzją właściciela
+> podjętą przeciwko rekomendacji sesji (`reports/linecore-step-budget-gate.md` §9).
+> Pomiar zostaje nieprzeliczony, zmienia się reguła — i **warunek postawiony w zdaniu
+> powyżej NIE został spełniony**: najwyższy zmierzony rozstęp przebiegu **zielonego** to
+> **47,5 %** (3,810 µs, kod 0, kontener 08.09.2026), czyli **2,5 pp za mało**.
+> Rozluźnienie stoi więc na decyzji właściciela, a nie na tym warunku. Argument, który
+> tę decyzję popiera pomiarowo, jest inny i też był wtedy nieznany: przy granicy 50 %
+> ten sam przebieg zielony przy 47,5 % stał **2,5 pp** od orzeczenia o nim
+> niemierzalności, a bramka zapalająca się na przebiegu poprawnym zostaje wyłączona
+> (6.D27).
+
 **Progu 8,0 µs nie tknięto.** Ma udokumentowaną podstawę i podniesienie go byłoby
 osłabieniem bramki, a nie naprawą pomiaru.
 

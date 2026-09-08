@@ -5244,6 +5244,12 @@ MINIMUM_DETAIL_BLOCKS = 73
   rozstep   4,0 %   pula pusta, same joby tools i sim                    kod 0
   ```
 
+  **Kody wyjścia w tym zapisie są werdyktem granicy obowiązującej wtedy (50 %).**
+  Decyzja właściciela z 08.09.2026 granicę podniosła (`reports/linecore-step-budget-gate.md`
+  §9), więc rozstęp **84,0 % mieści się dziś pod nią** i jest porównywany z progiem
+  czasu, a 102,6 % nadal nie. Pomiary zostają nieprzeliczone — zmienia się werdykt,
+  nie liczba, i ta pozycja mierzy dalej to samo.
+
   Liczba, która to tłumaczy: przebieg jednego pull requesta to **jedenaście jobów**,
   z czego **cztery** to rendery Blendera. Bramka kroku (6.D41) odmawia wtedy
   poprawnie — mówi „nie umiem zmierzyć" — ale skutkiem jest to, że **pierwszy
@@ -5278,13 +5284,13 @@ MINIMUM_DETAIL_BLOCKS = 73
   > dokładnie ta rodzina usterki, którą 6.D43 opisuje.
 - **Wejście:** `tools/ci/assert_linecore_budget.py` (`niemierzalny`, kod 3),
   `tools/ci/linecore-step-budget.json` (`spread_pct_max`),
-  `reports/rozstep-budzetu-kroku.md` (skąd granica 50 %),
+  `reports/rozstep-budzetu-kroku.md` (skąd wzięła się granica rozstępu),
   `.github/workflows/sim-tests.yml` (job `sim`),
   `.github/workflows/python-tests.yml` (job `tools`),
   `.github/workflows/tunnel-alignment.yml` (macierz trzech renderów).
 - **Wyjście:** `reports/pojemnosc-puli-ci.md` — dla każdego zmierzonego stanu
   obciążenia liczba równoległych jobów i rozstęp powtórzeń, a z tego **najwyższa
-  liczba jobów, przy której rozstęp trzyma się pod 50 %**. Wariant zmiany topologii
+  liczba jobów, przy której rozstęp trzyma się pod `spread_pct_max`**. Wariant zmiany topologii
   wypisany z kosztem, ale NIE wprowadzony.
 - **Weryfikacja:**
   ```bash
@@ -5294,7 +5300,7 @@ MINIMUM_DETAIL_BLOCKS = 73
   `CLAUDE.md` §9 mówi wprost, że `queued` nie jest weryfikacją.
 - **Skończone, gdy:** `reports/pojemnosc-puli-ci.md` podaje rozstęp dla **co najmniej
   trzech** różnych liczb równoległych jobów, każdy z numerem joba, z którego wzięto
-  liczbę, i nazywa najwyższą liczbę jobów mieszczącą się pod granicą 50 %.
+  liczbę, i nazywa najwyższą liczbę jobów mieszczącą się pod granicą `spread_pct_max`.
 - **Poza zakresem:** dopisanie `concurrency` lub `needs:` do workflowów, zmiana
   etykiet `runs-on`, zmiana granicy `spread_pct_max` i progu 8,0 µs.
 - **Zależy od:** nic. 6.D41 jest w `main` i daje przyrząd, którym się tu mierzy.
