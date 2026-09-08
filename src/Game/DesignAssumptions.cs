@@ -58,6 +58,36 @@ public static class DesignAssumptions
     /// <summary>Wysokość kamery kontrolnej nad główką szyny.</summary>
     public const double OutsideHeightM = 2.60;
 
+    /// <summary>
+    /// Odsunięcie kamery inspekcyjnej wzdłuż osi od oglądanego kilometrażu.
+    ///
+    /// <para><b>Liczba jest WYPROWADZONA, nie dobrana wzrokiem</b> — i to jest tu
+    /// istotne, bo pole „Poza zakresem" pozycji 6.C4 zostawia ocenę estetyczną
+    /// T-902. Przekrój <c>box_double</c> z <c>tools/blender/profiles.py</c> ma
+    /// <b>9,40 × 5,90 m</b> (x od −4,70 do 4,70, y od −1,20 do 4,70). Przy pionowym
+    /// kącie widzenia <see cref="CabFovDeg"/> = 70° odległość, na której wysokość
+    /// 5,90 m wypełnia kadr DOKŁADNIE, wynosi 5,90 / (2·tan 35°) = <b>4,2130 m</b>;
+    /// szerokość jest luźniejsza (3,7757 m przy poziomym 102,45° dla 16:9), więc
+    /// wiąże wysokość. 6,32 m daje zapas <b>1,50×</b> (6,32 / 4,2130 = 1,5001) —
+    /// ściana zostaje w kadrze, a nie na jego krawędzi.</para>
+    /// </summary>
+    public const double InspectStandoffM = 6.32;
+
+    /// <summary>
+    /// Wysokość kamery inspekcyjnej nad główką szyny: <b>środek</b> przekroju,
+    /// (−1,20 + 4,70) / 2 = 1,75 m. Kadr jest wtedy wyśrodkowany na rurze, a nie
+    /// na główce szyny — inaczej połowa zapasu nad składem wychodziłaby z kadru.
+    /// </summary>
+    public const double InspectHeightM = 1.75;
+
+    /// <summary>
+    /// Poprzeczne przesunięcie kamery inspekcyjnej: <b>0</b>, czyli na osi tunelu.
+    /// Nie jest to wartość domyślna z braku pomysłu: przy zerze niesymetryczność
+    /// geometrii czyta się w kadrze JAKO niesymetryczność, a przy dowolnym
+    /// przesunięciu trzeba ją najpierw odjąć od przesunięcia kamery.
+    /// </summary>
+    public const double InspectLateralM = 0.0;
+
     /// <summary>Tempo przestawiania nastawnika i hamulca przy trzymanym klawiszu.</summary>
     public const double ControlNotchRatePerSecond = 0.80;
 
@@ -138,6 +168,12 @@ public static class DesignAssumptions
             "kamera kontrolna na sąsiednim torze (−4,20 m to rozstaw torów profilu box_double); pokazuje skład z boku razem ze ścianą tunelu"),
         new ViewAssumption(nameof(OutsideHeightM), OutsideHeightM, "m",
             "wysokość kamery kontrolnej; jak wyżej"),
+        new ViewAssumption(nameof(InspectStandoffM), InspectStandoffM, "m",
+            "wyprowadzone: 5,90 / (2·tan 35°) = 4,2130 m wypełnia kadr dokładnie, zapas 1,50×"),
+        new ViewAssumption(nameof(InspectHeightM), InspectHeightM, "m",
+            "środek przekroju box_double: (−1,20 + 4,70) / 2 — kadr na rurze, nie na główce szyny"),
+        new ViewAssumption(nameof(InspectLateralM), InspectLateralM, "m",
+            "na osi tunelu, żeby niesymetryczność geometrii czytała się jako niesymetryczność"),
         new ViewAssumption(nameof(ControlNotchRatePerSecond), ControlNotchRatePerSecond, "1/s",
             "tempo przestawiania nastawnika; czułość sterowania jest decyzją o obsłudze, nie parametrem M7"),
         new ViewAssumption(nameof(TrackOffsetM), TrackOffsetM, "m",

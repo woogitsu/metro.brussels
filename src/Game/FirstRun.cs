@@ -26,6 +26,16 @@ public enum ViewKind
 
     /// <summary>Z boku i z góry, przez odrzucone tyłem ściany tunelu — tylko kontrola geometrii.</summary>
     Outside,
+
+    /// <summary>
+    /// Kamera inspekcyjna: stoi na osi tunelu przy zadanym kilometrażu i patrzy
+    /// wzdłuż niego, <b>nie czekając na skład</b>. Trzy pozostałe widoki są widokami
+    /// JAZDY i wymagają, żeby pojazd do oglądanego miejsca dojechał — przy 6.C4
+    /// zmierzone: zrzut z kilometrażu 2521,1 m kosztuje <b>14 686 kroków</b>
+    /// symulacji. Ten widok kosztuje ich zero, bo geometrię bierze z osi, a nie
+    /// z pozycji pojazdu.
+    /// </summary>
+    Inspect,
 }
 
 /// <summary>
@@ -1374,9 +1384,18 @@ public sealed partial class FirstRun : Node3D
         // Kolejność zaczęłaby mieć znaczenie dopiero wtedy, gdyby streamowanie
         // spóźniało się o CAŁĄ klatkę (osobny wątek, wczytywanie asynchroniczne).
         // Tego tu nie ma i dopóki nie ma, żaden test tej kolejności nie pilnuje.
+        // 6.C4: okno streamowania idzie za TEMATEM KADRU, nie za pojazdem — i to jest
+        // poprawka usterki, której nie zobaczyła ani bramka metadanych, ani metryki.
+        // Dla trzech widoków jazdy `SubjectChainageM` JEST kilometrażem pojazdu, więc
+        // dla nich nie zmienia się nic. Dla widoku inspekcyjnego kamera stoi tam, gdzie
+        // pojazd nie dojechał, a chunki wchodziły do pamięci wokół POJAZDU — zmierzone:
+        // zrzut z 2521,1 m dawał kadr CZARNY (22 384 B wobec 92 315 B przy 500 m),
+        // przy „2/12 chunków rezydentnych" i kodzie 0 z bramki. Kamera była w dobrym
+        // miejscu, tylko geometrii tam nie było.
+        var streamChainage = Math.Clamp(SubjectChainageM, 0.0, _axis.LengthM);
         if (_manifest is not null && _tunnelMaterial is not null)
         {
-            _tunnel.Stream(_manifest, _assetDirectory, _tunnelMaterial, chainage);
+            _tunnel.Stream(_manifest, _assetDirectory, _tunnelMaterial, streamChainage);
         }
 
         // Było tu `_train.LengthM > 0.0 ? _train.LengthM : 94.0` — CICHY ODWRÓT na
@@ -1409,7 +1428,32 @@ public sealed partial class FirstRun : Node3D
             DesignAssumptions.CabEyeLateralM);
         _cab.LookAtFromPosition(eye, eye + forward, Vector3.Up);
 
-        if (_view == ViewKind.Outside)
+        if (_view == ViewKind.Inspect)
+        {
+            // Kamera stoi NA OSI tunelu, odsunięta wzdłuż niej od oglądanego
+            // kilometrażu, i patrzy w ten kilometraż. Wszystkie trzy liczby są
+            // wyprowadzone z przekroju `box_double`, nie dobrane wzrokiem —
+            // uzasadnienie stoi przy stałych w `DesignAssumptions`.
+            //
+            // Kilometraż bierze się z `_shotChainageM`, a nie z `chainage`: ten
+            // drugi jest pozycją POJAZDU, a widok inspekcyjny istnieje właśnie po
+            // to, żeby od niej nie zależeć. Przy zrzucie bez `--at-chainage`
+            // `_shotChainageM` jest zerem i kamera staje na początku osi, co jest
+            // poprawną odpowiedzią na „pokaż mi kilometraż 0".
+            var (oko, wzdluz) = _sceneAxis.CabPoint(
+                _shotChainageM - DesignAssumptions.InspectStandoffM,
+                0.0,
+                DesignAssumptions.InspectHeightM,
+                DesignAssumptions.InspectLateralM);
+            var cel = _sceneAxis.CabPoint(
+                _shotChainageM,
+                0.0,
+                DesignAssumptions.InspectHeightM,
+                DesignAssumptions.InspectLateralM).Position;
+            _ = wzdluz;
+            _chase.LookAtFromPosition(oko, cel, Vector3.Up);
+        }
+        else if (_view == ViewKind.Outside)
         {
             // Kamera stoi na sąsiednim torze, przed czołem składu, i patrzy wzdłuż
             // niego. Widać wtedy naraz trzy rzeczy, o które chodzi w kontroli: czy
@@ -1948,7 +1992,25 @@ public sealed partial class FirstRun : Node3D
     /// </summary>
     private void FastForwardToShot()
     {
-        if (_lineMode)
+        // 6.C4: widok inspekcyjny NIE jedzie do celu. Trzy widoki jazdy muszą, bo
+        // kamerę wieszają na pojeździe; ten bierze geometrię z osi, więc przejazd
+        // byłby kosztem bez skutku widocznego w kadrze. Zmierzone: zrzut z 2521,1 m
+        // kosztuje 14 686 kroków symulacji w widoku `outside` i 0 tutaj.
+        //
+        // Gałąź jest PUSTA, a nie zwraca z metody, i to jest poprawka mojej własnej
+        // usterki z tej samej godziny: pierwsza wersja wychodziła stąd przez `return`
+        // i pomijała OGON metody, w którym stoi `_shotCountdown = 5` — jedyny wyzwalacz
+        // migawki. Scena nie robiła wtedy zrzutu wcale i chodziła do końca świata;
+        // `timeout` ubił ją po 300 s, gdy `outside` kończy w 1,2 s. Pusta gałąź zostawia
+        // ten wyzwalacz JEDNEMU pisarzowi, zamiast kopiować go do drugiej drogi.
+        //
+        // Skład zostaje tam, gdzie stał (kilometraż 0), i to jest właściwe: kamera
+        // inspekcyjna ma pokazać RURĘ, a nie pojazd w niej. Kadr z pojazdem daje
+        // widok `outside`.
+        if (_view == ViewKind.Inspect)
+        {
+        }
+        else if (_lineMode)
         {
             // Warunek jest na TRYB, nie na `_line`, i to jest naprawa trzeciego
             // wystąpienia tej samej usterki w tym pliku. `LineCore` tworzy prowadzenie
@@ -2042,6 +2104,26 @@ public sealed partial class FirstRun : Node3D
         _shotCountdown = 5;
     }
 
+    /// <summary>
+    /// Kilometraż, który kadr NAPRAWDĘ pokazuje — i to nie zawsze jest kilometraż
+    /// pojazdu.
+    ///
+    /// <para>Trzy widoki jazdy wieszają kamerę na składzie, więc tematem kadru jest
+    /// pozycja pojazdu (<see cref="ChainageM"/>). Widok <see cref="ViewKind.Inspect"/>
+    /// bierze geometrię z osi i pojazdu do niej nie prowadzi, więc pozycja pojazdu
+    /// mówi o kadrze tyle, ile o nim mówi pogoda: zmierzone przy 6.C4, zrzut z 2521,1 m
+    /// zapisywał <c>chainage_m = 94,0</c>, bo tam stał skład. Metadane opisywały wtedy
+    /// INNE miejsce osi niż to, które widać, i bramka
+    /// <c>tools/ci/assert_shot_metadata.py</c> słusznie by to odrzuciła.</para>
+    ///
+    /// <para><b>Pole jest DOPISANE, a nie podmienione:</b> <c>chainage_m</c> zostaje
+    /// pozycją pojazdu we wszystkich czterech widokach, bo na nim stoi kontrola peronu
+    /// („peron jest przy składzie"), której dla widoku inspekcyjnego nie da się
+    /// przenieść — skład jest gdzie indziej i to jest cały sens tego widoku.</para>
+    /// </summary>
+    private double SubjectChainageM =>
+        _view == ViewKind.Inspect ? _shotChainageM : ChainageM;
+
     private void SaveShot()
     {
         if (DisplayServer.GetName() == "headless")
@@ -2114,7 +2196,8 @@ public sealed partial class FirstRun : Node3D
          "engine_version": "{{Engine.GetVersionInfo()["string"]}}",
          "manifest_version": "{{_manifest.Id}}/{{_manifest.Variant}}",
          "resolution": [{{width}}, {{height}}],
-         "last_shot": {"view": "{{_view}}", "chainage_m": {{ChainageM:F3}}, "steps": {{_state.Steps}}},
+         "last_shot": {"view": "{{_view}}", "chainage_m": {{ChainageM:F3}}, "steps": {{_state.Steps}},
+                       "subject_chainage_m": {{SubjectChainageM:F3}}},
          "scene": {
           "bbox_min": [{{lo.X:F4}}, {{lo.Y:F4}}, {{lo.Z:F4}}],
           "bbox_max": [{{hi.X:F4}}, {{hi.Y:F4}}, {{hi.Z:F4}}],

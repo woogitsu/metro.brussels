@@ -134,7 +134,7 @@ nie podaje liczby po triażu, więc jego wiersz ma w tej kolumnie kreskę, a nie
 | `tools/track/data_freshness.py` | parametry | 0 | 0 | 0 | 5 | 5 | moduł bez zmian od `fe92daa` — `git diff` pusty |
 | `tools/blender/placement.py` | placement | — | 26 | — | 40 | 40 | **nie przypisano**: raport triażu nie podaje liczby po; moduł bez zmian od `3262bb4` |
 | `tools/visual/pngio.py` | png-metadata | 7 | 4 | -3 | 38 | 38 | `b16ae65` scalił dwie kopie przycinania w jedną (−3 ocalałe równoważne) |
-| `tools/ci/assert_shot_metadata.py` | png-metadata | 2 | 32 | +30 | 33 | 65 | `a643f05` +4 ocalałe, `2c916de` +26 ocalałych (bramka peronu bez testów) |
+| `tools/ci/assert_shot_metadata.py` | png-metadata | 2 | 32 | +30 | 33 | 73 | `a643f05` +4 ocalałe, `2c916de` +26 ocalałych (bramka peronu bez testów) |
 | `tools/track/surface_sections.py` | surface-width | 1 | 1 | 0 | 29 | 29 | `1cbad40` zmienił moduł, liczba mutacji bez zmian (29), ocalała ta sama |
 | `tools/track/tunnel_width.py` | surface-width | 2 | 2 | 0 | 28 | 28 | moduł bez zmian od `b5bcf34` — `git diff` pusty |
 | `tools/track/validate.py` | validate | 2 | 2 | 0 | 36 | 37 | `b5c2eb9` dołożył 1 mutację, zabitą |
@@ -157,7 +157,17 @@ modułach, których dotyczą.
 
 Raport `reports/mutation-triage-png-metadata.md` §Wynik podaje po triażu **2 ocalałe
 na 33 mutacje** (pokrycie 93,9 %), zmierzone na `737d592`, a wpisane commitem `c1101aa`.
-Dziś jest ich 32 na 65.
+Dziś jest ich 32 na **73**.
+
+**Liczba mutacji przepisana 65 → 73 (08.09.2026, przy 6.C4), liczba ocalałych NIE
+przeliczona — i to jest wybór, nie zaniedbanie.** 6.C4 dopisała do tego modułu
+kotwicę geometrii na `subject_chainage_m` i dwa warunki dla widoku `inspect`, więc
+mianownik urósł o osiem. Ocalałych nie przeliczam, bo ich pomiar to jeden pełny
+przebieg zestawu na mutację — przy 73 mutacjach ponad godzina, a bramka
+`test_drift_report_mutation_count_is_the_one_the_tool_gives_today` świadomie
+sprawdza tylko mianownik, właśnie dlatego. Liczba **32 pochodzi więc z przebiegu
+sprzed 6.C4** i tak ma być czytana; blok atrybucji niżej zostaje przy swoich 65,
+bo jest zapisem tamtego pomiaru, a nie stanem bieżącym.
 
 Przypisanie po `git blame`, wiersz po wierszu, wszystkie 65 mutacje:
 
