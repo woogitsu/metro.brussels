@@ -57,9 +57,67 @@ if [ -n "${GITHUB_WORKSPACE:-}" ]; then
     esac
 fi
 
+# Stderr OSTATNIEGO wywolania `--version`. Nie jest ozdoba diagnostyczna, tylko
+# naprawa zmierzonej usterki: `2>/dev/null` w tej funkcji zamienialo TRZY rozne
+# przyczyny w jeden nierozroznialny pusty napis. Zmierzone 07.09.2026 na runnerze
+# `woogitsu-linux-01` (run 34153517889, job `tunnel-alignment (L1_B)`): pobranie
+# udane, suma SHA-256 zgodna, a jedyne, co job powiedzial o przyczynie, to
+#
+#     [BLENDER] BLAD: po rozpakowaniu .../blender zglasza '', oczekiwano '5.2.1'
+#
+# Blender, ktory nie startuje, pisze `error while loading shared libraries: <nazwa>`
+# WYLACZNIE na stderr i nic na stdout — czyli dokladnie ta jedna informacja, ktora
+# jest tu potrzebna, byla wyrzucana.
+# PLIK, nie zmienna. Pierwsza wersja tej poprawki trzymala stderr w zmiennej
+# `BLENDER_STDERR` i NIE DZIALALA — zlapala to kontrola negatywna, nie przeglad
+# kodu. Powod: `installed_version` jest wolane jako `got="$(installed_version)"`,
+# czyli w PODSHELLU, a przypisanie do zmiennej w podshellu nie wychodzi do
+# rodzica. Komunikat mowil wiec „startuje i nie wypisuje numeru" o Blenderze,
+# ktory nie startowal wcale — czyli ta poprawka miala dokladnie te usterke,
+# ktora naprawia, tylko o jeden poziom glebiej. Sciezka pliku jest ustawiona
+# w rodzicu, wiec zapis z podshella zostaje.
+BLENDER_STDERR_FILE="$(mktemp)"
+trap 'rm -f "$BLENDER_STDERR_FILE"' EXIT
+
 installed_version() {
     [ -x "$BIN" ] || return 1
-    "$BIN" --version 2>/dev/null | sed -n '1s/^Blender \([0-9.]*\).*/\1/p'
+    : > "$BLENDER_STDERR_FILE"
+    "$BIN" --version 2>"$BLENDER_STDERR_FILE" | sed -n '1s/^Blender \([0-9.]*\).*/\1/p'
+}
+
+blender_stderr() {
+    cat "$BLENDER_STDERR_FILE" 2>/dev/null || true
+}
+
+# Dlaczego numer wyszedl pusty. Cztery przyczyny, kazda z innym dzialaniem po
+# stronie czytajacego, i zadnej nie da sie odgadnac z samego pustego napisu:
+# brak pliku to zle rozpakowanie, brak `+x` to zle uprawnienia w archiwum,
+# brakujace biblioteki to pakiety do doinstalowania NA MASZYNIE, a wypis bez
+# numeru wersji to zmiana formatu `--version` po stronie Blendera.
+#
+# Lista bibliotek jest WYLICZONA przez `ldd`, nie wpisana z reki. Wpisana z reki
+# musialaby byc zgadnieta, a zgadnieta lista brakow jest tym samym rodzajem
+# usterki co pusty napis: wyglada jak pomiar i nim nie jest.
+powod_pustej_wersji() {
+    if [ ! -e "$BIN" ]; then
+        echo "pliku $BIN nie ma — archiwum rozpakowalo sie inaczej, niz zaklada sciezka"
+        return
+    fi
+    if [ ! -x "$BIN" ]; then
+        echo "plik $BIN nie ma prawa wykonywania"
+        return
+    fi
+    local brakujace
+    brakujace="$(ldd "$BIN" 2>/dev/null | sed -n 's/^[[:space:]]*\([^ ]*\) => not found$/\1/p' | tr '\n' ' ')"
+    if [ -n "${brakujace// /}" ]; then
+        echo "Blender nie startuje, bo brakuje bibliotek systemowych: ${brakujace% }"
+        return
+    fi
+    if [ -n "$(blender_stderr)" ]; then
+        echo "Blender startuje, ale konczy sie bledem (stderr nizej)"
+        return
+    fi
+    echo "Blender startuje i nie wypisuje numeru w formacie 'Blender <numer>'"
 }
 
 have="$(installed_version || true)"
@@ -104,6 +162,10 @@ rm -f "$TARBALL"
 got="$(installed_version || true)"
 if [ "$got" != "$VERSION" ]; then
     echo "[BLENDER] BŁĄD: po rozpakowaniu $BIN zgłasza '$got', oczekiwano '$VERSION'" >&2
+    echo "[BLENDER] powód: $(powod_pustej_wersji)" >&2
+    if [ -n "$(blender_stderr)" ]; then
+        echo "[BLENDER] stderr Blendera: $(blender_stderr)" >&2
+    fi
     exit 1
 fi
 "$BIN" --version | sed -n '1,2p' >&2
