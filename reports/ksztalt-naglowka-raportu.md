@@ -227,6 +227,12 @@ ani nie został osłabiony — liczba modułów bez zmian, 103.
   pomiarem z datą; próg jest jednak dziś **trzy i pół raza** niżej niż stan, czyli
   wskazanie katalogu na trzecią część `reports/` przeszłoby przez licznik.
   To osobna pozycja, nie ta.
+
+  **ADNOTACJA 08.09.2026 (6.D45).** Liczby wyżej zostają takie, jakie były w dniu
+  pomiaru — pomiaru z datą się nie przelicza. Pozycja została wykonana: `MIN_REPORTS`
+  stoi na **153** (zmierzony stan katalogu, nie zapamiętany), a warunek jest
+  **równościowy**, więc próg nie może już zostać za katalogiem. Pomiar i kontrole
+  negatywne: `reports/zapadka-liczby-raportow.md`.
 - **`seen >= 500` w bramce ścieżek** ma ten sam kształt problemu: próg zmierzony przy
   623 trafieniach w 48 raportach, dziś raportów jest 140.
 - **`reports/odcisk-w-naglowku-raportu.md` §8** — miejsce, w którym 6.D38 zostało
