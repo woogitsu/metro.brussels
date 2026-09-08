@@ -233,24 +233,31 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 #: został nierównością, jaką był (`>= 40`), 153 przeszłoby bez słowa i różnica
 #: rosłaby dalej.
 #:
-#: **A potem zestarzała się PO RAZ DRUGI, z tego samego powodu.** Wartość **156**,
-#: odczytana na `e1fcfc1`, weszła do `main` z #416 — i przestała być prawdziwa przy
-#: pierwszym raporcie dopisanym po niej (6.D43, `reports/pojemnosc-puli-ci.md`).
-#: Znowu złapała to zapadka, nie czujność. Dwa razy pod rząd, w odstępie godziny,
-#: przy dwóch różnych autorach zmiany — i to jest mocniejszy argument za równością
-#: niż pierwotne 112 pozycji różnicy: **stała pilnująca katalogu, który rośnie,
-#: starzeje się MIĘDZY napisaniem commita a jego scaleniem**, więc żadna dyscyplina
-#: po stronie autora tego nie załatwi. Załatwia to wyłącznie warunek, który nie
-#: przepuszcza rozjazdu.
+#: **A potem zestarzała się jeszcze DWA razy, z tego samego powodu, i to przestało
+#: być anegdotą.** Wartość **156** (odczytana na `e1fcfc1`, weszła z #416) padła przy
+#: pierwszym raporcie dopisanym po niej — 6.D43, `reports/pojemnosc-puli-ci.md`.
+#: Wartość **157** (odczytana na `1cada00`) padła przy następnym — 6.D54,
+#: `reports/wyrocznia-zielonosci-sys-exit.md`. **Trzy razy pod rząd, w ciągu jednego
+#: wieczoru, i za każdym razem złapała to zapadka, a nie czyjaś czujność.**
+#:
+#: To jest mocniejszy argument za równością niż pierwotne 112 pozycji różnicy. Sto
+#: dwanaście dawało się opowiedzieć jako jedno zaniedbanie do nadgonienia; trzy
+#: rozjazdy pod rząd pokazują mechanizm: **stała pilnująca katalogu, który rośnie,
+#: starzeje się MIĘDZY napisaniem commita a jego scaleniem** — w okresie, w którym
+#: autor już nic nie mierzy, bo uważa zadanie za skończone. Nie ma momentu, w którym
+#: dyscyplina po stronie autora miałaby się włączyć. Załatwia to wyłącznie warunek,
+#: który rozjazdu nie przepuszcza, i **cena tego warunku (każdy nowy raport wymusza
+#: podniesienie stałej oraz poprawienie każdego raportu, który ją cytuje) jest ceną,
+#: nie usterką.**
 #:
 #: Dlatego liczba nie jest tu wyliczana z żadnej innej liczby. Jest odczytana
-#: z drzewa po scaleniu `main`, na `d3bd708`:
+#: z drzewa, na `1cada00` plus raport tego commita:
 #:
 #:     $ ls reports/*.md | wc -l
-#:     157
+#:     158
 #:     $ python3 -c 'import sys; sys.path.insert(0, "tools/tests");
 #:       import test_report_hygiene as m; print(len(list(m._reports())))'
-#:     157
+#:     158
 #:
 #: Oba pomiary stoją tu razem świadomie: asercja porównuje z `len(list(_reports()))`,
 #: nie z wyjściem `ls`, a te dwa zbiory mogłyby się różnić (glob, katalogi, pliki
@@ -260,7 +267,7 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 #: Kto dopisze następny raport, nie przepisuje tej liczby z pamięci ani z tego
 #: akapitu, tylko mierzy ją **na swoim drzewie po scaleniu `main`** — komunikat
 #: asercji podaje wynik pomiaru wprost, żeby nie było potrzeby zgadywania.
-MIN_REPORTS = 157
+MIN_REPORTS = 158
 
 #: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
 #: wierszem zaczynającym się od `**`, z którego `_header_shapes` czyta kształt.
