@@ -15,6 +15,7 @@ zielono z pomiarem jednego skladu.
 """
 import json
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.join(
@@ -24,6 +25,27 @@ import assert_linecore_budget as gate  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 WORKFLOW = os.path.join(ROOT, ".github", "workflows", "sim-tests.yml")
+BRAMKA = os.path.join(ROOT, "tools", "ci", "assert_linecore_budget.py")
+
+#: Zdanie prozy twierdzące, ILE wynosi próg — czyli kopia wartości w innym miejscu
+#: niż konfiguracja. 6.D56: taka kopia stała w docstringu `assert_linecore_budget.py`
+#: („próg 8,0 µs") przy progu 14,0 w konfiguracji, i nie widziała jej żadna bramka.
+#:
+#: `ó` STOI TU JAWNIE i to nie jest ozdoba: pierwsza wersja tego wzorca zaczynała się
+#: od `\bpro`, więc NIE pasowała do słowa „próg" i dawała zero trafień na pliku,
+#: w którym usterka stała. Wzorzec bez tej litery byłby bramką zieloną nad usterką.
+KOPIA_PROGU_W_PROZIE = re.compile(r"\bpr[oó]g\w*\b[^\n]{0,40}?\d+[.,]\d+",
+                                 re.IGNORECASE)
+
+#: Od jakiego wcięcia wiersz docstringa jest WKLEJONYM WYJŚCIEM, a nie prozą.
+#: Rozróżnienie jest konieczne, bo `niemierzalny()` cytuje datowany wypis przebiegu
+#: z 07.09.2026, w którym stoi próg obowiązujący WTEDY — i przepisanie tej liczby
+#: pod dzisiejszą wartość zamieniłoby zapis pomiaru na zapis zmyślony (`CLAUDE.md`
+#: §5). To ten sam trójpodział, który 6.D49 zmierzyło na nazwach testów: żywy
+#: odsyłacz, wklejone wyjście pomiaru i zdanie o historii — wolno tknąć tylko
+#: pierwszy. Zmierzone 08.09.2026: proza tego pliku ma wcięcie 0 lub 4, wklejone
+#: wypisy mają 8.
+WCIECIE_WKLEJONEGO_WYJSCIA = 8
 
 #: Wiersz pomiaru w ksztalcie, jaki daje `Sim.Runner budget` — dziewiec skladow
 #: na planie, koszt kroku z zapasem do progu.
@@ -93,6 +115,76 @@ def test_the_threshold_lives_in_one_place_and_the_step_does_not_compare_anything
     for porownanie in ("bc ", "awk ", "-gt ", "-lt ", "expr "):
         assert porownanie not in krok, (
             "krok porownuje cos sam (%r) zamiast zdac sie na skrypt" % porownanie)
+
+    # ROZSZERZENIE 6.D56: „jedno miejsce" znaczy jedno w CAŁYM drzewie, nie jedno
+    # w YAML-u. Do 08.09.2026 ta asercja czytała WYŁĄCZNIE krok CI, więc commit
+    # #408 — którego tematem było „liczba ma stać w jednym miejscu" — przepisał
+    # zdanie o progu w JSON-ie i zostawił kopię w docstringu samej bramki
+    # (`assert_linecore_budget.py`), gdzie stała wartość już nieprawdziwa. Bramka
+    # jednego miejsca przegapiła drugie miejsce, bo nie patrzyła.
+    #
+    # Sprawdzane jest DWOJE, w treści `.py` bramki:
+    #   1. że nie stoi tam liczba `steps` ze scenariusza (120000) — wartość długa,
+    #      więc szukanie podciągu nie daje fałszywych trafień (zmierzone: 0);
+    #   2. że żadne zdanie PROZY nie twierdzi, ile wynosi próg.
+    #
+    # DLACZEGO NIE SPRAWDZAMY TAK `headway_s` I `trains_on_line_expected`, i to
+    # jest wynik pomiaru, nie przeoczenie: ich wartości to 90 i 9, a szukanie
+    # podciągu daje w tym pliku odpowiednio 1 i 17 trafień — same daty
+    # (`05.09.2026`), indeksy grup (`group(9)`) i liczby z ekstrapolacji
+    # (`330–390`). Bramka z takim wskaźnikiem fałszywych alarmów idzie do
+    # wyłączenia (6.D27), więc te dwie liczby zostają pilnowane TAM, gdzie
+    # otaczający tekst jest krótki: w kroku CI, wyżej w tej samej funkcji.
+    with open(BRAMKA, encoding="utf-8") as handle:
+        zrodlo_bramki = handle.read().split("\n")
+
+    dlugie = str(config["scenario"]["steps"])
+    stoi = [n for n, w in enumerate(zrodlo_bramki, 1) if dlugie in w]
+    assert not stoi, (
+        "liczba %s ze scenariusza stoi w tresci bramki, w wierszach %s — ma byc "
+        "TYLKO w tools/ci/linecore-step-budget.json" % (dlugie, stoi))
+
+    kopie = [(n, w.strip()) for n, w in enumerate(zrodlo_bramki, 1)
+             if KOPIA_PROGU_W_PROZIE.search(w)
+             and (len(w) - len(w.lstrip())) < WCIECIE_WKLEJONEGO_WYJSCIA]
+    assert not kopie, (
+        "proza bramki twierdzi, ile wynosi prog — to kopia wartosci poza "
+        "konfiguracja i rozjedzie sie przy pierwszej zmianie progu:\n"
+        + "\n".join("  %s: %s" % (n, w[:100]) for n, w in kopie))
+
+
+def test_datowany_zapis_pomiaru_NIE_jest_kopia_progu_i_bramka_o_nim_milczy():
+    """Druga strona pary do rozszerzenia z 6.D56 — bez niej tamta asercja idzie do
+    wyłączenia przy pierwszym fałszywym alarmie (6.D27).
+
+    `niemierzalny()` cytuje w docstringu **datowany wypis przebiegu** z 07.09.2026,
+    w którym stoi próg obowiązujący WTEDY. Ta liczba jest **prawdą o tamtym dniu**
+    i przepisanie jej pod dzisiejszą wartość zamieniłoby zapis pomiaru na zapis
+    zmyślony — czego zabrania `CLAUDE.md` §5, i to w pliku, którego cała wartość
+    polega na tym, że wypisy są prawdziwe. To ten sam trójpodział, który 6.D49
+    zmierzyło na nazwach testów: **żywy odsyłacz**, **wklejone wyjście pomiaru**
+    i **zdanie o historii** — wolno tknąć tylko pierwszy.
+
+    Ten test przybija rozróżnienie z dwóch stron naraz, więc nie da się go spełnić
+    przez poszerzenie progu wcięcia: żąda, żeby w tym pliku **istniał** wklejony
+    wypis z wartością progu (inaczej rozróżnienie byłoby martwe i nikt by nie
+    zauważył, że zniknęło) i żeby jednocześnie **żadna proza** takiej wartości nie
+    nosiła.
+    """
+    with open(BRAMKA, encoding="utf-8") as handle:
+        wiersze = handle.read().split("\n")
+    wklejone = [n for n, w in enumerate(wiersze, 1)
+                if KOPIA_PROGU_W_PROZIE.search(w)
+                and (len(w) - len(w.lstrip())) >= WCIECIE_WKLEJONEGO_WYJSCIA]
+    proza = [n for n, w in enumerate(wiersze, 1)
+             if KOPIA_PROGU_W_PROZIE.search(w)
+             and (len(w) - len(w.lstrip())) < WCIECIE_WKLEJONEGO_WYJSCIA]
+    assert wklejone, (
+        "w tresci bramki nie ma ani jednego WKLEJONEGO wypisu z wartoscia progu — "
+        "rozroznienie proza/zapis-pomiaru przestalo cokolwiek znaczyc, wiec "
+        "rozszerzenie z 6.D56 nie jest juz sprawdzane przeciwko niczemu")
+    assert not proza, (
+        "proza bramki nosi wartosc progu w wierszach %s" % proza)
 
 
 def test_a_green_measurement_passes():

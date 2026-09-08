@@ -18,9 +18,16 @@ Dlatego `trains_on_line_expected` jest warunkiem **twardym**, nie ozdobą raport
 zna `--coast-from-m`, i to już nieprawda, dlatego jest tu przepisana, a nie dopisana obok.
 Nastawa stoi w scenariuszu jako `coast_from_m: null` i stamtąd bierze ją zarówno
 wywołanie, jak i zdanie w wypisie, więc jej włączenie nie wymaga tknięcia tego pliku.
-`null` zostaje celowo: próg 8,0 µs zmierzono na przejeździe **bez** wybiegu, a wybieg
+`null` zostaje celowo: próg zmierzono na przejeździe **bez** wybiegu, a wybieg
 zmienia przejazd, nie tylko jego koszt — pomiar z wybiegiem porównywałby się z progiem
-wziętym z innego przejazdu. To jest powiedziane tutaj, w wypisie i w raporcie, zamiast
+wziętym z innego przejazdu. **Wartości progu nie ma w tym zdaniu i nie ma jej nigdzie
+w treści tego pliku** (6.D56): stoi w `microseconds_per_step_max` i tylko tam. Do
+08.09.2026 stała tu liczba, i to liczba już nieprawdziwa — ten sam commit, który
+przepisał to zdanie w JSON-ie, tego pliku nie tknął, bo bramka jednego miejsca czytała
+wyłącznie YAML. Obie wartości i cała historia tej pomyłki stoją, z datami, w
+`reports/piata-kopia-progu.md`; **tutaj nie stoją świadomie**, bo zdanie historyczne
+z liczbą jest dla czytającego nierozróżnialne od zdania o progu dzisiejszym — a to
+właśnie ta nierozróżnialność była usterką. To jest powiedziane tutaj, w wypisie i w raporcie, zamiast
 milcząco mierzyć jeden wariant i nazywać go „kosztem kroku". Nie mierzy też progu klatki z ekstrapolacji `N ≈ 330–390`
 — `reports/linecore-budget.md` §7 mówi wprost, że to ekstrapolacja 56–65× poza zakres
 pomiaru, więc nie jest materiałem na bramkę.
