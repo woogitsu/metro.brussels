@@ -2,7 +2,9 @@
 
 `doctor.sh` mówi, **czego brakuje**. Ten plik mówi, **skąd to wziąć**: dokładne
 adresy, wersje, sumy kontrolne i polecenia, które zostały wykonane, a nie
-przepisane z pamięci.
+przepisane z pamięci — a od 08.09.2026 także **gdzie to leży, jeżeli już jest**
+(§1.1). Ten trzeci punkt został dopisany, bo jego brak kosztował dwie pozycje
+kolejki: sesja wzięła puste wyjście `command -v` za dowód nieobecności.
 
 Powstał, bo świeża maszyna nie ma ani Blendera, ani .NET, ani Godota, a odtworzenie
 tego zestawu ze zgadywania kosztuje pół sesji. Wszystkie liczby niżej są zmierzone
@@ -24,6 +26,173 @@ tego podziału trzymać się przy instalacji:
 
 Python i git są w każdym sensownym obrazie. Trzy pozostałe pozycje trzeba pobrać
 i to one są treścią tego dokumentu.
+
+### 1.1 Zanim cokolwiek pobierzesz — gdzie te narzędzia leżą, jeżeli już są
+
+**Ta sekcja powstała 08.09.2026 z mojej własnej pomyłki, nie z przewidywania.**
+Sesja sprawdziła obecność Blendera przez `command -v blender`, dostała puste
+wyjście i zapisała w raporcie, że Blendera na tej maszynie nie ma — po czym
+pominęła częściowo na tej podstawie dwie pozycje kolejki (6.C4 i 6.D24).
+`tools/ci/blender_install.sh` uruchomiony później odpowiedział `5.2.1 już jest`,
+a `stat` na katalogu pokazał **06.09.2026**, czyli dwa dni przed sesją.
+
+**`command -v` nie odpowiada na pytanie „czy to narzędzie jest na maszynie".**
+Odpowiada na inne: „czy w `PATH` stoi coś o tej nazwie". Te dwa pytania rozjeżdżają
+się w **obie** strony, i obie są tu zmierzone, nie założone:
+
+- **pusto, a jest.** Instalatory tego projektu kładą narzędzia **poza `PATH`**
+  świadomie (§2.5, §4): katalog musi przeżyć `git clean -ffdx`, które
+  `actions/checkout` wykonuje przy każdym przebiegu, więc leży w
+  `RUNNER_TOOL_CACHE`, a nie w `/usr/bin`. Żaden skrypt w tym repozytorium nie
+  robi tam dowiązania (`grep -rn usr/local/bin --include=*.sh --include=*.yml
+  --include=*.py .` — zero trafień), więc brak w `PATH` jest **stanem normalnym**,
+  nie objawem.
+- **coś jest, a nie to.** `apt` w noble daje Blendera 4.0.2 i będzie dawał do
+  końca życia wydania (§2.1). `command -v blender` znajduje go i uznaje środowisko
+  za gotowe, a rendery wychodzą z legacy EEVEE. Przed tą stroną pomyłki ostrzega
+  komentarz w `blender_install.sh` i broni sonda wersji w `doctor.sh`.
+
+Trzy narzędzia, trzy miejsca — i osobno to, gdzie kładzie je **ta instrukcja**,
+a gdzie **CI**, bo to nie zawsze ten sam katalog:
+
+| narzędzie | z tego dokumentu | z CI | zmienna, o którą pyta `doctor.sh` |
+|---|---|---|---|
+| Blender | `${RUNNER_TOOL_CACHE:-$HOME/.cache/metro-tools}/metro-blender/<wersja>/blender-<wersja>-linux-x64/blender` | ten sam katalog (`tools/ci/blender_install.sh`) | `BLENDER_BIN` |
+| Godot | `/opt/metro-godot/<wersja>/Godot_v<wersja>_mono_linux.x86_64` (§4) | `${RUNNER_TOOL_CACHE:-$HOME/.cache/metro-tools}/metro-godot/<wersja>/…` (`godot-first-run.yml`) | `GODOT_BIN` |
+| .NET SDK | `$HOME/.dotnet` (§3) | `${RUNNER_TOOL_CACHE:-$HOME/.cache/metro-tools}/metro-dotnet` (`DOTNET_INSTALL_DIR` w `sim-tests.yml`, `blender-smoke.yml`, `godot-first-run.yml`) | `DOTNET_ROOT`, `DOTNET_BIN` |
+
+Ścieżka cache stoi w dokumencie i w skrypcie, więc pilnuje ich zgodności
+`tools/tests/test_environment_doc.py` — podmiana katalogu w `blender_install.sh`
+bez podmiany tutaj wywraca bramkę. Wersji w ścieżce nie wpisuj z ręki: dla
+Blendera dyktuje ją `tools/ci/blender-version.txt`, dla Godota `GODOT_VERSION`
+w `.github/workflows/godot-first-run.yml`.
+
+**Czym sprawdzić — jedno polecenie na narzędzie.** Zmierzone 08.09.2026 w tym
+kontenerze, na **czystym środowisku zmiennych**: `PATH=/usr/bin:/bin`, bez
+`BLENDER_BIN`, `GODOT_BIN` i `DOTNET_ROOT`. W tym stanie `command -v` milczy
+o wszystkich trzech, a wszystkie trzy są na dysku:
+
+```
+$ for n in blender godot dotnet; do printf '%-8s ' "$n"; command -v "$n" || echo "(pusto, kod 1)"; done
+blender  (pusto, kod 1)
+godot    (pusto, kod 1)
+dotnet   (pusto, kod 1)
+```
+
+Blender — instalator **jest** sondą i wypisuje ścieżkę na stdout, nie pobierając
+nic, gdy przypięta wersja już stoi (0,15 s w tym przebiegu):
+
+```
+$ bash tools/ci/blender_install.sh
+[BLENDER] 5.2.1 już jest w /root/.cache/metro-tools/metro-blender/5.2.1
+/root/.cache/metro-tools/metro-blender/5.2.1/blender-5.2.1-linux-x64/blender
+```
+
+To jedno polecenie i ono od razu nadaje się na `export BLENDER_BIN="$(…)"` (§5).
+Droga bez skryptu też jest jednym poleceniem, ale trzeba jej dać **właściwą
+głębokość** — binarium leży cztery poziomy pod korzeniem cache, więc
+`-maxdepth 3` daje pustkę nieodróżnialną od nieobecności:
+
+```
+$ find "${RUNNER_TOOL_CACHE:-$HOME/.cache/metro-tools}" -maxdepth 4 -type f -name blender -perm -u+x
+/root/.cache/metro-tools/metro-blender/5.2.1/blender-5.2.1-linux-x64/blender
+```
+
+Godot — dwa korzenie z tabeli wyżej, przeszukane razem. `find` kończy się kodem 1
+i skarży na korzeń, którego nie ma; to znaczy „jednego z dwóch katalogów nie ma",
+a **nie** „Godota nie ma" — znaleziony stoi wierszem wyżej:
+
+```
+$ find /opt/metro-godot "${RUNNER_TOOL_CACHE:-$HOME/.cache/metro-tools}/metro-godot" \
+       -maxdepth 2 -type f -name 'Godot_v*_mono_linux.x86_64'
+/opt/metro-godot/4.7.2-stable/Godot_v4.7.2-stable_mono_linux.x86_64
+find: '/root/.cache/metro-tools/metro-godot': No such file or directory
+```
+
+.NET SDK — przejście po katalogach z tabeli plus te, w których SDK ląduje
+z instalatorów systemowych. Pytamy o **wersję**, nie o obecność pliku, bo obok
+10.0.400 w katalogu domowym potrafi stać 8.0.130 z pakietu (§3, `doctor.sh`):
+
+```
+$ for d in "$HOME/.dotnet" "${RUNNER_TOOL_CACHE:-$HOME/.cache/metro-tools}/metro-dotnet" \
+           /usr/local/share/dotnet /usr/share/dotnet /opt/dotnet; do
+      [ -x "$d/dotnet" ] && echo "JEST $d/dotnet -> $("$d/dotnet" --version 2>&1)" || echo "brak $d/dotnet"
+  done
+JEST /root/.dotnet/dotnet -> 10.0.400
+brak /root/.cache/metro-tools/metro-dotnet/dotnet
+brak /usr/local/share/dotnet/dotnet
+brak /usr/share/dotnet/dotnet
+brak /opt/dotnet/dotnet
+```
+
+**Czwarte miejsce, którego żaden skrypt tego repozytorium nie tworzy: dowiązania
+w `/usr/bin` albo `/usr/local/bin`.** W tym kontenerze stały dwa, założone ręką
+08.09.2026 o 06:07, i właśnie dlatego `command -v blender` **przy pełnym `PATH`
+odpowiada tu dziś ścieżką**, choć dwie godziny wcześniej milczał:
+
+```
+$ ls -la /usr/local/bin/blender /usr/local/bin/godot
+lrwxrwxrwx 1 root root 76 Sep  8 06:07 /usr/local/bin/blender -> /root/.cache/metro-tools/metro-blender/5.2.1/blender-5.2.1-linux-x64/blender
+lrwxrwxrwx 1 root root 67 Sep  8 06:07 /usr/local/bin/godot -> /opt/metro-godot/4.7.2-stable/Godot_v4.7.2-stable_mono_linux.x86_64
+```
+
+Dowiązanie jest wygodne i nic mu nie zarzucam — ale nie jest **niczym** pilnowane,
+więc jego obecność jest cechą jednej maszyny, a nie własnością projektu. Sonda
+opisana wyżej odpowiada na obu; `command -v` odpowiada tylko na tej z dowiązaniem.
+
+#### 1.1.1 `doctor.sh` czyta wersję Blendera i dlatego nie da się nabrać — ale o .NET pyta `PATH`
+
+Tego nie było w opisie pozycji 6.D48 i wyszło z pomiaru. Na tej maszynie
+`/root/.dotnet/dotnet` zgłasza **10.0.400**, a doctor melduje brak:
+
+```
+Wymagane dla rdzenia symulacji (T-310 jest zrobione, src/Sim istnieje):
+  BRAK  dotnet SDK  -> zainstaluj .NET SDK 10.0+ (https://dotnet.microsoft.com/download)
+…
+Testy rdzenia symulacji:
+  pomijam — brak dotnet
+--------------------------------------------------
+  1 wymaganych pozycji do naprawienia przed pracą.
+```
+
+Przyczyna jest w kodzie i jest wąska: doctor **ma** przejście po kandydatach
+(`$HOME/.dotnet/dotnet`, `/usr/local/share/dotnet/dotnet`, …), ale stoi ono
+wewnątrz `if [ -n "$REQUIRED_TFM" ] && [ -n "$HAVE_SDK_MAJOR" ]`, a
+`HAVE_SDK_MAJOR` bierze się z `$DOTNET --version`. Gdy `dotnet` w `PATH` nie ma
+**wcale**, ta zmienna jest pusta i cały blok — razem z podpowiedzią „na dysku
+JEST nowsze SDK" — nie wykonuje się. Podpowiedź działa więc tylko w przypadku,
+w którym w `PATH` stoi SDK **za stare**, a nie w tym, w którym nie stoi żadne.
+Dla Blendera tej dziury nie ma, bo tam doctor porównuje **numer z pinem**, nie
+obecność w `PATH` (§2.5).
+
+Do czasu zamknięcia tego po stronie sondy naprawa jest po stronie czytającego
+i ma dwie postaci, które **nie są równoważne**. Zmierzone tu, oba przebiegi:
+
+```
+$ DOTNET_BIN=/root/.dotnet/dotnet bash doctor.sh
+  ok    dotnet SDK
+  ok    dotnet SDK >= 10 (jest 10)
+  …
+  WARN  godot .NET hostfxr  -> ustaw DOTNET_ROOT …
+```
+
+```
+$ export DOTNET_ROOT=/root/.dotnet; export PATH="$DOTNET_ROOT:$PATH"
+$ bash doctor.sh
+  ok    dotnet SDK
+  ok    dotnet SDK >= 10 (jest 10)
+  …
+  ok    godot .NET hostfxr
+  …
+  ok    1996/1996 przeszło
+  ok    590/590 przeszło
+```
+
+`DOTNET_BIN` zdejmuje `BRAK dotnet SDK` i **zostawia** ostrzeżenie o hostfxr, bo
+tamta sonda pyta osobno o `DOTNET_ROOT` albo o `dotnet` w `PATH` (§4.1) i o żadną
+z nich `DOTNET_BIN` nie odpowiada. Dwa `export` wyżej zamykają oba naraz i to jest
+zalecana postać: wchodzi też do `dotnet test tests/Sim.Tests`, które doctor
+uruchamia na końcu — stąd `590/590` zamiast `pomijam`.
 
 ## 2. Blender — dwie drogi, i one nie są równoważne
 
@@ -430,6 +599,11 @@ export DOTNET_CLI_TELEMETRY_OPTOUT=1
 export DOTNET_NOLOGO=1
 ```
 
+Wartości nie zgaduj: `BLENDER_BIN` wypisuje sam instalator (jest własną sondą), a dwie
+pozostałe ścieżki wyszukuje sonda z **§1.1** — tam też stoi, gdzie te katalogi leżą
+i czemu `command -v` nie odpowiada na pytanie o ich obecność. `DOTNET_ROOT` ustawiony
+razem z `PATH` zdejmuje przy okazji `BRAK dotnet SDK` z doctora (§1.1.1).
+
 `BLENDER_BIN` i `GODOT_BIN` są tymi dwiema, o które `doctor.sh` pyta wprost — i o które
 pyta **tak samo jak CI**, a nie o coś innego. Doctor porównuje przy tym wersję Blendera
 z pinem, więc rozjazd „u mnie ok, w CI czerwono" widać u siebie:
@@ -484,6 +658,13 @@ różne awarie i mieszanie ich daje mylącą diagnozę.
 Czego `doctor.sh` **nie** sprawdza i co trzeba zrobić samemu, jeśli zadanie dotyczy
 geometrii: obejrzeć zrzuty. `CLAUDE.md` §5 nie jest w tej sprawie uprzejmy i ma powód —
 skrypt bez błędu potrafi wyprodukować pustą scenę.
+
+**`BRAK dotnet SDK` nie znaczy „na maszynie nie ma SDK".** Znaczy „`dotnet` nie
+odpowiada na tej ścieżce" — a SDK potrafi stać obok, poza `PATH`. Zanim cokolwiek
+pobierzesz z §3, przejdź sondę z **§1.1** i, jeśli SDK się znajdzie, ustaw
+`DOTNET_ROOT` razem z `PATH` (§1.1.1). Ta sama uwaga dotyczy każdej pozycji
+z sekcji „Wymagane dopiero przez konkretne zadania": doctor pyta o `BLENDER_BIN`
+i `GODOT_BIN`, więc bez tych zmiennych mówi o `PATH`, nie o dysku.
 
 ## 7. Skąd co pochodzi — jednym spojrzeniem
 
