@@ -376,6 +376,61 @@ def _discover(only=None):
         module_of+=[module_file]*len(found)
     return tests, module_of, import_failures
 
+class WyjscieZProcesu(Exception):
+    """Test zawołał `sys.exit()`. Zamieniane na FAIL TESTU, nie na koniec przebiegu.
+
+    **6.D54, zmierzone 08.09.2026.** `SystemExit` dziedziczy z `BaseException`,
+    a nie z `Exception`, więc `except Exception` w pętli go NIE łapał — wychodził
+    z pętli i z `main()`, a Python kończył proces kodem z wyjątku. Przy
+    `sys.exit(0)` tym kodem było **zero**. Sonda z trzema testami, w której drugi
+    woła `sys.exit(0)`, dawała:
+
+        ok   test_aaa_pierwszy_zwykly
+        kod: 0
+
+    Jeden wiersz `ok`, **ani jednego** wiersza `N/M przeszło` ani `RAZEM`, i kod 0.
+    Cały wypis przebiegu miał **jeden wiersz**. Kod wyjścia tego zestawu jest wyrocznią
+    zieloności całego projektu (`CLAUDE.md` §5), więc wyrocznia mówiła „zielono"
+    o przebiegu, który się nie odbył.
+
+    **Ile testów przez to nie wykonało się, zależy od MIEJSCA winnego testu
+    w sortowaniu, i dlatego stoi tu jako przedział, nie jedna liczba.** Moduły idą
+    alfabetycznie: sonda nazwana `test_aaa_…` zabiła przebieg po **jednym** teście
+    z 2041 odkrytych (2040 bez werdyktu), a ta sama sonda nazwana `test_zzz_…` — po
+    2039 (2 bez werdyktu). Kod wyjścia był **0 w obu wypadkach**, i to jest niezmiennik
+    usterki; liczba utraconych testów niezmiennikiem nie jest.
+
+    **Kłamstwo było jednostronne w WERDYKCIE, ale nie w SKUTKU**, i to rozróżnienie
+    jest powodem, dla którego przechwyt jest tu, a nie w kodzie wyjścia: `sys.exit(1)`
+    dawał kod 1, czyli czerwono — ale zestaw równie dobrze się nie wykonał, bez
+    podsumowania. Naprawa kodu wyjścia załatwiłaby tylko połowę; dlatego obok tej
+    klasy stoi w `main()` osobny FAIL zestawu na „wykonano mniej, niż odkryto".
+
+    **Zmierzone też to, co widać było mimo usterki:** przy pierwszej wersji sondy
+    (bez strażnika `__main__`) wypisały się DWA wiersze `FAIL` od innych bramek,
+    a kod wyjścia i tak wyszedł **0** — wyrocznia nie zgadzała się z własnym wypisem.
+
+    **Osiągalne realnie, nie teoretycznie:** `argparse` woła `sys.exit` przy złym
+    argumencie i przy `--help`, a testy bramek wołają `main()` narzędzi. Pułapka
+    uderzyła 08.09.2026 w pracy nad `crosscheck_alignment.py`: przebieg skończył się
+    kodem 2 na trzecim teście i osiem następnych nie wykonało się wcale.
+    """
+
+
+def _powod_wyjscia(wyjatek):
+    """Komunikat FAIL-a dla testu, który zawołał `sys.exit()`.
+
+    Kod wyjścia jest w komunikacie, bo `sys.exit(0)` i `sys.exit(2)` mają różne
+    przyczyny: pierwsze to zwykle `--help` albo pomyłkowe `main()` narzędzia,
+    drugie to `argparse` odrzucający argument. Bez tej liczby czytający widziałby
+    „test wyszedł z procesu" i nie wiedziałby, czego szukać.
+    """
+    return (f"zawołał sys.exit({wyjatek.code!r}) — wyjście z procesu WEWNĄTRZ testu "
+            "jest usterką tego testu, nie werdyktem o zestawie. Jeżeli test sprawdza "
+            "narzędzie, które woła sys.exit (argparse, `main()` z bramką), złap "
+            "SystemExit w teście i sprawdź jego kod asercją")
+
+
 def main(only=None):
     """Uruchom zestaw — albo jeden moduł, gdy `only`. Test, który przeszedł bez asercji, jest awarią, nie sukcesem.
 
@@ -399,18 +454,28 @@ def main(only=None):
         line=f"<import>{module_file}"
         print(f"  FAIL {line}: {error.__class__.__name__}: {error}")
         failed.append(line)
-    for (name,fn),module_file in zip(tests,module_of):
-        AG.reset(); outcome=None
-        test_start=time.perf_counter()
-        try: fn()
-        except Exception as e: outcome=e
-        module_seconds[module_file]=module_seconds.get(module_file,0.0)+(time.perf_counter()-test_start)
-        module_counts[module_file]=module_counts.get(module_file,0)+1
-        checks=AG.hits(); checks_total+=checks
-        state,message=AG.verdict(outcome,checks)
-        if state=="ok": print(f"  ok   {name}"); passed+=1
-        elif state=="skip": print(f"  SKIP {name}: {message}"); skipped.append(name)
-        else: print(f"  FAIL {name}: {message}"); failed.append(name)
+    przerwane=None
+    try:
+        for (name,fn),module_file in zip(tests,module_of):
+            AG.reset(); outcome=None
+            test_start=time.perf_counter()
+            try: fn()
+            except SystemExit as e: outcome=WyjscieZProcesu(_powod_wyjscia(e))
+            except Exception as e: outcome=e
+            module_seconds[module_file]=module_seconds.get(module_file,0.0)+(time.perf_counter()-test_start)
+            module_counts[module_file]=module_counts.get(module_file,0)+1
+            checks=AG.hits(); checks_total+=checks
+            state,message=AG.verdict(outcome,checks)
+            if state=="ok": print(f"  ok   {name}"); passed+=1
+            elif state=="skip": print(f"  SKIP {name}: {message}"); skipped.append(name)
+            else: print(f"  FAIL {name}: {message}"); failed.append(name)
+    except BaseException as e:
+        # `KeyboardInterrupt` (i cokolwiek innego z `BaseException`) DALEJ przerywa
+        # przebieg — ale nie wolno mu wynieść sterowania z `main()`, bo wtedy nie
+        # wypisze się podsumowanie i kod procesu weźmie się z wyjątku. Pętla staje,
+        # podsumowanie leci, kod wychodzi niezerowy. `SystemExit` tu nie dochodzi:
+        # jest złapany per test wyżej i jest FAIL-em testu, nie końcem przebiegu.
+        przerwane=e
     suite_elapsed=time.perf_counter()-suite_start
     print(); print(f"  {passed}/{len(tests)-len(skipped)} przeszło")
     if skipped: print(f"  pominięto (nie liczy się jako zaliczone): {len(skipped)} — {', '.join(skipped)}")
@@ -419,6 +484,26 @@ def main(only=None):
         secs=module_seconds[module_file]; n=module_counts[module_file]
         print(f"    {secs:8.3f} s  {module_file}.py  ({n} testów)")
     print(f"  RAZEM {suite_elapsed:.3f} s, {len(tests)} testów, {len(module_seconds)} modułów")
+    # 6.D54: podsumowanie musi być NIEMOŻLIWE do pominięcia. Powyższe wiersze mówią
+    # o testach, które doszły do werdyktu; ten mówi, czy doszły WSZYSTKIE odkryte.
+    # Komunikat mówi „nie doszło do werdyktu", a NIE „nie wykonało się wcale":
+    # test, który rzucił `KeyboardInterrupt`, zaczął się i zginął w połowie, więc
+    # zdanie o niewykonaniu byłoby o nim nieprawdziwe. Zmierzone kontrolą: sonda
+    # z `KeyboardInterrupt` w drugim z trzech testów daje 2039 z 2041, czyli dwa
+    # bez werdyktu — przerywający i ten po nim.
+    # Bez tego przebieg urwany w środku wyglądał jak przebieg pełny o mniejszej
+    # liczbie testów — a `mutation_sweep.py` czyta wyłącznie `N/M przeszło` i kod.
+    wykonane=sum(module_counts.values())
+    if przerwane is not None:
+        print(f"  FAIL <przebieg>: przerwany przez {przerwane.__class__.__name__}"
+              f"{': '+str(przerwane) if str(przerwane) else ''} — wykonano {wykonane} "
+              f"z {len(tests)} odkrytych testów")
+        failed.append("<przebieg>")
+    if wykonane<len(tests):
+        print(f"  FAIL <zestaw>: wykonano {wykonane} z {len(tests)} odkrytych testów, "
+              f"czyli {len(tests)-wykonane} nie doszło do werdyktu — podsumowania wyżej "
+              "NIE wolno czytać jako werdyktu o całym zestawie")
+        failed.append("<zestaw>")
     broken=AG.suite_verdict(len(tests),checks_total)
     if broken: print(f"  FAIL <bramka asercji>: {broken}"); return 1
     return 1 if failed else 0

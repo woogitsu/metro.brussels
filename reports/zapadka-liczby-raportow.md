@@ -53,9 +53,9 @@ z każdym dopisanym raportem, a bramka przez cały czas świeci na zielono.
 
 ## 3. Co się zmieniło
 
-1. `MIN_REPORTS` = **157**, czyli stan katalogu dziś — i ta liczba jest **trzecią**,
-   jaką ten akapit nosił, co samo w sobie jest jej pomiarem. Historia obu poprzednich
-   stoi niżej, bo bez nich nie widać, po co ta zapadka istnieje.
+1. `MIN_REPORTS` = **158**, czyli stan katalogu dziś — i ta liczba jest **czwartą**,
+   jaką ten akapit nosił, co samo w sobie jest jej pomiarem. Historia trzech
+   poprzednich stoi niżej, bo bez nich nie widać, po co ta zapadka istnieje.
    Gałąź powstała przy 153 raportach (152 na `a214ab9` plus ten raport) i tyle
    pierwotnie wpisała. Zanim doszła do `main`, weszły tam trzy pull requesty
    z własnymi raportami — #413, #414, #415 — więc w chwili scalenia stała była
@@ -72,16 +72,19 @@ z każdym dopisanym raportem, a bramka przez cały czas świeci na zielono.
    starzeje się po cichu, nie trzeba było więc szukać: dostarczyła go ta sama
    zmiana, która ją usuwa.
 
-   **I zestarzała się PO RAZ DRUGI, godzinę później.** Wartość 156 weszła do `main`
+   **I zestarzała się jeszcze DWA razy tego samego wieczoru.** Wartość 156 weszła do `main`
    z #416 i przestała być prawdziwa przy **pierwszym** raporcie dopisanym po niej
    (6.D43, `reports/pojemnosc-puli-ci.md`, katalog 157). Ta sama bramka wypisała
    wtedy to samo zdanie o jeden krok dalej — `MIN_REPORTS mówi 156, kod 157` —
-   i znowu złapała to **zapadka, nie czyjaś czujność**.
+   i znowu złapała to **zapadka, nie czyjaś czujność**. Wartość 157 padła
+   natychmiast po niej, przy **następnym** raporcie (6.D54,
+   `reports/wyrocznia-zielonosci-sys-exit.md`, katalog 158), tym samym zdaniem
+   o jeszcze jeden krok dalej: `MIN_REPORTS mówi 157, kod 158`.
 
-   **Dwa razy pod rząd jest mocniejszym argumentem niż pierwotne 112 pozycji
+   **Trzy razy pod rząd jest mocniejszym argumentem niż pierwotne 112 pozycji
    różnicy**, i to jest właściwy wynik tej pozycji. Sto dwanaście dawało się
    opowiedzieć jako jedno zaniedbanie z przeszłości, które wystarczy raz nadgonić.
-   Dwa rozjazdy w odstępie godziny, przy dwóch różnych zmianach, pokazują coś
+   Trzy rozjazdy w ciągu jednego wieczoru, przy trzech różnych zmianach, pokazują coś
    innego: **stała pilnująca katalogu, który rośnie, starzeje się MIĘDZY napisaniem
    commita a jego scaleniem** — w okresie, w którym autor już nic nie mierzy, bo
    uważa zadanie za skończone. Żadna dyscyplina po stronie autora tego nie załatwi,
