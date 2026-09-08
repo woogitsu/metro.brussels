@@ -118,6 +118,6 @@ public sealed class EmergencyBrakeTests
     public void OpisSterowaniaWymieniaKlawiszHamulcaAwaryjnego()
     {
         StringAssert.Contains(DriverInput.Help, EmergencyBrake.KeyName, DriverInput.Help);
-        StringAssert.Contains(DriverInput.Help, "awaryjny", DriverInput.Help);
+        StringAssert.Contains(DriverInput.Help, "hamulec awaryjny", DriverInput.Help);
     }
 }
