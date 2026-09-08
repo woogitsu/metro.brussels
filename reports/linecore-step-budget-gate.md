@@ -3,6 +3,9 @@
 **Zmierzone 06.09.2026 na commicie:** `b45be99c072d87882ecf84f52129f891f324b1ee`
 **Przepisane 08.09.2026 na commicie:** `8b4cf7cf20811e9d86ca976b035b07a4b453f844` — sekcje 4 i 8; sekcje 1-3, 5-7
 zostaja zapisem pomiaru z 06.09.2026 i nie sa przeliczane.
+**Przepisane 08.09.2026 po raz drugi** — granica rozstepu, sekcja 9. Przepisane sa tam
+takze dwa zdania z sekcji 8, ktore po tej zmianie przestaly byc prawdziwe; sekcje
+datowanych pomiarow (1-3, 4.1, 4.2, 6, 8.1, 8.2) zostaja nieprzeliczone.
 
 ## 1. Czego pilnuje ta bramka — i co jest w niej nieoczywiste
 
@@ -269,17 +272,30 @@ na pierwszym nowym.
 
 **Dwie stałe zależą od siebie i nikt tego nie zapisywał.** Dolne ograniczenie progu
 (9,572 µs) wzięte jest z przebiegu, którego rozstęp wynosił **33,9 %** — czyli obowiązuje
-tylko dopóki `spread_pct_max` ten pomiar przepuszcza. Komentarz tej stałej **zapowiada
-zaciskanie** granicy, a zaciśnięcie poniżej 33,9 % zamieniłoby tamten przebieg
-w niemierzalność (kod 3) i podstawa progu wisiałaby w powietrzu. Sprzężenie pilnuje
-`test_prog_i_granica_rozstepu_sa_SPRZEZONE`: zaciśnięcie granicy poniżej 33,9 % **czerwieni
-się natychmiast** i każe przeliczyć podstawę progu w tej samej zmianie.
+tylko dopóki `spread_pct_max` ten pomiar przepuszcza. Zaciśnięcie poniżej 33,9 %
+zamieniłoby tamten przebieg w niemierzalność (kod 3) i podstawa progu wisiałaby
+w powietrzu. Sprzężenie pilnuje `test_prog_i_granica_rozstepu_sa_SPRZEZONE`: zaciśnięcie
+granicy poniżej 33,9 % **czerwieni się natychmiast** i każe przeliczyć podstawę progu
+w tej samej zmianie.
+
+> **Zdanie przepisane 08.09.2026, drugim commitem tego dnia.** Stało tu: „Komentarz tej
+> stałej **zapowiada zaciskanie** granicy". Przestało być prawdą tego samego dnia —
+> decyzja właściciela odwróciła kierunek reguły i granica poszła z 50 % na 100 %
+> (§9), więc komentarz stałej nie zapowiada już zaciskania. Sama asercja została bez
+> zmiany, bo jej powód jest od kierunku niezależny: liczy się to, że rozstęp 33,9 %
+> pozostaje **mierzalny**, a nie to, z której strony ktoś do tej liczby wróci.
 
 Czego w tym commicie **nie ma, świadomie**: granicy rozstępu nie zacisnąłem. Piąty pomiar
 (33,9 % → 9,572 µs, czyli 2,1× maszyny niezajętej) jest argumentem, że 50 % przepuszcza
 pomiary mówiące o obciążeniu, a nie o kodzie — ale zaciśnięcie jest **inną decyzją** niż
 podjęta przez właściciela, a dwie decyzje w jednym commicie nie dają się potem rozdzielić.
 Pomiar jest dopisany do komentarza stałej, więc nie zginie.
+
+> **Adnotacja z 08.09.2026, drugi commit tego dnia.** Akapit powyżej zostaje jako zapis
+> tamtego commitu i jest nadal prawdziwy o nim. Ta pozycja odpowiada na niego **decyzją
+> w drugą stronę**: pytanie poszło do właściciela i odpowiedź brzmiała *podnieść*
+> granicę, nie zacisnąć — §9. Zdanie „granica ma być zaciśnięta" nie obowiązuje więc od
+> tego dnia i nie ma go już w komentarzu stałej.
 
 ### 8.1 Kontrole negatywne — WYKONANE 08.09.2026
 
@@ -342,3 +358,307 @@ pomiaru, więc zostaje z liczbą, którą wtedy wypisał. Oba przebiegi, które 
 (§4.2: 9,572 i 8,554 µs), przechodzą pod progiem 14,0 µs; przebieg niemierzalny (16,022 µs
 przy 115,9 %) **nadal wychodzi kodem 3**, bo strażnik rozstępu wstrzymuje porównanie
 niezależnie od wartości progu — sprawdzone na atrapie w KN-owym przebiegu wyżej.
+
+## 9. Granica rozstępu podniesiona z 50 % na 100 % (08.09.2026, drugi commit tego dnia)
+
+Ta sekcja jest **dopisana**, ale dwa zdania z §8 są przy niej **przepisane**, nie
+dopisane obok — stoją tam, w miejscu, w którym przestały być prawdziwe.
+
+### 9.1 Decyzja i kierunek, który się odwrócił
+
+Pytanie poszło do właściciela w formie klikalnej. **Rekomendowałem zaciśnięcie granicy**
+— dokładnie to, co zapowiadał komentarz stałej: „gdy uzbiera się więcej rozstępów
+z samych runnerów, należy ją **zacisnąć, a nie rozluźnić**". Wybrana odpowiedź jest
+przeciwna: **podnieść granicę, bo 115,9 % to jedyny prawdziwy przypadek
+niemierzalności.** To zdanie ma pokrycie i dlatego jest tu powtórzone: 115,9 % jest
+jedynym rozstępem, który ma **parę** — ta sama treść kodu dała na maszynie niezajętej
+4,213–4,364 µs (`reports/rozstep-budzetu-kroku.md` §2). Rozstępy **84,0 %** i **102,6 %**
+dostały kod 3 **od granicy 50 %**, a nie od niezależnego pomiaru, więc są werdyktem
+starej granicy, nie dowodem niemierzalności.
+
+**Warunek, który 6.D41 postawiła pod rozluźnienie, NIE jest spełniony — i to jest tu
+napisane, a nie przemilczane.** `reports/rozstep-budzetu-kroku.md` §4 mówi: „rozluźnienie
+wymagałoby pomiaru pokazującego zielony przebieg **powyżej 50 %**". Najwyższy zmierzony
+rozstęp przebiegu zielonego to **47,5 %** — **2,5 pp za mało**. Ta zmiana stoi więc na
+decyzji właściciela, nie na tamtym warunku, i tak jest zapisana po obu stronach: tu
+i adnotacją w tamtym raporcie. Argument pomiarowy, który decyzję popiera, jest inny
+i podany w §9.3: przy granicy 50 % ten sam przebieg zielony stał 2,5 pp od orzeczenia
+o nim niemierzalności.
+
+**Semantyka, od której zależy cały sens tej zmiany**, sprawdzona w kodzie przed jej
+wykonaniem (`niemierzalny` w `tools/ci/assert_linecore_budget.py`: `spread_pct <= limit`
+zwraca `None`):
+
+| ruch granicy | co robi | skutek dla werdyktu |
+|---|---|---|
+| **podniesienie** | **więcej** pomiarów jest porównywanych z progiem czasu | więcej okazji do odmowy **kodem 1** |
+| zaciśnięcie | więcej pomiarów porównania nie dostaje | więcej wyjść **kodem 3** |
+
+Zaciśnięcie **maskuje** regres zmierzony na obciążonym runnerze; podniesienie **wpuszcza**
+odmowy czasowe o pomiarach, które mówią o maszynie. To są dwa różne błędy, nie jeden
+lepszy i jeden gorszy, i decyzja właściciela wybiera drugi.
+
+### 9.2 Wartość: **100,0 %** — wyprowadzona, nie wybrana
+
+| ograniczenie | liczba | skąd |
+|---|---|---|
+| od dołu (dotąd nieznane) | **> 47,5 %** | rozstęp przebiegu **zielonego** (3,810 µs, kod 0), zmierzony przy tej zmianie na kontenerze sesji |
+| od dołu (sprzężenie z progiem) | **> 33,9 %** | rozstęp, przy którym padł pomiar 9,572 µs — dolne ograniczenie progu 14,0 µs |
+| od dołu (6.D41) | **> 22,5 %** | najwyższy rozstęp z kalibracji progu |
+| od góry (drugi pomiar) | **< 102,6 %** | rozstęp z 08.09.2026 przy jednym pull requeście w puli (6.D43, job `101900177486`) |
+| od góry (jedyny skorelowany) | **< 115,9 %** | `woogitsu-host-08`, dwanaście jobów naraz, 16,022 µs wobec 4,213–4,364 µs na tej samej treści kodu |
+| **wybrane** | **100,0 %** | rozstęp równy medianie — patrz niżej |
+
+**Skąd 100,0, a nie liczba wybrana wygodnie.** Rozstęp to
+`100 × (max − min) / mediana` przepustowości (`src/Sim.Runner/Program.cs`), a raportowane
+`µs/krok` to `1e6 / mediana`. Przy rozstępie **100 %** rozstęp powtórzeń **równa się
+medianie**: własna niepewność pomiaru dorównuje wartości, którą ten pomiar podaje.
+To jest granica wynikająca z definicji miary, a nie z gustu — i w całym paśmie, z którego
+trzeba było wybierać (47,5 … 115,9 %), jest to jedyna taka liczba.
+
+**Margines: 15,9 pp, czyli 13,7 % względem 115,9 %. Dlaczego ten, a nie inny — i czego
+NIE dało się użyć.** Naturalnym kandydatem na minimalny margines było wahanie samej
+kolumny rozstępu. **Nie nadaje się, i to jest wynik pomiaru, nie wygoda:** pięć
+przebiegów tej bramki na kontenerze, ta sama treść kodu, dało rozstępy
+**24,9 / 47,5 / 14,6 / 19,0 / 18,0 %** — rozpiętość **32,9 pp** przy koszcie kroku
+stabilnym w granicach 3,736–4,040 µs (8 %). Granica o 32,9 pp niższa od 115,9 % to
+**83,0 %**, czyli **poniżej** zaobserwowanego 84,0 % — ciaśniej, niż mówi decyzja.
+Górne ograniczenie jest więc wzięte z **drugiego pomiaru** (102,6 %), który sam wymusza
+margines **13,3 pp**; 100,0 zostawia 15,9 pp. Margines **zerowy** byłby granicą, która
+przepuszcza zaobserwowany pomiar niemierzalny, czyli bramką nie robiącą nic — i tego
+zakazuje asercja wypisana liczbą, nie zaufaniem.
+
+**Margines pod 102,6 % wynosi 2,6 pp i to jest cienko.** Nie jest to przemilczane:
+gdyby ktoś kiedyś uznał, że decyzja właściciela („115,9 % jest jedynym prawdziwym
+przypadkiem") licencjonuje granicę **powyżej** 102,6 %, to jest to zmiana o jedno zdanie
+w tym raporcie i jedną stałą w module testowym — ale musi być zapisana jako decyzja,
+a nie przemycona marginesem.
+
+### 9.3 Cena, zmierzona i wypisana
+
+**Pasmo, które przeszło z kodu 3 na kod 1: rozstęp 50–100 %.** Co w tym paśmie potrafi
+zrobić samo obciążenie maszyny, wiadomo z par zmierzonych na runnerach:
+
+| rozstęp | koszt kroku | ile to razy pomiaru na maszynie niezajętej (4,040 µs) |
+|---|---|---|
+| ≤ 47,5 % | 3,736–4,040 µs | 1,0× |
+| 23,1 % | 8,554 µs | 2,1× |
+| 33,9 % | 9,572 µs | 2,4× |
+| 115,9 % | 16,022 µs | 4,0× |
+
+Interpolacja liniowa między dwoma skrajnymi zmierzonymi punktami (33,9 % → 9,572 µs,
+115,9 % → 16,022 µs) daje **0,0786 µs na punkt procentowy**, więc próg 14,0 µs wypada
+przy rozstępie **≈ 90 %**. Stąd cena, z liczbami:
+
+- **Pasmo rozstępu 90–100 % jest nowym pasmem fałszywej odmowy.** Samo obciążenie
+  maszyny potrafi w nim wypchnąć raportowany koszt powyżej 14,0 µs, a bramka odpowie
+  na to kodem 1 i zdaniem „koszt kroku przekracza prog". Stara granica takie pomiary
+  wstrzymywała (kod 3, „powtórz"). Szerokość pasma: **10 punktów procentowych**.
+- **Klasa regresu, która staje się nieodróżnialna od obciążenia:** podniesienie kosztu
+  kroku z ~4,0 µs do **9,6–16,0 µs (2,4×–4,0×)**. Dokładnie taki zakres kosztu
+  wyprodukowało samo obciążenie w trzech zmierzonych przypadkach powyżej, więc odmowa
+  czasowa o pomiarze z rozstępem 50–100 % nie rozstrzyga, który to z tych dwóch stanów
+  świata. Rozstrzyga to dopiero powtórzenie pomiaru na pustej puli — i to jest jedyna
+  procedura, jaką ta bramka na taki wynik ma.
+- **Czego ta zmiana NIE zmienia:** próg 14,0 µs stoi nietknięty, więc pasmo regresu
+  przechodzącego na zielono zostaje takie, jak podaje §4.4 i §7 (**3,11×** wobec
+  4,500 µs, **3,47×** wobec 4,040 µs zmierzonego dzisiaj). Ta zmiana nie przesuwa
+  granicy „co przejdzie na zielono", tylko granicę „co zostanie w ogóle porównane".
+
+**Czy ta bramka po zmianie odrzuca cokolwiek sensownego — odpowiedź wprost.** Tak, ale
+mniej, niż wyglądało: rozstęp jest przyrządem **grubym** i nie rozdziela maszyny
+obciążonej od cichej. Zbiory nachodzą na siebie w paśmie **23–48 %**: obciążone runnery
+dały 23,1 / 33,9 / 84,0 / 102,6 / 115,9 %, a cichy kontener 1,9–47,5 %. Granica
+w dowolnym miejscu tego pasma myliłaby oba stany, a granica postawiona **nad** nim —
+i taką jest 100 % — wstrzymuje porównanie wyłącznie w przypadkach skrajnych. Praktycznie
+bramka ochroni więc przed pomiarem klasy „dwanaście jobów naraz" i nie ochroni przed
+pomiarem klasy „trzy pull requesty w puli". Tego drugiego nie ochroniłaby też granica
+50 %, gdyby postawić ją uczciwie **powyżej** zmierzonego dziś przebiegu zielonego przy
+47,5 % — a musiałaby, bo bramka zapalająca się na przebiegu poprawnym zostaje wyłączona
+(6.D27). **To jest argument pomiarowy ZA decyzją właściciela i nie znano go, gdy
+granicę ustawiano:** stara granica 50 % stała **2,5 pp** nad rozstępem przebiegu, który
+zmierzył 3,810 µs i wyszedł kodem 0.
+
+### 9.4 Kompensata: bramka po tej zmianie sprawdza WIĘCEJ
+
+Podniesienie granicy **osłabia** bramkę — §9.3. Reguła projektu mówi, że bramkę
+blokującą zmianę się **przekierowuje**, a po przekierowaniu ma sprawdzać więcej, nie
+mniej. Osłabiana jest tu sama granica, więc kompensata idzie w to, czego do dziś nie
+sprawdzało **nic**.
+
+**Pierwsza: odmowa czasowa o słabo uwarunkowanym pomiarze musi to POWIEDZIEĆ.** Nowa
+stała `spread_pct_warn` = **22,5 %** — najgorzej uwarunkowany z trzech przebiegów, **na
+których zmierzono próg** (17,0 / 13,1 / 22,5). Powyżej tego poziomu komunikat odmowy
+czasowej nazywa słabe uwarunkowanie i **podaje rozstęp**:
+
+```
+BLAD: koszt kroku 16.000 us przekracza prog 14.000 us — pomiar jest SLABO UWARUNKOWANY:
+      rozstep powtorzen 95.0 % przekracza poziom ostrzezenia 22.5 %, czyli jest slabiej
+      uwarunkowany niz KTORYKOLWIEK z przebiegow, na ktorych zmierzono prog — ta odmowa
+      moze mowic o obciazeniu maszyny, a nie o regresie w kodzie
+```
+
+Bez tego zdania czytający log dostaje na taki pomiar diagnozę „szukaj regresu w kodzie",
+której pomiar nie uzasadnia — czyli **dokładnie to kłamstwo, które naprawiła 6.D41**,
+wpuszczone z powrotem przez szerszą granicę. Poziom ostrzeżenia go nie odwraca (porównanie
+nadal się wykonuje, bo taka jest treść decyzji), ale przestaje o nim milczeć. Żąda tego
+`test_odmowa_czasowa_przy_SLABYM_UWARUNKOWANIU_NAZYWA_je`, a drugą stronę — że zdanie
+**nie** dokleja się do odmów dobrze uwarunkowanych, więc nie jest szumem —
+`test_odmowa_czasowa_przy_MOCNYM_uwarunkowaniu_NIE_dokleja_ostrzezenia`. Poziom jest
+**wyprowadzony w obie strony**
+(`test_poziom_ostrzezenia_lezy_MIEDZY_KALIBRACJA_a_ODRZUCONYM_pomiarem`):
+nie niżej niż 22,5 % i **poniżej 33,9 %**, bo inaczej kompensata omijałaby ten jeden
+przypadek, dla którego powstała.
+
+**Poziom NIE jest granicą między zielonym a czerwonym i nie udaje jej.** Przebiegi zielone
+o rozstępie 24,9 i 47,5 % są zmierzone, więc znacznik `SLABO UWARUNKOWANY` pojawia się
+też na przebiegach poprawnych — stoi w wypisie każdego przebiegu, nie tylko w odmowie,
+bo pomiar zielony przy rozstępie 95 % jest jako pomiar wart tyle samo, a nikt go wtedy
+nie odrzuca. Jest to **adnotacja o jakości pomiaru, nie werdykt o kodzie**.
+
+**Druga: sam MARGINES granicy jest teraz asercją, a nie zaufaniem.** Do dziś granicy
+pilnowało jedno ograniczenie od góry (`< 115,9`), i przy granicy 50 % to wystarczało, bo
+do tej liczby było daleko. Po przesunięciu granicy „możliwie blisko 115,9 %" samo
+„poniżej" przestaje być warunkiem o czymkolwiek — 115,8 % je spełnia.
+`test_granica_rozstepu_jest_ZABOKSOWANA_miedzy_pomiarami_z_OBU_stron` boksuje granicę
+**pomiarami z obu stron**: od dołu 47,5 % (przebieg zielony — granica niżej orzekałaby
+niemierzalność o pomiarze, który koszt kroku zmierzył poprawnie), od góry 102,6 %
+i 115,9 %, a margines pod pomiarem niemierzalnym jest w komunikacie asercji **wypisany
+liczbą**.
+
+Moduł bramki: **21 → 25 testów**.
+
+### 9.5 Osiem kontroli negatywnych — WYKONANE 08.09.2026
+
+Każda z czyszczeniem `__pycache__` przed przebiegiem (6.D41 §7: mutacja o identycznej
+długości zostawia nieświeży bajtkod) i z `md5sum` po przywróceniu.
+
+```
+=== KN-1: granica zacisnieta do 30,0 % (ponizej 33,9 %, podstawy progu) ===
+  FAIL test_granica_rozstepu_jest_ZABOKSOWANA_miedzy_pomiarami_z_OBU_stron: granica 30.0 % orzekalaby NIEMIERZALNOSC o przebiegu zielonym o rozstepie 47.5 % (3,810 us, kod 0, kontener 08.09.2026)
+  FAIL test_odmowa_czasowa_przy_SLABYM_UWARUNKOWANIU_NAZYWA_je: atrapa o rozstepie 95.0 % jest przy granicy 30.0 % NIEMIERZALNA, wiec ten test pyta o co innego, niz mysli — odmowy czasowej w ogole nie bedzie
+  FAIL test_prog_i_granica_rozstepu_sa_SPRZEZONE: granica rozstepu 30.0 % nie przepuszcza juz pomiaru przy 33.9 %, z ktorego wziete jest dolne ograniczenie progu (9.572 us) — przelicz podstawe progu w tej samej zmianie
+  22/25 przeszło
+
+=== KN-2: granica zacisnieta do 45,0 % (ponizej 47,5 %, przebiegu ZIELONEGO) ===
+  FAIL test_granica_rozstepu_jest_ZABOKSOWANA_miedzy_pomiarami_z_OBU_stron: granica 45.0 % orzekalaby NIEMIERZALNOSC o przebiegu zielonym o rozstepie 47.5 % (3,810 us, kod 0, kontener 08.09.2026)
+  FAIL test_odmowa_czasowa_przy_SLABYM_UWARUNKOWANIU_NAZYWA_je: atrapa o rozstepie 95.0 % jest przy granicy 45.0 % NIEMIERZALNA, wiec ten test pyta o co innego, niz mysli — odmowy czasowej w ogole nie bedzie
+  23/25 przeszło
+
+=== KN-3: granica podniesiona do 105,0 % (ponad 102,6 %, drugi pomiar) ===
+  FAIL test_granica_rozstepu_jest_ZABOKSOWANA_miedzy_pomiarami_z_OBU_stron: granica 105.0 % przepuszczalaby jako MIERZALNY rozstep 102.6 % zmierzony 08.09.2026 na obciazonej puli (6.D43, job 101900177486)
+  24/25 przeszło
+
+=== KN-4: granica podniesiona do 120,0 % (ponad 115,9 %, niemierzalny) ===
+  FAIL test_dwa_werdykty_maja_DWA_ROZNE_kody_wyjscia: 1
+  FAIL test_granica_rozstepu_jest_POWYZEJ_udokumentowanych_pomiarow_zielonych: granica 120.0 % przepuszczalaby zaobserwowany pomiar niemierzalny (115,9 %), czyli nie robilaby nic
+  FAIL test_granica_rozstepu_jest_ZABOKSOWANA_miedzy_pomiarami_z_OBU_stron: granica 120.0 % przepuszczalaby jako MIERZALNY rozstep 102.6 % zmierzony 08.09.2026 na obciazonej puli (6.D43, job 101900177486)
+  FAIL test_niestabilny_pomiar_MIESZCZACY_SIE_w_progu_tez_jest_odmowa: pomiar z rozstepem 115,9 %% przeszedl, bo czas byl w progu
+  FAIL test_niestabilny_pomiar_NIE_JEST_porownywany_z_progiem: bramka nadal porownuje niestabilny pomiar z progiem: ['koszt kroku 16.022 us przekracza prog 14.000 us — pomiar jest SLABO UWARUNKOWANY: rozstep powtorzen 115.9 % przekracza poziom ostrzezenia 22.5 %, ...']
+  20/25 przeszło
+
+=== KN-5: poziom ostrzezenia ZDJETY z pliku progu ===
+  FAIL test_a_green_measurement_passes: 'spread_pct_warn'
+  FAIL test_a_slow_step_is_refused: 'spread_pct_warn'
+  FAIL test_dwa_werdykty_maja_DWA_ROZNE_kody_wyjscia: 'spread_pct_warn'
+  FAIL test_more_than_one_measurement_row_is_refused: 'spread_pct_warn'
+  FAIL test_niemierzalnosc_NIE_PRZESLANIA_zarzutu_o_obsadzie: 'spread_pct_warn'
+  FAIL test_odmowa_czasowa_przy_MOCNYM_uwarunkowaniu_NIE_dokleja_ostrzezenia: 'spread_pct_warn'
+  FAIL test_odmowa_czasowa_przy_SLABYM_UWARUNKOWANIU_NAZYWA_je: 'spread_pct_warn'
+  FAIL test_one_train_reported_as_nine_is_refused: 'spread_pct_warn'
+  FAIL test_poziom_ostrzezenia_lezy_MIEDZY_KALIBRACJA_a_ODRZUCONYM_pomiarem: poziom ostrzezenia zniknal z pliku progu — odmowa czasowa przestaje nazywac slabe uwarunkowanie, a granica 100 % zostaje bez kompensaty
+  FAIL test_wolny_krok_przy_ZNOSNYM_rozstepie_nadal_jest_odmowa: 'spread_pct_warn'
+  15/25 przeszło
+
+=== KN-6: poziom ostrzezenia podniesiony na 40,0 % (ponad 33,9 %) ===
+  FAIL test_poziom_ostrzezenia_lezy_MIEDZY_KALIBRACJA_a_ODRZUCONYM_pomiarem: poziom ostrzezenia 40.0 % nie oznaczylby pomiaru przy 33.9 % (9,572 us), czyli tej odmowy, ktora ta kompensata ma nazywac
+  24/25 przeszło
+
+=== KN-7: komunikat odmowy czasowej BEZ zdania o slabym uwarunkowaniu ===
+  FAIL test_odmowa_czasowa_przy_SLABYM_UWARUNKOWANIU_NAZYWA_je: odmowa czasowa przy rozstepie 95.0 % nie nazywa slabego uwarunkowania: koszt kroku 16.000 us przekracza prog 14.000 us
+  24/25 przeszło
+
+=== KN-8: zdanie o slabym uwarunkowaniu doklejane do KAZDEJ odmowy ===
+  FAIL test_odmowa_czasowa_przy_MOCNYM_uwarunkowaniu_NIE_dokleja_ostrzezenia: ostrzezenie o slabym uwarunkowaniu doklejone do odmowy przy rozstepie 17.0 % — czyli doklejane do wszystkiego, wiec nie znaczace nic
+  24/25 przeszło
+
+=== stan po przywroceniu ===
+f3862da6b6db0fd51426e6e84f99bc53  tools/ci/linecore-step-budget.json
+09770914c0d1633b2654bea8322db085  tools/ci/assert_linecore_budget.py
+fca602e97b6c4181baf676c4ca2f5093  tools/tests/test_linecore_budget_gate.py
+f3862da6b6db0fd51426e6e84f99bc53  (kopia sprawdzona)
+09770914c0d1633b2654bea8322db085  (kopia sprawdzona)
+fca602e97b6c4181baf676c4ca2f5093  (kopia sprawdzona)
+  25/25 przeszło
+```
+
+**Suma md5 w bloku „stan po przywroceniu" to stan z chwili kontroli, nie stan
+commitu — i to jest powiedziane, zamiast zostawione do domysłu.** Jej zadaniem jest
+dowód, że po każdej mutacji plik wrócił bajt w bajt do kopii sprzed niej, i to
+pokazuje. Po kontrolach doszły do tych plików jeszcze dwie rzeczy: piąty przebieg
+kontenera dopisany do zapisu pomiarów (§9.6) i dwa przepisane docstringi — więc sumy
+committnięte są inne. Wnioski kontroli od tego nie zależą: mutowane stałe i asercje,
+które się czerwieniły, są w commicie te same, a `25/25` po przywróceniu powtarza się
+w weryfikacji §9.6.
+
+**KN-5 jest tu najważniejsza i nie z powodu liczby dziesięć.** Poziom ostrzeżenia jest
+czytany **wprost**, bez wartości domyślnej, więc jego zniknięcie z pliku wywraca dziesięć
+testów, zamiast po cichu wyłączyć ostrzeżenie. Wartość domyślna byłaby tu wprost
+szkodliwa: kompensata do osłabionej bramki dałaby się usunąć jedną linią i nic by nie
+drgnęło. **KN-1 i KN-2 pokazują drugą stronę**: zaciśnięcie granicy — czyli ruch, który
+rekomendowałem — czerwieni się dziś natychmiast, bo poniżej 47,5 % orzekałoby
+niemierzalność o przebiegu zmierzonym jako zielony. **KN-4** to stan, w którym bramka
+wygląda na działającą i nie odrzuca niczego: pięć testów, w tym oba z 6.D41. W jej
+wyjściu widać przy okazji, że kompensata działa nawet w tym zepsutym stanie — odmowa
+o pomiarze przy 115,9 % nazywa słabe uwarunkowanie.
+
+**Uwaga o KN-3, żeby nie przeoczyć jej znaczenia.** Granica 105 % czerwieni **jedną**
+asercję, nie dwie: ograniczenie z 115,9 % jej nie łapie. To jest dokładnie powód, dla
+którego drugie ograniczenie górne w ogóle powstało — bez niego pasmo 102,6–115,9 %
+byłoby otwarte, a nikt nie zapisałby, że się je otwiera.
+
+### 9.6 Weryfikacja
+
+```
+$ python3 tools/tests/test_all.py 2>&1 | grep -E "FAIL|przeszło|RAZEM"
+  2004/2004 przeszło
+  RAZEM 83.004 s, 2004 testów, 105 modułów
+$ python3 tools/tests/test_all.py >/dev/null 2>&1; echo "kod: $?"
+kod: 0
+
+$ python3 tools/ci/assert_linecore_budget.py; echo "kod $?"
+[BUDZET-BRAMKA] zgloszonych 32, na planie 9 (srednio 5.08, czeka 0.98); 3.871 us/krok
+                przy progu 14.000; 0.050 % budzetu klatki; rozstep powtorzen 18.0 %
+[BUDZET-BRAMKA] mierzony jest przejazd BEZ wybiegu — scenariusz ma coast_from_m: null;
+                od 6.A18 `budget` zna --coast-from-m, wiec to jest wybor, nie brak
+kod 0
+```
+
+Pięć przebiegów bramki na kontenerze przy tej zmianie, wszystkie kodem 0 — to jest
+zapis, z którego wzięte są liczby §9.2 i §9.3:
+
+```
+3.803 us/krok; rozstep 24.9 %  ; SLABO UWARUNKOWANY
+3.810 us/krok; rozstep 47.5 %  ; SLABO UWARUNKOWANY
+3.736 us/krok; rozstep 14.6 %
+4.040 us/krok; rozstep 19.0 %
+3.871 us/krok; rozstep 18.0 %
+```
+
+Dwa z pięciu przebiegów **zielonych** dostały znacznik `SLABO UWARUNKOWANY` — i tak ma
+być: znacznik mówi o jakości pomiaru, nie o kodzie (§9.4).
+
+### 9.7 Czego w tym commicie nie ma, świadomie
+
+- **Progu 14,0 µs nie tknąłem.** Zmiana dotyczy tego, co jest **porównywane**, nie tego,
+  z czym. Ruszenie obu stałych naraz uniemożliwiłoby rozdzielenie skutków.
+- **Nie zmieniłem `repeats: 9`.** Więcej powtórzeń zmniejszyłoby rozstęp, ale zmieniłoby
+  pomiar, do którego przybity jest próg — ta sama przyczyna co w 6.D41 §9.
+- **Nie dodałem powtarzania pomiaru** przy rozstępie ponad poziomem ostrzeżenia, mimo że
+  §9.3 mówi wprost, że powtórzenie na pustej puli jest jedyną procedurą rozstrzygającą.
+  Wymaga to pomiaru, **jak często powtórzenie pomaga**, i jest osobną pozycją (6.D41 §9
+  zostawiło ją z tego samego powodu).
+- **Nie ruszyłem granicy powyżej 102,6 %**, choć treść decyzji („115,9 % jest jedynym
+  prawdziwym przypadkiem") daje się przeczytać jako licencja na to. Byłaby to trzecia
+  reklasyfikacja pomiaru w jednym commicie i nie ma jej w pytaniu, na które właściciel
+  odpowiedział.
