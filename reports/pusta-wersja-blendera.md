@@ -160,11 +160,11 @@ wykonywana, a nie przeskakiwana z braku `gcc`. Na maszynie bez `gcc` test woła
 
 ## 7. Zapadka bloków
 
-`MINIMUM_DETAIL_BLOCKS` ma 119. **Pomiar niżej jest z 07.09.2026 i zostaje taki,
+`MINIMUM_DETAIL_BLOCKS` ma 120. **Pomiar niżej jest z 07.09.2026 i zostaje taki,
 jaki był** — wtedy wartością równą stanowi drzewa było 112, bo blok 6.D39 był
-jedynym dochodzącym. Do scalenia (08.09.2026) weszły przed nim 6.D41 i sześć
-pozycji uzupełnienia kolejki, każda ze swoim blokiem, więc równość wypadła
-o siedem wyżej. Nie przeliczam poniższego bloku na 119: to była kontrola wykonana
+jedynym dochodzącym. Do scalenia (08.09.2026) weszły przed nim 6.D41, sześć
+pozycji uzupełnienia kolejki i 6.D40, każda ze swoim blokiem, więc równość
+wypadła o osiem wyżej. Nie przeliczam poniższego bloku na 119: to była kontrola wykonana
 na innym stanie drzewa, a przepisanie jej liczb zamieniłoby zapis pomiaru w zapis
 przypuszczenia.
 

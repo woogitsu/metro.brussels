@@ -1649,16 +1649,91 @@ def _apt_set_packages(name):
     return packages
 
 
-def _debian_package_for(soname):
-    """`libEGL.so.1` -> `libegl1`, `libGL.so.1` -> `libgl1`.
+#: Sonames, dla których reguła mechaniczna niżej daje ZŁĄ nazwę pakietu.
+#:
+#: Tabela jest tu wbrew temu, co obiecywał docstring `_debian_package_for` do
+#: 07.09.2026 („przekształcenie jest MECHANICZNE, nie tablicą wyjątków"). Obietnica
+#: była prawdziwa dla DWÓCH bibliotek, wobec których ją napisano (`libEGL.so.1`
+#: i `libGL.so.1`), i złamała się na pierwszej nowej: Debian nazywa pakiet
+#: `libX11.so.6` jako `libx11-6`, z DYWIZEM, bo bez niego numer ABI zlałby się
+#: z „11" w nazwie biblioteki (`libx116` czyta się dwuznacznie).
+#:
+#: Zmierzone 07.09.2026 na Ubuntu 24.04.4 przez `dpkg -S` na dziesięciu sonames
+#: z domknięcia startowego Blendera 5.2.1: reguła mechaniczna trafiła w DZIEWIĘĆ
+#: z dziesięciu, rozjazd jest JEDEN. Dlatego reguła zostaje, a tabela jest wyjątkiem
+#: od niej — nie zamiennikiem.
+#:
+#: Wpisów w tej tabeli pilnuje `test_the_package_name_exceptions_are_all_necessary`:
+#: każdy MUSI dawać wynik inny od reguły mechanicznej. Bez tego testu tabela stałaby
+#: się wysypiskiem, w którym redundantny wpis przesłania działającą regułę i nikt
+#: nie zauważy, gdy reguła przestanie działać dla czegoś innego.
+#: Polecenia, o które pyta sonda, i pakiety, które je dostarczają.
+#:
+#: Dla bibliotek nazwa pakietu wyprowadza się z sonamu regułą (`_debian_package_for`).
+#: Dla poleceń takiej reguły NIE MA — `unzip` przychodzi z pakietu `unzip`, a
+#: `xvfb-run` z pakietu `xvfb` — więc tabela jest tu jedynym uczciwym rozwiązaniem
+#: i nie udaje reguły. Rośnie o wpis przy każdym nowym poleceniu, a bramka niżej
+#: wymusza, żeby każdy wpis szedł za zestawem apt w OBIE strony.
+POLECENIA_Z_PAKIETOW = {
+    "xvfb-run": "xvfb",
+    "unzip": "unzip",
+}
 
-    Przekształcenie jest MECHANICZNE, nie tablicą wyjątków: małe litery, `.so`
-    wypada, numer ABI zostaje przyklejony. Dzięki temu bramka nie trzyma drugiej
-    listy „soname -> pakiet", która rozjechałaby się przy pierwszej nowej bibliotece.
+
+NAZWY_PAKIETOW_WYJATKI = {
+    "libX11.so.6": "libx11-6",
+}
+
+
+def _debian_package_for(soname):
+    """`libEGL.so.1` -> `libegl1`, `libGL.so.1` -> `libgl1`, `libX11.so.6` -> `libx11-6`.
+
+    Reguła jest MECHANICZNA: małe litery, `.so` wypada, numer ABI zostaje przyklejony.
+    Dzięki temu bramka nie trzyma pełnej drugiej listy „soname -> pakiet", która
+    rozjechałaby się przy pierwszej nowej bibliotece.
+
+    **Docstring jest przepisany, a nie dopisany obok — 07.09.2026.** Poprzednia wersja
+    mówiła „nie tablicą wyjątków" i to już nieprawda: `NAZWY_PAKIETOW_WYJATKI` wyżej
+    ma jeden wpis, bo reguła mechaniczna trafia w dziewięć sonames z dziesięciu i myli
+    się na `libX11.so.6`. Zdanie o mechaniczności zostaje, bo opisuje ścieżkę
+    dziewięciu przypadków; zniknęło z niego wyłącznie „nie tablicą wyjątków", które
+    było prawdziwe tylko wobec dwóch bibliotek, dla jakich je napisano.
     """
+    wyjatek = NAZWY_PAKIETOW_WYJATKI.get(soname)
+    if wyjatek:
+        return wyjatek
     match = re.fullmatch(r"(lib[A-Za-z0-9_+-]*)\.so\.(\d+)", soname)
     assert match, f"nie umiem wyprowadzić pakietu z sonamu {soname!r}"
     return (match.group(1) + match.group(2)).lower()
+
+
+def test_the_package_name_exceptions_are_all_necessary():
+    """Wyjątek, który powtarza regułę, przesłania ją i nikt tego nie zauważy.
+
+    Tabela `NAZWY_PAKIETOW_WYJATKI` istnieje po to, żeby obsłużyć nazwy, których
+    reguła mechaniczna nie wyprowadza. Wpis dający TO SAMO co reguła jest gorszy od
+    braku wpisu: nie zmienia dziś zachowania, a jutro — gdy reguła przestanie
+    działać dla czegoś innego — będzie dowodem, że „tabela i tak jest, więc dosypmy".
+
+    Dlatego każdy wpis musi być POTRZEBNY, i to jest asercja na LICZBĘ różnic,
+    nie na obecność wpisu.
+    """
+    zbedne = []
+    for soname, pakiet in NAZWY_PAKIETOW_WYJATKI.items():
+        match = re.fullmatch(r"(lib[A-Za-z0-9_+-]*)\.so\.(\d+)", soname)
+        assert match, f"wyjątek na sonamie, którego reguła nawet nie rozbiera: {soname}"
+        mechanicznie = (match.group(1) + match.group(2)).lower()
+        if mechanicznie == pakiet:
+            zbedne.append(f"{soname}: reguła sama daje {pakiet}")
+    assert not zbedne, f"wyjątki powtarzające regułę mechaniczną: {zbedne}"
+
+    # Kontrola w drugą stronę: tabela nie może być pusta bez powodu. Gdyby ktoś
+    # wyczyścił ją „bo mechanicznie działa", `libX11.so.6` przestałby się mapować
+    # i bramka sondy zapaliłaby się na siedmiu workflowach naraz — więc lepiej,
+    # żeby zapaliła się tutaj, z nazwą przyczyny.
+    assert _debian_package_for("libX11.so.6") == "libx11-6", (
+        "libX11.so.6 nie mapuje się na libx11-6 — reguła mechaniczna daje libx116, "
+        "a taki pakiet w Ubuntu 24.04 nie istnieje")
 
 
 def test_tool_installation_is_conditional_on_the_tool_being_missing():
@@ -1719,17 +1794,29 @@ def test_tool_installation_is_conditional_on_the_tool_being_missing():
                   f"{name}: sonda pyta o {soname} (pakiet {package}), a zestaw apt "
                   f"tego workflow tego nie instaluje: {sorted(packages)}")
 
-          # `xvfb-run` jest jedyną RÓŻNICĄ między dwoma zestawami, więc jest też
-          # jedynym miejscem, w którym sonda poleceń ma sens — i musi iść za
-          # zestawem w obie strony. Bez tego `godot-first-run.yml` mógłby zgubić
-          # sondę `xvfb-run`, instalując pakiet `xvfb`, i nikt by nie zauważył.
+          # Sonda poleceń musi iść za zestawem apt W OBIE STRONY, dla KAŻDEGO
+          # polecenia z `POLECENIA_Z_PAKIETOW`, nie tylko dla `xvfb-run`.
+          #
+          # **Przepisane, a nie dopisane obok — 07.09.2026.** Poprzednia wersja
+          # sprawdzała wyłącznie `xvfb-run` i uzasadniała to zdaniem „`xvfb-run`
+          # jest jedyną RÓŻNICĄ między dwoma zestawami, więc jest też jedynym
+          # miejscem, w którym sonda poleceń ma sens". Zdanie było prawdziwe, dopóki
+          # różnica była jedna — i przestało być, gdy `godot-first-run.yml` padł na
+          # `unzip: command not found` (kod 127, `woogitsu-linux-02`, run
+          # 34155630333). `unzip` nie był ani sondowany, ani w żadnym zestawie apt,
+          # więc sonda mówiła `present`, krok instalacji się nie odpalał, a job
+          # wywracał się dopiero na rozpakowywaniu Godota — czternaście kroków dalej
+          # niż powód. Ta sama usterka co przy bibliotekach, w drugim wymiarze.
           commands = (wanted.get("commands") or "").split()
-          if "xvfb" in packages:
-              assert "xvfb-run" in commands, (
-                  f"{name}: instaluje pakiet xvfb, a sonda o `xvfb-run` nie pyta")
-          else:
-              assert "xvfb-run" not in commands, (
-                  f"{name}: sonda pyta o `xvfb-run`, a zestaw apt xvfb nie instaluje")
+          for polecenie, pakiet in sorted(POLECENIA_Z_PAKIETOW.items()):
+              if pakiet in packages:
+                  assert polecenie in commands, (
+                      f"{name}: instaluje pakiet {pakiet}, a sonda o `{polecenie}` "
+                      f"nie pyta — krok instalacji nie dostanie sygnału, że go brakuje")
+              else:
+                  assert polecenie not in commands, (
+                      f"{name}: sonda pyta o `{polecenie}`, a zestaw apt tego "
+                      f"workflow nie instaluje pakietu {pakiet}")
 
           for step in steps:
               run = str(step.get("run", ""))

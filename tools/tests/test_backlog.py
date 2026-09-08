@@ -190,7 +190,23 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 #: sobie jedno zdanie `zgłasza ''` i nic więcej. Zapasu ta pozycja NIE rusza —
 #: zmierzone scaleniem na czystym drzewie: `open_items` bez zmiany, bo 6.D39 weszła
 #: i wyszła w jednym commicie.
-MINIMUM_DETAIL_BLOCKS = 119
+#:
+#: **Liczba przepisana raz jeszcze — 119 → 120 (08.09.2026).** Jeden blok (6.D40),
+#: i ten JEDEN nie jest uzupełnieniem kolejki — jest zapisem usterki, która
+#: **zatrzymała dziewięć jobów CI naraz** i której żadna bramka nie widziała, bo
+#: sonda pytała o jedną bibliotekę z dziesięciu i odpowiadała „wszystko na miejscu"
+#: zgodnie z prawdą. Blok istnieje z tego samego powodu co wyżej: usterka bez bloku
+#: wygląda w tabeli identycznie jak usterka nieistniejąca. Zapasu ta pozycja NIE
+#: rusza, bo weszła i wyszła w jednym commicie.
+#:
+#: **Uwaga o scalaniu, PRZEPISANA, a nie dopisana obok.** Ta gałąź niosła zdanie,
+#: że druga z pary 6.D39 / 6.D40 musi w rozwiązaniu konfliktu dać **113**. Było
+#: prawdziwe, gdy w locie były tylko te dwie gałęzie; przed nimi weszły jednak
+#: 6.D41 i sześć pozycji uzupełnienia kolejki, więc równość wypadła siedem wyżej.
+#: Zdanie zostaje tu jako zapis tego, jak łatwo taka liczba się starzeje: właściwym
+#: rozwiązaniem nigdy nie jest wpisanie zapamiętanej wartości, tylko POMIAR liczby
+#: bloków w pliku i ustawienie zapadki na jego wynik.
+MINIMUM_DETAIL_BLOCKS = 120
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je

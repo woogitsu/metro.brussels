@@ -1,6 +1,24 @@
-# Jak `blender.txt`, plus wirtualny X i pełny libGL dla zrzutów z Godota.
+# Jak `blender.txt`, plus wirtualny X dla zrzutów z Godota.
 # Samego Blendera tu nie ma — przychodzi z tarballa, powód w `blender.txt`.
+#
+# Lista bibliotek jest ta sama co w `blender.txt` i z tego samego pomiaru;
+# różnicą są WYŁĄCZNIE `xvfb` i `unzip`, i tak to sprawdza
+# `test_tool_installation_is_conditional_on_the_tool_being_missing`.
+#
+# `unzip` dopisany 07.09.2026, po tym jak `godot-first-run.yml` padł na
+# `unzip: command not found` (kod 127, `woogitsu-linux-02`, run 34155630333).
+# Krok pobiera Godota jako `.zip` z GitHuba; `curl` zadziałał, więc brakowało
+# wyłącznie rozpakowywacza. Nie był ani sondowany, ani w żadnym zestawie apt.
 xvfb
+unzip
 libegl1
 libgl1
 libgl1-mesa-dri
+libx11-6
+libxext6
+libxrender1
+libxfixes3
+libxi6
+libxkbcommon0
+libice6
+libsm6
