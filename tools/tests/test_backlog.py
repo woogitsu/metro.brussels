@@ -181,7 +181,16 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 #: „Bramka dokumentów nie widzi zdań poza `CLAUDE.md`" — obejmuje `docs/`,
 #: `reports/` i `README.md`. Pozycja dopisana bez sprawdzenia wygląda w tabeli
 #: identycznie jak pozycja prawdziwa, dopóki ktoś po nią nie sięgnie.
-MINIMUM_DETAIL_BLOCKS = 118
+#:
+#: **Liczba przepisana raz jeszcze — 118 → 119 (08.09.2026).** Jeden blok (6.D39),
+#: i ten JEDEN nie jest uzupełnieniem kolejki — jest zapisem usterki, która **w tej
+#: samej godzinie zatrzymała cztery joby CI**, a której log nie umiał nazwać. Blok
+#: istnieje z tego samego powodu co przy decyzjach właściciela wyżej: usterka bez
+#: bloku wygląda w tabeli identycznie jak usterka nieistniejąca, a ta zostawiła po
+#: sobie jedno zdanie `zgłasza ''` i nic więcej. Zapasu ta pozycja NIE rusza —
+#: zmierzone scaleniem na czystym drzewie: `open_items` bez zmiany, bo 6.D39 weszła
+#: i wyszła w jednym commicie.
+MINIMUM_DETAIL_BLOCKS = 119
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
