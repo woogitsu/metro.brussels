@@ -873,6 +873,11 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.D50 | **Akapit planu mówi o „31 pozycjach" faz 5 i 6, a `open_items` daje 12** — liczba w prozie nie jest przez nic pilnowana, inaczej niż zapadki obok | zmierzone 08.09.2026 na `docs/TASKS.md:530`. Ta sama rodzina co `MINIMUM_DETAIL_BLOCKS`, tylko bez zapadki; liczba w prozie planu, który sam siebie nazywa mapą, starzeje się po cichu przy każdym domknięciu | S |
 | 6.D51 | **Siedem narzędzi sięga do sieci, a `--offline` ma jedno z nich** — nie wiadomo, które przebiegi da się wykonać bez sieci, a które padną albo zawisną | zmierzone 08.09.2026 przejściem po drzewie: 22 pliki narzędzi, `--offline` w **3**, a z siedmiu sięgających do sieci tylko `provenance.py`. Tego samego dnia Overpass był z kontenera nieosiągalny (trzy próby), a UrbIS odpowiadał HTTP 200 — czyli „brak sieci" nie jest stanem zero-jedynkowym | M |
 | 6.D52 | **Decyzja właściciela z 08.09.2026 każe zserializować joby czasowe wobec renderów, a `needs:` do tego NIE wystarczy** — dziesięć jobów stoi w dziesięciu OSOBNYCH plikach workflowu, więc zostaje wspólna grupa `concurrency`, której zachowania w tym repozytorium nikt nie zmierzył | zmierzone 08.09.2026 przejściem po `.github/workflows/`: dziesięć plików, dziesięć jobów, `concurrency` w zerze z nich. Dokumentacja GitHuba mówi, że trzeci przebieg w grupie ANULUJE oczekującego — czyli lek mógłby być gorszy od choroby, bo anulowany job nie jest „niemierzalny", tylko go nie ma. Pozycja mierzy to zachowanie PRZED zmianą treści workflowów | M |
+| 6.D54 | **`test_all.py` łapie wyłącznie `Exception`, więc test wychodzący przez `sys.exit(0)` kończy CAŁY zestaw kodem 0 po jednym wykonanym teście** — a kod wyjścia tego zestawu jest wyrocznią zieloności całego projektu (`CLAUDE.md` §5) | zmierzone 08.09.2026 sondą wstawioną do `tools/tests/`: przy `sys.exit(0)` w drugim teście zestaw wypisał JEDEN wiersz `ok`, nie wypisał ani `N/N przeszło`, ani `RAZEM`, i dał **kod 0** — 1999 testów nie wykonało się wcale. Przy `sys.exit(1)` kod 1. Kłamie więc WYŁĄCZNIE w stronę „wszystko w porządku". Osiągalne realnie: `argparse` woła `sys.exit` przy złym argumencie i pułapka uderzyła tego dnia w pracy nad `crosscheck_alignment.py` | S |
+| 6.D55 | **Żadna bramka nie widzi znaczników nierozwiązanego konfliktu scalania w `docs/TASKS.md`** — pliku, który kilkanaście bramek samo parsuje | zmierzone 08.09.2026 dwukrotnie, raz przypadkiem i raz sondą celowaną: plik ze znacznikami `<<<<<<< HEAD` / `=======` / `>>>>>>> origin/main` wstawionymi w ŚRODEK bloku pozycji daje zestaw **2000/2000 kod 0**, przy `open_items` 16, 125 blokach i **zerze braków pól**. Nie jest to hipoteza — tego dnia były dwa konflikty w tym pliku, a jeden po cichu odebrał blokowi 6.D40 cztery pola | S |
+| 6.D56 | **Wartość progu kosztu kroku stoi w PIĄTEJ kopii — w docstringu samej bramki — a jej test jednego miejsca sprawdza wyłącznie YAML** | zauważone 08.09.2026 przy podnoszeniu granicy rozstępu: `tools/ci/assert_linecore_budget.py` mówi w docstringu „próg 8,0 µs" przy progu 14,0 w konfiguracji. Commit #408 przepisał TO SAMO zdanie w JSON-ie, uzasadniając to zakazem wpisywania progu dwa razy, i docstringu nie tknął, bo `test_the_threshold_lives_in_one_place_and_the_step_does_not_compare_anything` czyta tylko `.github/workflows/sim-tests.yml`. Commit, którego tematem było „liczba ma stać w jednym miejscu", zostawił ją w dwóch | S |
+| 6.D57 | **`doctor.sh` melduje `BRAK dotnet SDK`, gdy SDK jest na dysku, ale nie ma go w `PATH`** — przejście po katalogach kandydatów stoi WEWNĄTRZ warunku wymagającego, żeby `dotnet` już był w `PATH` | zmierzone 08.09.2026: `/root/.dotnet/dotnet` zgłasza 10.0.400, a `doctor.sh` melduje brak i kończy kodem 1. Przyczyna w `doctor.sh:67-92`: pętla po kandydatach (z `$HOME/.dotnet/dotnet` na pierwszym miejscu) i podpowiedź „na dysku JEST nowsze SDK" stoją w `if [ -n "$REQUIRED_TFM" ] && [ -n "$HAVE_SDK_MAJOR" ]`, a `HAVE_SDK_MAJOR` bierze się z `$DOTNET --version`. Podpowiedź działa więc tylko wtedy, gdy w `PATH` stoi SDK ZA STARE, i nigdy gdy nie stoi żadne. Dla Blendera tej dziury nie ma, bo tam sonda czyta WERSJĘ z pinu | S |
+| 6.D58 | **`seen >= 500` w bramce ścieżek wymienionych w raportach, przy 1392 trafieniach** — wzorzec mógłby przestać łapać dwie trzecie ścieżek i przejść na zielono | zmierzone 08.09.2026 przy 6.D45: `tools/tests/test_report_hygiene.py:587` żąda co najmniej 500 trafień, a przejście po katalogu daje **1392**, czyli zapas **892**. Ta sama rodzina co `MIN_REPORTS` 40 przy 152 raportach, tylko o jedną stałą dalej i w tym samym module | S |
 
 #### Szczegóły pozycji z kompletem sześciu pól
 
@@ -5693,6 +5698,227 @@ MINIMUM_DETAIL_BLOCKS = 73
   zestawu bramek nie jest serializacją.
 - **Zależy od:** **6.D43** — bez zmierzonej liczby jobów, którą pula znosi, ziarno
   grupy `concurrency` byłoby zgadnięte.
+
+##### 6.D54 · Wyrocznia zieloności kłamie na `sys.exit(0)` — i tylko w tę stronę
+
+- **Skąd:** zmierzone 08.09.2026 sondą wstawioną tymczasowo do `tools/tests/`. Moduł
+  z trzema testami, w którym drugi woła `sys.exit(0)`:
+
+  ```
+  === przebieg zestawu z sondą ===
+    ok   test_aaa_pierwszy_zwykly
+  --- KOD WYJŚCIA ZESTAWU: ---
+    kod: 0
+
+  === to samo, ale sys.exit(1) ===
+    kod: 1
+  ```
+
+  Jeden wiersz `ok`, **brak** wiersza `N/N przeszło`, **brak** `RAZEM` — i **kod 0**.
+  1999 testów nie wykonało się wcale. Przyczyna jest jednym słowem w `test_all.py`:
+  pętla po testach łapie `except Exception`, a `SystemExit` dziedziczy z
+  `BaseException`, nie z `Exception`, więc **wychodzi z pętli i z `main()`**, a Python
+  kończy proces kodem z wyjątku.
+
+  **Kłamstwo jest jednostronne i to jest tu sedno.** `sys.exit(1)` daje kod 1, czyli
+  czerwono; tylko `sys.exit(0)` daje zielono. Przyrząd myli się WYŁĄCZNIE w stronę
+  „wszystko w porządku", a jego kod wyjścia jest wyrocznią zieloności całego projektu
+  (`CLAUDE.md` §5 i §7 każą pokazywać rzeczywiste wyjście weryfikacji, a tym wyjściem
+  jest właśnie ten kod).
+
+  **Osiągalne realnie, nie teoretycznie:** `argparse` woła `sys.exit` przy złym
+  argumencie i przy `--help`, a testy bramek wołają `main()` narzędzi. Pułapka uderzyła
+  tego dnia w pracy nad `crosscheck_alignment.py` — przebieg skończył się kodem 2 na
+  trzecim teście i osiem następnych nie wykonało się wcale.
+- **Wejście:** `tools/tests/test_all.py` (pętla po testach, `except Exception as e`,
+  wypis podsumowania i `return`), `tools/tests/assertion_gate.py` (werdykt pojedynczego
+  testu i werdykt zestawu), `docs/06-worked-example.md` (wzorzec raportowania wyjścia
+  weryfikacji), `CLAUDE.md` (§5 — zakazane formy weryfikacji).
+- **Wyjście:** `SystemExit` przechwycony i **zamieniony na FAIL testu**, a nie na
+  koniec przebiegu — bo test, który wywołuje wyjście z procesu, jest usterką testu,
+  nie sygnałem o zestawie. Do tego **osobny FAIL zestawu**, gdy liczba wykonanych
+  testów jest niższa od liczby odkrytych: podsumowanie musi być niemożliwe do
+  pominięcia, więc `KeyboardInterrupt` niech dalej przerywa, ale z niezerowym kodem
+  i z wypisanym, ile testów zdążyło się wykonać. Raport w `reports/` z pomiarem przed
+  i po, na tej samej sondzie.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py; echo "kod: $?"
+  ```
+  plus **wykonana** sonda: moduł z `sys.exit(0)` w środku daje po poprawce kod
+  **niezerowy** i wiersz FAIL nazywający ten test, a liczba testów w `RAZEM` zgadza
+  się z liczbą odkrytych.
+- **Skończone, gdy:** sonda z `sys.exit(0)` daje kod niezerowy i FAIL wskazujący
+  winny test; sonda z `sys.exit(1)` też; zestaw bez sondy daje tę samą liczbę testów
+  co przed zmianą i kod 0. Trzy przebiegi wklejone, nie opisane.
+- **Poza zakresem:** przepisywanie testów, które dziś wołają `main()` narzędzi (żaden
+  nie woła `sys.exit` na ścieżce zielonej — sprawdzić i zapisać liczbę, nie zmieniać),
+  zmiana zakresu odkrywania testów, dopisywanie nowych bramek do `assertion_gate.py`.
+- **Zależy od:** nic. Sonda jest jednoplikowa i nie potrzebuje ani `dotnet`, ani Blendera.
+
+##### 6.D55 · Znaczników konfliktu scalania nie widzi żadna bramka
+
+- **Skąd:** zmierzone 08.09.2026 **dwa razy** — raz przypadkiem przy wciąganiu `main`
+  do gałęzi progu, raz sondą celowaną, która wstawiła znaczniki w **środek bloku
+  pozycji**:
+
+  ```
+  znaczników <<<: 1   ===: 1   >>>: 1
+  2000/2000 przeszło
+  RAZEM 81.670 s, 2000 testów, 105 modułów
+  KOD ZESTAWU: 0
+  open_items = 16   bloki = 125   braki w blokach: {}
+  ```
+
+  Czyli `docs/TASKS.md` z **nierozwiązanym konfliktem** przechodzi cały zestaw na
+  zielono, a liczniki wychodzą **poprawnie** — bo parser czyta wiersze, których
+  znaczniki nie psują.
+
+  **Nie jest to hipoteza.** Tego dnia były w tym pliku dwa konflikty. Przy jednym
+  mechaniczna suma stron wstawiła blok 6.D39 w środek bloku 6.D40 i **odebrała mu
+  cztery pola**; złapała to bramka licząca pola, czyli przypadkiem — gdyby konflikt
+  wypadł w miejscu, którego żadna bramka nie liczy, znaczniki weszłyby do `main`.
+- **Wejście:** `tools/tests/test_backlog.py` (parser bloków i pól),
+  `tools/tests/test_detail_markers.py`, `tools/tests/test_detail_layout.py`,
+  `tools/tests/test_marker_gates.py`, `docs/TASKS.md` (plik chroniony),
+  `docs/04-conventions.md` (konwencje git).
+- **Wyjście:** bramka odrzucająca **każdy** plik tekstowy w drzewie, który niesie
+  znacznik konfliktu na początku wiersza (`<<<<<<< `, `=======` samo w wierszu,
+  `>>>>>>> `), z **wypisaną nazwą pliku i numerem wiersza**. Zakres pilnowanych
+  plików wyprowadzony z pomiaru, nie zgadnięty: policzyć, ile plików w drzewie zawiera
+  wiersz `=======` **legalnie** (nagłówki Markdown i bloki kodu w raportach!) i dopiero
+  na tej liczbie zdecydować, czy wzorzec `=======` wchodzi, czy tylko `<<<` i `>>>`.
+  Raport w `reports/` z tym pomiarem i z liczbą fałszywych alarmów każdego wariantu.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py; echo "kod: $?"
+  grep -rn "^=======$" --include=*.md . | wc -l
+  ```
+  plus **wykonana** sonda: znaczniki wstawione w `docs/TASKS.md` dają po poprawce kod
+  niezerowy i wiersz FAIL z nazwą pliku oraz numerem wiersza.
+- **Skończone, gdy:** sonda ze znacznikami daje FAIL nazywający plik i wiersz; drzewo
+  bez znaczników daje kod 0; a raport podaje **zmierzoną** liczbę legalnych wystąpień
+  wzorca, który bramka przyjęła, i **zero** fałszywych alarmów na dzisiejszym drzewie.
+  Bramka zapalająca się na tekście poprawnym zostaje wyłączona (6.D27), więc ten
+  warunek jest twardy.
+- **Poza zakresem:** zmiana sposobu rozwiązywania konfliktów, hook `pre-commit`
+  (bramka ma chodzić w zestawie, tam gdzie reszta), przepisywanie bloków pozycji,
+  automatyczne scalanie czegokolwiek.
+- **Zależy od:** nic.
+
+##### 6.D56 · Piąta kopia wartości progu, w docstringu samej bramki
+
+- **Skąd:** zauważone 08.09.2026 przy podnoszeniu granicy rozstępu. Docstring
+  `tools/ci/assert_linecore_budget.py` mówi „próg **8,0 µs** zmierzono na przejeździe
+  bez wybiegu", a w konfiguracji stoi **14,0**. Historia tej pomyłki jest tu istotna,
+  bo pokazuje, jak bramka o jednym miejscu przegapiła drugie: commit #408 przepisał
+  **to samo zdanie** w `tools/ci/linecore-step-budget.json`, uzasadniając to wprost —
+  „stała tu WARTOŚĆ progu, a nagłówek tego samego pliku zakazuje wpisywania progu dwa
+  razy" — i docstringu **nie tknął**. Powód: `test_the_threshold_lives_in_one_place…`
+  czyta wyłącznie `.github/workflows/sim-tests.yml`. Commit, którego tematem było
+  „liczba ma stać w jednym miejscu", zostawił ją w dwóch.
+- **Wejście:** `tools/ci/assert_linecore_budget.py` (docstring modułu),
+  `tools/ci/linecore-step-budget.json` (jedyne miejsce wartości),
+  `tools/tests/test_linecore_budget_gate.py`
+  (`test_the_threshold_lives_in_one_place_and_the_step_does_not_compare_anything`),
+  `reports/linecore-step-budget-gate.md` (podstawa progu).
+- **Wyjście:** docstring bez wartości liczbowej progu — zdanie o **własności**
+  przejazdu, nie o liczbie — oraz **rozszerzenie** istniejącej asercji: wartość progu
+  ani okno pomiaru nie występują w treści `.py` bramki, tak jak dziś nie występują
+  w YAML-u. Rozszerzenie, nie nowy test: bramka jednego miejsca ma po zmianie
+  sprawdzać **więcej**.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py; echo "kod: $?"
+  grep -n "8,0 µs\|8\.0 us\|14,0 µs\|14\.0" tools/ci/assert_linecore_budget.py
+  ```
+  Drugi wiersz ma po poprawce nie znaleźć wartości progu w treści bramki.
+- **Skończone, gdy:** wartość progu występuje w drzewie **wyłącznie**
+  w `tools/ci/linecore-step-budget.json` i w datowanych zapisach pomiarów
+  w `reports/`; kontrola negatywna (wartość wpisana z powrotem do docstringu) daje
+  FAIL nazywający plik. Datowane pomiary w raportach zostają nieprzeliczone.
+- **Poza zakresem:** zmiana wartości progu, zmiana granicy rozstępu, przepisywanie
+  datowanych zapisów w `reports/` (6.D3), rozszerzanie bramki na inne stałe niż próg
+  i okno pomiaru.
+- **Zależy od:** nic.
+
+##### 6.D57 · `doctor.sh` melduje brak .NET, gdy SDK jest na dysku poza `PATH`
+
+- **Skąd:** zmierzone 08.09.2026 na kontenerze tej sesji. `/root/.dotnet/dotnet`
+  zgłasza `10.0.400`, a `bash doctor.sh` melduje `BRAK dotnet SDK` i kończy kodem 1;
+  po `export DOTNET_ROOT=/root/.dotnet; export PATH="$DOTNET_ROOT:$PATH"` ten sam
+  skrypt daje `ok dotnet SDK`, `ok 590/590 przeszło` i kod 0. Przyczyna jest w kodzie,
+  nie w środowisku: w `doctor.sh:67-92` pętla po katalogach kandydatów (z
+  `$HOME/.dotnet/dotnet` na pierwszym miejscu) **oraz** podpowiedź „na dysku JEST
+  nowsze SDK" stoją wewnątrz `if [ -n "$REQUIRED_TFM" ] && [ -n "$HAVE_SDK_MAJOR" ]`,
+  a `HAVE_SDK_MAJOR` bierze się z `$DOTNET --version`. Bez `dotnet` w `PATH` zmienna
+  jest pusta i **cały blok się nie wykonuje** — czyli podpowiedź o katalogach działa
+  wyłącznie wtedy, gdy w `PATH` stoi SDK **za stare**, i nigdy gdy nie stoi żadne.
+  Dla Blendera tej dziury nie ma, bo tam sonda czyta **wersję** z pinu; to jest
+  dowód, że wzorzec poprawny w tym skrypcie już istnieje.
+- **Wejście:** `doctor.sh` (sekcja rdzenia symulacji, wiersze 67-92 w dniu pomiaru —
+  **odszukać po nazwach zmiennych, nie po numerach**), `docs/23-environment.md`
+  (zapis, gdzie narzędzia leżą), `tools/ci/blender_install.sh` (wzorzec sondy
+  czytającej wersję, nie obecność), `tools/tests/test_dotnet_version.py`.
+- **Wyjście:** przejście po katalogach kandydatów wykonywane **przed** i
+  **niezależnie** od `HAVE_SDK_MAJOR`, z podpowiedzią nazywającą znalezioną ścieżkę
+  i sposób jej użycia. Zmierzone i zapisane musi być też to, że dwie naprawy **nie są
+  równoważne**: `DOTNET_BIN=<ścieżka>` zdejmuje `BRAK dotnet SDK`, ale **zostawia**
+  `WARN godot .NET hostfxr`, a `DOTNET_ROOT` razem z `PATH` zamyka oba.
+- **Weryfikacja:**
+  ```bash
+  env -u DOTNET_ROOT PATH=/usr/bin:/bin bash doctor.sh; echo "kod: $?"
+  bash doctor.sh; echo "kod: $?"
+  python3 tools/tests/test_all.py; echo "kod: $?"
+  ```
+  Pierwszy przebieg ma po poprawce **nazwać ścieżkę** znalezionego SDK zamiast meldować
+  brak; oba wyjścia wklejone.
+- **Skończone, gdy:** `doctor.sh` uruchomiony bez `dotnet` w `PATH`, ale z SDK na dysku,
+  wypisuje ścieżkę i polecenie, którym się nim posłużyć — a nie `BRAK`. Kontrola
+  negatywna: usunięcie kandydata z listy wywraca test. Zachowanie przy SDK **naprawdę**
+  nieobecnym zostaje bez zmian i jest sprawdzone osobno.
+- **Poza zakresem:** instalowanie czegokolwiek, zmiana katalogu cache, zmiana sondy
+  Blendera (ta jest poprawna i jest tu wzorcem), zmiana wymaganej wersji SDK.
+- **Zależy od:** nic. 6.D48 dała zapis, **gdzie** narzędzia leżą; ta pozycja poprawia
+  **sondę**, która tego zapisu nie używa.
+
+##### 6.D58 · `seen >= 500` przy 1392 trafieniach — zapas 892
+
+- **Skąd:** zmierzone 08.09.2026 przy 6.D45.
+  `tools/tests/test_report_hygiene.py:587` żąda od bramki ścieżek co najmniej **500**
+  trafień, a przejście po katalogu `reports/` daje **1392** — zapas **892**, czyli
+  wzorzec mógłby przestać łapać **dwie trzecie** ścieżek i nadal przejść na zielono.
+  To ta sama rodzina co `MIN_REPORTS = 40` przy 152 raportach, tylko o jedną stałą
+  dalej i **w tym samym module**, więc wzorzec naprawy jest już w drzewie: 6.D45
+  zamieniła podłogę na warunek **równościowy** pilnowany w obie strony.
+- **Wejście:** `tools/tests/test_report_hygiene.py`
+  (`test_kazda_sciezka_wymieniona_w_raporcie_rozwiazuje_sie_w_drzewie`, asercja
+  `seen >= 500`; oraz `MIN_REPORTS` jako wzorzec zapadki równościowej). Rachunku
+  **6.D45** to pole **nie wymienia jako pliku**, bo jest on WYJŚCIEM tamtej pozycji
+  i w drzewie go jeszcze nie ma — `test_no_input_field_names_a_file_outside_the_tree`
+  odrzucił pierwszą wersję tego bloku i miał rację. Jest to **drugi raz w tym dniu**,
+  kiedy wpisałem do „Wejścia" plik, który ma dopiero powstać (pierwszy: 6.D52), więc
+  nie jest to wpadka, a wzorzec: pole „Wejście" mówi, co czytać DZIŚ. Zależność stoi
+  w „Zależy od".
+- **Wyjście:** liczba trafień pilnowana **w obie strony** — spadek znaczy, że wzorzec
+  przestał czytać ścieżki, wzrost znaczy, że zapadkę trzeba podnieść w tym samym
+  commicie. Wartość z **pomiaru** na drzewie, nie z tego wpisu: liczba trafień rośnie
+  z każdym raportem, więc wpisana tu dziś zestarzeje się przed wykonaniem pozycji.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py; echo "kod: $?"
+  ```
+  plus **wykonane** kontrole w trzech kierunkach (zapadka o jeden w górę, równo, o jeden
+  w dół), każda z czyszczeniem `__pycache__`, oraz kontrola przez **zawężenie wzorca**
+  ścieżek: na zepsutym przyrządzie stara podłoga `>= 500` musi być zielona, a nowa
+  czerwona — inaczej zmiana nie sprawdza więcej.
+- **Skończone, gdy:** trzy kierunki dają FAIL / zielono / FAIL; kontrola przez
+  zawężenie wzorca pokazuje różnicę między starą i nową podłogą **liczbą**; a wartość
+  w kodzie zgadza się z przejściem po drzewie w dniu commita.
+- **Poza zakresem:** zmiana samego wzorca ścieżek, `MIN_REPORTS` (zrobione w 6.D45),
+  `COMMIT_EXCEPTIONS`, kasowanie ani scalanie raportów.
+- **Zależy od:** **6.D45** — dostarcza wzorzec zapadki równościowej i raport, na który
+  ta pozycja się powołuje.
 
 ### Czego agent nie ruszy bez decyzji
 
