@@ -873,6 +873,7 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.D50 | **Akapit planu mówi o „31 pozycjach" faz 5 i 6, a `open_items` daje 12** — liczba w prozie nie jest przez nic pilnowana, inaczej niż zapadki obok | zmierzone 08.09.2026 na `docs/TASKS.md:530`. Ta sama rodzina co `MINIMUM_DETAIL_BLOCKS`, tylko bez zapadki; liczba w prozie planu, który sam siebie nazywa mapą, starzeje się po cichu przy każdym domknięciu | S |
 | 6.D51 | **Siedem narzędzi sięga do sieci, a `--offline` ma jedno z nich** — nie wiadomo, które przebiegi da się wykonać bez sieci, a które padną albo zawisną | zmierzone 08.09.2026 przejściem po drzewie: 22 pliki narzędzi, `--offline` w **3**, a z siedmiu sięgających do sieci tylko `provenance.py`. Tego samego dnia Overpass był z kontenera nieosiągalny (trzy próby), a UrbIS odpowiadał HTTP 200 — czyli „brak sieci" nie jest stanem zero-jedynkowym | M |
 | 6.D52 | **Decyzja właściciela z 08.09.2026 każe zserializować joby czasowe wobec renderów, a `needs:` do tego NIE wystarczy** — dziesięć jobów stoi w dziesięciu OSOBNYCH plikach workflowu, więc zostaje wspólna grupa `concurrency`, której zachowania w tym repozytorium nikt nie zmierzył | zmierzone 08.09.2026 przejściem po `.github/workflows/`: dziesięć plików, dziesięć jobów, `concurrency` w zerze z nich. Dokumentacja GitHuba mówi, że trzeci przebieg w grupie ANULUJE oczekującego — czyli lek mógłby być gorszy od choroby, bo anulowany job nie jest „niemierzalny", tylko go nie ma. Pozycja mierzy to zachowanie PRZED zmianą treści workflowów | M |
+| 6.D53 | **`sources.json` opisuje dostęp do OSM dwoma słowami `osm_or_overpass` i nie podaje ani jednej końcówki ani limitu** — rejestr, który ma być maszynowym zapisem dostępu, nie mówi, czym te dwie drogi się różnią | zmierzone 08.09.2026 przy 6.B52. Wpis `openstreetmap` ma `access.type = "osm_or_overpass"` i `authentication = "endpoint-dependent"` — ani `download_url`, ani limitu obszaru, ani limitu żądań. Tymczasem `/api/0.6/map` ma **twardy limit 50 000 węzłów** (zmierzony: HTTP 400 na bboxie pakietu D) i to on wymusza kaflowanie. Wpisu nie dodałem: `data/` jest tylko do odczytu (§4.6) | S |
 | 6.D54 | **`test_all.py` łapie wyłącznie `Exception`, więc test wychodzący przez `sys.exit(0)` kończy CAŁY zestaw kodem 0 po jednym wykonanym teście** — a kod wyjścia tego zestawu jest wyrocznią zieloności całego projektu (`CLAUDE.md` §5) | zmierzone 08.09.2026 sondą wstawioną do `tools/tests/`: przy `sys.exit(0)` w drugim teście zestaw wypisał JEDEN wiersz `ok`, nie wypisał ani `N/N przeszło`, ani `RAZEM`, i dał **kod 0** — 1999 testów nie wykonało się wcale. Przy `sys.exit(1)` kod 1. Kłamie więc WYŁĄCZNIE w stronę „wszystko w porządku". Osiągalne realnie: `argparse` woła `sys.exit` przy złym argumencie i pułapka uderzyła tego dnia w pracy nad `crosscheck_alignment.py` | S |
 | 6.D55 | **Żadna bramka nie widzi znaczników nierozwiązanego konfliktu scalania w `docs/TASKS.md`** — pliku, który kilkanaście bramek samo parsuje | zmierzone 08.09.2026 dwukrotnie, raz przypadkiem i raz sondą celowaną: plik ze znacznikami `<<<<<<< HEAD` / `=======` / `>>>>>>> origin/main` wstawionymi w ŚRODEK bloku pozycji daje zestaw **2000/2000 kod 0**, przy `open_items` 16, 125 blokach i **zerze braków pól**. Nie jest to hipoteza — tego dnia były dwa konflikty w tym pliku, a jeden po cichu odebrał blokowi 6.D40 cztery pola | S |
 | 6.D56 | **Wartość progu kosztu kroku stoi w PIĄTEJ kopii — w docstringu samej bramki — a jej test jednego miejsca sprawdza wyłącznie YAML** | zauważone 08.09.2026 przy podnoszeniu granicy rozstępu: `tools/ci/assert_linecore_budget.py` mówi w docstringu „próg 8,0 µs" przy progu 14,0 w konfiguracji. Commit #408 przepisał TO SAMO zdanie w JSON-ie, uzasadniając to zakazem wpisywania progu dwa razy, i docstringu nie tknął, bo `test_the_threshold_lives_in_one_place_and_the_step_does_not_compare_anything` czyta tylko `.github/workflows/sim-tests.yml`. Commit, którego tematem było „liczba ma stać w jednym miejscu", zostawił ją w dwóch | S |
@@ -5709,6 +5710,51 @@ MINIMUM_DETAIL_BLOCKS = 73
   zestawu bramek nie jest serializacją.
 - **Zależy od:** **6.D43** — bez zmierzonej liczby jobów, którą pula znosi, ziarno
   grupy `concurrency` byłoby zgadnięte.
+
+##### 6.D53 · `sources.json` opisuje dostęp do OSM dwoma słowami i żadną liczbą
+
+- **Skąd:** zmierzone 08.09.2026 przy 6.B52. Numer **przesunięty z 6.D52 na 6.D53**
+  w rozwiązaniu konfliktu ze scaleniem #409, które tego samego dnia zajęło 6.D52
+  innym zadaniem; treść jest bez zmian. Wpis `openstreetmap` w rejestrze niesie
+  `access = {"type": "osm_or_overpass", "authentication": "endpoint-dependent"}` —
+  czyli mówi, że dróg jest dwie, i **nie mówi o żadnej z nich nic więcej**. Nie ma
+  `download_url`, nie ma limitu obszaru, nie ma limitu żądań. Tymczasem obie drogi
+  różnią się właśnie tym, co rejestr pomija: Overpass ma język zapytań i filtruje po
+  stronie serwera, a `/api/0.6/map` ma **twardy limit 50 000 węzłów na wywołanie**
+  (zmierzone: `HTTP 400 — You requested too many nodes` na bboxie pakietu D po 2,77 s)
+  i dlatego wymaga kaflowania oraz pobiera o dwa rzędy wielkości więcej bajtów
+  (66,1 MB na 97 way'ów metra pakietu D).
+- **Dlaczego to nie jest kosmetyka:** rejestr jest **maszynowym** zapisem dostępu
+  i to z niego bramki czytają prawdę o źródłach (`tools/tests/test_all.py`,
+  `test_stations.py`, `test_inspire_rail.py`). Dwa słowa bez liczby znaczą, że
+  narzędzie sięgające do OSM nie ma skąd wziąć limitu i musi go nieść samo — dziś
+  niesie, jako `OSM_API_NODE_LIMIT` w `tools/track/crosscheck_alignment.py`, czyli
+  liczba o źródle stoi w kodzie, a nie w rejestrze źródeł.
+- **Wejście:** `data/network/sources.json` (wpis `openstreetmap`),
+  `docs/07-open-data-research.md` (sekcja „Dwie drogi do OSM"),
+  `tools/track/crosscheck_alignment.py` (`OSM_API_URL`, `OSM_API_NODE_LIMIT`,
+  `OSM_API_TILE_DEG`), `tools/tests/test_all.py`
+  (`test_r002_sources_have_required_audit_fields` jako wzorzec pól audytowych),
+  `reports/osm-api-droga-zapasowa.md`.
+- **Wyjście:** wpis w `data/network/sources.json` rozdzielający dwie końcówki OSM
+  z ich limitami, ORAZ bramka, która sprawdza, że liczba limitu w kodzie zgadza się
+  z liczbą w rejestrze — bo bez niej wpis rozjedzie się po cichu, tak jak rozjechały
+  się liczby maszyn w `CLAUDE.md` §9. **`data/` jest tylko do odczytu**, więc ta
+  pozycja wymaga zgody właściciela na zapis do rejestru i to jest jej pierwszy krok,
+  nie szczegół.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py; echo "kod: $?"
+  ```
+  plus wypis: limit obszaru odczytany z rejestru wobec `OSM_API_NODE_LIMIT`
+  z kodu — dwie liczby obok siebie, a nie zdanie, że się zgadzają.
+- **Skończone, gdy:** rejestr podaje dla OSM **dwie** końcówki z limitami, bramka
+  wiąże limit w kodzie z limitem w rejestrze, a kontrola negatywna WYKONANA
+  (rozjechanie jednej z dwóch liczb) zapala dokładnie tę bramkę i **nazywa obie
+  liczby**.
+- **Poza zakresem:** zmiana hierarchii źródeł (OSM zostaje klasą 4), dopisywanie
+  kluczy API, zmiana `access.authentication`, pobieranie czegokolwiek do `data/`.
+- **Zależy od:** decyzji właściciela o zapisie do `data/network/sources.json`.
 
 ##### 6.D54 · Wyrocznia zieloności kłamie na `sys.exit(0)` — i tylko w tę stronę
 

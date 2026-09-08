@@ -249,7 +249,22 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 #: zapamiętaną — i to jest tego dnia trzecie podniesienie, przy którym trzeba było
 #: liczyć, a nie pamiętać: dwie gałęzie mówiły jednocześnie „125", bo każda liczyła
 #: tylko własny blok.
-MINIMUM_DETAIL_BLOCKS = 130
+#: **130 → 131 (08.09.2026, blok 6.D53 z obejścia Overpassa).** Podniesienie jest tu
+#: WYNIKIEM ROZWIĄZANIA KONFLIKTU, i to jest cała jego treść: gałąź obejścia mówiła
+#: „125 → 126", `main` mówił „125 → 130", i **obie liczby były nieprawdziwe wobec pliku
+#: scalonego**, bo każda strona liczyła wyłącznie własne bloki. Prawidłową wartością
+#: nie jest żadna z nich, tylko POMIAR na pliku po scaleniu — 131. To trzeci raz tego
+#: dnia, kiedy ta zapadka wymagała liczenia, a nie pamiętania, i pierwszy, kiedy
+#: pułapką była nie pamięć, a DWIE prawdziwe liczby z dwóch osobnych drzew.
+#:
+#: Sam konflikt rozwiązano **nie sumą region po regionie**, choć git rozbił go na trzy
+#: regiony, a między dwoma z nich zostawił jako wspólny **prefiks pól bloku** — czyli
+#: dokładnie mechanizm, który 07.09.2026 wstawił blok 6.D39 w środek bloku 6.D40
+#: i odebrał mu cztery pola. Plik zbudowano od wersji `main` i wstawiono do niego blok
+#: 6.D53 **w całości**, wzięty z `git show :2:` — wiersz tabeli przed 6.D54, blok przed
+#: blokiem 6.D54, oba CIĄGŁE. Sprawdzone przejściem po wszystkich 131 blokach: zero
+#: braków pól.
+MINIMUM_DETAIL_BLOCKS = 131
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je

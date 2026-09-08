@@ -160,7 +160,7 @@ wykonywana, a nie przeskakiwana z braku `gcc`. Na maszynie bez `gcc` test woła
 
 ## 7. Zapadka bloków
 
-`MINIMUM_DETAIL_BLOCKS` ma 130. Wartość rośnie dalej przy każdym uzupełnieniu kolejki — 08.09.2026 doszły najpierw cztery bloki 6.D48 … 6.D51 (zapadka 124), potem 6.D52 z decyzji właściciela o serializacji jobów (125), a potem pięć pozycji o PRZYRZĄDACH 6.D54 … 6.D58, i zapadka stoi na **130**. Liczby w blokach pomiarowych niżej zostają przy swoich datach; ten akapit niesie stan bieżący. **Pomiar niżej jest z 07.09.2026 i zostaje taki,
+`MINIMUM_DETAIL_BLOCKS` ma 131. Wartość rośnie dalej przy każdym uzupełnieniu kolejki — 08.09.2026 doszły najpierw cztery bloki 6.D48 … 6.D51 (zapadka 124), potem 6.D52 z decyzji właściciela o serializacji jobów (125), a potem pięć pozycji o PRZYRZĄDACH 6.D54 … 6.D58, i zapadka stoi na **130**. Liczby w blokach pomiarowych niżej zostają przy swoich datach; ten akapit niesie stan bieżący. **Pomiar niżej jest z 07.09.2026 i zostaje taki,
 jaki był** — wtedy wartością równą stanowi drzewa było 112, bo blok 6.D39 był
 jedynym dochodzącym. Do scalenia (08.09.2026) weszły przed nim 6.D41, sześć
 pozycji uzupełnienia kolejki i 6.D40, każda ze swoim blokiem, więc równość

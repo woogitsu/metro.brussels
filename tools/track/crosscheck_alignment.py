@@ -10,12 +10,24 @@ kod HTTP i komunikat, żeby raport mówił, czego nie dało się sprawdzić i dl
 
 UrbIS `Metro` to **poligony** tuneli (MT) i stacji (MS), a nie oś toru, więc jedyną
 sensowną miarą jest, jaka część osi mieści się w tych poligonach.
+
+DWIE DROGI DO OSM, I WYBIERA SIĘ JE JAWNIE (`--osm-source`). Overpass jest drogą
+**podstawową** i tak stoi w `docs/07-open-data-research.md`: jedno zapytanie, filtr
+`railway=subway` wykonany po stronie serwera. `api.openstreetmap.org/api/0.6/map` jest
+drogą **zapasową** na wypadek, gdy Overpass milczy — surowe API OSM nie ma języka
+zapytań, więc odsyła CAŁĄ zawartość prostokąta, a filtr wykonuje się lokalnie. Różnica
+nie jest kosmetyczna i dlatego nie ma tu przełączenia automatycznego: raport, który nie
+mówi, z którego z tych dwóch źródeł wziął liczby, jest w tym projekcie bezwartościowy.
+Wypis nazywa źródło z osobna dla każdego przebiegu, a `osm.source` w pliku wyniku
+zapisuje to samo maszynowo.
 """
 import argparse
 import json
 import math
 import os
 import sys
+import time
+import xml.etree.ElementTree as ET
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
@@ -40,6 +52,33 @@ OVERPASS_TEMPLATE = """[out:json][timeout:60];
 out geom;
 """
 
+# --- droga zapasowa: surowe API OSM ------------------------------------------------
+#
+# Powód, dla którego to w ogóle istnieje, jest zmierzony, nie przewidziany: 08.09.2026
+# `overpass-api.de/api/status` odpowiadał z tego kontenera **HTTP 000** po 9,76 s
+# (`Recv failure: Connection reset by peer`, proxy zapisało `ws_closed_mid_exchange`
+# dla `overpass-api.de:443`), a `api.openstreetmap.org/api/0.6/capabilities` — HTTP 200
+# po 0,72 s. Jedno źródło leży, drugie stoi; „brak sieci" nie jest stanem
+# zero-jedynkowym.
+OSM_API_URL = "https://api.openstreetmap.org/api/0.6/map"
+#: Nazwy dróg dla `--osm-source`. Napisy, nie flagi logiczne: wchodzą wprost do wypisu
+#: i do pola `osm.source` w pliku wyniku, więc czytający widzi, co pobrano.
+OSM_SOURCE_OVERPASS = "overpass"
+OSM_SOURCE_API = "osm-api"
+#: Bok kafla siatki w stopniach. Zmierzone 08.09.2026 na środku pakietu D
+#: (4,41500 E / 50,82200 N): kafel 0,006° zwraca **8012 węzłów i 2,39 MB**, czyli
+#: sześciokrotny zapas do twardego limitu API. Dobór jest tu POMIAREM, a nie próbami:
+#: całe bbox pakietu D w jednym wywołaniu daje `HTTP 400 — You requested too many
+#: nodes (limit is 50000)` po 2,77 s, kafel 0,0012° daje 1259 węzłów (za drobny, bo
+#: mnoży liczbę żądań), kafel 0,0050° — 19 320 węzłów i 5,64 MB.
+OSM_API_TILE_DEG = 0.006
+#: Twardy limit `/api/0.6/map` po stronie OSM, zapisany po to, żeby komunikat odmowy
+#: dał się rozpoznać jako „kafel za duży", a nie jako „źródło niedostępne".
+OSM_API_NODE_LIMIT = 50000
+#: Przerwa między kaflami. To cudza infrastruktura i nie ma tu żadnego powodu, żeby
+#: strzelać w nią seriami bez oddechu.
+OSM_API_SLEEP_S = 1.0
+
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description="Kontrola krzyżowa osi wobec UrbIS i OSM")
@@ -49,8 +88,25 @@ def parse_args(argv=None):
     parser.add_argument("--skip-osm", action="store_true")
     parser.add_argument("--osm-file", help="lokalny snapshot OSM zamiast zapytania sieciowego "
                                            "(Overpass albo tools/track/fetch_osm_routes.py)")
+    parser.add_argument("--osm-source", choices=(OSM_SOURCE_OVERPASS, OSM_SOURCE_API),
+                        default=OSM_SOURCE_OVERPASS,
+                        help="skąd wziąć way'e railway=subway: 'overpass' to droga "
+                             "podstawowa z docs/07, 'osm-api' to droga ZAPASOWA przez "
+                             "api.openstreetmap.org — bez języka zapytań, kaflowana, "
+                             "filtr wykonywany lokalnie i większy transfer")
+    parser.add_argument("--osm-snapshot-out",
+                        help="zapisz pobrane way'e jako snapshot w kształcie odpowiedzi "
+                             "Overpassa, do podania jako --osm-file dla "
+                             "tools/track/surface_sections.py")
+    parser.add_argument("--osm-tile-deg", type=float, default=OSM_API_TILE_DEG,
+                        help="bok kafla siatki dla --osm-source osm-api, w stopniach")
+    parser.add_argument("--osm-sleep-s", type=float, default=OSM_API_SLEEP_S,
+                        help="przerwa między kaflami, w sekundach")
     parser.add_argument("--urbis-file", help="lokalny snapshot warstwy UrbIS Metro")
     parser.add_argument("--skip-urbis", action="store_true")
+    parser.add_argument("--offline", action="store_true",
+                        help="ODMÓW wyjścia do sieci; policz tylko to, co da się policzyć "
+                             "z --osm-file / --urbis-file")
     return parser.parse_args(argv)
 
 
@@ -104,11 +160,16 @@ def chainage_ranges(points, flags):
     return ranges
 
 
-def crosscheck_urbis(points, timeout, local_file=None):
+def crosscheck_urbis(points, timeout, local_file=None, offline=False):
     if local_file:
         with open(local_file, "rb") as handle:
             content = handle.read()
         final_url = f"file:{os.path.basename(local_file)}"
+    elif offline:
+        # Odmowa jest WYNIKIEM, nie awarią: raport ma powiedzieć, że nie sprawdzono,
+        # i dlaczego, a nie udawać pomiaru ani czekać na timeout gniazda.
+        return {"status": "odmowa --offline", "reason": "tryb --offline bez --urbis-file",
+                "url": P.sanitize_url(URBIS_URL)}
     else:
         try:
             content, final_url, _headers = P.fetch_url(URBIS_URL, expected_format="json",
@@ -176,16 +237,150 @@ def crosscheck_urbis(points, timeout, local_file=None):
     }
 
 
-def overpass_query(points, margin_m=OVERPASS_BBOX_MARGIN_M):
-    """Zapytanie Overpassa z bboxem policzonym z osi, w WGS84."""
+def query_bbox_lonlat(points, margin_m=OVERPASS_BBOX_MARGIN_M):
+    """Prostokąt zapytania jako `(west, south, east, north)` w WGS84.
+
+    Wydzielone z `overpass_query`, żeby **obie** drogi do OSM brały DOKŁADNIE ten sam
+    prostokąt. Gdyby droga zapasowa liczyła go po swojemu, każda różnica w zbiorze
+    obiektów byłaby nieodróżnialna od zmiany w OSM — a porównanie krzyżowe obu dróg
+    stoi właśnie na tym rozróżnieniu.
+
+    Narożniki są przeliczane z Lambert 72 pojedynczo, więc prostokąt w stopniach nie
+    jest ścisłą obwiednią obróconego prostokąta metrycznego. Zostaje tak, jak było:
+    ta niedokładność jest wspólna dla obu dróg i mieści się w marginesie 300 m.
+    """
     xs = [p[0] for p in points]
     ys = [p[1] for p in points]
     corners = [(min(xs) - margin_m, min(ys) - margin_m), (max(xs) + margin_m, max(ys) + margin_m)]
     lonlat = [CRS.lambert72_to_wgs84(x, y) for x, y in corners]
-    return OVERPASS_TEMPLATE % (lonlat[0][1], lonlat[0][0], lonlat[1][1], lonlat[1][0])
+    return (lonlat[0][0], lonlat[0][1], lonlat[1][0], lonlat[1][1])
 
 
-def crosscheck_osm(points, timeout, local_file=None):
+def overpass_query(points, margin_m=OVERPASS_BBOX_MARGIN_M):
+    """Zapytanie Overpassa z bboxem policzonym z osi, w WGS84."""
+    west, south, east, north = query_bbox_lonlat(points, margin_m)
+    return OVERPASS_TEMPLATE % (south, west, north, east)
+
+
+def osm_api_tiles(bbox, tile_deg=OSM_API_TILE_DEG):
+    """Podział prostokąta na siatkę kafli — bez dziur i bez nakładania.
+
+    Liczba kafli w każdej osi jest zaokrąglana W GÓRĘ, a bok wyliczany z powrotem
+    z tej liczby, więc siatka pokrywa prostokąt **dokładnie**. Wariant „stały bok,
+    ostatni kafel wystaje" pobierałby obszar poza bboxem, czyli obiekty, których
+    zapytanie Overpassa nie widzi — i rozjazd z drogą podstawową brałby się z samego
+    narzędzia, nie z danych.
+    """
+    west, south, east, north = bbox
+    nx = max(1, math.ceil((east - west) / tile_deg))
+    ny = max(1, math.ceil((north - south) / tile_deg))
+    dx, dy = (east - west) / nx, (north - south) / ny
+    return [(west + i * dx, south + j * dy, west + (i + 1) * dx, south + (j + 1) * dy)
+            for j in range(ny) for i in range(nx)]
+
+
+def parse_osm_map_xml(content):
+    """Way'e `railway=subway` z odpowiedzi `/api/0.6/map`, w kształcie `out geom`.
+
+    Trzy rzeczy, które trzeba tu zrobić i których Overpass robi za nas:
+
+    1. **filtr `railway=subway` jest lokalny.** Surowe API nie ma języka zapytań, więc
+       w odpowiedzi leży wszystko: ulice, budynki, perony, tramwaj. Bez tego filtru
+       odchyłka liczyłaby się od pierwszej lepszej krawędzi budynku;
+    2. **węzły trzeba złożyć w geometrię samemu** — `/map` podaje `<nd ref=…>`, nie
+       współrzędne w way'u;
+    3. **`version` i `timestamp` way'a zostają w wyniku.** Overpass ich w `out geom`
+       nie daje, a to jedyna rzecz, która pozwala odróżnić „droga zapasowa pobrała co
+       innego" od „OSM się zmienił od daty snapshotu". Bez nich rozjazd byłby jedną
+       liczbą bez przyczyny.
+
+    `/map` zwraca way'e kompletne — także węzły leżące poza prostokątem, jeżeli należą
+    do way'a, który go dotyka. Dlatego geometria z jednego kafla jest pełna i nie
+    trzeba jej zszywać.
+    """
+    root = ET.fromstring(content)
+    nodes = {n.get("id"): (float(n.get("lon")), float(n.get("lat")))
+             for n in root.findall("node")}
+    ways = []
+    for way in root.findall("way"):
+        tags = {t.get("k"): t.get("v") for t in way.findall("tag")}
+        if tags.get("railway") != "subway":
+            continue
+        refs = [nd.get("ref") for nd in way.findall("nd")]
+        geometry = [{"lon": nodes[r][0], "lat": nodes[r][1]} for r in refs if r in nodes]
+        if len(geometry) < 2:
+            continue
+        ways.append({"type": "way", "id": int(way.get("id")), "tags": tags,
+                     "geometry": geometry, "version": way.get("version"),
+                     "timestamp": way.get("timestamp")})
+    return ways
+
+
+def osm_api_ways(bbox, timeout, tile_deg=OSM_API_TILE_DEG, sleep_s=OSM_API_SLEEP_S, log=print):
+    """Way'e metra z prostokąta, kafel po kaflu. Zwraca `(way'e, statystyka pobrania)`.
+
+    Kafel, który padł, jest **wymieniony w wyniku**, a nie pominięty milczeniem:
+    niepełne pokrycie wygląda w liczbach dokładnie jak sieć, w której czegoś nie ma.
+    Pętli ponawiającej to samo zapytanie tu nie ma — cudza infrastruktura.
+    """
+    tiles = osm_api_tiles(bbox, tile_deg)
+    merged, refused, bytes_total = {}, [], 0
+    for index, tile in enumerate(tiles, start=1):
+        query = "bbox=%.5f,%.5f,%.5f,%.5f" % tile
+        if index > 1 and sleep_s > 0:
+            time.sleep(sleep_s)
+        try:
+            content, _url, _headers = P.fetch_url(f"{OSM_API_URL}?{query}",
+                                                  expected_format="xml", timeout=timeout)
+        except Exception as exc:
+            reason = str(exc)
+            kind = ("kafel przekracza limit %d węzłów" % OSM_API_NODE_LIMIT
+                    if "too many nodes" in reason.lower() else "źródło niedostępne")
+            refused.append({"bbox": query, "kind": kind, "reason": reason})
+            log(f"[OSM-API] kafel {index}/{len(tiles)} ODMOWA ({kind}): {reason}")
+            continue
+        bytes_total += len(content)
+        found = parse_osm_map_xml(content)
+        for way in found:
+            # Ten sam way wraca z każdego kafla, którego dotyka. Zostaje wersja
+            # o NAJWIĘKSZEJ liczbie węzłów — gdyby kiedyś API zwróciło geometrię
+            # obciętą, `setdefault` przybiłby właśnie tę obciętą.
+            previous = merged.get(way["id"])
+            if previous is None or len(way["geometry"]) > len(previous["geometry"]):
+                merged[way["id"]] = way
+        log(f"[OSM-API] kafel {index}/{len(tiles)} {query}: {len(content)} B, "
+            f"{len(found)} way railway=subway, razem {len(merged)}")
+    stats = {"tiles": len(tiles), "tiles_refused": refused, "tile_deg": tile_deg,
+             "bytes_downloaded": bytes_total}
+    return [merged[key] for key in sorted(merged)], stats
+
+
+def osm_api_payload(points, timeout, tile_deg=OSM_API_TILE_DEG, sleep_s=OSM_API_SLEEP_S,
+                    log=print):
+    """Odpowiedź `/api/0.6/map` przepakowana w kształt snapshotu Overpassa.
+
+    Kształt jest ten sam, więc `surface_sections.py --osm-file` czyta to bez
+    rozgałęzień — ale pole `osm_source` mówi, że to droga zapasowa, i nie pozwala
+    podać tego pliku dalej jako pomiaru z Overpassa.
+    """
+    bbox = query_bbox_lonlat(points)
+    ways, stats = osm_api_ways(bbox, timeout, tile_deg, sleep_s, log)
+    payload = {
+        "version": 0.6,
+        "generator": "tools/track/crosscheck_alignment.py --osm-source " + OSM_SOURCE_API,
+        "osm_source": OSM_SOURCE_API,
+        "osm_api_url": P.sanitize_url(OSM_API_URL),
+        "bbox_lonlat": [round(v, 6) for v in bbox],
+        "download": stats,
+        "attribution": "© OpenStreetMap contributors, ODbL 1.0",
+        "elements": ways,
+    }
+    return payload, stats
+
+
+def crosscheck_osm(points, timeout, local_file=None, source=OSM_SOURCE_OVERPASS, offline=False,
+                   tile_deg=OSM_API_TILE_DEG, sleep_s=OSM_API_SLEEP_S, snapshot_out=None,
+                   log=print):
     query = overpass_query(points)
     if local_file:
         with open(local_file, "rb") as handle:
@@ -194,26 +389,107 @@ def crosscheck_osm(points, timeout, local_file=None):
         return _osm_metrics(points, payload, {
             "status": "ok",
             "source": "snapshot lokalny",
+            # Snapshot niesie własną deklarację pochodzenia od 6.B52. Plik bez niej
+            # powstał wcześniej i wtedy `None` jest uczciwsze niż domyślenie się
+            # Overpassa: to właśnie milczące przypisanie źródła jest tu zakazane.
+            "snapshot_osm_source": payload.get("osm_source"),
             "file": os.path.basename(local_file),
             "file_sha256": P.sha256_bytes(content),
             "osm_timestamp": (payload.get("osm3s") or {}).get("timestamp_osm_base"),
             "routes": payload.get("routes"),
             "attribution": "© OpenStreetMap contributors, ODbL 1.0",
         })
+    if offline:
+        return {"status": "odmowa --offline",
+                "reason": "tryb --offline bez --osm-file",
+                "source": source,
+                "query_sha256": P.sha256_bytes(query.encode("utf-8"))}
+    if source == OSM_SOURCE_API:
+        payload, stats = osm_api_payload(points, timeout, tile_deg, sleep_s, log)
+        if snapshot_out:
+            _write_snapshot(snapshot_out, payload)
+        base = {
+            "status": "ok",
+            "source": OSM_SOURCE_API,
+            "url": P.sanitize_url(OSM_API_URL),
+            "bbox_lonlat": payload["bbox_lonlat"],
+            "download": stats,
+            "osm_timestamp": None,
+            "way_timestamp_max": max((w["timestamp"] for w in payload["elements"]
+                                      if w.get("timestamp")), default=None),
+            "note_source": "droga ZAPASOWA: api.openstreetmap.org/api/0.6/map bez języka "
+                           "zapytań, filtr railway=subway wykonany lokalnie",
+            "attribution": "© OpenStreetMap contributors, ODbL 1.0",
+        }
+        if stats["tiles_refused"]:
+            base["status"] = "częściowe"
+        return _osm_metrics(points, payload, base,
+                            query_text=f"{OSM_API_URL} kafle {stats['tiles']}x{tile_deg}° "
+                                       f"bbox={payload['bbox_lonlat']}")
     try:
         content, final_url, _headers = P.fetch_url(
             OVERPASS_URL + "?data=" + _quote(query), expected_format="json", timeout=timeout)
     except Exception as exc:
         return {"status": "niedostępne", "reason": str(exc), "url": P.sanitize_url(OVERPASS_URL),
+                "source": OSM_SOURCE_OVERPASS,
                 "query_sha256": P.sha256_bytes(query.encode("utf-8"))}
     payload = json.loads(content.decode("utf-8"))
+    if snapshot_out:
+        _write_snapshot(snapshot_out, dict(payload, osm_source=OSM_SOURCE_OVERPASS))
     return _osm_metrics(points, payload, {
         "status": "ok",
-        "source": "overpass",
+        "source": OSM_SOURCE_OVERPASS,
         "url": P.sanitize_url(final_url),
         "osm_timestamp": (payload.get("osm3s") or {}).get("timestamp_osm_base"),
         "attribution": "© OpenStreetMap contributors, ODbL 1.0",
     })
+
+
+#: Statusy, przy których w wyniku SĄ liczby. `częściowe` to droga zapasowa, której
+#: część kafli padła: liczby są, ale pokrycie prostokąta jest niepełne i wynik mówi to
+#: wprost, zamiast udawać pełny pomiar.
+OSM_STATUS_WITH_METRICS = ("ok", "częściowe")
+
+#: Zdania o pochodzeniu, jedno na drogę. Stoją w słowniku, a nie w `if`-ach, żeby dało
+#: się sprawdzić bramką, że KAŻDA droga ma swoje i że żadne nie jest puste.
+OSM_SOURCE_SENTENCES = {
+    OSM_SOURCE_OVERPASS: "overpass-api.de/api/interpreter — droga PODSTAWOWA wg "
+                         "docs/07-open-data-research.md, filtr railway=subway po stronie "
+                         "serwera",
+    OSM_SOURCE_API: "api.openstreetmap.org/api/0.6/map — droga ZAPASOWA wg "
+                    "docs/07-open-data-research.md: bez języka zapytań, obszar pobierany "
+                    "kaflami, filtr railway=subway wykonany LOKALNIE",
+    "snapshot lokalny": "plik lokalny podany przez --osm-file — pochodzenie danych "
+                        "zapisuje pole osm_source samego snapshotu",
+}
+
+
+def osm_source_sentence(entry):
+    """Jedno zdanie mówiące, SKĄD są dane OSM w tym przebiegu.
+
+    Wypis bez tego zdania byłby nieodróżnialny między drogą podstawową a zapasową —
+    a to są dwa różne zbiory obiektów, pobrane dwoma różnymi mechanizmami. `docs/07`
+    ustala między nimi hierarchię, więc raport, który nie mówi, którą drogą poszedł,
+    nie da się do niej odnieść.
+    """
+    if entry.get("status") == "pominięte":
+        return "NIE PYTANO (--skip-osm)"
+    source = entry.get("source")
+    sentence = OSM_SOURCE_SENTENCES.get(source, f"NIEZNANE ŹRÓDŁO ({source!r})")
+    if source == "snapshot lokalny":
+        declared = entry.get("snapshot_osm_source")
+        sentence += (f"; snapshot deklaruje: {declared}" if declared
+                     else "; snapshot NIE deklaruje pochodzenia")
+    if entry.get("status") != "ok":
+        sentence = f"{entry['status']} — {sentence}"
+    return sentence
+
+
+def _write_snapshot(path, payload):
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    with open(path, "wb") as handle:
+        handle.write(P.canonical_json(payload))
+    return path
 
 
 def _lambert_segments(ways):
@@ -242,7 +518,10 @@ def _coverage_and_deviation(points, segments):
     return result
 
 
-def _osm_metrics(points, payload, base):
+def _osm_metrics(points, payload, base, query_text=None):
+    """`query_text` domyślnie opisuje zapytanie Overpassa — i przy drodze zapasowej
+    trzeba je podać, bo inaczej wynik niósłby sumę zapytania, którego nikt nie wysłał.
+    `query_sha256` jest polem provenance: nieprawdziwe jest tu gorsze niż żadne."""
     ways = [e for e in payload.get("elements", []) if e.get("type") == "way" and e.get("geometry")]
     segments = _lambert_segments(ways)
     if not segments:
@@ -266,8 +545,10 @@ def _osm_metrics(points, payload, base):
         entry.update(_coverage_and_deviation(points, per_relation[relation]))
         entry["ways"] = len(per_relation[relation])
         directions.append(entry)
+    if query_text is None:
+        query_text = overpass_query(points)
     return dict(base, **{
-        "query_sha256": P.sha256_bytes(overpass_query(points).encode("utf-8")),
+        "query_sha256": P.sha256_bytes(query_text.encode("utf-8")),
         "ways": len(ways),
         "nodes": sum(len(s) for s in segments),
         "per_relation": directions,
@@ -303,18 +584,31 @@ def main(argv=None):
     report = {"alignment_id": document["id"], "checked_at": P.utc_now_iso(),
               "source_crs": document["source_crs"], "points": len(points)}
     report["urbis"] = ({"status": "pominięte"} if args.skip_urbis
-                       else crosscheck_urbis(points, args.timeout, args.urbis_file))
+                       else crosscheck_urbis(points, args.timeout, args.urbis_file,
+                                             offline=args.offline))
     report["osm"] = ({"status": "pominięte"} if args.skip_osm
-                     else crosscheck_osm(points, args.timeout, args.osm_file))
+                     else crosscheck_osm(points, args.timeout, args.osm_file,
+                                         source=args.osm_source, offline=args.offline,
+                                         tile_deg=args.osm_tile_deg,
+                                         sleep_s=args.osm_sleep_s,
+                                         snapshot_out=args.osm_snapshot_out))
 
     out = args.out if os.path.isabs(args.out) else os.path.join(ROOT, args.out)
     os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
     with open(out, "wb") as handle:
         handle.write(P.canonical_json(report))
 
+    # Zdanie o pochodzeniu idzie PRZED liczbami i stoi poza gałęzią statusu, bo dotyczy
+    # każdego przebiegu — także tego, w którym nic się nie pobrało. Czytający ma wiedzieć,
+    # czego się nie udało pobrać skąd, a nie tylko, że się nie udało.
+    print("[ŹRÓDŁO] osm: " + osm_source_sentence(report["osm"]))
+    if args.osm_snapshot_out and report["osm"]["status"] in OSM_STATUS_WITH_METRICS:
+        print(f"[ŹRÓDŁO] snapshot zapisany: {args.osm_snapshot_out} "
+              f"(pole osm_source = {report['osm'].get('source')})")
+
     for name in ("urbis", "osm"):
         entry = report[name]
-        if entry["status"] != "ok":
+        if entry["status"] not in OSM_STATUS_WITH_METRICS:
             print(f"[KONTROLA] {name}: {entry['status']}"
                   + (f" — {entry.get('reason', '')}" if entry.get("reason") else ""))
             continue
@@ -329,6 +623,13 @@ def main(argv=None):
             for low, high in entry["niveau0_chainage_ranges_m"]:
                 print(f"[NIVEAU0] kilometraż {low:.1f}–{high:.1f} m ({high - low:.1f} m)")
         else:
+            download = entry.get("download")
+            if download:
+                print(f"[OSM-API] {download['tiles']} kafli po {download['tile_deg']}°, "
+                      f"{download['bytes_downloaded']} B pobrane, "
+                      f"kafli odrzuconych: {len(download['tiles_refused'])}")
+                for refused in download["tiles_refused"]:
+                    print(f"[OSM-API] ODRZUCONY {refused['bbox']}: {refused['kind']}")
             print(f"[KONTROLA] osm: {entry['ways']} way, pokrycie {entry['coverage_pct']}% "
                   f"(promień {entry['coverage_radius_m']:.0f} m), odchyłka na pokrytym odcinku: "
                   f"mediana {entry['deviation_median_m']} m, P95 {entry['deviation_p95_m']} m, "
