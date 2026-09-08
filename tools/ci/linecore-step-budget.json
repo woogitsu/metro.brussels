@@ -16,6 +16,8 @@
     "coast_from_m": null
   },
   "trains_on_line_expected": 9,
+  "$comment_spread_pct_max": "6.D41. Granica, powyzej ktorej pomiar jest UZNANY ZA NIEMIERZALNY i NIE jest porownywany z progiem 8,0 us. Nie jest to prog wydajnosci — jest to granica, przy ktorej bramka przestaje udawac, ze cokolwiek zmierzyla. Wyprowadzona z czterech pomiarow, nie zgadnieta: 22,5 % to najwyzszy rozstep z kalibracji progu 8,0 us (reports/linecore-step-budget-gate.md, 06.09.2026); 17,0 % niesie atrapa ZIELONY w tools/tests/test_linecore_budget_gate.py; 1,9-3,7 % zmierzone 07.09.2026 w czterech przebiegach na maszynie niezajetej; 115,9 % zmierzone 07.09.2026 na runnerze woogitsu-host-08 przy dwunastu jobach naraz, gdzie koszt kroku wyszedl 16,022 us wobec 4,213-4,364 us na tej samej tresci kodu. 50,0 jest 2,2x powyzej najwyzszego udokumentowanego pomiaru zielonego i 2,3x ponizej zaobserwowanego niemierzalnego. Wartosc jest TYMCZASOWA: gdy uzbiera sie wiecej rozstepow z samych runnerow, nalezy ja zacisnac, a nie rozluznic.",
+  "spread_pct_max": 50.0,
   "microseconds_per_step_max": 8.0,
   "frame_budget_pct_max": 1.0,
   "basis": "reports/linecore-step-budget-gate.md"
