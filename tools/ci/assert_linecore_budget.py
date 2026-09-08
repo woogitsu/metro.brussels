@@ -85,8 +85,56 @@ def command(config, project="src/Sim.Runner"):
          else ["--coast-from-m", str(s["coast_from_m"])])
 
 
+#: Kod wyjścia dla przekroczonego progu. Zachowany bez zmian — CI i kontrola negatywna
+#: sprawdzają, że bramka „potrafi zaczerwienić", i ten kod jest tym, co widzą.
+KOD_PRZEKROCZONY = 1
+
+#: Kod wyjścia dla pomiaru, którego NIE DA SIĘ porównać z progiem. Osobny od
+#: `KOD_PRZEKROCZONY`, bo to dwa różne zdania o dwóch różnych rzeczach, a do 07.09.2026
+#: bramka mówiła oba tym samym kodem i tym samym komunikatem.
+KOD_NIEMIERZALNY = 3
+
+
+def niemierzalny(config, row):
+    """Powód, dla którego tego pomiaru nie wolno porównać z progiem — albo `None`.
+
+    **Skąd to się wzięło.** Zmierzone 07.09.2026 na runnerze `woogitsu-host-08`, gdy
+    dwanaście jobów liczyło naraz:
+
+        BLAD: koszt kroku 16.022 us przekracza prog 8.000 us
+        [BUDZET-BRAMKA] ... 16.022 us/krok przy progu 8.000; rozstep powtorzen 115.9 %
+
+    Na tej samej treści kodu, na maszynie niezajętej, cztery przebiegi dały
+    **4,213–4,364 µs przy rozstępie 1,9–3,7 %**. Kod nie zwolnił czterokrotnie —
+    maszyna nie dała się zmierzyć.
+
+    **A bramka powiedziała, że kod jest za wolny.** Kolumna `rozstęp_%` była
+    **parsowana i wypisywana, ale nie asertowana**: bramka znała liczbę mówiącą, że jej
+    własny pomiar jest niestabilny, i porównywała go z progiem mimo to. Dwa różne stany
+    świata — „rdzeń zwolnił" i „nie umiem tego zmierzyć" — dawały jeden komunikat
+    i jeden kod wyjścia, a pierwszy z nich każe szukać regresu w kodzie, którego nie ma.
+
+    Zwrócony powód **wstrzymuje porównanie**, a nie tylko dokłada zdanie: porównanie
+    wykonane na niestabilnym pomiarze jest właśnie tym fałszem, którego ta funkcja ma
+    nie dopuścić.
+    """
+    limit = config["spread_pct_max"]
+    if row["spread_pct"] <= limit:
+        return None
+    return ("rozstep powtorzen %.1f %% przekracza granice %.1f %%, wiec koszt kroku "
+            "%.3f us NIE JEST porownywany z progiem %.3f us — ten pomiar nie mowi nic "
+            "o kodzie, tylko o maszynie, na ktorej go zrobiono"
+            % (row["spread_pct"], limit, row["us_per_step"],
+               config["microseconds_per_step_max"]))
+
+
 def verdict(config, output):
-    """`(ok, komunikaty)` — pusta lista zarzutów znaczy zielono."""
+    """`(ok, komunikaty)` — pusta lista zarzutów znaczy zielono.
+
+    Warunki OBSADY i kształtu wyjścia sprawdzane są zawsze; warunki CZASU wyłącznie
+    wtedy, gdy `niemierzalny` zwróci `None`. Rozdział jest zamierzony: liczba składów
+    na planie nie zależy od obciążenia maszyny, a koszt kroku zależy.
+    """
     rows = parse(output)
     problems = []
     if not rows:
@@ -103,15 +151,20 @@ def verdict(config, output):
             "INNEGO przejazdu niż ten, o którym mówi próg — najczęstsza przyczyna to "
             "okno krótsze niz (N-1) x odstep (6.A12)"
             % (row["on_line_max"], expected))
-    limit = config["microseconds_per_step_max"]
-    if row["us_per_step"] > limit:
-        problems.append(
-            "koszt kroku %.3f us przekracza prog %.3f us" % (row["us_per_step"], limit))
-    frame = config["frame_budget_pct_max"]
-    if row["frame_budget_pct"] > frame:
-        problems.append(
-            "krok zajmuje %.3f %% budzetu klatki przy progu %.3f %%"
-            % (row["frame_budget_pct"], frame))
+    powod = niemierzalny(config, row)
+    if powod:
+        problems.append(powod)
+    else:
+        limit = config["microseconds_per_step_max"]
+        if row["us_per_step"] > limit:
+            problems.append(
+                "koszt kroku %.3f us przekracza prog %.3f us"
+                % (row["us_per_step"], limit))
+        frame = config["frame_budget_pct_max"]
+        if row["frame_budget_pct"] > frame:
+            problems.append(
+                "krok zajmuje %.3f %% budzetu klatki przy progu %.3f %%"
+                % (row["frame_budget_pct"], frame))
     return not problems, problems
 
 
@@ -172,7 +225,16 @@ def main(argv=None):
     ok, problems = verdict(config, output)
     for problem in problems:
         sys.stderr.write("BLAD: " + problem + "\n")
-    return 0 if ok else 1
+    if ok:
+        return 0
+    # Kod niemierzalności należy się WYŁĄCZNIE wtedy, gdy jest to jedyny zarzut.
+    # Pomiar niestabilny, który przy okazji mierzy jeden skład zamiast dziewięciu, jest
+    # nadal usterką scenariusza i musi wychodzić kodem 1 — inaczej „nie umiem zmierzyć"
+    # przesłoniłoby zarzut, który od obciążenia maszyny nie zależy wcale.
+    rows = parse(output)
+    if len(problems) == 1 and rows and niemierzalny(config, rows[0]):
+        return KOD_NIEMIERZALNY
+    return KOD_PRZEKROCZONY
 
 
 if __name__ == "__main__":
