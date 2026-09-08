@@ -401,7 +401,21 @@ def check(metadata, axis_path, resolution, view, chainage_m, manifest=None):
     # to w metadanych 2000,068 m, a okno przesunięte o te 68 mm nie jest usterką.
     # Że `last_shot.chainage_m` odpowiada żądaniu, sprawdza osobno kontrola niżej —
     # obie razem są ciaśniejsze niż którakolwiek z osobna.
-    last_chainage = (metadata.get("last_shot") or {}).get("chainage_m")
+    #
+    # 6.C4: kotwicą GEOMETRII jest `subject_chainage_m`, czyli kilometraż, który kadr
+    # pokazuje — bo to on wyznacza okno streamowania. Dla trzech widoków jazdy jest
+    # równy `chainage_m` i nic się nie zmienia; dla widoku `inspect` kamera stoi tam,
+    # gdzie pojazd nie dojechał, więc kotwica na pojeździe kazałaby scenie trzymać
+    # geometrię z DRUGIEGO KOŃCA osi. Zmierzone: przy kotwicy na pojeździe bramka
+    # żądała osi [0,000, 385,021] m od scény streamującej [1136,374, 2480,285] m.
+    #
+    # Sprawdzenie jest po tej zmianie CIAŚNIEJSZE, nie luźniejsze: geometria jest
+    # porównywana z miejscem, które kadr NAPRAWDĘ pokazuje, a nie z miejscem, które
+    # przy widokach jazdy przypadkiem się z nim pokrywa.
+    last = metadata.get("last_shot") or {}
+    last_chainage = last.get("subject_chainage_m")
+    if not isinstance(last_chainage, (int, float)):
+        last_chainage = last.get("chainage_m")
     expected = None
     if manifest is not None and isinstance(last_chainage, (int, float)):
         expected = streaming_expectations(manifest, last_chainage)
@@ -485,11 +499,61 @@ def check(metadata, axis_path, resolution, view, chainage_m, manifest=None):
     if chainage_m is not None:
         # Skład zatrzymuje się na najbliższym całym kroku, więc równości nie ma;
         # metr zapasu odróżnia „ten sam kadr" od „kadr z innego miejsca osi".
-        got = last.get("chainage_m")
-        if not isinstance(got, (int, float)) or abs(got - chainage_m) > 1.0:
+        #
+        # 6.C4: sprawdzany jest `subject_chainage_m`, czyli kilometraż, który kadr
+        # NAPRAWDĘ pokazuje. Dla trzech widoków jazdy jest on równy `chainage_m`,
+        # bo kamera wisi na składzie. Dla widoku `inspect` nie jest: kamera bierze
+        # geometrię z osi, a skład zostaje tam, gdzie stał — zmierzone, zrzut
+        # z 2521,1 m zapisywał `chainage_m = 94,0`.
+        #
+        # Pole jest wymagane TYLKO dla widoku `inspect` i to jest wybór wyprowadzony,
+        # nie kompromis. Dla trzech widoków jazdy `subject_chainage_m` jest RÓWNE
+        # `chainage_m` z konstrukcji, więc odwrót na drugie pole nie jest cichą zgodą —
+        # to ta sama liczba. Dla `inspect` równa nie jest i wtedy brak pola znaczy, że
+        # nie ma czym sprawdzić kadru, czyli byłby zielonym zerem.
+        #
+        # Żądanie pola OD WSZYSTKICH wywracało dziesięć testów bramki, których atrapa
+        # jest METADANYMI ZMIERZONYMI na przebiegu Godota 4.3 — a dopisanie do zapisu
+        # pomiaru pola, którego tamten przebieg nie wypisał, byłoby jego falsyfikacją.
+        # Nazwa pola w komunikacie jest NAZWĄ POLA, KTÓRE NAPRAWDĘ PORÓWNANO —
+        # inaczej odmowa mówiłaby o `subject_chainage_m` przy metadanych, które go
+        # nie mają, czyli o polu nieistniejącym. Ta sama zasada, co przy 6.A19.
+        pole = "subject_chainage_m"
+        got = last.get("subject_chainage_m")
+        widok = (last.get("view") or "").lower()
+        if not isinstance(got, (int, float)):
+            pole = "chainage_m"
+            if widok == "inspect":
+                problems.append(
+                    f"brak last_shot.subject_chainage_m (jest {got!r}) przy widoku "
+                    "inspect — dla tego widoku kilometraż pojazdu NIE opisuje kadru, "
+                    "więc bez tego pola nie ma czego sprawdzić")
+            got = last.get("chainage_m")
+        if not isinstance(got, (int, float)):
             problems.append(
-                f"last_shot.chainage_m = {got}, żądano {chainage_m} "
+                f"brak last_shot.chainage_m ani subject_chainage_m (jest {got!r})")
+        elif abs(got - chainage_m) > 1.0:
+            problems.append(
+                f"last_shot.{pole} = {got}, żądano {chainage_m} "
                 "(literówka w --at-chainage dawała kadr z innego miejsca osi)")
+
+        # Widok inspekcyjny ma pokazać kilometraż BEZ przejeżdżania do niego, więc
+        # `steps` musi być zerem, a kilometraż składu ma się od tematu kadru RÓŻNIĆ,
+        # jeżeli tylko cel leży dalej niż start przejazdu. Bez tych dwóch warunków
+        # widok „inspekcyjny", który po cichu wrócił do jazdy, przechodziłby bramkę.
+        if (last.get("view") or "").lower() == "inspect":
+            steps = last.get("steps")
+            if steps != 0:
+                problems.append(
+                    f"last_shot.steps = {steps} przy widoku inspect — ten widok ma nie "
+                    "przejeżdżać do celu, a zero kroków jest jedynym dowodem, że nie przejechał")
+            train = last.get("chainage_m")
+            if isinstance(train, (int, float)) and abs(train - chainage_m) <= 1.0 \
+                    and chainage_m > 100.0:
+                problems.append(
+                    f"last_shot.chainage_m = {train} zbieżny z żądanym {chainage_m} przy "
+                    "widoku inspect — skład stoi w kadrze, czyli albo przejazd się odbył, "
+                    "albo temat kadru został przepisany z pozycji pojazdu")
 
     return problems
 

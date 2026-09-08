@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using MetroBxl.Game;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -184,6 +185,48 @@ public sealed class RunPlanTests
         Assert.AreEqual(ViewKind.Cab, Parse("--view=cab").View);
         Assert.AreEqual(ViewKind.Chase, Parse("--view=chase").View);
         Assert.AreEqual(ViewKind.Outside, Parse("--view=outside").View);
+        Assert.AreEqual(ViewKind.Inspect, Parse("--view=inspect").View);
+    }
+
+    /// <summary>
+    /// KAŻDY znany widok ma własny <see cref="ViewKind"/> — i to jest liczone
+    /// z <see cref="RunPlan.KnownViews"/>, nie wypisane.
+    ///
+    /// <para><b>Skąd ten test.</b> Test wyżej wymienia widoki z ręki, więc dopisanie
+    /// piątego do <c>KnownViews</c> bez gałęzi w <c>switch</c> przeszłoby go: nowa
+    /// nazwa spadłaby na <c>_ => ViewKind.Cab</c> i scena CICHO dałaby kabinę.
+    /// Dokładnie ta usterka jest opisana przy 6.C4 dla <c>--view=zmyslony</c>, tylko
+    /// tam nazwa była nieznana, a tu byłaby znana i milcząca. Liczba widoków
+    /// jest POMIAREM tablicy, a różnorodność rodzajów — jej sprawdzeniem.</para>
+    /// </summary>
+    [TestMethod]
+    public void ZadenZnanyWidokNieSpadaCichoDoKabiny()
+    {
+        var rodzaje = new List<ViewKind>();
+        foreach (var view in RunPlan.KnownViews)
+        {
+            var plan = Parse($"--view={view}");
+            Assert.IsTrue(plan.IsValid, $"--view={view} stoi w KnownViews, a nie przeszło");
+            rodzaje.Add(plan.View);
+        }
+
+        Assert.AreEqual(RunPlan.KnownViews.Length, rodzaje.Distinct().Count(),
+            "dwie znane nazwy widoku dają ten sam ViewKind — któraś spada na gałąź "
+            + "domyślną i scena cicho podstawia inny widok: " + string.Join(", ", rodzaje));
+    }
+
+    /// <summary>
+    /// Widok inspekcyjny jest CZWARTY, a nie podmienionym trzecim: trzy widoki jazdy
+    /// zostają w tablicy i zachowują swoje rodzaje. Bez tego testu poprawka
+    /// przestawiająca kolejność albo podmieniająca nazwę przeszłaby wszystko wyżej.
+    /// </summary>
+    [TestMethod]
+    public void Widok_inspekcyjny_dochodzi_do_trzech_a_nie_zamiast()
+    {
+        CollectionAssert.AreEqual(
+            new[] { "cab", "chase", "outside", "inspect" },
+            RunPlan.KnownViews,
+            "kolejność i skład KnownViews: " + string.Join(", ", RunPlan.KnownViews));
     }
 
     /// <summary>Wielkość liter ma znaczenie: „Cab" nie jest „cab" i ma być odmową.</summary>
