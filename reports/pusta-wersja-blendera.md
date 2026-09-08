@@ -160,7 +160,15 @@ wykonywana, a nie przeskakiwana z braku `gcc`. Na maszynie bez `gcc` test woła
 
 ## 7. Zapadka bloków
 
-`MINIMUM_DETAIL_BLOCKS` ma teraz 112 — przepisane, nie dopisane obok, z poprzedniej wartosci 111. Sprawdzone w obu kierunkach:
+`MINIMUM_DETAIL_BLOCKS` ma 119. **Pomiar niżej jest z 07.09.2026 i zostaje taki,
+jaki był** — wtedy wartością równą stanowi drzewa było 112, bo blok 6.D39 był
+jedynym dochodzącym. Do scalenia (08.09.2026) weszły przed nim 6.D41 i sześć
+pozycji uzupełnienia kolejki, każda ze swoim blokiem, więc równość wypadła
+o siedem wyżej. Nie przeliczam poniższego bloku na 119: to była kontrola wykonana
+na innym stanie drzewa, a przepisanie jej liczb zamieniłoby zapis pomiaru w zapis
+przypuszczenia.
+
+Kontrola z 07.09.2026, przy 112 blokach w drzewie:
 
 ```
 prog 113 (wyzszy niz stan):  FAIL test_the_documented_ratchet_does_not_lag_behind_the_file:
@@ -168,6 +176,25 @@ prog 113 (wyzszy niz stan):  FAIL test_the_documented_ratchet_does_not_lag_behin
                              25/26 przeszło
 prog 112 (rowny stanowi):    26/26 przeszło
 ```
+
+Kontrola powtórzona 08.09.2026 na drzewie po scaleniu, przy 119 blokach — trzy
+kierunki, nie dwa, bo zapadka wymaga RÓWNOŚCI i pomylić się da się w obie strony:
+
+```
+zapadka 120 (wyzsza od stanu):  FAIL test_the_documented_ratchet_does_not_lag_behind_the_file:
+                                bloków jest 119 przy zapadce 120 — któryś zniknął albo
+                                stracił jedno z sześciu pól
+                                25/26 przeszło
+zapadka 119 (rowna stanowi):    26/26 przeszło
+zapadka 118 (nizsza od stanu):  FAIL test_the_documented_ratchet_does_not_lag_behind_the_file:
+                                bloków z kompletem sześciu pól jest 119, a zapadka stoi
+                                na 118 — podnieś ją do 119 w tym samym commicie
+                                25/26 przeszło
+```
+
+Każdy przebieg kontroli czyścił `__pycache__` przed uruchomieniem: mutacja
+`= 119` na `= 118` ma identyczną długość pliku, a to jest dokładnie ten przypadek,
+w którym przywrócenie przez `cp` zostawia nieświeży bajtkod (znalezione przy 6.D41).
 
 ## 8. Weryfikacja
 
