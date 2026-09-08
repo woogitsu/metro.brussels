@@ -201,8 +201,7 @@ kontrola pokazuje, że przypadek, który stary warunek łapał, nowy łapie nada
 
 ## 7. Zapadka bloków
 
-`MINIMUM_DETAIL_BLOCKS` ma 125. Wartość rośnie dalej przy każdym uzupełnieniu kolejki — 08.09.2026 doszły cztery bloki 6.D48 … 6.D51, a przy 6.B52 piąty (6.D52), i zapadka stoi na **125**. Liczby w blokach pomiarowych niżej zostają przy swoich datach; ten akapit niesie stan bieżący. **Pomiar niżej jest z 07.09.2026 i zostaje taki,
-jaki był** — wtedy wartością równą stanowi drzewa było 112, bo blok 6.D40 był
+`MINIMUM_DETAIL_BLOCKS` ma 126. Wartość rośnie dalej przy każdym uzupełnieniu kolejki — 08.09.2026 doszły najpierw cztery bloki 6.D48 … 6.D51 (zapadka 124), potem 6.D52 z decyzji właściciela o serializacji jobów (125), a przy 6.B52 blok 6.D53 o rejestrze źródeł, i zapadka stoi na **126**. Żadna z dwóch gałęzi, które się tu spotkały, nie miała tej liczby: obie mówiły 125, bo obie liczyły tylko własny blok — zapadkę ustawił POMIAR na pliku scalonym. Liczby w blokach pomiarowych niżej zostają przy swoich datach; ten akapit niesie stan bieżący. **Pomiar niżej jest z 07.09.2026 i zostaje taki,jaki był** — wtedy wartością równą stanowi drzewa było 112, bo blok 6.D40 był
 jedynym dochodzącym. Ta gałąź niosła też zdanie, że druga z pary 6.D39 / 6.D40
 musi w rozwiązaniu konfliktu dać **113**; było prawdziwe, gdy w locie były tylko
 te dwie gałęzie, ale przed nimi weszły 6.D41 i sześć pozycji uzupełnienia

@@ -872,7 +872,8 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.D49 | **`reports/nieznana-opcja-runnera.md` §72 wymienia nazwę testu, którego już nie ma** — tabela kontroli odsyła do `Line_z_nieznana_opcja_konczy_sie_kodem_jeden`, przemianowanego przy 6.A19 | zauważone 08.09.2026 przy 6.A19 i tam świadomie nietknięte (§4.10). Dwa inne raporty niosą tę nazwę we WKLEJONYM wyjściu dawnych kontroli i tam ma zostać — różnica między zapisem pomiaru a żywym odsyłaczem jest tu całą treścią | S |
 | 6.D50 | **Akapit planu mówi o „31 pozycjach" faz 5 i 6, a `open_items` daje 12** — liczba w prozie nie jest przez nic pilnowana, inaczej niż zapadki obok | zmierzone 08.09.2026 na `docs/TASKS.md:530`. Ta sama rodzina co `MINIMUM_DETAIL_BLOCKS`, tylko bez zapadki; liczba w prozie planu, który sam siebie nazywa mapą, starzeje się po cichu przy każdym domknięciu | S |
 | 6.D51 | **Siedem narzędzi sięga do sieci, a `--offline` ma jedno z nich** — nie wiadomo, które przebiegi da się wykonać bez sieci, a które padną albo zawisną | zmierzone 08.09.2026 przejściem po drzewie: 22 pliki narzędzi, `--offline` w **3**, a z siedmiu sięgających do sieci tylko `provenance.py`. Tego samego dnia Overpass był z kontenera nieosiągalny (trzy próby), a UrbIS odpowiadał HTTP 200 — czyli „brak sieci" nie jest stanem zero-jedynkowym | M |
-| 6.D52 | **`sources.json` opisuje dostęp do OSM dwoma słowami `osm_or_overpass` i nie podaje ani jednej końcówki ani limitu** — rejestr, który ma być maszynowym zapisem dostępu, nie mówi, czym te dwie drogi się różnią | zmierzone 08.09.2026 przy 6.B52. Wpis `openstreetmap` ma `access.type = "osm_or_overpass"` i `authentication = "endpoint-dependent"` — ani `download_url`, ani limitu obszaru, ani limitu żądań. Tymczasem `/api/0.6/map` ma **twardy limit 50 000 węzłów** (zmierzony: HTTP 400 na bboxie pakietu D) i to on wymusza kaflowanie. Wpisu nie dodałem: `data/` jest tylko do odczytu (§4.6) | S |
+| 6.D52 | **Decyzja właściciela z 08.09.2026 każe zserializować joby czasowe wobec renderów, a `needs:` do tego NIE wystarczy** — dziesięć jobów stoi w dziesięciu OSOBNYCH plikach workflowu, więc zostaje wspólna grupa `concurrency`, której zachowania w tym repozytorium nikt nie zmierzył | zmierzone 08.09.2026 przejściem po `.github/workflows/`: dziesięć plików, dziesięć jobów, `concurrency` w zerze z nich. Dokumentacja GitHuba mówi, że trzeci przebieg w grupie ANULUJE oczekującego — czyli lek mógłby być gorszy od choroby, bo anulowany job nie jest „niemierzalny", tylko go nie ma. Pozycja mierzy to zachowanie PRZED zmianą treści workflowów | M |
+| 6.D53 | **`sources.json` opisuje dostęp do OSM dwoma słowami `osm_or_overpass` i nie podaje ani jednej końcówki ani limitu** — rejestr, który ma być maszynowym zapisem dostępu, nie mówi, czym te dwie drogi się różnią | zmierzone 08.09.2026 przy 6.B52. Wpis `openstreetmap` ma `access.type = "osm_or_overpass"` i `authentication = "endpoint-dependent"` — ani `download_url`, ani limitu obszaru, ani limitu żądań. Tymczasem `/api/0.6/map` ma **twardy limit 50 000 węzłów** (zmierzony: HTTP 400 na bboxie pakietu D) i to on wymusza kaflowanie. Wpisu nie dodałem: `data/` jest tylko do odczytu (§4.6) | S |
 
 #### Szczegóły pozycji z kompletem sześciu pól
 
@@ -5247,11 +5248,30 @@ MINIMUM_DETAIL_BLOCKS = 73
   uruchomieniem po opróżnieniu puli, i tak zostały scalone wszystkie pull requesty
   z 08.09.2026.
 - **Co ta pozycja robi, a czego NIE robi:** mierzy, ile jobów naraz pula znosi,
-  zanim rozstęp przekroczy granicę 50 % z `tools/ci/linecore-step-budget.json`,
-  i zapisuje tę liczbę. **Nie zmienia topologii jobów** — dopisanie `concurrency`
-  albo `needs:` między renderami a jobami czasowymi zmienia kształt CI i czas
-  przejścia całego zestawu bramek, więc jest decyzją właściciela, nie skutkiem
-  pomiaru. Pozycja dostarcza liczbę, na której taką decyzję da się oprzeć.
+  zanim rozstęp przekroczy granicę `spread_pct_max` z
+  `tools/ci/linecore-step-budget.json`, i zapisuje tę liczbę. **Nie zmienia topologii
+  jobów** — dopisanie `concurrency` albo `needs:` między renderami a jobami czasowymi
+  zmienia kształt CI i czas przejścia całego zestawu bramek, więc jest decyzją
+  właściciela, nie skutkiem pomiaru. Pozycja dostarcza liczbę, na której taką decyzję
+  da się oprzeć.
+
+  > **Adnotacja z 08.09.2026: ta decyzja PRZYSZŁA, i pole zostaje bez zmian właśnie
+  > dlatego.** Właściciel odpowiedział „zserializować joby czasowe" (sekcja
+  > „Rozstrzygnięte 08.09.2026" niżej w tym pliku). Zdanie powyżej **nie jest więc
+  > nieaktualne** — mówi, czego ta pozycja nie robi, a ona nadal tego nie robi:
+  > serializację wykonuje **6.D52**, która na 6.D43 czeka. Rozdział jest zamierzony,
+  > bo bez zmierzonej liczby jobów ziarno grupy `concurrency` byłoby zgadnięte.
+  >
+  > Dwie rzeczy zmierzone tego dnia zawężają jednak tamtą pozycję i tu należą.
+  > **Pierwsza:** `needs:` na tę serializację **nie ma zastosowania** — dziesięć jobów
+  > stoi w dziesięciu OSOBNYCH plikach workflowu (`concurrency` w zerze z nich), a
+  > `needs:` działa wyłącznie wewnątrz jednego workflowu. Zdanie powyżej wymienia je
+  > jako jedną z dwóch możliwości i **w tym punkcie było nieprawdziwe**; zostaje
+  > wypisane, bo to ono kazało zmierzyć.
+  > **Druga:** granica, o którą pyta pomiar, przestała być liczbą 50 % wpisaną tutaj —
+  > próg czasu poszedł 08.09.2026 z 8,0 na 14,0 µs i pole odsyła teraz do **nazwy**
+  > `spread_pct_max`, nie do jej wartości. Liczba stała w tym pliku w kopii i to jest
+  > dokładnie ta rodzina usterki, którą 6.D43 opisuje.
 - **Wejście:** `tools/ci/assert_linecore_budget.py` (`niemierzalny`, kod 3),
   `tools/ci/linecore-step-budget.json` (`spread_pct_max`),
   `reports/rozstep-budzetu-kroku.md` (skąd granica 50 %),
@@ -5562,6 +5582,30 @@ MINIMUM_DETAIL_BLOCKS = 73
   w tej samej chwili odpowiadał **HTTP 200**. „Brak sieci" nie jest więc stanem
   zero-jedynkowym: jedno źródło działa, drugie nie, a pozycja 6.B26 wymaga
   rozstrzygnięcia po **obu** i przez to stoi.
+
+  > **Adnotacja z 08.09.2026, po decyzji właściciela „przepuścić `overpass-api.de`":
+  > decyzja jest, a z tego kontenera JESZCZE NIE OBOWIĄZUJE — i to jest pomiar, nie
+  > przypuszczenie.** Odpytane trzy końcówki, których naprawdę używają narzędzia
+  > z `tools/track/` (wypisane z drzewa, nie z pamięci):
+  >
+  > ```
+  > overpass-api.de/api/status                          HTTP 000, 7,53 s
+  >   proxy: ws_closed_mid_exchange dla overpass-api.de:443, ostatni wpis 08:19:06Z
+  > data.mobility.brussels/.../v1/collections/          HTTP 200, 2,75 s
+  > api.openstreetmap.org/api/0.6/capabilities          HTTP 200, 0,80 s
+  > ```
+  >
+  > Blokada jest więc **wyłącznie na Overpassie**, a nie „brakiem sieci" — dwa
+  > pozostałe źródła odpowiadają. **6.B26 zostaje zablokowana do chwili, gdy próba
+  > z kontenera odpowie HTTP 200**, i to jest warunek sprawdzalny jedną komendą,
+  > a nie oceną. Zmiany polityki sieci agent nie wykonuje: nie ma jej
+  > w repozytorium.
+  >
+  > Uwaga o mojej własnej pierwszej próbie, bo jest pouczająca: odpytałem najpierw
+  > `gis.urbis.brussels`, dostałem `502 CONNECT tunnel failed` i **prawie** zapisałem
+  > to jako regres wobec pomiaru z rana. Tej końcówki żadne narzędzie w drzewie nie
+  > używa — UrbIS-em w tym repozytorium jest `data.mobility.brussels`. Pomiar na
+  > adresie, którego kod nie woła, mówi o adresie, nie o projekcie.
 - **Wejście:** `tools/track/surface_sections.py` (opcje snapshotów),
   `tools/track/fetch_osm_routes.py`, `tools/track/fetch_gtfs.py` (wzorzec
   `--offline`, z 6.D14), `tools/data/provenance.py`,
@@ -5588,9 +5632,68 @@ MINIMUM_DETAIL_BLOCKS = 73
   `data/` — katalog jest tylko do odczytu.
 - **Zależy od:** nic. 6.B26 na to czeka, ale nie odwrotnie.
 
-##### 6.D52 · `sources.json` opisuje dostęp do OSM dwoma słowami i żadną liczbą
+##### 6.D52 · Serializacja jobów czasowych wobec renderów — decyzja jest, kształtu nie ma
 
-- **Skąd:** zmierzone 08.09.2026 przy 6.B52. Wpis `openstreetmap` w rejestrze niesie
+- **Skąd:** decyzja właściciela z 08.09.2026 („zserializować joby czasowe") na pytanie
+  postawione przez 6.D43. Decyzja zdejmuje pytanie „czy wolno zmieniać topologię CI";
+  **nie zdejmuje pytania, jak to zrobić, żeby nie anulować jobów** — i to jest cała
+  treść tej pozycji.
+
+  Zmierzone 08.09.2026 przejściem po `.github/workflows/`: **dziesięć jobów stoi
+  w dziesięciu OSOBNYCH plikach workflowu**, a `concurrency` nie występuje w żadnym
+  z nich (0 dopasowań). `needs:` działa wyłącznie **wewnątrz** jednego workflowu, więc
+  na tę serializację **nie ma zastosowania** — mimo że jest oczywistym pierwszym
+  pomysłem i tak został nazwany w bloku 6.D43.
+- **Twierdzenie NIEZMIERZONE, które ta pozycja ma rozstrzygnąć przed jakąkolwiek
+  edycją:** dokumentacja GitHuba mówi, że w grupie `concurrency` stoi **jeden** przebieg
+  oczekujący, a kolejny **anuluje** tego oczekującego. Gdyby to było prawdą dla tego
+  repozytorium, wspólna grupa dla renderów i jobów czasowych zamieniłaby przy trzech
+  pull requestach naraz **opóźnienie w anulowanie** — czyli lek gorszy od choroby,
+  bo anulowany job nie jest „niemierzalny", tylko go nie ma. Zachowania NIE odczytano
+  z tego repozytorium, bo nie ma w nim ani jednej grupy `concurrency`.
+- **Wejście:** `.github/workflows/python-tests.yml` (job `tools`),
+  `.github/workflows/sim-tests.yml` (job `sim`),
+  `.github/workflows/tunnel-alignment.yml` (macierz trzech renderów),
+  `.github/workflows/blender-smoke.yml`, `visual-regression.yml` (czwarty i piąty
+  ciężki job), `tools/tests/test_ci_workflows.py` (bramki na treść workflowów).
+  Wyjścia **6.D43** — liczby jobów, którą pula znosi — to pole **nie wymienia jako
+  pliku, i jest to poprawka z pomiaru, nie oszczędność słów**: pierwsza wersja tego
+  bloku podała tam ścieżkę raportu 6.D43, a `test_no_input_field_names_a_file_outside_the_tree`
+  ją odrzucił, bo 6.D43 nie jest zrobiona i tego pliku w drzewie **nie ma**. Bramka
+  miała rację: „Wejście" mówi, co czytać dziś, a nie co powstanie. Zależność stoi
+  w polu „Zależy od", gdzie należy.
+- **Wyjście:** `reports/serializacja-jobow-ci.md` — **zmierzone** zachowanie grupy
+  `concurrency` przy dwóch i przy trzech przebiegach naraz (czy trzeci opóźnia, czy
+  anuluje; z numerami runów), czas przejścia całego zestawu bramek przed i po, oraz
+  wybrane ziarno grupy z uzasadnieniem. Zmiana w workflowach wchodzi **dopiero po**
+  tym pomiarze i w tym samym pull requeście co raport.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py; echo "kod: $?"
+  grep -c "concurrency" .github/workflows/*.yml
+  ```
+  plus **wykonany** przebieg z trzema pull requestami naraz, z wypisanym stanem
+  końcowym każdego z jobów czasowych (`success` / `cancelled` / `failure`) — bo
+  pytanie „opóźnia czy anuluje" rozstrzyga wyłącznie pomiar, a nie dokumentacja.
+- **Skończone, gdy:** `reports/serializacja-jobow-ci.md` podaje stan końcowy jobów
+  czasowych przy **trzech** przebiegach naraz, z numerami runów, i ani jeden z nich
+  nie jest `cancelled`; czas przejścia zestawu bramek przed i po jest zmierzony
+  i wypisany; a rozstęp powtórzeń w jobie `sim` przy pełnym przebiegu pull requesta
+  jest **poniżej granicy `spread_pct_max`** z `tools/ci/linecore-step-budget.json`,
+  czyli pierwszy przebieg przestaje być niemierzalny z konstrukcji.
+- **Poza zakresem:** zmiana progu kosztu kroku (zrobiona 08.09.2026, próg 14,0 µs)
+  i zaciśnięcie `spread_pct_max` — obie dotyczą tego, **co bramka porównuje**, a ta
+  pozycja dotyczy tego, **kiedy job chodzi**. Nie dotyka też liczby maszyn w puli ani
+  selektora `runs-on` z `CLAUDE.md` §9. Nie usuwa żadnego jobu ani renderu: skrócenie
+  zestawu bramek nie jest serializacją.
+- **Zależy od:** **6.D43** — bez zmierzonej liczby jobów, którą pula znosi, ziarno
+  grupy `concurrency` byłoby zgadnięte.
+
+##### 6.D53 · `sources.json` opisuje dostęp do OSM dwoma słowami i żadną liczbą
+
+- **Skąd:** zmierzone 08.09.2026 przy 6.B52. Numer **przesunięty z 6.D52 na 6.D53**
+  w rozwiązaniu konfliktu ze scaleniem #409, które tego samego dnia zajęło 6.D52
+  innym zadaniem; treść jest bez zmian. Wpis `openstreetmap` w rejestrze niesie
   `access = {"type": "osm_or_overpass", "authentication": "endpoint-dependent"}` —
   czyli mówi, że dróg jest dwie, i **nie mówi o żadnej z nich nic więcej**. Nie ma
   `download_url`, nie ma limitu obszaru, nie ma limitu żądań. Tymczasem obie drogi
@@ -5666,6 +5769,24 @@ sesji, a nie repozytorium — i to też jest wynik, nie luka.
 | **pasmo 94..106 m** kamery goniącej | **rozciągnąć ukrycie do 110 m** | pozycja **6.B43** w fazie 6. Granica przestaje być tożsama z długością składu i to jest istotne: `Availability` pyta dziś o kilometraż i długość składu **i o nic więcej**, a po zmianie musi znać jeszcze jeden próg — próg jasności kadru, który z długością M7 nie ma nic wspólnego |
 | **T-901** głębokości stacji | **budować z jawnym `unknown`** — trzy znane głębokości wchodzą do profilu, dziewięć pozostałych zostaje nazwane niewiadomą, a nie zinterpolowane | pozycja **6.B44** w fazie 6 i zmiana statusu **T-112** wyżej w tym pliku. Konflikt Schuman 15 m vs 17,42 m zostaje **nierozstrzygnięty** i tak oznaczony; decyzja mówi „buduj z dziurą widoczną", a nie „wybierz jedną ze stron" |
 | **puls sesji** co godzinę | **zostawić godzinę** | zero pracy w repozytorium poza jednym: `docs/22-heartbeat.md` §5 przepisane, bo mówiło o stanie z 01.09.2026. Decyzja nazywa też przyczynę, dla której pytanie w ogóle padło — usterka była w **zachowaniu agenta** (punktem zatrzymania było „PR otwarty" zamiast „PR scalony"), nie w kadencji pobudki. Zagęszczenie pulsu tej usterki by nie tknęło |
+
+#### Rozstrzygnięte 08.09.2026 — cztery decyzje właściciela
+
+Cztery pozycje przedstawione właścicielowi w formie klikalnej 08.09.2026 dostały
+odpowiedzi. Zapis jest **tutaj, w drzewie**, z tego samego powodu, co przy sekcji
+z 07.09.2026: kopia decyzji żyjąca w czacie starzeje się osobno od repozytorium.
+
+Rozkład jest tu inny niż poprzednio i warto go nazwać: **jedna decyzja jest wykonana
+tego samego dnia, jedna nie ma co zmieniać, a dwie NIE dają się jeszcze wykonać —
+i w obu przypadkach powód jest zmierzony, nie domniemany.** Decyzja właściciela zdejmuje
+pytanie „czy wolno", a nie pytanie „czy da się".
+
+| decyzja | odpowiedź właściciela | co z tego wynika |
+|---|---|---|
+| **próg 8,0 µs** bramki kosztu kroku (`tools/ci/linecore-step-budget.json`) | **podnieść próg powyżej najwolniejszej maszyny** — wariant, przed którym **odradzałem** | **WYKONANE 08.09.2026.** Próg **14,0 µs**, wyprowadzony obustronnie: powyżej 9,572 µs (najwyższy koszt, który bramka porównała z progiem i odrzuciła — `woogitsu-linux-04`, run 34194126232 próba 1) i poniżej 16,022 µs (koszt, który bramka nazywa niemierzalnym). Metody z 06.09.2026 (1,71× nad najwyższym pomiarem) **nie dało się zastosować**: 1,71 × 9,572 = 16,4 µs, czyli powyżej ograniczenia górnego. Cena zmierzona i wypisana: stosunek progu do pomiaru na maszynie niezajętej rośnie 1,78× → 3,11×, więc regres **trojący** koszt kroku przechodzi dziś na zielono. Bramka w tym samym commicie dostała **cztery** asercje, których nie miała — wartości progu nie pilnowało wcześniej nic. `reports/linecore-step-budget-gate.md` §4 i §8 |
+| **topologia jobów CI** — joby czasowe (`tools`, `sim`) chodzą równolegle z czterema renderami Blendera z tego samego przebiegu (6.D43) | **zserializować joby czasowe** | **Decyzja zapisana, praca zakolejkowana jako 6.D52 — i `needs:` do tego NIE wystarczy.** Zmierzone 08.09.2026 przejściem po `.github/workflows/`: **dziesięć jobów stoi w dziesięciu OSOBNYCH plikach workflowu**, a `concurrency` nie występuje w żadnym (0 dopasowań). `needs:` działa wyłącznie **wewnątrz** jednego workflowu, więc jedynym mechanizmem jest **wspólna grupa `concurrency`** — a z nią wiąże się zachowanie, którego **w tym repozytorium NIE zmierzyłem**: dokumentacja GitHuba mówi, że w grupie stoi **jeden** przebieg oczekujący, a kolejny **anuluje** tego oczekującego — czyli przy trzech pull requestach naraz job byłby anulowany, nie opóźniony. Piszę to jako **twierdzenie niezmierzone i tak oznaczone**, bo `concurrency` nie występuje dziś w żadnym workflowie tego repozytorium, więc nie ma z czego tego odczytać; sprawdzenie tego zachowania jest polem „Weryfikacja" pozycji 6.D52. Ile jobów pula znosi, mierzy **6.D43**, i dopiero na tej liczbie da się wybrać ziarno grupy. Decyzja zdjęła pytanie „czy wolno zmieniać topologię"; pytania „jak, żeby nie anulować jobów" nie zdejmuje |
+| **Overpass** — `overpass-api.de` nieosiągalny z kontenera agenta (6.D51, blokuje 6.B26) | **przepuścić `overpass-api.de`** | **Decyzja zapisana, ale z tego kontenera JESZCZE NIE OBOWIĄZUJE, i to jest pomiar, nie przypuszczenie.** Zmierzone 08.09.2026, trzy końcówki, których naprawdę używają narzędzia z `tools/track/`: `overpass-api.de/api/status` → **HTTP 000 po 7,5 s**, a proxy zapisało `ws_closed_mid_exchange` dla `overpass-api.de:443` (ostatni wpis 08:19:06Z); `data.mobility.brussels/geoserver/ogc/features/v1/collections/` → **HTTP 200 w 2,7 s**; `api.openstreetmap.org/api/0.6/capabilities` → **HTTP 200 w 0,8 s**. Blokada jest więc **wyłącznie na Overpassie**, a nie „brakiem sieci". **6.B26 zostaje zablokowana do czasu, gdy próba z tego kontenera odpowie HTTP 200** — i to jest warunek sprawdzalny jedną komendą, nie oceną. Zmiany polityki sieci agent nie wykonuje: nie ma jej w repozytorium |
+| **widok inspekcyjny** — oświetlenie kadru | **zostawić ciemny** | **Zero pracy w repozytorium, bo taki jest stan po 6.C4 (#407).** Widok `inspect` nie dokłada światła i to jest dziś stan drzewa, a nie zaniedbanie do nadrobienia. Decyzja odsyła ocenę estetyczną tam, gdzie należy — do **T-902** — i tym samym potwierdza pole „Poza zakresem" pozycji 6.C4, które tak właśnie ją zostawiło |
 
 ### Znane rozjazdy w dokumentach
 

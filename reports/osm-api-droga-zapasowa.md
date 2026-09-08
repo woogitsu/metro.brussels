@@ -385,7 +385,8 @@ się **celowo**: to utwardzenie `SystemExit` z KN-4.
   porównawczym z innej osi. Tego tu nie ma i nie oznaczam 6.B26 jako rozstrzygniętej.
 - **Nie zmienia niczego w `data/`.** Ani snapshotu (którego nie ma), ani
   `data/network/sources.json` — wpis, którego rejestr potrzebuje, jest zgłoszony jako
-  pozycja **6.D52**, nie dopisany.
+  pozycja **6.D53**, nie dopisany. (Numer przesunięty z 6.D52 przy scaleniu z `main`:
+  #409 zajęło 6.D52 tego samego dnia innym zadaniem.)
 - **Nie dopisuje `--offline` do pozostałych sześciu narzędzi sięgających do sieci.**
   To jest praca, którą ma uzasadnić 6.D51, i osobna pozycja; tutaj `--offline` dostało
   wyłącznie narzędzie, które ta pozycja i tak rusza.

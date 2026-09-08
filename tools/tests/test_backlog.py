@@ -219,13 +219,33 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 #: z nazwy testu, którą sam przemianowałem przy 6.A19, zostawiając martwy odsyłacz
 #: w raporcie. Pozycja opisująca własny błąd jest warta tyle samo co każda inna:
 #: bez wpisu wygląda w tabeli identycznie jak błąd nieistniejący.
-#: Podniesione do 125 przy 6.B52 (08.09.2026): doszedł blok **6.D52**, zgłoszony
-#: z pomiaru wykonanego przy drodze zapasowej do OSM. `data/network/sources.json`
-#: opisuje dostęp do OSM dwoma słowami i żadną liczbą, choć `/api/0.6/map` ma twardy
-#: limit 50 000 węzłów — a liczba tego limitu stoi dziś w kodzie, nie w rejestrze
-#: źródeł. Wpisu do rejestru nie dodałem, bo `data/` jest tylko do odczytu (§4.6),
-#: i właśnie dlatego jest to pozycja kolejki, a nie poprawka.
-MINIMUM_DETAIL_BLOCKS = 125
+#: **124 → 125 (08.09.2026, jeden blok).** Nowa pozycja **6.D52** wchodzi nie
+#: z pomiaru na drzewie, a z **decyzji właściciela** z tego dnia: „zserializować joby
+#: czasowe wobec renderów". Powód, dla którego jest to POZYCJA, a nie od razu zmiana
+#: w workflowach, też jest zmierzony: dziesięć jobów stoi w dziesięciu OSOBNYCH plikach
+#: workflowu, a `concurrency` nie występuje w żadnym, więc `needs:` — pierwszy
+#: i oczywisty pomysł, nazwany w bloku 6.D43 — na tę serializację nie ma zastosowania.
+#: Zostaje wspólna grupa `concurrency`, której zachowania w tym repozytorium nikt nie
+#: odczytał, bo nie ma z czego. Decyzja właściciela zdjęła pytanie „czy wolno";
+#: pytania „jak, żeby nie anulować jobu" nie zdejmuje, i to jest treść 6.D52.
+#:
+#: Zapadka jest tu **podniesiona na POMIAR** liczby bloków w pliku (125), nie na
+#: wartość zapamiętaną z rozmowy — reguła wypisana trzy akapity wyżej obowiązuje
+#: także wtedy, gdy dopisuje się jeden blok, a nie cztery.
+#: **125 → 126 (08.09.2026, blok 6.D53).** Doszedł jeszcze jeden blok, tym razem
+#: z pomiaru przy 6.B52: `data/network/sources.json` opisuje dostęp do OSM dwoma
+#: słowami `osm_or_overpass` i żadną liczbą, choć `/api/0.6/map` ma twardy limit
+#: 50 000 węzłów — a liczba tego limitu stoi dziś w kodzie, nie w rejestrze źródeł.
+#: Wpisu do rejestru nie dodałem, bo `data/` jest tylko do odczytu (§4.6), i właśnie
+#: dlatego jest to pozycja kolejki, a nie poprawka.
+#:
+#: **Numer tej pozycji jest ŚWIADECTWEM reguły z akapitu o starzeniu się liczb.**
+#: Blok powstał jako 6.D52 i musiał zostać przenumerowany na 6.D53 w rozwiązaniu
+#: konfliktu, bo scalenie #409 zajęło 6.D52 tego samego dnia. Zapadka jest tu więc
+#: podniesiona na POMIAR liczby bloków w scalonym pliku (**126**), a nie na sumę
+#: 125 + 1 zapamiętaną z którejkolwiek z dwóch gałęzi — obie te sumy dawały 125
+#: i obie byłyby dziś nieprawdziwe.
+MINIMUM_DETAIL_BLOCKS = 126
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
