@@ -5399,6 +5399,17 @@ MINIMUM_DETAIL_BLOCKS = 73
   **nie mam pomiaru**: przebieg `pull_request` sprawdza scalankę bazy z gałęzią,
   a baza w międzyczasie ruszyła — czy ponowienie bierze scalankę STARĄ (zapisaną
   przy tworzeniu przebiegu), czy przelicza ją na dzisiejszej bazie?
+  **Pomiar CZĘŚCIOWY jest już wykonany i pozycja zostaje otwarta właśnie dlatego:**
+  `reports/ponowienie-a-ruch-bazy.md` (08.09.2026) pokazuje, że we wszystkich
+  ponowieniach z logów tego repozytorium każda próba pobrała ten sam SHA scalanki,
+  **po SHA, nie po nazwie refa**, i starszy od samego przebiegu — ale że w 1919
+  przebiegach `pull_request` z 01–08.09.2026 (45 z więcej niż jedną próbą) nie ma ANI
+  JEDNEGO ponowienia z ruchem `main` między próbami. Z materiału historycznego pytania
+  rozstrzygnąć się więc nie da; brakujący przebieg jest w tamtym raporcie opisany
+  kształtem i wymaga cudzego scalenia w trakcie życia pull requesta. Przesłanka
+  „`main` przesuwał się między próbami przebiegu 34194126232" jest przy tym
+  NIEPRAWDZIWA: scalenia #403, #404 i #405 weszły przed jego utworzeniem, a #406 po
+  zakończeniu trzeciej próby.
 - **Dlaczego to ma znaczenie, a nie jest ciekawostką:** od odpowiedzi zależy, czy
   zielony job po ponowieniu mówi cokolwiek o dzisiejszym `main`. Jeżeli sprawdza
   starą scalankę, to „zielone CI" na takim jobie jest **zielonym zerem** tej samej
