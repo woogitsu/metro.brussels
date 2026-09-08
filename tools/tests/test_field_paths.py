@@ -322,11 +322,32 @@ def test_the_same_block_output_rule_is_the_one_actually_carrying_the_exceptions(
     carried = sorted({_key(hit) for hit in hits
                       if not hit["exists"] and hit["field"] != HARD_FIELD
                       and hit["in_own_output"]})
-    assert len(carried) >= 3, (
-        "reguła „plik z własnego Wyjścia\" usprawiedliwia dziś %d ścieżek, a "
-        "07.09.2026 usprawiedliwiała 3 — jeżeli spadła do zera, jest martwym kodem: %s"
+
+    # Reguła jest ŻYWA, gdy jej ZDJĘCIE zmienia zbiór zgłoszeń. To dowód, który nie
+    # zależy od liczby usprawiedliwionych ścieżek — a zależeć nie może, bo ta liczba
+    # SPADA za każdym razem, gdy ktoś wykona pozycję i obiecany plik powstanie.
+    #
+    # **Asercja jest PRZEPISANA, a nie poluzowana — 07.09.2026.** Poprzednia wersja
+    # żądała `len(carried) >= 3` i uzasadniała to pomiarem z tego samego dnia. Próg
+    # zapalił się przy 6.B44, bo `tools/track/vertical_profile.py` i
+    # `tools/tests/test_vertical_profile.py` PRZESTAŁY być wyjątkami — powstały.
+    # Próg, który wymaga, żeby pozycje NIE były wykonywane, mierzy kolejkę, nie regułę.
+    # Nowa asercja sprawdza WIĘCEJ: nie tylko że reguła kogoś usprawiedliwia, ale że
+    # bez niej zbiór zgłoszeń faktycznie rośnie o dokładnie te ścieżki.
+    assert carried, (
+        "reguła „plik z własnego Wyjścia\" nie usprawiedliwia dziś ANI JEDNEJ ścieżki "
+        "— jest martwym kodem")
+    bez_reguly = sorted({_key(hit) for hit in hits
+                         if not hit["exists"] and _key(hit) not in EXCEPTIONS})
+    z_regula = reported(hits)
+    dolozone = sorted(set(bez_reguly) - set(z_regula))
+    assert dolozone, (
+        "zdjęcie reguły nie dołożyło ani jednego zgłoszenia, choć usprawiedliwia %d "
+        "ścieżek — jedna z tych dwóch rzeczy jest policzona źle: %s"
         % (len(carried), carried))
-    assert len({key[0] for key in carried}) >= 2, carried
+    poza_regula = [k for k in dolozone if k not in carried]
+    assert not poza_regula, (
+        "zdjęcie reguły dołożyło ścieżki, których ona nie usprawiedliwia: %s" % poza_regula)
     for key in carried:
         assert key not in EXCEPTIONS, (
             "%s jest usprawiedliwiona regułą z „Wyjścia\" i JESZCZE stoi na liście "
@@ -369,6 +390,14 @@ def test_the_three_kinds_of_exception_are_told_apart_on_synthetic_input():
     Sześć przypadków, bo sześć różnych rzeczy musi wyjść osobno. Na dzisiejszym drzewie
     bramka zgłasza ZERO, więc sam jej zielony kolor nie dowodzi niczego: gdyby
     `reported()` zwracało pustą listę zawsze, wszystkie testy wyżej też byłyby zielone.
+
+    **Atrapa jest PRZEPISANA, a nie dopisana obok — 07.09.2026.** Pierwsza wersja
+    używała `tools/track/vertical_profile.py` jako przykładu pliku nieistniejącego,
+    a ten plik był **obiecany w polu „Wyjście" pozycji 6.B44** — czyli atrapa zależała
+    od tego, że pozycja z kolejki NIE została wykonana. Gdy 6.B44 powstało, asercja
+    granicy reguły (przypadek 4) zaczęła padać, choć bramka działa poprawnie. Nazwa
+    `ATRAPA_ktorej_nie_bedzie.py` nie jest niczyim wyjściem i nikt jej nie stworzy,
+    więc próbka mierzy regułę, a nie stan kolejki.
     """
     probka = "\n".join([
         "##### 9.Z1 · literówka w polu Wejście",
@@ -378,16 +407,16 @@ def test_the_three_kinds_of_exception_are_told_apart_on_synthetic_input():
         "",
         "##### 9.Z2 · plik do wytworzenia i komenda, która go tworzy",
         "- **Wejście:** `tools/tests/test_all.py`",
-        "- **Wyjście:** `tools/track/vertical_profile.py`",
+        "- **Wyjście:** `tools/track/ATRAPA_ktorej_nie_bedzie.py`",
         "- **Weryfikacja:**",
         "  ```bash",
-        "  python3 tools/track/vertical_profile.py --out build/x.json",
+        "  python3 tools/track/ATRAPA_ktorej_nie_bedzie.py --out build/x.json",
         "  ```",
         "",
         "##### 9.Z3 · komenda woła plik, którego nikt tu nie tworzy",
         "- **Wejście:** `tools/tests/test_all.py`",
         "- **Wyjście:** nic",
-        "- **Weryfikacja:** `python3 tools/track/vertical_profile.py`",
+        "- **Weryfikacja:** `python3 tools/track/ATRAPA_ktorej_nie_bedzie.py`",
         "",
         "##### 9.Z4 · ten sam plik, ale z wpisem na liście wyjątków",
         "- **Wejście:** `tools/tests/test_all.py`",
@@ -404,16 +433,16 @@ def test_the_three_kinds_of_exception_are_told_apart_on_synthetic_input():
         '9.Z1 „Wejście": tools/track/profile_scan.py')
 
     # 2. rodzaj (a): plik z pola „Wyjście" nie jest zgłoszony.
-    assert ("9.Z2", "Wyjście", "tools/track/vertical_profile.py") in keys
-    assert ("9.Z2", "Wyjście", "tools/track/vertical_profile.py") not in zgloszone
+    assert ("9.Z2", "Wyjście", "tools/track/ATRAPA_ktorej_nie_bedzie.py") in keys
+    assert ("9.Z2", "Wyjście", "tools/track/ATRAPA_ktorej_nie_bedzie.py") not in zgloszone
 
     # 3. rodzaj (b): ten sam plik w komendzie, KTÓRA GO TWORZY — nie jest zgłoszony.
-    assert ("9.Z2", "Weryfikacja", "tools/track/vertical_profile.py") not in zgloszone
+    assert ("9.Z2", "Weryfikacja", "tools/track/ATRAPA_ktorej_nie_bedzie.py") not in zgloszone
 
     # 4. GRANICA reguły „tego samego bloku": ta sama ścieżka w komendzie bloku, który
     #    jej NIE deklaruje jako wyjścia, JEST zgłoszona. Bez tej asercji reguła
     #    mogłaby patrzeć na „Wyjścia" wszystkich bloków naraz i nikt by nie zauważył.
-    assert ("9.Z3", "Weryfikacja", "tools/track/vertical_profile.py") in zgloszone
+    assert ("9.Z3", "Weryfikacja", "tools/track/ATRAPA_ktorej_nie_bedzie.py") in zgloszone
 
     # 5. rodzaj (c): wpis na liście wyjątków zdejmuje zgłoszenie — pod warunkiem, że
     #    klucz zgadza się co do bloku i pola. Tu blok jest inny (9.Z4, nie 6.B39),
