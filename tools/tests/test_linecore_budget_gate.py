@@ -393,8 +393,16 @@ def test_prog_i_granica_rozstepu_sa_SPRZEZONE():
 
     Ta asercja nie zakazuje zaciesniania granicy; zada, zeby zaciesnienie ponizej
     33,9 % kazalo PRZY TEJ SAMEJ ZMIANIE wrocic do podstawy progu. Bez niej dwie stale
-    rozjechalyby sie po cichu, a `$comment_spread_pct_max` wprost zapowiada, ze granica
-    ma byc zaciesniana.
+    rozjechalyby sie po cichu.
+
+    **Ostatnie zdanie tego docstringa jest PRZEPISANE 08.09.2026, nie dopisane obok.**
+    Mowilo: „a `$comment_spread_pct_max` wprost zapowiada, ze granica ma byc
+    zaciesniana" — i przestalo byc prawda tego samego dnia. Decyzja wlasciciela
+    odwrocila kierunek tej reguly: granica poszla z 50 % na 100 %, wiec komentarz
+    stalej nie zapowiada juz zaciskania. Asercja zostaje bez zmiany, bo jej powod
+    jest od kierunku NIEZALEZNY: podstawa progu wisi na tym, ze rozstep 33,9 %
+    jest mierzalny, i zaciesnienie ponizej tej liczby — z ktorejkolwiek strony
+    ktos do niej wroci — nadal odbiera progowi grunt.
     """
     config = _config()
     assert config["spread_pct_max"] > ODRZUCONY_MIERZALNY_ROZSTEP, (
@@ -438,3 +446,197 @@ def test_atrapa_w_KROKU_CI_nie_jest_literalem_ponizej_progu():
             "atrapa odmowy czasowej w kroku CI niesie literal %s us przy progu "
             "%.3f us, czyli MIESCI SIE w progu — kontrola negatywna zaczerwieni sie "
             "zdaniem o pomiarze, ktory wolniejszy nie jest" % (us, prog))
+
+
+# --- 08.09.2026: granica rozstepu podniesiona na 100 %, kompensata w ostrzezeniu -----
+
+#: Rozstepy TRZECH kolejnych przebiegow kalibracyjnych 06.09.2026 (raport §3, wklejone
+#: wiersze `[BUDŻET]`). `max` z tej trojki to najgorzej uwarunkowany przebieg, NA
+#: KTORYM ZMIERZONO PROG — i to jest cala podstawa poziomu ostrzezenia.
+ROZSTEPY_KALIBRACJI = (17.0, 13.1, 22.5)
+
+#: Rozstepy PIECIU przebiegow tej bramki na kontenerze sesji 08.09.2026, ta sama tresc
+#: kodu, koszt kroku odpowiednio 3,803 / 3,810 / 3,736 / 4,040 / 3,871 us — WSZYSTKIE
+#: kodem 0, czyli piec pomiarow ZIELONYCH.
+#: Zmierzone przy tej zmianie i wazne z dwoch powodow naraz:
+#: (1) `max` = 47,5 % jest ZIELONYM pomiarem lezacym 2,5 pp pod stara granica 50 %,
+#:     czyli stara granica byla o jedno wahanie od orzeczenia niemierzalnosci
+#:     o przebiegu, ktory zmierzyl 3,810 us — to jest pomiarowy argument ZA decyzja
+#:     wlasciciela i dlatego stoi w kodzie, a nie tylko w raporcie;
+#: (2) `max - min` = 32,9 pp mowi, ze sama kolumna rozstepu waha sie o tyle przy
+#:     NIEZMIENNEJ tresci kodu i NIEZMIENNEJ maszynie — wiec marginesu granicy pod
+#:     115,9 % NIE da sie oprzec na wahaniu rozstepu: zadanie 32,9 pp marginesu
+#:     spycha granice na 83,0 %, czyli pod zaobserwowane 84,0 %. Margines jest
+#:     dlatego oparty na DRUGIM POMIARZE (102,6 %), a nie na wahaniu.
+ROZSTEPY_KONTENERA_08_09 = (24.9, 47.5, 14.6, 19.0, 18.0)
+
+#: Rozstep, przy ktorym padl JEDYNY pomiar niemierzalny majacy PARE: 16,022 us na
+#: `woogitsu-host-08` przy dwunastu jobach naraz, wobec 4,213-4,364 us na tej samej
+#: tresci kodu na maszynie niezajetej (07.09.2026, reports/rozstep-budzetu-kroku.md).
+#: To jest gorne ograniczenie granicy.
+NIEMIERZALNY_ROZSTEP = 115.9
+
+#: Drugi rozstep powyzej 100 % zapisany w tym repozytorium: 102,6 % przy JEDNYM pull
+#: requescie w puli (08.09.2026, job 101900177486, docs/TASKS.md 6.D43). Pary nie ma,
+#: wiec dowodem niemierzalnosci nie jest — ale jest liczba, ktora bramka widziala,
+#: i granica stojaca nad nia przestalaby ja odrzucac.
+NIEMIERZALNY_ROZSTEP_DRUGI = 102.6
+
+#: Atrapa odmowy CZASOWEJ przy pomiarze SLABO UWARUNKOWANYM: 95,0 % lezy miedzy
+#: 84,0 % i 102,6 % zmierzonymi na obciazonej puli (6.D43), wiec nie jest liczba
+#: wymyslona, a przy granicy 100 % jest MIERZALNA — czyli trafia do porownania
+#: z progiem i to jest caly sens tego wejscia.
+SLABO_UWARUNKOWANY_PONAD_PROGIEM = ZIELONY.replace(
+    ";17.0;3.772;1.01;0.05", ";95.0;16.000;1.00;0.19")
+
+
+def test_odmowa_czasowa_przy_SLABYM_UWARUNKOWANIU_NAZYWA_je():
+    """Kompensata do podniesienia granicy z 50 % na 100 % — i sedno tej zmiany.
+
+    Podniesienie `spread_pct_max` znaczy, ze WIECEJ pomiarow jest porownywanych
+    z progiem czasu. Pomiar o rozstepie 95 % byl do 08.09.2026 niemierzalnoscia
+    (kod 3), a dzis jest odmowa czasowa (kod 1) — czyli zdaniem „rdzen zwolnil"
+    o pomiarze, ktory mowi wylacznie o obciazeniu maszyny. To jest dokladnie to
+    klamstwo, ktore naprawila 6.D41, wpuszczone z powrotem przez szersza granice.
+
+    Odwrocic tego nie wolno, bo szersza granica jest decyzja wlasciciela. Ten test
+    zada minimum, ktorego nie sprawdzalo NIC: zeby odmowa nazwala slabe uwarunkowanie
+    i podala rozstep, wiec zeby czytajacy log nie dostal diagnozy „szukaj regresu
+    w kodzie" bez ostrzezenia, ze pomiar jej nie uzasadnia.
+    """
+    config = _config()
+    rozstep = float(
+        SLABO_UWARUNKOWANY_PONAD_PROGIEM.strip().splitlines()[-1].split(";")[7])
+    assert rozstep == 95.0, rozstep
+    assert rozstep <= config["spread_pct_max"], (
+        "atrapa o rozstepie %.1f %% jest przy granicy %.1f %% NIEMIERZALNA, wiec ten "
+        "test pyta o co innego, niz mysli — odmowy czasowej w ogole nie bedzie"
+        % (rozstep, config["spread_pct_max"]))
+    assert rozstep > config["spread_pct_warn"], (
+        "atrapa o rozstepie %.1f %% nie przekracza poziomu ostrzezenia %.1f %%"
+        % (rozstep, config["spread_pct_warn"]))
+
+    ok, problems = gate.verdict(config, SLABO_UWARUNKOWANY_PONAD_PROGIEM)
+    assert not ok, problems
+    czasowe = [p for p in problems if "przekracza prog" in p]
+    assert czasowe, (
+        "pomiar 16,000 us przy progu %.3f us nie dal odmowy czasowej: %s"
+        % (config["microseconds_per_step_max"], problems))
+    for problem in czasowe:
+        assert "SLABO UWARUNKOWANY" in problem, (
+            "odmowa czasowa przy rozstepie %.1f %% nie nazywa slabego uwarunkowania: %s"
+            % (rozstep, problem))
+        assert "95.0" in problem, (
+            "odmowa nie podaje rozstepu, wiec czytajacy nie wie, jak slaby jest "
+            "ten pomiar: %s" % problem)
+
+
+def test_odmowa_czasowa_przy_MOCNYM_uwarunkowaniu_NIE_dokleja_ostrzezenia():
+    """Druga strona tej samej kompensaty — bez niej pierwsza jest do oszukania.
+
+    Zdanie o slabym uwarunkowaniu doklejone do KAZDEJ odmowy czasowej przechodziloby
+    test powyzej i nie mowiloby nic: 6.D27 mowi, ze bramka zapalajaca sie na tekscie
+    poprawnym zostaje wylaczona, a to samo dotyczy ostrzezenia doklejanego wszedzie.
+    Atrapa WOLNY niesie rozstep 17,0 %, czyli ponizej poziomu ostrzezenia — pomiar
+    o takim rozstepie byl historycznie ZIELONY i jego odmowa mowi o kodzie.
+    """
+    config = _config()
+    rozstep = float(WOLNY.strip().splitlines()[-1].split(";")[7])
+    assert rozstep <= config["spread_pct_warn"], (
+        "atrapa WOLNY niesie rozstep %.1f %% powyzej poziomu ostrzezenia %.1f %%, "
+        "wiec ten test nie umie juz sprawdzic drugiej strony warunku"
+        % (rozstep, config["spread_pct_warn"]))
+    ok, problems = gate.verdict(config, WOLNY)
+    assert not ok
+    assert any("przekracza prog" in p for p in problems), problems
+    assert not any("SLABO UWARUNKOWANY" in p for p in problems), (
+        "ostrzezenie o slabym uwarunkowaniu doklejone do odmowy przy rozstepie "
+        "%.1f %% — czyli doklejane do wszystkiego, wiec nie znaczace nic: %s"
+        % (rozstep, problems))
+
+
+def test_poziom_ostrzezenia_lezy_MIEDZY_KALIBRACJA_a_ODRZUCONYM_pomiarem():
+    """Poziom WYPROWADZONY z pomiarow, nie wpisany z reki — w obie strony.
+
+    Od dolu: nie moze byc nizszy od najgorzej uwarunkowanego z trzech przebiegow,
+    NA KTORYCH ZMIERZONO PROG (22,5 %, kalibracja 06.09.2026) — poziom ponizej tej
+    liczby oznaczalby jako slabo uwarunkowane pomiary co najmniej tak dobre jak te,
+    z ktorych prog pochodzi. Poziom NIE jest granica miedzy zielonym a czerwonym
+    i ten test tego nie twierdzi: przebiegi zielone o rozstepie 24,9 i 47,5 % sa
+    zmierzone (`ROZSTEPY_KONTENERA_08_09`), wiec znacznik jest adnotacja o jakosci
+    pomiaru, a nie werdyktem o kodzie.
+
+    Od gory: musi lezec PONIZEJ 33,9 % — rozstepu, przy ktorym padl pomiar 9,572 us
+    stanowiacy dolne ograniczenie progu. Ten pomiar jest odmowa czasowa, ktorej sesja
+    z 08.09.2026 nie umiala odroznic od regresu w kodzie; poziom powyzej niego
+    zostawilby ja bez oznaczenia, czyli kompensata omijalaby wlasnie ten przypadek,
+    dla ktorego powstala.
+    """
+    config = _config()
+    assert "spread_pct_warn" in config, (
+        "poziom ostrzezenia zniknal z pliku progu — odmowa czasowa przestaje nazywac "
+        "slabe uwarunkowanie, a granica 100 % zostaje bez kompensaty")
+    poziom = config["spread_pct_warn"]
+    z_atrapy = float(ZIELONY.strip().splitlines()[-1].split(";")[7])
+    assert poziom >= max(ROZSTEPY_KALIBRACJI), (
+        "poziom ostrzezenia %.1f %% lezy PONIZEJ najgorzej uwarunkowanego przebiegu "
+        "kalibracyjnego (%.1f %%), na ktorym zmierzono prog — ostrzezenie trafialoby "
+        "do odmow rownie dobrze uwarunkowanych jak podstawa progu"
+        % (poziom, max(ROZSTEPY_KALIBRACJI)))
+    assert poziom >= z_atrapy, (poziom, z_atrapy)
+    assert poziom < ODRZUCONY_MIERZALNY_ROZSTEP, (
+        "poziom ostrzezenia %.1f %% nie oznaczylby pomiaru przy %.1f %% (9,572 us), "
+        "czyli tej odmowy, ktora ta kompensata ma nazywac"
+        % (poziom, ODRZUCONY_MIERZALNY_ROZSTEP))
+    assert poziom < config["spread_pct_max"], (
+        "poziom ostrzezenia %.1f %% lezy na granicy niemierzalnosci %.1f %% albo nad "
+        "nia — wtedy nie ostrzega przed niczym, bo powyzej niego nie ma odmow czasowych"
+        % (poziom, config["spread_pct_max"]))
+
+
+def test_granica_rozstepu_jest_ZABOKSOWANA_miedzy_pomiarami_z_OBU_stron():
+    """Sam MARGINES jest tu asercja, a nie zaufaniem — i do 08.09.2026 nie bylo go wcale.
+
+    `test_granica_rozstepu_jest_POWYZEJ_udokumentowanych_pomiarow_zielonych` zada
+    `granica < 115,9`, czyli zabrania marginesu ZEROWEGO albo ujemnego. Przy granicy
+    50 % to wystarczalo, bo do liczby 115,9 bylo daleko. Decyzja wlasciciela
+    z 08.09.2026 przesuwa granice MOZLIWIE BLISKO 115,9 %, wiec samo „ponizej" przestaje
+    byc warunkiem o czymkolwiek: granica 115,8 % spelnia go, a odrzuca zaobserwowana
+    niemierzalnosc o wlos.
+
+    Margines NIE jest tu liczba dobrana ani wahaniem rozstepu — i to jest wynik pomiaru,
+    nie wygoda. Wahanie sie nie nadaje: cztery przebiegi tej bramki na kontenerze
+    08.09.2026 dały rozstepy 14,6-47,5 % przy NIEZMIENNEJ tresci kodu, czyli 32,9 pp,
+    a granica o 32,9 pp pod 115,9 % to 83,0 % — PONIZEJ zaobserwowanego 84,0 %, czyli
+    ciasniej, niz mowi decyzja. Gorne ograniczenie jest wiec wziete z DRUGIEGO POMIARU:
+    102,6 % (6.D43, job 101900177486, jeden pull request w puli). Pary ten pomiar nie
+    ma, wiec dowodem niemierzalnosci nie jest — ale jest liczba, ktora ta bramka
+    widziala, i granica nad nia przestalaby ja odrzucac, czego nikt nie zapisal jako
+    decyzji. Margines pod 115,9 % wychodzi z tego sam i jest tu wypisany liczba.
+
+    Od dolu doszlo ograniczenie, ktorego nie bylo: 47,5 % to rozstep przebiegu
+    ZIELONEGO (3,810 us, kod 0) zmierzonego przy tej zmianie. Granica ponizej niego
+    orzekalaby niemierzalnosc o pomiarze, ktory zmierzyl koszt kroku poprawnie —
+    czyli 6.D27: bramka zapalajaca sie na tekscie poprawnym zostaje wylaczona. Stara
+    granica 50 % spelniala to z zapasem 2,5 pp, o czym nikt nie wiedzial, bo tego
+    rozstepu jeszcze nie zmierzono.
+    """
+    granica = _config()["spread_pct_max"]
+    zielony_najgorszy = max(ROZSTEPY_KONTENERA_08_09)
+    assert granica > zielony_najgorszy, (
+        "granica %.1f %% orzekalaby NIEMIERZALNOSC o przebiegu zielonym o rozstepie "
+        "%.1f %% (3,810 us, kod 0, kontener 08.09.2026)"
+        % (granica, zielony_najgorszy))
+    assert granica < NIEMIERZALNY_ROZSTEP_DRUGI, (
+        "granica %.1f %% przepuszczalaby jako MIERZALNY rozstep %.1f %% zmierzony "
+        "08.09.2026 na obciazonej puli (6.D43, job 101900177486)"
+        % (granica, NIEMIERZALNY_ROZSTEP_DRUGI))
+    # Ograniczenie z 102,6 % wymusza margines >= 13,3 pp, wiec ta asercja jest dzis
+    # slabsza. Zostaje mimo to, i to jest wybor: 102,6 % PARY nie ma, wiec kiedys moze
+    # zostac wycofane jako podstawa — a wtedy podloga na sam margines jest ostatnim,
+    # co stoi miedzy granica a liczba 115,9 %, ktora bramka juz widziala.
+    margines = NIEMIERZALNY_ROZSTEP - granica
+    assert margines > 0.0, (
+        "granica %.1f %% nie zostawia marginesu pod zaobserwowanym pomiarem "
+        "niemierzalnym %.1f %% (margines %.1f pp)"
+        % (granica, NIEMIERZALNY_ROZSTEP, margines))

@@ -232,20 +232,39 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 #: Zapadka jest tu **podniesiona na POMIAR** liczby bloków w pliku (125), nie na
 #: wartość zapamiętaną z rozmowy — reguła wypisana trzy akapity wyżej obowiązuje
 #: także wtedy, gdy dopisuje się jeden blok, a nie cztery.
-#: **125 → 126 (08.09.2026, blok 6.D53).** Doszedł jeszcze jeden blok, tym razem
-#: z pomiaru przy 6.B52: `data/network/sources.json` opisuje dostęp do OSM dwoma
-#: słowami `osm_or_overpass` i żadną liczbą, choć `/api/0.6/map` ma twardy limit
-#: 50 000 węzłów — a liczba tego limitu stoi dziś w kodzie, nie w rejestrze źródeł.
-#: Wpisu do rejestru nie dodałem, bo `data/` jest tylko do odczytu (§4.6), i właśnie
-#: dlatego jest to pozycja kolejki, a nie poprawka.
+#: **125 → 130 (08.09.2026, uzupełnienie kolejki o pięć pozycji o PRZYRZĄDACH).**
+#: Wszystkie pięć wyszło z pomiarów wykonanych tego dnia przy innej pracy, a trzy
+#: opisują usterki, które sam wprowadziłem albo przegapiłem — 6.D56 dotyczy commita,
+#: którego tematem było „liczba ma stać w jednym miejscu" i który zostawił ją w dwóch.
 #:
-#: **Numer tej pozycji jest ŚWIADECTWEM reguły z akapitu o starzeniu się liczb.**
-#: Blok powstał jako 6.D52 i musiał zostać przenumerowany na 6.D53 w rozwiązaniu
-#: konfliktu, bo scalenie #409 zajęło 6.D52 tego samego dnia. Zapadka jest tu więc
-#: podniesiona na POMIAR liczby bloków w scalonym pliku (**126**), a nie na sumę
-#: 125 + 1 zapamiętaną z którejkolwiek z dwóch gałęzi — obie te sumy dawały 125
-#: i obie byłyby dziś nieprawdziwe.
-MINIMUM_DETAIL_BLOCKS = 126
+#: Najmocniejsza jest **6.D54**, bo dotyczy wyrocznia zieloności całego projektu:
+#: `test_all.py` łapie `except Exception`, a `SystemExit` dziedziczy z `BaseException`,
+#: więc test wołający `sys.exit(0)` kończy CAŁY zestaw **kodem 0** po jednym wykonanym
+#: teście, bez wiersza `N/N przeszło` i bez `RAZEM`. Zmierzone sondą: 1999 testów nie
+#: wykonało się wcale, a kod wyjścia — ten sam, który `CLAUDE.md` §5 czyni wyrocznią —
+#: powiedział „zielono". Przy `sys.exit(1)` daje kod 1, czyli przyrząd myli się
+#: WYŁĄCZNIE w stronę „wszystko w porządku".
+#:
+#: Zapadka podniesiona na POMIAR liczby bloków w pliku (130), nie na wartość
+#: zapamiętaną — i to jest tego dnia trzecie podniesienie, przy którym trzeba było
+#: liczyć, a nie pamiętać: dwie gałęzie mówiły jednocześnie „125", bo każda liczyła
+#: tylko własny blok.
+#: **130 → 131 (08.09.2026, blok 6.D53 z obejścia Overpassa).** Podniesienie jest tu
+#: WYNIKIEM ROZWIĄZANIA KONFLIKTU, i to jest cała jego treść: gałąź obejścia mówiła
+#: „125 → 126", `main` mówił „125 → 130", i **obie liczby były nieprawdziwe wobec pliku
+#: scalonego**, bo każda strona liczyła wyłącznie własne bloki. Prawidłową wartością
+#: nie jest żadna z nich, tylko POMIAR na pliku po scaleniu — 131. To trzeci raz tego
+#: dnia, kiedy ta zapadka wymagała liczenia, a nie pamiętania, i pierwszy, kiedy
+#: pułapką była nie pamięć, a DWIE prawdziwe liczby z dwóch osobnych drzew.
+#:
+#: Sam konflikt rozwiązano **nie sumą region po regionie**, choć git rozbił go na trzy
+#: regiony, a między dwoma z nich zostawił jako wspólny **prefiks pól bloku** — czyli
+#: dokładnie mechanizm, który 07.09.2026 wstawił blok 6.D39 w środek bloku 6.D40
+#: i odebrał mu cztery pola. Plik zbudowano od wersji `main` i wstawiono do niego blok
+#: 6.D53 **w całości**, wzięty z `git show :2:` — wiersz tabeli przed 6.D54, blok przed
+#: blokiem 6.D54, oba CIĄGŁE. Sprawdzone przejściem po wszystkich 131 blokach: zero
+#: braków pól.
+MINIMUM_DETAIL_BLOCKS = 131
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je

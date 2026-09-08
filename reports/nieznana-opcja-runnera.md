@@ -69,7 +69,7 @@ strony**. Bramka nie potrzebuje `dotnet` — zestaw narzędzi chodzi tam, gdzie
 | 1 | `--kontrola-negatywna` czytana przez `budget`, nie dopisana do tabeli | `test_every_option_the_code_reads_is_in_the_table` |
 | 2 | `--nikt-tego-nie-czyta` dopisane do tabeli `service-day` | `test_the_table_does_not_declare_options_nobody_reads` |
 | 3 | odmowa przeniesiona za rozdzielacz | `test_the_refusal_is_actually_wired_into_main` |
-| 4 | odmowa zdjęta w całości (stan sprzed tej pozycji) | `Line_z_nieznana_opcja_konczy_sie_kodem_jeden`, `Odmowa_wymienia_opcje_tego_polecenia_a_nie_wszystkich` |
+| 4 | odmowa zdjęta w całości (stan sprzed tej pozycji) | `Line_z_opcja_innego_polecenia_konczy_sie_kodem_jeden` (06.09.2026, w dniu tego pomiaru, nosił nazwę `Line_z_nieznana_opcja_konczy_sie_kodem_jeden` — przemianowany przy 6.A19), `Odmowa_wymienia_opcje_tego_polecenia_a_nie_wszystkich` |
 
 Każda z pierwszych trzech wywraca **dokładnie jeden** test (1720/1721). Czwarta wywraca
 dokładnie dwa testy C# i **nie** rusza dwóch pozostałych — bo tamte pilnują kierunku
