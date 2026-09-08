@@ -72,7 +72,7 @@ public sealed class RunPlanTests
         Assert.IsFalse(plan.IsValid, "literówka przeszła jako poprawny argument");
         Assert.AreEqual(UnknownArgument, plan.ExitCode);
         StringAssert.Contains(plan.Error, "at-chainag");
-        StringAssert.Contains(plan.Error, "Znane:", "komunikat ma wypisać, co jest znane");
+        StringAssert.Contains(plan.Error, "Znane: --", "komunikat ma wypisać, co jest znane");
     }
 
     [TestMethod]
@@ -677,7 +677,7 @@ public sealed class RunPlanTests
         var plan = Parse("--line");
 
         Assert.IsFalse(plan.IsValid, "tryb linii przeszedł bez podanego limitu");
-        Assert.IsTrue(plan.Error!.Contains("--limit-kmh"), plan.Error);
+        Assert.IsTrue(plan.Error!.Contains("--line wymaga --limit-kmh"), plan.Error);
         Assert.IsTrue(plan.Error!.Contains("KONSTRUKCYJN"), plan.Error);
         Assert.AreEqual(BadArgumentValue, plan.ExitCode);
     }
@@ -704,7 +704,7 @@ public sealed class RunPlanTests
         // drzwiami, a nie tylko przeczytać, że się zatrzymał.
         var zTelemetria = Parse("--line", "--limit-kmh=70", "--telemetry=/tmp/a.csv");
         Assert.IsFalse(zTelemetria.IsValid, "linia z telemetrią przeszła");
-        Assert.IsTrue(zTelemetria.Error!.Contains("--telemetry"), zTelemetria.Error);
+        Assert.IsTrue(zTelemetria.Error!.Contains("--line nie łączy się z --telemetry"), zTelemetria.Error);
 
         var zZrzutem = Parse("--line", "--limit-kmh=70", "--shot=/tmp/a.png", "--at-chainage=509.73");
         Assert.IsTrue(zZrzutem.IsValid, zZrzutem.Error);
@@ -725,7 +725,7 @@ public sealed class RunPlanTests
 
         var samLimit = Parse("--limit-kmh=70");
         Assert.IsFalse(samLimit.IsValid, "--limit-kmh przeszło bez --line");
-        Assert.IsTrue(samLimit.Error!.Contains("--limit-kmh"), samLimit.Error);
+        Assert.IsTrue(samLimit.Error!.Contains("--limit-kmh wymaga --line albo --signalling"), samLimit.Error);
     }
 
     [TestMethod]
@@ -782,7 +782,7 @@ public sealed class RunPlanTests
         {
             var plan = Parse(skryptowy);
             Assert.IsFalse(plan.IsValid, $"--signalling przeszło z {string.Join(" ", skryptowy)}");
-            Assert.IsTrue(plan.Error!.Contains("--signalling"), plan.Error);
+            Assert.IsTrue(plan.Error!.Contains("--signalling nie łączy się z przebiegiem skryptowym"), plan.Error);
             Assert.AreEqual(BadArgumentValue, plan.ExitCode);
         }
 
@@ -804,7 +804,7 @@ public sealed class RunPlanTests
         // nagłówek mówił `limit=80.0 km/h`, czyli prędkość KONSTRUKCYJNĄ M7.
         var bezNadzoru = Parse("--limit-kmh=76");
         Assert.IsFalse(bezNadzoru.IsValid, "--limit-kmh przeszło bez --line i bez --signalling");
-        Assert.IsTrue(bezNadzoru.Error!.Contains("--signalling"), bezNadzoru.Error);
+        Assert.IsTrue(bezNadzoru.Error!.Contains("--limit-kmh wymaga --line albo --signalling"), bezNadzoru.Error);
         Assert.AreEqual(BadArgumentValue, bezNadzoru.ExitCode);
 
         var zNadzorem = Parse("--limit-kmh=76", "--signalling=/tmp/plan.json");
@@ -885,7 +885,7 @@ public sealed class RunPlanTests
     {
         var zLinia = Parse("--replay=/tmp/keys.log", "--line", "--limit-kmh=70");
         Assert.IsFalse(zLinia.IsValid, "--replay przeszło razem z --line");
-        Assert.IsTrue(zLinia.Error!.Contains("--replay"), zLinia.Error);
+        Assert.IsTrue(zLinia.Error!.Contains("--replay nie łączy się z --line"), zLinia.Error);
         Assert.AreEqual(BadArgumentValue, zLinia.ExitCode);
 
         var zeZrzutem = Parse("--replay=/tmp/keys.log", "--shot=/tmp/a.png", "--at-chainage=2000");
@@ -905,7 +905,7 @@ public sealed class RunPlanTests
             var plan = RunPlan.Parse(arguments, UnknownArgument, BadArgumentValue);
 
             Assert.IsFalse(plan.IsValid, $"--input-log przeszło z {tryb}");
-            Assert.IsTrue(plan.Error!.Contains("--input-log"), plan.Error);
+            Assert.IsTrue(plan.Error!.Contains("--input-log ma sens tylko"), plan.Error);
             Assert.AreEqual(BadArgumentValue, plan.ExitCode, tryb);
         }
     }

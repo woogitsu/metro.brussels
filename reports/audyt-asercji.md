@@ -305,3 +305,15 @@ Wszystkie cztery przywrócenia stanu „przed poprawką" cofnięte; `git status
 - **`Assert.IsTrue(… .Contains(…))` jest w zestawie rzadkie**: 25 wystąpień wobec 226
   `StringAssert.Contains`. Wpis kolejki wymieniał obie postacie jako równorzędne;
   pomiar mówi, że pierwsza jest marginesem.
+- **ADNOTACJA 07.09.2026 (6.D34), na `f684e40`: pierwszy punkt tej sekcji i zdanie
+  „o tym, czy tamte asercje są rozstrzygające, ten raport nadal nie mówi nic" są od
+  dziś ZDANIAMI O SWOIM DNIU, a nie o stanie drzewa.** Oba pomiary, których ta sekcja
+  świadomie nie wykonała, zostały wykonane i zamknięte bramkami: dla runnera przez
+  6.A33 (`tools/tests/test_needle_specificity.py`, `reports/swoistosc-igly.md`), dla
+  `tests/Game.Tests` przez 6.D34 (`tools/tests/test_game_needle_specificity.py`,
+  `reports/swoistosc-igly-game.md`). Liczby dla `Game.Tests`: **42** różne igły
+  mierzalne w **53** wywołaniach z **64** o tym kształcie, **13** niejednoznacznych
+  (z tego **9** to kolizje wewnątrz jednego pliku `src/Game/`), po poprawce **4 z 45**,
+  wszystkie z wpisem z powodem. Zdanie wyżej zostaje **nieprzepisane** — miało datę
+  i było prawdziwe w dniu wpisania (`docs/04-conventions.md`); nieprawdziwe stało się
+  przez pracę, która je cytowała, a nie przez pomyłkę pomiaru.

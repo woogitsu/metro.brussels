@@ -135,7 +135,7 @@ public sealed class TelemetryTrackTests
         foreach (var pusty in new[] { string.Empty, "\n", "\n\n" })
         {
             var reason = RefuseAndGetReason(pusty);
-            StringAssert.Contains(reason, "pusty");
+            StringAssert.Contains(reason, "plik jest pusty");
         }
     }
 
@@ -151,7 +151,7 @@ public sealed class TelemetryTrackTests
     {
         var reason = RefuseAndGetReason("krok,czas,km\n0,0,94\n");
 
-        StringAssert.Contains(reason, "nagłówek");
+        StringAssert.Contains(reason, "nie jest nagłówkiem rdzenia");
         StringAssert.Contains(reason, DriveTelemetry.Header,
             "odmowa nie pokazuje, jak nagłówek rdzenia wygląda");
     }

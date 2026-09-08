@@ -99,6 +99,6 @@ public sealed class SignallingHudTests
         Assert.AreNotEqual(string.Empty, SignallingHud.NotOnPlanYet);
         Assert.AreNotEqual(string.Empty, SignallingHud.WithoutProtection);
         Assert.AreNotEqual(string.Empty, SignallingHud.BeforeFirstStep);
-        StringAssert.Contains(SignallingHud.WithoutSignalling, "--signalling");
+        StringAssert.Contains(SignallingHud.WithoutSignalling, "(podaj --signalling)");
     }
 }
