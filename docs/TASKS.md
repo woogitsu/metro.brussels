@@ -100,6 +100,91 @@ których agent nie ruszy bez decyzji właściciela.
   pierwsza liczba, jaką repo ma dla wielkości, której `speed_limits` nie zawiera
 - **Kontrola modelu:** żaden z 55 odcinków nie jest nierealizowalny przy fizyce
   z T-310/T-311; rezerwa rozkładowa 4,3–45,3 s, mediana 10,7 s
+### [x] T-114 · Manifest proweniencji i wykrywanie zmian upstream
+- **Zależy od:** T-110 (zrobione)
+- **Wyjście:** `tools/data/provenance.py`, `tools/data/snapshot_source.py`,
+  `docs/09-data-provenance.md`, sześć plików `data/track/*.provenance.json`
+- **Wynik:** każdy pobrany zestaw niesie manifest z `content_sha256` i `retrieved_at`,
+  a `tools/track/data_freshness.py` czyta z niego okna ważności. Zmierzone przy 6.D12:
+  manifest zmienia się przy każdym uruchomieniu **także w `--offline`**, bo `retrieved_at`
+  jest znacznikiem czasu — to jedyne miejsce, w którym narzędzie pisze do `data/`
+  wbrew §4.6, i jest to zachowanie celowe, opisane w `reports/zapisy-do-data.md`
+- **Issue:** #13, zamknięty
+
+### [x] R-002 · Rozszerzony rejestr źródeł: NeTEx, INSPIRE Rails, wejścia metra, LiDAR/DSM, UrbIS Tunnel
+- **Zależy od:** R-001 (zrobione)
+- **Wyjście:** `data/network/sources.json`
+- **Wynik:** rejestr niesie **42 źródła**, każde z klasą wiarygodności. Wszystkie pięć
+  pozycji z zakresu tej pozycji jest w rejestrze i sprawdzone w drzewie, nie przepisane
+  z zapowiedzi: NeTEx (`belgian_mobility_netex`), INSPIRE Rails
+  (`belgian_mobility_inspire_rails`), wejścia metra (`brussels_mobility_metro_access`,
+  `stib_prm_access`), LiDAR/DSM (`paradigm_lidar_2021`, `urbis_dsm`) i UrbIS Tunnel
+  (`urbis_topo_tunnel_line`)
+- **Issue:** #11, zamknięty
+
+### [x] R-003 · Ground truth sygnalizacji: fixed block/KCV, ATS, CBTC i CBTC-mini
+- **Zależy od:** R-001 (zrobione)
+- **Wyjście:** `docs/10-signalling-ground-truth.md`, `docs/16-protection-modes.md`,
+  źródła `stib_activity_report_2016_signalling`, `stib_cbtc_status_2026_07_02`,
+  `stib_cbtc_acceleration_2025_08_21`, `stibstories_cbtc_explainer` w `data/network/sources.json`
+- **Wynik:** trybem domyślnym dla stanu odniesienia 31.08.2026 jest **`classic_2026`** —
+  pełny CBTC na liniach 1 i 5 nie jest jeszcze trybem produkcyjnym. Dokument dzieli
+  fakty potwierdzone publicznie od szczegółów, których **nie wolno oznaczać jako `spec`**,
+  i ta granica jest jego wynikiem, nie brakiem. Odblokowało T-313 i T-314 (oba zrobione)
+- **Issue:** #15, **nadal otwarty** — dokument jest w `main`, ale Issue nie został
+  zamknięty; agent cudzych Issues nie zamyka (`CLAUDE.md`), więc rozjazd jest tu
+  zapisany, a nie usunięty
+
+### [x] R-004 · Ground truth stacji: wyjścia, komunikacja pionowa, poziomy i granice legalnego reuse
+- **Zależy od:** R-001 (zrobione)
+- **Wyjście:** `docs/11-station-ground-truth.md`, `data/stations/package-a.json`,
+  `reports/package-a-station-source-gaps.md`
+- **Wynik:** rejestr pakietu A ma **696 kopert faktów, z czego 260 ze statusem
+  `unknown`** — i to jest wynik pozycji, bo raport jest **listą dziur, nie listą
+  osiągnięć**, z nazwaną przyczyną każdej. Największa pojedyncza dziura: typ komunikacji
+  pionowej (`fixed_stairs`/`escalator`/`lift`) nieznany dla **118 z tych 260**, bo
+  jedynym źródłem wyjść jest GTFS. Rzędne i wymiary pomieszczeń odesłane do T-901 i T-112
+- **Issue:** #16, **nadal otwarty** — jak wyżej, rozjazd zapisany, nie usunięty
+
+### [x] R-005 · Ground truth infrastruktury torowej i zasilania: 900 V, trzecia szyna, prędkości i elementy toru
+- **Zależy od:** R-001 (zrobione)
+- **Wyjście:** `docs/12-infrastructure-ground-truth.md`, `data/infrastructure/metro-system.json`
+- **Wynik:** publiczne źródła STIB pozwalają zamrozić **900 V** i **trzecią szynę**
+  (`observed`), i **nie pozwalają** uznać za `spec` rozstawu 1435 mm (zostaje
+  `secondary_reference_only`), profilu szyny, geometrii trzeciej szyny ani sekcjonowania
+  zasilania — `contact_geometry` jest `unknown` w `data/network/lines.json`. Ta lista
+  `unknown` JEST wynikiem pozycji. Rozstrzygnięcia, które z niej nie wynikają, są
+  w drzewie nazwane wprost jako należące do R-005 — przekrój tunelu drążonego
+  i szerokość `box_double` (`reports/M7-curve-clearance.md`,
+  `reports/L1_A-track-spacing.md`) — i **nie da się ich domknąć bez źródła, którego
+  publicznie nie ma**
+- **Issue:** #17, **nadal otwarty**, i tu ma to treść większą niż bookkeeping: otwarte
+  pytania z raportów wyżej są realne, tylko nie mają publicznego źródła
+
+### [x] R-006 · Prędkość dopuszczalna na torze — czy istnieje źródło
+- **Zależy od:** R-001 (zrobione), T-401 (dolne ograniczenie)
+- **Wyjście:** `reports/R-006-line-speed.md`
+- **Wynik:** **źródła nie ma, i to jest wynik.** Para 72/50 km/h pochodzi z notatki
+  z 11.02.2008, opisującej sieć sprzed zamknięcia pierścienia w 2009 — klasa
+  `manufacturer_or_trade_press`, czyli **poniżej OSM** w hierarchii z
+  `docs/07-open-data-research.md`. Jedyną liczbą, którą repozytorium ma dla tej
+  wielkości z pomiaru, jest dolne ograniczenie **58,68 km/h** z T-401; mieści się
+  w rezerwie na każdym z 49 odcinków sieci. `speed_limits` zostają puste we wszystkich
+  osiach, świadomie
+- **Issue:** brak — ta pozycja nie ma Issue w tym repozytorium (sprawdzone pełną listą
+  36 Issues, bez kolejnej strony)
+
+### [x] R-007 · Wymiary peronu — wysokość, długość i granica danych
+- **Zależy od:** R-004 (ta sama rodzina źródeł)
+- **Wyjście:** `reports/R-007-platform-dimensions.md`
+- **Wynik:** wysokość peronu nad główką szyny **1,03 m**, `source_backed` z jednym
+  zastrzeżeniem; **długość peronu zostaje `unknown` w danych**, a T-211 dostaje jawny
+  parametr projektowy zamiast liczby udającej pomiar. Po drodze pozycja **poprawiła
+  własną rodzinę**: warstwa `bm_public_transport:metro_access` zniknęła z katalogu
+  (R-004 notował dla niej 401), NeTEx EPIP daje dziś **404**, a martwych linków
+  „version verbale" u STIB jest **25, nie 4**, jak notował R-004
+- **Issue:** brak — jak przy R-006, sprawdzone pełną listą Issues
+
 
 ## Geometria
 
@@ -366,6 +451,16 @@ których agent nie ruszy bez decyzji właściciela.
   (`reports/network-chainage.md`) — sceny z dwoma pakietami nie da się zbudować uczciwie
   przed T-112
 - **Zależy od:** T-210 (zrobione), T-212 (zrobione), T-320
+### [x] T-401 · Przejazd całej linii z zatrzymaniem na każdej stacji
+- **Zależy od:** T-113 (rozkład), T-310/T-311 (fizyka), T-312 (cykl stacyjny) — wszystkie zrobione
+- **Wyjście:** `reports/T-401-line-run.md`
+- **Wynik:** **49 z 49** odcinków sieci dopasowanych; na żadnym model nie jest wolniejszy
+  od rozkładu przy 72 km/h. Dolne ograniczenie prędkości liniowej rośnie z 57,64 do
+  **58,68 km/h** — i ta liczba jest dziś jedynym pomiarem, jaki repozytorium ma dla
+  prędkości dopuszczalnej, bo R-006 pokazało, że źródła nie ma
+- **Issue:** brak — ta pozycja nie ma Issue w tym repozytorium (sprawdzone pełną listą
+  36 Issues, bez kolejnej strony); praca weszła pull requestem
+
 
 ## Zadania dla człowieka
 
@@ -409,21 +504,6 @@ Wynik w `docs/08-m7-ground-truth.md` i `data/vehicle/m7-spec.json`; siedem warto
 ze statusem `spec`, reszta wymiarów pojazdu to jawne założenia projektowe.
 
 ### [ ] **[CZŁOWIEK]** T-905 · Nagrania dźwiękowe
-
-## Czego brakuje w tej rozpisce
-
-Poniższe zadania istnieją jako Issues, ale nie mają tu wpisu. Dopóki go nie mają,
-**Issues są jedynym źródłem prawdy** o ich zakresie:
-
-- **T-114** — proweniencja pobranych danych (`tools/data/provenance.py`, `docs/09`), **zrobione**;
-- **R-002 … R-007** — ground truth źródeł, sygnalizacji, stacji, infrastruktury torowej,
-  prędkości dopuszczalnej i wymiarów peronu. **R-003, R-004, R-005, R-006 i R-007 są
-  w `main`** (#34, #90, #35, #85, R-007);
-- **T-401** — przejazd linii z zatrzymaniem na każdej stacji, **zrobione** (#82):
-  49 z 49 odcinków sieci dopasowanych, na żadnym model nie jest wolniejszy od rozkładu
-  przy 72 km/h; dolne ograniczenie prędkości liniowej rośnie z 57,64 do **58,68 km/h**
-  (`reports/T-401-line-run.md`);
-- **T-901** — rzędne i głębokości pakietu A, blokuje T-112.
 
 ## Co blokuje co, w jednym miejscu
 
@@ -522,7 +602,7 @@ funkcję do kodu, o którym nie wiadomo, czy działa.
 
 | # | zadanie | dlaczego bez decyzji | jak się kończy |
 |---|---|---|---|
-| 5.6 | **Domknąć „Czego brakuje w tej rozpisce"** — T-114, R-002…R-007, T-401 mają Issues, ale nie mają wpisu tutaj | ten plik sam deklaruje, że dopóki wpisu nie ma, **Issues są jedynym źródłem prawdy** — czyli rozjazd jest zapisany, ale niezamknięty | sekcja znika, bo każde zadanie ma wpis z sześcioma polami |
+| 5.6 | **ZROBIONE (08.09.2026), i pozycja pomyliła się co do trzech rzeczy naraz — pomiar to pokazał.** Sekcja `## Czego brakuje w tej rozpisce` **usunięta**; dziewięć pozycji ma dziś wpis w tym pliku: osiem wpisów `[x]` (T-114, R-002…R-007, T-401) i wiersz T-901 w „Czego agent nie ruszy bez decyzji". **Pomyłka pierwsza:** sekcja otwierała się zdaniem „Poniższe zadania istnieją jako Issues", a **trzy z dziewięciu Issue nie mają wcale** — R-006, R-007 i T-401; sprawdzone pełną listą **36** Issues repozytorium, bez kolejnej strony. Numery `#34, #90, #35, #85, #82` z sekcji to pull requesty, nie Issues: R-003 ma Issue #15, R-004 #16, R-005 #17. **Pomyłka druga:** sekcja twierdziła, że R-003…R-007 „są w `main`", a Issues **#15, #16 i #17 są nadal OTWARTE**. Rozjazd jest zapisany w każdym z trzech wpisów, a nie usunięty — agent cudzych Issues nie zamyka. Dokumenty ground truth (`docs/10-signalling-ground-truth.md`, `docs/11-station-ground-truth.md`, `docs/12-infrastructure-ground-truth.md`) **są** w drzewie, a ich treścią jest granica wiedzy: 260 z 696 kopert faktów pakietu A ze statusem `unknown` przy R-004, `contact_geometry` = `unknown` przy R-005. **Pomyłka trzecia, we własnym bloku tej pozycji:** blok liczył, że „do dopisania zostaje więc R-002", bo pięć pozycji jest w `main`. W drzewie **żadna z ośmiu nie miała wpisu `###`** — pomiar z 06.09.2026 dotyczył tego, co weszło do `main`, a nie tego, czy plan to zapisuje, i to są dwie różne rzeczy. Pole „Weryfikacja" **przekierowane w tym samym commicie**, bo jego polecenie było niespełnialne z zasady: `grep` na nazwę sekcji zawsze dopasuje wiersz i blok samej 5.6, więc świeciłoby czerwono także przy pracy zrobionej dobrze. Zakotwiczona wersja pyta o nagłówek, o zdanie i o komplet ośmiu wpisów — czyli o więcej. Raport: `reports/domkniecie-rozpiski.md`. Treść pierwotna: **Domknąć „Czego brakuje w tej rozpisce"** — T-114, R-002…R-007, T-401 mają Issues, ale nie mają wpisu tutaj | ten plik sam deklaruje, że dopóki wpisu nie ma, **Issues są jedynym źródłem prawdy** — czyli rozjazd jest zapisany, ale niezamknięty | sekcja znika, bo każde zadanie ma wpis z sześcioma polami |
 
 #### Domknięte i zdjęte z kolejki
 
@@ -1500,17 +1580,31 @@ co dochodzi ponad ten wspólny zakaz.
   `reports/kolejka-audyt-aktualnosci.md` (metoda audytu: fakt kontra zapis).
 - **Wyjście:** wpisy z kompletem pól dla pozycji, które ich nie mają, w `docs/TASKS.md`;
   sekcja `## Czego brakuje w tej rozpisce` **usunięta**, bo nie ma już czego wymieniać.
-- **Weryfikacja:**
+- **Weryfikacja:** **przekierowana, nie osłabiona (08.09.2026).** Pierwotne polecenie
+  brzmiało `grep -n "Czego brakuje w tej rozpisce" docs/TASKS.md` z oczekiwaniem
+  „nic nie zwraca", i jest **niespełnialne z zasady**: pozycja, która tę sekcję zamyka,
+  sama nazywa się jej nazwą, więc jej własny wiersz kolejki i jej własny blok zawsze
+  ten wzorzec dopasują. Sprawdzenie bez zakotwiczenia świeciłoby więc czerwono także
+  przy pracy wykonanej poprawnie. Zakotwiczone sprawdzenie pyta o to, o co pytało
+  pierwotne — czy SEKCJI nie ma — i pyta o **więcej**, bo osobno bierze nagłówek,
+  osobno zdanie, na którym cała pozycja stała, i osobno komplet dziewięciu wpisów:
+
   ```bash
-  python3 tools/tests/test_all.py
-  grep -n "Czego brakuje w tej rozpisce" docs/TASKS.md
+  python3 tools/tests/test_all.py; echo "kod: $?"
+  grep -n '^## Czego brakuje w tej rozpisce' docs/TASKS.md   # nagłówek sekcji
+  grep -c '^### \[x\] \(T-114\|T-401\|R-00[2-7]\) ·' docs/TASKS.md
   ```
-  Oczekiwane: zestaw zielony, a `grep` **nic nie zwraca** — sekcja zniknęła.
-- **Skończone, gdy:** każda z siedmiu pozycji wymienionych dziś w tej sekcji ma w tym
+  Oczekiwane: zestaw kodem 0, pierwszy `grep` **nic nie zwraca**, drugi daje **8**
+  (dziewiąta pozycja, T-901, ma wiersz w „Czego agent nie ruszy bez decyzji", nie wpis
+  `[x]`). Wzmianki nazwy sekcji, które zostają, to wyłącznie wiersz i blok samej 5.6 —
+  czyli zapis tego, co zostało domknięte, a nie sekcja.
+- **Skończone, gdy:** każda z dziewięciu pozycji wymienionych w tej sekcji ma w tym
   pliku albo wpis `[x]` z artefaktami, albo wiersz w „Czego agent nie ruszy bez decyzji"
-  z powodem — a `grep` na nazwę sekcji nie zwraca nic. Status każdej z siedmiu jest
-  **sprawdzony w drzewie**, nie przepisany z sekcji: plik, który sam siebie nazywa mapą,
-  nie ma prawa nieść cudzej deklaracji o gotowości.
+  z powodem — a nagłówka sekcji nie ma. Status każdej z dziewięciu jest **sprawdzony
+  w drzewie**, nie przepisany z sekcji: plik, który sam siebie nazywa mapą, nie ma prawa
+  nieść cudzej deklaracji o gotowości. **Dziewięciu, nie siedmiu:** pierwotne pole
+  liczyło `R-002 … R-007` jako jedną pozycję, a to sześć osobnych pozycji o sześciu
+  osobnych zakresach i sześciu różnych stanach.
 - **Poza zakresem:** wykonywanie którejkolwiek z siedmiu pozycji. To jest zamknięcie
   rozjazdu w zapisie, nie praca nad zadaniami. Poza zakresem także zmiana zdania o tym,
   że **Issues są źródłem prawdy o statusie** — pozycja usuwa wyjątek, nie regułę.
