@@ -233,9 +233,39 @@ GitHub Actions. Poprzednia wersja tego punktu mówiła, że standardem jest
   tam runner jest rootem. `DOTNET_INSTALL_DIR` ustawiany **przed** krokiem `setup-dotnet`
   załatwia to razem z trwałością: `_tool` jest rodzeństwem workspace'u, więc `git clean`
   go nie dotyka. Ta sama zasada co dla Godota, z tego samego powodu i o jeden powód więcej.
-- Nie uznawaj `queued` za weryfikację; zadanie jest zweryfikowane dopiero po zakończonym,
-  zielonym jobie i sprawdzeniu wymaganych artefaktów. Na jednym runnerze `queued` znaczy
-  też „kolejka", nie tylko „zepsute" — ale nadal nie znaczy „zweryfikowane".
+- **Nie uznawaj `queued` za weryfikację — a zielony job mówi o SCALANCE NAZWANEJ
+  W JEGO WŁASNYM LOGU, nie o dzisiejszym `main`.** Od 08.09.2026 ten punkt jest
+  przepisany, a nie dopisany obok: poprzednia wersja kończyła się na „zakończony,
+  zielony job i sprawdzenie wymaganych artefaktów" i nie mówiła, **co** ten job
+  sprawdził — a to jest ta sama różnica, którą projekt tropi od 6.D27.
+  Pierwsza połowa zostaje bez zmian: zadanie jest zweryfikowane dopiero po
+  zakończonym, zielonym jobie i sprawdzeniu wymaganych artefaktów. Na jednym runnerze
+  `queued` znaczy też „kolejka", nie tylko „zepsute" — ale nadal nie znaczy
+  „zweryfikowane".
+  Druga połowa jest nowa i wyszła z pomiaru (6.D47, `reports/ponowienie-a-ruch-bazy.md`).
+  Przebieg `pull_request` liczy na **scalance** gałęzi z bazą, a `actions/checkout`
+  nie dostaje w tych workflowach wejścia `ref`, więc bierze scalankę zapisaną
+  w przebiegu i pobiera ją **po SHA**, nie po nazwie refa. Którą scalankę job
+  naprawdę sprawdził, podaje jego log kroku `Checkout`, wierszem
+  `HEAD is now at <sha> Merge <gałąź> into <baza>`. **Weryfikacją wobec dzisiejszego
+  `main` jest tylko taki zielony job, w którym `<baza>` równa się dzisiejszemu
+  wierzchołkowi `main`** — nie jest nią job, którego baza została w tyle, bez względu
+  na to, ile ma prób i jak jest zielony. Gdy baza ruszyła: **wciągnij `main` do gałęzi
+  i pchnij**. To daje nowy commit i NOWY przebieg, czyli scalankę na dzisiejszej
+  bazie. Ponowienie (`re-run failed jobs`) tego nie daje: w każdym ponowieniu, jakie
+  to repozytorium ma w logach, wszystkie próby pobrały **ten sam jeden SHA** scalanki,
+  starszy od samego przebiegu (zmierzone na trzech próbach przebiegu 34194126232
+  i dwóch przebiegu 34182392141).
+  **Granica tego pomiaru stoi tu razem z nim, bo brak pomiaru nie jest jego wynikiem:**
+  czy ponowienie po ruchu bazy przeliczyłoby scalankę na nowej bazie, **nie zostało
+  zmierzone** — w 1919 przebiegach `pull_request` z 01–08.09.2026 (45 z więcej niż
+  jedną próbą) nie ma ani jednego ponowienia, między którego próbami `main` ruszył.
+  Reguła zdania wyżej tego rozstrzygnięcia nie potrzebuje: każe **przeczytać bazę
+  z logu**, a nie wnioskować ją z historii przebiegu.
+  **Tej połowy nie pilnuje żadna bramka i pilnować nie może** — inaczej niż reguł
+  wyżej, wymienionych w ostatnim punkcie tej sekcji: `<baza>` stoi w logu przebiegu,
+  a nie w repozytorium, więc nie ma czego sparsować. Jest to więc procedura czytania
+  dla agenta i dla właściciela, a nie zdanie o treści workflowa.
 - **Akcje są przypięte po SHA commita, nie po tagu.** `actions/checkout@v6` wskazuje na
   to, co właściciel akcji ostatnio tam przesunął; te joby chodzą na maszynie właściciela
   tego repozytorium, z dostępem do workspace'u, `runner.tool_cache` i `GITHUB_TOKEN`.

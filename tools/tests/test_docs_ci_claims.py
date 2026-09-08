@@ -49,6 +49,7 @@ WORKFLOWS = os.path.join(ROOT, ".github", "workflows")
 DOCS = os.path.join(ROOT, "docs")
 REPORTS = os.path.join(ROOT, "reports")
 README = os.path.join(ROOT, "README.md")
+CLAUDE = os.path.join(ROOT, "CLAUDE.md")
 
 #: Markery, po których akapit jest opisem przeszłości albo cytatem z pomiaru,
 #: a nie deklaracją stanu bieżącego. Pomiar jest na tej liście świadomie: warunki
@@ -240,7 +241,19 @@ def claims_in_line(line, allowed):
 
 
 def documents():
-    """Pliki objęte bramką: `docs/*.md`, `reports/*.md` i `README.md`.
+    """Pliki objęte bramką: `CLAUDE.md`, `docs/*.md`, `reports/*.md` i `README.md`.
+
+    **Dlaczego `CLAUDE.md` doszło 08.09.2026, przy 6.D47.** Docstring tego modułu
+    otwiera się zdaniem „`CLAUDE.md` §9 mówi…", a niżej to samo `CLAUDE.md` §9 jest
+    powodem, dla którego `reports/` weszło do bramki — i przez trzy dni **sam plik
+    §9 był poza skanem**. Bramka pilnowała odsyłaczy do reguły, nie pilnując reguły.
+    To jest ta sama rodzina, którą projekt tropi od 6.D27 i 6.D40: przyrząd meldował
+    o szerszym zakresie, niż mierzył.
+    Włączenie jest DARMOWE i to jest zmierzone, nie założone: na `a214ab9` (`main` po
+    scaleniu #407) `drift_in_text` na `CLAUDE.md` daje **zero** trafień, bo wszystkie
+    nieaktualne nazwy maszyn stoją tam w akapitach z markerem historii — a właśnie
+    o taki zapis §9 sama prosi. Pierwsze zdanie §9, które ogłosi runnera nieistniejącego
+    w workflowach BEZ takiego markera, zapala tę bramkę zamiast czekać na czyjeś oko.
 
     **Dlaczego `reports/` doszło 05.09.2026.** Ten sam dryf, który ta bramka wycięła
     z `docs/`, siedział przez trzy dni w `reports/` — bo nic tam nie patrzyło.
@@ -270,8 +283,9 @@ def documents():
                    if name.endswith(".md"))
     found += sorted(os.path.join(REPORTS, name) for name in os.listdir(REPORTS)
                     if name.endswith(".md"))
-    if os.path.exists(README):
-        found.append(README)
+    for single in (README, CLAUDE):
+        if os.path.exists(single):
+            found.append(single)
     return found
 
 
@@ -341,6 +355,15 @@ def test_no_document_states_a_runner_that_no_workflow_uses():
     reports = [p for p in documents() if os.path.dirname(p) == REPORTS]
     assert len(reports) >= 40, (
         f"w pętli jest tylko {len(reports)} raportów — `reports/` wypadło z bramki")
+    # 6.D47: plik, którego §9 ta bramka pilnuje, musi być W PĘTLI. Bez tej asercji
+    # `CLAUDE.md` mogłoby z `documents()` wypaść tak samo cicho, jak przez trzy dni
+    # w niej nie było — a wtedy bramka znów pilnowałaby odsyłaczy do reguły, nie
+    # reguły. Kontrola do niej: `drift_in_text` na zdaniu §9 bez markera historii
+    # NIE MOŻE milczeć, inaczej obecność pliku w pętli nie znaczyłaby detekcji.
+    assert CLAUDE in documents(), (
+        "`CLAUDE.md` wypadło z pętli — bramka wróciła do pilnowania samych odsyłaczy")
+    assert drift_in_text("Joby chodzą na `ubuntu-latest`.\n", allowed, "CLAUDE.md"), (
+        "detektor milczy na zdaniu, które ogłasza maszynę GitHuba w §9")
 
 
 def test_the_detector_catches_the_drifts_that_were_measured_on_main():

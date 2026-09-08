@@ -266,6 +266,91 @@ Nie używamy OSM jako jedynego źródła osi, jeśli istnieje oficjalna geometri
 lub regionalna. Zachowujemy atrybucję ODbL, timestamp danych i hash zapytania/
 ekstraktu użytego przez pipeline.
 
+### Dwie drogi do OSM: Overpass (podstawowa) i `/api/0.6/map` (ZAPASOWA)
+
+> **Dopisane 2026-09-08 (6.B52), decyzja właściciela z tego samego dnia.** Wewnątrz
+> klasy 4 tej hierarchii OSM ma **dwie drogi dostępu i nie są one równorzędne.**
+> Wyboru dokonuje się **jawnie**, przełącznikiem `--osm-source` w
+> `tools/track/crosscheck_alignment.py`, a wypis i pole `osm.source` w pliku wyniku
+> nazywają drogę z osobna dla każdego przebiegu. Przełączenia automatycznego tu nie
+> ma i to jest wybór: raport, który nie mówi, którą drogą poszedł, nie da się odnieść
+> do tej hierarchii, a wygląda identycznie jak raport, który to mówi.
+
+**Droga podstawowa — Overpass API.**
+
+```
+https://overpass-api.de/api/interpreter        way["railway"="subway"](bbox); out geom;
+```
+
+Jedno zapytanie, filtr po stronie serwera, `timestamp_osm_base` w odpowiedzi.
+To jest droga właściwa i pozostaje domyślną wartością przełącznika.
+
+**Droga zapasowa — surowe API OpenStreetMap.**
+
+```
+https://api.openstreetmap.org/api/0.6/map?bbox=west,south,east,north
+```
+
+*Kiedy jej wolno użyć.* Wyłącznie wtedy, gdy Overpass jest nieosiągalny — i to
+**zmierzone**, nie założone. Pomiar z 08.09.2026 z kontenera agenta:
+`overpass-api.de/api/status` → **HTTP 000 po 9,76 s** (`Recv failure: Connection
+reset by peer`; proxy zapisało `ws_closed_mid_exchange` dla `overpass-api.de:443`),
+`api.openstreetmap.org/api/0.6/capabilities` → **HTTP 200 po 0,72 s**,
+`data.mobility.brussels/geoserver/…/bm_public_transport:Metro/items` → **HTTP 200
+po 1,98 s, 215 439 B, 156 obiektów**. Jedno źródło leży, dwa stoją: „brak sieci"
+nie jest w tym środowisku stanem zero-jedynkowym.
+
+*Co daje.* Ten sam zbiór obiektów co zapytanie Overpassa **w tym samym prostokącie**:
+way'e `railway=subway` z pełną geometrią i tagami `tunnel`/`layer`, w kształcie
+odpowiedzi `out geom`, więc `--osm-file` w `surface_sections.py` czyta to bez
+rozgałęzień. Do tego **`version` i `timestamp` każdego way'a**, których Overpass
+w `out geom` nie podaje — a to jedyny przyrząd pozwalający odróżnić „droga zapasowa
+pobrała co innego" od „OSM zmienił się od daty snapshotu".
+
+*Czego NIE daje, i to jest tu ważniejsza połowa wpisu.*
+
+1. **Nie ma języka zapytań.** Nie da się poprosić o `railway=subway`. Serwer odsyła
+   całą zawartość prostokąta — ulice, budynki, tramwaj, perony — a filtr wykonuje się
+   **lokalnie**, w `parse_osm_map_xml`. Każdy filtr przeniesiony na naszą stronę jest
+   naszym błędem, gdy się pomyli; przy Overpassie tego ryzyka nie ma.
+2. **Twardy limit obszaru: 50 000 węzłów na wywołanie.** Całe bbox jednego pakietu
+   w jednym wywołaniu daje `HTTP 400 — You requested too many nodes (limit is 50000)`
+   (zmierzone na pakiecie D, 2,77 s). Obszar trzeba więc dzielić na **kafle**; bok
+   0,006° zmierzono na 8012 węzłów i 2,39 MB, czyli sześciokrotny zapas do limitu.
+3. **Nieporównywalnie większy transfer.** Pakiet D: **30 kafli i 66 137 960 B** (66,1 MB)
+   po to, żeby wydobyć **97 way'ów i 746 węzłów** metra. Zapytanie Overpassa o ten sam
+   prostokąt zwraca same way'e metra. Stosunek nie jest tu szczegółem: pobranie w ten
+   sposób **całej sieci** (bbox sześciu osi, 0,206° × 0,091°) wymagałoby przy tym
+   kaflu **560 wywołań i około 1,2 GB** — i dlatego całą sieć tą drogą pobiera się
+   **tylko po decyzji właściciela**, nie przy okazji. To cudza infrastruktura.
+4. **Nie ma `timestamp_osm_base`.** Snapshot z tej drogi nie ma jednej daty odniesienia
+   dla całego zbioru; ma tylko daty poszczególnych way'ów.
+
+*Warunek powrotu.* Droga zapasowa znika z użycia, gdy
+`https://overpass-api.de/api/status` odpowiada z tego środowiska **HTTP 200**. Warunek
+jest sprawdzalny jednym poleceniem i ma być sprawdzony **przed** każdym użyciem
+`--osm-source osm-api`:
+
+```bash
+curl -sS -o /dev/null -w '%{http_code} %{time_total}\n' --max-time 30 \
+    https://overpass-api.de/api/status
+```
+
+*Provenance.* Snapshot z tej drogi **deklaruje** pole `osm_source: osm-api`, a
+`surface_sections.py` czyta tę deklarację, zamiast nazywać każdy plik Overpassem.
+`query_sha256` opisuje zapytanie, które NAPRAWDĘ wysłano — suma zapytania Overpassa
+w wyniku pobrania z `/api/0.6/map` byłaby zdaniem nieprawdziwym. Atrybucja i licencja
+bez zmian: **© OpenStreetMap contributors, ODbL 1.0**.
+
+*Pozycja w hierarchii.* Bez zmian — **klasa 4**, poniżej oficjalnych danych STIB
+i Regionu. Ta droga zmienia sposób dostępu do OSM, nie rangę OSM. `data/network/sources.json`
+opisuje dostęp jako `access.type = "osm_or_overpass"`, więc obie drogi mieszczą się
+w istniejącym wpisie rejestru; czego rejestr nie zapisuje, to limity anonimowe tej
+konkretnej końcówki i to jest zgłoszone jako osobna pozycja kolejki, a nie poprawione
+tutaj (`data/` jest tylko do odczytu).
+
+Bramka: `tools/tests/test_osm_api_fallback.py`.
+
 ## Macierz źródło → zadanie
 
 | zadanie | źródło podstawowe | źródła kontrolne | czego nie wolno wywnioskować |
