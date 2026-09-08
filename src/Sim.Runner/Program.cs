@@ -98,6 +98,36 @@ public static class Program
         };
 
     /// <summary>
+    /// Powody odmowy dla par (polecenie, opcja), w ktorych runner opcje ZNA z innego
+    /// polecenia, a to jej nie przyjmuje Z POWODU. Klucz jest DWUPOZIOMOWY — najpierw
+    /// polecenie, potem opcja — i to nie jest ozdoba: klucz zlaczony spacja bylby
+    /// literalem WIELOWYRAZOWYM, a bramka swoistosci igiel (6.A33) czyta wielowyrazowe
+    /// literaly tego pliku jako rodzine KOMUNIKATOW. Klucz udawalby wiec komunikat,
+    /// ktorego nikt nie wypisuje, i podnosil licznik dopasowan igiel testowych.
+    /// Zmierzone: przy kluczu zlaczonym `--coast-from-m` trafialo w 2 komunikaty
+    /// zamiast w 1, i to zapalalo bramke.
+    ///
+    /// <para><b>To jest tabela decyzji, i nazywam ja tak wprost.</b> Kazdy wpis wymaga
+    /// rozstrzygniecia wlasciciela, wiec nie da sie jej wyprowadzic z kodu — inaczej niz
+    /// zbior polecen znajacych opcje, ktory jest LICZONY z <c>KnownOptions</c>. Lekcja
+    /// z 6.D40: mechanizm nazwany „mechanicznym", a bedacy tabela wyjatkow, klamie
+    /// o sobie; ten jest tabela i tak jest opisany.</para>
+    /// </summary>
+    private static readonly IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> PowodyOdmowy =
+        new Dictionary<string, IReadOnlyDictionary<string, string>>(StringComparer.Ordinal)
+        {
+            ["replay"] = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["--coast-from-m"] =
+                "odtworzenie zapisu wejść z --keys idzie przez TrainController "
+                + "i DriverNotch, więc nastawa automatu nadpisałaby to, co zrobił "
+                + "maszynista, a odtworzenie przestałoby być odtworzeniem. Odmowa jest "
+                + "udokumentowaną własnością polecenia — rozstrzygnięcie właściciela "
+                + "z 07.09.2026 na wariant (a), nie brak implementacji",
+            },
+        };
+
+    /// <summary>
     /// Wiersze <c>#</c> z nastawami, ktore wyprodukowaly plik — przed naglowkiem CSV.
     /// </summary>
     /// <remarks>
@@ -346,6 +376,45 @@ public static class Program
         var all = new List<string>(known.Values);
         all.AddRange(known.Flags);
         all.Sort(StringComparer.Ordinal);
+
+        // 6.A19: opcja, ktora runner ZNA z innego polecenia, to INNA wiadomosc niz
+        // opcja, ktorej nie zna wcale. Do 08.09.2026 `replay --coast-from-m` konczylo
+        // sie zdaniem o nieznanej opcji, choc `line` i `budget` te opcje przyjmuja —
+        // czytajacy dostawal diagnoze „literowka" na zachowanie, ktore jest projektem.
+        // Ta sama rodzina co 6.A22, o krok dalej: tam runner nie znal POSTACI czlonu,
+        // tu opcja nie nalezy do TEGO polecenia.
+        //
+        // Zbior polecen przyjmujacych opcje jest LICZONY z KnownOptions, nie wypisany,
+        // wiec nie zestarzeje sie po cichu przy dopisaniu opcji do innego polecenia.
+        // Powod jest osobno, w PowodyOdmowy, bo wymaga decyzji wlasciciela.
+        var przyjmuja = new List<string>();
+        foreach (var pair in KnownOptions)
+        {
+            if (string.Equals(pair.Key, command, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (Array.IndexOf(pair.Value.Values, option) >= 0
+                || Array.IndexOf(pair.Value.Flags, option) >= 0)
+            {
+                przyjmuja.Add(pair.Key);
+            }
+        }
+
+        if (przyjmuja.Count > 0)
+        {
+            przyjmuja.Sort(StringComparer.Ordinal);
+            var powod = PowodyOdmowy.TryGetValue(command, out var dlaPolecenia)
+                    && dlaPolecenia.TryGetValue(option, out var opis)
+                ? ": " + opis
+                : string.Empty;
+            return $"polecenie {command} nie przyjmuje opcji {option}{powod}. "
+                + $"Runner ją zna — przyjmują ją: {string.Join(", ", przyjmuja)}. "
+                + $"Opcje {command}: "
+                + (all.Count == 0 ? "żadnej" : string.Join(", ", all));
+        }
+
         return $"polecenie {command} nie zna opcji {option}. Zna: "
             + (all.Count == 0 ? "żadnej" : string.Join(", ", all));
     }
@@ -522,6 +591,21 @@ public static class Program
     /// sterownik i tak nie przekroczy 72,00 km/h. Dlatego <c>--limit-kmh</c> bez
     /// <c>--atp</c> jest ODMOWĄ: byłby wtedy przejazdem ręcznym z wymyślonym sufitem
     /// i bez żadnego nadzoru, czyli dokładnie tą usterką, którą naprawiło #246.</para>
+    ///
+    /// <para><b><c>--coast-from-m</c> jest tu ODMOWĄ NA STAŁE, i to jest decyzja
+    /// właściciela z 07.09.2026, nie brak implementacji.</b> Wiersz w „Czego agent nie
+    /// ruszy bez decyzji" wyliczał trzy wykluczające się odczytania i został
+    /// rozstrzygnięty na wariant (a): odmowa zostaje i jest udokumentowaną
+    /// właściwością polecenia. Powód jest mechaniczny, nie estetyczny —
+    /// <c>replay</c> odtwarza ZAPIS WEJŚĆ z <c>--keys</c> przez
+    /// <c>TrainController</c> i <c>DriverNotch</c>, więc nastawa automatu zdejmująca
+    /// trakcję od X metra nadpisywałaby wejścia maszynisty, po czym odtworzenie
+    /// przestałoby być odtworzeniem, przy zielonym teście.
+    ///
+    /// <para>Data stoi tu po to, żeby zniesienie tej odmowy było decyzją PODJĘTĄ,
+    /// a nie skutkiem ubocznym czyjegoś refaktoru. Treść komunikatu odmowy siedzi
+    /// w <c>PowodyOdmowy</c>; do 08.09.2026 mówił on „nie zna opcji" o opcji, którą
+    /// <c>line</c> i <c>budget</c> przyjmują (6.A19).</para></para>
     /// </summary>
     private static int Replay(string[] args)
     {
