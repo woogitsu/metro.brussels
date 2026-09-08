@@ -64,6 +64,34 @@ z wypisanym komunikatem, każda MUSI paść:
  10. zapadka podniesiona „na zapas" do 3 przy dwóch wyjątkach na liście
      -> zapadka 3 stoi wyżej niż lista (2) — obniż ją do stanu faktycznego
 
+ 11. przykład nagłówka w `docs/04-conventions.md` podmieniony na inny kształt
+     (07.09.2026, `f684e40a3af52272f9cd1d32d241e9bf3abf644d`) — pada DOKŁADNIE jeden
+     test, kod wyjścia 1, 13/14
+     -> przykład nagłówka w `docs/04-conventions.md` ma kształt ['**Snapshot na
+        commicie:** `<sha>` (`main`, <data>)'] przy kształcie 90 z 135 raportów:
+        '**Zmierzone <data> na commicie:** `<sha>`'
+ 12. śródtytuł o raportach zdjęty z `docs/04-conventions.md`
+     -> 11 raportów cytuje `docs/04-conventions.md` (['L1_A-chunks.md',
+        'audyt-asercji.md', 'kolejka-uzupelnienie-drugie.md'] …), a plik nie ma ani
+        jednego śródtytułu o raportach
+     KONTROLA 12 BYŁA ŚLEPA ZA PIERWSZYM PODEJŚCIEM i to jest tu zapisane, bo samo
+     zjawisko jest ważniejsze od poprawki: podstawiony śródtytuł brzmiał „Inny temat,
+     bez slowa o raportach" i ZAWIERAŁ napis „raport", więc wzorzec go złapał, bramka
+     została zielona kodem 0 i wyglądała na sprawdzoną. Dopiero śródtytuł „Inny temat"
+     dał czerwień.
+ 13. PUŁAPKA WCIĘTEGO BLOKU — kontrola, dla której `FENCE` ma `[ \t]*`. Do konwencji
+     dopisany DRUGI przykład, zgniły i wcięty pod punktem listy, obok poprawnego
+     niewciętego. Wzorzec z `[ \t]*` widzi dwa przykłady i zgłasza zgniły (kod 1);
+     wzorzec zakotwiczony na samym grzbiecie widzi jeden i zgłasza ZERO — bramka
+     ZIELONA, nie zobaczywszy zgniłego przykładu w pliku
+     -> odstające (`FENCE`): 1, kod 1; odstające (`^```` bez `[ \t]*`): 0, kod 0
+
+Kontrole 11 i 13 są parą jak 7 i 8, tylko dla przykładu w konwencjach: zapis zgniły
+(11) i przyrząd, który zgniłego nie widzi (13). Kontrolę na tekście POPRAWNYM — kształt
+zgodny z większością NIE odstaje — nosi w sobie
+`test_detektor_przykladu_naglowka_widzi_blok_wciety` (punkty 3 i 4), bo bramka
+zapalająca się na dobrym tekście zostaje wyłączona (6.D27).
+
 Kontrole 7 i 8 są parą i pilnują dwóch przeciwnych sposobów, w które ta bramka mogłaby
 udawać pomiar: wzorzec martwy (nie łapie nic, więc niczego nie sprawdza) i wzorzec
 zbyt szeroki (łapie wszystko, więc każdy raport „ma datę"). Kontrole 9 i 10 są taką
@@ -592,6 +620,204 @@ def test_lista_wyjatkow_od_sciezek_nie_gnije():
         assert not os.path.exists(os.path.join(ROOT, token)), (
             f"`{token}` już istnieje — zdejmij go z listy wyjątków")
     assert isinstance(PATH_EXCEPTIONS, dict)
+
+# --- kształt nagłówka: zalecenie zapisane tam, gdzie raporty go szukają ----------
+
+#: `docs/04-conventions.md` — plik, na który powołuje się 11 raportów w `reports/`
+#: i `tools/tests/test_bin_path_framework.py`, cytując go jako źródło reguły
+#: „pomiaru z datą się nie przelicza". Zmierzone 07.09.2026 na
+#: `f684e40a3af52272f9cd1d32d241e9bf3abf644d`: plik miał wtedy **dziesięć wierszy**
+#: i ani jednego zdania o raportach, nagłówkach czy pomiarach — dziesięć z tych
+#: jedenastu cytowań wskazywało w puste miejsce (jedenaste, `reports/L1_A-chunks.md`,
+#: cytuje go za „1 jednostka = 1 metr" i to w pliku było). Ta bramka pilnuje, żeby
+#: cytowanie miało co cytować.
+CONVENTIONS = os.path.join(ROOT, "docs", "04-conventions.md")
+
+#: BLOK KODU RAZEM Z WCIĘTYM. Wzorzec zakotwiczony na `^```` (bez `[ \t]*`) pomija
+#: blok stojący pod punktem listy — a taki blok w markdownie jest wcięty o dwa albo
+#: cztery znaki. Przyrząd z takim wzorcem zwraca ZERO przykładów i wygląda przez to
+#: na zielony, nie sprawdziwszy niczego; jest to dokładnie ta postać fałszywej
+#: zieloności, którą 6.D27 nakazuje wyłączać. Parę w obie strony wykonuje
+#: `test_detektor_przykladu_naglowka_widzi_blok_wciety`.
+FENCE = re.compile(r'^[ \t]*```[^\n]*\n(.*?)^[ \t]*```', re.M | re.S)
+
+
+def _header_field_line(header):
+    """Wiersz POLA nagłówka niosący SHA — pierwszy wytłuszczony, albo `None`.
+
+    Nagłówek potrafi wspominać commity także w prozie i w tabeli (`T-400-stage-3b.md`
+    nazywa dwa dodatkowe, `mutacje-rdzen-sygnalizacji.md` cztery w tabeli dwóch
+    przeglądów), więc kształtem raportu jest wyłącznie wiersz pola: taki, który
+    zaczyna się od `**` i niesie SHA w grawisach. Zmierzone 07.09.2026: liczenie
+    KAŻDEGO wiersza z SHA daje 35 kształtów zamiast 16, bo wchodzą do tego zdania
+    prozy — czyli przyrząd mierzyłby wtedy prozę, nie nagłówek.
+    """
+    for line in header.splitlines():
+        if line.startswith("**") and COMMIT.search(line):
+            return line.strip()
+    return None
+
+
+def _shape(line):
+    """Kształt wiersza: SHA -> `<sha>`, data w obu notacjach -> `<data>`.
+
+    Normalizacja jest po to, żeby dwa raporty zmierzone w różnych dniach na różnych
+    commitach miały ten sam kształt, a raport z inną KOLEJNOŚCIĄ pól — inny.
+    """
+    out = COMMIT.sub("`<sha>`", line.strip())
+    for pattern in NOTATIONS.values():
+        out = pattern.sub("<data>", out)
+    return out
+
+
+def _header_shapes(items):
+    """Ile raportów z `items` ma który kształt wiersza pola: `{kształt: liczba}`."""
+    counts = {}
+    for _name, text in items:
+        line = _header_field_line(_header(text))
+        if line is None:
+            continue
+        counts[_shape(line)] = counts.get(_shape(line), 0) + 1
+    return counts
+
+
+def _naglowki_w_konwencjach(conventions_text):
+    """Kształty przykładów nagłówka pokazanych w blokach kodu konwencji.
+
+    Przykładem nagłówka jest blok kodu niosący SHA w grawisach — reszta bloków
+    (gdyby doszły) tę bramkę nie interesuje.
+    """
+    return [_shape(block.strip()) for block in FENCE.findall(conventions_text)
+            if COMMIT.search(block)]
+
+
+def _przyklad_odstajacy(conventions_text, dominujacy):
+    """(przykłady, te z nich, które NIE są dzisiejszym kształtem większości)."""
+    przyklady = _naglowki_w_konwencjach(conventions_text)
+    return przyklady, [p for p in przyklady if p != dominujacy]
+
+
+def _brak_zapisu_o_raportach(conventions_text):
+    """Czy konwencje mają w ogóle śródtytuł o raportach — `True`, gdy nie mają."""
+    return not re.search(r'^#{1,6} .*raport', conventions_text, re.M | re.I)
+
+
+def test_zapis_o_naglowku_w_konwencjach_zgadza_sie_z_ksztaltem_z_raportow():
+    """Zalecany kształt nagłówka stoi w JEDNYM miejscu i jest tym, którego się używa.
+
+    Bramka NIE jest bramką na kształt nagłówków — pomiar 6.D38 rozstrzygnął, że
+    takiej być nie może: zmierzone 07.09.2026 na
+    `f684e40a3af52272f9cd1d32d241e9bf3abf644d` — 140 raportów, 135 z wierszem pola,
+    **90 w kształcie wzorcowym i 45 w piętnastu innych, wszystkich czytelnych**,
+    a `docs/TASKS.md` (pole „Poza zakresem" 6.D38) zabrania przepisywania nagłówków
+    datowanych pomiarów. Bramka na kształt zapalałaby się więc na 50 poprawnych
+    raportach, a wyjątków wolno tu mieć dwa (`MAX_COMMIT_EXCEPTIONS`).
+
+    Pilnowane jest coś innego i tańszego: że **przykład w konwencjach nie zgnije**.
+    Kształt zalecany nie jest tu wpisany drugą listą — bramka bierze go z raportów
+    (kształt większości) i porównuje z przykładem z `docs/04-conventions.md`.
+    Rozjazd znaczy jedno z dwojga: albo zalecenie przestało opisywać repozytorium,
+    albo ktoś zmienił zalecenie i nie zmierzył skutku. Oba warte zatrzymania.
+    """
+    items = list(_reports())
+    counts = _header_shapes(items)
+    assert len(items) >= MIN_REPORTS, f"tylko {len(items)} raportów w pętli"
+    assert sum(counts.values()) >= MIN_REPORTS, (
+        f"tylko {sum(counts.values())} raportów ma wiersz pola z SHA — przyrząd "
+        "przestał czytać nagłówki")
+    ranking = sorted(counts.items(), key=lambda para: -para[1])
+    dominujacy, ile = ranking[0]
+    drugi, ile_drugiego = ranking[1]
+    # Bez tego „kształt większości" mógłby być remisem i bramka wskazywałaby
+    # przypadkową stronę remisu jako prawdę o formacie.
+    assert ile > ile_drugiego, (
+        f"remis kształtów: {dominujacy!r} i {drugi!r} po {ile} — nie ma czego "
+        "nazwać zaleceniem")
+
+    with open(CONVENTIONS, encoding="utf-8") as handle:
+        conventions = handle.read()
+    przyklady, odstajace = _przyklad_odstajacy(conventions, dominujacy)
+    assert przyklady, (
+        "`docs/04-conventions.md` nie pokazuje ani jednego przykładu nagłówka "
+        "raportu w bloku kodu — zalecenia, którego nie widać, nie da się stosować")
+    assert not odstajace, (
+        f"przykład nagłówka w `docs/04-conventions.md` ma kształt {odstajace} "
+        f"przy kształcie {ile} z {sum(counts.values())} raportów: {dominujacy!r}")
+
+
+def test_konwencje_maja_zapis_na_ktory_powoluja_sie_raporty():
+    """Cytowanie musi mieć co cytować — inaczej odsyłacz jest ozdobą.
+
+    Zmierzone 07.09.2026 na `f684e40a3af52272f9cd1d32d241e9bf3abf644d`: jedenaście
+    raportów powołuje się na `docs/04-conventions.md`, dziesięć z nich za regułę
+    o pomiarze z datą, a plik był wtedy listą dziesięciu punktów o jednostkach
+    i osiach — ani śródtytułu, ani zdania o raporcie.
+
+    Sprawdzany jest ŚRÓDTYTUŁ, a nie brzmienie zdania. Asercja na prozę pękałaby
+    przy każdym przeredagowaniu akapitu i nie mówiłaby nic o tym, czy zapis jest;
+    śródtytuł jest najgrubszym sygnałem, jaki da się sprawdzić bez zgadywania treści.
+    """
+    citing = sorted(name for name, text in _reports()
+                    if "docs/04-conventions.md" in text)
+    assert citing, (
+        "żaden raport nie powołuje się już na `docs/04-conventions.md` — ta bramka "
+        "przestała cokolwiek chronić i idzie do skasowania, a nie do obniżenia")
+    with open(CONVENTIONS, encoding="utf-8") as handle:
+        conventions = handle.read()
+    assert not _brak_zapisu_o_raportach(conventions), (
+        f"{len(citing)} raportów cytuje `docs/04-conventions.md` ({citing[:3]} …), "
+        "a plik nie ma ani jednego śródtytułu o raportach")
+
+
+def test_detektor_przykladu_naglowka_widzi_blok_wciety():
+    """Para kontrolna dla dwóch bramek wyżej — bez niej byłyby zielone przy zerze.
+
+    Punkt 1 jest tym, na czym ten przyrząd naprawdę mógł się wyłożyć: blok kodu
+    stojący pod punktem listy jest w markdownie WCIĘTY, a wzorzec zakotwiczony
+    na `^```` go pomija. Zero przykładów przechodziłoby wtedy przez `assert
+    przyklady` jako pusta lista — czyli bramka byłaby czerwona z właściwego powodu
+    tylko przypadkiem, a przy jednym niewciętym bloku obok zrobiłaby się zielona,
+    nie widząc wciętego.
+    """
+    wciety = (
+        "## Nagłówek\n\n"
+        "- punkt listy, a pod nim blok:\n\n"
+        "  ```\n"
+        "  **Zmierzone 07.09.2026 na commicie:** `abc1234`\n"
+        "  ```\n")
+    # 1. WCIĘTY blok jest widziany — to jest cała ta kontrola.
+    assert _naglowki_w_konwencjach(wciety) == [
+        "**Zmierzone <data> na commicie:** `<sha>`"]
+    # 2. DOWÓD, że pułapka istnieje, a nie tylko twierdzenie o niej: wzorzec bez
+    #    `[ \t]*` przed grzbietem nie znajduje w tym samym tekście NICZEGO.
+    zakotwiczony = re.compile(r'^```[^\n]*\n(.*?)^```', re.M | re.S)
+    assert zakotwiczony.findall(wciety) == []
+    # 3. Blok BEZ SHA nie jest przykładem nagłówka — inaczej każdy blok `bash`
+    #    w konwencjach liczyłby się jako zalecenie o nagłówku.
+    assert _naglowki_w_konwencjach(
+        "```bash\nbash doctor.sh\n```\n") == []
+    # 4. KONTROLA NA PRZYKŁADZIE POPRAWNYM: kształt zgodny z większością NIE
+    #    odstaje. Bramka zapalająca się na dobrym tekście zostaje wyłączona (6.D27).
+    dobry = "```\n**Zmierzone 2026-09-07 na commicie:** `abc1234`\n```\n"
+    przyklady, odstajace = _przyklad_odstajacy(
+        dobry, "**Zmierzone <data> na commicie:** `<sha>`")
+    assert przyklady and not odstajace, (przyklady, odstajace)
+    # 5. KONTROLA NEGATYWNA: przykład w INNYM kształcie odstaje i jest wskazany.
+    inny = "```\n**Snapshot na commicie:** `abc1234` (`main`, 04.09.2026)\n```\n"
+    _przyklady, odstajace = _przyklad_odstajacy(
+        inny, "**Zmierzone <data> na commicie:** `<sha>`")
+    assert odstajace == ["**Snapshot na commicie:** `<sha>` (`main`, <data>)"], odstajace
+    # 6. Brak śródtytułu o raportach jest wykrywany, a obecny — nie zgłaszany.
+    assert _brak_zapisu_o_raportach("# Konwencje\n\n- 1 jednostka = 1 metr.\n")
+    assert not _brak_zapisu_o_raportach(
+        "# Konwencje\n\n## Nagłówek raportu\n\ntreść\n")
+    # 7. Wiersz pola bierze się z `**`, nie z prozy — nagłówek wspominający commit
+    #    w zdaniu nie ma wiersza pola i do rozbicia kształtów nie wchodzi.
+    assert _header_field_line("Punkt wyjścia: przegląd na `737d592`.") is None
+    assert _header_field_line(
+        "# Tytuł\n\n**Zmierzone na commicie:** `737d592`\n") == (
+        "**Zmierzone na commicie:** `737d592`")
+
 
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
 # z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
