@@ -206,7 +206,20 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 #: Zdanie zostaje tu jako zapis tego, jak łatwo taka liczba się starzeje: właściwym
 #: rozwiązaniem nigdy nie jest wpisanie zapamiętanej wartości, tylko POMIAR liczby
 #: bloków w pliku i ustawienie zapadki na jego wynik.
-MINIMUM_DETAIL_BLOCKS = 120
+#:
+#: **Liczba przepisana raz jeszcze — 120 → 124 (08.09.2026, drugie uzupełnienie tego
+#: dnia).** Cztery bloki (6.D48 … 6.D51), i powód jest znów POLICZONY: `open_items`
+#: stało RÓWNO na dwunastu, czyli na podłodze, a czekająca pozycja 6.C4 domyka jedną —
+#: czyli zeszłaby POD próg i bramka zapasu zapaliłaby się na pull requeście, który
+#: wykonuje pracę. Po uzupełnieniu jest ich szesnaście.
+#:
+#: Wszystkie cztery wyszły z pomiarów wykonanych **tego dnia, przy innych pozycjach**,
+#: a dwie opisują **moją własną pomyłkę**: 6.D48 bierze się z tego, że uznałem
+#: Blendera za nieobecnego po `command -v`, gdy leżał w cache od 06.09.2026, a 6.D49
+#: z nazwy testu, którą sam przemianowałem przy 6.A19, zostawiając martwy odsyłacz
+#: w raporcie. Pozycja opisująca własny błąd jest warta tyle samo co każda inna:
+#: bez wpisu wygląda w tabeli identycznie jak błąd nieistniejący.
+MINIMUM_DETAIL_BLOCKS = 124
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
