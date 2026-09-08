@@ -219,7 +219,37 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 #: z nazwy testu, którą sam przemianowałem przy 6.A19, zostawiając martwy odsyłacz
 #: w raporcie. Pozycja opisująca własny błąd jest warta tyle samo co każda inna:
 #: bez wpisu wygląda w tabeli identycznie jak błąd nieistniejący.
-MINIMUM_DETAIL_BLOCKS = 124
+#: **124 → 125 (08.09.2026, jeden blok).** Nowa pozycja **6.D52** wchodzi nie
+#: z pomiaru na drzewie, a z **decyzji właściciela** z tego dnia: „zserializować joby
+#: czasowe wobec renderów". Powód, dla którego jest to POZYCJA, a nie od razu zmiana
+#: w workflowach, też jest zmierzony: dziesięć jobów stoi w dziesięciu OSOBNYCH plikach
+#: workflowu, a `concurrency` nie występuje w żadnym, więc `needs:` — pierwszy
+#: i oczywisty pomysł, nazwany w bloku 6.D43 — na tę serializację nie ma zastosowania.
+#: Zostaje wspólna grupa `concurrency`, której zachowania w tym repozytorium nikt nie
+#: odczytał, bo nie ma z czego. Decyzja właściciela zdjęła pytanie „czy wolno";
+#: pytania „jak, żeby nie anulować jobu" nie zdejmuje, i to jest treść 6.D52.
+#:
+#: Zapadka jest tu **podniesiona na POMIAR** liczby bloków w pliku (125), nie na
+#: wartość zapamiętaną z rozmowy — reguła wypisana trzy akapity wyżej obowiązuje
+#: także wtedy, gdy dopisuje się jeden blok, a nie cztery.
+#: **125 → 130 (08.09.2026, uzupełnienie kolejki o pięć pozycji o PRZYRZĄDACH).**
+#: Wszystkie pięć wyszło z pomiarów wykonanych tego dnia przy innej pracy, a trzy
+#: opisują usterki, które sam wprowadziłem albo przegapiłem — 6.D56 dotyczy commita,
+#: którego tematem było „liczba ma stać w jednym miejscu" i który zostawił ją w dwóch.
+#:
+#: Najmocniejsza jest **6.D54**, bo dotyczy wyrocznia zieloności całego projektu:
+#: `test_all.py` łapie `except Exception`, a `SystemExit` dziedziczy z `BaseException`,
+#: więc test wołający `sys.exit(0)` kończy CAŁY zestaw **kodem 0** po jednym wykonanym
+#: teście, bez wiersza `N/N przeszło` i bez `RAZEM`. Zmierzone sondą: 1999 testów nie
+#: wykonało się wcale, a kod wyjścia — ten sam, który `CLAUDE.md` §5 czyni wyrocznią —
+#: powiedział „zielono". Przy `sys.exit(1)` daje kod 1, czyli przyrząd myli się
+#: WYŁĄCZNIE w stronę „wszystko w porządku".
+#:
+#: Zapadka podniesiona na POMIAR liczby bloków w pliku (130), nie na wartość
+#: zapamiętaną — i to jest tego dnia trzecie podniesienie, przy którym trzeba było
+#: liczyć, a nie pamiętać: dwie gałęzie mówiły jednocześnie „125", bo każda liczyła
+#: tylko własny blok.
+MINIMUM_DETAIL_BLOCKS = 130
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je

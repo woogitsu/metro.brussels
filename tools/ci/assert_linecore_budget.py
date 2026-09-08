@@ -128,6 +128,54 @@ def niemierzalny(config, row):
                config["microseconds_per_step_max"]))
 
 
+def slabo_uwarunkowany(config, row):
+    """Zdanie nazywające słabe uwarunkowanie pomiaru — albo `None`.
+
+    **Po co to jest.** 08.09.2026 właściciel podniósł `spread_pct_max` z 50 % na 100 %,
+    przeciwko mojej rekomendacji: 115,9 % jest jedynym rozstępem, który ma **parę**
+    (ta sama treść kodu dała 4,213–4,364 µs na maszynie niezajętej), więc jest jedynym
+    dowodem niemierzalności. Podniesienie granicy znaczy, że **więcej** pomiarów jest
+    porównywanych z progiem czasu — i to jest usterka, którą ta funkcja nazywa po
+    imieniu, zamiast czekać, aż ktoś ją zobaczy w logu:
+
+        pomiar o rozstępie 95 % JEST dziś mierzalny, więc przy 16 µs dostanie
+        komunikat „koszt kroku przekracza prog", czyli diagnozę „szukaj regresu
+        w kodzie" — o pomiarze, który mówi wyłącznie o maszynie.
+
+    To jest dokładnie to kłamstwo, które naprawiła 6.D41, wpuszczone z powrotem przez
+    szerszą granicę. Poziom ostrzeżenia go **nie odwraca** — porównanie nadal się
+    wykonuje, bo taka jest treść decyzji — ale przestaje o nim milczeć.
+
+    Poziom (`spread_pct_warn`) jest **wyprowadzony z pomiarów**: 22,5 % to najgorzej
+    uwarunkowany z **trzech przebiegów kalibracyjnych**, z których wzięty jest próg
+    (06.09.2026, trójka 17,0 / 13,1 / 22,5). Zdanie mówi więc dokładnie tyle: „ten
+    pomiar jest słabiej uwarunkowany niż którykolwiek z tych, na których próg
+    zmierzono" — i **nie** mówi, że powyżej tego poziomu nie ma pomiarów zielonych.
+    Nie mówi tego, bo są: przebiegi tej bramki o rozstępie **do 47,5 %** wychodziły
+    kodem 0 przy koszcie 3,736–4,040 µs (`reports/linecore-step-budget-gate.md` §9,
+    liczby stoją tam i w stałej `ROZSTEPY_KONTENERA_08_09` modułu testowego, nie tutaj).
+    Znacznik jest **adnotacją, nie werdyktem**.
+
+    Poziom musi leżeć **poniżej 33,9 %**, i to jest jego jedyny twardy warunek od góry:
+    przy 33,9 % padł pomiar 9,572 µs, z którego wzięte jest dolne ograniczenie progu,
+    czyli dokładnie ta odmowa, której 08.09.2026 nikt nie umiał odróżnić od regresu.
+    Poziom nad nią zostawiłby bez oznaczenia ten jeden przypadek, dla którego powstał.
+
+    Warunek jest **ostry**, więc pomiar o rozstępie równym poziomowi zdania nie dostaje;
+    zdanie doklejane do każdej odmowy byłoby szumem i przestałoby cokolwiek znaczyć
+    (6.D27). Klucz czytany jest **wprost**, bez wartości domyślnej: zniknięcie go
+    z pliku ma być hałaśliwe, a nie ciche wyłączenie ostrzeżenia.
+    """
+    poziom = config["spread_pct_warn"]
+    if row["spread_pct"] <= poziom:
+        return None
+    return ("pomiar jest SLABO UWARUNKOWANY: rozstep powtorzen %.1f %% przekracza poziom "
+            "ostrzezenia %.1f %%, czyli jest slabiej uwarunkowany niz KTORYKOLWIEK "
+            "z przebiegow, na ktorych zmierzono prog — ta odmowa moze mowic "
+            "o obciazeniu maszyny, a nie o regresie w kodzie"
+            % (row["spread_pct"], poziom))
+
+
 def verdict(config, output):
     """`(ok, komunikaty)` — pusta lista zarzutów znaczy zielono.
 
@@ -155,16 +203,23 @@ def verdict(config, output):
     if powod:
         problems.append(powod)
     else:
+        # Odmowa CZASOWA przy rozstępie ponad poziomem ostrzeżenia musi sama powiedzieć,
+        # że pomiar jest słabo uwarunkowany — inaczej czytający log dostaje diagnozę
+        # „szukaj regresu w kodzie" na pomiarze, który jej nie uzasadnia. Zarzuty
+        # o OBSADZIE tego ogona nie dostają, bo liczba składów na planie od obciążenia
+        # maszyny nie zależy wcale (6.D41 §5).
+        slabo = slabo_uwarunkowany(config, row)
+        ogon = "" if slabo is None else " — " + slabo
         limit = config["microseconds_per_step_max"]
         if row["us_per_step"] > limit:
             problems.append(
-                "koszt kroku %.3f us przekracza prog %.3f us"
-                % (row["us_per_step"], limit))
+                "koszt kroku %.3f us przekracza prog %.3f us%s"
+                % (row["us_per_step"], limit, ogon))
         frame = config["frame_budget_pct_max"]
         if row["frame_budget_pct"] > frame:
             problems.append(
-                "krok zajmuje %.3f %% budzetu klatki przy progu %.3f %%"
-                % (row["frame_budget_pct"], frame))
+                "krok zajmuje %.3f %% budzetu klatki przy progu %.3f %%%s"
+                % (row["frame_budget_pct"], frame, ogon))
     return not problems, problems
 
 
@@ -189,12 +244,16 @@ def describe(config, output):
     if not rows:
         return "brak wiersza pomiaru"
     row = rows[0]
+    # Znacznik słabego uwarunkowania stoi też w wypisie, nie tylko w odmowie: przebieg
+    # ZIELONY o rozstępie 95 % jest tak samo mało wart jako pomiar, a nikt go wtedy
+    # nie odrzuca, więc bez tego znacznika w logu nie byłoby o nim ani słowa.
+    znacznik = "" if slabo_uwarunkowany(config, row) is None else "; SLABO UWARUNKOWANY"
     return (
         "zgloszonych %d, na planie %d (srednio %.2f, czeka %.2f); "
-        "%.3f us/krok przy progu %.3f; %.3f %% budzetu klatki; rozstep powtorzen %.1f %%"
+        "%.3f us/krok przy progu %.3f; %.3f %% budzetu klatki; rozstep powtorzen %.1f %%%s"
         % (row["declared"], row["on_line_max"], row["on_line_mean"], row["waiting_mean"],
            row["us_per_step"], config["microseconds_per_step_max"],
-           row["frame_budget_pct"], row["spread_pct"]))
+           row["frame_budget_pct"], row["spread_pct"], znacznik))
 
 
 def main(argv=None):

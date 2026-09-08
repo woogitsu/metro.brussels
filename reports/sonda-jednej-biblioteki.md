@@ -201,7 +201,7 @@ kontrola pokazuje, że przypadek, który stary warunek łapał, nowy łapie nada
 
 ## 7. Zapadka bloków
 
-`MINIMUM_DETAIL_BLOCKS` ma 124. Wartość rośnie dalej przy każdym uzupełnieniu kolejki — 08.09.2026 doszły jeszcze cztery bloki 6.D48 … 6.D51 i zapadka stoi na **124**. Liczby w blokach pomiarowych niżej zostają przy swoich datach; ten akapit niesie stan bieżący. **Pomiar niżej jest z 07.09.2026 i zostaje taki,
+`MINIMUM_DETAIL_BLOCKS` ma 130. Wartość rośnie dalej przy każdym uzupełnieniu kolejki — 08.09.2026 doszły najpierw cztery bloki 6.D48 … 6.D51 (zapadka 124), potem 6.D52 z decyzji właściciela o serializacji jobów (125), a potem pięć pozycji o PRZYRZĄDACH 6.D54 … 6.D58, i zapadka stoi na **130**. Liczby w blokach pomiarowych niżej zostają przy swoich datach; ten akapit niesie stan bieżący. **Pomiar niżej jest z 07.09.2026 i zostaje taki,
 jaki był** — wtedy wartością równą stanowi drzewa było 112, bo blok 6.D40 był
 jedynym dochodzącym. Ta gałąź niosła też zdanie, że druga z pary 6.D39 / 6.D40
 musi w rozwiązaniu konfliktu dać **113**; było prawdziwe, gdy w locie były tylko
