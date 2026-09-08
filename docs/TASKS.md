@@ -868,6 +868,10 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.D45 | **`MIN_REPORTS = 40` przy 140 raportach w `reports/`** — zapadka stoi sto pozycji za stanem, więc skan mógłby przestać czytać trzy czwarte katalogu i przejść na zielono | zmierzone 08.09.2026: `ls reports/*.md` daje 140, stała mówi 40. Podniesienie zapadki do stanu jest tą samą operacją, co przy `MINIMUM_DETAIL_BLOCKS`, i nie wymaga żadnej decyzji | S |
 | 6.D46 | **`data_freshness.py` ma w `main()` dokładnie jedno `return 0`, a wypisuje dziś 13 przeterminowanych okien** — krok CI nazwany „Report data freshness" nie może zaczerwienić się NIGDY, choć własnym zdaniem mówi, że oś z takiego archiwum „nie może być nazywana aktualną" | zmierzone 08.09.2026: jedno `return 0` w `main()`, 13 okien, kod wyjścia 0. Pozycja mierzy, czy w drzewie stoi choć jedno zdanie nazywające tę oś aktualną — poprawienie takiego zdania nie jest decyzją właściciela, a progu świeżości pozycja NIE ustala | M |
 | 6.D47 | **Nie wiadomo, czy ponowne uruchomienie joba pull requesta po ruszeniu bazy sprawdza starą czy nową scalankę** — a od tego zależy, czy „zielone CI" na takim jobie mówi cokolwiek o dzisiejszym `main` | zauważone 08.09.2026 przy scalaniu dziewięciu pull requestów: `rerun_failed_jobs` odtwarza przebieg z zapisanym `GITHUB_SHA`, ale tego NIE ZMIERZYŁEM i pozycja istnieje właśnie po to. Pomiar rozstrzyga bez ani jednej decyzji | S |
+| 6.D48 | **Nie ma zapisu, GDZIE narzędzia już leżą, więc `command -v` myli brak w `PATH` z brakiem na maszynie** — `docs/23-environment.md` mówi, jak instalować, i nie mówi, gdzie szukać tego, co jest | zmierzone 08.09.2026: Blender 5.2.1 leżał w `$HOME/.cache/metro-tools` od 06.09, a sesja uznała go za nieobecny po `command -v blender`; instalator odpowiedział „już jest". `doctor.sh` robi to dobrze, bo czyta WERSJĘ — zapis brakuje tylko w dokumencie | S |
+| 6.D49 | **`reports/nieznana-opcja-runnera.md` §72 wymienia nazwę testu, którego już nie ma** — tabela kontroli odsyła do `Line_z_nieznana_opcja_konczy_sie_kodem_jeden`, przemianowanego przy 6.A19 | zauważone 08.09.2026 przy 6.A19 i tam świadomie nietknięte (§4.10). Dwa inne raporty niosą tę nazwę we WKLEJONYM wyjściu dawnych kontroli i tam ma zostać — różnica między zapisem pomiaru a żywym odsyłaczem jest tu całą treścią | S |
+| 6.D50 | **Akapit planu mówi o „31 pozycjach" faz 5 i 6, a `open_items` daje 12** — liczba w prozie nie jest przez nic pilnowana, inaczej niż zapadki obok | zmierzone 08.09.2026 na `docs/TASKS.md:530`. Ta sama rodzina co `MINIMUM_DETAIL_BLOCKS`, tylko bez zapadki; liczba w prozie planu, który sam siebie nazywa mapą, starzeje się po cichu przy każdym domknięciu | S |
+| 6.D51 | **Siedem narzędzi sięga do sieci, a `--offline` ma jedno z nich** — nie wiadomo, które przebiegi da się wykonać bez sieci, a które padną albo zawisną | zmierzone 08.09.2026 przejściem po drzewie: 22 pliki narzędzi, `--offline` w **3**, a z siedmiu sięgających do sieci tylko `provenance.py`. Tego samego dnia Overpass był z kontenera nieosiągalny (trzy próby), a UrbIS odpowiadał HTTP 200 — czyli „brak sieci" nie jest stanem zero-jedynkowym | M |
 
 #### Szczegóły pozycji z kompletem sześciu pól
 
@@ -5425,6 +5429,163 @@ MINIMUM_DETAIL_BLOCKS = 73
 - **Poza zakresem:** zmiana strategii checkoutu w workflowach, wprowadzanie
   wymogu aktualnej gałęzi w regułach repozytorium, automatyczne scalanie bazy.
 - **Zależy od:** nic.
+
+##### 6.D48 · Nie ma zapisu, gdzie narzędzia już leżą
+
+- **Skąd:** zmierzone 08.09.2026, i pomyłka jest moja własna. Sesja sprawdziła
+  obecność Blendera przez `command -v blender`, dostała puste wyjście i zapisała
+  w raporcie, że Blendera na maszynie nie ma — po czym pominęła dwie pozycje
+  (6.C4 i 6.D24) częściowo na tej podstawie. `tools/ci/blender_install.sh`
+  uruchomiony później odpowiedział:
+
+  ```
+  [BLENDER] 5.2.1 już jest w /root/.cache/metro-tools/metro-blender/5.2.1
+  ```
+
+  a `stat` pokazał datę **06.09.2026**, czyli dwa dni przed sesją. Binarium było
+  na maszynie cały czas, tylko poza `PATH` i bez ustawionego `BLENDER_BIN`.
+- **Dlaczego to nie jest usterka `doctor.sh`:** doktor robi to dobrze i jego
+  docstring ostrzega przed dokładnie odwrotną wersją tej pomyłki („`command -v
+  blender` mówi tylko, że w PATH coś jest" — na maszynie po `apt` byłoby to 4.0.2).
+  Brakuje **zapisu w dokumencie**: `docs/23-environment.md` §4 mówi, jak
+  instalować, i nie mówi, gdzie szukać instalacji, która już jest. Katalog
+  `$HOME/.cache/metro-tools` zna wyłącznie `blender_install.sh` — jako
+  `RUNNER_TOOL_CACHE` z domyślną wartością.
+- **Wejście:** `docs/23-environment.md` (§4 Godot, sekcja Blendera),
+  `tools/ci/blender_install.sh` (`CACHE`, `DIR`, `BIN`), `doctor.sh` (sonda wersji),
+  `tools/ci/blender-version.txt`.
+- **Wyjście:** akapit w `docs/23-environment.md` mówiący, **gdzie narzędzia leżą,
+  jeżeli już są**, i jak to sprawdzić bez zgadywania — z jawnym zdaniem, że
+  `command -v` na to nie odpowiada. Do rozstrzygnięcia pomiarem, czy warto do tego
+  bramki: kandydatem jest test żądający, żeby ścieżka cache stała w dokumencie
+  i w skrypcie w JEDNYM miejscu, tak jak wersja stoi w `blender-version.txt`.
+- **Weryfikacja:**
+  ```bash
+  bash doctor.sh
+  python3 tools/tests/test_all.py; echo "kod: $?"
+  ```
+  plus **wykonane** sprawdzenie obu dróg na czystym środowisku zmiennych: bez
+  `BLENDER_BIN` i bez dowiązania w `PATH` dokument ma prowadzić do binarium
+  w mniej niż trzech poleceniach, i to trzeba pokazać przebiegiem.
+- **Skończone, gdy:** dokument podaje ścieżkę cache dla Blendera i dla Godota,
+  mówi wprost, że `command -v` nie odpowiada na pytanie o obecność, a jeżeli
+  powstaje bramka — kontrola negatywna WYKONANA: zmiana ścieżki w skrypcie bez
+  zmiany w dokumencie ją wywraca.
+- **Poza zakresem:** zmiana katalogu cache, zmiana sondy w `doctor.sh` (ta jest
+  poprawna), instalowanie czegokolwiek na maszynach właściciela.
+- **Zależy od:** nic.
+
+##### 6.D49 · Raport odsyła do nazwy testu, której już nie ma
+
+- **Skąd:** zauważone 08.09.2026 przy 6.A19 i tam świadomie nietknięte, bo plik
+  jest poza zakresem tamtej pozycji (§4.10). 6.A19 przemianowała
+  `Line_z_nieznana_opcja_konczy_sie_kodem_jeden` na
+  `Line_z_opcja_innego_polecenia_konczy_sie_kodem_jeden`, bo dawna nazwa mówiła
+  „nieznana opcja" o opcji, którą `budget` przyjmuje.
+- **Gdzie różnica ma znaczenie, a gdzie nie:** `reports/postac-z-rownosciem.md`
+  i `reports/powtorzona-opcja.md` niosą dawną nazwę we **wklejonym wyjściu**
+  dawnych kontroli negatywnych — to zapis pomiaru i przepisanie go byłoby
+  falsyfikacją, więc ma zostać. `reports/nieznana-opcja-runnera.md` §72 wymienia
+  ją natomiast w **tabeli kontroli**, jako nazwę żywą, po której czytający ma
+  sięgnąć do testu — i ta jedna wzmianka jest dziś nieprawdziwa.
+- **Wejście:** `reports/nieznana-opcja-runnera.md` (§72, tabela kontroli),
+  `reports/postac-z-rownosciem.md`, `reports/powtorzona-opcja.md`,
+  `tests/Sim.Tests/RunnerCommandTests.cs`, `reports/odmowa-replay-z-powodem.md` §8
+  (tam zauważone).
+- **Wyjście:** poprawiona jedna wzmianka w tabeli kontroli — oraz **pomiar, ile
+  jeszcze takich żywych odsyłaczy do nazw testów jest w `reports/`**, bo poprawka
+  jednego wiersza bez tej liczby nie mówi, czy problem jest jednostkowy.
+  Jeżeli pomiar pokaże więcej niż kilka, wyjściem jest bramka; jeżeli jeden —
+  raport mówiący to wprost.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py; echo "kod: $?"
+  ```
+  plus wypis: liczba nazw metod testowych wymienionych w `reports/` i liczba tych,
+  które nie istnieją w `tests/` — obie zmierzone przejściem po drzewie, nie
+  oszacowane.
+- **Skończone, gdy:** tabela kontroli w `reports/nieznana-opcja-runnera.md` odsyła
+  do nazwy istniejącej, a raport podaje **liczbę** żywych odsyłaczy do nazw testów
+  w `reports/` i liczbę martwych wśród nich. Wklejone wyjścia dawnych kontroli
+  zostają nietknięte i to musi być w raporcie powiedziane.
+- **Poza zakresem:** przepisywanie wklejonych wyjść dawnych pomiarów, zmiana nazw
+  testów, bramka na kształt tabel kontroli.
+- **Zależy od:** nic.
+
+##### 6.D50 · Plan podaje w prozie liczbę pozycji, której nic nie pilnuje
+
+- **Skąd:** zmierzone 08.09.2026. Akapit w `docs/TASKS.md:530` mówi, że fazy 5 i 6
+  „trzymają **31 pozycji**, z których żadna nie wymaga decyzji właściciela",
+  a `open_items` daje dziś **12**. Liczba jest nieaktualna i nie ma jej kto pilnować.
+- **Dlaczego to ta sama rodzina co zapadki, tylko bez zapadki:**
+  `MINIMUM_DETAIL_BLOCKS` i `MINIMUM_READY_ITEMS` są liczbami, których rozjazd
+  z drzewem **zapala bramkę** — dlatego nie starzeją się po cichu. Ta liczba stoi
+  w prozie tego samego pliku i nie jest przez nic czytana, więc starzeje się przy
+  **każdym** domknięciu pozycji. Akapit czyta człowiek przychodzący z `doctor.sh`,
+  czyli dokładnie ten, którego liczba ma przekonać, że praca jest.
+- **Wejście:** `docs/TASKS.md` (akapit pod tabelą „Co blokuje co, w jednym
+  miejscu"), `tools/tests/test_backlog.py` (`open_items`, `MINIMUM_READY_ITEMS`,
+  wzorzec zapadki), `doctor.sh` (krok odsyłający do tego akapitu).
+- **Wyjście:** **do rozstrzygnięcia pomiarem, czy liczba ma tam w ogóle stać.**
+  Dwa warianty z kosztem każdego: bramka wyprowadzająca liczbę z `open_items`
+  (jak przy zapadkach) albo przepisanie akapitu tak, żeby liczby nie podawał
+  (jak przy liczbie maszyn puli 08.09.2026 — tam wnioskiem było, że twierdzenia
+  niesprawdzalnego z repozytorium nie powinno w nim być, a tu sprawdzalne JEST,
+  więc odpowiedź może być inna).
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_backlog.py
+  python3 tools/tests/test_all.py; echo "kod: $?"
+  ```
+  Oczekiwane: zestaw kodem 0, a jeżeli powstaje bramka — kontrola negatywna
+  WYKONANA: liczba w prozie rozjechana z `open_items` wywraca dokładnie ją.
+- **Skończone, gdy:** akapit albo nie podaje liczby, albo podaje ją pod bramką
+  wyprowadzoną z pomiaru; wybór jest **uzasadniony liczbą**, nie wygodą.
+- **Poza zakresem:** zmiana `MINIMUM_READY_ITEMS`, zmiana treści akapitu o §8
+  i o tym, że pusta kolejka nie jest powodem, żeby stanąć.
+- **Zależy od:** nic.
+
+##### 6.D51 · Siedem narzędzi sięga do sieci, a `--offline` ma jedno
+
+- **Skąd:** zmierzone 08.09.2026 przejściem po drzewie. Plików narzędzi
+  w `tools/track/` i `tools/data/` jest **22**; przełącznik `--offline` niesie
+  **3**. Do sieci sięga **siedem**: `fetch_osm_routes.py`, `build_alignment.py`,
+  `crosscheck_alignment.py`, `surface_sections.py`, `inspire_rail.py`,
+  `tunnel_width.py`, `provenance.py` — a z tych siedmiu `--offline` ma **tylko
+  `provenance.py`**. `surface_sections.py` przyjmuje wprawdzie lokalne snapshoty
+  (`--urbis-file`, `--osm-file`, `--osm-dir`), ale nie ma trybu, który ODMÓWI
+  wyjścia do sieci.
+- **Dlaczego to nie jest teoretyczne:** tego samego dnia Overpass był z kontenera
+  agenta **nieosiągalny** — trzy próby, wszystkie `Connection reset by peer`,
+  a proxy zapisało `ws_closed_mid_exchange` dla `overpass-api.de:443`. UrbIS
+  w tej samej chwili odpowiadał **HTTP 200**. „Brak sieci" nie jest więc stanem
+  zero-jedynkowym: jedno źródło działa, drugie nie, a pozycja 6.B26 wymaga
+  rozstrzygnięcia po **obu** i przez to stoi.
+- **Wejście:** `tools/track/surface_sections.py` (opcje snapshotów),
+  `tools/track/fetch_osm_routes.py`, `tools/track/fetch_gtfs.py` (wzorzec
+  `--offline`, z 6.D14), `tools/data/provenance.py`,
+  `reports/surface-vs-tunnel.md` (snapshot Overpassa z datą),
+  `docs/07-open-data-research.md` (hierarchia źródeł).
+- **Wyjście:** tabela w `reports/narzedzia-a-siec.md`: dla każdego z siedmiu
+  narzędzi — czy wychodzi do sieci zawsze, czy tylko bez lokalnego pliku, co robi
+  przy braku sieci (kod wyjścia i czas, **zmierzone**, nie przewidziane), i czy
+  ma tryb odmowy. Z tego rekomendacja, gdzie `--offline` brakuje najbardziej;
+  dopisanie samego przełącznika należy do pozycji, którą ten pomiar uzasadni.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py; echo "kod: $?"
+  ```
+  plus **wykonane** próby z `timeout` dla każdego z siedmiu narzędzi przy
+  nieosiągalnym źródle, z wypisanym czasem i kodem wyjścia każdej — bo pytanie
+  „pada czy zawiesza się" rozstrzyga wyłącznie pomiar.
+- **Skończone, gdy:** `reports/narzedzia-a-siec.md` podaje dla **każdego** z siedmiu
+  narzędzi kod wyjścia i czas przy nieosiągalnym źródle, oraz nazywa te, które
+  przy braku sieci nie kończą się w rozsądnym czasie. Liczba narzędzi jest
+  POMIAREM z drzewa, nie przepisaną z tego wpisu.
+- **Poza zakresem:** dopisywanie `--offline` do narzędzi (to jest praca, którą ten
+  pomiar ma uzasadnić), zmiana polityki sieci, pobieranie nowych snapshotów do
+  `data/` — katalog jest tylko do odczytu.
+- **Zależy od:** nic. 6.B26 na to czeka, ale nie odwrotnie.
 
 ### Czego agent nie ruszy bez decyzji
 
