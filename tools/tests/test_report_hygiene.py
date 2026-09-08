@@ -233,12 +233,18 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 #: został nierównością, jaką był (`>= 40`), 153 przeszłoby bez słowa i różnica
 #: rosłaby dalej.
 #:
-#: **A potem zestarzała się jeszcze DWA razy, z tego samego powodu, i to przestało
-#: być anegdotą.** Wartość **156** (odczytana na `e1fcfc1`, weszła z #416) padła przy
-#: pierwszym raporcie dopisanym po niej — 6.D43, `reports/pojemnosc-puli-ci.md`.
-#: Wartość **157** (odczytana na `1cada00`) padła przy następnym — 6.D54,
-#: `reports/wyrocznia-zielonosci-sys-exit.md`. **Trzy razy pod rząd, w ciągu jednego
-#: wieczoru, i za każdym razem złapała to zapadka, a nie czyjaś czujność.**
+#: **A potem zestarzała się przy KAŻDYM kolejnym raporcie, i to przestało być
+#: anegdotą — stało się przewidywalnym kosztem.** Kolejne wartości i to, co je
+#: unieważniło:
+#:
+#:     153  (a214ab9, #416)   -> padła, bo weszły #413, #414, #415 z raportami
+#:     156  (e1fcfc1, #416)   -> padła przy 6.D43  reports/pojemnosc-puli-ci.md
+#:     157  (1cada00, #417)   -> padła przy 6.D54  reports/wyrocznia-zielonosci-sys-exit.md
+#:     158  (4a4f8f2, #418)   -> padła przy 6.D55  reports/znaczniki-konfliktu-bramka.md
+#:
+#: **Cztery razy pod rząd, w ciągu jednego wieczoru, i za każdym razem złapała to
+#: zapadka, a nie czyjaś czujność.** Tej listy nie trzeba dalej wydłużać: mechanizm
+#: jest już pokazany i następne wpisy niosłyby zero nowej informacji.
 #:
 #: To jest mocniejszy argument za równością niż pierwotne 112 pozycji różnicy. Sto
 #: dwanaście dawało się opowiedzieć jako jedno zaniedbanie do nadgonienia; trzy
@@ -251,13 +257,13 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 #: nie usterką.**
 #:
 #: Dlatego liczba nie jest tu wyliczana z żadnej innej liczby. Jest odczytana
-#: z drzewa, na `1cada00` plus raport tego commita:
+#: z drzewa, na `4a4f8f2` plus raport tego commita:
 #:
 #:     $ ls reports/*.md | wc -l
-#:     158
+#:     159
 #:     $ python3 -c 'import sys; sys.path.insert(0, "tools/tests");
 #:       import test_report_hygiene as m; print(len(list(m._reports())))'
-#:     158
+#:     159
 #:
 #: Oba pomiary stoją tu razem świadomie: asercja porównuje z `len(list(_reports()))`,
 #: nie z wyjściem `ls`, a te dwa zbiory mogłyby się różnić (glob, katalogi, pliki
@@ -267,7 +273,7 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 #: Kto dopisze następny raport, nie przepisuje tej liczby z pamięci ani z tego
 #: akapitu, tylko mierzy ją **na swoim drzewie po scaleniu `main`** — komunikat
 #: asercji podaje wynik pomiaru wprost, żeby nie było potrzeby zgadywania.
-MIN_REPORTS = 158
+MIN_REPORTS = 159
 
 #: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
 #: wierszem zaczynającym się od `**`, z którego `_header_shapes` czyta kształt.
