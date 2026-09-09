@@ -106,7 +106,8 @@ fi
 # Powód stoi w kontroli `hostfxr` niżej: `HOSTFXR_OK` bierze się z `DOTNET_ROOT`
 # albo z GOŁEGO `command -v dotnet`, a nie z `$DOTNET_BIN`. Podpowiedź radząca
 # `DOTNET_BIN` zdejmowała więc jeden komunikat i zostawiała drugi — a ten drugi
-# mówi o awarii, która objawia się sygnałem 11 albo zawieszeniem bez wypisu.
+# mówi o awarii, która objawia się natychmiastową śmiercią procesu (log: signal 11,
+# powłoka: kod 134) — patrz komentarz przy samej kontroli `hostfxr` niżej.
 if [ -n "$SDK_NA_DYSKU" ]; then
   BRAK_SDK_PODPOWIEDZ="SDK JEST na dysku: $SDK_NA_DYSKU (wersja $(\
     "$SDK_NA_DYSKU" --version 2>/dev/null)) — nie instaluj, tylko uruchom: export DOTNET_ROOT=$(dirname "$SDK_NA_DYSKU"); export PATH=\"\$DOTNET_ROOT:\$PATH\"   (samo DOTNET_BIN zdejmuje ten komunikat, ale ZOSTAWIA WARN godot .NET hostfxr — zmierzone)"
@@ -175,9 +176,12 @@ chk_optional "godot ($GODOT_CMD)" "\"$GODOT_CMD\" --version" \
 # przechodzi identycznie z `DOTNET_ROOT` i bez niego. Zmierzone 06.09.2026
 # (docs/23-environment.md §4.1): bez `DOTNET_ROOT` i bez `dotnet` w PATH ten sam
 # binarny plik, który przed chwilą podał wersję, przy `--path src/Game` pada
-# sygnałem 11 (`Failed to load hostfxr`) w niecałą sekundę — albo, przy brakującym
-# assembly zamiast brakującego hostfxr, wisi bez ani jednego wiersza na stdout aż do
-# limitu czasu joba. Sonda na SAMĄ obecność `--version` nic z tego nie łapie, więc
+# w niecałą sekundę (`Failed to load hostfxr`, log mówi signal 11, powłoka daje
+# kod 134). ZDANIE O ZAWIESZENIU BEZ WYPISU ZOSTAŁO STĄD ZDJĘTE 09.09.2026, a nie
+# przepisane obok: 6.D21 próbowała odtworzyć je sześcioma wariantami brakującego
+# zestawu, 6.D24 pięcioma wariantami brakującej biblioteki natywnej, i żaden
+# z jedenastu nie zawiesił procesu ani nie zamilkł (0,19–2,69 s, wyjście za każdym
+# razem). Sonda na SAMĄ obecność `--version` nic z tego nie łapie, więc
 # to osobne sprawdzenie: `DOTNET_ROOT` wskazujący katalog z `host/fxr/*/libhostfxr.so`
 # (dokładnie ten, który stawia `dotnet-install.sh`), albo `dotnet` osiągalny przez
 # goły `command -v` — silnik próbuje TO jako drugie, dopiero gdy `DOTNET_ROOT` się
@@ -191,7 +195,7 @@ if "$GODOT_CMD" --version >/dev/null 2>&1; then
     HOSTFXR_OK=1
   fi
   chk_optional "godot .NET hostfxr" "[ $HOSTFXR_OK -eq 1 ]" \
-    "ustaw DOTNET_ROOT na katalog SDK z host/fxr/*/libhostfxr.so (np. \$HOME/.dotnet) albo dodaj dotnet do PATH — inaczej Godot mono pada sygnałem 11 (Failed to load hostfxr) albo wisi bez wyjścia przy starcie sceny z C#"
+    "ustaw DOTNET_ROOT na katalog SDK z host/fxr/*/libhostfxr.so (np. \$HOME/.dotnet) albo dodaj dotnet do PATH — inaczej Godot mono pada przy starcie sceny z C# w niecałą sekundę: log pisze Failed to load hostfxr i signal 11, a powłoka widzi kod 134 (zmierzone 06.09 i 09.09.2026, 11 wariantów)"
 fi
 
 echo ""

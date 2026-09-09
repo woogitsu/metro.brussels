@@ -581,6 +581,45 @@ próba nie zastała: albo scenariusz wymaga innego rodzaju braku niż testowane 
 albo objaw powstał w innej wersji Godota/.NET niż 4.7.2/10.0.11 z tego środowiska.
 Pełne wyjścia: `reports/6d21-objaw-nieodtworzony.md`.
 
+**Trzecia postać i INNY mechanizm: brakująca albo uszkodzona biblioteka NATYWNA
+samego runtime'u.** Zmierzone 09.09.2026 przy 6.D24, pięć wariantów na tym samym
+binarnym pliku, `DOTNET_ROOT` ustawiony i wskazujący **cień** prawdziwej instalacji
+(drzewo samych symlinków z jednym plikiem zepsutym, żeby instalacja .NET nie była
+tknięta), `PATH` bez `dotnet` (inaczej silnik wraca fallbackiem do prawdziwej
+instalacji i maskuje zepsucie), limit 20 s, `--headless --path src/Game
+--quit-after 3`: `libhostfxr.so` usunięty (2,69 s) i osobno obcięty do 200 B
+(0,30 s), `libcoreclr.so` usunięty (0,19 s) i obcięty (0,35 s), `libhostpolicy.so`
+usunięty (0,24 s). **Żaden nie zawiesił procesu i żaden nie zamilkł** — każdy
+skończył się w 0,19–2,69 s, kodem **134** (`SIGABRT` widziany przez powłokę)
+i 20–25 wierszami wyjścia, w tym nazwą zepsutego pliku z pełną ścieżką. Objaw
+„cisza do wypalenia limitu czasu" nie odtwarza się więc ani przez brakujący zestaw
+(6.D21, sześć wariantów), ani przez brakującą bibliotekę natywną (6.D24, pięć).
+
+Mechanizm rozdziela się na dwa poziomy, i to jest jedyna nowa rzecz wobec 6.D21:
+`libhostfxr.so` pada **przed** wejściem w runtime (`Missing hostfxr library in
+directory: …` przy braku, `Can't open dynamic library: … cannot read file data`
+przy obcięciu, oba → `Failed to load hostfxr`, czyli ten sam ostatni wiersz co brak
+`DOTNET_ROOT` wyżej), a `libcoreclr.so` i `libhostpolicy.so` padają **już wewnątrz
+hostfxr**, kodami HRESULT (`0x80008087`, `0x80008088`, `-2147450749`) →
+`Failed to load compatible .NET runtime` → `Parameter "godot_plugins_initialize"
+is null`. Dwie liczby, których nie ma sensu cytować pojedynczo: log w każdym z pięciu
+wypadków pisze `handle_crash: Program crashed with signal 11`, a powłoka widzi
+**134**, nie 139. Podpowiedź silnika radzi przy tym doinstalować .NET (w wersji z jego własnego
+komunikatu, starszej niż wymaga ten projekt), choć SDK jest kompletne i zepsuty
+jest **jeden plik biblioteki** — nie jest to wskazówka, za którą warto iść.
+Dosłowne brzmienie stoi w raporcie, a nie tutaj: numer wersji z komunikatu
+silnika czyta bramka `test_the_document_declares_the_same_sdk_major` jako
+deklarację TEGO dokumentu i słusznie się o nią zapala.
+
+**Sonda `godot .NET hostfxr` z `doctor.sh` łapie z tych pięciu jedno.** Zmierzone
+tym samym cieniem: `ok` przy obciętym `libhostfxr.so`, przy usuniętym i obciętym
+`libcoreclr.so` oraz przy usuniętym `libhostpolicy.so`, `WARN` wyłącznie przy
+`libhostfxr.so` usuniętym — bo sonda pyta o **obecność pliku o tej nazwie**, a nie
+o jego kompletność ani o pozostałe dwie biblioteki z komunikatu silnika. Naprawa
+jest osobną pozycją (6.D60), bo wybór kontroli jest decyzją projektową. Pełne
+wyjścia obu serii: `reports/6d21-objaw-nieodtworzony.md`
+i `reports/6d24-biblioteka-natywna.md`.
+
 Stąd `export DOTNET_ROOT="$HOME/.dotnet"` (albo katalog, do którego trafiło SDK) jest
 **wymagany obok `GODOT_BIN`**, nie opcjonalny — patrz sekcja 5.
 

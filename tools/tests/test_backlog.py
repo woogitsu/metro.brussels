@@ -265,10 +265,11 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 #: blokiem 6.D54, oba CIĄGŁE. Sprawdzone przejściem po wszystkich 131 blokach: zero
 #: braków pól.
 #: Podniesione do **132** 09.09.2026, przy dopisaniu bloku 6.D59 w commicie
-#: pozycji 6.D58 — z POMIARU `len(detail_sections(...))` na pliku po edycji,
-#: nie z dodania jedynki do poprzedniej wartości. Zdanie wyżej o 131 blokach
-#: zostaje jako zapis tamtego pomiaru, bo mówi, jak rozwiązano tamten konflikt.
-MINIMUM_DETAIL_BLOCKS = 132
+#: pozycji 6.D58, i do **133** tego samego dnia, przy bloku 6.D60 w commicie 6.D24 —
+#: obie wartości z POMIARU `len(detail_sections(...))` na pliku po edycji, nie
+#: z dodania jedynki do poprzedniej. Zdanie wyżej o 131 blokach zostaje jako zapis
+#: tamtego pomiaru, bo mówi, jak rozwiązano tamten konflikt.
+MINIMUM_DETAIL_BLOCKS = 133
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
