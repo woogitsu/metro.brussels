@@ -1424,6 +1424,36 @@ def _split_top_level(expression, operator):
     return [part.strip() for part in parts]
 
 
+#: 6.D63. Jedyna dozwolona OTOCZKA warunku fork-PR. Job, który ma dać sygnał także
+#: wtedy, gdy job poprzedzający PRZEGRAŁ, musi nieść `always()`: bez niego `needs:`
+#: zamienia awarię poprzednika w POMINIĘCIE, a job pominięty nie mówi o niczym.
+#: Otoczka niczego nie zdejmuje — alternatywa dwóch członów zostaje wymagana
+#: w całości, tyle że wewnątrz koniunkcji, i sprawdza to ta sama bramka.
+FORK_GUARD_WRAPPER = "always()"
+
+
+def _fork_guard_members(condition):
+    """Człony alternatywy fork-PR, z dozwoloną jedną otoczką `always() && (...)`.
+
+    Rozpoznawana jest KONIUNKCJA DOKŁADNIE DWÓCH członów, której pierwszym jest
+    `always()`. Wszystko inne — `always() ||`, `always() && A && B`, koniunkcja bez
+    `always()` — przechodzi dalej nietknięte i rozjeżdża się z wymaganym zestawem,
+    czyli pada.
+    """
+    expression = _strip_parens(_unwrap_expression(condition))
+    conjuncts = _split_top_level(expression, "&&")
+    drugi = conjuncts[1].strip() if len(conjuncts) == 2 else ""
+    # Nawias wokół alternatywy jest WYMAGANY, choć `&&` wiąże mocniej niż `||`,
+    # więc `always() && A || B` znaczyłoby to samo. Zapis bez nawiasu czyta się
+    # jak koniunkcja z A — czyli jak mutacja, którą ta bramka złapała 04.09.2026 —
+    # i odróżnienie jednego od drugiego wymagałoby od czytającego pamiętania
+    # o priorytecie operatorów. Bramka woli zapis, który mówi wprost.
+    if (len(conjuncts) == 2 and conjuncts[0].strip() == FORK_GUARD_WRAPPER
+            and drugi.startswith("(") and drugi.endswith(")")):
+        expression = _strip_parens(drugi)
+    return [_strip_parens(part) for part in _split_top_level(expression, "||")]
+
+
 def test_every_job_refuses_pull_requests_from_forks():
     """Kod z forka NIE MA prawa wykonać się na maszynie właściciela.
 
@@ -1459,14 +1489,106 @@ def test_every_job_refuses_pull_requests_from_forks():
             if "if" not in job:
                 unguarded.append(f"{name}:{job_id}: job bez `if:`")
                 continue
-            members = [_strip_parens(part) for part
-                       in _split_top_level(_unwrap_expression(job["if"]), "||")]
+            members = _fork_guard_members(job["if"])
             if sorted(members) != sorted(required_terms):
                 unguarded.append(
                     f"{name}:{job_id}: `if:` nie jest ALTERNATYWĄ (`||`) dwóch "
                     f"wymaganych członów, tylko {members}")
     assert not unguarded, f"joby bez strażnika fork-PR: {unguarded}"
     assert checked >= 7, checked
+
+
+VISUAL = "visual-regression.yml"
+
+
+def test_the_visual_workflow_tells_a_found_regression_apart_from_a_refused_upload():
+    """Dwa zdarzenia, dwa sygnały w liście checków (6.D63).
+
+    **Skąd.** Job `visual-regression` czerwieniał tak samo od kroku bramki
+    (`tools/ci/visual_smoke.sh` — znaleziona różnica), jak od kroku wysyłki
+    (`actions/upload-artifact`, `if: always()`), a z listy checków nie dało się tego
+    rozróżnić. Zmierzony przypadek na #415: `403 Forbidden` przy `FinalizeArtifact`,
+    artefakt **716 055 B**, a `blender-smoke` sześć minut później wgrał
+    **1 905 203 B** — więc ani limit rozmiaru, ani wyczerpana kwota; jedno ponowienie
+    dało zielono bez zmiany w kodzie.
+
+    **Czego ta bramka pilnuje.** Że los wysyłki **wychodzi z joba** i że istnieje
+    drugi job, który jest czerwony wyłącznie od niego. Sprawdzana jest struktura
+    dokumentu, nie obecność napisów: komentarz opisujący rozróżnienie przeszedłby
+    tak samo dobrze jak rozróżnienie.
+    """
+    document = yaml.safe_load(_text(VISUAL))
+    bramka = document["jobs"]["visual-regression"]
+    artefakty = document["jobs"].get("visual-artifacts")
+
+    assert artefakty, (
+        f"{VISUAL}: nie ma drugiego joba, więc lista checków ma jeden wiersz na dwa "
+        "różne zdarzenia")
+
+    wysylka = [s for s in bramka["steps"]
+               if str(s.get("uses", "")).startswith("actions/upload-artifact@")]
+    assert len(wysylka) == 1, f"{VISUAL}: kroków wysyłki jest {len(wysylka)}, oczekiwano 1"
+    assert wysylka[0].get("id"), (
+        f"{VISUAL}: krok wysyłki nie ma `id`, więc jego losu nie da się wynieść z joba")
+    assert wysylka[0].get("if") == "always()", (
+        f"{VISUAL}: krok wysyłki bez `if: always()` nie ruszy po przegranej bramce")
+    assert "continue-on-error" not in wysylka[0], (
+        f"{VISUAL}: `continue-on-error` na kroku wysyłki chowa prawdziwą awarię "
+        "wysyłki — to jest naprawa ODRZUCONA we wpisie 6.D63")
+
+    zapis = [s for s in bramka["steps"]
+             if s.get("id") and "GITHUB_OUTPUT" in str(s.get("run", ""))
+             and f"steps.{wysylka[0]['id']}.outcome" in str(s.get("run", ""))]
+    assert len(zapis) == 1, (
+        f"{VISUAL}: nie ma kroku zapisującego `outcome` wysyłki do `GITHUB_OUTPUT`")
+    assert zapis[0].get("if") == "always()", (
+        f"{VISUAL}: krok zapisujący los wysyłki bez `if: always()` nie ruszy właśnie "
+        "wtedy, gdy wysyłka padnie — czyli w jedynym przypadku, o którym ma mówić")
+
+    wyjscia = bramka.get("outputs") or {}
+    assert any(f"steps.{zapis[0]['id']}.outputs." in str(v) for v in wyjscia.values()), (
+        f"{VISUAL}: job bramki nie wystawia losu wysyłki jako wyjścia: {wyjscia}")
+
+    assert artefakty.get("needs") == "visual-regression", artefakty.get("needs")
+    cialo = "\n".join(str(s.get("run", "")) for s in artefakty["steps"])
+    assert "needs.visual-regression.outputs." in cialo, (
+        f"{VISUAL}: drugi job nie czyta losu wysyłki, więc jego kolor nie mówi o niej")
+    # Job, który przy PUSTEJ wartości kończy zerem, byłby zielony dokładnie wtedy,
+    # gdy job bramki padł przed zapisem losu — czyli milczałby o najgorszym przypadku.
+    assert "exit 1" in cialo, f"{VISUAL}: drugi job nie umie zaczerwienieć"
+
+
+def test_the_fork_guard_accepts_only_the_always_wrapper_and_nothing_looser():
+    """Kontrola negatywna do otoczki `always() &&` dopuszczonej przy 6.D63.
+
+    Otoczka jest jedynym rozluźnieniem zapisu, jakie ta bramka zna, więc każde inne
+    użycie `always()` musi zostać odrzucone. Bez tej pary rozpoznawanie otoczki
+    dałoby się rozciągnąć na koniunkcję, która strażnika **znosi** — a to jest
+    dokładnie ta mutacja, którą bramka złapała 04.09.2026 (zamiana `||` na `&&`).
+    """
+    wymagane = sorted(("github.event_name != 'pull_request'",
+                       "github.event.pull_request.head.repo.full_name == github.repository"))
+    alternatywa = ("github.event_name != 'pull_request' || "
+                   "github.event.pull_request.head.repo.full_name == github.repository")
+
+    # PRZECHODZI: goła alternatywa i alternatywa w otoczce `always() &&`.
+    assert sorted(_fork_guard_members(alternatywa)) == wymagane
+    assert sorted(_fork_guard_members(f"always() && ({alternatywa})")) == wymagane
+    assert sorted(_fork_guard_members(f"${{{{ always() && ({alternatywa}) }}}}")) == wymagane
+
+    # PADA: otoczka bez nawiasu wokół alternatywy rozbija koniunkcję na trzy człony…
+    assert sorted(_fork_guard_members(f"always() && {alternatywa}")) != wymagane
+    # …`always()` na alternatywie zamiast na koniunkcji…
+    assert sorted(_fork_guard_members(f"always() || ({alternatywa})")) != wymagane
+    # …jeden człon zamiast dwóch…
+    assert sorted(_fork_guard_members(
+        "always() && (github.event_name != 'pull_request')")) != wymagane
+    # …koniunkcja członów zamiast alternatywy, czyli mutacja z 04.09.2026…
+    assert sorted(_fork_guard_members(alternatywa.replace("||", "&&"))) != wymagane
+    assert sorted(_fork_guard_members(
+        f"always() && ({alternatywa.replace('||', '&&')})")) != wymagane
+    # …i cokolwiek dopisanego obok otoczki.
+    assert sorted(_fork_guard_members(f"always() && true && ({alternatywa})")) != wymagane
 
 
 def test_every_workflow_proves_the_workspace_was_clean():
