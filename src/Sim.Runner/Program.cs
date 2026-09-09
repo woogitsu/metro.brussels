@@ -159,6 +159,65 @@ public static class Program
         }
     }
 
+    /// <summary>
+    /// Nastawy przebiegu w pliku OBOK pliku wyniku — droga dla trzech pisarzy, których
+    /// formatu nie wolno tknąć (6.A21).
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Dlaczego obok, a nie w pliku.</b> <see cref="Provenance"/> wkleja wiersze
+    /// <c>#</c> NA POCZĄTEK pliku i tak działa dla <c>budget</c> oraz
+    /// <c>service-day</c>. Dla telemetrii (<c>drive</c>, <c>replay</c>) i dla obu plików
+    /// <c>line</c> ta droga jest zamknięta, i to zmierzone, nie założone:
+    /// <c>Compare</c> żąda, żeby pierwszy wiersz był DOKŁADNIE
+    /// <c>DriveTelemetry.Header</c>, ten sam format pisze scena Godota, a
+    /// <c>godot-first-run.yml</c> porównuje oba pliki przy <c>--tolerance 0</c>;
+    /// plik <c>--calls</c> jest porównywany z plikiem SCENY; a SHA-256 CAŁEGO pliku
+    /// <c>--trace</c> pilnują wzorce w <c>tools/ci/golden/</c>, których przeliczanie
+    /// należy — wprost, z reguły <c>tools/ci/assert_line_trace.py</c> — do commita
+    /// zmieniającego wersję środowiska.</para>
+    /// <para>Plik obok nie zmienia w tych trzech ani jednego bajtu, więc żadna z tych
+    /// czterech reguł nie jest naruszona ani osłabiona — a nastawy przestają ginąć
+    /// razem z procesem, co było całą treścią 6.A20 i tej pozycji.</para>
+    /// <para><b>Tylko przy zapisie do pliku.</b> Gdy <c>drive</c> i <c>replay</c> piszą
+    /// telemetrię na stdout, pliku obok nie ma i nie ma go czym nazwać. Wiersze
+    /// <c>#</c> na stdout byłyby zmianą kształtu wyjścia, czyli zmianą wyroczni dla
+    /// <c>grep</c> (6.A16, 6.A27, 6.A30) — a to jest inna pozycja niż ta.</para>
+    /// </remarks>
+    private static void WriteProvenanceBeside(
+        string path, string command, params (string Name, string Value)[] settings)
+    {
+        File.WriteAllLines(ProvenancePathFor(path), Provenance(command, settings));
+    }
+
+    /// <summary>
+    /// Nazwa pliku nastaw obok pliku wyniku. JEDNO miejsce, w którym ta nazwa powstaje —
+    /// inaczej runner i test miałyby dwie reguły, które rozjadą się przy pierwszej zmianie.
+    /// </summary>
+    public static string ProvenancePathFor(string path) => path + ".provenance.txt";
+
+    /// <summary>
+    /// Nastawy przejazdu <c>line</c> w jednym miejscu, bo pisarzy jest DWÓCH
+    /// (<c>--trace</c> i <c>--calls</c>) i opisują ten sam przebieg. Dwie listy obok
+    /// siebie rozjechałyby się przy pierwszej nowej opcji — to ta sama usterka, którą
+    /// 6.D44 zmierzyło na kopiach listy bibliotek w CI.
+    /// </summary>
+    private static (string Name, string Value)[] LineSettingsForProvenance(
+        string axisPath, double limitKmh, double exchange, double brakeUsage,
+        double stopWindow, string load, double? coastFromM, string? signallingPath)
+        => new[]
+        {
+            ("axis", axisPath),
+            ("limit_kmh", limitKmh.ToString(Inv)),
+            ("exchange_s", exchange.ToString(Inv)),
+            ("brake_usage", brakeUsage.ToString(Inv)),
+            ("stop_window_m", stopWindow.ToString(Inv)),
+            ("load", load),
+            // Brak wybiegu to `null`, a nie zero (6.A6) — i plik nastaw ma mówić to samo,
+            // co przejazd: „nie podano" jest inną nastawą niż „od zerowego metra".
+            ("coast_from_m", coastFromM?.ToString(Inv) ?? "brak"),
+            ("signalling", signallingPath ?? "brak (LineRun bez ATP)"),
+        };
+
     /// <summary>Punkt wejścia.</summary>
     public static int Main(string[] args)
     {
@@ -490,6 +549,11 @@ public static class Program
         else
         {
             File.WriteAllLines(output, lines);
+            WriteProvenanceBeside(
+                output, "drive",
+                ("scenario", "package-a-first-run"),
+                ("vehicle", "M7"),
+                ("sample_every_steps", sampleEvery.ToString(Inv)));
         }
 
         // 6.A30: KAŻDY wiersz `[XXX]` idzie na stdout — ten też, choć do 07.09.2026 szedł
@@ -810,6 +874,17 @@ public static class Program
         else
         {
             File.WriteAllLines(output, lines);
+            WriteProvenanceBeside(
+                output, "replay",
+                ("keys", keysPath),
+                ("axis", axisPath),
+                ("signalling", signallingPath),
+                ("sample_every_steps", sampleEvery.ToString(Inv)),
+                ("notch_rate_per_s", notchRate.ToString(Inv)),
+                ("exchange_s", exchangeSeconds.ToString(Inv)),
+                ("stop_window_m", stopWindowM.ToString(Inv)),
+                ("atp", atp ? "tak" : "nie"),
+                ("limit_kmh", limitKmh?.ToString(Inv) ?? "z planu"));
         }
 
         var served = stations?.Calls.Count ?? 0;
@@ -1089,6 +1164,9 @@ public static class Program
         if (tracePath is not null && traceRows is not null)
         {
             File.WriteAllLines(tracePath, traceRows);
+            WriteProvenanceBeside(tracePath, "line --trace", LineSettingsForProvenance(
+                axisPath, limitKmh, exchange, brakeUsage, stopWindow, load, coastFromM,
+                signallingPath));
             Console.Out.WriteLine($"[LINIA] ślad {traceRows.Count - 1} kroków -> {tracePath}");
         }
 
@@ -1111,6 +1189,9 @@ public static class Program
             }
 
             File.WriteAllLines(callsPath, rows);
+            WriteProvenanceBeside(callsPath, "line --calls", LineSettingsForProvenance(
+                axisPath, limitKmh, exchange, brakeUsage, stopWindow, load, coastFromM,
+                signallingPath));
             Console.Out.WriteLine($"[LINIA] {result.Calls.Count} zatrzymań -> {callsPath}");
         }
 

@@ -97,6 +97,13 @@ z innego powodu:
 | `line --calls` | `godot-first-run.yml:1114` porównuje plik rdzenia z plikiem **SCENY** — format wspólny z implementacją w Godocie | odłożone |
 | `line --trace` | `tools/ci/assert_line_trace.py` liczy **SHA-256 całego pliku** wobec wzorców przybitych do RODZINY runtime'u .NET | odłożone |
 
+**Wiersz dopisany 09.09.2026, tabela wyżej nietknięta:** trzy „odłożone" domknęła
+**6.A21** — nie przez zmianę żadnego z tych czterech formatów, a przez nastawy
+w pliku OBOK (`<plik>.provenance.txt`). Bramka wzorca śladu na sześciu osiach mówi
+po tej zmianie „zgadza się z wzorcem co do bajtu", więc żadna z reguł z tabeli nie
+została naruszona ani osłabiona. Tabela zostaje taka, jaka była, bo jest zapisem
+decyzji z 07.09.2026, a nie stanem bieżącym: `reports/6a21-nastawy-obok-pliku.md`.
+
 `line --trace` jest tu najciekawszy: tamta bramka mówi wprost, że przeliczanie wzorców
 (`--update`) należy do commita, który **zmienia wersję środowiska**, i ma być w jego
 treści opisane. Dopisanie metadanych przeliczyłoby wszystkie wzorce jako **skutek
