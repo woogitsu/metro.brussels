@@ -63,11 +63,18 @@ jobs:
         run: |
           set -euo pipefail
           budget="$(python3 -c "import sys; sys.path.insert(0,'tools/tests'); import test_suite_runtime_budget as B; print(B.SUITE_RUNTIME_BUDGET_S)")"
+          # SYGNAL MIERZALNOSCI (6.D42), na razie WYPISYWANY, nie bramkujacy.
+          # `times` z przekierowaniem dziala w TEJ powloce; w `$(...)` daje zera —
+          # zmierzone. Roznica dwoch odczytow to czas CPU samego zestawu.
+          times > "$RUNNER_TEMP/times-przed.txt"
           start=$(date +%s.%N)
           python3 tools/tests/test_all.py
           end=$(date +%s.%N)
+          times > "$RUNNER_TEMP/times-po.txt"
           elapsed=$(python3 -c "print(f'{$end - $start:.3f}')")
+          cpu=$(python3 -c "import sys; sys.path.insert(0,'tools/tests'); import test_suite_runtime_budget as B; print(f\"{B.cpu_dzieci(sys.argv[1]) - B.cpu_dzieci(sys.argv[2]):.3f}\")" "$RUNNER_TEMP/times-po.txt" "$RUNNER_TEMP/times-przed.txt")
           echo "czas sciany test_all.py: ${elapsed} s (prog ${budget} s)"
+          echo "czas CPU zestawu: ${cpu} s, CPU/sciana: $(python3 -c "print(f'{float('$cpu') / float('$elapsed'):.3f}')")"
           python3 -c "import sys; sys.exit(0 if float('$elapsed') <= float('$budget') else 1)" || {
             echo "::error::zestaw test_all.py przekroczyl prog czasu sciany: ${elapsed} s > ${budget} s"
             exit 1

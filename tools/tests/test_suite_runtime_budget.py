@@ -102,6 +102,41 @@ SUITE_RUNTIME_BUDGET_S = 150.0
 MARGIN = SUITE_RUNTIME_BUDGET_S / MEASURED_MAX_WALL_S
 
 
+#: Wzorzec wiersza wyjścia wbudowanego `times`: `0m0.002s 0m0.000s`.
+TIMES_WIERSZ = re.compile(r"^(\d+)m([\d.]+)s\s+(\d+)m([\d.]+)s\s*$")
+
+
+def cpu_dzieci(sciezka):
+    """Czas CPU DZIECI powłoki (user + sys) z pliku zapisanego przez `times`.
+
+    **Po co to jest (6.D42).** Bramka czasu ściany porównywała jedną liczbę
+    z progiem i nie miała jak odróżnić „zestaw zwolnił" od „maszyna była zajęta".
+    Zmierzone 09.09.2026 w kontenerze sesji, 4 rdzenie, ten sam kod zestawu:
+
+        maszyna spokojna    ściana  91,7 s   CPU  90,5 s   CPU/ściana 0,987
+        maszyna obciążona   ściana 203,9 s   CPU  91,9 s   CPU/ściana 0,451
+
+    Czas CPU jest **niemal niezmienny** (+1,5 %), gdy ściana rośnie 2,2x. Stosunek
+    CPU do ściany jest więc sygnałem mierzalności, i to darmowym — w odróżnieniu
+    od drugiego przebiegu zestawu, który kosztuje tyle, co pierwszy, a rozstępu
+    NIE pokazuje: dwa przebiegi na obciążonej maszynie różnią się o 1,63 %, czyli
+    tyle samo co dwa na spokojnej (0,13 %). Pomiar: `reports/mierzalnosc-czasu-zestawu.md`.
+
+    **Dlaczego plik, a nie `$(times)`.** Wbudowane `times` w podstawieniu
+    poleceń zwraca same zera — zmierzone, nie założone: podpowłoka nie dziedziczy
+    naliczonych czasów dzieci. Z przekierowaniem do pliku, w tej samej powłoce,
+    zwraca prawdziwe wartości.
+    """
+    wiersze = [w for w in open(sciezka, encoding="utf-8").read().splitlines() if w.strip()]
+    if len(wiersze) < 2:
+        raise ValueError(f"{sciezka}: wyjście `times` ma mieć dwa wiersze, ma {len(wiersze)}")
+    dopasowanie = TIMES_WIERSZ.match(wiersze[1])
+    if dopasowanie is None:
+        raise ValueError(f"{sciezka}: drugi wiersz nie wygląda jak wyjście `times`: {wiersze[1]!r}")
+    minuty_u, sekundy_u, minuty_s, sekundy_s = dopasowanie.groups()
+    return int(minuty_u) * 60 + float(sekundy_u) + int(minuty_s) * 60 + float(sekundy_s)
+
+
 def over_budget(elapsed_s, budget_s=SUITE_RUNTIME_BUDGET_S):
     """Czy zmierzony czas ściany przekracza próg. Równość progu NIE jest przekroczeniem —
 
@@ -285,6 +320,57 @@ def test_ci_gate_step_is_a_comparison_that_can_exit_non_zero():
     assert "set -euo pipefail" in step, (
         "bez tego krok kontynuowałby po awarii test_all.py aż do własnego "
         "porownania czasu i mógłby zameldować sukces mimo nieudanych testów")
+
+def test_cpu_dzieci_czyta_drugi_wiersz_times_i_odrzuca_smieci():
+    """Kontrola detektora dla `cpu_dzieci`: dobre wejście, złe wejście, granica.
+
+    Wartość bierze się z DRUGIEGO wiersza (`times` daje najpierw powłokę, potem
+    dzieci) — bramka na pierwszym wierszu mierzyłaby czas samej powłoki, czyli
+    liczbę bliską zeru, i stosunek CPU/ściana wychodziłby zawsze „niemierzalny".
+    """
+    import tempfile
+
+    def zapisz(tresc):
+        uchwyt = tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False, encoding="utf-8")
+        uchwyt.write(tresc)
+        uchwyt.close()
+        return uchwyt.name
+
+    odczyt = cpu_dzieci(zapisz("0m0.002s 0m0.000s\n1m30.500s 0m0.020s\n"))
+    assert odczyt == 90.52, (
+        f"czytnik zwrócił {odczyt}, a dzieci mają 1m30.500s + 0m0.020s = 90.52 s; "
+        "wartość 0.002 znaczy, że czyta PIERWSZY wiersz, czyli czas samej powłoki")
+    zero = cpu_dzieci(zapisz("0m1.000s 0m2.000s\n0m0.000s 0m0.000s\n"))
+    assert zero == 0.0, (
+        f"czytnik zwrócił {zero} dla zerowych dzieci — bierze wiersz powłoki")
+
+    for zle, opis in (("0m0.002s 0m0.000s\n", "jeden wiersz"),
+                      ("", "pusty plik"),
+                      ("0m0.002s 0m0.000s\nreal 1m30s\n", "inny format drugiego wiersza")):
+        try:
+            cpu_dzieci(zapisz(zle))
+        except ValueError:
+            continue
+        raise AssertionError(f"`cpu_dzieci` przyjęło wejście, którego nie powinno: {opis}")
+
+
+def test_krok_ci_mierzy_czas_cpu_zestawu_a_nie_tylko_sciane():
+    """Krok musi WOŁAĆ `times` wokół zestawu i liczyć różnicę — 6.D42.
+
+    Sam wypis stosunku bez dwóch odczytów mierzyłby CPU wszystkich dzieci kroku,
+    razem z podstawieniami liczącymi próg. Różnica dwóch odczytów mierzy zestaw.
+    """
+    text = _workflow_text()
+    step_start = text.index("Run tool tests")
+    step = text[step_start:text.index("\n      - name:", step_start)]
+    assert step.count("times > ") == 2, (
+        "krok ma czytać `times` PRZED i PO zestawie; jeden odczyt nie daje różnicy:\n" + step)
+    assert "cpu_dzieci" in step, "krok nie woła czytnika z tego modułu, tylko liczy po swojemu"
+    assert "CPU/sciana" in step, "stosunek nie trafia do logu, więc nikt go nie zobaczy"
+    przed = step.index("times > ")
+    start = step.index("start=$(date")
+    assert przed < start, "pierwszy odczyt `times` musi stać PRZED startem pomiaru ściany"
+
 
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
 # z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
