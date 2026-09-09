@@ -2701,9 +2701,24 @@ def test_prune_workflow_defaults_to_a_dry_run():
     inputs = triggers["workflow_dispatch"]["inputs"]
     assert inputs["dry_run"]["default"] is True, inputs["dry_run"]
     steps = document["jobs"]["prune"]["steps"]
-    deleting = [s for s in steps if "push origin --delete" in str(s.get("run", ""))]
+    # **PRZEKIEROWANE 09.09.2026 (6.D67), i szuka WIĘCEJ, nie mniej.** Wzorzec
+    # `push origin --delete` przestał istnieć w tym pliku, bo kasowanie idzie teraz
+    # przez `--force-with-lease` z sha z planu — a bramka, która przestała cokolwiek
+    # znajdować, zapaliłaby się dopiero na liczniku „dokładnie jeden". Dziś krok
+    # rozpoznaje się po tym, że KASUJE (`--delete "$branch"`), niezależnie od tego,
+    # jakie warunki niesie po drodze, i osobno sprawdza się, że warunek na czubek
+    # w nim stoi — więc żadna z dwóch bramek nie da się przesunąć bez drugiej.
+    deleting = [s for s in steps if '--delete "$branch"' in str(s.get("run", ""))]
     assert len(deleting) == 1, "krok kasujący ma być dokładnie jeden"
     assert "inputs.dry_run == false" in str(deleting[0]["if"]), deleting[0].get("if")
+    assert "--force-with-lease=" in str(deleting[0]["run"]), (
+        "krok znaleziony jako kasujący nie stawia warunku na czubek — patrz "
+        "`test_prune_workflow_deletes_only_the_tip_its_plan_wrote_down`")
+    # Kontrola przyrządu: gdyby wzorzec przestał cokolwiek łapać, lista byłaby pusta
+    # i asercja wyżej powiedziałaby to samo, co przy dwóch krokach. Ta mówi, którą
+    # z dwóch rzeczy zobaczono.
+    assert any('--delete "$branch"' in str(s.get("run", "")) for s in steps), (
+        "żaden krok nie kasuje gałęzi — wzorzec rozjechał się z treścią workflowa")
 
 
 def test_prune_workflow_never_deletes_the_base_branch():
@@ -2715,6 +2730,38 @@ def test_prune_workflow_never_deletes_the_base_branch():
     """
     assert '[ "$branch" = "$BASE" ]' in _prune_without_comments(), \
         "brak jawnego wykluczenia bazy"
+
+
+def test_prune_workflow_deletes_only_the_tip_its_plan_wrote_down():
+    """Kasowanie stawia warunek na czubek, i to na czubek Z PLANU (6.D67).
+
+    **Skąd.** Warunek kwalifikowania sprawdza czubek sprzed zapisania planu, a samo
+    polecenie kasujące nie sprawdzało niczego, więc push, który wylądował między
+    planem a kasowaniem, ginął. Zmierzone 09.09.2026 w lokalnym repozytorium bare:
+    plan zapisał `f18f2ba`, zdalne stało na `b17dfb1`, a `git push origin --delete`
+    skasowało ref **kodem 0**, razem z cudzym commitem. Ta sama próba
+    z `--force-with-lease=refs/heads/<gałąź>:<sha>`:
+    `! [rejected] (delete) -> audit-branch (stale info)`, kod 1, ref na miejscu;
+    z sha aktualnym — skasowany, kod 0.
+
+    Czytany jest KOD bez komentarzy, bo komentarz nad krokiem cytuje dawną postać.
+    """
+    kod = _prune_without_comments()
+
+    assert "--force-with-lease=" in kod, (
+        "krok kasujący nie stawia żadnego warunku na czubek — push, który wylądował "
+        "po zapisaniu planu, zginie razem z gałęzią")
+    assert 'refs/heads/$branch:$sha' in kod, (
+        "`--force-with-lease` bez JAWNEGO sha z planu bierze lokalny ref śledzący, "
+        "czyli mówi o tym samym czubku, co plan — i nie sprawdza niczego nowego")
+    # Gołe `--delete` bez warunku nie ma prawa zostać obok, bo pierwsza asercja
+    # przeszłaby także dla kroku, który próbuje obu form po kolei.
+    assert "git push origin --delete" not in kod, (
+        "obok formy z warunkiem stoi nadal forma bez warunku")
+    assert "::error::" in kod and "::warning::nie udało się skasować" not in kod, (
+        "nieudane kasowanie jest tu ostrzeżeniem, a nie błędem")
+    assert 'test "$failed" -eq 0' in kod, (
+        "krok kończy się zerem także wtedy, gdy któreś kasowanie odmówiło")
 
 
 def test_prune_workflow_asks_for_the_write_permission_it_needs_and_no_more():
