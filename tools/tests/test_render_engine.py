@@ -25,9 +25,15 @@ import sys
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.insert(0, os.path.join(ROOT, "tools", "visual"))
 
+import compare  # noqa: E402
 import framing  # noqa: E402
 
 MANIFEST = os.path.join(ROOT, "tools", "visual", "cameras.json")
+
+
+def _read(path):
+    with open(path, encoding="utf-8") as handle:
+        return handle.read()
 
 
 def _manifest():
@@ -74,6 +80,75 @@ def test_eevee_generation_splits_exactly_at_the_version_that_removed_legacy():
     assert generation((4, 1, 9)) == "legacy"
     assert generation((4, 2, 0)) == "next"
     assert generation((5, 0, 1)) == "next"
+
+
+def test_klatka_orientacji_odroznia_przod_sciany_od_tylu():
+    """6.D75: przyrzad, ktory §5 obiecywal, a ktorego nie bylo.
+
+    **Skad ta bramka.** Render `_inside` NIE odroznial normalnych do wnetrza od
+    odwroconych: para fixture roznniaca sie WYLACZNIE orientacja scian dawala
+    metryki identyczne do piatego miejsca (`ink=0.09278 std=0.04349 poziomy=140`
+    w obu), `_side` bit w bit identyczny, a `_inside` rozny o 4 bajty na 737 tys.
+    (szum kompresji). Oba obrazy obejrzane — ani jednej roznicy. Tabela w §5
+    przypisywala tej klatce jedyna w calej petli kontrole normalnych.
+
+    **Dlaczego test nie uruchamia Blendera.** Matematyka pikseli stoi w `compare`,
+    a nie w skrypcie silnika, wlasnie po to: klatke da sie sprawdzic tu, w zestawie,
+    ktory Blendera nie ma. Za samo renderowanie odpowiada job Blendera w CI.
+
+    Zmierzone 09.09.2026 na parze fixture: `0.00000` wobec `0.99661`, i na
+    prawdziwym tunelu z `tunnel_sweep.py`: `0.00000`.
+    """
+    import types
+
+    def klatka(poziom):
+        return types.SimpleNamespace(width=4, height=2, gray=[poziom] * 8)
+
+    przod = compare.backface_fraction(klatka(0.10))
+    tyl = compare.backface_fraction(klatka(0.95))
+    assert przod == 0.0, przod
+    assert tyl == 1.0, tyl
+
+    # POLOWA na polowe: klatka, w ktorej odwrocona jest czesc scian, ma dac wartosc
+    # posrednia. Bez tej asercji funkcja mogla by zwracac tylko 0 albo 1 i nikt by
+    # nie zauwazyl, ze czesciowe odwrocenie jest nierozpoznawalne.
+    mieszana = types.SimpleNamespace(width=4, height=2, gray=[0.10] * 4 + [0.95] * 4)
+    assert compare.backface_fraction(mieszana) == 0.5, compare.backface_fraction(mieszana)
+
+    # PROG MUSI LEZEC MIEDZY dwoma poziomami materialu, nie obok nich. Gdyby ktos
+    # przesunal jeden z poziomow emisji w skrypcie albo prog tutaj, ta asercja
+    # nazywa rozjazd zamiast pozwolic klatce cicho zwracac zero dla wszystkiego.
+    assert 0.10 < compare.BACKFACE_LUMA < 0.95, compare.BACKFACE_LUMA
+
+    # Pusta klatka nie jest odwrocona — zwraca zero, a nie dzieli przez zero.
+    assert compare.backface_fraction(types.SimpleNamespace(width=0, height=0, gray=[])) == 0.0
+
+
+def test_skrypt_renderu_naprawde_wola_klatke_orientacji():
+    """Sama funkcja w `compare` nie wystarcza — musi byc WOLANA.
+
+    Bez tej asercji poprawka 6.D75 mogla by zostac zredukowana do martwej funkcji:
+    matematyka gotowa, klatka nierenderowana, a bramka wyzej zielona. Sprawdzany
+    jest ZBIOR nazw, ktore skrypt musi uzyc, i to, ze klatka orientacji powstaje
+    PRZED nakladka siatki — duplikaty siatki maja wlasne sciany, wiec liczylyby sie
+    do udzialu tylnej strony i mierzylibysmy nakladke zamiast geometrii.
+    """
+    source = _read(os.path.join(ROOT, "tools", "blender", "render_check.py"))
+    for nazwa in ("setup_normals_material", "normals_verdict",
+                  "compare.backface_fraction", "_normals.png", "ShaderNodeNewGeometry",
+                  "Backfacing"):
+        assert nazwa in source, nazwa
+    gdzie_klatka = source.find("_normals.png")
+    gdzie_siatka = source.find("add_inside_wire_overlay()\n    shoot(")
+    assert gdzie_klatka >= 0, "skrypt nie renderuje klatki orientacji wcale"
+    assert gdzie_siatka >= 0, (
+        "nie znalazlem miejsca, w ktorym nakladka siatki poprzedza render `_inside` "
+        "— kolejnosci nie da sie sprawdzic, a milczenie bramki nie moze znaczyc "
+        "„kolejnosc jest dobra\"")
+    assert gdzie_klatka < gdzie_siatka, (
+        "klatka orientacji powstaje PO nakladce siatki (znak " + str(gdzie_klatka)
+        + " wobec " + str(gdzie_siatka) + ") — duplikaty siatki maja wlasne sciany, "
+        "wiec mierzylaby nakladke, nie geometrie")
 
 
 def test_approach_camera_carries_a_headlight():

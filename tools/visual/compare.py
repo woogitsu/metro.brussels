@@ -30,6 +30,28 @@ import png_pixels_sha256  # noqa: E402
 
 BACKGROUND_TOLERANCE = 0.02
 
+#: Prog luminancji, powyzej ktorego piksel klatki orientacji liczy sie jako TYLNA
+#: strona sciany. Material z `render_check.py` swieci front na 0.10, a tyl na 0.95,
+#: wiec prog stoi w polowie miedzy nimi i nie wymaga kalibracji ani nie zalezy od
+#: ekspozycji. Stala i funkcja nizej stoja TUTAJ, a nie w skrypcie Blendera, bo
+#: matematyka pikseli nie potrzebuje silnika — i tylko dzieki temu da sie ja
+#: sprawdzic bramka w zestawie, ktory Blendera nie uruchamia (6.D75).
+BACKFACE_LUMA = 0.6
+
+
+def backface_fraction(img, threshold=BACKFACE_LUMA):
+    """Udzial pikseli pokazujacych TYLNA strone sciany, w calej klatce.
+
+    Przyjmuje obraz w skali szarosci (`pngio.read_gray`). Klatka poprawnej
+    geometrii ogladanej od wlasciwej strony daje wartosc bliska zeru, a ta sama
+    geometria z odwroconym windingiem — bliska jedynce. Zmierzone 09.09.2026 na
+    parze fixture roznniacej sie WYLACZNIE orientacja scian: `0.00000` wobec
+    `0.99661`, i na prawdziwym tunelu z `tunnel_sweep.py`: `0.00000`.
+    """
+    if not img.gray:
+        return 0.0
+    return sum(1 for value in img.gray if value > threshold) / len(img.gray)
+
 # Podłoga „to nie jest pusta klatka" dla renderów bez manifestu i bez baseline.
 # Wartości są NAJŁAGODNIEJSZYM zestawem progów już używanym w `cameras.json`
 # (infrastructure / alignment / clearance), więc podłoga nie może odrzucić kadru,
