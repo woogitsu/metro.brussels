@@ -31,6 +31,14 @@ jobs:
     runs-on: self-hosted
     timeout-minutes: 45
 
+    # Los wysyłki artefaktów wychodzi z joba, bo drugi sygnał w liście checków musi
+    # go skądś wziąć. Wyjście jest ustawiane krokiem `if: always()`, nie wyrażeniem
+    # `steps.upload.outcome` wprost: wyrażenie w `outputs:` liczy się na końcu joba
+    # i przy jobie przegranym łatwo o pustą wartość, a pusta wartość jest w tym
+    # rozróżnieniu nieodróżnialna od „wysyłka się udała".
+    outputs:
+      upload: ${{ steps.los_wysylki.outputs.wynik }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
@@ -94,7 +102,14 @@ jobs:
         shell: bash
         run: bash tools/ci/visual_smoke.sh
 
+      # 6.D63: krok dostaje `id`, żeby jego LOS dał się wynieść z joba. Do 09.09.2026
+      # job czerwieniał tak samo od bramki regresji, jak od odmowy usługi artefaktów
+      # (zmierzone na #415: `403 Forbidden` przy `FinalizeArtifact`, artefakt 716 055 B,
+      # a `blender-smoke` sześć minut później wgrał 1 905 203 B — więc ani limit, ani
+      # kwota; jedno ponowienie dało zielono bez zmiany w kodzie). Z listy checków
+      # nie dało się tych dwóch zdarzeń odróżnić.
       - name: Upload T-012 verification artifacts
+        id: upload
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -109,3 +124,52 @@ jobs:
             build/t012visual/renders/**
             build/t012visual/diff-determinism/**
             build/t012visual/diff-regression/**
+
+      # `if: always()`, bo gdy wysyłka padnie, kroki bez tego warunku już nie ruszą —
+      # a to jest DOKŁADNIE ten przypadek, o którym ten krok ma powiedzieć.
+      # `steps.upload.outcome` niesie `failure` także wtedy, gdy job jest już przegrany.
+      - name: Zapisz los wysyłki artefaktów
+        id: los_wysylki
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "wynik=${{ steps.upload.outcome }}" >> "$GITHUB_OUTPUT"
+          echo "wysyłka artefaktów: ${{ steps.upload.outcome }}"
+
+  # DRUGI SYGNAŁ W LIŚCIE CHECKÓW (6.D63). Ten job jest czerwony WYŁĄCZNIE wtedy, gdy
+  # padła wysyłka artefaktów — więc para checków rozróżnia dwa zdarzenia bez czytania
+  # logu: „visual-regression czerwony, artefakty zielone" znaczy, że bramka znalazła
+  # różnicę, a „oba czerwone" — że odmówiła usługa artefaktów.
+  #
+  # `continue-on-error` na kroku wysyłki jest ODRZUCONE i to jest wybór, nie
+  # przeoczenie: schowałoby prawdziwą awarię wysyłki, czyli osłabiło bramkę zamiast
+  # ją wyostrzyć. Tutaj job bramki nadal czerwienieje od obu zdarzeń — dochodzi
+  # drugi sygnał, nie ubywa pierwszego.
+  visual-artifacts:
+    needs: visual-regression
+    # `always() &&` jest tu WARUNKIEM ISTNIENIA tego joba: bez niego `needs:` zamienia
+    # awarię poprzednika w POMINIĘCIE, a job pominięty nie jest sygnałem o niczym.
+    # Otoczka niczego nie zdejmuje ze strażnika fork-PR — alternatywa dwóch członów
+    # zostaje w całości, i tego pilnuje `test_every_job_refuses_pull_requests_from_forks`.
+    if: always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: self-hosted
+    timeout-minutes: 5
+
+    steps:
+      - name: Los wysyłki artefaktów jest osobnym sygnałem
+        shell: bash
+        run: |
+          set -euo pipefail
+          wynik="${{ needs.visual-regression.outputs.upload }}"
+          echo "wysyłka artefaktów: ${wynik:-BRAK}"
+          if [ "$wynik" = "success" ]; then
+            echo "artefakty wgrane — czerwień joba bramki, jeśli jest, mówi o REGRESJI"
+            exit 0
+          fi
+          if [ -z "$wynik" ]; then
+            echo "::error title=Wysyłka artefaktów::job bramki nie doszedł do zapisu losu wysyłki"
+            exit 1
+          fi
+          echo "::error title=Wysyłka artefaktów::usługa artefaktów odmówiła (stan: $wynik) — to NIE jest znaleziona regresja"
+          exit 1
