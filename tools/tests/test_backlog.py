@@ -272,7 +272,7 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 #: podniesień poszły w jednym dniu, a arytmetyka z pamięci pomyliłaby się przy
 #: pierwszym commicie dopisującym więcej niż jeden blok. Zdanie wyżej o 131 blokach
 #: zostaje jako zapis tamtego pomiaru, bo mówi, jak rozwiązano tamten konflikt.
-MINIMUM_DETAIL_BLOCKS = 164
+MINIMUM_DETAIL_BLOCKS = 166
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je

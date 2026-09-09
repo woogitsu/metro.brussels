@@ -926,6 +926,8 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.D89 | **Skrót dla agenta wymienia klasę pochodzenia parametru, której nie ma w danych ani w dokumencie modelu — i ta sama nieaktualna trójka stoi w DRUGIM pliku** | zmierzone 09.09.2026: z trzech wymienionych klas rozjeżdża się JEDNA (skrócona nazwa wobec pełnej z dokumentu), dwie pozostałe są zgodne; brakuje też czwartej klasy, która w dokumencie jest. W danych pojazdu występują wyłącznie dwie wartości i żadna nie jest tą skróconą. Ta sama nieaktualna trójka przetrwała w `docs/07-open-data-research.md`, więc poprawka tylko w skillu zostawia drugie źródło pomyłki. Słownik FR/NL/PL nie zawiera żadnego z tych terminów, więc nie jest tu stroną | S |
 | 6.D90 | **Narzędzie mutacyjne brudzi `data/` W MIEJSCU, więc każda równoległa kontrola czystości drzewa widzi naruszenie reguły 6, którego nikt nie popełnił** | zaobserwowane 09.09.2026 przy pracy równoległej: `git status` pokazywał `M data/track/L1_A.json` z jedną współrzędną podmienioną na wartość nieliczbową, a po kilkudziesięciu sekundach plik wracał do stanu z wierzchołka. To ślad `tools/tests/mutation_sweep.py`, które mutuje dane w miejscu i przywraca po przebiegu. W tym samym okienku zewnętrzna kontrola zgłosiła niezacommitowane zmiany, choć suma kontrolna pliku zgadzała się z wierzchołkiem — czyli ostrzeżenie było prawdziwe co do stanu drzewa i mylące co do przyczyny | S |
 | 6.D91 | **Kontrola zgodności osi z linią bierze linię z PREFIKSU NAZWY PLIKU, więc oś wspólnego pierścienia jest sprawdzana wobec jednej linii, a obsługują ją dwie** | zmierzone 09.09.2026: kontrola DZIAŁA i przy właściwym wywołaniu zgłasza niezgodność, tylko nie jest wołana z parą, która ją ujawnia — krok CI wyprowadza nazwę linii z prefiksu nazwy pliku osi. Komentarz w workflowie chwali to jako „kontrola nie wymaga żadnej listy do ręcznego utrzymywania" i to jest właśnie cena: jedna oś może należeć do dwóch linii, a nazwa pliku unosi tylko jedną. Ta pozycja jest częścią NIEZALEŻNĄ od decyzji właściciela o danych: niezależnie od tego, jak rozstrzygnie się pytanie o stację na wspólnym pierścieniu, oś ma deklarować swoje linie jawnie | S |
+| 6.D92 | **Wspólnej sekwencji L2 i L6 nie porównuje nic — a to ona jest podstawą, na której dopisano Madou** | zmierzone 09.09.2026 przy #440: po dopisaniu Madou wspólny odcinek zgadza się na **19 z 19 pozycji, zero różnic** (L2 odwrócone wobec `L6[7:]`), ale sprawdziłem to **skryptem w sesji**, nie bramką. Cztery bramki z `test_network_declarations.py` pilnują liczników, powtórek, tabeli `docs/00` i przypisania przystanku do linii wedle GTFS — **żadna nie porównuje dwóch linii ze sobą**, więc usunięcie Madou z samej L6 razem z obniżeniem licznika przechodzi je wszystkie. Z weryfikacji sekcji 6 audytu (AUDYT-09, część nieobjęta #440), `reports/audyt-sekcja-6-weryfikacja.md` | S |
+| 6.D93 | **Czas per moduł jest wypisywany i wyrzucany — trend istnieje tylko w logach pojedynczych przebiegów** | zmierzone 09.09.2026: `tools/tests/test_all.py:533` wypisuje „czas per moduł (malejąco)", a `.github/workflows/python-tests.yml` nie ma **ani jednego** kroku `upload-artifact`. Lista `POMIARY` w `test_suite_runtime_budget.py` jest utrzymywana ręcznie i rośnie tylko wtedy, gdy ktoś o niej pamięta. **Część propozycji audytu o wyroczni mutacyjnej NIE MA podstawy i pozycja jej nie realizuje:** `mutation_sweep.run_suite` czyta z procesu zestawu wyłącznie linię `N/M przeszło` i kod wyjścia, więc czas na werdykt mutanta nie wpływa — zapisane w komentarzu kroku CI od 6.D11. Z weryfikacji sekcji 6 audytu (AUDYT-18, część potwierdzona), `reports/audyt-sekcja-6-weryfikacja.md` | M |
 
 #### Szczegóły pozycji z kompletem sześciu pól
 
@@ -7000,6 +7002,75 @@ MINIMUM_DETAIL_BLOCKS = 73
 - **Poza zakresem:** rozstrzygnięcie, czy stacja należy do drugiej linii — to pytanie
   właściciela, wpisane osobno.
 - **Zależy od:** brak.
+
+##### 6.D92 · Wspólna sekwencja dwóch linii nie jest przez nic porównywana
+
+- **Skąd:** zmierzone 09.09.2026 przy dopisywaniu Madou (#440). Po zmianie wspólny
+  odcinek zgadza się co do pozycji:
+
+  ```
+  L2 odwrócone: 19 | L6[7:]: 19
+  pozycji: 19 | różnic: 0
+  ```
+
+  Ten pomiar zrobił **skrypt w sesji**, nie bramka. Cztery asercje postawione tego dnia
+  w `tools/tests/test_network_declarations.py` pilnują liczników, powtórek, tabeli
+  `docs/00` i przypisania przystanku do linii wedle GTFS — i **żadna nie porównuje
+  dwóch linii ze sobą**.
+- **Dlaczego to nie jest pytanie o dane:** pozycja nie rozstrzyga, które stacje są
+  wspólne — bierze je z `lines.json` i pyta wyłącznie o **spójność między listami**,
+  które już tam stoją. Nie dopisuje ani jednej nazwy.
+- **Wejście:** `data/network/lines.json` (do odczytu), `data/track/L2_E.json`
+  (oś wspólnego pierścienia, do odczytu), `tools/tests/test_network_declarations.py`.
+- **Wyjście:** bramka porównująca wspólny odcinek dwóch linii w obu kierunkach:
+  ciąg przystanków wspólnych dla pary linii ma być tą samą sekwencją, czytaną w jedną
+  albo w drugą stronę.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py
+  ```
+  plus kontrola negatywna WYKONANA na kopii: usunięcie Madou z samej L6 wraz
+  z obniżeniem `stations` na 25 (czyli zmiana, którą dzisiejsze cztery bramki
+  przepuszczają) musi zapalić nową bramkę i nazwać brakujący przystanek.
+- **Skończone, gdy:** dla pary L2/L6 bramka porównuje 19 pozycji wspólnego odcinka
+  i przechodzi, a usunięcie dowolnej z tych 19 z jednej listy przy spójnym liczniku
+  zapala ją z nazwą przystanku; pary bez wspólnego odcinka nie dają fałszywego alarmu.
+- **Poza zakresem:** dopisywanie albo usuwanie przystanków w `data/`; rozstrzyganie,
+  czy stacja należy do linii (to jest pytanie o dane, `CLAUDE.md` §4.1); pary linii
+  z pojedynczą wspólną stacją — przesiadka nie jest wspólnym odcinkiem.
+- **Zależy od:** nic.
+
+##### 6.D93 · Czas per moduł jest wypisywany i wyrzucany
+
+- **Skąd:** zmierzone 09.09.2026. `tools/tests/test_all.py:533` wypisuje „czas per
+  moduł (malejąco)" przy każdym przebiegu, a `.github/workflows/python-tests.yml` nie
+  ma **ani jednego** kroku `upload-artifact`. Trend czasu istnieje więc wyłącznie
+  w logach pojedynczych przebiegów, a lista `POMIARY`
+  w `tools/tests/test_suite_runtime_budget.py` jest uzupełniana ręcznie.
+- **Czego ta pozycja NIE robi, i to jest wynik pomiaru:** propozycja audytu żądała
+  też, żeby raport czasu „nie zmieniał werdyktu mutanta z przeżył na zabity".
+  Ta połowa nie ma dziś podstawy: `mutation_sweep.run_suite` czyta z procesu zestawu
+  wyłącznie linię `N/M przeszło` i kod wyjścia — zapisane w komentarzu kroku CI od
+  6.D11 — więc czas na werdykt nie wpływa i nie ma czego rozdzielać.
+- **Wejście:** `tools/tests/test_all.py` (pomiar per moduł), `.github/workflows/python-tests.yml`,
+  `tools/tests/test_suite_runtime_budget.py` (`POMIARY`, `werdykt`).
+- **Wyjście:** maszynowy zapis czasów przebiegu (moduł, sekundy, liczba testów) razem
+  z metadanymi: commit, nazwa runnera, czas ściany i CPU całego zestawu — wyniesiony
+  z joba jako artefakt. Bramka budżetu zostaje nietknięta.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py
+  ```
+  oraz odczytanie artefaktu z przebiegu CI tej gałęzi: ma wymieniać **wszystkie**
+  wykonane moduły, a nie tylko dziesięć najwolniejszych, i nieść stosunek CPU/ściana
+  z tego samego przebiegu.
+- **Skończone, gdy:** artefakt z przebiegu CI zawiera tyle wpisów modułów, ile zestaw
+  wykonał w tym przebiegu (liczba z jego własnego podsumowania), niesie commit i nazwę
+  runnera, a kod wyjścia joba jest niezmieniony wobec stanu sprzed pozycji.
+- **Poza zakresem:** podnoszenie progu 150,0 s i zmiana `werdykt` (6.D42, zrobione);
+  automatyczne porównywanie przebiegów z RÓŻNYCH maszyn bez metadanych; obniżanie
+  pokrycia.
+- **Zależy od:** nic. 6.D42 dostarczyło stosunek CPU/ściana, który ten artefakt niesie.
 
 ### Czego agent nie ruszy bez decyzji
 
