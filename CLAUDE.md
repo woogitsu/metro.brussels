@@ -169,54 +169,68 @@ omija format z sekcji 6 i zwykle ląduje w kodzie, którego nikt nie prosił o z
 GitHub Actions. Poprzednia wersja tego punktu mówiła, że standardem jest
 `ubuntu-latest`; to już nieprawda i dlatego jest tu przepisana, a nie dopisana obok.
 
-- **`runs-on: [self-hosted, Linux, X64, woogitsu, i5-10400f, nvidia-gtx1070]`** — komplet
-  sześciu etykiet nowej puli organizacji `woogitsu`. **Liczby maszyn ten punkt nie
-  podaje, i to jest wybór, nie przeoczenie:** poprzednia wersja mówiła
-  „`woogitsu-linux-01` … `-10`" i przestała być prawdą tego samego dnia, w którym
-  powstała. Maszyny widziane w logach ZAKOŃCZONYCH jobów 07-08.09.2026 należą do
-  **dwóch** rodzin nazw — `woogitsu-linux-*` i `woogitsu-host-*` — a wśród nich stoi
-  `woogitsu-host-12`, więc zapis „01 … -10" był nieprawdziwy w obie strony: mylił
-  liczbę i pomijał całą rodzinę. Nowej liczby tu nie ma, bo nie da się jej sprawdzić
-  z repozytorium: zestarzałaby się po cichu, tak jak poprzednia. Dobór idzie
-  **wyłącznie po etykietach**, więc liczebność puli jest dla selektora nieistotna —
-  istotna jest tylko wtedy, gdy spadnie do jednej maszyny, i ten warunek jest opisany
-  niżej. Od 07.09.2026, i ten punkt jest przepisany, a nie dopisany obok — po raz
-  **drugi**, więc obie poprzednie litery reguły są tu wymienione, bo bez nich nie widać,
-  czemu ta jest taka, jaka jest.
-  Litera pierwsza (do 05.09.2026): „gołe `self-hosted`, **bez dodatkowych etykiet**".
+- **`runs-on: self-hosted`** — gołą etykietą, bez ani jednej dodatkowej. Tak stoi
+  w każdym z dziesięciu workflowów i tego samego wymaga `REQUIRED_RUNNER_LABELS`
+  w `tools/tests/test_ci_workflows.py`, gdzie komplet dwóch etykiet jest już
+  odrzucany. **Runnera nie wybiera się po nazwie**: nazwa zwęża pulę do jednej
+  maszyny, a to jest awaria opisana w literze pierwszej niżej — tym razem z własnej
+  ręki. Liczby maszyn ten punkt nie podaje i nigdy nie będzie: dobór idzie wyłącznie
+  po etykiecie, więc liczebność puli jest dla selektora nieistotna, a wpisana tu
+  zestarzałaby się po cichu — dwa razy już to zrobiła.
+
+  **Warunek zmiany.** Wraca komplet etykiet wtedy i tylko wtedy, gdy do puli
+  dołączy maszyna, która etykietę `self-hosted` nosi, a zadań tego projektu wykonać
+  nie może — bo wtedy odsianie znów jest do czegoś potrzebne. Sam wzrost albo spadek
+  liczebności puli nie jest takim powodem.
+
+  **Ten akapit stoi osobno i to jest wybór, nie formatowanie.** `test_docs_ci_claims.py`
+  pomija akapity z markerem przeszłości, a marker działa na cały akapit — deklaracja
+  wtopiona w wywód o dawnych literach reguły była więc **poza bramką**, która istnieje
+  dokładnie po to, żeby jej pilnować. Rozbieżność z 09.09.2026 (§9 opisywało komplet
+  sześciu etykiet, gdy wszystkie joby chodziły już na gołej) znalazło z tego powodu
+  czyjeś oko, a nie test. Deklaracja ma stać w akapicie bez markera, żeby następną
+  taką rozbieżność zapaliła bramka.
+
+- **Cztery litery tej reguły, i wszystkie zostają wymienione**, bo bez nich nie widać,
+  czemu dzisiejsza jest taka, jaka jest. Ten punkt jest przepisany, a nie dopisany
+  obok — po raz **trzeci**.
+  Litera pierwsza (do 05.09.2026): gołe `self-hosted`, bez dodatkowych etykiet.
   Powód był **jeden**: w `matmaxalez/osadale` zdjęto etykietę `wsl2` 02.08.2026, bo
   maszyna, która ją nosiła, była JEDNA i została wyłączona, a joby zawisły w `queued`.
   Ochroną była wtedy szerokość selektora.
-  Litera druga (05.09–07.09.2026): komplet `[self-hosted, Linux, X64, wsl2, woogitsu]`.
-  Ochroną przestała być szerokość, a stała się **liczebność puli**: cztery maszyny
+  Litera druga (05.09–07.09.2026): komplet pięciu etykiet z `wsl2`. Ochroną przestała
+  być szerokość, a stała się **liczebność puli**: cztery maszyny
   `woogitsu-wsl-DOM-NEW-01` … `-04` z tym samym kompletem, więc wyłączenie jednej nie
   zawieszało niczego.
-  Litera trzecia, dzisiejsza: pula została wymieniona, a **stare maszyny nadal są
-  zarejestrowane**. Dlatego doszły DWIE etykiety sprzętowe, zamiast zdjęcia jednej —
-  i to jest tu cała treść, nie ozdoba. `wsl2` noszą **wyłącznie stare** maszyny, nowe
-  nie noszą jej wcale; ale cztery pozostałe etykiety starego kompletu (`self-hosted`,
-  `Linux`, `X64`, `woogitsu`) noszą **oba** zbiory. Samo zdjęcie `wsl2` dałoby więc
-  selektor łapiący stare razem z nowymi. Odsiać stare da się **tylko dodaniem**
-  etykiety, której one nie mają — i to jest powód, dla którego `i5-10400f`
-  i `nvidia-gtx1070` stoją w selektorze, choć wyglądają na opis sprzętu.
-  **Runnera nie wybiera się po nazwie.** Wpisanie `woogitsu-linux-01` zwężałoby
-  całą pulę do jednej maszyny, czyli odtwarzałoby awarię z 02.08.2026
-  — tym razem z własnej ręki. Pilnuje tego osobna asercja w kontroli negatywnej.
-  Warunek, pod którym wolno tę regułę zmienić, zostaje ten sam co przy literze
-  drugiej: gdyby pula zeszła do jednej maszyny, wraca szeroki selektor.
+  Litera trzecia (07.09–09.09.2026): komplet sześciu etykiet, z dwiema sprzętowymi.
+  Pula została wtedy wymieniona, a stare maszyny **nadal były zarejestrowane**;
+  cztery etykiety starego kompletu nosiły oba zbiory, więc samo zdjęcie `wsl2` dałoby
+  selektor łapiący stare razem z nowymi. Odsiać stare dało się **tylko dodaniem**
+  etykiety, której nie miały — i to, a nie opis sprzętu, było powodem, dla którego
+  w selektorze stały nazwy modelu procesora i karty.
+  Litera czwarta, dzisiejsza (09.09.2026, decyzja właściciela): stara pula przestała
+  być zarejestrowana, a maszyny są dedykowane temu repozytorium i niewspółdzielone.
+  Odsiewać nie ma czego, więc odsiewanie znika razem z powodem, dla którego istniało.
+  Kolejność jest tu treścią: etykiety sprzętowe **nie były** ozdobą i nie zostały
+  usunięte jako ozdoba — zniknęły, bo zniknął zbiór, który miały odciąć.
+
 - **Każdy job odrzuca pull requesty z forków.** To warunek bezpieczeństwa, nie higiena:
   joby wykonują kod ze sprawdzonego refa na maszynie właściciela. `metro.brussels` jest
   prywatne, ale ma włączone forkowanie, więc „forka nie da się zrobić" tu nie działa.
   Warunek nosi **każdy job osobno** — `needs:` nie jest zamiennikiem.
+
 - **Workspace jest współdzielony między przebiegami.** Sprząta `actions/checkout`
   (`clean` domyślnie `true`, czyli `git clean -ffdx`, a `-x` obejmuje pliki ignorowane).
   Każdy workflow ma krok, który to **sprawdza**, bo bramki tego projektu oglądają pliki
   wyjściowe i stary plik przeszedłby je tak samo dobrze jak świeży.
+
 - **Narzędzia instalują się warunkowo.** Krok sondujący sprawdza, czego brakuje;
   instalacja i cache odpalają się tylko przy braku. Świeży runner nadal działa bez
   ręcznego przygotowania, a trwały nie wywołuje `sudo apt-get` przy każdym przebiegu.
+
 - **Godot i Blender leżą POZA workspace** (`runner.tool_cache`), bo w workspace kasował
   je `git clean -ffdx` z checkoutu przy każdym przebiegu.
+
 - **Blender jest przypięty po wersji, nie brany z apt.** Od 03.09.2026, i ten punkt jest
   przepisany, a nie dopisany obok: poprzednia wersja mówiła, że sonda sprawdza
   `command -v blender`, i to już nieprawda. `apt` na Ubuntu 24.04 daje 4.0.2 do końca
@@ -227,12 +241,14 @@ GitHub Actions. Poprzednia wersja tego punktu mówiła, że standardem jest
   Wersja i suma SHA-256 są w `tools/ci/blender-version.txt`, instaluje
   `tools/ci/blender_install.sh`, a skrypty wołają `${BLENDER_BIN:-blender}` — tak samo
   jak `GODOT_BIN`. Z apt zostały wyłącznie biblioteki systemowe.
+
 - **Narzędzia instalują się do `RUNNER_TOOL_CACHE`, nie do `/usr`.** Runner właściciela
   nie jest rootem, więc `actions/setup-dotnet` z domyślnym katalogiem `/usr/share/dotnet`
   pada serią `mkdir: Permission denied` — na jednorazowej maszynie GitHuba nie padał, bo
   tam runner jest rootem. `DOTNET_INSTALL_DIR` ustawiany **przed** krokiem `setup-dotnet`
   załatwia to razem z trwałością: `_tool` jest rodzeństwem workspace'u, więc `git clean`
   go nie dotyka. Ta sama zasada co dla Godota, z tego samego powodu i o jeden powód więcej.
+
 - **Nie uznawaj `queued` za weryfikację — a zielony job mówi o SCALANCE NAZWANEJ
   W JEGO WŁASNYM LOGU, nie o dzisiejszym `main`.** Od 08.09.2026 ten punkt jest
   przepisany, a nie dopisany obok: poprzednia wersja kończyła się na „zakończony,
@@ -266,6 +282,7 @@ GitHub Actions. Poprzednia wersja tego punktu mówiła, że standardem jest
   wyżej, wymienionych w ostatnim punkcie tej sekcji: `<baza>` stoi w logu przebiegu,
   a nie w repozytorium, więc nie ma czego sparsować. Jest to więc procedura czytania
   dla agenta i dla właściciela, a nie zdanie o treści workflowa.
+
 - **Akcje są przypięte po SHA commita, nie po tagu.** `actions/checkout@v6` wskazuje na
   to, co właściciel akcji ostatnio tam przesunął; te joby chodzą na maszynie właściciela
   tego repozytorium, z dostępem do workspace'u, `runner.tool_cache` i `GITHUB_TOKEN`.
