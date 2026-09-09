@@ -116,19 +116,24 @@ Wszystkie oprócz ostatniego są bramkami, po jednej na zadanie weryfikacyjne;
 `prune-merged-branches` jest utrzymaniowy i odpala się wyłącznie ręcznie
 (`workflow_dispatch`).
 
-**Wszystkie chodzą na self-hosted runnerze**, na komplecie etykiet `self-hosted, Linux,
-X64, woogitsu, i5-10400f, nvidia-gtx1070` — pula organizacji `woogitsu`, od 07.09.2026.
-Nazw ani liczby maszyn README nie podaje: dobór idzie po etykietach, a liczebności puli
-nie da się sprawdzić z repozytorium. Poprzednia wersja mówiła „`woogitsu-linux-01` …
-`-10`" i zestarzała się tego samego dnia — maszyny widziane w logach należą do **dwóch**
-rodzin nazw, `woogitsu-linux-*` i `woogitsu-host-*`. Dwie etykiety sprzętowe nie są opisem
-sprzętu dla ozdoby: `wsl2` noszą wyłącznie **stare** maszyny puli, ale cztery pierwsze
-etykiety z tej listy noszą **oba** zbiory, więc odsiać stare da się tylko dodaniem
-etykiety, której one nie mają. Runnera nie wybiera się po nazwie — to zwężałoby pulę
-do jednej maszyny. Poprzednie litery tej reguły, przepisane a nie dopisane obok: do
-05.09.2026 goła etykieta `self-hosted` (od wyczerpania minut GitHub Actions
-02.09.2026), a od 05.09.2026 do 07.09.2026 komplet `self-hosted, Linux, X64, wsl2,
-woogitsu` na czterech maszynach `woogitsu-wsl-DOM-NEW-*`.
+**Wszystkie chodzą na self-hosted runnerze**, na gołej etykiecie — bez ani jednej
+dodatkowej. Tego samego wymaga `tools/tests/test_ci_workflows.py`, gdzie komplet dwóch
+etykiet jest już odrzucany. Nazw ani liczby maszyn README nie podaje: dobór idzie po
+etykiecie, a liczebności puli nie da się sprawdzić z repozytorium. Runnera nie wybiera
+się po nazwie — to zwężałoby pulę do jednej maszyny.
+
+Ten akapit stoi osobno i bez ani jednego markera przeszłości, żeby `test_docs_ci_claims.py`
+faktycznie go czytał; powód rozpisany w `CLAUDE.md` §9 i zmierzony
+w `reports/9-goly-selektor.md`.
+
+Poprzednie litery tej reguły, przepisane a nie dopisane obok: do 05.09.2026 goła
+etykieta (od wyczerpania minut GitHub Actions 02.09.2026); od 05.09.2026 do 07.09.2026
+komplet pięciu etykiet z `wsl2` na czterech maszynach `woogitsu-wsl-DOM-NEW-*`;
+od 07.09.2026 do 09.09.2026 komplet sześciu, z dwiema sprzętowymi, bo stara pula była
+wtedy **nadal zarejestrowana** i odsiać ją dało się tylko etykietą, której nie miała.
+Od 09.09.2026 stara pula jest odpięta, więc odsiewanie znika razem z powodem, dla
+którego istniało — a nie jako uproszczenie zapisu.
+
 Każdy job osobno odrzuca pull requesty
 z forków, każdy sprawdza, że workspace jest czysty, i każdy instaluje narzędzia
 warunkowo. Powody i pułapki: `CLAUDE.md` §9, testy: `tools/tests/test_ci_workflows.py`.
