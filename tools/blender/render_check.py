@@ -129,6 +129,57 @@ def setup_verification_material():
     for o in objects: o.data.materials.clear(); o.data.materials.append(mat)
     print(f"[MATERIAL] verification surface assigned to {len(objects)} mesh object(s)")
 
+def make_normals_material():
+    """Material, w ktorym TYL sciany swieci, a przod nie.
+
+    **Po co osobny material, skoro §5 mowi „widac przez sciane\".** Bo materialu
+    kontrolnego nie wolno zmienic na jednostronny: `render_check.py` renderuje takze
+    pudlo pojazdu i przekroje stacji, ogladane legalnie od tylu. Kulling na wspolnym
+    materiale zapalalby sie na poprawnej geometrii, a bramka, ktora falszywie alarmuje,
+    zostaje wylaczona przez pierwszego zirytowanego czlowieka (6.D27). Osobna klatka
+    nic nie ukrywa i nic nie odbiera — DODAJE sygnal.
+
+    **Dlaczego emisja, a nie kolor bazowy.** Emisja nie zalezy od kata swiatla, wiec
+    ta sama sciana daje ten sam poziom niezaleznie od tego, gdzie stoi slonce. Odczyt
+    idzie po luminancji, a nie po barwie, bo czytnik PNG tego repozytorium zwraca
+    skale szarosci — magenta i szarosc bylyby dla niego tym samym.
+    """
+    mat=bpy.data.materials.new("verification_normals"); mat.use_nodes=True
+    mat.use_backface_culling=False
+    tree=mat.node_tree
+    for node in list(tree.nodes):
+        if node.type!="OUTPUT_MATERIAL": tree.nodes.remove(node)
+    out=next(n for n in tree.nodes if n.type=="OUTPUT_MATERIAL")
+    geo=tree.nodes.new("ShaderNodeNewGeometry")
+    przod=tree.nodes.new("ShaderNodeEmission"); przod.inputs["Color"].default_value=(0.10,0.10,0.10,1.0); przod.inputs["Strength"].default_value=1.0
+    tyl=tree.nodes.new("ShaderNodeEmission"); tyl.inputs["Color"].default_value=(0.95,0.95,0.95,1.0); tyl.inputs["Strength"].default_value=1.0
+    mix=tree.nodes.new("ShaderNodeMixShader")
+    tree.links.new(geo.outputs["Backfacing"],mix.inputs["Fac"])
+    tree.links.new(przod.outputs["Emission"],mix.inputs[1])
+    tree.links.new(tyl.outputs["Emission"],mix.inputs[2])
+    tree.links.new(mix.outputs["Shader"],out.inputs["Surface"])
+    return mat
+
+def setup_normals_material():
+    mat=make_normals_material(); objects=mesh_objects()
+    for o in objects: o.data.materials.clear(); o.data.materials.append(mat)
+    print(f"[NORMALNE] material orientacji przypisany do {len(objects)} obiektow")
+
+def normals_verdict(path):
+    """Wypisuje udzial tylnej strony. NIE stosuje podlogi pustej klatki.
+
+    Podloga z `frame_verdict` mierzy „czy jest sie czemu przyjrzec\" przez rozrzut
+    poziomow szarosci — a ta klatka ma z zalozenia dwa poziomy i przy poprawnej
+    geometrii jest niemal jednolita. Puszczenie jej przez tamta podloge zamienialoby
+    POPRAWNY wynik w blad, czyli dokladnie odwrotnie niz trzeba.
+    """
+    udzial=compare.backface_fraction(pngio.read_gray(path))
+    print(f"[NORMALNE] {os.path.basename(path)} tylna_strona={udzial:.5f}"
+          f"{'  <-- SCIANY ODWROCONE' if udzial>0.5 else ''}")
+    print("[NORMALNE] liczba jest podloga, nie ocena — OBEJRZENIE tej klatki jest "
+          "nadal obowiazkowe (CLAUDE.md §5)")
+    return udzial
+
 def add_inside_wire_overlay():
     edge_mat=make_material("verification_wire",(0.015,0.02,0.03,1.0),(0.005,0.008,0.012,1.0),0.2)
     originals=list(mesh_objects()); count=0
@@ -202,6 +253,13 @@ def main():
     else:
         eye=Vector((mins.x+(maxs.x-mins.x)*0.05,center.y,center.z)); target=Vector((mins.x+(maxs.x-mins.x)*0.055,center.y,center.z))
         print("[INSIDE] WARN no --centerline supplied; using bbox fallback")
+    # Klatka orientacji idzie PRZED nakladka siatki i przed przywroceniem materialu
+    # kontrolnego: duplikaty siatki maja wlasne sciany, wiec liczylyby sie do udzialu
+    # tylnej strony i mierzylibysmy nakladke zamiast geometrii.
+    setup_normals_material()
+    render_to(add_camera(eye,target,"cam_normals",size,lens=35,keep_level=True),f"{args.out}_normals.png")
+    normals_verdict(f"{args.out}_normals.png")
+    setup_verification_material()
     add_inside_wire_overlay()
     shoot(add_camera(eye,target,"cam_inside",size,lens=35,keep_level=True),f"{args.out}_inside.png")
     print(f"[RAPORT] bbox_min=({mins.x:.1f},{mins.y:.1f},{mins.z:.1f}) bbox_max=({maxs.x:.1f},{maxs.y:.1f},{maxs.z:.1f}) size_m={size:.1f}")
