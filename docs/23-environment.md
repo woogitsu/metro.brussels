@@ -58,14 +58,16 @@ a gdzie **CI**, bo to nie zawsze ten sam katalog:
 | narzędzie | z tego dokumentu | z CI | zmienna, o którą pyta `doctor.sh` |
 |---|---|---|---|
 | Blender | `${RUNNER_TOOL_CACHE:-$HOME/.cache/metro-tools}/metro-blender/<wersja>/blender-<wersja>-linux-x64/blender` | ten sam katalog (`tools/ci/blender_install.sh`) | `BLENDER_BIN` |
-| Godot | `/opt/metro-godot/<wersja>/Godot_v<wersja>_mono_linux.x86_64` (§4) | `${RUNNER_TOOL_CACHE:-$HOME/.cache/metro-tools}/metro-godot/<wersja>/…` (`godot-first-run.yml`) | `GODOT_BIN` |
+| Godot | `${RUNNER_TOOL_CACHE:-$HOME/.cache/metro-tools}/metro-godot/<wersja>/Godot_v<wersja>_mono_linux.x86_64` (§4) | ten sam katalog (`tools/ci/godot_install.sh`) | `GODOT_BIN` |
 | .NET SDK | `$HOME/.dotnet` (§3) | `${RUNNER_TOOL_CACHE:-$HOME/.cache/metro-tools}/metro-dotnet` (`DOTNET_INSTALL_DIR` w `sim-tests.yml`, `blender-smoke.yml`, `godot-first-run.yml`) | `DOTNET_ROOT`, `DOTNET_BIN` |
 
 Ścieżka cache stoi w dokumencie i w skrypcie, więc pilnuje ich zgodności
 `tools/tests/test_environment_doc.py` — podmiana katalogu w `blender_install.sh`
 bez podmiany tutaj wywraca bramkę. Wersji w ścieżce nie wpisuj z ręki: dla
-Blendera dyktuje ją `tools/ci/blender-version.txt`, dla Godota `GODOT_VERSION`
-w `.github/workflows/godot-first-run.yml`.
+Blendera dyktuje ją `tools/ci/blender-version.txt`, dla Godota
+`tools/ci/godot-version.txt` — **przepisane 09.09.2026 (6.D68)**, bo do tego dnia
+numer Godota stał jako `GODOT_VERSION:` w `env:` workflowa i nie było przy nim
+żadnej sumy kontrolnej.
 
 **Czym sprawdzić — jedno polecenie na narzędzie.** Zmierzone 08.09.2026 w tym
 kontenerze, na **czystym środowisku zmiennych**: `PATH=/usr/bin:/bin`, bez
@@ -482,18 +484,22 @@ config/features=PackedStringArray("4.7", "C#", "Forward Plus")
 i `GODOT_VERSION: 4.7.2-stable` w `.github/workflows/godot-first-run.yml`. Dystrybucje
 **nie pakują wariantu mono**, więc apt tu nie pomoże:
 
-```bash
-GODOT_VERSION=4.7.2-stable
-DIR=/opt/metro-godot/$GODOT_VERSION
-sudo mkdir -p "$DIR"
-curl -fsSL -o /tmp/godot-mono.zip \
-  "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_mono_linux_x86_64.zip"
-unzip -q /tmp/godot-mono.zip -d /tmp/godot-mono
-sudo mv /tmp/godot-mono/Godot_v${GODOT_VERSION}_mono_linux_x86_64/* "$DIR"/
+**Ta recepta jest przepisana 09.09.2026 (6.D68), a nie dopisana obok.** Poprzednia
+podawała `curl` + `unzip` z ręki, **bez ani jednego sprawdzenia sumy** — podczas gdy
+Blender obok schodził z sumą sprawdzaną przez `sha256sum -c`. Dziś jest jeden skrypt,
+ten sam dla człowieka i dla CI, a wersja i suma stoją w `tools/ci/godot-version.txt`:
 
-export GODOT_BIN="$DIR/Godot_v${GODOT_VERSION}_mono_linux.x86_64"
+```bash
+bash tools/ci/godot_install.sh          # wypisuje ścieżkę do binarium
+export GODOT_BIN="$(bash tools/ci/godot_install.sh)"
 "$GODOT_BIN" --headless --version    # zmierzone: 4.7.2.stable.mono.official.ed1daf0bf
 ```
+
+Skrypt sprawdza **SHA-512 przed rozpakowaniem** (suma pochodzi z `SHA512-SUMS.txt`
+wydania, czyli od wydawcy, a nie z własnego pobrania) i kładzie silnik POZA
+workspace, w `${RUNNER_TOOL_CACHE:-$HOME/.cache/metro-tools}/metro-godot/<wersja>`.
+Zmierzone 09.09.2026: przy podmienionej sumie kończy kodem 1 na `sha512sum: FAILED`,
+a katalog narzędzia zostaje **pusty** — archiwum nie jest rozpakowywane wcale.
 
 Rozmiar po rozpakowaniu: 162 MB. `GODOT_BIN` to **ta sama zmienna, o którą pyta
 `doctor.sh`** i którą ustawia workflow — nie ma dwóch konwencji.

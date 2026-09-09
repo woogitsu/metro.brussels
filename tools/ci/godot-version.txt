@@ -1,0 +1,18 @@
+# JEDNO źródło prawdy o wersji Godota i o sumie kontrolnej jego archiwum (6.D68).
+#
+# Dlaczego suma, skoro Godot idzie z GitHuba. Model zagrożenia jest ten sam co przy
+# Blenderze i CLAUDE.md §9 mówi o nim wprost: joby chodzą na MASZYNIE WŁAŚCICIELA,
+# z dostępem do workspace'u, `runner.tool_cache` i `GITHUB_TOKEN`. Do 09.09.2026
+# `godot-first-run.yml` pobierał archiwum, rozpakowywał je i URUCHAMIAŁ binarium
+# bez ani jednego `sha256`, a obok, w tym samym repozytorium, `blender_install.sh`
+# wołał `sha256sum -c`. Nierówność standardu była całą treścią pozycji.
+#
+# Dlaczego SHA-512, a nie SHA-256 jak przy Blenderze. Suma ma pochodzić od WYDAWCY,
+# a nie z własnego pobrania — inaczej sprawdza się plik samym sobą. Blender Foundation
+# publikuje `blender-<wersja>.sha256`; projekt Godot publikuje `SHA512-SUMS.txt`
+# przy wydaniu. Bierzemy to, co wydawca podpisał, a nie to, co wygodniej porównać.
+#
+# Format: dwie linie `klucz=wartość`. Czyta to `tools/ci/godot_install.sh`,
+# `tools/tests/test_ci_workflows.py` i `tools/tests/test_engine_version.py`.
+version=4.7.2-stable
+sha512=1855960b27ee3ef5e66e5e228cced69d55637b24334a7411162687dcd077d8f9f645348cdb8eae984bec8135d49ed855a1e3a16476786b8bce60774fd8402d13

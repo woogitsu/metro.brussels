@@ -48,8 +48,14 @@ on:
 permissions:
   contents: read
 
-env:
-  GODOT_VERSION: 4.7.2-stable
+# `GODOT_VERSION` NIE STOI TU JAKO WPIS `env:` i to jest zmiana z 6.D68, nie
+# przeoczenie. Wersja i suma kontrolna archiwum mają być w JEDNYM miejscu —
+# `tools/ci/godot-version.txt` — tak samo jak wersja Blendera stoi w jednym miejscu
+# od 03.09.2026. Numer wpisany tutaj byłby drugą kopią, a druga kopia numeru to
+# druga okazja, żeby jedna została w tyle: przy Blenderze kosztowało to dwie
+# czerwone bramki (`tunnel-alignment` L1_B i L2_E, 02.09.2026). Krok „Katalog
+# silnika poza workspace" czyta pin i wystawia `GODOT_VERSION` do `GITHUB_ENV`,
+# więc dalsze kroki widzą ją tak samo jak przedtem.
 
 jobs:
   first-run:
@@ -136,8 +142,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # Wersja z PINU, nie z `env:` — jedno źródło prawdy (6.D68). Pusta wartość
+          # jest tu błędem, a nie ścieżką `metro-godot/`: katalog bez numeru mieszałby
+          # dwa silniki w jednym miejscu, czyli dokładnie to, przed czym broni pin.
+          version="$(sed -n 's/^version=//p' tools/ci/godot-version.txt)"
+          if [ -z "$version" ]; then
+            echo "::error::tools/ci/godot-version.txt nie podaje 'version='"
+            exit 1
+          fi
+          echo "GODOT_VERSION=$version" >> "$GITHUB_ENV"
           cache="${RUNNER_TOOL_CACHE:-$HOME/.cache/metro-tools}"
-          dir="$cache/metro-godot/${GODOT_VERSION}"
+          dir="$cache/metro-godot/${version}"
           case "$dir" in
             "$GITHUB_WORKSPACE"/*)
               echo "::error::katalog silnika $dir leży W WORKSPACE — checkout skasuje go przy następnym przebiegu"
@@ -168,24 +183,23 @@ jobs:
             echo "Godota nie ma w $GODOT_DIR — krok pobierania go ściągnie."
           fi
 
+      # Pobranie idzie przez `tools/ci/godot_install.sh`, a nie przez `curl` + `unzip`
+      # wpisane tutaj — 6.D68. Powód jest jeden i jest to SUMA KONTROLNA: do
+      # 09.09.2026 ten krok pobierał archiwum, rozpakowywał je i uruchamiał binarium
+      # bez ani jednego sprawdzenia, podczas gdy `tools/ci/blender_install.sh` obok,
+      # na tym samym runnerze i przy tym samym modelu zagrożenia, wołał `sha256sum -c`.
+      # Skrypt sprawdza sumę SHA-512 z `tools/ci/godot-version.txt` PRZED
+      # rozpakowaniem — zmierzone 09.09.2026: przy podmienionej sumie kończy kodem 1
+      # na `sha512sum: FAILED`, a katalog narzędzia zostaje PUSTY.
+      #
+      # Wyścig o `/tmp`, `RUNNER_TEMP` i katalog poza workspace zostały przeniesione
+      # do skryptu razem z powodami; tutaj zostaje wywołanie.
       - name: Download Godot mono
         if: steps.godot.outputs.engine == 'missing'
         shell: bash
-        # Wersja mono jest konieczna: przejazd jest w C# i korzysta z MetroBxl.Sim.
-        # Sam plik wykonywalny nie wystarczy — obok musi leżeć katalog GodotSharp,
-        # inaczej silnik nie znajdzie assembly .NET i wywraca się przy starcie.
         run: |
           set -euo pipefail
-          mkdir -p "$GODOT_DIR"
-          url="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_mono_linux_x86_64.zip"
-          # RUNNER_TEMP, nie współdzielone /tmp — ten sam wyścig, który 05.09.2026
-          # wywrócił instalację Blendera na `tunnel-alignment (L1_A)`: cztery runnery
-          # puli dzielą jedno /tmp, więc przy stałej nazwie jeden job kasuje albo
-          # nadpisuje archiwum drugiemu w trakcie rozpakowywania.
-          rm -rf "$RUNNER_TEMP/godot-mono"
-          curl -fsSL -o "$RUNNER_TEMP/godot-mono.zip" "$url"
-          unzip -q "$RUNNER_TEMP/godot-mono.zip" -d "$RUNNER_TEMP/godot-mono"
-          mv "$RUNNER_TEMP/godot-mono/Godot_v${GODOT_VERSION}_mono_linux_x86_64"/* "$GODOT_DIR/"
+          bash tools/ci/godot_install.sh
           ls -la "$GODOT_DIR"
 
       - name: Report tool versions
