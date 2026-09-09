@@ -31,10 +31,35 @@ def radius3(a,b,c):
 def _is_subsequence(sub,seq):
     it=iter(seq); return all(any(s==x for x in it) for s in sub)
 
+def _odmowa_stalej(nazwa):
+    """`json` Pythona przyjmuje `NaN`, `Infinity` i `-Infinity` jako literały —
+    wbrew samemu formatowi JSON, który ich nie zna. Bez tej odmowy taki plik
+    wczytuje się bez słowa i psuje WSZYSTKIE progi niżej, a nie jeden.
+    """
+    raise ValueError(f"plik niesie literał `{nazwa}`, którego JSON nie dopuszcza — "
+                     "oś musi nieść same liczby skończone")
+
+
+def _nieskonczona(r, gdzie, wartosc):
+    """Zgłasza błąd i mówi, DLACZEGO to nie jest drobiazg. Zwraca True, gdy zgłoszono.
+
+    **Dlaczego obok `_odmowa_stalej`, a nie zamiast niej (6.D66).** Odmowa literału
+    nie wystarcza, i to jest zmierzone: `1e400` w pliku jest poprawnym literałem
+    JSON, a `json.load` zamienia go na nieskończoność BEZ użycia słowa `Infinity`.
+    Jedna kontrola łapie zapis, druga przepełnienie — żadna nie zastępuje drugiej.
+    """
+    if math.isfinite(wartosc):
+        return False
+    r.E(f"{gdzie} = {wartosc!r} nie jest liczbą skończoną — porównania z taką "
+        "wartością są ZAWSZE fałszywe, więc żaden próg niżej nie mógłby się zapalić, "
+        "a walidator ogłosiłby zgodność, której nie sprawdził")
+    return True
+
+
 def validate(path, expect_line=None, expect_package=None):
     r=Report()
     try:
-        with open(path,encoding="utf-8") as f: d=json.load(f)
+        with open(path,encoding="utf-8") as f: d=json.load(f,parse_constant=_odmowa_stalej)
     except Exception as e:
         r.E(f"nie da się wczytać pliku: {e}"); return r
     for key in ("id","points"):
@@ -45,6 +70,8 @@ def validate(path, expect_line=None, expect_package=None):
     if len(pts)<3: r.E(f"oś ma {len(pts)} punktów, potrzeba co najmniej 3"); return r
     for i,p in enumerate(pts):
         if len(p)!=3: r.E(f"punkt {i} ma {len(p)} współrzędnych, oczekiwano 3 [x, y, z]"); return r
+        for osz,wartosc in zip("xyz",p):
+            if _nieskonczona(r, f"punkt {i}, współrzędna {osz}", wartosc): return r
     gaps=[dist(pts[i],pts[i+1]) for i in range(len(pts)-1)]; total=sum(gaps)
     r.I(f"punktów: {len(pts)}, długość osi: {total:.1f} m")
     # Deklarowana długość kontra policzona z łamanej. Plik zapisuje length_m zaokrąglone,
@@ -53,6 +80,7 @@ def validate(path, expect_line=None, expect_package=None):
     # wszystko, co liczy kilometraż z tego pliku, liczy go z czegoś innego niż geometria.
     declared=d.get("length_m")
     if declared is not None:
+        if _nieskonczona(r, "length_m", float(declared)): return r
         drift=abs(float(declared)-total)
         if drift>LIMITS["length_tolerance_m"]:
             r.E(f"length_m = {declared:.3f} m nie zgadza się z łamaną ({total:.3f} m), różnica {drift:.3f} m")
@@ -101,6 +129,8 @@ def validate(path, expect_line=None, expect_package=None):
         ch=[s.get("chainage_m") for s in st]
         if any(c is None for c in ch): r.E("każda stacja musi mieć 'chainage_m'")
         else:
+            for nr,c in enumerate(ch):
+                if _nieskonczona(r, f"stacja {nr}, chainage_m", float(c)): return r
             if ch!=sorted(ch): r.E("kilometraż stacji nie jest rosnący")
             for i in range(len(ch)-1):
                 sp=ch[i+1]-ch[i]
