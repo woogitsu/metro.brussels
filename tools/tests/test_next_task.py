@@ -241,10 +241,6 @@ def test_the_reader_of_delivery_marks_actually_reads():
 #: Podstawienie z `doctor.sh`, w którym mieszka wybór pozycji kolejki.
 DOCTOR_QUEUE = re.compile(r"queue_item=\$\((.*?)\)\n", re.S)
 
-#: Prefiksy kolejki — te same, co `QUEUE_PREFIXES` w `tools/tests/test_backlog.py`.
-QUEUE_ROW = re.compile(r"^\| ([56]\.\d+) \| \*\*([^*]+)\*\*", re.M)
-
-
 def doctor_queue_command():
     """Treść podstawienia `queue_item=$(…)` wycięta z `doctor.sh`."""
     match = DOCTOR_QUEUE.search(_read(DOCTOR))
@@ -265,20 +261,40 @@ def test_doctor_points_at_the_queue_and_the_rule_is_not_retyped():
 
     Bramka na napis nie odróżniłaby kodu wykonywanego od komentarza — repozytorium
     odrzuciło tę formę osobno w #200.
+
+    **BRAMKA PRZEKIEROWANA 09.09.2026, i sprawdza teraz WIĘCEJ.** Poprzednia wersja
+    porównywała wybór doctora z PIERWSZYM wierszem tabeli faz 5 i 6, dopasowanym
+    wzorcem `^\| ([56]\.\d+) \|` — czyli z drugą kopią reguły „co jest pozycją
+    kolejki". Kopia rozjechała się z oryginałem i bramka tego nie widziała, bo
+    porównywała jedną kopię z drugą: wzorzec łapał **8 wierszy i ani jednej pozycji
+    otwartej** (wszystkie 34 otwarte mają w numerze literę), a więc pierwszym
+    „zadaniem" był wiersz z adnotacją ZROBIONE. Teraz porównanie idzie z
+    `test_backlog.open_items`, czyli z tym samym czytnikiem, którym mierzy się zapas,
+    i dochodzi asercja, że wybór **nie nosi adnotacji ZROBIONE**.
     """
+    import test_backlog
+
     command = doctor_queue_command()
     assert command is not None, (
         "nie znalazłem podstawienia `queue_item=$(…)` w doctor.sh — bramka straciła "
         "przedmiot i przestałaby cokolwiek sprawdzać")
 
-    wybrane = run_doctor_queue(ROOT)
-    wiersze = QUEUE_ROW.findall(_read(os.path.join(ROOT, "docs", "TASKS.md")))
-    assert wiersze, "w docs/TASKS.md nie ma ani jednego wiersza kolejki faz 5 i 6"
+    tekst = _read(TASKS)
+    otwarte = test_backlog.open_items(tekst)
+    assert otwarte, "w docs/TASKS.md nie ma ani jednej OTWARTEJ pozycji kolejki"
 
-    numer, tytul = wiersze[0]
+    wybrane = run_doctor_queue(ROOT)
+    numer = otwarte[0]
     assert wybrane.startswith(numer), (
-        f"doctor wskazuje {wybrane!r}, a pierwsza pozycja kolejki to {numer}")
-    assert tytul.strip() in wybrane, (
+        f"doctor wskazuje {wybrane!r}, a pierwsza OTWARTA pozycja kolejki to {numer}")
+
+    wiersz = test_backlog.queue_row(tekst, numer) or ""
+    assert test_backlog.DONE_ROW_MARKER not in wiersz, (
+        f"doctor wskazuje {numer}, a jej wiersz nosi {test_backlog.DONE_ROW_MARKER} — "
+        "sesja dostałaby polecenie zrobienia pracy, która już leży w main")
+    tytul = re.match(r"\| \S+ \| \*\*([^*]+)\*\*", wiersz)
+    assert tytul is not None, f"wiersz pozycji {numer} nie ma pogrubionego tytułu: {wiersz[:120]!r}"
+    assert tytul.group(1).strip() in wybrane, (
         f"doctor nie podaje tytułu pozycji {numer}: {wybrane!r}")
 
 
