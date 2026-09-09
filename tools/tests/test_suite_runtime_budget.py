@@ -153,7 +153,7 @@ def over_budget(elapsed_s, budget_s=SUITE_RUNTIME_BUDGET_S):
 #:
 #:   kontener sesji, 4 rdzenie, maszyna spokojna    CPU/ściana  0,987 i 0,988
 #:   kontener sesji, 4 rdzenie, 8 procesów w tle    CPU/ściana  0,451 i 0,444
-#:   runner `metro-wsl-DOM-NEW-*`, job `tools`      CPU/ściana  1,323
+#:   runner `metro-wsl-DOM-NEW-*`, job `tools`      CPU/ściana  1,323 i 1,361
 #:
 #: Runner jest POWYŻEJ JEDYNKI i to nie jest błąd odczytu: zestaw dostaje tam
 #: więcej niż jeden rdzeń na sekundę ściany (53,517 s ściany przy 70,804 s CPU).
@@ -169,8 +169,8 @@ def over_budget(elapsed_s, budget_s=SUITE_RUNTIME_BUDGET_S):
 #: zachowuje się jak bramka sprzed tej zmiany. Fałszywy alarm, który wyłącza bramki
 #: (6.D27), jest tu więc niemożliwy z konstrukcji.
 #:
-#: Runner ma dziś JEDEN pomiar (n=1) i to jest granica tej liczby, wypisana razem
-#: z nią: `reports/mierzalnosc-czasu-zestawu.md` §5.
+#: Runner ma dziś DWA pomiary (n=2, rozrzut 2,9 %) i to jest granica tej liczby,
+#: wypisana razem z nią: `reports/mierzalnosc-czasu-zestawu.md` §5.
 MIERZALNOSC_MIN = 0.75
 
 

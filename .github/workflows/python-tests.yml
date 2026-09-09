@@ -74,6 +74,7 @@ jobs:
           elapsed=$(python3 -c "print(f'{$end - $start:.3f}')")
           cpu=$(python3 -c "import sys; sys.path.insert(0,'tools/tests'); import test_suite_runtime_budget as B; print(f\"{B.cpu_dzieci(sys.argv[1]) - B.cpu_dzieci(sys.argv[2]):.3f}\")" "$RUNNER_TEMP/times-po.txt" "$RUNNER_TEMP/times-przed.txt")
           echo "czas sciany test_all.py: ${elapsed} s (prog ${budget} s)"
+          echo "czas CPU zestawu: ${cpu} s"
           # WERDYKT LICZY MODUL, NIE TEN YAML (6.D42). Przebieg, w ktorym maszyna nie
           # oddawala CPU, NIE JEST porownywany z progiem — zamiast tego mowi o tym
           # wprost. Ta sama konstrukcja, co w `tools/ci/assert_linecore_budget.py`.

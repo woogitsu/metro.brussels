@@ -84,6 +84,7 @@ maszyna spokojna     91,742 s      90,522 s      0,987
 maszyna obciążona   203,882 s      91,855 s      0,451
                     207,215 s      91,939 s      0,444
 runner, job tools     53,517 s      70,804 s      1,323
+runner, job tools     52,503 s      71,46 s*      1,361
 ```
 
 **Czas CPU jest niemal niezmienny** — 90,522 → 91,939 s, czyli +1,5 % — gdy ściana
@@ -96,9 +97,14 @@ w kontenerze sesji nie dostaje. Podłoga nie może więc być „bliska jedynce"
 pod najniższym zmierzonym przebiegiem **bez** obciążenia (0,987) i nad najwyższym
 **pod** obciążeniem (0,451). Środek przedziału to 0,719, wybrane **0,75**.
 
-**Granica: runner ma jeden pomiar (n = 1).** Ta liczba pochodzi z przebiegu, który
-dopiero wprowadził wypis stosunku; drugi pojawi się po scaleniu. Zapisuję to razem
-z podłogą, bo brak pomiaru nie jest jego wynikiem.
+`*` — CPU drugiego przebiegu jest **wyliczone** z ilorazu i ściany, a nie odczytane:
+wpięcie werdyktu zastąpiło wypis surowego CPU wypisem stosunku. Wypis surowej liczby
+jest w tym samym commicie przywrócony, żeby następny log niósł oba.
+
+**Runner ma dwa pomiary (n = 2), oba z tej pozycji:** `1,323` z przebiegu, który
+wprowadził sam wypis (53,517 s ściany, 70,804 s CPU), i `1,361` z przebiegu, który
+wpiął już werdykt (52,503 s ściany). Rozrzut między nimi to 2,9 %, obie wartości leżą
+1,8× nad podłogą. Dwa pomiary to nadal mało i tak to tu stoi — ale nie jeden.
 
 **Kierunek błędu jest bezpieczny i to jest część wyboru.** Za wysoka podłoga NIE
 czerwieni CI — pomija porównanie i mówi o tym w logu. Za niska przepuszcza wolny
