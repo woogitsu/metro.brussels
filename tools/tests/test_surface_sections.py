@@ -696,6 +696,91 @@ def test_surface_main_prints_only_the_contradictions():
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
 # z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
 # tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+def test_full_coverage_path_reports_both_agreements_and_the_halo_count():
+    """Ścieżka `--osm-file` podaje TRZY liczby, nie jedną (6.D61).
+
+    **Skąd.** Ścieżka sond niosła `range_position` przy każdym wierszu i podawała
+    dwa liczniki — ogólny i poza portalami. Ścieżka pełnego pokrycia nie liczyła
+    `range_position` wcale i podawała jeden, a to JEJ liczba jest cytowana
+    w raportach (pakiet D: 75,0 % na 208 punktach). Rozbieżność przy portalu „nic nie
+    mówi" — tak stoi przy `PORTAL_HALO_M` od dnia, w którym ta stała powstała — więc
+    licznik mieszający punkty w halo z punktami ze środka odcinka odpowiada na inne
+    pytanie, niż brzmi jego nazwa.
+    """
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        report = _run_survey(tmp)
+    full = report["full_coverage"]
+
+    for pole in ("agreement_pct", "agreement_off_portal_pct", "comparable_points",
+                 "comparable_off_portal", "points_in_halo", "portal_halo_m"):
+        assert pole in full, f"ścieżka pełnego pokrycia przestała podawać `{pole}`"
+
+    # Liczby fixture'a, przybite: bez nich „pole istnieje" byłoby prawdą także dla
+    # pola wypełnianego stałą.
+    assert (full["agreement_pct"], full["comparable_points"]) == (96.8, 31)
+    assert (full["agreement_off_portal_pct"], full["comparable_off_portal"]) == (96.6, 29)
+    assert full["points_in_halo"] == 2
+    assert full["portal_halo_m"] == SS.PORTAL_HALO_M
+
+    # Spójność, nie tylko obecność: punkty poza portalem to porównywalne MINUS te
+    # w halo, które są porównywalne. Fixture ma oba w halo porównywalne, więc 31-2=29.
+    assert full["comparable_off_portal"] == full["comparable_points"] - full["points_in_halo"]
+    assert all("range_position" in r for r in full["contradictions"])
+
+
+def test_the_halo_gate_reacts_to_the_halo_and_zero_is_NOT_enough_to_empty_it():
+    """Kontrola negatywna z pola „Skończone, gdy" — WYKONANA, i obalająca jego treść.
+
+    Pole żądało kontroli „zdjęcie halo, czyli `PORTAL_HALO_M = 0`, zmienia liczbę
+    punktów w halo na zero". **Pomiar mówi, że nie zmienia — i to nie jest usterka.**
+    Przy halo równym zeru punkt leżący DOKŁADNIE na granicy przedziału nadal spełnia
+    `abs(chainage - low) <= 0`, czyli nadal stoi w portalu, bo jest portalem.
+    W tym fixture oba punkty w halo są właśnie punktami granicznymi, więc halo 60 m
+    i halo 0 m dają **te same liczby**:
+
+        halo=  60.0: w halo 2, poza portalem 29, zgodność 96.8 / 96.6
+        halo=   0.0: w halo 2, poza portalem 29, zgodność 96.8 / 96.6
+        halo=  -1.0: w halo 0, poza portalem 31, zgodność 96.8 / 96.8
+
+    Kontrolą, która naprawdę odejmuje halo, jest więc wartość UJEMNA, i to ona stoi
+    niżej. Druga strona — halo obejmujące całą oś — sprawdza, że licznik poza
+    portalami potrafi zejść do zera, a nie tylko rosnąć.
+
+    **Poprawka w narzędziu, bez której ta kontrola była niewykonalna:**
+    `range_position` miało `halo_m=PORTAL_HALO_M` jako wartość domyślną argumentu,
+    a ta wiąże się w chwili definicji funkcji — podmiana stałej w module nie
+    docierała do niej wcale. Dziś stała czytana jest w ciele funkcji.
+    """
+    import tempfile
+
+    zapisane = SS.PORTAL_HALO_M
+    try:
+        SS.PORTAL_HALO_M = -1.0
+        with tempfile.TemporaryDirectory() as tmp:
+            bez_halo = _run_survey(tmp)["full_coverage"]
+        SS.PORTAL_HALO_M = 1.0e9
+        with tempfile.TemporaryDirectory() as tmp:
+            same_portale = _run_survey(tmp)["full_coverage"]
+    finally:
+        SS.PORTAL_HALO_M = zapisane
+
+    assert bez_halo["points_in_halo"] == 0, (
+        "halo ujemne nie opróżniło halo — `range_position` nie czyta `PORTAL_HALO_M` "
+        f"w czasie wykonania: {bez_halo['points_in_halo']}")
+    assert bez_halo["comparable_off_portal"] == bez_halo["comparable_points"] == 31
+    assert bez_halo["agreement_off_portal_pct"] == bez_halo["agreement_pct"] == 96.8
+
+    assert same_portale["points_in_halo"] == same_portale["points"] == 31
+    assert same_portale["comparable_off_portal"] == 0
+    assert same_portale["agreement_off_portal_pct"] is None, (
+        "przy samych portalach drugi licznik musi być pusty, a nie równy pierwszemu — "
+        "inaczej podawałby zgodność liczoną z zera punktów")
+    # I to jest stan, w którym bramka wyżej ma być CZERWONA — obie liczby inne.
+    assert (bez_halo["points_in_halo"], same_portale["points_in_halo"]) != (2, 2)
+
+
 if __name__ == "__main__":
     import test_all
     raise SystemExit(test_all.main(__file__))

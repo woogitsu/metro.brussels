@@ -121,8 +121,20 @@ def urbis_at(point, rings):
 PORTAL_HALO_M = 60.0
 
 
-def range_position(chainage, ranges, halo_m=PORTAL_HALO_M):
-    """Gdzie leży sonda wobec przedziałów `niveau = 0`: w środku, przy portalu, poza."""
+def range_position(chainage, ranges, halo_m=None):
+    """Gdzie leży sonda wobec przedziałów `niveau = 0`: w środku, przy portalu, poza.
+
+    **`halo_m=None` zamiast `halo_m=PORTAL_HALO_M` — przepisane 09.09.2026 (6.D61),
+    a nie dopisane obok, i to jest zmiana zachowania, nie kosmetyka.** Wartość
+    domyślna argumentu wiąże się w chwili definicji funkcji, więc podmiana stałej
+    `PORTAL_HALO_M` w module **nie docierała tutaj wcale**: kontrola negatywna,
+    której żąda pole „Skończone, gdy" tej pozycji — „zdjęcie halo, czyli
+    `PORTAL_HALO_M = 0`" — była z tego powodu **niewykonalna**, a próba jej
+    wykonania dawała niezmienione 2 punkty w halo. Odczyt w ciele funkcji sprawia,
+    że stała jest jednym miejscem także w czasie wykonania, a nie tylko w zapisie.
+    """
+    if halo_m is None:
+        halo_m = PORTAL_HALO_M
     for low, high in ranges:
         if low - halo_m <= chainage <= high + halo_m:
             if abs(chainage - low) <= halo_m or abs(chainage - high) <= halo_m:
@@ -331,6 +343,13 @@ def survey(alignment_path, args):
     hits = [urbis_at(p, rings) for p in points]
     inside = [h is not None and h["niveau"] == "0" for h in hits]
 
+    # Przedziały `niveau = 0` liczone RAZ, przed obiema ścieżkami. Do 6.D61 stały
+    # niżej, czyli za ścieżką pełnego pokrycia — i to jest cała przyczyna usterki,
+    # którą ta pozycja zamyka: ścieżka pełnego pokrycia nie miała ich skąd wziąć,
+    # więc nie liczyła `range_position` wcale i podawała JEDEN licznik zgodności
+    # tam, gdzie ścieżka sond podaje dwa.
+    ranges = CC.chainage_ranges(points, inside)
+
     # Ścieżka pełnego pokrycia: snapshot Overpassa niesie CAŁĄ sieć, więc każdy punkt
     # osi dostaje odpowiedź. Sondowanie jest wtedy zbędne i byłoby gorszą wersją tego
     # samego pomiaru.
@@ -346,6 +365,7 @@ def survey(alignment_path, args):
             entry = nearest_segment(point, segments, index)
             verdict, urbis_state, osm_state = classify(hit, entry)
             rows.append({"chainage_m": round(chainage, 1), "osm": entry,
+                         "range_position": range_position(chainage, ranges),
                          "verdict": verdict, "urbis_state": urbis_state,
                          "osm_state": osm_state})
         matrix, counts = {}, {}
@@ -354,6 +374,12 @@ def survey(alignment_path, args):
             matrix[key] = matrix.get(key, 0) + 1
             counts[row["verdict"]] = counts.get(row["verdict"], 0) + 1
         comparable = [r for r in rows if r["verdict"] in ("zgodne", "sprzeczne")]
+        # Rozbieżność PRZY PORTALU nic nie mówi — tak stoi przy `PORTAL_HALO_M` od
+        # dnia, w którym ta stała powstała. Ścieżka sond odsiewała je od początku,
+        # ścieżka pełnego pokrycia do 6.D61 nie odsiewała ich wcale, a to jej liczba
+        # jest cytowana w raportach.
+        away = [r for r in comparable if r["range_position"] != "portal"]
+        in_halo = [r for r in rows if r["range_position"] == "portal"]
         surface = [r["chainage_m"] for r in rows if r["osm_state"] == "poza_tunelem"]
         full = {
             "source": {"status": "ok", "source": snapshot_source_label(payload),
@@ -368,7 +394,12 @@ def survey(alignment_path, args):
             "agreement_pct": None if not comparable else round(
                 100.0 * sum(1 for r in comparable if r["verdict"] == "zgodne")
                 / len(comparable), 1),
+            "agreement_off_portal_pct": None if not away else round(
+                100.0 * sum(1 for r in away if r["verdict"] == "zgodne") / len(away), 1),
             "comparable_points": len(comparable),
+            "comparable_off_portal": len(away),
+            "points_in_halo": len(in_halo),
+            "portal_halo_m": PORTAL_HALO_M,
             "osm_surface_points": len(surface),
             "osm_surface_pct": round(100.0 * len(surface) / max(1, len(rows)), 1),
             "osm_surface_ranges_m": CC.chainage_ranges(
@@ -378,7 +409,6 @@ def survey(alignment_path, args):
             "contradictions": [r for r in rows if r["verdict"] == "sprzeczne"],
         }
 
-    ranges = CC.chainage_ranges(points, inside)
     probes = []
     counts = {}
     licznik_kafli = PAMIEC.Licznik()
@@ -480,8 +510,15 @@ def main(argv=None):
               f"{full['points']} punktów, {full['source']['segments']} odcinków metra")
         for key, value in full["matrix"].items():
             print(f"[POWIERZCHNIA]   {key}: {value}")
+        roznica = (None if full["agreement_pct"] is None
+                   or full["agreement_off_portal_pct"] is None
+                   else round(full["agreement_off_portal_pct"] - full["agreement_pct"], 1))
         print(f"[POWIERZCHNIA] zgodność {full['agreement_pct']}% na "
-              f"{full['comparable_points']} punktach; OSM bez tunelu na "
+              f"{full['comparable_points']} punktach; poza portalami "
+              f"{full['agreement_off_portal_pct']}% na {full['comparable_off_portal']}; "
+              f"punktów w halo portalu ({full['portal_halo_m']} m): "
+              f"{full['points_in_halo']}; RÓŻNICA dwóch liczb: {roznica} pkt")
+        print(f"[POWIERZCHNIA] OSM bez tunelu na "
               f"{full['osm_surface_points']} ({full['osm_surface_pct']}%), "
               f"przedziały {full['osm_surface_ranges_m']}")
         print(f"[POWIERZCHNIA] najdalszy way metra od osi: {full['osm_max_distance_m']} m")
