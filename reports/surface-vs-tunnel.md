@@ -91,6 +91,49 @@ osobno, a środek każdego przedziału jest sondowany zawsze.
 | E — Pierścień 2/6 | 603 | 485 | 99,8 % | 2,0 % | **2,7 %** | **0** |
 | F — Północ 6 | 299 | 295 | 84,7 % | 15,7 % | 22,7 % | 33 |
 
+### 3.1 Zgodność POZA PORTALAMI — przeliczone 09.09.2026 (6.D61)
+
+Kolumna „zgodność" w tabeli wyżej liczy punkty w halo portalu na równi z punktami
+ze środka odcinka — a rozbieżność przy portalu **nic nie mówi**, i tak stoi przy
+`PORTAL_HALO_M` od dnia, w którym ta stała powstała. Ścieżka sond odsiewała je od
+początku; ścieżka pełnego pokrycia, z której pochodzą liczby tabeli wyżej, nie
+odsiewała ich wcale, bo nie liczyła `range_position`. **Od 6.D61 liczy**, i podaje
+trzy liczby zamiast jednej.
+
+Tabela wyżej **zostaje jako pomiar swojego dnia** (2026-09-01, snapshot Overpassa
+z `timestamp_osm_base = 2026-09-01T16:37:11Z`) — reguła 6.D49. Poniżej ten sam
+rachunek na sześciu snapshotach z **09.09.2026**, pobranych drogą zapasową
+(`api.openstreetmap.org`, bo Overpass odmawia), halo portalu 60,0 m:
+
+| pakiet | oś | porównywalnych | zgodność | poza portalami | punktów w halo | różnica |
+|---|---|---:|---:|---:|---:|---:|
+| A — Pień 1/5 | `L1_A` | 369 | 97,3 % | **99,7 %** na 338 | 31 | +2,4 pkt |
+| B — Wschód 1 | `L1_B` | 314 | 100 % | **100 %** na 314 | 0 | 0,0 pkt |
+| C — Zachód 5 | `L5_C` | 361 | 100 % | **100 %** na 347 | 14 | 0,0 pkt |
+| D — Wschód 5 | `L5_D` | 208 | 75,0 % | **78,5 %** na 144 | 69 | +3,5 pkt |
+| E — Pierścień 2/6 | `L2_E` | 485 | 99,8 % | **100 %** na 467 | 18 | +0,2 pkt |
+| F — Północ 6 | `L6_F` | 295 | 84,7 % | **87,0 %** na 277 | 18 | +2,3 pkt |
+
+**Sześć liczb w kolumnie „zgodność" jest identycznych z tabelą wyżej co do dziesiątej
+części procenta**, choć snapshoty dzielą osiem dni i inną drogę pobrania. To nie jest
+powtórzenie tamtego pomiaru — to jego niezależne potwierdzenie i jedyny powód, dla
+którego wiadomo, że nowa kolumna mówi o tym samym przejeździe, a nie o innym.
+
+Co widać w nowej kolumnie i czego stara nie pokazywała:
+
+- **E przechodzi na 100 %.** Jedyna rozbieżność pakietu E stoi w halo portalu, czyli
+  w miejscu, o którym `PORTAL_HALO_M` mówi, że nic nie znaczy. Liczba 99,8 % nie była
+  fałszywa — odpowiadała na inne pytanie, niż brzmiała jej nazwa;
+- **D zostaje przy 78,5 %** i to jest treść, nie szczegół: pakiet D ma **69 punktów
+  w halo** ze 258, czyli ponad ćwierć osi stoi przy portalu, a mimo to zgodność poza
+  portalami podnosi się tylko o 3,5 pkt. Rozbieżność pakietu D **nie jest efektem
+  portali** — o to właśnie chodziło w pytaniu, którego stara kolumna nie umiała zadać;
+- **B nie ma ani jednego punktu w halo**, bo nie ma ani jednego przedziału
+  `niveau = 0` — obie liczby muszą być tam równe i są.
+
+Przebiegi: `tools/track/surface_sections.py --osm-file` na sześciu snapshotach
+z `tools/track/crosscheck_alignment.py --osm-source osm-api --osm-snapshot-out`.
+
 Przedziały kilometrażu, na których **OSM** nie widzi tunelu:
 
 | pakiet | przedziały [m] | razem |

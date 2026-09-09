@@ -151,6 +151,22 @@ choć poszło **drogą zapasową** (Overpass odmówił: `Connection reset by pee
 temu, na innym snapshotcie i inną drogą dostępu. To jest kontrola stabilności wejścia,
 bez której dzisiejszy werdykt opierałby się na jednym pobraniu.
 
+**Dopisane 09.09.2026 (6.D61): która to z dwóch liczb.** Wypis wyżej podaje jedną
+zgodność, bo ścieżka pełnego pokrycia liczyła wtedy jedną. Dziś liczy dwie i ta sama
+oś, na tym samym snapshotcie, daje:
+
+```
+[POWIERZCHNIA] zgodność 75.0% na 208 punktach; poza portalami 78.5% na 144;
+  punktów w halo portalu (60.0 m): 69; RÓŻNICA dwóch liczb: 3.5 pkt
+```
+
+Wartość **75,0 %** zostaje w tym raporcie jako pomiar swojego dnia i **nie jest
+błędna** — mówi tylko o czym innym, niż brzmi jej nazwa: liczy punkty w halo portalu
+na równi z punktami ze środka odcinka. Dla werdyktu tego raportu to bez różnicy
+i właśnie dlatego warto to wypisać: pakiet D ma **69 punktów w halo ze 258**, ponad
+ćwierć osi, a odsianie ich podnosi zgodność tylko o **3,5 pkt**. Rozbieżność pakietu D
+nie bierze się z portali.
+
 ## 4. Czego ten raport NIE zmienia
 
 - **Wniosek pakietowy zostaje.** „Model zamkniętej rury jest dla D niewłaściwy" opiera
