@@ -91,7 +91,13 @@ public sealed class LineTrain
     /// <summary>Prawda, gdy skład jest na planie.</summary>
     public bool OnLine => Drive is not null;
 
-    /// <summary>Prawda, gdy skład dojechał do ostatniej stacji osi.</summary>
+    /// <summary>
+    /// Prawda, gdy skład dojechał do ostatniej stacji osi.
+    /// <para><b>Także w czasie nawrotu</b> — i to nie jest szczegół (6.D70). Faza
+    /// nawrotu ZOSTAWIA <c>Drive</c> na miejscu przez cały <c>TurnbackSteps</c>
+    /// i czyści je dopiero po odczekaniu, więc przez to okno skład jest
+    /// <c>Finished</c>, choć zaraz ruszy w kolejny obieg.</para>
+    /// </summary>
     public bool Finished => Drive is { Finished: true };
 
     /// <inheritdoc/>
@@ -479,7 +485,21 @@ public sealed class LineCore
     /// </summary>
     public double SpeedLimitMps => _settings.SpeedLimitMps;
 
-    /// <summary>Czy ta linia ma włączony turnback (pojazdy krążą i nigdy nie kończą).</summary>
+    /// <summary>
+    /// Czy ta linia ma włączony turnback.
+    /// <para><b>Opis „pojazdy krążą i nigdy nie kończą" jest tu PRZEPISANY, bo był
+    /// nieprawdziwy dla jednego składu</b> (6.D70). Zmierzone 09.09.2026 na pakiecie A
+    /// z nawrotem 240 s i JEDNYM składem: <c>Run()</c> zwraca <c>arrived</c> po
+    /// 89 958 krokach, z <b>zerem</b> zamkniętych obiegów. Powód jest w zdaniu wyżej:
+    /// <see cref="LineTrain.Finished"/> jest prawdą przez całe okno nawrotu, więc
+    /// przy jednym składzie <see cref="Finished"/> całej linii też — i pętla
+    /// <c>Run()</c> wychodzi, zanim nawrót zdąży cokolwiek zrobić.</para>
+    /// <para>Nawrót przy tym DZIAŁA: ta sama linia dokrokowana <c>Step()</c> zamyka
+    /// obieg z powodem <c>turnback</c>. „Nigdy nie kończą" jest prawdą od DWÓCH
+    /// składów wzwyż, bo wtedy któryś zawsze jedzie i koniunkcja w
+    /// <see cref="Finished"/> nie zachodzi. Oba zachowania są przybite testami
+    /// w <c>LineCoreTests</c>.</para>
+    /// </summary>
     public bool TurnbackEnabled => _turnbackSteps > 0L;
 
     /// <summary>Czas nawrotu w krokach; zero, gdy turnback wyłączony.</summary>
@@ -489,6 +509,9 @@ public sealed class LineCore
     /// Prawda, gdy każdy zgłoszony skład wszedł na plan i dojechał do ostatniej stacji.
     /// Na krótkiej osi z krótkim odstępem nie nastąpi to nigdy — patrz akapit o turnbacku
     /// w opisie klasy. Linia bez ani jednego zgłoszonego składu nie jest skończona.
+    /// <para>Z nawrotem i JEDNYM składem ta koniunkcja ZACHODZI w chwili przyjazdu —
+    /// zmierzone, patrz <see cref="TurnbackEnabled"/>. Dopiero od dwóch składów
+    /// wzwyż któryś zawsze jedzie i linia nie kończy się nigdy (6.D70).</para>
     /// </summary>
     public bool Finished
     {

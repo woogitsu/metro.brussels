@@ -827,10 +827,16 @@ public sealed class LineCoreTests
     [TestMethod]
     public void Turnback_jest_domyslnie_wylaczony_i_linia_zachowuje_sie_jak_dotad()
     {
-        // Turnback musi być opt-in, bo z nim linia NIGDY nie jest skończona — pojazdy
-        // krążą. Gdyby był domyślny, każdy dotychczasowy test kończący się na
-        // `Finished` przestałby się kończyć, a to nie jest zmiana, którą wolno wprowadzić
-        // po cichu.
+        // Turnback musi być opt-in, bo z nim linia od DWÓCH składów wzwyż nigdy nie
+        // jest skończona — pojazdy krążą. Gdyby był domyślny, każdy dotychczasowy test
+        // kończący się na `Finished` przestałby się kończyć, a to nie jest zmiana,
+        // którą wolno wprowadzić po cichu.
+        //
+        // „Od dwóch wzwyż" jest tu dopisane 09.09.2026 (6.D70) i jest wynikiem POMIARU,
+        // nie ostrożnością w słowach: przy JEDNYM składzie `Run()` z nawrotem kończy się
+        // na przyjeździe (`arrived`, 89 958 kroków, zero obiegów), bo `Finished` składu
+        // jest prawdą przez całe okno nawrotu. Test
+        // `Run_z_nawrotem_i_JEDNYM_skladem_konczy_sie_na_przyjezdzie_a_nie_krazy`.
         var bez = RealLine();
         Assert.IsFalse(bez.TurnbackEnabled);
         Assert.AreEqual(0L, bez.TurnbackSteps);
@@ -844,6 +850,48 @@ public sealed class LineCoreTests
         Assert.IsTrue(bez.Finished, "bez turnbacku linia ma się kończyć");
         Assert.AreEqual(0, bez.Trains[0].CompletedRuns.Count,
             "bez turnbacku nie ma obiegów zakończonych — pojazd stoi na ostatnim peronie");
+    }
+
+    [TestMethod]
+    public void Run_z_nawrotem_i_JEDNYM_skladem_konczy_sie_na_przyjezdzie_a_nie_krazy()
+    {
+        // 6.D70. Opis `TurnbackEnabled` mówił, że z nawrotem „pojazdy krążą i nigdy
+        // nie kończą". Czytanie kodu dawało sprzeczność: `Finished` składu to
+        // `Drive is { Finished: true }`, a faza nawrotu ZOSTAWIA `Drive` na miejscu
+        // przez cały czas nawrotu — czyszczenie przychodzi dopiero po `TurnbackSteps`.
+        // Rozstrzyga przebieg, nie lektura, i przebieg mówi: przy JEDNYM składzie
+        // `LineCore.Finished` staje się prawdą w chwili przyjazdu, więc pętla `Run()`
+        // wychodzi, ZANIM nawrót zdąży cokolwiek zrobić.
+        //
+        // Zmierzone 09.09.2026: `powod=arrived`, `kroki=89958`, `obiegi=0`,
+        // `Finished=True`, `TurnbackEnabled=True`.
+        var line = RealLineWithTurnback(240.0);
+        line.Add("A", 0L);
+
+        var powod = line.Run(300_000L);
+
+        Assert.AreEqual("arrived", powod,
+            "Run() z jednym składem i nawrotem ma wyjść na przyjeździe — jeżeli wyszedł "
+            + "z innego powodu, zmieniła się semantyka `Finished` i opisy przy niej "
+            + "trzeba przepisać razem z tym testem");
+        Assert.IsTrue(line.Finished, "linia z jednym składem po przyjeździe jest skończona");
+        Assert.AreEqual(0, line.Trains[0].CompletedRuns.Count,
+            "Run() wyszedł, więc nawrót nie zdążył zamknąć ani jednego obiegu");
+        Assert.IsTrue(line.Steps < line.TurnbackSteps + 89_958L,
+            $"pętla wyszła po {line.Steps} krokach — to ma być chwila przyjazdu, "
+            + "nie moment po odczekaniu nawrotu");
+
+        // DRUGA POŁOWA, bez której pierwsza kłamałaby przez przemilczenie: nawrót
+        // DZIAŁA, tylko `Run()` do niego nie dochodzi. Kręcone `Step()` — czyli ta sama
+        // linia, ta sama chwila, inna pętla — zamyka obieg i wypuszcza skład na nowo.
+        for (var i = 0L; i < 200_000L; i++)
+        {
+            line.Step();
+        }
+
+        Assert.IsTrue(line.Trains[0].CompletedRuns.Count >= 1,
+            $"po dokrokowaniu skład ma zamknięty obieg; ma {line.Trains[0].CompletedRuns.Count}");
+        Assert.AreEqual("turnback", line.Trains[0].CompletedRuns[0].FinishReason);
     }
 
     [TestMethod]
