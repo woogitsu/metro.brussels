@@ -282,7 +282,10 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 #: Liczba jest POLICZONA na drzewie po dopisaniu pliku (`ls reports/*.md | wc -l`
 #: dało 189), nie przepisana z rozmowy — reguła trzy akapity wyżej obowiązuje
 #: tak samo przy jednym raporcie, jak przy czterech.
-MIN_REPORTS = 189
+#: **189 → 190 (09.09.2026, 6.D60).** Jeden raport: `sonda-hostfxr-ladowanie.md`.
+#: Liczba znów POLICZONA na drzewie po dopisaniu pliku, nie zwiększona o jeden
+#: „bo dopisałem jeden" — to są dwie różne czynności i tylko pierwsza jest pomiarem.
+MIN_REPORTS = 190
 
 #: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
 #: wierszem zaczynającym się od `**`, z którego `_header_shapes` czyta kształt.
