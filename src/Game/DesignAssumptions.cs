@@ -46,6 +46,13 @@ public static class DesignAssumptions
     /// <summary>Odsunięcie kamery obserwacyjnej za ogon składu.</summary>
     public const double ChaseBehindM = 12.0;
 
+    /// <summary>
+    /// Kilometraż czoła, po minięciu którego ODSŁANIA SIĘ widok goniący.
+    /// Osobna liczba obok długości składu, i to jest cała treść 6.B43: do 09.09.2026
+    /// granicą była sama długość M7, więc kadr na 96 m był jeszcze płytą pudła.
+    /// </summary>
+    public const double ChaseRevealFromM = 110.0;
+
     /// <summary>Wysokość kamery obserwacyjnej nad główką szyny.</summary>
     public const double ChaseHeightM = 2.60;
 
@@ -160,6 +167,8 @@ public static class DesignAssumptions
             "kąt widzenia kamery kabinowej; parametr obrazu, nie wymiar pojazdu"),
         new ViewAssumption(nameof(ChaseBehindM), ChaseBehindM, "m",
             "kamera obserwacyjna za ogonem, wewnątrz tunelu; dobrana tak, żeby ogon składu i przekrój tunelu zmieściły się w kadrze"),
+        new ViewAssumption(nameof(ChaseRevealFromM), ChaseRevealFromM, "m",
+            "kilometraż, po minięciu którego odsłania się widok goniący; DECYZJA właściciela z 07.09.2026, nie wynik pomiaru — pomiar co 2 m z 09.09.2026 mówi, że czysty kadr zaczyna się już na 98 m (96 m → 46,67 % pikseli jaśniejszych niż 0,80 w górnych 60 % kadru, 98 m i dalej → 0,00 %), a pełne ChaseBehindM odstępu wraca na 106 m; 110 m jest o 12 m ostrożniejsze od pomiaru i to jest wybór właściciela"),
         new ViewAssumption(nameof(ChaseHeightM), ChaseHeightM, "m",
             "wysokość kamery obserwacyjnej; z zapasem pod stropem tunelu 4,70 m nad główką szyny"),
         new ViewAssumption(nameof(OutsideAheadM), OutsideAheadM, "m",

@@ -11,14 +11,23 @@ namespace MetroBxl.Game.World;
 /// <param name="Available">Czy widok goniący jest dostępny.</param>
 /// <param name="FromChainageM">
 /// Kilometraż czoła, PO MINIĘCIU którego widok się otwiera — sama ta liczba należy
-/// jeszcze do pasma ukrycia. Równa długości składu i to nie jest zbieg okoliczności —
-/// patrz <see cref="ChaseCameraAim.Availability"/>.
+/// jeszcze do pasma ukrycia. Do 6.B43 była równa długości składu; dziś jest to
+/// `max(długość składu, próg odsłonięcia)` — patrz <see cref="ChaseCameraAim.Availability"/>.
 /// </param>
 /// <param name="RemainingM">Ile jeszcze metrów do tego kilometrażu; zero, gdy dostępny.</param>
+/// <param name="TrainLengthM">
+/// Długość składu — potrzebna do NAZWANIA POWODU, nie do policzenia granicy.
+/// Doszła 09.09.2026 razem z progiem odsłonięcia (6.B43), bo od tej pozycji pasmo
+/// ukrycia ma dwie części o dwóch różnych powodach: do długości składu kamera
+/// naprawdę siedzi w skorupie, a dalej widok jest ukryty DECYZJĄ właściciela.
+/// Jedno zdanie dla obu byłoby na jednej z nich nieprawdziwe — a to jest zdanie,
+/// które czyta człowiek w HUD-zie i w odmowie zrzutu.
+/// </param>
 public readonly record struct ChaseAvailability(
     bool Available,
     double FromChainageM,
-    double RemainingM)
+    double RemainingM,
+    double TrainLengthM)
 {
     /// <summary>
     /// Zdanie dla HUD-u i dla odmowy zrzutu; puste, gdy widok jest dostępny.
@@ -48,9 +57,21 @@ public readonly record struct ChaseAvailability(
             var ile = RemainingM > 0.0
                 ? string.Create(CultureInfo.InvariantCulture, $", jeszcze {RemainingM:F1} m")
                 : string.Empty;
+            // POWÓD ZALEŻY OD CZĘŚCI PASMA i to jest zmierzone, nie stylistyczne.
+            // Drugi powód jest KRÓTKI świadomie: `FirstRun` dokleja do odmowy zrzutu
+            // własny ogon („kadr byłby płytą pudła, a plik nazywałby się chase"), więc
+            // opis kadru w obu miejscach czytał się jak zająknięcie.
+            // Do 09.09.2026 zdanie mówiło „kamera siedzi w skorupie składu" na całym
+            // paśmie, bo pasmo kończyło się na długości składu. Po odsunięciu granicy
+            // na 110 m to samo zdanie byłoby na 96..110 m nieprawdziwe: kamera jest
+            // już za ogonem (zmierzone: przy czole 100 m odstęp wynosi 6,0 m), a widok
+            // jest ukryty decyzją właściciela z 07.09.2026.
+            var powod = FromChainageM > TrainLengthM && RemainingM < FromChainageM - TrainLengthM
+                ? "pasmo ukrycia z decyzji właściciela"
+                : "kamera siedzi w skorupie składu";
             return string.Create(
                 CultureInfo.InvariantCulture,
-                $"widok chase niedostępny — kamera siedzi w skorupie składu; "
+                $"widok chase niedostępny — {powod}; "
                 + $"dostępny po minięciu {FromChainageM:F1} m{ile}");
         }
     }
@@ -188,28 +209,44 @@ public static class ChaseCameraAim
     /// 60 % kadru: 20 m → 0,1 %, 48 m → <b>56,4 %</b>, 50 m → <b>38,3 %</b>,
     /// 90 m → 0,0 %, 2000 m → 0,0 %.</para>
     ///
-    /// <para><b>Skąd granica.</b> „Cały skład na osi" to dokładnie
-    /// <paramref name="trainLengthM"/>, bo ogon stoi o długość składu za czołem.
-    /// Predykat pyta więc o kilometraż i o długość składu — <b>i o nic więcej</b>:
-    /// ani o odstęp kamery, ani o długość osi. Wynik jest tożsamy z
-    /// <see cref="ChaseFraming.CameraWithinTrainSpan"/> policzonym przez
-    /// <see cref="Frame"/> i to jest przybite testem, a nie założone.</para>
+    /// <para><b>SKĄD GRANICA — PRZEPISANE 09.09.2026 (6.B43), a nie dopisane obok.</b>
+    /// Do tej pozycji granicą była sama <paramref name="trainLengthM"/> („cały skład
+    /// na osi") i predykat był tożsamy z
+    /// <see cref="ChaseFraming.CameraWithinTrainSpan"/>. Dziś granicą jest
+    /// <c>max(trainLengthM, revealFromM)</c>, więc te dwa twierdzenia
+    /// <b>przestały być tożsame</b> i to jest napisane, a nie przemilczane: kamera
+    /// wychodzi ze skorupy przy 94,0 m, ale kadr jest płytą pudła jeszcze na 96 m.
+    /// Zmierzone 09.09.2026, dziewięć punktów co 2 m, ułamek pikseli o jasności
+    /// &gt; 0,80 w górnych 60 % kadru: 96 m → <b>46,67 %</b>, 98 m → 0,00 %,
+    /// 100..112 m → 0,00 % na każdym punkcie. Punktów jest dziewięć, a nie dwanaście,
+    /// bo 90, 92 i 94 m odmawiają zrzutu kodem 13 — granica NALEŻY do pasma ukrycia,
+    /// więc pasma 90..94 m nie da się zmierzyć narzędziem, które samo jest tą regułą.
+    /// Właściciel wybrał 07.09.2026 <b>110 m</b>, czyli o 12 m ostrożniej, niż każe
+    /// pomiar — liczba jest decyzją, nie wynikiem, i tak jest zapisana
+    /// w <c>DesignAssumptions.ChaseRevealFromM</c>. Pełne <c>ChaseBehindM</c> odstępu
+    /// wraca przy 106 m i to zostaje prawdą o kadrze, nie o dostępności.</para>
+    /// <para><b>Granica NALEŻY do pasma ukrycia</b> i to zostaje bez zmian: na
+    /// kilometrażu dokładnie równym granicy widok jest jeszcze niedostępny. Przy
+    /// starej granicy powód był geometryczny (ogon leżał dokładnie na przyciętej
+    /// kamerze); przy nowej jest ten sam co przy każdym progu — „po minięciu" znaczy
+    /// ostro większe, a zdanie „dostępny od 110,0 m" byłoby na 110,0 m odmową
+    /// i obietnicą naraz.</para>
     ///
-    /// <para>Granica NALEŻY do pasma ukrycia: przy czole równym długości składu ogon
-    /// leży dokładnie tam, gdzie stoi przycięta kamera, więc kamera jest jeszcze w
-    /// płaszczyźnie czoła pudła, a nie za nim. Ta sama granica co w
-    /// <c>CameraWithinTrainSpan</c>, żeby dwa twierdzenia o tej samej geometrii nie
-    /// rozjechały się o jeden metr.</para>
-    ///
-    /// <para>To NIE jest koniec pasma, w którym kadr jest płytą pudła. Kamera wychodzi
-    /// ze skorupy przy długości składu, ale pełne <c>ChaseBehindM</c> odstępu odzyskuje
-    /// dopiero przy 106 m — zmierzone 96 m → 42,0 % bieli. Pasmo 94..106 m zostaje
-    /// świadomie odsłonięte, bo decyzja mówi „dopóki cały skład nie wjedzie na oś",
-    /// a nie „dopóki kadr nie przestanie być jasny".</para>
+    /// <para><b>Pasmo 94..110 m nie jest już odsłonięte</b> — i to jest różnica wobec
+    /// stanu z 05.09.2026, kiedy zostało odsłonięte świadomie, z wpisem w „Czego agent
+    /// nie ruszy bez decyzji". Decyzja z 07.09.2026 to pasmo domknęła.</para>
     /// </summary>
     /// <param name="frontChainageM">Kilometraż czoła składu.</param>
     /// <param name="trainLengthM">Długość składu [m].</param>
-    public static ChaseAvailability Availability(double frontChainageM, double trainLengthM)
+    /// <param name="revealFromM">
+    /// Kilometraż odsłonięcia z <c>DesignAssumptions.ChaseRevealFromM</c> — decyzja
+    /// właściciela, podawana z zewnątrz tak samo jak <c>ChaseBehindM</c> do
+    /// <see cref="Frame"/>. Parametr jest WYMAGANY, bez wartości domyślnej: domyślna
+    /// równa długości składu przywróciłaby po cichu stan sprzed 6.B43 w każdym
+    /// miejscu, które o nią nie zapyta.
+    /// </param>
+    public static ChaseAvailability Availability(
+        double frontChainageM, double trainLengthM, double revealFromM)
     {
         if (trainLengthM < 0.0)
         {
@@ -217,10 +254,22 @@ public static class ChaseCameraAim
                 nameof(trainLengthM), trainLengthM, "skład nie ma ujemnej długości");
         }
 
+        if (revealFromM < 0.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(revealFromM), revealFromM, "kilometraż odsłonięcia nie jest ujemny");
+        }
+
+        // MAKSIMUM, nie sama decyzja: gdyby kiedyś skład był dłuższy niż próg, granicą
+        // musi zostać długość składu — inaczej kamera wróciłaby do wnętrza skorupy,
+        // czyli do usterki, którą zamknęła decyzja z 05.09.2026. Próg odsłonięcia
+        // odsuwa granicę DALEJ, nigdy bliżej.
+        var granica = Math.Max(trainLengthM, revealFromM);
         return new ChaseAvailability(
-            frontChainageM > trainLengthM,
-            trainLengthM,
-            Math.Max(0.0, trainLengthM - frontChainageM));
+            frontChainageM > granica,
+            granica,
+            Math.Max(0.0, granica - frontChainageM),
+            trainLengthM);
     }
 
     /// <summary>
@@ -229,8 +278,9 @@ public static class ChaseCameraAim
     /// </summary>
     /// <param name="frontChainageM">Kilometraż czoła składu.</param>
     /// <param name="trainLengthM">Długość składu [m].</param>
-    public static bool IsAvailable(double frontChainageM, double trainLengthM)
-        => Availability(frontChainageM, trainLengthM).Available;
+    /// <param name="revealFromM">Kilometraż odsłonięcia; patrz <see cref="Availability"/>.</param>
+    public static bool IsAvailable(double frontChainageM, double trainLengthM, double revealFromM)
+        => Availability(frontChainageM, trainLengthM, revealFromM).Available;
 
     /// <summary>
     /// Czy odcinek <paramref name="aim"/> niesie kierunek nadający się dla
