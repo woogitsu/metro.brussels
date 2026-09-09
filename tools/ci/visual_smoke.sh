@@ -4,6 +4,12 @@
 # i to, że brak baseline nie prowadzi do cichego nadpisania.
 set -euo pipefail
 
+# KONTROLA NEGATYWNA 6.D63, wariant 1 z dwóch: bramka ZNAJDUJE różnicę.
+# Ten wiersz jest tymczasowy i zostaje zdjęty w tym samym pull requeście —
+# stoi tu po to, żeby zmierzyć, jak taka awaria wygląda w liście checków.
+echo "::error title=Bramka regresji::KONTROLA 6.D63 — znaleziona różnica"
+exit 1
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 # Blender jest przypięty po wersji i leży POZA workspace (`tools/ci/blender_install.sh`),
