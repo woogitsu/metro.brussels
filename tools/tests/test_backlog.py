@@ -264,12 +264,15 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 #: 6.D53 **w całości**, wzięty z `git show :2:` — wiersz tabeli przed 6.D54, blok przed
 #: blokiem 6.D54, oba CIĄGŁE. Sprawdzone przejściem po wszystkich 131 blokach: zero
 #: braków pól.
-#: Podniesione do **132** 09.09.2026, przy dopisaniu bloku 6.D59 w commicie
-#: pozycji 6.D58, i do **133** tego samego dnia, przy bloku 6.D60 w commicie 6.D24 —
-#: obie wartości z POMIARU `len(detail_sections(...))` na pliku po edycji, nie
-#: z dodania jedynki do poprzedniej. Zdanie wyżej o 131 blokach zostaje jako zapis
-#: tamtego pomiaru, bo mówi, jak rozwiązano tamten konflikt.
-MINIMUM_DETAIL_BLOCKS = 133
+#: Podniesione 09.09.2026 trzy razy: do **132** przy bloku 6.D59 w commicie pozycji
+#: 6.D58, do **133** przy bloku 6.D60 w commicie 6.D24, i do **137** przy czterech
+#: blokach 6.D61 … 6.D64 z commita uzupełniającego kolejkę. Każda wartość z POMIARU
+#: `len(detail_sections(...))` na pliku po edycji, nie z dodania jedynki do
+#: poprzedniej — i to jest cała reguła tej zapadki, bo trzy z tych czterech
+#: podniesień poszły w jednym dniu, a arytmetyka z pamięci pomyliłaby się przy
+#: pierwszym commicie dopisującym więcej niż jeden blok. Zdanie wyżej o 131 blokach
+#: zostaje jako zapis tamtego pomiaru, bo mówi, jak rozwiązano tamten konflikt.
+MINIMUM_DETAIL_BLOCKS = 137
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
