@@ -42,6 +42,7 @@ sys.path.insert(0, os.path.join(ROOT, "tools", "data"))
 
 import crosscheck_alignment as CC  # noqa: E402
 import crs as CRS  # noqa: E402
+import osm_tile_cache as PAMIEC  # noqa: E402
 import provenance as P  # noqa: E402
 
 URBIS_URL = CC.URBIS_URL
@@ -64,7 +65,13 @@ def parse_args(argv=None):
     parser.add_argument("--alignment", default=os.path.join("data", "track", "L1_A.json"))
     parser.add_argument("--out", required=True)
     parser.add_argument("--urbis-file", help="lokalny snapshot warstwy UrbIS Metro")
-    parser.add_argument("--osm-dir", help="katalog na wycinki OSM (cache między przebiegami)")
+    parser.add_argument("--osm-dir", default=PAMIEC.DOMYSLNY_KATALOG,
+                        help="katalog WSPÓLNEJ pamięci kafli, kluczowanej po bboxie — ten "
+                             "sam prostokąt pobiera się raz, także gdy pyta o niego "
+                             "tools/track/crosscheck_alignment.py")
+    parser.add_argument("--osm-refresh", action="store_true",
+                        help="pomiń pamięć i pobierz kwadraty na nowo, nadpisując ją — "
+                             "pamięć, której nie da się ominąć, jest gorsza od jej braku")
     parser.add_argument("--osm-file", help="snapshot way'ów railway=subway z całą siecią; wtedy "
                                            "klasyfikowany jest KAŻDY punkt osi, a nie tylko "
                                            "sondy. Overpass albo droga zapasowa "
@@ -163,21 +170,19 @@ def point_at(points, chain, target):
     return points[-1]
 
 
-def fetch_osm_box(lon, lat, half_deg, timeout, cache_path=None):
-    bbox = f"{lon - half_deg:.5f},{lat - half_deg:.5f},{lon + half_deg:.5f},{lat + half_deg:.5f}"
-    if cache_path and os.path.isfile(cache_path):
-        with open(cache_path, "rb") as handle:
-            return handle.read(), "cache", None
-    try:
-        content, _url, _headers = P.fetch_url(OSM_MAP_URL % bbox, expected_format="xml",
-                                              timeout=timeout)
-    except Exception as exc:  # niedostępność jest wynikiem, nie powodem do pominięcia
-        return None, "niedostępne", str(exc)
-    if cache_path:
-        os.makedirs(os.path.dirname(cache_path), exist_ok=True)
-        with open(cache_path, "wb") as handle:
-            handle.write(content)
-    return content, "osm-api", None
+def fetch_osm_box(lon, lat, half_deg, timeout, cache_dir=None, refresh=False, licznik=None):
+    """Kwadrat sondy z API OSM, przez WSPÓLNĄ pamięć kafli (`osm_tile_cache`).
+
+    **PRZEPISANE 09.09.2026 (6.D62), a nie dopisane obok.** Poprzednia wersja brała
+    `cache_path` gotowy z wołającego, a wołający budował go z **nazwy osi
+    i kilometrażu** — więc ten sam prostokąt pytany przy innej osi albo przez
+    `tools/track/crosscheck_alignment.py` schodził z sieci drugi raz. Klucz jest
+    teraz bboxem i niczym więcej, a katalog ten sam dla obu narzędzi.
+    """
+    bbox = (lon - half_deg, lat - half_deg, lon + half_deg, lat + half_deg)
+    zapytanie = "%.5f,%.5f,%.5f,%.5f" % bbox
+    return PAMIEC.wez_kafel(bbox, OSM_MAP_URL % zapytanie, timeout,
+                            katalog=cache_dir, wymus=refresh, licznik=licznik)
 
 
 def nearest_subway(content, point):
@@ -376,6 +381,7 @@ def survey(alignment_path, args):
     ranges = CC.chainage_ranges(points, inside)
     probes = []
     counts = {}
+    licznik_kafli = PAMIEC.Licznik()
     for chainage, is_inside in probe_chainages(chain, inside, args.step_inside_m,
                                                args.step_outside_m, ranges):
         point = point_at(points, chain, chainage)
@@ -389,12 +395,9 @@ def survey(alignment_path, args):
         }
         if not args.skip_osm:
             lon, lat = CRS.lambert72_to_wgs84(*point)
-            cache = None
-            if args.osm_dir:
-                cache = os.path.join(args.osm_dir,
-                                     f"{document['id']}-{int(round(chainage))}.osm")
             content, origin, reason = fetch_osm_box(lon, lat, PROBE_HALF_DEG,
-                                                    args.timeout, cache)
+                                                    args.timeout, args.osm_dir,
+                                                    args.osm_refresh, licznik_kafli)
             if content is None:
                 record["osm_error"] = reason
             else:
@@ -422,6 +425,8 @@ def survey(alignment_path, args):
                        "url": P.sanitize_url(OSM_MAP_URL % "BBOX"),
                        "probe_half_deg": PROBE_HALF_DEG,
                        "nearest_max_m": NEAREST_MAX_M,
+                       "tile_cache": {"dir": args.osm_dir, "refresh": bool(args.osm_refresh),
+                                      **licznik_kafli.jako_slownik()},
                        "attribution": "© OpenStreetMap contributors, ODbL 1.0"},
         "niveau0_points": sum(inside),
         "niveau0_pct": round(100.0 * sum(inside) / max(1, len(points)), 1),
@@ -452,6 +457,12 @@ def main(argv=None):
         handle.write("\n")
     print(f"[POWIERZCHNIA] {report['alignment_id']}: {report['probe_count']} sond, "
           f"niveau=0 na {report['niveau0_points']} punktach ({report['niveau0_pct']}%)")
+    pamiec = (report.get("osm_source") or {}).get("tile_cache")
+    if pamiec:
+        print(f"[OSM-KAFLE] {pamiec['tiles_from_cache']} z pamięci "
+              f"({pamiec['bytes_from_cache']} B), {pamiec['tiles_downloaded']} pobranych "
+              f"({pamiec['bytes_downloaded']} B), katalog {pamiec['dir']}"
+              + (" (POMINIĘTA, --osm-refresh)" if pamiec["refresh"] else ""))
     for key, value in report["matrix"].items():
         print(f"[POWIERZCHNIA]   {key}: {value}")
     print(f"[POWIERZCHNIA] zgodność źródeł: {report['agreement_pct']}% "

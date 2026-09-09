@@ -578,8 +578,12 @@ def _run_survey(directory, niveau_of_the_middle="0"):
                           "--urbis-file", urbis_path,
                           "--osm-file", overpass_path])
     saved = SS.fetch_osm_box
-    SS.fetch_osm_box = lambda lon, lat, half, timeout, cache=None: (
-        _osm_probe_blob(), "test", None)
+    # Atrapa przyjmuje TĘ SAMĄ sygnaturę, co funkcja od 6.D62 — z katalogiem pamięci,
+    # przełącznikiem wymuszenia i licznikiem. Podpis węższy niż prawdziwy przechodzi
+    # dopóty, dopóki wołający nie poda nowego argumentu, i wtedy pada w teście zamiast
+    # w narzędziu: tu padł i to jest jedyny powód, dla którego stoi ten komentarz.
+    SS.fetch_osm_box = lambda lon, lat, half, timeout, cache_dir=None, refresh=False, \
+        licznik=None: (_osm_probe_blob(), "test", None)
     try:
         return SS.survey(alignment_path, args)
     finally:
