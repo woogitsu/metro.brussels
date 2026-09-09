@@ -241,10 +241,12 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 #:     156  (e1fcfc1, #416)   -> padła przy 6.D43  reports/pojemnosc-puli-ci.md
 #:     157  (1cada00, #417)   -> padła przy 6.D54  reports/wyrocznia-zielonosci-sys-exit.md
 #:     158  (4a4f8f2, #418)   -> padła przy 6.D55  reports/znaczniki-konfliktu-bramka.md
+#:     159  (3fbc25d, #419)   -> padła przy 6.D56  reports/piata-kopia-progu.md
 #:
-#: **Cztery razy pod rząd, w ciągu jednego wieczoru, i za każdym razem złapała to
-#: zapadka, a nie czyjaś czujność.** Tej listy nie trzeba dalej wydłużać: mechanizm
-#: jest już pokazany i następne wpisy niosłyby zero nowej informacji.
+#: **Pięć razy pod rząd, w ciągu jednego wieczoru, i za każdym razem złapała to
+#: zapadka, a nie czyjaś czujność.** Ta lista jest zamknięta: mechanizm jest już
+#: pokazany, a kolejne wpisy niosłyby zero nowej informacji — kto podnosi tę stałą
+#: po raz szósty, dopisuje wyłącznie liczbę, nie wiersz historii.
 #:
 #: To jest mocniejszy argument za równością niż pierwotne 112 pozycji różnicy. Sto
 #: dwanaście dawało się opowiedzieć jako jedno zaniedbanie do nadgonienia; trzy
@@ -257,13 +259,13 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 #: nie usterką.**
 #:
 #: Dlatego liczba nie jest tu wyliczana z żadnej innej liczby. Jest odczytana
-#: z drzewa, na `4a4f8f2` plus raport tego commita:
+#: z drzewa, na `3fbc25d` plus raport tego commita:
 #:
 #:     $ ls reports/*.md | wc -l
-#:     159
+#:     160
 #:     $ python3 -c 'import sys; sys.path.insert(0, "tools/tests");
 #:       import test_report_hygiene as m; print(len(list(m._reports())))'
-#:     159
+#:     160
 #:
 #: Oba pomiary stoją tu razem świadomie: asercja porównuje z `len(list(_reports()))`,
 #: nie z wyjściem `ls`, a te dwa zbiory mogłyby się różnić (glob, katalogi, pliki
@@ -273,7 +275,7 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 #: Kto dopisze następny raport, nie przepisuje tej liczby z pamięci ani z tego
 #: akapitu, tylko mierzy ją **na swoim drzewie po scaleniu `main`** — komunikat
 #: asercji podaje wynik pomiaru wprost, żeby nie było potrzeby zgadywania.
-MIN_REPORTS = 159
+MIN_REPORTS = 160
 
 #: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
 #: wierszem zaczynającym się od `**`, z którego `_header_shapes` czyta kształt.

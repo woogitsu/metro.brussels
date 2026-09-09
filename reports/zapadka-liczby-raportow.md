@@ -53,11 +53,15 @@ z każdym dopisanym raportem, a bramka przez cały czas świeci na zielono.
 
 ## 3. Co się zmieniło
 
-1. `MIN_REPORTS` = **159**, czyli stan katalogu dziś. Liczba w tym akapicie zmieniała
-   się **cztery razy w ciągu jednego wieczoru** i pełną listę wraz z tym, co każdą
-   wartość unieważniło, nosi dziś komentarz samej stałej
-   w `tools/tests/test_report_hygiene.py` — tam jest jej miejsce, bo tam stoi kod.
-   Tutaj zostaje wniosek, a nie kronika.
+1. `MIN_REPORTS` **równa się stanowi katalogu** — liczby świadomie tu nie ma, i to
+   jest wniosek z pięciu kolejnych podniesień tej stałej w ciągu jednego wieczoru.
+   Ten akapit nosił ją cztery razy i za każdym razem musiał być poprawiany osobnym
+   commitem, bo `test_every_constant_quoted_in_a_report_carries_the_value_from_the_code`
+   słusznie żąda zgodności raportu z kodem. Raport cytujący wartość zapadki, która
+   rośnie z każdym raportem, **sam siebie unieważnia przy następnym raporcie** — więc
+   pełną listę wartości i tego, co każdą unieważniło, nosi dziś komentarz samej stałej
+   w `tools/tests/test_report_hygiene.py`, gdzie stoi kod. Tutaj zostaje mechanizm,
+   a nie kronika i nie liczba.
    Gałąź powstała przy 153 raportach (152 na `a214ab9` plus ten raport) i tyle
    pierwotnie wpisała. Zanim doszła do `main`, weszły tam trzy pull requesty
    z własnymi raportami — #413, #414, #415 — więc w chwili scalenia stała była
