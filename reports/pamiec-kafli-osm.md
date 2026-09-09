@@ -65,9 +65,20 @@ niezależnie:
 *Z drzewa*, po wszystkich sześciu osiach pakietów:
 
 ```
-L1_A 70, L1_B 44, L2_E 63, L5_C 60, L5_D 30, L6_F 30 kafli
-razem 297, unikalnych 297, wspólnych dla każdej z 15 par: 0
+L1_A 60, L1_B 44, L2_E 60, L5_C 60, L5_D 30, L6_F 30 kafli
+razem 284, unikalnych 284, wspólnych dla każdej z 15 par: 0
 ```
+
+**Te liczby są POPRAWIONE 09.09.2026 i poprzednie zostają wypisane, bo pomyłka była
+moja i jest pouczająca.** Pierwsza wersja tego akapitu podawała „L1_A 70, L2_E 63,
+razem 297" — bo skrypt liczący brał punkty osi **wprost z pliku**, a punkty w plikach
+`data/track/*.json` są zapisane **względem `origin_source_crs`** i dopiero
+`load_alignment` dodaje do nich początek układu. Prostokąt liczył się więc wokół
+zupełnie innego miejsca, a że rozpiętość w stopniach zależy od szerokości
+geograficznej, cztery osie z sześciu wyszły przypadkiem tak samo, a dwie nie.
+Liczby dzisiejsze zgadzają się co do kafla z tym, co **narzędzie naprawdę pobrało**
+(`tiles` w polach `download` sześciu przebiegów), i to jest jedyny powód, dla którego
+wiadomo, że są prawdziwe: pomiar z drzewa został **sparowany z pomiarem z sieci**.
 
 *Z przebiegu*: `L6_F` puszczony przy pamięci trzymającej komplet 30 kafli `L5_D`:
 
@@ -85,16 +96,21 @@ pobierałby obszar poza bboxem, czyli obiekty, których zapytanie Overpassa nie 
 boku (kafle na wielokrotnościach 0,006° od zera) dałaby dla tych samych sześciu osi:
 
 ```
-żądanych 342 kafle, unikalnych 182 → 160 pobrań mniej (46,8 %)
-pary dzielące kafle: L1_A↔L1_B 36, L1_A↔L2_E 36, L2_E↔L5_D 42, L5_C↔L5_D 18, …
+żądanych 347 kafli, unikalnych 272 → 75 pobrań mniej (21,6 %)
+pary dzielące kafle: L1_A↔L2_E 50, L2_E↔L5_C 8, L1_A↔L5_C 6, L1_B↔L5_D 6,
+                     L2_E↔L6_F 6, L1_A↔L1_B 4, L1_A↔L5_D 2
 ```
+
+(Liczby kraty globalnej poprawione tym samym rachunkiem co wyżej; poprzednia wersja
+podawała „342 / 182 / 46,8 %" i wynikała z tej samej pomyłki o początek układu.
+Kierunek wniosku się nie zmienia, rząd oszczędności owszem: **21,6 %, nie 46,8 %**.)
 
 Tej zmiany **nie wprowadzam** i nie jest to ostrożność: krata globalna pokrywa obszar
 poza bboxem osi, więc łamie zarówno rozstrzygnięcie z `osm_api_tiles`, jak i warunek
 z tej samej pozycji — „wynik identyczny co do bajtu". Dwa warunki 6.D62 są względem
 siebie **sprzeczne**, i to jest wynik pomiaru: albo kafle są wspólne między osiami,
 albo wynik jest identyczny co do bajtu. Wybrałem drugi, bo jest warunkiem poprawności,
-a pierwszy jest oszczędnością. Zmiana siatki to decyzja właściciela z liczbą 46,8 %
+a pierwszy jest oszczędnością. Zmiana siatki to decyzja właściciela z liczbą 21,6 %
 w ręku.
 
 ## 5. Drugie narzędzie idzie tą samą pamięcią
@@ -139,7 +155,7 @@ tak samo cicho jak pełny.
 
 ## 7. Czego NIE zrobiłem
 
-**Nie zmieniłem siatki kafli** — §4, decyzja właściciela z liczbą 46,8 %.
+**Nie zmieniłem siatki kafli** — §4, decyzja właściciela z liczbą 21,6 %.
 **Nie commituję snapshotów** ani kafli: katalog domyślny to `build/osm-tiles`,
 a bramka sprawdza, że `build/` jest ignorowane (`CLAUDE.md` §4.8).
 **Nie tykałem** kształtu snapshotu ani Overpassa; oba stoją w polu „Poza zakresem".
