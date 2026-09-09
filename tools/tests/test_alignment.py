@@ -775,6 +775,79 @@ def test_alignment_shapefile_ignores_a_record_header_flush_with_the_end_of_file(
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
 # z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
 # tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+sys.path.insert(0, os.path.join(ROOT, "tools", "track"))
+import validate as V  # noqa: E402
+
+OS_D = os.path.join(ROOT, "data", "track", "L5_D.json")
+
+
+def test_the_package_option_actually_decides_the_verdict():
+    """`--package` zmienia werdykt, a nie tylko jest przyjmowana — 6.D69.
+
+    **Skąd.** Do 09.09.2026 `expect_package` stało wyłącznie w sygnaturze `validate`
+    i w parserze opcji; ciało nie czytało go ani razu. Wywołanie z celowo złą nazwą
+    pakietu kończyło się **kodem sukcesu** — narzędzie meldowało sprawdzenie,
+    którego nie zrobiło. Szósty przypadek wzorca „nazwa bez zachowania" w tym repo.
+    """
+    dobry = V.validate(OS_D, expect_package="D")
+    zly = V.validate(OS_D, expect_package="A")
+    assert dobry.err == [], f"oś D nie przechodzi własnego pakietu: {dobry.err}"
+    assert dobry.dump_kod() == 0 and zly.dump_kod() == 1, (
+        "kod wyjścia jest ten sam dla dobrej i złej nazwy pakietu — czyli opcja "
+        f"nadal nie wpływa na werdykt ({dobry.dump_kod()} wobec {zly.dump_kod()})")
+    # Komunikat ma nazwać OBIE strony, bo „pakiet się nie zgadza" nie mówi, z czym.
+    tresc = " ".join(zly.err)
+    assert "'D'" in tresc and "'A'" in tresc, tresc[:300]
+
+
+def test_the_package_option_checks_the_registry_not_only_the_letter():
+    """Sama litera to za mało: oś nazywająca się „D" ma biec tam, gdzie mówi rejestr.
+
+    Bez tego sprawdzenia opcja porównywałaby napis z napisem — czyli byłaby
+    zachowaniem, ale nie tym, o które chodzi.
+    """
+    import copy
+    import tempfile
+
+    with open(OS_D, encoding="utf-8") as uchwyt:
+        dokument = json.load(uchwyt)
+    podmieniony = copy.deepcopy(dokument)
+    podmieniony["package"]["to"] = "Nie Ma Takiej Stacji"
+
+    with tempfile.TemporaryDirectory() as tmp:
+        sciezka = os.path.join(tmp, "L5_D.json")
+        with open(sciezka, "w", encoding="utf-8") as uchwyt:
+            json.dump(podmieniony, uchwyt, ensure_ascii=False)
+        rozjazd = V.validate(sciezka, expect_package="D")
+    assert rozjazd.err, (
+        "oś deklarująca inny koniec pakietu niż lines.json przechodzi — opcja "
+        "porównuje samą literę")
+    tresc = " ".join(rozjazd.err)
+    assert "Nie Ma Takiej Stacji" in tresc and "to:" in tresc, tresc[:300]
+    # Kontrola przeciwna na TYM SAMYM pliku bez podmiany: bez niej test przechodziłby
+    # dla sprawdzenia, które odrzuca każdą oś zapisaną w katalogu tymczasowym.
+    with tempfile.TemporaryDirectory() as tmp:
+        czysta = os.path.join(tmp, "L5_D.json")
+        with open(czysta, "w", encoding="utf-8") as uchwyt:
+            json.dump(dokument, uchwyt, ensure_ascii=False)
+        assert V.validate(czysta, expect_package="D").err == []
+
+
+def test_the_package_option_is_wired_into_ci_not_only_available():
+    """Opcja jest WOŁANA w CI, bo opcja niewołana starzeje się tak samo cicho.
+
+    `python-tests.yml` puszcza walidator na każdej osi przy każdym pull requeście;
+    bez `--package` sprawdzenie istniałoby wyłącznie w testach jednostkowych.
+    """
+    workflow = open(os.path.join(ROOT, ".github", "workflows", "python-tests.yml"),
+                    encoding="utf-8").read()
+    kod = "\n".join(l for l in workflow.splitlines() if not l.lstrip().startswith("#"))
+    assert "validate.py" in kod, "workflow nie woła walidatora"
+    assert "--package" in kod, (
+        "walidator w CI jest wołany bez `--package`, więc sprawdzenie pakietu nie "
+        "wykonuje się na żadnej osi przy żadnym pull requeście")
+
+
 if __name__ == "__main__":
     import test_all
     raise SystemExit(test_all.main(__file__))
