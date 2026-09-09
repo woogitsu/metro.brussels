@@ -1413,7 +1413,8 @@ public sealed partial class FirstRun : Node3D
         // ma się zgadzać z `parameters.length_m` ze spec M7, pilnuje osobny test —
         // rozjazd między spec a geometrią jest usterką danych, nie powodem, żeby
         // widok liczył się z liczby, której w kadrze nie ma.
-        var availability = ChaseCameraAim.Availability(chainage, trainLength);
+        var availability = ChaseCameraAim.Availability(
+            chainage, trainLength, DesignAssumptions.ChaseRevealFromM);
         _viewLine = _view == ViewKind.Chase ? availability.Reason : string.Empty;
         if (availability.Available != _chaseAvailable)
         {
@@ -2092,7 +2093,8 @@ public sealed partial class FirstRun : Node3D
         if (_view == ViewKind.Chase && !_chaseAvailable)
         {
             var availability = ChaseCameraAim.Availability(
-                Math.Min(ChainageM, _axis.LengthM), _train.LengthM);
+                Math.Min(ChainageM, _axis.LengthM), _train.LengthM,
+                DesignAssumptions.ChaseRevealFromM);
             Abort(ExitViewUnavailable, string.Create(
                 CultureInfo.InvariantCulture,
                 $"[ZRZUT] {availability.Reason}; zrzut na {ChainageM:F1} m nie powstaje — "

@@ -40,6 +40,13 @@ public sealed class ChaseCameraAimTests
     private static readonly double TrainM =
         VehicleRegistry.M7.RequireValue("parameters.length_m", ParameterStatus.Spec);
 
+    /// <summary>
+    /// Próg odsłonięcia widoku goniącego — ze <c>DesignAssumptions</c>, nie z literału,
+    /// z tego samego powodu, co długość składu wyżej: liczba jest DECYZJĄ właściciela
+    /// (07.09.2026), a test, który ją przepisuje, przepuściłby zmianę decyzji bez słowa.
+    /// </summary>
+    private const double RevealM = DesignAssumptions.ChaseRevealFromM;
+
     private const double AxisM = 6686.739;
     private const double BehindM = DesignAssumptions.ChaseBehindM;
 
@@ -139,65 +146,124 @@ public sealed class ChaseCameraAimTests
     // --- dostępność widoku ---------------------------------------------------
 
     [TestMethod]
-    public void TheChaseViewIsUnavailableUntilTheWholeTrainIsOnTheAxis()
+    public void TheChaseViewIsUnavailableUntilTheRevealThreshold()
     {
-        // Decyzja właściciela z 05.09.2026: widok jest NIEDOSTĘPNY, dopóki cały skład
-        // nie wjedzie na oś. Granica to długość składu — i to ta z rejestru, nie 106 m
-        // przepisane z pozycji 6.B11.
-        Assert.IsFalse(ChaseCameraAim.IsAvailable(0.0, TrainM));
-        Assert.IsFalse(ChaseCameraAim.IsAvailable(20.0, TrainM), "zmierzone: kadr to płyta pudła");
-        Assert.IsFalse(ChaseCameraAim.IsAvailable(48.0, TrainM), "zmierzone: 56,4 % bieli");
-        Assert.IsFalse(ChaseCameraAim.IsAvailable(90.0, TrainM));
+        // PRZEPISANE 09.09.2026 (6.B43), nie dopisane obok. Do tej pozycji granicą była
+        // sama długość składu i test nazywał się „...UntilTheWholeTrainIsOnTheAxis".
+        // Decyzja właściciela z 07.09.2026 odsuwa granicę na 110 m, bo kadr na 96 m jest
+        // jeszcze płytą pudła — zmierzone 46,67 % bieli, patrz raport 6.B43.
+        Assert.IsFalse(ChaseCameraAim.IsAvailable(0.0, TrainM, RevealM));
+        Assert.IsFalse(ChaseCameraAim.IsAvailable(20.0, TrainM, RevealM), "zmierzone: kadr to płyta pudła");
+        Assert.IsFalse(ChaseCameraAim.IsAvailable(48.0, TrainM, RevealM), "zmierzone: 56,4 % bieli");
+        Assert.IsFalse(ChaseCameraAim.IsAvailable(90.0, TrainM, RevealM));
         Assert.IsFalse(
-            ChaseCameraAim.IsAvailable(TrainM, TrainM),
-            "granica NALEŻY do pasma ukrycia — ogon leży dokładnie na kamerze");
-        Assert.IsTrue(ChaseCameraAim.IsAvailable(TrainM + 0.001, TrainM));
-        Assert.IsTrue(ChaseCameraAim.IsAvailable(110.0, TrainM));
-        Assert.IsTrue(ChaseCameraAim.IsAvailable(2000.0, TrainM));
+            ChaseCameraAim.IsAvailable(TrainM, TrainM, RevealM),
+            "94,0 m to już NIE granica — pasmo ukrycia idzie dalej");
+        Assert.IsFalse(
+            ChaseCameraAim.IsAvailable(96.0, TrainM, RevealM),
+            "zmierzone 09.09.2026: 46,67 % pikseli jaśniejszych niż 0,80 w górnych 60 % kadru");
+        Assert.IsFalse(
+            ChaseCameraAim.IsAvailable(98.0, TrainM, RevealM),
+            "98 m ma już 0,00 % bieli, ale 110 m jest DECYZJĄ właściciela, nie wynikiem pomiaru");
+        Assert.IsFalse(
+            ChaseCameraAim.IsAvailable(RevealM, TrainM, RevealM),
+            "granica NALEŻY do pasma ukrycia: po minięciu znaczy ostro większe");
+        Assert.IsTrue(ChaseCameraAim.IsAvailable(RevealM + 0.001, TrainM, RevealM));
+        Assert.IsTrue(ChaseCameraAim.IsAvailable(2000.0, TrainM, RevealM));
     }
 
     [TestMethod]
-    public void TheBandBoundaryIsTheRegisteredTrainLength()
+    public void TheBandBoundaryIsTheOwnerDecisionAndNotTheRegisteredTrainLength()
     {
-        // Granica ma pochodzić z `data/vehicle/m7-spec.json`, a nie z liczby wpisanej
-        // obok. Test pyta rejestr DRUGI RAZ, wprost, żeby mutacja podmieniająca `TrainM`
-        // na literał (choćby na 95,0 m z decyzji o długości peronu, T-212) miała gdzie paść.
+        // PRZEPISANE (6.B43). Poprzednia wersja żądała, żeby granica RÓWNAŁA SIĘ
+        // długości składu z rejestru — po decyzji z 07.09.2026 to twierdzenie jest
+        // fałszywe, więc test pyta o jedno i drugie i o RELACJĘ między nimi.
         var registered = VehicleRegistry.M7.RequireValue("parameters.length_m", ParameterStatus.Spec);
-        Assert.AreEqual(registered, TrainM, 1e-12, "granica pasma nie jest liczbą z rejestru");
+        Assert.AreEqual(registered, TrainM, 1e-12, "długość składu nie jest liczbą z rejestru");
         Assert.AreEqual(
-            registered,
-            ChaseCameraAim.Availability(0.0, TrainM).FromChainageM,
+            DesignAssumptions.ChaseRevealFromM,
+            ChaseCameraAim.Availability(0.0, TrainM, RevealM).FromChainageM,
             1e-12,
-            "widok ma się otwierać na kilometrażu równym długości składu ze spec");
+            "widok ma się otwierać po minięciu progu odsłonięcia, nie długości składu");
+        Assert.IsTrue(RevealM > registered,
+            "próg odsłonięcia ma leżeć ZA długością składu — inaczej nie odsuwa niczego");
         Assert.IsFalse(
-            ChaseCameraAim.IsAvailable(registered, registered),
-            "dokładnie na długości składu widok jest jeszcze niedostępny");
+            ChaseCameraAim.IsAvailable(registered, registered, RevealM),
+            "dokładnie na długości składu widok jest niedostępny");
     }
 
     [TestMethod]
-    public void AvailabilityAgreesWithTheFramingItIsAbout()
+    public void TheThresholdNeverPullsTheBoundaryCloserThanTheTrainItself()
     {
-        // Predykat pyta o DWIE liczby, `CameraWithinTrainSpan` liczy się z czterech.
-        // Jeśli te dwa twierdzenia o tej samej geometrii rozjadą się choćby na jednym
-        // kilometrażu, HUD mówiłby co innego niż kadr. Przemiatanie co 0,25 m.
+        // Druga strona `max(...)`, bez której próg mniejszy od długości składu wsadziłby
+        // kamerę z powrotem do skorupy — czyli odtworzyłby usterkę z 05.09.2026.
+        Assert.IsFalse(
+            ChaseCameraAim.IsAvailable(50.0, TrainM, 10.0),
+            "próg 10 m nie ma prawa odsłonić widoku w środku składu");
+        Assert.AreEqual(
+            TrainM,
+            ChaseCameraAim.Availability(0.0, TrainM, 10.0).FromChainageM,
+            1e-12,
+            "przy progu mniejszym od składu granicą zostaje długość składu");
+    }
+
+    [TestMethod]
+    public void AvailabilityNoLongerAgreesWithTheFramingAndThatIsTheWholePoint()
+    {
+        // PRZEPISANE (6.B43), nie usunięte. Do tej pozycji te dwa twierdzenia były
+        // TOŻSAME i test przemiatał 0..300 m, żeby tego pilnować. Po decyzji z
+        // 07.09.2026 tożsame już nie są — i test mówi dokładnie GDZIE się rozchodzą,
+        // bo „przestały być tożsame" bez granicy byłoby zdaniem bez treści.
+        //
+        // `CameraWithinTrainSpan` opisuje GEOMETRIĘ (czy kamera siedzi w skorupie)
+        // i to się nie zmieniło: jest prawdziwe do 94,0 m. `IsAvailable` opisuje
+        // DOSTĘPNOŚĆ WIDOKU i jest fałszywe do 110,0 m. Pasmo między nimi — 94..110 m —
+        // to jedyne miejsce, gdzie kamera jest już za składem, a widok nadal ukryty.
+        var wPasmie = 0;
         for (var front = 0.0; front <= 300.0; front += 0.25)
         {
+            var wSkorupie = At(front).CameraWithinTrainSpan;
+            var dostepny = ChaseCameraAim.IsAvailable(front, TrainM, RevealM);
+            Assert.IsFalse(wSkorupie && dostepny,
+                $"kilometraż {front} m: kamera w skorupie, a widok dostępny — to jest usterka z 05.09.2026");
+            var wPasmieRozejscia = front > TrainM && front <= RevealM;
             Assert.AreEqual(
-                At(front).CameraWithinTrainSpan,
-                !ChaseCameraAim.IsAvailable(front, TrainM),
-                $"kilometraż {front} m");
+                wPasmieRozejscia,
+                !wSkorupie && !dostepny,
+                $"kilometraż {front} m: pasmo rozejścia ma być dokładnie (94,0; 110,0]");
+            if (wPasmieRozejscia)
+            {
+                wPasmie++;
+            }
         }
+
+        // ASERCJA, BEZ KTÓREJ PĘTLA WYŻEJ JEST ZIELONA NAD PUSTYM PASMEM. Zmierzone:
+        // po powrocie progu do długości składu pasmo (94,0; 94,0] jest puste, warunek
+        // `wPasmieRozejscia` fałszywy wszędzie i cała pętla przechodzi — czyli test
+        // o rozejściu przechodziłby nad stanem, w którym rozejścia nie ma. 64 punkty
+        // to (110,0 − 94,0) / 0,25.
+        Assert.AreEqual(64, wPasmie,
+            "pasmo rozejścia ma 16,0 m przemiatane co 0,25 m — puste pasmo znaczy, "
+            + "że próg odsłonięcia wrócił do długości składu");
     }
 
     [TestMethod]
     public void TheRemainingDistanceCountsDownToTheBoundary()
     {
-        Assert.AreEqual(TrainM, ChaseCameraAim.Availability(0.0, TrainM).RemainingM, 1e-9);
-        Assert.AreEqual(74.0, ChaseCameraAim.Availability(20.0, TrainM).RemainingM, 1e-9);
-        Assert.AreEqual(0.0, ChaseCameraAim.Availability(TrainM, TrainM).RemainingM, 1e-9);
+        // Liczby PRZELICZONE na nową granicę (6.B43): odliczanie idzie do 110 m,
+        // nie do 94 m. Stare wartości (94,0 i 74,0) opisywały poprzednią granicę
+        // i przepisanie ich tutaj bez zmiany byłoby testem o stanie minionym.
+        Assert.AreEqual(RevealM, ChaseCameraAim.Availability(0.0, TrainM, RevealM).RemainingM, 1e-9);
+        Assert.AreEqual(90.0, ChaseCameraAim.Availability(20.0, TrainM, RevealM).RemainingM, 1e-9);
+        Assert.AreEqual(
+            16.0,
+            ChaseCameraAim.Availability(TrainM, TrainM, RevealM).RemainingM,
+            1e-9,
+            "na długości składu do odsłonięcia zostaje jeszcze 110,0 − 94,0 m");
+        Assert.AreEqual(0.0, ChaseCameraAim.Availability(RevealM, TrainM, RevealM).RemainingM, 1e-9);
         Assert.AreEqual(
             0.0,
-            ChaseCameraAim.Availability(2000.0, TrainM).RemainingM,
+            ChaseCameraAim.Availability(2000.0, TrainM, RevealM).RemainingM,
             1e-9,
             "za pasmem brakuje zera metrów, a nie ujemnych");
     }
@@ -206,29 +272,76 @@ public sealed class ChaseCameraAimTests
     public void AnUnavailableViewSaysWhyAndFromWhere()
     {
         // Wiersz HUD-u i komunikat odmowy zrzutu biorą się z TEGO zdania — jedno
-        // źródło, więc nie mają jak podać dwóch różnych kilometraży.
-        var reason = ChaseCameraAim.Availability(20.0, TrainM).Reason;
+        // źródło, więc nie mają jak podać dwóch różnych kilometraży. Po 6.B43 tą
+        // jedną liczbą jest 110,0 m.
+        var reason = ChaseCameraAim.Availability(20.0, TrainM, RevealM).Reason;
         StringAssert.Contains(reason, "niedostępny");
-        StringAssert.Contains(reason, "94.0 m", "zdanie ma mówić, OD KIEDY widok będzie");
-        StringAssert.Contains(reason, "74.0 m", "zdanie ma mówić, ile jeszcze zostało");
+        StringAssert.Contains(reason, "110.0 m", "zdanie ma mówić, OD KIEDY widok będzie");
+        StringAssert.Contains(reason, "90.0 m", "zdanie ma mówić, ile jeszcze zostało");
+        Assert.IsFalse(
+            reason.Contains("94.0 m"),
+            "zdanie nie może już podawać starej granicy — HUD i odmowa mówią jedną liczbę: " + reason);
 
-        // Na samej granicy nie ma czego dopisywać: 94,0 m to jeszcze pasmo ukrycia,
+        // Na samej granicy nie ma czego dopisywać: 110,0 m to jeszcze pasmo ukrycia,
         // a „jeszcze 0,0 m" czytałoby się jak usterka, nie jak odmowa.
-        var naGranicy = ChaseCameraAim.Availability(TrainM, TrainM).Reason;
-        StringAssert.Contains(naGranicy, "po minięciu 94.0 m");
-        Assert.IsFalse(naGranicy.Contains("jeszcze"), naGranicy);
+        var naGranicy = ChaseCameraAim.Availability(RevealM, TrainM, RevealM).Reason;
+        StringAssert.Contains(naGranicy, "po minięciu 110.0 m");
+        // ASERCJA ZAOSTRZONA (6.B43), nie poluzowana. Poprzednia szukała samego słowa
+        // „jeszcze" i przechodziła TYLKO dlatego, że tekst powodu go nie zawierał —
+        // czyli pilnowała sufiksu przez cechę zdania obok. Dziś pyta o sufiks wprost
+        // i dodatkowo żąda, żeby zdanie KOŃCZYŁO SIĘ granicą, więc żaden dopisek
+        // o zerowej odległości nie ma jak się w nim schować.
+        Assert.IsFalse(naGranicy.Contains("jeszcze 0.0"), naGranicy);
+        Assert.IsTrue(
+            naGranicy.EndsWith("po minięciu 110.0 m", System.StringComparison.Ordinal),
+            "na granicy zdanie kończy się kilometrażem, bez ani jednego dopisku: " + naGranicy);
 
         Assert.AreEqual(
             string.Empty,
-            ChaseCameraAim.Availability(2000.0, TrainM).Reason,
+            ChaseCameraAim.Availability(2000.0, TrainM, RevealM).Reason,
             "widok dostępny nie ma o czym mówić — inaczej HUD kłamałby przez cały przejazd");
+    }
+
+    [TestMethod]
+    public void TheReasonNamesTheRightCauseInEachHalfOfTheBand()
+    {
+        // 6.B43: pasmo ukrycia ma od tej pozycji DWA powody, więc jedno zdanie dla obu
+        // byłoby na jednym z nich nieprawdziwe. Zmierzone przy 100 m: kamera stoi 6,0 m
+        // za ogonem, czyli JUŻ NIE w skorupie — a widok jest ukryty decyzją.
+        var wSkorupie = ChaseCameraAim.Availability(20.0, TrainM, RevealM).Reason;
+        StringAssert.Contains(wSkorupie, "kamera siedzi w skorupie składu");
+        StringAssert.Contains(wSkorupie, "110.0 m");
+
+        var zDecyzji = ChaseCameraAim.Availability(100.0, TrainM, RevealM).Reason;
+        StringAssert.Contains(zDecyzji, "decyzji właściciela");
+        StringAssert.Contains(zDecyzji, "110.0 m");
+        Assert.IsFalse(
+            zDecyzji.Contains("skorupie"),
+            "na 100 m kamera jest 6,0 m za ogonem — zdanie o skorupie byłoby nieprawdziwe: " + zDecyzji);
+
+        // Granica między powodami to długość składu, nie liczba wpisana obok.
+        Assert.IsTrue(
+            ChaseCameraAim.Availability(TrainM, TrainM, RevealM).Reason.Contains("skorupie"),
+            "dokładnie na długości składu kamera jest jeszcze w płaszczyźnie czoła pudła");
+        Assert.IsTrue(
+            ChaseCameraAim.Availability(TrainM + 0.001, TrainM, RevealM).Reason.Contains("decyzji"),
+            "o milimetr dalej powodem jest już decyzja, a nie geometria");
     }
 
     [TestMethod]
     public void AvailabilityRefusesANegativeTrainLength()
     {
         Assert.ThrowsException<ArgumentOutOfRangeException>(
-            () => ChaseCameraAim.Availability(0.0, -1.0));
+            () => ChaseCameraAim.Availability(0.0, -1.0, RevealM));
+    }
+
+    [TestMethod]
+    public void AvailabilityRefusesANegativeRevealThreshold()
+    {
+        // Nowy parametr dostaje własną odmowę, bo bez niej ujemny próg przechodziłby
+        // przez `Math.Max` bez słowa i wyglądałby jak brak progu.
+        Assert.ThrowsException<ArgumentOutOfRangeException>(
+            () => ChaseCameraAim.Availability(0.0, TrainM, -1.0));
     }
 
     // --- degeneracja kierunku ------------------------------------------------
