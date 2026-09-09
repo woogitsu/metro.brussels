@@ -40,7 +40,7 @@ i powiedz o tym. Nie próbuj obejść.
 | `docs/07-open-data-research.md` | hierarchia źródeł, publiczne dane i repozytoria referencyjne |
 | `docs/22-heartbeat.md` | puls sesji — kiedy zakładać i dlaczego ma milczeć |
 | `docs/23-environment.md` | **skąd wziąć** Blender, .NET i Godota — wersje, adresy, sumy |
-| `docs/24-clearance-profile-decisions.md` | progi luzu czekające na decyzję właściciela |
+| `docs/24-clearance-profile-decisions.md` | trzynaście progów luzu — **rozstrzygnięte 04.09.2026**, zero otwartych |
 | `docs/TASKS.md` | lista zadań |
 | `docs/TASK-TEMPLATE.md` | format nowego zadania |
 | `data/network/lines.json` | dane sieci maszynowo |
@@ -85,8 +85,8 @@ blender --background --python tools/blender/tunnel_sweep.py -- \
 # 2 renderuj
 blender --background --python tools/blender/render_check.py -- \
     --in build/L1_A.glb --out renders/L1_A
-# 3 OBEJRZYJ: renders/L1_A_iso.png, _side.png, _inside.png
-# 4 OPISZ słowami, co widzisz na każdym z trzech
+# 3 OBEJRZYJ: renders/L1_A_iso.png, _side.png, _normals.png, _inside.png
+# 4 OPISZ słowami, co widzisz na każdej z czterech
 ```
 
 Czego szukasz:
@@ -95,7 +95,21 @@ Czego szukasz:
 |---|---|
 | `_iso` | pustą scenę, geometrię zwiniętą w punkt, zły przebieg |
 | `_side` | pomylone jednostki, zły profil pionowy |
-| `_inside` | wywrócone normalne — widać „przez" ścianę |
+| `_normals` | wywrócone normalne — przód ściany ciemny, tył jasny |
+| `_inside` | kadr z osi: brak geometrii wokół kabiny, przekrój, nakładka siatki |
+
+**Wiersz `_inside` jest przepisany, a nie dopisany obok** (09.09.2026). Poprzednia
+wersja przypisywała mu wykrywanie wywróconych normalnych („widać »przez« ścianę"),
+a to zostało **zmierzone jako nieprawda**: para fixture różniąca się wyłącznie windingiem
+dała klatki `_inside` różne o **cztery bajty na 737 tysięcy**, czyli o szum kompresji,
+a obejrzane nie różniły się niczym — wersja z odwróconymi ścianami wyglądała jak zdrowy
+tunel (6.D75, `reports/6d75-klatka-orientacji.md`). Zdolność istnieje od 09.09.2026,
+tylko w **osobnej klatce `_normals`**: kulling na materiale kontrolnym byłby dosłowniej
+zgodny z dawnym brzmieniem tego wiersza, ale ten sam skrypt renderuje też pudło pojazdu
+i przekroje stacji, oglądane **legalnie od tyłu**, więc zapalałby się na poprawnej
+geometrii. Klatek jest więc **cztery, nie trzy**, a wypis `[NORMALNE] tylna_strona=`
+jest **podłogą, nie oceną** — obejrzenie `_normals` jest obowiązkowe tak samo jak
+trzech pozostałych.
 
 ### Kod
 
