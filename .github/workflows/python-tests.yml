@@ -74,8 +74,10 @@ jobs:
           elapsed=$(python3 -c "print(f'{$end - $start:.3f}')")
           cpu=$(python3 -c "import sys; sys.path.insert(0,'tools/tests'); import test_suite_runtime_budget as B; print(f\"{B.cpu_dzieci(sys.argv[1]) - B.cpu_dzieci(sys.argv[2]):.3f}\")" "$RUNNER_TEMP/times-po.txt" "$RUNNER_TEMP/times-przed.txt")
           echo "czas sciany test_all.py: ${elapsed} s (prog ${budget} s)"
-          echo "czas CPU zestawu: ${cpu} s, CPU/sciana: $(python3 -c "print(f'{float('$cpu') / float('$elapsed'):.3f}')")"
-          python3 -c "import sys; sys.exit(0 if float('$elapsed') <= float('$budget') else 1)" || {
+          # WERDYKT LICZY MODUL, NIE TEN YAML (6.D42). Przebieg, w ktorym maszyna nie
+          # oddawala CPU, NIE JEST porownywany z progiem — zamiast tego mowi o tym
+          # wprost. Ta sama konstrukcja, co w `tools/ci/assert_linecore_budget.py`.
+          python3 -c "import sys; sys.path.insert(0,'tools/tests'); import test_suite_runtime_budget as B; odrzuc, komunikat = B.werdykt(float(sys.argv[1]), float(sys.argv[2])); print(komunikat); sys.exit(1 if odrzuc else 0)" "$elapsed" "$cpu" || {
             echo "::error::zestaw test_all.py przekroczyl prog czasu sciany: ${elapsed} s > ${budget} s"
             exit 1
           }

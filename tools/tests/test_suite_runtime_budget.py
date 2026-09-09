@@ -146,6 +146,64 @@ def over_budget(elapsed_s, budget_s=SUITE_RUNTIME_BUDGET_S):
     return elapsed_s > budget_s
 
 
+#: PODŁOGA STOSUNKU CPU/ŚCIANA — poniżej niej czas ściany NIE JEST porównywany
+#: z progiem, bo nie mówi o kodzie, tylko o maszynie (6.D42).
+#:
+#: WSZYSTKIE LICZBY, Z KTÓRYCH TA JEDNA WYSZŁA, zmierzone 09.09.2026:
+#:
+#:   kontener sesji, 4 rdzenie, maszyna spokojna    CPU/ściana  0,987 i 0,988
+#:   kontener sesji, 4 rdzenie, 8 procesów w tle    CPU/ściana  0,451 i 0,444
+#:   runner `metro-wsl-DOM-NEW-*`, job `tools`      CPU/ściana  1,323
+#:
+#: Runner jest POWYŻEJ JEDYNKI i to nie jest błąd odczytu: zestaw dostaje tam
+#: więcej niż jeden rdzeń na sekundę ściany (53,517 s ściany przy 70,804 s CPU).
+#: Podłoga musi więc leżeć poniżej najniższego zmierzonego przebiegu BEZ obciążenia
+#: (0,987 w kontenerze) i powyżej najwyższego POD obciążeniem (0,451). Środek tego
+#: przedziału to 0,719; wybrane **0,75** zostawia 24 % zapasu pod spokojnym
+#: kontenerem i 66 % nad obciążonym, a stosunek zmierzony na runnerze (1,323) stoi
+#: o 76 % powyżej tej podłogi.
+#:
+#: KIERUNEK BŁĘDU JEST BEZPIECZNY I TO JEST CZĘŚĆ WYBORU. Zbyt wysoka podłoga
+#: NIE czerwieni CI — sprawia, że porównanie z progiem zostaje pominięte, a wiersz
+#: o tym trafia do logu. Zbyt niska przepuszcza wolny przebieg do porównania, czyli
+#: zachowuje się jak bramka sprzed tej zmiany. Fałszywy alarm, który wyłącza bramki
+#: (6.D27), jest tu więc niemożliwy z konstrukcji.
+#:
+#: Runner ma dziś JEDEN pomiar (n=1) i to jest granica tej liczby, wypisana razem
+#: z nią: `reports/mierzalnosc-czasu-zestawu.md` §5.
+MIERZALNOSC_MIN = 0.75
+
+
+def werdykt(elapsed_s, cpu_s, budget_s=SUITE_RUNTIME_BUDGET_S, podloga=MIERZALNOSC_MIN):
+    """Czy przebieg wolno porównać z progiem, i czy go przekroczył.
+
+    Zwraca `(czy_odrzucic, komunikat)`. Odrzucenie znaczy „ten zestaw naprawdę
+    przekroczył próg"; przebieg niemierzalny NIE jest odrzucany — jest opisany.
+
+    Wzorem jest bliźniak z `tools/ci/assert_linecore_budget.py`, który tę samą
+    rodzinę rozwiązał przy 6.D41: tam sygnałem jest rozstęp dziewięciu powtórzeń,
+    tutaj stosunek CPU do ściany, bo zestaw chodzi RAZ i rozstępu nie ma z czego
+    policzyć (`reports/mierzalnosc-czasu-zestawu.md` §2).
+    """
+    if elapsed_s <= 0:
+        raise ValueError(f"czas ściany musi być dodatni, jest {elapsed_s}")
+    stosunek = cpu_s / elapsed_s
+    if stosunek < podloga:
+        return False, (
+            f"stosunek CPU/sciana {stosunek:.3f} jest ponizej podlogi {podloga}, "
+            f"wiec czas sciany {elapsed_s:.3f} s NIE JEST porownywany z progiem "
+            f"{budget_s} s — ten pomiar nie mowi nic o kodzie, tylko o maszynie, "
+            "na ktorej go zrobiono")
+    if over_budget(elapsed_s, budget_s):
+        return True, (
+            f"zestaw test_all.py przekroczyl prog czasu sciany: {elapsed_s:.3f} s "
+            f"> {budget_s} s przy stosunku CPU/sciana {stosunek:.3f} "
+            f"(podloga mierzalnosci {podloga}) — maszyna oddawala CPU, wiec to jest "
+            "pomiar kodu")
+    return False, (f"czas sciany {elapsed_s:.3f} s w progu {budget_s} s, "
+                   f"stosunek CPU/sciana {stosunek:.3f} (podloga {podloga})")
+
+
 def _workflow_text():
     with open(WORKFLOW, encoding="utf-8") as handle:
         return handle.read()
@@ -354,6 +412,63 @@ def test_cpu_dzieci_czyta_drugi_wiersz_times_i_odrzuca_smieci():
         raise AssertionError(f"`cpu_dzieci` przyjęło wejście, którego nie powinno: {opis}")
 
 
+def test_werdykt_odmawia_porownania_gdy_maszyna_nie_oddawala_cpu():
+    """Trzy strony naraz, każda na PRAWDZIWYM pomiarze z 09.09.2026.
+
+    Bramka bez pierwszej strony byłaby dzisiejszą bramką; bez drugiej byłaby
+    bramką WYŁĄCZONĄ, przepuszczającą prawdziwe spowolnienie kodu.
+    """
+    # 1. Przebieg z incydentu 08.09.2026 (335,668 s) przy CPU rzędu runnerowego:
+    #    ponad progiem, ale NIE odrzucony, bo maszyna nie oddawała CPU.
+    odrzuc, komunikat = werdykt(335.668, 70.8)
+    assert odrzuc is False, komunikat
+    assert "NIE JEST porownywany" in komunikat, komunikat
+
+    # 2. Prawdziwe spowolnienie KODU: maszyna oddaje CPU, czas ponad progiem.
+    odrzuc, komunikat = werdykt(200.0, 200.0)
+    assert odrzuc is True, komunikat
+    assert "przekroczyl prog" in komunikat, komunikat
+
+    # 3. Zmierzone przebiegi w progu — runner i spokojny kontener.
+    for sciana, cpu in ((53.517, 70.804), (91.742, 90.522)):
+        odrzuc, komunikat = werdykt(sciana, cpu)
+        assert odrzuc is False, komunikat
+        assert "w progu" in komunikat, komunikat
+
+
+def test_podloga_mierzalnosci_lezy_miedzy_zmierzonymi_stanami_maszyny():
+    """Podłoga ma rozdzielać POMIARY, nie być okrągłą liczbą.
+
+    Kontrola na obu brzegach: musi leżeć pod najniższym zmierzonym przebiegiem bez
+    obciążenia i nad najwyższym pod obciążeniem. Wartości są tu wpisane jako dane
+    pomiaru — ich źródłem jest `reports/mierzalnosc-czasu-zestawu.md`.
+    """
+    bez_obciazenia = (0.987, 0.988, 1.323)
+    pod_obciazeniem = (0.451, 0.444)
+    assert MIERZALNOSC_MIN < min(bez_obciazenia), (
+        f"podłoga {MIERZALNOSC_MIN} jest nad zmierzonym przebiegiem bez obciążenia "
+        f"{min(bez_obciazenia)} — bramka pomijałaby porównanie na zdrowej maszynie")
+    assert MIERZALNOSC_MIN > max(pod_obciazeniem), (
+        f"podłoga {MIERZALNOSC_MIN} jest pod zmierzonym przebiegiem POD obciążeniem "
+        f"{max(pod_obciazeniem)} — bramka porównywałaby czas maszyny z progiem kodu")
+
+
+def test_krok_ci_liczy_werdykt_modulem_a_nie_wlasnym_porownaniem():
+    """Krok ma wołać `werdykt`, a nie porównywać liczby po swojemu.
+
+    Druga kopia warunku rozjechałaby się z modułem przy pierwszej zmianie podłogi —
+    ta sama rodzina, co `test_ci_gate_step_reads_this_files_constant_not_a_second_copy`.
+    """
+    text = _workflow_text()
+    step_start = text.index("Run tool tests")
+    step = text[step_start:text.index("\n      - name:", step_start)]
+    assert "B.werdykt(" in step, (
+        "krok nie woła `werdykt` z tego modułu:\n" + step)
+    assert not re.search(r"sys\.exit\(0 if float\('?\$?\w+'?\) <=", step), (
+        "w kroku został stary warunek porównujący czas z progiem z pominięciem "
+        "podłogi mierzalności:\n" + step)
+
+
 def test_krok_ci_mierzy_czas_cpu_zestawu_a_nie_tylko_sciane():
     """Krok musi WOŁAĆ `times` wokół zestawu i liczyć różnicę — 6.D42.
 
@@ -366,7 +481,20 @@ def test_krok_ci_mierzy_czas_cpu_zestawu_a_nie_tylko_sciane():
     assert step.count("times > ") == 2, (
         "krok ma czytać `times` PRZED i PO zestawie; jeden odczyt nie daje różnicy:\n" + step)
     assert "cpu_dzieci" in step, "krok nie woła czytnika z tego modułu, tylko liczy po swojemu"
-    assert "CPU/sciana" in step, "stosunek nie trafia do logu, więc nikt go nie zobaczy"
+    # STOSUNEK MA TRAFIC DO LOGU — sprawdzone DWUSTRONNIE, a nie po napisie w YAML-u.
+    # Wersja z 6.D42 (1/2) szukała tu literału `CPU/sciana` w kroku; po wpięciu
+    # `werdykt` stosunek jedzie do logu JEGO komunikatem, więc bramka na literał
+    # zapaliłaby się na poprawnym kroku. Przekierowana, i sprawdza teraz WIĘCEJ:
+    # że krok wypisuje komunikat werdyktu ORAZ że każda gałąź werdyktu ten stosunek
+    # w komunikacie niesie.
+    assert "print(komunikat)" in step, (
+        "krok liczy werdykt, ale go nie wypisuje — liczby nie zobaczy nikt:\n" + step)
+    for sciana, cpu, opis in ((335.668, 70.8, "niemierzalny"),
+                              (200.0, 200.0, "ponad progiem"),
+                              (53.517, 70.804, "w progu")):
+        _odrzuc, komunikat = werdykt(sciana, cpu)
+        assert "CPU/sciana" in komunikat, (
+            f"komunikat werdyktu ({opis}) nie niesie stosunku: {komunikat!r}")
     przed = step.index("times > ")
     start = step.index("start=$(date")
     assert przed < start, "pierwszy odczyt `times` musi stać PRZED startem pomiaru ściany"
