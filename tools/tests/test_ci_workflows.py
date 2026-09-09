@@ -2732,6 +2732,107 @@ def test_prune_workflow_never_deletes_the_base_branch():
         "brak jawnego wykluczenia bazy"
 
 
+#: Pobranie czegokolwiek z sieci WŁASNĄ ręką: `curl` albo `wget`. Akcje przypięte po
+#: SHA (np. `actions/setup-dotnet`) pobierają po swojemu i mają własną weryfikację —
+#: tu chodzi o miejsca, w których to REPOZYTORIUM ściąga plik i zaraz go uruchamia.
+POBRANIE = re.compile(r"(?<![\w-])(curl|wget)(?![\w-])")
+
+#: Sprawdzenie sumy, w formie, która UMIE ODMÓWIĆ: `-c` porównuje i kończy błędem.
+#: Samo `sha256sum plik` wypisuje sumę i zawsze kończy zerem — czyli wygląda jak
+#: kontrola i nią nie jest.
+SPRAWDZENIE_SUMY = re.compile(r"(?<![\w-])(sha256sum|sha512sum)\s+-c(?![\w-])")
+
+
+def _bez_komentarzy_powloki(text):
+    return "\n".join(l for l in text.splitlines() if not l.lstrip().startswith("#"))
+
+
+def _miejsca_pobrania():
+    """Pliki CI, które same ściągają coś z sieci — z drzewa, nie z listy."""
+    kandydaci = [os.path.join(WORKFLOWS, n) for n in _workflows()]
+    kandydaci += _action_files()
+    ci = os.path.join(ROOT, "tools", "ci")
+    kandydaci += [os.path.join(ci, n) for n in sorted(os.listdir(ci))
+                  if n.endswith(".sh")]
+    znalezione = {}
+    for sciezka in kandydaci:
+        kod = _bez_komentarzy_powloki(open(sciezka, encoding="utf-8").read())
+        if POBRANIE.search(kod):
+            znalezione[os.path.relpath(sciezka, ROOT)] = kod
+    return znalezione
+
+
+def test_every_place_that_downloads_a_tool_checks_its_checksum():
+    """Każde własne pobranie narzędzia ma sprawdzaną sumę — 6.D68.
+
+    **Skąd.** `.github/workflows/godot-first-run.yml` pobierał archiwum Godota,
+    rozpakowywał je i URUCHAMIAŁ binarium bez ani jednego `sha256`, a obok, w tym
+    samym repozytorium i na tym samym runnerze, `tools/ci/blender_install.sh` wołał
+    `sha256sum -c`. Joby chodzą na maszynie właściciela, z dostępem do workspace'u,
+    `runner.tool_cache` i `GITHUB_TOKEN` — nierówność standardu była całą treścią
+    pozycji.
+
+    **Bramka WYLICZA miejsca pobrania z drzewa**, a nie sprawdza dwóch znanych dziś:
+    tego wprost żąda pole „Skończone, gdy". Nowe `curl` w dowolnym workflowie,
+    akcji lokalnej albo skrypcie `tools/ci/` zapala ją, dopóki nie dostanie sumy.
+    """
+    bez_sumy = []
+    znalezione = _miejsca_pobrania()
+    for sciezka, kod in znalezione.items():
+        if not SPRAWDZENIE_SUMY.search(kod):
+            bez_sumy.append(sciezka)
+    assert not bez_sumy, (
+        "pobranie z sieci bez sprawdzenia sumy — plik ląduje na maszynie właściciela "
+        f"i jest uruchamiany: {bez_sumy}")
+    # Pętla po samych ZNALEZIONYCH miejscach przeszłaby pusta i zielona także wtedy,
+    # gdyby wzorzec przestał cokolwiek łapać. Liczba MIERZY drzewo i rośnie razem
+    # z nim — dziś dwa instalatory, Blendera i Godota.
+    assert len(znalezione) >= 2, (
+        f"bramka znalazła {len(znalezione)} miejsc pobrania — wzorzec rozjechał się "
+        "z treścią repozytorium")
+
+
+def test_the_download_gate_tells_a_real_check_apart_from_a_printed_sum():
+    """Kontrola negatywna: co bramka ma łapać, a czego nie ma brać za kontrolę."""
+    assert POBRANIE.search('curl -fL -o "$T" "$URL"')
+    assert POBRANIE.search("wget -q $URL")
+    # Nie każde słowo z `curl` w środku jest pobraniem.
+    assert not POBRANIE.search("libcurl4-openssl-dev")
+    assert not POBRANIE.search("echo curling")
+
+    assert SPRAWDZENIE_SUMY.search('echo "$SHA256  $T" | sha256sum -c -')
+    assert SPRAWDZENIE_SUMY.search('echo "$SHA512  $Z" | sha512sum -c - >&2')
+    # `sha256sum plik` bez `-c` WYPISUJE sumę i kończy zerem — wygląda jak kontrola
+    # i nią nie jest. To jest ta sama rodzina co „skrypt wykonał się bez błędu".
+    assert not SPRAWDZENIE_SUMY.search("sha256sum $TARBALL")
+    assert not SPRAWDZENIE_SUMY.search("sha256sum-check $TARBALL")
+
+    # Kontrola przyrządu odsiewającego komentarze: pobranie schowane w komentarzu
+    # nie jest pobraniem, a suma sprawdzana w komentarzu nie jest sprawdzeniem.
+    assert not POBRANIE.search(_bez_komentarzy_powloki("  # curl -o x $URL\n"))
+    assert not SPRAWDZENIE_SUMY.search(_bez_komentarzy_powloki("# sha256sum -c -\n"))
+    assert POBRANIE.search(_bez_komentarzy_powloki('  curl -o x "$URL"\n'))
+
+
+def test_the_godot_pin_carries_a_version_and_a_publisher_checksum():
+    """Pin Godota ma kształt pinu Blendera: numer i suma, oba czytane ze skryptu."""
+    pin = open(os.path.join(ROOT, "tools", "ci", "godot-version.txt"),
+               encoding="utf-8").read()
+    wersja = re.search(r"(?m)^version=(\S+)$", pin)
+    suma = re.search(r"(?m)^sha512=([0-9a-f]{128})$", pin)
+    assert wersja, "pin Godota nie podaje `version=`"
+    assert suma, "pin Godota nie podaje `sha512=` o długości sumy SHA-512"
+    instalator = open(os.path.join(ROOT, "tools", "ci", "godot_install.sh"),
+                      encoding="utf-8").read()
+    kod = _bez_komentarzy_powloki(instalator)
+    assert "godot-version.txt" in kod, "instalator nie czyta pinu"
+    # Kolejność jest treścią: suma sprawdzana PO rozpakowaniu opisuje archiwum,
+    # które zdążyło już wysypać pliki na dysk.
+    assert kod.index("sha512sum -c") < kod.index("unzip"), (
+        "suma sprawdzana PO rozpakowaniu — archiwum jest wypakowane, zanim ktokolwiek "
+        "zapyta, co w nim było")
+
+
 def test_prune_workflow_deletes_only_the_tip_its_plan_wrote_down():
     """Kasowanie stawia warunek na czubek, i to na czubek Z PLANU (6.D67).
 

@@ -37,10 +37,30 @@ def sdk_version(text):
     return match.group(1) if match else None
 
 
-def workflow_version(text):
-    """Wartość `GODOT_VERSION`, np. `4.7.2-stable`."""
-    match = re.search(r"^\s*GODOT_VERSION:\s*(\S+)\s*$", text, re.MULTILINE)
+#: Pin wersji i sumy Godota. **Dopisany 09.09.2026 (6.D68)**: do tego dnia numer stał
+#: jako `GODOT_VERSION:` w `env:` workflowa i to stamtąd czytała go ta bramka. Wersja
+#: i suma kontrolna są dziś w jednym pliku, tak jak dla Blendera od 03.09.2026, więc
+#: bramka czyta pin — a workflow wystawia numer do `GITHUB_ENV`, czytając ten sam plik.
+PIN = os.path.join(ROOT, "tools", "ci", "godot-version.txt")
+
+
+def pin_version(text):
+    """Wartość `version=` z pliku pinu, np. `4.7.2-stable`."""
+    match = re.search(r"^version=(\S+)\s*$", text, re.MULTILINE)
     return match.group(1) if match else None
+
+
+def workflow_version(text=None):
+    """Wersja Godota, którą pobierze CI — z PINU, nie z `env:` workflowa.
+
+    **PRZEKIEROWANE 09.09.2026 (6.D68), i sprawdza WIĘCEJ niż przedtem.** Argument
+    zostaje dla zgodności z wołaniami, ale jest ignorowany: numer pochodzi z pliku
+    pinu. Sprawdzenie „czy w workflowie nie ma drugiej kopii" jest osobną asercją
+    niżej, bo gdyby numer wrócił do `env:`, ta funkcja nadal zwracałaby wartość
+    z pinu i rozjazd byłby niewidoczny — czyli byłaby to ta sama rodzina usterek,
+    o której mówi cały ten moduł.
+    """
+    return pin_version(_read(PIN))
 
 
 def feature_version(text):
@@ -91,7 +111,14 @@ def minor(version):
 
 def test_all_three_places_declare_a_version():
     assert sdk_version(_read(CSPROJ)) is not None, "brak wersji Godot.NET.Sdk w csproj"
-    assert workflow_version(_read(WORKFLOW)) is not None, "brak GODOT_VERSION w workflow"
+    assert workflow_version() is not None, "brak `version=` w tools/ci/godot-version.txt"
+    # Druga kopia numeru w workflowie jest zakazana: pin ma być jednym miejscem.
+    # Bez tej asercji numer mógłby wrócić do `env:` i rozjechać się z pinem
+    # niezauważony, bo `workflow_version` czyta dziś wyłącznie pin (6.D68).
+    assert re.search(r"^\s*GODOT_VERSION:\s*\S", _read(WORKFLOW), re.MULTILINE) is None, (
+        "wersja Godota wróciła do `env:` workflowa — pin przestał być jednym miejscem")
+    assert "tools/ci/godot-version.txt" in _read(WORKFLOW), (
+        "workflow nie czyta pinu, więc numer w ścieżce katalogu bierze się znikąd")
     assert feature_version(_read(PROJECT_GODOT)) is not None, "brak config/features"
 
 
@@ -149,7 +176,12 @@ def test_parsers_do_not_accept_a_mismatch():
     # Kontrole negatywne. Bez nich testy wyżej przechodziłyby także wtedy, gdyby
     # parsery zwracały `None` na wszystkim — porównanie `None == None` jest prawdziwe.
     assert sdk_version('<Project Sdk="Microsoft.NET.Sdk">') is None
-    assert workflow_version("  GODOT_VERSIONS: 4.7.2-stable\n") is None
+    # Parser PINU, a nie `env:` workflowa — 6.D68 przeniosło numer do jednego pliku.
+    # Kontrola idzie na tym samym rodzaju pomyłki co przedtem: klucz podobny, ale nie
+    # ten (`versions=`), oraz klucz w komentarzu, który nie jest deklaracją.
+    assert pin_version("versions=4.7.2-stable\n") is None
+    assert pin_version("# version=4.7.2-stable\n") is None
+    assert pin_version("version=4.7.2-stable\n") == "4.7.2-stable"
     assert feature_version('config/features=PackedStringArray("C#")') is None
 
     # I że zgodność naprawdę jest sprawdzana, a nie zawsze prawdziwa.
