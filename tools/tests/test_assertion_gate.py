@@ -332,20 +332,93 @@ def test_gate_instrument_counts_sites_it_actually_injected():
 # --- runner naprawdę używa bramki --------------------------------------------------
 
 
-def test_gate_runner_loads_every_test_module_through_the_counter():
-    """Bramka jest warta tyle, ile jej użycie w `test_all.py`.
+#: Wywolania, ktore runner MUSI wykonywac, zapisane jako nazwy z drzewa skladni.
+#: Bez `AG.load_instrumented` moduly ida bez licznika; bez `AG.verdict` bramka nie
+#: rozstrzyga o tescie; bez `AG.suite_verdict` nikt nie pyta, czy bramka miala na co
+#: patrzec.
+WYMAGANE_WOLANIA = ("AG.load_instrumented", "AG.verdict", "AG.suite_verdict")
 
-    Kontrola tekstowa, bo alternatywą jest uruchomienie całego zestawu wewnątrz
-    zestawu. Powrót do `spec_from_file_location` w odkrywaniu testów oznacza moduły
-    bez licznika, czyli bramkę, która nie widzi niczego — i to jest ten jeden ruch,
-    który trzeba tu zablokować.
+#: Sposoby zaladowania modulu, ktore OMIJAJA licznik asercji. Lista jest po
+#: nazwach z drzewa skladni, nie po napisach w pliku — patrz docstring bramki nizej.
+ZAKAZANE_LADOWANIA = ("exec", "eval", "__import__", "importlib.import_module",
+                      "importlib.util.spec_from_file_location", "spec_from_file_location",
+                      "importlib.machinery.SourceFileLoader", "runpy.run_path")
+
+
+def _wolania(drzewo):
+    """Nazwy wszystkich wywolan w drzewie, jako napisy w postaci `a.b.c`."""
+    nazwy = []
+    for wezel in ast.walk(drzewo):
+        if isinstance(wezel, ast.Call):
+            try:
+                nazwy.append(ast.unparse(wezel.func))
+            except Exception:
+                continue
+    return nazwy
+
+
+def _funkcja(drzewo, nazwa):
+    for wezel in ast.walk(drzewo):
+        if isinstance(wezel, (ast.FunctionDef, ast.AsyncFunctionDef)) and wezel.name == nazwa:
+            return wezel
+    return None
+
+
+def test_gate_runner_loads_every_test_module_through_the_counter():
+    """Bramka jest warta tyle, ile jej uzycie w `test_all.py` — sprawdzane po AST.
+
+    **6.D76, i ta bramka byla zepsuta w OBIE strony naraz.** Poprzednia wersja
+    robila cztery dopasowania `napis in tresc_pliku`, i to dawalo dwa przeciwne
+    skutki z jednej przyczyny. Zmierzone 09.09.2026:
+
+    Strona pierwsza — FALSZYWY ALARM na poprawnej tresci. Pilnowane wywolania byly
+    zapisane bez spacji po przecinku, wiec pierwsze narzedzie stylu je przepisuje:
+
+        ORYGINAL   PASS 'AG.load_instrumented(path,name)'
+        PEP8       FAIL 'AG.load_instrumented(path,name)'
+
+    Semantyka identyczna, `ast.parse` przechodzi, a bramka czerwona. Bramka, ktora
+    pada na poprawnej tresci, zostaje wylaczona przez pierwszego zirytowanego
+    czlowieka — rodzina 6.D27.
+
+    Strona druga — CISZA na rzeczywistym obejsciu, i ta jest grozniejsza. Podmiana
+    ladowania modulow na `exec(compile(...))`, BEZ ani jednego wystapienia zakazanej
+    nazwy, przechodzila wszystkie cztery asercje na zielono przy modulach idacych
+    bez licznika. Jedyna bramka pilnujaca, ze asercje sa liczone, przechodzila na
+    runnerze, ktory ich nie liczyl — rodzina 6.D65.
+
+    **Dlaczego AST, a nie lepszy napis.** Dopasowanie tekstowe nie odroznia kodu od
+    komentarza ani od napisu, i zalezy od formatowania. Drzewo skladni nie widzi ani
+    spacji, ani komentarzy — a zakaz jest wyrazony POZYTYWNIE: w funkcji odkrywania
+    zaden sposob zaladowania modulu poza `AG.*` nie jest dopuszczony. Zakaz jednej
+    nazwy laapal jedno obejscie; warunek pozytywny laapie kazde.
     """
     with open(TEST_ALL, encoding="utf-8") as handle:
         source = handle.read()
-    assert "AG.load_instrumented(path,name)" in source, "runner nie ładuje przez bramkę"
-    assert "spec_from_file_location" not in source, "odkrywanie wróciło do importlib bez licznika"
-    assert "AG.verdict(outcome,checks)" in source, "runner nie pyta bramki o werdykt"
-    assert "AG.suite_verdict(" in source, "runner nie sprawdza, czy bramka miała na co patrzeć"
+    drzewo = ast.parse(source)
+
+    wolania = _wolania(drzewo)
+    brakujace = [nazwa for nazwa in WYMAGANE_WOLANIA if nazwa not in wolania]
+    assert not brakujace, (
+        "runner nie wola bramki: " + repr(brakujace) + " — bez tych wywolan moduly "
+        "ida bez licznika asercji, a zestaw meldowalby sprawdzenia, ktorych nie zrobil")
+
+    odkrywanie = _funkcja(drzewo, "_discover")
+    assert odkrywanie is not None, (
+        "nie znalazlem funkcji odkrywania modulow w `test_all.py` — milczenie tej "
+        "bramki nie moze znaczyc „nie ma obejscia\", gdy nie ma czego sprawdzic")
+
+    w_odkrywaniu = _wolania(odkrywanie)
+    obejscia = [nazwa for nazwa in w_odkrywaniu if nazwa in ZAKAZANE_LADOWANIA]
+    assert not obejscia, (
+        "odkrywanie modulow laduje je omijajac licznik: " + repr(obejscia))
+
+    # WARUNEK POZYTYWNY, i to on laapie obejscie nienazwane na liscie: modul wchodzi
+    # do zestawu WYLACZNIE przez bramke. Gdyby ktos dopisal trzeci sposob ladowania,
+    # ta asercja go nazwie, nie znajac jego nazwy z gory.
+    assert "AG.load_instrumented" in w_odkrywaniu, (
+        "funkcja odkrywania nie wola `AG.load_instrumented` — moduly wchodza do "
+        "zestawu inna droga niz przez licznik asercji")
 
 
 def test_gate_runner_counts_skipped_tests_outside_the_passed_total():
