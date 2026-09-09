@@ -494,7 +494,15 @@ def _urbis(directory):
 
 def _run_main(extra, fake=None):
     with tempfile.TemporaryDirectory() as tmp:
+        # Pamięć kafli MUSI iść do katalogu tymczasowego, a nie do domyślnej
+        # `build/osm-tiles` z wiersza poleceń. Zmierzone 09.09.2026 przy 6.D62:
+        # bez tej linii przebieg zestawu zostawiał w prawdziwej pamięci projektu
+        # DWA kafle po 332 B, wygenerowane przez atrapę sieci (60 plików przed
+        # zestawem, 62 po). Kafel z atrapy leżący w pamięci zostałby przy następnym
+        # prawdziwym przebiegu wczytany tak samo cicho jak pobrany — czyli test
+        # zmieniałby wynik pomiaru, i to bez jednego czerwonego wiersza.
         args = ["--alignment", _alignment(tmp), "--urbis-file", _urbis(tmp),
+                "--osm-cache-dir", os.path.join(tmp, "kafle"),
                 "--out", os.path.join(tmp, "build", "crosscheck.json")] + [
             a.replace("@TMP@", tmp) for a in extra]
         buffer = io.StringIO()

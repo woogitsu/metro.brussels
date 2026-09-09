@@ -36,6 +36,7 @@ sys.path.insert(0, os.path.join(ROOT, "tools", "data"))
 
 import crs as CRS  # noqa: E402
 import provenance as P  # noqa: E402
+import osm_tile_cache as PAMIEC  # noqa: E402
 
 URBIS_URL = ("https://data.mobility.brussels/geoserver/ogc/features/v1/collections/"
              "bm_public_transport%3AMetro/items?limit=10000&f=application/json")
@@ -102,6 +103,13 @@ def parse_args(argv=None):
                         help="bok kafla siatki dla --osm-source osm-api, w stopniach")
     parser.add_argument("--osm-sleep-s", type=float, default=OSM_API_SLEEP_S,
                         help="przerwa między kaflami, w sekundach")
+    parser.add_argument("--osm-cache-dir", default=PAMIEC.DOMYSLNY_KATALOG,
+                        help="katalog wspólnej pamięci kafli, kluczowanej po bboxie; "
+                             "ten sam prostokąt pobiera się raz, także gdy pyta o niego "
+                             "drugie narzędzie")
+    parser.add_argument("--osm-refresh", action="store_true",
+                        help="pomiń pamięć i pobierz kafle na nowo, nadpisując ją — "
+                             "pamięć, której nie da się ominąć, jest gorsza od jej braku")
     parser.add_argument("--urbis-file", help="lokalny snapshot warstwy UrbIS Metro")
     parser.add_argument("--skip-urbis", action="store_true")
     parser.add_argument("--offline", action="store_true",
@@ -316,7 +324,8 @@ def parse_osm_map_xml(content):
     return ways
 
 
-def osm_api_ways(bbox, timeout, tile_deg=OSM_API_TILE_DEG, sleep_s=OSM_API_SLEEP_S, log=print):
+def osm_api_ways(bbox, timeout, tile_deg=OSM_API_TILE_DEG, sleep_s=OSM_API_SLEEP_S,
+                 log=print, cache_dir=None, refresh=False):
     """Way'e metra z prostokąta, kafel po kaflu. Zwraca `(way'e, statystyka pobrania)`.
 
     Kafel, który padł, jest **wymieniony w wyniku**, a nie pominięty milczeniem:
@@ -324,22 +333,24 @@ def osm_api_ways(bbox, timeout, tile_deg=OSM_API_TILE_DEG, sleep_s=OSM_API_SLEEP
     Pętli ponawiającej to samo zapytanie tu nie ma — cudza infrastruktura.
     """
     tiles = osm_api_tiles(bbox, tile_deg)
-    merged, refused, bytes_total = {}, [], 0
+    merged, refused = {}, []
+    licznik = PAMIEC.Licznik()
     for index, tile in enumerate(tiles, start=1):
         query = "bbox=%.5f,%.5f,%.5f,%.5f" % tile
-        if index > 1 and sleep_s > 0:
-            time.sleep(sleep_s)
-        try:
-            content, _url, _headers = P.fetch_url(f"{OSM_API_URL}?{query}",
-                                                  expected_format="xml", timeout=timeout)
-        except Exception as exc:
-            reason = str(exc)
+        content, origin, reason = PAMIEC.wez_kafel(
+            tile, f"{OSM_API_URL}?{query}", timeout,
+            katalog=cache_dir, wymus=refresh, licznik=licznik)
+        if content is None:
             kind = ("kafel przekracza limit %d węzłów" % OSM_API_NODE_LIMIT
                     if "too many nodes" in reason.lower() else "źródło niedostępne")
             refused.append({"bbox": query, "kind": kind, "reason": reason})
             log(f"[OSM-API] kafel {index}/{len(tiles)} ODMOWA ({kind}): {reason}")
             continue
-        bytes_total += len(content)
+        # Przerwa obowiązuje TYLKO po wyjściu do sieci. Czekanie sekundy przed
+        # odczytem z dysku byłoby uprzejmością wobec serwera, którego nikt nie pytał:
+        # 30 kafli z pamięci trwałoby 30 s bez jednego żądania.
+        if origin == "osm-api" and licznik.pobrane > 1 and sleep_s > 0:
+            time.sleep(sleep_s)
         found = parse_osm_map_xml(content)
         for way in found:
             # Ten sam way wraca z każdego kafla, którego dotyka. Zostaje wersja
@@ -348,15 +359,17 @@ def osm_api_ways(bbox, timeout, tile_deg=OSM_API_TILE_DEG, sleep_s=OSM_API_SLEEP
             previous = merged.get(way["id"])
             if previous is None or len(way["geometry"]) > len(previous["geometry"]):
                 merged[way["id"]] = way
-        log(f"[OSM-API] kafel {index}/{len(tiles)} {query}: {len(content)} B, "
-            f"{len(found)} way railway=subway, razem {len(merged)}")
+        log(f"[OSM-API] kafel {index}/{len(tiles)} {query}: {len(content)} B "
+            f"({origin}), {len(found)} way railway=subway, razem {len(merged)}")
+    log(f"[OSM-API] {licznik}")
     stats = {"tiles": len(tiles), "tiles_refused": refused, "tile_deg": tile_deg,
-             "bytes_downloaded": bytes_total}
+             "cache_dir": cache_dir or PAMIEC.DOMYSLNY_KATALOG, "refresh": bool(refresh)}
+    stats.update(licznik.jako_slownik())
     return [merged[key] for key in sorted(merged)], stats
 
 
 def osm_api_payload(points, timeout, tile_deg=OSM_API_TILE_DEG, sleep_s=OSM_API_SLEEP_S,
-                    log=print):
+                    log=print, cache_dir=None, refresh=False):
     """Odpowiedź `/api/0.6/map` przepakowana w kształt snapshotu Overpassa.
 
     Kształt jest ten sam, więc `surface_sections.py --osm-file` czyta to bez
@@ -364,7 +377,8 @@ def osm_api_payload(points, timeout, tile_deg=OSM_API_TILE_DEG, sleep_s=OSM_API_
     podać tego pliku dalej jako pomiaru z Overpassa.
     """
     bbox = query_bbox_lonlat(points)
-    ways, stats = osm_api_ways(bbox, timeout, tile_deg, sleep_s, log)
+    ways, stats = osm_api_ways(bbox, timeout, tile_deg, sleep_s, log,
+                               cache_dir=cache_dir, refresh=refresh)
     payload = {
         "version": 0.6,
         "generator": "tools/track/crosscheck_alignment.py --osm-source " + OSM_SOURCE_API,
@@ -380,6 +394,7 @@ def osm_api_payload(points, timeout, tile_deg=OSM_API_TILE_DEG, sleep_s=OSM_API_
 
 def crosscheck_osm(points, timeout, local_file=None, source=OSM_SOURCE_OVERPASS, offline=False,
                    tile_deg=OSM_API_TILE_DEG, sleep_s=OSM_API_SLEEP_S, snapshot_out=None,
+                   cache_dir=None, refresh=False,
                    log=print):
     query = overpass_query(points)
     if local_file:
@@ -405,7 +420,8 @@ def crosscheck_osm(points, timeout, local_file=None, source=OSM_SOURCE_OVERPASS,
                 "source": source,
                 "query_sha256": P.sha256_bytes(query.encode("utf-8"))}
     if source == OSM_SOURCE_API:
-        payload, stats = osm_api_payload(points, timeout, tile_deg, sleep_s, log)
+        payload, stats = osm_api_payload(points, timeout, tile_deg, sleep_s, log,
+                                         cache_dir=cache_dir, refresh=refresh)
         if snapshot_out:
             _write_snapshot(snapshot_out, payload)
         base = {
@@ -591,6 +607,8 @@ def main(argv=None):
                                          source=args.osm_source, offline=args.offline,
                                          tile_deg=args.osm_tile_deg,
                                          sleep_s=args.osm_sleep_s,
+                                         cache_dir=args.osm_cache_dir,
+                                         refresh=args.osm_refresh,
                                          snapshot_out=args.osm_snapshot_out))
 
     out = args.out if os.path.isabs(args.out) else os.path.join(ROOT, args.out)
@@ -626,8 +644,13 @@ def main(argv=None):
             download = entry.get("download")
             if download:
                 print(f"[OSM-API] {download['tiles']} kafli po {download['tile_deg']}°, "
-                      f"{download['bytes_downloaded']} B pobrane, "
+                      f"{download.get('tiles_from_cache', 0)} z pamięci "
+                      f"({download.get('bytes_from_cache', 0)} B), "
+                      f"{download.get('tiles_downloaded', 0)} pobranych "
+                      f"({download['bytes_downloaded']} B), "
                       f"kafli odrzuconych: {len(download['tiles_refused'])}")
+                print(f"[OSM-API] pamięć kafli: {download.get('cache_dir')}"
+                      + (" (POMINIĘTA, --osm-refresh)" if download.get("refresh") else ""))
                 for refused in download["tiles_refused"]:
                     print(f"[OSM-API] ODRZUCONY {refused['bbox']}: {refused['kind']}")
             print(f"[KONTROLA] osm: {entry['ways']} way, pokrycie {entry['coverage_pct']}% "
