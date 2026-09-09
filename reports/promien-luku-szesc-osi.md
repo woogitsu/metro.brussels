@@ -63,11 +63,19 @@ dwie rzeczy, których minimum podać nie umie: **ile** punktów nie przechodzi i
 | A | 401 / 1331 | **0 / 0** | +0,4713 | 2518,6 |
 | B | 319 / 1016 | **0 / 0** | +0,6621 | 30,0 |
 | C | 331 / 1076 | **0 / 0** | +0,4953 | 2543,6 |
-| D | 238 / 762 | **0 / 0** | +0,7043 | 1916,2 |
+| D | 238 / 762 | **0 / 0** | +0,7043 † | 1916,2 |
 | E | 545 / 1792 | **0 / 0** | +0,5568 | 4285,7 |
 | F | 273 / 875 | **0 / 0** | +0,6624 | 1286,2 |
 
-Profil `station` przechodzi tak samo, z zapasem od +0,8903 m (A) do +1,1233 m (D).
+Profil `station` przechodzi tak samo, z zapasem od +0,8903 m (A) do +1,1233 m (D) †.
+
+**† zapas WARUNKOWY.** Najciaśniejszy łuk pakietu D leży w 1916,2 m, a czy na tym
+kilometrażu jest ściana tunelu, **nie da się rozstrzygnąć na dostępnych danych**:
+werdykt ma tam jedno źródło z czterech klas hierarchii i jest nim OSM, a punkt leży
+w strefie portalu (59,8 m przed tunelem według UrbIS, 14,9 m według OSM), której
+`PORTAL_HALO_M = 60 m` z `tools/track/surface_sections.py` odmawia werdyktu.
+Pełne przejście po hierarchii: `reports/6b26-luk-D-tunel.md`. Liczba jest poprawna
+dla modelu; warunkowy jest model, nie arytmetyka.
 
 ### 2.2 Profil `bore_single` — trzy osie na sześć NIE przechodzą
 
@@ -79,7 +87,7 @@ To jest ta część wyniku, którą trzeba nazwać wprost razem z liczbą.
 | **C** | **−0,0877** | **5 z 331** | 2513,7–2573,5 |
 | **E** | **−0,0262** | **4 z 545** | 4255,8–4285,7; 8586,3 |
 | B | +0,0791 | 0 z 319 | — |
-| D | +0,1213 | 0 z 238 | — |
+| D | +0,1213 † | 0 z 238 | — |
 | F | +0,0794 | 0 z 273 | — |
 
 **Pakiety A, C i E nie mieszczą się w projektowym `bore_single`** — odpowiednio
@@ -144,7 +152,14 @@ znana jest granica przedziału (punkty osi stoją co 7,6–22,4 m), w pozostały
 najbliższy odcinek poza tunelem jest o setki metrów dalej.
 
 **Co to znaczy: zapas +0,7043 m z §2.1 jest w pakiecie D policzony wobec ściany,
-której tam nie ma.** Liczba jest poprawna dla modelu i bezużyteczna jako fakt o metrze
+o której NIE WIADOMO, czy tam jest.** Zdanie w tym miejscu brzmiało do 09.09.2026
+„wobec ściany, której tam nie ma" — i było twierdzeniem o terenie mocniejszym niż
+pomiar. 6.B26 przeszła całą hierarchię źródeł dla tego jednego kilometrażu
+(`reports/6b26-luk-D-tunel.md`): STIB nie publikuje atrybutu tunelu, obie warstwy
+UrbIS w tym punkcie milczą — a dziury w ich pokryciu zdarzają się także w tunelach,
+które istnieją na pewno — INSPIRE Rails nie ma takiego atrybutu w ogóle, więc werdykt
+zostaje wyłącznie OSM, czyli klasa 4 i jedno źródło. Liczba jest poprawna dla modelu
+i bezużyteczna jako fakt o metrze
 — dokładnie ta sama klasa zastrzeżenia co uwaga o kilometrażu 8584,1 m
 w `reports/clearance-BE.md` §1, z tą różnicą, że tam dotyczyła jednego dołka luzu,
 a tu najciaśniejszego łuku całego pakietu. Pakiet D jest zresztą jedynym z sześciu,
@@ -154,7 +169,7 @@ czy jakikolwiek profil tunelu jest tam właściwy**.
 ### 3.4 Pakiet A jest najciaśniejszy, D najluźniejszy
 
 Rozpiętość promienia między pakietami to 50,87 m (A) do 82,28 m (D), czyli 1,62×.
-Rozpiętość zapasu w `box_double` — od +0,4713 m do +0,7043 m — jest w tej samej
+Rozpiętość zapasu w `box_double` — od +0,4713 m do +0,7043 m † — jest w tej samej
 kolejności i to nie jest osobna informacja: przy tej cięciwie zapas jest funkcją
 samego promienia.
 
