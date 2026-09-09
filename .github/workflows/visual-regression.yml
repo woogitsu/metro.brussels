@@ -113,11 +113,14 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
+          # KONTROLA NEGATYWNA 6.D63, wariant 2 z dwóch: WYSYŁKA odmawia przyjęcia.
+          # Ścieżka nieistniejąca plus `error` zamiast `warn` — dwa wiersze tymczasowe,
+          # zdejmowane w tym samym pull requeście.
           name: t-012-visual-${{ github.run_id }}-${{ github.run_attempt }}
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 14
           path: |
-            build/t012visual/report.txt
+            build/t012visual/KONTROLA-6D63-nie-ma-takiego-pliku
             build/t012visual/*.json
             build/t012visual/*.md
             build/t012visual/*.log
