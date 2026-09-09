@@ -413,6 +413,85 @@ def test_gate_a_broken_import_produces_a_grep_visible_fail_line_and_keeps_the_su
     # że jego sąsiad w tej samej podmianie padł na imporcie.
     assert "  ok   test_probe_ok" in output, output[-2000:]
 
+def test_modul_wychodzacy_z_procesu_PRZY_IMPORCIE_jest_FAILEM_IMPORTU():
+    """6.D65: drugie drzwi, ktore 6.D54 zostawilo otwarte.
+
+    `SystemExit` NIE dziedziczy z `Exception`, wiec `except Exception` w petli
+    importu go nie lapal — wychodzil z petli, z `main()` i z procesu, z kodem
+    z wyjatku. Przy `sys.exit(0)` tym kodem bylo zero, a zestaw nie wypisywal ani
+    jednego wiersza. Zmierzone 09.09.2026 na sondzie z jednym padajacym testem:
+    bez galezi `kod 0 / 0 bajtow / 0 FAIL-i`, z galezia `kod 1 / 150120 bajtow /
+    1 FAIL`.
+
+    Ten test NIE tworzy pliku w `tools/tests/` — podstawia sam loader, bo mierzona
+    jest galaz `except`, a nie odkrywanie plikow. Plik-sonda w katalogu skanowanym
+    zapalilby przy okazji dwie inne bramki (o strazniku `__main__`), czyli mierzylby
+    trzy rzeczy naraz.
+    """
+    import test_all as TA
+
+    oryginalny = TA.AG.load_instrumented
+    try:
+        def wychodzi(_path, _name):
+            raise SystemExit(0)
+
+        TA.AG.load_instrumented = wychodzi
+        tests, module_of, import_failures = TA._discover("test_assertion_gate.py")
+    finally:
+        TA.AG.load_instrumented = oryginalny
+
+    assert tests == [], tests
+    assert module_of == [], module_of
+    assert len(import_failures) == 1, import_failures
+    nazwa, blad = import_failures[0]
+    assert nazwa == "test_assertion_gate", nazwa
+    assert isinstance(blad, TA.WyjscieZImportu), type(blad).__name__
+    assert "PRZY IMPORCIE" in str(blad), str(blad)
+    assert "sys.exit(0)" in str(blad), str(blad)
+
+    # STRUKTURALNY POWOD, dla ktorego ta galaz musi istniec osobno. Bez tej asercji
+    # ktos moglby ja usunac w przekonaniu, ze `except Exception` wystarczy.
+    assert not issubclass(SystemExit, Exception), (
+        "SystemExit przestal byc poza Exception — ta galaz i jej powod trzeba wtedy "
+        "przeczytac od nowa, a nie usunac")
+
+
+def test_modul_z_bledem_skladni_nadal_jest_FAILEM_IMPORTU():
+    """Kontrola, ze poprawka 6.D65 nie zabrala starej sciezki.
+
+    **Czego ten test NIE pilnuje, i to jest poprawka do wlasnego uzasadnienia.**
+    Pierwsza wersja tego docstringa mowila, ze galaz `SystemExit` musi stac PRZED
+    `except Exception`, bo inaczej blad skladni przestanie byc raportowany. To
+    NIEPRAWDA i zostalo zmierzone: po odwroceniu kolejnosci obu galezi modul
+    przechodzi `25/25`. Kolejnosc jest nieistotna dokladnie z tego powodu, ktory
+    czyni cala usterke 6.D65 mozliwa — `SystemExit` nie jest podklasa `Exception`,
+    wiec zadna z tych galezi nie przechwytuje drugiej. Pilnuje tego asercja
+    strukturalna w tescie wyzej, nie kolejnosc zapisu.
+
+    Pilnowana jest wiec jedna rzecz: blad skladni nadal trafia do niepowodzen
+    importu i NIE jest przekierowany do galezi 6.D65. Bez tego poprawka moglaby
+    po cichu zamienic „modul sie nie kompiluje" na „modul wyszedl z procesu",
+    czyli podstawic zla rade pod prawdziwy blad.
+    """
+    import test_all as TA
+
+    oryginalny = TA.AG.load_instrumented
+    try:
+        def sypie(_path, _name):
+            raise SyntaxError("celowo zly modul")
+
+        TA.AG.load_instrumented = sypie
+        tests, _module_of, import_failures = TA._discover("test_assertion_gate.py")
+    finally:
+        TA.AG.load_instrumented = oryginalny
+
+    assert tests == [], tests
+    assert len(import_failures) == 1, import_failures
+    _nazwa, blad = import_failures[0]
+    assert isinstance(blad, SyntaxError), type(blad).__name__
+    assert not isinstance(blad, TA.WyjscieZImportu), "blad skladni trafil w zla galaz"
+
+
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
 # z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
 # tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
