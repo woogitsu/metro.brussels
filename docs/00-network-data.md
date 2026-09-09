@@ -16,7 +16,7 @@ Bazowy snapshot danych ma stan 30.08.2026; research źródeł odświeżono 31.08
 | 1 | Gare de l'Ouest ↔ Stockel | 12,5 km | 21 |
 | 2 | Elisabeth ↔ Simonis | 10,3 km | 19 |
 | 5 | Erasme ↔ Herrmann-Debroux | 17,3 km | 28 |
-| 6 | Roi Baudouin ↔ Elisabeth | 15,5 km | 25 |
+| 6 | Roi Baudouin ↔ Elisabeth | 15,5 km | 26 |
 
 Linie 1 i 5 dzielą 12-stacyjny pień Gare de l'Ouest – Merode.
 
