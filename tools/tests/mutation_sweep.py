@@ -419,6 +419,30 @@ def collect(kinds=KINDS) -> list[Mutation]:
 #: dziennika zostaje czytelny. Pelne 64 znaki nie daja tu nic poza dlugoscia wiersza.
 ODCISK_ZNAKOW = 16
 
+#: Dlugosc ZNACZNIKA w nazwie dziennika (6.D36). Dwanascie znakow szesnastkowych to
+#: 48 bitow. Zmierzone 09.09.2026 na `dba5737`: w drzewie stoi **9** roznych nazw
+#: dziennika, a szansa przypadkowej kolizji przy dziewieciu jest rzedu 10^-13; progu
+#: 10^-6 ta dlugosc dosiega przy **23 727** roznych przebiegach, czyli przy liczbie
+#: o trzy rzedy wyzszej od wszystkiego, co to repozytorium widzialo.
+#:
+#: **Dlaczego NIE tyle, co `ODCISK_ZNAKOW`, i to jest cala tresc tej stalej.** Do
+#: 6.D36 obie dlugosci byly czytane jak dwa zapisy jednej wielkosci — jedna przez
+#: stala, druga przez literal `[:12]`, zadna liczona z drugiej. Pomiar pokazal, ze to
+#: sa DWIE ROZNE wielkosci i wlasnie dlatego moga sie roznic:
+#:
+#:   - `ODCISK_ZNAKOW` obcina odcisk TRESCI, ktory sluzy do POROWNANIA. Kolizja
+#:     podstawia wynik policzony dla innej tresci pod dzisiejsza mutacje i **nic tego
+#:     nie lapie** — odmowa z 6.B32 stoi wlasnie na tej wartosci, wiec nie moze byc
+#:     jednoczesnie jej kontrola.
+#:   - `ZNACZNIK_ZNAKOW` obcina odcisk skladany na NAZWE PLIKU. Kolizja daje dwom
+#:     przebiegom wspolna sciezke — i to jest dokladnie sytuacja, ktora odmowa
+#:     z 6.B32 **lapie**, bo porownuje odcisk zapisany we WPISIE, nie w nazwie.
+#:     Znacznik ma wiec druga linie obrony, ktorej odcisk tresci nie ma.
+#:
+#: Podniesienie tej liczby do 16 przenazwaloby wszystkie istniejace dzienniki
+#: i jest osobna decyzja — 6.D36 jej nie podejmuje, bo pomiar nie daje po nia powodu.
+ZNACZNIK_ZNAKOW = 12
+
 #: Do ilu modulow raport wypisuje odciski PO JEDNYM, zamiast jednej liczby zbiorczej.
 #:
 #: Prog nie jest okragly z gustu, tylko WYPROWADZONY z pomiaru. Zmierzone 07.09.2026
@@ -1005,7 +1029,7 @@ def default_journal(commit: str, kinds: tuple, only: str,
     """
     znacznik = hashlib.sha256(
         "|".join([commit, ",".join(sorted(kinds)), only or "", odcisk]).encode("utf-8")
-    ).hexdigest()[:12]
+    ).hexdigest()[:ZNACZNIK_ZNAKOW]
     return os.path.join(tempfile.gettempdir(), f"metro-mutacje-{znacznik}.jsonl")
 
 
