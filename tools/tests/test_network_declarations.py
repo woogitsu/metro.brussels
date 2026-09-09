@@ -8,8 +8,12 @@ jeżeli zrobić TYLKO połowę tej zmiany: **nic**. Plik z 26 przystankami i dek
 `lines.json` z liczbą 26 też przechodziło. Dwie liczby o tej samej rzeczy, w dwóch
 plikach, i ani jednej asercji między nimi.
 
-Trzy bramki niżej biorą się z trzech różnych sposobów, na jakie ta zmiana mogła
-wyjść krzywo, i każda ma wypisaną w commicie kontrolę negatywną.
+Cztery pierwsze bramki niżej biorą się z czterech różnych sposobów, na jakie ta
+zmiana mogła wyjść krzywo. Dwie ostatnie doszły tego samego dnia, z sąsiedniego
+pomiaru (`reports/simonis-elisabeth-regula-liczenia.md`): reguła liczenia stacji
+60 → 59 stoi w tym samym pliku maszynowo, w `station_notes.counting_rules`,
+i też nie była z niczym zestawiana. Każda bramka ma wypisaną w commicie kontrolę
+negatywną.
 
 **Czego tu świadomie NIE ma: porównania w drugą stronę.** Bramka „każdy przystanek,
 który GTFS przypisuje linii, musi stać w `lines.json`" jest **zmierzona jako błędna**
@@ -145,6 +149,56 @@ def test_gtfs_potwierdza_kazdy_przystanek_wypisany_na_linii():
     assert not obce, (
         "GTFS nie przypisuje tego przystanku tej linii "
         f"(linia, przystanek, linie wedle GTFS): {obce}")
+
+
+def test_regula_liczenia_stacji_zgadza_sie_z_listami_i_z_deklaracja_sieci():
+    """`station_notes.counting_rules` to nie notatka, tylko trzy liczby do sprawdzenia.
+
+    Blok stoi w `lines.json` od 07.09.2026 i niesie `unique_stop_names`,
+    `unique_stations` oraz `stations_incl_premetro`. Do 09.09.2026 nic ich nie
+    porównywało z sąsiednimi danymi — i to nie jest teoretyczne: raport z rana
+    09.09.2026 ogłosił, że „wyjaśnienia różnicy 60 → 59 w danych NIE MA", czytając
+    ten sam plik i nie zaglądając do tego bloku (`reports/simonis-elisabeth-regula-liczenia.md`).
+    """
+    document = _network()
+    rules = document["station_notes"]["counting_rules"]
+    network = document["network"]
+    nazwy = {stop for line in document["lines"] for stop in line["stops"]}
+    assert rules["unique_stop_names"] == len(nazwy), (
+        f"counting_rules mówi {rules['unique_stop_names']} unikalnych nazw, "
+        f"a listy przystanków dają {len(nazwy)}")
+    assert rules["unique_stations"] == network["metro_stations"], (
+        f"counting_rules mówi {rules['unique_stations']} stacji, "
+        f"a network.metro_stations {network['metro_stations']}")
+    assert rules["stations_incl_premetro"] == network["stations_incl_premetro"], (
+        f"counting_rules mówi {rules['stations_incl_premetro']} z premetrem, "
+        f"a network.stations_incl_premetro {network['stations_incl_premetro']}")
+
+
+def test_roznica_miedzy_liczba_nazw_a_liczba_stacji_jest_wytlumaczona_co_do_jednosci():
+    """Nazw jest 60, stacji 59, a różnicę tłumaczy NAZWANY kompleks — nie prozą ogólną.
+
+    Bez tej asercji dwie liczby wyżej mogłyby się zgadzać ze sobą i **rozjechać
+    z powodem**: ktoś podnosi `unique_stop_names` razem z listą, obniża
+    `unique_stations` i nigdzie nie stoi, która stacja jest liczona raz.
+    Tu każda nadmiarowa nazwa musi mieć blok, który wymienia ją z nazwy.
+    """
+    document = _network()
+    notes = document["station_notes"]
+    nazwy = {stop for line in document["lines"] for stop in line["stops"]}
+    roznica = notes["counting_rules"]["unique_stop_names"] - notes["counting_rules"]["unique_stations"]
+    kompleksy = []
+    for klucz, wartosc in notes.items():
+        if klucz in ("$comment", "counting_rules") or not isinstance(wartosc, dict):
+            continue
+        tekst = json.dumps(wartosc, ensure_ascii=False)
+        czlony = sorted(n for n in nazwy if f"'{n}'" in tekst)
+        if len(czlony) >= 2:
+            kompleksy.append((klucz, czlony))
+    nadmiarowe = sum(len(czlony) - 1 for _klucz, czlony in kompleksy)
+    assert nadmiarowe == roznica, (
+        f"różnica między liczbą nazw a liczbą stacji wynosi {roznica}, a bloki "
+        f"`station_notes` tłumaczą {nadmiarowe}: {kompleksy}")
 
 
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
