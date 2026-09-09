@@ -45,25 +45,22 @@ PROGRAM = os.path.join(ROOT, "src", "Sim.Runner", "Program.cs")
 #: nazwy sa UZYWANE PONOWNIE — `lines` sklada i telemetrie `drive`, i plik `service-day`,
 #: a `rows` i punkty osi, i `line --calls`, i pomiar `budget`. Klucz, ktory nie
 #: rozroznia dwoch roznych formatow, nie ma prawa orzekac o zadnym z nich.
+#: Pisarze, ktorych format jest PRZYBITY Z ZEWNATRZ, a nastawy ida do pliku OBOK.
+#: Powod kazdego stoi w `Program.cs` przy `WriteProvenanceBeside` i w bloku 6.A21.
+#: Zmierzone 09.09.2026: plik obok nie zmienia w plikach przybitych ani jednego bajtu —
+#: `tools/ci/assert_line_trace.py` na szesciu osiach mowi „zgadza sie z wzorcem co do
+#: bajtu", wiec zadna z czterech regul (Compare, scena Godota, --tolerance 0, SHA
+#: wzorcow) nie zostala naruszona ani osłabiona.
+NASTAWY_OBOK = {"Drive", "Replay", "LineCommand"}
+
+#: Pisarze BEZ nastaw, z powodem. Do 6.A21 bylo tu czterech; zostal JEDEN, i to jest
+#: cala tresc tamtej pozycji — trzy pozostale dostaly plik obok, a nie nowa wymowke.
 BEZ_NASTAW = {
-    "Drive": (
-        "telemetria: `Compare` wymaga, zeby pierwszy wiersz byl dokladnie "
-        "`DriveTelemetry.Header`, a ten sam format pisze scena Godota i "
-        "`godot-first-run.yml` porownuje oba przy --tolerance 0"),
-    "Replay": (
-        "ta sama telemetria, co `drive`, i to samo porownanie w "
-        "`godot-first-run.yml` przy --tolerance 0 — format jest wspolny z Godotem"),
     "Axis": (
         "`axis --dump-points` zapisuje SUROWE punkty osi, bez naglowka i bez pomiaru: "
         "nie ma nastaw, ktore mialby opisac, bo nie jest wynikiem przejazdu. "
         "Sprawdzone: plik nie jest czytany przez `Compare` ani przez "
         "`godot-first-run.yml`, wiec powodem jest tresc, nie przybity format"),
-    "LineCommand": (
-        "dwa pisarze: `line --trace`, ktorego SHA-256 CALEGO pliku pilnuje "
-        "`tools/ci/assert_line_trace.py` wobec wzorcow przybitych do rodziny "
-        "runtime'u — a tamta bramka wymaga, zeby przeliczanie wzorcow stalo w commicie "
-        "zmieniajacym wersje srodowiska; oraz `line --calls`, ktorego plik "
-        "`godot-first-run.yml` porownuje z plikiem SCENY"),
 }
 
 def _zrodlo():
@@ -99,10 +96,36 @@ def pisarze(source=None):
 
 
 def z_nastawami(source=None):
-    """Metody, ktorych pisarz sklada wiersze przez `Provenance(...)`."""
+    """Metody, ktorych pisarz sklada nastawy — WPROST w pliku albo w pliku OBOK.
+
+    **Detektor PRZEKIEROWANY, nie poluzowany — 6.A21, 09.09.2026.** Poprzednia wersja
+    znala jeden kształt: `new List<string>(Provenance(`, czyli nastawy wklejone na
+    poczatek pliku. Ten kształt jest dla trzech pisarzy zamkniety (format przybity
+    z zewnatrz), wiec doszedl drugi: `WriteProvenanceBeside(`. Zeby przekierowanie
+    sprawdzalo WIECEJ, a nie mniej, do bramek doszly trzy warunki na sam ten pomocnik
+    (`test_the_sidecar_writer_cannot_be_a_no_op`) i jeden na kazde wolanie
+    (`test_every_sidecar_names_the_same_path_as_the_file_it_describes`) — bez nich
+    dopisanie `WriteProvenanceBeside` do metody wystarczyloby, zeby bramka zamilkla,
+    nawet gdyby ten pomocnik nie zapisywal nic.
+    """
+    source = _zrodlo() if source is None else source
+    return {metoda for metoda, tresc in _zakresy(source).items()
+            if "new List<string>(Provenance(" in tresc
+            or "WriteProvenanceBeside(" in tresc}
+
+
+def wprost(source=None):
+    """Metody wklejajace nastawy DO pliku (kształt `budget` i `service-day`)."""
     source = _zrodlo() if source is None else source
     return {metoda for metoda, tresc in _zakresy(source).items()
             if "new List<string>(Provenance(" in tresc}
+
+
+def obok(source=None):
+    """Metody zapisujace nastawy w pliku OBOK (kształt trzech przybitych pisarzy)."""
+    source = _zrodlo() if source is None else source
+    return {metoda for metoda, tresc in _zakresy(source).items()
+            if "WriteProvenanceBeside(" in tresc}
 
 
 def test_the_helper_exists_and_prefixes_every_setting_with_a_hash():
@@ -138,17 +161,80 @@ def test_no_excuse_outlives_the_writer_it_describes():
         + ", ".join(martwe) + " — skresl wpis razem z powodem, dla ktorego stal")
 
 
-def test_budget_and_service_day_are_the_two_that_do_carry_them():
-    """Kontrola pozytywna, przybijajaca ZAKRES tej pozycji. Bez niej bramka byla by
-    zielona takze wtedy, gdyby wszystkie siedem pisarzy trafilo do BEZ_NASTAW —
-    czyli gdyby zadanie zostalo zamienione na liste wymowek."""
-    opisane = z_nastawami()
-    assert opisane == {"Budget", "ServiceDayCommand"}, (
-        "zakres 6.A20 to dokladnie te dwa polecenia — jedyne, ktorych formatu nie "
-        "przybija nic z zewnatrz: " + repr(sorted(opisane)))
+def test_every_writer_lands_in_exactly_one_of_the_three_boxes():
+    """Kontrola pozytywna PRZEKIEROWANA — 6.A21, i sprawdza WIECEJ, nie mniej.
+
+    Poprzednia wersja przybijala JEDEN zbior (`opisane == {Budget, ServiceDayCommand}`)
+    i byla zielona nad kazdym ukladem pozostalych pieciu pisarzy — w tym nad takim,
+    w ktorym wszyscy trafiaja do BEZ_NASTAW, czyli nad zamiana zadania na liste
+    wymowek. Dzis przybite sa TRZY zbiory naraz i kazdy pisarz musi lezec w dokladnie
+    jednym: nastawy w pliku, nastawy obok, albo powod. Piaty warunek — rozlacznosc —
+    jest tu dlatego, ze bez niego pisarz z nastawami I z wymowka przechodzilby oba
+    testy osobno.
+    """
     source = _zrodlo()
+    w_pliku, w_obok = wprost(source), obok(source)
+    assert w_pliku == {"Budget", "ServiceDayCommand"}, (
+        "nastawy WPROST w pliku maja dokladnie te dwa polecenia — jedyne, ktorych "
+        "formatu nie przybija nic z zewnatrz: " + repr(sorted(w_pliku)))
+    assert w_obok == NASTAWY_OBOK, (
+        "nastawy w pliku OBOK maja dokladnie trzy polecenia z przybitym formatem: "
+        + repr(sorted(w_obok)))
+    assert not (w_pliku & w_obok), (
+        "pisarz sklada nastawy dwiema drogami naraz: " + repr(sorted(w_pliku & w_obok)))
+    assert not ((w_pliku | w_obok) & set(BEZ_NASTAW)), (
+        "pisarz ma nastawy I wymowke: " + repr(sorted((w_pliku | w_obok) & set(BEZ_NASTAW))))
+    assert set(pisarze(source)) == w_pliku | w_obok | set(BEZ_NASTAW), (
+        "pisarz poza wszystkimi trzema pudelkami: "
+        + repr(sorted(set(pisarze(source)) ^ (w_pliku | w_obok | set(BEZ_NASTAW)))))
     for polecenie in ('Provenance(\n            "budget"', 'Provenance(\n                "service-day"'):
         assert polecenie in source, "brak wolania Provenance dla " + polecenie
+
+
+def test_the_sidecar_writer_cannot_be_a_no_op():
+    """Trzy warunki na sam pomocnik, bez ktorych przekierowanie detektora BYLOBY
+    poluzowaniem: `WriteProvenanceBeside` w metodzie starczyloby wtedy za nastawy,
+    nawet gdyby pomocnik nie zapisywal nic.
+
+    Kontrola negatywna WYKONANA 09.09.2026 na kazdym z trzech warunkow osobno
+    (`reports/6a21-nastawy-obok-pliku.md` §5).
+    """
+    source = _zrodlo()
+    at = source.index("private static void WriteProvenanceBeside(")
+    body = source[at:source.index("\n    /// <summary>", at)]
+    assert "File.WriteAllLines(" in body, ("pomocnik nic nie zapisuje", body)
+    assert "Provenance(command, settings)" in body, (
+        "pomocnik nie sklada tresci przez `Provenance`, wiec kształt `#` nie jest "
+        "wspolny z nastawami wklejanymi do pliku", body)
+    assert "ProvenancePathFor(path)" in body, (
+        "pomocnik nie liczy nazwy przez `ProvenancePathFor`, wiec nazwa pliku obok "
+        "powstaje w dwoch miejscach", body)
+    nazwa = source[source.index("static string ProvenancePathFor("):]
+    nazwa = nazwa[:nazwa.index("\n")]
+    assert "path +" in nazwa, ("nazwa pliku obok nie wychodzi ze sciezki pliku "
+                               "wyniku, wiec moze wskazac cokolwiek", nazwa)
+    assert ".csv" not in nazwa, (
+        "plik obok nazywa sie jak plik wyniku — bramki CI zbieraja slady po `*.csv` "
+        "i wciagnelyby nastawy jako slad", nazwa)
+
+
+def test_every_sidecar_names_the_same_path_as_the_file_it_describes():
+    """Nastawy obok PLIKU, ktory opisuja — nie obok jakiegokolwiek.
+
+    Bez tego warunku `WriteProvenanceBeside(tracePath, ...)` przy zapisie do
+    `callsPath` przechodzilby bramke wyzej i produkowal plik nastaw opisujacy inny
+    przebieg niz ten, ktory lezy obok. Klucz jest strukturalny: pierwszy argument
+    obu wolan w tej samej metodzie, nie numer wiersza.
+    """
+    for metoda, tresc in _zakresy(_zrodlo()).items():
+        if metoda not in NASTAWY_OBOK:
+            continue
+        pliki = re.findall(r"File\.WriteAllLines\(\s*(\w+)", tresc)
+        nastawy = re.findall(r"WriteProvenanceBeside\(\s*(\w+)", tresc)
+        assert pliki, (metoda, "metoda w NASTAWY_OBOK nie zapisuje zadnego pliku")
+        assert sorted(pliki) == sorted(nastawy), (
+            metoda + ": plik wyniku i plik nastaw wskazuja rozne sciezki — "
+            f"zapisane {sorted(pliki)}, opisane {sorted(nastawy)}")
 
 
 def test_the_reasons_name_what_pins_the_format():

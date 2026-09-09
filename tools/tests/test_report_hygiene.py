@@ -261,13 +261,13 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 #: nie usterką.**
 #:
 #: Dlatego liczba nie jest tu wyliczana z żadnej innej liczby. Jest odczytana
-#: z drzewa, na `8b7b537` plus raport tego commita:
+#: z drzewa, na `c45a782` plus raport tego commita:
 #:
 #:     $ ls reports/*.md | wc -l
-#:     166
+#:     167
 #:     $ python3 -c 'import sys; sys.path.insert(0, "tools/tests");
 #:       import test_report_hygiene as m; print(len(list(m._reports())))'
-#:     166
+#:     167
 #:
 #: Oba pomiary stoją tu razem świadomie: asercja porównuje z `len(list(_reports()))`,
 #: nie z wyjściem `ls`, a te dwa zbiory mogłyby się różnić (glob, katalogi, pliki
@@ -277,7 +277,7 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 #: Kto dopisze następny raport, nie przepisuje tej liczby z pamięci ani z tego
 #: akapitu, tylko mierzy ją **na swoim drzewie po scaleniu `main`** — komunikat
 #: asercji podaje wynik pomiaru wprost, żeby nie było potrzeby zgadywania.
-MIN_REPORTS = 166
+MIN_REPORTS = 167
 
 #: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
 #: wierszem zaczynającym się od `**`, z którego `_header_shapes` czyta kształt.
