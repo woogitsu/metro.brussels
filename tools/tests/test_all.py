@@ -368,6 +368,12 @@ def _discover(only=None):
         if name=="test_all": name="test_all__mierzony"
         try:
             mod=AG.load_instrumented(path,name)
+        except SystemExit as e:
+            # 6.D65: DRUGIE drzwi. Patrz `WyjscieZImportu` — bez tej gałęzi moduł
+            # wychodzący z procesu przy imporcie kończył CAŁY zestaw kodem z wyjątku
+            # i bez ani jednego wiersza wyjścia.
+            import_failures.append((module_file,WyjscieZImportu(_powod_wyjscia_importu(e))))
+            continue
         except Exception as e:
             import_failures.append((module_file,e))
             continue
@@ -375,6 +381,51 @@ def _discover(only=None):
         tests+=found
         module_of+=[module_file]*len(found)
     return tests, module_of, import_failures
+
+class WyjscieZImportu(Exception):
+    """Modul zawolal `sys.exit()` PRZY IMPORCIE. Zamieniane na FAIL IMPORTU.
+
+    **6.D65, zmierzone 09.09.2026 na `dafb7a1`.** 6.D54 naprawilo te sama usterke
+    na sciezce WYKONANIA testu i zostawilo drugie drzwi otwarte. Petla importu
+    w `_discover` lapala `except Exception`, a `SystemExit` dziedziczy
+    z `BaseException` — wiec wychodzil z petli, z `main()` i z procesu, z kodem
+    z wyjatku. Przy `sys.exit(0)` tym kodem bylo ZERO, a zestaw nie wypisywal ani
+    jednego wiersza. Sonda z jednym celowo padajacym testem:
+
+        kod wyjscia calego zestawu: 0
+        bajtow wyjscia zestawu: 0
+        ile FAIL: 0
+
+    **Dlaczego to bylo najgrozniejsze, co ten zestaw mogl robic.** Milczenie
+    zestawu jest nieodroznialne od jego sukcesu, wiec ta jedna galaz uniewazniala
+    KAZDE raportowane „kod 0" — nie dlatego, ze ktorys modul tak robil, ale
+    dlatego, ze gdyby zaczal, nie byloby o tym ani jednego sygnalu.
+
+    **Dlaczego OSOBNA klasa, a nie `WyjscieZProcesu`.** Tamta mowi o tescie, ktory
+    zawolal `sys.exit()` w swoim ciele, i jej komunikat kaze zlapac `SystemExit`
+    W TESCIE. Tutaj winowajca jest sam modul przy imporcie i rada jest inna: kod,
+    ktory wychodzi z procesu, nie moze stac na poziomie modulu. Jeden komunikat na
+    dwie rozne rady bylby mylacy dokladnie w chwili, w ktorej ktos go czyta.
+
+    **Czego to NIE zmienia.** Modul z bledem skladni nadal konczy jako niepowodzenie
+    importu (`except Exception` ponizej), a `SystemExit` w ciele testu nadal jest
+    FAIL-em testu przez `WyjscieZProcesu`. Rozny jest tylko trzeci przypadek, ktory
+    do dzis nie mial zadnej galezi.
+    """
+
+
+def _powod_wyjscia_importu(wyjatek):
+    """Komunikat FAIL-a dla modulu, ktory wyszedl z procesu przy imporcie.
+
+    Kod wyjscia jest w komunikacie z tego samego powodu co w `_powod_wyjscia`:
+    `sys.exit(0)` i `sys.exit(2)` maja rozne przyczyny. Rada jest jednak inna,
+    bo winowajca jest inny — patrz `WyjscieZImportu`.
+    """
+    return (f"zawolal sys.exit({wyjatek.code!r}) PRZY IMPORCIE modulu — kod na "
+            "poziomie modulu nie moze wychodzic z procesu, bo wynosi sterowanie "
+            "z calego zestawu. Przenies to wywolanie do `if __name__ == \"__main__\":` "
+            "albo do ciala testu, gdzie `SystemExit` jest FAIL-em jednego testu")
+
 
 class WyjscieZProcesu(Exception):
     """Test zawołał `sys.exit()`. Zamieniane na FAIL TESTU, nie na koniec przebiegu.
