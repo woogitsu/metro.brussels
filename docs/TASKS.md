@@ -886,15 +886,32 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.D63 | **Kolor joba `visual-regression` nie odróżnia „bramka znalazła różnicę" od „usługa artefaktów odmówiła przyjęcia pliku"** — dwa kroki, dwa różne zdarzenia, ten sam czerwony | zmierzone 08.09.2026 na PR #415 i przejrzane 09.09.2026 (`reports/uzupelnienie-kolejki-09-09.md` §3): `403 Forbidden` przy `FinalizeArtifact`, artefakt **716 055 B**, a `blender-smoke` sześć minut później wgrał **1 905 203 B** — ani limit, ani kwota. Wyciszenie kroku wysyłki jest złą naprawą, bo schowałoby prawdziwą awarię | S |
 | 6.D64 | **`timestamp_osm_base` — jedna droga zapasowa ZMYŚLA to pole, druga je pomija** — pole nazwane „stan bazy OSM" niesie w jednej z nich czas pobrania | zmierzone 09.09.2026 (`reports/uzupelnienie-kolejki-09-09.md` §4): `fetch_osm_routes.py:167` wpisuje `P.utc_now_iso()`, `osm_api_payload()` nie ustawia nic, a czytelnik jest jeden — `crosscheck_alignment.py:398` i `:443`. Raport cytujący `osm_timestamp` z pierwszej drogi podałby datę pobrania jako stan bazy | S |
 | 6.D65 | **`SystemExit` przy IMPORCIE modułu wychodzi z całego zestawu kodem 0, bez ani jednego wiersza wyjścia** — a 6.D54 naprawiło tę samą usterkę na ścieżce WYKONANIA testu i nikt nie sprawdził, że drzwi są dwoje | zmierzone 09.09.2026 na `fcaaca0` sondą `tools/tests/` z `sys.exit(0)` w ciele modułu: **0 bajtów wyjścia, kod 0**, zero dopasowań na `grep -cE '^\s*FAIL'`, przy module z celowo padającym testem. Wykonanie łapie `except SystemExit` w `tools/tests/test_all.py:463` i zamienia na FAIL testu; import łapie `except Exception` w `:371`, a `SystemExit` dziedziczy z `BaseException` i przez to przelatuje. Ta rodzina unieważnia KAŻDY raportowany „kod 0" | S |
-| 6.D66 | **`NaN` przechodzi walidator osi, a walidator OGŁASZA ZGODNOŚĆ** — `json.loads` przyjmuje `NaN` domyślnie, a porównania z nim są zawsze fałszywe, więc kontrola dryfu nie może zapalić się nigdy | zmierzone 09.09.2026 na `fcaaca0`: `NaN` podstawiony w pierwszą współrzędną `data/track/L1_A.json` daje `długość osi: nan m`, wiersz `length_m zgodne z łamaną, różnica nan mm`, `0 błędów, 1 ostrzeżeń`, kod 0. `tools/track/validate.py` nie ma ani jednego `isfinite`. Zgłoszone w audycie jako F-003, pomiar wykonany tutaj | S |
+| 6.D66 | **`NaN` przechodzi walidator osi, a walidator OGŁASZA ZGODNOŚĆ** — `json.loads` przyjmuje `NaN` domyślnie, a porównania z nim są zawsze fałszywe, więc kontrola dryfu nie może zapalić się nigdy | zmierzone 09.09.2026 na `fcaaca0`: `NaN` podstawiony w pierwszą współrzędną `data/track/L1_A.json` daje `długość osi: nan m`, wiersz `length_m zgodne z łamaną, różnica nan mm`, `0 błędów, 1 ostrzeżeń`, kod 0. `tools/track/validate.py` nie ma ani jednego `isfinite`. **Zakres wniosku zawężony pomiarem z 09.09.2026:** wartość nieliczbowa wstawiona do ZACOMMITOWANEJ osi JEST łapana, ale przez inny moduł (`test_alignment.py`, test o braku wartości nieliczbowych i rozsądnych przerwach), tylko dla JEDNEJ z sześciu osi i przez własne sprawdzenie, nie przez walidator. Usterką jest więc walidator ogłaszający zgodność, a nie brak jakiejkolwiek kontroli w zestawie. Zgłoszone w audycie jako F-003, pomiar wykonany tutaj | S |
 | 6.D67 | **Kasowanie gałęzi nie stawia warunku na czubek, choć plan ten czubek zapisał** — `$sha` z planu trafia wyłącznie do komunikatu w logu | zmierzone 09.09.2026 w lokalnym repozytorium bare: `git push --force-with-lease=refs/heads/X:<stary sha> origin :refs/heads/X` daje **kod 1** i `rejected … stale info`, zdalne zostaje nietknięte; dzisiejsza forma `git push origin --delete X` daje **kod 0** i kasuje ref z commitem, którego plan nie widział. `.github/workflows/prune-merged-branches.yml`, krok `Skasuj`. Okno jest wąskie, bo workflow chodzi wyłącznie z `workflow_dispatch`, ale skutkiem jest utrata niescalonej pracy. Zgłoszone w audycie jako F-001, próba wykonana tutaj | S |
 | 6.D68 | **Godot idzie z sieci do wykonania bez sumy kontrolnej, a Blender w tym samym repozytorium jest sumą sprawdzany** — dwa standardy dla tego samego modelu zagrożenia | zmierzone 09.09.2026: `.github/workflows/godot-first-run.yml` robi `curl` → `unzip` → uruchomienie bez ani jednego `sha256`, a `tools/ci/blender_install.sh` woła `sha256sum -c` na sumie z `tools/ci/blender-version.txt`. Joby chodzą na maszynie właściciela z dostępem do `GITHUB_TOKEN`. Zgłoszone w audycie jako F-007 | M |
 | 6.D69 | **Opcja `--package` jest przyjmowana i nie wpływa na werdykt** — nazwa istnieje, zachowania nie ma | zmierzone 09.09.2026: `expect_package` w `tools/track/validate.py` występuje **wyłącznie w sygnaturze** funkcji, ciało używa tylko `expect_line`. Ta sama rodzina co 6.A19 (opcja, o której komunikat kłamie) i szósty przypadek wzorca „pole zadania nazywa coś, czego nie da się wykonać". Zgłoszone w audycie jako F-004 | S |
 | 6.D70 | **`Finished` przeczy dokumentacji nawrotu: skład jest skończony w chwili przyjazdu, choć opis mówi „pojazdy krążą i nigdy nie kończą"** | zmierzone 09.09.2026 czytaniem `src/Sim/Line/LineCore.cs`: `public bool Finished => Drive is { Finished: true };` w wierszu 95, a `Run()` kręci pętlą `while (Steps < stepBudget && !Finished)`. Przy jednym składzie i włączonym nawrocie pętla wychodzi w kroku przyjazdu, więc faza nawrotu w `Step()` nie ma kiedy dojść do wypisania składu. Pozycja wymaga TESTU wykonywanego, nie samego czytania. Zgłoszone w audycie jako F-005 | M |
-| 6.D71 | **`compile` w bramce asercji nie podaje `optimize`, więc dziedziczy tryb interpretera** — luka utajona, nie czynna | zmierzone 09.09.2026: `tools/tests/assertion_gate.py:181` woła `compile(tree, path, "exec")`, a ani `.github/workflows/`, ani `tools/ci/`, ani `doctor.sh` nie ustawiają `PYTHONOPTIMIZE` i nie wołają interpretera z wyłączonymi asercjami — dziś nieosiągalne. Poprawka to jeden argument. Zgłoszone w audycie jako F-008 z wagą wyższą; obniżona tutaj, bo scenariusz nie ma dziś drogi wywołania | S |
+| 6.D71 | **`compile` w bramce asercji nie podaje `optimize`, więc dziedziczy tryb interpretera** — luka utajona, nie czynna | zmierzone 09.09.2026: `tools/tests/assertion_gate.py:181` woła `compile(tree, path, "exec")`, a ani `.github/workflows/`, ani `tools/ci/`, ani `doctor.sh` nie ustawiają `PYTHONOPTIMIZE` i nie wołają interpretera z wyłączonymi asercjami — dziś nieosiągalne. Poprawka to jeden argument, ZMIERZONA jako wystarczająca. **Obniżenie wagi z 09.09.2026 było błędem i jest tu sprostowane:** obniżyłem ją, bo scenariusz nie ma drogi wywołania, ale pomiar skutku pokazał, że przy wywołaniu jest on totalny — realna regresja wstawiona do kodu produkcyjnego (`max_grade_pct` 4.0 -> 4.5, poluzowany limit pochylenia) daje `36/38 przeszło` bez flagi i **`38/38 przeszło` z flagą**, czyli dwie porażki zamieniają się w pełną zieleń. `grep` po nazwie flagi i zmiennej środowiskowej w testach, `tools/ci/` i workflowach nie daje ANI JEDNEGO trafienia: nic tego nie zabrania i nic nie zauważa. Kryterium „brak drogi wywołania" było więc złym kryterium przy zerowym prawdopodobieństwie i totalnym promieniu rażenia. Zgłoszone w audycie jako F-008 | S |
 | 6.D72 | **`extra_labels` przerywa skan na pierwszym tokenie niewyglądającym na etykietę, więc z czterech nieaktualnych etykiet nazywa dwie** | zmierzone 09.09.2026 na `fcaaca0`: `extra_labels` na starym wierszu §9 zwraca `['linux', 'x64']` i zatrzymuje się na `woogitsu`, bo `_looks_like_a_label` wymaga cyfry albo wielkiej litery. Dwie dalsze etykiety są rozpoznawalne (`True` dla obu), tylko skan do nich nie dochodzi. `tools/tests/test_docs_ci_claims.py`; pomiar w `reports/9-goly-selektor.md` | S |
 | 6.D73 | **Bramka pól zadania nie widzi ani ścieżki katalogowej, ani nieistniejącej nazwy opcji** — licznik tego wzorca stoi na **sześciu** | zmierzone 09.09.2026: sześć pozycji nazwało w polu „Wejście" albo „Wyjście" coś, czego nie da się wykonać, i żadna bramka tego nie zgłosiła — ścieżka z wiodącą kropką (6.D59), katalog bez rozszerzenia w `tools/ci/`, dwie nieistniejące opcje przy 6.B43, moduł wskazany w złym katalogu przy 6.D64. Pomiary w `reports/6a21-nastawy-obok-pliku.md` i `reports/6b43-prog-odsloniecia-chase.md` | M |
 | 6.D74 | **Dziesięć modułów bramkowych chodzi po drzewie przez `os.walk` i żaden nie wyklucza kopii z katalogu pominiętego w `.gitignore`** — ochrona jest dziś wyłącznie uboczna | zmierzone 09.09.2026: wszystkie dziesięć startują z NAZWANEGO podkatalogu (`tools`, `src`, `docs`, `reports`), a kopie leżały pod `.claude/`, więc żaden się nie nabierał; jedno przejście liczone od korzenia wywróciłoby wszystkie naraz i dokładnie to zrobił pierwszy skan pozycji 6.D36, dając **6 i 12** wystąpień zamiast 1 i 2. Kopie niosły przy tym STARY kod, więc skan raportowałby usterkę już naprawioną. Pomiar w `reports/6d36-znacznik-dziennika.md` | M |
+| 6.D75 | **Render `_inside` NIE wykrywa wywróconych normalnych — `CLAUDE.md` §5 obiecuje przyrząd, którego nie ma** | zmierzone 09.09.2026 na `dafb7a1` parą fixture różniącą się WYŁĄCZNIE orientacją ścian (te same wierzchołki, ta sama kamera, ta sama oś): metryki obu renderów `_inside` identyczne do piątego miejsca (`ink=0.09278 std=0.04349 poziomy=140`), `_side` **bit w bit identyczny**, `_inside` różny o 4 bajty na 737 tys. (szum kompresji). Oba obrazy OBEJRZANE: nie da się wskazać ani jednej różnicy, wersja z normalnymi na zewnątrz wygląda jak zdrowy tunel. Przyczyna: `tools/blender/render_check.py:115` ustawia materiał kontrolny jako dwustronny, EEVEE cieniuje tylną stronę z odwróconą normalną, a emisja dokłada składową niezależną od zwrotu — trzy niezależne powody | S |
+| 6.D76 | **Bramka pilnująca, że runner liczy asercje, dopasowuje TEKST — więc fałszywie alarmuje od jednej spacji I daje się obejść bez zakazanej nazwy** | zmierzone 09.09.2026: cztery asercje `str in str` na treści `tools/tests/test_all.py`. Kopia przeformatowana narzędziem stylu (spacje po przecinku, `ast.parse` przechodzi, semantyka identyczna) daje DWA fałszywe alarmy; komentarz historyczny z zakazaną nazwą daje trzeci. W drugą stronę: podmiana ładowania modułów na `exec(compile(...))`, bez ani jednego wystąpienia zakazanej nazwy, przechodzi WSZYSTKIE cztery asercje na zielono, a moduły idą BEZ licznika asercji | M |
+| 6.D77 | **`unzip` jest wołany w kroku, który stoi PRZED sondą i instalacją tego samego narzędzia — a ta awaria już raz się zdarzyła** | zmierzone 09.09.2026: `.github/workflows/godot-first-run.yml` woła `unzip` w wierszu 187, a sonda i instalacja stoją w krokach o wyższych indeksach. Repozytorium samo zapisuje precedens w `tools/ci/apt-packages/blender-xvfb.txt`: „`unzip` dopisany 07.09.2026, po tym jak `godot-first-run.yml` padł na `unzip: command not found` (kod 127)" — poprawka trafiła do kroków STOJĄCYCH ZA miejscem awarii. Dziś maskuje to wyłącznie cache: gdy silnik już leży w `RUNNER_TOOL_CACHE`, krok pobierania się nie odpala. Wystarczy świeża maszyna albo podniesienie wersji silnika (wersja jest w ścieżce katalogu) i awaria wraca. `curl` z tego samego kroku nie jest sondowany wcale | S |
+| 6.D78 | **Siedem workflowów używa lokalnej akcji, a jej ścieżek nie ma w ich filtrach — jedna z akcji nie ma ANI JEDNEGO konsumenta bez filtra** | zmierzone 09.09.2026 macierzą po `.github/workflows/`: 17 wywołań lokalnych akcji w 10 plikach, ani jeden wzorzec w filtrach nie zawiera ścieżki katalogu akcji. Siedem workflowów ma filtr i używa akcji — dla akcji sondującej narzędzia **wszystkie** siedem jest przefiltrowane, więc pull request zmieniający wyłącznie ją nie uruchamia żadnego joba, który jej używa. Reguła jest w tym repozytorium JUŻ uznana dla `tools/ci/**` (bramka z docstringiem „Skrypt, którego zmiana nie odpala własnego CI, nie jest bramką") i zastosowana o jedno miejsce za wąsko | S |
+| 6.D79 | **Wersja SDK nie jest przypięta: trzy workflowy podają wzorzec z gwiazdką, `global.json` nie istnieje, a bramka pilnuje WYŁĄCZNIE wersji głównej** | zmierzone 09.09.2026: `find` po drzewie i `git ls-files` nie znajdują `global.json`; trzy workflowy podają wzorzec kanału, a bramka sprawdza tylko, czy wersja zaczyna się od numeru głównej — więc dowolna wersja z tego kanału przechodzi. `doctor.sh` ma tę samą luzę (czyta samą główną). Jedyne miejsce z dokładną wersją to proza `docs/23-environment.md`, a parser bramki redukuje ten wiersz do numeru głównego. Kontener tej sesji ma 10.0.400 — czyli już dziś istnieją dwa niezależne miejsca instalacji bez wspólnego pinu | M |
+| 6.D80 | **`IsVerticalModelled` awansuje „nie wiem" na „zamodelowane" czterema drogami, w tym przez LITERÓWKĘ w statusie** | zmierzone 09.09.2026 sondą na prawdziwym projekcie rdzenia: brak klucza, brak pola statusu, jawny status nieznany oraz literówka w nazwie statusu — wszystkie cztery dają predykat prawdziwy; tylko dokładna wartość „nie zamodelowany" daje fałsz. Przyczyna: predykat NEGUJE jedną wartość, zamiast sprawdzać zamkniętą białą listę. W `data/track/` występuje dziś wyłącznie wartość negatywna, we wszystkich sześciu pakietach — wartości pozytywnej nie ma nigdzie, więc słownik statusów pozytywnych NIE JEST jeszcze zdefiniowany, a predykat już udaje, że go rozpoznaje | S |
+| 6.D81 | **`doctor.sh` gubi ścieżkę SDK ze spacją, bo podaje ją do `eval` bez cytowania — i wtedy NIE MÓWI NIC o wersji, zamiast powiedzieć „za stare"** | zmierzone 09.09.2026 atrapą w katalogu ze spacją w nazwie: doctor melduje brak SDK, a ta sama atrapa skopiowana do katalogu bez spacji daje `ok`. Znika przy tym CAŁY wiersz o wersji, bo zmienna z numerem głównym wychodzi pusta i wyłącza całe sprawdzenie. Dowód, że to przeoczenie, a nie konwencja, stoi w tym samym pliku: ścieżka Blendera JEST ocytowana dla `eval`, ścieżka SDK w dwóch miejscach nie | S |
+| 6.D82 | **Panel interfejsu jest zakotwiczony po jednej stronie z odsunięciem 900 px, więc przy węższym widoku UCINA wiersz w połowie liczby** | zmierzone 09.09.2026 zrzutami z silnika: ustawienie kotwic daje prostokąt o stałym zakresie poziomym niezależnym od szerokości widoku, przy rozdzielczości bazowej 1280 x 720. Przy 800 x 600 i realnej dwujęzycznej nazwie stacji z danych osi zrzut pokazuje wiersz urwany na krawędzi: widoczne jest „za 1" i nic dalej — **odległość do peronu jest obcięta w połowie liczby**. Obrazy OBEJRZANE, nie odczytane z metryk. Etykiety nie mają zawijania | S |
+| 6.D83 | **Teksty interfejsu są literałami bez kluczy, a dwujęzyczne pola nazw stacji leżą w danych NIECZYTANE — separator z warstwy danych jedzie na ekran** | zmierzone 09.09.2026: cztery słowa językowe w trzech interpolowanych napisach interfejsu plus siedem literałów zastępczych w scenie; szerszy przegląd daje kilkadziesiąt polskich literałów w warstwie gry. Infrastruktury tłumaczeń nie ma wcale — zero wywołań funkcji tłumaczącej, brak katalogu tekstów, brak sekcji w konfiguracji projektu. Osobno: dane osi mają w komplecie osobne pola nazw francuskiej i niderlandzkiej, **których nikt nie czyta**, a nazwa złączona pionową kreską trafia wprost do interfejsu jako znak do czytania | M |
+| 6.D84 | **Test braku artefaktu ZAKŁADA, że stała ścieżka w katalogu tymczasowym jest wolna — zajęta nazwa daje fałszywy CZERWONY** | zmierzone 09.09.2026: przy podstawionym katalogu tymczasowym i celowo zajętej nazwie moduł daje `22/23 przeszło` z komunikatem, że ścieżka udająca brakujący artefakt jednak istnieje; bez podstawienia `23/23`. Nazwa jest stała, więc wystarczy jeden przebieg cudzego skryptu albo ręczna próba właściciela. To ta sama rodzina co 6.D57, ale kierunek zepsucia jest ODWROTNY: guard jest jawną asercją, więc test nie kłamie — pada nie ze swojego powodu | S |
+| 6.D85 | **Test nazwany „zasoby spełniają schemat, z którym leżą obok" sprawdza tylko obecność pól i wartości wyliczeniowe — cztery mutacje łamiące schemat przechodzą** | zmierzone 09.09.2026, cztery mutacje osobno i razem, każda na zmutowanej kopii manifestu: typ pola logicznego zamieniony na napis, typ pola listowego na napis, identyfikator łamiący wzorzec, pole dodatkowe wbrew zakazowi — za każdym razem `9/9 przeszło`, kod 0. Test nie czyta ze schematu ani klucza typu, ani wzorca, ani zakazu pól dodatkowych, ani żadnej z trzech gałęzi warunkowych. Zaostrzenie prawne: napis w polu o zgodzie na redystrybucję jest w Pythonie PRAWDZIWY, więc konsument sprawdzający je warunkiem uzna zasób za wolny do rozpowszechniania | S |
+| 6.D86 | **Tablica referencyjna fizyki deklaruje maksimum przyspieszenia, które nie jest maksimum ANI dla jednego, ANI dla drugiego obciążenia** | zmierzone 09.09.2026 przeliczeniem ze wzorów kodu: pusty skład startuje z 1,342 m/s², czyli 22 % powyżej liczby z tabeli, a obciążony z 1,025 m/s², czyli poniżej. Sufit przyczepnościowy nie wiąże. W kodzie nie ma żadnego obcięcia przyspieszenia, a liczba z tabeli NIE WYSTĘPUJE w kodzie ani w danych pojazdu — plik pojazdu wpisuje maksymalne przyspieszenie na listę parametrów nieznanych. To błąd prozy w dokumencie, który `CLAUDE.md` §3 nazywa tablicą referencyjną dla testów fizyki | S |
+| 6.D87 | **README mówi, że rdzeń prowadzi jeden skład — a rdzeń ma API dodawania składów, trzy fazy iterujące po wszystkich i osiem testów o dwóch** | zmierzone 09.09.2026: zdanie w sekcji „Czego nie ma" wobec listy składów, właściwości zwracającej ich kolekcję, metody dodającej skład i trzech faz kroku iterujących po wszystkich; w testach rdzenia osiem nazw wprost o dwóch składach, w tym o niewjeżdżaniu w blok zajęty przez inny. Druga połowa zdania też nieprawdziwa: zadanie o wielu składach nie jest „następnym", jest w toku z dwoma zamkniętymi etapami. Bramka twierdzeń README ma cztery testy i ani jeden nie dotyka tego punktu | S |
+| 6.D88 | **Sonda silnika uznaje obecność, nie zgodność ZGŁASZANEJ wersji — a instalator Blendera obok robi dokładnie odwrotnie** | zmierzone 09.09.2026: sonda sprawdza istnienie pliku wykonywalnego i katalogu obok, wypisuje wersję i na tym kończy; nigdzie w drzewie nie ma porównania zgłaszanej wersji z pinem. Instalator Blendera porównuje dwa razy — przed i po rozpakowaniu — i przy rozjeździe kończy błędem. WAŻNE ZAWĘŻENIE z pomiaru: mechanizm, który u Blendera czynił sondę na obecność szkodliwą (menedżer pakietów kładący starą wersję pod nieuwersjonowaną nazwą), tu nie ma odpowiednika, bo ścieżka silnika jest sparametryzowana wersją dwukrotnie. Waga niższa niż w audycie | S |
+| 6.D89 | **Skrót dla agenta wymienia klasę pochodzenia parametru, której nie ma w danych ani w dokumencie modelu — i ta sama nieaktualna trójka stoi w DRUGIM pliku** | zmierzone 09.09.2026: z trzech wymienionych klas rozjeżdża się JEDNA (skrócona nazwa wobec pełnej z dokumentu), dwie pozostałe są zgodne; brakuje też czwartej klasy, która w dokumencie jest. W danych pojazdu występują wyłącznie dwie wartości i żadna nie jest tą skróconą. Ta sama nieaktualna trójka przetrwała w `docs/07-open-data-research.md`, więc poprawka tylko w skillu zostawia drugie źródło pomyłki. Słownik FR/NL/PL nie zawiera żadnego z tych terminów, więc nie jest tu stroną | S |
+| 6.D90 | **Narzędzie mutacyjne brudzi `data/` W MIEJSCU, więc każda równoległa kontrola czystości drzewa widzi naruszenie reguły 6, którego nikt nie popełnił** | zaobserwowane 09.09.2026 przy pracy równoległej: `git status` pokazywał `M data/track/L1_A.json` z jedną współrzędną podmienioną na wartość nieliczbową, a po kilkudziesięciu sekundach plik wracał do stanu z wierzchołka. To ślad `tools/tests/mutation_sweep.py`, które mutuje dane w miejscu i przywraca po przebiegu. W tym samym okienku zewnętrzna kontrola zgłosiła niezacommitowane zmiany, choć suma kontrolna pliku zgadzała się z wierzchołkiem — czyli ostrzeżenie było prawdziwe co do stanu drzewa i mylące co do przyczyny | S |
+| 6.D91 | **Kontrola zgodności osi z linią bierze linię z PREFIKSU NAZWY PLIKU, więc oś wspólnego pierścienia jest sprawdzana wobec jednej linii, a obsługują ją dwie** | zmierzone 09.09.2026: kontrola DZIAŁA i przy właściwym wywołaniu zgłasza niezgodność, tylko nie jest wołana z parą, która ją ujawnia — krok CI wyprowadza nazwę linii z prefiksu nazwy pliku osi. Komentarz w workflowie chwali to jako „kontrola nie wymaga żadnej listy do ręcznego utrzymywania" i to jest właśnie cena: jedna oś może należeć do dwóch linii, a nazwa pliku unosi tylko jedną. Ta pozycja jest częścią NIEZALEŻNĄ od decyzji właściciela o danych: niezależnie od tego, jak rozstrzygnie się pytanie o stację na wspólnym pierścieniu, oś ma deklarować swoje linie jawnie | S |
 
 #### Szczegóły pozycji z kompletem sześciu pól
 
@@ -6484,6 +6501,492 @@ MINIMUM_DETAIL_BLOCKS = 73
 - **Poza zakresem:** kasowanie istniejących kopii i zmiana `.gitignore`.
 - **Zależy od:** 6.D36.
 
+##### 6.D75 · Render `_inside` nie odróżnia normalnych do wnętrza od odwróconych
+
+- **Skąd:** zmierzone 09.09.2026 na `dafb7a1`. Para fixture: rura prostokątna 6 x 5 m,
+  120 m, 96 ścian, raz z normalnymi do wnętrza, raz po odwróceniu windingu — te same
+  wierzchołki, ta sama kamera, ta sama oś. Oba przez istniejący `render_check.py`:
+
+  ```
+  [KLATKA] good_inside.png     640x384 ink=0.09278 std=0.04349 poziomy=140
+  [KLATKA] flipped_inside.png  640x384 ink=0.09278 std=0.04349 poziomy=140
+  side:   roznych_bajtow=0  max_delta=0
+  inside: roznych_bajtow=4  max_delta=255
+  ```
+
+  Oba obrazy OBEJRZANE, jak każe §5: szarosina rura od wnętrza, pierścienie siatki
+  zbiegające się do ciemnego wylotu. **Ani jednej różnicy**; wersja z normalnymi na
+  zewnątrz wygląda jak zdrowy tunel.
+- **Dlaczego to najpoważniejsza pozycja z całego audytu:** tabela w §5 przypisuje
+  renderowi `_inside` wykrywanie wywróconych normalnych („widać przez ścianę") i jest
+  to JEDYNA bramka normalnych w opisanej pętli weryfikacji. Fałszywie zielony miernik
+  jest gorszy od braku miernika, bo i agent, i właściciel na nim polegają. Samo
+  oglądanie renderu — słusznie wymagane — tu nie pomaga, bo obraz jest ten sam.
+- **Wejście:** `tools/blender/render_check.py` (`make_material`, wiersz 115),
+  `CLAUDE.md` §5 (tabela renderów), `tools/tests/test_render_engine.py`.
+- **Wyjście:** przebieg `_inside` odróżnia orientację — kulling tylnej strony na
+  materiale kontrolnym albo osobny pass diagnostyczny malujący tylną stronę
+  jaskrawym kolorem. Zapis w §5 zgodny z tym, co przyrząd naprawdę wykrywa.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_render_engine.py
+  ```
+  Oczekiwane: zestaw zielony, a para fixture good/flipped daje RÓŻNE renders `_inside`.
+- **Skończone, gdy:** para fixture różniąca się wyłącznie windingiem daje dwa renders
+  `_inside`, których różnicy nie da się pomylić z szumem kompresji, i różnicę tę widać
+  gołym okiem — opisaną słowami w raporcie.
+- **Poza zakresem:** zmiana silnika renderu, zmiana kamer `_iso` i `_side`, i cokolwiek
+  w `data/`.
+- **Zależy od:** brak.
+
+##### 6.D76 · Bramka runnera dopasowuje tekst: fałszywy alarm i obejście naraz
+
+- **Skąd:** zmierzone 09.09.2026. `tools/tests/test_assertion_gate.py:345-349` sprawdza
+  obecność czterech napisów w treści `tools/tests/test_all.py`. Pilnowane wywołania są
+  zapisane bez spacji po przecinku, czyli w formie, którą pierwsze narzędzie stylu
+  przepisze:
+
+  ```
+  ORYGINAL   PASS 'AG.load_instrumented(path,name)'   PASS 'AG.verdict(outcome,checks)'
+  PEP8       FAIL 'AG.load_instrumented(path,name)'   FAIL 'AG.verdict(outcome,checks)'
+  ```
+
+  I drugi kierunek, gorszy:
+
+  ```
+  PASS wszystkie cztery asercje, a moduly ida BEZ licznika asercji
+  ```
+- **Dlaczego oba kierunki są jedną pozycją:** to ta sama przyczyna — dopasowanie
+  tekstowe zamiast strukturalnego. Fałszywy alarm na poprawnej treści to rodzina 6.D27
+  (bramka, którą ktoś wyłączy), a przepuszczenie obejścia to rodzina 6.D65 (przyrząd
+  meldujący sprawdzenie, którego nie zrobił). Jedyna bramka pilnująca, że asercje są
+  liczone, przechodzi na runnerze, który ich nie liczy.
+- **Wejście:** `tools/tests/test_assertion_gate.py`, `tools/tests/test_all.py`,
+  `tools/tests/assertion_gate.py` (`instrument` — czytnik AST jest już pod ręką).
+- **Wyjście:** dopasowanie po AST: węzeł wywołania o nazwie `AG.load_instrumented`,
+  `AG.verdict`, `AG.suite_verdict`; plus warunek pozytywny, że w funkcji odkrywania
+  żadne wywołanie nie ładuje modułu poza `AG.*`.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_assertion_gate.py
+  ```
+  Oczekiwane: zestaw zielony, a kopia przeformatowana stylem NIE zapala bramki.
+- **Skończone, gdy:** kopia ze spacjami po przecinkach przechodzi, a kopia z ładowaniem
+  przez `exec(compile(...))` pada — obie zmierzone i wklejone.
+- **Poza zakresem:** przeformatowanie `tools/tests/test_all.py` (to osobna decyzja
+  o stylu) i zmiana samego licznika asercji.
+- **Zależy od:** 6.D65, 6.D71.
+
+##### 6.D77 · Narzędzie wołane przed krokiem, który je zapewnia
+
+- **Skąd:** zmierzone 09.09.2026 przejściem po `.github/workflows/godot-first-run.yml`.
+  Użycie w wierszach 186-187, sonda i instalacja w krokach dalszych. Precedens stoi
+  w komentarzu `tools/ci/apt-packages/blender-xvfb.txt`, razem z kodem wyjścia 127.
+- **Dlaczego to nie „zepsułoby się, gdyby":** droga wywołania już się odpaliła raz,
+  a warunek jej powrotu jest w tym projekcie rutyną, nie hipotezą — świeża maszyna
+  puli albo nowy pin wersji silnika, bo wersja jest częścią ścieżki katalogu.
+- **Wejście:** `.github/workflows/godot-first-run.yml`,
+  `tools/ci/apt-packages/blender-xvfb.txt`, `tools/tests/test_ci_workflows.py`
+  (istniejący wzorzec: bramka pilnująca, że Blender nie jest wołany przed instalacją).
+- **Wyjście:** para kroków sonda plus instalacja przed pobieraniem silnika, oraz
+  bramka o kształcie istniejącej dla Blendera, ale dla wszystkich poleceń z tabeli
+  pakietów; `curl` dopisany do tej tabeli i do zestawu apt.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_ci_workflows.py
+  ```
+  Oczekiwane: zestaw zielony, a workflow z narzędziem wołanym przed instalacją pada.
+- **Skończone, gdy:** dla każdego polecenia z tabeli pakietów każdy krok, który je
+  woła, ma indeks większy od indeksu kroku instalującego jego pakiet — sprawdzone
+  bramką, a kontrola negatywna na sztucznym workflowie nazywa plik po imieniu.
+- **Poza zakresem:** podniesienie wersji silnika i zmiana sposobu pobierania Blendera.
+- **Zależy od:** brak.
+
+##### 6.D78 · Zmiana lokalnej akcji nie odpala jobów, które jej używają
+
+- **Skąd:** zmierzone 09.09.2026, macierz workflow x (używa akcji) x (ma filtr) x (filtr
+  obejmuje katalog akcji). Siedem luk. Dwa doprecyzowania z pomiaru: akcja sprawdzająca
+  workspace ma dwóch konsumentów BEZ filtra, więc jej zmiana jest de facto wykonywana
+  przed scaleniem; akcja sondująca narzędzia nie ma takiego konsumenta ani jednego.
+- **Dlaczego to nie nowy pomysł:** identyczna reguła stoi już w
+  `tools/tests/test_ci_workflows.py` dla katalogu skryptów CI, z zapisanym pomiarem, że
+  wstrzyknięty kod wyjścia przechodził niezauważony. Brakuje jej rodzeństwa dla akcji.
+- **Wejście:** `.github/workflows/` (dziesięć plików), `.github/actions/`,
+  `tools/tests/test_ci_workflows.py` (istniejąca bramka o tym kształcie).
+- **Wyjście:** ścieżka katalogu akcji w filtrach siedmiu workflowów plus bramka
+  bliźniacza do istniejącej, wymagająca tego dla każdego workflowa, który akcji używa
+  i ma niepusty filtr.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_ci_workflows.py
+  ```
+  Oczekiwane: zestaw zielony przy dzisiejszej treści workflowów po poprawce.
+- **Skończone, gdy:** usunięcie tej ścieżki z filtra jednego workflowa zapala bramkę
+  i wymienia ten plik po nazwie, a workflowy bez filtra i bez wyzwalacza `pull_request`
+  zostają poza listą, żeby bramka nie wymuszała martwych wpisów.
+- **Poza zakresem:** zmiana zawartości samych akcji i dodawanie nowych wyzwalaczy.
+- **Zależy od:** brak.
+
+##### 6.D79 · Wersja SDK niepinowana: wzorzec kanału, brak global.json
+
+- **Skąd:** zmierzone 09.09.2026. Brak `global.json` w drzewie i w indeksie; trzy
+  wystąpienia wzorca kanału w workflowach; bramka wersji sprawdza wyłącznie numer
+  główny, `doctor.sh` też.
+- **Dlaczego to nie kosmetyka:** instalator rozwiązuje wzorzec kanału do najnowszej
+  łaty **w momencie instalacji**, więc dwa czyste runnery mogą zbudować ten sam commit
+  różnymi wersjami narzędzi. Na maszynie właściciela SDK przeżywa przebiegi w cache,
+  więc rozjazd nie następuje między przebiegami jednej maszyny — następuje MIĘDZY
+  maszynami puli i po każdym czyszczeniu cache narzędzi.
+- **Wejście:** `.github/workflows/sim-tests.yml`, `.github/workflows/blender-smoke.yml`,
+  `.github/workflows/godot-first-run.yml`, `tools/tests/test_dotnet_version.py`,
+  `docs/23-environment.md`, `doctor.sh`.
+- **Wyjście:** `global.json` w katalogu głównym z pełną wersją i jawną polityką
+  przewijania; jedno miejsce prawdy dla CI, `doctor.sh` i kontenera sesji.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_dotnet_version.py
+  ```
+  Oczekiwane: zestaw zielony, a brak pliku pinu albo wzorzec z gwiazdką w nim pada.
+- **Skończone, gdy:** plik pinu istnieje, jego wersja jest pełną trójką (nie wzorcem),
+  jej numer główny zgadza się z docelową platformą projektów, a wszystkie miejsca
+  podające wersję w workflowach są ze sobą zgodne — każdy z tych czterech warunków
+  sprawdzony osobną asercją, plus kontrola negatywna na parser, żeby bramka nie
+  przechodziła przez zwrócenie pustego zbioru.
+- **Poza zakresem:** podniesienie wersji SDK i zmiana docelowej platformy projektów.
+- **Zależy od:** brak.
+
+##### 6.D80 · Predykat profilu pionowego przepuszcza status nieznany i literówkę
+
+- **Skąd:** zmierzone 09.09.2026 sondą wołającą prawdziwy typ osi:
+
+  ```
+  brak klucza vertical           IsVerticalModelled=True
+  status=unknown                 IsVerticalModelled=True
+  status=literowka nod_modelled  IsVerticalModelled=True
+  status=not_modelled            IsVerticalModelled=False
+  ```
+- **Co dziś jest liczone z profilu, którego nie ma:** nic. Jedyni konsumenci predykatu
+  to dwa testy, oba oczekujące fałszu, a pochylenie wchodzi do fizyki jako zero
+  z jawnym komentarzem, że to nie jest wybór. Szkoda jest KONTRAKTOWA: pierwszy
+  konsument, który zaufa predykatowi, policzy zerowe pochylenie jako ZMIERZONE,
+  a nie jako założenie — czyli przekroczy granicę z `docs/21-measured-vs-assumed.md`.
+- **Wejście:** `src/Sim/Line/TrackAxis.cs`, `tests/Sim.Tests/TrackAxisTests.cs`,
+  `data/track/*.json` (tylko do czytania), `docs/21-measured-vs-assumed.md`.
+- **Wyjście:** zamknięta biała lista statusów pozytywnych — dziś pusta, więc predykat
+  jest fałszywy dla wszystkiego; status nieznany, brak klucza i każda nierozpoznana
+  wartość dają fałsz.
+- **Weryfikacja:**
+  ```bash
+  dotnet test tests/Sim.Tests
+  ```
+  Oczekiwane: wszystkie testy zielone, w tym nowy o osi bez klucza profilu.
+- **Skończone, gdy:** oś syntetyczna bez klucza profilu daje predykat fałszywy,
+  literówka w statusie też, a przywrócenie negacji jednej wartości wywraca ten test.
+- **Poza zakresem:** dopisywanie jakiegokolwiek statusu do `data/` (reguła 6 i 1)
+  oraz wyprowadzanie pochylenia z osi — rzędnych główki szyny nadal nie ma.
+- **Zależy od:** brak.
+
+##### 6.D81 · Ścieżka SDK ze spacją ginie w eval, a wiersz o wersji znika
+
+- **Skąd:** zmierzone 09.09.2026, atrapa wykonywalna w katalogu `sdk with space`,
+  `HOME` i katalog tymczasowy podstawione, bez instalowania czegokolwiek:
+
+  ```
+  --- doctor.sh z DOTNET_BIN ze spacja ---
+    BRAK  dotnet SDK  -> zainstaluj .NET SDK 10.0+
+  === KONTROLA: ta sama atrapa, katalog BEZ spacji ===
+    ok    dotnet SDK
+    ok    dotnet SDK >= 10 (jest 10)
+  ```
+- **Dlaczego to nie tylko fałszywy negatyw:** dwa miejsca dalej w tym samym pliku
+  ścieżka JEST cytowana poprawnie, więc pełny przebieg zameldowałby brak SDK
+  w sekcji środowiska i kilkadziesiąt wierszy niżej uruchomiłby testy tym samym
+  plikiem, meldując `ok`. To wewnętrzna sprzeczność jednego raportu.
+  `CLAUDE.md` §2 każe uruchamiać ten skrypt przed KAŻDYM zadaniem.
+- **Wejście:** `doctor.sh` (funkcja sprawdzająca, dwa użycia ścieżki SDK oraz wiersz
+  z Blenderem jako wzorzec cytowania), `tools/tests/test_dotnet_version.py`.
+- **Wyjście:** ścieżka cytowana dla drugiego parsowania w obu miejscach, albo funkcja
+  sprawdzająca przyjmująca argumenty jako tablicę i wołająca je bez `eval` — wtedy
+  problem znika dla wszystkich trzech narzędzi naraz.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_dotnet_version.py
+  ```
+  Oczekiwane: zestaw zielony, a atrapa w katalogu ze spacją daje `ok dotnet SDK`.
+- **Skończone, gdy:** atrapa w katalogu ze spacją i atrapa w katalogu bez spacji dają
+  ten sam wynik, oba sprawdzone bramką, a zdjęcie cytowania wywraca ją.
+- **Poza zakresem:** zmiana progów wersji i szukania kandydatów na dysku.
+- **Zależy od:** 6.D57.
+
+##### 6.D82 · Panel interfejsu ucina wiersz przy węższym widoku
+
+- **Skąd:** zmierzone 09.09.2026, trzy zrzuty z silnika przy 1280 x 720 i 800 x 600.
+  Na szerokim panel ma widoczną prawą krawędź i odstęp od brzegu; na węższym tło
+  wchodzi w brzeg i jest ucięte, a przy długiej nazwie stacji ucięty jest sam napis:
+  widoczne „za 1", bez pozostałych cyfr i bez jednostki.
+- **Dlaczego to nie estetyka:** gracz przy węższym widoku nie odczyta, ile zostało do
+  peronu. To utrata informacji sterującej, nie wygląd — a `CLAUDE.md` §8 wyklucza
+  z kolejki wyłącznie oceny estetyczne, nie ucięte liczby.
+- **Wejście:** `src/Game/Scenes/FirstRun.tscn` (węzeł panelu i wiersze),
+  `src/Game/project.godot` (rozdzielczość bazowa), `src/Game/UI/Hud.cs`.
+- **Wyjście:** panel zakotwiczony po obu stronach z odsunięciem od prawej krawędzi
+  i zawijanie na wierszu pozycji; kolory i styl bez zmian.
+- **Weryfikacja:**
+  ```bash
+  dotnet test tests/Game.Tests
+  ```
+  Oczekiwane: wszystkie testy zielone, w tym nowy o prostokątach elementów.
+- **Skończone, gdy:** prostokąt panelu i każdej widocznej etykiety zawiera się
+  w prostokącie widoku dla 800 x 600, 1280 x 720 i 1920 x 1080 przy NAJDŁUŻSZEJ
+  nazwie stacji z danych osi, a przywrócenie dzisiejszych kotwic wywraca ten test.
+- **Poza zakresem:** dobór kolorów i układu wierszy, czyli ocena estetyczna.
+- **Zależy od:** brak.
+
+##### 6.D83 · Teksty interfejsu bez kluczy, nazwy dwujęzyczne nieparsowane
+
+- **Skąd:** zmierzone 09.09.2026. Trzy napisy interfejsu niosą cztery słowa językowe,
+  scena siedem literałów zastępczych, a przeszukanie warstwy gry pod wywołania funkcji
+  tłumaczącej, pliki katalogu tekstów i sekcję konfiguracji daje **zero trafień**.
+  Nazwy stacji SĄ brane z danych i SĄ dwujęzyczne — ale nigdzie nie ma podziału po
+  separatorze, więc na ekranie stoi dosłownie nazwa złączona kreską.
+- **Dlaczego to spina się z pozycją o panelu:** to właśnie dwujęzyczna nazwa ucina
+  wiersz przy węższym widoku. Jeden objaw, dwie przyczyny.
+- **Wejście:** `src/Game/UI/Hud.cs`, `src/Game/Scenes/FirstRun.tscn`,
+  `src/Game/project.godot`, `data/track/L1_A.json` (tylko do czytania — pola nazw
+  francuskiej i niderlandzkiej są tam gotowe), `src/Sim/Line/TrackAxis.cs`.
+- **Wyjście:** szablony wierszy interfejsu w katalogu kluczy z polskim jako domyślnym,
+  formatowanie liczb bez zmian; nazwa stacji brana z gotowych pól jednojęzycznych,
+  a nie parsowana z separatora.
+- **Weryfikacja:**
+  ```bash
+  dotnet test tests/Game.Tests
+  ```
+  Oczekiwane: wszystkie testy zielone, w tym nowy o kompletności katalogu.
+- **Skończone, gdy:** usunięcie używanego klucza z katalogu domyślnego wywraca test
+  (a nie wyświetla cicho nazwy klucza), a w metodach interfejsu nie ma ani jednego
+  literału językowego — jednostki i formaty liczb zostają.
+- **Poza zakresem:** dodanie drugiego języka i tłumaczenie czegokolwiek; ta pozycja
+  robi miejsce, nie treść. Nie ruszać `data/`.
+- **Zależy od:** 6.D82.
+
+##### 6.D84 · Test zakłada wolną nazwę w katalogu tymczasowym
+
+- **Skąd:** zmierzone 09.09.2026:
+
+  ```
+  == BASELINE (bez podstawienia) ==  23/23 przeszło
+  == Z podstawionym katalogiem ==    22/23 przeszło (guard pada)
+  ```
+- **Dlaczego mimo odwrotnego kierunku:** fałszywy alarm zależny od obcego stanu jest
+  osobną kategorią usterki w tym projekcie (6.D27) — bramkę, która pada nie ze swojego
+  powodu, ktoś w końcu wyłączy. Wagi to nie podnosi, ale nie znosi pozycji.
+- **Wejście:** `tools/tests/test_assertion_gate.py` (test braku artefaktu oraz test
+  przeciwny o dwa niżej, który już używa katalogu prywatnego — wzorzec jest na miejscu),
+  `tools/tests/test_dotnet_version.py` (wzorzec z 6.D57).
+- **Wyjście:** prywatny katalog tymczasowy, ścieżka do jego NIEUTWORZONEGO dziecka
+  i **zachowana** asercja nieistnienia — jak w 6.D57 konstruuje się warunek i mimo to
+  się go dowodzi. Po poprawce bramka sprawdza dwie rzeczy zamiast jednej.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_assertion_gate.py
+  ```
+  Oczekiwane: zestaw zielony także przy celowo zajętej nazwie w katalogu tymczasowym.
+- **Skończone, gdy:** moduł przechodzi przy zajętej nazwie po poprawce, a powrót do
+  stałej ścieżki przy tak samo zajętej nazwie wywraca go.
+- **Poza zakresem:** zmiana tego, co ten test sprawdza merytorycznie.
+- **Zależy od:** 6.D57.
+
+##### 6.D85 · Test zgodności ze schematem nie sprawdza typów ani wzorców
+
+- **Skąd:** zmierzone 09.09.2026, cztery mutacje manifestu zastępczego:
+
+  ```
+  typ pola logicznego  -> 9/9 przeszło  exit=0
+  typ pola listowego   -> 9/9 przeszło  exit=0
+  identyfikator/wzorzec-> 9/9 przeszło  exit=0
+  pole dodatkowe       -> 9/9 przeszło  exit=0
+  ```
+
+  Mutacja wykonana też na pliku w repozytorium i przywrócona: `md5sum -c` = `OK`.
+- **Dlaczego waga jest tu podwójna:** to jedyna kontrola pola decydującego
+  o redystrybucji, a `docs/03-legal.md` stawia na tym polu blokadę prawną. Dziś
+  drogi szkody nie ma (wszystkie zasoby są zastępcze, prawdziwego dźwięku nie ma),
+  więc to dług przyrządu, nie czynne naruszenie — i tak trzeba to czytać.
+- **Wejście:** `tools/tests/test_audio_rights.py`, `data/audio/placeholders.json`
+  (tylko do czytania), schemat manifestu leżący obok niego.
+- **Wyjście:** kontrola typu, wzorca i zakazu pól dodatkowych w tej samej pętli,
+  bez dodawania zależności — mapa typów schematu na typy języka wystarcza. Alternatywa
+  uczciwsza: przemianować test na to, co naprawdę sprawdza, i dodać osobny na typy.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_audio_rights.py
+  ```
+  Oczekiwane: zestaw zielony, a każda z czterech mutacji pada.
+- **Skończone, gdy:** wszystkie cztery mutacje z pola „Skąd" wywracają bramkę,
+  a manifest dzisiejszy nie daje ani jednego fałszywego alarmu.
+- **Poza zakresem:** dopisywanie zależności do projektu i zmiana samego schematu.
+- **Zależy od:** brak.
+
+##### 6.D86 · Deklarowane maksimum przyspieszenia nie zgadza się z modelem
+
+- **Skąd:** zmierzone 09.09.2026, przeliczenie ze wzorów kodu dla dwóch obciążeń:
+  1,342 m/s² dla pustego składu i 1,025 m/s² dla obciążonego, wobec liczby z tabeli.
+  Rachunek odtwarza się co do ósmej cyfry; sufit przyczepnościowy jest wyżej od siły
+  rozruchowej, więc nie wiąże.
+- **Dlaczego to pozycja o dokumencie, nie o fizyce:** liczba z tabeli nie występuje
+  w kodzie ani w danych pojazdu, żaden test jej nie czyta, obcięcia nie ma. Ryzyko
+  jest przyszłe — ktoś weźmie tablicę referencyjną za kontrakt i dopisze sufit.
+  Dlatego waga niska, a nie wysoka, i oś dokumentacyjna, a nie symulacyjna.
+- **Wejście:** `docs/02-simulation.md` (tabela), `src/Sim/Train/TrainController.cs`,
+  `tools/physics/reference.py`, `data/vehicle/m7-spec.json` (tylko do czytania).
+- **Wyjście:** wiersz tabeli mówi wielkość WYNIKOWĄ dla obu obciążeń, z zapisem, że
+  nie jest to egzekwowany sufit i z czego wynika. Żadnego obcięcia w kodzie.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_physics_reference.py
+  ```
+  Oczekiwane: zestaw zielony, a liczby z tabeli zgodne z przeliczeniem z modelu.
+- **Skończone, gdy:** bramka liczy przyspieszenie rozruchu z modelu dla obu obciążeń
+  i porównuje z tabelą, a przywrócenie dzisiejszego wiersza ją wywraca. Bramka musi
+  odróżniać zmianę modelu od zmiany jego opisu.
+- **Poza zakresem:** dobór wartości projektowej dla pojazdu — plik pojazdu sam wpisuje
+  ten parametr jako nieznany, więc to decyzja właściciela, nie ta pozycja.
+- **Zależy od:** brak.
+
+##### 6.D87 · README zaprzecza istniejącemu API wielu składów
+
+- **Skąd:** zmierzone 09.09.2026, zestawienie zdania README z API rdzenia i z nazwami
+  testów. Rozróżnienie, które README zaciera: jeden skład to prawda o WIDOKU w silniku
+  (etap pierwszy zadania o kabinie), nie o rdzeniu.
+- **Dlaczego to nie kosmetyka:** README jest pierwszym, co czyta nowy człowiek
+  i agent; zdanie o braku zdolności, która istnieje, kieruje pracę w złe miejsce.
+  Szkody wykonawczej nie ma — kod jest poprawny, myli się podsumowanie.
+- **Wejście:** `README.md` (sekcja „Czego nie ma"), `src/Sim/Line/LineCore.cs`,
+  `tests/Sim.Tests/LineCoreTests.cs`, `docs/TASKS.md` (stan zadania o wielu składach),
+  `tools/tests/test_readme_claims.py`.
+- **Wyjście:** punkt rozbity na dwa zdania — co potrafi rdzeń i co pokazuje widok —
+  oraz stan zadania zgodny z kolejką.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_readme_claims.py
+  ```
+  Oczekiwane: zestaw zielony, a zdanie o jednym składzie zapala bramkę.
+- **Skończone, gdy:** bramka wiąże każdy punkt „Czego nie ma" z jawną listą nazw
+  z rdzenia i pada, gdy nazwa istnieje; przywrócenie dzisiejszego zdania ją wywraca.
+  Bramka nie może liczyć plików ani wierszy.
+- **Poza zakresem:** przeliczanie wklejonych wyników historycznych w README.
+- **Zależy od:** brak.
+
+##### 6.D88 · Sonda silnika nie porównuje zgłaszanej wersji z pinem
+
+- **Skąd:** zmierzone 09.09.2026, zestawienie sondy silnika z instalatorem Blendera.
+  Oba wywołania wersji silnika są wypisami, nie porównaniami.
+- **Dlaczego waga jest niższa, niż nadał audyt:** u Blendera sonda pytała
+  o nieuwersjonowaną nazwę w ścieżce systemowej, a menedżer pakietów kładł tam realne,
+  rutynowo spotykane stare wydanie — powód opisany w `CLAUDE.md` §9. Sonda silnika
+  pyta o ścieżkę zawierającą wersję w katalogu i w nazwie pliku, więc podłożenie innej
+  wersji wymaga ręcznego działania wbrew treści. Zostaje luka kontraktowa, nie
+  scenariusz rutynowy.
+- **Wejście:** `.github/workflows/godot-first-run.yml` (krok sondy),
+  `tools/ci/blender_install.sh` (wzorzec porównania), `tools/tests/test_engine_version.py`.
+- **Wyjście:** sonda porównuje zgłaszaną wersję z pinem (z normalizacją zapisu) i przy
+  rozjeździe melduje brak, a nie obecność.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_engine_version.py
+  ```
+  Oczekiwane: zestaw zielony, a atrapa zgłaszająca inną wersję daje „brak".
+- **Skończone, gdy:** atrapa wykonywalna zgłaszająca inną wersję, z katalogiem obok,
+  daje „brak" zamiast „obecny", a zdjęcie porównania wywraca ten test.
+- **Poza zakresem:** suma kontrolna pobrania silnika — to jest 6.D68.
+- **Zależy od:** 6.D68.
+
+##### 6.D89 · Klasa pochodzenia parametru nieaktualna w dwóch plikach
+
+- **Skąd:** zmierzone 09.09.2026, trzy zapisy obok siebie: skrót dla agenta, wstęp
+  dokumentu modelu i rzeczywiste wartości w danych pojazdu. Rozjeżdża się jedna nazwa
+  z trzech; czwartej klasy z dokumentu skrót nie wymienia wcale. Jedna z wymienionych
+  klas nie występuje w danych ANI RAZU, mimo że dokument ją nadal definiuje.
+- **Dlaczego to nie „skrót rozjechał się z dokumentacją":** pomiar pokazuje starszą
+  literę słownika przetrwałą w DWÓCH plikach, gdy dokument modelu i dane pojazdu
+  przeszły na nowszą. To rozjazd dwustronny, nie jednostronne uproszczenie.
+- **Wejście:** `.claude/skills/sim-physics/SKILL.md`, `docs/02-simulation.md`,
+  `docs/07-open-data-research.md`, `data/vehicle/m7-spec.json` (tylko do czytania),
+  `docs/05-glossary.md`.
+- **Wyjście:** skrót odsyła do dokumentu modelu zamiast powtarzać listę, a nazwa
+  w drugim pliku poprawiona; cytaty historyczne w dokumencie o danych źródłowych
+  zostają nietknięte.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_glossary.py
+  ```
+  Oczekiwane: zestaw zielony, a nazwa poza zbiorem z dokumentu modelu zapala bramkę.
+- **Skończone, gdy:** zbiór klas jest PARSOWANY z dokumentu modelu (jedno źródło
+  prawdy), a każda klasa cytowana w skillach, w dokumencie o danych źródłowych i każda
+  wartość w danych pojazdu do niego należy; dopisanie klasy do dokumentu nie zapala
+  niczego, bo dokument jest źródłem, nie kopią.
+- **Poza zakresem:** zmiana klasyfikacji i cytatów historycznych.
+- **Zależy od:** brak.
+
+##### 6.D90 · Narzędzie mutacyjne brudzi dane w miejscu i myli kontrole czystości
+
+- **Skąd:** zaobserwowane 09.09.2026 z dwóch stron niezależnie: `git status` pokazujący
+  zmodyfikowany plik osi, oraz suma kontrolna zgodna z wierzchołkiem po zakończeniu
+  okna mutacji. Zewnętrzna kontrola czystości zgłosiła w tym oknie naruszenie.
+- **Dlaczego to pozycja, a nie ciekawostka:** reguła 6 konstytucji („`data/` jest tylko
+  do odczytu") jest w tym repozytorium regułą twardą, a narzędzie z `tools/tests/`
+  ją okresowo łamie — legalnie i przywracalnie, ale nieodróżnialnie od złamania
+  przypadkowego. Agent trzymający regułę zobaczy naruszenie, którego nie popełnił,
+  i albo zacommituje mutację, albo ją cofnie w środku cudzego pomiaru.
+- **Wejście:** `tools/tests/mutation_sweep.py` (mutacja w miejscu i przywracanie),
+  `CLAUDE.md` §4.6, `tools/tests/test_manifest_write_policy.py`.
+- **Wyjście:** mutacja idzie na kopię w drzewie roboczym robotnika, a nie na plik
+  w `data/`; albo — jeśli kopia jest niewykonalna — narzędzie zostawia na czas
+  przebiegu jawny znacznik mówiący, że okno mutacji trwa, żeby kontrola czystości
+  mogła go odczytać zamiast zgadywać.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_mutation_sweep.py
+  ```
+  Oczekiwane: zestaw zielony, a `git status` w trakcie przebiegu nie pokazuje `data/`.
+- **Skończone, gdy:** pełny przebieg narzędzia nie pokazuje ani jednego pliku z `data/`
+  jako zmodyfikowanego w żadnym momencie, sprawdzone pomiarem w trakcie, a nie po.
+- **Poza zakresem:** zmiana zbioru mutacji i sposobu liczenia wyników.
+- **Zależy od:** brak.
+
+##### 6.D91 · Linia do kontroli osi wnioskowana z nazwy pliku
+
+- **Skąd:** zmierzone 09.09.2026:
+
+  ```
+  === --line L2 ===  ·  kolejność stacji zgodna z lines.json (L2)
+  === --line L6 ===  X  kolejność stacji niezgodna z lines.json dla L6
+  ```
+
+  Krok CI podaje wyłącznie pierwszą z tych dwóch linii, bo bierze ją z prefiksu nazwy
+  pliku. Druga nie jest wołana nigdy.
+- **Dlaczego to pozycja bez decyzji właściciela:** pytanie, czy dana stacja należy do
+  drugiej linii, jest pytaniem o dane i leży w „Czego agent nie ruszy bez decyzji".
+  Ale to, że oś ma deklarować swoje linie jawnie zamiast być wnioskowaną z nazwy pliku,
+  jest niezależne od tamtej odpowiedzi i rozstrzygalne bez niej.
+- **Wejście:** `.github/workflows/python-tests.yml` (krok walidacji osi),
+  `tools/track/validate.py`, `data/track/*.json` (do czytania),
+  `tools/tests/test_ci_workflows.py`.
+- **Wyjście:** oś deklaruje listę linii, które z niej korzystają, a krok CI sprawdza
+  KAŻDĄ z nich zamiast wnioskować jedną z nazwy pliku.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_validate_axis.py
+  ```
+  Oczekiwane: zestaw zielony, a usunięcie stacji z dowolnej linii deklarowanej przez
+  oś zapala kontrolę.
+- **Skończone, gdy:** usunięcie dowolnej stacji ze zbioru przystanków dowolnej linii
+  deklarowanej przez oś zapala kontrolę — dziś takie usunięcie z drugiej linii
+  przechodzi bez śladu. Dopisanie deklaracji nie wymaga zmiany wartości w `data/`.
+- **Poza zakresem:** rozstrzygnięcie, czy stacja należy do drugiej linii — to pytanie
+  właściciela, wpisane osobno.
+- **Zależy od:** brak.
+
 ### Czego agent nie ruszy bez decyzji
 
 Poniższe **nie są kolejką** — są listą rzeczy, które czekają na właściciela. Agent po nie
@@ -6500,7 +7003,7 @@ nie sięga, nawet gdy nie ma nic innego do roboty; wtedy sięga po fazę 5.
 | **6.A4** propagacja opóźnienia | przeniesione z kolejki 05.09.2026. Wpis T-320 ma sekcję STOP: „model perturbacji i polityka dyspozytora **nie są opisane w żadnym dokumencie**. Agent zatrzymuje się i pyta, zamiast wybierać sam”. Wiersz kolejki bronił się liczbą — „rozkład postojów jest zmierzony, 29 554 zatrzymań, 12–45 s” — ale zmierzony jest **rozkład postojów**, nie wielkość zaburzenia. Skąd wzięło się 30 s, nie mówi żadne źródło, a to jest właśnie model perturbacji |
 | **6.B3** LOD tuneli pakietów B–F | przeniesione z kolejki 05.09.2026, po tym jak audyt (`reports/kolejka-audyt-aktualnosci.md` §1) pokazał, że pozycja opisuje trzy różne stany naraz. **B i E mają LOD od T-210** — wpis T-210 podaje „szczelina między chunkami, poziomami LOD i w bryle kolizyjnej 0,0000 mm w każdym pakiecie”. **C, D i F czekają na wiersz wyżej**, czyli na decyzję, co budować zamiast rury: `reports/surface-vs-tunnel.md` §1 podaje, że wszystkie 81 punktów sprzecznych między UrbIS a OSM leży w D (48) i F (33). Zostaje więc zero pracy, której nie blokuje tamta decyzja |
 | **turnback, perturbacje, dispatcher** w T-320 | nie ma ich w żadnym dokumencie |
-| **Madou na L6** — dopisać czy nie | zmierzone 09.09.2026 na `f425908`: L6 ma 18 z 19 przystanków L2, a brakujący jest WEWNĘTRZNY — w L6 jego dwaj sąsiedzi z L2 stoją obok siebie, więc poza tą jedną dziurą sekwencja jest identyczna. Wzorzec obsługi wyrzucałby odcinek, nie jeden przystanek w środku, ale **twierdzenia o sieci się nie zgaduje** (`CLAUDE.md` §4.1). Dopisanie tknęłoby `data/`, które jest tylko do odczytu, i wymagałoby też podniesienia deklarowanej liczby przystanków L6 — plik jest dziś wewnętrznie spójny i właśnie dlatego żadna bramka tego nie widzi. Zgłoszone w audycie zewnętrznym jako F-006, pomiar w `reports/audyt-weryfikacja.md` §5 |
+| **Madou na L6** — dopisać czy nie | zmierzone 09.09.2026 na `f425908`: L6 ma 18 z 19 przystanków L2, a brakujący jest WEWNĘTRZNY — w L6 jego dwaj sąsiedzi z L2 stoją obok siebie, więc poza tą jedną dziurą sekwencja jest identyczna. Wzorzec obsługi wyrzucałby odcinek, nie jeden przystanek w środku, ale **twierdzenia o sieci się nie zgaduje** (`CLAUDE.md` §4.1). Dopisanie tknęłoby `data/`, które jest tylko do odczytu, i wymagałoby też podniesienia deklarowanej liczby przystanków L6 — plik jest dziś wewnętrznie spójny i właśnie dlatego żadna bramka tego nie widzi. **Mechanizm ukrycia nazwany 09.09.2026:** kontrola zgodności osi z linią DZIAŁA i przy wywołaniu z drugą linią zgłasza niezgodność wprost — tylko krok CI wyprowadza nazwę linii z PREFIKSU NAZWY PLIKU osi, więc oś wspólnego pierścienia jest sprawdzana wobec jednej linii, a obsługują ją dwie. Część niezależna od tej decyzji (oś ma deklarować swoje linie jawnie) jest osobną pozycją kolejki. Zgłoszone w audycie zewnętrznym jako F-006, pomiar w `reports/audyt-weryfikacja.md` §5 |
 | **59 czy 60 stacji** — reguła liczenia | zmierzone 09.09.2026: suma unikalnych przystanków z czterech linii daje **60**, a `network.metro_stations` w `data/network/lines.json` oraz `docs/00-network-data.md` mówią **59**. Najprawdopodobniejsze wyjaśnienie to dwie połowy jednego kompleksu liczone raz, ale **nic w repozytorium tego nie mówi i żadna bramka tych dwóch liczb nie zestawia**. Potrzebna decyzja, którą liczbę uznać za prawdziwą i jak brzmi reguła liczenia — dopiero wtedy da się ją obramkować. Audyt tego nie zgłosił; wyszło przy weryfikacji pozycji wyżej |
 
 #### Rozstrzygnięte 07.09.2026 — cztery decyzje właściciela
