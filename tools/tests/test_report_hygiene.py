@@ -277,7 +277,7 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 #: Kto dopisze następny raport, nie przepisuje tej liczby z pamięci ani z tego
 #: akapitu, tylko mierzy ją **na swoim drzewie po scaleniu `main`** — komunikat
 #: asercji podaje wynik pomiaru wprost, żeby nie było potrzeby zgadywania.
-MIN_REPORTS = 181
+MIN_REPORTS = 182
 
 #: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
 #: wierszem zaczynającym się od `**`, z którego `_header_shapes` czyta kształt.
@@ -710,7 +710,18 @@ def test_lista_wyjatkow_jest_zamknieta():
 #: DLACZEGO SYGNAŁ JEST CZYSTY. Jedno trafienie na 48 plików i ~1500 tokenów w
 #: grawisach. Wzorzec bierze wyłącznie tokeny z ukośnikiem i ze znanym rozszerzeniem,
 #: więc `sweep.max_deviation` czy `docs/24` przez niego nie przechodzą.
-PATH_TOKEN = re.compile(r'`([A-Za-z0-9_][A-Za-z0-9_./-]*\.'
+#: MARTWE POLE ZDJĘTE 09.09.2026 (6.D59) — wzorzec PRZEPISANY, nie dopisany obok.
+#: Poprzednia wersja startowała token znakiem z `[A-Za-z0-9_]`, więc ścieżka
+#: zaczynająca się KROPKĄ nie wchodziła do skanu wcale. Zmierzone: **26 wzmianek
+#: w 18 raportach**, wszystkie pod `.github/`, były dla bramki niewidzialne — i to
+#: w bramce, której jedynym zadaniem jest łapanie odsyłaczy w puste miejsce. Każda
+#: z tych 26 rozwiązuje się dziś w drzewie, więc pozycja nie naprawiła usterki
+#: w raportach, tylko PRZYRZĄD, który jej nie umiał zobaczyć.
+#:
+#: Kropka jest dopuszczona TYLKO przed nazwą katalogu (`(?=[A-Za-z0-9_]+/)`), więc
+#: `.gitignore` i `.plik.md` nadal nie wchodzą: dotfile bez katalogu nie jest
+#: ścieżką repozytoryjną, którą ta bramka umie sprawdzić.
+PATH_TOKEN = re.compile(r'`((?:\.(?=[A-Za-z0-9_]+/))?[A-Za-z0-9_][A-Za-z0-9_./-]*\.'
                         r'(?:py|cs|md|json|sh|yml|yaml|txt|csproj|tscn|geojson|csv))`')
 
 #: ILE ŚCIEŻEK NA RAPORT musi znaleźć wzorzec. Nie jest to stała porównywana
@@ -765,12 +776,6 @@ ROZSZERZENIA_PILNOWANE = ("py", "cs", "md", "json", "sh", "yml", "yaml", "txt",
 #: wpis zdjąć. Bez tej drugiej strony lista gniłaby po cichu, dokładnie tak jak
 #: `COMMIT_EXCEPTIONS` bez `test_lista_wyjatkow_nie_gnije`.
 ROZSZERZENIA_BEZ_TRAFIEN = {
-    "yml": "raporty wymieniają workflowy pełną ścieżką (22 wzmianki w 15 "
-           "raportach, wszystkie pod `.github/`), ale `PATH_TOKEN` zaczyna token "
-           "znakiem z `[A-Za-z0-9_]`, więc ścieżka rozpoczynająca się KROPKĄ nie "
-           "wchodzi. Zero jest tu wynikiem martwego pola wzorca, nie brakiem "
-           "wzmianek — zgłoszone osobną pozycją, bo zmiana wzorca jest poza "
-           "zakresem 6.D58",
     "yaml": "w drzewie nie ma ani jednego pliku `.yaml` (`git ls-files '*.yaml'` "
             "daje 0); rozszerzenie stoi we wzorcu, bo YAML dopuszcza oba zapisy",
     "geojson": "w drzewie nie ma ani jednego pliku `.geojson`, więc raport nie "
@@ -1024,8 +1029,11 @@ def test_podloga_sciezek_na_raport_jest_ZABOKSOWANA_pomiarami():
 def test_wzorzec_sciezki_lapie_to_co_ma_i_nie_lapie_prozy():
     """Kontrola detektora: bez niej test wyżej byłby zielony także przy martwym wzorcu.
 
-    Cztery pary, każda z powodem — po jednej na sposób, w jaki ten wzorzec mógłby
-    cicho przestać być pomiarem.
+    Sześć par, każda z powodem — po jednej na sposób, w jaki ten wzorzec mógłby
+    cicho przestać być pomiarem. Dwie ostatnie doszły z 6.D59: kropka na początku
+    ścieżki była martwym polem wzorca przez cały czas jego istnienia i **żadna
+    z czterech wcześniejszych par by tego nie pokazała**, bo wszystkie mierzyły
+    to, co wzorzec łapie albo odrzuca po prawej stronie kropki.
     """
     def found(line):
         return [t for t, _n in _paths_in(line)]
@@ -1039,6 +1047,15 @@ def test_wzorzec_sciezki_lapie_to_co_ma_i_nie_lapie_prozy():
     assert found("artefakt `build/t400/scene-line.log`") == []
     # 4. Odsyłacz bez rozszerzenia nie jest ścieżką pliku.
     assert found("patrz `docs/24` i `tools/ci`") == []
+    # 5. Ścieżka zaczynająca się KROPKĄ jest ścieżką — 6.D59. Do 09.09.2026 wzorzec
+    #    jej nie widział i 26 wzmianek w 18 raportach nie było sprawdzanych.
+    assert found("workflow `.github/workflows/python-tests.yml` i skill "
+                 "`.claude/skills/heartbeat/SKILL.md`") == [
+        ".github/workflows/python-tests.yml", ".claude/skills/heartbeat/SKILL.md"]
+    # 6. Dotfile BEZ katalogu ścieżką repozytoryjną w tym sensie nie jest — kropka
+    #    jest dopuszczona tylko przed nazwą katalogu, więc rozszerzenie wzorca
+    #    z pary 5 nie otwiera go na cokolwiek z kropką z przodu.
+    assert found("plik `.gitignore` oraz `.plik.md`") == []
 
 
 def test_lista_wyjatkow_od_sciezek_nie_gnije():
