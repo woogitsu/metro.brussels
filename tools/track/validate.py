@@ -11,6 +11,10 @@ class Report:
     def W(self,m): self.warn.append(m)
     def I(self,m): self.info.append(m)
     def ok(self): return not self.err
+    # Kod wyjścia BEZ wypisywania raportu. `dump()` robi obie rzeczy naraz, więc test
+    # pytający o kod zaśmiecał stdout całym raportem — a test, który drukuje, zniechęca
+    # do sprawdzania kodu i przez to sprawdza się go rzadziej (6.D69).
+    def dump_kod(self): return 0 if self.ok() else 1
     def dump(self):
         for m in self.info: print(f"  ·   {m}")
         for m in self.warn: print(f"  !   {m}")
@@ -185,6 +189,36 @@ def validate(path, expect_line=None, expect_package=None):
                 elif _is_subsequence(names,list(reversed(line["stops"]))): r.I(f"kolejność stacji zgodna z lines.json ({expect_line}), oś biegnie odwrotnie do kolejności z listy")
                 else: r.E(f"kolejność stacji niezgodna z lines.json dla {expect_line}")
         except FileNotFoundError: r.W("nie znaleziono data/network/lines.json — pominięto kontrolę zgodności")
+    # 6.D69: do 09.09.2026 `expect_package` stało WYŁĄCZNIE w sygnaturze tej funkcji
+    # i w parserze opcji — ciało nie czytało go ani razu. Opcja była przyjmowana,
+    # a wywołanie z celowo złą nazwą pakietu kończyło się kodem sukcesu, czyli
+    # narzędzie meldowało sprawdzenie, którego nie zrobiło. To ta sama rodzina co
+    # 6.A19: nazwa istnieje, zachowania nie ma.
+    #
+    # Sprawdzane są DWIE rzeczy, nie jedna: że oś deklaruje ten pakiet, i że jej
+    # deklaracja zgadza się z rejestrem `build_packages`. Samo porównanie
+    # identyfikatora przepuściłoby oś, która nazywa się „D", a biegnie skądinąd
+    # dokądinąd — czyli sprawdzałoby napis, nie pakiet.
+    if expect_package:
+        pkg = d.get("package") or {}
+        if not pkg:
+            r.E(f"oś nie deklaruje pola `package`, więc nie da się jej przypisać do {expect_package}")
+        elif pkg.get("id") != expect_package:
+            r.E(f"oś deklaruje pakiet {pkg.get('id')!r}, a żądano {expect_package!r}")
+        else:
+            try:
+                with open(NET,encoding="utf-8") as f: net=json.load(f)
+                entry=next((b for b in net.get("build_packages",[]) if b.get("id")==expect_package),None)
+                if not entry: r.E(f"pakiet {expect_package} nie istnieje w lines.json")
+                else:
+                    rozjazd=[k for k in ("name","from","to") if pkg.get(k)!=entry.get(k)]
+                    if rozjazd:
+                        r.E("pakiet " + expect_package + " rozjeżdża się z lines.json w polach "
+                            + ", ".join(f"{k}: {pkg.get(k)!r} wobec {entry.get(k)!r}" for k in rozjazd))
+                    else:
+                        r.I(f"pakiet {expect_package} zgodny z lines.json ({entry.get('name')}: "
+                            f"{entry.get('from')} → {entry.get('to')})")
+            except FileNotFoundError: r.W("nie znaleziono data/network/lines.json — pominięto kontrolę pakietu")
     for i,sl in enumerate(d.get("speed_limits",[])):
         if sl["from_m"]>=sl["to_m"]: r.E(f"ograniczenie {i}: from_m >= to_m")
         if not (5<=sl["kmh"]<=80): r.E(f"ograniczenie {i}: {sl['kmh']} km/h poza zakresem 5–80")

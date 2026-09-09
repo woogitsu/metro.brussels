@@ -94,7 +94,11 @@ jobs:
           for axis in data/track/*.json; do
             case "$axis" in *.provenance.json) continue;; esac
             id="$(basename "$axis" .json)"
-            python3 tools/track/validate.py "$axis" --line "${id%%_*}"
+            # `--package` obok `--line` — 6.D69. Opcja istniała, była przyjmowana
+            # i nie wpływała na werdykt; teraz sprawdza, że oś deklaruje ten pakiet
+            # i że jej deklaracja zgadza się z `build_packages` w lines.json.
+            # Wołana w CI, bo opcja niewołana starzeje się tak samo cicho jak pusta.
+            python3 tools/track/validate.py "$axis" --line "${id%%_*}" --package "${id##*_}"
             found=$((found + 1))
           done
           echo "zwalidowanych osi: $found"
