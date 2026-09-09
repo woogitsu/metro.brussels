@@ -62,7 +62,7 @@ których agent nie ruszy bez decyzji właściciela.
   (`reports/network-chainage.md`)
 - **Zależy od:** T-110
 
-### [ ] T-112 · Profil pionowy pakietu A — **CZĘŚCIOWO ODBLOKOWANE 07.09.2026**
+### [ ] T-112 · Profil pionowy pakietu A — **ZABLOKOWANE (wariant `production` czeka na T-901)**
 - **Wpis przepisany, a nie dopisany obok.** Poprzednia wersja zaczynała się od
   „**Blokada:** brak publicznych rzędnych główki szyny" i to zdanie było prawdziwe
   jako opis danych, a **nieprawdziwe jako opis tego, co da się zrobić**: decyzja
@@ -85,7 +85,27 @@ których agent nie ruszy bez decyzji właściciela.
   zadania**" — zdjęte, bo od 07.09.2026 jest nieprawdziwe co do zakresu: trzy z dwunastu
   stacji nie dają profilu **produkcyjnego**, ale dają profil z nazwaną dziurą.
 - **Wejście:** oś + `station-depths.csv`
-- **Skończone, gdy:** pochylenia interpolowanego profilu są 0–4%, a każda wygenerowana wartość ma `interpolated:true` i `design_assumption`, **a każdy odcinek bez danych ma `confidence: unknown`** i nie ma wartości wcale
+- **Skończone, gdy:** pochylenia interpolowanego profilu są 0–4%, a każda wygenerowana
+  wartość ma `interpolated:true` i klasę pochodzenia ze **słownika tego pola**,
+  **a każdy odcinek bez danych ma `confidence: unknown`** i nie ma wartości wcale.
+- **Kryterium przepisane 09.09.2026, a nie dopisane obok.** Poprzednia wersja żądała
+  `design_assumption` — a to jest termin z **innej osi opisu**: `docs/21-measured-vs-assumed.md`
+  definiuje go jako „decyzja projektowa, **nie jest faktem o sieci**", podczas gdy słownik
+  tego pola stoi w nagłówku `data/network/station-depths.csv`:
+  `# confidence: measured | counted | estimated | unknown`. Rzędna interpolowana między
+  dwiema stacjami o głębokości `estimated` nie jest decyzją projektową, tylko wnioskiem
+  z dwóch oszacowań; opisanie jej `design_assumption` zdjęłoby ślad prowadzący do EIE
+  Métro 3. Nieaktualne było kryterium, nie kod — pomiar w `reports/profil-pionowy-A-kryteria.md`.
+- **Wynik pomiaru z 09.09.2026 na wyjściu `tools/track/vertical_profile.py`:** 447 punktów,
+  32 ze rzędną i 415 bez; **największe pochylenie 1,655 %** przy dopuszczalnych 0–4 %;
+  `confidence` ze rzędną wyłącznie `estimated`, bez rzędnej wyłącznie `unknown`;
+  **ani jeden** punkt bez rzędnej nie niesie wartości. Trzy kryteria spełnione.
+- **Dlaczego wpis mimo to nie jest odhaczony i nosi marker blokady:** zostaje wariant
+  `production`, a ten nie ma z czego powstać, dopóki dwa oficjalne źródła podają
+  sprzeczne głębokości (Schuman 15 m wobec 17,42 m, Botanique 21,5 m wobec 20 m).
+  Wybór strony konfliktu należy do **T-901**, czyli do właściciela. Marker jest tu po to,
+  żeby `doctor.sh` przestał wskazywać jako „następne zadanie" pozycję, której wykonalna
+  część leży w `main` od 07.09.2026 (6.B44), a niewykonalna czeka na człowieka
 - **Zależy od:** T-111. **Już nie od T-901** dla wariantu z jawną niewiadomą — tylko dla `production`
 
 ### [x] T-113 · Rozkład jazdy i służby

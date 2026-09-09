@@ -302,10 +302,18 @@ if [ "$required_bad" -eq 0 ]; then
   #
   # Pozycja jest brana z pierwszego wiersza kolejki faz 5 i 6, tym samym prefiksem
   # (`5.` albo `6.`), którego używa `tools/tests/test_backlog.py` jako `QUEUE_PREFIXES`.
+  # WYBÓR IDZIE TYM SAMYM CZYTNIKIEM, KTÓRYM LICZY SIĘ ZAPAS — i to jest poprawka
+  # z pomiaru (09.09.2026), nie porządki. Poprzednia wersja miała tu WŁASNY wzorzec
+  # `^\| [56]\.[0-9]+ \|`, czyli drugą kopię reguły „co jest pozycją kolejki". Kopia
+  # rozjechała się z oryginałem: wzorzec łapał **8 wierszy i ani jednej pozycji
+  # otwartej**, bo wszystkie 34 otwarte mają w numerze literę (`6.D67`, `6.B5`), a te
+  # osiem to prace domknięte. Gałąź była nieosiągalna, dopóki w rozpisce stał
+  # niezablokowany wpis `### [ ]`; po jego zablokowaniu (T-112, 09.09.2026) doctor
+  # zaczął wskazywać jako „następne zadanie" pozycję z adnotacją ZROBIONE.
+  # To jest dokładnie ta klasa, dla której powstał `tools/tests/test_next_task.py`.
   queue_item=""
-  if [ -f docs/TASKS.md ]; then
-    queue_item=$(grep -E '^\| [56]\.[0-9]+ \|' docs/TASKS.md \
-      | head -1 | sed -E 's/^\| ([56]\.[0-9]+) \| \*\*([^*]+)\*\*.*/\1 · \2/')
+  if [ -f docs/TASKS.md ] && [ -f tools/tests/test_backlog.py ]; then
+    queue_item=$(python3 -c 'import io, re, sys; sys.path.insert(0, "tools/tests"); import test_backlog as B; t = io.open("docs/TASKS.md", encoding="utf-8").read(); o = B.open_items(t); w = B.queue_row(t, o[0]) if o else ""; m = re.match(r"\| \S+ \| \*\*([^*]+)\*\*", w) if w else None; print(f"{o[0]} · {m.group(1).strip()}" if m else (o[0] if o else ""))' 2>/dev/null)
   fi
   # LICZBA POZYCJI KOLEJKI JEST LICZONA TUTAJ, A NIE PRZEPISANA DO PROZY.
   #
