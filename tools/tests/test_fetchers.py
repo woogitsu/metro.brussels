@@ -276,6 +276,76 @@ def test_osm_relation_geometry_comes_from_node_elements_only():
     assert ways[0]["route_relations"] == [900]
 
 
+def test_osm_relation_ways_keep_the_version_and_timestamp_of_every_way():
+    """`version` i `timestamp` way'a zostają — bez nich nie ma z czego mówić o bazie.
+
+    **Skąd (6.D64).** Do 09.09.2026 ten czytnik budował way bez obu pól, a snapshot
+    wpisywał do `osm3s.timestamp_osm_base` — pola o znaczeniu **stan bazy OSM** —
+    wynik `P.utc_now_iso()`, czyli **czas pobrania**. Zmierzone na osi `L5_D`: pole
+    pokazywało `2026-09-09T22:02:01Z`, a najświeższa edycja wśród 162 pobranych
+    way'ów to `2026-07-19T16:40:48Z` — **52 dni różnicy**, i nic tego nie zatrzymywało,
+    bo way'e nie niosły dat wcale (162 way'e, **zero** z `timestamp`).
+
+    Droga zapasowa (`parse_osm_map_xml`) trzyma oba pola od 6.B52 z tego samego
+    powodu i ma na to własny test; ta bramka domyka drugą drogę.
+    """
+    responses = {"relation/900/full.json": {"elements": [
+        {"type": "node", "id": 1, "lon": 4.35, "lat": 50.85},
+        {"type": "node", "id": 2, "lon": 4.36, "lat": 50.86},
+        {"type": "way", "id": 11, "nodes": [1, 2], "version": 7,
+         "timestamp": "2026-07-19T16:40:48Z", "tags": {"railway": "subway"}},
+    ]}}
+    ways = _with_fake_api(responses, lambda _f: OSM.fetch_relation_ways(900, 5.0))
+    assert ways[0]["version"] == 7, ways[0]
+    assert ways[0]["timestamp"] == "2026-07-19T16:40:48Z", ways[0]
+
+
+def test_osm_relation_ways_do_not_invent_a_timestamp_the_api_did_not_give():
+    """Kontrola przeciwna: brak pola w odpowiedzi to `None`, nie „teraz".
+
+    Bez tej pary poprzedni test przechodziłby także dla czytnika, który wstawia
+    w `timestamp` cokolwiek — a wstawianie „teraz" jest dokładnie tą usterką,
+    którą 6.D64 zamyka o jeden poziom wyżej.
+    """
+    responses = {"relation/900/full.json": {"elements": [
+        {"type": "node", "id": 1, "lon": 4.35, "lat": 50.85},
+        {"type": "node", "id": 2, "lon": 4.36, "lat": 50.86},
+        {"type": "way", "id": 11, "nodes": [1, 2]},
+    ]}}
+    ways = _with_fake_api(responses, lambda _f: OSM.fetch_relation_ways(900, 5.0))
+    assert ways[0]["timestamp"] is None, ways[0]
+    assert ways[0]["version"] is None, ways[0]
+
+
+def test_no_writer_calls_the_fetch_time_a_state_of_the_osm_base():
+    """Żadne narzędzie nie wpisuje czasu pobrania do pola `timestamp_osm_base`.
+
+    Czytane jest ŹRÓDŁO obu pisarzy, bo usterka jest w tym, co plik dostaje na
+    dysk — a nie w tym, co którakolwiek funkcja zwraca. Wzorzec szuka pola i czasu
+    pobrania w jednym wyrażeniu, nie osobno w pliku: `utc_now_iso()` ma prawo stać
+    w snapshocie pod własną nazwą (`retrieved_at`) i stoi.
+    """
+    import re
+
+    wzorzec = re.compile(r"timestamp_osm_base[^\n]{0,80}?(utc_now_iso|now\(\)|time\.time)")
+    winni = []
+    for wzgledna in ("tools/track/fetch_osm_routes.py",
+                     "tools/track/crosscheck_alignment.py",
+                     "tools/track/surface_sections.py"):
+        tekst = open(os.path.join(ROOT, wzgledna), encoding="utf-8").read()
+        kod = "\n".join(l for l in tekst.splitlines() if not l.lstrip().startswith("#"))
+        if wzorzec.search(kod):
+            winni.append(wzgledna)
+    assert not winni, (
+        "czas pobrania wpisany do pola o znaczeniu „stan bazy OSM\": " + str(winni))
+    # Kontrola przyrządu: wzorzec musi łapać zapis, który tam stał do 09.09.2026.
+    assert wzorzec.search('"osm3s": {"timestamp_osm_base": P.utc_now_iso()},')
+    assert wzorzec.search('"timestamp_osm_base": now()')
+    # …i nie łapać zapisu poprawnego, w którym czas pobrania ma własną nazwę.
+    assert not wzorzec.search('"retrieved_at": P.utc_now_iso(),')
+    assert not wzorzec.search('"osm_timestamp": payload["osm3s"]["timestamp_osm_base"],')
+
+
 def test_osm_relation_ways_skip_members_that_are_not_ways():
     """Relacja trasy ma członków-węzłów (stacje jako `stop`/`platform`).
 

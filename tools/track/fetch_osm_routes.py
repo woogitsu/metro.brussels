@@ -107,8 +107,15 @@ def fetch_relation_ways(relation_id, timeout):
                     for n in element.get("nodes", []) if n in nodes]
         if len(geometry) < 2:
             continue
+        # `version` i `timestamp` way'a ZOSTAJĄ w wyniku — 6.D64, i z tego samego
+        # powodu, co w `parse_osm_map_xml` drogi zapasowej: bez nich nie ma z czego
+        # wyprowadzić NICZEGO o stanie bazy OSM, a pole `timestamp_osm_base` niosło
+        # do 09.09.2026 czas pobrania. Zmierzone przed poprawką: 162 way'e, z tego
+        # **zero** z `timestamp`, a pole „stan bazy" pokazywało godzinę przebiegu.
         ways.append({"type": "way", "id": element["id"], "tags": element.get("tags") or {},
-                     "geometry": geometry, "route_relations": [relation_id]})
+                     "geometry": geometry, "route_relations": [relation_id],
+                     "version": element.get("version"),
+                     "timestamp": element.get("timestamp")})
     return ways
 
 
@@ -160,11 +167,25 @@ def main(argv=None):
         print(f"[OSM] niedostępne: {exc}")
         return 0
 
+    # `osm3s.timestamp_osm_base` NIE JEST tu wypełniane i to jest cała treść 6.D64.
+    # Pole znaczy **stan bazy OSM** i podaje je wyłącznie Overpass; `/api/0.6` nie
+    # podaje go wcale. Do 09.09.2026 stał tu `P.utc_now_iso()`, czyli **czas
+    # pobrania pod nazwą stanu bazy** — zmierzone: `2026-09-09T22:02:01Z` na
+    # przebiegu, którego way'e pochodziły z edycji sprzed miesięcy. Czytelnik
+    # (`crosscheck_alignment.py`) bierze to pole wprost, więc raport cytowałby
+    # godzinę przebiegu jako stan danych i nic by go nie zatrzymało.
+    #
+    # Zamiast zmyślenia stoją tu DWIE liczby pod własnymi nazwami: czas pobrania
+    # i **dolna granica** stanu bazy, czyli najświeższa edycja wśród pobranych way'ów.
+    # Granica nie jest stanem bazy i tak się nazywa — way nietknięty od roku nie mówi
+    # nic o tym, co baza wie dzisiaj.
     snapshot = {
         "version": 0.6,
         "generator": "tools/track/fetch_osm_routes.py",
         "parser_version": PARSER_VERSION,
-        "osm3s": {"timestamp_osm_base": P.utc_now_iso()},
+        "retrieved_at": P.utc_now_iso(),
+        "way_timestamp_max": max((w["timestamp"] for w in ways if w.get("timestamp")),
+                                 default=None),
         "attribution": "© OpenStreetMap contributors, ODbL 1.0",
         "alignment_id": document["id"],
         "route_ref": route_ref,
