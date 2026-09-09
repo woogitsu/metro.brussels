@@ -11,6 +11,7 @@ nie osunął się z powrotem na wersję po dacie końca wsparcia.
 """
 import os
 import re
+import shutil
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 WORKFLOWS = os.path.join(ROOT, ".github", "workflows")
@@ -409,6 +410,57 @@ def test_doctor_points_at_the_newer_sdk_that_is_already_on_disk():
         "rada niepełna, patrz docstring:\n" + out[:1500])
 
 
+def _bin_bez_dotnet(katalog):
+    """Katalog `bin` z symlinkami do WSZYSTKIEGO z `PATH` poza `dotnet`.
+
+    **PRZEPISANE 09.09.2026, a nie dopisane obok.** Poprzednia wersja pomocnika niżej
+    zawężała `PATH` do `/usr/bin:/bin` i ZAKŁADAŁA, że w tych dwóch katalogach nie ma
+    `dotnet`. Założenie było prawdziwe na starej puli runnerów i w kontenerze sesji,
+    a **fałszywe** na runnerach dodanych 09.09.2026: tam `/usr/bin/dotnet` istnieje
+    i jest SDK w wersji **8**. Doctor wchodził wtedy w gałąź „SDK za stare", a nie
+    w gałąź „nie ma żadnego SDK", więc oba testy pary sprawdzały nie ten scenariusz,
+    o którym mówią ich nazwy — i padły na runnerze, choć przechodziły lokalnie:
+
+        FAIL test_doctor_bez_dotnet_w_PATH_NAZYWA_sdk_lezace_na_dysku
+        FAIL test_doctor_bez_dotnet_w_PATH_i_bez_sdk_na_dysku_nadal_kaze_instalowac
+          2057/2059 przeszło
+
+    To ta sama rodzina usterek, którą 6.D57 tropiła w `doctor.sh`, tylko po stronie
+    testu: **test zakładał środowisko, zamiast je zagwarantować.**
+
+    **Dlaczego symlinki, a nie odsianie katalogów z `PATH`.** Pierwsza poprawka
+    wyrzucała z `PATH` każdy katalog zawierający `dotnet` — i na maszynie, gdzie
+    `dotnet` leży w `/usr/bin`, zabierała razem z nim `bash`, `git` i `python3`:
+
+        FAIL test_doctor_bez_dotnet_w_PATH_NAZYWA_sdk_lezace_na_dysku:
+          [Errno 2] No such file or directory: 'bash'
+
+    Zmierzone na atrapie odtwarzającej warunek runnera. Katalog symlinków zdejmuje
+    dokładnie jedną nazwę i zostawia wszystko inne osiągalne, więc doctor probuje
+    ten sam zestaw narzędzi, co zwykle. Kolejność `PATH` jest zachowana — pierwszy
+    katalog wygrywa, tak jak przy prawdziwym rozwiązywaniu nazw.
+    """
+    sandbox = os.path.join(katalog, "bin")
+    os.makedirs(sandbox, exist_ok=True)
+    for kat in os.environ.get("PATH", "").split(os.pathsep):
+        if not kat or not os.path.isdir(kat):
+            continue
+        try:
+            nazwy = os.listdir(kat)
+        except OSError:
+            continue
+        for nazwa in nazwy:
+            if nazwa == "dotnet":
+                continue
+            cel = os.path.join(sandbox, nazwa)
+            if os.path.lexists(cel):
+                continue
+            try:
+                os.symlink(os.path.join(kat, nazwa), cel)
+            except OSError:
+                pass
+    return sandbox
+
 def _run_doctor_bez_dotnet_w_path(home_version=None):
     """`doctor.sh` bez ŻADNEGO `dotnet` osiągalnego — scenariusz 6.D57.
 
@@ -419,8 +471,8 @@ def _run_doctor_bez_dotnet_w_path(home_version=None):
     „w `PATH` nie ma nic" nie był sprawdzany przez nic — a szukanie SDK na dysku
     stało właśnie wewnątrz `if [ -n "$HAVE_SDK_MAJOR" ]`.
 
-    `PATH` zawężony do `/usr/bin:/bin`, `DOTNET_BIN` i `DOTNET_ROOT` zdjęte,
-    `HOME` podstawiony na katalog tymczasowy.
+    `PATH` ustawiony na katalog symlinków bez `dotnet` (patrz `_bin_bez_dotnet`),
+    `DOTNET_BIN` i `DOTNET_ROOT` zdjęte, `HOME` podstawiony na katalog tymczasowy.
     """
     import subprocess
     import tempfile
@@ -437,10 +489,19 @@ def _run_doctor_bez_dotnet_w_path(home_version=None):
                              "exit 1\n" % home_version)
             os.chmod(sciezka, 0o755)
 
+        sciezka_bez_dotnet = _bin_bez_dotnet(tmp)
+        # DOWÓD SCENARIUSZA, nie założenie. Bez tej asercji maszyna z `dotnet`
+        # w miejscu, którego odsianie nie objęło, cicho zamieniłaby ten test
+        # na test innej gałęzi `doctor.sh` — i tak właśnie padł on 09.09.2026.
+        assert shutil.which("dotnet", path=sciezka_bez_dotnet) is None, (
+            "po odsianiu nazwy `dotnet` nadal jest on osiągalny na "
+            + repr(sciezka_bez_dotnet) + " — scenariusz bez dotnet w PATH nie "
+            "został zagwarantowany, więc ten test nie mówi o tym, co ma w nazwie")
+
         env = dict(os.environ)
         env.pop("DOTNET_BIN", None)
         env.pop("DOTNET_ROOT", None)
-        env.update(HOME=home, PATH="/usr/bin:/bin", LC_ALL="C")
+        env.update(HOME=home, PATH=sciezka_bez_dotnet, LC_ALL="C")
         done = subprocess.run(["bash", DOCTOR, "--no-tests"], cwd=ROOT, env=env,
                               capture_output=True, text=True, timeout=120)
         return done.stdout + done.stderr
