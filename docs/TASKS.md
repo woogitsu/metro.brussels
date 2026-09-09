@@ -885,6 +885,16 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.D62 | **Droga zapasowa OSM pobiera 66 137 965 B na JEDNĄ oś i nie ma pamięci między przebiegami** — sześć osi to rząd 400 MB, a kafle nachodzą na siebie między pakietami | zmierzone 09.09.2026 (`reports/uzupelnienie-kolejki-09-09.md` §2): 30 kafli po 0,006°, zero odrzuconych, przy Overpassie odmawiającym (`Connection reset by peer`). `--osm-dir` jest cache'em tylko dla sond; `osm_api_ways` nie ma żadnego | M |
 | 6.D63 | **Kolor joba `visual-regression` nie odróżnia „bramka znalazła różnicę" od „usługa artefaktów odmówiła przyjęcia pliku"** — dwa kroki, dwa różne zdarzenia, ten sam czerwony | zmierzone 08.09.2026 na PR #415 i przejrzane 09.09.2026 (`reports/uzupelnienie-kolejki-09-09.md` §3): `403 Forbidden` przy `FinalizeArtifact`, artefakt **716 055 B**, a `blender-smoke` sześć minut później wgrał **1 905 203 B** — ani limit, ani kwota. Wyciszenie kroku wysyłki jest złą naprawą, bo schowałoby prawdziwą awarię | S |
 | 6.D64 | **`timestamp_osm_base` — jedna droga zapasowa ZMYŚLA to pole, druga je pomija** — pole nazwane „stan bazy OSM" niesie w jednej z nich czas pobrania | zmierzone 09.09.2026 (`reports/uzupelnienie-kolejki-09-09.md` §4): `fetch_osm_routes.py:167` wpisuje `P.utc_now_iso()`, `osm_api_payload()` nie ustawia nic, a czytelnik jest jeden — `crosscheck_alignment.py:398` i `:443`. Raport cytujący `osm_timestamp` z pierwszej drogi podałby datę pobrania jako stan bazy | S |
+| 6.D65 | **`SystemExit` przy IMPORCIE modułu wychodzi z całego zestawu kodem 0, bez ani jednego wiersza wyjścia** — a 6.D54 naprawiło tę samą usterkę na ścieżce WYKONANIA testu i nikt nie sprawdził, że drzwi są dwoje | zmierzone 09.09.2026 na `fcaaca0` sondą `tools/tests/` z `sys.exit(0)` w ciele modułu: **0 bajtów wyjścia, kod 0**, zero dopasowań na `grep -cE '^\s*FAIL'`, przy module z celowo padającym testem. Wykonanie łapie `except SystemExit` w `tools/tests/test_all.py:463` i zamienia na FAIL testu; import łapie `except Exception` w `:371`, a `SystemExit` dziedziczy z `BaseException` i przez to przelatuje. Ta rodzina unieważnia KAŻDY raportowany „kod 0" | S |
+| 6.D66 | **`NaN` przechodzi walidator osi, a walidator OGŁASZA ZGODNOŚĆ** — `json.loads` przyjmuje `NaN` domyślnie, a porównania z nim są zawsze fałszywe, więc kontrola dryfu nie może zapalić się nigdy | zmierzone 09.09.2026 na `fcaaca0`: `NaN` podstawiony w pierwszą współrzędną `data/track/L1_A.json` daje `długość osi: nan m`, wiersz `length_m zgodne z łamaną, różnica nan mm`, `0 błędów, 1 ostrzeżeń`, kod 0. `tools/track/validate.py` nie ma ani jednego `isfinite`. Zgłoszone w audycie jako F-003, pomiar wykonany tutaj | S |
+| 6.D67 | **Kasowanie gałęzi nie stawia warunku na czubek, choć plan ten czubek zapisał** — `$sha` z planu trafia wyłącznie do komunikatu w logu | zmierzone 09.09.2026 w lokalnym repozytorium bare: `git push --force-with-lease=refs/heads/X:<stary sha> origin :refs/heads/X` daje **kod 1** i `rejected … stale info`, zdalne zostaje nietknięte; dzisiejsza forma `git push origin --delete X` daje **kod 0** i kasuje ref z commitem, którego plan nie widział. `.github/workflows/prune-merged-branches.yml`, krok `Skasuj`. Okno jest wąskie, bo workflow chodzi wyłącznie z `workflow_dispatch`, ale skutkiem jest utrata niescalonej pracy. Zgłoszone w audycie jako F-001, próba wykonana tutaj | S |
+| 6.D68 | **Godot idzie z sieci do wykonania bez sumy kontrolnej, a Blender w tym samym repozytorium jest sumą sprawdzany** — dwa standardy dla tego samego modelu zagrożenia | zmierzone 09.09.2026: `.github/workflows/godot-first-run.yml` robi `curl` → `unzip` → uruchomienie bez ani jednego `sha256`, a `tools/ci/blender_install.sh` woła `sha256sum -c` na sumie z `tools/ci/blender-version.txt`. Joby chodzą na maszynie właściciela z dostępem do `GITHUB_TOKEN`. Zgłoszone w audycie jako F-007 | M |
+| 6.D69 | **Opcja `--package` jest przyjmowana i nie wpływa na werdykt** — nazwa istnieje, zachowania nie ma | zmierzone 09.09.2026: `expect_package` w `tools/track/validate.py` występuje **wyłącznie w sygnaturze** funkcji, ciało używa tylko `expect_line`. Ta sama rodzina co 6.A19 (opcja, o której komunikat kłamie) i szósty przypadek wzorca „pole zadania nazywa coś, czego nie da się wykonać". Zgłoszone w audycie jako F-004 | S |
+| 6.D70 | **`Finished` przeczy dokumentacji nawrotu: skład jest skończony w chwili przyjazdu, choć opis mówi „pojazdy krążą i nigdy nie kończą"** | zmierzone 09.09.2026 czytaniem `src/Sim/Line/LineCore.cs`: `public bool Finished => Drive is { Finished: true };` w wierszu 95, a `Run()` kręci pętlą `while (Steps < stepBudget && !Finished)`. Przy jednym składzie i włączonym nawrocie pętla wychodzi w kroku przyjazdu, więc faza nawrotu w `Step()` nie ma kiedy dojść do wypisania składu. Pozycja wymaga TESTU wykonywanego, nie samego czytania. Zgłoszone w audycie jako F-005 | M |
+| 6.D71 | **`compile` w bramce asercji nie podaje `optimize`, więc dziedziczy tryb interpretera** — luka utajona, nie czynna | zmierzone 09.09.2026: `tools/tests/assertion_gate.py:181` woła `compile(tree, path, "exec")`, a ani `.github/workflows/`, ani `tools/ci/`, ani `doctor.sh` nie ustawiają `PYTHONOPTIMIZE` i nie wołają interpretera z wyłączonymi asercjami — dziś nieosiągalne. Poprawka to jeden argument. Zgłoszone w audycie jako F-008 z wagą wyższą; obniżona tutaj, bo scenariusz nie ma dziś drogi wywołania | S |
+| 6.D72 | **`extra_labels` przerywa skan na pierwszym tokenie niewyglądającym na etykietę, więc z czterech nieaktualnych etykiet nazywa dwie** | zmierzone 09.09.2026 na `fcaaca0`: `extra_labels` na starym wierszu §9 zwraca `['linux', 'x64']` i zatrzymuje się na `woogitsu`, bo `_looks_like_a_label` wymaga cyfry albo wielkiej litery. Dwie dalsze etykiety są rozpoznawalne (`True` dla obu), tylko skan do nich nie dochodzi. `tools/tests/test_docs_ci_claims.py`; pomiar w `reports/9-goly-selektor.md` | S |
+| 6.D73 | **Bramka pól zadania nie widzi ani ścieżki katalogowej, ani nieistniejącej nazwy opcji** — licznik tego wzorca stoi na **sześciu** | zmierzone 09.09.2026: sześć pozycji nazwało w polu „Wejście" albo „Wyjście" coś, czego nie da się wykonać, i żadna bramka tego nie zgłosiła — ścieżka z wiodącą kropką (6.D59), katalog bez rozszerzenia w `tools/ci/`, dwie nieistniejące opcje przy 6.B43, moduł wskazany w złym katalogu przy 6.D64. Pomiary w `reports/6a21-nastawy-obok-pliku.md` i `reports/6b43-prog-odsloniecia-chase.md` | M |
+| 6.D74 | **Dziesięć modułów bramkowych chodzi po drzewie przez `os.walk` i żaden nie wyklucza kopii z katalogu pominiętego w `.gitignore`** — ochrona jest dziś wyłącznie uboczna | zmierzone 09.09.2026: wszystkie dziesięć startują z NAZWANEGO podkatalogu (`tools`, `src`, `docs`, `reports`), a kopie leżały pod `.claude/`, więc żaden się nie nabierał; jedno przejście liczone od korzenia wywróciłoby wszystkie naraz i dokładnie to zrobił pierwszy skan pozycji 6.D36, dając **6 i 12** wystąpień zamiast 1 i 2. Kopie niosły przy tym STARY kod, więc skan raportowałby usterkę już naprawioną. Pomiar w `reports/6d36-znacznik-dziennika.md` | M |
 
 #### Szczegóły pozycji z kompletem sześciu pól
 
@@ -6188,6 +6198,292 @@ MINIMUM_DETAIL_BLOCKS = 73
   dopisywanie czegokolwiek do `data/`.
 - **Zależy od:** pozycja o drodze zapasowej OSM (raport `reports/osm-api-droga-zapasowa.md`).
 
+##### 6.D65 · `SystemExit` przy imporcie wychodzi z zestawu kodem zero
+
+- **Skąd:** zmierzone 09.09.2026 na `fcaaca0`. Sonda w `tools/tests/` z `sys.exit(0)`
+  w ciele modułu i jednym celowo padającym testem:
+
+  ```
+  kod wyjścia całego zestawu: 0
+  bajtów wyjścia zestawu: 0
+  ile FAIL: 0
+  ```
+
+  Zero wierszy, zero dopasowań na grepie, kod sukcesu. 6.D54 naprawiło tę samą
+  usterkę na ścieżce WYKONANIA testu; drzwi są dwoje i drugie zostały otwarte.
+- **Dlaczego to najgroźniejsza pozycja w kolejce:** unieważnia każdy raportowany
+  „kod 0", bo milczenie zestawu jest nieodróżnialne od jego sukcesu. Cała kontrola
+  jakości tego repozytorium stoi na tym jednym wyjściu.
+- **Wejście:** `tools/tests/test_all.py` (wiersz 371 — pętla importu, wiersz 463 —
+  pętla wykonania, klasa `WyjscieZProcesu`), `tools/tests/assertion_gate.py`.
+- **Wyjście:** pętla importu łapie `BaseException`, a nie `Exception`, i moduł
+  wychodzący z procesu przy imporcie kończy jako pozycja na liście niepowodzeń
+  importu — czyli tak samo jak moduł z błędem składni.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: zestaw zielony, a sonda z `sys.exit(0)` przy imporcie daje niezerowy
+  kod i wiersz o nieudanym imporcie.
+- **Skończone, gdy:** sonda opisana w polu „Skąd" daje kod różny od zera i co
+  najmniej jeden wiersz wyjścia, a kontrola negatywna (powrót do `except Exception`)
+  odtwarza dzisiejsze zero bajtów i kod 0.
+- **Poza zakresem:** zmiana zachowania dla `SystemExit` w ciele testu — to jest
+  6.D54 i zostaje bez zmian.
+- **Zależy od:** 6.D54, 6.D15.
+
+##### 6.D66 · `NaN` przechodzi walidator, a ten ogłasza zgodność
+
+- **Skąd:** zmierzone 09.09.2026 na `fcaaca0`, `NaN` podstawiony w pierwszą
+  współrzędną kopii pliku osi:
+
+  ```
+  ·   punktów: 447, długość osi: nan m
+  ·   length_m zgodne z łamaną, różnica nan mm
+    0 błędów, 1 ostrzeżeń
+  kod=0
+  ```
+- **Dlaczego to nie jest samo „brak walidacji":** wiersz `length_m zgodne z łamaną`
+  jest TWIERDZENIEM o zgodności, wypisanym w chwili, w której różnica jest `nan`.
+  Porównania z `nan` są zawsze fałszywe, więc próg dryfu nie może zapalić się nigdy —
+  przyrząd jest zepsuty w kierunku „wszystko w porządku".
+- **Wejście:** `tools/track/validate.py`, `data/track/L1_A.json` (tylko do czytania,
+  kopia w katalogu tymczasowym), `tools/tests/test_alignment.py`.
+- **Wyjście:** wartość nieskończona albo nieliczbowa jest ODMOWĄ przed jakimkolwiek
+  rachunkiem, z komunikatem nazywającym punkt i pole.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_alignment.py
+  ```
+  Oczekiwane: zestaw zielony, a plik z `NaN` kończy walidację kodem niezerowym.
+- **Skończone, gdy:** kopia pliku osi z `NaN` w jednej współrzędnej daje kod
+  niezerowy i ani jednego wiersza ogłaszającego zgodność, a kontrola negatywna
+  (zdjęcie sprawdzenia) odtwarza dzisiejsze `różnica nan mm` przy zerze błędów.
+- **Poza zakresem:** dopisywanie czegokolwiek do `data/` i zmiana tolerancji dryfu.
+- **Zależy od:** brak.
+
+##### 6.D67 · Kasowanie gałęzi bez warunku na czubek
+
+- **Skąd:** zmierzone 09.09.2026 w lokalnym repozytorium bare, nie na `origin`:
+
+  ```
+  plan zapisał 5ad473f3, zdalne jest 35023c81
+  kod wyjścia push z lease: 1
+    git: rejected]  (delete) -> audit-branch (stale info)
+  zdalne po próbie: 35023c81
+  kod wyjścia dzisiejszej formy: 0
+    ref skasowany razem z 35023c81
+  ```
+- **Dlaczego mimo wąskiego okna:** warunek planowania sprawdza czubek sprzed
+  zapisania planu, a samo polecenie kasujące nie sprawdza niczego. Push, który
+  wyląduje między planem a kasowaniem, ginie. Workflow chodzi wyłącznie ręcznie,
+  więc okno jest krótkie — ale skutkiem jest utrata pracy, a poprawka to jedna flaga.
+- **Wejście:** `.github/workflows/prune-merged-branches.yml` (krok planowania
+  i krok `Skasuj`), `tools/tests/test_ci_workflows.py`.
+- **Wyjście:** kasowanie idzie przez `--force-with-lease` z jawnym oczekiwanym SHA
+  z planu, a nieudane kasowanie jest błędem, nie ostrzeżeniem.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_ci_workflows.py
+  ```
+  Oczekiwane: zestaw zielony, a bramka zapala się po zdjęciu jawnego oczekiwanego SHA.
+- **Skończone, gdy:** próba z polem „Skąd" powtórzona na nowym kształcie daje
+  odmowę dla nieaktualnego SHA, a kontrola negatywna (zdjęcie `--force-with-lease`)
+  wywraca bramkę w `tools/tests/test_ci_workflows.py`.
+- **Poza zakresem:** zmiana warunków KWALIFIKOWANIA gałęzi do skasowania i włączanie
+  tego workflowa na wyzwalacz inny niż ręczny.
+- **Zależy od:** brak.
+
+##### 6.D68 · Godot bez sumy kontrolnej, Blender z sumą
+
+- **Skąd:** zmierzone 09.09.2026. `.github/workflows/godot-first-run.yml` pobiera
+  archiwum, rozpakowuje je i uruchamia binarium bez ani jednego `sha256`;
+  `tools/ci/blender_install.sh` woła `sha256sum -c` na sumie z
+  `tools/ci/blender-version.txt`. Ten sam runner, ten sam model zagrożenia.
+- **Dlaczego to pozycja, a nie ostrożność na zapas:** joby chodzą na maszynie
+  właściciela, z dostępem do workspace'u i `GITHUB_TOKEN`. `CLAUDE.md` §9 wymaga
+  przypięcia po wersji i sumie — dla Blendera. Nierówność standardu w jednym
+  repozytorium jest tu całą treścią.
+- **Wejście:** `.github/workflows/godot-first-run.yml`, `tools/ci/blender_install.sh`
+  (wzorzec), `tools/ci/blender-version.txt` (kształt pliku pinu),
+  `tools/tests/test_ci_workflows.py`.
+- **Wyjście:** wersja i suma Godota w pliku pinu obok wersji Blendera, sprawdzane
+  przed rozpakowaniem, a nie po nim.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_ci_workflows.py
+  ```
+  Oczekiwane: zestaw zielony, a bramka wymaga sprawdzenia sumy w każdym miejscu,
+  które pobiera narzędzie z sieci.
+- **Skończone, gdy:** suma podmieniona w pliku pinu zatrzymuje instalację przed
+  uruchomieniem binarium, a bramka wylicza WSZYSTKIE pobrania narzędzi i żąda sumy
+  dla każdego — nie tylko dla dwóch znanych dziś.
+- **Poza zakresem:** podniesienie wersji Godota i zmiana sposobu pobierania Blendera.
+- **Zależy od:** brak.
+
+##### 6.D69 · Opcja przyjmowana i niewpływająca na werdykt
+
+- **Skąd:** zmierzone 09.09.2026. `expect_package` w `tools/track/validate.py`
+  występuje wyłącznie w sygnaturze funkcji; ciało używa `expect_line` w kilku
+  miejscach i `expect_package` w żadnym.
+- **Dlaczego to ta sama rodzina co 6.A19:** nazwa opcji istnieje, zachowania nie ma,
+  a wywołanie kończy się kodem sukcesu — czyli narzędzie melduje sprawdzenie,
+  którego nie zrobiło. Szósty przypadek wzorca „nazwa bez zachowania" w tym repo.
+- **Wejście:** `tools/track/validate.py`, `tools/tests/test_alignment.py`,
+  `data/network/lines.json` (do czytania).
+- **Wyjście:** albo opcja sprawdza pakiet i to jest przybite testem, albo znika
+  z parsera razem z parametrem — nie zostaje przyjmowana i pusta.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_alignment.py
+  ```
+  Oczekiwane: zestaw zielony, a wywołanie z nazwą pakietu niezgodną z plikiem
+  kończy się kodem niezerowym albo odmową nieznanej opcji.
+- **Skończone, gdy:** wywołanie z celowo złą nazwą pakietu daje inny kod wyjścia niż
+  wywołanie z dobrą, a kontrola negatywna (zdjęcie sprawdzenia) zrównuje oba kody.
+- **Poza zakresem:** dodawanie nowych opcji i zmiana zachowania dla nazwy linii.
+- **Zależy od:** 6.A19.
+
+##### 6.D70 · `Finished` przeczy dokumentacji nawrotu
+
+- **Skąd:** zmierzone 09.09.2026 czytaniem `src/Sim/Line/LineCore.cs`. Wiersz 95:
+  `public bool Finished => Drive is { Finished: true };`, więc skład jest skończony
+  w chwili przyjazdu. `Run()` kręci `while (Steps < stepBudget && !Finished)`, a opis
+  `TurnbackEnabled` mówi, że przy włączonym nawrocie pojazdy krążą i nigdy nie kończą.
+- **Dlaczego to wymaga testu, nie czytania:** faza nawrotu stoi na końcu `Step()`,
+  więc kolejność zdarzeń w kroku przyjazdu rozstrzyga o tym, czy pętla wyjdzie przed
+  wypisaniem składu. Czytanie daje sprzeczność zapisów; rozstrzygnięcie daje przebieg.
+- **Wejście:** `src/Sim/Line/LineCore.cs`, `tests/Sim.Tests/LineCoreTests.cs`,
+  `docs/02-simulation.md`.
+- **Wyjście:** test wykonywany, który przy JEDNYM składzie i włączonym nawrocie
+  pokazuje, czy `Run()` dochodzi do drugiego obiegu; zapis w kodzie i w opisie
+  zgodny z wynikiem tego testu, niezależnie od tego, która strona okaże się racją.
+- **Weryfikacja:**
+  ```bash
+  dotnet test tests/Sim.Tests
+  ```
+  Oczekiwane: wszystkie testy zielone, w tym nowy, nazywający zachowanie wprost.
+- **Skończone, gdy:** istnieje test, który pada po odwróceniu rozstrzygnięcia, a opis
+  `Finished` i `TurnbackEnabled` mówią to samo, co on.
+- **Poza zakresem:** zmiana czasu nawrotu, zmiana bezpiecznika pętli i cokolwiek
+  w `src/Game/`.
+- **Zależy od:** brak.
+
+##### 6.D71 · `compile` bez `optimize` w bramce asercji
+
+- **Skąd:** zmierzone 09.09.2026. `tools/tests/assertion_gate.py:181` woła
+  `compile(tree, path, "exec")` bez argumentu `optimize`, więc tryb dziedziczy się
+  z interpretera. Sprawdzone osobno: ani `.github/workflows/`, ani `tools/ci/`, ani
+  `doctor.sh` nie ustawiają `PYTHONOPTIMIZE` i nie wołają interpretera z wyłączonymi
+  asercjami — scenariusz nie ma dziś drogi wywołania.
+- **Dlaczego mimo to pozycja:** licznik sprawdzeń jest wstawiany przez przekształcenie
+  drzewa, a nie przez asercję, więc przy wyłączonych asercjach meldowałby sprawdzenia,
+  których nikt nie wykonał. To ta sama rodzina co 6.D65, tylko utajona.
+- **Wejście:** `tools/tests/assertion_gate.py`, `tools/tests/test_assertion_gate.py`.
+- **Wyjście:** kompilacja z jawnym `optimize=0`, żeby tryb interpretera nie mógł
+  zdjąć asercji pod licznikiem.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_assertion_gate.py
+  ```
+  Oczekiwane: zestaw zielony, a przebieg z wyłączonymi asercjami daje ten sam wynik,
+  co przebieg zwykły.
+- **Skończone, gdy:** przebieg zestawu z wyłączonymi asercjami interpretera daje ten
+  sam kod wyjścia i tę samą liczbę sprawdzeń, co przebieg domyślny.
+- **Poza zakresem:** zmiana sposobu liczenia sprawdzeń i wołanie zestawu z innym
+  trybem interpretera w CI.
+- **Zależy od:** 6.D65.
+
+##### 6.D72 · Skan etykiet przerywa na pierwszym słowie prozy
+
+- **Skąd:** zmierzone 09.09.2026 na `fcaaca0`, na starym wierszu §9 wobec
+  dzisiejszych workflowów:
+
+  ```
+  extra_labels = ['linux', 'x64']
+  _looks_like_a_label('woogitsu')       = False
+  _looks_like_a_label('i5-10400f')      = True
+  _looks_like_a_label('nvidia-gtx1070') = True
+  ```
+
+  Dwie dalsze etykiety są rozpoznawalne — skan do nich nie dochodzi, bo zatrzymuje
+  się na tokenie bez cyfry i bez wielkiej litery.
+- **Dlaczego to nie jest to samo, co granulacja akapitu:** tamto zostało poprawione
+  kształtem dokumentu (`reports/9-goly-selektor.md`). To jest w detektorze i wymaga
+  własnej kontroli negatywnej na pełnej liście etykiet, bo rozluźnienie warunku
+  „wygląda na etykietę" zapaliłoby bramkę na polskiej prozie — co ten warunek
+  właśnie odsiewa.
+- **Wejście:** `tools/tests/test_docs_ci_claims.py` (`extra_labels`,
+  `_looks_like_a_label`, `NEXT_LABEL`), `reports/9-goly-selektor.md`.
+- **Wyjście:** skan przechodzi całą listę etykiet, nie przerywając na słowie prozy,
+  a testy z kontroli negatywnej na polskich zdaniach zostają zielone.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_docs_ci_claims.py
+  ```
+  Oczekiwane: zestaw zielony, a lista sześciu etykiet daje cztery zgłoszenia zamiast
+  dwóch.
+- **Skończone, gdy:** stary wiersz §9 wobec dzisiejszych workflowów daje **cztery**
+  zgłoszenia, a wszystkie dzisiejsze kontrole negatywne na polskiej prozie nadal
+  milczą.
+- **Poza zakresem:** zmiana kształtu dokumentów i granulacji pomijania.
+- **Zależy od:** brak.
+
+##### 6.D73 · Bramka pól nie widzi katalogu ani nieistniejącej opcji
+
+- **Skąd:** licznik wzorca stoi na **sześciu** przypadkach, wszystkie zmierzone:
+  ścieżka z wiodącą kropką (6.D59), katalog bez rozszerzenia wskazany jako wyjście
+  (6.A21), dwie nieistniejące nazwy opcji (6.B43), moduł wskazany w złym katalogu
+  (6.D64). Pomiary w `reports/6a21-nastawy-obok-pliku.md`
+  i `reports/6b43-prog-odsloniecia-chase.md`.
+- **Dlaczego to pozycja o bramce, nie o sześciu literówkach:** pole „Wejście", które
+  nazywa coś niewykonalnego, wygląda dokładnie tak samo jak pole poprawne — i przez
+  to zadanie zaczyna się od czytania czegoś, czego nie ma. Sześć razy z rzędu.
+- **Wejście:** `tools/tests/test_backlog.py` (skan pól i wyjątki ścieżek),
+  `docs/TASKS.md`, `docs/TASK-TEMPLATE.md`.
+- **Wyjście:** ścieżka katalogowa w polu zadania jest rozpoznawana jako katalog
+  i sprawdzana na istnienie, a nazwa opcji w polu jest zestawiana z opcjami, które
+  narzędzie naprawdę parsuje.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_backlog.py
+  ```
+  Oczekiwane: zestaw zielony przy dzisiejszej treści kolejki.
+- **Skończone, gdy:** każdy z sześciu zmierzonych przypadków, wstawiony z powrotem
+  jako mutacja, zapala bramkę, a dzisiejsza treść `docs/TASKS.md` nie daje ani
+  jednego fałszywego alarmu.
+- **Poza zakresem:** poprawianie samych sześciu pozycji — one są już wykonane
+  i ich zapis jest historyczny.
+- **Zależy od:** brak.
+
+##### 6.D74 · Przejścia po drzewie nie wykluczają kopii pominiętych w `.gitignore`
+
+- **Skąd:** zmierzone 09.09.2026. Dziesięć modułów bramkowych chodzi po drzewie
+  przez `os.walk` i żaden nie wymienia katalogu z kopiami. Nie nabiera się dziś ani
+  jeden, ale wyłącznie dlatego, że wszystkie startują z NAZWANEGO podkatalogu
+  (`tools`, `src`, `docs`, `reports`), a kopie leżały pod `.claude/`. Pierwszy skan
+  pozycji 6.D36, liczony od korzenia, dał **6 i 12** wystąpień zamiast 1 i 2, i kopie
+  niosły przy tym STARY kod — czyli skan raportowałby usterkę już naprawioną.
+  Pomiar w `reports/6d36-znacznik-dziennika.md`.
+- **Dlaczego to pozycja, choć dziś nic nie pada:** ochrona jest uboczna wobec
+  nazewnictwa, a nie zapisana. Jedno przejście liczone od korzenia repozytorium
+  wywraca wszystkie dziesięć naraz i nic tego nie zgłasza.
+- **Wejście:** dziesięć modułów w `tools/tests/` wołających `os.walk`,
+  `tools/tests/test_scan_gates.py`, `.gitignore`.
+- **Wyjście:** wspólne odsianie katalogów pominiętych w `.gitignore` dla przejść
+  po drzewie, plus bramka, która nie przepuszcza przejścia liczonego od korzenia
+  bez takiego odsiania.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_scan_gates.py
+  ```
+  Oczekiwane: zestaw zielony, a przejście od korzenia bez odsiania zapala bramkę.
+- **Skończone, gdy:** kopia drzewa położona pod katalogiem pominiętym w `.gitignore`
+  nie zmienia ani jednej liczby raportowanej przez którykolwiek z dziesięciu skanów,
+  a mutacja startu na korzeń repozytorium zapala bramkę.
+- **Poza zakresem:** kasowanie istniejących kopii i zmiana `.gitignore`.
+- **Zależy od:** 6.D36.
+
 ### Czego agent nie ruszy bez decyzji
 
 Poniższe **nie są kolejką** — są listą rzeczy, które czekają na właściciela. Agent po nie
@@ -6204,6 +6500,8 @@ nie sięga, nawet gdy nie ma nic innego do roboty; wtedy sięga po fazę 5.
 | **6.A4** propagacja opóźnienia | przeniesione z kolejki 05.09.2026. Wpis T-320 ma sekcję STOP: „model perturbacji i polityka dyspozytora **nie są opisane w żadnym dokumencie**. Agent zatrzymuje się i pyta, zamiast wybierać sam”. Wiersz kolejki bronił się liczbą — „rozkład postojów jest zmierzony, 29 554 zatrzymań, 12–45 s” — ale zmierzony jest **rozkład postojów**, nie wielkość zaburzenia. Skąd wzięło się 30 s, nie mówi żadne źródło, a to jest właśnie model perturbacji |
 | **6.B3** LOD tuneli pakietów B–F | przeniesione z kolejki 05.09.2026, po tym jak audyt (`reports/kolejka-audyt-aktualnosci.md` §1) pokazał, że pozycja opisuje trzy różne stany naraz. **B i E mają LOD od T-210** — wpis T-210 podaje „szczelina między chunkami, poziomami LOD i w bryle kolizyjnej 0,0000 mm w każdym pakiecie”. **C, D i F czekają na wiersz wyżej**, czyli na decyzję, co budować zamiast rury: `reports/surface-vs-tunnel.md` §1 podaje, że wszystkie 81 punktów sprzecznych między UrbIS a OSM leży w D (48) i F (33). Zostaje więc zero pracy, której nie blokuje tamta decyzja |
 | **turnback, perturbacje, dispatcher** w T-320 | nie ma ich w żadnym dokumencie |
+| **Madou na L6** — dopisać czy nie | zmierzone 09.09.2026 na `f425908`: L6 ma 18 z 19 przystanków L2, a brakujący jest WEWNĘTRZNY — w L6 jego dwaj sąsiedzi z L2 stoją obok siebie, więc poza tą jedną dziurą sekwencja jest identyczna. Wzorzec obsługi wyrzucałby odcinek, nie jeden przystanek w środku, ale **twierdzenia o sieci się nie zgaduje** (`CLAUDE.md` §4.1). Dopisanie tknęłoby `data/`, które jest tylko do odczytu, i wymagałoby też podniesienia deklarowanej liczby przystanków L6 — plik jest dziś wewnętrznie spójny i właśnie dlatego żadna bramka tego nie widzi. Zgłoszone w audycie zewnętrznym jako F-006, pomiar w `reports/audyt-weryfikacja.md` §5 |
+| **59 czy 60 stacji** — reguła liczenia | zmierzone 09.09.2026: suma unikalnych przystanków z czterech linii daje **60**, a `network.metro_stations` w `data/network/lines.json` oraz `docs/00-network-data.md` mówią **59**. Najprawdopodobniejsze wyjaśnienie to dwie połowy jednego kompleksu liczone raz, ale **nic w repozytorium tego nie mówi i żadna bramka tych dwóch liczb nie zestawia**. Potrzebna decyzja, którą liczbę uznać za prawdziwą i jak brzmi reguła liczenia — dopiero wtedy da się ją obramkować. Audyt tego nie zgłosił; wyszło przy weryfikacji pozycji wyżej |
 
 #### Rozstrzygnięte 07.09.2026 — cztery decyzje właściciela
 
