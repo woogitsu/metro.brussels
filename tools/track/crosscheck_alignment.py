@@ -410,7 +410,16 @@ def crosscheck_osm(points, timeout, local_file=None, source=OSM_SOURCE_OVERPASS,
             "snapshot_osm_source": payload.get("osm_source"),
             "file": os.path.basename(local_file),
             "file_sha256": P.sha256_bytes(content),
+            # `osm_timestamp` bierze się WYŁĄCZNIE z `osm3s`, bo tylko Overpass podaje
+            # stan bazy. Snapshot z drogi `/api/0.6` tego pola nie ma i wtedy `None`
+            # jest odpowiedzią prawdziwą — 6.D64. Obok stoi DOLNA GRANICA policzona
+            # z way'ów, pod nazwą, która mówi, czym jest: najświeższa edycja wśród
+            # pobranych way'ów nie jest stanem bazy.
             "osm_timestamp": (payload.get("osm3s") or {}).get("timestamp_osm_base"),
+            "way_timestamp_max": max(
+                (w["timestamp"] for w in (payload.get("elements") or [])
+                 if w.get("timestamp")), default=None),
+            "snapshot_retrieved_at": payload.get("retrieved_at"),
             "routes": payload.get("routes"),
             "attribution": "© OpenStreetMap contributors, ODbL 1.0",
         })

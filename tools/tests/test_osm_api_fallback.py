@@ -657,6 +657,86 @@ def test_the_source_doc_keeps_osm_below_the_official_sources():
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
 # z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
 # tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+def _snapshot_lokalny(katalog, nazwa, payload):
+    sciezka = os.path.join(katalog, nazwa)
+    with open(sciezka, "w", encoding="utf-8") as uchwyt:
+        json.dump(payload, uchwyt, ensure_ascii=False)
+    return sciezka
+
+
+_PUNKTY = [(148000.0, 170000.0), (148100.0, 170000.0)]
+
+_WAYE = [{"type": "way", "id": 11, "tags": {"railway": "subway"},
+          "geometry": [{"lon": 4.35, "lat": 50.85}, {"lon": 4.3501, "lat": 50.8501}],
+          "version": "7", "timestamp": "2026-07-19T16:40:48Z"},
+         {"type": "way", "id": 12, "tags": {"railway": "subway"},
+          "geometry": [{"lon": 4.36, "lat": 50.86}, {"lon": 4.3601, "lat": 50.8601}],
+          "version": "3", "timestamp": "2026-03-01T00:00:00Z"}]
+
+
+def test_a_snapshot_without_osm3s_says_the_base_state_is_UNKNOWN_not_the_fetch_time():
+    """Stan bazy OSM albo jest prawdziwy, albo jawnie nieznany — 6.D64.
+
+    **Skąd.** Pole `osm3s.timestamp_osm_base` znaczy **stan bazy OSM** i podaje je
+    wyłącznie Overpass. `tools/track/fetch_osm_routes.py` wpisywał tam do 09.09.2026
+    `P.utc_now_iso()`, czyli czas pobrania; zmierzone na osi `L5_D`:
+    `2026-09-09T22:02:01Z` w polu „stan bazy" wobec `2026-07-19T16:40:48Z` jako
+    najświeższej edycji wśród 162 pobranych way'ów — **52 dni różnicy**.
+
+    Czytelnik ma odpowiedzieć `None`, gdy pola nie ma, i podać obok **dolną granicę**
+    pod nazwą, która mówi, czym jest.
+    """
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        bez = _snapshot_lokalny(tmp, "bez-osm3s.json", {
+            "version": 0.6, "generator": "test", "osm_source": "osm-api",
+            "retrieved_at": "2026-09-09T22:02:55Z", "elements": _WAYE})
+        wynik = X.crosscheck_osm(_PUNKTY, timeout=1.0, local_file=bez)
+    assert wynik["osm_timestamp"] is None, (
+        "snapshot bez `osm3s` dostał stan bazy z powietrza: " + str(wynik["osm_timestamp"]))
+    assert wynik["way_timestamp_max"] == "2026-07-19T16:40:48Z", wynik["way_timestamp_max"]
+    assert wynik["snapshot_retrieved_at"] == "2026-09-09T22:02:55Z", wynik
+
+
+def test_a_snapshot_that_really_carries_osm3s_still_reports_it():
+    """Kontrola przeciwna: gdy stan bazy JEST, ma zostać podany.
+
+    Bez tej pary poprzedni test przechodziłby dla czytnika, który zwraca `None`
+    zawsze — czyli dla przyrządu, który przestał czytać cokolwiek.
+    """
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        z_polem = _snapshot_lokalny(tmp, "z-osm3s.json", {
+            "version": 0.6, "generator": "test", "osm_source": "overpass",
+            "osm3s": {"timestamp_osm_base": "2026-09-01T16:37:11Z"},
+            "elements": _WAYE})
+        wynik = X.crosscheck_osm(_PUNKTY, timeout=1.0, local_file=z_polem)
+    assert wynik["osm_timestamp"] == "2026-09-01T16:37:11Z", wynik["osm_timestamp"]
+    # Granica liczy się TAKŻE wtedy, bo obie liczby mówią o czym innym i obie są
+    # sprawdzalne: stan bazy nie może być starszy od najświeższej edycji w wyniku.
+    assert wynik["way_timestamp_max"] == "2026-07-19T16:40:48Z", wynik
+    assert wynik["osm_timestamp"] > wynik["way_timestamp_max"]
+
+
+def test_the_bound_is_the_MAXIMUM_of_the_way_timestamps_not_the_first_one():
+    """Granica to najświeższa edycja, nie pierwsza z brzegu.
+
+    Kolejność w `elements` jest kolejnością identyfikatorów, nie dat — czytnik biorący
+    „pierwszy timestamp" podałby tu marzec zamiast lipca i wyglądałby na działający.
+    """
+    import tempfile
+
+    odwrocone = list(reversed(_WAYE))
+    with tempfile.TemporaryDirectory() as tmp:
+        plik = _snapshot_lokalny(tmp, "odwrocone.json", {
+            "version": 0.6, "generator": "test", "elements": odwrocone})
+        wynik = X.crosscheck_osm(_PUNKTY, timeout=1.0, local_file=plik)
+    assert odwrocone[0]["timestamp"] == "2026-03-01T00:00:00Z"
+    assert wynik["way_timestamp_max"] == "2026-07-19T16:40:48Z", wynik["way_timestamp_max"]
+
+
 if __name__ == "__main__":
     import test_all
     raise SystemExit(test_all.main(__file__))
