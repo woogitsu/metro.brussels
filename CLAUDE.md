@@ -286,12 +286,23 @@ GitHub Actions. Poprzednia wersja tego punktu mówiła, że standardem jest
   to repozytorium ma w logach, wszystkie próby pobrały **ten sam jeden SHA** scalanki,
   starszy od samego przebiegu (zmierzone na trzech próbach przebiegu 34194126232
   i dwóch przebiegu 34182392141).
-  **Granica tego pomiaru stoi tu razem z nim, bo brak pomiaru nie jest jego wynikiem:**
-  czy ponowienie po ruchu bazy przeliczyłoby scalankę na nowej bazie, **nie zostało
-  zmierzone** — w 1919 przebiegach `pull_request` z 01–08.09.2026 (45 z więcej niż
-  jedną próbą) nie ma ani jednego ponowienia, między którego próbami `main` ruszył.
-  Reguła zdania wyżej tego rozstrzygnięcia nie potrzebuje: każe **przeczytać bazę
-  z logu**, a nie wnioskować ją z historii przebiegu.
+  **Ta granica została zdjęta 09.09.2026 pomiarem i akapit jest przepisany, a nie
+  dopisany obok.** Do tego dnia stało tu, że „czy ponowienie po ruchu bazy przeliczyłoby
+  scalankę na nowej bazie, **nie zostało zmierzone**" — bo w 1919 przebiegach
+  `pull_request` z 01–08.09.2026 (45 z więcej niż jedną próbą) nie ma ani jednego
+  ponowienia, między którego próbami `main` ruszył. Materiału historycznego nie da się
+  do tego użyć i to zostaje prawdą; brakujący warunek został więc **wytworzony**.
+  Przebieg **34362242593** (`Python tool tests`, PR #439) ponowiono, gdy `main` stał
+  już pięć scaleń dalej — `902cb6f` w chwili próby pierwszej, `1b1db40` w chwili
+  drugiej. Obie próby pobrały **tę samą scalankę**:
+  `HEAD is now at b09dbcb Merge 570222c9… into 902cb6f7…`. **Ponowienie nie przelicza
+  scalanki na nowej bazie** — teza zdania wyżej jest więc zmierzona, nie wywnioskowana.
+  Reguła zostaje ta sama, bo tego rozstrzygnięcia nie potrzebowała: każe **przeczytać
+  bazę z logu**, a nie wnioskować ją z historii przebiegu. Pomiar:
+  `reports/ponowienie-a-scalanka.md`; zapis reguły czytania: `docs/04-conventions.md`.
+  **Uwaga przy czytaniu logu, z tego samego pomiaru:** każda próba ma **trzy** wiersze
+  `HEAD is now at`. Dwa pierwsze opisują workspace przed czyszczeniem i zmieniają się
+  razem z `main`; rozstrzyga **trzeci**, ten z `Merge <gałąź> into <baza>`.
   **Tej połowy nie pilnuje żadna bramka i pilnować nie może** — inaczej niż reguł
   wyżej, wymienionych w ostatnim punkcie tej sekcji: `<baza>` stoi w logu przebiegu,
   a nie w repozytorium, więc nie ma czego sparsować. Jest to więc procedura czytania
