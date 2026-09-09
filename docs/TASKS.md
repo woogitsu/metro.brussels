@@ -881,6 +881,10 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.D58 | **ZROBIONE (09.09.2026).** Podłoga jest przeliczana z liczby raportów — `seen >= checked * SCIEZEK_NA_RAPORT_MIN` przy stałej **6** — więc rośnie razem z katalogiem. Stara stała zostawiała przy 162 raportach i 1466 trafieniach zapas **966** (65,9 % ścieżek mogło zniknąć) i **słabła z każdym raportem**: 500 to 3,09 ścieżki na raport dziś, 1,67 przy 300 raportach. **Zapadki równościowej na `seen` NIE zrobiłem, wbrew własnemu polu „Wyjście", i powód jest zmierzony:** `MIN_REPORTS` rusza się raz na zadanie i mimo to wymusiło siedem podniesień w jeden wieczór, a `seen` rusza się przy KAŻDEJ wzmiance o pliku w prozie dowolnego raportu — równość byłaby tripwire'em na niepowiązanej pracy, czyli materiałem na wyłączenie bramki (6.D27). Oba brzegi stałej liczy z drzewa `test_podloga_sciezek_na_raport_jest_ZABOKSOWANA_pomiarami`: od dołu zawężenie kontrolne wzorca (zdjęcie `.md` — 905 trafień, 5,59 na raport) musi być CZERWONE, od góry zapas musi wynosić co najmniej jedną pełną ścieżkę na raport. Kierunki wykonane: **5 FAIL, 6 zielono, 7 i 8 zielono, 9 FAIL**. **Trójki FAIL/zielono/FAIL z pola „Skończone, gdy" nie ma i to jest wynik pomiaru, nie luka:** pole było pisane dla zapadki równościowej, która pada w obie strony, a podłoga stosunkowa ma jeden brzeg twardy i jeden z zapasem — przedział mieszczący się w obu to {6, 7, 8}. **6 wybrane pomiarem trwałości**, nie zasadą „bierz najmocniejsze": ostatnie 20 dodanych raportów ma 6,15 ścieżki na raport wobec 15,14 w pierwszych 50, a przy gęstości najchudszego dobrze obsadzonego dnia (5,11) podłoga 8 czerwieni się po **58** raportach, czyli około trzech dniach, 7 po 175, a 6 po 555. **Pomiar obalił przy okazji założenie samej pozycji:** stosunek łapie zdjęcie ze wzorca tylko `.py` albo `.md`, czyli **2 zawężenia z 12** — po zdjęciu `.csv` zostaje 9,02 ścieżki na raport i OBIE podłogi, stara i nowa, są zielone. Dlatego doszła druga bramka: **pokrycie rozszerzeń, bez żadnego progu** (łapie 9 z 12; trzy pozostałe nie mają trafień i stoją w `ROZSZERZENIA_BEZ_TRAFIEN` z powodem, a test żąda od nich ZERA, więc lista nie zgnije). Lista rozszerzeń jest **przypięta w kodzie, nie czytana ze wzorca** — czytana ze wzorca byłaby po zdjęciu `.md` ZIELONA nad defektem, zmierzone: czwarty taki przypadek po 6.D54, 6.D55 i 6.D56, pierwszy złapany PRZED napisaniem bramki. Cenę kopii płaci asercja równościowa zgodności ze wzorcem (6.D44). Cztery kontrole negatywne, `md5` po każdym przywróceniu i cały rachunek: `reports/podloga-sciezek-na-raport.md` | zmierzone 08.09.2026 przy 6.D45: `tools/tests/test_report_hygiene.py:587` żąda co najmniej 500 trafień, a przejście po katalogu daje **1392**, czyli zapas **892**. Ta sama rodzina co `MIN_REPORTS` 40 przy 152 raportach, tylko o jedną stałą dalej i w tym samym module | S |
 | 6.D59 | **`PATH_TOKEN` nie dopasuje ścieżki zaczynającej się kropką — 22 wzmianki o plikach CI w 15 raportach są dla bramki niewidzialne** | zmierzone 09.09.2026 przy 6.D58 (`reports/podloga-sciezek-na-raport.md` §9): token musi się zaczynać znakiem z `[A-Za-z0-9_]`, więc żadna ścieżka pod `.github/` nie wchodzi do skanu — 8 wzmianek o `sim-tests.yml`, 7 o `godot-first-run.yml`, 5 o `python-tests.yml` i 2 dalsze. Dziś wszystkie 22 rozwiązują się w drzewie, więc usterki nie ma; jest **martwe pole** w bramce, której całym zadaniem jest łapanie odsyłaczy w puste miejsce. To także jedyny powód, dla którego rozszerzenie `yml` nie ma ani jednego trafienia — nie brak wzmianek o CI | S |
 | 6.D60 | **Sonda `godot .NET hostfxr` melduje `ok` przy czterech z pięciu zepsuć, po których Godot pada w niecałą sekundę** — pyta o obecność pliku o danej nazwie, nie o kompletność i nie o dwie pozostałe biblioteki z komunikatu silnika | zmierzone 09.09.2026 przy 6.D24 (`reports/6d24-biblioteka-natywna.md` §5): `WARN` tylko przy `libhostfxr.so` USUNIĘTYM; `ok` przy `libhostfxr.so` obciętym do 200 B, `libcoreclr.so` usuniętym i obciętym oraz `libhostpolicy.so` usuniętym — a w każdym z tych czterech ten sam binarny plik pada kodem 134 w 0,19–0,35 s. Sonda `--version` jest ślepa na wszystkie pięć, co dokument mówi od 06.09.2026; ta pozycja dotyczy sondy, która miała to naprawić | S |
+| 6.D61 | **Zgodność źródeł w ścieżce pełnego pokrycia nie odsiewa portali, choć powód odsiewania stoi w tym samym pliku** — cytowane 75,0 % dla pakietu D liczy punkty w halo na równi z punktami w środku odcinka | zmierzone 09.09.2026 (`reports/uzupelnienie-kolejki-09-09.md` §1): ścieżka sond podaje 91,7 % i **poza portalami 100 %**, ścieżka pełnego pokrycia podaje jedną liczbę i nie liczy `range_position` wcale. 6.B26 pokazała, że sprawa nie jest teoretyczna: najciaśniejszy łuk D leży w halo obu portali | S |
+| 6.D62 | **Droga zapasowa OSM pobiera 66 137 965 B na JEDNĄ oś i nie ma pamięci między przebiegami** — sześć osi to rząd 400 MB, a kafle nachodzą na siebie między pakietami | zmierzone 09.09.2026 (`reports/uzupelnienie-kolejki-09-09.md` §2): 30 kafli po 0,006°, zero odrzuconych, przy Overpassie odmawiającym (`Connection reset by peer`). `--osm-dir` jest cache'em tylko dla sond; `osm_api_ways` nie ma żadnego | M |
+| 6.D63 | **Kolor joba `visual-regression` nie odróżnia „bramka znalazła różnicę" od „usługa artefaktów odmówiła przyjęcia pliku"** — dwa kroki, dwa różne zdarzenia, ten sam czerwony | zmierzone 08.09.2026 na PR #415 i przejrzane 09.09.2026 (`reports/uzupelnienie-kolejki-09-09.md` §3): `403 Forbidden` przy `FinalizeArtifact`, artefakt **716 055 B**, a `blender-smoke` sześć minut później wgrał **1 905 203 B** — ani limit, ani kwota. Wyciszenie kroku wysyłki jest złą naprawą, bo schowałoby prawdziwą awarię | S |
+| 6.D64 | **`timestamp_osm_base` — jedna droga zapasowa ZMYŚLA to pole, druga je pomija** — pole nazwane „stan bazy OSM" niesie w jednej z nich czas pobrania | zmierzone 09.09.2026 (`reports/uzupelnienie-kolejki-09-09.md` §4): `fetch_osm_routes.py:167` wpisuje `P.utc_now_iso()`, `osm_api_payload()` nie ustawia nic, a czytelnik jest jeden — `crosscheck_alignment.py:398` i `:443`. Raport cytujący `osm_timestamp` z pierwszej drogi podałby datę pobrania jako stan bazy | S |
 
 #### Szczegóły pozycji z kompletem sześciu pól
 
@@ -6052,6 +6056,137 @@ MINIMUM_DETAIL_BLOCKS = 73
   `DOTNET_ROOT`, oraz przepisywanie zapisów historycznych w `docs/TASKS.md`.
 - **Zależy od:** **6.D24** — dostarcza pomiar 4/5, metodę cienia i raport, na który
   ta pozycja się powołuje.
+
+##### 6.D61 · Zgodność w pełnym pokryciu liczy punkty przy portalach
+
+- **Skąd:** zmierzone 09.09.2026, `reports/uzupelnienie-kolejki-09-09.md` §1.
+  `tools/track/surface_sections.py` liczy zgodność UrbIS↔OSM dwiema drogami. Ścieżka
+  sond niesie `range_position` przy każdym wierszu i podaje dwa liczniki —
+  `agreement_pct` i `agreement_off_portal_pct`. Ścieżka pełnego pokrycia
+  (`--osm-file`) nie liczy `range_position` wcale i podaje jeden. Cytowana w raportach
+  zgodność pakietu D (**75,0 %** na 208 punktach) jest z tej drugiej, więc liczy
+  punkty w halo portalu na równi z punktami w środku odcinka — mimo komentarza przy
+  `PORTAL_HALO_M = 60.0`, który mówi, że rozbieżność przy portalu „nic nie mówi".
+- **Wejście:** `tools/track/surface_sections.py` (`range_position`, `PORTAL_HALO_M`,
+  gałąź `if args.osm_file`), `tools/tests/test_surface_sections.py`,
+  `reports/surface-vs-tunnel.md` §3, `reports/6b26-luk-D-tunel.md` §1.
+- **Wyjście:** ścieżka pełnego pokrycia podaje **oba** liczniki, tak jak ścieżka sond,
+  plus liczbę punktów w halo; bramka w `tools/tests/test_surface_sections.py`, która
+  pada, gdy któryś z liczników zniknie. Do tego **przeliczone liczby dla wszystkich
+  sześciu osi** w miejscu, w którym raporty cytują dziś jedną — z zapisem, że stara
+  wartość zostaje jako pomiar swojego dnia (6.D49).
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py; echo "kod: $?"
+  ```
+  plus **wykonany** przebieg na pakiecie D z lokalnymi snapshotami: wypis musi podać
+  zgodność ogólną, zgodność poza portalami i liczbę punktów w halo, a różnica między
+  dwiema pierwszymi liczbami ma być wypisana, nie opisana.
+- **Skończone, gdy:** wypis i plik wyniku podają trzy liczby zamiast jednej dla każdej
+  osi, kontrola negatywna (zdjęcie halo, czyli `PORTAL_HALO_M = 0`) zmienia liczbę
+  punktów w halo na zero i zaczerwienia bramkę, a żaden raport nie cytuje już liczby
+  bez powiedzenia, która to z dwóch.
+- **Poza zakresem:** zmiana samej wartości `PORTAL_HALO_M` (to byłby inny pomiar),
+  przeliczanie werdyktów o tunelach i cokolwiek w `data/`.
+- **Zależy od:** 6.B5 i 6.B26 — dostarczają przebiegi i raport, na który ta pozycja
+  się powołuje.
+
+##### 6.D62 · Droga zapasowa OSM: 66 MB na oś, zero pamięci
+
+- **Skąd:** zmierzone 09.09.2026, `reports/uzupelnienie-kolejki-09-09.md` §2. Overpass,
+  droga podstawowa z `docs/07-open-data-research.md`, odmawia (`Connection reset by
+  peer`), więc pomiar idzie drogą zapasową: **30 kafli po 0,006°, 66 137 965 B na jedną
+  oś**, zero kafli odrzuconych. Sześć osi to rząd 400 MB, a kafle nachodzą na siebie
+  między pakietami (A i E przez rejon Gare de l'Ouest, C i D przez sąsiednie kwadraty).
+  `--osm-dir` jest cache'em **tylko** dla sond (`fetch_osm_box`); `osm_api_ways`
+  w `crosscheck_alignment.py` nie ma pamięci między przebiegami.
+- **Wejście:** `tools/track/crosscheck_alignment.py` (`osm_api_ways`, `osm_api_payload`,
+  `query_bbox_lonlat`, `--osm-dir`), `tools/track/surface_sections.py` (`fetch_osm_box`
+  i jego cache), `tools/tests/test_osm_api_fallback.py`,
+  `reports/osm-api-droga-zapasowa.md`.
+- **Wyjście:** cache kafli **wspólny dla obu narzędzi**, kluczowany po bboxie kafla,
+  pod `build/` (nie w repozytorium — reguła 8), z jawnym wypisem, ile kafli wzięto
+  z pamięci, a ile pobrano. Pobranie ma pozostać możliwe do wymuszenia, bo cache, którego
+  nie da się ominąć, jest gorszy od jego braku przy zmianie danych w OSM.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py; echo "kod: $?"
+  ```
+  plus **wykonane** dwa przebiegi po sobie na tej samej osi: drugi ma pobrać **zero**
+  kafli i podać tę liczbę w wypisie, oraz przebieg na drugiej osi, który pokazuje
+  liczbę kafli wziętych z pamięci ponad zero.
+- **Skończone, gdy:** drugi przebieg tej samej osi pobiera 0 B, przebieg sąsiedniej osi
+  pobiera mniej niż pierwszy o zmierzoną liczbę wspólnych kafli, a wynik jest **identyczny
+  co do bajtu** z przebiegiem bez cache'u — to ostatnie jest warunkiem, nie ozdobą.
+- **Poza zakresem:** commitowanie snapshotów do repozytorium, zmiana kształtu snapshotu
+  (czyta go `--osm-file` bez rozgałęzień) i naprawianie Overpassa.
+- **Zależy od:** pozycja o drodze zapasowej, która ją dostarczyła (raport
+  `reports/osm-api-droga-zapasowa.md`).
+
+##### 6.D63 · `visual-regression`: jeden kolor na dwa różne zdarzenia
+
+- **Skąd:** zmierzone 08.09.2026 na PR #415, przejrzane 09.09.2026 —
+  `reports/uzupelnienie-kolejki-09-09.md` §3. Job czerwienieje albo na kroku bramki
+  (`bash tools/ci/visual_smoke.sh` — bramka znalazła różnicę), albo na kroku wysyłki
+  artefaktów (`actions/upload-artifact`, `if: always()`), i **z listy checków tego nie
+  da się rozróżnić**. Zmierzony przypadek: `403 Forbidden` przy `FinalizeArtifact`,
+  artefakt **716 055 B**, a `blender-smoke` sześć minut później wgrał **1 905 203 B** —
+  więc ani limit rozmiaru, ani wyczerpana kwota; jedno ponowienie dało zielono bez
+  zmiany w kodzie.
+- **Wejście:** `.github/workflows/visual-regression.yml` (kroki `Run visual regression
+  pipeline` i `Upload T-012 verification artifacts`), `tools/ci/visual_smoke.sh`,
+  `tools/tests/test_ci_workflows.py`.
+- **Wyjście:** rozróżnienie widoczne **bez czytania logu** — werdykt bramki niesiony
+  osobno od losu wysyłki. Kształt jest treścią pozycji, nie przesądzony tutaj; do
+  rozważenia z pomiarem: osobny job na wysyłkę, krok podsumowujący, który powtarza
+  werdykt bramki jako własny status, albo nazwa checku zależna od tego, co padło.
+  **`continue-on-error` na kroku wysyłki jest ODRZUCONE jako naprawa** — schowałoby
+  prawdziwą awarię wysyłki, czyli osłabiłoby bramkę zamiast ją wyostrzyć.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_ci_workflows.py; echo "kod: $?"
+  ```
+  plus **wykonana** kontrola negatywna na obu awariach osobno: podstawiony
+  `visual_smoke.sh` kończący się kodem 1 (bramka) i podstawiony krok wysyłki kończący
+  się błędem — dwa różne sygnały w liście checków, oba wklejone.
+- **Skończone, gdy:** dwa rodzaje awarii dają w liście checków dwa różne sygnały, żaden
+  z nich nie jest zielony, a bramka w `test_ci_workflows.py` pada, gdy rozróżnienie
+  zniknie z workflowa.
+- **Poza zakresem:** zmiana progów samej regresji wizualnej, wyciszanie kroku wysyłki
+  i naprawa usługi artefaktów GitHuba.
+- **Zależy od:** nic — sam workflow i jego log wystarczą.
+
+##### 6.D64 · `timestamp_osm_base`: jedna droga zmyśla, druga pomija
+
+- **Skąd:** zmierzone 09.09.2026, `reports/uzupelnienie-kolejki-09-09.md` §4. Pole
+  `osm3s.timestamp_osm_base` z odpowiedzi Overpassa znaczy **stan bazy OSM**. Czytelnik
+  jest jeden (`tools/track/crosscheck_alignment.py:398` i `:443`), a pisarzy dwóch i
+  nie zgadzają się: `tools/track/fetch_osm_routes.py:167` wpisuje tam `P.utc_now_iso()`,
+  czyli czas pobrania, a `osm_api_payload()` nie ustawia go wcale, więc `osm_timestamp`
+  jest `None`. Raport cytujący pierwszą drogę podałby datę pobrania jako stan bazy —
+  i nic tego nie zatrzyma.
+- **Wejście:** `tools/track/fetch_osm_routes.py`, `tools/track/crosscheck_alignment.py`
+  (`osm_api_payload`, oba czytniki), `tools/data/provenance.py`,
+  `tools/tests/test_osm_api_fallback.py`, `tools/tests/test_fetchers.py`,
+  `reports/osm-api-droga-zapasowa.md`.
+- **Wyjście:** pole niesie to, co mówi jego nazwa, albo nie istnieje. Kształt do
+  rozstrzygnięcia **pomiarem, nie gustem**: czy `/api/0.6/map` i lokalny snapshot mają
+  z czego wyprowadzić stan bazy (maksimum z `timestamp` way'ów jest kandydatem
+  i trzeba sprawdzić, czy jest obecny w obu drogach). Czas pobrania zostaje zapisany,
+  ale **pod własną nazwą**, i oba pisarze robią to samo. Do tego bramka, która pada,
+  gdy któryś pisarz wstawi do tego pola coś, czego nie da się nazwać stanem bazy.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py; echo "kod: $?"
+  ```
+  plus **wykonany** wypis obu dróg na tej samej osi: co niesie pole u każdego pisarza
+  przed zmianą i po, oraz co z tego czyta `osm_timestamp`.
+- **Skończone, gdy:** żadna droga nie wpisuje czasu pobrania do pola o znaczeniu „stan
+  bazy", `osm_timestamp` jest albo prawdziwym stanem bazy, albo jawnie nieznany,
+  a kontrola negatywna (przywrócenie `utc_now_iso()`) zaczerwienia zestaw.
+- **Poza zakresem:** zmiana kształtu snapshotu czytanego przez `--osm-file` oraz
+  dopisywanie czegokolwiek do `data/`.
+- **Zależy od:** pozycja o drodze zapasowej OSM (raport `reports/osm-api-droga-zapasowa.md`).
 
 ### Czego agent nie ruszy bez decyzji
 
