@@ -95,6 +95,27 @@ w danych **nie ma**, a proza nie podaje, którą stację wyłącza i dlaczego.
 Zapisuję to wprost, bo hipoteza wypowiedziana i niesprawdzona zostaje w pamięci
 jako ustalenie. Ta była wypowiedziana i jest nieprawdziwa.
 
+### KOREKTA 09.09.2026, ten sam dzień, `4f68d29`
+
+**Zdanie „wyjaśnienia różnicy 60 → 59 w danych NIE MA" jest nieprawdziwe, a hipoteza
+nazwana wyżej NIEPRAWDZIWĄ jest prawdziwa.** Pomiary tej sekcji zostają — GTFS naprawdę
+ma dwa rekordy — ale wniosek z nich był błędny i nie zostaje.
+
+Wyjaśnienie stoi w `data/network/lines.json`, w bloku `station_notes`, którego własny
+komentarz brzmi „Agent MA to przeczytać przed liczeniem czegokolwiek": Simonis
+i Elisabeth to jeden kompleks o dwóch halach, nazw jest 60, stacji 59, obie liczby są
+poprawne. Obok stoi `counting_rules` z tymi liczbami **maszynowo**. Blok był w drzewie
+już w `9d38d5c`, czyli w commicie, na którym mierzył ten raport.
+
+Dwa rekordy peronowe nie są zaprzeczeniem jednego kompleksu, i widać to w tym samym
+feedzie: SIMONIS jest jednym z **dwóch kontenerów na 61 bez ani jednego własnego
+wejścia** (drugi to znany duplikat HEYSEL), wszystkie sześć wejść należy do ELISABETH
+96,2 m dalej, przy najbliższej prawdziwej parze stacji w odległości 304 m.
+
+Pełny pomiar, kontrole i bramka: `reports/simonis-elisabeth-regula-liczenia.md`.
+Zgodnie z `docs/04-conventions.md` liczby tego raportu nie są przeliczane — korekta
+jest dopisana obok, a nie w miejsce zdania, które prostuje.
+
 ## 6. Jedna różnica zapisu, nie stacji
 
 ```
