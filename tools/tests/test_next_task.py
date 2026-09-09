@@ -302,6 +302,111 @@ def test_doctor_says_the_queue_is_empty_instead_of_going_silent():
             "doctor wskazał pozycję kolejki, choć w rozpisce nie ma ani jednego wiersza "
             "faz 5 i 6 — podstawienie łapie za szeroko")
 
+#: Podstawienie z `doctor.sh`, w którym mieszka LICZBA pozycji kolejki (6.D50).
+DOCTOR_COUNT = re.compile(r"queue_count=\$\((.*?)\)\n", re.S)
+
+#: Akapit, do którego trafia człowiek idący za komunikatem doctora. Kotwica jest jego
+#: pierwszym zdaniem; region kończy się pierwszą pustą linią, bo dalej stoi już WYWÓD
+#: o dawnych literach tej reguły i on liczby cytować MUSI.
+AKAPIT_KOTWICA = "**Jeśli trafiłeś do tej tabeli z `doctor.sh`**"
+
+#: „31 pozycji", „**36** pozycje", „12 pozycjami" — literał liczby pozycji w prozie.
+LITERAL_POZYCJI = re.compile(r"\d+\s*\**\s*pozycj", re.I)
+
+
+def doctor_count_command():
+    """Treść podstawienia `queue_count=$(…)` wycięta z `doctor.sh`."""
+    match = DOCTOR_COUNT.search(_read(DOCTOR))
+    return None if match is None else match.group(1)
+
+
+def run_doctor_count(workdir):
+    """Wynik podstawienia liczby pozycji, puszczonego bashem w `workdir`."""
+    command = doctor_count_command()
+    script = "%s\nprintf '%%s' \"$queue_count\"\n" % ("queue_count=$(%s)" % command)
+    done = subprocess.run(["bash", "-c", script], cwd=workdir,
+                          capture_output=True, text=True)
+    return done.stdout.strip()
+
+
+def _akapit_kolejki(text):
+    """Akapit z kotwicą, do pierwszej pustej linii. `None`, gdy kotwicy nie ma."""
+    start = text.find(AKAPIT_KOTWICA)
+    if start < 0:
+        return None
+    koniec = text.find("\n\n", start)
+    return text[start:koniec if koniec > 0 else len(text)]
+
+
+def test_doctor_liczy_pozycje_kolejki_sam_zamiast_przepisywac_liczbe():
+    """Liczba pozycji ma być LICZONA przy uruchomieniu, nie wpisana z ręki (6.D50).
+
+    Kontrola jest dwuczęściowa i druga część jest tą, która ma znaczenie: to samo
+    podstawienie puszczone na ROZPISCE ZE ZMIENIONĄ LICZBĄ POZYCJI musi dać INNĄ
+    liczbę. Sama zgodność z `open_items` na tym drzewie przeszłaby także wtedy, gdyby
+    ktoś wpisał dzisiejsze `36` na sztywno — i to jest dokładnie usterka, którą 6.D50
+    zamyka po stronie prozy.
+    """
+    command = doctor_count_command()
+    assert command is not None, (
+        "nie znalazłem podstawienia `queue_count=$(…)` w doctor.sh — bramka straciła "
+        "przedmiot i przestałaby cokolwiek sprawdzać")
+
+    import test_backlog as B
+    tekst = _read(TASKS)
+    dzis = len(B.open_items(tekst))
+    assert run_doctor_count(ROOT) == str(dzis), (
+        f"doctor podaje {run_doctor_count(ROOT)!r}, a open_items daje {dzis}")
+
+    pozycje = B.open_items(tekst)
+    assert pozycje, "kolejka jest pusta — nie ma czego odejmować w kontroli"
+    wiersz = B.queue_row(tekst, pozycje[0])
+    zmieniony = tekst.replace(wiersz, wiersz.replace("| ", "| **ZROBIONE w kontroli.** ", 2), 1)
+    oczekiwane = len(B.open_items(zmieniony))
+    assert oczekiwane != dzis, (
+        "kontrola nie zmieniła liczby pozycji — mutacja rozpiski chybiła i test "
+        "nie sprawdziłby niczego")
+
+    with tempfile.TemporaryDirectory() as katalog:
+        os.makedirs(os.path.join(katalog, "docs"))
+        os.makedirs(os.path.join(katalog, "tools", "tests"))
+        with io.open(os.path.join(katalog, "docs", "TASKS.md"), "w", encoding="utf-8") as uchwyt:
+            uchwyt.write(zmieniony)
+        with io.open(os.path.join(katalog, "tools", "tests", "test_backlog.py"), "w",
+                     encoding="utf-8") as uchwyt:
+            uchwyt.write(_read(os.path.join(ROOT, "tools", "tests", "test_backlog.py")))
+        assert run_doctor_count(katalog) == str(oczekiwane), (
+            f"na rozpisce z jedną pozycją mniej doctor podał "
+            f"{run_doctor_count(katalog)!r}, a powinien {oczekiwane} — liczba nie jest "
+            "liczona, tylko przepisana")
+
+
+def test_akapit_kolejki_nie_odzyskuje_literalu_liczby_pozycji():
+    """Akapit dla człowieka z doctora nie podaje liczby pozycji — podaje ją doctor.
+
+    Zmierzone przy 6.D50 na czterdziestu ostatnich commitach dotykających
+    `docs/TASKS.md`: licznik zmienił wartość w **27** z nich, a **7** z tych
+    czterdziestu to wciągnięcia `main` do równoległej gałęzi. Literał w prozie starzeje
+    się więc przy dwóch commitach na trzy i daje konflikt semantyczny przy co szóstym.
+
+    Detektor jest tu sprawdzany na własnym przedmiocie, żeby bramka nie była pusta:
+    zdanie, które akapit NOSIŁ do 09.09.2026, musi zostać złapane.
+    """
+    assert LITERAL_POZYCJI.search("fazy 5 i 6 trzymają\n31 pozycji, z których żadna"), (
+        "detektor nie łapie zdania, które ten akapit naprawdę nosił — bramka pusta")
+    assert not LITERAL_POZYCJI.search("fazy 5 i 6 trzymają pozycje, z których żadna"), (
+        "detektor łapie zdanie BEZ liczby — zapaliłby się na poprawnej prozie")
+
+    akapit = _akapit_kolejki(_read(TASKS))
+    assert akapit is not None, (
+        f"nie znalazłem akapitu po kotwicy {AKAPIT_KOTWICA!r} w docs/TASKS.md — "
+        "bramka straciła przedmiot i milczy zamiast pilnować")
+    trafienie = LITERAL_POZYCJI.search(akapit)
+    assert trafienie is None, (
+        f"akapit kolejki znowu podaje liczbę pozycji ({trafienie.group(0)!r}) — "
+        "ta liczba starzeje się przy dwóch commitach na trzy; podaje ją doctor.sh")
+
+
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
 # z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
 # tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
