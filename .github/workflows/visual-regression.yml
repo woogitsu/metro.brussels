@@ -15,6 +15,14 @@ on:
       - 'docs/17-visual-regression.md'
   workflow_dispatch:
 
+concurrency:
+  # 6.D52 — POMIAR, nie docelowa treść. Wspólna grupa dla wszystkich workflowów
+  # jednego pull requesta: sprawdzamy, czy trzeci i dalszy przebieg w grupie CZEKA,
+  # czy zostaje ANULOWANY. `cancel-in-progress` jawnie na false, bo domyślna wartość
+  # jest tym, o co pytamy, a nie tym, co wolno założyć.
+  group: metro-ci-${{ github.ref }}
+  cancel-in-progress: false
+
 permissions:
   contents: read
 
