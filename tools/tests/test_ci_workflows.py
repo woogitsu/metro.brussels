@@ -1166,6 +1166,98 @@ def test_the_runner_gate_fails_on_every_selector_that_would_miss_the_pool():
         _runner_labels({"runs-on": list(REQUIRED_RUNNER_LABELS)})) is None
 
 
+#: 6.D52. Człon, który MUSI stać w ziarnie grupy `concurrency`, żeby grupa nie
+#: zbierała przebiegów RÓŻNYCH workflowów. Nie jest to gust: 09.09.2026 na pull
+#: requeście #450 ziarno `metro-ci-${{ github.ref }}` — bez tego członu, wpisane
+#: do ośmiu workflowów — dało osiem przebiegów utworzonych w TEJ SAMEJ sekundzie
+#: (18:43:03Z), z których jeden ruszył, JEDEN czekał, a SZEŚĆ dostało `cancelled`
+#: w ciągu dwóch sekund. Wśród anulowanych był `Sim core tests`, czyli dokładnie
+#: ten job, którego mierzalności miała bronić serializacja. Pomiar:
+#: `reports/serializacja-jobow-ci.md`.
+#:
+#: Czego ta bramka NIE zakazuje: ziarna per-workflow (`${{ github.workflow }}-…`).
+#: Tam przebieg anulowany jest przebiegiem WYPARTYM przez nowszy commit tej samej
+#: gałęzi, a nie przebiegiem sąsiada — to jest inna rzecz i wolno jej być.
+CONCURRENCY_SEPARATOR = "github.workflow"
+
+
+def _concurrency_groups(document):
+    """Wszystkie ziarna grup `concurrency` w dokumencie — z poziomu pliku i jobów."""
+    found = []
+    for where, value in [("workflow", document.get("concurrency"))] + [
+            (f"job {job_id}", (job or {}).get("concurrency"))
+            for job_id, job in (document.get("jobs") or {}).items()]:
+        if value is None:
+            continue
+        group = value.get("group") if isinstance(value, dict) else value
+        found.append((where, group))
+    return found
+
+
+def _concurrency_fault(group):
+    """Powód, dla którego ziarno zbierałoby RÓŻNE workflowy — albo `None`."""
+    if not isinstance(group, str) or not group.strip():
+        return f"ziarno nie jest napisem: {group!r}"
+    if CONCURRENCY_SEPARATOR not in group:
+        return (f"ziarno {group!r} nie zawiera `{CONCURRENCY_SEPARATOR}`, więc "
+                f"przebiegi różnych workflowów trafią do jednej grupy — "
+                f"a tam wszystko poza jednym oczekującym jest anulowane")
+    return None
+
+
+def test_no_concurrency_group_collects_runs_of_different_workflows():
+    """Żadna grupa `concurrency` nie miesza workflowów.
+
+    Bramka jest tu dlatego, że 2087 testów tego zestawu przepuściło bez jednego
+    czerwonego wiersza commit wkładający osiem workflowów do jednej grupy — a ten
+    commit kasował sześć z ośmiu przebiegów pull requesta. Zielony zestaw mówił
+    wtedy o pliku, którego skutku nikt nie oglądał.
+    """
+    wrong = []
+    checked = 0
+    for name in _workflows():
+        document = yaml.safe_load(_text(name))
+        checked += 1
+        for where, group in _concurrency_groups(document):
+            reason = _concurrency_fault(group)
+            if reason:
+                wrong.append(f"{name} ({where}): {reason}")
+    assert not wrong, f"grupy `concurrency` mieszające workflowy: {wrong}"
+    # Pętla po samych ZNALEZIONYCH grupach przeszłaby pusta i zielona także wtedy,
+    # gdyby `_workflows()` przestało cokolwiek zwracać. Liczba jak w bramce runnera.
+    assert checked >= 7, f"sprawdzono tylko {checked} plików — pętla nie widzi katalogu"
+
+
+def test_the_concurrency_gate_fails_on_the_seed_that_cancelled_six_runs():
+    """Kontrola negatywna: ziarno zmierzone na #450 musi być błędem.
+
+    Pierwsze dwie asercje niosą DOSŁOWNIE tekst, który stał 09.09.2026 w ośmiu
+    workflowach, i ziarno globalne bez żadnego wyrażenia. Trzy ostatnie pilnują,
+    żeby „wszystko jest błędem" nie było dla bramki nie do odróżnienia od detekcji.
+    """
+    assert _concurrency_fault("metro-ci-${{ github.ref }}")
+    assert _concurrency_fault("metro-ci")
+    assert _concurrency_fault("${{ github.ref }}")
+    assert _concurrency_fault(None)
+    assert _concurrency_fault("")
+
+    assert _concurrency_fault("${{ github.workflow }}-${{ github.ref }}") is None
+    assert _concurrency_fault("${{ github.workflow }}") is None
+    # Ziarno CZYTANE Z DOKUMENTU, nie z napisu podanego ręcznie — bez tego bramka
+    # sprawdzałaby wyłącznie własną funkcję, a nie drogę od pliku do werdyktu.
+    zly = yaml.safe_load("concurrency:\n"
+                         "  group: metro-ci-${{ github.ref }}\n"
+                         "  cancel-in-progress: false\n"
+                         "jobs:\n  a:\n    runs-on: self-hosted\n")
+    assert [_concurrency_fault(g) for _, g in _concurrency_groups(zly)] != [None]
+    dobry = yaml.safe_load("jobs:\n  a:\n    runs-on: self-hosted\n"
+                           "    concurrency:\n"
+                           "      group: ${{ github.workflow }}-${{ github.ref }}\n")
+    assert [_concurrency_fault(g) for _, g in _concurrency_groups(dobry)] == [None]
+    # Plik bez `concurrency` nie ma czego naruszyć i nie może dać ani jednego wiersza.
+    assert _concurrency_groups(yaml.safe_load("jobs:\n  a:\n    runs-on: self-hosted\n")) == []
+
+
 #: Ścieżka pod `/tmp`, wpisana na sztywno. Lookbehind odsiewa człony dłuższych
 #: napisów (`$RUNNER_TEMP/tmp`, `/var/tmp`), bo tam katalog wybiera runner, a nie
 #: autor skryptu — a to jest cała różnica, o którą tej bramce chodzi.

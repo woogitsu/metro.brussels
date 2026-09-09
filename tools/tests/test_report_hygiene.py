@@ -277,7 +277,12 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 #: Kto dopisze następny raport, nie przepisuje tej liczby z pamięci ani z tego
 #: akapitu, tylko mierzy ją **na swoim drzewie po scaleniu `main`** — komunikat
 #: asercji podaje wynik pomiaru wprost, żeby nie było potrzeby zgadywania.
-MIN_REPORTS = 188
+#:
+#: **188 → 189 (09.09.2026, 6.D52).** Jeden raport: `serializacja-jobow-ci.md`.
+#: Liczba jest POLICZONA na drzewie po dopisaniu pliku (`ls reports/*.md | wc -l`
+#: dało 189), nie przepisana z rozmowy — reguła trzy akapity wyżej obowiązuje
+#: tak samo przy jednym raporcie, jak przy czterech.
+MIN_REPORTS = 189
 
 #: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
 #: wierszem zaczynającym się od `**`, z którego `_header_shapes` czyta kształt.
