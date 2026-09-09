@@ -261,13 +261,13 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 #: nie usterką.**
 #:
 #: Dlatego liczba nie jest tu wyliczana z żadnej innej liczby. Jest odczytana
-#: z drzewa, na `a5aa464` plus raport tego commita:
+#: z drzewa, na `c8fb583` plus raport tego commita:
 #:
 #:     $ ls reports/*.md | wc -l
-#:     162
+#:     163
 #:     $ python3 -c 'import sys; sys.path.insert(0, "tools/tests");
 #:       import test_report_hygiene as m; print(len(list(m._reports())))'
-#:     162
+#:     163
 #:
 #: Oba pomiary stoją tu razem świadomie: asercja porównuje z `len(list(_reports()))`,
 #: nie z wyjściem `ls`, a te dwa zbiory mogłyby się różnić (glob, katalogi, pliki
@@ -277,7 +277,7 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 #: Kto dopisze następny raport, nie przepisuje tej liczby z pamięci ani z tego
 #: akapitu, tylko mierzy ją **na swoim drzewie po scaleniu `main`** — komunikat
 #: asercji podaje wynik pomiaru wprost, żeby nie było potrzeby zgadywania.
-MIN_REPORTS = 162
+MIN_REPORTS = 163
 
 #: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
 #: wierszem zaczynającym się od `**`, z którego `_header_shapes` czyta kształt.
@@ -713,6 +713,70 @@ def test_lista_wyjatkow_jest_zamknieta():
 PATH_TOKEN = re.compile(r'`([A-Za-z0-9_][A-Za-z0-9_./-]*\.'
                         r'(?:py|cs|md|json|sh|yml|yaml|txt|csproj|tscn|geojson|csv))`')
 
+#: ILE ŚCIEŻEK NA RAPORT musi znaleźć wzorzec. Nie jest to stała porównywana
+#: z `seen` wprost — mnoży się przez liczbę PRZECZYTANYCH raportów, więc podłoga
+#: rośnie razem z katalogiem i nie ma czego podnosić przy nowym raporcie.
+#:
+#: SKĄD 6. Zmierzone 09.09.2026 na `c8fb583`: 162 raporty, 1466 trafień, czyli
+#: **9,05** ścieżki na raport. Oba brzegi liczy z drzewa
+#: `test_podloga_sciezek_na_raport_jest_ZABOKSOWANA_pomiarami`, więc nie ma tu
+#: liczby, która mogłaby zostać z tyłu:
+#:   od dołu  — zawężenie kontrolne wzorca (`ROZSZERZENIE_KONTROLNE`) zbija
+#:              stosunek do **5,59**, więc 6 je łapie, a 5 już nie;
+#:   od góry  — podłoga musi stać co najmniej jedną PEŁNĄ ścieżkę na raport pod
+#:              dzisiejszym stosunkiem (`seen >= checked * (K + 1)`): 6 zostawia
+#:              zapas 494 trafień, 8 zostawia 170, 9 się już nie mieści.
+#: Przedział mieszczący się w obu brzegach to {6, 7, 8}, a 6 jest z niego wybrane
+#: pomiarem TRWAŁOŚCI, nie zasadą „bierz najmocniejsze": raporty z ostatnich dni
+#: są chudsze od średniej katalogu (pierwsze 50 dodanych: 15,14 ścieżki na raport,
+#: ostatnie 50: 7,26, najchudszy dobrze obsadzony dzień 02.09.2026 przy n=9:
+#: 5,11). Przy dopisywaniu raportów o gęstości 5,11 podłoga 6 czerwieni się po
+#: **555** nowych raportach, 7 po **175**, 8 po **58** — a 58 to w tym projekcie
+#: około trzech dni, czyli bramka wyłączona przez fałszywy alarm (6.D27).
+#:
+#: KIERUNEK W GÓRĘ NIE DAJE FAIL i to jest zmierzony wynik, nie luka w boksowaniu:
+#: 7 mieści się w brzegu od góry. Pole „Skończone, gdy" pozycji 6.D58 żądało
+#: trójki FAIL/zielono/FAIL, bo było pisane dla zapadki RÓWNOŚCIOWEJ; podłoga
+#: stosunkowa ma z natury jeden brzeg twardy i jeden z zapasem. Powód i rachunek
+#: stoją w `reports/podloga-sciezek-na-raport.md`.
+SCIEZEK_NA_RAPORT_MIN = 6
+
+#: Rozszerzenie, którego zdjęcie ze wzorca jest ZAWĘŻENIEM KONTROLNYM dla podłogi
+#: wyżej: najprawdopodobniejszy realny dryf (ktoś zacieśnia wzorzec „do plików
+#: kodu") i druga co do wielkości klasa trafień — 561 z 1466, zmierzone
+#: 09.09.2026. Stosunek po jego zdjęciu przelicza się w czasie testu.
+ROZSZERZENIE_KONTROLNE = "md"
+
+#: ROZSZERZENIA PILNOWANE — kopia alternatywy z `PATH_TOKEN`, i kopia UMYŚLNA.
+#: Bramka pokrycia nie może czytać listy z samego wzorca: zdjęcie `md` z wzorca
+#: zdjęłoby `md` także z listy do sprawdzenia, więc bramka byłaby ZIELONA nad
+#: dokładnie tą usterką, którą ma łapać. To ta sama rodzina, którą 6.D54, 6.D55
+#: i 6.D56 zmierzyły trzy razy pod rząd na świeżo napisanych bramkach.
+#: Zgodność tej kopii ze wzorcem pilnuje asercja RÓWNOŚCIOWA w
+#: `test_zestaw_rozszerzen_w_kodzie_i_we_wzorcu_JEST_TEN_SAM` — kopia bez bramki
+#: na zgodność jest gorsza niż brak kopii (6.D44).
+ROZSZERZENIA_PILNOWANE = ("py", "cs", "md", "json", "sh", "yml", "yaml", "txt",
+                          "csproj", "tscn", "geojson", "csv")
+
+#: Rozszerzenia ze wzorca, które DZIŚ nie mają w raportach ani jednego trafienia,
+#: z powodem przy każdym. Zmierzone 09.09.2026 na `c8fb583`. Wpis tutaj znaczy
+#: „wiem, że pokrycia nie ma", a nie „nie sprawdzaj": test żąda od każdego wpisu
+#: ZERA trafień, więc pierwsza policzona ścieżka `.yml` zaczerwieni zestaw i każe
+#: wpis zdjąć. Bez tej drugiej strony lista gniłaby po cichu, dokładnie tak jak
+#: `COMMIT_EXCEPTIONS` bez `test_lista_wyjatkow_nie_gnije`.
+ROZSZERZENIA_BEZ_TRAFIEN = {
+    "yml": "raporty wymieniają workflowy pełną ścieżką (22 wzmianki w 15 "
+           "raportach, wszystkie pod `.github/`), ale `PATH_TOKEN` zaczyna token "
+           "znakiem z `[A-Za-z0-9_]`, więc ścieżka rozpoczynająca się KROPKĄ nie "
+           "wchodzi. Zero jest tu wynikiem martwego pola wzorca, nie brakiem "
+           "wzmianek — zgłoszone osobną pozycją, bo zmiana wzorca jest poza "
+           "zakresem 6.D58",
+    "yaml": "w drzewie nie ma ani jednego pliku `.yaml` (`git ls-files '*.yaml'` "
+            "daje 0); rozszerzenie stoi we wzorcu, bo YAML dopuszcza oba zapisy",
+    "geojson": "w drzewie nie ma ani jednego pliku `.geojson`, więc raport nie "
+               "miałby czego wymienić",
+}
+
 #: Przedrostki, których nie ma po co sprawdzać: wytwory przebiegu (reguła 8 zabrania
 #: ich komitować, więc ich BRAK jest stanem poprawnym), ścieżki Godota, katalogi
 #: tymczasowe i adresy.
@@ -726,10 +790,15 @@ IGNORED_PREFIXES = ("build/", "renders/", "res://", "/tmp/", "http://", "https:/
 PATH_EXCEPTIONS = {}
 
 
-def _paths_in(text):
-    """Ścieżki repozytoryjne wymienione w grawisach: `(token, numer wiersza)`."""
+def _paths_in(text, pattern=PATH_TOKEN):
+    """Ścieżki repozytoryjne wymienione w grawisach: `(token, numer wiersza)`.
+
+    `pattern` jest wejściem, bo boksowanie podłogi i bramka pokrycia mierzą
+    ten sam katalog wzorcem ZAWĘŻONYM. Drugi czytnik z własną kopią warunku
+    `IGNORED_PREFIXES` rozjechałby się z tym przy pierwszej zmianie (6.D44).
+    """
     for number, line in enumerate(text.splitlines(), 1):
-        for token in PATH_TOKEN.findall(line):
+        for token in pattern.findall(line):
             if "/" not in token or token.startswith(IGNORED_PREFIXES):
                 continue
             yield token, number
@@ -760,11 +829,196 @@ def test_kazda_sciezka_wymieniona_w_raporcie_rozwiazuje_sie_w_drzewie():
     assert checked >= MIN_REPORTS, (
         f"bramka przeszła tylko {checked} raportów, a w `reports/` jest ich "
         f"co najmniej {MIN_REPORTS} — skan przestał czytać katalog")
-    # Bez tego progu literówka we WZORCU dawałaby zero tokenów, zero braków i zieloną
-    # bramkę. Zmierzone 05.09.2026: 623 trafienia w 48 raportach; próg stoi niżej,
-    # żeby nie trzeba go było ruszać przy każdym nowym raporcie.
-    assert seen >= 500, (
-        f"wzorzec znalazł tylko {seen} ścieżek w {checked} raportach — przestał łapać")
+    # PODŁOGA PRZELICZANA Z LICZBY RAPORTÓW, NIE STAŁA — 6.D58, 09.09.2026.
+    #
+    # Poprzednia wersja brzmiała `assert seen >= 500` i kończyła się zdaniem „próg
+    # stoi niżej, żeby nie trzeba go było ruszać przy każdym nowym raporcie". To
+    # zdanie było całą usterką: przy 1466 trafieniach w 162 raportach zapas wynosił
+    # **966**, czyli wzorzec mógł przestać łapać **65,9 %** ścieżek i przejść.
+    # Co gorsza stała SŁABŁA z każdym raportem — 500 to dziś 3,09 ścieżki na raport,
+    # a przy 300 raportach byłoby 1,67.
+    #
+    # Zmierzone 09.09.2026 na `c8fb583` przez ZAWĘŻANIE wzorca — liczby, których
+    # żądało pole „Weryfikacja" tej pozycji:
+    #
+    #   wzorzec                     seen   stara >=500   nowa >= checked*6
+    #   pełny (12 rozszerzeń)       1466     ZIELONA          zielona
+    #   bez .md (11)                 905     ZIELONA          CZERWONA
+    #   bez .py (11)                 869     ZIELONA          CZERWONA
+    #   tylko .py                    597     ZIELONA          CZERWONA
+    #   tylko .csv                     4    czerwona          CZERWONA
+    #
+    # Stara podłoga nie łapała ANI JEDNEGO zawężenia poza absurdalnym.
+    #
+    # DLACZEGO STOSUNEK, A NIE RÓWNOŚĆ — odstępstwo od pola „Wyjście" tej pozycji,
+    # z powodu zmierzonego, nie z wygody. Pole żądało zapadki równościowej na `seen`,
+    # wzorem `MIN_REPORTS` z 6.D45. Ale `seen` rośnie przy KAŻDEJ wzmiance o pliku
+    # w prozie dowolnego raportu, nie przy dopisaniu raportu — a `MIN_REPORTS`
+    # w kształcie równościowym wymusiło siedem podniesień w ciągu jednego wieczoru.
+    # Równość na `seen` kosztowałaby podniesienie przy każdej edycji prozy, co realnie
+    # kończy się wyłączeniem bramki (6.D27).
+    #
+    # CZEGO TA PODŁOGA NIE ŁAPIE, i to też jest zmierzone: zdjęcie ze wzorca
+    # któregokolwiek z pozostałych dziesięciu rozszerzeń zbija stosunek najwyżej
+    # do 8,08 (bez `.cs`), więc przechodzi przy każdej wartości z przedziału.
+    # Podłoga stosunkowa jest więc bramką na ZAŁAMANIE OBJĘTOŚCI, a pokrycie
+    # rozszerzeń pilnuje osobna bramka niżej, bez żadnego progu.
+    assert seen >= checked * SCIEZEK_NA_RAPORT_MIN, (
+        f"wzorzec znalazł {seen} ścieżek w {checked} raportach, czyli "
+        f"{seen / checked:.2f} na raport przy wymaganych {SCIEZEK_NA_RAPORT_MIN} — "
+        "wzorzec przestał łapać część rozszerzeń albo skan przestał czytać treść")
+
+
+#: Ile wpisów wolno mieć `ROZSZERZENIA_BEZ_TRAFIEN`. Zapadka jednokierunkowa:
+#: wolno WYŁĄCZNIE obniżać, tak samo jak `MAX_COMMIT_EXCEPTIONS` wyżej. Bez tego
+#: limitu bramkę pokrycia rozbroiłoby dopisanie wszystkich dwunastu rozszerzeń
+#: do wyjątków — przeszłaby, nie sprawdzając niczego.
+MAX_ROZSZERZEN_BEZ_TRAFIEN = 3
+
+#: Podłoga, która stała tu przed 6.D58, trzymana jako OPERAND, nie jako wspomnienie:
+#: brzeg „nowa podłoga żąda więcej niż stara" jest przez to sprawdzany, a nie
+#: napisany w komentarzu. Wartość jest martwa — nic w drzewie już jej nie używa.
+STARA_PODLOGA_STALA = 500
+
+
+def _rozszerzenia_we_wzorcu():
+    """Alternatywa rozszerzeń WYJĘTA z `PATH_TOKEN`, nie wpisana drugi raz."""
+    grupa = re.search(r"\(\?:([a-z|]+)\)", PATH_TOKEN.pattern)
+    assert grupa, (
+        "w `PATH_TOKEN` nie ma już alternatywy rozszerzeń w postaci `(?:a|b|c)` — "
+        f"wzorzec brzmi {PATH_TOKEN.pattern!r}, a bez tego odczytu bramka zgodności "
+        "porównywałaby kopię z niczym")
+    return tuple(grupa.group(1).split("|"))
+
+
+def _pomiar_trafien(pattern=PATH_TOKEN):
+    """(liczba przeczytanych raportów, {rozszerzenie: trafienia}).
+
+    Filtr jest JEDEN — `_paths_in` — bo druga kopia warunku `IGNORED_PREFIXES`
+    rozjechałaby się z pierwszą przy pierwszej zmianie (6.D44).
+    """
+    checked = 0
+    po_rozszerzeniu = {}
+    for _name, text in _reports():
+        checked += 1
+        for token, _number in _paths_in(text, pattern):
+            klucz = token.rsplit(".", 1)[1]
+            po_rozszerzeniu[klucz] = po_rozszerzeniu.get(klucz, 0) + 1
+    return checked, po_rozszerzeniu
+
+
+def test_zestaw_rozszerzen_w_kodzie_i_we_wzorcu_JEST_TEN_SAM():
+    """`ROZSZERZENIA_PILNOWANE` musi się zgadzać z alternatywą w `PATH_TOKEN`.
+
+    Bez tej asercji kopia byłaby gorsza niż jej brak: bramka pokrycia niżej
+    sprawdzałaby rozszerzenia, których wzorzec już nie zna, albo — co gorsza —
+    milczałaby o tych, które ze wzorca wypadły.
+    """
+    we_wzorcu = set(_rozszerzenia_we_wzorcu())
+    w_kodzie = set(ROZSZERZENIA_PILNOWANE)
+    assert len(ROZSZERZENIA_PILNOWANE) == len(w_kodzie), (
+        f"`ROZSZERZENIA_PILNOWANE` ma powtórzenie: {ROZSZERZENIA_PILNOWANE}")
+    assert w_kodzie == we_wzorcu, (
+        "kopia listy rozszerzeń rozjechała się ze wzorcem — zrównaj je w tym samym "
+        "commicie, w którym zmieniasz `PATH_TOKEN`:\n"
+        f"  we wzorcu, brak w kodzie: {sorted(we_wzorcu - w_kodzie)}\n"
+        f"  w kodzie, brak we wzorcu: {sorted(w_kodzie - we_wzorcu)}")
+    nieznane = set(ROZSZERZENIA_BEZ_TRAFIEN) - w_kodzie
+    assert not nieznane, (
+        f"`ROZSZERZENIA_BEZ_TRAFIEN` wymienia {sorted(nieznane)}, których nie ma "
+        "wśród pilnowanych — wyjątek od nieistniejącego wymagania nic nie robi")
+
+
+def test_kazde_pilnowane_rozszerzenie_ma_zywe_trafienie_albo_jawny_wyjatek():
+    """Pokrycie rozszerzeń — bramka BEZ PROGU, i to jest jej cała wartość.
+
+    Podłoga stosunkowa wyżej łapie zdjęcie ze wzorca tylko `.py` albo `.md`:
+    zmierzone 09.09.2026 na `c8fb583`, zdjęcie któregokolwiek z pozostałych dziesięciu
+    zostawia stosunek na 8,08 albo wyżej, czyli **2 z 12** zawężeń. Ta bramka łapie
+    **9 z 12** — wszystkie poza trzema, które i dziś nie mają trafień — i nie ma
+    w niej liczby, która mogłaby się zestarzeć.
+
+    Kontrola negatywna jest w raporcie `reports/podloga-sciezek-na-raport.md` §5:
+    po zdjęciu `csv` ze wzorca (4 trafienia, stosunek 9,02, podłoga zielona) pada
+    wyłącznie ta bramka i bramka zgodności kopii.
+    """
+    checked, po_rozszerzeniu = _pomiar_trafien()
+    assert checked >= MIN_REPORTS, (
+        f"bramka przeszła tylko {checked} raportów, a w `reports/` jest ich "
+        f"co najmniej {MIN_REPORTS} — skan przestał czytać katalog")
+    bez_pokrycia = sorted(r for r in ROZSZERZENIA_PILNOWANE
+                          if not po_rozszerzeniu.get(r)
+                          and r not in ROZSZERZENIA_BEZ_TRAFIEN)
+    assert not bez_pokrycia, (
+        f"rozszerzenia {bez_pokrycia} nie mają w {checked} raportach ani jednego "
+        "trafienia — wzorzec przestał je łapać albo klasa ścieżek zniknęła z prozy; "
+        "jeśli to drugie, wpis idzie do `ROZSZERZENIA_BEZ_TRAFIEN` Z POWODEM")
+    # DRUGA STRONA: wyjątek musi być MARTWY, inaczej lista gnije po cichu.
+    ozywione = {r: po_rozszerzeniu[r] for r in ROZSZERZENIA_BEZ_TRAFIEN
+                if po_rozszerzeniu.get(r)}
+    assert not ozywione, (
+        f"`ROZSZERZENIA_BEZ_TRAFIEN` wymienia {sorted(ozywione)}, a trafienia już "
+        f"są ({ozywione}) — zdejmij wpis, bo od tej chwili chroni rozszerzenie, "
+        "które bramka umie sprawdzić naprawdę")
+    assert len(ROZSZERZENIA_BEZ_TRAFIEN) <= MAX_ROZSZERZEN_BEZ_TRAFIEN, (
+        f"wyjątków od pokrycia jest {len(ROZSZERZENIA_BEZ_TRAFIEN)} przy limicie "
+        f"{MAX_ROZSZERZEN_BEZ_TRAFIEN} — zapadka jest jednokierunkowa, wolno ją "
+        "wyłącznie obniżać")
+
+
+def test_podloga_sciezek_na_raport_jest_ZABOKSOWANA_pomiarami():
+    """`SCIEZEK_NA_RAPORT_MIN` między dwoma brzegami LICZONYMI Z DRZEWA.
+
+    Bez tego testu komentarz przy stałej byłby zdaniem o niezmienniku, którego nic
+    nie pilnuje — usterka zamknięta w 6.D56 i 6.D57, dwa razy pod rząd.
+
+    Brzegi są przeliczane przy każdym przebiegu, więc nie ma tu ani jednej liczby
+    przepisanej z pomiaru. Kierunki, zmierzone 09.09.2026 na `c8fb583`:
+    5 pada na brzegu od dołu (zawężenie kontrolne przechodzi), 6 jest zielone,
+    9 pada na brzegu od góry. 7 i 8 mieszczą się w obu brzegach — wybór 6
+    z tego przedziału jest pomiarem trwałości opisanym przy stałej, nie asercją.
+    """
+    checked, po_rozszerzeniu = _pomiar_trafien()
+    seen = sum(po_rozszerzeniu.values())
+    assert checked >= MIN_REPORTS, (
+        f"bramka przeszła tylko {checked} raportów, a w `reports/` jest ich "
+        f"co najmniej {MIN_REPORTS} — skan przestał czytać katalog")
+
+    # KONTROLA PRZYRZĄDU: zawężenie kontrolne musi naprawdę coś zabierać. Gdyby
+    # `ROZSZERZENIE_KONTROLNE` nie miało trafień, brzeg od dołu porównywałby
+    # podłogę z niezmienionym stosunkiem i był zielony nad każdą wartością stałej.
+    ubytek = po_rozszerzeniu.get(ROZSZERZENIE_KONTROLNE, 0)
+    assert ubytek > 0, (
+        f"zawężenie kontrolne zdejmuje `.{ROZSZERZENIE_KONTROLNE}`, a to "
+        "rozszerzenie nie ma dziś ani jednego trafienia — brzeg od dołu przestał "
+        "cokolwiek mierzyć, wybierz na kontrolne rozszerzenie z trafieniami")
+    zawezony = seen - ubytek
+
+    # BRZEG OD DOŁU: podłoga musi zaczerwienić zawężenie kontrolne.
+    assert checked * SCIEZEK_NA_RAPORT_MIN > zawezony, (
+        f"po zdjęciu `.{ROZSZERZENIE_KONTROLNE}` ze wzorca zostaje {zawezony} "
+        f"trafień, czyli {zawezony / checked:.2f} na raport, a podłoga żąda "
+        f"{SCIEZEK_NA_RAPORT_MIN} — zawężenie PRZESZŁOBY. Podnieś "
+        "`SCIEZEK_NA_RAPORT_MIN`, a jeśli to zabierze cały zapas od góry, znaczy to, "
+        "że podłoga stosunkowa wyczerpała miejsce i pilnuje już tylko objętości")
+
+    # BRZEG OD GÓRY: podłoga musi stać co najmniej JEDNĄ pełną ścieżkę na raport
+    # pod dzisiejszym stosunkiem. Zapas w tej postaci nie starzeje się razem
+    # z katalogiem, bo liczy się w ścieżkach NA RAPORT, a nie w trafieniach.
+    assert seen >= checked * (SCIEZEK_NA_RAPORT_MIN + 1), (
+        f"drzewo daje {seen / checked:.2f} ścieżki na raport przy podłodze "
+        f"{SCIEZEK_NA_RAPORT_MIN} — zapas zszedł poniżej jednej pełnej ścieżki "
+        f"({seen} trafień wobec {checked * (SCIEZEK_NA_RAPORT_MIN + 1)} wymaganych), "
+        "więc następne chude raporty zaczerwienią bramkę bez żadnej usterki. "
+        "Obniż `SCIEZEK_NA_RAPORT_MIN` w tym samym commicie, w którym to widzisz")
+
+    # RÓŻNICA WOBEC STAREJ PODŁOGI, LICZBĄ: nowa żąda więcej i rośnie z katalogiem,
+    # stara słabła z każdym raportem (500 to 3,09 ścieżki na raport przy 162
+    # raportach, a 1,67 przy 300).
+    assert checked * SCIEZEK_NA_RAPORT_MIN > STARA_PODLOGA_STALA, (
+        f"nowa podłoga żąda {checked * SCIEZEK_NA_RAPORT_MIN} trafień, a stała, "
+        f"którą zastąpiła, żądała {STARA_PODLOGA_STALA} — zmiana przestała "
+        "sprawdzać więcej, niż sprawdzała poprzednia wersja")
 
 
 def test_wzorzec_sciezki_lapie_to_co_ma_i_nie_lapie_prozy():
