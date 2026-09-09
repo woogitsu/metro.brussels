@@ -47,6 +47,21 @@ def _run(axis):
         return V.validate(path)
 
 
+def _run_tekst(tresc):
+    """Uruchamia walidator na DOSŁOWNEJ treści pliku, nie na słowniku.
+
+    Potrzebne, bo dwie z czterech dróg wejścia wartości nieskończonej istnieją
+    wyłącznie na poziomie ZAPISU: literał `NaN` i literał `1e400`. Przez
+    `json.dump` nie da się ich wyrazić tak, jak wyglądają w pliku — `dump`
+    zapisałby `NaN` dla nieskończoności, czyli inną z tych dwóch dróg.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        path = os.path.join(tmp, "axis.json")
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(tresc)
+        return V.validate(path)
+
+
 def _has(messages, fragment):
     return any(fragment in m for m in messages)
 
@@ -812,6 +827,85 @@ def test_validate_speed_limit_range_is_inclusive_at_both_ends():
         out = run(kmh)
         assert len(out.err) == 1, (kmh, out.err)
         assert _has(out.err, "poza zakresem 5–80"), (kmh, out.err)
+
+def test_literal_NaN_w_pliku_jest_ODMOWA_przy_wczytaniu():
+    """6.D66: `json` Pythona przyjmuje `NaN` wbrew formatowi JSON.
+
+    Bez odmowy taki plik wczytywał się bez słowa, a walidator OGŁASZAŁ zgodność:
+    `length_m zgodne z łamaną, różnica nan mm` przy `0 błędów` i kodzie 0.
+    Porównania z wartością nieliczbową są zawsze fałszywe, więc żaden próg —
+    długości, pochylenia, promienia, odstępu stacji — nie mógł się zapalić.
+    """
+    tresc = '{"id":"X","crs":"EPSG:31370","points":[[NaN,0,0],[10,0,0],[20,0,0]]}'
+    raport = _run_tekst(tresc)
+    assert not raport.ok(), raport.info
+    assert _has(raport.err, "literał `NaN`"), raport.err
+    assert not _has(raport.info, "zgodne"), (
+        "walidator ogłosił zgodność czegokolwiek na pliku, którego nie wczytał")
+
+
+def test_przepelnienie_do_nieskonczonosci_tez_jest_ODMOWA():
+    """Odmowa literału NIE wystarcza, i to jest zmierzone.
+
+    `1e400` jest poprawnym literałem JSON i `json.load` zamienia go na
+    nieskończoność BEZ użycia słowa `Infinity`, więc `parse_constant` go nie widzi.
+    Jedna kontrola łapie zapis, druga przepełnienie — żadna nie zastępuje drugiej,
+    i ten test jest tym, co tę parę trzyma razem.
+    """
+    tresc = '{"id":"X","crs":"EPSG:31370","points":[[1e400,0,0],[10,0,0],[20,0,0]]}'
+    raport = _run_tekst(tresc)
+    assert not raport.ok(), raport.info
+    assert _has(raport.err, "punkt 0, współrzędna x"), raport.err
+    assert _has(raport.err, "ZAWSZE fałszywe"), (
+        "komunikat nie mówi, DLACZEGO to nie jest drobiazg: " + repr(raport.err))
+    assert not _has(raport.info, "zgodne"), raport.info
+
+
+def test_nieskonczona_dlugosc_i_kilometraz_tez_sa_ODMOWA():
+    """Dwa pozostałe pola liczbowe, które walidator czyta osobno od punktów.
+
+    Bez nich poprawka pilnowałaby współrzędnych i przepuszczała te same wartości
+    w `length_m` i `chainage_m` — a to są dokładnie wielkości, na których stoją
+    progi zgodności długości i odstępu stacji.
+    """
+    dlugosc = ('{"id":"X","crs":"EPSG:31370","length_m":1e400,'
+               '"points":[[0,0,0],[10,0,0],[20,0,0]]}')
+    raport = _run_tekst(dlugosc)
+    assert not raport.ok(), raport.info
+    # PIN NA POWÓD, nie na nazwę pola — i to jest poprawka do pierwszej wersji tego
+    # testu, która przechodziła TAKŻE bez kontroli. Przy nieskończoności istniejący
+    # próg dryfu i tak odmawia (`inf > tolerancja` jest prawdą), tylko komunikatem
+    # „nie zgadza się z łamaną": zaprasza czytającego do poprawienia LICZBY, gdy
+    # problemem jest to, że to nie jest liczba. Asercja na samo `length_m`
+    # przechodziła w obu wersjach, czyli nie mogła paść.
+    assert _has(raport.err, "nie jest liczbą skończoną"), raport.err
+    assert not _has(raport.err, "nie zgadza się z łamaną"), (
+        "odmowa nazywa niezgodność z łamaną zamiast wartości nieskończonej: "
+        + repr(raport.err))
+
+    kilometraz = ('{"id":"X","crs":"EPSG:31370",'
+                  '"points":[[0,0,0],[10,0,0],[20,0,0]],'
+                  '"stations":[{"name":"A","chainage_m":1e400},'
+                  '{"name":"B","chainage_m":15.0}]}')
+    raport = _run_tekst(kilometraz)
+    assert not raport.ok(), raport.info
+    assert _has(raport.err, "stacja 0, chainage_m"), raport.err
+
+
+def test_zdrowa_os_nie_dostaje_falszywego_alarmu_od_tej_kontroli():
+    """Kontrola odwrotnego kierunku — bez niej odmowa mogłaby być za szeroka.
+
+    Zero, wartości ujemne i bardzo małe są liczbami skończonymi i muszą przejść.
+    Sentinele `float("inf")` używane WEWNĄTRZ walidatora (promień prostego odcinka)
+    nie są danymi wejściowymi i ta kontrola ich nie dotyczy — gdyby dotyczyła,
+    każda prosta oś byłaby odrzucona.
+    """
+    tresc = ('{"id":"X","crs":"EPSG:31370","length_m":20.0,'
+             '"points":[[0,0,0],[10,0,-0.0],[20,0,1e-12]]}')
+    raport = _run_tekst(tresc)
+    assert raport.ok(), raport.err
+    assert _has(raport.info, "zgodne z łamaną"), raport.info
+
 
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
 # z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
