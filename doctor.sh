@@ -186,16 +186,30 @@ chk_optional "godot ($GODOT_CMD)" "\"$GODOT_CMD\" --version" \
 # (dokładnie ten, który stawia `dotnet-install.sh`), albo `dotnet` osiągalny przez
 # goły `command -v` — silnik próbuje TO jako drugie, dopiero gdy `DOTNET_ROOT` się
 # nie zgadza, i awaria wygląda wtedy identycznie jak brak zmiennej w ogóle.
+#
+# TA KONTROLA JEST PRZEPISANA 09.09.2026 (6.D60), A NIE DOPISANA OBOK. Poprzednia
+# pytała `find "$DOTNET_ROOT/host/fxr" -name 'libhostfxr.so'`, czyli o OBECNOŚĆ
+# PLIKU O DANEJ NAZWIE, i mówiła `ok` przy CZTERECH z pięciu zepsuć, po których
+# Godot pada kodem 134 w 0,19–0,35 s (6.D24, `reports/6d24-biblioteka-natywna.md`
+# §5): `libhostfxr.so` obcięty do 200 B, `libcoreclr.so` usunięty, `libcoreclr.so`
+# obcięty, `libhostpolicy.so` usunięty. Nazwa pliku nie mówi ani o jego
+# kompletności, ani o dwóch pozostałych bibliotekach z komunikatu silnika.
+# Dziś kontrolą jest PRAWDZIWE ŁADOWANIE wszystkich trzech (`dlopen` przez
+# `tools/ci/dotnet_native_probe.py`) — bez progu, który trzeba by zgadnąć, bo
+# obcięcie do 200 B zostawia poprawny nagłówek ELF.
 if "$GODOT_CMD" --version >/dev/null 2>&1; then
-  HOSTFXR_OK=0
-  if [ -n "${DOTNET_ROOT:-}" ] \
-     && [ -n "$(find "$DOTNET_ROOT/host/fxr" -maxdepth 2 -name 'libhostfxr.so' 2>/dev/null)" ]; then
-    HOSTFXR_OK=1
+  # Katalog, który spróbuje SILNIK, w jego kolejności: najpierw `DOTNET_ROOT`,
+  # dopiero potem `dotnet` z gołego `command -v`.
+  HOSTFXR_ROOT=""
+  if [ -n "${DOTNET_ROOT:-}" ]; then
+    HOSTFXR_ROOT="$DOTNET_ROOT"
   elif command -v dotnet >/dev/null 2>&1; then
-    HOSTFXR_OK=1
+    HOSTFXR_ROOT="$(dirname "$(readlink -f "$(command -v dotnet)")")"
   fi
-  chk_optional "godot .NET hostfxr" "[ $HOSTFXR_OK -eq 1 ]" \
-    "ustaw DOTNET_ROOT na katalog SDK z host/fxr/*/libhostfxr.so (np. \$HOME/.dotnet) albo dodaj dotnet do PATH — inaczej Godot mono pada przy starcie sceny z C# w niecałą sekundę: log pisze Failed to load hostfxr i signal 11, a powłoka widzi kod 134 (zmierzone 06.09 i 09.09.2026, 11 wariantów)"
+  HOSTFXR_POWOD="$(python3 tools/ci/dotnet_native_probe.py "$HOSTFXR_ROOT" 2>&1)"
+  HOSTFXR_OK=$?
+  chk_optional "godot .NET hostfxr" "[ $HOSTFXR_OK -eq 0 ]" \
+    "$HOSTFXR_POWOD — ustaw DOTNET_ROOT na kompletny katalog SDK (np. \$HOME/.dotnet) albo dodaj dotnet do PATH, inaczej Godot mono pada przy starcie sceny z C# w niecałą sekundę: log pisze Failed to load hostfxr i signal 11, a powłoka widzi kod 134 (zmierzone 06.09 i 09.09.2026, 11 wariantów)"
 fi
 
 echo ""

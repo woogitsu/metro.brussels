@@ -12,6 +12,7 @@ nie osunął się z powrotem na wersję po dacie końca wsparcia.
 import os
 import re
 import shutil
+import sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 WORKFLOWS = os.path.join(ROOT, ".github", "workflows")
@@ -817,6 +818,151 @@ def test_doctor_reads_the_log_when_the_version_probe_said_nothing_useful():
     assert "nie zbuduje net" not in output, (
         "doctor zatrzymał się na sondzie wersji, choć wersja jest dostateczna:\n" + output)
     assert "required_bad=1" in output, output
+
+#: 6.D60. Sonda `godot .NET hostfxr` w `doctor.sh`. Pięć zepsuć, po których Godot
+#: pada kodem 134 w 0,19–0,35 s (6.D24, `reports/6d24-biblioteka-natywna.md` §5) —
+#: i szósty wariant kontrolny, w którym nic nie jest zepsute.
+#:
+#: `None` znaczy „nic nie psuj". Drugi człon to biblioteka, trzeci to sposób:
+#: `brak` — plik usunięty, `obc` — obcięty do 200 B, czyli z POPRAWNYM nagłówkiem
+#: ELF. Ten drugi jest tu najważniejszy: to on przewraca każdy pomysł oparty
+#: na nagłówku albo na obecności nazwy w katalogu.
+ZEPSUCIA = (
+    ("kontrola", None, None),
+    ("hostfxr-brak", "hostfxr", "brak"),
+    ("hostfxr-obc", "hostfxr", "obc"),
+    ("coreclr-brak", "coreclr", "brak"),
+    ("coreclr-obc", "coreclr", "obc"),
+    ("hostpolicy-brak", "hostpolicy", "brak"),
+)
+
+#: Ścieżki, pod którymi `dotnet-install.sh` kładzie trzy biblioteki, z wersją
+#: podstawioną na stałą — atrapa nie udaje żadnego prawdziwego SDK i nie potrzebuje
+#: go na dysku. **To jest wybór, nie skrót:** job `tools` w CI .NET-a nie instaluje,
+#: więc bramka wymagająca prawdziwej instalacji byłaby zielona tylko tam, gdzie SDK
+#: akurat stoi — czyli mówiłaby o maszynie, a nie o sondzie.
+UKLAD_ATRAPY = {
+    "hostfxr": "host/fxr/10.0.0/libhostfxr.so",
+    "hostpolicy": "shared/Microsoft.NETCore.App/10.0.0/libhostpolicy.so",
+    "coreclr": "shared/Microsoft.NETCore.App/10.0.0/libcoreclr.so",
+}
+
+
+def _atrapa_dotnet_root(katalog, biblioteka=None, sposob=None):
+    """Katalog o układzie SDK, w którym trzy pliki są PRAWDZIWYMI bibliotekami.
+
+    Wzorcem jest skompilowany moduł `_ctypes` samego Pythona — plik, który na pewno
+    istnieje wszędzie, gdzie ten zestaw w ogóle się uruchamia, i który `dlopen`
+    naprawdę ładuje. Bez prawdziwej biblioteki wariant kontrolny nie odróżniałby
+    sondy działającej od sondy odmawiającej zawsze.
+    """
+    import _ctypes
+    import shutil
+
+    wzor = _ctypes.__file__
+    for nazwa, wzgledna in UKLAD_ATRAPY.items():
+        cel = os.path.join(katalog, wzgledna)
+        os.makedirs(os.path.dirname(cel), exist_ok=True)
+        if nazwa == biblioteka and sposob == "brak":
+            continue
+        if nazwa == biblioteka and sposob == "obc":
+            with open(wzor, "rb") as zrodlo, open(cel, "wb") as plik:
+                plik.write(zrodlo.read(200))
+            continue
+        shutil.copy2(wzor, cel)
+    return katalog
+
+
+def _obecnosc_pliku_o_tej_nazwie(root):
+    """DAWNA kontrola z `doctor.sh`, przepisana w Pythonie jeden do jednego.
+
+    Stoi tu jako **przyrząd kontrolny**, nie jako kod produkcyjny: bez niej zdanie
+    „nowa kontrola łapie więcej" byłoby twierdzeniem, a nie pomiarem wykonanym
+    w tym samym przebiegu, na tych samych sześciu atrapach.
+    """
+    import glob as _glob
+
+    return bool(_glob.glob(os.path.join(root, "host", "fxr", "*", "libhostfxr.so")))
+
+
+def test_the_hostfxr_probe_refuses_every_one_of_the_five_measured_breakages():
+    """Kontrola przechodzi TYLKO na atrapie kontrolnej — i to jest treść 6.D60."""
+    import tempfile
+
+    sys.path.insert(0, os.path.join(ROOT, "tools", "ci"))
+    import dotnet_native_probe as SONDA
+
+    werdykty = {}
+    with tempfile.TemporaryDirectory() as tmp:
+        for nazwa, biblioteka, sposob in ZEPSUCIA:
+            root = _atrapa_dotnet_root(os.path.join(tmp, nazwa), biblioteka, sposob)
+            werdykty[nazwa] = SONDA.powod_odmowy(root)
+
+    assert werdykty["kontrola"] is None, (
+        "sonda odmawia na atrapie, w której NIC nie jest zepsute — mierzy wtedy "
+        f"samą siebie, nie instalację: {werdykty['kontrola']}")
+    for nazwa, biblioteka, _ in ZEPSUCIA[1:]:
+        powod = werdykty[nazwa]
+        assert powod is not None, f"{nazwa}: sonda mówi ok przy zepsuciu, które wywraca silnik"
+        assert biblioteka in powod, (
+            f"{nazwa}: sonda odmawia, ale nie nazywa biblioteki `{biblioteka}`: {powod}")
+    # Liczba jak w bramkach CI: pętla po pustym zbiorze wariantów przeszłaby zielona.
+    assert len(werdykty) == 6, f"sprawdzono {len(werdykty)} wariantów zamiast sześciu"
+
+
+def test_the_probe_catches_what_the_old_presence_check_let_through():
+    """Kontrola negatywna: dawna kontrola musi na tych samych atrapach przepuścić 4 z 5.
+
+    Bez tej pary poprzedni test byłby zielony także dla kontroli, która niczego nie
+    poprawiła — a różnica 1/5 wobec 5/5 jest jedynym powodem, dla którego 6.D60
+    w ogóle istnieje.
+    """
+    import tempfile
+
+    sys.path.insert(0, os.path.join(ROOT, "tools", "ci"))
+    import dotnet_native_probe as SONDA
+
+    stara_przepuscila, nowa_przepuscila = [], []
+    with tempfile.TemporaryDirectory() as tmp:
+        for nazwa, biblioteka, sposob in ZEPSUCIA[1:]:
+            root = _atrapa_dotnet_root(os.path.join(tmp, nazwa), biblioteka, sposob)
+            if _obecnosc_pliku_o_tej_nazwie(root):
+                stara_przepuscila.append(nazwa)
+            if SONDA.powod_odmowy(root) is None:
+                nowa_przepuscila.append(nazwa)
+
+    assert len(stara_przepuscila) == 4, (
+        "dawna kontrola nie przepuszcza już czterech z pięciu zepsuć — atrapa "
+        f"przestała odtwarzać pomiar 6.D24: {stara_przepuscila}")
+    assert nowa_przepuscila == [], (
+        f"nowa sonda przepuszcza zepsucie: {nowa_przepuscila}")
+
+
+def test_doctor_asks_the_probe_and_not_the_name_of_a_file():
+    """`doctor.sh` woła sondę, a dawnego `find … -name` nie ma już w KODZIE.
+
+    Czytany jest kod bez komentarzy — tym samym `without_comments`, co przy
+    `RUNNER_TOOL_CACHE` i z tego samego powodu, TYLKO ODWRÓCONEGO. Tam bramka
+    przechodziła na napisie stojącym w komentarzu; tu **padała** na nim: komentarz
+    nad kontrolą CYTUJE dawną postać, żeby było widać, co i czemu zostało
+    przepisane, a bramka czytająca prozę uznała cytat za nawrót. Zmierzone
+    09.09.2026 przy wprowadzaniu tej bramki — pierwsza wersja zapaliła się na
+    własnym commicie, na komentarzu, który sama kazała napisać.
+    """
+    doctor = _read(DOCTOR)
+    kod = without_comments(doctor)
+    assert "tools/ci/dotnet_native_probe.py" in kod, (
+        "doctor nie woła sondy ładowania — kontrola `godot .NET hostfxr` wróciła "
+        "do pytania o samą nazwę pliku")
+    assert "-name 'libhostfxr.so'" not in kod, (
+        "w KODZIE doctora stoi znów `find … -name`, czyli kontrola, która przy "
+        "czterech z pięciu zepsuć mówiła `ok` (6.D24 §5)")
+    # Bez tej pary powyższe przechodziłoby także wtedy, gdyby cytat z komentarza
+    # zniknął razem z uzasadnieniem — a to jest jedyne miejsce, gdzie stoi powód.
+    assert "-name 'libhostfxr.so'" in doctor, (
+        "z komentarza nad kontrolą zniknął cytat dawnej postaci — zostaje kod bez "
+        "zapisu, przed czym broni")
+
 
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
 # z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3

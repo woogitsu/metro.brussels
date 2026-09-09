@@ -611,14 +611,19 @@ Dosłowne brzmienie stoi w raporcie, a nie tutaj: numer wersji z komunikatu
 silnika czyta bramka `test_the_document_declares_the_same_sdk_major` jako
 deklarację TEGO dokumentu i słusznie się o nią zapala.
 
-**Sonda `godot .NET hostfxr` z `doctor.sh` łapie z tych pięciu jedno.** Zmierzone
-tym samym cieniem: `ok` przy obciętym `libhostfxr.so`, przy usuniętym i obciętym
-`libcoreclr.so` oraz przy usuniętym `libhostpolicy.so`, `WARN` wyłącznie przy
-`libhostfxr.so` usuniętym — bo sonda pyta o **obecność pliku o tej nazwie**, a nie
-o jego kompletność ani o pozostałe dwie biblioteki z komunikatu silnika. Naprawa
-jest osobną pozycją (6.D60), bo wybór kontroli jest decyzją projektową. Pełne
-wyjścia obu serii: `reports/6d21-objaw-nieodtworzony.md`
-i `reports/6d24-biblioteka-natywna.md`.
+**Sonda `godot .NET hostfxr` z `doctor.sh` łapie z tych pięciu wszystkie pięć —
+i ten akapit jest przepisany, a nie dopisany obok** (09.09.2026, 6.D60). Do tego
+dnia stało tu, że łapie **jedno**: `ok` przy obciętym `libhostfxr.so`, przy
+usuniętym i obciętym `libcoreclr.so` oraz przy usuniętym `libhostpolicy.so`, `WARN`
+wyłącznie przy `libhostfxr.so` usuniętym — bo sonda pytała o **obecność pliku
+o tej nazwie**, a nie o jego kompletność ani o pozostałe dwie biblioteki
+z komunikatu silnika. Dziś pyta o **załadowanie** wszystkich trzech
+(`tools/ci/dotnet_native_probe.py`, `dlopen`), więc każde z pięciu zepsuć daje
+`WARN` i **nazywa bibliotekę**. Progu nie ma i nie będzie: obcięcie do 200 B
+zostawia poprawny nagłówek ELF, więc próg na nagłówku przechodzi, a próg na
+rozmiarze trzeba by zgadnąć. Pełne wyjścia trzech serii:
+`reports/6d21-objaw-nieodtworzony.md`, `reports/6d24-biblioteka-natywna.md`
+i `reports/sonda-hostfxr-ladowanie.md`.
 
 Stąd `export DOTNET_ROOT="$HOME/.dotnet"` (albo katalog, do którego trafiło SDK) jest
 **wymagany obok `GODOT_BIN`**, nie opcjonalny — patrz sekcja 5.
@@ -653,11 +658,16 @@ z pinem, więc rozjazd „u mnie ok, w CI czerwono" widać u siebie:
 
 Od 06.09.2026 `doctor.sh` pyta też, czy Godot znajdzie hostfxr — nie samą obecnością
 binarki (to sprawdza `--version`, które nie łapie braku `DOTNET_ROOT`, patrz sekcja
-4.1), tylko czy `DOTNET_ROOT` wskazuje katalog z `host/fxr/*/libhostfxr.so` albo czy
-`dotnet` jest w `PATH`. Bez żadnego z dwóch:
+4.1). **Czym dokładnie pyta, zmieniło się 09.09.2026 (6.D60) i to zdanie jest
+przepisane, a nie dopisane obok:** do tego dnia sprawdzał, czy `DOTNET_ROOT`
+wskazuje katalog z plikiem o nazwie `libhostfxr.so` albo czy `dotnet` jest
+w `PATH` — czyli obecność nazwy. Dziś **ładuje** trzy biblioteki wymienione
+w komunikacie silnika (`hostfxr`, `hostpolicy`, `coreclr`) z katalogu, który
+spróbuje sam silnik, i odmawia, gdy którakolwiek się nie ładuje. Bez `DOTNET_ROOT`
+i bez `dotnet` w `PATH`:
 
 ```
-  WARN  godot .NET hostfxr  -> ustaw DOTNET_ROOT na katalog SDK z host/fxr/*/libhostfxr.so (np. $HOME/.dotnet) albo dodaj dotnet do PATH — inaczej Godot mono pada sygnałem 11 (Failed to load hostfxr) albo wisi bez wyjścia przy starcie sceny z C#
+  WARN  godot .NET hostfxr  -> nie ma z czego wziąć katalogu .NET: ani DOTNET_ROOT, ani `dotnet` w PATH — ustaw DOTNET_ROOT na kompletny katalog SDK (np. $HOME/.dotnet) albo dodaj dotnet do PATH, inaczej Godot mono pada przy starcie sceny z C# w niecałą sekundę: log pisze Failed to load hostfxr i signal 11, a powłoka widzi kod 134 (zmierzone 06.09 i 09.09.2026, 11 wariantów)
 ```
 
 ## 6. Kontrola, że to naprawdę stoi
