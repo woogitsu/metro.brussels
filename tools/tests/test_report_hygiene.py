@@ -243,8 +243,9 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 #:     158  (4a4f8f2, #418)   -> padła przy 6.D55  reports/znaczniki-konfliktu-bramka.md
 #:     159  (3fbc25d, #419)   -> padła przy 6.D56  reports/piata-kopia-progu.md
 #:     160  (d51b5df, #420)   -> padła przy 6.D44  reports/kopie-listy-sonames.md
+#:     161  (a5aa464, #421)   -> padła przy 6.D57  reports/doctor-sdk-poza-path.md
 #:
-#: **Sześć razy pod rząd, w ciągu jednego wieczoru, i za każdym razem złapała to
+#: **Siedem razy pod rząd, w ciągu jednego wieczoru, i za każdym razem złapała to
 #: zapadka, a nie czyjaś czujność.** Ta lista jest zamknięta: mechanizm jest już
 #: pokazany, a kolejne wpisy niosłyby zero nowej informacji — kto podnosi tę stałą
 #: po raz szósty, dopisuje wyłącznie liczbę, nie wiersz historii.
@@ -260,13 +261,13 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 #: nie usterką.**
 #:
 #: Dlatego liczba nie jest tu wyliczana z żadnej innej liczby. Jest odczytana
-#: z drzewa, na `d51b5df` plus raport tego commita:
+#: z drzewa, na `a5aa464` plus raport tego commita:
 #:
 #:     $ ls reports/*.md | wc -l
-#:     161
+#:     162
 #:     $ python3 -c 'import sys; sys.path.insert(0, "tools/tests");
 #:       import test_report_hygiene as m; print(len(list(m._reports())))'
-#:     161
+#:     162
 #:
 #: Oba pomiary stoją tu razem świadomie: asercja porównuje z `len(list(_reports()))`,
 #: nie z wyjściem `ls`, a te dwa zbiory mogłyby się różnić (glob, katalogi, pliki
@@ -276,7 +277,7 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 #: Kto dopisze następny raport, nie przepisuje tej liczby z pamięci ani z tego
 #: akapitu, tylko mierzy ją **na swoim drzewie po scaleniu `main`** — komunikat
 #: asercji podaje wynik pomiaru wprost, żeby nie było potrzeby zgadywania.
-MIN_REPORTS = 161
+MIN_REPORTS = 162
 
 #: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
 #: wierszem zaczynającym się od `**`, z którego `_header_shapes` czyta kształt.

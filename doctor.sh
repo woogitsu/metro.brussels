@@ -53,7 +53,67 @@ echo "Wymagane dla rdzenia symulacji (T-310 jest zrobione, src/Sim istnieje):"
 # 10.0.400 w `$HOME/.dotnet`, którego doctor nie widział. Kazał więc pobrać SDK, które
 # już było na dysku, i to jest gorsze niż milczenie: brzmi jak brak, a jest ślepotą.
 DOTNET="${DOTNET_BIN:-dotnet}"
-chk_required "dotnet SDK" "$DOTNET --version" "zainstaluj .NET SDK 10.0+ (https://dotnet.microsoft.com/download)"
+
+# Wymagana wersja NIE jest tu wpisana z ręki: czyta się ją z `<TargetFramework>`
+# w `src/Sim/Sim.csproj`, czyli z jedynego miejsca, które o niej decyduje. Stoi
+# TUTAJ, przed pierwszym sprawdzeniem, bo od 6.D57 potrzebuje jej także szukanie
+# SDK na dysku — a to musi się wykonać niezależnie od tego, czy `dotnet` jest
+# w `PATH`.
+REQUIRED_TFM="$(sed -n 's/.*<TargetFramework>net\([0-9]*\)\..*/\1/p' src/Sim/Sim.csproj 2>/dev/null | head -1)"
+
+# SZUKANIE SDK NA DYSKU — wykonywane ZAWSZE, nie tylko gdy w `PATH` stoi SDK za
+# stare. To jest cała treść 6.D57.
+#
+# **Zmierzone 08.09.2026 na kontenerze sesji, przed poprawką:** `/root/.dotnet/dotnet`
+# zgłasza `10.0.400`, a `doctor.sh` melduje `BRAK dotnet SDK -> zainstaluj .NET SDK
+# 10.0+` i kończy kodem 1. Przyczyna była w kodzie, nie w środowisku: przejście po
+# katalogach kandydatów stało wewnątrz `if [ -n "$HAVE_SDK_MAJOR" ]`, a ta zmienna
+# bierze się z `$DOTNET --version`. Bez `dotnet` w `PATH` była pusta, więc cały blok
+# się nie wykonywał — podpowiedź o katalogach działała WYŁĄCZNIE wtedy, gdy w `PATH`
+# stało SDK za stare, i nigdy gdy nie stało żadne.
+#
+# Komentarz dwadzieścia wierszy wyżej opisywał tę usterkę od 04.09.2026 („Kazał więc
+# pobrać SDK, które już było na dysku, i to jest gorsze niż milczenie: brzmi jak brak,
+# a jest ślepotą") — i mimo to poprawka objęła tylko przypadek SDK za starego.
+# Zdanie w prozie nie jest bramką; pilnuje tego dziś `tools/tests/test_doctor_dotnet.py`.
+SDK_NA_DYSKU=""
+if [ -n "$REQUIRED_TFM" ]; then
+  # Lista kandydatów jest ta sama, co przed 6.D57, i CELOWO bez ścieżki
+  # bezwzględnej do katalogu domowego roota. Pierwsza wersja tej poprawki dopisała
+  # tu `/root/.dotnet/dotnet` — redundantnie, bo `$HOME` w tym środowisku JEST
+  # `/root`, i szkodliwie, bo ścieżka bezwzględna przebija podstawiony `HOME`
+  # w piaskownicy bramek z `tools/tests/test_dotnet_version.py`. Zaczerwieniły się
+  # wtedy CZTERY istniejące testy naraz i to one wymusiły cofnięcie dopisku.
+  for candidate in "$HOME/.dotnet/dotnet" /usr/local/share/dotnet/dotnet \
+                   /usr/share/dotnet/dotnet /opt/dotnet/dotnet; do
+    [ -x "$candidate" ] || continue
+    [ "$candidate" = "$(command -v "$DOTNET" 2>/dev/null)" ] && continue
+    cand_major="$("$candidate" --version 2>/dev/null | cut -d. -f1)"
+    [ -n "$cand_major" ] || continue
+    if [ "$cand_major" -ge "$REQUIRED_TFM" ] 2>/dev/null; then
+      SDK_NA_DYSKU="$candidate"
+      break
+    fi
+  done
+fi
+
+# PODPOWIEDŹ NAZYWA `DOTNET_ROOT` RAZEM Z `PATH`, A NIE `DOTNET_BIN`, i to jest
+# wynik pomiaru, nie gust. Zmierzone 09.09.2026, ten sam skrypt, Godot osiągalny:
+#
+#   DOTNET_BIN=/root/.dotnet/dotnet   ->  ok dotnet SDK, ale WARN godot .NET hostfxr
+#   DOTNET_ROOT=/root/.dotnet + PATH  ->  ok dotnet SDK, ok godot .NET hostfxr
+#
+# Powód stoi w kontroli `hostfxr` niżej: `HOSTFXR_OK` bierze się z `DOTNET_ROOT`
+# albo z GOŁEGO `command -v dotnet`, a nie z `$DOTNET_BIN`. Podpowiedź radząca
+# `DOTNET_BIN` zdejmowała więc jeden komunikat i zostawiała drugi — a ten drugi
+# mówi o awarii, która objawia się sygnałem 11 albo zawieszeniem bez wypisu.
+if [ -n "$SDK_NA_DYSKU" ]; then
+  BRAK_SDK_PODPOWIEDZ="SDK JEST na dysku: $SDK_NA_DYSKU (wersja $(\
+    "$SDK_NA_DYSKU" --version 2>/dev/null)) — nie instaluj, tylko uruchom: export DOTNET_ROOT=$(dirname "$SDK_NA_DYSKU"); export PATH=\"\$DOTNET_ROOT:\$PATH\"   (samo DOTNET_BIN zdejmuje ten komunikat, ale ZOSTAWIA WARN godot .NET hostfxr — zmierzone)"
+else
+  BRAK_SDK_PODPOWIEDZ="zainstaluj .NET SDK 10.0+ (https://dotnet.microsoft.com/download)"
+fi
+chk_required "dotnet SDK" "$DOTNET --version" "$BRAK_SDK_PODPOWIEDZ"
 
 # Sama obecność `dotnet` nie wystarczy i to jest zmierzone, nie przewidywane.
 # Po podniesieniu rdzenia na `net10.0` (04.09.2026) doctor na SDK 8.0.130 wypisywał
@@ -64,7 +124,6 @@ chk_required "dotnet SDK" "$DOTNET --version" "zainstaluj .NET SDK 10.0+ (https:
 # Wymagana wersja NIE jest tu wpisana z ręki: czyta się ją z `<TargetFramework>`
 # w `src/Sim/Sim.csproj`, czyli z jedynego miejsca, które o niej decyduje. Wpisanie
 # jej drugi raz dałoby dwa źródła prawdy i rozjazd przy następnym podniesieniu.
-REQUIRED_TFM="$(sed -n 's/.*<TargetFramework>net\([0-9]*\)\..*/\1/p' src/Sim/Sim.csproj 2>/dev/null | head -1)"
 HAVE_SDK_MAJOR="$($DOTNET --version 2>/dev/null | cut -d. -f1)"
 if [ -n "$REQUIRED_TFM" ] && [ -n "$HAVE_SDK_MAJOR" ]; then
   chk_required "dotnet SDK >= $REQUIRED_TFM (jest $HAVE_SDK_MAJOR)" \
@@ -75,19 +134,9 @@ if [ -n "$REQUIRED_TFM" ] && [ -n "$HAVE_SDK_MAJOR" ]; then
   # wtedy, gdy znaleziony `dotnet` naprawdę zgłasza wersję dostatecznie wysoką —
   # nie na samą obecność pliku. Podpowiedź o SDK, którego tam nie ma, byłaby
   # dokładnie tym samym błędem, tylko w drugą stronę.
-  if [ "$HAVE_SDK_MAJOR" -lt "$REQUIRED_TFM" ] 2>/dev/null; then
-    for candidate in "$HOME/.dotnet/dotnet" /usr/local/share/dotnet/dotnet \
-                     /usr/share/dotnet/dotnet /opt/dotnet/dotnet; do
-      [ -x "$candidate" ] || continue
-      [ "$candidate" = "$(command -v "$DOTNET" 2>/dev/null)" ] && continue
-      cand_major="$("$candidate" --version 2>/dev/null | cut -d. -f1)"
-      [ -n "$cand_major" ] || continue
-      if [ "$cand_major" -ge "$REQUIRED_TFM" ] 2>/dev/null; then
-        echo "        na dysku JEST nowsze SDK: $candidate (wersja ${cand_major}.x)"
-        echo "        uruchom: DOTNET_BIN=$candidate bash doctor.sh"
-        break
-      fi
-    done
+  if [ "$HAVE_SDK_MAJOR" -lt "$REQUIRED_TFM" ] && [ -n "$SDK_NA_DYSKU" ] 2>/dev/null; then
+    echo "        na dysku JEST nowsze SDK: $SDK_NA_DYSKU"
+    echo "        uruchom: export DOTNET_ROOT=$(dirname "$SDK_NA_DYSKU"); export PATH=\"\$DOTNET_ROOT:\$PATH\""
   fi
 fi
 

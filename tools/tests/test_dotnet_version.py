@@ -376,10 +376,116 @@ def test_doctor_points_at_the_newer_sdk_that_is_already_on_disk():
 
     Brzmi jak brak, a jest ślepotą narzędzia. Doctor ma najpierw POSZUKAĆ,
     i podpowiedzieć gotowe polecenie.
+
+    **ASERCJA PRZEKIEROWANA, NIE POLUZOWANA — 6.D57, 09.09.2026.** Poprzednia
+    wersja żądała `"DOTNET_BIN=" in out and "bash doctor.sh" in out`, czyli
+    **kodowała radę niepełną**. Zmierzone tym samym skryptem, Godot osiągalny:
+
+        DOTNET_BIN=/root/.dotnet/dotnet   ->  ok dotnet SDK, ale WARN godot .NET hostfxr
+        DOTNET_ROOT=/root/.dotnet + PATH  ->  ok dotnet SDK, ok godot .NET hostfxr
+
+    Powód stoi w kontroli `hostfxr` w `doctor.sh`: `HOSTFXR_OK` bierze się
+    z `DOTNET_ROOT` albo z **gołego** `command -v dotnet`, a nie z `$DOTNET_BIN`.
+    Rada `DOTNET_BIN` zdejmowała więc jeden komunikat i zostawiała drugi — a ten
+    drugi mówi o awarii objawiającej się sygnałem 11 albo zawieszeniem bez wypisu.
+
+    Po przekierowaniu asercja sprawdza **więcej**, nie mniej: cztery rzeczy
+    zamiast dwóch — że doctor szukał, że nazwał ZNALEZIONĄ ścieżkę (a nie radził
+    ogólnie), że podał komplet `DOTNET_ROOT` **razem z** `PATH`, i że nie stawia
+    gołego `DOTNET_BIN` jako polecenia do uruchomienia.
     """
     out = _run_doctor("8.0.130", home_version="99.1.2")
     assert "na dysku JEST nowsze SDK" in out, out[:1500]
-    assert "DOTNET_BIN=" in out and "bash doctor.sh" in out, out[:1500]
+    assert ".dotnet/dotnet" in out, (
+        "podpowiedź nie nazywa ZNALEZIONEJ ścieżki, więc jest radą ogólną:\n"
+        + out[:1500])
+    assert "DOTNET_ROOT=" in out and "PATH=" in out, (
+        "podpowiedź nie podaje kompletu DOTNET_ROOT + PATH, a samo DOTNET_BIN "
+        "zostawia WARN godot .NET hostfxr (zmierzone):\n" + out[:1500])
+    assert "uruchom: DOTNET_BIN=" not in out, (
+        "podpowiedź stawia goły DOTNET_BIN jako polecenie do uruchomienia — to "
+        "rada niepełna, patrz docstring:\n" + out[:1500])
+
+
+def _run_doctor_bez_dotnet_w_path(home_version=None):
+    """`doctor.sh` bez ŻADNEGO `dotnet` osiągalnego — scenariusz 6.D57.
+
+    **To jest luka, przez którą usterka 6.D57 przeżyła**, i dlatego ta pomocnicza
+    funkcja istnieje osobno od `_run_doctor`. Wszystkie cztery istniejące bramki
+    podpowiedzi podstawiają `DOTNET_BIN` na atrapę, więc `$DOTNET --version`
+    zawsze coś zwracało i `HAVE_SDK_MAJOR` nigdy nie było puste. Przypadek
+    „w `PATH` nie ma nic" nie był sprawdzany przez nic — a szukanie SDK na dysku
+    stało właśnie wewnątrz `if [ -n "$HAVE_SDK_MAJOR" ]`.
+
+    `PATH` zawężony do `/usr/bin:/bin`, `DOTNET_BIN` i `DOTNET_ROOT` zdjęte,
+    `HOME` podstawiony na katalog tymczasowy.
+    """
+    import subprocess
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        home = os.path.join(tmp, "home")
+        os.makedirs(home, exist_ok=True)
+        if home_version is not None:
+            sciezka = os.path.join(home, ".dotnet", "dotnet")
+            os.makedirs(os.path.dirname(sciezka), exist_ok=True)
+            with open(sciezka, "w", encoding="utf-8") as handle:
+                handle.write("#!/bin/sh\n"
+                             'if [ "$1" = "--version" ]; then echo "%s"; exit 0; fi\n'
+                             "exit 1\n" % home_version)
+            os.chmod(sciezka, 0o755)
+
+        env = dict(os.environ)
+        env.pop("DOTNET_BIN", None)
+        env.pop("DOTNET_ROOT", None)
+        env.update(HOME=home, PATH="/usr/bin:/bin", LC_ALL="C")
+        done = subprocess.run(["bash", DOCTOR, "--no-tests"], cwd=ROOT, env=env,
+                              capture_output=True, text=True, timeout=120)
+        return done.stdout + done.stderr
+
+
+def test_doctor_bez_dotnet_w_PATH_NAZYWA_sdk_lezace_na_dysku():
+    """Rdzeń 6.D57: „BRAK, zainstaluj" o SDK, które leży na dysku, to ślepota.
+
+    **Zmierzone 08.09.2026 na kontenerze sesji, przed poprawką:**
+    `/root/.dotnet/dotnet` zgłaszał `10.0.400`, a `doctor.sh` meldował
+    `BRAK dotnet SDK -> zainstaluj .NET SDK 10.0+` i kończył kodem 1. Przyczyna
+    była w kodzie: przejście po katalogach kandydatów stało wewnątrz
+    `if [ -n "$HAVE_SDK_MAJOR" ]`, a ta zmienna bierze się z `$DOTNET --version` —
+    bez `dotnet` w `PATH` była pusta, więc cały blok się nie wykonywał. Podpowiedź
+    o katalogach działała WYŁĄCZNIE wtedy, gdy w `PATH` stało SDK za stare.
+
+    Komentarz w `doctor.sh` opisywał tę usterkę od 04.09.2026 („brzmi jak brak,
+    a jest ślepotą") — i mimo to poprawka objęła tylko przypadek SDK za starego.
+    **Zdanie w prozie nie jest bramką**; ta jest.
+    """
+    out = _run_doctor_bez_dotnet_w_path(home_version="99.1.2")
+    assert "BRAK  dotnet SDK" in out, out[:1500]
+    assert "SDK JEST na dysku" in out, (
+        "doctor melduje brak SDK, choć leży ono na dysku — to usterka 6.D57:\n"
+        + out[:1500])
+    assert ".dotnet/dotnet" in out, (
+        "podpowiedź nie nazywa znalezionej ścieżki:\n" + out[:1500])
+    assert "DOTNET_ROOT=" in out and "PATH=" in out, (
+        "podpowiedź nie podaje kompletu DOTNET_ROOT + PATH:\n" + out[:1500])
+    assert "zainstaluj .NET SDK" not in out, (
+        "doctor nadal każe INSTALOWAĆ SDK, które ma na dysku:\n" + out[:1500])
+
+
+def test_doctor_bez_dotnet_w_PATH_i_bez_sdk_na_dysku_nadal_kaze_instalowac():
+    """Druga strona pary — bez niej bramka wyżej byłaby spełnialna zawsze.
+
+    Podpowiedź „SDK jest na dysku" wypisana wtedy, gdy go tam nie ma, to ten sam
+    błąd, tylko w drugą stronę. Pole „Skończone, gdy" pozycji 6.D57 żąda tej
+    kontroli osobno: zachowanie przy SDK **naprawdę** nieobecnym zostaje bez zmian.
+    """
+    out = _run_doctor_bez_dotnet_w_path(home_version=None)
+    assert "BRAK  dotnet SDK" in out, out[:1500]
+    assert "zainstaluj .NET SDK" in out, (
+        "przy braku SDK doctor przestał radzić instalację:\n" + out[:1500])
+    assert "SDK JEST na dysku" not in out, (
+        "doctor obiecuje SDK, którego na dysku nie ma:\n" + out[:1500])
+    assert "na dysku JEST nowsze SDK" not in out, out[:1500]
 
 
 def test_doctor_does_not_invent_an_sdk_that_is_not_there():
