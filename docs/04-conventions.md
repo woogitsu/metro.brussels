@@ -9,6 +9,38 @@
 - Nazwy stacji dwujęzyczne FR|NL tam, gdzie funkcjonują dwie nazwy.
 - Jedno zadanie = jedna gałąź = jeden logiczny commit.
 
+## Ponowienie joba nie jest weryfikacją wobec dzisiejszej bazy
+
+**ZMIERZONE 09.09.2026, nie wywnioskowane.** Przebieg `pull_request` sprawdza scalankę
+gałęzi z bazą, a `actions/checkout` nie dostaje w tych workflowach wejścia `ref` —
+bierze więc scalankę **zapisaną w przebiegu** i pobiera ją po SHA. Pytanie, czy
+ponowienie przelicza tę scalankę na bazie z chwili ponowienia, było do 09.09.2026
+**nierozstrzygnięte**: w 1919 przebiegach z 01–08.09.2026 nie było ani jednego
+ponowienia z ruchem `main` między próbami.
+
+Warunek został wytworzony i zmierzony na przebiegu **34362242593** (`Python tool
+tests`, PR #439). Między próbami `main` przesunął się z `902cb6f` na `1b1db40`, czyli
+o pięć scaleń. Krok `Checkout` obu prób:
+
+```
+próba 1 (14:13 UTC):  HEAD is now at b09dbcb Merge 570222c9… into 902cb6f7…
+próba 2 (17:34 UTC):  HEAD is now at b09dbcb Merge 570222c9… into 902cb6f7…
+```
+
+**Ta sama scalanka.** Ponowienie nie przelicza jej na nowej bazie, więc **zielony job
+po ponowieniu mówi o bazie z chwili UTWORZENIA przebiegu, nie o dzisiejszym `main`** —
+tak samo jak `queued` nie znaczy „zweryfikowane". Gdy baza ruszyła, jedyną drogą do
+pomiaru wobec niej jest **wciągnięcie `main` do gałęzi i push**: to daje nowy commit,
+nowy przebieg i nową scalankę.
+
+**Jak to czytać w logu, żeby się nie pomylić:** każda próba ma trzy wiersze
+`HEAD is now at`. Dwa pierwsze opisują **workspace przed czyszczeniem** i zmieniają
+się razem z `main` — wzięcie ich za odpowiedź daje liczbę wyglądającą na dzisiejszą.
+Rozstrzyga **trzeci**, ten z `Merge <gałąź> into <baza>`.
+
+Pomiar: `reports/ponowienie-a-scalanka.md`; materiał historyczny, z którego wynikła
+sama teza: `reports/ponowienie-a-ruch-bazy.md`.
+
 ## Nagłówek raportu w `reports/`
 
 Nagłówkiem jest tekst **przed pierwszym śródtytułem `## `**. Musi nieść datę pomiaru
