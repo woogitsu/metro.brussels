@@ -1736,6 +1736,100 @@ def test_the_package_name_exceptions_are_all_necessary():
         "a taki pakiet w Ubuntu 24.04 nie istnieje")
 
 
+def kopie_listy_sonames():
+    """Wszystkie kopie listy sonames w drzewie — `{(soname, …): [gdzie, …]}`.
+
+    **Kopie liczone Z DRZEWA, nie z listy wpisanej w test**, i tego żąda pole
+    „Skończone, gdy" pozycji 6.D44: liczba kopii jest POMIAREM. Wpisana tutaj
+    zestarzałaby się przy pierwszym nowym workflowie i byłaby tą samą usterką,
+    którą 6.D45 zmierzyło na `MIN_REPORTS`.
+
+    Kopią jest **niepusta wartość `libraries:`** przekazywana akcji sondującej —
+    to ona decyduje, o co job pyta `ldconfig`. Wzmianka o jednej bibliotece
+    w prozie kopią NIE jest, i to rozróżnienie jest zmierzone: napis
+    `libEGL.so.1` niesie 13 plików w drzewie, ale listę — siedem.
+    """
+    kopie = {}
+    for name in _workflows():
+        document = yaml.safe_load(_text(name))
+        for jobname, job in (document.get("jobs") or {}).items():
+            for step in job.get("steps") or []:
+                if str(step.get("uses", "")) != PROBE_ACTION:
+                    continue
+                sonames = ((step.get("with") or {}).get("libraries") or "").split()
+                if sonames:
+                    kopie.setdefault(tuple(sorted(sonames)), []).append(
+                        f"{name}:{jobname}")
+    return kopie
+
+
+def test_kazda_kopia_listy_sonames_niesie_TEN_SAM_zestaw():
+    """6.D44: siedem kopii listy, a zgodności nie sprawdzało nic.
+
+    **To ta sama rodzina co 6.D40, tylko o kopię dalej.** Tam sonda pytała
+    o JEDNĄ bibliotekę z dziesięciu i mówiła prawdę o tej jednej, więc krok
+    instalacji nie odpalał się nigdy. Tu każda kopia może pytać o INNY zestaw,
+    a job, który sonduje jeden zestaw i instaluje drugi, wywraca się dopiero przy
+    pierwszym renderze.
+
+    **Dlaczego istniejąca bramka tego nie widziała, zmierzone 09.09.2026 na
+    `d51b5df`.** `test_tool_installation_is_conditional_on_the_tool_being_missing`
+    sprawdza, że każdy workflow sonduje to, co SAM instaluje — czyli każdą kopię
+    osobno, wobec jej własnego zestawu apt. Podzbiór przechodzi: sonda zawężona
+    w `blender-smoke.yml` z dziesięciu bibliotek do jednej dała **cały zestaw
+    2050/2050 i kod 0**, bo `libEGL.so.1` mapuje się na `libegl1`, a `libegl1`
+    w `blender.txt` stoi. Job zameldowałby `libs = present` po znalezieniu jednej
+    biblioteki, pominął instalację i wywrócił się na pierwszym renderze.
+
+    Ten test porównuje kopie **ze sobą**, więc podzbiór już nie przejdzie:
+    zawężona kopia tworzy drugi zestaw i liczba zestawów przestaje być równa
+    jedności.
+
+    Kolejność w wartości `libraries:` jest **nieistotna** i dlatego sonames są
+    sortowane: `ldconfig` jest pytany o każdą osobno, więc przestawienie dwóch
+    nazw nie zmienia niczego w zachowaniu, a bramka na kolejność zapalałaby się
+    na zmianie bez skutku (6.D27).
+    """
+    kopie = kopie_listy_sonames()
+    assert kopie, (
+        "ani jedna kopia listy sonames nie została znaleziona — skan przestał "
+        "czytać workflowy albo krok sondujący zmienił kształt, a wtedy ta bramka "
+        "jest zielona nad dowolnym rozjazdem")
+    assert len(kopie) == 1, (
+        "kopie listy sonames NIE są zgodne — job, który sonduje jeden zestaw, "
+        "a instaluje drugi, wywraca się dopiero przy pierwszym renderze:\n"
+        + "\n".join(
+            "  zestaw %d (%d bibliotek), %d kopii: %s\n    %s"
+            % (i, len(libs), len(gdzie), ", ".join(gdzie), " ".join(libs))
+            for i, (libs, gdzie) in enumerate(sorted(kopie.items()), 1)))
+
+
+def test_kopii_listy_sonames_jest_TYLE_ILE_WOLA_AKCJI_SONDUJACEJ():
+    """Podłoga na liczbę kopii, ale **nie stała** — liczona z drzewa.
+
+    Bramka wyżej porównuje kopie ze sobą i przy JEDNEJ kopii jest trywialnie
+    zielona. Gdyby skan przestał widzieć szcześć z siedmiu wywołań — literówka
+    w `PROBE_ACTION`, zmiana kształtu kroku, nowy sposób przekazania listy —
+    zostałaby jedna kopia, jeden zestaw i **zielono**.
+
+    Podłogą jest więc liczba wywołań akcji sondującej policzona **niezależnie**,
+    prostym przejściem po tekście, i porównana z liczbą kopii, które zebrał
+    parser YAML-a. Stałej tu nie ma świadomie: zestarzałaby się przy pierwszym
+    nowym workflowie. Zmierzone 09.09.2026 na `d51b5df`: siedem wywołań, siedem
+    kopii, jeden zestaw dziesięciu sonames.
+    """
+    wolania = sum(_text(name).count(PROBE_ACTION) for name in _workflows())
+    zebrane = sum(len(gdzie) for gdzie in kopie_listy_sonames().values())
+    assert wolania > 1, (
+        "w drzewie jest %d wywołań %s — skan tekstowy przestał je widzieć, więc "
+        "podłoga tej bramki nie chroni niczego" % (wolania, PROBE_ACTION))
+    assert zebrane == wolania, (
+        "parser YAML-a zebrał %d kopii listy sonames, a wywołań akcji sondującej "
+        "jest w tekście %d — skan przestał czytać część workflowów, a wtedy "
+        "porównanie kopii ze sobą jest zielone nad rozjazdem w tych nieczytanych"
+        % (zebrane, wolania))
+
+
 def test_tool_installation_is_conditional_on_the_tool_being_missing():
     """Na trwałej maszynie instalacja przy każdym przebiegu to strata i zbędny sudo.
 
