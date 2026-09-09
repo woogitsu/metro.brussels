@@ -140,12 +140,26 @@ jobs:
           set -euo pipefail
           deleted=0
           failed=0
+          # `--force-with-lease` z JAWNYM sha z planu, a nie gołe `--delete` (6.D67).
+          # Warunek kwalifikowania sprawdza czubek sprzed zapisania planu, a samo
+          # kasowanie nie sprawdzało niczego — push, który wylądował między planem
+          # a kasowaniem, ginął. Zmierzone 09.09.2026 w lokalnym repozytorium bare:
+          # plan zapisał `f18f2ba`, zdalne stało na `b17dfb1`, a `git push origin
+          # --delete` skasowało ref **kodem 0**, razem z cudzym commitem. Ta sama
+          # próba w postaci niżej: `! [rejected] (delete) -> audit-branch (stale
+          # info)`, kod 1, ref na miejscu; z sha aktualnym — skasowany, kod 0.
+          #
+          # Jawne `refs/heads/<gałąź>:<sha>` jest tu konieczne: `--force-with-lease`
+          # bez wartości bierze lokalny ref śledzący, a ten jest tak świeży, jak
+          # ostatni `fetch` tego przebiegu — czyli mówiłby o tym samym czubku, co plan.
           while read -r branch sha; do
-            if git push origin --delete "$branch"; then
+            if git push origin --force-with-lease="refs/heads/$branch:$sha" \
+                 --delete "$branch"; then
               echo "skasowana $branch ($sha)"
               deleted=$((deleted + 1))
             else
-              echo "::warning::nie udało się skasować $branch"
+              echo "::error::nie skasowano $branch — czubek zdalny nie jest $sha " \
+                   "(ktoś pchnął po zapisaniu planu) albo push odmówił z innego powodu"
               failed=$((failed + 1))
             fi
           done < "$RUNNER_TEMP/prune-plan.txt"
