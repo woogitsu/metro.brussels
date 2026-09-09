@@ -387,7 +387,9 @@ def test_doctor_points_at_the_newer_sdk_that_is_already_on_disk():
     Powód stoi w kontroli `hostfxr` w `doctor.sh`: `HOSTFXR_OK` bierze się
     z `DOTNET_ROOT` albo z **gołego** `command -v dotnet`, a nie z `$DOTNET_BIN`.
     Rada `DOTNET_BIN` zdejmowała więc jeden komunikat i zostawiała drugi — a ten
-    drugi mówi o awarii objawiającej się sygnałem 11 albo zawieszeniem bez wypisu.
+    drugi mówi o awarii, która zabija proces natychmiast (log: signal 11, powłoka:
+    kod 134; zdanie o zawieszeniu zdjęte z `doctor.sh` przy 6.D24 — jedenaście
+    wariantów w 6.D21 i 6.D24 nie odtworzyło go ani razu).
 
     Po przekierowaniu asercja sprawdza **więcej**, nie mniej: cztery rzeczy
     zamiast dwóch — że doctor szukał, że nazwał ZNALEZIONĄ ścieżkę (a nie radził
