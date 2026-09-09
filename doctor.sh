@@ -307,6 +307,19 @@ if [ "$required_bad" -eq 0 ]; then
     queue_item=$(grep -E '^\| [56]\.[0-9]+ \|' docs/TASKS.md \
       | head -1 | sed -E 's/^\| ([56]\.[0-9]+) \| \*\*([^*]+)\*\*.*/\1 · \2/')
   fi
+  # LICZBA POZYCJI KOLEJKI JEST LICZONA TUTAJ, A NIE PRZEPISANA DO PROZY.
+  #
+  # Do 09.09.2026 stała w `docs/TASKS.md` jako literał („trzymają 31 pozycji") i starzała
+  # się po cichu: zmierzone na czterdziestu ostatnich commitach dotykających tego pliku
+  # — licznik zmienił wartość w 27 z nich, a 7 z tych czterdziestu to wciągnięcia `main`
+  # do równoległej gałęzi, czyli miejsca na konflikt semantyczny przy dwóch niezależnych
+  # podniesieniach tej samej liczby. Pytanie „czy pracy jest dużo" ma więc odpowiedź
+  # liczoną przy każdym uruchomieniu, z tego samego `open_items`, którego używa zapadka
+  # zapasu — nie z drugiej kopii reguły. Pilnuje tego `tools/tests/test_next_task.py`.
+  queue_count=""
+  if [ -f docs/TASKS.md ] && [ -f tools/tests/test_backlog.py ]; then
+    queue_count=$(python3 -c 'import io, sys; sys.path.insert(0, "tools/tests"); import test_backlog as B; print(len(B.open_items(io.open("docs/TASKS.md", encoding="utf-8").read())))' 2>/dev/null)
+  fi
   if [ -n "$next_task" ]; then
     echo "  Baza projektu jest gotowa. Następne zadanie: $next_task"
   elif [ -n "$queue_item" ]; then
@@ -316,6 +329,9 @@ if [ "$required_bad" -eq 0 ]; then
   else
     echo "  Baza projektu jest gotowa, ale KOLEJKA JEST PUSTA — a to znaczy, że pierwszym"
     echo "  zadaniem jest jej uzupełnienie (CLAUDE.md §8), nie zatrzymanie się."
+  fi
+  if [ -n "$queue_count" ]; then
+    echo "  Kolejka faz 5 i 6 ma $queue_count pozycji do wzięcia, żadna nie wymaga decyzji właściciela."
   fi
   if [ "$optional_bad" -gt 0 ]; then echo "  $optional_bad narzędzi opcjonalnych brakuje; instaluj je dopiero przed zadaniem, które ich wymaga."; fi
 else
