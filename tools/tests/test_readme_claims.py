@@ -131,6 +131,88 @@ def minor(version):
 
 # --- bramki ---------------------------------------------------------------
 
+#: Sekcja README, w której stoją zdania o BRAKACH.
+SEKCJA_BRAKOW = "**Czego nie ma i dlaczego:**"
+
+#: Zdanie o braku ZDOLNOŚCI wobec nazw, których istnienie mu przeczy — 6.D87.
+#:
+#: Klucz to fragment zdania z README; wartość to nazwy, które muszą znaleźć się
+#: w `src/Sim/`, żeby zdanie było NIEPRAWDZIWE. Bramka pada, gdy oba są obecne
+#: naraz: zdanie mówi „rdzeń tego nie potrafi", a nazwa dowodzi, że potrafi.
+#:
+#: **Nazwy, nie liczby.** Pole „Skończone, gdy" pozycji 6.D87 zabrania liczenia
+#: plików i wierszy wprost, i słusznie: liczba rośnie od pisania czegokolwiek, więc
+#: bramka na liczbie zapala się na zmianie bez skutku (6.D27). Nazwa albo w rdzeniu
+#: jest, albo jej nie ma.
+#:
+#: **Zmierzone 10.09.2026.** README mówiło „Rdzeń prowadzi jeden skład. T-320 jest
+#: następnym zadaniem" — obie połowy nieprawdziwe: `LineCore` trzyma
+#: `List<LineTrain> _trains`, wystawia `IReadOnlyList<LineTrain> Trains` i ma testy
+#: `Drugi_sklad_zatrzymuje_sie_przed_blokiem_zajetym_przez_pierwszy` oraz
+#: `Zaden_sklad_nie_wjezdza_w_blok_zajety_przez_inny`, a T-320 stoi w `docs/TASKS.md`
+#: jako `[~] W TOKU` z etapem 2 zrobionym, nie jako następne zadanie. Jeden skład
+#: jest prawdą o WIDOKU: `src/Game/FirstRun.cs` ma jeden węzeł `TrainView`.
+ZAPRZECZENIA = {
+    "Rdzeń prowadzi jeden skład": ("src/Sim/Line/LineCore.cs",
+                                   ["List<LineTrain> _trains",
+                                    "IReadOnlyList<LineTrain> Trains"]),
+}
+
+
+def sekcja_brakow():
+    """Treść sekcji „Czego nie ma" — od nagłówka do następnego nagłówka `##`."""
+    tekst = _read(README)
+    start = tekst.index(SEKCJA_BRAKOW)
+    dalej = tekst.find("\n## ", start)
+    return tekst[start:] if dalej < 0 else tekst[start:dalej]
+
+
+def test_no_absence_claim_denies_a_capability_the_core_has():
+    """Zdanie „rdzeń tego nie potrafi" nie może stać obok nazwy, która dowodzi, że potrafi.
+
+    README jest pierwszym, co czyta nowy człowiek i agent. Zdanie o braku zdolności,
+    która ISTNIEJE, kieruje pracę w złe miejsce — szkody wykonawczej nie ma, bo kod
+    jest poprawny, myli się podsumowanie.
+    """
+    braki = sekcja_brakow()
+    zle = []
+    for zdanie, (plik, nazwy) in sorted(ZAPRZECZENIA.items()):
+        if zdanie not in braki:
+            continue
+        zrodlo = _read(os.path.join(ROOT, plik))
+        obecne = [n for n in nazwy if n in zrodlo]
+        if obecne:
+            zle.append((zdanie, plik, obecne))
+    assert zle == [], "\n".join(
+        "README mówi w „Czego nie ma\u201d: %r, a %s zawiera %s — zdanie zaprzecza "
+        "istniejącej zdolności rdzenia" % (zdanie, plik, obecne)
+        for zdanie, plik, obecne in zle)
+
+
+def test_the_denial_table_points_at_names_that_are_really_in_the_core():
+    """Kontrola przyrządu: wpis wskazujący nazwę, której nie ma, nie zapali się NIGDY.
+
+    Bramka wyżej milczy z dwóch różnych powodów — bo zdania nie ma w README (dobrze)
+    albo bo nazwy nie ma w rdzeniu (źle, bo wtedy wpis jest martwy). Ten test odcina
+    ten drugi: każda nazwa z tabeli musi dziś w rdzeniu **być**.
+    """
+    for zdanie, (plik, nazwy) in sorted(ZAPRZECZENIA.items()):
+        sciezka = os.path.join(ROOT, plik)
+        assert os.path.isfile(sciezka), (zdanie, plik)
+        zrodlo = _read(sciezka)
+        for nazwa in nazwy:
+            assert nazwa in zrodlo, (
+                "wpis %r wskazuje nazwę %r, której w %s nie ma — wpis jest martwy "
+                "i bramka nie zapali się nigdy" % (zdanie, nazwa, plik))
+
+    # I że sekcja, po której chodzi bramka, w ogóle się wycina.
+    braki = sekcja_brakow()
+    assert braki.startswith(SEKCJA_BRAKOW), braki[:80]
+    assert braki.count("\n- **") >= 4, (
+        "sekcja „Czego nie ma\u201d ma %d punktów — cięcie się rozjechało"
+        % braki.count("\n- **"))
+
+
 def test_readme_core_file_count_matches_repository():
     files = core_files()
     claimed = readme_core_file_count(_read(README))

@@ -72,7 +72,11 @@ dotnet test tests/Sim.Tests          # rdzeń symulacji, bez Godota
 - **stacji jako brył.** `tools/track/station_layout.py` liczy perony pakietu A
   z kilometrażem i odsunięciem krawędzi, ale pierwsza stacja typowa (T-212) jest
   dopiero w planie. Wyjścia i komunikacja pionowa zostają `unknown`;
-- **wielu składów.** Rdzeń prowadzi jeden skład. T-320 jest następnym zadaniem;
+- **wielu składów W SCENIE.** Rdzeń prowadzi ich **N** — `LineCore` krokuje wszystkie
+  na jednym zegarze, jednej osi i jednym planie bloków, a testy przybijają, że skład
+  nie wjeżdża w blok zajęty przez inny. Scena pokazuje **jeden**: `FirstRun` ma jeden
+  węzeł `TrainView`. To jest ograniczenie WIDOKU, nie rdzenia — T-320 ma etap 2
+  zrobiony, a otwarty zostaje takt i obiegi z T-113;
 - **kabiny i wnętrz.** Nie ma ich ani w geometrii, ani w scenie;
 - **ciągłego kilometrażu linii.** `data/track/` pokrywa pakiety, nie linie; między
   pakietami zostaje 4034 m bez geometrii. Zakres pakietów to decyzja właściciela.
