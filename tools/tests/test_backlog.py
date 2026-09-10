@@ -384,6 +384,53 @@ def missing_fields(body):
     return missing
 
 
+#: Słowo, po którym poznaje się pole „Zależy od" mówiące o decyzji CZŁOWIEKA,
+#: a nie o innej pozycji kolejki. Szukane bez końcówki, bo pole odmienia je przez
+#: przypadki („decyzji właściciela", „decyzja właściciela"); zmierzone 10.09.2026:
+#: w całym `docs/TASKS.md` nie ma ani jednego pola „Zależy od", w którym to słowo
+#: znaczyłoby co innego.
+SLOWO_WLASCICIELA = "właściciel"
+
+
+def pole_zaleznosci(body):
+    """Treść pola „Zależy od" z bloku szczegółów; pusty napis, gdy pola nie ma."""
+    marker = "- **Zależy od:**"
+    at = body.find(marker)
+    if at < 0:
+        return ""
+    rest = body[at + len(marker):]
+    nxt = re.search(r"\n- \*\*", rest)
+    return " ".join((rest if nxt is None else rest[:nxt.start()]).split())
+
+
+def czeka_na_wlasciciela(text):
+    """Numery pozycji OTWARTYCH, których „Zależy od" mówi o decyzji właściciela.
+
+    **Po co (6.D95).** `doctor.sh` wypisywał zdanie STAŁE — „żadna nie wymaga decyzji
+    właściciela" — obok liczby policzonej z pliku. Zdanie o zbiorze było więc
+    wypowiadane bez zajrzenia do zbioru, a w policzonej kolejce stała 6.D53, której
+    pole „Zależy od" brzmi dosłownie „decyzji właściciela o zapisie do
+    `data/network/sources.json`". Ta sama rodzina co 6.D27: przyrząd melduje
+    sprawdzenie, którego nie zrobił.
+
+    **Nie rusza `open_items`** — pole „Poza zakresem" pozycji 6.D95 wyklucza to
+    wprost. Bierze jego wynik i dzieli go na dwie kupki po treści pól.
+    """
+    bloki = detail_sections(text)
+    czekaja = []
+    for numer in open_items(text):
+        pole = pole_zaleznosci(bloki.get(numer, ""))
+        if SLOWO_WLASCICIELA in pole.lower():
+            czekaja.append(numer)
+    return sorted(czekaja)
+
+
+def do_wziecia(text):
+    """Pozycje otwarte BEZ zależności od decyzji właściciela."""
+    czekaja = set(czeka_na_wlasciciela(text))
+    return [n for n in open_items(text) if n not in czekaja]
+
+
 def open_items(text):
     """Pozycje kolejki, które są pracą **DO WZIĘCIA**: bez tych z adnotacją ZROBIONE.
 

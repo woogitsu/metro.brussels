@@ -1,0 +1,221 @@
+#!/usr/bin/env python3
+"""`doctor.sh` mówi o kolejce to, co w niej stoi — a nie zdanie stałe.
+
+**Skąd ta bramka (6.D95).** Do 10.09.2026 `doctor.sh` wypisywał obok policzonej
+liczby napis STAŁY: „Kolejka faz 5 i 6 ma $queue_count pozycji do wzięcia, żadna nie
+wymaga decyzji właściciela." Liczba pochodziła z pliku, zdanie o zbiorze — z niczego.
+W tej samej policzonej kolejce stała **6.D53**, której pole „Zależy od" brzmi
+dosłownie „decyzji właściciela o zapisie do `data/network/sources.json`".
+
+To ta sama rodzina co 6.D27: przyrząd melduje sprawdzenie, którego nie zrobił.
+Szkoda nie jest teoretyczna — `CLAUDE.md` §2 każe czytać doctora przed KAŻDYM
+zadaniem, więc agent brał pierwszą pozycję w przekonaniu, że jest odblokowana,
+i zatrzymywał się w połowie na cudzej decyzji.
+
+**Czego te bramki NIE robią:** nie ruszają `open_items` (pole „Poza zakresem"
+wyklucza to wprost) ani kolejności brania pozycji. Podział na dwie kupki bierze
+wynik `open_items` i czyta pola „Zależy od".
+"""
+import os
+import re
+import subprocess
+import sys
+import tempfile
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import test_backlog as TB  # noqa: E402
+
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+DOCTOR = os.path.join(ROOT, "doctor.sh")
+TASKS = os.path.join(ROOT, "docs", "TASKS.md")
+
+#: Zdanie, którego w `doctor.sh` być nie może: twierdzenie o zbiorze wypowiadane
+#: bez zajrzenia do zbioru. Zostaje w kodzie jako gałąź dla przypadku, w którym
+#: NAPRAWDĘ nikt nie czeka — ale wtedy jest wynikiem pomiaru, nie napisem stałym.
+ZDANIE_BEZWARUNKOWE = "pozycji do wzięcia, żadna nie wymaga decyzji właściciela"
+
+#: Kotwica: pozycja, o której wiadomo, że czeka na właściciela. Gdyby 6.D53 kiedyś
+#: została odblokowana, ten test ma paść i kazać przeliczyć kotwicę, a nie przejść
+#: dlatego, że lista zrobiła się pusta.
+KOTWICA_ZABLOKOWANA = "6.D53"
+
+
+def _tresc_zadan():
+    with open(TASKS, encoding="utf-8") as uchwyt:
+        return uchwyt.read()
+
+
+def _doctor_w_kopii(tresc_zadan):
+    """`doctor.sh` puszczony na drzewie, w którym `docs/TASKS.md` jest podmieniony.
+
+    **Dlaczego symlinki, a nie kopia repozytorium.** Doctor sprawdza kilkanaście
+    ścieżek i przy braku którejkolwiek kończy przed blokiem, w którym stoi zdanie
+    o kolejce — kopia częściowa nie odpowiedziałaby więc na pytanie tego testu.
+    Drzewo z symlinkami do wszystkiego POZA `docs/` (a w `docs/` do wszystkiego poza
+    `TASKS.md`) daje doctorowi komplet, a podmienia dokładnie jeden plik.
+
+    **Atrapa `dotnet` jest konieczna**, bo w kontenerze tej sesji SDK nie stoi
+    w `PATH`, doctor melduje wtedy pozycję do naprawienia i **nie dochodzi** do bloku
+    z kolejką. Ta sama technika co w `test_dotnet_version._run_doctor`.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        drzewo = os.path.join(tmp, "repo")
+        os.makedirs(drzewo)
+        for nazwa in os.listdir(ROOT):
+            if nazwa == "docs":
+                continue
+            os.symlink(os.path.join(ROOT, nazwa), os.path.join(drzewo, nazwa))
+        docs = os.path.join(drzewo, "docs")
+        os.makedirs(docs)
+        for nazwa in os.listdir(os.path.join(ROOT, "docs")):
+            if nazwa == "TASKS.md":
+                continue
+            os.symlink(os.path.join(ROOT, "docs", nazwa), os.path.join(docs, nazwa))
+        with open(os.path.join(docs, "TASKS.md"), "w", encoding="utf-8") as uchwyt:
+            uchwyt.write(tresc_zadan)
+
+        atrapa = os.path.join(tmp, "bin", "dotnet")
+        os.makedirs(os.path.dirname(atrapa))
+        with open(atrapa, "w", encoding="utf-8") as uchwyt:
+            uchwyt.write('#!/bin/sh\nif [ "$1" = "--version" ]; then echo "99.1.2"; '
+                         "exit 0; fi\nexit 1\n")
+        os.chmod(atrapa, 0o755)
+        dom = os.path.join(tmp, "home")
+        os.makedirs(dom)
+
+        srodowisko = dict(os.environ, DOTNET_BIN=atrapa, HOME=dom, LC_ALL="C")
+        gotowe = subprocess.run(["bash", DOCTOR, "--no-tests"], cwd=drzewo,
+                                env=srodowisko, capture_output=True, text=True,
+                                timeout=180)
+        return gotowe.stdout + gotowe.stderr
+
+
+def test_doctor_nazywa_pozycje_czekajaca_na_wlasciciela():
+    """Wypis na DZISIEJSZEJ kolejce ma wymienić 6.D53 i nie twierdzić nic o zbiorze."""
+    wypis = _doctor_w_kopii(_tresc_zadan())
+    assert "Kolejka faz 5 i 6" in wypis, (
+        "doctor nie doszedł do bloku o kolejce — bez tego reszta testu nic nie mierzy:\n"
+        + wypis[-600:])
+    czekaja = TB.czeka_na_wlasciciela(_tresc_zadan())
+    znalezione = ", ".join(czekaja) if czekaja else (
+        "NIC — a skoro kotwica mówi co innego, zepsuł się czytnik pól, nie doctor")
+    assert ZDANIE_BEZWARUNKOWE not in wypis, (
+        "doctor twierdzi o CAŁYM zbiorze, że nikt nie czeka na decyzję właściciela; "
+        "czytnik pól znajduje dziś: " + znalezione)
+    assert KOTWICA_ZABLOKOWANA in wypis, (
+        f"{KOTWICA_ZABLOKOWANA} czeka na decyzję właściciela, a wypis jej nie nazywa:\n"
+        + wypis[-600:])
+
+    # LICZBY W WYPISIE MAJĄ SIĘ ZGADZAĆ Z NAZWANĄ LISTĄ. Ta asercja doszła po tym,
+    # jak kontrola negatywna KN-5 (doctor liczy wolne pozycje jako WSZYSTKIE otwarte)
+    # przeszła przez trzy pozostałe bramki: wypis mówił wtedy „13 pozycji, z czego 13
+    # do wzięcia od ręki" i w następnym wierszu wymieniał 6.D53 jako zablokowaną.
+    # Zdanie sprzeczne samo ze sobą, i żadna bramka go nie widziała.
+    liczby = re.search(r"ma (\d+) pozycji, z czego (\d+) do wzięcia", wypis)
+    assert liczby, "nie da się odczytać dwóch liczb z wiersza o kolejce:\n" + wypis[-600:]
+    wszystkie, wolne = int(liczby.group(1)), int(liczby.group(2))
+    assert wszystkie - wolne == len(czekaja), (
+        f"doctor mówi {wszystkie} pozycji i {wolne} do wzięcia, czyli {wszystkie - wolne} "
+        f"zablokowanych, a wymienia {len(czekaja)}: {czekaja}")
+
+
+def test_dopisanie_pozycji_zaleznej_od_wlasciciela_zmienia_wypis():
+    """Kontrola z pola „Skończone, gdy": pozycja SYNTETYCZNA, nie zmiana w drzewie.
+
+    Dwie strony, bo tylko razem coś znaczą: kolejka bez ani jednej pozycji zależnej
+    od właściciela ma dawać zdanie „żadna nie wymaga", a dopisanie takiej pozycji ma
+    je zmienić i wymienić numer. Bez pierwszej strony bramka przechodziłaby także dla
+    doctora, który wypisuje ostrzeżenie ZAWSZE.
+    """
+    tresc = _tresc_zadan()
+
+    # Strona pierwsza: zdejmujemy jedyną zależność od właściciela, jaką ma dziś
+    # kolejka, i sprawdzamy, że doctor to widzi.
+    bez_zaleznosci = tresc.replace(
+        "- **Zależy od:** decyzji właściciela o zapisie do "
+        "`data/network/sources.json`.",
+        "- **Zależy od:** brak.")
+    assert bez_zaleznosci != tresc, (
+        "nie znaleziono pola zależności 6.D53 do zdjęcia — treść wpisu się zmieniła "
+        "i ta kontrola przestała mierzyć to, co obiecuje")
+    assert TB.czeka_na_wlasciciela(bez_zaleznosci) == [], \
+        TB.czeka_na_wlasciciela(bez_zaleznosci)
+    wypis_bez = _doctor_w_kopii(bez_zaleznosci)
+    assert ZDANIE_BEZWARUNKOWE in wypis_bez, (
+        "kolejka bez ani jednej pozycji zależnej od właściciela, a doctor i tak "
+        "ostrzega — ostrzeżenie wypisywane zawsze nie niesie informacji:\n"
+        + wypis_bez[-600:])
+
+    # Strona druga: dopisujemy pozycję SYNTETYCZNĄ z taką zależnością.
+    syntetyczna = bez_zaleznosci.replace(
+        "##### 6.D95 ·",
+        "##### 6.Z1 · Pozycja syntetyczna kontroli 6.D95\n\n"
+        "- **Skąd:** kontrola negatywna.\n"
+        "- **Wejście:** nic.\n"
+        "- **Wyjście:** nic.\n"
+        "- **Weryfikacja:** nic.\n"
+        "- **Skończone, gdy:** nigdy.\n"
+        "- **Poza zakresem:** wszystko.\n"
+        "- **Zależy od:** decyzji właściciela o czymkolwiek.\n\n"
+        "##### 6.D95 ·", 1)
+    syntetyczna = syntetyczna.replace(
+        "| 6.D95 |", "| 6.Z1 | **Pozycja syntetyczna** | kontrola | S |\n| 6.D95 |", 1)
+    assert TB.czeka_na_wlasciciela(syntetyczna) == ["6.Z1"], (
+        "pozycja syntetyczna nie weszła do kolejki albo nie została rozpoznana: "
+        + repr(TB.czeka_na_wlasciciela(syntetyczna)))
+
+    wypis_z = _doctor_w_kopii(syntetyczna)
+    assert ZDANIE_BEZWARUNKOWE not in wypis_z, (
+        "kolejka ma pozycję 6.Z1 zależną od decyzji właściciela, a doctor twierdzi "
+        "o całym zbiorze, że nikt nie czeka:\n" + wypis_z[-600:])
+    assert "6.Z1" in wypis_z, (
+        "dopisana pozycja zależna od decyzji właściciela nie zmieniła wypisu:\n"
+        + wypis_z[-600:])
+
+
+def test_podzial_kolejki_zgadza_sie_z_polami_zaleznosci():
+    """Dwie kupki sumują się do całości i żadna nie jest liczona dwa razy."""
+    tresc = _tresc_zadan()
+    otwarte = TB.open_items(tresc)
+    czekaja = TB.czeka_na_wlasciciela(tresc)
+    wolne = TB.do_wziecia(tresc)
+
+    assert set(czekaja) | set(wolne) == set(otwarte), (czekaja, wolne, otwarte)
+    assert not (set(czekaja) & set(wolne)), (czekaja, wolne)
+    assert len(czekaja) + len(wolne) == len(otwarte)
+    assert KOTWICA_ZABLOKOWANA in czekaja, (
+        f"{KOTWICA_ZABLOKOWANA} przestała czekać na właściciela — jeśli decyzja "
+        "zapadła, przelicz kotwicę tego testu razem z wpisem")
+
+
+def test_czytnik_pola_zaleznosci_rozroznia_trzy_ksztalty():
+    """Kontrola PRZYRZĄDU na wejściu syntetycznym: numer, właściciel, brak pola.
+
+    Bez niej „6.D53 jest na liście" znaczyłoby tyle samo, co „funkcja zwraca cokolwiek".
+    """
+    numer = "##### 6.X1 · a\n- **Zależy od:** 6.D73.\n"
+    wlasciciel = "##### 6.X2 · b\n- **Zależy od:** decyzji właściciela o czymś.\n"
+    bez_pola = "##### 6.X3 · c\n- **Skąd:** nic.\n"
+
+    assert TB.pole_zaleznosci(numer) == "6.D73.", TB.pole_zaleznosci(numer)
+    assert TB.SLOWO_WLASCICIELA not in TB.pole_zaleznosci(numer).lower(), (
+        "pole wskazujące na INNĄ POZYCJĘ zostało wzięte za decyzję właściciela: "
+        + TB.pole_zaleznosci(numer))
+    assert TB.SLOWO_WLASCICIELA in TB.pole_zaleznosci(wlasciciel).lower(), (
+        "pole mówiące o decyzji właściciela nie zostało rozpoznane — czytnik albo "
+        f"słowo szukane są zepsute: {TB.pole_zaleznosci(wlasciciel)!r} wobec "
+        f"szukanego {TB.SLOWO_WLASCICIELA!r}")
+    assert TB.pole_zaleznosci(bez_pola) == "", (
+        "brak pola „Zależy od” ma dawać pusty napis, a nie treść sąsiedniego pola: "
+        + repr(TB.pole_zaleznosci(bez_pola)))
+
+    wieloliniowe = ("##### 6.X4 · d\n- **Zależy od:** decyzji\n  właściciela,\n"
+                    "  rozbitej na dwa wiersze.\n- **Inne:** nie to.\n")
+    assert TB.pole_zaleznosci(wieloliniowe) == "decyzji właściciela, rozbitej na dwa wiersze.", (
+        "czytnik gubi drugą linię złamanego pola — a pole „Zależy od” bywa łamane: "
+        + repr(TB.pole_zaleznosci(wieloliniowe)))
+
+
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))
