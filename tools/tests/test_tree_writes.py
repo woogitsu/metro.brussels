@@ -20,10 +20,21 @@ a sonda przez cały przebieg pokazała **jeden** plik: pozostałe okna są krót
 50 ms. Przyrząd oparty na próbkowaniu meldowałby więc czystość, której nie sprawdził
 — i to jest ta sama rodzina usterki, którą projekt tropi od 6.D27.
 
-**Czego ta bramka NIE łapie, wypisane wprost:** zapisu przez `shutil`, `os.replace`,
-`pathlib.Path.write_text` ani przez podproces. Łapie `open(..., "w"/"a")` ze ścieżką
-zbudowaną z `ROOT` — kształt, który w tym repozytorium wystąpił siedem razy na siedem.
-Rozszerzanie o kolejne kształty ma iść za pomiarem, nie za wyobraźnią.
+**Ten akapit jest PRZEPISANY, a nie dopisany obok (6.D110, 10.09.2026).** Poprzednia
+wersja mówiła, że bramka nie łapie zapisu przez `shutil`, `os.replace` ani
+`pathlib.Path.write_text`, i to już nieprawda: od tej pozycji łapie wszystkie trzy.
+Nie łapie nadal zapisu przez **podproces** i przez **bibliotekę zewnętrzną** — to jest
+wprost poza zakresem 6.D110.
+
+**Rozszerzenie nie znalazło ani jednego nowego naruszenia i to jest jego główny wynik.**
+Skan po `tools/tests/` znajduje **pięć** wywołań kopiujących i przenoszących
+(`shutil.copyfile` ×2, `shutil.copy2`, `os.replace` ×2) i **żadne** z nich nie celuje
+w ścieżkę zbudowaną z `ROOT` — wszystkie piszą do katalogu tymczasowego albo do kopii.
+Zapadka nie drgnęła. Wpis kolejki mówił o sześciu miejscach; sześć daje `grep`, który
+liczy też **wiersze komentarza** cytujące te nazwy. Pięć zmierzonych miejsc stoi
+wymienionych w `POZA_DRZEWEM` — nie jako wyjątki, bo nie ma czego wyjmować, tylko jako
+lista rozstrzygnięć: gdy któreś z nich zacznie celować w drzewo, bramka zapali się
+sama, a gdy zniknie, zapali się kontrola gnicia listy.
 """
 import ast
 import os
@@ -42,6 +53,47 @@ SLOWO_ROOT = re.compile(r"\bROOT\b")
 
 #: Tryby `open`, przy których plik może zostać zmieniony.
 ZNAKI_ZAPISU = "wax+"
+
+#: Wywołania kopiujące i przenoszące, z **numerem i nazwą argumentu DOCELOWEGO**.
+#: Numer jest tu potrzebny, bo we wszystkich pięciu funkcjach plik pisany stoi na
+#: drugim miejscu, a na pierwszym stoi plik czytany — skan biorący argument zerowy
+#: meldowałby zapis tam, gdzie jest odczyt, i milczał tam, gdzie jest zapis.
+#: Zbiór jest ZAMKNIĘTY i wyprowadzony z pomiaru 6.D110, nie z wyobraźni:
+#: `copyfile`, `copy2` i `replace` w drzewie występują, `copy`, `move` i `rename`
+#: dopisane są jako rodzeństwo o identycznej sygnaturze, bo pominięcie ich znaczyłoby,
+#: że jedna litera w nazwie wyłącza bramkę.
+KSZTALTY_KOPIUJACE = {
+    ("shutil", "copyfile"): (1, "dst"),
+    ("shutil", "copy"): (1, "dst"),
+    ("shutil", "copy2"): (1, "dst"),
+    ("shutil", "move"): (1, "dst"),
+    ("os", "replace"): (1, "dst"),
+    ("os", "rename"): (1, "dst"),
+}
+
+#: Metody `pathlib.Path` piszące do pliku, NA KTÓRYM są wołane. Celem jest tu obiekt
+#: przed kropką, a nie żaden z argumentów — dlatego stoją osobno od tabeli wyżej.
+METODY_SCIEZKI = ("write_text", "write_bytes")
+
+#: Pięć zmierzonych 10.09.2026 wywołań kopiujących w `tools/tests/`, każde ze swoim
+#: rozstrzygnięciem. **To nie jest lista wyjątków** — żadne z nich nie celuje w drzewo,
+#: więc nie ma czego z bramki wyjmować. To lista ROZSTRZYGNIĘĆ, żądana przez pole
+#: „Skończone, gdy" pozycji 6.D110, i pilnują jej dwie kontrole naraz: gdy któreś
+#: z tych miejsc zacznie celować w `ROOT`, zapali się bramka główna; gdy zniknie albo
+#: zmieni kształt, zapali się kontrola gnicia tej listy.
+POZA_DRZEWEM = {
+    ("mutation_sweep.py", "zapisz_pokrycie", "os.replace"):
+        "podmiana atomowa mapy pokrycia w `tempfile.gettempdir()`",
+    ("test_ci_workflows.py", "_run_blender_installer", "shutil.copyfile"):
+        "instalator kopiowany do atrapy CI w katalogu tymczasowym",
+    ("test_dotnet_version.py", "_atrapa_dotnet_root", "shutil.copy2"):
+        "atrapa układu .NET budowana w katalogu tymczasowym",
+    ("test_mutation_sweep.py", "_cele_na_boku", "shutil.copyfile"):
+        "cel mutacji kopiowany na bok — wzór, do którego 6.D90 przeniosło zapisy",
+    ("test_mutation_sweep.py",
+     "test_a_remembered_map_from_another_commit_is_refused", "os.replace"):
+        "mapa przenoszona pod inną nazwę wewnątrz katalogu tymczasowego",
+}
 
 #: JAWNA, ZAMKNIĘTA lista miejsc, które piszą do pliku śledzonego i **jeszcze nie
 #: zostały przeniesione na kopię**. Każda pozycja to `(moduł, ile miejsc, powód)`.
@@ -64,6 +116,11 @@ DLUG = {
 #: 10.09.2026 **po** przeniesieniu pięciu miejsc z `test_mutation_sweep.py` na kopię:
 #: przedtem **7**, dziś **5**. Wolno ją wyłącznie OBNIŻAĆ — podniesienie znaczyłoby,
 #: że ktoś dopisał kolejne miejsce, a to jest dokładnie to, czemu bramka ma zapobiec.
+#:
+#: **Rozszerzenie skanu o trzy kształty (6.D110, ten sam dzień) NIE ruszyło tej liczby**
+#: i to jest wynik pomiaru, a nie brak zmiany: pięć zmierzonych wywołań kopiujących
+#: celuje co do jednego poza drzewo, więc do zapadki nie wchodzi żadne. Gdyby wchodziło,
+#: zapadki i tak nie wolno by było podnieść — miejsce trzeba by przenieść na kopię.
 MAX_ZAPISOW_W_DRZEWIE = 5
 
 
@@ -149,6 +206,57 @@ def _pisze_przez_parametr(funkcja):
     return numery
 
 
+def _cel_kopiowania(wezel):
+    """`(kształt, węzeł celu)` dla wywołania kopiującego albo `None`.
+
+    Jedno miejsce na rozpoznanie obu rodzin, bo obie mają odpowiadać na to samo
+    pytanie: KTÓRY plik zostanie po tym wywołaniu nadpisany.
+    """
+    if not isinstance(wezel, ast.Call) or not isinstance(wezel.func, ast.Attribute):
+        return None
+    if isinstance(wezel.func.value, ast.Name):
+        klucz = (wezel.func.value.id, wezel.func.attr)
+        para = KSZTALTY_KOPIUJACE.get(klucz)
+        if para is not None:
+            numer, nazwa = para
+            for slowo in wezel.keywords:
+                if slowo.arg == nazwa:
+                    return f"{klucz[0]}.{klucz[1]}", slowo.value
+            if len(wezel.args) > numer:
+                return f"{klucz[0]}.{klucz[1]}", wezel.args[numer]
+            return None
+    if wezel.func.attr in METODY_SCIEZKI:
+        return f"Path.{wezel.func.attr}", wezel.func.value
+    return None
+
+
+def kopiowania_modulu(zrodlo):
+    """`[(wiersz, funkcja, kształt, wyrażenie celu, czy_do_drzewa)]` — WSZYSTKIE.
+
+    Inaczej niż `miejsca_zapisu`, ta funkcja nie odsiewa celów spoza drzewa: lista
+    `POZA_DRZEWEM` ma się rozstrzygać o miejscach, które ISTNIEJĄ, a bramka główna
+    widzi wyłącznie te, które celują w `ROOT`. Bez drugiego czytnika „miejsce zniknęło"
+    i „miejsce przestało celować w drzewo" byłyby dla przyrządu tym samym zdarzeniem.
+    """
+    drzewo = ast.parse(zrodlo)
+    globalne = _nazwy_od_roota(
+        [w for w in drzewo.body if isinstance(w, ast.Assign)])
+    out = []
+    for funkcja in [w for w in ast.walk(drzewo)
+                    if isinstance(w, (ast.FunctionDef, ast.AsyncFunctionDef))]:
+        lokalne = _nazwy_od_roota([funkcja]) | globalne
+        for wezel in ast.walk(funkcja):
+            para = _cel_kopiowania(wezel)
+            if para is None:
+                continue
+            ksztalt, cel = para
+            odcinek = ast.unparse(cel)
+            do_drzewa = bool(SLOWO_ROOT.search(odcinek)) or (
+                isinstance(cel, ast.Name) and cel.id in lokalne)
+            out.append((wezel.lineno, funkcja.name, ksztalt, odcinek, do_drzewa))
+    return sorted(set(out))
+
+
 def miejsca_zapisu(zrodlo):
     """`[(wiersz, funkcja, wyrażenie ścieżki, tryb)]` dla jednego modułu.
 
@@ -196,6 +304,18 @@ def miejsca_zapisu(zrodlo):
                         znalezione.append(
                             (wezel.lineno, funkcja.name,
                              f"{wezel.func.id}({odcinek}, ...)", "przez pomocnika"))
+
+        # Kształty trzeci, czwarty i piąty (6.D110): kopiowanie, przenoszenie
+        # i zapis metodą `pathlib.Path`. Cel czytany jest tą samą regułą co przy
+        # `open`, bo pytanie jest to samo — czy plik pisany leży w drzewie.
+        for wezel in ast.walk(funkcja):
+            para = _cel_kopiowania(wezel)
+            if para is None:
+                continue
+            ksztalt, cel = para
+            odcinek = _od_roota(cel)
+            if odcinek is not None:
+                znalezione.append((wezel.lineno, funkcja.name, odcinek, ksztalt))
     return sorted(set(znalezione))
 
 
@@ -301,6 +421,135 @@ def test_skan_widzi_ksztalt_ktory_ma_widziec():
     assert pomocnik_do_tymczasowego == [], (
         "skan zgłasza pomocnika wołanego ze ścieżką tymczasową: "
         f"{pomocnik_do_tymczasowego}")
+
+
+def wszystkie_kopiowania():
+    """`{moduł: [kopiowania]}` dla całego katalogu testów, bez modułów pustych."""
+    out = {}
+    for nazwa, sciezka in _moduly():
+        with open(sciezka, encoding="utf-8") as uchwyt:
+            miejsca = kopiowania_modulu(uchwyt.read())
+        if miejsca:
+            out[nazwa] = miejsca
+    return out
+
+
+def test_kazde_zmierzone_kopiowanie_jest_rozstrzygniete():
+    """Pięć zmierzonych wywołań kontra pięć wpisów `POZA_DRZEWEM`, bez reszty.
+
+    Tego żąda pole „Skończone, gdy" pozycji 6.D110: zmierzone miejsca mają być
+    rozstrzygnięte, a suma rozstrzygnięć ma zgadzać się z pomiarem. Rozstrzygnięcia
+    są tu dwa, nie trzy: albo cel leży poza drzewem i miejsce stoi w `POZA_DRZEWEM`,
+    albo cel leży w drzewie i miejsce zapala bramkę główną. Trzeciej możliwości —
+    „zmierzone, ale nikt nic z tym nie zrobił" — ta bramka nie zostawia.
+    """
+    znalezione = wszystkie_kopiowania()
+    poza, w_drzewie = {}, {}
+    for modul, miejsca in znalezione.items():
+        for _wiersz, funkcja, ksztalt, cel, do_drzewa in miejsca:
+            (w_drzewie if do_drzewa else poza)[(modul, funkcja, ksztalt)] = cel
+
+    assert not w_drzewie, (
+        "kopiowanie albo przenoszenie celuje w plik zbudowany ze ścieżki "
+        f"repozytorium: {w_drzewie}")
+    assert set(poza) == set(POZA_DRZEWEM), (
+        "lista rozstrzygnięć rozjechała się z drzewem — brakuje: "
+        f"{sorted(set(poza) - set(POZA_DRZEWEM))}, zbędne: "
+        f"{sorted(set(POZA_DRZEWEM) - set(poza))}")
+
+
+def test_czytnik_rozstrzygniec_odroznia_cel_w_drzewie_od_celu_na_boku():
+    """Wejście syntetyczne dla FLAGI `czy_do_drzewa` — bo na drzewie jest ona martwa.
+
+    **To dopisała kontrola negatywna, a nie projekt bramki.** KN-7 pozycji 6.D110
+    przestawiła tę flagę na stałe `False` i zestaw wyszedł **6/6, zielony**: dziś
+    żadne z pięciu zmierzonych miejsc nie celuje w drzewo, więc asercja „nic nie
+    celuje w drzewo" jest spełniona PUSTO i przechodzi tak samo dla czytnika
+    działającego, jak dla zepsutego. Kontrola na drzewie mierzyłaby więc nie to.
+
+    Ta sama rodzina, co KN-4 w 6.D103 i KN-3 oraz KN-6 w 6.D105: prawda pusta wygląda
+    dokładnie tak samo jak prawda sprawdzona, dopóki nie poda się wejścia, na którym
+    obie się rozchodzą.
+    """
+    w_drzewie = kopiowania_modulu(
+        'import os, shutil\nROOT = "/x"\n'
+        'def test_a():\n    shutil.copyfile("/z", os.path.join(ROOT, "a.py"))\n')
+    assert [w[-1] for w in w_drzewie] == [True], (
+        "czytnik nie widzi celu w drzewie — flaga `czy_do_drzewa` jest martwa: %r"
+        % (w_drzewie,))
+
+    na_boku = kopiowania_modulu(
+        'import os, shutil, tempfile\nROOT = "/x"\n'
+        'def test_b():\n'
+        '    with tempfile.TemporaryDirectory() as t:\n'
+        '        shutil.copyfile(os.path.join(ROOT, "a.py"), os.path.join(t, "a.py"))\n')
+    assert [w[-1] for w in na_boku] == [False], (
+        "czytnik uznaje cel w katalogu tymczasowym za cel w drzewie: %r" % (na_boku,))
+
+
+def test_skan_kopiowan_widzi_ksztalt_ktory_ma_widziec():
+    """Trzy nowe kształty, każdy na DWÓCH wejściach: cel z `ROOT` i cel tymczasowy.
+
+    Wejście z celem tymczasowym nie jest ozdobą: skan, który zapala się na wszystkim,
+    jest tak samo bezużyteczny jak ślepy, a odróżnić jednego od drugiego da się
+    wyłącznie parą. Tego żąda pole „Skończone, gdy" pozycji 6.D110 wprost.
+    """
+    def skan(tresc):
+        return miejsca_zapisu("import os, shutil, tempfile, pathlib\nROOT = \"/x\"\n"
+                              + tresc)
+
+    kopia_do_drzewa = skan(
+        'def test_a():\n    shutil.copyfile("/z", os.path.join(ROOT, "a.py"))\n')
+    assert len(kopia_do_drzewa) == 1, (
+        "skan nie widzi `shutil.copyfile` celującego w drzewo: %r" % (kopia_do_drzewa,))
+    kopia_na_bok = skan(
+        'def test_b():\n'
+        '    with tempfile.TemporaryDirectory() as t:\n'
+        '        shutil.copyfile(os.path.join(ROOT, "a.py"), os.path.join(t, "a.py"))\n')
+    assert kopia_na_bok == [], (
+        "skan bierze plik CZYTANY za pisany — to dokładnie ten kształt, w którym "
+        f"stoją wszystkie pięć zmierzonych miejsc: {kopia_na_bok}")
+
+    przenoszenie_do_drzewa = skan(
+        'def test_c():\n    os.replace("/z", os.path.join(ROOT, "a.py"))\n')
+    assert len(przenoszenie_do_drzewa) == 1, (
+        "skan nie widzi `os.replace` celującego w drzewo: %r" % (przenoszenie_do_drzewa,))
+    przenoszenie_na_bok = skan(
+        'def test_d():\n'
+        '    with tempfile.TemporaryDirectory() as t:\n'
+        '        os.replace(os.path.join(t, "a"), os.path.join(t, "b"))\n')
+    assert przenoszenie_na_bok == [], (
+        "skan zgłasza przeniesienie w obrębie katalogu tymczasowego: %r"
+        % (przenoszenie_na_bok,))
+
+    sciezka_do_drzewa = skan(
+        'def test_e():\n'
+        '    pathlib.Path(os.path.join(ROOT, "a.py")).write_text("x")\n')
+    assert len(sciezka_do_drzewa) == 1, (
+        "skan nie widzi `pathlib.Path.write_text` na ścieżce z drzewa: %r"
+        % (sciezka_do_drzewa,))
+    sciezka_na_bok = skan(
+        'def test_f():\n'
+        '    with tempfile.TemporaryDirectory() as t:\n'
+        '        pathlib.Path(os.path.join(t, "a.py")).write_bytes(b"x")\n')
+    assert sciezka_na_bok == [], (
+        "skan zgłasza `write_bytes` do katalogu tymczasowego: %r" % (sciezka_na_bok,))
+
+    # Cel podany SŁOWEM KLUCZOWYM. Bez tego kształtu bramkę wyłączałoby przestawienie
+    # argumentu na nazwany, a to jest zmiana czysto redakcyjna.
+    przez_slowo = skan(
+        'def test_g():\n    shutil.copyfile("/z", dst=os.path.join(ROOT, "a.py"))\n')
+    assert len(przez_slowo) == 1, (
+        f"skan nie widzi celu podanego słowem kluczowym: {przez_slowo}")
+
+    # Zmienna pośrednia, ten sam kształt co przy `open` — cel liczony u WOŁAJĄCEGO.
+    przez_zmienna = skan(
+        'def test_h():\n'
+        '    pelna = os.path.join(ROOT, "a.py")\n'
+        '    shutil.copy2("/z", pelna)\n')
+    assert len(przez_zmienna) == 1, (
+        "skan nie widzi celu podanego przez zmienną pośrednią: %r"
+        % (przez_zmienna,))
 
 
 if __name__ == "__main__":
