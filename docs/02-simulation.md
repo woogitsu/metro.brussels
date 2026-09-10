@@ -18,10 +18,35 @@ Canonical ground truth M7: `data/vehicle/m7-spec.json`. Audyt: `docs/08-m7-groun
 | prędkość maks. używana przez model | 80 km/h | `design_model`, brak primary-source Vmax M7 w T-904 |
 | napędzane 4/6 | 4/6 | `design_model`, tylko legacy parametr limitu adhezji |
 | masa modelowa AW2 | 221,94 t | `design_model`: 170 t + 742 × 70 kg |
-| przyspieszenie maks. | 1,10 m/s² | `design_model` |
+| przyspieszenie rozruchu (wynik modelu) | 1,342 m/s² AW0 / 1,025 m/s² AW2 | **pochodna**, nie sufit — patrz niżej |
 | hamowanie służbowe | 1,10 m/s² | `design_model` |
 | hamowanie awaryjne | 1,30 m/s² | `design_model` |
 | ograniczenie zrywu | 0,75 m/s³ | `design_model` |
+
+### Przyspieszenie jest WYNIKIEM, nie parametrem — 6.D86
+
+Do 10.09.2026 stało w tej tabeli `przyspieszenie maks. | 1,10 m/s² | design_model`.
+Liczba **nie występuje w kodzie ani w danych pojazdu**, żaden test jej nie czytał,
+a w modelu nie ma żadnego obcięcia, które by ją egzekwowało. Przyspieszenie rozruchu
+wychodzi z siły, mas i oporów:
+
+    a(0) = (F0 − Davis(0)) / (m · 1,08)
+
+    AW0   (248 900 − 2 502) N / (170 000 · 1,08) kg  =  1,342 m/s²
+    AW2   (248 900 − 3 266) N / (221 940 · 1,08) kg  =  1,025 m/s²
+
+Deklarowane 1,10 nie było żadną z tych dwóch wartości — leżało między nimi. Sufit
+przyczepnościowy **nie wiąże**: `μ·m·(4/6)·g` daje 277,9 kN (AW0) i 362,7 kN (AW2),
+czyli więcej niż `F0 = 248,9 kN`, więc to siła rozruchowa rozstrzyga, a nie tarcie.
+Mnożnik `1,08` to masa efektywna (bezwładność wirujących mas).
+
+**Obcięcia w kodzie NIE MA i ta pozycja go nie wprowadza.** Wartość projektowa
+przyspieszenia jest w `data/vehicle/m7-spec.json` wpisana wprost jako nieznana
+(`unknown_parameters`: „source-backed maximum acceleration"), więc jej wybór jest
+decyzją właściciela, a nie skutkiem ubocznym poprawki w dokumencie.
+
+Liczby wyżej pilnuje `tools/tests/test_reference_snapshot.py`, licząc je z modelu
+i porównując z tą tabelą — osobno od pytania, czy sam model się zmienił.
 
 ## Opory ruchu
 
