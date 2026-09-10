@@ -8,6 +8,11 @@ namespace MetroBxl.Sim.Train;
 
 /// <summary>Stan obsługi najbliższej stacji — jedno pytanie, jedna odpowiedź dla widoku.</summary>
 /// <param name="Name">Nazwa stacji albo puste, gdy nie ma już żadnej przed składem.</param>
+/// <param name="DisplayName">
+/// Nazwa do POKAZANIA człowiekowi — jednojęzyczna (6.D83). Osobne pole, a nie podmiana
+/// <see cref="Name"/>: po tamtej idą ślady przejazdu i porównanie wywołań scena–rdzeń,
+/// których wzorce są przybite sumą SHA-256.
+/// </param>
 /// <param name="StopId">Identyfikator przystanku z GTFS.</param>
 /// <param name="ChainageM">Kilometraż punktu zatrzymania.</param>
 /// <param name="DistanceM">Odległość czoła do punktu zatrzymania; ujemna, gdy minięty.</param>
@@ -17,7 +22,8 @@ public readonly record struct StationApproach(
     string StopId,
     double ChainageM,
     double DistanceM,
-    bool WithinWindow)
+    bool WithinWindow,
+    string DisplayName = "")
 {
     /// <summary>Czy przed składem jest jeszcze jakakolwiek stacja.</summary>
     public bool Exists => Name.Length > 0;
@@ -194,7 +200,7 @@ public sealed class StationService
         var distance = station.ChainageM - chainageM;
         return new StationApproach(
             station.Name, station.StopId, station.ChainageM, distance,
-            Math.Abs(distance) <= _windowM);
+            Math.Abs(distance) <= _windowM, station.DisplayName);
     }
 
     /// <summary>

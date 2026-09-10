@@ -1587,7 +1587,7 @@ public sealed partial class FirstRun : Node3D
             var approach = _stations.Approach(chainage);
             if (approach.Exists)
             {
-                name = approach.Name;
+                name = approach.DisplayName;
                 distance = approach.DistanceM;
             }
         }
@@ -1597,7 +1597,7 @@ public sealed partial class FirstRun : Node3D
             {
                 if (station.ChainageM >= chainage)
                 {
-                    name = station.Name;
+                    name = station.DisplayName;
                     distance = station.ChainageM - chainage;
                     break;
                 }
@@ -1759,7 +1759,7 @@ public sealed partial class FirstRun : Node3D
         var okno = approach.WithinWindow ? "  W OKNIE — zatrzymaj się" : string.Empty;
         return string.Create(
             CultureInfo.InvariantCulture,
-            $"{approach.Name} za {approach.DistanceM:F0} m (okno ±{_stations.WindowM:F1} m)" +
+            $"{approach.DisplayName} za {approach.DistanceM:F0} m (okno ±{_stations.WindowM:F1} m)" +
             $"{okno}   {licznik}");
     }
 

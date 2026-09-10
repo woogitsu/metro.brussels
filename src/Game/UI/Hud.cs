@@ -138,13 +138,22 @@ public sealed partial class Hud : CanvasLayer
 
         _speed.Text = string.Create(
             CultureInfo.InvariantCulture, $"{speedKmh,6:F1} km/h     a = {accelerationMps2,6:F2} m/s²");
-        _position.Text = string.Create(
-            CultureInfo.InvariantCulture,
-            $"chainage {chainageM,9:F1} m / {axisLengthM:F1} m     {nextStation} za {toStationM:F0} m");
+        // Słowa idą z katalogu (`UiText`), liczby są formatowane TUTAJ — 6.D83.
+        // Granica jest postawiona świadomie: szablon niesie kolejność pól i słowa,
+        // a `F1`, `F0` i szerokości pól zostają w kodzie, bo pole „Skończone, gdy"
+        // pozycji żąda „jednostki i formaty liczb zostają".
+        _position.Text = UiText.Format(
+            "hud.position",
+            chainageM.ToString("F1", CultureInfo.InvariantCulture).PadLeft(9),
+            axisLengthM.ToString("F1", CultureInfo.InvariantCulture),
+            nextStation,
+            toStationM.ToString("F0", CultureInfo.InvariantCulture));
         var emergencySuffix = emergency.Length > 0 ? "   " + emergency : string.Empty;
-        _controls.Text = string.Create(
-            CultureInfo.InvariantCulture,
-            $"ciąg {Bar(throttle)} {throttle:F2}   hamulec {Bar(brake)} {brake:F2}   [{mode}]{emergencySuffix}");
+        _controls.Text = UiText.Format(
+            "hud.controls",
+            Bar(throttle), throttle.ToString("F2", CultureInfo.InvariantCulture),
+            Bar(brake), brake.ToString("F2", CultureInfo.InvariantCulture),
+            mode, emergencySuffix);
         _station.Text = station;
         _station.Visible = station.Length > 0;
         _signalling.Text = signalling;

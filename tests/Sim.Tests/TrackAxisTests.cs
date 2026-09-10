@@ -299,6 +299,115 @@ public sealed class TrackAxisTests
             "porównanie jest Ordinal: status pochodzi z pliku, nie od człowieka");
     }
 
+    /// <summary>
+    /// Nazwa do pokazania jest brana z GOTOWEGO pola danych, a nie parsowana
+    /// z separatora — 6.D83.
+    /// </summary>
+    [TestMethod]
+    public void Nazwa_do_pokazania_pochodzi_z_pola_jednojezycznego()
+    {
+        var axis = TrackAxis.FromJson(JsonZeStacja(
+            "Comte de Flandre|Graaf van Vlaanderen", "Comte De Flandre", "Graaf Van Vlaand."));
+        var station = axis.Stations[0];
+
+        Assert.AreEqual("Comte de Flandre|Graaf van Vlaanderen", station.Name,
+            "nazwa dwujęzyczna zostaje NIETKNIĘTA — po niej idą ślady przejazdu "
+            + "i porównanie wywołań scena-rdzeń, przybite sumą SHA-256");
+        Assert.AreEqual("Comte De Flandre", station.NameFr);
+        Assert.AreEqual("Graaf Van Vlaand.", station.NameNl);
+        Assert.AreEqual("Comte De Flandre", station.DisplayName);
+        Assert.IsFalse(station.DisplayName.Contains('|'),
+            "nazwa do pokazania niesie separator, czyli jest złączona, a nie wybrana");
+    }
+
+    /// <summary>
+    /// Brak pola jednojęzycznego daje CAŁĄ nazwę, a nie jej kawałek. Separatora
+    /// nie parsujemy — pole „Wyjście" pozycji 6.D83 mówi o tym wprost.
+    /// </summary>
+    [TestMethod]
+    public void Bez_pola_jednojezycznego_nazwa_do_pokazania_nie_jest_ciachana()
+    {
+        var station = TrackAxis.FromJson(JsonZeStacja("Alfa|Beta", null, null)).Stations[0];
+
+        Assert.AreEqual(string.Empty, station.NameFr);
+        Assert.AreEqual("Alfa|Beta", station.DisplayName,
+            "przy braku pola jednojęzycznego nazwa ma zostać CAŁA — ucięcie jej "
+            + "na separatorze byłoby parsowaniem, którego ta pozycja zabrania");
+    }
+
+    /// <summary>
+    /// Kontrola na PRAWDZIWYCH danych: pola jednojęzyczne są kompletne, a separator
+    /// niesie mniejszość nazw. Liczby są zmierzone 10.09.2026 i stoją tu po to, żeby
+    /// zmiana w danych była widoczna, a nie cicha.
+    /// </summary>
+    [TestMethod]
+    public void Wszystkie_stacje_w_danych_maja_nazwe_jednojezyczna()
+    {
+        var root = FindRepositoryRoot();
+        if (root is null)
+        {
+            Assert.Inconclusive("brak repozytorium na dysku — kontrola danych pominięta");
+            return;
+        }
+
+        var stacji = 0;
+        var bezFr = 0;
+        var zSeparatorem = 0;
+        var zSeparatoremWPokazywanej = 0;
+        // Wzorzec `L*_?.json`, a nie `*.json`: obok osi leżą pliki `*.provenance.json`,
+        // które osiami nie są i wywracają rozbiór na pierwszym `points`. Zmierzone
+        // przy pisaniu tego testu — `*.json` daje dwanaście plików, a osi jest sześć.
+        foreach (var plik in Directory.GetFiles(Path.Combine(root, "data", "track"), "*.json")
+                     .Where(f => !f.EndsWith(".provenance.json", StringComparison.Ordinal))
+                     .OrderBy(f => f, StringComparer.Ordinal))
+        {
+            foreach (var station in TrackAxis.FromJson(File.ReadAllText(plik)).Stations)
+            {
+                stacji++;
+                if (station.NameFr.Length == 0)
+                {
+                    bezFr++;
+                }
+
+                if (station.Name.Contains('|'))
+                {
+                    zSeparatorem++;
+                }
+
+                if (station.DisplayName.Contains('|'))
+                {
+                    zSeparatoremWPokazywanej++;
+                }
+            }
+        }
+
+        Assert.AreEqual(61, stacji, "liczba stacji w danych osi zmieniła się");
+        Assert.AreEqual(0, bezFr, "stacja bez `name_fr` — nazwa do pokazania spadnie "
+                                  + "na dwujęzyczną, czyli na ten napis, który ucinał wiersz");
+        Assert.AreEqual(27, zSeparatorem,
+            "liczba nazw z separatorem zmieniła się — pomiar 6.D83 dotyczył 27 z 61");
+        Assert.AreEqual(0, zSeparatoremWPokazywanej,
+            "nazwa do pokazania nadal niesie separator w " + zSeparatoremWPokazywanej + " stacjach");
+    }
+
+    private static string JsonZeStacja(string name, string? nameFr, string? nameNl)
+    {
+        var pola = string.Create(CultureInfo.InvariantCulture, $"\"name\":\"{name}\"");
+        if (nameFr is not null)
+        {
+            pola += string.Create(CultureInfo.InvariantCulture, $",\"name_fr\":\"{nameFr}\"");
+        }
+
+        if (nameNl is not null)
+        {
+            pola += string.Create(CultureInfo.InvariantCulture, $",\"name_nl\":\"{nameNl}\"");
+        }
+
+        return string.Create(
+            CultureInfo.InvariantCulture,
+            $$"""{"id":"T","length_m":0.0,"vertical":{"status":"not_modelled"},"points":[[0.0,0.0,0.0],[100.0,0.0,0.0]],"stations":[{{{pola}},"chainage_m":50.0,"stop_id":"s1"}]}""");
+    }
+
     private static string JsonBezProfilu(params (double X, double Y)[] points)
     {
         var coordinates = string.Join(",", points.Select(p => string.Create(

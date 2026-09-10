@@ -20,7 +20,39 @@ public readonly record struct AxisPoint(double X, double Y, double Z);
 /// diakrytyki (<c>Étangs Noirs|Zwarte Vijvers</c>), a w GTFS jest jedna, wersalikami
 /// i bez nich. Pusty łańcuch, gdy oś go nie podaje.
 /// </param>
-public readonly record struct AxisStation(string Name, double ChainageM, string StopId);
+/// <param name="NameFr">Nazwa francuska z pola <c>name_fr</c>; pusta, gdy oś jej nie podaje.</param>
+/// <param name="NameNl">Nazwa niderlandzka z pola <c>name_nl</c>; pusta, gdy oś jej nie podaje.</param>
+public readonly record struct AxisStation(
+    string Name,
+    double ChainageM,
+    string StopId,
+    string NameFr = "",
+    string NameNl = "")
+{
+    /// <summary>
+    /// Nazwa do POKAZANIA człowiekowi — jednojęzyczna, wzięta z gotowego pola danych,
+    /// a <b>nie</b> parsowana z separatora (6.D83).
+    ///
+    /// <para><b>Dlaczego francuska.</b> Nie z gustu: pole <c>name</c> w
+    /// <c>data/track/*.json</c> ma postać <c>FR|NL</c>, więc francuska jest PIERWSZĄ
+    /// z pary tak, jak zapisało ją źródło. Zmierzone 10.09.2026 na wszystkich sześciu
+    /// osiach: <b>61</b> stacji, <b>0</b> bez <c>name_fr</c>, <b>0</b> bez
+    /// <c>name_nl</c>, a separator <c>|</c> niesie <b>27</b> nazw — pozostałe 34 są
+    /// w obu językach identyczne.</para>
+    ///
+    /// <para><b>Wybór języka jest JEDNĄ linijką i to jest celowe.</b> Przełącznik
+    /// języka, katalog tłumaczeń i drugi język stoją w polu „Poza zakresem" pozycji
+    /// 6.D83 („ta pozycja robi miejsce, nie treść"). Gdy taki przełącznik powstanie,
+    /// zmieni się tutaj jeden wiersz, a nie siedem miejsc w warstwie gry.</para>
+    ///
+    /// <para><b><see cref="Name"/> zostaje NIETKNIĘTA i to jest warunek, nie ozdoba.</b>
+    /// Po niej idą ślady przejazdu i porównanie wywołań scena–rdzeń
+    /// (<c>tools/ci/assert_line_trace.py</c>, <c>--calls</c>), których wzorce są
+    /// przybite sumą SHA-256. Podmiana nazwy w tamtym miejscu przeliczyłaby wzorce
+    /// jako skutek uboczny zmiany w interfejsie.</para>
+    /// </summary>
+    public string DisplayName => NameFr.Length > 0 ? NameFr : Name;
+}
 
 /// <summary>
 /// Oś trasy pakietu: łamana ze STIB, zagęszczona **dokładnie tak samo**, jak robi to
@@ -240,6 +272,12 @@ public sealed class TrackAxis
                     station.GetProperty("chainage_m").GetDouble(),
                     station.TryGetProperty("stop_id", out var stopId)
                         ? stopId.GetString() ?? string.Empty
+                        : string.Empty,
+                    station.TryGetProperty("name_fr", out var nameFr)
+                        ? nameFr.GetString() ?? string.Empty
+                        : string.Empty,
+                    station.TryGetProperty("name_nl", out var nameNl)
+                        ? nameNl.GetString() ?? string.Empty
                         : string.Empty));
             }
         }
