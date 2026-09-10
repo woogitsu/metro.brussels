@@ -99,7 +99,19 @@ LABEL_ANCHOR = re.compile(r"\bself-hosted\b|\bruns-on\b", re.I)
 
 #: Kolejna etykieta w takiej liście: do trzech znaków rozdzielających (spacja,
 #: przecinek, ukośnik, plus, backtick, nawias, dwukropek) i token etykiety.
-NEXT_LABEL = re.compile(r"[`\s,/+\[\]:]{0,3}([A-Za-z][A-Za-z0-9_.-]*)")
+NEXT_LABEL = re.compile(r"([`\s,/+\[\]:]{0,3})([A-Za-z][A-Za-z0-9_.-]*)")
+
+#: NAWIAS KWADRATOWY otwiera listę etykiet w zapisie `runs-on: [a, b, c]`, a zamyka ją
+#: nawias zamykający. To jest cała poprawka 6.D72: skan wolno prowadzić przez token
+#: niewyglądający na etykietę **tylko wewnątrz takiej listy**.
+#:
+#: PRZECINEK NIE WYSTARCZA i to jest zmierzone, nie przewidziane. Pierwsza wersja tej
+#: poprawki uznawała za „lista trwa" każdy separator z przecinkiem — i cały zestaw
+#: zapalił się na `reports/branch-audit.md:121`, w zdaniu
+#: „CI stoi dziś na gołej etykiecie `self-hosted`, bez `wsl2`", czyli w zdaniu, które
+#: tę etykietę WYKLUCZA. Przecinek stoi w polskiej prozie równie często jak w liście.
+LIST_OPEN = "["
+LIST_CLOSE = "]"
 
 
 def _read(path):
@@ -205,20 +217,47 @@ def _looks_like_a_label(token):
 
 
 def extra_labels(line):
-    """Etykiety dopisane w prozie po `self-hosted`/`runs-on`, małymi literami."""
+    """Etykiety dopisane w prozie po `self-hosted`/`runs-on`, małymi literami.
+
+    Wynik jest BEZ POWTÓRZEŃ, z zachowaną kolejnością — jeden wiersz bywa złapany
+    przez dwie kotwice naraz (`runs-on:` i `self-hosted` w tym samym zdaniu), a ta
+    sama etykieta wymieniona dwa razy to jedno zgłoszenie, nie dwa. Do 6.D72 nie
+    było tego widać, bo skan spod pierwszej kotwicy kończył się na `self-hosted`
+    i nie dawał nic.
+    """
     found = []
     for anchor in LABEL_ANCHOR.finditer(line):
         rest = line[anchor.end():]
+        in_list = False
         while True:
             match = NEXT_LABEL.match(rest)
             if not match:
                 break
+            separator = match.group(1)
+            if LIST_OPEN in separator:
+                in_list = True
+            if LIST_CLOSE in separator:
+                in_list = False
             # Kropka i dywiz są w klasie tokenu (`ubuntu-22.04`), ale na końcu są
             # interpunkcją zdania — bez tego komunikat mówiłby o etykiecie `wsl2.`.
-            token = match.group(1).rstrip(".-")
-            if not token or not _looks_like_a_label(token):
+            token = match.group(2).rstrip(".-")
+            if not token:
                 break
-            found.append(token.lower())
+            if not _looks_like_a_label(token):
+                # 6.D72: token spoza kształtu etykiety NIE kończy skanu, jeżeli stoimy
+                # WEWNĄTRZ listy `[...]`. Zmierzone na starym wierszu §9 (`fcaaca0`,
+                # wiersz 172): z czterech nieaktualnych etykiet detektor nazywał DWIE,
+                # bo zatrzymywał się na `woogitsu` — nazwie maszyny stojącej w środku
+                # listy, za którą szły jeszcze `i5-10400f` i `nvidia-gtx1070`, obie
+                # rozpoznawalne. Lista kończy się nawiasem, więc skan nie ma jak
+                # wejść w zdanie za nią.
+                if in_list:
+                    rest = rest[match.end():]
+                    continue
+                break
+            etykieta = token.lower()
+            if etykieta not in found:
+                found.append(etykieta)
             rest = rest[match.end():]
     return found
 
@@ -443,6 +482,62 @@ def test_polish_prose_after_self_hosted_is_not_mistaken_for_a_label():
     # Kropka na końcu zdania nie jest częścią etykiety, a dywiz i kropka w środku są.
     assert extra_labels("a bramka na self-hosted WSL2.") == ["wsl2"]
     assert extra_labels("na self-hosted ubuntu-22.04 dzisiaj") == ["ubuntu-22.04"]
+
+#: Stary wiersz §9 z `fcaaca0` — dosłownie, bo pomiar 6.D72 jest o NIM. Zapisany tu,
+#: a nie czytany z historii gita: bramka ma działać w drzewie bez `.git`, a wiersz
+#: jest krótszy niż polecenie, którym by się go wyciągało.
+STARY_WIERSZ_9 = ("- **`runs-on: [self-hosted, Linux, X64, woogitsu, i5-10400f, "
+                  "nvidia-gtx1070]`** — komplet")
+
+
+def test_the_label_scan_walks_the_whole_list_instead_of_stopping_on_a_word():
+    """Skan przechodzi całą listę etykiet, nie kończąc na nazwie maszyny (6.D72).
+
+    **Skąd.** `extra_labels` przerywało na pierwszym tokenie spoza kształtu etykiety.
+    W starym wierszu §9 takim tokenem jest `woogitsu` — nazwa maszyny stojąca
+    w ŚRODKU listy — więc z czterech nieaktualnych etykiet detektor nazywał DWIE,
+    choć rozpoznaje wszystkie cztery:
+
+        _looks_like_a_label('woogitsu')       = False
+        _looks_like_a_label('i5-10400f')      = True
+        _looks_like_a_label('nvidia-gtx1070') = True
+
+    Poprawka nie rozluźnia kształtu etykiety — to zapaliłoby bramkę na polskiej
+    prozie, czyli zabrałoby dokładnie tę własność, dla której kształt powstał.
+    Rozstrzyga SEPARATOR: przecinek, ukośnik, plus, backtick i nawias znaczą
+    „lista trwa", a sam odstęp znaczy „to już zdanie".
+    """
+    znalezione = extra_labels(STARY_WIERSZ_9)
+    assert znalezione == ["linux", "x64", "i5-10400f", "nvidia-gtx1070"], (
+        f"skan nazwał {znalezione} zamiast czterech etykiet — jeżeli lista urywa się "
+        "na `x64`, wrócił warunek kończący skan na pierwszym tokenie spoza kształtu "
+        "etykiety, a w tej liście jest nim `woogitsu`")
+    assert len(claims_in_line(STARY_WIERSZ_9, {"self-hosted"})) == 4, (
+        "stary wiersz §9 wobec dzisiejszych workflowów ma dać CZTERY zgłoszenia")
+    # Wynik jest bez powtórzeń: ten wiersz łapią DWIE kotwice (`runs-on:`
+    # i `self-hosted`), a ta sama etykieta wymieniona dwa razy to jedno zgłoszenie.
+    assert len(extra_labels(STARY_WIERSZ_9)) == len(set(extra_labels(STARY_WIERSZ_9)))
+
+
+def test_the_label_scan_still_stops_where_the_list_ends_and_prose_begins():
+    """Kontrola negatywna do poprawki wyżej — WYKONANA na obu stronach granicy.
+
+    Bez niej „skan idzie dalej" dałoby się rozciągnąć na całe zdanie i bramka
+    zaczęłaby zgłaszać polskie słowa z cyfrą albo z wielkiej litery.
+    """
+    # Odstęp NIE jest separatorem listy: zdanie kończy skan na pierwszym słowie.
+    assert extra_labels("na self-hosted maszynie WSL2 właściciela") == []
+    assert extra_labels("na self-hosted runnerze Linux X64") == []
+    # PRZECINEK NIE WYSTARCZA — zmierzone, nie przewidziane. Pierwsza wersja tej
+    # poprawki uznawała przecinek za „lista trwa" i cały zestaw zapalił się na
+    # `reports/branch-audit.md:121`, w zdaniu, które etykietę WYKLUCZA:
+    assert extra_labels("CI stoi dziś na gołej etykiecie `self-hosted`, bez `wsl2`") == []
+    assert extra_labels("na self-hosted, maszynie, WSL2") == []
+    # …a nawias kwadratowy wystarcza, bo otwiera zapis `runs-on: [a, b, c]`.
+    assert extra_labels("runs-on: [self-hosted, woogitsu, WSL2]") == ["wsl2"]
+    # Lista KOŃCZY się nawiasem: proza za nią nie jest już listą.
+    assert extra_labels("runs-on: [self-hosted, X64] na maszynie WSL2") == ["x64"]
+
 
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
 # z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
