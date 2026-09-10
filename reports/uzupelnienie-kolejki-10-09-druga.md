@@ -98,7 +98,8 @@ nieistniejące: []
 
 ## 6. Zapadki
 
-`MINIMUM_DETAIL_BLOCKS` stoi na **179**, podniesiona ze stu siedemdziesięciu trzech,
+`MINIMUM_DETAIL_BLOCKS` została w tym commicie podniesiona ze stu siedemdziesięciu trzech
+na sto siedemdziesiąt dziewięć,
 bo bloków przybyło sześć. Wartość jest wynikiem `len(detail_sections(...))` na pliku
 po edycji, nie sumą „173 plus sześć" — przy commicie dopisującym więcej niż jeden blok
 te dwie czynności rozjeżdżają się po cichu.
