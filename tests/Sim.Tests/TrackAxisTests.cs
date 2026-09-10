@@ -214,6 +214,109 @@ public sealed class TrackAxisTests
         Assert.IsFalse(axis.IsVerticalModelled);
     }
 
+    /// <summary>
+    /// Trzy sposoby, na jakie plik osi może POWIEDZIEĆ NIC, i wszystkie trzy dają
+    /// fałsz — 6.D80. Zmierzone 09.09.2026 sondą wołającą ten sam typ: przed
+    /// poprawką każdy z tych trzech wierszy dawał <c>True</c>, bo predykat był
+    /// negacją JEDNEGO napisu, a nie białą listą.
+    /// </summary>
+    [TestMethod]
+    public void Os_bez_klucza_profilu_pionowego_nie_jest_zamodelowana()
+    {
+        var axis = TrackAxis.FromJson(JsonBezProfilu((0.0, 0.0), (100.0, 0.0)));
+
+        Assert.AreEqual("unknown", axis.VerticalStatus,
+            "brak klucza `vertical` ma dawać status `unknown`, a nie pusty napis");
+        Assert.IsFalse(axis.IsVerticalModelled,
+            "oś bez klucza profilu nie mówi NIC o pochyleniu — a nie „jest zamodelowana\u201d");
+    }
+
+    /// <summary>
+    /// Literówka w statusie daje fałsz. To jest ten wiersz, który przed 6.D80
+    /// przechodził: <c>nod_modelled</c> nie równa się <c>not_modelled</c>, więc
+    /// negacja dawała <c>True</c> — czyli literówka w danych ogłaszała profil
+    /// zamodelowanym.
+    /// </summary>
+    [TestMethod]
+    public void Literowka_w_statusie_profilu_nie_ogłasza_profilu_zamodelowanym()
+    {
+        foreach (var status in new[] { "nod_modelled", "unknown", "", "modelled",
+                                       "NOT_MODELLED", "not modelled" })
+        {
+            var axis = TrackAxis.FromJson(JsonZeStatusem(status, (0.0, 0.0), (100.0, 0.0)));
+
+            Assert.AreEqual(status, axis.VerticalStatus);
+            Assert.IsFalse(axis.IsVerticalModelled,
+                $"status `{status}` ogłosił profil zamodelowanym");
+        }
+    }
+
+    /// <summary>
+    /// Biała lista jest ZAMKNIĘTA i dziś pusta — a ten test jest miejscem, w którym
+    /// to zdanie stoi, żeby jego zmiana była widoczna w diffie, a nie ukryta
+    /// w jednej linijce pola.
+    ///
+    /// <para>Predykat CZYTA tę listę i to jest sprawdzone w obie strony: pusta lista
+    /// odrzuca każdy napis, a wpis dopisany do niej byłby jedynym, który przechodzi.
+    /// Kontrola negatywna WYKONANA 10.09.2026: dopisanie <c>"not_modelled"</c> do
+    /// listy wywraca oba testy wyżej — czyli lista nie jest ozdobą.</para>
+    /// </summary>
+    [TestMethod]
+    public void Biala_lista_statusow_profilu_jest_dzis_pusta_i_predykat_z_niej_czyta()
+    {
+        Assert.AreEqual(0, TrackAxis.ModelledVerticalStatuses.Count,
+            "biała lista przestała być pusta — dopisanie do niej wartości jest "
+            + "oświadczeniem, że dla tego statusu profil NAPRAWDĘ jest w danych, "
+            + "i ma iść razem z rzędnymi w plikach osi");
+
+        // Predykat idzie przez listę, a nie przez własną kopię reguły: dla każdego
+        // napisu wynik ma być RÓWNY przynależności do listy. Przy pustej liście
+        // znaczy to „fałsz dla wszystkiego", a po dopisaniu wpisu ta sama asercja
+        // wymusi prawdę dokładnie dla niego.
+        foreach (var status in new[] { "not_modelled", "unknown", "modelled",
+                                       "nod_modelled", "surveyed", "" })
+        {
+            Assert.AreEqual(TrackAxis.ModelledVerticalStatuses.Contains(status),
+                TrackAxis.IsModelledStatus(status),
+                $"predykat rozjechał się z białą listą dla `{status}`");
+        }
+
+        Assert.IsFalse(TrackAxis.IsModelledStatus(null),
+            "brak statusu nie jest statusem zamodelowanym");
+
+        // REGUŁA SPRAWDZONA NA LIŚCIE NIEPUSTEJ, i to jest tu konieczne, nie ozdobne.
+        // Zmierzone 10.09.2026: przy liście pustej predykat czytający listę i predykat
+        // zwracający twarde `false` są dla testów NIEODRÓŻNIALNE — kontrola negatywna
+        // zastępująca całą pętlę przez `return false` przeszła 597/597, ZIELONO.
+        // Poniższe trzy asercje są jedynym miejscem, które tę mutację wywraca.
+        var lista = new[] { "surveyed", "modelled" };
+        Assert.IsTrue(TrackAxis.IsModelledStatus("surveyed", lista),
+            "status z listy ma dawać prawdę — inaczej lista nie jest czytana");
+        Assert.IsTrue(TrackAxis.IsModelledStatus("modelled", lista));
+        Assert.IsFalse(TrackAxis.IsModelledStatus("not_modelled", lista),
+            "status spoza listy ma dawać fałsz");
+        Assert.IsFalse(TrackAxis.IsModelledStatus("SURVEYED", lista),
+            "porównanie jest Ordinal: status pochodzi z pliku, nie od człowieka");
+    }
+
+    private static string JsonBezProfilu(params (double X, double Y)[] points)
+    {
+        var coordinates = string.Join(",", points.Select(p => string.Create(
+            CultureInfo.InvariantCulture, $"[{p.X:R},{p.Y:R},0.0]")));
+        return string.Create(
+            CultureInfo.InvariantCulture,
+            $$"""{"id":"T","length_m":0.0,"points":[{{coordinates}}],"stations":[]}""");
+    }
+
+    private static string JsonZeStatusem(string status, params (double X, double Y)[] points)
+    {
+        var coordinates = string.Join(",", points.Select(p => string.Create(
+            CultureInfo.InvariantCulture, $"[{p.X:R},{p.Y:R},0.0]")));
+        return string.Create(
+            CultureInfo.InvariantCulture,
+            $$"""{"id":"T","length_m":0.0,"vertical":{"status":"{{status}}"},"points":[{{coordinates}}],"stations":[]}""");
+    }
+
     private static string Json(params (double X, double Y)[] points)
     {
         var coordinates = string.Join(",", points.Select(p => string.Create(
