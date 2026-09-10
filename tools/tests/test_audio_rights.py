@@ -161,7 +161,22 @@ def niezgodnosci(asset, properties, additional_allowed):
     if not additional_allowed:
         for field in sorted(set(asset) - set(properties)):
             out.append((field, "pole spoza schematu"))
+    out.extend(_niezgodnosci_pol(asset, properties))
+    return out
 
+
+def _niezgodnosci_pol(asset, properties):
+    """Pola wpisu wobec `properties` — JEDEN czytnik dla poziomu najwyższego
+    i dla gałęzi warunkowych.
+
+    Drugi czytnik tych samych regul rozjechalby sie po cichu, a rozjazd akurat tej
+    pary znaczylby, ze galaz `then` przyjmuje wartosc, ktora poziom najwyzszy
+    odrzuca — albo odwrotnie. Rekurencja w obiekt jest tu od 6.D103, bo galaz
+    `original_recording` zada `location` z wlasnym `required` i wlasnymi
+    `properties`; na poziomie najwyzszym `location` ma `oneOf` i przez to zadnej
+    rekurencji nie wyzwala.
+    """
+    out = []
     for field, rule in properties.items():
         if field not in asset:
             continue
@@ -191,7 +206,198 @@ def niezgodnosci(asset, properties, additional_allowed):
                     if not _zgodny_typ(element, typ_elementu):
                         out.append((field, "element %d ma typ %r, oczekiwano %s"
                                     % (i, type(element).__name__, typ_elementu)))
+        if rule.get("type") == "object" and isinstance(wartosc, dict):
+            for brak in sorted(set(rule.get("required", [])) - set(wartosc)):
+                out.append(("%s.%s" % (field, brak), "pole wymagane w obiekcie"))
+            if rule.get("additionalProperties") is False:
+                for obce in sorted(set(wartosc) - set(rule.get("properties", {}))):
+                    out.append(("%s.%s" % (field, obce), "pole spoza schematu"))
+            for pod_pole, pod_powod in _niezgodnosci_pol(
+                    wartosc, rule.get("properties", {})):
+                out.append(("%s.%s" % (field, pod_pole), pod_powod))
     return out
+
+
+#: Liczba gałęzi `allOf` w schemacie. Kotwica KW: literówka w czytniku gałęzi daje
+#: pustą listę, a pusta lista przechodzi każdy werdykt niżej bez ani jednego
+#: sprawdzenia. Zmierzone 10.09.2026: **trzy** — `licensed_library`,
+#: `original_recording` i `cleared`.
+LICZBA_GALEZI = 3
+
+
+def galezie(schema):
+    """Pary `(warunek, skutek)` ze zbioru `allOf` — czyli `if`/`then` schematu."""
+    return [(rule["if"], rule["then"]) for rule in schema.get("allOf", [])
+            if "if" in rule and "then" in rule]
+
+
+def warunek_zachodzi(asset, warunek):
+    """Czy wpis wpada pod tę gałąź: pola z `required` są, a `const` się zgadza.
+
+    **`properties` jest tu PUSTO SPEŁNIONE dla pola, którego nie ma** — tak działa
+    JSON Schema i dlatego `required` w `if` jest niezbędne, a nie ozdobne: bez niego
+    wpis BEZ `source_type` spełniałby warunek i wpadał pod gałąź, która go nie
+    dotyczy. Pierwsza wersja pytała `asset.get(pole) != const`, czyli porównywała
+    `None` ze stałą — wtedy warunek odpadał sam i klauzula `required` nie robiła NIC.
+    Zmierzone kontrolą negatywną: zdjęcie `required` niczego wtedy nie zapalało,
+    choć docstring twierdził, że zapala. Różnica jest widoczna dopiero przy wiernej
+    pustej prawdzie i dopiero wtedy kontrola KN-4 świeci na czerwono.
+    """
+    for pole in warunek.get("required", []):
+        if pole not in asset:
+            return False
+    for pole, regula in warunek.get("properties", {}).items():
+        if pole not in asset:
+            continue                       # pusta prawda — pola nie ma, więc nie łamie
+        if "const" in regula and asset[pole] != regula["const"]:
+            return False
+    return True
+
+
+def niezgodnosci_podschematu(asset, pod):
+    """`[(pole, powód)]` dla jednego `then` albo jednej gałęzi `anyOf`.
+
+    Trzy rzeczy, bo tyle stoi w schemacie: `required`, `properties` (przez ten sam
+    czytnik, co poziom najwyższy) i `anyOf`. Trzecia gałąź schematu ma w `then`
+    WYŁĄCZNIE `anyOf` — zgoda ALBO licencja — więc sama para `const`/`required`
+    by jej nie obsłużyła, i to jest zmierzona część roboty, nie szczegół.
+    """
+    out = []
+    for pole in pod.get("required", []):
+        # OBECNOSC KLUCZA, nie „niepusta wartosc", i to jest zgodnosc ze specyfikacja,
+        # nie uproszczenie: JSON Schema `required` pyta wylacznie o klucz, a wartosc
+        # `null` odrzuca dopiero regula typu z `properties` tej samej galezi. Pierwsza
+        # wersja odrzucala tu takze `None` — werdykt wychodzil ten sam, ale POWOD byl
+        # inny niz ten, ktory poda walidator, a dzisiejszy manifest nie ma ani jednego
+        # z tych kluczy, wiec roznicy nie mialoby co zmierzyc. Mierzy ja test nizej.
+        if pole not in asset:
+            out.append((pole, "gałąź warunkowa wymaga tego pola"))
+    out.extend(_niezgodnosci_pol(asset, pod.get("properties", {})))
+
+    if "anyOf" in pod:
+        warianty = [niezgodnosci_podschematu(asset, wariant) for wariant in pod["anyOf"]]
+        if all(warianty):
+            powody = " ALBO ".join(
+                ", ".join("%s: %s" % para for para in wariant) for wariant in warianty)
+            out.append(("anyOf", "żaden wariant gałęzi nie jest spełniony (%s)" % powody))
+    return out
+
+
+def niezgodnosci_warunkowe(asset, schema):
+    """`[(pole, powód)]` z tych gałęzi `allOf`, pod które wpis NAPRAWDĘ wpada."""
+    out = []
+    for warunek, skutek in galezie(schema):
+        if warunek_zachodzi(asset, warunek):
+            out.extend(niezgodnosci_podschematu(asset, skutek))
+    return out
+
+
+def test_audio_placeholders_satisfy_the_conditional_branches_too():
+    """Wpisy manifestu wobec gałęzi `allOf`, a nie tylko wobec poziomu najwyższego.
+
+    **Skąd.** Pętla zgodności z 6.D85 czyta wyłącznie `properties` najwyższego
+    poziomu, a `license` nie stoi w jego `required` — więc wpis z
+    `source_type = licensed_library` BEZ licencji przechodził ją cicho, choć
+    schemat go w tej gałęzi żąda. Trzy istniejące testy tego modułu czytają `allOf`,
+    ale pytają „czy SCHEMAT tego wymaga", a nie „czy WPIS to spełnia".
+
+    **Dzisiejszy manifest nie wpada pod ani jedną gałąź** — wszystkie 13 wpisów ma
+    `source_type = placeholder` i `rights_status = placeholder`. Ta pętla jest więc
+    dziś cicha nie dlatego, że wpisy gałęzie spełniają, tylko dlatego, że ich nie
+    dotyczą. Cały ciężar dowodu niesie kontrola na wejściu syntetycznym niżej i to
+    jest powiedziane tutaj, żeby cisza nie została kiedyś wzięta za wynik.
+    """
+    schema = _schema()
+    widziane = len(galezie(schema))
+    assert widziane == LICZBA_GALEZI, (
+        "czytnik gałęzi widzi %d, a zmierzone 10.09.2026 było %d: mniej znaczy "
+        "literówkę we wzorcu (pusta lista przechodzi każdy werdykt bez sprawdzenia), "
+        "więcej — nową gałąź schematu, której nikt jeszcze nie opisał"
+        % (widziane, LICZBA_GALEZI))
+
+    for asset in _placeholders()["assets"]:
+        zle = niezgodnosci_warunkowe(asset, schema)
+        assert zle == [], (asset["asset_id"], zle)
+
+
+def test_the_conditional_branches_light_up_on_synthetic_entries():
+    """Kontrola przyrządu dla wszystkich trzech gałęzi, w obie strony.
+
+    Pętla wyżej milczy na dzisiejszym manifeście i milczałaby tak samo, gdyby
+    czytnik gałęzi przestał cokolwiek widzieć. Każda gałąź ma tu więc wpis, który
+    ją łamie, i wpis, który ją spełnia.
+    """
+    schema = _schema()
+    wzorcowy = dict(_placeholders()["assets"][0])
+
+    def powody(**podmiana):
+        asset = dict(wzorcowy)
+        asset.update(podmiana)
+        return [powod for _pole, powod in niezgodnosci_warunkowe(asset, schema)]
+
+    assert powody() == [], (
+        "wzorcowy wpis manifestu zapala gałąź, pod którą nie wpada: %s" % powody())
+
+    # 1. `licensed_library` bez licencji — przypadek z pola „Dlaczego" pozycji.
+    assert powody(source_type="licensed_library"), (
+        "wpis z licensed_library bez `license` nie zapalił gałęzi")
+    assert powody(source_type="licensed_library", license="") != [], (
+        "pusta licencja też ma być zgłoszona — gałąź żąda minLength 1")
+    assert powody(source_type="licensed_library", license="Freesound CC0") == [], (
+        "niepusta licencja nie ma być zgłaszana")
+
+    # 2. `original_recording` bez proweniencji.
+    assert powody(source_type="original_recording"), (
+        "wpis z original_recording bez `recorded_by`/`recorded_at`/`location`/hash "
+        "nie zapalił gałęzi")
+    pelne = dict(
+        source_type="original_recording",
+        recorded_by="Jan Kowalski",
+        recorded_at="2026-09-10T10:00:00Z",
+        location={"description": "peron", "access_class": "public_passenger_area"},
+        source_file_hash="sha256:" + "0" * 64)
+    assert powody(**pelne) == [], (
+        "kompletna proweniencja została zgłoszona: %s" % powody(**pelne))
+
+    # …a niekompletny `location` ma być widziany W ŚRODKU obiektu.
+    bez_dostepu = dict(pelne)
+    bez_dostepu["location"] = {"description": "peron"}
+    assert any("obiekcie" in p for p in powody(**bez_dostepu)), (
+        "brak `access_class` w `location` nie został zauważony: %s"
+        % powody(**bez_dostepu))
+
+    # 3. `cleared` — `anyOf`: zgoda ALBO licencja, i to jest jedyna gałąź,
+    #    której sama para `const`/`required` nie obsłuży.
+    assert any("anyOf" in p or "wariant" in p for p in powody(rights_status="cleared")), (
+        "`cleared` bez zgody i bez licencji nie zapalił gałęzi `anyOf`: %s"
+        % powody(rights_status="cleared"))
+    assert powody(rights_status="cleared", permission_ref="STIB/2026/17") == [], (
+        "sama zgoda ma wystarczyć")
+    assert powody(rights_status="cleared", license="CC-BY-4.0") == [], (
+        "sama licencja ma wystarczyć")
+
+    # 3b. Wartość `null` łamie gałąź przez REGUŁĘ TYPU, a nie przez `required` —
+    #     tak jak zrobiłby to walidator. Klucz jest, więc `required` jest spełnione.
+    #     Sprawdzane na POJEDYNCZYM wariancie, a nie na złożonym komunikacie `anyOf`:
+    #     tamten skleja powody obu wariantów, więc „wymaga tego pola" stoi w nim
+    #     zgodnie z prawdą — dla `license`, którego klucza naprawdę nie ma. Pierwsza
+    #     wersja tej asercji czytała komunikat złożony i padła właśnie na tym.
+    wariant_zgody = _schema()["allOf"][2]["then"]["anyOf"][0]
+    z_nullem = niezgodnosci_podschematu(
+        dict(wzorcowy, rights_status="cleared", permission_ref=None), wariant_zgody)
+    powody_wariantu = [powod for _pole, powod in z_nullem]
+    assert any("oczekiwano ['string']" in p for p in powody_wariantu), (
+        "`permission_ref: null` ma być odrzucone przez regułę typu: %s" % powody_wariantu)
+    assert not any("wymaga tego pola" in p for p in powody_wariantu), (
+        "`permission_ref: null` zgłoszone jako BRAK pola — `required` pyta "
+        "o obecność klucza, a klucz jest: %s" % powody_wariantu)
+
+    # 4. Warunek NIE zachodzi bez pola — inaczej wpis bez `source_type` wpadałby
+    #    pod gałąź, która go nie dotyczy.
+    bez_typu = {k: v for k, v in wzorcowy.items() if k != "source_type"}
+    assert niezgodnosci_warunkowe(bez_typu, schema) == [], (
+        "wpis BEZ `source_type` wpadł pod gałąź warunkową: %s"
+        % niezgodnosci_warunkowe(bez_typu, schema))
 
 
 def test_audio_placeholders_satisfy_the_schema_they_ship_next_to():
