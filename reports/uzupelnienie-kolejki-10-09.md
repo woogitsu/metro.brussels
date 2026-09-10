@@ -74,8 +74,9 @@ Wpisanie jej „na wszelki wypadek" dałoby polu „Skąd" zdanie, którego nikt
 
 ## 5. Zapadki
 
-`MINIMUM_DETAIL_BLOCKS` stoi dziś na **173**, podniesiona ze stu sześćdziesięciu
-siedmiu, bo bloków przybyło sześć. `MINIMUM_READY_ITEMS`
+`MINIMUM_DETAIL_BLOCKS` stoi dziś na **179**: w tym commicie została podniesiona
+ze stu sześćdziesięciu siedmiu na sto siedemdziesiąt trzy, bo bloków przybyło sześć,
+a drugie tego samego dnia uzupełnienie kolejki dołożyło następnych sześć. `MINIMUM_READY_ITEMS`
 **bez zmiany** (12): jest progiem, poniżej którego nie wolno zejść, a nie licznikiem
 stanu — podniesienie go do osiemnastu zamieniłoby próg w wymaganie i kazałoby
 uzupełniać kolejkę po każdym scaleniu.

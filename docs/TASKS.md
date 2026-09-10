@@ -955,6 +955,12 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.D98 | **`chk_*` w doctorze wykonuje przez `eval` dwa różne kształty: sześć uruchomień programu i cztery wyrażenia powłoki** | zmierzone 10.09.2026 przy 6.D81: bramka na cytowanie potrafi rozjazd ZGŁOSIĆ, ale nie usuwa potrzeby pamiętania o cudzysłowach przy każdym nowym wywołaniu. Rozdzielenie form jest zmianą wewnątrz `doctor.sh`, a warunkiem odbioru jest wypis identyczny co do bajtu | M |
 | 6.D99 | **Wiersze tego samego panelu składane poza katalogiem tekstów, ze słowami wpisanymi wprost** | zmierzone 10.09.2026 przy 6.D83: katalog objął `Hud.Update`, ale `StationLine`, `Faza`, `HelpLine`, `DriverActions` i `EmergencyBrake.Notice` mają słowa w kodzie. Liczbę miejsc i słów pozycja ma policzyć z drzewa, a nie przepisać z wpisu; wybór języka nie wchodzi w grę, bo katalog ma jeden i tak zostaje | M |
 | 6.D100 | **Kolektor komend liczy jeden heredok jako pięć poleceń** | zmierzone 07.09.2026 przy 6.D33 i zapisane tam jako zauważone: blok 6.A24 daje pięć zamiast jednej, a ta sama liczba jest mianownikiem każdego zdania o pokryciu audytu komend. Poprawka dotyczy sklejania wierszy w kolektorze, bez ruszania treści bloków | S |
+| 6.D101 | **Nazwa modułu w polu zadania nie jest sprawdzana przez nic, bo nie zawiera ukośnika** | zmierzone 10.09.2026 przy trzech kolejnych pozycjach: pola „Weryfikacja" wołały `test_scan_gates.py` (6.D74), `test_physics_reference.py` (6.D86) i `test_glossary.py` (6.D89) — dwóch ostatnich w drzewie nie ma wcale. Żadnego nie zgłosiła bramka; wszystkie trzy znalazło wykonanie pozycji. `PATH_TOKEN` z `tools/tests/test_field_paths.py` żąda ukośnika, a nazwa modułu podana po `test_all.py` jest gołym argumentem. Dziś **57** gołych nazw modułów w blokach wszystkich, **12** w otwartych, **0** nieistniejących — trzy znalezione poprawiłem ręcznie przy ich pozycjach, a czwartą, `test_all_self.py`, wpisałem SAM do bloku 6.D102 przy tym uzupełnieniu i znalazł ją dopiero pomiar robiony pod tę pozycję, czyli znów nie bramka. Materiału pomiar nie zostawia, więc bramkę trzeba sprawdzić mutacją. Rozpoznanie kształtu, nie decyzja o treści pól | S |
+| 6.D102 | **Kontrola negatywna na module Pythona może przebiec na STARYM bajtkodzie, a `md5sum -c` tego nie widzi** | zmierzone 10.09.2026 przy 6.D86: dwie kontrole zgłosiły wartość z poprzedniej mutacji, choć suma kontrolna źródła dawała `OK`. Przywrócenie przez `cp` w tej samej sekundzie co mutacja, przy napisie **dokładnie tej samej długości** (`248900.0` wobec `251389.0`), nie rusza pary `(mtime w sekundach, rozmiar)`, po której CPython sprawdza ważność `.pyc`. Suma mówi o pliku `.py`, a import idzie z `.pyc` — czyli przyrząd potwierdzający przywrócenie nie widzi tego, co się wykonało. Procedura jest do rozstrzygnięcia **pomiarem** (`PYTHONDONTWRITEBYTECODE` czy czyszczenie `__pycache__`), a nie wyborem właściciela | S |
+| 6.D103 | **Trzy gałęzie warunkowe schematu audio stoją poza pętlą zgodności — wpis łamiący gałąź przechodzi** | zmierzone 10.09.2026 przy 6.D85: schemat ma **trzy** gałęzie `allOf` (`source_type = licensed_library`, `source_type = original_recording`, `rights_status = cleared`), a pętla dopisana w 6.D85 czyta wyłącznie właściwości najwyższego poziomu. Trzy istniejące testy czytają **schemat**, a nie manifest: pytają „czy schemat tego wymaga", nie „czy wpis to spełnia". Wpis `licensed_library` bez pola `license` przejdzie dziś, bo `license` nie stoi w `required` najwyższego poziomu. Rozszerzenie istniejącej pętli o `if`/`then`, bez dopisywania zależności i bez zmiany schematu | S |
+| 6.D104 | **Tabela zaprzeczeń README obejmuje jeden punkt z pięciu** | zmierzone 10.09.2026 przy 6.D87: sekcja „Czego nie ma" ma **pięć** punktów, `ZAPRZECZENIA` w `tools/tests/test_readme_claims.py` ma **jeden** wpis — ten, który się rozjechał. Pozostałe cztery to osobna praca, a nie dopisanie wierszy: dwa z nich mówią o DANYCH, nie o API, więc wiązanie ich z nazwą w rdzeniu byłoby wiązaniem z czymś, czego nie dotyczą. Wynikiem ma być pomiar per punkt i wpis albo zapisany powód jego braku — tabela nie ma rosnąć o wpisy, których nikt nie umie zapalić. Treści punktów README pozycja nie zmienia, więc nie ma tu czego rozstrzygać | M |
+| 6.D105 | **Dwa dokumenty definiują statusy pochodzenia i nikt ich ze sobą nie zestawia — jedna nazwa jest używana w dokumencie, który jej nie definiuje** | zmierzone 10.09.2026 przy 6.D89, i pomiar obalił pierwszą wersję tego wpisu. `docs/21-measured-vs-assumed.md` **nie jest** kopią listy z `docs/02-simulation.md`: ma WŁASNĄ tabelę statusów i definiuje `spec`, `observed`, `design_assumption`, `blocked`, gdy dokument modelu definiuje `spec`, `observed`, `est`, `design_model`. Wspólne są dwa, rozłączne po dwa z każdej strony. Usterką nie jest więc rozjazd list, tylko to, że `docs/21` **używa `design_model` sześć razy, nie definiując go i nie odsyłając po niego nigdzie** — a `est` nie występuje ani tam, ani w danych pojazdu. Bramka ma żądać, żeby każdy status użyty w `docs/21` był zdefiniowany w jednej z dwóch tabel, i żeby dokument mówił, która z nich którą nazwę trzyma. Znaczenia żadnego statusu ani klasyfikacji żadnego parametru pozycja nie zmienia, więc nie ma tu czego rozstrzygać | S |
+| 6.D106 | **Narzędzie mutacyjne kluczuje pliki tymczasowe treścią, nie procesem — dwa równoległe przebiegi tego samego commita piszą do jednej ścieżki** | zmierzone 10.09.2026: `tools/tests/mutation_sweep.py:744` buduje `metro-pokrycie-<commit>.json`, a `:1036` `metro-mutacje-<znacznik>.jsonl`, obie w `tempfile.gettempdir()`. Runnery jednej puli dzielą `/tmp`, a ten sam mechanizm jest już opisany w `tools/ci/blender_install.sh`, gdzie dwa równoległe pobrania do stałej nazwy dały uszkodzone archiwum. **To nie jest 6.D90:** tamta dotyczy mutowania `data/` w miejscu i kończy się fałszywym alarmem o czystości drzewa, ta kończy się wynikiem policzonym z cudzego dziennika. Dopisanie elementu unikatowego dla procesu, przy zachowanym wznowieniu z jawnego `--journal` | S |
 
 #### Szczegóły pozycji z kompletem sześciu pól
 
@@ -7362,6 +7368,213 @@ nie sięga, nawet gdy nie ma nic innego do roboty; wtedy sięga po fazę 5.
   w całym pliku jest podana przed i po, a kontrola negatywna na bloku syntetycznym
   z heredokiem o dwóch wierszach ciała daje jeden, a nie cztery.
 - **Poza zakresem:** przeliczanie werdyktów audytu 6.D15 i zmiana treści bloku 6.A24.
+- **Zależy od:** brak.
+
+##### 6.D101 · Nazwa modułu w polu zadania nie jest sprawdzana, bo nie ma katalogu
+
+- **Skąd:** zmierzone 10.09.2026 przy wykonaniu trzech kolejnych pozycji. Pola
+  „Weryfikacja" wołały moduły, których w drzewie nie ma: `test_scan_gates.py`
+  jako miejsce bramki o przejściach po drzewie (6.D74 — plik istnieje, ale testuje
+  co innego), `test_physics_reference.py` (6.D86) i `test_glossary.py` (6.D89) —
+  tych dwóch nie ma wcale. **Żadnego nie zgłosiła bramka**; wszystkie trzy znalazło
+  wykonanie pozycji, czyli człowiek albo agent, który poszedł pod adres. Czwarty
+  przypadek dopisałem SAM przy tym uzupełnieniu — pole „Weryfikacja" bloku 6.D102
+  wołało `test_all_self.py`, modułu o tej nazwie w drzewie nie ma — i znalazł go
+  dopiero pomiar robiony pod tę pozycję, w tym samym commicie, w którym pozycja
+  powstaje. Czwarty przypadek na cztery dni, i jedyny, którego nie musiałem szukać —
+  wystarczyło policzyć.
+- **Dlaczego skan pól ich nie widzi:** `PATH_TOKEN` w `tools/tests/test_field_paths.py`
+  żąda ukośnika, a nazwa modułu stoi po `test_all.py` jako **goły argument** —
+  ukośnika nie ma żadna z czterech wymienionych wyżej. Ten sam plik ma od 6.D73 skan
+  opcji i skan katalogów; trzeciego kształtu — nazwy modułu bez katalogu — nie ma.
+  Pełnego wywołania to pole celowo nie cytuje: bramka z tej pozycji ma chodzić po
+  blokach ogrodzonych, a cytat ilustracyjny byłby dla niej nieodróżnialny od adresu.
+- **Wejście:** `tools/tests/test_field_paths.py` (`PATH_TOKEN`, `PY_TOOL_CALL`,
+  `_open_blocks`), `tools/tests/test_all.py` (jak przyjmuje nazwy modułów),
+  `docs/TASKS.md`.
+- **Wyjście:** argument podany po `test_all.py` jest rozpoznawany jako nazwa modułu
+  i sprawdzany na istnienie w `tools/tests/`. Zakres jak w 6.D73 — bloki OTWARTE,
+  bo zapis pozycji wykonanej jest historyczny.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_field_paths.py
+  ```
+  Oczekiwane: zestaw zielony przy dzisiejszej treści kolejki, a nazwa nieistniejącego
+  modułu wstawiona do bloku otwartego zapala bramkę.
+- **Skończone, gdy:** wszystkie trzy zmierzone przypadki, wstawione z powrotem jako
+  mutacja do bloku otwartego, zapalają bramkę, dzisiejsza treść `docs/TASKS.md` nie
+  daje fałszywego alarmu, a liczba nazw widzianych przez skan jest wypisana
+  (dziś: **57** w blokach wszystkich, **12** w otwartych, **0** nieistniejących —
+  bo trzy znalezione zostały poprawione ręcznie przy swoich pozycjach, a czwarta
+  przy tym uzupełnieniu).
+- **Poza zakresem:** sprawdzanie, czy moduł NAPRAWDĘ zawiera bramkę, o której mówi
+  pole — to jest pytanie o treść, nie o adres.
+- **Zależy od:** 6.D73.
+
+##### 6.D102 · Kontrola negatywna może przebiec na starym bajtkodzie
+
+- **Skąd:** zmierzone 10.09.2026 przy wykonaniu 6.D86. Dwie kontrole negatywne
+  zgłosiły `F0_N: 251389.0` — wartość z **poprzedniej** mutacji — mimo że
+  `md5sum -c` na źródle dawał `OK`. Przywrócenie pliku przez `cp` nastąpiło w tej
+  samej sekundzie co mutacja, a podmieniany napis miał **dokładnie tę samą długość**
+  (`248900.0` → `251389.0`), więc para `(mtime w sekundach, rozmiar)` — po której
+  CPython sprawdza ważność bajtkodu — nie drgnęła i import poszedł z `.pyc`.
+- **Dlaczego to nie jest incydent jednej pozycji:** kontrola sumą MD5 mówi o pliku
+  `.py`, a import idzie z `.pyc`, więc **przyrząd potwierdzający przywrócenie nie
+  widzi tego, co się naprawdę wykonało**. Każda kontrola negatywna na module Pythona
+  podmieniająca napis o tej samej długości i przywracająca go w tej samej sekundzie
+  może przebiec na starym bajtkodzie — i wyglądać przy tym jak wynik.
+- **Wejście:** `docs/06-worked-example.md` i `CLAUDE.md` §5 (opis pętli weryfikacji),
+  `reports/6d86-przyspieszenie-jest-wynikiem.md` §6 (pomiar),
+  `tools/tests/test_all.py` (czy zestaw sam może wymuszać świeży import).
+- **Wyjście:** zapisana procedura kontroli negatywnej na module Pythona, która nie
+  zależy od rozdzielczości zegara — do rozstrzygnięcia **pomiarem**, czy wystarczy
+  `PYTHONDONTWRITEBYTECODE=1`, czy potrzebne jest czyszczenie `__pycache__`, i czy
+  zestaw ma to robić sam.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py
+  ```
+  plus **wykonane** odtworzenie pułapki: mutacja o tej samej długości, przywrócenie
+  w tej samej sekundzie, przebieg przed i po zastosowaniu procedury. Modułu bramki
+  pole nie nazywa, bo dziś takiego nie ma — nazwanie go z góry byłoby dokładnie tym
+  kształtem, który zamyka 6.D101.
+- **Skończone, gdy:** odtworzona pułapka daje przed procedurą wynik ze STAREGO
+  bajtkodu, a po niej wynik prawdziwy, oba wypisane; procedura stoi w dokumencie,
+  a nie tylko w raporcie.
+- **Poza zakresem:** zmiana sposobu liczenia testów i wyłączanie cache'a na stałe
+  w CI, gdzie zysk czasowy jest realny.
+- **Zależy od:** 6.D86.
+
+##### 6.D103 · Gałęzie warunkowe schematu audio poza pętlą zgodności
+
+- **Skąd:** zmierzone 10.09.2026 przy wykonaniu 6.D85. Schemat
+  `data/audio/audio-manifest.schema.json` ma **trzy** gałęzie `allOf`
+  (`source_type = licensed_library`, `source_type = original_recording`,
+  `rights_status = cleared`), a pętla zgodności dopisana w 6.D85 sprawdza wyłącznie
+  właściwości najwyższego poziomu. Gałęzie czytają dziś trzy osobne testy — ale
+  czytają **schemat**, a nie manifest: pytają „czy schemat tego wymaga", nie „czy
+  wpis to spełnia".
+- **Dlaczego to nie jest domknięte przez 6.D85:** tamta pozycja zamknęła typy,
+  wzorce i pola dodatkowe dla poziomu najwyższego. Wpis o `source_type =
+  licensed_library` bez pola `license` przejdzie dziś pętlę, bo `license` nie jest
+  w `required` najwyższego poziomu — a schemat go w tej gałęzi żąda.
+- **Wejście:** `tools/tests/test_audio_rights.py` (`niezgodnosci`, trzy testy
+  czytające `allOf`), `data/audio/audio-manifest.schema.json`,
+  `data/audio/placeholders.json` (tylko do czytania).
+- **Wyjście:** pętla zgodności rozumie `if`/`then` ze zbioru `allOf` — warunek po
+  `const`, skutek po `required` — bez dopisywania zależności. **Trzecia gałąź ma
+  w `then` nie `required`, tylko `anyOf`** (zgoda ALBO domena publiczna), więc sama
+  para `const`/`required` jej nie obsłuży i to jest zmierzona część roboty, a nie
+  szczegół implementacji.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_audio_rights.py
+  ```
+  Oczekiwane: zestaw zielony, a wpis łamiący gałąź zapala bramkę.
+- **Skończone, gdy:** wpis z `source_type = licensed_library` bez `license` zapala
+  bramkę, wpis z `rights_status = cleared` bez pól tej gałęzi też, a dzisiejszy
+  manifest (same zastępniki) nie daje ani jednego fałszywego alarmu.
+- **Poza zakresem:** dopisywanie zależności i zmiana schematu.
+- **Zależy od:** 6.D85.
+
+##### 6.D104 · Tabela zaprzeczeń README obejmuje jeden punkt z pięciu
+
+- **Skąd:** zmierzone 10.09.2026 przy wykonaniu 6.D87. Sekcja „Czego nie ma" ma
+  **pięć** punktów, a `ZAPRZECZENIA` w `tools/tests/test_readme_claims.py` ma
+  **jeden** wpis — ten o wielu składach, bo to on się rozjechał.
+- **Dlaczego pozostałe cztery to osobna praca, a nie dopisanie wierszy:** dwa z nich
+  („profilu pionowego", „ciągłego kilometrażu linii") mówią o DANYCH, nie o API, więc
+  wiązanie ich z nazwami w rdzeniu byłoby wiązaniem z czymś, czego nie dotyczą. Każdy
+  wymaga własnego pomiaru: co dokładnie miałoby zaprzeczyć temu zdaniu i gdzie tego
+  szukać.
+- **Wejście:** `README.md` (sekcja „Czego nie ma"), `tools/tests/test_readme_claims.py`
+  (`ZAPRZECZENIA`), `data/track/` (tylko do czytania), `tools/track/station_layout.py`,
+  `src/Game/`.
+- **Wyjście:** dla każdego z czterech punktów **pomiar**, czy da się go związać
+  z nazwą albo z liczbą z drzewa; wpis w tabeli tam, gdzie się da, i zapisany powód
+  tam, gdzie się nie da. Tabela ma nie rosnąć o wpisy, których nikt nie umie zapalić.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_readme_claims.py
+  ```
+  Oczekiwane: zestaw zielony, a każdy nowy wpis ma wykonaną kontrolę negatywną.
+- **Skończone, gdy:** każdy z pięciu punktów ma albo wpis w tabeli z wykonaną
+  kontrolą negatywną, albo zapisany powód, dla którego wpisu mieć nie może — i liczba
+  jednych i drugich sumuje się do pięciu.
+- **Poza zakresem:** zmiana treści punktów README i przeliczanie wyników historycznych.
+- **Zależy od:** 6.D87.
+
+##### 6.D105 · Dwie tabele statusów pochodzenia, jedna nazwa bez definicji
+
+- **Skąd:** zmierzone 10.09.2026 przy wykonaniu 6.D89, i **pomiar obalił pierwszą
+  wersję tego wpisu**, którą napisałem, zanim policzyłem. Brzmiała ona, że
+  `docs/21-measured-vs-assumed.md` używa klas z dokumentu modelu i nie sprawdza ich
+  nic. Nieprawda: `docs/21` ma **własną tabelę statusów** i definiuje w niej cztery
+  nazwy — `spec`, `observed`, `design_assumption`, `blocked` — a dokument modelu
+  definiuje też cztery: `spec`, `observed`, `est`, `design_model`. Wspólne są **dwa**,
+  po **dwa** są wyłączne dla każdej strony.
+- **Co z tego jest usterką:** `docs/21` używa `design_model` **sześć razy**, nie
+  definiując go we własnej tabeli i nie odsyłając po niego do dokumentu modelu. Nazwa
+  jest więc czytelna wyłącznie dla kogoś, kto wie o istnieniu drugiej tabeli. Reszta
+  liczb, dla porządku: `spec` **15**, `design_assumption` **14**, `blocked` **7**,
+  `observed` **4**, `est` **0** — ta ostatnia nie występuje ani w `docs/21`, ani
+  w danych pojazdu, i to jest stan poprawny, bo dokument modelu opisuje ją jako
+  oszacowanie historyczne do usunięcia.
+- **Dlaczego nie wystarczy rozszerzyć bramki z 6.D89:** tamta reguła brzmi „nie
+  wymieniaj klas, odsyłaj do dokumentu modelu" i dla `docs/21` jest **nieprawdziwa** —
+  on ma prawo definiować własne statusy, bo klasyfikuje wymiary geometrii, a nie
+  parametry modelu jazdy. Reguła dla drugiej roli jest inna: każdy status UŻYTY musi
+  być gdzieś ZDEFINIOWANY.
+- **Wejście:** `docs/21-measured-vs-assumed.md` (tabela statusów i użycia),
+  `docs/02-simulation.md`, `tools/tests/test_provenance_classes.py`
+  (`klasy_z_dokumentu`, `CYTUJACY`), `tools/tests/test_dimension_audit.py`.
+- **Wyjście:** status użyty w `docs/21` należy do sumy dwóch tabel, a dokument mówi
+  wprost, która nazwa pochodzi z której — bez zlewania tabel w jedną i bez zmiany
+  znaczenia którejkolwiek.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_provenance_classes.py
+  ```
+  Oczekiwane: zestaw zielony, a status spoza sumy obu tabel, wstawiony do `docs/21`,
+  zapala bramkę.
+- **Skończone, gdy:** nazwa spoza sumy obu tabel zapala bramkę, dzisiejsza treść
+  `docs/21` nie daje ani jednego fałszywego alarmu, `design_model` ma w `docs/21`
+  wskazane źródło definicji, a liczby użyć są policzone z pliku, nie przepisane
+  z tego bloku.
+- **Poza zakresem:** zlewanie dwóch tabel w jedną, zmiana znaczenia któregokolwiek
+  statusu i zmiana klasyfikacji choćby jednego parametru — to są decyzje właściciela,
+  a ta pozycja jest o nazwie bez definicji.
+- **Zależy od:** 6.D89.
+
+##### 6.D106 · Narzędzie mutacyjne kluczuje pliki tymczasowe stałą nazwą
+
+- **Skąd:** zmierzone 10.09.2026. `tools/tests/mutation_sweep.py:744` buduje
+  `tempfile.gettempdir()/metro-pokrycie-<commit>.json`, a `:1036`
+  `tempfile.gettempdir()/metro-mutacje-<znacznik>.jsonl` — obie nazwy są funkcją
+  treści, nie procesu. Runnery jednej puli stoją na jednej maszynie i **dzielą
+  `/tmp`**; ten sam powód jest już opisany w `tools/ci/blender_install.sh`, gdzie
+  dwa równoległe pobrania do stałej nazwy dały uszkodzone archiwum.
+- **Dlaczego to nie to samo, co 6.D90:** tamta pozycja dotyczy mutowania `data/`
+  w miejscu. Ta dotyczy **kolizji nazw między równoległymi przebiegami** i skutkuje
+  nie naruszeniem reguły, tylko wynikiem policzonym z cudzego dziennika. Dwa różne
+  objawy, jedno narzędzie.
+- **Wejście:** `tools/tests/mutation_sweep.py` (dwie funkcje budujące ścieżki),
+  `tools/ci/blender_install.sh` (opisany precedens), `tools/tests/test_mutation_sweep.py`.
+- **Wyjście:** ścieżki tymczasowe zawierają element unikatowy dla PROCESU, a nie
+  tylko dla treści; wznowienie z dziennika nadal działa, bo jego nazwa jest podawana
+  jawnie przez `--journal`.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_mutation_sweep.py
+  ```
+  Oczekiwane: zestaw zielony, a dwa przebiegi tego samego commita nie piszą do tej
+  samej ścieżki.
+- **Skończone, gdy:** dwa równoległe przebiegi tego samego commita dają dwie różne
+  ścieżki dziennika i dwa różne pliki pokrycia, sprawdzone pomiarem, a wznowienie
+  z jawnie podanego `--journal` nadal odczytuje policzone wyniki.
+- **Poza zakresem:** zmiana zbioru mutacji, sposobu liczenia wyników i mutowania
+  `data/` w miejscu (to jest 6.D90).
 - **Zależy od:** brak.
 
 #### Rozstrzygnięte 07.09.2026 — cztery decyzje właściciela

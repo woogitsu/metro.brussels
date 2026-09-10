@@ -278,7 +278,13 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 #: kończy kodem 1 wobec 0 przy przebiegu zwykłym — bo narzędzie broni warunku
 #: geometrycznego gołym `assert`, a `-O` zdejmuje `assert` w KAŻDYM module.
 #: Liczba jest POLICZONA na pliku po dopisaniu bloku, nie zwiększona o jeden.
-MINIMUM_DETAIL_BLOCKS = 173
+#: **173 → 179 (10.09.2026, drugie tego dnia uzupełnienie kolejki).** Sześć bloków:
+#: 6.D101 … 6.D106, wszystkie z pomiarów zrobionych PRZY WYKONYWANIU pozycji 6.D73,
+#: 6.D85, 6.D86, 6.D87 i 6.D89, a nie wymyślonych pod pustą kolejkę. Wartość jest
+#: wynikiem `len(detail_sections(...))` na pliku po edycji — sześć bloków dopisanych
+#: jednym commitem to dokładnie ten przypadek, w którym dodawanie jedynki z pamięci
+#: się myli.
+MINIMUM_DETAIL_BLOCKS = 179
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
