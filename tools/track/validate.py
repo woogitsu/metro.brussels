@@ -2,6 +2,9 @@
 """Walidator osi trasy data/track/*.json. Kod 0 = OK, 1 = błędy."""
 import json, sys, math, argparse, os
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import stop_names  # noqa: E402
+
 LIMITS = {"max_grade_pct":4.0,"min_radius_m":90.0,"max_point_gap_m":25.0,"duplicate_point_gap_m":1e-6,"min_point_gap_m":0.5,"max_station_spacing_m":2200.0,"min_station_spacing_m":250.0,"length_tolerance_m":0.01}
 NET = os.path.join(os.path.dirname(__file__), "..", "..", "data", "network", "lines.json")
 
@@ -33,7 +36,14 @@ def radius3(a,b,c):
     return math.dist((ux,uy),(x1,y1))
 
 def _is_subsequence(sub,seq):
-    it=iter(seq); return all(any(s==x for x in it) for s in sub)
+    """Czy `sub` jest podciągiem `seq` — po ZNACZENIU nazwy, nie po napisie.
+
+    Do 10.09.2026 porównanie szło przez `==` na całym napisie, a 26 z 60 nazw
+    przystanków jest dwujęzycznych. Oś zapisująca `Park` tam, gdzie `lines.json`
+    ma `Parc|Park`, dostawała „kolejność stacji niezgodna z lines.json" — błąd
+    o formie zapisu, podany jako błąd o kolejności stacji (6.D111).
+    """
+    it=iter(seq); return all(any(stop_names.ta_sama(s,x) for x in it) for s in sub)
 
 def _odmowa_stalej(nazwa):
     """`json` Pythona przyjmuje `NaN`, `Infinity` i `-Infinity` jako literały —

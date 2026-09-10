@@ -456,6 +456,57 @@ def test_validate_station_order_against_lines_json_is_executed():
     assert _has(run(["Nie ma takiej stacji", stops[1]]).err, "kolejność stacji niezgodna")
 
 
+def test_forma_zapisu_nazwy_nie_jest_roznica_stacji():
+    """6.D111: oś zapisująca tę samą stację inaczej ma przejść, inna stacja — nie.
+
+    Obie strony na wejściu syntetycznym, `data/` nietknięte (§4.6). Nazwy brane są
+    z L1, ale ZMIENIANA jest wyłącznie ich FORMA — kolejność członów, spacje wokół
+    kreski, jeden człon zamiast dwóch. Fakt o sieci zostaje ten sam.
+
+    Bez drugiej połowy ten test nie znaczyłby nic: reguła „wszystko jest tą samą
+    stacją" spełnia pierwszą połowę idealnie.
+    """
+    stops = _line_stops("L1")
+    dwuczlonowe = [i for i, s in enumerate(stops[:5]) if "|" in s]
+    assert dwuczlonowe, f"L1 nie ma nazwy dwujęzycznej wśród pierwszych pięciu: {stops[:5]}"
+
+    def run(names):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "axis.json")
+            with open(path, "w", encoding="utf-8") as handle:
+                json.dump(_named_axis(names), handle)
+            return V.validate(path, expect_line="L1")
+
+    def z_forma(indeks, przeksztalcenie):
+        nazwy = list(stops[:5])
+        nazwy[indeks] = przeksztalcenie(nazwy[indeks])
+        return nazwy
+
+    i = dwuczlonowe[0]
+    formy = {
+        "odwrotna kolejność członów":
+            lambda n: "|".join(reversed(n.split("|"))),
+        "spacje wokół kreski":
+            lambda n: " | ".join(n.split("|")),
+        "jeden człon zamiast dwóch":
+            lambda n: n.split("|")[1],
+        "sama wielkość liter":
+            lambda n: n.upper(),
+    }
+    for opis, przeksztalcenie in formy.items():
+        wynik = run(z_forma(i, przeksztalcenie))
+        assert not _has(wynik.err, "kolejność stacji niezgodna"), (
+            f"{opis}: walidator zgłasza różnicę stacji tam, gdzie jest różnica "
+            f"zapisu: {wynik.err}")
+        assert _has(wynik.info, "kolejność stacji zgodna"), (opis, wynik.info)
+
+    # Druga strona: PODMIANA na inną stację tej samej linii nadal jest błędem.
+    inna = z_forma(i, lambda n: stops[6])
+    assert _has(run(inna).err, "kolejność stacji niezgodna"), (
+        "podmiana nazwy na inną stację przestała być błędem — normalizacja skleiła "
+        f"dwie stacje w jedną: {run(inna).err}")
+
+
 def test_validate_limits_are_pinned_to_their_stated_values():
     """Same wartości progów, nie tylko to, że reguła je stosuje.
 

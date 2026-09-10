@@ -25,7 +25,6 @@ import json
 import math
 import os
 import sys
-import unicodedata
 import zipfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -35,6 +34,7 @@ sys.path.insert(0, os.path.join(ROOT, "tools", "data"))
 
 import provenance as P  # noqa: E402
 import shapefile as S  # noqa: E402
+import stop_names  # noqa: E402
 
 ARCHIVE_PREFIX = "2603_STIB_MIVB_Network/"
 LINES_LAYER = "ACTU_LIGNES_BRUTES"
@@ -269,10 +269,16 @@ def package_bounds(network_path, package_id):
 
 
 def normalise(name):
-    text = unicodedata.normalize("NFKD", str(name))
-    text = "".join(ch for ch in text if not unicodedata.combining(ch))
-    text = text.upper().replace("'", "'").replace("-", " ").replace(".", "")
-    return " ".join(text.split())
+    """Nazwa kanoniczna JEDNEGO członu — cienka nakładka na `stop_names`.
+
+    **Do 10.09.2026 stała tu druga, własna normalizacja** i różniła się od tej
+    z `test_network_declarations._canonical` jednym znakiem: apostrof ZOSTAWAŁ
+    w napisie (`GARE DE L'OUEST`), a tamta zamieniała go na spację
+    (`GARE DE L OUEST`). Obie strony były wewnętrznie zgodne, więc nic się nie
+    zapalało — i dokładnie o to chodzi w 6.D111: dwie reguły zapisu, których nikt
+    ze sobą nie zestawia, rozjeżdżają się dopiero przy pierwszym źródle zewnętrznym.
+    """
+    return stop_names.kanoniczny_czlon(str(name))
 
 
 def stop_aliases(row):
@@ -301,7 +307,7 @@ def canonical_station_index(network_doc):
     index = {}
     for line in network_doc["lines"]:
         for stop in line["stops"]:
-            for part in stop.split("|"):
+            for part in stop_names.czlony(stop):
                 index.setdefault(normalise(part), stop)
     return index
 
