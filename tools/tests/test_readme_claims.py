@@ -30,6 +30,7 @@ Kontrakt na README, od którego zależy parsowanie:
   - każda wzmianka wersji silnika ma postać „Godot X.Y" albo „Godot X.Y.Z".
 """
 import glob
+import json
 import os
 import re
 import sys
@@ -157,6 +158,121 @@ ZAPRZECZENIA = {
 }
 
 
+#: Pięć punktów sekcji „Czego nie ma", każdy identyfikowany fragmentem swojego
+#: pierwszego zdania. Lista jest zamknięta i sprawdzana: bramka niżej żąda, żeby
+#: KAŻDY punkt sekcji miał rozstrzygnięcie, a każde rozstrzygnięcie — swój punkt.
+PUNKTY_BRAKOW = (
+    "profilu pionowego",
+    "stacji jako brył",
+    "wielu składów W SCENIE",
+    "kabiny i wnętrz",
+    "ciągłego kilometrażu linii",
+)
+
+
+def _osie():
+    """Pliki osi z `data/track/`, bez plików pochodzenia. Tylko do czytania."""
+    import glob
+    return sorted(f for f in glob.glob(os.path.join(ROOT, "data", "track", "*.json"))
+                  if ".provenance." not in os.path.basename(f))
+
+
+def osie_plaskie():
+    """Ile osi ma nadal `vertical.status = not_modelled` i wszystkie Z równe zeru.
+
+    To jest liczba, przy której zdanie „nie ma profilu pionowego" jest PRAWDZIWE.
+    Spadnie w chwili, w której pierwsza oś dostanie rzędne — i wtedy README ma
+    o tym powiedzieć, zamiast zostać przy zdaniu z dnia, w którym rzędnych nie było.
+    """
+    ile = 0
+    for sciezka in _osie():
+        with open(sciezka, encoding="utf-8") as handle:
+            dane = json.load(handle)
+        plaska = all(abs(punkt[2]) == 0.0 for punkt in dane["points"])
+        if plaska and (dane.get("vertical") or {}).get("status") == "not_modelled":
+            ile += 1
+    return ile
+
+
+def wezly_skladu_w_scenie():
+    """Ile węzłów `TrainView` ma scena pierwszego przejazdu.
+
+    Zdanie „scena pokazuje jeden [skład]" jest prawdziwe dokładnie przy jedynce.
+    Liczone w SCENIE, a nie w kodzie: `FirstRun.cs` mógłby wołać `GetNode` w pętli,
+    a i tak zobaczyłby tyle składów, ile ich w `.tscn` stoi.
+    """
+    sciezka = os.path.join(ROOT, "src", "Game", "Scenes", "FirstRun.tscn")
+    tekst = _read(sciezka)
+    zasob = re.search(r'\[ext_resource type="Script" path="res://World/TrainView\.cs" '
+                      r'id="([^"]+)"\]', tekst)
+    if zasob is None:
+        return 0
+    return len(re.findall(r'script = ExtResource\("%s"\)' % re.escape(zasob.group(1)),
+                          tekst))
+
+
+def dlugosc_pakietow_m():
+    """Suma `length_m` sześciu osi pakietów, w metrach, zaokrąglona do metra.
+
+    Zdanie „`data/track/` pokrywa pakiety, nie linie" jest prawdziwe, dopóki ta
+    suma stoi poniżej długości sieci (39,9 km z `lines.json`). Liczba jest z drzewa,
+    nie z raportu: `reports/packages-BF-alignment.md` §8 podaje 34 481 m i to jest
+    ta sama liczba, ale raport opisuje dzień, a plik opisuje dziś.
+    """
+    suma = 0.0
+    for sciezka in _osie():
+        with open(sciezka, encoding="utf-8") as handle:
+            suma += json.load(handle)["length_m"]
+    return round(suma)
+
+
+#: Punkty, których prawdziwość PILNUJE liczba z drzewa — 6.D104.
+#:
+#: **Semantyka ODWROTNA do `ZAPRZECZENIA` i to jest cała treść tego podziału.**
+#: Tamta tabela mówi „zdanie twierdzi, że czegoś nie ma, a te nazwy dowodzą, że
+#: jest" — więc trzyma zdania JUŻ FAŁSZYWE i jej kontrola przyrządu żąda, żeby
+#: wskazane nazwy dziś w drzewie BYŁY. Zdania prawdziwego nie da się w niej
+#: zapisać: wpis wskazywałby nazwę, której nie ma, a taki wpis nie zapali się
+#: nigdy i tamten test odrzuca go wprost. Tutaj jest odwrotnie: zdanie jest dziś
+#: prawdziwe, a wpis podaje liczbę, przy której pozostaje prawdziwe.
+#:
+#: Zmierzone 10.09.2026 na `a202423`.
+POMIARY_BRAKOW = {
+    "profilu pionowego": (osie_plaskie, 6,
+                          "osi z `vertical.status = not_modelled` i Z = 0"),
+    "wielu składów W SCENIE": (wezly_skladu_w_scenie, 1,
+                               "węzłów `TrainView` w `FirstRun.tscn`"),
+    "ciągłego kilometrażu linii": (dlugosc_pakietow_m, 34481,
+                                   "metrów osi w sześciu pakietach"),
+}
+
+#: Punkty, które wpisu mieć NIE MOGĄ, z powodem podanym zdaniem — 6.D104.
+#: Pole „Wyjście" pozycji żąda tego wprost: „tabela ma nie rosnąć o wpisy, których
+#: nikt nie umie zapalić".
+POWODY_BEZ_WPISU = {
+    "stacji jako brył":
+        "Zdanie jest DZIŚ NIEPRAWDZIWE i wpis zapaliłby się natychmiast. "
+        "„Pierwsza stacja typowa (T-212) jest dopiero w planie\u201d — a T-212 stoi "
+        "w `docs/TASKS.md` jako `[x]`, scalone jako #137 (`fe14d72`), z wynikiem "
+        "37 brył na stacji Parc (`corridor=1, lift=1, mezzanine=2, portal=1, "
+        "stairs=28`) i z `tools/track/station_components.py` w drzewie. Druga "
+        "połowa punktu zostaje prawdą: układ antresoli i liczba wyjść NIE wynikają "
+        "z żadnych danych, wszystkie wymiary są `design_assumption`, i moduł mówi "
+        "to wprost. Poprawienie zdania to zmiana treści punktu README, którą pole "
+        "„Poza zakresem\u201d tej pozycji wyklucza — więc zostaje zmierzone "
+        "i zapisane, a nie naprawione po cichu.",
+    "kabiny i wnętrz":
+        "Fałszyfikatorem byłaby NAZWA, której dziś nie ma: generator kabiny "
+        "w `tools/blender/` albo węzeł wnętrza w scenie. `ZAPRZECZENIA` takiego "
+        "wpisu nie przyjmie, bo `test_the_denial_table_points_at_names_that_are_"
+        "really_in_the_core` odrzuca wpis wskazujący nazwę nieobecną — i słusznie: "
+        "taki wpis nie zapaliłby się nigdy. Liczbą też się tego nie zwiąże: "
+        "„zero generatorów kabiny\u201d wymagałoby zgadywania, jak taki plik "
+        "zostanie nazwany. `--view=cab` w scenie jest KAMERĄ, nie wnętrzem, więc "
+        "nie jest fałszyfikatorem.",
+}
+
+
 def sekcja_brakow():
     """Treść sekcji „Czego nie ma" — od nagłówka do następnego nagłówka `##`."""
     tekst = _read(README)
@@ -209,6 +325,125 @@ def test_the_denial_table_points_at_names_that_are_really_in_the_core():
     assert braki.count("\n- **") >= 4, (
         "sekcja „Czego nie ma\u201d ma %d punktów — cięcie się rozjechało"
         % braki.count("\n- **"))
+
+
+def punkty_sekcji():
+    """Fragmenty rozpoznawcze punktów sekcji „Czego nie ma", w kolejności z pliku."""
+    braki = sekcja_brakow()
+    return [p for p in PUNKTY_BRAKOW if p in braki]
+
+
+def test_every_absence_bullet_has_a_measurement_or_a_written_reason():
+    """Każdy z pięciu punktów sekcji ma rozstrzygnięcie, i suma wychodzi na pięć.
+
+    Tego żąda pole „Skończone, gdy" pozycji 6.D104: albo wpis z wykonaną kontrolą
+    negatywną, albo zapisany powód, dla którego wpisu mieć nie może. Test pilnuje
+    ARYTMETYKI, bo bez niej szósty punkt dopisany do README nie zostałby przez nic
+    zauważony — a właśnie tak powstała ta pozycja: tabela miała jeden wpis na pięć
+    punktów i nikt tego nie liczył.
+    """
+    obecne = punkty_sekcji()
+    assert len(obecne) == len(PUNKTY_BRAKOW), (
+        "sekcja „Czego nie ma\u201d ma punkty, których lista `PUNKTY_BRAKOW` nie zna "
+        "(albo odwrotnie): rozpoznano %s z %s"
+        % (sorted(obecne), sorted(PUNKTY_BRAKOW)))
+
+    # Ile punktów naprawdę stoi w sekcji — liczone z myślników, nie z listy wyżej,
+    # bo lista jest tym, co ten test ma z sekcją zestawić.
+    ile_w_sekcji = sekcja_brakow().count("\n- **")
+    assert ile_w_sekcji == len(PUNKTY_BRAKOW), (
+        "sekcja ma %d punktów, a lista zna %d — dopisany punkt nie ma "
+        "rozstrzygnięcia" % (ile_w_sekcji, len(PUNKTY_BRAKOW)))
+
+    rozstrzygniete = set(POMIARY_BRAKOW) | set(POWODY_BEZ_WPISU)
+    assert rozstrzygniete == set(PUNKTY_BRAKOW), (
+        "punkty bez rozstrzygnięcia: %s; rozstrzygnięcia bez punktu: %s"
+        % (sorted(set(PUNKTY_BRAKOW) - rozstrzygniete),
+           sorted(rozstrzygniete - set(PUNKTY_BRAKOW))))
+    assert not (set(POMIARY_BRAKOW) & set(POWODY_BEZ_WPISU)), (
+        "punkt ma naraz pomiar i powód, dla którego pomiaru mieć nie może: %s"
+        % sorted(set(POMIARY_BRAKOW) & set(POWODY_BEZ_WPISU)))
+    assert len(POMIARY_BRAKOW) + len(POWODY_BEZ_WPISU) == 5, (
+        "%d pomiarów plus %d powodów nie daje pięciu"
+        % (len(POMIARY_BRAKOW), len(POWODY_BEZ_WPISU)))
+
+
+def test_the_true_absence_claims_still_match_the_numbers_in_the_tree():
+    """Zdanie o braku jest prawdziwe dopóty, dopóki liczba z drzewa się nie ruszy.
+
+    Odwrotna strona `ZAPRZECZENIA`: tamta tabela łapie zdanie, które JUŻ jest
+    nieprawdziwe, ta — zdanie, które PRZESTAJE być prawdziwe. Bez drugiej strony
+    README starzeje się w jedną stronę i nikt tego nie widzi, dopóki ktoś nie
+    przeczyta go obok kodu.
+    """
+    zle = []
+    for zdanie, (pomiar, oczekiwane, opis) in sorted(POMIARY_BRAKOW.items()):
+        assert zdanie in sekcja_brakow(), (
+            "punkt %r zniknął z README, a pomiar dla niego został — zdejmij wpis "
+            "albo przywróć punkt" % zdanie)
+        wartosc = pomiar()
+        if wartosc != oczekiwane:
+            zle.append((zdanie, opis, wartosc, oczekiwane))
+    assert zle == [], "\n".join(
+        "README mówi w „Czego nie ma\u201d: %r, a drzewo ma %d %s zamiast %d — "
+        "zdanie przestało być prawdziwe albo liczba wymaga przeliczenia"
+        % (zdanie, wartosc, opis, oczekiwane)
+        for zdanie, opis, wartosc, oczekiwane in zle)
+
+
+def test_each_written_reason_says_why_the_table_cannot_hold_the_entry():
+    """Powód ma być zdaniem, nie pustym miejscem — i ma nazywać mechanizm.
+
+    Wpis „nie da się" bez powodu jest tańszy od pomiaru i rośnie z tego samego
+    powodu, co lista wyjątków bez zapadki (6.A31). Test żąda długości zdania
+    i nazwania tego, co przeszkadza.
+    """
+    for zdanie, powod in sorted(POWODY_BEZ_WPISU.items()):
+        assert zdanie in sekcja_brakow(), (
+            "powód opisuje punkt %r, którego w README nie ma" % zdanie)
+        assert len(powod) >= 200, (
+            "powód dla %r ma %d znaków — to za mało, żeby nazwać mechanizm"
+            % (zdanie, len(powod)))
+
+
+def test_the_absence_measurements_are_not_all_reading_the_same_thing():
+    """Kontrola przyrządu: trzy pomiary czytają trzy różne miejsca drzewa.
+
+    Trzy funkcje zwracające tę samą liczbę z tego samego pliku wyglądałyby
+    w werdykcie identycznie jak trzy niezależne. Ten test przybija, że każda
+    naprawdę patrzy gdzie indziej — i że każda umie zwrócić coś innego niż
+    dziś, bo pomiar, który zwraca stałą, nie jest pomiarem.
+    """
+    assert osie_plaskie() == len(_osie()), (
+        "nie wszystkie osie są dziś płaskie (%d z %d) — README mówi, że wszystkie"
+        % (osie_plaskie(), len(_osie())))
+    assert len(_osie()) == 6, (
+        "osi pakietów jest %d, a nie sześć — pomiar czyta nie ten katalog"
+        % len(_osie()))
+
+    # Scena: zasób skryptu MUSI być znaleziony, inaczej licznik zwraca zero
+    # i wygląda jak „scena nie pokazuje ani jednego składu".
+    tscn = _read(os.path.join(ROOT, "src", "Game", "Scenes", "FirstRun.tscn"))
+    assert "World/TrainView.cs" in tscn, (
+        "scena nie odwołuje się do `TrainView` — licznik węzłów mierzy nic")
+
+    # Suma długości: pomiar ma być SUMĄ, a nie długością jednej osi.
+    najdluzsza = 0.0
+    for sciezka in _osie():
+        with open(sciezka, encoding="utf-8") as handle:
+            najdluzsza = max(najdluzsza, json.load(handle)["length_m"])
+    assert dlugosc_pakietow_m() > round(najdluzsza), (
+        "suma długości pakietów (%d m) nie jest większa od najdłuższego pakietu "
+        "(%d m) — pomiar bierze jeden plik zamiast wszystkich"
+        % (dlugosc_pakietow_m(), round(najdluzsza)))
+
+    # I że suma NIE pokrywa sieci — to jest treść zdania o kilometrażu.
+    dlugosc_sieci_m = round(
+        json.load(open(os.path.join(ROOT, "data", "network", "lines.json"),
+                       encoding="utf-8"))["network"]["metro_length_km"] * 1000)
+    assert dlugosc_pakietow_m() < dlugosc_sieci_m, (
+        "pakiety pokrywają %d m przy sieci %d m — zdanie „pokrywa pakiety, nie "
+        "linie\u201d przestało być prawdziwe" % (dlugosc_pakietow_m(), dlugosc_sieci_m))
 
 
 def test_readme_core_file_count_matches_repository():
