@@ -19,6 +19,9 @@ import json
 import os
 import re
 import sys
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tests"))
+
+import tree_walk as TW  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
@@ -116,7 +119,7 @@ def audit(paths, today):
 
 def data_files(root):
     out = []
-    for base, _dirs, names in os.walk(os.path.join(root, "data")):
+    for base, _dirs, names in TW.walk(os.path.join(root, "data"), root):
         for name in sorted(names):
             if name.endswith(".json") and not name.endswith(".schema.json"):
                 out.append(os.path.join(base, name))

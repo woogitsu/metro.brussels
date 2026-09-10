@@ -26,6 +26,10 @@ nie jej ozdobą.
 
 import os
 import re
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import tree_walk as TW  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 DOC = os.path.join(ROOT, "docs", "01-architecture.md")
@@ -79,7 +83,7 @@ def documented_paths():
 def real_paths():
     """Katalogi pod `src/` z dysku, bez artefaktów builda."""
     out = set()
-    for folder, dirs, _files in os.walk(SRC):
+    for folder, dirs, _files in TW.walk(SRC):
         dirs[:] = [d for d in dirs if d not in ARTEFAKTY and not d.startswith(".")]
         rel = os.path.relpath(folder, SRC)
         if rel != ".":

@@ -61,6 +61,10 @@ w `reports/` kilkanaście i zgłaszanie ich zamieniłoby bramkę w szum. Granic�
 
 import os
 import re
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import tree_walk as TW  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
@@ -216,7 +220,7 @@ def scan(root=None, tfm=None):
     tfm = target_framework() if tfm is None else tfm
     found = []
     for base in SCANNED:
-        for dirpath, _, files in os.walk(os.path.join(root, base)):
+        for dirpath, _, files in TW.walk(os.path.join(root, base), root):
             for name in sorted(files):
                 if not name.endswith(".md"):
                     continue

@@ -39,6 +39,10 @@ Zostawienie pliku byłoby więc nie poszanowaniem §4 pkt 6, tylko czerwonym zes
 
 import os
 import re
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import tree_walk as TW  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 SOURCE = os.path.join(ROOT, "reports", "T-401-line-run.md")
@@ -131,7 +135,7 @@ def _units(path):
 def _citations():
     """Jednostki, które cytują dolne ograniczenie z T-401, bez zdań historycznych."""
     for top in SCANNED:
-        for folder, _dirs, files in os.walk(os.path.join(ROOT, top)):
+        for folder, _dirs, files in TW.walk(os.path.join(ROOT, top)):
             for name in sorted(files):
                 if not name.endswith((".md", ".cs", ".json")):
                     continue

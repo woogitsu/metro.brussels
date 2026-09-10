@@ -67,6 +67,9 @@ import subprocess
 import sys
 import tempfile
 import threading
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import tree_walk as TW  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
@@ -315,7 +318,7 @@ def mutations_for(path: str, source: str, kinds=KINDS) -> list[Mutation]:
 def targets() -> list[str]:
     """Moduły pod mutację: kod narzędzi, bez samych testów."""
     out = []
-    for base, _dirs, files in os.walk(os.path.join(ROOT, "tools")):
+    for base, _dirs, files in TW.walk(os.path.join(ROOT, "tools")):
         if os.sep + "tests" in base or "__pycache__" in base:
             continue
         for name in sorted(files):

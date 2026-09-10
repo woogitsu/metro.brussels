@@ -26,6 +26,10 @@ i `tools/ci/station_details.sh` zawieraja pelne programy w `python3 -c`.
 import ast
 import os
 import re
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import tree_walk as TW  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 DRZEWA = ("tools", "src")
@@ -48,7 +52,7 @@ UZASADNIONE = {
 
 def _pliki_python(root=ROOT):
     for drzewo in DRZEWA:
-        for katalog, _pod, pliki in os.walk(os.path.join(root, drzewo)):
+        for katalog, _pod, pliki in TW.walk(os.path.join(root, drzewo), root):
             if "__pycache__" in katalog:
                 continue
             for plik in pliki:
@@ -123,7 +127,7 @@ def _tresc_poza_pythonem():
     for katalog, rozszerzenia in POZA_PYTHONEM:
         if not os.path.isdir(katalog):
             continue
-        for gdzie, _pod, pliki in os.walk(katalog):
+        for gdzie, _pod, pliki in TW.walk(katalog):
             for plik in pliki:
                 if plik.endswith(rozszerzenia):
                     with open(os.path.join(gdzie, plik), encoding="utf-8",

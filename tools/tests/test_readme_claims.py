@@ -32,6 +32,10 @@ Kontrakt na README, od którego zależy parsowanie:
 import glob
 import os
 import re
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import tree_walk as TW  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 README = os.path.join(ROOT, "README.md")
@@ -64,7 +68,7 @@ def _read(path):
 def core_files():
     """Pliki `.cs` w `src/Sim/`, bez wyjścia budowy. Zwraca ścieżki relatywne."""
     found = []
-    for base, dirs, names in os.walk(SIM_DIR):
+    for base, dirs, names in TW.walk(SIM_DIR):
         dirs[:] = [d for d in dirs if d not in BUILD_DIRS]
         for name in names:
             if name.endswith(".cs"):

@@ -61,6 +61,9 @@ import io
 import os
 import re
 import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import tree_walk as TW  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
@@ -99,7 +102,7 @@ def _pliki():
         baza = os.path.join(ROOT, podkatalog)
         if not os.path.isdir(baza):
             continue
-        for katalog, _pod, nazwy in os.walk(baza):
+        for katalog, _pod, nazwy in TW.walk(baza):
             for nazwa in sorted(nazwy):
                 if nazwa.endswith(rozszerzenie):
                     pelna = os.path.join(katalog, nazwa)

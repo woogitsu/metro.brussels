@@ -22,6 +22,10 @@ gorsza od jej braku, bo wyglada na przemyslana.
 """
 import ast
 import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import tree_walk as TW  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 DRZEWA = ("tools", "src")
@@ -77,7 +81,7 @@ def kolizje(root=ROOT):
     """Nazwa -> {sciezka: wartosc} dla nazw o WIECEJ NIZ JEDNEJ wartosci."""
     wszystkie = {}
     for drzewo in DRZEWA:
-        for katalog, _podkatalogi, pliki in os.walk(os.path.join(root, drzewo)):
+        for katalog, _podkatalogi, pliki in TW.walk(os.path.join(root, drzewo), root):
             for plik in pliki:
                 if not plik.endswith(".py"):
                     continue
