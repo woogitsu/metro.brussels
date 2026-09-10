@@ -964,6 +964,130 @@ def test_ci_workflows_running_tools_ci_are_triggered_by_tools_ci():
     assert not offenders, offenders
 
 
+#: Wywołanie akcji LOKALNEJ — mieszkającej w tym repozytorium, więc jej treść jest
+#: kodem, który ten job wykona. Akcja z Marketplace (`actions/checkout@<sha>`) nie
+#: liczy się tu wcale: jest przypięta po SHA i nie zmienia się razem z gałęzią.
+AKCJA_LOKALNA = re.compile(r"uses:\s*\./(\.github/actions/[A-Za-z0-9_-]+)")
+
+#: Wzorzec, który musi stać w `paths:` workflowa używającego akcji lokalnej.
+KATALOG_AKCJI = ".github/actions/**"
+
+
+def akcje_lokalne(text):
+    """Akcje lokalne, których ten workflow używa — z tekstu, nie z listy w teście."""
+    return sorted(set(AKCJA_LOKALNA.findall(text)))
+
+
+def workflowy_bez_wzorca_akcji():
+    """`(plik, akcje, wzorce)` workflowów, które używają akcji lokalnej i mają filtr,
+    a filtr katalogu akcji nie obejmuje."""
+    zle = []
+    for name in _workflows():
+        text = _text(name)
+        akcje = akcje_lokalne(text)
+        if not akcje:
+            continue
+        patterns = _paths_block(text)
+        if patterns is None:      # brak filtra = odpala się zawsze
+            continue
+        if KATALOG_AKCJI not in patterns:
+            zle.append((name, akcje, patterns))
+    return zle
+
+
+def test_ci_workflows_using_a_local_action_are_triggered_by_that_action():
+    """Zmiana akcji lokalnej musi odpalać joby, które jej używają — 6.D78.
+
+    **Bramka BLIŹNIACZA do `test_ci_workflows_running_tools_ci_are_triggered_by_tools_ci`,
+    i to jest cały argument za jej istnieniem.** Tamta powstała z pomiaru z 02.09.2026:
+    `vehicle_clearance.sh` był wołany w `tunnel-alignment.yml`, ale w `paths:` siedział
+    tylko `tools/ci/tunnel_alignment.sh`, więc wstrzyknięty `exit 3` **przeszedł** —
+    job w ogóle się nie uruchomił. Akcja lokalna jest dokładnie tym samym rodzajem
+    kodu: mieszka w repozytorium, zmienia się razem z gałęzią i jej treść wykonuje
+    ten sam runner. Brakowało jej rodzeństwa.
+
+    Zmierzone 09.09.2026: **siedem** workflowów używa akcji lokalnej i ma filtr,
+    i **żaden** nie miał w nim katalogu akcji. Sonda narzędzi
+    (`.github/actions/probe-tools`) nie miała przy tym ANI JEDNEGO konsumenta bez
+    filtra — czyli jej zmiana nie była przed scaleniem wykonywana wcale.
+    """
+    zle = workflowy_bez_wzorca_akcji()
+    assert zle == [], "\n".join(
+        "%s: używa %s, a `paths:` nie obejmuje `%s` — zmiana akcji nie odpali "
+        "tego joba. Wzorce dziś: %s" % (name, akcje, KATALOG_AKCJI, patterns)
+        for name, akcje, patterns in zle)
+
+
+def test_the_local_action_gate_is_looking_at_workflows_that_use_local_actions():
+    """Kontrola przyrządu, w obie strony — pusta lista wyżej sama nic nie znaczy.
+
+    Liczby są tu ZMIERZONE, a nie okrągłe: siedem workflowów z akcją i filtrem, dwa
+    z akcją i BEZ filtra (`python-tests.yml`, `sim-tests.yml` — jedyni konsumenci,
+    u których zmiana akcji jest dziś przed scaleniem wykonywana), jeden z akcją
+    i bez wyzwalacza `pull_request` w ogóle (`prune-merged-branches.yml`).
+    Ten ostatni **ma zostać poza listą** — tego wprost żąda pole „Skończone, gdy",
+    żeby bramka nie wymuszała martwych wpisów.
+    """
+    z_akcja = [n for n in _workflows() if akcje_lokalne(_text(n))]
+    z_filtrem = [n for n in z_akcja if _paths_block(_text(n)) is not None]
+    bez_filtra = [n for n in z_akcja if _paths_block(_text(n)) is None]
+    assert len(z_akcja) == 10, z_akcja
+    assert len(z_filtrem) == 7, z_filtrem
+    assert sorted(bez_filtra) == ["prune-merged-branches.yml", "python-tests.yml",
+                                  "sim-tests.yml"], sorted(bez_filtra)
+    # `prune-merged-branches.yml` nie ma `pull_request` wcale — i to jest powód,
+    # dla którego stoi w tej trójce, a nie razem z dwoma pozostałymi.
+    assert "pull_request" not in _text("prune-merged-branches.yml").split("permissions:")[0]
+    for name in ("python-tests.yml", "sim-tests.yml"):
+        assert "pull_request" in _text(name).split("permissions:")[0], name
+
+
+def test_the_local_action_gate_names_the_file_when_the_pattern_is_removed():
+    """Kontrola negatywna, WYKONANA na sztucznym workflowie.
+
+    Cztery przypadki, bo cztery różne rzeczy mogą tę bramkę uciszyć: brak wzorca
+    (ma zapalać), brak filtra (ma milczeć), brak akcji lokalnej (ma milczeć)
+    i akcja z Marketplace przypięta po SHA (ma milczeć — nie zmienia się z gałęzią).
+    """
+    import tempfile
+
+    def sprawdz(tekst):
+        with tempfile.TemporaryDirectory() as katalog:
+            sciezka = os.path.join(katalog, "sztuczny.yml")
+            with open(sciezka, "w", encoding="utf-8") as uchwyt:
+                uchwyt.write(tekst)
+            text = open(sciezka, encoding="utf-8").read()
+            akcje = akcje_lokalne(text)
+            patterns = _paths_block(text)
+            return akcje, patterns
+
+    filtr_waski = ("on:\n  pull_request:\n    paths:\n      - 'tools/ci/**'\n"
+                   "jobs:\n  j:\n    steps:\n"
+                   "      - uses: ./.github/actions/probe-tools\n")
+    akcje, patterns = sprawdz(filtr_waski)
+    assert akcje == [".github/actions/probe-tools"], akcje
+    assert KATALOG_AKCJI not in patterns, patterns
+
+    filtr_szeroki = filtr_waski.replace("      - 'tools/ci/**'\n",
+                                        "      - 'tools/ci/**'\n      - '%s'\n"
+                                        % KATALOG_AKCJI)
+    akcje, patterns = sprawdz(filtr_szeroki)
+    assert KATALOG_AKCJI in patterns, patterns
+
+    # Bez filtra job odpala się zawsze — wzorca wymagać nie ma po co.
+    akcje, patterns = sprawdz("on:\n  pull_request:\njobs:\n  j:\n    steps:\n"
+                              "      - uses: ./.github/actions/probe-tools\n")
+    assert akcje and patterns is None
+
+    # Akcja z Marketplace przypięta po SHA nie jest akcją lokalną: nie mieszka
+    # w tym repozytorium i nie zmienia się razem z gałęzią.
+    akcje, _patterns = sprawdz(
+        "on:\n  pull_request:\n    paths:\n      - 'tools/ci/**'\n"
+        "jobs:\n  j:\n    steps:\n"
+        "      - uses: actions/checkout@d23441a48e516b6c34aea4\n")
+    assert akcje == [], akcje
+
+
 def test_ci_grep_gates_check_that_their_target_exists():
     """`grep` bez celu kończy się kodem 2, a `if grep ...; then` czyta to jak brak trafień.
 
