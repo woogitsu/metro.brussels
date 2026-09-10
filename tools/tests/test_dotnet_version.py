@@ -373,6 +373,23 @@ def test_parsers_reject_what_they_should():
 
 DOCTOR = os.path.join(ROOT, "doctor.sh")
 
+#: Drugi argument `chk_required`/`chk_optional`, czyli polecenie idące do `eval`.
+#: Wnętrze napisu MUSI dopuszczać `\"` — trzy z dziesięciu wywołań doctora cytują
+#: zmienne wewnątrz, a wzorzec `"[^"]*"` urywa się na pierwszym takim cudzysłowie.
+CHK_CALL = re.compile(r'chk_(?:required|optional)\s+"(?:[^"\\]|\\.)*"\s+"((?:[^"\\]|\\.)*)"')
+
+#: Polecenie zaczynające się od GOŁEJ zmiennej, czyli od ścieżki, która rozpadnie
+#: się na spacji. `\"$X\" --version` jest w porządku, `$X --version` nie.
+URUCHAMIA_ZMIENNA = re.compile(r'^\$[A-Za-z_][A-Za-z0-9_]*[/ ]')
+
+
+def doctor_check_commands():
+    """Polecenia z wszystkich wywołań `chk_*` w `doctor.sh`, wiersze sklejone."""
+    tekst = open(DOCTOR, encoding="utf-8").read()
+    # Sklejenie wierszy łamanych odwrotnym ukośnikiem: część wywołań `chk_*` jest
+    # rozbita na dwie linie, a wzorzec liniowy widziałby wtedy sam nagłówek.
+    return CHK_CALL.findall(tekst.replace("\\\n", " "))
+
 
 def test_doctor_compares_the_sdk_major_against_the_target_framework():
     """`chk_required "dotnet SDK" "dotnet --version"` sprawdzało tylko, czy `dotnet`
@@ -458,12 +475,14 @@ def test_doctor_sdk_condition_actually_rejects_an_old_sdk():
 
 
 
-def _run_doctor(dotnet_version, home_version=None):
+def _run_doctor(dotnet_version, home_version=None, podkatalog="bin"):
     """Uruchamia PRAWDZIWY `doctor.sh` z podstawionym `dotnet`, bez sieci i bez SDK.
 
     Dwie atrapy: jedna pod `DOTNET_BIN` (udaje SDK, które doctor ma sprawdzić),
     druga pod `$HOME/.dotnet/dotnet` (udaje SDK leżące na dysku poza `PATH`).
     `home_version=None` znaczy „w katalogu domowym nie ma nic".
+    `podkatalog` pozwala położyć atrapę w katalogu o dowolnej NAZWIE — w tym takiej
+    ze spacją, czego żąda 6.D81.
 
     Bramka na obecność napisu `DOTNET_BIN` w pliku nie odróżniłaby zmiennej użytej
     od zmiennej wspomnianej w komentarzu — a ten plik ma jej w komentarzach cztery.
@@ -480,7 +499,7 @@ def _run_doctor(dotnet_version, home_version=None):
                              "exit 1\n" % version)
             os.chmod(path, 0o755)
 
-        fake_bin = os.path.join(tmp, "bin", "dotnet")
+        fake_bin = os.path.join(tmp, podkatalog, "dotnet")
         stub(fake_bin, dotnet_version)
         fake_home = os.path.join(tmp, "home")
         os.makedirs(fake_home, exist_ok=True)
@@ -495,6 +514,83 @@ def _run_doctor(dotnet_version, home_version=None):
         done = subprocess.run(["bash", DOCTOR, "--no-tests"], cwd=ROOT, env=env,
                               capture_output=True, text=True, timeout=120)
         return done.stdout + done.stderr
+
+
+def test_doctor_reads_the_same_sdk_from_a_path_with_a_space_in_it():
+    """Ścieżka SDK ze spacją daje TEN SAM wynik, co ścieżka bez spacji — 6.D81.
+
+    **Skąd.** `chk_required` wykonuje swój drugi argument przez `eval`, czyli parsuje
+    go DRUGI RAZ. Wiersz `"$DOTNET --version"` bez cudzysłowów wewnętrznych rozpadał
+    ścieżkę ze spacją na dwa słowa. Zmierzone 10.09.2026, ta sama atrapa w dwóch
+    katalogach:
+
+        DOTNET_BIN=".../sdk with space/dotnet"  ->  BRAK  dotnet SDK
+        DOTNET_BIN=".../sdk_no_space/dotnet"    ->  ok    dotnet SDK
+
+    **Dlaczego to nie tylko fałszywy negatyw.** Kilkadziesiąt wierszy niżej
+    `dotnet test` woła tę samą ścieżkę cytowaną poprawnie, więc pełny przebieg
+    meldował brak SDK w sekcji środowiska i `ok` w sekcji testów — wewnętrzna
+    sprzeczność JEDNEGO raportu, czytanego wedle `CLAUDE.md` §2 przed każdym zadaniem.
+
+    Test porównuje dwa przebiegi ze sobą, a nie z wpisanym napisem: gdyby doctor
+    przestał w ogóle wypisywać ten wiersz, oba byłyby puste i równe — więc obok stoi
+    asercja na treść.
+    """
+    required = tfm_major(target_framework(open(
+        os.path.join(ROOT, "src", "Sim", "Sim.csproj"), encoding="utf-8").read()))
+    oczekiwany = "ok    dotnet SDK >= %d (jest 99)" % required
+
+    ze_spacja = _run_doctor("99.1.2", podkatalog="sdk with space")
+    bez_spacji = _run_doctor("99.1.2", podkatalog="sdk_no_space")
+
+    assert oczekiwany in bez_spacji, (
+        "kontrola: atrapa w katalogu BEZ spacji ma być widziana\n" + bez_spacji[:1200])
+    assert oczekiwany in ze_spacja, (
+        "ścieżka SDK ze spacją rozpadła się na spacji — w `eval` z `chk_*` albo "
+        "w podstawieniu `$(...)`; doctor nie widzi wersji SDK, którego przed chwilą "
+        "użył\n" + ze_spacja[:1200])
+    # Komunikat MUSI zaczynać się zdaniem, a nie wypisem doctora: wypis zaczyna się
+    # pustą linią, więc jednowierszowy raport zestawu pokazywałby `FAIL …:` i nic
+    # więcej. Zmierzone przy kontroli negatywnej KN-1 tej pozycji.
+    assert "BRAK  dotnet SDK" not in ze_spacja, (
+        "doctor melduje BRAK SDK dla ścieżki ze spacją, choć atrapa odpowiada "
+        "poprawnie — cytowanie w `chk_required` zniknęło:\n" + ze_spacja[:1200])
+
+    # Wiersze o dotnecie muszą być IDENTYCZNE w obu przebiegach. Reszta wypisu może
+    # się różnić (ścieżki katalogów tymczasowych), więc porównywane są tylko one.
+    def wiersze(out):
+        return [l for l in out.splitlines() if "dotnet SDK" in l]
+    assert wiersze(ze_spacja) == wiersze(bez_spacji), (
+        "wypis o SDK różni się między ścieżką ze spacją a bez:\n%s\n---\n%s"
+        % ("\n".join(wiersze(ze_spacja)), "\n".join(wiersze(bez_spacji))))
+
+
+def test_every_doctor_check_quotes_the_tool_path_it_runs():
+    """Każde `chk_*` wołające narzędzie ze zmiennej cytuje je — 6.D81, klasa usterki.
+
+    Poprawka wyżej zamyka JEDEN wiersz. Ta bramka zamyka rodzinę: `eval` parsuje
+    swój argument drugi raz, więc każde `$ZMIENNA --coś` w napisie podanym do `chk_*`
+    rozpadnie się na spacji tak samo. Wiersze Blendera i Godota były cytowane od
+    początku i to one są wzorcem — bramka żąda go od wszystkich.
+    """
+    wolania = doctor_check_commands()
+    # Kontrola przyrządu, i nie jest ozdobna: PIERWSZA wersja tego wzorca brała
+    # `"[^"]*"` i zatrzymywała się na CUDZYSŁOWIU ESCAPOWANYM, więc dla siedmiu
+    # z dziesięciu wywołań zwracała `[ \` albo samo `\`. Bramka przechodziła
+    # wtedy trywialnie — nad dokładnie tą usterką, której pilnuje.
+    assert len(wolania) >= 10, (
+        "skan widzi %d wywołań `chk_*` — wzorzec rozjechał się z treścią doctora"
+        % len(wolania))
+    for polecenie in wolania:
+        assert polecenie.strip(), "puste polecenie — wzorzec urwał argument"
+        assert not polecenie.strip().endswith("\\"), (
+            "polecenie urwane na łamaniu wiersza: %r — sklejanie nie zadziałało"
+            % polecenie)
+
+    zle = [p for p in wolania if URUCHAMIA_ZMIENNA.match(p)]
+    assert zle == [], (
+        "wywołanie `chk_*` uruchamia ścieżkę ze zmiennej BEZ cudzysłowów — `eval` "
+        "parsuje ten napis drugi raz i rozbije ją na spacji: %s" % zle)
 
 
 def test_doctor_honours_dotnet_bin_the_same_way_as_blender_bin():

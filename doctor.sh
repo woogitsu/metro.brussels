@@ -114,7 +114,21 @@ if [ -n "$SDK_NA_DYSKU" ]; then
 else
   BRAK_SDK_PODPOWIEDZ="zainstaluj .NET SDK 10.0+ (https://dotnet.microsoft.com/download)"
 fi
-chk_required "dotnet SDK" "$DOTNET --version" "$BRAK_SDK_PODPOWIEDZ"
+# ŚCIEŻKA JEST CYTOWANA WEWNĄTRZ NAPISU, I TO NIE JEST OZDOBA — 6.D81.
+# `chk_required` wykonuje swój drugi argument przez `eval`, czyli parsuje go DRUGI
+# RAZ. Bez tych cudzysłowów ścieżka ze spacją rozpada się na dwa słowa i doctor
+# melduje brak SDK, którego przed chwilą użył. Zmierzone 10.09.2026 atrapą w katalogu
+# `sdk with space` (bez instalowania czegokolwiek):
+#
+#   DOTNET_BIN="…/sdk with space/dotnet"  ->  BRAK  dotnet SDK
+#   DOTNET_BIN="…/sdk_no_space/dotnet"    ->  ok    dotnet SDK  (ta sama atrapa)
+#
+# Kilkadziesiąt wierszy niżej `dotnet test` woła TĘ SAMĄ ścieżkę cytowaną poprawnie,
+# więc pełny przebieg meldował brak SDK w sekcji środowiska i `ok` w sekcji testów —
+# wewnętrzna sprzeczność jednego raportu, a `CLAUDE.md` §2 każe czytać go przed
+# KAŻDYM zadaniem. Wiersz z Blenderem obok był cytowany od początku i to on jest tu
+# wzorcem. Pilnuje tego `tools/tests/test_dotnet_version.py`.
+chk_required "dotnet SDK" "\"$DOTNET\" --version" "$BRAK_SDK_PODPOWIEDZ"
 
 # Sama obecność `dotnet` nie wystarczy i to jest zmierzone, nie przewidywane.
 # Po podniesieniu rdzenia na `net10.0` (04.09.2026) doctor na SDK 8.0.130 wypisywał
@@ -125,7 +139,7 @@ chk_required "dotnet SDK" "$DOTNET --version" "$BRAK_SDK_PODPOWIEDZ"
 # Wymagana wersja NIE jest tu wpisana z ręki: czyta się ją z `<TargetFramework>`
 # w `src/Sim/Sim.csproj`, czyli z jedynego miejsca, które o niej decyduje. Wpisanie
 # jej drugi raz dałoby dwa źródła prawdy i rozjazd przy następnym podniesieniu.
-HAVE_SDK_MAJOR="$($DOTNET --version 2>/dev/null | cut -d. -f1)"
+HAVE_SDK_MAJOR="$("$DOTNET" --version 2>/dev/null | cut -d. -f1)"
 if [ -n "$REQUIRED_TFM" ] && [ -n "$HAVE_SDK_MAJOR" ]; then
   chk_required "dotnet SDK >= $REQUIRED_TFM (jest $HAVE_SDK_MAJOR)" \
     "[ \"$HAVE_SDK_MAJOR\" -ge \"$REQUIRED_TFM\" ]" \
@@ -165,7 +179,7 @@ fi
 PIN_SDK="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([0-9.]*\)".*/\1/p' \
            global.json 2>/dev/null | head -n 1)"
 if [ -n "$PIN_SDK" ]; then
-  if HAVE_SDK="$($DOTNET --version 2>/dev/null)" && [ -n "$HAVE_SDK" ]; then
+  if HAVE_SDK="$("$DOTNET" --version 2>/dev/null)" && [ -n "$HAVE_SDK" ]; then
     # `dotnet` wystartował, czyli pin JEST spełniony. Zostaje pytanie, czy tą samą
     # łatką, co CI. Kontrola jest OPCJONALNA, bo wyższa łatka w tym samym paśmie
     # buduje projekt poprawnie — a różne łatki na dwóch maszynach puli to dokładnie
