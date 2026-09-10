@@ -1231,17 +1231,125 @@ def test_domyslny_dziennik_jest_jeden_na_przebieg_a_nie_jeden_na_maszyne():
 
     Nazwa zależy od trzech rzeczy, które rozstrzygają, CZEGO przebieg dotyczy:
     commita, klas operatorów i zawężenia `--only`.
+
+    **Przepisane 10.09.2026 (6.D106), a nie dopisane obok.** Od tej pozycji nazwa
+    niesie też element unikatowy dla PROCESU, więc stabilna jest **w obrębie jednego
+    przebiegu**, a nie między przebiegami — i to jest cała treść tego testu, bo
+    `sweep` woła `default_journal` raz, a kod poniżej dwa razy. Wznowienia po
+    domyślnej nazwie już nie ma; idzie ono przez jawne `--journal`. Dwa przebiegi
+    o tych samych czterech członach mierzą to samo, ale dopisywały do JEDNEGO pliku
+    i każdy czytał wynik z całego — więc oba raporty liczyły każdą mutację dwa razy.
     """
     baza = sweep.default_journal("abc1234", ("operator", "prog"), "lod_paths.py")
     assert baza != sweep.default_journal("abc1234", ("operator", "prog"), "scan_gates.py")
     assert baza != sweep.default_journal("abc1234", ("operator", "prog", "logika"), "lod_paths.py")
     assert baza != sweep.default_journal("ffff999", ("operator", "prog"), "lod_paths.py")
 
-    # KONTROLA NEGATYWNA WBUDOWANA: gdyby nazwa zależała od czegoś jeszcze —
-    # choćby od kolejności klas albo od czasu — wznowienie nigdy by swojego
-    # dziennika nie znalazło i „jeden na przebieg" znaczyłoby „nowy za każdym razem".
+    # KONTROLA NEGATYWNA WBUDOWANA: kolejność klas nie ma prawa zmieniać nazwy,
+    # a dwa wywołania W TYM SAMYM PROCESIE muszą dać ten sam plik — inaczej `sweep`
+    # zapisywałby gdzie indziej, niż czyta. Element procesu jest liczony RAZ przy
+    # imporcie właśnie po to; gdyby liczył się przy każdym wywołaniu, te dwa wiersze
+    # padłyby i „jeden na przebieg" znaczyłoby „nowy za każdym wywołaniem".
     assert baza == sweep.default_journal("abc1234", ("prog", "operator"), "lod_paths.py")
     assert baza == sweep.default_journal("abc1234", ("operator", "prog"), "lod_paths.py")
+
+
+def _sciezka_z_innego_procesu(wyrazenie):
+    """Wartość wyrażenia policzona w OSOBNYM procesie Pythona.
+
+    Element procesu jest liczony przy imporcie modułu, więc różnicy między
+    przebiegami nie da się zobaczyć inaczej niż uruchamiając drugi proces.
+    Podproces, a nie `importlib.reload`: przeładowanie w tym samym procesie
+    dałoby nowy znacznik, ale nie dowiodłoby niczego o dwóch przebiegach.
+    """
+    kod = ("import sys; sys.path.insert(0, %r)\n"
+           "import mutation_sweep as sweep\n"
+           "print(%s)\n" % (os.path.dirname(os.path.abspath(sweep.__file__)),
+                             wyrazenie))
+    wynik = subprocess.run([sys.executable, "-c", kod],
+                           capture_output=True, text=True)
+    assert wynik.returncode == 0, wynik.stderr
+    return wynik.stdout.strip()
+
+
+def test_dwa_przebiegi_tego_samego_commita_nie_pisza_do_jednego_dziennika():
+    """Dwa procesy, te same cztery człony, dwie różne ścieżki — 6.D106.
+
+    Do 10.09.2026 nazwa była funkcją wyłącznie TREŚCI przebiegu, więc dwa przeglądy
+    uruchomione równolegle na jednej maszynie dostawały ten sam plik. Każdy
+    dopisywał swoje wpisy, a `sweep` czyta wynik z CAŁEGO dziennika i nie odsiewa
+    powtórzeń — oba raporty liczyły więc każdą mutację dwa razy. Runnery jednej puli
+    stoją na jednej maszynie i dzielą `/tmp`.
+    """
+    wyrazenie = ("sweep.default_journal('abc1234', ('operator', 'prog'), "
+                 "'lod_paths.py')")
+    pierwszy = _sciezka_z_innego_procesu(wyrazenie)
+    drugi = _sciezka_z_innego_procesu(wyrazenie)
+    assert pierwszy != drugi, (
+        "dwa procesy dostały tę samą ścieżkę dziennika: %s" % pierwszy)
+
+    # …a to nadal ma być dziennik TEGO przebiegu, nie nazwa z niczego: człon treści
+    # zostaje wspólny, bo mówi człowiekowi w `/tmp`, czego plik dotyczy.
+    wspolny = os.path.basename(pierwszy).rsplit("-", 1)[0]
+    assert os.path.basename(drugi).startswith(wspolny), (pierwszy, drugi)
+    assert wspolny.startswith("metro-mutacje-"), wspolny
+
+
+def test_plik_posredni_mapy_pokrycia_jest_wlasny_dla_procesu():
+    """Mapa pokrycia: plik POŚREDNI unikatowy, DOCELOWY wspólny — dwie decyzje.
+
+    **Pośredni jest własny, ale to UBEZPIECZENIE, nie naprawa zmierzonej usterki** —
+    i to rozróżnienie jest tu treścią. Dwa procesy pisały do jednego
+    `<cel>.czesciowy`, obcinając go sobie przy otwarciu; **zepsucia pliku docelowego
+    nie udało się odtworzyć**: pięć prób z barierą startu i mapą ~50 MB dało za
+    każdym razem plik czytelny, bo `os.replace` przenosi to, co zapisał ostatni
+    kompletny pisarz. Rozumowanie zostaje (dwa strumienie o niezależnych offsetach
+    po obcięciu mogą się przepleść), koszt jest zerowy, więc zmienione — ale bez
+    udawania, że zmierzyłem szkodę.
+
+    **Docelowy zostaje wspólny** i to też jest zmierzone, a nie przeoczone: mapa
+    kosztuje JEDEN PEŁNY PRZEBIEG ZESTAWU z licznikiem wierszy
+    (`coverage_map(work, timeout * 4)`), a jest pamięcią podręczną dla commita.
+    Uczynienie jej unikatową kasowałoby tę pamięć przy każdym przebiegu. Dzielenie
+    jest bezpieczne, bo sweep ODMAWIA na brudnym drzewie (`dirty_sources`, kod 2),
+    więc jeden commit znaczy jedno drzewo i jedną mapę.
+    """
+    cel = "sweep.sciezka_pokrycia('abc1234')"
+    assert _sciezka_z_innego_procesu(cel) == _sciezka_z_innego_procesu(cel), (
+        "plik DOCELOWY mapy różni się między procesami — pamięć podręczna commita "
+        "przestała działać i każdy przebieg liczy mapę od nowa")
+
+    posredni = "sweep.sciezka_pokrycia('abc1234') + '.czesciowy-' + sweep.PROCES_ZNACZNIK"
+    pierwszy = _sciezka_z_innego_procesu(posredni)
+    drugi = _sciezka_z_innego_procesu(posredni)
+    assert pierwszy != drugi, (
+        "plik POŚREDNI jest ten sam w dwóch procesach: %s" % pierwszy)
+    assert pierwszy.startswith(_sciezka_z_innego_procesu(cel) + ".czesciowy-"), pierwszy
+
+    # I że kod NAPRAWDĘ używa tej nazwy, a nie tylko test ją składa.
+    zrodlo = open(sweep.__file__, encoding="utf-8").read()
+    assert 'f"{path}.czesciowy-{PROCES_ZNACZNIK}"' in zrodlo, (
+        "`zapisz_pokrycie` nie składa nazwy pliku pośredniego ze znacznika procesu")
+    # Szukane jest PRZYPISANIE, a nie sam napis: komentarz przy tej podmianie cytuje
+    # dawną postać `path + ".czesciowy"`, żeby powiedzieć, co było nie tak, i cytat
+    # nie jest powrotem usterki. Pierwsza wersja tej asercji szukała samego napisu
+    # i zapaliła się na własnym komentarzu.
+    assert 'tymczasowy = path + ".czesciowy"' not in zrodlo, (
+        "stała nazwa pliku pośredniego wróciła do `mutation_sweep.py` jako "
+        "przypisanie, a nie cytat")
+
+
+def test_znacznik_procesu_nie_jest_samym_pidem():
+    """PID sam nie wystarcza i to nie jest ostrożność na zapas.
+
+    W kontenerach numery procesów zaczynają się od małych liczb i powtarzają się
+    między maszynami tej samej puli — a pula dzieli `/tmp`. Znacznik miesza więc
+    PID z czasem w nanosekundach.
+    """
+    assert sweep.PROCES_ZNACZNIK != str(os.getpid()), sweep.PROCES_ZNACZNIK
+    assert len(sweep.PROCES_ZNACZNIK) == sweep.PROCES_ZNACZNIK_ZNAKOW, (
+        sweep.PROCES_ZNACZNIK)
+    assert re.fullmatch(r"[0-9a-f]+", sweep.PROCES_ZNACZNIK), sweep.PROCES_ZNACZNIK
 
 
 def test_obcy_wpis_w_dzienniku_trafia_do_raportu_jesli_go_nie_odsiac():
