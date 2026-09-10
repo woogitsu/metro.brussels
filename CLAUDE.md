@@ -190,9 +190,19 @@ Zgadywanie w tym projekcie jest kosztowniejsze niż czekanie na odpowiedź.
 przerwać **konkretne zadanie** — nie kiedy przestać pracować. Gdy zadanie utknie na cudzej
 decyzji albo na cudzym przebiegu CI, agent bierze następną pozycję z fazy 5 lub 6
 w `docs/TASKS.md`; są tam wyłącznie zadania, które nie wymagają ani jednej decyzji
-właściciela. Gdy kolejka zejdzie poniżej dwunastu pozycji, **pierwszym zadaniem jest jej
-uzupełnienie**, nie zatrzymanie się. Pilnuje tego `tools/tests/test_backlog.py`, żeby
-reguła nie była życzeniem zapisanym w dokumencie.
+właściciela. Gdy kolejka zejdzie poniżej **dwunastu pozycji DO WZIĘCIA**, **pierwszym
+zadaniem jest jej uzupełnienie**, nie zatrzymanie się. Pilnuje tego
+`tools/tests/test_backlog.py`, żeby reguła nie była życzeniem zapisanym w dokumencie.
+
+**„Do wzięcia", a nie „wpisanych", i to jest cała treść tego zdania od 10.09.2026** —
+punkt jest przepisany, a nie dopisany obok. Poprzednia wersja mówiła „poniżej dwunastu
+pozycji" i nie mówiła których, a bramka porównywała z progiem liczbę pozycji WPISANYCH.
+Pozycja czekająca na cudzą decyzję stoi w tabeli tak samo jak każda inna, ale doby pracy
+przed agentem nie daje — więc do zapasu się nie liczy. Komunikat bramki wypisuje **obie**
+liczby, żeby nie trzeba było zgadywać, którą porównał. Ile to zmienia, jest zmierzone na
+139 rewizjach `docs/TASKS.md`: różnica wynosi zero w 54 rewizjach, jeden w 84 i dwa
+w jednej — mała, ale w 61 % rewizji obecna, i zawsze w tę stronę, że pozycji do wzięcia
+jest MNIEJ (`reports/6d109-ktore-dwanascie.md`).
 
 Zadania wymyślonego na miejscu, bo akurat skończyła się kolejka, nie bierze się nigdy:
 omija format z sekcji 6 i zwykle ląduje w kodzie, którego nikt nie prosił o zmianę.

@@ -33,6 +33,36 @@ import re
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 TASKS = os.path.join(ROOT, "docs", "TASKS.md")
+CLAUDE = os.path.join(ROOT, "CLAUDE.md")
+
+#: Liczebniki w dopełniaczu, bo tak stoją w zdaniu z `CLAUDE.md` §8: „poniżej
+#: dwunastu pozycji". Tabela jest krótka celowo — obejmuje otoczenie dzisiejszego
+#: progu, a nie wszystkie liczby, jakie da się zapisać słowem. Próg wyprowadzony
+#: poza ten zakres wywala bramkę na braku wpisu, i to jest zachowanie chciane:
+#: kto zmienia próg, ma dopisać słowo, którym go zapisał.
+LICZEBNIKI = {
+    "ośmiu": 8,
+    "dziewięciu": 9,
+    "dziesięciu": 10,
+    "jedenastu": 11,
+    "dwunastu": 12,
+    "trzynastu": 13,
+    "czternastu": 14,
+    "piętnastu": 15,
+    "szesnastu": 16,
+    "osiemnastu": 18,
+    "dwudziestu": 20,
+}
+
+#: Zdanie progu z `CLAUDE.md` §8. Wyłuskuje liczebnik i to, CO jest liczone —
+#: dwie rzeczy, o których ta bramka rozstrzyga osobno, bo poprzednia wersja zdania
+#: miała pierwszą i nie miała drugiej.
+ZDANIE_PROGU = re.compile(
+    r"poniżej\s+\*{0,2}([a-ząćęłńóśźż]+)\s+pozycji([^,.]*)", re.IGNORECASE)
+
+#: Czego to zdanie ma dotyczyć. Nie „pozycji" w ogóle: pozycji, których nie blokuje
+#: cudza decyzja — czyli tego, co liczy `do_wziecia`.
+LICZNIK_W_DOKUMENCIE = "DO WZIĘCIA"
 
 # Próg z `docs/TASKS.md`. Przy 20-45 minutach na zadanie z pełną weryfikacją
 # dwanaście pozycji to dolna granica doby pracy — a część pozycji to generatory,
@@ -587,13 +617,151 @@ def test_czytnik_blokad_rozroznia_oba_ksztalty_na_kolejce_syntetycznej():
 
 
 def test_the_queue_holds_at_least_a_day_of_work():
-    # `open_items`, nie `ready_items`: pozycja z adnotacją ZROBIONE stoi w tabeli
-    # z powodu zapadki, a nie dlatego, że jest pracą. Doba pracy przed agentem
-    # liczy się z tego, co da się wziąć.
-    items = open_items(_tasks())
-    assert len(items) >= MINIMUM_READY_ITEMS, (
-        f"kolejka ma {len(items)} pozycji przy progu {MINIMUM_READY_ITEMS}; "
-        "pierwszym zadaniem jest uzupełnienie fazy 6, nie zatrzymanie się")
+    """Próg porównuje pozycje DO WZIĘCIA, nie wpisane — 6.D109, 10.09.2026.
+
+    `open_items`, nie `ready_items`: pozycja z adnotacją domknięcia stoi w tabeli
+    z powodu zapadki, a nie dlatego, że jest pracą. Ale `open_items` też nie jest
+    tym, co agent może wziąć: pozycja czekająca na decyzję właściciela stoi w kolejce
+    i jest **niewykonalna**. Gwarancja z `CLAUDE.md` §8 mówi o dobie pracy PRZED
+    AGENTEM, więc liczy się to, co da się zacząć.
+
+    **Zmierzone na 139 rewizjach `docs/TASKS.md`** (czytnikiem poprawionym w tym
+    samym dniu — poprzedni liczył decyzje datowane, czyli już podjęte, jako
+    oczekujące):
+
+        różnica 0 →  54 rewizje
+        różnica 1 →  84 rewizje
+        różnica 2 →   1 rewizja
+
+    Czyli różnica jest **mała** (prawie zawsze jeden) i **częsta, ale nie stała**:
+    85 rewizji ze 139. Czekały kiedykolwiek trzy pozycje: 6.D53 (84 rewizje),
+    6.D52 i 6.D108 (po jednej). Wybór licznika przesuwa więc moment uzupełnienia
+    kolejki o jedną pozycję w 61 % rewizji — i przesuwa go we WŁAŚCIWĄ stronę, bo
+    pozycji zablokowanej agent nie weźmie.
+
+    **Komunikat podaje obie liczby**, żeby nie trzeba było zgadywać, którą próg
+    porównał: to jest wprost żądanie pola „Skończone, gdy" pozycji 6.D109.
+    """
+    tekst = _tasks()
+    wpisane = open_items(tekst)
+    wolne = do_wziecia(tekst)
+    czekaja = czeka_na_wlasciciela(tekst)
+    assert len(wolne) >= MINIMUM_READY_ITEMS, (
+        f"kolejka ma {len(wolne)} pozycji DO WZIĘCIA przy progu "
+        f"{MINIMUM_READY_ITEMS} (wpisanych: {len(wpisane)}, czeka na właściciela: "
+        f"{', '.join(czekaja) if czekaja else 'żadna'}); pierwszym zadaniem jest "
+        "uzupełnienie fazy 6, nie zatrzymanie się")
+
+
+def test_prog_zapasu_porownuje_pozycje_do_wziecia_a_nie_wpisane():
+    """Kolejka syntetyczna z pozycją ZABLOKOWANĄ pokazuje, którą liczbę próg czyta.
+
+    Tego żąda pole „Skończone, gdy" pozycji 6.D109. Na dzisiejszej kolejce obie
+    liczby są równe (nikt nie czeka na właściciela od decyzji z 10.09.2026), więc
+    werdykt nie odróżniłby jednego licznika od drugiego — różnicę widać dopiero na
+    wejściu, w którym pozycja zablokowana jest.
+
+    Kolejka jest tu **budowana**, a nie brana z drzewa: musi mieć dokładnie tyle
+    pozycji, ile wynosi próg, żeby zdjęcie jednej przez blokadę było widoczne.
+    """
+    numery = ["6.Z%d" % i for i in range(1, MINIMUM_READY_ITEMS + 1)]
+    wiersze = "\n".join("| %s | **Pozycja syntetyczna** | kontrola | S |" % n
+                        for n in numery)
+    bloki = "\n\n".join(_blok_zaleznosci(n, "brak.") for n in numery)
+    kolejka = ("## Faza 6\n\n| pozycja | rzecz | skąd | waga |\n|---|---|---|---|\n"
+               + wiersze + "\n\n" + bloki + "\n")
+
+    assert len(open_items(kolejka)) == MINIMUM_READY_ITEMS, (
+        "kolejka syntetyczna nie ma tylu pozycji, ile wynosi próg — kontrola "
+        "mierzyłaby nie to: %d" % len(open_items(kolejka)))
+    assert len(do_wziecia(kolejka)) == MINIMUM_READY_ITEMS, len(do_wziecia(kolejka))
+
+    # Jedna pozycja dostaje blokadę: WPISANYCH nadal tyle, ile progu, DO WZIĘCIA mniej.
+    zablokowana = kolejka.replace(
+        "##### 6.Z1 · Pozycja syntetyczna\n\n- **Zależy od:** brak.",
+        "##### 6.Z1 · Pozycja syntetyczna\n\n- **Zależy od:** decyzji właściciela.", 1)
+    assert len(open_items(zablokowana)) == MINIMUM_READY_ITEMS, (
+        "blokada zmieniła liczbę WPISANYCH — a miała zmienić tylko liczbę do wzięcia")
+    assert len(do_wziecia(zablokowana)) == MINIMUM_READY_ITEMS - 1, (
+        len(do_wziecia(zablokowana)))
+    assert czeka_na_wlasciciela(zablokowana) == ["6.Z1"], (
+        czeka_na_wlasciciela(zablokowana))
+
+    # I to jest cała treść rozstrzygnięcia: przy tej kolejce próg na WPISANYCH
+    # przechodzi, a próg na DO WZIĘCIA — nie. Bramka wyżej czyta ten drugi.
+    assert len(open_items(zablokowana)) >= MINIMUM_READY_ITEMS
+    assert not len(do_wziecia(zablokowana)) >= MINIMUM_READY_ITEMS, (
+        "kolejka z pozycją zablokowaną spełnia próg liczony po pozycjach do wzięcia "
+        "— kontrola nie odróżnia dwóch liczników")
+
+
+def sekcja_osma(tekst=None):
+    """Treść `CLAUDE.md` §8, od nagłówka do następnego."""
+    if tekst is None:
+        with open(CLAUDE, encoding="utf-8") as uchwyt:
+            tekst = uchwyt.read()
+    poczatek = tekst.index("## 8. ")
+    return tekst[poczatek:tekst.index("\n## 9.", poczatek)]
+
+
+def prog_z_dokumentu(tekst=None):
+    """Para: (liczba z §8, co §8 każe liczyć). Bez zdania progu — `(None, "")`."""
+    trafienie = ZDANIE_PROGU.search(sekcja_osma(tekst))
+    if trafienie is None:
+        return None, ""
+    return LICZEBNIKI.get(trafienie.group(1).lower()), trafienie.group(2)
+
+
+def test_dokument_i_kod_mowia_o_tej_samej_liczbie():
+    """`CLAUDE.md` §8 podaje próg słowem; ta bramka porównuje go z `MINIMUM_READY_ITEMS`.
+
+    Tego żąda pole „Skończone, gdy" pozycji 6.D109: **dokument i kod mówią o tej
+    samej** liczbie. Bez bramki „ta sama" znaczyłoby „była ta sama w dniu, w którym
+    ktoś patrzył" — a próg jest stałą w pliku, którą wolno podnieść jednym znakiem.
+
+    Rozstrzyga o DWÓCH rzeczach, bo poprzednia wersja zdania miała pierwszą i nie
+    miała drugiej: o **wartości** progu i o tym, **co** jest liczone. Zdanie „poniżej
+    dwunastu pozycji" było zgodne co do liczby i mimo to nie mówiło, czy chodzi
+    o pozycje wpisane, czy o te do wzięcia — a to jest dokładnie różnica, którą 6.D109
+    zmierzyło na 85 rewizjach ze 139.
+    """
+    liczba, o_czym = prog_z_dokumentu()
+    assert liczba is not None, (
+        "w `CLAUDE.md` §8 nie ma zdania progu w kształcie „poniżej <liczebnik> pozycji"
+        "” albo liczebnik jest spoza tabeli LICZEBNIKI")
+    assert liczba == MINIMUM_READY_ITEMS, (
+        f"`CLAUDE.md` §8 mówi o {liczba} pozycjach, a kod porównuje z "
+        f"{MINIMUM_READY_ITEMS}")
+    assert LICZNIK_W_DOKUMENCIE in o_czym, (
+        "`CLAUDE.md` §8 nie mówi, KTÓRE pozycje liczy — po progu stoi "
+        f"{o_czym!r}, a bramka zapasu porównuje pozycje {LICZNIK_W_DOKUMENCIE}")
+
+
+def test_bramka_zgodnosci_lapie_obie_rozbieznosci():
+    """Kontrola negatywna: osobno rozjazd liczby i osobno brak nazwy licznika.
+
+    Jeden test na obie połowy opisywałby co innego, niż sprawdza — więc obie
+    rozbieżności są tu podane na wejściu syntetycznym, nie na drzewie.
+    """
+    szablon = ("## 8. Kiedy przerwać\n\nGdy kolejka zejdzie poniżej %s, "
+               "**pierwszym zadaniem jest jej uzupełnienie**.\n\n## 9. CI\n")
+
+    zgodne = szablon % ("**dwunastu pozycji DO WZIĘCIA**")
+    assert prog_z_dokumentu(zgodne) == (12, " DO WZIĘCIA**"), prog_z_dokumentu(zgodne)
+
+    # Rozjazd liczby: dokument mówi o dziesięciu, kod o dwunastu.
+    rozjazd, o_czym = prog_z_dokumentu(szablon % "**dziesięciu pozycji DO WZIĘCIA**")
+    assert rozjazd == 10 and rozjazd != MINIMUM_READY_ITEMS, (rozjazd, o_czym)
+
+    # Dawne brzmienie: liczba się zgadza, a licznika nie widać.
+    liczba, o_czym = prog_z_dokumentu(szablon % "dwunastu pozycji")
+    assert liczba == MINIMUM_READY_ITEMS, liczba
+    assert LICZNIK_W_DOKUMENCIE not in o_czym, (
+        "kontrola nie odróżnia zdania z nazwą licznika od zdania bez niej: %r" % o_czym)
+
+    # Zdania nie ma wcale — bramka ma to zgłosić, a nie przepuścić.
+    assert prog_z_dokumentu("## 8. Kiedy przerwać\n\nNic.\n\n## 9. CI\n") == (
+        None, "")
 
 
 def test_queue_numbers_are_unique():
