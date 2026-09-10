@@ -15,6 +15,7 @@ własnego modułu — zgodnie z dzisiejszą konwencją auto-odkrywania.
 
 import json
 import os
+import re
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 SCHEMA = os.path.join(ROOT, "data", "audio", "audio-manifest.schema.json")
@@ -125,23 +126,136 @@ def test_audio_every_placeholder_declares_whether_it_carries_a_voice():
             assert asset["contains_voice"] is True, asset["asset_id"]
 
 
+#: Typy JSON Schema na typy Pythona. Mapa wystarcza — pole „Poza zakresem" pozycji
+#: 6.D85 zabrania dopisywania zależności, a walidator z biblioteki byłby właśnie nią.
+#: `bool` stoi PRZED `integer` świadomie: w Pythonie `True` jest instancją `int`, więc
+#: kolejność bez tego rozróżnienia przepuszczałaby wartość logiczną w polu liczbowym.
+TYPY_SCHEMATU = {
+    "string": str,
+    "boolean": bool,
+    "array": list,
+    "object": dict,
+    "number": (int, float),
+    "integer": int,
+    "null": type(None),
+}
+
+
+def _zgodny_typ(wartosc, nazwa_typu):
+    """Czy wartość ma typ o tej nazwie — z rozróżnieniem `bool` od liczby."""
+    oczekiwany = TYPY_SCHEMATU[nazwa_typu]
+    if nazwa_typu in ("number", "integer") and isinstance(wartosc, bool):
+        return False
+    return isinstance(wartosc, oczekiwany)
+
+
+def niezgodnosci(asset, properties, additional_allowed):
+    """Lista `(pole, powód)` — puste znaczy „ten wpis pasuje do schematu".
+
+    Sprawdzane są cztery rzeczy, każda z osobnym powodem w komunikacie: TYP,
+    WZORZEC, długość minimalna i przynależność do `enum`, plus zakaz pól spoza
+    schematu. Do 10.09.2026 ta pętla brała wyłącznie `enum`, więc trzy z czterech
+    mutacji z pola „Skąd" przechodziły 9/9 i kodem 0.
+    """
+    out = []
+    if not additional_allowed:
+        for field in sorted(set(asset) - set(properties)):
+            out.append((field, "pole spoza schematu"))
+
+    for field, rule in properties.items():
+        if field not in asset:
+            continue
+        wartosc = asset[field]
+
+        typy = rule.get("type")
+        if typy is not None:
+            dozwolone = [typy] if isinstance(typy, str) else list(typy)
+            if not any(_zgodny_typ(wartosc, t) for t in dozwolone):
+                out.append((field, "typ %r, oczekiwano %s"
+                            % (type(wartosc).__name__, dozwolone)))
+                continue
+
+        if "enum" in rule and wartosc not in rule["enum"]:
+            out.append((field, "wartość %r spoza enum" % (wartosc,)))
+        if "pattern" in rule and isinstance(wartosc, str) \
+                and re.search(rule["pattern"], wartosc) is None:
+            out.append((field, "napis %r nie pasuje do wzorca %s"
+                        % (wartosc, rule["pattern"])))
+        if "minLength" in rule and isinstance(wartosc, str) \
+                and len(wartosc) < rule["minLength"]:
+            out.append((field, "napis krótszy niż minLength %d" % rule["minLength"]))
+        if rule.get("type") == "array" and isinstance(wartosc, list):
+            typ_elementu = (rule.get("items") or {}).get("type")
+            if typ_elementu is not None:
+                for i, element in enumerate(wartosc):
+                    if not _zgodny_typ(element, typ_elementu):
+                        out.append((field, "element %d ma typ %r, oczekiwano %s"
+                                    % (i, type(element).__name__, typ_elementu)))
+    return out
+
+
 def test_audio_placeholders_satisfy_the_schema_they_ship_next_to():
     """Rejestr zastępników i schemat leżą w jednym katalogu i muszą do siebie pasować.
 
     Bez tego schemat opisywałby jedno, a jedyny istniejący manifest niósł drugie —
     i nikt by tego nie zauważył, dopóki nie doszedłby pierwszy prawdziwy dźwięk.
+
+    **Przepisane 10.09.2026 (6.D85), a nie dopisane obok.** Poprzednia wersja pytała
+    o obecność pól wymaganych i o `enum` — i o nic więcej. Zmierzone czterema
+    mutacjami manifestu: typ listy, wzorzec identyfikatora i pole spoza schematu
+    przechodziły **9/9, kod 0**. Najostrzejszy przypadek nie jest jednak żadnym
+    z tych trzech: `redistribution_allowed` podmienione z wartości logicznej na napis
+    przechodziło tak samo cicho — a to POLE, na którym `docs/03-legal.md` stawia
+    blokadę prawną. (Dwa pozostałe pola logiczne, `contains_voice`
+    i `contains_stib_brand_audio`, były chronione **przypadkiem**, przez dwa inne
+    testy tego modułu: jeden pyta o RODO, drugi o markę STIB.)
     """
     schema = _schema()
     required = set(schema["required"])
     properties = schema["properties"]
+    additional_allowed = schema.get("additionalProperties", True)
 
     for asset in _placeholders()["assets"]:
         missing = required - set(asset)
         assert not missing, (asset["asset_id"], sorted(missing))
-        for field, rule in properties.items():
-            if field not in asset or "enum" not in rule:
-                continue
-            assert asset[field] in rule["enum"], (asset["asset_id"], field, asset[field])
+        zle = niezgodnosci(asset, properties, additional_allowed)
+        assert zle == [], (asset["asset_id"], zle)
+
+
+def test_the_schema_check_tells_the_four_measured_shapes_apart():
+    """Kontrola przyrządu na wpisie syntetycznym, dla każdego z czterech kształtów.
+
+    Pętla po prawdziwym manifeście jest dziś cicha — i ma być. Cisza znaczy coś
+    dopiero wtedy, gdy widać, że pętla ma czym zgłaszać.
+    """
+    schema = _schema()
+    properties = schema["properties"]
+    additional = schema.get("additionalProperties", True)
+    wzorcowy = dict(_placeholders()["assets"][0])
+
+    def powody(**podmiana):
+        asset = dict(wzorcowy)
+        asset.update(podmiana)
+        return [powod for _pole, powod in niezgodnosci(asset, properties, additional)]
+
+    assert powody() == [], "wzorcowy wpis z manifestu ma być zgodny"
+
+    # Cztery kształty z pola „Skąd" pozycji 6.D85, każdy zgłaszany z INNEGO powodu.
+    assert any("oczekiwano ['boolean']" in p for p in powody(redistribution_allowed="tak"))
+    assert any("oczekiwano ['array']" in p for p in powody(processing_chain="normalizacja"))
+    assert any("wzorca" in p for p in powody(asset_id="ZŁY ID!"))
+    assert any("spoza schematu" in p for p in powody(pole_ktorego_nie_ma=1))
+
+    # I kierunki przeciwne: poprawne wartości nie mogą się zgłaszać.
+    assert powody(redistribution_allowed=True) == []
+    assert powody(processing_chain=["normalizacja"]) == []
+    assert powody(asset_id="doors-close-01") == []
+
+    # `bool` w polu liczbowym: w Pythonie `True` JEST instancją `int`, więc bez
+    # osobnego rozróżnienia mapa typów przepuściłaby to po cichu.
+    assert not _zgodny_typ(True, "integer")
+    assert _zgodny_typ(True, "boolean")
+    assert _zgodny_typ(1, "integer")
 
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
 # z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
