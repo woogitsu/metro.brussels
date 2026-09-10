@@ -85,9 +85,13 @@ jobs:
 
       - name: Validate committed alignments
         shell: bash
-        # Każda oś w data/track musi przechodzić walidator z linią z lines.json.
-        # Numer linii jest w nazwie pliku (L2_E -> L2), więc kontrola nie wymaga
-        # żadnej listy do ręcznego utrzymywania.
+        # Każda oś w data/track musi przechodzić walidator z KAŻDĄ linią, która
+        # z niej korzysta. Do 10.09.2026 stała tu jedna linia, wzięta z prefiksu
+        # nazwy pliku (L2_E -> L2), i komentarz chwalił to jako „kontrola nie wymaga
+        # żadnej listy do ręcznego utrzymywania". To była cena, nie zaleta: pakiety
+        # A (L1 i L5) oraz E (L2 i L6) obsługują po dwie linie, a nazwa pliku unosi
+        # jedną — druga nie była sprawdzana nigdy (6.D91). `--all-lines` bierze je
+        # z pakietu, który oś sama deklaruje.
         run: |
           set -euo pipefail
           found=0
@@ -98,7 +102,7 @@ jobs:
             # i nie wpływała na werdykt; teraz sprawdza, że oś deklaruje ten pakiet
             # i że jej deklaracja zgadza się z `build_packages` w lines.json.
             # Wołana w CI, bo opcja niewołana starzeje się tak samo cicho jak pusta.
-            python3 tools/track/validate.py "$axis" --line "${id%%_*}" --package "${id##*_}"
+            python3 tools/track/validate.py "$axis" --all-lines --package "${id##*_}"
             found=$((found + 1))
           done
           echo "zwalidowanych osi: $found"
