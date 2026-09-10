@@ -9,6 +9,13 @@
 # `unzip: command not found` (kod 127, `woogitsu-linux-02`, run 34155630333).
 # Krok pobiera Godota jako `.zip` z GitHuba; `curl` zadziałał, więc brakowało
 # wyłącznie rozpakowywacza. Nie był ani sondowany, ani w żadnym zestawie apt.
+#
+# `curl` dopisany 10.09.2026 (6.D77), do OBU zestawów naraz, więc różnica między nimi
+# zostaje ta sama. Wołają go oba instalatory — `blender_install.sh` po tarball
+# i `godot_install.sh` po archiwum silnika — a nie był ani sondowany, ani w żadnym
+# zestawie apt. Działał wyłącznie dlatego, że maszyny puli miały go z innych powodów:
+# dokładnie ta sama sytuacja, w której `unzip` doszedł do kodu 127 dwa dni wcześniej.
+curl
 xvfb
 unzip
 libegl1
