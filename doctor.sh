@@ -173,8 +173,24 @@ PIN_SDK="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([0-9.]*\)".*/\1/p' \
 # pierwszej wersji tego bloku, która patrzyła na sam kod wyjścia.
 SDK_NA_LISCIE="nie"
 if [ -n "$("$DOTNET" --list-sdks 2>/dev/null)" ]; then SDK_NA_LISCIE="tak"; fi
+# 6.D112: JEDNO wywołanie `--version` na cały blok, a jego WYNIK — stdout i kod
+# wyjścia — niosą dwie zmienne. Zmierzone 10.09.2026 przed zmianą, atrapą liczącą
+# swoje wywołania: pin niespełniony **2**, pin spełniony **4**, brak SDK **3**.
+# Wpis kolejki mówił o trzech; trzy to liczba MIEJSC w kodzie, a nie wywołań
+# w przebiegu, i ani w jednym z trzech stanów nie wychodziła.
+#
+# To nie jest oszczędność czasu. Cztery wywołania to cztery okazje do rozjazdu:
+# gdyby między nimi zmienił się `global.json` albo `PATH` — a `doctor.sh` bywa
+# wołany ze skryptu, który to robi — doctor wypisałby zdania opisujące DWA różne
+# stany jako jeden. Ta sama rodzina co usterka zamknięta przez 6.D96, tylko
+# rozłożona w czasie zamiast w potoku.
+#
+# `--list-sdks` NIE jest tu łączone z `--version` i to jest wybór, nie przeoczenie:
+# to dwa różne pytania i cała 6.D96 na tej różnicy stoi.
+DOTNET_WERSJA="$("$DOTNET" --version 2>/dev/null)"
+DOTNET_WERSJA_KOD=$?
 PIN_NIESPELNIONY="nie"
-if [ "$SDK_NA_LISCIE" = "tak" ] && ! "$DOTNET" --version >/dev/null 2>&1; then
+if [ "$SDK_NA_LISCIE" = "tak" ] && [ "$DOTNET_WERSJA_KOD" -ne 0 ]; then
   PIN_NIESPELNIONY="tak"
 fi
 
@@ -186,7 +202,10 @@ if [ "$PIN_NIESPELNIONY" = "tak" ]; then
     "SDK SĄ na dysku, ale ŻADNE nie spełnia pinu $PIN_SDK z global.json; \`dotnet --version\` kończy błędem — zmień pin albo doinstaluj tę wersję, NIE instaluj SDK od nowa"
   "$DOTNET" --list-sdks 2>/dev/null | sed 's/^/        na dysku: /'
 else
-  chk_prog_required "dotnet SDK" "$BRAK_SDK_PODPOWIEDZ" "$DOTNET" --version
+  # Forma WYRAŻENIOWA, bo wynik jest już zapamiętany — `chk_prog_required` wołałby
+  # `--version` drugi raz. Obie funkcje wypisują ten sam kształt wiersza
+  # (`  ok    <nazwa>` / `  BRAK  <nazwa>  -> <podpowiedź>`), więc wypis nie drgnął.
+  chk_expr_required "dotnet SDK" "[ \"$DOTNET_WERSJA_KOD\" -eq 0 ]" "$BRAK_SDK_PODPOWIEDZ"
 fi
 
 # Sama obecność `dotnet` nie wystarczy i to jest zmierzone, nie przewidywane.
@@ -203,8 +222,8 @@ fi
 # z pierwszego wiersza WYPISANEJ LISTY SDK i meldował `ok dotnet SDK >= 10 (jest 10)`
 # obok `BRAK dotnet SDK` dwa wiersze wyżej.
 HAVE_SDK_MAJOR=""
-if HAVE_SDK_PELNA="$("$DOTNET" --version 2>/dev/null)" && [ -n "$HAVE_SDK_PELNA" ]; then
-  HAVE_SDK_MAJOR="$(printf '%s\n' "$HAVE_SDK_PELNA" | cut -d. -f1)"
+if [ "$DOTNET_WERSJA_KOD" -eq 0 ] && [ -n "$DOTNET_WERSJA" ]; then
+  HAVE_SDK_MAJOR="$(printf '%s\n' "$DOTNET_WERSJA" | cut -d. -f1)"
 fi
 if [ -n "$REQUIRED_TFM" ] && [ -n "$HAVE_SDK_MAJOR" ]; then
   chk_expr_required "dotnet SDK >= $REQUIRED_TFM (jest $HAVE_SDK_MAJOR)" \
@@ -247,7 +266,8 @@ fi
 # SPEŁNIONYM; przypadek niespełniony obsługuje jedna kontrola wymagana wyżej,
 # zamiast dwóch sprzecznych zdań i WARN-a pod nimi.
 if [ -n "$PIN_SDK" ] && [ "$PIN_NIESPELNIONY" = "nie" ]; then
-  if HAVE_SDK="$("$DOTNET" --version 2>/dev/null)" && [ -n "$HAVE_SDK" ]; then
+  if [ "$DOTNET_WERSJA_KOD" -eq 0 ] && [ -n "$DOTNET_WERSJA" ]; then
+    HAVE_SDK="$DOTNET_WERSJA"
     # `dotnet` wystartował, czyli pin JEST spełniony. Zostaje pytanie, czy tą samą
     # łatką, co CI. Kontrola jest OPCJONALNA, bo wyższa łatka w tym samym paśmie
     # buduje projekt poprawnie — a różne łatki na dwóch maszynach puli to dokładnie

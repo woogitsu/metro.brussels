@@ -630,9 +630,15 @@ def test_doctor_uzywa_formy_tablicowej_do_uruchamiania_programow():
     wstawionego do formy tablicowej i programu wstawionego do formy z `eval` — bo
     każdy z nich cofa dokładnie tę własność.
     """
+    # Podłoga zeszła z sześciu na PIĘĆ 10.09.2026 przy 6.D112 i to nie jest
+    # rozluźnienie bramki: `chk_prog_required "dotnet SDK" … "$DOTNET" --version`
+    # wołało `--version` DRUGI raz w tym samym bloku, więc zostało zamienione na
+    # formę wyrażeniową czytającą wynik już zapamiętany. Ubyło wywołanie programu,
+    # nie ubyło używanie formy tablicowej — a tego pilnuje ta liczba. Wypis jest
+    # identyczny co do bajtu, bo obie funkcje wypisują ten sam kształt wiersza.
     programowe = doctor_prog_calls()
-    assert len(programowe) >= 6, (
-        "skan widzi %d wywołań `chk_prog_*`, a zmierzone 10.09.2026 było sześć — "
+    assert len(programowe) >= 5, (
+        "skan widzi %d wywołań `chk_prog_*`, a zmierzone 10.09.2026 było pięć — "
         "albo forma zniknęła, albo wzorzec się rozjechał" % len(programowe))
 
     # ZMIERZONE KONTROLĄ NEGATYWNĄ, nie założone: forma tablicowa zdejmuje DRUGI
@@ -1315,6 +1321,10 @@ def _atrapa_dotnet(sciezka, zainstalowane, pin):
     with open(sciezka, "w", encoding="utf-8") as uchwyt:
         uchwyt.write(
             "#!/bin/sh\n"
+            # 6.D112: atrapa LICZY swoje wywołania. Bez tego „jedno wywołanie"
+            # dałoby się sprawdzić wyłącznie czytaniem `doctor.sh`, czyli tak samo,
+            # jak sprawdzało się je przed tą pozycją — i tak samo bezskutecznie.
+            'if [ -n "$LICZNIK" ]; then echo "$1" >> "$LICZNIK"; fi\n'
             'if [ "$1" = "--list-sdks" ]; then printf %s "$LISTA"; exit 0; fi\n'
             'if [ "$1" = "--version" ]; then\n'
             '  if [ "$SPELNIONY" = "0" ]; then echo "$PIN"; exit 0; fi\n'
@@ -1326,10 +1336,21 @@ def _atrapa_dotnet(sciezka, zainstalowane, pin):
 
 
 def _doctor_z_pinem(pin, zainstalowane):
+    """Wypis i kod wyjścia `doctor.sh` — bez dziennika wywołań atrapy."""
+    wypis, kod, _wolania = _przebieg_doctora(pin, zainstalowane)
+    return wypis, kod
+
+
+def _przebieg_doctora(pin, zainstalowane):
     """`doctor.sh` na drzewie z podmienionym `global.json` i atrapą `dotnet`.
 
     Symlinki do wszystkiego poza `global.json`, bo doctor sprawdza kilkanaście
     ścieżek i przy braku którejkolwiek kończy przed interesującym nas blokiem.
+
+    Trzeci element wyniku to **dziennik wywołań atrapy** — lista pierwszych
+    argumentów, w kolejności. Dopisany w 6.D112: „blok pyta o wersję raz" jest
+    zdaniem o PRZEBIEGU, a nie o treści skryptu, więc czytaniem `doctor.sh` go
+    nie sprawdzisz.
     """
     import subprocess
     import tempfile
@@ -1350,16 +1371,22 @@ def _doctor_z_pinem(pin, zainstalowane):
         dom = os.path.join(tmp, "home")
         os.makedirs(dom)
 
-        srodowisko = dict(os.environ, DOTNET_BIN=atrapa, HOME=dom, LC_ALL="C", **zmienne)
+        licznik = os.path.join(tmp, "wolania")
+        srodowisko = dict(os.environ, DOTNET_BIN=atrapa, HOME=dom, LC_ALL="C",
+                          LICZNIK=licznik, **zmienne)
         srodowisko.pop("DOTNET_ROOT", None)
         gotowe = subprocess.run(["bash", DOCTOR, "--no-tests"], cwd=drzewo,
                                 env=srodowisko, capture_output=True, text=True,
                                 timeout=180)
+        wolania = []
+        if os.path.isfile(licznik):
+            with open(licznik, encoding="utf-8") as uchwyt:
+                wolania = uchwyt.read().split()
         # Kod wyjścia obok wypisu, bo o WADZE zdania mówi tylko on: `doctor.sh`
         # kończy liczbą pozycji wymaganych do naprawienia. WARN zamiast BRAK dałby
         # ten sam napis o pinie i zero na wyjściu — czyli środowisko, w którym
         # `dotnet build` nie ruszy, zameldowane jako gotowe do pracy.
-        return gotowe.stdout + gotowe.stderr, gotowe.returncode
+        return gotowe.stdout + gotowe.stderr, gotowe.returncode, wolania
 
 
 def test_niespelniony_pin_nie_daje_dwoch_sprzecznych_zdan():
@@ -1429,8 +1456,98 @@ def test_liczba_wersji_nie_bierze_sie_z_polecenia_ktore_padlo():
     zrodlo = _read(DOCTOR)
     assert 'HAVE_SDK_MAJOR="$("$DOTNET" --version 2>/dev/null | cut -d. -f1)"' not in zrodlo, (
         "liczba wersji znów bierze się z potoku, który nie widzi kodu wyjścia")
-    assert 'if HAVE_SDK_PELNA="$("$DOTNET" --version 2>/dev/null)"' in zrodlo, (
+    # 6.D112 zmieniło KSZTAŁT tej gałęzi, nie jej własność: `--version` woła się raz
+    # na cały blok, a kod wyjścia niesie zmienna. Asercja pyta więc o warunek na
+    # ZAPAMIĘTANYM kodzie zamiast o dawny literał z podstawieniem polecenia.
+    assert '[ "$DOTNET_WERSJA_KOD" -eq 0 ] && [ -n "$DOTNET_WERSJA" ]' in zrodlo, (
         "nie widać gałęzi liczącej wersję wyłącznie z udanego `--version`")
+
+#: Trzy stany bloku SDK z 6.D96, każdy z wypisem OGRANICZONYM DO WIERSZY O SDK
+#: i kodem wyjścia. Ograniczenie jest konieczne: pełny wypis `doctor.sh` niesie też
+#: wiersze o Blenderze i Godocie, których obecność zależy od maszyny — zapadka na
+#: całym wypisie byłaby czerwona w CI i zielona lokalnie, czyli nie mierzyłaby nic.
+#: Wiersze niżej zależą wyłącznie od atrapy, więc są takie same wszędzie.
+#:
+#: Zapisane 10.09.2026 PRZED zmianą z 6.D112 i po niej NIE DRGNĘŁY — to jest właśnie
+#: warunek odbioru tej pozycji, przybity, a nie sprawdzony raz ręcznie.
+STANY_SDK = {
+    "pin niespełniony": {
+        "pin": "10.0.999",
+        "zainstalowane": ["10.0.401"],
+        "kod": 1,
+        "wiersze": [
+            "  BRAK  dotnet SDK vs pin z global.json (10.0.999)  -> SDK SĄ na dysku, "
+            "ale ŻADNE nie spełnia pinu 10.0.999 z global.json; `dotnet --version` "
+            "kończy błędem — zmień pin albo doinstaluj tę wersję, NIE instaluj SDK "
+            "od nowa",
+            "        na dysku: 10.0.401 [/atrapa/sdk]\\n",
+        ],
+    },
+    "pin spełniony": {
+        "pin": "10.0.401",
+        "zainstalowane": ["10.0.401"],
+        "kod": 0,
+        "wiersze": [
+            "  ok    dotnet SDK",
+            "  ok    dotnet SDK >= 10 (jest 10)",
+            "  ok    dotnet SDK == pin z global.json (10.0.401)",
+        ],
+    },
+    "brak jakiegokolwiek SDK": {
+        "pin": "10.0.401",
+        "zainstalowane": [],
+        "kod": 1,
+        "wiersze": [
+            "  BRAK  dotnet SDK  -> zainstaluj .NET SDK 10.0+ "
+            "(https://dotnet.microsoft.com/download)",
+        ],
+    },
+}
+
+#: Ile razy blok SDK ma zapytać `dotnet --version` w JEDNYM przebiegu.
+WOLAN_WERSJI = 1
+
+
+def _wiersze_o_sdk(wypis):
+    """Wiersze wypisu dotyczące SDK — te, które ta pozycja mogła ruszyć."""
+    return [w for w in wypis.splitlines()
+            if "dotnet SDK" in w or w.startswith("        na dysku: ")]
+
+
+def test_blok_sdk_pyta_o_wersje_dokladnie_raz():
+    """6.D112: jedno wywołanie `--version` na przebieg, we WSZYSTKICH trzech stanach.
+
+    **Zmierzone przed zmianą atrapą liczącą swoje wywołania:** pin niespełniony
+    **2**, pin spełniony **4**, brak SDK **3**. Wpis kolejki mówił o trzech — trzy
+    to liczba MIEJSC w kodzie, a nie wywołań w przebiegu, i ani w jednym z trzech
+    stanów nie wychodziła.
+
+    Liczy się dziennik atrapy, a nie treść skryptu: „blok pyta raz" jest zdaniem
+    o PRZEBIEGU. Czytanie `doctor.sh` odpowiada na inne pytanie i odpowiadało na nie
+    zielono także wtedy, gdy wywołań było cztery.
+    """
+    for nazwa, stan in STANY_SDK.items():
+        _wypis, _kod, wolania = _przebieg_doctora(stan["pin"], stan["zainstalowane"])
+        ile = wolania.count("--version")
+        assert ile == WOLAN_WERSJI, (
+            f"stan „{nazwa}”: blok SDK pyta o wersję {ile} raz(y) zamiast "
+            f"{WOLAN_WERSJI}; dziennik atrapy: {wolania}")
+
+
+def test_wypis_trzech_stanow_nie_drgnal():
+    """Druga połowa warunku odbioru 6.D112: wypis identyczny co do bajtu.
+
+    Bez tej bramki „jedno wywołanie" dałoby się osiągnąć, zmieniając przy okazji
+    treść zdań — a pole „Poza zakresem" wyklucza to wprost. Kod wyjścia stoi obok
+    wypisu, bo o WADZE zdania mówi tylko on.
+    """
+    for nazwa, stan in STANY_SDK.items():
+        wypis, kod, _wolania = _przebieg_doctora(stan["pin"], stan["zainstalowane"])
+        assert _wiersze_o_sdk(wypis) == stan["wiersze"], (
+            f"stan „{nazwa}”: wypis o SDK zmienił się wobec zapisanego "
+            f"10.09.2026:\n{_wiersze_o_sdk(wypis)}")
+        assert kod == stan["kod"], (nazwa, kod, stan["kod"])
+
 
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
 # z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
