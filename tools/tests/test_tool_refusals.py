@@ -181,12 +181,7 @@ def test_odmowa_geometryczna_i_pochodzeniowa_dzialaja_takze_pod_O():
     # `empty_mass_kg`, czytanym w `params` z pominięciem `design()`. Test czerwony
     # od `KeyError` jest czerwony z niewłaściwego powodu i nie mierzy odmowy;
     # rejestr samouzupełniający się nie może się z tą funkcją rozjechać.
-    class _Rejestr(dict):
-        def __missing__(self, klucz):
-            self[klucz] = {"status": "design_model", "value": 1.0}
-            return self[klucz]
-
-    rejestr = {"reference_model": _Rejestr(), "parameters": _Rejestr()}
+    rejestr = _rejestr_o_poprawnych_statusach(B)
     assert B.params(rejestr), (
         "komplet z poprawnym statusem ma przejść — inaczej odmowa niżej nic nie mierzy")
 
@@ -199,6 +194,84 @@ def test_odmowa_geometryczna_i_pochodzeniowa_dzialaja_takze_pod_O():
         raise AssertionError(
             "parametr o statusie 'spec' wszedł do modelu hamowania — kontrola "
             "pochodzenia liczby nie zadziałała")
+
+
+def _rejestr_o_poprawnych_statusach(B):
+    """Rejestr syntetyczny, w którym KAŻDY parametr ma status, jakiego wymaga.
+
+    Do 10.09.2026 stała tu samowypełniająca się mapa dająca wszystkim
+    `design_model` — i to wystarczało, bo czternaście parametrów tego żądało,
+    a piętnaste nie było w ogóle sprawdzane. Po 6.D107 sprawdzanych jest piętnaście
+    i `empty_mass_kg` wymaga `spec`, więc rejestr musi to odwzorować; inaczej
+    „komplet poprawny" nie byłby kompletem poprawnym.
+    """
+    rejestr = {"reference_model": {}, "parameters": {}}
+    for _nazwa, sekcja, klucz, status in B.PARAMETRY:
+        rejestr[sekcja][klucz] = {"status": status, "value": 1.0}
+    return rejestr
+
+
+def test_kazdy_z_pietnastu_parametrow_hamowania_ma_kontrole_statusu():
+    """Zły status zapala odmowę NIEZALEŻNIE od tego, którym z piętnastu jest — 6.D107.
+
+    **Skąd.** `empty_mass_kg` był czytany jako `float(par[...]["value"])`, z pominięciem
+    strażnika. Nie z przeoczenia w danych: w rejestrze ma `spec`, `source_id`
+    i notatkę o źródle STIB, a strażnik żądał `design_model` — czyli pochodzenie
+    MOCNIEJSZE nie przechodziło przez kontrolę pisaną pod słabsze. Ominięto wtedy
+    kontrolę zamiast dobrać właściwą, a brak kontroli nie zostawia śladu w wypisie.
+
+    Pętla po WSZYSTKICH piętnastu, a nie po jednym: bramka sprawdzająca tylko
+    `empty_mass_kg` przegapiłaby szesnasty parametr dopisany kiedyś tą samą drogą.
+    """
+    import braking as B
+
+    assert len(B.PARAMETRY) == 15, (
+        "parametrów modelu hamowania jest %d, a 10.09.2026 było ich piętnaście — "
+        "jeśli doszedł nowy, ma mieć w `PARAMETRY` swój wymagany status"
+        % len(B.PARAMETRY))
+
+    bez_odmowy = []
+    for nazwa, sekcja, klucz, status in B.PARAMETRY:
+        rejestr = _rejestr_o_poprawnych_statusach(B)
+        rejestr[sekcja][klucz]["status"] = "zmyslony_status"
+        try:
+            B.params(rejestr)
+        except ValueError as blad:
+            assert klucz in str(blad) and status in str(blad), (nazwa, str(blad))
+        else:
+            bez_odmowy.append(nazwa)
+    assert bez_odmowy == [], (
+        "te parametry weszły do modelu hamowania mimo złego statusu: %s" % bez_odmowy)
+
+
+def test_wymagane_statusy_zgadzaja_sie_z_rejestrem_pojazdu():
+    """Tabela `PARAMETRY` mówi o rejestrze prawdę — inaczej odmowa byłaby stała.
+
+    Gdyby wymagany status rozjechał się z tym, co stoi w `data/vehicle/m7-spec.json`,
+    `params()` odmawiałby na PRAWDZIWYM rejestrze i nikt by modelu nie zbudował —
+    albo, gorzej, tabela zażądałaby statusu słabszego niż faktyczny i kontrola
+    przepuściłaby wartość, której pochodzenie się pogorszyło.
+
+    Podział jest tu wynikiem, nie założeniem: **czternaście** `design_model`
+    i **jeden** `spec`, razem piętnaście.
+    """
+    import braking as B
+
+    rejestr = B.load_registry()
+    rozjazd = [(nazwa, status, rejestr[sekcja][klucz]["status"])
+               for nazwa, sekcja, klucz, status in B.PARAMETRY
+               if rejestr[sekcja][klucz]["status"] != status]
+    assert rozjazd == [], (
+        "tabela `PARAMETRY` żąda innego statusu, niż stoi w rejestrze: %s" % rozjazd)
+
+    ile = {}
+    for _n, _s, _k, status in B.PARAMETRY:
+        ile[status] = ile.get(status, 0) + 1
+    assert ile == {B.STATUS_MODELU: 14, B.STATUS_ZE_ZRODLA: 1}, (
+        "podział wymaganych statusów to %s, a 10.09.2026 było czternaście "
+        "`design_model` i jeden `spec`" % ile)
+    assert sum(ile.values()) == 15, (
+        "wymagane statusy sumują się do %d, a parametrów jest piętnaście" % sum(ile.values()))
 
 
 if __name__ == "__main__":
