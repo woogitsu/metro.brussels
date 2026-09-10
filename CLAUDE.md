@@ -118,6 +118,26 @@ python3 tools/tests/test_all.py
 dotnet test tests/Sim.Tests
 ```
 
+### Kontrola negatywna na module Pythona — czyść bajtkod
+
+```bash
+find . -name __pycache__ -prune -exec rm -rf {} + 2>/dev/null   # PRZED każdym przebiegiem
+```
+
+**`md5sum -c` mówi o pliku `.py`, a wykonuje się `.pyc`** (10.09.2026, 6.D102). CPython
+uznaje bajtkod za ważny po parze **(mtime źródła w sekundach, rozmiar)**, więc mutacja
+podmieniająca napis o tej samej długości i przywrócona w tej samej sekundzie nie rusza
+żadnego z tych pól — a suma na źródle daje `OK` i nic nie widać. Zmierzone na
+`test_reference_snapshot.py`: bez czyszczenia mutacja daje `5/5 przeszło, kod 0`,
+czyli kontrola **wychodzi zielona i czyta się jako „bramka tego nie łapie"**;
+z czyszczeniem — `1/5 przeszło, kod 1`.
+
+**`PYTHONDONTWRITEBYTECODE=1` nie wystarcza:** zabrania bajtkod PISAĆ, a pułapkę robi
+CZYTANIE tego, który już leży. W czystym katalogu ta zmienna **działa** i stąd bierze się
+pomyłka — ale wystarczy jeden wcześniejszy zwykły przebieg, żeby pułapka wróciła.
+Czyszczenie katalogu jest jedyną zmierzoną drogą.
+Pełny opis i liczby: `docs/06-worked-example.md`, bramka: `tools/tests/test_bytecode_staleness.py`.
+
 ### Zakazane formy weryfikacji
 
 - „skrypt wykonał się bez błędu"

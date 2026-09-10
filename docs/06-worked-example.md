@@ -65,6 +65,73 @@ kolejne domysły nie rozstrzygnęły.
 tego, czy geometria jest dobra. Dlatego kamery wnętrza deklarują `wire` w manifeście —
 to wiedza o kamerze, nie o wywołaniu.
 
+## Kontrola negatywna na module Pythona: `md5sum -c` mówi o pliku, nie o tym, co się wykonało
+
+Zadanie: sprawdzić, czy bramka NAPRAWDĘ łapie zepsutą wartość. Procedura wygląda tak,
+że psujesz stałą, uruchamiasz bramkę, przywracasz plik i sprawdzasz sumę.
+
+**Co pokazał przyrząd:**
+
+```
+tools/physics/reference.py: OK
+```
+
+Plik był przywrócony. Naprawdę. A mimo to bramka dwa razy zgłosiła `F0_N: 251389.0` —
+wartość z **poprzedniej** mutacji (6.D86).
+
+**Dlaczego.** CPython uznaje `.pyc` za ważny po parze **(mtime źródła w SEKUNDACH,
+rozmiar w bajtach)**. Podmiana `248900.0` → `251389.0` ma dokładnie tę samą długość,
+a `cp` przywracający plik trafił w tę samą sekundę co mutacja — więc żadne z tych
+dwóch pól nie drgnęło i import poszedł ze starego bajtkodu. **Suma MD5 mówi o pliku
+`.py`, a wykonuje się `.pyc`.**
+
+**Pułapka działa w obie strony, i druga jest groźniejsza.** Zmierzone na rzeczywistej
+bramce (`test_reference_snapshot.py`), mutacja w tej samej sekundzie co przebieg bazowy:
+
+```
+PRÓBA 1 — bez procedury
+   baza:     5/5 przeszło, kod 0
+   mutacja:  5/5 przeszło, kod 0     <- MA być czerwona
+
+PRÓBA 2 — z czyszczeniem __pycache__ przed mutacją
+   baza:     5/5 przeszło, kod 0
+   mutacja:  1/5 przeszło, kod 1     <- prawda
+```
+
+Bez procedury kontrola negatywna wychodzi **zielona** i czyta się jako „bramka tego nie
+łapie". To jest fałszywy wniosek w drugą stronę, bez żadnego śladu, że coś poszło nie tak.
+
+**Procedura.** Przed **każdym** przebiegiem kontroli negatywnej na module Pythona:
+
+```bash
+find . -name __pycache__ -prune -exec rm -rf {} + 2>/dev/null
+```
+
+**`PYTHONDONTWRITEBYTECODE=1` NIE wystarcza** i to jest zmierzone, nie przewidziane:
+zmienna zabrania bajtkod **pisać**, a pułapkę robi **czytanie** tego, który już leży.
+Z `.pyc` z wcześniejszego, zwykłego przebiegu na dysku mutacja pod tą zmienną nadal
+jest niewidoczna.
+
+**A jednak w czystym katalogu ta zmienna działa — i stąd bierze się pomyłka.** Gdy
+ustawić ją od pierwszego przebiegu, `.pyc` nie powstaje nigdy i mutacja jest widoczna;
+pomiar zrobiony na świeżo ją więc potwierdza. Nie potwierdza jej życie: wystarczy
+**jeden** wcześniejszy zwykły przebieg — zestaw uruchomiony godzinę temu — żeby
+pułapka wróciła. Dlatego procedura każe **czyścić katalog**, a nie ustawiać zmienną.
+Obie połowy tego rozstrzygnięcia są przybite w `tools/tests/test_bytecode_staleness.py`,
+każda osobnym testem, bo pojedynczy test na jedną z nich opisywałby co innego, niż mówi.
+
+**Czego to nie kosztuje.** Trzy pary przebiegów całego zestawu, zimny kontra ciepły:
+126,27 / 125,65 / 127,47 s wobec 127,17 / 127,49 / 125,25 s — czyli **żadnego
+mierzalnego zysku** z cache'u, bo moduły testowe i tak kompilują się ze źródła przez
+`assertion_gate.load_instrumented`. Zestaw mimo to nie czyści katalogu sam: to byłoby
+wyłączenie cache'u na stałe także w CI, a tam pułapki nie ma — `actions/checkout` robi
+`git clean -ffdx`, `__pycache__` jest w `.gitignore`, więc każdy przebieg CI zaczyna
+zimno. **To jest zagrożenie lokalne, dla agenta i dla właściciela.**
+
+**Wniosek czwarty:** przyrząd potwierdzający przywrócenie musi oglądać to, co się
+wykonuje, a nie to, co leży na dysku. Suma MD5 na źródle jest o pliku; o przebiegu
+mówi dopiero pusty `__pycache__`.
+
 ## Wzór na dowód
 
 Dobre zadanie geometryczne kończy się **dwiema niezależnymi drogami do tej samej liczby**.

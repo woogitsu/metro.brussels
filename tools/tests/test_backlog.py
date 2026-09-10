@@ -291,7 +291,14 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 #: zostawiłby drzewo czerwone. Wszystkie sześć wyszło z pomiarów zrobionych przy
 #: pozycjach 6.D90, 6.D91, 6.D92, 6.D94, 6.D95 i 6.D96, zapisanych tam jako zauważone.
 #: Wartość z `len(detail_sections(...))` na pliku po edycji.
-MINIMUM_DETAIL_BLOCKS = 185
+#: **185 → 191 (10.09.2026, przy 6.D102).** Sześć bloków: 6.D113 … 6.D118, i znowu
+#: NIE osobnym commitem, z tej samej arytmetyki: domknięcie 6.D102 zbija kolejkę
+#: z dwunastu na jedenaście. Wszystkie sześć wyszło z pomiarów zrobionych przy
+#: pozycjach 6.D97, 6.D99, 6.D100, 6.D101 i 6.D102 i zapisanych tam jako zauważone;
+#: 6.D114 jest jedynym, na który natrafiłem NIE z lektury, tylko wołając zestaw
+#: z czterema modułami i dostając wynik jednego. Wartość
+#: z `len(detail_sections(...))` na pliku po edycji.
+MINIMUM_DETAIL_BLOCKS = 191
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
