@@ -57,6 +57,32 @@ WYCOFANE = {
 }
 
 
+#: Drugi dokument z WŁASNĄ tabelą statusów — 6.D105. Klasyfikuje wymiary geometrii,
+#: a nie parametry modelu jazdy, więc ma prawo definiować swoje nazwy i NIE jest
+#: plikiem cytującym. Reguła jest tu inna niż w `CYTUJACY`: nie „nie wymieniaj klas",
+#: tylko „każdy status UŻYTY musi być gdzieś ZDEFINIOWANY".
+GEOMETRIA = os.path.join(ROOT, "docs", "21-measured-vs-assumed.md")
+
+#: Nagłówek kolumny, w której stoi status. Rozpoznanie jest STRUKTURALNE — po nazwie
+#: kolumny tabeli — a nie po zgadywaniu, który napis w grawisach jest statusem.
+#: Zmierzone 10.09.2026: sam skan „komórka będąca pojedynczym napisem w grawisach"
+#: łapie też `box_double`, `bore_single`, `station` i `null`, czyli nazwy profili
+#: tunelu i wartość pustą — cztery fałszywe trafienia na cztery prawdziwe nazwy.
+KOLUMNA_STATUSU = "status"
+
+#: Nagłówek tabeli DEFINIUJĄCEJ w dokumencie geometrii.
+NAGLOWEK_DEFINICJI = ["status", "znaczenie"]
+
+#: Komórka będąca samą nazwą statusu, z opcjonalnym pogrubieniem.
+KOMORKA_STATUSU = re.compile(r"^\*{0,2}`([a-z_]+)`\*{0,2}$")
+
+#: Nazwa w grawisach — do przeszukania PROZY, ale wyłącznie po SŁOWNIKU ZAMKNIĘTYM
+#: (suma obu tabel). Wzorzec sam nie rozstrzyga, co jest statusem, bo rozstrzygnąć
+#: tego na prozie nie sposób: pierwsza wersja bramki z 6.D89 zgłosiła `as_of` z listy
+#: pól metadanych. Nazwa nieznana jest łapana gdzie indziej — w kolumnie tabeli.
+W_GRAWISACH = re.compile(r"`([a-z_]+)`")
+
+
 def _read(path):
     with open(path, encoding="utf-8") as handle:
         return handle.read()
@@ -86,9 +112,212 @@ def klasy_w_danych():
     return z_danych
 
 
+def _tabele(tekst):
+    """`(naglowek, wiersze)` dla każdej tabeli markdownu w tekście."""
+    linie = tekst.split("\n")
+    i = 0
+    while i < len(linie) - 1:
+        if linie[i].startswith("|") and re.match(r"^\|[\s:|-]+\|$", linie[i + 1]):
+            naglowek = [c.strip() for c in linie[i].strip().strip("|").split("|")]
+            j, body = i + 2, []
+            while j < len(linie) and linie[j].startswith("|"):
+                body.append([c.strip() for c in linie[j].strip().strip("|").split("|")])
+                j += 1
+            yield naglowek, body
+            i = j
+        else:
+            i += 1
+
+
+def klasy_dokumentu_geometrii():
+    """Zbiór statusów, które `docs/21` definiuje we WŁASNEJ tabeli."""
+    znane = set()
+    for naglowek, body in _tabele(_read(GEOMETRIA)):
+        if naglowek != NAGLOWEK_DEFINICJI:
+            continue
+        for wiersz in body:
+            trafienie = KOMORKA_STATUSU.match(wiersz[0]) if wiersz else None
+            if trafienie:
+                znane.add(trafienie.group(1))
+    return znane
+
+
+def statusy_w_kolumnach_geometrii(tekst=None):
+    """`{status: ile}` z KOLUMN `status` tabel `docs/21`, bez tabeli definiującej.
+
+    Tu łapie się nazwa NIEZNANA: kolumna jest miejscem, w którym stoi status i nic
+    innego, więc nie trzeba zgadywać.
+    """
+    znalezione = {}
+    for naglowek, body in _tabele(_read(GEOMETRIA) if tekst is None else tekst):
+        if naglowek == NAGLOWEK_DEFINICJI or KOLUMNA_STATUSU not in naglowek:
+            continue
+        k = naglowek.index(KOLUMNA_STATUSU)
+        for wiersz in body:
+            if k >= len(wiersz):
+                continue
+            trafienie = KOMORKA_STATUSU.match(wiersz[k])
+            if trafienie:
+                nazwa = trafienie.group(1)
+                znalezione[nazwa] = znalezione.get(nazwa, 0) + 1
+    return znalezione
+
+
+def statusy_uzyte_w_geometrii(tekst=None):
+    """`{status: ile}` — wszystkie użycia nazw ze SŁOWNIKA ZAMKNIĘTEGO w `docs/21`.
+
+    `tekst` służy WYŁĄCZNIE kontroli przyrządu: podstawia treść dokumentu bez
+    pisania po drzewie. Ta sama droga, co `nadpisz` w bramce swoistości igieł.
+
+    Słownik to suma obu tabel. Nazwa spoza sumy nie jest tu szukana i nie ma być:
+    rozstrzyganie na prozie, czy dowolny napis w grawisach jest statusem, jest
+    heurystyką, którą 6.D89 zmierzyło jako zawodną.
+    """
+    slownik = klasy_z_dokumentu() | klasy_dokumentu_geometrii()
+    znalezione = {}
+    for nazwa in W_GRAWISACH.findall(_read(GEOMETRIA) if tekst is None else tekst):
+        if nazwa in slownik:
+            znalezione[nazwa] = znalezione.get(nazwa, 0) + 1
+    return znalezione
+
+
+def statusy_obce_bez_zrodla(tekst=None):
+    """Statusy użyte w `docs/21`, których ten dokument nie definiuje ani nie przypisuje.
+
+    „Przypisuje" znaczy: w tym samym AKAPICIE stoi nazwa statusu i ścieżka dokumentu,
+    który ją definiuje. Nie po całym pliku, bo zdanie o źródle ma stać PRZY nazwie;
+    i nie po wierszu, bo zdanie prozy w markdownie łamie się na kilka wierszy — na
+    tym pierwsza wersja tej funkcji się wywróciła, uznając za nieprzypisaną nazwę
+    opisaną akapit wyżej niż ścieżka (zmierzone 10.09.2026 na własnej poprawce).
+    """
+    wlasne = klasy_dokumentu_geometrii()
+    zrodlo = os.path.relpath(MODEL, ROOT).replace(os.sep, "/")
+    tresc = _read(GEOMETRIA) if tekst is None else tekst
+    akapity = re.split(r"\n\s*\n", tresc)
+    bez = []
+    for nazwa in sorted(set(statusy_uzyte_w_geometrii(tekst)) - wlasne):
+        przypisany = any("`%s`" % nazwa in akapit and zrodlo in akapit
+                         for akapit in akapity)
+        if not przypisany:
+            bez.append(nazwa)
+    return bez
+
+
 def nazwy_w_grawisach(relative):
     """Napisy `w_grawisach` z pliku — bez rozstrzygania, czy są klasą."""
     return set(re.findall(r"`([a-z_]+)`", _read(os.path.join(ROOT, relative))))
+
+
+def test_every_status_in_the_geometry_document_is_defined_somewhere():
+    """Status z KOLUMNY tabeli `docs/21` należy do sumy obu tabel — 6.D105.
+
+    **Reguła jest tu inna niż dla plików cytujących i to jest cała treść podziału.**
+    `CYTUJACY` mają NIE wymieniać klas, tylko odsyłać; dla `docs/21` ta reguła jest
+    nieprawdziwa, bo on klasyfikuje wymiary geometrii i ma prawo definiować własne
+    nazwy. Reguła dla tej roli brzmi: każdy status UŻYTY musi być gdzieś ZDEFINIOWANY.
+
+    Kolumna, a nie proza: pytanie „czy ten napis w grawisach jest statusem" nie ma
+    na prozie pewnej odpowiedzi (6.D89 zgłosiło tak `as_of`). Kolumna `status` jest
+    miejscem, w którym stoi status i nic innego.
+    """
+    slownik = klasy_z_dokumentu() | klasy_dokumentu_geometrii()
+    obce = sorted(set(statusy_w_kolumnach_geometrii()) - slownik)
+    assert obce == [], (
+        "kolumna `status` w %s ma nazwy spoza sumy obu tabel: %s"
+        % (os.path.relpath(GEOMETRIA, ROOT), obce))
+
+
+def test_every_foreign_status_in_the_geometry_document_names_its_source():
+    """Nazwa z cudzej tabeli musi mieć w `docs/21` wskazane źródło definicji.
+
+    **Zmierzona usterka 6.D105:** `docs/21` używał `design_model` sześć razy, nie
+    definiując go i nie odsyłając po niego nigdzie. Nazwa była czytelna wyłącznie
+    dla kogoś, kto wie o istnieniu drugiej tabeli — a dokument nie mówił, że taka
+    istnieje.
+    """
+    bez = statusy_obce_bez_zrodla()
+    assert bez == [], (
+        "%s używa statusów, których nie definiuje i nie przypisuje do %s: %s"
+        % (os.path.relpath(GEOMETRIA, ROOT), os.path.relpath(MODEL, ROOT), bez))
+
+
+def test_the_two_status_tables_share_exactly_the_two_measured_names():
+    """Dwie tabele, dwie nazwy wspólne, po dwie wyłączne — 6.D105.
+
+    Ta asercja jest kotwicą na PODZIAŁ, nie na treść: zlanie tabel w jedną albo
+    przeniesienie nazwy z jednej do drugiej jest decyzją właściciela (pole „Poza
+    zakresem" pozycji), a nie skutkiem ubocznym edycji dokumentu. Zmierzone
+    10.09.2026: wspólne `observed` i `spec`; wyłączne tu `blocked`
+    i `design_assumption`, tam `design_model` i `est`.
+    """
+    geometria = klasy_dokumentu_geometrii()
+    model = klasy_z_dokumentu()
+    assert geometria & model == {"observed", "spec"}, sorted(geometria & model)
+    assert geometria - model == {"blocked", "design_assumption"}, sorted(geometria - model)
+    assert model - geometria == {"design_model", "est"}, sorted(model - geometria)
+
+
+def test_the_geometry_readers_are_parsing_and_not_returning_a_constant():
+    """Kontrola przyrządu dla obu czytników `docs/21`, na wejściu syntetycznym.
+
+    Oba mogą zwrócić pusty zbiór i wtedy oba werdykty wyżej są zielone z niewiedzy.
+    Sprawdzane jest więc, że czytnik kolumn NAPRAWDĘ czyta kolumnę — i że odsiewa
+    komórki, które statusem nie są.
+    """
+    # Dolne ostrza na dzisiejszym drzewie.
+    assert len(klasy_dokumentu_geometrii()) == 4, sorted(klasy_dokumentu_geometrii())
+    w_kolumnach = statusy_w_kolumnach_geometrii()
+    assert sum(w_kolumnach.values()) >= 17, (
+        "kolumny `status` dają %d wystąpień, a 10.09.2026 było ich 17 — czytnik "
+        "przestał widzieć tabele" % sum(w_kolumnach.values()))
+    assert statusy_uzyte_w_geometrii().get("design_model", 0) >= 6, (
+        "`design_model` znika z `docs/21` — jeśli naprawdę zniknął, zdejmij zdanie "
+        "o źródle; jeśli nie, czytnik prozy przestał go widzieć")
+
+    # Czytnik kolumn ODSIEWA komórki, które statusem nie są: nazwy profili tunelu
+    # i wartość pustą. Zmierzone 10.09.2026 — skan „komórka w grawisach" bez
+    # rozpoznania kolumny łapał `box_double`, `bore_single`, `station` i `null`.
+    for nie_status in ("box_double", "bore_single", "station", "null"):
+        assert nie_status not in w_kolumnach, (
+            "czytnik kolumn wziął %r za status — rozpoznanie po nazwie kolumny "
+            "przestało działać" % nie_status)
+
+    # PRZYPISANIE IDZIE PO AKAPICIE, nie po całym pliku, i to jest sprawdzane na
+    # wejściu syntetycznym — bo na dzisiejszym dokumencie obie reguły dają to samo.
+    # Zmierzone 10.09.2026: rozluźnienie do „gdziekolwiek w pliku" nie zapalało
+    # niczego, więc granica akapitu nie była przez nic przybita.
+    zrodlo = os.path.relpath(MODEL, ROOT).replace(os.sep, "/")
+    rozdzielone = ("Tu stoi `design_model` i nic poza tym.\n"
+                   "\n"
+                   "A tu, akapit dalej, stoi ścieżka %s.\n" % zrodlo)
+    assert statusy_obce_bez_zrodla(rozdzielone) == ["design_model"], (
+        "nazwa i ścieżka w RÓŻNYCH akapitach uchodzą za przypisanie: %s"
+        % statusy_obce_bez_zrodla(rozdzielone))
+    razem = "Tu stoi `design_model`, a definiuje ją %s.\n" % zrodlo
+    assert statusy_obce_bez_zrodla(razem) == [], (
+        "nazwa i ścieżka w TYM SAMYM akapicie nie uchodzą za przypisanie: %s"
+        % statusy_obce_bez_zrodla(razem))
+
+    # TABELA DEFINIUJĄCA NIE JEST UŻYCIEM, i to też idzie przez wejście syntetyczne:
+    # na dzisiejszym dokumencie wliczenie jej podniosłoby tylko liczby, nie zmieniając
+    # ani jednego werdyktu, więc wyłączenie nie było przez nic przybite (zmierzone
+    # 10.09.2026 kontrolą, która wyszła zielona).
+    sama_definicja = ("| status | znaczenie |\n|---|---|\n"
+                      "| **`spec`** | wartość ze źródła |\n")
+    assert statusy_w_kolumnach_geometrii(sama_definicja) == {}, (
+        "tabela DEFINIUJĄCA policzona jako użycie: %s"
+        % statusy_w_kolumnach_geometrii(sama_definicja))
+    uzycie = ("| wymiar | wartość | status |\n|---|---|---|\n"
+              "| coś | 1 m | `spec` |\n")
+    assert statusy_w_kolumnach_geometrii(uzycie) == {"spec": 1}, (
+        "tabela UŻYWAJĄCA nie została policzona: %s"
+        % statusy_w_kolumnach_geometrii(uzycie))
+
+    # I że rozpoznanie tabeli jest strukturalne, a nie po tekście dokumentu.
+    syntetyk = ("| wymiar | wartość | status |\n|---|---|---|\n"
+                "| coś | 1 m | `nie_ma_takiego` |\n")
+    naglowki = [n for n, _b in _tabele(syntetyk)]
+    assert naglowki == [["wymiar", "wartość", "status"]], naglowki
 
 
 def test_no_citing_file_repeats_the_class_list():

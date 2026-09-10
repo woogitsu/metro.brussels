@@ -13,6 +13,16 @@ Statusy używane w repo:
 | **`design_assumption`** | decyzja projektowa. **Nie jest faktem o sieci** i nie wolno jej tak przedstawiać |
 | **`blocked`** | wymiar potrzebny, ale niemożliwy do ustalenia z dostępnych źródeł |
 
+**Piąta nazwa, `design_model`, NIE jest tu zdefiniowana i nie ma być** (10.09.2026,
+6.D105). Definiuje ją `docs/02-simulation.md`: „świadome założenie symulatora", i tam
+też stoi jej znaczenie. Ten dokument klasyfikuje **wymiary geometrii**, tamten —
+**parametry modelu jazdy**, i to są dwie różne role, więc tabele zostają dwie.
+`design_model` pojawia się niżej **sześć razy** (stan na 10.09.2026), zawsze tam, gdzie
+mowa o wartości pochodzącej z modelu jazdy, a nie z pomiaru geometrii. Tabele mają
+**dwie nazwy wspólne** (`spec`, `observed`) i po dwie wyłączne: tu `design_assumption`
+i `blocked`, tam `est` i `design_model`. Pilnuje tego
+`tools/tests/test_provenance_classes.py`.
+
 Pilnuje tego `tools/tests/test_dimension_audit.py`: każda stała `DESIGN_*`, każdy klucz
 specyfikacji M7, każdy profil tunelu i każda stała geometryczna musi mieć w tym pliku
 wpis. Dopisanie parametru bez wpisu wywraca testy.
