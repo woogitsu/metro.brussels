@@ -31,6 +31,10 @@ wzmianki) jest poza zakresem tej pozycji.
 """
 import glob
 import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import tree_walk as TW  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
@@ -63,7 +67,7 @@ def _sim_sources():
 def _test_corpus_text():
     """Treść każdego pliku pod `tests/` w jednym ciągu na plik — jak `grep -rlw` po katalogu."""
     texts = []
-    for dirpath, _dirnames, filenames in os.walk(TESTS_ROOT):
+    for dirpath, _dirnames, filenames in TW.walk(TESTS_ROOT):
         for filename in filenames:
             path = os.path.join(dirpath, filename)
             try:

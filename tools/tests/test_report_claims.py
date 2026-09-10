@@ -26,6 +26,10 @@ porównywaną, nigdy źródłem.
 import glob
 import os
 import re
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import tree_walk as TW  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 REPORTS = os.path.join(ROOT, "reports")
@@ -91,7 +95,7 @@ CLAIM_EXCEPTIONS = set()
 
 def _source_files():
     for where in SOURCE_DIRS:
-        for base, _dirs, files in os.walk(os.path.join(ROOT, where)):
+        for base, _dirs, files in TW.walk(os.path.join(ROOT, where)):
             if any(skip in base for skip in SKIP_DIRS):
                 continue
             for name in sorted(files):
