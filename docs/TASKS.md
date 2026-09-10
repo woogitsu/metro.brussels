@@ -973,6 +973,14 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.D116 | **Dwie nazwy klawiszy nie są związane z `project.godot` przez nic** | zmierzone 10.09.2026 przy 6.D99: `DriverActionsTests` porównuje `binding.KeyName` z `physical_keycode` **tylko dla nazw jednoznakowych** (`KeyName.Length == 1`), więc pięć z siedmiu. „Esc" i „Spacja" nie wchodzą pod tę pętlę i zmiana `"Esc"` na `"Escape"` nie zapali dziś żadnej bramki. Dla „Spacji" katalog tekstów dokłada dwie bramki, dla „Esc" — żadnej | S |
 | 6.D117 | **Trzeci kształt przejścia po drzewie (`glob.glob(**, recursive=True)`) stoi poza wspólnym odsianiem i nikt go nie liczy** | zauważone 10.09.2026 przy 6.D97 i tam nietknięte: bramka z 6.D74 pilnuje `os.walk`, 6.D97 dołożyło skan kopii listy katalogów, a `_all_sim_cs_files` chodzi `glob`iem i `.gitignore` go nie dotyczy. Tam jest to zamierzone, ale kształt jest ogólny i dziś nikt nie wie, ile miejsc go używa ani które z nich są zamierzone | M |
 | 6.D118 | **`has_placeholder` skanuje od 6.D100 także ciało heredoku, a ciało bywa danymi** | zauważone 10.09.2026 przy 6.D100 i tam nietknięte: kolektor skleja ciało heredoku z komendą, więc `<plan>` wpisany do ciała zostanie zgłoszony jako miejsce do wypełnienia. Czasem to prawda (ktoś ma wpisać wartość), a czasem ciało jest programem, w którym nawias ostrokątny jest składnią. Dziś w drzewie taki przypadek nie występuje, więc pozycja ma najpierw ROZSTRZYGNĄĆ na wejściu syntetycznym, czy rozróżnienie jest w ogóle możliwe | S |
+| 6.D119 | **Kabina i wnętrze jako układ kanoniczny — decyzja właściciela z 10.09.2026** | `--view=cab` jest dziś samą KAMERĄ: kabiny nie ma ani w geometrii, ani w scenie, i to jest największa dziura między demo przejazdu a prowadzeniem pociągu. Decyzja: budować układ kanoniczny tą samą drogą co T-212, wszystkie wymiary `design_assumption`, żaden nie udaje faktu o M7. Blokady prawnej nie ma — `docs/03-legal.md` nie mówi o kabinie nic osobnego, a nie kopiujemy niczyjego rzutu | L |
+| 6.D120 | **Cząstkowy profil pionowy wchodzi do sceny — decyzja właściciela z 10.09.2026** | `vertical_profile.py` liczy dziś 485,29 m nominalnie na odcinku Parc↔Arts-Loi i zostawia resztę jako `unknown`, ale scena i generator tuneli tego nie czytają: sześć osi ma `vertical.status = not_modelled`, a `--variant production` jest odrzucany. Decyzja rozwija rozstrzygnięcie z 07.09.2026 („budować z jawnym `unknown`") o wpuszczenie wyniku do geometrii | M |
+| 6.D121 | **Pięć punktów README „Czego nie ma" wobec drzewa — decyzja właściciela z 10.09.2026** | 6.D104 zmierzyło, że punkt o stacjach jest NIEPRAWDZIWY (T-212 scalone jako #137, 37 brył na Parc), i nie poprawiło go, bo zmiana treści README była poza zakresem tamtej pozycji. Decyzja: przejrzeć wszystkie pięć punktów, nie tylko ten jeden. Trzy z nich mają już pomiar w `POMIARY_BRAKOW`, więc rozjazd widać poleceniem | S |
+| 6.D122 | **Zestaw czyści `__pycache__` sam — decyzja właściciela z 10.09.2026** | 6.D102 zmierzyło, że cache bajtkodu daje **0,18 s na 126 s** przy rozrzucie rzędu 2 s, czyli zysku nie ma; pole „Poza zakresem" tamtej pozycji wykluczało wyłączanie go w CI właśnie „gdzie zysk czasowy jest realny". Decyzja zdejmuje wykluczenie, którego przesłanka okazała się nieprawdziwa. Pułapka dotyczy też zwykłej edycji, nie tylko kontroli negatywnej | S |
+| 6.D123 | **Zamek na dzienniku sweepa zamiast unikatowej nazwy** | 6.D106 dało nazwie dziennika element procesu i tym samym **zdjęło wznowienie po nazwie domyślnej**; zostało ono tylko przez jawne `--journal`. Zamek na pliku zachowałby jedno i drugie: wznowienie i brak mieszania wyników dwóch równoległych przebiegów. Ma własne tryby awarii (zamek po ubitym procesie) i dlatego jest osobną pozycją, a nie poprawką w tamtej | M |
+| 6.D124 | **`approximate: True` przy masie pustej nie jest przez nic czytane** | zauważone 10.09.2026 przy 6.D107: rejestr M7 mówi o masie pustej „STIB states approximately 170 tonnes" i niesie `approximate: True`, a model hamowania bierze samo `value` i nigdzie nie mówi, że liczba jest przybliżona. To jest pytanie o to, JAK niepewność wchodzi do modelu — dotyczy każdego parametru z tą flagą, nie jednego | M |
+| 6.D125 | **Gałąź `cleared` schematu audio nie żąda `as_of`** | zauważone 10.09.2026 przy 6.D103: wpis może mieć `rights_status = cleared` i zgodę albo licencję, a nie mieć daty, od której to obowiązuje. Prawo do dźwięku bywa terminowe, więc „cleared" bez daty jest zdaniem niepełnym. Zmiana schematu jest decyzją o danych, więc pozycja ma najpierw ZMIERZYĆ, ilu wpisów by dotyczyła (dziś: trzynaście zastępników, zero `cleared`) | S |
+| 6.D126 | **Pole „Weryfikacja" bloku 6.D74 wskazuje moduł, który tej bramki nie zawiera** | zauważone 10.09.2026 przy 6.D101: pole wskazuje `test_scan_gates.py` jako miejsce bramki o przejściach po drzewie, a bramka mieszka w `test_tree_walks.py`. Plik o tej nazwie istnieje, więc bramka adresów z 6.D101 tego nie łapie — jej pole „Poza zakresem" wyklucza pytanie o treść modułu. Blok jest wykonany, więc poprawka jest zmianą zapisu historycznego i wymaga zdania, dlaczego wolno | S |
 
 #### Szczegóły pozycji z kompletem sześciu pól
 
@@ -5851,7 +5859,7 @@ MINIMUM_DETAIL_BLOCKS = 73
   liczby**.
 - **Poza zakresem:** zmiana hierarchii źródeł (OSM zostaje klasą 4), dopisywanie
   kluczy API, zmiana `access.authentication`, pobieranie czegokolwiek do `data/`.
-- **Zależy od:** decyzji właściciela o zapisie do `data/network/sources.json`.
+- **Zależy od:** brak. **Odblokowane decyzją właściciela z 10.09.2026** (sekcja „Rozstrzygnięte 10.09.2026" niżej): zgoda na zapis do `data/network/sources.json` dotyczy tej pozycji i tego pliku; `data/` zostaje tylko do odczytu wszędzie indziej.
 
 ##### 6.D54 · Wyrocznia zieloności kłamie na `sys.exit(0)` — i tylko w tę stronę
 
@@ -7660,8 +7668,11 @@ nie sięga, nawet gdy nie ma nic innego do roboty; wtedy sięga po fazę 5.
   nawet w obrębie przedrostka, a dla dwóch z sześciu cytowanych zapadek żaden nie jest
   bezpieczny (`MAX_REPORTS_WITHOUT_FIELD_LINE` wolno podnosić za powodem,
   `MINIMUM_READY_ITEMS` jest progiem polityki, nie zapadką).
-- **Zależy od:** decyzji właściciela, który z trzech mechanizmów wybrać — to jest
-  wybór, **czym ta bramka ma być**, a nie szczegół implementacji (`CLAUDE.md` §8).
+- **Zależy od:** brak. **Rozstrzygnięte decyzją właściciela z 10.09.2026**: wchodzi
+  mechanizm (b) — **data ostatniej zmiany stałej z gita**, wraz z `fetch-depth: 0`
+  w workflowach. Bez pełnej historii mechanizm nie działa w CI wcale
+  (`actions/checkout` bez `fetch-depth` daje głębokość 1), więc jedno i drugie jest
+  treścią tej pozycji. Wariantów (a) i (c) nie realizuje nic.
 
 ##### 6.D109 · Próg zapasu liczy pozycje WPISANE, a nie te do wzięcia
 
@@ -7954,6 +7965,258 @@ nie sięga, nawet gdy nie ma nic innego do roboty; wtedy sięga po fazę 5.
 - **Poza zakresem:** zmiana treści bloku 6.A24 i rozszerzanie `PLACEHOLDER` o kształty
   spoza nawiasu ostrokątnego.
 - **Zależy od:** 6.D100.
+
+##### 6.D119 · Kabina i wnętrze jako układ kanoniczny
+
+- **Skąd:** decyzja właściciela z 10.09.2026, po pytaniu „ile brakuje do grania".
+  Zmierzone tego dnia: kabiny nie ma ani w `tools/blender/`, ani w scenie;
+  `--view=cab` z `RunPlan.KnownViews` ustawia KAMERĘ i nic poza tym.
+- **Dlaczego układ kanoniczny, a nie z pomiaru:** ta sama droga i ten sam powód, co
+  przy T-212. STIB nie publikuje rzutów kabiny, a `docs/03-legal.md` nie daje prawa do
+  cudzych rysunków. Układ kanoniczny **nie udaje** kabiny M7 i ma to mówić wprost
+  w metadanych, tak jak zespół dostępu stacji mówi to o antresoli.
+- **Wejście:** `tools/blender/m7_shell.py` i `tools/blender/m7_layout.py` (bryła
+  zewnętrzna i jej wymiary), `data/vehicle/m7-spec.json` (tylko do odczytu),
+  `src/Game/RunPlan.cs` (`KnownViews`), `docs/21-measured-vs-assumed.md`.
+- **Wyjście:** moduł liczący geometrię kabiny **bez `bpy`**, jak
+  `tools/track/station_components.py`, plus generator w Blenderze; każdy wymiar jako
+  jawna stała `DESIGN_*` z wpisem w `docs/21`.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_dimension_audit.py
+  ```
+  Oczekiwane: zestaw zielony, a każda nowa stała `DESIGN_*` ma wpis w `docs/21` —
+  dopisanie wymiaru bez wpisu wywraca test.
+- **Skończone, gdy:** każdy wymiar kabiny ma status `design_assumption` i wpis
+  w `docs/21`, a cztery zrzuty kontrolne (`_iso`, `_side`, `_normals`, `_inside`) są
+  **obejrzane i opisane słowami** zgodnie z `CLAUDE.md` §5.
+- **Poza zakresem:** przyrządy, wskaźniki i cokolwiek, co ma pokazywać stan pociągu —
+  ta pozycja robi bryłę, nie interfejs. Odwzorowywanie prawdziwej kabiny M7 z czyichś
+  zdjęć.
+- **Zależy od:** T-220.
+
+##### 6.D120 · Cząstkowy profil pionowy wchodzi do sceny
+
+- **Skąd:** decyzja właściciela z 10.09.2026. `tools/track/vertical_profile.py` liczy
+  dziś **485,29 m** nominalnie na odcinku Parc↔Arts-Loi i zostawia resztę jako
+  `unknown` (trzy znane rzędne z dwunastu stacji pakietu A), ale wynik nie wchodzi do
+  geometrii: sześć osi w `data/track/` ma `vertical.status = not_modelled`, wszystkie
+  punkty mają Z = 0, a `tunnel_manifest.py` odrzuca `--variant production`.
+- **Dlaczego to nie jest T-112 w całości:** T-112 czeka na T-901, czyli na rzędne,
+  których nie ma. Ta pozycja nie czeka na nic — bierze te, które SĄ, i pokazuje
+  resztę jako dziurę. Decyzja z 07.09.2026 mówiła „budować z jawnym `unknown`"
+  o danych; ta rozwija ją o wpuszczenie wyniku do sceny.
+- **Wejście:** `tools/track/vertical_profile.py`, `tools/blender/tunnel_sweep.py`,
+  `tools/blender/tunnel_manifest.py`, `data/network/station-depths.csv` (do odczytu),
+  `data/track/L1_A.json` (do odczytu).
+- **Wyjście:** tunel z niezerowym Z na odcinku o znanych rzędnych i płaski poza nim,
+  z granicą **widoczną w metadanych**, a nie wygładzoną; wariant nazwany tak, żeby nie
+  udawał `production`.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_vertical_profile.py
+  ```
+  plus cztery zrzuty kontrolne odcinka z profilem, **obejrzane i opisane**.
+- **Skończone, gdy:** odcinek Parc↔Arts-Loi ma w geometrii rzędne z rejestru,
+  reszta osi zostaje na Z = 0, a przejście między nimi jest w manifeście nazwane
+  i policzalne — nie interpolowane przez niewiadomą.
+- **Poza zakresem:** rozstrzyganie konfliktu Schuman 15 m vs 17,42 m i zdejmowanie
+  blokady z T-112. Ekstrapolacja poza zakres znanych rzędnych.
+- **Zależy od:** 6.B44.
+
+##### 6.D121 · Pięć punktów README wobec drzewa
+
+- **Skąd:** decyzja właściciela z 10.09.2026 po pomiarze 6.D104, który znalazł
+  w sekcji „Czego nie ma" zdanie **nieprawdziwe**: „pierwsza stacja typowa (T-212)
+  jest dopiero w planie", podczas gdy T-212 jest scalone jako #137 i dało 37 brył na
+  stacji Parc. 6.D104 tego nie poprawiło, bo zmiana treści README była poza jego
+  zakresem — i to jest dokładnie ta pozycja.
+- **Dlaczego wszystkie pięć, a nie ten jeden:** trzy punkty mają od 6.D104 pomiar
+  w `POMIARY_BRAKOW`, więc ich rozjazd widać poleceniem; dwa mają zapisany powód,
+  dla którego pomiaru mieć nie mogą. Punkt o stacjach jest jedynym, o którym wiadomo,
+  że jest fałszem — ale wiadomo to dlatego, że ktoś sprawdził, a nie dlatego, że
+  bramka zapaliła.
+- **Wejście:** `README.md` (sekcja „Czego nie ma"), `tools/tests/test_readme_claims.py`
+  (`PUNKTY_BRAKOW`, `POMIARY_BRAKOW`, `POWODY_BEZ_WPISU`), `docs/TASKS.md` (stan T-212),
+  `reports/6d104-piec-punktow-czego-nie-ma.md`.
+- **Wyjście:** każdy z pięciu punktów zgodny z drzewem, a punkt o stacjach przepisany
+  tak, żeby mówił obie prawdy: bryły SĄ, a układ jest kanoniczny i wszystkie wymiary
+  to `design_assumption`.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_readme_claims.py
+  ```
+  Oczekiwane: zestaw zielony, a rozstrzygnięcie każdego z pięciu punktów nadal sumuje
+  się do pięciu.
+- **Skończone, gdy:** żaden z pięciu punktów nie mówi o drzewie nieprawdy, a zmiana
+  któregokolwiek jest **uzasadniona pomiarem wypisanym w commicie**, nie przekonaniem.
+- **Poza zakresem:** dopisywanie do sekcji nowych punktów i zmiana `ZAPRZECZENIA` —
+  tamta tabela ma swoją rolę i 6.D104 ją opisało.
+- **Zależy od:** 6.D104.
+
+##### 6.D122 · Zestaw czyści bajtkod sam
+
+- **Skąd:** decyzja właściciela z 10.09.2026. 6.D102 zmierzyło pułapkę starego
+  bajtkodu i zapisało procedurę ręczną w `CLAUDE.md` §5, ale **nie** kazało zestawowi
+  czyścić katalogu — bo pole „Poza zakresem" tamtej pozycji wykluczało wyłączanie
+  cache'u w CI, „gdzie zysk czasowy jest realny". Pomiar w tej samej pozycji pokazał,
+  że zysk to **0,18 s na 126 s** przy rozrzucie między przebiegami rzędu 2 s.
+- **Dlaczego to nie jest wygoda:** pułapka nie ogranicza się do kontroli negatywnych.
+  Zwykła edycja modułu narzędziowego i natychmiastowy przebieg zestawu mają ten sam
+  kształt — ta sama sekunda, ta sama długość — i ten sam stary bajtkod.
+- **Wejście:** `tools/tests/test_all.py`, `tools/tests/test_bytecode_staleness.py`,
+  `tools/tests/test_suite_runtime_budget.py`, `CLAUDE.md` §5,
+  `docs/06-worked-example.md`.
+- **Wyjście:** zestaw czyści `__pycache__` pod `tools/` przed odkryciem modułów,
+  z wypisem mówiącym, że to zrobił; procedura ręczna w obu dokumentach przestaje być
+  jedyną obroną i zostaje opisana jako druga linia.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_bytecode_staleness.py
+  ```
+  plus pomiar czasu całego zestawu przed i po, w trzech parach — tak jak w 6.D102.
+- **Skończone, gdy:** mutacja o tej samej długości wpisana w tej samej sekundzie jest
+  widoczna **bez** ręcznego czyszczenia, a czas zestawu nie rośnie poza rozrzut
+  zmierzony w 6.D102.
+- **Poza zakresem:** zmiana sposobu liczenia testów i czyszczenie czegokolwiek poza
+  `tools/`.
+- **Zależy od:** 6.D102.
+
+##### 6.D123 · Zamek na dzienniku sweepa
+
+- **Skąd:** 6.D106 dało nazwie dziennika element unikatowy dla procesu, bo dwa
+  równoległe przebiegi o tych samych czterech członach dopisywały do jednego pliku,
+  a `read_journal` nie odsiewa powtórzeń — oba raporty liczyły każdą mutację dwa razy.
+  Ceną było **zdjęcie wznowienia po nazwie domyślnej**; zostało tylko przez jawne
+  `--journal`. Decyzja właściciela z 10.09.2026: sprawdzić zamek.
+- **Dlaczego to nie jest cofnięcie 6.D106:** zamek rozwiązuje oba problemy naraz —
+  nazwa może wrócić do postaci zależnej od treści (czyli wznowienie działa), a drugi
+  przebieg **odmawia** zamiast mieszać wyniki. Ma jednak własne tryby awarii, których
+  6.D106 nie mierzyło: zamek po ubitym procesie, zamek na systemie plików bez `flock`.
+- **Wejście:** `tools/tests/mutation_sweep.py` (`default_journal`, `PROCES_ZNACZNIK`,
+  `sweep`), `tools/tests/test_mutation_sweep.py`, `reports/6d106-nazwy-plikow-tymczasowych-sweepa.md`.
+- **Wyjście:** rozstrzygnięcie **pomiarem**, czy zamek zachowuje się poprawnie po
+  ubitym procesie; jeśli tak — nazwa wraca do postaci zależnej od treści, a drugi
+  przebieg odmawia z komunikatem. Jeśli nie — zapisany powód, dla którego zostaje
+  nazwa unikatowa.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_mutation_sweep.py
+  ```
+  Oczekiwane: zestaw zielony, a dwa procesy startujące naraz dają jeden pomiar
+  i jedną odmowę — sprawdzone wykonaniem, nie rozumowaniem.
+- **Skończone, gdy:** wznowienie po nazwie domyślnej działa, dwa równoległe przebiegi
+  nie mieszają wyników, a zamek po procesie ubitym `SIGKILL` nie blokuje następnego
+  przebiegu na stałe.
+- **Poza zakresem:** zmiana zbioru mutacji i sposobu liczenia wyników.
+- **Zależy od:** 6.D106.
+
+##### 6.D124 · Niepewność wartości nie wchodzi do modelu
+
+- **Skąd:** zauważone 10.09.2026 przy 6.D107. `data/vehicle/m7-spec.json` niesie przy
+  masie pustej `approximate: True` i notatkę „STIB states approximately 170 tonnes",
+  a `tools/physics/braking.py` bierze samo `value`. Żaden wypis modelu nie mówi, że
+  któraś z liczb jest przybliżona.
+- **Dlaczego to nie jest jeden parametr:** flaga jest polem rejestru, nie własnością
+  masy. Pozycja ma najpierw **policzyć**, ile wartości w `data/` ją niesie i które
+  z nich wchodzą do modelu jazdy — i dopiero na tej liczbie oprzeć wybór, co z tym
+  zrobić.
+- **Wejście:** `data/vehicle/m7-spec.json` (tylko do odczytu), `tools/physics/braking.py`
+  (`PARAMETRY`, `o_statusie`), `tools/physics/reference.py`,
+  `tools/tests/test_braking.py`.
+- **Wyjście:** liczba wartości z `approximate: True` policzona z drzewa, wykaz tych,
+  które wchodzą do modelu, i rozstrzygnięcie: albo wypis modelu je nazywa, albo
+  zapisany powód, dla którego nie ma po co.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_braking.py
+  ```
+  Oczekiwane: zestaw zielony, a liczba parametrów przybliżonych podana wprost — także
+  wtedy, gdy wynosi jeden.
+- **Skończone, gdy:** liczba jest zmierzona i wypisana, a każdy parametr przybliżony
+  wchodzący do modelu ma rozstrzygnięcie.
+- **Poza zakresem:** zmiana wartości i statusów w `data/`, propagacja niepewności
+  przez model (to jest osobna, większa rzecz).
+- **Zależy od:** 6.D107.
+
+##### 6.D125 · `cleared` bez daty obowiązywania
+
+- **Skąd:** zauważone 10.09.2026 przy 6.D103. Gałąź `rights_status = cleared`
+  w `data/audio/audio-manifest.schema.json` żąda zgody **albo** licencji, ale nie żąda
+  `as_of`. Wpis może więc być „cleared" bez daty, od której to obowiązuje, a prawo do
+  dźwięku bywa terminowe.
+- **Dlaczego pomiar idzie przed zmianą:** zmiana schematu jest decyzją o danych, więc
+  pozycja ma najpierw policzyć, ilu wpisów by dotyczyła. Dziś: **trzynaście**
+  zastępników, **zero** ze statusem `cleared` — czyli zmiana nie dotknęłaby dziś ani
+  jednego wpisu i to jest argument w obie strony.
+- **Wejście:** `data/audio/audio-manifest.schema.json` i `data/audio/placeholders.json`
+  (tylko do odczytu), `tools/tests/test_audio_rights.py` (`galezie`,
+  `niezgodnosci_podschematu`), `docs/03-legal.md`.
+- **Wyjście:** rozstrzygnięcie, czy `as_of` wchodzi do gałęzi `cleared`, z liczbą
+  wpisów, których by dotyczyło, i ze zdaniem o tym, co znaczy „cleared" bez daty.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_audio_rights.py
+  ```
+  Oczekiwane: zestaw zielony, a wpis `cleared` bez `as_of` albo zapala bramkę, albo
+  ma zapisany powód, dla którego jej nie zapala.
+- **Skończone, gdy:** rozstrzygnięcie stoi w schemacie albo w docstringu modułu,
+  a liczba dotkniętych wpisów jest policzona z drzewa, nie przepisana stąd.
+- **Poza zakresem:** zmiana statusu któregokolwiek wpisu i dopisywanie nowych pól
+  poza `as_of`.
+- **Zależy od:** 6.D103.
+
+##### 6.D126 · Adres modułu w polu 6.D74 wskazuje nie tę bramkę
+
+- **Skąd:** zauważone 10.09.2026 przy 6.D101. Pole „Weryfikacja" bloku 6.D74 woła
+  `test_scan_gates.py` jako miejsce bramki o przejściach po drzewie; bramka mieszka
+  w `test_tree_walks.py`. Plik o tej nazwie **istnieje** i testuje co innego, więc
+  bramka adresów z 6.D101 tego nie łapie — jej pole „Poza zakresem" wyklucza pytanie
+  o treść modułu.
+- **Dlaczego to nie jest literówka do cichej poprawki:** blok 6.D74 jest **wykonany**,
+  a zapis pozycji wykonanej jest historią; przepisywanie takich pól było dotąd
+  wykluczane wprost (6.D73, 6.D101). Ta pozycja ma rozstrzygnąć, czy **zły adres**
+  jest wyjątkiem od tej reguły — i zapisać rozstrzygnięcie, a nie tylko poprawkę.
+- **Wejście:** `docs/TASKS.md` (blok 6.D74), `tools/tests/test_field_paths.py`
+  (`missing_modules`, `POMIARY_BRAKOW` nie dotyczy), `tools/tests/test_tree_walks.py`,
+  `tools/tests/test_scan_gates.py`.
+- **Wyjście:** rozstrzygnięcie zapisane w docstringu bramki adresów: czy zapis
+  historyczny wolno poprawiać, gdy jest **fałszywy**, a nie tylko nieaktualny —
+  i, jeśli tak, poprawiony adres z adnotacją.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_field_paths.py
+  ```
+  Oczekiwane: zestaw zielony, a rozstrzygnięcie widoczne w module, nie tylko
+  w raporcie.
+- **Skończone, gdy:** pole 6.D74 wskazuje moduł zawierający bramkę, o której mówi,
+  **albo** ma zapisany powód, dla którego zostaje z adresem błędnym.
+- **Poza zakresem:** przeglądanie pozostałych bloków wykonanych pod kątem adresów —
+  to jest pomiar na osobną pozycję.
+- **Zależy od:** 6.D101.
+
+#### Rozstrzygnięte 10.09.2026 — osiem decyzji właściciela
+
+Osiem pozycji przedstawionych właścicielowi w formie klikalnej 10.09.2026, w dwóch
+turach po cztery, dostało odpowiedzi. Zapis jest **tutaj, w drzewie**, z tego samego
+powodu, co przy sekcjach z 07., 08. i 09.09.2026.
+
+Rozkład jest tym razem taki: **dwie decyzje odblokowują pozycje, które stały
+zablokowane** (6.D53 i 6.D108), **jedna uchyla przesłankę pola „Poza zakresem"**
+zapisanego dzień wcześniej przeze mnie, a **pięć dokłada pracę**. Pytanie o kabinę jest
+jedynym, które nie wyszło z żadnej pozycji kolejki — padło z pytania właściciela „ile
+brakuje do grania".
+
+| decyzja | odpowiedź właściciela | co z tego wynika |
+|---|---|---|
+| **6.D53** — zapis do `data/network/sources.json` (dostęp do OSM opisany dwoma słowami `osm_or_overpass`, bez końcówki i bez limitu) | **zgoda** | **6.D53 ODBLOKOWANA.** Pole „Zależy od" przestaje wskazywać decyzję właściciela. `data/` pozostaje tylko do odczytu wszędzie indziej — zgoda dotyczy tej jednej pozycji i tego jednego pliku |
+| **6.D108** — który z trzech mechanizmów bramki roszczeń raportów | **data ostatniej zmiany stałej z gita, wraz z `fetch-depth: 0`** | **6.D108 ODBLOKOWANA**, i rośnie o pracę, której wpis nie przewidywał: dziesięć workflowów dostaje pełną historię. Pomiar z `reports/6d108-ksztaltu-nie-ma.md` §3.2 mówi, że bez tego mechanizm nie działa w CI wcale — `actions/checkout` bez `fetch-depth` daje głębokość 1. Wariantów (a) i (c) nie realizuje nic i nie wolno ich wprowadzać skutkiem ubocznym |
+| **T-112** — cały tunel na Z = 0, generator odrzuca `--variant production` | **cząstkowy profil tam, gdzie są rzędne** | Odcinek Parc↔Arts-Loi (**485,29 m** policzone bez zgadywania) wchodzi do geometrii; reszta zostaje płaska i jawnie `unknown`. To jest **rozwinięcie**, nie odwrócenie decyzji z 07.09.2026 („budować z jawnym `unknown`"): tamta dotyczyła profilu jako danych, ta — wpuszczenia go do sceny. Konflikt Schuman 15 m vs 17,42 m zostaje nierozstrzygnięty |
+| **kabina i wnętrza** | **układ kanoniczny, jak T-212** | Nowe zadanie w paśmie geometrii. Wszystkie wymiary `design_assumption`, żaden nie udaje faktu o M7 — ta sama droga i ten sam zapis, co przy zespole dostępu stacji. **Nie ma tu blokady prawnej**: `docs/03-legal.md` nie mówi o kabinie nic osobnego, a ogólna reguła („brak udokumentowanego prawa = neutralny oryginał albo wykluczenie") jest tą decyzją spełniona, bo nie kopiujemy niczyjego rzutu |
+| **`czeka_na_wlasciciela`** liczy decyzje JUŻ PODJĘTE jako oczekujące | **poprawić czytnik** | Datowana decyzja przestaje blokować. Zmierzone 10.09.2026 przy 6.D109: 6.B43 (70 rewizji) i 6.B44 (28) mają w polu „Zależy od" decyzje z 05. i 07.09.2026, czyli **podjęte**, a czytnik liczył je jako oczekujące. Na dzisiejszej kolejce różnicy nie ma — obie blokady są prawdziwe — więc poprawka zmienia przyrząd, nie liczby |
+| **README, sekcja „Czego nie ma"** | **przejrzeć całą sekcję**, nie tylko punkt o stacjach | Pięć punktów wobec drzewa, osobną pozycją z pomiarem. Znany dziś fałsz: „pierwsza stacja typowa (T-212) jest dopiero w planie", a T-212 jest scalone jako #137 z 37 bryłami na Parc (`reports/6d104-piec-punktow-czego-nie-ma.md` §3) |
+| **`__pycache__`** — czy zestaw ma czyścić go sam | **tak** | **Uchyla przesłankę pola „Poza zakresem" pozycji 6.D102**, napisanego przeze mnie dzień wcześniej. Tamto pole wykluczało wyłączanie cache'u w CI, „gdzie zysk czasowy jest realny"; pomiar z `reports/6d102-stary-bajtkod-pod-suma-md5.md` §4 mówi, że zysk to **0,18 s na 126 s** przy rozrzucie rzędu 2 s, czyli nie ma go. Decyzja zdejmuje wykluczenie, którego podstawa okazała się nieprawdziwa |
+| **cztery drobne znaleziska** do kolejki | **wszystkie cztery** | Zamek na dzienniku sweepa (z 6.D106), `approximate` w modelu hamowania (6.D107), `as_of` przy statusie `cleared` (6.D103) i błędny adres modułu w polu 6.D74 (6.D101). Każde wyszło z pomiaru zapisanego przy swojej pozycji jako „zauważone i nietknięte" |
 
 #### Rozstrzygnięte 07.09.2026 — cztery decyzje właściciela
 

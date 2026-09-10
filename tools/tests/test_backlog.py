@@ -298,7 +298,11 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 #: 6.D114 jest jedynym, na który natrafiłem NIE z lektury, tylko wołając zestaw
 #: z czterema modułami i dostając wynik jednego. Wartość
 #: z `len(detail_sections(...))` na pliku po edycji.
-MINIMUM_DETAIL_BLOCKS = 191
+#: **191 → 199 (10.09.2026, osiem decyzji właściciela).** Osiem bloków:
+#: 6.D119 … 6.D126, i tym razem NIE z uzupełnienia kolejki przy progu, tylko z pracy,
+#: którą tworzą decyzje właściciela z tego dnia (sekcja „Rozstrzygnięte 10.09.2026"
+#: w `docs/TASKS.md`). Wartość z `len(detail_sections(...))` na pliku po edycji.
+MINIMUM_DETAIL_BLOCKS = 199
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
@@ -406,6 +410,11 @@ def missing_fields(body):
 SLOWO_WLASCICIELA = "właściciel"
 
 
+#: Data w polu „Zależy od" — znaczy, że decyzja o tej treści JUŻ ZAPADŁA. Kształt
+#: `DD.MM.RRRR`, ten sam, którym cały ten plik datuje pomiary i rozstrzygnięcia.
+DATA_DECYZJI = re.compile(r"\b\d{2}\.\d{2}\.\d{4}\b")
+
+
 def pole_zaleznosci(body):
     """Treść pola „Zależy od" z bloku szczegółów; pusty napis, gdy pola nie ma."""
     marker = "- **Zależy od:**"
@@ -429,13 +438,32 @@ def czeka_na_wlasciciela(text):
 
     **Nie rusza `open_items`** — pole „Poza zakresem" pozycji 6.D95 wyklucza to
     wprost. Bierze jego wynik i dzieli go na dwie kupki po treści pól.
+
+    **DECYZJA DATOWANA JEST DECYZJĄ PODJĘTĄ** (10.09.2026, decyzja właściciela z tego
+    dnia). Do tego dnia liczyła się każda wzmianka o właścicielu, więc pozycja, której
+    pole mówi „decyzji właściciela **z 07.09.2026**", uchodziła za czekającą — choć ta
+    decyzja dawno zapadła i pozycję właśnie odblokowała. Zmierzone na 138 rewizjach
+    `docs/TASKS.md`: tak liczone były **6.B43** (w 70 rewizjach) i **6.B44** (w 28),
+    obie z decyzjami datowanymi na 05. i 07.09.2026. Przyrząd meldował więc blokadę,
+    której nie było — ta sama rodzina co 6.D27, tylko w drugą stronę: nie przemilczał
+    stanu, tylko go zmyślał.
+
+    Rozróżnienie idzie po **dacie w polu**, a nie po liście numerów: pole mówiące
+    o decyzji BEZ daty opisuje decyzję, która ma dopiero zapaść. Cena, powiedziana
+    wprost: pole, które nazywa decyzję oczekującą i przy okazji podaje jakąś inną datę,
+    przestaje być liczone jako blokada. W dzisiejszym pliku taki przypadek nie
+    występuje, a wariant odwrotny — liczenie decyzji podjętych — kosztował dwie pozycje
+    w niemal każdej rewizji historii.
     """
     bloki = detail_sections(text)
     czekaja = []
     for numer in open_items(text):
         pole = pole_zaleznosci(bloki.get(numer, ""))
-        if SLOWO_WLASCICIELA in pole.lower():
-            czekaja.append(numer)
+        if SLOWO_WLASCICIELA not in pole.lower():
+            continue
+        if DATA_DECYZJI.search(pole):
+            continue
+        czekaja.append(numer)
     return sorted(czekaja)
 
 
@@ -487,6 +515,75 @@ def test_the_reserve_rule_is_written_down():
     text = _tasks()
     assert "### Reguła zapasu" in text, "reguła zapasu zniknęła z planu"
     assert "24 godzin" in text or "24 godziny" in text, "reguła bez liczby godzin"
+
+
+def _blok_zaleznosci(numer, pole):
+    """Blok szczegółów o jednym polu „Zależy od" — do kontroli na wejściu syntetycznym."""
+    return ("##### %s · Pozycja syntetyczna\n\n- **Zależy od:** %s\n" % (numer, pole))
+
+
+def test_decyzja_datowana_nie_liczy_sie_jako_oczekujaca():
+    """Pole mówiące o decyzji Z DATĄ opisuje decyzję PODJĘTĄ — 10.09.2026.
+
+    **Skąd.** Do 10.09.2026 liczyła się każda wzmianka o właścicielu, więc pozycja
+    odblokowana zdaniem „decyzji właściciela z 07.09.2026" uchodziła za czekającą na
+    tę samą decyzję, która ją odblokowała. Zmierzone na 138 rewizjach `docs/TASKS.md`:
+    tak liczone były 6.B43 (70 rewizji) i 6.B44 (28). Przyrząd meldował blokadę,
+    której nie było.
+
+    Obie strony, bo tylko razem coś znaczą: bez daty ma liczyć, z datą nie ma.
+    """
+    tekst_bez = _blok_zaleznosci("6.Z1", "decyzji właściciela o kształcie profilu.")
+    tekst_z = _blok_zaleznosci(
+        "6.Z1", "decyzji właściciela z 07.09.2026 (pasmo 0..94,0 m).")
+
+    assert SLOWO_WLASCICIELA in pole_zaleznosci(tekst_bez).lower(), (
+        "wejście syntetyczne nie mówi o właścicielu — kontrola mierzyłaby nie to")
+    assert SLOWO_WLASCICIELA in pole_zaleznosci(tekst_z).lower(), (
+        "wejście syntetyczne z datą też ma mówić o właścicielu")
+
+    assert DATA_DECYZJI.search(pole_zaleznosci(tekst_z)), (
+        "wzorzec daty nie widzi daty w polu, które ją ma")
+    assert not DATA_DECYZJI.search(pole_zaleznosci(tekst_bez)), (
+        "wzorzec daty widzi datę w polu, które jej nie ma")
+
+
+def test_czytnik_blokad_rozroznia_oba_ksztalty_na_kolejce_syntetycznej():
+    """Ten sam czytnik na dwóch kolejkach: z blokadą prawdziwą i z decyzją podjętą.
+
+    Kontrola idzie przez `czeka_na_wlasciciela`, a nie przez sam wzorzec — inaczej
+    mierzyłaby regex, a nie werdykt. Kolejka syntetyczna, bo dzisiejsza kolejka nie
+    ma dziś ani jednej blokady i cisza nic by nie znaczyła.
+    """
+    tresc = _tasks()
+    wzorzec = "##### 6.D109 ·"
+    assert wzorzec in tresc, "znikł blok, na którym stoi ta kontrola"
+
+    def z_polem(pole):
+        """Kolejka z dopisaną pozycją syntetyczną: WIERSZ TABELI **i** blok.
+
+        Sam blok nie wystarcza i to nie jest szczegół: `open_items` czyta tabelę,
+        a `czeka_na_wlasciciela` dzieli JEJ wynik. Pozycja bez wiersza nie jest
+        pracą do wzięcia, więc nie ma czego dzielić — pierwsza wersja tej kontroli
+        dopisywała sam blok i dostawała pustą listę z obu stron.
+        """
+        z_blokiem = tresc.replace(
+            wzorzec, _blok_zaleznosci("6.Z1", pole) + "\n" + wzorzec, 1)
+        return z_blokiem.replace(
+            "| 6.D109 |",
+            "| 6.Z1 | **Pozycja syntetyczna** | kontrola 10.09.2026 | S |\n| 6.D109 |", 1)
+
+    z_blokada = z_polem("decyzji właściciela o kształcie profilu.")
+    assert "6.Z1" in czeka_na_wlasciciela(z_blokada), (
+        "decyzja BEZ daty nie została policzona jako oczekująca: %s"
+        % czeka_na_wlasciciela(z_blokada))
+
+    z_decyzja = z_polem("decyzji właściciela z 07.09.2026 o kształcie profilu.")
+    assert "6.Z1" in open_items(z_decyzja), (
+        "pozycja syntetyczna nie weszła do kolejki — kontrola mierzyłaby nic")
+    assert "6.Z1" not in czeka_na_wlasciciela(z_decyzja), (
+        "decyzja Z DATĄ została policzona jako oczekująca: %s"
+        % czeka_na_wlasciciela(z_decyzja))
 
 
 def test_the_queue_holds_at_least_a_day_of_work():
