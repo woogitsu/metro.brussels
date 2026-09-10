@@ -394,8 +394,17 @@ if [ "$required_bad" -eq 0 ]; then
   # liczoną przy każdym uruchomieniu, z tego samego `open_items`, którego używa zapadka
   # zapasu — nie z drugiej kopii reguły. Pilnuje tego `tools/tests/test_next_task.py`.
   queue_count=""
+  queue_free=""
+  queue_blocked=""
   if [ -f docs/TASKS.md ] && [ -f tools/tests/test_backlog.py ]; then
+    # 6.D95: TRZY liczby zamiast jednej, i wszystkie z pliku. Do 10.09.2026 stała tu
+    # jedna, a obok niej napis STAŁY „żadna nie wymaga decyzji właściciela" — zdanie
+    # o zbiorze wypowiadane bez zajrzenia do zbioru, w chwili gdy w policzonej kolejce
+    # stała 6.D53 z polem „Zależy od" brzmiącym dosłownie „decyzji właściciela".
+    # Ta sama rodzina co 6.D27: przyrząd meldujący sprawdzenie, którego nie zrobił.
     queue_count=$(python3 -c 'import io, sys; sys.path.insert(0, "tools/tests"); import test_backlog as B; print(len(B.open_items(io.open("docs/TASKS.md", encoding="utf-8").read())))' 2>/dev/null)
+    queue_free=$(python3 -c 'import io, sys; sys.path.insert(0, "tools/tests"); import test_backlog as B; print(len(B.do_wziecia(io.open("docs/TASKS.md", encoding="utf-8").read())))' 2>/dev/null)
+    queue_blocked=$(python3 -c 'import io, sys; sys.path.insert(0, "tools/tests"); import test_backlog as B; print(", ".join(B.czeka_na_wlasciciela(io.open("docs/TASKS.md", encoding="utf-8").read())))' 2>/dev/null)
   fi
   if [ -n "$next_task" ]; then
     echo "  Baza projektu jest gotowa. Następne zadanie: $next_task"
@@ -408,7 +417,12 @@ if [ "$required_bad" -eq 0 ]; then
     echo "  zadaniem jest jej uzupełnienie (CLAUDE.md §8), nie zatrzymanie się."
   fi
   if [ -n "$queue_count" ]; then
-    echo "  Kolejka faz 5 i 6 ma $queue_count pozycji do wzięcia, żadna nie wymaga decyzji właściciela."
+    if [ -n "$queue_blocked" ]; then
+      echo "  Kolejka faz 5 i 6 ma $queue_count pozycji, z czego $queue_free do wzięcia od ręki."
+      echo "  Na decyzję właściciela czeka: $queue_blocked — tej nie bierz."
+    else
+      echo "  Kolejka faz 5 i 6 ma $queue_count pozycji do wzięcia, żadna nie wymaga decyzji właściciela."
+    fi
   fi
   if [ "$optional_bad" -gt 0 ]; then echo "  $optional_bad narzędzi opcjonalnych brakuje; instaluj je dopiero przed zadaniem, które ich wymaga."; fi
 else
