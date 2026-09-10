@@ -949,6 +949,12 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.D92 | **Wspólnej sekwencji L2 i L6 nie porównuje nic — a to ona jest podstawą, na której dopisano Madou** | zmierzone 09.09.2026 przy #440: po dopisaniu Madou wspólny odcinek zgadza się na **19 z 19 pozycji, zero różnic** (L2 odwrócone wobec `L6[7:]`), ale sprawdziłem to **skryptem w sesji**, nie bramką. Cztery bramki z `test_network_declarations.py` pilnują liczników, powtórek, tabeli `docs/00` i przypisania przystanku do linii wedle GTFS — **żadna nie porównuje dwóch linii ze sobą**, więc usunięcie Madou z samej L6 razem z obniżeniem licznika przechodzi je wszystkie. Z weryfikacji sekcji 6 audytu (AUDYT-09, część nieobjęta #440), `reports/audyt-sekcja-6-weryfikacja.md` | S |
 | 6.D93 | **Czas per moduł jest wypisywany i wyrzucany — trend istnieje tylko w logach pojedynczych przebiegów** | zmierzone 09.09.2026: `tools/tests/test_all.py:533` wypisuje „czas per moduł (malejąco)", a `.github/workflows/python-tests.yml` nie ma **ani jednego** kroku `upload-artifact`. Lista `POMIARY` w `test_suite_runtime_budget.py` jest utrzymywana ręcznie i rośnie tylko wtedy, gdy ktoś o niej pamięta. **Część propozycji audytu o wyroczni mutacyjnej NIE MA podstawy i pozycja jej nie realizuje:** `mutation_sweep.run_suite` czyta z procesu zestawu wyłącznie linię `N/M przeszło` i kod wyjścia, więc czas na werdykt mutanta nie wpływa — zapisane w komentarzu kroku CI od 6.D11. Z weryfikacji sekcji 6 audytu (AUDYT-18, część potwierdzona), `reports/audyt-sekcja-6-weryfikacja.md` | M |
 | 6.D94 | **Narzędzie broni warunku geometrycznego gołym `assert`, więc pod `python3 -O` odmowa znika** — a wtedy peron zerowej szerokości przechodzi | zmierzone 09.09.2026 przy 6.D71: `python3 -O tools/tests/test_all.py` kończy **kodem 1** wobec 0 przy przebiegu zwykłym, na dwóch testach (`test_platform_exactly_as_wide_as_the_chamber_is_refused` i wariant lewej strony). Pozycja mierzy, ile takich strażników jest w `tools/`, i zamienia je na odmowę, której interpreter nie zdejmuje | S |
+| 6.D95 | **`doctor.sh` wypisuje, że żadna pozycja kolejki nie wymaga decyzji właściciela — a 6.D53 wymaga** | zmierzone 10.09.2026: wiersz 411 to napis STAŁY, wypisywany bez zajrzenia do pól „Zależy od" liczonych pozycji; 6.D53 ma tam dosłownie „decyzji właściciela o zapisie do `data/network/sources.json`". Poprawka dotyczy wyłącznie własnego wypisu doctora i pola, które już jest w `docs/TASKS.md` | S |
+| 6.D96 | **Przy niespełnialnym pinie SDK doctor mówi naraz „nie ma" i „jest w porządku"** | zmierzone 10.09.2026 przy 6.D79: pin 10.0.402 przy zainstalowanym 10.0.401 daje `dotnet --version` kod 155 z listą SDK na stdout, więc `chk_required` melduje BRAK, a następna kontrola bierze `cut -d. -f1` z przeciekłej listy i melduje ok. Rozstrzyga kod wyjścia `--list-sdks`, nie treść — bez decyzji o wersji ani polityce pinu | S |
+| 6.D97 | **Cztery lokalne filtry katalogów zostały po wspólnym odsianiu z 6.D74, trzy z nich są uboższą kopią `.gitignore`** | zmierzone 10.09.2026: `BUILD_DIRS` zna `bin` i `obj`, a nie zna `build`, `renders` ani `.venv`. Czwarty filtr (`"tests" in base`) NIE jest kopią i ma zostać — rozróżnienie idzie po zawartości `.gitignore`, czyli po pliku w drzewie, a nie po czyimś wyborze | S |
+| 6.D98 | **`chk_*` w doctorze wykonuje przez `eval` dwa różne kształty: sześć uruchomień programu i cztery wyrażenia powłoki** | zmierzone 10.09.2026 przy 6.D81: bramka na cytowanie potrafi rozjazd ZGŁOSIĆ, ale nie usuwa potrzeby pamiętania o cudzysłowach przy każdym nowym wywołaniu. Rozdzielenie form jest zmianą wewnątrz `doctor.sh`, a warunkiem odbioru jest wypis identyczny co do bajtu | M |
+| 6.D99 | **Wiersze tego samego panelu składane poza katalogiem tekstów, ze słowami wpisanymi wprost** | zmierzone 10.09.2026 przy 6.D83: katalog objął `Hud.Update`, ale `StationLine`, `Faza`, `HelpLine`, `DriverActions` i `EmergencyBrake.Notice` mają słowa w kodzie. Liczbę miejsc i słów pozycja ma policzyć z drzewa, a nie przepisać z wpisu; wybór języka nie wchodzi w grę, bo katalog ma jeden i tak zostaje | M |
+| 6.D100 | **Kolektor komend liczy jeden heredok jako pięć poleceń** | zmierzone 07.09.2026 przy 6.D33 i zapisane tam jako zauważone: blok 6.A24 daje pięć zamiast jednej, a ta sama liczba jest mianownikiem każdego zdania o pokryciu audytu komend. Poprawka dotyczy sklejania wierszy w kolektorze, bez ruszania treści bloków | S |
 
 #### Szczegóły pozycji z kompletem sześciu pól
 
@@ -7153,6 +7159,203 @@ nie sięga, nawet gdy nie ma nic innego do roboty; wtedy sięga po fazę 5.
 - **Poza zakresem:** wołanie zestawu z `-O` w CI, zmiana samego warunku geometrycznego
   i `assert` w rolach innych niż strażnik wejścia.
 - **Zależy od:** 6.D71 — dostarcza pomiar i naprawia drugą połowę tej samej rodziny.
+
+
+##### 6.D95 · `doctor.sh` ogłasza, że żadna pozycja kolejki nie wymaga decyzji
+
+- **Skąd:** zmierzone 10.09.2026. `doctor.sh:411` wypisuje napis STAŁY:
+  „Kolejka faz 5 i 6 ma $queue_count pozycji do wzięcia, żadna nie wymaga decyzji
+  właściciela." — a w policzonej kolejce stoi dziś **6.D53**, której pole
+  „Zależy od" brzmi dosłownie „decyzji właściciela o zapisie do
+  `data/network/sources.json`". Zdanie o zbiorze jest wypisywane bez zajrzenia
+  do zbioru.
+- **Dlaczego to ta sama rodzina, co 6.D27:** przyrząd melduje sprawdzenie, którego
+  nie zrobił. Agent, który przeczyta ten wiersz przed zadaniem (`CLAUDE.md` §2 każe
+  go czytać przed KAŻDYM), weźmie pierwszą pozycję z kolejki w przekonaniu, że jest
+  odblokowana — i zatrzyma się w połowie na cudzej decyzji.
+- **Wejście:** `doctor.sh` (blok liczący `queue_count`, wiersz 411),
+  `tools/tests/test_backlog.py` (`open_items`, skan pola „Zależy od"),
+  `docs/TASKS.md`.
+- **Wyjście:** liczba ODBLOKOWANYCH pozycji policzona z pól „Zależy od", a pozycje
+  zależne od decyzji właściciela wymienione osobno i po numerze — albo wiersz zdjęty,
+  jeśli pomiar pokaże, że rozróżnienia nie da się zrobić bez drugiego czytnika
+  `docs/TASKS.md` w powłoce.
+- **Weryfikacja:**
+  ```bash
+  bash doctor.sh --no-tests
+  python3 tools/tests/test_all.py test_backlog.py
+  ```
+  Oczekiwane: wypis nazywa 6.D53 jako zablokowaną albo nie twierdzi nic o zbiorze,
+  a zestaw jest zielony.
+- **Skończone, gdy:** dopisanie do `docs/TASKS.md` pozycji z polem „Zależy od"
+  mówiącym o decyzji właściciela zmienia wypis doctora, a bramka pada, gdy wypis
+  wraca do zdania stałego. Kontrola negatywna WYKONANA na pozycji syntetycznej.
+- **Poza zakresem:** zmiana kolejności brania pozycji i zmiana samego `open_items`.
+- **Zależy od:** brak.
+
+##### 6.D96 · `chk_required` melduje brak SDK, gdy niespełnialny jest pin
+
+- **Skąd:** zmierzone 10.09.2026 przy wykonaniu 6.D79, podstawianiem pinu do
+  `global.json` i czytaniem kodu wyjścia:
+
+  ```
+  pin 10.0.401 (zainstalowane 10.0.401)  ->  kod 0
+  pin 10.0.402                            ->  kod 155
+  ```
+
+  Przy niespełnialnym pinie `dotnet --version` kończy błędem i wypisuje na stdout
+  listę zainstalowanych SDK. Doctor wypisuje wtedy **naraz** dwa zdania:
+  `BRAK dotnet SDK -> zainstaluj .NET SDK 10.0+` (bo kod niezerowy) i
+  `ok dotnet SDK >= 10 (jest 10)` (bo `cut -d. -f1` bierze pierwszą liczbę
+  z przeciekłej listy).
+- **Dlaczego to nie jest domknięte przez 6.D79:** tamta pozycja DOPISAŁA blok
+  nazywający tę sytuację, ale nie tknęła dwóch kontroli wyżej — one nadal mówią
+  „nie ma" i „jest w porządku" o tym samym SDK. Wskazówka radzi zainstalować coś,
+  co leży na dysku.
+- **Wejście:** `doctor.sh` (`chk_required "dotnet SDK"`, `HAVE_SDK_MAJOR`, blok pinu
+  z 6.D79), `tools/tests/test_dotnet_version.py` (`_run_doctor`).
+- **Wyjście:** rozróżnienie „nie ma żadnego SDK" od „SDK jest, pin niespełniony" po
+  KODZIE WYJŚCIA `--list-sdks`, a nie po treści stdout; podpowiedź nazywa prawdziwą
+  przyczynę. `HAVE_SDK_MAJOR` przestaje brać liczbę z wyjścia polecenia, które padło.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_dotnet_version.py
+  ```
+  Oczekiwane: zestaw zielony, a bramka na podstawionym pinie żąda, żeby wypis NIE
+  zawierał obu zdań naraz.
+- **Skończone, gdy:** przy pinie niespełnialnym doctor nie wypisuje ani `BRAK dotnet
+  SDK`, ani `ok dotnet SDK >= N`, tylko jedno zdanie o pinie; przy braku SDK w ogóle
+  wypis się nie zmienia; obie gałęzie sprawdzone bramką na atrapie.
+- **Poza zakresem:** zmiana polityki `rollForward` i wersji w pinie.
+- **Zależy od:** 6.D79.
+
+##### 6.D97 · Lokalne filtry katalogów zostały po wspólnym odsianiu
+
+- **Skąd:** zmierzone 10.09.2026 przy wykonaniu 6.D74. Po przejściu czternastu
+  wywołań na `tree_walk.walk` w drzewie zostały cztery filtry robiące to samo
+  drugi raz: `BUILD_DIRS = {"bin", "obj"}` w `test_readme_claims.py` oraz warunki
+  `"__pycache__" in katalog` (`test_dead_constants.py:56`),
+  `os.sep + "obj" in katalog or os.sep + "bin" in katalog`
+  (`test_dead_constants_csharp.py:76`) i
+  `os.sep + "tests" in base or "__pycache__" in base` (`mutation_sweep.py:322`).
+- **Dlaczego to nie jest samo sprzątanie:** `BUILD_DIRS` zna `bin` i `obj`, a nie zna
+  `build`, `renders` ani `.venv` — czyli jest DRUGĄ, uboższą kopią listy z
+  `.gitignore`. Dopóki stoi obok wspólnego odsiania, czytający nie wie, która z dwóch
+  list rozstrzyga, a przy następnym wpisie w `.gitignore` rozjadą się po cichu.
+  Ostatni z czterech warunków (`"tests" in base`) **nie jest** kopią — odsiewa
+  katalog, którego `.gitignore` nie zna, i ma zostać.
+- **Wejście:** `tools/tests/test_readme_claims.py` (`BUILD_DIRS` i asercja na jego
+  zawartość w wierszu 223), `tools/tests/test_dead_constants.py`,
+  `tools/tests/test_dead_constants_csharp.py`, `tools/tests/mutation_sweep.py`,
+  `tools/tests/tree_walk.py`, `tools/tests/test_tree_walks.py`.
+- **Wyjście:** filtry będące kopią listy z `.gitignore` zdjęte, filtr nieobjęty tą
+  listą zostawiony z komentarzem mówiącym, CZEGO dotyczy; liczby raportowane przez
+  wszystkie cztery skany zmierzone przed i po, i identyczne.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: zestaw zielony i ta sama liczba testów, a wypis liczb czterech skanów
+  bez zmiany.
+- **Skończone, gdy:** żaden z czterech skanów nie zmienia ani jednej raportowanej
+  liczby, w drzewie nie ma już drugiej listy katalogów budowania, a kontrola
+  negatywna (zdjęcie filtru NIEOBJĘTEGO `.gitignore`) rusza liczbę i jest wypisana.
+- **Poza zakresem:** zmiana `.gitignore` i rozszerzanie wspólnego odsiania o wzorce
+  plikowe.
+- **Zależy od:** 6.D74.
+
+##### 6.D98 · `chk_*` wykonuje przez `eval` także wyrażenia powłoki
+
+- **Skąd:** zmierzone 10.09.2026 przy wykonaniu 6.D81. Dziesięć wywołań
+  `chk_required`/`chk_optional` w `doctor.sh` niesie DWA różne kształty drugiego
+  argumentu: **sześć** to uruchomienie programu (`"$DOTNET" --version`), a **cztery**
+  to wyrażenie powłoki (`[ "$HAVE_SDK_MAJOR" -ge "$REQUIRED_TFM" ]`,
+  `[ $HOSTFXR_OK -eq 0 ]`). Jedna funkcja obsługuje oba przez `eval`, czyli przez
+  parsowanie napisu drugi raz.
+- **Dlaczego to pozycja, choć 6.D81 zamknęło objaw:** tamta zacytowała ścieżki
+  i postawiła bramkę na cytowanie — czyli zabezpieczyła kształt PIERWSZY. Dopóki
+  `eval` zostaje, każde nowe wywołanie uruchamiające program musi pamiętać
+  o cudzysłowach, a bramka może je jedynie ZGŁOSIĆ, nie usunąć potrzeby.
+- **Wejście:** `doctor.sh` (`chk_required`, `chk_optional`, dziesięć wywołań),
+  `tools/tests/test_dotnet_version.py` (`doctor_check_commands`, bramka na cytowanie).
+- **Wyjście:** rozdzielenie na dwie formy — uruchomienie programu przyjmujące
+  argumenty jako TABLICĘ i wołane bez `eval`, oraz sprawdzenie warunku, które `eval`
+  nadal potrzebuje i dostaje go z nazwą mówiącą, że to wyrażenie. Bramka na cytowanie
+  zostaje i pilnuje wyłącznie tej drugiej formy.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_dotnet_version.py
+  bash doctor.sh --no-tests
+  ```
+  Oczekiwane: zestaw zielony, wypis doctora IDENTYCZNY wiersz w wiersz z dzisiejszym.
+- **Skończone, gdy:** wypis `bash doctor.sh --no-tests` przed zmianą i po jest ten sam
+  co do bajtu (poza wierszami ze ścieżkami katalogów tymczasowych), atrapa w katalogu
+  ze spacją nadal daje `ok`, a bramka na cytowanie pada, gdy wyrażenie powłoki trafi
+  do formy tablicowej.
+- **Poza zakresem:** zmiana treści komunikatów i progów wersji.
+- **Zależy od:** 6.D81.
+
+##### 6.D99 · Wiersze interfejsu składane poza katalogiem tekstów
+
+- **Skąd:** zmierzone 10.09.2026 przy wykonaniu 6.D83. Katalog `UiText` objął
+  `Hud.Update`, ale wiersze pokazywane w tym samym panelu składają się gdzie indziej
+  i mają słowa wpisane wprost: `FirstRun.StationLine`, `FirstRun.Faza` (osiem faz
+  drzwi po polsku), `FirstRun.HelpLine`, `DriverActions` i `EmergencyBrake.Notice`.
+  Liczba miejsc i słów ma być **policzona z drzewa** przez tę pozycję, a nie
+  przepisana z tego zdania.
+- **Dlaczego to nie jest dokończenie 6.D83:** tamta pozycja ma w polu „Wejście"
+  wyłącznie `Hud.cs`, scenę, `project.godot`, dane osi i `TrackAxis.cs`, a te metody
+  składają kilkadziesiąt zdań i mają własne bramki (`test_game_needle_specificity.py`
+  czyta ich komunikaty jako igły). Przeniesienie ich hurtem ruszyłoby te bramki
+  w tym samym commicie.
+- **Wejście:** `src/Game/FirstRun.cs` (`StationLine`, `Faza`, `HelpLine`),
+  `src/Game/Input/DriverActions.cs`, `src/Game/Input/EmergencyBrake.cs`,
+  `src/Game/UI/UiText.cs`, `tools/tests/test_game_needle_specificity.py`.
+- **Wyjście:** wiersze składane z kluczy katalogu, liczba przeniesionych słów
+  policzona przed i po, oraz rozstrzygnięcie **z pomiarem**, co zrobić z igłami
+  bramki swoistości: klucz w katalogu jest nadal literałem w `src/Game`, więc igła
+  może zostać, ale trzeba sprawdzić, ile igieł przestaje mieć dopasowanie.
+- **Weryfikacja:**
+  ```bash
+  dotnet test tests/Game.Tests
+  python3 tools/tests/test_all.py test_game_needle_specificity.py
+  ```
+  Oczekiwane: oba zielone, a zapadka igieł bez dopasowania **nie rośnie** albo rośnie
+  z powodem wypisanym w commicie.
+- **Skończone, gdy:** w wymienionych metodach nie ma literału językowego poza kluczami
+  katalogu, wypis HUD-u dla przebiegu skryptowego jest ten sam co do znaku (sprawdzone
+  zrzutem), a usunięcie używanego klucza wywraca test.
+- **Poza zakresem:** dodanie drugiego języka, tłumaczenie czegokolwiek i ruszanie
+  siedmiu literałów zastępczych w scenie — te są tekstem dla edytora.
+- **Zależy od:** 6.D83.
+
+##### 6.D100 · Kolektor komend rozbija heredok na pięć poleceń
+
+- **Skąd:** zmierzone 07.09.2026 przy 6.D33 i zapisane tam jako „zauważone
+  i nietknięte": kolektor z `tools/tests/backlog_commands.py` nie zna składni
+  heredoku, więc jedną komendę bloku 6.A24 liczy jako **pięć** (otwarcie, trzy
+  wiersze ciała, `EOF`) i zawyża licznik o cztery.
+- **Dlaczego to nie jest kosmetyka licznika:** ta sama liczba jest podstawą pokrycia
+  audytu komend (6.D15, 6.D33) i każdego następnego zdania o tym, ile komend
+  w kolejce jest wykonalnych. Licznik zawyżony o cztery na jednym bloku zawyża
+  mianownik każdego takiego ułamka, a rośnie wraz z liczbą bloków z heredokiem.
+- **Wejście:** `tools/tests/backlog_commands.py` (sklejanie wierszy komend),
+  `tools/tests/test_backlog_commands.py`, blok 6.A24 w `docs/TASKS.md`
+  (jedyny zmierzony przypadek).
+- **Wyjście:** wiersze między `<<'EOF'` a zamykającym `EOF` liczone jako CIAŁO jednej
+  komendy, nie jako komendy; liczba bloków z heredokiem w dzisiejszym
+  `docs/TASKS.md` policzona z drzewa i wypisana.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_backlog_commands.py
+  ```
+  Oczekiwane: zestaw zielony, a licznik komend spada dokładnie o liczbę wierszy
+  ciała heredoków.
+- **Skończone, gdy:** blok 6.A24 daje jedną komendę zamiast pięciu, liczba komend
+  w całym pliku jest podana przed i po, a kontrola negatywna na bloku syntetycznym
+  z heredokiem o dwóch wierszach ciała daje jeden, a nie cztery.
+- **Poza zakresem:** przeliczanie werdyktów audytu 6.D15 i zmiana treści bloku 6.A24.
+- **Zależy od:** brak.
 
 #### Rozstrzygnięte 07.09.2026 — cztery decyzje właściciela
 
