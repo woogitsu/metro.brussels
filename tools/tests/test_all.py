@@ -482,6 +482,49 @@ def _powod_wyjscia(wyjatek):
             "SystemExit w teście i sprawdź jego kod asercją")
 
 
+def zapisz_czasy(sciezka, module_seconds, module_counts, wall_s, odkryte):
+    """Maszynowy zapis czasu przebiegu: moduły, commit, runner, wersja Pythona.
+
+    **Po co (6.D93).** Wypis „czas per moduł (malejąco)" istniał wyłącznie w logu
+    pojedynczego przebiegu, a `python-tests.yml` nie miał ANI JEDNEGO kroku
+    `upload-artifact` — trendu nie było z czego zbudować, a lista `POMIARY`
+    w `test_suite_runtime_budget.py` była i jest uzupełniana ręcznie.
+
+    **Czego tu NIE MA i dlaczego.** Czasu CPU: mierzy go powłoka wbudowanym `times`
+    wokół całego procesu (6.D42), bo w `$(...)` daje zera i bo interesuje nas CPU
+    DZIECI, a nie tego interpretera. Dokłada go `tools/ci/timing_record.py`, który
+    dostaje jedno i drugie od kroku CI. Rozdział jest celowy: ten plik wie o modułach,
+    tamten o maszynie.
+
+    Wpisów modułów jest tyle, ile modułów przebieg WYKONAŁ — nie tyle, ile odkrył.
+    Obie liczby są w pliku (`modulow`, `odkryte`), bo różnica między nimi jest
+    dokładnie tym, co 6.D54 kazało uczynić niemożliwym do pominięcia.
+    """
+    dane = {
+        "schema": 1,
+        "commit": os.environ.get("GITHUB_SHA", ""),
+        "runner": os.environ.get("RUNNER_NAME", ""),
+        "workflow": os.environ.get("GITHUB_WORKFLOW", ""),
+        "python": sys.version.split()[0],
+        "wall_s": round(wall_s, 3),
+        "odkryte": odkryte,
+        "wykonane": sum(module_counts.values()),
+        "modulow": len(module_seconds),
+        "moduly": [
+            {"modul": m + ".py",
+             "sekundy": round(module_seconds[m], 3),
+             "testow": module_counts[m]}
+            for m in sorted(module_seconds, key=lambda m: -module_seconds[m])
+        ],
+    }
+    katalog = os.path.dirname(os.path.abspath(sciezka))
+    if katalog:
+        os.makedirs(katalog, exist_ok=True)
+    with open(sciezka, "w", encoding="utf-8") as uchwyt:
+        json.dump(dane, uchwyt, ensure_ascii=False, indent=1)
+    return dane
+
+
 def main(only=None):
     """Uruchom zestaw — albo jeden moduł, gdy `only`. Test, który przeszedł bez asercji, jest awarią, nie sukcesem.
 
@@ -535,6 +578,28 @@ def main(only=None):
         secs=module_seconds[module_file]; n=module_counts[module_file]
         print(f"    {secs:8.3f} s  {module_file}.py  ({n} testów)")
     print(f"  RAZEM {suite_elapsed:.3f} s, {len(tests)} testów, {len(module_seconds)} modułów")
+    # 6.D93: ten sam pomiar, co wiersze wyżej, ale MASZYNOWO — i tylko wtedy, gdy
+    # ktoś o to poprosi zmienną `METRO_TIMING_OUT`. Bez zmiennej nie powstaje żaden
+    # plik: zapis do drzewa przy każdym przebiegu byłby dokładnie tym oknem, które
+    # 6.D90 zmierzyło jako mylące dla równoległej kontroli czystości. Krok CI wskazuje
+    # `$RUNNER_TEMP`, czyli miejsce poza workspace'em, którego `git clean` nie widzi.
+    #
+    # Kod wyjścia NIE zależy od tego zapisu i to jest warunek, nie szczegół:
+    # `mutation_sweep.run_suite` czyta z tego procesu wyłącznie `N/M przeszło`
+    # i kod, więc awaria zapisu nie ma prawa zamienić się w falę fałszywych „zabić".
+    zapis_czasu = os.environ.get("METRO_TIMING_OUT")
+    if zapis_czasu:
+        try:
+            zapisz_czasy(zapis_czasu, module_seconds, module_counts,
+                         suite_elapsed, len(tests))
+            # Wiersz jest tu po to, żeby dało się z ZEWNĄTRZ odróżnić przebieg,
+            # który czegoś nie zapisał, od przebiegu, który zapisał gdzie indziej.
+            # Bez niego kontrola „bez zmiennej nie ma pliku" sprawdza wyłącznie
+            # ścieżkę, o którą sama poprosiła — zmierzone: zapis pod ustaloną nazwą
+            # w /tmp przechodził ją bez mrugnięcia.
+            print(f"  [CZAS] zapisano {zapis_czasu}")
+        except OSError as e:
+            print(f"  UWAGA: nie zapisano czasów do {zapis_czasu}: {e}")
     # 6.D54: podsumowanie musi być NIEMOŻLIWE do pominięcia. Powyższe wiersze mówią
     # o testach, które doszły do werdyktu; ten mówi, czy doszły WSZYSTKIE odkryte.
     # Komunikat mówi „nie doszło do werdyktu", a NIE „nie wykonało się wcale":
