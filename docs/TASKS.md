@@ -956,7 +956,7 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.D99 | **ZROBIONE w #489 (10.09.2026), a pomiar POPRAWIŁ wpis w dwóch miejscach.** Segmentów językowych było **38**, nie „kilkadziesiąt zdań": 25 w `FirstRun` (`StationLine` + `Faza`), 9 w `DriverActions`, 4 w `EmergencyBrake` — po zmianie **zero**, a katalog urósł z 2 do **29** kluczy (38 segmentów mieści się w 27 wpisach, bo segment jest kawałkiem zdania, a wpis całym). **`HelpLine` nie ma ani jednego słowa** — wpis wymienia ją, a ona tylko wybiera między `DriverActions.HelpWhenTheCoreDrives` a `DriverInput.Help`; została w bramce, żeby dopisanie napisu zapaliło się od razu. **Faz drzwi jest siedem, nie osiem:** ósme ramię `switch` to `_ => phase.ToString()` i nazwy po polsku nie ma z definicji. **Granica, na której przenoszenie się zatrzymało: SŁOWO kontra NAPIS NA KLAWISZU.** W kodzie zostało osiem segmentów — siedem nazw akcji `InputMap` i „Esc" — bo nazwa klawisza mówi, co jest na nim wytłoczone; dla pięciu nazw jednoznakowych `DriverActionsTests` porównuje ją wprost z `physical_keycode`. **„Spacja" poszła do katalogu i to ta sama reguła, nie wyjątek:** na klawiszu Esc napisane jest „Esc", a na spacji nie jest napisane nic. **Wypis co do znaku dowiedziony DWA razy, bo są dwa rodzaje wierszy:** trzy zrzuty Godota (km 300/900/2500) mają **te same sumy MD5** przed i po (`ba915e3e…`, `88cb4fd4…`, `f126b360…`), a trzy napisy, których zrzut nie pokazuje (pomoc, pomoc pod `--line`, wiersz hamulca awaryjnego), pinuje nowy test z treścią wpisaną z ręki — **ten sam plik testu uruchomiony na drzewie SPRZED zmiany** (`git worktree` na `3b896d2`) też przechodzi, więc pin nie sprawdza sam siebie. **Trzy usterki, wszystkie znalazła rozszerzona bramka, żadnej nie widać było z lektury:** (1) „nikt nie woła" znaczyło „nie patrzę tam" — skan czytał wywołania katalogu tylko z `Hud.cs`, więc 27 kluczy wołanych z `FirstRun` i `Input/` było dla testu martwych; czyta dziś całe `src/Game/` bez `.godot/` i bez samego `UiText.cs`; (2) klucz schowany za `?:` jest dla skanu niewidoczny — pierwsza wersja dała 27 wywołań zamiast 29 i dwa martwe klucze, naprawą jest **pokazanie wywołania**, a nie poszerzenie wzorca o składnię C#, bo ślepa plamka zapala się GŁOŚNO; (3) skan czytał nazwy zmiennych z wnętrza dziur interpolacji — `Hud.cs` przechodził dotąd **przypadkiem**, bo jego jedyny taki literał zawiera `/` i wpadał pod odsianie ścieżki węzła. **Zapadka igieł 19 → 21, z powodem:** dwie nowe igły (`koniec bloku`, `wyrażeniowa`) asertują na wejściu syntetycznym kontroli wycinania ciała metody i komunikatem `src/Game` być nie mają. **Trzymania igły w zmiennej nie użyto, choć ominęłoby zapadkę** — bramka pomija igłę ze zmiennej, więc byłaby to zamiana niejednoznaczności na niewidzialność, przed którą szczebel trzeci ma bronić. Pozostałe progi: komunikatów 149 (próg 142; jeden ubył, bo sklejenie „prowadzi rdzeń…" stało się jednym szablonem), igieł 54 (próg 45), plików 21 (próg 18). **Trzy kontrole negatywne, `md5sum -c: OK` po każdej:** KN-1 (zdjęty używany klucz `hud.door.checking`) **2 czerwone**, KN-2 (słowo `"wybieg"` wpisane z powrotem wprost) **3 czerwone**, KN-3 (wpis, którego nikt nie woła) **1 czerwony**. Kontrola dodatnia skanu: odsianie identyfikatorów silnika odsiewa `driver_power`, `view_toggle`, `font_size` i `Esc`, a NIE odsiewa `koniec przejazdu` ani `od nowa` — bez drugiej połowy reguła zjadłaby cały werdykt. Weryfikacja: `dotnet test tests/Game.Tests` **228/228** (było 224), `test_game_needle_specificity.py` **10/10**, zestaw 2195, moduły bez zmiany (118), kod 0; `MIN_REPORTS` z 217 na 218. Raport: `reports/6d99-slowo-a-napis-na-klawiszu.md`. Czego nie zrobiłem: nie dodałem drugiego języka i niczego nie przetłumaczyłem, nie tknąłem siedmiu literałów zastępczych w scenie (pole „Poza zakresem"), nie wpuściłem formatów liczb do katalogu — `F1`, `F0`, `F2` i `+0.00;-0.00;0.00` zostają w kodzie, a powtórzony format dostał jedną stałą. **Zauważone i nietknięte: odsianie „ścieżki węzła sceny" w `Hud.cs` przepuszcza też napis ze słowem** (`km/h` w literale z `/`) — to właśnie dlatego usterka dziur nie wyszła w 6.D83; `Hud.cs` jest poza wejściem tej pozycji. Drugie: „Esc" i „Spacja" nie są związane z `project.godot` przez nic, bo pętla porównująca z `physical_keycode` bierze tylko nazwy jednoznakowe. Treść pierwotna: **Wiersze tego samego panelu składane poza katalogiem tekstów, ze słowami wpisanymi wprost** | zmierzone 10.09.2026 przy 6.D83: katalog objął `Hud.Update`, ale `StationLine`, `Faza`, `HelpLine`, `DriverActions` i `EmergencyBrake.Notice` mają słowa w kodzie. Liczbę miejsc i słów pozycja ma policzyć z drzewa, a nie przepisać z wpisu; wybór języka nie wchodzi w grę, bo katalog ma jeden i tak zostaje | M |
 | 6.D100 | **ZROBIONE w #490 (10.09.2026), a licznik zszedł dokładnie o cztery: 324 → 320.** Kolektor liczył `python3 - <<'EOF'`, trzy wiersze ciała i `EOF` jako pięć komend zamiast jednej; blok 6.A24 daje dziś **4** komendy zamiast 8. Obie kolumny są pomiarem, nie przepisaniem — „przed" dał ten sam plik uruchomiony na drzewie sprzed zmiany (`git worktree`). **Heredoków w polach „Weryfikacja" jest JEDEN, ale `<<` w pliku są TRZY** — i to jest główny wynik pomiaru. Pozostałe dwa to `<<<<<<< HEAD` z opisu 6.D55 (znacznik konfliktu) i cytat samego zapisu w opisie tej pozycji. **Znacznik konfliktu czyta się jak heredok o terminatorze `HEAD`:** para `<` stoi też na piątym znaku, po niej spacja, po niej poprawna nazwa. Wzorzec bez strażników `(?<!<)` i `(?!<)` przeszedłby dziś każdą bramkę, ale przeszedłby **przypadkiem** — do płotka „Weryfikacja" ten wiersz nie wchodzi. Strażniki odsiewają przy okazji herestring `<<<`. **Ciało heredoku bierze się DOSŁOWNIE**, inaczej niż każdy inny wiersz płotka: bez `strip()`, bez pomijania pustych i bez pomijania `#`. W ciele `#` jest komentarzem PYTHONA, pusty wiersz bywa treścią, a wcięcie **jest składnią**. Zdejmowane jest wyłącznie wcięcie wiersza OTWIERAJĄCEGO, bo to ono jest formatowaniem markdownu — bez tego całe ciało wyjeżdża wcięte o dwie spacje i komenda 6.A24 kończy się `IndentationError`. **Sprawdzone WKLEJENIEM, a nie obejrzeniem:** złożona komenda 6.A24 zapisana do pliku i uruchomiona na sztucznym `build/d1.csv` dała `rc=0` i czwarty wiersz z podmienioną pierwszą kolumną na `abc` — czyli to, co blok obiecuje. Sam licznik zgadzał się także wtedy, gdy pętla wychodziła z kolektora jako niewklejalne `--out "…json" done` (6.D33). **Urwany heredok nie połyka ciała:** płotek kończący się w środku zostawia wiersze przy komendzie, bez dopisanego terminatora — połknięcie ich byłoby tą samą usterką, tylko w drugą stronę (licznik zgodny, wypis niepełny). **Sześć kontroli negatywnych, `md5sum -c: OK` po każdej:** KN-1 (gałąź heredoku zdjęta) **9/14**, KN-2 (wzorzec bez strażników) 13/14 z komunikatem `<<<<<<< HEAD`, KN-3 (urwane ciało połknięte) 13/14, KN-4 (ciało bez zdejmowania wcięcia) **11/14**, KN-5 (w ciele pomijane puste i `#`) 13/14, KN-6 (separator po terminatorze wraca na średnik) 13/14 z `EOF; done`. Kontrola dodatnia na drzewie sprzed zmiany, na tym samym bloku syntetycznym, co KN z pola „Skończone, gdy": **4 komendy**, więc liczba „cztery" jest zmierzona, a nie przyjęta na słowo. Weryfikacja: `test_backlog_commands.py` **14/14** (było 8), zestaw 2195 → 2201, moduły bez zmiany (118), kod 0; `MIN_REPORTS` z 218 na 219. Raport: `reports/6d100-heredok-jako-jedna-komenda.md`. Czego nie zrobiłem: nie przeliczałem werdyktów audytu 6.D15 ani 6.D33 i nie ruszałem treści bloku 6.A24 (pole „Poza zakresem"), choć mianownik tych ułamków zmienił się z 324 na 320; nie ruszałem `reports/komendy-weryfikacji.md`, bo liczby 42 i 83 są tam nazwane **cytatem** z wypisu z 06.09.2026, a nie stanem dzisiejszym. Zauważone: `has_placeholder` skanuje całą komendę, więc od dziś także ciało heredoku — dziś nic to nie zmienia, ale `<plan>` w ciele bywa danymi, a nie miejscem do wypełnienia; `HEREDOC` szuka w całej treści wiersza, więc `<<` wewnątrz cudzysłowu otworzyłoby ciało, którego nie ma — rozstrzygnięcie tego wymaga parsera cudzysłowów powłoki, a nie wzorca. Treść pierwotna: **Kolektor komend liczy jeden heredok jako pięć poleceń** | zmierzone 07.09.2026 przy 6.D33 i zapisane tam jako zauważone: blok 6.A24 daje pięć zamiast jednej, a ta sama liczba jest mianownikiem każdego zdania o pokryciu audytu komend. Poprawka dotyczy sklejania wierszy w kolektorze, bez ruszania treści bloków | S |
 | 6.D101 | **ZROBIONE w #491 (10.09.2026), a jedna z trzech liczb wpisu SIĘ NIE ODTWARZA.** Pole „Skończone, gdy" podawało **57 / 12 / 0**; policzone przyrządem, który powstał w tej pozycji: na `c724001` (dzień powstania wpisu) **60 / 12 / 0**, dziś **66 / 11 / 0**, wszystkie w polu „Weryfikacja". „12" i „0" się odtwarzają, „57" — pod żadnym odczytem, jaki umiałem zbudować (60 wystąpień, 60 par (blok, nazwa), 58 bloków, 27 różnych nazw, 124 bez zawężenia do płotków). Skąd się wzięło, nie wiem i nie udaję, że wiem. Ruch 12 → 11 i 60 → 66 to zwykły ruch kolejki. **Czytany jest WYŁĄCZNIE pierwszy argument**, bo `test_all.py` kończy się na `main(sys.argv[1]) if len(sys.argv)>1 else main()` — drugiego nie czyta nikt. **Trzy kształty z drzewa, których nie było w żadnym opisie:** nazwa z ogonem `;` z łańcucha `cmd; cmd` (3×), goły `|` czyli cały zestaw w potoku bez modułu (1×) i **nazwa bez rozszerzenia** (3×). Trzeci wywrócił moją pierwszą wersję skanu, która uznała te trzy za nieistniejące: `_only_path` dokłada `.py` sam, więc `test_all.py test_report_claims` jest wywołaniem POPRAWNYM, a bramka zgłaszająca je zgłaszałaby tekst prawidłowy. **Werdykt rozstrzyga `test_all._only_path`, a nie druga reguła w bramce** — rozjazd tej pary znaczyłby, że bramka przyjmuje nazwę, której zestaw odmówi, albo odwrotnie. **Czwarty zmierzony przypadek jest poza zasięgiem i to jest wybór:** `test_scan_gates.py` w drzewie JEST, a „czy moduł zawiera bramkę, o której pole mówi" to pytanie o treść, wykluczone w polu „Poza zakresem". **Sześć kontroli negatywnych, `md5sum -c: OK` po każdej, i JEDNA WYSZŁA ZIELONA:** KN-1 (każdy token, nie pierwszy) **17/20**, KN-2 (bez sprawdzenia kształtu argumentu) 18/20, KN-3 (ogon `;` nieodcinany) 19/20, KN-4 (własna reguła zamiast `_only_path`) 19/20, KN-6 (wzorzec zepsuty) **17/20** z progiem pokazującym 0 — i **KN-5 (skan czyta całe pole, nie tylko płotki) ZIELONA**. Zawężenie do płotków nie było przez nic przybite: kontrola stawiała w prozie zdanie bez wywołania, więc pilnowała czegoś, czego nie sprawdzała. **Pierwsza poprawka też była zielona (KN-5b) i z powodu, którego nie przewidziałem:** zdanie z grawisami cichnie nie dzięki zawężeniu, tylko dlatego, że `(\S+)` bierze grawis i przecinek razem z nazwą, a taki token odrzuca `MODULE_ARGUMENT` — dwa różne mechanizmy dawały ten sam zielony. Rozdziela je dopiero zdanie BEZ grawisów i na nim **KN-5c jest czerwona**, z kontrolą dodatnią obok (ta sama nazwa w płotku zapala). Weryfikacja: `test_field_paths.py` **20/20** (było 16), zestaw 2201 → 2205, moduły bez zmiany (118), kod 0; `MIN_REPORTS` z 219 na 220. Raport: `reports/6d101-nazwa-modulu-jako-adres.md`. Czego nie zrobiłem: nie sprawdzam treści modułu (pole „Poza zakresem"); nie postawiłem progu na blokach OTWARTYCH, bo kolejka maleje i taki próg czerwieniałby od sprzątania — ta sama decyzja, co przy kształcie katalogowym w 6.D73. Zauważone: **`test_all.py` czyta wyłącznie `argv[1]` po cichu** — `test_all.py a.py b.py` uruchomi `a.py` i o `b.py` nie powie nic, ani ostrzeżeniem, ani kodem; dziś żadne pole tak nie pisze. Drugie: `test_scan_gates.py` nadal stoi w polu 6.D74 jako miejsce bramki o przejściach po drzewie, a bramka mieszka w `test_tree_walks.py` — blok jest wykonany, więc zapis historyczny, ale adres błędny i żadna bramka tego nie powie. Treść pierwotna: **Nazwa modułu w polu zadania nie jest sprawdzana przez nic, bo nie zawiera ukośnika** | zmierzone 10.09.2026 przy trzech kolejnych pozycjach: pola „Weryfikacja" wołały `test_scan_gates.py` (6.D74), `test_physics_reference.py` (6.D86) i `test_glossary.py` (6.D89) — dwóch ostatnich w drzewie nie ma wcale. Żadnego nie zgłosiła bramka; wszystkie trzy znalazło wykonanie pozycji. `PATH_TOKEN` z `tools/tests/test_field_paths.py` żąda ukośnika, a nazwa modułu podana po `test_all.py` jest gołym argumentem. Dziś **57** gołych nazw modułów w blokach wszystkich, **12** w otwartych, **0** nieistniejących — trzy znalezione poprawiłem ręcznie przy ich pozycjach, a czwartą, `test_all_self.py`, wpisałem SAM do bloku 6.D102 przy tym uzupełnieniu i znalazł ją dopiero pomiar robiony pod tę pozycję, czyli znów nie bramka. Materiału pomiar nie zostawia, więc bramkę trzeba sprawdzić mutacją. Rozpoznanie kształtu, nie decyzja o treści pól | S |
-| 6.D102 | **Kontrola negatywna na module Pythona może przebiec na STARYM bajtkodzie, a `md5sum -c` tego nie widzi** | zmierzone 10.09.2026 przy 6.D86: dwie kontrole zgłosiły wartość z poprzedniej mutacji, choć suma kontrolna źródła dawała `OK`. Przywrócenie przez `cp` w tej samej sekundzie co mutacja, przy napisie **dokładnie tej samej długości** (`248900.0` wobec `251389.0`), nie rusza pary `(mtime w sekundach, rozmiar)`, po której CPython sprawdza ważność `.pyc`. Suma mówi o pliku `.py`, a import idzie z `.pyc` — czyli przyrząd potwierdzający przywrócenie nie widzi tego, co się wykonało. Procedura jest do rozstrzygnięcia **pomiarem** (`PYTHONDONTWRITEBYTECODE` czy czyszczenie `__pycache__`), a nie wyborem właściciela | S |
+| 6.D102 | **ZROBIONE w #492 (10.09.2026), a pułapka działa w OBIE strony i druga jest groźniejsza.** Kierunek z 6.D86 (przywrócenie niewidoczne) daje wynik czerwony, tylko nie z tego powodu, co trzeba. Kierunek drugi — **mutacja niewidoczna** — daje wynik **ZIELONY**, który czyta się jako „bramka tego nie łapie", i nie zostawia żadnego śladu. Odtworzone na rzeczywistej bramce (`test_reference_snapshot.py` na `tools/physics/reference.py`, mutacja `F0_N` w tej samej sekundzie): bez procedury `5/5 przeszło, kod 0` tam, gdzie MA być czerwono; z czyszczeniem `__pycache__` `1/5 przeszło, kod 1`. `md5sum -c` dawał `OK` przez cały czas. **Rozstrzygnięcie pomiarem: zmienna NIE wystarcza.** Przy `.pyc` już leżącym `PYTHONDONTWRITEBYTECODE=1` i `python3 -B` dają stary bajtkod tak samo jak brak czegokolwiek — zabraniają bajtkod PISAĆ, a pułapkę robi CZYTANIE. **Skąd bierze się przekonanie, że wystarcza:** ustawiona OD POCZĄTKU, czyli w pomiarze w czystym katalogu, działa. Obie połowy są przybite osobnymi testami, bo pojedynczy test opisywałby co innego, niż mówi — **moja pierwsza wersja bramki mierzyła tylko tę korzystną połowę i przez to zaprzeczała pomiarowi**; złapał to jej własny komunikat awarii, nie lektura. **Czy zestaw ma to robić sam: nie — ale powód ze wpisu jest fałszywy.** Trzy pary przebiegów: zimny 126,27 / 125,65 / 127,47 s wobec ciepłego 127,17 / 127,49 / 125,25 s, czyli **0,18 s różnicy na 126** przy rozrzucie rzędu 2 s. Zysku nie ma, bo moduły testowe kompilują się ze źródła przez `load_instrumented` (z 77 plików `.pyc` w przebiegu tylko 10 pochodzi z `tools/tests/`). Czyszczenie w każdym przebiegu byłoby jednak wyłączeniem cache'u na stałe także w CI, a to pole „Poza zakresem" wyklucza wprost — przesłanka wykluczenia jest po tym pomiarze fałszywa, ale decyzja należy do właściciela. **W CI pułapki i tak nie ma:** `git clean -ffdx` z checkoutu plus `__pycache__` w `.gitignore` dają zimny start; żaden workflow nie cache'uje bajtkodu. Zagrożenie jest LOKALNE. Procedura stoi w `CLAUDE.md` §5 (nowy podrozdział) i w `docs/06-worked-example.md` (czwarty wzorcowy przypadek), a nowa bramka `tools/tests/test_bytecode_staleness.py` **odtwarza pułapkę, a nie sprawdza napisu** — gdyby CPython przeszedł na bajtkod z sumą źródła, pierwszy test zapali się na zdrowej maszynie i to będzie sygnał, że dokumenty trzeba przeliczyć. **Sześć kontroli negatywnych, `md5sum -c: OK` na trzech plikach po każdej, `__pycache__` czyszczony przed każdym przebiegiem — czyli tą samą procedurą, którą ta pozycja wprowadza:** KN-1 (polecenie znika z `CLAUDE.md`) 5/6, KN-2 (znika nazwa zmiennej) 5/6, KN-3 (sekwencja czyści bajtkod tam, gdzie miała zostawić) **4/6**, KN-4 (zmienna wszędzie zamiast na kontroli) 5/6, KN-5 (laboratorium nie startuje) **2/6**, KN-6 (napisy **różnej długości**) **4/6**. KN-6 jest najważniejsza: dowodzi, że przesłanka „ta sama długość" jest nośna — przy różnych długościach rozmiar drga i pułapka znika, więc bramka mierzy ten mechanizm, a nie jakiś inny. Weryfikacja: `test_bytecode_staleness.py` **6/6**, zestaw 2205 → 2211, modułów 118 → 119, kod 0; `MIN_REPORTS` z 220 na 221. Raport: `reports/6d102-stary-bajtkod-pod-suma-md5.md`. Czego nie zrobiłem: nie kazałem zestawowi czyścić katalogu i nie zmieniałem sposobu liczenia testów (pole „Poza zakresem"); nie ruszałem raportu 6.D86, bo opisuje pomiar z tamtego dnia poprawnie. **Zauważone: `mutation_sweep.py` mutuje pliki i uruchamia zestaw w pętli, czyli robi dokładnie tę sekwencję, w której pułapka żyje** — nie sprawdzałem, czy czyści bajtkod między próbami; jeśli nie, część „przeżytych" mutacji może być mutacjami niewidocznymi. Drugie: pułapka nie ogranicza się do kontroli negatywnych — zwykła edycja modułu i natychmiastowy przebieg mają ten sam kształt. Treść pierwotna: **Kontrola negatywna na module Pythona może przebiec na STARYM bajtkodzie, a `md5sum -c` tego nie widzi** | zmierzone 10.09.2026 przy 6.D86: dwie kontrole zgłosiły wartość z poprzedniej mutacji, choć suma kontrolna źródła dawała `OK`. Przywrócenie przez `cp` w tej samej sekundzie co mutacja, przy napisie **dokładnie tej samej długości** (`248900.0` wobec `251389.0`), nie rusza pary `(mtime w sekundach, rozmiar)`, po której CPython sprawdza ważność `.pyc`. Suma mówi o pliku `.py`, a import idzie z `.pyc` — czyli przyrząd potwierdzający przywrócenie nie widzi tego, co się wykonało. Procedura jest do rozstrzygnięcia **pomiarem** (`PYTHONDONTWRITEBYTECODE` czy czyszczenie `__pycache__`), a nie wyborem właściciela | S |
 | 6.D103 | **Trzy gałęzie warunkowe schematu audio stoją poza pętlą zgodności — wpis łamiący gałąź przechodzi** | zmierzone 10.09.2026 przy 6.D85: schemat ma **trzy** gałęzie `allOf` (`source_type = licensed_library`, `source_type = original_recording`, `rights_status = cleared`), a pętla dopisana w 6.D85 czyta wyłącznie właściwości najwyższego poziomu. Trzy istniejące testy czytają **schemat**, a nie manifest: pytają „czy schemat tego wymaga", nie „czy wpis to spełnia". Wpis `licensed_library` bez pola `license` przejdzie dziś, bo `license` nie stoi w `required` najwyższego poziomu. Rozszerzenie istniejącej pętli o `if`/`then`, bez dopisywania zależności i bez zmiany schematu | S |
 | 6.D104 | **Tabela zaprzeczeń README obejmuje jeden punkt z pięciu** | zmierzone 10.09.2026 przy 6.D87: sekcja „Czego nie ma" ma **pięć** punktów, `ZAPRZECZENIA` w `tools/tests/test_readme_claims.py` ma **jeden** wpis — ten, który się rozjechał. Pozostałe cztery to osobna praca, a nie dopisanie wierszy: dwa z nich mówią o DANYCH, nie o API, więc wiązanie ich z nazwą w rdzeniu byłoby wiązaniem z czymś, czego nie dotyczą. Wynikiem ma być pomiar per punkt i wpis albo zapisany powód jego braku — tabela nie ma rosnąć o wpisy, których nikt nie umie zapalić. Treści punktów README pozycja nie zmienia, więc nie ma tu czego rozstrzygać | M |
 | 6.D105 | **Dwa dokumenty definiują statusy pochodzenia i nikt ich ze sobą nie zestawia — jedna nazwa jest używana w dokumencie, który jej nie definiuje** | zmierzone 10.09.2026 przy 6.D89, i pomiar obalił pierwszą wersję tego wpisu. `docs/21-measured-vs-assumed.md` **nie jest** kopią listy z `docs/02-simulation.md`: ma WŁASNĄ tabelę statusów i definiuje `spec`, `observed`, `design_assumption`, `blocked`, gdy dokument modelu definiuje `spec`, `observed`, `est`, `design_model`. Wspólne są dwa, rozłączne po dwa z każdej strony. Usterką nie jest więc rozjazd list, tylko to, że `docs/21` **używa `design_model` sześć razy, nie definiując go i nie odsyłając po niego nigdzie** — a `est` nie występuje ani tam, ani w danych pojazdu. Bramka ma żądać, żeby każdy status użyty w `docs/21` był zdefiniowany w jednej z dwóch tabel, i żeby dokument mówił, która z nich którą nazwę trzyma. Znaczenia żadnego statusu ani klasyfikacji żadnego parametru pozycja nie zmienia, więc nie ma tu czego rozstrzygać | S |
@@ -967,6 +967,12 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.D110 | **Bramka zapisów do drzewa widzi tylko `open` — sześć miejsc pisze przez `shutil` i `os.replace`** | zmierzone 10.09.2026 przy 6.D90 i wypisane wtedy jako ograniczenie znane z góry, dziś policzone: skan po `tools/tests/` znajduje **6** miejsc z `shutil.copyfile`, `shutil.copy2` i `os.replace`, których `test_tree_writes.py` nie widzi. 6.D90 mierzyło kształt, który WYSTĄPIŁ (siedem miejsc z `open`), a rozszerzanie o niewystępujące byłoby zgadywaniem — teraz drugi kształt jest policzony, więc przestał być hipotezą | S |
 | 6.D111 | **26 z 60 nazw przystanków jest dwujęzycznych z kreską pionową, a wszystkie porównania idą po CAŁYM napisie** | zmierzone 10.09.2026 przy 6.D91 i 6.D92: zmiana samej formy zapisu po jednej stronie — spacja wokół kreski, inna kolejność języków, jeden człon zamiast dwóch — rozjeżdża kontrolę bez zmiany faktu o sieci. Dziś nie pilnuje tego nic, bo obie strony czyta się z tego samego pliku; przy pierwszym źródle zewnętrznym (GTFS, OSM) to przestaje być prawdą. Kształt normalizacji ma być WYPROWADZONY z pomiaru na tych 26 nazwach; nazw w `data/` pozycja nie zmienia i języka wiodącego nie wybiera | M |
 | 6.D112 | **`doctor.sh` pyta `dotnet --version` trzy razy o to samo w jednym bloku** | zmierzone 10.09.2026 przy 6.D96: wywołania w wierszach 152, 181 i 225 pytają o tę samą rzecz na tej samej maszynie w odstępie milisekund. To nie jest tylko czas — trzy wywołania to trzy okazje do rozjazdu: gdyby między nimi zmienił się `global.json` albo `PATH`, doctor wypisałby zdania opisujące DWA różne stany jako jeden. Ta sama rodzina co usterka zamknięta przez 6.D96, tylko rozłożona w czasie zamiast w potoku. Warunkiem odbioru jest wypis identyczny co do bajtu w trzech stanach | S |
+| 6.D113 | **Wyrocznia mutacyjna mutuje pliki i uruchamia zestaw w pętli, czyli robi dokładnie tę sekwencję, w której żyje pułapka starego bajtkodu** | zauważone 10.09.2026 przy 6.D102 i tam nietknięte: `mutation_sweep.py` podmienia fragment źródła i uruchamia zestaw, a mutacja o tej samej długości wpisana w tej samej sekundzie co poprzedni przebieg jest dla CPythona niewidoczna. Jeśli sweep nie czyści `__pycache__` między próbami, część mutacji policzonych jako PRZEŻYTE mogła być mutacjami, których nie wykonano. Liczbę ma policzyć pozycja, nie ten wiersz | M |
+| 6.D114 | **`test_all.py` czyta wyłącznie `argv[1]` i o pozostałych argumentach milczy** | zmierzone 10.09.2026 przy 6.D101: `main(sys.argv[1]) if len(sys.argv)>1 else main()` — wywołanie z dwoma modułami uruchomi pierwszy i nie powie nic o drugim, ani ostrzeżeniem, ani kodem. Trafiłem na to przy tej samej pozycji, wołając cztery moduły naraz i dostając wynik jednego. Dziś żadne pole kolejki tak nie pisze, więc to jest milczące pominięcie, a nie zła liczba | S |
+| 6.D115 | **Odsianie „ścieżki węzła sceny" w skanie literałów `Hud.cs` przepuszcza napis ze słowem** | zmierzone 10.09.2026 przy 6.D99: `UiTextTests` pomija każdy literał zawierający `/`, nazywając to ścieżką węzła — i przez to przepuszcza `"{…} km/h     a = {…} m/s²"`, czyli napis niosący słowo `km`. To odsianie jest jedynym powodem, dla którego usterka dziur interpolacji nie wyszła w 6.D83; zawężenie ma iść po kształcie ścieżki węzła, a nie po obecności ukośnika | S |
+| 6.D116 | **Dwie nazwy klawiszy nie są związane z `project.godot` przez nic** | zmierzone 10.09.2026 przy 6.D99: `DriverActionsTests` porównuje `binding.KeyName` z `physical_keycode` **tylko dla nazw jednoznakowych** (`KeyName.Length == 1`), więc pięć z siedmiu. „Esc" i „Spacja" nie wchodzą pod tę pętlę i zmiana `"Esc"` na `"Escape"` nie zapali dziś żadnej bramki. Dla „Spacji" katalog tekstów dokłada dwie bramki, dla „Esc" — żadnej | S |
+| 6.D117 | **Trzeci kształt przejścia po drzewie (`glob.glob(**, recursive=True)`) stoi poza wspólnym odsianiem i nikt go nie liczy** | zauważone 10.09.2026 przy 6.D97 i tam nietknięte: bramka z 6.D74 pilnuje `os.walk`, 6.D97 dołożyło skan kopii listy katalogów, a `_all_sim_cs_files` chodzi `glob`iem i `.gitignore` go nie dotyczy. Tam jest to zamierzone, ale kształt jest ogólny i dziś nikt nie wie, ile miejsc go używa ani które z nich są zamierzone | M |
+| 6.D118 | **`has_placeholder` skanuje od 6.D100 także ciało heredoku, a ciało bywa danymi** | zauważone 10.09.2026 przy 6.D100 i tam nietknięte: kolektor skleja ciało heredoku z komendą, więc `<plan>` wpisany do ciała zostanie zgłoszony jako miejsce do wypełnienia. Czasem to prawda (ktoś ma wpisać wartość), a czasem ciało jest programem, w którym nawias ostrokątny jest składnią. Dziś w drzewie taki przypadek nie występuje, więc pozycja ma najpierw ROZSTRZYGNĄĆ na wejściu syntetycznym, czy rozróżnienie jest w ogóle możliwe | S |
 
 #### Szczegóły pozycji z kompletem sześciu pól
 
@@ -7755,6 +7761,185 @@ nie sięga, nawet gdy nie ma nic innego do roboty; wtedy sięga po fazę 5.
 - **Poza zakresem:** zmiana treści któregokolwiek komunikatu i łączenie wywołań
   `--list-sdks` z `--version` — to są dwa różne pytania i 6.D96 właśnie na tym stoi.
 - **Zależy od:** 6.D96.
+
+##### 6.D113 · Wyrocznia mutacyjna a stary bajtkod
+
+- **Skąd:** zauważone 10.09.2026 przy 6.D102 i zapisane tam jako „zauważone
+  i nietknięte". `mutation_sweep.py` podmienia fragment źródła i uruchamia zestaw,
+  a `run_suite` czyta z przebiegu wyłącznie wiersz `N/M przeszło` i kod wyjścia.
+  Mutacja o tej samej długości co oryginał, wpisana w tej samej sekundzie co poprzedni
+  zapis pliku, jest dla CPythona niewidoczna — para `(mtime w sekundach, rozmiar)`
+  nie drga i import idzie ze starego `.pyc` (6.D102, `tools/tests/test_bytecode_staleness.py`).
+- **Dlaczego to nie jest powtórka 6.D102:** tamta pozycja opisała pułapkę i zapisała
+  procedurę **dla człowieka i agenta**, robiących kontrolę negatywną ręcznie. Sweep
+  robi tę samą sekwencję **maszynowo i tysiące razy**, więc jeśli jej nie czyści,
+  „mutacja PRZEŻYŁA" znaczy czasem „mutacji nie wykonano". Wyrocznia meldowałaby wtedy
+  sprawdzenie, którego nie zrobiła — a `reports/wyrocznia-mutacyjna-falszywe-zabicia.md`
+  opisuje tę samą chorobę odwróconą w drugą stronę.
+- **Wejście:** `tools/tests/mutation_sweep.py` (`run_suite`, pętla prób, zapis
+  i przywracanie pliku), `tools/tests/test_mutation_sweep.py`,
+  `tools/tests/test_bytecode_staleness.py` (mechanizm i jego pomiar).
+- **Wyjście:** rozstrzygnięcie **z pomiarem**, ile mutacji z jednego pełnego przebiegu
+  sweepa wykonało się na starym bajtkodzie: liczba przed i po wprowadzeniu czyszczenia,
+  wypisana. Jeśli zero — zapisane, dlaczego sweep jest odporny, bo dziś tego nie wie
+  nikt.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_mutation_sweep.py
+  ```
+  Oczekiwane: zestaw zielony, a liczba mutacji niewykonanych podana wprost — także
+  wtedy, gdy wynosi zero.
+- **Skończone, gdy:** liczba jest zmierzona i wypisana, a kontrola negatywna na
+  wejściu syntetycznym (mutacja tej samej długości w tej samej sekundzie) pokazuje
+  różnicę między sweepem z czyszczeniem i bez.
+- **Poza zakresem:** zmiana definicji „mutacja zabita" i przeliczanie dawnych
+  werdyktów sweepa — to jest osobna decyzja i osobny koszt czasu.
+- **Zależy od:** 6.D102.
+
+##### 6.D114 · Zestaw czyta jeden argument i o pozostałych milczy
+
+- **Skąd:** zmierzone 10.09.2026 przy 6.D101, i nie z lektury: wywołałem
+  `test_all.py` z czterema modułami naraz, dostałem wynik jednego i wziąłem go
+  początkowo za wynik czterech. `test_all.py` kończy się na
+  `main(sys.argv[1]) if len(sys.argv)>1 else main()`, więc `argv[2]` i dalsze są
+  odrzucane bez słowa.
+- **Dlaczego to nie jest wygoda:** milczące pominięcie argumentu daje wynik, który
+  **wygląda** jak wynik tego, o co się prosiło. To jest ta sama rodzina co pusty
+  przebieg kończący się zerem, którą 6.D25 zamknęło odmową — tam nieznany moduł
+  przestał być cichym zerem, tu nadmiarowy moduł nadal jest cichym pominięciem.
+- **Wejście:** `tools/tests/test_all.py` (gałąź `__main__`, `_only_path`, `main`),
+  `tools/tests/test_module_entrypoints.py`.
+- **Wyjście:** wywołanie z więcej niż jednym modułem albo uruchamia wszystkie
+  wymienione, albo **odmawia z kodem niezerowym** — jedno z dwóch, rozstrzygnięte
+  w pozycji i uzasadnione. Cichego pominięcia nie zostaje.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_module_entrypoints.py
+  ```
+  Oczekiwane: zestaw zielony, a wywołanie z dwoma modułami daje wynik dający się
+  odróżnić od wywołania z jednym — po kodzie wyjścia albo po liczbie testów.
+- **Skończone, gdy:** wywołanie z dwoma modułami nie kończy się po cichu kodem zero
+  z wynikiem jednego z nich, a bramka pokazuje różnicę na wejściu syntetycznym.
+- **Poza zakresem:** dodawanie opcji wiersza poleceń (`--only`, `-k` i podobnych)
+  oraz zmiana sposobu liczenia testów.
+- **Zależy od:** brak.
+
+##### 6.D115 · Odsianie ścieżki węzła przepuszcza napis ze słowem
+
+- **Skąd:** zmierzone 10.09.2026 przy 6.D99. `UiTextTests` pomija każdy literał
+  zawierający `/`, nazywając go ścieżką węzła sceny. Pod to odsianie wpada też
+  `"{…} km/h     a = {…} m/s²"` z `Hud.Update` — napis niosący słowo `km`, wypisywany
+  graczowi. Odsianie jest **jedynym** powodem, dla którego skan literałów przechodził
+  przed 6.D99: usterka dziur interpolacji nie wyszła w 6.D83 właśnie dlatego.
+- **Dlaczego to nie jest kosmetyka:** bramka, która przepuszcza napis, bo ten zawiera
+  ukośnik, mówi „w `Hud.cs` nie ma literału językowego" i nie ma do tego podstaw.
+  Zawężenie ma iść po **kształcie ścieżki węzła** (`Panel/Rows`, `Hud/Panel/Rows` —
+  segmenty bez spacji, bez cyfr formatu), a nie po obecności jednego znaku.
+- **Wejście:** `tests/Game.Tests/UiTextTests.cs` (`SlowaWKodzie`, odsianie po `/`),
+  `src/Game/UI/Hud.cs` (jedyny dzisiejszy przypadek), `src/Game/UI/UiText.cs`.
+- **Wyjście:** odsianie rozróżniające ścieżkę węzła od napisu z jednostką; literał
+  prędkości albo trafia do katalogu, albo zostaje z wypisanym powodem — ale nie
+  przechodzi jako „ścieżka".
+- **Weryfikacja:**
+  ```bash
+  dotnet test tests/Game.Tests
+  ```
+  Oczekiwane: zielone, a wypis HUD-u dla przebiegu skryptowego ten sam co do znaku
+  (sprawdzone zrzutem, tak jak w 6.D99).
+- **Skończone, gdy:** `Panel/Rows` nadal jest odsiewane, `"{…} km/h …"` już nie,
+  a zrzuty na chainage 300, 900 i 2500 mają te same sumy MD5 co przed zmianą.
+- **Poza zakresem:** dodanie drugiego języka i zmiana brzmienia jakiegokolwiek napisu
+  — ta pozycja rozstrzyga, co jest ścieżką, a nie co jest tekstem.
+- **Zależy od:** 6.D99.
+
+##### 6.D116 · Dwie nazwy klawiszy bez żadnego przybicia
+
+- **Skąd:** zmierzone 10.09.2026 przy 6.D99. `DriverActionsTests` porównuje
+  `binding.KeyName` z `PhysicalKeycodes[0]` **tylko dla nazw jednoznakowych**
+  (`KeyName.Length == 1`), czyli dla pięciu z siedmiu. „Esc" i „Spacja" pod tę pętlę
+  nie wchodzą: zmiana `"Esc"` na `"Escape"` nie zapali dziś żadnej bramki, a wiersz
+  pomocy zacznie nazywać klawisz inaczej, niż nazywa go `InputMap`.
+- **Dlaczego to nie jest domknięcie 6.D99:** tamta pozycja **oparła** granicę „słowo
+  kontra napis na klawiszu" na tym, że nazwa jednoznakowa jest przybita do
+  `physical_keycode` — i to jest prawda dla pięciu. Dla dwóch pozostałych granica stoi
+  dziś na samym zdaniu w dokumentacji. Pozycja ma to przybić albo pokazać pomiarem,
+  że przybić się nie da.
+- **Wejście:** `tests/Game.Tests/DriverActionsTests.cs` (pętla po `KeyName.Length == 1`),
+  `src/Game/Input/DriverActions.cs`, `src/Game/Input/EmergencyBrake.cs`,
+  `src/Game/project.godot` (nazwy kodów fizycznych).
+- **Wyjście:** odwzorowanie nazwa → kod fizyczny dla nazw wielosłownych, czytane
+  z jednego miejsca; „Esc" i „Spacja" związane z `Key.Escape` i `Key.Space` tak samo
+  jak litery.
+- **Weryfikacja:**
+  ```bash
+  dotnet test tests/Game.Tests
+  ```
+  Oczekiwane: zielone, a podmiana `"Esc"` na `"Escape"` w tabeli przypisań wywraca
+  test z nazwą klawisza w komunikacie.
+- **Skończone, gdy:** wszystkie siedem nazw jest przybitych do kodów fizycznych,
+  a kontrola negatywna na każdej z dwóch dotąd nieprzybitych zapala bramkę.
+- **Poza zakresem:** zmiana przypisań klawiszy i dodawanie nowych akcji — tabela ma
+  zostać ta sama, ma tylko przestać mieć dwa wiersze poza kontrolą.
+- **Zależy od:** 6.D99.
+
+##### 6.D117 · Trzeci kształt przejścia po drzewie, którego nikt nie liczy
+
+- **Skąd:** zauważone 10.09.2026 przy 6.D97 i zapisane tam jako „zauważone
+  i nietknięte". Bramka z 6.D74 pilnuje wspólnego odsiania dla `os.walk`, 6.D97
+  dołożyło skan lokalnych kopii listy katalogów — a `glob.glob(…, recursive=True)`
+  jest trzecim kształtem i przez oba przechodzi bokiem. `_all_sim_cs_files` używa go
+  świadomie i `.gitignore` go nie dotyczy; problem jest w tym, że **nikt nie wie, ile
+  jest takich miejsc** ani które z nich są zamierzone.
+- **Dlaczego to nie jest domknięcie 6.D97:** tamta pozycja usuwała **kopie** wspólnego
+  odsiania i sprawdzała, że pięć liczników jest przed i po identycznych. Ta pyta
+  o kształt, którego tamta nie oglądała wcale — i pierwszym wynikiem ma być liczba,
+  a nie zmiana.
+- **Wejście:** `tools/tests/tree_walk.py` (wspólne odsianie),
+  `tools/tests/test_tree_walks.py` (dzisiejszy skan), wszystkie moduły `tools/`
+  używające `glob.glob` z `recursive=True`.
+- **Wyjście:** liczba miejsc z tym kształtem, policzona z drzewa i wypisana, oraz
+  rozstrzygnięcie dla każdego: zamierzone (z powodem na jawnej liście) albo do
+  przepisania na wspólne odsianie.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_tree_walks.py
+  ```
+  Oczekiwane: zestaw zielony, a lista miejsc zamierzonych zamknięta zapadką z obu
+  stron — jak `POWODY` w 6.A31.
+- **Skończone, gdy:** liczba wystąpień jest wypisana, każde ma rozstrzygnięcie,
+  a dopisanie nowego `glob.glob(…, recursive=True)` bez wpisu zapala bramkę.
+- **Poza zakresem:** zmiana zachowania `_all_sim_cs_files` i przepisywanie na
+  `os.walk` czegokolwiek, co ma powód zostać.
+- **Zależy od:** 6.D97.
+
+##### 6.D118 · Nawias ostrokątny w ciele heredoku: dane czy miejsce do wypełnienia
+
+- **Skąd:** zauważone 10.09.2026 przy 6.D100 i zapisane tam jako „zauważone
+  i nietknięte". Od tej pozycji kolektor skleja ciało heredoku z komendą, więc
+  `has_placeholder` skanuje także ciało. W 6.A24 — jedynym dzisiejszym heredoku —
+  nawiasu ostrokątnego nie ma, więc zbiór bloków z miejscem do wypełnienia się nie
+  zmienił. Zmieni się przy pierwszym heredoku niosącym `<`.
+- **Dlaczego to nie jest hipoteza o przyszłości:** ciało heredoku bywa **programem**
+  (tak jest w 6.A24: trzy wiersze Pythona), a w programie `<` jest operatorem, nie
+  miejscem do wypełnienia. Zgłoszenie takiego ciała byłoby zgłoszeniem tekstu
+  poprawnego — czyli bramką, którą się wyłącza, a nie naprawia (6.D27).
+- **Wejście:** `tools/tests/backlog_commands.py` (`has_placeholder`, `PLACEHOLDER`,
+  `_join`), `tools/tests/test_backlog_commands.py`, blok 6.A24 w `docs/TASKS.md`.
+- **Wyjście:** rozstrzygnięcie **na wejściu syntetycznym**, czy da się odróżnić
+  `<plan>` w ciele od `a < b` i od `x <- y`; jeśli tak — reguła i bramka, jeśli nie —
+  zapisane wprost, że ciało heredoku jest z wykrywania wyłączone, i dlaczego.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_backlog_commands.py
+  ```
+  Oczekiwane: zestaw zielony, a zbiór bloków z miejscem do wypełnienia niezmieniony
+  wobec dzisiejszego.
+- **Skończone, gdy:** oba przypadki syntetyczne (`<plan>` jako miejsce, `a < b` jako
+  operator) mają werdykt, a rozstrzygnięcie stoi w docstringu modułu, nie tylko
+  w raporcie.
+- **Poza zakresem:** zmiana treści bloku 6.A24 i rozszerzanie `PLACEHOLDER` o kształty
+  spoza nawiasu ostrokątnego.
+- **Zależy od:** 6.D100.
 
 #### Rozstrzygnięte 07.09.2026 — cztery decyzje właściciela
 
