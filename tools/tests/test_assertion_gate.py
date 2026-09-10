@@ -142,20 +142,42 @@ def test_gate_catches_the_pr139_shape_of_a_silent_skip():
     katalogu tymczasowego, który na pewno nie istnieje; kształt kodu atrapy zostaje
     ten sam co w #139, bo o kształt tu chodzi, a nie o konkretny plik.
     """
-    nieistniejacy = os.path.join(
-        tempfile.gettempdir(), "mbxl-bramka-asercji-nie-ma-takiego-pliku", "chunks.json")
-    assert not os.path.exists(nieistniejacy), (
-        'ścieżka udająca brakujący artefakt jednak istnieje, '
-        f'więc test mierzyłby co innego niż cichy skip: {nieistniejacy}')
+    # KATALOG PRYWATNY, NIE STAŁA NAZWA W `/tmp` — 6.D84.
+    #
+    # Poprzednia wersja brała `tempfile.gettempdir()` + stałą nazwę i tylko ZAKŁADAŁA,
+    # że nikt jej nie zajął. Zmierzone 09.09.2026 i odtworzone 10.09.2026: po
+    # utworzeniu pliku pod tą nazwą moduł schodzi z **27/27 na 26/27**, a pada nie
+    # ten test, który coś mierzy, tylko jego strażnik. Fałszywy alarm zależny od
+    # OBCEGO stanu jest w tym projekcie osobną kategorią (6.D27): bramkę, która pada
+    # nie ze swojego powodu, ktoś w końcu wyłączy.
+    #
+    # Katalog jest tworzony przez `TemporaryDirectory`, a ścieżka wskazuje jego
+    # NIEUTWORZONE dziecko — więc nieistnienie jest tu SKONSTRUOWANE. Asercja mimo to
+    # zostaje, bo skonstruowany warunek i tak trzeba udowodnić: ten sam wzorzec, co
+    # w 6.D57. Po tej zmianie test sprawdza dwie rzeczy zamiast jednej.
+    with tempfile.TemporaryDirectory(prefix="mbxl-bramka-asercji-") as katalog:
+        nieistniejacy = os.path.join(katalog, "nie-ma-takiego-katalogu", "chunks.json")
+        # DWIE rzeczy, nie jedna. Sama nieobecność ścieżki jest prawdziwa także dla
+        # literówki w nazwie zmiennej albo dla katalogu, którego nigdy nie utworzono —
+        # a wtedy test przechodzi, nie mierząc niczego. Ten wiersz przybija, że
+        # ścieżka leży W ISTNIEJĄCYM katalogu prywatnym, czyli że brak dotyczy
+        # dziecka, a nie całej gałęzi.
+        assert os.path.isdir(katalog), (
+            f'katalog prywatny nie powstał: {katalog} — nieobecność ścieżki niżej '
+            'nie znaczyłaby wtedy nic')
+        assert not os.path.exists(nieistniejacy), (
+            'ścieżka udająca brakujący artefakt jednak istnieje, '
+            f'więc test mierzyłby co innego niż cichy skip: {nieistniejacy}')
 
-    module = _load(
-        "import os\n"
-        "def test_x():\n"
-        f"    path = {nieistniejacy!r}\n"
-        "    if not os.path.isfile(path):\n"
-        "        return\n"
-        "    assert os.path.getsize(path) > 0\n")
-    state, message, checks = _run(module.test_x)
+        module = _load(
+            "import os\n"
+            "def test_x():\n"
+            f"    path = {nieistniejacy!r}\n"
+            "    if not os.path.isfile(path):\n"
+            "        return\n"
+            "    assert os.path.getsize(path) > 0\n")
+        state, message, checks = _run(module.test_x)
+
     assert checks == 0, checks
     assert state == "fail", state
     assert "cichy skip" in message, message
