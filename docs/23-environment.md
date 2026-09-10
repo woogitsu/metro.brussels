@@ -61,6 +61,19 @@ a gdzie **CI**, bo to nie zawsze ten sam katalog:
 | Godot | `${RUNNER_TOOL_CACHE:-$HOME/.cache/metro-tools}/metro-godot/<wersja>/Godot_v<wersja>_mono_linux.x86_64` (§4) | ten sam katalog (`tools/ci/godot_install.sh`) | `GODOT_BIN` |
 | .NET SDK | `$HOME/.dotnet` (§3) | `${RUNNER_TOOL_CACHE:-$HOME/.cache/metro-tools}/metro-dotnet` (`DOTNET_INSTALL_DIR` w `sim-tests.yml`, `blender-smoke.yml`, `godot-first-run.yml`) | `DOTNET_ROOT`, `DOTNET_BIN` |
 
+**Wersja SDK jest przypięta w `global.json` w katalogu głównym — 10.09.2026 (6.D79).**
+Do tego dnia trzy workflowy podawały `dotnet-version: '10.0.x'`, czyli **wzorzec
+kanału**: instalator rozwiązuje go do najnowszej łatki **w momencie instalacji**, więc
+dwa czyste runnery mogły zbudować ten sam commit różnymi wersjami narzędzi. Na maszynie
+właściciela SDK przeżywa przebiegi w cache, więc rozjazd nie następował między
+przebiegami jednej maszyny — następował **między maszynami puli** i po każdym
+czyszczeniu cache narzędzi. Pin podaje pełną trójkę i **jawną** politykę przewijania
+(`rollForward: latestPatch` — łatka w tej samej rodzinie przechodzi, nowa rodzina
+funkcji nie). Ten sam numer stoi dziś w `global.json`, w `dotnet-version:` trzech
+workflowów i w kontroli opcjonalnej `doctor.sh`, a `tools/tests/test_dotnet_version.py`
+żąda ich zgodności czterema osobnymi asercjami. Wersji nie wpisuj z ręki — jest jedna,
+w `global.json`.
+
 Ścieżka cache stoi w dokumencie i w skrypcie, więc pilnuje ich zgodności
 `tools/tests/test_environment_doc.py` — podmiana katalogu w `blender_install.sh`
 bez podmiany tutaj wywraca bramkę. Wersji w ścieżce nie wpisuj z ręki: dla
