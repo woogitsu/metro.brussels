@@ -107,9 +107,74 @@ public sealed class TrackAxis
     /// </summary>
     public string VerticalStatus { get; }
 
+    /// <summary>
+    /// Statusy profilu pionowego, przy których pochylenie WOLNO wyprowadzać z osi.
+    /// <b>Lista jest zamknięta i dziś PUSTA</b>, więc <see cref="IsVerticalModelled"/>
+    /// jest fałszywy dla wszystkiego — i to nie jest ostrożność, tylko stan rzeczy:
+    /// rzędnych główki szyny nie ma w żadnym pliku osi.
+    ///
+    /// <para><b>Dlaczego biała lista, a nie negacja jednej wartości</b> (6.D80).
+    /// Poprzednia wersja brzmiała <c>!Equals(VerticalStatus, "not_modelled")</c>
+    /// i była prawdziwa dla wszystkiego POZA tym jednym napisem. Zmierzone
+    /// 09.09.2026 sondą wołającą ten typ:</para>
+    /// <code>
+    /// brak klucza vertical           IsVerticalModelled = True
+    /// status = unknown               IsVerticalModelled = True
+    /// status = nod_modelled          IsVerticalModelled = True   (literówka)
+    /// status = not_modelled          IsVerticalModelled = False
+    /// </code>
+    /// <para>Trzy pierwsze wiersze to trzy sposoby, na jakie plik osi może
+    /// POWIEDZIEĆ NIC — a predykat odpowiadał na nie „zamodelowany". Dziś nie liczy
+    /// z tego nic (jedynymi konsumentami są testy, a pochylenie wchodzi do fizyki
+    /// jako jawne zero), więc szkoda jest KONTRAKTOWA: pierwszy konsument, który
+    /// zaufa predykatowi, policzy zerowe pochylenie jako <b>zmierzone</b>, a nie
+    /// jako założenie — czyli przekroczy granicę z
+    /// <c>docs/21-measured-vs-assumed.md</c>.</para>
+    /// <para>Dopisanie tu wartości jest <b>oświadczeniem, że dla tego statusu profil
+    /// naprawdę jest w danych</b>, i ma iść razem z rzędnymi w plikach osi.</para>
+    /// </summary>
+    public static IReadOnlyList<string> ModelledVerticalStatuses { get; } =
+        Array.Empty<string>();
+
+    /// <summary>
+    /// Czy ten status znaczy „profil pionowy jest w danych". Porównanie jest
+    /// <see cref="StringComparison.Ordinal"/>: status pochodzi z pliku, a nie od
+    /// człowieka, więc równoważność wielkości liter byłaby zgadywaniem.
+    /// </summary>
+    public static bool IsModelledStatus(string? status) =>
+        IsModelledStatus(status, ModelledVerticalStatuses);
+
+    /// <summary>
+    /// Ta sama reguła wobec DOWOLNEJ listy statusów pozytywnych.
+    ///
+    /// <para><b>Ta przeciążka istnieje dla jednego powodu i został on zmierzony</b>
+    /// (6.D80, 10.09.2026). Przy liście PUSTEJ predykat czytający listę i predykat
+    /// zwracający twarde <c>false</c> są dla testów NIEODRÓŻNIALNE: kontrola
+    /// negatywna zastępująca całą pętlę przez <c>return false</c> przeszła
+    /// <b>597/597, zielono</b>. Pusta biała lista jest więc miejscem, w którym łatwo
+    /// napisać bramkę pilnującą niczego. Wersja z jawną listą pozwala sprawdzić
+    /// regułę na liście NIEPUSTEJ — i po tej zmianie ta sama mutacja wywraca test.</para>
+    /// </summary>
+    public static bool IsModelledStatus(string? status, IReadOnlyList<string> allowed)
+    {
+        if (status is null || allowed is null)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < allowed.Count; i++)
+        {
+            if (string.Equals(allowed[i], status, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>Czy profil pionowy jest zamodelowany. Dla wszystkich pakietów: nie.</summary>
-    public bool IsVerticalModelled =>
-        !string.Equals(VerticalStatus, "not_modelled", StringComparison.Ordinal);
+    public bool IsVerticalModelled => IsModelledStatus(VerticalStatus);
 
     /// <summary>Surowa łamana STIB, po usunięciu powtórzonych punktów.</summary>
     public IReadOnlyList<AxisPoint> SourcePoints => _source;
