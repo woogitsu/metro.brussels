@@ -132,7 +132,15 @@ MAX_GAME_JUSTIFIED_NEEDLES = 4
 #: Zapadka na igly bez ani jednego dopasowania (szczebel 3). Zmierzone 07.09.2026:
 #: **16 z 45**. Rosnie tylko przez przepisanie igly na tekst, ktorego w literalach nie
 #: ma — czyli przez zamiane niejednoznacznosci na niewidzialnosc.
-MAX_GAME_UNMATCHED_NEEDLES = 16
+#:
+#: **16 -> 19, 10.09.2026 (6.D83).** Trzy nowe igle sa z zalozenia bez dopasowania
+#: w komunikatach `src/Game`, bo nie sa komunikatami: `hud.nie-ma-takiego` to KLUCZ
+#: celowo nieistniejacy (test zada, zeby katalog rzucil, a nie wyswietlil nazwe
+#: klucza), a `Panel/Rows` i `font_size` to sciezka wezla sceny i nazwa wlasciwosci
+#: motywu — obie sa kontrola przyrzadu skanu literalow w `UiTextTests`, ktory ma je
+#: WIDZIEC, zeby bylo co odsiewac. Wzmocnienie tych igiel nie ma sensu: nie opisuja
+#: zdania dla czlowieka.
+MAX_GAME_UNMATCHED_NEEDLES = 19
 
 #: Progi KW. Literowka we wzorcu daje zero dopasowan i caly modul zielony; te trzy
 #: liczby sa jedynym powodem, dla ktorego taka literowka jest widoczna. Zmierzone
