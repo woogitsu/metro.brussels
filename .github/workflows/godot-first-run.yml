@@ -182,9 +182,29 @@ jobs:
           # Sam plik wykonywalny nie wystarcza — obok musi leżeć katalog GodotSharp,
           # inaczej silnik nie znajdzie assembly .NET i wywraca się dopiero przy starcie
           # sceny, czyli kilkanaście kroków dalej niż powód.
+          #
+          # SONDA PORÓWNUJE ZGŁASZANĄ WERSJĘ Z PINEM, A NIE TYLKO JĄ WYPISUJE — 6.D88.
+          # Do 10.09.2026 wywołanie `--version` stało tu jako goły wypis: sonda mówiła
+          # `engine=present` na podstawie obecności PLIKU, a numer, który silnik
+          # zgłasza, nie był z niczym zestawiany. Krok pobierania jest bramkowany
+          # `engine == 'missing'`, więc porównanie z `tools/ci/godot_install.sh` —
+          # to, które istnieje i działa — w takim przebiegu NIE WYKONUJE SIĘ WCALE.
+          #
+          # Wzorzec jest wzięty z instalatora Blendera: `have != VERSION` daje BŁĄD,
+          # a nie wypis. Normalizacja `-` na `.` jest konieczna, bo tag wydania brzmi
+          # `4.7.2-stable`, a silnik zgłasza `4.7.2.stable` — ta sama różnica, która
+          # przy 6.D68 odrzuciła instalację, której suma przed chwilą przeszła.
+          oczekiwana="${GODOT_VERSION//-/.}"
           if [ -x "$binary" ] && [ -d "$GODOT_DIR/GodotSharp" ]; then
-            echo "engine=present" >> "$GITHUB_OUTPUT"
-            "$binary" --headless --version
+            zglaszana="$("$binary" --headless --version 2>/dev/null \
+                         | sed -n '1s/^\([0-9][0-9.]*\.stable\)\..*/\1/p')"
+            if [ "$zglaszana" = "$oczekiwana" ]; then
+              echo "engine=present" >> "$GITHUB_OUTPUT"
+              echo "[GODOT] $zglaszana zgadza się z pinem"
+            else
+              echo "engine=missing" >> "$GITHUB_OUTPUT"
+              echo "[GODOT] w $GODOT_DIR stoi '$zglaszana', a pin mówi '$oczekiwana' — pobieram od nowa"
+            fi
           else
             echo "engine=missing" >> "$GITHUB_OUTPUT"
             echo "Godota nie ma w $GODOT_DIR — krok pobierania go ściągnie."
