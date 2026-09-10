@@ -54,41 +54,78 @@ def load_registry(path=REGISTRY):
         return json.load(handle)
 
 
+#: Status parametru wymyślonego przez ten projekt jako założenie modelu.
+STATUS_MODELU = "design_model"
+
+#: Status wartości pochodzącej z oficjalnego źródła, z `source_id` w rejestrze.
+STATUS_ZE_ZRODLA = "spec"
+
+#: PIĘTNAŚCIE parametrów modelu hamowania: nazwa w wyniku, sekcja rejestru, klucz
+#: i status, jakiego ten parametr WYMAGA. Tabela jest jedynym źródłem tej wiedzy —
+#: `params` buduje z niej wynik, a bramka po niej chodzi, więc „ile ich jest"
+#: i „który jakiego statusu wymaga" nie stoi w dwóch miejscach osobno.
+#:
+#: **Czternaście `design_model` i JEDEN `spec`** — zmierzone 10.09.2026 (6.D107).
+#: `empty_mass_kg` do tego dnia był czytany BEZ ŻADNEJ kontroli statusu, jako
+#: `float(par["empty_mass_kg"]["value"])`. Nie dlatego, że jego pochodzenie było
+#: gorsze: w rejestrze ma `spec`, `source_id: stib_m7_2020_07_13` i notatkę „STIB
+#: states approximately 170 tonnes". Przez `design()` przejść **nie mógł**, bo tamten
+#: strażnik żąda `design_model` — i to jest cały powód, dla którego go ominięto.
+#: Pominięcie kontroli zamiast dobrania właściwej zostawiało jednak parametr bez
+#: strażnika, a brak kontroli nie zostawia śladu w żadnym wypisie.
+PARAMETRY = (
+    ("service", "reference_model", "service_brake_mps2", STATUS_MODELU),
+    ("emergency", "reference_model", "emergency_brake_mps2", STATUS_MODELU),
+    ("jerk", "reference_model", "jerk_mps3", STATUS_MODELU),
+    ("lam", "reference_model", "effective_mass_factor", STATUS_MODELU),
+    ("mu_dry", "reference_model", "adhesion_dry", STATUS_MODELU),
+    ("mu_wet", "reference_model", "adhesion_wet", STATUS_MODELU),
+    ("davis_a", "reference_model", "davis_a", STATUS_MODELU),
+    ("davis_b", "reference_model", "davis_b", STATUS_MODELU),
+    ("davis_c", "reference_model", "davis_c", STATUS_MODELU),
+    ("tunnel_c", "reference_model", "tunnel_resistance_multiplier", STATUS_MODELU),
+    ("surface_c", "reference_model", "surface_resistance_multiplier", STATUS_MODELU),
+    ("powered_fraction", "parameters", "powered_mass_fraction", STATUS_MODELU),
+    ("max_speed_kmh", "parameters", "max_speed_kmh", STATUS_MODELU),
+    ("aw0_kg", "parameters", "empty_mass_kg", STATUS_ZE_ZRODLA),
+    ("aw2_kg", "reference_model", "aw2_model_mass_kg", STATUS_MODELU),
+)
+
+
+def o_statusie(container, key, oczekiwany):
+    """Wartość parametru, ale tylko gdy jego status jest tym, którego się spodziewamy.
+
+    6.D94: ODMOWA, NIE `assert`. Pod `python3 -O` ten warunek znikał w całości,
+    a jest to kontrola POCHODZENIA liczby: parametr o dowolnym innym statusie
+    wchodziłby wtedy do modelu hamowania bez śladu. `ValueError` z tym samym
+    uzasadnieniem, co w `m7_layout.py:81`, gdzie ta sama klasa kontroli
+    (status wymiaru) od początku była odmową, a nie asercją.
+
+    6.D107: oczekiwany status jest ARGUMENTEM, a nie stałą wpisaną w warunek.
+    Czternaście parametrów wymaga `design_model`, jeden — `spec`, i różnica nie
+    jest luką: wartość ze źródła ma pochodzenie MOCNIEJSZE, nie słabsze. Strażnik
+    z wpisaną na sztywno jedną nazwą statusu zmuszał do wyboru między odrzuceniem
+    dobrej liczby a pominięciem kontroli; ominięto kontrolę.
+    """
+    rec = container[key]
+    if rec["status"] != oczekiwany:
+        raise ValueError(
+            f"{key} ma status {rec['status']!r}, a model hamowania wolno budować "
+            f"z tego parametru wyłącznie przy statusie {oczekiwany!r}")
+    return float(rec["value"])
+
+
 def params(registry=None):
-    """Parametry modelu hamowania wyjęte z rejestru, z kontrolą statusu."""
+    """Parametry modelu hamowania wyjęte z rejestru, z kontrolą statusu.
+
+    **Wszystkie piętnaście przechodzi przez kontrolę** (6.D107); do 10.09.2026
+    czternaście, bo `empty_mass_kg` był czytany wprost. Który jakiego statusu
+    wymaga, mówi `PARAMETRY`.
+    """
     reg = registry if registry is not None else load_registry()
-    ref = reg["reference_model"]
-    par = reg["parameters"]
-
-    def design(container, key):
-        rec = container[key]
-        # 6.D94: ODMOWA, NIE `assert`. Pod `python3 -O` ten warunek znikał w całości,
-        # a jest to kontrola POCHODZENIA liczby: parametr o dowolnym innym statusie
-        # wchodziłby wtedy do modelu hamowania bez śladu. `ValueError` z tym samym
-        # uzasadnieniem, co w `m7_layout.py:81`, gdzie ta sama klasa kontroli
-        # (status wymiaru) od początku była odmową, a nie asercją.
-        if rec["status"] != "design_model":
-            raise ValueError(
-                f"{key} ma status {rec['status']!r}, a model hamowania wolno budować "
-                "wyłącznie z parametrów o statusie 'design_model'")
-        return float(rec["value"])
-
     return {
-        "service": design(ref, "service_brake_mps2"),
-        "emergency": design(ref, "emergency_brake_mps2"),
-        "jerk": design(ref, "jerk_mps3"),
-        "lam": design(ref, "effective_mass_factor"),
-        "mu_dry": design(ref, "adhesion_dry"),
-        "mu_wet": design(ref, "adhesion_wet"),
-        "davis_a": design(ref, "davis_a"),
-        "davis_b": design(ref, "davis_b"),
-        "davis_c": design(ref, "davis_c"),
-        "tunnel_c": design(ref, "tunnel_resistance_multiplier"),
-        "surface_c": design(ref, "surface_resistance_multiplier"),
-        "powered_fraction": design(par, "powered_mass_fraction"),
-        "max_speed_kmh": design(par, "max_speed_kmh"),
-        "aw0_kg": float(par["empty_mass_kg"]["value"]),
-        "aw2_kg": design(ref, "aw2_model_mass_kg"),
+        nazwa: o_statusie(reg[sekcja], klucz, status)
+        for nazwa, sekcja, klucz, status in PARAMETRY
     }
 
 
