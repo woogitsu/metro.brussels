@@ -9,6 +9,7 @@ się na komunikat o brakującym targeting packu, który nie wskazuje na workflow
 Powód drugi: .NET 8 kończy wsparcie 10.11.2026. Test pilnuje też, żeby projekt
 nie osunął się z powrotem na wersję po dacie końca wsparcia.
 """
+import json
 import os
 import re
 import shutil
@@ -86,6 +87,146 @@ def doc_sdk_majors(text):
         for match in re.finditer(r"\.NET SDK\D{0,4}([0-9]+)\.[0-9]+", stripped):
             out.add(match.group(1))
     return out
+
+
+#: PIN SDK — jedno miejsce prawdy dla CI, `doctor.sh` i kontenera sesji (6.D79).
+#:
+#: **Dlaczego to nie kosmetyka.** `dotnet-version: '10.0.x'` jest WZORCEM KANAŁU:
+#: instalator rozwiązuje go do najnowszej łatki **w momencie instalacji**, więc dwa
+#: czyste runnery mogą zbudować ten sam commit różnymi wersjami narzędzi. Na maszynie
+#: właściciela SDK przeżywa przebiegi w cache, więc rozjazd nie następuje między
+#: przebiegami jednej maszyny — następuje MIĘDZY maszynami puli i po każdym
+#: czyszczeniu cache narzędzi, czyli dokładnie tam, gdzie nikt na niego nie patrzy.
+#:
+#: Zmierzone 10.09.2026: runner `metro-01` ma SDK **10.0.401** (log joba `sim`,
+#: przebieg PR #466: `dotnet-install: .NET Core SDK with version '10.0.401' is
+#: already installed`), kontener tej sesji ma **10.0.401** (`dotnet --list-sdks`).
+#: Pin nie podnosi więc niczego i nie ma podnosić — pole „Poza zakresem" pozycji
+#: wyklucza podniesienie wersji SDK.
+PIN = os.path.join(ROOT, "global.json")
+
+#: Pełna trójka, a nie wzorzec. `x`, `*` i pusty człon są tu tym, co pozycja tropi.
+PELNA_WERSJA = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+$")
+
+#: Polityki przewijania, które `dotnet` zna. Wpisana MUSI być jawnie: domyślna
+#: (`latestPatch`) jest w tym pliku niewidoczna, a niewidoczna polityka jest
+#: dokładnie tym, przez co wzorzec kanału przetrwał tak długo.
+POLITYKI = ("disable", "patch", "feature", "minor", "major",
+            "latestPatch", "latestFeature", "latestMinor", "latestMajor")
+
+
+def _pin_sdk_lub_stop():
+    """Blok `sdk`, albo czytelna asercja zamiast `AttributeError` na `None`.
+
+    Bez tego trzy bramki niżej przy braku pliku padają na
+    `'NoneType' object has no attribute 'get'` — czyli mówią o Pythonie zamiast
+    o tym, czego brakuje. Zmierzone kontrolą negatywną KN-3.
+    """
+    sdk = pin_sdk()
+    assert sdk, (
+        "brak `global.json` albo pliku bez bloku `sdk` — pin SDK nie istnieje, "
+        "a `test_the_sdk_pin_file_exists` mówi o tym wprost")
+    return sdk
+
+
+def pin_sdk():
+    """Blok `sdk` z pliku pinu albo `None`, gdy pliku nie ma."""
+    if not os.path.isfile(PIN):
+        return None
+    with open(PIN, encoding="utf-8") as uchwyt:
+        return (json.load(uchwyt) or {}).get("sdk")
+
+
+def test_the_sdk_pin_file_exists():
+    """Warunek pierwszy z czterech: plik pinu jest w drzewie."""
+    assert os.path.isfile(PIN), (
+        "brak `global.json` — bez niego `dotnet build` bierze NAJNOWSZE SDK, jakie "
+        "zastanie na maszynie, a wzorzec kanału w workflowie tego nie ogranicza")
+    assert pin_sdk(), "`global.json` bez bloku `sdk`"
+
+
+def test_the_pinned_version_is_a_full_triple_and_not_a_channel_pattern():
+    """Warunek drugi: wersja jest pełną trójką, a polityka przewijania jest JAWNA."""
+    sdk = _pin_sdk_lub_stop()
+    wersja = str(sdk.get("version") or "")
+    assert PELNA_WERSJA.match(wersja), (
+        "`global.json` podaje `%s` — pin ma być pełną trójką, nie wzorcem kanału; "
+        "wzorzec rozwiązuje się w momencie instalacji i to jest cała usterka 6.D79"
+        % wersja)
+    polityka = sdk.get("rollForward")
+    assert polityka in POLITYKI, (
+        "`global.json` bez jawnej `rollForward` (albo z nieznaną: %r). Domyślna jest "
+        "w pliku NIEWIDOCZNA, a niewidoczna polityka jest tym, przez co wzorzec "
+        "kanału przetrwał." % polityka)
+
+
+def test_the_pinned_major_matches_what_the_projects_target():
+    """Warunek trzeci: numer główny pinu zgadza się z docelową platformą projektów."""
+    major = tfm_major(target_framework(_read(os.path.join(ROOT, PROJECTS[0]))))
+    wersja = str(_pin_sdk_lub_stop().get("version"))
+    assert wersja.split(".")[0] == str(major), (
+        "`global.json` pinuje SDK %s, a projekty celują w net%s.0 — `dotnet build` "
+        "padnie na NETSDK1045, a komunikat nie wskaże tego pliku" % (wersja, major))
+
+
+def test_every_workflow_installs_exactly_the_pinned_version():
+    """Warunek czwarty: wszystkie miejsca podające wersję w workflowach są zgodne.
+
+    Zgodne **z pinem**, nie tylko ze sobą: trzy workflowy uzgodnione ze sobą na
+    wzorcu `10.0.x` byłyby zgodne i nadal niepinowane. `setup-dotnet` z jawnym
+    `dotnet-version` IGNORUJE `global.json`, więc rozjazd między nimi znaczyłby, że
+    CI instaluje jedno SDK, a `dotnet build` żąda drugiego.
+    """
+    wersja = str(_pin_sdk_lub_stop().get("version"))
+    znalezione = {}
+    for name in _workflows():
+        for podana in setup_dotnet_versions(_read(os.path.join(WORKFLOWS, name))):
+            znalezione.setdefault(podana, []).append(name)
+    assert znalezione, "żaden workflow nie podaje `dotnet-version`"
+    assert list(znalezione) == [wersja], (
+        "workflowy podają wersje %s, a pin mówi %s" % (znalezione, wersja))
+
+
+def test_the_pin_parser_does_not_pass_by_returning_nothing():
+    """Kontrola negatywna na parser — WYKONANA na podstawionych plikach.
+
+    Bez niej wszystkie cztery warunki wyżej przechodzą przez zwrócenie pustego
+    zbioru: `pin_sdk()` dające `None` na wszystkim zamienia je w pętle po niczym.
+    Tego wprost żąda pole „Skończone, gdy".
+    """
+    import tempfile
+    global PIN
+    prawdziwy = PIN
+    try:
+        with tempfile.TemporaryDirectory() as katalog:
+            PIN = os.path.join(katalog, "global.json")
+            assert pin_sdk() is None, "brak pliku ma dawać None, a nie pusty słownik"
+
+            with open(PIN, "w", encoding="utf-8") as uchwyt:
+                uchwyt.write('{"sdk": {"version": "10.0.x", "rollForward": "latestPatch"}}')
+            assert pin_sdk()["version"] == "10.0.x", "parser nie czyta pola version"
+            for wzorzec in ("10.0.x", "10.0.*", "10.0", "10"):
+                assert not PELNA_WERSJA.match(wzorzec), (
+                    "`%s` przeszło jako pełna trójka — bramka na wzorzec kanału "
+                    "nie ma wtedy czego łapać" % wzorzec)
+            assert PELNA_WERSJA.match("10.0.401"), "pełna trójka odrzucona"
+
+            with open(PIN, "w", encoding="utf-8") as uchwyt:
+                uchwyt.write('{"sdk": {"version": "10.0.401"}}')
+            assert pin_sdk().get("rollForward") is None, (
+                "brak `rollForward` musi być widoczny jako None, inaczej bramka "
+                "na jawną politykę nie ma czego złapać")
+
+            with open(PIN, "w", encoding="utf-8") as uchwyt:
+                uchwyt.write('{"msbuild-sdks": {}}')
+            assert pin_sdk() is None, "plik bez bloku `sdk` ma dawać None"
+    finally:
+        PIN = prawdziwy
+    # I że po przywróceniu przyrząd znów widzi prawdziwy pin — bez tego wiersza
+    # wyciek podstawienia uciszyłby wszystkie cztery warunki na resztę przebiegu.
+    assert pin_sdk(), "po przywróceniu przyrząd nie widzi prawdziwego pinu"
+    assert PELNA_WERSJA.match(str(pin_sdk()["version"])), (
+        "prawdziwy `global.json` nie ma dziś pełnej trójki: %r" % pin_sdk())
 
 
 def test_the_document_declares_the_same_sdk_major():

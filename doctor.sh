@@ -141,6 +141,47 @@ if [ -n "$REQUIRED_TFM" ] && [ -n "$HAVE_SDK_MAJOR" ]; then
   fi
 fi
 
+# PIN Z `global.json`, czyli to samo źródło, z którego bierze wersję `dotnet build`
+# — 6.D79. Wersji nie wpisujemy tu z ręki drugi raz: czytana jest z pliku, tak samo
+# jak `REQUIRED_TFM` czyta się z `src/Sim/Sim.csproj`.
+#
+# ZMIERZONE 10.09.2026 na kontenerze tej sesji (jedno SDK: 10.0.401), przez
+# podstawianie pinu i czytanie KODU WYJŚCIA `dotnet --version`:
+#
+#   pin 10.0.401  -> kod 0
+#   pin 10.0.402  -> kod 155      (nowsza łatka, której NIE MA na dysku)
+#   pin 10.0.301  -> kod 155      (starsze pasmo funkcji)
+#   pin 11.0.100  -> kod 155
+#
+# Dwie rzeczy z tego wynikają i obie były przeze mnie najpierw założone błędnie.
+# PIERWSZA: `rollForward: latestPatch` NIE znaczy „każda łatka przejdzie". Znaczy
+# „ta wersja albo wyższa łatka W TYM SAMYM paśmie funkcji" — SDK STARSZE od pinu
+# jest odrzucane w całości, nie tolerowane.
+# DRUGA: przy niespełnialnym pinie `dotnet --version` KOŃCZY BŁĘDEM i wypisuje na
+# stdout listę zainstalowanych SDK (`10.0.401 [/root/.dotnet/sdk]`). Kontrola wyżej
+# widzi wtedy niezerowy kod i melduje `BRAK dotnet SDK -> zainstaluj` — a SDK JEST,
+# nie zgadza się wyłącznie wersja. Ten blok nazywa więc prawdziwą przyczynę, zamiast
+# zostawić czytelnika z instrukcją instalowania czegoś, co ma.
+PIN_SDK="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([0-9.]*\)".*/\1/p' \
+           global.json 2>/dev/null | head -n 1)"
+if [ -n "$PIN_SDK" ]; then
+  if HAVE_SDK="$($DOTNET --version 2>/dev/null)" && [ -n "$HAVE_SDK" ]; then
+    # `dotnet` wystartował, czyli pin JEST spełniony. Zostaje pytanie, czy tą samą
+    # łatką, co CI. Kontrola jest OPCJONALNA, bo wyższa łatka w tym samym paśmie
+    # buduje projekt poprawnie — a różne łatki na dwóch maszynach puli to dokładnie
+    # to, czego pozycja 6.D79 dotyczy, więc warto je POKAZAĆ.
+    chk_optional "dotnet SDK == pin z global.json ($PIN_SDK)" \
+      "[ \"$HAVE_SDK\" = \"$PIN_SDK\" ]" \
+      "masz $HAVE_SDK, a global.json pinuje $PIN_SDK — wyższa łatka w tym samym paśmie zbuduje projekt, ale CI stoi na $PIN_SDK"
+  elif "$DOTNET" --list-sdks >/dev/null 2>&1; then
+    # SDK są, a `--version` mimo to odmówił: jedyną różnicą między tymi dwoma
+    # poleceniami jest to, że `--version` czyta `global.json`.
+    echo "  WARN  dotnet SDK vs pin z global.json ($PIN_SDK)  -> SDK SĄ na dysku, ale ŻADNE nie spełnia pinu; \`dotnet --version\` kończy błędem, a komunikat wyżej mówi o braku SDK i jest w tej sytuacji mylący"
+    "$DOTNET" --list-sdks 2>/dev/null | sed 's/^/        na dysku: /'
+    optional_bad=$((optional_bad + 1))
+  fi
+fi
+
 echo ""
 echo "Wymagane dopiero przez konkretne zadania:"
 # Blender bywa instalowany poza PATH: `tools/ci/blender_install.sh` rozpakowuje
