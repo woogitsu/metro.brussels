@@ -220,10 +220,12 @@ def test_platform_exactly_as_wide_as_the_chamber_is_refused():
     outer = SK.DESIGN_WALL_SETBACK_M - SK.DESIGN_WALL_SETBACK_M
     assert inner == outer == 0.0, (inner, outer)
 
+    # 6.D94: odmowa jest `ValueError`, nie `AssertionError` — `python3 -O` zdejmowało
+    # `assert` w narzędziu, więc pod `-O` ten peron przechodził, a test padał.
     try:
         SK.slab_sections(0.5, 0.5, SK.DESIGN_WALL_SETBACK_M, GC_HEIGHT_M, -1.0, 1.0)
-    except AssertionError:
-        pass
+    except ValueError as e:
+        assert "niedodatniej szerokości" in str(e), str(e)
     else:
         raise AssertionError("peron zerowej szerokości przeszedł po prawej stronie")
 
@@ -241,8 +243,8 @@ def test_platform_exactly_as_wide_as_the_chamber_is_refused_on_the_left_side_too
 
     try:
         SK.slab_sections(0.5, 0.5, SK.DESIGN_WALL_SETBACK_M, GC_HEIGHT_M, 1.0, -1.0)
-    except AssertionError:
-        pass
+    except ValueError as e:
+        assert "niedodatniej szerokości" in str(e), str(e)
     else:
         raise AssertionError("peron zerowej szerokości przeszedł po lewej stronie")
 

@@ -62,7 +62,15 @@ def params(registry=None):
 
     def design(container, key):
         rec = container[key]
-        assert rec["status"] == "design_model", (key, rec["status"])
+        # 6.D94: ODMOWA, NIE `assert`. Pod `python3 -O` ten warunek znikał w całości,
+        # a jest to kontrola POCHODZENIA liczby: parametr o dowolnym innym statusie
+        # wchodziłby wtedy do modelu hamowania bez śladu. `ValueError` z tym samym
+        # uzasadnieniem, co w `m7_layout.py:81`, gdzie ta sama klasa kontroli
+        # (status wymiaru) od początku była odmową, a nie asercją.
+        if rec["status"] != "design_model":
+            raise ValueError(
+                f"{key} ma status {rec['status']!r}, a model hamowania wolno budować "
+                "wyłącznie z parametrów o statusie 'design_model'")
         return float(rec["value"])
 
     return {
