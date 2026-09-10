@@ -57,14 +57,36 @@ omni_range = 80.0
 [node name="Hud" type="CanvasLayer" parent="."]
 script = ExtResource("4_hud")
 
+; PANEL JEST ZAKOTWICZONY PO OBU STRONACH — 6.D82.
+;
+; Do 10.09.2026 stała tu kotwica `anchors_preset = 2` (lewy dolny róg) i
+; `offset_right = 900.0`, czyli szerokość STAŁA 876 px niezależnie od widoku.
+; Przy 1280 x 720 panel kończył się na x = 900 i miał widoczną prawą krawędź;
+; przy 800 x 600 sięgał poza brzeg okna. Zmierzone zrzutami z silnika przy
+; kilometrażu 2054 m, czyli przy `Comte de Flandre|Graaf van Vlaanderen` —
+; NAJDŁUŻSZEJ nazwie stacji w danych osi (37 znaków):
+;
+;   1280 x 720   „… Comte de Flandre|Graaf van Vlaanderen za 1 m"   (całe)
+;    800 x 600   „… Comte de Flandre|Graaf van Vlaanderen za 1"     (UCIĘTE)
+;
+; Ucięta jest JEDNOSTKA, a przy dłuższej odległości ucięte byłyby cyfry — czyli
+; gracz przy węższym widoku nie odczyta, ile zostało do peronu. To utrata
+; informacji sterującej, nie wygląd (`CLAUDE.md` §8 wyklucza z kolejki wyłącznie
+; oceny estetyczne). Kolory i układ wierszy zostają nietknięte.
+;
+; `anchors_preset = 12` to dolna krawędź na całą szerokość; szerokość liczy się
+; dziś z widoku minus 24 px z każdej strony, więc odstęp od brzegu jest ten sam
+; po obu stronach i przy każdej rozdzielczości.
 [node name="Panel" type="PanelContainer" parent="Hud"]
-anchors_preset = 2
+anchors_preset = 12
 anchor_top = 1.0
+anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = 24.0
 offset_top = -150.0
-offset_right = 900.0
+offset_right = -24.0
 offset_bottom = -24.0
+grow_horizontal = 2
 grow_vertical = 0
 theme_override_styles/panel = SubResource("StyleBoxFlat_hud")
 
@@ -73,7 +95,13 @@ theme_override_styles/panel = SubResource("StyleBoxFlat_hud")
 [node name="Speed" type="Label" parent="Hud/Panel/Rows"]
 text = "0.0 km/h"
 
+; Wiersz pozycji ZAWIJA — 6.D82. To on niesie nazwę stacji i odległość do peronu,
+; więc to on jako pierwszy przekracza szerokość panelu. `autowrap_mode = 3` to
+; zawijanie po słowach z podziałem długiego słowa w ostatniej chwili: nazwa
+; dwujęzyczna `Comte de Flandre|Graaf van Vlaanderen` nie ma spacji przy pionowej
+; kresce, więc samo zawijanie po słowach (2) zostawiłoby ją nierozdzieloną.
 [node name="Position" type="Label" parent="Hud/Panel/Rows"]
+autowrap_mode = 3
 text = "chainage"
 
 [node name="Controls" type="Label" parent="Hud/Panel/Rows"]
