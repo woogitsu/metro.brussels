@@ -272,7 +272,13 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 #: podniesień poszły w jednym dniu, a arytmetyka z pamięci pomyliłaby się przy
 #: pierwszym commicie dopisującym więcej niż jeden blok. Zdanie wyżej o 131 blokach
 #: zostaje jako zapis tamtego pomiaru, bo mówi, jak rozwiązano tamten konflikt.
-MINIMUM_DETAIL_BLOCKS = 166
+#: **166 → 167 (09.09.2026, przy 6.D71).** Jeden blok: **6.D94**, i nie wychodzi
+#: z uzupełniania kolejki, tylko z POMIARU zrobionego przy innej pozycji.
+#: Po naprawieniu kompilacji modułów testowych `python3 -O tools/tests/test_all.py`
+#: kończy kodem 1 wobec 0 przy przebiegu zwykłym — bo narzędzie broni warunku
+#: geometrycznego gołym `assert`, a `-O` zdejmuje `assert` w KAŻDYM module.
+#: Liczba jest POLICZONA na pliku po dopisaniu bloku, nie zwiększona o jeden.
+MINIMUM_DETAIL_BLOCKS = 167
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je

@@ -568,6 +568,80 @@ def test_modul_z_bledem_skladni_nadal_jest_FAILEM_IMPORTU():
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
 # z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
 # tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+def test_asercje_zyja_takze_pod_wylaczonymi_asercjami_interpretera():
+    """Moduł testowy kompiluje się z `optimize=0`, a nie z trybu interpretera (6.D71).
+
+    **Skąd.** Licznik sprawdzeń wstawia przekształcenie drzewa, a nie sama asercja.
+    Pod `python3 -O` kompilator zdejmuje `assert`, a wstrzyknięte wywołanie licznika
+    zostaje — więc wyrocznia meldowała sprawdzenie, którego nie było. Zmierzone
+    09.09.2026 na module z jedną asercją, która MA padać:
+
+        bez -O:  padła: ta asercja MA padać   sprawdzeń: 1
+        z  -O:   PRZESZŁA (asercja zdjęta)    sprawdzeń: 1
+
+    To ta sama rodzina co 6.D65, tylko utajona: dziś nic w repozytorium nie ustawia
+    `PYTHONOPTIMIZE` ani nie woła interpretera z `-O`, więc scenariusz nie ma drogi
+    wywołania — ale wyrocznia zieloności nie ma prawa zależeć od tego, jak ktoś
+    kiedyś uruchomi zestaw.
+
+    Test odpala **OSOBNY interpreter z `-O`**, bo trybu własnego procesu nie da się
+    zmienić w locie: `sys.flags.optimize` jest tylko do odczytu, a testowanie tego
+    przez podmianę `compile` sprawdzałoby atrapę, nie zachowanie.
+    """
+    import subprocess
+    import textwrap
+
+    program = textwrap.dedent(f'''
+        import os, sys, tempfile
+        sys.path.insert(0, {os.path.join(ROOT, "tools", "tests")!r})
+        import assertion_gate as AG
+        with tempfile.TemporaryDirectory() as tmp:
+            p = os.path.join(tmp, "test_sonda.py")
+            open(p, "w", encoding="utf-8").write(
+                "def test_pada():\\n    assert False, 'ma padać'\\n")
+            modul = AG.load_instrumented(p, "test_sonda")
+            przed = AG.hits()
+            try:
+                modul.test_pada()
+                print("PRZESZLA", AG.hits() - przed, sys.flags.optimize)
+            except AssertionError:
+                print("PADLA", AG.hits() - przed, sys.flags.optimize)
+    ''')
+
+    for flagi, opis in (([], "bez -O"), (["-O"], "z -O")):
+        done = subprocess.run([sys.executable] + flagi + ["-c", program],
+                              capture_output=True, text=True, timeout=120)
+        assert done.returncode == 0, (opis, done.stderr[-400:])
+        wynik = done.stdout.split()
+        assert wynik[0] == "PADLA", (
+            f"{opis}: asercja, która ma padać, {wynik[0]} — kompilacja modułu testowego "
+            "dziedziczy tryb interpretera zamiast `optimize=0`")
+        assert wynik[1] == "1", (opis, "licznik sprawdzeń zgubił trafienie", done.stdout)
+    # Kontrola przyrządu: drugi przebieg MA iść z `-O`, inaczej test dwa razy sprawdza
+    # to samo i milczy o jedynym scenariuszu, dla którego powstał.
+    done = subprocess.run([sys.executable, "-O", "-c", program],
+                          capture_output=True, text=True, timeout=120)
+    assert done.stdout.split()[2] == "1", (
+        "podproces z `-O` nie ma włączonej optymalizacji — test sprawdza dwa razy "
+        f"ten sam tryb: {done.stdout!r}")
+
+
+def test_kompilacja_modulu_testowego_zada_optimize_wprost():
+    """Wartość jest w kodzie JAWNIE, nie domyślnie — inaczej wróci po cichu.
+
+    Poprzedni test złapałby regres, ale dopiero na podprocesie; ta bramka mówi to
+    samo o źródle i tłumaczy, czego szukać, gdy tamten się zapali.
+    """
+    zrodlo = open(os.path.join(ROOT, "tools", "tests", "assertion_gate.py"),
+                  encoding="utf-8").read()
+    kod = "\n".join(l for l in zrodlo.splitlines() if not l.lstrip().startswith("#"))
+    assert "optimize=0" in kod, (
+        "`compile` modułu testowego nie podaje `optimize`, więc tryb dziedziczy się "
+        "z interpretera i pod `-O` asercje znikają spod licznika")
+    assert "dont_inherit=True" in kod, (
+        "`compile` bez `dont_inherit` dziedziczy flagi __future__ i tryb z wołającego")
+
+
 if __name__ == "__main__":
     import test_all
     raise SystemExit(test_all.main(__file__))
