@@ -178,7 +178,19 @@ def load_instrumented(path, name):
         source = handle.read()
     tree, marked = instrument(source, path)
     _SITES[0] += marked
-    code = compile(tree, path, "exec")
+    # `optimize=0` JAWNIE, a nie z trybu interpretera — 6.D71. Licznik sprawdzeń
+    # wstawia przekształcenie drzewa, a nie sama asercja, więc pod `python3 -O`
+    # kompilator zdejmuje `assert`, a wstrzyknięte wywołanie licznika ZOSTAJE.
+    # Zmierzone 09.09.2026 na module z jedną asercją, która ma padać:
+    #
+    #     bez -O:  padła: ta asercja MA padać   sprawdzeń: 1
+    #     z  -O:   PRZESZŁA (asercja zdjęta)    sprawdzeń: 1
+    #
+    # Czyli wyrocznia meldowała sprawdzenie, którego nie było — ta sama rodzina co
+    # 6.D65, tylko utajona, bo dziś żadne wywołanie w repozytorium nie ustawia
+    # `PYTHONOPTIMIZE` ani nie woła interpretera z `-O`. Jawna wartość zdejmuje
+    # zależność od tego, jak ktoś kiedyś uruchomi zestaw.
+    code = compile(tree, path, "exec", dont_inherit=True, optimize=0)
     module = types.ModuleType(name)
     module.__file__ = path
     module.__dict__[BUMP] = bump
