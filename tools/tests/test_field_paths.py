@@ -71,6 +71,27 @@ gorsza niż żadna, bo zostawia po sobie przekonanie, że coś było sprawdzane.
   pod tą nazwą nie powstał nigdy. Jedyne dziś zgłoszenie tej reguły byłoby więc
   zgłoszeniem tekstu poprawnego.
 
+**TRZECI KSZTAŁT: NAZWA MODUŁU (6.D101, 10.09.2026).** Pole „Weryfikacja" wołało
+cztery moduły, których w drzewie nie ma — `test_physics_reference.py` (6.D86),
+`test_glossary.py` (6.D89), `test_all_self.py` (6.D102) i `test_scan_gates.py`
+(6.D74, który istnieje, ale testuje co innego). **Żadnego nie zgłosiła bramka**;
+każdy znalazł ktoś, kto poszedł pod adres. `PATH_TOKEN` ich nie widzi z definicji:
+żąda ukośnika, a nazwa modułu stoi po `test_all.py` jako goły argument.
+
+Trzy rzeczy w tym kształcie są zmierzone, a nie przyjęte:
+
+* **Czytany jest wyłącznie PIERWSZY argument**, bo `test_all.py` kończy się na
+  `main(sys.argv[1]) if len(sys.argv)>1 else main()` — drugiego nie czyta nikt.
+* **Rozstrzyga `test_all._only_path`, nie druga reguła zapisana tutaj.** Stąd nazwa
+  bez rozszerzenia (`test_all.py test_report_claims`) jest poprawna: `_only_path`
+  dokłada `.py` samo. Własna reguła rozjechałaby się z zestawem po cichu.
+* **Nie każdy token po `test_all.py` jest nazwą.** W dzisiejszym pliku stoją tam
+  także `|` (cały zestaw w potoku) i nazwy z ogonem `;` z łańcucha `cmd; cmd`.
+
+Czwarty przypadek — `test_scan_gates.py` — jest **poza zasięgiem** i to jest wybór:
+plik istnieje, a „czy moduł zawiera bramkę, o której pole mówi" to pytanie o TREŚĆ,
+wykluczone wprost w polu „Poza zakresem" pozycji 6.D101.
+
 **KONTROLE — każda WYKONANA, wypisane w `reports/sciezki-w-polach-blokow.md`:**
 
   KD (dodatnia)  literówka wstawiona w pole „Wejście" jednego bloku wywraca DOKŁADNIE
@@ -154,6 +175,15 @@ IGNORED_PREFIXES = ("build/", "renders/", "res://", "/tmp/", "http://", "https:/
 #: każdego pola — jeden łączny próg (678) przeżyłby literówkę w cięciu pola „Wyjście",
 #: bo jego 45 ścieżek to 6 % sumy.
 MIN_PATHS = {"Wejście": 420, "Wyjście": 40, "Weryfikacja": 180}
+
+#: Próg KW dla trzeciego kształtu, na blokach WSZYSTKICH. Zmierzone 10.09.2026:
+#: **66** nazw (30 różnych), wszystkie w polu „Weryfikacja"; na `c724001`, czyli
+#: w dniu, w którym pozycja 6.D101 powstała, było ich **60** i stąd ta liczba jako
+#: próg — poniżej dzisiejszego stanu, żeby nie ruszać go przy każdym nowym bloku.
+#:
+#: Progu na blokach OTWARTYCH tu nie ma, i to jest ten sam wybór, co przy katalogach:
+#: kolejka maleje z każdą scaloną pozycją, więc taki próg czerwieniałby od SPRZĄTANIA.
+MIN_MODULE_NAMES = 60
 
 #: JAWNE WYJĄTKI (rodzaj c): ścieżka, o której NIEISTNIENIE w teście chodzi. Klucz to
 #: `(numer bloku, pole, ścieżka)` — nie numer wiersza, bo wiersz przesuwa każdy commit
@@ -297,6 +327,24 @@ PY_TOOL_CALL = re.compile(r"python3\s+(tools/[A-Za-z0-9_./-]+\.py)")
 #: Wywołanie sceny Godota; argumenty sceny stoją za `--path src/Game`.
 SCENE_CALL = "--path src/Game"
 
+#: Wywołanie zestawu z nazwą modułu — trzeci kształt „pole nazywa coś, czego nie ma"
+#: (6.D101). Nazwa modułu stoi po `test_all.py` jako GOŁY ARGUMENT, bez ukośnika,
+#: więc `PATH_TOKEN` jej nie widzi z definicji: tamten wzorzec ukośnika żąda.
+#:
+#: **Brany jest WYŁĄCZNIE pierwszy argument** i to nie jest uproszczenie, tylko
+#: zgodność z narzędziem: `test_all.py` kończy się na
+#: `main(sys.argv[1]) if len(sys.argv)>1 else main()`, więc drugiego argumentu nie
+#: czyta nikt. Skan liczący wszystkie argumenty mówiłby o wywołaniu, którego nie ma.
+MODULE_CALL = re.compile(r"test_all\.py\s+(\S+)")
+
+#: Kształt, jaki musi mieć argument, żeby BYĆ nazwą modułu. Zmierzone na dzisiejszym
+#: `docs/TASKS.md`: po `test_all.py` stoi też `|` (wywołanie całego zestawu w potoku)
+#: oraz nazwy z ogonem `;` (`test_ci_workflows.py;` w łańcuchu `cmd; cmd`). Pierwsze
+#: nazwą modułu nie jest i nie ma być nią nazwane; drugie jest nią po odcięciu
+#: średnika. Przekierowanie (`2>&1`) i opcja (`--x`) odpadają tym samym wzorcem, bo
+#: token bierze się w całości i dopiero potem sprawdza — a nie odwrotnie.
+MODULE_ARGUMENT = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.-]*$")
+
 #: Opcje, o których argparse wie bez `add_argument`.
 ARGPARSE_BUILTINS = ("--help",)
 
@@ -397,6 +445,44 @@ def unknown_options(blocks=None):
     return found
 
 
+def module_names(text):
+    """Nazwy modułów wołanych przez `test_all.py` w blokach ogrodzonych treści.
+
+    Płotek, a nie cała treść pola: w prozie ta sama nazwa bywa CYTOWANA („bramkę
+    trzyma `test_backlog.py`"), a cytat nie jest wywołaniem. To samo zawężenie, co
+    przy skanie opcji, i z tego samego zmierzonego powodu.
+    """
+    out = []
+    for line in _code_lines(text):
+        for call in MODULE_CALL.finditer(line):
+            token = call.group(1).rstrip(";")
+            if MODULE_ARGUMENT.match(token):
+                out.append(token)
+    return out
+
+
+def missing_modules(blocks=None):
+    """`(numer, pole, nazwa)` dla nazw modułów, których `test_all.py` nie zna.
+
+    Rozstrzyga `test_all._only_path`, a nie druga reguła zapisana tutaj. Drugi
+    czytnik tej samej rzeczy rozjechałby się po cichu — a rozjazd akurat TEJ pary
+    znaczyłby, że bramka przyjmuje nazwę, której zestaw odmówi, albo odwrotnie.
+    Stąd też akceptacja nazwy BEZ rozszerzenia: `test_all.py test_report_claims`
+    jest poprawnym wywołaniem, bo `_only_path` dokłada `.py` samo.
+    """
+    import test_all
+
+    found = []
+    for number, body in (blocks if blocks is not None else _open_blocks()).items():
+        for field in FIELDS:
+            for name in module_names(field_body(body, field)):
+                try:
+                    test_all._only_path(name)
+                except ValueError:
+                    found.append((number, field, name))
+    return found
+
+
 def missing_directories(blocks=None):
     """`(numer, pole, katalog)` dla katalogów, których w drzewie nie ma."""
     found = []
@@ -452,6 +538,129 @@ def test_no_open_field_calls_an_option_the_tool_does_not_parse():
     # pojawić. Bez tego „widzi dwie" byłoby prawdą także dla skanu zgłaszającego
     # wszystko, co zaczyna się od dwóch myślników.
     assert "--shot" not in kotwica and "--view" not in kotwica
+
+
+def test_no_open_field_names_a_test_module_that_is_not_in_the_tree():
+    """Nazwa modułu po `test_all.py` jest sprawdzana na istnienie — 6.D101.
+
+    **Skąd.** Cztery pola „Weryfikacja" wołały moduły, których w drzewie nie ma:
+    `test_physics_reference.py` (6.D86), `test_glossary.py` (6.D89),
+    `test_all_self.py` (6.D102) — i `test_scan_gates.py` (6.D74), który ISTNIEJE,
+    ale testuje co innego. Żadnego nie zgłosiła bramka; wszystkie cztery znalazł
+    ktoś, kto poszedł pod adres. Skan ścieżek ich nie widzi, bo `PATH_TOKEN` żąda
+    ukośnika, a nazwa modułu stoi jako goły argument.
+
+    **Czwarty przypadek jest poza zasięgiem tej bramki i to jest wybór, nie luka.**
+    `test_scan_gates.py` w drzewie jest; „czy moduł zawiera bramkę, o której pole
+    mówi" to pytanie o TREŚĆ, a pole „Poza zakresem" tej pozycji wyklucza je wprost.
+    """
+    bad = missing_modules()
+    assert bad == [], (
+        "pole zadania woła moduł, którego `test_all.py` nie zna: %s" % bad)
+
+    # Cisza wyżej znaczy coś dopiero z kotwicami na ZAMROŻONYCH kształtach, bo
+    # wszystkie cztery zmierzone przypadki zostały poprawione przy swoich pozycjach
+    # i w drzewie nie ma dziś ani jednej złej nazwy do złapania.
+    #
+    # Kotwica 1: nazwa BEZ rozszerzenia. `test_all.py` dokłada `.py` samo, więc
+    # `test_report_claims` jest wywołaniem poprawnym — i musi być WIDZIANE jako
+    # nazwa, inaczej bramka milczy o całej tej klasie zapisu.
+    assert module_names(_all_blocks()["6.D27"]) == ["test_report_claims"], (
+        "skan przestał widzieć nazwę BEZ rozszerzenia w zamrożonym bloku 6.D27 — "
+        "widzi tam: %s" % module_names(_all_blocks()["6.D27"]))
+
+    # Kotwica 2: nazwa z ogonem `;` z łańcucha `cmd; cmd`, oraz `|` w tym samym
+    # bloku, które nazwą modułu NIE jest. Bez drugiej połowy „widzi jedną" byłoby
+    # prawdą także dla skanu biorącego każdy token po `test_all.py`.
+    assert module_names(_all_blocks()["6.D44"]) == ["test_ci_workflows.py"], (
+        "skan przestał widzieć nazwę z ogonem `;` w zamrożonym bloku 6.D44 — "
+        "widzi tam: %s" % module_names(_all_blocks()["6.D44"]))
+    assert module_names(_all_blocks()["6.D26"]) == ["test_suite_runtime_budget"], (
+        "blok 6.D26 ma po `test_all.py` i nazwę modułu, i `|`; skan ma widzieć "
+        "wyłącznie tę pierwszą, a widzi: %s" % module_names(_all_blocks()["6.D26"]))
+
+
+def test_the_scan_sees_the_measured_number_of_module_names():
+    """Próg KW dla trzeciego kształtu: zepsuty wzorzec daje zero i zielone wszystko."""
+    seen = [name
+            for body in _all_blocks().values()
+            for field in FIELDS
+            for name in module_names(field_body(body, field))]
+    assert len(seen) >= MIN_MODULE_NAMES, (
+        "wzorzec złapał %d nazw modułów, a 10.09.2026 było ich 66 (60 w dniu, "
+        "w którym pozycja powstała) — spadek znaczy zepsuty wzorzec albo zepsute "
+        "cięcie pola, nie posprzątane bloki" % len(seen))
+
+
+def test_the_three_measured_module_names_light_the_gate_when_put_back():
+    """Trzy nieistniejące nazwy, każda wstawiona z powrotem do bloku OTWARTEGO.
+
+    Tego żąda pole „Skończone, gdy". Wszystkie trzy leżą dziś w blokach poprawionych,
+    więc dzisiejsze drzewo o nich milczy — a to milczenie znaczy coś dopiero wtedy,
+    gdy każda z nich, podłożona jako pole otwartego bloku, je przerywa.
+    """
+    plotek = "\n\n  ```bash\n  python3 tools/tests/test_all.py %s\n  ```\n"
+    for nazwa in ("test_physics_reference.py", "test_glossary.py", "test_all_self.py"):
+        zapalone = _zapala("Weryfikacja", plotek % nazwa)
+        assert zapalone == ["moduł"], (
+            "%s: zapalone kształty %s, spodziewany wyłącznie „moduł”"
+            % (nazwa, zapalone or "żaden"))
+
+    # Kierunek przeciwny — nic z poniższych zapalić się nie ma.
+    for poprawne in (
+        "test_backlog.py",          # moduł, który jest
+        "test_report_claims",       # ten sam bez rozszerzenia — `_only_path` dokłada
+    ):
+        assert _zapala("Weryfikacja", plotek % poprawne) == [], (
+            "poprawne wywołanie `%s` zapaliło bramkę: %s"
+            % (poprawne, _zapala("Weryfikacja", plotek % poprawne)))
+
+    # Argument, który nazwą modułu nie jest: potok, przekierowanie i opcja.
+    for nie_nazwa in ("| tail -3", "2>&1 | tail -3", "--nie-ma-takiej"):
+        assert module_names(plotek % nie_nazwa) == [], (
+            "`%s` nie jest nazwą modułu, a skan czyta ją jako: %s"
+            % (nie_nazwa, module_names(plotek % nie_nazwa)))
+
+    # I PROZA — z pełnym wywołaniem w środku, bo tylko taka odróżnia zawężenie do
+    # płotków od jego braku. Pierwsza wersja tej kontroli stawiała tu zdanie bez
+    # `test_all.py` i była zielona TAKŻE po zdjęciu zawężenia (zmierzone jako KN-5):
+    # pilnowała więc czegoś, czego nie sprawdzała.
+    #
+    # Zdanie jest BEZ grawisów i to też jest zmierzone: w wersji z grawisami
+    # kontrola była zielona po zdjęciu zawężenia (KN-5), bo `(\\S+)` bierze wtedy
+    # `test_nie_ma_takiego.py\u0060,` razem z grawisem i przecinkiem, a taki token
+    # odrzuca `MODULE_ARGUMENT`. Cichła więc z INNEGO powodu niż ten, którego
+    # miała pilnować — i pilnowała czegoś, czego nie sprawdzała.
+    zdanie = ("- **Weryfikacja:** dawniej trzeba było uruchomić "
+              "python3 tools/tests/test_all.py test_nie_ma_takiego.py i porównać\n")
+    assert missing_modules({"6.D999": zdanie}) == [], (
+        "cytat wywołania w prozie został wzięty za wywołanie: %s"
+        % missing_modules({"6.D999": zdanie}))
+
+    # Ta sama nazwa W PŁOTKU zapala — inaczej wiersz wyżej byłby prawdą także dla
+    # skanu, który nie widzi niczego.
+    assert missing_modules({"6.D999": _mutacja("Weryfikacja",
+                                               plotek % "test_nie_ma_takiego.py")}), (
+        "ta sama nazwa w płotku też jest cicha — skan nie widzi nic")
+
+
+def test_the_module_shape_reads_the_name_the_way_the_runner_does():
+    """Kontrola przyrządu: werdykt rozstrzyga `test_all._only_path`, nie druga reguła.
+
+    Gdyby bramka trzymała własną regułę rozwiązywania nazw, mogłaby przyjąć nazwę,
+    której zestaw odmówi — albo zgłosić nazwę, którą zestaw przyjmuje. Oba kierunki
+    są tu sprawdzone na tym samym module.
+    """
+    import test_all
+
+    assert test_all._only_path("test_backlog").endswith("test_backlog.py")
+    assert test_all._only_path("test_backlog.py").endswith("test_backlog.py")
+    try:
+        test_all._only_path("test_nie_ma_takiego")
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("`_only_path` przyjął moduł, którego nie ma")
 
 
 def test_the_two_new_shapes_catch_the_measured_cases_and_leave_the_prose_alone():
@@ -549,6 +758,8 @@ def _zapala(field, content):
         zapalone.append("katalog")
     if unknown_options(blocks):
         zapalone.append("opcja")
+    if missing_modules(blocks):
+        zapalone.append("moduł")
     return zapalone
 
 
