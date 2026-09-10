@@ -93,11 +93,24 @@ def slab_sections(gap_m, minimum_offset_m, wall_m, height_m, track_offset_m, sid
     """
     inner = track_offset_m + side * (minimum_offset_m + gap_m)
     outer = side * (wall_m - DESIGN_WALL_SETBACK_M)
+    # 6.D94: ODMOWA, NIE `assert`. Do 10.09.2026 stał tu goły `assert`, a `python3 -O`
+    # zdejmuje `assert` w KAŻDYM module — także w narzędziu, nie tylko w teście.
+    # Zmierzone przy 6.D71: `python3 -O tools/tests/test_all.py` kończył kodem 1 wobec
+    # 0 przy przebiegu zwykłym, i padały dokładnie te dwa testy, które tej odmowy
+    # pilnują. Pod `-O` peron ZEROWEJ SZEROKOŚCI przechodził i geometria powstawała.
+    # `ValueError` jest formą wybraną z pomiaru, nie z gustu: w `tools/` poza testami
+    # stoi 68 razy jako odmowa narzędzia, a `AssertionError` nie łapie tam nikt.
     if side > 0:
-        assert outer > inner, (inner, outer)
+        if not outer > inner:
+            raise ValueError(
+                f"peron o niedodatniej szerokości po prawej stronie: krawędź wewnętrzna "
+                f"{inner:.4f} m, ściana {outer:.4f} m")
         strip_far = min(outer, inner + DESIGN_EDGE_STRIP_M)
     else:
-        assert outer < inner, (inner, outer)
+        if not outer < inner:
+            raise ValueError(
+                f"peron o niedodatniej szerokości po lewej stronie: krawędź wewnętrzna "
+                f"{inner:.4f} m, ściana {outer:.4f} m")
         strip_far = max(outer, inner - DESIGN_EDGE_STRIP_M)
 
     slab = [(inner, 0.0), (outer, 0.0), (outer, height_m), (inner, height_m)]
