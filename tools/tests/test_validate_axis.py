@@ -10,6 +10,7 @@ ostatni odcinek łamanej**.
 import json
 import math
 import os
+import subprocess
 import sys
 import tempfile
 
@@ -906,6 +907,168 @@ def test_zdrowa_os_nie_dostaje_falszywego_alarmu_od_tej_kontroli():
     assert raport.ok(), raport.err
     assert _has(raport.info, "zgodne z łamaną"), raport.info
 
+
+
+
+# --- 6.D91: linia wnioskowana z nazwy pliku, a osi używają dwie -------------------
+#
+# Do 10.09.2026 krok CI wołał `--line "${id%%_*}"`, czyli brał linię z PREFIKSU nazwy
+# pliku. Pakiet A obsługują dwie linie (L1 i L5), pakiet E też dwie (L2 i L6), więc
+# dla obu tych osi druga linia nie była sprawdzana ani razu i usunięcie z niej stacji
+# przechodziło bez śladu. Zmierzone na obu, nie tylko na parze z wpisu pozycji.
+
+
+def _stacje_osi(nazwa):
+    with open(os.path.join(ROOT, "data", "track", nazwa + ".json"), encoding="utf-8") as u:
+        return [s.get("name") for s in json.load(u)["stations"]]
+
+
+def _pakiet_osi(nazwa):
+    with open(os.path.join(ROOT, "data", "track", nazwa + ".json"), encoding="utf-8") as u:
+        return (json.load(u).get("package") or {}).get("id")
+
+
+def _osie_w_drzewie():
+    katalog = os.path.join(ROOT, "data", "track")
+    return sorted(n[:-5] for n in os.listdir(katalog)
+                  if n.endswith(".json") and not n.endswith(".provenance.json"))
+
+
+def _wszystkie_linie():
+    with open(os.path.join(ROOT, "data", "network", "lines.json"), encoding="utf-8") as u:
+        return [l["id"] for l in json.load(u)["lines"]]
+
+
+def test_kazda_os_ma_przypisane_linie_i_kazda_z_nich_istnieje():
+    """Pakiet bez wpisu w `LINIE_PAKIETU` znaczy oś, której `--all-lines` nie sprawdzi.
+
+    Bez tego testu dopisanie siódmego pakietu dałoby `--all-lines` pustą listę linii
+    i przebieg CI **zielony na osi, której nikt nie porównał z niczym** — czyli
+    dokładnie ten kształt, który ta pozycja zamyka, tylko przesunięty o jeden krok.
+    """
+    znane = set(_wszystkie_linie())
+    for os_ in _osie_w_drzewie():
+        pakiet = _pakiet_osi(os_)
+        assert pakiet, f"{os_}: oś nie deklaruje pakietu"
+        linie = V.linie_pakietu(pakiet)
+        assert linie, f"{os_}: pakiet {pakiet} nie ma przypisanych linii w LINIE_PAKIETU"
+        for linia in linie:
+            assert linia in znane, f"{os_}: linia {linia} nie istnieje w lines.json"
+
+
+def test_przypisanie_linii_zgadza_sie_z_danymi_w_OBIE_strony():
+    """Para przypięta musi przechodzić kontrolę, para NIEprzypięta — nie przechodzić.
+
+    **To jest cała nieprzypadkowość tej listy.** Gdyby zbiór linii był WYLICZANY tym
+    samym predykatem, który kontrola potem sprawdza, byłby pusty jako kontrola:
+    usunięcie stacji z L6 wyrzuciłoby L6 ze zbioru i przebieg byłby zielony tak samo
+    cicho jak przed tą pozycją. Lista jest więc przypięta, a ten test pilnuje jej
+    z dwóch stron: rozjazd w którąkolwiek stronę znaczy, że dane ruszyły i lista ma
+    zostać przeliczona ręcznie, a nie dopasowana automatycznie.
+    """
+    with open(os.path.join(ROOT, "data", "network", "lines.json"), encoding="utf-8") as u:
+        linie = {l["id"]: l["stops"] for l in json.load(u)["lines"]}
+
+    for os_ in _osie_w_drzewie():
+        nazwy = _stacje_osi(os_)
+        przypiete = set(V.linie_pakietu(_pakiet_osi(os_)))
+        for lid, stops in linie.items():
+            pasuje = (V._is_subsequence(nazwy, stops)
+                      or V._is_subsequence(nazwy, list(reversed(stops))))
+            if lid in przypiete:
+                assert pasuje, (
+                    f"{os_}: linia {lid} jest przypięta, a oś nie układa się w jej "
+                    "przystanki — albo dane ruszyły, albo przypięcie jest błędne")
+            else:
+                assert not pasuje, (
+                    f"{os_}: oś układa się w przystanki linii {lid}, a ta nie jest "
+                    "przypięta w LINIE_PAKIETU — dopisz ją, bo dziś nikt jej "
+                    "nie sprawdza")
+
+
+def test_all_lines_sprawdza_KAZDA_linie_a_nie_pierwsza():
+    """Sedno pozycji: usunięcie stacji z DRUGIEJ linii ma zapalić kontrolę.
+
+    Mierzone na syntetycznym `lines.json` w katalogu tymczasowym — `data/` jest tylko
+    do odczytu (§4.6), a pytanie brzmi „czy kontrola patrzy na obie linie", nie
+    „jak wygląda sieć". Dwie strony, bo tylko razem coś znaczą: przy pełnych danych
+    obie linie przechodzą, a po usunięciu stacji z tej DRUGIEJ przebieg czerwienieje.
+    """
+    stops = _line_stops("L1")[:6]
+    nazwy = stops[:5]
+
+    def przebieg(stops_drugiej):
+        siec = {"lines": [{"id": "L1", "stops": list(stops)},
+                          {"id": "L5", "stops": list(stops_drugiej)}],
+                "build_packages": [{"id": "A", "name": "Pień 1/5",
+                                    "from": stops[0], "to": stops[-1]}]}
+        with tempfile.TemporaryDirectory() as tmp:
+            siec_path = os.path.join(tmp, "lines.json")
+            with open(siec_path, "w", encoding="utf-8") as u:
+                json.dump(siec, u, ensure_ascii=False)
+            osx = _named_axis(nazwy)
+            osx["package"] = {"id": "A", "name": "Pień 1/5",
+                              "from": stops[0], "to": stops[-1]}
+            os_path = os.path.join(tmp, "axis.json")
+            with open(os_path, "w", encoding="utf-8") as u:
+                json.dump(osx, u, ensure_ascii=False)
+            zastane = V.NET
+            V.NET = siec_path
+            try:
+                return V.validate(os_path, all_lines=True)
+            finally:
+                V.NET = zastane
+
+    komplet = przebieg(stops)
+    assert not _has(komplet.err, "kolejność stacji niezgodna"), komplet.err
+    zgodne = [m for m in komplet.info if "kolejność stacji zgodna" in m]
+    assert len(zgodne) == 2, (
+        "kontrola nie sprawdziła obu linii pakietu A — a to jest cała pozycja: "
+        f"{zgodne}")
+
+    bez_stacji = [s for s in stops if s != nazwy[2]]
+    okrojone = przebieg(bez_stacji)
+    assert _has(okrojone.err, "kolejność stacji niezgodna z lines.json dla L5"), (
+        "usunięcie stacji z DRUGIEJ linii pakietu przeszło bez śladu — dokładnie to, "
+        f"co robił krok CI biorący linię z prefiksu nazwy pliku: {okrojone.err}")
+
+
+def test_all_lines_odmawia_zamiast_milczec_gdy_nie_ma_z_czego_wziac_linii():
+    """Brak pakietu i pakiet nieznany to DWA różne powody i oba muszą być błędem.
+
+    Cicha pustka byłaby tu gorsza niż stan sprzed pozycji: przebieg kończyłby się
+    zerem, nie porównawszy osi z żadną linią, i wyglądałby jak sprawdzony.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        bez = _named_axis(_line_stops("L1")[:4])
+        bez.pop("package", None)
+        p1 = os.path.join(tmp, "bez.json")
+        with open(p1, "w", encoding="utf-8") as u:
+            json.dump(bez, u, ensure_ascii=False)
+        raport = V.validate(p1, all_lines=True)
+        assert _has(raport.err, "nie deklaruje pola `package`"), (
+            "oś bez pola `package` przeszła `--all-lines` bez błędu — przebieg "
+            f"kończyłby się zerem, nie porównawszy jej z żadną linią; błędy: {raport.err}")
+
+        obcy = _named_axis(_line_stops("L1")[:4])
+        obcy["package"] = {"id": "Z"}
+        p2 = os.path.join(tmp, "obcy.json")
+        with open(p2, "w", encoding="utf-8") as u:
+            json.dump(obcy, u, ensure_ascii=False)
+        raport = V.validate(p2, all_lines=True)
+        assert _has(raport.err, "nie ma przypisanych linii"), (
+            "oś z pakietem spoza LINIE_PAKIETU przeszła `--all-lines` bez błędu — "
+            f"czyli cicho, z pustą listą linii do sprawdzenia; błędy: {raport.err}")
+
+
+def test_all_lines_i_line_wykluczaja_sie_w_wierszu_polecen():
+    """Podanie obu ma być odmową, a nie cichym wygraniem jednego z nich."""
+    gotowe = subprocess.run(
+        [sys.executable, os.path.join(ROOT, "tools", "track", "validate.py"),
+         os.path.join(ROOT, "data", "track", "L2_E.json"), "--all-lines", "--line", "L2"],
+        capture_output=True, text=True)
+    assert gotowe.returncode == 2, (gotowe.returncode, gotowe.stderr[-300:])
+    assert "wykluczają się" in gotowe.stderr, gotowe.stderr[-300:]
 
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
 # z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3

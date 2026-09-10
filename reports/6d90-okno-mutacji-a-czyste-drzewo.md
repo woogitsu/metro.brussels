@@ -169,9 +169,10 @@ python3 tools/tests/test_all.py
   -> 2162/2162 przeszło
 ```
 
-Zestaw **2155 → 2162**, moduły **114 → 115**. `MIN_REPORTS` stoi na **209**,
-podniesiona ze dwustu ośmiu — zapis słowny, bo bramka `test_report_claims.py`
-bierze pierwszą liczbę po nazwie stałej za twierdzenie o jej wartości.
+Zestaw **2155 → 2162**, moduły **114 → 115**. Zapadka `MIN_REPORTS` została w tym
+commicie podniesiona ze dwustu ośmiu na dwieście dziewięć — słownie, nie cyfrą, bo
+bramka `test_report_claims.py` bierze pierwszą liczbę po nazwie stałej za twierdzenie
+o jej BIEŻĄCEJ wartości i zdanie z cyfrą starzeje się przy najbliższym podniesieniu.
 
 ## 9. Czego świadomie nie zrobiłem
 

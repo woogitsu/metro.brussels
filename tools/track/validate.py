@@ -60,7 +60,38 @@ def _nieskonczona(r, gdzie, wartosc):
     return True
 
 
-def validate(path, expect_line=None, expect_package=None):
+#: Linie, ktore korzystaja z danego pakietu budowy. 6.D91, zmierzone 10.09.2026.
+#:
+#: **Dlaczego to stoi tutaj, a nie w pliku osi.** Pole „Wyjscie" pozycji 6.D91 chce,
+#: zeby os DEKLAROWALA swoje linie. Deklaracja w pliku osi jest zapisem do `data/`,
+#: a `CLAUDE.md` §4.6 mowi, ze `data/` jest tylko do odczytu, chyba ze zadanie mowi
+#: inaczej WPROST — to nie mowi. Przypiecie po stronie narzedzia daje te sama
+#: wlasnosc sprawdzania i nie tyka danych; przeniesienie deklaracji do plikow osi
+#: zostaje pytaniem do wlasciciela i jest wypisane w raporcie pozycji.
+#:
+#: **Dlaczego przypiete, a nie wyliczone.** Wyliczenie zbioru tym samym predykatem,
+#: ktory kontrola potem sprawdza (podciag stacji), jest PUSTE: usuniecie stacji z L6
+#: wyrzuciloby L6 ze zbioru i kontrola przeszlaby tak samo cicho jak dzis. Zbior musi
+#: wiec pochodzic skadinad niz sprawdzenie — a jedyne inne zrodlo w `lines.json`,
+#: pole `unlocks`, jest proza i dla pakietu C nie wymienia zadnej linii (zmierzone).
+#: Stad lista przypieta, z bramka w OBIE strony: para przypieta musi przechodzic
+#: kontrole, a para NIEprzypieta musi kontroli nie przechodzic.
+LINIE_PAKIETU = {
+    "A": ("L1", "L5"),
+    "B": ("L1",),
+    "C": ("L5",),
+    "D": ("L5",),
+    "E": ("L2", "L6"),
+    "F": ("L6",),
+}
+
+
+def linie_pakietu(pakiet):
+    """Linie korzystajace z pakietu; pusta krotka dla pakietu nieznanego."""
+    return LINIE_PAKIETU.get(pakiet, ())
+
+
+def validate(path, expect_line=None, expect_package=None, all_lines=False):
     r=Report()
     try:
         with open(path,encoding="utf-8") as f: d=json.load(f,parse_constant=_odmowa_stalej)
@@ -174,20 +205,40 @@ def validate(path, expect_line=None, expect_package=None):
         if interp: r.I(f"{interp} z {len(st)} głębokości stacji jest interpolowanych")
         missing=[s.get("name") for s in st if s.get("depth_m") is None]
         if missing: r.W(f"brak głębokości dla: {', '.join(str(m) for m in missing[:5])}" + (" …" if len(missing)>5 else ""))
-    if expect_line and st:
+    # 6.D91: linii moze byc WIECEJ NIZ JEDNA. Do 10.09.2026 krok CI podawal jedna,
+    # wyprowadzona z prefiksu nazwy pliku, wiec dla pakietow A (L1 i L5) oraz E
+    # (L2 i L6) druga linia nie byla sprawdzana nigdy — usuniecie z niej stacji
+    # przechodzilo bez sladu. Zmierzone na obu.
+    oczekiwane = []
+    if all_lines:
+        pakiet_osi = (d.get("package") or {}).get("id")
+        if not pakiet_osi:
+            r.E("--all-lines: oś nie deklaruje pola `package`, więc nie da się "
+                "ustalić, które linie z niej korzystają")
+        else:
+            oczekiwane = list(linie_pakietu(pakiet_osi))
+            if not oczekiwane:
+                r.E(f"--all-lines: pakiet {pakiet_osi!r} nie ma przypisanych linii "
+                    "w LINIE_PAKIETU (tools/track/validate.py)")
+    elif expect_line:
+        oczekiwane = [expect_line] if isinstance(expect_line, str) else list(expect_line)
+
+    if oczekiwane and st:
         try:
             with open(NET,encoding="utf-8") as f: net=json.load(f)
-            line=next((l for l in net["lines"] if l["id"]==expect_line),None)
-            if not line: r.E(f"linia {expect_line} nie istnieje w lines.json")
-            else:
-                names=[s.get("name") for s in st]
+            names=[s.get("name") for s in st]
+            for oczekiwana in oczekiwane:
+                line=next((l for l in net["lines"] if l["id"]==oczekiwana),None)
+                if not line:
+                    r.E(f"linia {oczekiwana} nie istnieje w lines.json")
+                    continue
                 # lines.json wypisuje stacje w jedną stronę, a pakiet budowy ma własny
                 # kierunek from->to (C: Jacques Brel->Erasme, F: Belgica->Roi Baudouin
                 # idą pod prąd tej listy). Oś nie jest kierunkiem jazdy, więc zgodność
                 # z listą odwróconą jest tak samo poprawna — ale ma być widoczna.
-                if _is_subsequence(names,line["stops"]): r.I(f"kolejność stacji zgodna z lines.json ({expect_line})")
-                elif _is_subsequence(names,list(reversed(line["stops"]))): r.I(f"kolejność stacji zgodna z lines.json ({expect_line}), oś biegnie odwrotnie do kolejności z listy")
-                else: r.E(f"kolejność stacji niezgodna z lines.json dla {expect_line}")
+                if _is_subsequence(names,line["stops"]): r.I(f"kolejność stacji zgodna z lines.json ({oczekiwana})")
+                elif _is_subsequence(names,list(reversed(line["stops"]))): r.I(f"kolejność stacji zgodna z lines.json ({oczekiwana}), oś biegnie odwrotnie do kolejności z listy")
+                else: r.E(f"kolejność stacji niezgodna z lines.json dla {oczekiwana}")
         except FileNotFoundError: r.W("nie znaleziono data/network/lines.json — pominięto kontrolę zgodności")
     # 6.D69: do 09.09.2026 `expect_package` stało WYŁĄCZNIE w sygnaturze tej funkcji
     # i w parserze opcji — ciało nie czytało go ani razu. Opcja była przyjmowana,
@@ -226,6 +277,15 @@ def validate(path, expect_line=None, expect_package=None):
 
 def main():
     ap=argparse.ArgumentParser(); ap.add_argument("path"); ap.add_argument("--line"); ap.add_argument("--package")
-    a=ap.parse_args(); print(f"\nWALIDACJA: {a.path}"); print("-"*60); sys.exit(validate(a.path,a.line,a.package).dump())
+    # 6.D91: `--all-lines` bierze linie z pakietu, ktory os deklaruje, zamiast
+    # przyjmowac jedna od wolajacego. Wykluczenie z `--line` jest jawne, zeby
+    # podanie obu nie konczylo sie po cichu wygraniem jednego z nich.
+    ap.add_argument("--all-lines", action="store_true",
+                    help="sprawdz KAZDA linie korzystajaca z pakietu zadeklarowanego przez os")
+    a=ap.parse_args()
+    if a.all_lines and a.line:
+        ap.error("--all-lines i --line wykluczają się: pierwsze bierze linie z pakietu osi")
+    print(f"\nWALIDACJA: {a.path}"); print("-"*60)
+    sys.exit(validate(a.path,a.line,a.package,all_lines=a.all_lines).dump())
 
 if __name__=="__main__": main()

@@ -3452,6 +3452,39 @@ def test_the_scene_and_the_core_switch_cab_protection_on_the_same_way():
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
 # z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
 # tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+
+
+# --- 6.D91: krok walidacji osi nie wnioskuje linii z nazwy pliku ------------------
+
+
+def _kroki_walidacji_osi():
+    """Ciała `run:` z kroków, które wołają `tools/track/validate.py`."""
+    zebrane = []
+    for nazwa in _workflows():
+        dokument = yaml.safe_load(_text(nazwa))
+        for cialo in _cialo_run(dokument, []):
+            if "tools/track/validate.py" in cialo:
+                zebrane.append((nazwa, cialo))
+    return zebrane
+
+
+def test_ci_walidacja_osi_sprawdza_kazda_linie_a_nie_prefiks_nazwy_pliku():
+    """Prefiks nazwy pliku unosi JEDNĄ linię, a pakiety A i E obsługują po dwie.
+
+    Do 10.09.2026 krok wołał `--line "${id%%_*}"`, więc dla `L1_A` nie sprawdzał
+    nigdy L5, a dla `L2_E` nigdy L6 — usunięcie stacji z tej drugiej przechodziło
+    bez śladu (6.D91). Bramka pilnuje kształtu WYWOŁANIA, bo sam walidator umie
+    obie drogi i wybór należy do kroku.
+    """
+    kroki = _kroki_walidacji_osi()
+    assert kroki, "żaden workflow nie woła walidatora osi — kontrola przestała istnieć"
+    for nazwa, cialo in kroki:
+        assert "--all-lines" in cialo, (
+            f"{nazwa}: krok walidacji osi nie woła `--all-lines`, więc sprawdza tylko "
+            "tę linię, którą sam poda")
+        assert "${id%%_*}" not in cialo, (
+            f"{nazwa}: linia nadal wyprowadzana z prefiksu nazwy pliku")
+
 if __name__ == "__main__":
     import test_all
     raise SystemExit(test_all.main(__file__))
