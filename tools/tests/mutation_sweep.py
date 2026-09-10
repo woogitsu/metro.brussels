@@ -67,6 +67,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import tree_walk as TW  # noqa: E402
@@ -736,6 +737,37 @@ def pokrycie_w_celach(mapa: dict[str, set[int]]) -> dict[str, set[int]]:
     return {path: lines for path, lines in mapa.items() if path in cele}
 
 
+#: Element unikatowy dla PROCESU — 6.D106. Liczony raz przy imporcie, więc w jednym
+#: przebiegu jest STAŁY (dwa wywołania `default_journal` dają tę samą ścieżkę), a między
+#: procesami różny.
+#:
+#: **Po co, skoro nazwa niesie już commit, klasy, `--only` i odcisk treści.** Bo te
+#: cztery rozstrzygają, CZEGO przebieg dotyczy, a nie KTÓRY to przebieg. Dwa przeglądy
+#: uruchomione równolegle z tymi samymi czterema mierzą to samo i do 10.09.2026
+#: **dzieliły plik**: każdy dopisywał swoje wpisy i każdy czytał wynik z CAŁEGO
+#: dziennika. **Zmierzone 10.09.2026, nie wywnioskowane:** dwa dopisy tego samego
+#: wpisu dają `len(read_journal(...))` równe dwa przy JEDNEJ różnej mutacji po `id`
+#: — funkcja powtórzeń nie odsiewa, więc oba raporty liczyły każdą mutację dwa razy.
+#: Runnery jednej puli stoją na jednej maszynie
+#: i dzielą `/tmp`; ten sam powód opisuje `tools/ci/blender_install.sh`.
+#:
+#: **Czego to kosztuje, i mówię to wprost:** wznowienia po DOMYŚLNEJ nazwie już nie ma.
+#: Drugi przebieg nie znajdzie dziennika pierwszego, bo dostanie inną nazwę. Wznowienie
+#: idzie odtąd przez jawne `--journal <ścieżka>` — dokładnie tak, jak przewiduje pole
+#: „Wyjście" pozycji 6.D106. Czteroczłonowy znacznik zostaje w nazwie, bo nadal mówi
+#: człowiekowi patrzącemu w `/tmp`, czego ten dziennik dotyczy.
+#:
+#: PID sam nie wystarcza: w kontenerach numery procesów zaczynają się od małych liczb
+#: i powtarzają się między maszynami tej samej puli. Stąd czas w nanosekundach obok.
+#: Ile znaków skrótu zostaje w znaczniku procesu. Osobna stała, bo dwie długości tej
+#: samej wielkości rozjeżdżają się po cichu — tego pilnuje `test_hexdigest_truncation`.
+PROCES_ZNACZNIK_ZNAKOW = 8
+
+PROCES_ZNACZNIK = hashlib.sha256(
+    f"{os.getpid()}-{time.time_ns()}".encode("utf-8")
+).hexdigest()[:PROCES_ZNACZNIK_ZNAKOW]
+
+
 def sciezka_pokrycia(commit: str) -> str:
     """Gdzie stoi zapamiętana mapa dla tego commita.
 
@@ -760,7 +792,24 @@ def zapisz_pokrycie(path: str, commit: str, mapa: dict[str, set[int]]) -> None:
         "commit": commit,
         "pokrycie": {plik: sorted(wiersze) for plik, wiersze in sorted(mapa.items())},
     }
-    tymczasowy = path + ".czesciowy"
+    # Plik pośredni ma element PROCESU, a docelowy nie — dwie różne decyzje (6.D106).
+    #
+    # Pośredni: do 10.09.2026 nazywał się `path + ".czesciowy"`, tak samo dla każdego
+    # przebiegu tego commita, więc dwa równoległe przebiegi pisały do jednego pliku,
+    # obcinając go sobie przy otwarciu. **Zepsucia pliku docelowego NIE UDAŁO SIĘ
+    # ODTWORZYĆ** i mówię to wprost: pięć prób z barierą startu i mapą ~50 MB dało za
+    # każdym razem plik czytelny, bo `open(…, "w")` obcina, a `os.replace` przenosi to,
+    # co zapisał ostatni KOMPLETNY pisarz. Zmienione mimo to, bo koszt jest zerowy,
+    # a rozumowanie zostaje: dwa strumienie o niezależnych offsetach po obcięciu mogą
+    # się przepleść. To jest UBEZPIECZENIE od zjawiska nieodtworzonego, nie naprawa
+    # zmierzonej usterki, i nie udaję, że zmierzyłem szkodę.
+    #
+    # Docelowy zostaje WSPÓLNY i to jest wybór z pomiaru: mapa kosztuje jeden pełny
+    # przebieg zestawu z licznikiem wierszy (`coverage_map`), a jest pamięcią podręczną
+    # commita — uczynienie jej unikatową kasowałoby tę pamięć przy każdym przebiegu.
+    # Dzielenie jest bezpieczne, bo sweep ODMAWIA na brudnym drzewie (kod 2), więc
+    # jeden commit znaczy jedno drzewo i jedną mapę.
+    tymczasowy = f"{path}.czesciowy-{PROCES_ZNACZNIK}"
     with open(tymczasowy, "w", encoding="utf-8") as handle:
         json.dump(dane, handle)
     # Podmiana atomowa: przebieg ubity w połowie zapisu nie zostawia pliku, który
@@ -1037,7 +1086,9 @@ def default_journal(commit: str, kinds: tuple, only: str,
     znacznik = hashlib.sha256(
         "|".join([commit, ",".join(sorted(kinds)), only or "", odcisk]).encode("utf-8")
     ).hexdigest()[:ZNACZNIK_ZNAKOW]
-    return os.path.join(tempfile.gettempdir(), f"metro-mutacje-{znacznik}.jsonl")
+    return os.path.join(
+        tempfile.gettempdir(),
+        f"metro-mutacje-{znacznik}-{PROCES_ZNACZNIK}.jsonl")
 
 
 def read_journal(path: str) -> list[dict]:
