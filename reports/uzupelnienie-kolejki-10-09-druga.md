@@ -107,10 +107,13 @@ te dwie czynności rozjeżdżają się po cichu.
 a nie licznikiem stanu; podniesienie go do osiemnastu zamieniłoby próg w wymaganie
 i zapaliłoby bramkę przy pierwszej scalonej pozycji.
 
-`MIN_REPORTS` stoi na **208**, podniesiona ze dwustu siedmiu: jeden raport, ten plik,
-policzony na drzewie. Zapis „ze dwustu siedmiu” jest tu słowny, a nie cyfrowy, bo
-bramka `test_report_claims.py` bierze pierwszą liczbę po nazwie stałej za twierdzenie
-o jej wartości — na strzałce `207 → 208` zapaliła się i to jest jej poprawne działanie.
+`MIN_REPORTS` została w tym commicie podniesiona ze dwustu siedmiu na dwieście osiem:
+jeden raport, ten plik, policzony na drzewie. Obie liczby stoją tu słownie, a nie
+cyfrowo, bo bramka `test_report_claims.py` bierze pierwszą liczbę po nazwie stałej za
+twierdzenie o jej BIEŻĄCEJ wartości — na strzałce `207 → 208` zapaliła się od razu,
+a na zdaniu „stoi na 208” zapaliła się nazajutrz, przy pierwszym kolejnym podniesieniu.
+Oba zapalenia są poprawnym działaniem bramki i dlatego zdanie o wartości z DNIA
+POMIARU nie ma tu prawa stać cyfrą.
 
 ## 7. Cztery kontrole negatywne, `md5sum -c: OK` po każdej
 

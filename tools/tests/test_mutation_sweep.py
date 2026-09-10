@@ -14,9 +14,11 @@ Testy pilnują trzech rzeczy, z których każda ma tryb cichej awarii:
    pokazywałoby, że testy sprawdzają same siebie.
 """
 import ast
+import contextlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -25,6 +27,57 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import mutation_sweep as sweep  # noqa: E402
 
 ROOT = sweep.ROOT
+
+
+#: 6.D90: pliki celów, na których kontrole tego modułu wolno zmieniać treść.
+#: Kopia, nie oryginał — powód w `_cele_na_boku` niżej.
+CEL_KONTROLNY = os.path.join("tools", "blender", "lod_paths.py")
+
+
+@contextlib.contextmanager
+def _cele_na_boku(cel=CEL_KONTROLNY, z_gitem=False):
+    """Drzewo celów na kopii, z `sweep.ROOT` przestawionym na czas kontroli.
+
+    **Po co, zmierzone 10.09.2026 przy 6.D90.** Trzy kontrole tego modułu — 6.B32
+    i dwie z 6.B38 — zmieniały treść `tools/blender/lod_paths.py` W DRZEWIE GŁÓWNYM
+    i przywracały ją w `finally`. Sonda `git status --porcelain` odpytywana co 50 ms
+    przez cały przebieg zestawu (2158 testów) złapała `M tools/blender/lod_paths.py`
+    w **11 próbkach**, czyli przez około pół sekundy plik był w drzewie zmieniony.
+    Nikt tej zmiany nie popełnił i nikt jej nie zobaczy po fakcie, bo przywrócenie
+    działa — ale równoległa kontrola czystości w tym oknie widzi naruszenie reguły 6.
+
+    **Dlaczego kopia, a nie znacznik.** Pole „Wyjście" pozycji 6.D90 daje znacznik
+    jako wariant awaryjny, „jeśli kopia jest niewykonalna". Jest wykonalna: wszystkie
+    trzy kontrole czytają plik przez `sweep.ROOT` (`odcisk_tresci`, `targets`,
+    `collect`), więc przestawienie tej jednej zmiennej kieruje je na kopię, nie
+    zmieniając ani jednej asercji o zachowaniu narzędzia.
+
+    **Czego to NIE zmienia:** `_biezacy_commit()` czyta `ROOT` tego modułu testowego,
+    a nie `sweep.ROOT`, więc zdanie „HEAD stoi w miejscu" nadal dotyczy prawdziwego
+    repozytorium — i tak ma być, bo to jest połowa tezy 6.B32.
+    """
+    zrodlo = os.path.join(ROOT, cel)
+    with tempfile.TemporaryDirectory(prefix="metro-cele-") as bok:
+        kopia = os.path.join(bok, cel)
+        os.makedirs(os.path.dirname(kopia))
+        shutil.copyfile(zrodlo, kopia)
+        if z_gitem:
+            # Kontrola 6.B32 o brudnym drzewie pyta `git diff --name-only HEAD`,
+            # wiec kopia bez repozytorium nie odpowiedzialaby na jej pytanie wcale.
+            # Repozytorium syntetyczne odpowiada, a prawdziwe zostaje czyste.
+            for polecenie in (("init", "--quiet"),
+                              ("config", "user.email", "test@example.invalid"),
+                              ("config", "user.name", "test"),
+                              ("add", "-A"),
+                              ("commit", "--quiet", "-m", "baza")):
+                gotowe = _git_w(bok, *polecenie)
+                assert gotowe.returncode == 0, (polecenie, gotowe.stderr[-200:])
+        zastane = sweep.ROOT
+        sweep.ROOT = bok
+        try:
+            yield kopia
+        finally:
+            sweep.ROOT = zastane
 
 
 def _mutations(source, path="tools/x.py"):
@@ -1625,21 +1678,24 @@ def test_the_fingerprint_reads_the_working_tree_not_the_worker_copy():
     `ROOT`, wiec zmiana pliku w drzewie roboczym MUSI zmienic odcisk, mimo ze `HEAD`
     stoi w miejscu.
     """
-    plik = "tools/blender/lod_paths.py"
-    pelna = os.path.join(ROOT, plik)
+    plik = CEL_KONTROLNY
     commit_przed = _biezacy_commit()
-    with open(pelna, encoding="utf-8") as uchwyt:
-        oryginal = uchwyt.read()
-    przed = sweep.odcisk_tresci(plik)
-    try:
-        with open(pelna, "w", encoding="utf-8") as uchwyt:
-            uchwyt.write(oryginal + "\n# 6.B32: zmiana bez commita\n")
-        po = sweep.odcisk_tresci(plik)
-    finally:
-        with open(pelna, "w", encoding="utf-8") as uchwyt:
-            uchwyt.write(oryginal)
+    # 6.D90: zmiana idzie na KOPIE, nie na plik w drzewie glownym. Teza testu tego
+    # nie rusza — `odcisk_tresci` czyta plik wzgledem `sweep.ROOT`, wiec kopia jest
+    # dla niego dokladnie tym samym „drzewem roboczym", o ktore chodzi 6.B32.
+    with _cele_na_boku() as kopia:
+        with open(kopia, encoding="utf-8") as uchwyt:
+            oryginal = uchwyt.read()
+        przed = sweep.odcisk_tresci(plik)
+        try:
+            with open(kopia, "w", encoding="utf-8") as uchwyt:
+                uchwyt.write(oryginal + "\n# 6.B32: zmiana bez commita\n")
+            po = sweep.odcisk_tresci(plik)
+        finally:
+            with open(kopia, "w", encoding="utf-8") as uchwyt:
+                uchwyt.write(oryginal)
 
-    assert sweep.odcisk_tresci(plik) == przed, "przywrocenie pliku sie nie udalo"
+        assert sweep.odcisk_tresci(plik) == przed, "przywrocenie pliku sie nie udalo"
     assert po != przed, (
         "odcisk nie zmienil sie po zmianie pliku w drzewie roboczym — czytnik siega "
         "gdzie indziej niz `collect`")
@@ -1707,22 +1763,27 @@ def test_the_fingerprint_refusal_names_the_dirty_tree_when_that_is_the_cause():
     `--list`, czyli z jedynej taniej drogi, ktora ja sprawdza. Komunikat NAZYWA wiec
     druga mozliwa przyczyne — i tylko wtedy, gdy ona faktycznie zachodzi.
     """
-    plik = "tools/blender/lod_paths.py"
-    # 1. brudne drzewo bez `--dirty` -> zdanie jest, i wymienia plik z nazwy.
-    zdanie = sweep.brudne_wyjasnienie([plik], dirty_flag=False)
-    pelna = os.path.join(ROOT, plik)
-    with open(pelna, encoding="utf-8") as uchwyt:
-        oryginal = uchwyt.read()
-    try:
-        with open(pelna, "w", encoding="utf-8") as uchwyt:
-            uchwyt.write(oryginal + "\n# 6.B32: zmiana bez commita\n")
-        brudne = sweep.brudne_wyjasnienie([plik], dirty_flag=False)
-        # 2. z `--dirty` przebieg jest ZAMIERZONY, wiec zdania nie ma — inaczej
-        #    komunikat radzilby zacommitowac to, co ktos swiadomie zostawil.
-        z_dirty = sweep.brudne_wyjasnienie([plik], dirty_flag=True)
-    finally:
-        with open(pelna, "w", encoding="utf-8") as uchwyt:
-            uchwyt.write(oryginal)
+    plik = CEL_KONTROLNY.replace(os.sep, "/")
+    # 6.D90: caly ten test chodzi po repozytorium SYNTETYCZNYM. `dirty_sources` pyta
+    # `git diff --name-only HEAD` z `cwd=sweep.ROOT`, wiec kopia z wlasnym `.git`
+    # odpowiada na to pytanie tak samo, a drzewo glowne zostaje czyste przez cale
+    # okno — co dla tego akurat testu jest ta sama rzecz, ktora on sprawdza.
+    with _cele_na_boku(z_gitem=True) as kopia:
+        # 1. brudne drzewo bez `--dirty` -> zdanie jest, i wymienia plik z nazwy.
+        zdanie = sweep.brudne_wyjasnienie([plik], dirty_flag=False)
+        with open(kopia, encoding="utf-8") as uchwyt:
+            oryginal = uchwyt.read()
+        try:
+            with open(kopia, "w", encoding="utf-8") as uchwyt:
+                uchwyt.write(oryginal + "\n# 6.B32: zmiana bez commita\n")
+            brudne = sweep.brudne_wyjasnienie([plik], dirty_flag=False)
+            # 2. z `--dirty` przebieg jest ZAMIERZONY, wiec zdania nie ma — inaczej
+            #    komunikat radzilby zacommitowac to, co ktos swiadomie zostawil.
+            z_dirty = sweep.brudne_wyjasnienie([plik], dirty_flag=True)
+        finally:
+            with open(kopia, "w", encoding="utf-8") as uchwyt:
+                uchwyt.write(oryginal)
+        po_przywroceniu = sweep.brudne_wyjasnienie([plik], dirty_flag=False)
 
     assert "niezacommitowane zmiany" in brudne, brudne
     assert plik in brudne, brudne
@@ -1734,8 +1795,7 @@ def test_the_fingerprint_refusal_names_the_dirty_tree_when_that_is_the_cause():
     #    byloby szumem przy dzienniku z innego drzewa.
     assert zdanie == "", (
         "zdanie o brudnym drzewie dopisane przy drzewie czystym: " + zdanie)
-    assert sweep.brudne_wyjasnienie([plik], dirty_flag=False) == "", (
-        "przywrocenie pliku sie nie udalo")
+    assert po_przywroceniu == "", "przywrocenie pliku sie nie udalo"
 
 
 # --- mapa pokrycia liczona RAZ na commit i zapamietana (6.B36) -------------------
@@ -2391,7 +2451,12 @@ def test_pamiec_collect_zwraca_KOPIE_a_nie_te_sama_liste():
 
 
 def _z_dopiskiem(cel, dopisek):
-    """Wykonaj `collect()` z dopiskiem w pliku celu i przywroc plik."""
+    """Wykonaj `collect()` z dopiskiem w pliku celu i przywroc plik.
+
+    6.D90: `cel` jest KOPIA z `_cele_na_boku`, a nie plikiem w drzewie glownym.
+    Sama funkcja tego nie wymusza — wymusza to wolajacy, i pilnuje bramka
+    `test_zadna_kontrola_nie_pisze_do_pliku_sledzonego_w_drzewie`.
+    """
     zastane = open(cel, encoding="utf-8").read()
     try:
         with open(cel, "a", encoding="utf-8") as handle:
@@ -2413,18 +2478,18 @@ def test_pamiec_collect_UNIEWAZNIA_SIE_gdy_tresc_celu_sie_zmieni():
     Ze klucz z odciskami jest darmowy, jest zmierzone: odczyt i sha256 wszystkich
     63 celow zajmuje 0,0013 s przy 0,224 s na jedno `collect()`.
     """
-    cel = os.path.join(ROOT, "tools", "blender", "lod_paths.py")
-    przed = sweep.collect()
-    kluczy = len(sweep._PAMIEC_COLLECT)
+    with _cele_na_boku() as cel:  # 6.D90: kopia, nie plik w drzewie glownym
+        przed = sweep.collect()
+        kluczy = len(sweep._PAMIEC_COLLECT)
 
-    po = _z_dopiskiem(cel, "\n\ndef _f38(a):\n    return a >= 1\n")
+        po = _z_dopiskiem(cel, "\n\ndef _f38(a):\n    return a >= 1\n")
 
-    assert len(sweep._PAMIEC_COLLECT) == kluczy + 1, (
-        "zmiana tresci celu NIE uniewaznila pamieci — mutacje policzone dla innej "
-        "tresci wrocilyby jako wynik biezacego przebiegu")
-    assert len(po) > len(przed), (len(po), len(przed))
-    assert [m.id for m in sweep.collect()] == [m.id for m in przed], (
-        "po przywroceniu tresci pamiec nie wrocila do klucza pierwszego przebiegu")
+        assert len(sweep._PAMIEC_COLLECT) == kluczy + 1, (
+            "zmiana tresci celu NIE uniewaznila pamieci — mutacje policzone dla innej "
+            "tresci wrocilyby jako wynik biezacego przebiegu")
+        assert len(po) > len(przed), (len(po), len(przed))
+        assert [m.id for m in sweep.collect()] == [m.id for m in przed], (
+            "po przywroceniu tresci pamiec nie wrocila do klucza pierwszego przebiegu")
 
 
 def test_pamiec_uniewaznia_sie_takze_przy_zmianie_BEZ_ani_jednej_mutacji():
@@ -2441,16 +2506,16 @@ def test_pamiec_uniewaznia_sie_takze_przy_zmianie_BEZ_ani_jednej_mutacji():
     pierwsza, bo bez niego pamiec, ktora ignoruje zmiany „nieciekawe", przechodzilaby
     caly zestaw.
     """
-    cel = os.path.join(ROOT, "tools", "blender", "lod_paths.py")
-    przed = sweep.collect()
-    kluczy = len(sweep._PAMIEC_COLLECT)
+    with _cele_na_boku() as cel:  # 6.D90: kopia, nie plik w drzewie glownym
+        przed = sweep.collect()
+        kluczy = len(sweep._PAMIEC_COLLECT)
 
-    po = _z_dopiskiem(cel, "\nDODANE_PRZEZ_TEST_6B38 = 1\n")
+        po = _z_dopiskiem(cel, "\nDODANE_PRZEZ_TEST_6B38 = 1\n")
 
-    assert len(sweep._PAMIEC_COLLECT) == kluczy + 1, (
-        "zmiana tresci bez nowych mutacji NIE uniewaznila pamieci")
-    assert [m.id for m in po] == [m.id for m in przed], (
-        "dopisek bez mutacji zmienil liste — zmienil sie pomiar, nie test")
+        assert len(sweep._PAMIEC_COLLECT) == kluczy + 1, (
+            "zmiana tresci bez nowych mutacji NIE uniewaznila pamieci")
+        assert [m.id for m in po] == [m.id for m in przed], (
+            "dopisek bez mutacji zmienil liste — zmienil sie pomiar, nie test")
 
 
 # --- 6.D37: puste zawezenie ------------------------------------------------------
@@ -2505,6 +2570,162 @@ def test_dwie_postacie_tej_samej_pomylki_daja_ten_sam_kod():
     assert w_cudzyslowie.returncode == bez_cudzyslowu.returncode == 2, (
         w_cudzyslowie.returncode, bez_cudzyslowu.returncode)
 
+
+
+
+# --- 6.D90: okno mutacji a czystość drzewa głównego -------------------------------
+#
+# Pozycja weszła do kolejki z tezą, że narzędzie mutuje pliki w `data/` W MIEJSCU.
+# Pomiar 10.09.2026 tezę OBALIŁ i te trzy bramki pilnują tego, co pomiar zastał,
+# a nie tego, co wpis zapowiadał:
+#
+#   * `targets()` chodzi wyłącznie po `tools/` i bierze wyłącznie `.py`, więc żaden
+#     plik z `data/` nie ma jak zostać wybrany do mutacji;
+#   * `check_one` otwiera do zapisu `os.path.join(worktree, ...)`, a `worktree` jest
+#     kopią z `git worktree add --detach` stojącą w katalogu tymczasowym, nie w repo;
+#   * przez cały przebieg (kalibracja wyroczni + trzy mutacje, 512 s) `git status
+#     --porcelain` w drzewie głównym, odpytywany co 50 ms, zwrócił pustkę 100 %
+#     próbek — także dla samego `data/`.
+#
+# Skoro teza jest fałszywa, wartością tej pozycji jest UTRWALENIE stanu: gdyby ktoś
+# rozszerzył `targets()` o dane albo zmutował w drzewie wołającego, dziś nie
+# zapaliłoby się nic. Trzecia bramka jest kontrolą PRZYRZĄDU: ten sam obserwator,
+# skierowany na drzewo, które NAPRAWDĘ się brudzi, brud widzi — bez niej „pusto
+# w trakcie okna" znaczyłoby tyle samo, co „obserwator nic nie umie zobaczyć".
+
+
+def _git_w(katalog, *args):
+    """Nazwa z przyrostkiem, bo `_git` w tym module JUŻ JEST i ma inną sygnaturę.
+
+    Pierwsza wersja tych bramek nazwała pomocnika `_git` i przesłoniła tamten —
+    trzy testy `dirty_sources` padły od razu na `missing keyword-only argument`.
+    Wypisane, bo to ten sam kształt, o który chodzi w całej tej sekcji: przyrząd,
+    który po cichu podmienia inny przyrząd.
+    """
+    return subprocess.run(["git", *args], cwd=katalog, capture_output=True, text=True)
+
+
+def _stan_roboczy(katalog, sciezka=None):
+    """`git status --porcelain`, opcjonalnie zawężony do jednej ścieżki."""
+    polecenie = ["status", "--porcelain"]
+    if sciezka is not None:
+        polecenie += ["--", sciezka]
+    gotowe = _git_w(katalog, *polecenie)
+    assert gotowe.returncode == 0, gotowe.stderr[-300:]
+    return gotowe.stdout
+
+
+def test_zaden_cel_mutacji_nie_lezy_poza_kodem_narzedzi():
+    """Plik z `data/` nie ma jak trafić pod mutację, bo `targets()` tam nie zagląda.
+
+    To jest pierwsza z dwóch niezależnych przyczyn, dla których teza pozycji 6.D90
+    okazała się fałszywa: nawet gdyby mutacja szła w drzewie wołającego, nie miałaby
+    czego zmutować w `data/`. Asercja na niepustość stoi tu, a nie w komentarzu,
+    bo pętla po pustej liście przechodzi każdą regułę, jaką się w nią wpisze.
+    """
+    cele = sweep.targets()
+    assert len(cele) > 20, f"celów {len(cele)} — `targets()` przestało cokolwiek widzieć"
+
+    tools = os.path.join(ROOT, "tools") + os.sep
+    dane = os.path.join(ROOT, "data") + os.sep
+    for path in cele:
+        assert path.startswith(tools), path
+        assert not path.startswith(dane), path
+        assert path.endswith(".py"), path
+
+
+def test_okno_mutacji_nie_rusza_drzewa_glownego_W_TRAKCIE_a_nie_po():
+    """Pomiar W TRAKCIE okna, bo po jego zamknięciu plik jest już przywrócony.
+
+    Pole „Skończone, gdy" pozycji żąda dokładnie tego rozróżnienia: sprawdzenie po
+    przebiegu nie odróżnia narzędzia, które niczego nie tknęło, od narzędzia, które
+    tknęło i posprzątało. Obserwator siedzi więc w atrapie `run_suite`, czyli jest
+    wołany DOKŁADNIE wtedy, gdy mutacja stoi zastosowana.
+
+    Porównanie idzie do stanu SPRZED okna, a nie do pustki: gałąź robocza może mieć
+    legalnie zmieniony plik w `data/` (na przykład czyjąś kontrolę negatywną w toku),
+    a ta bramka pyta wyłącznie o to, czy okno mutacji coś do tego stanu DOŁOŻYŁO.
+    """
+    przed = _stan_roboczy(ROOT, "data")
+    widziane = {}
+
+    with tempfile.TemporaryDirectory() as udawane_drzewo:
+        plik = os.path.join(udawane_drzewo, "a.py")
+        with open(plik, "w", encoding="utf-8") as uchwyt:
+            uchwyt.write("x = 1\n")
+        mutacja = sweep.Mutation("a.py", 1, 4, 5, "1", "2", "prog")
+
+        def _atrapa(*_a, **_kw):
+            with open(plik, encoding="utf-8") as uchwyt:
+                widziane["kopia"] = uchwyt.read()
+            widziane["data"] = _stan_roboczy(ROOT, "data")
+            return (False, [], 0)
+
+        prawdziwe = sweep.run_suite
+        sweep.run_suite = _atrapa
+        try:
+            sweep.check_one(udawane_drzewo, mutacja, 5, "abcdef1")
+        finally:
+            sweep.run_suite = prawdziwe
+
+        with open(plik, encoding="utf-8") as uchwyt:
+            po = uchwyt.read()
+
+    # Okno NAPRAWDĘ było otwarte — bez tego zdania cała reszta mówiłaby tylko tyle,
+    # że atrapa się wykonała.
+    assert widziane["kopia"] == "x = 2\n", widziane.get("kopia")
+    assert po == "x = 1\n", po
+    assert widziane["data"] == przed, (
+        "w trakcie otwartego okna mutacji `data/` w drzewie głównym zmieniło stan:\n"
+        f"przed: {przed!r}\nw trakcie: {widziane['data']!r}")
+
+
+def test_obserwator_okna_widzi_brud_tam_gdzie_brud_jest():
+    """Kontrola PRZYRZĄDU, nie narzędzia: pusty wynik ma znaczyć „czysto", nie „ślepy".
+
+    Bramka wyżej twierdzi, że w trakcie okna `git status` drzewa głównego nie drgnął.
+    Zdanie to jest warte tyle, ile obserwator, który je wypowiada — a obserwator
+    wołający `git status` na drzewie, którego narzędzie nie tyka, zwróci pustkę
+    także wtedy, gdy przestanie cokolwiek mierzyć.
+
+    Ta bramka kieruje TEN SAM obserwator na repozytorium syntetyczne, w którym plik
+    `data/os.json` jest mutowany naprawdę, i żąda, żeby zobaczył zmianę w trakcie
+    okna oraz jej brak po zamknięciu. Prawdziwe `data/` pozostaje nietknięte —
+    reguła 6 konstytucji obowiązuje także testy tej pozycji.
+    """
+    with tempfile.TemporaryDirectory() as repo:
+        os.makedirs(os.path.join(repo, "data"))
+        cel = os.path.join(repo, "data", "os.json")
+        with open(cel, "w", encoding="utf-8") as uchwyt:
+            uchwyt.write('{"x": 1}\n')
+        for polecenie in (("init", "--quiet"),
+                          ("config", "user.email", "test@example.invalid"),
+                          ("config", "user.name", "test"),
+                          ("add", "-A"),
+                          ("commit", "--quiet", "-m", "baza")):
+            gotowe = _git_w(repo, *polecenie)
+            assert gotowe.returncode == 0, (polecenie, gotowe.stderr[-200:])
+        assert _stan_roboczy(repo, "data") == "", "repozytorium syntetyczne startuje brudne"
+
+        mutacja = sweep.Mutation(os.path.join("data", "os.json"), 1, 6, 7, "1", "2", "prog")
+        widziane = {}
+
+        def _atrapa(*_a, **_kw):
+            widziane["w_trakcie"] = _stan_roboczy(repo, "data")
+            return (False, [], 0)
+
+        prawdziwe = sweep.run_suite
+        sweep.run_suite = _atrapa
+        try:
+            sweep.check_one(repo, mutacja, 5, "abcdef1")
+        finally:
+            sweep.run_suite = prawdziwe
+
+        assert widziane["w_trakcie"].strip().endswith("data/os.json"), (
+            "obserwator nie zobaczył brudu w drzewie, które NAPRAWDĘ się brudzi — "
+            f"czyli pustka w bramce wyżej niczego nie dowodzi: {widziane['w_trakcie']!r}")
+        assert _stan_roboczy(repo, "data") == "", (
+            "po zamknięciu okna plik nie wrócił do stanu z HEAD")
 
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
 # z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
