@@ -76,6 +76,119 @@ def test_a_loop_comes_out_as_one_pasteable_command():
     assert "\\" not in got[0], got[0]
 
 
+def test_a_heredoc_body_is_not_a_command():
+    """Ciało heredoku to DANE dla polecenia, nie polecenia — 6.D100.
+
+    Kontrola negatywna z pola „Skończone, gdy": płotek z heredokiem o dwóch
+    wierszach ciała ma dać JEDNĄ komendę, a nie cztery (otwarcie, dwa wiersze
+    ciała, terminator). Cztery to liczba, którą dawał kolektor przed tą pozycją.
+    """
+    fence = (
+        "  cat > build/x.txt <<'EOF'\n"
+        "  pierwszy wiersz\n"
+        "  drugi wiersz\n"
+        "  EOF\n"
+    )
+    got = bc.commands(fence)
+    assert len(got) == 1, got
+
+    # I ma się dać WKLEIĆ: terminator w osobnym wierszu, ciało bez wcięcia płotka.
+    assert got[0] == (
+        "cat > build/x.txt <<'EOF'\n"
+        "pierwszy wiersz\n"
+        "drugi wiersz\n"
+        "EOF"
+    ), repr(got[0])
+
+
+def test_a_heredoc_body_keeps_what_a_command_line_would_lose():
+    """W ciele zostaje to, co poza nim jest pomijane: puste wiersze, `#`, wcięcie.
+
+    Wiersz `#` w ciele heredoku Pythona jest komentarzem PYTHONA i jest treścią;
+    pominięcie go zmieniłoby program, który komenda wkleja na wejście.
+    """
+    fence = (
+        "  python3 - <<'EOF'\n"
+        "  # to jest komentarz Pythona\n"
+        "\n"
+        "  if True:\n"
+        "      print(1)\n"
+        "  EOF\n"
+    )
+    got = bc.commands(fence)
+    assert len(got) == 1, got
+    assert "# to jest komentarz Pythona" in got[0], repr(got[0])
+    assert "\n\n" in got[0], ("pusty wiersz ciała zniknął: " + repr(got[0]))
+    assert "\n    print(1)" in got[0], ("wcięcie ciała zniknęło: " + repr(got[0]))
+
+
+def test_a_heredoc_inside_a_loop_does_not_break_the_loop():
+    """Heredok w pętli nie kończy pętli — terminator zamyka ciało, nie komendę."""
+    fence = (
+        "  for X in a b; do\n"
+        "      cat <<EOF\n"
+        "      linia $X\n"
+        "  EOF\n"
+        "  done\n"
+    )
+    got = bc.commands(fence)
+    assert len(got) == 1, got
+    assert got[0].endswith("\ndone"), repr(got[0])
+
+
+def test_a_conflict_marker_is_not_a_heredoc():
+    """`<<<<<<< HEAD` czyta się jak heredok o terminatorze `HEAD` — i nie jest nim.
+
+    Kontrola przyrządu dla `HEREDOC`. Wzorzec bez strażników `(?<!<)` i `(?!<)`
+    łapie parę `<` na piątym znaku znacznika konfliktu; taki znacznik stoi
+    w opisie 6.D55 w `docs/TASKS.md` (wiersz 912 w dniu pomiaru). Do płotka
+    „Weryfikacja" nie wchodzi, ale wzorzec ma być prawdziwy, a nie prawdziwy
+    przypadkiem.
+    """
+    for otwiera, terminator in (
+        ("python3 - <<'EOF'", "EOF"),
+        ('cat <<"KONIEC"', "KONIEC"),
+        ("cat <<-EOF", "EOF"),
+        ("cat <<EOF", "EOF"),
+    ):
+        m = bc.HEREDOC.search(otwiera)
+        assert m, otwiera
+        assert (m.group(1) or m.group(2) or m.group(3)) == terminator, otwiera
+
+    for nie_heredok in ("<<<<<<< HEAD", ">>>>>>> gałąź", 'grep x <<<"abc"'):
+        assert not bc.HEREDOC.search(nie_heredok), nie_heredok
+
+
+def test_an_unterminated_heredoc_keeps_its_body_instead_of_swallowing_it():
+    """Płotek urwany w środku ciała: wiersze zostają przy komendzie, nie znikają.
+
+    Połknięcie ich po cichu byłoby tą samą usterką, którą ta pozycja zdejmuje,
+    tylko w drugą stronę — licznik zgodny, a wypis niepełny.
+    """
+    fence = "  python3 - <<'EOF'\n  print(1)\n"
+    got = bc.commands(fence)
+    assert len(got) == 1, got
+    assert got[0] == "python3 - <<'EOF'\nprint(1)", repr(got[0])
+
+
+def test_the_only_heredoc_in_the_file_is_the_one_the_measurement_named():
+    """Zbiór, nie liczba: nowy blok z heredokiem ma być widoczny z nazwy.
+
+    Zmierzone 10.09.2026: jeden płotek z heredokiem w całym `docs/TASKS.md`
+    (blok 6.A24), a ten blok daje **cztery** komendy — przed 6.D100 dawał osiem.
+    """
+    found = bc.inventory()
+    z_heredokiem = {number for number, commands in found.items()
+                    if any(bc.HEREDOC.search(c) for c in commands)}
+    assert z_heredokiem == {"6.A24"}, sorted(z_heredokiem)
+    assert len(found["6.A24"]) == 4, found["6.A24"]
+
+    # Dolne ostrze na sam kolektor: gdyby przestał cokolwiek zbierać, zbiór wyżej
+    # też byłby pusty i test świeciłby na zielono z niewiedzy.
+    every = [c for commands in found.values() for c in commands]
+    assert len(every) >= 320, len(every)
+
+
 def test_a_comment_line_is_not_a_command():
     fence = "# licznik, który wskazał te sześć\npython3 tools/tests/test_all.py\n"
     got = bc.commands(fence)
