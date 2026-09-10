@@ -172,6 +172,121 @@ def test_the_document_declares_the_same_engine_version():
         f"{cytat!r}, a w pliku jest {prawda!r}")
 
 
+#: Krok sondy silnika w workflowie — po `id:`, bo nazwa kroku jest po polsku
+#: i zmienia się przy każdym przepisaniu komentarza, a `id` jest kontraktem
+#: z warunkiem `if: steps.godot.outputs.engine == 'missing'`.
+SONDA_ID = "godot"
+
+
+def cialo_sondy():
+    """Skrypt powłoki kroku sondy silnika, wzięty z YAML-a, a nie z grepa po tekście."""
+    import yaml
+
+    document = yaml.safe_load(_read(WORKFLOW))
+    for job in document["jobs"].values():
+        for step in job.get("steps") or []:
+            if step.get("id") == SONDA_ID:
+                return str(step.get("run") or "")
+    return None
+
+
+def _uruchom_sonde(zglaszana_wersja, wersja_pinu, jest_katalog=True):
+    """Uruchamia PRAWDZIWE ciało sondy z atrapą silnika i zwraca `engine=…`.
+
+    Atrapa wypisuje podany numer w formacie, w którym robi to Godot
+    (`4.7.2.stable.mono.official.abcdef123`), więc test mierzy to, co sonda
+    naprawdę zrobi z wypisem silnika — a nie to, co o nim myślę.
+    """
+    import subprocess
+    import tempfile
+
+    with tempfile.TemporaryDirectory(prefix="mbxl-sonda-godota-") as baza:
+        katalog = os.path.join(baza, "metro-godot", wersja_pinu)
+        os.makedirs(katalog)
+        if jest_katalog:
+            os.makedirs(os.path.join(katalog, "GodotSharp"))
+        binarka = os.path.join(katalog, "Godot_v%s_mono_linux.x86_64" % wersja_pinu)
+        with open(binarka, "w", encoding="utf-8") as uchwyt:
+            uchwyt.write("#!/bin/sh\necho '%s.mono.official.abcdef123'\n"
+                         % zglaszana_wersja)
+        os.chmod(binarka, 0o755)
+
+        wyjscie = os.path.join(baza, "github_output")
+        open(wyjscie, "w", encoding="utf-8").close()
+        srodowisko = dict(os.environ)
+        srodowisko.update(GODOT_DIR=katalog, GODOT_VERSION=wersja_pinu,
+                          GITHUB_OUTPUT=wyjscie, LC_ALL="C")
+        done = subprocess.run(["bash", "-c", cialo_sondy()], env=srodowisko,
+                              capture_output=True, text=True, timeout=60)
+        zapisane = open(wyjscie, encoding="utf-8").read()
+
+    stan = [w.split("=", 1)[1].strip() for w in zapisane.splitlines()
+            if w.startswith("engine=")]
+    return (stan[-1] if stan else None), done.stdout + done.stderr
+
+
+def test_the_engine_probe_compares_the_reported_version_with_the_pin():
+    """Sonda silnika PORÓWNUJE numer, a nie tylko go wypisuje — 6.D88.
+
+    **Skąd.** Do 10.09.2026 wywołanie `--version` w kroku sondy było gołym wypisem:
+    `engine=present` zależało wyłącznie od OBECNOŚCI pliku i katalogu `GodotSharp`.
+    Krok pobierania jest bramkowany `engine == 'missing'`, więc porównanie
+    z `tools/ci/godot_install.sh` — to, które istnieje i działa — w takim przebiegu
+    **nie wykonywało się wcale**.
+
+    **Dlaczego waga jest niższa, niż nadał audyt** (i tak stoi we wpisie pozycji):
+    u Blendera sonda pytała o nieuwersjonowaną nazwę w ścieżce systemowej, a apt
+    kładł tam rutynowo spotykane stare wydanie. Ścieżka silnika zawiera wersję
+    w katalogu i w nazwie pliku, więc podłożenie innej wymaga ręcznego działania
+    wbrew treści. Zostaje luka kontraktowa, nie scenariusz rutynowy.
+
+    Test uruchamia PRAWDZIWE ciało kroku z atrapą, a nie sprawdza obecności napisu.
+    """
+    cialo = cialo_sondy()
+    assert cialo, "nie znalazłem kroku sondy silnika (id: %s) w workflowie" % SONDA_ID
+
+    pin = workflow_version()
+    zgodna = pin.replace("-", ".")
+
+    stan, wypis = _uruchom_sonde(zgodna, pin)
+    assert stan == "present", (
+        "sonda nie uznała silnika w wersji zgodnej z pinem za obecny\n" + wypis)
+
+    stan, wypis = _uruchom_sonde("4.3.stable", pin)
+    assert stan == "missing", (
+        "sonda uznała za OBECNY silnik zgłaszający 4.3.stable przy pinie %s — "
+        "krok pobierania się nie odpali, a porównanie w instalatorze nigdy nie "
+        "zostanie wykonane\n%s" % (pin, wypis))
+
+    stan, _wypis = _uruchom_sonde(zgodna, pin, jest_katalog=False)
+    assert stan == "missing", (
+        "brak katalogu GodotSharp musi nadal dawać `missing` — bez assembly .NET "
+        "silnik wywraca się dopiero przy starcie sceny")
+
+
+def test_the_probe_normalises_the_release_tag_the_way_the_engine_reports_it():
+    """Tag wydania ma dywiz, silnik zgłasza kropkę — 6.D68 nauczyło tego kosztem.
+
+    Bez normalizacji sonda odrzucałaby wersję **poprawną**: pin mówi `4.7.2-stable`,
+    a silnik wypisuje `4.7.2.stable.mono…`. Ta sama różnica odrzuciła przy 6.D68
+    instalację, której suma kontrolna przed chwilą przeszła.
+    """
+    cialo = cialo_sondy()
+    assert "${GODOT_VERSION//-/.}" in cialo, (
+        "krok sondy nie normalizuje dywizu na kropkę — porównanie odrzuci wersję "
+        "poprawną, bo tag wydania i wypis silnika różnią się jednym znakiem")
+
+    pin = workflow_version()
+    assert "-" in pin, (
+        "pin nie ma dywizu, więc normalizacja jest dziś tożsamościowa i ten test "
+        "przestał cokolwiek mierzyć — sprawdź `tools/ci/godot-version.txt`")
+    stan, wypis = _uruchom_sonde(pin, pin)
+    assert stan == "missing", (
+        "sonda przyjęła numer W ZAPISIE TAGU (%s), którego silnik nigdy nie wypisze "
+        "— porównanie idzie po surowym napisie, nie po znormalizowanym\n%s"
+        % (pin, wypis))
+
+
 def test_parsers_do_not_accept_a_mismatch():
     # Kontrole negatywne. Bez nich testy wyżej przechodziłyby także wtedy, gdyby
     # parsery zwracały `None` na wszystkim — porównanie `None == None` jest prawdziwe.
