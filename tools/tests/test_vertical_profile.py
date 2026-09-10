@@ -23,6 +23,7 @@ ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 sys.path.insert(0, os.path.join(ROOT, "tools", "track"))
 
 import vertical_profile as VP  # noqa: E402
+import stop_names  # noqa: E402
 
 AXIS = os.path.join(ROOT, "data", "track", "L1_A.json")
 DEPTHS = os.path.join(ROOT, "data", "network", "station-depths.csv")
@@ -94,7 +95,7 @@ def test_KAZDE_pole_zestawu_ktore_zarabia_na_miejsce_jest_konieczne():
                 klucze = set()
                 for pole in pola_osi:
                     if pole == "name":
-                        klucze |= {c.strip() for c in (s.get("name") or "").split("|") if c.strip()}
+                        klucze |= set(stop_names.czlony(s.get("name") or ""))
                     elif s.get(pole):
                         klucze.add(s[pole].strip())
                 if klucze & szukane:

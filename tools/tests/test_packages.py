@@ -18,6 +18,7 @@ import build_alignment as B  # noqa: E402
 import crosscheck_alignment as X  # noqa: E402
 import crs as CRS  # noqa: E402
 import validate as V  # noqa: E402
+import stop_names  # noqa: E402
 
 NETWORK = os.path.join(ROOT, "data", "network", "lines.json")
 # id osi -> (pakiet, linia w lines.json)
@@ -165,7 +166,13 @@ def test_packages_every_committed_station_name_exists_in_lines_json():
         if document is None:
             continue
         for station in document["stations"]:
-            assert B.normalise(station["name"].split("|")[0]) in index, station["name"]
+            # Do 10.09.2026 stało tu `split("|")[0]`, czyli porównanie po PIERWSZYM
+            # członie. Kolejność języków w `lines.json` nie jest jednolita
+            # (`Kraainem|Crainhem`), więc oś zapisująca drugi człon przechodziła
+            # przez tę bramkę wyłącznie dlatego, że indeks trzyma OBA (6.D111).
+            trafione = [czlon for czlon in stop_names.czlony(station["name"])
+                        if B.normalise(czlon) in index]
+            assert trafione, station["name"]
 
 
 # --- geometria wycinka ---------------------------------------------------------

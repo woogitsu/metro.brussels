@@ -25,12 +25,15 @@ jest tu więc jednostronny i to jest wybór poparty pomiarem, nie niedokończona
 import json
 import os
 import re
-import unicodedata
+import sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 NETWORK = os.path.join(ROOT, "data", "network", "lines.json")
 STOPS = os.path.join(ROOT, "data", "network", "stops.json")
 DOC = os.path.join(ROOT, "docs", "00-network-data.md")
+
+sys.path.insert(0, os.path.join(ROOT, "tools", "track"))
+import stop_names  # noqa: E402
 
 #: Wiersz tabeli linii w `docs/00-network-data.md`:
 #: `| 6 | Roi Baudouin ↔ Elisabeth | 15,5 km | 26 |`
@@ -44,16 +47,17 @@ def _network():
 
 
 def _canonical(name):
-    """Nazwa bez diakrytyków, wielkimi literami, bez kropek i myślników.
+    """Nazwa kanoniczna JEDNEGO członu — cienka nakładka na `stop_names`.
 
-    Feed skraca „Joséph.-Charlotte" tam, gdzie `lines.json` ma pełną nazwę
-    (`reports/przystanki-wobec-gtfs.md` §6), więc porównanie po surowym napisie
-    zgłaszałoby różnicę zapisu jako różnicę stacji.
+    Do 10.09.2026 stała tu własna kopia tej reguły, a `tools/track/build_alignment.py`
+    miała drugą, różniącą się apostrofem. Obie strony były wewnętrznie zgodne, więc
+    rozjazd nie zapalał niczego — i to jest usterka, którą zamyka 6.D111.
+
+    Powód samej normalizacji zostaje bez zmian: feed skraca „Joséph.-Charlotte" tam,
+    gdzie `lines.json` ma pełną nazwę (`reports/przystanki-wobec-gtfs.md` §6), więc
+    porównanie po surowym napisie zgłaszałoby różnicę zapisu jako różnicę stacji.
     """
-    rozlozone = unicodedata.normalize("NFKD", name)
-    bez_znakow = "".join(c for c in rozlozone if not unicodedata.combining(c))
-    return " ".join(bez_znakow.upper().replace(".", " ").replace("-", " ")
-                    .replace("'", " ").split())
+    return stop_names.kanoniczny_czlon(name)
 
 
 def _gtfs_routes():
@@ -137,7 +141,8 @@ def test_gtfs_potwierdza_kazdy_przystanek_wypisany_na_linii():
     for line in _network()["lines"]:
         numer = str(line["number"])
         for stop in line["stops"]:
-            trafienia = [index[_canonical(czlon)] for czlon in stop.split("|")
+            trafienia = [index[_canonical(czlon)]
+                         for czlon in stop_names.czlony(stop)
                          if _canonical(czlon) in index]
             if not trafienia:
                 nieznane.append((line["id"], stop))

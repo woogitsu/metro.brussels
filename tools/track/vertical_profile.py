@@ -69,8 +69,10 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 sys.path.insert(0, os.path.join(ROOT, "tools", "data"))
+sys.path.insert(0, HERE)
 
 import provenance as P  # noqa: E402
+import stop_names  # noqa: E402
 
 #: Wartości kolumny `confidence`, które NIOSĄ rzędną. `unknown` jej nie niesie, a każda
 #: inna nazwa jest błędem danych, nie nowym poziomem ufności — dlatego lista jest zamknięta
@@ -148,7 +150,7 @@ def dopasuj(stacje_osi: list[dict], wiersze: list[dict]) -> list[tuple[dict, dic
         klucze = set()
         for pole in POLA_NAZW_OSI:
             if pole == "name":
-                klucze |= {c.strip() for c in (s.get("name") or "").split("|")}
+                klucze |= set(stop_names.czlony(s.get("name") or ""))
             elif s.get(pole):
                 klucze.add(s[pole].strip())
         return {k for k in klucze if k}
