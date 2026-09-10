@@ -119,6 +119,13 @@ def test_doctor_nazywa_pozycje_czekajaca_na_wlasciciela():
         f"zablokowanych, a wymienia {len(czekaja)}: {czekaja}")
 
 
+#: Pole „Zależy od", które mówi o decyzji właściciela — do zdjęcia w kontroli niżej.
+#: Wzorzec, a nie treść jednej pozycji: zależności takich bywa w kolejce więcej niż
+#: jedna, a kontrola ma mierzyć „ani jednej", nie „bez tej konkretnej".
+POLE_WLASCICIELA = re.compile(
+    r"- \*\*Zależy od:\*\*[^\n]*właściciel[^\n]*(?:\n  [^\n-][^\n]*)*")
+
+
 def test_dopisanie_pozycji_zaleznej_od_wlasciciela_zmienia_wypis():
     """Kontrola z pola „Skończone, gdy": pozycja SYNTETYCZNA, nie zmiana w drzewie.
 
@@ -129,15 +136,20 @@ def test_dopisanie_pozycji_zaleznej_od_wlasciciela_zmienia_wypis():
     """
     tresc = _tresc_zadan()
 
-    # Strona pierwsza: zdejmujemy jedyną zależność od właściciela, jaką ma dziś
+    # Strona pierwsza: zdejmujemy WSZYSTKIE zależności od właściciela, jakie ma dziś
     # kolejka, i sprawdzamy, że doctor to widzi.
-    bez_zaleznosci = tresc.replace(
-        "- **Zależy od:** decyzji właściciela o zapisie do "
-        "`data/network/sources.json`.",
-        "- **Zależy od:** brak.")
+    #
+    # **Wszystkie, a nie jedną wpisaną z nazwy** (10.09.2026). Do tego dnia stała tu
+    # dosłowna treść pola 6.D53 jako „jedynej zależności, jaką ma dziś kolejka" — i to
+    # przestało być prawdą w chwili, w której druga pozycja (6.D108) została odłożona
+    # na decyzję właściciela. Kontrola padła wtedy z listą `['6.D108']`, czyli mówiła
+    # o stanie kolejki sprzed zmiany. Zdejmowanie po WZORCU nie starzeje się przy
+    # trzeciej takiej pozycji.
+    bez_zaleznosci = POLE_WLASCICIELA.sub("- **Zależy od:** brak.", tresc)
     assert bez_zaleznosci != tresc, (
-        "nie znaleziono pola zależności 6.D53 do zdjęcia — treść wpisu się zmieniła "
-        "i ta kontrola przestała mierzyć to, co obiecuje")
+        "nie znaleziono ani jednego pola zależności od właściciela do zdjęcia — "
+        "kolejka albo wzorzec się zmieniły i ta kontrola przestała mierzyć to, "
+        "co obiecuje")
     assert TB.czeka_na_wlasciciela(bez_zaleznosci) == [], \
         TB.czeka_na_wlasciciela(bez_zaleznosci)
     wypis_bez = _doctor_w_kopii(bez_zaleznosci)
