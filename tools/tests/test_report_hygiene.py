@@ -318,7 +318,9 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 #: `6d102-stary-bajtkod-pod-suma-md5.md`. Policzona na drzewie.
 #: **221 → 222 (10.09.2026, 6.D103).** Jeden raport:
 #: `6d103-galezie-warunkowe-schematu-audio.md`. Policzona na drzewie.
-MIN_REPORTS = 222
+#: **222 → 223 (10.09.2026, 6.D104).** Jeden raport:
+#: `6d104-piec-punktow-czego-nie-ma.md`. Policzona na drzewie.
+MIN_REPORTS = 223
 
 #: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
 #: wierszem zaczynającym się od `**`, z którego `_header_shapes` czyta kształt.
