@@ -373,22 +373,50 @@ def test_parsers_reject_what_they_should():
 
 DOCTOR = os.path.join(ROOT, "doctor.sh")
 
-#: Drugi argument `chk_required`/`chk_optional`, czyli polecenie idące do `eval`.
-#: Wnętrze napisu MUSI dopuszczać `\"` — trzy z dziesięciu wywołań doctora cytują
-#: zmienne wewnątrz, a wzorzec `"[^"]*"` urywa się na pierwszym takim cudzysłowie.
-CHK_CALL = re.compile(r'chk_(?:required|optional)\s+"(?:[^"\\]|\\.)*"\s+"((?:[^"\\]|\\.)*)"')
+#: Drugi argument `chk_expr_*`, czyli WYRAŻENIE idące do `eval`. Wnętrze napisu MUSI
+#: dopuszczać `\"`, bo wyrażenia cytują zmienne w środku, a wzorzec `"[^"]*"` urwałby
+#: się na pierwszym takim cudzysłowie (zmierzone przy 6.D81: dla siedmiu z dziesięciu
+#: wywołań zwracał `[ \` albo samo `\`).
+#:
+#: **6.D98: wzorzec pyta o `chk_expr_*`, nie o `chk_*`.** Formy programowej nie ma
+#: po co sprawdzać na cytowanie — nie idzie przez `eval`, więc spacja w ścieżce jest
+#: dla niej zwykłym znakiem. Zawężenie wzorca ZŁAPAŁ próg niżej: po przemianowaniu
+#: funkcji skan zobaczył zero wywołań i bramka padła, zamiast przejść nad pustką.
+CHK_EXPR_CALL = re.compile(
+    r'chk_expr_(?:required|optional)\s+"(?:[^"\\]|\\.)*"\s+"((?:[^"\\]|\\.)*)"')
+
+#: Wywołanie formy PROGRAMOWEJ: nazwa, podpowiedź, a potem program i argumenty
+#: podane jako osobne słowa. Łapany jest ogon po drugim napisie — to on ma być
+#: tablicą, a nie napisem do ponownego sparsowania.
+CHK_PROG_CALL = re.compile(
+    r'chk_prog_(?:required|optional)\s+"(?:[^"\\]|\\.)*"\s+"(?:[^"\\]|\\.)*"([^\n]*)')
 
 #: Polecenie zaczynające się od GOŁEJ zmiennej, czyli od ścieżki, która rozpadnie
 #: się na spacji. `\"$X\" --version` jest w porządku, `$X --version` nie.
 URUCHAMIA_ZMIENNA = re.compile(r'^\$[A-Za-z_][A-Za-z0-9_]*[/ ]')
 
+#: Znaki, po których poznaje się WYRAŻENIE powłoki, a nie uruchomienie programu.
+#: `[ "$A" -ge "$B" ]` ma nawias i operator; `"$DOTNET" --version` nie ma żadnego.
+WYRAZENIE_POWLOKI = re.compile(r'(^|\s)(\[|\]|-ge|-eq|-lt|-gt|=|!=)(\s|$)')
+
+
+def _doctor_sklejony():
+    """Treść `doctor.sh` ze sklejonymi wierszami łamanymi odwrotnym ukośnikiem.
+
+    Część wywołań `chk_*` jest rozbita na dwie albo trzy linie, a wzorzec liniowy
+    widziałby wtedy sam nagłówek.
+    """
+    return open(DOCTOR, encoding="utf-8").read().replace("\\\n", " ")
+
 
 def doctor_check_commands():
-    """Polecenia z wszystkich wywołań `chk_*` w `doctor.sh`, wiersze sklejone."""
-    tekst = open(DOCTOR, encoding="utf-8").read()
-    # Sklejenie wierszy łamanych odwrotnym ukośnikiem: część wywołań `chk_*` jest
-    # rozbita na dwie linie, a wzorzec liniowy widziałby wtedy sam nagłówek.
-    return CHK_CALL.findall(tekst.replace("\\\n", " "))
+    """Wyrażenia z wywołań `chk_expr_*` w `doctor.sh`, wiersze sklejone."""
+    return CHK_EXPR_CALL.findall(_doctor_sklejony())
+
+
+def doctor_prog_calls():
+    """Ogony wywołań `chk_prog_*`, czyli program z argumentami jako tablica."""
+    return [ogon.strip() for ogon in CHK_PROG_CALL.findall(_doctor_sklejony())]
 
 
 def test_doctor_compares_the_sdk_major_against_the_target_framework():
@@ -578,8 +606,8 @@ def test_every_doctor_check_quotes_the_tool_path_it_runs():
     # `"[^"]*"` i zatrzymywała się na CUDZYSŁOWIU ESCAPOWANYM, więc dla siedmiu
     # z dziesięciu wywołań zwracała `[ \` albo samo `\`. Bramka przechodziła
     # wtedy trywialnie — nad dokładnie tą usterką, której pilnuje.
-    assert len(wolania) >= 10, (
-        "skan widzi %d wywołań `chk_*` — wzorzec rozjechał się z treścią doctora"
+    assert len(wolania) >= 5, (
+        "skan widzi %d wywołań `chk_expr_*` — wzorzec rozjechał się z treścią doctora"
         % len(wolania))
     for polecenie in wolania:
         assert polecenie.strip(), "puste polecenie — wzorzec urwał argument"
@@ -589,8 +617,62 @@ def test_every_doctor_check_quotes_the_tool_path_it_runs():
 
     zle = [p for p in wolania if URUCHAMIA_ZMIENNA.match(p)]
     assert zle == [], (
-        "wywołanie `chk_*` uruchamia ścieżkę ze zmiennej BEZ cudzysłowów — `eval` "
-        "parsuje ten napis drugi raz i rozbije ją na spacji: %s" % zle)
+        "wywołanie `chk_expr_*` uruchamia ścieżkę ze zmiennej BEZ cudzysłowów — "
+        "`eval` parsuje ten napis drugi raz i rozbije ją na spacji: %s" % zle)
+
+
+def test_doctor_uzywa_formy_tablicowej_do_uruchamiania_programow():
+    """6.D98: program idzie tablicą i bez `eval`, wyrażenie idzie przez `eval`.
+
+    Rozdzielenie jest po to, żeby przy nowym wywołaniu nie było CZEGO pamiętać:
+    forma programowa nie parsuje swojego argumentu drugi raz, więc spacja w ścieżce
+    jest dla niej zwykłym znakiem. Bramka pilnuje obu kierunków pomyłki — wyrażenia
+    wstawionego do formy tablicowej i programu wstawionego do formy z `eval` — bo
+    każdy z nich cofa dokładnie tę własność.
+    """
+    programowe = doctor_prog_calls()
+    assert len(programowe) >= 6, (
+        "skan widzi %d wywołań `chk_prog_*`, a zmierzone 10.09.2026 było sześć — "
+        "albo forma zniknęła, albo wzorzec się rozjechał" % len(programowe))
+
+    # ZMIERZONE KONTROLĄ NEGATYWNĄ, nie założone: forma tablicowa zdejmuje DRUGI
+    # rozbiór (`eval`), ale nie zdejmuje PIERWSZEGO — podziału na słowa przy
+    # rozwinięciu. `chk_prog_required "dotnet SDK" "…" $DOTNET --version` z atrapą
+    # w katalogu `sdk with space` nadal daje `BRAK dotnet SDK`, a ta sama linia
+    # z `"$DOTNET"` daje `ok`. Cudzysłowy są więc nadal potrzebne i bramka pyta
+    # o nie także tutaj; 6.D98 zdejmuje jeden z dwóch rozbiorów, nie oba.
+    bez_cudzyslowow = [p for p in programowe
+                       if URUCHAMIA_ZMIENNA.match(p.split(" ", 1)[0] + " ")]
+    assert bez_cudzyslowow == [], (
+        "forma tablicowa uruchamia ścieżkę ze zmiennej BEZ cudzysłowów — podział "
+        "na słowa przy rozwinięciu rozbije ją na spacji tak samo jak `eval`: %s"
+        % bez_cudzyslowow)
+
+    wyrazenia_w_tablicy = [p for p in programowe if WYRAZENIE_POWLOKI.search(p)]
+    assert wyrazenia_w_tablicy == [], (
+        "wyrażenie powłoki trafiło do formy TABLICOWEJ — `\"[\" \"$A\" -ge …` nie "
+        "jest programem i ta forma go nie wykona: %s" % wyrazenia_w_tablicy)
+
+    programy_w_eval = [w for w in doctor_check_commands()
+                       if not WYRAZENIE_POWLOKI.search(w) and w.strip() != "false"]
+    assert programy_w_eval == [], (
+        "uruchomienie programu trafiło do formy z `eval` — wraca wtedy potrzeba "
+        "pamiętania o cudzysłowach, którą 6.D98 zdejmuje: %s" % programy_w_eval)
+
+
+def test_rozroznienie_form_dziala_na_wejsciu_syntetycznym():
+    """Kontrola PRZYRZĄDU: `WYRAZENIE_POWLOKI` ma odróżniać, a nie zgadzać się zawsze.
+
+    Cztery kształty, bo bramka wyżej pyta w obie strony: dwa prawdziwe wyrażenia
+    i dwa prawdziwe uruchomienia. Bez tego „lista pusta" znaczyłoby tyle samo, co
+    „wzorzec nie łapie niczego".
+    """
+    for wyrazenie in ('[ "$A" -ge "$B" ]', '[ $HOSTFXR_OK -eq 0 ]'):
+        assert WYRAZENIE_POWLOKI.search(wyrazenie), wyrazenie
+    for program in ('"$DOTNET" --version', '"$BLENDER_CMD" --background --python-expr pass'):
+        assert not WYRAZENIE_POWLOKI.search(program), (
+            "uruchomienie programu wzięte za wyrażenie powłoki — bramka wyżej "
+            "zgłaszałaby wtedy poprawne wywołania: %r" % program)
 
 
 def test_doctor_honours_dotnet_bin_the_same_way_as_blender_bin():

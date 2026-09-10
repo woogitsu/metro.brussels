@@ -306,7 +306,9 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 #: `6d96-pin-niespelniony-a-brak-sdk.md`. Policzona na drzewie.
 #: **215 → 216 (10.09.2026, 6.D97).** Jeden raport:
 #: `6d97-lokalne-filtry-katalogow.md`. Policzona na drzewie.
-MIN_REPORTS = 216
+#: **216 → 217 (10.09.2026, 6.D98).** Jeden raport:
+#: `6d98-dwie-formy-chk.md`. Policzona na drzewie.
+MIN_REPORTS = 217
 
 #: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
 #: wierszem zaczynającym się od `**`, z którego `_header_shapes` czyta kształt.
