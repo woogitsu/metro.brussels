@@ -27,10 +27,35 @@ for arg in "$@"; do
   esac
 done
 
-chk_required() {
+# DWIE FORMY, NIE JEDNA — 6.D98. Do 10.09.2026 jedna para funkcji obsługiwała oba
+# kształty drugiego argumentu przez `eval`, czyli przez parsowanie napisu DRUGI RAZ.
+# Zmierzone tego dnia: jedenaście wywołań, z czego **sześć** uruchamia program
+# (`"$DOTNET" --version`), a **pięć** sprawdza warunek powłoki
+# (`[ "$HAVE_SDK_MAJOR" -ge "$REQUIRED_TFM" ]`).
+#
+# 6.D81 zamknęło OBJAW: ścieżka ze spacją rozpadała się przy drugim parsowaniu na dwa
+# słowa i doctor meldował brak SDK, którego przed chwilą użył. Zacytowanie ścieżek
+# i bramka na cytowanie tamten przypadek naprawiły, ale zostawiły potrzebę PAMIĘTANIA
+# o cudzysłowach przy każdym nowym wywołaniu — bramka umie taki błąd zgłosić, nie umie
+# go uczynić niemożliwym.
+#
+# Forma programowa nie ma już `eval` i bierze argumenty jako TABLICĘ (`"$@"`), więc
+# spacja w ścieżce jest zwykłym znakiem. Forma wyrażeniowa `eval` zostaje — wyrażenie
+# powłoki nie jest tablicą słów — i nazywa się tak, żeby było widać, że to ona.
+chk_prog_required() {
+  nazwa="$1"; podpowiedz="$2"; shift 2
+  if "$@" >/dev/null 2>&1; then echo "  ok    $nazwa"
+  else echo "  BRAK  $nazwa  -> $podpowiedz"; required_bad=$((required_bad + 1)); fi
+}
+chk_prog_optional() {
+  nazwa="$1"; podpowiedz="$2"; shift 2
+  if "$@" >/dev/null 2>&1; then echo "  ok    $nazwa"
+  else echo "  WARN  $nazwa  -> $podpowiedz"; optional_bad=$((optional_bad + 1)); fi
+}
+chk_expr_required() {
   if eval "$2" >/dev/null 2>&1; then echo "  ok    $1"; else echo "  BRAK  $1  -> $3"; required_bad=$((required_bad + 1)); fi
 }
-chk_optional() {
+chk_expr_optional() {
   if eval "$2" >/dev/null 2>&1; then echo "  ok    $1"; else echo "  WARN  $1  -> $3"; optional_bad=$((optional_bad + 1)); fi
 }
 
@@ -38,8 +63,8 @@ echo ""
 echo "METRO BXL — kontrola środowiska"
 echo "--------------------------------------------------"
 echo "Wymagane dla bazy:"
-chk_required "python3" "python3 --version" "zainstaluj Pythona 3.11+"
-chk_required "git" "git --version" "zainstaluj git"
+chk_prog_required "python3" "zainstaluj Pythona 3.11+" python3 --version
+chk_prog_required "git" "zainstaluj git" git --version
 
 echo ""
 echo "Wymagane dla rdzenia symulacji (T-310 jest zrobione, src/Sim istnieje):"
@@ -157,11 +182,11 @@ if [ "$PIN_NIESPELNIONY" = "tak" ]; then
   # JEDNO zdanie zamiast dwóch sprzecznych. Kontrola jest WYMAGANA, bo w tym stanie
   # `dotnet build` też nie ruszy — środowisko naprawdę nie nadaje się do pracy,
   # tylko przyczyna jest inna niż brak SDK.
-  chk_required "dotnet SDK vs pin z global.json ($PIN_SDK)" "false" \
+  chk_expr_required "dotnet SDK vs pin z global.json ($PIN_SDK)" "false" \
     "SDK SĄ na dysku, ale ŻADNE nie spełnia pinu $PIN_SDK z global.json; \`dotnet --version\` kończy błędem — zmień pin albo doinstaluj tę wersję, NIE instaluj SDK od nowa"
   "$DOTNET" --list-sdks 2>/dev/null | sed 's/^/        na dysku: /'
 else
-  chk_required "dotnet SDK" "\"$DOTNET\" --version" "$BRAK_SDK_PODPOWIEDZ"
+  chk_prog_required "dotnet SDK" "$BRAK_SDK_PODPOWIEDZ" "$DOTNET" --version
 fi
 
 # Sama obecność `dotnet` nie wystarczy i to jest zmierzone, nie przewidywane.
@@ -182,7 +207,7 @@ if HAVE_SDK_PELNA="$("$DOTNET" --version 2>/dev/null)" && [ -n "$HAVE_SDK_PELNA"
   HAVE_SDK_MAJOR="$(printf '%s\n' "$HAVE_SDK_PELNA" | cut -d. -f1)"
 fi
 if [ -n "$REQUIRED_TFM" ] && [ -n "$HAVE_SDK_MAJOR" ]; then
-  chk_required "dotnet SDK >= $REQUIRED_TFM (jest $HAVE_SDK_MAJOR)" \
+  chk_expr_required "dotnet SDK >= $REQUIRED_TFM (jest $HAVE_SDK_MAJOR)" \
     "[ \"$HAVE_SDK_MAJOR\" -ge \"$REQUIRED_TFM\" ]" \
     "src/Sim/Sim.csproj celuje w net${REQUIRED_TFM}.0, a to SDK tego nie zbuduje (NETSDK1045); pobierz nowsze z https://dotnet.microsoft.com/download"
 
@@ -227,7 +252,7 @@ if [ -n "$PIN_SDK" ] && [ "$PIN_NIESPELNIONY" = "nie" ]; then
     # łatką, co CI. Kontrola jest OPCJONALNA, bo wyższa łatka w tym samym paśmie
     # buduje projekt poprawnie — a różne łatki na dwóch maszynach puli to dokładnie
     # to, czego pozycja 6.D79 dotyczy, więc warto je POKAZAĆ.
-    chk_optional "dotnet SDK == pin z global.json ($PIN_SDK)" \
+    chk_expr_optional "dotnet SDK == pin z global.json ($PIN_SDK)" \
       "[ \"$HAVE_SDK\" = \"$PIN_SDK\" ]" \
       "masz $HAVE_SDK, a global.json pinuje $PIN_SDK — wyższa łatka w tym samym paśmie zbuduje projekt, ale CI stoi na $PIN_SDK"
   fi
@@ -240,11 +265,12 @@ echo "Wymagane dopiero przez konkretne zadania:"
 # skasowałby ją przy każdym przebiegu. `BLENDER_BIN` jest tą samą zmienną, której
 # używają skrypty CI, więc doctor pyta o to samo co CI, a nie o coś innego.
 BLENDER_CMD="${BLENDER_BIN:-blender}"
-chk_optional "blender ($BLENDER_CMD)" "\"$BLENDER_CMD\" --version" \
-  "wymagany od T-010/T-2xx; ustaw BLENDER_BIN albo uruchom tools/ci/blender_install.sh"
+chk_prog_optional "blender ($BLENDER_CMD)" \
+  "wymagany od T-010/T-2xx; ustaw BLENDER_BIN albo uruchom tools/ci/blender_install.sh" \
+  "$BLENDER_CMD" --version
 if "$BLENDER_CMD" --version >/dev/null 2>&1; then
-  chk_optional "blender headless" "\"$BLENDER_CMD\" --background --python-expr 'pass'" \
-    "napraw tryb headless przed T-010"
+  chk_prog_optional "blender headless" "napraw tryb headless przed T-010" \
+    "$BLENDER_CMD" --background --python-expr pass
   # Wersja NIE jest drobiazgiem informacyjnym. Rozstrzyga, która generacja EEVEE stoi
   # za nazwą `BLENDER_EEVEE`, a rendery z legacy i z Next nie są porównywalne. Doctor
   # porównuje z pinem z `tools/ci/blender-version.txt`, czyli z tym samym numerem,
@@ -252,7 +278,7 @@ if "$BLENDER_CMD" --version >/dev/null 2>&1; then
   PINNED_BLENDER="$(sed -n 's/^version=//p' tools/ci/blender-version.txt 2>/dev/null)"
   HAVE_BLENDER="$("$BLENDER_CMD" --version 2>/dev/null | sed -n '1s/^Blender \([0-9.]*\).*/\1/p')"
   if [ -n "$PINNED_BLENDER" ]; then
-    chk_optional "blender w wersji z pinu ($PINNED_BLENDER, jest $HAVE_BLENDER)" \
+    chk_expr_optional "blender w wersji z pinu ($PINNED_BLENDER, jest $HAVE_BLENDER)" \
       "[ \"$HAVE_BLENDER\" = \"$PINNED_BLENDER\" ]" \
       "CI wymaga $PINNED_BLENDER; uruchom tools/ci/blender_install.sh i ustaw BLENDER_BIN"
   fi
@@ -261,8 +287,9 @@ fi
 # `godot-first-run.yml` rozpakowuje ją do własnego katalogu). `GODOT_BIN` jest tą samą
 # zmienną, której używa workflow, więc doctor pyta o to samo co CI, a nie o coś innego.
 GODOT_CMD="${GODOT_BIN:-godot}"
-chk_optional "godot ($GODOT_CMD)" "\"$GODOT_CMD\" --version" \
-  "wymagany od T-400; ustaw GODOT_BIN, jeśli silnik jest poza PATH"
+chk_prog_optional "godot ($GODOT_CMD)" \
+  "wymagany od T-400; ustaw GODOT_BIN, jeśli silnik jest poza PATH" \
+  "$GODOT_CMD" --version
 
 # `--version` NIE dotyka mono — kończy proces, zanim silnik sięgnie po .NET, więc
 # przechodzi identycznie z `DOTNET_ROOT` i bez niego. Zmierzone 06.09.2026
@@ -300,7 +327,7 @@ if "$GODOT_CMD" --version >/dev/null 2>&1; then
   fi
   HOSTFXR_POWOD="$(python3 tools/ci/dotnet_native_probe.py "$HOSTFXR_ROOT" 2>&1)"
   HOSTFXR_OK=$?
-  chk_optional "godot .NET hostfxr" "[ $HOSTFXR_OK -eq 0 ]" \
+  chk_expr_optional "godot .NET hostfxr" "[ $HOSTFXR_OK -eq 0 ]" \
     "$HOSTFXR_POWOD — ustaw DOTNET_ROOT na kompletny katalog SDK (np. \$HOME/.dotnet) albo dodaj dotnet do PATH, inaczej Godot mono pada przy starcie sceny z C# w niecałą sekundę: log pisze Failed to load hostfxr i signal 11, a powłoka widzi kod 134 (zmierzone 06.09 i 09.09.2026, 11 wariantów)"
 fi
 
