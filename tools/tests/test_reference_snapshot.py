@@ -77,6 +77,96 @@ def _expected():
     }
 
 
+#: Tablica referencyjna, w której stoi wiersz o przyspieszeniu rozruchu.
+DOK_SYMULACJI = os.path.join(ROOT, "docs", "02-simulation.md")
+
+#: Przyspieszenie rozruchu ZMIERZONE z modelu 10.09.2026, po jednym na obciążenie.
+#: Liczby są tu po to, żeby zmiana MODELU dała inny komunikat niż rozjazd modelu
+#: z opisem — pole „Skończone, gdy" pozycji 6.D86 żąda, żeby bramka umiała je
+#: odróżnić. Bez tej pary jedna asercja mówiłaby „dokument się nie zgadza" także
+#: wtedy, gdy to model się zmienił, a dokument został.
+ROZRUCH_Z_MODELU = {"AW0": 1.342044, "AW2": 1.024782}
+
+
+def przyspieszenie_rozruchu(load):
+    """`a(0) = (F0 − Davis(0)) / (m · 1,08)` — liczone z tego samego modelu, co gra.
+
+    Nie z osobnego wzoru przepisanego do testu: siła i opory idą przez
+    `reference.traction_N` i `reference.davis_N`, więc zmiana modelu rusza tę liczbę.
+    Mnożnik 1,08 to masa efektywna, ta sama, której używa `sim_accel`.
+    """
+    masa = R.MASS[load]
+    return (R.traction_N(0.0, masa) - R.davis_N(masa, 0.0)) / (masa * 1.08)
+
+
+def rozruch_z_dokumentu():
+    """`{obciążenie: wartość}` z wiersza tabeli w `docs/02-simulation.md`."""
+    tekst = open(DOK_SYMULACJI, encoding="utf-8").read()
+    wiersz = re.search(r"(?m)^\| przyspieszenie rozruchu[^|]*\|([^|]*)\|", tekst)
+    if wiersz is None:
+        return None
+    return {load: float(wartosc.replace(",", "."))
+            for wartosc, load in re.findall(r"([0-9]+,[0-9]+)\s*m/s²\s*(AW[02])",
+                                            wiersz.group(1))}
+
+
+def test_the_start_acceleration_in_the_table_is_the_one_the_model_produces():
+    """Wiersz tabeli mówi to, co model naprawdę liczy — 6.D86.
+
+    **Skąd.** Do 10.09.2026 stało tam `1,10 m/s²` ze statusem `design_model`.
+    Liczba nie występowała w kodzie ani w danych pojazdu, nikt jej nie czytał,
+    a w modelu nie ma obcięcia, które by ją egzekwowało — model daje **1,342**
+    (AW0) i **1,025** (AW2), czyli deklarowana wartość nie była żadną z nich, tylko
+    leżała między nimi.
+
+    **Ryzyko jest przyszłe i o nie tu chodzi:** ktoś weźmie tablicę referencyjną za
+    kontrakt i dopisze sufit, którego dziś nie ma — a wtedy zmieni FIZYKĘ, sądząc,
+    że poprawia opis.
+    """
+    z_dokumentu = rozruch_z_dokumentu()
+    assert z_dokumentu, (
+        "wiersz o przyspieszeniu rozruchu zniknął z tabeli w `docs/02-simulation.md` "
+        "albo zmienił kształt — bramka nie ma czego porównać")
+    assert set(z_dokumentu) == {"AW0", "AW2"}, (
+        "tabela podaje przyspieszenie dla %s, a model liczy je dla obu obciążeń"
+        % sorted(z_dokumentu))
+
+    for load, deklarowane in sorted(z_dokumentu.items()):
+        policzone = przyspieszenie_rozruchu(load)
+        assert abs(policzone - deklarowane) < 5e-4, (
+            "tabela podaje dla %s przyspieszenie %.3f m/s², a model liczy %.6f — "
+            "wiersz opisuje coś, czego model nie robi" % (load, deklarowane, policzone))
+
+
+def test_the_gate_tells_a_changed_model_apart_from_a_changed_description():
+    """Druga asercja, bo dwie różne rzeczy dają ten sam objaw.
+
+    Bramka wyżej porównuje dokument z modelem i zapala się, gdy się rozjadą — ale
+    nie mówi, KTÓRA strona się ruszyła. Ten test przybija stronę MODELU do liczb
+    zmierzonych 10.09.2026, więc zmiana `F0_N`, mas albo współczynników Davisa
+    zapala właśnie jego, z komunikatem o modelu, a nie o dokumencie.
+
+    Tego wprost żąda pole „Skończone, gdy": „Bramka musi odróżniać zmianę modelu
+    od zmiany jego opisu."
+    """
+    for load, oczekiwane in sorted(ROZRUCH_Z_MODELU.items()):
+        policzone = przyspieszenie_rozruchu(load)
+        assert abs(policzone - oczekiwane) < 1e-6, (
+            "MODEL się zmienił: przyspieszenie rozruchu dla %s to dziś %.6f m/s², "
+            "a 10.09.2026 było %.6f. To nie jest rozjazd z dokumentem — to inna "
+            "fizyka, więc przelicz tabelę i tę stałą razem, w jednym commicie"
+            % (load, policzone, oczekiwane))
+
+    # Sufit przyczepnościowy NIE WIĄŻE i to też jest częścią tezy: gdyby zaczął,
+    # przyspieszenie przestałoby wynikać z `F0` i wzór w dokumencie byłby nieprawdą.
+    for load, masa in sorted(R.MASS.items()):
+        adhezja = 0.25 * masa * R.V["powered_mass_fraction"] * R.G
+        assert adhezja > R.V["F0_N"], (
+            "dla %s sufit przyczepnościowy (%.1f kN) zszedł poniżej siły rozruchowej "
+            "(%.1f kN) — to rozstrzyga o przyspieszeniu i wzór w `docs/02-simulation.md` "
+            "przestał opisywać model" % (load, adhezja / 1000, R.V["F0_N"] / 1000))
+
+
 def test_reference_snapshot_covers_every_constant_in_the_csharp_file():
     """Każda stała z pliku C# musi być tu przeliczana — inaczej test cichnie."""
     missing = sorted(set(_constants()) - set(_expected()))
