@@ -203,6 +203,204 @@ def test_roznica_miedzy_liczba_nazw_a_liczba_stacji_jest_wytlumaczona_co_do_jedn
 
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
 # z licznikiem asercji i z odmowa przy zerze testow.
+
+
+# --- 6.D92: wspólny odcinek dwóch linii ------------------------------------------
+#
+# Cztery bramki wyżej pilnują liczników, powtórek, tabeli `docs/00` i przypisania
+# przystanku do linii wedle GTFS. **Żadna nie porównuje dwóch linii ze sobą**, więc
+# usunięcie Madou z samej L6 wraz z obniżeniem `stations` przechodziło je wszystkie.
+#
+# **Sformułowanie z pola „Wyjście" pozycji zostało zmierzone i jest błędne w OBIE
+# strony**, dlatego bramki są dwie i inne, niż zapowiadał wpis. Brzmiało ono: „ciąg
+# przystanków wspólnych dla pary linii ma być tą samą sekwencją, czytaną w jedną albo
+# w drugą stronę". Zmierzone na dzisiejszym `lines.json`:
+#
+#   L1/L2: wspólnych  3 | ta sama kolejność: False | odwrócona: False
+#   L1/L5: wspólnych 12 | ta sama kolejność: True  | odwrócona: False
+#   L1/L6: wspólnych  3 | ta sama kolejność: False | odwrócona: False
+#   L2/L5: wspólnych  3 | ta sama kolejność: False | odwrócona: False
+#   L2/L6: wspólnych 19 | ta sama kolejność: False | odwrócona: True
+#   L5/L6: wspólnych  3 | ta sama kolejność: False | odwrócona: False
+#
+# Cztery pary z sześciu dałyby FAŁSZYWY ALARM, bo ich część wspólna to odcinek
+# Gare de l'Ouest–Beekkant PLUS osobna przesiadka Arts-Loi, leżąca gdzie indziej na
+# każdej z linii. To nie jest jedna sekwencja i nie ma powodu, żeby nią była.
+#
+# Druga strona błędu jest gorsza: przecięcie zbiorów jest **ślepe na usunięcie**,
+# którego pole „Skończone, gdy" żąda złapać. Wyrzucenie Madou z L6 wyrzuca go też
+# z części wspólnej, więc obie strony porównania kurczą się zgodnie i porównanie
+# przechodzi — dokładnie ta pustka, którą 6.D91 znalazło w zbiorze wyliczanym tym
+# samym predykatem, który potem sprawdza.
+#
+# Stąd bramka pierwsza pyta o SĄSIEDZTWO, nie o sekwencję: dwa przystanki sąsiadujące
+# na jednej linii i obecne na drugiej muszą sąsiadować i tam. Usunięcie Madou z L6
+# czyni Arts-Loi i Botanique sąsiadami na L6, a na L2 stoi między nimi Madou — i to
+# jest zgłoszenie z nazwą brakującego przystanku. Zmierzone: dziś zero naruszeń,
+# po usunięciu Madou dokładnie jedno.
+
+#: Długość jedynego maksymalnego wspólnego odcinka każdej pary linii, zmierzona
+#: 10.09.2026 na `lines.json`. Nie zapadka — **zamrożony pomiar**: zmiana którejkolwiek
+#: liczby znaczy, że ruszyła topologia sieci, i ma być widoczna w diffie razem
+#: z powodem. Para L1/L5 (12 pozycji) nie była w treści pozycji 6.D92 wymieniona;
+#: wpis znał tylko L2/L6.
+WSPOLNE_ODCINKI = {
+    ("L1", "L2"): 2,
+    ("L1", "L5"): 12,
+    ("L1", "L6"): 2,
+    ("L2", "L5"): 2,
+    ("L2", "L6"): 19,
+    ("L5", "L6"): 2,
+}
+
+
+def _linie():
+    return {l["id"]: l["stops"] for l in _network()["lines"]}
+
+
+def wspolne_odcinki(A, B):
+    """Maksymalne ciągi kolejnych przystanków `A`, które są kolejne także w `B`.
+
+    Kierunek nie jest narzucony: odcinek biegnący w `B` pod prąd jest tak samo
+    wspólnym odcinkiem — L2 i L6 dzielą pierścień czytany przeciwnie. Zwracane są
+    wyłącznie ciągi co najmniej dwuprzystankowe, bo pojedyncza stacja wspólna jest
+    przesiadką, a nie odcinkiem (pole „Poza zakresem" pozycji 6.D92).
+    """
+    pb = {s: i for i, s in enumerate(B)}
+    znalezione, biezacy, kierunek = [], [], None
+    for s in A:
+        if s not in pb:
+            if biezacy:
+                znalezione.append(biezacy)
+            biezacy, kierunek = [], None
+            continue
+        if not biezacy:
+            biezacy, kierunek = [s], None
+            continue
+        krok = pb[s] - pb[biezacy[-1]]
+        if krok in (1, -1) and kierunek in (None, krok):
+            biezacy.append(s)
+            kierunek = krok
+        else:
+            znalezione.append(biezacy)
+            biezacy, kierunek = [s], None
+    if biezacy:
+        znalezione.append(biezacy)
+    return [o for o in znalezione if len(o) >= 2]
+
+
+def naruszenia_sasiedztwa(linie):
+    """`[(z, na, u, w, [między])]` — pary sąsiadów z jednej linii rozdzielone na drugiej."""
+    import itertools
+    out = []
+    for a, b in itertools.permutations(sorted(linie), 2):
+        A, B = linie[a], linie[b]
+        pa = {s: i for i, s in enumerate(A)}
+        for u, w in zip(B, B[1:]):
+            if u in pa and w in pa and abs(pa[u] - pa[w]) != 1:
+                miedzy = A[min(pa[u], pa[w]) + 1:max(pa[u], pa[w])]
+                out.append((b, a, u, w, miedzy))
+    return out
+
+
+def test_przystanek_lezacy_miedzy_sasiadami_drugiej_linii_jest_bledem():
+    """Sedno 6.D92: usunięcie przystanku z JEDNEJ z dwóch linii wspólnego odcinka.
+
+    Pytanie jest o SĄSIEDZTWO, nie o sekwencję, i to jest cała nietrywialność tej
+    bramki: porównanie części wspólnej kurczy się razem z usuniętym przystankiem
+    i przechodzi, a sąsiedztwo nie — przystanek zniknięty z L6 zostaje na L2 między
+    dwiema stacjami, które na L6 stały się sąsiadami.
+    """
+    naruszenia = naruszenia_sasiedztwa(_linie())
+    assert not naruszenia, (
+        "przystanek stoi między dwiema stacjami, które druga linia ma obok siebie — "
+        "albo brakuje go na tamtej liście, albo kolejność się rozjechała: "
+        + "; ".join(f"{b} ma {u} obok {w}, a {a} wstawia między nie: "
+                    + ", ".join(miedzy) for b, a, u, w, miedzy in naruszenia[:5]))
+
+
+def test_wspolny_odcinek_kazdej_pary_ma_zmierzona_dlugosc():
+    """Jeden maksymalny odcinek na parę, o długości z pomiaru — L2/L6 ma 19 pozycji.
+
+    Zamrożony pomiar, nie zapadka: liczba ma się zmieniać RAZEM z topologią sieci
+    i razem z powodem wpisanym w commit, a nie po cichu.
+    """
+    linie = _linie()
+    import itertools
+    zmierzone = {}
+    for a, b in itertools.combinations(sorted(linie), 2):
+        odcinki = wspolne_odcinki(linie[a], linie[b])
+        assert len(odcinki) <= 1, (
+            f"{a}/{b}: maksymalnych wspólnych odcinków jest {len(odcinki)}, a zapis "
+            "zna jeden — sieć zmieniła kształt i tabela ma zostać przeliczona")
+        if odcinki:
+            zmierzone[(a, b)] = len(odcinki[0])
+    assert zmierzone == WSPOLNE_ODCINKI, (
+        f"wspólne odcinki rozjechały się z zapisem: zmierzone {zmierzone}, "
+        f"zapisane {WSPOLNE_ODCINKI}")
+
+
+def test_wspolny_odcinek_czyta_sie_w_obie_strony_i_zgadza_na_kazdej_pozycji():
+    """Odcinek z jednej listy ma stać w drugiej jako ten sam ciąg, wprost albo wspak.
+
+    Dla L2/L6 to jest te **19 pozycji**, których pole „Skończone, gdy" żąda porównać;
+    dla L1/L5 — dwanaście, i ta para do treści pozycji nie weszła wcale.
+    """
+    linie = _linie()
+    import itertools
+    sprawdzone = 0
+    for a, b in itertools.combinations(sorted(linie), 2):
+        for odcinek in wspolne_odcinki(linie[a], linie[b]):
+            B = linie[b]
+            pb = {s: i for i, s in enumerate(B)}
+            poczatek, koniec = pb[odcinek[0]], pb[odcinek[-1]]
+            wycinek = B[min(poczatek, koniec):max(poczatek, koniec) + 1]
+            assert wycinek == odcinek or wycinek == list(reversed(odcinek)), (
+                f"{a}/{b}: wspólny odcinek czytany z {b} nie jest tym samym ciągiem: "
+                f"{[s.split('|')[0] for s in wycinek]} wobec "
+                f"{[s.split('|')[0] for s in odcinek]}")
+            sprawdzone += len(odcinek)
+    assert sprawdzone == sum(WSPOLNE_ODCINKI.values()), (
+        f"porównano {sprawdzone} pozycji, a odcinki mają ich "
+        f"{sum(WSPOLNE_ODCINKI.values())} — pętla przestała czegoś dotykać")
+
+
+def test_przyrzad_rozpoznaje_cztery_ksztalty_i_nie_alarmuje_na_przesiadce():
+    """Kontrola PRZYRZĄDU na wejściu syntetycznym, bo `data/` jest tylko do odczytu.
+
+    Cztery kształty, każdy z osobnym trybem cichej awarii: para bez ani jednego
+    wspólnego przystanku, para z JEDNĄ wspólną stacją (przesiadka — pole „Poza
+    zakresem" wyklucza ją wprost), odcinek czytany wspak i wreszcie przystanek
+    usunięty z jednej strony, czyli usterka, dla której ta pozycja powstała.
+    """
+    rozlaczne = {"A": ["a", "b", "c"], "B": ["x", "y", "z"]}
+    assert wspolne_odcinki(rozlaczne["A"], rozlaczne["B"]) == [], (
+        "para linii bez ani jednego wspólnego przystanku dostała wspólny odcinek")
+    assert naruszenia_sasiedztwa(rozlaczne) == [], (
+        "para linii bez wspólnych przystanków zgłoszona jako naruszenie sąsiedztwa")
+
+    przesiadka = {"A": ["a", "w", "c"], "B": ["x", "w", "z"]}
+    assert wspolne_odcinki(przesiadka["A"], przesiadka["B"]) == [], (
+        "pojedyncza wspólna stacja policzona jako odcinek — przesiadka nim nie jest")
+    assert naruszenia_sasiedztwa(przesiadka) == [], (
+        "jedna wspólna stacja zgłoszona jako naruszenie sąsiedztwa — przesiadka "
+        "nie mówi nic o kolejności reszty")
+
+    wspak = {"A": ["p", "q", "r", "s"], "B": ["z", "s", "r", "q"]}
+    odcinki = wspolne_odcinki(wspak["A"], wspak["B"])
+    assert [len(o) for o in odcinki] == [3], (
+        "odcinek trzech przystanków czytany w drugiej linii wspak nie został "
+        f"rozpoznany jako jeden wspólny odcinek: {odcinki}")
+    assert naruszenia_sasiedztwa(wspak) == [], (
+        "odcinek biegnący wspak zgłoszony jako naruszenie sąsiedztwa")
+
+    z_dziura = {"A": ["p", "q", "r", "s"], "B": ["z", "s", "r", "p"]}
+    zgloszone = naruszenia_sasiedztwa(z_dziura)
+    assert zgloszone, "przystanek wypadnięty z jednej listy nie został zgłoszony"
+    assert any("q" in miedzy for *_x, miedzy in zgloszone), (
+        'zgłoszenie nie nazywa brakującego przystanku, a pole \u201eSkończone, gdy\u201d '
+        f'pozycji 6.D92 żąda nazwy: {zgloszone}')
+
 if __name__ == "__main__":
     import sys
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
