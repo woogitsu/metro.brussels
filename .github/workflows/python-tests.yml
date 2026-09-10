@@ -68,7 +68,11 @@ jobs:
           # zmierzone. Roznica dwoch odczytow to czas CPU samego zestawu.
           times > "$RUNNER_TEMP/times-przed.txt"
           start=$(date +%s.%N)
-          python3 tools/tests/test_all.py
+          # 6.D93: zestaw zapisuje czasy per moduł maszynowo, gdy poprosi go o to
+          # zmienna. Cel leży w `$RUNNER_TEMP`, czyli POZA workspace'em — plik
+          # w drzewie byłby oknem, w którym równoległa kontrola czystości widzi
+          # zmianę, której nikt nie popełnił (6.D90).
+          METRO_TIMING_OUT="$RUNNER_TEMP/czas-modulow.json" python3 tools/tests/test_all.py
           end=$(date +%s.%N)
           times > "$RUNNER_TEMP/times-po.txt"
           elapsed=$(python3 -c "print(f'{$end - $start:.3f}')")
@@ -78,10 +82,32 @@ jobs:
           # WERDYKT LICZY MODUL, NIE TEN YAML (6.D42). Przebieg, w ktorym maszyna nie
           # oddawala CPU, NIE JEST porownywany z progiem — zamiast tego mowi o tym
           # wprost. Ta sama konstrukcja, co w `tools/ci/assert_linecore_budget.py`.
+          # 6.D93: artefakt POWSTAJE PRZED werdyktem, bo przebieg przekraczajacy prog
+          # jest dokladnie tym, ktorego czasy chce sie potem obejrzec. Odwrotna
+          # kolejnosc dawalaby zapis wylacznie z przebiegow, ktore i tak byly dobre.
+          python3 tools/ci/timing_record.py \
+            --in "$RUNNER_TEMP/czas-modulow.json" \
+            --out "$RUNNER_TEMP/czas-zestawu.json" \
+            --wall "$elapsed" --cpu "$cpu"
+          # WERDYKT LICZY MODUL, NIE TEN YAML (6.D42). Przebieg, w ktorym maszyna nie
+          # oddawala CPU, NIE JEST porownywany z progiem — zamiast tego mowi o tym
+          # wprost. Ta sama konstrukcja, co w `tools/ci/assert_linecore_budget.py`.
           python3 -c "import sys; sys.path.insert(0,'tools/tests'); import test_suite_runtime_budget as B; odrzuc, komunikat = B.werdykt(float(sys.argv[1]), float(sys.argv[2])); print(komunikat); sys.exit(1 if odrzuc else 0)" "$elapsed" "$cpu" || {
             echo "::error::zestaw test_all.py przekroczyl prog czasu sciany: ${elapsed} s > ${budget} s"
             exit 1
           }
+
+      - name: Zapis czasu przebiegu jako artefakt
+        # 6.D93: `if: always()` z tego samego powodu, dla ktorego artefakt powstaje
+        # przed werdyktem — przebieg czerwony jest tym, ktorego czasy sa najbardziej
+        # potrzebne. Krok nie zmienia kodu wyjscia joba.
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: czas-zestawu
+          path: ${{ runner.temp }}/czas-zestawu.json
+          if-no-files-found: warn
+          retention-days: 30
 
       - name: Validate committed alignments
         shell: bash
