@@ -12,6 +12,13 @@ on:
       # pliku nie odpalała własnego CI.
       - 'tools/ci/**'
       - 'tools/tests/**'
+      # Katalog akcji lokalnych, z tego samego powodu co `tools/ci/**` wyżej —
+      # 6.D78. Ten job wykonuje treść `.github/actions/*/action.yml` tak samo, jak
+      # wykonuje skrypty z `tools/ci/`, a bez tego wzorca zmiana akcji nie odpalała
+      # ani jednego joba, który jej używa. Zmierzone 09.09.2026: siedem workflowów
+      # z filtrem, siedem luk. Sonda narzędzi nie miała ANI JEDNEGO konsumenta bez
+      # filtra, więc jej zmiana nie była przed scaleniem wykonywana wcale.
+      - '.github/actions/**'
   workflow_dispatch:
 
 permissions:
