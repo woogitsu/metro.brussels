@@ -1702,7 +1702,22 @@ public sealed partial class FirstRun : Node3D
             authority, decision, _lineCore.Dispatcher.Locked, _lineCore.Dispatcher.Refused);
     }
 
-    /// <summary>Wiersz HUD o stacji: cykl drzwi albo dojazd, plus rejestr wywołań.</summary>
+    /// <summary>
+    /// Format błędu zatrzymania: znak zawsze, dwa miejsca po przecinku, zero bez znaku.
+    ///
+    /// <para>Format ZOSTAJE W KODZIE, a nie idzie do katalogu tekstów — ta sama granica,
+    /// co przy 6.D83: szablon niesie słowa i kolejność pól, a liczba miejsc po przecinku
+    /// nie jest rzeczą, o której ma decydować tłumacz. Stała jest jedna, bo wariantów
+    /// wiersza drzwi są dwa i przed 6.D99 ten sam format stał w obu wpisany z ręki.</para>
+    /// </summary>
+    private const string BladZatrzymaniaFormat = "+0.00;-0.00;0.00";
+
+    /// <summary>
+    /// Wiersz HUD o stacji: cykl drzwi albo dojazd, plus rejestr wywołań.
+    ///
+    /// <para><b>Słowa idą z katalogu (<see cref="UiText"/>), liczby są formatowane
+    /// TUTAJ</b> — 6.D99, ta sama granica, co w <see cref="Hud.Update"/> od 6.D83.</para>
+    /// </summary>
     private string StationLine()
     {
         if (_line is not null)
@@ -1710,24 +1725,27 @@ public sealed partial class FirstRun : Node3D
             var zaLinie = _line.Calls.Count;
             if (_line.AtStation)
             {
-                var blad = _line.Calls[^1].StopErrorM;
-                return string.Create(
-                    CultureInfo.InvariantCulture,
-                    $"DRZWI {Faza(_line.Phase)}  jeszcze {_line.DwellRemainingSeconds:F1} s  "
-                    + $"błąd zatrzymania {blad:+0.00;-0.00;0.00} m   obsłużone {zaLinie}");
+                return UiText.Format(
+                    "hud.station.doors",
+                    Faza(_line.Phase),
+                    _line.DwellRemainingSeconds.ToString("F1", CultureInfo.InvariantCulture),
+                    _line.Calls[^1].StopErrorM.ToString(
+                        BladZatrzymaniaFormat, CultureInfo.InvariantCulture),
+                    zaLinie);
             }
 
             var nastepnaNaLinii = _line.NextStation;
             if (nastepnaNaLinii is null)
             {
-                return string.Create(
-                    CultureInfo.InvariantCulture, $"koniec przejazdu   obsłużone {zaLinie}");
+                return UiText.Format("hud.station.run-over", zaLinie);
             }
 
-            return string.Create(
-                CultureInfo.InvariantCulture,
-                $"{nastepnaNaLinii.Value.Name} za {nastepnaNaLinii.Value.ChainageM - ChainageM:F0} m"
-                + $"   obsłużone {zaLinie}");
+            return UiText.Format(
+                "hud.station.next",
+                nastepnaNaLinii.Value.Name,
+                (nastepnaNaLinii.Value.ChainageM - ChainageM).ToString(
+                    "F0", CultureInfo.InvariantCulture),
+                zaLinie);
         }
 
         if (_stations is null)
@@ -1735,43 +1753,62 @@ public sealed partial class FirstRun : Node3D
             return string.Empty;
         }
 
-        var obsluzone = _stations.Calls.Count;
-        var minione = _stations.Missed.Count;
-        var licznik = string.Create(
-            CultureInfo.InvariantCulture, $"obsłużone {obsluzone}  minięte {minione}");
+        var licznik = UiText.Format(
+            "hud.station.counter", _stations.Calls.Count, _stations.Missed.Count);
 
         if (_stations.AtStation)
         {
-            var blokada = _stations.TractionAllowed ? "trakcja WOLNA" : "trakcja ZABLOKOWANA";
-            var blad = _stations.Calls[^1].StopErrorM;
-            return string.Create(
-                CultureInfo.InvariantCulture,
-                $"DRZWI {Faza(_stations.Phase)}  jeszcze {_stations.DwellRemainingSeconds:F1} s  " +
-                $"({blokada})  błąd zatrzymania {blad:+0.00;-0.00;0.00} m   {licznik}");
+            // Dwa wywołania, a nie jedno z kluczem za `?:`, i to jest rozstrzygnięcie:
+            // skan `UiTextTests` czyta klucz jako literał WPROST po `UiText.Get(`,
+            // więc klucza schowanego za trójargumentowym operatorem nie widzi. Zapala
+            // się wtedy GŁOŚNO (oba klucze jako martwe), ale naprawą jest pokazanie
+            // wywołania, a nie poszerzanie wzorca skanu o składnię C#.
+            var blokada = _stations.TractionAllowed
+                ? UiText.Get("hud.traction.free")
+                : UiText.Get("hud.traction.locked");
+            return UiText.Format(
+                "hud.station.doors-traction",
+                Faza(_stations.Phase),
+                _stations.DwellRemainingSeconds.ToString("F1", CultureInfo.InvariantCulture),
+                blokada,
+                _stations.Calls[^1].StopErrorM.ToString(
+                    BladZatrzymaniaFormat, CultureInfo.InvariantCulture),
+                licznik);
         }
 
         if (_stations.Finished)
         {
-            return string.Create(CultureInfo.InvariantCulture, $"brak dalszych stacji   {licznik}");
+            return UiText.Format("hud.station.no-more", licznik);
         }
 
         var approach = _stations.Approach(ChainageM);
-        var okno = approach.WithinWindow ? "  W OKNIE — zatrzymaj się" : string.Empty;
-        return string.Create(
-            CultureInfo.InvariantCulture,
-            $"{approach.DisplayName} za {approach.DistanceM:F0} m (okno ±{_stations.WindowM:F1} m)" +
-            $"{okno}   {licznik}");
+        var okno = approach.WithinWindow ? UiText.Get("hud.station.in-window") : string.Empty;
+        return UiText.Format(
+            "hud.station.approach",
+            approach.DisplayName,
+            approach.DistanceM.ToString("F0", CultureInfo.InvariantCulture),
+            _stations.WindowM.ToString("F1", CultureInfo.InvariantCulture),
+            okno,
+            licznik);
     }
 
+    /// <summary>
+    /// Nazwa fazy cyklu drzwi — z katalogu tekstów, klucz na wartość wyliczenia.
+    ///
+    /// <para>Ramię domyślne zwraca <c>phase.ToString()</c> i tak zostaje:
+    /// wartość spoza wyliczenia nie ma nazwy po polsku, więc klucza dla niej nie ma
+    /// czego wpisać. Gdyby <c>DoorPhase</c> urosło o ósmą fazę, to ramię pokaże jej
+    /// nazwę angielską — widocznie, zamiast rzucić na ekran gracza.</para>
+    /// </summary>
     private static string Faza(DoorPhase phase) => phase switch
     {
-        DoorPhase.Closed => "zamknięte",
-        DoorPhase.Unlocking => "odryglowanie",
-        DoorPhase.Opening => "otwieranie",
-        DoorPhase.Open => "otwarte",
-        DoorPhase.ClosingWarning => "sygnał zamykania",
-        DoorPhase.Closing => "zamykanie",
-        DoorPhase.Checking => "kontrola zamknięcia",
+        DoorPhase.Closed => UiText.Get("hud.door.closed"),
+        DoorPhase.Unlocking => UiText.Get("hud.door.unlocking"),
+        DoorPhase.Opening => UiText.Get("hud.door.opening"),
+        DoorPhase.Open => UiText.Get("hud.door.open"),
+        DoorPhase.ClosingWarning => UiText.Get("hud.door.closing-warning"),
+        DoorPhase.Closing => UiText.Get("hud.door.closing"),
+        DoorPhase.Checking => UiText.Get("hud.door.checking"),
         _ => phase.ToString(),
     };
 
