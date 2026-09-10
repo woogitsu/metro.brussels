@@ -539,6 +539,131 @@ def test_ci_no_workflow_uses_blender_before_installing_it():
                     f"a instalacja jest dopiero w kroku {installer}")
 
 
+#: Skrypty w `tools/ci/`, które krok może zawołać; ich treść liczy się do tego, jakich
+#: poleceń krok UŻYWA. Bez tego bramka niżej byłaby ślepa dokładnie na przypadek, dla
+#: którego powstała: `Download Godot mono` nie ma w swoim `run:` ani `curl`, ani
+#: `unzip` — ma `bash tools/ci/godot_install.sh`, a polecenia są w skrypcie.
+WOLANIE_SKRYPTU = re.compile(r"bash\s+(tools/ci/[A-Za-z0-9_./-]+\.sh)")
+
+
+def _polecenia_w_kodzie(kod, szukane):
+    """Które z `szukane` polecenia woła ten kod, z komentarzami odciętymi."""
+    kod = _bez_komentarzy_powloki(kod)
+    return {p for p in szukane
+            if re.search(r"(?<![\w./-])%s(?![\w-])" % re.escape(p), kod)}
+
+
+def _polecenia_kroku(step, szukane):
+    """Polecenia użyte przez krok — wprost albo przez skrypt, który krok uruchamia."""
+    run = str(step.get("run") or "")
+    uzyte = _polecenia_w_kodzie(run, szukane)
+    for wzgledna in WOLANIE_SKRYPTU.findall(run):
+        sciezka = os.path.join(ROOT, wzgledna)
+        if os.path.isfile(sciezka):
+            uzyte |= _polecenia_w_kodzie(open(sciezka, encoding="utf-8").read(), szukane)
+    return uzyte
+
+
+def kroki_uzywajace_przed_instalacja(document):
+    """`(indeks, nazwa, polecenia)` kroków wołających pakietowane polecenie za wcześnie."""
+    zle = []
+    for job in document["jobs"].values():
+        steps = job.get("steps") or []
+        instalacja = [i for i, s in enumerate(steps)
+                      if "apt_install.sh" in str(s.get("run") or "")]
+        if not instalacja:
+            continue
+        granica = instalacja[0]
+        for indeks, step in enumerate(steps):
+            if indeks >= granica:
+                continue
+            uzyte = _polecenia_kroku(step, POLECENIA_Z_PAKIETOW)
+            if uzyte:
+                zle.append((indeks, step.get("name"), sorted(uzyte), granica))
+    return zle
+
+
+def test_ci_no_step_uses_a_packaged_command_before_installing_it():
+    """Polecenie z tabeli pakietów jest wołane PO kroku, który je instaluje — 6.D77.
+
+    **Skąd.** `godot-first-run.yml` wołał `tools/ci/godot_install.sh` na indeksie 6,
+    a sonda i instalacja stały na indeksie 14 — czyli `curl` i `unzip` schodziły
+    z maszyny OSIEM KROKÓW przed krokiem, który je zapewnia. Nie jest to
+    „zepsułoby się, gdyby": ta droga odpaliła się już raz, 07.09.2026, jako
+    `unzip: command not found` (kod 127, run 34155630333). Naprawiono wtedy sam brak
+    pakietu i zostawiono kolejność, więc warunek powrotu — świeża maszyna puli albo
+    nowy pin wersji silnika — został nietknięty.
+
+    **Bramka liczy INDEKSY, nie czyta nazw kroków.** Ta sama własność, którą pilnuje
+    `test_ci_no_workflow_uses_blender_before_installing_it` dla `$BLENDER_BIN`, tyle
+    że dla wszystkich poleceń z `POLECENIA_Z_PAKIETOW` naraz — i **przez skrypty**,
+    bo w tym jedynym zmierzonym przypadku polecenia nie było w `run:` kroku wcale.
+    """
+    for name in _workflows():
+        document = yaml.safe_load(_text(name))
+        zle = kroki_uzywajace_przed_instalacja(document)
+        assert zle == [], "\n".join(
+            "%s: krok %d '%s' woła %s, a instalacja jest dopiero w kroku %d"
+            % (name, indeks, nazwa, polecenia, granica)
+            for indeks, nazwa, polecenia, granica in zle)
+
+
+def test_the_order_gate_reads_the_scripts_a_step_runs_and_names_the_file():
+    """Kontrola negatywna, WYKONANA na sztucznym workflowie.
+
+    Trzy asercje, bo trzy różne rzeczy mogą tę bramkę uciszyć: brak kroku instalacji
+    (wtedy nie ma granicy), polecenie schowane w skrypcie (wtedy `run:` jest czysty)
+    i polecenie w komentarzu (wtedy nie jest wołane).
+    """
+    def dokument(kroki):
+        return {"jobs": {"j": {"steps": kroki}}}
+
+    instalacja = {"name": "Install", "run": "bash tools/ci/apt_install.sh --set blender"}
+
+    # (1) polecenie WPROST przed instalacją — zgłoszone, z nazwą kroku.
+    zle = kroki_uzywajace_przed_instalacja(dokument(
+        [{"name": "Pobierz", "run": 'curl -fL -o x "$URL"'}, instalacja]))
+    assert zle == [(0, "Pobierz", ["curl"], 1)], zle
+
+    # (2) polecenie w SKRYPCIE, którego `run:` kroku nie zawiera — zmierzony przypadek
+    # 6.D77: `Download Godot mono` ma w `run:` wyłącznie `bash tools/ci/godot_install.sh`.
+    zle = kroki_uzywajace_przed_instalacja(dokument(
+        [{"name": "Download Godot mono", "run": "bash tools/ci/godot_install.sh"},
+         instalacja]))
+    assert zle == [(0, "Download Godot mono", ["curl", "unzip"], 1)], zle
+
+    # (3) po instalacji ten sam krok jest w porządku — bramka mierzy KOLEJNOŚĆ,
+    # a nie obecność polecenia.
+    assert kroki_uzywajace_przed_instalacja(dokument(
+        [instalacja,
+         {"name": "Download Godot mono", "run": "bash tools/ci/godot_install.sh"}])) == []
+
+    # (4) polecenie w komentarzu nie jest wołaniem.
+    assert kroki_uzywajace_przed_instalacja(dokument(
+        [{"name": "Komentarz", "run": "# curl tu nie chodzi\necho ok"}, instalacja])) == []
+
+
+def test_the_order_gate_is_looking_at_workflows_that_actually_install_packages():
+    """Kontrola przyrządu: cisza wyżej znaczy coś tylko przy istniejącej granicy.
+
+    Bramka pomija job bez kroku `apt_install.sh` — słusznie, bo bez niego nie ma
+    czego porównywać. Bez tego wiersza usunięcie instalacji ze WSZYSTKICH workflowów
+    zostawiłoby bramkę zieloną.
+    """
+    z_instalacja = [n for n in _workflows() if "apt_install.sh" in _text(n)]
+    assert len(z_instalacja) == 7, z_instalacja
+    # I że w tych siedmiu jest co mierzyć: każdy woła co najmniej jedno polecenie
+    # z tabeli, choćby przez instalator Blendera.
+    for name in z_instalacja:
+        document = yaml.safe_load(_text(name))
+        steps = list(document["jobs"].values())[0]["steps"]
+        uzyte = set()
+        for step in steps:
+            uzyte |= _polecenia_kroku(step, POLECENIA_Z_PAKIETOW)
+        assert uzyte, (name, "żaden krok nie woła polecenia z tabeli pakietów — "
+                             "bramka kolejności jest tu trywialnie zielona")
+
+
 def test_ci_blender_installer_verifies_the_checksum_and_stays_out_of_the_workspace():
     """Pobranie bez sprawdzenia sumy nie jest instalacją, tylko nadzieją.
 
@@ -1803,6 +1928,11 @@ def _apt_set_packages(name):
 POLECENIA_Z_PAKIETOW = {
     "xvfb-run": "xvfb",
     "unzip": "unzip",
+    # `curl` dopisany 10.09.2026 (6.D77). Wpis jest TOŻSAMOŚCIOWY — pakiet i polecenie
+    # nazywają się tak samo — i to go nie czyni zbędnym: bez niego
+    # `test_ci_no_step_uses_a_packaged_command_before_installing_it` nie ma czego
+    # pilnować dla `curl`, a to właśnie `curl` woła oba instalatory.
+    "curl": "curl",
 }
 
 
@@ -2747,6 +2877,39 @@ def _bez_komentarzy_powloki(text):
     return "\n".join(l for l in text.splitlines() if not l.lstrip().startswith("#"))
 
 
+def _cialo_run(wezel, zebrane):
+    """Wszystkie wartości `run:` w dokumencie YAML, na dowolnej głębokości."""
+    if isinstance(wezel, dict):
+        for klucz, wartosc in wezel.items():
+            if klucz == "run" and isinstance(wartosc, str):
+                zebrane.append(wartosc)
+            else:
+                _cialo_run(wartosc, zebrane)
+    elif isinstance(wezel, list):
+        for element in wezel:
+            _cialo_run(element, zebrane)
+    return zebrane
+
+
+def _kod_powloki(sciezka):
+    """Kod POWŁOKI z pliku CI — a nie cały jego tekst.
+
+    **Przepisane 10.09.2026 (6.D77), a nie dopisane obok.** Poprzednia wersja brała
+    surowy tekst pliku, więc każde wystąpienie napisu `curl` liczyła jako pobranie —
+    także w `with: commands: curl`, czyli w NAZWIE polecenia, o które pyta sonda.
+    Dopisanie `curl` do sondy zapaliło przez to bramkę sumy kontrolnej w siedmiu
+    workflowach naraz, z których żaden niczego nie pobiera. Zawężenie do ciał `run:`
+    sprawdza WIĘCEJ, nie mniej: dane wejściowe akcji przestają udawać kod, a każde
+    prawdziwe `curl` w `run:` — na dowolnej głębokości dokumentu, w jobie i w akcji
+    złożonej — nadal wchodzi.
+    """
+    tekst = open(sciezka, encoding="utf-8").read()
+    if not sciezka.endswith((".yml", ".yaml")):
+        return _bez_komentarzy_powloki(tekst)
+    document = yaml.safe_load(tekst)
+    return _bez_komentarzy_powloki("\n".join(_cialo_run(document, [])))
+
+
 def _miejsca_pobrania():
     """Pliki CI, które same ściągają coś z sieci — z drzewa, nie z listy."""
     kandydaci = [os.path.join(WORKFLOWS, n) for n in _workflows()]
@@ -2756,7 +2919,7 @@ def _miejsca_pobrania():
                   if n.endswith(".sh")]
     znalezione = {}
     for sciezka in kandydaci:
-        kod = _bez_komentarzy_powloki(open(sciezka, encoding="utf-8").read())
+        kod = _kod_powloki(sciezka)
         if POBRANIE.search(kod):
             znalezione[os.path.relpath(sciezka, ROOT)] = kod
     return znalezione
@@ -2812,6 +2975,22 @@ def test_the_download_gate_tells_a_real_check_apart_from_a_printed_sum():
     assert not POBRANIE.search(_bez_komentarzy_powloki("  # curl -o x $URL\n"))
     assert not SPRAWDZENIE_SUMY.search(_bez_komentarzy_powloki("# sha256sum -c -\n"))
     assert POBRANIE.search(_bez_komentarzy_powloki('  curl -o x "$URL"\n'))
+
+    # ZMIERZONY PRZYPADEK 6.D77: `curl` jako NAZWA sondowanego polecenia w `with:`
+    # nie jest pobraniem, a `curl` w `run:` jest — i to na dowolnej głębokości.
+    import tempfile
+    with tempfile.TemporaryDirectory() as katalog:
+        sonda = os.path.join(katalog, "sonda.yml")
+        with open(sonda, "w", encoding="utf-8") as uchwyt:
+            uchwyt.write("jobs:\n  j:\n    steps:\n"
+                         "      - uses: ./.github/actions/probe-tools\n"
+                         "        with:\n          commands: curl unzip\n")
+        assert not POBRANIE.search(_kod_powloki(sonda))
+        pobranie = os.path.join(katalog, "pobranie.yml")
+        with open(pobranie, "w", encoding="utf-8") as uchwyt:
+            uchwyt.write("jobs:\n  j:\n    steps:\n"
+                         "      - run: curl -fL -o x \"$URL\"\n")
+        assert POBRANIE.search(_kod_powloki(pobranie))
 
 
 def test_the_godot_pin_carries_a_version_and_a_publisher_checksum():

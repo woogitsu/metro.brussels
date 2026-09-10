@@ -30,6 +30,15 @@
 # Powód, dla którego to wyszło dopiero teraz: stare maszyny puli miały te biblioteki
 # z innych powodów, więc brak nigdy się nie ujawnił. Nowa pula `woogitsu-linux-*` ich
 # nie ma i 07.09.2026 zatrzymało to dziewięć jobów naraz.
+#
+# `curl` dopisany 10.09.2026 (6.D77). Wołają go OBA instalatory — `blender_install.sh`
+# po tarball i `godot_install.sh` po archiwum silnika — a nie był ani sondowany, ani
+# w żadnym zestawie apt. Do 10.09.2026 działał wyłącznie dlatego, że maszyny puli
+# miały go z innych powodów: dokładnie ta sama sytuacja, w której `unzip` przeszedł
+# niezauważony do przebiegu 34155630333 i kodu 127. Pakiet i polecenie nazywają się
+# tak samo, więc wpis w `POLECENIA_Z_PAKIETOW` jest tożsamościowy — i to nie czyni go
+# zbędnym: bez niego bramka kolejności nie ma czego pilnować dla `curl`.
+curl
 libegl1
 libgl1
 libgl1-mesa-dri
