@@ -72,9 +72,10 @@ UZASADNIONE = {}
 
 def _pliki(root, rozszerzenia, drzewa=DRZEWA):
     for drzewo in drzewa:
+        # 6.D97: bez własnego odsiewania `bin`/`obj` — stoją w `.gitignore`, więc
+        # `TW.walk` już ich nie oddaje. Warunek na `os.sep + "obj"` był przy tym
+        # szerszy, niż wyglądał: łapał każdy katalog KOŃCZĄCY się na `obj`.
         for katalog, _pod, pliki in TW.walk(os.path.join(root, drzewo), root):
-            if os.sep + "obj" in katalog or os.sep + "bin" in katalog:
-                continue
             for plik in pliki:
                 if plik.endswith(rozszerzenia):
                     yield os.path.join(katalog, plik)

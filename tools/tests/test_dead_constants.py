@@ -52,9 +52,9 @@ UZASADNIONE = {
 
 def _pliki_python(root=ROOT):
     for drzewo in DRZEWA:
+        # 6.D97: bez własnego `if "__pycache__" in katalog` — `TW.walk` odsiewa
+        # ten katalog z `.gitignore`, gdzie stoi obok dziesięciu innych.
         for katalog, _pod, pliki in TW.walk(os.path.join(root, drzewo), root):
-            if "__pycache__" in katalog:
-                continue
             for plik in pliki:
                 if plik.endswith(".py"):
                     yield os.path.join(katalog, plik)

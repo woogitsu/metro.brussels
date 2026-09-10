@@ -43,10 +43,6 @@ SIM_DIR = os.path.join(ROOT, "src", "Sim")
 WORKFLOW_DIR = os.path.join(ROOT, ".github", "workflows")
 PROJECT_GODOT = os.path.join(ROOT, "src", "Game", "project.godot")
 
-# Katalogi wyplute przez `dotnet build`. Leżą w .gitignore, ale `os.walk` ich nie
-# zna, a policzone podniosłyby liczbę plików rdzenia po każdej lokalnej budowie.
-BUILD_DIRS = {"bin", "obj"}
-
 # Liczebniki, którymi README zapisuje liczbę workflowów. Prozą, nie cyfrą — więc
 # bramka musi umieć je przeczytać. To słownik języka, nie kopia stanu repozytorium.
 NUMERALS = {
@@ -67,9 +63,11 @@ def _read(path):
 
 def core_files():
     """Pliki `.cs` w `src/Sim/`, bez wyjścia budowy. Zwraca ścieżki relatywne."""
+    # 6.D97: bez własnej listy katalogów budowania. `TW.walk` odsiewa je z `.gitignore`,
+    # gdzie stoją `bin` i `obj` obok `build`, `renders` i `.venv` — druga, uboższa
+    # kopia tej listy rozjechałaby się przy pierwszym nowym wpisie.
     found = []
-    for base, dirs, names in TW.walk(SIM_DIR):
-        dirs[:] = [d for d in dirs if d not in BUILD_DIRS]
+    for base, _dirs, names in TW.walk(SIM_DIR):
         for name in names:
             if name.endswith(".cs"):
                 found.append(os.path.relpath(os.path.join(base, name), ROOT))
@@ -301,8 +299,10 @@ def test_parsers_reject_a_mismatch():
     sample = "## CI\n\n`a-b`, `c-d`.\n\nna etykiecie `self-hosted`.\n\n## Dalej\n"
     assert readme_workflow_names(ci_list_paragraph(sample)) == ["a-b", "c-d"]
 
-    # Liczenie plików rdzenia pomija wyjście budowy.
-    assert BUILD_DIRS == {"bin", "obj"}
+    # Liczenie plików rdzenia pomija wyjście budowy — od 6.D97 przez wspólne
+    # odsianie z `.gitignore`, a nie przez własną listę. Asercja na ZAWARTOŚĆ tej
+    # listy zniknęła razem z nią; zostaje asercja na WYNIK, bo to ona mówi o tym,
+    # co ten moduł liczy.
     assert all("/obj/" not in p and "/bin/" not in p for p in core_files())
 
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
