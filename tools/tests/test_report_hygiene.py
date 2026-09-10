@@ -287,7 +287,7 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 #: „bo dopisałem jeden" — to są dwie różne czynności i tylko pierwsza jest pomiarem.
 #: **190 → 191 (09.09.2026, 6.D62).** Jeden raport: `pamiec-kafli-osm.md`.
 #: Policzona na drzewie, jak dwa akapity wyżej.
-MIN_REPORTS = 191
+MIN_REPORTS = 192
 
 #: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
 #: wierszem zaczynającym się od `**`, z którego `_header_shapes` czyta kształt.

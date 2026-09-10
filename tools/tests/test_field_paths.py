@@ -269,6 +269,323 @@ def _where(key):
 # --------------------------------------------------------------------------- testy
 
 
+# --- 6.D73: katalog i nazwa opcji, czyli dwa kształty, których skan ścieżek nie widzi ---
+#
+# **Poprawka do pola „Wejście" tej pozycji, i jest to ta sama usterka, o której ona
+# jest.** Wpis 6.D73 wskazuje `tools/tests/test_backlog.py` jako miejsce, gdzie stoi
+# „skan pól i wyjątki ścieżek". Skan przeprowadził się do TEGO pliku przy 6.D32
+# (#388), więc pole nazywa adres, pod którym tej rzeczy nie ma — dokładnie to, co
+# pozycja tropi, tyle że w niej samej.
+#
+# Dlaczego dwa NOWE kształty, a nie rozszerzenie `PATH_TOKEN`. Ścieżka pliku ma
+# rozszerzenie i to ono odróżnia ją od prozy; katalog rozszerzenia nie ma, a nazwa
+# opcji nie jest ścieżką w ogóle. Wciągnięcie ich do jednego wzorca zamieniłoby go
+# w łapacz słów ze znakiem `/` albo `-`.
+
+#: Katalog w treści pola: **co najmniej dwa** segmenty i ukośnik na końcu. Oba warunki
+#: są zmierzone, nie ostrożnościowe. Jeden segment łapie `CPU/` ze zwrotu „stosunek
+#: CPU/ściana" i `bin/`, `obj/` z opisu wytworów budowania — 8 z 11 zgłoszeń pierwszej
+#: wersji. Ukośnik na końcu jest jedyną rzeczą, która w prozie odróżnia katalog od
+#: nazwy własnej. Wykluczenie `$` odsiewa `$DOTNET_ROOT/host/fxr/`, czyli ścieżkę
+#: zbudowaną ze zmiennej — o niej „nie istnieje" nie jest zdaniem prawdziwym.
+DIR_TOKEN = re.compile(
+    r'(?<![A-Za-z0-9_./$-])((?:\.?[A-Za-z0-9_][A-Za-z0-9_.+-]*/){2,})(?![A-Za-z0-9_.])')
+
+#: Wywołanie WŁASNEGO narzędzia pythonowego w bloku kodu.
+PY_TOOL_CALL = re.compile(r"python3\s+(tools/[A-Za-z0-9_./-]+\.py)")
+
+#: Wywołanie sceny Godota; argumenty sceny stoją za `--path src/Game`.
+SCENE_CALL = "--path src/Game"
+
+#: Opcje, o których argparse wie bez `add_argument`.
+ARGPARSE_BUILTINS = ("--help",)
+
+
+def _code_lines(text):
+    """Wiersze z bloków ogrodzonych — czyli POLECENIA, a nie proza o nich.
+
+    Bez tego zawężenia skan opcji zgłaszał `--follow` ze zdania
+    „`git log --follow` jako narzędzie": nazwa opcji stała tam w prozie, obok nazwy
+    pliku, i została przypisana do niego. Zmierzone przy pierwszej wersji tej bramki.
+    """
+    out, inside = [], False
+    for line in (text or "").splitlines():
+        if line.strip().startswith("```"):
+            inside = not inside
+            continue
+        if inside:
+            out.append(line)
+    return out
+
+
+def _argparse_options(relative):
+    """Nazwy opcji, które narzędzie NAPRAWDĘ parsuje — z drzewa składni, nie z grepa.
+
+    Grep po napisie `--nazwa` łapie też komentarze i teksty pomocy, czyli miejsca,
+    w których opcja jest OPISANA, a nie zadeklarowana — a właśnie ta różnica jest
+    treścią tej bramki.
+    """
+    import ast
+
+    try:
+        tree = ast.parse(open(os.path.join(ROOT, relative), encoding="utf-8").read())
+    except (OSError, SyntaxError):
+        return None
+    names = set()
+    for node in ast.walk(tree):
+        if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "add_argument"):
+            for arg in node.args:
+                if isinstance(arg, ast.Constant) and isinstance(arg.value, str) \
+                        and arg.value.startswith("-"):
+                    names.add(arg.value)
+    return names
+
+
+def _scene_arguments():
+    """`KnownArguments` ze sceny — ta sama lista, którą czyta `test_ci_workflows.py`."""
+    source = open(os.path.join(ROOT, "src", "Game", "RunPlan.cs"), encoding="utf-8").read()
+    block = re.search(r"KnownArguments\s*=\s*\{(.*?)\};", source, re.S)
+    return set(re.findall(r'"([a-z-]+)"', block.group(1))) if block else set()
+
+
+def _open_blocks():
+    """Bloki pozycji, które są jeszcze DO WZIĘCIA.
+
+    Zapis pozycji wykonanej jest historią: jej „Weryfikacja" cytuje polecenie, którym
+    coś zmierzono, a narzędzie mogło się od tamtej pory zmienić — i przepisanie tego
+    cytatu sfałszowałoby pomiar. Ta sama zasada, co przy markerach historycznych
+    w `test_docs_ci_claims.py` i przy datowanych liczbach w raportach.
+    """
+    tasks = _tasks()
+    otwarte = set(tb.open_items(tasks))
+    return {n: b for n, b in tb.detail_sections(tasks).items() if n in otwarte}
+
+
+def _all_blocks():
+    """Wszystkie bloki, także wykonane — do kotwic na zamrożonych przypadkach."""
+    return tb.detail_sections(_tasks())
+
+
+def directories_in(text):
+    """Katalogi wymienione w treści pola, bez przedrostków pomijanych."""
+    return [d for d in DIR_TOKEN.findall(text or "")
+            if not d.startswith(IGNORED_PREFIXES)]
+
+
+def unknown_options(blocks=None):
+    """`(numer, pole, narzędzie, opcja)` dla opcji, których narzędzie nie parsuje."""
+    found = []
+    scene = _scene_arguments()
+    for number, body in (blocks if blocks is not None else _open_blocks()).items():
+        for field in FIELDS:
+            for line in _code_lines(field_body(body, field)):
+                call = PY_TOOL_CALL.search(line)
+                if call and os.path.isfile(os.path.join(ROOT, call.group(1))):
+                    known = _argparse_options(call.group(1))
+                    if known is not None:
+                        rest = line[call.end():].split("|")[0].split("&&")[0]
+                        for option in re.findall(r"(?<![\w-])(--[a-z][a-z0-9-]*)", rest):
+                            if option not in known and option not in ARGPARSE_BUILTINS:
+                                found.append((number, field, call.group(1), option))
+                if SCENE_CALL in line:
+                    rest = line.split(SCENE_CALL, 1)[1]
+                    for option in re.findall(r"(?<!-)--([a-z][a-z0-9-]*)", rest):
+                        if option not in scene:
+                            found.append((number, field, "src/Game/RunPlan.cs",
+                                          "--" + option))
+    return found
+
+
+def missing_directories(blocks=None):
+    """`(numer, pole, katalog)` dla katalogów, których w drzewie nie ma."""
+    found = []
+    for number, body in (blocks if blocks is not None else _open_blocks()).items():
+        for field in FIELDS:
+            for directory in directories_in(field_body(body, field)):
+                if not os.path.isdir(os.path.join(ROOT, directory.rstrip("/"))):
+                    found.append((number, field, directory))
+    return found
+
+
+def test_no_open_field_names_a_directory_that_is_not_in_the_tree():
+    """Katalog w polu zadania jest sprawdzany jak plik — 6.D73.
+
+    **Skąd.** Pole „Wyjście" pozycji 6.A21 wskazywało `tools/ci/golden/`, katalogu
+    o tej nazwie w drzewie nie ma, a polecenie z pola kończyło się
+    `fatal: ambiguous argument 'tools/ci/golden/'` — wzorce śladu leżą
+    w `tests/data/golden-trace/`. Skan ścieżek tego nie widział, bo jego wzorzec żąda
+    ROZSZERZENIA na ostatnim segmencie, a katalog go nie ma.
+    """
+    bad = missing_directories()
+    assert bad == [], "pole zadania nazywa katalog, którego w drzewie nie ma: %s" % bad
+    # Pusta lista jest zielona także wtedy, gdy wzorzec przestał cokolwiek łapać —
+    # więc przyrząd jest przybity do ZAMROŻONEGO przypadku, a nie do progu liczbowego.
+    # Progu po liczbie katalogów w otwartych blokach tu nie ma świadomie: kolejka
+    # maleje z każdą scaloną pozycją, więc taki próg czerwieniałby od SPRZĄTANIA.
+    # Blok 6.A21 jest wykonany, jego zapis jest historyczny (pole „Poza zakresem"
+    # pozycji 6.D73) i dlatego nadaje się na kotwicę: `tools/ci/golden/` stoi tam
+    # nieruchomo, TRZY razy (raz w „Wejściu", dwa razy w „Weryfikacji"), i nie ma go
+    # w drzewie.
+    kotwica = missing_directories({"6.A21": _all_blocks()["6.A21"]})
+    assert [d for _n, _f, d in kotwica] == ["tools/ci/golden/"] * 3, (
+        "wzorzec katalogu przestał widzieć zamrożony przypadek 6.A21: %s" % kotwica)
+
+
+def test_no_open_field_calls_an_option_the_tool_does_not_parse():
+    """Nazwa opcji w polu jest zestawiana z opcjami, które narzędzie NAPRAWDĘ parsuje.
+
+    **Skąd.** Pole „Weryfikacja" pozycji 6.B43 wołało scenę z `--at-m=96` i `--out=…`,
+    a scena zna `--at-chainage` i nie zna żadnego z tych dwóch. Nazwa opcji nie jest
+    ścieżką, więc skan ścieżek nie miał jej jak zobaczyć — trzeci kształt tego samego
+    wzorca „pole nazywa coś niewykonalnego".
+    """
+    bad = unknown_options()
+    assert bad == [], "pole zadania woła opcję, której narzędzie nie parsuje: %s" % bad
+    # Kotwica na zamrożonym bloku, z tego samego powodu co wyżej. 6.B43 jest wykonane,
+    # a jego pole „Weryfikacja" woła dwie opcje, których scena nie zna — obie muszą tu
+    # wyjść, inaczej cisza w otwartych blokach nic nie znaczy.
+    kotwica = [o for _n, _f, _t, o in unknown_options({"6.B43": _all_blocks()["6.B43"]})]
+    assert kotwica == ["--at-m", "--out"], (
+        "wzorzec opcji przestał widzieć zamrożony przypadek 6.B43: %s" % kotwica)
+    # Drugi kierunek tej samej kotwicy: opcje, które scena ZNA, nie mogą się tam
+    # pojawić. Bez tego „widzi dwie" byłoby prawdą także dla skanu zgłaszającego
+    # wszystko, co zaczyna się od dwóch myślników.
+    assert "--shot" not in kotwica and "--view" not in kotwica
+
+
+def test_the_two_new_shapes_catch_the_measured_cases_and_leave_the_prose_alone():
+    """Kontrola negatywna dla obu kształtów, WYKONANA na zmierzonych przypadkach.
+
+    Cztery zdania prozy niżej to te, na których pierwsze wersje obu wzorców się
+    wywracały. Każde zostało zmierzone, nie wymyślone.
+    """
+    # KATALOG — zmierzony przypadek 6.A21 wstawiony do bloku otwartego.
+    blok = {"6.D999": "- **Wyjście:** wzorce w `tools/ci/golden/`\n"}
+    assert missing_directories(blok) == [("6.D999", "Wyjście", "tools/ci/golden/")]
+    assert missing_directories({"6.D999": "- **Wyjście:** `tools/blender/`\n"}) == []
+    # …a proza z ukośnikiem katalogiem nie jest.
+    assert directories_in("stosunek CPU/ściana") == []
+    assert directories_in("`bin/` i `obj/` to wytwory budowania") == []
+    assert directories_in("`$DOTNET_ROOT/host/fxr/` po instalacji") == []
+    assert directories_in("wzorce w `tools/ci/golden/`") == ["tools/ci/golden/"]
+
+    # OPCJA — zmierzony przypadek 6.B43 wstawiony do bloku otwartego.
+    scena = {"6.D999": '- **Weryfikacja:**\n\n  ```bash\n'
+                       '  $GODOT_BIN --path src/Game -- --shot --view=chase '
+                       '--at-m=96 --out=build/chase-96.png\n  ```\n'}
+    nieznane = [o for _n, _f, _t, o in unknown_options(scena)]
+    assert nieznane == ["--at-m", "--out"], nieznane
+    # `--shot` i `--view` scena ZNA, więc nie mogą się tu pojawić — bez tej asercji
+    # „łapie dwie" byłoby prawdą także dla bramki zgłaszającej wszystko.
+    assert "--shot" not in nieznane and "--view" not in nieznane
+
+    narzedzie = {"6.D999": '- **Weryfikacja:**\n\n  ```bash\n'
+                           '  python3 tools/tests/mutation_sweep.py --only x --nie-ma-takiej\n'
+                           '  ```\n'}
+    assert [o for _n, _f, _t, o in unknown_options(narzedzie)] == ["--nie-ma-takiej"]
+    # PROZA: wywołanie narzędzia WPLECIONE W ZDANIE nie jest komendą do wykonania.
+    # Kształt nie jest wymyślony — pole „Wyjście" bloku 6.A26 niesie dziś `--path
+    # src/Game` w środku zdania. Zmierzone na całym `docs/TASKS.md`: **200** wystąpień
+    # wywołania narzędzia w polach, z tego **199** w blokach ogrodzonych i **1** w
+    # prozie, właśnie to. Nazwa opcji jest tu DOPISANA do prawdziwego zdania, bo samo
+    # zdanie 6.A26 żadnej za sobą nie ma — i dlatego zdjęcie ogrodzenia z dzisiejszej
+    # treści nie zmienia ani jednego zgłoszenia (kontrola negatywna KN-2, opisana
+    # w `reports/6d73-katalog-i-opcja-w-polu.md`). Ogrodzenie pilnuje KSZTAŁTU, który
+    # w drzewie jest, a nie trafienia, którego dziś nie ma.
+    proza = {"6.D999": "- **Wyjście:** odmawia, gdy w komendzie `--path src/Game` "
+                       "stanie `--nie-ma-takiej`, i wypisuje powód\n"}
+    assert unknown_options(proza) == []
+    # OPCJA OPISANA A NIEZADEKLAROWANA — powód, dla którego lista opcji idzie
+    # z drzewa składni, a nie z grepa po napisie `--nazwa`. Zmierzone na 15 narzędziach
+    # wołanych dziś z pól: w **pięciu** grep widzi więcej niż argparse, bo łapie
+    # komentarze, teksty pomocy i flagi CUDZYCH poleceń (`--quiet` gita w
+    # `mutation_sweep.py`). `--metrics` stoi w treści `assert_shot_metadata.py`,
+    # a `add_argument` go nie dostaje — więc wariant grepowy przyjmuje tę komendę
+    # w milczeniu, a ten wiersz go czerwieni (kontrola negatywna KN-3).
+    opisana = {"6.D999": '- **Weryfikacja:**\n\n  ```bash\n'
+                         '  python3 tools/ci/assert_shot_metadata.py --metrics x\n  ```\n'}
+    assert [o for _n, _f, _t, o in unknown_options(opisana)] == ["--metrics"]
+
+    # …a ta sama treść w bloku ogrodzonym jest już komendą i zgłoszenie daje.
+    komenda = {"6.D999": '- **Wyjście:**\n\n  ```bash\n'
+                         '  $GODOT_BIN --path src/Game -- --nie-ma-takiej\n  ```\n'}
+    assert [o for _n, _f, _t, o in unknown_options(komenda)] == ["--nie-ma-takiej"]
+
+
+SZESC_PRZYPADKOW = (
+    # (nazwa, pole, treść pola, kształt, który ma się zapalić)
+    ("6.D59 · ścieżka z wiodącą kropką", "Wejście",
+     "`.github/workflows/nie-ma-takiego.yml`", "ścieżka"),
+    ("6.A21 · katalog w polu „Wejście\u201d", "Wejście",
+     "`tools/ci/golden/` (wzorce śladu)", "katalog"),
+    ("6.A21 · ten sam katalog w komendzie", "Weryfikacja",
+     "\n\n  ```bash\n  git diff --stat tools/ci/golden/\n  ```\n", "katalog"),
+    ("6.B43 · `--at-m`", "Weryfikacja",
+     "\n\n  ```bash\n  $GODOT_BIN --path src/Game -- --shot --at-m=96\n  ```\n",
+     "opcja"),
+    ("6.B43 · `--out`", "Weryfikacja",
+     "\n\n  ```bash\n  $GODOT_BIN --path src/Game -- --shot --out=build/x.png\n  ```\n",
+     "opcja"),
+    ("6.D64 · moduł w złym katalogu", "Wejście",
+     "`tools/track/provenance.py` (pisarz nastaw)", "ścieżka"),
+)
+
+
+def _mutacja(field, content):
+    """Blok otwarty o numerze `6.D999`, z jednym polem wypełnionym mutacją."""
+    return "##### 6.D999 · Blok wstawiony na czas kontroli\n\n- **%s:** %s\n" % (
+        field, content)
+
+
+def _zapala(field, content):
+    """Które kształty zapala ta mutacja: `ścieżka`, `katalog`, `opcja`."""
+    tekst = _mutacja(field, content)
+    blocks = {"6.D999": tekst}
+    zapalone = []
+    if reported(scan(tekst)):
+        zapalone.append("ścieżka")
+    if missing_directories(blocks):
+        zapalone.append("katalog")
+    if unknown_options(blocks):
+        zapalone.append("opcja")
+    return zapalone
+
+
+def test_each_of_the_six_measured_cases_lights_a_gate_when_put_back():
+    """Sześć przypadków z pola „Skąd" pozycji 6.D73, każdy wstawiony z powrotem.
+
+    **Dlaczego mutacja, a nie pomiar dzisiejszego drzewa.** Wszystkie sześć leży
+    w blokach WYKONANYCH, a ich poprawianie pozycja 6.D73 wyklucza wprost w polu
+    „Poza zakresem" („ich zapis jest historyczny"). Dwie bramki wyżej chodzą więc po
+    blokach OTWARTYCH i na dzisiejszej kolejce milczą — a ta cisza znaczy coś dopiero
+    wtedy, gdy każdy z sześciu, podłożony jako pole otwartego bloku, ją przerywa.
+
+    **Trzy kształty, a nie jeden**, i podział jest treścią: dwa z sześciu łapie skan
+    ścieżek, który istniał wcześniej (i to jest zmierzony wynik — 6.D59 poprawiło
+    `PATH_TOKEN` także tutaj, więc wiodąca kropka wchodzi), a cztery nie miały
+    czym zostać złapane do dziś.
+    """
+    zmierzone = {}
+    for nazwa, field, content, oczekiwany in SZESC_PRZYPADKOW:
+        zapalone = _zapala(field, content)
+        zmierzone[nazwa] = zapalone
+        assert oczekiwany in zapalone, (
+            '%s: mutacja nie zapaliła kształtu „%s” — zapalone: %s'
+            % (nazwa, oczekiwany, zapalone or "żaden"))
+    # Rozkład na kształty jest przybity, a nie tylko „coś się zapaliło": bramka
+    # zgłaszająca wszystko przeszłaby pętlę wyżej i nie przeszłaby tego wiersza.
+    assert [len(v) for v in zmierzone.values()] == [1, 1, 1, 1, 1, 1], zmierzone
+    # I kierunek przeciwny: poprawne pola tych samych sześciu bloków są ciche.
+    assert _zapala("Wejście", "`.github/workflows/godot-first-run.yml`") == []
+    assert _zapala("Wejście", "`tests/data/golden-trace/` (wzorce śladu)") == []
+    assert _zapala("Wejście", "`tools/data/provenance.py` (pisarz nastaw)") == []
+    assert _zapala(
+        "Weryfikacja",
+        "\n\n  ```bash\n  $GODOT_BIN --path src/Game -- --shot=build/x.png "
+        "--at-chainage=96\n  ```\n") == []
+
+
 def test_the_scan_sees_the_measured_number_of_paths_in_every_field():
     """Próg KW: zepsuty wzorzec albo zepsute cięcie pola dają zero i zielone wszystko.
 
