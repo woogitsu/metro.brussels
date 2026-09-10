@@ -81,6 +81,20 @@ METODY_SCIEZKI = ("write_text", "write_bytes")
 #: „Skończone, gdy" pozycji 6.D110, i pilnują jej dwie kontrole naraz: gdy któreś
 #: z tych miejsc zacznie celować w `ROOT`, zapali się bramka główna; gdy zniknie albo
 #: zmieni kształt, zapali się kontrola gnicia tej listy.
+#: Znacznik ZAŚLEPKI, którą `mutation_sweep.neutralise_own_tests` podmienia
+#: `test_mutation_sweep.py` w każdym drzewie roboczym przeglądu mutacyjnego. Plik
+#: ZOSTAJE (jego ścieżkę wymieniają raporty), ale jego treść znika — razem z dwoma
+#: wywołaniami kopiującymi, które stoją niżej w `POZA_DRZEWEM`.
+#:
+#: **Bez tego wyjątku bramka niżej wywracała każdy przegląd mutacyjny na kalibracji**
+#: i jest to zmierzone, nie przewidziane: `mutation_sweep.py --only … --dirty` kończył
+#: komunikatem „zestaw PADA w czystym drzewie, bez żadnej mutacji (kod 1):
+#: ['test_kazde_zmierzone_kopiowanie_jest_rozstrzygniete:']". Regresja weszła
+#: z 6.D110 (10.09.2026) i przeszła CI, bo CI przeglądu mutacyjnego nie uruchamia.
+#: To ta sama pułapka, którą opisuje docstring `neutralise_own_tests`: bramka
+#: czytająca DRZEWO widzi w drzewie roboczym co innego niż w repozytorium.
+ZASLEPKA_TESTOW_SWEEPA = "test_this_file_is_the_stub_not_the_real_tests"
+
 POZA_DRZEWEM = {
     ("mutation_sweep.py", "zapisz_pokrycie", "os.replace"):
         "podmiana atomowa mapy pokrycia w `tempfile.gettempdir()`",
@@ -434,6 +448,31 @@ def wszystkie_kopiowania():
     return out
 
 
+def zaslepione():
+    """Moduły `tools/tests/`, których treść podmieniono na zaślepkę przeglądu.
+
+    Rozpoznanie idzie przez DRZEWO SKŁADNI, a nie przez wyszukanie napisu, i to nie
+    jest ozdoba: nazwa zaślepki stoi jako zwykły tekst w `mutation_sweep.py` (wewnątrz
+    `OWN_TESTS_STUB`) i w tym pliku (w stałej `ZASLEPKA_TESTOW_SWEEPA`). Skan po
+    napisie uznał więc oba te moduły za zaślepione i wypuścił z bramki trzy wpisy
+    zamiast dwóch — zmierzone przy pisaniu tej poprawki, w pierwszej jej wersji.
+    """
+    out = set()
+    for nazwa, sciezka in _moduly():
+        with open(sciezka, encoding="utf-8") as uchwyt:
+            if jest_zaslepka(uchwyt.read()):
+                out.add(nazwa)
+    return out
+
+
+def jest_zaslepka(zrodlo):
+    """Czy ten moduł JEST zaślepką — po nazwie funkcji, nie po napisie w pliku."""
+    drzewo = ast.parse(zrodlo)
+    nazwy = {w.name for w in drzewo.body
+             if isinstance(w, (ast.FunctionDef, ast.AsyncFunctionDef))}
+    return ZASLEPKA_TESTOW_SWEEPA in nazwy
+
+
 def test_kazde_zmierzone_kopiowanie_jest_rozstrzygniete():
     """Pięć zmierzonych wywołań kontra pięć wpisów `POZA_DRZEWEM`, bez reszty.
 
@@ -452,10 +491,18 @@ def test_kazde_zmierzone_kopiowanie_jest_rozstrzygniete():
     assert not w_drzewie, (
         "kopiowanie albo przenoszenie celuje w plik zbudowany ze ścieżki "
         f"repozytorium: {w_drzewie}")
-    assert set(poza) == set(POZA_DRZEWEM), (
+
+    # Moduł podmieniony na zaślepkę nie jest modułem, który „zgubił" swoje wywołania:
+    # jego treści w tym drzewie po prostu nie ma. Wymagać od niego wpisów znaczyłoby
+    # wywracać zestaw w KAŻDYM drzewie roboczym przeglądu mutacyjnego — patrz
+    # `ZASLEPKA_TESTOW_SWEEPA`.
+    oczekiwane = {klucz for klucz in POZA_DRZEWEM
+                  if klucz[0] not in zaslepione()}
+    assert set(poza) == oczekiwane, (
         "lista rozstrzygnięć rozjechała się z drzewem — brakuje: "
-        f"{sorted(set(poza) - set(POZA_DRZEWEM))}, zbędne: "
-        f"{sorted(set(POZA_DRZEWEM) - set(poza))}")
+        f"{sorted(set(poza) - oczekiwane)}, zbędne: "
+        f"{sorted(oczekiwane - set(poza))}; moduły zaślepione: "
+        f"{sorted(zaslepione()) or 'żaden'}")
 
 
 def test_czytnik_rozstrzygniec_odroznia_cel_w_drzewie_od_celu_na_boku():
@@ -485,6 +532,33 @@ def test_czytnik_rozstrzygniec_odroznia_cel_w_drzewie_od_celu_na_boku():
         '        shutil.copyfile(os.path.join(ROOT, "a.py"), os.path.join(t, "a.py"))\n')
     assert [w[-1] for w in na_boku] == [False], (
         "czytnik uznaje cel w katalogu tymczasowym za cel w drzewie: %r" % (na_boku,))
+
+
+def test_zaslepka_rozpoznaje_sie_po_definicji_a_nie_po_napisie():
+    """Wejście syntetyczne dla obu kierunków rozpoznania zaślepki.
+
+    Pierwsza wersja tej poprawki szukała nazwy zaślepki jako NAPISU i uznała za
+    zaślepione trzy moduły zamiast zera — bo ta sama nazwa stoi jako zwykły tekst
+    w `mutation_sweep.py` (w stałej `OWN_TESTS_STUB`) i w tym pliku. Bramka
+    wypuszczała wtedy z listy rozstrzygnięć wpisy, które w drzewie są.
+    """
+    zaslepka = ("\"\"\"Zaślepka.\"\"\"\n\n\n"
+                "def %s():\n    assert True\n" % ZASLEPKA_TESTOW_SWEEPA)
+    assert jest_zaslepka(zaslepka), "zaślepka nie została rozpoznana"
+
+    cytujacy = ('ZASLEPKA = "%s"\n\n\n'
+                "def test_cos():\n    assert True\n" % ZASLEPKA_TESTOW_SWEEPA)
+    assert not jest_zaslepka(cytujacy), (
+        "moduł CYTUJĄCY nazwę zaślepki został uznany za zaślepkę — to jest ta "
+        "pomyłka, którą zrobiła pierwsza wersja tej poprawki")
+
+    # **Asercji „w repozytorium nie ma zaślepki" tu NIE MA i to jest wybór z pomiaru.**
+    # Pierwsza wersja tego testu ją miała i zachowywała się dokładnie tak, jak usterka,
+    # którą ta poprawka zamyka: w repozytorium zielona, a w KAŻDYM drzewie roboczym
+    # przeglądu mutacyjnego czerwona — bo tam zaślepka leży z definicji. Zmierzone na
+    # kopii drzewa po `neutralise_own_tests`: 7/8, zgłoszenie „w repozytorium leży
+    # zaślepka przeglądu mutacyjnego: ['test_mutation_sweep.py']".
+    assert not jest_zaslepka(""), "pusty moduł nie jest zaślepką"
 
 
 def test_skan_kopiowan_widzi_ksztalt_ktory_ma_widziec():
