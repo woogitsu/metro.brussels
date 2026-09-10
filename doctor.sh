@@ -128,7 +128,41 @@ fi
 # wewnętrzna sprzeczność jednego raportu, a `CLAUDE.md` §2 każe czytać go przed
 # KAŻDYM zadaniem. Wiersz z Blenderem obok był cytowany od początku i to on jest tu
 # wzorcem. Pilnuje tego `tools/tests/test_dotnet_version.py`.
-chk_required "dotnet SDK" "\"$DOTNET\" --version" "$BRAK_SDK_PODPOWIEDZ"
+# 6.D96: STAN ROZPOZNANY PRZED KONTROLAMI, po KODZIE WYJŚCIA, nie po treści stdout.
+# Do 10.09.2026 przy niespełnialnym pinie doctor wypisywał NARAZ dwa zdania o tym
+# samym SDK — `BRAK dotnet SDK -> zainstaluj` (bo `--version` kończy kodem 155)
+# i `ok dotnet SDK >= 10 (jest 10)` (bo `cut -d. -f1` brał pierwszą liczbę z listy
+# SDK, którą to samo polecenie wypisuje na stdout, PADAJĄC). Jedno z tych zdań radzi
+# zainstalować coś, co leży na dysku; drugie melduje sprawdzenie zrobione na wyjściu
+# polecenia, które się nie powiodło.
+#
+# `--list-sdks` odpowiada na pytanie „czy jakiekolwiek SDK jest", a `--version`
+# na „czy któreś spełnia pin z global.json" — jedyną różnicą między nimi jest to,
+# że drugie czyta `global.json`. Rozstrzyga KOD WYJŚCIA obu, nie ich stdout.
+PIN_SDK="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([0-9.]*\)".*/\1/p' \
+           global.json 2>/dev/null | head -n 1)"
+# Liczy się NIEPUSTE wyjście, nie sam kod zero. `dotnet --list-sdks` na maszynie
+# z zainstalowanym runtime'em, ale bez ani jednego SDK, kończy ZEREM i nie wypisuje
+# nic — a to jest stan „nie ma czego pinować", nie „pin niespełniony". Bramka
+# `test_brak_jakiegokolwiek_sdk_nadal_kaze_instalowac` złapała tę różnicę na
+# pierwszej wersji tego bloku, która patrzyła na sam kod wyjścia.
+SDK_NA_LISCIE="nie"
+if [ -n "$("$DOTNET" --list-sdks 2>/dev/null)" ]; then SDK_NA_LISCIE="tak"; fi
+PIN_NIESPELNIONY="nie"
+if [ "$SDK_NA_LISCIE" = "tak" ] && ! "$DOTNET" --version >/dev/null 2>&1; then
+  PIN_NIESPELNIONY="tak"
+fi
+
+if [ "$PIN_NIESPELNIONY" = "tak" ]; then
+  # JEDNO zdanie zamiast dwóch sprzecznych. Kontrola jest WYMAGANA, bo w tym stanie
+  # `dotnet build` też nie ruszy — środowisko naprawdę nie nadaje się do pracy,
+  # tylko przyczyna jest inna niż brak SDK.
+  chk_required "dotnet SDK vs pin z global.json ($PIN_SDK)" "false" \
+    "SDK SĄ na dysku, ale ŻADNE nie spełnia pinu $PIN_SDK z global.json; \`dotnet --version\` kończy błędem — zmień pin albo doinstaluj tę wersję, NIE instaluj SDK od nowa"
+  "$DOTNET" --list-sdks 2>/dev/null | sed 's/^/        na dysku: /'
+else
+  chk_required "dotnet SDK" "\"$DOTNET\" --version" "$BRAK_SDK_PODPOWIEDZ"
+fi
 
 # Sama obecność `dotnet` nie wystarczy i to jest zmierzone, nie przewidywane.
 # Po podniesieniu rdzenia na `net10.0` (04.09.2026) doctor na SDK 8.0.130 wypisywał
@@ -139,7 +173,14 @@ chk_required "dotnet SDK" "\"$DOTNET\" --version" "$BRAK_SDK_PODPOWIEDZ"
 # Wymagana wersja NIE jest tu wpisana z ręki: czyta się ją z `<TargetFramework>`
 # w `src/Sim/Sim.csproj`, czyli z jedynego miejsca, które o niej decyduje. Wpisanie
 # jej drugi raz dałoby dwa źródła prawdy i rozjazd przy następnym podniesieniu.
-HAVE_SDK_MAJOR="$("$DOTNET" --version 2>/dev/null | cut -d. -f1)"
+# 6.D96: liczba WYŁĄCZNIE z polecenia, które się powiodło. Potok `--version | cut`
+# nie widzi kodu wyjścia pierwszego członu, więc przy niespełnialnym pinie brał `10`
+# z pierwszego wiersza WYPISANEJ LISTY SDK i meldował `ok dotnet SDK >= 10 (jest 10)`
+# obok `BRAK dotnet SDK` dwa wiersze wyżej.
+HAVE_SDK_MAJOR=""
+if HAVE_SDK_PELNA="$("$DOTNET" --version 2>/dev/null)" && [ -n "$HAVE_SDK_PELNA" ]; then
+  HAVE_SDK_MAJOR="$(printf '%s\n' "$HAVE_SDK_PELNA" | cut -d. -f1)"
+fi
 if [ -n "$REQUIRED_TFM" ] && [ -n "$HAVE_SDK_MAJOR" ]; then
   chk_required "dotnet SDK >= $REQUIRED_TFM (jest $HAVE_SDK_MAJOR)" \
     "[ \"$HAVE_SDK_MAJOR\" -ge \"$REQUIRED_TFM\" ]" \
@@ -176,9 +217,11 @@ fi
 # widzi wtedy niezerowy kod i melduje `BRAK dotnet SDK -> zainstaluj` — a SDK JEST,
 # nie zgadza się wyłącznie wersja. Ten blok nazywa więc prawdziwą przyczynę, zamiast
 # zostawić czytelnika z instrukcją instalowania czegoś, co ma.
-PIN_SDK="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([0-9.]*\)".*/\1/p' \
-           global.json 2>/dev/null | head -n 1)"
-if [ -n "$PIN_SDK" ]; then
+# 6.D96: `PIN_SDK` czytany JEST WYŻEJ, przed kontrolami — bo to on rozstrzyga, którą
+# z nich w ogóle wypisać. Tutaj zostaje wyłącznie pytanie o łatkę przy pinie
+# SPEŁNIONYM; przypadek niespełniony obsługuje jedna kontrola wymagana wyżej,
+# zamiast dwóch sprzecznych zdań i WARN-a pod nimi.
+if [ -n "$PIN_SDK" ] && [ "$PIN_NIESPELNIONY" = "nie" ]; then
   if HAVE_SDK="$("$DOTNET" --version 2>/dev/null)" && [ -n "$HAVE_SDK" ]; then
     # `dotnet` wystartował, czyli pin JEST spełniony. Zostaje pytanie, czy tą samą
     # łatką, co CI. Kontrola jest OPCJONALNA, bo wyższa łatka w tym samym paśmie
@@ -187,12 +230,6 @@ if [ -n "$PIN_SDK" ]; then
     chk_optional "dotnet SDK == pin z global.json ($PIN_SDK)" \
       "[ \"$HAVE_SDK\" = \"$PIN_SDK\" ]" \
       "masz $HAVE_SDK, a global.json pinuje $PIN_SDK — wyższa łatka w tym samym paśmie zbuduje projekt, ale CI stoi na $PIN_SDK"
-  elif "$DOTNET" --list-sdks >/dev/null 2>&1; then
-    # SDK są, a `--version` mimo to odmówił: jedyną różnicą między tymi dwoma
-    # poleceniami jest to, że `--version` czyta `global.json`.
-    echo "  WARN  dotnet SDK vs pin z global.json ($PIN_SDK)  -> SDK SĄ na dysku, ale ŻADNE nie spełnia pinu; \`dotnet --version\` kończy błędem, a komunikat wyżej mówi o braku SDK i jest w tej sytuacji mylący"
-    "$DOTNET" --list-sdks 2>/dev/null | sed 's/^/        na dysku: /'
-    optional_bad=$((optional_bad + 1))
   fi
 fi
 

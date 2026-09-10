@@ -950,7 +950,7 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.D93 | **ZROBIONE w #483 (10.09.2026), z artefaktem ODCZYTANYM z prawdziwego przebiegu.** `test_all.py` zapisuje czasy maszynowo, ale **tylko** gdy poprosi go zmienna `METRO_TIMING_OUT`; `tools/ci/timing_record.py` dokłada to, czego proces zestawu nie zna — czas ściany i **czas CPU dzieci** z powłokowego `times` (6.D42) plus ich stosunek; krok CI wskazuje `$RUNNER_TEMP`, skleja artefakt **PRZED** werdyktem i wynosi go z `if: always()`, bo przebieg przekraczający próg jest dokładnie tym, którego czasy chce się obejrzeć. Zapis do drzewa przy każdym przebiegu byłby oknem, które 6.D90 zmierzyło jako mylące dla równoległej kontroli czystości. **Artefakt z przebiegu `34466369899`, pobrany i przeczytany:** `modulow` **116**, wpisów modułów **116**, suma testów w nich **2178** = `wykonane` = `odkryte`; `runner` `metro-wsl-DOM-NEW-02`, `python` **3.14.4**, ściana **52,324 s**, CPU **81,83 s**, CPU/ściana **1,564**; kod wyjścia joba **success**, niezmieniony. Nie jest to lista dziesięciu najwolniejszych — pięć najszybszych modułów też w niej stoi. **Trzy rzeczy, których bez artefaktu nie było widać:** runner ma Pythona **3.14.4** wobec 3.11.15 w kontenerze sesji (dwa wydania większe różnicy); ten sam zestaw chodzi na runnerze **dwa razy szybciej** (52,3 s wobec 103,2 s), więc porównywanie maszyn bez metadanych czytałoby różnicę sprzętu jako regres kodu; `commit` w artefakcie to SHA **SCALANKI** (`4fafbf0`), nie wierzchołka gałęzi, bo `GITHUB_SHA` w zdarzeniu `pull_request` wskazuje scalankę — i to jest poprawne, zgodne z §9, bo zielony job mówi o scalance nazwanej w jego własnym logu. **Sześć kontroli negatywnych, `md5sum -c: OK` po każdej, cache bajtkodu czyszczony przed każdą, i DWIE wyszły ZIELONE — obie o moich własnych bramkach:** KN-2 (zapis powstaje ZAWSZE, pod ustaloną nazwą w `/tmp`) przeszła, bo asercja pytała o brak pliku **pod żądaną ścieżką**, czyli sprawdzała miejsce, o które sama poprosiła; zestaw wypisuje teraz `[CZAS] zapisano <ścieżka>`, kontrola czyta wypis dziecka i KN-2b daje 5/6. KN-5 (zapis do workspace zamiast `$RUNNER_TEMP`) przeszła, bo asercja pytała, czy `$RUNNER_TEMP/` pada **gdziekolwiek** w ciele kroku — a pada tam dwa razy, więc argument `--in` stojący niżej ją zaspokajał; asercja wyciąga teraz **wartość** zmiennej i KN-5b daje 5/6. Pozostałe: KN-1 (tylko dziesięć najwolniejszych) 5/6, KN-3 (sklejenie po werdykcie) 5/6, KN-4 (krok bez `always()`) 5/6, KN-6 (`scal` nie odmawia zerowej ściany) 5/6 — ta ostatnia pokazała, że odmowa nie była odmową: przy zerowej ścianie `scal` wywracał się dopiero na dzieleniu, więc czytający dostawał `ZeroDivisionError` zamiast zdania. Weryfikacja: `test_timing_record.py` **6/6**, zestaw **2172 → 2178**, moduły **115 → 116**, kod 0; `MIN_REPORTS` z 211 na 212. Raport: `reports/6d93-czas-przebiegu-jako-artefakt.md`. Czego nie zrobiłem: nie tknąłem `SUITE_RUNTIME_BUDGET_S` ani `werdykt` (pole „Poza zakresem"); **nie zautomatyzowałem porównywania przebiegów z różnych maszyn** — pole „Poza zakresem" wyklucza to bez metadanych, a metadane dopiero od dziś istnieją i pierwszy artefakt nie jest jeszcze szeregiem; nie ruszyłem listy `POMIARY`, bo jej zmiana wymagałaby tknięcia bramki budżetu; drugiej połowy propozycji audytu (o wyroczni mutacyjnej) nie realizowałem, bo pomiar potwierdza to, co pole „Czego ta pozycja NIE robi" mówiło z góry — `run_suite` czyta wyłącznie `N/M przeszło` i kod wyjścia. Zauważone: `retention-days: 30` daje szeregowi trzydzieści dni pamięci, co wystarcza na regres i nie wystarcza na trend kwartalny; czasy pięciu najszybszych modułów wychodzą `0.0 s`, bo rozdzielczość zapisu to milisekunda, więc suma wpisów nie jest sumą czasu przebiegu i nie wolno jej tak czytać. Treść pierwotna: **Czas per moduł jest wypisywany i wyrzucany — trend istnieje tylko w logach pojedynczych przebiegów** | zmierzone 09.09.2026: `tools/tests/test_all.py:533` wypisuje „czas per moduł (malejąco)", a `.github/workflows/python-tests.yml` nie ma ani jednego kroku `upload-artifact`. Lista `POMIARY` w `test_suite_runtime_budget.py` jest utrzymywana ręcznie i rośnie tylko wtedy, gdy ktoś o niej pamięta | M |
 | 6.D94 | **ZROBIONE w #484 (10.09.2026), i strażników było TRZY, nie cztery — pierwszy skan liczył podwójnie.** Stan przed, zmierzony na dzisiejszym drzewie: `python3 tools/tests/test_all.py` kod **0** (2178/2178), `python3 -O` kod **1** (2176/2178) przy tej samej liczbie testów i modułów; padały dokładnie dwa testy odmowy peronu. Stan po: **oba kody 0, oba 2182/2182, 117 modułów**. **Skan drzewa składni po `tools/` bez `tools/tests/` znalazł trzy `assert`y w dwóch plikach** — `station_sections.py:97,100` (`outer > inner` / `outer < inner`) i `braking.py:65` (`rec['status'] == 'design_model'`) — i **wszystkie trzy były strażnikami**, żaden niezmiennikiem wewnętrznym. **Pierwszy skan meldował cztery i to była usterka przyrządu, nie drzewa:** chodził `ast.walk`iem po każdej funkcji osobno, więc `assert` z `braking.py` wpadał do wyniku dwa razy, raz jako należący do `params`, raz do zagnieżdżonego `design`. Liczba miejsc jest treścią pola „Wyjście", więc podwójne liczenie nie było kosmetyką; skan schodzi teraz rekurencyjnie z pamięcią funkcji, a kontrola przyrządu podaje mu `assert` zagnieżdżony i żąda JEDNEGO trafienia. Automatyczne rozróżnienie strażnika od niezmiennika („warunek odwołuje się do parametru funkcji") zaklasyfikowało **zero z trzech** poprawnie, bo `outer` i `inner` są liczone z argumentów wewnątrz funkcji — przy trzech miejscach heurystyka była zbędna i przeczytałem je. **Drugi strażnik jest cichszy i groźniejszy, a wpis go nie znał:** `braking.params.design` to kontrola POCHODZENIA liczby, więc pod `-O` parametr o dowolnym innym statusie wchodził do modelu hamowania bez śladu — ta sama dyscyplina, którą §4.1 stawia jako regułę pierwszą. **Kształt odmowy wybrany POMIAREM, jak żądało pole „Wyjście":** `raise ValueError` stoi w `tools/` poza testami **68 razy**, `AssertionError` **nie łapie tam nikt**, a w `tools/tests/` łapie go pięć miejsc — dwa to testy tej właśnie odmowy (poprawione), trzy łapią własne asercje testu (nietknięte). Precedens dla odmowy pochodzeniowej stoi obok: `m7_layout.py:81`. **Poprawka do pola „Wejście":** wskazywało `tools/blender/station_kit.py`; funkcja tam jest, ale jako re-eksport (`station_kit.py:53`), a ciało stoi w `station_sections.py`. Bramka: nowy `tools/tests/test_tool_refusals.py`, lista `WOLNO_ASSERT` **pusta** i to jest zmierzony stan. **Pięć kontroli negatywnych, `md5sum -c: OK` po każdej**, cache bajtkodu czyszczony przed każdą: KN-1 (`assert` wraca do `station_sections`) 1/4 **i pod `-O` 22/23** — dwie połowy, bo bramka statyczna mówi o kształcie kodu, a przebieg `-O` o skutku; KN-2 (`assert` wraca do funkcji ZAGNIEŻDŻONEJ) 1/4 — istnieje osobno właśnie dlatego, że na tym przypadku mylił się przyrząd; KN-3 (skan nie schodzi do funkcji) 3/4; KN-4 (wpis w `WOLNO_ASSERT` bez pokrycia) 3/4; KN-5 (odmowa pochodzenia przepuszcza `spec`) 3/4. **KN-5 dwa razy wyszła czerwona z NIEWŁAŚCIWEGO powodu**, zanim zaczęła mierzyć to, co obiecuje: rejestr syntetyczny wypisywałem z ręki i był niepełny — raz wywrócił się na `emergency_brake_mps2`, raz na `empty_mass_kg`, za każdym razem `KeyError`em zamiast odmową; rejestr oddaje teraz każdy klucz, o który go poproszą. Weryfikacja: `test_tool_refusals.py` **4/4**, zestaw **2178 → 2182**, moduły **116 → 117**, kod 0 pod obiema flagami; `MIN_REPORTS` z 212 na 213. Raport: `reports/6d94-odmowa-nie-znika-pod-O.md`. Czego nie zrobiłem: nie wołam zestawu z `-O` w CI ani nie zmieniam warunku geometrycznego (pole „Poza zakresem"); nie tknąłem `assert`ów w `tools/tests/`, bo tam są mechanizmem werdyktu, a nie strażnikiem wejścia. **Zauważone i nietknięte: `aw0_kg` omija kontrolę pochodzenia** — `params` czyta `empty_mass_kg` jako `float(par[...]["value"])` z pominięciem `design()`, więc jego status nie jest sprawdzany wcale, ani przed tą pozycją, ani po niej. To nie jest usterka, którą tworzy `-O`, więc nie należy do 6.D94, ale jest to jedyny parametr modelu hamowania bez kontroli statusu. Treść pierwotna: **Narzędzie broni warunku geometrycznego gołym `assert`, więc pod `python3 -O` odmowa znika** — a wtedy peron zerowej szerokości przechodzi | zmierzone 09.09.2026 przy 6.D71: `python3 -O tools/tests/test_all.py` kończy kodem 1 wobec 0 przy przebiegu zwykłym, na dwóch testach. Pozycja mierzy, ile takich strażników jest w `tools/`, i zamienia je na odmowę, której interpreter nie zdejmuje | S |
 | 6.D95 | **ZROBIONE w #485 (10.09.2026).** `doctor.sh` wypisywał obok policzonej liczby napis STAŁY — „żadna nie wymaga decyzji właściciela" — czyli zdanie o zbiorze wypowiadane bez zajrzenia do zbioru, w chwili gdy w tej samej policzonej kolejce stała **6.D53** z polem „Zależy od" brzmiącym dosłownie „decyzji właściciela o zapisie do `data/network/sources.json`". Pomiar pól na dzisiejszej kolejce: **jedna z trzynastu** czeka na człowieka, pozostałe dwanaście wskazuje numery innych pozycji albo nie ma zależności. Wypis po poprawce: „Kolejka faz 5 i 6 ma **13** pozycji, z czego **12** do wzięcia od ręki. / Na decyzję właściciela czeka: **6.D53** — tej nie bierz." Zdanie „żadna nie wymaga" wraca, gdy nikt nie czeka, ale jako **wynik pomiaru**, nie napis stały — obie strony sprawdzone. `open_items` **nietknięte**, jak żąda pole „Poza zakresem": nowe `pole_zaleznosci`, `czeka_na_wlasciciela` i `do_wziecia` biorą jego wynik i dzielą go po treści pól. **Bramka uruchamia PRAWDZIWEGO doctora na drzewie z symlinków** (wszystko poza `docs/` linkowane, w `docs/` wszystko poza `TASKS.md`, a `TASKS.md` to kopia z dopiskiem), bo doctor przy braku którejkolwiek ścieżki kończy PRZED blokiem o kolejce. **Atrapa `dotnet` jest konieczna z tego samego powodu:** w kontenerze tej sesji SDK nie stoi w `PATH`, doctor melduje pozycję do naprawienia i do bloku nie dochodzi — pierwszy przebieg bramki napisałem bez atrapy i wypis nie zawierał ani słowa o kolejce, więc test przechodziłby, nie zmierzywszy niczego, gdyby nie asercja „doctor nie doszedł do bloku". **Sześć kontroli negatywnych, `md5sum -c: OK` po każdej, i JEDNA wyszła ZIELONA:** KN-5 (doctor liczy wolne pozycje jako WSZYSTKIE otwarte) przeszła, bo wypis mówił wtedy „13 pozycji, z czego **13** do wzięcia od ręki" i w następnym wierszu wymieniał 6.D53 jako zablokowaną — zdanie sprzeczne samo ze sobą, którego **żadna z trzech bramek nie widziała**, bo każda patrzyła na inną połowę wypisu; doszła asercja porównująca arytmetykę wiersza z długością nazwanej listy i KN-5b daje 3/4. Pozostałe: KN-1 (powrót do zdania stałego) 2/4, KN-2 (ostrzeżenie ZAWSZE) 3/4, KN-3 (szukane słowo zepsute) **0/4**, KN-4 (czytnik gubi drugą linię złamanego pola) 3/4, KN-6 (kotwica przestawiona na pozycję niezablokowaną) 2/4. **KN-2 mierzy kierunek PRZECIWNY do KN-1 i dlatego stoi osobno:** pierwsza pyta, czy ostrzeżenie się pojawia, gdy trzeba, druga — czy znika, gdy nie trzeba; ostrzeżenie wypisywane zawsze nie niesie informacji. Weryfikacja: `test_doctor_queue_claim.py` **4/4**, zestaw **2182 → 2186**, moduły **117 → 118**, kod 0; `MIN_REPORTS` z 213 na 214. Raport: `reports/6d95-doctor-nazywa-zablokowana-pozycje.md`. Czego nie zrobiłem: nie ruszyłem `open_items` ani kolejności brania pozycji (pole „Poza zakresem"); nie zdjąłem wiersza o kolejce, bo pomiar pokazał, że rozróżnienie DA SIĘ zrobić bez drugiego czytnika `docs/TASKS.md` w powłoce — `test_backlog` już ten plik czyta. **Zauważone: rozpoznanie idzie po słowie „właściciel" i jest heurystyką** — dziś w całym pliku nie ma pola „Zależy od", w którym znaczyłoby co innego, ale zależność od człowieka opisana bez tego słowa („czeka na odpowiedź STIB") nie zostanie rozpoznana. Drugie: **wolnych pozycji jest dokładnie dwanaście, czyli tyle, ile wynosi `MINIMUM_READY_ITEMS`**, ale zapadka liczy `open_items`, czyli trzynaście, więc się nie zapala; czy próg ma mówić o pozycjach DO WZIĘCIA, jest osobną decyzją i osobną pozycją. Treść pierwotna: **`doctor.sh` wypisuje, że żadna pozycja kolejki nie wymaga decyzji właściciela — a 6.D53 wymaga** | zmierzone 10.09.2026: wiersz 411 to napis STAŁY, wypisywany bez zajrzenia do pól „Zależy od" liczonych pozycji. Poprawka dotyczy wyłącznie własnego wypisu doctora i pola, które już jest w `docs/TASKS.md` | S |
-| 6.D96 | **Przy niespełnialnym pinie SDK doctor mówi naraz „nie ma" i „jest w porządku"** | zmierzone 10.09.2026 przy 6.D79: pin 10.0.402 przy zainstalowanym 10.0.401 daje `dotnet --version` kod 155 z listą SDK na stdout, więc `chk_required` melduje BRAK, a następna kontrola bierze `cut -d. -f1` z przeciekłej listy i melduje ok. Rozstrzyga kod wyjścia `--list-sdks`, nie treść — bez decyzji o wersji ani polityce pinu | S |
+| 6.D96 | **ZROBIONE w #486 (10.09.2026).** Przy pinie, którego żadne zainstalowane SDK nie spełnia, `dotnet --version` kończy kodem **155** i wypisuje **na stdout** listę SDK — doctor wypisywał wtedy naraz `BRAK dotnet SDK -> zainstaluj` (bo kod niezerowy) i `ok dotnet SDK >= 10 (jest 10)`, bo potok `--version | cut -d. -f1` **nie widzi kodu wyjścia pierwszego członu** i brał `10` z pierwszego wiersza wypisanej listy. Jedno zdanie radziło zainstalować to, co leży na dysku; drugie meldowało sprawdzenie zrobione na wyjściu polecenia, które padło. **Rozstrzyga teraz KOD WYJŚCIA, nie treść stdout**, i stany są trzy: SDK jest i pin spełniony → `ok dotnet SDK` plus `ok dotnet SDK >= N`; SDK jest, pin niespełniony → **jedno** zdanie o pinie jako pozycja WYMAGANA, z wypisaniem, co leży na dysku; nie ma żadnego SDK → `BRAK dotnet SDK -> zainstaluj` bez zmiany. **Trzeci stan wymusiła bramka, nie projekt:** pierwsza wersja rozpoznawała obecność SDK po kodzie wyjścia `--list-sdks`, a `test_brak_jakiegokolwiek_sdk_nadal_kaze_instalowac` padł od razu — `dotnet --list-sdks` bez ani jednego SDK kończy **zerem** i nie wypisuje nic, więc stan „nie ma czego pinować" zlewał się z „pin niespełniony". Liczy się NIEPUSTE wyjście. **Waga zdania jest częścią poprawki:** pozycja WYMAGANA, nie WARN, bo w tym stanie `dotnet build` też nie ruszy — bramka sprawdza **kod wyjścia doctora**, bo o wadze mówi tylko on. **Pięć kontroli negatywnych, `md5sum -c: OK` po każdej:** KN-1 (kontrola SDK znów bezwarunkowa) 41/42, KN-2 (`HAVE_SDK_MAJOR` wraca do potoku) **40/42, dwie bramki**, KN-3 (obecność SDK po samym kodzie) 41/42, KN-4 (zdanie o pinie jako WARN) 41/42, KN-5 (wypis bez listy z dysku) 41/42. **KN-2 zapala dwie bramki i to jest wybór:** jedna patrzy na wypis, druga na źródło `doctor.sh` — mechanizm usterki (potok gubiący kod wyjścia) jest przybity osobno od objawu, bo objaw da się usunąć, nie usuwając mechanizmu. **Atrapa oddaje ZMIERZONE zachowanie:** `--version` wypisuje listę na **stdout** i kończy 155; gdyby pisała na stderr, cała usterka by w niej nie istniała. Weryfikacja: `test_dotnet_version.py` **42/42**, zestaw **2186 → 2190**, moduły bez zmiany (118), kod 0; `MIN_REPORTS` z 214 na 215. Raport: `reports/6d96-pin-niespelniony-a-brak-sdk.md`. Czego nie zrobiłem: nie zmieniałem polityki `rollForward` ani wersji w pinie (pole „Poza zakresem"); nie ruszałem podpowiedzi o `DOTNET_ROOT` przy SDK poza `PATH` — to inna sytuacja, pilnowana czterema istniejącymi bramkami. Zauważone: `doctor.sh` woła `"$DOTNET" --version` **trzy razy** w tym bloku; na prawdziwym SDK to trzykrotne pytanie o tę samą rzecz, ale scalenie wymagałoby przeniesienia wyniku między blokami, które dziś czytają się osobno. Treść pierwotna: **Przy niespełnialnym pinie SDK doctor mówi naraz „nie ma" i „jest w porządku"** | zmierzone 10.09.2026 przy 6.D79: pin 10.0.402 przy zainstalowanym 10.0.401 daje `dotnet --version` kod 155 z listą SDK na stdout, więc `chk_required` melduje BRAK, a następna kontrola bierze `cut -d. -f1` z przeciekłej listy i melduje ok. Rozstrzyga kod wyjścia `--list-sdks`, nie treść — bez decyzji o wersji ani polityce pinu | S |
 | 6.D97 | **Cztery lokalne filtry katalogów zostały po wspólnym odsianiu z 6.D74, trzy z nich są uboższą kopią `.gitignore`** | zmierzone 10.09.2026: `BUILD_DIRS` zna `bin` i `obj`, a nie zna `build`, `renders` ani `.venv`. Czwarty filtr (`"tests" in base`) NIE jest kopią i ma zostać — rozróżnienie idzie po zawartości `.gitignore`, czyli po pliku w drzewie, a nie po czyimś wyborze | S |
 | 6.D98 | **`chk_*` w doctorze wykonuje przez `eval` dwa różne kształty: sześć uruchomień programu i cztery wyrażenia powłoki** | zmierzone 10.09.2026 przy 6.D81: bramka na cytowanie potrafi rozjazd ZGŁOSIĆ, ale nie usuwa potrzeby pamiętania o cudzysłowach przy każdym nowym wywołaniu. Rozdzielenie form jest zmianą wewnątrz `doctor.sh`, a warunkiem odbioru jest wypis identyczny co do bajtu | M |
 | 6.D99 | **Wiersze tego samego panelu składane poza katalogiem tekstów, ze słowami wpisanymi wprost** | zmierzone 10.09.2026 przy 6.D83: katalog objął `Hud.Update`, ale `StationLine`, `Faza`, `HelpLine`, `DriverActions` i `EmergencyBrake.Notice` mają słowa w kodzie. Liczbę miejsc i słów pozycja ma policzyć z drzewa, a nie przepisać z wpisu; wybór języka nie wchodzi w grę, bo katalog ma jeden i tak zostaje | M |
@@ -961,6 +961,12 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.D104 | **Tabela zaprzeczeń README obejmuje jeden punkt z pięciu** | zmierzone 10.09.2026 przy 6.D87: sekcja „Czego nie ma" ma **pięć** punktów, `ZAPRZECZENIA` w `tools/tests/test_readme_claims.py` ma **jeden** wpis — ten, który się rozjechał. Pozostałe cztery to osobna praca, a nie dopisanie wierszy: dwa z nich mówią o DANYCH, nie o API, więc wiązanie ich z nazwą w rdzeniu byłoby wiązaniem z czymś, czego nie dotyczą. Wynikiem ma być pomiar per punkt i wpis albo zapisany powód jego braku — tabela nie ma rosnąć o wpisy, których nikt nie umie zapalić. Treści punktów README pozycja nie zmienia, więc nie ma tu czego rozstrzygać | M |
 | 6.D105 | **Dwa dokumenty definiują statusy pochodzenia i nikt ich ze sobą nie zestawia — jedna nazwa jest używana w dokumencie, który jej nie definiuje** | zmierzone 10.09.2026 przy 6.D89, i pomiar obalił pierwszą wersję tego wpisu. `docs/21-measured-vs-assumed.md` **nie jest** kopią listy z `docs/02-simulation.md`: ma WŁASNĄ tabelę statusów i definiuje `spec`, `observed`, `design_assumption`, `blocked`, gdy dokument modelu definiuje `spec`, `observed`, `est`, `design_model`. Wspólne są dwa, rozłączne po dwa z każdej strony. Usterką nie jest więc rozjazd list, tylko to, że `docs/21` **używa `design_model` sześć razy, nie definiując go i nie odsyłając po niego nigdzie** — a `est` nie występuje ani tam, ani w danych pojazdu. Bramka ma żądać, żeby każdy status użyty w `docs/21` był zdefiniowany w jednej z dwóch tabel, i żeby dokument mówił, która z nich którą nazwę trzyma. Znaczenia żadnego statusu ani klasyfikacji żadnego parametru pozycja nie zmienia, więc nie ma tu czego rozstrzygać | S |
 | 6.D106 | **Narzędzie mutacyjne kluczuje pliki tymczasowe treścią, nie procesem — dwa równoległe przebiegi tego samego commita piszą do jednej ścieżki** | zmierzone 10.09.2026: `tools/tests/mutation_sweep.py:744` buduje `metro-pokrycie-<commit>.json`, a `:1036` `metro-mutacje-<znacznik>.jsonl`, obie w `tempfile.gettempdir()`. Runnery jednej puli dzielą `/tmp`, a ten sam mechanizm jest już opisany w `tools/ci/blender_install.sh`, gdzie dwa równoległe pobrania do stałej nazwy dały uszkodzone archiwum. **To nie jest 6.D90:** tamta dotyczy mutowania `data/` w miejscu i kończy się fałszywym alarmem o czystości drzewa, ta kończy się wynikiem policzonym z cudzego dziennika. Dopisanie elementu unikatowego dla procesu, przy zachowanym wznowieniu z jawnego `--journal` | S |
+| 6.D107 | **Jeden z piętnastu parametrów modelu hamowania jest czytany z pominięciem kontroli pochodzenia** | zmierzone 10.09.2026 przy 6.D94: `braking.params` czyta piętnaście parametrów, czternaście przez pomocnika `design()` odmawiającego przy statusie innym niż `design_model`, a `aw0_kg` wprost — `float(par["empty_mass_kg"]["value"])`. Jego status nie jest sprawdzany wcale, ani przed 6.D94, ani po niej, i brak kontroli nie zostawia śladu w żadnym wypisie. Pozycja rozstrzyga POMIAREM, czy ten parametr może iść tą samą drogą co reszta; wartości ani statusów w `data/` nie zmienia | S |
+| 6.D108 | **Raport podający BIEŻĄCĄ wartość zapadki starzeje się przy najbliższym jej podniesieniu — dziś 18 takich miejsc w 12 plikach** | zmierzone 10.09.2026, trzy zapalenia w jednej sesji: bramka `test_report_claims.py` czyta pierwszą liczbę po nazwie stałej jako twierdzenie o wartości bieżącej, a raport ma prawo mówić o wartości z DNIA POMIARU. Za każdym razem poprawką było przepisanie liczby słownie, czyli obejście, nie reguła. Pozycja ma rozróżnić oba zdania po KSZTAŁCIE, nie po liście wyjątków; wartości zapadek nie zmienia i raportów historycznych nie przepisuje | M |
+| 6.D109 | **Próg zapasu porównuje pozycje WPISANE, a nie te do wzięcia — dziś 11 wobec 10** | zmierzone 10.09.2026 przy 6.D95, które dopiero dało narzędzie do policzenia obu liczb: `MINIMUM_READY_ITEMS` (12) stoi obok `len(open_items(...))`, a pozycji faktycznie do wzięcia jest mniej, bo 6.D53 czeka na właściciela. Pozycja ma ZMIERZYĆ, ile razy w historii repozytorium te liczby się różniły i o ile, i dopiero na tym oprzeć wybór licznika; zapisany powód, dla którego licznik zostaje, jest wynikiem tak samo dobrym. Wartości progu nie zmienia — to decyzja o tempie pracy | S |
+| 6.D110 | **Bramka zapisów do drzewa widzi tylko `open` — sześć miejsc pisze przez `shutil` i `os.replace`** | zmierzone 10.09.2026 przy 6.D90 i wypisane wtedy jako ograniczenie znane z góry, dziś policzone: skan po `tools/tests/` znajduje **6** miejsc z `shutil.copyfile`, `shutil.copy2` i `os.replace`, których `test_tree_writes.py` nie widzi. 6.D90 mierzyło kształt, który WYSTĄPIŁ (siedem miejsc z `open`), a rozszerzanie o niewystępujące byłoby zgadywaniem — teraz drugi kształt jest policzony, więc przestał być hipotezą | S |
+| 6.D111 | **26 z 60 nazw przystanków jest dwujęzycznych z kreską pionową, a wszystkie porównania idą po CAŁYM napisie** | zmierzone 10.09.2026 przy 6.D91 i 6.D92: zmiana samej formy zapisu po jednej stronie — spacja wokół kreski, inna kolejność języków, jeden człon zamiast dwóch — rozjeżdża kontrolę bez zmiany faktu o sieci. Dziś nie pilnuje tego nic, bo obie strony czyta się z tego samego pliku; przy pierwszym źródle zewnętrznym (GTFS, OSM) to przestaje być prawdą. Kształt normalizacji ma być WYPROWADZONY z pomiaru na tych 26 nazwach; nazw w `data/` pozycja nie zmienia i języka wiodącego nie wybiera | M |
+| 6.D112 | **`doctor.sh` pyta `dotnet --version` trzy razy o to samo w jednym bloku** | zmierzone 10.09.2026 przy 6.D96: wywołania w wierszach 152, 181 i 225 pytają o tę samą rzecz na tej samej maszynie w odstępie milisekund. To nie jest tylko czas — trzy wywołania to trzy okazje do rozjazdu: gdyby między nimi zmienił się `global.json` albo `PATH`, doctor wypisałby zdania opisujące DWA różne stany jako jeden. Ta sama rodzina co usterka zamknięta przez 6.D96, tylko rozłożona w czasie zamiast w potoku. Warunkiem odbioru jest wypis identyczny co do bajtu w trzech stanach | S |
 
 #### Szczegóły pozycji z kompletem sześciu pól
 
@@ -7576,6 +7582,179 @@ nie sięga, nawet gdy nie ma nic innego do roboty; wtedy sięga po fazę 5.
 - **Poza zakresem:** zmiana zbioru mutacji, sposobu liczenia wyników i mutowania
   `data/` w miejscu (to jest 6.D90).
 - **Zależy od:** brak.
+
+##### 6.D107 · Jeden parametr modelu hamowania bez kontroli pochodzenia
+
+- **Skąd:** zmierzone 10.09.2026 przy wykonaniu 6.D94. `tools/physics/braking.py`
+  w funkcji `params` czyta **piętnaście** parametrów, z czego **czternaście** przez
+  pomocnika `design()`, który odmawia, gdy status nie brzmi `design_model`. Jeden —
+  `aw0_kg` — jest czytany wprost: `float(par["empty_mass_kg"]["value"])`, z pominięciem
+  tej kontroli. Jego status nie jest sprawdzany wcale, ani przed 6.D94, ani po niej.
+- **Dlaczego to pozycja, a nie ciekawostka:** masa pustego składu wchodzi do modelu
+  hamowania tak samo jak reszta, a `CLAUDE.md` §4.1 stawia pochodzenie liczby jako
+  regułę pierwszą. Czternaście parametrów ma strażnika, jeden go nie ma — i nie widać
+  tego z żadnego wypisu, bo brak kontroli nie zostawia śladu.
+- **Wejście:** `tools/physics/braking.py` (`params`, `design`),
+  `data/vehicle/m7-spec.json` (tylko do odczytu, po status `empty_mass_kg`),
+  `tools/tests/test_tool_refusals.py`.
+- **Wyjście:** rozstrzygnięcie **pomiarem**, czy `empty_mass_kg` ma w rejestrze status
+  pozwalający przejść przez `design()`; jeśli tak — czytany tą samą drogą co reszta,
+  jeśli nie — powód wypisany przy nim, bo wtedy wyjątek jest treścią, a nie
+  przeoczeniem.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_tool_refusals.py
+  ```
+  Oczekiwane: zestaw zielony, a parametr o złym statusie zapala odmowę niezależnie od
+  tego, którym z piętnastu jest.
+- **Skończone, gdy:** każdy z piętnastu parametrów czytanych przez `params` przechodzi
+  przez tę samą kontrolę statusu albo ma przy sobie zapisany powód, dla którego nie
+  przechodzi, a liczba jednych i drugich sumuje się do piętnastu.
+- **Poza zakresem:** zmiana wartości któregokolwiek parametru i zmiana statusów
+  w `data/` — jedno i drugie jest decyzją o danych.
+- **Zależy od:** 6.D94.
+
+##### 6.D108 · Raport podający bieżącą wartość zapadki starzeje się przy jej podniesieniu
+
+- **Skąd:** zmierzone 10.09.2026, trzy razy w jednej sesji. Bramka
+  `test_report_claims.py` czyta pierwszą liczbę stojącą po nazwie stałej jako
+  twierdzenie o jej **bieżącej** wartości, a raport ma prawo mówić o wartości **z dnia
+  pomiaru**. Zapaliła się na strzałce `207 → 208`, potem na zdaniu „stoi na 208"
+  nazajutrz i na „stoi na 209" godzinę później. Za każdym razem poprawką było
+  przepisanie liczby słownie.
+- **Ile tego jest:** skan po `reports/` znajduje **18** miejsc w **12** plikach, gdzie
+  nazwa zapadki stoi w grawisach z liczbą w zasięgu wzorca. Każde z nich zapali bramkę
+  przy następnym podniesieniu tej zapadki.
+- **Wejście:** `tools/tests/test_report_claims.py` (`CLAIM`, `CLAIM_EXCEPTIONS`),
+  `reports/` (18 zmierzonych miejsc), `tools/tests/test_report_hygiene.py`.
+- **Wyjście:** rozróżnienie zdania o wartości BIEŻĄCEJ od zdania o wartości Z DNIA
+  POMIARU — po kształcie, nie po liście wyjątków. Kształt do ustalenia pomiarem na tych
+  18 miejscach; zapis słowny jest dziś obejściem, nie regułą.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_report_claims.py
+  ```
+  Oczekiwane: zestaw zielony, rozjazd wartości bieżącej nadal zapala bramkę, a zdanie
+  datowane jej nie zapala.
+- **Skończone, gdy:** podniesienie dowolnej zapadki o jeden nie zapala bramki na żadnym
+  z 18 zmierzonych miejsc, a **wpisanie nieprawdziwej** wartości bieżącej nadal ją
+  zapala — obie strony sprawdzone kontrolą negatywną.
+- **Poza zakresem:** zmiana wartości którejkolwiek zapadki i przepisywanie raportów
+  historycznych na zapis słowny.
+- **Zależy od:** brak.
+
+##### 6.D109 · Próg zapasu liczy pozycje WPISANE, a nie te do wzięcia
+
+- **Skąd:** zmierzone 10.09.2026 przy 6.D95, które dało narzędzie do policzenia obu
+  liczb. `MINIMUM_READY_ITEMS` wynosi **12** i jest porównywane z `len(open_items(...))`,
+  czyli z liczbą pozycji WPISANYCH. Pozycji faktycznie do wzięcia jest mniej, bo 6.D53
+  czeka na decyzję właściciela. Dziś: wpisanych **11**, do wzięcia **10**.
+- **Dlaczego to nie jest oczywista poprawka:** podniesienie progu albo zamiana licznika
+  zmienia moment, w którym agent musi przerwać pracę i uzupełniać kolejkę — a to jest
+  reguła z `CLAUDE.md` §8. Pozycja ma **zmierzyć**, ile razy w historii tego repozytorium
+  te dwie liczby się różniły i o ile, i dopiero na tym oprzeć wybór licznika.
+- **Wejście:** `tools/tests/test_backlog.py` (`MINIMUM_READY_ITEMS`, `open_items`,
+  `do_wziecia`, `test_the_queue_holds_at_least_a_day_of_work`), `CLAUDE.md` §8,
+  `docs/TASKS.md`.
+- **Wyjście:** jedna liczba, o której wiadomo, co mierzy, i zdanie w `CLAUDE.md` §8
+  zgodne z nią co do słowa. Jeśli pomiar pokaże, że różnica jest rzadka i mała —
+  zapisany powód, dla którego licznik zostaje, jest wynikiem tak samo dobrym.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_backlog.py
+  ```
+  Oczekiwane: zestaw zielony, a obie liczby wypisane w komunikacie bramki zapasu.
+- **Skończone, gdy:** komunikat bramki zapasu podaje obie liczby, dokument i kod mówią
+  o tej samej, a kontrola negatywna na kolejce syntetycznej z pozycją zablokowaną
+  pokazuje, którą z nich próg naprawdę porównuje.
+- **Poza zakresem:** zmiana wartości progu — to jest decyzja o tempie pracy, nie
+  o przyrządzie.
+- **Zależy od:** 6.D95.
+
+##### 6.D110 · Bramka zapisów do drzewa widzi tylko `open`
+
+- **Skąd:** zmierzone 10.09.2026 przy 6.D90, wypisane wtedy jako ograniczenie znane
+  z góry. `tools/tests/test_tree_writes.py` łapie `open(..., "w"/"a")` ze ścieżką
+  zbudowaną z `ROOT` — i nic więcej. Skan po `tools/tests/` znajduje **6** miejsc
+  piszących inaczej: `shutil.copyfile`, `shutil.copy2`, `os.replace`. Żadnego z nich
+  bramka nie widzi.
+- **Dlaczego dopiero teraz:** 6.D90 mierzyło kształt, który w tym repozytorium
+  **wystąpił** — siedem miejsc z `open`. Rozszerzanie bramki o kształty niewystępujące
+  byłoby zgadywaniem. Dziś kształt drugi jest policzony, więc przestał być hipotezą.
+- **Wejście:** `tools/tests/test_tree_writes.py` (`miejsca_zapisu`, `DLUG`,
+  `MAX_ZAPISOW_W_DRZEWIE`), sześć zmierzonych miejsc w `tools/tests/`.
+- **Wyjście:** skan rozpoznaje także `shutil.copy*`, `os.replace` i
+  `pathlib.Path.write_*` z celem zbudowanym z `ROOT`; liczba miejsc przeliczona,
+  zapadka ustawiona na wynik pomiaru, a miejsca legalne wpisane do `DLUG` z powodem.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_tree_writes.py
+  ```
+  Oczekiwane: zestaw zielony, a każdy z trzech nowych kształtów zapala bramkę na
+  wejściu syntetycznym i nie zapala jej dla celu w katalogu tymczasowym.
+- **Skończone, gdy:** trzy nowe kształty mają po dwa wejścia syntetyczne (cel z `ROOT`
+  i cel tymczasowy), sześć zmierzonych miejsc jest rozstrzygniętych — objęte zapadką
+  albo wpisane do `DLUG` z powodem — a suma jednych i drugich zgadza się z pomiarem.
+- **Poza zakresem:** zapis przez podproces i przez bibliotekę zewnętrzną; naprawianie
+  długu z `DLUG`, który ma własne pozycje.
+- **Zależy od:** 6.D90.
+
+##### 6.D111 · Nazwy przystanków porównywane całym napisem dwujęzycznym
+
+- **Skąd:** zmierzone 10.09.2026 przy 6.D91 i 6.D92. Z **60** unikalnych przystanków
+  w `data/network/lines.json` **26** ma nazwę dwujęzyczną z kreską pionową
+  (`Arts-Loi|Kunst-Wet`, `Botanique|Kruidtuin`, `CERIA|COOVI`). Wszystkie porównania
+  między osią a linią i między dwiema liniami idą po CAŁYM napisie.
+- **Dlaczego to pozycja:** zmiana samej formy zapisu po jednej stronie — spacja wokół
+  kreski, inna kolejność języków, jeden człon zamiast dwóch — rozjeżdża kontrolę bez
+  zmiany faktu o sieci. Dziś nie pilnuje tego nic, bo obie strony czyta się z tego
+  samego pliku; przy pierwszym źródle zewnętrznym (GTFS, OSM) to przestaje być prawdą.
+- **Wejście:** `data/network/lines.json` i `data/track/*.json` (tylko do odczytu),
+  `tools/track/validate.py` (`_is_subsequence`), `tools/tests/test_network_declarations.py`
+  (`_canonical` — istniejąca normalizacja, sprawdzić, czego dotyczy).
+- **Wyjście:** jedno miejsce, w którym nazwa przystanku jest normalizowana przed
+  porównaniem, wołane przez wszystkie porównania nazw; kształt normalizacji
+  **wyprowadzony z pomiaru** na tych 26 nazwach, nie wymyślony.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_network_declarations.py
+  ```
+  Oczekiwane: zestaw zielony, a zmiana formy zapisu jednej nazwy po jednej stronie nie
+  zapala niczego, podczas gdy zmiana SAMEJ nazwy zapala.
+- **Skończone, gdy:** rozjazd formy zapisu (spacja, kolejność członów) nie zapala
+  żadnej bramki, a podmiana nazwy na inną stację zapala — obie strony na wejściu
+  syntetycznym, `data/` nietknięte.
+- **Poza zakresem:** zmiana nazw w `data/`, wybór języka wiodącego i tłumaczenie
+  czegokolwiek — to są decyzje właściciela.
+- **Zależy od:** brak.
+
+##### 6.D112 · `doctor.sh` pyta `dotnet --version` trzy razy o to samo
+
+- **Skąd:** zmierzone 10.09.2026 przy 6.D96. W bloku SDK stoją **trzy** wywołania
+  `"$DOTNET" --version`: w rozpoznaniu stanu pinu (wiersz 152), przy `HAVE_SDK_MAJOR`
+  (181) i w gałęzi pinu spełnionego (225). Wszystkie trzy pytają o tę samą rzecz na tej
+  samej maszynie, w odstępie milisekund.
+- **Dlaczego to nie jest tylko czas:** trzy wywołania to trzy okazje do rozjazdu.
+  Gdyby między nimi zmienił się `global.json` albo `PATH` — a `doctor.sh` bywa wołany
+  w skrypcie, który to robi — doctor wypisałby zdania opisujące **dwa różne stany**
+  jako jeden. Ta sama rodzina co usterka, którą 6.D96 właśnie zamknęło, tylko rozłożona
+  w czasie zamiast w potoku.
+- **Wejście:** `doctor.sh` (blok SDK, wiersze 145–230),
+  `tools/tests/test_dotnet_version.py` (`_run_doctor`, `_doctor_z_pinem`).
+- **Wyjście:** jedno wywołanie, którego wynik (kod wyjścia i napis) niosą zmienne przez
+  cały blok; wypis identyczny co do bajtu we wszystkich trzech stanach z 6.D96.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_dotnet_version.py
+  ```
+  Oczekiwane: zestaw zielony, a wypis w każdym z trzech stanów identyczny co do bajtu
+  z wypisem sprzed zmiany.
+- **Skończone, gdy:** w bloku SDK stoi **jedno** wywołanie `--version`, wypisy trzech
+  stanów są identyczne co do bajtu z zapisanymi dziś, a atrapa licząca swoje wywołania
+  potwierdza liczbę jeden.
+- **Poza zakresem:** zmiana treści któregokolwiek komunikatu i łączenie wywołań
+  `--list-sdks` z `--version` — to są dwa różne pytania i 6.D96 właśnie na tym stoi.
+- **Zależy od:** 6.D96.
 
 #### Rozstrzygnięte 07.09.2026 — cztery decyzje właściciela
 

@@ -284,7 +284,14 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 #: wynikiem `len(detail_sections(...))` na pliku po edycji — sześć bloków dopisanych
 #: jednym commitem to dokładnie ten przypadek, w którym dodawanie jedynki z pamięci
 #: się myli.
-MINIMUM_DETAIL_BLOCKS = 179
+#: **179 → 185 (10.09.2026, przy 6.D96).** Sześć bloków: 6.D107 … 6.D112. Uzupełnienie
+#: NIE jest tu osobnym commitem i to jest wybór wymuszony arytmetyką: domknięcie 6.D96
+#: zbija kolejkę z dwunastu na jedenaście, czyli PONIŻEJ progu, więc `CLAUDE.md` §8
+#: każe uzupełnić ją zanim cokolwiek innego się zacznie — a commit z samym domknięciem
+#: zostawiłby drzewo czerwone. Wszystkie sześć wyszło z pomiarów zrobionych przy
+#: pozycjach 6.D90, 6.D91, 6.D92, 6.D94, 6.D95 i 6.D96, zapisanych tam jako zauważone.
+#: Wartość z `len(detail_sections(...))` na pliku po edycji.
+MINIMUM_DETAIL_BLOCKS = 185
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je

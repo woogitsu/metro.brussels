@@ -74,7 +74,7 @@ Wpisanie jej „na wszelki wypadek" dałoby polu „Skąd" zdanie, którego nikt
 
 ## 5. Zapadki
 
-`MINIMUM_DETAIL_BLOCKS` stoi dziś na **179**: w tym commicie została podniesiona
+`MINIMUM_DETAIL_BLOCKS` została w tym commicie podniesiona
 ze stu sześćdziesięciu siedmiu na sto siedemdziesiąt trzy, bo bloków przybyło sześć,
 a drugie tego samego dnia uzupełnienie kolejki dołożyło następnych sześć. `MINIMUM_READY_ITEMS`
 **bez zmiany** (12): jest progiem, poniżej którego nie wolno zejść, a nie licznikiem

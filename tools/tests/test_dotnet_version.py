@@ -1201,6 +1201,155 @@ def test_doctor_asks_the_probe_and_not_the_name_of_a_file():
         "zapisu, przed czym broni")
 
 
+
+
+# --- 6.D96: pin niespełniony a „brak SDK" ----------------------------------------
+#
+# Zmierzone 10.09.2026 przy 6.D79, podstawianiem pinu i czytaniem KODU WYJŚCIA:
+#
+#     pin 10.0.401 (zainstalowane 10.0.401)  ->  kod 0
+#     pin 10.0.402                            ->  kod 155
+#
+# Przy niespełnialnym pinie `dotnet --version` kończy błędem i wypisuje NA STDOUT
+# listę zainstalowanych SDK. Doctor wypisywał wtedy NARAZ dwa zdania o tym samym
+# SDK: `BRAK dotnet SDK -> zainstaluj` (kod niezerowy) i `ok dotnet SDK >= 10
+# (jest 10)` — bo `--version | cut -d. -f1` nie widzi kodu wyjścia pierwszego członu
+# potoku i brał `10` z pierwszego wiersza wypisanej listy. Jedno zdanie radziło
+# zainstalować coś, co leży na dysku; drugie meldowało sprawdzenie zrobione na
+# wyjściu polecenia, które padło.
+
+
+def _atrapa_dotnet(sciezka, zainstalowane, pin):
+    """Atrapa oddająca ZMIERZONE zachowanie `dotnet` przy pinie z `global.json`.
+
+    `--list-sdks` wypisuje listę i kończy zerem ZAWSZE (pinu nie czyta).
+    `--version` kończy zerem tylko wtedy, gdy pin jest na liście; inaczej wypisuje
+    tę samą listę **na stdout** i kończy kodem 155 — dokładnie tak, jak zmierzono
+    na kontenerze tej sesji. To ta druga część jest usterką: stdout wygląda jak
+    odpowiedź, a nie jest.
+    """
+    lista = "".join(f"{w} [/atrapa/sdk]\\n" for w in zainstalowane)
+    spelniony = "0" if pin in zainstalowane else "1"
+    with open(sciezka, "w", encoding="utf-8") as uchwyt:
+        uchwyt.write(
+            "#!/bin/sh\n"
+            'if [ "$1" = "--list-sdks" ]; then printf %s "$LISTA"; exit 0; fi\n'
+            'if [ "$1" = "--version" ]; then\n'
+            '  if [ "$SPELNIONY" = "0" ]; then echo "$PIN"; exit 0; fi\n'
+            '  printf %s "$LISTA"; exit 155\n'
+            "fi\n"
+            "exit 1\n")
+    os.chmod(sciezka, 0o755)
+    return {"LISTA": lista, "SPELNIONY": spelniony, "PIN": pin}
+
+
+def _doctor_z_pinem(pin, zainstalowane):
+    """`doctor.sh` na drzewie z podmienionym `global.json` i atrapą `dotnet`.
+
+    Symlinki do wszystkiego poza `global.json`, bo doctor sprawdza kilkanaście
+    ścieżek i przy braku którejkolwiek kończy przed interesującym nas blokiem.
+    """
+    import subprocess
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        drzewo = os.path.join(tmp, "repo")
+        os.makedirs(drzewo)
+        for nazwa in os.listdir(ROOT):
+            if nazwa == "global.json":
+                continue
+            os.symlink(os.path.join(ROOT, nazwa), os.path.join(drzewo, nazwa))
+        with open(os.path.join(drzewo, "global.json"), "w", encoding="utf-8") as uchwyt:
+            json.dump({"sdk": {"version": pin, "rollForward": "latestPatch"}}, uchwyt)
+
+        atrapa = os.path.join(tmp, "bin", "dotnet")
+        os.makedirs(os.path.dirname(atrapa))
+        zmienne = _atrapa_dotnet(atrapa, zainstalowane, pin)
+        dom = os.path.join(tmp, "home")
+        os.makedirs(dom)
+
+        srodowisko = dict(os.environ, DOTNET_BIN=atrapa, HOME=dom, LC_ALL="C", **zmienne)
+        srodowisko.pop("DOTNET_ROOT", None)
+        gotowe = subprocess.run(["bash", DOCTOR, "--no-tests"], cwd=drzewo,
+                                env=srodowisko, capture_output=True, text=True,
+                                timeout=180)
+        # Kod wyjścia obok wypisu, bo o WADZE zdania mówi tylko on: `doctor.sh`
+        # kończy liczbą pozycji wymaganych do naprawienia. WARN zamiast BRAK dałby
+        # ten sam napis o pinie i zero na wyjściu — czyli środowisko, w którym
+        # `dotnet build` nie ruszy, zameldowane jako gotowe do pracy.
+        return gotowe.stdout + gotowe.stderr, gotowe.returncode
+
+
+def test_niespelniony_pin_nie_daje_dwoch_sprzecznych_zdan():
+    """Sedno 6.D96: ani „BRAK dotnet SDK", ani „ok dotnet SDK >= N" — jedno zdanie.
+
+    Obie połowy są tu potrzebne. Bez pierwszej wystarczyłoby zdjąć kontrolę wersji,
+    żeby test przeszedł; bez drugiej — zostawić `ok` wypisywane z wyjścia polecenia,
+    które padło, czyli usterkę, dla której ta pozycja powstała.
+    """
+    wypis, kod = _doctor_z_pinem("10.0.999", ["10.0.401"])
+
+    assert "vs pin z global.json" in wypis, (
+        "doctor nie nazwał pinu przy SDK, które go nie spełnia:\n" + wypis[-800:])
+    assert "BRAK  dotnet SDK  ->" not in wypis, (
+        "doctor nadal radzi zainstalować SDK, które leży na dysku:\n" + wypis[-800:])
+    assert not re.search(r"ok\s+dotnet SDK >= \d", wypis), (
+        "doctor melduje `ok dotnet SDK >= N` na podstawie wyjścia polecenia, które "
+        "zakończyło się błędem:\n" + wypis[-800:])
+    assert "na dysku: 10.0.401" in wypis, (
+        "wypis nie pokazuje, CO leży na dysku — czytający nie wie, czy zmienić pin, "
+        "czy doinstalować:\n" + wypis[-800:])
+    assert kod > 0, (
+        "doctor kończy zerem przy pinie, którego żadne SDK nie spełnia — a w tym "
+        "stanie `dotnet build` też nie ruszy, więc zdanie o pinie musi być pozycją "
+        "WYMAGANĄ, nie ostrzeżeniem")
+
+
+def test_pin_spelniony_zostawia_wypis_bez_zmiany():
+    """Kontrola przeciwna: przy pinie spełnionym wraca zwykła kontrola SDK.
+
+    Bez niej „nie ma zdania o braku SDK" byłoby prawdą także dla doctora, który
+    przestał tę kontrolę wypisywać w ogóle.
+    """
+    wypis, kod = _doctor_z_pinem("10.0.401", ["10.0.401"])
+
+    assert re.search(r"ok\s+dotnet SDK\b", wypis), (
+        "przy pinie spełnionym zniknęła zwykła kontrola SDK:\n" + wypis[-800:])
+    assert re.search(r"ok\s+dotnet SDK >= \d", wypis), (
+        "przy pinie spełnionym zniknęła kontrola wersji:\n" + wypis[-800:])
+    assert "SDK SĄ na dysku, ale ŻADNE nie spełnia pinu" not in wypis, wypis[-800:]
+
+
+def test_brak_jakiegokolwiek_sdk_nadal_kaze_instalowac():
+    """Trzeci stan, którego pole „Skończone, gdy" żąda nie ruszyć.
+
+    Atrapa odmawia OBU poleceniom, czyli `--list-sdks` też — wtedy nie ma czego
+    pinować i jedyną prawdziwą radą jest instalacja. Gdyby rozróżnienie oparło się
+    na treści stdout zamiast na kodzie wyjścia, ten przypadek zlałby się z poprzednim.
+    """
+    wypis, kod = _doctor_z_pinem("10.0.401", [])
+
+    assert "BRAK  dotnet SDK  ->" in wypis, (
+        "przy braku JAKIEGOKOLWIEK SDK doctor przestał kazać je zainstalować:\n"
+        + wypis[-800:])
+    assert "SDK SĄ na dysku, ale ŻADNE nie spełnia pinu" not in wypis, (
+        "doctor mówi o niespełnionym pinie, choć żadnego SDK nie ma:\n" + wypis[-800:])
+
+
+def test_liczba_wersji_nie_bierze_sie_z_polecenia_ktore_padlo():
+    """`HAVE_SDK_MAJOR` liczone z `--version`, które SIĘ POWIODŁO, a nie z potoku.
+
+    Potok `--version | cut` nie widzi kodu wyjścia pierwszego członu — to jest
+    mechanizm usterki i on właśnie jest tu przybity, osobno od wypisu. Atrapa
+    wypisuje przy porażce listę zaczynającą się od `10.`, więc `cut -d. -f1` dałby
+    z niej `10` i kontrola `>= 10` przeszłaby jako `ok`.
+    """
+    zrodlo = _read(DOCTOR)
+    assert 'HAVE_SDK_MAJOR="$("$DOTNET" --version 2>/dev/null | cut -d. -f1)"' not in zrodlo, (
+        "liczba wersji znów bierze się z potoku, który nie widzi kodu wyjścia")
+    assert 'if HAVE_SDK_PELNA="$("$DOTNET" --version 2>/dev/null)"' in zrodlo, (
+        "nie widać gałęzi liczącej wersję wyłącznie z udanego `--version`")
+
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
 # z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
 # tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
