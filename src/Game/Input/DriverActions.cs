@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Godot;
+using MetroBxl.Game.UI;
 
 namespace MetroBxl.Game.Input;
 
@@ -15,8 +16,16 @@ namespace MetroBxl.Game.Input;
 /// <c>DriverActionsTests</c>.</para>
 /// </summary>
 /// <param name="Action">Nazwa akcji w <c>InputMap</c>, np. <c>driver_power</c>.</param>
-/// <param name="KeyName">Nazwa klawisza w wierszu pomocy, np. <c>W</c>.</param>
-/// <param name="Meaning">Co ten klawisz robi — treść do wiersza pomocy.</param>
+/// <param name="KeyName">
+/// Nazwa klawisza w wierszu pomocy, np. <c>W</c>. <b>Zostaje tutaj, a nie idzie do
+/// katalogu tekstów</b> (6.D99): to napis na klawiszu, nie zdanie po polsku, a dla
+/// nazw jednoliterowych <c>DriverActionsTests</c> porównuje go wprost
+/// z <c>physical_keycode</c>.
+/// </param>
+/// <param name="Meaning">
+/// Co ten klawisz robi — treść do wiersza pomocy. <b>Idzie z katalogu</b>
+/// (<see cref="MetroBxl.Game.UI.UiText"/>) od 6.D99, bo to jest zdanie po polsku.
+/// </param>
 /// <param name="PhysicalKeycodes">
 /// Kody fizyczne, jakie akcja ma mieć przypisane w <c>project.godot</c>. Pierwszy jest
 /// tym, który wymienia <paramref name="KeyName"/>; dalsze to warianty (strzałki).
@@ -92,9 +101,11 @@ public static class DriverActions
     {
         // Strzałki obok liter, bo tak było przed przejściem na `InputMap` i zadanie G-3
         // nie zmienia sterowania, tylko sposób jego czytania.
-        new DriverBinding(Power, "W", "ciąg", new[] { (int)Key.W, (int)Key.Up }),
-        new DriverBinding(Brake, "S", "hamulec", new[] { (int)Key.S, (int)Key.Down }),
-        new DriverBinding(Coast, "X", "wybieg", new[] { (int)Key.X }),
+        new DriverBinding(
+            Power, "W", UiText.Get("input.power"), new[] { (int)Key.W, (int)Key.Up }),
+        new DriverBinding(
+            Brake, "S", UiText.Get("input.brake"), new[] { (int)Key.S, (int)Key.Down }),
+        new DriverBinding(Coast, "X", UiText.Get("input.coast"), new[] { (int)Key.X }),
 
         // Nazwa klawisza przychodzi z `EmergencyBrake`, a nie jest tu wpisana drugi raz:
         // wiersz HUD-u o trzymanym hamulcu i wiersz pomocy mają mówić o tym samym
@@ -102,17 +113,17 @@ public static class DriverActions
         new DriverBinding(
             Emergency,
             EmergencyBrake.KeyName,
-            "hamulec awaryjny (= pełny służbowy)",
+            UiText.Get("input.emergency"),
             new[] { (int)Key.Space }),
-        new DriverBinding(ViewToggle, "C", "widok", new[] { (int)Key.C }),
-        new DriverBinding(Reset, "R", "od nowa", new[] { (int)Key.R }),
+        new DriverBinding(ViewToggle, "C", UiText.Get("input.view"), new[] { (int)Key.C }),
+        new DriverBinding(Reset, "R", UiText.Get("input.reset"), new[] { (int)Key.R }),
 
         // Esc też idzie przez `InputMap`, choć kryterium zadania dopuszczało zostawienie
         // go na surowym kodzie. Powód jest testowy, nie estetyczny: „zero odczytów
         // klawiszy w src/Game" jest warunkiem, który da się sprawdzić bez wyjątku
         // dopisanego do wzorca, a wyjątek w bramce to miejsce, którym wraca to, co
         // bramka miała wykluczyć.
-        new DriverBinding(Quit, "Esc", "wyjście", new[] { (int)Key.Escape }),
+        new DriverBinding(Quit, "Esc", UiText.Get("input.quit"), new[] { (int)Key.Escape }),
     };
 
     /// <summary>
@@ -170,8 +181,7 @@ public static class DriverActions
 
         return string.Join(HelpSeparator, working.Select(b => $"{b.KeyName} {b.Meaning}"))
             + HelpSeparator
-            + "prowadzi rdzeń: "
-            + string.Join(", ", inactive.Select(b => b.KeyName))
-            + " nie działają";
+            + UiText.Format(
+                "help.core-drives", string.Join(", ", inactive.Select(b => b.KeyName)));
     }
 }

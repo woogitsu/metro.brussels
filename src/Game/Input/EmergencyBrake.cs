@@ -1,4 +1,5 @@
 using System.Globalization;
+using MetroBxl.Game.UI;
 using MetroBxl.Sim.Train;
 
 namespace MetroBxl.Game.Input;
@@ -27,8 +28,15 @@ public static class EmergencyBrake
     /// <summary>
     /// Nazwa klawisza w opisie sterowania i w wierszu HUD-u. Jedna kopia napisu:
     /// <see cref="DriverInput.Help"/> skleja go z tej stałej, a nie wpisuje obok.
+    ///
+    /// <para><b>Ta jedna nazwa klawisza idzie z katalogu tekstów</b> (6.D99), a nazwy
+    /// w <see cref="DriverActions.All"/> — nie. Różnica jest w klawiaturze, nie
+    /// w kodzie: na klawiszu Esc napisane jest „Esc", a na spacji nie jest napisane
+    /// nic, więc „Spacja" to polski rzeczownik i jako taki należy do katalogu. Stała
+    /// przestała być <c>const</c>, bo katalog czyta się w czasie wykonania; nikt jej
+    /// nie używa w miejscu wymagającym stałej kompilacji.</para>
     /// </summary>
-    public const string KeyName = "Spacja";
+    public static readonly string KeyName = UiText.Get("input.key.space");
 
     /// <summary>
     /// Wiersz HUD-u dla trzymanego hamulca awaryjnego; pusty napis, gdy klawisz nie
@@ -45,8 +53,9 @@ public static class EmergencyBrake
     /// <returns>Wiersz do pokazania albo pusty napis.</returns>
     public static string Notice(DriverKeys keys, DriverCommand command)
         => keys.Emergency
-            ? string.Create(
-                CultureInfo.InvariantCulture,
-                $"HAMULEC AWARYJNY ({KeyName}) = pełny hamulec SŁUŻBOWY {command.Brake:F2} — model nie ma osobnego stopnia awaryjnego")
+            ? UiText.Format(
+                "hud.emergency-brake",
+                KeyName,
+                command.Brake.ToString("F2", CultureInfo.InvariantCulture))
             : string.Empty;
 }

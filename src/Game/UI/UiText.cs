@@ -34,6 +34,28 @@ namespace MetroBxl.Game.UI;
 /// zgłoszony — po dwóch dniach i przez kogoś innego. Tego wprost żąda pole
 /// „Skończone, gdy": usunięcie używanego klucza ma wywrócić test, a nie wyświetlić
 /// cicho nazwę klucza.</para>
+///
+/// <para><b>Rozszerzenie z 10.09.2026 (6.D99).</b> Katalog objął pozostałe wiersze
+/// TEGO SAMEGO panelu: <see cref="MetroBxl.Game.FirstRun"/> (<c>StationLine</c>,
+/// <c>Faza</c>), <see cref="MetroBxl.Game.Input.DriverActions"/>
+/// i <see cref="MetroBxl.Game.Input.EmergencyBrake"/>. Policzone z drzewa przed
+/// zmianą: <b>38</b> segmentów językowych (25 + 9 + 4), po zmianie <b>zero</b>
+/// w tych metodach, a katalog urósł z 2 do 29 kluczy. Zostało w nich osiem segmentów,
+/// które słowami nie są: siedem nazw akcji <c>InputMap</c> i napis „Esc". Segmentem
+/// jest spójny kawałek tekstu literału POMIĘDZY dziurami interpolacji, niosący dwie
+/// litery pod rząd — ta sama definicja słowa, co w skanie <c>UiTextTests</c>, który
+/// pilnuje
+/// <c>Hud.cs</c> od 6.D83.</para>
+///
+/// <para><b>Granica druga: SŁOWO kontra NAPIS NA KLAWISZU.</b> W katalogu stoi to,
+/// co klawisz ROBI (<c>input.power</c> = „ciąg"), a w tabeli
+/// <see cref="MetroBxl.Game.Input.DriverActions.All"/> zostaje to, jak klawisz się
+/// NAZYWA („W", „S", „X", „C", „R", „Esc"). Powód jest mierzalny, a nie estetyczny:
+/// <c>DriverActionsTests</c> porównuje jednoliterowe nazwy z <c>physical_keycode</c>
+/// w <c>project.godot</c>, więc nazwa jest odczytem z klawiatury, nie zdaniem po
+/// polsku. Wyjątkiem jest <c>input.key.space</c>: na klawiszu Esc napisane jest
+/// „Esc", a na spacji nie jest napisane nic — „Spacja" to polski rzeczownik i pod tą
+/// samą regułą trafia do katalogu.</para>
 /// </summary>
 public static class UiText
 {
@@ -51,6 +73,59 @@ public static class UiText
             // co do znaku, bo ta pozycja robi miejsce, nie treść.
             ["hud.position"] = "chainage {0} m / {1} m     {2} za {3} m",
             ["hud.controls"] = "ciąg {0} {1}   hamulec {2} {3}   [{4}]{5}",
+
+            // --- wiersz stacji (`FirstRun.StationLine`) — 6.D99 -------------------
+            // Dwa warianty cyklu drzwi, bo dwa tryby mówią co innego: przejazd po
+            // linii nie ma blokady trakcji, przejazd gracza — ma i pokazuje ją
+            // w nawiasie. Jeden szablon z pustym polem dałby w trybie liniowym dwa
+            // odstępy i nawias bez treści, czyli napis inny co do znaku.
+            ["hud.station.doors"] =
+                "DRZWI {0}  jeszcze {1} s  błąd zatrzymania {2} m   obsłużone {3}",
+            ["hud.station.doors-traction"] =
+                "DRZWI {0}  jeszcze {1} s  ({2})  błąd zatrzymania {3} m   {4}",
+            ["hud.station.run-over"] = "koniec przejazdu   obsłużone {0}",
+            ["hud.station.next"] = "{0} za {1} m   obsłużone {2}",
+            ["hud.station.counter"] = "obsłużone {0}  minięte {1}",
+            ["hud.station.no-more"] = "brak dalszych stacji   {0}",
+            ["hud.station.approach"] = "{0} za {1} m (okno ±{2} m){3}   {4}",
+            ["hud.station.in-window"] = "  W OKNIE — zatrzymaj się",
+            ["hud.traction.free"] = "trakcja WOLNA",
+            ["hud.traction.locked"] = "trakcja ZABLOKOWANA",
+
+            // --- fazy cyklu drzwi (`FirstRun.Faza`) — 6.D99 -----------------------
+            // Siedem, nie osiem: `DoorPhase` ma siedem wartości, a ósme ramię
+            // (`_ => phase.ToString()`) jest wyjściem awaryjnym dla wartości spoza
+            // wyliczenia i nazwy po polsku nie ma z definicji.
+            ["hud.door.closed"] = "zamknięte",
+            ["hud.door.unlocking"] = "odryglowanie",
+            ["hud.door.opening"] = "otwieranie",
+            ["hud.door.open"] = "otwarte",
+            ["hud.door.closing-warning"] = "sygnał zamykania",
+            ["hud.door.closing"] = "zamykanie",
+            ["hud.door.checking"] = "kontrola zamknięcia",
+
+            // --- co robi klawisz (`DriverActions`) — 6.D99 ------------------------
+            // Tu stoi ZNACZENIE klawisza, a nie jego NAZWA: nazwa („W", „Esc") jest
+            // napisem na klawiszu i zostaje w tabeli przypisań — patrz akapit
+            // o tej granicy w opisie klasy.
+            ["input.power"] = "ciąg",
+            ["input.brake"] = "hamulec",
+            ["input.coast"] = "wybieg",
+            ["input.emergency"] = "hamulec awaryjny (= pełny służbowy)",
+            ["input.view"] = "widok",
+            ["input.reset"] = "od nowa",
+            ["input.quit"] = "wyjście",
+            ["help.core-drives"] = "prowadzi rdzeń: {0} nie działają",
+
+            // --- hamulec awaryjny (`EmergencyBrake`) — 6.D99 ----------------------
+            // „Spacja" jest tu, a „Esc" nie, i to jest rozstrzygnięcie, nie
+            // niekonsekwencja: na klawiszu Esc napisane jest „Esc", a na spacji nie
+            // jest napisane nic. Pierwsze jest odczytem z klawiatury, drugie —
+            // polskim rzeczownikiem.
+            ["input.key.space"] = "Spacja",
+            ["hud.emergency-brake"] =
+                "HAMULEC AWARYJNY ({0}) = pełny hamulec SŁUŻBOWY {1}"
+                + " — model nie ma osobnego stopnia awaryjnego",
         };
 
     /// <summary>Klucze, które katalog zna. Kolejność nieistotna, zbiór — owszem.</summary>

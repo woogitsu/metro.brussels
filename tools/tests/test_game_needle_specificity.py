@@ -140,7 +140,22 @@ MAX_GAME_JUSTIFIED_NEEDLES = 4
 #: motywu — obie sa kontrola przyrzadu skanu literalow w `UiTextTests`, ktory ma je
 #: WIDZIEC, zeby bylo co odsiewac. Wzmocnienie tych igiel nie ma sensu: nie opisuja
 #: zdania dla czlowieka.
-MAX_GAME_UNMATCHED_NEEDLES = 19
+#:
+#: **19 -> 21, 10.09.2026 (6.D99).** Dwie nowe igle (`koniec bloku`, `wyrazeniowa`)
+#: stoja w `UiTextTests.Wycinanie_ciala_metody_bierze_te_metode_a_nie_nastepna`
+#: i asertuja na WEJSCIU SYNTETYCZNYM — na napisie zlozonym w samym tescie, ktory
+#: udaje dwie metody C#. Komunikatem `src/Game` nie sa i byc nie maja: kontrola
+#: sprawdza, czy wycinanie ciala metody bierze te metode, a nie nastepna, wiec musi
+#: miec wlasne cialo do pociecia. Dopasowanie tych igiel do drzewa znaczyloby, ze
+#: probka syntetyczna przypadkiem powtarza zdanie z programu — i wtedy kontrola
+#: mierzylaby cos innego, niz mowi.
+#:
+#: **Trzymania igly w zmiennej NIE uzyto, choc ominelaby zapadke.** Bramka pomija
+#: igle ze zmiennej (zawezenie 3), wiec `var x = "koniec bloku";` zdjelby te dwie
+#: pozycje z licznika bez sladu. To jest dokladnie ta zamiana niejednoznacznosci na
+#: niewidzialnosc, przed ktora szczebel trzeci ma bronic — wiec zapadka rosnie,
+#: a igla zostaje widoczna.
+MAX_GAME_UNMATCHED_NEEDLES = 21
 
 #: Progi KW. Literowka we wzorcu daje zero dopasowan i caly modul zielony; te trzy
 #: liczby sa jedynym powodem, dla ktorego taka literowka jest widoczna. Zmierzone

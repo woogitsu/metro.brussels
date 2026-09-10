@@ -107,7 +107,9 @@ dopiero na osi bez pola jednojęzycznego — `Expected:<Alfa|Beta>. Actual:<Alfa
 
 ## 7. Zapadka podniesiona, z powodem
 
-`MAX_GAME_UNMATCHED_NEEDLES` stoi dziś na **19**, podniesiona z szesnastu. Trzy nowe igły są z założenia bez
+`MAX_GAME_UNMATCHED_NEEDLES`, podniesiona z szesnastu, stanęła tego dnia na **19**
+(10.09.2026 podniosło ją 6.D99 do 21 — z powodu wypisanego przy tamtej stałej,
+niezwiązanego z tą pozycją). Trzy nowe igły są z założenia bez
 dopasowania w komunikatach `src/Game`, bo **nie są komunikatami**:
 `hud.nie-ma-takiego` to klucz celowo nieistniejący, a `Panel/Rows` i `font_size` to
 ścieżka węzła i nazwa właściwości motywu — obie są **kontrolą przyrządu** skanu
