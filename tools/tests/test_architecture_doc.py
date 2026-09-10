@@ -36,10 +36,12 @@ DOC = os.path.join(ROOT, "docs", "01-architecture.md")
 SRC = os.path.join(ROOT, "src")
 
 #: Katalogi, które są wynikiem builda albo stanem edytora, a nie modułem projektu.
-#: `bin`/`obj` pojawiają się po `dotnet build`, `.godot` po pierwszym uruchomieniu
-#: edytora. Bez tego bramka na maszynie, na której ktoś zbudował projekt, żądałaby
-#: wpisania `bin/` do dokumentu architektury.
-ARTEFAKTY = {"bin", "obj", ".vs", "node_modules"}
+#: **6.D97: bez `bin` i `obj`.** Te dwa stoją w `.gitignore`, więc odsiewa je już
+#: `TW.walk` — trzymanie ich tutaj było DRUGĄ, uboższą kopią tamtej listy (nie zna
+#: `build`, `renders`, `.venv`) i rozjechałoby się przy pierwszym nowym wpisie.
+#: `.vs` i `node_modules` w `.gitignore` NIE stoją i dlatego zostają: odsiewa je
+#: reguła tego dokumentu, nie reguła repozytorium.
+ARTEFAKTY = {".vs", "node_modules"}
 
 #: Wiersz drzewa: wcięcie, nazwa katalogu z ukośnikiem, opcjonalny opis.
 WIERSZ = re.compile(r"^(\s*)([A-Za-z][\w.]*)/(?:\s{2,}(.*))?$")
@@ -129,6 +131,9 @@ def test_architecture_doc_build_artefacts_are_not_demanded():
     na której ktoś zbudował projekt, i tylko tam.
     """
     assert not {p for p in real_paths() if p.split("/")[-1] in ARTEFAKTY}
+    # 6.D97: te dwa wiersze są teraz JEDYNĄ kontrolą na `bin`/`obj` po tej stronie
+    # i to jest wzmocnienie, nie osłabienie — pytają o WYNIK (czego nie ma w liście
+    # ścieżek), a nie o zawartość zbioru, który je odsiewa.
     assert "Sim/bin" not in real_paths()
     assert "Sim/obj" not in real_paths()
 

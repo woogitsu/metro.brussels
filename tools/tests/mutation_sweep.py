@@ -319,7 +319,11 @@ def targets() -> list[str]:
     """Moduły pod mutację: kod narzędzi, bez samych testów."""
     out = []
     for base, _dirs, files in TW.walk(os.path.join(ROOT, "tools")):
-        if os.sep + "tests" in base or "__pycache__" in base:
+        # 6.D97: `__pycache__` zdjęte, bo odsiewa je `TW.walk` z `.gitignore`.
+        # `tests` ZOSTAJE i to nie jest przeoczenie: tego katalogu `.gitignore`
+        # nie zna i znać nie powinien — jest śledzony. Odsiewa go tu reguła
+        # narzędzia („mutujemy kod pod testem, nigdy testów"), nie reguła repozytorium.
+        if os.sep + "tests" in base:
             continue
         for name in sorted(files):
             if name.endswith(".py"):

@@ -236,6 +236,122 @@ def test_a_copy_under_an_ignored_directory_does_not_move_the_dead_constant_scan(
 
 # 6.D25: uruchomienie tego pliku WPROST idzie tą samą drogą, co cały zestaw —
 # z licznikiem asercji i z odmową przy zerze testów.
+
+
+# --- 6.D97: własna lista katalogów obok wspólnego odsiania ------------------------
+#
+# Po 6.D74 czternaście przejść poszło przez `TW.walk`, ale w drzewie zostały cztery
+# filtry robiące to samo drugi raz. Trzy z nich były DRUGĄ, uboższą kopią listy
+# z `.gitignore`: `BUILD_DIRS = {"bin", "obj"}` (`test_readme_claims.py`),
+# `"__pycache__" in katalog` (`test_dead_constants.py`) i `os.sep + "obj" in katalog
+# or os.sep + "bin" in katalog` (`test_dead_constants_csharp.py`). Dopóki stały obok
+# wspólnego odsiania, czytający nie wiedział, która lista rozstrzyga — a przy
+# następnym wpisie w `.gitignore` rozjechałyby się po cichu.
+#
+# Czwarty (`os.sep + "tests" in base` w `mutation_sweep.py`) NIE jest kopią i został:
+# tego katalogu `.gitignore` nie zna i znać nie powinien, bo jest śledzony. Odsiewa
+# go reguła NARZĘDZIA („mutujemy kod pod testem, nigdy testów"), nie reguła
+# repozytorium — i różnica między tymi dwiema regułami jest treścią tej bramki.
+
+#: JAWNE, ZAMKNIĘTE wyjątki: `(plik, nazwa katalogu, powód)` dla filtrów, które
+#: odsiewają katalog Z WŁASNEGO powodu, nie dlatego, że stoi w `.gitignore`.
+#: Pusto, i to jest wynik pomiaru: jedyny taki filtr w drzewie odsiewa `tests`,
+#: a `tests` w `.gitignore` NIE STOI, więc bramka go nie widzi i nie musi.
+FILTRY_Z_WLASNEGO_POWODU = {
+    ("tools/tests/test_sim_untested_members.py", "obj"): (
+        '`_is_generated` NIE odsiewa katalogu z przejścia — klasyfikuje ścieżki '
+        'z `glob.glob`, żeby moduł mógł policzyć stan PRZED (z plikami generowanymi) '
+        'i PO (bez nich). Zdjęcie tego filtru zabrałoby pomiar, nie duplikat'),
+    ("tools/tests/test_sim_untested_members.py", "bin"): (
+        "druga połowa tego samego warunku, ten sam powód"),
+}
+
+
+def filtry_katalogow_z_gitignore():
+    """`[(plik, wiersz, nazwa)]` — miejsca odsiewające katalog, który jest w `.gitignore`.
+
+    Szukane w drzewie składni, w plikach, które w ogóle chodzą po drzewie: literał
+    napisowy równy nazwie katalogu z `.gitignore`, użyty w warunku albo w zbiorze.
+    Grep po nazwie łapałby też komentarze i docstringi — a w tym module stoi ich
+    kilkanaście, bo cała ta sekcja jest O tych nazwach.
+    """
+    nazwy, _sciezki = TW.pominiete()
+    chodzace = {plik for plik, _wiersz in wywolania_odsiane() + wywolania_os_walk()}
+    znalezione = []
+    for relative in sorted(chodzace):
+        try:
+            zrodlo = open(os.path.join(ROOT, relative), encoding="utf-8").read()
+            drzewo = ast.parse(zrodlo)
+        except (OSError, SyntaxError):
+            continue
+        # Wnętrza funkcji `test_*` są POMIJANE i to jest poprawka z pomiaru: pierwsza
+        # wersja skanu zgłosiła `build` z wejścia syntetycznego w
+        # `test_the_ignored_directory_list_is_read_from_gitignore_not_copied` — czyli
+        # napis, który jest DANYMI testu parsera, a nie filtrem. Filtry mieszkają
+        # w pomocnikach i na poziomie modułu, fixture w testach.
+        wnetrza = set()
+        for funkcja in ast.walk(drzewo):
+            if (isinstance(funkcja, (ast.FunctionDef, ast.AsyncFunctionDef))
+                    and funkcja.name.startswith("test_")):
+                for pod in ast.walk(funkcja):
+                    wnetrza.add(id(pod))
+        for node in ast.walk(drzewo):
+            if not isinstance(node, (ast.If, ast.Set, ast.ListComp, ast.Compare)):
+                continue
+            for pod in ast.walk(node):
+                if id(pod) in wnetrza:
+                    continue
+                if (isinstance(pod, ast.Constant) and isinstance(pod.value, str)
+                        and pod.value in nazwy):
+                    znalezione.append((relative, pod.lineno, pod.value))
+    return sorted(set(znalezione))
+
+
+def test_zaden_skan_nie_trzyma_wlasnej_kopii_listy_z_gitignore():
+    """Druga lista tych samych katalogów rozjeżdża się przy pierwszym nowym wpisie."""
+    znalezione = [w for w in filtry_katalogow_z_gitignore()
+                  if (w[0], w[2]) not in FILTRY_Z_WLASNEGO_POWODU]
+    assert not znalezione, (
+        "skan chodzący po drzewie odsiewa katalog, który JUŻ odsiewa `TW.walk` "
+        "z `.gitignore` — dwie listy tej samej rzeczy rozjadą się przy następnym "
+        f"wpisie: {znalezione}")
+
+
+def test_lista_wyjatkow_filtrow_nie_gnije():
+    """Wyjątek bez pokrycia w drzewie ma zniknąć z listy.
+
+    Asercja o PUSTOŚCI stoi tu, bo pusta pętla nie wykonuje żadnej i test byłby
+    cichym pominięciem. Dziś lista jest pusta i to jest zmierzony stan.
+    """
+    obecne = {(w[0], w[2]) for w in filtry_katalogow_z_gitignore()}
+    if not FILTRY_Z_WLASNEGO_POWODU:
+        assert obecne == set(), sorted(obecne)
+        return
+    for klucz, powod in sorted(FILTRY_Z_WLASNEGO_POWODU.items()):
+        assert klucz in obecne, f"{klucz} nie ma już filtru — zdejmij wpis ({powod})"
+
+
+def test_skan_filtrow_widzi_ksztalt_ktory_ma_widziec():
+    """Kontrola PRZYRZĄDU: cisza ma znaczyć „czysto", a nie „skan ślepy".
+
+    Bramka wyżej jest dziś zielona, więc bez tego testu nie dałoby się odróżnić
+    drzewa bez kopii od skanu, który przestał czegokolwiek szukać. Sprawdzane jest
+    to, na czym skan stoi: że nazwy katalogów bierze z `.gitignore` (a nie z listy
+    wpisanej tutaj) i że `tests` — jedyny filtr, który został — do tego zbioru
+    NIE należy, więc jego obecność w drzewie bramki nie zapala.
+    """
+    nazwy, _sciezki = TW.pominiete()
+    for oczekiwana in ("bin", "obj", "__pycache__", "build", "renders", ".venv"):
+        assert oczekiwana in nazwy, (
+            f"{oczekiwana!r} zniknęło z listy katalogów czytanej z `.gitignore` — "
+            "bramka wyżej przestała widzieć kopię akurat tego katalogu")
+    assert "tests" not in nazwy, (
+        "`tests` trafiło do listy z `.gitignore`; filtr w `mutation_sweep.py` "
+        "zapaliłby wtedy bramkę, choć odsiewa katalog z własnego powodu")
+    assert len(nazwy) >= 10, (
+        f"lista z `.gitignore` skurczyła się do {len(nazwy)} nazw — skan miałby "
+        "wtedy czego nie szukać")
+
 if __name__ == "__main__":
     import test_all
     raise SystemExit(test_all.main(__file__))
