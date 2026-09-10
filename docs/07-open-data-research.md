@@ -381,7 +381,9 @@ https://stib.prezly.com/le-nouveau-metro-m7-est-arrive-a-bruxelles
 Potwierdza m.in. długość 94 m, szerokość 2,70 m, podłogę 1,03 m, sześć członów,
 układ drzwi, masę pustego składu około 170 t oraz 16 × 135 kW mocy trakcyjnej.
 
-Szczegółowe rozdzielenie `spec` / `est` / `design` jest prowadzone w T-904 (#8).
+Szczegółowe rozdzielenie klas pochodzenia jest prowadzone w T-904 (#8). Nazwy klas
+definiuje `docs/02-simulation.md`; do 10.09.2026 stała tu nazwa, której ten dokument
+nie zna — powtórzona lista rozjechała się z definicją (6.D89).
 Nie kopiujemy parametrów z repozytoriów fanowskich, jeżeli istnieje źródło STIB.
 
 ## Publiczne repozytoria referencyjne
