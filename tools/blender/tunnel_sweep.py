@@ -55,7 +55,11 @@ def parse_args():
                         help="odstęp pierścieni w metrach; 0 = wierne trzymanie łamanej źródłowej")
     parser.add_argument("--max-chunk-m", type=float, default=SW.DEFAULT_MAX_CHUNK_M)
     parser.add_argument("--station-halo-m", type=float, default=SW.DEFAULT_STATION_HALO_M)
-    parser.add_argument("--variant", default="auto", choices=("auto", "flat-preview", "production"))
+    # Lista wariantów przychodzi z `tunnel_manifest`, a nie stoi tu drugi raz: dwie
+    # kopie tego samego zbioru rozjeżdżają się po cichu, a `--variant` z literówką
+    # kończy się wtedy odmową argparse o innym brzmieniu niż odmowa planu (6.D120).
+    parser.add_argument("--variant", default="auto",
+                        choices=("auto",) + tuple(sorted(TM.SUFIKSY_WARIANTOW)))
     parser.add_argument("--metrics", help="ścieżka na metryki JSON")
     parser.add_argument("--chunk-dir",
                         help="katalog na osobny GLB dla każdego chunka plus manifest "
