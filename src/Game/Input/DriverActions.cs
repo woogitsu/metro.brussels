@@ -123,7 +123,9 @@ public static class DriverActions
         // klawiszy w src/Game" jest warunkiem, który da się sprawdzić bez wyjątku
         // dopisanego do wzorca, a wyjątek w bramce to miejsce, którym wraca to, co
         // bramka miała wykluczyć.
-        new DriverBinding(Quit, "Esc", UiText.Get("input.quit"), new[] { (int)Key.Escape }),
+        new DriverBinding(
+            Quit, KeyNames.For(Key.Escape), UiText.Get("input.quit"),
+            new[] { (int)Key.Escape }),
     };
 
     /// <summary>
