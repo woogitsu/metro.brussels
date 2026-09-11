@@ -108,6 +108,31 @@ def znajdz(top, wzorzec, root=ROOT):
     return sorted(znalezione)
 
 
+def policz_bajtkod(root=ROOT, gdzie="tools"):
+    """Ile `__pycache__` leży pod `gdzie`. Zwraca `(katalogi, pliki)` — 6.D136.
+
+    Bliźniak `wyczysc_bajtkod`, który **liczy zamiast kasować**, i mieszka tutaj
+    z tego samego powodu co tamten: przedmiotem obu jest katalog pominięty
+    w `.gitignore`, więc `walk` odsiewa dokładnie to, czego szukają, a zapadkę
+    `MAX_WOLNO_WPROST` wolno wyłącznie OBNIŻAĆ — trzeci wyjątek na `os.walk` byłby
+    podniesieniem. Zmierzone 11.09.2026: przejście przez `TW.walk` po drzewie
+    probnym daje **0 katalogów i 0 plików** zamiast 7 i 201.
+
+    Po co osobna funkcja, skoro `wyczysc_bajtkod` też zwraca te liczby: bo tamta je
+    zwraca PO SKASOWANIU. 6.D136 pyta, ile bajtkodu ZASTAJE zestaw w CI, i musi to
+    policzyć, nie niszcząc stanu, który mierzy.
+    """
+    baza = os.path.join(root, gdzie)
+    katalogi = pliki = 0
+    for miejsce, podkatalogi, nazwy in os.walk(baza):
+        if os.path.basename(miejsce) != "__pycache__":
+            continue
+        podkatalogi[:] = []
+        katalogi += 1
+        pliki += len(nazwy)
+    return katalogi, pliki
+
+
 def wyczysc_bajtkod(root=ROOT, gdzie="tools"):
     """Usuń KAŻDY `__pycache__` pod `tools/`. Zwraca `(katalogi, pliki)` — 6.D122.
 

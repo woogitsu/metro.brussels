@@ -123,9 +123,30 @@ każda osobnym testem, bo pojedynczy test na jedną z nich opisywałby co innego
 **Czego to nie kosztuje.** Trzy pary przebiegów całego zestawu, zimny kontra ciepły:
 126,27 / 125,65 / 127,47 s wobec 127,17 / 127,49 / 125,25 s — czyli **żadnego
 mierzalnego zysku** z cache'u, bo moduły testowe i tak kompilują się ze źródła przez
-`assertion_gate.load_instrumented`. W CI pułapki nie ma — `actions/checkout` robi
-`git clean -ffdx`, `__pycache__` jest w `.gitignore`, więc każdy przebieg CI zaczyna
-zimno. **To jest zagrożenie lokalne, dla agenta i dla właściciela.**
+`assertion_gate.load_instrumented`. **To jest zagrożenie lokalne, dla agenta i dla
+właściciela.**
+
+**Dlaczego w CI pułapki nie ma — zdanie przepisane 11.09.2026 (6.D136), a nie dopisane
+obok.** Poprzednia wersja mówiła: „`actions/checkout` robi `git clean -ffdx`,
+`__pycache__` jest w `.gitignore`, więc każdy przebieg CI zaczyna zimno". Pierwsza
+połowa jest prawdziwa, **druga nie** i obalił ją log przebiegu: zestaw wypisuje tam
+`[BAJTKOD] wyczyszczono 7 kat. __pycache__ (201 plikow) pod tools/`, czyli **201 plików
+bajtkodu leżało, zanim wystartował**.
+
+Tworzy je **jeden nazwany krok tego samego joba** — `Compile Python tools`, czyli
+`python3 -m compileall -q tools`, stojący w `python-tests.yml` bezpośrednio przed
+krokiem „Run tool tests". Liczby zgadzają się co do pliku i są odtwarzalne lokalnie:
+na czystym drzewie `compileall` daje **7 katalogów i 201 plików**, z tym samym
+rozkładem (`tools/tests` 130, `tools/blender` 29, `tools/track` 23, `tools/ci` 9,
+`tools/visual` 5, `tools/physics` 3, `tools/data` 2).
+
+Wniosek zostaje ten sam, ale wynika z czego innego: ten bajtkod powstał **z tego samego
+checkoutu, w tym samym jobie, pół sekundy wcześniej**, więc przykryć źródła nie może —
+pułapka z 6.D102 potrzebuje bajtkodu **starszego niż zmiana pliku**. Nie chroni przed
+nią pusty katalog, tylko **jednoczesność**.
+
+Pilnuje tego `test_bytecode_staleness.py`: krok musi stać w workflow przed zestawem,
+a liczby muszą się zgadzać z tym, co daje `compileall` na czystym drzewie.
 
 **Od 11.09.2026 (6.D122) zestaw czyści katalog sam, a ten akapit jest przepisany,
 a nie dopisany obok.** Do tego dnia stało tu: „Zestaw mimo to nie czyści katalogu sam:
