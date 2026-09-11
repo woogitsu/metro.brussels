@@ -85,7 +85,7 @@ KATALOG_TESTOW = os.path.join(ROOT, "tools", "tests")
 #: i osobna pozycja. Ta lista ma tylko móc **maleć**.
 NIEME_ASERCJE = {
     "test_alignment.py": 77,
-    "test_all.py": 72,
+    "test_all.py": 68,
     "test_architecture_doc.py": 3,
     "test_art_direction.py": 15,
     "test_assertion_gate.py": 2,
@@ -336,9 +336,9 @@ def test_lista_asercji_bez_komunikatu_moze_tylko_malec():
     # dotyczyć tego samego zbioru modułów, o którym mówi zapadka. Gdy zaślepki nie
     # ma — a w drzewie repozytorium nie ma — składnik jest zerem i nic się nie zmienia.
     zaslepione_z_listy = sum(NIEME_ASERCJE[n] for n in zaslepione if n in NIEME_ASERCJE)
-    assert NIEMYCH_RAZEM == sum(w_drzewie.values()) + zaslepione_z_listy == 2376, (
+    assert NIEMYCH_RAZEM == sum(w_drzewie.values()) + zaslepione_z_listy == 2372, (
         "suma z listy %d, suma z drzewa %d (+ %d z %d modułów zaślepionych: %s), "
-        "pomiar z 11.09.2026 mówił 2377, po 6.D135 jest 2376"
+        "pomiar z 11.09.2026 mówił 2377, po 6.D135 jest 2376, po 6.D138 — 2372"
         % (NIEMYCH_RAZEM, sum(w_drzewie.values()), zaslepione_z_listy,
            len(zaslepione), sorted(zaslepione) or "—"))
 

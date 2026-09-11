@@ -503,10 +503,14 @@ CEL_KOMPILACJI = re.compile(r"run:\s*python3 -m compileall -q (\S+)\s*$", re.M)
 KROK_ZESTAWU = "Run tool tests"
 
 #: **Zmierzone 11.09.2026 z logu joba `tools` przebiegu PR #530 i odtworzone lokalnie
-#: na czystym drzewie.** CI wypisuje `[BAJTKOD] wyczyszczono 7 kat. __pycache__
+#: na czystym drzewie.** CI wypisywało wtedy `[BAJTKOD] wyczyszczono 7 kat. __pycache__
 #: (201 plikow) pod tools/`; `python3 -m compileall -q tools` po `find … -name
-#: __pycache__ -prune -exec rm -rf` daje **dokładnie te same liczby**, z rozkładem
-#: `tools/tests` 130, `tools/blender` 29, `tools/track` 23, `tools/ci` 9,
+#: __pycache__ -prune -exec rm -rf` dawało **dokładnie te same liczby**.
+#:
+#: **201 → 202 przy 6.D138**, bo doszedł moduł `test_mass_copies.py`. Bramka niżej
+#: zapaliła się na tej jedynce sama, w pierwszym przebiegu po dopisaniu pliku, i to
+#: jest dowód, że mierzy drzewo, a nie własny komentarz. Rozkład dzisiejszy:
+#: `tools/tests` **131**, `tools/blender` 29, `tools/track` 23, `tools/ci` 9,
 #: `tools/visual` 5, `tools/physics` 3, `tools/data` 2.
 #:
 #: **Po co ta liczba stoi tutaj.** Zdanie w `docs/06-worked-example.md` mówiło do
@@ -515,7 +519,7 @@ KROK_ZESTAWU = "Run tool tests"
 #: PÓŹNIEJ, w nazwanym kroku tego samego joba. Liczba jest tu po to, żeby poprawione
 #: zdanie miało czym się zestarzeć widocznie.
 BAJTKOD_PO_COMPILEALL_KATALOGI = 7
-BAJTKOD_PO_COMPILEALL_PLIKI = 201
+BAJTKOD_PO_COMPILEALL_PLIKI = 202
 
 
 def _workflow_zestawu():

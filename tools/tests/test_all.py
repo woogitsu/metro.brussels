@@ -101,7 +101,28 @@ def test_reference_braking_run_stops_at_its_declared_time_limit():
 
 def test_traction_power_plausible(): assert R.power_kW()==2160.0
 
-def test_m7_reference_uses_source_backed_aw0(): assert R.MASS["AW0"]==170000.0
+# 6.D138: liczba 170 000 stoi w drzewie CZTERY razy i każda kopia ma inną rolę.
+#   1. `data/vehicle/m7-spec.json`  — ŹRÓDŁO, z `source_id` i `approximate: true`
+#   2. `tools/physics/reference.py` — DRUGA DROGA: tablica referencyjna, której
+#      literały są jej treścią (na nich stoi porównanie C# z Pythonem)
+#   3. asercja niżej                — PIN na kopii 2, żeby druga droga nie ruszyła
+#      się po cichu; NIE mówi nic o źródle
+#   4. `test_m7_spec_registry_provenance` — PIN na kopii 1
+# Rozjazd 2 z 1 łapie `test_reczna_kopia_masy_w_referencji_zgadza_sie_z_REJESTREM`
+# (6.D124) w `test_braking.py` — i to jest jedyne miejsce, które porównuje kopię
+# ze ŹRÓDŁEM, a nie kopię z literałem.
+#
+# Zmierzone 11.09.2026 na kopii roboczej drzewa, bez zmiany `data/`:
+#   podmiana w REJESTRZE (170000 -> 171000)      4 testy z 2346, pin niżej MILCZY
+#   podmiana w REFERENCJI (170000 -> 171000)     6 testów, pin niżej JEST wśród nich
+# Dawna nazwa brzmiała `test_m7_reference_uses_source_backed_aw0` i obiecywała
+# sprawdzenie oparcia o źródło, którego ta asercja nie robi — 6.D27 w miniaturze.
+def test_m7_reference_mass_pin_has_not_drifted():
+    assert R.MASS["AW0"]==170000.0, (
+        "literał masy AW0 w `reference.py` przesunął się na %r — ten pin NIE mówi, "
+        "czy zgadza się ze źródłem (od tego jest "
+        "`test_reczna_kopia_masy_w_referencji_zgadza_sie_z_REJESTREM`), tylko czy "
+        "DRUGA DROGA nie ruszyła się po cichu" % R.MASS["AW0"])
 
 def test_m7_transition_speed_is_derived_from_power_and_force():
     assert math.isclose(R.base_speed_ms(),R.V["installed_power_W"]/R.V["F0_N"],rel_tol=0,abs_tol=1e-12)
@@ -110,9 +131,19 @@ def test_m7_transition_speed_is_derived_from_power_and_force():
 def test_m7_spec_registry_provenance():
     d=_m7_spec(); sources=d["sources"]
     assert d["vehicle_id"]=="M7"
-    assert d["parameters"]["empty_mass_kg"]["value"]==170000.0
-    assert d["parameters"]["empty_mass_kg"].get("approximate") is True
-    assert d["parameters"]["traction_installed_power_kw"]["value"]==2160.0
+    # 6.D138: PIN na ŹRÓDLE (kopia 1). Bez komunikatu ta asercja padała jako
+    # `FAIL test_m7_spec_registry_provenance:` — dwukropek i nic dalej, mimo że
+    # wartość w rejestrze jest dokładnie tym, co się zmieniło.
+    assert d["parameters"]["empty_mass_kg"]["value"]==170000.0, (
+        "masa pusta w rejestrze to %r zamiast 170000.0 — jeśli to zmiana świadoma, "
+        "przelicz tablicę referencyjną w tym samym commicie"
+        % d["parameters"]["empty_mass_kg"]["value"])
+    assert d["parameters"]["empty_mass_kg"].get("approximate") is True, (
+        "rejestr przestał oznaczać masę pustą jako przybliżoną — `reference.py` "
+        "niesie jej kopię bez żadnego znaku i nic by o tym nie powiedziało")
+    assert d["parameters"]["traction_installed_power_kw"]["value"]==2160.0, (
+        "moc zainstalowana w rejestrze to %r zamiast 2160.0"
+        % d["parameters"]["traction_installed_power_kw"]["value"])
     for name,rec in d["parameters"].items():
         if rec.get("status")=="spec":
             sid=rec.get("source_id"); assert sid in sources,(name,sid)
