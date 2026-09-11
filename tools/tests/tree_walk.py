@@ -30,6 +30,7 @@ i `test_tree_walks.py` sprawdza, że nadal nie ma, zamiast milczeć, gdy się po
 """
 import fnmatch
 import os
+import shutil
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 GITIGNORE = os.path.join(ROOT, ".gitignore")
@@ -105,3 +106,51 @@ def znajdz(top, wzorzec, root=ROOT):
         znalezione += [os.path.join(baza, nazwa) for nazwa in pliki
                        if fnmatch.fnmatch(nazwa, wzorzec)]
     return sorted(znalezione)
+
+
+def wyczysc_bajtkod(root=ROOT, gdzie="tools"):
+    """Usuń KAŻDY `__pycache__` pod `tools/`. Zwraca `(katalogi, pliki)` — 6.D122.
+
+    **Dlaczego zestaw robi to sam, skoro procedura stała w dokumencie.** Bo pułapka
+    z 6.D102 nie ogranicza się do kontroli negatywnych. CPython uznaje bajtkod za
+    ważny po parze `(mtime źródła w SEKUNDACH, rozmiar)`, a edycja modułu narzędziowego
+    i natychmiastowy przebieg zestawu mają ten sam kształt co mutacja: ta sama sekunda
+    i — przy poprawce w rodzaju „0.30" na „0.31" — ta sama długość. Procedura, którą
+    trzeba pamiętać, broni tylko tego, kto o niej pamiętał.
+
+    **Dlaczego to nic nie kosztuje.** Sześć przebiegów całego zestawu 11.09.2026:
+    z czyszczeniem 145,753 / 147,224 / 147,247 s, bez 147,190 / 148,671 / 147,094 s —
+    czyli różnica **na korzyść czyszczenia**, wewnątrz rozrzutu. Cache bajtkodu obejmuje
+    tu wyłącznie moduły narzędziowe, bo testowe i tak kompilują się ze źródła przez
+    `assertion_gate.load_instrumented` — a narzędziowe to dokładnie te, które wpadają
+    w pułapkę. Ten sam wynik co pomiar 6.D102 na zestawie o 62 % mniejszym.
+
+    **Dlaczego mieszka TUTAJ, a nie w `test_all.py`.** Bo chodzi po drzewie
+    `os.walk`-iem, a `test_tree_walks.py` na to nie pozwala poza dwoma plikami
+    wpisanymi w `WOLNO_WPROST` — i zapadkę `MAX_WOLNO_WPROST` wolno wyłącznie
+    OBNIŻAĆ. Ten moduł już tam stoi, więc funkcja idzie do niego, zamiast kupować
+    trzeci wyjątek.
+
+    **`TW.walk` nie nadaje się tu z definicji**, i to nie jest niedopatrzenie: ono
+    odsiewa katalogi z `.gitignore`, a `__pycache__` w `.gitignore` stoi — czyli
+    odsiewa DOKŁADNIE to, czego ta funkcja szuka. Jest to jedyne narzędzie w drzewie,
+    którego przedmiotem jest katalog pominięty; stąd jawny wpis w
+    `FILTRY_Z_WLASNEGO_POWODU`.
+
+    Nie czyści niczego poza `gdzie`: pole „Poza zakresem" pozycji 6.D122 mówi o tym
+    wprost. Błąd usunięcia jest pomijany, nie wywraca przebiegu — katalog bez prawa
+    zapisu ma dać zestaw, a nie wyjątek przed pierwszym testem.
+    """
+    baza = os.path.join(root, gdzie)
+    katalogi = pliki = 0
+    for base, dirs, names in os.walk(baza):
+        if os.path.basename(base) != "__pycache__":
+            continue
+        dirs[:] = []
+        try:
+            shutil.rmtree(base)
+        except OSError:
+            continue
+        katalogi += 1
+        pliki += len(names)
+    return katalogi, pliki

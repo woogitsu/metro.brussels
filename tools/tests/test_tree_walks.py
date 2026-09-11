@@ -364,6 +364,12 @@ FILTRY_Z_WLASNEGO_POWODU = {
         'i PO (bez nich). Zdjęcie tego filtru zabrałoby pomiar, nie duplikat'),
     ("tools/tests/test_sim_untested_members.py", "bin"): (
         "druga połowa tego samego warunku, ten sam powód"),
+    ("tools/tests/tree_walk.py", "__pycache__"): (
+        "`wyczysc_bajtkod` (6.D122) nie POMIJA tego katalogu — ona go SZUKA. Jest to "
+        "jedyne narzędzie w drzewie, którego przedmiotem jest katalog pominięty "
+        "w `.gitignore`, więc odsianie przez `walk` zabrałoby mu wszystko, co ma "
+        "znaleźć. Kopią listy z `.gitignore` ten filtr nie jest z definicji: nie "
+        "wybiera, gdzie NIE wchodzić, tylko co skasować"),
 }
 
 

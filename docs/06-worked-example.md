@@ -123,10 +123,31 @@ każda osobnym testem, bo pojedynczy test na jedną z nich opisywałby co innego
 **Czego to nie kosztuje.** Trzy pary przebiegów całego zestawu, zimny kontra ciepły:
 126,27 / 125,65 / 127,47 s wobec 127,17 / 127,49 / 125,25 s — czyli **żadnego
 mierzalnego zysku** z cache'u, bo moduły testowe i tak kompilują się ze źródła przez
-`assertion_gate.load_instrumented`. Zestaw mimo to nie czyści katalogu sam: to byłoby
-wyłączenie cache'u na stałe także w CI, a tam pułapki nie ma — `actions/checkout` robi
+`assertion_gate.load_instrumented`. W CI pułapki nie ma — `actions/checkout` robi
 `git clean -ffdx`, `__pycache__` jest w `.gitignore`, więc każdy przebieg CI zaczyna
 zimno. **To jest zagrożenie lokalne, dla agenta i dla właściciela.**
+
+**Od 11.09.2026 (6.D122) zestaw czyści katalog sam, a ten akapit jest przepisany,
+a nie dopisany obok.** Do tego dnia stało tu: „Zestaw mimo to nie czyści katalogu sam:
+to byłoby wyłączenie cache'u na stałe także w CI" — i to zdanie broniło przed kosztem,
+którego **własny pomiar dwa zdania wyżej wykazał jako zero**. `test_all.py` kasuje każdy
+`__pycache__` pod `tools/` przed swoimi importami narzędzi i mówi o tym wierszem
+`[BAJTKOD] wyczyszczono N kat. …`. Położenie wywołania jest treścią, a nie stylem:
+w `main()` byłoby spóźnione o `import profiles, validate, reference …`, więc wypis
+mówiłby o obronie, która nic nie zmieniła — pilnuje tego osobny test czytający
+kolejność z AST.
+
+**Dlaczego polecenie zostaje mimo to.** Bo pułapka nie ogranicza się do przebiegów
+zestawu: własne `python3 -c`, import w konsoli i skrypt wołany wprost z `tools/`
+czytają ten sam stary bajtkod, a `test_all.py` ich nie widzi. Zostaje też dlatego,
+że dotyczy całego drzewa, a zestaw sprząta wyłącznie `tools/`. Obrona w narzędziu
+jest pierwszą linią, procedura ręczna — drugą; **żadna nie zastępuje drugiej**.
+
+**Co jeszcze weszło do pułapki i dlaczego to nie jest sprawa kontroli negatywnych.**
+Zwykła edycja modułu narzędziowego i natychmiastowy przebieg zestawu mają dokładnie
+ten sam kształt co mutacja: ta sama sekunda, a przy poprawce w rodzaju `0.30` na `0.31`
+także ta sama długość. Procedura, którą trzeba pamiętać, broni wyłącznie tego, kto
+o niej pamiętał.
 
 **Wniosek czwarty:** przyrząd potwierdzający przywrócenie musi oglądać to, co się
 wykonuje, a nie to, co leży na dysku. Suma MD5 na źródle jest o pliku; o przebiegu
