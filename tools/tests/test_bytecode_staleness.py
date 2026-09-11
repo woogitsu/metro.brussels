@@ -481,3 +481,125 @@ def test_wartownia_nie_pozwala_wyczyscic_dwa_razy_w_jednym_przebiegu():
     assert "[BAJTKOD]" not in bufor.getvalue(), (
         "drugie zaladowanie `test_all.py` w tym samym procesie znowu wyczyscilo "
         "bajtkod i powiedzialo o tym: %r" % bufor.getvalue()[:200])
+
+
+# --- 6.D136: skąd w CI bierze się bajtkod, którego zestaw nie zastał pustym ---------
+
+#: Workflow, w którym stoi krok tworzący bajtkod i krok zestawu.
+WORKFLOW_ZESTAWU = os.path.join(ROOT, ".github", "workflows", "python-tests.yml")
+
+#: Krok, który bajtkod TWORZY. Samej nazwy nie wystarczy pilnować — treść polecenia
+#: czyta `CEL_KOMPILACJI` niżej, bo nazwa kroku przeżyłaby zmianę tego, co kompiluje.
+KROK_KOMPILACJI = "Compile Python tools"
+
+#: Wzorzec wyciągający CEL kompilacji z workflowa. **Dopasowanie musi sięgać końca
+#: wiersza i to jest poprawka po kontroli, która wyszła ZIELONA** (KN-3): sprawdzanie
+#: `POLECENIE_KOMPILACJI in tekst` przepuszczało `… -q tools/tests`, bo dawne polecenie
+#: jest jego PRZEDROSTKIEM. Zawężenie celu z `tools` na `tools/tests` zmieniłoby liczbę
+#: plików z 201 na 130, a bramka milczałaby.
+CEL_KOMPILACJI = re.compile(r"run:\s*python3 -m compileall -q (\S+)\s*$", re.M)
+
+#: Krok, który bajtkod ZASTAJE i kasuje (6.D122).
+KROK_ZESTAWU = "Run tool tests"
+
+#: **Zmierzone 11.09.2026 z logu joba `tools` przebiegu PR #530 i odtworzone lokalnie
+#: na czystym drzewie.** CI wypisuje `[BAJTKOD] wyczyszczono 7 kat. __pycache__
+#: (201 plikow) pod tools/`; `python3 -m compileall -q tools` po `find … -name
+#: __pycache__ -prune -exec rm -rf` daje **dokładnie te same liczby**, z rozkładem
+#: `tools/tests` 130, `tools/blender` 29, `tools/track` 23, `tools/ci` 9,
+#: `tools/visual` 5, `tools/physics` 3, `tools/data` 2.
+#:
+#: **Po co ta liczba stoi tutaj.** Zdanie w `docs/06-worked-example.md` mówiło do
+#: 11.09.2026, że „każdy przebieg CI zaczyna zimno". Pierwsza połowa uzasadnienia
+#: (`git clean -ffdx`, `.gitignore`) jest prawdziwa, druga nie: bajtkod powstaje
+#: PÓŹNIEJ, w nazwanym kroku tego samego joba. Liczba jest tu po to, żeby poprawione
+#: zdanie miało czym się zestarzeć widocznie.
+BAJTKOD_PO_COMPILEALL_KATALOGI = 7
+BAJTKOD_PO_COMPILEALL_PLIKI = 201
+
+
+def _workflow_zestawu():
+    with open(WORKFLOW_ZESTAWU, encoding="utf-8") as uchwyt:
+        return uchwyt.read()
+
+
+def test_krok_kompilacji_stoi_w_workflow_PRZED_zestawem():
+    """Kolejność jest treścią: to ona tłumaczy, czemu zestaw nie zastaje pustki.
+
+    Gdyby `compileall` stał PO zestawie, wypis `[BAJTKOD] wyczyszczono …` mówiłby
+    o zerze i zdanie w dokumencie byłoby prawdziwe w dawnym brzmieniu. Test czyta
+    pozycje obu kroków, a nie samą ich obecność.
+    """
+    tekst = _workflow_zestawu()
+    assert KROK_KOMPILACJI in tekst, (
+        "w `python-tests.yml` nie ma kroku %r — zdanie w `docs/06-worked-example.md` "
+        "o tym, skąd bierze się bajtkod w CI, przestało mieć przedmiot" % KROK_KOMPILACJI)
+    cele = CEL_KOMPILACJI.findall(tekst)
+    assert cele == ["tools"], (
+        "krok %r kompiluje %s zamiast całego `tools` — zawężenie celu zmienia liczbę "
+        "plików bajtkodu, o której mówi dokument, i robi to po cichu"
+        % (KROK_KOMPILACJI, cele or "nic"))
+    assert tekst.index(KROK_KOMPILACJI) < tekst.index(KROK_ZESTAWU), (
+        "krok kompilacji stoi PO zestawie — wtedy zestaw zastaje katalog pusty "
+        "i dokument ma mówić co innego")
+
+
+def test_compileall_na_czystym_drzewie_daje_liczby_z_logu_CI():
+    """Liczby z CI odtworzone lokalnie, a nie przepisane z logu.
+
+    Kopia `tools/` w katalogu tymczasowym, żeby nie ruszać bajtkodu drzewa roboczego
+    w trakcie przebiegu zestawu — ten sam powód, dla którego 6.D90 przeniosło zapisy
+    na kopię.
+    """
+    with tempfile.TemporaryDirectory(prefix="metro-compileall-") as katalog:
+        # Cel brany Z WORKFLOWA, nie wpisany tu drugi raz: inaczej test mierzyłby
+        # własne wyobrażenie o tym, co CI kompiluje (6.B28).
+        z_workflowa = CEL_KOMPILACJI.findall(_workflow_zestawu())
+        assert z_workflowa == ["tools"], (
+            "workflow kompiluje %s, a ten test odtwarza liczby dla `tools` — "
+            "liczby z logu CI przestaly opisywac to samo" % (z_workflowa or "nic"))
+        cel = os.path.join(katalog, z_workflowa[0])
+        shutil.copytree(os.path.join(ROOT, z_workflowa[0]), cel,
+                        ignore=shutil.ignore_patterns("__pycache__"))
+        wynik = subprocess.run([sys.executable, "-m", "compileall", "-q", cel],
+                               capture_output=True, text=True)
+        assert wynik.returncode in (0, 1), (
+            "compileall skonczyl kodem %d: %s" % (wynik.returncode, wynik.stderr[:300]))
+
+        # Liczenie idzie przez `tree_walk.policz_bajtkod`, a nie przez własne
+        # `os.walk`: przedmiotem liczenia JEST katalog pominięty w `.gitignore`,
+        # więc `TW.walk` odsiewałby dokładnie to, czego szukamy (zmierzone: 0 i 0),
+        # a zapadkę `MAX_WOLNO_WPROST` wolno wyłącznie obniżać. Ten sam wybór, co
+        # przy `wyczysc_bajtkod` w 6.D122.
+        import tree_walk as TW
+
+        katalogi, pliki = TW.policz_bajtkod(katalog, z_workflowa[0])
+
+    assert (katalogi, pliki) == (BAJTKOD_PO_COMPILEALL_KATALOGI,
+                                 BAJTKOD_PO_COMPILEALL_PLIKI), (
+        "compileall na kopii `tools/` dal %d katalogow i %d plikow, a pomiar "
+        "z 11.09.2026 (i log CI) mowil %d i %d — zdanie w `docs/06-worked-example.md` "
+        "o tym, skad bierze sie bajtkod w CI, trzeba przeliczyc"
+        % (katalogi, pliki, BAJTKOD_PO_COMPILEALL_KATALOGI, BAJTKOD_PO_COMPILEALL_PLIKI))
+
+
+def test_dokument_nie_twierdzi_ze_CI_zaczyna_z_pustym_katalogiem():
+    """Zdanie obalone pomiarem nie ma prawa wrócić — 6.D136.
+
+    Bramka czyta akapit o CI w `docs/06-worked-example.md` i żąda dwóch rzeczy naraz:
+    żeby nie było w nim dawnego twierdzenia, i żeby były liczby, które je zastąpiły.
+    Sam zakaz przepuściłby akapit skasowany, a sam wymóg liczb — akapit mówiący
+    jedno i drugie.
+    """
+    with open(os.path.join(ROOT, "docs", "06-worked-example.md"),
+              encoding="utf-8") as uchwyt:
+        tekst = uchwyt.read()
+
+    plaski = " ".join(tekst.split())
+    assert "każdy przebieg CI zaczyna zimno. **To jest" not in plaski, (
+        "dawne brzmienie wrocilo do dokumentu jako TWIERDZENIE — log przebiegu je obala")
+    assert KROK_KOMPILACJI in tekst, (
+        "dokument nie nazywa kroku, ktory bajtkod tworzy — a to jest cala tresc 6.D136")
+    assert str(BAJTKOD_PO_COMPILEALL_PLIKI) in tekst, (
+        "dokument nie podaje liczby plikow (%d), wiec nie ma czym sie zestarzec "
+        "widocznie" % BAJTKOD_PO_COMPILEALL_PLIKI)
