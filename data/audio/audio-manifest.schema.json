@@ -89,6 +89,8 @@
     {
       "if": {"properties": {"rights_status": {"const": "cleared"}}, "required": ["rights_status"]},
       "then": {
+        "required": ["as_of"],
+        "properties": {"as_of": {"type": "string", "minLength": 1, "format": "date"}},
         "anyOf": [
           {
             "required": ["permission_ref"],
