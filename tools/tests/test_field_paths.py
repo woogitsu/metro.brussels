@@ -1153,7 +1153,11 @@ MINIMUM_POWODU = 120
 #: więc liczba jest **przybita równością** i zmiana jej wymaga zdania w commicie.
 #: Zmierzone 11.09.2026: cztery z 10.09.2026 (6.D73, 6.D74, 6.D86, 6.D89) plus
 #: piąta z tej pozycji, w tym samym bloku 6.D74, w innym polu.
-POPRAWEK_W_DRZEWIE = 5
+#: **5 → 6 (11.09.2026, przy 6.D133).** Szósta: blok 6.D133, pole
+#: „Weryfikacja”, wołające `test_scan_gates.py` zamiast `test_tree_walks.py`.
+#: Ten sam kształt, co poprawka piąta — pole opisywało bramkę prozą poprawnie,
+#: a komenda wskazywała moduł o podobnej nazwie i innej treści.
+POPRAWEK_W_DRZEWIE = 6
 
 
 def poprawki_zapisow(blocks=None):
