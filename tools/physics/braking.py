@@ -115,6 +115,67 @@ def o_statusie(container, key, oczekiwany):
     return float(rec["value"])
 
 
+#: Klucz rejestru, którym wartość mówi „to jest przybliżenie, nie pomiar".
+#:
+#: **Zmierzone 11.09.2026 (6.D124): w całym `data/` niesie go DOKŁADNIE JEDNA
+#: wartość** — `parameters.empty_mass_kg`, 170 000 kg, z notatką „STIB states
+#: approximately 170 tonnes; retain approximation explicitly". Skan po wszystkich
+#: `data/**/*.json` nie znalazł ani drugiej.
+#:
+#: **Jeden to liczba o REJESTRZE, nie o danych** — i to jest najważniejsze zdanie
+#: tej stałej. Przybliżeń w projekcie jest więcej, tylko mówią o sobie inaczej:
+#: `data/network/station-depths.csv` ma kolumnę `confidence`, a w niej **trzy**
+#: wiersze `estimated` (De Brouckère, Parc, Arts-Loi — te same, które 6.D120
+#: wpuściło do geometrii). Tamte nie wchodzą do modelu jazdy i mają własny język,
+#: więc ten licznik ich nie widzi i widzieć nie ma.
+KLUCZ_PRZYBLIZENIA = "approximate"
+
+
+def przyblizone_wpisy(registry=None):
+    """`[(sciezka, wartosc, notatka)]` dla WSZYSTKICH wpisów rejestru z flagą.
+
+    **Ścieżką rejestru, nie nazwą modelu — i to nie jest kosmetyka.** Wypis tej
+    listy jest porównywany `diff`em z wypisem rdzenia C# (krok „Sim.Runner braking
+    kontra referencja" w `sim-tests.yml`), a rdzeń czyta ten sam plik i zna wpisy
+    po ścieżkach `sekcja.klucz`. Nazwy pythonowe (`aw0_kg`) istnieją wyłącznie po
+    tej stronie, więc wypisanie ich zmusiłoby rdzeń do trzymania drugiej kopii
+    tablicy nazw — czyli dokładnie tego, czego ta pozycja unika gdzie indziej.
+
+    Zmierzone 11.09.2026: pierwsza wersja wypisywała `aw0_kg = empty_mass_kg` i to
+    **wywróciło job `sim`** (`diff` pokazał dwa wiersze obecne tylko po stronie
+    Pythona). Bramka zadziałała dokładnie tak, jak ma działać.
+    """
+    reg = registry if registry is not None else load_registry()
+    znalezione = []
+    for sekcja in ("parameters", "reference_model"):
+        for klucz, rec in sorted(reg.get(sekcja, {}).items()):
+            if isinstance(rec, dict) and rec.get(KLUCZ_PRZYBLIZENIA) is True:
+                znalezione.append((f"{sekcja}.{klucz}", float(rec["value"]),
+                                   rec.get("notes") or ""))
+    return znalezione
+
+
+def parametry_przyblizone(registry=None):
+    """`[(nazwa, klucz, wartosc, notatka)]` dla parametrów modelu z flagą przybliżenia.
+
+    Liczone **z rejestru**, po tej samej tabeli `PARAMETRY`, z której `params`
+    buduje model. Własna lista nazw byłaby drugą kopią wiedzy „który parametr jest
+    przybliżony" i rozjechałaby się przy pierwszej zmianie w `data/` — dokładnie
+    tak, jak rozjechałby się licznik wpisany tu liczbą.
+
+    Zwraca listę, a nie liczbę, bo pole „Wyjście" pozycji 6.D124 żąda **wykazu**
+    tych, które wchodzą do modelu, a nie samego licznika.
+    """
+    reg = registry if registry is not None else load_registry()
+    znalezione = []
+    for nazwa, sekcja, klucz, _status in PARAMETRY:
+        rec = reg[sekcja][klucz]
+        if rec.get(KLUCZ_PRZYBLIZENIA) is True:
+            znalezione.append((nazwa, klucz, float(rec["value"]),
+                               rec.get("notes") or ""))
+    return znalezione
+
+
 def params(registry=None):
     """Parametry modelu hamowania wyjęte z rejestru, z kontrolą statusu.
 
@@ -309,11 +370,25 @@ def _fmt(value, digits=3):
     return f"{value:.{digits}f}"
 
 
-def report():
-    """Wypis tablic referencyjnych — do wklejenia i do porównania z rdzeniem."""
-    cfg = params()
+def report(registry=None):
+    """Wypis tablic referencyjnych — do wklejenia i do porównania z rdzeniem.
+
+    `registry` istnieje po to, żeby dało się WYKONAĆ przypadek, którego dzisiejsze
+    dane nie produkują: wypis przy ZERZE parametrów przybliżonych (6.D124). Bez
+    niego zdanie „wiersz pada zawsze" byłoby nieodróżnialne od „wiersz pada, bo
+    akurat jest co wypisać" — a przybliżony parametr jest dziś dokładnie jeden.
+    """
+    cfg = params(registry)
     print(f"zryw = {cfg['jerk']} m/s^3, lambda = {cfg['lam']}, "
           f"sluzbowe = {cfg['service']} m/s^2, awaryjne = {cfg['emergency']} m/s^2")
+    # 6.D124: wiersz pada ZAWSZE, także przy zerze. Wypisywanie go tylko wtedy, gdy
+    # jest co wypisać, robi z ciszy dwa różne zdania — „nic nie jest przybliżone"
+    # i „nikt nie sprawdzał" — nieodróżnialne dla czytającego wypis.
+    przyblizone = przyblizone_wpisy(registry)
+    print(f"PARAMETRY PRZYBLIZONE (rejestr, {KLUCZ_PRZYBLIZENIA}: true): "
+          f"{len(przyblizone)}")
+    for sciezka, wartosc, notatka in przyblizone:
+        print(f"  {sciezka} = {wartosc:g}" + (f"  — {notatka}" if notatka else ""))
     print()
     print("SUFIT PRZYCZEPNOSCIOWY (design_assumption: udzial osi hamowanych)")
     print("rail  mu     wariant             f       b_max     b_max_bez_lambda  1.10  1.30")

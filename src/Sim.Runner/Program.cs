@@ -1569,6 +1569,22 @@ public static class Program
             Inv,
             $"zryw = {model.DesignJerkMps3:R} m/s^3, lambda = {model.DesignEffectiveMassFactor:R}, " +
             $"sluzbowe = {model.DesignServiceBrakeMps2:R} m/s^2, awaryjne = {model.DesignEmergencyBrakeMps2:R} m/s^2"));
+
+        // 6.D124: wiersz pada ZAWSZE, także przy zerze. Wypisywanie go tylko wtedy,
+        // gdy jest co wypisać, robi z ciszy dwa różne zdania — „nic nie jest
+        // przybliżone" i „nikt nie sprawdzał" — nieodróżnialne dla czytającego.
+        // Ścieżką rejestru, nie nazwą modelu: referencja pythonowa zna wpisy pod
+        // własnymi nazwami (`aw0_kg`), których ten rdzeń nie ma i mieć nie powinien.
+        var approximate = model.Registry.ApproximateEntries();
+        Console.Out.WriteLine(string.Create(
+            Inv, $"PARAMETRY PRZYBLIZONE (rejestr, approximate: true): {approximate.Count}"));
+        foreach (var entry in approximate)
+        {
+            var glowa = string.Create(Inv, $"  {entry.Path} = {entry.RequireNumber():R}");
+            var ogon = string.IsNullOrEmpty(entry.Notes) ? "" : "  \u2014 " + entry.Notes;
+            Console.Out.WriteLine(glowa + ogon);
+        }
+
         Console.Out.WriteLine();
 
         Console.Out.WriteLine("SUFIT PRZYCZEPNOSCIOWY (design_assumption: udzial osi hamowanych)");

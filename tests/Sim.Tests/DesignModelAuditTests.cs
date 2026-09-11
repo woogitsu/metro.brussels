@@ -89,6 +89,34 @@ public sealed class DesignModelAuditTests
         Assert.AreEqual(18, inRegistry.Count, "zmieniła się liczba założeń projektowych w rejestrze");
     }
 
+    /// <summary>
+    /// 6.D124: rejestr niesie flagę <c>approximate</c> i rdzeń ją CZYTA — bo wypis
+    /// <c>Sim.Runner braking</c> jest porównywany <c>diff</c>em co do bitu
+    /// z niezależną referencją <c>tools/physics/braking.py</c>, a tamta ją wypisuje.
+    /// Wpis jest dziś dokładnie jeden i wchodzi do modelu jako masa AW0.
+    /// </summary>
+    [TestMethod]
+    public void Rejestr_mowi_ktora_wartosc_jest_przyblizona_i_rdzen_to_czyta()
+    {
+        var approximate = VehicleRegistry.M7.ApproximateEntries();
+
+        Assert.AreEqual(1, approximate.Count,
+            "zmieniła się liczba wartości oznaczonych w rejestrze jako przybliżone");
+        Assert.AreEqual("parameters.empty_mass_kg", approximate[0].Path);
+        Assert.AreEqual(Model.EmptyMassKg, approximate[0].RequireNumber(),
+            "przybliżony wpis rejestru to nie jest ta masa, którą model naprawdę bierze");
+        StringAssert.Contains(approximate[0].Notes, "approximately",
+            "wpis stracił notatkę, a to ona mówi, CO jest przybliżone i z czyjej ręki");
+
+        // Kontrola przyrządu: flaga jest CZYTANA, a nie zwracana dla wszystkiego.
+        // Bez tego lista „wszystkich wpisów" wyglądałaby tak samo przy jednym wpisie
+        // w rejestrze — a wpisów jest kilkadziesiąt.
+        Assert.IsTrue(VehicleRegistry.M7.Paths.Count > approximate.Count,
+            "lista przybliżonych obejmuje wszystkie wpisy — flaga nie jest czytana");
+        Assert.IsFalse(VehicleRegistry.M7.Get("reference_model.jerk_mps3").IsApproximate,
+            "założenie projektowe bez flagi zostało policzone jako przybliżone");
+    }
+
     [TestMethod]
     public void Wartosci_spec_maja_zrodlo_pierwotne_z_adresem()
     {

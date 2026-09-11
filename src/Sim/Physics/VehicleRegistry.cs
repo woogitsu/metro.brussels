@@ -11,12 +11,15 @@ namespace MetroBxl.Sim.Physics;
 /// <summary>Jeden wpis rejestru: wartość, jej status pochodzenia i identyfikator źródła.</summary>
 public sealed class RegistryEntry
 {
-    internal RegistryEntry(string path, double? number, ParameterStatus status, string? sourceId)
+    internal RegistryEntry(string path, double? number, ParameterStatus status, string? sourceId,
+        bool approximate, string? notes)
     {
         Path = path;
         Number = number;
         Status = status;
         SourceId = sourceId;
+        IsApproximate = approximate;
+        Notes = notes;
     }
 
     /// <summary>Ścieżka w rejestrze, np. <c>parameters.empty_mass_kg</c>.</summary>
@@ -30,6 +33,18 @@ public sealed class RegistryEntry
 
     /// <summary>Identyfikator źródła pierwotnego; <c>null</c> dla wartości bez źródła.</summary>
     public string? SourceId { get; }
+
+    /// <summary>
+    /// Czy rejestr mówi o tej wartości „to jest przybliżenie" (<c>approximate: true</c>).
+    /// Dokładnie JEDEN wpis niesie dziś tę flagę — <c>parameters.empty_mass_kg</c>,
+    /// „STIB states approximately 170 tonnes" — i wchodzi do modelu hamowania jako
+    /// masa AW0 (6.D124). Czytane po to, żeby wypis rdzenia mógł to powiedzieć tym
+    /// samym wierszem, co niezależna referencja w <c>tools/physics/braking.py</c>.
+    /// </summary>
+    public bool IsApproximate { get; }
+
+    /// <summary>Notatka rejestru; <c>null</c>, gdy wpis jej nie ma.</summary>
+    public string? Notes { get; }
 
     /// <summary>Wartość liczbowa albo wyjątek — brak liczby w miejscu, gdzie fizyka jej wymaga, jest błędem danych.</summary>
     public double RequireNumber() =>
@@ -137,6 +152,27 @@ public sealed class VehicleRegistry
         return found;
     }
 
+    /// <summary>
+    /// Wpisy oznaczone w rejestrze jako przybliżone, w porządku ordinalnym ścieżek
+    /// (6.D124). Ten sam zbiór i ta sama kolejność, co
+    /// <c>tools/physics/braking.przyblizone_wpisy</c> — wypisy obu dróg są
+    /// porównywane <c>diff</c>em co do bitu w kroku CI, więc kolejność jest tu
+    /// treścią, nie porządkiem iteracji po słowniku.
+    /// </summary>
+    public IReadOnlyList<RegistryEntry> ApproximateEntries()
+    {
+        var found = new List<RegistryEntry>();
+        foreach (var path in Paths)
+        {
+            if (_entries[path].IsApproximate)
+            {
+                found.Add(_entries[path]);
+            }
+        }
+
+        return found;
+    }
+
     /// <summary>Surowa treść osadzonego rejestru — do porównania z plikiem w <c>data/</c>.</summary>
     public static string ReadEmbeddedJson()
     {
@@ -193,6 +229,13 @@ public sealed class VehicleRegistry
             ? source.GetString()
             : null;
 
-        return new RegistryEntry(path, number, status, sourceId);
+        var approximate = element.TryGetProperty("approximate", out var flag)
+            && flag.ValueKind == JsonValueKind.True;
+
+        string? notes = element.TryGetProperty("notes", out var note) && note.ValueKind == JsonValueKind.String
+            ? note.GetString()
+            : null;
+
+        return new RegistryEntry(path, number, status, sourceId, approximate, notes);
     }
 }
