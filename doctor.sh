@@ -171,8 +171,23 @@ PIN_SDK="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([0-9.]*\)".*/\1/p' \
 # nic — a to jest stan „nie ma czego pinować", nie „pin niespełniony". Bramka
 # `test_brak_jakiegokolwiek_sdk_nadal_kaze_instalowac` złapała tę różnicę na
 # pierwszej wersji tego bloku, która patrzyła na sam kod wyjścia.
+#
+# 6.D128: JEDNO wywołanie `--list-sdks` na cały blok, a jego WYJŚCIE niesie zmienna
+# — bo pyta o nie dwóch rozmówców: sonda `SDK_NA_LISCIE` i wypis listy na ekran
+# w gałęzi „pin niespełniony". Zmierzone 11.09.2026 dziennikiem atrapy: pin
+# niespełniony **2**, pin spełniony **1**, brak SDK **1**.
+#
+# Powód jest ten sam co przy `--version` w 6.D112 i nie jest nim czas: dwa wywołania
+# to dwie okazje do rozjazdu. Doctor wypisywałby wtedy „SDK SĄ na dysku" na podstawie
+# pierwszego odczytu, a listę „na dysku:" z drugiego — czyli zdanie o jednym stanie
+# maszyny obok listy z innego.
+#
+# `printf` zamiast gołego podstawienia, bo `$(...)` obcina KOŃCOWE nowe wiersze,
+# a `sed` bez nich nie zobaczyłby ostatniego wiersza listy. Przy pustej liście ta
+# gałąź i tak się nie wykonuje: wymaga `SDK_NA_LISCIE = tak`.
+SDK_LISTA="$("$DOTNET" --list-sdks 2>/dev/null)"
 SDK_NA_LISCIE="nie"
-if [ -n "$("$DOTNET" --list-sdks 2>/dev/null)" ]; then SDK_NA_LISCIE="tak"; fi
+if [ -n "$SDK_LISTA" ]; then SDK_NA_LISCIE="tak"; fi
 # 6.D112: JEDNO wywołanie `--version` na cały blok, a jego WYNIK — stdout i kod
 # wyjścia — niosą dwie zmienne. Zmierzone 10.09.2026 przed zmianą, atrapą liczącą
 # swoje wywołania: pin niespełniony **2**, pin spełniony **4**, brak SDK **3**.
@@ -200,7 +215,7 @@ if [ "$PIN_NIESPELNIONY" = "tak" ]; then
   # tylko przyczyna jest inna niż brak SDK.
   chk_expr_required "dotnet SDK vs pin z global.json ($PIN_SDK)" "false" \
     "SDK SĄ na dysku, ale ŻADNE nie spełnia pinu $PIN_SDK z global.json; \`dotnet --version\` kończy błędem — zmień pin albo doinstaluj tę wersję, NIE instaluj SDK od nowa"
-  "$DOTNET" --list-sdks 2>/dev/null | sed 's/^/        na dysku: /'
+  printf '%s\n' "$SDK_LISTA" | sed 's/^/        na dysku: /'
 else
   # Forma WYRAŻENIOWA, bo wynik jest już zapamiętany — `chk_prog_required` wołałby
   # `--version` drugi raz. Obie funkcje wypisują ten sam kształt wiersza
