@@ -55,40 +55,84 @@ import re
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 WORKFLOW = os.path.join(ROOT, ".github", "workflows", "python-tests.yml")
 
-#: Przebiegi, które KTOŚ NAPRAWDĘ ZMIERZYŁ: (data, sekundy, modułów, na czym).
+#: Dwie maszyny, na których ten zestaw bywa mierzony. Nazwy są zamknięte, bo od nich
+#: zależy, KTÓRE pomiary wchodzą do marginesu — a wolny tekst w polu „na czym" dawał
+#: dotąd odpowiedź, której nie dało się policzyć.
+MASZYNA_RUNNER = "runner"
+MASZYNA_KONTENER = "kontener"
+MASZYNY = (MASZYNA_RUNNER, MASZYNA_KONTENER)
+
+#: Przebiegi, które KTOŚ NAPRAWDĘ ZMIERZYŁ: (data, sekundy, modułów, maszyna, na czym).
 #:
-#: **Lista, a nie jedna liczba — i to jest poprawka na konkretną usterkę (6.D26).**
-#: Do tej pozycji stała `MEASURED_MAX_WALL_S = 77.04` była wpisana z ręki jako „najwyższy
-#: z czterech przebiegów" jednej, minionej sesji. Liczba wpisana raz opisuje dzień,
-#: w którym ją wpisano; 07.09.2026 ten sam zestaw dawał **107,33 s**, czyli o 39 %
-#: więcej — a nic tego nie zgłaszało, bo margines liczył się wobec zapisanych 77,04,
-#: nie wobec czegokolwiek zmierzonego później. Komentarz przy teście marginesu podawał
-#: tę liczbę wprost i **przestał być prawdą, nie zmieniając ani znaku**; obie
-#: nieaktualne wartości stoją teraz w `reports/zapis-czasu-zestawu.md`.
+#: **Lista, a nie jedna liczba — poprawka na konkretną usterkę (6.D26).** Do tamtej
+#: pozycji `MEASURED_MAX_WALL_S = 77.04` była wpisana z ręki jako „najwyższy z czterech
+#: przebiegów" jednej, minionej sesji. Liczba wpisana raz opisuje dzień, w którym ją
+#: wpisano; 07.09.2026 ten sam zestaw dawał **107,33 s**, czyli o 39 % więcej — a nic
+#: tego nie zgłaszało. Obie nieaktualne wartości stoją w `reports/zapis-czasu-zestawu.md`.
 #:
-#: Teraz maksimum jest WYPROWADZANE z tej listy, więc dopisanie przebiegu automatycznie
-#: zacieśnia raportowany margines i nie da się mieć jednego bez drugiego. Dat nie
-#: przelicza się ani nie nadpisuje: 77,04 zostaje jako pomiar swojego dnia.
+#: **Pole MASZYNY jest nowe (6.D135) i rozstrzyga, czego margines dotyczy.** Do
+#: 11.09.2026 lista mieszała dwie maszyny pod jednym wolnym tekstem („host spokojny",
+#: „kontener dzielony"), a `MEASURED_MAX_WALL_S` brało maksimum ze wszystkich.
+#: Zmierzone tego dnia, przy 122 modułach i 2335 testach:
+#:
+#:   runner, sześć przebiegów CI   89,5–116,4 s ściany, CPU/ściana **1,599–1,971**
+#:   kontener sesji, jeden przebieg  **170,685 s** ściany, CPU/ściana **0,991**
+#:
+#: **Kontener przekracza dziś próg o 14 % i podłoga mierzalności go NIE zatrzymuje**
+#: — 0,991 stoi wysoko nad `MIERZALNOSC_MIN` (0,75), więc `werdykt` uznałby ten pomiar
+#: za „pomiar kodu" i odrzucił. Test niżej wykonuje ten rachunek, żeby zdanie nie było
+#: opinią. Nie jest to usterka bramki: bramka chodzi WYŁĄCZNIE na runnerze, w kroku
+#: „Run tool tests". Jest to natomiast dowód, że **jedna lista na dwie maszyny daje
+#: margines nieprawdziwy dla obu** — dokładnie to, o co pytała pozycja 6.D135.
+#:
+#: Runner liczy zestaw RÓWNOLEGLE (CPU/ściana powyżej jedynki), kontener szeregowo
+#: (0,99). To nie są te same przebiegi tego samego zestawu — to dwa różne pomiary
+#: tej samej pracy, i porównywanie ich jednym progiem nie ma sensu w żadną stronę.
+#:
+#: Pomiarów się nie przelicza ani nie nadpisuje: 77,04 zostaje jako pomiar swojego dnia.
 POMIARY = (
-    ("2026-09-05", 77.04, None,
+    ("2026-09-05", 77.04, None, MASZYNA_KONTENER,
      "najwyższy z czterech przebiegów tamtej sesji; kontener DZIELONY, `ps aux` "
      "pokazywał równoległy `dotnet build` i proces Godota"),
-    ("2026-09-07", 76.518, 93,
+    ("2026-09-07", 76.518, 93, MASZYNA_KONTENER,
      "po 6.B30 (pamięć na układ peronów), host spokojny"),
-    ("2026-09-07", 102.122, 93,
+    ("2026-09-07", 102.122, 93, MASZYNA_KONTENER,
      "ten sam kod, host pod obciążeniem: `test_station_layout` mierzył wtedy 34,9 s "
      "wobec 22,7 s godzinę wcześniej — 1,54x rozrzutu na jednym module, "
      "potwierdzone identycznym pomiarem w drzewie sprzed 6.A18"),
-    ("2026-09-07", 83.083, 95,
+    ("2026-09-07", 83.083, 95, MASZYNA_KONTENER,
      "po 6.A20, dwa moduły bramek więcej"),
-    ("2026-09-07", 107.331, 95,
-     "to samo drzewo, host pod obciążeniem — NAJWYŻSZY zmierzony do dziś"),
+    ("2026-09-07", 107.331, 95, MASZYNA_KONTENER,
+     "to samo drzewo, host pod obciążeniem — najwyższy zmierzony W KONTENERZE do 11.09"),
+    ("2026-09-11", 89.518, 122, MASZYNA_RUNNER,
+     "job `tools`, PR #524, CPU/ściana 1,971 — 2315 testów"),
+    ("2026-09-11", 92.119, 122, MASZYNA_RUNNER,
+     "job `tools`, PR #525, CPU/ściana 1,857 — 2320 testów"),
+    ("2026-09-11", 97.863, 122, MASZYNA_RUNNER,
+     "job `tools`, PR #526, CPU/ściana 1,801 — 2326 testów"),
+    ("2026-09-11", 100.654, 122, MASZYNA_RUNNER,
+     "job `tools`, PR #527, CPU/ściana 1,810 — 2330 testów"),
+    ("2026-09-11", 109.420, 122, MASZYNA_RUNNER,
+     "job `tools`, PR #529, CPU/ściana 1,610 — 2335 testów"),
+    ("2026-09-11", 116.404, 122, MASZYNA_RUNNER,
+     "job `tools`, PR #528, CPU/ściana 1,599 — 2335 testów, NAJWYŻSZY na runnerze"),
+    ("2026-09-11", 170.685, 122, MASZYNA_KONTENER,
+     "kontener sesji, maszyna spokojna, CPU/ściana 0,991 — 2335 testów; PRZEKRACZA "
+     "próg 150 s i podłoga mierzalności tego nie zatrzymuje, patrz komentarz wyżej"),
 )
+
+#: Pomiar, do którego bramka ma prawo się odnosić: wyłącznie z maszyny, NA KTÓREJ
+#: CHODZI. Krok „Run tool tests" stoi w `python-tests.yml`, a ten workflow ma
+#: `runs-on: self-hosted` — więc porównanie z progiem zdarza się tylko na runnerze.
+#: Wpis kontenerowy z 11.09.2026 (170,685 s) jest w liście po to, żeby było widać,
+#: czego margines NIE dotyczy; gdyby wchodził do maksimum, próg 150 s byłby już
+#: przekroczony przez sam ZAPIS, bez jednego regresu w kodzie.
+POMIARY_RUNNERA = tuple(w for w in POMIARY if w[3] == MASZYNA_RUNNER)
 
 #: Najwyższy ZMIERZONY przebieg, wyprowadzony z `POMIARY`. Stała osobna od
 #: `SUITE_RUNTIME_BUDGET_S`, żeby dało się sprawdzić SAM margines (test niżej), a nie
 #: tylko to, że próg jest jakąś liczbą dodatnią.
-MEASURED_MAX_WALL_S = max(sekundy for _data, sekundy, _moduly, _gdzie in POMIARY)
+MEASURED_MAX_WALL_S = max(sekundy for _d, sekundy, _m, _maszyna, _g in POMIARY_RUNNERA)
 
 #: Próg bramki CI. Czytany z TEGO pliku przez krok „Run tool tests" w
 #: `python-tests.yml` (`python3 -c "... import test_suite_runtime_budget ..."`) —
@@ -241,22 +285,132 @@ def test_every_recorded_run_says_when_and_on_what_it_was_measured():
     """
     assert len(POMIARY) >= 2, (
         "jeden pomiar nie pozwala odroznic regresu od rozrzutu hosta — po to jest lista")
-    for data, sekundy, moduly, gdzie in POMIARY:
+    for data, sekundy, moduly, maszyna, gdzie in POMIARY:
         assert re.fullmatch(r"20\d\d-\d\d-\d\d", data), data
         assert isinstance(sekundy, float) and 10.0 < sekundy < 900.0, (data, sekundy)
         assert moduly is None or isinstance(moduly, int), (data, moduly)
+        assert maszyna in MASZYNY, (
+            "pomiar bez maszyny z zamknietej listy: %r — od tego pola zalezy, ktore "
+            "przebiegi wchodza do marginesu (6.D135)" % ((data, maszyna),))
         assert len(gdzie) > 25, (
             "kontekst ma mowic, na czym i w jakich warunkach: " + repr((data, gdzie)))
+
+    # Obie maszyny muszą być reprezentowane — inaczej podział na `POMIARY_RUNNERA`
+    # jest podziałem na zbiór pełny i pusty, czyli nie robi nic, a wygląda, że robi.
+    obecne = {maszyna for _d, _s, _m, maszyna, _g in POMIARY}
+    assert obecne == set(MASZYNY), (
+        "lista opisuje tylko %s — podzial na maszyny ma sens dopiero wtedy, gdy obie "
+        "cos wnosza" % sorted(obecne))
 
 
 def test_the_recorded_maximum_is_derived_not_typed_in():
     """Maksimum wyprowadzone, nie wpisane — inaczej dopisanie pomiaru nie zmienia
     niczego i lista staje sie ozdoba obok liczby, ktora nadal rzadzi."""
-    assert MEASURED_MAX_WALL_S == max(s for _d, s, _m, _g in POMIARY)
+    assert MEASURED_MAX_WALL_S == max(s for _d, s, _m, _maszyna, _g in POMIARY_RUNNERA), (
+        "maksimum %.3f s nie jest najwyzszym przebiegiem runnera z POMIARY — "
+        "stala przestala byc wyprowadzona" % MEASURED_MAX_WALL_S)
     with open(__file__, encoding="utf-8") as uchwyt:
         source = uchwyt.read()
     assert not re.search(r"^MEASURED_MAX_WALL_S\s*=\s*[\d.]+\s*$", source, re.M), (
         "maksimum wpisane z reki zamiast wyprowadzone z POMIARY")
+
+    # **I ze bierze WYLACZNIE runnera.** Maksimum z calej listy jest dzis WYZSZE od
+    # progu — wpis kontenerowy z 11.09.2026 ma 170,685 s przy progu 150,0 s. Gdyby
+    # wchodzil do marginesu, bramka na wlasna bramke zapalilaby sie od samego ZAPISU,
+    # bez jednego regresu w kodzie, i jedynym wyjsciem byloby podniesienie progu albo
+    # skasowanie pomiaru — czyli dokladnie to, czemu ta lista ma zapobiegac.
+    max_wszystkich = max(s for _d, s, _m, _maszyna, _g in POMIARY)
+    assert max_wszystkich > SUITE_RUNTIME_BUDGET_S > MEASURED_MAX_WALL_S, (
+        "maksimum z calej listy %.3f s, z runnera %.3f s, prog %.1f s — jesli te "
+        "trzy liczby przestaly stac w tej kolejnosci, podzial na maszyny stracil "
+        "powod, dla ktorego powstal (6.D135)"
+        % (max_wszystkich, MEASURED_MAX_WALL_S, SUITE_RUNTIME_BUDGET_S))
+
+
+#: Pomiar kontenera z 11.09.2026, rozbity na człony, bo test niżej WYKONUJE na nim
+#: `werdykt`, a nie opowiada o nim. Ściana i CPU z jednego przebiegu: `resource
+#: .getrusage(RUSAGE_CHILDREN)` wokół `subprocess.run` na zestawie, drzewo `9549df6`.
+KONTENER_11_09_SCIANA = 170.685
+KONTENER_11_09_CPU = 169.185
+
+
+def test_kontener_przekroczylby_prog_i_podloga_by_go_NIE_zatrzymala():
+    """**Sedno 6.D135, wykonane jako rachunek.**
+
+    Podłoga mierzalności (6.D42) powstała po to, żeby czas maszyny OBCIĄŻONEJ nie był
+    porównywany z progiem — zmierzone wtedy stosunki to 0,451 i 0,444 pod obciążeniem
+    wobec 0,987 na spokojnym kontenerze. Kontener SPOKOJNY leży więc wysoko **nad**
+    podłogą i podłoga go nie dotyczy — a jego czas ściany urósł od tamtego dnia na tyle,
+    że dziś przekracza próg.
+
+    Bramka na tym nie cierpi, bo chodzi WYŁĄCZNIE na runnerze. Cierpiałaby LISTA, gdyby
+    jednym progiem opisywać obie maszyny — i to jest powód, dla którego `MEASURED_MAX_WALL_S`
+    bierze dziś tylko `POMIARY_RUNNERA`.
+    """
+    stosunek = KONTENER_11_09_CPU / KONTENER_11_09_SCIANA
+    assert stosunek > MIERZALNOSC_MIN, (
+        "kontener spadl ponizej podlogi mierzalnosci (%.3f < %.2f) — wtedy teza tego "
+        "testu przestaje byc prawdziwa i podzial na maszyny trzeba przemyslec od nowa"
+        % (stosunek, MIERZALNOSC_MIN))
+
+    odrzucony, komunikat = werdykt(KONTENER_11_09_SCIANA, KONTENER_11_09_CPU)
+    assert odrzucony is True, (
+        "pomiar kontenera NIE zostalby odrzucony (%.3f s przy progu %.1f s): %s"
+        % (KONTENER_11_09_SCIANA, SUITE_RUNTIME_BUDGET_S, komunikat))
+    assert "pomiar kodu" in komunikat, komunikat
+
+    # I strona druga: najwyzszy przebieg RUNNERA przechodzi, i to z zapasem.
+    najwyzszy = max(POMIARY_RUNNERA, key=lambda w: w[1])
+    odrzucony_runner, _k = werdykt(najwyzszy[1], najwyzszy[1] * 1.599)
+    assert odrzucony_runner is False, (
+        "najwyzszy zmierzony przebieg runnera (%.3f s) nie miesci sie w progu — "
+        "wtedy margines %.3f nie istnieje" % (najwyzszy[1], MARGIN))
+
+
+def test_pomiar_kontenera_stoi_w_liscie_z_ta_sama_liczba():
+    """Dwie kopie jednej liczby rozjezdzaja sie po cichu (6.B28) — wiec ich nie ma.
+
+    Stala `KONTENER_11_09_SCIANA` i wpis w `POMIARY` musza podawac to samo; test
+    pilnuje, zeby edycja jednego miejsca nie zostawila drugiego z wczorajsza prawda.
+    """
+    kontenerowe_dzis = [w for w in POMIARY
+                        if w[0] == "2026-09-11" and w[3] == MASZYNA_KONTENER]
+    assert len(kontenerowe_dzis) == 1, kontenerowe_dzis
+    assert kontenerowe_dzis[0][1] == KONTENER_11_09_SCIANA, (
+        "wpis w POMIARY mowi %.3f s, a stala %.3f s"
+        % (kontenerowe_dzis[0][1], KONTENER_11_09_SCIANA))
+
+
+def test_runner_liczy_rownolegle_a_kontener_szeregowo():
+    """Liczba, ktora rozstrzyga, ze to NIE SA porownywalne przebiegi.
+
+    Stosunek CPU do sciany mowi, ile rdzeni zestaw dostaje na sekunde zegara. Na
+    runnerze jest **powyzej jedynki** (1,599-1,971 w szesciu przebiegach z 11.09.2026),
+    w kontenerze **ponizej** (0,991). To nie jest rozrzut tej samej maszyny — to dwa
+    rozne sposoby wykonania tej samej pracy, i jeden prog czasu SCIANY nie opisuje obu.
+    """
+    kontener = KONTENER_11_09_CPU / KONTENER_11_09_SCIANA
+    assert kontener < 1.0, (
+        "kontener przestal liczyc szeregowo (CPU/sciana %.3f) — wtedy roznica "
+        "miedzy maszynami znika i podzial listy trzeba przemyslec" % kontener)
+    # Stosunki runnera stoja w polu opisowym wpisow — czytane stamtad, a nie wpisane
+    # tu drugi raz. Format: „CPU/ściana 1,971".
+    stosunki = []
+    for _d, _s, _m, maszyna, gdzie in POMIARY:
+        if maszyna != MASZYNA_RUNNER:
+            continue
+        trafienie = re.search(r"CPU/ściana (\d+),(\d+)", gdzie)
+        assert trafienie, ("wpis runnera nie podaje stosunku CPU/ściana: " + gdzie)
+        stosunki.append(float("%s.%s" % trafienie.groups()))
+    assert len(stosunki) == 6, (
+        "wpisow runnera jest %d, a pomiar z 11.09.2026 dal szesc: %s"
+        % (len(stosunki), stosunki))
+    assert min(stosunki) > 1.0, (
+        "ktorys przebieg runnera ma stosunek ponizej jedynki: %s — wtedy zdanie "
+        "o rownoleglosci przestaje byc prawdziwe" % stosunki)
+    assert min(stosunki) > kontener * 1.5, (
+        "runner przestal byc wyraznie szybszy od kontenera: %s wobec %.3f"
+        % (stosunki, kontener))
 
 
 #: Zdanie o marginesie i mnoznik, ktory sie w nim styka ze znacznikiem mnozenia.

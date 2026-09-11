@@ -170,7 +170,7 @@ NIEME_ASERCJE = {
     "test_stations.py": 22,
     "test_stop_names.py": 1,
     "test_streaming_fixture.py": 1,
-    "test_suite_runtime_budget.py": 7,
+    "test_suite_runtime_budget.py": 6,
     "test_surface_sections.py": 84,
     "test_sweep.py": 57,
     "test_t401_citation.py": 6,
@@ -336,9 +336,9 @@ def test_lista_asercji_bez_komunikatu_moze_tylko_malec():
     # dotyczyć tego samego zbioru modułów, o którym mówi zapadka. Gdy zaślepki nie
     # ma — a w drzewie repozytorium nie ma — składnik jest zerem i nic się nie zmienia.
     zaslepione_z_listy = sum(NIEME_ASERCJE[n] for n in zaslepione if n in NIEME_ASERCJE)
-    assert NIEMYCH_RAZEM == sum(w_drzewie.values()) + zaslepione_z_listy == 2377, (
+    assert NIEMYCH_RAZEM == sum(w_drzewie.values()) + zaslepione_z_listy == 2376, (
         "suma z listy %d, suma z drzewa %d (+ %d z %d modułów zaślepionych: %s), "
-        "pomiar z 11.09.2026 mówił 2377"
+        "pomiar z 11.09.2026 mówił 2377, po 6.D135 jest 2376"
         % (NIEMYCH_RAZEM, sum(w_drzewie.values()), zaslepione_z_listy,
            len(zaslepione), sorted(zaslepione) or "—"))
 
