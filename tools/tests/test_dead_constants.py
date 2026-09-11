@@ -47,6 +47,14 @@ UZASADNIONE = {
         "LOCATION_STOP / LOCATION_STATION / LOCATION_ENTRANCE, ktora spisuje ten "
         "slownik w calosci. Dwie wartosci sa czytane, trzecia nie — jej usuniecie "
         "zepsulo by czytelnosc zbioru, zamiast zdjac ciezar"),
+    "_UCHWYT_ZAMKA": (
+        "tools/tests/mutation_sweep.py",
+        "6.D123: nikt jej nie CZYTA i to jest jej caly sens — `flock` zyje tak "
+        "dlugo, jak otwarty opis pliku, wiec uchwyt musi miec wlasciciela, ktory "
+        "przezyje wyjscie z `main`. Zmienna lokalna zwolnilaby zamek natychmiast "
+        "po sprawdzeniu; zmierzone, gdy dwa kolejne wywolania `zajmij_dziennik` "
+        "bez trzymanej referencji daly OBA `wziety`, bo GC zamknal pierwszy "
+        "uchwyt. Usuniecie tej stalej zdejmuje zamek, nie ciezar"),
 }
 
 

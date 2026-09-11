@@ -739,25 +739,29 @@ def pokrycie_w_celach(mapa: dict[str, set[int]]) -> dict[str, set[int]]:
     return {path: lines for path, lines in mapa.items() if path in cele}
 
 
-#: Element unikatowy dla PROCESU — 6.D106. Liczony raz przy imporcie, więc w jednym
-#: przebiegu jest STAŁY (dwa wywołania `default_journal` dają tę samą ścieżkę), a między
-#: procesami różny.
+#: Element unikatowy dla PROCESU — 6.D106, **przepisany 11.09.2026 przez 6.D123**,
+#: a nie dopisany obok.
 #:
-#: **Po co, skoro nazwa niesie już commit, klasy, `--only` i odcisk treści.** Bo te
-#: cztery rozstrzygają, CZEGO przebieg dotyczy, a nie KTÓRY to przebieg. Dwa przeglądy
-#: uruchomione równolegle z tymi samymi czterema mierzą to samo i do 10.09.2026
-#: **dzieliły plik**: każdy dopisywał swoje wpisy i każdy czytał wynik z CAŁEGO
-#: dziennika. **Zmierzone 10.09.2026, nie wywnioskowane:** dwa dopisy tego samego
-#: wpisu dają `len(read_journal(...))` równe dwa przy JEDNEJ różnej mutacji po `id`
-#: — funkcja powtórzeń nie odsiewa, więc oba raporty liczyły każdą mutację dwa razy.
-#: Runnery jednej puli stoją na jednej maszynie
-#: i dzielą `/tmp`; ten sam powód opisuje `tools/ci/blender_install.sh`.
+#: **Do czego służy DZIŚ.** Do nazwy pliku POŚREDNIEGO mapy pokrycia
+#: (`<cel>.czesciowy-<znacznik>`) — tam dwa procesy pisałyby do jednego pliku,
+#: obcinając go sobie przy otwarciu — oraz do nazwy dziennika **wyłącznie wtedy, gdy
+#: `flock` jest niedostępny** (`ZAMEK_DOSTEPNY` fałszywe).
 #:
-#: **Czego to kosztuje, i mówię to wprost:** wznowienia po DOMYŚLNEJ nazwie już nie ma.
-#: Drugi przebieg nie znajdzie dziennika pierwszego, bo dostanie inną nazwę. Wznowienie
-#: idzie odtąd przez jawne `--journal <ścieżka>` — dokładnie tak, jak przewiduje pole
-#: „Wyjście" pozycji 6.D106. Czteroczłonowy znacznik zostaje w nazwie, bo nadal mówi
-#: człowiekowi patrzącemu w `/tmp`, czego ten dziennik dotyczy.
+#: **Czego już NIE robi i dlaczego.** Do 11.09.2026 wchodził do nazwy dziennika
+#: ZAWSZE. Powód był prawdziwy: dwa przeglądy o tych samych czterech członach mierzą
+#: to samo i **dzieliły plik**, a `read_journal` powtórzeń nie odsiewa — zmierzone
+#: 10.09.2026, dwa dopisy tego samego wpisu dają `len(read_journal(...))` równe dwa
+#: przy JEDNEJ różnej mutacji po `id`, więc oba raporty liczyły każdą mutację dwa razy.
+#: Ceną było **zdjęcie wznowienia po nazwie domyślnej**, bo drugi przebieg nie
+#: znajdował dziennika pierwszego.
+#:
+#: 6.D123 płaci tę cenę z powrotem zamkiem: nazwa wraca do postaci zależnej wyłącznie
+#: od treści (czyli wznowienie działa), a drugi równoległy przebieg **odmawia**
+#: zamiast mieszać wyniki. Warunek, od którego to zależało, został ZMIERZONY
+#: 11.09.2026 na `/tmp` tego kontenera (ext2/ext3): `flock` odmawia drugiemu procesowi
+#: (`errno 11`) i **zwalnia się po `SIGKILL`** właściciela — jądro zamyka opisy plików
+#: procesu, więc zamku osieroconego nie ma. Gdyby zwalniał się nie zwalniał, zostałaby
+#: nazwa unikatowa; pomiar i obie gałęzie stoją w `test_mutation_sweep.py`.
 #:
 #: PID sam nie wystarcza: w kontenerach numery procesów zaczynają się od małych liczb
 #: i powtarzają się między maszynami tej samej puli. Stąd czas w nanosekundach obok.
@@ -768,6 +772,57 @@ PROCES_ZNACZNIK_ZNAKOW = 8
 PROCES_ZNACZNIK = hashlib.sha256(
     f"{os.getpid()}-{time.time_ns()}".encode("utf-8")
 ).hexdigest()[:PROCES_ZNACZNIK_ZNAKOW]
+
+
+#: Czy na tej maszynie da się wziąć zamek doradczy na pliku. `fcntl` jest POSIX-owy
+#: i na Windowsie go nie ma; import pod `try` zamiast wysypania modułu przy starcie.
+try:
+    import fcntl
+except ImportError:  # pragma: no cover
+    fcntl = None
+
+ZAMEK_DOSTEPNY = fcntl is not None
+
+#: Kod wyjścia, gdy dziennik trzyma INNY przebieg. Osobny od `2` (odmowa na treści
+#: dziennika), bo to jest inna sytuacja i inna rada dla czytającego: tamta mówi
+#: „skasuj plik albo podaj własny", ta — „poczekaj albo podaj własny".
+KOD_ZAJETY_DZIENNIK = 5
+
+#: Uchwyt trzymanego zamka. MODUŁOWY, i to nie jest niechlujstwo: `flock` żyje tak
+#: długo, jak otwarty opis pliku, więc zmienna lokalna zwolniłaby zamek przy wyjściu
+#: z funkcji, która go wzięła — czyli natychmiast po sprawdzeniu.
+_UCHWYT_ZAMKA = None
+
+
+def zajmij_dziennik(path: str, dostepny=None):
+    """`(stan, uchwyt)` — `"wziety"`, `"zajety"` albo `"bez_zamka"` (6.D123).
+
+    Trzy stany, a nie `None`/uchwyt, bo „nie ma czym zamykać" i „ktoś inny trzyma"
+    wymagają od wołającego czegoś innego: pierwsze puszcza przebieg dalej (nazwa
+    dziennika jest wtedy unikatowa per proces), drugie jest ODMOWĄ. Zlanie ich
+    w jedną wartość dałoby przebieg, który po cichu dzieli plik z innym — czyli
+    dokładnie usterkę zmierzoną w 6.D106.
+
+    Zamek idzie na **sam dziennik**, nie na osobny plik `.lock`: plik osierocony po
+    `SIGKILL` zostaje na dysku (zmierzone), a dziennik i tak zostaje, więc osobny
+    plik dokładałby śmiecia bez zysku. `flock` jest doradczy i nie przeszkadza
+    `read_journal`, który czyta bez zamka.
+
+    Otwarcie w `a+` tworzy plik, jeśli go nie ma — i tak trzeba, bo zamku nie da
+    się wziąć na nieistniejącym pliku, a pusty dziennik `read_journal` czyta jako
+    brak wpisów.
+    """
+    if dostepny is None:
+        dostepny = ZAMEK_DOSTEPNY
+    if not dostepny:
+        return "bez_zamka", None
+    uchwyt = open(path, "a+", encoding="utf-8")
+    try:
+        fcntl.flock(uchwyt.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        uchwyt.close()
+        return "zajety", None
+    return "wziety", uchwyt
 
 
 def sciezka_pokrycia(commit: str) -> str:
@@ -1099,7 +1154,7 @@ def odcisk_przebiegu(odciski: dict) -> str:
 
 
 def default_journal(commit: str, kinds: tuple, only: str,
-                    odcisk: str = "") -> str:
+                    odcisk: str = "", zamek=None) -> str:
     """Domyślna ścieżka dziennika — JEDNA NA PRZEBIEG, nie jedna na maszynę.
 
     **Co było nie tak.** Do 06.09.2026 domyślną ścieżką było
@@ -1139,13 +1194,28 @@ def default_journal(commit: str, kinds: tuple, only: str,
     **Czego to NIE zmienia.** Wznowienie na treści niezmienionej trafia w ten sam
     plik, bo odcisk jest wtedy ten sam; przebieg po zacommitowaniu zmiany nadal nie
     znajdzie dziennika sprzed commita, bo różni się już samym commitem.
+
+    **Piąty człon wszedł 10.09.2026 i wyszedł 11.09.2026 — ten akapit jest przepisany,
+    a nie dopisany obok.** 6.D106 dołożyło do nazwy `PROCES_ZNACZNIK`, bo dwa przeglądy
+    o tych samych czterech członach **dzieliły plik** i oba raporty liczyły każdą
+    mutację dwa razy. Ceną było zdjęcie wznowienia po nazwie domyślnej: drugi przebieg
+    nie znajdował dziennika pierwszego.
+
+    6.D123 rozwiązuje oba naraz zamkiem (`zajmij_dziennik`): nazwa wraca do czterech
+    członów, więc wznowienie znowu działa, a drugi równoległy przebieg **odmawia**
+    (`KOD_ZAJETY_DZIENNIK`) zamiast dopisywać do cudzego dziennika. Znacznik procesu
+    zostaje w nazwie **wyłącznie tam, gdzie zamku nie ma** — parametr `zamek` istnieje
+    po to, żeby ta druga gałąź dała się wykonać na maszynie, która `fcntl` ma, zamiast
+    być kodem, którego nikt nigdy nie uruchomił.
     """
+    if zamek is None:
+        zamek = ZAMEK_DOSTEPNY
     znacznik = hashlib.sha256(
         "|".join([commit, ",".join(sorted(kinds)), only or "", odcisk]).encode("utf-8")
     ).hexdigest()[:ZNACZNIK_ZNAKOW]
-    return os.path.join(
-        tempfile.gettempdir(),
-        f"metro-mutacje-{znacznik}-{PROCES_ZNACZNIK}.jsonl")
+    nazwa = (f"metro-mutacje-{znacznik}.jsonl" if zamek
+             else f"metro-mutacje-{znacznik}-{PROCES_ZNACZNIK}.jsonl")
+    return os.path.join(tempfile.gettempdir(), nazwa)
 
 
 def read_journal(path: str) -> list[dict]:
@@ -1619,6 +1689,33 @@ def main() -> int:
 
     journal = args.journal or default_journal(
         commit, kinds, args.only, odcisk_przebiegu(odciski))
+
+    # 6.D123: zamek przed pierwszym ZAPISEM do dziennika, czyli przed `sweep`.
+    #
+    # Ten komentarz jest przepisany po kontroli negatywnej, która wyszła ZIELONA.
+    # Pierwsza wersja mówiła „przed pierwszym CZYTANIEM, później byłoby za późno" —
+    # i to nieprawda: `read_journal` niczego nie zapisuje, więc odczyt przed zamkiem
+    # nic nie kosztuje. Gdy dwa przebiegi czytają pusty dziennik naraz, zamek i tak
+    # przepuszcza jeden, a drugiemu odmawia, zanim którykolwiek dopisze wiersz.
+    # KN-6 (przeniesienie tych linii za `read_journal`) dało 125/125, bo zmiana
+    # naprawdę niczego nie psuje.
+    #
+    # Za późno byłoby dopiero PO pierwszym dopisie — wtedy oba przebiegi mają już
+    # wiersze w jednym pliku i jest to okno, którym 6.D106 tłumaczyło unikatową
+    # nazwę. Tę granicę pilnuje test czytający kolejność ze źródła: wywołanie
+    # `zajmij_dziennik` musi stać przed wywołaniem `sweep`. Tutaj, a nie tuż przed
+    # `sweep`, bo odmowa ma paść zanim przebieg policzy cokolwiek.
+    global _UCHWYT_ZAMKA
+    stan_zamka, _UCHWYT_ZAMKA = zajmij_dziennik(journal)
+    if stan_zamka == "zajety":
+        print(f"[MUTACJE] PRZERWANE — dziennik {journal} trzyma inny przebieg.\n"
+              "  Wynik czytany jest Z CAŁEGO dziennika, a `read_journal` nie odsiewa "
+              "powtórzeń, więc dopisanie się do cudzego pliku dałoby OBU przebiegom "
+              "raport liczący każdą mutację dwa razy.\n"
+              "  Poczekaj na tamten przebieg albo podaj własny --journal na inną "
+              "ścieżkę.", file=sys.stderr)
+        return KOD_ZAJETY_DZIENNIK
+
     done = read_journal(journal)
 
     obce = [entry for entry in done if entry.get("plik") not in pliki_przebiegu]
