@@ -164,6 +164,40 @@ def argumenty(maska, start):
     return out
 
 
+def argumenty_z_nawiasami(maska, start):
+    """Jak `argumenty`, ale głębokość liczy TAKŻE po `[` i `{` — 6.D145.
+
+    **Po co osobna funkcja, a nie poprawka tamtej.** `argumenty` liczy wyłącznie
+    nawiasy okrągłe, więc `CollectionAssert.AreEqual(new[] { "a", "b" }, x, "powód")`
+    rozpada się jej na PIĘĆ argumentów zamiast trzech. Dla 6.D145, które pyta o to,
+    czy OSTATNI argument jest komunikatem, jest to różnica rozstrzygająca.
+
+    **Zmierzone 11.09.2026, i dlatego tamta zostaje nietknięta:** na 2593 wywołaniach
+    asercji w obu katalogach testowych obie funkcje różnią się w **28** i wszystkie 28
+    to `CollectionAssert.*`. Na `Assert.AreEqual` — jedynej rodzinie, którą czyta
+    `piny_liczbowe` — różnicy nie ma ani jednej, a `piny` w ogóle nie tnie argumentów
+    (patrzy na znak tuż za `(`). Liczby 6.D141 są więc tą poprawką NIETKNIĘTE
+    i nie trzeba ich przeliczać.
+    """
+    glebokosc = 1
+    i = poczatek = start
+    out = []
+    while i < len(maska) and glebokosc > 0:
+        znak = maska[i]
+        if znak in "([{":
+            glebokosc += 1
+        elif znak in ")]}":
+            glebokosc -= 1
+            if glebokosc == 0:
+                out.append((poczatek, i))
+                break
+        elif znak == "," and glebokosc == 1:
+            out.append((poczatek, i))
+            poczatek = i + 1
+        i += 1
+    return out
+
+
 def piny_liczbowe(katalog, root=ROOT):
     """`[(plik, wiersz, wartosc, tolerancja)]` — asercje z LICZBĄ jako wartością oczekiwaną.
 

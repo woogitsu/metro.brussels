@@ -4,6 +4,12 @@
 Powod, granice i pomiary — w docstringu `tools/tests/csharp_assertions.py`.
 Ten modul sprawdza dwie rzeczy osobno: **drzewo** (zero metod bez asercji) i **czytnik**
 (czy widzi oba ksztalty ciala, pomocnika `Assert*`, i czy zglasza brak, gdy brak jest).
+
+**Od 6.D145 dochodzi trzecia**: zapadka na asercje bez KOMUNIKATU, per plik, w obie
+strony — odpowiednik `NIEME_ASERCJE` po stronie Pythona. Klasyfikacja ma trzy klasy,
+bo komunikat C# rozpoznaje sie po TYPIE ostatniego argumentu, a typu identyfikatora
+nie widac bez sprawdzacza typow; klasa `NIEROZSTRZYGNIETE` nazywa te niewiedze zamiast
+ja chowac. Powody i pomiary: `reports/6d145-komunikaty-asercji-csharp.md`.
 """
 import os
 import sys
@@ -259,6 +265,224 @@ def test_the_reader_of_test_bodies_is_not_matching_the_whole_file():
     assert "speed_mps" not in cialo, (
         "wycinek niesie nazwe kolumny z INNEGO testu, wiec bramka wyzej mogłaby "
         "zaliczyc cudza asercje jako swoja")
+
+
+# --- 6.D145: asercje C# BEZ KOMUNIKATU ------------------------------------------
+
+#: Asercje bez komunikatu, per plik. **Zmierzone 11.09.2026: 1381 w 49 plikach**,
+#: na 2593 wywolaniach asercji w obu katalogach testowych.
+#:
+#: Zapadka jest w OBIE strony, tak samo jak `NIEME_ASERCJE` po stronie Pythona: wpis
+#: wolno obnizyc, podniesc nie wolno, a plik spoza listy ma miec zero. Dopisywanie
+#: komunikatow do asercji C# stoi w polu „Poza zakresem" pozycji 6.D145 — ta lista
+#: ma je najpierw POLICZYC.
+BEZ_KOMUNIKATU = {
+    "BrakingPropertyTests.cs": 1,
+    "BrakingTests.cs": 63,
+    "CabProtectionTests.cs": 18,
+    "ChaseCameraAimTests.cs": 45,
+    "ChunkManifestTests.cs": 13,
+    "ClassicSignallingScenarioTests.cs": 1,
+    "DesignAssumptionsTests.cs": 2,
+    "DesignModelAuditTests.cs": 9,
+    "DeterminismTests.cs": 2,
+    "DoorCycleTests.cs": 31,
+    "DriverActionsTests.cs": 1,
+    "DriverNotchTests.cs": 21,
+    "EmergencyBrakeTests.cs": 3,
+    "EnergyAccountTests.cs": 23,
+    "EnergyAndProfileTests.cs": 22,
+    "FixedBlockTests.cs": 68,
+    "InputLogTests.cs": 62,
+    "LineBudgetTests.cs": 31,
+    "LineCoreTests.cs": 44,
+    "LineDriveTests.cs": 21,
+    "LineRouteTests.cs": 14,
+    "LineRunTests.cs": 28,
+    "MovementAuthorityTests.cs": 30,
+    "PlatformFitTests.cs": 13,
+    "ProtectionModeTests.cs": 43,
+    "ProvenanceSidecarTests.cs": 4,
+    "ReferenceParityTests.cs": 8,
+    "RouteDispatcherTests.cs": 24,
+    "RunHeaderTests.cs": 11,
+    "RunPlanTests.cs": 107,
+    "RunResetTests.cs": 40,
+    "RunnerCommandTests.cs": 126,
+    "ScenarioDriveTests.cs": 35,
+    "SceneAxisTests.cs": 10,
+    "ServiceDayTests.cs": 31,
+    "SignallingHudTests.cs": 15,
+    "SignallingPlanTests.cs": 23,
+    "SpeedProfileTests.cs": 29,
+    "StationServiceTests.cs": 53,
+    "StepAccumulatorTests.cs": 17,
+    "StreamingPlanTests.cs": 30,
+    "TelemetryTrackTests.cs": 33,
+    "TrackAxisTests.cs": 41,
+    "TractionAndResistanceTests.cs": 16,
+    "TrainControllerTests.cs": 23,
+    "TrainProtectionTests.cs": 41,
+    "TrainViewLayoutTests.cs": 14,
+    "UiTextTests.cs": 13,
+    "ValidationTests.cs": 28,
+}
+
+#: Suma z listy wyzej, LICZONA, nie wpisana — z tego samego powodu, co po stronie
+#: Pythona: wpisana recznie rozjechalaby sie przy pierwszym obnizonym wpisie.
+BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
+
+#: Pozostale dwie klasy i calosc. **Trzy klasy sumuja sie do `ASERCJI_RAZEM`** i to
+#: jest tu trescia: asercja, ktorej czytnik nie umie zaklasyfikowac, ma byc POLICZONA
+#: jako nierozstrzygnieta, a nie wpasc miedzy klasy.
+Z_KOMUNIKATEM_RAZEM = 1140
+NIEROZSTRZYGNIETYCH = 72
+ASERCJI_RAZEM = 2593
+
+
+def _rozklad():
+    """Rozklad zsumowany po obu katalogach testowych."""
+    out = {CA.BEZ_KOMUNIKATU: 0, CA.Z_KOMUNIKATEM: 0, CA.NIEROZSTRZYGNIETE: 0, "razem": 0}
+    for katalog in CA.CP.KATALOGI:
+        for klucz, ile in CA.rozklad_komunikatow(katalog).items():
+            out[klucz] += ile
+    return out
+
+
+def test_lista_asercji_C_bez_komunikatu_moze_tylko_malec():
+    """Zapadka z obu stron, per plik — 6.D145.
+
+    Bramka nie przechodzi pusta: pusty skan znaczy zepsute liczenie, a nie czyste
+    drzewo. Ten sam powod i ten sam ksztalt, co `MINIMUM_METOD` wyzej.
+    """
+    w_drzewie = {}
+    for katalog in CA.CP.KATALOGI:
+        w_drzewie.update(CA.bez_komunikatu_per_plik(katalog))
+
+    urosly = sorted((p, ile, BEZ_KOMUNIKATU[p]) for p, ile in w_drzewie.items()
+                    if p in BEZ_KOMUNIKATU and ile > BEZ_KOMUNIKATU[p])
+    assert not urosly, (
+        "asercji bez komunikatu przybylo (plik, w drzewie, w zapadce): "
+        + repr(urosly) + " — zapadka wolno obnizac, nie podnosic")
+
+    spoza = sorted((p, ile) for p, ile in w_drzewie.items() if p not in BEZ_KOMUNIKATU)
+    assert not spoza, (
+        "plik spoza listy ma asercje bez komunikatu: " + repr(spoza)
+        + " — nowy plik testowy C# zaczyna z komunikatem przy kazdej asercji")
+
+    znikly = sorted(p for p in BEZ_KOMUNIKATU if p not in w_drzewie)
+    assert not znikly, (
+        "plik z listy nie ma juz ani jednej asercji bez komunikatu: " + repr(znikly)
+        + " — zdejmij wpis w tym samym commicie, w ktorym dopisujesz komunikaty")
+
+    spadly = sorted((p, w_drzewie[p], BEZ_KOMUNIKATU[p]) for p in BEZ_KOMUNIKATU
+                    if p in w_drzewie and w_drzewie[p] < BEZ_KOMUNIKATU[p])
+    assert not spadly, (
+        "wpis stoi wyzej niz drzewo (plik, w drzewie, w zapadce): " + repr(spadly)
+        + " — obniz go w tym samym commicie")
+
+
+def test_trzy_klasy_sumuja_sie_do_calosci_i_zadna_nie_gubi_sie_po_cichu():
+    """Suma jest tu trescia: asercja niezaklasyfikowana ma byc WIDOCZNA — 6.D145.
+
+    Gdyby czytnik po cichu gubil wywolania, ktorych nie rozumie, zapadka na same
+    „bez komunikatu" spadalaby razem z jego niewiedza i czytalaby sie jako postep.
+    """
+    r = _rozklad()
+    assert r["razem"] == ASERCJI_RAZEM, (
+        "wywolan asercji jest %d, a pomiar z 11.09.2026 dal %d"
+        % (r["razem"], ASERCJI_RAZEM))
+    assert r[CA.BEZ_KOMUNIKATU] == BEZ_KOMUNIKATU_RAZEM, (
+        "suma z drzewa %d, suma z listy %d"
+        % (r[CA.BEZ_KOMUNIKATU], BEZ_KOMUNIKATU_RAZEM))
+    assert r[CA.Z_KOMUNIKATEM] == Z_KOMUNIKATEM_RAZEM, (
+        "asercji Z komunikatem jest %d zamiast %d"
+        % (r[CA.Z_KOMUNIKATEM], Z_KOMUNIKATEM_RAZEM))
+    assert r[CA.NIEROZSTRZYGNIETE] == NIEROZSTRZYGNIETYCH, (
+        "asercji nierozstrzygnietych jest %d zamiast %d — klasa, ktorej czytnik nie "
+        "umie rozstrzygnac, ma byc policzona, a nie schowana"
+        % (r[CA.NIEROZSTRZYGNIETE], NIEROZSTRZYGNIETYCH))
+    assert (BEZ_KOMUNIKATU_RAZEM + Z_KOMUNIKATEM_RAZEM + NIEROZSTRZYGNIETYCH
+            == ASERCJI_RAZEM), (
+        "trzy klasy nie sumuja sie do calosci: %d + %d + %d != %d"
+        % (BEZ_KOMUNIKATU_RAZEM, Z_KOMUNIKATEM_RAZEM, NIEROZSTRZYGNIETYCH,
+           ASERCJI_RAZEM))
+
+
+def test_tabela_arnosci_zna_kazda_asercje_z_drzewa():
+    """Nazwa spoza tabeli przechodzilaby przez czytnik NIEPOLICZONA — 6.D145."""
+    for katalog in CA.CP.KATALOGI:
+        obce = CA.nazwy_spoza_tabeli(katalog)
+        assert obce == [], (
+            "w " + katalog + " stoi asercja, ktorej `OBOWIAZKOWE_ARGUMENTY` nie zna: "
+            + repr(obce) + " — dopisz jej arnosc, bo inaczej czytnik ja POMIJA, "
+            "a zapadka spada razem z jego niewiedza")
+
+
+def _klasa_wejscia(kod, nazwa="Assert.AreEqual"):
+    """Klasa asercji z wejscia syntetycznego — jedna droga dla wszystkich kontrol."""
+    maska = CTM.maska(kod)
+    dopasowanie = CA.WYWOLANIE.search(maska)
+    args = CA.CP.argumenty_z_nawiasami(maska, dopasowanie.end())
+    return CA.klasa_komunikatu(nazwa, args, kod)
+
+
+def test_tolerancja_jako_trzeci_argument_NIE_jest_komunikatem():
+    """Pole „Skonczone, gdy" 6.D145 zada tego wprost — na wejsciu syntetycznym.
+
+    Na drzewie obie wersje czytnika daja te sama zielen: `Assert.AreEqual(a, b, 1e-9)`
+    i `Assert.AreEqual(a, b, "powod")` roznia sie TYPEM trzeciego argumentu, a nie
+    liczba przecinkow. Czytnik liczacy przecinki zaliczylby tolerancje jako komunikat
+    i zapadka spadlaby o 265 pozycji bez ani jednego dopisanego zdania.
+    """
+    assert _klasa_wejscia('Assert.AreEqual(1.0, x, 1e-9);') == CA.BEZ_KOMUNIKATU, (
+        "tolerancja jako trzeci argument policzona jako komunikat")
+    assert _klasa_wejscia('Assert.AreEqual(1.0, x, 0.0);') == CA.BEZ_KOMUNIKATU, (
+        "tolerancja zapisana jako `0.0` policzona jako komunikat — a takich w drzewie "
+        "jest najwiecej (6.D141)")
+    assert _klasa_wejscia('Assert.AreEqual(1.0, x, 1e-9, "powod");') == CA.Z_KOMUNIKATEM, (
+        "czwarty argument JEST komunikatem, gdy trzeci jest tolerancja")
+    assert _klasa_wejscia('Assert.AreEqual(1.0, x, "powod");') == CA.Z_KOMUNIKATEM, (
+        "trzeci argument bedacy literalem napisowym jest komunikatem")
+    assert _klasa_wejscia('Assert.AreEqual(1.0, x);') == CA.BEZ_KOMUNIKATU, (
+        "dwa argumenty to sama asercja, bez miejsca na komunikat")
+    assert _klasa_wejscia('Assert.AreEqual(1.0, x, tol);') == CA.NIEROZSTRZYGNIETE, (
+        "wyrazenie w pozycji tolerancji jest NIEROZSTRZYGNIETE — `tol` moze byc "
+        "liczba albo napisem, a typu bez sprawdzacza typow nie widac")
+
+    # Wszedzie POZA rodzina `AreEqual` MSTest ma w tej pozycji wylacznie `string`,
+    # wiec wyrazenie, ktore sie kompiluje, jest tam komunikatem — i nie zgadujemy.
+    assert _klasa_wejscia('Assert.IsTrue(x, opis);', "Assert.IsTrue") == CA.Z_KOMUNIKATEM, (
+        "`Assert.IsTrue(x, opis)` ma jedyne przeciazenie z `string message` — "
+        "nierozstrzygniete byloby tu nadmiarowa ostroznoscia")
+    assert _klasa_wejscia('Assert.IsTrue(x);', "Assert.IsTrue") == CA.BEZ_KOMUNIKATU, (
+        "jeden argument to sama asercja")
+    assert _klasa_wejscia('Assert.Fail("powod");', "Assert.Fail") == CA.Z_KOMUNIKATEM, (
+        "`Assert.Fail` nie ma argumentow obowiazkowych, wiec pierwszy JEST komunikatem")
+
+
+def test_literal_kolekcji_nie_rozbija_argumentow_na_przecinkach():
+    """Ciecie po samych nawiasach okraglych psuloby ten ksztalt — 6.D145.
+
+    `CollectionAssert.AreEqual(new[] { "a", "b" }, x, "powod")` ma trzy argumenty,
+    a nie piec. Zmierzone: na drzewie roznica miedzy cieciem po nawiasach okraglych
+    a po wszystkich dotyczy **28** wywolan i wszystkie sa `CollectionAssert.*`.
+    """
+    kod = 'CollectionAssert.AreEqual(new[] { "a", "b" }, x, "powod");'
+    maska = CTM.maska(kod)
+    dopasowanie = CA.WYWOLANIE.search(maska)
+    po_wszystkich = CA.CP.argumenty_z_nawiasami(maska, dopasowanie.end())
+    po_okraglych = CA.CP.argumenty(maska, dopasowanie.end())
+
+    assert len(po_wszystkich) == 3, (
+        "literal kolekcji rozbil argumenty: %d zamiast 3" % len(po_wszystkich))
+    assert len(po_okraglych) == 4, (
+        "kontrola przyrzadu: ciecie po samych nawiasach okraglych ma dac 4 (przecinek "
+        "w klamrach dzieli je na `new[] { \"a\"` i `\"b\" }`) — jesli daje %d, obie "
+        "funkcje robia to samo i jedna z nich jest zbedna" % len(po_okraglych))
+    assert CA.klasa_komunikatu("CollectionAssert.AreEqual", po_wszystkich,
+                               kod) == CA.Z_KOMUNIKATEM, (
+        "komunikat za literalem kolekcji przestal byc widoczny")
 
 
 if __name__ == "__main__":
