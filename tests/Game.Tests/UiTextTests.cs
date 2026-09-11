@@ -191,12 +191,63 @@ public sealed class UiTextTests
     private static string BezDziur(string literal) =>
         Regex.Replace(literal, "[{][^{}]*[}]", string.Empty);
 
+    /// <summary>
+    /// Kształt ścieżki węzła sceny — segmenty rozdzielone <c>/</c>, każdy identyfikator.
+    ///
+    /// <para><b>Do 11.09.2026 odsiewane było KAŻDE wystąpienie ukośnika</b> i to jest
+    /// usterka, którą zamyka 6.D115: pod tę regułę wpadał też
+    /// <c>"{…} km/h     a = {…} m/s²"</c> z <c>Hud.Update</c>, czyli napis wypisywany
+    /// graczowi. Bramka mówiła wtedy „w `Hud.cs` nie ma literału językowego" i nie
+    /// miała do tego podstaw — a odsianie było JEDYNYM powodem, dla którego skan
+    /// przechodził przed 6.D99 (usterka dziur interpolacji nie wyszła w 6.D83
+    /// właśnie przez nie).</para>
+    ///
+    /// <para>Ścieżka węzła to segmenty będące identyfikatorami: bez spacji, bez cyfr
+    /// formatu, bez znaków spoza <c>[A-Za-z0-9_]</c>. Napis z jednostką ma inny
+    /// kształt i od tej pozycji przez to sito nie przechodzi.</para>
+    /// </summary>
+    private const string SciezkaWezla =
+        @"^[A-Za-z_][A-Za-z0-9_]*(?:/[A-Za-z_][A-Za-z0-9_]*)+$";
+
+    /// <summary>
+    /// Symbole jednostek, zdejmowane przed pytaniem „czy to słowo" — 6.D115.
+    ///
+    /// <para><b>Zbiór jest ZAMKNIĘTY i wyprowadzony z pomiaru</b>, nie z wyobraźni:
+    /// po zawężeniu odsiania ścieżek skan zgłosił dokładnie JEDEN literał w całym
+    /// <c>src/Game/</c> i są to jednostki z niego. Pole „Skończone, gdy" 6.D83 mówi
+    /// wprost, że jednostki i formaty liczb zostają — a reguła „słowo to dwie litery
+    /// pod rząd" przepuszczała je dotąd tylko dlatego, że <c>m</c> i <c>s</c> są
+    /// jednoliterowe. <c>km</c> nie jest, i bez tego zbioru zgłaszałoby się jako
+    /// polszczyzna.</para>
+    ///
+    /// <para><b>Kolejność: najdłuższe najpierw — i to jest UBEZPIECZENIE, nie
+    /// zmierzona konieczność.</b> Pierwsza wersja tego komentarza twierdziła, że bez
+    /// niej z <c>km/h</c> zostałby wiszący <c>/h</c>; kontrola negatywna KN-3
+    /// (kolejność odwrócona) wyszła <b>ZIELONA na 229 testach</b>, bo <c>/h</c> ma
+    /// jedną literę i pytania „czy to słowo" i tak nie przechodzi. Żadne dzisiejsze
+    /// wejście obu kolejności nie odróżnia. Porządek zostaje, bo kosztuje zero,
+    /// a przy jednostce, której zdjęcie zostawiłoby dwie litery pod rząd, zacząłby
+    /// być potrzebny — ale zdanie o nim ma mówić, ile jest warte.</para>
+    /// </summary>
+    private static readonly string[] Jednostki = { "km/h", "m/s\u00b2", "km", "m", "s" };
+
+    /// <summary>Literał bez symboli jednostek — patrz <see cref="Jednostki"/>.</summary>
+    private static string BezJednostek(string literal)
+    {
+        foreach (var jednostka in Jednostki)
+        {
+            literal = literal.Replace(jednostka, " ", StringComparison.Ordinal);
+        }
+
+        return literal;
+    }
+
     private static List<string> SlowaWKodzie(string kod)
     {
         var zle = new List<string>();
         foreach (var literal in Literaly(kod))
         {
-            if (literal.Contains('/', StringComparison.Ordinal))
+            if (Regex.IsMatch(literal, SciezkaWezla))
             {
                 continue;                       // ścieżka węzła sceny
             }
@@ -220,13 +271,60 @@ public sealed class UiTextTests
                 continue;                       // klucz katalogu, nie słowo
             }
 
-            if (Regex.IsMatch(BezDziur(literal), @"\p{L}{2,}"))
+            if (Regex.IsMatch(BezJednostek(BezDziur(literal)), @"\p{L}{2,}"))
             {
                 zle.Add(literal);
             }
         }
 
         return zle;
+    }
+
+    [TestMethod]
+    public void Odsianie_sciezki_wezla_rozroznia_sciezke_od_napisu_z_jednostka()
+    {
+        // 6.D115. Wejście syntetyczne, bo na dzisiejszym `src/Game/` obie reguły —
+        // dawna („jest ukośnik") i dzisiejsza („ma kształt ścieżki") — dają ten sam
+        // werdykt dla wszystkiego poza JEDNYM literałem. Na samym drzewie kontrola
+        // nie odróżniłaby więc jednej od drugiej.
+        Assert.AreEqual(0, SlowaWKodzie("GetNode<Label>(\"Panel/Rows/Speed\");").Count,
+            "ścieżka węzła sceny przestała być odsiewana");
+        Assert.AreEqual(0, SlowaWKodzie("x = \"Hud/Panel\";").Count,
+            "dwusegmentowa ścieżka węzła przestała być odsiewana");
+
+        // Ten literał stoi w `Hud.Update` i przechodził WYŁĄCZNIE dlatego, że niesie
+        // ukośnik. Dziś przechodzi z powodu, który o nim coś mówi: po zdjęciu dziur
+        // interpolacji i symboli jednostek nie zostaje ani jedno słowo.
+        Assert.AreEqual(
+            0,
+            SlowaWKodzie("$\"{speedKmh,6:F1} km/h     a = {accelerationMps2,6:F2} m/s\u00b2\";").Count,
+            "napis z jednostkami został wzięty za polszczyznę");
+
+        // Druga strona, bez której pierwsza nie znaczy nic: napis z UKOŚNIKIEM,
+        // który ścieżką nie jest, ma zostać zgłoszony. Dawna reguła przepuszczała go
+        // tak samo cicho jak literał prędkości.
+        var zeSlowem = SlowaWKodzie("var t = \"Pr\u0119dko\u015b\u0107/godzin\u0119\";");
+        Assert.AreEqual(1, zeSlowem.Count,
+            "napis ze słowem i ukośnikiem przeszedł jako ścieżka węzła: "
+            + string.Join(" | ", zeSlowem));
+
+        // Segment ze spacją to nie identyfikator, więc to nie ścieżka.
+        var zeSpacja = SlowaWKodzie("var t = \"Panel/Rows Pr\u0119dko\u015b\u0107\";");
+        Assert.AreEqual(1, zeSpacja.Count,
+            "napis z ukośnikiem i spacją przeszedł jako ścieżka: "
+            + string.Join(" | ", zeSpacja));
+
+        // Porządek tablicy jednostek jest UBEZPIECZENIEM, nie warunkiem werdyktu
+        // (KN-3 wyszła zielona) — ale skoro jest wyborem, to niech będzie sprawdzalny.
+        var dlugosci = Jednostki.Select(j => j.Length).ToList();
+        CollectionAssert.AreEqual(dlugosci.OrderByDescending(d => d).ToList(), dlugosci,
+            "tablica jednostek przestała być uporządkowana od najdłuższej: "
+            + string.Join(" | ", Jednostki));
+
+        // Jednostka nie zjada słowa stojącego obok niej.
+        var zJednostkaISlowem = SlowaWKodzie("var t = \"{d} km do stacji\";");
+        Assert.AreEqual(1, zJednostkaISlowem.Count,
+            "zdjęcie jednostek połknęło słowo: " + string.Join(" | ", zJednostkaISlowem));
     }
 
     [TestMethod]
