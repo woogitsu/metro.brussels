@@ -349,7 +349,15 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 #: (6.D142, 6.D143, 6.D145) wyszły z kontroli negatywnych, które WYSZŁY ZIELONE albo
 #: z granic czytnika wypisanych w jego własnym module, a nie z lektury. Wartość
 #: z `len(detail_sections(...))` na pliku po edycji, nie z dodania szóstki do 213.
-MINIMUM_DETAIL_BLOCKS = 219
+#: **219 → 225 (11.09.2026, przy 6.D137).** Sześć bloków: 6.D147 … 6.D152, i NIE
+#: osobnym commitem — z tej samej arytmetyki, co przy 6.D96, 6.D102, 6.D125 i 6.D131:
+#: domknięcie 6.D137 zbija kolejkę z dwunastu na JEDENAŚCIE, czyli poniżej progu.
+#: Wszystkie sześć wyszło z pomiarów zrobionych PRZY WYKONYWANIU pozycji 6.D133,
+#: 6.D134, 6.D135 i 6.D136 — cztery z nich (6.D147, 6.D148, 6.D149, 6.D152) z rzeczy
+#: wypisanych w polu „Czego nie zrobiłem" tamtych pozycji, czyli z granic, które sam
+#: nazwałem, zamiast je przemilczeć. Wartość z `len(detail_sections(...))` na pliku
+#: po edycji, nie z dodania szóstki do 219.
+MINIMUM_DETAIL_BLOCKS = 225
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je

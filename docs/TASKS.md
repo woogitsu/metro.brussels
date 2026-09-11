@@ -991,7 +991,7 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.D134 | **ZROBIONE w #528 (11.09.2026), a wpis mówił PÓŁ PRAWDY.** Asercja na zero użyć `est` istniała od 6.D89 (`dd53c4e`) — ale czytała WYŁĄCZNIE `data/vehicle/m7-spec.json`, a pole `status` stoi w **20 plikach JSON** pod `data/` i niesie **21 różnych wartości**. Nazwa wycofana mogła więc wrócić w dowolnym z pozostałych dziewiętnastu i nie zgłosiłoby tego nic. **Zakaz jest IMIENNY, nie wyliczony ze słownika modelu, i to jest liczba, nie ostrożność:** reguła „każdy status należy do klas z `docs/02-simulation.md`” zapaliłaby się dziś na **16 z 20 plików** i **18 nazwach** (`ok`, `unknown`, `source_backed`, `permission_required`, `not_modelled`…), bo to słowniki praw, torów i stacji; osobna asercja WYKONUJE tamtą regułę i żąda dokładnie 16 i 18. Druga bramka żąda, żeby każda nazwa zakazana była w dokumencie ZDEFINIOWANA — zakaz ma stać przy definicji, nie zamiast niej. **Dlaczego nie grep, pokazane liczbą:** gołe słowo `est` stoi w `data/` **7 razy w 4 plikach i wszystkie siedem to francuszczyzna** — cztery w adresach STIB (`…-on-en-est-ou`, `…-m7-est-arrive-…`), trzy w cytacie z EIE («la profondeur des quais … est d’environ 11 m»); trafień prawdziwych ZERO, a grep po PODCIĄGU daje **401 trafień w 28 plikach** (KN-4), wciąż zero prawdziwych. **Cisza na dokumencie definiującym też jest zmierzona, nie wywnioskowana:** pierwsza wersja mojego testu tłumaczyła ją filtrem rozszerzeń, a **KN-5 (filtr wpuszcza `.md`) i KN-5b (czytnik tekstowy zamiast parsera) wyszły OBIE ZIELONE** — obrony są dwie i każda wystarcza sama; dopiero KN-5c, zdejmująca obie naraz, jest czerwona i wypisuje dokument z `est: 1` jako UŻYCIEM. Test kładzie więc dziś prawdziwy dokument w drzewie probnym i pyta skan wprost. Dziewięć kontroli, `md5sum -c: OK` po każdej, baza 14/14: KN-1 (skan tylko pliku pojazdu) 12/14; KN-2 (`est` wstawione do danych — **na KOPII `data/`**, bo §4.6 mówi „tylko do odczytu”, a kontrola nie jest od tego wyjątkiem) trafienie zgłoszone, `git status data/` pusty; KN-3 12/14; KN-4 13/14; KN-5 i KN-5b **zielone**; KN-5c 13/14; KN-6 10/14; **KN-7 (`os.walk` zamiast `TW.walk`) zielona i zgodna z pomiarem 6.D74** — pod `data/` nie ma gałęzi pominiętych w `.gitignore`, więc odsianie nie zmienia dziś ani jednej liczby. Weryfikacja: `test_provenance_classes.py` **14/14** (było 10), zestaw 2330 → **2335** w 122 modułach, kod 0; `MIN_REPORTS` 253 → 254; nowy wpis w `POZA_DRZEWEM` (`shutil.copy` do drzewa probnego). Raport: `reports/6d134-est-zero-uzyc.md`. Czego nie zrobiłem: nie zmieniłem klasyfikacji żadnego parametru i nie usunąłem `est` z dokumentu (oba w „Poza zakresem”, oba są decyzją o modelu); nie objąłem zakazem żadnej innej nazwy — lista ma jeden wpis, bo jeden status dokument opisuje jako „do usunięcia”, a dopisanie tam czegokolwiek bez takiego zdania byłoby regułą bez źródła; **nie ruszyłem asercji z 6.D89**, bo mówi o rozkładzie klas w pliku pojazdu i jest zdaniem węższym, nie duplikatem; nie objąłem skanem plików innych niż JSON — `station-depths.csv` niesie status `estimated` w kolumnie, ale to słownik głębokości stacji, a wciągnięcie go wymagałoby czytnika kolumn CSV i własnego pomiaru. Treść pierwotna: **Status `est` ma zero użyć i nic nie pilnuje jego powrotu** | zauważone 10.09.2026 przy 6.D105: `docs/02-simulation.md` definiuje `est` jako oszacowanie do usunięcia, a w danych pojazdu nie ma go ani razu. Stan jest poprawny, ale nie jest przez nic pilnowany w żadną stronę — nazwa wycofywana może wrócić po cichu. Pozycja ma rozstrzygnąć, czy zero użyć da się przybić bramką bez fałszywego alarmu na dokumencie, który tę nazwę DEFINIUJE; klasyfikacji żadnego parametru nie zmienia | S |
 | 6.D135 | **ZROBIONE w #530 (11.09.2026): jedna lista na dwie maszyny dawała margines NIEPRAWDZIWY DLA OBU, i to jest zmierzone.** `POMIARY` dostaje piąte pole — **maszynę z zamkniętej listy** (`runner`/`kontener`) zamiast wolnego tekstu — plus siedem przebiegów z 11.09.2026: sześć runnera (89,518–116,404 s ściany przy CPU/ściana **1,599–1,971**, 122 moduły) i jeden kontenera (**170,685 s** przy CPU/ściana **0,991**, zmierzony `resource.getrusage(RUSAGE_CHILDREN)` wokół `subprocess.run`). **Kontener przekracza dziś próg o 14 %, a podłoga mierzalności go NIE zatrzymuje** — 0,991 stoi wysoko nad `MIERZALNOSC_MIN`, czyli nad 0,75, więc `werdykt(170.685, 169.185)` daje „przekroczyl prog … to jest pomiar kodu”. Bramce to nie szkodzi, bo chodzi WYŁĄCZNIE na runnerze; szkodziło LIŚCIE: gdyby ten wpis wchodził do maksimum, próg byłby przekroczony przez sam ZAPIS POMIARU, bez jednego regresu w kodzie — i osobny test tego pilnuje. Różnica nie jest rozrzutem jednej maszyny: runner liczy RÓWNOLEGLE (stosunek powyżej jedynki), kontener SZEREGOWO (0,991). `MEASURED_MAX_WALL_S` bierze więc maksimum **wyłącznie z `POMIARY_RUNNERA`**, a wpis kontenerowy zostaje w liście po to, żeby było widać, czego margines NIE dotyczy. `MARGIN` spada z **1,397** (150 / 107,331) na **1,289** (150 / 116,404). Siedem kontroli, `md5sum -c: OK` po każdej, baza 17/17: **KN-1 (maksimum znów z całej listy) 15/17 i ZNALAZŁA USTERKĘ W MOIM WŁASNYM TEŚCIE** — asercja `MEASURED_MAX_WALL_S == max(...)` nie miała komunikatu i zapaliła się jako `FAIL …:` z dwukropkiem i niczym dalej, czyli dokładnie ta usterka, o której jest 6.D127; dopisany komunikat obniża wpis w `NIEME_ASERCJE` z 7 na 6 w tym samym commicie, a KN-1b (14/17, trzy testy) powtarza kontrolę na poprawionej wersji. KN-2 15/17; KN-3 15/17; KN-4 14/17; **KN-5 wyszła zielona i była ZŁĄ KONTROLĄ — zapisuję to jako błąd metody, nie wynik:** osłabiłem asercję (`assert True or …`) zamiast zmienić przedmiot pomiaru, ta sama pomyłka co przy 6.D129; **KN-5b** (podłoga podniesiona ponad 0,991) robi to dobrze i daje 14/17. Weryfikacja: `test_suite_runtime_budget.py` **17/17** (było 14), zestaw 2335 → **2338** w 122 modułach, kod 0; `NIEME_ASERCJE` 2377 → 2376; `MIN_REPORTS` 255 → 256. Raport: `reports/6d135-dwie-maszyny-jeden-prog.md`. Czego nie zrobiłem: **nie ruszyłem progu** ani nie przyspieszałem zestawu (oba w „Poza zakresem”); nie zmieniłem podłogi mierzalności — pomiar pokazuje, że spokojny kontener jej nie aktywuje, ale podniesienie odcięłoby też zdrowe przebiegi (KN-5b pokazuje, jak blisko), a to decyzja o innej bramce; nie dopisałem sześciu pomiarów kontenera z 6.D122 i 6.D123, bo nie mają zapisanego stosunku CPU/ściana, więc nie dałoby się powiedzieć, czy bramka by je porównała; nie zautomatyzowałem dopisywania pomiarów. Treść pierwotna: **Margines progu czasu liczony wobec przebiegu o 95 modułach** | zmierzone 11.09.2026 przy 6.D122 i 6.D123: `MEASURED_MAX_WALL_S` wynosi 107,331 s i pochodzi z przebiegu o 95 modułach, a dziś modułów jest 121 i sześć przebiegów dało 145,75–150,84 s w kontenerze wobec 78,47–94,46 s na runnerze. Margines liczy się wobec pomiaru, którego nikt nie powtórzy; lista `POMIARY` musi najpierw rozstrzygnąć, KTÓRĄ maszynę opisuje, bo runner liczy zestaw równolegle (CPU/ściana 1,868), a bramka porównuje czas ściany | S |
 | 6.D136 | **ZROBIONE w #531 (11.09.2026), a winowajcą jest NAZWANY KROK, nie to, co zgadywał wpis.** Wpis typował „kroki, które wcześniej importują `test_suite_runtime_budget`” — nieprawda: bajtkod tworzy osobny krok `Compile Python tools` (`python3 -m compileall -q tools`), stojący w `python-tests.yml` bezpośrednio PRZED „Run tool tests” i PRZED krokiem budżetu (16:32:47,76 wobec 16:32:48,09 w logu PR #530). Kosztuje **0,33 s**. Liczby odtworzone lokalnie co do pliku: `compileall` na czystym drzewie daje **7 katalogów i 201 plików** — dokładnie to, co wypisuje CI — z rozkładem `tools/tests` 130, `tools/blender` 29, `tools/track` 23, `tools/ci` 9, `tools/visual` 5, `tools/physics` 3, `tools/data` 2; nic innego nie dokłada ani jednego pliku. **Wniosek zostaje prawdziwy, ale wynika z czego innego:** bajtkod powstał z TEGO SAMEGO checkoutu, w tym samym jobie, pół sekundy wcześniej, więc przykryć źródła nie może — pułapka z 6.D102 potrzebuje bajtkodu STARSZEGO niż zmiana pliku, więc chroni nie pusty katalog, tylko JEDNOCZESNOŚĆ. Akapit w `docs/06-worked-example.md` przepisany, a nie dopisany obok. Nowość po stronie narzędzi: `tree_walk.policz_bajtkod` — bliźniak `wyczysc_bajtkod`, który LICZY zamiast kasować, i mieszka tam z tego samego powodu: przedmiotem obu jest katalog pominięty w `.gitignore`, a zapadkę `MAX_WOLNO_WPROST` wolno wyłącznie obniżać, więc trzeci wyjątek na `os.walk` byłby jej podniesieniem. Siedem kontroli, `md5sum -c: OK` na czterech plikach po każdej, baza 16/16: KN-1 15/16; KN-2 15/16; **KN-3 (cel zawężony na `tools/tests`) 16/16 ZIELONA i znalazła dziurę w moim własnym wzorcu** — sprawdzałem obecność polecenia przez `in`, a `… -q tools` jest PRZEDROSTKIEM `… -q tools/tests`, więc zawężenie zmieniłoby liczbę plików z 201 na 130, a bramka by milczała; dziś cel wyciąga regex sięgający końca wiersza i jest BRANY Z WORKFLOWA także przez test odtwarzający liczby, a KN-3b jest czerwona (14/16); KN-4 14/16; KN-5 15/16; **KN-6 (liczenie przez `TW.walk`) 15/16 i mierzy, dlaczego wspólny filtr się tu nie nadaje** — daje 0 katalogów i 0 plików zamiast 7 i 201, bo odsiewa dokładnie przedmiot pomiaru. Weryfikacja: `test_bytecode_staleness.py` **16/16** (było 13), zestaw 2338 → **2341** w 122 modułach, kod 0; `MIN_REPORTS` 256 → 257. Raport: `reports/6d136-skad-bajtkod-w-ci.md`. Czego nie zrobiłem: nie zmieniłem kolejności kroków ani nie zdjąłem czyszczenia (oba w „Poza zakresem”); **nie zdjąłem kroku `Compile Python tools`, choć zestaw i tak kasuje jego wynik** — ma drugą rolę, widoczną w tym samym logu: jest najwcześniejszą kontrolą składni całego `tools/` i wypisuje `SyntaxWarning` z trzech modułów, a zdjęcie go jest zmianą workflowa i osobną decyzją; nie sprawdziłem pozostałych dziewięciu workflowów, bo pozycja pytała o `python-tests.yml`. Treść pierwotna: **„Każdy przebieg CI zaczyna zimno" jest nieprawdą wziętą dosłownie** | zmierzone 11.09.2026 z logu przy 6.D123: `docs/06-worked-example.md` tłumaczy brak pułapki bajtkodu w CI tym, że `git clean -ffdx` zostawia katalog pusty, a log pokazuje `[BAJTKOD] wyczyszczono 7 kat. __pycache__ (199 plikow)` przed startem zestawu. Wniosek zostaje prawdziwy (bajtkod powstaje w tym samym jobie i jest świeży), nieprawdziwe jest uzasadnienie — pozycja ma zmierzyć, które kroki go tworzą | S |
-| 6.D137 | **Wypis koperty nazywa masę AW0 i nie mówi, że jest przybliżona** | zauważone 11.09.2026 przy 6.D124: `schedule_envelope.py` wypisuje `[KOPERTA] … masa AW0` i jest jedynym wypisem nazywającym masę po imieniu, a 6.D124 dołożyło wiersz o przybliżeniach do `braking.report()`, który masy nie wypisuje wcale. Przybliżenie dotyczy JEDNEGO z dwóch wariantów masy, więc wiersz powtórzony bez rozróżnienia mówiłby o nim także tam, gdzie liczba jest `design_model` | S |
+| 6.D137 | **ZROBIONE w #532 (11.09.2026): koperta mówi dziś, czy wybrana masa jest przybliżona, i robi to dla OBU wariantów.** Rozróżnienie, o które pozycja prosiła: `AW0` czyta `parameters.empty_mass_kg` ze statusem `spec` i flagą `approximate: true` („STIB states **approximately** 170 tonnes”), a `AW2` czyta `reference_model.aw2_model_mass_kg` o statusie `design_model` — przybliżeniem NIE jest, bo jest świadomym założeniem symulatora, a to inna rzecz niż niepewność źródła. Oba warianty mają WYKONANY przebieg przez `main()` na rozkładzie syntetycznym (prawdziwy wymaga GTFS, którego w drzewie nie ma) i wypisy różnią się dokładnie jednym zdaniem: `masa AW0 jest PRZYBLIŻONA (rejestr, approximate: true) — STIB states approximately…` wobec `masa AW2 nie jest oznaczona jako przybliżona w rejestrze`. **Zdanie stoi w OBU przebiegach, także w przeczącym** — milczenie byłoby nieodróżnialne od braku sprawdzenia, ta sama zasada co w 6.D113 i 6.D132. Raport JSON niesie `mass_approximate` i `mass_approximate_note`, żeby zdanie nie ginęło przy czytaniu pliku zamiast konsoli. Odpowiedź bierze się z REJESTRU, przez `braking.parametry_przyblizone`, czyli z tej samej tabeli `PARAMETRY`, z której `params` buduje model. **Znalezione po drodze i naprawione: cicha podmiana masy.** `envelope` miało `cfg["aw0_kg"] if mass_key == "AW0" else cfg["aw2_kg"]`, więc każda nazwa spoza „AW0” — literówka `AWO`, pusty napis, `aw0` małymi literami — dawała PO CICHU masę obciążoną; z CLI to nie wychodziło, ale `envelope` jest wołane też z testów i z kodu. Dziś odwzorowanie stoi w `PARAMETR_MASY`, w jednym miejscu czytanym przez `envelope`, przez wypis i przez `choices` w argparse, a nieznany wariant to `ValueError`. Pięć kontroli, `md5sum -c: OK` na obu plikach po każdej, baza 27/27, **ani jedna zielona**: KN-1 (wiersz bez rozróżnienia) 26/27; **KN-2 (flaga po nazwie wariantu zamiast z rejestru) 26/27 — najważniejsza**, bo podstawia rejestr probny z ODWRÓCONYMI flagami i żąda, żeby odpowiedź się odwróciła; bez niej test przeszedłby tak samo na funkcji mierzącej własną nazwę zamiast danych; KN-3 (powrót do wyrażenia warunkowego) 26/27 i odtwarza usterkę z akapitu wyżej; KN-4 (raport bez flagi) 25/27; KN-5 (argparse z własną listą) 26/27. Weryfikacja: `test_schedule_envelope.py` **27/27** (było 22), zestaw 2341 → **2346** w 122 modułach, kod 0; `dotnet test tests/Sim.Tests` 601/601; `MIN_REPORTS` 257 → 258. **Kolejka uzupełniona TYM SAMYM commitem**: domknięcie zbija ją z dwunastu na jedenaście, więc doszło sześć pozycji 6.D147 … 6.D152, a **cztery z sześciu wyszły z pola „Czego nie zrobiłem” poprzednich pozycji**, czyli z granic, które sam nazwałem zamiast przemilczeć; `MINIMUM_DETAIL_BLOCKS` 219 → 225, pozycji DO WZIĘCIA 18. Raport: `reports/6d137-masa-przyblizona-w-kopercie.md`. Czego nie zrobiłem: nie propagowałem niepewności przez model i nie ruszałem wartości w `data/` (oba w „Poza zakresem”) — wypis mówi, ŻE liczba jest przybliżona, a o ILE nie mówi, bo rejestr tego nie podaje; nie scalałem tego zdania z wierszem `braking.report()` z 6.D124, bo tamten mówi o parametrach rejestru, a ten o wybranej masie — to dwa różne zdania; nie zbudowałem przebiegu na prawdziwym rozkładzie, bo wymaga GTFS-a STIB, a przebieg syntetyczny dotyka tego samego kodu i tego samego wypisu. Treść pierwotna: **Wypis koperty nazywa masę AW0 i nie mówi, że jest przybliżona** | zauważone 11.09.2026 przy 6.D124: `schedule_envelope.py` wypisuje `[KOPERTA] … masa AW0` i jest jedynym wypisem nazywającym masę po imieniu, a 6.D124 dołożyło wiersz o przybliżeniach do `braking.report()`, który masy nie wypisuje wcale. Przybliżenie dotyczy JEDNEGO z dwóch wariantów masy, więc wiersz powtórzony bez rozróżnienia mówiłby o nim także tam, gdzie liczba jest `design_model` | S |
 | 6.D138 | **`assert R.MASS["AW0"] == 170000.0` porównuje kopię z kopią** | zmierzone 11.09.2026 przy 6.D124: liczba 170 000 stoi w drzewie trzy razy — w rejestrze ze źródłem i flagą, w `reference.py` jako literał bez znaku, i w `test_all.py` jako asercja na literał, która przeszłaby, gdyby rejestr podał co innego. Zamiana literału na odczyt zlikwidowałaby jednak DRUGĄ DROGĘ, na której stoi całe porównanie referencji z rdzeniem — pozycja ma rozstrzygnąć, gdzie należy odczyt, a gdzie literał | S |
 | 6.D139 | **Trzecia kopia liczb 18 i 24 leży w `docs/21` i nikt jej nie liczy** | zauważone 11.09.2026 przy 6.D121: README podaje 18 wymiarów stacji i 24 wymiary kabiny, obie liczby od tej pozycji sprawdzane wobec drzewa, a `docs/21-measured-vs-assumed.md` niesie te same wymiary wypisane z osobna i nikt tamtej listy z modułami nie porównuje. Bramka ma porównywać ZBIORY NAZW, nie sumy: licznik zgodziłby się przy wymianie jednego wymiaru na inny | M |
 | 6.D140 | **`--from-m/--to-m` zawęża tylko kamerę wnętrza, a nazwa tego nie mówi** | zmierzone 11.09.2026 przy 6.D120: opcja zawęża wyłącznie kamerę klatki `_inside`, a `_iso` i `_side` nadal kadrują cały obiekt — dla osi o proporcjach 78 : 1 `_side` jest przez to kreską niezależnie od okna, a §5 żąda obejrzenia tej klatki. Kadrowanie całości w `_iso` jest jednak TREŚCIĄ (ma pokazywać pustą scenę i geometrię zwiniętą w punkt), więc rozstrzygnięciem może być też nazwa mówiąca prawdę zamiast zmiany zachowania | M |
@@ -1001,6 +1001,12 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.D144 | **Ile kosztuje dopisanie komunikatów w jednym module** | zmierzone 11.09.2026 przy 6.D127: asercji bez komunikatu jest 2377 w 103 modułach, a „Poza zakresem" tamtej pozycji wykluczyło ich poprawianie, bo to praca liniowa w ich liczbie. Nikt nie wie, ile kosztuje na jeden moduł — a bez tej liczby decyzja „poprawiać czy nie" jest zgadywaniem. `test_clearance_profile.py` ma ich 117, najwięcej w drzewie, i jest modułem geometrycznym, czyli takim, w którym czerwień najtrudniej czyta się z samego kodu | M |
 | 6.D145 | **Asercje C# bez komunikatu nie są przez nic policzone** | zauważone 11.09.2026 przy 6.D127: bramka liczy asercje bez komunikatu w `tools/tests/` i zatrzymuje się na granicy języka, a `tests/Sim.Tests` i `tests/Game.Tests` mają razem 834 testy i ani jednego takiego licznika. To nie jest ten sam skan: asercja C# niesie komunikat jako OSTATNI argument, nie jako drugi, a `Assert.AreEqual(a, b, 1e-12)` ma trzeci argument, który komunikatem nie jest — kształt trzeba rozpoznać, a nie policzyć przecinki | M |
 | 6.D146 | **Ile bloków wykonanych ma adres wskazujący nie tę bramkę** | pole „Poza zakresem" pozycji 6.D126 nazwało to wprost jako pomiar na osobną pozycję: 6.D126 poprawiło JEDEN adres (blok 6.D74) i zapisało regułę, a ile jest pozostałych, nie wie dziś nikt — skan pól pomija bloki wykonane z rozmysłem, a `missing_modules` widzi wyłącznie moduły NIEISTNIEJĄCE. Pytanie „czy moduł zawiera bramkę, o której pole mówi" wymaga semantyki, więc pozycja ma najpierw zmierzyć, ilu bloków to dotyczy | M |
+| 6.D147 | **Trzy ostrzeżenia składni w `tools/` i nikt ich nie liczy** | zmierzone 11.09.2026 przy 6.D136 z logu joba `tools`: krok `Compile Python tools` wypisuje 112 wierszy `SyntaxWarning` z TRZECH modułów — `csharp_test_methods.py:83`, `test_conflict_markers.py:28` i `test_next_task.py:267` — a wszystkie trzy stoją w DOCSTRINGACH, nie w kodzie wykonywanym. Ostrzeżenie mówi „such sequences will not work in the future", czyli jest zapowiedzią BŁĘDU, ale surowy napis zmienia sposób, w jaki docstring czyta bramka roszczeń, więc pozycja ma najpierw sprawdzić, czy któraś na tym stoi | S |
+| 6.D148 | **Krok kompilujący `tools/` stoi w jednym workflow z dziesięciu** | zmierzone 11.09.2026 przy 6.D136: `grep -l compileall .github/workflows/` daje JEDEN plik z dziesięciu. Krok jest najwcześniejszą kontrolą składni całego `tools/` i jedynym miejscem, w którym `SyntaxWarning` w ogóle widać. Dziewięć pozostałych workflowów może jednak nie uruchamiać kodu z `tools/` wcale — pozycja ma rozstrzygnąć, czy to asymetria do wyrównania, czy podział pracy, liczbą, a nie opinią | S |
+| 6.D149 | **Podłoga mierzalności nie broni przed spokojną maszyną nad progiem** | zmierzone 11.09.2026 przy 6.D135: `MIERZALNOSC_MIN` wynosi 0,75 i powstała przeciw maszynie OBCIĄŻONEJ (0,451 i 0,444), a kontener SPOKOJNY ma 0,991 przy czasie ściany 170,685 s wobec progu 150 s — czyli zostałby porównany i odrzucony. Podniesienia podłogi nie da się użyć: KN-5b tamtej pozycji pokazała, że 0,995 zapala bramkę na przebiegu o stosunku 0,987, uznanym przez 6.D42 za zdrowy. Rozstrzygnięcie musi dotyczyć PROGU WOBEC MASZYNY | M |
+| 6.D150 | **`station-depths.csv` niesie status `estimated` poza zasięgiem skanu** | zmierzone 11.09.2026 przy 6.D134: skan statusów czyta wyłącznie JSON-y (20 plików, 21 wartości), a `data/network/station-depths.csv` ma kolumnę statusu z `estimated` 3×, `unknown` 9× i `confidence` 1× — nie widzi ich nic. CSV nie ma POLA `status`, tylko KOLUMNĘ, której nagłówek trzeba rozpoznać; 6.D105 rozwiązało ten sam problem dla tabel Markdown i tamten czytnik jest wzorem. `estimated` nie jest przy tym tą samą nazwą co `est` | M |
+| 6.D151 | **Siedemnaście z dwudziestu jeden wolnych zapadek to progi `MIN_`** | zmierzone 11.09.2026 przy 6.D133: rozkład 21 wolnych zapadek nie jest równy — 17 to `MIN_`/`MINIMUM_`, tylko 4 to `MAX_`. Kształt `len(x) >= MIN_Y` nie zapala się przy OBNIŻENIU progu, a obniżenie jest właśnie tym ruchem, który zwalnia bramkę z pilnowania. Każdy próg mierzy własną populację, więc pozycja bierze JEDNĄ rodzinę — progi liczące trafienia skanu — i mierzy, ile kosztuje przybicie jednej | M |
+| 6.D152 | **Lista pomiarów czasu jest utrzymywana ręcznie i nikt nie wie, ile to kosztuje** | zauważone 11.09.2026 przy 6.D135: `tools/ci/timing_record.py` mówi wprost, że `POMIARY` jest utrzymywana ręcznie, a przy tamtej pozycji dopisałem SIEDEM wpisów przepisanych z logów — czyli ten sam kształt, który 6.D26 naprawiło dla JEDNEJ liczby, a nie dla listy. Wpis niesie jednak też maszynę i zdanie o warunkach, których log nie podaje wprost, więc automat wypełniłby je zgadując; pozycja ma zmierzyć, ile z pięciu pól da się wziąć z logu bez zgadywania | S |
 
 #### Szczegóły pozycji z kompletem sześciu pól
 
@@ -8759,6 +8765,154 @@ nie sięga, nawet gdy nie ma nic innego do roboty; wtedy sięga po fazę 5.
   jest na tyle mało, żeby przeczytać ich ręcznie.
 - **Poza zakresem:** poprawianie któregokolwiek adresu — to jest praca po pomiarze.
 - **Zależy od:** 6.D126.
+
+##### 6.D147 · Trzy ostrzeżenia składni w `tools/` i nikt ich nie liczy
+
+- **Skąd:** zmierzone 11.09.2026 przy 6.D136 z logu joba `tools`. Krok
+  `Compile Python tools` wypisuje **112 wierszy** `SyntaxWarning` z **trzech** modułów:
+  `csharp_test_methods.py:83` (`"\`"`), `test_conflict_markers.py:28` i
+  `test_next_task.py:267` (oba `"\|"`). Wszystkie trzy stoją w **docstringach**,
+  a nie w kodzie wykonywanym.
+- **Dlaczego to nie jest dopisanie `r` przed napisem:** ostrzeżenie mówi „such
+  sequences will not work in the future", czyli jest zapowiedzią BŁĘDU, a nie stylu.
+  Ale docstring z surowym napisem zmienia sposób, w jaki czyta go bramka roszczeń
+  (`\` przestaje uciekać) — pozycja ma sprawdzić, czy któraś bramka na tym stoi.
+- **Wejście:** `tools/tests/csharp_test_methods.py`, `tools/tests/test_conflict_markers.py`,
+  `tools/tests/test_next_task.py`, log kroku `Compile Python tools`.
+- **Wyjście:** trzy ostrzeżenia zdjęte **albo** zapisany powód, dla którego zostają,
+  plus bramka licząca ich liczbę, żeby czwarte nie doszło po cichu.
+- **Weryfikacja:**
+  ```bash
+  python3 -W error::SyntaxWarning -m compileall -q tools
+  ```
+  Oczekiwane: kod 0, a wstawienie czwartej takiej sekwencji zapala bramkę.
+- **Skończone, gdy:** liczba ostrzeżeń jest zmierzona i przybita, a zestaw przechodzi
+  z `-W error::SyntaxWarning`.
+- **Poza zakresem:** zmiana treści docstringów poza samym prefiksem napisu.
+- **Zależy od:** 6.D136.
+
+##### 6.D148 · Krok kompilujący `tools/` stoi w jednym workflow z dziesięciu
+
+- **Skąd:** zmierzone 11.09.2026 przy 6.D136. `grep -l compileall .github/workflows/`
+  daje **jeden** plik z dziesięciu. Krok jest najwcześniejszą kontrolą składni całego
+  `tools/` i jedynym miejscem, w którym widać `SyntaxWarning` — pozostałe dziewięć
+  workflowów tej kontroli nie ma.
+- **Dlaczego to nie jest skopiowanie kroku:** dziewięć pozostałych workflowów w ogóle
+  nie musi importować `tools/`; krok kosztujący 0,33 s w każdym z nich byłby ceną
+  płaconą za kontrolę, która i tak zapala się w tym jednym. Pozycja ma rozstrzygnąć,
+  czy to jest asymetria do wyrównania, czy podział pracy.
+- **Wejście:** `.github/workflows/*.yml`, `tools/tests/test_ci_workflows.py`.
+- **Wyjście:** liczba workflowów, które naprawdę wykonują kod z `tools/`, i
+  rozstrzygnięcie — z liczbą, nie z opinią.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_ci_workflows.py
+  ```
+  Oczekiwane: zestaw zielony, liczba wypisana, a workflow dopisujący krok bez potrzeby
+  zapala bramkę albo jest świadomie dopuszczony.
+- **Skończone, gdy:** dla każdego z dziesięciu workflowów wiadomo, czy uruchamia kod
+  z `tools/`, i czy krok kompilacji jest mu potrzebny.
+- **Poza zakresem:** zmiana kolejności kroków i dopisywanie nowych jobów.
+- **Zależy od:** 6.D136.
+
+##### 6.D149 · Podłoga mierzalności nie broni przed spokojną maszyną nad progiem
+
+- **Skąd:** zmierzone 11.09.2026 przy 6.D135. `MIERZALNOSC_MIN` wynosi **0,75**
+  i powstała po to, żeby czas maszyny OBCIĄŻONEJ (stosunki 0,451 i 0,444) nie był
+  porównywany z progiem. Kontener SPOKOJNY ma **0,991**, czyli leży wysoko nad
+  podłogą — a jego czas ściany to dziś **170,685 s** przy progu **150 s**.
+- **Dlaczego to nie jest podniesienie podłogi:** podniesienie odcięłoby też zdrowe
+  przebiegi i zmierzyła to KN-5b tamtej pozycji — podłoga 0,995 zapala bramkę na
+  przebiegu o stosunku 0,987, czyli na maszynie, którą 6.D42 uznało za zdrową.
+  Rozstrzygnięcie musi dotyczyć **progu wobec maszyny**, a nie samej podłogi.
+- **Wejście:** `tools/tests/test_suite_runtime_budget.py` (`MIERZALNOSC_MIN`,
+  `werdykt`, `SUITE_RUNTIME_BUDGET_S`, `POMIARY`), `reports/mierzalnosc-czasu-zestawu.md`.
+- **Wyjście:** rozstrzygnięcie, czy próg ma być jeden dla obu maszyn, czy `werdykt`
+  ma przyjmować maszynę — z liczbami z `POMIARY`, nie z rozumowania.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_suite_runtime_budget.py
+  ```
+  Oczekiwane: zestaw zielony, a pomiar kontenera daje werdykt zgodny z rozstrzygnięciem.
+- **Skończone, gdy:** dla przebiegu 170,685 s przy 0,991 wiadomo, co bramka ma
+  powiedzieć, i mówi to z powodu zapisanego w kodzie.
+- **Poza zakresem:** przyspieszanie zestawu i zmiana wartości progu bez decyzji.
+- **Zależy od:** 6.D135.
+
+##### 6.D150 · `station-depths.csv` niesie status `estimated` poza zasięgiem skanu
+
+- **Skąd:** zmierzone 11.09.2026 przy 6.D134. Skan statusów czyta wyłącznie pliki JSON
+  (20 plików, 21 wartości). `data/network/station-depths.csv` ma kolumnę statusu
+  z wartościami **`estimated` 3×, `unknown` 9×, `confidence` 1×** — i nie widzi ich nic.
+- **Dlaczego to nie jest dopisanie rozszerzenia do skanu:** CSV nie ma pola `status`,
+  tylko KOLUMNĘ, a jej nagłówek trzeba rozpoznać — 6.D105 rozwiązało ten sam problem
+  dla tabel Markdown i tamten czytnik jest wzorem. `estimated` nie jest też tą samą
+  nazwą co `est`: pozycja ma rozstrzygnąć, czy słowniki obu plików mają się spotkać.
+- **Wejście:** `data/network/station-depths.csv` (tylko do odczytu),
+  `tools/tests/test_provenance_classes.py` (`statusy_w_katalogu_danych`,
+  `statusy_w_kolumnach_geometrii`).
+- **Wyjście:** liczba statusów w kolumnach CSV pod `data/`, z podziałem na pliki,
+  plus rozstrzygnięcie, czy wchodzą do tego samego słownika.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_provenance_classes.py
+  ```
+  Oczekiwane: zestaw zielony, liczba wypisana, a `est` wstawione do kolumny CSV
+  zapala bramkę.
+- **Skończone, gdy:** żaden plik `data/` ze statusem w kolumnie nie stoi poza skanem
+  bez zapisanego powodu.
+- **Poza zakresem:** zmiana klasyfikacji którejkolwiek głębokości i zapis do `data/`.
+- **Zależy od:** 6.D134.
+
+##### 6.D151 · Siedemnaście z dwudziestu jeden wolnych zapadek to progi `MIN_`
+
+- **Skąd:** zmierzone 11.09.2026 przy 6.D133. Zapadek wolnych jest 21, a ich rozkład
+  nie jest równy: **17 to `MIN_`/`MINIMUM_`**, tylko **4 to `MAX_`**. Kształt
+  `len(x) >= MIN_Y` nie zapala się przy obniżeniu progu, a obniżenie jest właśnie tym
+  ruchem, który zwalnia bramkę z pilnowania.
+- **Dlaczego to nie jest przybicie dwudziestu jeden naraz:** każdy próg mierzy własną
+  populację, więc strażnik dla każdego brzmi inaczej. Pozycja ma wziąć **jedną
+  rodzinę** — progi liczące trafienia skanu (`MIN_MESSAGES`, `MIN_NEEDLES`,
+  `MIN_GAME_*`) — i zmierzyć, ile kosztuje przybicie jednej.
+- **Wejście:** `tools/tests/test_needle_specificity.py`,
+  `tools/tests/test_game_needle_specificity.py`, `tools/tests/test_tree_walks.py`
+  (`ZAPADKI`, klasy).
+- **Wyjście:** jedna zapadka przybita, jej klasa w `ZAPADKI` poprawiona w tym samym
+  commicie, i zapisany koszt — ile wierszy i ile pomiaru na jedną.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_needle_specificity.py test_tree_walks.py
+  ```
+  Oczekiwane: oba zielone, a obniżenie przybitej zapadki o jeden zapala bramkę.
+- **Skończone, gdy:** liczba wolnych spada o jeden, a raport podaje koszt na jedną,
+  żeby dało się oszacować pozostałe dwadzieścia.
+- **Poza zakresem:** przybijanie więcej niż jednej i zmiana wartości progów.
+- **Zależy od:** 6.D133.
+
+##### 6.D152 · Lista pomiarów czasu jest utrzymywana ręcznie i nikt nie wie, ile to kosztuje
+
+- **Skąd:** zauważone 11.09.2026 przy 6.D135. `tools/ci/timing_record.py` mówi wprost,
+  że `POMIARY` w `test_suite_runtime_budget.py` jest utrzymywana ręcznie. Przy tej
+  pozycji dopisałem **siedem** wpisów, każdy przepisany z logu innego przebiegu —
+  i było to przepisywanie z ręki, czyli dokładnie ten kształt, który 6.D26 naprawiło
+  dla JEDNEJ liczby, a nie dla listy.
+- **Dlaczego to nie jest napisanie skryptu:** wpis niesie też **maszynę** i zdanie
+  o warunkach, których log nie podaje wprost; automat wypełniłby je zgadując. Pozycja
+  ma zmierzyć, ile pól da się wziąć z logu bez zgadywania, a ile zostaje człowiekowi.
+- **Wejście:** `tools/ci/timing_record.py`, `tools/tests/test_timing_record.py`,
+  `tools/tests/test_suite_runtime_budget.py` (`POMIARY`), log kroku „Run tool tests".
+- **Wyjście:** liczba pól wpisu, które da się wyprowadzić z samego logu, i
+  rozstrzygnięcie, czy reszta uzasadnia utrzymywanie listy ręcznie.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_timing_record.py
+  ```
+  Oczekiwane: zestaw zielony, a pola wyprowadzone z logu zgadzają się z wpisem
+  dopisanym ręcznie przy 6.D135.
+- **Skończone, gdy:** dla każdego z pięciu pól wpisu wiadomo, skąd pochodzi, i które
+  z nich wymagają człowieka.
+- **Poza zakresem:** dopisywanie wpisów automatem do drzewa i zmiana progu.
+- **Zależy od:** 6.D135.
 
 #### Rozstrzygnięte 11.09.2026 — jedna decyzja właściciela
 

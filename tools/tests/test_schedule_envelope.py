@@ -298,6 +298,152 @@ def test_envelope_bisection_guard_does_not_truncate_a_very_loose_schedule():
             f"{distance} m / {scheduled} s: {speed} km/h nie jest NAJMNIEJSZYM sufitem "
             "mieszczącym się w rozkładzie — bisekcja została ucięta")
 
+# --- 6.D137: czy wybrana masa jest przybliżona -----------------------------------
+
+def test_przyblizona_jest_jedna_z_dwoch_mas_a_nie_obie():
+    """Sedno pozycji: rozróżnienie, a nie powtórzona linijka.
+
+    `aw0_kg` czyta `parameters.empty_mass_kg` z flagą `approximate: true` („STIB states
+    approximately 170 tonnes"), `aw2_kg` czyta `reference_model.aw2_model_mass_kg`
+    o statusie `design_model` — świadome założenie symulatora, nie przybliżenie źródła.
+    """
+    przybliżona, notatka = SE.masa_przybliżona("AW0")
+    assert przybliżona is True, (
+        "AW0 przestała być przybliżona — sprawdź `approximate` przy "
+        "`parameters.empty_mass_kg` w rejestrze")
+    assert "approximately" in notatka, (
+        "notatka o przybliżeniu AW0 nie pochodzi z rejestru: %r" % notatka)
+
+    obciazona, nota_obciazonej = SE.masa_przybliżona("AW2")
+    assert obciazona is False, (
+        "AW2 zgłoszona jako przybliżona — to jest `design_model`, czyli założenie "
+        "symulatora, a nie niepewność źródła")
+    assert nota_obciazonej == "", nota_obciazonej
+
+
+def test_flaga_przyblizenia_idzie_Z_REJESTRU_a_nie_z_nazwy_wariantu():
+    """Kontrola przyrządu: rejestr probny z odwróconymi flagami odwraca odpowiedź.
+
+    Gdyby funkcja rozpoznawała przybliżenie po napisie „AW0", zachowałaby się tak samo
+    na rejestrze, w którym przybliżona jest masa obciążona — czyli mierzyłaby własną
+    nazwę zamiast danych.
+    """
+    # Kopia PŁYTKA całego rejestru plus własne kopie dwóch sekcji — rejestr niesie
+    # na najwyższym poziomie także napisy (`schema_version`, `vehicle_id`), więc
+    # „kopiuj każdą wartość jako słownik" wywraca się na pierwszym z nich.
+    rejestr = B.load_registry()
+    probny = dict(rejestr)
+    probny["parameters"] = dict(rejestr["parameters"])
+    probny["reference_model"] = dict(rejestr["reference_model"])
+    probny["parameters"]["empty_mass_kg"] = dict(
+        probny["parameters"]["empty_mass_kg"], approximate=False, notes="")
+    probny["reference_model"]["aw2_model_mass_kg"] = dict(
+        probny["reference_model"]["aw2_model_mass_kg"],
+        approximate=True, notes="wejście syntetyczne kontroli")
+
+    assert SE.masa_przybliżona("AW0", probny) == (False, ""), (
+        "AW0 nadal przybliżona na rejestrze, w którym flagi nie ma — odpowiedź "
+        "nie pochodzi z danych")
+    assert SE.masa_przybliżona("AW2", probny) == (True, "wejście syntetyczne kontroli"), (
+        "AW2 nieprzybliżona na rejestrze, w którym flaga stoi")
+
+
+def test_odwzorowanie_wariantu_na_parametr_ma_jedno_zrodlo_i_odrzuca_obce():
+    """Nieznany wariant to BŁĄD, nie cicha masa obciążona.
+
+    Do 6.D137 stało `cfg["aw0_kg"] if mass_key == "AW0" else cfg["aw2_kg"]`, czyli
+    każda nazwa spoza „AW0" — literówka `AWO`, pusty napis — dawała po cichu AW2.
+    """
+    assert SE.klucz_masy("AW0") == "aw0_kg", SE.klucz_masy("AW0")
+    assert SE.klucz_masy("AW2") == "aw2_kg", SE.klucz_masy("AW2")
+    for obcy in ("AWO", "", "aw0", "AW1"):
+        try:
+            SE.klucz_masy(obcy)
+        except ValueError as blad:
+            assert "nieznany wariant masy" in str(blad), str(blad)
+        else:
+            raise AssertionError(
+                "wariant %r przeszedł bez błędu — cicha podmiana masy wróciła" % obcy)
+
+    # Zbiór wariantów CLI i zbiór parametrów to ma być JEDNA lista, nie dwie:
+    # dopisanie wariantu w argparse bez wpisu tutaj dawałoby `ValueError` dopiero
+    # w przebiegu, a nie w bramce.
+    zrodlo = open(os.path.join(ROOT, "tools", "physics", "schedule_envelope.py"),
+                  encoding="utf-8").read()
+    assert 'choices=sorted(PARAMETR_MASY)' in zrodlo or \
+           'choices=("AW0", "AW2")' in zrodlo, (
+        "argparse trzyma własną listę wariantów masy — ma czytać `PARAMETR_MASY`")
+
+
+def test_raport_niesie_flage_przyblizenia_obok_masy():
+    """Plik ma mówić to samo, co konsola — inaczej zdanie ginie przy czytaniu JSON-a."""
+    timetable = {"segments": [_segment(600.0, 60.0)]}
+    pusty = SE.envelope(timetable, "AW0", CFG)
+    obciazony = SE.envelope(timetable, "AW2", CFG)
+
+    assert pusty["mass_approximate"] is True, (
+        "raport AW0 nie niesie flagi przybliżenia (%r) — zdanie z konsoli ginie "
+        "przy czytaniu pliku" % pusty["mass_approximate"])
+    assert "approximately" in pusty["mass_approximate_note"], (
+        "notatka w raporcie AW0 nie pochodzi z rejestru: %r"
+        % pusty["mass_approximate_note"])
+    assert obciazony["mass_approximate"] is False, (
+        "raport AW2 zgłasza przybliżenie (%r) — `design_model` przybliżeniem nie jest"
+        % obciazony["mass_approximate"])
+    assert obciazony["mass_approximate_note"] == "", (
+        "raport AW2 niesie notatkę o przybliżeniu: %r"
+        % obciazony["mass_approximate_note"])
+
+
+def test_oba_warianty_maja_WYKONANY_przebieg_i_wypisy_roznia_sie_tym_zdaniem():
+    """Pole „Skończone, gdy": OBA warianty przebiegnięte, różnica widoczna w wypisie.
+
+    Przebieg idzie przez `main()` na rozkładzie syntetycznym, a nie przez samo
+    `envelope` — bo to wypis jest przedmiotem pozycji, a wypis stoi w `main`.
+    Rozkład syntetyczny, bo prawdziwy wymaga pobrania GTFS, którego w drzewie nie ma.
+    """
+    import contextlib
+    import io as _io
+    import json as _json
+    import tempfile
+
+    timetable = {"segments": [
+        dict(_segment(485.29, 52.0), from_name="Parc", to_name="Arts-Loi"),
+        dict(_segment(700.0, 62.0), from_stop="B", to_stop="C",
+             from_name="Maelbeek", to_name="Schuman"),
+    ]}
+
+    wypisy = {}
+    with tempfile.TemporaryDirectory(prefix="metro-koperta-") as katalog:
+        sciezka = os.path.join(katalog, "timetable.json")
+        with open(sciezka, "w", encoding="utf-8") as uchwyt:
+            _json.dump(timetable, uchwyt)
+        for wariant in ("AW0", "AW2"):
+            bufor = _io.StringIO()
+            with contextlib.redirect_stdout(bufor):
+                kod = SE.main(["--timetable", sciezka, "--mass", wariant,
+                               "--out", os.path.join(katalog, "kop-%s.json" % wariant)])
+            assert kod == 0, ("przebieg %s skonczyl kodem %s" % (wariant, kod))
+            wypisy[wariant] = bufor.getvalue()
+
+    assert "masa AW0 jest PRZYBLIŻONA" in wypisy["AW0"], wypisy["AW0"][:400]
+    assert "nie jest oznaczona jako przybliżona" in wypisy["AW2"], wypisy["AW2"][:400]
+    assert "jest PRZYBLIŻONA" not in wypisy["AW2"], (
+        "przebieg AW2 mówi o przybliżeniu — a `design_model` przybliżeniem nie jest")
+
+    # I strona druga: zdanie o przybliżeniu stoi w OBU przebiegach, bo milczenie
+    # byłoby nieodróżnialne od braku sprawdzenia (ta sama zasada, co w 6.D113
+    # i 6.D132). Liczone po słowie „przybliżon", bo nagłówek też mówi „masa AW0" —
+    # tam jednak o wartości, a nie o jej niepewności.
+    for wariant, tekst in wypisy.items():
+        zdania = [w for w in tekst.splitlines() if "przybliżon" in w.lower()]
+        assert len(zdania) == 1, (
+            "wariant %s ma %d zdań o przybliżeniu zamiast jednego:\n%s"
+            % (wariant, len(zdania), tekst[:400]))
+        assert wariant in zdania[0], (
+            "zdanie o przybliżeniu nie nazywa wariantu, którego dotyczy: %r" % zdania[0])
+
+
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
 # z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
 # tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
