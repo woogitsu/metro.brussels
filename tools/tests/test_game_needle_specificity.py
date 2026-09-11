@@ -80,13 +80,17 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import csharp_test_methods as CTM  # noqa: E402
 import test_needle_specificity as NS  # noqa: E402
+import tree_walk as TW  # noqa: E402
 
 #: Drzewo, z ktorego bierze sie rodzina komunikatow. Cale `src/Game/`, bo klasy tego
 #: zestawu wolaja siebie wzajemnie — patrz docstring modulu.
-GAME_SOURCE_GLOB = os.path.join("src", "Game", "**", "*.cs")
-
-#: Wygenerowane przez Godota, nie pisane rekami — `.godot/mono/temp/obj/...`.
-GAME_SOURCE_SKIP = ".godot"
+#:
+#: **6.D117: `GAME_SOURCE_GLOB` i `GAME_SOURCE_SKIP` zniknely razem z wlasna regula
+#: odsiania.** Wzorzec `src/Game/**/*.cs` byl argumentem rekurencyjnego `glob`,
+#: a `.godot` — jednopozycyjna kopia listy z `.gitignore`. Obie rzeczy robi dzis
+#: `TW.znajdz`, wiec obie stale przestaly byc czytane; martwa stala jest zdaniem
+#: o repozytorium, ktore ktos przeczyta i uzna za prawdziwe (#50), wiec nie zostaja.
+GAME_SOURCE_ROOT = os.path.join("src", "Game")
 
 #: Pliki z iglami.
 GAME_TEST_GLOB = os.path.join("tests", "Game.Tests", "*.cs")
@@ -180,10 +184,17 @@ def _read(path):
 
 
 def zrodla():
-    """Sciezki plikow `src/Game/`, wzgledne, bez wygenerowanych przez Godota."""
-    znalezione = glob.glob(os.path.join(ROOT, GAME_SOURCE_GLOB), recursive=True)
-    return sorted(os.path.relpath(p, ROOT) for p in znalezione
-                  if GAME_SOURCE_SKIP not in os.path.relpath(p, ROOT).split(os.sep))
+    """Sciezki plikow `src/Game/`, wzgledne, bez galezi pominietych w `.gitignore`.
+
+    **6.D117: odsianie idzie przez `tree_walk`, a nie przez wlasna regule.** Do
+    11.09.2026 stala tu kopia listy o jednej pozycji (`.godot`) — czyli ten sam
+    ksztalt bledu, ktory 6.D97 usunelo z przejsc `os.walk`, tylko w trzecim ksztalcie
+    przejscia. Wynik jest CO DO PLIKU ten sam: **22 pliki** przed i po (zmierzone
+    11.09.2026), bo `src/Game/obj/` i `bin/` dzis nie istnieja — ale gdy powstana,
+    dawna regula wpuscilaby je, a ta nie.
+    """
+    znalezione = TW.znajdz(os.path.join(ROOT, GAME_SOURCE_ROOT), "*.cs")
+    return sorted(os.path.relpath(p, ROOT) for p in znalezione)
 
 
 def testy():

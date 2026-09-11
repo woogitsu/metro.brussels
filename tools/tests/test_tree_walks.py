@@ -46,6 +46,28 @@ WOLNO_WPROST = {
 #: przepisanie wołania, więc lista rośnie w jedną stronę z definicji.
 MAX_WOLNO_WPROST = 2
 
+#: Pliki, w których `glob.glob(…, recursive=True)` wolno zawołać WPROST, z powodem.
+#: To jest TRZECI kształt przejścia po drzewie (6.D117): 6.D74 zamknęło `os.walk`
+#: w `tree_walk.walk`, 6.D97 zdjęło kopie listy katalogów — a rekurencyjny `glob`
+#: przechodził bokiem przez oba.
+#:
+#: **Zmierzone 11.09.2026 na `3fa2bec`: takich wywołań było TRZY**, każde z własną
+#: regułą odsiania — `.godot` w `test_game_needle_specificity`, `obj`/`bin`
+#: w `test_xml_doc_blocks` i w `test_sim_untested_members`, po jednej kopii na
+#: miejsce. Dwa zostały przepisane na `TW.znajdz`, z wynikiem IDENTYCZNYM co do pliku
+#: (22, 75 i 53 pliki przed i po). Zostało jedno i ma powód.
+GLOB_WPROST = {
+    "tools/tests/test_sim_untested_members.py":
+        "`_all_sim_cs_files` ma z definicji widzieć `obj/` i `bin/` — jest pomiarem "
+        "stanu PRZED dla bramki, która pokazuje, ile plików odsiewa; przepisanie go "
+        "na odsianie zabrałoby jej punkt odniesienia, a pole o zakresie 6.D117 "
+        "wyklucza zmianę zachowania tej funkcji.",
+}
+
+#: Zapadka na słownik wyżej. Wolno ją tylko OBNIŻAĆ — ta sama reguła, co przy
+#: `MAX_WOLNO_WPROST`: wyjątek jest tańszy niż przepisanie wołania.
+MAX_GLOB_WPROST = 1
+
 #: Drzewa przeszukiwane w poszukiwaniu wywołań.
 DRZEWA = ("tools",)
 
@@ -109,6 +131,84 @@ def _drzewo_probne(baza, pominiety):
 
 
 # --------------------------------------------------------------------------- testy
+
+
+def wywolania_globa_rekurencyjnego():
+    """`[(plik, wiersz)]` — wywołania `glob`/`iglob` z argumentem `recursive`.
+
+    Rozpoznanie idzie po ARGUMENCIE, a nie po nazwie modułu: `glob.glob(x)` bez
+    `recursive` schodzi o jeden poziom i przejściem po drzewie nie jest. Wartość
+    argumentu nie jest tu czytana — `recursive=False` też ma być wołane przez
+    `TW.znajdz`, jeśli ktoś je kiedyś wpisze, bo o kształcie mówi obecność opcji.
+    """
+    znalezione = []
+    for drzewo in DRZEWA:
+        for sciezka in TW.znajdz(os.path.join(ROOT, drzewo), "*.py"):
+            with open(sciezka, encoding="utf-8") as uchwyt:
+                drzewo_skladni = ast.parse(uchwyt.read())
+            wzgledna = os.path.relpath(sciezka, ROOT).replace(os.sep, "/")
+            for wezel in ast.walk(drzewo_skladni):
+                if not isinstance(wezel, ast.Call):
+                    continue
+                if isinstance(wezel.func, ast.Attribute):
+                    nazwa = wezel.func.attr
+                elif isinstance(wezel.func, ast.Name):
+                    nazwa = wezel.func.id
+                else:
+                    continue
+                if nazwa in ("glob", "iglob") and any(
+                        slowo.arg == "recursive" for slowo in wezel.keywords):
+                    znalezione.append((wzgledna, wezel.lineno))
+    return sorted(znalezione)
+
+
+def test_zaden_rekurencyjny_glob_nie_omija_wspolnego_odsiania():
+    """Trzeci kształt przejścia po drzewie — 6.D117.
+
+    Bramka jest na WOŁANIU, tak samo jak przy `os.walk` i z tego samego powodu:
+    wynik zależy od tego, co akurat leży na dysku. `src/Game/obj/` dziś nie istnieje,
+    więc dawna reguła z jedną pozycją (`.godot`) dawała ten sam wynik co odsianie —
+    cisza, której warunkiem jest stan katalogu, nie jest bramką.
+    """
+    zle = [(p, w) for p, w in wywolania_globa_rekurencyjnego() if p not in GLOB_WPROST]
+    assert zle == [], (
+        "rekurencyjny `glob` z pominięciem odsiania z `.gitignore`: %s "
+        "— użyj `tree_walk.znajdz`" % zle)
+
+
+def test_lista_globow_wprost_nie_gnije():
+    """Wpis bez wołania jest zdaniem o repozytorium, które przestało być prawdziwe."""
+    assert len(GLOB_WPROST) <= MAX_GLOB_WPROST, sorted(GLOB_WPROST)
+    wprost = {p for p, _w in wywolania_globa_rekurencyjnego()}
+    for plik, powod in sorted(GLOB_WPROST.items()):
+        assert plik in wprost, (
+            "wyjątek na `%s` nie dotyczy już żadnego wołania — zdejmij go" % plik)
+        assert len(powod) >= 40, plik
+
+
+def test_skan_globow_widzi_ksztalt_ktory_ma_widziec():
+    """Kontrola PRZYRZĄDU: pusta lista wyżej byłaby zielona także przy skanie ślepym.
+
+    Dwie strony na wejściu syntetycznym, bo tylko razem coś znaczą: wywołanie
+    z `recursive` ma być widziane, a `glob.glob(x)` bez tego argumentu — nie, bo
+    schodzi o jeden poziom i przejściem po drzewie nie jest.
+    """
+    znalezione = wywolania_globa_rekurencyjnego()
+    assert znalezione, (
+        "skan nie widzi ANI JEDNEGO rekurencyjnego globa — a co najmniej jeden stoi "
+        "w `GLOB_WPROST`, więc albo wzorzec się rozjechał, albo wołanie zniknęło")
+
+    def policz(zrodlo):
+        drzewo = ast.parse(zrodlo)
+        return sum(1 for w in ast.walk(drzewo)
+                   if isinstance(w, ast.Call)
+                   and isinstance(w.func, ast.Attribute)
+                   and w.func.attr in ("glob", "iglob")
+                   and any(s.arg == "recursive" for s in w.keywords))
+
+    assert policz("import glob\nglob.glob('a/**/b', recursive=True)\n") == 1
+    assert policz("import glob\nglob.glob('a/*.py')\n") == 0, (
+        "skan bierze zwykłego globa za przejście po drzewie")
 
 
 def test_no_tool_walks_the_tree_without_the_shared_filter():
