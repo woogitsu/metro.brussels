@@ -197,6 +197,161 @@ def test_maska_odsiewa_wywolania_z_komentarzy_i_napisow(tmp=None):
 
 
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw.
+# --- 6.D141: piny LICZBOWE ------------------------------------------------------
+
+#: **Zmierzone 11.09.2026** na `888a190`. Pinów liczbowych jest **627** — pięć razy
+#: więcej niż napisowych (118, z 6.D131) — i dlatego mają **własny licznik, a nie
+#: wpis w `KATEGORIE`**. To jest rozstrzygnięcie, o które prosiło pole „Wyjście":
+#: tabela z jednym wierszem na pin ma sens przy 44 pozycjach, a przy 627 byłaby
+#: dłuższa od kodu, który opisuje, i rozjeżdżałaby się przy każdej zmianie liczby.
+#:
+#: Podział na tolerancję jest za to treścią i on zostaje wypisany:
+ROZKLAD_LICZBOWYCH = {
+    "tests/Game.Tests": {
+        "razem": 186, "z_tolerancja": 98, "bez_tolerancji": 88,
+        "zmiennoprzecinkowe": 104, "zmiennoprzecinkowe_bez_tolerancji": 6,
+        "calkowite": 82, "calkowite_z_tolerancja": 0, "tolerancja_zero": 18,
+    },
+    "tests/Sim.Tests": {
+        "razem": 441, "z_tolerancja": 179, "bez_tolerancji": 262,
+        "zmiennoprzecinkowe": 187, "zmiennoprzecinkowe_bez_tolerancji": 8,
+        "calkowite": 254, "calkowite_z_tolerancja": 0, "tolerancja_zero": 114,
+    },
+}
+
+#: **Dwa wnioski, które nie są statystyką.**
+#:
+#: `calkowite_z_tolerancja` wynosi **zero w obu katalogach** — tolerancja jest wyłącznie
+#: rzeczą zmiennoprzecinkową. Nie jest to przypadek ani zwyczaj: `Assert.AreEqual(int,
+#: int, double)` nie ma przeciążenia, więc pin całkowity z tolerancją nie skompilowałby
+#: się. Zapadka z obu stron na tej zerowej liczbie pilnuje, żeby zdanie zostało prawdziwe.
+#:
+#: **Porównań DOKŁADNYCH na liczbie zmiennoprzecinkowej jest 146, nie 14.** Czternaście
+#: nie ma trzeciego argumentu wcale, a **132 podaje tolerancję `0.0`** — czyli deklaruje
+#: dokładność jawnie. Sama liczba „14" byłaby dziesięciokrotnie zaniżona i to jest
+#: dokładnie ten kształt, który projekt tropi od 6.D27: licznik mówiący o czymś węższym,
+#: niż sugeruje jego nazwa.
+DOKLADNE_ZMIENNOPRZECINKOWE = 146
+
+
+def test_ile_pinow_liczbowych_i_jak_sie_dziela():
+    """Cztery liczby na katalog, wszystkie z drzewa."""
+    for katalog, oczekiwany in ROZKLAD_LICZBOWYCH.items():
+        zmierzony = CP.rozklad_liczbowych(katalog)
+        assert zmierzony == oczekiwany, (
+            "rozkład pinów liczbowych w %s zmienił się: %s zamiast %s"
+            % (katalog, zmierzony, oczekiwany))
+
+
+def test_pin_calkowity_NIGDY_nie_ma_tolerancji_i_to_nie_jest_zwyczaj():
+    """Zapadka z obu stron na zerze — `Assert.AreEqual(int, int, double)` nie istnieje.
+
+    Gdyby ta liczba przestała być zerem, znaczyłoby to albo że czytnik bierze za
+    tolerancję coś, co nią nie jest, albo że ktoś pinuje liczbę całkowitą przez
+    przeciążenie zmiennoprzecinkowe — i jedno, i drugie trzeba obejrzeć.
+    """
+    razem = sum(CP.rozklad_liczbowych(k)["calkowite_z_tolerancja"]
+                for k in ROZKLAD_LICZBOWYCH)
+    assert razem == 0, (
+        "pin całkowity z tolerancją: %d — `Assert.AreEqual(int, int, double)` nie ma "
+        "przeciążenia, więc albo czytnik się myli, albo ktoś przeszedł na `double`"
+        % razem)
+
+
+def test_dokladnych_porownan_zmiennoprzecinkowych_jest_146_a_nie_14():
+    """**Sedno 6.D141: tolerancja `0.0` JEST porównaniem dokładnym.**
+
+    Licznik „bez tolerancji" mówi o czternastu asercjach, a dokładnych porównań na
+    liczbie zmiennoprzecinkowej jest dziesięć razy więcej — bo 132 podają tolerancję
+    zapisaną jako `0.0`. Test liczy jedno i drugie, żeby ta różnica stała w kodzie,
+    a nie tylko w raporcie.
+    """
+    bez = sum(CP.rozklad_liczbowych(k)["zmiennoprzecinkowe_bez_tolerancji"]
+              for k in ROZKLAD_LICZBOWYCH)
+    zero = sum(CP.rozklad_liczbowych(k)["tolerancja_zero"] for k in ROZKLAD_LICZBOWYCH)
+
+    assert bez == 14, ("zmiennoprzecinkowych bez tolerancji: %d, pomiar mówił 14" % bez)
+    assert zero == 132, ("tolerancji zapisanych jako 0.0: %d, pomiar mówił 132" % zero)
+    assert bez + zero == DOKLADNE_ZMIENNOPRZECINKOWE, (
+        "porównań dokładnych jest %d, a stała mówi %d" % (bez + zero,
+                                                          DOKLADNE_ZMIENNOPRZECINKOWE))
+
+
+def test_pin_Z_TOLERANCJA_i_BEZ_daja_dwa_rozne_wpisy_na_wejsciu_syntetycznym():
+    """Pole „Skończone, gdy" — pokazane na drzewie probnym, nie na dzisiejszym kodzie.
+
+    Cztery asercje o tej samej wartości oczekiwanej, różniące się wyłącznie trzecim
+    argumentem. Czytnik ma dać cztery wpisy i dwie różne tolerancje — `None` tam,
+    gdzie trzeciego argumentu nie ma albo jest komunikatem.
+    """
+    import tempfile
+
+    zrodlo = (
+        "public class T {\n"
+        "  public void A() {\n"
+        "    Assert.AreEqual(1.5, x);\n"
+        "    Assert.AreEqual(1.5, x, 1e-9);\n"
+        '    Assert.AreEqual(1.5, x, "komunikat, nie tolerancja");\n'
+        "    Assert.AreEqual(1.5, x, 0.0);\n"
+        "    Assert.AreEqual(4L, y);\n"
+        '    Assert.AreEqual("napis", z);\n'
+        "  }\n"
+        "}\n")
+
+    with tempfile.TemporaryDirectory(prefix="metro-piny-") as katalog:
+        with open(os.path.join(katalog, "Probne.cs"), "w", encoding="utf-8") as uchwyt:
+            uchwyt.write(zrodlo)
+        znalezione = CP.piny_liczbowe("", katalog)
+        # Czytnik napisowy wołany W TYM SAMYM bloku `with`: poza nim katalog już
+        # nie istnieje i `glob` zwraca pustą listę, czyli test mierzyłby brak plików
+        # zamiast braku pinów. Zmierzone tutaj, w pierwszym przebiegu.
+        napisowe = CP.piny("", katalog)
+
+    tolerancje = [w[3] for w in znalezione]
+    wartosci = [w[2] for w in znalezione]
+    assert wartosci == ["1.5", "1.5", "1.5", "1.5", "4L"], wartosci
+    assert tolerancje == [None, "1e-9", None, "0.0", None], (
+        "czytnik nie odróżnia tolerancji od komunikatu ani od jej braku: %s" % tolerancje)
+
+    # Pin NAPISOWY nie wchodzi do liczbowych, a liczbowy nie wchodzi do napisowych —
+    # inaczej obie liczby mówiłyby o tym samym zbiorze.
+    assert all(not w[2].startswith('"') for w in znalezione), znalezione
+    assert [w[3] for w in napisowe] == ["napis"], (
+        "czytnik napisowy zobaczył co innego niż jeden napis: %s" % napisowe)
+
+
+def test_czytnik_liczbowy_tnie_argumenty_po_MASCE_a_nie_po_przecinkach():
+    """Przecinek w literale napisowym i w zagnieżdżonym wywołaniu nie dzieli argumentów.
+
+    Bez maski `Assert.AreEqual(1.5, f(a, b), 1e-9)` miałoby CZTERY argumenty i trzecim
+    byłoby `b`, czyli tolerancją zostałaby nazwa zmiennej. Wejście syntetyczne, bo na
+    dzisiejszym drzewie obie drogi dają to samo.
+    """
+    import tempfile
+
+    # **Przecinek musi stać na GŁĘBOKOŚCI 1, żeby cokolwiek rozstrzygać** — i to jest
+    # poprawka po kontroli, która wyszła ZIELONA. Pierwsza wersja tego wejścia miała
+    # `g("x, y")`, czyli napis WEWNĄTRZ zagnieżdżonego wywołania: tam przecinek jest
+    # na głębokości 2 i licznik nawiasów radzi sobie bez maski. KN-2 (cięcie po
+    # oryginale) przeszła wtedy 10/10.
+    zrodlo = (
+        "public class T {\n"
+        "  public void A() {\n"
+        "    Assert.AreEqual(1.5, f(a, b), 1e-9);\n"
+        '    Assert.AreEqual(2.5, "x, y".Length, 1e-3);\n'
+        "  }\n"
+        "}\n")
+
+    with tempfile.TemporaryDirectory(prefix="metro-piny-") as katalog:
+        with open(os.path.join(katalog, "Probne.cs"), "w", encoding="utf-8") as uchwyt:
+            uchwyt.write(zrodlo)
+        znalezione = CP.piny_liczbowe("", katalog)
+
+    assert [(w[2], w[3]) for w in znalezione] == [("1.5", "1e-9"), ("2.5", "1e-3")], (
+        "cięcie argumentów pomyliło zagnieżdżone wywołanie albo przecinek w napisie "
+        "stojącym na głębokości 1: %s" % znalezione)
+
+
 if __name__ == "__main__":
     import test_all
     raise SystemExit(test_all.main(__file__))
