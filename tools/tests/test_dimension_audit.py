@@ -24,6 +24,7 @@ sys.path.insert(0, os.path.join(ROOT, "tools", "blender"))
 # uruchomiony sam nie robil nic (patrz 6.D25).
 sys.path.insert(0, os.path.join(ROOT, "tools", "track"))
 
+import m7_cab  # noqa: E402
 import m7_layout  # noqa: E402
 import profiles  # noqa: E402
 import station_components  # noqa: E402
@@ -207,6 +208,44 @@ def test_audit_covers_every_station_component_constant():
     missing = [n for n in constants if f"`{n}`" not in text]
     assert not missing, f"stałe T-212 bez wpisu w audycie: {missing}"
     assert "design_assumption" in text
+
+
+def test_audit_covers_every_cab_design_constant():
+    """Stała projektowa bez wpisu w audycie jest liczbą, która udaje pomiar.
+
+    6.D119 dokłada dwadzieścia cztery takie stałe naraz — podłoga, ściana, pulpit,
+    fotel, szyby — i żadna nie ma źródła. STIB nie publikuje rzutów kabiny, więc jest
+    to dokładnie ta sytuacja, dla której audyt powstał: dużo liczb naraz, wszystkie
+    brzmiące rozsądnie, żadna nie pochodząca ze STIB.
+    """
+    text = _audit_text()
+    constants = [n for n in dir(m7_cab)
+                 if n.startswith("DESIGN_") and n != "DESIGN_ASSUMPTIONS"]
+    assert len(constants) >= 20, constants
+    missing = [n for n in constants if f"`{n}`" not in text]
+    assert not missing, f"stałe 6.D119 bez wpisu w audycie: {missing}"
+
+
+def test_audit_records_the_value_of_every_cab_design_constant():
+    """Nazwa w dokumencie nie wystarcza — ma się zgadzać WARTOŚĆ.
+
+    Wpis z nazwą i błędną liczbą jest gorszy niż brak wpisu: wygląda jak deklaracja,
+    a mówi co innego niż kod. Ten sam kształt kontroli, co przy stałych M7 i sweepa.
+    """
+    constants = [n for n in dir(m7_cab)
+                 if n.startswith("DESIGN_") and n != "DESIGN_ASSUMPTIONS"]
+    _assert_values_match(_audit_text(), m7_cab, constants)
+
+
+def test_audit_says_the_cab_is_canonical_and_not_an_M7_cab():
+    """Zdanie o tym, czego układ NIE odwzorowuje, ma stać w dokumencie, nie tylko w kodzie."""
+    text = _audit_text()
+    assert "m7_cab.py" in text, "audyt nie wymienia modułu kabiny"
+    sekcja = text[text.index("## 4g."):]
+    sekcja = sekcja[:sekcja.index("## 4f.")] if "## 4f." in sekcja else sekcja
+    assert "kanoniczny" in sekcja, sekcja[:400]
+    assert "STIB nie publikuje" in sekcja, sekcja[:400]
+    assert "design_assumption" in sekcja, sekcja[:400]
 
 
 # --- długość peronu w prozie -----------------------------------------------------

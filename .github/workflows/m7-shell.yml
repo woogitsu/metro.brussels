@@ -6,6 +6,10 @@ on:
       - '.github/workflows/m7-shell.yml'
       - 'tools/blender/m7_layout.py'
       - 'tools/blender/m7_shell.py'
+      # 6.D119: kabina kanoniczna jedzie tym samym jobem — ta sama skorupa,
+      # te same wymiary ze `spec`, a jej bryły muszą się w niej mieścić.
+      - 'tools/blender/m7_cab.py'
+      - 'tools/blender/m7_cab_build.py'
       - 'tools/blender/profiles.py'
       # Cały tools/ci, nie pojedynczy skrypt: te joby uruchamiają też
       # apt_install.sh, listy pakietów i (w tunnel-alignment) vehicle_clearance.sh.

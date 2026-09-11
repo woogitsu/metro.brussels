@@ -301,13 +301,110 @@ TOPOPY
 rm -f "$OUT/M7_repeat.glb" "$OUT/M7_repeat_env.glb"
 
 echo
+echo "[GENERATE] kabina kanoniczna (6.D119)"
+rm -f build/M7_cab.glb build/M7_cab.json
+"$BLENDER_EXE" --background --python-exit-code 7 --python tools/blender/m7_cab_build.py -- \
+  --out build/M7_cab.glb --report build/M7_cab.json \
+  >"$OUT/cab.log" 2>&1 || { tail -n 40 "$OUT/cab.log"; fail "generator kabiny nie powiódł się"; }
+grep -E '^\[KABINA\]' "$OUT/cab.log"
+cp build/M7_cab.json "$OUT/M7_cab.json"
+
+echo
+echo "[VERIFY] kabina: bryły w skorupie, zdanie o układzie kanonicznym, GLB"
+python3 - <<'CABPY'
+import json
+import os
+import sys
+
+sys.path.insert(0, os.path.join("tools", "blender"))
+import m7_cab
+import m7_layout
+
+report = json.load(open("build/M7_cab.json", encoding="utf-8"))
+problems = []
+
+if not report.get("not_modelled"):
+    problems.append("raport kabiny nie mówi, czego układ NIE odwzorowuje")
+elif "design_assumption" not in " ".join(report["not_modelled"]):
+    problems.append("raport kabiny nie nazywa swoich wymiarow zalozeniami")
+else:
+    print(f"[OK] raport niesie {len(report['not_modelled'])} zdan o tym, czego nie ma")
+
+oczekiwane = 2 * 8
+if len(report["solids"]) != oczekiwane:
+    problems.append(f"bryl kabiny: {len(report['solids'])} != {oczekiwane}")
+else:
+    print(f"[OK] bryl kabiny: {len(report['solids'])} (dwie kabiny po osiem)")
+
+# Zawieranie liczone TUTAJ, a nie przepisane z raportu: raport jest wyjsciem tego
+# samego kodu, wiec jego wlasna deklaracja o zawieraniu nie bylaby dowodem.
+layout = m7_layout.Layout()
+poza = []
+for solid in report["solids"]:
+    for x in (solid["x_from_m"], solid["x_to_m"]):
+        ys = [p[0] for p in layout.section(x)]
+        zs = [p[1] for p in layout.section(x)]
+        for y in (solid["y_from_m"], solid["y_to_m"]):
+            for z in (solid["z_from_m"], solid["z_to_m"]):
+                if not (min(ys) - 1e-6 <= y <= max(ys) + 1e-6):
+                    poza.append((solid["name"], "y", y))
+                if not (min(zs) - 1e-6 <= z <= max(zs) + 1e-6):
+                    poza.append((solid["name"], "z", z))
+if poza:
+    problems.append(f"bryla kabiny poza obrysem przekroju: {poza[:3]}")
+else:
+    print("[OK] kazda bryla kabiny miesci sie w obrysie przekroju pudla")
+
+size = os.path.getsize("build/M7_cab.glb")
+with open("build/M7_cab.glb", "rb") as handle:
+    magic = handle.read(4)
+if magic != b"glTF":
+    problems.append(f"build/M7_cab.glb ma zly magic {magic!r}")
+elif size <= 1024:
+    problems.append(f"build/M7_cab.glb jest podejrzanie maly: {size} B")
+else:
+    print(f"[OK] build/M7_cab.glb: {size} B, magic glTF")
+
+if problems:
+    for problem in problems:
+        print(f"BŁĄD: {problem}", file=sys.stderr)
+    raise SystemExit(1)
+print("[OK] wszystkie kontrole kabiny przeszly")
+CABPY
+
+echo
+echo "[NEGATIVE] generator kabiny bez ani jednej bryły musi odmówić"
+if "$BLENDER_EXE" --background --python-exit-code 7 --python tools/blender/m7_cab_build.py -- \
+    --end 9 --out build/t220/cab-should-not-exist.glb --report build/t220/cab-broken.json \
+    >"$OUT/cab-negative.log" 2>&1; then
+  fail "generator kabiny przyjął numer końca spoza zbioru"
+fi
+test ! -e build/t220/cab-should-not-exist.glb || fail "powstał GLB mimo odrzuconego argumentu"
+tail -n 3 "$OUT/cab-negative.log"
+
+echo
+echo "[RENDER] cztery klatki kontrolne kabiny (CLAUDE.md §5)"
+rm -f renders/M7_cab_front_*.png
+"$BLENDER_EXE" --background --python-exit-code 7 --python tools/blender/m7_cab_build.py -- \
+  --end 0 --out build/M7_cab_front.glb --report build/t220/M7_cab_front.json \
+  >>"$OUT/cab.log" 2>&1 || { tail -n 20 "$OUT/cab.log"; fail "generator jednej kabiny nie powiódł się"; }
+"$BLENDER_EXE" --background --python tools/blender/render_check.py -- \
+  --in build/M7_cab_front.glb --out renders/M7_cab_front \
+  >"$OUT/cab-render.log" 2>&1 || { tail -n 40 "$OUT/cab-render.log"; fail "render kabiny nie powiódł się"; }
+grep -E '^\[(RENDER|NORMALNE)\]' "$OUT/cab-render.log"
+for klatka in iso side normals inside; do
+  test -s "renders/M7_cab_front_$klatka.png" || fail "brak klatki renders/M7_cab_front_$klatka.png"
+done
+
+echo
 echo "[ARTEFAKTY] kopiowanie do artefaktu CI"
 mkdir -p "$OUT/renders"
 cp renders/m7/*.png renders/m7/*.json "$OUT/renders/" 2>/dev/null || true
+cp renders/M7_cab_front_*.png "$OUT/renders/" 2>/dev/null || true
 
 echo
 echo "============================================================"
 echo "[RESULT] T-220 zakończone w ${SECONDS}s"
 echo "[RESULT] manual visual gate NADAL WYMAGANY dla:"
-for f in "$OUT"/renders/M7_shell_*.png; do echo "[RESULT]   $f"; done
+for f in "$OUT"/renders/M7_shell_*.png "$OUT"/renders/M7_cab_front_*.png; do echo "[RESULT]   $f"; done
 echo "[RESULT] metryka automatyczna nie zastępuje obejrzenia PNG (CLAUDE.md §5)"
