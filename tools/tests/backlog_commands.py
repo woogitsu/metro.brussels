@@ -55,7 +55,31 @@ FIELD = "Weryfikacja"
 #: ostrokątny jest w tym pliku używany jako miejsce do wypełnienia (`<plan>`,
 #: `<N>`, `<własny dziennik>`). Wykrycie jest składniowe i celowo głupie —
 #: rozstrzygnięcie, czy komenda działa, należy do pomiaru, nie do tego pliku.
-PLACEHOLDER = re.compile(r"<[^>]+>")
+#: Miejsce do wypełnienia: `<plan>`, `<własny dziennik>`. **Nawias ostrokątny bez
+#: spacji tuż za `<` i tuż przed `>`** — i to jest cała reguła, wyprowadzona
+#: z pomiaru 6.D118, nie z gustu.
+#:
+#: **Skąd potrzeba zawężenia.** Do 11.09.2026 wzorzec brzmiał `<[^>]+>` i łapał
+#: wszystko między pierwszym `<` a pierwszym `>`. Póki kolektor czytał same wiersze
+#: poleceń, nie miało to znaczenia; od 6.D100 skleja z komendą także **ciało
+#: heredoku**, a ciało bywa PROGRAMEM — w 6.A24 są to trzy wiersze Pythona. W programie
+#: `<` jest operatorem, więc `a < b > c` czytałoby się jako miejsce do wypełnienia,
+#: czyli bramka zgłaszałaby tekst poprawny. Bramka, którą się z tego powodu wyłącza,
+#: jest gorsza niż jej brak (6.D27).
+#:
+#: **Czego reguła NIE rozstrzyga i to jest zmierzone, nie przeoczone.** Porównanie
+#: BEZ spacji z późniejszym `>` w tym samym wierszu — `if (a<b) return a>b;` — nadal
+#: czyta się jako miejsce do wypełnienia, bo po `<` stoi znak niebiały, a przed `>`
+#: też. Odróżnienie wymagałoby rozbioru składni języka, którym akurat jest ciało
+#: heredoku, a tego kolektor poleceń nie wie i wiedzieć nie ma. Granica jest więc
+#: taka: **operator otoczony spacjami — odróżniony; operator bez spacji — nie.**
+#: Pinuje to osobny test, żeby nikt nie wziął tego za przypadek pokryty.
+#:
+#: Zbiór bloków z miejscem do wypełnienia **nie drgnął** po zawężeniu: 6.D9 i 6.B18
+#: przed i po. Oba dzisiejsze miejsca mają w środku SPACJE (`<dwa PNG z dwóch
+#: przebiegów tej samej sceny>`), więc reguła „bez białych znaków w środku" — pierwsza,
+#: którą sprawdziłem — odrzuciłaby oba i była nieprawdą.
+PLACEHOLDER = re.compile(r"<[^<>\s](?:[^<>]*[^<>\s])?>")
 
 #: Otwarcie heredoku: `<<EOF`, `<<'EOF'`, `<<"EOF"` i wariant `<<-` (obcinający
 #: tabulatory). Strażnicy `(?<!<)` i `(?!<)` odsiewają `<<<` (herestring) oraz

@@ -209,6 +209,81 @@ def test_placeholders_are_detected_and_are_not_everywhere():
     assert not bc.has_placeholder("python3 x.py 2>&1 | tail -3")
 
 
+def test_operator_w_ciele_heredoku_nie_jest_miejscem_do_wypelnienia():
+    """6.D118: `<plan>` kontra `a < b` — obie strony na wejściu syntetycznym.
+
+    Od 6.D100 kolektor skleja z komendą także ciało heredoku, a ciało bywa PROGRAMEM
+    (w 6.A24 są to trzy wiersze Pythona). Dawny wzorzec `<[^>]+>` brał w takim ciele
+    każdy odcinek między `<` a `>` za miejsce do wypełnienia — czyli zgłaszałby tekst
+    poprawny, a bramka zgłaszająca tekst poprawny jest bramką do wyłączenia (6.D27).
+
+    Kontrola stoi na wejściu SYNTETYCZNYM, bo dzisiejszy jedyny heredok nawiasu
+    ostrokątnego nie ma: na samym drzewie obie reguły — dawna i dzisiejsza — dają ten
+    sam werdykt, więc drzewo ich nie odróżnia.
+    """
+    for komenda in ("dotnet run -- budget --signalling <plan>",
+                    "python3 png.py <dwa PNG z dwóch przebiegów tej samej sceny>",
+                    "python3 sweep.py --journal <własny dziennik>",
+                    "python3 t.py --out <x>"):
+        assert bc.has_placeholder(komenda), komenda
+
+    for komenda in ("if a < b and b > c:",
+                    "x <- y",
+                    "cmd < wejscie > wyjscie",
+                    "python3 x.py 2>&1 | tail -3",
+                    "grep -c '' < plik"):
+        assert not bc.has_placeholder(komenda), (
+            "operator wzięty za miejsce do wypełnienia: %r" % komenda)
+
+
+def test_cialo_heredoku_z_operatorem_przechodzi_CALA_droga():
+    """Nie sam wzorzec, tylko droga: płotek → `commands` → `has_placeholder`.
+
+    To jest przypadek, o który chodzi w 6.D118 i którego dzisiejszy `docs/TASKS.md`
+    nie ma: heredok, którego ciałem jest program używający `<` jako operatora.
+    Test na samym wzorcu nie powiedziałby, czy ciało w ogóle dochodzi do pytania —
+    a dochodzi dopiero od 6.D100, które skleiło ciało z komendą.
+    """
+    plotek = (
+        "python3 - <<'PY'\n"
+        "a, b, c = 1, 2, 3\n"
+        "if a < b and b > c:\n"
+        "    print('tak')\n"
+        "PY\n"
+    )
+    zebrane = bc.commands(plotek)
+    assert len(zebrane) == 1, zebrane
+    assert "if a < b and b > c:" in zebrane[0], (
+        "ciało heredoku nie doszło do komendy — bez tego reszta testu mierzy nic")
+    assert not bc.has_placeholder(zebrane[0]), (
+        "operator w ciele heredoku wzięty za miejsce do wypełnienia: %r" % zebrane[0])
+
+    # Druga strona: miejsce do wypełnienia W CIELE ma zostać zauważone.
+    z_miejscem = bc.commands(
+        "python3 - <<'PY'\n"
+        "sciezka = '<własny dziennik>'\n"
+        "PY\n"
+    )
+    assert len(z_miejscem) == 1, z_miejscem
+    assert bc.has_placeholder(z_miejscem[0]), z_miejscem
+
+
+def test_granica_reguly_miejsca_jest_ZAPISANA_a_nie_udawana():
+    """Czego reguła nie rozstrzyga — przybite, żeby nikt nie wziął tego za pokryte.
+
+    Porównanie BEZ spacji z późniejszym `>` w tym samym wierszu nadal czyta się jako
+    miejsce do wypełnienia. Odróżnienie wymagałoby rozbioru składni języka, którym
+    akurat jest ciało heredoku, a kolektor poleceń tego nie wie. Ten test nie żąda
+    poprawy — żąda, żeby granica była WIDOCZNA i żeby jej przesunięcie było zmianą,
+    którą ktoś zobaczy.
+    """
+    assert bc.has_placeholder("if (a<b) return a>b;"), (
+        "granica reguły przesunęła się — porównanie bez spacji przestało być brane "
+        "za miejsce do wypełnienia; to jest poprawa, ale ma zostać opisana")
+    assert not bc.has_placeholder("if (a < b) return a > b;"), (
+        "to samo porównanie ze spacjami przestało być odróżniane")
+
+
 def test_the_blocks_with_placeholders_are_the_ones_the_measurement_named():
     """Nowe pole z `<…>` ma być widoczne, a nie utopione w liczbie.
 
