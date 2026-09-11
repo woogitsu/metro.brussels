@@ -60,8 +60,14 @@ def _all_sim_cs_files():
 
 
 def _sim_sources():
-    """To samo, ale bez plików generowanych — wejście właściwej bramki."""
-    return sorted(p for p in _all_sim_cs_files() if not _is_generated(p))
+    """To samo, ale bez gałęzi pominiętych w `.gitignore` — wejście właściwej bramki.
+
+    **6.D117: odsianie idzie przez `tree_walk`, nie przez `_is_generated`.** Wynik
+    ten sam co do pliku: **53 pliki** przed i po (zmierzone 11.09.2026, przy 54
+    z `_all_sim_cs_files`). `_is_generated` zostaje, bo nazywa się w komunikacie
+    bramki „przed" i pole „Poza zakresem" 6.D117 wyklucza zmianę `_all_sim_cs_files`.
+    """
+    return TW.znajdz(SIM_ROOT, "*.cs")
 
 
 def _test_corpus_text():

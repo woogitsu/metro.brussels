@@ -28,6 +28,7 @@ odsianie jest sprawą filtra po rozszerzeniu, a nie przycinania gałęzi. Nie zn
 gwiazdki w nazwie katalogu — dziś w `.gitignore` tego projektu takiego wpisu nie ma
 i `test_tree_walks.py` sprawdza, że nadal nie ma, zamiast milczeć, gdy się pojawi.
 """
+import fnmatch
 import os
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -85,3 +86,22 @@ def walk(top, root=ROOT):
         katalogi[:] = [k for k in katalogi
                        if k not in nazwy and przedrostek + k not in sciezki]
         yield baza, katalogi, pliki
+
+
+def znajdz(top, wzorzec, root=ROOT):
+    """Pliki pod `top` pasujące do `wzorzec`, bez gałęzi pominiętych w `.gitignore`.
+
+    **Trzeci kształt przejścia po drzewie (6.D117).** 6.D74 zamknęło `os.walk`
+    w `walk`, 6.D97 zdjęło kopie listy katalogów — a `glob.glob(…, recursive=True)`
+    przechodził bokiem przez oba. Zmierzone 11.09.2026: **3** takie wywołania
+    w `tools/`, każde z WŁASNĄ regułą odsiania (`.godot` w jednym, `obj`/`bin`
+    w dwóch pozostałych, po jednej kopii na miejsce).
+
+    Wynik jest posortowany i absolutny — tak jak `glob.glob` z absolutnym wzorcem,
+    żeby podmiana w miejscu wołania nie zmieniała niczego poza samym odsianiem.
+    """
+    znalezione = []
+    for baza, _katalogi, pliki in walk(top, root):
+        znalezione += [os.path.join(baza, nazwa) for nazwa in pliki
+                       if fnmatch.fnmatch(nazwa, wzorzec)]
+    return sorted(znalezione)

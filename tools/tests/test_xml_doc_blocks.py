@@ -34,11 +34,14 @@ katalogu tymczasowym niżej. Kontrola negatywna woła DOKŁADNIE tę funkcję, k
 wołają testy bramki, więc dowodzi zaświecenia mechanizmu, a nie osobnej kopii
 liczącej to samo.
 """
-import glob
 import os
+import sys
 import tempfile
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import tree_walk as TW  # noqa: E402
 
 #: Katalogi z kodem C#, w których dokumentacja XML jest jedynym opisem założeń.
 SCANNED_ROOTS = (
@@ -48,11 +51,16 @@ SCANNED_ROOTS = (
 
 
 def _sources():
+    """Pliki `.cs` z obu korzeni, bez gałęzi pominiętych w `.gitignore` (6.D117).
+
+    Do 11.09.2026 stała tu własna reguła na `obj/` i `bin/` — trzecia kopia listy,
+    której 6.D97 pozbyło się z przejść `os.walk`. Wynik ten sam co do pliku:
+    **75 plików** przed i po (zmierzone 11.09.2026).
+    """
     paths = []
     for root in SCANNED_ROOTS:
-        paths += glob.glob(os.path.join(root, "**", "*.cs"), recursive=True)
-    return sorted(p for p in paths if os.sep + "obj" + os.sep not in p
-                  and os.sep + "bin" + os.sep not in p)
+        paths += TW.znajdz(root, "*.cs")
+    return sorted(paths)
 
 
 def _doc_runs(path):
