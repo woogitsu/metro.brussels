@@ -573,6 +573,161 @@ def test_the_report_check_catches_a_table_that_stopped_being_printed():
     assert distance_mismatches(text, podmieniona_referencja), (
         "porównanie ignoruje tablicę referencyjną — czytałoby wtedy samo siebie")
 
+# --- 6.D124: niepewnosc wartosci w wypisie modelu --------------------------------
+
+def test_ile_parametrow_modelu_jest_PRZYBLIZONYCH():
+    """Liczba policzona z rejestru, nie wpisana — i wynosi JEDEN.
+
+    Pole „Skończone, gdy" pozycji 6.D124 żąda, żeby liczba była zmierzona
+    i wypisana **także wtedy, gdy wynosi jeden**. Wynosi: `empty_mass_kg`,
+    170 000 kg, z notatką „STIB states approximately 170 tonnes".
+
+    Asercja na NAZWĘ obok liczby, bo sama liczba nie odróżnia „przybliżony jest
+    ten jeden parametr" od „przybliżony jest jakiś jeden parametr". Gdyby flaga
+    przeniosła się na inny wpis rejestru, licznik zostałby jedynką.
+    """
+    przyblizone = B.parametry_przyblizone()
+    assert len(przyblizone) == 1, przyblizone
+    nazwa, klucz, wartosc, notatka = przyblizone[0]
+    assert (nazwa, klucz) == ("aw0_kg", "empty_mass_kg"), przyblizone[0]
+    assert wartosc == 170000.0, wartosc
+    assert "approximately" in notatka, notatka
+
+    # I że parametr NAPRAWDĘ wchodzi do modelu, a nie tylko leży w rejestrze —
+    # to jest druga połowa pytania tej pozycji.
+    assert nazwa in CFG and CFG[nazwa] == wartosc, (nazwa, CFG.get(nazwa))
+
+
+def test_wykaz_przyblizonych_czyta_REJESTR_a_nie_wlasna_liste():
+    """Kontrola przyrządu: funkcja reaguje na to, co stoi w rejestrze.
+
+    Bez tego testu lista nazw wpisana w kod dawałaby dokładnie ten sam wynik na
+    dzisiejszym drzewie — i rozjechałaby się przy pierwszej zmianie w `data/`,
+    nie zapalając niczego. Ta sama rodzina co 6.D27.
+    """
+    rejestr = B.load_registry()
+
+    import copy
+    bez = copy.deepcopy(rejestr)
+    bez["parameters"]["empty_mass_kg"].pop(B.KLUCZ_PRZYBLIZENIA, None)
+    assert B.parametry_przyblizone(bez) == [], (
+        "zdjęcie flagi z rejestru nie zmieniło wykazu — funkcja czyta własną listę")
+
+    dwa = copy.deepcopy(rejestr)
+    dwa["reference_model"]["jerk_mps3"][B.KLUCZ_PRZYBLIZENIA] = True
+    nazwy = [wpis[0] for wpis in B.parametry_przyblizone(dwa)]
+    assert nazwy == ["jerk", "aw0_kg"] or nazwy == ["aw0_kg", "jerk"], nazwy
+    assert len(nazwy) == 2, nazwy
+
+    # Flaga o wartości innej niż `True` NIE liczy się jako przybliżenie: `"false"`
+    # i `0` są prawdziwe dla `in`, a dla `is True` nie — i to jest różnica, którą
+    # rejestr pisany ręcznie prędzej czy później wyprodukuje.
+    napis = copy.deepcopy(rejestr)
+    napis["parameters"]["empty_mass_kg"][B.KLUCZ_PRZYBLIZENIA] = "false"
+    assert B.parametry_przyblizone(napis) == [], (
+        "flaga `\"false\"` policzyła się jako przybliżenie")
+
+
+def test_wypis_modelu_NAZYWA_parametry_przyblizone():
+    """Wiersz pada w `report()` i niesie liczbę — także gdyby wynosiła zero.
+
+    Wypisywanie go tylko wtedy, gdy jest co wypisać, robi z ciszy dwa różne
+    zdania: „nic nie jest przybliżone" i „nikt nie sprawdzał". Dla czytającego
+    wypis są nieodróżnialne.
+    """
+    import contextlib
+    import io as _io
+
+    bufor = _io.StringIO()
+    with contextlib.redirect_stdout(bufor):
+        B.report()
+    tekst = bufor.getvalue()
+
+    naglowek = [w for w in tekst.splitlines() if w.startswith("PARAMETRY PRZYBLIZONE")]
+    assert len(naglowek) == 1, naglowek
+    assert naglowek[0].endswith(f": {len(B.przyblizone_wpisy())}"), naglowek[0]
+    assert "parameters.empty_mass_kg = 170000" in tekst, (
+        "wypis podaje liczbę, ale nie mówi KTÓRY wpis — a przy kilkunastu "
+        "parametrach sama liczba nie jest rozstrzygnięciem")
+    assert "approximately 170 tonnes" in tekst, (
+        "wypis nie cytuje notatki rejestru, więc czytający nie wie, CO jest "
+        "przybliżone i z czyjej ręki")
+
+    # PRZYPADEK ZERA, wykonany a nie opisany: dzisiejsze dane dają jedynkę, więc
+    # bez podstawionego rejestru „wiersz pada zawsze" i „wiersz pada, bo akurat
+    # jest co wypisać" są nieodróżnialne.
+    import copy
+    bez = copy.deepcopy(B.load_registry())
+    bez["parameters"]["empty_mass_kg"].pop(B.KLUCZ_PRZYBLIZENIA, None)
+    pusty = _io.StringIO()
+    with contextlib.redirect_stdout(pusty):
+        B.report(bez)
+    tekst_zera = pusty.getvalue()
+    assert f"PARAMETRY PRZYBLIZONE (rejestr, {B.KLUCZ_PRZYBLIZENIA}: true): 0" \
+        in tekst_zera, (
+            "przy zerze wiersz zniknął albo zgubił liczbę — cisza czyta się jako "
+            "„nikt nie sprawdzał\u201d, nie jako „nic nie jest przybliżone\u201d")
+    assert "parameters.empty_mass_kg =" not in tekst_zera, (
+        "wypis wymienia wpis, którego rejestr już nie oznacza")
+
+
+def test_wykaz_wpisow_i_wykaz_parametrow_modelu_MOWIA_o_tym_samym():
+    """Dwie listy, dwa pytania — i dziś ta sama odpowiedź, co nie jest oczywiste.
+
+    `przyblizone_wpisy` chodzi po CAŁYM rejestrze (i to jego wypisuje `report`, bo
+    rdzeń C# zna wpisy po ścieżkach). `parametry_przyblizone` zawęża do tabeli
+    `PARAMETRY`, czyli odpowiada na pytanie pozycji 6.D124: które przybliżone
+    wartości **wchodzą do modelu**.
+
+    Dziś oba dają jedną i tę samą wartość, ale nie muszą: wpis przybliżony spoza
+    `PARAMETRY` byłby w pierwszej liście i nie byłby w drugiej. Test żąda
+    **zawierania**, a nie równości, i osobno przybija dzisiejszy stan — inaczej
+    pierwsza taka rozbieżność czytałaby się jako awaria.
+    """
+    wpisy = {sciezka for sciezka, _w, _n in B.przyblizone_wpisy()}
+    w_modelu = set()
+    for nazwa, sekcja, klucz, _status in B.PARAMETRY:
+        if any(sciezka == f"{sekcja}.{klucz}" for sciezka in wpisy):
+            w_modelu.add(f"{sekcja}.{klucz}")
+
+    z_funkcji = {f"{sekcja}.{klucz}"
+                 for nazwa, sekcja, klucz, _s in B.PARAMETRY
+                 for n2, k2, _v, _t in B.parametry_przyblizone()
+                 if (n2, k2) == (nazwa, klucz)}
+    assert z_funkcji == w_modelu, (z_funkcji, w_modelu)
+    assert w_modelu <= wpisy, (w_modelu, wpisy)
+
+    # Stan dzisiejszy, przybity osobno: jeden wpis, i wchodzi do modelu.
+    assert wpisy == {"parameters.empty_mass_kg"}, wpisy
+    assert w_modelu == wpisy, (
+        "przybliżony wpis rejestru przestał wchodzić do modelu — to jest zmiana "
+        "znaczenia, nie awaria testu")
+
+
+def test_reczna_kopia_masy_w_referencji_zgadza_sie_z_REJESTREM():
+    """`reference.MASS['AW0']` jest trzecią kopią liczby 170 000 — zmierzone.
+
+    Pierwsza stoi w `data/vehicle/m7-spec.json`, druga w `reference.py` jako
+    literał, trzecia w `test_all.py` jako `assert R.MASS["AW0"] == 170000.0`.
+    Tamta asercja porównuje **kopię z kopią** i przeszłaby, gdyby rejestr podał
+    co innego; ta porównuje kopię ze ŹRÓDŁEM.
+
+    Wartości nie zmieniam — `data/` jest tylko do odczytu, a `reference.py` niesie
+    tablicę referencyjną, której literały są jej treścią. Zmienia się to, czy
+    rozjazd między nimi ma gdzie zapalić.
+    """
+    sys.path.insert(0, os.path.join(ROOT, "tools", "physics"))
+    import reference as R
+
+    z_rejestru = B.load_registry()["parameters"]["empty_mass_kg"]
+    assert R.MASS["AW0"] == float(z_rejestru["value"]), (
+        "ręczna kopia masy AW0 w `reference.py` (%r) rozjechała się z rejestrem "
+        "(%r)" % (R.MASS["AW0"], z_rejestru["value"]))
+    assert z_rejestru.get(B.KLUCZ_PRZYBLIZENIA) is True, (
+        "rejestr przestał oznaczać masę pustą jako przybliżoną, a `reference.py` "
+        "nadal niesie jej kopię bez żadnego znaku")
+
+
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
 # z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
 # tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
