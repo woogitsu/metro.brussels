@@ -1507,6 +1507,20 @@ STANY_SDK = {
 #: Ile razy blok SDK ma zapytać `dotnet --version` w JEDNYM przebiegu.
 WOLAN_WERSJI = 1
 
+#: Ile razy blok SDK ma zapytać `dotnet --list-sdks` w JEDNYM przebiegu — 6.D128.
+#:
+#: **Zmierzone 11.09.2026 PRZED zmianą, tym samym dziennikiem atrapy:** pin
+#: niespełniony **2**, pin spełniony **1**, brak SDK **1**. Dwójka brała się stąd,
+#: że o listę pytało dwóch rozmówców — sonda `SDK_NA_LISCIE` i wypis „na dysku:"
+#: w gałęzi niespełnionego pinu — a wynik drugiego szedł WPROST na stdout, więc
+#: nie było czego zapamiętać.
+#:
+#: Osobna stała od `WOLAN_WERSJI`, bo to dwa różne pytania i cała 6.D96 na tej
+#: różnicy stoi: `--list-sdks` pyta „czy jakiekolwiek SDK jest", `--version` —
+#: „czy któreś spełnia pin". Jedna stała na oba znaczyłaby, że da się je policzyć
+#: razem, a pole „Poza zakresem" 6.D128 wyklucza nawet ich połączenie.
+WOLAN_LISTY_SDK = 1
+
 
 def _wiersze_o_sdk(wypis):
     """Wiersze wypisu dotyczące SDK — te, które ta pozycja mogła ruszyć."""
@@ -1532,6 +1546,71 @@ def test_blok_sdk_pyta_o_wersje_dokladnie_raz():
         assert ile == WOLAN_WERSJI, (
             f"stan „{nazwa}”: blok SDK pyta o wersję {ile} raz(y) zamiast "
             f"{WOLAN_WERSJI}; dziennik atrapy: {wolania}")
+
+
+def test_blok_sdk_pyta_o_liste_dokladnie_raz():
+    """6.D128: jedno wywołanie `--list-sdks` na przebieg, we WSZYSTKICH trzech stanach.
+
+    Liczy się dziennik atrapy, a nie treść skryptu — ten sam powód, co przy
+    `--version` w 6.D112: „blok pyta raz" jest zdaniem o PRZEBIEGU, a czytanie
+    `doctor.sh` odpowiada na inne pytanie i odpowiadało na nie zielono także wtedy,
+    gdy wywołań było dwa.
+    """
+    for nazwa, stan in STANY_SDK.items():
+        _wypis, _kod, wolania = _przebieg_doctora(stan["pin"], stan["zainstalowane"])
+        ile = wolania.count("--list-sdks")
+        assert ile == WOLAN_LISTY_SDK, (
+            f"stan „{nazwa}”: blok SDK pyta o listę SDK {ile} raz(y) zamiast "
+            f"{WOLAN_LISTY_SDK}; dziennik atrapy: {wolania}")
+
+    # Kontrola przyrządu: dziennik naprawdę widzi OBA pytania osobno. Bez tego
+    # licznik zliczający jedno w miejsce drugiego dałby te same jedynki.
+    _w, _k, wolania = _przebieg_doctora("10.0.999", ["10.0.401"])
+    assert "--list-sdks" in wolania and "--version" in wolania, (
+        "dziennik atrapy nie rozdziela `--list-sdks` od `--version`: %s" % wolania)
+    assert wolania[0] == "--list-sdks", (
+        "sonda listy przestała być pierwsza — kolejność jest tu treścią, bo "
+        "`PIN_NIESPELNIONY` czyta wynik obu: %s" % wolania)
+
+
+def test_wypis_listy_sdk_nie_gubi_ostatniego_wiersza():
+    """`printf '%s\\n'`, nie gołe podstawienie — bo `$(...)` obcina nowe wiersze.
+
+    **To jest jedyne realne ryzyko tej zmiany.** Wywołanie `--list-sdks` szło dotąd
+    prosto do `sed`, więc każdy wiersz listy docierał na ekran. Po zapamiętaniu
+    w zmiennej końcowe nowe wiersze znikają — i `sed` bez nich pokazałby listę
+    krótszą o ostatnią pozycję, co przy JEDNYM zainstalowanym SDK znaczy listę pustą.
+
+    Sprawdzane na POWŁOCE, a nie na atrapie: atrapa wypisuje dziś listę w jednym
+    wierszu (ukośnik zamiast nowego wiersza — osobna pozycja 6.D129), więc na niej
+    ta różnica nie zachodzi i test mierzyłby nic.
+    """
+    import subprocess
+
+    def przez(polecenie):
+        wynik = subprocess.run(
+            ["bash", "-c", 'V="$(printf \'a\\nb\\n\')"\n' + polecenie],
+            capture_output=True, text=True)
+        assert wynik.returncode == 0, wynik.stderr
+        return wynik.stdout
+
+    dzisiaj = przez("""printf '%s\\n' "$V" | sed 's/^/        na dysku: /'""")
+    assert dzisiaj == "        na dysku: a\n        na dysku: b\n", repr(dzisiaj)
+
+    # Kontrola negatywna wbudowana: bez `printf` ostatni wiersz nie ma zakończenia
+    # i `sed` go nie wypisze — kształt, przed którym ten test broni.
+    urwane = przez("""printf '%s' "$V" | sed 's/^/        na dysku: /'""")
+    assert urwane != dzisiaj, (
+        "podstawienie bez końcowego nowego wiersza dało ten sam wypis co `printf` "
+        "— ten test przestał mierzyć to, co mówi")
+
+    # I że `doctor.sh` używa tej pierwszej formy, a nie drugiej.
+    zrodlo = _read(DOCTOR)
+    assert """printf '%s\\n' "$SDK_LISTA" | sed""" in zrodlo, (
+        "wypis listy SDK nie idzie przez `printf '%s\\n'` — ostatni wiersz listy "
+        "może nie dotrzeć na ekran")
+    assert '"$DOTNET" --list-sdks 2>/dev/null | sed' not in zrodlo, (
+        "wypis listy SDK znów woła `dotnet` drugi raz zamiast czytać `SDK_LISTA`")
 
 
 def test_wypis_trzech_stanow_nie_drgnal():
