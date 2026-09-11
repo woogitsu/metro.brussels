@@ -332,7 +332,7 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 #: 6.D119 … 6.D126, i tym razem NIE z uzupełnienia kolejki przy progu, tylko z pracy,
 #: którą tworzą decyzje właściciela z tego dnia (sekcja „Rozstrzygnięte 10.09.2026"
 #: w `docs/TASKS.md`). Wartość z `len(detail_sections(...))` na pliku po edycji.
-MINIMUM_DETAIL_BLOCKS = 199
+MINIMUM_DETAIL_BLOCKS = 207
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
