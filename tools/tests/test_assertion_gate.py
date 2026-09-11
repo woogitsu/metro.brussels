@@ -100,7 +100,6 @@ NIEME_ASERCJE = {
     "test_chunks.py": 65,
     "test_ci_workflows.py": 64,
     "test_clearance.py": 30,
-    "test_clearance_profile.py": 117,
     "test_crosscheck_alignment.py": 37,
     "test_crs.py": 1,
     "test_crs_convergence.py": 1,
@@ -211,19 +210,53 @@ def _moduly_testowe(katalog=None):
     return sorted(znalezione)
 
 
+def komunikat_nic_nie_mowi(msg):
+    """Czy ten węzeł komunikatu jest obecny, ale pusty — 6.D144.
+
+    **Dopisane po kontroli negatywnej KN-2, która wyszła ZIELONA.** Do 6.D144 licznik
+    pytał wyłącznie o `msg is None`, więc `assert x, ""` przechodził jako asercja
+    Z powodem. Moduł dałoby się zbić do zera samym dopisaniem przecinka i pary
+    cudzysłowów, a bramka zameldowałaby sprawdzenie, którego nie zrobiła — dokładnie
+    ta rodzina, którą projekt tropi od 6.D27, tym razem w przyrządzie, na którym
+    stoi cała pozycja 6.D144.
+
+    Zamknięcie tej dziury **nie ruszyło ani jednej liczby**: zmierzone 11.09.2026 na
+    całym `tools/tests/` — asercji z komunikatem nic nie mówiącym było **zero**.
+    Bramka pilnuje więc czegoś, czego dziś nikt nie robi, i o to chodzi.
+
+    Czego to NIE łapie i nie może: komunikatu, który powtarza warunek zamiast podawać
+    powód. `assert a == b, "a != b"` przejdzie tu tak samo jak zdanie o przyczynie —
+    rozróżnienie wymaga semantyki, a nie kształtu. Granica jest tu wypisana, żeby
+    zielona bramka nie czytała się jako „każdy komunikat coś mówi".
+    """
+    if isinstance(msg, ast.Constant):
+        if msg.value is None:
+            return True
+        if isinstance(msg.value, str):
+            return not msg.value.strip()
+        return msg.value is False or msg.value == 0
+    if isinstance(msg, ast.JoinedStr):
+        return not msg.values
+    return False
+
+
 def asercje_bez_komunikatu(zrodlo):
-    """Ile `assert` w tym źródle nie niesie drugiego argumentu.
+    """Ile `assert` w tym źródle nie niesie POWODU.
 
     Liczone z DRZEWA SKŁADNI, nie grepem: `assert x, "powód"` i `assert x` różnią
     się obecnością pola `msg`, a nie obecnością przecinka — `assert (a, b)` ma
     przecinek i komunikatu nie ma (jest zawsze prawdziwy, bo krotka).
+
+    Brakiem powodu jest też komunikat OBECNY, ale pusty — patrz
+    `komunikat_nic_nie_mowi` i kontrola KN-2 z 6.D144.
     """
     try:
         drzewo = ast.parse(zrodlo)
     except SyntaxError:
         return None
     return sum(1 for w in ast.walk(drzewo)
-               if isinstance(w, ast.Assert) and w.msg is None)
+               if isinstance(w, ast.Assert)
+               and (w.msg is None or komunikat_nic_nie_mowi(w.msg)))
 
 
 def nieme_w_drzewie(katalog=None):
@@ -336,9 +369,11 @@ def test_lista_asercji_bez_komunikatu_moze_tylko_malec():
     # dotyczyć tego samego zbioru modułów, o którym mówi zapadka. Gdy zaślepki nie
     # ma — a w drzewie repozytorium nie ma — składnik jest zerem i nic się nie zmienia.
     zaslepione_z_listy = sum(NIEME_ASERCJE[n] for n in zaslepione if n in NIEME_ASERCJE)
-    assert NIEMYCH_RAZEM == sum(w_drzewie.values()) + zaslepione_z_listy == 2372, (
+    assert NIEMYCH_RAZEM == sum(w_drzewie.values()) + zaslepione_z_listy == 2255, (
         "suma z listy %d, suma z drzewa %d (+ %d z %d modułów zaślepionych: %s), "
-        "pomiar z 11.09.2026 mówił 2377, po 6.D135 jest 2376, po 6.D138 — 2372"
+        "pomiar z 11.09.2026 mówił 2377, po 6.D135 jest 2376, po 6.D138 — 2372, "
+        "a po 6.D144 — 2255, bo `test_clearance_profile.py` zszedł ze 117 na ZERO "
+        "i wypadł z listy"
         % (NIEMYCH_RAZEM, sum(w_drzewie.values()), zaslepione_z_listy,
            len(zaslepione), sorted(zaslepione) or "—"))
 
@@ -365,6 +400,18 @@ def test_licznik_odroznia_assert_z_powodem_od_assert_bez():
     assert asercje_bez_komunikatu("def f(:\n") is None, (
         "plik z błędem składni ma dać None, a nie zero — zero czytałoby się "
         "jako „sprawdzone i czysto\u201d")
+
+    # Komunikat OBECNY, ale pusty — dopisane po kontroli KN-2 z 6.D144, która
+    # wyszła zielona. Bez tych pięciu wierszy moduł dałoby się zbić do zera samym
+    # dopisaniem przecinka i pary cudzysłowów.
+    for pusty in ('assert x, ""\n', "assert x, '   '\n", "assert x, None\n",
+                  "assert x, 0\n", "assert x, False\n", 'assert x, f""\n'):
+        assert asercje_bez_komunikatu(pusty) == 1, (
+            "komunikat, który nic nie mówi, policzony jako powód: %r" % pusty)
+    assert asercje_bez_komunikatu('assert x, "0"\n') == 0, (
+        "napis „0” JEST treścią — bramka ma odsiewać puste, a nie fałszywe")
+    assert asercje_bez_komunikatu("assert x, f'{y}'\n") == 0, (
+        "f-string z dziurą niesie treść i ma być liczony jako powód")
 
     # I że skan naprawdę czyta pliki z drzewa, a nie tylko umie parsować napisy.
     wlasny = os.path.join(KATALOG_TESTOW, "test_assertion_gate.py")
