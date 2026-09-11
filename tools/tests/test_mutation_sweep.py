@@ -19,6 +19,7 @@ import json
 import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -1272,27 +1273,223 @@ def _sciezka_z_innego_procesu(wyrazenie):
     return wynik.stdout.strip()
 
 
-def test_dwa_przebiegi_tego_samego_commita_nie_pisza_do_jednego_dziennika():
-    """Dwa procesy, te same cztery człony, dwie różne ścieżki — 6.D106.
+def _trzymaj_zamek(sciezka):
+    """Podproces, który bierze zamek na `sciezka` i trzyma go, aż go ubijemy."""
+    proces = subprocess.Popen(
+        [sys.executable, "-c",
+         "import sys, time\n"
+         "sys.path.insert(0, %r)\n"
+         "import mutation_sweep as sweep\n"
+         "stan, uchwyt = sweep.zajmij_dziennik(%r)\n"
+         "print(stan, flush=True)\n"
+         "time.sleep(120)\n"
+         % (os.path.dirname(os.path.abspath(sweep.__file__)), sciezka)],
+        stdout=subprocess.PIPE, text=True)
+    stan = proces.stdout.readline().strip()
+    assert stan == "wziety", (
+        "podproces nie wzial zamka na start: %r — reszta testu mierzylaby co innego"
+        % stan)
+    return proces
 
-    Do 10.09.2026 nazwa była funkcją wyłącznie TREŚCI przebiegu, więc dwa przeglądy
-    uruchomione równolegle na jednej maszynie dostawały ten sam plik. Każdy
-    dopisywał swoje wpisy, a `sweep` czyta wynik z CAŁEGO dziennika i nie odsiewa
-    powtórzeń — oba raporty liczyły więc każdą mutację dwa razy. Runnery jednej puli
-    stoją na jednej maszynie i dzielą `/tmp`.
+
+def test_dwa_przebiegi_tego_samego_commita_dostaja_TEN_SAM_dziennik_i_drugi_ODMAWIA():
+    """Nazwa wraca do czterech członów, a rozdziela ZAMEK — 6.D123.
+
+    **Przepisany, a nie dopisany obok.** Do 11.09.2026 ten test żądał, żeby dwa
+    procesy dostały ŚCIEŻKI RÓŻNE: 6.D106 rozdzielało przebiegi nazwą, bo dwa
+    przeglądy o tych samych czterech członach dopisywały do jednego pliku, a
+    `read_journal` powtórzeń nie odsiewa — oba raporty liczyły każdą mutację dwa razy.
+    Ceną było zdjęcie wznowienia po nazwie domyślnej.
+
+    6.D123 rozdziela je zamkiem, więc **ta sama ścieżka jest teraz WARUNKIEM**, a nie
+    usterką: bez niej wznowienie nie miałoby czego znaleźć. Ochroną jest odmowa.
     """
     wyrazenie = ("sweep.default_journal('abc1234', ('operator', 'prog'), "
                  "'lod_paths.py')")
     pierwszy = _sciezka_z_innego_procesu(wyrazenie)
     drugi = _sciezka_z_innego_procesu(wyrazenie)
-    assert pierwszy != drugi, (
-        "dwa procesy dostały tę samą ścieżkę dziennika: %s" % pierwszy)
+    assert pierwszy == drugi, (
+        "dwa procesy dostaly ROZNE sciezki dziennika (%s, %s) — wznowienie po nazwie "
+        "domyslnej znowu nie ma czego znalezc" % (pierwszy, drugi))
+    assert os.path.basename(pierwszy).startswith("metro-mutacje-"), pierwszy
 
-    # …a to nadal ma być dziennik TEGO przebiegu, nie nazwa z niczego: człon treści
-    # zostaje wspólny, bo mówi człowiekowi w `/tmp`, czego plik dotyczy.
-    wspolny = os.path.basename(pierwszy).rsplit("-", 1)[0]
-    assert os.path.basename(drugi).startswith(wspolny), (pierwszy, drugi)
-    assert wspolny.startswith("metro-mutacje-"), wspolny
+    # …a rozdziela je zamek. Mierzone na WLASNEJ sciezce, zeby nie dotknac dziennika,
+    # ktory moze akurat lezec w `/tmp` po prawdziwym przebiegu.
+    with tempfile.TemporaryDirectory() as katalog:
+        sciezka = os.path.join(katalog, "dziennik.jsonl")
+        trzyma = _trzymaj_zamek(sciezka)
+        try:
+            stan, uchwyt = sweep.zajmij_dziennik(sciezka)
+            assert stan == "zajety", (
+                "drugi przebieg wzial zamek trzymany przez pierwszy (%r) — dwa "
+                "przebiegi znowu dopisuja do jednego dziennika" % stan)
+            assert uchwyt is None, uchwyt
+        finally:
+            trzyma.kill()
+            trzyma.wait()
+
+
+def test_zamek_zwalnia_sie_po_SIGKILL_wlasciciela():
+    """Pomiar, ktory rozstrzygnal 6.D123 — i bez ktorego zamek byl zakladem.
+
+    Pole „Skonczone, gdy" tej pozycji zada tego wprost: zamek po procesie ubitym
+    `SIGKILL` nie moze blokowac nastepnego przebiegu na stale. `SIGKILL` nie da sie
+    obsluzyc, wiec zaden kod sprzatajacy sie nie wykona — zwolnienie musi przyjsc
+    od jadra, ktore zamyka opisy plikow martwego procesu.
+
+    **Mierzone, a nie wyczytane z dokumentacji.** Gdyby ten test kiedys zaczal padac
+    — inny system plikow, `flock` emulowany po sieci — bedzie to znaczylo, ze warunek
+    pozycji przestal zachodzic na tej maszynie, a nie ze test jest zepsuty. Wtedy
+    nazwa dziennika ma wrocic do postaci unikatowej (`zamek=False`), ktora jest
+    zachowana i przetestowana obok.
+    """
+    with tempfile.TemporaryDirectory() as katalog:
+        sciezka = os.path.join(katalog, "dziennik.jsonl")
+        trzyma = _trzymaj_zamek(sciezka)
+
+        stan_przy_zywym, _ = sweep.zajmij_dziennik(sciezka)
+        assert stan_przy_zywym == "zajety", (
+            "zamek nie dziala nawet przy ZYWYM wlascicielu (%r) — nizej mierzylibysmy "
+            "nie to, co trzeba" % stan_przy_zywym)
+
+        trzyma.send_signal(signal.SIGKILL)
+        trzyma.wait()
+
+        stan_po, uchwyt = sweep.zajmij_dziennik(sciezka)
+        try:
+            assert stan_po == "wziety", (
+                "zamek po `SIGKILL` wlasciciela nadal odmawia (%r) — na tej maszynie "
+                "zostalby osierocony i blokowal kazdy nastepny przebieg; warunek "
+                "6.D123 nie zachodzi i nazwa dziennika ma wrocic do unikatowej"
+                % stan_po)
+        finally:
+            if uchwyt is not None:
+                uchwyt.close()
+
+        # Plik dziennika ZOSTAJE — i to jest powod, dla ktorego zamek idzie na niego,
+        # a nie na osobny `.lock`: osobny plik bylby drugim smieciem bez zysku.
+        assert os.path.isfile(sciezka), sciezka
+
+
+def test_bez_flock_nazwa_dziennika_wraca_do_unikatowej():
+    """Gałąź bez zamka jest WYKONYWANA, a nie tylko napisana.
+
+    `fcntl` jest POSIX-owy i na Windowsie go nie ma. Bez parametru `zamek` ta gałąź
+    byłaby kodem, którego nikt nigdy nie uruchomił — a taki kod jest w tym projekcie
+    tym samym, co komentarz obiecujący zachowanie.
+    """
+    argumenty = ("abc1234", ("operator",), "x.py", "")
+    z_zamkiem = sweep.default_journal(*argumenty, zamek=True)
+    bez_zamka = sweep.default_journal(*argumenty, zamek=False)
+
+    assert z_zamkiem != bez_zamka, (z_zamkiem, bez_zamka)
+    assert os.path.basename(bez_zamka).endswith(
+        f"-{sweep.PROCES_ZNACZNIK}.jsonl"), bez_zamka
+    assert not os.path.basename(z_zamkiem).endswith(
+        f"-{sweep.PROCES_ZNACZNIK}.jsonl"), z_zamkiem
+    # Człon treści zostaje wspólny w obu: mówi człowiekowi w `/tmp`, czego plik dotyczy.
+    assert os.path.basename(bez_zamka).startswith(
+        os.path.basename(z_zamkiem)[:-len(".jsonl")]), (z_zamkiem, bez_zamka)
+
+    # I że domyślna gałąź na TEJ maszynie idzie przez zamek — inaczej cała reszta
+    # tej pozycji byłaby wyłączona i nikt by tego nie zobaczył.
+    assert sweep.ZAMEK_DOSTEPNY is True
+    assert sweep.default_journal(*argumenty) == z_zamkiem
+
+    stan, uchwyt = sweep.zajmij_dziennik(bez_zamka, dostepny=False)
+    assert (stan, uchwyt) == ("bez_zamka", None), (stan, uchwyt)
+    assert not os.path.exists(bez_zamka), (
+        "gałąź bez zamka utworzyła plik — a nie ma po co, skoro niczego nie trzyma")
+
+
+def test_zajety_i_bez_zamka_to_DWIE_rozne_odpowiedzi():
+    """Zlanie ich w `None` dałoby przebieg, który po cichu dzieli plik z innym.
+
+    „Nie ma czym zamykać" puszcza przebieg dalej (nazwa jest wtedy unikatowa),
+    „ktoś inny trzyma" jest ODMOWĄ. Jedna wartość na oba znaczyłaby, że maszyna bez
+    `fcntl` dostaje zachowanie maszyny z zajętym dziennikiem albo odwrotnie — a to
+    druga z tych pomyłek jest usterką z 6.D106, tylko wróconą tylnymi drzwiami.
+    """
+    with tempfile.TemporaryDirectory() as katalog:
+        sciezka = os.path.join(katalog, "dziennik.jsonl")
+        trzyma = _trzymaj_zamek(sciezka)
+        try:
+            zajety, _ = sweep.zajmij_dziennik(sciezka)
+            bez, _ = sweep.zajmij_dziennik(sciezka, dostepny=False)
+        finally:
+            trzyma.kill()
+            trzyma.wait()
+    assert zajety == "zajety" and bez == "bez_zamka", (zajety, bez)
+    assert zajety != bez
+
+
+def test_zamek_stoi_przed_pierwszym_ZAPISEM_do_dziennika():
+    """Granica jest zapis, nie odczyt — i to jest wynik kontroli, ktora wyszla ZIELONA.
+
+    **Czego ten test NIE pilnuje i dlaczego.** Pierwszy komentarz przy zamku mowil
+    „przed pierwszym CZYTANIEM, pozniej byloby za pozno". KN-6 przeniosla wywolanie
+    za `read_journal` i dala **125/125**: zmiana niczego nie psuje, bo `read_journal`
+    nic nie zapisuje. Gdy dwa przebiegi czytaja pusty dziennik naraz, zamek i tak
+    przepuszcza jeden, a drugiemu odmawia, zanim ktorykolwiek dopisze wiersz.
+    Twierdzenie bylo nieprawdziwe, wiec zostalo poprawione, a nie przybite.
+
+    **Co ma znaczenie naprawde.** Zamek musi stac przed `sweep`, bo to `sweep`
+    dopisuje wiersze. Zamek wziety po nim zostawia okno, w ktorym oba przebiegi maja
+    juz wpisy w jednym pliku — usterke z 6.D106. Kolejnosc liczona z AST, bo komentarz
+    cytujacy nazwe funkcji wygladalby przy szukaniu napisu tak samo jak wywolanie.
+    """
+    import ast as _ast
+
+    drzewo = _ast.parse(open(sweep.__file__, encoding="utf-8").read())
+    glowna = next(w for w in drzewo.body
+                  if isinstance(w, _ast.FunctionDef) and w.name == "main")
+
+    def wiersze(nazwa):
+        return [w.lineno for w in _ast.walk(glowna)
+                if isinstance(w, _ast.Call)
+                and getattr(w.func, "id", getattr(w.func, "attr", None)) == nazwa]
+
+    zamki = wiersze("zajmij_dziennik")
+    sweepy = wiersze("sweep")
+    assert zamki, "`main` nie wola `zajmij_dziennik` ani razu"
+    assert sweepy, (
+        "`main` nie wola `sweep` — ten test przestal mierzyc to, co mowi")
+    assert min(zamki) < min(sweepy), (
+        "zamek brany w wierszu %d, a `sweep` wola sie juz w %d — pierwszy dopis idzie "
+        "do dziennika, ktorego nikt nie trzyma" % (min(zamki), min(sweepy)))
+
+
+def test_uchwyt_zamka_jest_MODULOWY_bo_flock_zyje_z_otwartym_opisem():
+    """Zmienna lokalna zwolniłaby zamek natychmiast po sprawdzeniu — zmierzone.
+
+    **To nie jest przewidywanie.** Pierwsza próba tej pozycji wołała
+    `zajmij_dziennik` dwa razy pod rząd, nie trzymając wyniku pierwszego wywołania,
+    i **oba razy dostała `"wziety"`** — bo uchwyt pierwszego był już zebrany przez
+    GC, a `flock` znika razem z zamknięciem opisu pliku. Wyglądało to dokładnie jak
+    zamek, który nie działa.
+
+    Stąd `_UCHWYT_ZAMKA` na poziomie modułu i stąd ten test: sprawdza, że `main`
+    przypisuje uchwyt do czegoś, co przeżyje wyjście z funkcji.
+    """
+    with tempfile.TemporaryDirectory() as katalog:
+        sciezka = os.path.join(katalog, "dziennik.jsonl")
+        stan_a, uchwyt_a = sweep.zajmij_dziennik(sciezka)
+        assert stan_a == "wziety", stan_a
+        stan_b, _ = sweep.zajmij_dziennik(sciezka)
+        assert stan_b == "zajety", (
+            "drugi zamek w TYM SAMYM procesie przeszedl przy trzymanym pierwszym — "
+            "`flock` przestal wiazac opisy plikow")
+        uchwyt_a.close()
+        stan_c, uchwyt_c = sweep.zajmij_dziennik(sciezka)
+        assert stan_c == "wziety", (
+            "po zamknieciu uchwytu zamek nadal odmawia — nie zwalnia sie wcale")
+        uchwyt_c.close()
+
+    zrodlo = open(sweep.__file__, encoding="utf-8").read()
+    assert "global _UCHWYT_ZAMKA" in zrodlo, (
+        "`main` nie przypisuje uchwytu do zmiennej modulowej — zamek zwolni sie "
+        "przy pierwszym zbieraniu smieci, a przebieg bedzie myslal, ze go trzyma")
+    assert "stan_zamka, _UCHWYT_ZAMKA = zajmij_dziennik(journal)" in zrodlo, zrodlo[:0]
 
 
 def test_plik_posredni_mapy_pokrycia_jest_wlasny_dla_procesu():
