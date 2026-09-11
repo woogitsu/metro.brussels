@@ -96,3 +96,47 @@ def centerline_position(count, fraction):
     lo = int(math.floor(position))
     hi = min(lo + 1, count - 1)
     return lo, hi, position - lo
+
+
+# --- 6.D140: okno kadru a czytelność klatek --------------------------------------
+
+#: Kamery, którym okno `--from-m/--to-m` narzuca środek i rozmiar kadru.
+#:
+#: **Wpis pozycji 6.D140 twierdził, że okno zawęża WYŁĄCZNIE `_inside`, a `_iso`
+#: i `_side` nadal kadrują cały obiekt. To nieprawda i obalił to pomiar** na osi
+#: `L1_A` (5452,5 m długości, 5,9 m wysokości, proporcje 924 : 1), Blender 5.2.1:
+#:
+#:   bez okna         cam_iso distance 7920,3 m   ink 0,00277
+#:                    cam_side distance 7677,3 m  ink 0,00292
+#:   okno 400–500 m   cam_iso distance  137,3 m   ink 0,11039
+#:                    cam_side distance  133,1 m  ink 0,10808
+#:
+#: Czterdziestokrotna różnica w pokryciu klatki bierze się stąd, że `render_check`
+#: podstawia `center` i `size` z okna ZANIM zbuduje pierwszą kamerę — więc okno
+#: rządzi wszystkimi czterema, nie jedną.
+KAMERY_POD_OKNEM = ("cam_iso", "cam_side", "cam_normals", "cam_inside")
+
+
+def proporcje_okna(dlugosc_m, wysokosc_m):
+    """Ile razy okno jest dłuższe niż wysokie. `None`, gdy wysokość jest zerowa.
+
+    Liczba, która przewiduje kształt klatki `_side` — a nie długość osi, i to jest
+    poprawka wobec wpisu 6.D140. Zmierzone na `L1_A`, `box_double`, wysokość 5,9 m:
+
+        okno       proporcje   ink `_side`
+        100 m        17 : 1      0,10808
+        300 m        51 : 1      0,04044
+        1000 m      169 : 1      0,01278
+        3000 m      508 : 1      0,00556
+        bez okna    924 : 1      0,00292
+
+    **Progu tu nie ma i to jest wybór.** Pokrycie spada gładko, a podłoga pustej
+    klatki (`compare.EMPTY_FRAME_FLOOR`, ink 0,0002) nie zapala się **w żadnym**
+    z tych pięciu przypadków — także przy 924 : 1, gdzie obejrzana klatka jest
+    włosem. Gdzie kreska przestaje być czytelna, jest oceną estetyczną, a `CLAUDE.md`
+    §8 każe takich nie podejmować samemu. Liczba jest więc **wypisywana**, żeby
+    oglądający wiedział, czego się spodziewać, i nie brał włosa za pustą scenę.
+    """
+    if not wysokosc_m:
+        return None
+    return dlugosc_m / wysokosc_m

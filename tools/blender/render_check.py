@@ -231,6 +231,15 @@ def main():
         center=Vector(window["center"]); size=window["size"]
         print(f"[OKNO] os {window['from_m']:.1f}-{window['to_m']:.1f} m (dlugosc {window['length_m']:.1f} m) "
               f"center=({center.x:.1f},{center.y:.1f},{center.z:.1f}) size_m={size:.1f}")
+        # 6.D140: KTORE kamery okno zawezasz — bo wpis pozycji twierdzil, ze tylko
+        # `_inside`, a pomiar pokazal wszystkie cztery. Nazwy ida z `camera_aim`,
+        # zeby ten wypis nie byl druga kopia tej wiedzy.
+        print("[OKNO] zaweza kamery: " + ", ".join(CA.KAMERY_POD_OKNEM))
+        proporcje=CA.proporcje_okna(window["length_m"],(maxs-mins).z)
+        if proporcje is not None:
+            print(f"[OKNO] proporcje okna {proporcje:.0f} : 1 (dlugosc {window['length_m']:.1f} m "
+                  f"/ wysokosc {(maxs-mins).z:.1f} m) — im wieksze, tym bardziej `_side` "
+                  "jest kreska; progu tu nie ma, patrz camera_aim.proporcje_okna")
     else:
         center=(mins+maxs)/2; size=max((maxs-mins).x,(maxs-mins).y,(maxs-mins).z,1.0)
     blank=[]
