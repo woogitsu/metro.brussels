@@ -981,6 +981,14 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.D124 | **`approximate: True` przy masie pustej nie jest przez nic czytane** | zauważone 10.09.2026 przy 6.D107: rejestr M7 mówi o masie pustej „STIB states approximately 170 tonnes" i niesie `approximate: True`, a model hamowania bierze samo `value` i nigdzie nie mówi, że liczba jest przybliżona. To jest pytanie o to, JAK niepewność wchodzi do modelu — dotyczy każdego parametru z tą flagą, nie jednego | M |
 | 6.D125 | **Gałąź `cleared` schematu audio nie żąda `as_of`** | zauważone 10.09.2026 przy 6.D103: wpis może mieć `rights_status = cleared` i zgodę albo licencję, a nie mieć daty, od której to obowiązuje. Prawo do dźwięku bywa terminowe, więc „cleared" bez daty jest zdaniem niepełnym. Zmiana schematu jest decyzją o danych, więc pozycja ma najpierw ZMIERZYĆ, ilu wpisów by dotyczyła (dziś: trzynaście zastępników, zero `cleared`) | S |
 | 6.D126 | **Pole „Weryfikacja" bloku 6.D74 wskazuje moduł, który tej bramki nie zawiera** | zauważone 10.09.2026 przy 6.D101: pole wskazuje `test_scan_gates.py` jako miejsce bramki o przejściach po drzewie, a bramka mieszka w `test_tree_walks.py`. Plik o tej nazwie istnieje, więc bramka adresów z 6.D101 tego nie łapie — jej pole „Poza zakresem" wyklucza pytanie o treść modułu. Blok jest wykonany, więc poprawka jest zmianą zapisu historycznego i wymaga zdania, dlaczego wolno | S |
+| 6.D127 | **Dwie asercje `test_sim_untested_members.py` zgłaszają się BEZ ANI JEDNEGO SŁOWA** | zmierzone 11.09.2026 przy 6.D117, kontrolą negatywną na wspólnym odsianiu: `test_generated_files_are_excluded_from_the_count` i `test_no_real_sim_member_is_missing_from_tests` wypisały `FAIL <nazwa>:` i nic dalej. Czerwień bez zdania każe czytać kod zamiast komunikatu, a przy przebiegu CI czytającego sam wypis nie mówi nic. Ta sama usterka stoi w `test_mutation_sweep.py` (zauważona przy 6.D106), więc pozycja ma POLICZYĆ asercje bez komunikatu w `tools/tests/` i zamknąć listę, a nie poprawić dwie z nich | S |
+| 6.D128 | **`doctor.sh` woła `--list-sdks` dwa razy w stanie „pin niespełniony"** | zmierzone 11.09.2026 przy 6.D112 atrapą liczącą wywołania: po zbiciu `--version` do jednego wywołania zostają w tym stanie **dwa** wywołania `--list-sdks` — sonda i wypis listy na ekran. Ta sama rodzina co usterka zamknięta przez 6.D112, ale o innym poleceniu i o innym kształcie: wynik drugiego wywołania idzie WPROST na stdout przez `sed`, więc połączenie ich wymaga rozstrzygnięcia, czy lista ma być zapamiętana w zmiennej. Wypis trzech stanów ma zostać identyczny co do bajtu | S |
+| 6.D129 | **Atrapa `dotnet` wypisuje literalne `\n` zamiast nowego wiersza** | zmierzone 11.09.2026 przy 6.D112: `_atrapa_dotnet` buduje listę SDK jako `f"{w} [/atrapa/sdk]\\n"`, więc w wypisie doctora stoi `na dysku: 10.0.401 [/atrapa/sdk]\n` — z widocznym ukośnikiem. Zapadka `STANY_SDK` zapisuje ten stan TAKI, JAKI JEST, bo inaczej byłaby czerwona od pierwszego dnia; poprawka zmienia więc wypis atrapy i wymaga przeliczenia zapadki w tym samym commicie. Prawdziwy `dotnet --list-sdks` kończy listę nowym wierszem | S |
+| 6.D130 | **Bramka literałów sterowania nazywa angielską nazwę klawisza „literałem językowym"** | zmierzone 11.09.2026 przy 6.D116: podmiana `"Esc"` na `"Escape"` zapala `W_plikach_sterowania_nie_ma_ani_jednego_slowa` z komunikatem o polszczyźnie — a `"Escape"` polskim słowem nie jest, tylko nazwą spoza `NazwyKlawiszy`. Komunikat kieruje szukającego w złe miejsce. Pozycja ma rozróżnić dwa powody zgłoszenia (słowo kontra nazwa spoza listy) albo pokazać pomiarem, że rozróżnić się nie da; treści `NazwyKlawiszy` nie zmienia | S |
+| 6.D131 | **Pin całego wiersza pomocy trzeba aktualizować ręcznie przy każdej zmianie nazwy klawisza** | zauważone 11.09.2026 przy 6.D116: `Wiersze_zlozone_z_katalogu_brzmia_co_do_znaku_tak_jak_przed_przenosinami` trzyma cały wiersz pomocy jako napis wpisany z ręki. Dziś to jedna linijka i siedem akcji; koszt pinu rośnie liniowo z tabelą, a rosnący koszt pinu jest tym, co zwykle popycha do jego rozluźnienia. Pozycja ma ZMIERZYĆ, ile pinów tego kształtu stoi w `tests/Game.Tests/`, i rozstrzygnąć, które z nich mają zostać wpisane z ręki, a które dadzą się przybić inaczej bez utraty niezależności | M |
+| 6.D132 | **Wznowienie z dziennika sprzed 6.D113 miesza wpisy z polem `stary_bajtkod` i bez niego** | zmierzone 11.09.2026 przy 6.D113: licznik czyta pole przez `.get`, więc stary dziennik nie wywraca przebiegu — ale wypis „mutacji zapisanych pod ważnym starym bajtkodem: 0" znaczy wtedy „zero wśród wpisów NOWYCH", a nie „zero w całym dzienniku". Wypis tego nie rozróżnia. Pozycja ma dodać trzeci stan licznikowi (policzone, niepoliczone, brak pola) albo pokazać pomiarem, że rozróżnienie jest niepotrzebne, bo wznowień z dziennikiem sprzed zmiany nie ma | S |
+| 6.D133 | **Zapadki `MAX_*` w `test_tree_walks.py` da się podnieść bez zapalenia czegokolwiek** | zmierzone 11.09.2026 przy 6.D117, kontrolą KN-4: podniesienie `MAX_GLOB_WPROST` z jedności na dziewięć nie zapala niczego, bo porównanie ma kształt `len(lista) <= zapadka`. Tak samo zachowuje się sąsiednia zapadka z 6.D74 i to jest zachowanie ZASTANE, wspólne dla obu. Reguła „wolno tylko obniżać" jest więc zdaniem dla człowieka, a nie bramką. Pozycja ma POLICZYĆ zapadki tego kształtu w `tools/tests/` i rozstrzygnąć jedną regułą dla wszystkich, a nie dla jednej listy | M |
+| 6.D134 | **Status `est` ma zero użyć i nic nie pilnuje jego powrotu** | zauważone 10.09.2026 przy 6.D105: `docs/02-simulation.md` definiuje `est` jako oszacowanie do usunięcia, a w danych pojazdu nie ma go ani razu. Stan jest poprawny, ale nie jest przez nic pilnowany w żadną stronę — nazwa wycofywana może wrócić po cichu. Pozycja ma rozstrzygnąć, czy zero użyć da się przybić bramką bez fałszywego alarmu na dokumencie, który tę nazwę DEFINIUJE; klasyfikacji żadnego parametru nie zmienia | S |
 
 #### Szczegóły pozycji z kompletem sześciu pól
 
@@ -8194,6 +8202,230 @@ nie sięga, nawet gdy nie ma nic innego do roboty; wtedy sięga po fazę 5.
 - **Poza zakresem:** przeglądanie pozostałych bloków wykonanych pod kątem adresów —
   to jest pomiar na osobną pozycję.
 - **Zależy od:** 6.D101.
+
+##### 6.D127 · Asercje, które zgłaszają się bez ani jednego słowa
+
+- **Skąd:** zmierzone 11.09.2026 przy 6.D117, kontrolą negatywną KN-3 na wspólnym
+  odsianiu. Dwa testy `test_sim_untested_members.py` wypisały
+  `FAIL test_generated_files_are_excluded_from_the_count:` — dwukropek i nic dalej.
+  Ta sama usterka została zauważona przy 6.D106 w `test_mutation_sweep.py`
+  (`test_domyslny_dziennik_jest_jeden_na_przebieg_a_nie_jeden_na_maszyne`).
+- **Dlaczego to nie jest kosmetyka:** czerwień bez zdania każe czytać KOD zamiast
+  komunikatu, a w CI czyta się wypis, nie kod. Przy przebiegu, w którym pada
+  kilkanaście testów naraz, asercja bez komunikatu jest nieodróżnialna od asercji,
+  której nikt nie napisał.
+- **Wejście:** `tools/tests/` — wszystkie moduły; `tools/tests/assertion_gate.py`
+  (licznik asercji zna kształt `assert`), `tools/tests/test_sim_untested_members.py`
+  i `tools/tests/test_mutation_sweep.py` jako dwa zmierzone przypadki.
+- **Wyjście:** liczba asercji bez komunikatu, policzona z drzewa składni i wypisana,
+  oraz rozstrzygnięcie: bramka żądająca komunikatu przy każdej nowej asercji plus
+  zamknięta lista dzisiejszych wyjątków z powodem. Poprawianie wszystkich naraz nie
+  jest tu celem — celem jest, żeby lista mogła tylko maleć.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_assertion_gate.py
+  ```
+  Oczekiwane: zestaw zielony, liczba wypisana, a dopisanie asercji bez komunikatu
+  zapala bramkę na wejściu syntetycznym. Bramka ma stanąć w module, który już mierzy
+  asercje, a nie w nowym: licznik asercji i pytanie o ich komunikaty czytają to samo
+  drzewo składni.
+- **Skończone, gdy:** liczba jest zmierzona i wypisana, lista zamknięta zapadką
+  z obu stron, a kontrola negatywna pokazuje różnicę między `assert x` a
+  `assert x, "powód"`.
+- **Poza zakresem:** dopisywanie komunikatów do wszystkich zmierzonych asercji — to
+  jest praca liniowa w ich liczbie i osobna pozycja.
+- **Zależy od:** brak.
+
+##### 6.D128 · Dwa wywołania `--list-sdks` w jednym stanie doctora
+
+- **Skąd:** zmierzone 11.09.2026 przy 6.D112, atrapą `dotnet` liczącą swoje wywołania.
+  Po zbiciu `--version` do jednego wywołania w stanie „pin niespełniony" zostają
+  **dwa** wywołania `--list-sdks`: sonda `SDK_NA_LISCIE` i wypis listy na ekran przez
+  `sed`.
+- **Dlaczego to nie jest powtórka 6.D112:** tamta pozycja dotyczyła `--version`
+  i kończyła się zapamiętaniem KODU WYJŚCIA. Tu wynik drugiego wywołania idzie
+  WPROST na stdout, więc połączenie ich wymaga rozstrzygnięcia, czy lista ma być
+  zapamiętana w zmiennej i wypisana z niej — a to jest zmiana o innym kształcie,
+  z własnym ryzykiem dla wypisu.
+- **Wejście:** `doctor.sh` (blok SDK, sonda `SDK_NA_LISCIE` i gałąź
+  `PIN_NIESPELNIONY`), `tools/tests/test_dotnet_version.py` (`STANY_SDK`,
+  `_przebieg_doctora`, dziennik wywołań atrapy).
+- **Wyjście:** jedno wywołanie `--list-sdks` na przebieg **albo** zapisany powód,
+  dla którego dwa są konieczne; liczba potwierdzona dziennikiem atrapy.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_dotnet_version.py
+  ```
+  Oczekiwane: zestaw zielony, a wypis trzech stanów identyczny co do bajtu
+  z zapadką `STANY_SDK`.
+- **Skończone, gdy:** dziennik atrapy pokazuje ustaloną liczbę wywołań
+  `--list-sdks` we wszystkich trzech stanach, a wiersze o SDK nie drgnęły.
+- **Poza zakresem:** łączenie `--list-sdks` z `--version` — to dwa różne pytania
+  i 6.D96 właśnie na tym stoi.
+- **Zależy od:** 6.D112.
+
+##### 6.D129 · Atrapa `dotnet` wypisuje ukośnik zamiast nowego wiersza
+
+- **Skąd:** zmierzone 11.09.2026 przy 6.D112. `_atrapa_dotnet` buduje listę SDK jako
+  `f"{w} [/atrapa/sdk]\\n"`, czyli z literalnym ukośnikiem i literą `n`. W wypisie
+  doctora stoi przez to `na dysku: 10.0.401 [/atrapa/sdk]\n`, a prawdziwy
+  `dotnet --list-sdks` kończy każdą pozycję nowym wierszem.
+- **Dlaczego to nie jest literówka do cichej poprawki:** zapadka `STANY_SDK` z 6.D112
+  zapisuje ten wypis TAKI, JAKI JEST — inaczej byłaby czerwona od pierwszego dnia.
+  Poprawka atrapy zmienia więc dokładnie to, czego zapadka pilnuje, i musi przeliczyć
+  ją w tym samym commicie, z pokazaniem obu wypisów.
+- **Wejście:** `tools/tests/test_dotnet_version.py` (`_atrapa_dotnet`, `STANY_SDK`),
+  `doctor.sh` (gałąź wypisująca listę SDK).
+- **Wyjście:** atrapa wypisująca listę tak, jak wypisuje ją `dotnet`, i zapadka
+  przeliczona razem z nią; oba wypisy — przed i po — w raporcie.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_dotnet_version.py
+  ```
+  Oczekiwane: zestaw zielony, a wiersz `na dysku:` bez literalnego ukośnika.
+- **Skończone, gdy:** wypis stanu „pin niespełniony" niesie listę SDK w tylu
+  wierszach, ile jest SDK, a zapadka podaje nowy wypis z adnotacją o dniu zmiany.
+- **Poza zakresem:** zmiana treści komunikatów doctora i zachowania w pozostałych
+  dwóch stanach.
+- **Zależy od:** 6.D112.
+
+##### 6.D130 · Bramka literałów myli nazwę klawisza z polszczyzną
+
+- **Skąd:** zmierzone 11.09.2026 przy 6.D116. Podmiana `"Esc"` na `"Escape"` zapala
+  `W_plikach_sterowania_nie_ma_ani_jednego_slowa` z komunikatem mówiącym, że w plikach
+  sterowania stoi **literał językowy** — a `"Escape"` polskim słowem nie jest. Zapaliło
+  się dlatego, że nazwa nie stoi w `NazwyKlawiszy`, czyli z innego powodu, niż mówi
+  zdanie.
+- **Dlaczego to ma znaczenie:** komunikat kieruje szukającego w złe miejsce. Bramka
+  ma dwa różne powody odrzucenia — „to jest słowo" i „to jest napis spoza listy nazw"
+  — i mówi o obu jednym zdaniem.
+- **Wejście:** `tests/Game.Tests/UiTextTests.cs` (`SlowaWKodzie`, `NazwyKlawiszy`,
+  komunikaty obu bramek), `src/Game/Input/KeyNames.cs`.
+- **Wyjście:** dwa rozróżnione powody w komunikacie **albo** pomiar pokazujący, że
+  rozróżnić się ich nie da bez listy słów; treści `NazwyKlawiszy` pozycja nie zmienia.
+- **Weryfikacja:**
+  ```bash
+  dotnet test tests/Game.Tests
+  ```
+  Oczekiwane: zielone, a podmiana nazwy klawisza na inną nazwę klawisza daje
+  komunikat mówiący o nazwie, nie o polszczyźnie.
+- **Skończone, gdy:** dwa wejścia syntetyczne — słowo i nazwa spoza listy — dają
+  dwa różne zdania, a dzisiejsze zachowanie bramki dla prawdziwych plików nie drgnęło.
+- **Poza zakresem:** zmiana zawartości `NazwyKlawiszy` i przenoszenie czegokolwiek
+  do katalogu tekstów.
+- **Zależy od:** 6.D116.
+
+##### 6.D131 · Ile pinów wpisanych z ręki stoi w testach warstwy gry
+
+- **Skąd:** zauważone 11.09.2026 przy 6.D116.
+  `Wiersze_zlozone_z_katalogu_brzmia_co_do_znaku_tak_jak_przed_przenosinami` trzyma
+  cały wiersz pomocy jako napis wpisany z ręki — i to jest jedyny powód, dla którego
+  zmiana nazwy klawisza cokolwiek zapala.
+- **Dlaczego to pozycja, a nie obserwacja:** koszt takiego pinu rośnie liniowo
+  z tabelą przypisań, a rosnący koszt pinu jest tym, co zwykle popycha do jego
+  rozluźnienia. Zanim to nastąpi, warto wiedzieć, ile ich jest i które są NIEZBĘDNE
+  (czyli takie, których nie da się zastąpić bez utraty niezależności od kodu, który
+  pinują).
+- **Wejście:** `tests/Game.Tests/` — wszystkie moduły; `tests/Sim.Tests/` jako
+  porównanie.
+- **Wyjście:** liczba pinów wpisanych z ręki, policzona z drzewa składni, z podziałem
+  na te, które pinują wynik złożony z katalogu (niezbędne) i te, które pinują wartość
+  liczoną w jednym miejscu (do rozważenia).
+- **Weryfikacja:**
+  ```bash
+  dotnet test tests/Game.Tests
+  ```
+  Oczekiwane: zielone; sam pomiar w raporcie, bez zmiany zachowania testów.
+- **Skończone, gdy:** liczba jest wypisana, każdy pin ma przypisaną kategorię,
+  a rozstrzygnięcie mówi, czy którykolwiek da się przybić inaczej.
+- **Poza zakresem:** zdejmowanie albo przepisywanie któregokolwiek pinu — ta pozycja
+  mierzy i rozstrzyga, a nie zmienia.
+- **Zależy od:** 6.D116.
+
+##### 6.D132 · Licznik starego bajtkodu nie odróżnia zera od braku pomiaru
+
+- **Skąd:** zmierzone 11.09.2026 przy 6.D113. Wpisy dziennika sprzed tej pozycji nie
+  mają pola `stary_bajtkod`; licznik czyta je przez `.get`, więc wznowienie się nie
+  wywraca — ale wypis „mutacji zapisanych pod ważnym starym bajtkodem: 0" znaczy wtedy
+  „zero wśród wpisów NOWYCH", a nie „zero w całym dzienniku".
+- **Dlaczego to jest ta sama rodzina co 6.D27:** przyrząd melduje pomiar, którego dla
+  części wpisów nie zrobiono, i nie mówi o tym ani słowa. Trzeci stan (`None`) już jest
+  w danych — brakuje go w wypisie.
+- **Wejście:** `tools/tests/mutation_sweep.py` (`main`, wypis licznika, wznowienie
+  z dziennika), `tools/tests/test_mutation_sweep.py`.
+- **Wyjście:** wypis rozróżniający trzy stany (policzone, zero, brak pola) **albo**
+  pomiar pokazujący, że wznowień z dziennikiem sprzed 6.D113 nie ma i mieć nie będzie,
+  z zapisanym powodem.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_mutation_sweep.py
+  ```
+  Oczekiwane: zestaw zielony, a dziennik z wpisami bez pola daje wypis mówiący
+  o brakującym pomiarze.
+- **Skończone, gdy:** dziennik mieszany — część wpisów z polem, część bez — daje
+  wypis, z którego widać, ilu wpisów licznik nie dotyczy.
+- **Poza zakresem:** przepisywanie dawnych dzienników i zmiana formatu wpisu dla
+  pól istniejących.
+- **Zależy od:** 6.D113.
+
+##### 6.D133 · Zapadki `MAX_*` da się podnieść bez zapalenia czegokolwiek
+
+- **Skąd:** zmierzone 11.09.2026 przy 6.D117, kontrolą negatywną KN-4. Podniesienie
+  `MAX_GLOB_WPROST` z jedności na dziewięć nie zapala niczego, bo porównanie ma
+  kształt `len(lista) <= zapadka`. Sąsiednia zapadka z 6.D74 zachowuje się tak samo
+  — to jest zachowanie zastane i wspólne, nie usterka jednej listy.
+- **Dlaczego to nie jest oczywista poprawka:** reguła „wolno tylko obniżać" jest
+  w tym repozytorium zdaniem dla człowieka, a nie bramką, i takich zapadek jest
+  więcej niż dwie. Zmiana jej dla jednej listy dałaby dwie reguły pod jedną nazwą,
+  czyli rozjazd gorszy od dzisiejszego stanu. Pozycja ma POLICZYĆ zapadki tego
+  kształtu i rozstrzygnąć jedną regułą dla wszystkich.
+- **Wejście:** `tools/tests/` — wszystkie stałe o przedrostku `MAX_` i `MINIMUM_`
+  porównywane nierównością; `tools/tests/test_tree_walks.py`,
+  `tools/tests/test_field_paths.py`, `tools/tests/test_backlog.py` jako trzy znane
+  przypadki o RÓŻNYCH kierunkach.
+- **Wyjście:** liczba zapadek, każda z kierunkiem (wolno podnosić, wolno obniżać,
+  nie rusza się wcale) i rozstrzygnięcie, czy kierunek da się przybić bramką bez
+  drugiej listy, która sama się rozjedzie.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_scan_gates.py
+  ```
+  Oczekiwane: zestaw zielony, liczba wypisana, a zmiana kierunku na wejściu
+  syntetycznym zapala bramkę. Bramka ma stanąć w module skanów po `tools/tests/`,
+  a nie w nowym — pytanie o kierunek zapadki jest pytaniem o kształt kodu, tak samo
+  jak pozostałe skany tam stojące.
+- **Skończone, gdy:** liczba jest zmierzona, każda zapadka ma kierunek, a rozstrzygnięcie
+  mówi, czy kierunek jest sprawdzalny maszynowo — także wtedy, gdy odpowiedź brzmi „nie".
+- **Poza zakresem:** zmiana wartości którejkolwiek zapadki.
+- **Zależy od:** 6.D117.
+
+##### 6.D134 · Status `est` ma zero użyć i nikt tego nie pilnuje w żadną stronę
+
+- **Skąd:** zauważone 10.09.2026 przy 6.D105. `docs/02-simulation.md` definiuje `est`
+  jako oszacowanie do usunięcia, a w `data/vehicle/m7-spec.json` nie ma go ani razu.
+  Stan jest poprawny i nic go nie pilnuje: nazwa wycofywana może wrócić po cichu, a jej
+  powrót nie jest dziś odróżnialny od stanu normalnego.
+- **Dlaczego to nie jest dopisanie jednej asercji:** bramka „zero użyć `est`" zapaliłaby
+  się na dokumencie, który tę nazwę **definiuje** i musi ją wymieniać. Rozróżnienie
+  „definicja" od „użycia" jest dokładnie tym, co 6.D105 zbudowało dla `docs/21`,
+  i pozycja ma sprawdzić, czy ten sam czytnik odpowiada na to pytanie.
+- **Wejście:** `tools/tests/test_provenance_classes.py` (czytniki definicji i użyć),
+  `docs/02-simulation.md`, `docs/21-measured-vs-assumed.md`,
+  `data/vehicle/m7-spec.json` — tylko do odczytu.
+- **Wyjście:** bramka odróżniająca definicję statusu od jego użycia w danych, żądająca
+  zera użyć `est`, **albo** zapisany pomiar pokazujący, że rozróżnienie daje fałszywy
+  alarm i dlaczego.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_provenance_classes.py
+  ```
+  Oczekiwane: zestaw zielony, a wpis o statusie `est` w danych syntetycznych zapala
+  bramkę.
+- **Skończone, gdy:** wejście syntetyczne z `est` w danych zapala bramkę, a dokument
+  definiujący ten status jej nie zapala.
+- **Poza zakresem:** zmiana klasyfikacji któregokolwiek parametru i usunięcie `est`
+  z dokumentu — to jest decyzja o modelu.
+- **Zależy od:** 6.D105.
 
 #### Rozstrzygnięte 10.09.2026 — osiem decyzji właściciela
 
