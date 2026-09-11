@@ -367,14 +367,31 @@ def test_the_conditional_branches_light_up_on_synthetic_entries():
         % powody(**bez_dostepu))
 
     # 3. `cleared` — `anyOf`: zgoda ALBO licencja, i to jest jedyna gałąź,
-    #    której sama para `const`/`required` nie obsłuży.
+    #    której sama para `const`/`required` nie obsłuży. **Od decyzji właściciela
+    #    z 11.09.2026 gałąź żąda ponadto `as_of`**, więc „sama zgoda" znaczy dziś
+    #    „zgoda I data" — asercje niżej są przepisane, a nie dopisane obok.
     assert any("anyOf" in p or "wariant" in p for p in powody(rights_status="cleared")), (
         "`cleared` bez zgody i bez licencji nie zapalił gałęzi `anyOf`: %s"
         % powody(rights_status="cleared"))
-    assert powody(rights_status="cleared", permission_ref="STIB/2026/17") == [], (
-        "sama zgoda ma wystarczyć")
-    assert powody(rights_status="cleared", license="CC-BY-4.0") == [], (
-        "sama licencja ma wystarczyć")
+    assert powody(rights_status="cleared", permission_ref="STIB/2026/17",
+                  as_of="2026-09-11") == [], (
+        "zgoda z datą obowiązywania ma wystarczyć")
+    assert powody(rights_status="cleared", license="CC-BY-4.0",
+                  as_of="2026-09-11") == [], (
+        "licencja z datą obowiązywania ma wystarczyć")
+
+    # 3a. I strona druga tej samej decyzji: zgoda BEZ daty ma być zgłoszona, a powód
+    #     ma nazywać pole — inaczej czytający zobaczy tylko komunikat o `anyOf`.
+    bez_daty = powody(rights_status="cleared", permission_ref="STIB/2026/17")
+    assert any("wymaga tego pola" in p for p in bez_daty), (
+        "`cleared` ze zgodą, ale BEZ `as_of`, nie został zgłoszony: %s" % bez_daty)
+    pusta_data = powody(rights_status="cleared", permission_ref="STIB/2026/17", as_of="")
+    assert pusta_data != [], (
+        "pusta data obowiązywania przeszła — gałąź żąda `minLength: 1`")
+    null_data = powody(rights_status="cleared", permission_ref="STIB/2026/17", as_of=None)
+    assert any("oczekiwano ['string']" in p for p in null_data), (
+        "`as_of: null` ma być odrzucone przez regułę typu, tak jak `permission_ref`: %s"
+        % null_data)
 
     # 3b. Wartość `null` łamie gałąź przez REGUŁĘ TYPU, a nie przez `required` —
     #     tak jak zrobiłby to walidator. Klucz jest, więc `required` jest spełnione.
@@ -408,42 +425,37 @@ STATUS_CLEARED = "cleared"
 #: Pole, w którym stałaby data obowiązywania prawa.
 POLE_DATY = "as_of"
 
-#: **Rozstrzygnięcie 6.D125, oparte na pomiarze z 11.09.2026 — cztery liczby i jedno
-#: zdanie z `docs/03-legal.md`.**
+#: **Rozstrzygnięcie 6.D125 zostało ODWRÓCONE decyzją właściciela z 11.09.2026, i ten
+#: blok jest PRZEPISANY, a nie dopisany obok.** Poprzednia wersja kończyła się zdaniem
+#: „przeniesienie reguły do schematu zostaje decyzją właściciela, z policzonym kosztem:
+#: dziś zero wpisów, jedna linia w `allOf[2].then`". Decyzja zapadła i brzmi **tak**.
 #:
-#: Zmierzone na `fdabff4`, wszystko czytane, nic nie zmieniane:
+#: Pomiar, na którym stała tamta rekomendacja, zostaje prawdziwy i nie zmienia się ani
+#: o cyfrę (zmierzone na `fdabff4`, powtórzone na `feb4ea1`):
 #:
 #:   * manifest ma **13** wpisów i **wszystkie** mają `rights_status: placeholder`;
-#:   * wpisów `cleared` jest **zero**, więc wymaganie daty nie dotknęłoby dziś ani
-#:     jednego — to jest argument w obie strony i pozycja mówiła o tym wprost;
+#:   * wpisów `cleared` jest **zero**, więc wymaganie daty nie dotyka dziś ani jednego;
 #:   * **ani jeden** wpis nie niesie własnego `as_of`;
 #:   * manifest niesie za to `as_of` w KORZENIU: `2026-08-31`.
 #:
-#: **Czego pozycja nie wiedziała, a co rozstrzyga: pole już istnieje.** Schemat ma
-#: `as_of` jako właściwość opcjonalną (`["string", "null"]`, `format: date`) — nie
-#: trzeba go dodawać, trzeba by go WYMAGAĆ w gałęzi `cleared`. To jest zmiana jednego
-#: pliku w `data/`, czyli decyzja o danych, a pole „Wejście" tej pozycji oznacza oba
-#: pliki jako **tylko do odczytu** i §4.6 mówi to samo.
+#: **Co się zmieniło.** Nie liczby, tylko to, czyja jest decyzja. 6.D125 mierzyło koszt
+#: i wskazywało, że dołożenie daty do gałęzi `cleared` jest regułą, której
+#: `docs/03-legal.md` NIE stawia — dokument żąda zakresu („konkretne zamierzone użycie"),
+#: nie terminu — więc nie jest to uzupełnienie luki, tylko decyzja o modelu danych.
+#: Właściciel tę decyzję podjął, a §4.6 (`data/` tylko do odczytu) wymienia dokładnie
+#: taki przypadek: „chyba że zadanie mówi inaczej wprost".
 #:
-#: **Drugi powód, żeby nie ruszać schematu, jest mocniejszy od pierwszego.**
-#: `docs/03-legal.md` **nigdzie nie mówi o terminie**. Zdanie z wiersza 3 żąda
-#: „pisemnej zgody potwierdzonej przez człowieka albo jednoznacznej licencji
-#: obejmującej **konkretne zamierzone użycie**", a wiersz 52 — „Każdy zewnętrzny asset
-#: produkcyjny ma `source/licence/permission_ref`". Wymaganiem jest ZAKRES, nie data.
-#: Gałąź `cleared` w schemacie odwzorowuje ten dokument **dokładnie**: zgoda albo
-#: licencja. Dopisanie do niej daty byłoby więc dołożeniem reguły, której dokument
-#: prawny projektu nie stawia — a to jest decyzja właściciela, nie uzupełnienie luki.
+#: **Co stoi dziś w schemacie.** Gałąź `allOf[2].then` (warunek `rights_status == cleared`)
+#: dostała `required: ["as_of"]` oraz `properties.as_of` o typie `string`, `minLength: 1`
+#: i `format: date`. Trzy linie, nie jedna — bo samo `required` przepuściłoby `null`
+#: i pusty napis, a to jest ta sama pułapka, którą ten moduł opisuje przy `permission_ref`:
+#: `required` pyta WYŁĄCZNIE o obecność klucza.
 #:
-#: **Co zostaje zrobione zamiast tego.** Reguła stoi tutaj, jako bramka, a nie tam,
-#: jako schemat: wpis `cleared` bez niepustego `as_of` jest **zgłaszany**. Kosztuje
-#: to dziś zero (wpisów `cleared` nie ma), nie rusza `data/`, a mówi wprost, czego
-#: brakuje, w chwili gdy pierwszy taki wpis powstanie. „Cleared bez daty" znaczy
-#: „ktoś kiedyś to sprawdził" — a `as_of` w korzeniu manifestu datuje **audyt pliku**,
-#: nie **prawo**: te dwie rzeczy rozjeżdżają się przy pierwszym wpisie dopisanym
-#: później niż korzeń.
-#:
-#: Przeniesienie reguły do schematu zostaje **decyzją właściciela**, z policzonym
-#: kosztem: dziś zero wpisów, jedna linia w `allOf[2].then`.
+#: **Bramka niżej ZOSTAJE, choć schemat mówi już to samo** — i to nie jest duplikat,
+#: tylko dwa różne czytniki tego samego zdania. Schemat jest deklaracją, a w tym
+#: repozytorium **nie ma walidatora JSON Schema** (6.D85 odrzuciło tę zależność), więc
+#: jedynym, co go WYKONUJE, są czytniki tego modułu. Reguła w schemacie bez bramki byłaby
+#: zdaniem, którego nic nie sprawdza.
 POWOD_BRAKU_DATY = (
     "wpis `cleared` musi nieść `as_of` — datę, od której zgoda albo licencja "
     "obowiązuje. `as_of` w korzeniu manifestu datuje AUDYT PLIKU, nie PRAWO"
@@ -489,17 +501,33 @@ def test_ile_wpisow_dotknelaby_data_obowiazywania():
     assert [a for a in wszystkie if a.get(POLE_DATY)] == [], (
         "wpis niesie własne `as_of` — dotąd nie niósł go żaden")
 
-    # Pole ISTNIEJE w schemacie i jest opcjonalne. To jest ta połowa pomiaru, która
-    # rozstrzyga: nie trzeba go dodawać, trzeba by go WYMAGAĆ.
+    # Pole ISTNIEJE w schemacie na poziomie najwyższym jako opcjonalne — i tak zostaje,
+    # bo wpisy `placeholder` daty prawa nie mają. Wymaganie stoi w GAŁĘZI `cleared`,
+    # od decyzji właściciela z 11.09.2026; asercje niżej czytają jedno i drugie.
     schema = _schema()
     assert POLE_DATY in schema["properties"], (
         "schemat nie ma pola `as_of` — rozstrzygnięcie 6.D125 opiera się na tym, "
         "że ono już tam jest")
     assert POLE_DATY not in schema["required"], (
-        "`as_of` stało się polem wymaganym w schemacie — to jest zmiana w `data/`, "
-        "której ta pozycja nie robiła")
+        "`as_of` stał się polem wymaganym BEZWARUNKOWO — decyzja z 11.09.2026 żądała "
+        "go wyłącznie w gałęzi `cleared`, a wpisy `placeholder` daty prawa nie mają")
     assert schema["properties"][POLE_DATY].get("format") == "date", (
         schema["properties"][POLE_DATY])
+
+    # **Decyzja właściciela z 11.09.2026, sprawdzona na schemacie, a nie na pamięci.**
+    # Trzy warunki, bo samo `required` przepuściłoby `null` i pusty napis — ta sama
+    # pułapka, którą ten moduł opisuje przy `permission_ref`.
+    galaz = schema["allOf"][2]["then"]
+    assert POLE_DATY in galaz.get("required", []), (
+        "gałąź `cleared` nie wymaga `as_of` — decyzja z 11.09.2026 mówiła, że ma "
+        "wymagać: %s" % galaz.get("required"))
+    regula = galaz.get("properties", {}).get(POLE_DATY, {})
+    assert regula.get("type") == "string", (
+        "`as_of` w gałęzi `cleared` przyjmuje `null` — `required` pyta tylko "
+        "o obecność klucza: %s" % regula)
+    assert regula.get("minLength") == 1 and regula.get("format") == "date", (
+        "`as_of` w gałęzi `cleared` przyjmuje pusty napis albo nie jest datą: %s"
+        % regula)
 
     # I że korzeń manifestu ma SWOJE `as_of` — datę audytu pliku, nie prawa.
     assert manifest.get(POLE_DATY) == "2026-08-31", manifest.get(POLE_DATY)

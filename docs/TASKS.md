@@ -8760,6 +8760,15 @@ nie sięga, nawet gdy nie ma nic innego do roboty; wtedy sięga po fazę 5.
 - **Poza zakresem:** poprawianie któregokolwiek adresu — to jest praca po pomiarze.
 - **Zależy od:** 6.D126.
 
+#### Rozstrzygnięte 11.09.2026 — jedna decyzja właściciela
+
+Pytanie postawione klikalnie 11.09.2026, po domknięciu 6.D134. Zapis jest **tutaj,
+w drzewie**, z tego samego powodu, co przy sekcjach z 07.–10.09.2026.
+
+| decyzja | odpowiedź właściciela | co z tego wynika |
+|---|---|---|
+| **`as_of` w gałęzi `cleared`** schematu `data/audio/audio-manifest.schema.json` — 6.D125 zmierzyło koszt (dziś **zero** wpisów dotkniętych) i wskazało, że dołożenie daty jest regułą, której `docs/03-legal.md` NIE stawia (dokument żąda ZAKRESU, „konkretne zamierzone użycie", nie terminu), czyli decyzją o modelu danych, a nie uzupełnieniem luki | **tak, wymagane od teraz** | **ODWRACA rekomendację 6.D125**, a blok rozstrzygnięcia w `tools/tests/test_audio_rights.py` jest przez to **przepisany, a nie dopisany obok**. Gałąź `allOf[2].then` dostaje TRZY rzeczy, nie jedną: `required: ["as_of"]`, `type: string`, `minLength: 1` i `format: date` — samo `required` przepuściłoby `null` i pusty napis, bo pyta WYŁĄCZNIE o obecność klucza (ta sama pułapka, którą moduł opisuje przy `permission_ref`; KN-2 mierzy to wprost). Na poziomie najwyższym `as_of` **zostaje opcjonalne** i to jest część decyzji: wszystkie 13 wpisów to `placeholder` i daty prawa nie mają — KN-3 pokazuje, że wymaganie o piętro wyżej zapala się natychmiast na całym manifeście. Bramka z 6.D125 **zostaje i nie jest duplikatem**: walidatora JSON Schema w tym repozytorium nie ma (6.D85 odrzuciło zależność), więc jedynym, co schemat WYKONUJE, są czytniki tego modułu — KN-4 mierzy to, zdejmując bramkę przy nietkniętym schemacie. Zapis do `data/` jest tu uprawniony przez §4.6 („chyba że zadanie mówi inaczej wprost"), a ANI JEDEN wpis manifestu nie został zmieniony. Cztery kontrole, `md5sum -c: OK` na obu plikach po każdej, baza 14/14: KN-1 12/14, KN-2 12/14, KN-3 12/14, KN-4 13/14 — ani jedna zielona. Weryfikacja: `test_audio_rights.py` 14/14, zestaw **2335/2335** w 122 modułach, kod 0; `MIN_REPORTS` 254 → 255. Raport: `reports/6d125-decyzja-as-of-wymagane.md` |
+
 #### Rozstrzygnięte 10.09.2026 — osiem decyzji właściciela
 
 Osiem pozycji przedstawionych właścicielowi w formie klikalnej 10.09.2026, w dwóch
