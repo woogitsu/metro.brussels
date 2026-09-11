@@ -172,7 +172,20 @@ MAX_GAME_JUSTIFIED_NEEDLES = 4
 #: 19 -> 21: bramka pomija igle ze zmiennej, wiec `var x = "Escape";` zdjelby je
 #: z licznika bez sladu — czyli zamienilby niejednoznacznosc na niewidzialnosc,
 #: przed ktora szczebel trzeci ma bronic.
-MAX_GAME_UNMATCHED_NEEDLES = 24
+#: **24 -> 26, 11.09.2026 (6.D143).** Dwie nowe igle, `Esc` i `input.key.space`, stoja
+#: w `UiTextTests.Kazdy_literal_KeyNames_ma_ROZSTRZYGNIECIE_czy_bramka_go_widzi` jako
+#: OCZEKIWANA ZAWARTOSC tablicy `Nazwy` z `KeyNames.cs`, przybita rownoscia calej listy.
+#: Bez dopasowania sa z zalozenia i musza takie zostac: bramka szczebla 1 szuka igiel
+#: w komunikatach WIELOWYRAZOWYCH `src/Game`, a te dwa napisy sa pozycjami tablicy —
+#: jednowyrazowym napisem wytloczonym na klawiszu i kluczem katalogu. Gdyby ktorykolwiek
+#: dopasowal sie do komunikatu programu, znaczyloby to, ze napis klawisza wszedl do
+#: zdania dla czlowieka, czyli cos odwrotnego od tego, czego pilnuje 6.D143.
+#:
+#: Wzmocnienie igly nie ma tu sensu i to jest inny powod niz przy 19 -> 21: tam igla
+#: opisywala wejscie syntetyczne, tu opisuje ZAWARTOSC DRZEWA, ktora test i tak pinuje
+#: rownoscia calej listy. Igla dluzsza byla by tym samym pinem zapisanym drugi raz.
+#: Trzymania igiel w zmiennej znowu NIE uzyto, z tego samego powodu, co wyzej.
+MAX_GAME_UNMATCHED_NEEDLES = 26
 
 #: Progi KW. Literowka we wzorcu daje zero dopasowan i caly modul zielony; te trzy
 #: liczby sa jedynym powodem, dla ktorego taka literowka jest widoczna. Zmierzone

@@ -147,6 +147,46 @@ public sealed class UiTextTests
         "private string HelpLine()",
     };
 
+    /// <summary>
+    /// Człony <c>KeyNames.cs</c>, które bramka literałów SKANUJE — 6.D143.
+    ///
+    /// <para><b>Skąd pozycja.</b> Od 6.D116 napisy klawiszy mieszkają w tym pliku,
+    /// a nie skanował go nikt — i to jest powód, dla którego objawu opisanego
+    /// w 6.D130 nie dało się odtworzyć. Plik niesie dokładnie tę rodzinę, o którą
+    /// bramce chodzi: napis widziany przez gracza w wierszu pomocy.</para>
+    ///
+    /// <para><b>Skanowana jest TABLICA, a nie plik, i to jest ta sama decyzja co przy
+    /// <see cref="MetodyFirstRun"/>.</b> Zmierzone 11.09.2026: plik ma <b>trzy</b>
+    /// literały, z czego dwa stoją w tablicy, a trzeci jest komunikatem wyjątku
+    /// <c>KeyNotFoundException</c> w <c>For</c>. Skan całego pliku zapaliłby się na
+    /// nim i zostałby wyłączony — czyli bramka zniknęłaby razem z tym, czego miała
+    /// pilnować.</para>
+    ///
+    /// <para><b>Rozważona i odrzucona druga droga: skan całego pliku z komunikatem
+    /// wpisanym na listę wyjątków.</b> Tu byłoby to wykonalne — wyjątek byłby JEDEN,
+    /// inaczej niż w `FirstRun.cs`. Przegrywa, bo lista wyjątków rośnie z każdym
+    /// nowym <c>throw</c> i jest drogą powrotną dla tego, co bramka miała wykluczyć
+    /// (ten sam powód, dla którego sito identyfikatorów silnika jest REGUŁĄ, a nie
+    /// listą nazw). Granica po członie mówi natomiast coś prawdziwego i trwałego:
+    /// <b>tablica jest tekstem, a <c>throw</c> jest diagnostyką</b>.</para>
+    ///
+    /// <para><b>Skala, dla której ta granica w ogóle istnieje, jest zmierzona, nie
+    /// oszacowana.</b> Gdyby bramkę puścić na całe <c>src/Game/</c>, zgłosiłaby
+    /// <b>348</b> literałów w <b>21</b> plikach, z czego <b>22</b> stoją w <c>throw</c>,
+    /// a reszta to wypisy diagnostyczne, prozą opisane założenia projektowe i nazwy
+    /// pól JSON. `KeyNames.cs` ma z tych 348 dokładnie <b>jeden</b>.</para>
+    /// </summary>
+    private static readonly string[] CzlonyKeyNames =
+    {
+        "IReadOnlyDictionary<Key, string> Nazwy",
+    };
+
+    /// <summary>Ile literałów ma CAŁY <c>KeyNames.cs</c> — zmierzone 11.09.2026.</summary>
+    private const int LiteralowWKeyNames = 3;
+
+    /// <summary>Ile z nich wpada w skanowane człony — zmierzone 11.09.2026.</summary>
+    private const int LiteralowWTablicyKeyNames = 2;
+
     private static string Zrodlo(params string[] czesci) =>
         File.ReadAllText(Path.Combine(RepositoryRoot(), Path.Combine(czesci)));
 
@@ -521,6 +561,103 @@ public sealed class UiTextTests
         Assert.AreEqual(0,
             NazwyKlawiszySilnika.Count(n => Regex.IsMatch(n, "[\u0105\u0107\u0119\u0142\u0144\u00f3\u015b\u017a\u017c]")),
             "nazwa klawisza z polskim znakiem — rozróżnienie powodów myli się na niej");
+    }
+
+    /// <summary>Źródło <c>KeyNames.cs</c> — jedno miejsce, bo czytają je trzy testy.</summary>
+    private static string KeyNamesSource() => Zrodlo("src", "Game", "Input", "KeyNames.cs");
+
+    [TestMethod]
+    public void W_tablicy_KeyNames_nie_ma_ani_jednego_slowa()
+    {
+        var source = KeyNamesSource();
+
+        // Pusta lista członów przeprowadziłaby ten test przez pętlę bez ani jednego
+        // sprawdzenia — zmierzone kontrolą KN-3 z 6.D143, która zapaliła WYŁĄCZNIE
+        // test rozstrzygnięć. Bramka nie ma mieć dziury, którą łata sąsiad.
+        Assert.AreEqual(1, CzlonyKeyNames.Length,
+            $"skanowanych członów `KeyNames.cs` jest {CzlonyKeyNames.Length}, "
+            + "a pomiar z 11.09.2026 dał jeden");
+
+        foreach (var czlon in CzlonyKeyNames)
+        {
+            var cialo = KodBezKomentarzy(CialoMetody(source, czlon));
+
+            // Dolne ostrze na SAM SKAN, nie na wynik. Ciało wzięte nie tego członu
+            // albo puste przeszłoby pętlę niżej bez ani jednego sprawdzenia — a to
+            // jest dokładnie ta rodzina, którą projekt tropi od 6.D27.
+            Assert.AreEqual(LiteralowWTablicyKeyNames, Literaly(cialo).Count,
+                $"skan widzi {Literaly(cialo).Count} literałów w `{czlon}`, a pomiar "
+                + $"z 11.09.2026 dał {LiteralowWTablicyKeyNames} — nagłówek się "
+                + "rozjechał albo tablica urosła");
+
+            var zle = SlowaWKodzie(cialo);
+            Assert.AreEqual(0, zle.Count,
+                $"w `{czlon}` stoi literał, którego katalog nie zna: " + ZPowodami(zle));
+        }
+    }
+
+    /// <summary>
+    /// Dla KAŻDEGO literału <c>KeyNames.cs</c> wiadomo, czy bramka go widzi — 6.D143.
+    ///
+    /// <para>Pole „Skończone, gdy" pozycji żądało tego z liczbą, nie z opinią. Liczba
+    /// jest tu po obu stronach: trzy w pliku, dwa w zakresie, jeden poza — i suma ma
+    /// się zgadzać, żeby literał dopisany gdziekolwiek w tym pliku musiał dostać
+    /// rozstrzygnięcie, zamiast wpaść w szczelinę między testami.</para>
+    ///
+    /// <para><b>Trzeci literał jest tu pokazany jako ZGŁASZANY, a nie przemilczany.</b>
+    /// Wyłączenie go z zakresu jest decyzją, a decyzja niewidoczna w teście
+    /// nieodróżnialna jest od przeoczenia — więc test pokazuje, że gdyby skanować
+    /// cały plik, bramka by się zapaliła, i dopiero potem mówi, dlaczego nie
+    /// skanujemy.</para>
+    /// </summary>
+    [TestMethod]
+    public void Kazdy_literal_KeyNames_ma_ROZSTRZYGNIECIE_czy_bramka_go_widzi()
+    {
+        var source = KeyNamesSource();
+        var wPliku = Literaly(KodBezKomentarzy(source));
+        var wZakresie = CzlonyKeyNames
+            .SelectMany(c => Literaly(KodBezKomentarzy(CialoMetody(source, c))))
+            .ToList();
+        var pozaZakresem = wPliku.Except(wZakresie, StringComparer.Ordinal).ToList();
+
+        Assert.AreEqual(LiteralowWKeyNames, wPliku.Count,
+            $"`KeyNames.cs` ma {wPliku.Count} literałów, a pomiar z 11.09.2026 dał "
+            + $"{LiteralowWKeyNames}: " + string.Join(" | ", wPliku));
+        Assert.AreEqual(LiteralowWKeyNames, wZakresie.Count + pozaZakresem.Count,
+            "podział na zakres i poza zakres przestał się sumować do pliku — literał "
+            + "bez rozstrzygnięcia wpadłby w szczelinę między testami");
+
+        // Dwa w zakresie, i KAŻDY przechodzi z innego powodu — to jest cała treść
+        // rozróżnienia z 6.D130, tu wykonana na prawdziwym pliku.
+        CollectionAssert.AreEqual(new[] { "Esc", "input.key.space" }, wZakresie,
+            "tablica `Nazwy` niesie inne literały niż w pomiarze: "
+            + string.Join(" | ", wZakresie));
+        Assert.IsTrue(NazwyKlawiszy.Contains("Esc", StringComparer.Ordinal),
+            "„Esc” przechodzi wyjątkiem `NazwyKlawiszy` i tak jest tu zapisane — "
+            + "patrz rozstrzygnięcie 6.D142 o tym, ile ten wyjątek dziś robi");
+        Assert.IsTrue(UiText.Keys.Contains("input.key.space"),
+            "„input.key.space” przechodzi jako KLUCZ KATALOGU, nie jako wyjątek — "
+            + "gdyby zniknął z katalogu, bramka zapaliłaby się na nim słusznie");
+
+        // Jeden poza zakresem — i jest nim komunikat `throw`, a nie cokolwiek.
+        Assert.AreEqual(1, pozaZakresem.Count,
+            "poza zakresem stoi " + pozaZakresem.Count + " literałów zamiast jednego: "
+            + string.Join(" | ", pozaZakresem));
+        // Wzorzec, a nie dopasowanie napisu z wcięciem: przeformatowanie pliku nie
+        // jest zmianą, o której to zdanie mówi, więc nie ma go zapalać.
+        Assert.IsTrue(
+            Regex.IsMatch(source,
+                @"throw new KeyNotFoundException\(\s*\$""" + Regex.Escape(pozaZakresem[0])),
+            "literał spoza zakresu przestał być komunikatem `throw` — granica członu "
+            + "mówi „tablica to tekst, `throw` to diagnostyka” i właśnie przestała "
+            + "być prawdziwa");
+
+        // I dowód, że wyłączenie jest DECYZJĄ: skanowany, zapaliłby bramkę.
+        CollectionAssert.AreEqual(new[] { pozaZakresem[0] },
+            SlowaWKodzie(KodBezKomentarzy(source)),
+            "cały plik przestał zgłaszać dokładnie ten jeden literał — jeśli zgłasza "
+            + "zero, skan przestał działać; jeśli więcej, doszła diagnostyka i granicę "
+            + "członu trzeba przeczytać jeszcze raz");
     }
 
     [TestMethod]
