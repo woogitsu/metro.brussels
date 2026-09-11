@@ -1316,7 +1316,13 @@ def _atrapa_dotnet(sciezka, zainstalowane, pin):
     na kontenerze tej sesji. To ta druga część jest usterką: stdout wygląda jak
     odpowiedź, a nie jest.
     """
-    lista = "".join(f"{w} [/atrapa/sdk]\\n" for w in zainstalowane)
+    # 6.D129: PRAWDZIWY nowy wiersz, nie ukośnik z literą `n`. Do 11.09.2026 stało
+    # tu `\\n` w f-stringu, czyli dwa znaki tekstu — a `dotnet --list-sdks` kończy
+    # każdą pozycję nowym wierszem. Wypis doctora niósł przez to
+    # `na dysku: 10.0.401 [/atrapa/sdk]\\n` w JEDNYM wierszu, a przy dwóch SDK —
+    # obie pozycje w jednym wierszu z jednym przedrostkiem. Atrapa, która nie
+    # oddaje kształtu wyjścia, mierzy nie to narzędzie, co trzeba.
+    lista = "".join(f"{w} [/atrapa/sdk]\n" for w in zainstalowane)
     spelniony = "0" if pin in zainstalowane else "1"
     with open(sciezka, "w", encoding="utf-8") as uchwyt:
         uchwyt.write(
@@ -1469,7 +1475,25 @@ def test_liczba_wersji_nie_bierze_sie_z_polecenia_ktore_padlo():
 #: Wiersze niżej zależą wyłącznie od atrapy, więc są takie same wszędzie.
 #:
 #: Zapisane 10.09.2026 PRZED zmianą z 6.D112 i po niej NIE DRGNĘŁY — to jest właśnie
-#: warunek odbioru tej pozycji, przybity, a nie sprawdzony raz ręcznie.
+#: warunek odbioru tamtej pozycji, przybity, a nie sprawdzony raz ręcznie. Przetrwały
+#: też 6.D128 (jedno wywołanie `--list-sdks` zamiast dwóch).
+#:
+#: **Jeden wiersz PRZELICZONY 11.09.2026 przy 6.D129, i to jest jedyna zmiana tej
+#: zapadki od jej powstania.** Wiersz `na dysku:` stanu „pin niespełniony" brzmiał:
+#:
+#:     "        na dysku: 10.0.401 [/atrapa/sdk]\\n"
+#:
+#: — z literalnym ukośnikiem i literą `n` NA KOŃCU, bo atrapa budowała listę jako
+#: `f"{w} [/atrapa/sdk]\\n"`, czyli dwa znaki tekstu zamiast nowego wiersza. Zapadka
+#: zapisywała ten wypis takim, jaki był, i dlatego była zielona; usterka siedziała
+#: w atrapie, nie w doctorze. Dziś brzmi:
+#:
+#:     "        na dysku: 10.0.401 [/atrapa/sdk]"
+#:
+#: Różnica widać dopiero przy DWÓCH SDK i wtedy jest duża: przed zmianą obie pozycje
+#: stały w JEDNYM wierszu z JEDNYM przedrostkiem `na dysku:`, dziś każda ma swój —
+#: tak, jak wypisuje je `dotnet --list-sdks`. Pilnuje tego
+#: `test_lista_sdk_ma_tyle_wierszy_ile_jest_sdk`.
 STANY_SDK = {
     "pin niespełniony": {
         "pin": "10.0.999",
@@ -1480,7 +1504,7 @@ STANY_SDK = {
             "ale ŻADNE nie spełnia pinu 10.0.999 z global.json; `dotnet --version` "
             "kończy błędem — zmień pin albo doinstaluj tę wersję, NIE instaluj SDK "
             "od nowa",
-            "        na dysku: 10.0.401 [/atrapa/sdk]\\n",
+            "        na dysku: 10.0.401 [/atrapa/sdk]",
         ],
     },
     "pin spełniony": {
@@ -1573,17 +1597,25 @@ def test_blok_sdk_pyta_o_liste_dokladnie_raz():
         "`PIN_NIESPELNIONY` czyta wynik obu: %s" % wolania)
 
 
-def test_wypis_listy_sdk_nie_gubi_ostatniego_wiersza():
+def test_wypis_listy_sdk_konczy_sie_nowym_wierszem():
     """`printf '%s\\n'`, nie gołe podstawienie — bo `$(...)` obcina nowe wiersze.
 
-    **To jest jedyne realne ryzyko tej zmiany.** Wywołanie `--list-sdks` szło dotąd
-    prosto do `sed`, więc każdy wiersz listy docierał na ekran. Po zapamiętaniu
-    w zmiennej końcowe nowe wiersze znikają — i `sed` bez nich pokazałby listę
-    krótszą o ostatnią pozycję, co przy JEDNYM zainstalowanym SDK znaczy listę pustą.
+    **Docstring i nazwa PRZEPISANE 11.09.2026 przy 6.D129, bo pierwsza wersja — moja,
+    z 6.D128 — twierdziła nieprawdę.** Mówiła, że bez końcowego nowego wiersza „`sed`
+    pokazałby listę krótszą o ostatnią pozycję, co przy JEDNYM SDK znaczy listę
+    pustą". Zmierzone: GNU `sed` **wypisuje** ostatni wiersz niepełny —
+    `printf '%s' "$V" | sed 's/^/X: /'` daje `X: a` i `X: b`, tyle że bez zakończenia.
 
-    Sprawdzane na POWŁOCE, a nie na atrapie: atrapa wypisuje dziś listę w jednym
-    wierszu (ukośnik zamiast nowego wiersza — osobna pozycja 6.D129), więc na niej
-    ta różnica nie zachodzi i test mierzyłby nic.
+    Prawdziwy skutek jest mniejszy i wciąż wart tej linijki: brakujące zakończenie
+    zjada **pusty wiersz** oddzielający listę od następnej sekcji doctora. Zmierzone
+    na dwóch SDK: `…[/atrapa/sdk]\\nWymagane dopiero…` zamiast
+    `…[/atrapa/sdk]\\n\\nWymagane dopiero…`.
+
+    Sprawdzane na POWŁOCE, a nie na atrapie — i to było prawdą **do 6.D129**: atrapa
+    wypisywała listę w jednym wierszu (ukośnik zamiast nowego wiersza), więc na niej
+    ta różnica nie zachodziła. Od 6.D129 zachodzi i mierzy ją
+    `test_lista_sdk_ma_tyle_wierszy_ile_jest_sdk`; ten test zostaje przy powłoce, bo
+    pyta o sam konstrukt, nie o wypis doctora.
     """
     import subprocess
 
@@ -1597,20 +1629,65 @@ def test_wypis_listy_sdk_nie_gubi_ostatniego_wiersza():
     dzisiaj = przez("""printf '%s\\n' "$V" | sed 's/^/        na dysku: /'""")
     assert dzisiaj == "        na dysku: a\n        na dysku: b\n", repr(dzisiaj)
 
-    # Kontrola negatywna wbudowana: bez `printf` ostatni wiersz nie ma zakończenia
-    # i `sed` go nie wypisze — kształt, przed którym ten test broni.
+    # Kontrola negatywna wbudowana, z POPRAWIONYM opisem (6.D129): bez `printf`
+    # ostatni wiersz WYCHODZI, tylko bez zakończenia — GNU `sed` wypisuje wiersz
+    # niepełny. Różnicą jest ostatni ZNAK, nie ostatni wiersz, i asercja niżej
+    # pyta dokładnie o to, żeby dawne, nieprawdziwe zdanie nie wróciło.
     urwane = przez("""printf '%s' "$V" | sed 's/^/        na dysku: /'""")
-    assert urwane != dzisiaj, (
-        "podstawienie bez końcowego nowego wiersza dało ten sam wypis co `printf` "
-        "— ten test przestał mierzyć to, co mówi")
+    assert urwane == "        na dysku: a\n        na dysku: b", repr(urwane)
+    assert dzisiaj == urwane + "\n", (
+        "różnicą między obiema formami miał być ostatni ZNAK, a jest coś innego: "
+        "%r wobec %r" % (urwane, dzisiaj))
 
     # I że `doctor.sh` używa tej pierwszej formy, a nie drugiej.
     zrodlo = _read(DOCTOR)
     assert """printf '%s\\n' "$SDK_LISTA" | sed""" in zrodlo, (
-        "wypis listy SDK nie idzie przez `printf '%s\\n'` — ostatni wiersz listy "
-        "może nie dotrzeć na ekran")
+        "wypis listy SDK nie idzie przez `printf '%s\\n'` — zniknie pusty wiersz "
+        "oddzielający listę od następnej sekcji doctora")
     assert '"$DOTNET" --list-sdks 2>/dev/null | sed' not in zrodlo, (
         "wypis listy SDK znów woła `dotnet` drugi raz zamiast czytać `SDK_LISTA`")
+
+
+def test_lista_sdk_ma_tyle_wierszy_ile_jest_sdk():
+    """6.D129: atrapa kończy pozycję NOWYM WIERSZEM, tak jak `dotnet --list-sdks`.
+
+    **Różnicy nie widać przy jednym SDK i to jest cała pułapka.** Do 11.09.2026
+    atrapa budowała listę jako `f"{w} [/atrapa/sdk]\\n"` — dwa znaki tekstu zamiast
+    nowego wiersza — więc wypis niósł `na dysku: 10.0.401 [/atrapa/sdk]\\n` i przy
+    jednym SDK wyglądał **prawie** dobrze. Przy dwóch obie pozycje stały w JEDNYM
+    wierszu z JEDNYM przedrostkiem, czego żaden stan zapadki nie pokazywał, bo
+    wszystkie trzy mają najwyżej jedno SDK.
+
+    Ten test pyta więc o DWA, i to jest jedyne miejsce w module, gdzie kształt
+    wyjścia atrapy jest w ogóle sprawdzalny.
+    """
+    wypis, _kod, _wolania = _przebieg_doctora("10.0.999", ["10.0.401", "9.0.100"])
+    na_dysku = [w for w in wypis.splitlines() if w.startswith("        na dysku: ")]
+
+    assert na_dysku == [
+        "        na dysku: 10.0.401 [/atrapa/sdk]",
+        "        na dysku: 9.0.100 [/atrapa/sdk]",
+    ], ("lista SDK nie ma po jednym wierszu na pozycję — tak wygląda wypis atrapy "
+        "z ukośnikiem zamiast nowego wiersza: %s" % na_dysku)
+
+    assert not any("\\n" in w for w in na_dysku), (
+        "wiersz listy niesie literalny ukośnik z literą `n`: %s" % na_dysku)
+
+    # Kontrola przyrządu: przy JEDNYM SDK wiersz jest jeden — czyli licznik nie
+    # zwraca dwójki z niczego, a stan zapadki „pin niespełniony" nadal go opisuje.
+    jeden, _k, _w = _przebieg_doctora("10.0.999", ["10.0.401"])
+    assert [w for w in jeden.splitlines() if w.startswith("        na dysku: ")] == [
+        "        na dysku: 10.0.401 [/atrapa/sdk]"], jeden
+
+    # I że sama atrapa buduje listę z PRAWDZIWEGO nowego wiersza — bez tego
+    # asercje wyżej byłyby spełnialne także przez zmianę w `doctor.sh`, a pole
+    # „Poza zakresem" tej pozycji wyklucza zmianę zachowania doctora.
+    import inspect
+    zrodlo = inspect.getsource(_atrapa_dotnet)
+    assert 'f"{w} [/atrapa/sdk]\\n"' in zrodlo, (
+        "atrapa nie składa pozycji listy z nowym wierszem")
+    assert 'f"{w} [/atrapa/sdk]\\\\n"' not in zrodlo, (
+        "ukośnik z literą `n` wrócił do atrapy")
 
 
 def test_wypis_trzech_stanow_nie_drgnal():

@@ -182,9 +182,18 @@ PIN_SDK="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([0-9.]*\)".*/\1/p' \
 # pierwszego odczytu, a listę „na dysku:" z drugiego — czyli zdanie o jednym stanie
 # maszyny obok listy z innego.
 #
-# `printf` zamiast gołego podstawienia, bo `$(...)` obcina KOŃCOWE nowe wiersze,
-# a `sed` bez nich nie zobaczyłby ostatniego wiersza listy. Przy pustej liście ta
-# gałąź i tak się nie wykonuje: wymaga `SDK_NA_LISCIE = tak`.
+# `printf '%s\n'` zamiast gołego podstawienia, bo `$(...)` obcina KOŃCOWE nowe
+# wiersze. **Zdanie o skutku jest tu przepisane 11.09.2026 przy 6.D129, bo pierwsza
+# wersja, z 6.D128, była NIEPRAWDZIWA.** Mówiła, że „`sed` bez nich nie zobaczyłby
+# ostatniego wiersza listy", a GNU `sed` wypisuje ostatni wiersz niepełny — zmierzone:
+# `printf '%s' "$V" | sed` daje `X: a` i `X: b`, tyle że bez zakończenia.
+#
+# Prawdziwy skutek jest mniejszy i wciąż wart tej linijki: brakujące zakończenie
+# zjada PUSTY WIERSZ oddzielający listę od następnej sekcji doctora, więc nagłówek
+# „Wymagane dopiero przez konkretne zadania:" przykleja się pod ostatnim SDK.
+# Zmierzone na dwóch SDK: `…[/atrapa/sdk]\nWymagane…` zamiast `…[/atrapa/sdk]\n\nWymagane…`.
+#
+# Przy pustej liście ta gałąź i tak się nie wykonuje: wymaga `SDK_NA_LISCIE = tak`.
 SDK_LISTA="$("$DOTNET" --list-sdks 2>/dev/null)"
 SDK_NA_LISCIE="nie"
 if [ -n "$SDK_LISTA" ]; then SDK_NA_LISCIE="tak"; fi
