@@ -120,8 +120,52 @@ class Model:
         return high
 
 
+#: Który parametr modelu niesie masę dla danego wariantu. **Jedno miejsce, nie dwa:**
+#: do 6.D137 to samo odwzorowanie stało wprost w `envelope` jako wyrażenie warunkowe,
+#: a wypis o przybliżeniu potrzebuje go po raz drugi — dwie kopie jednej reguły
+#: rozjeżdżają się po cichu (6.B28).
+PARAMETR_MASY = {"AW0": "aw0_kg", "AW2": "aw2_kg"}
+
+
+def klucz_masy(mass_key):
+    """Nazwa parametru modelu dla wariantu masy. Nieznany wariant to błąd, nie AW2.
+
+    Do 11.09.2026 odwzorowanie brzmiało `cfg["aw0_kg"] if mass_key == "AW0" else
+    cfg["aw2_kg"]`, czyli **każda** nazwa spoza „AW0" — literówka `AWO`, pusty napis —
+    dawała po cichu masę obciążoną. CLI dopuszcza dziś tylko dwie wartości, więc
+    z zewnątrz to nie wychodziło; ta funkcja jest wołana też z testów i z kodu.
+    """
+    try:
+        return PARAMETR_MASY[mass_key]
+    except KeyError:
+        raise ValueError(
+            "nieznany wariant masy %r — znane: %s"
+            % (mass_key, ", ".join(sorted(PARAMETR_MASY)))) from None
+
+
+def masa_przybliżona(mass_key, registry=None):
+    """`(czy_przybliżona, notatka)` dla wariantu masy — **liczone z rejestru**.
+
+    Przybliżenie dotyczy **jednego z dwóch** wariantów i to jest cała treść 6.D137:
+    `aw0_kg` czyta `parameters.empty_mass_kg`, który ma w rejestrze `approximate: true`
+    („STIB states approximately 170 tonnes"), a `aw2_kg` czyta
+    `reference_model.aw2_model_mass_kg` o statusie `design_model`, który przybliżeniem
+    NIE jest — jest świadomym założeniem symulatora. Wiersz wypisany bez tego
+    rozróżnienia mówiłby o niepewności źródła tam, gdzie źródła nie ma wcale.
+
+    Lista przybliżonych bierze się z `braking.parametry_przyblizone`, czyli z tej samej
+    tabeli `PARAMETRY`, z której `params` buduje model. Własny zbiór nazw byłby drugą
+    kopią wiedzy „co jest przybliżone" i rozjechałby się przy pierwszej zmianie w `data/`.
+    """
+    nazwa = klucz_masy(mass_key)
+    for parametr, _klucz, _wartosc, notatka in B.parametry_przyblizone(registry):
+        if parametr == nazwa:
+            return True, notatka
+    return False, ""
+
+
 def envelope(timetable, mass_key, cfg, ceiling_kmh=SEARCH_CEILING_KMH):
-    mass_kg = cfg["aw0_kg"] if mass_key == "AW0" else cfg["aw2_kg"]
+    mass_kg = cfg[klucz_masy(mass_key)]
     model = Model(mass_kg, cfg)
 
     rows = []
@@ -157,9 +201,14 @@ def envelope(timetable, mass_key, cfg, ceiling_kmh=SEARCH_CEILING_KMH):
                                else -row["min_top_speed_kmh"]))
     feasible = [row for row in rows if row["feasible"]]
     binding = feasible[0] if feasible else None
+    przybliżona, notatka = masa_przybliżona(mass_key)
     return {
         "mass_case": mass_key,
         "mass_kg": mass_kg,
+        # 6.D137: raport mówi to samo, co wypis — inaczej zdanie o niepewności
+        # ginęłoby przy pierwszym czytaniu pliku zamiast konsoli.
+        "mass_approximate": przybliżona,
+        "mass_approximate_note": notatka,
         "service_brake_mps2": cfg["service"],
         "jerk_mps3": cfg["jerk"],
         "search_ceiling_kmh": ceiling_kmh,
@@ -179,7 +228,7 @@ def parse_args(argv=None):
     parser = argparse.ArgumentParser(description="Koperta prędkości z rozkładu i fizyki")
     parser.add_argument("--timetable", default=os.path.join("build", "timetable.json"))
     parser.add_argument("--out", required=True)
-    parser.add_argument("--mass", choices=("AW0", "AW2"), default="AW0")
+    parser.add_argument("--mass", choices=sorted(PARAMETR_MASY), default="AW0")
     parser.add_argument("--ceiling-kmh", type=float, default=SEARCH_CEILING_KMH)
     return parser.parse_args(argv)
 
@@ -203,6 +252,17 @@ def main(argv=None):
     print(f"[KOPERTA] {report['segments']} odcinków, masa {report['mass_case']} "
           f"{report['mass_kg']:.0f} kg, hamulec {report['service_brake_mps2']:.2f} m/s², "
           f"zryw {report['jerk_mps3']:.2f} m/s³")
+    # 6.D137: zdanie o masie stoi ZAWSZE, także gdy przybliżenia nie ma — milczenie
+    # byłoby nieodróżnialne od braku sprawdzenia (ta sama zasada, co przy liczniku
+    # starego bajtkodu w 6.D113 i 6.D132).
+    if report["mass_approximate"]:
+        print(f"[KOPERTA] masa {report['mass_case']} jest PRZYBLIŻONA "
+              f"(rejestr, {B.KLUCZ_PRZYBLIZENIA}: true)"
+              + (f" — {report['mass_approximate_note']}"
+                 if report["mass_approximate_note"] else ""))
+    else:
+        print(f"[KOPERTA] masa {report['mass_case']} nie jest oznaczona jako "
+              f"przybliżona w rejestrze")
     for row in report["rows"]:
         speed = "NIEREALIZOWALNY" if row["min_top_speed_kmh"] is None \
             else f"{row['min_top_speed_kmh']:6.2f} km/h"
