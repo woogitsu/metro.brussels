@@ -18,9 +18,12 @@ skany: `test_dead_constants.definicje` **917 → 1511**. Pozostałe czternaście
 bo albo startują poza `tools/`, albo zwracają ZBIÓR nazw, w którym kopia niczego
 nowego nie wnosi. Jedna nieprawdziwa liczba w drzewie jest powodem wystarczającym.
 """
+import collections
 import ast
 import os
+import re
 import sys
+import tempfile
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -45,6 +48,177 @@ WOLNO_WPROST = {
 #: `MAX_EXCEPTIONS` w `test_field_paths.py`: wyjątek jest tańszym wyjściem niż
 #: przepisanie wołania, więc lista rośnie w jedną stronę z definicji.
 MAX_WOLNO_WPROST = 2
+
+# --- 6.D133: kierunek zapadki, czyli czy da się ją ruszyć w zakazaną stronę -------
+
+#: Nazwa zapadki: przedrostek mówi, w którą stronę stała jest progiem.
+ZAPADKA_NAZWA = re.compile(r"^(MAX|MIN|MINIMUM)_[A-Z0-9_]+$")
+
+#: Operator odwrócony — po to, żeby każde porównanie czytać ZAWSZE od strony stałej.
+#: `len(x) <= MAX_Y` i `MAX_Y >= len(x)` są tym samym zdaniem i muszą wpaść do jednej
+#: kupki; bez tej tabeli kupki byłyby dwie, a klasyfikacja zależałaby od tego, po
+#: której stronie ktoś stałą napisał.
+ODWROTNY_OPERATOR = {"Lt": "Gt", "Gt": "Lt", "LtE": "GtE", "GtE": "LtE",
+                     "Eq": "Eq", "NotEq": "NotEq"}
+
+#: Trzy klasy i czwarta, która mówi o granicy przyrządu, a nie o zapadce.
+PRZYBITA = "przybita"
+CZESCIOWA = "czesciowa"
+WOLNA = "wolna"
+POZA_SKANEM = "poza skanem"
+
+
+def _porownania_zapadek(katalog=None, root=None):
+    """`{nazwa: [(relacja stałej do drugiej strony, kształt drugiej strony)]}`.
+
+    Relacja jest zawsze zapisana OD STRONY STAŁEJ: `GtE` znaczy „stała >= tamto".
+    Kształt drugiej strony to `ast.dump`, bo do rozstrzygnięcia potrzebna jest
+    TOŻSAMOŚĆ wyrażenia (czy strażnik mierzy tę samą populację, co próg), a nie
+    jego wartość — tej w czasie skanu nie ma.
+    """
+    baza = katalog or os.path.join(ROOT, "tools", "tests")
+    korzen = root or ROOT
+    out = {}
+    for gdzie, _katalogi, pliki in TW.walk(baza, korzen):
+        for nazwa_pliku in sorted(pliki):
+            if not nazwa_pliku.endswith(".py"):
+                continue
+            with open(os.path.join(gdzie, nazwa_pliku), encoding="utf-8") as uchwyt:
+                drzewo = ast.parse(uchwyt.read())
+            for wezel in ast.walk(drzewo):
+                if isinstance(wezel, ast.Assign):
+                    for cel in wezel.targets:
+                        if isinstance(cel, ast.Name) and ZAPADKA_NAZWA.match(cel.id):
+                            out.setdefault(cel.id, (nazwa_pliku, []))
+                if not isinstance(wezel, ast.Compare):
+                    continue
+                czlony = [wezel.left] + list(wezel.comparators)
+                for i, operator in enumerate(wezel.ops):
+                    nazwa_op = type(operator).__name__
+                    if nazwa_op not in ODWROTNY_OPERATOR:
+                        continue
+                    lewy, prawy = czlony[i], czlony[i + 1]
+                    for stala, druga, relacja in ((lewy, prawy, nazwa_op),
+                                                  (prawy, lewy,
+                                                   ODWROTNY_OPERATOR[nazwa_op])):
+                        if not (isinstance(stala, ast.Name)
+                                and ZAPADKA_NAZWA.match(stala.id)):
+                            continue
+                        wpis = out.setdefault(stala.id, (nazwa_pliku, []))
+                        wpis[1].append((relacja, ast.dump(druga)))
+    return out
+
+
+def klasa_zapadki(nazwa, porownania):
+    """Czy ruszenie tej zapadki w ZAKAZANĄ stronę cokolwiek zapala.
+
+    Zakazana strona wynika z przedrostka: `MAX_` wolno tylko obniżać, `MIN_`
+    i `MINIMUM_` tylko podnosić. Ale to jest zdanie dla człowieka — bramką jest
+    dopiero porównanie, które przy takim ruchu pada.
+
+    * **nośne** — porównanie, dla którego zapadka jest progiem (`MAX_X >= ile`);
+      pada, gdy rośnie DRZEWO, a nie gdy rusza się stała;
+    * **strzegące** — porównanie z drugiej strony (`MAX_X <= ile`); pada, gdy stała
+      idzie w zakazaną stronę. Równość strzeże w obie.
+
+    `przybita` znaczy: strażnik mierzy TĘ SAMĄ populację, co próg (albo jest
+    równością), więc ruch o jeden pada. `czesciowa`: strażnik jest, ale o innej
+    populacji — ruch o jeden przechodzi, pada dopiero ruch daleki; zmierzone na
+    trzech takich zapadkach 11.09.2026, wszystkie trzy przeszły przy ruchu o jeden.
+    `wolna`: strażnika nie ma i ruch w zakazaną stronę nie zapala niczego.
+    """
+    gorna = nazwa.startswith("MAX")
+    nosne = {"GtE", "Gt"} if gorna else {"LtE", "Lt"}
+    strzegace = {"LtE", "Lt"} if gorna else {"GtE", "Gt"}
+
+    populacja = {ksztalt for relacja, ksztalt in porownania if relacja in nosne}
+    straze = [(relacja, ksztalt) for relacja, ksztalt in porownania
+              if relacja in strzegace or relacja in ("Eq", "NotEq")]
+    if not porownania:
+        return POZA_SKANEM
+    if not straze:
+        return WOLNA
+    if any(relacja in ("Eq", "NotEq") or ksztalt in populacja
+           for relacja, ksztalt in straze):
+        return PRZYBITA
+    return CZESCIOWA
+
+
+#: **Wszystkie zapadki pod `tools/tests/`, każda z klasą i modułem — zmierzone
+#: 11.09.2026 na `52752c9`.** Trzydzieści osiem: **13 przybitych, 3 częściowe,
+#: 21 WOLNYCH i 1 poza zasięgiem skanu.**
+#:
+#: **Lista jest z NAZWAMI, nie z samymi liczbami, i to jest wybór.** Same liczby
+#: przepuściłyby zamianę jednej zapadki przybitej na inną wolną — suma stoi, a zdanie
+#: o konkretnej zapadce przestaje być prawdziwe. Rozjechać się ta lista nie może, bo
+#: jest porównywana z drzewem W OBIE STRONY, tak samo jak `NIEME_ASERCJE` z 6.D127.
+#:
+#: **Czego klasyfikator NIE widzi, i jest to zmierzone, a nie zastrzeżone na wszelki
+#: wypadek.** Czyta wyłącznie węzły `Compare`, w których stała stoi PO IMIENIU.
+#: `MIN_PATHS` jest słownikiem trzech progów, a do porównania trafia przez zmienną
+#: pętli (`for field, floor in MIN_PATHS.items()`), więc jego nazwa w żadnym
+#: porównaniu nie pada. Klasa `POZA_SKANEM` mówi dokładnie to i nic więcej — a NIE
+#: mówi „nieużywana".
+ZAPADKI = {
+    "MAX_COMMIT_EXCEPTIONS": (PRZYBITA, "test_report_hygiene.py"),
+    "MAX_DATE_EXCEPTIONS": (PRZYBITA, "test_report_hygiene.py"),
+    "MAX_EXCEPTIONS": (PRZYBITA, "test_field_paths.py"),
+    "MAX_GAME_JUSTIFIED_NEEDLES": (PRZYBITA, "test_game_needle_specificity.py"),
+    "MAX_GAME_UNMATCHED_NEEDLES": (PRZYBITA, "test_game_needle_specificity.py"),
+    "MAX_GLOB_WPROST": (WOLNA, "test_tree_walks.py"),
+    "MAX_JUSTIFICATIONS": (PRZYBITA, "test_bin_path_framework.py"),
+    "MAX_JUSTIFIED_NEEDLES": (PRZYBITA, "test_needle_specificity.py"),
+    "MAX_ODCISKOW_W_RAPORCIE": (WOLNA, "mutation_sweep.py"),
+    "MAX_REPORTS_WITHOUT_FIELD_LINE": (PRZYBITA, "test_report_hygiene.py"),
+    "MAX_ROZSZERZEN_BEZ_TRAFIEN": (WOLNA, "test_report_hygiene.py"),
+    "MAX_UNMATCHED_NEEDLES": (PRZYBITA, "test_needle_specificity.py"),
+    "MAX_WOLNO_WPROST": (WOLNA, "test_tree_walks.py"),
+    "MAX_ZAPISOW_W_DRZEWIE": (PRZYBITA, "test_tree_writes.py"),
+    "MINIMUM_CALLERS": (WOLNA, "test_platform_length_in_pipeline.py"),
+    "MINIMUM_CLAIMS": (WOLNA, "test_report_claims.py"),
+    "MINIMUM_DEKLARACJI": (WOLNA, "test_dead_constants_csharp.py"),
+    "MINIMUM_DETAIL_BLOCKS": (PRZYBITA, "test_backlog.py"),
+    "MINIMUM_DOCUMENTED_ITEMS": (CZESCIOWA, "test_backlog.py"),
+    "MINIMUM_METOD": (WOLNA, "test_csharp_assertions.py"),
+    "MINIMUM_MIEJSC": (WOLNA, "test_runner_number_parsing.py"),
+    "MINIMUM_MODES": (WOLNA, "test_run_mode_claims.py"),
+    "MINIMUM_POWODU": (CZESCIOWA, "test_field_paths.py"),
+    "MINIMUM_READY_ITEMS": (PRZYBITA, "test_backlog.py"),
+    "MINIMUM_SUPPORTED_MAJOR": (CZESCIOWA, "test_dotnet_version.py"),
+    "MINIMUM_WIDZIANYCH": (WOLNA, "test_csharp_test_methods.py"),
+    "MINIMUM_WYSTAPIEN": (WOLNA, "test_expected_exception.py"),
+    "MINIMUM_WYSTAPIEN_ROWNOSCI": (WOLNA, "test_runner_options.py"),
+    "MIN_FILES_WITH_PATHS": (WOLNA, "test_bin_path_framework.py"),
+    "MIN_GAME_MESSAGES": (WOLNA, "test_game_needle_specificity.py"),
+    "MIN_GAME_NEEDLES": (WOLNA, "test_game_needle_specificity.py"),
+    "MIN_GAME_SOURCES": (WOLNA, "test_game_needle_specificity.py"),
+    "MIN_MESSAGES": (WOLNA, "test_needle_specificity.py"),
+    "MIN_MODULE_NAMES": (WOLNA, "test_field_paths.py"),
+    "MIN_NEEDLES": (WOLNA, "test_needle_specificity.py"),
+    "MIN_PATHS": (POZA_SKANEM, "test_field_paths.py"),
+    "MIN_PATHS_IN_TREE": (WOLNA, "test_bin_path_framework.py"),
+    "MIN_REPORTS": (PRZYBITA, "test_report_hygiene.py"),
+}
+
+#: Ile zapadek razem. Liczba jest POCHODNA ze słownika wyżej i stoi osobno po to,
+#: żeby komunikat podał ją, zanim ktoś zacznie czytać trzydzieści osiem wierszy.
+#:
+#: **Osobnej zapadki na LICZBĘ WOLNYCH tu nie ma i to jest wynik pomiaru, nie
+#: przeoczenie.** Napisałem ją najpierw — `test_wolnych_zapadek_moze_tylko_UBYWAC`,
+#: z oboma kierunkami — po czym kontrole pokazały, że nie zapala się nigdy sama:
+#: KN-1 (nowa wolna zapadka w drzewie) zapaliła RAZEM z testem listy, KN-5c
+#: (wolnej zapadce przybywa strażnik) zapaliła SAM test listy, a KN-5 (zdjęcie
+#: połowy o przybyciu strażnika) wyszła ZIELONA. Lista z nazwami jest ściśle
+#: mocniejsza od liczby, więc liczba zostaje jako wiersz w komunikacie, a nie
+#: jako druga bramka mówiąca to samo słabiej.
+ZAPADEK_RAZEM = len(ZAPADKI)
+
+
+def zapadki_w_drzewie(katalog=None, root=None):
+    """`{nazwa: klasa}` dla każdej stałej o kształcie zapadki pod `tools/tests/`."""
+    return {nazwa: klasa_zapadki(nazwa, porownania)
+            for nazwa, (_modul, porownania) in _porownania_zapadek(katalog, root).items()}
+
 
 #: Pliki, w których `glob.glob(…, recursive=True)` wolno zawołać WPROST, z powodem.
 #: To jest TRZECI kształt przejścia po drzewie (6.D117): 6.D74 zamknęło `os.walk`
@@ -457,6 +631,122 @@ def test_skan_filtrow_widzi_ksztalt_ktory_ma_widziec():
     assert len(nazwy) >= 10, (
         f"lista z `.gitignore` skurczyła się do {len(nazwy)} nazw — skan miałby "
         "wtedy czego nie szukać")
+
+def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
+    """Zapadka na zapadki — porównanie W OBIE STRONY, bo inaczej byłaby wolna.
+
+    Ironia byłaby tu kosztowna: bramka pilnująca, czy zapadki da się ruszyć po cichu,
+    napisana jako `len(w_drzewie) <= ZAPADEK_RAZEM`, dałaby się ruszyć po cichu.
+    """
+    w_drzewie = zapadki_w_drzewie()
+
+    nowe = {n: k for n, k in w_drzewie.items() if n not in ZAPADKI}
+    assert nowe == {}, (
+        "zapadka spoza listy: %s — dopisz ją razem z klasą w tym samym commicie, "
+        "w którym ją wprowadzasz" % sorted(nowe.items()))
+
+    znikniete = sorted(n for n in ZAPADKI if n not in w_drzewie)
+    assert znikniete == [], (
+        "wpis na liście dla zapadki, której w drzewie nie ma: %s — zdejmij wpis "
+        "w tym samym commicie" % znikniete)
+
+    inna_klasa = [(n, ZAPADKI[n][0], k) for n, k in sorted(w_drzewie.items())
+                  if k != ZAPADKI[n][0]]
+    assert inna_klasa == [], (
+        "zapadka zmieniła klasę (nazwa, było, jest): %s — zmiana W STRONĘ `wolna` "
+        "znaczy, że komuś ubył strażnik; w stronę `przybita`, że doszedł i wpis "
+        "trzeba poprawić" % inna_klasa)
+
+    assert len(w_drzewie) == ZAPADEK_RAZEM == 38, (
+        "zapadek w drzewie %d, na liście %d, pomiar z 11.09.2026 mówił 38"
+        % (len(w_drzewie), ZAPADEK_RAZEM))
+
+    # Liczby zbiorcze. **Nie jest to ozdobnik komunikatu i pokazała to KN-7.**
+    # Asercje wyżej pilnują, żeby lista zgadzała się z DRZEWEM — a te cztery liczby
+    # są zdaniem o samej liście, publikowanym w jej komentarzu i w raporcie. Gdy ktoś
+    # przybije wolną zapadkę i UCZCIWIE poprawi jej wpis, wszystko wyżej przechodzi,
+    # a „21 wolnych" staje się nieprawdą, której nie zgłasza nic. KN-7 wykonała
+    # dokładnie ten scenariusz: jedyną czerwienią była ta asercja.
+    ile = collections.Counter(w_drzewie.values())
+    assert (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM]) == (13, 3, 21, 1), (
+        "klasy zapadek: przybitych %d, częściowych %d, WOLNYCH %d, poza skanem %d — "
+        "pomiar z 11.09.2026 mówił 13/3/21/1; wolne to te, które da się ruszyć "
+        "w zakazaną stronę bez zapalenia czegokolwiek: %s"
+        % (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM],
+           sorted(n for n, k in w_drzewie.items() if k == WOLNA)))
+
+
+def test_klasyfikator_rozroznia_trzy_ksztalty_na_drzewie_probnym():
+    """Kontrola przyrządu: trzy zapadki o znanych kształtach, jeden przebieg skanu.
+
+    Skan idzie przez `zapadki_w_drzewie`, a nie przez ręcznie złożoną listę porównań —
+    inaczej mierzyłby moje wyobrażenie o czytniku zamiast czytnika (lekcja z 6.D131,
+    gdzie test maski składał maskę sam i nie pilnował `piny()` wcale).
+    """
+    with tempfile.TemporaryDirectory(prefix="metro-zapadki-") as katalog:
+        with open(os.path.join(katalog, "test_probne.py"), "w",
+                  encoding="utf-8") as uchwyt:
+            uchwyt.write(
+                "MAX_WOLNA = 3\n"
+                "MAX_PRZYBITA = 3\n"
+                "MAX_CZESCIOWA = 3\n"
+                "MIN_WOLNA = 3\n"
+                "def t():\n"
+                "    assert len(lista) <= MAX_WOLNA\n"
+                "    assert len(lista) <= MAX_PRZYBITA\n"
+                "    assert MAX_PRZYBITA <= len(lista)\n"
+                "    assert len(lista) <= MAX_CZESCIOWA\n"
+                "    assert MAX_CZESCIOWA <= len(wszystkie)\n"
+                "    assert len(inna) >= MIN_WOLNA\n")
+        klasy = zapadki_w_drzewie(katalog, katalog)
+
+    assert klasy == {"MAX_WOLNA": WOLNA, "MAX_PRZYBITA": PRZYBITA,
+                     "MAX_CZESCIOWA": CZESCIOWA, "MIN_WOLNA": WOLNA}, (
+        "klasyfikator na drzewie probnym dał %s" % sorted(klasy.items()))
+
+
+def test_strona_zapisu_porownania_nie_zmienia_klasy():
+    """`len(x) <= MAX_Y` i `MAX_Y >= len(x)` to jedno zdanie, więc jedna klasa.
+
+    Bez tabeli `ODWROTNY_OPERATOR` klasyfikacja zależałaby od tego, po której stronie
+    ktoś stałą napisał — a to jest nawyk pisania, nie właściwość bramki.
+    """
+    with tempfile.TemporaryDirectory(prefix="metro-zapadki-") as katalog:
+        with open(os.path.join(katalog, "test_probne.py"), "w",
+                  encoding="utf-8") as uchwyt:
+            uchwyt.write(
+                "MAX_LEWA = 3\n"
+                "MAX_PRAWA = 3\n"
+                "def t():\n"
+                "    assert MAX_LEWA >= len(lista)\n"
+                "    assert len(lista) <= MAX_PRAWA\n")
+        klasy = zapadki_w_drzewie(katalog, katalog)
+
+    assert klasy == {"MAX_LEWA": WOLNA, "MAX_PRAWA": WOLNA}, (
+        "ta sama zapadka zapisana z dwóch stron dostała różne klasy: %s"
+        % sorted(klasy.items()))
+
+
+def test_klasa_POZA_SKANEM_mowi_o_granicy_przyrzadu_a_nie_o_zapadce():
+    """Próg trafiający do porównania przez zmienną jest dla skanu niewidzialny.
+
+    Jedyny taki dziś w drzewie to `MIN_PATHS` — słownik trzech progów, porównywany
+    przez zmienną pętli. Zdanie „skan go nie widzi" jest tu WYNIKIEM, a nie
+    zastrzeżeniem na wszelki wypadek, i ma własny kształt klasy, żeby nikt nie
+    przeczytał go jako „nieużywany".
+    """
+    poza = sorted(n for n, (k, _m) in ZAPADKI.items() if k == POZA_SKANEM)
+    assert poza == ["MIN_PATHS"], poza
+    assert zapadki_w_drzewie()["MIN_PATHS"] == POZA_SKANEM, (
+        "MIN_PATHS przestał być poza skanem — sprawdź, czy porównanie nie przestało "
+        "iść przez zmienną, i przenieś go do właściwej klasy")
+
+    zrodlo = open(os.path.join(ROOT, "tools", "tests", "test_field_paths.py"),
+                  encoding="utf-8").read()
+    assert "for field, floor in MIN_PATHS.items()" in zrodlo, (
+        "kształt, na którym stoi klasa POZA_SKANEM, zniknął z `test_field_paths.py` "
+        "— klasa opisuje wtedy stan, którego nie ma")
+
 
 if __name__ == "__main__":
     import test_all
