@@ -590,7 +590,9 @@ def test_ile_parametrow_modelu_jest_PRZYBLIZONYCH():
     assert len(przyblizone) == 1, przyblizone
     nazwa, klucz, wartosc, notatka = przyblizone[0]
     assert (nazwa, klucz) == ("aw0_kg", "empty_mass_kg"), przyblizone[0]
-    assert wartosc == 170000.0, wartosc
+    assert wartosc == 170000.0, (
+        "przybliżony parametr modelu ma wartość %r zamiast 170000.0 — flaga "
+        "przeniosła się na inny wpis rejestru albo masa pusta się zmieniła" % wartosc)
     assert "approximately" in notatka, notatka
 
     # I że parametr NAPRAWDĘ wchodzi do modelu, a nie tylko leży w rejestrze —
