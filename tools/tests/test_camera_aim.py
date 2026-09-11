@@ -179,6 +179,117 @@ def test_centerline_position_weight_stays_inside_the_unit_interval():
             _, _, t = CA.centerline_position(count, step / 20.0)
             assert 0.0 <= t < 1.0 or t == 0.0, (count, step, t)
 
+# --- 6.D140: okno kadru rządzi WSZYSTKIMI kamerami, nie jedną -------------------
+
+RENDER_CHECK = os.path.join(ROOT, "tools", "blender", "render_check.py")
+
+
+def _render_check_ast():
+    """Drzewo składni `render_check.py`. Czytane, nie importowane — moduł woła `bpy`."""
+    import ast
+
+    with open(RENDER_CHECK, encoding="utf-8") as uchwyt:
+        return ast.parse(uchwyt.read())
+
+
+def test_okno_podstawia_center_i_size_PRZED_pierwsza_kamera():
+    """**Sedno 6.D140: to KOLEJNOŚĆ czyni okno wspólnym dla wszystkich kamer.**
+
+    `main` ustawia `center` i `size` z okna w gałęzi `if window:`, a dopiero potem
+    buduje kamery — więc wszystkie cztery dostają kadr okna. Wpis pozycji twierdził,
+    że zawężane jest wyłącznie `_inside`; pomiar na `L1_A` pokazał `cam_iso`
+    z odległości 7920,3 m bez okna wobec 137,3 m z oknem 100-metrowym.
+
+    Test czyta numery wierszy z drzewa składni, bo to jedyna rzecz, która tę
+    własność niesie: gdyby podstawienie przeniosło się poniżej `add_camera`,
+    kod nadal by się kompilował i nadal renderował cztery klatki.
+    """
+    import ast
+
+    drzewo = _render_check_ast()
+    main = next(w for w in ast.walk(drzewo)
+                if isinstance(w, ast.FunctionDef) and w.name == "main")
+
+    przypisania = [w.lineno for w in ast.walk(main)
+                   if isinstance(w, ast.Assign)
+                   and any(isinstance(c, ast.Name) and c.id == "center" for c in w.targets)]
+    kamery = [w.lineno for w in ast.walk(main)
+              if isinstance(w, ast.Call) and isinstance(w.func, ast.Name)
+              and w.func.id == "add_camera"]
+
+    assert przypisania, "w `main` nie ma już przypisania do `center`"
+    assert len(kamery) == len(CA.KAMERY_POD_OKNEM), (
+        "`main` buduje %d kamer, a `KAMERY_POD_OKNEM` wymienia %d: %s"
+        % (len(kamery), len(CA.KAMERY_POD_OKNEM), CA.KAMERY_POD_OKNEM))
+    assert max(przypisania) < min(kamery), (
+        "`center` jest podstawiany w wierszu %d, a pierwsza kamera powstaje "
+        "w %d — okno przestało rządzić kamerami zbudowanymi wcześniej"
+        % (max(przypisania), min(kamery)))
+
+
+def test_nazwy_kamer_z_camera_aim_sa_TYMI_ktore_render_check_buduje():
+    """Lista nazw a drzewo — jedno źródło, nie dwa (6.B28).
+
+    Wypis `[OKNO] zaweza kamery: …` bierze nazwy z `camera_aim`. Gdyby rozjechały
+    się z tymi, które `render_check` naprawdę tworzy, wypis mówiłby o kamerach,
+    których nie ma — a to jest ta sama rodzina co 6.D27.
+    """
+    import ast
+
+    drzewo = _render_check_ast()
+    z_drzewa = set()
+    for wezel in ast.walk(drzewo):
+        if (isinstance(wezel, ast.Call) and isinstance(wezel.func, ast.Name)
+                and wezel.func.id == "add_camera"):
+            for arg in wezel.args:
+                if isinstance(arg, ast.Constant) and isinstance(arg.value, str) \
+                        and arg.value.startswith("cam_"):
+                    z_drzewa.add(arg.value)
+
+    assert z_drzewa == set(CA.KAMERY_POD_OKNEM), (
+        "`render_check` buduje %s, a `KAMERY_POD_OKNEM` wymienia %s"
+        % (sorted(z_drzewa), sorted(CA.KAMERY_POD_OKNEM)))
+
+
+def test_proporcje_okna_licza_dlugosc_do_wysokosci_i_znosza_zero():
+    """Liczba, która przewiduje kształt `_side` — i jej granica.
+
+    Zmierzone na `L1_A` (`box_double`, wysokość 5,9 m): okno 100 m daje 17 : 1
+    i `ink` 0,108; brak okna to 924 : 1 i `ink` 0,00292. Podłoga pustej klatki
+    (0,0002) nie zapala się w żadnym z tych przypadków — dlatego liczba jest
+    wypisywana, a nie bramkowana.
+    """
+    assert CA.proporcje_okna(100.0, 5.9) == 100.0 / 5.9, (
+        "proporcje to %r zamiast dlugosc/wysokosc — jesli licznik i mianownik\n"
+        "zamienily sie miejscami, liczba maleje tam, gdzie miala rosnac"
+        % CA.proporcje_okna(100.0, 5.9))
+    assert round(CA.proporcje_okna(5452.5, 5.9)) == 924, (
+        "proporcje całej osi L1_A wyszły %r, a pomiar mówił 924 : 1"
+        % CA.proporcje_okna(5452.5, 5.9))
+    assert CA.proporcje_okna(100.0, 0.0) is None, (
+        "zerowa wysokość ma dawać `None`, a nie dzielenie przez zero")
+    assert CA.proporcje_okna(100.0, 0) is None, "całkowite zero też ma dawać `None`"
+
+    # Monotoniczność: dłuższe okno to zawsze większe proporcje. Bez tego zdanie
+    # „im większe, tym bardziej `_side` jest kreską" nie miałoby o czym mówić.
+    kolejne = [CA.proporcje_okna(d, 5.9) for d in (100.0, 300.0, 1000.0, 3000.0)]
+    assert kolejne == sorted(kolejne), kolejne
+
+
+def test_wypis_okna_nazywa_kamery_i_proporcje():
+    """Wypis ma mówić jedno i drugie — inaczej pomiar zostaje w raporcie, nie w logu."""
+    with open(RENDER_CHECK, encoding="utf-8") as uchwyt:
+        zrodlo = uchwyt.read()
+
+    assert "[OKNO] zaweza kamery: " in zrodlo, (
+        "wypis nie mówi, które kamery okno zawęża — a wpis 6.D140 wziął się "
+        "dokładnie z tego, że nie było tego nigdzie widać")
+    assert "CA.KAMERY_POD_OKNEM" in zrodlo, (
+        "nazwy kamer w wypisie nie pochodzą z `camera_aim` — druga kopia rozjedzie się")
+    assert "CA.proporcje_okna(" in zrodlo, (
+        "wypis nie podaje proporcji okna")
+
+
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
 # z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
 # tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
