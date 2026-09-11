@@ -65,21 +65,29 @@ dotnet test tests/Sim.Tests          # rdzeń symulacji, bez Godota
 **Czego nie ma i dlaczego:**
 
 - **profilu pionowego.** Brak publicznych rzędnych główki szyny, a dwa oficjalne źródła
-  podają sprzeczne głębokości stacji. Cały tunel jest wariantem `flat-preview` na Z = 0,
-  a generator **odrzuca** `--variant production`. Zablokowane: T-112, czeka na T-901.
+  podają sprzeczne głębokości stacji. Wszystkie **sześć** osi w `data/track/` ma Z = 0
+  i `vertical.status = not_modelled`, a generator **odrzuca** `--variant production`.
+  Od 6.D120 odcinek Parc↔Arts-Loi wchodzi do geometrii jako wariant `partial-vertical`:
+  rzędne z rejestru tam, gdzie są, i jawny, niewygładzony uskok na granicy wiedzy.
+  Zablokowane: T-112, czeka na T-901.
   To samo blokuje scenę z **dwoma** pakietami — przy Z = 0 rury A i E przenikają się
   w rejonie Arts-Loi;
-- **stacji jako brył.** `tools/track/station_layout.py` liczy perony pakietu A
-  z kilometrażem i odsunięciem krawędzi, ale pierwsza stacja typowa (T-212) jest
-  dopiero w planie. Wyjścia i komunikacja pionowa zostają `unknown`;
+- **stacji wynikających z danych.** Bryły stacji SĄ — T-212 jest scalone i daje na
+  stacji Parc schody, windę, antresolę, korytarz i portal — ale układ jest **kanoniczny**:
+  `tools/track/station_components.py` stawia **18** wymiarów jako `design_assumption`
+  i ani jednego ze STIB. Rzut stacji, liczba i położenie wyjść zostają `unknown`;
 - **wielu składów W SCENIE.** Rdzeń prowadzi ich **N** — `LineCore` krokuje wszystkie
   na jednym zegarze, jednej osi i jednym planie bloków, a testy przybijają, że skład
   nie wjeżdża w blok zajęty przez inny. Scena pokazuje **jeden**: `FirstRun` ma jeden
   węzeł `TrainView`. To jest ograniczenie WIDOKU, nie rdzenia — T-320 ma etap 2
   zrobiony, a otwarty zostaje takt i obiegi z T-113;
-- **kabiny i wnętrz.** Nie ma ich ani w geometrii, ani w scenie;
+- **wnętrza kabiny w scenie.** Geometria kabiny jest od 6.D119 —
+  `tools/blender/m7_cab.py` buduje ją ze skryptu — ale **24** jej wymiary to
+  `design_assumption` i ani jeden nie pochodzi ze STIB, a scena nie ma węzła wnętrza;
 - **ciągłego kilometrażu linii.** `data/track/` pokrywa pakiety, nie linie; między
-  pakietami zostaje 4034 m bez geometrii. Zakres pakietów to decyzja właściciela.
+  pakietami zostaje 4034 m bez geometrii — ta druga liczba jest z kształtów GTFS,
+  których w repozytorium nie ma, więc **żadna bramka jej nie sprawdza** (6.D104 §5).
+  Zakres pakietów to decyzja właściciela.
 
 Pełny audyt tego, co jest faktem o brukselskim metrze, a co decyzją projektową:
 **`docs/21-measured-vs-assumed.md`**.

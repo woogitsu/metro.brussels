@@ -39,6 +39,12 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import tree_walk as TW  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+sys.path.insert(0, os.path.join(ROOT, "tools", "track"))
+sys.path.insert(0, os.path.join(ROOT, "tools", "blender"))
+
+import station_components as SC  # noqa: E402
+import m7_cab as CAB  # noqa: E402
+
 README = os.path.join(ROOT, "README.md")
 SIM_DIR = os.path.join(ROOT, "src", "Sim")
 WORKFLOW_DIR = os.path.join(ROOT, ".github", "workflows")
@@ -163,9 +169,9 @@ ZAPRZECZENIA = {
 #: KAŻDY punkt sekcji miał rozstrzygnięcie, a każde rozstrzygnięcie — swój punkt.
 PUNKTY_BRAKOW = (
     "profilu pionowego",
-    "stacji jako brył",
+    "stacji wynikających z danych",
     "wielu składów W SCENIE",
-    "kabiny i wnętrz",
+    "wnętrza kabiny w scenie",
     "ciągłego kilometrażu linii",
 )
 
@@ -226,6 +232,29 @@ def dlugosc_pakietow_m():
     return round(suma)
 
 
+def wymiary_stacji_z_zalozenia():
+    """Ile wymiarów stacji stoi jako `design_assumption`, a nie jako dana ze STIB.
+
+    Zdanie „układ stacji jest kanoniczny" jest prawdziwe dopóty, dopóki ta liczba
+    obejmuje WSZYSTKIE wymiary generatora. Spadnie w dniu, w którym pierwszy wymiar
+    dostanie źródło — i wtedy README ma o tym powiedzieć.
+
+    Liczba jest w README wypisana wprost, więc gra w obie strony: zmiana w module
+    bez zmiany w README zapala bramkę i odwrotnie. `TIGHTEST_STATION_FOOTPRINT_M`
+    do tej tabeli NIE należy i stoi poza nią — to pomiar z UrbIS, nie założenie.
+    """
+    return len(SC.DESIGN_ASSUMPTIONS)
+
+
+def wymiary_kabiny_z_zalozenia():
+    """To samo dla kabiny M7 — 6.D119 postawiło bryły, ale ani jednego wymiaru z danych.
+
+    `m7_cab` jest modułem BEZ `bpy` i to jest warunek tego pomiaru: bramka README
+    nie może wymagać Blendera, bo chodzi też tam, gdzie Blendera nie ma.
+    """
+    return len(CAB.DESIGN_ASSUMPTIONS)
+
+
 #: Punkty, których prawdziwość PILNUJE liczba z drzewa — 6.D104.
 #:
 #: **Semantyka ODWROTNA do `ZAPRZECZENIA` i to jest cała treść tego podziału.**
@@ -239,38 +268,45 @@ def dlugosc_pakietow_m():
 #: Zmierzone 10.09.2026 na `a202423`.
 POMIARY_BRAKOW = {
     "profilu pionowego": (osie_plaskie, 6,
-                          "osi z `vertical.status = not_modelled` i Z = 0"),
+                          "osi z `vertical.status = not_modelled` i Z = 0",
+                          r"Wszystkie \*\*(\w+)\*\* osi"),
+    "stacji wynikających z danych": (wymiary_stacji_z_zalozenia, 18,
+                                     "wymiarów stacji jako `design_assumption`",
+                                     r"\*\*(\d+)\*\* wymiarów jako `design_assumption`"),
     "wielu składów W SCENIE": (wezly_skladu_w_scenie, 1,
-                               "węzłów `TrainView` w `FirstRun.tscn`"),
+                               "węzłów `TrainView` w `FirstRun.tscn`",
+                               r"Scena pokazuje \*\*(\w+)\*\*"),
+    "wnętrza kabiny w scenie": (wymiary_kabiny_z_zalozenia, 24,
+                                "wymiarów kabiny jako `design_assumption`",
+                                r"\*\*(\d+)\*\* jej wymiary"),
     "ciągłego kilometrażu linii": (dlugosc_pakietow_m, 34481,
-                                   "metrów osi w sześciu pakietach"),
+                                   "metrów osi w sześciu pakietach",
+                                   None),
 }
 
-#: Punkty, które wpisu mieć NIE MOGĄ, z powodem podanym zdaniem — 6.D104.
-#: Pole „Wyjście" pozycji żąda tego wprost: „tabela ma nie rosnąć o wpisy, których
-#: nikt nie umie zapalić".
-POWODY_BEZ_WPISU = {
-    "stacji jako brył":
-        "Zdanie jest DZIŚ NIEPRAWDZIWE i wpis zapaliłby się natychmiast. "
-        "„Pierwsza stacja typowa (T-212) jest dopiero w planie\u201d — a T-212 stoi "
-        "w `docs/TASKS.md` jako `[x]`, scalone jako #137 (`fe14d72`), z wynikiem "
-        "37 brył na stacji Parc (`corridor=1, lift=1, mezzanine=2, portal=1, "
-        "stairs=28`) i z `tools/track/station_components.py` w drzewie. Druga "
-        "połowa punktu zostaje prawdą: układ antresoli i liczba wyjść NIE wynikają "
-        "z żadnych danych, wszystkie wymiary są `design_assumption`, i moduł mówi "
-        "to wprost. Poprawienie zdania to zmiana treści punktu README, którą pole "
-        "„Poza zakresem\u201d tej pozycji wyklucza — więc zostaje zmierzone "
-        "i zapisane, a nie naprawione po cichu.",
-    "kabiny i wnętrz":
-        "Fałszyfikatorem byłaby NAZWA, której dziś nie ma: generator kabiny "
-        "w `tools/blender/` albo węzeł wnętrza w scenie. `ZAPRZECZENIA` takiego "
-        "wpisu nie przyjmie, bo `test_the_denial_table_points_at_names_that_are_"
-        "really_in_the_core` odrzuca wpis wskazujący nazwę nieobecną — i słusznie: "
-        "taki wpis nie zapaliłby się nigdy. Liczbą też się tego nie zwiąże: "
-        "„zero generatorów kabiny\u201d wymagałoby zgadywania, jak taki plik "
-        "zostanie nazwany. `--view=cab` w scenie jest KAMERĄ, nie wnętrzem, więc "
-        "nie jest fałszyfikatorem.",
-}
+#: Punkty, które wpisu w `POMIARY_BRAKOW` mieć NIE MOGĄ, z powodem podanym zdaniem.
+#:
+#: **Tabela jest dziś PUSTA i to jest stan zmierzony, nie przeoczenie — 6.D121.**
+#: 6.D104 wpisało tu dwa punkty i oba z tego samego powodu: ich fałszyfikatorem
+#: byłaby NAZWA, której w drzewie nie ma, a bramka na zgadniętej nazwie milczy tym
+#: ciszej, im lepiej ktoś nazwie plik inaczej. Obie nazwy tymczasem powstały:
+#: `tools/track/station_components.py` stoi w drzewie od #137 (T-212), a
+#: `tools/blender/m7_cab.py` od 6.D119. Zdania README, które je wyprzedzały, były
+#: więc **nieprawdą** — i to jest cała treść pozycji 6.D121.
+#:
+#: Mechanizm zostaje, bo powód pisany jest pełnoprawnym rozstrzygnięciem i następny
+#: punkt sekcji może go potrzebować. Pustkę tej tabeli **przybija asercją**
+#: `test_each_written_reason_says_why_the_table_cannot_hold_the_entry`: pętla po
+#: pustym słowniku jest zielona, nie sprawdziwszy niczego, i dokładnie taki przyrząd
+#: projekt tropi od 6.D27.
+#:
+#: **Czego pomiar punktu o kabinie NIE obejmuje.** `wymiary_kabiny_z_zalozenia`
+#: pilnuje połowy zdania — tej o wymiarach. Druga połowa, „scena nie ma węzła
+#: wnętrza", zostaje **niepilnowana** i to jest świadome: jej fałszyfikatorem jest
+#: węzeł o nazwie, której nikt jeszcze nie wybrał, a licznik po WSZYSTKICH zasobach
+#: `FirstRun.tscn` zapalałby się na każdym dodanym drzewie i słupku. Zapisane tutaj,
+#: żeby nie trzeba było tego odkrywać z samego kodu.
+POWODY_BEZ_WPISU = {}
 
 
 def sekcja_brakow():
@@ -327,6 +363,32 @@ def test_the_denial_table_points_at_names_that_are_really_in_the_core():
         % braki.count("\n- **"))
 
 
+def punkt_tekst(fragment):
+    """Treść JEDNEGO punktu sekcji — od jego myślnika do myślnika następnego.
+
+    Bez tego cięcia liczba „18" z jednego punktu zaliczałaby się drugiemu: wzorce
+    z `POMIARY_BRAKOW` szukałyby jej w całej sekcji i każdy trafiałby na pierwszą
+    z brzegu. Punkt jest jednostką zdania, więc jest też jednostką sprawdzania.
+    """
+    czesci = sekcja_brakow().split("\n- **")
+    for czesc in czesci[1:]:
+        if fragment in czesc:
+            return "- **" + czesc
+    return None
+
+
+def liczba_z_readme(tekst, wzorzec):
+    """Liczba złapana wzorcem — cyfrą albo liczebnikiem. None, gdy wzorzec nie trafia."""
+    import re as _re
+    trafienie = _re.search(wzorzec, tekst or "")
+    if trafienie is None:
+        return None
+    zlapane = trafienie.group(1)
+    if zlapane.isdigit():
+        return int(zlapane)
+    return NUMERALS.get(zlapane.lower())
+
+
 def punkty_sekcji():
     """Fragmenty rozpoznawcze punktów sekcji „Czego nie ma", w kolejności z pliku."""
     braki = sekcja_brakow()
@@ -377,7 +439,7 @@ def test_the_true_absence_claims_still_match_the_numbers_in_the_tree():
     przeczyta go obok kodu.
     """
     zle = []
-    for zdanie, (pomiar, oczekiwane, opis) in sorted(POMIARY_BRAKOW.items()):
+    for zdanie, (pomiar, oczekiwane, opis, _wzorzec) in sorted(POMIARY_BRAKOW.items()):
         assert zdanie in sekcja_brakow(), (
             "punkt %r zniknął z README, a pomiar dla niego został — zdejmij wpis "
             "albo przywróć punkt" % zdanie)
@@ -391,6 +453,46 @@ def test_the_true_absence_claims_still_match_the_numbers_in_the_tree():
         for zdanie, opis, wartosc, oczekiwane in zle)
 
 
+def test_every_number_the_section_prints_is_the_number_the_tree_counts():
+    """Liczba WYPISANA w punkcie musi się zgadzać z liczoną z drzewa — 6.D121.
+
+    Bramka wyżej porównuje drzewo z wartością zapisaną TUTAJ, więc milczy, gdy ktoś
+    zmieni samo README: „18 wymiarów" przerobione na „19" nie ruszy ani modułu, ani
+    tego pliku. To jest ta sama dziura, przez którą README twierdził „41 plików"
+    przy czterdziestu czterech — liczba stojąca w jednym miejscu i nigdzie nie
+    liczona rozjeżdża się bezszelestnie.
+
+    Wpis bez wzorca (`None`) znaczy „ta liczba w README nie stoi" i jest legalny:
+    34 481 m jest w gałce bramki, a w prozie nie — wpisanie jej tam zrobiłoby
+    z README drugą kopię tej samej wiedzy.
+    """
+    sprawdzone = 0
+    zle = []
+    for zdanie, (pomiar, _oczekiwane, opis, wzorzec) in sorted(POMIARY_BRAKOW.items()):
+        tekst = punkt_tekst(zdanie)
+        assert tekst is not None, (
+            "punktu %r nie da się wyciąć z sekcji — cięcie po myślnikach się "
+            "rozjechało" % zdanie)
+        if wzorzec is None:
+            continue
+        z_readme = liczba_z_readme(tekst, wzorzec)
+        if z_readme is None:
+            zle.append((zdanie, "wzorzec %r nie trafia w tekst punktu" % wzorzec))
+            continue
+        sprawdzone += 1
+        if z_readme != pomiar():
+            zle.append((zdanie, "README pisze %d, drzewo liczy %d %s"
+                        % (z_readme, pomiar(), opis)))
+    assert zle == [], "\n".join("%s: %s" % para for para in zle)
+
+    # Bramka nie przechodzi pusta: gdyby każdy wpis stracił wzorzec, pętla wyżej
+    # nie porównałaby ani jednej pary i test byłby zielony z powodu, który nie ma
+    # nic wspólnego ze zgodnością.
+    z_wzorcem = [z for z, w in POMIARY_BRAKOW.items() if w[3] is not None]
+    assert sprawdzone == len(z_wzorcem) and sprawdzone >= 4, (
+        "porównano %d liczb przy %d wpisach ze wzorcem" % (sprawdzone, len(z_wzorcem)))
+
+
 def test_each_written_reason_says_why_the_table_cannot_hold_the_entry():
     """Powód ma być zdaniem, nie pustym miejscem — i ma nazywać mechanizm.
 
@@ -398,19 +500,33 @@ def test_each_written_reason_says_why_the_table_cannot_hold_the_entry():
     powodu, co lista wyjątków bez zapadki (6.A31). Test żąda długości zdania
     i nazwania tego, co przeszkadza.
     """
+    if not POWODY_BEZ_WPISU:
+        # 6.D121: tabela jest pusta, więc pętla niżej nie sprawdziłaby NICZEGO
+        # i zieleń tego testu znaczyłaby co innego, niż mówi jego nazwa. Zamiast
+        # milczeć — asercja na to, DLACZEGO jest pusta: skoro powodu nie ma ani
+        # jednego, pomiar musi mieć każdy z pięciu punktów.
+        assert set(POMIARY_BRAKOW) == set(PUNKTY_BRAKOW), (
+            "`POWODY_BEZ_WPISU` jest puste, a pomiaru nie mają: %s — punkt bez "
+            "żadnego z dwóch rozstrzygnięć nie jest pilnowany przez nic"
+            % sorted(set(PUNKTY_BRAKOW) - set(POMIARY_BRAKOW)))
+        return
+
+    sprawdzone = 0
     for zdanie, powod in sorted(POWODY_BEZ_WPISU.items()):
         assert zdanie in sekcja_brakow(), (
             "powód opisuje punkt %r, którego w README nie ma" % zdanie)
         assert len(powod) >= 200, (
             "powód dla %r ma %d znaków — to za mało, żeby nazwać mechanizm"
             % (zdanie, len(powod)))
+        sprawdzone += 1
+    assert sprawdzone == len(POWODY_BEZ_WPISU)
 
 
 def test_the_absence_measurements_are_not_all_reading_the_same_thing():
-    """Kontrola przyrządu: trzy pomiary czytają trzy różne miejsca drzewa.
+    """Kontrola przyrządu: pięć pomiarów czyta pięć różnych miejsc drzewa.
 
-    Trzy funkcje zwracające tę samą liczbę z tego samego pliku wyglądałyby
-    w werdykcie identycznie jak trzy niezależne. Ten test przybija, że każda
+    Pięć funkcji zwracających tę samą liczbę z tego samego pliku wyglądałoby
+    w werdykcie identycznie jak pięć niezależnych. Ten test przybija, że każda
     naprawdę patrzy gdzie indziej — i że każda umie zwrócić coś innego niż
     dziś, bo pomiar, który zwraca stałą, nie jest pomiarem.
     """
@@ -444,6 +560,44 @@ def test_the_absence_measurements_are_not_all_reading_the_same_thing():
     assert dlugosc_pakietow_m() < dlugosc_sieci_m, (
         "pakiety pokrywają %d m przy sieci %d m — zdanie „pokrywa pakiety, nie "
         "linie\u201d przestało być prawdziwe" % (dlugosc_pakietow_m(), dlugosc_sieci_m))
+
+    # Dwa pomiary z 6.D121 liczą ZAŁOŻENIA, a nie wszystkie stałe modułu. Gdyby
+    # liczyły wszystko, do stacji wliczyłby się `TIGHTEST_STATION_FOOTPRINT_M` —
+    # a to jest POMIAR z UrbIS i stoi poza tabelą właśnie dlatego.
+    assert "TIGHTEST_STATION_FOOTPRINT_M" not in SC.DESIGN_ASSUMPTIONS, (
+        "obrys stacji z UrbIS wpadł do tabeli założeń — pomiar zaczął się liczyć "
+        "jako zgadnięcie")
+    assert wymiary_stacji_z_zalozenia() == len(SC.DESIGN_ASSUMPTIONS) > 0
+    assert wymiary_kabiny_z_zalozenia() == len(CAB.DESIGN_ASSUMPTIONS) > 0
+
+    # I że to są dwa RÓŻNE moduły, a nie jeden czytany dwa razy: gdyby obie
+    # funkcje sięgały po ten sam słownik, obie zwróciłyby tę samą liczbę.
+    assert wymiary_stacji_z_zalozenia() != wymiary_kabiny_z_zalozenia(), (
+        "stacja i kabina dają tę samą liczbę założeń (%d) — sprawdź, czy obie "
+        "funkcje nie czytają tego samego modułu" % wymiary_stacji_z_zalozenia())
+    assert SC.DESIGN_ASSUMPTIONS is not CAB.DESIGN_ASSUMPTIONS
+
+    # Kabina musi się liczyć BEZ Blendera: ta bramka chodzi też tam, gdzie `bpy`
+    # nie ma, a import `bpy` w `m7_cab` wywróciłby cały moduł README.
+    #
+    # Liczone ze ŹRÓDŁA, nie z `sys.modules` — i to jest pomiar, nie wybór stylu.
+    # Pierwsza wersja asertowała `"bpy" not in sys.modules` i przechodziła w tym
+    # module SAMYM, a padała w pełnym zestawie: `test_blender_cli.py`,
+    # `test_detail_markers.py` i `test_marker_gates.py` wstawiają ATRAPĘ `bpy`
+    # do `sys.modules`, więc asercja mówiła o stanie całego przebiegu, a nie
+    # o tym, co wciągnął import kabiny. Przyrząd meldował sprawdzenie, którego
+    # nie zrobił — ta sama rodzina co 6.D27.
+    import ast
+    drzewo = ast.parse(_read(os.path.join(ROOT, "tools", "blender", "m7_cab.py")))
+    importy = set()
+    for wezel in ast.walk(drzewo):
+        if isinstance(wezel, ast.Import):
+            importy.update(a.name.split(".")[0] for a in wezel.names)
+        elif isinstance(wezel, ast.ImportFrom) and wezel.module:
+            importy.add(wezel.module.split(".")[0])
+    assert "bpy" not in importy, (
+        "`tools/blender/m7_cab.py` importuje `bpy` — bramka README przestała "
+        "chodzić bez Blendera; importy: %s" % sorted(importy))
 
 
 def test_readme_core_file_count_matches_repository():
