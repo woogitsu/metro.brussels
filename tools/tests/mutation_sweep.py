@@ -60,9 +60,11 @@ import ast
 import concurrent.futures
 import dataclasses
 import hashlib
+import importlib.util
 import json
 import os
 import re
+import struct
 import subprocess
 import sys
 import tempfile
@@ -940,6 +942,51 @@ def baseline_problem(worktree: str, timeout: int, run=run_suite) -> str | None:
             "a przegląd nie mierzy niczego")
 
 
+#: Nagłówek `.pyc` w CPythonie 3.7+: magia (4 B), flagi (4 B) i — gdy bit zerowy flag
+#: jest wyzerowany — para `(mtime źródła w SEKUNDACH, rozmiar w bajtach)`, po 4 bajty.
+#: Bajtkod po skrócie treści (bit zerowy ustawiony) pułapki nie ma, bo skrót zmienia
+#: się razem z każdą zmianą treści.
+NAGLOWEK_PYC = 16
+FLAGA_PO_SKROCIE = 0b1
+
+
+def bajtkod_przykrywa_zrodlo(path: str) -> bool:
+    """Czy CPython uzna leżący `.pyc` za ważny dla DZISIEJSZEJ treści `path`.
+
+    `True` znaczy: import weźmie stary bajtkod, a nie to, co jest w pliku — czyli
+    mutacja **nie wykona się** i „PRZEŻYŁA" znaczyłoby „nie została uruchomiona".
+    Mechanizm i jego pomiar: 6.D102, `tools/tests/test_bytecode_staleness.py`.
+
+    Czytany jest nagłówek, a nie `py_compile` ani import: pytanie brzmi „co zrobi
+    interpreter", a jedyną rzeczą, którą on w tym miejscu ogląda, jest ta para liczb.
+    """
+    cache = importlib.util.cache_from_source(path)
+    try:
+        with open(cache, "rb") as handle:
+            naglowek = handle.read(NAGLOWEK_PYC)
+    except OSError:
+        return False
+    if len(naglowek) < NAGLOWEK_PYC:
+        return False
+    if naglowek[:4] != importlib.util.MAGIC_NUMBER:
+        return False
+    flagi, mtime, rozmiar = struct.unpack("<III", naglowek[4:NAGLOWEK_PYC])
+    if flagi & FLAGA_PO_SKROCIE:
+        return False
+    stan = os.stat(path)
+    return (int(stan.st_mtime) & 0xFFFFFFFF) == mtime and (stan.st_size & 0xFFFFFFFF) == rozmiar
+
+
+def usun_bajtkod(path: str) -> bool:
+    """Kasuje `.pyc` dla `path`. `True`, gdy było co kasować."""
+    cache = importlib.util.cache_from_source(path)
+    try:
+        os.remove(cache)
+        return True
+    except OSError:
+        return False
+
+
 def check_one(worktree: str, mutation: Mutation, timeout: int, commit: str,
               executed: bool | None = None, odcisk: str | None = None) -> dict:
     """Jedna mutacja w jednym drzewie roboczym, z przywróceniem pliku.
@@ -957,6 +1004,12 @@ def check_one(worktree: str, mutation: Mutation, timeout: int, commit: str,
     try:
         with open(path, "w", encoding="utf-8") as handle:
             handle.write(mutation.apply(original))
+        # 6.D113: najpierw PYTANIE, potem sprzątanie — w tej kolejności, bo po
+        # skasowaniu `.pyc` nie ma już czego zmierzyć. `stary_bajtkod` mówi, czy
+        # ten przebieg WYKONAŁBY się na starym bajtkodzie, gdyby sweep nie czyścił;
+        # `usun_bajtkod` sprawia, że nie wykona się na nim NIGDY.
+        stary_bajtkod = bajtkod_przykrywa_zrodlo(path)
+        usun_bajtkod(path)
         passed, failed, code = run_suite(worktree, timeout)
     finally:
         with open(path, "w", encoding="utf-8") as handle:
@@ -970,6 +1023,10 @@ def check_one(worktree: str, mutation: Mutation, timeout: int, commit: str,
         # zeby takie przebiegi robic.
         "odcisk": odcisk,
         "rozstrzygniete": passed is not None,
+        # 6.D113: czy w chwili zapisu mutacji leżał `.pyc`, który CPython uznałby
+        # za ważny. Pole jest w KAŻDYM wpisie, także gdy `False`, bo zdanie „ani
+        # jedna mutacja nie poszła na starym bajtkodzie" wymaga policzenia wszystkich.
+        "stary_bajtkod": stary_bajtkod,
         "kod": code,
         "opis": mutation.describe(),
         "plik": mutation.path,
@@ -1786,6 +1843,13 @@ def main() -> int:
           f"zabitych {len(decided) - len(survived)}, ocalałych {len(survived)} "
           f"(w tym {len(cold)} nieuruchomionych), "
           f"nierozstrzygniętych {unknown}")
+    # 6.D113: liczba wypisana ZAWSZE, także gdy zero — bo „zero" jest tu wynikiem
+    # pomiaru, a milczenie byłoby nieodróżnialne od braku pomiaru.
+    stare = [r for r in results if r.get("stary_bajtkod")]
+    print(f"[MUTACJE] mutacji zapisanych pod ważnym starym bajtkodem: {len(stare)}"
+          " (sweep kasuje go przed każdym przebiegiem, więc żadna nie poszła na nim)")
+    for entry in stare:
+        print(f"  STARY BAJTKOD {entry['opis']}")
     for entry in survived:
         mark = {True: "OCALAŁA ", False: "NIEURUCH."}.get(entry.get("wykonana"), "OCALAŁA?")
         print(f"  {mark} {entry['opis']}")
