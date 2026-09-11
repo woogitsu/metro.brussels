@@ -609,6 +609,31 @@ if __name__ == "__main__":
 '''
 
 
+#: Które testy zdejmuje `neutralise_own_tests`, w członach ścieżki. Stała istnieje,
+#: żeby bramki chodzące po `tools/tests/` miały JEDNO źródło tej nazwy zamiast wpisywać
+#: ją drugi raz u siebie — dwa czytniki jednej rzeczy rozjeżdżają się po cichu (6.B28).
+WLASNE_TESTY = ("tools", "tests", "test_mutation_sweep.py")
+
+
+def czy_zaslepka(zrodlo: str) -> bool:
+    """Czy ta treść jest zaślepką, którą przegląd kładzie w drzewie roboczym.
+
+    **Po co to jest publiczne.** Zaślepka wywróciła już DWA RAZY cały przegląd, i za
+    każdym razem przez bramkę, która chodzi po `tools/tests/` i zaślepki nie rozpoznaje.
+    Pierwszy raz 07.09.2026: `test_module_entrypoints.py` zażądało strażnika `__main__`,
+    którego zaślepka wtedy nie miała (opisane w jej docstringu). Drugi raz 11.09.2026:
+    zapadka z 6.D127 zobaczyła moduł, który w drzewie roboczym nie ma ani jednej
+    asercji bez komunikatu, i zażądała zdjęcia wpisu z listy. W obu przypadkach skutek
+    był ten sam i jest gorszy niż czerwony test: `baseline_problem` widzi zestaw
+    padający w czystym drzewie i **przerywa przegląd, zanim ten policzy pierwszą
+    mutację**. Narzędzie znika, a jedyne, co o tym mówi, to jedna linia na stderr.
+
+    Porównanie jest z CAŁĄ treścią, nie z fragmentem: wyjątek ma obejmować dokładnie
+    ten plik, który przegląd sam podłożył, i ani jednego innego.
+    """
+    return zrodlo == OWN_TESTS_STUB
+
+
 def neutralise_own_tests(root: str) -> str | None:
     """Zdejmuje testy narzędzia z drzewa `root`, NIE kasując pliku.
 
@@ -626,7 +651,7 @@ def neutralise_own_tests(root: str) -> str | None:
     Narzędzie skłamało w tę samą stronę co przy OOM w wersji z 02.09.2026: zawyżyło
     pokrycie. Zaślepka zdejmuje testy tak samo skutecznie, a ścieżkę zostawia.
     """
-    own = os.path.join(root, "tools", "tests", "test_mutation_sweep.py")
+    own = os.path.join(root, *WLASNE_TESTY)
     if not os.path.isfile(own):
         return None
     with open(own, "w", encoding="utf-8") as handle:

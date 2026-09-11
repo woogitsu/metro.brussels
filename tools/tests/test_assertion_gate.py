@@ -16,6 +16,7 @@ import ast
 import atexit
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 
@@ -193,12 +194,19 @@ NIEME_ASERCJE = {
 NIEMYCH_RAZEM = sum(NIEME_ASERCJE.values())
 
 
-def _moduly_testowe():
-    """Ścieżki `tools/tests/*.py`, tą samą drogą co reszta skanów drzewa."""
+def _moduly_testowe(katalog=None):
+    """Ścieżki `<katalog>/*.py`, tą samą drogą co reszta skanów drzewa.
+
+    Argument jest po to, żeby kontrole tej bramki mogły puścić JĄ SAMĄ po drzewie
+    probnym, zamiast składać u siebie drugi skan tego samego kształtu (6.B28).
+    Domyślnie `KATALOG_TESTOW`, czyli to, co bramka mierzy naprawdę.
+    """
     import tree_walk as TW
 
+    baza_skanu = KATALOG_TESTOW if katalog is None else katalog
+    korzen = ROOT if katalog is None else katalog
     znalezione = []
-    for baza, _katalogi, pliki in TW.walk(KATALOG_TESTOW, ROOT):
+    for baza, _katalogi, pliki in TW.walk(baza_skanu, korzen):
         znalezione += [os.path.join(baza, n) for n in pliki if n.endswith(".py")]
     return sorted(znalezione)
 
@@ -218,15 +226,51 @@ def asercje_bez_komunikatu(zrodlo):
                if isinstance(w, ast.Assert) and w.msg is None)
 
 
-def nieme_w_drzewie():
+def nieme_w_drzewie(katalog=None):
     """`{nazwa modułu: ile}` — tylko moduły, w których jest co najmniej jedna."""
     policzone = {}
-    for sciezka in _moduly_testowe():
+    for sciezka in _moduly_testowe(katalog):
         with open(sciezka, encoding="utf-8") as uchwyt:
             ile = asercje_bez_komunikatu(uchwyt.read())
         if ile:
             policzone[os.path.basename(sciezka)] = ile
     return policzone
+
+
+def _zapisz(katalog, nazwa, tresc):
+    """Plik w drzewie probnym; zwraca ścieżkę."""
+    sciezka = os.path.join(katalog, nazwa)
+    with open(sciezka, "w", encoding="utf-8") as uchwyt:
+        uchwyt.write(tresc)
+    return sciezka
+
+
+def moduly_zaslepione(katalog=None):
+    """Moduły, które w TYM drzewie są zaślepką przeglądu mutacyjnego, nie sobą.
+
+    **Skąd ten wyjątek, 11.09.2026.** Przegląd mutacyjny pracuje na kopii
+    `git worktree add --detach HEAD`, w której `neutralise_own_tests` podmienia
+    `tools/tests/test_mutation_sweep.py` na zaślepkę — plik ZOSTAJE, bo jego ścieżkę
+    wymieniają raporty, ale treści już nie ma. Zaślepka nie ma ani jednej asercji bez
+    komunikatu, więc zapadka widziała wpis dla modułu, „który zniknął z drzewa",
+    i żądała jego zdjęcia. Skutek nie jest czerwonym testem: `baseline_problem` czyta
+    to jako „zestaw PADA w czystym drzewie" i **przerywa przegląd przed pierwszą
+    mutacją**. Zmierzone na `6d9c5dc`: zestaw w drzewie roboczym daje **2189/2190,
+    kod 1**, a `mutation_sweep.py --only lod_paths` kończy kodem 2 i nie liczy nic.
+
+    Wyjątek NIE jest zgodą na moduł bez komunikatów: dotyczy pliku, który sam przegląd
+    podłożył, rozpoznanego po CAŁEJ treści przez `mutation_sweep.czy_zaslepka`, i tylko
+    w tym drzewie, w którym leży. W drzewie repozytorium zbiór jest **pusty** i test
+    niżej tego pilnuje — inaczej wyjątek zwalniałby moduł z bramki na co dzień.
+    """
+    import mutation_sweep as MS
+
+    zaslepione = set()
+    for sciezka in _moduly_testowe(katalog):
+        with open(sciezka, encoding="utf-8") as uchwyt:
+            if MS.czy_zaslepka(uchwyt.read()):
+                zaslepione.add(os.path.basename(sciezka))
+    return zaslepione
 
 
 def test_lista_asercji_bez_komunikatu_moze_tylko_malec():
@@ -239,14 +283,33 @@ def test_lista_asercji_bez_komunikatu_moze_tylko_malec():
     naraz, asercja bez komunikatu jest nieodróżnialna od asercji, której nikt nie
     napisał.
     """
+    import mutation_sweep as MS
+
     w_drzewie = nieme_w_drzewie()
+    zaslepione = moduly_zaslepione()
+    # **Szerokość wyjątku sprawdzana TUTAJ, a nie tylko w osobnym teście, i zrobiła
+    # to kontrola KN-3, która wyszła ZIELONA.** Osobny test woła `moduly_zaslepione()`
+    # po swojemu, więc rozlanie wyjątku W TYM MIEJSCU było dla niego niewidzialne:
+    # podstawienie `set(NIEME_ASERCJE)` opróżnia `w_drzewie` ze wszystkiego, co lista
+    # pilnuje, a suma dostaje te same 2377 z drugiego składnika — zapadka staje się
+    # PUSTA i zostaje zielona. Asercja niżej jest jedyną, która to łapie.
+    assert zaslepione <= {MS.WLASNE_TESTY[-1]}, (
+        "wyjątek użyty przez zapadkę objął moduł, którego przegląd nie podmienia: "
+        "%s — zapadka zwolniona z pilnowania modułu zostaje zielona i o niczym nie "
+        "mówi" % sorted(zaslepione - {MS.WLASNE_TESTY[-1]}))
+    # Moduł podmieniony na zaślepkę nie jest sobą, więc nie jest mierzony — ani
+    # w tę stronę, że „ubyło", ani w tę, że „zniknął". Jego wpis z listy wchodzi
+    # do sumy osobno, niżej, bo inaczej suma mówiłaby o drzewie o jeden moduł
+    # mniejszym, nie zdradzając tego ani słowem.
+    w_drzewie = {n: ile for n, ile in w_drzewie.items() if n not in zaslepione}
 
     nowe = {n: ile for n, ile in w_drzewie.items() if n not in NIEME_ASERCJE}
     assert nowe == {}, (
         "moduł spoza listy ma asercje bez komunikatu: %s — nowy plik testowy "
         "zaczyna z komunikatem przy każdej asercji" % sorted(nowe.items()))
 
-    znikniete = {n: ile for n, ile in NIEME_ASERCJE.items() if n not in w_drzewie}
+    znikniete = {n: ile for n, ile in NIEME_ASERCJE.items()
+                 if n not in w_drzewie and n not in zaslepione}
     assert znikniete == {}, (
         "wpis na liście dla modułu, który już nie ma ani jednej takiej asercji "
         "(albo zniknął z drzewa): %s — zdejmij wpis w tym samym commicie"
@@ -269,9 +332,15 @@ def test_lista_asercji_bez_komunikatu_moze_tylko_malec():
     assert len(_moduly_testowe()) > 100, (
         "skan widzi %d modułów — liczenie jest zepsute, a nie drzewo puste"
         % len(_moduly_testowe()))
-    assert NIEMYCH_RAZEM == sum(w_drzewie.values()) == 2377, (
-        "suma z listy %d, suma z drzewa %d, pomiar z 11.09.2026 mówił 2377"
-        % (NIEMYCH_RAZEM, sum(w_drzewie.values())))
+    # Asercje modułów zaślepionych są POLICZONE Z LISTY, a nie pominięte: suma ma
+    # dotyczyć tego samego zbioru modułów, o którym mówi zapadka. Gdy zaślepki nie
+    # ma — a w drzewie repozytorium nie ma — składnik jest zerem i nic się nie zmienia.
+    zaslepione_z_listy = sum(NIEME_ASERCJE[n] for n in zaslepione if n in NIEME_ASERCJE)
+    assert NIEMYCH_RAZEM == sum(w_drzewie.values()) + zaslepione_z_listy == 2377, (
+        "suma z listy %d, suma z drzewa %d (+ %d z %d modułów zaślepionych: %s), "
+        "pomiar z 11.09.2026 mówił 2377"
+        % (NIEMYCH_RAZEM, sum(w_drzewie.values()), zaslepione_z_listy,
+           len(zaslepione), sorted(zaslepione) or "—"))
 
 
 def test_licznik_odroznia_assert_z_powodem_od_assert_bez():
@@ -909,6 +978,140 @@ def test_kompilacja_modulu_testowego_zada_optimize_wprost():
         "z interpretera i pod `-O` asercje znikają spod licznika")
     assert "dont_inherit=True" in kod, (
         "`compile` bez `dont_inherit` dziedziczy flagi __future__ i tryb z wołającego")
+
+
+def test_wyjatek_nie_obejmuje_zadnego_modulu_poza_wlasnymi_testami_przegladu():
+    """Wyjątek ma być wyjątkiem, a nie furtką — i to jest zdanie prawdziwe w OBU drzewach.
+
+    **Ten test jest przepisany, a nie dopisany obok, i zrobił to pomiar.** Pierwsza
+    wersja żądała zbioru PUSTEGO, „bo zaślepka ma prawo istnieć wyłącznie w drzewie
+    roboczym przeglądu". Zdanie jest prawdziwe, a bramka z niego zrobiona — nie:
+    zestaw w drzewie roboczym z zaślepką dał **2193/2194, kod 1**, czyli dokładnie
+    ten sam skutek, przed którym wyjątek miał bronić (`baseline_problem` przerywa
+    przegląd). Bramka nie umie odróżnić repozytorium od jego kopii roboczej, bo
+    treść pliku wygląda w obu tak samo.
+
+    Dzisiejsza wersja pilnuje tego, co da się sprawdzić z samej treści: wyjątek
+    obejmuje **wyłącznie** moduł, który przegląd sam podmienia. Za „zaślepka nie
+    została zacommitowana" odpowiada osobny test, pytający o to, o co trzeba —
+    o zawartość HEAD, a nie dysku.
+    """
+    import mutation_sweep as MS
+
+    wolno = {MS.WLASNE_TESTY[-1]}
+    zaslepione = moduly_zaslepione()
+    assert zaslepione <= wolno, (
+        "wyjątek objął moduł, którego przegląd nie podmienia: %s — wolno mu "
+        "obejmować tylko %s" % (sorted(zaslepione - wolno), sorted(wolno)))
+
+
+def test_zaslepka_nie_jest_tym_co_stoi_w_HEAD():
+    """Zaślepka w drzewie roboczym jest w porządku; zaślepka w HEAD to utrata testów.
+
+    Pytanie stawiane jest gitowi, a nie dyskowi, bo tylko ono rozróżnia oba
+    przypadki: w kopii roboczej przeglądu na dysku leży zaślepka, a w HEAD prawdziwe
+    testy — i to jest stan poprawny, którego poprzednia wersja poprzedniego testu
+    nie umiała odróżnić od awarii.
+    """
+    import mutation_sweep as MS
+
+    sciezka = "/".join(MS.WLASNE_TESTY)
+    wynik = subprocess.run(["git", "show", f"HEAD:{sciezka}"],
+                           cwd=ROOT, capture_output=True, text=True)
+    assert wynik.returncode == 0, (
+        "`git show HEAD:%s` skończyło kodem %d — bez odpowiedzi gita ta bramka nie "
+        "wie, czy zaślepka jest zacommitowana, więc milczy tylko wtedy, gdy WIE; "
+        "stderr: %s" % (sciezka, wynik.returncode, wynik.stderr.strip()[:200]))
+    assert not MS.czy_zaslepka(wynik.stdout), (
+        "w HEAD pod %s stoi zaślepka przeglądu — prawdziwe testy narzędzia zostały "
+        "zacommitowane jako zdjęte" % sciezka)
+
+
+def test_zaslepka_w_drzewie_probnym_jest_rozpoznana_a_podobna_do_niej_nie():
+    """Kontrola przyrządu na drzewie probnym, obie strony w jednym teście.
+
+    Rozpoznanie idzie przez `mutation_sweep.czy_zaslepka`, czyli przez CAŁĄ treść.
+    Drugi plik różni się od zaślepki **jedną literą** i ma być policzony normalnie —
+    inaczej wyjątek zwalniałby z bramki każdy plik, który zaczyna się tak samo.
+    """
+    import mutation_sweep as MS
+
+    with tempfile.TemporaryDirectory(prefix="metro-zaslepka-") as katalog:
+        _zapisz(katalog, "test_prawdziwy.py", "assert 1\nassert 2\n")
+        _zapisz(katalog, "test_mutation_sweep.py", MS.OWN_TESTS_STUB)
+        _zapisz(katalog, "test_prawie_zaslepka.py", MS.OWN_TESTS_STUB + "assert 1\n")
+
+        zaslepione = moduly_zaslepione(katalog)
+        assert zaslepione == {"test_mutation_sweep.py"}, (
+            "rozpoznane jako zaślepki: %s — miał być dokładnie jeden plik, ten "
+            "podłożony przez przegląd" % sorted(zaslepione))
+
+        w_drzewie = nieme_w_drzewie(katalog)
+        assert w_drzewie == {"test_prawdziwy.py": 2, "test_prawie_zaslepka.py": 1}, (
+            "licznik na drzewie probnym dał %s — plik różniący się od zaślepki jedną "
+            "asercją ma być policzony normalnie" % sorted(w_drzewie.items()))
+
+
+def test_bez_wyjatku_zapadka_zapalilaby_sie_na_drzewie_roboczym_przegladu():
+    """Pomiar, który ten wyjątek uzasadnia — na drzewie probnym, nie na opowieści.
+
+    Po lewej stronie stoi warunek SPRZED poprawki (`n not in w_drzewie`), po prawej
+    dzisiejszy. Test nie mierzy kodu bramki, tylko RÓŻNICĘ, którą wyjątek robi:
+    bez niego moduł zaślepiony jest „modułem, który zniknął z drzewa", a to w drzewie
+    roboczym przeglądu znaczy `baseline_problem` → przerwanie przed pierwszą mutacją.
+    """
+    import mutation_sweep as MS
+
+    with tempfile.TemporaryDirectory(prefix="metro-zaslepka-") as katalog:
+        _zapisz(katalog, "test_prawdziwy.py", "assert 1\nassert 2\n")
+        _zapisz(katalog, "test_mutation_sweep.py", MS.OWN_TESTS_STUB)
+
+        lista = {"test_prawdziwy.py": 2, "test_mutation_sweep.py": 7}
+        w_drzewie = nieme_w_drzewie(katalog)
+        zaslepione = moduly_zaslepione(katalog)
+
+        bez_wyjatku = {n: ile for n, ile in lista.items() if n not in w_drzewie}
+        assert bez_wyjatku == {"test_mutation_sweep.py": 7}, (
+            "warunek sprzed poprawki miał zgłosić zaślepiony moduł, a zgłosił %s"
+            % sorted(bez_wyjatku.items()))
+
+        z_wyjatkiem = {n: ile for n, ile in lista.items()
+                       if n not in w_drzewie and n not in zaslepione}
+        assert z_wyjatkiem == {}, (
+            "dzisiejszy warunek nadal coś zgłasza: %s" % sorted(z_wyjatkiem.items()))
+
+        # Drugi składnik sumy — ten sam rachunek, co w zapadce, wykonany tutaj,
+        # bo na drzewie repozytorium jest ZEREM i nie ćwiczy go nic. Bez tych trzech
+        # wierszy składnik byłby ubezpieczeniem, o którym wiadomo tylko tyle, że się
+        # kompiluje (ta sama lekcja co maska w 6.D131).
+        zaslepione_z_listy = sum(lista[n] for n in zaslepione if n in lista)
+        assert zaslepione_z_listy == 7, (
+            "z listy doliczono %d, a zaślepiony moduł ma tam wpis 7"
+            % zaslepione_z_listy)
+        assert sum(w_drzewie.values()) + zaslepione_z_listy == sum(lista.values()), (
+            "suma drzewa %d + %d z listy nie schodzi się z sumą listy %d — zapadka "
+            "mówiłaby wtedy o drzewie o jeden moduł mniejszym, nie zdradzając tego"
+            % (sum(w_drzewie.values()), zaslepione_z_listy, sum(lista.values())))
+
+
+def test_obie_bramki_czytaja_nazwe_wlasnych_testow_z_jednego_miejsca():
+    """`WLASNE_TESTY` ma być JEDYNYM zapisem tej nazwy po stronie przeglądu.
+
+    Gdyby `neutralise_own_tests` składała ścieżkę u siebie, a wyjątek wpisywał nazwę
+    u siebie, przemianowanie modułu rozjechałoby je po cichu — i objawiłoby się
+    dopiero przerwanym przeglądem, czyli tam, gdzie nikt nie szuka (6.B28).
+    """
+    import mutation_sweep as MS
+
+    assert MS.WLASNE_TESTY[-1] == "test_mutation_sweep.py", MS.WLASNE_TESTY
+    zrodlo = open(os.path.join(ROOT, "tools", "tests", "mutation_sweep.py"),
+                  encoding="utf-8").read()
+    kod = "\n".join(l for l in zrodlo.splitlines()
+                    if not l.lstrip().startswith("#") and not l.lstrip().startswith("#:"))
+    wprost = kod.count('"test_mutation_sweep.py"')
+    assert wprost == 1, (
+        "nazwa własnych testów stoi w kodzie `mutation_sweep.py` %d razy — ma stać "
+        "raz, w `WLASNE_TESTY`, a reszta ma ją czytać stamtąd" % wprost)
 
 
 if __name__ == "__main__":
