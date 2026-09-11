@@ -55,6 +55,253 @@ def _run(fn):
 # --- licznik: co się liczy jako asercja ------------------------------------------
 
 
+# --- 6.D127: asercje, które zgłaszają się bez ani jednego słowa -----------------
+
+#: Katalog skanowany. Ten sam, którego dotyczy pole „Wejście" pozycji 6.D127.
+KATALOG_TESTOW = os.path.join(ROOT, "tools", "tests")
+
+#: **Zmierzone 11.09.2026 na `e0543cd`:** w `tools/tests/` stoi **6264** asercji,
+#: z czego **3887** niesie komunikat, a **2377** nie niesie żadnego — w **103**
+#: modułach ze 121.
+#:
+#: **Dlaczego lista jest PER MODUŁ, a nie per asercja.** Zamknięta lista 2377 pozycji
+#: byłaby dłuższa od kodu, który opisuje, i rozjeżdżałaby się przy każdym przesunięciu
+#: wiersza. Moduł jest najmniejszą jednostką, którą da się wymienić z nazwy i która
+#: nie zmienia się od zmiany numeru wiersza.
+#:
+#: **Zapadka działa w OBIE strony i to jest treść pola „Skończone, gdy".** W górę:
+#: dopisanie asercji bez komunikatu zapala bramkę, bo liczba przestaje się zgadzać.
+#: W dół: dopisanie komunikatu też ją zapala — i to jest zamierzone, bo inaczej wpis
+#: zostawałby zawyżony i zwalniał moduł z pilnowania tylu asercji, ile zdążył
+#: naprawić. Obniżenie wpisu w tym samym commicie jest całym kosztem tej reguły.
+#:
+#: **Moduł spoza tej listy ma mieć ZERO.** Nowy plik testowy zaczyna z komunikatami
+#: przy każdej asercji; dopisanie go tutaj jest świadomym cofnięciem i wymaga zdania
+#: w commicie.
+#:
+#: **Czego ta bramka NIE robi:** nie poprawia dzisiejszych 2377 asercji. Pole „Poza
+#: zakresem" pozycji 6.D127 mówi o tym wprost — to praca liniowa w ich liczbie
+#: i osobna pozycja. Ta lista ma tylko móc **maleć**.
+NIEME_ASERCJE = {
+    "test_alignment.py": 77,
+    "test_all.py": 72,
+    "test_architecture_doc.py": 3,
+    "test_art_direction.py": 15,
+    "test_assertion_gate.py": 2,
+    "test_audio_rights.py": 25,
+    "test_backlog.py": 13,
+    "test_backlog_commands.py": 3,
+    "test_bin_path_framework.py": 15,
+    "test_blender_cli.py": 17,
+    "test_braking.py": 13,
+    "test_camera_aim.py": 39,
+    "test_capture_plan.py": 39,
+    "test_chunks.py": 65,
+    "test_ci_workflows.py": 64,
+    "test_clearance.py": 30,
+    "test_clearance_profile.py": 117,
+    "test_crosscheck_alignment.py": 37,
+    "test_crs.py": 1,
+    "test_crs_convergence.py": 1,
+    "test_curve_radius_axes.py": 8,
+    "test_data_freshness.py": 17,
+    "test_dead_constants.py": 1,
+    "test_dead_constants_csharp.py": 1,
+    "test_detail_layout.py": 59,
+    "test_detail_markers.py": 17,
+    "test_dimension_audit.py": 17,
+    "test_docs_ci_claims.py": 33,
+    "test_doctor_queue_claim.py": 1,
+    "test_dotnet_version.py": 13,
+    "test_engine_version.py": 11,
+    "test_environment_doc.py": 6,
+    "test_fetchers.py": 18,
+    "test_field_paths.py": 50,
+    "test_game_needle_specificity.py": 4,
+    "test_glb_report.py": 33,
+    "test_godot_warning_gate.py": 13,
+    "test_gtfs_stops.py": 40,
+    "test_hexdigest_truncation.py": 1,
+    "test_inspire_rail.py": 102,
+    "test_line_calls_gate.py": 4,
+    "test_line_trace_gate.py": 12,
+    "test_linecore_budget_gate.py": 10,
+    "test_lod.py": 81,
+    "test_lod_paths.py": 7,
+    "test_m7_cab.py": 1,
+    "test_m7_report.py": 22,
+    "test_m7_shell.py": 38,
+    "test_make_test_track.py": 10,
+    "test_manifest_write_policy.py": 6,
+    "test_marker_gates.py": 5,
+    "test_material_specs.py": 18,
+    "test_mutation_sweep.py": 76,
+    "test_needle_specificity.py": 3,
+    "test_network_chainage.py": 20,
+    "test_next_task.py": 1,
+    "test_osm_api_fallback.py": 22,
+    "test_osm_tile_cache.py": 13,
+    "test_packages.py": 30,
+    "test_parameter_boundaries.py": 44,
+    "test_placement.py": 45,
+    "test_platform_dimensions.py": 11,
+    "test_platform_length_in_pipeline.py": 1,
+    "test_png_pixels.py": 2,
+    "test_pr_template.py": 16,
+    "test_profile_scan.py": 33,
+    "test_provenance_retrieved_at_claim.py": 2,
+    "test_readme_claims.py": 22,
+    "test_reference_snapshot.py": 1,
+    "test_render_engine.py": 6,
+    "test_report_claims.py": 15,
+    "test_report_hygiene.py": 28,
+    "test_rights_matrix.py": 3,
+    "test_run_mode_claims.py": 7,
+    "test_scan_gates.py": 12,
+    "test_schedule_envelope.py": 32,
+    "test_shot_metadata_gate.py": 16,
+    "test_sim_untested_members.py": 2,
+    "test_snapshot_source.py": 16,
+    "test_station_components.py": 6,
+    "test_station_kit.py": 19,
+    "test_station_layout.py": 23,
+    "test_station_sections.py": 8,
+    "test_stations.py": 22,
+    "test_stop_names.py": 1,
+    "test_streaming_fixture.py": 1,
+    "test_suite_runtime_budget.py": 7,
+    "test_surface_sections.py": 84,
+    "test_sweep.py": 57,
+    "test_t401_citation.py": 6,
+    "test_timetable.py": 75,
+    "test_timing_record.py": 4,
+    "test_tree_walks.py": 3,
+    "test_tuning_constants.py": 3,
+    "test_tunnel_manifest.py": 42,
+    "test_tunnel_width.py": 73,
+    "test_validate_axis.py": 9,
+    "test_vehicle_fit.py": 23,
+    "test_vertical_profile.py": 4,
+    "test_visual.py": 92,
+    "test_visual_gates.py": 14,
+    "test_visual_identical_pixels.py": 9,
+    "test_xml_doc_blocks.py": 6,
+}
+
+#: Suma z listy wyżej, LICZONA, nie wpisana. Wpisana ręcznie rozjechałaby się przy
+#: pierwszym obniżonym wpisie — czyli dokładnie wtedy, gdy ktoś tę listę poprawia.
+NIEMYCH_RAZEM = sum(NIEME_ASERCJE.values())
+
+
+def _moduly_testowe():
+    """Ścieżki `tools/tests/*.py`, tą samą drogą co reszta skanów drzewa."""
+    import tree_walk as TW
+
+    znalezione = []
+    for baza, _katalogi, pliki in TW.walk(KATALOG_TESTOW, ROOT):
+        znalezione += [os.path.join(baza, n) for n in pliki if n.endswith(".py")]
+    return sorted(znalezione)
+
+
+def asercje_bez_komunikatu(zrodlo):
+    """Ile `assert` w tym źródle nie niesie drugiego argumentu.
+
+    Liczone z DRZEWA SKŁADNI, nie grepem: `assert x, "powód"` i `assert x` różnią
+    się obecnością pola `msg`, a nie obecnością przecinka — `assert (a, b)` ma
+    przecinek i komunikatu nie ma (jest zawsze prawdziwy, bo krotka).
+    """
+    try:
+        drzewo = ast.parse(zrodlo)
+    except SyntaxError:
+        return None
+    return sum(1 for w in ast.walk(drzewo)
+               if isinstance(w, ast.Assert) and w.msg is None)
+
+
+def nieme_w_drzewie():
+    """`{nazwa modułu: ile}` — tylko moduły, w których jest co najmniej jedna."""
+    policzone = {}
+    for sciezka in _moduly_testowe():
+        with open(sciezka, encoding="utf-8") as uchwyt:
+            ile = asercje_bez_komunikatu(uchwyt.read())
+        if ile:
+            policzone[os.path.basename(sciezka)] = ile
+    return policzone
+
+
+def test_lista_asercji_bez_komunikatu_moze_tylko_malec():
+    """Zapadka z obu stron na liczbie asercji bez komunikatu — 6.D127.
+
+    **Po co.** Czerwień bez zdania każe czytać KOD zamiast komunikatu, a w CI czyta
+    się wypis, nie kod. Zmierzone dwa razy: KN-3 przy 6.D117 dała
+    `FAIL test_generated_files_are_excluded_from_the_count:` — dwukropek i nic dalej;
+    to samo zauważono przy 6.D106. Przy przebiegu, w którym pada kilkanaście testów
+    naraz, asercja bez komunikatu jest nieodróżnialna od asercji, której nikt nie
+    napisał.
+    """
+    w_drzewie = nieme_w_drzewie()
+
+    nowe = {n: ile for n, ile in w_drzewie.items() if n not in NIEME_ASERCJE}
+    assert nowe == {}, (
+        "moduł spoza listy ma asercje bez komunikatu: %s — nowy plik testowy "
+        "zaczyna z komunikatem przy każdej asercji" % sorted(nowe.items()))
+
+    znikniete = {n: ile for n, ile in NIEME_ASERCJE.items() if n not in w_drzewie}
+    assert znikniete == {}, (
+        "wpis na liście dla modułu, który już nie ma ani jednej takiej asercji "
+        "(albo zniknął z drzewa): %s — zdejmij wpis w tym samym commicie"
+        % sorted(znikniete))
+
+    wzroslo = [(n, NIEME_ASERCJE[n], ile) for n, ile in sorted(w_drzewie.items())
+               if ile > NIEME_ASERCJE.get(n, 0)]
+    assert wzroslo == [], (
+        "asercji bez komunikatu PRZYBYŁO (moduł, było, jest): %s — nowa asercja "
+        "ma nieść powód" % wzroslo)
+
+    zmalalo = [(n, NIEME_ASERCJE[n], ile) for n, ile in sorted(w_drzewie.items())
+               if ile < NIEME_ASERCJE.get(n, 0)]
+    assert zmalalo == [], (
+        "asercji bez komunikatu UBYŁO (moduł, było, jest): %s — obniż wpis w tym "
+        "samym commicie, inaczej lista zwalnia moduł z pilnowania tylu asercji, "
+        "ile zdążył naprawić" % zmalalo)
+
+    # Bramka nie przechodzi pusta: pusty skan znaczy zepsute liczenie, a nie zgodę.
+    assert len(_moduly_testowe()) > 100, (
+        "skan widzi %d modułów — liczenie jest zepsute, a nie drzewo puste"
+        % len(_moduly_testowe()))
+    assert NIEMYCH_RAZEM == sum(w_drzewie.values()) == 2377, (
+        "suma z listy %d, suma z drzewa %d, pomiar z 11.09.2026 mówił 2377"
+        % (NIEMYCH_RAZEM, sum(w_drzewie.values())))
+
+
+def test_licznik_odroznia_assert_z_powodem_od_assert_bez():
+    """Kontrola przyrządu: różnica `assert x` kontra `assert x, "powód"` — na wejściu
+    syntetycznym, bo na drzewie obie wersje dają tę samą zieleń.
+
+    Trzeci przypadek jest tu najważniejszy i nie jest hipotetyczny: `assert (a, b)`
+    MA przecinek, a komunikatu nie ma — jest krotką, czyli zawsze prawdziwy. Grep po
+    przecinku policzyłby go jako asercję z powodem i przepuścił test, który nie
+    sprawdza NICZEGO.
+    """
+    assert asercje_bez_komunikatu("assert x\n") == 1, "goły `assert` nie został policzony"
+    assert asercje_bez_komunikatu('assert x, "powod"\n') == 0, (
+        "asercja Z komunikatem policzona jako niema")
+    assert asercje_bez_komunikatu("assert (a, b)\n") == 1, (
+        "`assert (a, b)` policzone jako asercja z komunikatem — a to krotka, "
+        "czyli asercja zawsze prawdziwa")
+    assert asercje_bez_komunikatu("assert x\nassert y, 'p'\nassert z\n") == 2, (
+        "licznik nie rozdziela trzech asercji w jednym źródle")
+    assert asercje_bez_komunikatu("x = 1\n") == 0, (
+        "źródło bez ani jednej asercji dało wynik niezerowy")
+    assert asercje_bez_komunikatu("def f(:\n") is None, (
+        "plik z błędem składni ma dać None, a nie zero — zero czytałoby się "
+        "jako „sprawdzone i czysto\u201d")
+
+    # I że skan naprawdę czyta pliki z drzewa, a nie tylko umie parsować napisy.
+    wlasny = os.path.join(KATALOG_TESTOW, "test_assertion_gate.py")
+    assert wlasny in _moduly_testowe(), "skan nie widzi nawet siebie"
+
+
 def test_gate_counts_a_plain_assert():
     module = _load("def test_x():\n    assert 1 == 1\n")
     state, _message, checks = _run(module.test_x)
