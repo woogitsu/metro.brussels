@@ -1279,6 +1279,86 @@ def sweep(mutations: list[Mutation], workers: int, timeout: int, out_dir: str,
     return results
 
 
+#: Nazwa pola, którego brak odróżnia wpis sprzed 6.D113 od wpisu zmierzonego.
+POLE_STAREGO_BAJTKODU = "stary_bajtkod"
+
+#: Trzeci stan licznika: wpis, którego NIE ZMIERZONO — nie „zmierzono i wyszło False".
+NIEZMIERZONY = "niezmierzony"
+
+
+def stan_starego_bajtkodu(entry: dict):
+    """`True`, `False` albo `NIEZMIERZONY` dla jednego wpisu dziennika.
+
+    Wpisy sprzed 6.D113 pola nie mają w ogóle. `dict.get` zwraca dla nich `None`,
+    które jest FAŁSZYWE — i dlatego do 11.09.2026 wpadały do tej samej kupki, co
+    wpisy zmierzone z wynikiem `False`. Różnica między „zmierzono i nie było" a „nie
+    zmierzono" jest tu całą treścią: pierwsze uprawnia do zdania „żadna mutacja nie
+    poszła na starym bajtkodzie", drugie nie uprawnia do niczego.
+
+    Wartość spoza `True`/`False` — a `null` w ręcznie poprawionym dzienniku jest
+    dokładnie taką wartością — liczy się jako niezmierzona, bo pomiaru za nią nie ma.
+    """
+    wartosc = entry.get(POLE_STAREGO_BAJTKODU)
+    if wartosc is True or wartosc is False:
+        return wartosc
+    return NIEZMIERZONY
+
+
+def podzial_starego_bajtkodu(results: list[dict]) -> dict:
+    """`{True: […], False: […], NIEZMIERZONY: […]}` — trzy kupki, nie dwie."""
+    podzial = {True: [], False: [], NIEZMIERZONY: []}
+    for entry in results:
+        podzial[stan_starego_bajtkodu(entry)].append(entry)
+    return podzial
+
+
+def wiersze_starego_bajtkodu(results: list[dict]) -> list[str]:
+    """Wypis licznika starego bajtkodu, z mianownikiem i z trzecim stanem — 6.D132.
+
+    **Co było nie tak.** Do 11.09.2026 wypis brzmiał „mutacji zapisanych pod ważnym
+    starym bajtkodem: N (sweep kasuje go przed każdym przebiegiem, więc żadna nie
+    poszła na nim)". Zdanie w nawiasie mówi o WSZYSTKICH mutacjach przebiegu, a liczba
+    przed nim powstaje z `r.get("stary_bajtkod")`, czyli liczy tylko te, które to pole
+    mają. Wpis sprzed 6.D113 pola nie ma, `None` jest fałszywe, więc wpadał do kupki
+    „zmierzono, nie było" i nie zostawiał po sobie śladu.
+
+    **Że to jest osiągalne, jest ZMIERZONE, a nie wywnioskowane z kodu.** Dziennik
+    sprzed 6.D113 niesie `commit` (6.B19) i `odcisk` (6.B32), bo obie te poprawki są
+    starsze — więc przechodzi wszystkie trzy odmowy wznowienia. Pomiar z 11.09.2026 na
+    `e6a7c74`, dziennik z jednym takim wpisem i jedną mutacją do policzenia:
+    `wznowienie z …: 1 z 2 już policzonych`, a wypis dawał
+    `mutacji zapisanych pod ważnym starym bajtkodem: 0` — zero z DWÓCH, z których
+    zmierzono JEDNĄ. Liczby `2` nie było w wypisie nigdzie.
+
+    **Wiersz o niezmierzonych stoi także wtedy, gdy jest ich zero**, i jest to ta sama
+    zasada, którą 6.D113 zapisało dla wiersza wyżej: „zero" jest wynikiem pomiaru,
+    a milczenie jest od braku pomiaru nieodróżnialne. Tu dochodzi drugi powód: bez
+    tego wiersza mianownik `z N zmierzonych` nie ma z czym się różnić i czyta się jak
+    ozdobnik.
+    """
+    podzial = podzial_starego_bajtkodu(results)
+    pod_bajtkodem = podzial[True]
+    zmierzone = len(pod_bajtkodem) + len(podzial[False])
+    niezmierzone = podzial[NIEZMIERZONY]
+
+    out = [f"[MUTACJE] mutacji zapisanych pod ważnym starym bajtkodem: "
+           f"{len(pod_bajtkodem)} z {zmierzone} ZMIERZONYCH (sweep kasuje go przed "
+           "każdym przebiegiem, więc żadna zmierzona nie poszła na nim)"]
+    if niezmierzone:
+        out.append(f"[MUTACJE] wpisów BEZ tego pomiaru: {len(niezmierzone)} z "
+                   f"{len(results)} — dziennik sprzed 6.D113 pola `"
+                   f"{POLE_STAREGO_BAJTKODU}` nie ma, więc licznik wyżej o tych "
+                   "mutacjach nie mówi NIC")
+    else:
+        out.append(f"[MUTACJE] wpisów BEZ tego pomiaru: 0 z {len(results)} — "
+                   "licznik wyżej dotyczy całego przebiegu")
+    for entry in pod_bajtkodem:
+        out.append(f"  STARY BAJTKOD {entry['opis']}")
+    for entry in niezmierzone:
+        out.append(f"  BEZ POMIARU   {entry['opis']}")
+    return out
+
+
 def naglowek_odciskow(odciski: dict) -> list[str]:
     """Wiersze naglowka raportu, ktore mowia, Z JAKIEJ TRESCI powstaly liczby.
 
@@ -1967,11 +2047,10 @@ def main() -> int:
           f"nierozstrzygniętych {unknown}")
     # 6.D113: liczba wypisana ZAWSZE, także gdy zero — bo „zero" jest tu wynikiem
     # pomiaru, a milczenie byłoby nieodróżnialne od braku pomiaru.
-    stare = [r for r in results if r.get("stary_bajtkod")]
-    print(f"[MUTACJE] mutacji zapisanych pod ważnym starym bajtkodem: {len(stare)}"
-          " (sweep kasuje go przed każdym przebiegiem, więc żadna nie poszła na nim)")
-    for entry in stare:
-        print(f"  STARY BAJTKOD {entry['opis']}")
+    # 6.D132: ta sama zasada zastosowana o jeden poziom głębiej — patrz
+    # `wiersze_starego_bajtkodu`.
+    for wiersz in wiersze_starego_bajtkodu(results):
+        print(wiersz)
     for entry in survived:
         mark = {True: "OCALAŁA ", False: "NIEURUCH."}.get(entry.get("wykonana"), "OCALAŁA?")
         print(f"  {mark} {entry['opis']}")
