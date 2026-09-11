@@ -248,6 +248,132 @@ def test_audit_says_the_cab_is_canonical_and_not_an_M7_cab():
     assert "design_assumption" in sekcja, sekcja[:400]
 
 
+# --- 6.D139: ZBIORY nazw, a nie same liczby -------------------------------------
+
+#: Nazwa stałej w komórce tabeli audytu: pierwsza kolumna, w grawisach, wielkimi
+#: literami. Kotwiczone na POCZĄTKU wiersza, więc prozę i dalsze kolumny mija.
+NAZWA_W_TABELI = re.compile(r"^\| `([A-Z][A-Z0-9_]*)` \|", re.M)
+
+#: Sekcje audytu i moduły, których dotyczą. Nagłówek podany dokładnie tak, jak stoi
+#: w dokumencie — bez tego skan brałby tabele z sekcji sąsiednich.
+SEKCJE_WYMIAROW = (
+    ("## 4e.", "station_components", 18),
+    ("## 4g.", "m7_cab", 24),
+)
+
+
+def sekcja_audytu(naglowek, tekst=None):
+    """Treść jednej sekcji `##` dokumentu audytu, bez następnych.
+
+    **Cięcie po nagłówku, a nie skan całego pliku, i to jest sedno 6.D139.** Bramki
+    z T-212 i 6.D119 pytają `f"\`{nazwa}\`" not in text`, czyli o obecność nazwy
+    GDZIEKOLWIEK w dokumencie — wpis przeniesiony do innej sekcji albo wspomniany
+    w prozie zaspokaja je tak samo dobrze jak wiersz tabeli.
+    """
+    tekst = tekst if tekst is not None else _audit_text()
+    poczatek = tekst.index(naglowek)
+    koniec = tekst.find("\n## ", poczatek + 1)
+    return tekst[poczatek: koniec if koniec > 0 else len(tekst)]
+
+
+def nazwy_w_sekcji(naglowek, tekst=None):
+    """Zbiór nazw stałych wypisanych w tabeli danej sekcji."""
+    return set(NAZWA_W_TABELI.findall(sekcja_audytu(naglowek, tekst)))
+
+
+def nazwy_modulu(modul):
+    """Zbiór nazw stałych projektowych modułu, w postaci, w jakiej stoją w audycie.
+
+    `station_components` trzyma klucze `DESIGN_*_M` wprost; `m7_cab` trzyma je
+    małymi literami bez przedrostka (`cab_bulkhead_m`), bo są kluczami słownika
+    przekazywanego do generatora. Odwzorowanie jest regularne — `DESIGN_` + wielkie
+    litery — i test niżej żąda, żeby było BIJEKCJĄ na stałe modułowe, a nie żeby
+    się „zwykle zgadzało".
+    """
+    return {n for n in dir(modul)
+            if n.startswith("DESIGN_") and n != "DESIGN_ASSUMPTIONS"}
+
+
+def test_audyt_i_moduly_wymieniaja_TE_SAME_wymiary_a_nie_tyle_samo():
+    """**Sedno 6.D139: porównanie ZBIORÓW, w obie strony, w obrębie sekcji.**
+
+    Bramki z T-212 i 6.D119 pytają w jedną stronę: czy każda stała modułu ma wpis.
+    Nazwa, która **została w dokumencie**, choć z modułu zniknęła, nie zapala nic —
+    a dokument mówi wtedy o wymiarze, którego nie ma. Licznik też by tego nie złapał:
+    wymiana jednego wymiaru na inny zostawia sumę bez zmian i to jest przypadek,
+    który pole „Skończone, gdy" tej pozycji nazywa wprost.
+    """
+    tekst = _audit_text()
+    moduly = {"station_components": station_components, "m7_cab": m7_cab}
+
+    for naglowek, nazwa_modulu, ile in SEKCJE_WYMIAROW:
+        modul = moduly[nazwa_modulu]
+        w_dokumencie = nazwy_w_sekcji(naglowek, tekst)
+        w_module = nazwy_modulu(modul)
+
+        assert w_dokumencie == w_module, (
+            "sekcja %s audytu i moduł `%s` wymieniają RÓŻNE wymiary — tylko "
+            "w dokumencie: %s; tylko w module: %s"
+            % (naglowek.strip("# ."), nazwa_modulu,
+               sorted(w_dokumencie - w_module), sorted(w_module - w_dokumencie)))
+        assert len(w_dokumencie) == ile, (
+            "sekcja %s wymienia %d wymiarów, a pomiar z 11.09.2026 mówił %d — "
+            "jeśli to zmiana świadoma, popraw liczbę tutaj i w README w tym samym "
+            "commicie" % (naglowek.strip("# ."), len(w_dokumencie), ile))
+
+
+def test_odwzorowanie_kluczy_kabiny_na_nazwy_stalych_jest_BIJEKCJA():
+    """Klucze słownika kabiny a stałe modułowe — jedno i to samo, tylko inaczej pisane.
+
+    Bez tego testu porównanie zbiorów wyżej mogłoby przejść, gdy słownik
+    `DESIGN_ASSUMPTIONS` rozjedzie się ze stałymi: audyt zgadzałby się ze stałymi,
+    a generator dostawałby co innego. `station_components` ma tu trywialną tożsamość
+    i to też jest sprawdzone — bo „trywialna" znaczy „dziś", a nie „zawsze".
+    """
+    z_kluczy = {"DESIGN_" + klucz.upper() for klucz in m7_cab.DESIGN_ASSUMPTIONS}
+    assert z_kluczy == nazwy_modulu(m7_cab), (
+        "klucze `m7_cab.DESIGN_ASSUMPTIONS` nie odwzorowują się na stałe modułowe — "
+        "tylko z kluczy: %s; tylko ze stałych: %s"
+        % (sorted(z_kluczy - nazwy_modulu(m7_cab)),
+           sorted(nazwy_modulu(m7_cab) - z_kluczy)))
+    assert len(m7_cab.DESIGN_ASSUMPTIONS) == 24, len(m7_cab.DESIGN_ASSUMPTIONS)
+
+    assert set(station_components.DESIGN_ASSUMPTIONS) == nazwy_modulu(station_components), (
+        "klucze `station_components.DESIGN_ASSUMPTIONS` przestały być tymi samymi "
+        "nazwami, co stałe modułowe")
+    assert len(station_components.DESIGN_ASSUMPTIONS) == 18, (
+        len(station_components.DESIGN_ASSUMPTIONS))
+
+
+def test_skan_nazw_czyta_TABELE_a_nie_caly_dokument():
+    """Kontrola przyrządu na wejściu syntetycznym, obie strony.
+
+    Pierwsza połowa: nazwa w prozie sekcji nie liczy się jako wpis — inaczej
+    „wspomniałem o niej zdaniem" zaspokajałoby bramkę tak samo jak wiersz tabeli.
+    Druga: cięcie po nagłówku naprawdę odcina sekcję następną.
+    """
+    probny = (
+        "## 4e. Pierwsza\n\n"
+        "Proza mówiąca o `DESIGN_Z_PROZY_M`, która wpisu w tabeli nie ma.\n\n"
+        "| stała | wartość |\n|---|---|\n"
+        "| `DESIGN_PIERWSZA_M` | 1,0 m |\n\n"
+        "## 4g. Druga\n\n"
+        "| stała | wartość |\n|---|---|\n"
+        "| `DESIGN_DRUGA_M` | 2,0 m |\n")
+
+    assert nazwy_w_sekcji("## 4e.", probny) == {"DESIGN_PIERWSZA_M"}, (
+        "skan sekcji pierwszej dał %s — proza albo sekcja następna weszły do zbioru"
+        % sorted(nazwy_w_sekcji("## 4e.", probny)))
+    assert nazwy_w_sekcji("## 4g.", probny) == {"DESIGN_DRUGA_M"}, (
+        sorted(nazwy_w_sekcji("## 4g.", probny)))
+
+    # I strona trzecia: dawna reguła („nazwa gdziekolwiek w dokumencie") przepuściłaby
+    # nazwę z prozy. Wykonana tutaj, żeby różnica była POKAZANA, a nie opowiedziana.
+    assert "`DESIGN_Z_PROZY_M`" in probny, "wejście syntetyczne nie zawiera nazwy z prozy"
+    assert "DESIGN_Z_PROZY_M" not in nazwy_w_sekcji("## 4e.", probny), (
+        "nazwa wspomniana w prozie weszła do zbioru wpisów tabeli")
+
+
 # --- długość peronu w prozie -----------------------------------------------------
 
 TASKS = os.path.join(ROOT, "docs", "TASKS.md")
