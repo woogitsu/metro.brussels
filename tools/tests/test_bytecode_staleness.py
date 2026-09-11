@@ -71,9 +71,32 @@ def _laboratorium(katalog):
         handle.write("import mod\nprint(mod.F0_N)\n")
 
 
-def _zapisz(katalog, wartosc):
-    with open(os.path.join(katalog, "mod.py"), "w", encoding="utf-8") as handle:
+def _zapisz(katalog, wartosc, mtime=None):
+    """Zapisuje `mod.py`; `mtime` USTAWIA czas modyfikacji zamiast brać zegar.
+
+    **Po co ustawiać czas, skoro pulapka bierze sie z zegara.** Bo pulapka bierze
+    sie z PARY `(mtime w sekundach, rozmiar)`, a „ten sam czas" wychodzi z zegara
+    tylko wtedy, gdy oba zapisy trafia w te sama sekunde — i to jest los, nie
+    warunek. Zmierzone 11.09.2026 na 200 przebiegach tej sekwencji bez obciazenia:
+    **5 razy** zapis mutacji wypadl w innej sekundzie niz zapis bazy, i za kazdym
+    z tych 5 razy mutacja byla WIDOCZNA, czyli test padal. Przy obciazeniu jest
+    gorzej: przeglad mutacyjny przerywal na kalibracji, bo w drzewie roboczym
+    `test_stary_bajtkod_potrafi_ukryc_mutacje` padalo przy czterech zestawach naraz.
+
+    Ustawienie czasu nie zamienia wiec pomiaru na zalozenie — odtwarza DOKLADNIE
+    ten warunek, ktorego pulapka wymaga, zamiast czekac, az wypadnie sam. To, co
+    test mierzy, zostaje to samo: czy CPython przy tej parze siegnie po stary
+    bajtkod.
+    """
+    sciezka = os.path.join(katalog, "mod.py")
+    with open(sciezka, "w", encoding="utf-8") as handle:
         handle.write('F0_N = "%s"\n' % wartosc)
+    if mtime is not None:
+        os.utime(sciezka, (mtime, mtime))
+
+
+def _mtime(katalog):
+    return os.stat(os.path.join(katalog, "mod.py")).st_mtime
 
 
 def _bieg(katalog, bez_bajtkodu=False):
@@ -111,11 +134,45 @@ def _sekwencja(bez_bajtkodu_wszedzie=False, bez_bajtkodu_na_kontroli=False,
     """
     with tempfile.TemporaryDirectory() as katalog:
         _laboratorium(katalog)
+        zegar = _mtime(katalog)
         baza = _bieg(katalog, bez_bajtkodu_wszedzie)
         if czysc_przed_mutacja:
             _czysc(katalog)
-        _zapisz(katalog, MUTACJA)
+        # Czas zapisu mutacji USTAWIONY na czas zapisu bazy — patrz `_zapisz`.
+        # Bez tego warunek pulapki zachodzil losowo (zmierzone: 195 razy na 200).
+        _zapisz(katalog, MUTACJA, mtime=zegar)
         return baza, _bieg(katalog, bez_bajtkodu_wszedzie or bez_bajtkodu_na_kontroli)
+
+
+def test_sekwencja_USTAWIA_czas_zamiast_liczyc_na_zegar():
+    """Warunek pulapki ma zachodzic ZAWSZE, a nie wtedy, gdy zegar sprzyja.
+
+    **Bez tego testu poprawka jest niewidoczna dla zestawu.** Cofniecie `_zapisz`
+    do brania czasu z zegara nie zapala niczego w zwyklym przebiegu — bo w 195
+    przebiegach na 200 zegar sprzyja. Zmierzone 11.09.2026: wersja zegarowa dala
+    **5 porazek na 200**, wersja z `os.utime` — **0 na 200**. Test pyta wiec o to,
+    co odroznia obie wersje: czy zapis mutacji dostal czas USTAWIONY.
+
+    To ta sama rodzina co 6.D27: przebieg zielony nie odroznia procedury, ktora
+    dziala, od procedury, ktorej zadzialanie jest losowe.
+    """
+    zapisy = []
+    zastane = globals()["_zapisz"]
+
+    def podglad(katalog, wartosc, mtime=None):
+        zapisy.append(mtime)
+        return zastane(katalog, wartosc, mtime)
+
+    globals()["_zapisz"] = podglad
+    try:
+        baza, mutacja = _sekwencja()
+    finally:
+        globals()["_zapisz"] = zastane
+
+    assert baza == ORYGINAL and mutacja == ORYGINAL, (baza, mutacja)
+    assert zapisy and zapisy[-1] is not None, (
+        "zapis mutacji wzial czas z zegara zamiast go ustawic — warunek pulapki "
+        "zachodzi wtedy losowo: %r" % (zapisy,))
 
 
 def test_stary_bajtkod_potrafi_ukryc_mutacje():

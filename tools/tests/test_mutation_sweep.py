@@ -1401,6 +1401,153 @@ def test_odmowa_patrzy_na_plik_wpisu_a_nie_na_jego_tresc():
 # --- 6.B19: wpis dziennika niesie commit, wznowienie z obcego drzewa jest odmówione --
 
 
+#: Dwie tresci TEJ SAMEJ DLUGOSCI. Rowna dlugosc jest tu warunkiem, nie ozdoba:
+#: CPython uznaje `.pyc` za wazny po parze `(mtime w sekundach, rozmiar)`, wiec
+#: mutacja krotsza albo dluzsza unieważnia bajtkod sama z siebie i pulapki nie ma.
+BAZA_LAB = 'F0_N = "248900.0"\n'
+MUTACJA_LAB = 'F0_N = "251389.0"\n'
+
+
+def _laboratorium_bajtkodu(katalog):
+    """`mod.py` i `use.py`, ktory go importuje — najmniejsza scena pulapki 6.D102."""
+    assert len(BAZA_LAB) == len(MUTACJA_LAB), (len(BAZA_LAB), len(MUTACJA_LAB))
+    with open(os.path.join(katalog, "mod.py"), "w", encoding="utf-8") as uchwyt:
+        uchwyt.write(BAZA_LAB)
+    with open(os.path.join(katalog, "use.py"), "w", encoding="utf-8") as uchwyt:
+        uchwyt.write("import mod\nprint(mod.F0_N)\n")
+
+
+def _co_sie_wykonalo(katalog):
+    """Wartosc, ktora NAPRAWDE zobaczyl import — a nie ta, ktora lezy w pliku."""
+    wynik = subprocess.run([sys.executable, "use.py"], cwd=katalog,
+                           capture_output=True, text=True)
+    assert wynik.returncode == 0, wynik.stderr
+    return wynik.stdout.strip()
+
+
+def _zastaw_pulapke(katalog):
+    """Podmienia tresc `mod.py` NIE ruszajac pary `(mtime, rozmiar)`.
+
+    Czas ustawiany jest jawnie przez `os.utime`, a nie brany z zegara, i to jest
+    to samo rozstrzygniecie co w `test_bytecode_staleness._zapisz`: warunek pulapki
+    ma zachodzic ZAWSZE, a nie wtedy, gdy dwa zapisy trafia w te sama sekunde.
+    Zmierzone 11.09.2026 na 200 przebiegach wersji zegarowej: 5 razy nie trafily.
+    """
+    sciezka = os.path.join(katalog, "mod.py")
+    zegar = os.stat(sciezka).st_mtime
+    with open(sciezka, "w", encoding="utf-8") as uchwyt:
+        uchwyt.write(MUTACJA_LAB)
+    os.utime(sciezka, (zegar, zegar))
+    return sciezka
+
+
+def test_detektor_starego_bajtkodu_widzi_oba_stany():
+    """`bajtkod_przykrywa_zrodlo` na wejsciu syntetycznym, w obie strony.
+
+    Bez drugiej strony reguła „zawsze `True`" spelnia pierwsza idealnie — a to jest
+    dokladnie ten ksztalt bledu, ktory projekt tropi od 6.D27.
+    """
+    with tempfile.TemporaryDirectory() as katalog:
+        sciezka = os.path.join(katalog, "mod.py")
+
+        # Bajtkodu nie ma wcale.
+        assert sweep.bajtkod_przykrywa_zrodlo(sciezka) is False, (
+            "detektor widzi bajtkod tam, gdzie zadnego nie ma")
+
+        _laboratorium_bajtkodu(katalog)
+        assert _co_sie_wykonalo(katalog) == "248900.0"
+
+        # Pulapka zastawiona: tresc inna, para `(mtime, rozmiar)` ta sama.
+        _zastaw_pulapke(katalog)
+        assert sweep.bajtkod_przykrywa_zrodlo(sciezka) is True, (
+            "detektor nie widzi waznego `.pyc` przy zmienionej tresci — czyli nie "
+            "widzi pulapki, dla ktorej powstal")
+        assert _co_sie_wykonalo(katalog) == "248900.0", (
+            "pulapka nie zadzialala na tej maszynie — wtedy to pomiar z 6.D102 "
+            "trzeba przeliczyc, a nie ten test wylaczyc")
+
+        # Ta sama tresc, ale czas zapisu inny: bajtkod przestaje przykrywac.
+        pozniej = os.stat(sciezka).st_mtime + 10
+        os.utime(sciezka, (pozniej, pozniej))
+        assert sweep.bajtkod_przykrywa_zrodlo(sciezka) is False, (
+            "detektor uznaje `.pyc` za wazny mimo innego czasu zrodla")
+
+
+def test_usuniecie_bajtkodu_ODWRACA_pulapke():
+    """Kontrola negatywna z pola „Skonczone, gdy" 6.D113 — obie strony w jednym tescie.
+
+    Ta sama scena, ta sama mutacja, jedyna roznica to wywolanie `usun_bajtkod`.
+    BEZ niego import wykonuje stara wartosc — czyli sweep zapisalby „PRZEZYLA"
+    o mutacji, ktorej nie uruchomil. Z nim wykonuje sie to, co lezy w pliku.
+    """
+    with tempfile.TemporaryDirectory() as katalog:
+        _laboratorium_bajtkodu(katalog)
+        _co_sie_wykonalo(katalog)
+        sciezka = _zastaw_pulapke(katalog)
+
+        bez_czyszczenia = _co_sie_wykonalo(katalog)
+        assert bez_czyszczenia == "248900.0", (
+            "bez czyszczenia mutacja byla widoczna (%r) — scena nie odtwarza "
+            "pulapki i reszta tego testu nie mierzylaby niczego" % bez_czyszczenia)
+
+        assert sweep.usun_bajtkod(sciezka) is True, "nie bylo czego kasowac"
+        z_czyszczeniem = _co_sie_wykonalo(katalog)
+        assert z_czyszczeniem == "251389.0", (
+            "po skasowaniu `.pyc` import nadal wykonuje stara wartosc (%r)"
+            % z_czyszczeniem)
+
+        # Drugie kasowanie nie ma czego skasowac i mowi to wprost, zamiast udawac.
+        assert sweep.usun_bajtkod(os.path.join(katalog, "nie-ma.py")) is False
+
+
+def test_check_one_pyta_o_bajtkod_ZANIM_go_skasuje():
+    """Kolejnosc jest tresc: po skasowaniu `.pyc` nie ma juz czego zmierzyc.
+
+    Gdyby `check_one` kasowal najpierw, pole `stary_bajtkod` bylo by ZAWSZE `False`
+    i meldowaloby pomiar, ktorego nie zrobiono — 6.D27 w najczystszej postaci.
+    """
+    kolejnosc = []
+    with tempfile.TemporaryDirectory() as tmp:
+        with open(os.path.join(tmp, "a.py"), "w", encoding="utf-8") as uchwyt:
+            uchwyt.write("x = 1\n")
+        mutacja = sweep.Mutation("a.py", 1, 4, 5, "1", "2", "prog")
+
+        zastane = (sweep.run_suite, sweep.bajtkod_przykrywa_zrodlo, sweep.usun_bajtkod)
+        sweep.run_suite = lambda *_a, **_kw: (True, [], 0)
+        sweep.bajtkod_przykrywa_zrodlo = lambda _p: kolejnosc.append("pytanie") or True
+        sweep.usun_bajtkod = lambda _p: kolejnosc.append("kasowanie") or True
+        try:
+            wpis = sweep.check_one(tmp, mutacja, 5, "abcdef1")
+        finally:
+            (sweep.run_suite, sweep.bajtkod_przykrywa_zrodlo,
+             sweep.usun_bajtkod) = zastane
+
+    assert kolejnosc == ["pytanie", "kasowanie"], kolejnosc
+    assert wpis["stary_bajtkod"] is True, wpis
+
+
+def test_check_one_zostawia_katalog_bez_bajtkodu_zmutowanego_pliku():
+    """Bez atrap: po przebiegu `.pyc` zmutowanego pliku ma nie lezec w drzewie."""
+    with tempfile.TemporaryDirectory() as tmp:
+        _laboratorium_bajtkodu(tmp)
+        _co_sie_wykonalo(tmp)
+        cache = __import__("importlib.util", fromlist=["util"]).cache_from_source(
+            os.path.join(tmp, "mod.py"))
+        assert os.path.isfile(cache), "scena nie ma bajtkodu, wiec nie ma czego kasowac"
+
+        mutacja = sweep.Mutation("mod.py", 1, 8, 16, "248900.0", "251389.0", "prog")
+        zastane = sweep.run_suite
+        sweep.run_suite = lambda *_a, **_kw: (True, [], 0)
+        try:
+            sweep.check_one(tmp, mutacja, 5, "abcdef1")
+        finally:
+            sweep.run_suite = zastane
+
+        assert not os.path.isfile(cache), (
+            "`.pyc` zmutowanego pliku przetrwal przebieg — nastepna mutacja o tej "
+            "samej dlugosci moze pojsc na nim")
+
+
 def test_check_one_records_the_commit_it_ran_on():
     """Wpis dziennika musi nieść `commit`, obok `id` — to jest samo ładunek 6.B19.
 
