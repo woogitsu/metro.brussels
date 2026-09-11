@@ -404,6 +404,40 @@ def _open_blocks():
     coś zmierzono, a narzędzie mogło się od tamtej pory zmienić — i przepisanie tego
     cytatu sfałszowałoby pomiar. Ta sama zasada, co przy markerach historycznych
     w `test_docs_ci_claims.py` i przy datowanych liczbach w raportach.
+
+    **Rozstrzygnięcie 6.D126 (11.09.2026): zapis NIEAKTUALNY zostaje, zapis FAŁSZYWY
+    wolno poprawić — i to jest różnica, której powyższe zdanie nie robiło.**
+
+    Uzasadnienie wyłączenia bloków wykonanych mówi o poleceniu, które **było
+    prawdziwe w dniu pomiaru** i zestarzało się razem z narzędziem. Przepisanie go
+    faktycznie sfałszowałoby pomiar: czytający zobaczyłby polecenie, którym nikt
+    niczego nie mierzył. Ten powód **nie obejmuje** zapisu, który prawdziwy nie był
+    nigdy — adresu modułu, w którym opisywanej bramki nie było ani w dniu pomiaru,
+    ani później. Tam przepisanie niczego nie fałszuje, a zostawienie każe dokumentowi
+    twierdzić nieprawdę.
+
+    **Zmierzone 11.09.2026 na `2d251b7`.** Blok 6.D74 wołał w polu „Weryfikacja"
+    `test_scan_gates.py` jako miejsce bramki o przejściach po drzewie. Bramka mieszka
+    w `test_tree_walks.py`; `test_scan_gates.py` w drzewie **jest** i testuje trzy
+    predykaty skanu luzu z `tools/blender/scan_gates.py`. `missing_modules` tego nie
+    widzi z dwóch niezależnych powodów naraz: moduł istnieje (więc `_only_path` go
+    przyjmuje), a blok jest wykonany (więc skan i tak by go nie czytał).
+
+    **Warunki poprawki, wszystkie trzy naraz** — inaczej „fałszywy" stanie się furtką
+    do przepisywania historii:
+
+      1. zapis jest fałszywy, a nie przestarzały: rzeczy, o której mówi, nie było pod
+         tym adresem także w dniu, w którym pole powstało;
+      2. poprawka niesie adnotację `**Poprawione <data> …:**` z tym, co stało wcześniej,
+         i z powodem — czyli dawny zapis zostaje czytelny obok nowego;
+      3. adnotacja mówi, gdzie stoi ta reguła, żeby następny nie rozstrzygał od nowa.
+
+    Konwencja adnotacji nie jest tu wymyślona: projekt użył jej **cztery razy**
+    10.09.2026 (bloki 6.D73, 6.D74, 6.D86, 6.D89), za każdym razem ad hoc i bez
+    zapisanej reguły. Trzy z tych czterech dotyczyły modułu, którego w drzewie NIE MA;
+    jedna — 6.D101 o sobie samej — modułu, który jest, i to ta jedna pokazuje, czego
+    bramka adresów nie złapie nigdy. Kształtu adnotacji pilnuje
+    `test_kazda_poprawka_zapisu_wykonanego_niesie_date_i_powod`.
     """
     tasks = _tasks()
     otwarte = set(tb.open_items(tasks))
@@ -1103,6 +1137,105 @@ def test_the_field_is_cut_the_same_way_as_in_backlog_commands():
     # …i to samo dla pól, które w bloku po prostu nie stoją: `None`, nie pusty napis.
     assert field_body(body, "Wyjście") is None
     assert field_body("", "Wejście") is None
+
+
+#: Adnotacja, którą niesie poprawka pola w bloku JUŻ WYKONANYM — 6.D126.
+#: Grupy: data i powód (reszta nagłówka), a treść uzasadnienia stoi po dwukropku.
+POPRAWKA = re.compile(r"\*\*Poprawione\s+(\d{2}\.\d{2}\.\d{4})([^:*]*):\*\*")
+
+#: Ile znaków uzasadnienia musi stać za adnotacją. Adnotacja bez powodu jest tańsza
+#: od poprawki z powodem i rośnie z tego samego powodu, co lista wyjątków bez
+#: zapadki — a tutaj kosztem jest przepisany zapis historyczny.
+MINIMUM_POWODU = 120
+
+#: Ile takich poprawek jest dziś. Zapadka w GÓRĘ nie ma sensu (poprawek ma być
+#: mało), w DÓŁ też nie (zdjęcie adnotacji jest cichym przepisaniem historii),
+#: więc liczba jest **przybita równością** i zmiana jej wymaga zdania w commicie.
+#: Zmierzone 11.09.2026: cztery z 10.09.2026 (6.D73, 6.D74, 6.D86, 6.D89) plus
+#: piąta z tej pozycji, w tym samym bloku 6.D74, w innym polu.
+POPRAWEK_W_DRZEWIE = 5
+
+
+def poprawki_zapisow(blocks=None):
+    """`[(numer, data, powod)]` dla adnotacji `**Poprawione …:**` w blokach."""
+    zrodlo = blocks if blocks is not None else _all_blocks()
+    found = []
+    for number, body in zrodlo.items():
+        for match in POPRAWKA.finditer(body):
+            ogon = body[match.end():]
+            koniec = ogon.find("\n- **")
+            found.append((number, match.group(1),
+                          ogon if koniec < 0 else ogon[:koniec]))
+    return found
+
+
+def test_kazda_poprawka_zapisu_wykonanego_niesie_date_i_powod():
+    """Poprawka w bloku wykonanym ma być WIDOCZNA, a nie cicha — 6.D126.
+
+    Rozstrzygnięcie „zapis fałszywy wolno poprawić" stoi w docstringu `_open_blocks`
+    i ma trzy warunki. Ten test pilnuje dwóch z nich, bo są sprawdzalne z tekstu:
+    adnotacja niesie datę i niesie powód. Trzeciego — że zapis był fałszywy, a nie
+    przestarzały — sprawdzić się nie da bez czytania historii, i mówię to wprost,
+    zamiast udawać, że bramka obejmuje całą regułę.
+
+    **Liczba jest przybita RÓWNOŚCIĄ, nie progiem.** W górę próg nie ma sensu, bo
+    poprawek ma być mało; w dół też nie, bo zdjęcie adnotacji jest dokładnie tym
+    cichym przepisaniem historii, przed którym ta reguła broni.
+    """
+    poprawki = poprawki_zapisow()
+    assert len(poprawki) == POPRAWEK_W_DRZEWIE, (
+        "poprawek zapisów wykonanych jest %d przy zapadce %d — dopisanie albo "
+        "zdjęcie adnotacji wymaga zdania w commicie: %s"
+        % (len(poprawki), POPRAWEK_W_DRZEWIE, [(n, d) for n, d, _p in poprawki]))
+
+    krotkie = [(n, d, len(p)) for n, d, p in poprawki if len(p) < MINIMUM_POWODU]
+    assert krotkie == [], (
+        "adnotacja bez powodu — poprawka zapisu wykonanego ma mówić, co stało "
+        "wcześniej i dlaczego wolno było to zmienić: %s" % krotkie)
+
+    # Kontrola przyrządu: wzorzec czyta DATĘ, a nie cokolwiek. Bez tego adnotacja
+    # bez daty byłaby niewidzialna i liczba wyżej milczałaby o jej zniknięciu.
+    assert poprawki_zapisow({"X": "**Poprawione przy wykonaniu:** " + "x" * 200}) == [], (
+        "adnotacja BEZ daty została policzona jako poprawna")
+    syntetyczna = poprawki_zapisow(
+        {"X": "**Poprawione 01.01.2026 przy czymś:** " + "y" * 200})
+    assert [(n, d) for n, d, _p in syntetyczna] == [("X", "01.01.2026")], syntetyczna
+    assert len(syntetyczna[0][2]) >= MINIMUM_POWODU, len(syntetyczna[0][2])
+
+    # …i że KRÓTKA adnotacja naprawdę wpada do `krotkie`, a nie tylko mogłaby.
+    krotka = poprawki_zapisow({"X": "**Poprawione 01.01.2026 przy czymś:** bo tak"})
+    assert len(krotka[0][2]) < MINIMUM_POWODU, krotka
+
+
+def test_pole_weryfikacji_6d74_wskazuje_modul_z_bramka_o_ktorej_mowi():
+    """Konkretny przypadek, który tę pozycję wywołał — przybity, nie opisany.
+
+    Bramka adresów nie zobaczy go nigdy: `test_scan_gates.py` w drzewie JEST, więc
+    `_only_path` go przyjmuje, a blok 6.D74 jest wykonany, więc skan go nie czyta.
+    Ten test pyta wprost o to, o co tamta bramka pytać nie może — o TREŚĆ modułu,
+    i tylko dla tego jednego bloku, bo przeglądanie pozostałych jest w polu „Poza
+    zakresem" pozycji 6.D126.
+    """
+    blok = _all_blocks()["6.D74"]
+    nazwy = module_names(field_body(blok, "Weryfikacja"))
+    assert nazwy == ["test_tree_walks.py"], (
+        "pole „Weryfikacja” bloku 6.D74 woła %s, a bramka o przejściach po drzewie "
+        "mieszka w `test_tree_walks.py`" % nazwy)
+
+    # I że wskazany moduł NAPRAWDĘ trzyma tę bramkę — inaczej asercja wyżej
+    # pilnowałaby samej nazwy, a nie tego, co pod nią stoi.
+    import test_all
+    zrodlo = open(test_all._only_path(nazwy[0]), encoding="utf-8").read()
+    assert "def test_no_tool_walks_the_tree_without_the_shared_filter" in zrodlo, (
+        "moduł z pola 6.D74 nie zawiera bramki o przejściach po drzewie")
+
+    # Kontrola przyrządu: dawny adres istnieje i testuje CO INNEGO — to jest powód,
+    # dla którego `missing_modules` tego nie łapało.
+    dawny = open(test_all._only_path("test_scan_gates.py"), encoding="utf-8").read()
+    assert "tools/blender/scan_gates.py" in dawny, (
+        "`test_scan_gates.py` przestał testować skan luzu — powód zapisany "
+        "w adnotacji przy 6.D74 wymaga przeliczenia")
+    assert "def test_no_tool_walks_the_tree_without_the_shared_filter" not in dawny
 
 
 def test_the_exception_list_does_not_rot():
