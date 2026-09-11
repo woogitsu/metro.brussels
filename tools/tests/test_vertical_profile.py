@@ -22,6 +22,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 sys.path.insert(0, os.path.join(ROOT, "tools", "track"))
 
+import apply_vertical as AV  # noqa: E402
 import vertical_profile as VP  # noqa: E402
 import stop_names  # noqa: E402
 
@@ -313,6 +314,149 @@ def test_narzedzie_nie_pisze_do_data():
 # Straznik `__main__`: bez niego `python3 tools/tests/test_vertical_profile.py` konczy
 # sie kodem 0, nie wykonawszy ani jednego testu — czyli daje zielone zero. Pilnuje tego
 # `test_every_test_module_can_be_run_directly` i ta bramka zapalila sie na tym module.
+# --- 6.D120: wynik profilu wchodzi do osi ----------------------------------------
+
+#: Ile granic wiedzy ma oś A po nałożeniu profilu: wejście w odcinek znany i wyjście
+#: z niego. Zmierzone 11.09.2026 — to NIE jest próg, tylko liczba mierząca dane.
+GRANIC_NA_OSI_A = 2
+
+
+def _os_z_profilem():
+    axis = json.load(io.open(os.path.join(ROOT, "data", "track", "L1_A.json"),
+                             encoding="utf-8"))
+    profil = VP.zbuduj(os.path.join(ROOT, "data", "track", "L1_A.json"),
+                       os.path.join(ROOT, "data", "network", "station-depths.csv"))
+    return axis, profil, AV.zastosuj(axis, profil)
+
+
+def test_rzedne_wchodza_do_osi_tam_gdzie_sa_i_nigdzie_indziej():
+    """Sedno 6.D120: Z z rejestru na odcinku znanym, zero poza nim — punkt po punkcie.
+
+    Porównanie idzie z PROFILEM, a nie z listą kilometraży wpisaną do testu: druga
+    lista rozjechałaby się z pierwszą przy pierwszej zmianie rejestru głębokości,
+    a test dalej świeciłby na zielono.
+    """
+    _axis, profil, wynik = _os_z_profilem()
+    assert len(wynik["points"]) == len(profil["points"])
+
+    ze_rzedna = 0
+    for punkt, wpis in zip(wynik["points"], profil["points"]):
+        z = punkt[2]
+        if wpis["depth_m"] is None:
+            assert z == 0.0, (wpis["chainage_m"], z)
+        else:
+            assert abs(z - wpis["depth_m"]) < 1e-9, (wpis["chainage_m"], z, wpis["depth_m"])
+            assert z < 0.0, "rzędna główki szyny pod ulicą ma być ujemna"
+            ze_rzedna += 1
+
+    assert ze_rzedna == wynik["vertical"]["points_with_z"], ze_rzedna
+    assert 0 < ze_rzedna < len(wynik["points"]), (
+        "albo cała oś dostała rzędne, albo żaden punkt — w obu przypadkach ten test "
+        "nie mierzy tego, co mówi")
+
+
+def test_granica_wiedzy_jest_USKOKIEM_i_jest_policzona():
+    """Nie wygładzona — i policzalna, bo tego żąda pole „Skończone, gdy".
+
+    Uskok jest artefaktem granicy wiedzy, nie spadkiem toru. Wygładzenie go
+    twierdziłoby, że znamy spadek prowadzący do znanego odcinka — czyli dokładnie to,
+    czego zabrania reguła interpolacji z `vertical_profile.py`.
+    """
+    _axis, _profil, wynik = _os_z_profilem()
+    granice = wynik["vertical"]["boundaries"]
+    assert len(granice) == GRANIC_NA_OSI_A, granice
+
+    wejscie = [g for g in granice if g["into"] == "known"]
+    wyjscie = [g for g in granice if g["into"] == "unknown"]
+    assert len(wejscie) == 1 and len(wyjscie) == 1, granice
+
+    for granica in granice:
+        assert abs(granica["step_m"]) > 1.0, (
+            "uskok mniejszy niż metr — granica została wygładzona: %s" % granica)
+        assert 0.0 in (granica["z_before_m"], granica["z_after_m"]), (
+            "po jednej stronie granicy ma stać zero, czyli BRAK rzędnej: %s" % granica)
+        assert granica["chainage_m"] > 0.0, granica
+
+    # Uskok wejściowy równa się pierwszej znanej rzędnej — bo druga strona to zero.
+    assert abs(wejscie[0]["step_m"] - wejscie[0]["z_after_m"]) < 1e-9, wejscie
+
+
+def test_os_wynikowa_mowi_czym_jest_jej_zero():
+    """Z = 0 znaczy BRAK rzędnej, nie główkę szyny na poziomie ulicy.
+
+    Zdanie o tym jedzie w wyniku, a nie tylko w dokumentacji — oś wynikowa bywa
+    czytana bez tego repozytorium (przez `tunnel_sweep.py`, przez Godota, przez
+    kogokolwiek), a płaski odcinek wygląda wtedy jak rzędna równa zeru.
+    """
+    _axis, _profil, wynik = _os_z_profilem()
+    pionowy = wynik["vertical"]
+    assert pionowy["status"] == AV.STATUS_CZASTKOWY
+    assert pionowy["status"] not in ("modelled", "not_modelled"), (
+        "status cząstkowy nie może udawać żadnego z dwóch dawnych")
+    nota = pionowy["note"].lower()
+    assert "brak" in nota, pionowy["note"]
+    assert "poziom" in nota and "ulic" in nota, pionowy["note"]
+    assert pionowy["coverage"]["defined_span_percent"] < 100.0, pionowy["coverage"]
+    assert pionowy["source_profile"]["depths_sha256"], (
+        "wynik nie niesie odcisku rejestru, z którego wzięły się rzędne")
+
+
+def test_profil_z_innej_osi_jest_ODMOWA():
+    """Cicha korekta byłaby tu gorsza niż brak narzędzia."""
+    axis, profil, _wynik = _os_z_profilem()
+
+    obcy = dict(profil, axis_id="L9_Z")
+    try:
+        AV.zastosuj(axis, obcy)
+    except ValueError as blad:
+        assert "L9_Z" in str(blad), blad
+    else:
+        raise AssertionError("profil z innej osi został przyjęty")
+
+    krotki = dict(profil, points=profil["points"][:-1])
+    try:
+        AV.zastosuj(axis, krotki)
+    except ValueError as blad:
+        assert "punkt" in str(blad), blad
+    else:
+        raise AssertionError("profil o innej liczbie punktów został przyjęty")
+
+
+def test_narzedzie_odmawia_zapisu_do_data():
+    """`data/` jest tylko do odczytu (§4.6) i narzędzie ma to wiedzieć samo."""
+    kod = AV.main(["--axis", os.path.join(ROOT, "data", "track", "L1_A.json"),
+                   "--profile", os.path.join(ROOT, "data", "track", "L1_A.json"),
+                   "--out", os.path.join(ROOT, "data", "track", "nie-wolno.json")])
+    assert kod == AV.KOD_ROZJAZD, kod
+    assert not os.path.exists(os.path.join(ROOT, "data", "track", "nie-wolno.json"))
+
+
+def test_przebieg_z_wiersza_polecen_wypisuje_kazda_granice():
+    """Wypis jest tym, co człowiek zobaczy — granica ma być w nim, nie tylko w JSON-ie."""
+    with tempfile.TemporaryDirectory() as tmp:
+        profil_path = os.path.join(tmp, "profil.json")
+        wynik_path = os.path.join(tmp, "os.json")
+        gotowe = subprocess.run(
+            [sys.executable, os.path.join(ROOT, "tools", "track", "vertical_profile.py"),
+             "--axis", os.path.join(ROOT, "data", "track", "L1_A.json"),
+             "--depths", os.path.join(ROOT, "data", "network", "station-depths.csv"),
+             "--out", profil_path],
+            capture_output=True, text=True, timeout=120)
+        assert gotowe.returncode == 0, gotowe.stdout + gotowe.stderr
+
+        gotowe = subprocess.run(
+            [sys.executable, os.path.join(ROOT, "tools", "track", "apply_vertical.py"),
+             "--axis", os.path.join(ROOT, "data", "track", "L1_A.json"),
+             "--profile", profil_path, "--out", wynik_path],
+            capture_output=True, text=True, timeout=120)
+        assert gotowe.returncode == 0, gotowe.stdout + gotowe.stderr
+
+    wiersze = [w for w in gotowe.stdout.splitlines() if "granica wiedzy" in w]
+    assert len(wiersze) == GRANIC_NA_OSI_A, gotowe.stdout
+    assert "uskok" in gotowe.stdout, gotowe.stdout
+    assert "nie spadkiem toru" in gotowe.stdout, gotowe.stdout
+
+
 if __name__ == "__main__":
     import test_all
     raise SystemExit(test_all.main(__file__))

@@ -135,6 +135,64 @@ def test_explicit_flat_preview_stays_flat_even_when_the_axis_could_do_more():
     assert plan["scene_name"] == "L1_A_flat_preview", plan
 
 
+def test_auto_na_osi_czastkowej_daje_partial_vertical_i_mowi_to_w_nazwie():
+    """6.D120: trzeci stan, nie drugi.
+
+    Oś z rzędnymi na 7 % długości nie jest ani `modelled` (bo 93 % jest wypełniaczem),
+    ani `not_modelled` (bo te 7 % jest prawdziwe). Nazwa sceny niesie to w sobie tak
+    samo, jak `flat-preview` niesie swoją płaskość.
+    """
+    plan = TM.variant_plan("auto", "partial", "L1_A")
+    assert plan["variant"] == "partial-vertical", plan
+    assert plan["production_ready"] is False, (
+        "7 % długości ze rzędnymi nie czyni geometrii docelową")
+    assert plan["scene_name"] == "L1_A_partial_vertical", plan
+
+
+def test_production_na_osi_czastkowej_jest_ODMOWA():
+    """Oś `partial` stoi po tej samej stronie co `not_modelled` i to jest treść."""
+    try:
+        TM.variant_plan("production", "partial", "L1_A")
+    except ValueError as err:
+        assert "T-112" in str(err), err
+    else:
+        raise AssertionError("wariant production przeszedł na osi cząstkowej")
+
+
+def test_partial_vertical_na_osi_bez_profilu_jest_ODMOWA():
+    """Wariant nie może twierdzić o osi czegoś, czego oś nie mówi.
+
+    Bez tej odmowy `--variant partial-vertical` na osi płaskiej dałby scenę
+    o nazwie obiecującej rzędne, których w punktach nie ma — czyli nazwę mówiącą
+    co innego niż geometria.
+    """
+    for status in ("not_modelled", "none", "modelled"):
+        try:
+            TM.variant_plan("partial-vertical", status, "L1_A")
+        except ValueError as err:
+            assert "partial" in str(err), err
+        else:
+            raise AssertionError(f"partial-vertical przeszedł na osi `{status}`")
+
+
+def test_nieznany_wariant_jest_ODMOWA_a_nie_cichym_sufiksem():
+    """Literówka w nazwie wariantu ma się zatrzymać, a nie zbudować scenę bez sufiksu."""
+    try:
+        TM.variant_plan("partial_vertical", "partial", "L1_A")
+    except ValueError as err:
+        assert "nieznany wariant" in str(err), err
+    else:
+        raise AssertionError("wariant spoza zbioru został przyjęty")
+
+
+def test_tylko_production_nie_ma_sufiksu():
+    """Scena bez sufiksu znaczy geometrię docelową — i tylko ona."""
+    bez_sufiksu = [w for w, s in TM.SUFIKSY_WARIANTOW.items() if not s]
+    assert bez_sufiksu == ["production"], TM.SUFIKSY_WARIANTOW
+    assert set(TM.WARIANT_DLA_STATUSU.values()) <= set(TM.SUFIKSY_WARIANTOW), (
+        "status osi wskazuje wariant, którego nie ma w tabeli sufiksów")
+
+
 # --- bramka akceptacji: zdrowe wejście --------------------------------------
 
 def test_healthy_result_has_no_problems():

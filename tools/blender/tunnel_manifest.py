@@ -171,26 +171,57 @@ def enough_points(points):
     return len(points) >= MIN_AXIS_POINTS
 
 
+#: Nazwy wariantów i sufiks sceny dla każdego. Wariant `production` sufiksu nie ma
+#: i to jest jedyny taki — scena bez sufiksu znaczy geometrię docelową.
+#:
+#: **`partial-vertical` doszedł 11.09.2026 (6.D120) i jest trzecim stanem, nie drugim.**
+#: Oś z rzędnymi na 7 % długości nie jest ani `modelled` (bo 93 % jest wypełniaczem),
+#: ani `not_modelled` (bo te 7 % jest prawdziwe). Nazwa niesie to w sobie, tak samo jak
+#: `flat-preview` niesie swoją płaskość — scena, metryki i raport mają mówić jednym
+#: głosem.
+SUFIKSY_WARIANTOW = {
+    "production": "",
+    "flat-preview": "_flat_preview",
+    "partial-vertical": "_partial_vertical",
+}
+
+#: Status profilu pionowego osi → wariant wybierany przy `--variant auto`.
+WARIANT_DLA_STATUSU = {
+    "modelled": "production",
+    "partial": "partial-vertical",
+    "not_modelled": "flat-preview",
+}
+
+
 def variant_plan(requested, vertical, name):
     """Wariant wyniku, jego status produkcyjny i nazwa sceny — jedna decyzja.
 
     Dopóki oś nie ma modelowanego profilu pionowego (T-112 zablokowane brakiem
-    publicznych rzędnych główki szyny), wynik jest `flat-preview` i **nosi to
-    w nazwie**: scena, metryki i raport mają mówić jednym głosem, żeby płaska
-    zajawka nigdy nie trafiła nikomu do rąk jako geometria docelowa.
+    publicznych rzędnych główki szyny), wynik **nosi to w nazwie**: scena, metryki
+    i raport mają mówić jednym głosem, żeby zajawka nigdy nie trafiła nikomu do rąk
+    jako geometria docelowa.
 
-    `production` na osi bez profilu pionowego jest odrzucane, a nie po cichu
-    obniżane — jawne żądanie zasługuje na jawną odmowę.
+    `production` na osi bez PEŁNEGO profilu pionowego jest odrzucane, a nie po cichu
+    obniżane — jawne żądanie zasługuje na jawną odmowę. Oś `partial` jest tu po tej
+    samej stronie co `not_modelled` i to jest treść, nie szczegół: 7 % długości ze
+    rzędnymi nie czyni geometrii docelową.
     """
     if requested == "auto":
-        requested = "production" if vertical == "modelled" else "flat-preview"
+        requested = WARIANT_DLA_STATUSU.get(vertical, "flat-preview")
+    if requested not in SUFIKSY_WARIANTOW:
+        raise ValueError(
+            f"nieznany wariant {requested!r}; znane: {sorted(SUFIKSY_WARIANTOW)}")
     if requested == "production" and vertical != "modelled":
         raise ValueError(
             "oś nie ma profilu pionowego (T-112), wariant production niedozwolony")
+    if requested == "partial-vertical" and vertical != "partial":
+        raise ValueError(
+            f"wariant partial-vertical wymaga osi o statusie `partial`, a ta ma "
+            f"`{vertical}` — wariant nie może twierdzić o osi czegoś, czego oś nie mówi")
     return {
         "variant": requested,
         "production_ready": requested == "production",
-        "scene_name": name if requested == "production" else f"{name}_flat_preview",
+        "scene_name": name + SUFIKSY_WARIANTOW[requested],
     }
 
 
