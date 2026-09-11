@@ -162,6 +162,86 @@ def test_running_one_module_reports_how_many_tests_it_ran():
     assert ile == 2, wynik.stdout
 
 
+def test_dwa_moduly_URUCHAMIAJA_SIE_OBA_a_nie_pierwszy_z_nich():
+    """6.D114: drugi i dalszy argument byl odrzucany BEZ SLOWA.
+
+    Do 11.09.2026 galaz `__main__` konczyla sie na `main(sys.argv[1])`, wiec
+    `test_all.py a.py b.py` dawalo wynik `a.py` i **kod zero** — wynik, ktory
+    WYGLADA jak wynik tego, o co sie prosilo. Tak sie o tym dowiedzialem przy
+    6.D101: wywolalem zestaw z czterema modulami i wzialem wynik jednego za wynik
+    czterech.
+
+    Pomiar jest tu po LICZBIE TESTOW, a nie po kodzie wyjscia, i to jest treść:
+    oba wywolania koncza sie zerem, bo oba moduly przechodza. Rozroznia je dopiero
+    mianownik — 2 wobec 5. Kod wyjscia nie odroznil by cichego pominiecia od
+    poprawnego przebiegu i dlatego nie jest tu wyrocznia.
+    """
+    with tempfile.TemporaryDirectory(dir=TESTY, prefix="test_wiele_") as katalog:
+        pierwszy = os.path.join(katalog, "test_pierwszy_modul.py")
+        drugi = os.path.join(katalog, "test_drugi_modul.py")
+        _napisz(pierwszy, "def test_a():\n    assert True\n\n\n"
+                          "def test_b():\n    assert 1 + 1 == 2\n")
+        _napisz(drugi, "def test_c():\n    assert True\n\n\n"
+                       "def test_d():\n    assert True\n\n\n"
+                       "def test_e():\n    assert True\n")
+
+        sam = _uruchom(["tools/tests/test_all.py", os.path.relpath(pierwszy, ROOT)])
+        oba = _uruchom(["tools/tests/test_all.py", os.path.relpath(pierwszy, ROOT),
+                        os.path.relpath(drugi, ROOT)])
+
+    assert sam.returncode == 0, sam.stdout + sam.stderr
+    assert oba.returncode == 0, oba.stdout + oba.stderr
+    assert _liczba_testow(sam.stdout) == 2, sam.stdout
+    assert _liczba_testow(oba.stdout) == 5, (
+        "wywolanie z dwoma modulami wykonalo %r testow zamiast 5 — drugi argument "
+        "zostal pominiety po cichu:\n%s" % (_liczba_testow(oba.stdout), oba.stdout))
+    assert "test_drugi_modul" in oba.stdout, (
+        "w wypisie nie ma sladu drugiego modulu:\n" + oba.stdout)
+
+
+def test_ten_sam_modul_dwa_razy_jest_ODMOWA_a_nie_podwojnym_przebiegiem():
+    """Powtorzenie zawyzyloby mianownik `N/M przeszlo`, ktory czyta wyrocznia.
+
+    `mutation_sweep.run_suite` czyta z przebiegu WYLACZNIE ten wiersz i kod wyjscia.
+    Policzenie tego samego modulu dwa razy jest wiec bledem tego samego rodzaju co
+    ciche pominiecie argumentu, tylko w druga strone — i tak samo nie zostawia sladu.
+    """
+    with tempfile.TemporaryDirectory(dir=TESTY, prefix="test_powtorka_") as katalog:
+        modul = os.path.join(katalog, "test_powtorzony.py")
+        _napisz(modul, "def test_a():\n    assert True\n")
+        wzgledna = os.path.relpath(modul, ROOT)
+        wynik = _uruchom(["tools/tests/test_all.py", wzgledna, wzgledna])
+
+    assert wynik.returncode != 0, (
+        "ten sam modul dwa razy skonczyl sie kodem 0:\n" + wynik.stdout + wynik.stderr)
+    assert "modul podany dwa razy" in (wynik.stdout + wynik.stderr), (
+        wynik.stdout + wynik.stderr)
+
+
+def test_nieznany_modul_na_DRUGIM_miejscu_tez_jest_odmowa():
+    """Odmowa nie moze zalezec od POZYCJI argumentu.
+
+    Bez tego testu wystarczyloby sprawdzac wylacznie `argv[1]` — i literowka
+    w drugiej nazwie znow byla by cichym pominieciem, tyle ze po poprawce.
+
+    **Pierwszym argumentem jest modul PIASKOWNICY, a nie ten plik, i to nie jest
+    ozdoba.** Pierwsza wersja podawala tu `test_module_entrypoints.py`: przy dzialajacym
+    kodzie odmowa przychodzi przed uruchomieniem czegokolwiek, wiec bylo szybko — ale
+    kontrola negatywna KN-1 (galaz `__main__` bierze znow jeden argument) zamieniala to
+    w uruchomienie TEGO pliku w podprocesie, ktory uruchamia kolejne podprocesy. Ta sama
+    rekursja, przed ktora ostrzega komentarz w tescie o liczbie testow, tylko widoczna
+    dopiero pod mutacja.
+    """
+    with tempfile.TemporaryDirectory(dir=TESTY, prefix="test_drugi_zly_") as katalog:
+        pierwszy = os.path.join(katalog, "test_poprawny_modul.py")
+        _napisz(pierwszy, "def test_a():\n    assert True\n")
+        wynik = _uruchom(["tools/tests/test_all.py", os.path.relpath(pierwszy, ROOT),
+                          "test_nie_ma_takiego_modulu"])
+    assert wynik.returncode != 0, wynik.stdout + wynik.stderr
+    assert "nie ma takiego modulu testowego" in (wynik.stdout + wynik.stderr), (
+        wynik.stdout + wynik.stderr)
+
+
 def test_a_module_with_no_tests_is_refused_not_passed():
     """Sedno pozycji, sprawdzone WYKONANIEM, nie odczytaniem kodu.
 

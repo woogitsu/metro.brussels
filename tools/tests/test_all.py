@@ -329,6 +329,42 @@ def _only_path(only):
             return path
     raise ValueError(f"nie ma takiego modulu testowego: {only}")
 
+def _sciezki_do_przebiegu(only):
+    """`only` -> lista sciezek modulow. `None` znaczy CALY zestaw.
+
+    **Lista, a nie jeden modul, i to jest cala tresc 6.D114.** Do 11.09.2026 galaz
+    `__main__` konczyla sie na `main(sys.argv[1])`, wiec `argv[2]` i dalsze byly
+    odrzucane BEZ SLOWA: wywolanie `test_all.py a.py b.py c.py d.py` dawalo wynik
+    modulu `a.py` i kod zero, czyli wynik, ktory WYGLADA jak wynik tego, o co sie
+    prosilo. Zmierzone tak, jak sie tego dowiedzialem — przy 6.D101 wzialem wynik
+    jednego modulu za wynik czterech.
+
+    **Wybor: uruchamiamy wszystkie wymienione, a nie odmawiamy.** Pole „Wyjscie"
+    6.D114 dopuszcza oba, wiec powod stoi tutaj. Uruchomienie wielu modulow nie jest
+    nowa zdolnoscia tego pliku — przebieg bez argumentu robi to samo dla 120 modulow
+    i przechodzi ta sama droga (licznik asercji, werdykt, kod wyjscia). Odmowa
+    zostawialaby wiec bez odpowiedzi wywolanie, ktore narzedzie umie obsluzyc,
+    a ktore czlowiek pisze odruchowo po pierwszej czerwonej bramce.
+
+    **Powtorzony modul jest ODMOWA, nie podwojnym przebiegiem.** Ten sam plik dwa razy
+    policzylby swoje testy dwa razy, a `N/M przeszlo` jest liczba, ktora czyta
+    `mutation_sweep.run_suite` jako werdykt — zawyzenie mianownika jest tu tego samego
+    rodzaju bledem co ciche pominiecie argumentu, tylko w druga strone.
+    """
+    if only is None:
+        return AG.paths()
+    nazwy = [only] if isinstance(only, str) else list(only)
+    if not nazwy:
+        raise ValueError("pusta lista modulow — nie ma czego uruchomic")
+    sciezki = []
+    for nazwa in nazwy:
+        sciezka = _only_path(nazwa)
+        if sciezka in sciezki:
+            raise ValueError(f"modul podany dwa razy: {nazwa}")
+        sciezki.append(sciezka)
+    return sciezki
+
+
 def _discover(only=None):
     """Moduły `tools/tests/test_*.py`, ten plik włącznie — albo JEDEN, gdy `only`.
 
@@ -362,7 +398,7 @@ def _discover(only=None):
     tests=[]
     module_of=[]
     import_failures=[]
-    for path in ([_only_path(only)] if only else AG.paths()):
+    for path in _sciezki_do_przebiegu(only):
         module_file=os.path.basename(path)[:-3]
         name=module_file
         if name=="test_all": name="test_all__mierzony"
@@ -629,4 +665,4 @@ def main(only=None):
 # argumentow) i `test_assertion_gate.py` (wprost, w tym samym procesie). Rozbior
 # wiersza polecen stoi wiec TUTAJ, a nie w `main()` — w `main()` wyjmowalby argumenty
 # spod tamtych dwoch wywolan.
-if __name__=="__main__": sys.exit(main(sys.argv[1]) if len(sys.argv)>1 else main())
+if __name__=="__main__": sys.exit(main(sys.argv[1:]) if len(sys.argv)>1 else main())
