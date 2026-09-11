@@ -13,7 +13,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import csharp_pins as CP  # noqa: E402
 
-#: Piny warstwy gry per plik. **Zmierzone 11.09.2026 na `dfc7543`: 44 w ośmiu plikach.**
+#: Piny warstwy gry per plik. Zmierzone 11.09.2026 na `dfc7543`: 44 w ośmiu plikach;
+#: **45 od 6.D142**, które dopisało `Assert.AreEqual("E c", BezJednostek("Esc"))`.
 #: Zapadka działa w obie strony, jak przy asercjach bez komunikatu z 6.D127: w górę
 #: mówi „doszedł pin, skategoryzuj go", w dół — „pin zniknął, zdejmij go z tabeli".
 PINY_GRY = {
@@ -24,12 +25,12 @@ PINY_GRY = {
     "RunResetTests.cs": 2,
     "SignallingHudTests.cs": 1,
     "TelemetryTrackTests.cs": 1,
-    "UiTextTests.cs": 5,
+    "UiTextTests.cs": 6,
 }
 
 #: Ile pinów stoi w `tests/Sim.Tests` — liczba PORÓWNAWCZA, o którą prosiło pole
-#: „Wejście". Rdzeń ma ich 74 przy 36 plikach, gra 44 przy 16: na plik wypada
-#: **2,06** wobec **2,75**, więc gra pinuje GĘŚCIEJ, mimo że ma mniej testów.
+#: „Wejście". Rdzeń ma ich 74 przy 36 plikach, gra 45 przy 16: na plik wypada
+#: **2,06** wobec **2,81**, więc gra pinuje GĘŚCIEJ, mimo że ma mniej testów.
 PINY_RDZENIA = 74
 
 #: Kategorie, po jednej pozycji na pin — zamknięte i sumujące się do liczby wyżej.
@@ -37,8 +38,8 @@ PINY_RDZENIA = 74
 #: **Podział jest ZAPISANY, a nie wyprowadzony regułą, i to jest wynik pomiaru.**
 #: Próbowałem reguły po kształcie literału („zawiera interpunkt albo dwie spacje pod
 #: rząd = wynik złożony"). Myli się na dwóch z czterech: **przepuszcza**
-#: `UiTextTests.cs:501`, czyli wiersz o hamulcu awaryjnym, który jest złożony,
-#: a rozdzielony pojedynczymi spacjami, i **łapie** `UiTextTests.cs:571`, który
+#: `UiTextTests.cs:563`, czyli wiersz o hamulcu awaryjnym, który jest złożony,
+#: a rozdzielony pojedynczymi spacjami, i **łapie** `UiTextTests.cs:633`, który
 #: pinem wyjścia nie jest wcale — to WEJŚCIE syntetyczne kontroli `BezDziur`.
 #: Reguła myląca się w połowie przypadków jest gorsza niż wypisana tabela, bo
 #: zmyśla kategorię tam, gdzie nikt nie patrzy.
@@ -48,19 +49,21 @@ PINY_RDZENIA = 74
 #:     żądało wypisu tych samych wierszy wprost i to jest ta sama decyzja.
 #: B — WEJŚCIE syntetyczne kontroli przyrządu. Nie jest pinem na wyjście programu;
 #:     literał jest tu daną testu i inaczej zapisać się go nie da.
-#: C — pin na wartość liczoną w JEDNYM miejscu: nazwa trybu, ścieżka, identyfikator.
+#: C — pin na wartość liczoną w JEDNYM miejscu: nazwa trybu, ścieżka, identyfikator
+#:     albo wynik jednej przemiany napisu (`BezJednostek("Esc") == "E c"` z 6.D142 —
+#:     zdanie o kategorii dopisane razem z pinem, żeby nie rozszerzyć jej po cichu).
 KATEGORIE = {
     "A": {
-        ("UiTextTests.cs", 490), ("UiTextTests.cs", 496), ("UiTextTests.cs", 501),
+        ("UiTextTests.cs", 552), ("UiTextTests.cs", 558), ("UiTextTests.cs", 563),
         ("SignallingHudTests.cs", 37),
     },
     "B": {
-        ("UiTextTests.cs", 570), ("UiTextTests.cs", 571),
+        ("UiTextTests.cs", 632), ("UiTextTests.cs", 633),
     },
 }
 
 #: Ile pinów wpada do kategorii C — reszta, liczona, nie wpisana.
-LICZBA_C = 38
+LICZBA_C = 39
 
 
 def test_ile_pinow_stoi_w_testach_warstwy_gry():
@@ -72,8 +75,8 @@ def test_ile_pinow_stoi_w_testach_warstwy_gry():
         "— doszedł pin do skategoryzowania albo zniknął pin do zdjęcia"
         % (sorted(zmierzone.items()), sorted(PINY_GRY.items())))
 
-    assert sum(zmierzone.values()) == 44, (
-        "pinów warstwy gry jest %d, a pomiar z 11.09.2026 dał 44"
+    assert sum(zmierzone.values()) == 45, (
+        "pinów warstwy gry jest %d, a pomiar z 11.09.2026 dał 45 (44 przed 6.D142)"
         % sum(zmierzone.values()))
 
     ile_rdzenia = len(CP.piny("tests/Sim.Tests"))
@@ -97,8 +100,8 @@ def test_kazdy_pin_ma_kategorie_i_suma_sie_zgadza():
     assert len(wszystkie - nazwane) == LICZBA_C, (
         "do kategorii C wpada %d pinów przy zapisanych %d"
         % (len(wszystkie - nazwane), LICZBA_C))
-    assert len(KATEGORIE["A"]) + len(KATEGORIE["B"]) + LICZBA_C == 44, (
-        "kategorie nie sumują się do 44: A=%d, B=%d, C=%d"
+    assert len(KATEGORIE["A"]) + len(KATEGORIE["B"]) + LICZBA_C == 45, (
+        "kategorie nie sumują się do 45: A=%d, B=%d, C=%d"
         % (len(KATEGORIE["A"]), len(KATEGORIE["B"]), LICZBA_C))
 
 
@@ -119,10 +122,10 @@ def test_regula_po_ksztalcie_literalu_myli_sie_i_dlatego_jej_nie_ma():
                      if not regula.search(tresci[p])]
     zlapane_z_b = [p for p in sorted(KATEGORIE["B"]) if regula.search(tresci[p])]
 
-    assert przepuszczone == [("UiTextTests.cs", 501)], (
+    assert przepuszczone == [("UiTextTests.cs", 563)], (
         "reguła po kształcie przestała przepuszczać wiersz o hamulcu awaryjnym — "
         "rozstrzygnięcie 6.D131 wymaga przeliczenia: %s" % przepuszczone)
-    assert zlapane_z_b == [("UiTextTests.cs", 571)], (
+    assert zlapane_z_b == [("UiTextTests.cs", 633)], (
         "reguła po kształcie przestała łapić wejście syntetyczne: %s" % zlapane_z_b)
 
 
@@ -136,11 +139,11 @@ def test_czytnik_widzi_pin_takze_wtedy_gdy_literal_jest_sklejony():
     tresci = {(plik, wiersz): tresc
               for plik, wiersz, _r, tresc in CP.piny("tests/Game.Tests")}
 
-    assert len(tresci[("UiTextTests.cs", 490)]) == 122, (
+    assert len(tresci[("UiTextTests.cs", 552)]) == 122, (
         "sklejanie literałów przestało działać: %d znaków"
-        % len(tresci[("UiTextTests.cs", 490)]))
-    assert len(tresci[("UiTextTests.cs", 501)]) == 98, (
-        len(tresci[("UiTextTests.cs", 501)]))
+        % len(tresci[("UiTextTests.cs", 552)]))
+    assert len(tresci[("UiTextTests.cs", 563)]) == 98, (
+        len(tresci[("UiTextTests.cs", 563)]))
     assert len(tresci[("SignallingHudTests.cs", 37)]) == 84, (
         len(tresci[("SignallingHudTests.cs", 37)]))
 
@@ -208,9 +211,9 @@ def test_maska_odsiewa_wywolania_z_komentarzy_i_napisow(tmp=None):
 #: Podział na tolerancję jest za to treścią i on zostaje wypisany:
 ROZKLAD_LICZBOWYCH = {
     "tests/Game.Tests": {
-        "razem": 186, "z_tolerancja": 98, "bez_tolerancji": 88,
+        "razem": 188, "z_tolerancja": 98, "bez_tolerancji": 90,
         "zmiennoprzecinkowe": 104, "zmiennoprzecinkowe_bez_tolerancji": 6,
-        "calkowite": 82, "calkowite_z_tolerancja": 0, "tolerancja_zero": 18,
+        "calkowite": 84, "calkowite_z_tolerancja": 0, "tolerancja_zero": 18,
     },
     "tests/Sim.Tests": {
         "razem": 441, "z_tolerancja": 179, "bez_tolerancji": 262,

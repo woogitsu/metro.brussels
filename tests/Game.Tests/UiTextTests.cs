@@ -46,8 +46,60 @@ public sealed class UiTextTests
     /// wytłoczonym na klawiszu, nie zdaniem po polsku — inaczej niż „Spacja", która
     /// na klawiszu nie jest napisana nigdzie i dlatego poszła do katalogu
     /// (<c>input.key.space</c>).</para>
+    ///
+    /// <para><b>ROZSTRZYGNIĘCIE 6.D142: lista ZOSTAJE jako UBEZPIECZENIE — nie jako
+    /// działający filtr — i ma odtąd PRZEDMIOT.</b> Pozycja wzięła się z kontroli KN-4
+    /// przy 6.D130: zdjęcie „Esc" z tej listy daje <b>233/233</b>, czyli zielono.
+    /// Wpis 6.D130 wyjaśnił tę zieleń tym, że napis mieszka od 6.D116
+    /// w <c>KeyNames.cs</c>, którego bramka literałów nie skanuje. <b>To wyjaśnienie
+    /// jest nieprawdziwe i zostało zmierzone jako takie 11.09.2026</b>: zielono
+    /// byłoby także wtedy, gdyby „Esc" stało wprost w pliku skanowanym.</para>
+    ///
+    /// <para><b>Zmierzony powód: dla swojego JEDYNEGO wpisu wyjątek jest BEZCZYNNY.</b>
+    /// Sito „czy to słowo" pyta nie o literał, tylko o
+    /// <c>BezJednostek(BezDziur(literał))</c>, a <c>Jednostki</c> niosą <c>"s"</c> —
+    /// więc z „Esc" zostaje <c>"E c"</c>, czego <see cref="WzorzecSlowa"/> nie łapie.
+    /// Gdyby wyjątku nie było, „Esc" i tak nie zostałoby zgłoszone. Zmierzone bramką,
+    /// nie wywnioskowane: przy liście PUSTEJ <c>SlowaWKodzie("var t = \"Esc\";")</c>
+    /// nadal daje pustą listę, a z całego zestawu zapala się wyłącznie zapadka na
+    /// długość listy (KN-2 z 6.D142).</para>
+    ///
+    /// <para><b>Argument o nieprawdziwym komunikacie, który stał tu przedtem, ODPADA
+    /// razem z tamtym.</b> Mówił, że bez wyjątku „Esc" byłoby odrzucane z powodem
+    /// „literał językowy zamiast klucza katalogu", czyli nieprawdziwym, bo
+    /// <c>Godot.Key</c> zna <c>Escape</c>, a <c>Esc</c> nie. Odrzucane nie byłoby
+    /// wcale — zdanie o powodzie nie ma kiedy paść. <c>PowodOdrzucenia</c> zostaje
+    /// nietknięte tam, gdzie je postawiło 6.D130: dotyczy literałów naprawdę
+    /// zgłoszonych, a takim „Esc" nie jest.</para>
+    ///
+    /// <para><b>Dlaczego mimo to ZOSTAJE.</b> Ta sama decyzja, co przy kolejności
+    /// <see cref="Jednostki"/> (kontrola KN-3 z 6.D115, wyszła zielona): mechanizm
+    /// kosztuje zero i jest OSIĄGALNY — dla nazwy klawisza, która słowem zostaje,
+    /// działa. Zmierzone na ośmiu: <c>Enter</c>, <c>Tab</c>, <c>Shift</c>,
+    /// <c>Ctrl</c>, <c>Alt</c>, <c>Del</c>, <c>Ins</c> i <c>Escape</c> są dziś
+    /// zgłaszane, więc każde z nich wyjątek by przepuścił. Bezczynność akurat wpisu
+    /// „Esc" wisi na CUDZEJ liście: zdjęcie <c>"s"</c> z <c>Jednostki</c> czyni go
+    /// natychmiast działającym. Skasowany trzeba by go wtedy odtworzyć, nie wiedząc
+    /// po co — a zdanie o nim ma mówić, ile jest warte, i od tej pozycji mówi.</para>
+    ///
+    /// <para><b>Czego brakowało i co doszło.</b> Wyjątek nie był z niczym związany —
+    /// gdyby „Esc" zniknęło z <c>KeyNames.cs</c>, lista zostałaby jako zdanie o kodzie,
+    /// którego nikt nie czyta. Test <c>Wyjatek_na_nazwy_klawiszy_ma_PRZEDMIOT_w_KeyNames</c>
+    /// żąda, żeby każda pozycja tej listy była nazwą, którą <c>KeyNames</c> naprawdę
+    /// zwraca — więc wyjątek umiera razem ze swoim przedmiotem, a nie po cichu.</para>
     /// </summary>
     private static readonly string[] NazwyKlawiszy = { "Esc" };
+
+    /// <summary>
+    /// Nazwy klawiszy, które bramka literałów DZIŚ ZGŁASZA — 6.D142.
+    ///
+    /// <para>Nie jest to lista wyjątków ani propozycja takiej listy: to materiał
+    /// pomiaru pokazującego, że wyjątek <see cref="NazwyKlawiszy"/> jest osiągalny,
+    /// mimo że dla swojego jedynego wpisu jest bezczynny. Zmierzone 11.09.2026 —
+    /// każda z tych ośmiu przechodzi przez sito słowa i zostaje zgłoszona.</para>
+    /// </summary>
+    private static readonly string[] NazwyKlawiszyZglaszane =
+        { "Enter", "Tab", "Shift", "Ctrl", "Alt", "Del", "Ins", "Escape" };
 
     /// <summary>
     /// Nazwy członków <c>Godot.Key</c> — 193 na dzień 11.09.2026, czytane z silnika,
@@ -270,6 +322,16 @@ public sealed class UiTextTests
     /// </summary>
     private static readonly string[] Jednostki = { "km/h", "m/s\u00b2", "km", "m", "s" };
 
+    /// <summary>
+    /// „Słowo" to co najmniej dwie litery pod rząd — 6.D83, w stałej od 6.D142.
+    ///
+    /// <para>Wzorzec stoi w jednym miejscu, bo od 6.D142 pyta o niego także test
+    /// bezczynności wyjątku <c>NazwyKlawiszy</c>. Dwie kopie rozjechałyby się cicho:
+    /// test pilnowałby wtedy wzorca, którego bramka już nie używa — ten sam powód,
+    /// co przy <see cref="WzorzecWywolania"/>.</para>
+    /// </summary>
+    private const string WzorzecSlowa = @"\p{L}{2,}";
+
     /// <summary>Literał bez symboli jednostek — patrz <see cref="Jednostki"/>.</summary>
     private static string BezJednostek(string literal)
     {
@@ -310,7 +372,7 @@ public sealed class UiTextTests
                 continue;                       // klucz katalogu, nie słowo
             }
 
-            if (Regex.IsMatch(BezJednostek(BezDziur(literal)), @"\p{L}{2,}"))
+            if (Regex.IsMatch(BezJednostek(BezDziur(literal)), WzorzecSlowa))
             {
                 zle.Add(literal);
             }
@@ -586,5 +648,95 @@ public sealed class UiTextTests
 
         Assert.Inconclusive("Test uruchomiony poza drzewem repozytorium.");
         throw new InvalidOperationException();
+    }
+
+    /// <summary>
+    /// Wyjątek na nazwy klawiszy ma PRZEDMIOT — 6.D142.
+    ///
+    /// <para>Każda pozycja <c>NazwyKlawiszy</c> musi być nazwą, którą
+    /// <c>KeyNames</c> naprawdę zwraca. Bez tego wiązania wyjątek przeżyłby swój
+    /// przedmiot: „Esc" zniknęłoby z <c>KeyNames.cs</c>, a lista zostałaby jako
+    /// zdanie o kodzie, którego nikt już nie czyta — dokładnie ta rodzina, którą
+    /// projekt tropi od 6.D27.</para>
+    ///
+    /// <para>Zawieranie, a nie równość: <c>KeyNames</c> zwraca też „Spacja",
+    /// czyli wartość z katalogu, którą bramka przepuszcza z INNEGO powodu
+    /// (<c>UiText.Keys.Contains</c>). Żądanie równości zmusiłoby do wpisania jej
+    /// tutaj i zrobiłoby z wyjątku drugą kopię katalogu.</para>
+    /// </summary>
+    [TestMethod]
+    public void Wyjatek_na_nazwy_klawiszy_ma_PRZEDMIOT_w_KeyNames()
+    {
+        var zKeyNames = KeyNames.Znane.Select(KeyNames.For).ToHashSet(StringComparer.Ordinal);
+
+        Assert.IsTrue(zKeyNames.Count >= 2,
+            $"`KeyNames` zwraca {zKeyNames.Count} nazw — zbiór skurczył się i reszta "
+            + "tego testu nie mierzyłaby niczego");
+
+        var bezPrzedmiotu = NazwyKlawiszy.Where(n => !zKeyNames.Contains(n)).ToArray();
+        Assert.AreEqual(0, bezPrzedmiotu.Length,
+            "wyjątek na nazwy klawiszy wymienia napis, którego `KeyNames` nie zwraca: "
+            + string.Join(", ", bezPrzedmiotu)
+            + " — wyjątek ma umierać razem ze swoim przedmiotem, nie po nim");
+
+        Assert.AreEqual(1, NazwyKlawiszy.Length,
+            $"lista ma {NazwyKlawiszy.Length} pozycji, a pomiar z 11.09.2026 mówił jedną");
+    }
+
+    /// <summary>
+    /// Wyjątek na „Esc" jest BEZCZYNNY, a mechanizm jest OSIĄGALNY — 6.D142.
+    ///
+    /// <para><b>Obie połowy w jednym teście, bo dopiero razem są rozstrzygnięciem.</b>
+    /// Osobno pierwsza brzmi jak wniosek „skasować", a druga jak „zostawić";
+    /// rozstrzygnięcie z <see cref="NazwyKlawiszy"/> bierze się z ich zestawienia.</para>
+    ///
+    /// <para><b>Bezczynność ma zmierzoną PRZYCZYNĘ i przyczyna leży poza tą listą.</b>
+    /// Z „Esc" zostaje po zdjęciu jednostek <c>"E c"</c> — jednostka <c>"s"</c> zjada
+    /// mu literę — więc do pytania „czy stoi w <c>NazwyKlawiszy</c>" wynik i tak się
+    /// nie przykłada. Ten test pilnuje właśnie tego wiązania: gdy <c>"s"</c> zniknie
+    /// z <see cref="Jednostki"/>, wyjątek stanie się działający, a zdanie
+    /// o bezczynności — nieprawdziwe. Zapali się wtedy tutaj, nie po dwóch dniach.</para>
+    ///
+    /// <para><b>Osiem nazw, a nie jedna</b>, bo jedna nie odróżniłaby „mechanizm
+    /// działa" od „akurat ta nazwa jest słowem". Wszystkie osiem zmierzone
+    /// 11.09.2026 jako zgłaszane.</para>
+    /// </summary>
+    [TestMethod]
+    public void Wyjatek_na_Esc_jest_BEZCZYNNY_a_mechanizm_jest_OSIAGALNY()
+    {
+        // 1. Przyczyna bezczynności — i to ona, nie sam wynik, jest tu pilnowana.
+        Assert.IsTrue(Regex.IsMatch("Esc", WzorzecSlowa),
+            "„Esc” przestało być słowem samo z siebie — wtedy bezczynność wyjątku "
+            + "`NazwyKlawiszy` nie bierze się z `Jednostki` i akapit o niej jest "
+            + "nieprawdziwy");
+        var escBezJednostek = BezJednostek("Esc");
+        Assert.AreEqual("E c", escBezJednostek,
+            $"`BezJednostek(\"Esc\")` daje teraz \"{escBezJednostek}\", a nie „E c” — "
+            + "jeśli `Jednostki` straciły „s”, wyjątek `NazwyKlawiszy` WŁAŚNIE STAŁ SIĘ "
+            + "DZIAŁAJĄCY i rozstrzygnięcie 6.D142 trzeba przeczytać jeszcze raz");
+        Assert.IsFalse(Regex.IsMatch(BezJednostek(BezDziur("Esc")), WzorzecSlowa),
+            "po zdjęciu jednostek „Esc” znów przechodzi przez sito słowa — wyjątek "
+            + "przestał być bezczynny, a `NazwyKlawiszy` opisuje go jako bezczynny");
+
+        // 2. Ten sam wniosek zmierzony BRAMKĄ, nie złożony z jej części.
+        var zWyjatkiem = SlowaWKodzie("var t = \"Esc\";");
+        CollectionAssert.AreEqual(System.Array.Empty<string>(), zWyjatkiem,
+            "napis wytłoczony na klawiszu przestał być przepuszczany: "
+            + ZPowodami(zWyjatkiem));
+
+        // 3. Mechanizm jest osiągalny — dla nazwy klawisza, która słowem zostaje.
+        foreach (var nazwa in NazwyKlawiszyZglaszane)
+        {
+            var zgloszone = SlowaWKodzie($"var t = \"{nazwa}\";");
+            CollectionAssert.AreEqual(new[] { nazwa }, zgloszone,
+                $"„{nazwa}” przestało być zgłaszane ({ZPowodami(zgloszone)}) — wyjątek "
+                + "`NazwyKlawiszy` nie miałby dla czego zostawać i argument "
+                + "z rozstrzygnięcia 6.D142 przestaje działać");
+        }
+
+        // 4. Kontrola przyrządu: napis, który NIE jest nazwą klawisza, nadal pada.
+        var obcy = SlowaWKodzie("var t = \"Prędkość\";");
+        CollectionAssert.AreEqual(new[] { "Prędkość" }, obcy,
+            "polskie słowo przestało być odrzucane — reszta tego testu mierzyłaby nic");
     }
 }
