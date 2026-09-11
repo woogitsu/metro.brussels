@@ -29,6 +29,13 @@ wychodzila **jedna** metoda „bez asercji" —
 `CollectionAssert.AreEqual` w ciele wyrazeniowym. Czytnik, ktory jednej z tych postaci
 nie zna, nie zglasza braku asercji: zglasza **wlasna niewiedze** jako brak.
 
+**Od 6.D145 modul odpowiada na DWA pytania, nie jedno, i warto je rozroznic.**
+Starsze: czy metoda testowa ma w tresci JAKAKOLWIEK asercje (bramka od 6.D28).
+Nowsze: czy pojedyncza asercja niesie KOMUNIKAT — to samo pytanie, ktore po stronie
+Pythona zadaje `NIEME_ASERCJE`, tyle ze komunikat C# stoi jako OSTATNI argument
+i nie ma wlasnej skladni. Zmierzone 11.09.2026: **1381 bez komunikatu, 1140 z nim,
+72 nierozstrzygniete** na 2593 wywolaniach.
+
 **Asercja to takze wywolanie pomocnika `Assert*`.** Zmierzone na tym drzewie: przy
 samych wywolaniach `Assert.`/`StringAssert.`/`CollectionAssert.` wychodzilo **piec**
 metod bez asercji, z czego cztery wolaja lokalny `AssertBits(...)`, ktory asertuje
@@ -36,7 +43,6 @@ w swoim ciele. Rozszerzenie na pomocnikow `Assert*` zbija to do jednej (tej z ci
 wyrazeniowego). Sprawdzone tez rozwiazywanie pomocnikow po CIELE, nie po nazwie —
 i nie daje ani jednej metody wiecej, wiec zostaje regula prostsza.
 """
-import glob
 import os
 import re
 import sys
@@ -44,6 +50,8 @@ import sys
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import csharp_pins as CP  # noqa: E402
+import tree_walk as TW  # noqa: E402
 import csharp_test_methods as CTM  # noqa: E402
 
 #: Wywolanie asercji MSTest wprost.
@@ -93,6 +101,119 @@ def coverage(root=ROOT):
             "bez_asercji": sum(1 for *_x, ma in dane if not ma)}
 
 
+# --- 6.D145: KOMUNIKAT przy asercji C# -------------------------------------------
+
+#: Ile argumentow kazda asercja MSTest ma OBOWIAZKOWO, czyli zanim zacznie sie miejsce
+#: na komunikat. Tabela, nie regula: arnosc jest wlasnoscia API, a nie ksztaltu tekstu,
+#: i zgadnieta byla by zgadnietym faktem. Zmierzone 11.09.2026 — wywolan spoza tej
+#: tabeli w obu katalogach testowych jest ZERO, i pilnuje tego osobny test.
+OBOWIAZKOWE_ARGUMENTY = {
+    "Assert.AreEqual": 2, "Assert.AreNotEqual": 2,
+    "Assert.AreSame": 2, "Assert.AreNotSame": 2,
+    "Assert.IsTrue": 1, "Assert.IsFalse": 1, "Assert.IsNull": 1, "Assert.IsNotNull": 1,
+    "Assert.IsInstanceOfType": 2, "Assert.Fail": 0, "Assert.Inconclusive": 0,
+    "Assert.ThrowsException": 1,
+    "StringAssert.Contains": 2, "StringAssert.StartsWith": 2, "StringAssert.EndsWith": 2,
+    "StringAssert.Matches": 2, "StringAssert.DoesNotMatch": 2,
+    "CollectionAssert.AreEqual": 2, "CollectionAssert.AreNotEqual": 2,
+    "CollectionAssert.AreEquivalent": 2, "CollectionAssert.Contains": 2,
+    "CollectionAssert.DoesNotContain": 2, "CollectionAssert.IsSubsetOf": 2,
+    "CollectionAssert.AllItemsAreUnique": 1,
+}
+
+#: Jedyna rodzina, w ktorej argument NADMIAROWY moze nie byc komunikatem: przy DOKLADNIE
+#: trzech argumentach trzeci jest albo `double delta`, albo `string message`. Wszedzie
+#: indziej MSTest ma w tej pozycji wylacznie `string message` — wiec wyrazenie, ktore
+#: sie kompiluje, jest tam napisem, i nie trzeba tego zgadywac.
+RODZINA_Z_TOLERANCJA = ("Assert.AreEqual", "Assert.AreNotEqual")
+
+#: Wywolanie asercji z nazwa i rodzina — `<T>` przeskakiwane, bo `ThrowsException<T>`.
+WYWOLANIE = re.compile(
+    r"\b(Assert|StringAssert|CollectionAssert)\.([A-Za-z]+)(?:<[^>()]*>)?\s*\(")
+
+#: Poczatek literalu napisowego: zwykly, `@`-cytowany, interpolowany albo oba naraz.
+LITERAL_NAPISOWY = re.compile(r'^[@$]*"')
+
+BEZ_KOMUNIKATU = "bez"
+Z_KOMUNIKATEM = "z"
+NIEROZSTRZYGNIETE = "nierozstrzygniete"
+
+
+def klasa_komunikatu(nazwa, argumenty, tresc):
+    """Ktora z trzech klas — 6.D145. `argumenty` i `tresc` z tego samego zrodla.
+
+    **Trzy klasy, nie dwie, i trzecia jest tu trescia, a nie porazka.** Komunikat C#
+    stoi jako OSTATNI argument, nie jako drugi, i nie ma wlasnej skladni: rozpoznaje
+    sie go po TYPIE, a typu identyfikatora nie da sie odczytac bez sprawdzacza typow,
+    ktorego to repozytorium nie ma i miec nie bedzie (ta sama granica, co w 6.D141).
+    Klasa `NIEROZSTRZYGNIETE` nazywa dokladnie to, czego czytnik nie wie — zamiast
+    zgadnac i zameldowac pewnosc, ktorej nie ma.
+    """
+    wymagane = OBOWIAZKOWE_ARGUMENTY[nazwa]
+    if len(argumenty) <= wymagane:
+        return BEZ_KOMUNIKATU
+    a, b = argumenty[-1]
+    ostatni = tresc[a:b].strip()
+    if LITERAL_NAPISOWY.match(ostatni):
+        return Z_KOMUNIKATEM
+    if nazwa in RODZINA_Z_TOLERANCJA and len(argumenty) == 3:
+        return BEZ_KOMUNIKATU if CP.LICZBA.match(ostatni) else NIEROZSTRZYGNIETE
+    return Z_KOMUNIKATEM
+
+
+def asercje(katalog, root=ROOT):
+    """`[(plik, wiersz, nazwa, klasa)]` dla kazdego wywolania asercji w katalogu."""
+    znalezione = []
+    for sciezka in TW.znajdz(os.path.join(root, katalog), "*.cs", root):
+        with open(sciezka, encoding="utf-8") as uchwyt:
+            zrodlo = uchwyt.read()
+        maska = CTM.maska(zrodlo)
+        for dopasowanie in WYWOLANIE.finditer(maska):
+            nazwa = "%s.%s" % (dopasowanie.group(1), dopasowanie.group(2))
+            if nazwa not in OBOWIAZKOWE_ARGUMENTY:
+                continue
+            args = CP.argumenty_z_nawiasami(maska, dopasowanie.end())
+            znalezione.append((
+                os.path.basename(sciezka),
+                zrodlo[:dopasowanie.start()].count("\n") + 1,
+                nazwa,
+                klasa_komunikatu(nazwa, args, zrodlo),
+            ))
+    return znalezione
+
+
+def nazwy_spoza_tabeli(katalog, root=ROOT):
+    """Nazwy asercji, ktorych `OBOWIAZKOWE_ARGUMENTY` nie zna — maja byc puste."""
+    obce = set()
+    for sciezka in TW.znajdz(os.path.join(root, katalog), "*.cs", root):
+        with open(sciezka, encoding="utf-8") as uchwyt:
+            maska = CTM.maska(uchwyt.read())
+        for dopasowanie in WYWOLANIE.finditer(maska):
+            nazwa = "%s.%s" % (dopasowanie.group(1), dopasowanie.group(2))
+            if nazwa not in OBOWIAZKOWE_ARGUMENTY:
+                obce.add(nazwa)
+    return sorted(obce)
+
+
+def bez_komunikatu_per_plik(katalog, root=ROOT):
+    """`{plik: ile}` — tylko pliki z co najmniej jedna asercja bez komunikatu."""
+    policzone = {}
+    for plik, _w, _n, klasa in asercje(katalog, root):
+        if klasa == BEZ_KOMUNIKATU:
+            policzone[plik] = policzone.get(plik, 0) + 1
+    return policzone
+
+
+def rozklad_komunikatow(katalog, root=ROOT):
+    """`{klasa: ile}` plus `razem` — trzy klasy sumuja sie do calosci."""
+    dane = asercje(katalog, root)
+    out = {BEZ_KOMUNIKATU: 0, Z_KOMUNIKATEM: 0, NIEROZSTRZYGNIETE: 0}
+    for _p, _w, _n, klasa in dane:
+        out[klasa] += 1
+    out["razem"] = len(dane)
+    return out
+
+
 def main():
     dane = coverage()
     print("[ASERCJE C#] metod testowych:        %d" % dane["metody_testowe"])
@@ -100,6 +221,21 @@ def main():
     print("[ASERCJE C#] BEZ asercji w tresci:   %d" % dane["bez_asercji"])
     for plik, klasa, metoda in bez_asercji():
         print("BRAK ASERCJI: %s :: %s.%s" % (plik, klasa, metoda))
+
+    # 6.D145: to samo pytanie o KOMUNIKAT, nie o obecnosc asercji. Trzy klasy,
+    # bo trzecia nazywa to, czego czytnik bez sprawdzacza typow nie wie.
+    razem = {BEZ_KOMUNIKATU: 0, Z_KOMUNIKATEM: 0, NIEROZSTRZYGNIETE: 0, "razem": 0}
+    for katalog in CP.KATALOGI:
+        rozklad = rozklad_komunikatow(katalog)
+        print("[KOMUNIKATY C#] %-16s bez=%d z=%d nierozstrzygnietych=%d razem=%d"
+              % (katalog, rozklad[BEZ_KOMUNIKATU], rozklad[Z_KOMUNIKATEM],
+                 rozklad[NIEROZSTRZYGNIETE], rozklad["razem"]))
+        for klucz, ile in rozklad.items():
+            razem[klucz] += ile
+    print("[KOMUNIKATY C#] RAZEM            bez=%d z=%d nierozstrzygnietych=%d razem=%d"
+          % (razem[BEZ_KOMUNIKATU], razem[Z_KOMUNIKATEM],
+             razem[NIEROZSTRZYGNIETE], razem["razem"]))
+
     return 1 if dane["bez_asercji"] else 0
 
 
