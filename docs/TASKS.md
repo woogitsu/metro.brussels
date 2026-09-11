@@ -985,7 +985,7 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.D128 | **ZROBIONE w #521 (11.09.2026).** Pomiar dziennikiem atrapy PRZED zmianą — tym samym, którym 6.D112 policzyło wywołania `--version`: pin niespełniony **2** (`[--list-sdks, --version, --list-sdks]`), pin spełniony **1**, brak SDK **1**. Dwójka wychodzi w JEDNYM stanie z trzech i jest to dokładnie ten, który wypisuje listę na ekran. **Dlaczego to nie była powtórka 6.D112:** tamta pozycja kończyła się zapamiętaniem KODU WYJŚCIA, a tu wynik drugiego wywołania szedł WPROST na stdout (`"$DOTNET" --list-sdks | sed …`), więc nie było czego zapamiętać — sonda `SDK_NA_LISCIE` pytała tylko, czy wyjście jest NIEPUSTE, i wyrzucała je. **Powodem nie jest czas, tylko rozjazd:** doctor wypisywałby zdanie „SDK SĄ na dysku, ale ŻADNE nie spełnia pinu” na podstawie PIERWSZEGO odczytu, a listę „na dysku:” z DRUGIEGO — czyli zdanie o jednym stanie maszyny obok listy z innego; ta sama rodzina co usterka zamknięta przez 6.D96, tylko rozłożona w czasie. **Ryzyko tej zmiany: `$(...)` obcina KOŃCOWE nowe wiersze**; stąd `printf '%s\n' "$SDK_LISTA"`, a nie gołe podstawienie. **SPROSTOWANIE 11.09.2026 przy 6.D129:** stało tu, że „`sed` bez nich nie wypisze ostatniego wiersza listy — co przy JEDNYM zainstalowanym SDK znaczy listę PUSTĄ”, i to jest NIEPRAWDA, zmierzona jako nieprawda: GNU `sed` wypisuje ostatni wiersz niepełny (`printf '%s' "$V" | sed` daje `X: a` i `X: b`, tyle że bez zakończenia). Prawdziwy skutek jest mniejszy i wciąż wart tej linijki: brakujące zakończenie zjada PUSTY WIERSZ oddzielający listę od następnej sekcji doctora — zmierzone na dwóch SDK, `…[/atrapa/sdk]\nWymagane…` zamiast `…[/atrapa/sdk]\n\nWymagane…`. Poprawione w `doctor.sh`, w docstringu i w NAZWIE testu; pełny pomiar w `reports/6d129-atrapa-wypisuje-ukosnik.md` §3. **Sprawdzane NA POWŁOCE, nie na atrapie, i to jest treścią:** atrapa wypisuje dziś listę w jednym wierszu (ukośnik zamiast nowego wiersza — osobna pozycja 6.D129), więc NA NIEJ TA RÓŻNICA NIE ZACHODZI i test mierzyłby nic; test uruchamia więc sam konstrukt na dwuwierszowej wartości i żąda dwóch wierszy z przedrostkiem, obok kontroli w drugą stronę. Po zmianie **1/1/1**, a wiersze o SDK porównane CO DO BAJTU z zapadką `STANY_SDK`, zapisaną 10.09.2026 przed 6.D112 — tą samą, która przetrwała tamtą zmianę. Cztery kontrole negatywne, `md5sum -c: OK` na dwóch plikach po każdej, baza `test_dotnet_version.py` 48/48: KN-1 (wypis znów woła `dotnet` drugi raz, czyli stan sprzed tej pozycji) **46/48, dwa testy naraz** — licznik wywołań i asercja o kształcie wypisu; KN-2 (`printf '%s\n'` → `printf '%s'`) 47/48; KN-3 (sonda znów woła `dotnet` wprost, zmienna zostaje) 47/48 z dziennikiem `[--list-sdks, --list-sdks, --version]`; KN-4 (kolejność odwrócona, `--version` pierwszy) 47/48 — **kontrola przyrządu**: dziennik musi rozdzielać `--list-sdks` od `--version`, bo licznik zliczający jedno w miejsce drugiego dałby te same jedynki i wyglądałby identycznie. Weryfikacja: `test_dotnet_version.py` **48/48** (było 45), zestaw 2307 → **2309**, moduły bez zmiany (121), kod 0; `MIN_REPORTS` 246 → 247. Raport: `reports/6d128-jedno-wywolanie-list-sdks.md`. Czego nie zrobiłem: **nie połączyłem `--list-sdks` z `--version`** — wprost w „Poza zakresem”, i słusznie, bo to dwa różne pytania („czy jakiekolwiek SDK jest” kontra „czy któreś spełnia pin z `global.json`”) i cała 6.D96 stoi na tej różnicy; nie ruszyłem `WOLAN_WERSJI` ani żadnego wiersza wypisu; nie poprawiłem atrapy wypisującej ukośnik zamiast nowego wiersza — to jest 6.D129 i to ona jest powodem, dla którego test ryzyka musiał zejść na powłokę. Treść pierwotna: ****`doctor.sh` woła `--list-sdks` dwa razy w stanie „pin niespełniony"**** | zmierzone 11.09.2026 przy 6.D112 atrapą liczącą wywołania: po zbiciu `--version` do jednego wywołania zostają w tym stanie **dwa** wywołania `--list-sdks` — sonda i wypis listy na ekran. Ta sama rodzina co usterka zamknięta przez 6.D112, ale o innym poleceniu i o innym kształcie: wynik drugiego wywołania idzie WPROST na stdout przez `sed`, więc połączenie ich wymaga rozstrzygnięcia, czy lista ma być zapamiętana w zmiennej. Wypis trzech stanów ma zostać identyczny co do bajtu | S |
 | 6.D129 | **ZROBIONE w #522 (11.09.2026), a przy okazji pozycja OBALIŁA zdanie, które sam napisałem trzy godziny wcześniej w 6.D128.** Atrapa budowała listę jako `f"{w} [/atrapa/sdk]\\n"` — dwa znaki tekstu zamiast nowego wiersza. Oba wypisy: PRZED przy jednym SDK `na dysku: 10.0.401 [/atrapa/sdk]\n`, PRZED przy dwóch `na dysku: 10.0.401 [/atrapa/sdk]\n9.0.100 [/atrapa/sdk]\n` — obie pozycje w JEDNYM wierszu z JEDNYM przedrostkiem; PO odpowiednio jeden i dwa osobne wiersze, każdy z własnym przedrostkiem. **Żaden stan zapadki tego nie pokazywał**, bo wszystkie trzy mają najwyżej jedno SDK, a przy jednym różnica jest końcówką jednego wiersza i wygląda prawie dobrze — dopiero dwa SDK pokazują, że atrapa oddaje inny KSZTAŁT wyjścia niż `dotnet --list-sdks`. `STANY_SDK` przeliczona w tym samym commicie i jest to **jedyna** zmiana tej zapadki od jej powstania 10.09.2026 (przetrwała 6.D112 i 6.D128). **SPROSTOWANIE DO 6.D128:** uzasadnienie `printf '%s\n'` brzmiało „`sed` bez nich pokazałby listę krótszą o ostatnią pozycję, co przy JEDNYM SDK znaczy listę pustą” — to NIEPRAWDA, zmierzona jako nieprawda, bo GNU `sed` WYPISUJE ostatni wiersz niepełny. Prawdziwy skutek jest mniejszy i wciąż wart tej linijki: brakujące zakończenie zjada PUSTY WIERSZ oddzielający listę od następnej sekcji doctora. Poprawione w `doctor.sh`, w docstringu i w NAZWIE testu (`..._nie_gubi_ostatniego_wiersza` → `..._konczy_sie_nowym_wierszem`), bo stara nazwa niosła to samo fałszywe zdanie; asercja pyta dziś o ostatni ZNAK. Ten sam przypadek, który rozstrzygnęło 6.D126 dobę wcześniej. **Ta pozycja potwierdziła też poprawkę z 6.D128, której 6.D128 sprawdzić NIE MOGŁO:** tamten test musiał zejść na powłokę, bo atrapa nie umiała wypisać listy wielowierszowej — od dziś umie, i wypis doctora z dwoma SDK pokazuje dwa wiersze. Sześć kontroli, `md5sum -c: OK` na dwóch plikach po każdej, baza 49/49: KN-1 (ukośnik wraca do atrapy) 47/49, dwa testy; KN-2 (zapadka wraca do wiersza z ukośnikiem) 48/49; KN-3 (doctor wraca do `printf '%s'`) 48/49; **KN-4 (asercja osłabiona do `!=`) 49/49 ZIELONA i KN-5 (`head -c 32` na wartości 3-bajtowej) 49/49 ZIELONA — OBIE SĄ BŁĘDAMI KONTROLI, NIE WYNIKAMI O KODZIE**: pierwsza osłabiała TEST zamiast mutować przedmiot (słabsza asercja przechodzi z definicji), druga nie zmieniała niczego, bo obcinała do 32 bajtów wartość, która ma 3 — długość zmierzyłem dopiero po zielonym wyniku; KN-5b (`head -c 2`, drugi wiersz naprawdę znika) 48/49. Wartość asercji na ostatni znak nie polega więc na tym, że jej zdjęcie zapala bramkę, tylko na tym, że zapisuje zmierzoną różnicę — a KN-5b jest dowodem, że zapali, gdy ta różnica zmieni kształt. Weryfikacja: `test_dotnet_version.py` **49/49** (było 48), zestaw 2309 → **2310**, moduły bez zmiany (121), kod 0; `MIN_REPORTS` 247 → 248. Raport: `reports/6d129-atrapa-wypisuje-ukosnik.md`. Czego nie zrobiłem: nie zmieniłem treści komunikatów doctora ani zachowania w pozostałych dwóch stanach („Poza zakresem”); **nie dopisałem stanu z dwoma SDK do `STANY_SDK`**, bo to nie czwarty stan, tylko ten sam „pin niespełniony” z inną zawartością dysku — mierzy go osobny test; nie poprawiłem raportu 6.D128, bo jest zapisem dnia, a sprostowanie stoi w raporcie 6.D129 i w wierszu tej tabeli przy 6.D128. Treść pierwotna: ****Atrapa `dotnet` wypisuje literalne `\n` zamiast nowego wiersza**** | zmierzone 11.09.2026 przy 6.D112: `_atrapa_dotnet` buduje listę SDK jako `f"{w} [/atrapa/sdk]\\n"`, więc w wypisie doctora stoi `na dysku: 10.0.401 [/atrapa/sdk]\n` — z widocznym ukośnikiem. Zapadka `STANY_SDK` zapisuje ten stan TAKI, JAKI JEST, bo inaczej byłaby czerwona od pierwszego dnia; poprawka zmienia więc wypis atrapy i wymaga przeliczenia zapadki w tym samym commicie. Prawdziwy `dotnet --list-sdks` kończy listę nowym wierszem | S |
 | 6.D130 | **ZROBIONE w #523 (11.09.2026), a OBJAWU Z WPISU NIE DA SIĘ DZIŚ ODTWORZYĆ — i to jest wynik tej pozycji.** Rozróżnienie da się zrobić bez listy słów, bo silnik ma własne wyliczenie: `Godot.Key` niesie **193** nazwy, `Escape` jest jedną z nich, `Esc` nie jest, a **ani jedna** nie ma polskiego znaku diakrytycznego. Ryzyko kolizji zmierzone, nie oszacowane: w całym `src/Game/` stoi **948** literałów (746 różnych), a nazwą klawisza jest **sześć** — `Escape`, `F1`, `F2`, `Forward`, `Right`, `Up` — i żaden nie jest tekstem dla człowieka. Komunikat mówi dziś dwa różne zdania: „literał językowy zamiast klucza katalogu” albo „nazwa klawisza silnika spoza `NazwyKlawiszy`”, a wszystkie trzy bramki literałów składają je przez wspólne `ZPowodami`, więc rozróżnienie jest JEDNO, a nie trzy kopie tej samej reguły. **Wpis mówił, że podmiana `"Esc"` na `"Escape"` zapala `W_plikach_sterowania_nie_ma_ani_jednego_slowa`. Nie zapala.** KN-1 wykonała dokładnie tę podmianę i padły TRZY testy, ale żaden nie jest bramką literałów — wszystkie trzy to piny z 6.D116 (`KeyNames` kontra wiersz pomocy) i mówią o tym, o czym mają mówić. Powód: **`"Esc"` PRZEPROWADZIŁ SIĘ** — bramka skanuje `DriverActions.cs` i `EmergencyBrake.cs`, a od 6.D116 ten napis mieszka w `KeyNames.cs`, którego nie skanuje nikt. Usterka komunikatu jest jednak nadal osiągalna i pokazują to KN-1b i KN-1c: literał wstawiony do pliku sterowania daje dziś właściwe zdanie, jedno albo drugie — **na prawdziwej bramce i prawdziwym pliku, nie na wejściu syntetycznym**. **KN-4 WYSZŁA ZIELONA (233/233): zdjęcie `"Esc"` z `NazwyKlawiszy`, jedynego wpisu tej listy, nie zmienia NIC.** `grep -rn '"Esc"' src/Game/` daje dwa trafienia i oba są w `KeyNames.cs`; w żadnym ze skanowanych plików tego napisu nie ma. **`NazwyKlawiszy` jest więc dziś WYJĄTKIEM BEZ ZASTOSOWANIA** — nie tykam go, bo „Poza zakresem” wyklucza zmianę zawartości tej listy, ale zapisuję, bo wyjątek, którego zdjęcie niczego nie zmienia, jest zdaniem o kodzie, które ktoś przeczyta i uzna za prawdziwe. Sześć kontroli, `md5sum -c: OK` po każdej, baza `tests/Game.Tests` 233/233: KN-1 230/233 (ale nie bramka literałów); KN-1b i KN-1c obie czerwone z właściwymi zdaniami — **są parą i dopiero razem dowodzą tezy pozycji**; KN-2 (`PowodOdrzucenia` zawsze o polszczyźnie) 232/233; KN-3 (zbiór nazw wpisany z ręki) 232/233; KN-4 zielona. `MAX_GAME_UNMATCHED_NEEDLES` podniesiona z 21 na 24 z zapisanym powodem: trzy nowe igły nie są komunikatami programu (`Escape` to wejście syntetyczne, a dopasowanie go do drzewa znaczyłoby, że bramka literałów jest czerwona; dwa pozostałe to człony komunikatu SAMEGO TESTU). Trzymania igieł w zmiennej nie użyto, choć ominęłoby zapadkę — to zamiana niejednoznaczności na niewidzialność, przed którą trzeci szczebel ma bronić. Weryfikacja: `tests/Game.Tests` **233/233** (było 231), zestaw narzędzi **2310/2310** w 121 modułach, kod 0; `dotnet test tests/Sim.Tests` 601/601; `MIN_REPORTS` 248 → 249. Raport: `reports/6d130-dwa-powody-odrzucenia-literalu.md`. Czego nie zrobiłem: nie zmieniłem zawartości `NazwyKlawiszy` i nie przeniosłem niczego do katalogu tekstów (oba w „Poza zakresem”); **nie dopisałem `KeyNames.cs` do plików skanowanych** — byłoby dziś zielone, ale rozszerza ZAKRES bramki, a ta pozycja jest o jej KOMUNIKATACH; nie wzmocniłem odsiania o pozostałe pięć kolizji, bo żadna z nich nie jest dziś odrzucana, a reguła pisana pod nieistniejący przypadek jest regułą bez pomiaru. Treść pierwotna: ****Bramka literałów sterowania nazywa angielską nazwę klawisza „literałem językowym"**** | zmierzone 11.09.2026 przy 6.D116: podmiana `"Esc"` na `"Escape"` zapala `W_plikach_sterowania_nie_ma_ani_jednego_slowa` z komunikatem o polszczyźnie — a `"Escape"` polskim słowem nie jest, tylko nazwą spoza `NazwyKlawiszy`. Komunikat kieruje szukającego w złe miejsce. Pozycja ma rozróżnić dwa powody zgłoszenia (słowo kontra nazwa spoza listy) albo pokazać pomiarem, że rozróżnić się nie da; treści `NazwyKlawiszy` nie zmienia | S |
-| 6.D131 | **Pin całego wiersza pomocy trzeba aktualizować ręcznie przy każdej zmianie nazwy klawisza** | zauważone 11.09.2026 przy 6.D116: `Wiersze_zlozone_z_katalogu_brzmia_co_do_znaku_tak_jak_przed_przenosinami` trzyma cały wiersz pomocy jako napis wpisany z ręki. Dziś to jedna linijka i siedem akcji; koszt pinu rośnie liniowo z tabelą, a rosnący koszt pinu jest tym, co zwykle popycha do jego rozluźnienia. Pozycja ma ZMIERZYĆ, ile pinów tego kształtu stoi w `tests/Game.Tests/`, i rozstrzygnąć, które z nich mają zostać wpisane z ręki, a które dadzą się przybić inaczej bez utraty niezależności | M |
+| 6.D131 | **ZROBIONE w #524 (11.09.2026): pinów jest 44, a rozstrzygnięcie brzmi — ŻADNEGO nie da się przybić inaczej.** Pomiar (pin = asercja, której wartością oczekiwaną jest literał napisowy): `tests/Game.Tests` **44** w 8 plikach z 16, `tests/Sim.Tests` **74** w 20 z 36 — czyli **2,75** na plik wobec **2,06**, więc **gra pinuje GĘŚCIEJ od rdzenia**, mimo że ma o połowę mniej plików testowych. Rozkład: `RunPlanTests` 30, `UiTextTests` 5, `ChunkManifestTests` 3, `RunResetTests` 2, po jednym w czterech pozostałych. **Czytnik jest LEKSYKALNY, nie składniowy, i mówię to wprost:** pole „Wyjście” prosiło o liczbę „z drzewa składni”, a drzewa składni C# w tym repozytorium nie ma i mieć nie będzie — jedyną drogą byłby Roslyn, czyli nowa zależność (ta sama reguła, która w 6.D85 zabroniła walidatora JSON Schema). Czytnik stoi więc na `csharp_test_methods.maska`, a jego granice są wypisane w module: nie wie, czy wywołanie stoi w metodzie testowej, i nie rozwija stałych. **Pułapka, w którą wpadłem:** pierwsza wersja przeskakiwała białe znaki PO MASCE, a w masce literał jest spacjami — pętla przechodziła przez niego na wylot i czytnik zgłaszał **0 pinów zamiast 44**, w obu katalogach naraz; zero wyglądało jak wynik, a KN-2 ten stan odtwarza. **Kategorie, podział ZAPISANY, bo reguła się myli:** A — wynik złożony z kilku źródeł, **4** (`UiTextTests` 490/496/501, `SignallingHudTests` 37); B — wejście syntetyczne kontroli przyrządu, **2** (`UiTextTests` 570/571); C — wartość liczona w jednym miejscu, **38**. Reguła „interpunkt albo dwie spacje pod rząd” myli się na DWÓCH z czterech: przepuszcza wiersz o hamulcu awaryjnym (złożony, ale rozdzielony pojedynczymi spacjami) i łapie wejście syntetyczne kontroli `BezDziur`; reguła myląca się w połowie przypadków jest gorsza niż wypisana tabela, bo **zmyśla kategorię tam, gdzie nikt nie patrzy**, a osobny test WYKONUJE tamtą regułę i żąda dokładnie tych dwóch pomyłek, żeby rozstrzygnięcie nie stało się opinią. **ROZSTRZYGNIĘCIE dla każdej kategorii z innego powodu:** A — wartość liczona z katalogu byłaby porównaniem katalogu z samym sobą (ta sama decyzja, którą 6.D99 podjęło świadomie); B — to nie są piny, tylko dane wejściowe; C — jedyną alternatywą byłaby wspólna stała dzielona z kodem produkcyjnym, czyli porównanie kodu z samym sobą, przy którym cicha zmiana nazwy trybu z `"manual"` na `"reczny"` przeszłaby bez śladu. Obawa z pola „Skąd” o koszt rosnący liniowo z tabelą przypisań **jest prawdziwa i zostaje**; odpowiedzią nie jest rozluźnienie pinu, tylko świadomość, że to cena niezależności od kodu, który pin pilnuje. Siedem kontroli, `md5sum -c: OK` na trzech plikach po każdej, baza 5/5: KN-1 3/5; KN-2 **1/5, cztery testy, ZERO pinów**; KN-3 (sklejanie literałów zdjęte) 4/5, 122 znaki → 38; **KN-4 (skan bez maski) 5/5 ZIELONA** — pokazała, że maska nie zmienia dziś ani jednej liczby, ORAZ że mój test maski składał ją SAM i nie pilnował `piny()` wcale; przepisany na przejście przez `piny()` na drzewie probnym, po czym KN-4b jest czerwona (4/5), a maska zostaje **ubezpieczeniem, nie zmierzoną koniecznością**; KN-5 3/5; **KN-6 (`Assert.IsTrue` dopisane do wzorca) 5/5 ZIELONA i jest to POPRAWNE** — `IsTrue` bierze `bool`, więc literału napisowego jako pierwszego argumentu nie ma i mieć nie może, czyli wykluczenie jest DEFINICYJNE, nie zmierzone, i żadna kontrola tego nie odróżni. Weryfikacja: `test_csharp_pins.py` **5/5** (moduł nowy), zestaw 2310 → **2315**, moduły 121 → **122**, kod 0; `dotnet test tests/Game.Tests` 233/233 **bez zmiany** — pozycja jest pomiarem i zachowania testów nie rusza; `MIN_REPORTS` 249 → 250. Raport: `reports/6d131-piny-wpisane-z-reki.md`. Czego nie zrobiłem: nie zdjąłem ani nie przepisałem żadnego pinu („Poza zakresem”); **nie objąłem czytnikiem pinów LICZBOWYCH** (`9.40`, `4L`) — też są wpisane z ręki, ale pole „Skąd” mówi o wierszu pomocy, czyli o napisach, a rozszerzenie zmieniłoby liczbę, o którą pozycja pytała; nie rozwijam stałych, bo wymagałoby to tego drzewa składni, którego nie ma. Treść pierwotna: ****Pin całego wiersza pomocy trzeba aktualizować ręcznie przy każdej zmianie nazwy klawisza**** | zauważone 11.09.2026 przy 6.D116: `Wiersze_zlozone_z_katalogu_brzmia_co_do_znaku_tak_jak_przed_przenosinami` trzyma cały wiersz pomocy jako napis wpisany z ręki. Dziś to jedna linijka i siedem akcji; koszt pinu rośnie liniowo z tabelą, a rosnący koszt pinu jest tym, co zwykle popycha do jego rozluźnienia. Pozycja ma ZMIERZYĆ, ile pinów tego kształtu stoi w `tests/Game.Tests/`, i rozstrzygnąć, które z nich mają zostać wpisane z ręki, a które dadzą się przybić inaczej bez utraty niezależności | M |
 | 6.D132 | **Wznowienie z dziennika sprzed 6.D113 miesza wpisy z polem `stary_bajtkod` i bez niego** | zmierzone 11.09.2026 przy 6.D113: licznik czyta pole przez `.get`, więc stary dziennik nie wywraca przebiegu — ale wypis „mutacji zapisanych pod ważnym starym bajtkodem: 0" znaczy wtedy „zero wśród wpisów NOWYCH", a nie „zero w całym dzienniku". Wypis tego nie rozróżnia. Pozycja ma dodać trzeci stan licznikowi (policzone, niepoliczone, brak pola) albo pokazać pomiarem, że rozróżnienie jest niepotrzebne, bo wznowień z dziennikiem sprzed zmiany nie ma | S |
 | 6.D133 | **Zapadki `MAX_*` w `test_tree_walks.py` da się podnieść bez zapalenia czegokolwiek** | zmierzone 11.09.2026 przy 6.D117, kontrolą KN-4: podniesienie `MAX_GLOB_WPROST` z jedności na dziewięć nie zapala niczego, bo porównanie ma kształt `len(lista) <= zapadka`. Tak samo zachowuje się sąsiednia zapadka z 6.D74 i to jest zachowanie ZASTANE, wspólne dla obu. Reguła „wolno tylko obniżać" jest więc zdaniem dla człowieka, a nie bramką. Pozycja ma POLICZYĆ zapadki tego kształtu w `tools/tests/` i rozstrzygnąć jedną regułą dla wszystkich, a nie dla jednej listy | M |
 | 6.D134 | **Status `est` ma zero użyć i nic nie pilnuje jego powrotu** | zauważone 10.09.2026 przy 6.D105: `docs/02-simulation.md` definiuje `est` jako oszacowanie do usunięcia, a w danych pojazdu nie ma go ani razu. Stan jest poprawny, ale nie jest przez nic pilnowany w żadną stronę — nazwa wycofywana może wrócić po cichu. Pozycja ma rozstrzygnąć, czy zero użyć da się przybić bramką bez fałszywego alarmu na dokumencie, który tę nazwę DEFINIUJE; klasyfikacji żadnego parametru nie zmienia | S |
@@ -995,6 +995,12 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.D138 | **`assert R.MASS["AW0"] == 170000.0` porównuje kopię z kopią** | zmierzone 11.09.2026 przy 6.D124: liczba 170 000 stoi w drzewie trzy razy — w rejestrze ze źródłem i flagą, w `reference.py` jako literał bez znaku, i w `test_all.py` jako asercja na literał, która przeszłaby, gdyby rejestr podał co innego. Zamiana literału na odczyt zlikwidowałaby jednak DRUGĄ DROGĘ, na której stoi całe porównanie referencji z rdzeniem — pozycja ma rozstrzygnąć, gdzie należy odczyt, a gdzie literał | S |
 | 6.D139 | **Trzecia kopia liczb 18 i 24 leży w `docs/21` i nikt jej nie liczy** | zauważone 11.09.2026 przy 6.D121: README podaje 18 wymiarów stacji i 24 wymiary kabiny, obie liczby od tej pozycji sprawdzane wobec drzewa, a `docs/21-measured-vs-assumed.md` niesie te same wymiary wypisane z osobna i nikt tamtej listy z modułami nie porównuje. Bramka ma porównywać ZBIORY NAZW, nie sumy: licznik zgodziłby się przy wymianie jednego wymiaru na inny | M |
 | 6.D140 | **`--from-m/--to-m` zawęża tylko kamerę wnętrza, a nazwa tego nie mówi** | zmierzone 11.09.2026 przy 6.D120: opcja zawęża wyłącznie kamerę klatki `_inside`, a `_iso` i `_side` nadal kadrują cały obiekt — dla osi o proporcjach 78 : 1 `_side` jest przez to kreską niezależnie od okna, a §5 żąda obejrzenia tej klatki. Kadrowanie całości w `_iso` jest jednak TREŚCIĄ (ma pokazywać pustą scenę i geometrię zwiniętą w punkt), więc rozstrzygnięciem może być też nazwa mówiąca prawdę zamiast zmiany zachowania | M |
+| 6.D141 | **Piny liczbowe w testach nie są przez nic policzone** | zmierzone 11.09.2026 przy 6.D131: czytnik `csharp_pins.py` liczy wyłącznie piny, których wartością oczekiwaną jest literał NAPISOWY — 44 w warstwie gry, 74 w rdzeniu. `Assert.AreEqual(9.40, manifest.ProfileWidthM)` i `Assert.AreEqual(4L, plan.StepsPerFrame)` są wpisane z ręki tak samo, a nie liczy ich nikt. Pin liczbowy ma jednak trzeci argument — tolerancję — i to ona rozstrzyga, czy jest pinem na wartość, czy na rząd wielkości; wzorzec bez tego rozróżnienia policzy oba jako jedno | S |
+| 6.D142 | **`NazwyKlawiszy` jest wyjątkiem, którego zdjęcie niczego nie zmienia** | zmierzone 11.09.2026 przy 6.D130, kontrolą KN-4: zdjęcie `"Esc"` z tej listy — jej jedynego wpisu — daje 233/233, bo napis mieszka dziś w `KeyNames.cs`, którego bramka nie skanuje. Wyjątek zdjęty przestaje jednak bronić przed powrotem tego, co wykluczał. Pozycja ma rozstrzygnąć, czy lista zostaje wartownikiem z zapisanym powodem, czy znika razem z powodem, dla którego istniała; zakresu plików skanowanych nie rusza | S |
+| 6.D143 | **`KeyNames.cs` nie jest skanowany, choć tam mieszkają dziś napisy klawiszy** | zmierzone 11.09.2026 przy 6.D130: bramka literałów skanuje `DriverActions.cs`, `EmergencyBrake.cs`, `Hud.cs` i trzy metody `FirstRun.cs`, a od 6.D116 napisy klawiszy przeniosły się do `KeyNames.cs` — i to jest powód, dla którego objawu z wpisu 6.D130 nie dało się odtworzyć. Ten plik niesie napisy wytłoczone na klawiszach, czyli dokładnie rodzinę, dla której istnieje wyjątek z 6.D142, więc samo dopisanie go do listy przeniosłoby tam pytanie zamiast na nie odpowiedzieć | M |
+| 6.D144 | **Ile kosztuje dopisanie komunikatów w jednym module** | zmierzone 11.09.2026 przy 6.D127: asercji bez komunikatu jest 2377 w 103 modułach, a „Poza zakresem" tamtej pozycji wykluczyło ich poprawianie, bo to praca liniowa w ich liczbie. Nikt nie wie, ile kosztuje na jeden moduł — a bez tej liczby decyzja „poprawiać czy nie" jest zgadywaniem. `test_clearance_profile.py` ma ich 117, najwięcej w drzewie, i jest modułem geometrycznym, czyli takim, w którym czerwień najtrudniej czyta się z samego kodu | M |
+| 6.D145 | **Asercje C# bez komunikatu nie są przez nic policzone** | zauważone 11.09.2026 przy 6.D127: bramka liczy asercje bez komunikatu w `tools/tests/` i zatrzymuje się na granicy języka, a `tests/Sim.Tests` i `tests/Game.Tests` mają razem 834 testy i ani jednego takiego licznika. To nie jest ten sam skan: asercja C# niesie komunikat jako OSTATNI argument, nie jako drugi, a `Assert.AreEqual(a, b, 1e-12)` ma trzeci argument, który komunikatem nie jest — kształt trzeba rozpoznać, a nie policzyć przecinki | M |
+| 6.D146 | **Ile bloków wykonanych ma adres wskazujący nie tę bramkę** | pole „Poza zakresem" pozycji 6.D126 nazwało to wprost jako pomiar na osobną pozycję: 6.D126 poprawiło JEDEN adres (blok 6.D74) i zapisało regułę, a ile jest pozostałych, nie wie dziś nikt — skan pól pomija bloki wykonane z rozmysłem, a `missing_modules` widzi wyłącznie moduły NIEISTNIEJĄCE. Pytanie „czy moduł zawiera bramkę, o której pole mówi" wymaga semantyki, więc pozycja ma najpierw zmierzyć, ilu bloków to dotyczy | M |
 
 #### Szczegóły pozycji z kompletem sześciu pól
 
@@ -8596,6 +8602,155 @@ nie sięga, nawet gdy nie ma nic innego do roboty; wtedy sięga po fazę 5.
   albo pokazuje coś, co da się ocenić, albo ma zapisane, dlaczego nie może.
 - **Poza zakresem:** zmiana profilu tunelu i liczby klatek kontrolnych.
 - **Zależy od:** 6.D120.
+
+##### 6.D141 · Piny liczbowe w testach nie są przez nic policzone
+
+- **Skąd:** zmierzone 11.09.2026 przy 6.D131. Czytnik `csharp_pins.py` liczy piny,
+  których wartością oczekiwaną jest **literał napisowy** — 44 w warstwie gry, 74
+  w rdzeniu. `Assert.AreEqual(9.40, manifest.ProfileWidthM)` i `Assert.AreEqual(4L,
+  plan.StepsPerFrame)` są pinami wpisanymi z ręki tak samo, a nie liczy ich nikt.
+- **Dlaczego to nie jest rozszerzenie jednego wzorca:** pin liczbowy ma trzeci
+  argument — tolerancję (`1e-12`) — i to ona rozstrzyga, czy jest pinem na wartość,
+  czy na rząd wielkości. Wzorzec bez tego rozróżnienia policzy oba jako jedno.
+- **Wejście:** `tools/tests/csharp_pins.py` (`ASERCJA`, `_tresc_literalu`),
+  `tools/tests/test_csharp_pins.py` (`PINY_GRY`, `KATEGORIE`), `tests/Game.Tests/`,
+  `tests/Sim.Tests/`.
+- **Wyjście:** liczba pinów liczbowych z podziałem na te z tolerancją i bez, plus
+  rozstrzygnięcie, czy wchodzą do tej samej tabeli kategorii, czy do własnej.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_csharp_pins.py
+  ```
+  Oczekiwane: zestaw zielony, liczba wypisana, a pin liczbowy dopisany do drzewa
+  zapala zapadkę.
+- **Skończone, gdy:** liczba jest zmierzona, a pin z tolerancją i bez tolerancji
+  dają dwa różne wpisy — pokazane wejściem syntetycznym.
+- **Poza zakresem:** zdejmowanie i przepisywanie pinów; rozwijanie stałych.
+- **Zależy od:** 6.D131.
+
+##### 6.D142 · `NazwyKlawiszy` jest wyjątkiem, którego zdjęcie niczego nie zmienia
+
+- **Skąd:** zmierzone 11.09.2026 przy 6.D130, kontrolą negatywną KN-4. Zdjęcie `"Esc"`
+  z `NazwyKlawiszy` — jedynego wpisu tej listy — daje **233/233**, czyli zielono.
+  `grep -rn '"Esc"' src/Game/` znajduje dwa trafienia i oba są w `KeyNames.cs`,
+  którego bramka literałów nie skanuje.
+- **Dlaczego to nie jest zdjęcie martwego wpisu:** lista jest **wyjątkiem**, a wyjątek
+  zdjęty przestaje bronić przed powrotem tego, co wykluczał. Pozycja ma rozstrzygnąć,
+  czy `NazwyKlawiszy` zostaje jako wartownik (jak wpis `ZAPRZECZENIA` w
+  `test_readme_claims.py`), czy znika razem z powodem, dla którego istniał.
+- **Wejście:** `tests/Game.Tests/UiTextTests.cs` (`NazwyKlawiszy`, `SlowaWKodzie`),
+  `src/Game/Input/KeyNames.cs`, `reports/6d130-dwa-powody-odrzucenia-literalu.md`.
+- **Wyjście:** rozstrzygnięcie zapisane przy liście: wartownik z powodem **albo**
+  zdjęcie z pomiarem pokazującym, że nie ma czego pilnować.
+- **Weryfikacja:**
+  ```bash
+  dotnet test tests/Game.Tests
+  ```
+  Oczekiwane: zielone, a wejście syntetyczne z napisem wytłoczonym na klawiszu
+  zachowuje się tak, jak mówi rozstrzygnięcie.
+- **Skończone, gdy:** zdjęcie wpisu z listy zapala bramkę **albo** stoi przy nim
+  zdanie mówiące, dlaczego nie zapala i po co wpis został.
+- **Poza zakresem:** rozszerzanie zakresu plików skanowanych — to jest 6.D143.
+- **Zależy od:** 6.D130.
+
+##### 6.D143 · `KeyNames.cs` nie jest skanowany, choć tam mieszkają dziś napisy klawiszy
+
+- **Skąd:** zmierzone 11.09.2026 przy 6.D130. Bramka literałów skanuje
+  `DriverActions.cs`, `EmergencyBrake.cs`, `Hud.cs` i trzy metody `FirstRun.cs`.
+  Od 6.D116 napisy klawiszy mieszkają w `KeyNames.cs`, którego nie skanuje nikt —
+  i to jest powód, dla którego objawu opisanego w 6.D130 nie dało się odtworzyć.
+- **Dlaczego to nie jest dopisanie pliku do listy:** `KeyNames.cs` niesie napisy
+  **wytłoczone na klawiszach**, czyli dokładnie tę rodzinę, dla której istnieje
+  wyjątek `NazwyKlawiszy`. Rozszerzenie zakresu bez rozstrzygnięcia z 6.D142 przeniosłoby
+  tam tylko pytanie, zamiast na nie odpowiedzieć.
+- **Wejście:** `tests/Game.Tests/UiTextTests.cs` (lista plików sterowania),
+  `src/Game/Input/KeyNames.cs`, `src/Game/Input/DriverActions.cs`.
+- **Wyjście:** `KeyNames.cs` w zakresie bramki **albo** zapisany powód, dla którego
+  stoi poza nim; w obu przypadkach liczba literałów tego pliku policzona z drzewa.
+- **Weryfikacja:**
+  ```bash
+  dotnet test tests/Game.Tests
+  ```
+  Oczekiwane: zielone, a polskie słowo wstawione do `KeyNames.cs` zachowuje się tak,
+  jak mówi rozstrzygnięcie.
+- **Skończone, gdy:** dla każdego literału `KeyNames.cs` wiadomo, czy bramka go widzi,
+  i dlaczego — z liczbą, nie z opinią.
+- **Poza zakresem:** zmiana zawartości `KeyNames.cs` i katalogu tekstów.
+- **Zależy od:** 6.D130, 6.D142.
+
+##### 6.D144 · Ile kosztuje dopisanie komunikatów w jednym module
+
+- **Skąd:** zmierzone 11.09.2026 przy 6.D127. Asercji bez komunikatu jest **2377**
+  w 103 modułach; pole „Poza zakresem" tamtej pozycji wykluczyło poprawianie ich,
+  bo to praca liniowa w ich liczbie. Nikt jednak nie wie, ile ta praca kosztuje na
+  jeden moduł — a bez tej liczby decyzja „poprawiać czy nie" jest zgadywaniem.
+- **Dlaczego akurat jeden moduł:** `test_clearance_profile.py` ma ich **117**,
+  najwięcej w drzewie, i jest modułem geometrycznym — czyli takim, w którym asercja
+  porównuje liczbę z liczbą i czerwień najtrudniej czyta się z samego kodu.
+- **Wejście:** `tools/tests/test_clearance_profile.py`,
+  `tools/tests/test_assertion_gate.py` (`NIEME_ASERCJE`, `NIEMYCH_RAZEM`).
+- **Wyjście:** komunikaty dopisane w jednym module, wpis w `NIEME_ASERCJE` obniżony
+  w tym samym commicie, i **zmierzony czas** albo liczba wierszy zmiany na asercję.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_clearance_profile.py test_assertion_gate.py
+  ```
+  Oczekiwane: oba zielone, a zapadka `NIEME_ASERCJE` niższa o tyle, ile asercji
+  dostało komunikat.
+- **Skończone, gdy:** wpis modułu w `NIEME_ASERCJE` spadł do zera, a raport podaje
+  koszt na jedną asercję, żeby dało się oszacować pozostałe 2260.
+- **Poza zakresem:** zmiana treści którejkolwiek asercji — dopisuje się POWÓD,
+  a nie warunek.
+- **Zależy od:** 6.D127.
+
+##### 6.D145 · Asercje C# bez komunikatu nie są przez nic policzone
+
+- **Skąd:** zauważone 11.09.2026 przy 6.D127. Bramka liczy asercje bez komunikatu
+  w `tools/tests/` i zatrzymuje się na granicy języka: `tests/Sim.Tests`
+  i `tests/Game.Tests` mają razem **834** testy i ani jednego takiego licznika.
+- **Dlaczego to nie jest ten sam skan:** asercja C# niesie komunikat jako **ostatni**
+  argument, nie jako drugi, a `Assert.AreEqual(a, b, 1e-12)` ma trzeci argument, który
+  komunikatem nie jest. Kształt trzeba rozpoznać, a nie policzyć przecinki.
+- **Wejście:** `tools/tests/csharp_assertions.py` (`ASERCJA`, `POMOCNIK`),
+  `tools/tests/csharp_pins.py` (maska i sklejanie literałów), `tests/Sim.Tests/`,
+  `tests/Game.Tests/`.
+- **Wyjście:** liczba asercji C# bez komunikatu, per moduł, z zapadką w obie strony —
+  tak jak po stronie Pythona.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_csharp_assertions.py
+  ```
+  Oczekiwane: zestaw zielony, liczba wypisana, a asercja bez komunikatu dopisana
+  do drzewa zapala zapadkę.
+- **Skończone, gdy:** liczba jest zmierzona, a wejście syntetyczne z tolerancją jako
+  trzecim argumentem NIE jest liczone jako asercja z komunikatem.
+- **Poza zakresem:** dopisywanie komunikatów do asercji C#.
+- **Zależy od:** 6.D127.
+
+##### 6.D146 · Ile bloków wykonanych ma adres wskazujący nie tę bramkę
+
+- **Skąd:** pole „Poza zakresem" pozycji 6.D126 nazwało to wprost jako pomiar na
+  osobną pozycję. 6.D126 poprawiło **jeden** adres (blok 6.D74) i zapisało regułę;
+  ile jest pozostałych, nie wie dziś nikt, bo skan pól pomija bloki wykonane
+  z rozmysłem, a `missing_modules` widzi wyłącznie moduły NIEISTNIEJĄCE.
+- **Dlaczego to nie jest rozszerzenie skanu:** pytanie „czy moduł zawiera bramkę,
+  o której pole mówi" wymaga semantyki, bo pole opisuje bramkę prozą, nie nazwą testu.
+  Pozycja ma zmierzyć, ilu bloków to w ogóle dotyczy — a dopiero na tej liczbie
+  rozstrzygnąć, czy przeczytanie ich ręcznie jest tańsze od bramki.
+- **Wejście:** `docs/TASKS.md` (bloki wykonane), `tools/tests/test_field_paths.py`
+  (`_all_blocks`, `module_names`, `poprawki_zapisow`), `tools/tests/`.
+- **Wyjście:** liczba bloków wykonanych, których pole „Weryfikacja" woła moduł
+  ISTNIEJĄCY, plus lista tych, dla których nazwa modułu nie występuje w żadnym
+  zdaniu bloku — czyli kandydatów na zły adres.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_field_paths.py
+  ```
+  Oczekiwane: zestaw zielony, a liczba kandydatów wypisana — także gdy wynosi zero.
+- **Skończone, gdy:** liczba jest zmierzona, a rozstrzygnięcie mówi, czy kandydatów
+  jest na tyle mało, żeby przeczytać ich ręcznie.
+- **Poza zakresem:** poprawianie któregokolwiek adresu — to jest praca po pomiarze.
+- **Zależy od:** 6.D126.
 
 #### Rozstrzygnięte 10.09.2026 — osiem decyzji właściciela
 

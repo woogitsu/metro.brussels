@@ -340,7 +340,16 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 #: PRZY WYKONYWANIU pozycji 6.D120, 6.D121, 6.D122, 6.D123 i 6.D124 i zapisanych tam
 #: jako zauważone — ani jedna nie jest wymyślona pod pustą kolejkę. Wartość
 #: z `len(detail_sections(...))` na pliku po edycji.
-MINIMUM_DETAIL_BLOCKS = 213
+#: **213 → 219 (11.09.2026, przy 6.D131).** Sześć bloków: 6.D141 … 6.D146, i NIE
+#: osobnym commitem — z tej samej arytmetyki, co przy 6.D96, 6.D102 i 6.D125:
+#: domknięcie 6.D131 zbija kolejkę z dwunastu na JEDENAŚCIE, czyli poniżej progu,
+#: więc `CLAUDE.md` §8 każe uzupełnić ją zanim cokolwiek innego się zacznie, a commit
+#: z samym domknięciem zostawiłby drzewo czerwone. Wszystkie sześć wyszło z pomiarów
+#: zrobionych PRZY WYKONYWANIU pozycji 6.D126, 6.D127, 6.D130 i 6.D131 — trzy z nich
+#: (6.D142, 6.D143, 6.D145) wyszły z kontroli negatywnych, które WYSZŁY ZIELONE albo
+#: z granic czytnika wypisanych w jego własnym module, a nie z lektury. Wartość
+#: z `len(detail_sections(...))` na pliku po edycji, nie z dodania szóstki do 213.
+MINIMUM_DETAIL_BLOCKS = 219
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
