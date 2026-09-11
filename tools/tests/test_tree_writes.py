@@ -107,6 +107,11 @@ POZA_DRZEWEM = {
     ("test_mutation_sweep.py",
      "test_a_remembered_map_from_another_commit_is_refused", "os.replace"):
         "mapa przenoszona pod inną nazwę wewnątrz katalogu tymczasowego",
+    ("test_provenance_classes.py",
+     "test_dokument_definiujacy_status_bramki_nie_zapala", "shutil.copy"):
+        "dokument modelu kopiowany do drzewa PROBNEGO w katalogu tymczasowym — "
+        "6.D134 pyta skan wprost, czy definicja klasy nie jest liczona jako jej "
+        "użycie, a wnioskowanie z rozszerzenia pliku okazało się niepełne",
 }
 
 #: JAWNA, ZAMKNIĘTA lista miejsc, które piszą do pliku śledzonego i **jeszcze nie

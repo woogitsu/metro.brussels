@@ -30,6 +30,9 @@ import re
 import sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import tree_walk as TW  # noqa: E402
 
 #: Dokument, który klasy DEFINIUJE. Jedyne źródło.
 MODEL = os.path.join(ROOT, "docs", "02-simulation.md")
@@ -55,6 +58,76 @@ WYCOFANE = {
               "dokument modelu zna `design_model`, a `design` nie występuje ani "
               "w nim, ani w danych pojazdu (zmierzone 10.09.2026, 6.D89)",
 }
+
+
+#: **6.D134: cały katalog danych, a nie jeden plik.** `klasy_w_danych` czyta wyłącznie
+#: `data/vehicle/m7-spec.json`, bo 6.D89 pytało o klasy modelu jazdy. Pole `status`
+#: stoi jednak w **20** plikach JSON pod `data/` (zmierzone 11.09.2026) i niesie w nich
+#: słowniki ZUPEŁNIE INNE — `ok`, `unknown`, `source_backed`, `permission_required`.
+#: Nazwa wycofana mogłaby więc wrócić w dowolnym z pozostałych dziewiętnastu i nie
+#: zgłosiłoby tego nic.
+DANE = os.path.join(ROOT, "data")
+
+#: Klasy, które dokument DEFINIUJE, ale których w danych być nie wolno. Wpis nie jest
+#: tym samym co `WYCOFANE`: tamte są nazwami, których dokument modelu **nie zna**,
+#: a `est` zna i opisuje — jako „oszacowanie historyczne do usunięcia/weryfikacji",
+#: czyli klasę, której obecność jest usterką, a brak stanem docelowym.
+ZAKAZANE_W_DANYCH = {
+    "est": "dokument modelu definiuje ją jako oszacowanie historyczne DO USUNIĘCIA, "
+           "więc wpis o tym statusie znaczy, że do danych wróciła liczba, której "
+           "nikt nie potwierdził (6.D134)",
+}
+
+#: Gołe słowo `est` w plikach `data/`, ZE WSZYSTKIMI wystąpieniami — zmierzone
+#: 11.09.2026: **7 w 4 plikach i wszystkie siedem to francuszczyzna.** Cztery stoją
+#: w adresach STIB (`…-on-en-est-ou`, `…-m7-est-arrive-…`), trzy w cytacie z EIE
+#: («la profondeur des quais … **est** d'environ 11 m») w `station-depths.csv`.
+#: Trafień prawdziwych: **zero**.
+#:
+#: Liczba stoi tu po to, żeby bramka niżej mogła POKAZAĆ, czemu nie jest grepem —
+#: a nie tylko o tym napisać. Skan po samym słowie dałby siedem fałszywych alarmów
+#: i ani jednego prawdziwego, czyli byłby czystym szumem.
+EST_JAKO_SLOWO_W_DANYCH = 7
+EST_JAKO_SLOWO_PLIKOW = 4
+
+#: Wzorzec gołego słowa — używany WYŁĄCZNIE do pokazania, że grep tu nie działa.
+SLOWO_EST = re.compile(r"(?<![A-Za-z_])est(?![A-Za-z_])")
+
+
+def statusy_w_katalogu_danych(katalog=None):
+    """`{ścieżka względna: {status: ile}}` dla każdego JSON-a pod `data/`.
+
+    Czyta POLE `status`, a nie tekst pliku — i to jest cała różnica między tą bramką
+    a grepem, którego wynik stoi w `EST_JAKO_SLOWO_W_DANYCH`.
+    """
+    baza = katalog or DANE
+    out = {}
+    for gdzie, _katalogi, pliki in TW.walk(baza, baza):
+        for nazwa in sorted(pliki):
+            if not nazwa.endswith(".json"):
+                continue
+            sciezka = os.path.join(gdzie, nazwa)
+            try:
+                dane = json.loads(_read(sciezka))
+            except (ValueError, OSError):
+                continue
+            licznik = {}
+
+            def obejdz(wezel):
+                if isinstance(wezel, dict):
+                    status = wezel.get("status")
+                    if isinstance(status, str):
+                        licznik[status] = licznik.get(status, 0) + 1
+                    for wartosc in wezel.values():
+                        obejdz(wartosc)
+                elif isinstance(wezel, list):
+                    for wartosc in wezel:
+                        obejdz(wartosc)
+
+            obejdz(dane)
+            if licznik:
+                out[os.path.relpath(sciezka, baza).replace(os.sep, "/")] = licznik
+    return out
 
 
 #: Drugi dokument z WŁASNĄ tabelą statusów — 6.D105. Klasyfikuje wymiary geometrii,
@@ -435,6 +508,167 @@ def test_the_document_still_defines_the_four_classes_the_measurement_found():
         "jako oszacowanie DO USUNIĘCIA" % w_danych.get("est", 0))
     assert set(w_danych) == {"spec", "design_model"}, (
         "rozkład klas w danych pojazdu zmienił się: %s" % sorted(w_danych))
+
+
+def test_zadna_klasa_zakazana_nie_wraca_do_danych():
+    """6.D134: `est` ma zero użyć w CAŁYM katalogu danych, nie tylko w pliku pojazdu.
+
+    **Co tu jest nowe wobec asercji z 6.D89.** Tamta pytała `klasy_w_danych()`, czyli
+    wyłącznie `data/vehicle/m7-spec.json`. Pole `status` stoi w **20** plikach JSON
+    pod `data/`, o zupełnie różnych słownikach, więc nazwa wycofana mogła wrócić
+    w dowolnym z pozostałych dziewiętnastu i nie zgłosiłoby tego nic.
+
+    **Zakazane są WYMIENIONE z nazwy, a nie wyliczone ze słownika modelu** — i nie jest
+    to ostrożność, tylko liczba. Gdyby bramka żądała, żeby każdy status w `data/` należał
+    do klas z `docs/02-simulation.md`, zapaliłaby się na **16 z 20 plików** i **18
+    nazwach** (`ok`, `unknown`, `source_backed`, `permission_required`, `not_modelled`…),
+    bo to słowniki INNYCH dziedzin — praw, torów, stacji — a nie provenance modelu jazdy.
+    Asercja niżej wykonuje tamtą regułę i żąda dokładnie tych liczb, żeby zdanie „byłaby
+    szumem" nie stało się opinią.
+    """
+    w_danych = statusy_w_katalogu_danych()
+    assert len(w_danych) >= 20, (
+        "pole `status` znaleziono w %d plikach — pomiar z 11.09.2026 mówił 20, "
+        "więc skan oślepł albo katalog się skurczył" % len(w_danych))
+
+    trafienia = sorted(
+        (plik, nazwa, ile)
+        for plik, licznik in w_danych.items()
+        for nazwa, ile in licznik.items()
+        if nazwa in ZAKAZANE_W_DANYCH)
+    assert trafienia == [], (
+        "do danych wróciła klasa zakazana (plik, nazwa, ile): %s — powody: %s"
+        % (trafienia, "; ".join("`%s`: %s" % (n, p)
+                                for n, p in sorted(ZAKAZANE_W_DANYCH.items()))))
+
+    # Reguła ODRZUCONA, wykonana tutaj: „każdy status musi być klasą modelu".
+    znane = klasy_z_dokumentu()
+    obce = {plik: sorted(n for n in licznik if n not in znane)
+            for plik, licznik in w_danych.items()}
+    plikow = sorted(plik for plik, nazwy in obce.items() if nazwy)
+    nazw = sorted({n for nazwy in obce.values() for n in nazwy})
+    assert (len(plikow), len(nazw)) == (16, 18), (
+        "reguła „każdy status jest klasą modelu” zapaliłaby się dziś na %d plikach "
+        "i %d nazwach, a pomiar z 11.09.2026 mówił 16 i 18 — pliki: %s, nazwy: %s"
+        % (len(plikow), len(nazw), plikow, nazw))
+
+
+def test_kazda_klasa_zakazana_jest_ZDEFINIOWANA_w_dokumencie_modelu():
+    """Zakaz dotyczy nazwy, którą dokument zna — inaczej byłby zakazem na wyrost.
+
+    `est` jest w danych zakazane WŁAŚNIE dlatego, że `docs/02-simulation.md` opisuje ją
+    jako oszacowanie do usunięcia. Gdyby dokument przestał ją definiować, zakaz
+    straciłby podstawę i miałby zniknąć razem z nią — a nie zostać jako reguła bez
+    źródła. To jest ta sama zasada, którą 6.D89 zapisało dla `WYCOFANE`, tylko
+    z przeciwnym znakiem.
+    """
+    znane = klasy_z_dokumentu()
+    bez_definicji = sorted(n for n in ZAKAZANE_W_DANYCH if n not in znane)
+    assert bez_definicji == [], (
+        "zakaz na klasę, której dokument modelu nie definiuje: %s — zakaz ma stać "
+        "przy definicji, a nie zamiast niej" % bez_definicji)
+
+    assert set(ZAKAZANE_W_DANYCH) == {"est"}, (
+        "lista zakazanych to %s — pomiar z 11.09.2026 znał jedną taką nazwę"
+        % sorted(ZAKAZANE_W_DANYCH))
+
+
+def test_wpis_est_w_danych_syntetycznych_ZAPALA_bramke():
+    """Kontrola przyrządu na drzewie probnym, obie strony w jednym teście.
+
+    Skan idzie przez `statusy_w_katalogu_danych`, a nie przez ręcznie złożony słownik —
+    inaczej mierzyłby moje wyobrażenie o czytniku zamiast czytnika (lekcja z 6.D131).
+    """
+    import tempfile
+
+    with tempfile.TemporaryDirectory(prefix="mbxl-est-") as katalog:
+        with open(os.path.join(katalog, "czyste.json"), "w", encoding="utf-8") as u:
+            json.dump({"a": {"status": "spec"}, "b": [{"status": "design_model"}]}, u)
+        czyste = statusy_w_katalogu_danych(katalog)
+        assert czyste == {"czyste.json": {"spec": 1, "design_model": 1}}, czyste
+        assert [n for l in czyste.values() for n in l if n in ZAKAZANE_W_DANYCH] == [], (
+            "czyste dane syntetyczne zgłosiły klasę zakazaną: %s" % czyste)
+
+        with open(os.path.join(katalog, "zepsute.json"), "w", encoding="utf-8") as u:
+            json.dump({"masa": {"status": "est", "wartosc": 155000}}, u)
+        zepsute = statusy_w_katalogu_danych(katalog)
+        trafienia = sorted((plik, nazwa) for plik, licznik in zepsute.items()
+                           for nazwa in licznik if nazwa in ZAKAZANE_W_DANYCH)
+        assert trafienia == [("zepsute.json", "est")], (
+            "wpis `est` w danych syntetycznych NIE zapalił skanu: %s" % zepsute)
+
+
+def test_dokument_definiujacy_status_bramki_nie_zapala():
+    """Druga połowa pola „Skończone, gdy": definicja ma być cicha — SPRAWDZONE WPROST.
+
+    Pierwsza wersja tego testu twierdziła, że dokument nie wchodzi do skanu, bo filtr
+    rozszerzeń przepuszcza tylko `.json`. Uzasadnienie było niepełne i pokazały to
+    **dwie kontrole ZIELONE**: KN-5 (dopisanie `.md` do filtru) 14/14 i KN-5b (czytnik
+    tekstowy zamiast parsera) 14/14. Obrony są **dwie i każda wystarcza sama**, więc
+    zdjęcie jednej nie zmienia nic; dopiero KN-5c, zdejmująca obie naraz, jest czerwona
+    i wypisuje dokument z `est: 1` jako UŻYCIEM.
+
+    Test kładzie więc dziś prawdziwy dokument w drzewie probnym i pyta skan wprost,
+    zamiast wnioskować z rozszerzenia albo z parsera — bo o tym, które z dwóch zabezpieczeń
+    zadziałało, wnioskować nie trzeba, gdy można zapytać o wynik.
+    """
+    import shutil
+    import tempfile
+
+    assert "est" in klasy_z_dokumentu(), (
+        "dokument modelu przestał definiować `est` — wtedy zakaz ma zniknąć razem "
+        "z definicją, a nie zostać regułą bez źródła")
+
+    with tempfile.TemporaryDirectory(prefix="mbxl-def-") as katalog:
+        shutil.copy(MODEL, os.path.join(katalog, "02-simulation.md"))
+        with open(os.path.join(katalog, "dane.json"), "w", encoding="utf-8") as u:
+            json.dump({"x": {"status": "spec"}}, u)
+        widziane = statusy_w_katalogu_danych(katalog)
+
+    assert widziane == {"dane.json": {"spec": 1}}, (
+        "skan obok danych zobaczył dokument DEFINIUJĄCY klasy: %s — wtedy definicja "
+        "`est` byłaby jej użyciem i bramka zapalałaby się na źródle" % widziane)
+
+
+def test_gole_slowo_est_w_danych_to_francuszczyzna_a_nie_status():
+    """**Dlaczego ta bramka nie jest grepem — pokazane liczbą, a nie opisane.**
+
+    Gołe słowo `est` stoi w `data/` **7 razy w 4 plikach**, i wszystkie siedem to
+    francuski: cztery w adresach STIB (`…-on-en-est-ou`, `…-m7-est-arrive-…`), trzy
+    w cytacie z EIE («la profondeur des quais … est d'environ 11 m»). Prawdziwych
+    trafień: **zero**. Bramka po samym słowie byłaby więc czystym szumem — siedem
+    alarmów, z których ani jeden nie mówi o statusie.
+
+    Liczba jest przybita równością w OBIE strony: jej spadek znaczyłby, że któryś
+    z cytatów zniknął (a `data/` jest do odczytu), a wzrost — że doszedł tekst, którego
+    ta bramka nie obejrzała.
+    """
+    trafienia = {}
+    for gdzie, _katalogi, pliki in TW.walk(DANE, DANE):
+        for nazwa in sorted(pliki):
+            sciezka = os.path.join(gdzie, nazwa)
+            try:
+                tresc = _read(sciezka)
+            except (OSError, UnicodeDecodeError):
+                continue
+            ile = len(SLOWO_EST.findall(tresc))
+            if ile:
+                trafienia[os.path.relpath(sciezka, DANE).replace(os.sep, "/")] = ile
+
+    assert sum(trafienia.values()) == EST_JAKO_SLOWO_W_DANYCH, (
+        "gołych wystąpień słowa `est` w `data/` jest %d, pomiar z 11.09.2026 mówił "
+        "%d: %s" % (sum(trafienia.values()), EST_JAKO_SLOWO_W_DANYCH,
+                    sorted(trafienia.items())))
+    assert len(trafienia) == EST_JAKO_SLOWO_PLIKOW, (
+        "plików z gołym `est` jest %d, pomiar mówił %d: %s"
+        % (len(trafienia), EST_JAKO_SLOWO_PLIKOW, sorted(trafienia)))
+
+    # I strona druga: ani jedno z tych siedmiu nie jest wartością pola `status`.
+    w_polach = [nazwa for licznik in statusy_w_katalogu_danych().values()
+                for nazwa in licznik if nazwa == "est"]
+    assert w_polach == [], (
+        "słowo `est` jest jednak wartością pola `status` — wtedy zdanie o siedmiu "
+        "fałszywych trafieniach przestaje być prawdziwe: %s" % w_polach)
 
 
 # 6.D25: uruchomienie tego pliku WPROST idzie tą samą drogą, co cały zestaw.
