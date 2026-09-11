@@ -3,6 +3,20 @@
 import sys, os, json, tempfile, math, threading, time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),"..",".."))
+# `tree_walk` PRZED importami narzedzi i przed reszta `sys.path` — bo zaraz pod
+# spodem kasuje bajtkod, a kasowanie po tamtych importach bylo by spoznione.
+sys.path.insert(0,os.path.join(ROOT,"tools","tests"))
+import tree_walk as TW
+
+# Raz na proces, nie raz na import: `_discover` ładuje TEN plik jeszcze raz, pod
+# nazwą `test_all__mierzony`, więc bez tej wartowni czyszczenie i wypis powtórzyłyby
+# się w środku przebiegu — kasując bajtkod, który właśnie powstał, i mówiąc o tym
+# drugi raz. Znacznik siedzi na `sys`, bo musi przeżyć import pod inną nazwą.
+if not getattr(sys,"_metro_bajtkod_wyczyszczony",None):
+    sys._metro_bajtkod_wyczyszczony=TW.wyczysc_bajtkod()
+    print("  [BAJTKOD] wyczyszczono %d kat. __pycache__ (%d plikow) pod tools/ — 6.D122"
+          % sys._metro_bajtkod_wyczyszczony)
+
 sys.path.insert(0,os.path.join(ROOT,"tools","blender")); sys.path.insert(0,os.path.join(ROOT,"tools","track")); sys.path.insert(0,os.path.join(ROOT,"tools","physics")); sys.path.insert(0,os.path.join(ROOT,"tools","data")); sys.path.insert(0,os.path.join(ROOT,"tools","tests"))
 import profiles, validate as V, reference as R, make_test_track as M, provenance as P
 import assertion_gate as AG

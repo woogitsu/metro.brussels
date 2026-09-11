@@ -27,15 +27,28 @@ przeszedl na bajtkod z suma zrodla (PEP 552, tryb `CHECKED_HASH`) domyslnie, pie
 test zapali sie na zielonej maszynie — i to bedzie sygnal, ze zdanie w `CLAUDE.md` §5
 i w `docs/06-worked-example.md` przestalo byc prawda, a nie ze bramka jest zepsuta.
 
-**Czego ta bramka NIE robi.** Nie czysci `__pycache__` w przebiegu zestawu i nie
-kaze tego robic `test_all.py`. Zmierzone 10.09.2026 na trzech parach przebiegow:
-zimny 126.27 / 125.65 / 127.47 s, cieply 127.17 / 127.49 / 125.25 s — czyli cache
-bajtkodu nie daje tu ZADNEGO mierzalnego zysku, bo moduly testowe i tak kompiluja
-sie ze zrodla przez `assertion_gate.load_instrumented`. Mimo to czyszczenie w kazdym
-przebiegu byloby wylaczeniem cache'a na stale takze w CI, a to pole „Poza zakresem"
-pozycji 6.D102 wyklucza wprost. W CI pulapki zreszta nie ma: `actions/checkout` robi
-`git clean -ffdx`, a `__pycache__` jest w `.gitignore`, wiec kazdy przebieg CI zaczyna
-zimno. Jest to zagrozenie LOKALNE, dla agenta i dla wlasciciela.
+**Co sie zmienilo 11.09.2026 (6.D122) — ten akapit jest PRZEPISANY, nie dopisany
+obok.** Do tego dnia stalo tu, ze ta bramka „nie czysci `__pycache__` w przebiegu
+zestawu i nie kaze tego robic `test_all.py`", z powodem: pole „Poza zakresem" pozycji
+6.D102 wykluczalo wylaczanie cache'a w CI. To juz nieprawda — `test_all.py` czysci
+`__pycache__` pod `tools/` sam, PRZED wlasnymi importami narzedzi, i mowi o tym
+wierszem `[BAJTKOD]`.
+
+Powod zmiany jest ten sam pomiar, ktory wtedy uzasadnial wstrzymanie sie: zimny
+126.27 / 125.65 / 127.47 s wobec cieplego 127.17 / 127.49 / 125.25 s, czyli cache
+bajtkodu nie daje ZADNEGO mierzalnego zysku, bo moduly testowe kompiluja sie ze
+zrodla przez `assertion_gate.load_instrumented`. Skoro zysk jest zerem, zakaz
+z „Poza zakresem" chronil wtedy przed kosztem, ktorego nie ma. W CI pulapki i tak
+nie bylo (`actions/checkout` robi `git clean -ffdx`), wiec czyszczenie jest tam
+operacja na pustym katalogu.
+
+Czego to NIE znosi: procedura reczna zostaje w `CLAUDE.md` §5 i w
+`docs/06-worked-example.md` jako DRUGA LINIA, bo pulapka dotyczy takze przebiegow,
+ktore nie ida przez `test_all.py` — wlasnego `python3 -c`, importu w konsoli,
+skryptu w `tools/`. Pilnuje tego `test_procedura_stoi_w_dokumentach_a_nie_tylko_w_raporcie`.
+
+**Zagrozenie jest LOKALNE, dla agenta i dla wlasciciela** — to zdanie zostaje bez
+zmian i jest powodem, dla ktorego obrona ma byc w narzedziu, a nie w pamieci.
 """
 
 import os
@@ -262,3 +275,209 @@ def test_dokumenty_mowia_ktora_zmienna_NIE_wystarcza():
 if __name__ == "__main__":
     import test_all
     raise SystemExit(test_all.main(__file__))
+
+
+# --- 6.D122: obrona po stronie NARZEDZIA, nie po stronie pamieci ----------------
+
+def _laboratorium_pod_tools(katalog):
+    """Ten sam lab, ale `mod.py` lezy pod `tools/` — tam, gdzie zestaw czysci.
+
+    Polozenie jest tu TRESCIA, a nie dekoracja: `_wyczysc_bajtkod` chodzi wylacznie
+    po `tools/`, wiec lab w korzeniu katalogu tymczasowego mierzylby, ze funkcja
+    NIC nie robi, i wygladalby identycznie jak lab, w ktorym pulapki nie ma.
+    """
+    gdzie = os.path.join(katalog, "tools", "track")
+    os.makedirs(gdzie)
+    with open(os.path.join(gdzie, "mod.py"), "w", encoding="utf-8") as handle:
+        handle.write('F0_N = "%s"\n' % ORYGINAL)
+    with open(os.path.join(katalog, "use.py"), "w", encoding="utf-8") as handle:
+        handle.write("import sys, os\n"
+                     "sys.path.insert(0, os.path.join(os.path.dirname(__file__), "
+                     "'tools', 'track'))\n"
+                     "import mod\nprint(mod.F0_N)\n")
+
+
+def _sciezka_mod(katalog):
+    return os.path.join(katalog, "tools", "track", "mod.py")
+
+
+def _sekwencja_w_drzewie(czysc_zestawem=False):
+    """Baza, potem mutacja w tej samej sekundzie — z czyszczeniem ZESTAWU albo bez.
+
+    Czysci **ta sama funkcja**, ktora wola `test_all.py` przy starcie, a nie jej
+    kopia ani `shutil.rmtree` napisane tutaj. Kopia przechodzilaby dalej, gdyby
+    tamta przestala dzialac, i bramka meldowalaby sprawdzenie, ktorego nie zrobila.
+    """
+    import tree_walk as TW
+
+    with tempfile.TemporaryDirectory() as katalog:
+        _laboratorium_pod_tools(katalog)
+        zegar = os.stat(_sciezka_mod(katalog)).st_mtime
+        baza = _bieg(katalog)
+        usuniete = TW.wyczysc_bajtkod(katalog) if czysc_zestawem else (0, 0)
+        with open(_sciezka_mod(katalog), "w", encoding="utf-8") as handle:
+            handle.write('F0_N = "%s"\n' % MUTACJA)
+        os.utime(_sciezka_mod(katalog), (zegar, zegar))
+        return baza, _bieg(katalog), usuniete
+
+
+def test_ta_sama_sekwencja_BEZ_czyszczenia_zestawu_ukrywa_mutacje():
+    """Kontrola przyrzadu dla testu nizej: w tym labie pulapka NAPRAWDE zachodzi.
+
+    Bez tego testu zielony wynik testu nizej nie odrozniałby „zestaw wyczyscil
+    bajtkod" od „w tym labie bajtkodu nigdy nie bylo". Ta sama rodzina co 6.D27.
+    """
+    baza, mutacja, usuniete = _sekwencja_w_drzewie(czysc_zestawem=False)
+    assert baza == ORYGINAL, baza
+    assert usuniete == (0, 0), usuniete
+    assert mutacja == ORYGINAL, (
+        "mutacja w labie pod `tools/` zostala zauwazona BEZ czyszczenia (%r) — "
+        "pulapka w tym labie nie zachodzi, wiec test nizej nie mierzy tego, "
+        "co mowi" % mutacja)
+
+
+def test_zestaw_czysci_bajtkod_sam():
+    """Ta sama sekwencja, ale czysci funkcja zestawu — mutacja jest WIDOCZNA.
+
+    To jest pole „Skonczone, gdy" pozycji 6.D122 zmierzone wprost: mutacja o tej
+    samej dlugosci, wpisana w tej samej sekundzie, widoczna BEZ recznej procedury.
+    """
+    baza, mutacja, usuniete = _sekwencja_w_drzewie(czysc_zestawem=True)
+    assert baza == ORYGINAL, baza
+    assert usuniete[0] >= 1 and usuniete[1] >= 1, (
+        "funkcja zestawu nie znalazla ani jednego `__pycache__` pod `tools/` "
+        "(%r) — czysci nie tam, gdzie pulapka mieszka" % (usuniete,))
+    assert mutacja == MUTACJA, (
+        "po czyszczeniu funkcja zestawu mutacja nadal jest niewidoczna (%r) — "
+        "`tree_walk.wyczysc_bajtkod` nie broni przed pulapka z 6.D102" % mutacja)
+
+
+def test_czyszczenie_zestawu_nie_rusza_niczego_poza_tools():
+    """Pole „Poza zakresem" 6.D122 zmierzone: kasowane jest `tools/` i nic wiecej."""
+    import tree_walk as TW
+
+    with tempfile.TemporaryDirectory() as katalog:
+        w_tools = os.path.join(katalog, "tools", "track", "__pycache__")
+        poza = os.path.join(katalog, "build", "__pycache__")
+        zwykly = os.path.join(katalog, "tools", "track", "zwykly")
+        for gdzie in (w_tools, poza, zwykly):
+            os.makedirs(gdzie)
+            with open(os.path.join(gdzie, "mod.cpython-0.pyc"), "wb") as handle:
+                handle.write(b"x")
+
+        katalogi, pliki = TW.wyczysc_bajtkod(katalog)
+
+        assert not os.path.exists(w_tools), "`__pycache__` pod `tools/` przetrwal"
+        assert os.path.isdir(poza), "skasowano `__pycache__` SPOZA `tools/`"
+        assert os.path.isdir(zwykly), "skasowano katalog, ktory nie jest `__pycache__`"
+        assert (katalogi, pliki) == (1, 1), (katalogi, pliki)
+
+
+def test_czyszczenie_stoi_PRZED_importami_narzedzi():
+    """Kolejnosc w zrodle `test_all.py`: czyszczenie, dopiero potem `import profiles`.
+
+    **To jest cala roznica miedzy obrona a wypisem o obronie.** Wywolanie przeniesione
+    do `main()` zostawia zestaw zielony i wiersz `[BAJTKOD]` na swoim miejscu, a mimo
+    to nie chroni niczego: `import profiles, validate, reference …` wykonuje sie przy
+    IMPORCIE `test_all`, czyli wczesniej, wiec stary bajtkod narzedzi jest juz
+    wczytany. Zaden inny test tego nie zobaczy, bo wynik przebiegu jest identyczny.
+
+    Liczone z AST, nie z kolejnosci napisow: komentarz albo tekst w dokumentacji
+    modulu wygladalby przy wyszukiwaniu napisu tak samo jak wywolanie.
+    """
+    import ast
+
+    zrodlo = os.path.join(ROOT, "tools", "tests", "test_all.py")
+    with open(zrodlo, encoding="utf-8") as handle:
+        drzewo = ast.parse(handle.read())
+
+    wywolania = [w.lineno for w in ast.walk(drzewo)
+                 if isinstance(w, ast.Call)
+                 and getattr(w.func, "attr", getattr(w.func, "id", None))
+                 == "wyczysc_bajtkod"]
+    assert wywolania, "`test_all.py` nie wola `wyczysc_bajtkod` ani razu"
+
+    narzedzia = {"profiles", "validate", "reference", "make_test_track",
+                 "provenance", "assertion_gate"}
+    importy = [w.lineno for w in drzewo.body if isinstance(w, ast.Import)
+               and any(a.name.split(".")[0] in narzedzia for a in w.names)]
+    assert importy, (
+        "nie znalazlem importow narzedzi na najwyzszym poziomie `test_all.py` — "
+        "ten test przestal mierzyc to, co mowi")
+
+    assert min(wywolania) < min(importy), (
+        "`wyczysc_bajtkod` wolane w wierszu %d, a pierwszy import narzedzia stoi "
+        "w %d — czyszczenie jest SPOZNIONE i wiersz `[BAJTKOD]` mowi o obronie, "
+        "ktora nic nie zmienila" % (min(wywolania), min(importy)))
+
+
+def test_zestaw_MOWI_ze_wyczyscil():
+    """Wiersz `[BAJTKOD]` ma stac na stdout kazdego przebiegu — pole „Wyjscie".
+
+    Czyszczenie ciche byloby zmiana, ktorej nikt nie zauwazy przy czytaniu wyjscia,
+    a procedura reczna w dokumentach zostalaby jedyna widoczna obrona.
+    """
+    with tempfile.TemporaryDirectory() as katalog:
+        # Modul PIASKOWNICY, a nie ten plik — i to nie jest ostroznosc, tylko
+        # poprawka bledu popelnionego tutaj 11.09.2026. Pierwsza wersja podawala
+        # `test_bytecode_staleness.py`, czyli modul, W KTORYM stoi ten test:
+        # podproces uruchamial go od nowa, on odpalal kolejny podproces i tak bez
+        # konca. Ta sama pomylka co w 6.D114, tylko z drugiej strony.
+        sciezka = os.path.join(katalog, "test_piaskownica_bajtkodu.py")
+        with open(sciezka, "w", encoding="utf-8") as handle:
+            handle.write("def test_nic():\n    assert True\n")
+        wynik = subprocess.run(
+            [sys.executable, os.path.join(ROOT, "tools", "tests", "test_all.py"),
+             sciezka],
+            cwd=ROOT, capture_output=True, text=True)
+
+    assert wynik.returncode == 0, (
+        "przebieg piaskownicy nie wyszedl zielony: %s" % wynik.stdout[-400:])
+    assert "[BAJTKOD]" in wynik.stdout, (
+        "przebieg zestawu nie powiedzial, ze wyczyscil bajtkod; stdout zaczyna sie "
+        "od: %r" % wynik.stdout[:200])
+    assert "[BAJTKOD]" not in wynik.stderr, (
+        "wiersz informacyjny poszedl na stderr — `test_runner_streams.py` zada "
+        "stdout dla informacji")
+    # Raz w TYM przebiegu — ale to NIE jest sprawdzenie wartowni na `sys`, i to
+    # zdanie jest tu dlatego, ze pierwsza wersja tak je opisywala. Zmierzone
+    # 11.09.2026 kontrola KN-4: zdjecie wartowni daje **12/12**, czyli zielono.
+    # Powod: przebieg z jednym modulem nie laduje `test_all.py` po raz drugi —
+    # `_discover` chodzi wylacznie po sciezkach z `only` — wiec wypis i tak pada
+    # raz, z wartownia czy bez. Wartowni pilnuje test nizej, ladujac modul drugi
+    # raz naprawde.
+    assert wynik.stdout.count("[BAJTKOD]") == 1, (
+        "wiersz `[BAJTKOD]` pada %d razy w przebiegu jednego modulu"
+        % wynik.stdout.count("[BAJTKOD]"))
+
+
+def test_wartownia_nie_pozwala_wyczyscic_dwa_razy_w_jednym_przebiegu():
+    """Drugie zaladowanie `test_all.py` w tym samym procesie ma MILCZEC.
+
+    **Po co osobny test.** W pelnym przebiegu `_discover` laduje `test_all.py`
+    ponownie, pod nazwa `test_all__mierzony`, zeby jego wlasne testy tez szly przez
+    licznik asercji. Bez wartowni na `sys` czyszczenie odpalaloby sie wtedy DRUGI
+    RAZ, w srodku przebiegu, kasujac bajtkod, ktory wlasnie powstal — i mowiac
+    o tym drugim wierszem `[BAJTKOD]`.
+
+    **Dlaczego nie da sie tego zmierzyc przebiegiem jednego modulu.** Bo wtedy
+    `_discover` drugiego zaladowania nie robi. Zmierzone 11.09.2026 (KN-4): asercja
+    na liczbe wystapien wiersza w takim przebiegu jest zielona takze BEZ wartowni.
+    Ten test laduje modul drugi raz sam, ta sama droga co `_discover`.
+    """
+    import contextlib
+    import io as _io
+
+    import assertion_gate as AG
+
+    assert getattr(sys, "_metro_bajtkod_wyczyszczony", None) is not None, (
+        "ten proces nie przeszedl jeszcze przez czyszczenie — test mierzylby "
+        "PIERWSZE zaladowanie, nie drugie")
+
+    bufor = _io.StringIO()
+    with contextlib.redirect_stdout(bufor):
+        AG.load_instrumented(os.path.join(ROOT, "tools", "tests", "test_all.py"),
+                             "test_all__wartownia_probna")
+    assert "[BAJTKOD]" not in bufor.getvalue(), (
+        "drugie zaladowanie `test_all.py` w tym samym procesie znowu wyczyscilo "
+        "bajtkod i powiedzialo o tym: %r" % bufor.getvalue()[:200])

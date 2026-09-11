@@ -136,6 +136,20 @@ z czyszczeniem — `1/5 przeszło, kod 1`.
 CZYTANIE tego, który już leży. W czystym katalogu ta zmienna **działa** i stąd bierze się
 pomyłka — ale wystarczy jeden wcześniejszy zwykły przebieg, żeby pułapka wróciła.
 Czyszczenie katalogu jest jedyną zmierzoną drogą.
+
+**Od 11.09.2026 (6.D122) robi to sam `test_all.py`, a polecenie wyżej jest DRUGĄ LINIĄ.**
+Ten akapit jest przepisany, a nie dopisany obok: poprzednia wersja mówiła, że procedura
+ręczna jest jedyną obroną, i to już nieprawda. Zestaw kasuje każdy `__pycache__` pod
+`tools/` **przed własnymi importami narzędzi** — położenie wywołania jest tu treścią,
+bo wywołanie w `main()` byłoby spóźnione o te importy — i mówi o tym wierszem
+`[BAJTKOD] wyczyszczono N kat. …` na początku wyjścia. Kosztu nie ma: 6.D102 zmierzyło
+trzy pary przebiegów (zimny 126,27 / 125,65 / 127,47 s, ciepły 127,17 / 127,49 / 125,25 s),
+bo moduły testowe i tak kompilują się ze źródła przez `assertion_gate.load_instrumented`.
+
+**Polecenie zostaje, bo pułapka nie ogranicza się do przebiegów zestawu**: własne
+`python3 -c`, import w konsoli i skrypt wołany wprost z `tools/` czytają ten sam stary
+bajtkod, a `test_all.py` ich nie widzi. Zostaje też dlatego, że dotyczy całego drzewa,
+a zestaw sprząta wyłącznie `tools/`.
 Pełny opis i liczby: `docs/06-worked-example.md`, bramka: `tools/tests/test_bytecode_staleness.py`.
 
 ### Zakazane formy weryfikacji
