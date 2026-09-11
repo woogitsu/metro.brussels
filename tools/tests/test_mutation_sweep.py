@@ -1723,6 +1723,150 @@ def test_check_one_pyta_o_bajtkod_ZANIM_go_skasuje():
     assert wpis["stary_bajtkod"] is True, wpis
 
 
+def _docstringi(drzewo):
+    """Węzły napisów, które są docstringami — moduł, klasa, funkcja."""
+    out = set()
+    for wezel in ast.walk(drzewo):
+        if not isinstance(wezel, (ast.Module, ast.ClassDef,
+                                  ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        ciało = getattr(wezel, "body", None)
+        if not ciało:
+            continue
+        pierwszy = ciało[0]
+        if (isinstance(pierwszy, ast.Expr) and isinstance(pierwszy.value, ast.Constant)
+                and isinstance(pierwszy.value.value, str)):
+            out.add(pierwszy.value)
+    return out
+
+
+#: Dziennik mieszany: dwa wpisy sprzed 6.D113 (bez pola), jeden zmierzony z wynikiem
+#: `False` i jeden z wynikiem `True`. Cztery wpisy, TRZY stany.
+DZIENNIK_MIESZANY = [
+    {"opis": "sprzed 6.D113, pierwszy"},
+    {"opis": "sprzed 6.D113, drugi"},
+    {"opis": "zmierzony, czysto", "stary_bajtkod": False},
+    {"opis": "zmierzony, pod bajtkodem", "stary_bajtkod": True},
+]
+
+
+def test_licznik_starego_bajtkodu_ma_TRZY_stany_a_nie_dwa():
+    """6.D132: „nie zmierzono" nie jest tym samym, co „zmierzono i nie było".
+
+    `dict.get` zwraca dla brakującego pola `None`, a `None` jest fałszywe — więc
+    do 11.09.2026 wpis sprzed 6.D113 wpadał do tej samej kupki, co wpis zmierzony
+    z wynikiem `False`, i nie zostawiał po sobie żadnego śladu.
+    """
+    podzial = sweep.podzial_starego_bajtkodu(DZIENNIK_MIESZANY)
+
+    assert [w["opis"] for w in podzial[True]] == ["zmierzony, pod bajtkodem"], podzial[True]
+    assert [w["opis"] for w in podzial[False]] == ["zmierzony, czysto"], podzial[False]
+    assert [w["opis"] for w in podzial[sweep.NIEZMIERZONY]] == [
+        "sprzed 6.D113, pierwszy", "sprzed 6.D113, drugi"], podzial[sweep.NIEZMIERZONY]
+
+    # Reguła sprzed poprawki, wykonana tutaj, żeby różnica była POKAZANA, a nie
+    # opowiedziana: `get` bez trzeciego stanu daje tę samą liczbę co dziś, ale
+    # z innego zbioru — i o dwóch wpisach nie mówi nic.
+    stara_regula = [w for w in DZIENNIK_MIESZANY if w.get("stary_bajtkod")]
+    assert len(stara_regula) == len(podzial[True]) == 1, stara_regula
+    assert len(DZIENNIK_MIESZANY) - len(stara_regula) == 3, (
+        "stara reguła dzieliła cztery wpisy na 1 i 3, nie rozróżniając w tej trójce "
+        "dwóch niezmierzonych od jednego zmierzonego")
+
+
+def test_wartosc_null_w_polu_liczy_sie_jako_NIEZMIERZONA():
+    """Ręcznie poprawiony dziennik może nieść `null`, a pomiaru za nim nie ma.
+
+    `None` nie jest ani `True`, ani `False`; zaliczenie go do „zmierzono, nie było"
+    byłoby dokładnie tym, co ta pozycja naprawia, tylko innym wejściem.
+    """
+    assert sweep.stan_starego_bajtkodu({"stary_bajtkod": None}) == sweep.NIEZMIERZONY, (
+        "`null` w polu policzony jako pomiar — a pomiaru za nim nie ma")
+    assert sweep.stan_starego_bajtkodu({}) == sweep.NIEZMIERZONY, (
+        "wpis BEZ pola policzony jako pomiar — to jest cała usterka 6.D132")
+    assert sweep.stan_starego_bajtkodu({"stary_bajtkod": False}) is False, (
+        "zmierzone `False` przestało być odróżnialne od braku pomiaru")
+    assert sweep.stan_starego_bajtkodu({"stary_bajtkod": True}) is True, (
+        "zmierzone `True` przestało być rozpoznawane")
+
+
+def test_wypis_podaje_MIANOWNIK_i_nazywa_wpisy_bez_pomiaru():
+    """Wypis ma mówić „0 z 1", a nie samo „0" — bo samo „0" milczy o reszcie."""
+    wiersze = sweep.wiersze_starego_bajtkodu(DZIENNIK_MIESZANY)
+    razem = "\n".join(wiersze)
+
+    assert "1 z 2 ZMIERZONYCH" in razem, (
+        "wypis nie podaje mianownika: %r" % razem)
+    assert "wpisów BEZ tego pomiaru: 2 z 4" in razem, (
+        "wypis nie mówi, ilu wpisów licznik nie dotyczy: %r" % razem)
+    assert "BEZ POMIARU   sprzed 6.D113, pierwszy" in razem, (
+        "wypis nie nazywa wpisów bez pomiaru z osobna: %r" % razem)
+    assert "STARY BAJTKOD zmierzony, pod bajtkodem" in razem, (
+        "wypis zgubił wiersz z 6.D113: %r" % razem)
+
+
+def test_wiersz_o_niezmierzonych_stoi_TAKZE_gdy_jest_ich_zero():
+    """Ta sama zasada, którą 6.D113 zapisało dla wiersza wyżej.
+
+    Milczenie o zerze jest nieodróżnialne od braku pomiaru. Drugi powód jest nowy:
+    bez tego wiersza mianownik `z N zmierzonych` nie ma z czym się różnić.
+    """
+    czysty = [{"opis": "a", "stary_bajtkod": False},
+              {"opis": "b", "stary_bajtkod": False}]
+    wiersze = sweep.wiersze_starego_bajtkodu(czysty)
+    razem = "\n".join(wiersze)
+
+    assert "0 z 2 ZMIERZONYCH" in razem, razem
+    assert "wpisów BEZ tego pomiaru: 0 z 2" in razem, (
+        "przy zerze niezmierzonych wypis milczy — a milczenie znaczy to samo, co "
+        "brak pomiaru: %r" % razem)
+    assert "BEZ POMIARU" not in razem, (
+        "przy zerze niezmierzonych nie ma czego wymieniać z osobna: %r" % razem)
+
+
+def test_pusty_dziennik_nie_dzieli_przez_zero_i_mowi_ze_jest_pusty():
+    """Zero wpisów to stan osiągalny (`--limit 0` po wznowieniu) i ma się nie wywrócić."""
+    wiersze = sweep.wiersze_starego_bajtkodu([])
+    razem = "\n".join(wiersze)
+    assert "0 z 0 ZMIERZONYCH" in razem, razem
+    assert "wpisów BEZ tego pomiaru: 0 z 0" in razem, razem
+
+
+def test_main_wypisuje_licznik_PRZEZ_wspolna_funkcje_a_nie_po_swojemu():
+    """Jeden czytnik tej reguły, nie dwa (6.B28).
+
+    Gdyby `main` składał ten wypis u siebie, testy wyżej mierzyłyby funkcję, której
+    przebieg nie woła — czyli byłyby bramką meldującą sprawdzenie, którego nie zrobiła.
+    """
+    zrodlo = open(os.path.join(ROOT, "tools", "tests", "mutation_sweep.py"),
+                  encoding="utf-8").read()
+    drzewo = ast.parse(zrodlo)
+    main = [w for w in ast.walk(drzewo)
+            if isinstance(w, ast.FunctionDef) and w.name == "main"]
+    assert len(main) == 1, "w module jest %d funkcji `main`" % len(main)
+
+    wolane = {w.func.id for w in ast.walk(main[0])
+              if isinstance(w, ast.Call) and isinstance(w.func, ast.Name)}
+    assert "wiersze_starego_bajtkodu" in wolane, (
+        "`main` nie woła `wiersze_starego_bajtkodu` — wypis powstaje gdzie indziej "
+        "i testy tej funkcji nie mówią o tym, co widzi użytkownik")
+
+    # Liczone z DRZEWA, nie z tekstu: docstring `wiersze_starego_bajtkodu` cytuje to
+    # zdanie dwa razy — brzmienie dawne i dzisiejsze — i cytat nie jest kopią reguły.
+    # Odsianie po samych komentarzach `#` tych dwóch wystąpień nie widzi.
+    wystapienia = 0
+    for wezel in ast.walk(drzewo):
+        if not isinstance(wezel, ast.Constant) or not isinstance(wezel.value, str):
+            continue
+        if wezel in _docstringi(drzewo):
+            continue
+        if "starym bajtkodem" in wezel.value:
+            wystapienia += 1
+    assert wystapienia == 1, (
+        "zdanie licznika stoi w kodzie (poza docstringami) %d razy — ma stać raz, "
+        "w `wiersze_starego_bajtkodu`" % wystapienia)
+
+
 def test_check_one_zostawia_katalog_bez_bajtkodu_zmutowanego_pliku():
     """Bez atrap: po przebiegu `.pyc` zmutowanego pliku ma nie lezec w drzewie."""
     with tempfile.TemporaryDirectory() as tmp:
