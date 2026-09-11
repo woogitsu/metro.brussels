@@ -400,6 +400,164 @@ def test_the_conditional_branches_light_up_on_synthetic_entries():
         % niezgodnosci_warunkowe(bez_typu, schema))
 
 
+# --- 6.D125: `cleared` bez daty obowiązywania -----------------------------------
+
+#: Status, którego dotyczy cała ta sekcja.
+STATUS_CLEARED = "cleared"
+
+#: Pole, w którym stałaby data obowiązywania prawa.
+POLE_DATY = "as_of"
+
+#: **Rozstrzygnięcie 6.D125, oparte na pomiarze z 11.09.2026 — cztery liczby i jedno
+#: zdanie z `docs/03-legal.md`.**
+#:
+#: Zmierzone na `fdabff4`, wszystko czytane, nic nie zmieniane:
+#:
+#:   * manifest ma **13** wpisów i **wszystkie** mają `rights_status: placeholder`;
+#:   * wpisów `cleared` jest **zero**, więc wymaganie daty nie dotknęłoby dziś ani
+#:     jednego — to jest argument w obie strony i pozycja mówiła o tym wprost;
+#:   * **ani jeden** wpis nie niesie własnego `as_of`;
+#:   * manifest niesie za to `as_of` w KORZENIU: `2026-08-31`.
+#:
+#: **Czego pozycja nie wiedziała, a co rozstrzyga: pole już istnieje.** Schemat ma
+#: `as_of` jako właściwość opcjonalną (`["string", "null"]`, `format: date`) — nie
+#: trzeba go dodawać, trzeba by go WYMAGAĆ w gałęzi `cleared`. To jest zmiana jednego
+#: pliku w `data/`, czyli decyzja o danych, a pole „Wejście" tej pozycji oznacza oba
+#: pliki jako **tylko do odczytu** i §4.6 mówi to samo.
+#:
+#: **Drugi powód, żeby nie ruszać schematu, jest mocniejszy od pierwszego.**
+#: `docs/03-legal.md` **nigdzie nie mówi o terminie**. Zdanie z wiersza 3 żąda
+#: „pisemnej zgody potwierdzonej przez człowieka albo jednoznacznej licencji
+#: obejmującej **konkretne zamierzone użycie**", a wiersz 52 — „Każdy zewnętrzny asset
+#: produkcyjny ma `source/licence/permission_ref`". Wymaganiem jest ZAKRES, nie data.
+#: Gałąź `cleared` w schemacie odwzorowuje ten dokument **dokładnie**: zgoda albo
+#: licencja. Dopisanie do niej daty byłoby więc dołożeniem reguły, której dokument
+#: prawny projektu nie stawia — a to jest decyzja właściciela, nie uzupełnienie luki.
+#:
+#: **Co zostaje zrobione zamiast tego.** Reguła stoi tutaj, jako bramka, a nie tam,
+#: jako schemat: wpis `cleared` bez niepustego `as_of` jest **zgłaszany**. Kosztuje
+#: to dziś zero (wpisów `cleared` nie ma), nie rusza `data/`, a mówi wprost, czego
+#: brakuje, w chwili gdy pierwszy taki wpis powstanie. „Cleared bez daty" znaczy
+#: „ktoś kiedyś to sprawdził" — a `as_of` w korzeniu manifestu datuje **audyt pliku**,
+#: nie **prawo**: te dwie rzeczy rozjeżdżają się przy pierwszym wpisie dopisanym
+#: później niż korzeń.
+#:
+#: Przeniesienie reguły do schematu zostaje **decyzją właściciela**, z policzonym
+#: kosztem: dziś zero wpisów, jedna linia w `allOf[2].then`.
+POWOD_BRAKU_DATY = (
+    "wpis `cleared` musi nieść `as_of` — datę, od której zgoda albo licencja "
+    "obowiązuje. `as_of` w korzeniu manifestu datuje AUDYT PLIKU, nie PRAWO"
+)
+
+
+def wpisy_cleared(manifest=None):
+    """Wpisy manifestu o statusie `cleared`. Dziś pusta lista — i to jest pomiar."""
+    dane = manifest if manifest is not None else _placeholders()
+    return [a for a in dane["assets"] if a.get("rights_status") == STATUS_CLEARED]
+
+
+def brak_daty_obowiazywania(asset):
+    """`[(pole, powod)]` — pusta lista, gdy wpisowi nic nie brakuje.
+
+    Kształt zwracany taki sam jak w `niezgodnosci_warunkowe`, żeby dało się to
+    zsumować z resztą werdyktu bez tłumaczenia jednego formatu na drugi.
+    """
+    if asset.get("rights_status") != STATUS_CLEARED:
+        return []
+    wartosc = asset.get(POLE_DATY)
+    if isinstance(wartosc, str) and wartosc.strip():
+        return []
+    return [(POLE_DATY, POWOD_BRAKU_DATY)]
+
+
+def test_ile_wpisow_dotknelaby_data_obowiazywania():
+    """Pomiar, o który prosi pole „Wyjście" — cztery liczby, wszystkie z drzewa.
+
+    Liczba wpisów `cleared` jest tu najważniejsza i wynosi **zero**: wymaganie daty
+    nie dotknęłoby dziś ani jednego wpisu. Pozostałe trzy liczby mówią, dlaczego to
+    nie jest cała odpowiedź.
+    """
+    manifest = _placeholders()
+    wszystkie = manifest["assets"]
+
+    assert len(wszystkie) == 13, len(wszystkie)
+    assert len(wpisy_cleared(manifest)) == 0, (
+        "pojawił się wpis `cleared` — rozstrzygnięcie 6.D125 trzeba przeczytać "
+        "jeszcze raz, bo liczyło na zero: %s" % wpisy_cleared(manifest))
+    assert {a.get("rights_status") for a in wszystkie} == {"placeholder"}, (
+        {a.get("rights_status") for a in wszystkie})
+    assert [a for a in wszystkie if a.get(POLE_DATY)] == [], (
+        "wpis niesie własne `as_of` — dotąd nie niósł go żaden")
+
+    # Pole ISTNIEJE w schemacie i jest opcjonalne. To jest ta połowa pomiaru, która
+    # rozstrzyga: nie trzeba go dodawać, trzeba by go WYMAGAĆ.
+    schema = _schema()
+    assert POLE_DATY in schema["properties"], (
+        "schemat nie ma pola `as_of` — rozstrzygnięcie 6.D125 opiera się na tym, "
+        "że ono już tam jest")
+    assert POLE_DATY not in schema["required"], (
+        "`as_of` stało się polem wymaganym w schemacie — to jest zmiana w `data/`, "
+        "której ta pozycja nie robiła")
+    assert schema["properties"][POLE_DATY].get("format") == "date", (
+        schema["properties"][POLE_DATY])
+
+    # I że korzeń manifestu ma SWOJE `as_of` — datę audytu pliku, nie prawa.
+    assert manifest.get(POLE_DATY) == "2026-08-31", manifest.get(POLE_DATY)
+
+
+def test_cleared_bez_daty_obowiazywania_jest_zglaszany():
+    """Bramka stoi TUTAJ, nie w schemacie — powód przy `POWOD_BRAKU_DATY`.
+
+    **Dzisiejszy manifest nie ma ani jednego wpisu `cleared`**, więc pętla po nim
+    milczałaby niezależnie od tego, czy reguła działa. Zieleń takiej pętli czyta
+    się jako „wszystko w porządku", a znaczy „nie było czego sprawdzić" — ta sama
+    rodzina, którą projekt tropi od 6.D27. Przed jałowością chroni więc **blok
+    syntetyczny niżej**, a nie pętla.
+
+    **Asercja `wpisy_cleared(manifest) == []` jest DROGOWSKAZEM DLA CZYTAJĄCEGO,
+    nie bramką — i to jest zmierzone, a nie przypuszczone.** KN-5 zdjęła ją i test
+    przeszedł **14/14**: blok syntetyczny działa bez niej. Zostaje, bo mówi
+    w miejscu, w którym ktoś czyta pętlę, dlaczego ta pętla nic nie dowiodła;
+    wartości tej liczby pilnuje osobno
+    `test_ile_wpisow_dotknelaby_data_obowiazywania`, i to tam jest bramka.
+    """
+    manifest = _placeholders()
+    zgloszenia = [(a["asset_id"], brak_daty_obowiazywania(a)) for a in manifest["assets"]]
+    zle = [(aid, powody) for aid, powody in zgloszenia if powody]
+    assert zle == [], zle
+    assert len(zgloszenia) == 13, len(zgloszenia)
+    assert wpisy_cleared(manifest) == [], (
+        "pętla wyżej przeszła, ale NIE dlatego, że daty są — dlatego, że nie ma "
+        "ani jednego wpisu `cleared`; ten test mierzy regułę na wpisach "
+        "syntetycznych niżej")
+
+    wzorcowy = dict(manifest["assets"][0])
+
+    # 1. `cleared` bez `as_of` — zgłoszone.
+    powody = brak_daty_obowiazywania(dict(wzorcowy, rights_status=STATUS_CLEARED,
+                                          permission_ref="STIB/2026/17"))
+    assert [pole for pole, _p in powody] == [POLE_DATY], powody
+    assert "AUDYT PLIKU" in powody[0][1], powody[0][1]
+
+    # 2. `cleared` z datą — milczy.
+    assert brak_daty_obowiazywania(
+        dict(wzorcowy, rights_status=STATUS_CLEARED, permission_ref="STIB/2026/17",
+             **{POLE_DATY: "2026-09-11"})) == []
+
+    # 3. `as_of: null` i `as_of: ""` to NIE jest data. Klucz jest, więc sama
+    #    obecność pola niczego nie dowodzi — a schemat dopuszcza `null` wprost.
+    for pusta in (None, "", "   "):
+        assert brak_daty_obowiazywania(
+            dict(wzorcowy, rights_status=STATUS_CLEARED, permission_ref="x",
+                 **{POLE_DATY: pusta})), ("pusta data przeszła: %r" % (pusta,))
+
+    # 4. Reguła dotyczy WYŁĄCZNIE `cleared`. Wpis `placeholder` bez daty jest
+    #    poprawny i ma taki zostać — inaczej bramka zapaliłaby się na wszystkich
+    #    trzynastu i zmusiła do zmiany w `data/`, której ta pozycja nie robi.
+    for status in ("placeholder", "permission_required", "rejected"):
+        assert brak_daty_obowiazywania(dict(wzorcowy, rights_status=status)) == [], status
+
+
 def test_audio_placeholders_satisfy_the_schema_they_ship_next_to():
     """Rejestr zastępników i schemat leżą w jednym katalogu i muszą do siebie pasować.
 

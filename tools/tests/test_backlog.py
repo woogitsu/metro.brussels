@@ -332,7 +332,15 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 #: 6.D119 … 6.D126, i tym razem NIE z uzupełnienia kolejki przy progu, tylko z pracy,
 #: którą tworzą decyzje właściciela z tego dnia (sekcja „Rozstrzygnięte 10.09.2026"
 #: w `docs/TASKS.md`). Wartość z `len(detail_sections(...))` na pliku po edycji.
-MINIMUM_DETAIL_BLOCKS = 207
+#: **207 → 213 (11.09.2026, przy 6.D125).** Sześć bloków: 6.D135 … 6.D140, i NIE
+#: osobnym commitem — z tej samej arytmetyki, co przy 6.D96 i 6.D102: domknięcie
+#: 6.D125 zbija kolejkę z dwunastu na JEDENAŚCIE, czyli poniżej progu, więc `CLAUDE.md`
+#: §8 każe uzupełnić ją zanim cokolwiek innego się zacznie, a commit z samym
+#: domknięciem zostawiłby drzewo czerwone. Wszystkie sześć wyszło z pomiarów zrobionych
+#: PRZY WYKONYWANIU pozycji 6.D120, 6.D121, 6.D122, 6.D123 i 6.D124 i zapisanych tam
+#: jako zauważone — ani jedna nie jest wymyślona pod pustą kolejkę. Wartość
+#: z `len(detail_sections(...))` na pliku po edycji.
+MINIMUM_DETAIL_BLOCKS = 213
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
