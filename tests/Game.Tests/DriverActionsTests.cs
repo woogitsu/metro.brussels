@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using Godot;
 using MetroBxl.Game.Input;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -153,9 +154,18 @@ public sealed class DriverActionsTests
     /// <c>project.godot</c> — dla nazw jednoliterowych, czyli dla W, S, X, C i R.
     ///
     /// <para>Kody fizyczne liter są kodami ASCII wielkich liter, więc porównanie jest
-    /// tu możliwe bez drugiej tablicy nazw. Nazwy złożone („Spacja", „Esc") ten test
-    /// pomija świadomie: ich odpowiednikiem byłaby druga kopia mapowania nazwa → kod,
-    /// czyli dokładnie to, czego cała ta zmiana się pozbywa.</para>
+    /// tu możliwe bez drugiej tablicy nazw.</para>
+    ///
+    /// <para><b>Akapit niżej jest PRZEPISANY, a nie dopisany obok (6.D116).</b>
+    /// Poprzednia wersja mówiła, że nazwy złożone („Spacja", „Esc") ten test pomija
+    /// świadomie, bo ich odpowiednikiem byłaby druga kopia mapowania nazwa → kod.
+    /// Skutek był taki, że <b>dwie z siedmiu nazw nie były przybite do niczego</b>:
+    /// podmiana <c>"Esc"</c> na <c>"Escape"</c> nie zapalała żadnej bramki. Obie są
+    /// dziś przybite w
+    /// <see cref="NazwyBezLitery_sa_przybite_do_kodow_fizycznych"/>, a druga kopia
+    /// mapowania rzeczywiście tam stoi — <b>z ręki, i to jest jej cała wartość</b>:
+    /// porównanie <see cref="KeyNames"/> z <see cref="KeyNames"/> nie sprawdziłoby
+    /// niczego. Ten sam wzorzec co pin napisów w 6.D99.</para>
     /// </summary>
     [TestMethod]
     public void JednoliterowaNazwaKlawiszaZgadzaSieZJegoKodemFizycznym()
@@ -171,6 +181,63 @@ public sealed class DriverActionsTests
         }
 
         Assert.AreEqual(5, checkedNames, "zmieniła się liczba jednoliterowych klawiszy sterowania");
+    }
+
+    /// <summary>
+    /// Kod fizyczny → oczekiwana nazwa, <b>wpisane z ręki</b>. Pin, nie wyprowadzenie.
+    ///
+    /// <para>Dwie pary, bo tyle jest nazw, których nie da się odczytać z kodu. Zbiór
+    /// jest tu domknięty w obie strony: każdy wpis <see cref="KeyNames.Znane"/> musi
+    /// mieć tu parę i odwrotnie — inaczej dopisanie klawisza do tabeli produkcyjnej
+    /// przechodziłoby bez ani jednego sprawdzenia, czyli dokładnie tak, jak przez
+    /// ostatnie dwa dni przechodziły „Esc" i „Spacja".</para>
+    /// </summary>
+    private static readonly (Key Kod, string Nazwa)[] OczekiwaneNazwy =
+    {
+        (Key.Escape, "Esc"),
+        (Key.Space, "Spacja"),
+    };
+
+    [TestMethod]
+    public void NazwyBezLitery_sa_przybite_do_kodow_fizycznych()
+    {
+        CollectionAssert.AreEquivalent(
+            OczekiwaneNazwy.Select(o => o.Kod).ToList(),
+            KeyNames.Znane.ToList(),
+            "tabela nazw klawiszy rozjechała się z pinem w teście — dopisany klawisz "
+            + "byłby poza kontrolą tak samo, jak Esc i Spacja przed 6.D116");
+
+        foreach (var (kod, nazwa) in OczekiwaneNazwy)
+        {
+            Assert.AreEqual(nazwa, KeyNames.For(kod),
+                $"klawisz o kodzie fizycznym {(int)kod} ({kod}) nazywa się "
+                + $"'{KeyNames.For(kod)}', a wiersz pomocy ma mówić '{nazwa}'");
+        }
+    }
+
+    [TestMethod]
+    public void Kazda_nazwa_z_tabeli_przypisan_jest_przybita_do_swojego_kodu()
+    {
+        // Siedem wierszy, siedem sprawdzeń — żadnego pominiętego. Litera idzie przez
+        // kod ASCII, reszta przez pin wyżej; pominięcie któregokolwiek wiersza jest
+        // tu BŁĘDEM, a nie wyborem, i dlatego licznik stoi obok pętli.
+        var sprawdzone = 0;
+        foreach (var binding in DriverActions.All)
+        {
+            var kod = (Key)binding.PhysicalKeycodes[0];
+            var oczekiwana = binding.KeyName.Length == 1
+                ? ((char)binding.PhysicalKeycodes[0]).ToString()
+                : OczekiwaneNazwy.Single(o => o.Kod == kod).Nazwa;
+
+            Assert.AreEqual(oczekiwana, binding.KeyName,
+                $"'{binding.Action}': wiersz pomocy mówi '{binding.KeyName}', "
+                + $"a kod fizyczny {(int)kod} ({kod}) nazywa się '{oczekiwana}'");
+            sprawdzone++;
+        }
+
+        Assert.AreEqual(DriverActions.All.Count, sprawdzone,
+            "pętla nie dotknęła wszystkich wierszy tabeli przypisań");
+        Assert.AreEqual(7, sprawdzone, "zmieniła się liczba przypisań sterowania");
     }
 
     /// <summary>

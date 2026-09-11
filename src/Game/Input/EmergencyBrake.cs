@@ -1,4 +1,5 @@
 using System.Globalization;
+using Godot;
 using MetroBxl.Game.UI;
 using MetroBxl.Sim.Train;
 
@@ -36,7 +37,7 @@ public static class EmergencyBrake
     /// przestała być <c>const</c>, bo katalog czyta się w czasie wykonania; nikt jej
     /// nie używa w miejscu wymagającym stałej kompilacji.</para>
     /// </summary>
-    public static readonly string KeyName = UiText.Get("input.key.space");
+    public static readonly string KeyName = KeyNames.For(Key.Space);
 
     /// <summary>
     /// Wiersz HUD-u dla trzymanego hamulca awaryjnego; pusty napis, gdy klawisz nie
