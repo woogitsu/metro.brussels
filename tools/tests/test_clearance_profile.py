@@ -54,7 +54,9 @@ def test_clearance_profile_hull_orders_a_triangle_counter_clockwise():
     triangle = [(0.0, 0.0), (2.0, 0.0), (1.0, 1.0)]
     hull = CP.hull_2d(triangle)
 
-    assert len(hull) == 3
+    assert len(hull) == 3, (
+        "trzy punkty w ogólnym położeniu dają otoczkę trzypunktową — krótsza znaczy, "
+        "że zdanie o kolejności niżej nie ma czego dotyczyć")
     assert hull != sorted(set(triangle)), (
         "otoczka trójkąta wyszła w kolejności leksykograficznej, nie po obiegu")
     # Obieg przeciwny do zegara: pole ze wzoru sznurowadła jest DODATNIE.
@@ -67,7 +69,9 @@ def test_clearance_profile_halfplanes_accepts_a_triangle():
     # Trójkąt jest wypukłym obrysem i ma prawo przejść. Mutacje `count < 3` -> `<= 3`
     # oraz `3` -> `4` odrzucałyby go; nic tego nie sprawdzało.
     planes = CP.halfplanes(CP.hull_2d([(0.0, 0.0), (2.0, 0.0), (1.0, 1.0)]))
-    assert len(planes) == 3
+    assert len(planes) == 3, (
+        "trójkąt JEST wypukłym obrysem i ma prawo przejść; mutacje progu `count < 3` "
+        "odrzucały go, a nie sprawdzało tego nic")
 
     # Kontrola negatywna: DWA punkty to nie obrys i mają zostać odrzucone,
     # więc rozluźnienie progu nie zamieniło się w brak progu.
@@ -136,7 +140,9 @@ def test_clearance_profile_halfplanes_still_accepts_the_smallest_legitimate_ring
     a nie przyjęty na wiarę.
     """
     maly = [(0.0, 0.0), (5e-4, 0.0), (0.0, 5e-4)]
-    assert len(CP.halfplanes(maly)) == 3
+    assert len(CP.halfplanes(maly)) == 3, (
+        "najmniejszy obrys, który ten zestaw każe przyjąć, przestał być przyjmowany — "
+        "próg urósł ponad zmierzony zapas 2,4 rzędu wielkości")
 
     import profiles
     for name in profiles.PROFILES:
@@ -181,7 +187,9 @@ def test_clearance_profile_halfplanes_refuses_a_ring_exactly_at_the_area_thresho
     # inaczej test przybijałby odmowę zamiast progu.
     import math
     tuz_powyzej = [(0.0, 0.0), (math.nextafter(1e-5, 1.0), 0.0), (0.0, 1e-4)]
-    assert len(CP.halfplanes(tuz_powyzej)) == 3
+    assert len(CP.halfplanes(tuz_powyzej)) == 3, (
+        "o jeden bit POWYŻEJ progu obrys musi przejść; bez tej połowy test przybijałby "
+        "odmowę, a nie próg")
 
 
 def test_clearance_profile_halfplanes_refuses_a_zero_length_edge():
@@ -227,18 +235,28 @@ def test_clearance_profile_halfplanes_reject_a_concave_ring():
     try:
         CP.halfplanes(concave)
     except ValueError as exc:
-        assert "wypukły" in str(exc)
+        assert "wypukły" in str(exc), (
+            "odmowa przyszła, ale nie mówi o wypukłości — komunikat kieruje szukającego "
+            "w złe miejsce, a to jest usterka, nie szczegół")
     else:
         raise AssertionError("wklęsły obrys powinien zostać odrzucony")
 
 
 def test_clearance_profile_labels_wall_roof_and_floor_apart():
     labels = {plane[3] for plane in PLANES}
-    assert CP.WALL in labels and CP.ROOF in labels and CP.FLOOR in labels
-    assert CP.CHAMFER in labels
-    assert CP.clearance_in_planes(PLANES, 4.0, 1.0)[1] == CP.WALL
-    assert CP.clearance_in_planes(PLANES, 0.0, 4.5)[1] == CP.ROOF
-    assert CP.clearance_in_planes(PLANES, 0.0, -1.0)[1] == CP.FLOOR
+    assert CP.WALL in labels and CP.ROOF in labels and CP.FLOOR in labels, (
+        "bez którejś z trzech ścian `clearance_in_planes` nie ma czym nazwać płaszczyzny "
+        "wiążącej i raport podaje liczbę bez adresu")
+    assert CP.CHAMFER in labels, (
+        "ścięcie naroża jest OSOBNĄ etykietą, nie ścianą ani stropem; bez niego raport "
+        "nazwałby je czymś, czym nie jest")
+    assert CP.clearance_in_planes(PLANES, 4.0, 1.0)[1] == CP.WALL, (
+        "punkt daleko z boku i nisko wiąże ŚCIANA — inna etykieta znaczy, że normalne "
+        "rozjechały się z geometrią profilu")
+    assert CP.clearance_in_planes(PLANES, 0.0, 4.5)[1] == CP.ROOF, (
+        "punkt na osi i wysoko wiąże STROP")
+    assert CP.clearance_in_planes(PLANES, 0.0, -1.0)[1] == CP.FLOOR, (
+        "punkt na osi pod główką szyny wiąże PODŁOGA")
 
 
 # --- ramki i offsety ----------------------------------------------------------
@@ -290,8 +308,12 @@ def test_clearance_profile_point_at_matches_frame_at():
 def test_clearance_profile_hull_keeps_the_extremes_and_drops_the_inside():
     square = [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0), (0.5, 0.5), (0.4, 0.6)]
     hull = CP.hull_2d(square)
-    assert len(hull) == 4
-    assert (0.5, 0.5) not in hull and (0.4, 0.6) not in hull
+    assert len(hull) == 4, (
+        "cztery narożniki to cała otoczka kwadratu — więcej znaczy, że punkt wewnętrzny "
+        "przeżył redukcję")
+    assert (0.5, 0.5) not in hull and (0.4, 0.6) not in hull, (
+        "punkt wewnątrz kwadratu w otoczce stać nie ma prawa: `halfplanes` policzyłoby "
+        "z niego krawędź, która krawędzią obrysu nie jest")
 
 
 def test_clearance_profile_exact_bands_do_not_lose_the_minimum():
@@ -301,7 +323,9 @@ def test_clearance_profile_exact_bands_do_not_lose_the_minimum():
     frames = SW.rmf_frames(points)
     bodies = _train()
     reduced = CP.reduce_bodies(bodies, CP.CANDIDATE_BUCKET_M)
-    assert CP.candidate_count(reduced) < sum(len(b["vertices"]) for b in bodies)
+    assert CP.candidate_count(reduced) < sum(len(b["vertices"]) for b in bodies), (
+        "redukcja nie zmniejszyła liczby kandydatów, więc porównanie z pomiarem naiwnym "
+        "niżej mierzyłoby dwa razy to samo")
     for start in (10.0, 25.0):
         for offset in (-2.10, 2.10):
             fast = CP.measure_position(points, frames, stations, PLANES, reduced, start, offset)
@@ -317,7 +341,9 @@ def test_clearance_profile_straight_track_is_bound_by_the_roof():
     record = CP.measure_position(points, frames, stations, PLANES, reduced, 100.0, 2.10)
     # 4,70 m stropu minus 3,60 m dachu; na prostej nie ma strzałki, więc wiąże wysokość
     assert abs(record["clearance_m"] - 1.10) < 1e-9, record
-    assert record["bound_by"] == CP.ROOF
+    assert record["bound_by"] == CP.ROOF, (
+        "na prostej wiąże wysokość stropu; inna etykieta znaczy, że zmierzono nie tę "
+        "płaszczyznę, choć liczba wyżej się zgadza")
 
 
 def test_clearance_profile_curve_pushes_the_body_towards_the_wall():
@@ -333,7 +359,9 @@ def test_clearance_profile_curve_pushes_the_body_towards_the_wall():
     straight = 4.70 - 2.10 - 1.35
     assert binding["clearance_m"] < straight, records
     assert binding["bound_by"] == CP.WALL, binding
-    assert max(r["clearance_m"] for r in records) == 1.10
+    assert max(r["clearance_m"] for r in records) == 1.10, (
+        "na drugim torze pudło ucieka do środka otworu i wiąże strop, czyli ta sama "
+        "wartość co na prostej — inna liczba znaczy, że łuk działa na oba tory")
 
 
 def test_clearance_profile_negative_clearance_is_reported_not_clamped():
@@ -346,24 +374,35 @@ def test_clearance_profile_negative_clearance_is_reported_not_clamped():
     record = CP.measure_position(points, frames, stations, PLANES, reduced, 50.0, 2.10)
     assert record["clearance_m"] < 0.0, record
     stats = CP.statistics([record])
-    assert stats["negative_positions"] == 1
-    assert stats["min_clearance_m"] < 0.0
+    assert stats["negative_positions"] == 1, (
+        "ujemny luz ma być POLICZONY w statystyce, nie tylko zwrócony w rekordzie")
+    assert stats["min_clearance_m"] < 0.0, (
+        "minimum statystyki zostało przycięte do zera — ujemny wynik zamieciony pod dywan")
 
 
 # --- pokrycie osi i statystyki ------------------------------------------------
 
 def test_clearance_profile_positions_cover_the_axis_end_to_end():
     positions = CP.scan_positions(1000.0, 94.0, 5.0)
-    assert positions[0] == 0.0
-    assert abs(positions[-1] - 906.0) < 1e-9
+    assert positions[0] == 0.0, (
+        "skan zaczyna się na początku osi; przesunięty początek gubi pierwszy odcinek "
+        "bez ani jednego śladu w wyniku")
+    assert abs(positions[-1] - 906.0) < 1e-9, (
+        "ostatnia pozycja to koniec osi minus długość składu (1000 - 94); mniej znaczy, "
+        "że ogon osi nie jest zeskanowany")
     for a, b in zip(positions, positions[1:]):
-        assert b - a <= 5.0 + 1e-9
+        assert b - a <= 5.0 + 1e-9, (
+            "krok większy od zadanego zostawia między pozycjami dziurę, której `coverage_gaps` "
+            "nie ma po czym znaleźć")
 
 
 def test_clearance_profile_positions_keep_the_tail_when_step_does_not_divide():
     positions = CP.scan_positions(1000.0, 94.0, 7.0)
-    assert abs(positions[-1] - 906.0) < 1e-9
-    assert positions[-1] - positions[-2] <= 7.0 + 1e-9
+    assert abs(positions[-1] - 906.0) < 1e-9, (
+        "ogon ma zostać domknięty także wtedy, gdy krok nie dzieli zakresu")
+    assert positions[-1] - positions[-2] <= 7.0 + 1e-9, (
+        "ostatni skok jest krótszy albo równy krokowi — dłuższy znaczy, że domknięcie "
+        "ogona samo zrobiło dziurę")
 
 
 def test_clearance_profile_coverage_gaps_finds_a_hole():
@@ -372,7 +411,9 @@ def test_clearance_profile_coverage_gaps_finds_a_hole():
     assert any("dziura" in p for p in problems), problems
     good = [{"start_m": float(s), "clearance_m": 1.0} for s in range(0, 106, 5)]
     good.append({"start_m": 106.0, "clearance_m": 1.0})
-    assert CP.coverage_gaps(good, 94.0, 200.0, 5.0) == []
+    assert CP.coverage_gaps(good, 94.0, 200.0, 5.0) == [], (
+        "pokrycie bez dziur ma dawać PUSTĄ listę; cokolwiek innego to fałszywy alarm, "
+        "po którym bramkę się wyłącza")
 
 
 def test_clearance_profile_statistics_count_positions_below_thresholds():
@@ -380,22 +421,35 @@ def test_clearance_profile_statistics_count_positions_below_thresholds():
                 "chainage_m": float(i), "lateral_m": 0.0, "vertical_m": 0.0, "chord_m": 15.0}
                for i, value in enumerate([1.10] * 90 + [0.95] * 5 + [0.80] * 4 + [-0.05])]
     stats = CP.statistics(records, thresholds=(1.000, 0.900, 0.000))
-    assert stats["positions"] == 100
-    assert stats["min_clearance_m"] == -0.05
-    assert stats["below_threshold"]["1.000"] == 10
-    assert stats["below_threshold"]["0.900"] == 5
-    assert stats["below_threshold"]["0.000"] == 1
-    assert stats["negative_positions"] == 1
-    assert stats["median_clearance_m"] == 1.10
+    assert stats["positions"] == 100, (
+        "sto rekordów na wejściu ma dać sto pozycji — mniej znaczy, że statystyka gubi "
+        "rekordy po drodze")
+    assert stats["min_clearance_m"] == -0.05, (
+        "minimum bierze się z najmniejszego rekordu, nie z pierwszego ani ze średniej")
+    assert stats["below_threshold"]["1.000"] == 10, (
+        "poniżej 1,000 m leży dziesięć rekordów (5 + 4 + 1) — próg liczy ŚCIŚLE mniejsze")
+    assert stats["below_threshold"]["0.900"] == 5, (
+        "poniżej 0,900 m leży pięć (4 + 1)")
+    assert stats["below_threshold"]["0.000"] == 1, (
+        "poniżej zera leży jeden")
+    assert stats["negative_positions"] == 1, (
+        "ujemna pozycja jest jedna i liczy się OSOBNO od progów, bo próg zerowy można "
+        "przestawić, a znak nie")
+    assert stats["median_clearance_m"] == 1.10, (
+        "mediana stu wartości, z których dziewięćdziesiąt to 1,10")
 
 
 def test_clearance_profile_refinement_windows_bracket_the_dip():
     records = [{"start_m": float(i * 5), "clearance_m": 1.10} for i in range(20)]
     records[10]["clearance_m"] = 0.90
     windows = CP.refine_windows(records, 5.0)
-    assert len(windows) == 1
+    assert len(windows) == 1, (
+        "jedno zagłębienie to jedno okno; więcej znaczy, że sąsiednie okna przestały "
+        "się zlewać i doszlifowanie policzy ten sam odcinek dwa razy")
     low, high = windows[0]
-    assert low <= 50.0 - 5.0 + 1e-9 and high >= 50.0 + 5.0 - 1e-9
+    assert low <= 50.0 - 5.0 + 1e-9 and high >= 50.0 + 5.0 - 1e-9, (
+        "okno ma obejmować zagłębienie z zapasem kroku po OBU stronach, inaczej "
+        "doszlifowanie zaczyna się już za dołkiem")
 
 
 # --- miejsca krytyczne i stacje ----------------------------------------------
@@ -416,20 +470,28 @@ def test_clearance_profile_critical_places_merge_one_curve_into_one_entry():
     records.append(_record(4000.0, 0.93, start=3900.0))
     places = CP.critical_places(records, 0.95, STATIONS_DOC)
     assert len(places) == 2, places
-    assert places[0]["positions"] == 40
-    assert places[0]["nearest_station"]["name"].startswith("Sainte-Catherine")
+    assert places[0]["positions"] == 40, (
+        "czterdzieści pozycji patrzących na ten sam łuk to jedno miejsce o czterdziestu "
+        "pozycjach, nie czterdzieści miejsc")
+    assert places[0]["nearest_station"]["name"].startswith("Sainte-Catherine"), (
+        "miejsce nazywa się NAJBLIŻSZĄ stacją, nie pierwszą z brzegu listy")
     assert places[0]["between"] == {"after": "Comte de Flandre|Graaf van Vlaanderen",
-                                    "before": "Sainte-Catherine|Sint-Katelijne"}
+                                    "before": "Sainte-Catherine|Sint-Katelijne"}, (
+        "łuk leży między dwiema stacjami i obie mają zostać nazwane — sama najbliższa "
+        "nie mówi, po której jej stronie leży miejsce")
 
 
 def test_clearance_profile_critical_places_are_empty_above_the_threshold():
-    assert CP.critical_places([_record(2520.0, 1.10)], 0.95, STATIONS_DOC) == []
+    assert CP.critical_places([_record(2520.0, 1.10)], 0.95, STATIONS_DOC) == [], (
+        "powyżej progu miejsca krytycznego NIE MA; niepusta lista to fałszywy alarm")
 
 
 def test_clearance_profile_nearest_station_reports_the_distance():
     near = CP.nearest_station(STATIONS_DOC, 2721.01 + 200.0)
-    assert near["name"].startswith("Sainte-Catherine")
-    assert abs(near["distance_m"] - 200.0) < 0.05
+    assert near["name"].startswith("Sainte-Catherine"), (
+        "najbliższa jest ta o najmniejszej odległości, nie ta o najmniejszym kilometrażu")
+    assert abs(near["distance_m"] - 200.0) < 0.05, (
+        "odległość liczy się od kilometrażu stacji, nie od początku osi")
 
 
 # --- promienie i strzałka -----------------------------------------------------
@@ -513,10 +575,14 @@ def test_clearance_profile_swept_envelope_ignores_positions_outside_its_range():
     stations = SW.chainages(points)
     envelope = CP.SweptEnvelope(stations, 100.0, 200.0)
     envelope.add(50.0, 1.0, 1.0)
-    assert envelope.rings_for(50.0) == ()
-    assert envelope.rings() == []
+    assert envelope.rings_for(50.0) == (), (
+        "pozycja spoza zakresu obwiedni nie ma prawa dołożyć pierścienia")
+    assert envelope.rings() == [], (
+        "obwiednia po samym dodaniu spoza zakresu ma zostać pusta")
     envelope.add(150.0, 1.0, 1.0)
-    assert envelope.rings_for(150.0)
+    assert envelope.rings_for(150.0), (
+        "pozycja W zakresie ma pierścień dołożyć; bez tej połowy test przybijałby "
+        "obwiednię martwą zamiast obwiedni z zakresem")
 
 
 def test_clearance_profile_swept_mesh_is_closed_and_finite():
@@ -529,21 +595,30 @@ def test_clearance_profile_swept_mesh_is_closed_and_finite():
     rings = envelope.rings()
     mesh = CP.swept_mesh(frames, rings)
     columns = mesh["columns"]
-    assert len(mesh["vertices"]) == columns * len(rings)
-    assert len(mesh["faces"]) == columns * (len(rings) - 1) + 2
+    assert len(mesh["vertices"]) == columns * len(rings), (
+        "siatka ma wierzchołek na każdą kolumnę każdego pierścienia — mniej znaczy, "
+        "że pierścień wypadł po drodze")
+    assert len(mesh["faces"]) == columns * (len(rings) - 1) + 2, (
+        "ścian jest tyle, ile pasów między pierścieniami, PLUS dwie zaślepki końców; "
+        "bez zaślepek bryła nie jest zamknięta")
     for vertex in mesh["vertices"]:
         for value in vertex:
-            assert not math.isnan(value) and not math.isinf(value)
+            assert not math.isnan(value) and not math.isinf(value), (
+                "NaN albo nieskończoność w wierzchołku: Blender wczyta taką siatkę bez błędu "
+                "i pokaże pustą scenę")
     low, high = CP.mesh_bbox(mesh)
     assert high[2] - low[2] > 2.0, (low, high)
-    assert high[0] - low[0] > 10.0
+    assert high[0] - low[0] > 10.0, (
+        "rozpiętość wzdłuż osi mniejsza niż 10 m znaczy, że obwiednia zwinęła się "
+        "w punkt, a objętość niżej i tak by się zgadzała")
 
 
 def test_clearance_profile_swept_mesh_rejects_a_single_ring():
     try:
         CP.swept_mesh([], [(0, [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0)])])
     except ValueError as exc:
-        assert "2 pierścieni" in str(exc)
+        assert "2 pierścieni" in str(exc), (
+            "odmowa przyszła, ale komunikat nie mówi o liczbie pierścieni")
     else:
         raise AssertionError("jeden pierścień nie jest bryłą")
 
@@ -560,7 +635,9 @@ def test_clearance_profile_envelope_clearance_is_never_better_than_the_scan():
     envelope_min, where = CP.envelope_clearance(envelope.rings(), PLANES)
     scan_min = min(CP.measure_position(points, frames, stations, PLANES, reduced, s,
                                        2.10)["clearance_m"] for s in starts)
-    assert where is not None
+    assert where is not None, (
+        "miejsce najmniejszego luzu obwiedni jest nieznane, więc liczby niżej nie mają "
+        "adresu w tunelu")
     assert envelope_min <= scan_min + 1e-9, (envelope_min, scan_min)
     assert envelope_min > scan_min - 0.05, (envelope_min, scan_min)
 
@@ -584,11 +661,16 @@ def test_clearance_profile_hull_of_at_most_two_points_is_the_points_themselves()
     parę w tej samej kolejności co skrót. Test zostaje jako pokrycie samego
     zejścia do wejścia zdegenerowanego, nie jako zabójca mutacji.
     """
-    assert CP.hull_2d([]) == []
-    assert CP.hull_2d([(1.0, 2.0)]) == [(1.0, 2.0)]
-    assert CP.hull_2d([(2.0, 0.0), (0.0, 1.0)]) == [(0.0, 1.0), (2.0, 0.0)]
+    assert CP.hull_2d([]) == [], (
+        "puste wejście ma dać pustą otoczkę, a nie wyjątek")
+    assert CP.hull_2d([(1.0, 2.0)]) == [(1.0, 2.0)], (
+        "jeden punkt jest swoją własną otoczką")
+    assert CP.hull_2d([(2.0, 0.0), (0.0, 1.0)]) == [(0.0, 1.0), (2.0, 0.0)], (
+        "dwa punkty wychodzą posortowane, bo tyle robi z nimi łańcuch monotoniczny")
     # Zdublowany punkt to jeden punkt, nie dwa.
-    assert CP.hull_2d([(0.0, 0.0), (0.0, 0.0)]) == [(0.0, 0.0)]
+    assert CP.hull_2d([(0.0, 0.0), (0.0, 0.0)]) == [(0.0, 0.0)], (
+        "zdublowany punkt to JEDEN punkt — inaczej `halfplanes` policzyłoby z niego "
+        "krawędź zerowej długości i odmówiłoby poprawnemu wejściu")
 
 
 def test_clearance_profile_positive_bucket_still_buckets_when_it_is_tiny():
@@ -620,7 +702,9 @@ def test_clearance_profile_orientation_follows_the_sign_of_the_area_not_its_size
     """
     small = [(0.0, 0.0), (0.02, 0.0), (0.0, 0.02)]
     planes = CP.halfplanes(small)
-    assert len(planes) == 3
+    assert len(planes) == 3, (
+        "trójkąt 2 cm x 2 cm jest poprawnym obrysem i ma przejść niezależnie od "
+        "WIELKOŚCI pola; decyduje jego znak")
     # Środek ciężkości leży wewnątrz, więc luz musi być DODATNI.
     clearance, _label = CP.clearance_in_planes(planes, 0.005, 0.005)
     assert clearance > 0.0, (clearance, planes)
@@ -635,7 +719,9 @@ def test_clearance_profile_halfplanes_accept_a_half_millimetre_edge():
     """
     ring = [(0.0, 0.0), (1.0, 0.0), (1.0005, 0.0), (2.0, 0.0), (2.0, 1.0), (0.0, 1.0)]
     planes = CP.halfplanes(ring)
-    assert len(planes) == len(ring)
+    assert len(planes) == len(ring), (
+        "obrys z krawędzią 0,5 mm ma dać tyle płaszczyzn, ile ma wierzchołków — mniej "
+        "znaczy, że strażnik długości zjadł krawędź, której bronić nie miał")
     # Punkt wewnątrz nadal ma dodatni luz — obrys nie rozjechał się na tej krawędzi.
     clearance, label = CP.clearance_in_planes(planes, 1.0, 0.4)
     assert clearance > 0.0, (clearance, label)
@@ -710,7 +796,8 @@ def test_clearance_profile_scan_positions_accept_a_millimetre_step():
     """
     positions = CP.scan_positions(95.0, 94.0, 0.001)
     assert len(positions) == 1001, len(positions)
-    assert positions[0] == 0.0
+    assert positions[0] == 0.0, (
+        "skan zaczyna się na zerze także przy kroku milimetrowym")
     assert abs(positions[-1] - 1.0) < 1e-9, positions[-1]
 
 
@@ -741,7 +828,9 @@ def test_clearance_profile_scan_positions_accept_a_train_as_long_as_the_axis():
 
     # I ciągłość, o którą cała pozycja szła: 93,999 / 94,000 / 94,001 to teraz
     # dwie pozycje / jedna pozycja / odmowa, a nie dwie / odmowa / odmowa.
-    assert len(CP.scan_positions(94.0, 93.999, 5.0)) == 2
+    assert len(CP.scan_positions(94.0, 93.999, 5.0)) == 2, (
+        "93,999 m daje DWIE pozycje i to jest ciągłość, o którą szła pozycja 7 `docs/24`: "
+        "93,999 / 94,000 / 94,001 to dwie pozycje, jedna i odmowa")
 
 
 def test_clearance_profile_scan_positions_accept_half_a_millimetre_of_room():
@@ -751,7 +840,8 @@ def test_clearance_profile_scan_positions_accept_half_a_millimetre_of_room():
     Oryginał daje wtedy dwie pozycje: początek i dokładny koniec zakresu.
     """
     positions = CP.scan_positions(94.0005, 94.0, 5.0)
-    assert positions[0] == 0.0
+    assert positions[0] == 0.0, (
+        "przy zapasie 0,5 mm skan nadal zaczyna się na zerze")
     assert len(positions) == 2, positions
     assert abs(positions[-1] - 0.0005) < 1e-9, positions[-1]
 
@@ -768,12 +858,16 @@ def test_clearance_profile_point_at_survives_a_duplicated_last_vertex():
     """
     points = [(0.0, 0.0, 0.0), (5.0, 0.0, 0.0), (10.0, 0.0, 0.0), (10.0, 0.0, 0.0)]
     stations = [0.0, 5.0, 10.0, 10.0]
-    assert CP.point_at(points, stations, 10.0) == (10.0, 0.0, 0.0)
+    assert CP.point_at(points, stations, 10.0) == (10.0, 0.0, 0.0), (
+        "duplikat na KOŃCU osi daje rozpięcie zerowe; bez strażnika `span <= 0.0` leci "
+        "tam `ZeroDivisionError`, a nie wynik")
 
     # Duplikat na POCZĄTKU osi tego warunku nie uruchamia — zapisane, żeby nikt
     # nie „naprawiał" tego testu przenoszeniem duplikatu.
     start = [(0.0, 0.0, 0.0), (0.0, 0.0, 0.0), (5.0, 0.0, 0.0), (10.0, 0.0, 0.0)]
-    assert CP.point_at(start, [0.0, 0.0, 5.0, 10.0], 0.0) == (0.0, 0.0, 0.0)
+    assert CP.point_at(start, [0.0, 0.0, 5.0, 10.0], 0.0) == (0.0, 0.0, 0.0), (
+        "duplikat na POCZĄTKU tego warunku nie uruchamia — zapisane, żeby nikt nie "
+        "„naprawiał” tego testu przenoszeniem duplikatu")
 
 
 def test_clearance_profile_point_at_interpolates_inside_a_half_millimetre_span():
@@ -844,7 +938,9 @@ def test_clearance_profile_swept_mesh_from_exactly_two_rings():
     frames = SW.rmf_frames(points)
     polygon = [(-1.0, 0.0), (1.0, 0.0), (1.0, 2.0), (-1.0, 2.0)]
     mesh = CP.swept_mesh(frames, [(0, polygon), (1, polygon)])
-    assert mesh["rings"] == 2 and mesh["columns"] == 4
+    assert mesh["rings"] == 2 and mesh["columns"] == 4, (
+        "dwa pierścienie i cztery kolumny to najkrótsza rura, która jeszcze jest rurą; "
+        "inne liczby znaczą, że siatka nie opisuje tego wejścia")
     assert len(mesh["vertices"]) == 8, len(mesh["vertices"])
     assert len(mesh["faces"]) == 4 + 2, mesh["faces"]
     low, high = CP.mesh_bbox(mesh)
@@ -861,14 +957,18 @@ def test_clearance_profile_a_clearance_exactly_at_the_threshold_is_reported():
     """
     dokladnie = CP.critical_places([_record(2520.0, 0.900)], 0.900, STATIONS_DOC)
     assert len(dokladnie) == 1, dokladnie
-    assert dokladnie[0]["at_threshold"] is True
+    assert dokladnie[0]["at_threshold"] is True, (
+        "luz DOKŁADNIE na progu ma być oznaczony jako graniczny — inaczej najciaśniejsze "
+        "miejsce pakietu wypada z raportu przez 52 µm")
 
     ponizej = CP.critical_places([_record(2520.0, 0.899948)], 0.900, STATIONS_DOC)
     assert len(ponizej) == 1, ponizej
     assert ponizej[0]["at_threshold"] is True, "52 µm pod progiem to nadal pasmo graniczne"
 
     glebiej = CP.critical_places([_record(2520.0, 0.850)], 0.900, STATIONS_DOC)
-    assert len(glebiej) == 1
+    assert len(glebiej) == 1, (
+        "50 mm pod progiem to nadal miejsce krytyczne, tylko już nie graniczne; zero "
+        "wpisów znaczy, że pasmo zjadło zwykłe zgłoszenie")
     assert glebiej[0]["at_threshold"] is False, "50 mm pod progiem to już nie pasmo"
 
 
@@ -881,7 +981,8 @@ def test_clearance_profile_the_threshold_band_is_two_sided():
     """
     milimetr_nad = CP.critical_places([_record(2520.0, 0.901)], 0.900, STATIONS_DOC)
     assert len(milimetr_nad) == 1, "luz milimetr NAD progiem wypadł z raportu"
-    assert milimetr_nad[0]["at_threshold"] is True
+    assert milimetr_nad[0]["at_threshold"] is True, (
+        "milimetr NAD progiem należy do pasma — to jest cała treść słowa „dwustronny”")
 
     poza_pasmem = CP.critical_places([_record(2520.0, 0.902)], 0.900, STATIONS_DOC)
     assert poza_pasmem == [], "pasmo objęło luz dwa milimetry nad progiem"
@@ -892,10 +993,16 @@ def test_clearance_profile_the_threshold_band_is_two_sided():
     # `0.0010000000000000009` — czyli WIĘCEJ niż tolerancja, więc milimetr pod progiem
     # z pasma wypadał, a pół milimetra nad nim wpadało. Granica rozstrzygała się
     # reprezentacją binarną, nie decyzją.
-    assert CP.within_threshold_band(0.899, 0.900) is True
-    assert CP.within_threshold_band(0.901, 0.900) is True
-    assert CP.within_threshold_band(0.898, 0.900) is False
-    assert CP.within_threshold_band(0.902, 0.900) is False
+    assert CP.within_threshold_band(0.899, 0.900) is True, (
+        "milimetr pod progiem: granica ma rozstrzygać się decyzją, nie reprezentacją "
+        "binarną (`abs(0.899 - 0.900)` na floatach daje WIĘCEJ niż tolerancja)")
+    assert CP.within_threshold_band(0.901, 0.900) is True, (
+        "milimetr nad progiem: pasmo ma być symetryczne")
+    assert CP.within_threshold_band(0.898, 0.900) is False, (
+        "dwa milimetry pod progiem to już nie pasmo — inaczej tolerancja przestaje być "
+        "tolerancją i staje się drugim progiem")
+    assert CP.within_threshold_band(0.902, 0.900) is False, (
+        "dwa milimetry nad progiem to już nie pasmo")
 
 
 def test_clearance_profile_below_threshold_keeps_meaning_strictly_below():
@@ -910,7 +1017,9 @@ def test_clearance_profile_below_threshold_keeps_meaning_strictly_below():
     stats = CP.statistics(records, thresholds=(0.900,))
     assert stats["below_threshold"]["0.900"] == 2, stats["below_threshold"]
     assert stats["at_threshold"]["0.900"] == 3, stats["at_threshold"]
-    assert stats["threshold_tolerance_m"] == CP.THRESHOLD_TOLERANCE_M
+    assert stats["threshold_tolerance_m"] == CP.THRESHOLD_TOLERANCE_M, (
+        "raport ma NIEŚĆ tolerancję, po której policzono pasmo; bez niej czytelnik nie "
+        "wie, czym jest `at_threshold`, a `profile_vehicle.py` czyta oba klucze")
 
 
 def test_clearance_profile_tolerance_equals_the_resolution_the_module_records():
@@ -927,7 +1036,9 @@ def test_clearance_profile_tolerance_equals_the_resolution_the_module_records():
     assert 'f"{t:.3f}"' in source, "zmieniła się rozdzielczość kluczy statystyk"
     assert CP.THRESHOLD_TOLERANCE_M == 10 ** -3, CP.THRESHOLD_TOLERANCE_M
     assert CP.THRESHOLD_TOLERANCE_MM == 1, CP.THRESHOLD_TOLERANCE_MM
-    assert CP._millimetres(0.9004) == 900 and CP._millimetres(0.9006) == 901
+    assert CP._millimetres(0.9004) == 900 and CP._millimetres(0.9006) == 901, (
+        "zaokrąglenie do najbliższego milimetra: 0,4 mm w dół, 0,6 mm w górę — na tym "
+        "wisi cała równość tolerancji z rozdzielczością zapisu")
 
 
 # --- remis przy minimum: czy WYBRANY INDEKS jedzie dalej ---------------------
@@ -989,11 +1100,16 @@ def test_clearance_profile_a_tie_between_frames_keeps_the_earlier_frame():
     do_jedynki = abs(SW.dot(SW.sub(midpoint, frames[1][0]), frames[1][1]))
     assert do_zera == do_jedynki == 2.5, (do_zera, do_jedynki)
 
-    assert CP.nearest_frame(frames, stations, midpoint, hint_m=2.5) == 0
+    assert CP.nearest_frame(frames, stations, midpoint, hint_m=2.5) == 0, (
+        "remis między ramkami wygrywa ramka WCZEŚNIEJSZA; mutant `<=` zwraca 1 i raport "
+        "wskazuje inny koniec składu przy tej samej liczbie")
 
     # Kontrola negatywna: o włos bliżej drugiej ramki i wybór ma się przesunąć.
-    assert CP.nearest_frame(frames, stations, (2.6, 0.0, 0.0), hint_m=2.6) == 1
-    assert CP.nearest_frame(frames, stations, (2.4, 0.0, 0.0), hint_m=2.4) == 0
+    assert CP.nearest_frame(frames, stations, (2.6, 0.0, 0.0), hint_m=2.6) == 1, (
+        "o włos bliżej drugiej ramki i wybór ma się przesunąć — bez tej połowy test "
+        "przybijałby stałą zero")
+    assert CP.nearest_frame(frames, stations, (2.4, 0.0, 0.0), hint_m=2.4) == 0, (
+        "o włos bliżej pierwszej i wybór ma zostać")
 
 
 def test_clearance_profile_a_tie_in_the_worst_candidate_keeps_the_first_vertex():
@@ -1019,7 +1135,9 @@ def test_clearance_profile_a_tie_in_the_worst_candidate_keeps_the_first_vertex()
     record = CP.measure_position(points, frames, stations, PLANES, reduced, 100.0, 0.0,
                                  collector=collector)
     najmniejszy = min(t[3] for t in trafienia)
-    assert record["clearance_m"] == najmniejszy
+    assert record["clearance_m"] == najmniejszy, (
+        "rekord ma nieść minimum ze WSZYSTKICH trafień kolektora; inna liczba znaczy, "
+        "że pomiar i kolektor chodzą po różnych zbiorach")
     assert sum(1 for t in trafienia if t[3] == najmniejszy) > 1, (
         "remis nie zaszedł — test nie sprawdza tego, co ma sprawdzać")
 
@@ -1046,8 +1164,12 @@ def test_clearance_profile_a_tie_in_the_naive_measurement_keeps_the_first_vertex
     zgodny = CP.measure_position(points, frames, stations, PLANES,
                                  CP.reduce_bodies([_box_body("b", 0.0, 15.0)]),
                                  100.0, 0.0)
-    assert zgodny["chainage_m"] == record["chainage_m"]
-    assert zgodny["lateral_m"] == record["lateral_m"]
+    assert zgodny["chainage_m"] == record["chainage_m"], (
+        "przebieg szybki i naiwny mają wskazać TEN SAM punkt styku — inaczej "
+        "`--verify-full` zgłasza rozjazd tam, gdzie go nie ma")
+    assert zgodny["lateral_m"] == record["lateral_m"], (
+        "to samo dla odsunięcia bocznego: remis ma być rozstrzygany tą samą konwencją "
+        "po obu stronach")
 
 
 def test_clearance_profile_a_tie_between_stations_names_the_earlier_one():
@@ -1064,8 +1186,10 @@ def test_clearance_profile_a_tie_between_stations_names_the_earlier_one():
     assert remis["name"] == "A", remis
 
     # Kontrola negatywna po obu stronach remisu.
-    assert CP.nearest_station(doc, 199.0)["name"] == "A"
-    assert CP.nearest_station(doc, 201.0)["name"] == "B"
+    assert CP.nearest_station(doc, 199.0)["name"] == "A", (
+        "bliżej A: bez kontroli po obu stronach remisu test przybijałby stałą nazwę")
+    assert CP.nearest_station(doc, 201.0)["name"] == "B", (
+        "bliżej B")
 
 
 def test_clearance_profile_a_tie_in_the_minimum_radius_keeps_the_first_chainage():
@@ -1093,7 +1217,9 @@ def test_clearance_profile_a_tie_in_the_minimum_radius_keeps_the_first_chainage(
         promienie.append(PL._circumradius(before[:2], zigzag[index][:2], after[:2]))
     assert promienie == [3.125] * 5, promienie
 
-    assert CP.min_radius_on_chord(zigzag, stations, 10.0) == (5.0, 3.125)
+    assert CP.min_radius_on_chord(zigzag, stations, 10.0) == (5.0, 3.125), (
+        "remis promieni wygrywa kilometraż PIERWSZY; mutant `<=` zwraca 25,0 — ta sama "
+        "liczba promienia, inne miejsce na trasie, a to miejsce jedzie do raportu")
 
 
 def test_clearance_profile_a_tie_in_the_envelope_clearance_keeps_the_first_vertex():
@@ -1109,9 +1235,12 @@ def test_clearance_profile_a_tie_in_the_envelope_clearance_keeps_the_first_verte
     assert luzy.count(min(luzy)) == 2, ("remis nie zaszedł", luzy)
 
     best, where = CP.envelope_clearance([(0, polygon)], PLANES)
-    assert best == min(luzy)
+    assert best == min(luzy), (
+        "luz obwiedni to minimum po wierzchołkach obrysu; inna liczba znaczy, że remisu "
+        "niżej nie ma czego dotyczyć")
     assert where["lateral_m"] == 1.0, where
-    assert where["ring"] == 0
+    assert where["ring"] == 0, (
+        "remis ma wskazać pierścień, w którym naprawdę zaszedł")
 
     # Kontrola negatywna: obrys przesunięty w bok ma jedno, nie dwa najgorsze miejsca.
     przesuniety = [(x + 0.5, y) for x, y in polygon]
@@ -1169,11 +1298,15 @@ def test_clearance_profile_a_tie_in_the_envelope_height_is_a_plain_equivalence()
     dwa.add(50.0, 1.0, 2.0)
     dwa.add(50.0, 1.0, 2.0)
     assert raz.heights == dwa.heights, "powtórzona próbka zmieniła wysokości podparcia"
-    assert dwa.samples == 2 and raz.samples == 1
+    assert dwa.samples == 2 and raz.samples == 1, (
+        "licznik próbek liczy WSZYSTKIE dodania, także te, które niczego nie podniosły — "
+        "inaczej równoważność wyżej byłaby równoważnością pustych przebiegów")
 
     # Kontrola negatywna: próbka WIĘKSZA musi wysokość podnieść.
     dwa.add(50.0, 1.5, 2.0)
-    assert dwa.heights != raz.heights
+    assert dwa.heights != raz.heights, (
+        "próbka WIĘKSZA musi wysokość podnieść; bez tej połowy test przybijałby "
+        "obwiednię, która nie reaguje na nic")
 
 
 # --- tolerancje numeryczne: czy próg jest OSIĄGALNY --------------------------
@@ -1231,8 +1364,11 @@ def test_clearance_profile_station_boundary_matches_the_half_open_block_rule():
     for stacja in stacje[1:]:
         c = float(stacja["chainage_m"]) - 1e-9
         assert CP.between_stations(stacje, c)["after"] == blok_zawierajacy(c), c
-    assert CP.between_stations(stacje, 509.73 - 1e-9)["after"] == "A"
-    assert CP.between_stations(stacje, 509.73)["after"] == "B"
+    assert CP.between_stations(stacje, 509.73 - 1e-9)["after"] == "A", (
+        "milimikron PRZED granicą należy jeszcze do przedziału poprzedniego")
+    assert CP.between_stations(stacje, 509.73)["after"] == "B", (
+        "kilometraż stacji należy już do przedziału NASTĘPNEGO — to jest reguła "
+        "`[start, end)` z `Block.Contains`, odtworzona tu po stronie pythonowej")
 
 
 def test_clearance_profile_convexity_eps_sits_between_noise_and_the_real_profiles():
@@ -1305,7 +1441,9 @@ def test_clearance_profile_refine_band_is_not_a_reserve_over_the_measured_gain()
     dołki, których jest WIĘCEJ niż samo minimum, i że zawężenie do 10 mm zmienia wybór.
     Gdyby ktoś zawęził stałą „bo jest zapas", ten test padnie razem z akapitem.
     """
-    assert CP.DEFAULT_REFINE_BAND_M == 0.050
+    assert CP.DEFAULT_REFINE_BAND_M == 0.050, (
+        "stała pasma jest tu przybita, żeby zawężenie „bo jest zapas” padło razem "
+        "z akapitem, który to zawężenie uzasadnia")
 
     # Rekordy odtwarzające rozkład z pakietu: jedno minimum i kilka pozycji nad nim
     # w odległościach, które 50 mm łapie, a 10 mm już nie.
@@ -1320,7 +1458,9 @@ def test_clearance_profile_refine_band_is_not_a_reserve_over_the_measured_gain()
     assert len(waskie) == 1, waskie
 
     # 0,9450 wpada dopiero w pasmo 45 mm — czyli 50 mm bierze trzy dołki, 10 mm jeden.
-    assert len(CP.refine_windows(records, 5.0, band_m=0.045)) == len(szerokie)
+    assert len(CP.refine_windows(records, 5.0, band_m=0.045)) == len(szerokie), (
+        "45 mm bierze te same trzy dołki co 50 mm — czyli granica leży między 10 a 45 mm, "
+        "a nie tuż pod 50, i zapasu nad zyskiem nie ma")
 
 
 def test_clearance_profile_cluster_gap_follows_the_scan_step():
@@ -1338,10 +1478,16 @@ def test_clearance_profile_cluster_gap_follows_the_scan_step():
     ta usterka, którą pozycja 5 opisuje: opis nie jest wynikiem, więc nic go nie
     porównuje.
     """
-    assert CP.CRITICAL_CLUSTER_GAP_M == CP.cluster_gap_m(CP.DEFAULT_STEP_M)
-    assert CP.cluster_gap_m(5.0) == 25.0
-    assert CP.cluster_gap_m(2.0) == 10.0
-    assert CP.cluster_gap_m(25.0) == 125.0
+    assert CP.CRITICAL_CLUSTER_GAP_M == CP.cluster_gap_m(CP.DEFAULT_STEP_M), (
+        "odstęp domyślny ma WYNIKAĆ z kroku domyślnego, a nie stać obok niego jako "
+        "druga liczba wpisana z ręki")
+    assert CP.cluster_gap_m(5.0) == 25.0, (
+        "pięciokrotność kroku — tyle wynosi stała historyczna 25,0 m przy kroku 5 m")
+    assert CP.cluster_gap_m(2.0) == 10.0, (
+        "przy kroku 2 m odstęp ma zejść do 10 m; wpisana z powrotem stała 25,0 padnie "
+        "właśnie tutaj")
+    assert CP.cluster_gap_m(25.0) == 125.0, (
+        "i rosnąć w drugą stronę")
 
     # Krok niedodatni jest odmową, tak samo jak w `scan_positions` — inaczej odstęp
     # zero scaliłby wszystko w jeden wpis i raport zgłosiłby jedno miejsce na trasie.
@@ -1393,12 +1539,15 @@ def test_clearance_profile_coverage_first_position_boundary_sits_below_half_a_mi
     powód jest zmierzony i ma własny test poniżej
     (`..._exactly_half_a_millimetre_depends_on_parity`).
     """
-    assert CP._millimetres(0.0004) == 0
-    assert CP._millimetres(0.0006) == 1
+    assert CP._millimetres(0.0004) == 0, (
+        "0,4 mm zaokrągla się do zera — granica pokrycia wypada PONIŻEJ połowy milimetra")
+    assert CP._millimetres(0.0006) == 1, (
+        "0,6 mm zaokrągla się do jednego")
 
     na_progu = [{"start_m": 0.0004, "clearance_m": 1.0},
                 {"start_m": 5.0004, "clearance_m": 1.0}]
-    assert CP.coverage_gaps(na_progu, 0.0, 5.0004, 5.0) == []
+    assert CP.coverage_gaps(na_progu, 0.0, 5.0004, 5.0) == [], (
+        "pierwsza pozycja 0,4 mm od zera ma przejść bez zgłoszenia")
 
     # Kontrola negatywna: 0,2 mm dalej i pierwsza pozycja JEST zgłaszana.
     nad_progiem = [{"start_m": 0.0006, "clearance_m": 1.0},
@@ -1416,7 +1565,10 @@ def test_clearance_profile_coverage_last_position_no_longer_needs_a_zero_base():
     jest tu przypięte — bo gdyby wróciła, ten test byłby jedynym miejscem, które
     to zauważy.
     """
-    assert 5.0 - (5.0 - 1e-6) != 1e-6          # stara pułapka nadal istnieje w floatach
+    assert 5.0 - (5.0 - 1e-6) != 1e-6, (
+        "stara pułapka floatów nadal istnieje: różnica dwóch double równa DOKŁADNIE "
+        "`fl(1e-6)` przy niezerowej podstawie nie wychodzi. Gdyby to zdanie przestało "
+        "być prawdą, powód przejścia na milimetry zniknąłby razem z nim")
 
     # Trzy oczekiwane końce zakresu: zero, mała podstawa i realny koniec pakietu A
     # (6686,739 m osi minus 94 m składu). Krok podany szeroko, żeby kontrola dziur
@@ -1552,8 +1704,12 @@ def test_clearance_profile_envelope_contains_accepts_a_sample_exactly_at_the_tol
     """
     tolerancja = 2.0 ** -20
     kwadrat = [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)]
-    assert PL.distance_to_boundary(kwadrat, 1.0 + tolerancja, 0.0) == -tolerancja
-    assert PL.distance_to_boundary(kwadrat, 1.0 + 1e-6, 0.0) != -1e-6
+    assert PL.distance_to_boundary(kwadrat, 1.0 + tolerancja, 0.0) == -tolerancja, (
+        "potęga dwójki trafia w granicę tolerancji CO DO BITU — na tym stoi cały "
+        "pomiar poniżej")
+    assert PL.distance_to_boundary(kwadrat, 1.0 + 1e-6, 0.0) != -1e-6, (
+        "`1e-6` w tę granicę nie trafia nigdy (zero razy na 200 000 losowych punktów), "
+        "więc próg osiągalny jest tylko dla niektórych tolerancji")
 
     stations = SW.chainages(_straight(50.0, 5.0))
     envelope = CP.SweptEnvelope(stations, 0.0, 50.0)
@@ -1588,8 +1744,11 @@ def test_clearance_profile_the_axis_tail_tolerance_is_measured_not_reachable():
     trafiło ZERO. Ta mutacja zostaje więc jako równoważna w dziedzinie, a test pilnuje
     tego, po co próg stoi: żeby ogon osi był pokryty i NIE zdublowany.
     """
-    assert (94.0 + 1e-9) - 94.0 != 1e-9
-    assert (6700.0 + 1e-9) - 6700.0 != 1e-9
+    assert (94.0 + 1e-9) - 94.0 != 1e-9, (
+        "ogon osi nie może wyjść DOKŁADNIE `fl(1e-9)` przy podstawie 94 m — to jest "
+        "powód, dla którego mutacja progu zostaje równoważna w dziedzinie")
+    assert (6700.0 + 1e-9) - 6700.0 != 1e-9, (
+        "to samo przy podstawie 6700 m, czyli na realnej długości pakietu A")
 
     dzieli = CP.scan_positions(1000.0, 94.0, 5.0)
     assert dzieli[-1] == 906.0 and dzieli[-2] == 905.0, dzieli[-3:]
@@ -1597,7 +1756,8 @@ def test_clearance_profile_the_axis_tail_tolerance_is_measured_not_reachable():
 
     nie_dzieli = CP.scan_positions(1000.5, 94.0, 5.0)
     assert nie_dzieli[-1] == 906.5 and nie_dzieli[-2] == 905.0, nie_dzieli[-3:]
-    assert len(nie_dzieli) == len(set(nie_dzieli))
+    assert len(nie_dzieli) == len(set(nie_dzieli)), (
+        "ogon osi nie ma być zdublowany także wtedy, gdy krok nie dzieli zakresu")
 
 
 def test_clearance_profile_the_zero_chord_tolerance_is_measured_equivalence():
@@ -1618,15 +1778,21 @@ def test_clearance_profile_the_zero_chord_tolerance_is_measured_equivalence():
     stations = SW.chainages(points)
     head, _i, _t = PL.frame_at(points, stations, 0.0)
     tail, _j, _u = PL.frame_at(points, stations, 1e-9)
-    assert SW.norm(SW.sub(tail, head)) == 1e-9
+    assert SW.norm(SW.sub(tail, head)) == 1e-9, (
+        "norma cięciwy wychodzi DOKŁADNIE `1e-9` na osi prostej — bez tej równości "
+        "zdanie o trafialności progu byłoby wyczytane z kodu, a nie zmierzone")
 
-    assert CP.chord_deviation_m(points, stations, 0.0, 1e-9) == 0.0
+    assert CP.chord_deviation_m(points, stations, 0.0, 1e-9) == 0.0, (
+        "cięciwa rzędu nanometra ma zejść przez strażnika i dać zero, a nie odchylenie "
+        "liczone z wektora o normie bliskiej zeru")
     assert CP.chord_deviation_m(points, stations, 12.0, 12.0) == 0.0, (
         "cięciwa zerowa musi zejść przez strażnika, a nie przez `unit` wektora zerowego")
 
     # Kontrola negatywna: na łuku prawdziwa cięciwa daje odchylenie NIEzerowe.
     arc = _arc(120.0)
-    assert CP.chord_deviation_m(arc, SW.chainages(arc), 0.0, 15.12) > 0.02
+    assert CP.chord_deviation_m(arc, SW.chainages(arc), 0.0, 15.12) > 0.02, (
+        "na łuku prawdziwa cięciwa daje odchylenie NIEZEROWE — bez tej połowy test "
+        "przybijałby funkcję zwracającą zawsze zero")
 
 
 # --- reszta ocalałych: pozycja po pozycji ------------------------------------
@@ -1646,12 +1812,18 @@ def test_clearance_profile_hull_drops_a_collinear_point_on_the_lower_chain():
     (w. 155) nie zmienia niczego.
     """
     pts = [(0.0, 0.0), (1.0, 0.0), (2.0, 0.0), (1.0, 2.0)]
-    assert (1.0 - 0.0) * (0.0 - 0.0) - (0.0 - 0.0) * (2.0 - 0.0) == 0.0
-    assert CP.hull_2d(pts) == [(0.0, 0.0), (2.0, 0.0), (1.0, 2.0)]
+    assert (1.0 - 0.0) * (0.0 - 0.0) - (0.0 - 0.0) * (2.0 - 0.0) == 0.0, (
+        "zakręt trójki jest DOKŁADNIE zerowy — bez tej równości wejście niżej nie "
+        "trafiałoby w gałąź, o którą ten test chodzi")
+    assert CP.hull_2d(pts) == [(0.0, 0.0), (2.0, 0.0), (1.0, 2.0)], (
+        "punkt współliniowy na dolnym łańcuchu ma wypaść z otoczki: `halfplanes` "
+        "policzyłoby z niego drugą półpłaszczyznę o tej samej normalnej")
 
     # Kontrola negatywna: wierzchołek o zakręcie DODATNIM ma zostać.
     wypukly = [(0.0, 0.0), (1.0, -0.5), (2.0, 0.0), (1.0, 2.0)]
-    assert CP.hull_2d(wypukly) == [(0.0, 0.0), (1.0, -0.5), (2.0, 0.0), (1.0, 2.0)]
+    assert CP.hull_2d(wypukly) == [(0.0, 0.0), (1.0, -0.5), (2.0, 0.0), (1.0, 2.0)], (
+        "wierzchołek o zakręcie DODATNIM ma zostać — inaczej łańcuch zdejmowałby "
+        "wszystko i otoczka byłaby odcinkiem")
 
 
 def test_clearance_profile_hull_keeps_a_lower_vertex_below_one_millimetre_of_turn():
@@ -1679,7 +1851,9 @@ def test_clearance_profile_hull_drops_a_collinear_point_on_the_upper_chain():
     zostawałaby nietknięta, a wyglądałoby to na pokrycie.
     """
     pts = [(0.0, 2.0), (1.0, 2.0), (2.0, 2.0), (1.0, 0.0)]
-    assert CP.hull_2d(pts) == [(0.0, 2.0), (1.0, 0.0), (2.0, 2.0)]
+    assert CP.hull_2d(pts) == [(0.0, 2.0), (1.0, 0.0), (2.0, 2.0)], (
+        "punkt współliniowy na GÓRNYM łańcuchu ma wypaść tak samo — dwa łańcuchy to "
+        "dwie osobne bramki i jedna z nich zostawałaby nietknięta")
 
     gorny = [(0.0, 2.0), (1.0, 2.00025), (2.0, 2.0), (1.0, 0.0)]
     zakret = (1.0 - 2.0) * (2.0 - 2.0) - (2.00025 - 2.0) * (0.0 - 2.0)
@@ -1699,14 +1873,20 @@ def test_clearance_profile_touching_refine_windows_merge_into_one():
     records = [{"start_m": 0.0, "clearance_m": 0.5},
                {"start_m": 8.0, "clearance_m": 0.5},
                {"start_m": 40.0, "clearance_m": 9.0}]
-    assert 0.0 + 4.0 == 8.0 - 4.0
-    assert CP.refine_windows(records, 5.0, half_window_m=4.0) == [(-4.0, 12.0)]
+    assert 0.0 + 4.0 == 8.0 - 4.0, (
+        "granice dwóch okien stykają się CO DO BITU — bez tej równości wejście niżej "
+        "nie trafiałoby w gałąź scalania")
+    assert CP.refine_windows(records, 5.0, half_window_m=4.0) == [(-4.0, 12.0)], (
+        "stykające się okna to JEDNO okno; dwa znaczą, że doszlifowanie policzy "
+        "pozycję granicy dwa razy i `coverage_gaps` zobaczy duplikat")
 
     # Kontrola negatywna: dołki dalej od siebie niż dwa półokna to DWA okna.
     rozlaczne = [{"start_m": 0.0, "clearance_m": 0.5},
                  {"start_m": 8.5, "clearance_m": 0.5},
                  {"start_m": 40.0, "clearance_m": 9.0}]
-    assert CP.refine_windows(rozlaczne, 5.0, half_window_m=4.0) == [(-4.0, 4.0), (4.5, 12.5)]
+    assert CP.refine_windows(rozlaczne, 5.0, half_window_m=4.0) == [(-4.0, 4.0), (4.5, 12.5)], (
+        "dołki dalej od siebie niż dwa półokna to DWA okna — bez tej połowy test "
+        "przybijałby scalanie wszystkiego w jedno")
 
 
 def test_clearance_profile_zero_clearance_is_not_counted_as_negative():
@@ -1744,12 +1924,18 @@ def test_clearance_profile_min_radius_includes_the_chainage_exactly_at_half_chor
     zigzag = [(0.0, 0.0, 0.0), (3.0, 4.0, 0.0), (6.0, 0.0, 0.0), (9.0, 4.0, 0.0),
               (12.0, 0.0, 0.0), (15.0, 4.0, 0.0), (18.0, 0.0, 0.0)]
     stations = SW.chainages(zigzag)
-    assert stations[1] == 5.0 == 10.0 / 2.0
-    assert CP.min_radius_on_chord(zigzag, stations, 10.0)[0] == 5.0
+    assert stations[1] == 5.0 == 10.0 / 2.0, (
+        "kilometraż drugiego węzła równa się połowie cięciwy CO DO BITU — na tym stoi "
+        "wejście testu")
+    assert CP.min_radius_on_chord(zigzag, stations, 10.0)[0] == 5.0, (
+        "kilometraż równy połowie cięciwy jeszcze się MIERZY; mutant `<=` pomija go "
+        "i zwraca inne miejsce przy tej samej liczbie promienia")
 
     # Kontrola negatywna: przy cięciwie 11 m połowa wynosi 5,5 m, więc kilometraż
     # 5,0 NIE mieści cięciwy i ma zostać pominięty — pierwszym mierzonym jest 10,0.
-    assert CP.min_radius_on_chord(zigzag, stations, 11.0)[0] == 10.0
+    assert CP.min_radius_on_chord(zigzag, stations, 11.0)[0] == 10.0, (
+        "przy cięciwie 11 m kilometraż 5,0 jej nie mieści i ma zostać pominięty — bez "
+        "tej połowy test przybijałby brak strażnika")
 
 
 def test_clearance_profile_min_radius_includes_the_last_admissible_chainage():
@@ -1787,8 +1973,11 @@ def test_clearance_profile_envelope_rings_include_both_range_ends():
     assert envelope.rings_for(30.0) == (5, 6), envelope.rings_for(30.0)
 
     # Kontrola negatywna: o milimetr poza zakresem i próbka nie wnosi się nigdzie.
-    assert envelope.rings_for(9.999) == ()
-    assert envelope.rings_for(30.001) == ()
+    assert envelope.rings_for(9.999) == (), (
+        "o milimetr PONIŻEJ zakresu próbka nie wnosi się nigdzie")
+    assert envelope.rings_for(30.001) == (), (
+        "o milimetr POWYŻEJ zakresu tak samo — zakres jest domknięty, nie otwarty "
+        "w prawo i nieskończony")
 
 
 def test_clearance_profile_envelope_rings_include_the_first_and_last_ring_index():
@@ -1811,8 +2000,11 @@ def test_clearance_profile_envelope_rings_include_the_first_and_last_ring_index(
     # Kontrola negatywna: pierścień PONIŻEJ `first` nadal się nie wnosi.
     waski = CP.SweptEnvelope(stations, 12.0, 13.0)
     assert (waski.first, waski.last) == (2, 3), (waski.first, waski.last)
-    assert waski.rings_for(12.5) == (2, 3)
-    assert waski.rings_for(12.0) == (2, 3)
+    assert waski.rings_for(12.5) == (2, 3), (
+        "w wąskim zakresie pierścienie `first` i `last` nadal się wnoszą")
+    assert waski.rings_for(12.0) == (2, 3), (
+        "także na samej granicy kilometrażu — zgubiony pierścień to zgubiona ćwiartka "
+        "obrysu na szwie obwiedni")
 
 
 def test_clearance_profile_the_hand_rolled_absolute_value_is_measured_equivalence():
@@ -1842,7 +2034,9 @@ def test_clearance_profile_the_hand_rolled_absolute_value_is_measured_equivalenc
     Ten test przybija to, po co ta gałąź stoi: że wybierana jest ramka NAJBLIŻSZA
     wzdłuż stycznej, po obu stronach kilometrażu jednakowo.
     """
-    assert -0.0 == 0.0 and not (-0.0 < 0.0)
+    assert -0.0 == 0.0 and not (-0.0 < 0.0), (
+        "`-0.0 == 0.0`, ale `-0.0 < 0.0` jest fałszem — na tej parze stoi cała "
+        "równoważność obu mutacji ręcznej wartości bezwzględnej")
 
     points = _arc(150.0)
     stations = SW.chainages(points)
@@ -1920,7 +2114,10 @@ def test_clearance_profile_convexity_threshold_still_accepts_real_profiles():
     # bo dziesięć razy bliżej zera niż próg. Gdyby ta asercja padła, znaczyłoby to,
     # że zaostrzenie zjadło tolerancję na szum, a nie tylko jej granicę.
     lagodny = [(0.0, 0.0), (1.0, 0.0), (2.0, -1e-10), (3.0, 0.0), (3.0, 2.0), (0.0, 2.0)]
-    assert len(CP.halfplanes(lagodny)) == 6
+    assert len(CP.halfplanes(lagodny)) == 6, (
+        "szum zaokrąglenia POWYŻEJ pasma nadal wolno: zakręt −1e-10 jest dziesięć razy "
+        "bliżej zera niż próg, więc obrys ma przejść. Padnięcie tej asercji znaczy, "
+        "że zaostrzenie zjadło tolerancję na szum, a nie tylko jej granicę")
 
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
 # z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
