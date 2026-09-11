@@ -159,7 +159,20 @@ MAX_GAME_JUSTIFIED_NEEDLES = 4
 #: pozycje z licznika bez sladu. To jest dokladnie ta zamiana niejednoznacznosci na
 #: niewidzialnosc, przed ktora szczebel trzeci ma bronic — wiec zapadka rosnie,
 #: a igla zostaje widoczna.
-MAX_GAME_UNMATCHED_NEEDLES = 21
+#: **21 -> 24, 11.09.2026 (6.D130).** Trzy nowe igle i wszystkie trzy sa z zalozenia
+#: bez dopasowania w komunikatach `src/Game`, bo nie sa komunikatami programu:
+#: `Escape` to WEJSCIE SYNTETYCZNE testu
+#: `Odrzucony_literal_mowi_KTORY_z_dwoch_powodow_go_dotyczy` — nazwa klawisza silnika
+#: podana skanowi po to, zeby ja odrzucil, i dopasowanie jej do drzewa znaczyloby, ze
+#: ten napis stoi w warstwie gry, czyli ze bramka literalow jest czerwona; `literal
+#: jezykowy` i `nazwa klawisza silnika` to czlony komunikatu SAMEGO TESTU, ktory ten
+#: test porownuje, zeby sprawdzic, ze oba odrzucenia daja dwa ROZNE zdania.
+#:
+#: Trzymania igiel w zmiennej znowu NIE uzyto, z tego samego powodu, co przy
+#: 19 -> 21: bramka pomija igle ze zmiennej, wiec `var x = "Escape";` zdjelby je
+#: z licznika bez sladu — czyli zamienilby niejednoznacznosc na niewidzialnosc,
+#: przed ktora szczebel trzeci ma bronic.
+MAX_GAME_UNMATCHED_NEEDLES = 24
 
 #: Progi KW. Literowka we wzorcu daje zero dopasowan i caly modul zielony; te trzy
 #: liczby sa jedynym powodem, dla ktorego taka literowka jest widoczna. Zmierzone

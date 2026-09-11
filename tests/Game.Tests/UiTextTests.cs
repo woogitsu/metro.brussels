@@ -6,6 +6,7 @@ using System.Text.RegularExpressions;
 using MetroBxl.Game.Input;
 using MetroBxl.Game.UI;
 using MetroBxl.Sim.Train;
+using Godot;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace MetroBxl.Game.Tests;
@@ -47,6 +48,44 @@ public sealed class UiTextTests
     /// (<c>input.key.space</c>).</para>
     /// </summary>
     private static readonly string[] NazwyKlawiszy = { "Esc" };
+
+    /// <summary>
+    /// Nazwy członków <c>Godot.Key</c> — 193 na dzień 11.09.2026, czytane z silnika,
+    /// nie przepisane.
+    ///
+    /// <para><b>Po co, skoro bramka i tak odrzuca.</b> Bo odrzuca z DWÓCH różnych
+    /// powodów i mówiła o obu jednym zdaniem. Zmierzone 11.09.2026 przy 6.D116:
+    /// podmiana <c>"Esc"</c> na <c>"Escape"</c> zapalała
+    /// <c>W_plikach_sterowania_nie_ma_ani_jednego_slowa</c> komunikatem „stoi literał
+    /// językowy" — a <c>Escape</c> polskim słowem nie jest. Zapaliło się dlatego, że
+    /// napis nie stoi w <c>NazwyKlawiszy</c>, czyli z innego powodu, niż mówiło
+    /// zdanie, i kierowało szukającego w złe miejsce.</para>
+    ///
+    /// <para><b>To nie jest lista słów i dlatego wolno jej tu być.</b> Pole „Wyjście"
+    /// 6.D130 dopuszczało też pomiar pokazujący, że bez listy słów rozróżnić się nie
+    /// da. Da się: <c>Godot.Key</c> jest <b>wyliczeniem silnika</b>, nie czyimś
+    /// wyborem, i rośnie razem z Godotem, a nie razem z tekstem interfejsu.</para>
+    ///
+    /// <para><b>Ryzyko kolizji zmierzone, nie oszacowane.</b> W całym
+    /// <c>src/Game/</c> stoi <b>948</b> literałów (746 różnych), a nazwą klawisza jest
+    /// <b>sześć</b>: <c>Escape</c>, <c>F1</c>, <c>F2</c>, <c>Forward</c>,
+    /// <c>Right</c>, <c>Up</c> — ani jeden nie jest tekstem interfejsu. Żadna ze 193
+    /// nazw nie niesie polskiego znaku diakrytycznego.</para>
+    /// </summary>
+    private static readonly HashSet<string> NazwyKlawiszySilnika =
+        Enum.GetNames(typeof(Key)).ToHashSet(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Dlaczego ten literał został odrzucony — dwa różne zdania, nie jedno — 6.D130.
+    /// </summary>
+    private static string PowodOdrzucenia(string literal) =>
+        NazwyKlawiszySilnika.Contains(literal)
+            ? "nazwa klawisza silnika spoza `NazwyKlawiszy`"
+            : "literał językowy zamiast klucza katalogu";
+
+    /// <summary>Lista odrzuconych literałów z powodem przy każdym — 6.D130.</summary>
+    private static string ZPowodami(IEnumerable<string> zle) =>
+        string.Join(" | ", zle.Select(z => $"\"{z}\" ({PowodOdrzucenia(z)})"));
 
     /// <summary>Metody <c>FirstRun.cs</c>, które 6.D99 wyczyściło ze słów.</summary>
     private static readonly string[] MetodyFirstRun =
@@ -333,8 +372,7 @@ public sealed class UiTextTests
         var zle = SlowaWKodzie(KodBezKomentarzy(HudSource()));
 
         Assert.AreEqual(0, zle.Count,
-            "w `Hud.cs` stoi literał językowy zamiast klucza katalogu: "
-            + string.Join(" | ", zle.Select(z => $"\"{z}\"")));
+            "w `Hud.cs` stoi literał, którego katalog nie zna: " + ZPowodami(zle));
     }
 
     [TestMethod]
@@ -349,9 +387,78 @@ public sealed class UiTextTests
         {
             var zle = SlowaWKodzie(KodBezKomentarzy(CialoMetody(source, naglowek)));
             Assert.AreEqual(0, zle.Count,
-                $"w `{naglowek}` stoi literał językowy zamiast klucza katalogu: "
-                + string.Join(" | ", zle.Select(z => $"\"{z}\"")));
+                $"w `{naglowek}` stoi literał, którego katalog nie zna: "
+                + ZPowodami(zle));
         }
+    }
+
+    /// <summary>
+    /// Dwa odrzucone literały, dwa RÓŻNE zdania — 6.D130.
+    ///
+    /// <para><b>Skąd.</b> Podmiana <c>"Esc"</c> na <c>"Escape"</c> zapalała bramkę
+    /// sterowania komunikatem „stoi literał językowy", a <c>Escape</c> polskim słowem
+    /// nie jest — bramka odrzucała z innego powodu, niż mówiła, i kierowała
+    /// szukającego w złe miejsce.</para>
+    ///
+    /// <para><b>Wejścia syntetyczne, bo na dzisiejszym drzewie obie bramki są
+    /// zielone</b> i żadnego komunikatu nie widać. To jest ta sama konieczność, co
+    /// przy 6.D115: kontrola na samym drzewie nie odróżniłaby zdania poprawionego od
+    /// niepoprawionego.</para>
+    /// </summary>
+    [TestMethod]
+    public void Odrzucony_literal_mowi_KTORY_z_dwoch_powodow_go_dotyczy()
+    {
+        var slowo = SlowaWKodzie("var t = \"Pr\u0119dko\u015b\u0107\";");
+        var klawisz = SlowaWKodzie("var t = \"Escape\";");
+
+        CollectionAssert.AreEqual(new[] { "Pr\u0119dko\u015b\u0107" }, slowo,
+            "polskie słowo przestało być odrzucane — reszta tego testu mierzyłaby nic");
+        CollectionAssert.AreEqual(new[] { "Escape" }, klawisz,
+            "nazwa klawisza spoza `NazwyKlawiszy` przestała być odrzucana");
+
+        var zdanieOSlowie = ZPowodami(slowo);
+        var zdanieOKlawiszu = ZPowodami(klawisz);
+
+        Assert.AreNotEqual(zdanieOSlowie, zdanieOKlawiszu,
+            "oba odrzucenia dają to samo zdanie: " + zdanieOSlowie);
+        StringAssert.Contains(zdanieOSlowie, "literał językowy",
+            "odrzucone polskie słowo nie jest nazwane literałem językowym: "
+            + zdanieOSlowie);
+        StringAssert.Contains(zdanieOKlawiszu, "nazwa klawisza silnika",
+            "odrzucona nazwa klawisza nadal opisana jako polszczyzna: "
+            + zdanieOKlawiszu);
+        Assert.IsFalse(zdanieOKlawiszu.Contains("literał językowy", StringComparison.Ordinal),
+            "zdanie o klawiszu nadal niesie słowo o polszczyźnie: " + zdanieOKlawiszu);
+    }
+
+    /// <summary>
+    /// Kontrola przyrządu: zbiór nazw klawiszy jest CZYTANY z silnika — 6.D130.
+    ///
+    /// <para>Lista przepisana z ręki dałaby dziś ten sam werdykt dla
+    /// <c>"Escape"</c> i rozjechałaby się przy pierwszej zmianie w Godocie. Liczba
+    /// jest zmierzona: <b>193</b> nazwy na 11.09.2026.</para>
+    /// </summary>
+    [TestMethod]
+    public void Zbior_nazw_klawiszy_pochodzi_z_wyliczenia_silnika()
+    {
+        Assert.IsTrue(NazwyKlawiszySilnika.Count > 150,
+            $"nazw klawiszy jest {NazwyKlawiszySilnika.Count} — zbiór nie pochodzi "
+            + "z wyliczenia silnika albo wyliczenie zniknęło");
+        Assert.IsTrue(NazwyKlawiszySilnika.SetEquals(Enum.GetNames(typeof(Key))),
+            "zbiór rozjechał się z `Enum.GetNames(typeof(Key))`");
+
+        // `Esc` jest napisem WYTŁOCZONYM NA KLAWISZU i nazwą członka `Key` NIE jest —
+        // to jest cała różnica między `NazwyKlawiszy` a tym zbiorem.
+        Assert.IsFalse(NazwyKlawiszySilnika.Contains("Esc"),
+            "`Esc` znalazł się w wyliczeniu silnika — oba zbiory przestały się różnić");
+        Assert.IsTrue(NazwyKlawiszySilnika.Contains("Escape"),
+            "`Escape` zniknął z wyliczenia silnika");
+
+        // Żadna nazwa klawisza nie niesie polskiego znaku — zmierzone, nie założone.
+        // Gdyby niosła, rozróżnienie z `PowodOdrzucenia` myliłoby się na niej.
+        Assert.AreEqual(0,
+            NazwyKlawiszySilnika.Count(n => Regex.IsMatch(n, "[\u0105\u0107\u0119\u0142\u0144\u00f3\u015b\u017a\u017c]")),
+            "nazwa klawisza z polskim znakiem — rozróżnienie powodów myli się na niej");
     }
 
     [TestMethod]
@@ -362,8 +469,7 @@ public sealed class UiTextTests
             var zle = SlowaWKodzie(
                 KodBezKomentarzy(Zrodlo("src", "Game", "Input", plik)));
             Assert.AreEqual(0, zle.Count,
-                $"w `{plik}` stoi literał językowy zamiast klucza katalogu: "
-                + string.Join(" | ", zle.Select(z => $"\"{z}\"")));
+                $"w `{plik}` stoi literał, którego katalog nie zna: " + ZPowodami(zle));
         }
     }
 
