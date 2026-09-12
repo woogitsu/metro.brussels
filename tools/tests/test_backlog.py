@@ -371,7 +371,13 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 #: i 6.D146, a dwa (6.D156, 6.D158) z rzeczy wypisanych w polu „Czego nie zrobiłem"
 #: tamtych pozycji — czyli z granic, które sam nazwałem, zamiast je przemilczeć.
 #: Wartość z `len(detail_sections(...))` po edycji, nie z dodania trójki do 228.
-MINIMUM_DETAIL_BLOCKS = 231
+#: **231 → 234 (12.09.2026, przy 6.D149).** Trzy bloki: 6.D159, 6.D160 i 6.D161, znów
+#: nie osobnym commitem, bo domknięcie 6.D149 zbija kolejkę z dwunastu na JEDENAŚCIE.
+#: Dwa (6.D159, 6.D160) wyszły wprost z pól „Czego nie zrobiłem" pozycji 6.D147
+#: i 6.D149; trzeci — z rzeczy, która zdarzyła się TRZY RAZY POD RZĄD w tych samych
+#: trzech pozycjach i dopiero przez powtórzenie dała się zobaczyć.
+#: Wartość z `len(detail_sections(...))` po edycji, nie z dodania trójki do 231.
+MINIMUM_DETAIL_BLOCKS = 234
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
