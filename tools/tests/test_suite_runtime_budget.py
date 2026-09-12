@@ -217,8 +217,16 @@ def over_budget(elapsed_s, budget_s=SUITE_RUNTIME_BUDGET_S):
 #: wypisana razem z nią: `reports/mierzalnosc-czasu-zestawu.md` §5.
 MIERZALNOSC_MIN = 0.75
 
+#: Maszyna, na której próg został SKALIBROWANY — 6.D149.
+#:
+#: `SUITE_RUNTIME_BUDGET_S` wychodzi z `MEASURED_MAX_WALL_S`, a to bierze wyłącznie
+#: `POMIARY_RUNNERA`. Próg opisuje więc runnera i nikogo więcej; dla maszyny innej
+#: niż ta porównanie z nim jest zdaniem o czymś, czego nikt nie mierzył.
+MASZYNA_PROGU = MASZYNA_RUNNER
 
-def werdykt(elapsed_s, cpu_s, budget_s=SUITE_RUNTIME_BUDGET_S, podloga=MIERZALNOSC_MIN):
+
+def werdykt(elapsed_s, cpu_s, budget_s=SUITE_RUNTIME_BUDGET_S, podloga=MIERZALNOSC_MIN,
+            maszyna=MASZYNA_PROGU):
     """Czy przebieg wolno porównać z progiem, i czy go przekroczył.
 
     Zwraca `(czy_odrzucic, komunikat)`. Odrzucenie znaczy „ten zestaw naprawdę
@@ -228,10 +236,29 @@ def werdykt(elapsed_s, cpu_s, budget_s=SUITE_RUNTIME_BUDGET_S, podloga=MIERZALNO
     rodzinę rozwiązał przy 6.D41: tam sygnałem jest rozstęp dziewięciu powtórzeń,
     tutaj stosunek CPU do ściany, bo zestaw chodzi RAZ i rozstępu nie ma z czego
     policzyć (`reports/mierzalnosc-czasu-zestawu.md` §2).
+
+    **Warunki są DWA i od 6.D149 są rozdzielone — to jest rozstrzygnięcie tamtej
+    pozycji.** Podłoga odpowiada na pytanie „czy ten pomiar mówi o KODZIE, czy
+    o maszynie"; maszyna — na pytanie „czy ten PRÓG mówi o tej maszynie". Kontener
+    sesji przechodzi pierwszy warunek (stosunek 0,991, wysoko nad podłogą 0,75)
+    i nie przechodzi drugiego, a do 6.D149 była to jedna rzecz i pomiar kontenera
+    dostawał odpowiedź progu, który jego nie dotyczy.
+
+    **Kolejność jest tu treścią.** Maszyna rozstrzyga PIERWSZA, bo komunikat podłogi
+    obiecuje „ten pomiar nie mówi nic o kodzie" — a dla spokojnego kontenera jest to
+    nieprawda: 0,991 znaczy, że mówi. Nie mówi o tym PROGU. Dwa różne odmówienia,
+    i zlanie ich w jedno było usterką, którą ta pozycja zamyka.
     """
     if elapsed_s <= 0:
         raise ValueError(f"czas ściany musi być dodatni, jest {elapsed_s}")
     stosunek = cpu_s / elapsed_s
+    if maszyna != MASZYNA_PROGU:
+        return False, (
+            f"prog {budget_s} s jest skalibrowany na maszynie `{MASZYNA_PROGU}` "
+            f"(z `POMIARY_RUNNERA`), a ten pomiar jest z `{maszyna}` — czas sciany "
+            f"{elapsed_s:.3f} s NIE JEST z nim porownywany. Stosunek CPU/sciana "
+            f"{stosunek:.3f} mowi, ze pomiar jest rzetelny; mowi tylko o innej "
+            "maszynie niz ta, ktora prog opisuje")
     if stosunek < podloga:
         return False, (
             f"stosunek CPU/sciana {stosunek:.3f} jest ponizej podlogi {podloga}, "
@@ -335,7 +362,7 @@ KONTENER_11_09_CPU = 169.185
 
 
 def test_kontener_przekroczylby_prog_i_podloga_by_go_NIE_zatrzymala():
-    """**Sedno 6.D135, wykonane jako rachunek.**
+    """**Sedno 6.D135, wykonane jako rachunek. Od 6.D149 ma DRUGA polowe.**
 
     Podłoga mierzalności (6.D42) powstała po to, żeby czas maszyny OBCIĄŻONEJ nie był
     porównywany z progiem — zmierzone wtedy stosunki to 0,451 i 0,444 pod obciążeniem
@@ -353,11 +380,27 @@ def test_kontener_przekroczylby_prog_i_podloga_by_go_NIE_zatrzymala():
         "testu przestaje byc prawdziwa i podzial na maszyny trzeba przemyslec od nowa"
         % (stosunek, MIERZALNOSC_MIN))
 
+    # Polowa PIERWSZA (6.D135): z maszyna nienazwana pomiar kontenera dostaje
+    # odpowiedz progu i zostaje odrzucony. To jest usterka, ktora nazwala 6.D149.
     odrzucony, komunikat = werdykt(KONTENER_11_09_SCIANA, KONTENER_11_09_CPU)
     assert odrzucony is True, (
         "pomiar kontenera NIE zostalby odrzucony (%.3f s przy progu %.1f s): %s"
         % (KONTENER_11_09_SCIANA, SUITE_RUNTIME_BUDGET_S, komunikat))
     assert "pomiar kodu" in komunikat, komunikat
+
+    # Polowa DRUGA (6.D149): z maszyna NAZWANA ten sam pomiar nie jest z progiem
+    # porownywany wcale — i komunikat mowi, dlaczego. Podloga sie w nim nie pojawia,
+    # bo nie o nia tu chodzi.
+    odrzucony_k, komunikat_k = werdykt(KONTENER_11_09_SCIANA, KONTENER_11_09_CPU,
+                                       maszyna=MASZYNA_KONTENER)
+    assert odrzucony_k is False, (
+        "pomiar z maszyny, ktorej prog nie opisuje, zostal z nim porownany: %s"
+        % komunikat_k)
+    assert MASZYNA_PROGU in komunikat_k and MASZYNA_KONTENER in komunikat_k, komunikat_k
+    assert "podloga" not in komunikat_k, (
+        "komunikat o niewlasciwej maszynie powoluje sie na podloge mierzalnosci — "
+        "to sa dwa rozne odmowienia i zlanie ich w jedno bylo usterka 6.D149: "
+        + komunikat_k)
 
     # I strona druga: najwyzszy przebieg RUNNERA przechodzi, i to z zapasem.
     najwyzszy = max(POMIARY_RUNNERA, key=lambda w: w[1])
@@ -365,6 +408,86 @@ def test_kontener_przekroczylby_prog_i_podloga_by_go_NIE_zatrzymala():
     assert odrzucony_runner is False, (
         "najwyzszy zmierzony przebieg runnera (%.3f s) nie miesci sie w progu — "
         "wtedy margines %.3f nie istnieje" % (najwyzszy[1], MARGIN))
+
+
+def test_jeden_prog_dla_obu_maszyn_przestalby_widziec_regres_na_runnerze():
+    """ROZSTRZYGNIECIE 6.D149, policzone — nie wyrozumowane.
+
+    Pytanie pola „Wyjscie" brzmialo: jeden prog dla obu maszyn, czy `werdykt`
+    przyjmujacy maszyne. Odpowiadaja liczby. Prog wspolny musialby dopuszczac
+    najwolniejszy pomiar kontenera z taka sama zapascia jak dzisiejszy, czyli
+    wynosic **219,9 s**. Maksimum zmierzone na RUNNERZE to **116,404 s** — prog
+    wspolny stalby wiec niemal dwa razy nad nim, a bramka przestalaby zauwazac na
+    runnerze regres blisko dziewiecdziesieciu procent, czyli na maszynie, dla ktorej
+    w ogole istnieje. Krotnosc liczy asercja nizej, zeby nie stala w prozie.
+
+    Dlatego prog zostaje JEDEN i zostaje przy runnerze, a maszyna wchodzi do
+    `werdykt` nie po to, zeby trzymac drugi prog, tylko po to, zeby ODMOWIC
+    porownania pomiarowi, ktorego ten prog nie opisuje.
+    """
+    maks_runnera = max(w[1] for w in POMIARY_RUNNERA)
+    maks_kontenera = max(w[1] for w in POMIARY if w[3] == MASZYNA_KONTENER)
+    assert maks_kontenera > maks_runnera, (
+        "kontener przestal byc wolniejszy od runnera (%.3f wobec %.3f) — wtedy caly "
+        "rachunek tej pozycji trzeba powtorzyc" % (maks_kontenera, maks_runnera))
+
+    prog_wspolny = maks_kontenera * MARGIN
+    krotnosc = prog_wspolny / maks_runnera
+    assert 1.85 < krotnosc < 1.95, (
+        "prog wspolny wypadlby %.1f s, czyli %.3fx maksimum runnera — pomiar "
+        "z 12.09.2026 dal 219,9 s i 1,890x; jesli liczby sie ruszyly, "
+        "rozstrzygniecie 6.D149 trzeba przeliczyc" % (prog_wspolny, krotnosc))
+
+    # I ze prog DZISIEJSZY jest wobec runnera ciasniejszy, czyli ze rozstrzygniecie
+    # cos kosztuje kontener, a nie jest darmowe dla obu stron.
+    assert SUITE_RUNTIME_BUDGET_S / maks_runnera < krotnosc, (
+        "dzisiejszy prog nie jest ciasniejszy od wspolnego — wtedy wybor miedzy nimi "
+        "nie ma tresci")
+
+
+def test_maszyna_progu_jest_ta_ktora_daje_MEASURED_MAX_WALL_S():
+    """Wiazanie, bez ktorego `MASZYNA_PROGU` bylaby napisem obok liczby — 6.D149.
+
+    `MEASURED_MAX_WALL_S` bierze `POMIARY_RUNNERA`; gdyby ktos przestawil jedno bez
+    drugiego, `werdykt` odmawialby porownania maszynie, na ktorej prog powstal,
+    i przyjmowal te, na ktorej nie.
+    """
+    assert MASZYNA_PROGU in MASZYNY, MASZYNA_PROGU
+    assert all(w[3] == MASZYNA_PROGU for w in POMIARY_RUNNERA), (
+        "`POMIARY_RUNNERA` niesie wpis z innej maszyny niz `MASZYNA_PROGU`")
+    assert MEASURED_MAX_WALL_S == max(w[1] for w in POMIARY if w[3] == MASZYNA_PROGU), (
+        "maksimum, z ktorego wychodzi prog, nie jest maksimum maszyny progu")
+
+    # Kontrola przyrzadu: dla KAZDEJ maszyny spoza progu `werdykt` odmawia, a dla
+    # maszyny progu porownuje. Bez drugiej polowy „odmawia" byloby prawda takze dla
+    # funkcji odmawiajacej zawsze.
+    for maszyna in MASZYNY:
+        odrzucony, komunikat = werdykt(SUITE_RUNTIME_BUDGET_S + 10.0,
+                                       SUITE_RUNTIME_BUDGET_S + 10.0,
+                                       maszyna=maszyna)
+        if maszyna == MASZYNA_PROGU:
+            assert odrzucony is True, (maszyna, komunikat)
+        else:
+            assert odrzucony is False, (maszyna, komunikat)
+
+    # KOLEJNOSC obu warunkow, na wejsciu syntetycznym — bo na pomiarach z `POMIARY`
+    # nie widac jej wcale. Kontener z 11.09 ma stosunek 0,991, czyli galezi podlogi
+    # nie dotyka, wiec przestawienie warunkow nie zmienia tam ANI JEDNEGO znaku.
+    # Rozstrzyga dopiero przebieg jednoczesnie z NIEWLASCIWEJ maszyny i POD
+    # OBCIAZENIEM: ma uslyszec, ze prog go nie dotyczy, a nie ze jego pomiar nic nie
+    # mowi o kodzie — bo o kodzie moze nie mowic, ale to jest wtedy drugi powod,
+    # nie pierwszy.
+    _o, komunikat = werdykt(200.0, 80.0, maszyna=MASZYNA_KONTENER)      # stosunek 0,4
+    assert MASZYNA_KONTENER in komunikat and "skalibrowany" in komunikat, (
+        "przebieg z niewlasciwej maszyny I pod obciazeniem dostal odpowiedz podlogi, "
+        "a ma dostac odpowiedz maszyny — kolejnosc warunkow w `werdykt` sie "
+        "odwrocila: " + komunikat)
+    assert "nie mowi nic o kodzie" not in komunikat, komunikat
+
+    # I druga strona tej samej granicy: na WLASCIWEJ maszynie pod obciazeniem
+    # odpowiada podloga, tak jak od 6.D42.
+    _o2, komunikat2 = werdykt(200.0, 80.0, maszyna=MASZYNA_PROGU)
+    assert "nie mowi nic o kodzie" in komunikat2, komunikat2
 
 
 def test_pomiar_kontenera_stoi_w_liscie_z_ta_sama_liczba():
