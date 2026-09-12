@@ -1767,4 +1767,169 @@ public sealed class UiTextTests
                 + "z prześledzenia — mapa `ZrodlaHud` pominęła argument albo człon");
         }
     }
+
+    /// <summary>Ile zgłoszeń daje <c>FirstRun.cs</c> liczony CAŁYM PLIKIEM — 6.D180.</summary>
+    private const int ZgloszenFirstRunCalymPlikiem = 106;
+
+    /// <summary>Ile daje ten sam plik liczony WIERSZ PO WIERSZU — 6.D180.</summary>
+    private const int ZgloszenFirstRunWierszami = 118;
+
+    /// <summary>Ile plików korpusu daje różne liczby obiema drogami — 6.D180.</summary>
+    private const int PlikowZRoznicaDrog = 1;
+
+    /// <summary>
+    /// Zgłoszenia <see cref="SlowaWKodzie"/> liczone wiersz po wierszu.
+    ///
+    /// <para>Nie jest to droga używana przez żadną bramkę — stoi tu WYŁĄCZNIE jako
+    /// druga strona porównania z 6.D180, tak samo jak <see cref="StaryCzytnik"/>
+    /// przy 6.D182. Bez niej test porównywałby drogę samą ze sobą.</para>
+    /// </summary>
+    private static List<string> SlowaWierszPoWierszu(string kod) =>
+        kod.Split('\n').SelectMany(w => SlowaWKodzie(w)).ToList();
+
+    /// <summary>
+    /// Różnica między liczeniem całym plikiem a wiersz po wierszu ma JEDEN powód —
+    /// 6.D180.
+    ///
+    /// <para><b>ROZSTRZYGNIĘCIE: poprawne jest liczenie CAŁYM PLIKIEM.</b> Napisu
+    /// wielowierszowego nie da się czytać wiersz po wierszu, bo rozcina go SAM podział
+    /// na wiersze — niezależnie od czytnika. `FirstRun.cs:2232` niesie napis surowy
+    /// <c>$$"""</c> długości czterdziestu wierszy; czytany w całości jest JEDNYM
+    /// literałem, a czytany wierszami rozpada się na kawałki, w których cudzysłów
+    /// zamykający nazwę pola JSON paruje się z otwierającym jego wartość. Wiersz
+    /// <c>"engine": "godot",</c> daje wtedy DWA „literały" — <c>engine</c>
+    /// i <c>godot</c> — choć w pliku obie te nazwy są TREŚCIĄ jednego napisu.</para>
+    ///
+    /// <para><b>Hipoteza z pola „Skąd" pozycji jest NIEPRAWDZIWA i tak jest tu
+    /// zapisane.</b> Pozycja podejrzewała „literał sklejany przez kilka wierszy, na
+    /// którym <c>BezDziur</c> rozstrzyga inaczej dla fragmentu niż dla całości".
+    /// Literał sklejany <c>"a" + "b"</c> przez dwa wiersze daje obiema drogami
+    /// TĘ SAMĄ liczbę — mierzy to
+    /// <see cref="Rozciecie_bierze_sie_z_napisu_WIELOWIERSZOWEGO_a_nie_ze_sklejanego"/>
+    /// na wejściu syntetycznym. <c>BezDziur</c> nie ma z tą różnicą nic wspólnego.</para>
+    ///
+    /// <para><b>Różnica wynosi dziś DWANAŚCIE, a nie trzynaście jak w pozycji.</b>
+    /// Było <c>105</c> wobec <c>118</c>; jest <c>106</c> wobec <c>118</c>, bo 6.D182
+    /// naprawiło czytnik i strona „całym plikiem" widzi odtąd ten napis surowy jako
+    /// jeden literał zamiast kawałka. Strona „wierszami" nie drgnęła i drgnąć nie
+    /// mogła — tam rozcina podział na wiersze, a nie czytnik.</para>
+    /// </summary>
+    [TestMethod]
+    public void Roznica_miedzy_liczeniem_calym_plikiem_a_wierszami_ma_JEDEN_powod()
+    {
+        var rozne = new List<string>();
+        var zerowe = 0;
+        foreach (var sciezka in ZrodlaGry())
+        {
+            var kod = KodBezKomentarzy(File.ReadAllText(sciezka));
+            if (SlowaWKodzie(kod).Count == SlowaWierszPoWierszu(kod).Count)
+            {
+                zerowe++;
+                continue;
+            }
+
+            rozne.Add(Path.GetFileName(sciezka));
+        }
+
+        // Na 20 z 21 plików obie drogi dają liczby RÓWNE CO DO ZERA, a nie „co do
+        // jedynki", jak mówiła pozycja. Zapisane jako liczba, bo to zdanie o korpusie.
+        Assert.AreEqual(ZrodlaGry().Count - PlikowZRoznicaDrog, zerowe,
+            $"plików liczących tak samo obiema drogami jest {zerowe} — różnica "
+            + "przestała być własnością JEDNEGO pliku i wyjaśnienie 6.D180 "
+            + "opisuje wtedy co innego");
+        CollectionAssert.AreEqual(new[] { "FirstRun.cs" }, rozne,
+            "różnią się inne pliki niż w pomiarze 6.D180: " + string.Join(", ", rozne));
+
+        var kodFirstRun = KodBezKomentarzy(
+            File.ReadAllText(Path.Combine(RepositoryRoot(), "src", "Game", "FirstRun.cs")));
+        var caly = SlowaWKodzie(kodFirstRun);
+        var wierszami = SlowaWierszPoWierszu(kodFirstRun);
+        Assert.AreEqual(ZgloszenFirstRunCalymPlikiem, caly.Count,
+            $"`FirstRun.cs` liczony całym plikiem daje {caly.Count} zgłoszeń wobec "
+            + $"zmierzonych {ZgloszenFirstRunCalymPlikiem}");
+        Assert.AreEqual(ZgloszenFirstRunWierszami, wierszami.Count,
+            $"`FirstRun.cs` liczony wierszami daje {wierszami.Count} wobec "
+            + $"zmierzonych {ZgloszenFirstRunWierszami}");
+
+        // A TERAZ WYJAŚNIENIE, a nie sama liczba: KAŻDE zgłoszenie, które widzi
+        // wyłącznie droga wierszowa, jest KAWAŁKIEM tego jednego napisu, który
+        // wyłącznie ona gubi. To jest cała treść pozycji „co do literału,
+        // a nie co do pliku".
+        var pula = new List<string>(caly);
+        var tylkoWierszami = new List<string>();
+        foreach (var z in wierszami)
+        {
+            var i = pula.IndexOf(z);
+            if (i >= 0)
+            {
+                pula.RemoveAt(i);
+            }
+            else
+            {
+                tylkoWierszami.Add(z);
+            }
+        }
+
+        var najdluzszy = pula.OrderByDescending(l => l.Length).FirstOrDefault() ?? string.Empty;
+        Assert.IsTrue(najdluzszy.Contains('\n'),
+            "napis, który gubi droga wierszowa, przestał być WIELOWIERSZOWY — "
+            + "wyjaśnienie 6.D180 stoi na tym, że rozcina go podział na wiersze: "
+            + najdluzszy);
+        foreach (var kawalek in tylkoWierszami)
+        {
+            Assert.IsTrue(najdluzszy.Contains(kawalek, StringComparison.Ordinal),
+                $"zgłoszenie „{kawalek}”, które widzi TYLKO droga wierszowa, nie jest "
+                + "kawałkiem gubionego napisu — różnica ma wtedy drugi powód, "
+                + "którego 6.D180 nie nazwało");
+        }
+
+        Assert.AreEqual(ZgloszenFirstRunWierszami - ZgloszenFirstRunCalymPlikiem,
+            tylkoWierszami.Count - pula.Count,
+            "rozbicie różnicy przestało się sumować: "
+            + $"tylko-wierszami {tylkoWierszami.Count}, tylko-całym {pula.Count}");
+    }
+
+    /// <summary>
+    /// Rozcięcie bierze się z napisu WIELOWIERSZOWEGO, a nie ze sklejanego — 6.D180.
+    ///
+    /// <para>Wejście SYNTETYCZNE, bo pole „Weryfikacja" pozycji żąda pokazania
+    /// MECHANIZMU, a nie liczby. Drzewo ma dziś dokładnie jeden napis wielowierszowy
+    /// i ani jednego sklejanego przez wiersze w pliku, na którym różnica wychodzi —
+    /// więc samo drzewo tych dwóch przypadków nie rozdziela.</para>
+    /// </summary>
+    [TestMethod]
+    public void Rozciecie_bierze_sie_z_napisu_WIELOWIERSZOWEGO_a_nie_ze_sklejanego()
+    {
+        // 1. Napis WIELOWIERSZOWY — mechanizm różnicy. Całym plikiem: JEDEN literał,
+        //    którego treścią są obie nazwy. Wierszami: dwa „literały", bo cudzysłów
+        //    zamykający nazwę paruje się z otwierającym wartość.
+        // Klamra zagnieżdżona jest tu KONIECZNA, nie ozdobna: `BezDziur` zdejmuje
+        // `[{][^{}]*[}]`, więc płaski obiekt JSON zniknąłby w całości i strona
+        // „całym plikiem" dałaby zero — zgodność dwóch zer, a nie mechanizm.
+        var wielowierszowy =
+            "var j = $$\"\"\"\n{ \"scene\": { \"peron\": 1 } }\n\"\"\";";
+        var calymW = SlowaWKodzie(wielowierszowy);
+        var wierszamiW = SlowaWierszPoWierszu(wielowierszowy);
+        Assert.AreEqual(1, Literaly(wielowierszowy).Count,
+            "czytnik przestał widzieć napis surowy jako JEDEN literał — bez tego "
+            + "reszta tego testu mierzyłaby usterkę czytnika, a nie podziału na wiersze");
+        CollectionAssert.AreEqual(
+            new[] { "\n{ \"scene\": { \"peron\": 1 } }\n" }, calymW,
+            "całym plikiem napis surowy przestał być JEDNYM zgłoszeniem: "
+            + string.Join(" | ", calymW));
+        CollectionAssert.AreEqual(new[] { "scene", "peron" }, wierszamiW,
+            "wierszami napis surowy przestał się rozpadać na nazwę i wartość: "
+            + string.Join(" | ", wierszamiW));
+
+        // 2. Napis SKLEJANY przez dwa wiersze — HIPOTEZA POZYCJI. Obie drogi dają
+        //    TO SAMO, więc hipoteza jest nieprawdziwa i to jest tu wykonane, a nie
+        //    przyjęte na słowo.
+        var sklejany = "var s = \"pierwszy człon \"\n    + \"drugi człon\";";
+        CollectionAssert.AreEqual(SlowaWKodzie(sklejany), SlowaWierszPoWierszu(sklejany),
+            "literał sklejany zaczął dawać różne liczby obiema drogami — hipoteza "
+            + "z pola „Skąd" + "” 6.D180 przestałaby wtedy być nieprawdziwa");
+        Assert.AreEqual(2, SlowaWKodzie(sklejany).Count,
+            "wejście syntetyczne przestało nieść dwa człony, więc porównanie wyżej "
+            + "mogłoby być zgodnością dwóch zer: " + string.Join(" | ", SlowaWKodzie(sklejany)));
+    }
 }
