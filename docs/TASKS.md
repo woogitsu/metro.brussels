@@ -1008,7 +1008,15 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.D151 | **ZROBIONE w #546 (12.09.2026): przybita `MIN_GAME_NEEDLES`, luz 14 igieł, koszt 5 z 11 rewizji.** Wybór padł na nią, bo z pięciu progów rodziny miała LUZ NAJWIĘKSZY — czternaście igieł, co czwarta, mogło zniknąć z `tests/Game.Tests` w ciszy. Luz pozostałych: `MIN_MESSAGES` 9, `MIN_GAME_MESSAGES` 8, `MIN_NEEDLES` 2, `MIN_GAME_SOURCES` 1. **Co ten luz przepuszczał, jest zmierzone, nie opisane:** zdjęcie JEDNEJ asercji z `RunPlanTests.cs:767` (igła `--calls`) daje po tej pozycji **26/27 z komunikatem „zlapal 58 igiel, a zapadka stoi na 59”, a przed nią — 10/10 ZIELONE**. Ta sama utrata, ten sam moduł, dwa różne werdykty. **Koszt z historii, nie z oszacowania: 5 z 11 rewizji** dotykających `tests/Game.Tests` musiałoby poprawić tę stałą (45 → 49 → 52 → 54 → 57 → 59), czyli **45 %**. Dla porównania `MIN_REPORTS` poprawiam przy KAŻDYM raporcie, czyli w 100 % pozycji — tax jest poniżej normy tego repozytorium, a nie powyżej. **Czego z tej liczby NIE wolno przenieść na pozostałe 23**: luz da się policzyć każdej tak samo (to strona korzyści), ale koszt wymaga przejścia po historii plików, które dana zapadka mierzy, i zależy od populacji; przepis stoi w raporcie. **Nazwa zostaje `MIN_` i to jest zgodne z konwencją**: przedrostek nazywa stronę ZAKAZANĄ, a równość strzeże OBU — mówi to wprost docstring `klasa_zapadki`, a w rejestrze stoi już siedem zapadek `MAX_` przybitych równością. **Wartość 45 → 59 nie jest przestrojeniem progu**: pin musi równać się temu, co pinuje; przestrojenie robi MIEJSCE, a ten ruch je zabiera. Siedem kontroli, `md5sum -c: OK` na trzech plikach po każdej, baza 27/27: KN-1 (zapadka w dół) 26/27; **KN-1b (stary kształt `>=` z obniżoną wartością) 26/27 — i NIE zapala testu igieł, tylko REJESTR KLAS z 6.D133**, czyli pinu nie da się cicho cofnąć; KN-2 (zapadka w górę) 26/27; KN-3b (igła znika z drzewa) 26/27; **KN-3c (ta sama utrata przy `>= 45`) 10/10 ZIELONE**; KN-4 (klasa zostawiona na `WOLNA`) 26/27; KN-5 (liczby zbiorcze 14/3/24/1) 26/27. **KN-3 wykonałem najpierw źle**: osłabiłem igłę zamiast ją zdjąć, więc nie zniknęła, tylko zrobiła się nieswoista i zapaliła dwie bramki niezwiązane z tą pozycją. Weryfikacja: `test_game_needle_specificity.py` + `test_tree_walks.py` **27/27**, zestaw **2382** w 123 modułach, kod 0; `dotnet test` 237/237 i 601/601; rejestr zapadek 14/3/24/1 → **15/3/23/1**, czyli wolnych **24 → 23**; `MIN_REPORTS` 271 → 272. Raport: `reports/6d151-jedna-zapadka-przybita.md`. Czego nie zrobiłem: **nie przybiłem ani jednej więcej** („Poza zakresem”); **nie zmieniłem wartości żadnego progu**, w tym czterech pozostałych z rodziny — ich luz jest zmierzony i stoi w raporcie jako materiał na następną pozycję; nie policzyłem kosztu dla pozostałych 23; nie tknąłem `MAX_GAME_UNMATCHED_NEEDLES` ani żadnej innej zapadki w tym module. Treść pierwotna: **Siedemnaście z dwudziestu jeden wolnych zapadek to progi `MIN_`** | zmierzone 11.09.2026 przy 6.D133: rozkład 21 wolnych zapadek nie jest równy — 17 to `MIN_`/`MINIMUM_`, tylko 4 to `MAX_`. Kształt `len(x) >= MIN_Y` nie zapala się przy OBNIŻENIU progu, a obniżenie jest właśnie tym ruchem, który zwalnia bramkę z pilnowania. Każdy próg mierzy własną populację, więc pozycja bierze JEDNĄ rodzinę — progi liczące trafienia skanu — i mierzy, ile kosztuje przybicie jednej  | M |
 | 6.D152 | **ZROBIONE w #548 (12.09.2026): pięć pól wpisu z pięciu wychodzi z logu — przesłanka pozycji była nieprawdziwa.** Pozycja zakładała, że wpis niesie „maszynę i zdanie o warunkach, których log nie podaje wprost, więc automat wypełniłby je zgadując”. **Zmierzone na sześciu logach tych samych przebiegów, z których 6.D135 przepisało wpisy RĘCZNIE (PR #524 … #529): log podaje wszystko**, a wyprowadzone wartości zgadzają się z przepisanymi co do znaku — zdanie „na czym” **znak w znak w pięciu wpisach na sześć**. Szósty (#528) ma doklejone `, NAJWYŻSZY na runnerze`: jedyny ślad człowieka w całej szóstce, przy tym **nie jest zdaniem o przebiegu, tylko o LIŚCIE**, i powtarza to, co `MEASURED_MAX_WALL_S` już z niej liczy. **Rozstrzygnięcie: wpisów z CI ręczne utrzymywanie nie uzasadnia nic; uzasadniają je WYŁĄCZNIE wpisy kontenerowe — pięć z dwunastu — bo kontener nie jest runnerem i nie ma żadnego logu.** `tools/ci/timing_record.py` dostał `z_logu` zwracające `(pola, brakujące)` i tryb `--z-logu`, który wypisuje wpis gotowy do wklejenia i **niczego nie dopisuje** (dopisywanie automatem stoi w „Poza zakresem”). **`brakujące` jest treścią, nie dodatkiem**: czytelnik wstawiający wartość domyślną byłby kolejnym przyrządem z rodziny 6.D27 — mierzy to KN-3. Sześć logów leży w drzewie **dosłownych i niespakowanych** (`tests/data/ci-logs/`), bo bez materiału odpowiedź byłaby zdaniem w raporcie; przycięcie do „wierszy potrzebnych” znaczyłoby, że bramka sprawdza wybór człowieka, a nie log. **Pierwsza wersja miała `.gz` i CI ją odrzuciło — decyzja jest przepisana, a nie dopisana obok, i oparta na dwóch pomiarach.** `test_conflict_markers.test_skan_czyta_CALE_drzewo_a_nie_pusty_zbior` żąda, żeby plik nieczytelny jako UTF-8 był DECYZJĄ, a nie cichym pominięciem (plik binarny zmniejsza skan znaczników konfliktu bez słowa) — sześć `.gz` wywróciło **siedem jobów naraz**: `tools` i sześć wołających `doctor.sh`. Drugi pomiar: `.gz` w repozytorium jest **droższy**, bo git i tak pakuje zlibem i deltuje pliki podobne, a blobu już spakowanego nie ruszy — dwa puste repozytoria po `git gc` na tych samych sześciu logach dały **234 858 B** tekstem wobec **428 699 B** gzipem, czyli tekst 1,83x tańszy; oszczędność `gzip -9` istnieje wyłącznie w katalogu roboczym, a płaci się w historii. Wyjątek na liście pilnowanych plików odrzucony świadomie: zdejmuje plik spod bramki na zawsze, co sam tamten moduł nazywa gorszym od kotwiczenia wzorca. **Zmierzone przy okazji i warte powtórzenia: zestaw był u mnie zielony (2387/2387, kod 0), bo `git ls-files` nie widzi plików NIEŚLEDZONYCH — puszczałem go przed `git add`.** Przy zmianie dokładającej PLIKI zestaw ma sens dopiero po `git add`. Osiem kontroli, baza 30/30 (KN-8 na własnej bazie 16/16), **ani jedna zielona**: KN-1 (liczba we wpisie przesunięta o tysięczną) 29/30; KN-2 (log znika z drzewa) **28/30**; **KN-3 (czytelnik zmyśla `runner`) 29/30 — najważniejsza**, bo prawdziwy log ma wszystko i na nim samym „pola są” nie odróżnia czytelnika rzetelnego od zmyślającego; KN-4 (rozjazd `MASZYNA_Z_LOGU` z `MASZYNA_RUNNER`) 28/30; KN-5 (przekręcony stosunek w prozie) 28/30 — zapala też cudzą bramkę; KN-6 (znika dopisek z #528) 29/30; KN-7 (dwa logi zamienione miejscami) 29/30; **KN-8 (jeden `.gz` wraca do indeksu) 15/16 na bazie 16/16 — zapala WYŁĄCZNIE `test_skan_czyta_CALE_drzewo_…`, więc decyzja o niespakowaniu ma jedną zmierzoną przyczynę, nie domysł**. Weryfikacja: `test_timing_record.py` **11/11** (było 6), zestaw 2382 → **2387** w 123 modułach, kod 0; `MIN_REPORTS` 272 → 273. **Kolejka uzupełniona TYM SAMYM commitem**: domknięcie zbija ją z dwunastu na jedenaście, więc doszły 6.D162, 6.D163, 6.D164 i — po pomiarze z akapitu wyżej — 6.D165, `MINIMUM_DETAIL_BLOCKS` 234 → 238. Raport: `reports/6d152-pola-wpisu-z-logu.md`. Czego nie zrobiłem: nie dopisałem wpisów automatem ani nie ruszyłem progu (oba w „Poza zakresem”); nie dołożyłem do wpisu pola z nazwą maszyny, choć log ją niesie — to 6.D162; nie usunąłem dopisku z #528, bo redagowanie listy to nie jest jej pomiar — to 6.D163, a na widoku trzyma go stała `WPISOW_Z_DOPISKIEM`. Treść pierwotna: **Lista pomiarów czasu jest utrzymywana ręcznie i nikt nie wie, ile to kosztuje** | zauważone 11.09.2026 przy 6.D135: `tools/ci/timing_record.py` mówi wprost, że `POMIARY` jest utrzymywana ręcznie, a przy tamtej pozycji dopisałem SIEDEM wpisów przepisanych z logów — czyli ten sam kształt, który 6.D26 naprawiło dla JEDNEJ liczby, a nie dla listy. Wpis niesie jednak też maszynę i zdanie o warunkach, których log nie podaje wprost, więc automat wypełniłby je zgadując; pozycja ma zmierzyć, ile z pięciu pól da się wziąć z logu bez zgadywania | S | S |
 | 6.D153 | **ZROBIONE w #551 (12.09.2026): ocena ryzyka przepisana na korpus bramki — siedem nazw zamiast sześciu, a osiągalnych z nich ZERO.** Przesłanka pozycji potwierdzona co do jedynki: zasięg bramki (`ZrodlaGry` przez `KodBezKomentarzy`) to **21** plików, **521** literałów, **395** różnych i **siedem** nazw klawiszy `C, F1, F2, R, S, W, X`; szerzej (z komentarzami i `UiText.cs`) — 940 / 742 i tamta **szóstka**. **Cztery z niej nie są literałami kodu w ogóle**: `Escape` to cudzysłów w prozie komentarza `KeyNames.cs`, a `Forward`, `Right`, `Up` to wartości atrybutu `<param name="…">` w `SceneAxis.cs` — `Literaly` bierze je za literały tylko dlatego, że puszczone na tekst z komentarzami nie odróżnia kodu od komentarza. **GŁÓWNY WYNIK: ryzyko w zasięgu bramki jest NIEOSIĄGALNE i to strukturalnie** — do `PowodOdrzucenia` trafia wyłącznie literał zgłoszony, a `WzorzecSlowa` żąda dwóch liter pod rząd, których żadna z siedmiu nie ma (pięć jednoliterowych, `F1`/`F2` litera z cyfrą); w korpusie szerszym zgłaszalne są **wszystkie cztery**, więc zejście którejkolwiek z komentarza do kodu robi kolizję realną tego samego dnia. **Przybity jest ZBIÓR, nie liczby, i to z pomiaru na 40 rewizjach `src/Game`**: para (literały, różne) zmienia się w **29** przejściach na 39, a zbiór w **dwóch** — zapadka na liczbach zapalałaby się w trzech rewizjach na cztery i zostałaby wyłączona; liczby zostają dolnymi ostrzami na sam skan. Pomiar był możliwy dopiero po `git fetch --unshallow` (klon sesji widział **2** rewizje `src/Game` zamiast 40) — ten sam kształt, z którego 6.D108 wyprowadziło `fetch-depth: 0`. Cztery kontrole, `md5sum -c: OK` po każdej, baza 238/238: **KN-1** (`"Escape"` w kodzie skanowanym — wejście wykonujące NOWY warunek o zejściu z komentarza) 237/238; **KN-2** (`"Q"`, nazwa klawisza niezgłaszalna — oddziela zapadkę na zbiór od zapadki na osiągalność) 237/238; **KN-3** (skan zwężony do jednego pliku) 0/1 dolnym ostrzem; **KN-4** (`WzorzecSlowa` na dziewięć liter) 0/1 — **para do zieleni**, mierzy, że zero z KN-0 robi struktura nazw, a nie zanik sita. Poza zakresem: akapit o skali w `CzlonyKeyNames` (należy do 6.D143) i `reports/6d130-*.md` (opisuje swój dzień, 6.D108). Raport: `reports/6d153-korpus-oceny-ryzyka.md` | S |
-| 6.D154 | **Bramka literałów widzi sześć regionów, a `src/Game/` ma 21 plików — nikt nie rozstrzygnął pozostałych** | zmierzone 11.09.2026 przy 6.D143: bramka puszczona na całe `src/Game/` zgłasza **348** literałów w **21** plikach — `RunPlan.cs` 142, `FirstRun.cs` 105, `DesignAssumptions.cs` 20, `ChunkManifest.cs` 20, `RunHeader.cs` 14, `TelemetryTrack.cs` 13, dalej ogonem. **22 z nich stoją w `throw`**, reszta to wypisy diagnostyczne (`[TELEMETRIA]`, `[LINIA]`, `[TUNEL]`), prozą opisane założenia projektowe i nazwy pól JSON. Żadna z tych 348 pozycji nie jest dziś przez nic rozstrzygnięta — ani jako tekst dla gracza, ani jako diagnostyka. Liczba mówi też, czemu 6.D143 poszło po członie, a nie po pliku | M |
+| 6.D154 | **ZROBIONE w #555 (12.09.2026): 348 literałów to nie jedna sprawa, tylko OSIEM RODZIN o różnych werdyktach — a wśród nich tekst, który bramka istnieje po to, żeby łapać.** Liczba z pozycji odtworzona co do jedynki **kodem samej bramki** (`plikow=21, zglaszanych=348, wPlikach=16`); suma per-plikowa daje dokładnie 348. **Poprawka do treści pozycji: zgłoszenia ma 16 plików, nie 21** — 21 to wielkość korpusu. **Reimplementacja sita w Pythonie dawała 446** (sam `FirstRun.cs` 160 zamiast 105), bo pomijała sita działające na kontekście; gdyby ta liczba weszła do raportu, całe rozbicie stałoby na moim własnym błędzie wyglądającym jak pomiar — ta sama lekcja co 6.D153. Rodziny: **pole JSON/identyfikator 108**, **wypis diagnostyczny 85**, **pozostałe nierozstrzygnięte 48**, **TEKST POLSKI 46**, **nazwa opcji CLI 27**, **proza założeń 20**, **komunikat wyjątku 19**, **węzeł sceny/zasób 8**. **GŁÓWNY WYNIK: założenie pozycji, że to wyłącznie diagnostyka, pola JSON i proza założeń, jest prawdziwe dla 259 z 348 — i nieprawdziwe dla reszty.** W `SignallingHud.cs` stoją wprost zdania dla gracza (`"sygnalizacja: skład jeszcze nie wjechał na plan"`, `"  PRZEKROCZENIE"`), a tego pliku bramka dziś nie skanuje w ogóle. Rozstrzygnięcia wymaga więc nie „co zrobić z 348”, tylko osiem osobnych pytań — wpisane jako 6.D173…6.D179. Zrzut wierszami daje 361 wobec 348 i **cała różnica 13 siedzi w `FirstRun.cs`** (15 plików na 16 zgodnych co do jedynki), bo zrzut podaje sicie pojedynczy wiersz, a pomiar cały plik — osobna obserwacja, wpisana jako 6.D180. Bramki ani jej zakresu NIE tknąłem; oba testy pomiarowe wstawione i zdjęte w drzewie roboczym, `md5sum -c: OK` po każdym. Raport: `reports/6d154-rodziny-348-literalow.md` | M |
+| 6.D173 | **108 literałów to nazwy pól JSON i identyfikatory — reguła czy zakres?** | zmierzone 12.09.2026 przy 6.D154: `RunPlan.cs` 66, `FirstRun.cs` 22, `ChunkManifest.cs` 18, `TelemetryTrack.cs` 2. Kształt jest jednorodny (`"streaming"`, `"chunks"`, `"lods"`, `"level"`) i da się go opisać REGUŁĄ — identyfikator bez spacji i bez znaku diakrytycznego — zamiast listą. Pozycja ma rozstrzygnąć, czy taka reguła wchodzi jako kolejne sito (jak `KszaltSciezkiWezla`), czy te pliki zostają poza zakresem. **Sito za szerokie cicho wyłącza bramkę** i to jest tu główne ryzyko: reguła „identyfikator” przepuściłaby też jednowyrazowy tekst dla gracza | M |
+| 6.D174 | **85 wypisów diagnostycznych — prefiks w nawiasie kwadratowym jako sito** | zmierzone 12.09.2026: `FirstRun.cs` 50, `RunPlan.cs` 19, `TelemetryTrack.cs` 8, `GlbLoader.cs` 2. Wszystkie zaczynają się znacznikiem w nawiasie kwadratowym (`[ASSETS]`, `[OŚ]`, `[WEJŚCIE]`) albo idą przez `GD.Print`. Obie cechy są sprawdzalne mechanicznie. Pozycja ma rozstrzygnąć, która z nich jest granicą — **prefiks jest cechą TEKSTU, a `GD.Print` cechą MIEJSCA UŻYCIA**, i to nie jest to samo: wypis bez prefiksu przez `GD.Print` istnieje, a tekst z prefiksem w `throw` też | S |
+| 6.D175 | **46 literałów niosących polski znak diakrytyczny — ile z nich widzi gracz** | zmierzone 12.09.2026: `RunPlan.cs` 24, `FirstRun.cs` 12, `ChaseCameraAim.cs` 4, `SignallingHud.cs` 3. **To jest rodzina, dla której katalog `UiText` powstał** — ale wyodrębniona po obecności znaku diakrytycznego, więc wpadają w nią także komunikaty diagnostyczne po polsku (`{Id} ({Variant}): … chunków`). Pozycja ma przeczytać każdy z tych 46 W MIEJSCU UŻYCIA i rozdzielić „tekst dla gracza” od „diagnostyka po polsku”. Zgadywanie zakazane: o tym, czy napis dociera do gracza, rozstrzyga droga wywołania, a nie jego brzmienie | M |
+| 6.D176 | **27 nazw opcji CLI — tekst, którego gracz nie widzi, a użytkownik owszem** | zmierzone 12.09.2026: `RunPlan.cs` 26, `FirstRun.cs` 1 (`"sample-every"`, `"steps-per-frame"`, `"at-chainage"`, `"limit-kmh"`, `"input-log"`, `"from-telemetry"`). Kształt `[a-z][a-z0-9]*(-[a-z0-9]+)+` opisuje je wszystkie i nie opisuje niczego innego w korpusie — zmierzone. Pozycja ma rozstrzygnąć, czy to sito wchodzi, oraz czy nazwy opcji w ogóle należą do tej samej sprawy co tekst interfejsu: **gracz ich nie widzi, ale człowiek wpisujący polecenie owszem**, a katalog `UiText` nie jest katalogiem pomocy CLI | S |
+| 6.D177 | **20 literałów prozy założeń projektowych w `DesignAssumptions.cs`** | zmierzone 12.09.2026: cały plik, 20 z 20. To zdania w rodzaju „wysokość oka nad główką szyny; podłoga M7 jest na 1,03 m (spec), reszta z pomiaru” — **dokumentacja decyzji stojąca w kodzie celowo**, żeby liczba i jej uzasadnienie nie rozjechały się w dwa miejsca. Pozycja ma rozstrzygnąć, czy plik zostaje poza zakresem bramki nazwany wprost (jak `UiText.cs`), czy jego zawartość przenosi się do `docs/`. **Przeniesienie ma koszt**: rozdziela stałą od powodu, czyli odtwarza usterkę, której ten plik jest lekarstwem | S |
+| 6.D178 | **19 komunikatów wyjątków — `throw` jako diagnostyka, nie tekst** | zmierzone 12.09.2026: `RunHeader.cs` 9, `ChaseCameraAim.cs` 4, `ChunkManifest.cs` 1, `StreamingPlan.cs` 1, dalej ogonem. Granica „tablica jest tekstem, `throw` jest diagnostyką” została już raz postawiona przy 6.D143 dla `KeyNames.cs` i tam działa. Pozycja ma rozstrzygnąć, czy uogólnia się na cały korpus. **Wykrycie `throw` wymaga kontekstu, nie wiersza**: pierwszy pomiar 6.D154 dał `wThrow=0`, bo `throw` bywa w wierszu poprzedzającym literał — i to jest tu pierwsza rzecz do zrobienia poprawnie | S |
+| 6.D179 | **56 literałów bez rodziny: 8 węzłów sceny i 48 nierozstrzygniętych** | zmierzone 12.09.2026: węzły i zasoby (`"Tunnel"`, `"Train"`, `"CabCamera"`, `"res://"`) — 8, wszystkie w `FirstRun.cs`, wołane przez `GetNode`. Sito `KszaltSciezkiWezla` ich nie łapie, bo **nie mają ukośnika** — są jednoczłonowe. Pozostałe 48 (`FirstRun.cs` 25, `RunPlan.cs` 7, `SignallingHud.cs` 6) nie wpadły do żadnej reguły i to je wyróżnia: `"KABINA"`, `"data/track/L1_A.json"`. Pozycja ma je przejrzeć po jednym i albo dopisać rodzinę, albo nazwać wprost jako nierozstrzygalne mechanicznie | M |
+| 6.D180 | **Bramka liczy inaczej wiersz po wierszu niż całym plikiem, i tylko w jednym pliku** | zmierzone 12.09.2026 przy 6.D154: `SlowaWKodzie` puszczone na cały plik daje w `FirstRun.cs` **105** zgłoszeń, a puszczone wiersz po wierszu — **118**. Na pozostałych 15 plikach korpusu obie drogi dają liczby **równe co do jedynki**, więc nie jest to ogólna własność sita, tylko coś w tym jednym pliku (prawdopodobnie literał sklejany przez kilka wierszy, na którym `BezDziur` rozstrzyga inaczej dla fragmentu niż dla całości). **Nie jest to dziś usterką żadnej bramki** — pomiar autorytatywny idzie całym plikiem — ale jest różnicą, o której nikt nie wiedział i którą znalazłem przypadkiem, licząc co innego. Pozycja ma ją nazwać: który to literał i która droga jest poprawna | S |
 | 6.D155 | **Jednostki zjadają litery ze ŚRODKA napisów, które jednostkami nie są** | zauważone 11.09.2026 przy 6.D142 i nierozstrzygnięte: sito „czy to słowo” pyta o `BezJednostek(BezDziur(literał))`, a zdejmowanie jest bezwarunkowym `Replace`, więc `"Esc"` → `"E c"`, `"Escape"` → `"E cape"`, `"input.key.space"` → `"input.key. pace"`. Obie przemiany są tą samą mechaniką i różnią się wynikiem tylko liczbą liter, które zostają — pierwsza wypada z sita, druga nie. Ile literałów w `src/Game/` przechodzi dziś sito **wyłącznie** dlatego, że jednostka zjadła im literę, nie jest policzone, a właśnie na tej liczbie wisi rozstrzygnięcie 6.D142 o bezczynności wyjątku `NazwyKlawiszy` | S |
 | 6.D156 | **72 asercje C# stoją w klasie „nierozstrzygnięte” i nikt nie próbował ich zawęzić** | zmierzone 11.09.2026 przy 6.D145: `Assert.AreEqual(a, b, x)` z `x` będącym wyrażeniem może nieść tolerancję albo komunikat, a kształt tego nie rozstrzyga. Pomiar zrobiony przy tamtej pozycji, ale NIEUŻYTY, mówi, że część da się zawęzić regułą na PIERWSZY argument: przeciążenie z tolerancją żąda, żeby oba porównywane argumenty były zmiennoprzecinkowe, więc literał napisowy je wyklucza (**4 przypadki, szczelnie**), a literał całkowity — nie, bo `int` konwertuje się do `double` (**26 przypadków, nieszczelnie**). Pozycja ma rozstrzygnąć, które z tych zawężeń wolno zastosować, nie zamieniając zadeklarowanej niewiedzy na cichą heurystykę | S |
 | 6.D157 | **`test_scan_gates.py` był złym adresem DWA razy i nie wie o tym nic** | zmierzone 11.09.2026 przy 6.D146: z sześciu adnotacji `**Poprawione …:**` w drzewie **cztery** dotyczą modułu ISTNIEJĄCEGO, ale nie tego — a dwie z nich wskazują TEN SAM moduł (6.D74 i 6.D133, oba na `test_scan_gates.py`). Powtórzenie jest sygnałem o NAZWIE, nie o bloku: `test_scan_gates.py` mierzy `tools/blender/scan_gates.py`, czyli predykaty bramek skanowania, a czytający bierze ją za „bramki skanów”. 6.D146 zmierzyło, że reguły semantycznej nie ma; ta pozycja pyta o coś węższego i mechanicznego — czy moduły mylone wielokrotnie da się wskazać z historii poprawek | S |
@@ -9301,6 +9309,208 @@ nie sięga, nawet gdy nie ma nic innego do roboty; wtedy sięga po fazę 5.
   ochronę przed `build/`), i zmiana kodu wyjścia zestawu.
 - **Zależy od:** 6.D55, 6.D152.
 
+
+##### 6.D173 · 108 literałów to nazwy pól JSON i identyfikatory
+
+- **Skąd:** zmierzone 12.09.2026 przy 6.D154 kodem bramki. Największa rodzina z 348:
+  `RunPlan.cs` 66, `FirstRun.cs` 22, `ChunkManifest.cs` 18, `TelemetryTrack.cs` 2.
+  Kształt jednorodny: `"streaming"`, `"chunks"`, `"lods"`, `"level"`.
+- **Dlaczego reguła, a nie lista:** lista wyjątków rośnie z każdym nowym polem JSON
+  i jest drogą powrotną dla tego, co bramka miała wykluczyć — ten sam powód, dla
+  którego sito identyfikatorów silnika jest REGUŁĄ (6.D130).
+- **Główne ryzyko, nazwane wprost:** reguła „identyfikator bez spacji i bez znaku
+  diakrytycznego" przepuszcza też **jednowyrazowy tekst dla gracza**. Sito za szerokie
+  cicho wyłącza bramkę i jest to gorsze niż brak sita.
+- **Wejście:** `tests/Game.Tests/UiTextTests.cs` (`SlowaWKodzie`, `KszaltSciezkiWezla`),
+  `src/Game/RunPlan.cs`, `src/Game/Assets/ChunkManifest.cs`,
+  `reports/6d154-rodziny-348-literalow.md` §2.
+- **Wyjście:** rozstrzygnięcie, czy reguła wchodzi jako kolejne sito, wraz z liczbą
+  literałów, które przepuszcza NIESŁUSZNIE (zmierzoną, nie oszacowaną).
+- **Weryfikacja:**
+  ```bash
+  dotnet test tests/Game.Tests
+  ```
+  Oczekiwane: zielone, a kontrola negatywna wstawiająca jednowyrazowy polski napis
+  do pliku objętego regułą **zapala bramkę** — bo inaczej reguła jest dziurą.
+- **Skończone, gdy:** wiadomo, ile z 108 reguła obejmuje, ile zostaje poza nią, i ile
+  tekstu dla gracza przepuściłaby; a jeśli przepuszcza cokolwiek — reguła nie wchodzi.
+- **Poza zakresem:** pozostałe siedem rodzin z 6.D154; zmiana katalogu `UiText`.
+- **Zależy od:** 6.D154.
+
+##### 6.D174 · 85 wypisów diagnostycznych — prefiks czy miejsce użycia
+
+- **Skąd:** zmierzone 12.09.2026 przy 6.D154: `FirstRun.cs` 50, `RunPlan.cs` 19,
+  `TelemetryTrack.cs` 8, `GlbLoader.cs` 2. Wszystkie zaczynają się znacznikiem
+  w nawiasie kwadratowym (`[ASSETS]`, `[OŚ]`, `[WEJŚCIE]`) albo idą przez `GD.Print`.
+- **Na czym polega pytanie:** obie cechy są sprawdzalne mechanicznie, ale **prefiks
+  jest cechą TEKSTU, a `GD.Print` cechą MIEJSCA UŻYCIA** — i to nie jest to samo.
+  Wypis bez prefiksu przez `GD.Print` istnieje; tekst z prefiksem w `throw` też.
+  Wybór granicy rozstrzyga, którą z tych dwóch rzeczy bramka uzna za diagnostykę.
+- **Wejście:** `tests/Game.Tests/UiTextTests.cs`, `src/Game/FirstRun.cs`,
+  `src/Game/Assets/GlbLoader.cs`, `reports/6d154-rodziny-348-literalow.md` §2.
+- **Wyjście:** liczba wypisów niosących prefiks, liczba idących przez `GD.Print`
+  i liczba w części wspólnej — trzy liczby, nie jedna.
+- **Weryfikacja:**
+  ```bash
+  dotnet test tests/Game.Tests
+  ```
+  Oczekiwane: zielone; kontrola negatywna zdejmująca prefiks z jednego wypisu
+  pokazuje, którą z dwóch dróg bramka naprawdę czyta.
+- **Skończone, gdy:** granica jest wybrana, a trzy liczby wyżej stoją w raporcie
+  razem ze zdaniem, co bramka przepuści po tym wyborze.
+- **Poza zakresem:** przenoszenie wypisów diagnostycznych do katalogu tekstów.
+- **Zależy od:** 6.D154.
+
+##### 6.D175 · 46 literałów z polskim znakiem — ile z nich naprawdę widzi gracz
+
+- **Skąd:** zmierzone 12.09.2026 przy 6.D154: `RunPlan.cs` 24, `FirstRun.cs` 12,
+  `ChaseCameraAim.cs` 4, `SignallingHud.cs` 3. **To jest rodzina, dla której katalog
+  `UiText` powstał** — i jedyna z ośmiu, w której 6.D154 znalazło zdania widziane
+  przez gracza stojące wprost w kodzie.
+- **Dlaczego to nie jest gotowa lista:** rodzina została wyodrębniona po obecności
+  polskiego znaku diakrytycznego, więc wpadają w nią także komunikaty diagnostyczne
+  po polsku, np. `{Id} ({Variant}): {_chunks.Length} chunków`. Kształt nie rozstrzyga.
+- **Zgadywanie zakazane:** o tym, czy napis dociera do gracza, rozstrzyga **droga
+  wywołania**, a nie brzmienie. Każdy z 46 ma być przeczytany w miejscu użycia.
+- **Wejście:** `src/Game/SignallingHud.cs`, `src/Game/RunPlan.cs`,
+  `src/Game/FirstRun.cs`, `src/Game/World/ChaseCameraAim.cs`,
+  `reports/6d154-rodziny-348-literalow.md` §3.
+- **Wyjście:** podział 46 na „tekst dla gracza" i „diagnostyka po polsku", z drogą
+  wywołania przy każdym z pierwszej grupy.
+- **Weryfikacja:**
+  ```bash
+  dotnet test tests/Game.Tests
+  ```
+  Oczekiwane: zielone; a dla każdego napisu uznanego za tekst dla gracza raport podaje
+  wywołanie, którym trafia on na ekran.
+- **Skończone, gdy:** obie liczby są znane i suma daje 46, a żadna pozycja nie jest
+  zaklasyfikowana po samym brzmieniu.
+- **Poza zakresem:** przeniesienie czegokolwiek do katalogu — to osobna pozycja,
+  zależna od wyniku tej.
+- **Zależy od:** 6.D154.
+
+##### 6.D176 · 27 nazw opcji CLI — tekst, którego gracz nie widzi, a użytkownik owszem
+
+- **Skąd:** zmierzone 12.09.2026 przy 6.D154: `RunPlan.cs` 26, `FirstRun.cs` 1.
+  `"sample-every"`, `"steps-per-frame"`, `"at-chainage"`, `"limit-kmh"`, `"input-log"`,
+  `"from-telemetry"`. Kształt `[a-z][a-z0-9]*(-[a-z0-9]+)+` opisuje je wszystkie
+  i **nie opisuje niczego innego w korpusie** — zmierzone, nie założone.
+- **Na czym polega pytanie:** nie tylko czy sito wchodzi, ale czy nazwy opcji należą
+  do tej samej sprawy co tekst interfejsu. Gracz ich nie widzi; człowiek wpisujący
+  polecenie owszem. Katalog `UiText` nie jest katalogiem pomocy CLI.
+- **Wejście:** `src/Game/RunPlan.cs`, `tests/Game.Tests/UiTextTests.cs`,
+  `reports/6d154-rodziny-348-literalow.md` §2.
+- **Wyjście:** rozstrzygnięcie wraz z kontrolą, że wzorzec nie łapie niczego spoza
+  tej rodziny na dzisiejszym korpusie.
+- **Weryfikacja:**
+  ```bash
+  dotnet test tests/Game.Tests
+  ```
+  Oczekiwane: zielone; kontrola negatywna z napisem `"limit-kmh w kabinie"` pokazuje,
+  że wzorzec żąda całego literału, a nie podciągu.
+- **Skończone, gdy:** wiadomo, czy sito wchodzi, a jeśli tak — ile literałów obejmuje
+  i ile z nich to NIE są nazwy opcji.
+- **Poza zakresem:** tłumaczenie pomocy CLI; zmiana nazw samych opcji.
+- **Zależy od:** 6.D154.
+
+##### 6.D177 · 20 literałów prozy założeń projektowych w DesignAssumptions.cs
+
+- **Skąd:** zmierzone 12.09.2026 przy 6.D154: cały plik, 20 z 20. Zdania w rodzaju
+  „wysokość oka nad główką szyny; podłoga M7 jest na 1,03 m (spec), reszta z pomiaru".
+- **Dlaczego to nie jest dług:** ten plik trzyma **stałą i jej uzasadnienie razem**,
+  celowo — żeby liczba i powód nie rozjechały się w dwa miejsca. Przeniesienie prozy
+  do `docs/` odtwarza dokładnie tę usterkę, której plik jest lekarstwem.
+- **Wejście:** `src/Game/DesignAssumptions.cs`, `tests/Game.Tests/UiTextTests.cs`
+  (`ZrodlaGry` — wzorzec wyłączenia `UiText.cs`), `docs/21-measured-vs-assumed.md`.
+- **Wyjście:** rozstrzygnięcie, czy plik jest wyłączony z zakresu bramki NAZWANY
+  WPROST (jak `UiText.cs`), czy jego zawartość przenosi się do `docs/`.
+- **Weryfikacja:**
+  ```bash
+  dotnet test tests/Game.Tests
+  ```
+  Oczekiwane: zielone; jeśli wybrane jest wyłączenie — kontrola negatywna dopisująca
+  polskie zdanie do INNEGO pliku nadal zapala bramkę, czyli wyłączenie nie rozlało się.
+- **Skończone, gdy:** plik ma rozstrzygnięcie zapisane przy sobie, a nie milczące
+  pominięcie, i wiadomo, czego to wyłączenie NIE obejmuje.
+- **Poza zakresem:** zmiana wartości którejkolwiek stałej z tego pliku.
+- **Zależy od:** 6.D154.
+
+##### 6.D178 · 19 komunikatów wyjątków — czy granica z 6.D143 uogólnia się
+
+- **Skąd:** zmierzone 12.09.2026 przy 6.D154: `RunHeader.cs` 9, `ChaseCameraAim.cs` 4,
+  `ChunkManifest.cs` 1, `StreamingPlan.cs` 1, dalej ogonem. Granica „tablica jest
+  tekstem, `throw` jest diagnostyką" została postawiona przy 6.D143 dla `KeyNames.cs`
+  i tam działa.
+- **Pierwsza rzecz do zrobienia poprawnie:** wykrycie `throw` wymaga **kontekstu, nie
+  wiersza**. Pierwszy pomiar 6.D154 dał `wThrow=0`, bo `throw` bywa w wierszu
+  poprzedzającym literał; po dodaniu trzech wierszy wstecz wyszło 19.
+- **Wejście:** `src/Game/RunHeader.cs`, `src/Game/Assets/ChunkManifest.cs`,
+  `src/Game/Assets/StreamingPlan.cs`, `tests/Game.Tests/UiTextTests.cs`,
+  `reports/6d154-rodziny-348-literalow.md` §2 i §4.
+- **Wyjście:** liczba komunikatów w `throw` policzona z kontekstem, i rozstrzygnięcie,
+  czy granica z 6.D143 obowiązuje w całym korpusie.
+- **Weryfikacja:**
+  ```bash
+  dotnet test tests/Game.Tests
+  ```
+  Oczekiwane: zielone; kontrola negatywna z `throw` i literałem w **jednym** wierszu
+  oraz w **dwóch** daje ten sam werdykt — inaczej wykrywanie nadal zależy od formatowania.
+- **Skończone, gdy:** liczba jest policzona z kontekstem i zgadza się dla obu zapisów
+  `throw`, a granica jest zapisana albo odrzucona z powodem.
+- **Poza zakresem:** zmiana treści któregokolwiek komunikatu wyjątku.
+- **Zależy od:** 6.D154, 6.D143.
+
+##### 6.D179 · 56 literałów bez rodziny: 8 węzłów sceny i 48 nierozstrzygniętych
+
+- **Skąd:** zmierzone 12.09.2026 przy 6.D154. Węzły i zasoby (`"Tunnel"`, `"Train"`,
+  `"CabCamera"`, `"res://"`) — 8, wszystkie w `FirstRun.cs`, wołane przez `GetNode`.
+  Pozostałe 48: `FirstRun.cs` 25, `RunPlan.cs` 7, `SignallingHud.cs` 6, dalej ogonem.
+- **Dlaczego węzły nie wpadły w istniejące sito:** `KszaltSciezkiWezla` żąda ukośnika,
+  a te nazwy są **jednoczłonowe**. Sito działa, tylko nie na tym kształcie.
+- **Co wyróżnia te 48:** nie wpadły do żadnej reguły — ani po prefiksie, ani po
+  kształcie, ani po kontekście. `"KABINA"`, `"data/track/L1_A.json"`. To jest zbiór,
+  o którym nie wiadomo nawet, czy jest jednorodny.
+- **Wejście:** `src/Game/FirstRun.cs`, `src/Game/RunPlan.cs`,
+  `src/Game/SignallingHud.cs`, `tests/Game.Tests/UiTextTests.cs`,
+  `reports/6d154-rodziny-348-literalow.md` §2.
+- **Wyjście:** każdy z 56 przypisany do rodziny albo nazwany wprost jako
+  nierozstrzygalny mechanicznie — z powodem przy każdym takim.
+- **Weryfikacja:**
+  ```bash
+  dotnet test tests/Game.Tests
+  ```
+  Oczekiwane: zielone; a suma rodzin po tej pozycji nadal daje 348.
+- **Skończone, gdy:** żaden literał nie zostaje w koszu „pozostałe", a te, których
+  nie da się rozstrzygnąć regułą, mają to napisane pojedynczo.
+- **Poza zakresem:** rozszerzanie `KszaltSciezkiWezla` na nazwy jednoczłonowe bez
+  pomiaru, ile tekstu dla gracza takie rozszerzenie przepuści.
+- **Zależy od:** 6.D154.
+
+##### 6.D180 · Bramka liczy inaczej wiersz po wierszu niż całym plikiem, i tylko w jednym pliku
+
+- **Skąd:** zmierzone 12.09.2026 przy 6.D154. `SlowaWKodzie` puszczone na cały
+  `FirstRun.cs` daje **105** zgłoszeń, a wiersz po wierszu — **118**. Na pozostałych
+  **15 plikach korpusu obie drogi dają liczby równe co do jedynki**.
+- **Dlaczego to nie jest dziś usterka:** pomiar autorytatywny idzie całym plikiem
+  i to on stoi w raportach. Jest to natomiast różnica, o której nikt nie wiedział,
+  a znalazła się przypadkiem, przy liczeniu czego innego.
+- **Hipoteza do sprawdzenia, nie do przyjęcia:** literał sklejany przez kilka wierszy,
+  na którym `BezDziur` rozstrzyga inaczej dla fragmentu niż dla całości. Do potwierdzenia
+  wskazaniem konkretnego literału.
+- **Wejście:** `src/Game/FirstRun.cs`, `tests/Game.Tests/UiTextTests.cs`
+  (`SlowaWKodzie`, `BezDziur`, `BezJednostek`), `reports/6d154-rodziny-348-literalow.md` §4.
+- **Wyjście:** wskazanie literału albo literałów odpowiedzialnych za różnicę 13
+  i rozstrzygnięcie, która droga liczenia jest poprawna.
+- **Weryfikacja:**
+  ```bash
+  dotnet test tests/Game.Tests
+  ```
+  Oczekiwane: zielone; a kontrola na wejściu syntetycznym odtwarza różnicę na
+  literale sklejanym z dwóch wierszy — czyli pokazuje mechanizm, a nie tylko liczbę.
+- **Skończone, gdy:** różnica 13 jest wyjaśniona co do literału, a nie co do pliku,
+  i wiadomo, czy któraś z dwóch dróg liczy źle.
+- **Poza zakresem:** zmiana `SlowaWKodzie`, dopóki nie wiadomo, która droga jest poprawna.
+- **Zależy od:** 6.D154.
 #### Rozstrzygnięte 11.09.2026 — jedna decyzja właściciela
 
 Pytanie postawione klikalnie 11.09.2026, po domknięciu 6.D134. Zapis jest **tutaj,
