@@ -386,7 +386,7 @@ def _sciezki_do_przebiegu(only):
 
     **Wybor: uruchamiamy wszystkie wymienione, a nie odmawiamy.** Pole „Wyjscie"
     6.D114 dopuszcza oba, wiec powod stoi tutaj. Uruchomienie wielu modulow nie jest
-    nowa zdolnoscia tego pliku — przebieg bez argumentu robi to samo dla 120 modulow
+    nowa zdolnoscia tego pliku — przebieg bez argumentu robi to samo dla 124 modulow
     i przechodzi ta sama droga (licznik asercji, werdykt, kod wyjscia). Odmowa
     zostawialaby wiec bez odpowiedzi wywolanie, ktore narzedzie umie obsluzyc,
     a ktore czlowiek pisze odruchowo po pierwszej czerwonej bramce.

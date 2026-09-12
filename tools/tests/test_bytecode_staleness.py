@@ -520,7 +520,7 @@ KROK_ZESTAWU = "Run tool tests"
 #: PÓŹNIEJ, w nazwanym kroku tego samego joba. Liczba jest tu po to, żeby poprawione
 #: zdanie miało czym się zestarzeć widocznie.
 BAJTKOD_PO_COMPILEALL_KATALOGI = 7
-BAJTKOD_PO_COMPILEALL_PLIKI = 202
+BAJTKOD_PO_COMPILEALL_PLIKI = 203
 
 
 def _workflow_zestawu():

@@ -144,9 +144,16 @@ def klasa_zapadki(nazwa, porownania):
     return CZESCIOWA
 
 
-#: **Wszystkie zapadki pod `tools/tests/`, każda z klasą i modułem — zmierzone
-#: 11.09.2026 na `52752c9`.** Trzydzieści osiem: **13 przybitych, 3 częściowe,
-#: 21 WOLNYCH i 1 poza zasięgiem skanu.**
+#: **Wszystkie zapadki pod `tools/tests/`, każda z klasą i modułem.**
+#: 42 zapadek: **15 przybitych, 3 częściowe, 23 WOLNE i 1 poza zasięgiem skanu.**
+#:
+#: **To zdanie jest przepisane, a nie dopisane obok (12.09.2026).** Stało tu
+#: „Trzydzieści osiem: 13 przybitych, 3 częściowe, 21 WOLNYCH i 1 poza zasięgiem
+#: skanu", zmierzone 11.09.2026 na `52752c9` — i przestało być prawdą, gdy rejestr
+#: urósł o cztery pozycje. Nie zauważył tego żaden test, bo bramka niżej porównuje
+#: SŁOWNIK z drzewem, a nie to zdanie ze słownikiem. Od 12.09.2026 porównuje je
+#: `test_prose_counts.py`, więc liczby wyżej nie mogą się już rozjechać po cichu.
+#: Suma stoi CYFRAMI, nie słownie, i to jest warunek działania tamtej bramki.
 #:
 #: **Lista jest z NAZWAMI, nie z samymi liczbami, i to jest wybór.** Same liczby
 #: przepuściłyby zamianę jednej zapadki przybitej na inną wolną — suma stoi, a zdanie
