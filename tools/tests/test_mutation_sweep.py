@@ -27,6 +27,38 @@ import tempfile
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import mutation_sweep as sweep  # noqa: E402
 
+
+def _dziennik_testu(etykieta):
+    """Sciezka dziennika, ktorej nie dzieli z nami ZADEN inny przebieg — 6.D172.
+
+    Nazwy tych dziennikow byly do 12.09.2026 wpisane z reki i STALE. Obrona, ktora
+    mialy dac, jest opisana w docstringu `_sweep_cli`: przebieg z dziennikiem
+    domyslnym czytalby plik zostawiony przez czyjs poprzedni pomiar i moglby na nim
+    odmowic (6.B19), czyli test padalby od stanu maszyny, nie od kodu. Rozumowanie
+    bylo trafne, a obrona objela wylacznie przebiegi KOLEJNE — nie rownolegle.
+
+    Zmierzone 12.09.2026 na `tunnel-alignment` w PR #553: macierz startuje trzy
+    joby w odstepie sekundy NA TEJ SAMEJ maszynie (CLAUDE.md §9), wiec dziela `/tmp`.
+    L1_A 10:50:55Z i L1_B 10:50:56Z chodzily obok siebie szesc minut; L1_B padl na
+    `[MUTACJE] PRZERWANE — dziennik /tmp/metro-mutacje-6b39-nieistniejacy.jsonl
+    trzyma inny przebieg.` Odmowa zadzialala POPRAWNIE — wadliwa byla stala nazwa.
+
+    Odtworzone celowo, a nie wywnioskowane z czasow: dwa rownolegle przebiegi
+    `mutation_sweep.py` na jedna sciezke daja odmowe **6 razy na 6**, gdy roznia sie
+    trescia (`--only camera_aim.py` kontra `--only lod_paths.py`), i **0 razy na 2**,
+    gdy tresc jest ta sama. To drugie jest poprawne i wymagane przez
+    `test_ta_sama_tresc_trafia_w_ten_sam_dziennik`: ta sama tresc MA trafiac w ten
+    sam dziennik. Kolizja nie potrzebuje wiec pecha co do milisekundy — wystarcza
+    dwa rownolegle procesy o roznej tresci, a modul wola `_sweep_6b39` dziewiec razy
+    z roznymi argumentami.
+
+    PID, a nie licznik ani znacznik czasu: ma byc stala w obrebie procesu (inaczej
+    wznowienie w tym samym tescie zgubiloby plik) i rozna miedzy procesami, ktore
+    moga chodzic naraz. Dwa joby na jednej maszynie to dwa procesy.
+    """
+    return os.path.join(tempfile.gettempdir(),
+                        "metro-mutacje-%s-%d.jsonl" % (etykieta, os.getpid()))
+
 ROOT = sweep.ROOT
 
 
@@ -325,7 +357,7 @@ def test_cli_lists_only_the_requested_class():
     done = subprocess.run(
         [sys.executable, os.path.join(ROOT, "tools", "tests", "mutation_sweep.py"),
          "--operators", "przypisanie", "--only", "tools/track/", "--list",
-         "--journal", os.path.join(tempfile.gettempdir(), "metro-mutacje-nieistniejacy.jsonl")],
+         "--journal", _dziennik_testu("nieistniejacy")],
         capture_output=True, text=True)
     assert done.returncode == 0, done.stderr[-400:]
     body = [line for line in done.stdout.splitlines() if line.startswith("tools/")]
@@ -344,8 +376,7 @@ def test_only_is_a_substring_match_by_design_and_says_how_many_modules_it_caught
     done = subprocess.run(
         [sys.executable, os.path.join(ROOT, "tools", "tests", "mutation_sweep.py"),
          "--only", "sweep.py", "--list",
-         "--journal", os.path.join(tempfile.gettempdir(),
-                                    "metro-mutacje-nieistniejacy-6d18.jsonl")],
+         "--journal", _dziennik_testu("nieistniejacy-6d18")],
         capture_output=True, text=True)
     assert done.returncode == 0, done.stderr[-400:]
     lines = done.stdout.splitlines()
@@ -360,8 +391,7 @@ def test_only_is_a_substring_match_by_design_and_says_how_many_modules_it_caught
     solo = subprocess.run(
         [sys.executable, os.path.join(ROOT, "tools", "tests", "mutation_sweep.py"),
          "--only", "tools/blender/sweep.py", "--list",
-         "--journal", os.path.join(tempfile.gettempdir(),
-                                    "metro-mutacje-nieistniejacy-6d18b.jsonl")],
+         "--journal", _dziennik_testu("nieistniejacy-6d18b")],
         capture_output=True, text=True)
     assert solo.returncode == 0, solo.stderr[-400:]
     pierwszy_solo = solo.stdout.splitlines()[0]
@@ -2042,7 +2072,7 @@ def _sweep_cli(*argumenty, journal_tag):
     return subprocess.run(
         [sys.executable, os.path.join(ROOT, "tools", "tests", "mutation_sweep.py"),
          *argumenty, "--journal",
-         os.path.join(tempfile.gettempdir(), "metro-mutacje-brak-" + journal_tag + ".jsonl")],
+         _dziennik_testu("brak-" + journal_tag)],
         capture_output=True, text=True, timeout=300)
 
 
@@ -2730,7 +2760,7 @@ def _sweep_6b39(*argv):
     return subprocess.run(
         [sys.executable, os.path.join(ROOT, "tools", "tests", "mutation_sweep.py"),
          *argv, "--journal",
-         os.path.join(tempfile.gettempdir(), "metro-mutacje-6b39-nieistniejacy.jsonl")],
+         _dziennik_testu("6b39-nieistniejacy")],
         capture_output=True, text=True)
 
 
