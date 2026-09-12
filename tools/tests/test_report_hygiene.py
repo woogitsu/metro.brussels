@@ -330,7 +330,7 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 #: Pozycja NIE jest zrobiona — raport zapisuje pomiar, z którego wyszło, że kształtu
 #: żądanego przez jej pole „Wyjście" nie ma; wybór między trzema mechanizmami jest
 #: decyzją właściciela. Policzona na drzewie.
-MIN_REPORTS = 288
+MIN_REPORTS = 289
 
 #: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
 #: wierszem zaczynającym się od `**`, z którego `_header_shapes` czyta kształt.
