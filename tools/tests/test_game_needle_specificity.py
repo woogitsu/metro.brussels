@@ -192,7 +192,32 @@ MAX_GAME_UNMATCHED_NEEDLES = 26
 #: 07.09.2026: **142** wielowyrazowe grupy literalow w **18** plikach `src/Game/`
 #: i **45** roznych igiel w **53** mierzalnych wywolaniach z **64** o tym ksztalcie.
 MIN_GAME_MESSAGES = 142
-MIN_GAME_NEEDLES = 45
+
+#: **PRZYBITA ROWNOSCIA od 6.D151 — ten akapit jest przepisany, a nie dopisany obok.**
+#: Do 12.09.2026 stala byla progiem (`>= 45`) i lezala w rodzinie zapadek WOLNYCH:
+#: obnizenie progu nie zapalalo niczego, a obnizenie jest wlasnie tym ruchem, ktory
+#: zwalnia bramke z pilnowania.
+#:
+#: **Ile ten prog przepuszczal, jest zmierzone: 14 igiel, czyli 24 %.** Igiel bylo
+#: 07.09.2026 czterdziesci piec, a 12.09.2026 jest **59** — czternascie moglo znikac
+#: z `tests/Game.Tests` i prog nie powiedzialby ani slowa. Z pieciu progow tej rodziny
+#: ten mial luz najwiekszy (pozostale: `MIN_GAME_MESSAGES` 8, `MIN_MESSAGES` 9,
+#: `MIN_NEEDLES` 2, `MIN_GAME_SOURCES` 1).
+#:
+#: **Wartosc zmieniona z 45 na 59 NIE jest przestrojeniem progu**: pin musi rownac
+#: sie temu, co pinuje, inaczej jest czerwony od pierwszego dnia. Stara liczba stoi
+#: wyzej jako historia, a nie jako druga prawda.
+#:
+#: **Nazwa zostaje `MIN_`, i to jest zgodne z konwencja, nie wbrew niej**: przedrostek
+#: nazywa strone ZAKAZANA, a rownosc strzeze obu — tak samo jak `MAX_COMMIT_EXCEPTIONS`
+#: i szesc innych zapadek `MAX_` przybitych rownoscia (`klasa_zapadki`
+#: w `test_tree_walks.py` mowi to wprost: „Rownosc strzeze w obie").
+#:
+#: **Koszt jest zmierzony, nie oszacowany.** Gdyby ta stala byla przybita od poczatku,
+#: trzeba by ja poprawic w **5 z 11** rewizji dotykajacych `tests/Game.Tests`
+#: (45 -> 49 -> 52 -> 54 -> 57 -> 59), czyli w 45 % z nich. To mniej, niz kosztuje
+#: `MIN_REPORTS`, poprawiane przy kazdym raporcie.
+MIN_GAME_NEEDLES = 59
 MIN_GAME_SOURCES = 18
 
 #: Igla, na ktorej stoja kontrole dodatnia i przyrzadu. Musi byc SWOISTA i musi stac
@@ -420,9 +445,11 @@ def test_the_message_family_and_the_needles_are_both_read_from_the_files():
         % (len(wiadomosci), MIN_GAME_MESSAGES))
     assert plikow >= MIN_GAME_SOURCES, (
         "komunikaty przyszly z %d plikow, a 07.09.2026 z %d" % (plikow, MIN_GAME_SOURCES))
-    assert len(igielki) >= MIN_GAME_NEEDLES, (
-        "wzorzec zlapal %d roznych igiel w `tests/Game.Tests`, a 07.09.2026 bylo ich %d"
-        % (len(igielki), MIN_GAME_NEEDLES))
+    assert len(igielki) == MIN_GAME_NEEDLES, (
+        "wzorzec zlapal %d roznych igiel w `tests/Game.Tests`, a zapadka stoi na %d — "
+        "od 6.D151 jest to ROWNOSC, nie prog: liczba w dol znaczy, ze igly znikaja "
+        "(albo ze czytnik je gubi), a w gore — ze doszly i trzeba ja poprawic w tym "
+        "samym commicie" % (len(igielki), MIN_GAME_NEEDLES))
     assert all(wiersz > 0 for _plik, wiersz, _tekst in wiadomosci)
 
 
