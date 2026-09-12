@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using MetroBxl.Game.Input;
 using MetroBxl.Game.UI;
@@ -184,10 +185,10 @@ public sealed class UiTextTests
     private const int PlikowWZasieguBramki = 21;
 
     /// <summary>Ile literałów — dolne ostrze, zmierzone 12.09.2026.</summary>
-    private const int LiteralowWZasieguBramki = 521;
+    private const int LiteralowWZasieguBramki = 480;
 
     /// <summary>Ile różnych — dolne ostrze, zmierzone 12.09.2026.</summary>
-    private const int RoznychLiteralowWZasieguBramki = 395;
+    private const int RoznychLiteralowWZasieguBramki = 362;
 
     /// <summary>
     /// Dlaczego ten literał został odrzucony — dwa różne zdania, nie jedno — 6.D130.
@@ -234,9 +235,27 @@ public sealed class UiTextTests
     ///
     /// <para><b>Skala, dla której ta granica w ogóle istnieje, jest zmierzona, nie
     /// oszacowana.</b> Gdyby bramkę puścić na całe <c>src/Game/</c>, zgłosiłaby
-    /// <b>348</b> literałów w <b>21</b> plikach, z czego <b>22</b> stoją w <c>throw</c>,
+    /// <b>347</b> literałów w <b>16</b> plikach, z czego <b>22</b> stoją w <c>throw</c>,
     /// a reszta to wypisy diagnostyczne, prozą opisane założenia projektowe i nazwy
-    /// pól JSON. `KeyNames.cs` ma z tych 348 dokładnie <b>jeden</b>.</para>
+    /// pól JSON. `KeyNames.cs` ma z tych 347 dokładnie <b>jeden</b>.</para>
+    ///
+    /// <para><b>Było tu <b>348</b> i akapit jest przepisany, a nie dopisany obok —
+    /// 6.D182.</b> Ta liczba wyszła z czytnika, który rozcinał napisy interpolowane
+    /// z zagnieżdżonym cudzysłowem i napisy surowe (patrz <see cref="Literaly"/>).
+    /// Z bazy odchodzą <b>cztery</b> pozycje z <c>RunPlan.cs</c>, które literałami
+    /// nie były — dwa kawałki urwane na <c>{string.Join(</c> i dwa ogony w rodzaju
+    /// <c>, KnownArguments)}</c> — a dochodzą <b>trzy</b> literały prawdziwe: te same
+    /// dwa w całości i napis surowy z <c>FirstRun.cs</c>. <b>Liczba plików była
+    /// podana jako 21, czyli jako WIELKOŚĆ KORPUSU, a nie jako liczba plików
+    /// zgłaszających</b>; zgłasza <b>16</b> i tak jest tu odtąd napisane.</para>
+    ///
+    /// <para><b>Rodzin liczonych po TREŚCI literału ta poprawka NIE rusza, i to jest
+    /// pomiar, nie oczekiwanie</b> (6.D182): prefiks w nawiasie, identyfikator wąski
+    /// i szeroki oraz obecność polskiego znaku dają na obu czytnikach liczby
+    /// <b>równe co do jedynki</b>. Cztery pozycje odchodzące i trzy dochodzące leżą
+    /// poza każdą z tych rodzin albo — jak para <c>[ARGUMENT]</c> — odchodzą
+    /// i wracają z tym samym prefiksem. Rozpisane w
+    /// <c>reports/6d182-uciete-literaly.md</c>.</para>
     /// </summary>
     private static readonly string[] CzlonyKeyNames =
     {
@@ -312,9 +331,288 @@ public sealed class UiTextTests
         string.Join("\n", source.Split('\n')
             .Where(l => !l.TrimStart().StartsWith("//", StringComparison.Ordinal)));
 
-    private static List<string> Literaly(string kod) =>
-        Regex.Matches(kod, "\"((?:[^\"\\\\]|\\\\.)*)\"")
+    /// <summary>
+    /// Wzorzec, którym literały czytano DO 6.D182 — zostaje WYŁĄCZNIE jako wejście
+    /// kontroli negatywnej.
+    ///
+    /// <para>Nie czyta go dziś żadna bramka. Stoi tu dlatego, że bez niego
+    /// <see cref="Czytnik_literalow_czyta_leksykalnie_a_nie_wzorcem"/> nie umiałby
+    /// pokazać, że nowy czytnik robi coś, czego stary nie robił — a kontrola, która
+    /// nie odróżnia mechanizmu od jego braku, jest zielona zawsze i nie znaczy nic
+    /// (ta sama pułapka, co przy 6.D147 KN-6 i 6.D148 KN-4).</para>
+    /// </summary>
+    private const string WzorzecStaregoCzytnika = "\"((?:[^\"\\\\]|\\\\.)*)\"";
+
+    /// <summary>Stary czytnik — tylko jako wejście kontroli, patrz wyżej.</summary>
+    private static List<string> StaryCzytnik(string kod) =>
+        Regex.Matches(kod, WzorzecStaregoCzytnika)
              .Select(m => m.Groups[1].Value).ToList();
+
+    /// <summary>
+    /// Literały napisowe pliku — czytnik LEKSYKALNY, od 6.D182.
+    ///
+    /// <para><b>Do 12.09.2026 czytało to wyrażenie regularne</b>
+    /// <see cref="WzorzecStaregoCzytnika"/>, i ten akapit jest przepisany, a nie
+    /// dopisany obok. Wzorzec zakłada, że cudzysłowy w pliku stoją parami, a w C#
+    /// nie stoją: dziura interpolacji może nieść własny napis, napis surowy zamyka
+    /// się dopiero tyloma cudzysłowami, iloma się otworzył, napis dosłowny pisze
+    /// cudzysłów jako <c>""</c>, a literał znakowy <c>'"'</c> niesie cudzysłów
+    /// pojedynczy. Wzorzec urywał wtedy literał na pierwszym cudzysłowie ze środka
+    /// i zwracał KAWAŁEK KODU jako drugi „literał".</para>
+    ///
+    /// <para><b>Skala, zmierzona 12.09.2026 na korpusie <see cref="ZrodlaGry"/>
+    /// kodem samej bramki.</b> Stary czytnik zwracał <b>521</b> pozycji: <b>475</b>
+    /// literałów w całości, <b>3</b> urwane kawałki i <b>43</b> pozycje, które
+    /// literałami nie były w ogóle. Literałów jest naprawdę <b>480</b>, więc
+    /// <b>5</b> z nich nie docierało do żadnej bramki w całości. Dotknięte były
+    /// <b>dwa</b> pliki z dwudziestu jeden: <c>RunPlan.cs</c> — dwa napisy
+    /// interpolowane z zagnieżdżonym cudzysłowem, każdy dawał jeden kawałek urwany
+    /// na <c>{string.Join(</c> i jeden ogon, który literałem nie jest — oraz
+    /// <c>FirstRun.cs</c>, gdzie JEDEN napis surowy <c>$$"""</c> z czterdziestu
+    /// wierszy JSON-a rozpadał się na <b>42</b> pozycje.</para>
+    ///
+    /// <para><b>Rozstrzygnięcie pozycji 6.D182: czytnik da się naprawić BEZ rozbioru
+    /// składni C#.</b> Wszystkie cztery konstrukcje są LEKSYKALNE — o tym, gdzie
+    /// kończy się napis, rozstrzyga sam ciąg znaków, a nie to, czym jest otaczające
+    /// wyrażenie. Wystarczy więc lekser ze stanem (komentarz wierszowy, komentarz
+    /// blokowy, literał znakowy, napis zwykły, dosłowny, surowy, dziura
+    /// interpolacji), a parser jest niepotrzebny. Roslyn byłby zależnością,
+    /// a <c>CLAUDE.md</c> §8 każe przy dodaniu zależności przerwać i zapytać.</para>
+    ///
+    /// <para><b>Co to rusza w liczbach.</b> Baza <b>348</b> zgłoszeń całego
+    /// <c>src/Game/</c> jest po naprawie <b>347</b>: odchodzi z niej sześć pozycji,
+    /// które literałami nie były, a dochodzą trzy literały prawdziwe. Rozpisane
+    /// w <c>reports/6d182-uciete-literaly.md</c> razem z tym, których rodzin
+    /// z 6.D154…6.D179 to dotyczy, a których nie.</para>
+    ///
+    /// <para><b>Literały z dziur interpolacji ZWRACANE SĄ TEŻ</b>, i to jest wybór:
+    /// <c>" --"</c> w <c>$"… {string.Join(" --", …)}"</c> jest literałem tego pliku
+    /// tak samo jak napis, w którym stoi. Kolejność jest kolejnością CUDZYSŁOWU
+    /// OTWIERAJĄCEGO, więc napis zewnętrzny stoi przed swoimi zagnieżdżonymi.</para>
+    /// </summary>
+    private static List<string> Literaly(string kod)
+    {
+        var wynik = new List<string>();
+        CzytajKod(kod, 0, kod.Length, wynik);
+        return wynik;
+    }
+
+    /// <summary>
+    /// Długość przedrostka <c>[@$]*</c> stojącego przed cudzysłowem, albo <c>-1</c>,
+    /// gdy pod <paramref name="i"/> nie zaczyna się literał napisowy.
+    /// </summary>
+    private static int PrefiksLiteralu(string s, int i, int koniec)
+    {
+        var j = i;
+        while (j < koniec && (s[j] == '@' || s[j] == '$'))
+        {
+            j++;
+        }
+
+        return j < koniec && s[j] == '"' ? j - i : -1;
+    }
+
+    /// <summary>Przesuwa za komentarz albo literał znakowy; zwraca nową pozycję.</summary>
+    private static int PominNieNapis(string s, int i, int koniec)
+    {
+        if (s[i] == '/' && i + 1 < koniec && s[i + 1] == '/')
+        {
+            while (i < koniec && s[i] != '\n')
+            {
+                i++;
+            }
+
+            return i;
+        }
+
+        if (s[i] == '/' && i + 1 < koniec && s[i + 1] == '*')
+        {
+            i += 2;
+            while (i + 1 < koniec && !(s[i] == '*' && s[i + 1] == '/'))
+            {
+                i++;
+            }
+
+            return Math.Min(i + 2, koniec);
+        }
+
+        if (s[i] == '\'')
+        {
+            i++;
+            while (i < koniec && s[i] != '\'')
+            {
+                i += s[i] == '\\' ? 2 : 1;
+            }
+
+            return i + 1;
+        }
+
+        return i;
+    }
+
+    /// <summary>Skan kodu: wszystko, co nie jest napisem, jest pomijane.</summary>
+    private static void CzytajKod(string s, int od, int koniec, List<string> wynik)
+    {
+        var i = od;
+        while (i < koniec)
+        {
+            var po = PominNieNapis(s, i, koniec);
+            if (po != i)
+            {
+                i = po;
+                continue;
+            }
+
+            if (PrefiksLiteralu(s, i, koniec) >= 0)
+            {
+                i = CzytajLiteral(s, i, koniec, wynik);
+                continue;
+            }
+
+            i++;
+        }
+    }
+
+    /// <summary>
+    /// Indeks OSTATNIEJ klamry zamykającej dziurę interpolacji otwartej klamrą
+    /// o indeksie <paramref name="ostatniaOtwierajaca"/>.
+    /// </summary>
+    private static int KoniecDziury(string s, int ostatniaOtwierajaca, int koniec, int klamer)
+    {
+        var glebia = 1;
+        var k = ostatniaOtwierajaca + 1;
+        while (k < koniec)
+        {
+            var po = PominNieNapis(s, k, koniec);
+            if (po != k)
+            {
+                k = po;
+                continue;
+            }
+
+            if (PrefiksLiteralu(s, k, koniec) >= 0)
+            {
+                k = CzytajLiteral(s, k, koniec, new List<string>());
+                continue;
+            }
+
+            if (s[k] == '{')
+            {
+                glebia++;
+            }
+            else if (s[k] == '}')
+            {
+                glebia--;
+                if (glebia == 0)
+                {
+                    return k + klamer - 1;
+                }
+            }
+
+            k++;
+        }
+
+        return koniec - 1;
+    }
+
+    /// <summary>
+    /// Czyta JEDEN literał napisowy od pozycji <paramref name="i"/>; dopisuje go do
+    /// <paramref name="wynik"/> razem z literałami z jego dziur i zwraca pozycję za
+    /// cudzysłowem zamykającym.
+    /// </summary>
+    private static int CzytajLiteral(string s, int i, int koniec, List<string> wynik)
+    {
+        var dlPrefiksu = PrefiksLiteralu(s, i, koniec);
+        var prefiks = s.Substring(i, dlPrefiksu);
+        var doslowny = prefiks.Contains('@');
+        var klamer = prefiks.Count(z => z == '$');
+        var cudzyslowow = 0;
+        while (i + dlPrefiksu + cudzyslowow < koniec && s[i + dlPrefiksu + cudzyslowow] == '"')
+        {
+            cudzyslowow++;
+        }
+
+        var surowy = cudzyslowow >= 3;
+        var otwierajacych = surowy ? cudzyslowow : 1;
+        var tresc = new StringBuilder();
+        var zagniezdzone = new List<string>();
+        var j = i + dlPrefiksu + otwierajacych;
+        while (j < koniec)
+        {
+            var znak = s[j];
+            if (znak == '"')
+            {
+                if (surowy)
+                {
+                    var n = 0;
+                    while (j + n < koniec && s[j + n] == '"')
+                    {
+                        n++;
+                    }
+
+                    if (n >= otwierajacych)
+                    {
+                        break;
+                    }
+
+                    tresc.Append(s, j, n);
+                    j += n;
+                    continue;
+                }
+
+                if (doslowny && j + 1 < koniec && s[j + 1] == '"')
+                {
+                    tresc.Append("\"\"");
+                    j += 2;
+                    continue;
+                }
+
+                break;
+            }
+
+            if (!doslowny && !surowy && znak == '\\' && j + 1 < koniec)
+            {
+                tresc.Append(s[j]).Append(s[j + 1]);
+                j += 2;
+                continue;
+            }
+
+            if (klamer > 0 && znak == '{')
+            {
+                var pod = 0;
+                while (j + pod < koniec && s[j + pod] == '{')
+                {
+                    pod++;
+                }
+
+                // Napis NIESUROWY: `{{` jest klamrą dosłowną. Napis SUROWY: dziura
+                // otwiera się dopiero tyloma klamrami, ile jest znaków `$`, a krótszy
+                // ciąg jest tekstem — dlatego `$$"""` niesie JSON-owe `{` wprost.
+                if (!surowy && pod >= 2)
+                {
+                    tresc.Append("{{");
+                    j += 2;
+                    continue;
+                }
+
+                if (pod >= klamer)
+                {
+                    var koniecDziury = KoniecDziury(s, j + klamer - 1, koniec, klamer);
+                    tresc.Append(s, j, koniecDziury - j + 1);
+                    CzytajKod(s, j + klamer, koniecDziury - klamer + 1, zagniezdzone);
+                    j = koniecDziury + 1;
+                    continue;
+                }
+            }
+
+            tresc.Append(znak);
+            j++;
+        }
+
+        wynik.Add(tresc.ToString());
+        wynik.AddRange(zagniezdzone);
+        return surowy ? j + otwierajacych : j + 1;
+    }
 
     [TestMethod]
     public void Kazdy_klucz_wolany_z_warstwy_gry_jest_w_katalogu_domyslnym()
@@ -1011,5 +1309,126 @@ public sealed class UiTextTests
         var obcy = SlowaWKodzie("var t = \"Prędkość\";");
         CollectionAssert.AreEqual(new[] { "Prędkość" }, obcy,
             "polskie słowo przestało być odrzucane — reszta tego testu mierzyłaby nic");
+    }
+
+    /// <summary>
+    /// Ile pozycji zwracał na korpusie STARY czytnik — zmierzone 12.09.2026.
+    /// </summary>
+    private const int PozycjiStaregoCzytnika = 521;
+
+    /// <summary>
+    /// Ile PLIKÓW korpusu stary czytnik czytał inaczej niż leksykalny — 6.D182.
+    /// </summary>
+    private const int PlikowRozcietychPrzezStaryCzytnik = 2;
+
+    /// <summary>
+    /// Czytnik literałów czyta LEKSYKALNIE, a nie wzorcem — 6.D182.
+    ///
+    /// <para><b>Każdy przypadek pyta o DWIE rzeczy</b>: co zwraca dzisiejszy czytnik
+    /// i co na tym samym wejściu zwracał stary. Bez drugiej połowy test byłby zielony
+    /// także wtedy, gdyby ktoś przywrócił wzorzec — czyli pilnowałby niczego. Wejście
+    /// jest SYNTETYCZNE, bo dla dwóch z czterech konstrukcji drzewo nie ma dziś
+    /// przykładu (napis dosłowny, literał znakowy z cudzysłowem), a kontrola bez
+    /// wejścia oddzielającego mechanizm od jego braku to pułapka z 6.D147 KN-6.</para>
+    /// </summary>
+    [TestMethod]
+    public void Czytnik_literalow_czyta_leksykalnie_a_nie_wzorcem()
+    {
+        // 1. Napis interpolowany z zagnieżdżonym cudzysłowem — konstrukcja, która
+        //    pozycję 6.D182 otworzyła. Stoi w `RunPlan.cs` dwa razy.
+        var interpolowany = "var m = $\"Znane: --{string.Join(\" --\", K)}\";";
+        CollectionAssert.AreEqual(
+            new[] { "Znane: --{string.Join(\" --\", K)}", " --" },
+            Literaly(interpolowany),
+            "napis interpolowany z zagnieżdżonym cudzysłowem czytany jest inaczej "
+            + "niż w pomiarze 6.D182: " + string.Join(" | ", Literaly(interpolowany)));
+        CollectionAssert.AreEqual(
+            new[] { "Znane: --{string.Join(", ", K)}" },
+            StaryCzytnik(interpolowany),
+            "stary czytnik przestał rozcinać to wejście, więc kontrola porównuje "
+            + "dziś czytnik sam ze sobą i nie znaczy nic");
+
+        // 2. Napis surowy `$$"""` — jeden taki stoi w `FirstRun.cs` i stary czytnik
+        //    rozcinał go na 42 pozycje. Tu skrócony do dwóch wierszy JSON-a.
+        var surowy = "var j = $$\"\"\"\n{ \"a\": \"{{X}}\" }\n\"\"\";";
+        CollectionAssert.AreEqual(
+            new[] { "\n{ \"a\": \"{{X}}\" }\n" },
+            Literaly(surowy),
+            "napis surowy przestał być JEDNYM literałem: "
+            + string.Join(" | ", Literaly(surowy)));
+        Assert.AreEqual(5, StaryCzytnik(surowy).Count,
+            "stary czytnik przestał rozcinać napis surowy — patrz wyżej, kontrola "
+            + "straciłaby wtedy przedmiot");
+
+        // 3. Napis dosłowny `@"…"` z podwojonym cudzysłowem. Drzewo nie ma dziś ani
+        //    jednego, więc to jest wejście syntetyczne i tak jest tu nazwane.
+        var doslowny = "var v = @\"a \"\"b\"\" c\";";
+        CollectionAssert.AreEqual(new[] { "a \"\"b\"\" c" }, Literaly(doslowny),
+            "napis dosłowny przestał być JEDNYM literałem: "
+            + string.Join(" | ", Literaly(doslowny)));
+        Assert.AreEqual(3, StaryCzytnik(doslowny).Count,
+            "stary czytnik przestał rozcinać napis dosłowny");
+
+        // 4. Literał znakowy niosący cudzysłów. Jeden taki przesuwa parzystość
+        //    cudzysłowów w całym pliku, więc psuje KAŻDY literał za sobą.
+        var znakowy = "if (c == '\"') { x = \"ok\"; }";
+        CollectionAssert.AreEqual(new[] { "ok" }, Literaly(znakowy),
+            "literał znakowy z cudzysłowem przestał być pomijany: "
+            + string.Join(" | ", Literaly(znakowy)));
+        CollectionAssert.AreEqual(new[] { "') { x = " }, StaryCzytnik(znakowy),
+            "stary czytnik przestał się mylić na literale znakowym");
+
+        // 5. Komentarz z cudzysłowem — czytnik pomija go sam, bez `KodBezKomentarzy`.
+        var komentarz = "var x = 1; // powiedział \"cześć\"\nvar y = \"tak\";";
+        CollectionAssert.AreEqual(new[] { "tak" }, Literaly(komentarz),
+            "komentarz przestał być pomijany przez sam czytnik: "
+            + string.Join(" | ", Literaly(komentarz)));
+        Assert.AreEqual(2, StaryCzytnik(komentarz).Count,
+            "stary czytnik przestał czytać literały z komentarza na końcu wiersza");
+    }
+
+    /// <summary>
+    /// Korpus NADAL niesie konstrukcje, których stary czytnik nie czytał — 6.D182.
+    ///
+    /// <para>Test na prawdziwym drzewie, obok kontroli na wejściu syntetycznym.
+    /// Mówi dwie rzeczy naraz: ile pozycji dawał stary czytnik i w ilu plikach obie
+    /// drogi się rozchodzą. Gdyby <c>src/Game/</c> przestało nieść takie konstrukcje,
+    /// ten test zapali się i powie o tym wprost — zamiast cicho stać się zielonym
+    /// z niczego.</para>
+    /// </summary>
+    [TestMethod]
+    public void Korpus_niesie_konstrukcje_ktorych_stary_czytnik_nie_czytal()
+    {
+        var stare = 0;
+        var nowe = 0;
+        var rozciete = new List<string>();
+        foreach (var sciezka in ZrodlaGry())
+        {
+            var kod = KodBezKomentarzy(File.ReadAllText(sciezka));
+            var s = StaryCzytnik(kod);
+            var n = Literaly(kod);
+            stare += s.Count;
+            nowe += n.Count;
+            if (!s.SequenceEqual(n, StringComparer.Ordinal))
+            {
+                rozciete.Add(Path.GetFileName(sciezka));
+            }
+        }
+
+        Assert.AreEqual(PozycjiStaregoCzytnika, stare,
+            $"stary czytnik daje dziś {stare} pozycji wobec zmierzonych "
+            + $"{PozycjiStaregoCzytnika} — liczba w akapicie przy `Literaly` "
+            + "opisuje inny korpus");
+        Assert.AreEqual(LiteralowWZasieguBramki, nowe,
+            $"czytnik leksykalny daje dziś {nowe} literałów wobec zmierzonych "
+            + $"{LiteralowWZasieguBramki}");
+        Assert.AreEqual(PlikowRozcietychPrzezStaryCzytnik, rozciete.Count,
+            "pliki, na których obie drogi się rozchodzą, to dziś "
+            + string.Join(", ", rozciete) + $" ({rozciete.Count}), a pomiar 6.D182 "
+            + $"dał {PlikowRozcietychPrzezStaryCzytnik} — jeśli ZERO, korpus "
+            + "przestał nieść konstrukcję, dla której ten czytnik powstał");
+        CollectionAssert.AreEqual(new[] { "FirstRun.cs", "RunPlan.cs" },
+            rozciete.OrderBy(n => n, StringComparer.Ordinal).ToList(),
+            "rozchodzą się inne pliki niż w pomiarze: " + string.Join(", ", rozciete));
     }
 }
