@@ -3614,3 +3614,190 @@ def test_ci_blender_installer_WYLICZA_brakujace_biblioteki_z_ldd():
             f"bibliotek: {powod[0]}")
         assert "libatrapa.so" in powod[0], (
             f"komunikat mówi o brakach, ale żadnego nie nazywa: {powod[0]}")
+
+
+# --- 6.D148: gdzie stoi krok kompilujacy `tools/` -------------------------------
+
+#: Workflow, ktore niosa krok `compileall`. **Zmierzone 12.09.2026: jeden z dziesieciu.**
+WORKFLOWY_Z_COMPILEALL = ("python-tests.yml",)
+
+#: Workflow, ktore NIE wykonuja ani jednego pliku z `tools/`. Zmierzone 12.09.2026:
+#: jeden z dziesieciu — i jest nim jedyny workflow uruchamiany recznie
+#: (`workflow_dispatch`), ktory kasuje scalone galezie przez API GitHuba.
+#:
+#: **Wpis pozycji 6.D148 mowil, ze „dziewiec pozostalych workflowow w ogole nie musi
+#: importowac `tools/`" — i to jest NIEPRAWDA.** Osiem z tych dziewieciu wykonuje
+#: skrypty z `tools/ci/`, ktore z kolei wolaja Pythona z `tools/blender/`,
+#: `tools/track/`, `tools/visual/` i `tools/tests/`.
+WORKFLOWY_BEZ_TOOLS = ("prune-merged-branches.yml",)
+
+#: Workflow uruchamiane na KAZDYM pull requescie, bez filtra `paths`. Zmierzone
+#: 12.09.2026: dwa z dziesieciu. Na tej liczbie stoi cale rozstrzygniecie tej
+#: pozycji — patrz `test_krok_compileall_stoi_w_workflow_BEZWARUNKOWYM`.
+WORKFLOWY_BEZWARUNKOWE = ("python-tests.yml", "sim-tests.yml")
+
+
+def _wyzwalacze(nazwa):
+    """Sekcja `on:` workflow, jako slownik.
+
+    **`on` w YAML-u to wartosc logiczna, nie napis.** `yaml.safe_load` zamienia
+    klucz `on:` na `True` i `dokument["on"]` rzuca `KeyError` — a bramka, ktora
+    zlapie ten wyjatek i pojdzie dalej, zamelduje „brak wyzwalaczy" dla KAZDEGO
+    workflow i bedzie zielona. Kontrola przyrzadu nizej wykonuje ten przypadek.
+    """
+    dokument = yaml.safe_load(_text(nazwa))
+    return dokument.get("on", dokument.get(True)) or {}
+
+
+def bezwarunkowy_na_pull_request(nazwa):
+    """Czy workflow rusza na KAZDYM pull requescie, bez filtra sciezek."""
+    pr = _wyzwalacze(nazwa).get("pull_request", "BRAK")
+    if pr == "BRAK":
+        return False
+    if not pr:                                  # `pull_request:` bez ciala
+        return True
+    return not (pr.get("paths") or pr.get("paths-ignore"))
+
+
+def _cialo_z_tekstu(tekst):
+    """Wszystko, co ten workflow WYKONA: `run:` krokow plus `run:` akcji lokalnych.
+
+    Filtry `paths:` i klucze `cache` tez wymieniaja `tools/`, a kodu nie wykonuja.
+
+    **Zawezenie do `run:` jest dzis UBEZPIECZENIEM, nie zmierzona koniecznoscia —
+    i mowie to wprost.** Kontrola KN-4 tej pozycji (czytanie calego pliku zamiast
+    samych `run:`) wyszla **ZIELONA na 80 testach**: jedyny workflow, ktory kodu
+    z `tools/` nie wykonuje, nie wymienia `tools/` takze nigdzie indziej, wiec
+    dzisiejsze dziesiec plikow obu czytnikow nie odroznia. Zawezenie zostaje, bo
+    kosztuje zero, a workflow filtrowany na `tools/**` i NIEURUCHAMIAJACY stamtad
+    niczego jest ksztaltem najzupelniej mozliwym — ale zdanie o nim ma mowic, ile
+    jest warte. Sam mechanizm jest przybity wejsciem syntetycznym w kontroli
+    przyrzadu nizej.
+    """
+    dokument = yaml.safe_load(tekst)
+    czesci = []
+    for job in (dokument.get("jobs") or {}).values():
+        for krok in (job.get("steps") or []):
+            if krok.get("run"):
+                czesci.append(str(krok["run"]))
+            uses = str(krok.get("uses", ""))
+            if uses.startswith("./.github/actions/"):
+                czesci.append(_action_body(uses))
+    return "\n".join(czesci)
+
+
+def _cialo_wykonywane(nazwa):
+    return _cialo_z_tekstu(_text(nazwa))
+
+
+def wykonuje_kod_z_tools(nazwa):
+    """Czy ten workflow uruchamia cokolwiek spod `tools/`."""
+    return "tools/" in _cialo_wykonywane(nazwa)
+
+
+def workflowy_z_compileall():
+    return tuple(n for n in _workflows() if "compileall" in _cialo_wykonywane(n))
+
+
+def test_krok_compileall_stoi_dokladnie_w_jednym_workflow():
+    """Liczba przybita rownoscia — 6.D148.
+
+    Nie progiem: krok dopisany do kolejnego workflow ma byc widoczny w diffie razem
+    z powodem, a zdjety z jedynego, ktory go ma, tym bardziej.
+    """
+    assert workflowy_z_compileall() == WORKFLOWY_Z_COMPILEALL, (
+        "krok `compileall` stoi w %s, a pomiar z 12.09.2026 dal %s"
+        % (list(workflowy_z_compileall()), list(WORKFLOWY_Z_COMPILEALL)))
+
+
+def test_krok_compileall_stoi_w_workflow_BEZWARUNKOWYM():
+    """ROZSTRZYGNIECIE pozycji, wykonane zamiast opisane — 6.D148.
+
+    Jeden workflow z dziesieciu wyglada na asymetrie dopoty, dopoki nie zapyta sie,
+    KTORY. `python-tests.yml` jest jednym z DWOCH, ktore rusza na kazdym pull
+    requescie bez filtra `paths` — wiec kompilacja calego `tools/` dzieje sie na
+    kazdym PR, niezaleznie od tego, ktore z pozostalych osmiu filtr wybierze.
+    Skopiowanie kroku do tamtych nie dodaloby ani jednego pokrycia, a kosztowaloby
+    0,33 s razy osiem.
+
+    **Ten test pilnuje rzeczy, ktora moze sie zmienic po cichu:** dopisanie filtra
+    `paths` do `python-tests.yml` zamienia kompilacje `tools/` z bezwarunkowej
+    w warunkowa, nie ruszajac ani jednego wiersza kroku `compileall`.
+    """
+    for nazwa in WORKFLOWY_Z_COMPILEALL:
+        assert bezwarunkowy_na_pull_request(nazwa), (
+            "`%s` niesie krok `compileall`, ale przestal ruszac na KAZDYM pull "
+            "requescie — kompilacja calego `tools/` jest odtad warunkowa i "
+            "rozstrzygniecie 6.D148 trzeba przeczytac jeszcze raz" % nazwa)
+
+    zmierzone = tuple(n for n in _workflows() if bezwarunkowy_na_pull_request(n))
+    assert zmierzone == WORKFLOWY_BEZWARUNKOWE, (
+        "workflowow bez filtra `paths` jest %s, a pomiar z 12.09.2026 dal %s — "
+        "liczba jest tu trescia, bo na niej stoi zdanie „jeden wystarczy"
+        % (list(zmierzone), list(WORKFLOWY_BEZWARUNKOWE)))
+
+
+def test_dla_kazdego_workflow_wiadomo_czy_uruchamia_kod_z_tools():
+    """Pole „Skonczone, gdy" 6.D148 zada tego dla wszystkich dziesieciu.
+
+    **Wpis pozycji byl tu nieprawdziwy i pomiar to pokazuje:** nie „dziewiec
+    workflowow nie musi importowac `tools/`", tylko DZIEWIEC Z DZIESIECIU ten kod
+    wykonuje. Jedyny, ktory nie — `prune-merged-branches.yml` — chodzi recznie
+    i rozmawia wylacznie z API GitHuba.
+    """
+    bez = tuple(n for n in _workflows() if not wykonuje_kod_z_tools(n))
+    assert bez == WORKFLOWY_BEZ_TOOLS, (
+        "workflowy nieuruchamiajace kodu z `tools/`: %s, a pomiar z 12.09.2026 dal "
+        "%s" % (list(bez), list(WORKFLOWY_BEZ_TOOLS)))
+
+    wszystkich = len(_workflows())
+    assert wszystkich - len(bez) == 9 and wszystkich == 10, (
+        "workflowow jest %d, z czego %d uruchamia kod z `tools/` — pomiar "
+        "z 12.09.2026 mowil 10 i 9" % (wszystkich, wszystkich - len(bez)))
+
+
+def test_czytnik_wyzwalaczy_radzi_sobie_z_kluczem_on_ktory_jest_wartoscia_logiczna():
+    """Kontrola przyrzadu — 6.D148.
+
+    Na drzewie repozytorium czytnik poprawny i czytnik pytajacy o `dokument["on"]`
+    roznia sie tym, ze drugi rzuca `KeyError` na KAZDYM pliku. Gdyby ktos ten wyjatek
+    zlapal i poszedl dalej, obie bramki wyzej bylyby zielone na pustce.
+    """
+    dokument = yaml.safe_load(_text(WORKFLOWY_Z_COMPILEALL[0]))
+    assert True in dokument, (
+        "`on:` przestal parsowac sie jako wartosc logiczna — jesli PyYAML zmienil "
+        "zachowanie, komentarz przy `_wyzwalacze` jest nieaktualny")
+    assert "on" not in dokument, (
+        "`on` stoi w kluczach jako napis — patrz wyzej, to ta sama zmiana")
+    assert set(_wyzwalacze(WORKFLOWY_Z_COMPILEALL[0])) == {"push", "pull_request"}, (
+        _wyzwalacze(WORKFLOWY_Z_COMPILEALL[0]))
+
+    # I ze filtr `paths` naprawde przelacza odpowiedz, a nie jest ozdoba wzorca:
+    # `blender-smoke.yml` go ma, `python-tests.yml` nie.
+    assert not bezwarunkowy_na_pull_request("blender-smoke.yml"), (
+        "workflow z filtrem `paths` policzony jako bezwarunkowy")
+    assert bezwarunkowy_na_pull_request("python-tests.yml"), (
+        "workflow bez filtra `paths` policzony jako warunkowy")
+
+    # I ze `tools/` w filtrze `paths` NIE jest wykonaniem. Na dzisiejszych dziesieciu
+    # plikach nie odroznia tego nic (KN-4 zielona), wiec rozstrzyga wejscie
+    # syntetyczne — inaczej zawezenie do `run:` byloby zdaniem bez pokrycia.
+    tylko_filtr = (
+        "name: x\n"
+        "on:\n"
+        "  pull_request:\n"
+        "    paths:\n"
+        "      - 'tools/**'\n"
+        "jobs:\n"
+        "  j:\n"
+        "    runs-on: self-hosted\n"
+        "    steps:\n"
+        "      - run: echo nic\n")
+    assert "tools/" not in _cialo_z_tekstu(tylko_filtr), (
+        "`tools/` wymienione WYLACZNIE w filtrze `paths` policzone jako wykonanie: %r"
+        % _cialo_z_tekstu(tylko_filtr))
+    z_krokiem = tylko_filtr.replace("      - run: echo nic\n",
+                                    "      - run: python3 tools/x.py\n")
+    assert "tools/" in _cialo_z_tekstu(z_krokiem), (
+        "`tools/` w kroku `run:` NIE policzone jako wykonanie: %r"
+        % _cialo_z_tekstu(z_krokiem))
