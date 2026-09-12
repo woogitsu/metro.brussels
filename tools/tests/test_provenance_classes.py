@@ -24,9 +24,11 @@ trzecią kopią tej samej wiedzy i rozjechałby się jak dwie poprzednie. Dopisa
 do dokumentu ma nie zapalać niczego — dokument jest źródłem, nie kopią, i tego wprost
 żąda pole „Skończone, gdy" pozycji 6.D89.
 """
+import csv
 import json
 import os
 import re
+import tempfile
 import sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -92,6 +94,94 @@ EST_JAKO_SLOWO_PLIKOW = 4
 
 #: Wzorzec gołego słowa — używany WYŁĄCZNIE do pokazania, że grep tu nie działa.
 SLOWO_EST = re.compile(r"(?<![A-Za-z_])est(?![A-Za-z_])")
+
+
+#: Nagłówki kolumn, które w plikach tabelarycznych `data/` NIOSĄ STATUS — 6.D150.
+#:
+#: Tabela, nie reguła po kształcie: nagłówek jest nazwą wybraną przez człowieka, a nie
+#: wzorcem, i zgadywany byłby zgadniętym faktem. Dziś ma jedną pozycję, bo pod `data/`
+#: stoi **jeden** plik CSV. `status` jest w niej obok `confidence`, bo tak nazywa się
+#: to pole w JSON-ach i nowy plik najpewniej weźmie tę nazwę; gdy weźmie inną, zapali
+#: się `test_kazdy_plik_CSV_pod_data_ma_kolumne_statusu_w_tabeli`.
+KOLUMNY_STATUSU_CSV = ("confidence", "status")
+
+#: Statusy w kolumnach CSV pod `data/`. **Zmierzone 12.09.2026: jeden plik, kolumna
+#: `confidence`, `unknown` 9 i `estimated` 3.**
+#:
+#: **Wpis pozycji 6.D150 podawał trzecią wartość — `confidence` 1× — i to jest ODCISK
+#: czytnika, który nie pominął nagłówka.** Plik ma cztery wiersze komentarza `#`,
+#: a dopiero piąty jest nagłówkiem; `csv.DictReader` puszczony wprost bierze za
+#: nagłówek pierwszy komentarz i całą resztę czyta jako jedną kolumnę. Liczba 1 przy
+#: `confidence` jest więc policzonym NAGŁÓWKIEM, a nie wartością — i dokładnie dlatego
+#: czytnik niżej pomija wiersze `#`, a kontrola przyrządu to wykonuje.
+STATUSY_CSV = {
+    "network/station-depths.csv": {"confidence": {"unknown": 9, "estimated": 3}},
+}
+
+#: Słownik, który `station-depths.csv` deklaruje we WŁASNYM nagłówku komentarza:
+#: `# confidence: measured | counted | estimated | unknown`.
+SLOWNIK_STATION_DEPTHS = ("measured", "counted", "estimated", "unknown")
+
+
+def _wiersze_csv(sciezka):
+    """`(nagłówek, wiersze)` — z pominięciem wierszy komentarza `#`.
+
+    Nagłówkiem jest PIERWSZY wiersz niekomentarzowy. Bez tego pominięcia nagłówkiem
+    zostaje pierwszy komentarz, a plik czyta się jako jedna kolumna — patrz
+    `STATUSY_CSV`.
+    """
+    with open(sciezka, encoding="utf-8") as uchwyt:
+        tresc = [w for w in uchwyt.read().split("\n")
+                 if w.strip() and not w.lstrip().startswith("#")]
+    if not tresc:
+        return [], []
+    czytnik = list(csv.reader(tresc))
+    return czytnik[0], czytnik[1:]
+
+
+def statusy_w_kolumnach_csv(katalog=None):
+    """`{ścieżka względna: {kolumna: {status: ile}}}` dla CSV pod `data/` — 6.D150.
+
+    Czyta KOLUMNĘ wskazaną nagłówkiem, a nie tekst pliku. Różnica jest ta sama, co
+    między `statusy_w_katalogu_danych` a grepem z `EST_JAKO_SLOWO_W_DANYCH`: trzy
+    z siedmiu fałszywych trafień tamtego grepu leżą właśnie w tym pliku, w cytacie
+    «la profondeur des quais … **est** d'environ 11 m».
+    """
+    baza = katalog or DANE
+    out = {}
+    for gdzie, _katalogi, pliki in TW.walk(baza, baza):
+        for nazwa in sorted(pliki):
+            if not nazwa.endswith(".csv"):
+                continue
+            sciezka = os.path.join(gdzie, nazwa)
+            naglowek, wiersze = _wiersze_csv(sciezka)
+            per_kolumna = {}
+            for kolumna in KOLUMNY_STATUSU_CSV:
+                if kolumna not in naglowek:
+                    continue
+                k = naglowek.index(kolumna)
+                licznik = {}
+                for wiersz in wiersze:
+                    if k >= len(wiersz):
+                        continue
+                    wartosc = wiersz[k].strip()
+                    if wartosc:
+                        licznik[wartosc] = licznik.get(wartosc, 0) + 1
+                if licznik:
+                    per_kolumna[kolumna] = licznik
+            if per_kolumna:
+                out[os.path.relpath(sciezka, baza).replace(os.sep, "/")] = per_kolumna
+    return out
+
+
+def pliki_csv_pod_danymi(katalog=None):
+    """Wszystkie CSV pod `data/` — do sprawdzenia, że żaden nie stoi poza skanem."""
+    baza = katalog or DANE
+    out = []
+    for gdzie, _katalogi, pliki in TW.walk(baza, baza):
+        out += [os.path.relpath(os.path.join(gdzie, n), baza).replace(os.sep, "/")
+                for n in sorted(pliki) if n.endswith(".csv")]
+    return sorted(out)
 
 
 def statusy_w_katalogu_danych(katalog=None):
@@ -672,6 +762,130 @@ def test_gole_slowo_est_w_danych_to_francuszczyzna_a_nie_status():
 
 
 # 6.D25: uruchomienie tego pliku WPROST idzie tą samą drogą, co cały zestaw.
+def test_statusy_w_kolumnach_csv_zgadzaja_sie_z_pomiarem():
+    """Spis statusów spoza JSON-ów, przybity — 6.D150.
+
+    Skan z 6.D134 czyta wyłącznie pliki JSON, a status potrafi stać w KOLUMNIE.
+    Bez tego spisu nazwa wycofana mogłaby wrócić do `data/` w formacie, którego
+    nie ogląda nic.
+    """
+    zmierzone = statusy_w_kolumnach_csv()
+    assert zmierzone == STATUSY_CSV, (
+        "statusy w kolumnach CSV rozjechały się z pomiarem z 12.09.2026: %s zamiast %s"
+        % (zmierzone, STATUSY_CSV))
+
+
+def test_kazdy_plik_CSV_pod_data_ma_kolumne_statusu_w_tabeli():
+    """Pole „Skończone, gdy" 6.D150: żaden plik poza skanem bez zapisanego powodu.
+
+    Plik CSV bez rozpoznanej kolumny statusu wypadałby ze spisu po cichu — a spis
+    pusty czyta się jak „czysto", nie jak „nie przeczytano".
+    """
+    wszystkie = pliki_csv_pod_danymi()
+    assert wszystkie, "pod `data/` nie ma ani jednego CSV — skan mierzy wtedy nic"
+
+    poza = [p for p in wszystkie if p not in statusy_w_kolumnach_csv()]
+    assert poza == [], (
+        "plik CSV pod `data/` stoi poza skanem statusów: %s — albo jego nagłówek "
+        "kolumny trzeba dopisać do `KOLUMNY_STATUSU_CSV`, albo zapisać, dlaczego "
+        "statusu nie niesie" % poza)
+
+
+def test_zadna_klasa_zakazana_nie_stoi_w_kolumnie_csv():
+    """`est` jest zakazane W DANYCH, a kolumna CSV jest danymi — 6.D150.
+
+    To NIE jest złączenie słowników (patrz test niżej): klasa zakazana obowiązuje
+    wszędzie, gdzie stoi status, niezależnie od tego, jakim słownikiem posługuje się
+    dany plik.
+    """
+    trafienia = []
+    for sciezka, kolumny in statusy_w_kolumnach_csv().items():
+        for kolumna, licznik in kolumny.items():
+            for nazwa in licznik:
+                if nazwa in ZAKAZANE_W_DANYCH:
+                    trafienia.append((sciezka, kolumna, nazwa, licznik[nazwa]))
+    assert trafienia == [], (
+        "klasa zakazana wróciła do danych przez kolumnę CSV: %s — %s"
+        % (trafienia, [ZAKAZANE_W_DANYCH[t[2]] for t in trafienia]))
+
+
+def test_slownik_CSV_jest_OSOBNY_od_slownika_modelu():
+    """ROZSTRZYGNIĘCIE 6.D150, policzone — słowniki się NIE spotykają.
+
+    Pole „Dlaczego" pytało, czy `estimated` z CSV i `est` z modelu mają wejść do
+    jednego słownika. Odpowiada przecięcie zbiorów:
+
+    - słownik `station-depths.csv` (zadeklarowany w NAGŁÓWKU tego pliku:
+      `# confidence: measured | counted | estimated | unknown`) a klasy modelu
+      z `docs/02-simulation.md` — **przecięcie puste**;
+    - ten sam słownik a statusy z JSON-ów pod `data/` — wspólne jest **jedno** słowo,
+      `unknown`, stojące w JSON-ach 268 razy, czyli najogólniejsze, jakie może być.
+
+    Dwa słowniki opisują dwie różne rzeczy: klasy modelu mówią, SKĄD wzięto parametr
+    jazdy, a kolumna `confidence` — jak pewny jest POMIAR głębokości. Złączenie ich
+    uczyniłoby `estimated` zakazanym, czyli wymagałoby zmiany klasyfikacji trzech
+    wierszy, których pole „Poza zakresem" tej pozycji dotykać zabrania — i akurat
+    tych trzech, które jako jedyne w pliku niosą cytat ze źródła i podaną precyzję.
+    """
+    slownik_csv = set(SLOWNIK_STATION_DEPTHS)
+    assert slownik_csv & klasy_z_dokumentu() == set(), (
+        "słownik CSV zaczął się przecinać z klasami modelu: %s — wtedy pytanie "
+        "o złączenie trzeba postawić od nowa"
+        % sorted(slownik_csv & klasy_z_dokumentu()))
+
+    w_jsonach = set()
+    for licznik in statusy_w_katalogu_danych().values():
+        w_jsonach |= set(licznik)
+    assert slownik_csv & w_jsonach == {"unknown"}, (
+        "wspólne słowa CSV i JSON-ów to %s, a pomiar z 12.09.2026 dał samo `unknown`"
+        % sorted(slownik_csv & w_jsonach))
+
+    # I że słownik z nagłówka pliku jest tym, którego plik NAPRAWDĘ używa — inaczej
+    # zdanie wyżej mówiłoby o deklaracji, a nie o danych.
+    uzyte = set(statusy_w_kolumnach_csv()["network/station-depths.csv"]["confidence"])
+    assert uzyte <= slownik_csv, (
+        "kolumna niesie status spoza słownika zadeklarowanego w nagłówku pliku: %s"
+        % sorted(uzyte - slownik_csv))
+
+
+def test_czytnik_csv_pomija_komentarze_i_widzi_est_wstawione_do_kolumny():
+    """Kontrola przyrządu na drzewie probnym — 6.D150.
+
+    **Dwie pułapki naraz, obie zmierzone.** Pierwsza: `csv.DictReader` puszczony na
+    ten plik wprost bierze za nagłówek pierwszy wiersz komentarza i czyta całość jako
+    JEDNĄ kolumnę — stąd `confidence` 1× we wpisie pozycji, czyli policzony NAGŁÓWEK.
+    Druga: pole „Weryfikacja" żąda, żeby `est` wstawione do kolumny zapaliło bramkę,
+    a na dzisiejszym drzewie żadnego `est` nie ma, więc rozstrzyga wejście syntetyczne.
+    """
+    with tempfile.TemporaryDirectory() as katalog:
+        sciezka = os.path.join(katalog, "proba.csv")
+        with open(sciezka, "w", encoding="utf-8") as uchwyt:
+            uchwyt.write("# komentarz jeden\n"
+                         "# confidence: measured | estimated\n"
+                         "line,confidence,note\n"
+                         "L1,estimated,x\n"
+                         "L2,est,y\n"
+                         "L3,,pusty status nie liczy sie\n")
+
+        wynik = statusy_w_kolumnach_csv(katalog)
+        assert wynik == {"proba.csv": {"confidence": {"estimated": 1, "est": 1}}}, wynik
+
+        zakazane = [n for n in wynik["proba.csv"]["confidence"] if n in ZAKAZANE_W_DANYCH]
+        assert zakazane == ["est"], (
+            "`est` wstawione do kolumny CSV nie zostało rozpoznane jako klasa "
+            "zakazana: %s" % wynik)
+
+        # Pułapka pierwsza, wykonana: czytnik NIEPOMIJAJĄCY komentarzy widzi jedną
+        # kolumnę o nazwie pierwszego komentarza i ani jednego statusu.
+        with open(sciezka, encoding="utf-8") as uchwyt:
+            naiwny = list(csv.DictReader(uchwyt))
+        assert list(naiwny[0]) == ["# komentarz jeden"], (
+            "`csv.DictReader` przestał brać komentarz za nagłówek — jeśli to zmiana "
+            "w bibliotece, akapit przy `STATUSY_CSV` trzeba przeczytać jeszcze raz: %s"
+            % list(naiwny[0]))
+        assert "confidence" not in naiwny[0], naiwny[0]
+
+
 if __name__ == "__main__":
     sys.path.insert(0, os.path.join(ROOT, "tools", "tests"))
     import test_all
