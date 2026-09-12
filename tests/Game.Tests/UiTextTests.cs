@@ -1431,4 +1431,340 @@ public sealed class UiTextTests
             rozciete.OrderBy(n => n, StringComparer.Ordinal).ToList(),
             "rozchodzą się inne pliki niż w pomiarze: " + string.Join(", ", rozciete));
     }
+
+    /// <summary>
+    /// Ciało DEKLARACJI — bloku, wyrażenia albo inicjalizatora — 6.D183.
+    ///
+    /// <para><b>Dlaczego obok <see cref="CialoMetody"/>, a nie zamiast.</b>
+    /// <c>CialoMetody</c> rozstrzyga formę po tym, co stoi pierwsze: <c>{</c> czy
+    /// <c>;</c>. Na trzech członach z mapy <see cref="ZrodlaHud"/> myli się, bo obie
+    /// odpowiedzi są złe: <c>public static string Help { get; } = string.Join(…);</c>
+    /// ma <c>{</c> przed <c>;</c>, więc dostaje <c>{ get; }</c> i gubi CAŁY
+    /// inicjalizator, w którym stoi szablon. <b>Nie jest to usterka ukryta —
+    /// zapaliłaby asercję obecności znanych napisów</b> — ale cicho zwęziłaby zakres
+    /// skanu, a bramka mierząca mniej, niż twierdzi, to usterka z rodziny 6.D27.</para>
+    ///
+    /// <para>Reguła jest mała i pokrywa wszystkie jedenaście członów mapy: jeśli
+    /// <c>{</c> na głębokości zero stoi przed <c>=</c>, dopasuj klamry — a potem,
+    /// jeśli zaraz za klamrą stoi <c>=</c>, ciągnij dalej do średnika na głębokości
+    /// zero. Inaczej idź wprost do tego średnika. Napisy i komentarze pomija
+    /// <see cref="PominNieNapis"/> i <see cref="CzytajLiteral"/> — te same prymitywy,
+    /// które 6.D182 postawiło pod czytnik literałów, i bez nich średnik ze środka
+    /// napisu kończyłby deklarację w złym miejscu.</para>
+    /// </summary>
+    private static string CialoDeklaracji(string source, string naglowek)
+    {
+        var start = source.IndexOf(naglowek, StringComparison.Ordinal);
+        Assert.IsTrue(start >= 0,
+            $"nie ma członu `{naglowek}` — skan mierzyłby nie ten człon albo nic");
+
+        var glebia = 0;
+        var i = start;
+        var poKlamrze = -1;
+        while (i < source.Length)
+        {
+            var po = PominNieNapis(source, i, source.Length);
+            if (po != i)
+            {
+                i = po;
+                continue;
+            }
+
+            if (PrefiksLiteralu(source, i, source.Length) >= 0)
+            {
+                i = CzytajLiteral(source, i, source.Length, new List<string>());
+                continue;
+            }
+
+            var znak = source[i];
+            if (znak == '=' && glebia == 0 && poKlamrze < 0)
+            {
+                // Forma wyrażeniowa albo inicjalizator: kończy średnik, nie klamra.
+                break;
+            }
+
+            if (znak == '{')
+            {
+                glebia++;
+            }
+            else if (znak == '}')
+            {
+                glebia--;
+                if (glebia == 0)
+                {
+                    poKlamrze = i;
+                    // `{ get; } =` ciągnie się dalej; blok metody kończy się tutaj.
+                    var j = i + 1;
+                    while (j < source.Length && char.IsWhiteSpace(source[j]))
+                    {
+                        j++;
+                    }
+
+                    if (j >= source.Length || source[j] != '=')
+                    {
+                        return source[start..(i + 1)];
+                    }
+                }
+            }
+
+            i++;
+        }
+
+        while (i < source.Length)
+        {
+            var po = PominNieNapis(source, i, source.Length);
+            if (po != i)
+            {
+                i = po;
+                continue;
+            }
+
+            if (PrefiksLiteralu(source, i, source.Length) >= 0)
+            {
+                i = CzytajLiteral(source, i, source.Length, new List<string>());
+                continue;
+            }
+
+            var znak = source[i];
+            glebia += znak == '{' ? 1 : znak == '}' ? -1 : 0;
+            if (znak == ';' && glebia == 0)
+            {
+                return source[start..i];
+            }
+
+            i++;
+        }
+
+        Assert.Fail($"nie domknięto deklaracji `{naglowek}`");
+        throw new InvalidOperationException();
+    }
+
+    /// <summary>
+    /// Argumenty napisowe <see cref="Hud"/>.<c>Update</c>, w kolejności sygnatury — 6.D183.
+    /// </summary>
+    private static readonly string[] ArgumentyNapisoweHud =
+    {
+        "nextStation", "mode", "station", "signalling", "view", "emergency", "help",
+    };
+
+    /// <summary>
+    /// Skąd bierze się każdy argument napisowy <c>Hud.Update</c> — mapa prześledzona
+    /// ręcznie 12.09.2026 i pilnowana trzema bramkami — 6.D183.
+    ///
+    /// <para><b>Dlaczego mapa WPISANA, a nie wyprowadzona.</b> Prześledzenie wartości
+    /// przez pola, właściwości i metody w kilku plikach to analiza przepływu, a ta
+    /// wymaga rozbioru składni C# — czyli zależności, przed którą <c>CLAUDE.md</c> §8
+    /// każe przerwać. Mapa jest więc wpisana, ale NIE jest gołym twierdzeniem: pilnują
+    /// jej <see cref="Kazde_przypisanie_Text_stoi_w_ciele_Hud_Update"/> (że droga na
+    /// ekran jest JEDNA) i <see cref="Kazdy_argument_napisowy_Hud_Update_ma_zrodlo"/>
+    /// (że argumentów jest dokładnie tyle, ile mapa opisuje). Ósmy argument dopisany
+    /// do <c>Update</c> zapala drugą z nich, zamiast po cichu wypaść z pomiaru.</para>
+    ///
+    /// <para><b>Czego mapa NIE obejmuje i mówi o tym wprost:</b> wartości spoza kodu —
+    /// nazwy stacji z <c>data/network/</c> (argument <c>nextStation</c>) — oraz nazwy
+    /// członów wyliczeń renderowane przez <c>{…}</c> (<c>AuthorityLimit</c>,
+    /// <c>ProtectionAction</c>, <c>DoorPhase</c>). Te drugie DOCIERAJĄ na ekran, ale
+    /// literałami nie są, więc żadna rodzina liczona po literałach ich nie widzi.
+    /// Osobna pozycja, nie cichy brak.</para>
+    /// </summary>
+    private static readonly (string Argument, string Plik, string Naglowek)[] ZrodlaHud =
+    {
+        ("nextStation", "FirstRun.cs", "private void UpdateHud()"),
+
+        ("mode", "FirstRun.cs", "private string _mode ="),
+        ("mode", "RunPlan.cs", "public string Mode =>"),
+
+        ("station", "FirstRun.cs", "private string StationLine()"),
+        ("station", "FirstRun.cs", "private static string Faza(DoorPhase phase)"),
+        ("station", "FirstRun.cs", "private const string BladZatrzymaniaFormat ="),
+
+        ("signalling", "FirstRun.cs", "private string SignallingLine()"),
+        ("signalling", "SignallingHud.cs", "public const string WithoutSignalling ="),
+        ("signalling", "SignallingHud.cs", "public const string NotOnPlanYet ="),
+        ("signalling", "SignallingHud.cs", "public const string WithoutProtection ="),
+        ("signalling", "SignallingHud.cs", "public const string BeforeFirstStep ="),
+        ("signalling", "SignallingHud.cs", "public static string Line("),
+
+        ("view", "World/ChaseCameraAim.cs", "public string Reason"),
+
+        ("emergency", "Input/EmergencyBrake.cs", "public static string Notice("),
+
+        ("help", "FirstRun.cs", "private string HelpLine()"),
+        ("help", "Input/DriverInput.cs", "public static string Help =>"),
+        ("help", "Input/DriverActions.cs", "public const string HelpSeparator ="),
+        ("help", "Input/DriverActions.cs", "public static readonly IReadOnlyList<DriverBinding> All ="),
+        ("help", "Input/DriverActions.cs", "public static string Help { get; } ="),
+        ("help", "Input/DriverActions.cs", "private static string BuildCoreDrivesHelp()"),
+    };
+
+    /// <summary>Napisy, o których 6.D175 i 6.D179 wiedzą, że widzi je gracz.</summary>
+    private static readonly string[] ZnanePlayerskie =
+    {
+        "koniec pakietu",
+        "bez sygnalizacji — przejazd bez blokad (podaj --signalling)",
+        "sygnalizacja: skład jeszcze nie wjechał na plan",
+        "sygnalizacja: linia bez ochrony pociągu",
+        "sygnalizacja: przed pierwszym krokiem",
+    };
+
+    /// <summary>Ile literałów dociera na ekran drogą <c>Hud.Update</c> — 6.D183.</summary>
+    private const int LiteralowNaEkranie = 74;
+
+    /// <summary>Ile z nich jest KLUCZEM katalogu, a nie tekstem — 6.D183.</summary>
+    private const int KluczyKatalogunaEkranie = 28;
+
+    /// <summary>
+    /// Ile literałów z tej drogi niesie SŁOWO w rozumieniu bramki — 6.D183.
+    ///
+    /// <para>Pytane tym samym sitem, którym pyta <see cref="SlowaWKodzie"/>:
+    /// <c>BezJednostek(BezDziur(literał))</c> wobec <see cref="WzorzecSlowa"/>.
+    /// Reszta z 46 napisów w kodzie to formaty liczb (<c>F1</c>, <c>F0</c>,
+    /// <c>+0.00;-0.00;0.00</c>), nazwy klawiszy, rozdzielacze i szablony złożone
+    /// z samych dziur.</para>
+    /// </summary>
+    private const int ZeSlowemNaEkranie = 22;
+
+    /// <summary>
+    /// Ile z nich ma polski znak diakrytyczny — liczba PORÓWNAWCZA do 6.D175 — 6.D183.
+    /// </summary>
+    private const int ZDiakrytykiemNaEkranie = 7;
+
+    /// <summary>Polskie znaki diakrytyczne — rodzina, którą mierzyło 6.D175.</summary>
+    private const string ZnakiDiakrytyczne =
+        "\u0105\u0107\u0119\u0142\u0144\u00f3\u015b\u017a\u017c"
+        + "\u0104\u0106\u0118\u0141\u0143\u00d3\u015a\u0179\u017b";
+
+    /// <summary>Ile przypisań <c>.Text =</c> ma cała warstwa gry — 6.D183.</summary>
+    private const int PrzypisanText = 7;
+
+    private static string ZrodloGry(string wzgledna) =>
+        Zrodlo(new[] { "src", "Game" }.Concat(wzgledna.Split('/')).ToArray());
+
+    /// <summary>
+    /// Każde przypisanie <c>.Text =</c> w warstwie gry stoi w ciele <c>Hud.Update</c>
+    /// — 6.D183.
+    ///
+    /// <para><b>To jest przesłanka całej pozycji, wykonana, a nie założona.</b> Pole
+    /// „Skąd" 6.D183 mówi, że jedynym sprawdzalnym kryterium „tekst dla gracza" jest
+    /// DROGA WYWOŁANIA do <c>_hud.Update</c>. Zdanie to jest prawdziwe tylko wtedy,
+    /// gdy nic innego nie pisze po ekranie — i dopiero ten test to sprawdza. Gdyby
+    /// gdziekolwiek indziej stało <c>Label.Text = …</c>, cała odpowiedź pozycji
+    /// opisywałaby jedną z dwóch dróg i nie mówiła o tym ani słowa.</para>
+    /// </summary>
+    [TestMethod]
+    public void Kazde_przypisanie_Text_stoi_w_ciele_Hud_Update()
+    {
+        var cialo = CialoDeklaracji(HudSource(), "public void Update(");
+        var wszystkie = new List<string>();
+        var pozaCialem = new List<string>();
+        foreach (var sciezka in ZrodlaGry())
+        {
+            var kod = KodBezKomentarzy(File.ReadAllText(sciezka));
+            foreach (Match trafienie in Regex.Matches(kod, @"\w+\.Text\s*="))
+            {
+                wszystkie.Add($"{Path.GetFileName(sciezka)}: {trafienie.Value}");
+                if (!cialo.Contains(trafienie.Value, StringComparison.Ordinal))
+                {
+                    pozaCialem.Add($"{Path.GetFileName(sciezka)}: {trafienie.Value}");
+                }
+            }
+        }
+
+        // Dolne ostrze na SAM SKAN — bez niego literówka we wzorcu daje pustą listę,
+        // a pusta lista przechodzi „zero poza ciałem" bez jednego sprawdzenia (6.D27).
+        Assert.AreEqual(PrzypisanText, wszystkie.Count,
+            $"skan widzi {wszystkie.Count} przypisań `.Text =` w `src/Game/` wobec "
+            + $"zmierzonych {PrzypisanText}: " + string.Join(" | ", wszystkie));
+        Assert.AreEqual(0, pozaCialem.Count,
+            "po ekranie pisze coś spoza `Hud.Update`, więc kryterium „droga wywołania” "
+            + "z 6.D183 opisuje JEDNĄ z dwóch dróg i nie mówi o tym: "
+            + string.Join(" | ", pozaCialem));
+    }
+
+    /// <summary>
+    /// Każdy argument napisowy <c>Hud.Update</c> ma w mapie źródło — 6.D183.
+    ///
+    /// <para>Bramka na STARZENIE SIĘ MAPY. Ósmy argument dopisany do <c>Update</c>
+    /// nie wypada wtedy po cichu z pomiaru, tylko zapala ten test.</para>
+    /// </summary>
+    [TestMethod]
+    public void Kazdy_argument_napisowy_Hud_Update_ma_zrodlo()
+    {
+        var naglowek = CialoDeklaracji(HudSource(), "public void Update(");
+        var podpis = naglowek[..naglowek.IndexOf('{')];
+        var wSygnaturze = Regex.Matches(podpis, @"\bstring\s+(\w+)")
+            .Select(m => m.Groups[1].Value).ToList();
+
+        CollectionAssert.AreEqual(ArgumentyNapisoweHud, wSygnaturze,
+            "sygnatura `Hud.Update` niesie inne argumenty napisowe niż mapa 6.D183: "
+            + string.Join(", ", wSygnaturze));
+
+        var opisane = ZrodlaHud.Select(z => z.Argument).Distinct(StringComparer.Ordinal)
+            .OrderBy(a => a, StringComparer.Ordinal).ToList();
+        CollectionAssert.AreEqual(
+            ArgumentyNapisoweHud.OrderBy(a => a, StringComparer.Ordinal).ToList(), opisane,
+            "mapa `ZrodlaHud` opisuje inne argumenty niż sygnatura: "
+            + string.Join(", ", opisane));
+    }
+
+    /// <summary>
+    /// Ile literałów dociera na ekran drogą <c>Hud.Update</c> — 6.D183.
+    ///
+    /// <para><b>Podział na KLUCZ i TEKST jest tu treścią.</b> Literał stojący
+    /// w <c>UiText.Get("hud.door.open")</c> też dociera drogą <c>Hud.Update</c>, ale
+    /// tym, co widzi gracz, jest wtedy WPIS KATALOGU, a nie ten napis. Zlanie obu
+    /// w jedną liczbę dałoby odpowiedź większą i nieprawdziwą.</para>
+    /// </summary>
+    [TestMethod]
+    public void Literaly_docierajace_na_ekran_droga_Hud_Update()
+    {
+        var wszystkie = new List<string>();
+        foreach (var (_, plik, czlon) in ZrodlaHud)
+        {
+            var kod = KodBezKomentarzy(ZrodloGry(plik));
+            wszystkie.AddRange(Literaly(CialoDeklaracji(kod, czlon)));
+        }
+
+        wszystkie.AddRange(Literaly(CialoDeklaracji(
+            KodBezKomentarzy(HudSource()), "public void Update(")));
+
+        var klucze = wszystkie.Where(l => UiText.Keys.Contains(l)).ToList();
+        var tekst = wszystkie.Where(l => !UiText.Keys.Contains(l)).ToList();
+
+        Assert.AreEqual(LiteralowNaEkranie, wszystkie.Count,
+            $"drogą `Hud.Update` dociera dziś {wszystkie.Count} literałów wobec "
+            + $"zmierzonych {LiteralowNaEkranie}: " + string.Join(" | ", wszystkie));
+        Assert.AreEqual(KluczyKatalogunaEkranie, klucze.Count,
+            $"kluczy katalogu jest {klucze.Count} wobec zmierzonych "
+            + $"{KluczyKatalogunaEkranie}: " + string.Join(" | ", klucze));
+
+        // GŁÓWNA LICZBA POZYCJI. „Ile tekstu dla gracza" to nie „ile literałów":
+        // z 46 napisów w kodzie większość to formaty liczb, nazwy klawiszy
+        // i rozdzielacze. Pytam o nie tym samym sitem, co bramka.
+        var zeSlowem = tekst
+            .Where(l => Regex.IsMatch(BezJednostek(BezDziur(l)), WzorzecSlowa))
+            .ToList();
+        Assert.AreEqual(ZeSlowemNaEkranie, zeSlowem.Count,
+            $"ze słowem jest {zeSlowem.Count} literałów wobec zmierzonych "
+            + $"{ZeSlowemNaEkranie}: " + string.Join(" | ", zeSlowem));
+
+        // Liczba PORÓWNAWCZA do 6.D175, które mierzyło rodzinę „polski znak
+        // diakrytyczny" i odpowiedziało „trzy ze 140". Różnica między nią a liczbą
+        // wyżej JEST odpowiedzią 6.D183, więc stoi w teście, a nie tylko w raporcie.
+        var zDiakrytykiem = zeSlowem
+            .Where(l => l.Any(z => ZnakiDiakrytyczne.Contains(z, StringComparison.Ordinal)))
+            .ToList();
+        Assert.AreEqual(ZDiakrytykiemNaEkranie, zDiakrytykiem.Count,
+            $"z polskim znakiem jest {zDiakrytykiem.Count} wobec zmierzonych "
+            + $"{ZDiakrytykiemNaEkranie}: " + string.Join(" | ", zDiakrytykiem));
+
+        // Cztery napisy z 6.D175 i 6.D179 MUSZĄ tu być — pole „Weryfikacja" pozycji
+        // mówi wprost: jeśli ich nie ma, prześledzenie pominęło argument.
+        foreach (var znany in ZnanePlayerskie)
+        {
+            Assert.IsTrue(tekst.Contains(znany, StringComparer.Ordinal),
+                $"napis „{znany}”, o którym wiadomo, że widzi go gracz, NIE wyszedł "
+                + "z prześledzenia — mapa `ZrodlaHud` pominęła argument albo człon");
+        }
+    }
 }
