@@ -330,7 +330,7 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 #: Pozycja NIE jest zrobiona — raport zapisuje pomiar, z którego wyszło, że kształtu
 #: żądanego przez jej pole „Wyjście" nie ma; wybór między trzema mechanizmami jest
 #: decyzją właściciela. Policzona na drzewie.
-MIN_REPORTS = 287
+MIN_REPORTS = 288
 
 #: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
 #: wierszem zaczynającym się od `**`, z którego `_header_shapes` czyta kształt.
@@ -781,29 +781,44 @@ PATH_TOKEN = re.compile(r'`((?:\.(?=[A-Za-z0-9_]+/))?[A-Za-z0-9_][A-Za-z0-9_./-]
 #: z `seen` wprost — mnoży się przez liczbę PRZECZYTANYCH raportów, więc podłoga
 #: rośnie razem z katalogiem i nie ma czego podnosić przy nowym raporcie.
 #:
-#: SKĄD 6. Zmierzone 09.09.2026 na `c8fb583`: 162 raporty, 1466 trafień, czyli
-#: **9,05** ścieżki na raport. Oba brzegi liczy z drzewa
-#: `test_podloga_sciezek_na_raport_jest_ZABOKSOWANA_pomiarami`, więc nie ma tu
-#: liczby, która mogłaby zostać z tyłu:
-#:   od dołu  — zawężenie kontrolne wzorca (`ROZSZERZENIE_KONTROLNE`) zbija
-#:              stosunek do **5,59**, więc 6 je łapie, a 5 już nie;
+#: SKĄD 5 — AKAPIT PRZEPISANY 12.09.2026, A NIE DOPISANY OBOK. Do tego dnia stało
+#: tu 6, z rachunkiem z 09.09.2026 (`c8fb583`, 162 raporty, 1466 trafień, 9,05 na
+#: raport). Brzeg od góry zaczerwienił się przy 288 raportach: 2012 trafień wobec
+#: 2016 wymaganych, czyli **6,99** ścieżki na raport przy podłodze żądającej 7.
+#:
+#: Oba brzegi liczy z drzewa `test_podloga_sciezek_na_raport_jest_ZABOKSOWANA_pomiarami`,
+#: więc nie ma tu liczby, która mogłaby zostać z tyłu. Zmierzone 12.09.2026 na 288
+#: raportach:
+#:   od dołu  — zawężenie kontrolne (`ROZSZERZENIE_KONTROLNE` = `md`, 699 trafień)
+#:              zbija stosunek do **4,56**, więc 5 je łapie, a 4 już nie;
 #:   od góry  — podłoga musi stać co najmniej jedną PEŁNĄ ścieżkę na raport pod
-#:              dzisiejszym stosunkiem (`seen >= checked * (K + 1)`): 6 zostawia
-#:              zapas 494 trafień, 8 zostawia 170, 9 się już nie mieści.
-#: Przedział mieszczący się w obu brzegach to {6, 7, 8}, a 6 jest z niego wybrane
-#: pomiarem TRWAŁOŚCI, nie zasadą „bierz najmocniejsze": raporty z ostatnich dni
-#: są chudsze od średniej katalogu (pierwsze 50 dodanych: 15,14 ścieżki na raport,
-#: ostatnie 50: 7,26, najchudszy dobrze obsadzony dzień 02.09.2026 przy n=9:
-#: 5,11). Przy dopisywaniu raportów o gęstości 5,11 podłoga 6 czerwieni się po
-#: **555** nowych raportach, 7 po **175**, 8 po **58** — a 58 to w tym projekcie
-#: około trzech dni, czyli bramka wyłączona przez fałszywy alarm (6.D27).
+#:              dzisiejszym stosunkiem (`seen >= checked * (K + 1)`): 5 zostawia
+#:              zapas 572 trafień, 6 już się nie mieści.
+#: Przedział mieszczący się w obu brzegach to dziś **{5}** — JEDNA WARTOŚĆ, a nie
+#: {6, 7, 8} jak 09.09.2026. Wyboru trwałości nie ma i to jest treść, nie brak:
+#: podłoga stosunkowa ma tyle miejsca, ile daje jej stosunek, a ten spadł z 9,05
+#: do 6,99, bo katalog urósł ze 162 raportów do 288.
+#:
+#: DLACZEGO STOSUNEK SPADŁ, MIMO ŻE ŚWIEŻE RAPORTY SĄ GĘSTSZE OD ŚREDNIEJ.
+#: Ostatnie 50 dodanych ma **9,06** ścieżki na raport, ostatnie 30 — **8,00**,
+#: czyli powyżej całego katalogu. Spadek bierze się stąd, że 09.09.2026 średnią
+#: podbijały raporty najstarsze (pierwsze 50: 15,14), a ich udział w katalogu
+#: maleje z każdym nowym. Podłoga stosunkowa NIE starzeje się więc od chudnięcia
+#: raportów, tylko od rozcieńczania ogona grubych.
+#:
+#: TRWAŁOŚĆ NOWEJ WARTOŚCI, zmierzona tym samym rachunkiem: przy gęstości 5,11
+#: (najchudszy dobrze obsadzony dzień, 02.09.2026, n=9) brzeg od góry zaczerwieni
+#: się po **319** raportach, przy 5,0 — po 284, przy 4,0 — po 142, a przy 6,0
+#: i wyżej NIGDY. Dla 6 każda z tych gęstości daje „już teraz", co jest dokładnie
+#: powodem tej zmiany.
 #:
 #: KIERUNEK W GÓRĘ NIE DAJE FAIL i to jest zmierzony wynik, nie luka w boksowaniu:
-#: 7 mieści się w brzegu od góry. Pole „Skończone, gdy" pozycji 6.D58 żądało
-#: trójki FAIL/zielono/FAIL, bo było pisane dla zapadki RÓWNOŚCIOWEJ; podłoga
-#: stosunkowa ma z natury jeden brzeg twardy i jeden z zapasem. Powód i rachunek
-#: stoją w `reports/podloga-sciezek-na-raport.md`.
-SCIEZEK_NA_RAPORT_MIN = 6
+#: przy 6 brzeg od góry pada, więc jedynym kierunkiem z miejscem jest dół. Pole
+#: „Skończone, gdy" pozycji 6.D58 żądało trójki FAIL/zielono/FAIL, bo było pisane
+#: dla zapadki RÓWNOŚCIOWEJ; podłoga stosunkowa ma z natury jeden brzeg twardy
+#: i jeden z zapasem. Powód i rachunek stoją w `reports/podloga-sciezek-na-raport.md`
+#: oraz — dla tej zmiany — w `reports/6d179-koniec-pakietu-i-usterka-czytnika.md` §6.
+SCIEZEK_NA_RAPORT_MIN = 5
 
 #: Rozszerzenie, którego zdjęcie ze wzorca jest ZAWĘŻENIEM KONTROLNYM dla podłogi
 #: wyżej: najprawdopodobniejszy realny dryf (ktoś zacieśnia wzorzec „do plików
