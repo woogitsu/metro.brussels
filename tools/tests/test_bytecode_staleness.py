@@ -51,6 +51,7 @@ skryptu w `tools/`. Pilnuje tego `test_procedura_stoi_w_dokumentach_a_nie_tylko_
 zmian i jest powodem, dla ktorego obrona ma byc w narzedziu, a nie w pamieci.
 """
 
+import ast
 import os
 import re
 import shutil
@@ -607,3 +608,172 @@ def test_dokument_nie_twierdzi_ze_CI_zaczyna_z_pustym_katalogiem():
     assert str(BAJTKOD_PO_COMPILEALL_PLIKI) in tekst, (
         "dokument nie podaje liczby plikow (%d), wiec nie ma czym sie zestarzec "
         "widocznie" % BAJTKOD_PO_COMPILEALL_PLIKI)
+
+
+# --- 6.D147: nieprawidlowe sekwencje ucieczki w zrodlach `tools/` ----------------
+
+#: Wszystko, co po `\` jest w napisie Pythona SEKWENCJA PRAWIDLOWA. Reszta jest
+#: zapowiedzia bledu: CPython mowi „such sequences will not work in the future".
+PRAWIDLOWE_PO_UKOSNIKU = "\n\\'\"abfnrtvxNuU01234567"
+
+#: Prefiksy literalu, po ktorych ucieczki nie ma — `r`, `rb`, `Rb`, `br`…
+SUROWY = re.compile(r"^[a-zA-Z]*[rR][a-zA-Z]*['\"]")
+
+#: Ile takich sekwencji ma byc w `tools/`. **Zero, przybite w OBIE strony.**
+#:
+#: **Zmierzone 12.09.2026 (6.D147): przed poprawka CZTERY, a nie trzy.** Wpis pozycji
+#: mowil o trzech — `csharp_test_methods.py`, `test_conflict_markers.py`
+#: i `test_next_task.py` — bo tyle stalo w logu CI przy 6.D136. Czwarta,
+#: `test_dimension_audit.py`, **doszla pozniej i dolozylem ja ja sam przy 6.D139**
+#: (`4358ab5`, dobe wczesniej). Nie zauwazyl tego nikt i nic: dlatego ta bramka
+#: istnieje, a jej liczba jest przybita z obu stron, nie progiem.
+MAX_SEKWENCJI_UCIECZKI = 0
+
+#: Dolne ostrze na SAM SKAN: zepsuty czytnik daje zero sekwencji i zielono, czyli
+#: czyta sie jak czystosc. Zmierzone 12.09.2026: **202** moduly pod `tools/`, skan
+#: trwa 3,1 s. Prog stoi nizej, zeby nie ruszac go przy kazdym nowym narzedziu —
+#: ale wysoko na tyle, zeby zawezenie skanu do jednego katalogu go zapalilo
+#: (kontrola KN-5b: `tools/ci` to 9 modulow).
+MINIMUM_MODULOW_SKANOWANYCH = 100
+
+
+def _po_ukosnikach(fragment):
+    """Znaki stojace zaraz po `\\` w tekscie literalu, z pominieciem par `\\\\`."""
+    out = []
+    i = 0
+    while i < len(fragment) - 1:
+        if fragment[i] == "\\":
+            if fragment[i + 1] == "\\":
+                i += 2
+                continue
+            out.append(fragment[i + 1])
+            i += 2
+            continue
+        i += 1
+    return out
+
+
+def sekwencje_ucieczki(korzen=None):
+    """`[(plik, wiersz, sekwencja)]` dla kazdej NIEPRAWIDLOWEJ ucieczki w `tools/`.
+
+    **Czytane ze ZRODLA, nie z ostrzezen interpretera, i to jest wybor zmierzony.**
+    CPython zglasza te sekwencje jako `DeprecationWarning` do 3.11 wlacznie,
+    a od 3.12 jako `SyntaxWarning`. Bramka oparta o klase ostrzezenia milczalaby
+    na jednej z tych wersji — zmierzone 12.09.2026: na Pythonie 3.11.15 tego
+    kontenera `python3 -W error::SyntaxWarning -m compileall -q tools` daje kod 0
+    i ani jednego wiersza, przy CZTERECH sekwencjach w drzewie.
+
+    **Drugie ograniczenie interpretera, wazniejsze:** CPython zglasza tylko PIERWSZA
+    zla sekwencje w danym literale. W drzewie sprzed tej pozycji byly cztery
+    ostrzezenia, ale **dziewiec** wystapien — `test_next_task.py` mial sam cztery
+    (`\\|`, `\\.`, `\\d`). Skan po zrodle widzi wszystkie.
+    """
+    import tree_walk as TW
+
+    korzen = os.path.join(ROOT, "tools") if korzen is None else korzen
+    # `TW.znajdz`, a nie `os.walk`: odsianie `.gitignore` stoi w jednym miejscu,
+    # a `__pycache__` odpada razem z nim — wlasna kopia tej listy rozjechalaby sie
+    # przy nastepnym wpisie (6.D74, 6.D97, 6.D117).
+    sciezki = TW.znajdz(korzen, "*.py", korzen)
+    znalezione = []
+    nieparsowalne = []
+    for sciezka in sciezki:
+        with open(sciezka, encoding="utf-8") as uchwyt:
+            zrodlo = uchwyt.read()
+        try:
+            drzewo = ast.parse(zrodlo)
+        except SyntaxError as blad:
+            # NIE `continue` po cichu. Zmierzone przy kontroli KN-1 tej pozycji:
+            # plik, ktory sie nie parsuje, wypadal ze skanu bez sladu, a bramka
+            # nizej meldowala „zero sekwencji" na drzewie, ktorego w calosci nie
+            # przeczytala — rodzina 6.D27, tym razem w przyrzadzie tej pozycji.
+            nieparsowalne.append((os.path.relpath(sciezka, korzen), str(blad)))
+            continue
+        for wezel in ast.walk(drzewo):
+            if not isinstance(wezel, ast.Constant):
+                continue
+            if not isinstance(wezel.value, (str, bytes)):
+                continue
+            # Odsianie PRZED `get_source_segment`, i to nie jest optymalizacja bez
+            # powodu: tamta funkcja tnie cale zrodlo na wiersze przy KAZDYM wywolaniu,
+            # a literalow jest w `tools/` kilkadziesiat tysiecy — bez tego wiersza skan
+            # nie konczyl sie w 100 s. Odsianie jest SZCZELNE: sekwencja nieprawidlowa
+            # zostaje w wartosci razem z ukosnikiem (`"\\|"` -> `\\|`), a prawidlowa
+            # sie na cos zamienia (`"\\n"` -> nowa linia), wiec literal bez ukosnika
+            # w WARTOSCI nie moze niesc sekwencji, ktorej ta bramka szuka.
+            if "\\" not in (wezel.value if isinstance(wezel.value, str)
+                            else wezel.value.decode("latin-1")):
+                continue
+            fragment = ast.get_source_segment(zrodlo, wezel)
+            if fragment is None or SUROWY.match(fragment):
+                continue
+            for znak in _po_ukosnikach(fragment):
+                if znak not in PRAWIDLOWE_PO_UKOSNIKU:
+                    znalezione.append((os.path.relpath(sciezka, korzen),
+                                       wezel.lineno, "\\" + znak))
+    return znalezione, len(sciezki), nieparsowalne
+
+
+def test_zrodla_tools_nie_niosa_ani_jednej_zlej_sekwencji_ucieczki():
+    """Zapowiedz bledu nie ma prawa dojsc po cichu — 6.D147.
+
+    Cztery poprawione tu docstringi dostaly prefiks `r`, i **zmierzono, ze wartosc
+    zadnego z nich sie przez to nie zmienila** (dlugosc i tresc identyczne co do
+    znaku). Obawa z pola „Dlaczego" tej pozycji — ze surowy napis zmieni sposob,
+    w jaki czyta go bramka roszczen — jest wiec dla TYCH czterech nieprawdziwa:
+    zadna z nich nie niesie ucieczki PRAWIDLOWEJ, ktora `r` by unieszkodliwilo.
+    """
+    znalezione, moduly, nieparsowalne = sekwencje_ucieczki()
+
+    assert nieparsowalne == [], (
+        "modul pod `tools/` sie NIE PARSUJE, wiec skan go pominal — zero sekwencji "
+        "nizej byloby wtedy zdaniem o drzewie, ktorego bramka nie przeczytala "
+        "w calosci: %s" % nieparsowalne)
+    assert moduly >= MINIMUM_MODULOW_SKANOWANYCH, (
+        "skan widzi %d modulow pod `tools/` przy progu %d — zero sekwencji nizej "
+        "znaczyloby wtedy \u201eczytnik nie czyta\u201d, a nie \u201edrzewo czyste\u201d"
+        % (moduly, MINIMUM_MODULOW_SKANOWANYCH))
+
+    assert len(znalezione) == MAX_SEKWENCJI_UCIECZKI, (
+        "nieprawidlowych sekwencji ucieczki jest %d, a zapadka stoi na %d: %s — "
+        "napis z taka sekwencja przestanie sie kompilowac w przyszlym CPythonie, "
+        "wiec dopisz `r` przed literalem albo zdubluj ukosnik"
+        % (len(znalezione), MAX_SEKWENCJI_UCIECZKI, znalezione))
+
+
+def test_czytnik_sekwencji_widzi_to_co_ma_i_nie_widzi_tego_czego_nie_ma():
+    """Kontrola przyrzadu na drzewie probnym — 6.D147.
+
+    Na drzewie repozytorium czytnik poprawny i czytnik zepsuty daja dzis TE SAMA
+    zielen (zero sekwencji), wiec rozroznia je wylacznie wejscie syntetyczne.
+    """
+    with tempfile.TemporaryDirectory() as katalog:
+        with open(os.path.join(katalog, "zly.py"), "w", encoding="utf-8") as uchwyt:
+            uchwyt.write('x = "a \\| b"\ny = """c \\` d"""\n')
+        with open(os.path.join(katalog, "dobry.py"), "w", encoding="utf-8") as uchwyt:
+            uchwyt.write('x = r"a \\| b"\ny = "c \\n d"\nz = "e \\\\ f"\n')
+
+        znalezione, moduly, nieparsowalne = sekwencje_ucieczki(katalog)
+        assert moduly == 2, moduly
+        assert nieparsowalne == [], nieparsowalne
+        assert sorted(s for _p, _w, s in znalezione) == ["\\`", "\\|"], (
+            "czytnik widzi %s, a ma widziec dokladnie dwie zle sekwencje z `zly.py`"
+            % znalezione)
+        # Po basename, bo sciezki drzewa probnego sa wzgledem `ROOT` repozytorium
+        # i wychodza jako `../../tmp/…`; pytanie brzmi, KTORY plik, a nie gdzie lezy.
+        assert {os.path.basename(p) for p, _w, _s in znalezione} == {"zly.py"}, (
+            "czytnik zglasza plik, ktory ZADNEJ zlej sekwencji nie ma: %s" % znalezione)
+
+    # I ze `\\\\` naprawde jest parą, a nie dwoma osobnymi ucieczkami — bez tego
+    # kazdy zdublowany ukosnik w drzewie bylby falszywym alarmem.
+    assert _po_ukosnikach(r'"a \\ b"') == [], _po_ukosnikach(r'"a \\ b"')
+    assert _po_ukosnikach(r'"a \\\| b"') == ["|"], _po_ukosnikach(r'"a \\\| b"')
+
+    # I ze plik NIEPARSOWALNY jest zglaszany, a nie przemilczany. Bez tej polowy
+    # „zero sekwencji" bylo by prawda takze o drzewie, ktorego nie da sie wczytac.
+    with tempfile.TemporaryDirectory() as katalog:
+        with open(os.path.join(katalog, "polamany.py"), "w", encoding="utf-8") as uchwyt:
+            uchwyt.write("def f(:\n    pass\n")
+        znalezione, moduly, nieparsowalne = sekwencje_ucieczki(katalog)
+        assert moduly == 1 and znalezione == [], (moduly, znalezione)
+        assert [p for p, _b in nieparsowalne] == ["polamany.py"], nieparsowalne

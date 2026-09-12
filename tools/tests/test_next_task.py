@@ -257,7 +257,7 @@ def run_doctor_queue(workdir):
 
 
 def test_doctor_points_at_the_queue_and_the_rule_is_not_retyped():
-    """Wybór pozycji kolejki jest WYCIĘTY z doctora i uruchomiony, nie przepisany.
+    r"""Wybór pozycji kolejki jest WYCIĘTY z doctora i uruchomiony, nie przepisany.
 
     Bramka na napis nie odróżniłaby kodu wykonywanego od komentarza — repozytorium
     odrzuciło tę formę osobno w #200.
