@@ -46,7 +46,15 @@ jobs:
 
     steps:
       - name: Checkout
+        # 6.D108: PEŁNA historia, nie domyślna głębokość 1 — decyzja właściciela
+        # z 10.09.2026. `tools/tests/test_report_claims.py` rozstrzyga, czy zdanie
+        # raportu mówi o wartości BIEŻĄCEJ stałej, czy o wartości Z DNIA POMIARU,
+        # po dacie ostatniej zmiany tej stałej w gicie. Przy głębokości 1 nie ma
+        # czego przeszukać: KAŻDA stała wygląda wtedy na zmienioną w jedynym
+        # widocznym commicie, więc przyrząd odpowiadałby, nie sprawdziwszy niczego.
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          fetch-depth: 0
 
       # Kontrola czystego workspace: JEDNA implementacja w
       # `.github/actions/check-workspace`, nie kopia w każdym workflow. Powód

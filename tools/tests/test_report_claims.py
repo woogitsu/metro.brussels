@@ -23,9 +23,11 @@ z kodem, albo raport wysyła czytelnika po nieistniejący próg. Ta różnica �
 liczby. Prawdę czyta `WARTOSC_W_KODZIE` z `tools/` i `src/`; raport jest stroną
 porównywaną, nigdy źródłem.
 """
+import datetime
 import glob
 import os
 import re
+import subprocess
 import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -161,6 +163,191 @@ def claims_in_reports(values):
                         yield name, number, constant, said, values[constant]
 
 
+# --- 6.D108: zdanie o wartości BIEŻĄCEJ a zdanie o wartości Z DNIA POMIARU ----------
+#
+# **Skąd ten blok.** Do 6.D108 każde trafienie wzorca było twierdzeniem o wartości
+# bieżącej, więc podniesienie dowolnej zapadki zapalało bramkę na raportach, które
+# opisywały stan swojego dnia — i poprawką było przepisywanie liczby słownie, czyli
+# obchodzenie bramki zamiast rozstrzygania. Zdarzyło się to trzy razy w jednej sesji
+# (10.09.2026): `207 → 208`, potem „stoi na 208", potem „stoi na 209".
+#
+# **Mechanizm wybrał właściciel 10.09.2026: data ostatniej zmiany STAŁEJ z gita**,
+# razem z `fetch-depth: 0` w workflowach. Wariantów „data z nagłówka raportu"
+# i „kierunek zapadki" nie realizuje nic — powody stoją w polu pozycji.
+#
+# **Rozstrzyga porządek dwóch dat**: raport jest zdaniem o dniu pomiaru wtedy i tylko
+# wtedy, gdy stała zmieniła się PO tym, jak raport ostatnio tknięto. Raport tknięty
+# w tym samym commicie co stała ma nieść wartość nową — i to jest dobrze, bo taki
+# raport właśnie o niej pisze.
+#
+# **Drzewo robocze rozstrzyga przed gitem i to jest treść, nie optymalizacja.** Bramka
+# chodzi PRZED commitem: gdyby patrzyła wyłącznie w historię, podniesienie zapadki
+# w drzewie wyglądałoby jak brak zmiany i bramka zapalałaby się dokładnie tam, gdzie
+# ta pozycja każe jej milczeć — a przepisanie liczby w raporcie na nieprawdziwą
+# wyglądałoby jak brak zmiany raportu i przechodziłoby. Stała zmieniona w drzewie ma
+# więc datę `TERAZ`, raport zmieniony w drzewie tak samo, a dwa `TERAZ` nie są
+# uporządkowane — więc raport pisany dziś o zapadce podnoszonej dziś musi podać nową
+# wartość. Obie strony mierzy kontrola negatywna.
+
+#: Znacznik „zmienione w drzewie roboczym, jeszcze nie w historii". Późniejszy od
+#: każdej daty z gita, więc porządkuje się razem z nimi bez gałęzi na `None`.
+TERAZ = datetime.datetime.max.replace(tzinfo=datetime.timezone.utc)
+
+#: Kształt definicji do przeszukania historii (`git log -G`). Wymaga liczby po znaku
+#: równości, bo bez tego wzorzec łapałby każde przypisanie do tej nazwy — a data zbyt
+#: świeża zwalnia twierdzenie z pilnowania, czyli myli się w stronę słabszej bramki.
+DEFINICJA_W_HISTORII = r"\b%s\s*=\s*[-+0-9]"
+
+
+def _git(*argumenty):
+    wynik = subprocess.run(("git",) + argumenty, cwd=ROOT,
+                           capture_output=True, text=True)
+    return wynik.stdout.strip() if wynik.returncode == 0 else ""
+
+
+def _data(iso):
+    return datetime.datetime.fromisoformat(iso) if iso else None
+
+
+_PAMIEC = {}
+
+#: Skróty dla testów: pamięć podręczna i budowanie dat. Testy podstawiają tu wejście
+#: syntetyczne, bo gałęzi „nie wiadomo" i „zmienione w drzewie" nie da się wykonać
+#: na drzewie czystym o pełnej historii.
+C_PAMIEC = _PAMIEC
+
+
+def _dt(rok, miesiac, dzien):
+    return datetime.datetime(rok, miesiac, dzien, tzinfo=datetime.timezone.utc)
+
+
+def granice_plytkiego_klonu():
+    """SHA commitów granicznych płytkiego klonu. Pusty zbiór przy klonie pełnym.
+
+    **Po co (zmierzone 12.09.2026).** W tym kontenerze klon jest płytki — 252 commity
+    od `b019436` z 07.09.2026 — i `git log -G` dla stałej nietkniętej w tym oknie
+    wskazuje **commit graniczny**, nie tę zmianę, która naprawdę była ostatnia.
+    Zmierzone na 28 stałych cytowanych dziś w raportach: **18 dostaje datę granicy**.
+    Data z granicy nie jest odpowiedzią „kiedy się zmieniła", tylko „dalej nie widzę" —
+    i przyrząd ma to powiedzieć, a nie podać ją jako datę. Stąd `fetch-depth: 0`
+    w workflowach: w CI ta ślepota byłaby całkowita, bo domyślna głębokość to 1.
+    """
+    if "granice" not in _PAMIEC:
+        katalog = _git("rev-parse", "--git-dir")
+        sciezka = os.path.join(ROOT, katalog, "shallow") if katalog else ""
+        granice = set()
+        if sciezka and os.path.isfile(sciezka):
+            with open(sciezka, encoding="utf-8") as uchwyt:
+                granice = {w.strip() for w in uchwyt if w.strip()}
+        _PAMIEC["granice"] = granice
+    return _PAMIEC["granice"]
+
+
+def zmienione_w_drzewie():
+    """Ścieżki (względem `ROOT`) zmienione lub nieśledzone wobec HEAD."""
+    if "zmienione" not in _PAMIEC:
+        wypis = _git("status", "--porcelain", "-z")
+        sciezki = set()
+        for kawalek in wypis.split("\0"):
+            if len(kawalek) > 3:
+                sciezki.add(kawalek[3:])
+        _PAMIEC["zmienione"] = sciezki
+    return _PAMIEC["zmienione"]
+
+
+def pliki_definicji():
+    """`{NAZWA: [ścieżki względne]}` — gdzie stała jest zdefiniowana."""
+    if "gdzie" not in _PAMIEC:
+        gdzie = {}
+        for path in _source_files():
+            wzgledna = os.path.relpath(path, ROOT)
+            with open(path, encoding="utf-8", errors="ignore") as handle:
+                for line in handle:
+                    found = DEFINITION.match(line)
+                    if found:
+                        gdzie.setdefault(found.group(1), []).append(wzgledna)
+        _PAMIEC["gdzie"] = gdzie
+    return _PAMIEC["gdzie"]
+
+
+def _wartosc_w_HEAD(nazwa):
+    """Wartość stałej w ostatnim commicie albo `None`, gdy niejednoznaczna lub brak."""
+    klucz = ("head", nazwa)
+    if klucz not in _PAMIEC:
+        widziane = set()
+        for wzgledna in pliki_definicji().get(nazwa, ()):
+            for line in _git("show", f"HEAD:{wzgledna}").splitlines():
+                found = DEFINITION.match(line)
+                if found and found.group(1) == nazwa:
+                    widziane.add(found.group(2))
+        _PAMIEC[klucz] = next(iter(widziane)) if len(widziane) == 1 else None
+    return _PAMIEC[klucz]
+
+
+def data_z_commita(wypis, granice):
+    """`"<sha> <iso>"` → data albo `None`. Commit GRANICZNY daje `None`.
+
+    Osobna funkcja, bo to jest jedyne miejsce, w którym „nie wiadomo" odróżnia się od
+    „dawno" — a na drzewie o pełnej historii nie da się tego wykonać ani razu.
+    Wejście jest tu więc syntetyczne z konieczności, nie z wygody: ta sama bramka ma
+    działać tak samo w kontenerze z klonem płytkim i na runnerze z `fetch-depth: 0`.
+    """
+    if not wypis or " " not in wypis:
+        return None
+    sha, iso = wypis.split(" ", 1)
+    return None if sha in granice else _data(iso)
+
+
+def data_stalej(nazwa, wartosc_w_drzewie):
+    """Kiedy stała zmieniła się ostatnio. `TERAZ`, `datetime` albo `None` (nie wiadomo).
+
+    `None` znaczy dokładnie „historia tego nie pokazuje" — klon płytki, commit
+    graniczny albo stała bez definicji w drzewie. Nie znaczy „dawno".
+    """
+    pliki = pliki_definicji().get(nazwa, [])
+    if not pliki:
+        return None
+    if any(p in zmienione_w_drzewie() for p in pliki) and \
+            _wartosc_w_HEAD(nazwa) != wartosc_w_drzewie:
+        return TERAZ
+    klucz = ("data", nazwa)
+    if klucz not in _PAMIEC:
+        wypis = _git("log", "-1", "--format=%H %cI",
+                     "-G", DEFINICJA_W_HISTORII % re.escape(nazwa), "--", *pliki)
+        _PAMIEC[klucz] = data_z_commita(wypis, granice_plytkiego_klonu())
+    return _PAMIEC[klucz]
+
+
+def data_raportu(nazwa_pliku):
+    """Kiedy raport ostatnio tknięto. `TERAZ` dla zmienionego w drzewie roboczym."""
+    wzgledna = os.path.join("reports", nazwa_pliku)
+    if wzgledna in zmienione_w_drzewie():
+        return TERAZ
+    klucz = ("raport", nazwa_pliku)
+    if klucz not in _PAMIEC:
+        _PAMIEC[klucz] = _data(_git("log", "-1", "--format=%cI", "--", wzgledna))
+    return _PAMIEC[klucz]
+
+
+def zdanie_z_dnia_pomiaru(nazwa_raportu, stala, wartosc_w_drzewie):
+    """`(czy przedawnione, powód)`. Przedawnione = stała zmieniła się PO raporcie.
+
+    Powód jest zwracany zawsze, także przy odpowiedzi przeczącej, bo komunikat bramki
+    ma mówić, DLACZEGO twierdzenie jest pilnowane — inaczej czytający nie odróżni
+    „raport jest świeży" od „nie dało się sprawdzić".
+    """
+    d_stalej = data_stalej(stala, wartosc_w_drzewie)
+    d_raportu = data_raportu(nazwa_raportu)
+    if d_stalej is None:
+        return False, ("historia nie pokazuje, kiedy stała zmieniła się ostatnio "
+                       "(klon płytki albo commit graniczny) — twierdzenie jest "
+                       "pilnowane jak zdanie o wartości bieżącej")
+    if d_raportu is None:
+        return False, "raport nie ma daty w historii — twierdzenie jest pilnowane"
+    if d_stalej > d_raportu:
+        return True, f"stała zmieniła się po raporcie ({d_stalej} > {d_raportu})"
+    return False, f"raport jest nie starszy od stałej ({d_raportu} >= {d_stalej})"
+
 def test_every_constant_quoted_in_a_report_carries_the_value_from_the_code():
     """Raport podający wartość stałej podaje tę, która jest w kodzie.
 
@@ -174,16 +361,29 @@ def test_every_constant_quoted_in_a_report_carries_the_value_from_the_code():
     values = constant_values()
     wrong = []
     checked = 0
+    datowane = 0
     for name, number, constant, said, actual in claims_in_reports(values):
         checked += 1
         if (name, constant) in CLAIM_EXCEPTIONS:
             continue
+        przedawnione, powod = zdanie_z_dnia_pomiaru(name, constant, actual)
+        if przedawnione:
+            # 6.D108: stała zmieniła się PO tym raporcie, więc raport mówi o dniu
+            # pomiaru, a nie o wartości bieżącej. Przepisywanie takiej liczby jest
+            # zakazane przez 6.D3 i było dotąd obchodzone zapisem słownym.
+            datowane += 1
+            continue
         if not _same_number(said, actual):
-            wrong.append(f"{name}:{number}: `{constant}` mówi {said}, kod {actual}")
+            wrong.append(f"{name}:{number}: `{constant}` mówi {said}, kod {actual} "
+                         f"[{powod}]")
     assert not wrong, f"raporty podają inną wartość niż kod: {wrong}"
     assert checked >= MINIMUM_CLAIMS, (
         f"wzorzec znalazł tylko {checked} twierdzeń przy progu {MINIMUM_CLAIMS} — "
         "przestał łapać, a zielona bramka na zerze trafień nic nie mierzy")
+    assert checked - datowane >= MINIMUM_CLAIMS, (
+        f"datowanie zwolniło z pilnowania {datowane} z {checked} twierdzeń, zostało "
+        f"{checked - datowane} przy progu {MINIMUM_CLAIMS} — mechanizm z 6.D108 ma "
+        "zwalniać zdania o dniu pomiaru, a nie wygaszać bramkę")
 
 
 def test_the_claim_pattern_takes_values_and_leaves_mapping_tables_alone():
@@ -313,6 +513,158 @@ def test_the_claim_exception_list_does_not_rot():
         if not pasuje:
             zbedne.append(f"{report}:{constant}")
     assert not zbedne, f"wyjątki bez powodu — zdejmij je: {zbedne}"
+
+def test_zdanie_datowane_nie_jest_pilnowane_a_zdanie_biezace_jest():
+    """Rdzeń 6.D108: rozstrzyga PORZĄDEK dwóch dat, a nie kształt zdania.
+
+    Pomiar z `reports/6d108-ksztaltu-nie-ma.md` powiedział wprost, że kształtu nie ma:
+    wszystkie dziewięć zdań datowanych wyglądało wtedy dokładnie tak, jak zdanie
+    o wartości bieżącej — bo w dniu napisania nim BYŁY. Informacja rozstrzygająca leży
+    poza zdaniem, więc bramka bierze ją z gita, a nie z tekstu.
+
+    Wejście jest syntetyczne, bo na dzisiejszym drzewie przedawnionych zdań jest
+    **zero** — a bramka, której nie da się wykonać na drzewie, zielenieje sama z siebie.
+    """
+    zastane = dict(C_PAMIEC)
+    try:
+        C_PAMIEC["gdzie"] = {"PROBNA_STALA": ["tools/tests/probny.py"]}
+        C_PAMIEC["zmienione"] = set()
+        C_PAMIEC[("data", "PROBNA_STALA")] = _dt(2026, 9, 11)
+        C_PAMIEC[("raport", "probny.md")] = _dt(2026, 9, 10)
+        przedawnione, powod = zdanie_z_dnia_pomiaru("probny.md", "PROBNA_STALA", "1")
+        assert przedawnione, powod
+        assert "po raporcie" in powod, powod
+
+        C_PAMIEC[("raport", "probny.md")] = _dt(2026, 9, 12)
+        przedawnione, powod = zdanie_z_dnia_pomiaru("probny.md", "PROBNA_STALA", "1")
+        assert not przedawnione, powod
+        assert "nie starszy" in powod, powod
+
+        C_PAMIEC[("raport", "probny.md")] = _dt(2026, 9, 11)
+        przedawnione, powod = zdanie_z_dnia_pomiaru("probny.md", "PROBNA_STALA", "1")
+        assert not przedawnione, (
+            "raport tknięty w tej samej chwili co stała ma nieść wartość NOWĄ — "
+            f"to o niej właśnie pisze: {powod}")
+    finally:
+        C_PAMIEC.clear()
+        C_PAMIEC.update(zastane)
+
+
+def test_stala_podniesiona_W_DRZEWIE_zwalnia_stary_raport_jeszcze_przed_commitem():
+    """Bez tego bramka zapalałaby się dokładnie tam, gdzie pozycja każe jej milczeć.
+
+    Zapadkę podnosi się i uruchamia zestaw **przed** commitem. Gdyby data stałej szła
+    wyłącznie z historii, świeżo podniesiona zapadka wyglądałaby jak nietknięta, więc
+    raport sprzed tygodnia byłby pilnowany jak zdanie o wartości bieżącej — i jedynym
+    wyjściem zostałoby przepisanie liczby słownie, czyli to, co ta pozycja usuwa.
+    """
+    zastane = dict(C_PAMIEC)
+    try:
+        C_PAMIEC["gdzie"] = {"PROBNA_STALA": ["tools/tests/probny.py"]}
+        C_PAMIEC["zmienione"] = {"tools/tests/probny.py"}
+        C_PAMIEC[("head", "PROBNA_STALA")] = "97"
+        assert data_stalej("PROBNA_STALA", "98") is TERAZ, (
+            "stała o innej wartości w drzewie niż w HEAD nie dostała daty TERAZ")
+        assert data_stalej("PROBNA_STALA", "97") is not TERAZ, (
+            "plik tknięty bez zmiany TEJ stałej nie może udawać jej zmiany — "
+            "inaczej dowolna edycja pliku zwalniałaby wszystkie jego stałe")
+    finally:
+        C_PAMIEC.clear()
+        C_PAMIEC.update(zastane)
+
+
+def test_raport_tkniety_w_drzewie_jest_pilnowany_mimo_starej_stalej():
+    """Druga połowa pola „Skończone, gdy": nieprawdziwa wartość NADAL zapala bramkę.
+
+    Kierunek przeciwny do testu wyżej i dlatego stoi osobno. Mechanizm zwalniający
+    zdania datowane byłby wart mniej niż nic, gdyby zwalniał też zdanie, które ktoś
+    dopiero co wpisał — a wpisane dziś zdanie jest zawsze zdaniem o dziś.
+    """
+    zastane = dict(C_PAMIEC)
+    try:
+        C_PAMIEC["zmienione"] = {os.path.join("reports", "probny.md")}
+        assert data_raportu("probny.md") is TERAZ, (
+            "raport zmieniony w drzewie roboczym nie dostał daty TERAZ — twierdzenie "
+            "wpisane przed chwilą byłoby porównywane z datą sprzed commita")
+        C_PAMIEC["gdzie"] = {"PROBNA_STALA": ["tools/tests/probny.py"]}
+        C_PAMIEC[("data", "PROBNA_STALA")] = _dt(2026, 9, 11)
+        przedawnione, powod = zdanie_z_dnia_pomiaru("probny.md", "PROBNA_STALA", "1")
+        assert not przedawnione, (
+            "raport tknięty w drzewie roboczym został zwolniony z pilnowania — "
+            f"wpisanie do niego nieprawdziwej liczby przeszłoby bez słowa: {powod}")
+    finally:
+        C_PAMIEC.clear()
+        C_PAMIEC.update(zastane)
+
+
+def test_commit_GRANICZNY_nie_jest_data_tylko_koncem_widzenia():
+    """„Nie wiadomo" ma być odróżnione od „dawno" — inaczej to 6.D27 w czystej postaci.
+
+    Zmierzone 12.09.2026 w kontenerze tej sesji: klon jest płytki (252 commity od
+    `b019436`), a `git log -G` dla stałej nietkniętej w tym oknie wskazuje **commit
+    graniczny**. Na 28 stałych cytowanych wtedy w raportach **18** dostawało w ten
+    sposób datę, która nie jest datą ich ostatniej zmiany, tylko datą, za którą nic
+    nie widać. Stąd `fetch-depth: 0` w workflowach: w CI domyślna głębokość to 1,
+    więc ślepota byłaby zupełna.
+
+    Wejście syntetyczne, bo na klonie pełnym tej gałęzi nie da się wykonać ani razu.
+    """
+    granice = {"b019436f608f3836a6c3ad0d2261815e5c1ed96f"}
+    assert data_z_commita("b019436f608f3836a6c3ad0d2261815e5c1ed96f 2026-09-07T16:20:56+02:00",
+                          granice) is None, "commit graniczny podał się za datę zmiany"
+    zwykly = data_z_commita("745814efdc0f1c11edea0de47b7d5b0c4c6e44ac "
+                            "2026-09-12T04:00:00+00:00", granice)
+    assert zwykly is not None and zwykly.year == 2026, zwykly
+    assert data_z_commita("", granice) is None, (
+        "pusty wypis `git log` znaczy „historia tego nie pokazuje”, a nie datę")
+    assert data_z_commita("bezspacji", granice) is None, (
+        "wypis bez spacji nie jest parą `sha data` — czytelnik ma odmówić, nie zgadywać")
+
+
+def test_kazde_twierdzenie_dostaje_POWOD_takze_gdy_jest_pilnowane():
+    """Komunikat ma mówić, DLACZEGO twierdzenie jest pilnowane.
+
+    Bez tego czytający nie odróżni „raport jest świeższy od stałej" od „historia tego
+    nie pokazuje" — a to są dwie różne rzeczy i druga znaczy, że bramka odpowiada
+    z mniejszą wiedzą, niż się wydaje.
+    """
+    values = constant_values()
+    bez_powodu = []
+    for name, _number, constant, _said, actual in claims_in_reports(values):
+        _przedawnione, powod = zdanie_z_dnia_pomiaru(name, constant, actual)
+        if not powod or not powod.strip():
+            bez_powodu.append(f"{name}: {constant}")
+    assert not bez_powodu, bez_powodu
+
+
+def test_wszystkie_workflowy_biora_PELNA_historie():
+    """`fetch-depth: 0` jest połową tej pozycji, nie szczegółem wdrożenia.
+
+    `actions/checkout` bez tego wejścia daje głębokość **1**, więc `git log -G` nie ma
+    czego przeszukać i KAŻDA stała wygląda na zmienioną w jedynym widocznym commicie.
+    Mechanizm datowania odpowiadałby wtedy w CI, nie sprawdziwszy niczego — rodzina
+    6.D27. Decyzja właściciela z 10.09.2026 obejmuje oba kroki naraz.
+
+    Bramka stoi TUTAJ, a nie tylko w `test_ci_workflows.py`, bo to ten moduł na tym
+    stoi: kto zdejmie `fetch-depth`, ma zobaczyć nazwę przyrządu, który przez to oślepł.
+    """
+    import yaml
+    braki = []
+    for sciezka in sorted(glob.glob(os.path.join(ROOT, ".github", "workflows", "*.yml"))):
+        with open(sciezka, encoding="utf-8") as uchwyt:
+            dokument = yaml.safe_load(uchwyt)
+        for job, cialo in (dokument.get("jobs") or {}).items():
+            for krok in cialo.get("steps") or []:
+                if "actions/checkout" not in (krok.get("uses") or ""):
+                    continue
+                glebokosc = (krok.get("with") or {}).get("fetch-depth")
+                if glebokosc != 0:
+                    braki.append(f"{os.path.basename(sciezka)}:{job}: "
+                                 f"fetch-depth={glebokosc!r}")
+    assert not braki, (
+        "checkout bez `fetch-depth: 0` — datowanie twierdzeń z 6.D108 oślepnie w CI, "
+        f"bo domyślna głębokość to 1: {braki}")
+
 
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
 # z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
