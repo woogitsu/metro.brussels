@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Znacznik nierozwiązanego konfliktu scalania nie wejdzie do drzewa po cichu.
+r"""Znacznik nierozwiązanego konfliktu scalania nie wejdzie do drzewa po cichu.
 
 **SKĄD TA BRAMKA — 6.D55, zmierzone 08.09.2026.** `docs/TASKS.md` z nierozwiązanym
 konfliktem przechodził **cały zestaw na zielono**, a liczniki wychodziły poprawnie,

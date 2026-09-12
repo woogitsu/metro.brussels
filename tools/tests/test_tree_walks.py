@@ -171,6 +171,7 @@ ZAPADKI = {
     "MAX_ODCISKOW_W_RAPORCIE": (WOLNA, "mutation_sweep.py"),
     "MAX_REPORTS_WITHOUT_FIELD_LINE": (PRZYBITA, "test_report_hygiene.py"),
     "MAX_ROZSZERZEN_BEZ_TRAFIEN": (WOLNA, "test_report_hygiene.py"),
+    "MAX_SEKWENCJI_UCIECZKI": (PRZYBITA, "test_bytecode_staleness.py"),
     "MAX_UNMATCHED_NEEDLES": (PRZYBITA, "test_needle_specificity.py"),
     "MAX_WOLNO_WPROST": (WOLNA, "test_tree_walks.py"),
     "MAX_ZAPISOW_W_DRZEWIE": (PRZYBITA, "test_tree_writes.py"),
@@ -194,6 +195,7 @@ ZAPADKI = {
     "MIN_GAME_SOURCES": (WOLNA, "test_game_needle_specificity.py"),
     "MIN_MESSAGES": (WOLNA, "test_needle_specificity.py"),
     "MIN_BLOKOW_WYKONANYCH": (WOLNA, "test_field_paths.py"),
+    "MINIMUM_MODULOW_SKANOWANYCH": (WOLNA, "test_bytecode_staleness.py"),
     "MIN_MODULE_NAMES": (WOLNA, "test_field_paths.py"),
     "MIN_WYWOLAN_W_WYKONANYCH": (WOLNA, "test_field_paths.py"),
     "MIN_NEEDLES": (WOLNA, "test_needle_specificity.py"),
@@ -659,9 +661,10 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
         "znaczy, że komuś ubył strażnik; w stronę `przybita`, że doszedł i wpis "
         "trzeba poprawić" % inna_klasa)
 
-    assert len(w_drzewie) == ZAPADEK_RAZEM == 40, (
+    assert len(w_drzewie) == ZAPADEK_RAZEM == 42, (
         "zapadek w drzewie %d, na liście %d, pomiar z 11.09.2026 mówił 38, "
-        "a po 6.D146 — 40 (doszły dwa progi KW na skanie bloków wykonanych)"
+        "po 6.D146 — 40, a po 6.D147 — 42 (doszła zapadka na sekwencje ucieczki "
+        "i próg KW jej skanu)"
         % (len(w_drzewie), ZAPADEK_RAZEM))
 
     # Liczby zbiorcze. **Nie jest to ozdobnik komunikatu i pokazała to KN-7.**
@@ -671,9 +674,10 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
     # a „21 wolnych" staje się nieprawdą, której nie zgłasza nic. KN-7 wykonała
     # dokładnie ten scenariusz: jedyną czerwienią była ta asercja.
     ile = collections.Counter(w_drzewie.values())
-    assert (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM]) == (13, 3, 23, 1), (
+    assert (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM]) == (14, 3, 24, 1), (
         "klasy zapadek: przybitych %d, częściowych %d, WOLNYCH %d, poza skanem %d — "
-        "pomiar z 11.09.2026 mówił 13/3/21/1, a po 6.D146 — 13/3/23/1; wolne to te, "
+        "pomiar z 11.09.2026 mówił 13/3/21/1, po 6.D146 — 13/3/23/1, a po 6.D147 — "
+        "14/3/24/1; wolne to te, "
         "które da się ruszyć "
         "w zakazaną stronę bez zapalenia czegokolwiek: %s"
         % (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM],

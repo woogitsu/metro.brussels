@@ -66,7 +66,7 @@ def pliki(root=ROOT):
 
 
 def maska(source):
-    """`source` z komentarzami i literalami zamienionymi na spacje, ZNAK W ZNAK.
+    r"""`source` z komentarzami i literalami zamienionymi na spacje, ZNAK W ZNAK.
 
     Dlugosc i pozycje znakow nowej linii zostaja te same, wiec indeksy z maski
     wskazuja dokladnie te same miejsca w oryginale — po masce chodzi liczenie klamr,

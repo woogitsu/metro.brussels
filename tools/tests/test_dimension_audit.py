@@ -263,7 +263,7 @@ SEKCJE_WYMIAROW = (
 
 
 def sekcja_audytu(naglowek, tekst=None):
-    """Treść jednej sekcji `##` dokumentu audytu, bez następnych.
+    r"""Treść jednej sekcji `##` dokumentu audytu, bez następnych.
 
     **Cięcie po nagłówku, a nie skan całego pliku, i to jest sedno 6.D139.** Bramki
     z T-212 i 6.D119 pytają `f"\`{nazwa}\`" not in text`, czyli o obecność nazwy
