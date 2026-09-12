@@ -17,6 +17,7 @@ więc zapis, który potrafiłby wywrócić przebieg, zamieniłby awarię dysku w
 """
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -28,6 +29,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "tools", "ci"))
 
 import test_all as TA  # noqa: E402
+import test_suite_runtime_budget as B  # noqa: E402
 import timing_record as TR  # noqa: E402
 
 WORKFLOW = os.path.join(ROOT, ".github", "workflows", "python-tests.yml")
@@ -255,6 +257,192 @@ def test_wykrywacz_krokow_reaguje_na_tresc_a_nie_na_kolejnosc():
         assert _krok_artefaktu()["if"] == "always()"
     finally:
         _kroki = zastane
+
+
+
+#: Logi jobów `tools`, z których 6.D135 przepisało wpisy `POMIARY` RĘCZNIE. Leżą w drzewie
+#: **dosłowne i NIESPAKOWANE**; przycinanie ich do „wierszy, które są potrzebne" byłoby
+#: kuracją materiału — bramka sprawdzałaby wtedy wybór człowieka, a nie log.
+#:
+#: **Niespakowane wyszło z pomiaru i z bramki, a pierwsza wersja tej pozycji miała `.gz`.**
+#: Powody są dwa i oba są zmierzone, nie wywnioskowane. Pierwszy: plik binarny odrzuca
+#: `test_conflict_markers.test_skan_czyta_CALE_drzewo_a_nie_pusty_zbior`, który żąda, żeby
+#: nieczytelne jako UTF-8 były DECYZJĄ, a nie cichym pominięciem — sześć `.gz` wywróciło
+#: siedem jobów CI. Drugi: `.gz` w repozytorium jest DROŻSZY, bo git i tak pakuje, a blobu
+#: już spakowanego nie skompresuje ani nie zdeltuje. Zmierzone na tych samych sześciu
+#: logach, dwa puste repozytoria po `git gc`: **234 858 B** tekstem wobec **428 699 B**
+#: gzipem, czyli tekst jest 1,83x tańszy. Oszczędność z `gzip -9` istnieje wyłącznie
+#: w katalogu roboczym — a płaci się w historii.
+#: Pochodzenie i sposób pobrania: `tests/data/ci-logs/README.md`.
+LOGI_CI = os.path.join(ROOT, "tests", "data", "ci-logs")
+
+#: Które pola znikają, gdy z logu zniknie wiersz niosący dane pole. Tabela jest wypisana,
+#: a nie policzona, bo to ONA jest twierdzeniem: `modulow` i `testow` stoją w JEDNYM wierszu
+#: `RAZEM`, więc nie da się zgubić jednego bez drugiego, a zdanie „na czym" pada razem
+#: z każdą ze swoich czterech składowych.
+POCIAGA_ZA_SOBA = {
+    "data": {"data"},
+    "sekundy": {"sekundy"},
+    "modulow": {"modulow", "testow", "na_czym"},
+    "testow": {"modulow", "testow", "na_czym"},
+    "cpu_na_sciane": {"cpu_na_sciane", "na_czym"},
+    "runner": {"runner", "maszyna"},
+    "job": {"job", "na_czym"},
+    "pr": {"pr", "na_czym"},
+}
+
+#: Ile wpisów runnera niesie coś PONAD to, co wychodzi z logu. Dziś jeden: wpis
+#: najwolniejszego przebiegu ma doklejone „, NAJWYŻSZY na runnerze". Ten ogon nie jest
+#: zdaniem o przebiegu, tylko o LIŚCIE, i powtarza to, co `MEASURED_MAX_WALL_S` już z niej
+#: liczy — więc zestarzeje się przy pierwszym wolniejszym przebiegu. Gdy ktoś go usunie,
+#: bramka niżej zapali się i **poprawką jest zejście tej liczby do zera**, nie rozluźnienie
+#: porównania: liczba mówi, ile listy wciąż utrzymuje się ręcznie.
+WPISOW_Z_DOPISKIEM = 1
+
+#: Numer PR-a w zdaniu „na czym" wpisu `POMIARY`. Po nim wiąże się wpis z jego logiem.
+NUMER_PR = re.compile(r"PR #(\d+)")
+
+
+def _log(numer_pr):
+    with open(os.path.join(LOGI_CI, f"tools-pr{numer_pr}.log"),
+              encoding="utf-8") as uchwyt:
+        return uchwyt.read()
+
+
+def _logi_w_drzewie():
+    return {int(n[len("tools-pr"):-len(".log")])
+            for n in os.listdir(LOGI_CI) if n.endswith(".log")}
+
+
+def _wpisy_runnera_po_pr():
+    po_pr = {}
+    for wpis in B.POMIARY_RUNNERA:
+        numer = NUMER_PR.search(wpis[4])
+        assert numer, (
+            "wpis runnera bez numeru PR w zdaniu „na czym” — nie da się go związać "
+            f"z żadnym logiem, więc nikt nigdy nie sprawdzi, skąd wzięte są jego liczby: "
+            f"{wpis!r}")
+        po_pr[int(numer.group(1))] = wpis
+    return po_pr
+
+
+def _bez_wiersza(tekst, pole):
+    """Ten sam log bez wierszy niosących dane pole — wejście syntetyczne z prawdziwego materiału."""
+    wiersze = tekst.splitlines()
+    if pole == "data":
+        # Stempel czasu nosi KAŻDY wiersz, więc „usunięcie wiersza” znaczy tu zdjęcie stempli.
+        return "\n".join(TR._STEMPEL.sub("", w.lstrip("﻿"), count=1) for w in wiersze)
+    wzor = TR.WZORY_LOGU[pole]
+    return "\n".join(w for w in wiersze if not wzor.match(TR._bez_ozdob(w)))
+
+
+def test_kazde_pole_wpisu_runnera_wychodzi_z_logu_i_zgadza_sie_z_lista():
+    """Odpowiedź pozycji 6.D152, zmierzona, a nie opisana: pięć pól z pięciu.
+
+    Pozycja zakładała, że wpis niesie „maszynę i zdanie o warunkach, których log nie podaje
+    wprost, więc automat wypełniłby je zgadując". **Ta bramka jest przepisaniem tamtego
+    zdania, a nie dopiskiem obok**: dla wpisów z CI log podaje wszystko, a wyprowadzone
+    wartości zgadzają się z przepisanymi ręcznie co do znaku. Człowiek jest potrzebny tam,
+    gdzie logu NIE MA — czyli przy pomiarach z kontenera sesji, i tylko tam.
+    """
+    po_pr = _wpisy_runnera_po_pr()
+    znak_w_znak = 0
+    for numer, (data, sekundy, modulow, maszyna, proza) in sorted(po_pr.items()):
+        pola, brakujace = TR.z_logu(_log(numer))
+        assert not brakujace, (
+            f"log PR #{numer} nie dał pól {brakujace} — albo krok „Run tool tests” "
+            "zmienił wypisy, albo to nie jest log tego kroku")
+        assert set(TR.POLA_WPISU) <= set(pola), (numer, sorted(pola))
+        assert pola["data"] == data, (numer, pola["data"], data)
+        assert pola["sekundy"] == sekundy, (numer, pola["sekundy"], sekundy)
+        assert pola["modulow"] == modulow, (numer, pola["modulow"], modulow)
+        assert pola["maszyna"] == maszyna, (numer, pola["maszyna"], maszyna)
+        assert proza.startswith(pola["na_czym"]), (
+            f"zdanie „na czym” wpisu PR #{numer} nie zaczyna się od tego, co wychodzi "
+            f"z logu:\n  z listy: {proza!r}\n  z logu:  {pola['na_czym']!r}")
+        znak_w_znak += proza == pola["na_czym"]
+
+    z_dopiskiem = len(po_pr) - znak_w_znak
+    assert z_dopiskiem == WPISOW_Z_DOPISKIEM, (
+        f"{znak_w_znak} z {len(po_pr)} wpisów zgadza się z logiem znak w znak, czyli "
+        f"{z_dopiskiem} niesie dopisek człowieka przy `WPISOW_Z_DOPISKIEM` "
+        f"= {WPISOW_Z_DOPISKIEM}. Jeśli dopisek zniknął — obniż tę liczbę; jeśli doszedł — "
+        "zapytaj najpierw, czego log o nim nie mówi, bo do dziś nie mówił o niczym")
+
+
+def test_kazdy_wpis_runnera_ma_log_w_drzewie():
+    """Bramka, przez którą następny wpis przepisany z ręki nie przejdzie bez materiału.
+
+    Bez niej odpowiedź pozycji 6.D152 byłaby zdaniem w raporcie: ktoś dopisałby wpis
+    z pamięci, a bramka wyżej sprawdzałaby tylko te wpisy, dla których log akurat jest.
+    """
+    w_liscie = set(_wpisy_runnera_po_pr())
+    w_drzewie = _logi_w_drzewie()
+    assert w_liscie == w_drzewie, (
+        f"wpisy runnera bez logu: {sorted(w_liscie - w_drzewie)}; logi bez wpisu: "
+        f"{sorted(w_drzewie - w_liscie)} — pierwszego zbioru nie da się sprawdzić, "
+        "a drugi znaczy, że materiał leży w drzewie i nikt go nie czyta")
+
+
+def test_czytelnik_logu_MOWI_czego_nie_znalazl_zamiast_zmyslac():
+    """Kontrola PRZYRZĄDU na wejściu syntetycznym: osiem logów z jedną dziurą każdy.
+
+    Prawdziwy log ma wszystko, więc na nim samym „pola są" nie odróżnia czytelnika od
+    takiego, który wstawia wartości domyślne — a to jest dokładnie rodzina 6.D27. Materiał
+    jest prawdziwy, dziura sztuczna: z logu znika wiersz niosący jedno pole, a bramka żąda,
+    żeby zapaliło się **dokładnie** tyle, ile od tego wiersza zależy.
+    """
+    wzorcowy = _log(sorted(_logi_w_drzewie())[0])
+    pelne, brak_w_pelnym = TR.z_logu(wzorcowy)
+    assert not brak_w_pelnym, brak_w_pelnym
+
+    for pole, spodziewane in sorted(POCIAGA_ZA_SOBA.items()):
+        pola, brakujace = TR.z_logu(_bez_wiersza(wzorcowy, pole))
+        assert set(brakujace) == spodziewane, (
+            f"po usunięciu wiersza z polem `{pole}` zgłoszone braki to {sorted(brakujace)}, "
+            f"a spodziewane {sorted(spodziewane)}")
+        for nazwa in spodziewane:
+            assert nazwa not in pola, (
+                f"pole `{nazwa}` powstało mimo braku wiersza, z którego wychodzi — "
+                f"czytelnik je ZMYŚLIŁ: {pola[nazwa]!r}")
+        for nazwa in set(pelne) - spodziewane:
+            assert pola.get(nazwa) == pelne[nazwa], (
+                f"usunięcie wiersza z polem `{pole}` ruszyło niezależne pole `{nazwa}`")
+
+
+def test_nazwa_maszyny_nie_moze_sie_rozjechac_z_bramka_progu():
+    """Dwa napisy o tej samej maszynie stoją w dwóch plikach — więc mają być pilnowane.
+
+    `timing_record` nie importuje modułu testowego (to narzędzie CI, nie test), a
+    `test_suite_runtime_budget` nie importuje narzędzia — przy rozjeździe wpis wyprowadzony
+    z logu przestałby pasować do `POMIARY_RUNNERA` po cichu, a `MEASURED_MAX_WALL_S`
+    liczyłby maksimum z pustego zbioru.
+    """
+    assert TR.MASZYNA_Z_LOGU == B.MASZYNA_RUNNER, (TR.MASZYNA_Z_LOGU, B.MASZYNA_RUNNER)
+    assert TR.MASZYNA_Z_LOGU in B.MASZYNY, (TR.MASZYNA_Z_LOGU, B.MASZYNY)
+    assert len(TR.POLA_WPISU) == len(B.POMIARY[0]), (
+        f"wpis `POMIARY` ma {len(B.POMIARY[0])} pól, a `POLA_WPISU` wymienia "
+        f"{len(TR.POLA_WPISU)} — liczba „pięć pól” z pozycji 6.D152 przestała mieć "
+        "przedmiot")
+
+
+def test_pomiar_bez_logu_zostaje_czlowiekowi_i_to_jest_rozstrzygniecie():
+    """Druga połowa odpowiedzi: czego ten czytelnik NIE umie i umieć nie może.
+
+    Wpisy kontenerowe nie mają logu joba — kontener sesji nie jest runnerem i nikt nie
+    zapisuje z niego niczego maszynowo. Ich zdania „na czym" („host pod obciążeniem",
+    „`ps aux` pokazywał równoległy `dotnet build`") są obserwacją człowieka i **tylko one**
+    uzasadniają utrzymywanie listy ręcznie. Bramka pilnuje, żeby to rozróżnienie miało
+    w liście przedmiot: każdy wpis jest albo runnera z logiem, albo nie-runnera bez logu.
+    """
+    kontenerowe = [w for w in B.POMIARY if w[3] != B.MASZYNA_RUNNER]
+    assert kontenerowe, "lista straciła wpisy spoza runnera — rozróżnienie 6.D135 zniknęło"
+    for wpis in kontenerowe:
+        assert not NUMER_PR.search(wpis[4]), (
+            f"wpis spoza runnera powołuje się na PR: {wpis!r} — albo jest z CI i ma "
+            "maszynę `runner`, albo nie ma i wtedy numer PR-a niczego nie dowodzi")
+    assert len(B.POMIARY) == len(B.POMIARY_RUNNERA) + len(kontenerowe), (
+        "wpis, który nie jest ani runnera, ani kontenera — `MASZYNY` wymienia dwie")
 
 
 if __name__ == "__main__":
