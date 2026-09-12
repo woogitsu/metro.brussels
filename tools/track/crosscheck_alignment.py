@@ -25,6 +25,7 @@ import argparse
 import json
 import math
 import os
+import re
 import sys
 import time
 import xml.etree.ElementTree as ET
@@ -62,6 +63,10 @@ out geom;
 # po 0,72 s. Jedno źródło leży, drugie stoi; „brak sieci" nie jest stanem
 # zero-jedynkowym.
 OSM_API_URL = "https://api.openstreetmap.org/api/0.6/map"
+#: Całe zapytanie drogi zapasowej — SAM PROSTOKĄT. Wyciągnięte ze środka `osm_api_ways`
+#: przy 6.D53, żeby „ta końcówka nie filtruje po stronie serwera" dało się przeczytać
+#: z kodu zamiast wpisać drugi raz z ręki: brak nazwy taga w tym napisie JEST tym faktem.
+OSM_API_QUERY_FMT = "bbox=%.5f,%.5f,%.5f,%.5f"
 #: Nazwy dróg dla `--osm-source`. Napisy, nie flagi logiczne: wchodzą wprost do wypisu
 #: i do pola `osm.source` w pliku wyniku, więc czytający widzi, co pobrano.
 OSM_SOURCE_OVERPASS = "overpass"
@@ -75,7 +80,80 @@ OSM_SOURCE_API = "osm-api"
 OSM_API_TILE_DEG = 0.006
 #: Twardy limit `/api/0.6/map` po stronie OSM, zapisany po to, żeby komunikat odmowy
 #: dał się rozpoznać jako „kafel za duży", a nie jako „źródło niedostępne".
+#:
+#: **Od 6.D53 ta sama liczba stoi też w `data/network/sources.json`** i pilnuje tego
+#: bramka `test_osm_api_fallback.test_limit_koncowki_w_rejestrze_zgadza_sie_z_kodem`.
+#: Stała ZOSTAJE w kodzie, a nie przenosi się do rejestru: narzędzie musi rozpoznać
+#: odmowę także wtedy, gdy rejestru nie ma pod ręką (przebieg z kopii, z kafla w pamięci
+#: podręcznej, z innego drzewa). Dwie liczby o jednym fakcie są tu więc świadome —
+#: i dlatego mają strażnika, zamiast zostać bez niego.
 OSM_API_NODE_LIMIT = 50000
+
+#: Rejestr źródeł. Czytany WYŁĄCZNIE przez `koncowki_osm_z_rejestru` niżej; sam przebieg
+#: krzyżowej kontroli go nie potrzebuje i nie ma się wywracać, gdy pliku nie ma.
+SOURCES_JSON = os.path.join(ROOT, "data", "network", "sources.json")
+
+
+def koncowki_osm_z_rejestru(sciezka=SOURCES_JSON):
+    """Końcówki OSM z rejestru źródeł, po `id`. Podnosi `KeyError`, gdy wpisu nie ma.
+
+    **Po co (6.D53).** Do tej pozycji rejestr opisywał dostęp do OSM dwoma słowami
+    (`osm_or_overpass`, `endpoint-dependent`) i **żadną liczbą**: nie mówił ani o limicie
+    obszaru, ani o tym, że jedna z dwóch dróg filtruje po stronie serwera, a druga nie.
+    Liczba o źródle stała przez to w kodzie narzędzia, a nie w rejestrze źródeł.
+    """
+    with open(sciezka, encoding="utf-8") as uchwyt:
+        rejestr = json.load(uchwyt)
+    wpisy = [w for w in rejestr["sources"] if w["id"] == "openstreetmap"]
+    if len(wpisy) != 1:
+        raise KeyError(f"{sciezka}: wpisów `openstreetmap` jest {len(wpisy)}, ma być jeden")
+    koncowki = wpisy[0]["access"].get("endpoints")
+    if not koncowki:
+        raise KeyError(f"{sciezka}: wpis `openstreetmap` nie wymienia końcówek "
+                       "(`access.endpoints`) — 6.D53")
+    return {k["id"]: k for k in koncowki}
+
+
+#: Wartość `timeout` z zapytania Overpassa, wyjęta z szablonu, a nie wpisana drugi raz.
+TIMEOUT_W_SZABLONIE = re.compile(r"\[timeout:(\d+)\]")
+
+
+def pary_rejestr_kod(sciezka=SOURCES_JSON):
+    """`[(co, z_rejestru, z_kodu)]` — każda para NAPRAWDĘ dwustronna.
+
+    Pole „Weryfikacja" pozycji 6.D53 żąda wypisu, w którym obie liczby stoją **obok
+    siebie**; zdanie „zgadza się" byłoby tu tym, czym `assert True` — wyglądałoby
+    identycznie przy liczbach zgodnych i przy rozjechanych.
+
+    **Żadna para nie zestawia `None` z `None`.** Pierwsza wersja tej funkcji wypisywała
+    dla Overpassa „rejestr None, kod None (zgodne)" — porównanie dwóch nieobecności,
+    czyli zdanie prawdziwe zawsze i o niczym. Overpass ma w rejestrze własną liczbę,
+    `timeout_s`, i ta sama liczba stoi w `OVERPASS_TEMPLATE`; to jest para, którą warto
+    pilnować. Brak limitu węzłów u Overpassa jest opisany osobno, jako `node_limit_note`,
+    bo to jest ZDANIE o końcówce, a nie liczba do zestawienia.
+    """
+    k = koncowki_osm_z_rejestru(sciezka)
+    dopasowanie = TIMEOUT_W_SZABLONIE.search(OVERPASS_TEMPLATE)
+    timeout_z_kodu = int(dopasowanie.group(1)) if dopasowanie else None
+    return [
+        ("osm-api: węzłów na wywołanie", k[OSM_SOURCE_API]["node_limit_per_call"],
+         OSM_API_NODE_LIMIT),
+        ("osm-api: url", k[OSM_SOURCE_API]["url"], OSM_API_URL),
+        ("overpass: timeout zapytania [s]", k[OSM_SOURCE_OVERPASS]["timeout_s"],
+         timeout_z_kodu),
+        ("overpass: url", k[OSM_SOURCE_OVERPASS]["url"], OVERPASS_URL),
+        ("overpass: filtr po stronie serwera",
+         k[OSM_SOURCE_OVERPASS]["server_side_filter"], "railway" in OVERPASS_TEMPLATE),
+        ("osm-api: filtr po stronie serwera",
+         k[OSM_SOURCE_API]["server_side_filter"], "railway" in OSM_API_QUERY_FMT),
+    ]
+
+
+def wiersze_limitow(sciezka=SOURCES_JSON):
+    """Wypis par z `pary_rejestr_kod`, po jednym wierszu na parę."""
+    return [f"[LIMIT] {co}: rejestr {z_rejestru!r}, kod {z_kodu!r} "
+            f"({'zgodne' if z_rejestru == z_kodu else 'ROZJECHANE'})"
+            for co, z_rejestru, z_kodu in pary_rejestr_kod(sciezka)]
 #: Przerwa między kaflami. To cudza infrastruktura i nie ma tu żadnego powodu, żeby
 #: strzelać w nią seriami bez oddechu.
 OSM_API_SLEEP_S = 1.0
@@ -336,7 +414,7 @@ def osm_api_ways(bbox, timeout, tile_deg=OSM_API_TILE_DEG, sleep_s=OSM_API_SLEEP
     merged, refused = {}, []
     licznik = PAMIEC.Licznik()
     for index, tile in enumerate(tiles, start=1):
-        query = "bbox=%.5f,%.5f,%.5f,%.5f" % tile
+        query = OSM_API_QUERY_FMT % tile
         content, origin, reason = PAMIEC.wez_kafel(
             tile, f"{OSM_API_URL}?{query}", timeout,
             katalog=cache_dir, wymus=refresh, licznik=licznik)

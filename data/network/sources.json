@@ -231,7 +231,37 @@
    "update_frequency": "continuous",
    "access": {
     "type": "osm_or_overpass",
-    "authentication": "endpoint-dependent"
+    "authentication": "endpoint-dependent",
+    "$comment": "Dwie końcówki, NIE równorzędne. `type` i `authentication` zostają dla zgodności z czytnikami sprzed 6.D53; rozstrzyga lista `endpoints`, bo dwa słowa nie mówiły, która droga ma jaki limit.",
+    "endpoints": [
+     {
+      "id": "overpass",
+      "role": "primary",
+      "url": "https://overpass-api.de/api/interpreter",
+      "authentication": "none",
+      "server_side_filter": true,
+      "query_language": "Overpass QL",
+      "node_limit_per_call": null,
+      "node_limit_note": "Brak twardego limitu węzłów na wywołanie: filtr `railway=subway` wykonuje serwer, więc rozmiar odpowiedzi zależy od zapytania, a nie od prostokąta. Ograniczeniem jest `[timeout:60]` w zapytaniu i obciążenie cudzej instancji.",
+      "timeout_s": 60,
+      "base_timestamp_field": "osm3s.timestamp_osm_base",
+      "measured_at": "2026-09-08",
+      "measured_note": "`overpass-api.de/api/status` z kontenera agenta: HTTP 000 po 9,76 s (`Recv failure: Connection reset by peer`). Droga podstawowa mimo to — niedostępność jednego dnia nie zmienia rangi końcówki."
+     },
+     {
+      "id": "osm-api",
+      "role": "fallback",
+      "url": "https://api.openstreetmap.org/api/0.6/map",
+      "authentication": "none",
+      "server_side_filter": false,
+      "query_language": null,
+      "node_limit_per_call": 50000,
+      "node_limit_note": "Twardy limit po stronie OSM. Przekroczenie daje `HTTP 400 — You requested too many nodes (limit is 50000)`, więc obszar trzeba dzielić na kafle.",
+      "base_timestamp_field": null,
+      "measured_at": "2026-09-08",
+      "measured_note": "Zmierzone na bboxie pakietu D: całe bbox w jednym wywołaniu → HTTP 400 po 2,77 s; 30 kafli 0,006° → 66 137 960 B po to, żeby wydobyć 97 way'ów i 746 węzłów metra. `api.openstreetmap.org/api/0.6/capabilities` → HTTP 200 po 0,72 s."
+     }
+    ]
    },
    "preferred_for": "szczegóły torowe i kontrola po źródłach oficjalnych",
    "limitations": "Nie jest jedynym źródłem osi tam, gdzie istnieją oficjalne STIB/UrbIS; zapisać query hash i timestamp.",
