@@ -14,7 +14,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import csharp_pins as CP  # noqa: E402
 
 #: Piny warstwy gry per plik. Zmierzone 11.09.2026 na `dfc7543`: 44 w ośmiu plikach;
-#: **45 od 6.D142**, które dopisało `Assert.AreEqual("E c", BezJednostek("Esc"))`.
+#: **45 od 6.D142**, które dopisało `Assert.AreEqual("E c", BezJednostek("Esc"))`,
+#: i **47 od 6.D155**, które dopisało `BezJednostek("akmb") == "a b"` (mechanizm:
+#: podstawiana jest SPACJA, więc pary liter utworzyć nie umie) oraz resztkę `"a"`
+#: z wiersza prędkości HUD-u. Oba są kategorii C — wynik JEDNEJ przemiany napisu.
 #: Zapadka działa w obie strony, jak przy asercjach bez komunikatu z 6.D127: w górę
 #: mówi „doszedł pin, skategoryzuj go", w dół — „pin zniknął, zdejmij go z tabeli".
 PINY_GRY = {
@@ -25,12 +28,12 @@ PINY_GRY = {
     "RunResetTests.cs": 2,
     "SignallingHudTests.cs": 1,
     "TelemetryTrackTests.cs": 1,
-    "UiTextTests.cs": 6,
+    "UiTextTests.cs": 8,
 }
 
 #: Ile pinów stoi w `tests/Sim.Tests` — liczba PORÓWNAWCZA, o którą prosiło pole
-#: „Wejście". Rdzeń ma ich 74 przy 36 plikach, gra 45 przy 16: na plik wypada
-#: **2,06** wobec **2,81**, więc gra pinuje GĘŚCIEJ, mimo że ma mniej testów.
+#: „Wejście". Rdzeń ma ich 74 przy 36 plikach, gra 47 przy 16: na plik wypada
+#: **2,06** wobec **2,94**, więc gra pinuje GĘŚCIEJ, mimo że ma mniej testów.
 PINY_RDZENIA = 74
 
 #: Kategorie, po jednej pozycji na pin — zamknięte i sumujące się do liczby wyżej.
@@ -63,7 +66,7 @@ KATEGORIE = {
 }
 
 #: Ile pinów wpada do kategorii C — reszta, liczona, nie wpisana.
-LICZBA_C = 39
+LICZBA_C = 41
 
 
 def test_ile_pinow_stoi_w_testach_warstwy_gry():
@@ -75,8 +78,8 @@ def test_ile_pinow_stoi_w_testach_warstwy_gry():
         "— doszedł pin do skategoryzowania albo zniknął pin do zdjęcia"
         % (sorted(zmierzone.items()), sorted(PINY_GRY.items())))
 
-    assert sum(zmierzone.values()) == 45, (
-        "pinów warstwy gry jest %d, a pomiar z 11.09.2026 dał 45 (44 przed 6.D142)"
+    assert sum(zmierzone.values()) == 47, (
+        "pinów warstwy gry jest %d, a pomiar z 12.09.2026 dał 47 (45 przed 6.D155)"
         % sum(zmierzone.values()))
 
     ile_rdzenia = len(CP.piny("tests/Sim.Tests"))
@@ -100,8 +103,8 @@ def test_kazdy_pin_ma_kategorie_i_suma_sie_zgadza():
     assert len(wszystkie - nazwane) == LICZBA_C, (
         "do kategorii C wpada %d pinów przy zapisanych %d"
         % (len(wszystkie - nazwane), LICZBA_C))
-    assert len(KATEGORIE["A"]) + len(KATEGORIE["B"]) + LICZBA_C == 45, (
-        "kategorie nie sumują się do 45: A=%d, B=%d, C=%d"
+    assert len(KATEGORIE["A"]) + len(KATEGORIE["B"]) + LICZBA_C == 47, (
+        "kategorie nie sumują się do 47: A=%d, B=%d, C=%d"
         % (len(KATEGORIE["A"]), len(KATEGORIE["B"]), LICZBA_C))
 
 
@@ -211,9 +214,9 @@ def test_maska_odsiewa_wywolania_z_komentarzy_i_napisow(tmp=None):
 #: Podział na tolerancję jest za to treścią i on zostaje wypisany:
 ROZKLAD_LICZBOWYCH = {
     "tests/Game.Tests": {
-        "razem": 198, "z_tolerancja": 98, "bez_tolerancji": 100,
+        "razem": 199, "z_tolerancja": 98, "bez_tolerancji": 101,
         "zmiennoprzecinkowe": 104, "zmiennoprzecinkowe_bez_tolerancji": 6,
-        "calkowite": 94, "calkowite_z_tolerancja": 0, "tolerancja_zero": 18,
+        "calkowite": 95, "calkowite_z_tolerancja": 0, "tolerancja_zero": 18,
     },
     "tests/Sim.Tests": {
         "razem": 441, "z_tolerancja": 179, "bez_tolerancji": 262,
