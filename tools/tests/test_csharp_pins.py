@@ -54,11 +54,11 @@ PINY_RDZENIA = 74
 #:     zdanie o kategorii dopisane razem z pinem, żeby nie rozszerzyć jej po cichu).
 KATEGORIE = {
     "A": {
-        ("UiTextTests.cs", 689), ("UiTextTests.cs", 695), ("UiTextTests.cs", 700),
+        ("UiTextTests.cs", 825), ("UiTextTests.cs", 831), ("UiTextTests.cs", 836),
         ("SignallingHudTests.cs", 37),
     },
     "B": {
-        ("UiTextTests.cs", 769), ("UiTextTests.cs", 770),
+        ("UiTextTests.cs", 905), ("UiTextTests.cs", 906),
     },
 }
 
@@ -122,10 +122,10 @@ def test_regula_po_ksztalcie_literalu_myli_sie_i_dlatego_jej_nie_ma():
                      if not regula.search(tresci[p])]
     zlapane_z_b = [p for p in sorted(KATEGORIE["B"]) if regula.search(tresci[p])]
 
-    assert przepuszczone == [("UiTextTests.cs", 700)], (
+    assert przepuszczone == [("UiTextTests.cs", 836)], (
         "reguła po kształcie przestała przepuszczać wiersz o hamulcu awaryjnym — "
         "rozstrzygnięcie 6.D131 wymaga przeliczenia: %s" % przepuszczone)
-    assert zlapane_z_b == [("UiTextTests.cs", 770)], (
+    assert zlapane_z_b == [("UiTextTests.cs", 906)], (
         "reguła po kształcie przestała łapić wejście syntetyczne: %s" % zlapane_z_b)
 
 
@@ -139,11 +139,11 @@ def test_czytnik_widzi_pin_takze_wtedy_gdy_literal_jest_sklejony():
     tresci = {(plik, wiersz): tresc
               for plik, wiersz, _r, tresc in CP.piny("tests/Game.Tests")}
 
-    assert len(tresci[("UiTextTests.cs", 689)]) == 122, (
+    assert len(tresci[("UiTextTests.cs", 825)]) == 122, (
         "sklejanie literałów przestało działać: %d znaków"
-        % len(tresci[("UiTextTests.cs", 689)]))
-    assert len(tresci[("UiTextTests.cs", 700)]) == 98, (
-        len(tresci[("UiTextTests.cs", 700)]))
+        % len(tresci[("UiTextTests.cs", 825)]))
+    assert len(tresci[("UiTextTests.cs", 836)]) == 98, (
+        len(tresci[("UiTextTests.cs", 836)]))
     assert len(tresci[("SignallingHudTests.cs", 37)]) == 84, (
         len(tresci[("SignallingHudTests.cs", 37)]))
 
@@ -211,9 +211,9 @@ def test_maska_odsiewa_wywolania_z_komentarzy_i_napisow(tmp=None):
 #: Podział na tolerancję jest za to treścią i on zostaje wypisany:
 ROZKLAD_LICZBOWYCH = {
     "tests/Game.Tests": {
-        "razem": 191, "z_tolerancja": 98, "bez_tolerancji": 93,
+        "razem": 192, "z_tolerancja": 98, "bez_tolerancji": 94,
         "zmiennoprzecinkowe": 104, "zmiennoprzecinkowe_bez_tolerancji": 6,
-        "calkowite": 87, "calkowite_z_tolerancja": 0, "tolerancja_zero": 18,
+        "calkowite": 88, "calkowite_z_tolerancja": 0, "tolerancja_zero": 18,
     },
     "tests/Sim.Tests": {
         "razem": 441, "z_tolerancja": 179, "bez_tolerancji": 262,
