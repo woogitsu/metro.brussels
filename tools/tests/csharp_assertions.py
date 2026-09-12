@@ -134,6 +134,38 @@ WYWOLANIE = re.compile(
 #: Poczatek literalu napisowego: zwykly, `@`-cytowany, interpolowany albo oba naraz.
 LITERAL_NAPISOWY = re.compile(r'^[@$]*"')
 
+#: Pierwszy argument, ktory NA PEWNO jest typu `string` — 6.D156.
+#:
+#: **Zawezenie SZCZELNE, i szczelnosc jest tu cala trescia.** Przeciazenie
+#: `Assert.AreEqual(double, double, double)` zada, zeby OBA porownywane byly
+#: zmiennoprzecinkowe. Napis do `double` nie konwertuje sie w C# nigdy — wiec gdy
+#: pierwszy argument jest napisem, przeciazenie z tolerancja NIE MOZE sie zwiazac
+#: i trzeci argument jest komunikatem. Nie jest to heurystyka: jest to wykluczenie.
+#:
+#: **Dlaczego konkatenacja WOLNO, a kropka NIE.** `"x" + y` jest napisem, bo w C#
+#: `string + cokolwiek` daje napis. `"x".Length` napisem NIE JEST — daje `int`, ktory
+#: do `double` konwertuje sie bez zarzutu, wiec przeciazenie z tolerancja wraca do gry.
+#: Wzorzec przepuszcza wiec po literale wylacznie `+` albo koniec wyrazenia; kropka,
+#: nawias kwadratowy i wszystko inne zostawiaja asercje NIEROZSTRZYGNIETA.
+#:
+#: **Wzorzec jest ZACHOWAWCZY z wyboru.** Czyta cialo literalu prosto, wiec na napisie
+#: interpolowanym z zagniezdzonym cudzyslowem konca nie znajdzie i nie dopasuje sie —
+#: czyli zostawi asercje w klasie „nie wiem". Falszywy BRAK zawezenia nie kosztuje nic;
+#: falszywe zawezenie zamienialoby zadeklarowana niewiedze na ciche zgadywanie, czyli
+#: dokladnie to, przed czym ostrzega pole „Dlaczego to nie jest dopisanie reguly".
+PIERWSZY_ARGUMENT_NAPISOWY = re.compile(
+    r'^[@$]*"(?:[^"\\]|\\.)*"\s*(?:\+.*)?$', re.S)
+
+#: Zawezenie ODRZUCONE i powod, dla ktorego stoi tu zapisane, a nie milczy — 6.D156.
+#:
+#: Kuszace bylo zawezic takze po literale CALKOWITYM w pierwszym argumencie: przy
+#: `Assert.AreEqual(0, x, cos)` wyglada to na komunikat. **Jest nieszczelne**: `int`
+#: konwertuje sie do `double`, wiec `AreEqual(double, double, double)` zwiazac sie MOZE,
+#: a o tym, ktore przeciazenie wybral kompilator, rozstrzyga typ TRZECIEGO argumentu —
+#: czyli dokladnie to, czego czytnik nie wie. Zmierzone 12.09.2026: dotyczyloby to
+#: **25** asercji, i wszystkie 25 zostaja NIEROZSTRZYGNIETE.
+LITERAL_CALKOWITY_ODRZUCONY = re.compile(r"^-?\d+$")
+
 BEZ_KOMUNIKATU = "bez"
 Z_KOMUNIKATEM = "z"
 NIEROZSTRZYGNIETE = "nierozstrzygniete"
@@ -157,7 +189,14 @@ def klasa_komunikatu(nazwa, argumenty, tresc):
     if LITERAL_NAPISOWY.match(ostatni):
         return Z_KOMUNIKATEM
     if nazwa in RODZINA_Z_TOLERANCJA and len(argumenty) == 3:
-        return BEZ_KOMUNIKATU if CP.LICZBA.match(ostatni) else NIEROZSTRZYGNIETE
+        if CP.LICZBA.match(ostatni):
+            return BEZ_KOMUNIKATU
+        # Zawezenie po PIERWSZYM argumencie — 6.D156. Napis wyklucza przeciazenie
+        # z tolerancja SZCZELNIE; literal calkowity nie, i dlatego go tu nie ma.
+        pierwszy_a, pierwszy_b = argumenty[0]
+        if PIERWSZY_ARGUMENT_NAPISOWY.match(tresc[pierwszy_a:pierwszy_b].strip()):
+            return Z_KOMUNIKATEM
+        return NIEROZSTRZYGNIETE
     return Z_KOMUNIKATEM
 
 

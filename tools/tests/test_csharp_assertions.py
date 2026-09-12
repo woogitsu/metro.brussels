@@ -335,8 +335,8 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 #: Pozostale dwie klasy i calosc. **Trzy klasy sumuja sie do `ASERCJI_RAZEM`** i to
 #: jest tu trescia: asercja, ktorej czytnik nie umie zaklasyfikowac, ma byc POLICZONA
 #: jako nierozstrzygnieta, a nie wpasc miedzy klasy.
-Z_KOMUNIKATEM_RAZEM = 1198
-NIEROZSTRZYGNIETYCH = 72
+Z_KOMUNIKATEM_RAZEM = 1202
+NIEROZSTRZYGNIETYCH = 68
 ASERCJI_RAZEM = 2651
 
 
@@ -488,3 +488,126 @@ def test_literal_kolekcji_nie_rozbija_argumentow_na_przecinkach():
 if __name__ == "__main__":
     import test_all
     raise SystemExit(test_all.main(__file__))
+
+
+#: Ile asercji zawezil literal napisowy w PIERWSZYM argumencie — 6.D156.
+ZAWEZONYCH_PIERWSZYM_NAPISEM = 4
+
+#: Ilu zawezenie po literale CALKOWITYM dotyczyloby, gdyby je przyjac — 6.D156.
+#: Stoi tu, bo liczba odrzuconego zawezenia jest TRESCIA rozstrzygniecia: 25 to nie
+#: „kilka", tylko szesciokrotnosc tego, co przyjeto, i mimo to nie wchodzi.
+ODRZUCONYCH_PIERWSZYM_CALKOWITYM = 25
+
+
+def _pierwsze_argumenty_nierozstrzygnietych():
+    """`[tekst pierwszego argumentu]` dla kazdej asercji klasy NIEROZSTRZYGNIETE."""
+    out = []
+    for katalog in CA.CP.KATALOGI:
+        for sciezka in CA.TW.znajdz(os.path.join(CA.ROOT, katalog), "*.cs", CA.ROOT):
+            with open(sciezka, encoding="utf-8") as uchwyt:
+                zrodlo = uchwyt.read()
+            maska = CA.CTM.maska(zrodlo)
+            for dopasowanie in CA.WYWOLANIE.finditer(maska):
+                nazwa = "%s.%s" % (dopasowanie.group(1), dopasowanie.group(2))
+                if nazwa not in CA.OBOWIAZKOWE_ARGUMENTY:
+                    continue
+                args = CA.CP.argumenty_z_nawiasami(maska, dopasowanie.end())
+                if CA.klasa_komunikatu(nazwa, args, zrodlo) != CA.NIEROZSTRZYGNIETE:
+                    continue
+                poczatek, koniec = args[0]
+                out.append(zrodlo[poczatek:koniec].strip())
+    return out
+
+
+def test_zawezenie_po_pierwszym_argumencie_jest_SZCZELNE_a_nie_heurystyka():
+    """6.D156 — na wejsciu SYNTETYCZNYM, bo drzewo nie rozdziela tych przypadkow.
+
+    Pole „Dlaczego to nie jest dopisanie reguly" ostrzega, ze zastosowanie obu
+    zawezen „zamienialoby zadeklarowana niewiedze na cicha heurystyke". Te trzy
+    asercje pokazuja granice miedzy zawezeniem, ktore WYKLUCZA przeciazenie,
+    a takim, ktore je tylko czyni malo prawdopodobnym.
+    """
+    # SZCZELNE: napis do `double` nie konwertuje sie nigdy, wiec przeciazenie
+    # z tolerancja zwiazac sie NIE MOZE i trzeci argument jest komunikatem.
+    assert _klasa_wejscia('Assert.AreEqual("abc", x, opis);') == CA.Z_KOMUNIKATEM, (
+        "literal napisowy w PIERWSZYM argumencie przestal wykluczac tolerancje")
+    assert _klasa_wejscia('Assert.AreEqual("abc" + d, x, opis);') == CA.Z_KOMUNIKATEM, (
+        "konkatenacja po literale przestala byc napisem — w C# `string + cokolwiek` "
+        "daje napis, wiec to zawezenie jest tak samo szczelne")
+
+    # NIESZCZELNE i dlatego ODRZUCONE: `int` konwertuje sie do `double`.
+    assert _klasa_wejscia('Assert.AreEqual(0, x, opis);') == CA.NIEROZSTRZYGNIETE, (
+        "literal CALKOWITY w pierwszym argumencie zawezil asercje — a nie moze, bo "
+        "`int` konwertuje sie do `double` i przeciazenie z tolerancja wraca do gry")
+
+    # NIESZCZELNE z drugiego powodu: kropka po literale zmienia typ wyrazenia.
+    assert _klasa_wejscia('Assert.AreEqual("abc".Length, x, opis);') == (
+        CA.NIEROZSTRZYGNIETE), (
+        "`\"abc\".Length` zostalo uznane za napis — jest `int`em, wiec konwertuje sie "
+        "do `double` i zawezenie przestaje byc wykluczeniem")
+
+    # Kontrola, ze zawezenie nie zjadlo rozpoznawania TOLERANCJI, o co pole
+    # „Weryfikacja" pozycji prosi wprost.
+    assert _klasa_wejscia('Assert.AreEqual(1.0, x, 1e-9);') == CA.BEZ_KOMUNIKATU, (
+        "tolerancja jako trzeci argument policzona jako komunikat")
+
+
+def test_zawezenie_dotyka_czterech_asercji_a_odrzucone_dotknieloby_dwudziestu_pieciu():
+    """6.D156 — obie liczby z DRZEWA, obie przybite, bo obie sa trescia.
+
+    Bez drugiej liczby rozstrzygniecie „przyjmujemy szczelne, odrzucamy nieszczelne"
+    czytaloby sie jak wybor bez kosztu. Koszt jest: odrzucone zawezenie zabralo by
+    z klasy „nie wiem" SZESC RAZY wiecej pozycji niz przyjete.
+    """
+    pierwsze = _pierwsze_argumenty_nierozstrzygnietych()
+    assert len(pierwsze) == NIEROZSTRZYGNIETYCH, (
+        "nierozstrzygnietych jest %d, a zapadka stoi na %d"
+        % (len(pierwsze), NIEROZSTRZYGNIETYCH))
+
+    # Po zawezeniu ANI JEDNA nierozstrzygnieta nie ma juz napisu w pierwszym
+    # argumencie — inaczej zawezenie sie nie zastosowalo tam, gdzie mialo.
+    zostaly_napisy = [p for p in pierwsze if CA.PIERWSZY_ARGUMENT_NAPISOWY.match(p)]
+    assert not zostaly_napisy, (
+        "zawezenie nie zastosowalo sie do: %s" % zostaly_napisy)
+
+    calkowite = [p for p in pierwsze if CA.LITERAL_CALKOWITY_ODRZUCONY.match(p)]
+    assert len(calkowite) == ODRZUCONYCH_PIERWSZYM_CALKOWITYM, (
+        "literalow calkowitych w pierwszym argumencie jest %d, a pomiar z 12.09.2026 "
+        "dal %d — liczba ODRZUCONEGO zawezenia zmienila sie i rozstrzygniecie 6.D156 "
+        "opisuje inny koszt" % (len(calkowite), ODRZUCONYCH_PIERWSZYM_CALKOWITYM))
+
+
+def test_zawezenie_naprawde_cos_zabralo_z_klasy_nie_wiem():
+    """Kontrola, ze `PIERWSZY_ARGUMENT_NAPISOWY` nie jest bezczynny — 6.D156.
+
+    Bez niej dwie bramki wyzej przechodzilyby tak samo, gdyby wzorzec nie lapal
+    NICZEGO: „zadna nierozstrzygnieta nie ma napisu" jest wtedy prawda z niczego.
+    Ta sama pulapka, co przy bezczynnym wyjatku z 6.D142.
+    """
+    bez_zawezenia = 0
+    for katalog in CA.CP.KATALOGI:
+        for sciezka in CA.TW.znajdz(os.path.join(CA.ROOT, katalog), "*.cs", CA.ROOT):
+            with open(sciezka, encoding="utf-8") as uchwyt:
+                zrodlo = uchwyt.read()
+            maska = CA.CTM.maska(zrodlo)
+            for dopasowanie in CA.WYWOLANIE.finditer(maska):
+                nazwa = "%s.%s" % (dopasowanie.group(1), dopasowanie.group(2))
+                if nazwa not in CA.RODZINA_Z_TOLERANCJA:
+                    continue
+                args = CA.CP.argumenty_z_nawiasami(maska, dopasowanie.end())
+                if len(args) != 3:
+                    continue
+                poczatek, koniec = args[-1]
+                if CA.LITERAL_NAPISOWY.match(zrodlo[poczatek:koniec].strip()):
+                    continue
+                if CA.CP.LICZBA.match(zrodlo[poczatek:koniec].strip()):
+                    continue
+                pierwszy_a, pierwszy_b = args[0]
+                if CA.PIERWSZY_ARGUMENT_NAPISOWY.match(
+                        zrodlo[pierwszy_a:pierwszy_b].strip()):
+                    bez_zawezenia += 1
+
+    assert bez_zawezenia == ZAWEZONYCH_PIERWSZYM_NAPISEM, (
+        "zawezenie zabralo z klasy „nie wiem” %d pozycji, a pomiar "
+        "%d — jesli ZERO, wzorzec przestal lapac cokolwiek i obie bramki wyzej sa "
+        "zielone z niczego" % (bez_zawezenia, ZAWEZONYCH_PIERWSZYM_NAPISEM))
