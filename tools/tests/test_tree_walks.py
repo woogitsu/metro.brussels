@@ -193,7 +193,9 @@ ZAPADKI = {
     "MIN_GAME_NEEDLES": (WOLNA, "test_game_needle_specificity.py"),
     "MIN_GAME_SOURCES": (WOLNA, "test_game_needle_specificity.py"),
     "MIN_MESSAGES": (WOLNA, "test_needle_specificity.py"),
+    "MIN_BLOKOW_WYKONANYCH": (WOLNA, "test_field_paths.py"),
     "MIN_MODULE_NAMES": (WOLNA, "test_field_paths.py"),
+    "MIN_WYWOLAN_W_WYKONANYCH": (WOLNA, "test_field_paths.py"),
     "MIN_NEEDLES": (WOLNA, "test_needle_specificity.py"),
     "MIN_PATHS": (POZA_SKANEM, "test_field_paths.py"),
     "MIN_PATHS_IN_TREE": (WOLNA, "test_bin_path_framework.py"),
@@ -657,8 +659,9 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
         "znaczy, że komuś ubył strażnik; w stronę `przybita`, że doszedł i wpis "
         "trzeba poprawić" % inna_klasa)
 
-    assert len(w_drzewie) == ZAPADEK_RAZEM == 38, (
-        "zapadek w drzewie %d, na liście %d, pomiar z 11.09.2026 mówił 38"
+    assert len(w_drzewie) == ZAPADEK_RAZEM == 40, (
+        "zapadek w drzewie %d, na liście %d, pomiar z 11.09.2026 mówił 38, "
+        "a po 6.D146 — 40 (doszły dwa progi KW na skanie bloków wykonanych)"
         % (len(w_drzewie), ZAPADEK_RAZEM))
 
     # Liczby zbiorcze. **Nie jest to ozdobnik komunikatu i pokazała to KN-7.**
@@ -668,9 +671,10 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
     # a „21 wolnych" staje się nieprawdą, której nie zgłasza nic. KN-7 wykonała
     # dokładnie ten scenariusz: jedyną czerwienią była ta asercja.
     ile = collections.Counter(w_drzewie.values())
-    assert (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM]) == (13, 3, 21, 1), (
+    assert (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM]) == (13, 3, 23, 1), (
         "klasy zapadek: przybitych %d, częściowych %d, WOLNYCH %d, poza skanem %d — "
-        "pomiar z 11.09.2026 mówił 13/3/21/1; wolne to te, które da się ruszyć "
+        "pomiar z 11.09.2026 mówił 13/3/21/1, a po 6.D146 — 13/3/23/1; wolne to te, "
+        "które da się ruszyć "
         "w zakazaną stronę bez zapalenia czegokolwiek: %s"
         % (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM],
            sorted(n for n, k in w_drzewie.items() if k == WOLNA)))

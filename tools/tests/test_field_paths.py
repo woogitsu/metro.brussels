@@ -574,8 +574,20 @@ def test_no_open_field_calls_an_option_the_tool_does_not_parse():
     assert "--shot" not in kotwica and "--view" not in kotwica
 
 
-def test_no_open_field_names_a_test_module_that_is_not_in_the_tree():
+def test_zadne_pole_nie_wola_modulu_spoza_drzewa():
     """Nazwa modułu po `test_all.py` jest sprawdzana na istnienie — 6.D101.
+
+    **Zakres rozszerzony 11.09.2026 (6.D146) z bloków OTWARTYCH na WSZYSTKIE, i ten
+    akapit jest dopisany do zdania, które zostaje.** Poprzednia wersja czytała tylko
+    bloki otwarte i nazywała się `test_no_open_field_…`; blok wykonany wypadał jej
+    z pola widzenia w chwili odhaczenia. Dwa z pięciu zapisów poprawionych w tym
+    drzewie (6.D86 i 6.D89) były dokładnie tego kształtu — nazwa modułu, którego nie
+    ma — i oba znalazł człowiek, już PO odhaczeniu bloku, kiedy ta bramka przestała
+    na nie patrzeć.
+
+    Rozszerzenie kosztuje dziś **zero**: zmierzone 11.09.2026 na 216 blokach
+    wykonanych — 92 wywołania modułu w polu „Weryfikacja", z czego nieistniejących
+    **ani jednego**. Bramka pilnuje więc czegoś, czego dziś nie ma, i o to chodzi.
 
     **Skąd.** Cztery pola „Weryfikacja" wołały moduły, których w drzewie nie ma:
     `test_physics_reference.py` (6.D86), `test_glossary.py` (6.D89),
@@ -588,7 +600,7 @@ def test_no_open_field_names_a_test_module_that_is_not_in_the_tree():
     `test_scan_gates.py` w drzewie jest; „czy moduł zawiera bramkę, o której pole
     mówi" to pytanie o TREŚĆ, a pole „Poza zakresem" tej pozycji wyklucza je wprost.
     """
-    bad = missing_modules()
+    bad = missing_modules(_all_blocks())
     assert bad == [], (
         "pole zadania woła moduł, którego `test_all.py` nie zna: %s" % bad)
 
@@ -612,6 +624,163 @@ def test_no_open_field_names_a_test_module_that_is_not_in_the_tree():
     assert module_names(_all_blocks()["6.D26"]) == ["test_suite_runtime_budget"], (
         "blok 6.D26 ma po `test_all.py` i nazwę modułu, i `|`; skan ma widzieć "
         "wyłącznie tę pierwszą, a widzi: %s" % module_names(_all_blocks()["6.D26"]))
+
+
+# --- 6.D146: adresy w blokach WYKONANYCH -----------------------------------------
+
+#: Bloki wykonane i wywołania modułu w ich polu „Weryfikacja". Zmierzone 11.09.2026:
+#: **216** bloków wykonanych z 228, **92** wywołania w **90** blokach, wszystkie
+#: modułów ISTNIEJĄCYCH. Progi KW, nie równości: liczba bloków rośnie z każdą
+#: domkniętą pozycją, ale zepsuty czytnik daje zero i zielono.
+MIN_BLOKOW_WYKONANYCH = 200
+MIN_WYWOLAN_W_WYKONANYCH = 80
+
+#: Kandydaci na zły adres wg reguły z pola „Wyjście" 6.D146 — nazwa modułu wołanego
+#: w „Weryfikacji" NIE pada w prozie bloku. **Przeczytane po kolei 11.09.2026 i ani
+#: jeden nie okazał się złym adresem.** Wpisane tutaj, żeby wiadomo było, które
+#: sprawdzono, a nie żeby stanowiły zapadkę — patrz
+#: `test_kandydaci_na_zly_adres_sa_przeczytani_i_zapisani`.
+#:
+#: Powód, dla którego każdy przeszedł, jest w większości ten sam: proza nazywa bramkę
+#: PO TYM, CO ROBI („bramka liczy przyspieszenie rozruchu z modelu"), a nie po nazwie
+#: pliku. Dwa przypadki — 6.D86 i 6.D89 — stoją tu wręcz dlatego, że ich adres ZOSTAŁ
+#: JUŻ POPRAWIONY, a poprawiona nazwa w starej prozie siłą rzeczy nie pada.
+SPRAWDZONE_RECZNIE = {
+    ("6.D36", "test_mutation_sweep.py"): "trzy obcięcia hexdigest, o które blok pyta, leżą w `mutation_sweep.py`",
+    ("6.D86", "test_reference_snapshot.py"): "adres POPRAWIONY 10.09.2026; stara proza nie zna nowej nazwy",
+    ("6.D89", "test_provenance_classes.py"): "adres POPRAWIONY 10.09.2026; jak wyżej",
+    ("6.D90", "test_mutation_sweep.py"): "blok jest o `mutation_sweep.py` brudzącym `data/`",
+    ("6.D91", "test_validate_axis.py"): "blok jest o kontroli osi; moduł testuje `validate_axis.py`",
+    ("6.D119", "test_dimension_audit.py"): "pole „Oczekiwane\" opisuje audyt `DESIGN_*` wobec `docs/21`",
+    ("6.D120", "test_vertical_profile.py"): "blok jest o cząstkowym profilu pionowym, a moduł trzyma bramkę na czytnik tego profilu",
+    ("6.D127", "test_assertion_gate.py"): "pole „Oczekiwane\" ŻĄDA, żeby bramka stanęła w module mierzącym asercje",
+    ("6.D136", "test_bytecode_staleness.py"): "moduł powstał w tej pozycji i nie mógł paść w prozie napisanej wcześniej",
+    ("6.D145", "test_csharp_assertions.py"): "moduł rozszerzony W TEJ pozycji",
+}
+
+
+def bloki_wykonane():
+    """Bloki, które NIE są w kolejce — czyli te, których skan pól nie czyta."""
+    otwarte = set(_open_blocks())
+    return {n: b for n, b in _all_blocks().items() if n not in otwarte}
+
+
+def proza_bloku(body):
+    """Treść bloku bez bloków ogrodzonych — nazwa w płotku nie jest jej wzmianką."""
+    return re.sub(r"```.*?```", " ", body, flags=re.S)
+
+
+def adresy_w_wykonanych():
+    """`[(numer, nazwa)]` — wywołania modułu w „Weryfikacji" bloków wykonanych."""
+    out = []
+    for numer, body in sorted(bloki_wykonane().items()):
+        for nazwa in module_names(field_body(body, "Weryfikacja")):
+            out.append((numer, nazwa))
+    return out
+
+
+def kandydaci_zlego_adresu():
+    """`[(numer, nazwa)]` — nazwa wołana w „Weryfikacji", której proza nie wymienia.
+
+    **To jest reguła z pola „Wyjście" 6.D146, wykonana — a nie przyjęta.** Pomiar
+    z 11.09.2026 mówi, ile jest warta: dziesięciu kandydatów, zero złych adresów.
+    Druga reguła, równie prawdopodobna (czy moduł NIESIE numer bloku), daje dziewięciu
+    kandydatów, z czego wspólny jest **jeden**. Dwie reguły zgodne w jednym przypadku
+    na dziewiętnaście nie mierzą tej samej rzeczy — i żadna nie mierzy adresu.
+    """
+    out = []
+    for numer, body in sorted(bloki_wykonane().items()):
+        proza = proza_bloku(body)
+        for nazwa in sorted(set(module_names(field_body(body, "Weryfikacja")))):
+            rdzen = nazwa[:-3] if nazwa.endswith(".py") else nazwa
+            if rdzen not in proza:
+                out.append((numer, nazwa))
+    return out
+
+
+def test_skan_blokow_wykonanych_widzi_to_co_zmierzono():
+    """Progi KW — bez nich zepsuty czytnik daje zero kandydatów i zielono.
+
+    Zero kandydatów czyta się jako „adresy są w porządku", a znaczy wtedy „czytnik
+    nie widzi niczego". To ta sama rodzina, którą projekt tropi od 6.D27, i dlatego
+    próg stoi na SAMYM SKANIE, nie na wyniku.
+    """
+    wykonane = bloki_wykonane()
+    assert len(wykonane) >= MIN_BLOKOW_WYKONANYCH, (
+        "bloków wykonanych jest %d przy progu %d — cięcie na otwarte i wykonane "
+        "przestało działać, bo bloków tylko przybywa"
+        % (len(wykonane), MIN_BLOKOW_WYKONANYCH))
+
+    adresy = adresy_w_wykonanych()
+    assert len(adresy) >= MIN_WYWOLAN_W_WYKONANYCH, (
+        "skan widzi %d wywołań modułu w polach „Weryfikacja” bloków wykonanych "
+        "przy progu %d — 11.09.2026 było ich 92"
+        % (len(adresy), MIN_WYWOLAN_W_WYKONANYCH))
+
+    # Kandydatów jest MNIEJ niż wywołań i WIĘCEJ niż nic — reguła, która zgłasza
+    # wszystko albo nic, nie jest regułą i nie warto o niej pisać zdania.
+    kandydaci = kandydaci_zlego_adresu()
+    assert 0 < len(kandydaci) < len(adresy), (
+        "reguła prozy zgłasza %d kandydatów na %d wywołań — przy zerze albo przy "
+        "komplecie nie odsiewa niczego" % (len(kandydaci), len(adresy)))
+
+
+def test_kandydaci_na_zly_adres_sa_przeczytani_i_zapisani():
+    """Każdy kandydat z 11.09.2026 ma zapisany wynik CZYTANIA — 6.D146.
+
+    **Lista nie jest zapadką i to jest wybór.** Kandydat pojawia się za każdym razem,
+    gdy proza nazywa bramkę po tym, co robi, zamiast po nazwie pliku — czyli często
+    i bez związku z usterką. Zapadka na tej liczbie byłaby podatkiem od każdego
+    nowego bloku, płaconym za sygnał o zmierzonej precyzji **zero**.
+    Zapisane jest więc co innego: KTÓRE dziesięć przeczytano i z jakim wynikiem.
+
+    Test pilnuje, żeby ten zapis nie zaczął opisywać bloków, których nie ma —
+    a nie żeby lista kandydatów stała w miejscu.
+    """
+    wszystkie = _all_blocks()
+    obce = sorted(n for n, _m in SPRAWDZONE_RECZNIE if n not in wszystkie)
+    assert obce == [], (
+        "zapis czytania wskazuje blok, którego w `docs/TASKS.md` nie ma: %s" % obce)
+
+    bez_powodu = sorted(k for k, v in SPRAWDZONE_RECZNIE.items() if len(v) < 30)
+    assert bez_powodu == [], (
+        "wpis bez powodu — zapis ma mówić, DLACZEGO adres uznano za poprawny: %s"
+        % bez_powodu)
+
+    assert len(SPRAWDZONE_RECZNIE) == 10, (
+        "przeczytanych jest %d, a pomiar z 11.09.2026 dał dziesięciu kandydatów; "
+        "dopisanie wpisu wymaga przeczytania bloku, nie tylko dopisania wiersza"
+        % len(SPRAWDZONE_RECZNIE))
+
+
+def test_regula_prozy_nie_jest_tym_samym_co_regula_numeru():
+    """Dwie reguły, jeden wspólny kandydat na dziewiętnaście — 6.D146.
+
+    To jest rozstrzygnięcie pozycji, wykonane zamiast opisane: gdyby obie reguły
+    mierzyły „zły adres", zgadzałyby się. Zgadzają się w jednym przypadku, więc
+    mierzą coś innego — swoje własne konwencje pisania, a nie adres.
+    """
+    import io as _io
+
+    proza = set(kandydaci_zlego_adresu())
+    numer = set()
+    for para in adresy_w_wykonanych():
+        blok, nazwa = para
+        sciezka = os.path.join(ROOT, "tools", "tests",
+                               nazwa if nazwa.endswith(".py") else nazwa + ".py")
+        if not os.path.isfile(sciezka):
+            continue
+        with _io.open(sciezka, encoding="utf-8") as uchwyt:
+            if blok not in uchwyt.read():
+                numer.add(para)
+
+    assert proza and numer, (
+        "jedna z reguł nie zgłasza nic — porównanie niżej mierzyłoby wtedy milczenie: "
+        "proza %d, numer %d" % (len(proza), len(numer)))
+    assert len(proza & numer) * 3 < len(proza | numer), (
+        "reguły zaczęły się zgadzać (wspólnych %d na %d) — jeśli to zmiana świadoma, "
+        "rozstrzygnięcie 6.D146 trzeba przeczytać jeszcze raz"
+        % (len(proza & numer), len(proza | numer)))
 
 
 def test_the_scan_sees_the_measured_number_of_module_names():

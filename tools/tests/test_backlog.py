@@ -365,7 +365,13 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 #: trzy wyszły z pomiarów zrobionych PRZY WYKONYWANIU 6.D142 i 6.D143, a wymyślanie
 #: dalszych na zapas byłoby braniem zadania z sufitu (`CLAUDE.md` §8, zdanie ostatnie).
 #: Wartość z `len(detail_sections(...))` na pliku po edycji, nie z dodania trójki do 225.
-MINIMUM_DETAIL_BLOCKS = 228
+#: **228 → 231 (11.09.2026, przy 6.D146).** Trzy bloki: 6.D156, 6.D157 i 6.D158,
+#: znów NIE osobnym commitem, bo domknięcie 6.D146 zbija kolejkę z dwunastu na
+#: JEDENAŚCIE. Wszystkie trzy wyszły z pomiarów zrobionych PRZY WYKONYWANIU 6.D145
+#: i 6.D146, a dwa (6.D156, 6.D158) z rzeczy wypisanych w polu „Czego nie zrobiłem"
+#: tamtych pozycji — czyli z granic, które sam nazwałem, zamiast je przemilczeć.
+#: Wartość z `len(detail_sections(...))` po edycji, nie z dodania trójki do 228.
+MINIMUM_DETAIL_BLOCKS = 231
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
