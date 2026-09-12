@@ -1932,4 +1932,159 @@ public sealed class UiTextTests
             "wejście syntetyczne przestało nieść dwa człony, więc porównanie wyżej "
             + "mogłoby być zgodnością dwóch zer: " + string.Join(" | ", SlowaWKodzie(sklejany)));
     }
+
+    /// <summary>
+    /// Ile literałów korpusu <see cref="BezJednostek"/> w ogóle ZMIENIA — 6.D155.
+    ///
+    /// <para>Nie jest to liczba usterek, tylko ZASIĘG mechaniki: na tylu literałach
+    /// zdejmowanie symboli cokolwiek robi z tekstem. Stoi tu, żeby dwie liczby niżej
+    /// dało się z czymś porównać — 2 z 335 to inne zdanie niż 2 z 2.</para>
+    /// </summary>
+    private const int LiteralowDotknietychZdejmowaniem = 335;
+
+    /// <summary>
+    /// Ilu literałom zdejmowanie jednostek ZABIERA werdykt „to słowo" — 6.D155.
+    /// </summary>
+    private const int WerdyktowZabranychPrzezZdejmowanie = 2;
+
+    /// <summary>
+    /// Ilu literałom zdejmowanie werdykt DAJE — 6.D155. Zero, i nie jest to
+    /// przypadek dzisiejszego drzewa: patrz
+    /// <see cref="Zdejmowanie_jednostek_moze_werdykt_ODEBRAC_a_dac_nie_moze"/>.
+    /// </summary>
+    private const int WerdyktowDanychPrzezZdejmowanie = 0;
+
+    /// <summary>Czy po zdjęciu dziur zostaje słowo — z jednostkami albo bez.</summary>
+    private static bool JestSlowo(string literal, bool zdejmujJednostki)
+    {
+        var tekst = BezDziur(literal);
+        return Regex.IsMatch(zdejmujJednostki ? BezJednostek(tekst) : tekst, WzorzecSlowa);
+    }
+
+    /// <summary>
+    /// Ile kosztuje mechanika „jednostki zjadają litery ze środka" — 6.D155.
+    ///
+    /// <para><b>ODPOWIEDŹ: dwa werdykty na 335 dotkniętych literałów, i ani jednego
+    /// w drugą stronę.</b> <see cref="BezJednostek"/> zdejmuje symbole bezwarunkowym
+    /// <c>Replace</c>, więc kaleczy tekst szeroko — <c>"streaming"</c> staje się
+    /// <c>" trea ing"</c>, <c>"name"</c> staje się <c>"na e"</c> — ale pytanie bramki
+    /// brzmi „czy zostały dwie litery pod rząd", a na to okaleczenie prawie nigdy nie
+    /// wpływa. Na dzisiejszym korpusie zmienia werdykt <b>dwóm</b> literałom.</para>
+    ///
+    /// <para><b>ROZSTRZYGNIĘCIE: nie warto, i to jest wynik pomiaru, a nie ostrożności.</b>
+    /// Oba dotknięte werdykty są już rozstrzygnięte gdzie indziej i oba są POPRAWNE:
+    /// <c>"Esc"</c> to przypadek, na którym stoi rozstrzygnięcie 6.D142 (wyjątek
+    /// <see cref="NazwyKlawiszy"/> jest bezczynny dokładnie dlatego), a wiersz prędkości
+    /// HUD-u milczy, bo po zdjęciu dziur i jednostek nie zostaje w nim ani jedno słowo
+    /// — czyli **dokładnie z powodu, dla którego 6.D115 to zdejmowanie wprowadziło**.
+    /// Zmiana na zdejmowanie warunkowe kosztowałaby przeczytanie decyzji 6.D142 od nowa
+    /// i nie naprawiłaby ani jednego fałszywego werdyktu, bo fałszywych nie ma.</para>
+    /// </summary>
+    [TestMethod]
+    public void Zdejmowanie_jednostek_kosztuje_dwa_werdykty_na_trzystu_trzydziestu_pieciu()
+    {
+        var dotkniete = 0;
+        var zabrane = new List<string>();
+        var dane = new List<string>();
+        foreach (var sciezka in ZrodlaGry())
+        {
+            foreach (var literal in Literaly(KodBezKomentarzy(File.ReadAllText(sciezka))))
+            {
+                var bezDziur = BezDziur(literal);
+                if (!string.Equals(bezDziur, BezJednostek(bezDziur), StringComparison.Ordinal))
+                {
+                    dotkniete++;
+                }
+
+                var bez = JestSlowo(literal, zdejmujJednostki: false);
+                var ze = JestSlowo(literal, zdejmujJednostki: true);
+                if (bez && !ze)
+                {
+                    zabrane.Add(literal);
+                }
+                else if (!bez && ze)
+                {
+                    dane.Add(literal);
+                }
+            }
+        }
+
+        Assert.AreEqual(LiteralowDotknietychZdejmowaniem, dotkniete,
+            $"zdejmowanie zmienia dziś {dotkniete} literałów wobec zmierzonych "
+            + $"{LiteralowDotknietychZdejmowaniem} — zasięg mechaniki się przesunął");
+        Assert.AreEqual(WerdyktowDanychPrzezZdejmowanie, dane.Count,
+            "zdejmowanie DAŁO komuś werdykt „to słowo”, a dać go nie może — "
+            + "podstawienie spacji rozdziela litery, więc nowej pary utworzyć nie "
+            + "umie: " + string.Join(" | ", dane));
+        Assert.AreEqual(WerdyktowZabranychPrzezZdejmowanie, zabrane.Count,
+            $"zdejmowanie zabiera dziś werdykt {zabrane.Count} literałom wobec "
+            + $"zmierzonych {WerdyktowZabranychPrzezZdejmowanie}: "
+            + string.Join(" | ", zabrane));
+
+        // I KTÓRE to są — bo pole „Skończone, gdy" pozycji pyta, czy któryś jest
+        // tekstem dla gracza. Odpowiedź brzmi TAK, i jest tu wykonana, nie napisana.
+        Assert.IsTrue(zabrane.Contains("Esc", StringComparer.Ordinal),
+            "„Esc” przestał być jednym z dwóch — na nim stoi rozstrzygnięcie 6.D142: "
+            + string.Join(" | ", zabrane));
+        Assert.IsTrue(NazwyKlawiszy.Contains("Esc", StringComparer.Ordinal),
+            "„Esc” wypadł z `NazwyKlawiszy`, więc zdanie o bezczynności wyjątku "
+            + "z 6.D142 opisuje inny stan");
+
+        var wHudUpdate = Literaly(CialoDeklaracji(
+            KodBezKomentarzy(HudSource()), "public void Update("));
+        var drugi = zabrane.Single(l => !string.Equals(l, "Esc", StringComparison.Ordinal));
+        Assert.IsTrue(wHudUpdate.Contains(drugi, StringComparer.Ordinal),
+            $"drugi z dwóch literałów („{drugi}”) przestał stać w ciele `Hud.Update`, "
+            + "więc odpowiedź „tak, jeden z nich to tekst dla gracza” przestała "
+            + "wynikać z drogi wywołania prześledzonej w 6.D183");
+        // CO w nim zostaje, a nie „czy zostaje słowo" — to drugie wynikałoby
+        // z samego członkostwa w `zabrane` i byłoby zdaniem o sobie samym.
+        // Zostaje JEDNA litera: `a`, symbol przyspieszenia. Reszta wiersza to dziury
+        // interpolacji, jednostki, spacje i znak równości — czyli dokładnie to, co
+        // pole „Skończone, gdy" 6.D83 kazało ZOSTAWIĆ w kodzie.
+        var resztka = BezJednostek(BezDziur(drugi))
+            .Replace(" ", string.Empty, StringComparison.Ordinal)
+            .Replace("=", string.Empty, StringComparison.Ordinal);
+        Assert.AreEqual("a", resztka,
+            $"po zdjęciu dziur i jednostek w „{drugi}” zostaje „{resztka}” zamiast "
+            + "samego symbolu przyspieszenia — wiersz prędkości niesie wtedy coś, "
+            + "czego 6.D83 nie przewidziało, i milczenie bramki wymaga nowego powodu");
+        Assert.AreEqual(1, resztka.Length,
+            "resztka przestała być JEDNOLITEROWA, więc nie jest już oczywiste, "
+            + "że wiersz nie ma słowa z własnego prawa");
+    }
+
+    /// <summary>
+    /// Zdejmowanie jednostek może werdykt ODEBRAĆ, a dać nie może — 6.D155.
+    ///
+    /// <para>Wejście SYNTETYCZNE, bo zero z pomiaru jest zerem NA DZISIEJSZYM DRZEWIE
+    /// i samo w sobie nie mówi, czy druga strona jest niemożliwa, czy tylko nie
+    /// trafiła się. Mechanizm: <see cref="BezJednostek"/> podstawia SPACJĘ, a spacja
+    /// rozdziela litery — więc pary, której nie było, utworzyć nie umie. Poniżej
+    /// wykonane na obu kierunkach.</para>
+    /// </summary>
+    [TestMethod]
+    public void Zdejmowanie_jednostek_moze_werdykt_ODEBRAC_a_dac_nie_moze()
+    {
+        // ODBIERA: trzy litery, z których środkowa jest jednostką.
+        Assert.IsTrue(JestSlowo("Esc", zdejmujJednostki: false),
+            "„Esc” przestał być słowem PRZED zdejmowaniem — kontrola mierzyłaby nic");
+        Assert.IsFalse(JestSlowo("Esc", zdejmujJednostki: true),
+            "„Esc” przestał tracić werdykt po zdejmowaniu — mechanika z 6.D142 znikła");
+
+        // NIE DAJE: jednostka między literami zostaje zastąpiona SPACJĄ, więc
+        // sąsiadami nie stają się one, tylko rozchodzą się jeszcze dalej.
+        Assert.AreEqual("a b", BezJednostek("akmb"),
+            "zdejmowanie przestało podstawiać spację — gdyby podstawiało pusty napis, "
+            + "„akmb” dałoby „ab”, czyli parę liter STWORZONĄ przez sito");
+        Assert.IsFalse(JestSlowo("akmb", zdejmujJednostki: true),
+            "zdejmowanie utworzyło parę liter z dwóch rozdzielonych — kierunek, "
+            + "który pomiar 6.D155 podaje jako niemożliwy, właśnie stał się możliwy");
+
+        // I kontrola w drugą stronę na tym samym wejściu: BEZ zdejmowania „akmb”
+        // słowem JEST, więc powyższy `IsFalse` nie jest zgodnością dwóch zer.
+        Assert.IsTrue(JestSlowo("akmb", zdejmujJednostki: false),
+            "„akmb” przestało być słowem bez zdejmowania, więc kontrola wyżej "
+            + "przechodziłaby z niewłaściwego powodu");
+    }
 }
