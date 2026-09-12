@@ -282,6 +282,35 @@ def test_the_scan_sees_the_measured_number_of_paths():
     files = {hit["path"] for hit in hits}
     assert len(files) >= MIN_FILES_WITH_PATHS, sorted(files)
 
+    # STRAŻNIK, dodany 12.09.2026 (6.D167). Dwie asercje wyżej są NOŚNE: padają,
+    # gdy kurczy się drzewo. Nie padają, gdy ktoś obniży samą stałą — a obniżenie
+    # stałej jest dokładnie tym, co człowiek robi odruchowo, gdy bramka zapali się
+    # po skasowaniu jednej ścieżki. Do 12.09.2026 rejestr `test_tree_walks.py`
+    # klasyfikował obie zapadki jako WOLNE, czyli ruch w zakazaną stronę nie
+    # zapalał niczego, a stały DOKŁADNIE na stanie drzewa: 29 i 8.
+    #
+    # To ta sama usterka, którą 6.D45 zmierzyło na `MIN_REPORTS`, tylko w drugą
+    # stronę — tam zapadka stała sto pozycji za drzewem i nie mierzyła nic, tu stoi
+    # równo i nie broni się przed cofnięciem.
+    #
+    # KOSZT PRZYBICIA ZMIERZONY, NIE OSZACOWANY: populacja `bin/…/netX.Y/`
+    # w `reports/` i `docs/` nie zmieniła się ANI RAZU w 59 przejściach historii
+    # tych katalogów (jedna jedyna wartość w całym oknie). Równość kosztuje więc
+    # zero — inaczej niż przy 6.D153, gdzie ten sam pomiar przybicie ODRADZAŁ
+    # (29 zmian na 39 przejściach) i gdzie przybity został zbiór, a nie liczba.
+    #
+    # Kształt wyrażenia po prawej jest TREŚCIĄ, a nie stylem: klasyfikator
+    # `klasa_zapadki` uznaje strażnika za przybijającego dopiero wtedy, gdy mierzy
+    # TĘ SAMĄ populację co próg, porównując `ast.dump` obu stron. `len(hits)`
+    # i `len(files)` muszą tu więc stać znak w znak tak, jak stoją wyżej.
+    assert MIN_PATHS_IN_TREE >= len(hits), (
+        "`MIN_PATHS_IN_TREE` = %d stoi PONIŻEJ drzewa (%d ścieżek) — zapadkę "
+        "obniżono zamiast przeliczyć, a próg poniżej stanu nie mierzy już niczego"
+        % (MIN_PATHS_IN_TREE, len(hits)))
+    assert MIN_FILES_WITH_PATHS >= len(files), (
+        "`MIN_FILES_WITH_PATHS` = %d stoi PONIŻEJ drzewa (%d plików) — jak wyżej"
+        % (MIN_FILES_WITH_PATHS, len(files)))
+
 
 def test_no_verification_field_cites_a_stale_framework_directory():
     """Szczebel 1: pole „Weryfikacja" jest obietnicą wykonalnej komendy.
