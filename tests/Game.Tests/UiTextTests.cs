@@ -118,14 +118,76 @@ public sealed class UiTextTests
     /// da. Da się: <c>Godot.Key</c> jest <b>wyliczeniem silnika</b>, nie czyimś
     /// wyborem, i rośnie razem z Godotem, a nie razem z tekstem interfejsu.</para>
     ///
-    /// <para><b>Ryzyko kolizji zmierzone, nie oszacowane.</b> W całym
-    /// <c>src/Game/</c> stoi <b>948</b> literałów (746 różnych), a nazwą klawisza jest
-    /// <b>sześć</b>: <c>Escape</c>, <c>F1</c>, <c>F2</c>, <c>Forward</c>,
-    /// <c>Right</c>, <c>Up</c> — ani jeden nie jest tekstem interfejsu. Żadna ze 193
-    /// nazw nie niesie polskiego znaku diakrytycznego.</para>
+    /// <para><b>Ryzyko kolizji mierzone NA KORPUSIE BRAMKI — akapit jest przepisany,
+    /// a nie dopisany obok (6.D153, 12.09.2026).</b> Poprzednia wersja mówiła, że
+    /// w całym <c>src/Game/</c> stoi <b>948</b> literałów (746 różnych), a nazwą
+    /// klawisza jest <b>sześć</b>: <c>Escape</c>, <c>F1</c>, <c>F2</c>,
+    /// <c>Forward</c>, <c>Right</c>, <c>Up</c>. Liczba jest odtwarzalna, ale
+    /// <b>policzona poza zasięgiem przyrządu</b>: razem z komentarzami i razem
+    /// z <c>UiText.cs</c>, których bramka nie czyta.</para>
+    ///
+    /// <para><b>Co bramka widzi naprawdę.</b> Jej korpus to <see cref="ZrodlaGry"/>
+    /// przepuszczone przez <see cref="KodBezKomentarzy"/> — <b>21</b> plików, bez
+    /// <c>.godot</c> i bez <c>UiText.cs</c>, bez wierszy komentarza. Stoi w nim
+    /// <b>521</b> literałów (<b>395</b> różnych), a nazwą klawisza jest
+    /// <b>siedem</b>: <c>C</c>, <c>F1</c>, <c>F2</c>, <c>R</c>, <c>S</c>, <c>W</c>,
+    /// <c>X</c>. Cztery z tamtej szóstki — <c>Escape</c>, <c>Forward</c>,
+    /// <c>Right</c>, <c>Up</c> — nie są w ogóle literałami kodu: <c>Escape</c> stoi
+    /// w cudzysłowie w komentarzu <c>KeyNames.cs</c>, a pozostałe trzy są
+    /// wartościami atrybutu <c>&lt;param name="..."&gt;</c> w <c>SceneAxis.cs</c>.
+    /// Pięciu jednoliterowych, które w kodzie naprawdę stoją, tamto zdanie nie
+    /// wymieniało. Ocena liczona szerzej niż zasięg przyrządu zawyżała ryzyko
+    /// i jednocześnie pomijała to, które istnieje.</para>
+    ///
+    /// <para><b>Ile tego ryzyka jest: ZERO — i to jest wynik pomiaru, nie jego
+    /// brak.</b> Do <see cref="PowodOdrzucenia"/> trafia wyłącznie literał
+    /// ZGŁOSZONY, a zgłasza go <see cref="WzorzecSlowa"/>, który żąda dwóch liter
+    /// pod rząd. Żadna z tych siedmiu nazw dwóch liter pod rząd nie ma — pięć jest
+    /// jednoliterowych, a <c>F1</c> i <c>F2</c> niosą literę i cyfrę. Kolizja
+    /// w zasięgu bramki jest więc dziś NIEOSIĄGALNA, i to ze względu strukturalnego,
+    /// a nie przez szczęśliwy dobór napisów. W korpusie szerszym jest odwrotnie:
+    /// wszystkie cztery nazwy widziane tylko w komentarzach są zgłaszalne, więc
+    /// gdyby któraś zeszła z komentarza do kodu, kolizja stałaby się natychmiast
+    /// realna. Pilnuje tego
+    /// <see cref="Ocena_ryzyka_kolizji_jest_mierzona_na_korpusie_bramki"/>.</para>
+    ///
+    /// <para>Żadna ze 193 nazw nie niesie polskiego znaku diakrytycznego.</para>
     /// </summary>
     private static readonly HashSet<string> NazwyKlawiszySilnika =
         Enum.GetNames(typeof(Key)).ToHashSet(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Nazwy członów <c>Godot.Key</c>, które stoją w KORPUSIE BRAMKI — 6.D153.
+    ///
+    /// <para><b>Przybity jest ZBIÓR, a nie liczba literałów, i to jest pomiar, nie
+    /// gust.</b> Zmierzone 12.09.2026 na <b>40</b> rewizjach <c>src/Game</c>: para
+    /// (literały, różne) zmienia się w <b>29</b> przejściach na 39, a ten zbiór —
+    /// w <b>dwóch</b>. Zapadka na liczbach zapalałaby się w trzech rewizjach na
+    /// cztery i zostałaby wyłączona; zapadka na zbiorze pilnuje dokładnie tego,
+    /// o czym mówi akapit o ryzyku przy <see cref="NazwyKlawiszySilnika"/>.</para>
+    /// </summary>
+    private static readonly string[] NazwyKlawiszyWZasieguBramki =
+        { "C", "F1", "F2", "R", "S", "W", "X" };
+
+    /// <summary>
+    /// Nazwy klawiszy widoczne dopiero SZERZEJ niż bramka — 6.D153.
+    ///
+    /// <para>Nie jest to lista wyjątków: to materiał pomiaru. Każda z tych czterech
+    /// jest zgłaszalna przez <see cref="WzorzecSlowa"/>, a mimo to nie stoi
+    /// w korpusie bramki — bo stoi w komentarzu. Gdyby któraś zeszła do kodu,
+    /// kolizja byłaby realna, i stąd druga połowa testu.</para>
+    /// </summary>
+    private static readonly string[] NazwyKlawiszyTylkoWKomentarzach =
+        { "Escape", "Forward", "Right", "Up" };
+
+    /// <summary>Ile plików ma korpus bramki — dolne ostrze, zmierzone 12.09.2026.</summary>
+    private const int PlikowWZasieguBramki = 21;
+
+    /// <summary>Ile literałów — dolne ostrze, zmierzone 12.09.2026.</summary>
+    private const int LiteralowWZasieguBramki = 521;
+
+    /// <summary>Ile różnych — dolne ostrze, zmierzone 12.09.2026.</summary>
+    private const int RoznychLiteralowWZasieguBramki = 395;
 
     /// <summary>
     /// Dlaczego ten literał został odrzucony — dwa różne zdania, nie jedno — 6.D130.
@@ -531,6 +593,80 @@ public sealed class UiTextTests
             + zdanieOKlawiszu);
         Assert.IsFalse(zdanieOKlawiszu.Contains("literał językowy", StringComparison.Ordinal),
             "zdanie o klawiszu nadal niesie słowo o polszczyźnie: " + zdanieOKlawiszu);
+    }
+
+    /// <summary>
+    /// Ocena ryzyka kolizji jest mierzona na KORPUSIE BRAMKI — 6.D153.
+    ///
+    /// <para><b>Skąd pozycja.</b> Docstring <see cref="NazwyKlawiszySilnika"/> podawał
+    /// liczby policzone na <c>src/Game/</c> Z KOMENTARZAMI i z <c>UiText.cs</c>, czyli
+    /// tam, gdzie bramka nie sięga. Ocena szersza niż zasięg przyrządu zawyża ryzyko
+    /// i jednocześnie pomija to, które istnieje — a że brzmi jak pomiar, nikt jej nie
+    /// sprawdza. Ten test zabiera jej możliwość rozjechania się po cichu.</para>
+    ///
+    /// <para><b>Pierwsza połowa wychodzi ZIELONA i to jest ODPOWIEDŹ, nie brak
+    /// pomiaru.</b> W korpusie bramki nie ma dziś ani jednej OSIĄGALNEJ kolizji:
+    /// wszystkie siedem nazw klawiszy, które w nim stoją, przechodzi przez
+    /// <see cref="WzorzecSlowa"/> niezgłoszonych, bo nie mają dwóch liter pod rząd.
+    /// Żeby ta zieleń nie znaczyła „bramka oślepła", stoi w parze z drugą połową:
+    /// cztery nazwy widziane tylko w komentarzach są tą samą drogą ZGŁASZALNE.
+    /// Para mierzy, że różnicę robi mechanizm, a nie zanik pilnowania.</para>
+    /// </summary>
+    [TestMethod]
+    public void Ocena_ryzyka_kolizji_jest_mierzona_na_korpusie_bramki()
+    {
+        var zrodla = ZrodlaGry();
+        var literaly = zrodla
+            .SelectMany(sciezka => Literaly(KodBezKomentarzy(File.ReadAllText(sciezka))))
+            .ToList();
+
+        // Dolne ostrza na SAM SKAN. Bez nich pusty korpus dałby „zero osiągalnych
+        // kolizji" i test meldowałby sprawdzenie, którego nie zrobił (6.D27).
+        Assert.IsTrue(zrodla.Count >= PlikowWZasieguBramki,
+            $"korpus bramki ma {zrodla.Count} plików wobec zmierzonych "
+            + $"{PlikowWZasieguBramki} — skan zawęził się i mierzy nie to co trzeba");
+        Assert.IsTrue(literaly.Count >= LiteralowWZasieguBramki,
+            $"korpus bramki ma {literaly.Count} literałów wobec zmierzonych "
+            + $"{LiteralowWZasieguBramki} — akapit o ryzyku opisuje inny korpus");
+        var roznych = literaly.Distinct(StringComparer.Ordinal).Count();
+        Assert.IsTrue(roznych >= RoznychLiteralowWZasieguBramki,
+            $"różnych literałów jest {roznych} wobec zmierzonych "
+            + $"{RoznychLiteralowWZasieguBramki} — jak wyżej");
+
+        // ZBIÓR, nie liczba: na 40 rewizjach `src/Game` liczby zmieniły się w 29
+        // przejściach na 39, a ten zbiór w dwóch.
+        var wKorpusie = literaly
+            .Where(NazwyKlawiszySilnika.Contains)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(nazwa => nazwa, StringComparer.Ordinal)
+            .ToArray();
+        CollectionAssert.AreEqual(NazwyKlawiszyWZasieguBramki, wKorpusie,
+            "zbiór nazw klawiszy w korpusie bramki rozjechał się z akapitem "
+            + "o ryzyku przy `NazwyKlawiszySilnika`: " + string.Join(", ", wKorpusie));
+
+        // Połowa pierwsza: żadna z nich nie jest ZGŁASZALNA, więc do
+        // `PowodOdrzucenia` nie ma jak trafić.
+        var osiagalne = wKorpusie
+            .Where(nazwa => SlowaWKodzie($"var t = \"{nazwa}\";").Count > 0)
+            .ToArray();
+        CollectionAssert.AreEqual(Array.Empty<string>(), osiagalne,
+            "nazwa klawisza z korpusu bramki stała się zgłaszalna, więc kolizja "
+            + "przestała być nieosiągalna: " + string.Join(", ", osiagalne));
+
+        // Połowa druga — czerwona para do tamtej zieleni. Gdyby sito przestało
+        // cokolwiek zgłaszać, powyższe zero brałoby się z zaniku pilnowania.
+        foreach (var nazwa in NazwyKlawiszyTylkoWKomentarzach)
+        {
+            Assert.IsTrue(NazwyKlawiszySilnika.Contains(nazwa),
+                $"`{nazwa}` przestało być nazwą członu `Godot.Key` — materiał "
+                + "pomiaru zestarzał się i akapit o ryzyku mówi o nieistniejącym");
+            Assert.AreEqual(1, SlowaWKodzie($"var t = \"{nazwa}\";").Count,
+                $"`{nazwa}` przestało być zgłaszalne — wtedy zero wyżej nie mówi "
+                + "o strukturze nazw, tylko o tym, że sito nic nie zgłasza");
+            Assert.IsFalse(wKorpusie.Contains(nazwa, StringComparer.Ordinal),
+                $"`{nazwa}` zeszło z komentarza do kodu skanowanego — kolizja "
+                + "jest odtąd osiągalna i akapit o ryzyku wymaga przeliczenia");
+        }
     }
 
     /// <summary>
