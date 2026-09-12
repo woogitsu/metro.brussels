@@ -737,6 +737,163 @@ def test_the_bound_is_the_MAXIMUM_of_the_way_timestamps_not_the_first_one():
     assert wynik["way_timestamp_max"] == "2026-07-19T16:40:48Z", wynik["way_timestamp_max"]
 
 
+# --- 6.D53: rejestr opisuje dostęp do OSM liczbami, nie dwoma słowami ----------------
+
+def _rejestr_probny(katalog, koncowki):
+    """Rejestr z podmienionym wpisem `openstreetmap`. Wejście syntetyczne dla kontroli.
+
+    Na prawdziwym rejestrze da się sprawdzić wyłącznie „dziś się zgadza"; czy czytelnik
+    UMIE nie znaleźć i czy wypis UMIE powiedzieć „ROZJECHANE", widać dopiero na rejestrze
+    zepsutym — a `data/` jest tylko do odczytu poza wpisem, który ta pozycja zmienia.
+    """
+    with open(os.path.join(ROOT, "data", "network", "sources.json"), encoding="utf-8") as u:
+        rejestr = json.load(u)
+    for wpis in rejestr["sources"]:
+        if wpis["id"] == "openstreetmap":
+            if koncowki is None:
+                wpis["access"] = {"type": "osm_or_overpass",
+                                  "authentication": "endpoint-dependent"}
+            else:
+                wpis["access"]["endpoints"] = koncowki
+    sciezka = os.path.join(katalog, "sources.json")
+    with open(sciezka, "w", encoding="utf-8") as u:
+        json.dump(rejestr, u, ensure_ascii=False)
+    return sciezka
+
+
+def test_rejestr_rozroznia_dwie_koncowki_OSM_a_nie_jedno_slowo():
+    """Rdzeń 6.D53: `osm_or_overpass` mówi, że drogi są dwie, i nic poza tym.
+
+    Obie różnią się dokładnie tym, co rejestr pomijał: Overpass filtruje po stronie
+    serwera i nie ma twardego limitu obszaru, a `/api/0.6/map` nie filtruje i ma limit
+    50 000 węzłów na wywołanie. Bramka żąda, żeby rejestr te dwie rzeczy ROZRÓŻNIAŁ —
+    wpis, w którym obie końcówki mają to samo, jest tym samym dwuznaczeniem co przedtem.
+    """
+    koncowki = X.koncowki_osm_z_rejestru()
+    assert set(koncowki) == {X.OSM_SOURCE_OVERPASS, X.OSM_SOURCE_API}, sorted(koncowki)
+    role = {k: koncowki[k]["role"] for k in koncowki}
+    assert role == {X.OSM_SOURCE_OVERPASS: "primary", X.OSM_SOURCE_API: "fallback"}, role
+
+    filtry = {k: koncowki[k]["server_side_filter"] for k in koncowki}
+    assert filtry[X.OSM_SOURCE_OVERPASS] != filtry[X.OSM_SOURCE_API], (
+        f"obie końcówki mają `server_side_filter` = {filtry} — rejestr znów nie "
+        "rozróżnia dróg, a to jest ta różnica, przez którą jedna pobiera 66,1 MB "
+        "na 97 way'ów, a druga same way'e")
+
+    zapasowa = koncowki[X.OSM_SOURCE_API]
+    assert isinstance(zapasowa["node_limit_per_call"], int), zapasowa
+    assert "50000" in zapasowa["node_limit_note"], (
+        "wpis niesie limit jako liczbę, ale jego uzasadnienie nie cytuje komunikatu "
+        f"odmowy — po czym rozpoznać „kafel za duży”: {zapasowa['node_limit_note']!r}")
+    podstawowa = koncowki[X.OSM_SOURCE_OVERPASS]
+    assert podstawowa["node_limit_per_call"] is None, podstawowa
+    assert podstawowa["node_limit_note"], (
+        "brak limitu u Overpassa zapisany samym `null` jest nieodróżnialny od pola, "
+        "którego nikt nie wypełnił — nieobecność ma być ZDANIEM")
+
+
+def test_limit_koncowki_w_rejestrze_zgadza_sie_z_kodem_i_komunikat_NAZYWA_OBIE():
+    """Pole „Skończone, gdy" 6.D53: rozjazd zapala bramkę, a bramka nazywa OBIE liczby.
+
+    Bez tego wpis rozjechałby się po cichu — dokładnie tak, jak rozjechały się liczby
+    maszyn w `CLAUDE.md` §9, gdzie zdanie zostało, a świat pod nim się zmienił.
+
+    **Żadna z par nie zestawia nieobecności z nieobecnością.** Pierwsza wersja wypisu
+    porównywała dla Overpassa `None` z `None` i mówiła „zgodne" — zdanie prawdziwe
+    zawsze. Dziś parą Overpassa jest `timeout_s` wobec `[timeout:60]` z szablonu
+    zapytania, czyli dwie liczby, które NAPRAWDĘ mogą się rozjechać.
+    """
+    pary = X.pary_rejestr_kod()
+    assert len(pary) >= 4, pary
+    rozjechane = [(co, r, k) for co, r, k in pary if r != k]
+    assert not rozjechane, "rejestr i kod mówią co innego:\n" + "\n".join(
+        f"  {co}: rejestr {r!r}, kod {k!r}" for co, r, k in rozjechane)
+    for co, z_rejestru, z_kodu in pary:
+        assert not (z_rejestru is None and z_kodu is None), (
+            f"para „{co}” zestawia dwie nieobecności — porównanie prawdziwe zawsze")
+
+
+def test_wypis_pokazuje_OBIE_wartosci_takze_gdy_sie_ROZJECHALY():
+    """Kontrola PRZYRZĄDU: wypis ma umieć powiedzieć „ROZJECHANE", nie tylko „zgodne".
+
+    Na dzisiejszym rejestrze wszystkie pary są zgodne, więc sam wypis niczego nie
+    rozstrzyga — tak samo jak zielona bramka na drzewie bez usterki. Rejestr probny
+    z podmienioną liczbą jest tu wejściem syntetycznym, a `data/` zostaje nietknięte.
+    """
+    wiersze = X.wiersze_limitow()
+    assert any("50000" in w and "węzłów" in w for w in wiersze), wiersze
+    assert all("zgodne" in w for w in wiersze), wiersze
+
+    with tempfile.TemporaryDirectory() as tmp:
+        koncowki = [dict(k) for k in X.koncowki_osm_z_rejestru().values()]
+        for k in koncowki:
+            if k["id"] == X.OSM_SOURCE_API:
+                k["node_limit_per_call"] = 49999
+        sciezka = _rejestr_probny(tmp, koncowki)
+        zepsute = X.wiersze_limitow(sciezka)
+    rozjechane = [w for w in zepsute if "ROZJECHANE" in w]
+    assert len(rozjechane) == 1, zepsute
+    assert "49999" in rozjechane[0] and "50000" in rozjechane[0], (
+        "wiersz o rozjeździe ma nieść OBIE liczby, bo po to ten wypis istnieje: "
+        + rozjechane[0])
+
+
+def test_czytelnik_rejestru_ODMAWIA_gdy_koncowek_nie_ma():
+    """Wpis sprzed 6.D53 ma dać wyjątek z powodem, a nie pusty słownik.
+
+    Czytelnik zwracający `{}` na wpisie dwusłownym byłby przyrządem meldującym
+    sprawdzenie, którego nie zrobił — rodzina 6.D27. Bramka wyżej przeszłaby wtedy
+    na `KeyError` dopiero przy dostępie, czyli z komunikatem o kluczu zamiast o wpisie.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        stary = _rejestr_probny(tmp, None)
+        try:
+            X.koncowki_osm_z_rejestru(stary)
+        except KeyError as e:
+            assert "endpoints" in str(e), e
+        else:
+            raise AssertionError(
+                "czytelnik przyjął wpis bez końcówek — dwa słowa `osm_or_overpass` "
+                "znów wystarczyłyby za opis dostępu")
+
+
+def test_czytelnik_rejestru_ODMAWIA_gdy_wpisow_OSM_jest_wiecej_niz_jeden():
+    """Wejście SYNTETYCZNE do warunku, którego dzisiejszy rejestr nie dotyka.
+
+    **Ta bramka istnieje, bo kontrola negatywna wyszła ZIELONA.** Warunek
+    `len(wpisy) != 1` w `koncowki_osm_z_rejestru` przepuszczał mutację na `< 1` bez
+    jednego czerwonego testu: rejestr ma dziś dokładnie jeden wpis `openstreetmap`,
+    więc gałąź „wpisów jest kilka" nie była wykonywana przez nic. To jest rodzina
+    „ubezpieczenie, nie zmierzona konieczność" (pozycja 6.D161) — mechanizm poprawny,
+    któremu żadne wejście z drzewa nie odróżnia obecności od braku.
+
+    Dwa wpisy o tym samym `id` to nie jest scenariusz teoretyczny: rejestr jest listą,
+    a nie słownikiem, więc powstają one przez zwykłe rozwiązanie konfliktu scalania.
+    Czytelnik brałby wtedy PIERWSZY i milczał.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        with open(os.path.join(ROOT, "data", "network", "sources.json"),
+                  encoding="utf-8") as uchwyt:
+            rejestr = json.load(uchwyt)
+        osm = [w for w in rejestr["sources"] if w["id"] == "openstreetmap"]
+        assert len(osm) == 1, "prawdziwy rejestr ma dziś jeden wpis OSM — to jest założenie"
+        rejestr["sources"].append(json.loads(json.dumps(osm[0])))
+        sciezka = os.path.join(tmp, "sources.json")
+        with open(sciezka, "w", encoding="utf-8") as uchwyt:
+            json.dump(rejestr, uchwyt, ensure_ascii=False)
+
+        try:
+            X.koncowki_osm_z_rejestru(sciezka)
+        except KeyError as e:
+            assert "2" in str(e), (
+                "odmowa ma podać, ILE wpisów znalazła — inaczej czytający nie wie, "
+                f"czy jest ich zero, czy dwa: {e}")
+        else:
+            raise AssertionError(
+                "czytelnik wziął jeden z dwóch wpisów `openstreetmap` i nie powiedział, "
+                "że wybierał — drugi mógł nieść inny limit")
+
+
 if __name__ == "__main__":
     import test_all
     raise SystemExit(test_all.main(__file__))

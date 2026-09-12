@@ -343,11 +343,34 @@ w wyniku pobrania z `/api/0.6/map` byłaby zdaniem nieprawdziwym. Atrybucja i li
 bez zmian: **© OpenStreetMap contributors, ODbL 1.0**.
 
 *Pozycja w hierarchii.* Bez zmian — **klasa 4**, poniżej oficjalnych danych STIB
-i Regionu. Ta droga zmienia sposób dostępu do OSM, nie rangę OSM. `data/network/sources.json`
-opisuje dostęp jako `access.type = "osm_or_overpass"`, więc obie drogi mieszczą się
-w istniejącym wpisie rejestru; czego rejestr nie zapisuje, to limity anonimowe tej
-konkretnej końcówki i to jest zgłoszone jako osobna pozycja kolejki, a nie poprawione
-tutaj (`data/` jest tylko do odczytu).
+i Regionu. Ta droga zmienia sposób dostępu do OSM, nie rangę OSM.
+
+*Rejestr.* **Ten akapit jest przepisany 12.09.2026 (6.D53), a nie dopisany obok.**
+Poprzednia wersja mówiła: „`data/network/sources.json` opisuje dostęp jako
+`access.type = "osm_or_overpass"`, więc obie drogi mieszczą się w istniejącym wpisie
+rejestru; czego rejestr nie zapisuje, to limity anonimowe tej konkretnej końcówki i to
+jest zgłoszone jako osobna pozycja kolejki, a nie poprawione tutaj (`data/` jest tylko
+do odczytu)". Ta pozycja to była 6.D53 i **jest domknięta**: rejestr wymienia dziś obie
+końcówki osobno, w `access.endpoints`, każdą z jej `url`, `role` (`primary` /
+`fallback`), `server_side_filter` i limitem — `node_limit_per_call = 50000` dla
+`/api/0.6/map`, `null` dla Overpassa **z osobnym zdaniem, dlaczego go nie ma** (filtruje
+serwer, więc rozmiar odpowiedzi zależy od zapytania, a nie od prostokąta). Dwa słowa
+zostały na miejscu dla czytników sprzed tej pozycji, ale rozstrzyga lista.
+
+Liczba limitu stoi **w dwóch miejscach świadomie** — w rejestrze i jako
+`OSM_API_NODE_LIMIT` w `tools/track/crosscheck_alignment.py`, bo narzędzie musi
+rozpoznać odmowę także bez rejestru pod ręką — i dlatego ma strażnika:
+`test_osm_api_fallback.test_limit_koncowki_w_rejestrze_zgadza_sie_z_kodem_i_komunikat_NAZYWA_OBIE`
+zestawia sześć par rejestr↔kod i przy rozjeździe wypisuje **obie** wartości. Wypis do
+obejrzenia ręką:
+
+```bash
+python3 -c "import sys; sys.path.insert(0,'tools/track'); import crosscheck_alignment as X; print(*X.wiersze_limitow(), sep=chr(10))"
+```
+
+Zapis do `data/network/sources.json` był tu uprawniony **decyzją właściciela
+z 10.09.2026**, dotyczącą tej jednej pozycji i tego jednego pliku; `data/` zostaje tylko
+do odczytu wszędzie indziej.
 
 Bramka: `tools/tests/test_osm_api_fallback.py`.
 
