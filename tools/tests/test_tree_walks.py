@@ -191,7 +191,7 @@ ZAPADKI = {
     "MINIMUM_WYSTAPIEN_ROWNOSCI": (WOLNA, "test_runner_options.py"),
     "MIN_FILES_WITH_PATHS": (WOLNA, "test_bin_path_framework.py"),
     "MIN_GAME_MESSAGES": (WOLNA, "test_game_needle_specificity.py"),
-    "MIN_GAME_NEEDLES": (WOLNA, "test_game_needle_specificity.py"),
+    "MIN_GAME_NEEDLES": (PRZYBITA, "test_game_needle_specificity.py"),
     "MIN_GAME_SOURCES": (WOLNA, "test_game_needle_specificity.py"),
     "MIN_MESSAGES": (WOLNA, "test_needle_specificity.py"),
     "MIN_BLOKOW_WYKONANYCH": (WOLNA, "test_field_paths.py"),
@@ -674,10 +674,10 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
     # a „21 wolnych" staje się nieprawdą, której nie zgłasza nic. KN-7 wykonała
     # dokładnie ten scenariusz: jedyną czerwienią była ta asercja.
     ile = collections.Counter(w_drzewie.values())
-    assert (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM]) == (14, 3, 24, 1), (
+    assert (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM]) == (15, 3, 23, 1), (
         "klasy zapadek: przybitych %d, częściowych %d, WOLNYCH %d, poza skanem %d — "
         "pomiar z 11.09.2026 mówił 13/3/21/1, po 6.D146 — 13/3/23/1, a po 6.D147 — "
-        "14/3/24/1; wolne to te, "
+        "14/3/24/1, a po 6.D151 — 15/3/23/1; wolne to te, "
         "które da się ruszyć "
         "w zakazaną stronę bez zapalenia czegokolwiek: %s"
         % (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM],
