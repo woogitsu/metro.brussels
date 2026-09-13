@@ -128,8 +128,12 @@ public sealed class UiTextTests
     /// z <c>UiText.cs</c>, których bramka nie czyta.</para>
     ///
     /// <para><b>Co bramka widzi naprawdę.</b> Jej korpus to <see cref="ZrodlaGry"/>
-    /// przepuszczone przez <see cref="KodBezKomentarzy"/> — <b>21</b> plików, bez
-    /// <c>.godot</c> i bez <c>UiText.cs</c>, bez wierszy komentarza. Stoi w nim
+    /// — <b>21</b> plików, bez <c>.godot</c> i bez <c>UiText.cs</c>. Akapit jest
+    /// przepisany, a nie dopisany obok (6.D184): do 13.09.2026 stało tu, że korpus
+    /// jest „przepuszczony przez obcinacz komentarzy", i to już nieprawda. Obcinacz
+    /// wierszowy został zdjęty z szesnastu miejsc, bo od 6.D182 <see cref="Literaly"/>
+    /// pomija komentarze sam, leksykalnie — zmierzone: <b>480</b> literałów z nim
+    /// i <b>480</b> bez, różnica w <b>zero</b> plikach z dwudziestu jeden. Stoi w nim
     /// <b>521</b> literałów (<b>395</b> różnych), a nazwą klawisza jest
     /// <b>siedem</b>: <c>C</c>, <c>F1</c>, <c>F2</c>, <c>R</c>, <c>S</c>, <c>W</c>,
     /// <c>X</c>. Cztery z tamtej szóstki — <c>Escape</c>, <c>Forward</c>,
@@ -326,10 +330,6 @@ public sealed class UiTextTests
         throw new InvalidOperationException();
     }
 
-    /// <summary>Kod pliku bez komentarzy — komentarze WOLNO pisać po polsku.</summary>
-    private static string KodBezKomentarzy(string source) =>
-        string.Join("\n", source.Split('\n')
-            .Where(l => !l.TrimStart().StartsWith("//", StringComparison.Ordinal)));
 
     /// <summary>
     /// Wzorzec, którym literały czytano DO 6.D182 — zostaje WYŁĄCZNIE jako wejście
@@ -344,6 +344,33 @@ public sealed class UiTextTests
     private const string WzorzecStaregoCzytnika = "\"((?:[^\"\\\\]|\\\\.)*)\"";
 
     /// <summary>Stary czytnik — tylko jako wejście kontroli, patrz wyżej.</summary>
+    /// <summary>Obcinacz WIERSZOWY, dziś używany WYŁĄCZNIE jako wejście
+    /// starego czytnika — 6.D184.</summary>
+    /// <remarks>
+    /// <para><b>Był w siedemnastu miejscach, został w jednym, i to jest wynik
+    /// pomiaru.</b> Usuwa każdy wiersz zaczynający się od <c>//</c>, nie pytając,
+    /// czy stoi w kodzie, czy w środku napisu wielowierszowego. Odkąd
+    /// <see cref="Literaly"/> pomija komentarze sam, leksykalnie (6.D182), dla
+    /// żywych czytników nie zmienia <b>niczego</b>: zmierzone na korpusie
+    /// <see cref="ZrodlaGry"/> — <b>480</b> literałów z obcinaczem i <b>480</b>
+    /// bez, <b>347</b> zgłoszeń <see cref="SlowaWKodzie"/> z i bez, różnica
+    /// w <b>zero</b> plikach z dwudziestu jeden.</para>
+    /// <para><b>A szkodzić potrafi.</b> Na napisie surowym, którego drugi wiersz
+    /// zaczyna się od <c>//</c>, obcinacz skraca literał z <b>33</b> znaków do
+    /// <b>18</b> — po cichu, bez żadnego zgłoszenia. Dziś takiego napisu w drzewie
+    /// nie ma; <c>FirstRun.cs</c> niesie literał czterdziestowierszowy i wystarczy
+    /// w nim jedno pole w rodzaju <c>"url": "//host/x"</c>.</para>
+    /// <para><b>Dlaczego mimo to ZOSTAJE w jednym miejscu.</b> Karmi
+    /// <see cref="StaryCzytnik"/>, czyli wejście kontroli negatywnej. Bez obcinacza
+    /// stary czytnik daje <b>861</b> pozycji zamiast <b>521</b>, bo łapie cudzysłowy
+    /// w komentarzach — a <see cref="PozycjiStaregoCzytnika"/> opisuje korpus tak,
+    /// jak widział go dawny kod. Obcinanie literału jest tu nieszkodliwe: ten czytnik
+    /// ma być zły, o to w nim chodzi.</para>
+    /// </remarks>
+    private static string KodBezKomentarzyDlaStaregoCzytnika(string source) =>
+        string.Join("\n", source.Split('\n')
+            .Where(l => !l.TrimStart().StartsWith("//", StringComparison.Ordinal)));
+
     private static List<string> StaryCzytnik(string kod) =>
         Regex.Matches(kod, WzorzecStaregoCzytnika)
              .Select(m => m.Groups[1].Value).ToList();
@@ -831,7 +858,7 @@ public sealed class UiTextTests
     [TestMethod]
     public void W_metodach_HUD_nie_ma_ani_jednego_literalu_jezykowego()
     {
-        var zle = SlowaWKodzie(KodBezKomentarzy(HudSource()));
+        var zle = SlowaWKodzie(HudSource());
 
         Assert.AreEqual(0, zle.Count,
             "w `Hud.cs` stoi literał, którego katalog nie zna: " + ZPowodami(zle));
@@ -847,7 +874,7 @@ public sealed class UiTextTests
         var source = Zrodlo("src", "Game", "FirstRun.cs");
         foreach (var naglowek in MetodyFirstRun)
         {
-            var zle = SlowaWKodzie(KodBezKomentarzy(CialoMetody(source, naglowek)));
+            var zle = SlowaWKodzie(CialoMetody(source, naglowek));
             Assert.AreEqual(0, zle.Count,
                 $"w `{naglowek}` stoi literał, którego katalog nie zna: "
                 + ZPowodami(zle));
@@ -915,7 +942,7 @@ public sealed class UiTextTests
     {
         var zrodla = ZrodlaGry();
         var literaly = zrodla
-            .SelectMany(sciezka => Literaly(KodBezKomentarzy(File.ReadAllText(sciezka))))
+            .SelectMany(sciezka => Literaly(File.ReadAllText(sciezka)))
             .ToList();
 
         // Dolne ostrza na SAM SKAN. Bez nich pusty korpus dałby „zero osiągalnych
@@ -1014,7 +1041,7 @@ public sealed class UiTextTests
 
         foreach (var czlon in CzlonyKeyNames)
         {
-            var cialo = KodBezKomentarzy(CialoMetody(source, czlon));
+            var cialo = CialoMetody(source, czlon);
 
             // Dolne ostrze na SAM SKAN, nie na wynik. Ciało wzięte nie tego członu
             // albo puste przeszłoby pętlę niżej bez ani jednego sprawdzenia — a to
@@ -1048,9 +1075,9 @@ public sealed class UiTextTests
     public void Kazdy_literal_KeyNames_ma_ROZSTRZYGNIECIE_czy_bramka_go_widzi()
     {
         var source = KeyNamesSource();
-        var wPliku = Literaly(KodBezKomentarzy(source));
+        var wPliku = Literaly(source);
         var wZakresie = CzlonyKeyNames
-            .SelectMany(c => Literaly(KodBezKomentarzy(CialoMetody(source, c))))
+            .SelectMany(c => Literaly(CialoMetody(source, c)))
             .ToList();
         var pozaZakresem = wPliku.Except(wZakresie, StringComparer.Ordinal).ToList();
 
@@ -1088,7 +1115,7 @@ public sealed class UiTextTests
 
         // I dowód, że wyłączenie jest DECYZJĄ: skanowany, zapaliłby bramkę.
         CollectionAssert.AreEqual(new[] { pozaZakresem[0] },
-            SlowaWKodzie(KodBezKomentarzy(source)),
+            SlowaWKodzie(source),
             "cały plik przestał zgłaszać dokładnie ten jeden literał — jeśli zgłasza "
             + "zero, skan przestał działać; jeśli więcej, doszła diagnostyka i granicę "
             + "członu trzeba przeczytać jeszcze raz");
@@ -1100,7 +1127,7 @@ public sealed class UiTextTests
         foreach (var plik in new[] { "DriverActions.cs", "EmergencyBrake.cs" })
         {
             var zle = SlowaWKodzie(
-                KodBezKomentarzy(Zrodlo("src", "Game", "Input", plik)));
+                Zrodlo("src", "Game", "Input", plik));
             Assert.AreEqual(0, zle.Count,
                 $"w `{plik}` stoi literał, którego katalog nie zna: " + ZPowodami(zle));
         }
@@ -1172,7 +1199,7 @@ public sealed class UiTextTests
     {
         // Kontrola przyrządu: pusta lista wyżej byłaby zielona także wtedy, gdyby
         // wzorzec przestał cokolwiek łapać albo gdyby odsianie odsiewało wszystko.
-        var kod = KodBezKomentarzy(HudSource());
+        var kod = HudSource();
         var literaly = Literaly(kod);
         Assert.IsTrue(literaly.Count >= 10,
             $"skan widzi {literaly.Count} literałów w `Hud.cs` — wzorzec się rozjechał");
@@ -1378,7 +1405,7 @@ public sealed class UiTextTests
         CollectionAssert.AreEqual(new[] { "') { x = " }, StaryCzytnik(znakowy),
             "stary czytnik przestał się mylić na literale znakowym");
 
-        // 5. Komentarz z cudzysłowem — czytnik pomija go sam, bez `KodBezKomentarzy`.
+        // 5. Komentarz z cudzysłowem — czytnik pomija go sam, bez obcinacza wierszy.
         var komentarz = "var x = 1; // powiedział \"cześć\"\nvar y = \"tak\";";
         CollectionAssert.AreEqual(new[] { "tak" }, Literaly(komentarz),
             "komentarz przestał być pomijany przez sam czytnik: "
@@ -1404,8 +1431,8 @@ public sealed class UiTextTests
         var rozciete = new List<string>();
         foreach (var sciezka in ZrodlaGry())
         {
-            var kod = KodBezKomentarzy(File.ReadAllText(sciezka));
-            var s = StaryCzytnik(kod);
+            var kod = File.ReadAllText(sciezka);
+            var s = StaryCzytnik(KodBezKomentarzyDlaStaregoCzytnika(kod));
             var n = Literaly(kod);
             stare += s.Count;
             nowe += n.Count;
@@ -1659,7 +1686,7 @@ public sealed class UiTextTests
         var pozaCialem = new List<string>();
         foreach (var sciezka in ZrodlaGry())
         {
-            var kod = KodBezKomentarzy(File.ReadAllText(sciezka));
+            var kod = File.ReadAllText(sciezka);
             foreach (Match trafienie in Regex.Matches(kod, @"\w+\.Text\s*="))
             {
                 wszystkie.Add($"{Path.GetFileName(sciezka)}: {trafienie.Value}");
@@ -1721,12 +1748,12 @@ public sealed class UiTextTests
         var wszystkie = new List<string>();
         foreach (var (_, plik, czlon) in ZrodlaHud)
         {
-            var kod = KodBezKomentarzy(ZrodloGry(plik));
+            var kod = ZrodloGry(plik);
             wszystkie.AddRange(Literaly(CialoDeklaracji(kod, czlon)));
         }
 
         wszystkie.AddRange(Literaly(CialoDeklaracji(
-            KodBezKomentarzy(HudSource()), "public void Update(")));
+            HudSource(), "public void Update(")));
 
         var klucze = wszystkie.Where(l => UiText.Keys.Contains(l)).ToList();
         var tekst = wszystkie.Where(l => !UiText.Keys.Contains(l)).ToList();
@@ -1821,7 +1848,7 @@ public sealed class UiTextTests
         var zerowe = 0;
         foreach (var sciezka in ZrodlaGry())
         {
-            var kod = KodBezKomentarzy(File.ReadAllText(sciezka));
+            var kod = File.ReadAllText(sciezka);
             if (SlowaWKodzie(kod).Count == SlowaWierszPoWierszu(kod).Count)
             {
                 zerowe++;
@@ -1840,8 +1867,7 @@ public sealed class UiTextTests
         CollectionAssert.AreEqual(new[] { "FirstRun.cs" }, rozne,
             "różnią się inne pliki niż w pomiarze 6.D180: " + string.Join(", ", rozne));
 
-        var kodFirstRun = KodBezKomentarzy(
-            File.ReadAllText(Path.Combine(RepositoryRoot(), "src", "Game", "FirstRun.cs")));
+        var kodFirstRun = File.ReadAllText(Path.Combine(RepositoryRoot(), "src", "Game", "FirstRun.cs"));
         var caly = SlowaWKodzie(kodFirstRun);
         var wierszami = SlowaWierszPoWierszu(kodFirstRun);
         Assert.AreEqual(ZgloszenFirstRunCalymPlikiem, caly.Count,
@@ -1988,7 +2014,7 @@ public sealed class UiTextTests
         var dane = new List<string>();
         foreach (var sciezka in ZrodlaGry())
         {
-            foreach (var literal in Literaly(KodBezKomentarzy(File.ReadAllText(sciezka))))
+            foreach (var literal in Literaly(File.ReadAllText(sciezka)))
             {
                 var bezDziur = BezDziur(literal);
                 if (!string.Equals(bezDziur, BezJednostek(bezDziur), StringComparison.Ordinal))
@@ -2031,7 +2057,7 @@ public sealed class UiTextTests
             + "z 6.D142 opisuje inny stan");
 
         var wHudUpdate = Literaly(CialoDeklaracji(
-            KodBezKomentarzy(HudSource()), "public void Update("));
+            HudSource(), "public void Update("));
         var drugi = zabrane.Single(l => !string.Equals(l, "Esc", StringComparison.Ordinal));
         Assert.IsTrue(wHudUpdate.Contains(drugi, StringComparer.Ordinal),
             $"drugi z dwóch literałów („{drugi}”) przestał stać w ciele `Hud.Update`, "
@@ -2087,4 +2113,80 @@ public sealed class UiTextTests
             "„akmb” przestało być słowem bez zdejmowania, więc kontrola wyżej "
             + "przechodziłaby z niewłaściwego powodu");
     }
+    /// <summary>Obcinacz wierszowy TNIE literał wielowierszowy, a czytnik go nie tnie —
+    /// 6.D184.</summary>
+    /// <remarks>
+    /// <b>Wejście SYNTETYCZNE, bo drzewo takiego napisu dziś nie ma — i o to chodzi.</b>
+    /// Gdyby ten test stał na korpusie, byłby zielony niezależnie od tego, czy obcinacz
+    /// gdzieś wrócił: zmierzone 13.09.2026, obie drogi dają na dwudziestu jeden plikach
+    /// <b>identyczny</b> wynik (480 literałów i 347 zgłoszeń, różnica w zero plikach).
+    /// Różnicę widać dopiero na napisie, którego wiersz zaczyna się od <c>//</c>.
+    /// </remarks>
+    [TestMethod]
+    public void Obcinacz_wierszowy_TNIE_literal_wielowierszowy_a_czytnik_nie()
+    {
+        var kod = "class X {\n"
+                + "    const string J = @\"{\n"
+                + "//host/sciezka\n"
+                + "koniec pakietu\n"
+                + "}\";\n"
+                + "}\n";
+
+        var czytnik = Literaly(kod);
+        Assert.AreEqual(1, czytnik.Count, "czytnik ma znaleźć dokładnie jeden literał");
+        Assert.AreEqual(33, czytnik[0].Length,
+            $"czytnik zwrócił literał długości {czytnik[0].Length} zamiast 33 — "
+            + "napis wielowierszowy stracił kawałek, choć nikt go nie obcinał");
+        StringAssert.Contains(czytnik[0], "//host/sciezka",
+            "czytnik zgubił wiersz zaczynający się od // ze środka napisu",
+            StringComparison.Ordinal);
+
+        var poObcinaczu = Literaly(KodBezKomentarzyDlaStaregoCzytnika(kod));
+        Assert.AreEqual(1, poObcinaczu.Count,
+            "obcinacz zgubił literał w całości zamiast go skrócić");
+        Assert.AreEqual(18, poObcinaczu[0].Length,
+            $"obcinacz wierszowy zostawił literał długości {poObcinaczu[0].Length} "
+            + "zamiast 18 — jeśli przestał ciąć, ta pozycja straciła powód");
+        Assert.AreNotEqual(czytnik[0], poObcinaczu[0],
+            "obcinacz i czytnik dają ten sam wynik na napisie z wierszem `//` — "
+            + "wtedy zdjęcie obcinacza z szesnastu miejsc było bez znaczenia");
+    }
+
+    /// <summary>Obcinacz wierszowy karmi WYŁĄCZNIE stary czytnik — 6.D184.</summary>
+    /// <remarks>
+    /// Bez tej bramki obcinacz mógłby wrócić na drogę żywego czytnika bez ani jednego
+    /// czerwonego testu: na dzisiejszym korpusie obie drogi dają to samo, więc żadna
+    /// liczba by się nie ruszyła. Zapadka jest RÓWNOŚCIOWA — drugie wywołanie ma
+    /// zmusić do rozstrzygnięcia, a nie przejść samo.
+    /// </remarks>
+    [TestMethod]
+    public void Obcinacz_wierszowy_stoi_w_DOKLADNIE_jednym_miejscu()
+    {
+        var cale = Zrodlo("tests", "Game.Tests", "UiTextTests.cs");
+
+        // WŁASNA METODA WYCIĘTA ZE SKANU, i to nie jest wyjątek dla wygody: niżej stoją
+        // wzorce, które tę nazwę WYMIENIAJĄ, więc bramka skanująca samą siebie liczyłaby
+        // własne wzorce jako wywołania. Zmierzone: bez wycięcia wychodzą 4 zamiast 3.
+        // Ta sama konstrukcja, co wycięcie własnej sekcji w `test_assertion_gate.py`.
+        var znacznik = "public void " + nameof(Obcinacz_wierszowy_stoi_w_DOKLADNIE_jednym_miejscu);
+        var granica = cale.IndexOf(znacznik, StringComparison.Ordinal);
+        Assert.IsTrue(granica > 0, "nie znalazłem własnej metody w źródle");
+        var zrodlo = cale.Substring(0, granica);
+
+        var wystapien = Regex.Matches(zrodlo,
+            @"KodBezKomentarzyDlaStaregoCzytnika\(").Count;
+        var definicji = Regex.Matches(zrodlo,
+            @"private static string KodBezKomentarzyDlaStaregoCzytnika\(").Count;
+        Assert.AreEqual(1, definicji, "definicji obcinacza ma być jedna");
+        Assert.AreEqual(3, wystapien,
+            $"nazwa obcinacza pada {wystapien} razy poza tą metodą, a ma paść trzy: "
+            + "definicja, wejście `StaryCzytnik` i wejście syntetyczne kontroli. "
+            + "Każde kolejne wywołanie tnie literały wielowierszowe po cichu — 6.D184");
+        StringAssert.Contains(zrodlo,
+            "StaryCzytnik(KodBezKomentarzyDlaStaregoCzytnika(kod))",
+            StringComparison.Ordinal);
+        Assert.IsFalse(Regex.IsMatch(zrodlo, @"\bKodBezKomentarzy\("),
+            "wrócił obcinacz pod dawną nazwą — zdjęty z szesnastu miejsc przy 6.D184");
+    }
+
 }
