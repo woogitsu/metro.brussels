@@ -185,7 +185,30 @@ MAX_GAME_JUSTIFIED_NEEDLES = 4
 #: opisywala wejscie syntetyczne, tu opisuje ZAWARTOSC DRZEWA, ktora test i tak pinuje
 #: rownoscia calej listy. Igla dluzsza byla by tym samym pinem zapisanym drugi raz.
 #: Trzymania igiel w zmiennej znowu NIE uzyto, z tego samego powodu, co wyzej.
-MAX_GAME_UNMATCHED_NEEDLES = 28
+#: **26 -> 28, 13.09.2026 (6.D184), i ten akapit jest DOPISANY PO FAKCIE.** Podniesienie
+#: 6.D184 poszlo bez uzasadnienia i to bylo pominiecie: kazdy poprzedni szczebel ma tu
+#: swoj akapit, a bez niego zapadka rosnie bez sladu, czyli robi dokladnie to, przed czym
+#: ma bronic. Dwie igle sa z zalozenia bez dopasowania:
+#: `//host/sciezka` to WEJSCIE SYNTETYCZNE testu
+#: `Obcinacz_wierszowy_TNIE_literal_wielowierszowy_a_czytnik_nie` — wiersz zaczynajacy sie
+#: od `//` schowany w SRODKU napisu wielowierszowego, po to, zeby obcinacz mial co uciac;
+#: `StaryCzytnik(KodBezKomentarzyDlaStaregoCzytnika(kod))` to PIN NA KSZTALT KODU, a nie
+#: komunikat — dopasowanie go do komunikatu `src/Game` znaczyloby, ze wywolanie z testu
+#: stoi w napisie warstwy gry.
+#: **28 -> 29, 13.09.2026 (6.D185).** Jedna igla, `_ => phase.ToString(),`, stoi
+#: w `UiTextTests.Faza_ma_ramie_dla_kazdego_czlonu_DoorPhase_wiec_ramie_domyslne_jest_martwe`
+#: i jest PINEM NA KSZTALT KODU tej samej rodziny co igla z 6.D184: pilnuje, ze ramie
+#: domyslne `FirstRun.Faza` nie zniknelo, bo jego zniknieciem bylaby zmiana zachowania
+#: HUD-u (wyjatek w czasie przejazdu zamiast angielskiej nazwy). Bez dopasowania jest
+#: z zalozenia: bramka szczebla 1 szuka igiel w komunikatach WIELOWYRAZOWYCH `src/Game`,
+#: a to jest fragment skladni C#. Gdyby sie dopasowala, znaczyloby to, ze ramie `switch`-a
+#: stoi wewnatrz napisu dla czlowieka.
+#:
+#: Wzmocnienia igly nie ma po co robic — jest juz doslownym wierszem zrodla, razem
+#: z przecinkiem, ktory odroznia ramie od zdania o nim w komentarzu dokumentacyjnym
+#: (`FirstRun.cs:1798` niesie `phase.ToString()` bez przecinka; patrz 6.D199).
+#: Trzymania igly w zmiennej znowu NIE uzyto, z tego samego powodu, co wyzej.
+MAX_GAME_UNMATCHED_NEEDLES = 29
 
 #: Progi KW. Literowka we wzorcu daje zero dopasowan i caly modul zielony; te trzy
 #: liczby sa jedynym powodem, dla ktorego taka literowka jest widoczna. Zmierzone
@@ -217,7 +240,7 @@ MIN_GAME_MESSAGES = 142
 #: trzeba by ja poprawic w **5 z 11** rewizji dotykajacych `tests/Game.Tests`
 #: (45 -> 49 -> 52 -> 54 -> 57 -> 59), czyli w 45 % z nich. To mniej, niz kosztuje
 #: `MIN_REPORTS`, poprawiane przy kazdym raporcie.
-MIN_GAME_NEEDLES = 61
+MIN_GAME_NEEDLES = 62
 MIN_GAME_SOURCES = 18
 
 #: Igla, na ktorej stoja kontrole dodatnia i przyrzadu. Musi byc SWOISTA i musi stac

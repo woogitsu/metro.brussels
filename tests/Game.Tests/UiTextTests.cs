@@ -1592,7 +1592,8 @@ public sealed class UiTextTests
     /// członów wyliczeń renderowane przez <c>{…}</c> (<c>AuthorityLimit</c>,
     /// <c>ProtectionAction</c>, <c>DoorPhase</c>). Te drugie DOCIERAJĄ na ekran, ale
     /// literałami nie są, więc żadna rodzina liczona po literałach ich nie widzi.
-    /// Osobna pozycja, nie cichy brak.</para>
+    /// Osobna pozycja, nie cichy brak — 6.D185, sekcja niżej: nazw dociera na ekran
+    /// SZEŚĆ i DWIEMA drogami, a mapa zostaje mapą LITERAŁÓW.</para>
     /// </summary>
     private static readonly (string Argument, string Plik, string Naglowek)[] ZrodlaHud =
     {
@@ -2187,6 +2188,373 @@ public sealed class UiTextTests
             StringComparison.Ordinal);
         Assert.IsFalse(Regex.IsMatch(zrodlo, @"\bKodBezKomentarzy\("),
             "wrócił obcinacz pod dawną nazwą — zdjęty z szesnastu miejsc przy 6.D184");
+    }
+
+
+    // --- 6.D185: nazwy członów wyliczeń na ekranie ---------------------------------
+
+    /// <summary>
+    /// Ile dziur interpolacji ma cała droga <c>Hud.Update</c> — zmierzone 13.09.2026.
+    ///
+    /// <para>Zapadka RÓWNOŚCIOWA i to jest jej treść: nazwa członu wyliczenia trafia
+    /// na ekran przez dziurę, a nie przez literał, więc rodziny z 6.D154…6.D183 —
+    /// wszystkie liczone po literałach — zobaczyć jej nie mogą. Dwudziesta pierwsza
+    /// dziura zapala ten test i każe ją zaklasyfikować, zamiast wpaść po cichu.</para>
+    /// </summary>
+    private const int DziurNaEkranie = 20;
+
+    /// <summary>
+    /// Które z tych dziur wstawiają wartość wyliczenia — WPISANE, nie wyprowadzone.
+    ///
+    /// <para><b>Dlaczego wpisane.</b> Rozstrzygnięcie typu dziury to analiza typów
+    /// C#, czyli ta sama zależność, przed którą <c>CLAUDE.md</c> §8 kazała przerwać
+    /// przy mapie <see cref="ZrodlaHud"/>. Skan po NAZWIE, który stoi niżej, jest
+    /// wyłącznie DETEKTOREM ZMIANY: bramka żąda, żeby dał dokładnie tę listę.
+    /// Rozejście się jednej ze stron zapala test — i wtedy rozstrzyga człowiek.</para>
+    /// </summary>
+    private static readonly string[] DziuryZWyliczeniem =
+    {
+        "authority.Reason", "decision.Action",
+    };
+
+    /// <summary>
+    /// Ile NAZW członów wyliczeń może dziś trafić na ekran — zmierzone 13.09.2026.
+    ///
+    /// <para>Cztery z <c>AuthorityLimit</c> (dziura bezwarunkowa, wszystkie cztery
+    /// nadawane w <c>FixedBlockSystem</c>) plus DWIE z <c>ProtectionAction</c> —
+    /// <b>nie trzy</b>. <c>None</c> na ekran nie dociera, bo przed dziurą stoi straż
+    /// <c>decision.Action == ProtectionAction.None ? string.Empty : …</c>. Pole
+    /// „Co gracz widzi” pozycji 6.D185 wymienia <c>None</c> razem z pozostałymi;
+    /// pomiar tego nie potwierdza i dlatego liczba stoi tutaj, a nie tam.</para>
+    /// </summary>
+    private const int NazwCzlonowNaEkranie = 6;
+
+    /// <summary>Ile członów ma <c>DoorPhase</c> w <c>src/Sim/Train/DoorCycle.cs</c>.</summary>
+    private const int CzlonowDoorPhase = 7;
+
+    /// <summary>
+    /// Ile trafień daje skan po NAZWIE puszczony na CAŁE <c>src/Game/</c> — 6.D185.
+    /// </summary>
+    private const int TrafienSkanuWGame = 12;
+
+    /// <summary>
+    /// Dziury, na których skan po nazwie się MYLI — nazwa jest wyliczeniem gdzie
+    /// indziej, a w tym miejscu stoi pod nią napis. Zmierzone 13.09.2026.
+    ///
+    /// <para><b>To jest powód, dla którego bramka 6.D185 kończy się na drodze
+    /// <c>Hud.Update</c>, a nie obejmuje całego <c>src/Game/</c>.</b> Skan myli się
+    /// na POŁOWIE trafień i nie jest to wąskie sito ani literówka we wzorcu: nazwa
+    /// <c>Reason</c> nosi w tym drzewie i wyliczenie (<c>MovementAuthority.Reason</c>
+    /// typu <c>AuthorityLimit</c>), i napis (<c>ChaseAvailability.Reason</c>,
+    /// <c>ViewAssumption.Reason</c>); <c>Variant</c> — wyliczenie
+    /// <c>ProtectionVariant</c> i napis <c>ChunkManifest.Variant</c>; <c>view</c> —
+    /// <c>ViewKind</c> w <c>RunHeader</c> i surowy argument wiersza poleceń
+    /// w <c>RunPlan</c>. Pomylenie się na nazwie nie jest więc możliwością, tylko
+    /// stanem drzewa.</para>
+    /// </summary>
+    private static readonly string[] FalszyweTrafieniaSkanu =
+    {
+        "ChunkManifest.cs:Variant",
+        "DesignAssumptions.cs:Reason",
+        "FirstRun.cs:availability.Reason",
+        "FirstRun.cs:_manifest.Variant",
+        "RunPlan.cs:view",
+        "TunnelView.cs:manifest.Variant",
+    };
+
+    /// <summary>
+    /// Wyliczenia zadeklarowane w <c>src/</c> — nazwa typu na listę członów.
+    ///
+    /// <para><b>Czyta też <c>src/Sim/</c> i to jest odpowiedź pozycji 6.D185 na pytanie
+    /// o granicę korpusu.</b> Granica przesuwa się dla DEKLARACJI, nie dla skanowanego
+    /// tekstu: <c>AuthorityLimit</c> i <c>ProtectionAction</c> mieszkają w rdzeniu,
+    /// więc bramka czytająca wyłącznie <c>src/Game/</c> nie wie, że to wyliczenia —
+    /// i znajduje ZERO dziur, cicho i na zielono. Skanowanym korpusem zostaje droga
+    /// <c>Hud.Update</c> w <c>src/Game/</c>; rdzeń jest tu SŁOWNIKIEM TYPÓW.</para>
+    /// </summary>
+    private static Dictionary<string, List<string>> WyliczeniaZrodel()
+    {
+        var wynik = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        foreach (var sciezka in PlikiZrodlowe())
+        {
+            foreach (Match m in Regex.Matches(
+                File.ReadAllText(sciezka), @"\benum\s+(\w+)\s*\{([^}]*)\}"))
+            {
+                wynik[m.Groups[1].Value] = Regex
+                    .Matches(m.Groups[2].Value, @"^\s*(\w+)", RegexOptions.Multiline)
+                    .Select(x => x.Groups[1].Value).ToList();
+            }
+        }
+
+        return wynik;
+    }
+
+    /// <summary>Wszystkie pliki <c>.cs</c> pod <c>src/</c>, bez wygenerowanych.</summary>
+    private static List<string> PlikiZrodlowe() =>
+        Directory.GetFiles(Path.Combine(RepositoryRoot(), "src"), "*.cs",
+                SearchOption.AllDirectories)
+            .Where(p => !p.Split(Path.DirectorySeparatorChar).Contains(".godot"))
+            .Where(p => !p.Split(Path.DirectorySeparatorChar).Contains("obj"))
+            .Where(p => !p.Split(Path.DirectorySeparatorChar).Contains("bin"))
+            .OrderBy(p => p, StringComparer.Ordinal)
+            .ToList();
+
+    /// <summary>
+    /// Nazwy, pod którymi w <c>src/</c> zadeklarowano wartość typu wyliczeniowego.
+    ///
+    /// <para>Sito jest po NAZWIE, nie po typie, i mówi o tym wprost — zbiór wartości
+    /// pokazuje, że jedna nazwa bywa dwuznaczna. Czym to grozi, mierzy
+    /// <see cref="Skan_po_NAZWIE_myli_sie_na_POLOWIE_trafien_w_calym_src_Game"/>.</para>
+    /// </summary>
+    private static Dictionary<string, SortedSet<string>> NazwyOTypieWyliczeniowym()
+    {
+        var typy = WyliczeniaZrodel().Keys.OrderBy(t => t, StringComparer.Ordinal).ToList();
+        var wynik = new Dictionary<string, SortedSet<string>>(StringComparer.Ordinal);
+        foreach (var sciezka in PlikiZrodlowe())
+        {
+            var kod = File.ReadAllText(sciezka);
+            foreach (var typ in typy)
+            {
+                foreach (Match m in Regex.Matches(kod, @"\b" + typ + @"\??\s+(\w+)\b"))
+                {
+                    if (!wynik.TryGetValue(m.Groups[1].Value, out var zbior))
+                    {
+                        wynik[m.Groups[1].Value] = zbior =
+                            new SortedSet<string>(StringComparer.Ordinal);
+                    }
+
+                    zbior.Add(typ);
+                }
+            }
+        }
+
+        return wynik;
+    }
+
+    /// <summary>
+    /// Wyrażenia z dziur interpolacji danego kodu, bez wyrównania i formatu.
+    ///
+    /// <para>Cięcie na <c>,</c> albo <c>:</c> liczy nawiasy, bo
+    /// <c>{Units.MpsToKmh(decision.PermittedSpeedMps),5:F1}</c> ma przecinek i wewnątrz
+    /// wywołania, i przed wyrównaniem — cięcie na pierwszym dałoby wyrażenie ucięte
+    /// w środku argumentu.</para>
+    /// </summary>
+    private static List<string> DziuryInterpolacji(string kod)
+    {
+        var wynik = new List<string>();
+        foreach (var literal in Literaly(kod))
+        {
+            foreach (Match m in Regex.Matches(literal, "[{][^{}]*[}]"))
+            {
+                var wnetrze = m.Value[1..^1];
+                var ciecie = wnetrze.Length;
+                var glebia = 0;
+                for (var i = 0; i < wnetrze.Length; i++)
+                {
+                    var znak = wnetrze[i];
+                    if (znak is '(' or '[')
+                    {
+                        glebia++;
+                    }
+                    else if (znak is ')' or ']')
+                    {
+                        glebia--;
+                    }
+                    else if (glebia == 0 && (znak == ',' || znak == ':'))
+                    {
+                        ciecie = i;
+                        break;
+                    }
+                }
+
+                wynik.Add(wnetrze[..ciecie].Trim());
+            }
+        }
+
+        return wynik;
+    }
+
+    /// <summary>Wszystkie dziury interpolacji drogi <c>Hud.Update</c> — 6.D185.</summary>
+    private static List<string> DziuryNaEkranie()
+    {
+        var wynik = new List<string>();
+        foreach (var (_, plik, czlon) in ZrodlaHud)
+        {
+            wynik.AddRange(DziuryInterpolacji(CialoDeklaracji(ZrodloGry(plik), czlon)));
+        }
+
+        wynik.AddRange(DziuryInterpolacji(
+            CialoDeklaracji(HudSource(), "public void Update(")));
+        return wynik;
+    }
+
+    /// <summary>Ostatni człon wyrażenia dziury — <c>Reason</c> z <c>authority.Reason</c>.</summary>
+    private static string OgonWyrazenia(string wyrazenie) => wyrazenie.Split('.')[^1];
+
+    /// <summary>
+    /// Dziury drogi <c>Hud.Update</c>, a wśród nich te wstawiające wyliczenie — 6.D185.
+    ///
+    /// <para>Bramka odpowiada na pole „Weryfikacja” pozycji wprost: lista znalezionych
+    /// dziur ma zawierać <c>authority.Reason</c> i <c>decision.Action</c>. Żąda WIĘCEJ
+    /// niż zawierania — żąda RÓWNOŚCI z listą wpisaną, bo lista dłuższa o trafienie
+    /// fałszywe byłaby tak samo cicha jak krótsza o pominięte.</para>
+    /// </summary>
+    [TestMethod]
+    public void Dziury_z_wyliczeniem_na_drodze_Hud_Update()
+    {
+        var dziury = DziuryNaEkranie();
+        var nazwy = NazwyOTypieWyliczeniowym();
+
+        // Dolne ostrze na SAM SKAN: literówka we wzorcu daje pustą listę, a pusta lista
+        // przechodzi „nie ma żadnej dziury z wyliczeniem" bez jednego sprawdzenia (6.D27).
+        Assert.AreEqual(DziurNaEkranie, dziury.Count,
+            $"drogą `Hud.Update` biegnie dziś {dziury.Count} dziur interpolacji wobec "
+            + $"zmierzonych {DziurNaEkranie}: " + string.Join(" | ", dziury));
+
+        var zWyliczeniem = dziury
+            .Where(d => nazwy.ContainsKey(OgonWyrazenia(d)))
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(d => d, StringComparer.Ordinal)
+            .ToList();
+
+        CollectionAssert.AreEqual(
+            DziuryZWyliczeniem.OrderBy(d => d, StringComparer.Ordinal).ToList(),
+            zWyliczeniem,
+            "skan dziur daje dziś " + string.Join(", ", zWyliczeniem)
+            + ", a wpisano " + string.Join(", ", DziuryZWyliczeniem)
+            + " — jeśli lista jest pusta, skan patrzy nie tam; jeśli dłuższa, "
+            + "doszła dziura z wyliczeniem albo skan złapał nazwę dwuznaczną");
+    }
+
+    /// <summary>
+    /// <c>ProtectionAction.None</c> na ekran NIE dociera — 6.D185.
+    ///
+    /// <para>Pole „Co gracz widzi” pozycji wymienia <c>None</c> wśród identyfikatorów
+    /// widzianych przez gracza. Straż w <c>SignallingHud.Line</c> mówi co innego
+    /// i dlatego jest tu sprawdzana, a nie przyjęta: zdjęcie jej wpuszcza na ekran
+    /// siódmą nazwę i ta bramka zapala się razem z liczbą niżej.</para>
+    /// </summary>
+    [TestMethod]
+    public void Nazwy_czlonow_docierajace_na_ekran_liczone_ze_straza_przy_None()
+    {
+        var wyliczenia = WyliczeniaZrodel();
+        var cialo = CialoDeklaracji(ZrodloGry("SignallingHud.cs"), "public static string Line(");
+
+        var straz = Regex.IsMatch(cialo,
+            @"decision\.Action\s*==\s*ProtectionAction\.None\s*\r?\n?\s*\?\s*string\.Empty");
+        Assert.IsTrue(straz,
+            "zniknęła straż `decision.Action == ProtectionAction.None ? string.Empty` "
+            + "z `SignallingHud.Line` — wtedy `None` dociera na ekran i nazw jest siedem, "
+            + "nie sześć (6.D185)");
+
+        var zAuthorityLimit = wyliczenia["AuthorityLimit"].Count;
+        var zProtectionAction = wyliczenia["ProtectionAction"].Count - 1;
+        Assert.AreEqual(NazwCzlonowNaEkranie, zAuthorityLimit + zProtectionAction,
+            $"na ekran może dziś trafić {zAuthorityLimit + zProtectionAction} nazw członów "
+            + $"wobec zmierzonych {NazwCzlonowNaEkranie}: {zAuthorityLimit} z `AuthorityLimit` "
+            + $"i {zProtectionAction} z `ProtectionAction` po odjęciu strzeżonego `None`");
+    }
+
+    /// <summary>
+    /// <c>Faza</c> ma ramię dla KAŻDEGO członu <c>DoorPhase</c>, więc ramię domyślne
+    /// z <c>phase.ToString()</c> jest dziś martwe — 6.D185.
+    ///
+    /// <para><b>Druga droga na ekran, i dziura jej nie łapie.</b> <c>phase.ToString()</c>
+    /// nie stoi w żadnym literale, więc skan dziur go nie widzi — tak samo jak rodziny
+    /// liczone po literałach nie widzą dziur. Łapie go co innego i bez żadnej heurystyki:
+    /// ósmy człon <c>DoorPhase</c> bez ósmego ramienia ożywia ramię domyślne, a wtedy
+    /// ta liczba przestaje się zgadzać. Bramka czyta <c>src/Sim/Train/DoorCycle.cs</c> —
+    /// drugi raz w tej sekcji rdzeń jest źródłem DEKLARACJI, nie skanowanym tekstem.</para>
+    /// </summary>
+    [TestMethod]
+    public void Faza_ma_ramie_dla_kazdego_czlonu_DoorPhase_wiec_ramie_domyslne_jest_martwe()
+    {
+        var czlony = WyliczeniaZrodel()["DoorPhase"];
+        Assert.AreEqual(CzlonowDoorPhase, czlony.Count,
+            $"`DoorPhase` ma dziś {czlony.Count} członów wobec zmierzonych "
+            + $"{CzlonowDoorPhase}: " + string.Join(", ", czlony));
+
+        var faza = CialoDeklaracji(
+            ZrodloGry("FirstRun.cs"), "private static string Faza(DoorPhase phase)");
+        var ramiona = Regex.Matches(faza, @"DoorPhase\.(\w+)\s*=>")
+            .Select(m => m.Groups[1].Value).ToList();
+
+        CollectionAssert.AreEquivalent(czlony, ramiona,
+            "`Faza` ma ramiona na " + string.Join(", ", ramiona)
+            + ", a `DoorPhase` niesie " + string.Join(", ", czlony)
+            + " — człon bez ramienia idzie na ekran ramieniem domyślnym, czyli swoją "
+            + "angielską nazwą (6.D185)");
+
+        StringAssert.Contains(faza, "_ => phase.ToString(),",
+            "zniknęło ramię domyślne — wtedy człon bez ramienia rzuca wyjątkiem "
+            + "w czasie przejazdu, zamiast pokazać nazwę; to zmiana zachowania HUD-u, "
+            + "a ta jest poza zakresem 6.D185",
+            StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Skan po NAZWIE myli się na POŁOWIE trafień w całym <c>src/Game/</c> — 6.D185.
+    ///
+    /// <para><b>To jest odpowiedź „nie da się i dlaczego” dla korpusu szerszego niż
+    /// droga <c>Hud.Update</c>.</b> Bramka nie jest tu strażnikiem cudzego kodu, tylko
+    /// zapisem POMIARU, który zabrania jej samej urosnąć: gdyby trafień fałszywych
+    /// ubyło do zera, skan po nazwie wolno byłoby puścić szerzej — i wtedy ten test
+    /// zapali się, żeby o tym powiedzieć. Rośnięcie liczby też zapala.</para>
+    /// </summary>
+    [TestMethod]
+    public void Skan_po_NAZWIE_myli_sie_na_POLOWIE_trafien_w_calym_src_Game()
+    {
+        var nazwy = NazwyOTypieWyliczeniowym();
+        var trafienia = new List<string>();
+        var wszystkie = new List<string>();
+        foreach (var sciezka in ZrodlaGry())
+        {
+            var plik = Path.GetFileName(sciezka);
+            foreach (var dziura in DziuryInterpolacji(File.ReadAllText(sciezka)))
+            {
+                wszystkie.Add(dziura);
+                if (nazwy.ContainsKey(OgonWyrazenia(dziura)))
+                {
+                    trafienia.Add($"{plik}:{dziura}");
+                }
+            }
+        }
+
+        // PIN NA SAM CZYTNIK DZIUR, i stoi w tej bramce, a nie w bramce drogi
+        // `Hud.Update`, bo TAM nie ma czego pilnować: liczenie nawiasów
+        // w `DziuryInterpolacji` rozstrzyga się na DWÓCH dziurach całego `src/Game/`
+        // i obie leżą poza tamtą drogą. Zmierzone kontrolą KN-6: bez tego pinu cięcie
+        // na pierwszym przecinku — z pominięciem nawiasów — przechodzi na zielono,
+        // bo żadnej KLASYFIKACJI nie zmienia; zmienia tylko wypisywane wyrażenie.
+        foreach (var pin in new[] { "string.Join(\", \", KnownViews)", "string.Join(\" --\", KnownArguments)" })
+        {
+            Assert.IsTrue(wszystkie.Contains(pin, StringComparer.Ordinal),
+                $"czytnik dziur nie zwrócił `{pin}` — uciął wyrażenie na przecinku "
+                + "ze ŚRODKA wywołania, zamiast na przecinku wyrównania");
+        }
+
+        Assert.AreEqual(TrafienSkanuWGame, trafienia.Count,
+            $"skan po nazwie daje dziś {trafienia.Count} trafień w `src/Game/` wobec "
+            + $"zmierzonych {TrafienSkanuWGame}: " + string.Join(" | ", trafienia));
+
+        var falszywe = trafienia
+            .Where(t => FalszyweTrafieniaSkanu.Contains(t, StringComparer.Ordinal))
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(t => t, StringComparer.Ordinal)
+            .ToList();
+        CollectionAssert.AreEqual(
+            FalszyweTrafieniaSkanu.OrderBy(t => t, StringComparer.Ordinal).ToList(),
+            falszywe,
+            "trafienia fałszywe to dziś " + string.Join(", ", falszywe)
+            + ", a wpisano " + string.Join(", ", FalszyweTrafieniaSkanu)
+            + " — jeśli ich UBYŁO, sito po nazwie przestało być dwuznaczne "
+            + "i wolno je puścić szerzej niż na drogę `Hud.Update`");
+
+        // POŁOWA Z NAZWY TEJ BRAMKI JEST JUŻ SPRAWDZONA — przez dwie asercje wyżej razem:
+        // trafień jest 12, fałszywych 6. Trzecia asercja `12 - 6 == 12 / 2` liczyłaby
+        // wyłącznie na stałych, które te dwie właśnie przybiły, i przeszłaby zawsze.
+        // Tautologia z rodziny 6.D160 — dlatego jej tu nie ma, a nie dlatego, że ktoś
+        // zapomniał sprawdzić proporcję.
     }
 
 }
