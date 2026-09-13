@@ -214,9 +214,9 @@ def test_maska_odsiewa_wywolania_z_komentarzy_i_napisow(tmp=None):
 #: Podział na tolerancję jest za to treścią i on zostaje wypisany:
 ROZKLAD_LICZBOWYCH = {
     "tests/Game.Tests": {
-        "razem": 212, "z_tolerancja": 98, "bez_tolerancji": 114,
+        "razem": 214, "z_tolerancja": 98, "bez_tolerancji": 116,
         "zmiennoprzecinkowe": 104, "zmiennoprzecinkowe_bez_tolerancji": 6,
-        "calkowite": 108, "calkowite_z_tolerancja": 0, "tolerancja_zero": 18,
+        "calkowite": 110, "calkowite_z_tolerancja": 0, "tolerancja_zero": 18,
     },
     "tests/Sim.Tests": {
         "razem": 441, "z_tolerancja": 179, "bez_tolerancji": 262,

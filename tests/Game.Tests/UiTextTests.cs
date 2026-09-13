@@ -3590,4 +3590,206 @@ public sealed class UiTextTests
             "polskie zdanie policzone jako deklaracja typu — wtedy dziesiątka wyżej "
             + "opisuje prozę tak samo jak kod, a obcinacz komentarzy znowu rozstrzyga");
     }
+
+    // --- 6.D199: .ToString() bez argumentu — ile ich jest i którą drogą idzie wynik ---
+    //
+    // ODPOWIEDŹ NA TRZY PYTANIA POZYCJI: wywołanie czytane LEKSYKALNIE jest JEDNO,
+    // stoi na wartości wyliczenia i idzie na EKRAN. Do logu zero, do telemetrii zero.
+    //
+    // **REGEKS PO SUROWYM TEKŚCIE DAJE TRZY, czyli DWA ZGŁOSZENIA TO SZUM (67 %), a nie
+    // jedno na dwa (50 %), jak pisała pozycja.** Różnica nie jest zmianą drzewa —
+    // jest RÓŻNICĄ KORPUSU między dwoma polami tej samej pozycji. Pole „Skąd” liczyło
+    // po `ZrodlaGry()`, które **umyślnie pomija** katalog tekstów `UI/UiText.cs`;
+    // pole „Wejście” mówi „`src/Game/` (wszystkie pliki poza `.godot/`)”, czyli razem
+    // z katalogiem. W katalogu stoi od 6.D99 komentarz `(_ => phase.ToString())`.
+    // Dwa pola jednej pozycji, dwa korpusy, dwie liczby — i na obu czytanie leksykalne
+    // zostawia TO SAMO jedno wywołanie.
+    //
+    // **To jest właśnie powód, dla którego pozycja kazała mierzyć ZANIM ktoś ten skan
+    // postawi.** Na trzech zgłoszeniach szum widać gołym okiem; na trzydziestu brałoby
+    // się go za rozkład.
+    private const int ToStringLeksykalnieWGame = 1;
+
+    private const int ToStringRegeksemPoSurowym = 3;
+
+    private const int ToStringNaWyliczeniuWGame = 1;
+
+    private const int ToStringNaEkranieWGame = 1;
+
+    // `.ToString(cośtam)` — postać, której skan bez argumentu NIE WIDZI. Jest jej
+    // DWANAŚCIE razy więcej niż postaci badanej i **żadna nie stoi na wyliczeniu**:
+    // wszystkie dwanaście to liczby (`double`), formatowane kulturą niezmienną.
+    // Zero z ostatniej stałej jest treścią: gdyby wartość wyliczenia trafiła tu,
+    // byłaby tym samym błędem w innym ubraniu, a skan z tej pozycji przeszedłby obok.
+    private const int ToStringZArgumentemWGame = 12;
+
+    private const int ToStringZArgumentemNaWyliczeniuWGame = 0;
+
+    private static readonly Regex WzorzecToStringBezArgumentu =
+        new(@"([\w.]+)\.ToString\(\s*\)", RegexOptions.Compiled);
+
+    private static readonly Regex WzorzecToStringZArgumentem =
+        new(@"([\w.]+)\.ToString\(\s*[^)\s]", RegexOptions.Compiled);
+
+    /// <summary>
+    /// Kod z komentarzami i literałami zamienionymi na spacje — ZACHOWUJE DŁUGOŚĆ,
+    /// więc numery wierszy zostają te same.
+    ///
+    /// <para>Stoi na tych samych prymitywach, co czytnik literałów z 6.D182
+    /// (<see cref="PominNieNapis"/>, <see cref="PrefiksLiteralu"/>,
+    /// <see cref="CzytajLiteral"/>), bo inny czytnik znaczyłby inny pomiar.</para>
+    /// </summary>
+    private static string KodLeksykalnie(string source)
+    {
+        var wynik = new StringBuilder(source);
+        var i = 0;
+        while (i < source.Length)
+        {
+            var po = PominNieNapis(source, i, source.Length);
+            if (po != i)
+            {
+                for (var k = i; k < po; k++)
+                {
+                    if (wynik[k] != '\n')
+                    {
+                        wynik[k] = ' ';
+                    }
+                }
+
+                i = po;
+                continue;
+            }
+
+            if (PrefiksLiteralu(source, i, source.Length) >= 0)
+            {
+                var koniec = CzytajLiteral(source, i, source.Length, new List<string>());
+                for (var k = i; k < koniec; k++)
+                {
+                    if (wynik[k] != '\n')
+                    {
+                        wynik[k] = ' ';
+                    }
+                }
+
+                i = koniec;
+                continue;
+            }
+
+            i++;
+        }
+
+        return wynik.ToString();
+    }
+
+    private static List<string> PlikiGryZKatalogiem() =>
+        Directory.GetFiles(Path.Combine(RepositoryRoot(), "src", "Game"), "*.cs",
+                SearchOption.AllDirectories)
+            .Where(p => !p.Split(Path.DirectorySeparatorChar).Contains(".godot"))
+            .Where(p => !p.Split(Path.DirectorySeparatorChar).Contains("obj"))
+            .Where(p => !p.Split(Path.DirectorySeparatorChar).Contains("bin"))
+            .OrderBy(p => p, StringComparer.Ordinal)
+            .ToList();
+
+    [TestMethod]
+    public void Ile_wywolan_ToString_bez_argumentu_ma_src_Game_i_ktora_droga_idzie_wynik()
+    {
+        var leksykalnie = new List<string>();
+        var surowo = 0;
+        var zArgumentem = new List<string>();
+        foreach (var sciezka in PlikiGryZKatalogiem())
+        {
+            var kod = File.ReadAllText(sciezka);
+            surowo += WzorzecToStringBezArgumentu.Matches(kod).Count;
+            var czysty = KodLeksykalnie(kod);
+            var plik = Path.GetFileName(sciezka);
+            foreach (Match m in WzorzecToStringBezArgumentu.Matches(czysty))
+            {
+                leksykalnie.Add($"{plik}:{m.Groups[1].Value}");
+            }
+
+            foreach (Match m in WzorzecToStringZArgumentem.Matches(czysty))
+            {
+                zArgumentem.Add($"{plik}:{m.Groups[1].Value}");
+            }
+        }
+
+        Assert.AreEqual(ToStringRegeksemPoSurowym, surowo,
+            $"regeks po surowym tekście daje {surowo} zgłoszeń, a zmierzono "
+            + $"{ToStringRegeksemPoSurowym}");
+        Assert.AreEqual(ToStringLeksykalnieWGame, leksykalnie.Count,
+            $"czytanie leksykalne daje {leksykalnie.Count} wywołań, a zmierzono "
+            + $"{ToStringLeksykalnieWGame}: " + string.Join(", ", leksykalnie));
+
+        // TO JEST WERYFIKACJA, KTÓREJ ŻĄDAŁO POLE „Weryfikacja" 6.D199, i nie jest
+        // tautologią wobec dwóch równości wyżej: te przybijają liczby, ta przybija
+        // RELACJĘ — a relacja jest tym, po co ta pozycja istnieje. Gdyby obie liczby
+        // podniesiono kiedyś do tej samej wartości, równości przeszłyby, a ta nie.
+        Assert.IsTrue(leksykalnie.Count < surowo,
+            $"czytanie leksykalne daje {leksykalnie.Count}, a regeks po surowym "
+            + $"{surowo} — równość znaczy, że czytnik NIE POMIJA komentarzy i różnica, "
+            + "dla której ta pozycja istnieje, nie została zmierzona (6.D199)");
+
+        // DROGA WYNIKU, nazwana wprost dla każdego wywołania na wyliczeniu.
+        // `FirstRun.Faza` — ramię domyślne, wynik idzie na HUD, czyli NA EKRAN.
+        var typy = new HashSet<string>(WyliczeniaZrodel().Keys, StringComparer.Ordinal);
+        var nazwyWyliczen = new HashSet<string>(
+            NazwyOTypieWyliczeniowym().Keys, StringComparer.Ordinal);
+        var naWyliczeniu = leksykalnie
+            .Where(w => nazwyWyliczen.Contains(w.Substring(w.IndexOf(':') + 1)))
+            .ToList();
+        Assert.AreEqual(ToStringNaWyliczeniuWGame, naWyliczeniu.Count,
+            $"wywołań na wartości typu wyliczeniowego jest {naWyliczeniu.Count}, "
+            + $"a zmierzono {ToStringNaWyliczeniuWGame}: "
+            + string.Join(", ", naWyliczeniu));
+        CollectionAssert.AreEqual(new List<string> { "FirstRun.cs:phase" }, naWyliczeniu,
+            "wywołanie na wyliczeniu stoi gdzie indziej niż `FirstRun.Faza` — a to "
+            + "jedyne miejsce, o którym 6.D185 wie, że idzie NA EKRAN. Nowe wymaga "
+            + "nazwania drogi: ekran, log czy telemetria (6.D199)");
+
+        // NA EKRAN idzie to, co wraca z `Faza` do katalogu tekstów HUD-u. Sprawdzane
+        // przez obecność w pliku, o którym 6.D185 wie, że jego wynik ląduje na HUD-zie.
+        var naEkranie = naWyliczeniu.Count(w => w.StartsWith("FirstRun.cs:", StringComparison.Ordinal));
+        Assert.AreEqual(ToStringNaEkranieWGame, naEkranie,
+            $"na drodze NA EKRAN stoi {naEkranie} wywołań, a zmierzono "
+            + $"{ToStringNaEkranieWGame}. Do logu i do telemetrii nie idzie ANI JEDNO "
+            + "i ta różnica jest treścią: angielski identyfikator w telemetrii jest "
+            + "danymi dla maszyny, a na HUD-zie tekstem dla gracza");
+
+        // POSTAĆ Z ARGUMENTEM — ta, której skan tej pozycji NIE WIDZI.
+        Assert.AreEqual(ToStringZArgumentemWGame, zArgumentem.Count,
+            $"wywołań `.ToString(arg)` jest {zArgumentem.Count}, a zmierzono "
+            + $"{ToStringZArgumentemWGame}: " + string.Join(", ", zArgumentem));
+        var zArgumentemNaWyliczeniu = zArgumentem
+            .Where(w => nazwyWyliczen.Contains(w.Substring(w.IndexOf(':') + 1)))
+            .ToList();
+        Assert.AreEqual(ToStringZArgumentemNaWyliczeniuWGame, zArgumentemNaWyliczeniu.Count,
+            "wartość typu wyliczeniowego trafiła do `.ToString(arg)`: "
+            + string.Join(", ", zArgumentemNaWyliczeniu)
+            + ". Jest to ten sam błąd w innym ubraniu, a skan bez argumentu przechodzi "
+            + "obok niego — dlatego to zero stoi tu osobno (6.D199)");
+    }
+
+    [TestMethod]
+    public void Czytnik_leksykalny_ZDEJMUJE_komentarz_i_literal_a_kodu_NIE_RUSZA()
+    {
+        // Bez tego wejścia liczba 1 nie odróżniałaby „jedno wywołanie w kodzie" od
+        // „czytnik zjada wszystko" — rodzina 6.D159.
+        var kod = "var a = x.ToString();\n"
+            + "// komentarz z x.ToString() w środku\n"
+            + "var b = \"napis z x.ToString() w środku\";\n"
+            + "/* blok z x.ToString() */\n";
+        Assert.AreEqual(4, WzorzecToStringBezArgumentu.Matches(kod).Count,
+            "wejście syntetyczne nie niesie czterech zgłoszeń — kontrola mierzy nie to");
+
+        var czysty = KodLeksykalnie(kod);
+        Assert.AreEqual(1, WzorzecToStringBezArgumentu.Matches(czysty).Count,
+            "czytnik leksykalny zostawił " + WzorzecToStringBezArgumentu.Matches(czysty).Count
+            + " zgłoszeń zamiast jednego — nie pomija komentarza wierszowego, "
+            + "blokowego albo literału");
+        Assert.AreEqual(kod.Length, czysty.Length,
+            "czytnik zmienił DŁUGOŚĆ tekstu — wtedy numery wierszy w komunikatach "
+            + "wskazują nie te miejsca");
+        StringAssert.Contains(czysty, "var a = x.ToString();",
+            "czytnik ruszył KOD, a nie tylko komentarz i literał");
+    }
 }
