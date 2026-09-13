@@ -528,6 +528,184 @@ def test_czytelnik_logu_MOWI_czego_nie_znalazl_zamiast_zmyslac():
                 f"usunięcie wiersza z polem `{pole}` ruszyło niezależne pole `{nazwa}`")
 
 
+# --- 6.D192: co NAPRAWDĘ rozdziela log joba `tools` od każdego innego -----------------
+#
+# **Pozycja 6.D192 zakładała dwie rzeczy. Pierwsza jest prawdziwa, druga NIE, i obie
+# zostały zmierzone.**
+#
+# PRAWDA: `z_logu` ustawia `maszyna` wtedy i tylko wtedy, gdy w logu stoi wiersz
+# `Runner name:`, a TREŚĆ nazwy odrzuca (6.D162 zmierzyło, że nazwa nic nie rozdziela).
+# Warunek jest więc zgadywaniem po obecności pola.
+#
+# NIEPRAWDA: że log bez tego wiersza „zostanie cicho uznany za nie-runnera i jego pomiar
+# wypadnie z listy BEZ ANI JEDNEGO KOMUNIKATU". Ciszy nie ma. Zmierzone na prawdziwym
+# logu ze zdjętym wierszem `Runner name:`:
+#
+#     brakujace: ('runner', 'maszyna')
+#     $ python3 tools/ci/timing_record.py --z-logu <log bez wiersza>
+#     BRAK w …: runner, maszyna — to nie jest log kroku „Run tool tests” …
+#     kod wyjscia: 1
+#
+# `brakujace` zbudowano w 6.D152 dokładnie po to i ono działa. Obawa pozycji dotyczyła
+# mechanizmu, który już ma obronę.
+#
+# **CO JEST PRAWDZIWĄ LUKĄ, zmierzone na trzech logach cudzych jobów.** `Runner name:`
+# nie odróżnia joba `tools` od ŻADNEGO innego joba tego repozytorium — stoi w każdym po
+# jednym razie. Z logu joba `m7-shell` czytnik wyprowadza `modulow=124` i `testow=2434`,
+# czyli wartości **nieodróżnialne** od prawdziwego logu `tools`, bo sześć skryptów CI
+# woła goły `python3 tools/tests/test_all.py`. Trzy z pięciu pól wpisu (`data`, `maszyna`,
+# `modulow`) powstają więc z cudzego logu.
+#
+# Barierą, która cudzy log FAKTYCZNIE zatrzymuje, są dwa wiersze wypisywane wyłącznie
+# przez krok `Run tool tests` — i to jest odpowiedź na pytanie pozycji o sygnał treściowy:
+# sygnał istnieje, ale rozdziela JOB, a nie MASZYNĘ, i `z_logu` już się na nim opiera.
+POLA_ROZDZIELAJACE_JOB = ("sekundy", "cpu_na_sciane")
+
+#: Pola, które powstają z logu KAŻDEGO joba tego repozytorium — zmierzone na logach
+#: `sim`, `material-style` i `m7-shell`. Lista jest tu po to, żeby „cudzy log daje trzy
+#: pola z pięciu" miało w kodzie przedmiot, a nie było zdaniem w raporcie.
+POLA_Z_KAZDEGO_LOGU_RUNNERA = ("data", "runner", "maszyna", "job", "pr")
+
+#: Ile skryptów w `tools/ci/` woła GOŁY `python3 tools/tests/test_all.py` — czyli ile
+#: cudzych jobów wypisuje wiersz `RAZEM … testów, … modułów` nieodróżnialny od tego
+#: z joba `tools`. Zmierzone 13.09.2026: sześć (`blender_smoke`, `m7_shell_check`,
+#: `station_details`, `tunnel_alignment`, `vehicle_clearance`, `visual_smoke`).
+#:
+#: **Zapadka RÓWNOŚCIOWA, i to jest wybór.** Siódmy taki skrypt nie psuje niczego sam
+#: z siebie, ale powiększa zbiór logów, które przechodzą przez `WZORY_LOGU` w trzech
+#: polach na pięć — a wtedy warto ponownie zapytać, czy bariera nadal wystarcza.
+SKRYPTOW_CI_Z_GOLYM_ZESTAWEM = 6
+
+#: Wiersze, na których stoi cała bariera, i miejsce w drzewie, które je wypisuje.
+#: **Każdy ma stać w drzewie DOKŁADNIE RAZ** — druga kopia znaczy drugi job, którego log
+#: przejdzie przez `z_logu` w komplecie, a wtedy odpowiedź 6.D192 przestaje być prawdziwa.
+WYPISY_BARIERY = {
+    "sekundy": 'echo "czas sciany test_all.py: ${elapsed} s (prog ${budget} s)"',
+    "cpu_na_sciane": 'stosunek CPU/sciana {stosunek:.3f} (podloga {podloga})',
+}
+
+
+def _bez_wypisow_kroku(tekst):
+    """Prawdziwy log `tools` bez DWÓCH wierszy, których nie wypisze żaden inny job.
+
+    Wejście syntetyczne z prawdziwego materiału: zostaje `Runner name:`, zostaje `RAZEM`,
+    zostaje `Complete job name:` i numer PR-a — znika wyłącznie to, co wypisuje krok
+    `Run tool tests`. Tak wygląda log cudzego joba z tego samego runnera, a takiego
+    do drzewa dopisywać nie wolno (pole „Poza zakresem" 6.D192).
+    """
+    wzory = [TR.WZORY_LOGU[pole] for pole in POLA_ROZDZIELAJACE_JOB]
+    return "\n".join(w for w in tekst.splitlines()
+                     if not any(wz.match(TR._bez_ozdob(w)) for wz in wzory))
+
+
+def test_obecnosc_nazwy_runnera_NIE_rozdziela_joba_tools_od_zadnego_innego():
+    """ROZSTRZYGNIĘCIE 6.D192, połowa pierwsza: warunek zostaje, ale nie on rozdziela.
+
+    Log, z którego zdjęto tylko wypisy kroku `Run tool tests`, **nadal dostaje pole
+    `maszyna`** — bo `Runner name:` w nim został, tak jak stoi w logu każdego joba tego
+    repozytorium. Wpisu jednak nie da się z niego złożyć i to jest właśnie ta obrona,
+    która działa: stoi na TREŚCI kroku, nie na obecności nazwy runnera.
+    """
+    pelny = _log(sorted(_logi_w_drzewie())[0])
+    pola, brakujace = TR.z_logu(pelny)
+    assert not brakujace, brakujace
+
+    obciety = _bez_wypisow_kroku(pelny)
+    pola_o, brakujace_o = TR.z_logu(obciety)
+
+    assert "maszyna" in pola_o, (
+        "po zdjęciu wypisów kroku `Run tool tests` zniknęło pole `maszyna` — wtedy to "
+        "TE wiersze ustawiają maszynę, a cała ta sekcja opisuje mechanizm, którego nie ma")
+    assert pola_o["maszyna"] == TR.MASZYNA_Z_LOGU, pola_o["maszyna"]
+    for nazwa in POLA_Z_KAZDEGO_LOGU_RUNNERA:
+        assert nazwa in pola_o, (
+            f"pole `{nazwa}` miało powstać z logu KAŻDEGO joba, a nie powstało — pomiar "
+            "6.D192 na logach `sim`, `material-style` i `m7-shell` mówił inaczej")
+
+    assert set(brakujace_o) == set(POLA_ROZDZIELAJACE_JOB) | {"na_czym"}, (
+        "z logu bez wypisów kroku zabrakło %s, a spodziewane było %s — bariera przesunęła "
+        "się na inne pola, więc odpowiedź 6.D192 trzeba przeliczyć"
+        % (sorted(brakujace_o), sorted(set(POLA_ROZDZIELAJACE_JOB) | {"na_czym"})))
+
+
+def test_bariera_stoi_w_DOKLADNIE_JEDNYM_miejscu_drzewa():
+    """ROZSTRZYGNIĘCIE 6.D192, połowa druga: wczesne ostrzeżenie, a nie opis.
+
+    Odpowiedź tej pozycji stoi na tym, że dwa wiersze bariery wypisuje **wyłącznie** krok
+    `Run tool tests`. Druga kopia któregoś z nich w innym skrypcie CI znaczy drugi job,
+    którego log przejdzie przez `z_logu` w komplecie — i wtedy wpis z cudzego przebiegu
+    da się zbudować, a bramka z 6.D152 go nie odróżni.
+
+    Bramki na to nie dałoby się napisać z logów, bo logi opisują przeszłość. Da się
+    z DRZEWA i dlatego stoi tutaj.
+    """
+    import tree_walk as tw
+
+    wlasny = os.path.abspath(__file__)
+    with open(wlasny, encoding="utf-8") as uchwyt:
+        wlasne_zrodlo = uchwyt.read()
+
+    for pole, wypis in sorted(WYPISY_BARIERY.items()):
+        # WŁASNY PLIK JEST WYCIĘTY ZE SKANU, ale nie na ślepo: `WYPISY_BARIERY` CYTUJE
+        # te wiersze, więc bramka skanująca samą siebie zapalałaby się na własnej
+        # deklaracji i zostałaby wyłączona, nie poprawiona — ta sama konstrukcja co
+        # `ZNACZNIK_WLASNEJ_SEKCJI` w `test_assertion_gate.py`. Żeby wycięcie nie było
+        # dziurą, tu stoi warunek: w tym module wypis ma paść DOKŁADNIE RAZ, czyli
+        # wyłącznie w deklaracji. Druga kopia u siebie zapala tak samo jak cudza.
+        assert wlasne_zrodlo.count(wypis) == 1, (
+            "wypis bariery pola `%s` pada w tym module %d razy, a ma paść raz — "
+            "w samej `WYPISY_BARIERY`; wycięcie własnego pliku przestałoby być wąskie"
+            % (pole, wlasne_zrodlo.count(wypis)))
+
+        gdzie = []
+        for baza, _kat, pliki in tw.walk(ROOT):
+            for nazwa in pliki:
+                if not nazwa.endswith((".yml", ".yaml", ".sh", ".py")):
+                    continue
+                sciezka = os.path.join(baza, nazwa)
+                if os.path.abspath(sciezka) == wlasny:
+                    continue
+                wzgledna = os.path.relpath(sciezka, ROOT)
+                if wzgledna.startswith(("tests" + os.sep + "data", "reports")):
+                    continue
+                with open(sciezka, encoding="utf-8", errors="replace") as uchwyt:
+                    if wypis in uchwyt.read():
+                        gdzie.append(wzgledna)
+        assert len(gdzie) == 1, (
+            "wypis bariery pola `%s` stoi w %d miejscach drzewa (%s), a ma stać w jednym "
+            "— druga kopia znaczy drugi job, z którego logu da się złożyć wpis `POMIARY`"
+            % (pole, len(gdzie), sorted(gdzie)))
+
+
+def test_ile_cudzych_jobow_wypisuje_RAZEM_nieodroznialne_od_tools():
+    """Liczba, przez którą „cudzy log daje trzy pola z pięciu" przestaje być anegdotą.
+
+    Wiersz `RAZEM … testów, … modułów` nie jest własnością joba `tools`: każdy skrypt CI
+    wołający goły zestaw wypisuje go z tymi samymi liczbami. Zmierzone na logu `m7-shell`
+    z PR #584: `modulow=124`, `testow=2434` — co do jednego tyle samo, co w prawdziwym
+    logu `tools` z tego samego przebiegu.
+    """
+    import tree_walk as tw
+
+    katalog = os.path.join(ROOT, "tools", "ci")
+    wolajace = []
+    for baza, _kat, pliki in tw.walk(katalog):
+        for nazwa in sorted(pliki):
+            if not nazwa.endswith(".sh"):
+                continue
+            sciezka = os.path.join(baza, nazwa)
+            with open(sciezka, encoding="utf-8", errors="replace") as uchwyt:
+                for wiersz in uchwyt:
+                    if wiersz.strip() == "python3 tools/tests/test_all.py":
+                        wolajace.append(os.path.relpath(sciezka, ROOT))
+                        break
+    assert len(wolajace) == SKRYPTOW_CI_Z_GOLYM_ZESTAWEM, (
+        "skryptów CI wołających goły zestaw jest %d przy zapadce %d: %s — każdy z nich "
+        "wypisuje `RAZEM` nieodróżnialne od joba `tools`, więc zmiana tej liczby zmienia "
+        "zbiór logów, które przechodzą przez `WZORY_LOGU`"
+        % (len(wolajace), SKRYPTOW_CI_Z_GOLYM_ZESTAWEM, sorted(wolajace)))
+
+
 def test_nazwa_maszyny_nie_moze_sie_rozjechac_z_bramka_progu():
     """Dwa napisy o tej samej maszynie stoją w dwóch plikach — więc mają być pilnowane.
 
