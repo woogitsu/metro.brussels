@@ -3355,4 +3355,239 @@ public sealed class UiTextTests
             + "o prozie, a nie o kodzie");
     }
 
+    // --- 6.D198: ile nazw w src/ jest DWUZNACZNYCH -----------------------------------
+    //
+    // ODPOWIEDŹ: DZIESIĘĆ z dwudziestu dwóch, czyli 45 %. Pozycja wymieniała TRZY
+    // (`Reason`, `Variant`, `view`) i mówiła wprost, że trzy to liczba z DWUNASTU
+    // TRAFIEŃ, a nie z drzewa. Z drzewa wychodzi ponad trzy razy tyle.
+    //
+    // **I to nie jest liczba, która maleje.** Zmierzone na historii `src/`: wyliczeń
+    // jest SZESNAŚCIE od 02.09.2026 i od tamtej pory nie przybyło ani jedno; nazw pod
+    // typem wyliczeniowym jest DWADZIEŚCIA DWA od 05.09.2026 i też stoją. Nazw
+    // dwuznacznych w tym samym czasie było kolejno 2, 5, 6, 8, 9, 10 — rosną PRZY
+    // ZAMROŻONYCH obu populacjach, które miałyby je napędzać. Rosną, bo zwykłe pole
+    // `string` dostaje nazwę, której wyliczenie już używa, a pól `string` przybywa
+    // szybciej niż typów.
+    //
+    // **Dlatego zdanie 6.D185 o „puszczeniu skanu szerzej" jest tu PRZEPISANE, a nie
+    // powtórzone.** Tamto zdanie mówi: „gdyby trafień fałszywych ubyło do zera, skan
+    // wolno byłoby puścić szerzej". Warunek jest spełnialny wyłącznie w drzewie, które
+    // dwuznaczności się pozbywa — a zmierzony ruch idzie w drugą stronę, monotonicznie,
+    // i nic w drzewie go nie hamuje. Zdanie zostaje w tamtej bramce jako WARUNEK
+    // (bo jest poprawne: gdyby ubyło, wolno by było), ale przestaje być planem —
+    // co mówi ta sekcja i pilnuje asercja niżej.
+    private const int WyliczenWSrc = 16;
+
+    private const int NazwPodWyliczeniem = 22;
+
+    // Nazwy, pod którymi w `src/` stoi i wartość wyliczenia, i wartość innego typu.
+    // Lista, a nie liczba, bo to nazwy rozstrzygają, czy skan po nazwie wolno puścić
+    // szerzej — a liczba nie mówi, KTÓRA doszła (rodzina 6.D212).
+    private static readonly string[] NazwyDwuznaczneWSrc =
+    {
+        "Action", "Phase", "Reason", "Variant", "_view",
+        "load", "phase", "status", "variant", "view",
+    };
+
+    // Typ, pod którym stoi druga strona dwuznaczności. `string` w DZIEWIĘCIU na
+    // dziesięć — i to jest treść, a nie ciekawostka: gdyby drugą stroną były inne
+    // wyliczenia, sito po nazwie dałoby się uratować słownikiem typów. Napis takiej
+    // drogi nie zostawia.
+    private const int DwuznacznychPrzezNapis = 9;
+
+    // Słowa kluczowe C#, które stoją przed nazwą tak samo jak typ. Bez tej listy
+    // `return phase`, `case Phase` i `out status` policzyłyby się jako „drugi typ".
+    private static readonly HashSet<string> SlowaNieBedaceTypem = new(StringComparer.Ordinal)
+    {
+        "return", "new", "case", "is", "as", "out", "ref", "in", "public", "private",
+        "internal", "protected", "static", "readonly", "const", "override", "virtual",
+        "sealed", "partial", "class", "struct", "record", "enum", "interface", "using",
+        "namespace", "if", "else", "foreach", "for", "while", "do", "switch", "throw",
+        "await", "yield", "get", "set", "var", "this", "base", "null", "true", "false",
+        "when", "where", "select", "from", "default",
+    };
+
+    // Po nazwie w DEKLARACJI stoi jeden z tych znaków. Ten człon wzorca jest tu
+    // najważniejszy i ma własny pomiar: bez niego wynik ZALEŻY OD OBCINACZA
+    // komentarzy (surowo 12, wierszowo 11), bo polska proza „…, jeśli `ma status`
+    // parametru…" wygląda jak `Typ nazwa`. Z nim wszystkie trzy warianty tekstu dają
+    // TĘ SAMĄ DZIESIĄTKĘ — obcinacz przestaje rozstrzygać. Mierzy to
+    // <see cref="Ksztalt_deklaracji_ZDEJMUJE_zaleznosc_od_obcinacza_komentarzy"/>.
+    private const string PoNazwieWDeklaracji = @"(?=\s*[;,)=\{]|\s*=>|\s*$)";
+
+    private static List<string> NazwyPodWyliczeniem(string kod, IEnumerable<string> typy)
+    {
+        var wynik = new List<string>();
+        foreach (var typ in typy)
+        {
+            foreach (Match m in Regex.Matches(
+                kod, @"\b" + Regex.Escape(typ) + @"\??\s+(\w+)\b" + PoNazwieWDeklaracji,
+                RegexOptions.Multiline))
+            {
+                wynik.Add(m.Groups[1].Value);
+            }
+        }
+
+        return wynik;
+    }
+
+    // `nazwa -> typy NIE będące wyliczeniem, pod którymi ta sama nazwa też stoi`.
+    private static SortedDictionary<string, SortedSet<string>> DwuznacznoscNazw(
+        IReadOnlyDictionary<string, List<string>> teksty, ISet<string> wyliczenia,
+        IEnumerable<string> nazwy)
+    {
+        var wynik = new SortedDictionary<string, SortedSet<string>>(StringComparer.Ordinal);
+        foreach (var nazwa in nazwy)
+        {
+            foreach (var kod in teksty.Values.SelectMany(x => x))
+            {
+                foreach (Match m in Regex.Matches(
+                    kod, @"\b(\w+)\??\s+" + Regex.Escape(nazwa) + @"\b" + PoNazwieWDeklaracji,
+                    RegexOptions.Multiline))
+                {
+                    var typ = m.Groups[1].Value;
+                    if (wyliczenia.Contains(typ) || SlowaNieBedaceTypem.Contains(typ))
+                    {
+                        continue;
+                    }
+
+                    if (!wynik.TryGetValue(nazwa, out var zbior))
+                    {
+                        wynik[nazwa] = zbior = new SortedSet<string>(StringComparer.Ordinal);
+                    }
+
+                    zbior.Add(typ);
+                }
+            }
+        }
+
+        return wynik;
+    }
+
+    private static Dictionary<string, List<string>> ZrodlaSrcJakoTeksty(bool bezKomentarzy)
+    {
+        var wynik = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        foreach (var sciezka in PlikiZrodlowe())
+        {
+            var kod = File.ReadAllText(sciezka);
+            wynik[sciezka] = new List<string>
+            {
+                bezKomentarzy ? KodBezKomentarzyDlaStaregoCzytnika(kod) : kod,
+            };
+        }
+
+        return wynik;
+    }
+
+    [TestMethod]
+    public void Ile_nazw_w_src_jest_DWUZNACZNYCH_i_czy_sa_wsrod_nich_te_trzy_z_6D185()
+    {
+        var wyliczenia = WyliczeniaZrodel();
+        Assert.AreEqual(WyliczenWSrc, wyliczenia.Count,
+            $"typów wyliczeniowych w `src/` jest {wyliczenia.Count}, a zmierzono "
+            + $"{WyliczenWSrc}. Liczba ta stoi nieruchomo od 02.09.2026 i to jest "
+            + "połowa tezy 6.D198: dwuznaczności przybywa BEZ nowych typów");
+
+        var typy = new HashSet<string>(wyliczenia.Keys, StringComparer.Ordinal);
+        var teksty = ZrodlaSrcJakoTeksty(bezKomentarzy: true);
+        var nazwy = new SortedSet<string>(
+            teksty.Values.SelectMany(x => x).SelectMany(k => NazwyPodWyliczeniem(k, typy)),
+            StringComparer.Ordinal);
+        Assert.AreEqual(NazwPodWyliczeniem, nazwy.Count,
+            $"nazw pod typem wyliczeniowym jest {nazwy.Count}, a zmierzono "
+            + $"{NazwPodWyliczeniem}: " + string.Join(", ", nazwy));
+
+        var dwuznaczne = DwuznacznoscNazw(teksty, typy, nazwy);
+        CollectionAssert.AreEqual(
+            NazwyDwuznaczneWSrc.OrderBy(x => x, StringComparer.Ordinal).ToList(),
+            dwuznaczne.Keys.ToList(),
+            "nazwy dwuznaczne to dziś "
+            + string.Join(", ", dwuznaczne.Select(kv => $"{kv.Key}({string.Join("/", kv.Value)})"))
+            + ", a wpisano " + string.Join(", ", NazwyDwuznaczneWSrc)
+            + ". JEŚLI ICH PRZYBYŁO, sito po nazwie jest jeszcze mniej zdatne do "
+            + "puszczenia szerzej niż w dniu, w którym 6.D185 zapisało ten warunek; "
+            + "jeśli UBYŁO — warunek tamtej bramki zbliżył się do spełnienia i wolno "
+            + "wrócić do pytania o korpus (6.D198)");
+
+        // KONTROLA PRZYRZĄDU: trzy nazwy, które 6.D185 pokazało palcem, MUSZĄ tu być.
+        // Bez niej dziesiątka mogłaby opisywać zupełnie inny zbiór, a test i tak by
+        // przeszedł — rodzina 6.D159.
+        foreach (var nazwa in new[] { "Reason", "Variant", "view" })
+        {
+            Assert.IsTrue(dwuznaczne.ContainsKey(nazwa),
+                $"`{nazwa}` NIE jest widziane jako dwuznaczne, a 6.D185 wskazało tę "
+                + "nazwę wprost — wtedy skan nie widzi deklaracji, którą tamta pozycja "
+                + "pokazała palcem, i lista wyżej opisuje inny zbiór: "
+                + string.Join(", ", dwuznaczne.Keys));
+        }
+
+        var przezNapis = dwuznaczne.Count(kv => kv.Value.Contains("string"));
+        Assert.AreEqual(DwuznacznychPrzezNapis, przezNapis,
+            $"drugą stroną dwuznaczności jest `string` w {przezNapis} przypadkach, "
+            + $"a zmierzono {DwuznacznychPrzezNapis}. Gdyby drugą stroną były INNE "
+            + "WYLICZENIA, sito po nazwie dałoby się uratować słownikiem typów — "
+            + "napis takiej drogi nie zostawia i dlatego ta liczba stoi osobno");
+    }
+
+    [TestMethod]
+    public void Ksztalt_deklaracji_ZDEJMUJE_zaleznosc_od_obcinacza_komentarzy()
+    {
+        // **To jest pomiar, a nie ostrożność.** Bez członu `PoNazwieWDeklaracji` wynik
+        // ZALEŻY od tego, czy komentarze zostały zdjęte: na surowym tekście wychodzi
+        // dwanaście nazw dwuznacznych, po obcinaczu jedenaście — różnicę robi jedno
+        // polskie zdanie („…wcina Environment…"). Z tym członem oba teksty dają TĘ SAMĄ
+        // dziesiątkę. Rodzina 6.D212: bramka, której wynik zależy od czytnika, mówi
+        // o czytniku, a nie o drzewie.
+        var typy = new HashSet<string>(WyliczeniaZrodel().Keys, StringComparer.Ordinal);
+        var wyniki = new List<int>();
+        var sprawdzonych = 0;
+        foreach (var bezKomentarzy in new[] { true, false })
+        {
+            var teksty = ZrodlaSrcJakoTeksty(bezKomentarzy);
+            var nazwy = new SortedSet<string>(
+                teksty.Values.SelectMany(x => x).SelectMany(k => NazwyPodWyliczeniem(k, typy)),
+                StringComparer.Ordinal);
+            wyniki.Add(DwuznacznoscNazw(teksty, typy, nazwy).Count);
+            sprawdzonych++;
+        }
+
+        Assert.AreEqual(2, sprawdzonych,
+            "pętla po wariantach tekstu wykonała się " + sprawdzonych + " razy zamiast "
+            + "dwóch — wtedy równość niżej nie porównuje niczego (rodzina 6.D193)");
+        Assert.AreEqual(wyniki[0], wyniki[1],
+            $"z komentarzami wychodzi {wyniki[1]} nazw dwuznacznych, bez nich "
+            + $"{wyniki[0]} — kształt deklaracji przestał wystarczać i wynik znowu "
+            + "zależy od obcinacza, czyli mówi o czytniku, a nie o drzewie");
+        Assert.AreEqual(NazwyDwuznaczneWSrc.Length, wyniki[0],
+            $"oba warianty zgadzają się na {wyniki[0]}, ale lista przybita wyżej ma "
+            + $"{NazwyDwuznaczneWSrc.Length} pozycji");
+    }
+
+    [TestMethod]
+    public void Czytnik_dwuznacznosci_ODROZNIA_deklaracje_od_prozy_na_wejsciu_syntetycznym()
+    {
+        // Drzewo tych dwóch przypadków nie rozdziela na tyle wyraźnie, żeby liczba 10
+        // była dowodem: gdyby człon `PoNazwieWDeklaracji` przepuszczał prozę, dziesiątka
+        // po prostu byłaby inną liczbą i nikt by nie wiedział którą.
+        var typy = new HashSet<string>(StringComparer.Ordinal) { "DoorPhase" };
+        var deklaracja = new Dictionary<string, List<string>>(StringComparer.Ordinal)
+        {
+            ["a.cs"] = new List<string> { "private DoorPhase phase;\nprivate string phase;" },
+        };
+        var nazwyD = NazwyPodWyliczeniem(deklaracja["a.cs"][0], typy);
+        CollectionAssert.AreEqual(new List<string> { "phase" }, nazwyD,
+            "czytnik nie widzi deklaracji `DoorPhase phase;` — wtedy nie widzi niczego");
+        Assert.IsTrue(DwuznacznoscNazw(deklaracja, typy, nazwyD).ContainsKey("phase"),
+            "czytnik nie rozpoznaje `string phase;` jako drugiej strony dwuznaczności");
+
+        var proza = new Dictionary<string, List<string>>(StringComparer.Ordinal)
+        {
+            ["b.cs"] = new List<string> { "private DoorPhase phase;\nNieznany phase parametru." },
+        };
+        Assert.IsFalse(
+            DwuznacznoscNazw(proza, typy, NazwyPodWyliczeniem(proza["b.cs"][0], typy))
+                .ContainsKey("phase"),
+            "polskie zdanie policzone jako deklaracja typu — wtedy dziesiątka wyżej "
+            + "opisuje prozę tak samo jak kod, a obcinacz komentarzy znowu rozstrzyga");
+    }
 }
