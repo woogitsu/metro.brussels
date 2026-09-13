@@ -120,6 +120,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import backlog_commands as bc  # noqa: E402
 import test_backlog as tb  # noqa: E402
+import tree_walk as tw  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 TASKS = os.path.join(ROOT, "docs", "TASKS.md")
@@ -1503,3 +1504,127 @@ if __name__ == "__main__":
         raise SystemExit(main())
     import test_all
     raise SystemExit(test_all.main(__file__))
+
+
+#: Zly adres wypisany w adnotacji poprawki — 6.D157.
+#:
+#: Adnotacje maja jeden ksztalt: „pole wskazywalo/wolalo `X`", gdzie `X` jest adresem
+#: BLEDNYM, a reszta zdania nazywa ten wlasciwy. Bez tego rozroznienia licznik modulow
+#: liczylby razem adres zly i poprawny — a to sa dwie rozne rzeczy w jednym zdaniu.
+ZLY_ADRES_Z_POPRAWKI = re.compile(
+    r"pole (?:wskazywało|wołało) `([A-Za-z0-9_./-]+\.py)`")
+
+#: Ile razy kazdy modul padl jako ZLY adres — wyprowadzone z drzewa, przybite tu.
+ZLE_ADRESY = {
+    "test_scan_gates.py": 3,
+    "test_backlog.py": 1,
+    "test_physics_reference.py": 1,
+    "test_glossary.py": 1,
+}
+
+#: Ile z szesciu zlych adresow niesie UKOSNIK, czyli w ogole trafia pod `PATH_TOKEN`.
+ZLYCH_ADRESOW_ZE_SCIEZKA = 2
+
+#: Ile z nich wskazuje plik, ktory w drzewie ISTNIEJE — 6.D157.
+ZLYCH_ADRESOW_ISTNIEJACYCH = 4
+
+
+def zle_adresy_z_poprawek():
+    """`[(numer, data, zly_adres)]` — po jednym na kazda adnotacje poprawki."""
+    out = []
+    for numer, data, powod in poprawki_zapisow():
+        trafienia = ZLY_ADRES_Z_POPRAWKI.findall(" ".join(powod.split()))
+        out.append((numer, data, trafienia))
+    return out
+
+
+def test_kazda_poprawka_nazywa_DOKLADNIE_jeden_zly_adres():
+    """Kontrola PRZYRZADU, zanim cokolwiek z niego policzymy — 6.D157.
+
+    Gdyby wzorzec chybil choc jednej adnotacji, licznik nizej bylby mniejszy i nikt
+    by sie nie dowiedzial — bo mniejszy licznik wyglada dokladnie tak samo jak
+    mniejsza liczba pomylek. Ta bramka mowi, ze skan widzi KAZDA z szesciu.
+    """
+    znalezione = zle_adresy_z_poprawek()
+    assert len(znalezione) == POPRAWEK_W_DRZEWIE, (
+        "adnotacji poprawek jest %d, a zapadka stoi na %d"
+        % (len(znalezione), POPRAWEK_W_DRZEWIE))
+    puste = [(n, d) for n, d, t in znalezione if len(t) != 1]
+    assert not puste, (
+        "adnotacja bez DOKLADNIE jednego zlego adresu: %s — wzorzec rozjechal sie "
+        "z ksztaltem zdania i licznik ponizej liczy mniej, niz jest" % puste)
+
+
+def test_ktory_modul_padl_jako_zly_adres_wiecej_niz_raz():
+    """Pole „Wyjscie" 6.D157 zada listy z liczba przy kazdym — z DRZEWA, nie wpisanej.
+
+    **WYNIK: powtarza sie DOKLADNIE JEDEN modul — `test_scan_gates.py` — i pada
+    TRZY razy, a nie dwa.** Wpis pozycji mowil o dwoch blokach (6.D74 i 6.D133);
+    blok 6.D74 byl poprawiany DWUKROTNIE, 10.09 i 11.09, i obie poprawki nazywaja
+    ten sam zly adres. Trzy na szesc to POLOWA wszystkich poprawek w drzewie.
+    """
+    licznik = {}
+    for _numer, _data, trafienia in zle_adresy_z_poprawek():
+        nazwa = os.path.basename(trafienia[0])
+        licznik[nazwa] = licznik.get(nazwa, 0) + 1
+
+    assert licznik == ZLE_ADRESY, (
+        "rozklad zlych adresow to %s, a pomiar z 12.09.2026 dal %s"
+        % (sorted(licznik.items()), sorted(ZLE_ADRESY.items())))
+    powtarzajace = sorted(n for n, ile in licznik.items() if ile > 1)
+    assert powtarzajace == ["test_scan_gates.py"], (
+        "powtarzajacych sie zlych adresow jest %s — odpowiedz 6.D157 „powtarza sie "
+        "dokladnie jeden” przestala byc prawdziwa" % powtarzajace)
+
+
+def test_bramka_istnienia_nie_mogla_zlapac_ani_jednej_z_tych_szesciu():
+    """Dlaczego powtorzenie nie wymaga wyjasnienia — 6.D157.
+
+    **To jest odpowiedz na pytanie „regula czy zbieg okolicznosci".** Zaden z szesciu
+    zlych adresow nie mogl zostac zlapany, i to z DWOCH roznych powodow:
+
+    * **cztery** stoja BEZ katalogu, a `PATH_TOKEN` zada ukosnika — wiec bramka
+      w ogole na nie nie patrzy;
+    * **dwa**, ktore ukosnik maja, wskazuja pliki, ktore w drzewie ISTNIEJA — wiec
+      bramka patrzy i przepuszcza, bo sprawdza ISTNIENIE, a nie PRZEDMIOT.
+
+    Adres, ktory przechodzi za kazdym razem, mozna wpisac za kazdym razem. Powtorzenie
+    nie jest wiec wlasnoscia tego modulu, tylko KLASY: tylko adres istniejacy da sie
+    powtorzyc, bo wymyslony i tak nie zostanie zlapany, ale i nie zostanie wpisany
+    drugi raz przez kogos, kto go wlasnie poprawil.
+    """
+    ze_sciezka = 0
+    istniejace = 0
+    for _numer, _data, trafienia in zle_adresy_z_poprawek():
+        adres = trafienia[0]
+        if "/" in adres:
+            ze_sciezka += 1
+            assert PATH_TOKEN.search(adres), (
+                "adres `%s` ma ukosnik, a `PATH_TOKEN` go nie widzi — podzial na "
+                "„bramka patrzy” i „nie patrzy” przestal byc prawdziwy" % adres)
+        else:
+            assert not PATH_TOKEN.search(adres), (
+                "adres `%s` bez katalogu zostal zlapany przez `PATH_TOKEN` — wtedy "
+                "cztery z szesciu NIE sa poza zasiegiem bramki i ten test mowi "
+                "nieprawde" % adres)
+        if _istnieje_w_drzewie(os.path.basename(adres)):
+            istniejace += 1
+
+    assert ze_sciezka == ZLYCH_ADRESOW_ZE_SCIEZKA, (
+        "zlych adresow z ukosnikiem jest %d, a pomiar dal %d"
+        % (ze_sciezka, ZLYCH_ADRESOW_ZE_SCIEZKA))
+    assert istniejace == ZLYCH_ADRESOW_ISTNIEJACYCH, (
+        "zlych adresow wskazujacych ISTNIEJACY plik jest %d, a pomiar dal %d — "
+        "jesli spadlo, ktorys modul zniknal i zdanie „bramka przepuszcza, bo plik "
+        "istnieje” opisuje inny stan" % (istniejace, ZLYCH_ADRESOW_ISTNIEJACYCH))
+
+
+def _istnieje_w_drzewie(nazwa):
+    """Czy plik o tej nazwie stoi gdziekolwiek w drzewie — 6.D157.
+
+    Przez `tree_walk.znajdz`, a nie `os.walk`: wspolny filtr odsiewa galezie
+    pominiete w `.gitignore`, a wlasne przejscie po drzewie ma w tym repozytorium
+    swoja bramke (6.D74, 6.D97, 6.D117) — i zlapala ta funkcje, gdy pierwsza wersja
+    wolala `os.walk` wprost.
+    """
+    return bool(tw.znajdz(ROOT, nazwa, ROOT))
