@@ -335,9 +335,9 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 #: Pozostale dwie klasy i calosc. **Trzy klasy sumuja sie do `ASERCJI_RAZEM`** i to
 #: jest tu trescia: asercja, ktorej czytnik nie umie zaklasyfikowac, ma byc POLICZONA
 #: jako nierozstrzygnieta, a nie wpasc miedzy klasy.
-Z_KOMUNIKATEM_RAZEM = 1223
+Z_KOMUNIKATEM_RAZEM = 1241
 NIEROZSTRZYGNIETYCH = 68
-ASERCJI_RAZEM = 2672
+ASERCJI_RAZEM = 2690
 
 
 def _rozklad():
