@@ -38,12 +38,28 @@ GENERATORY = (
     "tools/blender/station_kit.py",
 )
 
-#: Parametry bez wartosci domyslnej, ktore MUSZA stac w przepisie jawnie. Kazdy ma
-#: w drzewie swoj powod i kazdy pominiety daje scene, ktora wyglada poprawnie:
-#: `--platform-length-m design` bierze decyzje wlasciciela zamiast dolnej granicy
-#: R-007, `--platform-gap-m` nie ma zrodla publicznego (R-007), `--profile box_double`
-#: rozstrzyga strop tunelu, a `--component` ogranicza zespol stacji do tego, co miesci
-#: sie pod tym stropem.
+#: Parametry, ktore MUSZA stac w przepisie jawnie — z powodem kazdego OSOBNO.
+#:
+#: **Ta tabela jest przepisana 13.09.2026 po przegladzie wlasnej zmiany, a nie dopisana
+#: obok.** Pierwsza wersja mowila „parametry BEZ WARTOSCI DOMYSLNEJ, kazdy pominiety
+#: daje scene, ktora wyglada poprawnie" — i nieprawda byly OBIE polowy. Zmierzone
+#: w argparse, nie odczytane ze skryptu:
+#:
+#: * CICHE (dwa): pominiecie zmienia geometrie i nie mowi ani slowa.
+#:   `--platform-length-m design` ma `default=None`, a `resolve_platform_length_m(None)`
+#:   oddaje 94,0 m jako dolna granice R-007 zamiast decyzji wlasciciela (95,0 m, T-212).
+#:   `--component` ma `action="append"` bez domyslnej i pomoc „Bez tego budowane sa
+#:   wszystkie" — czyli antresola do 8,30 m pod stropem `box_double` na 4,70 m.
+#: * GLOSNY (jeden): `--platform-gap-m` jest `required=True`
+#:   (`tools/blender/station_kit.py:76`); pominiecie konczy sie bledem argparse i kodem
+#:   wyjscia **2** — zmierzone na przypietym Blenderze 5.2.1.
+#: * BEZCZYNNY DZIS (jeden): `--profile` ma `default="box_double"`
+#:   (`tools/blender/tunnel_sweep.py:51`), czyli DOKLADNIE ta wartosc, ktora przepis
+#:   podaje. Jawny zapis jest przypieciem na wypadek zmiany domyslnej.
+#:
+#: Wszystkie cztery zostaja w tabeli i to jest wybor: bramka pilnuje, zeby przepis
+#: ROZSTRZYGAL kazda z tych wartosci u siebie, a nie zeby kazda z nich byla pulapka.
+#: Gdyby zostaly same ciche, zmiana domyslnej `--profile` przeszlaby bez sladu.
 PARAMETRY_JAWNE = (
     "--platform-length-m design",
     "--platform-gap-m 0.08",
@@ -99,6 +115,15 @@ def test_przepis_generacji_stoi_w_DOKLADNIE_JEDNYM_miejscu():
     """
     przepis = _bez_komentarzy(_czytaj("tools/dev/prepare-playable.sh"))
     workflow = _czytaj(WORKFLOW)
+    # **JEDEN CZYTNIK NA OBIE STRONY, i to jest poprawka z 13.09.2026 — przepisana,
+    # a nie dopisana obok.** Do poludnia strona workflowa miala WLASNY filtr inline
+    # (`not w.lstrip().startswith("#")`), a `_bez_komentarzy` czytalo tylko skrypt.
+    # Skutek byl zmierzony i jest dokladnie tym, przed czym ten projekt ostrzega przy
+    # kazdej drugiej kopii wiedzy: zepsucie `_bez_komentarzy` (zwraca calosc) wywracalo
+    # WYLACZNIE wlasna kontrole syntetyczna, a bramka jednego miejsca zostawala
+    # ZIELONA — czyli kontrola przyrzadu pilnowala czytnika, ktorego nosna asercja
+    # nie uzywa. Teraz uzywa, wiec KN-6 zapala obie.
+    kod_workflowa = _bez_komentarzy(workflow)
 
     sprawdzonych = 0
     for generator in GENERATORY:
@@ -107,8 +132,7 @@ def test_przepis_generacji_stoi_w_DOKLADNIE_JEDNYM_miejscu():
             "i scena dostanie mniej, niz mial krok CI, ktory ten skrypt zastapil"
             % generator)
         # W workflow generator ma stac WYLACZNIE w komentarzu albo wcale.
-        w_kodzie = [w for w in workflow.splitlines()
-                    if generator in w and not w.lstrip().startswith("#")]
+        w_kodzie = [w for w in kod_workflowa.splitlines() if generator in w]
         assert not w_kodzie, (
             "`%s` stoi w KODZIE workflowa `%s`, a nie tylko w `prepare-playable.sh`: "
             "%r. Przepis rozszedl sie na dwa miejsca i od teraz moga sie rozjechac"
@@ -124,21 +148,23 @@ def test_przepis_generacji_stoi_w_DOKLADNIE_JEDNYM_miejscu():
         "w skrypcie, ktorego CI nie uruchamia, czyli w kodzie bez pokrycia" % WORKFLOW)
 
 
-def test_kazdy_parametr_BEZ_WARTOSCI_DOMYSLNEJ_stoi_w_przepisie_jawnie():
-    """Pominiety parametr daje scene, ktora WYGLADA POPRAWNIE — i to jest powod.
+def test_kazdy_parametr_ROZSTRZYGAJACY_stoi_w_przepisie_jawnie():
+    """Przepis ma ROZSTRZYGAC te wartosci u siebie — trzy rodziny, patrz PARAMETRY_JAWNE.
 
-    `--platform-length-m design` pominiete daje perony 94,0 m zamiast 95,0 m
-    (dolna granica R-007 zamiast decyzji wlasciciela z T-212); `--component` pominiete
-    wpuszcza schody i antresole siegajace 8,30 m pod strop 4,70 m. Zadne z tych dwoch
-    nie konczy sie bledem.
+    Nazwa tego testu jest POPRAWIONA 13.09.2026: do poludnia brzmiala
+    `..._BEZ_WARTOSCI_DOMYSLNEJ_...`, a dwa z czterech parametrow wartosc domyslna maja.
+    Nosna jest para CICHA — `--platform-length-m design` (94,0 m zamiast 95,0 m,
+    bez ani jednego ostrzezenia) i `--component` (antresola 8,30 m pod stropem 4,70 m) —
+    ale bramka trzyma wszystkie cztery, z powodem wypisanym przy tabeli.
     """
     przepis = _bez_komentarzy(_czytaj("tools/dev/prepare-playable.sh"))
     sprawdzonych = 0
     for parametr in PARAMETRY_JAWNE:
         assert parametr in przepis, (
-            "w `tools/dev/prepare-playable.sh` nie ma `%s`. Ten parametr NIE MA "
-            "wartosci domyslnej, a jego pominiecie nie konczy sie bledem — daje "
-            "geometrie, ktora wyglada poprawnie i nia nie jest" % parametr)
+            "w `tools/dev/prepare-playable.sh` nie ma `%s`. Przepis ma rozstrzygac te "
+            "wartosc u siebie; dwa z tych parametrow pominiete MILCZA i daja geometrie, "
+            "ktora wyglada poprawnie i nia nie jest — ktory jest ktory, stoi przy "
+            "`PARAMETRY_JAWNE`" % parametr)
         sprawdzonych += 1
     assert sprawdzonych == len(PARAMETRY_JAWNE), (
         "petla po parametrach wykonala sie %d razy zamiast %d"

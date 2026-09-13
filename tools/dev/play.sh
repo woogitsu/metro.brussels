@@ -53,7 +53,15 @@ fi
 echo "[TRENING] zasoby: $ASSETS"
 echo "[TRENING] ATP: $(basename "$PLAN")"
 echo "[TRENING] zapis wejść: $INPUT_LOG"
-echo "[TRENING] sterowanie: W/↑ ciąg · S/↓ hamulec · X wybieg · Spacja hamulec · C widok · R reset · Esc wyjście"
+
+# **WIERSZA ZE STEROWANIEM TU NIE MA I TO JEST WYBÓR** (poprawione 13.09.2026, jeszcze
+# w MB-01, po przeglądzie własnej zmiany). Pierwsza wersja tego skryptu wypisywała
+# „Spacja hamulec · R reset" — i była już rozjechana z grą w chwili, w której powstała:
+# `src/Game/UI/UiText.cs:114` nazywa spację „hamulec awaryjny (= pełny służbowy)",
+# a `R` — „od nowa", nie „reset". Katalog `UiText` istnieje dokładnie po to, żeby napisy
+# interfejsu miały JEDNO miejsce (6.D83), a HUD pokazuje z niego wiersz sterowania, gdy
+# przy sterowaniu siedzi człowiek (`src/Game/UI/Hud.cs`). Druga kopia w powłoce nie ma
+# ani jednej bramki nad sobą i rozjeżdżałaby się dalej, po cichu.
 
 exec "$GODOT_EXE" --path src/Game -- \
     --assets="$ASSETS" \

@@ -4,10 +4,28 @@
 # **DLACZEGO TEN SKRYPT ISTNIEJE, A NIE POWIELA PRZEPISU.** Do 13.09.2026 przepis
 # generacji stał wyłącznie w kroku `Generate package A geometry` workflowa
 # `godot-first-run.yml`. Człowiek, który chciał uruchomić trening u siebie, musiał
-# wkleić sześć poleceń z pliku YAML, razem z pięcioma jawnymi parametrami, których
-# żadne nie ma wartości domyślnej. Pierwsza literówka dawała scenę bez peronu albo
-# perony o metr krótsze od decyzji właściciela — i wyglądało to jak stan repozytorium,
-# a nie jak pomyłka przepisywania.
+# wkleić stamtąd **cztery wywołania generatorów** z pięcioma jawnymi parametrami.
+# Pierwsza literówka dawała scenę bez peronu albo perony o metr krótsze od decyzji
+# właściciela — i wyglądało to jak stan repozytorium, a nie jak pomyłka przepisywania.
+#
+# **PIĘĆ PARAMETRÓW, ALE TRZY RODZINY — zmierzone w argparse 13.09.2026, a nie odczytane
+# z tego skryptu.** Ten akapit jest POPRAWKĄ własnej pierwszej wersji, która mówiła
+# „pięć parametrów, z których żaden nie ma wartości domyślnej, a pominięcie żadnego nie
+# kończy się błędem": nieprawdą były OBIE połowy.
+#   * DWA pominięte dają scenę, która wygląda poprawnie i nią nie jest — i te dwa są
+#     powodem, dla którego ten skrypt istnieje. `--platform-length-m design`:
+#     `default=None`, a `resolve_platform_length_m(None)` oddaje **94,0 m** jako dolną
+#     granicę R-007, z nazwanym powodem i bez ani jednego ostrzeżenia (decyzja
+#     właściciela T-212 to 95,0 m). `--component platform --component edge`:
+#     `action="append"` bez domyślnej, a pomocy argparse'a stoi „Bez tego budowane są
+#     wszystkie" — czyli schody i antresola do 8,30 m pod stropem `box_double` na 4,70 m.
+#   * JEDEN pominięty kończy się GŁOŚNO: `--platform-gap-m` jest `required=True`
+#     (`tools/blender/station_kit.py:76`), argparse przerywa i Blender wychodzi
+#     **kodem 2** — zmierzone, nie przyjęte. Do rodziny cichej ten parametr NIE należy.
+#   * JEDEN nie zmienia dziś nic: `--profile` ma `default="box_double"`
+#     (`tools/blender/tunnel_sweep.py:51`), czyli DOKŁADNIE tę wartość, którą przepis
+#     podaje. Jawny zapis jest tu przypięciem na wypadek zmiany domyślnej, a nie obroną
+#     przed ciszą — i tak też jest opisany w bramce.
 #
 # **Przepis stoi teraz w JEDNYM miejscu — tutaj — a workflow ten skrypt WOŁA.**
 # Pilnuje tego `tools/tests/test_playable_scripts.py`: jeśli przepis wróci do YAML-a

@@ -357,11 +357,13 @@ jobs:
         shell: bash
         # **PRZEPIS STOI W `tools/dev/prepare-playable.sh`, NIE TUTAJ** (MB-01,
         # 13.09.2026). Ten krok jest przepisany, a nie dopisany obok: poprzednia wersja
-        # niosła sześć poleceń generatora razem z pięcioma jawnymi parametrami, z których
-        # żaden nie ma wartości domyślnej — i była JEDYNYM miejscem, gdzie ten przepis
-        # stał. Człowiek, który chciał uruchomić trening u siebie, przepisywał go z YAML-a
-        # ręcznie, a pierwsza literówka dawała scenę bez peronu albo perony o metr
-        # krótsze od decyzji właściciela.
+        # niosła **cztery wywołania generatorów** razem z pięcioma jawnymi parametrami —
+        # i była JEDYNYM miejscem, gdzie ten przepis stał. Człowiek, który chciał
+        # uruchomić trening u siebie, przepisywał go z YAML-a ręcznie, a pierwsza
+        # literówka dawała scenę bez peronu albo perony o metr krótsze od decyzji
+        # właściciela. Które z tych pięciu parametrów pominięte milczą, a które krzyczą,
+        # jest ZMIERZONE i stoi w nagłówku skryptu — tutaj liczby nie ma, żeby nie było
+        # jej dwóch.
         #
         # Skrypt robi DOKŁADNIE to samo, co robił ten krok, i to jest sprawdzane:
         # `tools/tests/test_playable_scripts.py` porównuje wywołania generatorów
