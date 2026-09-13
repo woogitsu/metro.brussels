@@ -130,7 +130,7 @@ POMIARY = (
     ("2026-09-11", 109.420, 122, MASZYNA_RUNNER,
      "job `tools`, PR #529, CPU/ściana 1,610 — 2335 testów"),
     ("2026-09-11", 116.404, 122, MASZYNA_RUNNER,
-     "job `tools`, PR #528, CPU/ściana 1,599 — 2335 testów, NAJWYŻSZY na runnerze"),
+     "job `tools`, PR #528, CPU/ściana 1,599 — 2335 testów"),
     ("2026-09-11", 170.685, 122, MASZYNA_KONTENER,
      "kontener sesji, maszyna spokojna, CPU/ściana 0,991 — 2335 testów; PRZEKRACZA "
      "próg 150 s i podłoga mierzalności tego nie zatrzymuje, patrz komentarz wyżej"),
@@ -148,7 +148,7 @@ POMIARY = (
     ("2026-09-13", 171.500, 124, MASZYNA_KONTENER,
      "kontener sesji, powtórzenie 4 z 6, CPU/ściana 0,988 — 2414 testów"),
     ("2026-09-13", 167.402, 124, MASZYNA_KONTENER,
-     "kontener sesji, powtórzenie 5 z 6, CPU/ściana 0,987 — 2414 testów, NAJNIŻSZY"),
+     "kontener sesji, powtórzenie 5 z 6, CPU/ściana 0,987 — 2414 testów"),
     ("2026-09-13", 171.467, 124, MASZYNA_KONTENER,
      "kontener sesji, powtórzenie 6 z 6, CPU/ściana 0,988 — 2414 testów"),
 )
@@ -482,6 +482,104 @@ def test_jeden_prog_dla_obu_maszyn_przestalby_widziec_regres_na_runnerze():
     assert SUITE_RUNTIME_BUDGET_S / maks_runnera < krotnosc, (
         "dzisiejszy prog nie jest ciasniejszy od wspolnego — wtedy wybor miedzy nimi "
         "nie ma tresci")
+
+
+# --- 6.D163: zdanie o RANDZE wpisu w liscie, a nie o przebiegu ----------------------
+
+#: Słowo rangi w opisie pomiaru. Wzorzec celowo WĄSKI: szuka superlatywu, a nie
+#: „większy/mniejszy" — porównanie dwóch przebiegów jest zdaniem o nich, superlatyw
+#: jest zdaniem o CAŁYM zbiorze i tylko on starzeje się wraz z listą.
+RANGA_W_OPISIE = re.compile(
+    r"NAJWY\w*SZY|NAJNI\w*SZY|najwy\w*szy|najni\w*szy"
+    r"|NAJWOLNIEJSZ\w*|najwolniejsz\w*|NAJSZYBSZ\w*|najszybsz\w*",
+    re.UNICODE)
+
+#: Opisy, którym słowo rangi WOLNO nieść, każdy z powodem — 6.D163.
+#:
+#: **Rozróżnienie, na którym stoi ta pozycja: ranga OGRANICZONA a ranga OTWARTA.**
+#: Ranga ograniczona mówi o zbiorze ZAMKNIĘTYM (cztery przebiegi tamtej sesji) albo
+#: jest odcięta datą („do 11.09") — takie zdanie jest o przeszłości i prawdziwe
+#: zostanie na zawsze. Ranga otwarta mówi „najwyższy z tej listy" i **przestaje być
+#: prawdziwa przy pierwszym wpisie, który ją bije**, nie zmieniając ani znaku.
+#:
+#: Dwie otwarte zdjęto 13.09.2026, i obie warto wymienić, bo pokazują dwa różne
+#: sposoby, w jakie takie zdanie szkodzi:
+#:   - „, NAJWYŻSZY na runnerze" powtarzało to, co `MEASURED_MAX_WALL_S` liczy
+#:     z listy — druga kopia liczby, rodzina 6.B28;
+#:   - „, NAJNIŻSZY" przy wpisie 167,402 s było **już nieprawdziwe** w dniu, w którym
+#:     to sprawdzono: najniższy pomiar kontenera w liście to 76,518 s. Dopisano je
+#:     dzień wcześniej, przy 6.D160, w tej samej sesji, która potem je znalazła.
+OPISY_Z_RANGA_DOZWOLONA = {
+    "2026-09-05": "ranga w zbiorze ZAMKNIĘTYM — „najwyższy z czterech przebiegów "
+                  "tamtej sesji” mówi o pochodzeniu pomiaru, nie o tej liście, "
+                  "a tamta sesja się skończyła i liczby już nie zmieni",
+    "2026-09-07": "ranga ODCIĘTA DATĄ — „najwyższy zmierzony w kontenerze do 11.09” "
+                  "jest zdaniem o przeszłości i nowy pomiar go nie obali",
+}
+
+
+def opisy_z_ranga():
+    """`[(data, sekundy, słowo)]` — wpisy `POMIARY`, których opis niesie superlatyw."""
+    out = []
+    for data, sekundy, _mod, _maszyna, gdzie in POMIARY:
+        trafienie = RANGA_W_OPISIE.search(gdzie)
+        if trafienie:
+            out.append((data, sekundy, trafienie.group(0)))
+    return out
+
+
+def test_zaden_wpis_nie_niesie_rangi_OTWARTEJ_w_tej_liscie():
+    """ROZSTRZYGNIĘCIE 6.D163: ranga otwarta znika, ranga ograniczona zostaje z powodem.
+
+    **Ile ich było.** Cztery opisy z osiemnastu niosły superlatyw. Dwa są rangą
+    ograniczoną (zbiór zamknięty, data odcinająca) i zostają. Dwa były rangą otwartą
+    i zostały zdjęte — a `WPISOW_Z_DOPISKIEM` w `test_timing_record.py` zeszło przez
+    to z jednego na zero, dokładnie tak, jak tamten komentarz to przewidywał.
+
+    **Innych list pomiarów w drzewie NIE MA, i to jest zmierzone, nie założone.**
+    Skan po `tools/tests/` szukał przypisań, których elementy są krotkami
+    zaczynającymi się od daty ISO — kształt wpisu pomiaru. Znalazł **jedną** listę:
+    tę. Szersze kryterium (krotki z opisem dłuższym niż 25 znaków) dokłada
+    `SZESC_PRZYPADKOW` z `test_field_paths.py`, ale to jest tablica przypadków bramki,
+    nie zapis przebiegów, i rangi nie niesie. Pole „Wejście" tej pozycji kazało
+    policzyć „pozostałe listy pomiarów"; odpowiedź brzmi **zero**.
+
+    **Dlaczego wzorzec bierze superlatyw, a nie każde porównanie.** „Wolniejszy niż
+    tamten" jest zdaniem o dwóch przebiegach i zostaje prawdziwe na zawsze.
+    „Najwolniejszy" jest zdaniem o całym zbiorze i starzeje się razem z nim. Tylko
+    ta druga rodzina jest tym, o co pozycja pytała.
+    """
+    znalezione = opisy_z_ranga()
+    daty = [data for data, _sek, _slowo in znalezione]
+    nierozstrzygniete = sorted(set(daty) - set(OPISY_Z_RANGA_DOZWOLONA))
+    assert not nierozstrzygniete, (
+        "opis ze słowem rangi, którego nikt nie rozstrzygnął: %s — ranga OTWARTA "
+        "(„najwyższy z tej listy”) starzeje się przy pierwszym wpisie, który ją bije, "
+        "nie zmieniając ani znaku. Albo ogranicz ją datą lub zamkniętym zbiorem, "
+        "albo zdejmij" % nierozstrzygniete)
+
+    # I DRUGA STRONA, bez ktorej wzorzec mogl by przestac cokolwiek znajdowac, a test
+    # zostalby zielony: lista dozwolonych opisuje wpisy, ktore NAPRAWDE range niosa.
+    zniknely = sorted(set(OPISY_Z_RANGA_DOZWOLONA) - set(daty))
+    assert not zniknely, (
+        "lista dozwolonych rang wymienia wpis %s, w którym wzorzec rangi już nic nie "
+        "znajduje — albo opis przepisano, albo wzorzec przestał widzieć superlatywy "
+        "i nowy dopisek wszedłby po cichu" % zniknely)
+
+    for data, powod in OPISY_Z_RANGA_DOZWOLONA.items():
+        assert len(powod) > 60, (data, powod)
+
+    # Kontrola przyrzadu na WEJSCIU SYNTETYCZNYM: wzorzec ma widziec range otwarta
+    # i NIE brac zwyklego porownania. Bez tego test bylby zielony takze wtedy, gdyby
+    # wzorzec przestal cokolwiek znajdowac — a wtedy nowy dopisek wszedlby po cichu.
+    assert RANGA_W_OPISIE.search("2335 testów, NAJWYŻSZY na runnerze"), (
+        "wzorzec nie widzi rangi otwartej, czyli dokładnie tego, co ta pozycja zdjęła")
+    assert RANGA_W_OPISIE.search("powtórzenie 5 z 6, NAJNIŻSZY"), (
+        "wzorzec nie widzi drugiej ze zdjętych rang")
+    for spokojny in ("host spokojny", "host pod obciążeniem, wolniejszy niż godzinę "
+                     "wcześniej", "kontener sesji, powtórzenie 5 z 6, CPU/ściana 0,987"):
+        assert not RANGA_W_OPISIE.search(spokojny), (
+            "wzorzec bierze za rangę opis, który nią nie jest: %r" % spokojny)
 
 
 # --- 6.D162: ile maszyn stoi pod jednym slowem `runner` -----------------------------
