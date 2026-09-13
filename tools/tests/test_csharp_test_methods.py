@@ -325,9 +325,9 @@ def test_ile_zapisow_WERBATIM_POTROJNYCH_ma_drzewo():
 #: podwojnego dolara (14 razy). Ta druga jest liczniejsza od surowego bez przedrostka.
 ROZKLAD_POSTACI = {
     "tests": {
-        "zwykly": 3512,
-        "interpolowany ($)": 633,
-        "werbatim (@)": 42,
+        "zwykly": 3555,
+        "interpolowany ($)": 655,
+        "werbatim (@)": 50,
         "surowy interpolowany ($$\"\"\")": 13,
         "surowy (\"\"\")": 7,
         "werbatim interpolowany ($@)": 1,
