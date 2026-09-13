@@ -301,6 +301,116 @@ POCIAGA_ZA_SOBA = {
 #: mówi ona, ile listy wciąż utrzymuje się ręcznie.
 WPISOW_Z_DOPISKIEM = 0
 
+# --- 6.D164: ile materialu niesie artefakt czasu i jak daleko wstecz -----------------
+
+#: Nazwa artefaktu, który `python-tests.yml` wynosi z każdego przebiegu (6.D93).
+NAZWA_ARTEFAKTU_CZASU = "czas-zestawu"
+
+#: **Zmierzone 13.09.2026 na ŻYWYCH artefaktach, przez API repozytorium.**
+#:
+#:   przebieg 1213 (11.09.2026 12:36, PR #524)  artefakt utworzony 11.09 12:42:31,
+#:                                              wygasa 11.10 12:42:28, `expired: false`
+#:   przebieg 1315 (13.09.2026 03:07)           artefakt utworzony 13.09 03:16:26,
+#:                                              wygasa 13.10 03:16:24, 2123 bajty
+#:
+#: Różnica między utworzeniem a wygaśnięciem wynosi w obu wypadkach **30 dni** co do
+#: dwóch sekund, czyli dokładnie tyle, ile deklaruje krok w workflowie. Deklaracja
+#: i zachowanie API zgadzają się, więc retencję wolno czytać z drzewa — i test niżej
+#: to robi, zamiast nosić ją tu drugi raz z ręki.
+RETENCJA_ZMIERZONA_DNI = 30
+
+#: **Zasięg wstecz, zmierzony dwiema datami, a nie oszacowany.** Krok wynoszący
+#: artefakt wszedł do workflowa **10.09.2026** (`9784e3b`, 6.D93) — wcześniej nie ma
+#: czego szukać, bo nic się nie wynosiło. Najstarszy artefakt, który dziś jeszcze żyje,
+#: jest z 11.09; najnowszy z 13.09. **Nic nie wygasło i wygasnąć nie mogło**, bo
+#: wynoszenie trwa krócej niż retencja: pierwsze wygaśnięcie wypada 10.10.2026.
+DZIEN_PIERWSZEGO_WYNOSZENIA = "2026-09-10"
+
+#: **Ile przebiegów niesie dziś żywy artefakt: CO NAJMNIEJ 104.** Przebieg o numerze
+#: 1213 ma artefakt żywy, a ostatni przebieg tego workflowa ma numer 1316 — czyli
+#: 104 przebiegi w przedziale domkniętym, każdy z krokiem `if: always()`.
+#:
+#: **Dlaczego „co najmniej", a nie dokładnie — i to jest granica wypisana, nie
+#: przemilczana.** Wynoszenie zaczęło się 10.09, a numer pierwszego przebiegu po tej
+#: dacie nie został odczytany: API tego serwera nie filtruje przebiegów po dacie ani
+#: po commicie, więc jedyną drogą byłoby przejście listy 1316 przebiegów, z których
+#: każdy niesie pełną treść commita. Liczba dokładna kosztowałaby więc wielokrotnie
+#: więcej niż odpowiedź, której pozycja potrzebuje, a dolna granica na nią wystarcza.
+PRZEBIEGOW_Z_ARTEFAKTEM_CO_NAJMNIEJ = 104
+
+
+def retencja_z_workflowa():
+    """Krok wynoszący artefakt czasu i deklarowana retencja — czytane z YAML-a.
+
+    Czytane, a nie wpisane obok: dwie kopie tej liczby rozjechałyby się przy pierwszej
+    edycji jednej z nich (6.B28), a od niej zależy CAŁY zasięg wstecz tego materiału.
+    """
+    with open(WORKFLOW, encoding="utf-8") as uchwyt:
+        plan = yaml.safe_load(uchwyt)
+    for job in plan["jobs"].values():
+        for krok in job.get("steps", []):
+            z = krok.get("with") or {}
+            if z.get("name") == NAZWA_ARTEFAKTU_CZASU:
+                return krok, z.get("retention-days")
+    return None, None
+
+
+def test_artefakt_czasu_jest_OKNEM_RUCHOMYM_a_nie_zapisem_trwalym():
+    """ROZSTRZYGNIĘCIE 6.D164: artefakt jest materiałem na trend, ale RUCHOMY.
+
+    **Czy jest materiału więcej niż jeden przebieg — tak, i to dużo.** Co najmniej
+    **104** przebiegi niosą dziś żywy artefakt, każdy z czasami PER MODUŁ, `commit`,
+    `runner`, `workflow` i podziałem `odkryte`/`wykonane` — czyli z tym wszystkim,
+    czego z logu wyjąć się nie da. Materiał jest, i to nie ślad jednego przebiegu.
+
+    **Ale jest RUCHOMY, i to jest cała odpowiedź.** Retencja wynosi 30 dni, zmierzona
+    na dwóch żywych artefaktach co do dwóch sekund i zadeklarowana w workflowie. Dziś
+    nic nie wygasło, bo wynoszenie trwa od 10.09.2026, czyli krócej niż retencja —
+    pierwsze wygaśnięcie wypada 10.10.2026. **Od tego dnia okno przestaje rosnąć
+    i zaczyna się przesuwać.**
+
+    **Co z tego wynika dla `POMIARY`** — pytanie z pola „Skończone, gdy". Lista zostaje
+    i artefakt jej nie zastąpi, bo zapisuje co innego: `POMIARY` jest **trwałe**
+    (wpis z 05.09.2026 stoi w niej do dziś i będzie stał), artefakt **wygasa**. Trend
+    zbudowany na artefaktach nigdy nie sięgnie dalej niż trzydzieści dni wstecz, więc
+    to, co ma przeżyć dłużej, musi być **zżęte do drzewa przed wygaśnięciem** — tak
+    jak sześć logów w `tests/data/ci-logs/`, które właśnie dlatego tam leżą.
+
+    Czytnika artefaktów ta pozycja NIE pisze: pole „Poza zakresem" zabrania zmiany
+    kroku CI i dopisywania wpisów automatem, a pytanie brzmiało, czy materiał jest.
+    """
+    krok, retencja = retencja_z_workflowa()
+    assert krok is not None, (
+        "w `python-tests.yml` nie ma kroku wynoszącego artefakt %r — bez niego cały "
+        "ten pomiar opisuje mechanizm, którego nie ma" % NAZWA_ARTEFAKTU_CZASU)
+    assert "upload-artifact" in krok.get("uses", ""), krok
+    assert retencja == RETENCJA_ZMIERZONA_DNI, (
+        "workflow deklaruje %r dni retencji, a na żywych artefaktach zmierzono %d — "
+        "zasięg wstecz materiału zmienił się i rozstrzygnięcie 6.D164 trzeba "
+        "przeliczyć" % (retencja, RETENCJA_ZMIERZONA_DNI))
+
+    # Krok ma stac pod `if: always()`, bo inaczej przebieg CZERWONY — czyli ten,
+    # ktorego czasy sa najbardziej potrzebne — nie zostawia po sobie nic (6.D93).
+    assert str(krok.get("if", "")).strip() == "always()", (
+        "krok wynoszący artefakt stracił `if: always()`, więc przebieg czerwony nie "
+        "zostawi czasów: %r" % krok.get("if"))
+
+    # I ARYTMETYKA OKNA, wykonana, a nie opowiedziana: wynoszenie trwa KROCEJ niz
+    # retencja, wiec dzis nic nie wygaslo. Gdy ta nierownosc przestanie zachodzic,
+    # zdanie o tym w docstringu wyzej staje sie nieprawdziwe.
+    import datetime
+    poczatek = datetime.date.fromisoformat(DZIEN_PIERWSZEGO_WYNOSZENIA)
+    dni_wynoszenia = (datetime.date.today() - poczatek).days
+    assert dni_wynoszenia <= RETENCJA_ZMIERZONA_DNI, (
+        "wynoszenie trwa %d dni przy retencji %d — najstarsze artefakty ZACZĘŁY "
+        "wygasać, więc zdanie o tym, że nic nie wygasło, przestało być prawdziwe "
+        "i docstring trzeba przepisać" % (dni_wynoszenia, RETENCJA_ZMIERZONA_DNI))
+
+    assert PRZEBIEGOW_Z_ARTEFAKTEM_CO_NAJMNIEJ > 1, (
+        "dolna granica zeszła do jednego przebiegu — wtedy artefakt naprawdę jest "
+        "śladem jednego przebiegu i odpowiedź tej pozycji się odwraca")
+
+
 #: Numer PR-a w zdaniu „na czym" wpisu `POMIARY`. Po nim wiąże się wpis z jego logiem.
 NUMER_PR = re.compile(r"PR #(\d+)")
 
