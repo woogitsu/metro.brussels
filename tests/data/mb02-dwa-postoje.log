@@ -1,0 +1,55 @@
+# METRO BXL — zapis wejść maszynisty, wzorzec sesji treningowej M1 (MB-02).
+#
+# TEN PLIK LEŻY W REPOZYTORIUM Z TEGO SAMEGO POWODU, CO `manual-keys.log`: zapis
+# wygenerowany w locie przez samą scenę dałby bramkę porównującą przejazd z samym
+# sobą. Wzorzec w repozytorium jest jedynym wejściem tego porównania, którego nie
+# liczy żadna z porównywanych stron.
+#
+# CZEGO TEN WZORZEC DOWODZI, A `manual-keys.log` NIE MÓGŁ. Tamten kończy się
+# 8880 krokami na 569,701 m, czyli tuż za Beekkantem — obsługuje JEDEN cel z dwóch
+# i sesja treningowa przy nim NIE KOŃCZY SIĘ NIGDY. Sekwencji „dwa postoje" nie da
+# się z niego zbudować żadnym przycięciem. Ten plik dowozi skład do drugiego celu
+# i zamyka pętlę M1: start → dwa postoje → wynik.
+#
+# PRZEJAZD, oś L1_A, czoło startuje na 94,000 m, krok 1/120 s:
+#
+#   krok    klawisz
+#   0       W  rozruch z Gare de l'Ouest
+#   2800    S  hamowanie do Beekkant (509,730 m)
+#   5400    W  ciąg zamówiony W ŚRODKU CYKLU DRZWI — blokada trakcji go trzyma
+#   7560    X  wybieg
+#   8160    S  hamulec; pierwsze pięć wierszy to `manual-keys.log` CO DO ZNAKU,
+#              żeby ten wzorzec różnił się od tamtego wyłącznie DRUGIM odcinkiem
+#   8900    W  odjazd z Beekkantu po zamknięciu drzwi
+#   14470   S  hamowanie do Étangs Noirs / Zwarte Vijvers (1451,900 m)
+#
+# ZMIERZONE 13.09.2026 na przypiętym Godocie 4.7.2 mono, `--steps-per-frame=600`:
+#
+#   [SESJA] zaliczone (AllTargetsServed): 2/2 celów, 156.842 s, 1357.513 m,
+#           ATP 0/0/0 | 8742 obsłużony błąd -0.023 m | 8292 obsłużony błąd -0.387 m
+#
+# KROK HAMOWANIA 14470 NIE JEST OKRĄGŁY I TO JEST WYNIK POMIARU, nie upodobanie.
+# Zmierzone trzy próby: 14000 → czoło 1373,179 m (78,7 m przed celem, cel MINIĘTY
+# nie zostaje, ale sesja trwa), 14300 → 1423,179 m (28,7 m przed celem), 14500 →
+# błąd +4,613 m, czyli W OKNIE ±5,000 m, ale 0,387 m od jego krawędzi. Wzorzec
+# stojący 0,387 m od granicy przewracałby się przy pierwszej zmianie modelu trakcji
+# i wyglądałoby to na usterkę sesji, a nie na przesunięcie fizyki. 14470 daje błąd
+# −0,387 m, czyli 4,6 m zapasu po każdej stronie.
+#
+# ZAPIS MA 20000 KROKÓW, A SESJA KOŃCZY SIĘ NA 156,842 s (18 821 krok) — i te
+# 1179 kroków nadmiaru jest TREŚCIĄ, a nie zapasem. Przez nie zapis przechodzi
+# przy zatrzaśniętym wyniku, więc odtworzenie sprawdza także to, że wynik NIE
+# ROŚNIE o czas spędzony po końcu sesji.
+#
+# CZEGO TU NIE MA: klawiszy widoku (C) i resetu (R) — `InputLogRecorder` zbiera
+# wyłącznie klawisze prowadzenia, tak samo jak w `manual-keys.log`.
+wersja=1
+kroki=20000
+krok;klawisze
+0;W
+2800;S
+5400;W
+7560;X
+8160;S
+8900;W
+14470;S

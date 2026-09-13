@@ -68,13 +68,19 @@ public static class RunRestart
     /// stacji poza trybem ręcznym.
     /// </param>
     /// <param name="telemetry">Zebrane wiersze telemetrii albo <c>null</c>.</param>
+    /// <param name="session">
+    /// Sesja treningowa albo <c>null</c>, gdy przejazd jej nie ma (skryptowy, liniowy,
+    /// z telemetrii). Brak obiektu jest tu poprawnym stanem — tak samo jak brak obsługi
+    /// stacji i brak ochrony kabiny, i z tego samego powodu.
+    /// </param>
     /// <returns>Wartości stanu przejazdu po resecie.</returns>
     /// <exception cref="ArgumentNullException">Dźwignia jest <c>null</c>.</exception>
     public static RunRestartValues Apply(
         DriverNotch notch,
         StationService? stations,
         CabProtection? cab,
-        IList<string>? telemetry)
+        IList<string>? telemetry,
+        TrainingSession? session = null)
     {
         ArgumentNullException.ThrowIfNull(notch);
 
@@ -92,6 +98,15 @@ public static class RunRestart
         // są puste, liczniki ingerencji zerowe. Bez tego reset byłby WYJĄTKIEM, a nie
         // resetem — patrz akapit przy klasie.
         cab?.Reset();
+
+        // SESJA TRENINGOWA OD NOWA — wynik znika, liczniki zdarzeń ATP wracają do zera,
+        // pamięć zboczy do fałszu. Cele zostają: reset znaczy „ta sama sesja od nowa",
+        // a nie „inne zadanie", dokładnie tak samo jak oś i skład nie wracają tu do
+        // wyboru. Argument stoi TUTAJ, a nie obok w scenie, z tego samego powodu, co
+        // `cab` przy G-5: reset jest wpisem w zapisie wejść (decyzja W1), a zapis
+        // odtwarzają DWIE strony bramki — scena i `Sim.Runner replay`. Dwie listy „co
+        // reset zeruje" zgodziłyby się dokładnie do pierwszego resetu po pierwszym celu.
+        session?.Reset();
 
         DropSamples(telemetry);
         return start;

@@ -92,6 +92,11 @@ public static class RunReset
     /// </param>
     /// <param name="recorder">Zapis wejść albo <c>null</c>, gdy przejazd go nie zbiera.</param>
     /// <param name="telemetry">Zebrane wiersze telemetrii albo <c>null</c>.</param>
+    /// <param name="session">
+    /// Sesja treningowa albo <c>null</c> poza trybem ręcznym. Zerowanie jej — jak
+    /// zerowanie ochrony — należy do rdzenia (<see cref="RunRestart"/>), bo ten sam
+    /// zapis wejść odtwarza <c>Sim.Runner replay</c>.
+    /// </param>
     /// <returns>Wartości stanu przejazdu po resecie.</returns>
     /// <exception cref="ArgumentNullException">Akumulator, nastawnik albo odczyt klawiatury jest <c>null</c>.</exception>
     public static RunStart Apply(
@@ -101,7 +106,8 @@ public static class RunReset
         StationService? stations,
         CabProtection? cab,
         InputLogRecorder? recorder,
-        IList<string>? telemetry)
+        IList<string>? telemetry,
+        TrainingSession? session = null)
     {
         ArgumentNullException.ThrowIfNull(accumulator);
         ArgumentNullException.ThrowIfNull(notch);
@@ -115,7 +121,7 @@ public static class RunReset
         // czyli wszystko, co ma także rdzeń bez silnika. Ta lista NIE jest tu powtórzona:
         // `Sim.Runner replay` odtwarza ten sam zapis wejść i musi zresetować dokładnie
         // to samo, a dwie listy rozjechałyby się po cichu (`RunRestart`).
-        var core = RunRestart.Apply(notch, stations, cab, telemetry);
+        var core = RunRestart.Apply(notch, stations, cab, telemetry, session);
 
         // ZAPIS WEJŚĆ ZOSTAJE I DOSTAJE WPIS. Do 05.09.2026 stało tu `recorder?.Clear()`,
         // bo licznik kroków przejazdu wracał do zera i dalsze nagrywanie nadpisywałoby

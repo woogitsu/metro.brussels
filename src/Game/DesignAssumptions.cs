@@ -124,6 +124,26 @@ public static class DesignAssumptions
     public const double StationStopWindowM = 5.0;
 
     /// <summary>
+    /// Ile stacji trzeba obsłużyć, żeby sesja treningowa była zaliczona — <b>dwie</b>
+    /// (M1, <c>docs/PLAYABILITY.md</c> §3, MB-02).
+    ///
+    /// <b>Tu stoi LICZBA, a nie identyfikatory stacji</b>, i to jest granica postawiona
+    /// świadomie. Decyzją projektową jest, ile celów ma M1 i że są to pierwsze stacje
+    /// za punktem startowym; KTÓRE to stacje, mówi <c>data/track/L1_A.json</c> —
+    /// i dlatego <c>FirstRun</c> czyta je z osi, zamiast mieć tu wpisane <c>8742</c>
+    /// i <c>8292</c>. Kontrakt M1 żąda tego wprost: „cele wyszukiwane po identyfikatorach
+    /// z osi; kilometraży nie kopiuje się do logiki". Dwie kopie tej samej listy
+    /// milczałyby po zmianie osi, a milczenie wyglądałoby jak działająca sesja.
+    ///
+    /// <b>Dlaczego akurat dwie.</b> Jedna nie sprawdza odjazdu z peronu, a tego dotyczy
+    /// blokada trakcji i cały cykl drzwi; trzy nie dokładają ani jednej nowej rzeczy
+    /// do sprawdzenia, a przedłużają sesję o kolejny przejazd. Dwie są pierwszą liczbą,
+    /// przy której trening zawiera PEŁNĄ pętlę: rusz, jedź, stań, wymień pasażerów,
+    /// rusz ponownie, stań.
+    /// </summary>
+    public const int TrainingTargets = 2;
+
+    /// <summary>
     /// Czas wymiany pasażerów na stacji, przekazywany do <c>DoorCycle</c>.
     ///
     /// <b>Nie ma źródła</b> — zależy od potoku, pory dnia i stacji, a w rejestrze nie ma

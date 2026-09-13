@@ -108,6 +108,26 @@ public sealed partial class FirstRun : Node3D
 
     private ScenarioDrive? _scripted;
     private StationService? _stations;
+
+    /// <summary>
+    /// Sesja treningowa albo <c>null</c> poza trybem ręcznym — warunek końca przejazdu
+    /// gracza (MB-02). <b>Nie ustawia <c>_done</c></b> i to jest cała treść tego pola:
+    /// <c>_done</c> powoduje <c>return</c> w <see cref="_Process"/> PRZED odczytem
+    /// klawiatury, więc odciąłby <c>R</c>, <c>Esc</c> i <c>C</c> — czyli dokładnie te
+    /// trzy klawisze, których panel wyniku potrzebuje (punkty 4 i 5 odbioru M1).
+    /// Koniec SESJI i koniec PROCESU są tu dwiema różnymi rzeczami.
+    /// </summary>
+    private TrainingSession? _training;
+
+    /// <summary>
+    /// Czy wiersz <c>[SESJA]</c> już poszedł do logu. Jedno pole, bo wypis ma być
+    /// JEDNORAZOWY, a gałąź, która go robi, wykonuje się w KAŻDEJ klatce panelu wyniku
+    /// — bez tego log dostałby ten sam wiersz sześćdziesiąt razy na sekundę.
+    ///
+    /// <para>Reset zdejmuje ten znacznik razem z wynikiem, bo ponowiona sesja skończy
+    /// się własnym wynikiem i on też ma być widoczny.</para>
+    /// </summary>
+    private bool _summaryPrinted;
     private LineDrive? _line;
     private LineCore? _lineCore;
 
@@ -745,6 +765,29 @@ public sealed partial class FirstRun : Node3D
                 new DoorCycle(DesignAssumptions.PassengerExchangeSeconds),
                 _step,
                 DesignAssumptions.StationStopWindowM);
+
+            // CELE WYCHODZĄ Z OSI, a nie są tu wpisane — `docs/PLAYABILITY.md` §3
+            // żąda tego wprost: „cele wyszukiwane po identyfikatorach z osi;
+            // kilometraży nie kopiuje się do logiki". Decyzją projektową jest LICZBA
+            // celów i to, że są to pierwsze stacje za punktem startowym; które to
+            // stacje, mówi plik osi. Wpisanie tu `8742` i `8292` byłoby drugą kopią
+            // danych, które stoją w `data/track/L1_A.json`, i milczałoby po zmianie osi.
+            //
+            // Indeks 0 jest POMIJANY, bo `StationService` traktuje go jako miejsce,
+            // na którym skład stoi na starcie — cel z tego miejsca nie trafiłby ani
+            // do wywołań, ani do miniętych, a sesja czekałaby na niego bez końca.
+            var cele = new List<string>();
+            for (var i = 1;
+                 i < _axis.Stations.Count && cele.Count < DesignAssumptions.TrainingTargets;
+                 i++)
+            {
+                cele.Add(_axis.Stations[i].StopId);
+            }
+
+            if (cele.Count == DesignAssumptions.TrainingTargets)
+            {
+                _training = new TrainingSession(_axis.Stations, cele, _step);
+            }
         }
     }
 
@@ -1029,6 +1072,53 @@ public sealed partial class FirstRun : Node3D
             HandleViewKeys();
         }
 
+        // SESJA SKOŃCZONA: KLATKI IDĄ DALEJ, TICKI NIE — i nie ma tu `_done`.
+        // To jest cała różnica między „koniec sesji" a „koniec procesu": `_done`
+        // powoduje `return` przed odczytem klawiatury, więc gracz nie mógłby ani
+        // ponowić (`R`), ani wyjść (`Esc`), ani przełączyć widoku (`C`). Panel wyniku
+        // bez działających klawiszy jest ekranem, z którego nie ma wyjścia.
+        //
+        // `_resetPending` przepuszcza klatkę dalej, bo reset WYKONUJE się w `StepOnce` —
+        // klatka go tylko zamawia (`HandleViewKeys`). Bez tego wyjątku `R` ustawiałoby
+        // zamówienie, którego nikt by nie odebrał.
+        //
+        // Czasu spędzonego na panelu nikt nie nadrabia: `AdvanceBy` nie jest wołane,
+        // więc akumulator kroków nie dostaje ani jednej sekundy tych klatek.
+        // **WARUNEK `_readsKeyboard` JEST TU NOSNY I ZOSTAL ZNALEZIONY PRZEBIEGIEM,
+        // a nie lektura.** Bez niego koniec SESJI polykal koniec ODTWORZENIA: sesja
+        // konczy sie na kroku 18 821, zapis ma 20 000, a ta galaz wychodzila z `_Process`
+        // przed `AdvanceBy`, wiec `FinishReplayRun` nie wykonywal sie NIGDY. Skutkiem
+        // byl proces, ktory nie konczyl sie sam, nie zapisywal telemetrii ani zapisu
+        // wejsc i wygladal na dzialajacy — bo wiersz `[SESJA]` w logu juz stal.
+        //
+        // Panel wyniku jest polityka EKRANU, a ekran ma tylko przejazd prowadzony
+        // przez czlowieka. Odtworzenie, przebieg skryptowy i `--line` maja swoje wlasne
+        // warunki konca i to one rozstrzygaja, kiedy proces sie konczy; wynik sesji
+        // wychodzi w nich wierszem `[SESJA]` z `FinishReplayRun`, a nie zatrzymaniem
+        // tickow. Odtworzenie ma odtwarzac CALY zapis — takze to, co gracz robil po
+        // zakonczeniu sesji.
+        if (_readsKeyboard && _training is { Finished: true } && !_resetPending)
+        {
+            // WYPIS JEDNORAZOWY — bo koniec sesji jest w tej scenie NIEWIDOCZNY
+            // wszędzie poza HUD-em, a HUD-u nie ma ani przebieg headless, ani CI,
+            // ani ja bez ekranu. Ta sama zasada, co przy wierszu `[ATP]`
+            // w `FinishReplayRun`: zdarzenie, którego nie widać w telemetrii, musi mieć
+            // własny wiersz, inaczej „sesja się skończyła" i „sesja nie ruszyła"
+            // wyglądają w logu identycznie.
+            //
+            // Wiersz idzie przez `TrainingResult.ToString()`, czyli tę samą linię, którą
+            // porównuje bramka scena–rdzeń — nie przez `RunSummary`, bo tamten składa
+            // panel dla CZŁOWIEKA i łamie się na wiersze.
+            if (!_summaryPrinted)
+            {
+                _summaryPrinted = true;
+                GD.Print($"[SESJA] {_training.Result!.Value}");
+            }
+
+            UpdateHud();
+            return;
+        }
+
         // Przebieg z `--calls` jest WERYFIKACYJNY, więc leci syntetycznym rytmem:
         // 853 s przejazdu w czasie ściennym to 853 s czekania w CI. Bez `--calls`
         // tryb `--line` idzie czasem ściennym, bo wtedy ktoś na to patrzy.
@@ -1283,6 +1373,21 @@ public sealed partial class FirstRun : Node3D
         // MELDUNEK RUCHU PO KROKU — faza 3 kroku `LineCore`. Przed krokiem opisywałby
         // położenie, z którego skład właśnie odjechał.
         _cabProtection?.Move(ChainageM);
+
+        // SESJA PATRZY NA KONIEC KROKU, a nie na jego początek, i to jest treść, nie
+        // kolejność wierszy: warunek zaliczenia pyta o prędkość PO kroku i o cykl drzwi
+        // PO `StationService.Filter`. Policzony wyżej opisywałby krok poprzedni, czyli
+        // kończyłby sesję o jeden krok za wcześnie — a błąd o jeden krok w warunku końca
+        // wygląda dokładnie tak samo jak warunek końca, który działa.
+        //
+        // Decyzja ochrony jest tą z POCZĄTKU tego samego kroku (`Supervise` wyżej), bo
+        // to ona filtrowała polecenie, którym skład właśnie pojechał. Wołanie ochrony
+        // drugi raz „do policzenia" liczyłoby ją z innego stanu i emitowało zdarzenia
+        // sygnalizacji z licznika — ta sama zasada, co przy `CabProtection.Decision`.
+        if (_stations is not null)
+        {
+            _training?.Observe(_stations, _state, _cabProtection?.Decision);
+        }
 
         if (_replay is null)
         {
@@ -1544,8 +1649,10 @@ public sealed partial class FirstRun : Node3D
         // „co reset zeruje" musi być JEDNA i leżeć w rdzeniu (`RunRestart`), inaczej
         // bramka przy progu 0 porównywałaby dwie różne definicje resetu.
         var start = RunReset.Apply(
-            _accumulator, _notch, _input, _stations, _cabProtection, _recorder, _telemetry);
+            _accumulator, _notch, _input, _stations, _cabProtection, _recorder, _telemetry,
+            _training);
 
+        _summaryPrinted = false;
         _state = start.Drive;
         _keys = start.Keys;
         _activeKeys = start.ActiveKeys;
@@ -1609,8 +1716,21 @@ public sealed partial class FirstRun : Node3D
             name, distance, _command.Throttle, _command.Brake, _mode,
             StationLine(), SignallingLine(), _viewLine,
             EmergencyBrake.Notice(_activeKeys, _command),
-            HelpLine());
+            HelpLine(),
+            SummaryLine());
     }
+
+    /// <summary>
+    /// Panel wyniku; pusty, dopóki sesja trwa — i pusty w przebiegu, który sesji nie ma.
+    ///
+    /// <para>Treść składa <see cref="RunSummary"/>, czyli kod bez Godota. Tutaj zostaje
+    /// jedno pytanie: czy wynik już jest. <c>Result</c> jest <c>null</c> przez cały
+    /// przejazd i przestaje nim być dokładnie raz — więc pustka tego wiersza jest tą
+    /// samą informacją, co brak wyniku, a nie drugą jej kopią.</para>
+    /// </summary>
+    private string SummaryLine() => _training?.Result is { } wynik
+        ? RunSummary.Compose(wynik)
+        : string.Empty;
 
     /// <summary>
     /// Wiersz HUD z opisem sterowania; pusty w przebiegu, którego nie prowadzi człowiek.
@@ -1871,7 +1991,51 @@ public sealed partial class FirstRun : Node3D
                 + $"tras zaryglowanych={cab.Dispatcher.Locked} odmów={cab.Dispatcher.Refused}"));
         }
 
+        // STAN SESJI NA KONIEC ZAPISU. Zapis wejść kończy się tam, gdzie się kończy —
+        // niekoniecznie na ostatnim celu — więc „sesja nie skończyła się" jest tu
+        // WYNIKIEM, a nie brakiem wyniku, i musi mieć wiersz. Bez niego log odtworzenia
+        // wygląda identycznie dla zapisu, który dowozi do celu, i dla takiego, który
+        // urywa się w tunelu.
+        if (_training is TrainingSession sesja)
+        {
+            GD.Print(sesja.Result is { } wynik
+                ? $"[SESJA] {wynik}"
+                : $"[SESJA] trwa: cele {string.Join(", ", sesja.TargetStopIds)}, "
+                  + $"obsłużonych {ObsluzonychCelow(sesja)}");
+        }
+
         GetTree().Quit();
+    }
+
+    /// <summary>
+    /// Ile celów sesji ma domknięte wywołanie stacji — liczone z
+    /// <see cref="StationService.Calls"/>, a nie z licznika własnego.
+    ///
+    /// <para>Metoda istnieje wyłącznie dla wiersza logu i dlatego liczy to samo, co
+    /// liczy sesja, zamiast trzymać drugi licznik. Drugi licznik rozjechałby się
+    /// z pierwszym dokładnie w chwili, w której jeden z nich dostałby reset.</para>
+    /// </summary>
+    private int ObsluzonychCelow(TrainingSession sesja)
+    {
+        if (_stations is null)
+        {
+            return 0;
+        }
+
+        var ile = 0;
+        foreach (var id in sesja.TargetStopIds)
+        {
+            foreach (var call in _stations.Calls)
+            {
+                if (call.StopId == id && double.IsFinite(call.DepartureSeconds))
+                {
+                    ile++;
+                    break;
+                }
+            }
+        }
+
+        return ile;
     }
 
     /// <summary>

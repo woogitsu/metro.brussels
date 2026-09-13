@@ -325,16 +325,22 @@ def test_ile_zapisow_WERBATIM_POTROJNYCH_ma_drzewo():
 #: podwojnego dolara (14 razy). Ta druga jest liczniejsza od surowego bez przedrostka.
 ROZKLAD_POSTACI = {
     "tests": {
-        "zwykly": 3555,
-        "interpolowany ($)": 655,
+        # 3555 -> 3734 i 655 -> 665 (13.09.2026, MB-02): `TrainingSessionTests.cs`
+        # i `RunSummaryTests.cs`. Cztery pozostale postacie bez zmian.
+        "zwykly": 3799,
+        "interpolowany ($)": 667,
         "werbatim (@)": 50,
         "surowy interpolowany ($$\"\"\")": 13,
         "surowy (\"\"\")": 7,
         "werbatim interpolowany ($@)": 1,
     },
     "src": {
-        "zwykly": 1223,
-        "interpolowany ($)": 446,
+        # 1223 -> 1264 i 446 -> 456 (13.09.2026, MB-02): `TrainingSession.cs`,
+        # `TrainingResult.cs` i `RunSummary.cs`. Cztery postacie o liczbie 0 albo 1
+        # NIE DRGNELY i to jest tu trescia, a nie dwie liczby, ktore urosly: caly
+        # przyrost poszedl w dwie postacie, ktore `src/` juz mial.
+        "zwykly": 1265,
+        "interpolowany ($)": 460,
         "werbatim (@)": 0,
         "surowy interpolowany ($$\"\"\")": 1,
         "surowy (\"\"\")": 1,

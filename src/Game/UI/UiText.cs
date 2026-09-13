@@ -123,6 +123,19 @@ public static class UiText
             // jest napisane nic. Pierwsze jest odczytem z klawiatury, drugie —
             // polskim rzeczownikiem.
             ["input.key.space"] = "Spacja",
+            // --- panel wyniku sesji treningowej (`RunSummary`) — MB-02 ------------
+            // Wynik to FAKTY, nie punkty (`docs/PLAYABILITY.md` §3), więc w katalogu
+            // nie ma ani jednego słowa oceny: „zaliczone" mówi o warunku zadania,
+            // a nie o graczu, i nie ma przy nim gwiazdek ani kar.
+            ["summary.passed"] = "SESJA ZALICZONA",
+            ["summary.failed.missed"] = "SESJA NIEZALICZONA — minięty cel",
+            ["summary.targets"] = "cele: {0} z {1}",
+            ["summary.target.served"] = "{0}  zatrzymanie {1} m",
+            ["summary.target.missed"] = "{0}  minięty",
+            ["summary.time"] = "czas: {0} s   droga: {1} m",
+            ["summary.atp"] = "ochrona: {0} ostrzeżeń, {1} ingerencji ({2} awaryjnych)",
+            ["summary.again"] = "[{0}] od nowa   [{1}] wyjście",
+
             ["hud.emergency-brake"] =
                 "HAMULEC AWARYJNY ({0}) = pełny hamulec SŁUŻBOWY {1}"
                 + " — model nie ma osobnego stopnia awaryjnego",

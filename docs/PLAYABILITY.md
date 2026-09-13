@@ -65,8 +65,23 @@ Warunek końca ma być **domenowy i odtwarzalny z logu wejść**.
 
 **Wynik M1 to fakty, nie punkty:** ukończono/pominięto cel, obsłużone stacje 0–2, błąd
 zatrzymania na każdej, czas w czasie symulacji, informacja o interwencji ochrony.
-Bez punktacji, gwiazdek i kar. Liczniki ATP liczą **kroki interwencji**, nie incydenty —
-nie wyświetla się ich jako „liczby wykroczeń" bez ustalenia semantyki.
+Bez punktacji, gwiazdek i kar.
+
+**Liczniki ATP — ten akapit jest PRZEPISANY 13.09.2026 przy MB-02, a nie dopisany obok.**
+Poprzednia wersja mówiła „liczą **kroki interwencji**, nie incydenty", bo tak liczy
+`CabProtection` i tak opisywał to audyt. **Decyzja właściciela poszła w drugą stronę:
+policz osobne zdarzenia.** Semantyka jest więc ustalona i jest mechaniczna:
+**zdarzeniem jest ZBOCZE predykatu** — licznik rośnie w kroku, w którym predykat
+przeszedł z fałszu na prawdę. Trzy predykaty, trzy liczniki: przekroczenie prędkości,
+ingerencja hamulcem, ingerencja awaryjna. Konsekwencja wypisana, żeby nie była
+niespodzianką: eskalacja służbowa → awaryjna daje **jedno** zdarzenie ingerencji
+(predykat nie zgasł) i **jedno** awaryjne — ochrona nie sięgnęła po hamulec drugi raz,
+tylko po mocniejszy.
+
+**Liczniki kroków w `CabProtection` zostają nietknięte** i to nie jest niekonsekwencja:
+odpowiadają na inne pytanie („ile przejazdu spędzono nad limitem") i tylko one na nie
+odpowiadają. Dziesięć sekund nad limitem to jedno zdarzenie i 1200 kroków — obie liczby
+są prawdziwe i mówią o czym innym.
 
 **Odbiór M1 — siedem punktów:**
 1. Gracz uruchamia właściwy tryb **bez wpisywania argumentów**.

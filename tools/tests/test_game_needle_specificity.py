@@ -222,7 +222,32 @@ MAX_GAME_JUSTIFIED_NEEDLES = 4
 #: a dluzsza probka to inny napis, nie mocniejsza igla. Trzymania w zmiennej znowu
 #: NIE uzyto — bramka pomija igle ze zmiennej, wiec `var x = "otwarte";` zdjalby ja
 #: z licznika bez sladu.
-MAX_GAME_UNMATCHED_NEEDLES = 31
+#:
+#: **31 -> 42 (13.09.2026, MB-02), z powodem i z ROZSTRZYGNIECIEM, a nie z przeliczeniem.**
+#: Jedenascie nowych igiel to igly `RunSummaryTests.cs` na tekst ZLOZONY: `cele: 2 z 2`,
+#: `czas: 123.5 s`, `-0.250 m`, `3 ostrzezen` i podobne. Zadna z nich nie wystepuje
+#: w `src/Game/` doslownie i wystepowac NIE MOZE — w zrodle stoi szablon katalogu
+#: (`cele: {0} z {1}`), a igla jest jego wynikiem po podstawieniu.
+#:
+#: **To NIE jest ta klasa, przed ktora ta bramka broni.** Bramka pilnuje igly, ktora
+#: nie ma dopasowania, bo ma LITEROWKE — taka igla przechodzi po cichu, gdy test tylko
+#: jej szuka. Tutaj jest odwrotnie: igla stoi pod `StringAssert.Contains` na wyniku
+#: `RunSummary.Compose`, wiec literowka w igle wywraca test NATYCHMIAST. Brak
+#: dopasowania w zrodle jest tu wlasnoscia konstrukcji, a nie cisza.
+#:
+#: Granica, wypisana: gdyby ktos wpisal tu igle na tekst, ktory w zrodle stac POWINIEN
+#: (klucz katalogu, nazwe akcji, sciezke), ta bramka nadal ja zlapie — bo takie igly
+#: maja dopasowanie i jego brak jest wtedy usterka. Podniesienie tej liczby nie zwalnia
+#: z rozstrzygniecia; zwalnia z niego dopiero POWOD wypisany tutaj.
+#: **42 -> 46 (13.09.2026, MB-02), druga rodzina w tym samym commicie.** Cztery nowe
+#: igly to igly `TrainingWiringTests.cs` na KOD, a nie na komunikat: `!_resetPending`,
+#: `DesignAssumptions.TrainingTargets`, `_axis.Stations[i].StopId`, `for (var i = 1;`.
+#: Ta klasa czyta zrodlo `FirstRun.cs`, bo trzy rzeczy — kolejnosc wywolania w kroku,
+#: brak `_done` przy koncu sesji i przekazanie sesji do resetu — sa KOLEJNOSCIA
+#: i WARUNKAMI w ciele metody wezla Godota, a nie wiedza, ktora da sie z niego wypchnac.
+#: Igla na kod nie ma dopasowania w rodzinie komunikatow i miec go nie moze; literowka
+#: w niej wywraca test natychmiast, wiec nie jest to klasa cicha.
+MAX_GAME_UNMATCHED_NEEDLES = 46
 
 #: Progi KW. Literowka we wzorcu daje zero dopasowan i caly modul zielony; te trzy
 #: liczby sa jedynym powodem, dla ktorego taka literowka jest widoczna. Zmierzone
@@ -254,7 +279,9 @@ MIN_GAME_MESSAGES = 142
 #: trzeba by ja poprawic w **5 z 11** rewizji dotykajacych `tests/Game.Tests`
 #: (45 -> 49 -> 52 -> 54 -> 57 -> 59), czyli w 45 % z nich. To mniej, niz kosztuje
 #: `MIN_REPORTS`, poprawiane przy kazdym raporcie.
-MIN_GAME_NEEDLES = 65
+# 65 -> 84 (13.09.2026, MB-02): czternascie roznych igiel w `RunSummaryTests.cs`
+# i piec w `TrainingWiringTests.cs`.
+MIN_GAME_NEEDLES = 84
 MIN_GAME_SOURCES = 18
 
 #: Igla, na ktorej stoja kontrole dodatnia i przyrzadu. Musi byc SWOISTA i musi stac
