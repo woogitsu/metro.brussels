@@ -700,6 +700,116 @@ jobs:
                 f"od {held[0]['t_s']} s do {held[-1]['t_s']} s")
           DRZWI
 
+      - name: Training session must end from the input log alone
+        shell: bash
+        # PUNKT 6 ODBIORU M1 (`docs/PLAYABILITY.md` §3): „Replay tego samego wejścia
+        # daje ten sam wynik i stan po tej samej liczbie ticków". To jest jedyne miejsce,
+        # w którym da się to sprawdzić — `dotnet test` sprawdza `TrainingSession` na
+        # stanie podawanym wprost, a nie na przejeździe prowadzonym fizyką.
+        #
+        # **Dlaczego OSOBNY wzorzec, a nie `manual-keys.log`.** Tamten kończy się
+        # 8880 krokami na 569,701 m, czyli tuż za PIERWSZYM celem — sesja przy nim
+        # nie kończy się nigdy i żadne przycięcie tego nie zmieni. `mb02-dwa-postoje.log`
+        # dowozi do drugiego celu i przechodzi 1179 kroków PO zakończeniu sesji, więc
+        # sprawdza także, że wynik nie rośnie o czas spędzony na panelu.
+        #
+        # Sprawdzany jest CAŁY wiersz `[SESJA]`, a nie samo słowo „zaliczone": liczba
+        # celów, czas, droga, liczniki ochrony i błąd zatrzymania na każdym celu. Sesja
+        # kończąca się z innym błędem zatrzymania jest inną sesją, a kod wyjścia zero
+        # tego nie odróżnia.
+        #
+        # **RDZEŃ LICZY TEN SAM PRZEJAZD OBOK** i to nie jest dodatek: bez niego krok
+        # dowodziłby, że scena wypisuje wiersz `[SESJA]`, a nie że sesja opisuje ten
+        # przejazd, który naprawdę się odbył. `Sim.Runner replay` sesji nie zna, ale zna
+        # postoje — i wypisuje te same dwa błędy zatrzymania, liczone bez Godota.
+        # `--atp` jest po stronie rdzenia OBOWIĄZKOWE: scena z `--signalling` MA ochronę
+        # kabiny, więc rdzeń bez `--atp` jej nie ma i porównanie przy progu 0 nie miałoby
+        # prawa przejść.
+        run: |
+          set -euo pipefail
+          mkdir -p build/t400/sesja
+          dotnet run --project src/Sim.Runner -c Release --no-build -- \
+            replay --keys tests/data/mb02-dwa-postoje.log --axis data/track/L1_A.json \
+            --signalling data/design/signalling/classic-2026.json --atp \
+            --notch-rate 0.80 --exchange-s 8 --stop-window-m 5 \
+            --out build/t400/sesja/core.csv 2>&1 | tee build/t400/sesja/core.log
+          # RDZEŃ MA OBSŁUŻYĆ OBIE STACJE. Bez tego warunku zapis przesunięty o kilka
+          # metrów dałby przejazd z jednym postojem — porównanie telemetrii niżej nadal
+          # byłoby zielone, bo obie strony policzyłyby ten sam, niepełny przejazd.
+          grep -q "stacji obsłużonych=2 przejechanych=0" build/t400/sesja/core.log \
+            || { echo "BŁĄD: wzorzec nie obsługuje obu celów w rdzeniu" >&2
+                 grep "^\[ODTWORZENIE\]" build/t400/sesja/core.log >&2; exit 1; }
+          "$GODOT_BIN" --headless --path src/Game -- \
+            --assets="$PWD/build/t400" \
+            --signalling="$PWD/data/design/signalling/classic-2026.json" \
+            --replay="$PWD/tests/data/mb02-dwa-postoje.log" \
+            --telemetry="$PWD/build/t400/sesja/scene.csv" \
+            --steps-per-frame=600 \
+            2>&1 | tee build/t400/reczny/sesja.log
+          python3 tools/ci/assert_no_godot_warnings.py build/t400/reczny/sesja.log
+          # SESJA NIE ZMIENIA PRZEJAZDU ANI O BIT. Gdyby `TrainingSession.Observe`
+          # dotykało stanu składu, ta linijka byłaby jedynym miejscem, w którym by to
+          # wyszło — `Sim.Runner` sesji nie ma w ogóle.
+          dotnet run --project src/Sim.Runner -c Release --no-build -- \
+            compare build/t400/sesja/core.csv build/t400/sesja/scene.csv \
+            --tolerance 0
+          # ODTWORZENIE MA DOJŚĆ DO KOŃCA ZAPISU, a nie urwać się na końcu SESJI.
+          # To jest usterka znaleziona przebiegiem przy MB-02: gałąź panelu wyniku
+          # wychodziła z `_Process` przed `AdvanceBy`, więc `FinishReplayRun` nie
+          # wykonywał się nigdy, proces wisiał i nie zapisywał telemetrii — a wiersz
+          # `[SESJA]` w logu już stał, więc wyglądało to na przebieg udany.
+          grep -q "^\[ODTWORZENIE\] koniec: kroków=20000 " build/t400/reczny/sesja.log \
+            || { echo "BŁĄD: koniec sesji połknął koniec odtworzenia" >&2
+                 grep "^\[ODTWORZENIE\]" build/t400/reczny/sesja.log >&2; exit 1; }
+          oczekiwany='[SESJA] zaliczone (AllTargetsServed): 2/2 celów, 156.842 s, 1357.513 m, ATP 0/0/0 | 8742 obsłużony błąd -0.023 m | 8292 obsłużony błąd -0.387 m'
+          grep -qxF "$oczekiwany" build/t400/reczny/sesja.log \
+            || { echo "BŁĄD: sesja treningowa dała inny wynik niż zmierzony" >&2
+                 echo "oczekiwano: $oczekiwany" >&2
+                 grep "^\[SESJA\]" build/t400/reczny/sesja.log >&2 || echo "(brak wiersza [SESJA])" >&2
+                 exit 1; }
+          # WIERSZ MA WYJŚĆ DOKŁADNIE RAZ. Gałąź panelu wyniku wykonuje się w KAŻDEJ
+          # klatce po zakończeniu sesji, więc wypis bez znacznika dałby go tyle razy,
+          # ile klatek gracz patrzy na wynik — a log przestałby nadawać się na bramkę.
+          ile="$(grep -c "^\[SESJA\]" build/t400/reczny/sesja.log)"
+          test "$ile" -eq 1 \
+            || { echo "BŁĄD: wiersz [SESJA] wyszedł $ile razy zamiast raz" >&2; exit 1; }
+
+      - name: Negative control of the training session gate
+        shell: bash
+        # Bramka, która mówi „ok" także wtedy, gdy nic nie sprawdza, jest bezużyteczna.
+        # Zapis przycięty do 15 000 kroków urywa się, gdy skład JESZCZE HAMUJE do
+        # drugiego celu (zatrzymanie wypada na kroku 18 821) — sesja nie ma prawa się
+        # wtedy skończyć. Ta mutacja pyta o rzecz, której poprzedni krok nie pyta: czy
+        # warunek końca patrzy na CELE, czy tylko na koniec pliku.
+        #
+        # **15 000, a nie 8 880, i to jest wynik pomiaru.** Przycięcie do 8 880 —
+        # zasięgu `manual-keys.log` — jest ODRZUCANE przez sam czytnik zapisu:
+        # „Wpis 5 obowiązuje od kroku 8900, a przejazd ma 8880 kroków — taki wpis nigdy
+        # by nie zadziałał". Kontrola padłaby wtedy na walidacji pliku, a nie na
+        # warunku końca sesji, i nie mówiłaby nic o tym, co miała sprawdzić.
+        run: |
+          set -euo pipefail
+          sed 's/^kroki=20000$/kroki=15000/' tests/data/mb02-dwa-postoje.log \
+            > build/t400/reczny/sesja-krotka.log
+          cmp -s tests/data/mb02-dwa-postoje.log build/t400/reczny/sesja-krotka.log \
+            && { echo "BŁĄD: mutacja nie zmieniła wzorca" >&2; exit 1; }
+          # BEZ `--signalling` i to jest wybór, nie przeoczenie: ta kontrola pyta
+          # WYŁĄCZNIE o warunek końca sesji, a ten nie zależy od ochrony. Scena
+          # z planem wymaga porównania z rdzeniem `--atp` (pilnuje tego
+          # `test_the_scene_and_the_core_switch_cab_protection_on_the_same_way`),
+          # a porównanie telemetrii jest tu bez znaczenia — wzorzec jest umyślnie
+          # przycięty, więc obie strony policzyłyby ten sam, niepełny przejazd.
+          "$GODOT_BIN" --headless --path src/Game -- \
+            --assets="$PWD/build/t400" \
+            --replay="$PWD/build/t400/reczny/sesja-krotka.log" \
+            --steps-per-frame=600 \
+            2>&1 | tee build/t400/reczny/sesja-krotka-out.log
+          python3 tools/ci/assert_no_godot_warnings.py build/t400/reczny/sesja-krotka-out.log
+          grep -q "^\[SESJA\] trwa: " build/t400/reczny/sesja-krotka-out.log \
+            || { echo "BŁĄD: przycięty zapis ZAKOŃCZYŁ sesję — warunek końca nie patrzy na cele" >&2
+                 grep "^\[SESJA\]" build/t400/reczny/sesja-krotka-out.log >&2 || true
+                 exit 1; }
+
       - name: Negative control of the manual comparison
         shell: bash
         # Bramka, która mówi „ok" także wtedy, gdy nic nie sprawdza, jest bezużyteczna

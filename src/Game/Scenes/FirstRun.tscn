@@ -124,3 +124,12 @@ text = "widok"
 ; w project.godot. Tekst zastępczy jest po to, żeby scena dała się otworzyć w edytorze.
 [node name="Help" type="Label" parent="Hud/Panel/Rows"]
 text = "sterowanie"
+
+; Panel wyniku sesji treningowej (MB-02). Startuje UKRYTY jak cztery powyższe.
+; ZAWIJA (`autowrap_mode = 3`) z tego samego powodu, co wiersz pozycji: niesie nazwy
+; stacji, a te bywają dwujęzyczne i bez spacji przy pionowej kresce. Treść składa
+; `RunSummary`, czyli kod bez Godota — tutaj stoi wyłącznie tekst zastępczy, żeby
+; scena dała się otworzyć w edytorze.
+[node name="Summary" type="Label" parent="Hud/Panel/Rows"]
+autowrap_mode = 3
+text = "wynik"

@@ -4,7 +4,7 @@ using Godot;
 namespace MetroBxl.Game.UI;
 
 /// <summary>
-/// Podgląd stanu przejazdu. Siedem pól tekstowych i nic więcej: prędkość, położenie na
+/// Podgląd stanu przejazdu. Osiem pól tekstowych i nic więcej: prędkość, położenie na
 /// osi, to co robią nastawniki, stacja — dojazd albo faza cyklu drzwi — sygnalizacja,
 /// czyli prędkość dopuszczalna z autorytetem jazdy, widok, gdy pokazywany jest inny niż
 /// zamówiony, i opis sterowania, gdy przy sterowaniu siedzi człowiek.
@@ -26,6 +26,7 @@ public sealed partial class Hud : CanvasLayer
     private Label? _signalling;
     private Label? _view;
     private Label? _help;
+    private Label? _summary;
 
     /// <inheritdoc/>
     public override void _Ready()
@@ -37,8 +38,9 @@ public sealed partial class Hud : CanvasLayer
         _signalling = GetNode<Label>("Panel/Rows/Signalling");
         _view = GetNode<Label>("Panel/Rows/View");
         _help = GetNode<Label>("Panel/Rows/Help");
+        _summary = GetNode<Label>("Panel/Rows/Summary");
 
-        foreach (var label in new[] { _speed, _position, _controls, _station, _signalling, _view, _help })
+        foreach (var label in new[] { _speed, _position, _controls, _station, _signalling, _view, _help, _summary })
         {
             label.AddThemeFontSizeOverride("font_size", 20);
             label.AddThemeColorOverride("font_color", new Color(0.92f, 0.94f, 0.96f));
@@ -60,9 +62,15 @@ public sealed partial class Hud : CanvasLayer
         // czyli na samym HUD-zie — stały napis w każdej klatce podniósłby dokładnie tę
         // metrykę, którą ta bramka odrzuca pustą klatkę.
         _help.Visible = false;
+
+        // Panel wyniku startuje ukryty z tych samych dwóch powodów, co wiersz pomocy
+        // (MB-02): w przebiegu skryptowym ma NIE WYJŚĆ WCALE, bo progi bramki wizualnej
+        // są zmierzone na klatce bez geometrii, czyli na samym HUD-zie. Sesji
+        // treningowej przebieg skryptowy zresztą nie ma.
+        _summary.Visible = false;
     }
 
-    /// <summary>Odświeża wszystkie siedem wierszy.</summary>
+    /// <summary>Odświeża wszystkie osiem wierszy.</summary>
     /// <param name="speedKmh">Prędkość w km/h.</param>
     /// <param name="accelerationMps2">Przyspieszenie ze znakiem.</param>
     /// <param name="chainageM">Chainage czoła składu.</param>
@@ -114,6 +122,16 @@ public sealed partial class Hud : CanvasLayer
     /// pierwszej zmianie sterowania, a rozjechałaby się CICHO: wiersz pomocy mówiący
     /// o niewłaściwym klawiszu wygląda dokładnie tak samo jak wiersz prawdziwy.</para>
     /// </param>
+    /// <param name="summary">
+    /// Panel wyniku sesji treningowej — składa go <c>MetroBxl.Game.UI.RunSummary</c>
+    /// z <c>TrainingResult</c>, czyli z obiektu, który sesję prowadził. Puste znaczy
+    /// „sesja trwa albo tego przejazdu nie ma": jedno i drugie jest brakiem wyniku,
+    /// więc jeden napis pusty im wystarcza.
+    ///
+    /// <para>HUD tego napisu NIE SKŁADA — ta sama zasada, co przy czterech poprzednich
+    /// i z tego samego powodu: liczby wyniku mieszkają w rdzeniu, a druga kopia tej
+    /// wiedzy tutaj rozjechałaby się z pierwszą.</para>
+    /// </param>
     public void Update(
         double speedKmh,
         double accelerationMps2,
@@ -128,10 +146,12 @@ public sealed partial class Hud : CanvasLayer
         string signalling,
         string view,
         string emergency,
-        string help)
+        string help,
+        string summary)
     {
         if (_speed is null || _position is null || _controls is null
-            || _station is null || _signalling is null || _view is null || _help is null)
+            || _station is null || _signalling is null || _view is null || _help is null
+            || _summary is null)
         {
             return;
         }
@@ -162,6 +182,12 @@ public sealed partial class Hud : CanvasLayer
         _view.Visible = view.Length > 0;
         _help.Text = help;
         _help.Visible = help.Length > 0;
+
+        // Panel wyniku składa `RunSummary`, a nie HUD — ta sama umowa, co dla wiersza
+        // stacji i sygnalizacji, i ten sam powód: liczby wyniku mieszkają
+        // w `TrainingResult`, a druga kopia tej wiedzy tutaj rozjechałaby się z pierwszą.
+        _summary.Text = summary;
+        _summary.Visible = summary.Length > 0;
     }
 
     private static string Bar(double value)

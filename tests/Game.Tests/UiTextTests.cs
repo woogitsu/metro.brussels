@@ -188,8 +188,11 @@ public sealed class UiTextTests
     /// <summary>Ile plików ma korpus bramki — dolne ostrze, zmierzone 12.09.2026.</summary>
     private const int PlikowWZasieguBramki = 21;
 
-    /// <summary>Ile literałów — dolne ostrze, zmierzone 12.09.2026.</summary>
-    private const int LiteralowWZasieguBramki = 480;
+    /// <summary>
+    /// Ile literałów — dolne ostrze, zmierzone 12.09.2026; 480 → 496 przy MB-02
+    /// (`RunSummary.cs` i wpisy `summary.*` w katalogu).
+    /// </summary>
+    private const int LiteralowWZasieguBramki = 501;
 
     /// <summary>Ile różnych — dolne ostrze, zmierzone 12.09.2026.</summary>
     private const int RoznychLiteralowWZasieguBramki = 362;
@@ -1341,7 +1344,9 @@ public sealed class UiTextTests
     /// <summary>
     /// Ile pozycji zwracał na korpusie STARY czytnik — zmierzone 12.09.2026.
     /// </summary>
-    private const int PozycjiStaregoCzytnika = 521;
+    // 521 -> 537 (13.09.2026, MB-02). Różnica między czytnikami zostaje ta sama co
+    // do sztuki — rośnie tylko korpus.
+    private const int PozycjiStaregoCzytnika = 542;
 
     /// <summary>
     /// Ile PLIKÓW korpusu stary czytnik czytał inaczej niż leksykalny — 6.D182.
@@ -1572,6 +1577,12 @@ public sealed class UiTextTests
     private static readonly string[] ArgumentyNapisoweHud =
     {
         "nextStation", "mode", "station", "signalling", "view", "emergency", "help",
+
+        // ÓSMY ARGUMENT — MB-02. Akapit wyżej zapowiadał go dosłownie („ósmy argument
+        // dopisany do `Update` zapala drugą z nich, zamiast po cichu wypaść z pomiaru")
+        // i dokładnie tak się stało: ta bramka zapaliła się pierwsza, zanim panel wyniku
+        // pojawił się na ekranie.
+        "summary",
     };
 
     /// <summary>
@@ -1623,6 +1634,13 @@ public sealed class UiTextTests
         ("help", "Input/DriverActions.cs", "public static readonly IReadOnlyList<DriverBinding> All ="),
         ("help", "Input/DriverActions.cs", "public static string Help { get; } ="),
         ("help", "Input/DriverActions.cs", "private static string BuildCoreDrivesHelp()"),
+
+        // MB-02: panel wyniku sesji treningowej. Droga jest krótka i to jest wybór —
+        // `FirstRun.SummaryLine` zadaje JEDNO pytanie („czy wynik już jest"), a cały
+        // tekst składa `RunSummary` z katalogu `UiText`, poza Godotem.
+        ("summary", "FirstRun.cs", "private string SummaryLine()"),
+        ("summary", "UI/RunSummary.cs", "public static string Compose("),
+        ("summary", "UI/RunSummary.cs", "private static string Naglowek(TrainingEnding ending)"),
     };
 
     /// <summary>Napisy, o których 6.D175 i 6.D179 wiedzą, że widzi je gracz.</summary>
@@ -1636,10 +1654,13 @@ public sealed class UiTextTests
     };
 
     /// <summary>Ile literałów dociera na ekran drogą <c>Hud.Update</c> — 6.D183.</summary>
-    private const int LiteralowNaEkranie = 74;
+    // 74 -> 87 (13.09.2026, MB-02): osiem kluczy `summary.*`, trzy formaty liczb
+    // i dwa człony komunikatu wyjątku z ramienia domyślnego `RunSummary.Naglowek`.
+    private const int LiteralowNaEkranie = 87;
 
     /// <summary>Ile z nich jest KLUCZEM katalogu, a nie tekstem — 6.D183.</summary>
-    private const int KluczyKatalogunaEkranie = 28;
+    // 28 -> 36 (13.09.2026, MB-02): osiem kluczy `summary.*` panelu wyniku.
+    private const int KluczyKatalogunaEkranie = 36;
 
     /// <summary>
     /// Ile literałów z tej drogi niesie SŁOWO w rozumieniu bramki — 6.D183.
@@ -1650,20 +1671,57 @@ public sealed class UiTextTests
     /// <c>+0.00;-0.00;0.00</c>), nazwy klawiszy, rozdzielacze i szablony złożone
     /// z samych dziur.</para>
     /// </summary>
-    private const int ZeSlowemNaEkranie = 22;
+    // 22 -> 24 (13.09.2026, MB-02) — ale **liczba napisów DLA GRACZA zostaje 22**,
+    // i ta różnica jest tu treścią, a nie zaokrągleniem. Dwa nowe literały to dwa
+    // człony komunikatu WYJĄTKU z ramienia domyślnego `RunSummary.Naglowek`: ten tekst
+    // nie dociera na ekran, tylko przerywa klatkę. Skan liczy je, bo `Naglowek` stoi
+    // na mapie `ZrodlaHud` — czyli jest to trafienie FAŁSZYWE tego sita, dokładnie tej
+    // samej rodziny co `FalszyweTrafieniaSkanu` przy 6.D185. Lista niżej je odejmuje,
+    // żeby główna liczba pozycji 6.D183 dalej odpowiadała na swoje pytanie.
+    private const int ZeSlowemNaEkranie = 24;
+
+    /// <summary>
+    /// Literały, które sito liczy jako „tekst ze słowem", a na ekran NIE DOCIERAJĄ —
+    /// komunikaty wyjątków z metod stojących na mapie <see cref="ZrodlaHud"/>.
+    ///
+    /// <para>Lista, a nie liczba, bo to treść rozstrzyga, czy napis jest dla gracza,
+    /// czy dla czytającego wyjątek. Gdyby kiedyś któryś z nich zaczął być WYŚWIETLANY,
+    /// zdjęcie go stąd jest jawną zmianą, a nie przeliczeniem stałej.</para>
+    /// </summary>
+    private static readonly string[] NieDocierajaceNaEkran =
+    {
+        "panel wyniku nie ma nagłówka dla tego zakończenia — nowy człon ",
+        "`TrainingEnding` ma dostać wpis w katalogu tekstów w tym samym commicie",
+    };
+
+    /// <summary>Ile napisów DLA GRACZA — 6.D183, po odjęciu listy wyżej.</summary>
+    private const int DlaGraczaNaEkranie = 22;
 
     /// <summary>
     /// Ile z nich ma polski znak diakrytyczny — liczba PORÓWNAWCZA do 6.D175 — 6.D183.
     /// </summary>
-    private const int ZDiakrytykiemNaEkranie = 7;
+    // 7 -> 9 (13.09.2026, MB-02) — te same dwa komunikaty wyjątku, co przy
+    // `ZeSlowemNaEkranie`. Liczba porównawcza do 6.D175 liczona DLA GRACZA stoi niżej
+    // i zostaje na siedmiu.
+    private const int ZDiakrytykiemNaEkranie = 9;
+
+    /// <summary>Ile z nich widzi gracz — po odjęciu <see cref="NieDocierajaceNaEkran"/>.</summary>
+    private const int ZDiakrytykiemDlaGracza = 7;
 
     /// <summary>Polskie znaki diakrytyczne — rodzina, którą mierzyło 6.D175.</summary>
     private const string ZnakiDiakrytyczne =
         "\u0105\u0107\u0119\u0142\u0144\u00f3\u015b\u017a\u017c"
         + "\u0104\u0106\u0118\u0141\u0143\u00d3\u015a\u0179\u017b";
 
-    /// <summary>Ile przypisań <c>.Text =</c> ma cała warstwa gry — 6.D183.</summary>
-    private const int PrzypisanText = 7;
+    /// <summary>
+    /// Ile przypisań <c>.Text =</c> ma cała warstwa gry — 6.D183.
+    ///
+    /// <para><b>7 → 8 (13.09.2026, MB-02):</b> ósma etykieta to panel wyniku sesji
+    /// treningowej. Droga na ekran jest nadal JEDNA — wszystkie osiem przypisań stoi
+    /// w ciele <c>Hud.Update</c>, co pilnuje asercja niżej, i to ona jest treścią tej
+    /// liczby, a nie sama liczba.</para>
+    /// </summary>
+    private const int PrzypisanText = 8;
 
     private static string ZrodloGry(string wzgledna) =>
         Zrodlo(new[] { "src", "Game" }.Concat(wzgledna.Split('/')).ToArray());
@@ -1776,6 +1834,26 @@ public sealed class UiTextTests
             $"ze słowem jest {zeSlowem.Count} literałów wobec zmierzonych "
             + $"{ZeSlowemNaEkranie}: " + string.Join(" | ", zeSlowem));
 
+        // GŁÓWNA LICZBA POZYCJI 6.D183 PO ODJĘCIU TRAFIEŃ FAŁSZYWYCH. Bez tego odjęcia
+        // „ile tekstu widzi gracz" rosłoby o każdy komunikat wyjątku dopisany
+        // w metodzie stojącej na mapie — i przestałoby odpowiadać na swoje pytanie.
+        var dlaGracza = zeSlowem
+            .Where(l => !NieDocierajaceNaEkran.Contains(l, StringComparer.Ordinal))
+            .ToList();
+        Assert.AreEqual(DlaGraczaNaEkranie, dlaGracza.Count,
+            $"napisów DLA GRACZA jest {dlaGracza.Count} wobec zmierzonych "
+            + $"{DlaGraczaNaEkranie}: " + string.Join(" | ", dlaGracza));
+
+        // KONTROLA PRZYRZĄDU listy odejmowanej: każdy jej wpis MUSI być wśród
+        // znalezionych. Wpis, którego skan nie widzi, odejmowałby zero i lista
+        // wyglądałaby na działającą — rodzina 6.D159.
+        foreach (var nieekranowy in NieDocierajaceNaEkran)
+        {
+            Assert.IsTrue(zeSlowem.Contains(nieekranowy, StringComparer.Ordinal),
+                $"literał „{nieekranowy}” z listy nieekranowych NIE został znaleziony "
+                + "przez skan — lista odejmuje wtedy zero i nic nie mówi");
+        }
+
         // Liczba PORÓWNAWCZA do 6.D175, które mierzyło rodzinę „polski znak
         // diakrytyczny" i odpowiedziało „trzy ze 140". Różnica między nią a liczbą
         // wyżej JEST odpowiedzią 6.D183, więc stoi w teście, a nie tylko w raporcie.
@@ -1785,6 +1863,14 @@ public sealed class UiTextTests
         Assert.AreEqual(ZDiakrytykiemNaEkranie, zDiakrytykiem.Count,
             $"z polskim znakiem jest {zDiakrytykiem.Count} wobec zmierzonych "
             + $"{ZDiakrytykiemNaEkranie}: " + string.Join(" | ", zDiakrytykiem));
+
+        var zDiakrytykiemDlaGracza = zDiakrytykiem
+            .Where(l => !NieDocierajaceNaEkran.Contains(l, StringComparer.Ordinal))
+            .ToList();
+        Assert.AreEqual(ZDiakrytykiemDlaGracza, zDiakrytykiemDlaGracza.Count,
+            $"z polskim znakiem DLA GRACZA jest {zDiakrytykiemDlaGracza.Count} wobec "
+            + $"zmierzonych {ZDiakrytykiemDlaGracza}: "
+            + string.Join(" | ", zDiakrytykiemDlaGracza));
 
         // Cztery napisy z 6.D175 i 6.D179 MUSZĄ tu być — pole „Weryfikacja" pozycji
         // mówi wprost: jeśli ich nie ma, prześledzenie pominęło argument.
@@ -1797,10 +1883,12 @@ public sealed class UiTextTests
     }
 
     /// <summary>Ile zgłoszeń daje <c>FirstRun.cs</c> liczony CAŁYM PLIKIEM — 6.D180.</summary>
-    private const int ZgloszenFirstRunCalymPlikiem = 106;
+    // 106 -> 110 i 118 -> 122 (13.09.2026, MB-02). RÓŻNICA ZOSTAJE NA 12 i to ona
+    // jest treścią tej pary, a nie żadna z liczb osobno.
+    private const int ZgloszenFirstRunCalymPlikiem = 110;
 
     /// <summary>Ile daje ten sam plik liczony WIERSZ PO WIERSZU — 6.D180.</summary>
-    private const int ZgloszenFirstRunWierszami = 118;
+    private const int ZgloszenFirstRunWierszami = 122;
 
     /// <summary>Ile plików korpusu daje różne liczby obiema drogami — 6.D180.</summary>
     private const int PlikowZRoznicaDrog = 1;
@@ -1967,7 +2055,9 @@ public sealed class UiTextTests
     /// zdejmowanie symboli cokolwiek robi z tekstem. Stoi tu, żeby dwie liczby niżej
     /// dało się z czymś porównać — 2 z 335 to inne zdanie niż 2 z 2.</para>
     /// </summary>
-    private const int LiteralowDotknietychZdejmowaniem = 335;
+    // 335 -> 348 (13.09.2026, MB-02). Zasięg mechaniki, nie liczba usterek: liczba
+    // ZABRANYCH werdyktów niżej ma zostać na dwóch i to ona jest tu treścią.
+    private const int LiteralowDotknietychZdejmowaniem = 349;
 
     /// <summary>
     /// Ilu literałom zdejmowanie jednostek ZABIERA werdykt „to słowo" — 6.D155.
@@ -2235,7 +2325,12 @@ public sealed class UiTextTests
     /// <summary>
     /// Ile trafień daje skan po NAZWIE puszczony na CAŁE <c>src/Game/</c> — 6.D185.
     /// </summary>
-    private const int TrafienSkanuWGame = 12;
+    // 12 -> 13 (13.09.2026, MB-02). Trzynaste trafienie to `RunSummary.cs:action` —
+    // i jest FAŁSZYWE tak samo jak `RunPlan.cs:view`: pod nazwą `action` stoi tam
+    // `string`, a nie `ProtectionAction`. Liczba rośnie, a teza 6.D185 („skan po nazwie
+    // myli się na połowie trafień") zostaje niezmieniona — trafień fałszywych przybyło
+    // razem z wszystkimi.
+    private const int TrafienSkanuWGame = 13;
 
     /// <summary>
     /// Dziury, na których skan po nazwie się MYLI — nazwa jest wyliczeniem gdzie
@@ -2954,7 +3049,9 @@ public sealed class UiTextTests
     // --- 6.D188: co `BezDziur` zabiera i czy zabiera komuś tekst ----------------------
 
     /// <summary>Ile literałów korpusu niesie w ogóle parę klamer — 6.D188.</summary>
-    private const int LiteralowZKlamra = 124;
+    // 124 -> 125 (13.09.2026, MB-02): `"+0.000;-0.000;0.000"` klamry nie ma, ale
+    // ma ją komunikat wyjątku z `RunSummary`.
+    private const int LiteralowZKlamra = 129;
 
     /// <summary>
     /// Ilu literałom <see cref="BezDziur"/> zabiera WSZYSTKIE słowa — 6.D188.
@@ -2997,10 +3094,16 @@ public sealed class UiTextTests
         "{Engine.GetVersionInfo()[\"string\"]}",
         "{string.Join(\" --\", KnownArguments)}",
         "{string.Join(\", \", KnownViews)}",
+
+        // MB-02: lista celów sesji w wierszu `[SESJA] trwa:`. WYWOŁANIE C#, nie obiekt
+        // JSON — `sesja.TargetStopIds` jest `IReadOnlyList<string>`, a `", "` w środku
+        // to separator, nie klucz.
+        "{string.Join(\", \", sesja.TargetStopIds)}",
     };
 
     /// <summary>Literały zagnieżdżone w tych trzech dziurach — muszą stać w korpusie.</summary>
-    private static readonly string[] ZagniezdzoneWKlamrach = { "string", " --", ", " };
+    private static readonly string[] ZagniezdzoneWKlamrach =
+        { "string", " --", ", ", ", " };
 
     /// <summary>Czy sito zgłasza słowo w tym literale — tak samo, jak pyta bramka.</summary>
     private static bool NiesieSlowo(string literal) =>
@@ -3225,12 +3328,32 @@ public sealed class UiTextTests
     // przed sitem, które nic nie chroni; przy jednym wystąpieniu uogólnienie nie miałoby
     // nad czym uogólniać. Zostaje **liczba**: gdy pojawi się drugi switch po wyliczeniu,
     // ta asercja go pokaże, a wtedy dopiero jest o czym rozstrzygać.
-    private const int SwitchyPoWyliczeniuWGame = 1;
+    //
+    // **1 -> 2 (13.09.2026, MB-02), i TO JEST TO ROZSTRZYGNIĘCIE, KTÓRE 6.D197
+    // ODŁOŻYŁO.** Drugim switchem po wyliczeniu jest `RunSummary.Naglowek`. Akapit
+    // wyżej obiecywał, że przy drugim „dopiero wtedy jest o czym rozstrzygać" —
+    // i rozstrzygnięcie jest takie: uogólnieniem NIE jest liczba, tylko **ramię
+    // domyślne**. Zmierzone wtedy na `src/Sim/`: wszystkie osiem switchy postaci
+    // wyrażeniowej ma ramię RZUCAJĄCE, a jedyne ramię CICHE w całym drzewie stoi
+    // w `FirstRun.Faza` i jest świadome (angielska nazwa członu na HUD zamiast
+    // wyjątku w środku klatki). `RunSummary.Naglowek` rzuca — czyli dołącza do
+    // rodziny większej, a nie zakłada drugiej.
+    //
+    // Liczba zostaje OBOK zapadki na ramiona, a nie zamiast niej: mówi, ile switchy
+    // po wyliczeniu jest, gdy tamta mówi, jak każdy z nich się zachowuje.
+    private const int SwitchyPoWyliczeniuWGame = 2;
+
+    // Switche po wyliczeniu, których ramię domyślne MILCZY zamiast rzucić — lista,
+    // a nie liczba, bo to nazwy rozstrzygają, czy milczenie jest świadome.
+    // `FirstRun.cs:phase` jest tu jedynym wpisem od 6.D185 i ma powód wypisany
+    // w `FirstRun.Faza`: wyjątek w środku klatki przewróciłby przejazd, a angielska
+    // nazwa członu na HUD jest widoczna i zgłaszalna.
+    private static readonly string[] SwitcheZCichymRamieniem = { "FirstRun.cs:phase" };
 
     // Wszystkie konstrukty `switch` w `src/Game/`, z rozstrzygnięciem. Liczba jest tu
     // DRUGA, bo „jeden po wyliczeniu" nie mówi nic o tym, ile ich jest w ogóle — a to
     // właśnie ta różnica pozwala odróżnić „skan nie znalazł" od „nie ma".
-    private const int SwitchyWGameRazem = 2;
+    private const int SwitchyWGameRazem = 3;
 
     // Postać instrukcyjna (`switch (x) { case …: default: }`) NIE WYSTĘPUJE w src/Game/
     // ani razu. Zero jest tu wypisane, bo skan, który tej postaci nie widzi, odpowiada
@@ -3245,10 +3368,14 @@ public sealed class UiTextTests
 
     // `(plik, nazwa przełączanego wyrażenia, czy po wyliczeniu)` dla każdego `switch`-a.
     // Czyta źródło BEZ komentarzy, bo słowo `switch` w komentarzu nie jest switchem.
+    private static readonly List<(string Gdzie, bool PoWyliczeniu, bool Rzuca)>
+        ramionaDomyslne = new();
+
     private static List<(string Plik, string Na, bool PoWyliczeniu)> SwitcheGry()
     {
         var typy = new HashSet<string>(WyliczeniaZrodel().Keys, StringComparer.Ordinal);
         var znalezione = new List<(string, string, bool)>();
+        ramionaDomyslne.Clear();
         foreach (var sciezka in PlikiGry())
         {
             var kod = KodBezKomentarzyDlaStaregoCzytnika(File.ReadAllText(sciezka));
@@ -3264,6 +3391,18 @@ public sealed class UiTextTests
                 var poWyliczeniu = typy.Any(t =>
                     Regex.IsMatch(cialo, @"\b" + Regex.Escape(t) + @"\.\w+\s*=>"));
                 znalezione.Add((Path.GetFileName(sciezka), m.Groups[1].Value, poWyliczeniu));
+                // Ramię domyślne bierze się z ciała aż do klamry ZAMYKAJĄCEJ switcha,
+                // a nie do pierwszej napotkanej: `throw new ArgumentOutOfRangeException(`
+                // z wieloliniowym komunikatem klamry nie ma, ale wyrażenie `{` w ramieniu
+                // — owszem. Szukamy więc `_ =>` i sprawdzamy, czy po nim pada `throw`
+                // przed następnym ramieniem.
+                var odDomyslnego = ogon.IndexOf("_ =>", StringComparison.Ordinal);
+                ramionaDomyslne.Add((
+                    $"{Path.GetFileName(sciezka)}:{m.Groups[1].Value}",
+                    poWyliczeniu,
+                    odDomyslnego >= 0
+                        && ogon.Substring(odDomyslnego, Math.Min(80, ogon.Length - odDomyslnego))
+                            .Contains("throw", StringComparison.Ordinal)));
             }
             foreach (Match m in Regex.Matches(kod, @"\bswitch\s*\([^)]*\)\s*\{"))
             {
@@ -3295,6 +3434,27 @@ public sealed class UiTextTests
             + ". Drugi taki switch znaczy, że mechanizm „nowy człon = cicha zmiana "
             + "zachowania” ma w `src/Game/` więcej niż jedno wystąpienie — i dopiero "
             + "wtedy jest o czym rozstrzygać (6.D197)");
+
+        // ROZSTRZYGNIĘCIE 6.D197, ZROBIONE PRZY MB-02: uogólnieniem nie jest liczba,
+        // tylko RAMIĘ DOMYŚLNE. Każdy switch po wyliczeniu w `src/Game/` ma ramię
+        // rzucające — poza tymi, które stoją na liście świadomych milczków. Zapadka na
+        // samą liczbę mówiłaby „doszedł trzeci" i nie mówiłaby, czy ten trzeci połyka
+        // nowy człon po cichu; ta mówi.
+        var ciche = ramionaDomyslne
+            .Where(r => r.PoWyliczeniu && !r.Rzuca)
+            .Select(r => r.Gdzie)
+            .OrderBy(x => x, StringComparer.Ordinal)
+            .ToList();
+        CollectionAssert.AreEqual(
+            SwitcheZCichymRamieniem.OrderBy(x => x, StringComparer.Ordinal).ToList(),
+            ciche,
+            "switche po wyliczeniu z MILCZĄCYM ramieniem domyślnym to dziś "
+            + string.Join(", ", ciche)
+            + ", a świadomie dopuszczone są " + string.Join(", ", SwitcheZCichymRamieniem)
+            + ". Nowy człon wyliczenia wpadający do milczącego ramienia zmienia "
+            + "zachowanie BEZ ANI JEDNEGO śladu — i to jest ten mechanizm, który 6.D185 "
+            + "przybiło ręcznie, a 6.D197 zmierzyło na `src/Sim/` (osiem na osiem "
+            + "switchy wyrażeniowych rdzenia RZUCA)");
 
         // KONTROLA PRZYRZĄDU, bez której liczba 1 nie znaczyłaby nic: skan MA znaleźć
         // ten switch, który 6.D185 przybiło ręcznie. Gdyby go nie znajdował, patrzyłby
@@ -3376,9 +3536,16 @@ public sealed class UiTextTests
     // i nic w drzewie go nie hamuje. Zdanie zostaje w tamtej bramce jako WARUNEK
     // (bo jest poprawne: gdyby ubyło, wolno by było), ale przestaje być planem —
     // co mówi ta sekcja i pilnuje asercja niżej.
-    private const int WyliczenWSrc = 16;
+    // 16 -> 17 (13.09.2026, MB-02): doszedł `TrainingEnding`. **To jest pierwszy ruch
+    // tej liczby od 02.09.2026 i on NIE obala tezy 6.D198, tylko ją zawęża.** Teza
+    // brzmiała „dwuznaczności przybywa BEZ nowych typów" — i nadal tak jest: nowa nazwa
+    // dwuznaczna (`ending`) przyszła w tym samym commicie co nowy typ, ale ani jedna
+    // z dziesięciu poprzednich nie potrzebowała do tego typu. Liczba przestaje być
+    // NIERUCHOMA, a asercja niżej mówi teraz, ile jest, a nie że nie drgnęła.
+    private const int WyliczenWSrc = 17;
 
-    private const int NazwPodWyliczeniem = 22;
+    // 22 -> 24 (13.09.2026, MB-02): `Ending` i `ending` z `TrainingEnding`.
+    private const int NazwPodWyliczeniem = 24;
 
     // Nazwy, pod którymi w `src/` stoi i wartość wyliczenia, i wartość innego typu.
     // Lista, a nie liczba, bo to nazwy rozstrzygają, czy skan po nazwie wolno puścić
@@ -3386,14 +3553,16 @@ public sealed class UiTextTests
     private static readonly string[] NazwyDwuznaczneWSrc =
     {
         "Action", "Phase", "Reason", "Variant", "_view",
-        "load", "phase", "status", "variant", "view",
+        "action", "load", "phase", "status", "variant", "view",
     };
 
     // Typ, pod którym stoi druga strona dwuznaczności. `string` w DZIEWIĘCIU na
     // dziesięć — i to jest treść, a nie ciekawostka: gdyby drugą stroną były inne
     // wyliczenia, sito po nazwie dałoby się uratować słownikiem typów. Napis takiej
     // drogi nie zostawia.
-    private const int DwuznacznychPrzezNapis = 9;
+    // 9 -> 10 (13.09.2026, MB-02): doszło `action`. Proporcja robi się jeszcze
+    // wyraźniejsza niż w dniu pomiaru — dziesięć z jedenastu, a nie dziewięć z dziesięciu.
+    private const int DwuznacznychPrzezNapis = 10;
 
     // Słowa kluczowe C#, które stoją przed nazwą tak samo jak typ. Bez tej listy
     // `return phase`, `case Phase` i `out status` policzyłyby się jako „drugi typ".
@@ -3608,9 +3777,13 @@ public sealed class UiTextTests
     // **To jest właśnie powód, dla którego pozycja kazała mierzyć ZANIM ktoś ten skan
     // postawi.** Na trzech zgłoszeniach szum widać gołym okiem; na trzydziestu brałoby
     // się go za rozkład.
-    private const int ToStringLeksykalnieWGame = 1;
+    // 1 -> 2 (13.09.2026, MB-02): `panel.ToString()` w `RunSummary.Compose`.
+    // Relacja `leksykalnie < surowo` zostaje (2 < 4) i to ona jest treścią tej sekcji.
+    private const int ToStringLeksykalnieWGame = 2;
 
-    private const int ToStringRegeksemPoSurowym = 3;
+    // 3 -> 4 (13.09.2026, MB-02): `panel.ToString()` w `RunSummary.Compose` — to
+    // `StringBuilder`, a nie wyliczenie, więc liczba „na wyliczeniu" zostaje na jednym.
+    private const int ToStringRegeksemPoSurowym = 5;
 
     private const int ToStringNaWyliczeniuWGame = 1;
 
@@ -3621,7 +3794,10 @@ public sealed class UiTextTests
     // wszystkie dwanaście to liczby (`double`), formatowane kulturą niezmienną.
     // Zero z ostatniej stałej jest treścią: gdyby wartość wyliczenia trafiła tu,
     // byłaby tym samym błędem w innym ubraniu, a skan z tej pozycji przeszedłby obok.
-    private const int ToStringZArgumentemWGame = 12;
+    // 12 -> 15 (13.09.2026, MB-02): trzy formatowania liczb w `RunSummary.Compose`.
+    // Granica „słowa w katalogu, formaty w kodzie" zostaje tam, gdzie 6.D83 ją
+    // postawiło — i te trzy wywołania są jej kolejnym przypadkiem, nie wyjątkiem.
+    private const int ToStringZArgumentemWGame = 15;
 
     private const int ToStringZArgumentemNaWyliczeniuWGame = 0;
 
@@ -3807,9 +3983,13 @@ public sealed class UiTextTests
     // IDENTYFIKATOR, nie angielskie zdanie. Tamto było o nazwach członów wyliczeń
     // na HUD-zie, to jest o nazwach stałych w logu — i dlatego pytanie do właściciela
     // brzmi inaczej, niż pozycja zakładała (patrz raport §5).
-    private const int WierszyLoguWGame = 25;
+    // 25 -> 27 (13.09.2026, MB-02): dwa wiersze `[SESJA]` — jednorazowy z gałęzi
+    // panelu wyniku i podsumowanie na końcu odtworzenia.
+    private const int WierszyLoguWGame = 27;
 
-    private const int WierszyLoguPoPolsku = 21;
+    // 21 -> 23 (13.09.2026, MB-02): dwa wiersze `[SESJA]`. `WierszyLoguPoAngielsku`
+    // zostaje ZEREM i to ono jest tu zdaniem.
+    private const int WierszyLoguPoPolsku = 23;
 
     // Wiersze, których szablon NIE MA WŁASNYCH SŁÓW — cała treść przychodzi z wywołania.
     // Cztery, wszystkie w `FirstRun.cs`, i każdy z nich prowadzi do wytwórcy, który
@@ -3851,6 +4031,12 @@ public sealed class UiTextTests
     private static readonly string[] SlowaPolskieBezZnakow =
     {
         "STACJA", "ZRZUT", "metadane", "tryb", "widok", "krok", "scenariusz", "masa",
+
+        // MB-02. „SESJA" i „trwa" są polskie i pozbawione znaków diakrytycznych —
+        // dokładnie ta rodzina, dla której ta lista powstała w 6.D202: sito po samych
+        // znakach uznałoby oba wiersze `[SESJA]` za angielskie, a `WierszyLoguPoAngielsku`
+        // wyszłoby z zera i przestałoby być zdaniem o drzewie.
+        "SESJA", "trwa",
     };
 
     private static bool WygladaPoPolsku(string tekst) =>

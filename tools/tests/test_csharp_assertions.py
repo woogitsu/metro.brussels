@@ -335,9 +335,18 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 #: Pozostale dwie klasy i calosc. **Trzy klasy sumuja sie do `ASERCJI_RAZEM`** i to
 #: jest tu trescia: asercja, ktorej czytnik nie umie zaklasyfikowac, ma byc POLICZONA
 #: jako nierozstrzygnieta, a nie wpasc miedzy klasy.
-Z_KOMUNIKATEM_RAZEM = 1307
+#:
+#: **1307 -> 1419 i 2756 -> 2868 (13.09.2026, MB-02), z powodem.** Doszly 112 asercji
+#: w `TrainingSessionTests.cs` (17 testow), `RunSummaryTests.cs` (6 testow)
+#: i `TrainingWiringTests.cs` (5 testow),
+#: **wszystkie z komunikatem**: `BEZ_KOMUNIKATU_RAZEM` nie drgnelo ani o jeden, bo
+#: dwa nowe pliki nie maja w tabeli wyzej wpisu i miec go nie moga — nowy plik testowy
+#: C# zaczyna z komunikatem przy kazdej asercji. Ta bramka zapalila sie pierwsza
+#: w tym commicie, na 43 asercjach bez powodu, i wszystkie 43 dostaly powod.
+#: `NIEROZSTRZYGNIETYCH` bez zmian: czytnik zaklasyfikowal kazda z 112.
+Z_KOMUNIKATEM_RAZEM = 1419
 NIEROZSTRZYGNIETYCH = 68
-ASERCJI_RAZEM = 2756
+ASERCJI_RAZEM = 2868
 
 
 def _rozklad():

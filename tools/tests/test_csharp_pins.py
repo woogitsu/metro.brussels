@@ -34,7 +34,15 @@ PINY_GRY = {
 #: Ile pinów stoi w `tests/Sim.Tests` — liczba PORÓWNAWCZA, o którą prosiło pole
 #: „Wejście". Rdzeń ma ich 74 przy 36 plikach, gra 47 przy 16: na plik wypada
 #: **2,06** wobec **2,94**, więc gra pinuje GĘŚCIEJ, mimo że ma mniej testów.
-PINY_RDZENIA = 74
+#:
+#: **74 -> 76 (13.09.2026, MB-02):** dwa piny w `TrainingSessionTests.cs`
+#: (`"Pierwsza"` jako nazwa celu z osi i `"s1"` jako identyfikator stacji miniętej).
+#: Proporcja praktycznie się nie rusza — 37 plików rdzenia daje **2,05**, a gra
+#: zostaje na **2,94** przy 16 plikach, bo `RunSummaryTests.cs` nie wnosi ani jednego
+#: pinu NAPISOWEGO: cały jego tekst przychodzi z katalogu `UiText`, a nie z literałów
+#: w teście. To nie jest przypadek, tylko skutek tego, że panel wyniku nie składa
+#: żadnego napisu u siebie.
+PINY_RDZENIA = 76
 
 #: Kategorie, po jednej pozycji na pin — zamknięte i sumujące się do liczby wyżej.
 #:
@@ -55,13 +63,19 @@ PINY_RDZENIA = 74
 #: C — pin na wartość liczoną w JEDNYM miejscu: nazwa trybu, ścieżka, identyfikator
 #:     albo wynik jednej przemiany napisu (`BezJednostek("Esc") == "E c"` z 6.D142 —
 #:     zdanie o kategorii dopisane razem z pinem, żeby nie rozszerzyć jej po cichu).
+#:
+#: **Kotwica to (plik, WIERSZ), wiec kazda wstawka wyzej w pliku ja przesuwa** — i to
+#: nie jest wada tabeli, tylko jej koszt, ktory trzeba placic w tym samym commicie.
+#: MB-02 przesunelo piec kotwic w `UiTextTests.cs` o TRZY wiersze (1150/1156/1161 ->
+#: 1153/1159/1164 oraz 1230/1231 -> 1233/1234); tresc pinow nie zmienila sie ani o znak,
+#: co sprawdzone porownaniem trzywierszowych blokow ze starym plikiem.
 KATEGORIE = {
     "A": {
-        ("UiTextTests.cs", 1150), ("UiTextTests.cs", 1156), ("UiTextTests.cs", 1161),
+        ("UiTextTests.cs", 1153), ("UiTextTests.cs", 1159), ("UiTextTests.cs", 1164),
         ("SignallingHudTests.cs", 37),
     },
     "B": {
-        ("UiTextTests.cs", 1230), ("UiTextTests.cs", 1231),
+        ("UiTextTests.cs", 1233), ("UiTextTests.cs", 1234),
     },
 }
 
@@ -125,10 +139,10 @@ def test_regula_po_ksztalcie_literalu_myli_sie_i_dlatego_jej_nie_ma():
                      if not regula.search(tresci[p])]
     zlapane_z_b = [p for p in sorted(KATEGORIE["B"]) if regula.search(tresci[p])]
 
-    assert przepuszczone == [("UiTextTests.cs", 1161)], (
+    assert przepuszczone == [("UiTextTests.cs", 1164)], (
         "reguła po kształcie przestała przepuszczać wiersz o hamulcu awaryjnym — "
         "rozstrzygnięcie 6.D131 wymaga przeliczenia: %s" % przepuszczone)
-    assert zlapane_z_b == [("UiTextTests.cs", 1231)], (
+    assert zlapane_z_b == [("UiTextTests.cs", 1234)], (
         "reguła po kształcie przestała łapić wejście syntetyczne: %s" % zlapane_z_b)
 
 
@@ -142,11 +156,11 @@ def test_czytnik_widzi_pin_takze_wtedy_gdy_literal_jest_sklejony():
     tresci = {(plik, wiersz): tresc
               for plik, wiersz, _r, tresc in CP.piny("tests/Game.Tests")}
 
-    assert len(tresci[("UiTextTests.cs", 1150)]) == 122, (
+    assert len(tresci[("UiTextTests.cs", 1153)]) == 122, (
         "sklejanie literałów przestało działać: %d znaków"
-        % len(tresci[("UiTextTests.cs", 1150)]))
-    assert len(tresci[("UiTextTests.cs", 1161)]) == 98, (
-        len(tresci[("UiTextTests.cs", 1161)]))
+        % len(tresci[("UiTextTests.cs", 1153)]))
+    assert len(tresci[("UiTextTests.cs", 1164)]) == 98, (
+        len(tresci[("UiTextTests.cs", 1164)]))
     assert len(tresci[("SignallingHudTests.cs", 37)]) == 84, (
         len(tresci[("SignallingHudTests.cs", 37)]))
 
@@ -214,14 +228,19 @@ def test_maska_odsiewa_wywolania_z_komentarzy_i_napisow(tmp=None):
 #: Podział na tolerancję jest za to treścią i on zostaje wypisany:
 ROZKLAD_LICZBOWYCH = {
     "tests/Game.Tests": {
-        "razem": 215, "z_tolerancja": 98, "bez_tolerancji": 117,
+        # 215 -> 216 (13.09.2026, MB-02): `TrainingWiringTests.cs` przybija jedna
+        # liczbe — `DesignAssumptions.TrainingTargets == 2`.
+        "razem": 216, "z_tolerancja": 98, "bez_tolerancji": 118,
         "zmiennoprzecinkowe": 104, "zmiennoprzecinkowe_bez_tolerancji": 6,
-        "calkowite": 111, "calkowite_z_tolerancja": 0, "tolerancja_zero": 18,
+        "calkowite": 112, "calkowite_z_tolerancja": 0, "tolerancja_zero": 18,
     },
     "tests/Sim.Tests": {
-        "razem": 441, "z_tolerancja": 179, "bez_tolerancji": 262,
-        "zmiennoprzecinkowe": 187, "zmiennoprzecinkowe_bez_tolerancji": 8,
-        "calkowite": 254, "calkowite_z_tolerancja": 0, "tolerancja_zero": 114,
+        # 441 -> 454 (13.09.2026, MB-02): trzynaście pinów liczbowych
+        # w `TrainingSessionTests.cs`. `calkowite_z_tolerancja` zostaje ZEREM, a to
+        # jest tu jedyna liczba, która niesie zdanie, a nie stan drzewa.
+        "razem": 458, "z_tolerancja": 181, "bez_tolerancji": 277,
+        "zmiennoprzecinkowe": 189, "zmiennoprzecinkowe_bez_tolerancji": 8,
+        "calkowite": 269, "calkowite_z_tolerancja": 0, "tolerancja_zero": 114,
     },
 }
 
