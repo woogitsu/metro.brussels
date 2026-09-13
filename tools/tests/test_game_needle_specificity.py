@@ -208,7 +208,21 @@ MAX_GAME_JUSTIFIED_NEEDLES = 4
 #: z przecinkiem, ktory odroznia ramie od zdania o nim w komentarzu dokumentacyjnym
 #: (`FirstRun.cs:1798` niesie `phase.ToString()` bez przecinka; patrz 6.D199).
 #: Trzymania igly w zmiennej znowu NIE uzyto, z tego samego powodu, co wyzej.
-MAX_GAME_UNMATCHED_NEEDLES = 29
+#: **29 -> 30, 13.09.2026 (6.D188).** Jedna igla, `otwarte`, stoi
+#: w `UiTextTests.Zabrane_slowa_to_WYRAZENIA_C_a_nie_tekst_dla_gracza` jako WEJSCIE
+#: SYNTETYCZNE: napis dla gracza schowany w dziurze interpolacji
+#: (`$"stan: {(x ? "otwarte" : "zamkniete")}"`), podany czytnikowi po to, zeby
+#: pokazac, ze zwraca go OSOBNO — a wiec ze `BezDziur` nie ma jak go schowac.
+#: Bez dopasowania jest z zalozenia i musi takie zostac: dopasowanie znaczyloby,
+#: ze probka syntetyczna przypadkiem powtarza napis z programu, i wtedy kontrola
+#: mierzylaby co innego, niz mowi. Ta sama konstrukcja i ten sam powod, co przy
+#: `koniec bloku` w kroku 19 -> 21.
+#:
+#: Wzmocnienie igly nie ma tu sensu: jest nia CALA tresc zagniezdzonego literalu,
+#: a dluzsza probka to inny napis, nie mocniejsza igla. Trzymania w zmiennej znowu
+#: NIE uzyto — bramka pomija igle ze zmiennej, wiec `var x = "otwarte";` zdjalby ja
+#: z licznika bez sladu.
+MAX_GAME_UNMATCHED_NEEDLES = 30
 
 #: Progi KW. Literowka we wzorcu daje zero dopasowan i caly modul zielony; te trzy
 #: liczby sa jedynym powodem, dla ktorego taka literowka jest widoczna. Zmierzone
@@ -240,7 +254,7 @@ MIN_GAME_MESSAGES = 142
 #: trzeba by ja poprawic w **5 z 11** rewizji dotykajacych `tests/Game.Tests`
 #: (45 -> 49 -> 52 -> 54 -> 57 -> 59), czyli w 45 % z nich. To mniej, niz kosztuje
 #: `MIN_REPORTS`, poprawiane przy kazdym raporcie.
-MIN_GAME_NEEDLES = 62
+MIN_GAME_NEEDLES = 63
 MIN_GAME_SOURCES = 18
 
 #: Igla, na ktorej stoja kontrole dodatnia i przyrzadu. Musi byc SWOISTA i musi stac
