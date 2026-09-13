@@ -1636,15 +1636,21 @@ def _istnieje_w_drzewie(nazwa):
 #: adresow WIECEJ NIZ POZOSTALE DWA RAZEM, a regula kandydatow z 6.D146 nie moze
 #: siegnac do niego ani jednym — patrz `test_zero_wywolan_poza_Weryfikacja_jest_STRUKTURALNE`.
 #:
-#: **Liczby sa PO domknieciu 6.D158, i to nie jest szczegol.** Domkniecie pozycji
-#: przenosi JEJ WLASNY blok do zbioru wykonanych, wiec pomiar zmienia sie przez to,
-#: ze zostal zapisany: przed domknieciem bylo 849/63/364 przy 241 blokach, po nim jest
-#: 851/63/365 przy 242. Ulamek z `test_jaka_czesc_adresow_obejrzala_regula_kandydatow_6D146`
-#: drgnal o trzy tysieczne i zostal ta sama jedna trzynasta.
-ADRESOW_W_WYKONANYCH = {"Wejście": 851, "Wyjście": 63, "Weryfikacja": 365}
+#: **Te liczby rosna przy KAZDYM domknieciu pozycji i to nie jest usterka.** Domkniecie
+#: przenosi WLASNY blok pozycji do zbioru wykonanych, razem z adresami, ktore ten blok
+#: cytuje — wiec pomiar zmienia sie przez to, ze zostal zapisany. Przy 6.D158 bylo
+#: 849/63/364 (241 blokow), zaraz po jego domknieciu 851/63/365 (242), a po domknieciu
+#: 6.D159 — 853/63/366 (243).
+#:
+#: **Nastepne domkniecie podniesie je znowu i trzeba to zrobic TYM SAMYM commitem**,
+#: tak jak kazda inna zapadke tego projektu. Ulamek z
+#: `test_jaka_czesc_adresow_obejrzala_regula_kandydatow_6D146` jest odporny na ten
+#: ruch z wyboru — stoi w przedziale, nie w rownosci — i po dwoch domknieciach nadal
+#: pokazuje te sama jedna trzynasta.
+ADRESOW_W_WYKONANYCH = {"Wejście": 853, "Wyjście": 63, "Weryfikacja": 366}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
-WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 102}
+WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 103}
 
 #: Ilu kandydatow zlego adresu daje regula prozy, per pole — 6.D158.
 KANDYDATOW_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 10}
