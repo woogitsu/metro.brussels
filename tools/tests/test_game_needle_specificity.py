@@ -185,7 +185,7 @@ MAX_GAME_JUSTIFIED_NEEDLES = 4
 #: opisywala wejscie syntetyczne, tu opisuje ZAWARTOSC DRZEWA, ktora test i tak pinuje
 #: rownoscia calej listy. Igla dluzsza byla by tym samym pinem zapisanym drugi raz.
 #: Trzymania igiel w zmiennej znowu NIE uzyto, z tego samego powodu, co wyzej.
-MAX_GAME_UNMATCHED_NEEDLES = 26
+MAX_GAME_UNMATCHED_NEEDLES = 28
 
 #: Progi KW. Literowka we wzorcu daje zero dopasowan i caly modul zielony; te trzy
 #: liczby sa jedynym powodem, dla ktorego taka literowka jest widoczna. Zmierzone
@@ -217,7 +217,7 @@ MIN_GAME_MESSAGES = 142
 #: trzeba by ja poprawic w **5 z 11** rewizji dotykajacych `tests/Game.Tests`
 #: (45 -> 49 -> 52 -> 54 -> 57 -> 59), czyli w 45 % z nich. To mniej, niz kosztuje
 #: `MIN_REPORTS`, poprawiane przy kazdym raporcie.
-MIN_GAME_NEEDLES = 59
+MIN_GAME_NEEDLES = 61
 MIN_GAME_SOURCES = 18
 
 #: Igla, na ktorej stoja kontrole dodatnia i przyrzadu. Musi byc SWOISTA i musi stac
