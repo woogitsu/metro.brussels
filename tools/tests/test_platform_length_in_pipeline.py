@@ -57,8 +57,17 @@ MINIMUM_CALLERS = 2
 
 
 def _pipeline_files():
-    """Pliki, które pipeline naprawdę wykonuje: skrypty CI i workflow."""
+    """Pliki, które pipeline naprawdę wykonuje: skrypty CI, skrypty MB-01 i workflow.
+
+    **`tools/dev/` dołączone 13.09.2026 przy MB-01, i to nie jest poszerzenie korpusu
+    „na wszelki wypadek".** Przepis generacji pakietu A przeniósł się tam z kroku
+    `Generate package A geometry`, który go dotąd niósł; workflow woła teraz
+    `tools/dev/prepare-playable.sh`. Bez tego wiersza ta bramka liczyłaby jedno
+    wywołanie zamiast dwóch i zapalała się na przeniesieniu, a nie na usterce —
+    a jej treścią jest to, że **obaj wołający** podają `--platform-length-m design`.
+    """
     return (sorted(glob.glob(os.path.join(ROOT, "tools", "ci", "*.sh")))
+            + sorted(glob.glob(os.path.join(ROOT, "tools", "dev", "*.sh")))
             + sorted(glob.glob(os.path.join(ROOT, ".github", "workflows", "*.yml")))
             + sorted(glob.glob(os.path.join(ROOT, ".github", "workflows", "*.yaml"))))
 

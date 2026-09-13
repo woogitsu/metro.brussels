@@ -1811,7 +1811,14 @@ MIN_GOLYCH_W_DOKUMENTACH = 1200
 #: DRUGA LICZBA POZYCJI — ile z tych roznych nazw NIE MA odpowiednika w drzewie.
 #: Rownosc, nie prog: to jest liczba, o ktora pozycja pyta, i kazdy jej ruch ma byc
 #: przeczytany. Zmierzone 13.09.2026: **32**.
-GOLYCH_BEZ_ODPOWIEDNIKA = 32
+#:
+#: **32 -> 35 (13.09.2026, MB-01), przeczytane po kolei.** Doszly `L1_A.glb`,
+#: `M7_shell.glb` i `L1_A-platforms.glb`, wszystkie trzy z wiersza MB-01
+#: w `docs/TASKS.md`, gdzie stoja przy ZMIERZONYCH rozmiarach wyjscia skryptu
+#: `tools/dev/prepare-playable.sh`. Nowej rodziny nie zakladaja: to druga z czterech
+#: juz wymienionych nizej — wytwory przebiegu, ktorych regula 8 zabrania komitowac.
+#: Ich obecnosc w drzewie byloby usterka, a NIEobecnosc usterka nie jest.
+GOLYCH_BEZ_ODPOWIEDNIKA = 35
 
 #: To samo, ale WYLACZNIE w trzech polach skanowanych — czyli tam, gdzie poszerzony
 #: `PATH_TOKEN` naprawde by zapalal. Zmierzone 13.09.2026: **244** wystapienia,
@@ -1929,13 +1936,15 @@ def test_ile_golych_nazw_stoi_w_docs_i_ile_z_nich_nie_ma_odpowiednika():
     Pole „Wyjscie” zada dwoch liczb: ile golych nazw plikow stoi w skanowanych
     dokumentach i ile z nich wskazuje cos, czego w drzewie nie ma. Zmierzone
     13.09.2026: **1331** wystapien w **276** roznych nazwach, z czego **32** bez
-    odpowiednika.
+    odpowiednika. Po MB-01 tego samego dnia — **35**; skad te trzy, stoi przy
+    `GOLYCH_BEZ_ODPOWIEDNIKA`.
 
     **Trzydziesci dwie nazwy to nie trzydziesci dwie usterki** i to jest tresc tej
     bramki. Rozkladaja sie na cztery rodziny, z ktorych zadna nie jest bledem:
     nazwy zastepcze prozy (`PLIK.json`, `AXIS.csv`, `a.py`, `d1.csv`, `new.json`),
     wytwory przebiegu, ktorych regula 8 zabrania komitowac (`GODOT_metadata.json`,
-    `inspect.png`, `czas-modulow.json`), wytwory budowania (`Sim.AssemblyInfo.cs`,
+    `inspect.png`, `czas-modulow.json`, a od MB-01 takze trzy pliki `.glb`
+    pakietu A), wytwory budowania (`Sim.AssemblyInfo.cs`,
     `v10.0.AssemblyAttributes.cs`, `runtimeconfig.json`) i pliki CUDZE
     (`dotnet-install.sh`, `SHA512-SUMS.txt`, `stops.txt` z GTFS-a STIB).
     """

@@ -160,7 +160,7 @@ NIEME_ASERCJE = {
     "test_run_mode_claims.py": 7,
     "test_scan_gates.py": 12,
     "test_schedule_envelope.py": 32,
-    "test_shot_metadata_gate.py": 16,
+    "test_shot_metadata_gate.py": 15,
     "test_sim_untested_members.py": 2,
     "test_snapshot_source.py": 16,
     "test_station_components.py": 6,
@@ -370,11 +370,16 @@ def test_lista_asercji_bez_komunikatu_moze_tylko_malec():
     # dotyczyć tego samego zbioru modułów, o którym mówi zapadka. Gdy zaślepki nie
     # ma — a w drzewie repozytorium nie ma — składnik jest zerem i nic się nie zmienia.
     zaslepione_z_listy = sum(NIEME_ASERCJE[n] for n in zaslepione if n in NIEME_ASERCJE)
-    assert NIEMYCH_RAZEM == sum(w_drzewie.values()) + zaslepione_z_listy == 2255, (
+    # **2255 -> 2254 (13.09.2026, MB-01).** `test_shot_metadata_gate.py` zszedł z 16
+    # na 15: asercja porównująca pozycje `--chunk-manifest` i `--manifest` w jednym
+    # pliku była NIEMA, a zastąpiła ją para asercji Z KOMUNIKATEM (przepis generacji
+    # wyprowadził się z workflowa do `tools/dev/prepare-playable.sh`). Zapadka „może
+    # tylko maleć" działa więc tak, jak ma: wpis obniżony w tym samym commicie.
+    assert NIEMYCH_RAZEM == sum(w_drzewie.values()) + zaslepione_z_listy == 2254, (
         "suma z listy %d, suma z drzewa %d (+ %d z %d modułów zaślepionych: %s), "
         "pomiar z 11.09.2026 mówił 2377, po 6.D135 jest 2376, po 6.D138 — 2372, "
-        "a po 6.D144 — 2255, bo `test_clearance_profile.py` zszedł ze 117 na ZERO "
-        "i wypadł z listy"
+        "po 6.D144 — 2255, bo `test_clearance_profile.py` zszedł ze 117 na ZERO "
+        "i wypadł z listy, a po MB-01 — 2254"
         % (NIEMYCH_RAZEM, sum(w_drzewie.values()), zaslepione_z_listy,
            len(zaslepione), sorted(zaslepione) or "—"))
 
@@ -1514,6 +1519,17 @@ def test_wzorzec_rodziny_lapie_zdanie_ktore_ma_lapac_i_nie_bierze_sasiedztwa():
 #: Jest strażnikiem listy niżej: nowa bramka tego kształtu rusza tę liczbę, więc nie
 #: da się dopisać trzydziestej drugiej po cichu.
 #:
+#: **855 -> 870 (13.09.2026, MB-01), z powodem.** Doszło piętnaście asercji, wszystkie
+#: na plikach NIE-`.py`, więc do listy `NA_ZRODLE_PY` nie należy ani jedna. Trzynaście
+#: w nowym `test_playable_scripts.py`: czytają `tools/dev/prepare-playable.sh`,
+#: `tools/dev/play.sh` i YAML workflowa, czyli rodziny, które ten sam pomiar liczy
+#: osobno (65 na `.cs` i `.sh`, 69 na YAML-u CI). Dwie w `test_shot_metadata_gate.py`,
+#: w `test_workflow_actually_runs_the_metadata_gate`: `"bash tools/dev/prepare-playable.sh"
+#: in text` (YAML) i `"--chunk-manifest" in handle.read()` (`.sh`). Ta druga para jest
+#: **przepisana, a nie dopisana obok** — zastąpiła porównanie pozycji dwóch napisów
+#: w jednym pliku, bo przepis generacji wyprowadził się z workflowa do skryptu
+#: i `--chunk-manifest` w YAML-u już nie stoi.
+#:
 #: **852 -> 855 (13.09.2026, MB-00), z powodem.** Doszły trzy asercje w bramce pasma M
 #: w `test_backlog.py`: `"- **%s:**" % pole not in tresc` (komplet sześciu pól),
 #: `"docs/PLAYABILITY.md" in konstytucja` i `"pasmo M" in konstytucja`. Do listy
@@ -1536,7 +1552,7 @@ def test_wzorzec_rodziny_lapie_zdanie_ktore_ma_lapac_i_nie_bierze_sasiedztwa():
 #: `POSTACIE_LITERALU` w tym samym module. Stoi na ZACHOWANIU własnego testu: pilnuje,
 #: żeby oczekiwana maska NIOSŁA KLAMRY, bo maska bez klamr przeszłaby także u czytnika,
 #: który połyka resztę pliku — czyli jest to strażnik wyroczni, a nie odczyt tekstu.
-ASERCJI_NAPISOWYCH_RAZEM = 855
+ASERCJI_NAPISOWYCH_RAZEM = 870
 
 #: **Kotwica wpisu to `(plik, funkcja, operator, literał)`, a NIE numer wiersza.**
 #: Numer przesuwa się przy każdej edycji pliku i lista rozjechałaby się sama z siebie.

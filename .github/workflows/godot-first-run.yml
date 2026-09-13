@@ -355,46 +355,22 @@ jobs:
 
       - name: Generate package A geometry
         shell: bash
-        # Chunki i skorupa M7 nie są w repozytorium (CLAUDE.md reguła 8). Powstają
-        # z generatora tu i teraz — job sprawdza więc także to, że scena wczytuje
-        # świeżo wygenerowaną geometrię, a nie kopię sprzed miesięcy.
-        run: |
-          set -euo pipefail
-          "$BLENDER_BIN" --background --python-exit-code 7 --python tools/blender/tunnel_sweep.py -- \
-            --centerline data/track/L1_A.json --profile box_double --name L1_A \
-            --out build/t400/L1_A.glb --metrics build/t400/L1_A-metrics.json \
-            --chunk-dir build/t400/chunks --chunk-manifest build/t400/chunks/L1_A-chunks.json
-          "$BLENDER_BIN" --background --python-exit-code 7 --python tools/blender/m7_shell.py -- \
-            --out build/t400/M7_shell.glb --envelope-out build/t400/M7_envelope.glb \
-            --report build/t400/M7_shell.json
-          # Perony. Dwa kroki, bo taki jest podział T-211: kilometraże i dolna granica
-          # odsunięcia krawędzi liczą się czystym Pythonem, a bryły powstają w Blenderze.
-          # `--platform-gap-m` NIE ma wartości domyślnej (R-007: szczeliny peron–pudło
-          # nie podaje żadne publiczne źródło), więc stoi tu jawnie i ta sama liczba
-          # co w `tools/ci/station_details.sh`.
-          #
-          # Budowane są WYŁĄCZNIE `platform` i `edge`. Reszta zespołu stacji — schody,
-          # winda, antresola, korytarz, portal — sięga od 1,03 m do 8,30 m nad główką
-          # szyny, a strop profilu `box_double`, którym zamiatany jest tunel pakietu A,
-          # stoi na 4,70 m. Te bryły przebijałyby więc strop i kończyły się w nim,
-          # bo komora stacyjna (profil `station`, strop 5,30 m) nie jest jeszcze
-          # wstawiana w przebieg tunelu. To jest zakres osobnego zadania i do tego
-          # czasu scena pokazuje płytę i pas ostrzegawczy, czyli to, co leży w tunelu,
-          # który naprawdę ma.
-          # `--platform-length-m design` bierze DECYZJĘ WŁAŚCICIELA (95,0 m, T-212)
-          # ze `station_components.DESIGN_PLATFORM_LENGTH_M`, zamiast przepisywać tu
-          # liczbę po raz drugi. Bez tego słowa generator brał wartość domyślną, czyli
-          # dolną granicę z R-007 (94,0 m = długość składu), i scena dostawała perony
-          # o metr krótsze niż decyzja. Pilnuje tego
-          # `tools/tests/test_platform_length_in_pipeline.py`, mierząc wynik generatora.
-          python3 tools/track/station_layout.py --axis data/track/L1_A.json \
-            --out build/t400/L1_A-platforms.json --platform-length-m design
-          "$BLENDER_BIN" --background --python-exit-code 7 --python tools/blender/station_kit.py -- \
-            --axis data/track/L1_A.json --layout build/t400/L1_A-platforms.json \
-            --platform-gap-m 0.08 --component platform --component edge \
-            --out build/t400/L1_A-platforms.glb \
-            --metrics build/t400/L1_A-platforms-metrics.json
-          ls -la build/t400 build/t400/chunks | sed -n '1,20p'
+        # **PRZEPIS STOI W `tools/dev/prepare-playable.sh`, NIE TUTAJ** (MB-01,
+        # 13.09.2026). Ten krok jest przepisany, a nie dopisany obok: poprzednia wersja
+        # niosła **cztery wywołania generatorów** razem z pięcioma jawnymi parametrami —
+        # i była JEDYNYM miejscem, gdzie ten przepis stał. Człowiek, który chciał
+        # uruchomić trening u siebie, przepisywał go z YAML-a ręcznie, a pierwsza
+        # literówka dawała scenę bez peronu albo perony o metr krótsze od decyzji
+        # właściciela. Które z tych pięciu parametrów pominięte milczą, a które krzyczą,
+        # jest ZMIERZONE i stoi w nagłówku skryptu — tutaj liczby nie ma, żeby nie było
+        # jej dwóch.
+        #
+        # Skrypt robi DOKŁADNIE to samo, co robił ten krok, i to jest sprawdzane:
+        # `tools/tests/test_playable_scripts.py` porównuje wywołania generatorów
+        # w skrypcie z listą oczekiwaną i pilnuje, żeby workflow ich NIE powielał.
+        # Chunki i skorupa M7 nadal powstają tu i teraz (`CLAUDE.md` reguła 8), więc job
+        # sprawdza także to, że scena wczytuje świeżo wygenerowaną geometrię.
+        run: bash tools/dev/prepare-playable.sh build/t400
 
       - name: Axis in C# matches the sweep manifest
         shell: bash
