@@ -1198,7 +1198,7 @@ RODZINA_UBEZPIECZENIA = re.compile(
 #: Ile zdań rodziny stoi w `tools/tests/`. Zapadka RÓWNOŚCIOWA, nie minimum:
 #: dopisanie zdania ma zmusić do rozstrzygnięcia, czy niesie pokrycie, a nie
 #: przejść samo.
-ZDAN_RODZINY_RAZEM = 22
+ZDAN_RODZINY_RAZEM = 23
 
 #: **Wszystkie zdania rodziny, przeczytane po kolei, w DWÓCH workach** —
 #: `(plik, zakres) -> powód`. **Liczby w tym zdaniu NIE MA i to jest wybór po pomiarze
@@ -1264,6 +1264,12 @@ Z_WEJSCIEM_SYNTETYCZNYM = {
     ("tools/tests/test_mutation_sweep.py", "(moduł)"):
         "komentarz przy `MAPA_PISARZA_A` o tym, że PIERWSZA wersja tego wejścia wyszła "
         "zielona na mapach równej długości — warunek dziury jest dziś asercją w kodzie",
+    ("tools/tests/test_ci_workflows.py",
+     "test_kazda_wartosc_retencji_ma_POWOD_albo_ZAPISANA_GRANICE"):
+        "DOPISANE 13.09.2026 przy 6.D194: komentarz o tym, że przy 6.D193 ta sama "
+        "kontrola wyszła ZIELONA dwa razy — tutaj licznik obrotów pętli stał od "
+        "początku i KN-5 zapala się natychmiast, więc lekcja jest przeniesiona, "
+        "a nie powtórzona",
     ("tools/tests/test_suite_runtime_budget.py",
      "test_ile_ksztaltow_zapisu_pomiaru_niesie_drzewo"):
         "DOPISANE 13.09.2026 przy 6.D193: zdanie o tym, że KN-5b wyszła ZIELONA, bo "

@@ -3801,3 +3801,145 @@ def test_czytnik_wyzwalaczy_radzi_sobie_z_kluczem_on_ktory_jest_wartoscia_logicz
     assert "tools/" in _cialo_z_tekstu(z_krokiem), (
         "`tools/` w kroku `run:` NIE policzone jako wykonanie: %r"
         % _cialo_z_tekstu(z_krokiem))
+
+
+# --- 6.D194: dziewięć retencji, jedna z zapisanym sensem ----------------------------
+#
+# **Pole „Skąd" tej pozycji podawało rozkład, który się nie sumuje: „30 dni dla czasu
+# zestawu, po 14 dla PIĘCIU workflowów i po 7 dla dwóch" — czyli osiem miejsc przy
+# dziewięciu deklarowanych.** Zmierzone: **14 występuje SZEŚĆ razy**. Szósty krok stoi
+# w `godot-first-run.yml` (plik ma 96 KB, krok w okolicy wiersza 1536) i został przy
+# liczeniu pominięty. Błąd wszedł do drzewa z `reports/6d164-artefakt-okno-ruchome.md`
+# i stamtąd do dwóch miejsc w `docs/TASKS.md`.
+#
+# **Bramka liczy rozkład z YAML-a, a nie z prozy**, więc następny krok wynoszący artefakt
+# musi zostać rozstrzygnięty, zamiast wejść po cichu.
+
+#: Rozkład retencji, ZMIERZONY 13.09.2026: `{dni: ile kroków}`. Równość, bo każdy nowy
+#: krok wynoszący artefakt ma być decyzją, a nie liczbą, która się dopisała.
+RETENCJE_W_WORKFLOWACH = {30: 1, 14: 6, 7: 2}
+
+#: Po ile razy sięgnięto w historii tego repozytorium po artefakt starszy niż doba —
+#: policzone z `reports/` i `docs/TASKS.md` przy 6.D194.
+#:
+#: **Raz po METADANE, ZERO po TREŚĆ**, i to rozróżnienie jest tu całą odpowiedzią.
+#: Jedyny przypadek to 6.D164 (13.09.2026): artefakt `czas-zestawu` z przebiegu 1213
+#: (utworzony 11.09 12:42) odczytany przez API po **około dwóch dobach** — ale wyłącznie
+#: `created_at`, `expires_at`, `expired` i rozmiar. Treść artefaktu starszego niż doba
+#: nie została przeczytana **ani razu**; jedyny odczyt treści to 6.D93, tego samego dnia,
+#: w którym przebieg chodził.
+SIEGNIEC_PO_ARTEFAKT_STARSZY_NIZ_DOBA = 1
+SIEGNIEC_PO_TRESC_STARSZA_NIZ_DOBA = 0
+
+#: Rozstrzygnięcie dla KAŻDEJ z trzech wartości — powód albo zapisana granica.
+#: Pole „Wyjście" pozycji dopuszcza oba, pod warunkiem że stoi to zapisane.
+POWOD_RETENCJI = {
+    30: "ZMIERZONY SENS (6.D164): trzydzieści dni to zasięg trendu, który da się "
+        "zbudować z artefaktu czasu, i `test_timing_record` ten zasięg CZYTA z YAML-a "
+        "zamiast nosić drugą kopię. Jedyna z dziewięciu, która ma powód, a nie tylko "
+        "wartość.",
+    14: "NIE DA SIĘ ROZSTRZYGNĄĆ Z HISTORII TEGO REPOZYTORIUM, i to jest wynik pomiaru, "
+        "nie brak pomiaru: po żaden z tych sześciu artefaktów (rendery kontrolne T-010, "
+        "T-012, T-210, T-211, T-220, T-400) nie sięgnięto ANI RAZU. Wszystkie oglądane "
+        "rendery powstawały lokalnie. Ani „czternaście za mało”, ani „w sam raz” nie da "
+        "się z tego materiału pokazać — a zmiana bez pomiaru stoi w „Poza zakresem”.",
+    7: "TO SAMO, z tą samą podstawą: zero udokumentowanych sięgnięć po `t-902` "
+       "(material-style) i po `line-trace` (sim, jedyny krok pod `failure()`). Siedem "
+       "dni jest tu wartością wybraną raz i nietkniętą — co wiadomo, a czego nie da się "
+       "obalić ani potwierdzić bez pierwszego sięgnięcia.",
+}
+
+
+def kroki_wynoszace_artefakt():
+    """`[(plik, job, krok, nazwa, retencja)]` — czytane z YAML-a, nie z tekstu.
+
+    Z YAML-a, bo `grep` po `retention-days` trafiłby też w komentarz z liczbą, a ten
+    projekt ma ich w workflowach sporo.
+    """
+    out = []
+    for plik in _workflows():
+        plan = yaml.safe_load(_text(plik))
+        for nazwa_joba, job in (plan.get("jobs") or {}).items():
+            for krok in job.get("steps", []):
+                if "upload-artifact" not in str(krok.get("uses", "")):
+                    continue
+                z = krok.get("with") or {}
+                out.append((plik, nazwa_joba, krok.get("name"),
+                            z.get("name"), z.get("retention-days")))
+    return out
+
+
+def test_rozklad_retencji_zgadza_sie_z_YAMLEM_a_nie_z_proza():
+    """ODPOWIEDŹ 6.D194, połowa pierwsza: rozkład jest **14 SZEŚĆ razy**, nie pięć.
+
+    Pole „Skąd" pozycji podawało 30×1, 14×5 i 7×2 — co sumuje się do **ośmiu** przy
+    dziewięciu deklarowanych miejscach, więc było wewnętrznie sprzeczne. Liczba weszła
+    do drzewa z raportu 6.D164 i stamtąd do `docs/TASKS.md`; raportu nie przepisuję
+    (mówi o swoim dniu pomiaru), ale od teraz rozkład **liczy się z YAML-a**.
+    """
+    kroki = kroki_wynoszace_artefakt()
+    assert len(kroki) == sum(RETENCJE_W_WORKFLOWACH.values()), (
+        "kroków wynoszących artefakt jest %d, a rozkład sumuje się do %d: %s"
+        % (len(kroki), sum(RETENCJE_W_WORKFLOWACH.values()),
+           sorted((p, j) for p, j, _n, _a, _r in kroki)))
+
+    import collections
+    rozklad = collections.Counter(r for _p, _j, _n, _a, r in kroki)
+    assert dict(rozklad) == RETENCJE_W_WORKFLOWACH, (
+        "rozkład retencji to %s, a zmierzony 13.09.2026 był %s — nowy krok wynoszący "
+        "artefakt ma być ROZSTRZYGNIĘCIEM, a nie liczbą, która się dopisała"
+        % (dict(rozklad), RETENCJE_W_WORKFLOWACH))
+
+    for plik, job, krok, nazwa, retencja in kroki:
+        assert retencja is not None, (
+            "krok `%s` w `%s` (job `%s`) wynosi artefakt `%s` BEZ `retention-days` — "
+            "wtedy obowiązuje domyślna retencja repozytorium, o której ten projekt "
+            "nie powiedział ani słowa" % (krok, plik, job, nazwa))
+
+
+def test_kazda_wartosc_retencji_ma_POWOD_albo_ZAPISANA_GRANICE():
+    """ODPOWIEDŹ 6.D194, połowa druga: jedna z trzech ma sens, dwie mają granicę.
+
+    **Sięgnięć po artefakt starszy niż doba jest JEDNO w całej historii** — 6.D164,
+    `czas-zestawu` z przebiegu 1213, po około dwóch dobach — i dotyczyło wyłącznie
+    METADANYCH. Po **treść** artefaktu starszego niż doba nie sięgnięto ani razu.
+
+    Dla ośmiu pozostałych artefaktów materiału nie ma **żadnego**: zero udokumentowanych
+    sięgnięć, więc ani „za krótko", ani „w sam raz" nie da się pokazać. To jest wynik,
+    a nie brak wyniku — pole „Wyjście" pozycji dopuszcza go wprost, pod warunkiem że
+    stoi zapisany. Stoi, w `POWOD_RETENCJI`.
+    """
+    assert SIEGNIEC_PO_TRESC_STARSZA_NIZ_DOBA <= SIEGNIEC_PO_ARTEFAKT_STARSZY_NIZ_DOBA, (
+        "sięgnięć po TREŚĆ jest więcej niż po artefakt w ogóle (%d > %d) — jedno jest "
+        "podzbiorem drugiego, więc któraś liczba opisuje co innego, niż mówi"
+        % (SIEGNIEC_PO_TRESC_STARSZA_NIZ_DOBA, SIEGNIEC_PO_ARTEFAKT_STARSZY_NIZ_DOBA))
+
+    wartosci = set(RETENCJE_W_WORKFLOWACH)
+    assert set(POWOD_RETENCJI) == wartosci, (
+        "powody opisują wartości %s, a w workflowach stoją %s — wartość bez powodu "
+        "wchodzi po cichu, a powód bez wartości opisuje krok, którego nie ma"
+        % (sorted(POWOD_RETENCJI), sorted(wartosci)))
+
+    # LICZNIK OBROTÓW, nie długość słownika — lekcja z 6.D193, gdzie kontrola negatywna
+    # wyszła ZIELONA dwa razy, bo równość pilnowała słownika, a podstawienie oślepiało
+    # pętlę. Pusta pętla przechodzi każdą asercję w środku.
+    sprawdzonych = 0
+    for dni, powod in sorted(POWOD_RETENCJI.items()):
+        assert len(powod) > 120, (
+            "powód przy retencji %d dni ma %d znaków — to za mało, żeby powiedzieć "
+            "ALBO dlaczego tyle, ALBO czego zabrakło do rozstrzygnięcia"
+            % (dni, len(powod)))
+        sprawdzonych += 1
+    assert sprawdzonych == len(RETENCJE_W_WORKFLOWACH), (
+        "pętla powodów wykonała %d obrotów przy %d wartościach — pusta pętla przechodzi "
+        "każdą asercję w środku (zmierzone przy 6.D193)"
+        % (sprawdzonych, len(RETENCJE_W_WORKFLOWACH)))
+
+    # I DRUGA STRONA: jedyna wartość z POWODEM ma go mieć wykonanym, a nie opowiedzianym.
+    # `test_timing_record` czyta trzydziestkę z YAML-a; gdyby przestał, zostałby powód
+    # bez mechanizmu — czyli zdanie o wartości, której nikt nie pilnuje.
+    z_powodem = [p for p, _j, _n, _a, r in kroki_wynoszace_artefakt() if r == 30]
+    assert z_powodem == ["python-tests.yml"], (
+        "trzydziestodniową retencję ma dziś %s — powód z 6.D164 mówi o artefakcie CZASU "
+        "i o nim jednym; przy drugim kroku z tą wartością trzeba go przeliczyć"
+        % sorted(z_powodem))
