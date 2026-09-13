@@ -90,6 +90,20 @@ MASZYNY = (MASZYNA_RUNNER, MASZYNA_KONTENER)
 #: tej samej pracy, i porównywanie ich jednym progiem nie ma sensu w żadną stronę.
 #:
 #: Pomiarów się nie przelicza ani nie nadpisuje: 77,04 zostaje jako pomiar swojego dnia.
+#:
+#: **Od 6.D160 kontener ma na jednym drzewie SZEŚĆ przebiegów, nie jeden.** Ten akapit
+#: jest dopisany, a nie przepisany: zdanie wyżej o jednym przebiegu opisuje 11.09.2026
+#: i zostaje prawdą tamtego dnia. Zmierzone 13.09.2026, 124 moduły, 2414 testów:
+#:
+#:   kontener sesji, sześć przebiegów   167,402–171,842 s, CPU/ściana 0,987–0,988
+#:
+#: **Rozrzut wynosi 2,65 %, a rekord padł na przebiegu PIERWSZYM i już się nie ruszył.**
+#: Teza, z którą 6.D160 wchodziła („próg z n=1 byłby liczbą wpisaną z ręki"), jest tym
+#: obalona: `max(n=1)` i `max(n=6)` to ta sama liczba. Tym, co zestarzało
+#: `MEASURED_MAX_WALL_S = 77.04` przed 6.D26, był DRYF DRZEWA — 76,518 s przy
+#: 93 modułach wobec 170,5 s przy 124 — czterdziestokrotnie większy od rozrzutu
+#: powtórzeń, i żadną ich liczbą nienaprawialny. Rachunek robi
+#: `test_powtorzenia_kontenera_NIE_ruszaja_maksimum_a_dryf_drzewa_rusza`.
 POMIARY = (
     ("2026-09-05", 77.04, None, MASZYNA_KONTENER,
      "najwyższy z czterech przebiegów tamtej sesji; kontener DZIELONY, `ps aux` "
@@ -119,6 +133,23 @@ POMIARY = (
     ("2026-09-11", 170.685, 122, MASZYNA_KONTENER,
      "kontener sesji, maszyna spokojna, CPU/ściana 0,991 — 2335 testów; PRZEKRACZA "
      "próg 150 s i podłoga mierzalności tego nie zatrzymuje, patrz komentarz wyżej"),
+    # SZEŚĆ POWTÓRZEŃ NA JEDNYM DRZEWIE — 6.D160. Do tej pozycji kontener miał na
+    # dzisiejszym drzewie JEDEN przebieg, więc rozrzutu nie było z czego policzyć.
+    # Sześć poniżej zrobiono jedno po drugim, tym samym przyrządem, co krok CI
+    # („Run tool tests" w `python-tests.yml`): `times` przed i po, `date +%s.%N`
+    # na ścianie, CPU z `cpu_dzieci`. Czyszczenie `__pycache__` przed każdym.
+    ("2026-09-13", 171.842, 124, MASZYNA_KONTENER,
+     "kontener sesji, powtórzenie 1 z 6, CPU/ściana 0,987 — 2414 testów"),
+    ("2026-09-13", 170.788, 124, MASZYNA_KONTENER,
+     "kontener sesji, powtórzenie 2 z 6, CPU/ściana 0,988 — 2414 testów"),
+    ("2026-09-13", 170.018, 124, MASZYNA_KONTENER,
+     "kontener sesji, powtórzenie 3 z 6, CPU/ściana 0,987 — 2414 testów"),
+    ("2026-09-13", 171.500, 124, MASZYNA_KONTENER,
+     "kontener sesji, powtórzenie 4 z 6, CPU/ściana 0,988 — 2414 testów"),
+    ("2026-09-13", 167.402, 124, MASZYNA_KONTENER,
+     "kontener sesji, powtórzenie 5 z 6, CPU/ściana 0,987 — 2414 testów, NAJNIŻSZY"),
+    ("2026-09-13", 171.467, 124, MASZYNA_KONTENER,
+     "kontener sesji, powtórzenie 6 z 6, CPU/ściana 0,988 — 2414 testów"),
 )
 
 #: Pomiar, do którego bramka ma prawo się odnosić: wyłącznie z maszyny, NA KTÓREJ
@@ -416,10 +447,17 @@ def test_jeden_prog_dla_obu_maszyn_przestalby_widziec_regres_na_runnerze():
     Pytanie pola „Wyjscie" brzmialo: jeden prog dla obu maszyn, czy `werdykt`
     przyjmujacy maszyne. Odpowiadaja liczby. Prog wspolny musialby dopuszczac
     najwolniejszy pomiar kontenera z taka sama zapascia jak dzisiejszy, czyli
-    wynosic **219,9 s**. Maksimum zmierzone na RUNNERZE to **116,404 s** — prog
+    wynosic **221,4 s**. Maksimum zmierzone na RUNNERZE to **116,404 s** — prog
     wspolny stalby wiec niemal dwa razy nad nim, a bramka przestalaby zauwazac na
     runnerze regres blisko dziewiecdziesieciu procent, czyli na maszynie, dla ktorej
     w ogole istnieje. Krotnosc liczy asercja nizej, zeby nie stala w prozie.
+
+    **Liczba 221,4 jest nowa i to jest jedyna zmiana tego testu przy 6.D160.** Do
+    13.09.2026 stalo tu 219,9 s i 1,890x, policzone z maksimum kontenera 170,685 s
+    z JEDNEGO przebiegu. Szesc powtorzen tamtego dnia dalo maksimum 171,842 s, czyli
+    o 1,157 s wyzej — rozstrzygniecie 6.D149 zostaje nietkniete, bo krotnosc ruszyla
+    sie z 1,890 na 1,902. To jest zarazem pomiar tego, ile taki zapis WART jest bez
+    powtorzen: jeden przebieg podal maksimum kontenera z bledem 0,7 %.
 
     Dlatego prog zostaje JEDEN i zostaje przy runnerze, a maszyna wchodzi do
     `werdykt` nie po to, zeby trzymac drugi prog, tylko po to, zeby ODMOWIC
@@ -435,7 +473,7 @@ def test_jeden_prog_dla_obu_maszyn_przestalby_widziec_regres_na_runnerze():
     krotnosc = prog_wspolny / maks_runnera
     assert 1.85 < krotnosc < 1.95, (
         "prog wspolny wypadlby %.1f s, czyli %.3fx maksimum runnera — pomiar "
-        "z 12.09.2026 dal 219,9 s i 1,890x; jesli liczby sie ruszyly, "
+        "z 13.09.2026 dal 221,4 s i 1,902x; jesli liczby sie ruszyly, "
         "rozstrzygniecie 6.D149 trzeba przeliczyc" % (prog_wspolny, krotnosc))
 
     # I ze prog DZISIEJSZY jest wobec runnera ciasniejszy, czyli ze rozstrzygniecie
@@ -534,6 +572,112 @@ def test_runner_liczy_rownolegle_a_kontener_szeregowo():
     assert min(stosunki) > kontener * 1.5, (
         "runner przestal byc wyraznie szybszy od kontenera: %s wobec %.3f"
         % (stosunki, kontener))
+
+
+#: Sześć powtórzeń kontenera z 13.09.2026 na JEDNYM drzewie (124 moduły, 2414 testów)
+#: — 6.D160. WYPROWADZONE z `POMIARY`, nie wpisane obok drugi raz: lista jest jedynym
+#: zapisem pomiaru, a druga kopia tych liczb rozjechałaby się z nią po cichu (6.B28).
+POMIARY_KONTENERA_JEDNO_DRZEWO = tuple(
+    w for w in POMIARY if w[0] == "2026-09-13" and w[3] == MASZYNA_KONTENER)
+
+#: Ile powtórzeń niesie rozstrzygnięcie 6.D160. Pozycja pytała wprost, ILE ich trzeba
+#: i CZY tyle ich jest — więc liczba stoi w kodzie i jest pilnowana, a nie tylko
+#: opowiedziana w raporcie.
+POWTORZEN_KONTENERA = 6
+
+
+def test_powtorzenia_kontenera_NIE_ruszaja_maksimum_a_dryf_drzewa_rusza():
+    """ROZSTRZYGNIĘCIE 6.D160, policzone — i obalona teza, z którą pozycja wchodziła.
+
+    Pozycja mówiła: „próg z n=1 byłby liczbą wpisaną z ręki". **Zmierzone:
+    nieprawda.** Sześć powtórzeń na jednym drzewie różni się o 2,65 %, a rekord padł
+    na przebiegu PIERWSZYM i nie ruszył się już ani razu. `max(n=1)` i `max(n=6)` to
+    ta sama liczba, więc liczba powtórzeń nie jest tym, co czyni taki próg wpisanym
+    z ręki.
+
+    Czym jest — widać na tej samej liście: kontener spokojny mierzył 76,518 s przy
+    93 modułach i 170,5 s przy 124, czyli **dryf drzewa jest od rozrzutu powtórzeń
+    czterdziestokrotnie większy**. Tego żadna liczba powtórzeń nie naprawia, bo one
+    mierzą co innego. Dokładnie na tym poległo `MEASURED_MAX_WALL_S = 77.04` przed
+    6.D26: nie na tym, że przebieg był jeden, tylko na tym, że drzewo urosło.
+
+    Test pilnuje obu połówek, bo obie są zdaniami o liczbach, które mogą się ruszyć.
+    """
+    assert len(POMIARY_KONTENERA_JEDNO_DRZEWO) == POWTORZEN_KONTENERA, (
+        "rozstrzygniecie 6.D160 stoi na %d powtorzeniach, a lista niesie %d — "
+        "zdanie o rozrzucie stracilo podstawe"
+        % (POWTORZEN_KONTENERA, len(POMIARY_KONTENERA_JEDNO_DRZEWO)))
+
+    sciany = [w[1] for w in POMIARY_KONTENERA_JEDNO_DRZEWO]
+    rozrzut = max(sciany) / min(sciany)
+    assert rozrzut < MARGIN, (
+        "rozrzut szesciu powtorzen (%.4f) przestal miescic sie w zapasie progu "
+        "(%.4f) — wtedy maksimum JEST loteria i rozstrzygniecie 6.D160 trzeba "
+        "przeliczyc" % (rozrzut, MARGIN))
+
+    # SEDNO: przy KAZDEJ liczbie powtorzen prog zbudowany tak, jak prog runnera
+    # (maksimum razy zapas), przykrywa maksimum ze wszystkich szesciu. Czyli
+    # dolozenie przebiegow nie zmienia liczby, ktora by z tego wyszla.
+    for n in range(1, len(sciany) + 1):
+        prog_z_n = max(sciany[:n]) * MARGIN
+        assert prog_z_n >= max(sciany), (
+            "prog zbudowany z %d pierwszych powtorzen (%.3f s) nie przykrywa "
+            "maksimum z szesciu (%.3f s) — wtedy n=1 naprawde bylo za malo"
+            % (n, prog_z_n, max(sciany)))
+
+    # I ze te szesc to POMIARY KODU, a nie zajetej maszyny — inaczej rozrzut mowilby
+    # o hoscie i caly rachunek wyzej byloby o czym innym. Stosunki czytane z pola
+    # opisowego, tak samo jak dla runnera, a nie wpisane tu drugi raz.
+    stosunki = []
+    for _d, _s, _m, _maszyna, gdzie in POMIARY_KONTENERA_JEDNO_DRZEWO:
+        trafienie = re.search(r"CPU/ściana (\d+),(\d+)", gdzie)
+        assert trafienie, ("powtorzenie nie podaje stosunku CPU/ściana: " + gdzie)
+        stosunki.append(float("%s.%s" % trafienie.groups()))
+    assert min(stosunki) > MIERZALNOSC_MIN, (
+        "powtorzenie z stosunkiem %.3f lezy pod podloga %.2f — ten przebieg mowi "
+        "o maszynie, nie o kodzie, wiec do rozrzutu kodu nie nalezy"
+        % (min(stosunki), MIERZALNOSC_MIN))
+
+
+def test_prog_dla_kontenera_nie_zapalilby_sie_na_zadnym_zmierzonym_przebiegu():
+    """DRUGA połowa rozstrzygnięcia 6.D160: dałoby się go wyprowadzić, i byłby bezczynny.
+
+    Próg zbudowany tak jak runnerowy — maksimum kontenera razy ten sam zapas — wypada
+    221,4 s. Przebiegów kontenera lista niesie osiem i **ani jeden** go nie przekracza.
+    Jedyny przebieg kontenera nad tą liczbą w historii projektu to incydent
+    z 08.09.2026 (335,668 s), a ten ma stosunek CPU/ściana 0,211, czyli odpowiada mu
+    podłoga mierzalności, ZANIM próg zostanie w ogóle zapytany.
+
+    Do tego woła `werdykt` w całym drzewie jedno miejsce — krok „Run tool tests"
+    w `python-tests.yml`, a ten workflow ma `runs-on: self-hosted`. Argument `maszyna`
+    istnieje dla pomiarów spoza CI (6.D149) i żadna automatyka go nie podaje.
+
+    Dlatego kontener progu NIE dostaje: nie dlatego, że nie dałoby się go zmierzyć —
+    dałoby się — tylko dlatego, że nie zmieniłby ani jednego werdyktu, a starzałby się
+    dryfem drzewa jak ten, który 6.D26 z tego pliku usuwało.
+    """
+    # PROG LICZONY Z SZESCIU POWTORZEN, a sprawdzany na WSZYSTKICH wpisach kontenera
+    # — i ten podzial jest tu trescia, nie stylem. Wersja liczaca prog z tej samej
+    # listy, na ktorej potem szuka przekroczen, nie moze zapalic sie NIGDY: `max(L) *
+    # MARGIN` przy `MARGIN > 1` nie jest przekraczalne przez zaden element `L`.
+    # Byla tak napisana i zostala poprawiona, zanim wyszla z tej pozycji.
+    prog_hipotetyczny = max(w[1] for w in POMIARY_KONTENERA_JEDNO_DRZEWO) * MARGIN
+    kontenerowe = [w[1] for w in POMIARY if w[3] == MASZYNA_KONTENER]
+    nad_progiem = [s for s in kontenerowe if s > prog_hipotetyczny]
+    assert nad_progiem == [], (
+        "prog hipotetyczny %.3f s zapalilby sie na przebiegach %s — wtedy przestaje "
+        "byc bezczynny i rozstrzygniecie 6.D160 trzeba przeliczyc"
+        % (prog_hipotetyczny, nad_progiem))
+
+    # Incydent z 08.09.2026: NAD progiem, a mimo to nieporownywany — bo odpowiada mu
+    # podloga. Liczone `werdykt`, a nie powtorzone prozą.
+    odrzuc, komunikat = werdykt(335.668, 70.8, budget_s=prog_hipotetyczny)
+    assert 335.668 > prog_hipotetyczny, (
+        "incydent 08.09 przestal byc nad progiem hipotetycznym — wtedy ten test nie "
+        "sprawdza juz tego, co opisuje")
+    assert odrzuc is False and "nie mowi nic o kodzie" in komunikat, (
+        "jedyny przebieg kontenera nad progiem hipotetycznym zostalby przez niego "
+        "odrzucony: " + komunikat)
 
 
 #: Zdanie o marginesie i mnoznik, ktory sie w nim styka ze znacznikiem mnozenia.
