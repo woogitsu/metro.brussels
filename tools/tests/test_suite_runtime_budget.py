@@ -556,13 +556,17 @@ def test_zaden_wpis_nie_niesie_rangi_OTWARTEJ_w_tej_liscie():
     i zostały zdjęte — a `WPISOW_Z_DOPISKIEM` w `test_timing_record.py` zeszło przez
     to z jednego na zero, dokładnie tak, jak tamten komentarz to przewidywał.
 
-    **Innych list pomiarów w drzewie NIE MA, i to jest zmierzone, nie założone.**
-    Skan po `tools/tests/` szukał przypisań, których elementy są krotkami
-    zaczynającymi się od daty ISO — kształt wpisu pomiaru. Znalazł **jedną** listę:
-    tę. Szersze kryterium (krotki z opisem dłuższym niż 25 znaków) dokłada
-    `SZESC_PRZYPADKOW` z `test_field_paths.py`, ale to jest tablica przypadków bramki,
-    nie zapis przebiegów, i rangi nie niesie. Pole „Wejście" tej pozycji kazało
-    policzyć „pozostałe listy pomiarów"; odpowiedź brzmi **zero**.
+    **Innych list pomiarów w drzewie NIE MA — i od 6.D193 jest to SPRAWDZANE, a nie
+    przeczytane. Ten akapit jest przepisany, a nie dopisany obok.** Do 13.09.2026 stało
+    tu, że „skan po `tools/tests/`" znalazł jedną listę — ale tamten skan **wykonano
+    ręcznie raz i nie został w drzewie**; pod całym zdaniem nie było ani jednej linii
+    kodu. Dziś liczy je `test_ile_ksztaltow_zapisu_pomiaru_niesie_drzewo` niżej, na całym
+    `tools/`, a klasyfikator ma kontrolę przyrządu na wszystkich pięciu kształtach.
+
+    **Odpowiedź „zero" się utrzymała, ale nie była sprawdzona, tylko trafiona:** stary
+    wzorzec („krotka zaczynająca się od daty") nie mógł zobaczyć kształtu ze słownikiem,
+    a jeden taki słownik — `OPISY_Z_RANGA_DOZWOLONA` — stoi **w tym samym pliku, kilkaset
+    wierszy niżej**, i czyta go ta sama asercja, która to zdanie wypowiada.
 
     **Dlaczego wzorzec bierze superlatyw, a nie każde porównanie.** „Wolniejszy niż
     tamten" jest zdaniem o dwóch przebiegach i zostaje prawdziwe na zawsze.
@@ -1267,6 +1271,267 @@ def test_krok_ci_mierzy_czas_cpu_zestawu_a_nie_tylko_sciane():
     przed = step.index("times > ")
     start = step.index("start=$(date")
     assert przed < start, "pierwszy odczyt `times` musi stać PRZED startem pomiaru ściany"
+
+
+# --- 6.D193: ile KSZTAŁTÓW zapisu pomiaru niesie drzewo ------------------------------
+#
+# **Skąd ta sekcja.** Do 13.09.2026 zdanie „innych list pomiarów w drzewie NIE MA"
+# stało w docstringu testu wyżej i **nie miało pod sobą ani jednej linii kodu**. Skan,
+# na który się powołuje, wykonano RĘCZNIE raz, a jego wynik przepisano do prozy — czyli
+# dokładnie to, przed czym ten projekt broni się wszędzie indziej. Ta sekcja jest
+# przepisaniem tamtego zdania na bramkę, a nie dopiskiem obok.
+#
+# **Skan po dacie ISO jest ZAŁOŻENIEM O KSZTAŁCIE i dlatego klasyfikuje, a nie tylko
+# liczy.** Lista z datą w kluczu słownika albo na drugiej pozycji krotki nie zostałaby
+# przez wzorzec „krotka zaczynająca się od daty" znaleziona, a milczenie skanu wyglądałoby
+# identycznie jak brak takiej listy — rodzina 6.D159, bramka prawdziwa z pustego zbioru.
+
+#: Gdzie stoi data ISO w literale stałej. Pięć kształtów, bo tyle da się odróżnić
+#: strukturalnie; `KSZTALTY_BEZ_PRZYKLADU` mówi, których drzewo dziś nie ma.
+KSZTALT_A = "data na pozycji 0"         # krotka/lista wpisów, data pierwsza — `POMIARY`
+KSZTALT_B = "data na pozycji > 0"       # krotka/lista wpisów, data dalej
+KSZTALT_C = "data w kluczu słownika"    # `OPISY_Z_RANGA_DOZWOLONA`, `NOTATIONS`
+KSZTALT_D = "data w wartości słownika"
+KSZTALT_E = "data gdzie indziej w literale"
+
+#: Zmierzone 13.09.2026 na całym `tools/` (6.D163 skanowało tylko `tools/tests/`).
+#: Wartość to liczba stałych danego kształtu.
+KSZTALTY_W_DRZEWIE = {KSZTALT_A: 1, KSZTALT_C: 2}
+
+#: **Kształty, których drzewo NIE MA — i to jest treść, a nie dopisek.** Zero znaczy
+#: tyle, co przyrząd, który je wypisał: skan niewidzący kształtu B odpowiedziałby „zero"
+#: tak samo, jak skan widzący i nieznajdujący. Dlatego bramka niżej **wstrzykuje**
+#: literały wszystkich pięciu kształtów i żąda, żeby klasyfikator trafił w każdy.
+KSZTALTY_BEZ_PRZYKLADU = (KSZTALT_B, KSZTALT_D, KSZTALT_E)
+
+#: Ile stałych modułowych pod `tools/` niesie JAKĄKOLWIEK datę ISO w literale — górne
+#: ograniczenie na „coś, co może być zapisem pomiaru". **Siedem, i te dwie liczby opisują
+#: DWIE RÓŻNE populacje, co pomyliłem przy pierwszym podejściu:** kontenerów (krotka,
+#: lista, słownik) jest **trzy** i tylko one dają się sklasyfikować po położeniu daty;
+#: pozostałe cztery to dwa widoki `POMIARY` odcięte datą (`POMIARY_RUNNERA_11_09`,
+#: `POMIARY_KONTENERA_JEDNO_DRZEWO` — wyrażenia, nie literały) i dwa skalary
+#: (`AS_OF`, `DZIEN_PIERWSZEGO_WYNOSZENIA`). Widok nie jest osobnym zapisem, a skalar
+#: nie jest listą — ale **oba niosą datę i oba musi widzieć skan**, inaczej „siedem"
+#: byłoby liczbą bez przedmiotu.
+STALYCH_Z_DATA_ISO = 7
+
+#: Ile z tych siedmiu to KONTENERY, czyli jedyne, którym kształt w ogóle przysługuje.
+KONTENEROW_Z_DATA_ISO = 3
+
+#: **GRANICA TEGO SKANU, wypisana, bo jest jego najważniejszą częścią (6.D193).**
+#: Kryterium daty w literale nie jest pełnym sitem na zapisy pomiarów, i to jest
+#: **zmierzone, nie przewidziane**: z trzech stałych, które pozycja 6.D193 wymieniła
+#: jako kandydatki, **dwie nie mają daty ISO nigdzie w literale**.
+#: `SZESC_PRZYPADKOW` (`test_field_paths.py`) niesie numery pozycji, nie daty;
+#: `POMIARY_BRAKOW` (`test_readme_claims.py`) **JEST zapisem pomiaru** („Zmierzone
+#: 10.09.2026 na `a202423`"), ale ta data stoi w komentarzu `#:` i w notacji polskiej,
+#: więc nie widzi jej ŻADNE kryterium oparte na dacie w literale — niezależnie od jej
+#: położenia. Zarzut pozycji dotyczył położenia daty; pomiar pokazał dziurę większą.
+#:
+#: **Ta stała jest SPRAWDZANA WOBEC DRZEWA, a nie tylko wymieniana, i to jest poprawka
+#: po zielonej kontroli negatywnej (KN-5).** Pierwsza wersja miała pętlę „dla każdej
+#: nazwy w tym słowniku sprawdź, że skan jej nie widzi" — i opróżnienie słownika
+#: **nic nie zmieniało**, bo pętla po pustym zbiorze wykonuje się zero razy. Granica
+#: była wtedy prozą w przebraniu asercji. Dziś każda pozycja ma podany moduł, a bramka
+#: żąda, żeby stała tam NAPRAWDĘ była i żeby w jej literale NAPRAWDĘ nie było daty —
+#: plus równości na liczbie pozycji, żeby skreślenie wpisu nie przeszło po cichu.
+STALE_BEZ_DATY_W_LITERALE = {
+    "SZESC_PRZYPADKOW": (
+        "tools/tests/test_field_paths.py",
+        "tablica przypadków bramki; numery pozycji (`6.D59`), nie daty"),
+    "POMIARY_BRAKOW": (
+        "tools/tests/test_readme_claims.py",
+        "ZAPIS POMIARU, ale data stoi w komentarzu `#:`, nie w literale"),
+}
+
+#: Ile granic sita daty jest wymienionych. Równość, bo skreślenie granicy ma zapalać.
+GRANIC_SITA_DATY = 2
+
+_DATA_ISO = re.compile(r"\d{4}-\d{2}-\d{2}")
+
+
+def _stala_w_module(sciezka, nazwa):
+    """Literał przypisany stałej `nazwa` w module `sciezka`, albo `None`."""
+    import ast
+
+    with open(sciezka, encoding="utf-8") as uchwyt:
+        drzewo = ast.parse(uchwyt.read())
+    for wezel in drzewo.body:
+        if isinstance(wezel, ast.Assign) and any(
+                getattr(cel, "id", None) == nazwa for cel in wezel.targets):
+            return wezel.value
+    return None
+
+
+def _ksztalt_literalu(wezel):
+    """Kształt literału stałej albo `None`, gdy daty ISO w nim nie ma.
+
+    Klasyfikuje po POŁOŻENIU daty, bo to właśnie położenie odróżnia zapis, który stary
+    wzorzec widział, od zapisu, którego by nie zobaczył.
+    """
+    import ast
+
+    if not isinstance(wezel, (ast.Tuple, ast.List, ast.Dict)):
+        return None
+    if not _DATA_ISO.search(ast.unparse(wezel)):
+        return None
+
+    if isinstance(wezel, ast.Dict):
+        for klucz in wezel.keys:
+            if klucz is not None and _DATA_ISO.search(ast.unparse(klucz)):
+                return KSZTALT_C
+        return KSZTALT_D
+
+    for element in wezel.elts:
+        if not isinstance(element, (ast.Tuple, ast.List)) or not element.elts:
+            continue
+        for i, pole in enumerate(element.elts):
+            if _DATA_ISO.search(ast.unparse(pole)):
+                return KSZTALT_A if i == 0 else KSZTALT_B
+    return KSZTALT_E
+
+
+def stale_z_data_iso():
+    """`[(plik, wiersz, nazwa, kształt)]` — stałe modułowe pod `tools/` z datą ISO.
+
+    `kształt` jest `None` dla wszystkiego, co nie jest kontenerem: skalara i wyrażenia.
+    **Wchodzą do wyniku mimo to**, bo górna granica „co może być zapisem pomiaru" ma
+    obejmować także je — inaczej skan odpowiadałby na węższe pytanie, niż zadano.
+
+    Przez `tree_walk.walk`, bo to jedyne przejście honorujące `.gitignore` w tym
+    projekcie; własny `os.walk` wchodziłby w `build/` i `__pycache__`.
+    """
+    import ast
+    import tree_walk as tw
+
+    nazwa_stalej = re.compile(r"^[A-Z][A-Z0-9_]{3,}$")
+    out = []
+    for baza, _kat, pliki in tw.walk(os.path.join(ROOT, "tools")):
+        for plik in sorted(pliki):
+            if not plik.endswith(".py"):
+                continue
+            sciezka = os.path.join(baza, plik)
+            with open(sciezka, encoding="utf-8", errors="replace") as uchwyt:
+                try:
+                    drzewo = ast.parse(uchwyt.read())
+                except SyntaxError:
+                    continue
+            for wezel in drzewo.body:
+                if not isinstance(wezel, ast.Assign):
+                    continue
+                for cel in wezel.targets:
+                    nazwa = getattr(cel, "id", None)
+                    if not nazwa or not nazwa_stalej.match(nazwa):
+                        continue
+                    if not _DATA_ISO.search(ast.unparse(wezel.value)):
+                        continue
+                    out.append((os.path.relpath(sciezka, ROOT), wezel.lineno, nazwa,
+                                _ksztalt_literalu(wezel.value)))
+    return out
+
+
+def test_klasyfikator_ksztaltow_TRAFIA_W_KAZDY_Z_PIECIU():
+    """Kontrola PRZYRZĄDU na wejściu syntetycznym — bez niej „zero" nic nie znaczy.
+
+    Drzewo ma dziś kształty A i C, a B, D i E **nie ma ani jednego**. Skan, który
+    kształtu B nie umiałby zobaczyć, odpowiedziałby na nie „zero" **tak samo**, jak skan
+    umiejący. To jest rodzina 6.D159 — bramka prawdziwa z pustego zbioru — i jedyną
+    obroną jest literał zbudowany na tę okazję.
+    """
+    import ast
+
+    probki = {
+        KSZTALT_A: '(("2026-09-11", 1.0, "cos"),)',
+        KSZTALT_B: '(("cos", "2026-09-11", 1.0),)',
+        KSZTALT_C: '{"2026-09-11": "powod"}',
+        KSZTALT_D: '{"klucz": "zmierzone 2026-09-11"}',
+        KSZTALT_E: '("2026-09-11", "plaska krotka bez zagniezdzenia")',
+    }
+    for spodziewany, zrodlo in sorted(probki.items()):
+        dostany = _ksztalt_literalu(ast.parse(zrodlo, mode="eval").body)
+        assert dostany == spodziewany, (
+            "klasyfikator na literale %s dał %r zamiast %r — kształt, którego nie umie "
+            "zobaczyć, wygląda w wyniku identycznie jak kształt, którego nie ma"
+            % (zrodlo, dostany, spodziewany))
+
+    for milczy in ('(("cos", 1.0),)', '{"klucz": "11.09.2026"}'):
+        assert _ksztalt_literalu(ast.parse(milczy, mode="eval").body) is None, (
+            "klasyfikator zapalił się na literale bez daty ISO: %s — wtedy liczby niżej "
+            "mówią o czymś innym, niż mówią, że mówią" % milczy)
+
+
+def test_ile_ksztaltow_zapisu_pomiaru_niesie_drzewo():
+    """ODPOWIEDŹ 6.D193: „innych list pomiarów nie ma" przestaje wisieć na odczycie.
+
+    Zdanie zostaje prawdziwe po zdjęciu założenia o kształcie — ale **nie było
+    sprawdzone, tylko trafione**: stary skan nie mógł zobaczyć kształtu C, a jeden
+    słownik tego kształtu (`OPISY_Z_RANGA_DOZWOLONA`) stoi **w tym samym pliku, kilkaset
+    wierszy pod `POMIARY`**, i czyta go ta sama asercja, która tamto zdanie wypowiada.
+    """
+    znalezione = stale_z_data_iso()
+    assert len(znalezione) == STALYCH_Z_DATA_ISO, (
+        "stałych modułowych z datą ISO w literale jest %d przy zapadce %d: %s"
+        % (len(znalezione), STALYCH_Z_DATA_ISO,
+           sorted((p, n) for p, _w, n, _k in znalezione)))
+
+    import collections
+    kontenery = [w for w in znalezione if w[3] is not None]
+    assert len(kontenery) == KONTENEROW_Z_DATA_ISO, (
+        "kontenerów z datą ISO jest %d przy zapadce %d: %s — tylko im przysługuje "
+        "kształt, więc ta liczba i `STALYCH_Z_DATA_ISO` opisują dwie różne populacje"
+        % (len(kontenery), KONTENEROW_Z_DATA_ISO,
+           sorted((p, n) for p, _w, n, _k in kontenery)))
+
+    rozklad = collections.Counter(k for _p, _w, _n, k in kontenery)
+    assert dict(rozklad) == KSZTALTY_W_DRZEWIE, (
+        "rozkład kształtów to %s, a zmierzony 13.09.2026 był %s — kształt, który doszedł, "
+        "trzeba rozstrzygnąć: zapis przebiegów czy tablica przypadków"
+        % (dict(rozklad), KSZTALTY_W_DRZEWIE))
+
+    for pusty in KSZTALTY_BEZ_PRZYKLADU:
+        assert pusty not in rozklad, (
+            "kształt `%s` przestał być pusty — a to jest ten, którego stary wzorzec "
+            "by NIE ZOBACZYŁ" % pusty)
+
+    # GRANICA: kryterium daty w literale nie jest pełnym sitem. Dwie stałe wymienione
+    # w pozycji nie mają daty ISO nigdzie w literale, a jedna z nich JEST zapisem pomiaru.
+    #
+    # Sprawdzane WOBEC DRZEWA, nie wymieniane: pętla po samym słowniku wychodziła zielona
+    # po jego opróżnieniu (KN-5), bo zero obrotów przechodzi każdą asercję w środku.
+    assert len(STALE_BEZ_DATY_W_LITERALE) == GRANIC_SITA_DATY, (
+        "granic sita daty wymieniono %d przy zapadce %d — skreślenie granicy ma zapalać "
+        "bramkę, a nie wygaszać ją przez brak obrotów pętli"
+        % (len(STALE_BEZ_DATY_W_LITERALE), GRANIC_SITA_DATY))
+
+    nazwy = {n for _p, _w, n, _k in znalezione}
+    # LICZNIK OBROTÓW, nie długość słownika — poprawka po KN-5b (rodzina `Take(0)`
+    # z 6.D188). Równość wyżej pilnuje SŁOWNIKA i przechodzi, gdy ktoś oślepi PĘTLĘ;
+    # dopiero ten licznik wiąże jedno z drugim.
+    sprawdzonych = 0
+    for nazwa, (modul, powod) in sorted(STALE_BEZ_DATY_W_LITERALE.items()):
+        assert nazwa not in nazwy, (
+            "`%s` stała się widoczna dla kryterium daty w literale — granica zapisana "
+            "przy 6.D193 („%s”) przestała obowiązywać i trzeba ją przeliczyć"
+            % (nazwa, powod))
+        assert len(powod) > 40, (nazwa, powod)
+
+        # I DRUGA STRONA: stała ma w tym module NAPRAWDĘ stać, a jej literał NAPRAWDĘ
+        # nie nieść daty. Bez tego „skan jej nie widzi" byłoby prawdą także o stałej,
+        # której nie ma — czyli zdaniem o niczym.
+        wezel = _stala_w_module(os.path.join(ROOT, modul), nazwa)
+        assert wezel is not None, (
+            "`%s` nie stoi już w `%s` — granica opisuje stałą, której nie ma, więc "
+            "„skan jej nie widzi” przestało cokolwiek znaczyć" % (nazwa, modul))
+        import ast
+        assert not _DATA_ISO.search(ast.unparse(wezel)), (
+            "`%s` w `%s` NIESIE dziś datę ISO w literale — granica z 6.D193 mówiła, że "
+            "nie niesie, i to jest właśnie ta zmiana, którą miała złapać" % (nazwa, modul))
+        sprawdzonych += 1
+
+    assert sprawdzonych == GRANIC_SITA_DATY, (
+        "pętla granic wykonała %d obrotów przy %d wymienionych — pusta pętla przechodzi "
+        "każdą asercję w środku, więc bez tego licznika granica jest prozą w przebraniu "
+        "asercji (zmierzone: KN-5b wyszła ZIELONA)" % (sprawdzonych, GRANIC_SITA_DATY))
 
 
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
