@@ -107,6 +107,10 @@ POZA_DRZEWEM = {
     ("test_mutation_sweep.py",
      "test_a_remembered_map_from_another_commit_is_refused", "os.replace"):
         "mapa przenoszona pod inną nazwę wewnątrz katalogu tymczasowego",
+    ("test_mutation_sweep.py", "_dwaj_pisarze", "os.replace"):
+        "wejście syntetyczne 6.D191: OBA `os.replace` idą na ścieżki zbudowane "
+        "w `tempfile.TemporaryDirectory`, a drugie z nich ma prawo paść na "
+        "`FileNotFoundError` — to jest mierzona połowa usterki, nie zapis do drzewa",
     ("test_provenance_classes.py",
      "test_dokument_definiujacy_status_bramki_nie_zapala", "shutil.copy"):
         "dokument modelu kopiowany do drzewa PROBNEGO w katalogu tymczasowym — "
