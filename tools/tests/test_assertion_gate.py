@@ -1198,7 +1198,7 @@ RODZINA_UBEZPIECZENIA = re.compile(
 #: Ile zdań rodziny stoi w `tools/tests/`. Zapadka RÓWNOŚCIOWA, nie minimum:
 #: dopisanie zdania ma zmusić do rozstrzygnięcia, czy niesie pokrycie, a nie
 #: przejść samo.
-ZDAN_RODZINY_RAZEM = 23
+ZDAN_RODZINY_RAZEM = 24
 
 #: **Wszystkie zdania rodziny, przeczytane po kolei, w DWÓCH workach** —
 #: `(plik, zakres) -> powód`. **Liczby w tym zdaniu NIE MA i to jest wybór po pomiarze
@@ -1290,6 +1290,15 @@ Z_WEJSCIEM_SYNTETYCZNYM = {
 #: „zjawiska nie odtworzono". Pozostałe cztery to: twierdzenie poprawione, mechanizm
 #: dołożony bez możliwego wejścia, pokrycie inne niż syntetyczne, mechanizm nieprzyjęty.
 BEZ_WEJSCIA_SYNTETYCZNEGO = {
+    ("tools/tests/test_csharp_test_methods.py",
+     "test_ktora_galaz_jest_BEZCZYNNA_i_gdzie"):
+        "DOPISANE 13.09.2026 przy 6.D201. Wejścia syntetycznego mieć NIE MOŻE, bo "
+        "twierdzenie jest o DRZEWIE: „żadna z sześciu gałęzi nie ma udziału zerowego”. "
+        "Przyrządem są tu stałe `ROZKLAD_POSTACI`, a sprawdza je test OBOK "
+        "(`test_rozklad_SZESCIU_postaci_literalu_zgadza_sie_z_drzewem`) — i to jego "
+        "ćwiczą KN-1 (literał werbatim dopisany do `src/`) oraz KN-4b (siódma nazwa "
+        "w `POSTACIE`). Ten test czyta wyłącznie liczby już zweryfikowane, więc "
+        "własnego wejścia nie ma czego zbudować",
     ("tools/tests/test_conflict_markers.py",
      "test_gita_o_liste_plikow_pyta_DOKLADNIE_tyle_modulow_ile_wymieniono"):
         "DOPISANE 13.09.2026 przy 6.D165, i ta bramka je z\u0142apa\u0142a nazajutrz po "
@@ -1330,7 +1339,7 @@ BEZ_WEJSCIA_SYNTETYCZNEGO = {
 #: z tego worka nie dlatego, że ktoś je przeredagował, tylko dlatego, że zjawisko, od
 #: którego rzekomo ubezpieczały, **zostało odtworzone**: pięć prób z 6.D106 pisało dwa
 #: razy tę samą mapę i mierzyło nie tę zmienną. Liczby: `reports/6d191-nie-ta-zmienna.md`.
-ZDAN_BEZ_POKRYCIA = 8
+ZDAN_BEZ_POKRYCIA = 9
 
 
 def _moduly_do_skanu_rodziny():
@@ -1505,13 +1514,21 @@ def test_wzorzec_rodziny_lapie_zdanie_ktore_ma_lapac_i_nie_bierze_sasiedztwa():
 #: Jest strażnikiem listy niżej: nowa bramka tego kształtu rusza tę liczbę, więc nie
 #: da się dopisać trzydziestej drugiej po cichu.
 #:
+#: **850 -> 852 (13.09.2026, 6.D201), z powodem.** Doszły dwie asercje
+#: w `test_csharp_test_methods.py`, obie w `test_klasy_literalow_i_maska_ida_TYM_SAMYM_przebiegiem`:
+#: `assert "zwykly" not in zamaskowane` i `assert "var a =" in zamaskowane`. Do listy
+#: `NA_ZRODLE_PY` NIE należą, bo nie czytają żadnego źródła — `zamaskowane` jest
+#: WYNIKIEM WYWOŁANIA `maska()` na wejściu syntetycznym z tego samego testu. Stoją więc
+#: na ZACHOWANIU, i to na zachowaniu najostrzej postawionym: jedna pyta, czy literał
+#: ZNIKA, druga — czy kod ZOSTAJE. Bez tej pary „maska działa" znaczyłoby „coś zwróciła".
+#:
 #: **849 -> 850 (13.09.2026, 6.D200), z powodem.** Doszła jedna asercja
 #: w `test_csharp_test_methods.py`: `assert "{}" in oczekiwana`. Do listy `NA_ZRODLE_PY`
 #: NIE należy, bo nie czyta żadnego źródła — `oczekiwana` jest literałem z tabeli
 #: `POSTACIE_LITERALU` w tym samym module. Stoi na ZACHOWANIU własnego testu: pilnuje,
 #: żeby oczekiwana maska NIOSŁA KLAMRY, bo maska bez klamr przeszłaby także u czytnika,
 #: który połyka resztę pliku — czyli jest to strażnik wyroczni, a nie odczyt tekstu.
-ASERCJI_NAPISOWYCH_RAZEM = 850
+ASERCJI_NAPISOWYCH_RAZEM = 852
 
 #: **Kotwica wpisu to `(plik, funkcja, operator, literał)`, a NIE numer wiersza.**
 #: Numer przesuwa się przy każdej edycji pliku i lista rozjechałaby się sama z siebie.

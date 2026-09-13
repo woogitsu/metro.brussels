@@ -316,6 +316,128 @@ def test_ile_zapisow_WERBATIM_POTROJNYCH_ma_drzewo():
                               ", ".join(trafienia)))
 
 
+#: Rozklad literalow napisowych po SZESCIU postaciach `maska()`. ZMIERZONE
+#: 13.09.2026 (6.D201) tym samym `_przebieg`, ktory maskuje — nie drugim czytnikiem.
+#:
+#: **Docstring `maska()` mowil o CZTERECH postaciach „wystepujacych w tests/" i to
+#: zdanie bylo NIEPELNE, a nie nieaktualne.** Dwie postacie, ktorych nie wymienialo,
+#: wystepuja: werbatim interpolowany (1 raz) i surowy interpolowany z przedrostkiem
+#: podwojnego dolara (14 razy). Ta druga jest liczniejsza od surowego bez przedrostka.
+ROZKLAD_POSTACI = {
+    "tests": {
+        "zwykly": 3512,
+        "interpolowany ($)": 633,
+        "werbatim (@)": 42,
+        "surowy interpolowany ($$\"\"\")": 13,
+        "surowy (\"\"\")": 7,
+        "werbatim interpolowany ($@)": 1,
+    },
+    "src": {
+        "zwykly": 1223,
+        "interpolowany ($)": 446,
+        "werbatim (@)": 0,
+        "surowy interpolowany ($$\"\"\")": 1,
+        "surowy (\"\"\")": 1,
+        "werbatim interpolowany ($@)": 0,
+    },
+}
+
+#: Galezie o udziale ZEROWYM — i to jest polowa pytania 6.D201, wiec stoi osobno.
+#: **W calym korpusie nie ma ani jednej.** W samym `src/` sa DWIE: werbatim i werbatim
+#: interpolowany. Rdzen i warstwa gry nie pisza wyrazen regularnych, a to jedyne
+#: miejsce, gdzie werbatim jest w tym drzewie uzywany — wszystkie 42 wystapienia
+#: z `tests/` to wzorce `Regex`.
+BEZ_UDZIALU_W_SRC = ("werbatim (@)", "werbatim interpolowany ($@)")
+
+
+def test_rozklad_SZESCIU_postaci_literalu_zgadza_sie_z_drzewem():
+    # **Cztery liczby zadane przez pole „Wyjscie" 6.D201 sa tu SZEŚCIOMA i to jest
+    # odpowiedz, a nie rozszerzenie zakresu:** postaci, ktore `maska` rozroznia,
+    # jest szesc, wiec cztery liczby opisalyby cztery z nich i przemilczaly dwie.
+    #
+    # Liczone `czytnik.klasy_literalow`, czyli tym samym `_przebieg`, ktorym chodzi
+    # `maska` — bramka liczaca wlasnym rozbiorem mowilaby o sobie (rodzina 6.D27).
+    import collections
+    import tree_walk
+
+    sprawdzonych = 0
+    for korzen, oczekiwany in sorted(ROZKLAD_POSTACI.items()):
+        licznik = collections.Counter()
+        pliki_cs = tree_walk.znajdz(korzen, "*.cs", root=czytnik.ROOT)
+        assert len(pliki_cs) > 20, (
+            "pod `%s/` widac %d plikow `.cs` — korpus sie zwezil i liczby nizej "
+            "opisuja co innego niz w dniu pomiaru" % (korzen, len(pliki_cs)))
+        for sciezka in pliki_cs:
+            with open(sciezka, encoding="utf-8") as handle:
+                licznik.update(czytnik.klasy_literalow(handle.read()))
+        widziane = {postac: licznik.get(postac, 0) for postac in czytnik.POSTACIE}
+        assert widziane == oczekiwany, (
+            "rozklad postaci pod `%s/` to %s, a zmierzono %s"
+            % (korzen, widziane, oczekiwany))
+        sprawdzonych += 1
+
+    assert sprawdzonych == len(ROZKLAD_POSTACI), (
+        "petla po korzeniach wykonala sie %d razy zamiast %d — wtedy rownosci wyzej "
+        "nie porownuja wszystkiego (rodzina 6.D193)"
+        % (sprawdzonych, len(ROZKLAD_POSTACI)))
+
+    # KONTROLA PRZYRZADU: kazda z szesciu postaci MA nazwe w `POSTACIE` i kazda
+    # nazwa z `POSTACIE` stoi w obu rozkladach. Bez tego dopisanie siodmej galezi
+    # do `_przebieg` przeszloby cicho, bo `licznik.get(..., 0)` jej nie zobaczy.
+    for korzen, oczekiwany in ROZKLAD_POSTACI.items():
+        assert sorted(oczekiwany) == sorted(czytnik.POSTACIE), (
+            "rozklad pod `%s/` wymienia %s, a `POSTACIE` — %s; siodma galaz "
+            "policzylaby sie jako zero i nikt by jej nie zobaczyl"
+            % (korzen, sorted(oczekiwany), sorted(czytnik.POSTACIE)))
+
+
+def test_ktora_galaz_jest_BEZCZYNNA_i_gdzie():
+    # **Galaz o udziale zerowym ma byc WIDOCZNA, nie domniemana** — ta sama zasada,
+    # ktora 6.D186 zastosowalo do markera `RootElement` (0 z 18) i 6.D187 do ukosnika
+    # w domknieciu wzorca. Tam wyszlo to na jaw dopiero przez kontrole negatywna,
+    # ktora wyszla ZIELONA; tutaj jest policzone wprost i przybite.
+    #
+    # **Odpowiedz: w calym korpusie ZERA nie ma ani razu**, wiec zadnej galezi nie
+    # ma po co usuwac — a pole „Poza zakresem" i tak tego zabrania. W samym `src/`
+    # zera sa DWA i obydwa na werbatim, bo werbatim sluzy w tym drzewie wylacznie
+    # do wzorcow `Regex`, a te stoja w testach.
+    puste_w_src = tuple(sorted(
+        postac for postac, ile in ROZKLAD_POSTACI["src"].items() if ile == 0))
+    assert puste_w_src == tuple(sorted(BEZ_UDZIALU_W_SRC)), (
+        "galezie bez udzialu w `src/` to dzis %s, a wpisano %s"
+        % (puste_w_src, tuple(sorted(BEZ_UDZIALU_W_SRC))))
+
+    for postac in czytnik.POSTACIE:
+        razem = (ROZKLAD_POSTACI["tests"][postac] + ROZKLAD_POSTACI["src"][postac])
+        assert razem > 0, (
+            "postac `%s` ma udzial ZEROWY w calym korpusie — wtedy jej galaz w "
+            "`_przebieg` jest bezczynna i to ma stac napisane, a nie byc domniemane "
+            "(6.D201). Galezi mimo to NIE USUWAJ: zero dzis nie znaczy zero jutro, "
+            "a galaz usunieta jest galezia, ktorej nikt nie przywroci przy pierwszym "
+            "nowym literale" % postac)
+
+
+def test_klasy_literalow_i_maska_ida_TYM_SAMYM_przebiegiem():
+    # Bez tego oba czytniki moglyby sie rozejsc po cichu, a wtedy rozklad wyzej
+    # opisywalby jeden rozbior, a maskowanie robilby drugi — dokladnie ta rozbieznosc,
+    # ktora 6.D27 nazywa „bramka mierzy cos innego, niz twierdzi".
+    zrodlo = ('var a = "zwykly"; var b = $"interp {x}"; var c = @"werb\\at";\n'
+              '// komentarz z "napisem"\n'
+              'var d = $@"werb interp {y}";\n')
+    klasy = czytnik.klasy_literalow(zrodlo)
+    assert klasy == ["zwykly", "interpolowany ($)", "werbatim (@)",
+                     "werbatim interpolowany ($@)"], klasy
+
+    # Komentarz NIE wnosi literalu — cztery, nie piec.
+    assert len(klasy) == 4, klasy
+
+    # I ta sama tresc po masce: literaly znikaja, kod zostaje, dlugosc sie nie zmienia.
+    zamaskowane = czytnik.maska(zrodlo)
+    assert len(zamaskowane) == len(zrodlo), (len(zamaskowane), len(zrodlo))
+    assert "zwykly" not in zamaskowane, zamaskowane
+    assert "var a =" in zamaskowane, zamaskowane
+
+
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
 # z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
 # tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
