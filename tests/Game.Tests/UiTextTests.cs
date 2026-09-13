@@ -3206,4 +3206,153 @@ public sealed class UiTextTests
             + string.Join(" | ", zagniezdzony));
     }
 
+
+    // --- 6.D197: ile switchy po wyliczeniu ma src/Game/ ----------------------------
+    //
+    // ODPOWIEDŹ: JEDEN, i jest nim `FirstRun.Faza` — ten sam, który 6.D185 przybiło
+    // ręcznie. Bramka z 6.D185 nie jest próbką z większego zbioru; JEST CAŁYM ZBIOREM
+    // dla `src/Game/`.
+    //
+    // **Przesłanka pozycji nie trzymała się co do obu przykładów, które wymieniała.**
+    // `ViewKind`: switch w `RunPlan.cs` idzie po NAPISIE (`Argument(…) ?? "cab"`),
+    // a jego ramiona to literały `"chase"/"outside"/"inspect"` — to nie jest switch
+    // po wyliczeniu, i jest to dokładnie to trafienie fałszywe, które 6.D185 wpisało
+    // do `FalszyweTrafieniaSkanu` jako `RunPlan.cs:view`. `ProtectionVariant`: jego
+    // switch stoi w `src/Sim/SignallingPlan.cs`, poza korpusem tej pozycji.
+    //
+    // **Bramki uogólnionej NIE MA i to jest rozstrzygnięcie, nie zaniechanie.** Pole
+    // „Dlaczego «uogólnić bramkę» NIE jest odpowiedzią domyślną" tej pozycji ostrzega
+    // przed sitem, które nic nie chroni; przy jednym wystąpieniu uogólnienie nie miałoby
+    // nad czym uogólniać. Zostaje **liczba**: gdy pojawi się drugi switch po wyliczeniu,
+    // ta asercja go pokaże, a wtedy dopiero jest o czym rozstrzygać.
+    private const int SwitchyPoWyliczeniuWGame = 1;
+
+    // Wszystkie konstrukty `switch` w `src/Game/`, z rozstrzygnięciem. Liczba jest tu
+    // DRUGA, bo „jeden po wyliczeniu" nie mówi nic o tym, ile ich jest w ogóle — a to
+    // właśnie ta różnica pozwala odróżnić „skan nie znalazł" od „nie ma".
+    private const int SwitchyWGameRazem = 2;
+
+    // Postać instrukcyjna (`switch (x) { case …: default: }`) NIE WYSTĘPUJE w src/Game/
+    // ani razu. Zero jest tu wypisane, bo skan, który tej postaci nie widzi, odpowiada
+    // na nią zerem tak samo jak skan widzący — rodzina 6.D159. Kontrola przyrządu niżej
+    // sprawdza, że czytnik ją rozpoznaje na wejściu syntetycznym.
+    private const int SwitchyInstrukcyjnychWGame = 0;
+
+    private static List<string> PlikiGry() =>
+        PlikiZrodlowe()
+            .Where(p => p.Split(Path.DirectorySeparatorChar).Contains("Game"))
+            .ToList();
+
+    // `(plik, nazwa przełączanego wyrażenia, czy po wyliczeniu)` dla każdego `switch`-a.
+    // Czyta źródło BEZ komentarzy, bo słowo `switch` w komentarzu nie jest switchem.
+    private static List<(string Plik, string Na, bool PoWyliczeniu)> SwitcheGry()
+    {
+        var typy = new HashSet<string>(WyliczeniaZrodel().Keys, StringComparer.Ordinal);
+        var znalezione = new List<(string, string, bool)>();
+        foreach (var sciezka in PlikiGry())
+        {
+            var kod = KodBezKomentarzyDlaStaregoCzytnika(File.ReadAllText(sciezka));
+            foreach (Match m in Regex.Matches(kod, @"(\w+)\s+switch\s*\{"))
+            {
+                var ogon = kod.Substring(m.Index + m.Length);
+                var koniec = ogon.IndexOf('}');
+                var cialo = koniec < 0 ? ogon : ogon.Substring(0, koniec);
+                // Po WYLICZENIU rozstrzyga KSZTAŁT RAMION, a nie nazwa zmiennej:
+                // `view` jest nazwą, pod którą w `src/` stoi też wartość `ViewKind`,
+                // więc rozstrzyganie po nazwie daje tu trafienie fałszywe — zmierzone
+                // przy 6.D185 i wpisane tam do `FalszyweTrafieniaSkanu`.
+                var poWyliczeniu = typy.Any(t =>
+                    Regex.IsMatch(cialo, @"\b" + Regex.Escape(t) + @"\.\w+\s*=>"));
+                znalezione.Add((Path.GetFileName(sciezka), m.Groups[1].Value, poWyliczeniu));
+            }
+            foreach (Match m in Regex.Matches(kod, @"\bswitch\s*\([^)]*\)\s*\{"))
+            {
+                znalezione.Add((Path.GetFileName(sciezka), "(instrukcja)", true));
+            }
+        }
+        return znalezione;
+    }
+
+    [TestMethod]
+    public void Ile_switchy_po_wyliczeniu_ma_src_Game_i_czy_Faza_jest_wsrod_nich()
+    {
+        var switche = SwitcheGry();
+        Assert.AreEqual(SwitchyWGameRazem, switche.Count,
+            $"konstruktów `switch` w `src/Game/` jest {switche.Count}, a zmierzono "
+            + $"{SwitchyWGameRazem}: "
+            + string.Join(", ", switche.Select(s => $"{s.Plik}:{s.Na}")));
+
+        var instrukcyjne = switche.Count(s => s.Na == "(instrukcja)");
+        Assert.AreEqual(SwitchyInstrukcyjnychWGame, instrukcyjne,
+            $"postaci instrukcyjnej `switch (x) {{ case … }}` jest {instrukcyjne}, "
+            + "a zmierzono zero — doszła postać, której ta sekcja nie rozstrzygała");
+
+        var poWyliczeniu = switche.Where(s => s.PoWyliczeniu).ToList();
+        Assert.AreEqual(SwitchyPoWyliczeniuWGame, poWyliczeniu.Count,
+            $"switchy po wartości wyliczeniowej jest {poWyliczeniu.Count}, a zmierzono "
+            + $"{SwitchyPoWyliczeniuWGame}: "
+            + string.Join(", ", poWyliczeniu.Select(s => $"{s.Plik}:{s.Na}"))
+            + ". Drugi taki switch znaczy, że mechanizm „nowy człon = cicha zmiana "
+            + "zachowania” ma w `src/Game/` więcej niż jedno wystąpienie — i dopiero "
+            + "wtedy jest o czym rozstrzygać (6.D197)");
+
+        // KONTROLA PRZYRZĄDU, bez której liczba 1 nie znaczyłaby nic: skan MA znaleźć
+        // ten switch, który 6.D185 przybiło ręcznie. Gdyby go nie znajdował, patrzyłby
+        // nie tam, a wszystkie liczby wyżej opisywałyby pusty zbiór (6.D159).
+        Assert.IsTrue(poWyliczeniu.Any(s => s.Plik == "FirstRun.cs" && s.Na == "phase"),
+            "skan NIE ZNAJDUJE `FirstRun.Faza`, czyli switcha, który 6.D185 przybiło "
+            + "ręcznie — wtedy patrzy nie tam i liczby wyżej są o pustym zbiorze: "
+            + string.Join(", ", switche.Select(s => $"{s.Plik}:{s.Na}")));
+
+        // OBCINACZ KOMENTARZY JEST DZIŚ BEZCZYNNY I TO JEST TU SPRAWDZANE, NIE
+        // PRZEMILCZANE. Zmierzone: w `src/Game/` nie ma słowa `switch` ani w komentarzu,
+        // ani w literale, więc skan po źródle SUROWYM daje tę samą liczbę (2 wobec 2,
+        // 0 wobec 0). Kontrola negatywna zdejmująca obcinacz wychodzi przez to ZIELONA
+        // — i tak ma być, bo nie ma czego zdjąć. Ta asercja powie, kiedy przestanie:
+        // pierwsze słowo `switch` w komentarzu rozjedzie obie liczby, a wtedy obcinacz
+        // zaczyna rozstrzygać i jego zdjęcie przestaje być bez skutku.
+        var surowo = PlikiGry()
+            .Sum(s => Regex.Matches(File.ReadAllText(s), @"(\w+)\s+switch\s*\{").Count);
+        Assert.AreEqual(switche.Count(s => s.Na != "(instrukcja)"), surowo,
+            $"skan po źródle surowym daje {surowo} switchy wyrażeniowych, a po zdjęciu "
+            + "komentarzy — inną liczbę. Znaczy to, że w `src/Game/` pojawiło się słowo "
+            + "`switch` w komentarzu albo w literale: obcinacz przestał być bezczynny "
+            + "i od teraz jego zdjęcie ZMIENIA wynik (6.D197)");
+
+        // I DRUGA STRONA: `RunPlan.cs:view` ma NIE być liczony jako switch po wyliczeniu.
+        // `view` jest nazwą, pod którą w `src/` stoi też wartość `ViewKind`, więc
+        // rozstrzyganie po nazwie dałoby tu trafienie fałszywe.
+        Assert.IsFalse(switche.Any(s => s.Plik == "RunPlan.cs" && s.PoWyliczeniu),
+            "`RunPlan.cs` policzony jako switch po wyliczeniu — a jego ramiona to "
+            + "literały napisowe, bo przełącza po `Argument(…) ?? \"cab\"`. To jest "
+            + "trafienie fałszywe rodziny `RunPlan.cs:view` z 6.D185");
+    }
+
+    [TestMethod]
+    public void Czytnik_switchy_WIDZI_obie_postacie_na_wejsciu_syntetycznym()
+    {
+        // Postaci instrukcyjnej nie ma w `src/Game/` ani razu, więc korpus jej NIE
+        // ĆWICZY. Bez tego wejścia „zero postaci instrukcyjnych" nie odróżniałoby
+        // „nie ma" od „nie umiem zobaczyć" — rodzina 6.D159.
+        var wyrazenie = "X = phase switch { DoorPhase.Open => 1, _ => 0, };";
+        Assert.AreEqual(1, Regex.Matches(wyrazenie, @"(\w+)\s+switch\s*\{").Count,
+            "czytnik nie widzi postaci wyrażeniowej — a to jedyna, która stoi dziś "
+            + "w `src/Game/`");
+
+        var instrukcja = "switch (phase) { case DoorPhase.Open: break; default: break; }";
+        Assert.AreEqual(1, Regex.Matches(instrukcja, @"\bswitch\s*\([^)]*\)\s*\{").Count,
+            "czytnik nie widzi postaci instrukcyjnej — wtedy zero z "
+            + "`SwitchyInstrukcyjnychWGame` mówi o przyrządzie, a nie o drzewie");
+        Assert.AreEqual(0, Regex.Matches(instrukcja, @"(\w+)\s+switch\s*\{").Count,
+            "postać instrukcyjna policzona JAKO wyrażeniowa — wtedy dwie liczby "
+            + "opisują jeden byt i obie są nieprawdziwe");
+
+        // I że komentarz NIE jest switchem — obcinacz musi zadziałać przed skanem.
+        var wKomentarzu = KodBezKomentarzyDlaStaregoCzytnika(
+            "// tu kiedyś stało phase switch {\nvar x = 1;\n");
+        Assert.AreEqual(0, Regex.Matches(wKomentarzu, @"(\w+)\s+switch\s*\{").Count,
+            "słowo `switch` w komentarzu policzone jako switch — wtedy liczba mówi "
+            + "o prozie, a nie o kodzie");
+    }
+
 }

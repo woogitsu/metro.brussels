@@ -1647,7 +1647,7 @@ def _istnieje_w_drzewie(nazwa):
 #: `test_jaka_czesc_adresow_obejrzala_regula_kandydatow_6D146` jest odporny na ten
 #: ruch z wyboru — stoi w przedziale, nie w rownosci — i po dwoch domknieciach nadal
 #: pokazuje te sama jedna trzynasta.
-ADRESOW_W_WYKONANYCH = {"Wejście": 916, "Wyjście": 63, "Weryfikacja": 381}
+ADRESOW_W_WYKONANYCH = {"Wejście": 918, "Wyjście": 63, "Weryfikacja": 381}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 118}
