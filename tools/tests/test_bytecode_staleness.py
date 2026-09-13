@@ -777,3 +777,145 @@ def test_czytnik_sekwencji_widzi_to_co_ma_i_nie_widzi_tego_czego_nie_ma():
         znalezione, moduly, nieparsowalne = sekwencje_ucieczki(katalog)
         assert moduly == 1 and znalezione == [], (moduly, znalezione)
         assert [p for p, _b in nieparsowalne] == ["polamany.py"], nieparsowalne
+
+
+#: Jedyny katalog najwyzszego poziomu, w ktorym stoi Python — 6.D159.
+#:
+#: **Przeslanka 6.D159 jest NIEPRAWDZIWA i to jest glowny wynik tej pozycji.** Pole
+#: „Dlaczego to nie jest poszerzenie sciezki" mowilo, ze `tests/` i `src/` „nios\u0105
+#: Pythona o innym przeznaczeniu (pomocniki testow C#, narzedzia sceny)". Zmierzone
+#: 13.09.2026: **nie nios\u0105 ani jednego pliku `.py`**. Caly Python tego repozytorium
+#: — co do jednego modulu — stoi pod `tools/`.
+KATALOG_Z_PYTHONEM = "tools"
+
+#: Ile modulow `.py` ma CALE drzewo, a nie tylko `tools/` — 6.D159.
+#:
+#: Rowna sie `BAJTKOD_PO_COMPILEALL_PLIKI` i to nie jest zbieg okolicznosci: skoro
+#: caly Python stoi pod `tools/`, to `compileall -q tools` kompiluje CALOSC, a skan
+#: sekwencji czyta CALOSC. Gdy te dwie liczby sie rozejda, znaczy to, ze gdzies
+#: pojawil sie modul poza zasiegiem obu.
+MODULOW_W_CALYM_DRZEWIE = 203
+
+
+def moduly_calego_drzewa(korzen=None):
+    """`[sciezka wzgledna]` dla kazdego `.py` pod `korzen` — 6.D159.
+
+    Tym SAMYM czytnikiem, ktorego uzywa `sekwencje_ucieczki`. Dwa czytniki
+    rozjechalyby sie przy pierwszym wpisie do `.gitignore`, a zdanie „skan obejmuje
+    cale drzewo" bylo by wtedy porownaniem dwoch roznych drzew.
+
+    `korzen` jest parametrem, bo bez niego bramka polozenia nizej jest BEZCZYNNA —
+    patrz `test_czytnik_drzewa_WIDZI_modul_poza_tools_gdy_taki_jest`.
+    """
+    import tree_walk as TW
+
+    korzen = ROOT if korzen is None else korzen
+    return sorted(os.path.relpath(s, korzen)
+                  for s in TW.znajdz(korzen, "*.py", korzen))
+
+
+def moduly_poza_katalogiem_z_pythonem(korzen=None):
+    """`[sciezka wzgledna]` dla modulow stojacych POZA `tools/` — 6.D159."""
+    return [s for s in moduly_calego_drzewa(korzen)
+            if s.split(os.sep)[0] != KATALOG_Z_PYTHONEM]
+
+
+def test_caly_Python_drzewa_stoi_pod_tools():
+    """**GLOWNY WYNIK 6.D159: poza `tools/` nie ma ani jednego modulu.**
+
+    Pozycja pytala, ile zlych sekwencji ucieczki stoi poza `tools/`, i zakladala, ze
+    `tests/` oraz `src/` nios\u0105 Pythona. **Nie nios\u0105.** Odpowiedz „zero" jest wiec
+    prawdziwa, ale NIE dlatego, ze tamtejszy Python jest czysty — tylko dlatego, ze
+    tamtejszego Pythona nie ma. Te dwie odpowiedzi wygladaja tak samo w liczbie
+    i roznia sie wszystkim innym: pierwsza mowi „sprawdzone", druga „nie ma czego
+    sprawdzac, a gdy sie pojawi, nikt sie nie dowie".
+
+    **Dlatego ta bramka pilnuje POLOZENIA, a nie liczby.** Pierwszy modul dopisany
+    poza `tools/` wypada jednoczesnie z tej bramki, ze skanu sekwencji i z kroku
+    `compileall -q tools` w CI — i ta asercja jest jedynym miejscem, ktore o tym
+    powie.
+    """
+    wszystkie = moduly_calego_drzewa()
+    assert len(wszystkie) == MODULOW_W_CALYM_DRZEWIE, (
+        "modulow .py w drzewie jest %d, a pomiar z 13.09.2026 dal %d"
+        % (len(wszystkie), MODULOW_W_CALYM_DRZEWIE))
+
+    poza = moduly_poza_katalogiem_z_pythonem()
+    assert not poza, (
+        "modul .py stoi poza `%s/`: %s — wypada przez to ze skanu sekwencji "
+        "ucieczki ORAZ z kroku `compileall -q %s` w CI, i zadna inna bramka tego "
+        "nie zglosi" % (KATALOG_Z_PYTHONEM, poza, KATALOG_Z_PYTHONEM))
+
+
+def test_czytnik_drzewa_WIDZI_modul_poza_tools_gdy_taki_jest():
+    """Kontrola, ze bramka polozenia NIE jest tautologia — 6.D159.
+
+    **Zmierzone, a nie przewidziane.** Pierwsza wersja tej pozycji nie miala tego
+    testu i kontrola negatywna KN-1 wyszla przez to ZIELONA: zawezenie czytnika
+    drzewa do samego `tools/` nie zmienialo niczego, bo caly Python i tak tam stoi.
+    Bramka „poza `tools/` nie ma modulu" byla wtedy prawdziwa z pustego zbioru
+    i przechodzilaby tak samo przy czytniku, ktory poza `tools/` nie patrzy wcale.
+
+    Drzewo tych dwoch przypadkow nie rozdziela i rozdzielic nie moze — dopoki caly
+    Python stoi pod `tools/`, oba daja te sama liczbe. Rozdziela je dopiero wejscie
+    SYNTETYCZNE: drzewo tymczasowe, w ktorym modul poza `tools/` JEST.
+    """
+    with tempfile.TemporaryDirectory(prefix="metro-6d159-drzewo-") as katalog:
+        os.makedirs(os.path.join(katalog, "tools", "tests"))
+        os.makedirs(os.path.join(katalog, "tests"))
+        for wzgledna in (os.path.join("tools", "tests", "w_srodku.py"),
+                         os.path.join("tests", "na_zewnatrz.py")):
+            with open(os.path.join(katalog, wzgledna), "w", encoding="utf-8") as u:
+                u.write("X = 1\n")
+
+        wszystkie = moduly_calego_drzewa(katalog)
+        assert len(wszystkie) == 2, (
+            "czytnik drzewa widzi %d modulow zamiast dwoch — wejscie syntetyczne "
+            "nie opisuje tego, co mialo opisac: %s" % (len(wszystkie), wszystkie))
+        poza = moduly_poza_katalogiem_z_pythonem(katalog)
+        assert poza == [os.path.join("tests", "na_zewnatrz.py")], (
+            "czytnik drzewa NIE widzi modulu poza `%s/`: %s — wtedy bramka "
+            "polozenia jest zielona z pustego zbioru i nie zglosi pierwszego "
+            "modulu dopisanego poza zasiegiem" % (KATALOG_Z_PYTHONEM, poza))
+
+
+def test_skan_sekwencji_czyta_KAZDY_modul_drzewa_a_nie_tylko_swoj_katalog():
+    """Zasieg bramki rowna sie calosci drzewa — 6.D159.
+
+    Bez tego zdania „skan czyta 203 moduly" i „drzewo ma 203 moduly" sa dwoma
+    niezaleznymi liczbami, ktore moga sie rozjechac po cichu. Tu stoi porownanie.
+    """
+    _znalezione, przeskanowanych, _nieparsowalne = sekwencje_ucieczki()
+    assert przeskanowanych == MODULOW_W_CALYM_DRZEWIE, (
+        "skan sekwencji czyta %d modulow, a drzewo ma ich %d — zasieg bramki "
+        "przestal byc calym drzewem" % (przeskanowanych, MODULOW_W_CALYM_DRZEWIE))
+    assert przeskanowanych == BAJTKOD_PO_COMPILEALL_PLIKI, (
+        "skan sekwencji czyta %d modulow, a `compileall -q %s` kompiluje %d — "
+        "jedno z dwoch przestalo obejmowac calosc"
+        % (przeskanowanych, KATALOG_Z_PYTHONEM, BAJTKOD_PO_COMPILEALL_PLIKI))
+
+
+def test_skan_ZNAJDUJE_zla_sekwencje_poza_tools_gdy_taka_jest():
+    """Kontrola, ze zero z poprzedniej bramki jest zerem DRZEWA — 6.D159.
+
+    Zdanie „poza `tools/` nie ma zlych sekwencji" jest dzis prawdziwe z powodu
+    pustego zbioru. Gdyby skan byl slepy poza wlasnym katalogiem, brzmialoby tak
+    samo — i dlatego stoi tu wejscie SYNTETYCZNE: katalog tymczasowy, ktory `tools/`
+    nie jest, z jednym modulem niosacym `\\d`.
+
+    Bez tej kontroli poszerzenie zasiegu bramki w przyszlosci mogloby nie zmienic
+    niczego i nikt by tego nie zauwazyl.
+    """
+    with tempfile.TemporaryDirectory(prefix="metro-6d159-") as katalog:
+        sciezka = os.path.join(katalog, "przyklad.py")
+        with open(sciezka, "w", encoding="utf-8") as uchwyt:
+            uchwyt.write('WZORZEC = "\\d+"\n')
+
+        znalezione, przeskanowanych, nieparsowalne = sekwencje_ucieczki(katalog)
+        assert przeskanowanych == 1, (
+            "skan nie zobaczyl pliku w katalogu spoza `tools/` — wtedy zero "
+            "z bramki polozenia jest zerem CZYTNIKA, a nie drzewa")
+        assert not nieparsowalne, (
+            "wejscie syntetyczne przestalo sie parsowac: %s" % nieparsowalne)
+        assert [s for _p, _w, s in znalezione] == ["\\d"], (
+            "skan nie znalazl `\\\\d` w katalogu spoza `tools/`: %s" % znalezione)
