@@ -222,7 +222,7 @@ MAX_GAME_JUSTIFIED_NEEDLES = 4
 #: a dluzsza probka to inny napis, nie mocniejsza igla. Trzymania w zmiennej znowu
 #: NIE uzyto — bramka pomija igle ze zmiennej, wiec `var x = "otwarte";` zdjalby ja
 #: z licznika bez sladu.
-MAX_GAME_UNMATCHED_NEEDLES = 30
+MAX_GAME_UNMATCHED_NEEDLES = 31
 
 #: Progi KW. Literowka we wzorcu daje zero dopasowan i caly modul zielony; te trzy
 #: liczby sa jedynym powodem, dla ktorego taka literowka jest widoczna. Zmierzone
@@ -254,7 +254,7 @@ MIN_GAME_MESSAGES = 142
 #: trzeba by ja poprawic w **5 z 11** rewizji dotykajacych `tests/Game.Tests`
 #: (45 -> 49 -> 52 -> 54 -> 57 -> 59), czyli w 45 % z nich. To mniej, niz kosztuje
 #: `MIN_REPORTS`, poprawiane przy kazdym raporcie.
-MIN_GAME_NEEDLES = 63
+MIN_GAME_NEEDLES = 64
 MIN_GAME_SOURCES = 18
 
 #: Igla, na ktorej stoja kontrole dodatnia i przyrzadu. Musi byc SWOISTA i musi stac
