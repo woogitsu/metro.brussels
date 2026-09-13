@@ -1628,3 +1628,138 @@ def _istnieje_w_drzewie(nazwa):
     wolala `os.walk` wprost.
     """
     return bool(tw.znajdz(ROOT, nazwa, ROOT))
+
+
+#: Ile ADRESOW (`PATH_TOKEN`) stoi w blokach wykonanych, per pole — 6.D158.
+#:
+#: Zmierzone 13.09.2026. Rozklad jest tu trescia, a nie ozdoba: pole „Wejscie" niesie
+#: adresow WIECEJ NIZ POZOSTALE DWA RAZEM, a regula kandydatow z 6.D146 nie moze
+#: siegnac do niego ani jednym — patrz `test_zero_wywolan_poza_Weryfikacja_jest_STRUKTURALNE`.
+#:
+#: **Liczby sa PO domknieciu 6.D158, i to nie jest szczegol.** Domkniecie pozycji
+#: przenosi JEJ WLASNY blok do zbioru wykonanych, wiec pomiar zmienia sie przez to,
+#: ze zostal zapisany: przed domknieciem bylo 849/63/364 przy 241 blokach, po nim jest
+#: 851/63/365 przy 242. Ulamek z `test_jaka_czesc_adresow_obejrzala_regula_kandydatow_6D146`
+#: drgnal o trzy tysieczne i zostal ta sama jedna trzynasta.
+ADRESOW_W_WYKONANYCH = {"Wejście": 851, "Wyjście": 63, "Weryfikacja": 365}
+
+#: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
+WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 102}
+
+#: Ilu kandydatow zlego adresu daje regula prozy, per pole — 6.D158.
+KANDYDATOW_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 10}
+
+
+def adresy_pola_w_wykonanych(pole):
+    """`[(numer, sciezka)]` — adresy `PATH_TOKEN` w danym polu blokow wykonanych."""
+    out = []
+    for numer, body in sorted(bloki_wykonane().items()):
+        for trafienie in PATH_TOKEN.finditer(field_body(body, pole)):
+            out.append((numer, trafienie.group(1)))
+    return out
+
+
+def wywolania_pola_w_wykonanych(pole):
+    """`[(numer, nazwa)]` — wywolania modulu w danym polu blokow wykonanych."""
+    out = []
+    for numer, body in sorted(bloki_wykonane().items()):
+        for nazwa in module_names(field_body(body, pole)):
+            out.append((numer, nazwa))
+    return out
+
+
+def kandydaci_pola_w_wykonanych(pole):
+    """`[(numer, nazwa)]` — kandydaci zlego adresu regula prozy, w danym polu."""
+    out = []
+    for numer, body in sorted(bloki_wykonane().items()):
+        proza = proza_bloku(body)
+        for nazwa in sorted(set(module_names(field_body(body, pole)))):
+            rdzen = nazwa[:-3] if nazwa.endswith(".py") else nazwa
+            if rdzen not in proza:
+                out.append((numer, nazwa))
+    return out
+
+
+def test_ile_adresow_stoi_w_kazdym_z_trzech_pol_blokow_wykonanych():
+    """Pole „Wyjscie" 6.D158 zada trzech liczb per pole — z DRZEWA, nie wpisanych."""
+    for pole in FIELDS:
+        adresy = adresy_pola_w_wykonanych(pole)
+        assert len(adresy) == ADRESOW_W_WYKONANYCH[pole], (
+            "adresow w polu „%s” jest %d, a pomiar z 12.09.2026 dal %d"
+            % (pole, len(adresy), ADRESOW_W_WYKONANYCH[pole]))
+
+        wywolania = wywolania_pola_w_wykonanych(pole)
+        assert len(wywolania) == WYWOLAN_W_WYKONANYCH[pole], (
+            "wywolan modulu w polu „%s” jest %d, a pomiar dal %d"
+            % (pole, len(wywolania), WYWOLAN_W_WYKONANYCH[pole]))
+
+        kandydaci = kandydaci_pola_w_wykonanych(pole)
+        assert len(kandydaci) == KANDYDATOW_W_WYKONANYCH[pole], (
+            "kandydatow zlego adresu w polu „%s” jest %d, a pomiar dal %d"
+            % (pole, len(kandydaci), KANDYDATOW_W_WYKONANYCH[pole]))
+
+
+def test_jaka_czesc_adresow_obejrzala_regula_kandydatow_6D146():
+    """**Pole „Skonczone, gdy" 6.D158 zada UŁAMKA, a nie slowa.**
+
+    Odpowiedz: **101 z 1276, czyli niecale osiem procent.** Pozycja pytala, „czy 92
+    to calosc adresow w blokach wykonanych, czy jedna trzecia" — nie jest ani jednym,
+    ani drugim. Jest okolo JEDNEJ TRZYNASTEJ; liczac same adresy `.py`, jedna siodma.
+
+    Nie jest to zarzut wobec 6.D146, ktore mierzylo dokladnie to, o co pytalo jego
+    wlasne pole „Wyjscie". Jest to liczba, ktorej tamta pozycja nie miala — i bez
+    ktorej zdanie „dziesieciu kandydatow da sie przeczytac recznie" brzmi jak zdanie
+    o calosci, a jest zdaniem o jednej trzynastej.
+    """
+    razem = sum(len(adresy_pola_w_wykonanych(p)) for p in FIELDS)
+    obejrzane = len(wywolania_pola_w_wykonanych("Weryfikacja"))
+    assert razem == sum(ADRESOW_W_WYKONANYCH.values()), (
+        "adresow w blokach wykonanych jest %d, a suma rozkladu daje %d"
+        % (razem, sum(ADRESOW_W_WYKONANYCH.values())))
+    # Ulamek PRZYBITY Z OBU STRON, a nie rownoscia: rownosc na 101/1276 zapalalaby
+    # sie przy kazdym dopisanym bloku, a zdanie, ktore ta pozycja stawia, brzmi
+    # „okolo jednej trzynastej", nie „dokladnie 101 z 1276". Same liczby stoja
+    # przybite rownoscia w `ADRESOW_W_WYKONANYCH` i `WYWOLAN_W_WYKONANYCH`.
+    assert obejrzane * 20 > razem, (
+        "regula kandydatow obejmuje %d z %d adresow, czyli MNIEJ niz jedna "
+        "dwudziesta — zdanie 6.D158 o „jednej trzynastej” opisuje inny stan"
+        % (obejrzane, razem))
+    assert obejrzane * 8 < razem, (
+        "regula kandydatow obejmuje %d z %d adresow, czyli WIECEJ niz jedna osma — "
+        "jak wyzej, tylko z drugiej strony" % (obejrzane, razem))
+
+
+def test_zero_wywolan_poza_Weryfikacja_jest_STRUKTURALNE():
+    """**Zero w „Wejsciu" i „Wyjsciu" to nie jest odkrycie o pokryciu — 6.D158.**
+
+    `MODULE_CALL` szuka `test_all.py <modul>` W PLOTKU, czyli WYWOLANIA. Polecenia
+    stoja w „Weryfikacji" i tylko tam; „Wejscie" i „Wyjscie" niosą SCIEZKI, a nie
+    komendy. Zero jest wiec wlasnoscia PYTANIA, a nie drzewa — i bez tego zdania
+    czytaloby sie je jako „w tych polach nie ma adresow", co jest nieprawda: stoi
+    ich tam **912**, wiecej niz w „Weryfikacji".
+
+    **Wniosek, ktory z tego plynie, jest o BRAMCE, a nie o liczbie:** rozszerzenie
+    reguly kandydatow na pozostale pola nie polega na podaniu jej innej nazwy pola.
+    Tam nie ma wywolan do znalezienia — potrzebna byloby REGULA INNEGO KSZTALTU.
+    Klasa, ktora 6.D157 wskazalo jako powtarzajaca sie (adres ISTNIEJACY, ale nie ten),
+    jest wiec poza zasiegiem wszedzie poza „Weryfikacja".
+
+    Kontrola na wejsciu SYNTETYCZNYM, bo drzewo tych dwoch przypadkow nie rozdziela:
+    pole ze sciezka i bez wywolania wyglada w drzewie tak samo jak pole, ktorego
+    czytnik nie umie przeczytac.
+    """
+    ze_sciezka = "- **Wejście:** `tools/tests/test_backlog.py`, `docs/TASKS.md`."
+    assert module_names(ze_sciezka) == [], (
+        "czytnik wywolan znalazl wywolanie w polu, ktore niesie samą ŚCIEŻKĘ — "
+        "wtedy zero w „Wejściu” nie jest strukturalne, tylko przypadkowe")
+    assert [m.group(1) for m in PATH_TOKEN.finditer(ze_sciezka)] == [
+        "tools/tests/test_backlog.py", "docs/TASKS.md"], (
+        "czytnik adresow przestal widziec sciezki w tym samym tekscie — wtedy "
+        "porownanie „sciezki sa, wywolan nie ma” nie ma jednej ze stron")
+
+    z_wywolaniem = (
+        "- **Weryfikacja:**\n  ```bash\n"
+        "  python3 tools/tests/test_all.py test_backlog.py\n  ```")
+    assert module_names(z_wywolaniem) == ["test_backlog.py"], (
+        "czytnik wywolan przestal widziec wywolanie w plotku — wtedy zero wyzej "
+        "jest zerem czytnika, a nie zerem drzewa: %s" % module_names(z_wywolaniem))
