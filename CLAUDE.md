@@ -38,6 +38,7 @@ i powiedz o tym. Nie próbuj obejść.
 | `docs/05-glossary.md` | słownik FR/NL/PL — do czytania źródeł STIB |
 | `docs/06-worked-example.md` | **wzorcowo wykonane zadanie** — przeczytaj przed pierwszym |
 | `docs/07-open-data-research.md` | hierarchia źródeł, publiczne dane i repozytoria referencyjne |
+| `docs/PLAYABILITY.md` | **plan dojścia do grywalności — M1, M2 i pasmo MB**; czytasz przed wzięciem pozycji |
 | `docs/22-heartbeat.md` | puls sesji — kiedy zakładać i dlaczego ma milczeć |
 | `docs/23-environment.md` | **skąd wziąć** Blender, .NET i Godota — wersje, adresy, sumy |
 | `docs/24-clearance-profile-decisions.md` | trzynaście progów luzu — **rozstrzygnięte 04.09.2026**, zero otwartych |
@@ -220,6 +221,22 @@ jest MNIEJ (`reports/6d109-ktore-dwanascie.md`).
 
 Zadania wymyślonego na miejscu, bo akurat skończyła się kolejka, nie bierze się nigdy:
 omija format z sekcji 6 i zwykle ląduje w kodzie, którego nikt nie prosił o zmianę.
+
+**Przy AKTYWNYM KAMIENIU MILOWYM kolejność brania jest inna, i ten akapit jest dopisany
+13.09.2026, a nie przepisany** — bo reguła zapasu wyżej zostaje w całości i nic z niej
+nie znika. Zmienia się wyłącznie to, **z którego pasma** bierze się następną pozycję.
+
+Gdy `docs/PLAYABILITY.md` wskazuje kamień milowy jako aktywny, **pasmo M z `docs/TASKS.md`
+ma pierwszeństwo przed pasmami A–D**. Poboczne znalezisko zapisuje się krótko jako nową
+pozycję i **nie bierze się go przed domknięciem kamienia** — dokładnie dlatego, że zapas
+ma pozostać pełny, a kolejka i tak nie zejdzie poniżej progu. Bez tego akapitu każde
+znalezisko po drodze stawało się natychmiast pracą, a praca nigdy nie dochodziła do
+kamienia milowego: między 6.D190 a 6.D202 domknięto trzynaście pozycji i **ani jedna nie
+przybliżyła gry do grywalności**.
+
+**Co się NIE zmienia:** próg dwunastu pozycji DO WZIĘCIA, obowiązek uzupełniania kolejki,
+format sześciu pól z sekcji 6 i wszystkie bramki. Reguła ta i jej test weszły jednym
+commitem (MB-00) i pilnuje jej `tools/tests/test_backlog.py` — tak samo jak progu wyżej.
 
 ## 9. CI / GitHub Actions
 

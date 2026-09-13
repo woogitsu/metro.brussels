@@ -759,6 +759,27 @@ przyrost i kończy się osobnym PR-em na każdy.
 Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można przeplatać;
 `docs/22-heartbeat.md` opisuje, kiedy agent w ogóle po tę listę sięga.
 
+#### Pasmo M — droga do grywalności (M1/M2) · **PASMO O PIERWSZEŃSTWIE**
+
+Plan i kontrakt: **`docs/PLAYABILITY.md`**. Powstało z audytu zewnętrznego z 13.09.2026
+na snapshocie `c2a5f9d`; wprowadzone pozycją MB-00.
+
+**Dopóki M1 nie jest ukończone, agent bierze pozycje z tego pasma przed pasmami A–D.**
+Poboczne znalezisko zapisuje się krótko i nie bierze się go przed M1. Próg zapasu
+z §8 `CLAUDE.md` zostaje — zmienia się **kolejność brania**, nie obowiązek uzupełniania.
+
+| # | zadanie | dlaczego bez decyzji | rozmiar |
+|---|---|---|---|
+| MB-00 | **ZROBIONE w #PR (13.09.2026): audyt zewnętrzny wprowadzony do repozytorium jako `docs/PLAYABILITY.md`, pasmo M i zmiana kolejności brania.** Audyt przeczytany w całości, jego twierdzenia o kodzie sprawdzone wobec dzisiejszego drzewa, a nie przyjęte na słowo. Plan dzieli pracę na **M1** (grywalny trening jednym M7: start → dwa postoje → wynik → ponów) i **M2** (autonomiczna linia z przejęciem sterowania), przy czym **M1 jest etapem pośrednim i NIE zamyka Issue #26**. Zmiana polityki kolejki jest **jawna i wchodzi razem ze swoim testem**, nie obok niego: reguła zapasu zostaje, zmienia się kolejność brania. `reports/droga-do-grywalnosci.md` zostaje historią i dostaje wskaźnik, że jako plan został zastąpiony — jego §1.2 opisuje `DriverInput.Poll` i „pomoc o sterowaniu nie jest wołana przez nic", a oba są nieaktualne od #239 i #249. **JEDNO TWIERDZENIE AUDYTU PADŁO I JEST TO ZAPISANE:** opisywał HUD jako „tekstowy diagnostyczny" i z tego wyprowadzał całe MB-03, a pomiar mówi, że **cel i odległość JUŻ SĄ** — wiersz `Position` niesie nazwę następnej stacji i odległość (`src/Game/UI/UiText.cs:74`), a wiersz `Station` odległość do punktu zatrzymania z oknem ± i komunikatem „W OKNIE — zatrzymaj się" (`UiText.cs:90-91`); MB-03 jest z tego powodu **przepisane, a nie powtórzone**: zadaniem jest priorytet informacji, nie jej dodanie. Drugie ustalenie, którego audyt nie miał: `export_presets.cfg` jest **jawnie w `.gitignore:31`**, więc MB-04 musi zmienić także `.gitignore`. **POZOSTAŁE OSIEM TWIERDZEŃ SPRAWDZONE I AKTUALNE**, każde z adresem (snapshot audytu jest starszy o jeden commit i dziewiętnaście minut, a ten commit nie rusza ani jednego pliku w `src/`, `data/`, `.github/` ani `tools/blender/`). **ZMIANA POLITYKI NICZEGO NIE ROZLUŹNIŁA I TO JEST MIERZONE:** `test_pasmo_M_NIE_wchodzi_do_liczb_zapasu_i_to_jest_zmierzone` sprawdza, że dziewięć pozycji MB **nie weszło** ani do `queue_items`, ani do `detail_sections`, oraz że `MINIMUM_READY_ITEMS` nadal wynosi 12 — gdyby weszły, próg spełniałby się samym planem. **PIĘĆ KONTROLI NEGATYWNYCH, baza 36/36, `md5sum -c: OK` po każdej, ani jedna zielona:** KN-1 (pole zdjęte z bloku MB-05) 35/36, KN-2 (`queue_items` łapie `MB-*`) 35/36, KN-3 (próg obniżony 12→9) **33/36 — trzy bramki naraz**, KN-4 (`CLAUDE.md` bez wskazania planu) 35/36, KN-5 (pętla obiega raz zamiast dziewięciu) 35/36. **DLACZEGO TA ZMIANA W OGÓLE:** między 6.D190 a 6.D202 domknięto **trzynaście pozycji i ani jedna nie przybliżyła gry do grywalności**. Reguła zapasu działała dokładnie tak, jak napisano — i właśnie dlatego praca nigdy nie dochodziła do kamienia milowego. Raport: `reports/mb00-plan-grywalnosci-wprowadzony.md` | plan i dokument, zero zmian zachowania | M |
+| MB-01 | **Jeden start treningu — właściwy tryb bez pamiętania flag** | skrypt przygotowania współdzieli przepis generacji z CI; uruchomienie jest ręczne i ma ATP. Żadnej nowej geometrii, żadnej nowej zależności, żadnej zmiany trybów `replay`/`telemetry` | M |
+| MB-02 | **Koniec przejazdu, wynik i ponowna próba — najważniejsza luka pętli gry** | stan sesji w `Sim`, prezentacja i polityka ekranu w `Game`. **Pułapka wypisana w audycie:** dzisiejsze `_done` daje wcześniejszy `return` przed odczytem klawiatury, więc samo ustawienie go dla treningu odcięłoby `R` i `Esc` — stan sesji trzeba oddzielić od zakończenia procesu technicznego | L |
+| MB-03 | **HUD pokazuje NASTĘPNE DZIAŁANIE, nie samą diagnostykę** | prędkość i limit, nazwa następnej stacji, odległość do celu zatrzymania, stan drzwi i przyczyna blokady trakcji. Wskazówkę „hamuj" wyprowadza się z istniejącego solvera — **nie wprowadza się uproszczonego v²/2a jako drugiego źródła prawdy** | M |
+| MB-04 | **Paczka dla gracza i odbiór M1** | `GlbLoader` ładuje zewnętrzne GLB, więc eksport wymaga sprawdzenia; buildy zostają poza Gitem. Odbiór na Windows x64 — **jeśli nie da się sprawdzić, oznacza się to jawnie jako niewykonane**, a nie pomija | L |
+| MB-05 | **Wpiąć istniejącą kabinę — materiał jest gotowy od 6.D119** | `tools/blender/m7_cab.py` i `m7_cab_build.py` są zrobione (#512, 11.09.2026), a `grep` po `M7_cab` w `.cs` daje **zero trafień**. Decyzja o kanonicznym układzie zapadła 10.09.2026 i **nie jest pytana ponownie** — nie oznacza to zgody na odwzorowanie prawdziwego pulpitu | M |
+| MB-06 | **Wspólna droga poleceń AI i gracza — jeden pociąg zmienia źródło komend, nie dostaje drugiej symulacji** | **Pułapka wypisana w audycie:** `LineDrive` ma własny autopilot i rozpoznawanie stacji projektowane dla AI; wstrzyknięcie klawiszy w `Command` NIE wystarczy, bo człowiek może przestrzelić peron. Dwustronne okno `StationService` zostaje, a supervisor zostaje ochroną, nie zastępczym wejściem | L |
+| MB-07 | **Pokazać autonomiczną linię i przejmować skład** | mapowanie `trainId` → `TrainView`, wybór obserwowanego, take/release. Demonstracyjnego odstępu **nie przedstawia się jako rozkładu STIB**; liczbę składów zwiększa się dopiero po pomiarze renderu, ticków i pamięci | L |
+| MB-08 | **Drzwi ręczne i pełny odbiór #26** | **Semantykę hamulca awaryjnego rozlicza się osobno:** dzisiejsza Spacja odpowiada pełnemu hamulcowi służbowemu i nie wolno twierdzić, że wdrożono odrębny model awaryjny, dopóki nie istnieje w komendach i fizyce | L |
+
 #### Pasmo A — rdzeń symulacji (`src/Sim`, bez Godota, bez nowych danych o sieci)
 
 | # | zadanie | dlaczego bez decyzji | rozmiar |
@@ -1074,6 +1095,253 @@ Kolejność w obrębie pasma jest sugestią, nie zobowiązaniem. Pasma można pr
 | 6.D172 | **ZROBIONE w #554 (12.09.2026): pięć dzienników mutacji miało nazwę STAŁĄ, więc dwa równoległe joby na jednej maszynie dzieliły jeden plik.** Znalezione przez czerwony `tunnel-alignment (L1_B)` w PR #553, komunikatem `[MUTACJE] PRZERWANE — dziennik /tmp/metro-mutacje-6b39-nieistniejacy.jsonl trzyma inny przebieg.` **Odmowa zadziałała POPRAWNIE** — to mechanizm odcisku treści z 6.B32; wadliwa była stała nazwa. Obrona, którą te nazwy miały dać, jest opisana w docstringu `_sweep_cli` („test padałby od stanu maszyny, nie od kodu”, 6.B19) i **rozumowanie było trafne — objęło tylko przebiegi KOLEJNE, nie równoległe**. Macierz `tunnel-alignment` startuje trzy joby w odstępie sekundy na tej samej maszynie (§9), więc dzielą `/tmp`: L1_A 10:50:55Z i L1_B 10:50:56Z chodziły obok siebie sześć minut. **ODTWORZONE CELOWO, nie wywnioskowane z czasów**: dwa równoległe `mutation_sweep.py` na jedną ścieżkę dają odmowę **6 razy na 6**, gdy różnią się treścią (`--only camera_aim.py` kontra `--only lod_paths.py`), i **0 razy na 2**, gdy treść jest ta sama — a to drugie jest POPRAWNE i wymagane przez `test_ta_sama_tresc_trafia_w_ten_sam_dziennik`. Kolizja nie potrzebuje więc pecha co do milisekundy: wystarczą dwa równoległe procesy o różnej treści, a moduł woła `_sweep_6b39` **dziewięć razy** z różnymi argumentami. **To poprawia zdanie z mojego komentarza na #553**, gdzie napisałem, że awaria „zależy od nałożenia się czasów” — brzmi jak rzadki zbieg, a zmierzone jest, że przy nakładających się jobach to reguła, nie wyjątek. PID, a nie licznik ani znacznik czasu: ma być stały w obrębie procesu (inaczej wznowienie zgubiłoby plik) i różny między procesami. Raport: `reports/6d172-dziennik-na-dwa-joby.md` | S |
 
 #### Szczegóły pozycji z kompletem sześciu pól
+
+##### MB-00 · Aktywna kolejka prowadząca do M1
+
+- **Skąd:** audyt zewnętrzny z 13.09.2026, wykonany na snapshocie `main`
+  `c2a5f9d76a9b4bc401b6ec08eeabf18c21fdbb97`. Jego wniosek: najkrótsza droga do
+  grywalności to **domknięcie istniejącego ręcznego przejazdu** (start, dwa postoje,
+  wynik, ponów), a nie przepisywanie symulacji ani rozbudowa aparatu audytowego.
+- **Czego audyt NIE zrobił i to jest zapisane:** playtestu. W jego środowisku nie było
+  Godota, Blendera ani .NET; wyniki CI wziął z GitHuba, nie z uruchomienia. Twierdzenia
+  o kodzie trzeba było sprawdzić wobec dzisiejszego drzewa, bo `main` od jego snapshotu
+  ruszył.
+- **Zmiana polityki kolejki jest JAWNA:** reguła zapasu z §8 `CLAUDE.md` zostaje, ale
+  przy aktywnym kamieniu milowym priorytet mają pozycje odblokowujące jego odbiór.
+  Reguła i test wchodzą **jednym commitem**; bramek się nie omija ani nie wyłącza.
+- **Wejście:** `CLAUDE.md`, `docs/TASKS.md`, `docs/TASK-TEMPLATE.md`,
+  `tools/tests/test_backlog.py`, `reports/droga-do-grywalnosci.md`, Issue #25 i #26.
+- **Wyjście:** `docs/PLAYABILITY.md` z M1/M2, kontraktem i kolejnością MB-00…MB-08;
+  pasmo M w `docs/TASKS.md`; odniesienie w mapie dokumentów `CLAUDE.md` §3; przepisany
+  §8 razem z jego testem.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: zielone, a bramka kolejki mówi, że pasmo M ma pierwszeństwo, i zapala się,
+  gdy dokument i kod przestają mówić to samo.
+- **Skończone, gdy:** kolejna sesja bez historii czatu wybiera MB-01, a nie 6.D;
+  `docs/PLAYABILITY.md` istnieje i jest wskazany z `CLAUDE.md`; zmiana reguły ma swój
+  test.
+- **Poza zakresem:** usuwanie testów fizyki, sygnalizacji, deterministyczności, praw do
+  zasobów i bezpieczeństwa runnerów; jakakolwiek zmiana zachowania gry.
+- **Zależy od:** brak.
+
+##### MB-01 · Jeden start treningu — właściwy tryb bez pamiętania flag
+
+- **Skąd:** audyt 13.09.2026 §5. Dziś trening uruchamia się poleceniem z trzema
+  ścieżkami bezwzględnymi; punkt 1 odbioru M1 mówi wprost: **gracz uruchamia właściwy
+  tryb bez wpisywania argumentów**.
+- **Czego NIE wolno użyć jako dowodu interakcji:** `--shot` ani `--line`. Pierwszy jest
+  jedną klatką, drugi autopilotem — w obu klawisze prowadzenia nie sterują pociągiem.
+- **Wejście:** `src/Game/RunPlan.cs`, `src/Game/FirstRun.cs`, `src/Game/project.godot`,
+  `.github/workflows/godot-first-run.yml` (krok `Generate package A geometry`),
+  generatory wołane w tym kroku.
+- **Wyjście:** `tools/dev/prepare-playable.sh` i `tools/dev/play.sh` (nowe) plus krótka
+  instrukcja startu. Skrypt przygotowania **współdzieli przepis generacji z CI**, a nie
+  powiela go; uruchomienie treningu ma ATP włączone jawnie.
+- **Weryfikacja:**
+  ```bash
+  bash tools/dev/prepare-playable.sh && bash tools/dev/play.sh
+  ```
+  Oczekiwane: scena otwiera się z pociągiem, tunelem i peronem; rzeczywisty input zmienia
+  ciąg i prędkość; brak zasobu daje **nazwany błąd**, nie pustą scenę.
+- **Skończone, gdy:** jedna komenda po przygotowaniu otwiera grywalną scenę i nie wymaga
+  pamiętania ani jednej flagi.
+- **Poza zakresem:** nowe geometrie, nowe zależności, zmiana zachowania trybów `replay`
+  i `telemetry`.
+- **Zależy od:** MB-00.
+
+##### MB-02 · Koniec przejazdu, wynik i ponowna próba
+
+- **Skąd:** audyt 13.09.2026 §3 nazywa to **najważniejszą luką pętli gry**: tryb ręczny
+  nie kończy się sam, a po ostatniej stacji HUD mówi tylko „nie ma więcej stacji"
+  i proces trwa do `Esc`.
+- **Pułapka implementacyjna, wypisana w audycie i nie do pominięcia:** dzisiejsze `_done`
+  powoduje wcześniejszy `return` **przed odczytem klawiatury**. Samo ustawienie go dla
+  treningu odcięłoby `R` i `Esc`. Stan sesji trzeba oddzielić od zakończenia procesu
+  technicznego: **stan w `Sim`, prezentacja i polityka ekranu w `Game`**.
+- **Pauza:** zatrzymuje ticki, a wznowienie **nie nadrabia** czasu spędzonego w menu.
+- **Wejście:** `src/Game/FirstRun.cs` (`_Process`, `StepOnce`), `src/Game/RunReset.cs`,
+  `src/Sim/Train/StationService.cs`, `StationStop.cs`, `InputLog.cs`,
+  `DriveTelemetry.cs`, testy resetu i postojów.
+- **Wyjście:** `src/Sim/Train/TrainingSession.cs` i `src/Sim/Train/TrainingResult.cs` (nowe),
+  `src/Game/UI/RunSummary.cs` (nowy) z panelem wyniku, integracja sceny, testy domenowe
+  i integracyjne.
+- **Weryfikacja:**
+  ```bash
+  dotnet test tests/Sim.Tests && dotnet test tests/Game.Tests
+  ```
+  Oczekiwane: zielone dla czterech sekwencji wejść — dwa poprawne postoje, minięty cel,
+  reset w czasie drzwi, ponów z wyniku — a **ten sam replay daje identyczny wynik**.
+- **Skończone, gdy:** M1 można ukończyć albo przegrać i ponowić; wynik powstaje
+  **dokładnie raz**; ponowienie czyści rezultat, cele i liczniki; drzwi i ATP zachowują
+  zabezpieczenia; po zakończeniu przyciski wyniku nadal działają.
+- **Poza zakresem:** punktacja, ekonomia, zapis kariery, przebudowa `FirstRun`.
+- **Zależy od:** MB-01.
+
+##### MB-03 · HUD pokazuje następne działanie
+
+- **Skąd:** audyt 13.09.2026 §3 — **z poprawką, bo w tym punkcie audyt się mylił.**
+  Opisywał HUD jako „tekstowy diagnostyczny i pomoc klawiszowa" i z tego wyprowadzał
+  potrzebę dodania celu i odległości. Pomiar mówi co innego: **obie te rzeczy już są.**
+  Wiersz `Position` niesie nazwę następnej stacji i odległość do niej
+  (`src/Game/UI/UiText.cs:74`), a wiersz `Station` — odległość do punktu zatrzymania
+  z oknem ± i komunikatem „ W OKNIE — zatrzymaj się" (`UiText.cs:90-91`, składany
+  w `FirstRun.StationLine()`, `src/Game/FirstRun.cs:1721-1793`), plus fazę drzwi, resztę
+  postoju, błąd zatrzymania i licznik obsłużonych oraz miniętych stacji.
+- **Czym wobec tego JEST to zadanie:** nie dodaniem informacji, tylko jej **priorytetem**.
+  Co widać na pierwszy rzut oka, co dopiero na postoju, a co idzie do osobnej
+  diagnostyki. Punkt 2 odbioru M1 („gracz widzi, jak ruszyć i gdzie zatrzymać pociąg")
+  jest dziś spełniony **treścią**, ale nie **układem**: siedem etykiet, z czego cztery
+  startują ukryte (`src/Game/UI/Hud.cs:53-62`).
+- **Czego NIE wolno zrobić:** wprowadzić uproszczonego `v²/2a` jako drugiego źródła
+  prawdy o hamowaniu. Wskazówkę „hamuj" wyprowadza się z **istniejącego solvera** i
+  bieżących warunków; na pierwszą wersję wystarczą prędkość, odległość i marker celu.
+- **Wejście:** `src/Game/UI/Hud.cs`, `UI/UiText.cs`, `Scenes/FirstRun.tscn`,
+  `Input/DriverActions.cs`, `SignallingHud.cs`, wynik MB-02.
+- **Wyjście:** tryb HUD treningowy — prędkość i limit, nazwa następnej stacji, odległość
+  do celu zatrzymania, stan drzwi i **przyczyna blokady trakcji**; instrukcja startowa
+  i panel pauzy. Diagnostyka dostępna osobno.
+- **Weryfikacja:**
+  ```bash
+  dotnet test tests/Game.Tests
+  ```
+  plus **oględziny rzeczywistych klatek** w oknie 1280×720 i 1920×1080: jazda, hamowanie,
+  postój, interwencja ATP, pauza, wynik. Sprawdzić nakładanie tekstu i widoczność celu
+  oraz że **zmiana kamery nie zmienia stanu `Sim`**.
+- **Skończone, gdy:** na każdym z tych ekranów widać bieżący cel albo powód oczekiwania,
+  a nowy gracz wykonuje pierwszą próbę **bez czytania README**.
+- **Poza zakresem:** finalny pulpit, odwzorowanie identyfikacji STIB, drugi model fizyki
+  hamowania w UI.
+- **Zależy od:** MB-02.
+
+##### MB-04 · Paczka dla gracza i odbiór M1
+
+- **Skąd:** audyt 13.09.2026 §6. Domyślne ścieżki zasobów wychodzą **poza `res://`** —
+  do `repo/data` i `build/t400` — więc paczka wymaga osobnego przygotowania.
+- **Czego NIE wolno założyć:** że samo utworzenie eksportu pakuje dane leżące poza
+  `res://`. `GlbLoader` ładuje zewnętrzne GLB i jego zachowanie w eksporcie trzeba
+  **sprawdzić**, a nie przyjąć.
+- **Uczciwość odbioru:** target roboczy to Windows x64; jeśli nie da się go sprawdzić,
+  odbiór oznacza się **jawnie jako niewykonany**, zamiast pomijać.
+- **Wejście:** MB-01…MB-03, `FirstRun.RepoPath`/`BuildWorld`, `Assets/GlbLoader.cs`,
+  projekt Godota, przypięte wersje z `tools/ci/*-version.txt` i `docs/23-environment.md`.
+- **Ustalenie, którego audyt nie miał:** `export_presets.cfg` nie tylko nie istnieje —
+  jest **jawnie w `.gitignore:31`**, w sekcji „wszystko, co silnik generuje obok
+  projektu". Zadanie musi więc zmienić **także `.gitignore`**, a nie tylko dołożyć plik;
+  inaczej eksport wejdzie do drzewa cicho albo wcale.
+- **Wyjście:** `src/Game/export_presets.cfg` (nowy, razem ze zdjęciem go z `.gitignore`),
+  `tools/release/package-playable.sh` (nowy), zasoby runtime w paczce, README gracza
+  i lista kontrolna playtestu.
+- **Weryfikacja:** uruchomić **rozpakowaną paczkę poza checkoutem**, ze ścieżki ze
+  spacjami, bez danych z repo, bez Godot Editora i bez Blendera; wykonać pełny trening
+  i ponowienie; sprawdzić komplet chunków, peronów, M7, osi i planu sygnalizacji.
+- **Skończone, gdy:** odbiorca uruchamia aplikację bez komend i kończy trening; logi
+  trafiają do katalogu użytkownika; **nie ma zależności od `../../data` ani `../../build`**.
+- **Poza zakresem:** sklep, podpisywanie instalatora, aktualizator, publikacja i wysyłanie
+  komukolwiek. Buildy zostają poza Gitem (reguła 8 `CLAUDE.md`).
+- **Zależy od:** MB-03.
+
+##### MB-05 · Wpiąć istniejącą kabinę
+
+- **Skąd:** audyt 13.09.2026 §6, zgodnie z pomiarem własnym: `tools/blender/m7_cab.py`
+  i `m7_cab_build.py` są **zrobione** (6.D119, #512, 11.09.2026 — 8 brył, 24 decyzje
+  `design_assumption`), a `grep` po `M7_cab` w plikach `.cs` daje **zero trafień**.
+  `docs/TASKS.md` nazywa to „największą dziurą między demo przejazdu a prowadzeniem
+  pociągu".
+- **Czego NIE pytać ponownie:** o zgodę na **kanoniczny, neutralny** układ kabiny —
+  zapadła 10.09.2026. Nie jest to zgoda na odwzorowanie prawdziwego pulpitu M7.
+- **Wejście:** `tools/blender/m7_cab.py`, `m7_cab_build.py`, `m7_layout.py`,
+  `src/Game/World/TrainView.cs`, `FirstRun.PlaceEverything`, decyzja z 10.09.2026.
+- **Wyjście:** `src/Game/World/CabView.cs` (nowy), integracja w scenie i w procesie
+  generacji oraz pakowania. Neutralne wnętrze korzysta z istniejących
+  `design_assumption`.
+- **Weryfikacja:** cztery wymagane klatki kontrolne z `render_check.py` **obejrzane
+  i opisane** (§5 `CLAUDE.md`), a po nich prawdziwe klatki Godota — w ruchu, na postoju
+  i po `C`. Sprawdzić clipping, widoczność toru i HUD-u.
+- **Skończone, gdy:** wnętrze jest widoczne w widoku kierowcy, podąża za składem,
+  **nie zmienia fizyki ani telemetrii** i nie znika razem ze skorupą ukrywaną w trybie
+  kabinowym.
+- **Poza zakresem:** rekonstrukcja dokładnego pulpitu M7, dekoracja stacji, logo,
+  zewnętrzne tekstury.
+- **Zależy od:** MB-03; po MB-04 ponownie spakować zasób.
+
+##### MB-06 · Wspólna droga poleceń AI i gracza
+
+- **Skąd:** audyt 13.09.2026 §6 i zdanie przewodnie `docs/01-architecture.md`: linia
+  działa bez gracza, kabina jest jej widokiem. Dziś `LineCore` prowadzi N składów,
+  a scena ma **jeden** `TrainView` i jedno źródło komend.
+- **Pułapka wypisana w audycie:** `LineDrive` ma własny autopilot i rozpoznawanie stacji
+  **projektowane dla AI**. Wstrzyknięcie klawiszy w `Command` NIE wystarczy, bo człowiek
+  może przestrzelić peron — dwustronne okno `StationService` zostaje, razem z testem
+  „zatrzymanie za peronem nie otwiera drzwi". Supervisor zostaje **ochroną**, nie
+  zastępczym wejściem gracza. Logiki ruchu nie powiela się w Godocie.
+- **Wejście:** `src/Sim/Line/LineCore.cs`, `src/Sim/Train/LineDrive.cs`,
+  `StationService.cs`, `TrainController.cs`, sygnalizacja, Issue #26.
+- **Wyjście:** jawny właściciel sterowania i możliwość podania komendy dla konkretnego
+  `trainId` w ticku; źródło AI jako domyślne; wspólny stan pociągu i wspólna droga
+  filtrów stacji i ochrony; zapis sterowania rozszerzony o przejęcia, jeśli replay tego
+  wymaga.
+- **Weryfikacja:**
+  ```bash
+  dotnet test tests/Sim.Tests
+  ```
+  Oczekiwane: przejęcie przy niezerowej prędkości i oddanie w czasie postoju **nie
+  zmieniają pozycji, prędkości ani kursu** w momencie przełączenia; drugi skład jedzie
+  dalej; agresywny input nie omija ATP; identyczne komendy dają identyczny stan.
+- **Skończone, gdy:** jeden pociąg zmienia źródło komend **bez utworzenia drugiej
+  symulacji jego ruchu**, a bez komend gracza dotychczasowy scenariusz AI zachowuje
+  wyniki co do bitu.
+- **Poza zakresem:** pełna sieć, nowa polityka zakłóceń, produkcyjny model rozkładu,
+  nowe parametry trakcji.
+- **Zależy od:** M1 (MB-00…MB-04); przed pracą **ponownie sprawdzić bieżący zakres
+  T-320**, bo LineCore ma już obsługę nawrotu.
+
+##### MB-07 · Pokazać autonomiczną linię i przejmować skład
+
+- **Skąd:** audyt 13.09.2026 §6. `LineCore.Trains` istnieje, ale scena tworzy **jeden**
+  `TrainView` — bez mapowania `trainId` → widok nie ma czego pokazać.
+- **Czego NIE wolno przedstawiać jako rozkładu STIB:** demonstracyjnego odstępu między
+  składami scenariusza pokazowego.
+- **Czego NIE wolno zrobić bez pomiaru:** zwiększyć liczby składów. Render, ticki,
+  pamięć i przycięcia streamingu mierzy się **osobno**, przed skalowaniem.
+- **Wejście:** `src/Sim/Line/LineCore.cs` (`Trains`), `src/Game/FirstRun.cs`,
+  `World/TrainView.cs`, kamery, `InputMap`, wynik MB-06.
+- **Wyjście:** mapowanie `trainId` → `TrainView`, wybór obserwowanego pociągu,
+  take/release, HUD wskazujący **właściciela sterowania**, jeden scenariusz pokazowy
+  z dwoma składami.
+- **Weryfikacja:** dziesięć minut scenariusza z dwoma składami, wielokrotna zmiana
+  kamery i przejęcie jednego; wspólna zajętość bloków; **drugi skład nie zamiera**;
+  headless i Godot dostają tę samą sekwencję komend.
+- **Skończone, gdy:** użytkownik widzi dwa **rzeczywiście symulowane** składy, może
+  bezpiecznie przejąć jeden i go oddać, a ukrycie widoku **nie usuwa pociągu z `Sim`**.
+- **Poza zakresem:** dwadzieścia widocznych składów, edytor rozkładu, nowe algorytmy
+  dyspozytora.
+- **Zależy od:** MB-06.
+
+##### MB-08 · Drzwi ręczne i pełny odbiór Issue #26
+
+- **Skąd:** audyt 13.09.2026 §6. Dziś drzwi obsługuje cykl automatyczny; flow
+  „obserwacja → przejęcie → stop → drzwi → odjazd → oddanie" z #26 nie jest domknięty.
+- **Rzecz do rozliczenia OSOBNO:** dzisiejsza Spacja odpowiada **pełnemu hamulcowi
+  służbowemu**. Nie wolno twierdzić, że wdrożono odrębny model awaryjny, dopóki nie
+  istnieje w komendach i w fizyce.
+- **Wejście:** `src/Sim/Train/DoorCycle.cs`, `StationStop.cs`, `StationService.cs`,
+  `InputMap`, komendy i replay z MB-06, kryteria Issue #26.
+- **Wyjście:** jawne komendy drzwi dla gracza, obsługa **tych samych reguł** przez AI,
+  sygnał gotowości do odjazdu w HUD, scenariusz przez Parc/Park.
+- **Weryfikacja:**
+  ```bash
+  dotnet test tests/Sim.Tests && dotnet test tests/Game.Tests
+  ```
+  Oczekiwane: odmowa otwarcia w ruchu, poza oknem i po niewłaściwej stronie; trakcja
+  zablokowana do potwierdzenia zamknięcia; take/release w czasie cyklu **nie resetuje
+  drzwi**; replay obejmuje te komendy.
+- **Skończone, gdy:** pełne flow działa, a **wszystkie punkty #26 mają dowód albo jasno
+  opisany brak**.
+- **Poza zakresem:** pasażerowie, awarie drzwi, finalne audio, multiplayer.
+- **Zależy od:** MB-07.
 
 **Nagłówek przepisany, a nie dopisany obok — trzeci raz i z tego samego powodu.**
 Pierwsza wersja mówiła „Szczegóły **ośmiu** pozycji dopisanych 04.09.2026", druga
