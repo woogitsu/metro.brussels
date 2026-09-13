@@ -224,8 +224,25 @@ def test_workflow_actually_runs_the_metadata_gate():
     assert "--manifest build/t400/chunks/L1_A-chunks.json" in body, (
         "krok bramki nie podaje manifestu — kontrola okna, rezydencji i LOD nie działa")
     # I manifest musi być tym, który ten job SAM wygenerował, a nie kopią z repo.
-    assert text.index("--chunk-manifest build/t400/chunks/L1_A-chunks.json") < text.index(
-        "--manifest build/t400/chunks/L1_A-chunks.json")
+    #
+    # **Ta asercja jest przepisana 13.09.2026 przy MB-01, a nie dopisana obok.**
+    # Poprzednia wersja szukała `--chunk-manifest` w TYM SAMYM pliku i porównywała
+    # pozycje obu napisów. Przepis generacji przeniósł się do
+    # `tools/dev/prepare-playable.sh` (przepis stoi w jednym miejscu — MB-01), więc
+    # `--chunk-manifest` w workflow już nie stoi i porównanie pozycji mierzyłoby
+    # nieistniejący napis. Treść warunku zostaje ta sama: krok, który manifest
+    # WYTWARZA, musi stać przed krokiem, który go CZYTA.
+    assert "bash tools/dev/prepare-playable.sh" in text, (
+        "workflow nie woła skryptu przygotowania — manifest nie powstaje w tym jobie")
+    assert text.index("bash tools/dev/prepare-playable.sh") < text.index(
+        "--manifest build/t400/chunks/L1_A-chunks.json"), (
+        "krok przygotowania stoi PO bramce metadanych — bramka czytałaby manifest "
+        "z poprzedniego przebiegu albo nie czytała żadnego")
+    with open(os.path.join(ROOT, "tools", "dev", "prepare-playable.sh"),
+              encoding="utf-8") as handle:
+        assert "--chunk-manifest" in handle.read(), (
+            "`prepare-playable.sh` nie wytwarza manifestu chunków, a bramka metadanych "
+            "go czyta — przepis i bramka mówią o różnych plikach")
     # Krok musi stać PO zrzutach, bo inaczej nie ma czego czytać.
     assert text.index("Shot metadata must describe this scene") > text.index("--shot=")
 
