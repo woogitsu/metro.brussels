@@ -260,7 +260,11 @@ def test_wykrywacz_krokow_reaguje_na_tresc_a_nie_na_kolejnosc():
 
 
 
-#: Logi jobów `tools`, z których 6.D135 przepisało wpisy `POMIARY` RĘCZNIE. Leżą w drzewie
+#: Logi jobów `tools` — po jednym na KAŻDY wpis runnera w `POMIARY`, i to jest
+#: niezmiennik pilnowany przez `test_kazdy_wpis_runnera_ma_log_w_drzewie`, a nie opis
+#: zawartości katalogu. Pierwszych sześć (PR #524 … #529) to przebiegi, z których 6.D135
+#: przepisało wpisy RĘCZNIE; **od 6.D190 dochodzą tu logi przebiegów zapisywanych na
+#: bieżąco** — bo warunkiem wejścia wpisu do listy jest właśnie ten plik. Leżą w drzewie
 #: **dosłowne i NIESPAKOWANE**; przycinanie ich do „wierszy, które są potrzebne" byłoby
 #: kuracją materiału — bramka sprawdzałaby wtedy wybór człowieka, a nie log.
 #:
@@ -374,7 +378,9 @@ def test_artefakt_czasu_jest_OKNEM_RUCHOMYM_a_nie_zapisem_trwalym():
     (wpis z 05.09.2026 stoi w niej do dziś i będzie stał), artefakt **wygasa**. Trend
     zbudowany na artefaktach nigdy nie sięgnie dalej niż trzydzieści dni wstecz, więc
     to, co ma przeżyć dłużej, musi być **zżęte do drzewa przed wygaśnięciem** — tak
-    jak sześć logów w `tests/data/ci-logs/`, które właśnie dlatego tam leżą.
+    jak logi w `tests/data/ci-logs/`, które właśnie dlatego tam leżą. Liczby ich tu
+    nie ma i od 6.D190 nie będzie: katalog rośnie z każdym zapisanym wpisem runnera,
+    a druga kopia tej liczby rozjechałaby się przy pierwszym z nich (6.B28).
 
     Czytnika artefaktów ta pozycja NIE pisze: pole „Poza zakresem" zabrania zmiany
     kroku CI i dopisywania wpisów automatem, a pytanie brzmiało, czy materiał jest.
