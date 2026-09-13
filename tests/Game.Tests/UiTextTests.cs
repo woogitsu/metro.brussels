@@ -2934,13 +2934,276 @@ public sealed class UiTextTests
             // do klasy „bez komunikatu" — mimo że komunikat stoi. Zmierzone: bez tej
             // zmiennej zapadka `BEZ_KOMUNIKATU` dla tego pliku rosła z 13 na 14,
             // a wolno ją tylko obniżać.
-            var stoiPrzyArgumencie = Regex.IsMatch(
-                zrodla, @"Argument\([^)]*""" + nazwa + @"""\)");
+            // WZORZEC ZE ZWYKŁEGO NAPISU, a nie z `@"…"`, i to nie jest kosmetyka:
+            // zapis werbatim zaczynający się od cudzysłowu uciekanego (`@"""`) jest
+            // przez `maska()` w `test_csharp_test_methods.py` brany za napis SUROWY
+            // i połyka resztę pliku — a razem z nią TRZY metody testowe dopisane
+            // niżej przy 6.D188. (Nazwy atrybutu nie cytuję tu dosłownie: tamten
+            // czytnik liczy jego WYSTĄPIENIA W TEKŚCIE, więc cytat w komentarzu
+            // dołożyłby czwarte, nieistniejące.) Osobna pozycja, nie cicha zmiana.
+            var wzorzec = "Argument\\([^)]*\"" + nazwa + "\"\\)";
+            var stoiPrzyArgumencie = Regex.IsMatch(zrodla, wzorzec);
             Assert.IsTrue(stoiPrzyArgumencie,
                 $"nazwa `{nazwa}` pada w korpusie, ale nie stoi w żadnym wywołaniu "
                 + "`Argument(…)` — wtedy nie wiadomo, czy zgłoszenie bierze się "
                 + "z argumentu wiersza poleceń, czy jednak z klucza (6.D186)");
         }
+    }
+
+
+    // --- 6.D188: co `BezDziur` zabiera i czy zabiera komuś tekst ----------------------
+
+    /// <summary>Ile literałów korpusu niesie w ogóle parę klamer — 6.D188.</summary>
+    private const int LiteralowZKlamra = 124;
+
+    /// <summary>
+    /// Ilu literałom <see cref="BezDziur"/> zabiera WSZYSTKIE słowa — 6.D188.
+    ///
+    /// <para>„Zabiera wszystkie" znaczy: <c>BezJednostek(literał)</c> niesie słowo,
+    /// a <c>BezJednostek(BezDziur(literał))</c> już nie. Zmierzone na 480 literałach
+    /// <c>src/Game/</c>.</para>
+    /// </summary>
+    private const int ZabranychWszystkieSlowa = 14;
+
+    /// <summary>
+    /// Ile z nich stoi na drodze <c>Hud.Update</c>, czyli dociera na ekran — 6.D188.
+    ///
+    /// <para><b>Cztery — i ani jedno nie jest tekstem dla gracza.</b> To jest
+    /// odpowiedź pozycji na pytanie „czy któryś z nich jest tekstem dla gracza":
+    /// docierają, ale zabrane im słowa to nazwy zmiennych z wnętrza dziur.</para>
+    /// </summary>
+    private const int ZabranychNaDrodzeNaEkran = 4;
+
+    /// <summary>Literały z drogi na ekran, którym <c>BezDziur</c> zabiera wszystko — 6.D188.</summary>
+    private static readonly string[] ZabraneNaEkranie =
+    {
+        "{ostrzezenie}{ingerencja}",
+        "{binding.KeyName} {binding.Meaning}",
+        "{b.KeyName} {b.Meaning}",
+        "{speedKmh,6:F1} km/h     a = {accelerationMps2,6:F2} m/s²",
+    };
+
+    /// <summary>
+    /// Pary klamer, których treść niesie cudzysłów — CAŁY korpus, 6.D188.
+    ///
+    /// <para><b>To jest populacja, w której opisana w pozycji usterka MOGŁABY
+    /// wystąpić</b>, i liczy trzy sztuki. Wszystkie trzy są wywołaniami C#
+    /// z zagnieżdżonym literałem, a nie obiektem JSON — a zagnieżdżony literał
+    /// <see cref="Literaly"/> zwraca OSOBNO, więc <c>BezDziur</c> nie ma jak go
+    /// schować.</para>
+    /// </summary>
+    private static readonly string[] KlamryZCudzyslowem =
+    {
+        "{Engine.GetVersionInfo()[\"string\"]}",
+        "{string.Join(\" --\", KnownArguments)}",
+        "{string.Join(\", \", KnownViews)}",
+    };
+
+    /// <summary>Literały zagnieżdżone w tych trzech dziurach — muszą stać w korpusie.</summary>
+    private static readonly string[] ZagniezdzoneWKlamrach = { "string", " --", ", " };
+
+    /// <summary>Czy sito zgłasza słowo w tym literale — tak samo, jak pyta bramka.</summary>
+    private static bool NiesieSlowo(string literal) =>
+        Regex.IsMatch(BezJednostek(literal), WzorzecSlowa);
+
+    /// <summary>Literały, którym <c>BezDziur</c> zabiera wszystkie słowa, danym korpusem.</summary>
+    private static List<string> TracaceWszystkieSlowa(IEnumerable<string> literaly) =>
+        literaly.Where(l => NiesieSlowo(l) && !NiesieSlowo(BezDziur(l))).ToList();
+
+    /// <summary>
+    /// Ilu literałom <c>BezDziur</c> zabiera WSZYSTKIE słowa i ile z nich dociera
+    /// na ekran — 6.D188.
+    ///
+    /// <para><b>PRZESŁANKA POZYCJI PADŁA, i to jest główny wynik.</b> Pole „Skąd"
+    /// mówi, że <c>BezDziur</c> „dla literału niosącego płaski obiekt JSON zabiera
+    /// treść, o którą bramka pyta". Mechanizm jest prawdziwy — pokazuje go kontrola
+    /// na wejściu syntetycznym niżej — ale w <c>src/Game/</c> nie ma go ANI RAZU:
+    /// wśród czternastu literałów tracących wszystkie słowa nie ma ani jednego
+    /// płaskiego obiektu JSON. We wszystkich czternastu zabrane słowa są nazwami
+    /// zmiennych z wnętrza dziur, czyli tym, co sito obiecuje zabierać.</para>
+    /// </summary>
+    [TestMethod]
+    public void Ile_literalow_traci_WSZYSTKIE_slowa_przez_BezDziur()
+    {
+        var wszystkie = new List<string>();
+        var zKlamra = 0;
+        foreach (var sciezka in ZrodlaGry())
+        {
+            foreach (var literal in Literaly(File.ReadAllText(sciezka)))
+            {
+                wszystkie.Add(literal);
+                if (Regex.IsMatch(literal, "[{][^{}]*[}]"))
+                {
+                    zKlamra++;
+                }
+            }
+        }
+
+        // Dolne ostrze na SAM SKAN: zepsuty czytnik daje zero literałów, a zero
+        // przechodzi „nikomu nic nie ubyło" bez ani jednego sprawdzenia (6.D27).
+        Assert.AreEqual(LiteralowWZasieguBramki, wszystkie.Count,
+            $"korpus ma dziś {wszystkie.Count} literałów wobec "
+            + $"{LiteralowWZasieguBramki} — pomiar 6.D188 opisuje inne drzewo");
+        Assert.AreEqual(LiteralowZKlamra, zKlamra,
+            $"literałów z klamrą jest {zKlamra} wobec zmierzonych {LiteralowZKlamra} — "
+            + "bez nich `BezDziur` nie ma na czym zadziałać");
+
+        var tracace = TracaceWszystkieSlowa(wszystkie);
+        Assert.AreEqual(ZabranychWszystkieSlowa, tracace.Count,
+            $"wszystkie słowa traci dziś {tracace.Count} literałów wobec zmierzonych "
+            + $"{ZabranychWszystkieSlowa}: " + string.Join(" | ", tracace));
+
+        var naEkranie = new List<string>();
+        foreach (var (_, plik, czlon) in ZrodlaHud)
+        {
+            naEkranie.AddRange(TracaceWszystkieSlowa(
+                Literaly(CialoDeklaracji(ZrodloGry(plik), czlon))));
+        }
+
+        naEkranie.AddRange(TracaceWszystkieSlowa(
+            Literaly(CialoDeklaracji(HudSource(), "public void Update("))));
+
+        Assert.AreEqual(ZabranychNaDrodzeNaEkran, naEkranie.Count,
+            $"na drodze `Hud.Update` traci wszystko {naEkranie.Count} literałów wobec "
+            + $"{ZabranychNaDrodzeNaEkran}: " + string.Join(" | ", naEkranie));
+        CollectionAssert.AreEqual(
+            ZabraneNaEkranie.OrderBy(l => l, StringComparer.Ordinal).ToList(),
+            naEkranie.OrderBy(l => l, StringComparer.Ordinal).ToList(),
+            "na ekran docierają inne literały tracące wszystko niż w pomiarze: "
+            + string.Join(" | ", naEkranie));
+    }
+
+    /// <summary>
+    /// Zabrane słowa to WYRAŻENIA C#, a nie tekst dla gracza — 6.D188.
+    ///
+    /// <para><b>Dlaczego `BezDziur` nie MOŻE schować tekstu dla gracza, i jest to
+    /// własność strukturalna, a nie zbieg okoliczności na dzisiejszym drzewie.</b>
+    /// Treścią dziury jest kod C#, a jedyną drogą, którą tekst dla człowieka mógłby
+    /// się w niej znaleźć, jest literał ZAGNIEŻDŻONY — a te
+    /// <see cref="Literaly"/> zwraca OSOBNO (akapit „Literały z dziur interpolacji
+    /// ZWRACANE SĄ TEŻ"). Zdjęcie dziury nie zabiera więc korpusowi ani jednego
+    /// napisu; zabiera tylko jego kopię stojącą wewnątrz szablonu.</para>
+    ///
+    /// <para>Populacja, w której cokolwiek innego mogłoby stać, to pary klamer
+    /// z cudzysłowem w środku — w całym korpusie <b>trzy</b>, wszystkie wywołania
+    /// C#. Ich zagnieżdżone literały muszą stać w korpusie osobno i to jest tu
+    /// sprawdzane, a nie założone.</para>
+    /// </summary>
+    [TestMethod]
+    public void Zabrane_slowa_to_WYRAZENIA_C_a_nie_tekst_dla_gracza()
+    {
+        var korpus = new List<string>();
+        foreach (var sciezka in ZrodlaGry())
+        {
+            korpus.AddRange(Literaly(File.ReadAllText(sciezka)));
+        }
+
+        var zCudzyslowem = korpus
+            .SelectMany(l => Regex.Matches(l, "[{][^{}]*[}]").Select(m => m.Value))
+            .Where(d => d.Contains('"', StringComparison.Ordinal))
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(d => d, StringComparer.Ordinal)
+            .ToList();
+        CollectionAssert.AreEqual(
+            KlamryZCudzyslowem.OrderBy(d => d, StringComparer.Ordinal).ToList(),
+            zCudzyslowem,
+            "par klamer z cudzysłowem w środku jest dziś " + string.Join(" | ", zCudzyslowem)
+            + " — jeśli doszła, trzeba sprawdzić, czy to wywołanie C#, czy obiekt JSON");
+
+        // PĘTLA MUSI SIĘ WYKONAĆ, i to nie jest ostrożność: `Take(0)` w niej czynił
+        // z całej asercji ciche pominięcie, a kontrola negatywna KN-4 wychodziła
+        // ZIELONA. Ta sama rodzina, co `test_lista_wyjatkow_filtrow_nie_gnije`.
+        Assert.AreEqual(KlamryZCudzyslowem.Length, ZagniezdzoneWKlamrach.Length,
+            "listy „dziura z cudzysłowem” i „literał w niej zagnieżdżony” mają różną "
+            + "długość — każdej dziurze odpowiada dokładnie jeden zagnieżdżony napis");
+        var sprawdzonych = 0;
+        foreach (var zagniezdzony in ZagniezdzoneWKlamrach)
+        {
+            Assert.IsTrue(korpus.Contains(zagniezdzony, StringComparer.Ordinal),
+                $"literał `{zagniezdzony}` stoi WEWNĄTRZ dziury, a czytnik nie zwrócił "
+                + "go osobno — wtedy `BezDziur` mógłby go schować i cały wywód tej "
+                + "bramki przestaje być prawdą");
+            sprawdzonych++;
+        }
+
+        // LICZNIK OBROTÓW, a nie długość listy: KN-4 za pierwszym razem wyszła ZIELONA
+        // z `Take(0)` w nagłówku pętli, a asercja na `.Length` tego nie łapie — lista
+        // ma swoją długość niezależnie od tego, ile razy pętla się obróci.
+        Assert.AreEqual(KlamryZCudzyslowem.Length, sprawdzonych,
+            $"pętla sprawdziła {sprawdzonych} z {KlamryZCudzyslowem.Length} "
+            + "zagnieżdżonych literałów — reszta jest cichym pominięciem");
+
+        // Druga strona, na wejściu SYNTETYCZNYM: tekst dla gracza schowany w dziurze
+        // ZOSTAJE widziany, bo czytnik zwraca go osobno. Drzewo tego nie rozdziela —
+        // nie ma dziś ani jednej dziury z polskim napisem w środku.
+        var zNapisem = SlowaWKodzie("var t = $\"stan: {(x ? \"otwarte\" : \"zamknięte\")}\";");
+        Assert.IsTrue(zNapisem.Count >= 2,
+            "czytnik nie zwrócił osobno napisów schowanych w dziurze — zwrócił: "
+            + string.Join(" | ", zNapisem));
+        Assert.IsTrue(zNapisem.Contains("otwarte", StringComparer.Ordinal),
+            "napis dla gracza z wnętrza dziury nie stoi w korpusie osobno: "
+            + string.Join(" | ", zNapisem));
+    }
+
+    /// <summary>
+    /// Napis metadanych PRZEŻYWA <c>BezDziur</c>, bo jego klamry są ZAGNIEŻDŻONE
+    /// — 6.D188.
+    ///
+    /// <para><b>Tu stoi mechanizm, o który pozycja pyta, i jego jedyny możliwy
+    /// nosiciel.</b> <c>BezDziur</c> to <c>[{][^{}]*[}]</c>, czyli zdejmuje
+    /// WYŁĄCZNIE pary NAJGŁĘBSZE — płaski <c>{ "stacja": "peron" }</c> jest sam dla
+    /// siebie najgłębszy i znika w całości razem z nazwami pól. Napisów surowych
+    /// <c>$$"""</c> w <c>src/Game/</c> jest JEDEN — metadane zrzutu z
+    /// <c>FirstRun.cs</c> — a wszystkie jego nazwy kluczy leżą POZA najgłębszymi
+    /// parami (tymi są dziury interpolacji), więc przeżywają co do jednej.
+    /// Usterka istnieje jako mechanizm i ma w tym drzewie ZERO wystąpień.</para>
+    ///
+    /// <para><b>Zdanie „bo klamry są zagnieżdżone" było za słabe i pokazała to
+    /// kontrola.</b> KN-3 zdjęła z napisu JEDEN poziom zagnieżdżenia i wyszła
+    /// ZIELONA: pozostałe poziomy wystarczyły. Nośna jest nie liczba poziomów, tylko
+    /// to, ILE NAZW KLUCZY leży poza najgłębszymi parami — i dlatego stoi tu pin na
+    /// tę liczbę, a nie zdanie o zagnieżdżeniu.</para>
+    ///
+    /// <para>Kontrola na wejściu SYNTETYCZNYM, bo drzewo tych dwóch przypadków nie
+    /// rozdziela — płaskiego obiektu JSON w literale nie ma tu ani jednego.</para>
+    /// </summary>
+    [TestMethod]
+    public void Napis_metadanych_PRZEZYWA_BezDziur_bo_jego_klamry_sa_ZAGNIEZDZONE()
+    {
+        var napis = NapisMetadanychZrzutu();
+        Assert.IsTrue(NiesieSlowo(napis),
+            "napis metadanych przestał nieść słowo — wtedy porównanie „przed i po” "
+            + "nie ma jednej ze stron");
+        Assert.IsTrue(NiesieSlowo(BezDziur(napis)),
+            "`BezDziur` zabrał napisowi metadanych wszystkie słowa — wtedy usterka "
+            + "z 6.D188 ma pierwsze wystąpienie w drzewie");
+
+        // PIN NA LICZBĘ, a nie na zdanie o zagnieżdżeniu. Kluczy jest 31 (6.D186)
+        // i `BezDziur` nie zabiera ANI JEDNEGO — bo wszystkie leżą poza najgłębszymi
+        // parami klamer. Bez tego pinu zdjęcie poziomu zagnieżdżenia przechodziło
+        // na zielono (KN-3).
+        var kluczePrzed = Regex.Matches(napis, "\"([a-z_][a-z0-9_]*)\"\\s*:")
+            .Select(m => m.Groups[1].Value).Distinct(StringComparer.Ordinal).Count();
+        var kluczePo = Regex.Matches(BezDziur(napis), "\"([a-z_][a-z0-9_]*)\"\\s*:")
+            .Select(m => m.Groups[1].Value).Distinct(StringComparer.Ordinal).Count();
+        Assert.AreEqual(KluczyJsonWypisywanego, kluczePrzed,
+            $"napis metadanych niesie dziś {kluczePrzed} kluczy wobec "
+            + $"{KluczyJsonWypisywanego} z 6.D186");
+        Assert.AreEqual(KluczyJsonWypisywanego, kluczePo,
+            $"po `BezDziur` zostaje {kluczePo} kluczy z {KluczyJsonWypisywanego} — "
+            + "sito zabrało nazwy pól, czyli treść, o którą bramka pyta");
+
+        // WEJŚCIE SYNTETYCZNE — dokładnie to, czego żądało pole „Weryfikacja" pozycji.
+        var plaski = SlowaWKodzie("var j = $$\"\"\"\n{ \"stacja\": \"peron\" }\n\"\"\";");
+        var zagniezdzony = SlowaWKodzie(
+            "var j = $$\"\"\"\n{ \"scene\": { \"peron\": 1 } }\n\"\"\";");
+        Assert.AreEqual(0, plaski.Count,
+            "płaski obiekt JSON przestał znikać w całości — wtedy akapit o `BezDziur` "
+            + "opisuje inne sito: " + string.Join(" | ", plaski));
+        Assert.AreEqual(1, zagniezdzony.Count,
+            "zagnieżdżony obiekt JSON nie zostawił ani jednego zgłoszenia — wtedy "
+            + "różnica, dla której ta kontrola istnieje, nie została pokazana: "
+            + string.Join(" | ", zagniezdzony));
     }
 
 }
