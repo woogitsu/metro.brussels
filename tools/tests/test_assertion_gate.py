@@ -15,6 +15,7 @@ bo nic nie sprawdziła.
 import ast
 import atexit
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -1159,6 +1160,266 @@ def test_obie_bramki_czytaja_nazwe_wlasnych_testow_z_jednego_miejsca():
     assert wprost == 1, (
         "nazwa własnych testów stoi w kodzie `mutation_sweep.py` %d razy — ma stać "
         "raz, w `WLASNE_TESTY`, a reszta ma ją czytać stamtąd" % wprost)
+
+
+# --- 6.D161: zdania „ubezpieczenie", i ile z nich ma pod sobą wejście --------------
+#
+# **Skąd ta sekcja.** 6.D147, 6.D148 i 6.D149 — trzy pozycje pod rząd — miały kontrolę
+# negatywną, która wyszła ZIELONA z tego samego powodu: mechanizm jest poprawny, ale
+# żadne dzisiejsze wejście z drzewa nie odróżnia go od jego braku. Ile takich zdań stoi
+# w drzewie i ile z nich ma pod sobą wejście syntetyczne, nie policzył nikt.
+#
+# **GRANICA TEGO POMIARU, powiedziana wprost, bo jest jego najważniejszą częścią.**
+# Wzorzec niżej znajduje zdania, które się do tego PRZYZNAJĄ — słowem „ubezpieczenie",
+# „zmierzona konieczność" albo „kontrola wyszła ZIELONA". Rodziny to NIE wyczerpuje
+# i zmierzyłem, że nie: pole „Dlaczego" pozycji 6.D161 wymienia jako jej członków
+# `SUROWY` i `argumenty_z_nawiasami`, a **żadne z nich nie niesie ani jednego z tych
+# słów**. Pierwsze uzasadnia się kosztem skanu i szczelnością odsiania, drugie podaje
+# pomiar („różnicy nie ma ani jednej") bez nazwania go ubezpieczeniem. Liczba niżej
+# jest więc liczbą zdań JAWNYCH, a nie liczbą mechanizmów bez pokrycia — tej drugiej
+# z tekstu wyprowadzić się nie da i ten komentarz stoi zamiast niej.
+
+#: Miejsce, od którego zaczyna się własna sekcja 6.D161 tego pliku. Wszystko od tego
+#: napisu w dół jest ze skanu WYCIĘTE — powód w `zdania_rodziny`. Napis wskazuje
+#: NAGŁÓWEK sekcji, a nie pierwszą stałą pod nim: nagłówek też wymienia słowa wzorca,
+#: więc cięcie niżej zostawiało jedno trafienie o sobie samym (19 zamiast 18).
+ZNACZNIK_WLASNEJ_SEKCJI = "# --- 6.D161: zdania "
+
+#: Zdanie przyznające się do rodziny. Trzy sformułowania, wszystkie z pola „Wejście"
+#: pozycji 6.D161.
+RODZINA_UBEZPIECZENIA = re.compile(
+    r"ubezpieczeni\w*"
+    r"|nie\s+zmierzon\w+\s+konieczno\w+"
+    r"|zmierzon\w+\s+konieczno\w+"
+    r"|wysz(?:ł|l)a\s+ZIELONA"
+    r"|wysz(?:ł|l)a\s+zielona",
+    re.IGNORECASE)
+
+#: Ile zdań rodziny stoi w `tools/tests/`. Zapadka RÓWNOŚCIOWA, nie minimum:
+#: dopisanie zdania ma zmusić do rozstrzygnięcia, czy niesie pokrycie, a nie
+#: przejść samo.
+ZDAN_RODZINY_RAZEM = 18
+
+#: **Wszystkie osiemnaście, przeczytane po kolei 13.09.2026, w DWÓCH workach** —
+#: `(plik, zakres) -> powód`. Podział jest ręczny i to jest wybór z pomiaru, nie
+#: lenistwo: automat szukający markera wejścia syntetycznego w obejmującej definicji
+#: dał **cztery trafienia fałszywe na dwanaście**, wszystkie tam, gdzie zakresem jest
+#: moduł albo funkcja na czterysta wierszy, a marker leżał 179 do 437 wierszy od
+#: zdania. Liczba wyprowadzona z takiego automatu byłaby dokładnie tym „cichym
+#: sitem", którego ta pozycja szuka — więc liczby nie ma, jest lista.
+Z_WEJSCIEM_SYNTETYCZNYM = {
+    ("tools/tests/test_assertion_gate.py",
+     "test_licznik_odroznia_assert_z_powodem_od_assert_bez"):
+        "kontrola przyrządu na wejściu zbudowanym na tę okazję, a nie na drzewie",
+    ("tools/tests/test_assertion_gate.py",
+     "test_bez_wyjatku_zapadka_zapalilaby_sie_na_drzewie_roboczym_przegladu"):
+        "drzewo próbne w katalogu tymczasowym, budowane na tę jedną gałąź",
+    ("tools/tests/test_ci_workflows.py", "_cialo_z_tekstu"):
+        "docstring mówi wprost, że mechanizm jest przybity wejściem syntetycznym "
+        "w kontroli przyrządu niżej, i tak jest",
+    ("tools/tests/test_csharp_pins.py",
+     "test_maska_odsiewa_wywolania_z_komentarzy_i_napisow"):
+        "przechodzi przez `piny()` na drzewie próbnym, więc zdjęcie maski je wywraca",
+    ("tools/tests/test_csharp_pins.py",
+     "test_czytnik_liczbowy_tnie_argumenty_po_MASCE_a_nie_po_przecinkach"):
+        "wejście syntetyczne poprawione właśnie po zielonej kontroli, i to jest "
+        "w docstringu powiedziane",
+    ("tools/tests/test_mass_copies.py", "(moduł)"):
+        "cały moduł mierzy na drzewie próbnym, a nie na repozytorium — zbiory nazw "
+        "są tam mniejsze i o to chodzi",
+    ("tools/tests/test_osm_api_fallback.py",
+     "test_czytelnik_rejestru_ODMAWIA_gdy_wpisow_OSM_jest_wiecej_niz_jeden"):
+        "rejestr z dwoma wpisami zbudowany w katalogu tymczasowym — w drzewie "
+        "jest jeden, więc gałęzi nie ćwiczyłoby nic",
+    ("tools/tests/test_provenance_classes.py",
+     "test_the_geometry_readers_are_parsing_and_not_returning_a_constant"):
+        "wejście syntetyczne, wymienione w docstringu dwa razy, plus kontrola przyrządu",
+    ("tools/tests/test_tree_writes.py", "test_skan_widzi_ksztalt_ktory_ma_widziec"):
+        "czwarty kształt dopisany po zielonej kontroli, razem z wejściem syntetycznym",
+}
+
+#: Drugi worek. **Powody NIE są jednym powodem i to jest główny wynik 6.D161:**
+#: zielona kontrola ma w tym drzewie PIĘĆ różnych losów, a pole „Wyjście" pozycji
+#: zakładało dwa (deklaracja albo wejście syntetyczne).
+BEZ_WEJSCIA_SYNTETYCZNEGO = {
+    ("tools/tests/mutation_sweep.py", "zapisz_pokrycie"):
+        "UBEZPIECZENIE przyjęte świadomie: zepsucia pliku docelowego nie udało się "
+        "odtworzyć w pięciu próbach, więc wejścia nie ma z czego zrobić",
+    ("tools/tests/test_mutation_sweep.py",
+     "test_plik_posredni_mapy_pokrycia_jest_wlasny_dla_procesu"):
+        "to samo ubezpieczenie od strony testu — zjawisko nieodtworzone",
+    ("tools/tests/mutation_sweep.py", "main"):
+        "TWIERDZENIE POPRAWIONE: dawne zdanie o granicy zamka było nieprawdziwe; "
+        "mechanizm pilnuje kolejności czytanej z AST, a nie wejścia zbudowanego",
+    ("tools/tests/test_mutation_sweep.py",
+     "test_zamek_stoi_przed_pierwszym_ZAPISEM_do_dziennika"):
+        "ta sama poprawka twierdzenia od strony testu — docstring mówi wprost "
+        "„zostało poprawione, a nie przybite”",
+    ("tools/tests/test_assertion_gate.py", "komunikat_nic_nie_mowi"):
+        "mechanizm DOŁOŻONY po zielonej kontroli, ale wejścia nie ma i mieć nie może: "
+        "asercji z pustym komunikatem jest w drzewie ZERO, co sam docstring podaje",
+    ("tools/tests/test_assertion_gate.py",
+     "test_lista_asercji_bez_komunikatu_moze_tylko_malec"):
+        "pokrycie dołożone ASERCJĄ w tym samym miejscu, a nie wejściem syntetycznym",
+    ("tools/tests/test_bytecode_staleness.py", "(moduł)"):
+        "wzorzec ZAWĘŻONY po zielonej kontroli (kotwica końca wiersza), ale czyta "
+        "wyłącznie prawdziwy workflow — napisu próbnego z dawnym przedrostkiem "
+        "nie dostaje nigdy",
+    ("tools/tests/test_tree_writes.py", "_pisze_przez_parametr"):
+        "kształt DOŁOŻONY przez kontrolę; ćwiczy go skan prawdziwego drzewa, "
+        "nie wejście zbudowane na tę okazję",
+    ("tools/tests/test_tree_walks.py", "(moduł)"):
+        "MECHANIZMU NIE PRZYJĘTO: zielona kontrola pokazała, że osobna zapadka na "
+        "liczbę nie zapala się nigdy sama, więc jej nie ma — lista nazw jest "
+        "ściśle mocniejsza",
+}
+
+#: Ile stoi bez wejścia syntetycznego. Przybite osobno od długości słownika, żeby
+#: skreślenie wpisu nie przeszło po cichu.
+ZDAN_BEZ_POKRYCIA = 9
+
+
+def _moduly_do_skanu_rodziny():
+    """Ścieżki modułów `.py` pod `tools/tests/`, przez wspólny filtr drzewa.
+
+    Osobna od `_moduly_testowe` wyżej, bo tamta przyjmuje katalog i służy przeglądowi
+    mutacyjnemu; zlanie ich w jedną nazwę przesłoniło tamtą i wywróciło cztery testy.
+    """
+    import tree_walk
+    katalog = os.path.join(ROOT, "tools", "tests")
+    return sorted(os.path.join(base, nazwa)
+                  for base, _kat, pliki in tree_walk.walk(katalog)
+                  for nazwa in pliki if nazwa.endswith(".py"))
+
+
+def zdania_rodziny(sciezki=None):
+    """`[(plik, zakres, wiersz)]` — zdania przyznające się do rodziny 6.D161.
+
+    Zakres to nazwa najwęższej obejmującej definicji albo `(moduł)`. Jedno zdanie
+    bywa rozbite na dwa wiersze, więc para `(plik, zakres)` liczy się RAZ — inaczej
+    liczba mówiłaby o zawijaniu tekstu, a nie o zdaniach.
+    """
+    out, widziane = [], set()
+    for sciezka in (sciezki if sciezki is not None
+                    else _moduly_do_skanu_rodziny()):
+        with open(sciezka, encoding="utf-8") as uchwyt:
+            zrodlo = uchwyt.read()
+        if os.path.abspath(sciezka) == os.path.abspath(__file__):
+            # WŁASNA SEKCJA JEST WYCIĘTA, i to nie jest wyjątek dla wygody: ona
+            # WYMIENIA słowa, które wzorzec rozpoznaje, więc bramka skanująca samą
+            # siebie zapalałaby się na własnej dokumentacji i zostałaby wyłączona,
+            # nie poprawiona. Ta sama konstrukcja co `granica` w bramce marginesu
+            # z `test_suite_runtime_budget.py`. Zmierzone: bez tego wycięcia wzorzec
+            # znajduje tu CZTERY zdania o sobie samym (22 zamiast 18).
+            zrodlo = zrodlo[:zrodlo.index(ZNACZNIK_WLASNEJ_SEKCJI)]
+        try:
+            drzewo = ast.parse(zrodlo)
+        except SyntaxError:
+            continue
+        zakresy = [(w.lineno, getattr(w, "end_lineno", w.lineno), w.name)
+                   for w in ast.walk(drzewo)
+                   if isinstance(w, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))]
+        wzgledna = os.path.relpath(sciezka, ROOT)
+        for numer, wiersz in enumerate(zrodlo.splitlines(), 1):
+            if not RODZINA_UBEZPIECZENIA.search(wiersz):
+                continue
+            obejmujace = sorted([z for z in zakresy if z[0] <= numer <= z[1]],
+                                key=lambda z: z[1] - z[0])
+            zakres = obejmujace[0][2] if obejmujace else "(moduł)"
+            if (wzgledna, zakres) in widziane:
+                continue
+            widziane.add((wzgledna, zakres))
+            out.append((wzgledna, zakres, numer))
+    return out
+
+
+def test_rodzina_ubezpieczenia_jest_POLICZONA_a_nie_opowiedziana():
+    """6.D161: obie liczby wyprowadzone ze źródeł, i KAŻDE zdanie w jednym z worków.
+
+    **Wynik pozycji.** Zdań jawnych jest **osiemnaście**, z wejściem syntetycznym
+    **dziewięć**, bez niego **dziewięć**. Ale te dziewięć bez pokrycia rozpada się na
+    **pięć różnych losów** zielonej kontroli, nie na jeden: ubezpieczenie przyjęte
+    świadomie, twierdzenie poprawione, mechanizm dołożony bez możliwego wejścia,
+    pokrycie inne niż syntetyczne, mechanizm nieprzyjęty. Pole „Wyjście" pozycji
+    zakładało podział binarny; drzewo go nie ma.
+
+    **Dlaczego worki są RĘCZNE.** Automat szukający markera wejścia syntetycznego
+    w obejmującej definicji dał cztery trafienia fałszywe na dwanaście — liczby
+    z takiego automatu nie podaję, bo byłaby tym cichym sitem, którego ta pozycja
+    szuka. Zamiast liczby stoi lista, a ten test pilnuje, żeby była PEŁNA.
+
+    **Czego ta bramka NIE łapie, świadomie i z pomiarem:** mechanizmu, który do
+    rodziny należy, a w prozie się do niej nie przyznaje. Dwa takie wymienia sama
+    pozycja (`SUROWY` i `argumenty_z_nawiasami`) i sprawdziłem oba — żaden nie niesie
+    ani jednego ze słów wzorca. Szersze kryterium („nie odróżnia") daje w `tools/tests/`
+    grubo ponad setkę trafień, w ogromnej większości o czymś innym, więc bramka na nim
+    świeciłaby na poprawnym tekście i zostałaby wyłączona, nie poprawiona.
+    """
+    zdania = zdania_rodziny()
+    assert len(zdania) == ZDAN_RODZINY_RAZEM, (
+        "zdań rodziny jest %d, a zapadka stoi na %d — podnieś ją w tym samym "
+        "commicie, w którym dopisujesz zdanie" % (len(zdania), ZDAN_RODZINY_RAZEM))
+
+    znalezione = {(plik, zakres) for plik, zakres, _n in zdania}
+    sklasyfikowane = set(Z_WEJSCIEM_SYNTETYCZNYM) | set(BEZ_WEJSCIA_SYNTETYCZNEGO)
+
+    # SEDNO: podzial ma byc ZUPELNY i ROZLACZNY. Bez pierwszej polowy zdanie dopisane
+    # dzis przechodziloby nieprzeczytane; bez drugiej to samo zdanie moglo by stac
+    # w obu workach naraz i obie liczby byłyby prawdziwe osobno, a razem nieprawdziwe.
+    niesklasyfikowane = znalezione - sklasyfikowane
+    assert not niesklasyfikowane, (
+        "zdanie rodziny, którego nikt nie przeczytał i nie przypisał do worka: %s — "
+        "rozstrzygnij, czy ma pod sobą wejście syntetyczne, i dopisz do jednej "
+        "z dwóch list" % sorted(niesklasyfikowane))
+
+    zbedne = sklasyfikowane - znalezione
+    assert not zbedne, (
+        "lista wymienia zdanie, którego wzorzec już nie znajduje: %s — zdanie "
+        "zniknęło albo zmieniło słowa, a lista została z wczorajszą prawdą"
+        % sorted(zbedne))
+
+    obie_naraz = set(Z_WEJSCIEM_SYNTETYCZNYM) & set(BEZ_WEJSCIA_SYNTETYCZNEGO)
+    assert not obie_naraz, ("zdanie w obu workach naraz: %s" % sorted(obie_naraz))
+
+    assert len(BEZ_WEJSCIA_SYNTETYCZNEGO) == ZDAN_BEZ_POKRYCIA, (
+        "bez pokrycia wymieniono %d zdań przy zapadce %d"
+        % (len(BEZ_WEJSCIA_SYNTETYCZNEGO), ZDAN_BEZ_POKRYCIA))
+    assert (len(Z_WEJSCIEM_SYNTETYCZNYM) + ZDAN_BEZ_POKRYCIA
+            == ZDAN_RODZINY_RAZEM), (
+        "worki nie sumują się do całości: %d + %d != %d"
+        % (len(Z_WEJSCIEM_SYNTETYCZNYM), ZDAN_BEZ_POKRYCIA, ZDAN_RODZINY_RAZEM))
+
+    # I ze kazdy wpis niesie POWOD, a nie sama nazwe — bez tego lista bylaby
+    # wyliczeniem, z ktorego nie widac, czym te przypadki sie roznia.
+    for worek in (Z_WEJSCIEM_SYNTETYCZNYM, BEZ_WEJSCIA_SYNTETYCZNEGO):
+        for klucz, powod in worek.items():
+            assert len(powod) > 40, (klucz, powod)
+
+
+def test_wzorzec_rodziny_lapie_zdanie_ktore_ma_lapac_i_nie_bierze_sasiedztwa():
+    """Kontrola przyrządu na WEJŚCIU SYNTETYCZNYM — bo na drzewie nie widać granicy.
+
+    Bez tej kontroli test wyżej byłby zielony także wtedy, gdyby wzorzec przestał
+    cokolwiek znajdować: zapadka porównywałaby zero z zerem po pierwszym podniesieniu.
+    """
+    probny = os.path.join(_SANDBOX, "rodzina_probna.py")
+    with open(probny, "w", encoding="utf-8") as uchwyt:
+        uchwyt.write(
+            '"""Moduł próbny."""\n'
+            'def z_deklaracja():\n'
+            '    """To jest UBEZPIECZENIE, nie zmierzona konieczność."""\n'
+            '    return 1\n'
+            'def bez_deklaracji():\n'
+            '    """Zwykły test, który o niczym takim nie mówi."""\n'
+            '    return 2\n'
+            'def sasiad():\n'
+            '    """Kontrola wyszła na czerwono, czyli mechanizm coś zmienia."""\n'
+            '    return 3\n')
+    znalezione = zdania_rodziny([probny])
+    zakresy = [zakres for _p, zakres, _n in znalezione]
+    assert zakresy == ["z_deklaracja"], (
+        "wzorzec ma wziąć dokładnie jedną z trzech funkcji drzewa próbnego, "
+        "a wziął: %s" % zakresy)
 
 
 if __name__ == "__main__":
