@@ -1514,6 +1514,14 @@ def test_wzorzec_rodziny_lapie_zdanie_ktore_ma_lapac_i_nie_bierze_sasiedztwa():
 #: Jest strażnikiem listy niżej: nowa bramka tego kształtu rusza tę liczbę, więc nie
 #: da się dopisać trzydziestej drugiej po cichu.
 #:
+#: **852 -> 855 (13.09.2026, MB-00), z powodem.** Doszły trzy asercje w bramce pasma M
+#: w `test_backlog.py`: `"- **%s:**" % pole not in tresc` (komplet sześciu pól),
+#: `"docs/PLAYABILITY.md" in konstytucja` i `"pasmo M" in konstytucja`. Do listy
+#: `NA_ZRODLE_PY` NIE należą, bo nie czytają źródła `.py` — czytają **dokumenty**
+#: (`docs/TASKS.md` i `CLAUDE.md`), a te są dla tej bramki zachowaniem, nie kodem:
+#: reguła zapisana w konstytucji i nieodwzorowana w drzewie jest dokładnie tym, co
+#: 6.D109 zmierzyło jako „życzenie zapisane w dokumencie".
+#:
 #: **850 -> 852 (13.09.2026, 6.D201), z powodem.** Doszły dwie asercje
 #: w `test_csharp_test_methods.py`, obie w `test_klasy_literalow_i_maska_ida_TYM_SAMYM_przebiegiem`:
 #: `assert "zwykly" not in zamaskowane` i `assert "var a =" in zamaskowane`. Do listy
@@ -1528,7 +1536,7 @@ def test_wzorzec_rodziny_lapie_zdanie_ktore_ma_lapac_i_nie_bierze_sasiedztwa():
 #: `POSTACIE_LITERALU` w tym samym module. Stoi na ZACHOWANIU własnego testu: pilnuje,
 #: żeby oczekiwana maska NIOSŁA KLAMRY, bo maska bez klamr przeszłaby także u czytnika,
 #: który połyka resztę pliku — czyli jest to strażnik wyroczni, a nie odczyt tekstu.
-ASERCJI_NAPISOWYCH_RAZEM = 852
+ASERCJI_NAPISOWYCH_RAZEM = 855
 
 #: **Kotwica wpisu to `(plik, funkcja, operator, literał)`, a NIE numer wiersza.**
 #: Numer przesuwa się przy każdej edycji pliku i lista rozjechałaby się sama z siebie.

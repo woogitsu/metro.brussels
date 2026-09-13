@@ -1346,6 +1346,121 @@ def test_the_open_item_filter_reacts_to_the_marker_and_not_to_something_else():
     assert sorted(queue_items(plan)) == ["6.X1", "6.X2", "6.X3"], queue_items(plan)
     assert sorted(open_items(plan)) == ["6.X2", "6.X3"], open_items(plan)
 
+#: Pasmo M — droga do grywalności. Pozycje MB-* mają INNY prefiks niż kolejka 6.x
+#: i to jest wybór, nie niedopatrzenie: `queue_items` i `detail_sections` czytają
+#: kształt `<cyfra>.<litera><cyfra>`, więc pasmo M **nie wchodzi** do liczb zapasu
+#: ani do `MINIMUM_DETAIL_BLOCKS`. Dzięki temu wprowadzenie planu grywalności NIE
+#: podniosło ani nie obniżyło żadnej istniejącej zapadki — a gdyby weszło do tamtych
+#: liczb, nie dałoby się odróżnić „przybyło pracy" od „zmieniono miarę".
+POZYCJI_PASMA_M = 9
+
+#: Pola, których żąda `CLAUDE.md` §6 — te same, co dla kolejki 6.x.
+POLA_PASMA_M = ("Wejście", "Wyjście", "Weryfikacja", "Skończone, gdy",
+                "Poza zakresem", "Zależy od")
+
+def bloki_pasma_M(text):
+    """`MB-00` → treść bloku szczegółów. Osobny czytnik, bo prefiks jest inny."""
+    lines = text.splitlines()
+    heads = [(i, m.group(1)) for i, line in enumerate(lines)
+             for m in [re.match(r"^#####\s+(MB-\d+)\s*·", line)] if m]
+    sections = {}
+    for start, number in heads:
+        end = len(lines)
+        for j in range(start + 1, len(lines)):
+            if lines[j].startswith("#"):
+                end = j
+                break
+        sections[number] = "\n".join(lines[start:end])
+    return sections
+
+
+def wiersze_pasma_M(text):
+    """Numery pozycji MB-* z tabeli pasma M."""
+    return [m.group(1) for line in text.splitlines()
+            for m in [re.match(r"^\|\s*(MB-\d+)\s*\|", line)] if m]
+
+
+def test_pasmo_M_ma_komplet_szesciu_pol_tak_samo_jak_kolejka_6x():
+    # Pasmo M jest kolejką jak każda inna i §6 obowiązuje w nim tak samo. Bez tej
+    # bramki plan grywalności byłby jedynym miejscem w repozytorium, gdzie zadanie
+    # wolno wpisać bez kompletu pól — a to jest dokładnie ten wyjątek, przez który
+    # następna sesja bierze pozycję i nie wie, kiedy skończyła.
+    text = _tasks()
+    bloki = bloki_pasma_M(text)
+    wiersze = wiersze_pasma_M(text)
+
+    assert len(wiersze) == POZYCJI_PASMA_M, (
+        "wierszy pasma M jest %d, a zmierzono %d: %s"
+        % (len(wiersze), POZYCJI_PASMA_M, wiersze))
+    assert sorted(bloki) == sorted(wiersze), (
+        "wiersze pasma M to %s, a bloki szczegółów %s — każda pozycja ma mieć oba"
+        % (sorted(wiersze), sorted(bloki)))
+
+    sprawdzonych = 0
+    for numer, tresc in sorted(bloki.items()):
+        brakujace = [pole for pole in POLA_PASMA_M
+                     if ("- **%s:**" % pole) not in tresc]
+        assert not brakujace, (
+            "pozycja %s nie ma pól: %s — §6 `CLAUDE.md` żąda kompletu sześciu"
+            % (numer, ", ".join(brakujace)))
+        sprawdzonych += 1
+
+    assert sprawdzonych == POZYCJI_PASMA_M, (
+        "pętla po blokach pasma M wykonała się %d razy zamiast %d — wtedy asercje "
+        "wyżej nie sprawdzają wszystkich (rodzina 6.D193)"
+        % (sprawdzonych, POZYCJI_PASMA_M))
+
+
+def test_pasmo_M_NIE_wchodzi_do_liczb_zapasu_i_to_jest_zmierzone():
+    # **Najważniejsza asercja tej rodziny.** Zmiana polityki kolejki (MB-00) mogłaby
+    # po cichu rozluźnić regułę zapasu — wystarczyłoby, żeby dziewięć nowych pozycji
+    # weszło do `do_wziecia` i próg spełniał się sam. Ta bramka mierzy, że NIE weszło:
+    # czytniki kolejki 6.x mają widzieć dokładnie to, co widziały przed MB-00.
+    text = _tasks()
+    numery_M = set(wiersze_pasma_M(text))
+    assert numery_M, "pasma M nie ma w tabelach — reszta tej bramki nie ma przedmiotu"
+
+    assert not (numery_M & set(queue_items(text))), (
+        "pozycje pasma M weszły do `queue_items`: %s. Wtedy próg zapasu spełnia się "
+        "dziewięcioma pozycjami planu i przestaje mierzyć to, co mierzył"
+        % sorted(numery_M & set(queue_items(text))))
+    assert not (numery_M & set(detail_sections(text))), (
+        "bloki pasma M weszły do `detail_sections` — `MINIMUM_DETAIL_BLOCKS` zaczęło "
+        "liczyć inny zbiór niż w dniu pomiaru")
+
+    # I DRUGA STRONA: próg sam się nie ruszył. MB-00 zmienia KOLEJNOŚĆ BRANIA,
+    # a nie wysokość progu, i to ma być sprawdzane, a nie deklarowane.
+    assert MINIMUM_READY_ITEMS == 12, (
+        "`MINIMUM_READY_ITEMS` = %d. MB-00 zmieniło kolejność brania, nie próg — "
+        "jeśli próg się ruszył, zmiana polityki zrobiła coś, czego nie zapowiadała"
+        % MINIMUM_READY_ITEMS)
+
+
+def test_dokument_planu_istnieje_i_CLAUDE_na_niego_wskazuje():
+    # Plan, na który nie wskazuje konstytucja, jest plikiem, którego następna sesja
+    # nie przeczyta — a §3 `CLAUDE.md` jest jedynym miejscem, do którego zagląda
+    # przed każdym zadaniem.
+    plan = os.path.join(ROOT, "docs", "PLAYABILITY.md")
+    assert os.path.exists(plan), (
+        "nie ma `docs/PLAYABILITY.md`, a `CLAUDE.md` §8 i pasmo M na niego wskazują")
+
+    with open(plan, encoding="utf-8") as handle:
+        tresc_planu = handle.read()
+    for slowo in ("M1", "M2", "MB-00", "MB-08"):
+        assert slowo in tresc_planu, (
+            "`docs/PLAYABILITY.md` nie mówi o %s — plan bez kamieni milowych "
+            "i bez zakresu pasma nie jest planem" % slowo)
+
+    with open(os.path.join(ROOT, "CLAUDE.md"), encoding="utf-8") as handle:
+        konstytucja = handle.read()
+    assert "docs/PLAYABILITY.md" in konstytucja, (
+        "`CLAUDE.md` nie wymienia `docs/PLAYABILITY.md` — plan jest wtedy dokumentem, "
+        "o którego istnieniu nikt się nie dowie")
+    assert "pasmo M" in konstytucja or "pasma M" in konstytucja, (
+        "`CLAUDE.md` §8 nie mówi o pierwszeństwie pasma M — reguła kolejności "
+        "zostałaby wtedy wyłącznie w `docs/TASKS.md`, czyli poza konstytucją")
+
+
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
 # z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
 # tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
