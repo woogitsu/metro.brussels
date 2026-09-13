@@ -377,7 +377,7 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 #: i 6.D149; trzeci — z rzeczy, która zdarzyła się TRZY RAZY POD RZĄD w tych samych
 #: trzech pozycjach i dopiero przez powtórzenie dała się zobaczyć.
 #: Wartość z `len(detail_sections(...))` po edycji, nie z dodania trójki do 231.
-MINIMUM_DETAIL_BLOCKS = 281
+MINIMUM_DETAIL_BLOCKS = 282
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
@@ -1387,7 +1387,16 @@ CLAIM_W_JEDNYCH_GRAWISACH = re.compile(
 
 #: Ile takich twierdzeń stoi w polach „Skąd" pozycji OTWARTYCH. Równość, bo każde jest
 #: zdaniem, które następny agent przeczyta jako stan dzisiejszy.
-TWIERDZEN_W_POLACH_SKAD = 2
+#:
+#: **2 -> 4 (13.09.2026, 6.D201), i to jest ROZSTRZYGNIĘCIE, nie dopisanie.** Ta bramka
+#: zapaliła się na pozycji 6.D203, której pole „Skąd" cytowało `ZDAN_RODZINY_RAZEM = 19`
+#: przy 24 w drzewie. Poprawka nie mogła polegać na podmianie liczby: pole „Skąd" opisuje
+#: **dzień wpisania** i tamta dziewiętnastka jest tam prawdziwa — to ona jest powodem,
+#: dla którego pozycja powstała. Dlatego w polu stoją teraz **obie** liczby, stara
+#: z datą i dzisiejsza z nazwą stałej, a bramka liczy **cztery** twierdzenia zamiast
+#: dwóch: po dwa na stałą. Rozjazd zrobiły trzy pozycje tego samego dnia (6.D191,
+#: 6.D196, 6.D201) — czyli dokładnie tempo, dla którego ta bramka istnieje.
+TWIERDZEN_W_POLACH_SKAD = 4
 
 
 def _pole_skad(blok):

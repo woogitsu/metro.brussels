@@ -79,13 +79,59 @@ def maska(source):
     atrybut meldowala mimo to „0 nieuruchamianych", bo nie miala czego zobaczyc.
     Wyrocznia zepsuta w strone „wszystko w porzadku"; zmierzone przy 6.B28.
 
-    Obslugiwane sa wszystkie cztery postacie, ktore wystepuja w `tests/`: zwykly
-    napis, `@"..."` (gdzie `""` jest cudzyslowem, a `\` nie ucieka), `$"..."`
-    (klamry interpolacji zostaja WEWNATRZ literalu i sa w poprawnym C# zbilansowane,
-    wiec pominiecie calego literalu jest bezpieczne) oraz surowy, otwierany trzema
-    cudzyslowami.
+    **Postaci jest SZESC, nie cztery, i ten akapit jest przepisany, a nie dopisany
+    obok (13.09.2026, 6.D201).** Poprzednia wersja mowila o „wszystkich czterech
+    postaciach, ktore wystepuja w `tests/`" — zdanie z 07.09.2026, opisujace drzewo
+    z tamtego dnia. Policzone dzis, po jednej liczbie na galaz, na `tests/` + `src/`:
+    zwykly **4735**, interpolowany **1079**, werbatim **42**, surowy interpolowany
+    (przedrostek podwojnego dolara) **14**, surowy **8**, werbatim interpolowany **1**.
+    Dwie ostatnie z tego wyliczenia — werbatim interpolowany i surowy interpolowany —
+    w tamtej czworce nie byly wymienione w ogole, a wystepuja; zadna z szesciu nie ma
+    udzialu zerowego w calym korpusie, choc dwie maja zerowy w samym `src/`.
+
+    Co ktora galaz robi: w werbatim para cudzyslowow jest jednym cudzyslowem,
+    a odwrotny ukosnik nie ucieka; w interpolowanym klamry zostaja WEWNATRZ literalu
+    i sa w poprawnym C# zbilansowane, wiec pominiecie calego literalu jest bezpieczne;
+    surowy konczy sie tyloma cudzyslowami, iloma sie otworzyl, a przedrostek
+    podwojnego dolara zmienia tylko znak otwierajacy interpolacje, nie sposob
+    domkniecia. Po malpie napisu surowego NIE MA — patrz `_koniec_literalu` i 6.D200.
     """
     out = []
+    for rodzaj, kawalek, _klasa in _przebieg(source):
+        out.append(kawalek if rodzaj == "kod" else _spacje(kawalek))
+    return "".join(out)
+
+
+#: Nazwy szesciu postaci literalu napisowego — 6.D201. Kolejnosc jest tu trescia:
+#: od najczestszej do najrzadszej na dzien pomiaru, zeby wypis bramki czytalo sie
+#: jako rozklad, a nie jako lista.
+POSTACIE = (
+    "zwykly",
+    "interpolowany ($)",
+    "werbatim (@)",
+    "surowy interpolowany ($$" + '"""' + ")",
+    "surowy (" + '"""' + ")",
+    "werbatim interpolowany ($@)",
+)
+
+
+def klasy_literalow(source):
+    """Lista postaci KAZDEGO literalu w `source`, w kolejnosci wystapienia — 6.D201.
+
+    Idzie tym samym `_przebieg`, co `maska`, i to jest cala tresc tej funkcji:
+    gdyby liczyla wlasnym rozbiorem, mowilaby o sobie, a nie o tym, co `maska`
+    naprawde robi. Rodzina 6.D27.
+    """
+    return [klasa for rodzaj, _kawalek, klasa in _przebieg(source)
+            if rodzaj == "literal"]
+
+
+def _przebieg(source):
+    """`(rodzaj, kawalek, klasa)` dla calego pliku — JEDYNY rozbior w tym module.
+
+    `rodzaj` to `"kod"`, `"komentarz"`, `"literal"` albo `"znak"`. `klasa` jest
+    wypelniona wylacznie dla literalow napisowych i jest jedna z `POSTACIE`.
+    """
     i = 0
     n = len(source)
     while i < n:
@@ -93,38 +139,55 @@ def maska(source):
         if znak == "/" and i + 1 < n and source[i + 1] == "/":
             koniec = source.find("\n", i)
             koniec = n if koniec < 0 else koniec
-            out.append(_spacje(source[i:koniec]))
+            yield "komentarz", source[i:koniec], None
             i = koniec
             continue
         if znak == "/" and i + 1 < n and source[i + 1] == "*":
             koniec = source.find("*/", i + 2)
             koniec = n if koniec < 0 else koniec + 2
-            out.append(_spacje(source[i:koniec]))
+            yield "komentarz", source[i:koniec], None
             i = koniec
             continue
         if znak in "@$" or znak == '"':
             start = i
             j = i
             verbatim = False
+            interpolowany = False
             while j < n and source[j] in "@$":
                 verbatim = verbatim or source[j] == "@"
+                interpolowany = interpolowany or source[j] == "$"
                 j += 1
             if j < n and source[j] == '"':
+                cudzyslowy = 0
+                while j + cudzyslowy < n and source[j + cudzyslowy] == '"':
+                    cudzyslowy += 1
+                surowy = cudzyslowy >= 3 and not verbatim
                 koniec = _koniec_literalu(source, j, verbatim)
-                out.append(_spacje(source[start:koniec]))
+                if surowy and interpolowany:
+                    klasa = POSTACIE[3]
+                elif surowy:
+                    klasa = POSTACIE[4]
+                elif verbatim and interpolowany:
+                    klasa = POSTACIE[5]
+                elif verbatim:
+                    klasa = POSTACIE[2]
+                elif interpolowany:
+                    klasa = POSTACIE[1]
+                else:
+                    klasa = POSTACIE[0]
+                yield "literal", source[start:koniec], klasa
                 i = koniec
                 continue
-            out.append(source[start:j] if j > start else znak)
+            yield "kod", (source[start:j] if j > start else znak), None
             i = j if j > start else i + 1
             continue
         if znak == "'":
             koniec = _koniec_znaku(source, i)
-            out.append(_spacje(source[i:koniec]))
+            yield "znak", source[i:koniec], None
             i = koniec
             continue
-        out.append(znak)
+        yield "kod", znak, None
         i += 1
-    return "".join(out)
 
 
 def _spacje(tekst):
