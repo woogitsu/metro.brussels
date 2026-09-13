@@ -145,7 +145,7 @@ def klasa_zapadki(nazwa, porownania):
 
 
 #: **Wszystkie zapadki pod `tools/tests/`, każda z klasą i modułem.**
-#: 42 zapadek: **17 przybitych, 3 częściowe, 21 WOLNE i 1 poza zasięgiem skanu.**
+#: 44 zapadek: **17 przybitych, 3 częściowe, 23 WOLNE i 1 poza zasięgiem skanu.**
 #:
 #: **To zdanie jest przepisane, a nie dopisane obok (12.09.2026).** Stało tu
 #: „Trzydzieści osiem: 13 przybitych, 3 częściowe, 21 WOLNYCH i 1 poza zasięgiem
@@ -200,6 +200,8 @@ ZAPADKI = {
     "MIN_GAME_MESSAGES": (WOLNA, "test_game_needle_specificity.py"),
     "MIN_GAME_NEEDLES": (PRZYBITA, "test_game_needle_specificity.py"),
     "MIN_GAME_SOURCES": (WOLNA, "test_game_needle_specificity.py"),
+    "MIN_GOLYCH_W_DOKUMENTACH": (WOLNA, "test_field_paths.py"),
+    "MIN_GOLYCH_W_POLACH": (WOLNA, "test_field_paths.py"),
     "MIN_MESSAGES": (WOLNA, "test_needle_specificity.py"),
     "MIN_BLOKOW_WYKONANYCH": (WOLNA, "test_field_paths.py"),
     "MINIMUM_MODULOW_SKANOWANYCH": (WOLNA, "test_bytecode_staleness.py"),
@@ -668,10 +670,10 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
         "znaczy, że komuś ubył strażnik; w stronę `przybita`, że doszedł i wpis "
         "trzeba poprawić" % inna_klasa)
 
-    assert len(w_drzewie) == ZAPADEK_RAZEM == 42, (
+    assert len(w_drzewie) == ZAPADEK_RAZEM == 44, (
         "zapadek w drzewie %d, na liście %d, pomiar z 11.09.2026 mówił 38, "
-        "po 6.D146 — 40, a po 6.D147 — 42 (doszła zapadka na sekwencje ucieczki "
-        "i próg KW jej skanu)"
+        "po 6.D146 — 40, po 6.D147 — 42 (doszła zapadka na sekwencje ucieczki "
+        "i próg KW jej skanu), a po 6.D187 — 44 (dwa progi KW skanu gołych nazw)"
         % (len(w_drzewie), ZAPADEK_RAZEM))
 
     # Liczby zbiorcze. **Nie jest to ozdobnik komunikatu i pokazała to KN-7.**
@@ -681,10 +683,11 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
     # a „21 wolnych" staje się nieprawdą, której nie zgłasza nic. KN-7 wykonała
     # dokładnie ten scenariusz: jedyną czerwienią była ta asercja.
     ile = collections.Counter(w_drzewie.values())
-    assert (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM]) == (17, 3, 21, 1), (
+    assert (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM]) == (17, 3, 23, 1), (
         "klasy zapadek: przybitych %d, częściowych %d, WOLNYCH %d, poza skanem %d — "
         "pomiar z 11.09.2026 mówił 13/3/21/1, po 6.D146 — 13/3/23/1, a po 6.D147 — "
-        "14/3/24/1, po 6.D151 — 15/3/23/1, a po 6.D167 — 17/3/21/1; wolne to te, "
+        "14/3/24/1, po 6.D151 — 15/3/23/1, po 6.D167 — 17/3/21/1, a po 6.D187 — "
+        "17/3/23/1; wolne to te, "
         "które da się ruszyć "
         "w zakazaną stronę bez zapalenia czegokolwiek: %s"
         % (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM],
