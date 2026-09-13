@@ -51,6 +51,7 @@ o czułości bramki, a nie skutkiem ubocznym poprawiania zapisu pomiaru.
 """
 import os
 import re
+import sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 WORKFLOW = os.path.join(ROOT, ".github", "workflows", "python-tests.yml")
@@ -481,6 +482,166 @@ def test_jeden_prog_dla_obu_maszyn_przestalby_widziec_regres_na_runnerze():
     assert SUITE_RUNTIME_BUDGET_S / maks_runnera < krotnosc, (
         "dzisiejszy prog nie jest ciasniejszy od wspolnego — wtedy wybor miedzy nimi "
         "nie ma tresci")
+
+
+# --- 6.D162: ile maszyn stoi pod jednym slowem `runner` -----------------------------
+
+#: Logi jobow `tools` przechowywane w drzewie. Czytane `timing_record.z_logu`, czyli
+#: TYM SAMYM czytnikiem, ktory sklada wpisy `POMIARY` — wlasny parser dawalby liczbe
+#: o moim regexie, a nie o mechanizmie, ktory te wpisy naprawde produkuje.
+KATALOG_LOGOW = os.path.join(ROOT, "tests", "data", "ci-logs")
+
+#: Ile RÓŻNYCH maszyn niosą dzisiejsze logi. Wyprowadzone, nie wpisane — asercja niżej
+#: liczy je z katalogu. Stała jest zapadką: trzecia maszyna w logach ma zmusić do
+#: przeliczenia rozstrzygnięcia, a nie przejść niezauważona.
+MASZYN_W_LOGACH = 2
+
+
+def przebiegi_z_logow():
+    """`[(plik, nazwa_maszyny, slowo_maszyny, sekundy, testow)]` — z logów w drzewie.
+
+    Czyta `timing_record.z_logu`. Pole `runner` niesie nazwę maszyny z wiersza
+    `Runner name:`, a pole `maszyna` — słowo, do którego ta nazwa jest sprowadzana
+    przy składaniu wpisu `POMIARY`. Oba naraz, bo cała ta pozycja jest o różnicy
+    między nimi.
+    """
+    sys.path.insert(0, os.path.join(ROOT, "tools", "ci"))
+    import timing_record
+
+    out = []
+    for nazwa in sorted(os.listdir(KATALOG_LOGOW)):
+        if not nazwa.endswith(".log"):
+            continue
+        sciezka = os.path.join(KATALOG_LOGOW, nazwa)
+        with open(sciezka, encoding="utf-8", errors="replace") as uchwyt:
+            pola, _brak = timing_record.z_logu(uchwyt.read())
+        if "runner" not in pola:
+            continue
+        out.append((nazwa, pola["runner"], pola["maszyna"],
+                    pola["sekundy"], pola["testow"]))
+    return out
+
+
+def _rozrzut(wartosci):
+    """Iloraz największej do najmniejszej. Jedna definicja na cały ten rachunek."""
+    return max(wartosci) / min(wartosci)
+
+
+def miedzy_i_wewnatrz(przebiegi, na_test=False):
+    """`(roznica_miedzy_maszynami, najwiekszy_rozrzut_wewnatrz)` dla listy przebiegów.
+
+    Osobna funkcja, a nie pętla w teście, **żeby dało się ją zawołać na wejściu, którego
+    drzewo nie produkuje** — patrz `test_rachunek_o_maszynach_UMIE_zapalic_sie_gdy`.
+    Bez tego asercja o „mniej niż" byłaby zdaniem, o którym wiadomo tylko tyle, że dziś
+    jest prawdziwe; ta sama lekcja, co osiemnaście zdań policzonych w 6.D161.
+    """
+    wg_maszyn = {}
+    for _plik, nazwa, _slowo, sekundy, testow in przebiegi:
+        wg_maszyn.setdefault(nazwa, []).append(sekundy / testow if na_test else sekundy)
+    srednie = [sum(v) / len(v) for v in wg_maszyn.values()]
+    wielokrotne = [v for v in wg_maszyn.values() if len(v) > 1]
+    if len(srednie) < 2 or not wielokrotne:
+        raise ValueError("rachunek potrzebuje dwóch maszyn i powtórzeń na którejś")
+    return _rozrzut(srednie), max(_rozrzut(v) for v in wielokrotne)
+
+
+def test_rachunek_o_maszynach_UMIE_zapalic_sie_gdy_nazwa_NAPRAWDE_rozdziela():
+    """Kontrola przyrządu na WEJŚCIU SYNTETYCZNYM — bo drzewo takiego nie ma.
+
+    **Dlaczego syntetyczne, a nie z logów.** Kontrola negatywna przestawiająca log
+    PR #528 na drugą maszynę wyszła **ZIELONA**, i to nie dlatego, że podstawienie
+    nie weszło: przeniesienie najwolniejszego przebiegu przez granicę zostawia
+    różnicę między maszynami na 0,3 % przy rozrzucie wewnątrz 30 %, czyli
+    **wzmacnia** tezę zamiast ją łamać. Żadne przetasowanie sześciu dzisiejszych
+    logów tej asercji nie zapali — więc rozstrzyga wejście zbudowane na tę okazję.
+
+    Dwie maszyny, każda powtarzalna co do procenta, ale różniące się dwukrotnie:
+    tak wygląda świat, w którym nazwa maszyny COŚ rozdziela i pole na nią ma sens.
+    """
+    rozdziela = [
+        ("a1.log", "szybka", MASZYNA_RUNNER, 100.0, 1000),
+        ("a2.log", "szybka", MASZYNA_RUNNER, 101.0, 1000),
+        ("b1.log", "wolna", MASZYNA_RUNNER, 200.0, 1000),
+        ("b2.log", "wolna", MASZYNA_RUNNER, 202.0, 1000),
+    ]
+    miedzy, wewnatrz = miedzy_i_wewnatrz(rozdziela)
+    assert miedzy > wewnatrz, (
+        "przyrząd nie widzi różnicy nawet tam, gdzie maszyny różnią się dwukrotnie "
+        "(%.4f wobec %.4f) — wtedy zielony wynik na drzewie nic nie znaczy"
+        % (miedzy, wewnatrz))
+
+    # I druga strona: na dzisiejszych logach ten sam rachunek mowi ODWROTNIE.
+    miedzy_dzis, wewnatrz_dzis = miedzy_i_wewnatrz(przebiegi_z_logow())
+    assert miedzy_dzis < wewnatrz_dzis, (miedzy_dzis, wewnatrz_dzis)
+
+
+def test_slowo_runner_stoi_nad_DWIEMA_maszynami_ale_ich_NIE_rozdziela():
+    """ROZSTRZYGNIĘCIE 6.D162: nazwa maszyny NIE wchodzi do wpisu, bo nic nie dzieli.
+
+    **Ile maszyn.** Logi w drzewie niosą **dwie** różne nazwy, po trzy przebiegi
+    każda, a `z_logu` sprowadza obie do jednego słowa `runner`. Liczba jest liczona
+    z katalogu, nie wpisana.
+
+    **Czy je rozdziela — i to jest cała odpowiedź.** Różnica MIĘDZY maszynami
+    (średnie 96,0 wobec 106,0 s) wynosi **10,4 %**, a rozrzut WEWNĄTRZ jednej maszyny
+    sięga **26,4 %**. Różnica, którą miałaby opisać nazwa, jest więc **mniejsza od
+    szumu na tej samej maszynie** — pole niosące nazwę rozdzielałoby przebiegi wzdłuż
+    granicy, która nie istnieje.
+
+    **Zarzut o dryf drzewa odparty rachunkiem, nie słowem.** Pole „Dlaczego" pozycji
+    mówiło, że materiał jest zmieszany, bo w tym samym oknie zestaw rósł 2315 → 2335
+    testów, a maszyna `…-03` dostała akurat większe drzewa. Po znormalizowaniu czasu
+    NA TEST wniosek się nie zmienia: między maszynami **10,1 %**, wewnątrz **25,6 %**.
+    Dryf drzewa tej różnicy nie tłumaczy, bo drzewo urosło w tym oknie o 0,65 %,
+    a czasy rozjechały się o kilkanaście do dwudziestu kilku procent.
+
+    **Czym więc jest rozrzut, skoro nie maszyną.** OKAZJĄ. Ta sama maszyna `…-03`
+    dała 26,4 % rozrzutu 11.09.2026 i **2,2 %** 13.09.2026 przy drzewie stałym co do
+    0,17 % (6.D160 i dwa przebiegi po niej). Nazwa maszyny jest w obu przypadkach ta
+    sama, a rozrzut różni się dwunastokrotnie.
+
+    **`CLAUDE.md` §9, rozstrzygnięte wprost, bo pozycja tego żądała.** Dokument
+    zakazuje WYBIERANIA runnera po nazwie i podawania liczebności puli. Zapisanie
+    nazwy w POMIARZE nie byłoby ani jednym, ani drugim — selektor `runs-on` zostaje
+    gołą etykietą, a liczba maszyn w logach nie jest liczbą maszyn w puli. Zakaz
+    więc tego nie blokuje. Blokuje to pomiar wyżej: pole, które nic nie rozdziela,
+    jest polem, które wygląda, że coś mówi.
+    """
+    przebiegi = przebiegi_z_logow()
+    assert len(przebiegi) >= 4, (
+        "logów w drzewie jest %d — przy mniej niż czterech rozrzut wewnątrz maszyny "
+        "nie ma z czego powstać i ten rachunek nic nie znaczy" % len(przebiegi))
+
+    nazwy = {nazwa for _p, nazwa, _s, _sek, _t in przebiegi}
+    assert len(nazwy) == MASZYN_W_LOGACH, (
+        "logi niosą %d różnych maszyn (%s), a zapadka stoi na %d — trzecia maszyna "
+        "wymaga przeliczenia rozstrzygnięcia, nie samego podniesienia liczby"
+        % (len(nazwy), sorted(nazwy), MASZYN_W_LOGACH))
+
+    slowa = {slowo for _p, _n, slowo, _sek, _t in przebiegi}
+    assert slowa == {MASZYNA_RUNNER}, (
+        "czytnik logów przestał sprowadzać nazwy do jednego słowa: %s — wtedy ta "
+        "pozycja opisuje nieistniejący już mechanizm" % sorted(slowa))
+
+    # SEDNO: miedzy maszynami MNIEJ niz wewnatrz jednej. Liczone dwa razy — na czasie
+    # surowym i na czasie NA TEST, zeby zarzut o dryf drzewa nie zostal bez rachunku.
+    for etykieta, na_test in (("surowy", False), ("na test", True)):
+        miedzy, wewnatrz = miedzy_i_wewnatrz(przebiegi, na_test=na_test)
+        assert miedzy < wewnatrz, (
+            "czas %s: różnica MIĘDZY maszynami (%.4f) przestała być mniejsza od "
+            "rozrzutu WEWNĄTRZ maszyny (%.4f) — wtedy nazwa maszyny zaczyna coś "
+            "rozdzielać i rozstrzygnięcie 6.D162 trzeba przeliczyć od nowa"
+            % (etykieta, miedzy, wewnatrz))
+
+    # I ze nazwa maszyny NIE weszla do zadnego wpisu `POMIARY` — rozstrzygniecie
+    # zapisane jako stan drzewa, a nie tylko jako zdanie w tym docstringu.
+    for _data, _sek, _mod, maszyna, gdzie in POMIARY:
+        assert maszyna in MASZYNY, maszyna
+        for nazwa in nazwy:
+            assert nazwa not in gdzie, (
+                "wpis POMIARY niesie nazwę maszyny %r — 6.D162 rozstrzygnęło, że "
+                "nazwa nic nie rozdziela, więc do wpisu nie wchodzi: %s"
+                % (nazwa, gdzie))
 
 
 def test_maszyna_progu_jest_ta_ktora_daje_MEASURED_MAX_WALL_S():
