@@ -2557,4 +2557,390 @@ public sealed class UiTextTests
         // zapomniał sprawdzić proporcję.
     }
 
+
+    // --- 6.D186: trzynastka kluczy JSON-a i droga, którą ją policzono -----------------
+
+    /// <summary>
+    /// Wąska reguła „kształt identyfikatora" z 6.D173 — <c>^[a-z_][a-z0-9_]*$</c>.
+    ///
+    /// <para>Stoi tu, bo 6.D186 odtwarza pomiar 6.D181, a tamten liczył zgłoszenia
+    /// właśnie tą regułą. Do 13.09.2026 nie stała w żadnym pliku — żyła wyłącznie
+    /// w treści raportów, więc każde jej odtworzenie było przepisywaniem wzorca z tekstu,
+    /// czyli tą samą reimplementacją, która przy 6.D179 dała <b>446</b> zamiast 348.</para>
+    /// </summary>
+    private const string WaskaRegulaKsztaltu = @"^[a-z_][a-z0-9_]*$";
+
+    /// <summary>Markery kontekstu CZYTANIA JSON-a — to, co zmierzyło 6.D173.</summary>
+    private static readonly string[] MarkeryCzytaniaJson =
+    {
+        "GetProperty", "GetString", "RootElement",
+    };
+
+    /// <summary>
+    /// Ile zgłoszeń łapie KAŻDY z markerów z osobna — zmierzone 13.09.2026.
+    ///
+    /// <para><b>Z trzech markerów „kontekstu JSON-a" niesie liczbę JEDEN.</b>
+    /// <c>GetProperty</c> daje sam wszystkie osiemnaście; <c>GetString</c> daje osiem
+    /// i są to te same osiem (<c>chunk.GetProperty("id").GetString()</c> ma oba
+    /// w jednym wierszu); <c>RootElement</c> daje <b>zero</b>, bo pada w kodzie raz —
+    /// <c>var root = document.RootElement;</c> — a w tym wierszu nie ma ani jednego
+    /// literału. „Kontekst JSON-a" 6.D173 jest więc w praktyce wierszem
+    /// z <c>GetProperty</c>.</para>
+    ///
+    /// <para><b>Ta tabela stoi tu, bo bez niej kontrola negatywna była ZIELONA.</b>
+    /// Zdjęcie <c>RootElement</c> z listy markerów nie ruszało żadnej liczby (KN-2),
+    /// więc marker dało się usunąć bez jednego czerwonego testu. Nie jest to powód, by
+    /// go usunąć — plik JSON może jutro być czytany przez <c>RootElement</c> wprost —
+    /// ale jest powodem, by jego bezczynność była WIDOCZNA, a nie domniemana.</para>
+    /// </summary>
+    private static readonly (string Marker, int Ile)[] UdzialMarkerow =
+    {
+        ("GetProperty", 18), ("GetString", 8), ("RootElement", 0),
+    };
+
+    /// <summary>Zgłoszeń wąskiej reguły, gdy czytnik dostaje CAŁY plik — 6.D173/6.D186.</summary>
+    private const int ZgloszenWaskichCalymPlikiem = 96;
+
+    /// <summary>Zgłoszeń wąskiej reguły, gdy czytnik dostaje WIERSZ — 6.D173/6.D186.</summary>
+    private const int ZgloszenWaskichWierszami = 108;
+
+    /// <summary>
+    /// Ile z nich stoi w kontekście CZYTANIA JSON-a — <b>18 obiema drogami</b>.
+    ///
+    /// <para>Liczba jest ta sama po obu stronach i to nie jest przypadek: każdy wiersz
+    /// z markerem czytania jest wierszem POJEDYNCZYM, więc podział na wiersze nie ma
+    /// tam czego rozciąć. Cała różnica 108 − 96 siedzi po stronie WYPISYWANIA.</para>
+    /// </summary>
+    private const int WKontekscieCzytaniaJson = 18;
+
+    /// <summary>Trafień „klucz JSON-a wypisywanego" drogą WIERSZOWĄ — liczba 6.D181.</summary>
+    private const int KluczyWypisywanychWierszami = 13;
+
+    /// <summary>Trafień „klucz JSON-a wypisywanego" drogą CAŁOPLIKOWĄ — 6.D186.</summary>
+    private const int KluczyWypisywanychCalymPlikiem = 1;
+
+    /// <summary>
+    /// Jedyne trafienie drogi całoplikowej — i NIE jest kluczem JSON-a.
+    ///
+    /// <para><c>FirstRun.cs:883</c> niesie <c>Argument("platforms")</c>, czyli nazwę
+    /// argumentu wiersza poleceń. Sito „nazwa występuje w pliku w kształcie
+    /// <c>"nazwa":</c>" trafia w nie tylko dlatego, że <b>gdzie indziej w tym samym
+    /// pliku</b> — w napisie metadanych — stoi klucz o tej samej nazwie. Jest to
+    /// kolizja nazw, a nie klucz, i to samo trafienie fałszywe stoi w trzynastce
+    /// 6.D181.</para>
+    /// </summary>
+    private const string JedyneTrafienieCaloplikowe = "platforms";
+
+    /// <summary>Kluczy RÓŻNYCH w napisie metadanych zrzutu — 6.D186.</summary>
+    private const int KluczyJsonWypisywanego = 31;
+
+    /// <summary>Wystąpień kluczy w tym samym napisie — 6.D186.</summary>
+    private const int WystapienKluczyJson = 35;
+
+    /// <summary>
+    /// Które z tych 31 nazw w ogóle padają w korpusie zgłoszeń — i skąd — 6.D186.
+    ///
+    /// <para>Obie są nazwami argumentów wiersza poleceń (<c>--platforms</c>,
+    /// <c>--view</c>), a nie kluczami. Rodzina „klucz JSON-a wypisywanego" liczy
+    /// wśród zgłoszeń <b>zero</b>.</para>
+    /// </summary>
+    private static readonly string[] KluczeJsonObecneWKorpusie = { "platforms", "view" };
+
+    /// <summary>Zgłoszenia wąskiej reguły jako pary (plik, literał), danym czytnikiem.</summary>
+    private static List<(string Plik, string Literal)> ZgloszeniaWaskie(
+        Func<string, List<string>> czytnik)
+    {
+        var wynik = new List<(string, string)>();
+        foreach (var sciezka in ZrodlaGry())
+        {
+            var nazwa = Path.GetFileName(sciezka);
+            foreach (var literal in czytnik(File.ReadAllText(sciezka)))
+            {
+                if (Regex.IsMatch(literal, WaskaRegulaKsztaltu))
+                {
+                    wynik.Add((nazwa, literal));
+                }
+            }
+        }
+
+        return wynik;
+    }
+
+    /// <summary>Czy w pliku jest wiersz z tym literałem i markerem CZYTANIA JSON-a.</summary>
+    private static bool WKontekscieCzytania(string kod, string literal) =>
+        kod.Split('\n').Any(w =>
+            w.Contains("\"" + literal + "\"", StringComparison.Ordinal)
+            && MarkeryCzytaniaJson.Any(m => w.Contains(m, StringComparison.Ordinal)));
+
+    /// <summary>Czy nazwa pada w pliku w kształcie <c>"nazwa":</c> — sito 6.D181.</summary>
+    private static bool KsztaltKluczaJson(string kod, string literal) =>
+        kod.Contains("\"" + literal + "\":", StringComparison.Ordinal);
+
+    /// <summary>
+    /// Rozbiór korpusu danym czytnikiem: ile w kontekście czytania, ile poza,
+    /// i które z tych poza mają kształt klucza wypisywanego.
+    /// </summary>
+    private static (int WKontekscie, int Poza, List<string> Klucze) RozbiorJson(
+        Func<string, List<string>> czytnik)
+    {
+        var wKontekscie = 0;
+        var poza = 0;
+        var klucze = new List<string>();
+        foreach (var sciezka in ZrodlaGry())
+        {
+            var kod = File.ReadAllText(sciezka);
+            var nazwa = Path.GetFileName(sciezka);
+            foreach (var literal in czytnik(kod))
+            {
+                if (!Regex.IsMatch(literal, WaskaRegulaKsztaltu))
+                {
+                    continue;
+                }
+
+                if (WKontekscieCzytania(kod, literal))
+                {
+                    wKontekscie++;
+                    continue;
+                }
+
+                poza++;
+                if (KsztaltKluczaJson(kod, literal))
+                {
+                    klucze.Add($"{nazwa}:{literal}");
+                }
+            }
+        }
+
+        return (wKontekscie, poza, klucze);
+    }
+
+    /// <summary>Napis metadanych zrzutu — najdłuższe zgłoszenie <c>FirstRun.cs</c>.</summary>
+    private static string NapisMetadanychZrzutu() =>
+        SlowaWKodzie(ZrodloGry("FirstRun.cs")).OrderByDescending(l => l.Length).First();
+
+    /// <summary>
+    /// Z trzech markerów „kontekstu JSON-a" niesie liczbę JEDEN — 6.D186.
+    ///
+    /// <para>Bramka na przyrząd, którym mierzyło 6.D173, a za nim 6.D181. Nie zmienia
+    /// żadnej z liczb tamtych pomiarów — mówi tylko, na czym one stoją. Marker dopisany
+    /// do listy albo z niej zdjęty zapala ten test, zamiast po cichu przejść.</para>
+    /// </summary>
+    [TestMethod]
+    public void Z_trzech_markerow_kontekstu_JSON_a_niesie_liczbe_JEDEN()
+    {
+        var zmierzone = new List<(string, int)>();
+        foreach (var marker in MarkeryCzytaniaJson)
+        {
+            var ile = 0;
+            foreach (var sciezka in ZrodlaGry())
+            {
+                var kod = File.ReadAllText(sciezka);
+                var wiersze = kod.Split('\n');
+                foreach (var literal in SlowaWKodzie(kod))
+                {
+                    if (!Regex.IsMatch(literal, WaskaRegulaKsztaltu))
+                    {
+                        continue;
+                    }
+
+                    if (wiersze.Any(w =>
+                        w.Contains("\"" + literal + "\"", StringComparison.Ordinal)
+                        && w.Contains(marker, StringComparison.Ordinal)))
+                    {
+                        ile++;
+                    }
+                }
+            }
+
+            zmierzone.Add((marker, ile));
+        }
+
+        CollectionAssert.AreEqual(UdzialMarkerow, zmierzone,
+            "udział markerów to dziś "
+            + string.Join(", ", zmierzone.Select(z => $"{z.Item1}={z.Item2}"))
+            + ", a zmierzono "
+            + string.Join(", ", UdzialMarkerow.Select(u => $"{u.Marker}={u.Ile}")));
+
+        // Marker o udziale ZEROWYM musi tu być wskazany po nazwie, a nie tylko
+        // policzony: liczba `0` w tabeli czyta się jako pomiar, nazwa — jako wniosek.
+        var bezczynne = UdzialMarkerow.Where(u => u.Ile == 0).Select(u => u.Marker).ToList();
+        CollectionAssert.AreEqual(new[] { "RootElement" }, bezczynne,
+            "bezczynne markery to dziś " + string.Join(", ", bezczynne)
+            + " — jeśli `RootElement` przestał być bezczynny, KN-2 z 6.D186 zapali się "
+            + "i akapit o zielonej kontroli opisuje inny stan drzewa");
+    }
+
+    /// <summary>
+    /// Pomiar 6.D181 odtwarza się CO DO JEDYNKI drogą WIERSZOWĄ — 6.D186.
+    ///
+    /// <para><b>To jest żądanie pola „Weryfikacja" pozycji, a nie ozdoba:</b> przyrząd,
+    /// który nie odtwarza liczb poprawianego pomiaru, mierzy co innego i nie ma prawa
+    /// go korygować. Odtwarzają się wszystkie cztery: korpus <b>108</b>, kontekst
+    /// czytania <b>18</b>, poza nim <b>90</b>, a wśród tych 90 — <b>13</b> o kształcie
+    /// klucza wypisywanego.</para>
+    ///
+    /// <para><b>Droga jest tym samym ZMIERZONA, a nie uprawdopodobniona.</b> 6.D180 §8
+    /// zapisało wprost: „Czego NIE twierdzę: że 6.D181 liczyło wierszami. Jakim dokładnie
+    /// skanem doszło do swojej trzynastki, nie jest zmierzone". Teraz jest: liczba
+    /// <b>108</b> powstaje WYŁĄCZNIE po stronie wierszowej (całym plikiem jest ich 96),
+    /// a 6.D181 §3 pisze „Wyszło 18 ze 108". Oba końce tego zdania — 18 i 108 — stoją
+    /// po tej samej stronie i po żadnej innej.</para>
+    ///
+    /// <para><b>Trzynastka odtwarza się razem z własnym trafieniem fałszywym.</b>
+    /// Wśród 13 stoi <c>platforms</c> z <c>Argument("platforms")</c> — argument wiersza
+    /// poleceń, nie klucz — który sito łapie przez kolizję nazwy z kluczem stojącym
+    /// w napisie metadanych. 6.D181 policzyło go jako klucz, choć w jego własnej tabeli
+    /// ta sama pozycja należy do wiersza „argument wiersza poleceń | 39".</para>
+    /// </summary>
+    [TestMethod]
+    public void Trzynastka_z_6D181_odtwarza_sie_CO_DO_JEDYNKI_droga_WIERSZOWA()
+    {
+        var wierszami = ZgloszeniaWaskie(SlowaWierszPoWierszu);
+        Assert.AreEqual(ZgloszenWaskichWierszami, wierszami.Count,
+            $"drogą wierszową wąska reguła daje dziś {wierszami.Count} zgłoszeń wobec "
+            + $"{ZgloszenWaskichWierszami} z 6.D173 — odtworzenie 6.D181 mierzy wtedy "
+            + "inny korpus i nie ma prawa go poprawiać");
+
+        var (wKontekscie, poza, klucze) = RozbiorJson(SlowaWierszPoWierszu);
+        Assert.AreEqual(WKontekscieCzytaniaJson, wKontekscie,
+            $"w kontekście czytania JSON-a stoi {wKontekscie} zgłoszeń wobec "
+            + $"{WKontekscieCzytaniaJson} z 6.D173");
+        Assert.AreEqual(ZgloszenWaskichWierszami - WKontekscieCzytaniaJson, poza,
+            $"poza kontekstem stoi {poza} zgłoszeń, a 6.D181 opisało 90");
+        Assert.AreEqual(KluczyWypisywanychWierszami, klucze.Count,
+            $"kształt klucza wypisywanego ma {klucze.Count} zgłoszeń wobec "
+            + $"{KluczyWypisywanychWierszami} z 6.D181: " + string.Join(", ", klucze));
+
+        // Trafienie fałszywe MUSI tu być — bez niego trzynastka odtworzyłaby się
+        // z innego zbioru o tej samej liczności, a to nie jest to samo.
+        Assert.IsTrue(klucze.Contains("FirstRun.cs:" + JedyneTrafienieCaloplikowe,
+                StringComparer.Ordinal),
+            "w trzynastce 6.D181 nie ma `platforms` z `Argument(\"platforms\")` — "
+            + "odtworzenie trafiło w inny zbiór niż tamten pomiar");
+    }
+
+    /// <summary>
+    /// Ta sama miara drogą CAŁOPLIKOWĄ daje JEDNO trafienie i jest nim ARGUMENT — 6.D186.
+    ///
+    /// <para><b>ROZSTRZYGNIĘCIE POZYCJI: rodzina JSON-a liczy 18, a nie 31.</b>
+    /// 6.D180 rozstrzygnęło, że poprawne jest liczenie CAŁYM PLIKIEM — napisu
+    /// wielowierszowego nie da się czytać wierszami, bo rozcina go sam podział na
+    /// wiersze. Tą drogą zgłoszeń o kształcie klucza wypisywanego jest <b>jedno</b>,
+    /// a i ono kluczem nie jest: <c>Argument("platforms")</c> to nazwa argumentu wiersza
+    /// poleceń, złapana przez kolizję z kluczem <c>"platforms":</c> stojącym gdzie indziej
+    /// w tym samym pliku. Rodzina „klucz JSON-a wypisywanego" liczy wśród zgłoszeń
+    /// <b>zero</b>, więc do 18 nie dochodzi nic.</para>
+    /// </summary>
+    [TestMethod]
+    public void Ta_sama_miara_droga_CALOPLIKOWA_daje_JEDNO_trafienie_i_jest_nim_ARGUMENT()
+    {
+        var calym = ZgloszeniaWaskie(SlowaWKodzie);
+        Assert.AreEqual(ZgloszenWaskichCalymPlikiem, calym.Count,
+            $"drogą całoplikową wąska reguła daje dziś {calym.Count} zgłoszeń wobec "
+            + $"{ZgloszenWaskichCalymPlikiem} z 6.D173");
+
+        var (wKontekscie, poza, klucze) = RozbiorJson(SlowaWKodzie);
+        Assert.AreEqual(WKontekscieCzytaniaJson, wKontekscie,
+            $"w kontekście czytania stoi {wKontekscie} zgłoszeń, a obiema drogami ma "
+            + $"stać {WKontekscieCzytaniaJson} — gdyby liczby się rozeszły, różnica "
+            + "108 − 96 przestałaby siedzieć w całości po stronie wypisywania");
+        Assert.AreEqual(ZgloszenWaskichCalymPlikiem - WKontekscieCzytaniaJson, poza,
+            $"poza kontekstem stoi {poza} zgłoszeń zamiast 78");
+        Assert.AreEqual(KluczyWypisywanychCalymPlikiem, klucze.Count,
+            $"kształt klucza wypisywanego ma {klucze.Count} zgłoszeń wobec "
+            + $"{KluczyWypisywanychCalymPlikiem}: " + string.Join(", ", klucze));
+
+        CollectionAssert.AreEqual(
+            new[] { "FirstRun.cs:" + JedyneTrafienieCaloplikowe }, klucze,
+            "jedyne trafienie to dziś " + string.Join(", ", klucze));
+
+        // I NIE jest kluczem — stoi przy `Argument(`, czyli w wierszu 6.D181 opisanym
+        // jako „argument wiersza poleceń". Bez tego zdania liczba `1` czytałaby się
+        // jako „jeden klucz jednak dochodzi".
+        StringAssert.Contains(ZrodloGry("FirstRun.cs"),
+            "Argument(\"" + JedyneTrafienieCaloplikowe + "\")",
+            "jedyne trafienie przestało stać przy `Argument(` — wtedy zdanie „to nie "
+            + "klucz, tylko kolizja nazw” opisuje inny stan pliku (6.D186)",
+            StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Klucze JSON-a wypisywanego nie są zgłoszeniami, więc poszerzenie reguły kontekstu
+    /// NIC by nie dało — 6.D186.
+    ///
+    /// <para><b>To jest zdanie o tezie 6.D181, o które prosiło pole „Wyjście".</b>
+    /// Teza „deklaracja była węższa niż rodzina" ZOSTAJE prawdziwa: przyrząd melduje
+    /// „kontekst JSON-a", a sprawdza wyłącznie czytanie, choć program JSON również
+    /// WYPISUJE — i to niemało, bo <b>31 różnych kluczy w 35 wystąpieniach</b>.</para>
+    ///
+    /// <para><b>Zmienia się POWÓD, dla którego ich nie widać, i to jest treść tej
+    /// bramki.</b> Nie chodzi o regułę kontekstu: te 31 kluczy nie jest zgłoszeniami
+    /// ŻADNEJ reguły, bo cały napis metadanych jest JEDNYM literałem długości 1697
+    /// znaków i czterdziestu wierszy, a taki literał kształtu identyfikatora nie ma.
+    /// Poszerzenie reguły z „czytania" na „czytanie i wypisywanie" znalazłoby więc
+    /// <b>zero</b>, a nie trzynaście. Z 31 nazw w korpusie padają dwie — <c>platforms</c>
+    /// i <c>view</c> — i obie jako nazwy argumentów wiersza poleceń.</para>
+    ///
+    /// <para><b>Dwie trzydzieści jedynki, i nie mają ze sobą nic wspólnego.</b> Kluczy
+    /// w tym napisie jest 31, a 6.D181 policzyło rodzinę JSON-a też na 31 (18 + 13).
+    /// Zbieżność jest przypadkowa — tamta liczba powstała z kawałków tego samego napisu
+    /// policzonych po wierszach, a nie z jego kluczy — i stoi tu wypisana, żeby nikt
+    /// nie wyprowadził z niej wniosku.</para>
+    /// </summary>
+    [TestMethod]
+    public void Klucze_JSON_wypisywanego_NIE_SA_zgloszeniami_wiec_szersza_regula_nic_by_nie_dala()
+    {
+        var napis = NapisMetadanychZrzutu();
+        Assert.IsTrue(napis.Split('\n').Length >= 40,
+            $"najdłuższe zgłoszenie `FirstRun.cs` ma {napis.Split('\n').Length} wierszy, "
+            + "a napis metadanych zrzutu ma ich czterdzieści — czytnik znowu go rozciął");
+        Assert.IsFalse(Regex.IsMatch(napis, WaskaRegulaKsztaltu),
+            "napis metadanych ma kształt identyfikatora, czyli wąska reguła by go "
+            + "zgłosiła — wtedy cały wywód tej bramki opisuje inny korpus");
+
+        var klucze = Regex.Matches(napis, "\"([a-z_][a-z0-9_]*)\"\\s*:")
+            .Select(m => m.Groups[1].Value).ToList();
+        Assert.AreEqual(WystapienKluczyJson, klucze.Count,
+            $"wystąpień kluczy jest {klucze.Count} wobec zmierzonych {WystapienKluczyJson}");
+        var rozne = klucze.Distinct(StringComparer.Ordinal)
+            .OrderBy(k => k, StringComparer.Ordinal).ToList();
+        Assert.AreEqual(KluczyJsonWypisywanego, rozne.Count,
+            $"różnych kluczy jest {rozne.Count} wobec zmierzonych "
+            + $"{KluczyJsonWypisywanego}: " + string.Join(", ", rozne));
+
+        var korpus = ZgloszeniaWaskie(SlowaWKodzie);
+        var obecne = rozne
+            .Where(k => korpus.Any(z => string.Equals(z.Literal, k, StringComparison.Ordinal)))
+            .ToList();
+        CollectionAssert.AreEqual(
+            KluczeJsonObecneWKorpusie.OrderBy(k => k, StringComparer.Ordinal).ToList(),
+            obecne,
+            "z kluczy napisu metadanych w korpusie zgłoszeń padają dziś "
+            + string.Join(", ", obecne) + ", a zmierzono "
+            + string.Join(", ", KluczeJsonObecneWKorpusie)
+            + " — obie jako nazwy argumentów wiersza poleceń, żadna jako klucz");
+
+        // Obie MUSZĄ dać się wskazać jako argumenty, inaczej zdanie „żadna jako klucz"
+        // jest twierdzeniem bez pokrycia. Wzorzec obejmuje OBA kształty wywołania —
+        // `Argument("platforms")` w `FirstRun.cs` i `Argument(arguments, "view")`
+        // w `RunPlan.cs` — bo pierwsze podejście pytało tylko o pierwszy z nich
+        // i wyszło CZERWONE na `view`, choć zdanie było prawdziwe.
+        var zrodla = string.Join("\n", ZrodlaGry().Select(File.ReadAllText));
+        foreach (var nazwa in obecne)
+        {
+            // Wynik w ZMIENNEJ, a nie w argumencie asercji, i to nie jest kosmetyka:
+            // czytnik `test_csharp_assertions.py` rozstrzyga komunikat po argumentach,
+            // a wywołanie z własnym przecinkiem w pierwszym argumencie wpada u niego
+            // do klasy „bez komunikatu" — mimo że komunikat stoi. Zmierzone: bez tej
+            // zmiennej zapadka `BEZ_KOMUNIKATU` dla tego pliku rosła z 13 na 14,
+            // a wolno ją tylko obniżać.
+            var stoiPrzyArgumencie = Regex.IsMatch(
+                zrodla, @"Argument\([^)]*""" + nazwa + @"""\)");
+            Assert.IsTrue(stoiPrzyArgumencie,
+                $"nazwa `{nazwa}` pada w korpusie, ale nie stoi w żadnym wywołaniu "
+                + "`Argument(…)` — wtedy nie wiadomo, czy zgłoszenie bierze się "
+                + "z argumentu wiersza poleceń, czy jednak z klucza (6.D186)");
+        }
+    }
+
 }
