@@ -377,7 +377,7 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 #: i 6.D149; trzeci — z rzeczy, która zdarzyła się TRZY RAZY POD RZĄD w tych samych
 #: trzech pozycjach i dopiero przez powtórzenie dała się zobaczyć.
 #: Wartość z `len(detail_sections(...))` po edycji, nie z dodania trójki do 231.
-MINIMUM_DETAIL_BLOCKS = 273
+MINIMUM_DETAIL_BLOCKS = 275
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
@@ -1349,6 +1349,183 @@ def test_the_open_item_filter_reacts_to_the_marker_and_not_to_something_else():
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
 # z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
 # tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+
+# --- 6.D196: liczba w polu „Skąd" opisuje dzień pomiaru, a czyta się jak bieżącą -------
+#
+# **Trzy liczby, których pozycja żądała ze źródeł** (zmierzone 13.09.2026 na `0c1e499`,
+# szesnaście pozycji otwartych): liczb w polach „Skąd" jest **80**, przeliczalnych
+# automatem **30**, a **NIEZGODNYCH z drzewem — 15, czyli POŁOWA przeliczalnych**.
+#
+# **Rozjazd ma CZTERY przyczyny, a nie jedną, i to jest główny wynik.** Pozycja zakładała
+# starzenie się w czasie; pomiar pokazał co innego:
+#   (a) **cudza pozycja domknęła podstawę** — 10 z 15. 6.D184 zlikwidowało
+#       `KodBezKomentarzy` (2 liczby), 6.D191 przepisało trzy zdania rodziny (7 liczb),
+#       6.D193 dopisało brakujące asercje (1 liczba);
+#   (b) **drzewo urosło** — 1 (mapa pokrycia, 35 647 → 35 969 wierszy);
+#   (c) **liczba była nieprawdziwa W CHWILI WPISANIA** — 4. Tej kategorii teza pozycji
+#       NIE PRZEWIDUJE: 6.D199 pisze o „dwóch trafieniach `phase.ToString()`", a trzecie
+#       leży w `src/Game/UI/` od 10.09.2026, czyli było tam w dniu wpisania — liczba
+#       powstała ze skanu PŁYTSZEGO NIŻ ZAPISANY. Tak samo 6.D201 („cztery postacie
+#       literału" przy pięciu w `tests/`).
+#
+# **Pole „Skąd" cytujące inną pozycję starzeje się w CHWILI, gdy tamta zostaje domknięta
+# — nie po dniach.** Dziesięć z piętnastu niezgodności jest właśnie takich.
+#
+# **Wszystkie 11 liczb przypiętych stałą zgadza się co do jedynki. Wszystkie 15
+# niezgodnych to liczby, których NIC NIE PILNUJE.** Stąd bramka niżej.
+
+#: Kształt twierdzenia, którego mechanizm z 6.D108 **NIE WIDZI**: nazwa stałej i liczba
+#: w JEDNEJ parze grawisów. `CLAIM` z `test_report_claims.py` wymaga grawisów wyłącznie
+#: wokół nazwy i zakazuje grawisa w przerwie do liczby — a tutaj grawis zamykający stoi
+#: ZA liczbą, więc wzorzec się nie zaczepia.
+#:
+#: **Zmierzone, nie założone:** ten kształt pada w `docs/TASKS.md` **33 razy** (22 razy
+#: z nazwą, którą drzewo zna) i w `reports/` **41 razy** (35 z nazwą znaną) — czyli cała
+#: populacja, której tamta bramka nie ogląda, także w plikach, które skanuje.
+CLAIM_W_JEDNYCH_GRAWISACH = re.compile(
+    r"`([A-Z][A-Z0-9_]{3,})\s*=\s*(-?\d+(?:[.,]\d+)?)`")
+
+#: Ile takich twierdzeń stoi w polach „Skąd" pozycji OTWARTYCH. Równość, bo każde jest
+#: zdaniem, które następny agent przeczyta jako stan dzisiejszy.
+TWIERDZEN_W_POLACH_SKAD = 2
+
+
+def _pole_skad(blok):
+    """Treść pola `- **Skąd:**` bloku szczegółów albo `None`."""
+    trafienie = re.search(r"- \*\*Skąd:\*\*(.*?)(?=\n- \*\*|\Z)", blok, re.S)
+    return trafienie.group(1) if trafienie else None
+
+
+def twierdzenia_w_polach_skad():
+    """`[(pozycja, stała, liczba w polu, pole)]` — dla pozycji OTWARTYCH.
+
+    Tylko otwarte, bo wiersz pozycji DOMKNIĘTEJ jest zapisem swojego dnia i przepisywaniu
+    nie podlega (6.D108). Pole „Skąd" pozycji otwartej czyta się przeciwnie: jako stan,
+    z którego bierze się rozmiar pracy.
+    """
+    tekst = open(TASKS, encoding="utf-8").read()
+    otwarte = set(open_items(tekst))
+    bloki = detail_sections(tekst)
+    out = []
+    for numer in sorted(otwarte):
+        blok = bloki.get(numer)
+        if not blok:
+            continue
+        pole = _pole_skad(blok)
+        if pole is None:
+            continue
+        for nazwa, liczba in CLAIM_W_JEDNYCH_GRAWISACH.findall(pole):
+            out.append((numer, nazwa, liczba, pole))
+    return out
+
+
+def _rowne(w_polu, w_drzewie):
+    """Czy liczba z prozy jest tą samą, co w kodzie. Przecinek dziesiętny wchodzi."""
+    def znormalizuj(x):
+        x = str(x).replace(",", ".")
+        return x.rstrip("0").rstrip(".") if "." in x else x
+    return znormalizuj(w_polu) == znormalizuj(w_drzewie)
+
+
+def test_twierdzenie_o_stalej_w_polu_SKAD_jest_prawdziwe_albo_PODAJE_DZISIEJSZA():
+    """ODPOWIEDŹ 6.D196: rozstrzygnięciem jest DATOWANIE, i jest ono wykonalne.
+
+    **Dlaczego nie „przelicz wszystkie liczby":** pole „Poza zakresem" tej pozycji
+    zabrania poprawiania liczb, a 7 z 30 przeliczalnych automat i tak nie policzy
+    (ile przebiegów CI, ile prób odtworzenia zjawiska, czyja ręka dopisała siedem miejsc).
+    Bramka na nich świeciłaby na poprawnym tekście i zostałaby wyłączona, nie poprawiona.
+
+    **Dlaczego akurat ten kształt:** bo jest to jedyna grupa, w której liczba **nazywa
+    stałą**, więc dzisiejszą wartość da się odczytać z drzewa bez jednego osądu. Pozostałe
+    liczby mają zapisaną granicę zamiast bramki i tak stoi to w komentarzu wyżej.
+
+    **Warunek jest ALTERNATYWĄ, nie zakazem:** twierdzenie wolno zostawić nieaktualne,
+    ale wtedy pole ma podać **dzisiejszą wartość obok**. Marker przeszłości tu nie
+    wystarcza i to jest zmierzone: `HISTORICAL_MARKERS` z `test_docs_ci_claims.py` zawiera
+    „zmierzone", a tym słowem zaczyna się niemal każde pole „Skąd" — warunek byłby
+    spełniony zawsze, czyli bramka nie pilnowałaby niczego.
+    """
+    import test_report_claims as RC
+
+    wartosci = RC.constant_values()
+    znalezione = twierdzenia_w_polach_skad()
+    znane = [(n, s, l, p) for n, s, l, p in znalezione if s in wartosci]
+
+    assert len(znane) == TWIERDZEN_W_POLACH_SKAD, (
+        "twierdzeń o nazwanej stałej w polach „Skąd” pozycji otwartych jest %d przy "
+        "zapadce %d: %s — nowe ma być rozstrzygnięte, a nie dopisane"
+        % (len(znane), TWIERDZEN_W_POLACH_SKAD,
+           sorted((n, s) for n, s, _l, _p in znane)))
+
+    sprawdzonych = 0
+    for numer, stala, w_polu, pole in znane:
+        w_drzewie = wartosci[stala]
+        if not _rowne(w_polu, w_drzewie):
+            # Nieaktualne WOLNO zostawić — ale pole ma powiedzieć, ile jest dziś.
+            assert str(w_drzewie) in pole or _rowne(str(w_drzewie), w_polu), (
+                "pozycja %s podaje `%s = %s`, w drzewie jest %s, a pole „Skąd” nigdzie "
+                "nie mówi, ile jest DZIŚ — następny agent przeczyta tę liczbę jako stan "
+                "bieżący i z niej oszacuje pracę. Albo popraw, albo dopisz dzisiejszą "
+                "obok (6.D196)" % (numer, stala, w_polu, w_drzewie))
+        sprawdzonych += 1
+
+    assert sprawdzonych == len(znane), (
+        "pętla twierdzeń wykonała %d obrotów przy %d twierdzeniach — pusta pętla "
+        "przechodzi każdą asercję w środku (zmierzone przy 6.D193)"
+        % (sprawdzonych, len(znane)))
+
+
+def test_czytnik_twierdzen_WIDZI_ksztalt_ktorego_6D108_nie_widzi():
+    """Kontrola PRZYRZĄDU: dwa kształty obok siebie, jeden widziany, drugi nie.
+
+    Bez niej „dwa twierdzenia" nie znaczyłoby nic: czytnik niewidzący kształtu
+    odpowiedziałby zerem tak samo, jak czytnik widzący i nieznajdujący (rodzina 6.D159).
+    Wejście wymienia też kształt, który mechanizm z 6.D108 **łapie**, żeby było widać,
+    że te dwa wzorce opisują różne rzeczy, a nie jeden drugiego.
+    """
+    import test_report_claims as RC
+
+    widziany = "stała `MIN_REPORTS = 314` stoi w module"
+    assert CLAIM_W_JEDNYCH_GRAWISACH.findall(widziany) == [("MIN_REPORTS", "314")], (
+        "czytnik nie widzi kształtu `NAZWA = N` — a to jest jedyny kształt, po który "
+        "ta sekcja istnieje")
+    assert RC.CLAIM.findall(widziany) == [], (
+        "mechanizm z 6.D108 jednak widzi ten kształt — wtedy ta sekcja opisuje lukę, "
+        "której nie ma, i trzeba ją przeliczyć")
+
+    stary = "stała `MIN_REPORTS` stoi dziś na 314"
+    assert CLAIM_W_JEDNYCH_GRAWISACH.findall(stary) == [], (
+        "czytnik łapie kształt, którego 6.D108 już pilnuje — dwie bramki na to samo "
+        "zdanie dałyby dwa komunikaty o jednej usterce")
+    assert RC.CLAIM.findall(stary), (
+        "mechanizm z 6.D108 nie widzi własnego kształtu — wtedy nie o nim mowa")
+
+    for milczy in ("`ZWYKLY_NAPIS = abc`", "`ab = 3`", "MIN_REPORTS = 314"):
+        assert CLAIM_W_JEDNYCH_GRAWISACH.findall(milczy) == [], (
+            "czytnik zapalił się na %r — wtedy liczba dwóch twierdzeń opisuje co innego, "
+            "niż mówi" % milczy)
+
+    # ZAWĘŻENIE POLA „SKĄD" JEST DZIŚ BEZCZYNNE I DLATEGO MA WEJŚCIE SYNTETYCZNE.
+    # Zmierzone kontrolą negatywną (KN-6): poszerzenie czytnika do KOŃCA bloku nic nie
+    # zmienia, bo żadna pozycja otwarta nie ma dziś twierdzenia `NAZWA = N` poza polem
+    # „Skąd". Zawężenie jest słuszne — pozycja pyta o to pole i tylko o nie — ale drzewo
+    # go nie ćwiczy, więc bez tego wejścia byłoby mechanizmem bez kontroli (6.D159).
+    blok = ("##### 6.X1 · próbny\n\n"
+            "- **Skąd:** nic tu nie stoi.\n"
+            "- **Wyjście:** `MIN_REPORTS = 40` — to pole NIE jest polem „Skąd”.\n")
+    assert _pole_skad(blok) is not None, "czytnik nie znalazł pola „Skąd” w bloku próbnym"
+    assert CLAIM_W_JEDNYCH_GRAWISACH.findall(_pole_skad(blok)) == [], (
+        "czytnik pola „Skąd” sięgnął do NASTĘPNEGO pola — wtedy bramka pilnuje całego "
+        "bloku, a nie tego, o co pyta 6.D196, i liczba twierdzeń przestaje znaczyć to, "
+        "co mówi: %r" % _pole_skad(blok))
+
+    z_polem = blok.replace("- **Skąd:** nic tu nie stoi.",
+                           "- **Skąd:** stała `MIN_REPORTS = 40` z dnia pomiaru.")
+    assert CLAIM_W_JEDNYCH_GRAWISACH.findall(_pole_skad(z_polem)) == [("MIN_REPORTS", "40")], (
+        "czytnik NIE widzi twierdzenia stojącego w samym polu „Skąd” — wtedy zero "
+        "znalezionych nie odróżnia „nie ma” od „nie umiem zobaczyć”")
+
+
 if __name__ == "__main__":
     import test_all
     raise SystemExit(test_all.main(__file__))
