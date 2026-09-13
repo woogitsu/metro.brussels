@@ -1647,10 +1647,10 @@ def _istnieje_w_drzewie(nazwa):
 #: `test_jaka_czesc_adresow_obejrzala_regula_kandydatow_6D146` jest odporny na ten
 #: ruch z wyboru — stoi w przedziale, nie w rownosci — i po dwoch domknieciach nadal
 #: pokazuje te sama jedna trzynasta.
-ADRESOW_W_WYKONANYCH = {"Wejście": 887, "Wyjście": 63, "Weryfikacja": 372}
+ADRESOW_W_WYKONANYCH = {"Wejście": 890, "Wyjście": 63, "Weryfikacja": 373}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
-WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 109}
+WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 110}
 
 #: Ilu kandydatow zlego adresu daje regula prozy, per pole — 6.D158.
 KANDYDATOW_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 11}
@@ -1769,3 +1769,304 @@ def test_zero_wywolan_poza_Weryfikacja_jest_STRUKTURALNE():
     assert module_names(z_wywolaniem) == ["test_backlog.py"], (
         "czytnik wywolan przestal widziec wywolanie w plotku — wtedy zero wyzej "
         "jest zerem czytnika, a nie zerem drzewa: %s" % module_names(z_wywolaniem))
+
+
+# --- 6.D187: gola nazwa pliku, czyli ksztalt, ktorego PATH_TOKEN nie widzi ---------
+#
+# Pozycja pyta o DWIE LICZBY POLICZONE PRZED zmiana wzorca i o rozstrzygniecie, czy
+# poszerzenie da sie zrobic bez listy wyjatkow. Oba stoja nizej, wyprowadzone z drzewa.
+
+#: Alternatywa rozszerzen WYCIETA Z `PATH_TOKEN`, a nie przepisana obok.
+#:
+#: Druga lista tych samych rozszerzen rozjechalaby sie po cichu z pierwsza, a rozjazd
+#: akurat TEJ pary znaczylby, ze jeden ksztalt widzi plik, ktorego drugi nie widzi —
+#: czyli dokladnie ten rodzaj roznicy, ktory ta pozycja mierzy. Ze wyciecie naprawde
+#: bierze sie ze wzorca, a nie z przypadkowo zgodnego napisu, pilnuje asercja nizej.
+ROZSZERZENIA_Z_PATH_TOKEN = re.search(
+    r"\\\.\(\?:([a-z|]+)\)", PATH_TOKEN.pattern).group(1)
+
+#: Gola nazwa pliku: JEDEN segment ze znanym rozszerzeniem, bez ukosnika po zadnej
+#: stronie. Domkniecie `(?![A-Za-z0-9/])` odsiewa poczatek sciezki (`docs/TASKS.md`
+#: nie ma dac `docs`… ani `TASKS.md`), a poprzednik `(?<![A-Za-z0-9_./-])` — ogon
+#: sciezki.
+BARE_TOKEN = re.compile(
+    r"(?<![A-Za-z0-9_./-])"
+    r"([A-Za-z0-9_][A-Za-z0-9_.+-]*\.(?:" + ROZSZERZENIA_Z_PATH_TOKEN + r"))"
+    r"(?![A-Za-z0-9/])")
+
+#: PIERWSZA LICZBA POZYCJI — progi KW, nie rownosci, i to jest wybor. `docs/` rosnie
+#: z kazda domknieta pozycja, wiec rownosc czerwienialaby od pisania dokumentacji;
+#: prog laduje literowke we wzorcu, ktora daje zero, a zero przechodzi „nic nie
+#: znaleziono" bez ani jednego sprawdzenia. Zmierzone 13.09.2026: **1331** wystapien
+#: golej nazwy w `docs/*.md`, w **276** roznych nazwach.
+#:
+#: Progu na LICZBE ROZNYCH nazw tu nie ma i to jest wynik pomiaru, nie przeoczenie.
+#: Napisalem go najpierw (`MIN_GOLYCH_ROZNYCH = 250`), po czym okazal sie scisle
+#: slabszy od rownosci `GOLYCH_BEZ_ODPOWIEDNIKA` nizej: ta liczy sie ZE ZBIORU
+#: roznych nazw, wiec zapadniecie sie tego zbioru rusza ja pierwsze. Trzecia wolna
+#: zapadka mowiaca to samo slabiej kosztuje wpis w `test_tree_walks.ZAPADKI`
+#: i nie daje nic.
+MIN_GOLYCH_W_DOKUMENTACH = 1200
+
+#: DRUGA LICZBA POZYCJI — ile z tych roznych nazw NIE MA odpowiednika w drzewie.
+#: Rownosc, nie prog: to jest liczba, o ktora pozycja pyta, i kazdy jej ruch ma byc
+#: przeczytany. Zmierzone 13.09.2026: **32**.
+GOLYCH_BEZ_ODPOWIEDNIKA = 32
+
+#: To samo, ale WYLACZNIE w trzech polach skanowanych — czyli tam, gdzie poszerzony
+#: `PATH_TOKEN` naprawde by zapalal. Zmierzone 13.09.2026: **244** wystapienia,
+#: **88** roznych nazw, **10** wystapien bez odpowiednika w drzewie.
+MIN_GOLYCH_W_POLACH = 200
+GOLYCH_W_POLACH_BEZ_ODPOWIEDNIKA = 10
+
+#: Wystapienia bez odpowiednika w polach skanowanych, z powodem — i ANI JEDEN nie
+#: jest usterka. To jest ROZSTRZYGNIECIE pozycji, zapisane jako lista, a nie zdanie.
+#:
+#: Klucz to `(numer, pole, nazwa)`, tak samo jak w `EXCEPTIONS` wyzej i z tego samego
+#: powodu: numer wiersza przesuwa kazdy commit dopisujacy cokolwiek wyzej.
+NIEISTNIEJACE_W_POLACH = {
+    ("6.B1", "Weryfikacja", "AXIS.json"):
+        "nazwa zastepcza w szablonie polecenia `--out AXIS.json`; wielkie litery sa "
+        "tu konwencja oznaczajaca „podstaw swoja nazwe”, a nie nazwa pliku",
+    ("6.B2", "Weryfikacja", "AXIS.json"):
+        "ten sam szablon polecenia, co w 6.B1, i ta sama nazwa zastepcza",
+    ("6.D1", "Wejście", "PLIK.csv"):
+        "nazwa zastepcza wejscia narzedzia; plik o tej nazwie nie powstanie nigdy",
+    ("6.D1", "Weryfikacja", "AXIS.csv"):
+        "nazwa zastepcza wyjscia w szablonie polecenia tego samego bloku",
+    ("6.D1", "Weryfikacja", "AXIS.json"):
+        "druga nazwa zastepcza w tym samym szablonie, obok `AXIS.csv`",
+    ("6.D59", "Wyjście", "plik.md"):
+        "nazwa zastepcza w opisie KSZTALTU wyjscia, a nie adres konkretnego pliku",
+    ("6.D86", "Weryfikacja", "test_physics_reference.py"):
+        "CYTAT WLASNEJ POPRAWKI: adnotacja „Poprawione 10.09.2026 przy wykonaniu” "
+        "przytacza zla nazwe po to, zeby powiedziec, ze ja poprawiono",
+    ("6.D89", "Weryfikacja", "test_glossary.py"):
+        "CYTAT WLASNEJ POPRAWKI, tak samo jak wyzej: adnotacja z 10.09.2026 "
+        "przytacza zla nazwe, zeby zapisac, czym ja zastapiono",
+}
+
+
+def gole_nazwy_w_dokumentach(root=None):
+    """`[(plik, nazwa)]` — gole nazwy plikow ze wszystkich `docs/*.md`."""
+    root = ROOT if root is None else root
+    katalog = os.path.join(root, "docs")
+    out = []
+    for nazwa_pliku in sorted(os.listdir(katalog)):
+        if not nazwa_pliku.endswith(".md"):
+            continue
+        with open(os.path.join(katalog, nazwa_pliku), encoding="utf-8") as handle:
+            tresc = handle.read()
+        for trafienie in BARE_TOKEN.finditer(tresc):
+            out.append((nazwa_pliku, trafienie.group(1)))
+    return out
+
+
+def _nazwy_plikow_w_drzewie(root=None):
+    """Zbior NAZW WLASNYCH plikow sledzonych — bez katalogow."""
+    root = ROOT if root is None else root
+    return {os.path.basename(p) for p in tw.znajdz(root, "*")}
+
+
+def gole_nazwy_w_polach(blocks=None):
+    """`[(numer, pole, nazwa)]` — gole nazwy w trzech polach skanowanych."""
+    out = []
+    zrodlo = _all_blocks() if blocks is None else blocks
+    for numer, body in zrodlo.items():
+        for pole in FIELDS:
+            tresc = field_body(body, pole)
+            if tresc is None:
+                continue
+            for trafienie in BARE_TOKEN.finditer(tresc):
+                out.append((numer, pole, trafienie.group(1)))
+    return out
+
+
+def test_wzorzec_golej_nazwy_dzieli_rozszerzenia_z_PATH_TOKEN():
+    """Jedna lista rozszerzen, nie dwie — 6.D187.
+
+    Wyciecie jest z `PATH_TOKEN.pattern`, wiec dopisanie rozszerzenia do wzorca
+    sciezek wchodzi do wzorca golych nazw SAMO. Bez tego byly by dwie listy i ta
+    druga starzalaby sie po cichu.
+
+    Kontrola na wejsciu syntetycznym, bo drzewo tych dwoch stron nie rozdziela:
+    `PATH_TOKEN` ma widziec sciezke i NIE widziec golej nazwy, `BARE_TOKEN`
+    odwrotnie. Gdyby ktorys widzial oba, obie liczby pozycji mierzylyby to samo.
+    """
+    assert "csproj" in ROZSZERZENIA_Z_PATH_TOKEN and "geojson" in ROZSZERZENIA_Z_PATH_TOKEN, (
+        "wyciecie alternatywy z `PATH_TOKEN` nie dalo znanych rozszerzen: %r"
+        % ROZSZERZENIA_Z_PATH_TOKEN)
+    assert ROZSZERZENIA_Z_PATH_TOKEN in PATH_TOKEN.pattern, (
+        "napis z rozszerzeniami nie pochodzi ze wzorca sciezek — wtedy sa dwie listy")
+
+    probka = "plik `docs/TASKS.md`, a obok goly `reference.py` w prozie"
+    assert [m.group(1) for m in PATH_TOKEN.finditer(probka)] == ["docs/TASKS.md"], (
+        "wzorzec sciezek zaczal widziec gola nazwe albo przestal widziec sciezke: %s"
+        % [m.group(1) for m in PATH_TOKEN.finditer(probka)])
+    assert [m.group(1) for m in BARE_TOKEN.finditer(probka)] == ["reference.py"], (
+        "wzorzec golej nazwy widzi co innego niz gola nazwe: %s"
+        % [m.group(1) for m in BARE_TOKEN.finditer(probka)])
+
+    # UKOSNIK W DOMKNIECIU JEST BEZCZYNNY NA DZISIEJSZYM DRZEWIE i to jest zmierzone,
+    # a nie domniemane: zdjecie go z `(?![A-Za-z0-9/])` nie ruszylo zadnej z liczb tej
+    # sekcji (KN-1). Powod jest strukturalny — ogon sciezki odcina juz POPRZEDNIK
+    # `(?<![A-Za-z0-9_./-])`, a nazwa z rozszerzeniem stojaca jako PIERWSZY segment
+    # sciezki w tym repozytorium nie pada ani razu.
+    #
+    # Nie jest to powod, zeby domkniecie zdjac — jest powodem, zeby jego bezczynnosc
+    # byla WIDOCZNA. Ta sama decyzja, co przy `RootElement` w 6.D186. Probka jest
+    # syntetyczna, bo drzewo tej roznicy nie rozdziela.
+    z_ukosnikiem = "sciezka reference.py/dalej w prozie"
+    assert [m.group(1) for m in BARE_TOKEN.finditer(z_ukosnikiem)] == [], (
+        "gola nazwa zostala zlapana, choc stoi jako PIERWSZY segment sciezki — "
+        "domkniecie `(?![A-Za-z0-9/])` przestalo dzialac: %s"
+        % [m.group(1) for m in BARE_TOKEN.finditer(z_ukosnikiem)])
+
+
+def test_ile_golych_nazw_stoi_w_docs_i_ile_z_nich_nie_ma_odpowiednika():
+    """PIERWSZA I DRUGA LICZBA POZYCJI, policzone PRZED zmiana wzorca — 6.D187.
+
+    Pole „Wyjscie” zada dwoch liczb: ile golych nazw plikow stoi w skanowanych
+    dokumentach i ile z nich wskazuje cos, czego w drzewie nie ma. Zmierzone
+    13.09.2026: **1331** wystapien w **276** roznych nazwach, z czego **32** bez
+    odpowiednika.
+
+    **Trzydziesci dwie nazwy to nie trzydziesci dwie usterki** i to jest tresc tej
+    bramki. Rozkladaja sie na cztery rodziny, z ktorych zadna nie jest bledem:
+    nazwy zastepcze prozy (`PLIK.json`, `AXIS.csv`, `a.py`, `d1.csv`, `new.json`),
+    wytwory przebiegu, ktorych regula 8 zabrania komitowac (`GODOT_metadata.json`,
+    `inspect.png`, `czas-modulow.json`), wytwory budowania (`Sim.AssemblyInfo.cs`,
+    `v10.0.AssemblyAttributes.cs`, `runtimeconfig.json`) i pliki CUDZE
+    (`dotnet-install.sh`, `SHA512-SUMS.txt`, `stops.txt` z GTFS-a STIB).
+    """
+    wystapienia = gole_nazwy_w_dokumentach()
+    rozne = {n for _p, n in wystapienia}
+    assert len(wystapienia) >= MIN_GOLYCH_W_DOKUMENTACH, (
+        "golych nazw w `docs/*.md` jest %d przy progu %d — wzorzec przestal "
+        "dopasowywac i zero czytaloby sie jako czysty dokument"
+        % (len(wystapienia), MIN_GOLYCH_W_DOKUMENTACH))
+    w_drzewie = _nazwy_plikow_w_drzewie()
+    brak = sorted(n for n in rozne if n not in w_drzewie)
+    assert len(brak) == GOLYCH_BEZ_ODPOWIEDNIKA, (
+        "golych nazw bez odpowiednika w drzewie jest %d, a pomiar 6.D187 dal %d: %s"
+        % (len(brak), GOLYCH_BEZ_ODPOWIEDNIKA, brak))
+
+
+def test_w_polach_skanowanych_nie_istnieje_osiem_i_ANI_JEDNA_nie_jest_usterka():
+    """ROZSTRZYGNIECIE POZYCJI: nie poszerzamy, i to jest zmierzone — 6.D187.
+
+    Poszerzony `PATH_TOKEN` zapalalby sie wylacznie w trzech polach skanowanych.
+    Tam golych nazw jest **244** w **88** roznych, a bez odpowiednika w drzewie —
+    **10 wystapien w 8 miejscach**. Przeczytane po kolei: **szesc to nazwy zastepcze
+    w szablonach polecen**, a **dwa to CYTATY WLASNEJ POPRAWKI** — adnotacje
+    „Poprawione 10.09.2026 przy wykonaniu” przytaczaja zla nazwe po to, zeby
+    powiedziec, ze ja poprawiono.
+
+    **Dzisiejszy urobek poszerzenia to zero usterek przy osmiu wyjatkach**, a dwa
+    z tych wyjatkow musialyby wyciszyc zdanie, ktore dokumentuje NAPRAWE tej samej
+    usterki, o ktorej pozycja jest.
+
+    **Klasa usterek z 6.D157 jest juz lapana, tylko czym innym** — patrz
+    `test_ta_klasa_usterek_jest_juz_lapana_regula_INNEGO_ksztaltu`.
+    """
+    wystapienia = gole_nazwy_w_polach()
+    assert len(wystapienia) >= MIN_GOLYCH_W_POLACH, (
+        "golych nazw w trzech polach jest %d przy progu %d — zero przeszloby "
+        "„nic do poszerzania” bez ani jednego sprawdzenia"
+        % (len(wystapienia), MIN_GOLYCH_W_POLACH))
+
+    w_drzewie = _nazwy_plikow_w_drzewie()
+    brak = [x for x in wystapienia if x[2] not in w_drzewie]
+    assert len(brak) == GOLYCH_W_POLACH_BEZ_ODPOWIEDNIKA, (
+        "wystapien bez odpowiednika jest %d, a pomiar 6.D187 dal %d: %s"
+        % (len(brak), GOLYCH_W_POLACH_BEZ_ODPOWIEDNIKA, sorted(set(brak))))
+    assert sorted(set(brak)) == sorted(NIEISTNIEJACE_W_POLACH), (
+        "poszerzony wzorzec zapalilby sie dzis gdzie indziej niz w pomiarze 6.D187: "
+        "%s" % sorted(set(brak)))
+
+    bez_powodu = sorted(k for k, v in NIEISTNIEJACE_W_POLACH.items() if len(v) < 20)
+    assert not bez_powodu, (
+        "wpis bez powodu zapisanego zdaniem: %s — lista, ktorej wpisy nie niosa "
+        "powodu, jest lista wyjatkow, a nie pomiarem" % bez_powodu)
+
+
+def test_w_polach_blokow_OTWARTYCH_nie_ma_ANI_JEDNEJ_golej_nazwy_bez_odpowiednika():
+    """Druga polowa rozstrzygniecia — 6.D187.
+
+    Pola blokow OTWARTYCH sa obietnica o przyszlosci, a pola blokow wykonanych —
+    zapisem tego, co bylo. Poszerzenie bramki mialoby sens przede wszystkim dla tych
+    pierwszych. Zmierzone 13.09.2026: **12 wystapien golej nazwy w 7 roznych,
+    ani jedno bez odpowiednika w drzewie**.
+
+    Progu na liczbe wystapien tu NIE MA i to ten sam wybor, co przy `MIN_MODULE_NAMES`:
+    kolejka maleje z kazda scalona pozycja, wiec prog czerwienialby od SPRZATANIA.
+    Zamiast niego stoi kotwica na wzorcu — ta sama probka, co w bramce wyzej.
+    """
+    w_drzewie = _nazwy_plikow_w_drzewie()
+    brak = [x for x in gole_nazwy_w_polach(_open_blocks())
+            if x[2] not in w_drzewie]
+    assert brak == [], (
+        "pole bloku OTWARTEGO niesie gola nazwe pliku, ktorego w drzewie nie ma: %s"
+        % brak)
+
+    probka = "- **Wejście:** `reference.py` i `docs/TASKS.md`."
+    assert [m.group(1) for m in BARE_TOKEN.finditer(probka)] == ["reference.py"], (
+        "cisza wyzej jest cisza CZYTNIKA, a nie drzewa — wzorzec przestal widziec "
+        "gola nazwe w polu")
+
+
+def test_kontrola_na_wejsciu_syntetycznym_istniejaca_i_wymyslona_daja_INNE_werdykty():
+    """Zadanie pola „Weryfikacja” pozycji, wprost — 6.D187.
+
+    Drzewo tych dwoch przypadkow dzis nie rozdziela w polach blokow otwartych: tam
+    golych nazw bez odpowiednika jest ZERO, wiec „bramka milczy” bylo by prawda tak
+    samo dla czytnika zepsutego.
+    """
+    w_drzewie = _nazwy_plikow_w_drzewie()
+    istniejaca = "- **Wejście:** `test_field_paths.py` opisuje ten ksztalt."
+    wymyslona = "- **Wejście:** `test_nie_ma_takiego_modulu.py` opisuje ten ksztalt."
+
+    zlapana_i = [m.group(1) for m in BARE_TOKEN.finditer(istniejaca)]
+    zlapana_w = [m.group(1) for m in BARE_TOKEN.finditer(wymyslona)]
+    assert zlapana_i == ["test_field_paths.py"], zlapana_i
+    assert zlapana_w == ["test_nie_ma_takiego_modulu.py"], zlapana_w
+
+    assert zlapana_i[0] in w_drzewie, (
+        "nazwa istniejaca nie zostala uznana za istniejaca — wtedy werdykt jest "
+        "zawsze ten sam i rozdzielenie nic nie znaczy")
+    assert zlapana_w[0] not in w_drzewie, (
+        "nazwa wymyslona zostala uznana za istniejaca — jak wyzej, druga strona")
+
+
+def test_ta_klasa_usterek_jest_juz_lapana_regula_INNEGO_ksztaltu():
+    """DLACZEGO nie poszerzamy: klasa z 6.D157 ma juz swoja bramke — 6.D187.
+
+    Trzy z czterech zlych adresow 6.D157 — `test_physics_reference.py` (6.D86),
+    `test_glossary.py` (6.D89), `test_all_self.py` (6.D102) — stalo jako GOLY
+    ARGUMENT `test_all.py`, czyli w ksztalcie, ktory `MODULE_CALL` czyta od 6.D101.
+    Czwarty (`test_scan_gates.py`, 6.D74) istnieje i jest poza zasiegiem z wlasnego
+    pola „Poza zakresem”.
+
+    Kontrola DODATNIA na wejsciu syntetycznym, bo w drzewie nie ma dzis ani jednej
+    takiej nazwy do zlapania — wszystkie cztery poprawiono przy ich pozycjach.
+    Odtworzony jest tekst pola 6.D86 SPRZED poprawki.
+
+    **Wniosek pozycji:** poszerzenie `PATH_TOKEN` nie dodaje pokrycia tej klasie,
+    a dokłada osiem wyjatkow. Regula INNEGO KSZTALTU — ta, ktora czyta wywolanie,
+    a nie napis o ksztalcie pliku — jest tu i szczelniejsza, i tansza.
+    """
+    przed_poprawka = (
+        "- **Weryfikacja:**\n  ```bash\n"
+        "  python3 tools/tests/test_all.py test_physics_reference.py\n  ```\n"
+        "  Oczekiwane: zestaw zielony.\n")
+    assert missing_modules({"6.D86-SPRZED": przed_poprawka}) == [
+        ("6.D86-SPRZED", "Weryfikacja", "test_physics_reference.py")], (
+        "regula wywolan nie lapie nazwy, ktora 6.D157 wymienia jako zly adres — "
+        "wtedy zdanie „ta klasa jest juz lapana” jest nieprawda: %s"
+        % missing_modules({"6.D86-SPRZED": przed_poprawka}))
+
+    # Druga strona: ta sama nazwa w PROZIE wywolaniem nie jest i lapana byc nie ma.
+    w_prozie = "- **Weryfikacja:** pole wolalo `test_physics_reference.py`, a modulu nie ma."
+    assert missing_modules({"6.D86-PROZA": w_prozie}) == [], (
+        "regula wywolan zglasza CYTAT nazwy w prozie — wtedy zapalilaby sie na "
+        "adnotacji, ktora dokumentuje wlasna poprawke")
