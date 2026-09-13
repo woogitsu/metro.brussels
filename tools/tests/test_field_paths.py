@@ -1647,10 +1647,10 @@ def _istnieje_w_drzewie(nazwa):
 #: `test_jaka_czesc_adresow_obejrzala_regula_kandydatow_6D146` jest odporny na ten
 #: ruch z wyboru — stoi w przedziale, nie w rownosci — i po dwoch domknieciach nadal
 #: pokazuje te sama jedna trzynasta.
-ADRESOW_W_WYKONANYCH = {"Wejście": 892, "Wyjście": 63, "Weryfikacja": 373}
+ADRESOW_W_WYKONANYCH = {"Wejście": 895, "Wyjście": 63, "Weryfikacja": 374}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
-WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 110}
+WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 111}
 
 #: Ilu kandydatow zlego adresu daje regula prozy, per pole — 6.D158.
 KANDYDATOW_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 11}
@@ -2070,3 +2070,198 @@ def test_ta_klasa_usterek_jest_juz_lapana_regula_INNEGO_ksztaltu():
     assert missing_modules({"6.D86-PROZA": w_prozie}) == [], (
         "regula wywolan zglasza CYTAT nazwy w prozie — wtedy zapalilaby sie na "
         "adnotacji, ktora dokumentuje wlasna poprawke")
+
+
+# --- 6.D189: regula „zly, choc istnieje" dla pola niosacego SCIEZKE ----------------
+#
+# Pozycja pyta, czy dla pola ze SCIEZKA (a nie z poleceniem) da sie postawic regule
+# zly-ale-istniejacy BEZ czytania tresci modulu — z precyzja zmierzona na drzewie,
+# a jesli sie nie da, to z zapisana granica. Odpowiedz brzmi: NIE DA SIE, i nizej
+# stoi, czym to zmierzono.
+
+#: Oba znane przypadki klasy „adres ISTNIEJE, ale wskazuje co innego" — 6.D157 §3.
+#:
+#: **Oba stoja w polu „Wejscie" i oba sa JUZ POPRAWIONE.** Dzisiejsze drzewo ma wiec
+#: w tych dwoch polach ZERO pozytywow, a precyzja kazdej reguly liczona na nim wynosi
+#: `0/N` z konstrukcji — nie dlatego, ze regula jest zla, tylko dlatego, ze nie ma
+#: czego trafic. Jedyny sprawdzian, jaki zostaje, to KONTROLA DODATNIA na tekscie
+#: odtworzonym SPRZED poprawki; ta sama droga, co przy 6.D187.
+ZNANE_POZYTYWY = {
+    "6.D73": ("`tools/tests/test_backlog.py` (skan pól i wyjątki ścieżek),\n"
+              "  `docs/TASKS.md`, `docs/TASK-TEMPLATE.md`.",
+              "tools/tests/test_backlog.py"),
+    "6.D74": ("moduły w `tools/tests/test_scan_gates.py` wołające `os.walk`, "
+              "`.gitignore`.",
+              "tools/tests/test_scan_gates.py"),
+}
+
+#: Ile z dwoch znanych pozytywow lapie kazda z dwoch form reguly prozy — 6.D189.
+TRAFIEN_FORMA_A = 0
+TRAFIEN_FORMA_B = 1
+
+#: Pola niosace SCIEZKE, a nie polecenie.
+POLA_SCIEZKOWE = ("Wejście", "Wyjście")
+
+
+def _rdzen(sciezka):
+    """Nazwa pliku bez katalogu i bez rozszerzenia."""
+    return os.path.splitext(os.path.basename(sciezka))[0]
+
+
+def kandydaci_sciezkowi(pole, z_polem):
+    """`[(numer, sciezka)]` — kandydaci reguly prozy w polu niosacym sciezke.
+
+    `z_polem=True` to regula W POSTACI, W JAKIEJ STOI dla „Weryfikacji": proza bloku
+    liczona w calosci. `z_polem=False` to jedyna nasuwajaca sie poprawka: proza BEZ
+    tego pola.
+    """
+    out = []
+    for numer, body in sorted(bloki_wykonane().items()):
+        tresc = field_body(body, pole)
+        if tresc is None:
+            continue
+        proza = proza_bloku(body if z_polem else body.replace(tresc, " "))
+        for sciezka in sorted(set(paths_in(tresc))):
+            if _rdzen(sciezka) not in proza:
+                out.append((numer, sciezka))
+    return out
+
+
+def adresy_rozne_w_polu(pole):
+    """Ile ROZNYCH adresow stoi w danym polu blokow wykonanych, licząc per blok."""
+    ile = 0
+    for _numer, body in sorted(bloki_wykonane().items()):
+        tresc = field_body(body, pole)
+        if tresc is not None:
+            ile += len(set(paths_in(tresc)))
+    return ile
+
+
+def test_regula_prozy_W_POSTACI_W_JAKIEJ_STOI_nie_zglasza_dla_pol_sciezkowych():
+    """Forma A jest STRUKTURALNIE pusta — i to jest polowa odpowiedzi 6.D189.
+
+    Regula kandydatow porownuje nazwe z PROZA bloku. Dla „Weryfikacji" ma to sens:
+    nazwa stoi tam w PLOTKU, a `proza_bloku` plotki wycina, wiec porownywane sa dwie
+    rozne rzeczy. W polu niosacym SCIEZKE adres stoi w samej prozie — jest wiec
+    SWOIM WLASNYM SWIADKIEM i regula nie moze zglosic niczego.
+
+    Nie jest to prog ostroznosciowy, tylko zmierzony zero: na 894 roznych adresach
+    „Wejscia" i 63 „Wyjscia" kandydatow jest **ZERO**. Prog KW na SAM SKAN stoi obok,
+    bo zero da sie dostac takze z zepsutego czytnika (6.D27).
+    """
+    for pole in POLA_SCIEZKOWE:
+        adresy = adresy_rozne_w_polu(pole)
+        assert adresy >= 50, (
+            "w polu „%s” bloków wykonanych widać %d adresów — skan przestał czytać, "
+            "a zero kandydatów byłoby wtedy zerem czytnika, nie drzewa"
+            % (pole, adresy))
+        kandydaci = kandydaci_sciezkowi(pole, z_polem=True)
+        assert kandydaci == [], (
+            "reguła prozy W POSTACI, W JAKIEJ STOI, zgłosiła coś w polu „%s”: %s — "
+            "wtedy adres przestał być swoim własnym świadkiem i cały wywód 6.D189 "
+            "opisuje inne drzewo" % (pole, kandydaci))
+
+
+def test_jedyna_nasuwajaca_sie_poprawka_zglasza_WIEKSZOSC_korpusu():
+    """Forma B: proza BEZ pola. Druga polowa odpowiedzi 6.D189.
+
+    Zdjecie pola z prozy naprawia tautologie i natychmiast daje regule, ktora zglasza
+    **wiekszosc wszystkich adresow**. Zmierzone 13.09.2026: 570 z 894 w „Wejsciu"
+    (64 %) i 23 z 63 w „Wyjsciu" (37 %).
+
+    **Liczby stoja w komunikacie, a asercja pyta o PROPORCJE** i to jest wybor:
+    obie rosna z kazda domknieta pozycja, wiec rownosc czerwienialaby od pracy,
+    a prog trzeba by rejestrowac jako kolejna wolna zapadke. Tresc pomiaru jest
+    proporcja — „regula zglasza wiekszosc" — i ona sie nie zmienia od dopisania bloku.
+    """
+    wejscie = adresy_rozne_w_polu("Wejście")
+    kandydaci = kandydaci_sciezkowi("Wejście", z_polem=False)
+    assert len(kandydaci) * 2 > wejscie, (
+        "reguła prozy bez pola zgłasza %d z %d adresów „Wejścia” — mniej niż połowę, "
+        "a pomiar 6.D189 dał większość (570 z 894). Jeśli udział spadł, jej koszt "
+        "trzeba przeliczyć od nowa" % (len(kandydaci), wejscie))
+    assert len(kandydaci) < wejscie, (
+        "reguła zgłasza WSZYSTKIE %d adresów — wtedy nie jest regułą, tylko "
+        "przepisaniem korpusu" % wejscie)
+
+
+def test_kontrola_DODATNIA_na_tekscie_odtworzonym_SPRZED_poprawki():
+    """Ani jedna, ani druga forma nie nadaje sie na bramke — 6.D189.
+
+    **Dzisiejsze drzewo ma zero pozytywow**, bo oba znane przypadki poprawiono. Precyzja
+    liczona na nim wynosi `0/N` z konstrukcji i nie mowi o regule nic. Sprawdzian idzie
+    wiec na tekscie odtworzonym SPRZED poprawki — ta sama droga, co kontrola dodatnia
+    przy 6.D187.
+
+    Wynik: **forma A lapie 0 z 2**, forma B — **1 z 2**.
+
+    **Dlaczego forma B nie lapie 6.D74, jest wazniejsze niz to, ze nie lapie.** Blok
+    niesie DRUGA adnotacje poprawki, w polu „Weryfikacja", i ta adnotacja CYTUJE ten
+    sam zly adres. Nazwa stoi wiec w prozie — wstawiona tam przez ZAPIS NAPRAWY.
+    Jest to ten sam wzorzec, co przy 6.D187, tylko odwrocony: tam adnotacja o poprawce
+    KAZALA regule zapalic sie na zapisie naprawy, tu KAZE jej zamilknac na adresie.
+    Wspolna przyczyna: adnotacja jest proza o zlym adresie, a kazda regula czytajaca
+    proze sie o nia potyka.
+
+    **ROZSTRZYGNIECIE POZYCJI:** dla pola niosacego sciezke reguly zly-ale-istniejacy
+    postawic sie NIE DA bez czytania tresci modulu. Forma A nie zglasza nigdy; forma B
+    zglasza wiekszosc korpusu i mimo to gubi polowe znanych pozytywow. Regula
+    rozstrzygajaca musialaby porownac adres z TYM, CO NAZYWA — czyli przeczytac modul,
+    co wyklucza pole „Poza zakresem" tej pozycji i 6.D101.
+    """
+    wykonane = bloki_wykonane()
+    trafien = {"A": 0, "B": 0}
+    for numer, (sprzed, zly) in sorted(ZNANE_POZYTYWY.items()):
+        body = wykonane[numer]
+        pole_dzis = field_body(body, "Wejście")
+        assert pole_dzis is not None, numer
+
+        # Podstawienie MUSI byc widoczne: zly adres ma stac w odtworzonym tekscie,
+        # a dzisiejszy — nie. Bez tego odtworzenie bylo by cichym no-opem, na czym
+        # to samo podstawienie potknelo sie raz przy pisaniu tej bramki.
+        assert zly in sprzed, (
+            "odtworzony tekst pola %s nie niesie złego adresu `%s` — kontrola "
+            "dodatnia mierzyłaby wtedy tekst dzisiejszy" % (numer, zly))
+        # Samo „zły adres stoi w odtworzeniu" NIE WYSTARCZA i pokazała to KN-2:
+        # dzisiejsze pole też go niesie — w adnotacji poprawki — więc podstawienie
+        # `sprzed = pole_dzis` przechodziło tamtą asercję i całą bramkę, mierząc
+        # tekst DZISIEJSZY pod nazwą „sprzed". Odtworzenie musi się od dzisiejszego
+        # RÓŻNIĆ i nie może nieść adnotacji, której wtedy jeszcze nie było.
+        assert sprzed != pole_dzis, (
+            "odtworzenie pola %s jest identyczne z tekstem dzisiejszym — kontrola "
+            "dodatnia nie mierzy wtedy stanu sprzed poprawki" % numer)
+        assert "**Poprawione" not in sprzed, (
+            "odtworzenie pola %s niesie adnotację poprawki, której przed poprawką "
+            "być nie mogło" % numer)
+        # Porownanie idzie do pola BEZ ADNOTACJI poprawki i to nie jest wygoda:
+        # adnotacja CYTUJE zly adres, zeby powiedziec, ze go poprawiono, wiec
+        # w polu dzisiejszym on stoi — pierwsza wersja tej asercji wywrocila sie
+        # na 6.D73 dokladnie z tego powodu. Ten sam cytat jest zreszta przyczyna,
+        # dla ktorej forma B gubi 6.D74; tam stoi w polu obok.
+        at = pole_dzis.find("**Poprawione")
+        pole_bez_adnotacji = pole_dzis if at < 0 else pole_dzis[:at]
+        assert zly not in pole_bez_adnotacji, (
+            "zły adres `%s` wrócił do dzisiejszego pola %s poza adnotacją poprawki"
+            % (zly, numer))
+
+        reszta = proza_bloku(body.replace(pole_dzis, " "))
+        formy = {"A": proza_bloku(sprzed + reszta), "B": reszta}
+        for forma, proza in formy.items():
+            zgloszone = [s for s in sorted(set(paths_in(sprzed)))
+                         if _rdzen(s) not in proza]
+            if zly in zgloszone:
+                trafien[forma] += 1
+
+    assert trafien["A"] == TRAFIEN_FORMA_A, (
+        "forma A łapie dziś %d z %d znanych pozytywów, a pomiar dał %d"
+        % (trafien["A"], len(ZNANE_POZYTYWY), TRAFIEN_FORMA_A))
+    assert trafien["B"] == TRAFIEN_FORMA_B, (
+        "forma B łapie dziś %d z %d znanych pozytywów, a pomiar dał %d"
+        % (trafien["B"], len(ZNANE_POZYTYWY), TRAFIEN_FORMA_B))
+
+    # POWOD chybienia formy B na 6.D74 — zapisany jako asercja, nie jako zdanie.
+    body74 = wykonane["6.D74"]
+    poza_wejsciem = proza_bloku(body74.replace(field_body(body74, "Wejście"), " "))
+    assert "test_scan_gates" in poza_wejsciem, (
+        "w bloku 6.D74 poza polem „Wejście” nie ma już nazwy `test_scan_gates` — "
+        "wtedy powód, dla którego forma B go nie łapie, jest inny niż zmierzony")
