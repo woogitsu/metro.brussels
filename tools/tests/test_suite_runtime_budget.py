@@ -151,6 +151,26 @@ POMIARY = (
      "kontener sesji, powtórzenie 5 z 6, CPU/ściana 0,987 — 2414 testów"),
     ("2026-09-13", 171.467, 124, MASZYNA_KONTENER,
      "kontener sesji, powtórzenie 6 z 6, CPU/ściana 0,988 — 2414 testów"),
+    # SIÓDMY I ÓSMY PRZEBIEG RUNNERA — 6.D190. Do tej pozycji lista miała ich sześć
+    # i wszystkie z jednego dnia; siódmy leżał zmierzony w polu „Skąd" pozycji
+    # i nie wchodził, bo asercja przypinała gołą szóstkę. ŻADEN nie rusza maksimum
+    # (116,404 s z 11.09), więc `MEASURED_MAX_WALL_S` i `MARGIN` zostają — a zmiana
+    # progu jest poza zakresem tej pozycji.
+    #
+    # OBA WPISY SĄ WYPISANE PRZEZ `tools/ci/timing_record.py --z-logu`, a nie
+    # przepisane z ręki, i to nie jest wygoda — to WARUNEK. Od 6.D152 każdy wpis
+    # runnera musi mieć swój log joba w `tests/data/ci-logs/`, a `test_timing_record`
+    # wyprowadza z niego wszystkie pięć pól i porównuje znak w znak; `WPISOW_Z_DOPISKIEM`
+    # jest od 6.D163 równe ZERO, więc każde własne zdanie dopisane do pola „na czym"
+    # zapala bramkę. Pierwsza wersja tych dwóch wpisów była pisana z ręki i miała
+    # w sobie trzy usterki naraz: datę 2026-09-12 przy logu mówiącym 2026-09-13,
+    # ogon „pierwszy przebieg runnera, który NIE ustanowił nowego maksimum" (zdanie
+    # o LIŚCIE, nie o przebiegu — rodzina 6.B28, ta sama, którą 6.D163 zdjęło),
+    # i „2433 testy" tam, gdzie log daje „2433 testów".
+    ("2026-09-13", 104.530, 124, MASZYNA_RUNNER,
+     "job `tools`, PR #571, CPU/ściana 1,819 — 2414 testów"),
+    ("2026-09-13", 113.982, 124, MASZYNA_RUNNER,
+     "job `tools`, PR #583, CPU/ściana 1,781 — 2433 testów"),
 )
 
 #: Pomiar, do którego bramka ma prawo się odnosić: wyłącznie z maszyny, NA KTÓREJ
@@ -801,6 +821,67 @@ def test_pomiar_kontenera_stoi_w_liscie_z_ta_sama_liczba():
         % (kontenerowe_dzis[0][1], KONTENER_11_09_SCIANA))
 
 
+#: Przebiegi runnera z 11.09.2026 — FAKT HISTORYCZNY, ktory sie nie zmieni.
+#:
+#: **Rozdzielone od liczby wszystkich wpisow runnera przy 6.D190, i to jest cala
+#: tresc tamtej pozycji.** Do niej jedna asercja robila dwie rzeczy naraz: pilnowala,
+#: ze kazdy wpis runnera niesie stosunek CPU/sciana (kontrola ZYWA, lapie wpis
+#: dopisany bez stosunku), i zapisywala, ILE przebiegow dal jeden konkretny dzien
+#: (fakt HISTORYCZNY). Dopoki byly jednym zdaniem, kazdy nowy pomiar runnera
+#: kosztowal edycje twierdzenia o przeszlosci — a to samo zdanie stoi w prozie
+#: `reports/6d149-prog-a-maszyna.md` („w szesciu przebiegach"), gdzie jest historia
+#: i przepisywaniu nie podlega. Ta sama rodzina, ktora 6.D108 rozstrzygnelo dla
+#: raportow: zdanie o wartosci biezacej to nie zdanie o wartosci z dnia pomiaru.
+POMIARY_RUNNERA_11_09 = tuple(
+    w for w in POMIARY_RUNNERA if w[0] == "2026-09-11")
+
+#: Ile ich bylo tamtego dnia. Rownosc, bo dzien sie skonczyl.
+PRZEBIEGOW_RUNNERA_11_09 = 6
+
+#: Podloga na liczbe WSZYSTKICH wpisow runnera. Prog, nie rownosc: wpisow przybywa
+#: z kazdym przebiegiem CI, ktory ktos zapisze, a zero znaczy zepsuty czytnik listy —
+#: i to jest jedyna rzecz, przed ktora ta liczba ma bronic (6.D27).
+MIN_WPISOW_RUNNERA = 6
+
+
+def test_liczba_przebiegow_runnera_z_11_09_jest_FAKTEM_HISTORYCZNYM():
+    """Szostka opisuje JEDEN DZIEN, a nie stan listy — 6.D190.
+
+    Wydzielone z `test_runner_liczy_rownolegle_a_kontener_szeregowo`, gdzie stalo
+    razem z kontrola zywa. Po rozdzieleniu siodmy wpis runnera nie czyni nieprawdziwym
+    ani tej asercji, ani zdania „w szesciu przebiegach" z `reports/6d149-prog-a-maszyna.md`:
+    oba mowia o 11.09.2026 i tyle samo mowia dzisiaj, co wczoraj.
+
+    Ze zdanie raportu naprawde odnosi sie do TEGO dnia, jest tu sprawdzone, a nie
+    zalozone — inaczej „nic sie nie stalo nieprawdziwe" byloby twierdzeniem bez
+    pokrycia.
+    """
+    assert len(POMIARY_RUNNERA_11_09) == PRZEBIEGOW_RUNNERA_11_09, (
+        "przebiegow runnera z 11.09.2026 jest %d, a bylo ich szesc — dzien sie "
+        "skonczyl, wiec ta liczba zmienic sie nie moze: %s"
+        % (len(POMIARY_RUNNERA_11_09), [w[1] for w in POMIARY_RUNNERA_11_09]))
+
+    sciezka = os.path.join(ROOT, "reports", "6d149-prog-a-maszyna.md")
+    with open(sciezka, encoding="utf-8") as uchwyt:
+        raport = uchwyt.read()
+    assert "sześciu przebiegach" in raport, (
+        "`reports/6d149-prog-a-maszyna.md` nie mowi juz o szesciu przebiegach — "
+        "wtedy rozdzielenie z 6.D190 chroni zdanie, ktorego nie ma")
+
+    # ZDANIE RAPORTU NIE NIESIE DATY, i to jest zmierzone przy 6.D190. Kotwica jest
+    # inna: obok stoi liczba modulow (122), a wpisow runnera o 122 modulach jest
+    # dokladnie tych szesc z 11.09 — zadnego innego dnia. Nie ma wiec potrzeby
+    # przepisywac raportu (pole „Poza zakresem"), zeby wiedziec, o czym mowi.
+    assert "122" in raport, (
+        "raport 6.D149 nie podaje juz liczby modulow — wtedy jego „sześciu "
+        "przebiegach” nie ma zadnej kotwicy i moze byc czytane jako stan listy")
+    o_122 = tuple(w for w in POMIARY_RUNNERA if w[2] == 122)
+    assert o_122 == POMIARY_RUNNERA_11_09, (
+        "wpisy runnera o 122 modulach przestaly pokrywac sie z przebiegami "
+        "z 11.09.2026 — kotwica zdania raportu przestaje wtedy wskazywac ten dzien: "
+        "%s wobec %s" % ([w[:2] for w in o_122], [w[:2] for w in POMIARY_RUNNERA_11_09]))
+
+
 def test_runner_liczy_rownolegle_a_kontener_szeregowo():
     """Liczba, ktora rozstrzyga, ze to NIE SA porownywalne przebiegi.
 
@@ -808,6 +889,13 @@ def test_runner_liczy_rownolegle_a_kontener_szeregowo():
     runnerze jest **powyzej jedynki** (1,599-1,971 w szesciu przebiegach z 11.09.2026),
     w kontenerze **ponizej** (0,991). To nie jest rozrzut tej samej maszyny — to dwa
     rozne sposoby wykonania tej samej pracy, i jeden prog czasu SCIANY nie opisuje obu.
+
+    **Liczba wpisow przypieta jest tu PODLOGA, nie rownoscia — 6.D190.** Rownosc
+    robila z kazdego nowego pomiaru runnera edycje twierdzenia o przeszlosci; fakt
+    historyczny stoi odtad osobno, w
+    `test_liczba_przebiegow_runnera_z_11_09_jest_FAKTEM_HISTORYCZNYM`. Kontrola ZYWA
+    — ze kazdy wpis niesie stosunek — zostaje tutaj i dziala na WSZYSTKICH wpisach,
+    takze na dopisanych po tej pozycji.
     """
     kontener = KONTENER_11_09_CPU / KONTENER_11_09_SCIANA
     assert kontener < 1.0, (
@@ -822,9 +910,10 @@ def test_runner_liczy_rownolegle_a_kontener_szeregowo():
         trafienie = re.search(r"CPU/ściana (\d+),(\d+)", gdzie)
         assert trafienie, ("wpis runnera nie podaje stosunku CPU/ściana: " + gdzie)
         stosunki.append(float("%s.%s" % trafienie.groups()))
-    assert len(stosunki) == 6, (
-        "wpisow runnera jest %d, a pomiar z 11.09.2026 dal szesc: %s"
-        % (len(stosunki), stosunki))
+    assert len(stosunki) >= MIN_WPISOW_RUNNERA, (
+        "wpisow runnera jest %d przy podlodze %d — lista przestala byc czytana, "
+        "a pusta lista przechodzi kazde `min()` nizej bez jednego sprawdzenia: %s"
+        % (len(stosunki), MIN_WPISOW_RUNNERA, stosunki))
     assert min(stosunki) > 1.0, (
         "ktorys przebieg runnera ma stosunek ponizej jedynki: %s — wtedy zdanie "
         "o rownoleglosci przestaje byc prawdziwe" % stosunki)
