@@ -138,8 +138,22 @@ def _koniec_literalu(source, at, verbatim):
     cudzyslowy = 0
     while at + cudzyslowy < n and source[at + cudzyslowy] == '"':
         cudzyslowy += 1
-    if cudzyslowy >= 3:
+    if cudzyslowy >= 3 and not verbatim:
         # Surowy literal: konczy sie tyloma cudzyslowami, ilu go otwarlo.
+        #
+        # **`and not verbatim` DOPISANE 13.09.2026 (6.D200) i to nie jest ostroznosc.**
+        # Po `@` napis surowy nie istnieje w C#: `@"""a"` jest napisem WERBATIM
+        # o tresci `"a`, bo w werbatim `""` znaczy jeden cudzyslow. Bez tego warunku
+        # czytnik liczyl tam trzy cudzyslowy otwierajace, szukal domkniecia `"""`,
+        # ktorego nie ma, i maskowal WSZYSTKO DO KONCA PLIKU — a wiec chowal przed
+        # bramka kazda metode ponizej. Jedna taka linia w `UiTextTests.cs` schowala
+        # TRZY metody testowe (6.D188); zlapalo to porownanie dwoch odczytow
+        # (`test_the_shape_covers_every_test_attribute`), a nie zadna bramka na
+        # atrybut — bo bramka na atrybut nie miala czego zobaczyc. Ta sama wyrocznia
+        # zepsuta w strone „wszystko w porzadku", co przy 6.B28, tylko innym wejsciem.
+        #
+        # `$"""..."""` (surowy interpolowany) zostaje w tej galezi, bo `$` nie czyni
+        # napisu werbatim; `$@"""` i `@$"""` NIE zostaja, bo `@` czyni.
         zamkniecie = '"' * cudzyslowy
         koniec = source.find(zamkniecie, at + cudzyslowy)
         return n if koniec < 0 else koniec + cudzyslowy

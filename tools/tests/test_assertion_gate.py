@@ -1504,7 +1504,14 @@ def test_wzorzec_rodziny_lapie_zdanie_ktore_ma_lapac_i_nie_bierze_sasiedztwa():
 #: Zapadka RÓWNOŚCIOWA i MECHANICZNA — liczba wychodzi z `ast`, bez jednego osądu.
 #: Jest strażnikiem listy niżej: nowa bramka tego kształtu rusza tę liczbę, więc nie
 #: da się dopisać trzydziestej drugiej po cichu.
-ASERCJI_NAPISOWYCH_RAZEM = 849
+#:
+#: **849 -> 850 (13.09.2026, 6.D200), z powodem.** Doszła jedna asercja
+#: w `test_csharp_test_methods.py`: `assert "{}" in oczekiwana`. Do listy `NA_ZRODLE_PY`
+#: NIE należy, bo nie czyta żadnego źródła — `oczekiwana` jest literałem z tabeli
+#: `POSTACIE_LITERALU` w tym samym module. Stoi na ZACHOWANIU własnego testu: pilnuje,
+#: żeby oczekiwana maska NIOSŁA KLAMRY, bo maska bez klamr przeszłaby także u czytnika,
+#: który połyka resztę pliku — czyli jest to strażnik wyroczni, a nie odczyt tekstu.
+ASERCJI_NAPISOWYCH_RAZEM = 850
 
 #: **Kotwica wpisu to `(plik, funkcja, operator, literał)`, a NIE numer wiersza.**
 #: Numer przesuwa się przy każdej edycji pliku i lista rozjechałaby się sama z siebie.

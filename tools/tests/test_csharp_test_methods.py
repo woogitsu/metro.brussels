@@ -218,6 +218,104 @@ def test_the_shape_is_recognised_on_an_injected_class(tmp=None):
         brak = czytnik.bez_atrybutu(katalog)
         assert [m for _, _, m in brak] == ["Nieuruchamiany"], brak
 
+#: Zapisow `@"""` (werbatim otwarty cudzyslowem uciekanym) w `tests/` i `src/`.
+#: ZMIERZONE 13.09.2026 przy 6.D200 czytnikiem, ktory te pozycje naprawia: **jeden**,
+#: i stoi w KOMENTARZU (`tests/Game.Tests/UiTextTests.cs`, akapit opisujacy te wlasnie
+#: usterke). Zywych wystapien jest **zero**, bo obejscie z 6.D188 przepisalo tamten
+#: wzorzec na zwykly napis z uciekanymi cudzyslowami.
+#:
+#: **Dlatego ta liczba NIE jest dowodem naprawy i nie moze nim byc.** Korpus tej
+#: galezi nie cwiczy — gdyby czytnik zostal zepsuty z powrotem, liczba sie nie ruszy.
+#: Dowodem jest kontrola na wejsciu SYNTETYCZNYM nizej, na OBU galeziach naraz;
+#: liczba mowi tylko, ile razy drzewo moze na te galaz trafic. Rodzina 6.D159.
+ZAPISOW_WERBATIM_POTROJNYCH = 1
+
+#: Cztery postacie, ktorych rozroznienie jest trescia 6.D200, z oczekiwana maska.
+#: Stoja RAZEM w jednej krotce, bo pozycja zadala kontroli na OBIE galezie „w jednym
+#: tescie": osobne testy przeszlyby, gdyby czytnik obie postacie mylil w te sama
+#: strone, a wtedy nie byloby wiadomo, ktora galaz dziala.
+POSTACIE_LITERALU = (
+    # (zapis, maska, co to jest w C#)
+    ('x = @"""a"; {}', "x =       ; {}", "werbatim o tresci `\"a` — NIE surowy"),
+    ('x = @"a"""; {}', "x =       ; {}", "werbatim o tresci `a\"`"),
+    ('x = """a"""; {}', "x =        ; {}", "surowy, otwarty trzema cudzyslowami"),
+    ('x = $@"""a"; {}', "x =        ; {}", "werbatim interpolowany — NIE surowy"),
+)
+
+
+def test_maska_ROZROZNIA_werbatim_od_surowego_na_obu_galeziach():
+    # **6.D200: potrojny cudzyslow po `@` to NIE jest napis surowy, a pomylenie tego
+    # polyka plik.** Do 13.09.2026 `_koniec_literalu` brala kazde trzy cudzyslowy za
+    # otwarcie napisu surowego, nie patrzac na `@` przed nimi. W C# po `@` napisu
+    # surowego nie ma: taki zapis jest werbatim, bo w werbatim para cudzyslowow znaczy
+    # jeden cudzyslow. Czytnik szukal wiec domkniecia potrojnym cudzyslowem, ktorego
+    # w pliku nie ma, i maskowal WSZYSTKO DO KONCA PLIKU — chowajac przed bramka kazda
+    # metode ponizej.
+    #
+    # Jedna taka linia w `UiTextTests.cs` schowala TRZY metody testowe (6.D188).
+    # Zlapalo to porownanie dwoch odczytow, a nie bramka na atrybut: bramka na atrybut
+    # meldowala „0 nieuruchamianych", bo nie miala czego zobaczyc. Ta sama wyrocznia
+    # zepsuta w strone „wszystko w porzadku", co przy 6.B28.
+    #
+    # **Cztery postacie sprawdzane sa RAZEM**, bo kazda osobno przeszlaby u czytnika,
+    # ktory myli je w te sama strone.
+    sprawdzonych = 0
+    for zapis, oczekiwana, opis in POSTACIE_LITERALU:
+        assert czytnik.maska(zapis) == oczekiwana, (
+            "maska(%r) = %r, a ma byc %r — %s"
+            % (zapis, czytnik.maska(zapis), oczekiwana, opis))
+        sprawdzonych += 1
+    assert sprawdzonych == len(POSTACIE_LITERALU), (
+        "petla po postaciach wykonala sie %d razy zamiast %d — wtedy asercje wyzej "
+        "nie porownuja wszystkiego (rodzina 6.D193)" % (sprawdzonych, len(POSTACIE_LITERALU)))
+
+    # I DRUGA STRONA, bez ktorej cztery rownosci wyzej nie mowia nic o AWARII:
+    # klamry maja ZOSTAC. Czytnik sprzed naprawy zwracal dla pierwszej postaci
+    # maske bez `{}` — i to wlasnie po tym znika reszta pliku.
+    for zapis, oczekiwana, _ in POSTACIE_LITERALU:
+        assert "{}" in oczekiwana, (
+            "oczekiwana maska %r nie ma klamr — wtedy ten test przeszedlby takze "
+            "u czytnika, ktory polyka reszte pliku" % oczekiwana)
+
+
+def test_ile_zapisow_WERBATIM_POTROJNYCH_ma_drzewo():
+    # **Liczba mowi o KORPUSIE, nie o naprawie — i to stoi napisane.**
+    # Zapisow werbatim z potrojnym cudzyslowem jest w `tests/` i `src/` dokladnie
+    # jeden i stoi w KOMENTARZU. Galaz naprawiona przez 6.D200 nie jest wiec przez
+    # drzewo cwiczona ani razu; dowodem naprawy jest wylacznie kontrola syntetyczna
+    # wyzej. Ta liczba pilnuje czego innego: gdyby ktos wprowadzil taki zapis do KODU,
+    # ma to zostac zauwazone — bo kazdy inny czytnik w tym drzewie (`maska`
+    # z `UiTextTests.cs`, `Literaly`, `KodLeksykalnie`) ma te sama galaz i nie kazdy
+    # zostal naprawiony.
+    import re as _re
+    import tree_walk
+
+    # `tree_walk.znajdz`, a nie `glob(recursive=True)` — 6.D117. Rekurencyjny glob
+    # przechodzi bokiem obok wspolnego odsiania z `.gitignore` i kazde jego wywolanie
+    # nosi WLASNA kopie reguly (`.godot`, `obj`, `bin`). Tu doszlaby czwarta.
+    pliki_cs = tree_walk.znajdz("tests", "*.cs", root=czytnik.ROOT)
+    pliki_cs += tree_walk.znajdz("src", "*.cs", root=czytnik.ROOT)
+    pliki_cs = sorted(pliki_cs)
+
+    assert len(pliki_cs) > 100, (
+        "przeskanowano %d plikow `.cs` — korpus sie zwezil i liczba nizej opisuje "
+        "co innego niz w dniu pomiaru" % len(pliki_cs))
+
+    trafienia = []
+    for sciezka in pliki_cs:
+        with open(sciezka, encoding="utf-8") as handle:
+            zrodlo = handle.read()
+        for dopasowanie in _re.finditer(r'@\$?"{3,}|\$@"{3,}', zrodlo):
+            trafienia.append("%s:%d" % (
+                os.path.basename(sciezka), zrodlo[:dopasowanie.start()].count("\n") + 1))
+
+    assert len(trafienia) == ZAPISOW_WERBATIM_POTROJNYCH, (
+        "zapisow `@\"\"\"` jest %d, a zmierzono %d: %s. Jesli PRZYBYLO — sprawdz, czy "
+        "stoi w kodzie czy w komentarzu, i czy czytnik, ktory ten plik czyta, ma "
+        "naprawe z 6.D200" % (len(trafienia), ZAPISOW_WERBATIM_POTROJNYCH,
+                              ", ".join(trafienia)))
+
+
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
 # z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
 # tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
