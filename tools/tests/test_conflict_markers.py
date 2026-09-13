@@ -247,6 +247,190 @@ def test_dlugosc_SIEDMIU_znakow_jest_wyborem_z_pomiaru_a_nie_przypadkiem():
         "osiem `=` to rozdzielacz Markdown, nie konflikt — git pisze dokładnie siedem")
 
 
+
+# --- 6.D165: ktore bramki pytaja gita o liste plikow, i co przebieg o tym mowi ------
+
+#: Moduly, ktore NAPRAWDE wykonuja `git ls-files` — policzone 13.09.2026, nie zgadniete.
+#: Wpis pozycji 6.D165 wymienial trzy; trzeci (`test_report_hygiene.py`) tylko CYTUJE
+#: to polecenie w komunikacie bledu, a nie wola go, wiec do listy nie nalezy.
+#:
+#: **`test_all.py` dolaczyl do nich przy 6.D165 i jest tu z INNEGO powodu niz dwa
+#: pozostale.** Tamte sa BRAMKAMI i sa na pliki niesledzone SLEPE — pytaja o indeks,
+#: zeby pilnowac tego, co moze trafic do `main`. `test_all.py` pyta o to, czego
+#: w indeksie NIE MA, i nie ocenia tego, tylko wypisuje. Jedna lista, dwie role,
+#: i rozdziela je stala nizej — inaczej zapadka mowilaby, ze slepych bramek jest trzy.
+#: Zrodlo przebiegu — czytane, zeby sprawdzic, ze wypis o drzewie w nim STOI.
+TA_ZRODLO = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_all.py")
+
+MODULY_PYTAJACE_GITA = ("test_all.py", "test_conflict_markers.py",
+                        "test_runner_options.py")
+
+#: Te z nich, ktore sa BRAMKAMI slepymi na pliki niesledzone. `test_all.py` nie jest
+#: bramka i do tej liczby nie wchodzi.
+BRAMKI_SLEPE_NA_NIESLEDZONE = ("test_conflict_markers.py", "test_runner_options.py")
+
+#: **Przez `tree_walk` NIE PYTA GITA ANI JEDEN — i to jest wynik pomiaru, nie
+#: zalozenie.** Pole „Ile bramek to dotyczy" pozycji 6.D165 mowilo, ze liczba modulow
+#: chodzacych po `git ls-files` POSREDNIO, przez `tree_walk`, jest do zmierzenia.
+#: Zmierzona wynosi ZERO: `tree_walk` importuje wylacznie `fnmatch`, `os` i `shutil`,
+#: czyta `.gitignore` jako TEKST i chodzi po katalogach. Slepota na pliki niesledzone
+#: nie rozlewa sie wiec na dwadziescia kilka modulow, ktore `tree_walk` importuja —
+#: siedzi w dwoch wymienionych wyzej.
+IMPORTY_TREE_WALK_BEZ_GITA = ("fnmatch", "os", "shutil")
+
+
+def _repozytorium_probne(katalog):
+    """Prawdziwe repo gita z jednym plikiem SLEDZONYM i jednym NIE — wejscie syntetyczne.
+
+    Na drzewie tego projektu funkcji liczacej nie da sie sprawdzic: plikow niesledzonych
+    jest dzis ZERO, wiec funkcja zwracajaca zawsze zero bylaby nie do odroznienia od
+    dzialajacej. Ta sama nauka, co przy bramce polozenia modulow w 6.D159.
+    """
+    import subprocess
+
+    def git(*a):
+        return subprocess.run(("git",) + a, cwd=katalog, capture_output=True, text=True)
+
+    git("init", "-q")
+    git("config", "user.email", "probne@example.invalid")
+    git("config", "user.name", "probne")
+    with open(os.path.join(katalog, "sledzony.txt"), "w", encoding="utf-8") as u:
+        u.write("w indeksie\n")
+    git("add", "sledzony.txt")
+    git("commit", "-qm", "probny")
+    with open(os.path.join(katalog, "niesledzony.txt"), "w", encoding="utf-8") as u:
+        u.write("poza indeksem\n")
+
+
+def test_przebieg_MOWI_ile_plikow_lezy_poza_zasiegiem_bramek_czytajacych_gita():
+    """6.D165: wypis istnieje, liczy naprawde, i nie jest bramka.
+
+    **Co zmierzono.** Gita o liste plikow pytaja **dwa** moduly, nie trzy — trzeci
+    tylko cytuje to polecenie w komunikacie. Przez `tree_walk` nie pyta **ani jeden**,
+    bo `tree_walk` gita nie wola wcale. Slepota jest wiec waska i nazwana.
+
+    **Czego wypis NIE robi.** Nie zmienia kodu wyjscia i nie jest bramka: liczba
+    wieksza od zera znaczy „tyle plikow ten przebieg pominal", a nie „blad". Zmiana
+    tego w bramke zatrzymywalaby prace na kazdym pliku roboczym w drzewie, czyli
+    bylaby karą za normalny sposob pracy — a usterka z PR #548 polegala na CISZY,
+    nie na istnieniu takich plikow.
+    """
+    import tempfile
+    import test_all as TA
+
+    # 1. NA DZISIEJSZYM DRZEWIE: liczba jest znana i wynosi zero.
+    ile, powod = TA.poza_zasiegiem_git_ls_files()
+    assert powod == "", "nie udalo sie zapytac gita o wlasne drzewo: %s" % powod
+    assert ile == 0, (
+        "w drzewie roboczym lezy %d plikow niesledzonych — to nie jest blad, ale "
+        "znaczy, ze dwie bramki czytajace `git ls-files` ich nie widza" % ile)
+
+    # 2. NA REPOZYTORIUM PROBNYM: liczba NIE jest zawsze zerem. Bez tej polowy
+    #    punkt pierwszy przechodzilby tak samo dla funkcji `return 0, ""`.
+    with tempfile.TemporaryDirectory() as tmp:
+        _repozytorium_probne(tmp)
+        ile_probne, powod_probne = TA.poza_zasiegiem_git_ls_files(tmp)
+        assert powod_probne == "", powod_probne
+        assert ile_probne == 1, (
+            "na repozytorium z jednym plikiem niesledzonym licznik zwrocil %r — "
+            "wypis nie liczy niczego i zero na drzewie projektu nic nie znaczy"
+            % ile_probne)
+
+    # 3. I ZE NIEWIEDZA JEST ZADEKLAROWANA, a nie zamieniona na zero: katalog, ktory
+    #    repozytorium NIE JEST, ma dac `None` i powod, a nie ciche `0`.
+    with tempfile.TemporaryDirectory() as tmp:
+        ile_niegit, powod_niegit = TA.poza_zasiegiem_git_ls_files(tmp)
+        assert ile_niegit is None and powod_niegit, (
+            "poza repozytorium licznik zwrocil %r — ciche zero wygladaloby tak samo "
+            "jak czyste drzewo" % (ile_niegit,))
+
+
+def test_gita_o_liste_plikow_pyta_DOKLADNIE_tyle_modulow_ile_wymieniono():
+    """Zapadka na zasieg slepoty — 6.D165.
+
+    Trzeci modul wolajacy `git ls-files` ma zmusic do rozstrzygniecia, czy jego wypis
+    tez ma o pominieciu mowic, a nie dojsc po cichu.
+    """
+    import tree_walk
+
+    katalog = os.path.dirname(os.path.abspath(__file__))
+    wolajace = []
+    for nazwa in sorted(os.listdir(katalog)):
+        if not nazwa.endswith(".py"):
+            continue
+        with open(os.path.join(katalog, nazwa), encoding="utf-8") as uchwyt:
+            tresc = uchwyt.read()
+        if '["git", "ls-files"' in tresc or "('git', 'ls-files'" in tresc:
+            wolajace.append(nazwa)
+
+    assert tuple(wolajace) == MODULY_PYTAJACE_GITA, (
+        "gita o liste plikow pyta %s, a wymieniono %s — kolejny taki modul wymaga "
+        "rozstrzygniecia, czy jest BRAMKA slepa na pliki niesledzone, czy tylko "
+        "o nich wypisuje" % (wolajace, list(MODULY_PYTAJACE_GITA)))
+
+    # I ZE PODZIAL NA ROLE JEST PELNY: kazda bramka slepa jest wsrod wolajacych,
+    # a `test_all.py` do slepych NIE nalezy. Bez tego obie stale moglyby sie
+    # rozjechac, a liczba slepych bramek rosla by po cichu razem z lista wolajacych.
+    assert set(BRAMKI_SLEPE_NA_NIESLEDZONE) < set(MODULY_PYTAJACE_GITA), (
+        "bramki slepe %s nie sa WLASCIWYM podzbiorem wolajacych %s — albo doszla "
+        "bramka spoza listy wolajacych, albo reporter zostal policzony jako slepy "
+        "i liczba slepych bramek urosla po cichu"
+        % (list(BRAMKI_SLEPE_NA_NIESLEDZONE), list(MODULY_PYTAJACE_GITA)))
+    assert "test_all.py" not in BRAMKI_SLEPE_NA_NIESLEDZONE, (
+        "`test_all.py` trafil miedzy bramki slepe — on wlasnie pyta o to, czego "
+        "w indeksie nie ma, i niczego nie ocenia")
+
+    # I DRUGA POLOWA: `tree_walk` nadal gita NIE wola, wiec slepota sie nie rozlewa.
+    with open(tree_walk.__file__, encoding="utf-8") as uchwyt:
+        zrodlo_tw = uchwyt.read()
+    # I ZE PRZEBIEG TEN WYPIS NAPRAWDE ROBI. Bez tej asercji kontrola negatywna
+    # zdejmujaca wypis z `test_all.py` wychodzila ZIELONA: funkcja byla sprawdzona,
+    # a jej UZYCIE nie — czyli mechanizm dalby sie wylaczyc bez ani jednego czerwonego
+    # testu. Zmierzone przy 6.D165, KN-3.
+    # Sprawdzane PRZEBIEGIEM, a nie szukaniem napisu w zrodle — i to jest poprawka
+    # po kontroli, ktora wyszla ZIELONA DWA RAZY. Wersja pytajaca, czy nazwa
+    # `_metro_drzewo_policzone` wystepuje w pliku, przechodzila zarowno po zdjeciu
+    # wartowni, jak i po zamianie jej warunku na `if False:` — bo nazwa zostawala
+    # w drugiej polowie konstrukcji. Napis w zrodle nie jest wypisem na wyjsciu.
+    import subprocess
+    import sys as _sys
+    wypis = subprocess.run(
+        [_sys.executable, TA_ZRODLO, "test_lod_paths.py"],
+        cwd=ROOT, capture_output=True, text=True, timeout=300)
+    assert "[DRZEWO]" in wypis.stdout, (
+        "przebieg NIE wypisuje, ile plikow lezy poza zasiegiem bramek czytajacych "
+        "gita — funkcja moze byc poprawna, a przebieg znowu o tym MILCZY (6.D165). "
+        "Wyjscie zaczyna sie tak:\n%s" % wypis.stdout[:400])
+    # CZEGO TA KONTROLA NIE SPRAWDZA I DLACZEGO — zmierzone, nie zalozone. Wartownia
+    # `sys._metro_drzewo_policzone` chroni przed podwojnym wypisem, gdy `_discover`
+    # laduje `test_all.py` po raz drugi pod nazwa `test_all__mierzony`. Przy wywolaniu
+    # z JEDNYM nazwanym modulem to sie nie dzieje: kontrola negatywna zdejmujaca
+    # wartownie wyszla ZIELONA, a wypis nadal padl dokladnie raz. Asercji na liczbe
+    # wystapien tu wiec NIE MA, bo nie moglaby zapalic sie nigdy — czyli bylaby
+    # kontrola pusta z konstrukcji, rodzina liczona w 6.D161. Wartownia zostaje jako
+    # ubezpieczenie BEZ wejscia, i jest to powiedziane wprost zamiast udawane asercja.
+
+    # Czytane Z DRZEWA SKLADNI, a nie szukaniem napisu: `"subprocess" not in zrodlo`
+    # bylo by zielone takze wtedy, gdyby modul wolal gita przez `os.popen`, i czerwone
+    # na samym slowie w komentarzu. Lista importow jest tu faktem sprawdzalnym.
+    import ast as _ast
+    importowane = set()
+    for wezel in _ast.walk(_ast.parse(zrodlo_tw)):
+        if isinstance(wezel, _ast.Import):
+            importowane.update(a.name.split(".")[0] for a in wezel.names)
+        elif isinstance(wezel, _ast.ImportFrom) and wezel.module:
+            importowane.add(wezel.module.split(".")[0])
+    assert importowane == set(IMPORTY_TREE_WALK_BEZ_GITA), (
+        "`tree_walk` importuje %s, a pomiar 6.D165 zastal %s — jesli doszedl "
+        "`subprocess` albo cokolwiek, co umie zawolac gita, to slepota na pliki "
+        "niesledzone rozlewa sie na wszystkie moduly, ktore `tree_walk` importuja, "
+        "i liczbe „przez tree_walk pyta ZERO” trzeba przeliczyc"
+        % (sorted(importowane), sorted(IMPORTY_TREE_WALK_BEZ_GITA)))
+    assert "ls-files" not in zrodlo_tw, (
+        "`tree_walk` wymienia `git ls-files` — nawet jesli tylko w komentarzu, "
+        "warto sprawdzic, czy nie zaczal go wolac")
+
+
 if __name__ == "__main__":
     import test_all
     raise SystemExit(test_all.main(__file__))
