@@ -878,13 +878,25 @@ def zapisz_pokrycie(path: str, commit: str, mapa: dict[str, set[int]]) -> None:
     #
     # Pośredni: do 10.09.2026 nazywał się `path + ".czesciowy"`, tak samo dla każdego
     # przebiegu tego commita, więc dwa równoległe przebiegi pisały do jednego pliku,
-    # obcinając go sobie przy otwarciu. **Zepsucia pliku docelowego NIE UDAŁO SIĘ
-    # ODTWORZYĆ** i mówię to wprost: pięć prób z barierą startu i mapą ~50 MB dało za
-    # każdym razem plik czytelny, bo `open(…, "w")` obcina, a `os.replace` przenosi to,
-    # co zapisał ostatni KOMPLETNY pisarz. Zmienione mimo to, bo koszt jest zerowy,
-    # a rozumowanie zostaje: dwa strumienie o niezależnych offsetach po obcięciu mogą
-    # się przepleść. To jest UBEZPIECZENIE od zjawiska nieodtworzonego, nie naprawa
-    # zmierzonej usterki, i nie udaję, że zmierzyłem szkodę.
+    # obcinając go sobie przy otwarciu.
+    #
+    # **TEN AKAPIT JEST PRZEPISANY, A NIE DOPISANY OBOK (6.D191).** Do 13.09.2026 stało
+    # tu, że zepsucia pliku docelowego „NIE UDAŁO SIĘ ODTWORZYĆ" w pięciu próbach, więc
+    # osobna nazwa jest UBEZPIECZENIEM od zjawiska nieodtworzonego, a nie naprawą.
+    # **Obie połowy tamtego zdania są nieprawdziwe i obie zostały zmierzone.**
+    #
+    # Pierwsza: tamte pięć prób mierzyło NIE TĘ ZMIENNĄ. Oba procesy pisały wtedy TĘ SAMĄ
+    # mapę, a dwa strumienie zapisujące identyczne bajty nie mają czego przepleść. Przy
+    # mapach RÓŻNIĄCYCH SIĘ zepsucie wychodzi: 12 razy na 20 prób na mapach 8-40 MB.
+    # Okno nie jest zresztą wąskie — sam zapis mapy ~50 MB trwa 2,36 s — więc tamte pięć
+    # prób trafiło w nie pięć razy na pięć i nic nie zobaczyło.
+    #
+    # Druga, przeoczona zupełnie: przy wspólnej nazwie **drugi `os.replace` nie ma czego
+    # przenieść**, bo pierwszy już przeniósł. To zachodzi ZAWSZE i niezależnie od treści —
+    # 20 prób na 20. Osobna nazwa jest więc naprawą usterki w stu procentach powtarzalnej.
+    # Zjawisko odtwarza dziś wejście syntetyczne w `test_mutation_sweep.py`
+    # (`test_wspolna_nazwa_posrednia_psuje_mape_NA_WEJSCIU_SYNTETYCZNYM`), deterministycznie
+    # i bez zegara. Liczby: `reports/6d191-nie-ta-zmienna.md`.
     #
     # Docelowy zostaje WSPÓLNY i to jest wybór z pomiaru: mapa kosztuje jeden pełny
     # przebieg zestawu z licznikiem wierszy (`coverage_map`), a jest pamięcią podręczną

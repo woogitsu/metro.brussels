@@ -1522,17 +1522,133 @@ def test_uchwyt_zamka_jest_MODULOWY_bo_flock_zyje_z_otwartym_opisem():
     assert "stan_zamka, _UCHWYT_ZAMKA = zajmij_dziennik(journal)" in zrodlo, zrodlo[:0]
 
 
+#: Dwie mapy pokrycia RÓŻNIĄCE SIĘ jednym kluczem — najmniejsze wejście, na którym
+#: mechanizm wspólnej nazwy pośredniej w ogóle ma co zepsuć. Treść jest tu istotna:
+#: gdyby oba napisy były identyczne, przeplot dwóch strumieni nie zmieniłby ANI JEDNEGO
+#: bajtu i plik wyszedłby czytelny — co jest całym wyjaśnieniem, dlaczego 6.D106 nie
+#: odtworzyło zepsucia w pięciu próbach (6.D191).
+#:
+#: **Mapa A jest DUŻO większa od B i to też jest treścią, a nie wygodą.** Pierwsza wersja
+#: tego wejścia miała obie mapy tej samej długości — i wyszła ZIELONA, bo obie zaczynają
+#: się tym samym prefiksem (`{"wersja": 1, "commit": …`), a dłuższy pisarz nadpisał
+#: krótszego co do bajtu. Zepsucie wymaga, żeby pisarz, który jest DALEJ, dopisywał za
+#: końcem tego, co zapisał drugi: wtedy między nimi zostaje dziura wypełniona zerami.
+MAPA_PISARZA_A = {"wersja": 1, "commit": "abc1234",
+                  "pokrycie": {"tools/a%02d.py" % i: [1, 2, 3] for i in range(20)}}
+MAPA_PISARZA_B = {"wersja": 1, "commit": "abc1234", "pokrycie": {"tools/b.py": [9]}}
+
+
+def _dwaj_pisarze(posredni_a, posredni_b, cel):
+    """Dwaj pisarze mapy pokrycia, przeplecieni DETERMINISTYCZNIE. Zwraca `(stan, replace)`.
+
+    **Bez zegara, bez bariery i bez drugiego procesu — i to jest cała wartość tego
+    wejścia.** Dwa procesy dają przeplot, w który trzeba TRAFIĆ, więc jego nietrafienie
+    nie znaczy nic (dokładnie błąd, który 6.D191 znalazło w pomiarze 6.D106). Dwa uchwyty
+    na jednej ścieżce, otwarte w `"w"`, mają dokładnie to, co ma para procesów: **własne,
+    niezależne offsety i obcięcie przy otwarciu**. Przeplot jest tu więc wymuszony,
+    a nie wylosowany, i wychodzi ten sam, ilekroć się go uruchomi.
+
+    `posredni_a == posredni_b` odtwarza nazwę sprzed 10.09.2026; różne — dzisiejszą.
+    """
+    napis_a = json.dumps(MAPA_PISARZA_A)
+    napis_b = json.dumps(MAPA_PISARZA_B)
+    OGON = 16                      # ile A ma jeszcze do napisania, gdy wchodzi B
+    assert len(napis_a) - OGON > len(napis_b), (
+        "pisarz A nie jest DALEJ niż koniec pisarza B (%d-%d vs %d) — wtedy nie ma "
+        "dziury i wejście przestaje ćwiczyć mechanizm, który ma ćwiczyć"
+        % (len(napis_a), OGON, len(napis_b)))
+
+    # Pisarz A jest prawie gotowy: zapisał wszystko poza ogonem.
+    uchwyt_a = open(posredni_a, "w", encoding="utf-8")
+    uchwyt_a.write(napis_a[:-OGON])
+    uchwyt_a.flush()
+    # Pisarz B wchodzi w środku jego pracy: `open(..., "w")` OBCINA plik do zera,
+    # a pisarz A nadal stoi na swoim starym, DALEKIM offsecie.
+    uchwyt_b = open(posredni_b, "w", encoding="utf-8")
+    uchwyt_b.write(napis_b)
+    uchwyt_b.flush()
+    # A dopisuje ogon — od SWOJEGO offsetu, czyli daleko za końcem tego, co zapisał B.
+    # Przy osobnych nazwach obie części sklejają się w poprawny JSON i to właśnie
+    # odróżnia jeden wariant od drugiego: pisarze robią w obu DOKŁADNIE TO SAMO.
+    uchwyt_a.write(napis_a[-OGON:])
+    uchwyt_a.flush()
+    uchwyt_a.close()
+    uchwyt_b.close()
+
+    stan = {}
+    for kto, sciezka in (("A", posredni_a), ("B", posredni_b)):
+        surowy = open(sciezka, "rb").read()
+        try:
+            json.loads(surowy.decode("utf-8"))
+            stan[kto] = "czytelny"
+        except (ValueError, UnicodeDecodeError):
+            stan[kto] = "nieczytelny"
+
+    zamiany = []
+    for sciezka in (posredni_a, posredni_b):
+        try:
+            os.replace(sciezka, cel)
+            zamiany.append("przeszla")
+        except FileNotFoundError:
+            zamiany.append("brak_pliku")
+    return stan, zamiany
+
+
+def test_wspolna_nazwa_posrednia_psuje_mape_NA_WEJSCIU_SYNTETYCZNYM():
+    """ROZSTRZYGNIĘCIE 6.D191: zjawisko jest MOŻLIWE i odtwarza się za pierwszym razem.
+
+    **Ten test jest przepisaniem dawnego zdania, a nie dopiskiem obok.** Do 13.09.2026
+    stało tu i w `zapisz_pokrycie`, że unikatowa nazwa pośrednia jest ubezpieczeniem od
+    zjawiska, którego „nie udało się odtworzyć w pięciu próbach". **Pomiar to obalił i
+    pokazał, że tamte pięć prób mierzyło nie tę zmienną:** oba procesy pisały TĘ SAMĄ
+    mapę, więc przeplot dwóch strumieni nie zmieniał ani jednego bajtu. Zmienną nie jest
+    szerokość okna, tylko RÓŻNICA TREŚCI — i dlatego wejście niżej ma dwie różne mapy.
+
+    Okno zresztą było szerokie, nie wąskie: sam zapis mapy ~50 MB trwa ~2,4 s (zmierzone),
+    więc pięć prób z barierą startu trafiło w nie pięć razy na pięć i nic nie zobaczyło.
+
+    **Druga połowa, przeoczona zupełnie**: przy wspólnej nazwie drugi `os.replace` nie ma
+    czego przenieść, bo pierwszy już przeniósł. To nie jest rzadkie — to jest ZAWSZE, i to
+    niezależnie od treści. Stara nazwa wywracała więc przebieg w stu procentach wypadków,
+    a patrzono wyłącznie na plik docelowy. Liczby: `reports/6d191-nie-ta-zmienna.md`.
+    """
+    with tempfile.TemporaryDirectory() as katalog:
+        cel = os.path.join(katalog, "pokrycie.json")
+
+        # STARA nazwa: jedna dla obu pisarzy.
+        wspolna = cel + ".czesciowy"
+        stan, zamiany = _dwaj_pisarze(wspolna, wspolna, cel)
+        assert stan["A"] == "nieczytelny", (
+            "wspólna nazwa pośrednia dała plik CZYTELNY — wtedy zdanie o przeplocie "
+            "dwóch strumieni o niezależnych offsetach przestaje mieć przedmiot: %s" % stan)
+        assert zamiany == ["przeszla", "brak_pliku"], (
+            "drugi `os.replace` przy wspólnej nazwie powinien nie mieć czego przenieść, "
+            "a dał %s — to jest ta połowa usterki, która zachodzi ZAWSZE" % zamiany)
+
+    with tempfile.TemporaryDirectory() as katalog:
+        cel = os.path.join(katalog, "pokrycie.json")
+
+        # DZISIEJSZA nazwa: element procesu rozdziela pisarzy. Dwa różne znaczniki
+        # zamiast dwóch procesów, bo `PROCES_ZNACZNIK` liczy się raz przy imporcie;
+        # że dwa procesy naprawdę dostają różne, mierzy test niżej.
+        stan, zamiany = _dwaj_pisarze(cel + ".czesciowy-aaaaaaaa",
+                                      cel + ".czesciowy-bbbbbbbb", cel)
+        assert stan == {"A": "czytelny", "B": "czytelny"}, (
+            "przy OSOBNYCH nazwach pośrednich któryś plik wyszedł nieczytelny: %s — "
+            "wtedy dzisiejszy mechanizm nie chroni przed tym, przed czym ma chronić" % stan)
+        assert zamiany == ["przeszla", "przeszla"], (
+            "przy osobnych nazwach oba `os.replace` mają przejść, a dały %s" % zamiany)
+
+
 def test_plik_posredni_mapy_pokrycia_jest_wlasny_dla_procesu():
     """Mapa pokrycia: plik POŚREDNI unikatowy, DOCELOWY wspólny — dwie decyzje.
 
-    **Pośredni jest własny, ale to UBEZPIECZENIE, nie naprawa zmierzonej usterki** —
-    i to rozróżnienie jest tu treścią. Dwa procesy pisały do jednego
-    `<cel>.czesciowy`, obcinając go sobie przy otwarciu; **zepsucia pliku docelowego
-    nie udało się odtworzyć**: pięć prób z barierą startu i mapą ~50 MB dało za
-    każdym razem plik czytelny, bo `os.replace` przenosi to, co zapisał ostatni
-    kompletny pisarz. Rozumowanie zostaje (dwa strumienie o niezależnych offsetach
-    po obcięciu mogą się przepleść), koszt jest zerowy, więc zmienione — ale bez
-    udawania, że zmierzyłem szkodę.
+    **Pośredni jest własny i od 6.D191 wiadomo, że to NAPRAWA, a nie ubezpieczenie** —
+    i to rozróżnienie jest tu treścią. Dwa procesy pisały do jednego `<cel>.czesciowy`,
+    obcinając go sobie przy otwarciu; zjawisko odtwarza dziś wejście syntetyczne
+    w `test_wspolna_nazwa_posrednia_psuje_mape_NA_WEJSCIU_SYNTETYCZNYM`, za pierwszym
+    razem i bez zegara. Ten test odpowiada za drugą połowę argumentu: że dwa PROCESY
+    naprawdę dostają różne nazwy, bo tamten model używa dwóch napisów.
 
     **Docelowy zostaje wspólny** i to też jest zmierzone, a nie przeoczone: mapa
     kosztuje JEDEN PEŁNY PRZEBIEG ZESTAWU z licznikiem wierszy

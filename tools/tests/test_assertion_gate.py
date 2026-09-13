@@ -1198,10 +1198,19 @@ RODZINA_UBEZPIECZENIA = re.compile(
 #: Ile zdań rodziny stoi w `tools/tests/`. Zapadka RÓWNOŚCIOWA, nie minimum:
 #: dopisanie zdania ma zmusić do rozstrzygnięcia, czy niesie pokrycie, a nie
 #: przejść samo.
-ZDAN_RODZINY_RAZEM = 19
+ZDAN_RODZINY_RAZEM = 21
 
-#: **Wszystkie osiemnaście, przeczytane po kolei 13.09.2026, w DWÓCH workach** —
-#: `(plik, zakres) -> powód`. Podział jest ręczny i to jest wybór z pomiaru, nie
+#: **Wszystkie zdania rodziny, przeczytane po kolei, w DWÓCH workach** —
+#: `(plik, zakres) -> powód`. **Liczby w tym zdaniu NIE MA i to jest wybór po pomiarze
+#: (6.D191).** Stało tu „wszystkie osiemnaście", zmierzone 13.09.2026 przy 6.D161 —
+#: i było nieprawdą już nazajutrz, gdy 6.D165 dopisało dziewiętnaste zdanie, a 6.D191
+#: dwudzieste i dwudzieste pierwsze. **Nie złapała tego żadna bramka i złapać nie mogła:**
+#: `test_prose_counts.py` porównuje z drzewem liczby stojące w prozie OBOK zapadki, a ta
+#: stała nazywa się `ZDAN_RODZINY_RAZEM` i jest tuż wyżej — tylko że liczba w prozie stała
+#: SŁOWNIE, a tamta bramka czyta cyfry. Liczba jest więc zdjęta zamiast poprawiona: stoi
+#: w stałej, i jedna kopia wystarczy (6.B28).
+#:
+#: Podział jest ręczny i to jest wybór z pomiaru, nie
 #: lenistwo: automat szukający markera wejścia syntetycznego w obejmującej definicji
 #: dał **cztery trafienia fałszywe na dwanaście**, wszystkie tam, gdzie zakresem jest
 #: moduł albo funkcja na czterysta wierszy, a marker leżał 179 do 437 wierszy od
@@ -1236,11 +1245,38 @@ Z_WEJSCIEM_SYNTETYCZNYM = {
         "wejście syntetyczne, wymienione w docstringu dwa razy, plus kontrola przyrządu",
     ("tools/tests/test_tree_writes.py", "test_skan_widzi_ksztalt_ktory_ma_widziec"):
         "czwarty kształt dopisany po zielonej kontroli, razem z wejściem syntetycznym",
+    # --- PRZENIESIONE Z DRUGIEGO WORKA PRZY 6.D191, 13.09.2026 --------------------
+    # Oba zdania mówiły, że osobna nazwa pliku pośredniego jest ubezpieczeniem od
+    # zjawiska, którego „nie udało się odtworzyć w pięciu próbach". Zmierzone i obalone:
+    # tamte pięć prób pisało DWA RAZY TĘ SAMĄ mapę, a identycznych bajtów nie ma czego
+    # przepleść. Przy mapach różnych zepsucie wychodzi 12 razy na 20.
+    ("tools/tests/mutation_sweep.py", "zapisz_pokrycie"):
+        "wejście syntetyczne DOROBIONE przy 6.D191, po obaleniu zdania o zjawisku "
+        "nieodtworzonym — mechanizm jest naprawą usterki powtarzalnej, nie ubezpieczeniem",
+    ("tools/tests/test_mutation_sweep.py",
+     "test_plik_posredni_mapy_pokrycia_jest_wlasny_dla_procesu"):
+        "to samo od strony testu: zjawisko odtwarza dziś wejście syntetyczne obok, "
+        "a ten test odpowiada za drugą połowę argumentu — że dwa PROCESY biorą różne nazwy",
+    ("tools/tests/test_mutation_sweep.py",
+     "test_wspolna_nazwa_posrednia_psuje_mape_NA_WEJSCIU_SYNTETYCZNYM"):
+        "SAMO wejście syntetyczne: dwa uchwyty na jednej ścieżce, przeplot wymuszony "
+        "a nie wylosowany, więc zapala się za pierwszym razem i bez zegara",
+    ("tools/tests/test_mutation_sweep.py", "(moduł)"):
+        "komentarz przy `MAPA_PISARZA_A` o tym, że PIERWSZA wersja tego wejścia wyszła "
+        "zielona na mapach równej długości — warunek dziury jest dziś asercją w kodzie",
 }
 
 #: Drugi worek. **Powody NIE są jednym powodem i to jest główny wynik 6.D161:**
-#: zielona kontrola ma w tym drzewie PIĘĆ różnych losów, a pole „Wyjście" pozycji
+#: zielona kontrola ma w tym drzewie kilka różnych losów, a pole „Wyjście" tamtej pozycji
 #: zakładało dwa (deklaracja albo wejście syntetyczne).
+#:
+#: **Losów było pięć, a od 6.D191 jest ich CZTERY, i to zdanie jest przepisane, a nie
+#: dopisane obok.** Zniknął los „ubezpieczenie przyjęte świadomie" — oba jego zdania
+#: (mapa pokrycia, `zapisz_pokrycie` i jego test) przeszły do pierwszego worka, bo
+#: zjawisko, od którego rzekomo ubezpieczały, **zostało odtworzone**. Ubyło więc losu,
+#: a nie tylko wpisów: dziś w tym worku nie ma ANI JEDNEGO zdania, które mówiłoby
+#: „zjawiska nie odtworzono". Pozostałe cztery to: twierdzenie poprawione, mechanizm
+#: dołożony bez możliwego wejścia, pokrycie inne niż syntetyczne, mechanizm nieprzyjęty.
 BEZ_WEJSCIA_SYNTETYCZNEGO = {
     ("tools/tests/test_conflict_markers.py",
      "test_gita_o_liste_plikow_pyta_DOKLADNIE_tyle_modulow_ile_wymieniono"):
@@ -1249,12 +1285,6 @@ BEZ_WEJSCIA_SYNTETYCZNEGO = {
         "sprawdzi\u0107 przy wywo\u0142aniu z jednym nazwanym modu\u0142em, bo `_discover` nie "
         "\u0142aduje wtedy `test_all.py` drugi raz — KN-5 tamtej pozycji wysz\u0142a zielona, "
         "wi\u0119c asercji na liczb\u0119 wyst\u0105pie\u0144 NIE MA zamiast udawanej",
-    ("tools/tests/mutation_sweep.py", "zapisz_pokrycie"):
-        "UBEZPIECZENIE przyjęte świadomie: zepsucia pliku docelowego nie udało się "
-        "odtworzyć w pięciu próbach, więc wejścia nie ma z czego zrobić",
-    ("tools/tests/test_mutation_sweep.py",
-     "test_plik_posredni_mapy_pokrycia_jest_wlasny_dla_procesu"):
-        "to samo ubezpieczenie od strony testu — zjawisko nieodtworzone",
     ("tools/tests/mutation_sweep.py", "main"):
         "TWIERDZENIE POPRAWIONE: dawne zdanie o granicy zamka było nieprawdziwe; "
         "mechanizm pilnuje kolejności czytanej z AST, a nie wejścia zbudowanego",
@@ -1283,7 +1313,12 @@ BEZ_WEJSCIA_SYNTETYCZNEGO = {
 
 #: Ile stoi bez wejścia syntetycznego. Przybite osobno od długości słownika, żeby
 #: skreślenie wpisu nie przeszło po cichu.
-ZDAN_BEZ_POKRYCIA = 10
+#:
+#: **Z dziesięciu na osiem, 13.09.2026 (6.D191).** Dwa zdania o mapie pokrycia wyszły
+#: z tego worka nie dlatego, że ktoś je przeredagował, tylko dlatego, że zjawisko, od
+#: którego rzekomo ubezpieczały, **zostało odtworzone**: pięć prób z 6.D106 pisało dwa
+#: razy tę samą mapę i mierzyło nie tę zmienną. Liczby: `reports/6d191-nie-ta-zmienna.md`.
+ZDAN_BEZ_POKRYCIA = 8
 
 
 def _moduly_do_skanu_rodziny():
@@ -1343,12 +1378,17 @@ def zdania_rodziny(sciezki=None):
 def test_rodzina_ubezpieczenia_jest_POLICZONA_a_nie_opowiedziana():
     """6.D161: obie liczby wyprowadzone ze źródeł, i KAŻDE zdanie w jednym z worków.
 
-    **Wynik pozycji.** Zdań jawnych jest **osiemnaście**, z wejściem syntetycznym
-    **dziewięć**, bez niego **dziewięć**. Ale te dziewięć bez pokrycia rozpada się na
-    **pięć różnych losów** zielonej kontroli, nie na jeden: ubezpieczenie przyjęte
-    świadomie, twierdzenie poprawione, mechanizm dołożony bez możliwego wejścia,
-    pokrycie inne niż syntetyczne, mechanizm nieprzyjęty. Pole „Wyjście" pozycji
-    zakładało podział binarny; drzewo go nie ma.
+    **Wynik pozycji 6.D161, z dnia pomiaru (13.09.2026, `ca9c595`):** zdań jawnych
+    osiemnaście, z wejściem syntetycznym dziewięć, bez niego dziewięć. **Liczby są tu
+    podane JAKO POMIAR Z DNIA, a nie jako stan drzewa, i to jest poprawka z 6.D191** —
+    do niej stały w czasie teraźniejszym i były nieprawdziwe od 6.D165, czyli od
+    następnego dnia. Stan bieżący niosą `ZDAN_RODZINY_RAZEM` i `ZDAN_BEZ_POKRYCIA`,
+    i to one są porównywane z drzewem niżej.
+
+    **Co z tamtego pomiaru zostaje prawdą bezterminowo:** worek bez pokrycia rozpada się
+    na WIELE różnych losów zielonej kontroli, nie na jeden — pole „Wyjście" 6.D161
+    zakładało podział binarny, a drzewo go nie ma. Losów było wtedy pięć; 6.D191 zdjęło
+    jeden z nich w całości (patrz komentarz przy `BEZ_WEJSCIA_SYNTETYCZNEGO`).
 
     **Dlaczego worki są RĘCZNE.** Automat szukający markera wejścia syntetycznego
     w obejmującej definicji dał cztery trafienia fałszywe na dwanaście — liczby
