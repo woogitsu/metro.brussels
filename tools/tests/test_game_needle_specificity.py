@@ -254,7 +254,7 @@ MIN_GAME_MESSAGES = 142
 #: trzeba by ja poprawic w **5 z 11** rewizji dotykajacych `tests/Game.Tests`
 #: (45 -> 49 -> 52 -> 54 -> 57 -> 59), czyli w 45 % z nich. To mniej, niz kosztuje
 #: `MIN_REPORTS`, poprawiane przy kazdym raporcie.
-MIN_GAME_NEEDLES = 64
+MIN_GAME_NEEDLES = 65
 MIN_GAME_SOURCES = 18
 
 #: Igla, na ktorej stoja kontrole dodatnia i przyrzadu. Musi byc SWOISTA i musi stac

@@ -3792,4 +3792,276 @@ public sealed class UiTextTests
         StringAssert.Contains(czysty, "var a = x.ToString();",
             "czytnik ruszył KOD, a nie tylko komentarz i literał");
     }
+
+    // --- 6.D202: w jakim języku jest log przejazdu -----------------------------------
+    //
+    // ODPOWIEDŹ: wierszy ANGIELSKICH jest ZERO. Przesłanka pozycji („szablon
+    // z `DesignAssumptions` jest po angielsku") padła, i to na dwa sposoby naraz:
+    // szablon `ViewAssumption.ToString()` NIE MA ANI JEDNEGO SŁOWA — jest nim
+    // `{Name} = {Value:R} {Unit} — {Reason}`, czyli same dziury, znak równości i myślnik
+    // — a jedyne, co przychodzi do niego po angielsku, to `Name`, i to jest
+    // IDENTYFIKATOR z `nameof(...)`, nie proza. Wszystkie 20 pól `Reason`
+    // w `DesignAssumptions.All` są po polsku.
+    //
+    // Jest to dokładnie ten sam kształt, co przy 6.D185: na wyjście dociera ANGIELSKI
+    // IDENTYFIKATOR, nie angielskie zdanie. Tamto było o nazwach członów wyliczeń
+    // na HUD-zie, to jest o nazwach stałych w logu — i dlatego pytanie do właściciela
+    // brzmi inaczej, niż pozycja zakładała (patrz raport §5).
+    private const int WierszyLoguWGame = 25;
+
+    private const int WierszyLoguPoPolsku = 21;
+
+    // Wiersze, których szablon NIE MA WŁASNYCH SŁÓW — cała treść przychodzi z wywołania.
+    // Cztery, wszystkie w `FirstRun.cs`, i każdy z nich prowadzi do wytwórcy, który
+    // własne słowa MA i ma je po polsku. Sprawdza to asercja niżej, żeby „cztery bez
+    // słów" nie czytało się jako „cztery nieznanego języka".
+    private static readonly string[] WytworcyWierszaBezSlow =
+    {
+        "RunHeader.cs:[PRZEJAZD]",
+        "StationView.cs:[PERON]",
+        "TrainView.cs:[SKŁAD]",
+        "TunnelView.cs:[TUNEL]",
+    };
+
+    private const int WierszyLoguPoAngielsku = 0;
+
+    // Identyfikatory angielskie docierające do logu — WSZYSTKIE przez `nameof(...)`
+    // w założeniach. To jest jedyna angielszczyzna w całym logu przejazdu i jedyna
+    // rzecz, o której jest sens pytać właściciela.
+    private const int IdentyfikatorowNameofWZalozeniach = 25;
+
+    // **DWA założenia podają nazwę LITERAŁEM, a nie `nameof(...)`** —
+    // `"StartChainageM"` i `"BrakeChainageM"` w `src/Sim/Train/DriveScenario.cs`.
+    // Do logu trafia z nich ten sam angielski identyfikator, ale drogą, która
+    // **nie idzie za zmianą nazwy**: przemianowanie pola zostawi w logu nazwę starą,
+    // i to po cichu. Liczba stoi osobno, bo to inne ryzyko niż `nameof`, a nie inna
+    // ilość tego samego.
+    private const int IdentyfikatorowLiteralemWZalozeniach = 2;
+
+    private static readonly char[] LiteryPolskie =
+        "ąćęłńóśźżĄĆĘŁŃÓŚŹŻ".ToCharArray();
+
+    // **Sito po znaku diakrytycznym MYLI SIĘ NA TRZECH z dwudziestu pięciu wierszy**
+    // i to jest zmierzone, nie przewidziane: `[STACJA]`, `[ZRZUT] metadane`
+    // (`FirstRun.cs`) oraz CAŁY wiersz `[PRZEJAZD]` z `RunHeader.cs` — którego słowa
+    // to `tryb`, `widok`, `krok`, `scenariusz`, `masa` — nie mają ani jednego ogonka,
+    // a są po polsku. Sam znak diakrytyczny jest więc PIERWSZYM sitem, nigdy jedynym;
+    // bez tej listy bramka meldowałaby trzy wiersze angielskie i pytanie do właściciela
+    // stałoby na liczbie nieprawdziwej.
+    private static readonly string[] SlowaPolskieBezZnakow =
+    {
+        "STACJA", "ZRZUT", "metadane", "tryb", "widok", "krok", "scenariusz", "masa",
+    };
+
+    private static bool WygladaPoPolsku(string tekst) =>
+        MaPolskieLitery(tekst)
+        || SlowaPolskieBezZnakow.Any(s => tekst.Contains(s, StringComparison.Ordinal));
+
+    private static bool MaPolskieLitery(string tekst) =>
+        tekst.IndexOfAny(LiteryPolskie) >= 0;
+
+    // `(plik, wiersz, tekst szablonu bez dziur)` dla każdego wywołania `GD.Print`
+    // w `src/Game/`. Czyta po źródle BEZ komentarzy i bez literałów innych niż
+    // argument — `GD.Print` w komentarzu nie jest wypisem.
+    private static List<(string Plik, int Wiersz, string Szablon)> WierszeLogu()
+    {
+        var wynik = new List<(string, int, string)>();
+        foreach (var sciezka in PlikiGryZKatalogiem())
+        {
+            var kod = File.ReadAllText(sciezka);
+            var czysty = KodLeksykalnie(kod);
+            foreach (Match m in Regex.Matches(czysty, @"GD\.Print\s*\("))
+            {
+                var otwarcie = czysty.IndexOf('(', m.Index + m.Length - 1);
+                var glebia = 0;
+                var koniec = otwarcie;
+                while (koniec < czysty.Length)
+                {
+                    if (czysty[koniec] == '(')
+                    {
+                        glebia++;
+                    }
+                    else if (czysty[koniec] == ')')
+                    {
+                        glebia--;
+                        if (glebia == 0)
+                        {
+                            break;
+                        }
+                    }
+
+                    koniec++;
+                }
+
+                var argument = kod.Substring(otwarcie + 1, koniec - otwarcie - 1);
+                var szablon = string.Join(" ", Literaly(argument)
+                    .Select(l => Regex.Replace(l, @"\{[^{}]*\}", " ")));
+                var wiersz = kod.Substring(0, m.Index).Count(z => z == '\n') + 1;
+                wynik.Add((Path.GetFileName(sciezka), wiersz, szablon));
+            }
+        }
+
+        return wynik;
+    }
+
+    [TestMethod]
+    public void W_jakim_jezyku_jest_log_przejazdu_i_ile_wierszy_nie_ma_wlasnych_slow()
+    {
+        var wiersze = WierszeLogu();
+        Assert.AreEqual(WierszyLoguWGame, wiersze.Count,
+            $"wywołań `GD.Print` w `src/Game/` jest {wiersze.Count}, a zmierzono "
+            + $"{WierszyLoguWGame}");
+
+        var bezSlow = wiersze
+            .Where(w => !Regex.IsMatch(w.Szablon, @"\p{L}{2,}"))
+            .ToList();
+        Assert.AreEqual(WytworcyWierszaBezSlow.Length, bezSlow.Count,
+            $"wierszy bez własnych słów jest {bezSlow.Count}, a wytwórców wpisano "
+            + $"{WytworcyWierszaBezSlow.Length}: "
+            + string.Join(", ", bezSlow.Select(w => $"{w.Plik}:{w.Wiersz}")));
+
+        var zeSlowami = wiersze.Except(bezSlow).ToList();
+        var poPolsku = zeSlowami.Where(w => MaPolskieLitery(w.Szablon)).ToList();
+        var reszta = zeSlowami.Except(poPolsku).ToList();
+
+        // DWA WIERSZE NIE MAJĄ POLSKICH LITER, A POLSKIE SĄ — `[STACJA]` i `[ZRZUT]
+        // metadane`. Dlatego sam znak diakrytyczny NIE jest tu kryterium języka,
+        // tylko pierwszym sitem; drugim jest lista słów, które po angielsku nie
+        // istnieją. Bez tego rozróżnienia bramka meldowałaby dwa wiersze angielskie
+        // i pytanie do właściciela stałoby na liczbie nieprawdziwej.
+        foreach (var w in reszta)
+        {
+            Assert.IsTrue(WygladaPoPolsku(w.Szablon),
+                $"`{w.Plik}:{w.Wiersz}` nie ma ani polskich liter, ani znanego słowa "
+                + $"polskiego bez znaków: „{w.Szablon.Trim()}”. Jeśli to wiersz "
+                + "ANGIELSKI, `WierszyLoguPoAngielsku` przestało być zerem i pytanie "
+                + "do właściciela stoi na innej liczbie niż w dniu pomiaru (6.D202)");
+        }
+
+        Assert.AreEqual(WierszyLoguPoPolsku, zeSlowami.Count,
+            $"wierszy z własnymi słowami jest {zeSlowami.Count}, a zmierzono "
+            + $"{WierszyLoguPoPolsku} — i WSZYSTKIE są polskie");
+        Assert.AreEqual(WierszyLoguPoAngielsku, 0,
+            "ta stała ma być zerem, dopóki asercja wyżej nie zapali się na wierszu, "
+            + "którego nie da się uznać za polski");
+
+        // CZYTNIK LEKSYKALNY JEST DZIŚ BEZCZYNNY I TO JEST TU SPRAWDZANE, NIE
+        // PRZEMILCZANE. Zmierzone: w `src/Game/` `GD.Print` stoi 25 razy w źródle
+        // surowym i 25 razy po zdjęciu komentarzy i literałów — ani jednego w prozie.
+        // Kontrola negatywna czytająca źródło surowe wychodzi przez to ZIELONA i tak
+        // ma być, bo nie ma czego zdjąć. **Mechanizm nie jest przy tym teoretyczny:**
+        // w `src/Sim.Runner/Program.cs` `GD.Print` W PROZIE stoi — tylko że tamten plik
+        // jest poza korpusem tej pozycji. Ta asercja powie, kiedy przyjdzie tutaj.
+        var surowo = PlikiGryZKatalogiem()
+            .Sum(s => Regex.Matches(File.ReadAllText(s), @"GD\.Print\s*\(").Count);
+        Assert.AreEqual(wiersze.Count, surowo,
+            $"skan po źródle surowym daje {surowo} wywołań `GD.Print`, a po zdjęciu "
+            + $"komentarzy i literałów — {wiersze.Count}. Znaczy to, że w `src/Game/` "
+            + "pojawiło się `GD.Print` w prozie: czytnik leksykalny przestał być "
+            + "bezczynny i od teraz jego zdjęcie ZMIENIA wynik (6.D202)");
+
+        // KONTROLA PRZYRZĄDU: skan MA znaleźć wiersz, który 6.D188 pokazało palcem —
+        // ten z założeniem widoku. Bez niej wszystkie liczby wyżej mogłyby opisywać
+        // zbiór, w którym tego wiersza nie ma (rodzina 6.D159).
+        Assert.IsTrue(wiersze.Any(w => w.Szablon.Contains("ZAŁOŻENIE widok",
+                StringComparison.Ordinal)),
+            "skan NIE ZNAJDUJE wiersza `[ZAŁOŻENIE widok]`, czyli tego, o który ta "
+            + "pozycja pyta: " + string.Join(", ", wiersze.Select(w => w.Plik + ":" + w.Wiersz)));
+    }
+
+    [TestMethod]
+    public void Kazdy_wiersz_BEZ_WLASNYCH_SLOW_prowadzi_do_wytworcy_ktory_pisze_po_polsku()
+    {
+        // Bez tego „cztery bez słów" czytałoby się jako „cztery nieznanego języka",
+        // a to jest różnica między zerem wierszy angielskich a czterema niewiadomymi.
+        var sprawdzonych = 0;
+        foreach (var wpis in WytworcyWierszaBezSlow)
+        {
+            var czesci = wpis.Split(':');
+            var plik = czesci[0];
+            var znacznik = czesci[1];
+            var sciezka = PlikiGryZKatalogiem()
+                .SingleOrDefault(p => Path.GetFileName(p) == plik);
+            Assert.IsNotNull(sciezka, $"nie ma pliku `{plik}` — wytwórca zniknął albo "
+                + "przeniósł się, a lista mówi o drzewie sprzed zmiany");
+
+            var kod = KodLeksykalnie(File.ReadAllText(sciezka!));
+            var literaly = Literaly(File.ReadAllText(sciezka!));
+            var zZnacznikiem = literaly
+                .Where(l => l.Contains(znacznik, StringComparison.Ordinal))
+                .ToList();
+            Assert.IsTrue(zZnacznikiem.Count > 0,
+                $"w `{plik}` nie ma literału ze znacznikiem `{znacznik}` — wiersz logu "
+                + "zmienił znacznik albo wytwórcę");
+            Assert.IsTrue(zZnacznikiem.Any(WygladaPoPolsku),
+                $"literał `{znacznik}` w `{plik}` NIE MA polskich liter — wytwórca "
+                + "wiersza bez własnych słów przestał pisać po polsku, a to znaczy, "
+                + $"że `WierszyLoguPoAngielsku = {WierszyLoguPoAngielsku}` jest "
+                + "nieprawdą: " + string.Join(" | ", zZnacznikiem));
+            sprawdzonych++;
+        }
+
+        Assert.AreEqual(WytworcyWierszaBezSlow.Length, sprawdzonych,
+            $"pętla po wytwórcach wykonała się {sprawdzonych} razy zamiast "
+            + $"{WytworcyWierszaBezSlow.Length} — wtedy asercje wyżej nie sprawdzają "
+            + "wszystkich (rodzina 6.D193)");
+    }
+
+    [TestMethod]
+    public void Ile_angielskich_IDENTYFIKATOROW_dociera_do_logu_i_skad()
+    {
+        // **To jest jedyna angielszczyzna w całym logu przejazdu** i jedyna rzecz,
+        // o której jest sens pytać właściciela. Wszystkie przychodzą przez `nameof(...)`
+        // w polu `Name` założenia — czyli są IDENTYFIKATORAMI, nie prozą. Ten sam
+        // kształt, co przy 6.D185 (nazwa członu wyliczenia na HUD-zie).
+        var nameof_ow = 0;
+        foreach (var sciezka in PlikiZrodlowe())
+        {
+            var kod = KodLeksykalnie(File.ReadAllText(sciezka));
+            nameof_ow += Regex.Matches(kod,
+                @"new\s+(?:View|Scenario)Assumption\s*\(\s*nameof\s*\(").Count;
+        }
+
+        Assert.AreEqual(IdentyfikatorowNameofWZalozeniach, nameof_ow,
+            $"założeń z nazwą z `nameof(...)` jest {nameof_ow}, a zmierzono "
+            + $"{IdentyfikatorowNameofWZalozeniach}. Każde z nich wypisuje do logu "
+            + "ANGIELSKI IDENTYFIKATOR w polskim wierszu (6.D202)");
+
+        // RÓŻNICĄ, a nie osobnym wzorcem z zaprzeczeniem: `\s*(?!nameof)` przechodzi
+        // przez nawrót — `\s*` oddaje jeden znak białej spacji i zaprzeczenie patrzy
+        // na spację zamiast na słowo. Pierwsza wersja tej asercji dała przez to 7
+        // zamiast 2, czyli WSZYSTKIE założenia. Różnica dwóch liczonych osobno nie
+        // ma tej pułapki.
+        var wszystkich = 0;
+        foreach (var sciezka in PlikiZrodlowe())
+        {
+            var kod = KodLeksykalnie(File.ReadAllText(sciezka));
+            wszystkich += Regex.Matches(kod,
+                @"new\s+(?:View|Scenario)Assumption\s*\(").Count;
+        }
+
+        var literalem = wszystkich - nameof_ow;
+        Assert.AreEqual(IdentyfikatorowLiteralemWZalozeniach, literalem,
+            $"założeń z nazwą podaną LITERAŁEM jest {literalem}, a zmierzono "
+            + $"{IdentyfikatorowLiteralemWZalozeniach}. Ta droga NIE IDZIE za zmianą "
+            + "nazwy pola — przemianowanie stałej zostawi w logu nazwę starą, cicho "
+            + "(6.D202)");
+
+        // I DRUGA STRONA, bez której liczba wyżej nie mówi, co jest po polsku:
+        // szablon `ViewAssumption.ToString()` NIE MA ANI JEDNEGO SŁOWA. Angielszczyzna
+        // jest w DANYCH, a nie w szablonie — i na tym polega poprawka przesłanki.
+        var szablon = PlikiZrodlowe()
+            .Where(p => Path.GetFileName(p) == "DesignAssumptions.cs")
+            .SelectMany(p => Literaly(File.ReadAllText(p)))
+            .Where(l => l.Contains("{Name}", StringComparison.Ordinal))
+            .ToList();
+        Assert.AreEqual(1, szablon.Count,
+            "szablonu `{Name} …` w `DesignAssumptions.cs` jest " + szablon.Count
+            + " zamiast jednego — wtedy zdanie o „braku słów” opisuje inny szablon");
+        Assert.IsFalse(Regex.IsMatch(Regex.Replace(szablon[0], @"\{[^{}]*\}", " "),
+                @"\p{L}{2,}"),
+            $"szablon założenia MA teraz własne słowa: „{szablon[0]}”. Przesłanka "
+            + "6.D202 mówiła, że jest po angielsku, a pomiar 13.09.2026 dał ZERO słów "
+            + "— jeśli słowa doszły, trzeba na nowo rozstrzygnąć, w jakim są języku");
+    }
 }
