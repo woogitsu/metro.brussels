@@ -377,7 +377,7 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 #: i 6.D149; trzeci — z rzeczy, która zdarzyła się TRZY RAZY POD RZĄD w tych samych
 #: trzech pozycjach i dopiero przez powtórzenie dała się zobaczyć.
 #: Wartość z `len(detail_sections(...))` po edycji, nie z dodania trójki do 231.
-MINIMUM_DETAIL_BLOCKS = 258
+MINIMUM_DETAIL_BLOCKS = 259
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je

@@ -291,13 +291,15 @@ POCIAGA_ZA_SOBA = {
     "pr": {"pr", "na_czym"},
 }
 
-#: Ile wpisów runnera niesie coś PONAD to, co wychodzi z logu. Dziś jeden: wpis
-#: najwolniejszego przebiegu ma doklejone „, NAJWYŻSZY na runnerze". Ten ogon nie jest
-#: zdaniem o przebiegu, tylko o LIŚCIE, i powtarza to, co `MEASURED_MAX_WALL_S` już z niej
-#: liczy — więc zestarzeje się przy pierwszym wolniejszym przebiegu. Gdy ktoś go usunie,
-#: bramka niżej zapali się i **poprawką jest zejście tej liczby do zera**, nie rozluźnienie
-#: porównania: liczba mówi, ile listy wciąż utrzymuje się ręcznie.
-WPISOW_Z_DOPISKIEM = 1
+#: Ile wpisów runnera niesie coś PONAD to, co wychodzi z logu. **Dziś ZERO, i ten
+#: akapit jest przepisany, a nie dopisany obok (6.D163).** Do 13.09.2026 stał tu jeden:
+#: wpis najwolniejszego przebiegu miał doklejone „, NAJWYŻSZY na runnerze”. Ogon został
+#: **zdjęty**, bo nie był zdaniem o przebiegu, tylko o LIŚCIE, i powtarzał to, co
+#: `MEASURED_MAX_WALL_S` z niej liczy — czyli był drugą kopią liczby, rodzina 6.B28.
+#: Zejście do zera bylo tu przewidziane jako POPRAWKA, nie jako awaria, i tak się stało.
+#: Gdy liczba znowu urośnie, poprawką jest zdjęcie dopisku, nie rozluźnienie porównania:
+#: mówi ona, ile listy wciąż utrzymuje się ręcznie.
+WPISOW_Z_DOPISKIEM = 0
 
 #: Numer PR-a w zdaniu „na czym" wpisu `POMIARY`. Po nim wiąże się wpis z jego logiem.
 NUMER_PR = re.compile(r"PR #(\d+)")
