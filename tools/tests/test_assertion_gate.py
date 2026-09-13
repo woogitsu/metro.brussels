@@ -1481,6 +1481,401 @@ def test_wzorzec_rodziny_lapie_zdanie_ktore_ma_lapac_i_nie_bierze_sasiedztwa():
         "a wziął: %s" % zakresy)
 
 
+
+# --- 6.D195: bramka na NAPIS w źródle zamiast na ZACHOWANIE ---------------------------
+#
+# **Skąd.** Przy 6.D165 bramka szukająca napisu w źródle dała się wyłączyć DWA RAZY POD
+# RZĄD bez ani jednego czerwonego testu. Czerwoną dało dopiero uruchomienie przebiegu
+# w podprocesie i szukanie napisu w jego WYJŚCIU. Pozycja 6.D195 pytała, ile jeszcze
+# takich bramek stoi w drzewie.
+#
+# **Skala jest odwrotna, niż zakładała pozycja.** Asercji kształtu `"literał" in coś`
+# jest w `tools/tests/` **849**, ale **560 (66 %) stoi już na ZACHOWANIU** — na wyjściu
+# wywołania albo procesu. Na źródle `.py` stoi **31**, czyli 3,7 %. Rodzina `.py` nie
+# jest przy tym największa: bramki na `.cs` i `.sh` to 65, na YAML-u CI 69.
+#
+# **Dlaczego LISTA, a nie liczba — zmierzone, nie przyjęte.** Proste kryterium
+# („w obejmującej funkcji pada `.py` albo `getsource`") daje **158** trafień: **136
+# fałszywych i 9 przeoczeń**, czyli trafia 22 z 31. Automat na tej liczbie byłby
+# dokładnie tym cichym sitem, którego ten projekt unika — więc liczby nie ma, jest lista.
+# Ta sama droga, co przy `Z_WEJSCIEM_SYNTETYCZNYM` z 6.D161.
+
+#: Wszystkie asercje kształtu `literał napisowy in/not in coś` pod `tools/tests/`.
+#: Zapadka RÓWNOŚCIOWA i MECHANICZNA — liczba wychodzi z `ast`, bez jednego osądu.
+#: Jest strażnikiem listy niżej: nowa bramka tego kształtu rusza tę liczbę, więc nie
+#: da się dopisać trzydziestej drugiej po cichu.
+ASERCJI_NAPISOWYCH_RAZEM = 849
+
+#: **Kotwica wpisu to `(plik, funkcja, operator, literał)`, a NIE numer wiersza.**
+#: Numer przesuwa się przy każdej edycji pliku i lista rozjechałaby się sama z siebie.
+#: Zmierzone: sama trójka bez operatora jest niejednoznaczna dla dwóch wpisów
+#: (`test_field_paths.py`, ten sam literał pod `in` i pod `not in`), a z operatorem —
+#: jednoznaczna dla wszystkich. **Granica, wypisana:** w całych 849 asercjach zostaje
+#: 10 kotwic niejednoznacznych (21 asercji); żadna nie jest na tej liście, ale gdyby
+#: kiedyś była, trzeba dołożyć licznik wystąpień.
+NA_ZRODLE_PY = {
+    ('tools/tests/test_assertion_gate.py',
+     'test_gate_runner_counts_skipped_tests_outside_the_passed_total',
+     'in', '{passed}/{len(tests)-len(skipped)} przeszło'):
+        ('KOSZTOWNA',
+         "literał to TEKST f-stringa z `test_all.py`, który w wyjściu nigdy nie występuje w tej postaci; wiersz powstaje w `main()`, czyli po przebiegu całego modułu"),
+    ('tools/tests/test_assertion_gate.py',
+     'test_kompilacja_modulu_testowego_zada_optimize_wprost',
+     'in', 'optimize=0'):
+        ('KOSZTOWNA',
+         "`optimize=0` jest rozróżnialne WYŁĄCZNIE pod `-O`; pod zwykłym interpreterem `optimize=-1` daje ten sam bajtkod, więc trzeba podprocesu"),
+    ('tools/tests/test_assertion_gate.py',
+     'test_kompilacja_modulu_testowego_zada_optimize_wprost',
+     'in', 'dont_inherit=True'):
+        ('KOSZTOWNA',
+         "to samo dla `dont_inherit=True`: dziedziczenie flag widać dopiero w procesie uruchomionym w innym trybie"),
+    ('tools/tests/test_camera_aim.py',
+     'test_wypis_okna_nazywa_kamery_i_proporcje',
+     'in', '[OKNO] zaweza kamery: '):
+        ('KOSZTOWNA',
+         "to prawdziwy `print` z `render_check.py`, ale moduł ma `import bpy` w wierszu 16, a wypis stoi w gałęzi kadrowania — potrzeba Blendera"),
+    ('tools/tests/test_camera_aim.py',
+     'test_wypis_okna_nazywa_kamery_i_proporcje',
+     'in', 'CA.KAMERY_POD_OKNEM'):
+        ('STRUKTURALNA',
+         "pilnuje, że nazwy kamer POCHODZĄ z `CA.KAMERY_POD_OKNEM`, a nie są drugą kopią; lista wpisana na sztywno dałaby identyczny wypis"),
+    ('tools/tests/test_camera_aim.py',
+     'test_wypis_okna_nazywa_kamery_i_proporcje',
+     'in', 'CA.proporcje_okna('):
+        ('KOSZTOWNA',
+         "obecność wiersza `[OKNO] proporcje okna` jest zachowaniem, ale za `import bpy`"),
+    ('tools/tests/test_clearance_profile.py',
+     'test_clearance_profile_tolerance_equals_the_resolution_the_module_records',
+     'in', 'round(threshold_m, 3)'):
+        ('WYKONALNA',
+         "`critical_places` jest czystym Pythonem, wołanym w tym samym pliku kilkanaście razy — zaokrąglenie widać w zwróconym `threshold_m`"),
+    ('tools/tests/test_clearance_profile.py',
+     'test_clearance_profile_tolerance_equals_the_resolution_the_module_records',
+     'in', 'f"{t:.3f}"'):
+        ('WYKONALNA',
+         "format klucza widać w `statistics(...)['below_threshold'].keys()`; test obok już asertuje klucz `0.900`"),
+    ('tools/tests/test_conflict_markers.py',
+     'test_gita_o_liste_plikow_pyta_DOKLADNIE_tyle_modulow_ile_wymieniono',
+     'not in', 'ls-files'):
+        ('STRUKTURALNA',
+         "z założenia czuła także na komentarz („nawet jeśli tylko w komentarzu”) — mówi o kształcie, nie o wyniku; wersją zachowaniową jest podproces wyżej"),
+    ('tools/tests/test_constant_names.py',
+     'test_the_package_limits_are_read_from_the_validator_not_copied',
+     'in', 'VALIDATOR = V.LIMITS'):
+        ('STRUKTURALNA',
+         "pilnuje jednego źródła progów; kopia o tych samych liczbach zachowuje się identycznie i o to właśnie chodzi"),
+    ('tools/tests/test_crs_convergence.py',
+     'test_crs_ecef_threshold_is_the_declared_accuracy_of_the_datum_not_a_tuned_number',
+     'in', 'IGN-Bel 1m'):
+        ('WYKONALNA',
+         "napis stoi w komunikacie `ValueError` i w `__doc__` modułu; `crs.py` to czysty stdlib, wołany w tym pliku bez żadnego środowiska"),
+    ('tools/tests/test_dotnet_version.py',
+     'test_lista_sdk_ma_tyle_wierszy_ile_jest_sdk',
+     'in', 'f"{w} [/atrapa/sdk]\\n"'):
+        ('WYKONALNA',
+         "pomocnik z TEGO SAMEGO pliku zwraca złożony napis w `{'LISTA': …}` — literał jest wartością do odczytania, nie tekstem"),
+    ('tools/tests/test_dotnet_version.py',
+     'test_lista_sdk_ma_tyle_wierszy_ile_jest_sdk',
+     'not in', 'f"{w} [/atrapa/sdk]\\\\n"'):
+        ('WYKONALNA',
+         "negatyw tego samego: ukośnik z literą `n` widać w zwróconym `LISTA` bez czytania źródła"),
+    ('tools/tests/test_field_paths.py',
+     'test_pole_weryfikacji_6d74_wskazuje_modul_z_bramka_o_ktorej_mowi',
+     'in', 'def test_no_tool_walks_the_tree_without_the_shared_filter'):
+        ('WYKONALNA',
+         "nazwa funkcji jest atrybutem modułu, a moduł importuje się bez efektów ubocznych — robi to `_discover` w każdym przebiegu"),
+    ('tools/tests/test_field_paths.py',
+     'test_pole_weryfikacji_6d74_wskazuje_modul_z_bramka_o_ktorej_mowi',
+     'in', 'tools/blender/scan_gates.py'):
+        ('WYKONALNA',
+         "adres występuje w tamtym module TYLKO w docstringu; to, co moduł naprawdę testuje, widać po `SG.__file__`"),
+    ('tools/tests/test_field_paths.py',
+     'test_pole_weryfikacji_6d74_wskazuje_modul_z_bramka_o_ktorej_mowi',
+     'not in', 'def test_no_tool_walks_the_tree_without_the_shared_filter'):
+        ('WYKONALNA',
+         "negatyw dla dawnego adresu: po imporcie tamtego modułu brak tej bramki widać "
+         "przez `hasattr`, a napis w źródle przepuściłby ją stojącą w komentarzu"),
+    ('tools/tests/test_manifest_write_policy.py',
+     'test_both_fetchers_go_through_the_shared_helper',
+     'in', 'write_manifest_if_changed'):
+        ('STRUKTURALNA',
+         "docstring mówi wprost „dwie kopie tej samej reguły rozjechałyby się”; wierna reimplementacja dałaby dziś identyczne zachowanie"),
+    ('tools/tests/test_manifest_write_policy.py',
+     'test_both_fetchers_go_through_the_shared_helper',
+     'not in', 'handle.write(P.canonical_json(manifest))'):
+        ('WYKONALNA',
+         "zakaz zapisu bezwarunkowego jest mierzalny w procesie: dwa przebiegi `--offline` i porównanie `st_mtime_ns` manifestu"),
+    ('tools/tests/test_manifest_write_policy.py',
+     'test_both_fetchers_say_when_they_did_not_write',
+     'in', 'bez zmian'):
+        ('WYKONALNA',
+         "`bez zmian` to realny wypis `main()` osiągalny w trybie `--offline`, bez sieci i bez podprocesu"),
+    ('tools/tests/test_mass_copies.py',
+     'test_kazda_z_dwoch_kopii_liczby_naprawde_lezy_tam_gdzie_mowi_opis',
+     'in', '"AW0":170000.0'):
+        ('STRUKTURALNA',
+         "żąda, żeby moduł NIÓSŁ literał, czyli był drugą niezależną drogą wobec rejestru; wartość z importu byłaby ta sama także wtedy, gdyby zaczął czytać rejestr"),
+    ('tools/tests/test_mutation_sweep.py',
+     'test_przygotowanie_drzewa_zdejmuje_testy_narzedzia_nie_kasujac_pliku',
+     'not in', 'def test_cokolwiek('):
+        ('NIE_Z_TEJ_RODZINY',
+         "czytany plik NIE JEST modułem repozytorium, tylko plikiem w katalogu tymczasowym wytworzonym przez `sweep.neutralise_own_tests` dwa wiersze wyżej — asercja stoi już na wyniku wywołania"),
+    ('tools/tests/test_mutation_sweep.py',
+     'test_main_wypisuje_licznik_PRZEZ_wspolna_funkcje_a_nie_po_swojemu',
+     'in', 'wiersze_starego_bajtkodu'):
+        ('STRUKTURALNA_AST',
+         "nie szuka napisu: zbiór `wolane` powstaje z `ast.walk(main[0])`; wypis złożony w `main` u siebie dawałby to samo wyjście"),
+    ('tools/tests/test_mutation_sweep.py',
+     'test_the_write_is_atomic_and_leaves_no_half_file',
+     'in', 'os.replace('):
+        ('STRUKTURALNA',
+         "pilnuje atomowości zapisu; stan połowiczny powstaje tylko przy ubiciu procesu, a skutek końcowy obu kształtów jest identyczny"),
+    ('tools/tests/test_readme_claims.py',
+     'test_the_absence_measurements_are_not_all_reading_the_same_thing',
+     'not in', 'bpy'):
+        ('STRUKTURALNA_AST',
+         "nie szuka napisu: zbiór `importy` z `ast.parse`; wersja przez `sys.modules` została ZMIERZONA jako fałszywa, bo inne moduły wstawiają atrapy `bpy`"),
+    ('tools/tests/test_schedule_envelope.py',
+     'test_odwzorowanie_wariantu_na_parametr_ma_jedno_zrodlo_i_odrzuca_obce',
+     'in', 'choices=("AW0", "AW2")'):
+        ('WYKONALNA',
+         "`parse_args` buduje parser czystym `argparse`, bez wejścia i wyjścia — zbiór `choices` da się odczytać z `parser._actions`"),
+    ('tools/tests/test_schedule_envelope.py',
+     'test_odwzorowanie_wariantu_na_parametr_ma_jedno_zrodlo_i_odrzuca_obce',
+     'in', 'choices=sorted(PARAMETR_MASY)'):
+        ('WYKONALNA',
+         "`parse_args` buduje parser czystym `argparse`, bez wejścia i wyjścia — zbiór `choices` da się odczytać z `parser._actions`"),
+    ('tools/tests/test_tree_walks.py',
+     'test_klasa_POZA_SKANEM_mowi_o_granicy_przyrzadu_a_nie_o_zapadce',
+     'in', 'for field, floor in MIN_PATHS.items()'):
+        ('STRUKTURALNA',
+         "pilnuje porównania przez zmienną pętli, czyli tego, czego skan z definicji nie widzi; wynik zachowaniowy stoi już wiersz wyżej"),
+    ('tools/tests/test_visual_identical_pixels.py',
+     'test_capture_blender_wpisuje_sume_pikseli_obok_sumy_pliku',
+     'in', 'record["sha256"] = sha256(path)'):
+        ('KOSZTOWNA',
+         "wpis do manifestu powstaje w `main()` modułu z `import bpy` — tylko po renderze"),
+    ('tools/tests/test_visual_identical_pixels.py',
+     'test_capture_blender_wpisuje_sume_pikseli_obok_sumy_pliku',
+     'in', 'record["idat_sha256"] = idat_sha256(path)'):
+        ('KOSZTOWNA',
+         "to samo dla drugiej sumy — obie liczby są zachowaniem, ale wyłącznie przez Blendera"),
+    ('tools/tests/test_visual_identical_pixels.py',
+     'test_narzedzie_sumy_pikseli_jest_wolane_a_nie_przepisane',
+     'in', 'png_pixels_sha256'):
+        ('STRUKTURALNA',
+         "żąda IMPORTU wspólnej funkcji; wierna kopia dawałaby tę samą sumę, a wynik jest już porównany osobno"),
+    ('tools/tests/test_visual_identical_pixels.py',
+     'test_narzedzie_sumy_pikseli_jest_wolane_a_nie_przepisane',
+     'not in', 'def idat_sha256(path):\n    digest'):
+        ('STRUKTURALNA',
+         "negatyw tego samego: zakaz przepisanej implementacji — czysto kształtowy, bo kopia i wywołanie zwracają tę samą sumę"),
+}
+
+
+#: Rozkład klas, zmierzony 13.09.2026 czytaniem każdej z osobna — asercji, jej otoczenia
+#: i modułu, którego źródło jest czytane.
+#:
+#: **WYKONALNA** — zachowanie da się wywołać tanio: moduł ten napis wypisuje, zwraca go
+#: z funkcji, albo wartość da się odczytać importem zamiast czytaniem tekstu.
+#: **STRUKTURALNA** — bramka pilnuje KSZTAŁTU kodu, nie zachowania („moduł X woła
+#: pomocnika Y", „nie ma importu Z"). Tego przez wywołanie nie widać z definicji: dwa
+#: różne kształty dają to samo zachowanie i **o to właśnie chodzi**.
+#: **KOSZTOWNA** — zachowanie istnieje, ale wymaga Blendera, podprocesu w innym trybie
+#: interpretera albo pełnego przebiegu.
+#: **STRUKTURALNA_AST** — osobno, bo to NIE JEST szukanie napisu: prawa strona jest
+#: zbiorem zbudowanym z `ast`, a nie tekstem. Trzecia droga, której pozycja nie
+#: przewidywała, a drzewo już jej używa.
+#: **NIE_Z_TEJ_RODZINY** — wpis, który do listy trafił omyłkowo i zostaje na niej
+#: z zapisanym powodem, żeby następny pomiar go nie policzył drugi raz.
+KLAS_W_LISCIE = {
+    "WYKONALNA": 12,
+    "STRUKTURALNA": 9,
+    "STRUKTURALNA_AST": 2,
+    "KOSZTOWNA": 7,
+    "NIE_Z_TEJ_RODZINY": 1,
+}
+
+#: **Koszt zamiany „napis → przebieg w podprocesie", zmierzony, bo pozycja żądała liczby
+#: z pomiaru, a nie z zasady.** Trzy próby wywołania `test_all.py test_lod_paths.py`
+#: w podprocesie: 0,090 / 0,087 / 0,085 s, średnio **0,087 s**.
+#:
+#: Zapas do progu czasu ściany wynosi 150,0 − 116,404 = **33,596 s**, czyli takich zamian
+#: mieści się **386**, a wszystkie 12 wykonalnych kosztowałoby **1,0 s** — 3 % zapasu.
+#: Ograniczenie, o którym mówi pozycja, więc ISTNIEJE, ale nie wiąże.
+#:
+#: **ZASTRZEŻENIE, które sam stawiam przeciwko tej liczbie:** 0,087 s zmierzyłem
+#: w KONTENERZE, a próg jest skalibrowany na RUNNERZE. Dokładanie kosztu z jednej maszyny
+#: do zapasu z drugiej jest dokładnie tym mieszaniem, przed którym 6.D135 i 6.D149
+#: postawiły podłogę mierzalności. Wniosek przeżywa to wyłącznie dlatego, że zapas jest
+#: **trzydziestokrotny** wobec kosztu wszystkich dwunastu — przy zapasie ciasnym liczby
+#: trzeba by zmierzyć na runnerze.
+KOSZT_PODPROCESU_S = 0.087
+
+
+def czlony_napisowe(wezel):
+    """Człony `literał napisowy in/not in coś` w jednej asercji. `[(operator, literał)]`.
+
+    Rozkłada `and`/`or` i `not`, bo asercja z dwoma członami pilnuje dwóch rzeczy i liczy
+    się dwa razy — inaczej liczba mówiłaby o składni, a nie o tym, ile jest pilnowane.
+    """
+    czlony, stos = [], [wezel.test]
+    while stos:
+        x = stos.pop()
+        if isinstance(x, ast.BoolOp):
+            stos.extend(x.values)
+        elif isinstance(x, ast.UnaryOp) and isinstance(x.op, ast.Not):
+            stos.append(x.operand)
+        else:
+            czlony.append(x)
+    out = []
+    for x in czlony:
+        if (isinstance(x, ast.Compare) and len(x.ops) == 1
+                and isinstance(x.ops[0], (ast.In, ast.NotIn))
+                and isinstance(x.left, ast.Constant)
+                and isinstance(x.left.value, str)
+                and not isinstance(x.comparators[0], ast.Constant)):
+            out.append(("not in" if isinstance(x.ops[0], ast.NotIn) else "in",
+                        x.left.value))
+    return out
+
+
+def asercje_napisowe():
+    """`[(plik, funkcja, operator, literał)]` — wszystkie pod `tools/tests/`.
+
+    Przez `tree_walk.walk`, bo to jedyne przejście honorujące `.gitignore`.
+    """
+    import tree_walk as tw
+
+    katalog = os.path.join(ROOT, "tools", "tests")
+    out = []
+    for baza, _kat, pliki in tw.walk(katalog):
+        for plik in sorted(pliki):
+            if not plik.endswith(".py"):
+                continue
+            sciezka = os.path.join(baza, plik)
+            with open(sciezka, encoding="utf-8") as uchwyt:
+                try:
+                    drzewo = ast.parse(uchwyt.read())
+                except SyntaxError:
+                    continue
+            wzgledna = os.path.relpath(sciezka, ROOT).replace(os.sep, "/")
+            for funkcja in (n for n in ast.walk(drzewo)
+                            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))):
+                for wezel in ast.walk(funkcja):
+                    if not isinstance(wezel, ast.Assert):
+                        continue
+                    for operator, literal in czlony_napisowe(wezel):
+                        out.append((wzgledna, funkcja.name, operator, literal))
+    return out
+
+
+def test_czytnik_asercji_napisowych_WIDZI_to_co_ma_widziec():
+    """Kontrola PRZYRZĄDU: bez niej liczba 849 nie znaczy nic (rodzina 6.D159).
+
+    Czytnik, który nie rozkłada `and`, policzyłby asercję o dwóch członach raz — i nikt
+    by tego nie zobaczył, bo wynikiem jest liczba, a nie lista. Wejście jest zbudowane
+    na tę okazję i wymienia wprost, co ma być widziane, a co ma milczeć.
+    """
+    widziane = {
+        'assert "a" in x': [("in", "a")],
+        'assert "a" not in x': [("not in", "a")],
+        'assert "a" in x and "b" not in y': [("in", "a"), ("not in", "b")],
+        'assert not ("a" in x)': [("in", "a")],
+        'assert "a" in f(z), "powod"': [("in", "a")],
+    }
+    for zrodlo, spodziewane in sorted(widziane.items()):
+        wezel = ast.parse(zrodlo).body[0]
+        dostane = czlony_napisowe(wezel)
+        assert sorted(dostane) == sorted(spodziewane), (
+            "czytnik na %r dał %s zamiast %s — asercja o dwóch członach policzona raz "
+            "znika w liczbie bez śladu" % (zrodlo, dostane, spodziewane))
+
+    for milczy in ('assert "a" in "abc"',        # prawa strona też literałem
+                   'assert x in y',              # lewa nie jest literałem
+                   'assert "a" == x',            # nie `in`
+                   'assert 5 in x'):             # literał, ale nie napisowy
+        assert czlony_napisowe(ast.parse(milczy).body[0]) == [], (
+            "czytnik zapalił się na %r — wtedy 849 opisuje co innego, niż mówi" % milczy)
+
+
+def test_ile_bramek_stoi_na_NAPISIE_a_nie_na_ZACHOWANIU():
+    """ODPOWIEDŹ 6.D195: 849 asercji tego kształtu, 31 na źródle `.py`, 12 wykonalnych.
+
+    **Liczba 849 jest strażnikiem listy, a nie ozdobą.** Lista niżej jest ręczna, bo
+    automat na niej myli się w obie strony (136 fałszywych trafień i 9 przeoczeń na 31).
+    Gdyby stała sama, trzydziesta druga bramka na źródle weszłaby po cichu — tego pilnuje
+    właśnie równość na 849.
+    """
+    wszystkie = asercje_napisowe()
+    assert len(wszystkie) == ASERCJI_NAPISOWYCH_RAZEM, (
+        "asercji kształtu `literał in coś` jest %d przy zapadce %d — jeśli doszła, "
+        "rozstrzygnij, czy stoi na NAPISIE czy na ZACHOWANIU, i dopisz do listy albo "
+        "podnieś liczbę z powodem" % (len(wszystkie), ASERCJI_NAPISOWYCH_RAZEM))
+
+    import collections
+    rozklad = collections.Counter(k for k, _p in NA_ZRODLE_PY.values())
+    assert dict(rozklad) == KLAS_W_LISCIE, (
+        "rozkład klas na liście to %s, a zmierzony 13.09.2026 był %s"
+        % (dict(rozklad), KLAS_W_LISCIE))
+    assert sum(KLAS_W_LISCIE.values()) == len(NA_ZRODLE_PY), (
+        "klasy sumują się do %d przy %d wpisach — któraś liczba opisuje co innego, "
+        "niż mówi" % (sum(KLAS_W_LISCIE.values()), len(NA_ZRODLE_PY)))
+
+    # KAŻDY wpis listy ma się w drzewie ZNALEŹĆ, i to jest ta połowa, bez której lista
+    # opisywałaby wczorajsze drzewo. Kotwica bez numeru wiersza, bo numer się przesuwa.
+    obecne = set(wszystkie)
+    sprawdzonych = 0
+    for kotwica, (klasa, powod) in sorted(NA_ZRODLE_PY.items()):
+        assert kotwica in obecne, (
+            "wpis listy 6.D195 wskazuje asercję, której w drzewie już nie ma: %r — "
+            "albo bramkę zamieniono na zachowanie (wtedy zdejmij wpis i obniż klasę), "
+            "albo przepisano literał" % (kotwica,))
+        assert klasa in KLAS_W_LISCIE, (kotwica, klasa)
+        assert len(powod) > 60, (
+            "powód przy %r ma %d znaków — za mało, żeby powiedzieć, DLACZEGO ta bramka "
+            "stoi na napisie" % (kotwica, len(powod)))
+        sprawdzonych += 1
+
+    assert sprawdzonych == len(NA_ZRODLE_PY), (
+        "pętla listy wykonała %d obrotów przy %d wpisach — pusta pętla przechodzi każdą "
+        "asercję w środku (zmierzone przy 6.D193)"
+        % (sprawdzonych, len(NA_ZRODLE_PY)))
+
+
+def test_zamiana_wszystkich_WYKONALNYCH_miesci_sie_w_progu_czasu():
+    """ODPOWIEDŹ 6.D195 na pytanie o KOSZT — wykonana, a nie opowiedziana.
+
+    Pozycja żądała, żeby liczba możliwych zamian wyszła **z pomiaru, nie z zasady**.
+    Wyszła: 0,087 s na zamianę wobec zapasu do progu, czyli mieści się ich kilkaset przy
+    dwunastu kandydatach. **Ta bramka wykonuje tę nierówność**, zamiast ją cytować —
+    inaczej `KOSZT_PODPROCESU_S` byłby liczbą, której nikt nie czyta, a zdanie „koszt się
+    mieści" zestarzałoby się cicho przy pierwszym podniesieniu progu albo maksimum.
+
+    **Granica tej liczby stoi przy samej stałej i jest ważniejsza od niej:** koszt
+    zmierzono w kontenerze, a próg jest skalibrowany na runnerze. Nierówność niżej ma
+    więc **dziesięciokrotny margines żądany wprost**, żeby nie rozstrzygała o niczym
+    w zakresie, w którym mieszanie maszyn mogłoby zmienić wynik.
+    """
+    import test_suite_runtime_budget as B
+
+    zapas = B.SUITE_RUNTIME_BUDGET_S - B.MEASURED_MAX_WALL_S
+    assert zapas > 0, (
+        "zapas do progu jest niedodatni (%.3f s) — wtedy zdanie o koszcie zamian nie ma "
+        "o czym mówić, a próg trzeba przeliczyć przed tą pozycją" % zapas)
+
+    wykonalnych = sum(1 for klasa, _p in NA_ZRODLE_PY.values() if klasa == "WYKONALNA")
+    assert wykonalnych == KLAS_W_LISCIE["WYKONALNA"], (wykonalnych, KLAS_W_LISCIE)
+
+    koszt_wszystkich = wykonalnych * KOSZT_PODPROCESU_S
+    assert koszt_wszystkich * 10 < zapas, (
+        "zamiana wszystkich %d wykonalnych kosztowałaby %.3f s przy zapasie %.3f s — "
+        "margines zszedł poniżej dziesięciokrotnego, a koszt zmierzono w KONTENERZE przy "
+        "progu skalibrowanym na RUNNERZE. W tym zakresie liczby przestają być "
+        "porównywalne (6.D135, 6.D149) i trzeba je zmierzyć na runnerze"
+        % (wykonalnych, koszt_wszystkich, zapas))
+
+
 if __name__ == "__main__":
     import test_all
     raise SystemExit(test_all.main(__file__))
