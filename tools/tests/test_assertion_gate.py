@@ -1198,7 +1198,7 @@ RODZINA_UBEZPIECZENIA = re.compile(
 #: Ile zdań rodziny stoi w `tools/tests/`. Zapadka RÓWNOŚCIOWA, nie minimum:
 #: dopisanie zdania ma zmusić do rozstrzygnięcia, czy niesie pokrycie, a nie
 #: przejść samo.
-ZDAN_RODZINY_RAZEM = 18
+ZDAN_RODZINY_RAZEM = 19
 
 #: **Wszystkie osiemnaście, przeczytane po kolei 13.09.2026, w DWÓCH workach** —
 #: `(plik, zakres) -> powód`. Podział jest ręczny i to jest wybór z pomiaru, nie
@@ -1242,6 +1242,13 @@ Z_WEJSCIEM_SYNTETYCZNYM = {
 #: zielona kontrola ma w tym drzewie PIĘĆ różnych losów, a pole „Wyjście" pozycji
 #: zakładało dwa (deklaracja albo wejście syntetyczne).
 BEZ_WEJSCIA_SYNTETYCZNEGO = {
+    ("tools/tests/test_conflict_markers.py",
+     "test_gita_o_liste_plikow_pyta_DOKLADNIE_tyle_modulow_ile_wymieniono"):
+        "DOPISANE 13.09.2026 przy 6.D165, i ta bramka je z\u0142apa\u0142a nazajutrz po "
+        "powstaniu: warto\u015b\u0107 wartowni chroni\u0105cej przed podw\u00f3jnym wypisem nie da si\u0119 "
+        "sprawdzi\u0107 przy wywo\u0142aniu z jednym nazwanym modu\u0142em, bo `_discover` nie "
+        "\u0142aduje wtedy `test_all.py` drugi raz — KN-5 tamtej pozycji wysz\u0142a zielona, "
+        "wi\u0119c asercji na liczb\u0119 wyst\u0105pie\u0144 NIE MA zamiast udawanej",
     ("tools/tests/mutation_sweep.py", "zapisz_pokrycie"):
         "UBEZPIECZENIE przyjęte świadomie: zepsucia pliku docelowego nie udało się "
         "odtworzyć w pięciu próbach, więc wejścia nie ma z czego zrobić",
@@ -1276,7 +1283,7 @@ BEZ_WEJSCIA_SYNTETYCZNEGO = {
 
 #: Ile stoi bez wejścia syntetycznego. Przybite osobno od długości słownika, żeby
 #: skreślenie wpisu nie przeszło po cichu.
-ZDAN_BEZ_POKRYCIA = 9
+ZDAN_BEZ_POKRYCIA = 10
 
 
 def _moduly_do_skanu_rodziny():

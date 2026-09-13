@@ -12,6 +12,54 @@ import tree_walk as TW
 # nazwą `test_all__mierzony`, więc bez tej wartowni czyszczenie i wypis powtórzyłyby
 # się w środku przebiegu — kasując bajtkod, który właśnie powstał, i mówiąc o tym
 # drugi raz. Znacznik siedzi na `sys`, bo musi przeżyć import pod inną nazwą.
+# --- 6.D165: ile plikow drzewa roboczego lezy POZA zasiegiem bramek czytajacych gita
+#
+# **Po co ten wypis.** Dwie bramki (`test_conflict_markers.py`, `test_runner_options.py`)
+# pytaja o liste plikow `git ls-files`, czyli widza wylacznie to, co jest w INDEKSIE.
+# Wybor jest sluszny — pilnowane ma byc to, co moze trafic do `main`, a nie `build/`
+# ani katalogi sond — ale do 6.D165 przebieg o tym MILCZAL. Zielony wynik znaczyl wiec
+# co innego przed `git add` i po nim, a roznicy nie bylo widac: 12.09.2026 szesc plikow
+# jeszcze nie dodanych do indeksu dalo lokalnie 2387/2387 i kod 0, po czym na CI poszlo
+# siedem czerwonych jobow naraz (PR #548). To ta sama rodzina, co 6.D27 — przyrzad
+# melduje sprawdzenie drzewa, ktorego w tym ksztalcie nie bylo.
+#
+# Wypis NIE jest bramka i nie zmienia kodu wyjscia: liczba wieksza od zera nie znaczy
+# bledu, tylko „tyle plikow ten przebieg pominal". Ocena nalezy do czytajacego.
+def poza_zasiegiem_git_ls_files(korzen=None):
+    """`(ile, powod)` — pliki drzewa roboczego, ktorych `git ls-files` NIE widzi.
+
+    `ile` jest `None`, gdy nie dalo sie zapytac gita, a `powod` mowi dlaczego —
+    **zadeklarowana niewiedza zamiast cichego zera**. Zero wypisane przy zepsutym
+    wywolaniu wygladaloby dokladnie tak samo jak zero przy czystym drzewie, czyli
+    bylby to kolejny przyrzad meldujacy sprawdzenie, ktorego nie zrobil.
+
+    `korzen` jest parametrem, bo inaczej tej funkcji nie da sie sprawdzic: dzisiejsze
+    drzewo repozytorium ma zero plikow niesledzonych, wiec na nim funkcja zwracajaca
+    zawsze zero byla by nie do odroznienia od dzialajacej (kontrola przyrzadu
+    w `test_conflict_markers.py` wola ja na wlasnym repozytorium probnym).
+    """
+    import subprocess
+    try:
+        wypis = subprocess.run(
+            ["git", "ls-files", "--others", "--exclude-standard"],
+            cwd=korzen or ROOT, capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError) as blad:
+        return None, "nie udalo sie zapytac gita: %s" % blad
+    if wypis.returncode != 0:
+        return None, "git zwrocil kod %d" % wypis.returncode
+    return len([w for w in wypis.stdout.splitlines() if w.strip()]), ""
+
+
+if not getattr(sys,"_metro_drzewo_policzone",None):
+    sys._metro_drzewo_policzone=True
+    _ile,_powod=poza_zasiegiem_git_ls_files()
+    if _ile is None:
+        print("  [DRZEWO] nie wiadomo, ile plikow lezy poza zasiegiem bramek "
+              "czytajacych `git ls-files` (%s) — 6.D165" % _powod)
+    else:
+        print("  [DRZEWO] %d plikow drzewa roboczego poza zasiegiem bramek "
+              "czytajacych `git ls-files` — 6.D165" % _ile)
+
 if not getattr(sys,"_metro_bajtkod_wyczyszczony",None):
     sys._metro_bajtkod_wyczyszczony=TW.wyczysc_bajtkod()
     print("  [BAJTKOD] wyczyszczono %d kat. __pycache__ (%d plikow) pod tools/ — 6.D122"
