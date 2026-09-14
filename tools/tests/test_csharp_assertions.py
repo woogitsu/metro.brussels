@@ -394,9 +394,21 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 #: **2962 -> 2963 (14.09.2026, MB-07).** Bilans trzech przepisanych testów
 #: `LineCoreTests.cs`, które przypinały ZATOR: asercji przybyło o jedną netto,
 #: a `Z_KOMUNIKATEM_RAZEM` nie drgnęło, bo wszystkie mają komunikat.
-Z_KOMUNIKATEM_RAZEM = 1519
+#: **1519 -> 1644 (14.09.2026, MB-08).** Sto dwadzieścia pięć asercji w trzech nowych
+#: plikach testowych (`ManualDoorsTests`, `ManualDoorsOnLineTests`, `DoorPromptTests`)
+#: i w bramce leksykalnej `HandleTrainKeysGateTests` — **wszystkie z komunikatem**,
+#: `BEZ_KOMUNIKATU_RAZEM` i `NIEROZSTRZYGNIETYCH` nie drgnęły. Ale nie od razu:
+#: `test_lista_asercji_C_bez_komunikatu_moze_tylko_malec` zapaliła się na **54**
+#: asercjach bez komunikatu (4 + 15 + 35) i komunikaty zostały DOPISANE, a pliki nie
+#: trafiły na listę wyjątków. Ta sama pomyłka co przy MB-06, o rząd wielkości większa,
+#: i z tego samego powodu: pisząc nowy plik testowy łatwo przyjąć, że komunikat jest
+#: potrzebny tylko tam, gdzie asercja „może być niejasna".
+Z_KOMUNIKATEM_RAZEM = 1644
 NIEROZSTRZYGNIETYCH = 68
-ASERCJI_RAZEM = 2966
+# 2966 -> 3091 (14.09.2026, MB-08): trzy nowe pliki testowe — `ManualDoorsTests`,
+# `ManualDoorsOnLineTests` i `DoorPromptTests` — plus bramka leksykalna
+# `HandleTrainKeysGateTests`. Liczba PRZELICZONA przebiegiem.
+ASERCJI_RAZEM = 3091
 
 
 def _rozklad():

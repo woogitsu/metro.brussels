@@ -269,6 +269,12 @@ MAX_GAME_JUSTIFIED_NEEDLES = 4
 #: CALA liste argumentow, ktorych `igly()` z definicji nie liczy, bo liczy wylacznie
 #: `Contains` w `Assert.IsTrue` i `StringAssert.Contains`. Zapadka mowi wiec prawde:
 #: igiel jest mniej, a bramka jest mocniejsza.
+# ZOSTAJE NA 48 (14.09.2026, MB-08) — i jest to WYNIK, a nie brak zmiany.
+# Katalog dostał zdanie `drzwi są już otwarte`, więc igła `otwarte` z wejścia
+# SYNTETYCZNEGO zaczęła pasować do dwóch komunikatów `src/Game/` naraz. Zapadkę
+# dałoby się wtedy obniżyć do 47 i byłoby to załatanie objawu: igła nie zaczęła
+# mierzyć drzewa, tylko przestała być syntetyczna. Poprawione po stronie TESTU
+# (`otwarte` -> `rozsunięte`), a nie po stronie tej liczby.
 MAX_GAME_UNMATCHED_NEEDLES = 48
 
 #: Progi KW. Literowka we wzorcu daje zero dopasowan i caly modul zielony; te trzy

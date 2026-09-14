@@ -377,7 +377,10 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 #: i 6.D149; trzeci — z rzeczy, która zdarzyła się TRZY RAZY POD RZĄD w tych samych
 #: trzech pozycjach i dopiero przez powtórzenie dała się zobaczyć.
 #: Wartość z `len(detail_sections(...))` po edycji, nie z dodania trójki do 231.
-MINIMUM_DETAIL_BLOCKS = 283
+# 283 -> 285 (14.09.2026, MB-08): 6.M1 (`--replay` nie działa z `--line`)
+# i 6.M2 (jednostronne okno zatrzymania w `LineDrive`) — oba znaleziska POBOCZNE
+# z MB-08, zapisane tak, jak każe `CLAUDE.md` §8 przy aktywnym kamieniu milowym.
+MINIMUM_DETAIL_BLOCKS = 285
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je

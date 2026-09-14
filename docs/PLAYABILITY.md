@@ -103,11 +103,23 @@ są prawdziwe i mówią o czym innym.
 | 4 | **MB-04** paczka i playtest | **ZROBIONE 14.09.2026** — M1 bez środowiska developerskiego; odbiór Windows x64 **niewykonany i tak oznaczony** | MB-03 |
 | 5 | **MB-05** integracja kanonicznej kabiny | **ZROBIONE 14.09.2026** co do litery pola „Skończone, gdy"; **ściany kabiny są PYTANIEM OTWARTYM** — zasób ich nie ma, a skorupa jest w tym widoku chowana | MB-03 |
 | 6 | **MB-06** wspólne źródło komend AI/gracza | **ZROBIONE 14.09.2026** — przejęcie w rdzeniu; bez komend gracza ślad linii ma tę samą sumę MD5 co przed zmianą | M1 |
-| 7 | **MB-07** wiele widoków i take/release | działająca linia widoczna w grze | MB-06 |
-| 8 | **MB-08** ręczna obsługa drzwi i odbiór #26 | flow stop–drzwi–odjazd | MB-07 |
+| 7 | **MB-07** wiele widoków i take/release | **ZROBIONE 14.09.2026** (#604) — dwa składy w scenie, wybór obserwowanego, przejęcie i oddanie; skład, który dojechał, schodzi z planu | MB-06 |
+| 8 | **MB-08** ręczna obsługa drzwi i odbiór #26 | **ZROBIONE 14.09.2026** — flow stop–drzwi–odjazd działa; **strona peronu zapisana jako BRAK** (danych nie ma w `data/`, decyzja właściciela) | MB-07 |
 
 **M1 blokują MB-00–04.** Kabina (MB-05) jest wartościowa, ale **nie opóźnia** pierwszego
 testu kompletnej pętli. Największe ryzyko logiczne: **MB-02 i MB-06**.
+
+**Wiersze MB-07 i MB-08 dostały adnotację 14.09.2026, i MB-07 z opóźnieniem jednego
+commita — zapisuję to, zamiast poprawiać po cichu.** Commit MB-07 (`0ae0acf`) nie ruszył
+ani tego pliku, ani `docs/TASKS.md`, więc przez jedno scalenie obie tabele pokazywały
+domkniętą pozycję jako pracę do wzięcia. Dla reguły zapasu z `CLAUDE.md` §8 to nie jest
+kosmetyka: licznik `test_backlog.py` liczy pozycje **DO WZIĘCIA**, a pozycja zrobiona
+i nieoznaczona zawyża zapas o jeden — czyli dokładnie w tę stronę, przed którą ten
+licznik ma chronić.
+
+**Pasmo M jest domknięte: MB-00…MB-08 mają adnotacje.** Następny kamień milowy nie jest
+tu wpisany, bo jego zakres jest decyzją właściciela, a nie skutkiem ubocznym domknięcia
+poprzedniego.
 
 Terminów ten dokument nie podaje i podawać nie będzie: brakuje pomiaru eksportu,
 ręcznego playtestu i kosztu integracji `LineDrive`.

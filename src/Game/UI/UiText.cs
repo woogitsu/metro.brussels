@@ -112,6 +112,34 @@ public static class UiText
             ["hud.station.no-more"] = "brak dalszych stacji   {0}",
             ["hud.station.approach"] = "{0} za {1} m (okno ±{2} m){3}   {4}",
             ["hud.station.in-window"] = "  W OKNIE — zatrzymaj się",
+            // --- drzwi RĘCZNE (`FirstRun.StationLine`, `FirstRun.PodpowiedzDrzwi`) — MB-08 ---
+            // Trzeci wariant wiersza stacji, a nie czwarta dziura w dwóch istniejących.
+            // Postój ręczny nie ma pola „jeszcze N s" — długość fazy otwartej podaje
+            // człowiek i nikt jej nie zna z góry — więc szablon z tą dziurą musiałby
+            // wypisać w niej albo zero (nieprawda), albo `NaN` (napis dla programisty).
+            // Ta sama decyzja i ten sam powód, co przy dwóch wariantach wyżej (6.D99).
+            ["hud.station.doors-manual"] =
+                "DRZWI {0} (ręcznie)  {1}  błąd zatrzymania {2} m   obsłużone {3}",
+
+            // SYGNAŁ GOTOWOŚCI DO ODJAZDU z pola „Wyjście" MB-08 to pierwszy z tych
+            // trzech wpisów. Nie jest osobnym napisem obok fazy drzwi, bo byłby wtedy
+            // drugim źródłem prawdy o tej samej rzeczy: trakcja jest wolna DOKŁADNIE
+            // w fazie zamkniętej (`DoorCycle.TractionAllowed`), więc gotowość do odjazdu
+            // jest zdaniem o fazie, a nie dodatkowym stanem.
+            ["hud.doors.ready"] = "D otwiera drzwi   trakcja WOLNA — można odjechać",
+            ["hud.doors.prompt-close"] = "F zamyka drzwi",
+            ["hud.doors.working"] = "skrzydła w ruchu — trakcja ZABLOKOWANA",
+            ["hud.doors.refused"] = "ODMOWA: {0}",
+
+            // Powody odmowy wchodzą tu dziurą z `FirstRun.PowodOdmowy`, tak samo jak
+            // nazwy faz z `FirstRun.Faza` — bo `DoorRefusal` jest wyliczeniem RDZENIA,
+            // a rdzeń nie pisze na ekran gracza.
+            ["hud.doors.refusal.automatic"] = "drzwiami steruje automat",
+            ["hud.doors.refusal.moving"] = "skład jest w ruchu",
+            ["hud.doors.refusal.outside"] = "skład stoi poza peronem",
+            ["hud.doors.refusal.already-open"] = "drzwi są już otwarte",
+            ["hud.doors.refusal.not-open"] = "drzwi nie są otwarte",
+
             ["hud.traction.free"] = "trakcja WOLNA",
             ["hud.traction.locked"] = "trakcja ZABLOKOWANA",
 
@@ -152,6 +180,10 @@ public static class UiText
             ["input.train-next"] = "następny skład",
             ["input.train-take"] = "przejmij",
             ["input.train-release"] = "oddaj",
+
+            // MB-08. Tak samo krótkie i z tego samego powodu.
+            ["input.door-open"] = "otwórz drzwi",
+            ["input.door-close"] = "zamknij drzwi",
             ["help.core-drives"] = "prowadzi rdzeń: {0} nie działają",
 
             // --- hamulec awaryjny (`EmergencyBrake`) — 6.D99 ----------------------

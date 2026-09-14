@@ -173,8 +173,13 @@ public sealed class UiTextTests
     /// </summary>
     // MB-07 dokłada do korpusu bramki `N`, `O` i `T` — nazwy trzech klawiszy obsługi
     // linii. Zbiór, nie liczba, więc wpisane są nazwy, a nie licznik.
+    // MB-08 dokłada `D` i `F` — drzwi na postoju ręcznym. Wniosek akapitu o ryzyku
+    // przy `NazwyKlawiszySilnika` zostaje w mocy i to jest sprawdzone, a nie założone:
+    // obie są JEDNOLITEROWE, więc `WzorzecSlowa` (dwie litery pod rząd) ich nie zgłasza
+    // i kolizja pozostaje nieosiągalna ze względu strukturalnego. Druga połowa tego
+    // testu nadal mierzy, że różnicę robi mechanizm, a nie zanik pilnowania.
     private static readonly string[] NazwyKlawiszyWZasieguBramki =
-        { "C", "F1", "F2", "N", "O", "R", "S", "T", "W", "X" };
+        { "C", "D", "F", "F1", "F2", "N", "O", "R", "S", "T", "W", "X" };
 
     /// <summary>
     /// Nazwy klawiszy widoczne dopiero SZERZEJ niż bramka — 6.D153.
@@ -207,7 +212,10 @@ public sealed class UiTextTests
     // przebiegiem, a nie wyprowadzona z liczby dopisanych wierszy.
     // 543 -> 557 (14.09.2026, MB-07): trzy klawisze obsługi linii (N/T/O), wiersz
     // `[TUNEL koniec]` i komunikaty zakresu `--trains`. Liczba PRZELICZONA przebiegiem.
-    private const int LiteralowWZasieguBramki = 557;
+    // 557 -> 573 (14.09.2026, MB-08): dwa klawisze drzwi (D/F) z ich kluczami,
+    // trzeci wariant wiersza stacji, podpowiedź drzwi i pięć powodów odmowy.
+    // Liczba PRZELICZONA przebiegiem, a nie wyprowadzona z liczby dopisanych wierszy.
+    private const int LiteralowWZasieguBramki = 573;
 
     /// <summary>Ile różnych — dolne ostrze, zmierzone 12.09.2026.</summary>
     private const int RoznychLiteralowWZasieguBramki = 362;
@@ -1174,8 +1182,13 @@ public sealed class UiTextTests
         // MB-07: pod autopilotem doszły trzy klawisze, które DZIAŁAJĄ — wybór składu
         // i przejęcie. Stoją przed zdaniem o klawiszach przejętych przez rdzeń, bo
         // zdanie „prowadzi rdzeń: … nie działają" ma kończyć wiersz.
+        // MB-08: doszły `D` i `F`. Stoją po stronie DZIAŁAJĄCEJ, bo działają — `LineCore`
+        // odpowiada na nie ODMOWĄ z powodem, a nie milczeniem, więc wiersz pomocy nie
+        // obiecuje tu niczego, czego nie ma. Kolejność ta sama: zdanie o klawiszach
+        // przejętych przez rdzeń kończy wiersz.
         Assert.AreEqual(
             "C widok  ·  Esc wyjście  ·  N następny skład  ·  T przejmij  ·  O oddaj"
+            + "  ·  D otwórz drzwi  ·  F zamknij drzwi"
             + "  ·  prowadzi rdzeń: W, S, X, Spacja, R nie działają",
             DriverActions.HelpWhenTheCoreDrives,
             "wiersz pomocy pod autopilotem rozjechał się z katalogiem");
@@ -1186,7 +1199,8 @@ public sealed class UiTextTests
         Assert.AreEqual(
             "W ciąg  ·  S hamulec  ·  X wybieg  ·  "
             + "Spacja hamulec awaryjny (= pełny służbowy)  ·  C widok  ·  Esc wyjście"
-            + "  ·  N następny skład  ·  T przejmij  ·  O oddaj",
+            + "  ·  N następny skład  ·  T przejmij  ·  O oddaj"
+            + "  ·  D otwórz drzwi  ·  F zamknij drzwi",
             DriverActions.HelpWhenTheDriverHasTaken,
             "wiersz pomocy dla składu przejętego rozjechał się z katalogiem");
 
@@ -1388,7 +1402,9 @@ public sealed class UiTextTests
     // przebiegiem, a nie wyprowadzona z liczby dopisanych wierszy.
     // 584 -> 598 (14.09.2026, MB-07): trzy klawisze obsługi linii (N/T/O), wiersz
     // `[TUNEL koniec]` i komunikaty zakresu `--trains`. Liczba PRZELICZONA przebiegiem.
-    private const int PozycjiStaregoCzytnika = 598;
+    // 598 -> 614 (14.09.2026, MB-08): ten sam korpus co wyżej, drugą drogą.
+    // Liczba PRZELICZONA przebiegiem.
+    private const int PozycjiStaregoCzytnika = 614;
 
     /// <summary>
     /// Ile PLIKÓW korpusu stary czytnik czytał inaczej niż leksykalny — 6.D182.
@@ -1665,6 +1681,13 @@ public sealed class UiTextTests
         ("station", "FirstRun.cs", "private static string Faza(DoorPhase phase)"),
         ("station", "FirstRun.cs", "private const string BladZatrzymaniaFormat ="),
 
+        // MB-08: podpowiedź drzwi ręcznych i nazwy powodów odmowy. Stoją w osobnym pliku
+        // BEZ GODOTA (powód w opisie `DoorPrompt`), więc skan musi wskazać je z nazwy —
+        // inaczej klucze `hud.doors.*` byłyby dla niego martwe, choć docierają na ekran
+        // tą samą drogą, co reszta wiersza stacji.
+        ("station", "UI/DoorPrompt.cs", "public static string For("),
+        ("station", "UI/DoorPrompt.cs", "public static string Reason("),
+
         ("signalling", "FirstRun.cs", "private string SignallingLine()"),
         ("signalling", "SignallingHud.cs", "public const string WithoutSignalling ="),
         ("signalling", "SignallingHud.cs", "public const string NotOnPlanYet ="),
@@ -1712,7 +1735,16 @@ public sealed class UiTextTests
     // i dwa człony komunikatu wyjątku z ramienia domyślnego `RunSummary.Naglowek`.
     // 94 -> 101 (14.09.2026, MB-07): trzy klawisze obsługi linii (N/T/O), wiersz
     // `[TUNEL koniec]` i komunikaty zakresu `--trains`. Liczba PRZELICZONA przebiegiem.
-    private const int LiteralowNaEkranie = 101;
+    // 101 -> 106 (14.09.2026, MB-08): klucz `hud.station.doors-manual` oraz dwa
+    // klawisze drzwi z katalogu (`D`, `input.door-open`, `F`, `input.door-close`).
+    // Klucze podpowiedzi i odmów NIE wchodzą: `PodpowiedzDrzwi` i `PowodOdmowy`
+    // nie stoją na mapie `ZrodlaHud`, a skan czyta ciała członów z tej mapy.
+    // Liczba PRZELICZONA przebiegiem.
+    // 106 -> 115 (14.09.2026, MB-08): dziewięć kluczy `DoorPrompt` — cztery
+    // podpowiedzi i pięć powodów odmowy. Weszły do skanu razem z dopisaniem
+    // tego pliku do mapy `ZrodlaHud`; bez tego dopisania byłyby dla bramki
+    // MARTWE, choć docierają na ekran. Liczba PRZELICZONA przebiegiem.
+    private const int LiteralowNaEkranie = 115;
 
     /// <summary>Ile z nich jest KLUCZEM katalogu, a nie tekstem — 6.D183.</summary>
     // 28 -> 36 (13.09.2026, MB-02): osiem kluczy `summary.*` panelu wyniku.
@@ -1720,7 +1752,9 @@ public sealed class UiTextTests
     // `hud.traction.*`. Drugi wariant wiersza prędkości doszedł po regresji znalezionej
     // przebiegiem CI — patrz `Tryb_BEZ_SUFITU_nie_pyta_o_sufit…`.
     // 41 -> 44 (14.09.2026, MB-07): przeliczone przebiegiem.
-    private const int KluczyKatalogunaEkranie = 44;
+    // 44 -> 47 (14.09.2026, MB-08): `hud.station.doors-manual`, `input.door-open`,
+    // `input.door-close`. Przeliczone przebiegiem.
+    private const int KluczyKatalogunaEkranie = 56;
 
     /// <summary>
     /// Ile literałów z tej drogi niesie SŁOWO w rozumieniu bramki — 6.D183.
@@ -2150,7 +2184,11 @@ public sealed class UiTextTests
     // przebiegiem, a nie wyprowadzona z liczby dopisanych wierszy.
     // 378 -> 381 (14.09.2026, MB-07): trzy klawisze obsługi linii (N/T/O), wiersz
     // `[TUNEL koniec]` i komunikaty zakresu `--trains`. Liczba PRZELICZONA przebiegiem.
-    private const int LiteralowDotknietychZdejmowaniem = 381;
+    // 381 -> 393 (14.09.2026, MB-08): większy korpus, ta sama mechanika.
+    // ROZSTRZYGNIĘCIE TEJ SEKCJI SIĘ NIE ZMIENIA i to jest sprawdzone poniżej,
+    // a nie założone: liczba WERDYKTÓW zmienionych przez zdejmowanie jednostek
+    // stoi na dwóch, więc nowe literały wchodzą pod mechanikę, a nie pod wyjątek.
+    private const int LiteralowDotknietychZdejmowaniem = 393;
 
     /// <summary>
     /// Ilu literałom zdejmowanie jednostek ZABIERA werdykt „to słowo" — 6.D155.
@@ -3427,11 +3465,19 @@ public sealed class UiTextTests
         // Druga strona, na wejściu SYNTETYCZNYM: tekst dla gracza schowany w dziurze
         // ZOSTAJE widziany, bo czytnik zwraca go osobno. Drzewo tego nie rozdziela —
         // nie ma dziś ani jednej dziury z polskim napisem w środku.
-        var zNapisem = SlowaWKodzie("var t = $\"stan: {(x ? \"otwarte\" : \"zamknięte\")}\";");
+        // SŁOWO JEST SYNTETYCZNE I MA TAKIE ZOSTAĆ — zmienione 14.09.2026 (MB-08)
+        // z „otwarte" na „rozsunięte". Powód jest pomiarem, nie gustem: katalog dostał
+        // wtedy wpis `hud.doors.refusal.already-open` („drzwi są już otwarte"), więc
+        // igła `otwarte` zaczęła pasować do DWÓCH komunikatów `src/Game/` naraz —
+        // tego i `hud.door.open`. `test_every_needle_matches_at_most_one_message…`
+        // złapało to natychmiast i miało rację: wejście syntetyczne, które przypadkiem
+        // równa się prawdziwemu napisowi z katalogu, przestaje być syntetyczne.
+        // Ten test nie pyta o TREŚĆ słowa, tylko o to, czy czytnik zwraca je OSOBNO.
+        var zNapisem = SlowaWKodzie("var t = $\"stan: {(x ? \"rozsunięte\" : \"zamknięte\")}\";");
         Assert.IsTrue(zNapisem.Count >= 2,
             "czytnik nie zwrócił osobno napisów schowanych w dziurze — zwrócił: "
             + string.Join(" | ", zNapisem));
-        Assert.IsTrue(zNapisem.Contains("otwarte", StringComparer.Ordinal),
+        Assert.IsTrue(zNapisem.Contains("rozsunięte", StringComparer.Ordinal),
             "napis dla gracza z wnętrza dziury nie stoi w korpusie osobno: "
             + string.Join(" | ", zNapisem));
     }
@@ -3529,19 +3575,36 @@ public sealed class UiTextTests
     //
     // Liczba zostaje OBOK zapadki na ramiona, a nie zamiast niej: mówi, ile switchy
     // po wyliczeniu jest, gdy tamta mówi, jak każdy z nich się zachowuje.
-    private const int SwitchyPoWyliczeniuWGame = 2;
+    // 2 -> 3 (14.09.2026, MB-08): `DoorPrompt.Reason`. Rozstrzygnięcie z MB-02
+    // zostaje nietknięte i to ono rozstrzyga o tym wpisie: uogólnieniem jest RAMIĘ
+    // DOMYŚLNE, nie liczba — a to ramię jest ciche świadomie i stoi z nazwy na liście
+    // milczków wyżej. Trzeci switch nie zakłada więc trzeciej rodziny: dołącza do tej,
+    // którą 6.D185 przybiło ręcznie.
+    private const int SwitchyPoWyliczeniuWGame = 3;
 
     // Switche po wyliczeniu, których ramię domyślne MILCZY zamiast rzucić — lista,
     // a nie liczba, bo to nazwy rozstrzygają, czy milczenie jest świadome.
     // `FirstRun.cs:phase` jest tu jedynym wpisem od 6.D185 i ma powód wypisany
     // w `FirstRun.Faza`: wyjątek w środku klatki przewróciłby przejazd, a angielska
     // nazwa członu na HUD jest widoczna i zgłaszalna.
-    private static readonly string[] SwitcheZCichymRamieniem = { "FirstRun.cs:phase" };
+    // MB-08 dokłada `DoorPrompt.cs:refusal` (`DoorPrompt.Reason`) i jest to DRUGI
+    // świadomy milczek w `src/Game/`, a nie poluzowanie listy. Powód ma ten sam, co
+    // pierwszy, i jest wypisany przy samej metodzie: `DoorRefusal` jest wyliczeniem
+    // RDZENIA, a rzucenie wyjątkiem w metodzie składającej wiersz HUD-u przewróciłoby
+    // klatkę zamiast pokazać graczowi, czego nie umie nazwać. Ramię domyślne oddaje
+    // angielską nazwę członu — widoczną i zgłaszalną, tak samo jak w `Faza`.
+    private static readonly string[] SwitcheZCichymRamieniem =
+        { "DoorPrompt.cs:refusal", "FirstRun.cs:phase" };
 
     // Wszystkie konstrukty `switch` w `src/Game/`, z rozstrzygnięciem. Liczba jest tu
     // DRUGA, bo „jeden po wyliczeniu" nie mówi nic o tym, ile ich jest w ogóle — a to
     // właśnie ta różnica pozwala odróżnić „skan nie znalazł" od „nie ma".
-    private const int SwitchyWGameRazem = 3;
+    // 3 -> 4 (14.09.2026, MB-08): `DoorPrompt.Reason` — tłumaczy wyliczenie RDZENIA
+    // (`DoorRefusal`) na napis z katalogu, ta sama robota i ten sam kształt, co
+    // `FirstRun.Faza`. Switchy jest CZTERY, a nie pięć, bo `DoorPrompt.For`
+    // świadomie nim NIE jest: gotowość do odjazdu pyta o `DoorCycle.TractionAllowed`,
+    // czyli o ten sam predykat, którym rdzeń zwalnia trakcję — powód przy tej metodzie.
+    private const int SwitchyWGameRazem = 4;
 
     // Postać instrukcyjna (`switch (x) { case …: default: }`) NIE WYSTĘPUJE w src/Game/
     // ani razu. Zero jest tu wypisane, bo skan, który tej postaci nie widzi, odpowiada
@@ -3742,13 +3805,31 @@ public sealed class UiTextTests
     // ten typ jest przypadkiem odwrotnym niż `TrainingEnding`: nowy typ bez nowej
     // dwuznaczności. Po obu ruchach zdanie prawdziwe brzmi: dwuznaczności nie
     // potrzebują nowych typów, a nowe typy nie muszą ich przynosić.
-    private const int WyliczenWSrc = 18;
+    // 18 -> 20 (14.09.2026, MB-08): `DoorControl` i `DoorRefusal`, oba w `src/Sim`.
+    // TRZECI ruch w trzy dni, więc zdanie o nieruchomości tej liczby zostaje
+    // skreślone tak samo, jak zostało po drugim.
+    private const int WyliczenWSrc = 20;
 
     // 22 -> 24 (13.09.2026, MB-02): `Ending` i `ending` z `TrainingEnding`.
     // 24 -> 25 (14.09.2026, MB-06): `Owner` z `ControlOwner`. JEDNA nazwa, a nie dwie
     // jak przy MB-02 — bo `LineCore` nie ma parametru `owner`; właściciel wchodzi
     // przez `TakeControl`/`ReleaseControl`, które biorą identyfikator składu.
-    private const int NazwPodWyliczeniem = 25;
+    // 25 -> 35 (14.09.2026, MB-08): DZIESIĘĆ nazw naraz, z dwóch nowych typów.
+    // `DoorControl` daje `Control`, `DoorControl`, `StopDoorControl`, `_control`
+    // i `control`; `DoorRefusal` daje `Refusal`, `_doorRefusal` i `refusal`; do tego
+    // `_manualPhase` pod `DoorPhase`.
+    //
+    // **TEZA 6.D198 ZOSTAJE OBALONA W TĘ STRONĘ, W KTÓRĄ ZOSTAŁA ZAWĘŻONA — i to
+    // jest tu treścią, a nie liczba.** Po MB-06 brzmiała: „dwuznaczności nie potrzebują
+    // nowych typów, a nowe typy nie muszą ich przynosić". Druga połowa tego zdania
+    // właśnie padła: dwa nowe typy przyniosły dziewięć nazw, czyli więcej niż wszystkie
+    // ruchy tej liczby razem wzięte od 02.09.2026. Różnica wobec `ControlOwner`
+    // (zero nazw) i `TrainingEnding` (dwie) jest strukturalna, a nie przypadkowa:
+    // tamte dwa typy są ODCZYTEM stanu, a te dwa są ARGUMENTEM i WYNIKIEM — tryb wchodzi
+    // konstruktorem i polem, a powód odmowy wraca z metody i ląduje w polu widoku.
+    // Typ, który podróżuje, dostaje nazwę w każdym miejscu, przez które przechodzi.
+    // …plus `powodOdmowy` z `DoorPrompt.For` — razem DZIESIĘĆ, nie dziewięć.
+    private const int NazwPodWyliczeniem = 35;
 
     // Nazwy, pod którymi w `src/` stoi i wartość wyliczenia, i wartość innego typu.
     // Lista, a nie liczba, bo to nazwy rozstrzygają, czy skan po nazwie wolno puścić
@@ -3983,15 +4064,28 @@ public sealed class UiTextTests
     // się go za rozkład.
     // 1 -> 2 (13.09.2026, MB-02): `panel.ToString()` w `RunSummary.Compose`.
     // Relacja `leksykalnie < surowo` zostaje (2 < 4) i to ona jest treścią tej sekcji.
-    private const int ToStringLeksykalnieWGame = 2;
+    // 2 -> 3 (14.09.2026, MB-08): `refusal.ToString()` w ramieniu domyślnym
+    // `DoorPrompt.Reason`. Relacja `leksykalnie < surowo` zostaje (3 < 6) i to ona
+    // jest treścią tej sekcji.
+    private const int ToStringLeksykalnieWGame = 3;
 
     // 3 -> 4 (13.09.2026, MB-02): `panel.ToString()` w `RunSummary.Compose` — to
     // `StringBuilder`, a nie wyliczenie, więc liczba „na wyliczeniu" zostaje na jednym.
-    private const int ToStringRegeksemPoSurowym = 5;
+    // 5 -> 6 (14.09.2026, MB-08): `refusal.ToString()` w ramieniu domyślnym
+    // `DoorPrompt.Reason` — to samo wyjście awaryjne i ten sam powód,
+    // co `phase.ToString()` w `FirstRun.Faza`.
+    private const int ToStringRegeksemPoSurowym = 6;
 
-    private const int ToStringNaWyliczeniuWGame = 1;
+    // 1 -> 2 (14.09.2026, MB-08): `refusal.ToString()` z ramienia domyślnego
+    // `DoorPrompt.Reason`. Oba wywołania na wyliczeniu w `src/Game/` są dziś tą samą
+    // konstrukcją w tej samej roli — wyjściem awaryjnym dla członu bez nazwy po polsku —
+    // więc liczba rośnie, a rodzina zostaje jedna.
+    private const int ToStringNaWyliczeniuWGame = 2;
 
-    private const int ToStringNaEkranieWGame = 1;
+    // 1 -> 2 (14.09.2026, MB-08): `DoorPrompt.Reason`. Zdanie o różnicy zostaje
+    // nietknięte i jest po tym ruchu MOCNIEJSZE, a nie słabsze: do logu i do telemetrii
+    // nadal nie idzie ANI JEDNO wywołanie na wyliczeniu, a oba, które są, idą na ekran.
+    private const int ToStringNaEkranieWGame = 2;
 
     // `.ToString(cośtam)` — postać, której skan bez argumentu NIE WIDZI. Jest jej
     // DWANAŚCIE razy więcej niż postaci badanej i **żadna nie stoi na wyliczeniu**:
@@ -4114,6 +4208,9 @@ public sealed class UiTextTests
 
         // DROGA WYNIKU, nazwana wprost dla każdego wywołania na wyliczeniu.
         // `FirstRun.Faza` — ramię domyślne, wynik idzie na HUD, czyli NA EKRAN.
+        // `DoorPrompt.Reason` (MB-08) — ramię domyślne, wynik wchodzi dziurą do
+        // `hud.doors.refused` i idzie tą samą drogą, czyli też NA EKRAN. Nazwanie drogi
+        // jest tym, czego żąda 6.D199, i odpowiedź brzmi: ta sama co przy `Faza`.
         var typy = new HashSet<string>(WyliczeniaZrodel().Keys, StringComparer.Ordinal);
         var nazwyWyliczen = new HashSet<string>(
             NazwyOTypieWyliczeniowym().Keys, StringComparer.Ordinal);
@@ -4124,14 +4221,22 @@ public sealed class UiTextTests
             $"wywołań na wartości typu wyliczeniowego jest {naWyliczeniu.Count}, "
             + $"a zmierzono {ToStringNaWyliczeniuWGame}: "
             + string.Join(", ", naWyliczeniu));
-        CollectionAssert.AreEqual(new List<string> { "FirstRun.cs:phase" }, naWyliczeniu,
-            "wywołanie na wyliczeniu stoi gdzie indziej niż `FirstRun.Faza` — a to "
-            + "jedyne miejsce, o którym 6.D185 wie, że idzie NA EKRAN. Nowe wymaga "
-            + "nazwania drogi: ekran, log czy telemetria (6.D199)");
+        CollectionAssert.AreEqual(
+            new List<string> { "FirstRun.cs:phase", "DoorPrompt.cs:refusal" }, naWyliczeniu,
+            "wywołanie na wyliczeniu stoi gdzie indziej niż `FirstRun.Faza` "
+            + "i `DoorPrompt.Reason` — a to jedyne dwa miejsca, o których wiadomo, "
+            + "że idą NA EKRAN. Nowe wymaga nazwania drogi: ekran, log czy "
+            + "telemetria (6.D199)");
 
         // NA EKRAN idzie to, co wraca z `Faza` do katalogu tekstów HUD-u. Sprawdzane
         // przez obecność w pliku, o którym 6.D185 wie, że jego wynik ląduje na HUD-zie.
-        var naEkranie = naWyliczeniu.Count(w => w.StartsWith("FirstRun.cs:", StringComparison.Ordinal));
+        // DWA pliki, a nie jeden — MB-08. `DoorPrompt.cs` stoi na mapie `ZrodlaHud`
+        // pod tym samym argumentem `station`, co `FirstRun.Faza`, więc jego wynik idzie
+        // na HUD tą samą drogą. Warunek na jeden plik odpowiedziałby dziś „jedno"
+        // i zdanie o różnicy między ekranem a telemetrią przestałoby być pomiarem.
+        var plikiNaEkran = new[] { "FirstRun.cs:", "DoorPrompt.cs:" };
+        var naEkranie = naWyliczeniu.Count(
+            w => plikiNaEkran.Any(p => w.StartsWith(p, StringComparison.Ordinal)));
         Assert.AreEqual(ToStringNaEkranieWGame, naEkranie,
             $"na drodze NA EKRAN stoi {naEkranie} wywołań, a zmierzono "
             + $"{ToStringNaEkranieWGame}. Do logu i do telemetrii nie idzie ANI JEDNO "

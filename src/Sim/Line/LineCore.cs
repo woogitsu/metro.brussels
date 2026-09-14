@@ -699,6 +699,50 @@ public sealed class LineCore
         train.DriverCommand = command;
     }
 
+    /// <summary>
+    /// Polecenie otwarcia drzwi składu <paramref name="trainId"/> (MB-08).
+    ///
+    /// <para><b>Odmowa, nie wyjątek — i to jest różnica wobec
+    /// <see cref="Drive(string, DriverCommand)"/>, a nie niekonsekwencja.</b> Dźwignia
+    /// podana nieprzejętemu składowi nie ma gdzie zadziałać i nie ma czym o tym
+    /// powiedzieć, więc musi rzucić. Polecenie drzwi ma własny kanał odpowiedzi:
+    /// <see cref="DoorRequestResult"/> niesie powód, który gracz zobaczy na ekranie.
+    /// Naciśnięcie klawisza w złej chwili jest zwykłym zdarzeniem w grze, a nie błędem
+    /// programu.</para>
+    /// </summary>
+    /// <param name="trainId">Identyfikator składu.</param>
+    /// <returns>Przyjęcie albo odmowa z powodem.</returns>
+    /// <exception cref="ArgumentException">Nie ma składu o tym identyfikatorze.</exception>
+    public DoorRequestResult RequestDoorOpen(string trainId) =>
+        DoorRequest(trainId, drive => drive.RequestDoorOpen());
+
+    /// <summary>Polecenie zamknięcia drzwi składu <paramref name="trainId"/> (MB-08).</summary>
+    /// <param name="trainId">Identyfikator składu.</param>
+    /// <returns>Przyjęcie albo odmowa z powodem.</returns>
+    /// <exception cref="ArgumentException">Nie ma składu o tym identyfikatorze.</exception>
+    public DoorRequestResult RequestDoorClose(string trainId) =>
+        DoorRequest(trainId, drive => drive.RequestDoorClose());
+
+    /// <summary>
+    /// Wspólna droga obu poleceń drzwi: te same dwie odmowy przed przekazaniem dalej.
+    ///
+    /// <para>Jedna metoda, bo dwie kopie tych samych warunków rozjechałyby się przy
+    /// pierwszym nowym powodzie odmowy — ta sama zasada, co przy nastawach `line`
+    /// w <c>Sim.Runner</c> (6.D44).</para>
+    /// </summary>
+    private DoorRequestResult DoorRequest(string trainId, Func<LineDrive, DoorRequestResult> request)
+    {
+        var train = Find(trainId);
+        if (train.Drive is null || train.LeftPlan)
+        {
+            return DoorRequestResult.Refused(DoorRefusal.OutsidePlatformWindow);
+        }
+
+        return train.Owner != ControlOwner.Driver
+            ? DoorRequestResult.Refused(DoorRefusal.AutomaticControl)
+            : request(train.Drive);
+    }
+
     /// <summary>Pojazd o zadanym identyfikatorze albo wyjątek z jego nazwą.</summary>
     private LineTrain Find(string trainId)
     {
@@ -882,6 +926,20 @@ public sealed class LineCore
             {
                 train.Drive.DriverInput = null;
             }
+
+            // TRYB DRZWI IDZIE ZA WŁAŚCICIELEM, ale wchodzi w życie dopiero przy
+            // ZAKŁADANIU postoju (MB-08). Człowiek u steru dostaje drzwi ręczne, autopilot
+            // automatyczne, i ta linijka jest jedynym miejscem, w którym tryb się zmienia.
+            //
+            // Stąd bierze się zdanie z pola „Weryfikacja" MB-08 — „take/release w czasie
+            // cyklu NIE RESETUJE drzwi": trwający postój trzyma swój tryb, bo
+            // `LineDrive.DoorControl` opisuje postój NASTĘPNY, nie bieżący.
+            //
+            // Przejazd bez ani jednego przejęcia ustawia tu zawsze `Automatic`, czyli
+            // dokładnie wartość domyślną — i dlatego ślad autopilota nie rusza się o bit.
+            train.Drive.DoorControl = train.Owner == ControlOwner.Driver
+                ? DoorControl.Manual
+                : DoorControl.Automatic;
 
             train.Drive.Step(trace is null ? null : point => trace(id, point));
             _signalling.MoveTrain(id, train.Drive.ChainageM);

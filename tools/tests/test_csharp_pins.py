@@ -37,6 +37,10 @@ PINY_GRY = {
     # miejscu zrodla, o ktore bramka pyta.
     "CabPlacementTests.cs": 6,
     "ChunkManifestTests.cs": 3,
+    # MB-08: dwa piny w `DoorPromptTests.cs` — wyjscie awaryjne ramienia
+    # domyslnego (`"99"`) i nazwa czlonu `None`, ktory NIE jest odmowa.
+    # Oba KATEGORII C: wartosc stoi w JEDNYM miejscu zrodla, w `DoorPrompt.Reason`.
+    "DoorPromptTests.cs": 2,
     "HudLayoutTests.cs": 1,
     "RunHeaderTests.cs": 1,
     "RunPlanTests.cs": 30,
@@ -119,11 +123,17 @@ KATEGORIE = {
         # Kotwica po NUMERZE WIERSZA płaci ten koszt przy każdej edycji powyżej siebie;
         # zamiana jej na kotwicę po TREŚCI jest pozycją w kolejce, a nie robotą po
         # drodze przy aktywnym kamieniu milowym (CLAUDE.md §8).
-        ("UiTextTests.cs", 1168), ("UiTextTests.cs", 1177), ("UiTextTests.cs", 1193),
+        # SIÓDMY ruch tych kotwic (MB-08, 14.09.2026): 1168/1177/1193 -> 1176/1189/1199.
+        # Tym razem przesunęły je DWIE rzeczy naraz — komentarz z powodem przy
+        # `LiteralowWZasieguBramki` (jak sześć razy wcześniej) ORAZ dopisane do pinów
+        # nowe człony wiersza pomocy (`D otwórz drzwi`, `F zamknij drzwi`), czyli po raz
+        # pierwszy zmieniła się także TREŚĆ dwóch z nich. Sprawdzone wypisem skanera,
+        # a nie liczeniem wierszy z ręki.
+        ("UiTextTests.cs", 1176), ("UiTextTests.cs", 1189), ("UiTextTests.cs", 1207),
         ("SignallingHudTests.cs", 37),
     },
     "B": {
-        ("UiTextTests.cs", 1262), ("UiTextTests.cs", 1263),
+        ("UiTextTests.cs", 1276), ("UiTextTests.cs", 1277),
     },
 }
 
@@ -137,7 +147,8 @@ KATEGORIE = {
 # w miejsce dwoch asercji `Contains`, ktore pytaly o pisownie tokenu, a nie o tresc
 # wyrazenia. Kategoria C, bo kazda z tych wartosci stoi w JEDNYM miejscu zrodla.
 # 52 -> 53 (14.09.2026, MB-07): pin wiersza pomocy dla składu przejętego.
-LICZBA_C = 53
+# 53 -> 55 (14.09.2026, MB-08): dwa piny `DoorPromptTests.cs`.
+LICZBA_C = 55
 
 
 def test_ile_pinow_stoi_w_testach_warstwy_gry():
@@ -149,10 +160,10 @@ def test_ile_pinow_stoi_w_testach_warstwy_gry():
         "— doszedł pin do skategoryzowania albo zniknął pin do zdjęcia"
         % (sorted(zmierzone.items()), sorted(PINY_GRY.items())))
 
-    assert sum(zmierzone.values()) == 59, (
-        "pinów warstwy gry jest %d, a pomiar z 14.09.2026 dał 59 "
+    assert sum(zmierzone.values()) == 61, (
+        "pinów warstwy gry jest %d, a pomiar z 14.09.2026 dał 61 "
         "(47 po 6.D155, 45 przed nim; +5 przy MB-03, +1 przy MB-05, "
-        "+5 przy audycie bramki MB-05 — zamiana `Contains` na porównania dokładne)"
+        "+5 przy audycie bramki MB-05, +2 przy MB-08 — `DoorPromptTests`)"
         % sum(zmierzone.values()))
 
     ile_rdzenia = len(CP.piny("tests/Sim.Tests"))
@@ -181,8 +192,8 @@ def test_kazdy_pin_ma_kategorie_i_suma_sie_zgadza():
     # ktora NIE jest przy okazji: stalo tu „nie sumują się do 47" przy warunku na 52,
     # czyli komunikat bledu podawal liczbe o piec mniejsza od tej, ktorej bramka
     # pilnowala. Kto by na niego trafil, szukalby rozbieznosci, ktorej nie ma.
-    assert len(KATEGORIE["A"]) + len(KATEGORIE["B"]) + LICZBA_C == 59, (
-        "kategorie nie sumują się do 53: A=%d, B=%d, C=%d"
+    assert len(KATEGORIE["A"]) + len(KATEGORIE["B"]) + LICZBA_C == 61, (
+        "kategorie nie sumują się do 61: A=%d, B=%d, C=%d"
         % (len(KATEGORIE["A"]), len(KATEGORIE["B"]), LICZBA_C))
 
 
@@ -203,10 +214,10 @@ def test_regula_po_ksztalcie_literalu_myli_sie_i_dlatego_jej_nie_ma():
                      if not regula.search(tresci[p])]
     zlapane_z_b = [p for p in sorted(KATEGORIE["B"]) if regula.search(tresci[p])]
 
-    assert przepuszczone == [("UiTextTests.cs", 1193)], (
+    assert przepuszczone == [("UiTextTests.cs", 1207)], (
         "reguła po kształcie przestała przepuszczać wiersz o hamulcu awaryjnym — "
         "rozstrzygnięcie 6.D131 wymaga przeliczenia: %s" % przepuszczone)
-    assert zlapane_z_b == [("UiTextTests.cs", 1263)], (
+    assert zlapane_z_b == [("UiTextTests.cs", 1277)], (
         "reguła po kształcie przestała łapić wejście syntetyczne: %s" % zlapane_z_b)
 
 
@@ -220,11 +231,11 @@ def test_czytnik_widzi_pin_takze_wtedy_gdy_literal_jest_sklejony():
     tresci = {(plik, wiersz): tresc
               for plik, wiersz, _r, tresc in CP.piny("tests/Game.Tests")}
 
-    assert len(tresci[("UiTextTests.cs", 1168)]) == 122, (
+    assert len(tresci[("UiTextTests.cs", 1176)]) == 122, (
         "sklejanie literałów przestało działać: %d znaków"
-        % len(tresci[("UiTextTests.cs", 1168)]))
-    assert len(tresci[("UiTextTests.cs", 1193)]) == 98, (
-        len(tresci[("UiTextTests.cs", 1193)]))
+        % len(tresci[("UiTextTests.cs", 1176)]))
+    assert len(tresci[("UiTextTests.cs", 1207)]) == 98, (
+        len(tresci[("UiTextTests.cs", 1207)]))
     assert len(tresci[("SignallingHudTests.cs", 37)]) == 84, (
         len(tresci[("SignallingHudTests.cs", 37)]))
 
@@ -307,9 +318,13 @@ ROZKLAD_LICZBOWYCH = {
         # porownywane sa DWA plany (skorupy i kabiny) i trzeci, zly — stad 1906,0 m,
         # 0,35 m za czolem, 0,700 m roznicy i zgodnosc z `RearChainageM(Skorupa())`.
         # `calkowite_z_tolerancja` zostaje ZEREM.
-        "razem": 229, "z_tolerancja": 103, "bez_tolerancji": 126,
+        # 229 -> 232 (14.09.2026, MB-08): trzy liczby CALKOWITE w `DoorPromptTests.cs`
+        # — piec powodow odmowy, piec roznych zdan i piec faz ruchu skrzydel. Zadna
+        # nie jest tolerancja, wiec `z_tolerancja` i `tolerancja_zero` stoja w miejscu,
+        # a `calkowite_z_tolerancja` zostaje ZEREM.
+        "razem": 232, "z_tolerancja": 103, "bez_tolerancji": 129,
         "zmiennoprzecinkowe": 109, "zmiennoprzecinkowe_bez_tolerancji": 6,
-        "calkowite": 120, "calkowite_z_tolerancja": 0, "tolerancja_zero": 18,
+        "calkowite": 123, "calkowite_z_tolerancja": 0, "tolerancja_zero": 18,
     },
     "tests/Sim.Tests": {
         # 441 -> 454 (13.09.2026, MB-02): trzynaście pinów liczbowych
@@ -328,9 +343,15 @@ ROZKLAD_LICZBOWYCH = {
         # — „drugi skład przed zajętym blokiem nadal jedzie" — bo zmierzone jest, że
         # w oknie pomiarowym skład PEŁZNIE 0,008539847973193317 m/s, więc asercja o zerze
         # opisywałaby inny stan niż ten, o który test pyta. Stąd `tolerancja_zero` 114 -> 113.
-        "razem": 461, "z_tolerancja": 182, "bez_tolerancji": 279,
-        "zmiennoprzecinkowe": 190, "zmiennoprzecinkowe_bez_tolerancji": 8,
-        "calkowite": 271, "calkowite_z_tolerancja": 0, "tolerancja_zero": 113,
+        # 461 -> 471 (14.09.2026, MB-08): dziesięć pinów liczbowych w testach drzwi —
+        # `ManualDoorsTests` (liczby kroków cyklu ręcznego: 1021, 1020, długości faz)
+        # i `ManualDoorsOnLineTests` (nietknięty kilometraż przy otwartych drzwiach).
+        # SZEŚĆ z nich ma tolerancję ZAPISANĄ JAKO 0.0 (`tolerancja_zero` 113 -> 119),
+        # bo pytanie brzmi tam „ani jeden bit", a nie „w przybliżeniu".
+        # `calkowite_z_tolerancja` zostaje ZEREM.
+        "razem": 471, "z_tolerancja": 188, "bez_tolerancji": 283,
+        "zmiennoprzecinkowe": 196, "zmiennoprzecinkowe_bez_tolerancji": 8,
+        "calkowite": 275, "calkowite_z_tolerancja": 0, "tolerancja_zero": 119,
     },
 }
 
@@ -348,7 +369,9 @@ ROZKLAD_LICZBOWYCH = {
 #: niż sugeruje jego nazwa.
 # 146 -> 145 (14.09.2026, MB-07): zniknal `AreEqual(0.0, …SpeedMps, 0.0)`
 # z przepisanego testu zatoru — powod przy `ROZKLAD_LICZBOWYCH["tests/Sim.Tests"]`.
-DOKLADNE_ZMIENNOPRZECINKOWE = 145
+# 145 -> 151 (14.09.2026, MB-08): sześć porównań z tolerancją 0.0 w testach
+# drzwi; `zmiennoprzecinkowe_bez_tolerancji` stoi w miejscu na ośmiu.
+DOKLADNE_ZMIENNOPRZECINKOWE = 151
 
 
 def test_ile_pinow_liczbowych_i_jak_sie_dziela():
@@ -389,7 +412,10 @@ def test_dokladnych_porownan_zmiennoprzecinkowych_jest_146_a_nie_14():
 
     assert bez == 14, ("zmiennoprzecinkowych bez tolerancji: %d, pomiar mówił 14" % bez)
     # 132 -> 131 (14.09.2026, MB-07): patrz `ROZKLAD_LICZBOWYCH["tests/Sim.Tests"]`.
-    assert zero == 131, ("tolerancji zapisanych jako 0.0: %d, pomiar mówił 131" % zero)
+    # 131 -> 137 (14.09.2026, MB-08): sześć porównań z tolerancją 0.0 w nowych testach
+    # drzwi — wszystkie tam, gdzie pytanie brzmi „ani jeden bit": nietknięty nastawnik,
+    # nietknięty hamulec i nieruszony kilometraż przy otwierających się drzwiach.
+    assert zero == 137, ("tolerancji zapisanych jako 0.0: %d, pomiar mówił 137" % zero)
     assert bez + zero == DOKLADNE_ZMIENNOPRZECINKOWE, (
         "porównań dokładnych jest %d, a stała mówi %d" % (bez + zero,
                                                           DOKLADNE_ZMIENNOPRZECINKOWE))
