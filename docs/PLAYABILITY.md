@@ -102,7 +102,7 @@ są prawdziwe i mówią o czym innym.
 | 3 | **MB-03** HUD treningowy | gracz rozumie, co ma zrobić | MB-02 |
 | 4 | **MB-04** paczka i playtest | **ZROBIONE 14.09.2026** — M1 bez środowiska developerskiego; odbiór Windows x64 **niewykonany i tak oznaczony** | MB-03 |
 | 5 | **MB-05** integracja kanonicznej kabiny | **ZROBIONE 14.09.2026** co do litery pola „Skończone, gdy"; **ściany kabiny są PYTANIEM OTWARTYM** — zasób ich nie ma, a skorupa jest w tym widoku chowana | MB-03 |
-| 6 | **MB-06** wspólne źródło komend AI/gracza | bezpieczne przejęcie składu w rdzeniu | M1 |
+| 6 | **MB-06** wspólne źródło komend AI/gracza | **ZROBIONE 14.09.2026** — przejęcie w rdzeniu; bez komend gracza ślad linii ma tę samą sumę MD5 co przed zmianą | M1 |
 | 7 | **MB-07** wiele widoków i take/release | działająca linia widoczna w grze | MB-06 |
 | 8 | **MB-08** ręczna obsługa drzwi i odbiór #26 | flow stop–drzwi–odjazd | MB-07 |
 

@@ -197,6 +197,43 @@ public sealed class LineDrive
     public Func<DriverCommand, DriverCommand>? Supervisor { get; set; }
 
     /// <summary>
+    /// Komenda maszynisty na ten krok — <c>null</c> znaczy „prowadzi autopilot".
+    ///
+    /// <para><b>Ten hak jest ODDZIELNY od <see cref="Supervisor"/> i to jest cała
+    /// treść MB-06.</b> Supervisor jest OCHRONĄ: stoi ZA poleceniem i może je tylko
+    /// przyciąć. Ten hak jest ŹRÓDŁEM polecenia: staje w miejsce autopilota. Wepchnięcie
+    /// klawiszy gracza w <c>Supervisor</c> byłoby wygodne i byłoby błędem — ochrona
+    /// przestałaby być ochroną, a stałaby się drugim wejściem, przez które da się ją
+    /// wyłączyć.</para>
+    ///
+    /// <para><b>Droga polecenia jest JEDNA, niezależnie od właściciela.</b> Komenda
+    /// maszynisty przechodzi przez ten sam filtr postoju (<c>StationStop.Filter</c>,
+    /// czyli drzwi) i przez tego samego <see cref="Supervisor"/> co komenda autopilota.
+    /// Człowiek nie ma więc ani jednej drogi, której autopilot nie ma — ma tylko inne
+    /// źródło.</para>
+    ///
+    /// <para><b>Autopilot liczy swoje polecenie NAWET wtedy, gdy prowadzi człowiek,
+    /// i to jest decyzja, nie przeoczenie.</b> Zatrzask hamowania
+    /// (<c>_braking</c>/<c>_brakingToM</c>) jest stanem autopilota rozpiętym na wiele
+    /// kroków; gdyby przestał się posuwać na czas przejęcia, oddanie sterowania
+    /// wznawiałoby autopilota ze stanem sprzed przejęcia — a najgorszy przypadek jest
+    /// zmierzony i nazwany w T-320: autopilot z wyzerowanym zatrzaskiem, stojący przed
+    /// autorytetem, PEŁZNIE (0,30 m w 58 s). Autopilot patrzy więc na trasę przez cały
+    /// czas; zmienia się wyłącznie to, czyja komenda dociera do kontrolera.</para>
+    /// </summary>
+    public DriverCommand? DriverInput { get; set; }
+
+    /// <summary>
+    /// Ostatnia komenda PRZED ochroną — czyli położenie dźwigni, a nie skutek jazdy.
+    ///
+    /// <para>Istnieje po to, żeby przejęcie sterowania mogło zacząć się od tego, co skład
+    /// robi w tej chwili. Pole „Weryfikacja" MB-06 żąda, żeby przejęcie przy niezerowej
+    /// prędkości nie zmieniło ani pozycji, ani prędkości, ani kursu — a przejęcie
+    /// zaczynające się od zera nastawnika zmieniłoby wszystkie trzy w następnym kroku.</para>
+    /// </summary>
+    public DriverCommand LastCommand { get; private set; } = DriverCommand.Coast;
+
+    /// <summary>
     /// Jeden krok stały. Ciało przeniesione z <see cref="LineRun"/> bez zmiany kolejności.
     /// </summary>
     /// <param name="trace">Ślad wołany po kroku, gdy podany.</param>
@@ -233,10 +270,54 @@ public sealed class LineDrive
 
         if (_stop is not null)
         {
-            // Postój. `Filter` jest jedynym miejscem, które posuwa licznik cyklu drzwi,
-            // więc musi zostać zawołane dokładnie raz na krok. Hamulca nie zeruje
-            // celowo — trzymanie składu na postoju należy do wołającego.
-            var held = _stop.Filter(_state, DriverCommand.FullServiceBrake);
+            // NA POSTOJU DŹWIGNIA TEŻ NALEŻY DO WŁAŚCICIELA, ale drzwi rozstrzygają.
+            // `Filter` jest jedynym miejscem posuwającym licznik cyklu drzwi i musi
+            // zostać zawołane dokładnie raz na krok — dlatego komenda maszynisty wchodzi
+            // JAKO ARGUMENT tego samego wywołania, a nie obok niego. Autopilot trzyma
+            // pełny hamulec służbowy i to zachowanie nie zmienia się o bit.
+            var wanted = DriverInput ?? DriverCommand.FullServiceBrake;
+            LastCommand = wanted;
+            var held = _stop.Filter(_state, wanted);
+
+            // OCHRONA STOI ZA DRZWIAMI I ZA OBOMA WŁAŚCICIELAMI — także tutaj.
+            //
+            // **Ten wiersz jest poprawką DZIURY W OCHRONIE, którą wpuściło pierwsze
+            // podejście do MB-06, i był to najgorszy możliwy rodzaj dziury: cichy.**
+            // Do chwili jego dopisania gałąź postoju szła z `held` prosto do
+            // `_controller.Advance`, z pominięciem `Supervisor`. Dla autopilota nie
+            // znaczyło to nic, bo autopilot trzyma tu pełny hamulec służbowy — ale od
+            // MB-06 `wanted` bywa komendą CZŁOWIEKA, a `StationStop.Filter` zeruje
+            // wyłącznie `Throttle`, i to tylko wtedy, gdy cykl drzwi już ruszył
+            // (`Started`); `Brake` nie rusza NIGDY — zmierzone na całym cyklu:
+            // 1980 kroków z wyzerowanym nastawnikiem, ZERO kroków ze zmienionym
+            // hamulcem.
+            // Maszynista puszczający hamulec na postoju omijał więc ochronę zupełnie.
+            //
+            // ZMIERZONE dwoma niezależnymi przebiegami, zanim ten wiersz powstał.
+            // Miara nieczuła na pochylenie — ile kroków postoju w ogóle woła ochronę,
+            // na przejeździe L1_A przy limicie 72 km/h i wymianie 8 s:
+            //
+            //     bez tego wiersza   OCHRONA w krokach postoju:      0 / 21 791
+            //     z tym wierszem     OCHRONA w krokach postoju: 21 791 / 21 791
+            //     najdłuższa cisza ochrony: 1981 kroków (16,51 s) -> 0
+            //
+            // Gałąź postoju to **25,33 % wszystkich kroków** przejazdu (21 791
+            // z 86 032), więc nie było to okno brzegowe. Skutek ruchowy zależy od
+            // pochylenia: na −3 % skład staczał się przy OTWARTYCH drzwiach, meldując
+            // ten ruch sygnalizacji przez `MoveTrain`. Liczba metrów zależy od tego,
+            // w której fazie drzwi maszynista przejmie — 5,83 m do 1,73 m/s przy
+            // przejęciu w fazie `Open`, 38,27 m do 4,44 m/s przy przejęciu na początku
+            // cyklu; **dlatego miarą tego komentarza są wywołania ochrony, a nie metry.**
+            // Widać to nawet na PŁASKIM: bez tego wiersza cały przejazd trwa 85 962
+            // kroki zamiast 86 032, bo puszczony hamulec nie musi się przed odjazdem
+            // odpuszczać.
+            //
+            // Kolejność jest treścią: najpierw DRZWI (czy wolno ciągnąć), potem
+            // OCHRONA (czy wolno jechać tak szybko). Ochrona ma ostatnie słowo w obu
+            // gałęziach tej metody i dopiero to czyni prawdziwym zdanie, że komenda
+            // człowieka nie ma ani jednej drogi, której nie ma komenda autopilota.
+            held = Supervisor is null ? held : Supervisor(held);
+
             var phase = _stop.Phase;
             var beforeStop = _state;
             _state = _controller.Advance(
@@ -313,6 +394,17 @@ public sealed class LineDrive
         // trafia do `TracePoint`, jest poleceniem PO ingerencji, a nie przed nią. Inaczej
         // ślad pokazywałby, co maszynista chciał, a nie co pojechało — i telemetria
         // porównywana co do bitu przestałaby opisywać przejazd.
+        // ŹRÓDŁO POLECENIA — tutaj i tylko tutaj. Autopilot policzył swoje `command`
+        // wyżej i posunął swój zatrzask hamowania; gdy prowadzi człowiek, jego komenda
+        // staje w miejsce tamtej, a zatrzask autopilota zostaje policzony i nietknięty
+        // (powód przy `DriverInput`). Bez `DriverInput` nie zmienia się ani jeden bit.
+        command = DriverInput ?? command;
+        LastCommand = command;
+
+        // OCHRONA STOI ZA OBOMA. To jest zdanie pola „Pułapka wypisana w audycie"
+        // pozycji MB-06 wzięte dosłownie: nie ma gałęzi, w której komenda człowieka
+        // omija `Supervisor`, i nie ma jej dlatego, że podmiana źródła stoi WYŻEJ
+        // od ochrony, a nie obok niej.
         command = Supervisor is null ? command : Supervisor(command);
         var beforeRun = _state;
         _state = _controller.Advance(

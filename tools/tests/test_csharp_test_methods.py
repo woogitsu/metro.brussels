@@ -339,8 +339,16 @@ ROZKLAD_POSTACI = {
         # `CabPlacementTests.cs` przepisany z 6 metod na 10, z czytnikiem zrodla
         # (`TylkoKod`, `Wywolania`, `Glebokosc`, `ZnakPrzed`), ktory ma wlasna
         # kontrole negatywna na literalach surowych. `interpolowany ($)` nie drgnal.
-        "zwykly": 3996,
-        "interpolowany ($)": 675,
+        # 3996 -> 4075 i 675 -> 685 (14.09.2026, MB-06): `ControlOwnerTests.cs`
+        # (w tym cztery testy galezi postoju i dwa straznik z poprawki dziury
+        # w ochronie). Ten wpis stoi OBOK poprzedniego, a nie zamiast niego — obie
+        # zmiany sa rozlaczne i spotkaly sie dopiero przy scalaniu, a liczby sa
+        # PRZELICZONE na wspolnym drzewie, nie zsumowane w glowie. `werbatim (@)`
+        # nie drgnal przy MB-06, bo `ControlOwnerTests.cs` nie czyta zrodla
+        # wyrazeniami regularnymi: pyta rdzen o zachowanie, a rdzen da sie zawolac
+        # bez silnika.
+        "zwykly": 4075,
+        "interpolowany ($)": 685,
         "werbatim (@)": 55,
         "surowy interpolowany ($$\"\"\")": 13,
         "surowy (\"\"\")": 8,
@@ -363,8 +371,13 @@ ROZKLAD_POSTACI = {
         # jak przy MB-02 — caly przyrost idzie w dwie postacie, ktore `src/` juz ma.
         # 1298 -> 1299 (14.09.2026, MB-05, poprawka `--cab`): jeden napis w
         # `RunPlan.KnownArguments`. `interpolowany` nie drgnelo.
-        "zwykly": 1299,
-        "interpolowany ($)": 465,
+        # 465 -> 467 (14.09.2026, MB-06): dwa komunikaty odmowy w `LineCore` —
+        # „nie przejeto sterowania" i „nie ma skladu o identyfikatorze". `zwykly` NIE
+        # DRGNELO i to jest tresc: `ControlOwner.cs` jest typem bez ani jednego napisu.
+        # 1299 -> 1300 i 467 -> 468 (14.09.2026, MB-06, poprawka dziury w ochronie):
+        # komunikat odmowy `TakeControl` przed wjazdem na plan.
+        "zwykly": 1300,
+        "interpolowany ($)": 468,
         "werbatim (@)": 0,
         "surowy interpolowany ($$\"\"\")": 1,
         "surowy (\"\"\")": 1,

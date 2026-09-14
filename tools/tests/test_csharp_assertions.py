@@ -359,22 +359,37 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 #:
 #: **1453 -> 1475 i 2902 -> 2924 (14.09.2026, audyt bramki MB-05).** Dwadziescia dwie
 #: asercje, wszystkie Z KOMUNIKATEM — `BEZ_KOMUNIKATU_RAZEM` i `NIEROZSTRZYGNIETYCH`
-#: znow nie drgnely. Powod jest pomiarem, nie rozbudowa: bramka lekyskalna dolozona
+#: znow nie drgnely. Powod jest pomiarem, nie rozbudowa: bramka leksykalna dolozona
 #: wyzej byla TAUTOLOGICZNA. Zmierzone na starym kodzie — cztery mutacje dajace te
 #: sama usterke 0,700 m (`_train.LengthM` -> `_cabView.LengthM`; `+ 0.7` w argumencie
 #: wywolania; `+ 0.7` w ciele `CabView.PlaceAt`; cale wywolanie owiniete w `if`)
 #: przechodzily **292/292 kazda**. Tautologia byla przy tym w JEDNEJ metodzie, a nie
-#: w calym pliku, i ta roznica jest tu tresci a nie niuansem: podmiana bryl kabiny
+#: w calym pliku, i ta roznica jest tu trescia, a nie niuansem: podmiana bryl kabiny
 #: na `(-999, -998)` dawala bez filtra `290/292` (dwie inne metody ja lapaly), ale
 #: `--filter Ta_sama_wspolrzedna_X_daje_ten_sam_kilometraz_w_obu_zbiorach` dawal
 #: `1/1 przeszlo` — ta metoda liczyla OBIE strony rownosci tym samym wyrazeniem na
 #: tych samych brylach. Po przepisaniu kazda z czterech mutacji daje jedna czerwien,
-#: ta sama tautologia pod tym samym filtrem `1 failed`, a bez filtra cztery. Cztery nowe metody testowe (6 -> 10) i piny na CALA liste
-#: argumentow zamiast na token w niej — `Contains("trainLength")` bylo prawda takze dla
+#: ta sama tautologia pod tym samym filtrem `1 failed`, a bez filtra cztery. Cztery
+#: nowe metody testowe (6 -> 10) i piny na CALA liste argumentow zamiast na token
+#: w niej — `Contains("trainLength")` bylo prawda takze dla
 #: `chainage - trainLength + 0.7`.
-Z_KOMUNIKATEM_RAZEM = 1475
+#:
+#: **1475 -> 1513 i 2924 -> 2962 (14.09.2026, MB-06).** Ten wpis stoi OBOK wpisu
+#: wyzej, a nie zamiast niego: MB-06 i audyt bramki MB-05 to dwie rozlaczne zmiany,
+#: ktore spotkaly sie dopiero przy scalaniu, i obie liczby sa PRZELICZONE na wspolnym
+#: drzewie, a nie zsumowane w glowie. Dwadziescia siedem asercji w `ControlOwnerTests.cs`
+#: (11 metod), wszystkie Z KOMUNIKATEM — ale nie od razu: bramka
+#: `test_lista_asercji_C_bez_komunikatu_moze_tylko_malec` zapalila sie na PIECIU
+#: asercjach tego pliku bez komunikatu, w tym dwoch `Assert.ThrowsException`, ktore
+#: latwo przeoczyc, bo komunikat jest w nich argumentem DRUGIM po lambdzie. Dopisane,
+#: a nie wpisane na liste wyjatkow. Do tego jedenascie asercji poprawki dziury
+#: w ochronie: cztery testy galezi postoju, ktorych ta pozycja najpierw NIE miala
+#: (i dlatego wpuscila komende czlowieka do kontrolera z pominieciem ochrony), plus
+#: dwa straznik dolozone tam, gdzie audyt znalazl tozsamosci. `BEZ_KOMUNIKATU_RAZEM`
+#: i `NIEROZSTRZYGNIETYCH` znow nie drgnely.
+Z_KOMUNIKATEM_RAZEM = 1513
 NIEROZSTRZYGNIETYCH = 68
-ASERCJI_RAZEM = 2924
+ASERCJI_RAZEM = 2962
 
 
 def _rozklad():

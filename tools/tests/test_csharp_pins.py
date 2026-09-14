@@ -302,9 +302,15 @@ ROZKLAD_LICZBOWYCH = {
         # 441 -> 454 (13.09.2026, MB-02): trzynaście pinów liczbowych
         # w `TrainingSessionTests.cs`. `calkowite_z_tolerancja` zostaje ZEREM, a to
         # jest tu jedyna liczba, która niesie zdanie, a nie stan drzewa.
-        "razem": 458, "z_tolerancja": 181, "bez_tolerancji": 277,
-        "zmiennoprzecinkowe": 189, "zmiennoprzecinkowe_bez_tolerancji": 8,
-        "calkowite": 269, "calkowite_z_tolerancja": 0, "tolerancja_zero": 114,
+        # 458 -> 460 (14.09.2026, MB-06): dwa piny liczbowe `ControlOwnerTests.cs` —
+        # liczba komend widzianych przez ochronę w jednym kroku (1) i prędkość zerowa
+        # po dwudziestu sekundach pełnego hamulca. `calkowite_z_tolerancja` zostaje ZEREM.
+        # 460 -> 462 (14.09.2026, MB-06, poprawka dziury w ochronie): dwa piny
+        # w testach galezi postoju — liczba komend widzianych przez ochrone w kroku
+        # postoju (1) i zerowy nastawnik, ktory ochrona dostaje JUZ po filtrze drzwi.
+        "razem": 462, "z_tolerancja": 183, "bez_tolerancji": 279,
+        "zmiennoprzecinkowe": 191, "zmiennoprzecinkowe_bez_tolerancji": 8,
+        "calkowite": 271, "calkowite_z_tolerancja": 0, "tolerancja_zero": 114,
     },
 }
 

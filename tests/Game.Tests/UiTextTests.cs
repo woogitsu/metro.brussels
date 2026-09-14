@@ -3662,10 +3662,25 @@ public sealed class UiTextTests
     // dwuznaczna (`ending`) przyszła w tym samym commicie co nowy typ, ale ani jedna
     // z dziesięciu poprzednich nie potrzebowała do tego typu. Liczba przestaje być
     // NIERUCHOMA, a asercja niżej mówi teraz, ile jest, a nie że nie drgnęła.
-    private const int WyliczenWSrc = 17;
+    // 17 -> 18 (14.09.2026, MB-06): doszedł `ControlOwner`. **Drugi ruch tej liczby
+    // w ciągu doby, i to jest już inny stan niż opisuje akapit wyżej.** Zdanie
+    // „stoi nieruchomo od 02.09.2026" zniknęło stąd i z komunikatu asercji, bo po
+    // dwóch ruchach w dwa dni przestało być prawdą — a komunikat bramki, który mówi
+    // o drzewie coś nieprawdziwego, jest gorszy od braku komunikatu.
+    //
+    // **Teza 6.D198 zostaje i zostaje ZAWĘŻONA, a nie obalona.** Brzmiała
+    // „dwuznaczności przybywa BEZ nowych typów". `ControlOwner` NIE dokłada ani jednej
+    // nazwy dwuznacznej — `NazwyDwuznaczneWSrc` nie drgnęło przy tym commicie — więc
+    // ten typ jest przypadkiem odwrotnym niż `TrainingEnding`: nowy typ bez nowej
+    // dwuznaczności. Po obu ruchach zdanie prawdziwe brzmi: dwuznaczności nie
+    // potrzebują nowych typów, a nowe typy nie muszą ich przynosić.
+    private const int WyliczenWSrc = 18;
 
     // 22 -> 24 (13.09.2026, MB-02): `Ending` i `ending` z `TrainingEnding`.
-    private const int NazwPodWyliczeniem = 24;
+    // 24 -> 25 (14.09.2026, MB-06): `Owner` z `ControlOwner`. JEDNA nazwa, a nie dwie
+    // jak przy MB-02 — bo `LineCore` nie ma parametru `owner`; właściciel wchodzi
+    // przez `TakeControl`/`ReleaseControl`, które biorą identyfikator składu.
+    private const int NazwPodWyliczeniem = 25;
 
     // Nazwy, pod którymi w `src/` stoi i wartość wyliczenia, i wartość innego typu.
     // Lista, a nie liczba, bo to nazwy rozstrzygają, czy skan po nazwie wolno puścić
@@ -3774,8 +3789,9 @@ public sealed class UiTextTests
         var wyliczenia = WyliczeniaZrodel();
         Assert.AreEqual(WyliczenWSrc, wyliczenia.Count,
             $"typów wyliczeniowych w `src/` jest {wyliczenia.Count}, a zmierzono "
-            + $"{WyliczenWSrc}. Liczba ta stoi nieruchomo od 02.09.2026 i to jest "
-            + "połowa tezy 6.D198: dwuznaczności przybywa BEZ nowych typów");
+            + $"{WyliczenWSrc}. Liczba ruszyła dwa razy w dwa dni (MB-02, MB-06), "
+            + "więc nie jest już nieruchoma — ale teza 6.D198 zostaje: dwuznaczności "
+            + "przybywa BEZ nowych typów, a nowy typ nie musi ich przynieść");
 
         var typy = new HashSet<string>(wyliczenia.Keys, StringComparer.Ordinal);
         var teksty = ZrodlaSrcJakoTeksty(bezKomentarzy: true);
