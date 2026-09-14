@@ -394,9 +394,13 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 #: **2962 -> 2963 (14.09.2026, MB-07).** Bilans trzech przepisanych testów
 #: `LineCoreTests.cs`, które przypinały ZATOR: asercji przybyło o jedną netto,
 #: a `Z_KOMUNIKATEM_RAZEM` nie drgnęło, bo wszystkie mają komunikat.
-Z_KOMUNIKATEM_RAZEM = 1519
+Z_KOMUNIKATEM_RAZEM = 1521
 NIEROZSTRZYGNIETYCH = 68
-ASERCJI_RAZEM = 2966
+#: **2966 -> 2968 (14.09.2026, audyt MB-06).** Dwie asercje testu
+#: `NA_POSTOJU_werdykt_ochrony_DOCIERA_do_kontrolera_a_nie_tylko_pada`, obie
+#: Z KOMUNIKATEM. Liczby PRZELICZONE na drzewie ze scalonym MB-07, a nie
+#: zsumowane z dwóch gałęzi — to jest różnica, która się rozjeżdża po cichu.
+ASERCJI_RAZEM = 2968
 
 
 def _rozklad():

@@ -328,9 +328,12 @@ ROZKLAD_LICZBOWYCH = {
         # — „drugi skład przed zajętym blokiem nadal jedzie" — bo zmierzone jest, że
         # w oknie pomiarowym skład PEŁZNIE 0,008539847973193317 m/s, więc asercja o zerze
         # opisywałaby inny stan niż ten, o który test pyta. Stąd `tolerancja_zero` 114 -> 113.
-        "razem": 461, "z_tolerancja": 182, "bez_tolerancji": 279,
+        # 461 -> 463 (14.09.2026, audyt MB-06): dwa piny testu werdyktu ochrony —
+        # liczba wierszy śladu (240) i liczba poleceń omijających ochronę (0). Oba
+        # CAŁKOWITE i BEZ TOLERANCJI, bo są liczbami zdarzeń, nie miarą fizyczną.
+        "razem": 463, "z_tolerancja": 182, "bez_tolerancji": 281,
         "zmiennoprzecinkowe": 190, "zmiennoprzecinkowe_bez_tolerancji": 8,
-        "calkowite": 271, "calkowite_z_tolerancja": 0, "tolerancja_zero": 113,
+        "calkowite": 273, "calkowite_z_tolerancja": 0, "tolerancja_zero": 113,
     },
 }
 
