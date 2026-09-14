@@ -21,6 +21,7 @@
 #       MetroBXL.pck               <- kod i scena
 #       data_MetroBxl.Game_*/      <- runtime .NET (self-contained)
 #       zasoby/                    <- CZYTANE PRZEZ `FirstRun.RepoPath` w paczce
+#         M7_shell.glb, M7_cab.glb    <- skorupa i kabina kanoniczna (MB-05)
 #         chunks/…                    (nazwa katalogu: `FirstRun.PackageAssetsDirectory`)
 #         data/track/L1_A.json
 #         data/design/signalling/classic-2026.json
@@ -112,6 +113,7 @@ test -x "$DOCELOWY/$NAZWA.x86_64" || {
 
 echo "[PACZKA] zasoby runtime -> $ZASOBY"
 cp "$ZASOBY_SRC/M7_shell.glb"        "$ZASOBY/"
+cp "$ZASOBY_SRC/M7_cab.glb"          "$ZASOBY/"
 cp "$ZASOBY_SRC/L1_A-platforms.glb"  "$ZASOBY/"
 cp "$ZASOBY_SRC/chunks/L1_A-chunks.json" "$ZASOBY/chunks/"
 # Chunki i ich LOD-y — po nazwie, bo manifest wymienia je po nazwie.

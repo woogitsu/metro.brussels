@@ -195,7 +195,11 @@ public sealed class UiTextTests
     // 509 -> 521 (14.09.2026, MB-04): `FirstRun.AssetsRoot`, `DomyslnyZapisWejsc`
     // i wiersz `[ZAPISY]`. Liczba ZMIERZONA przyrzadem tego testu, a nie
     // przepisana z jego komunikatu o bledzie.
-    private const int LiteralowWZasieguBramki = 521;
+    // 521 -> 529 (14.09.2026, MB-05): `CabView.cs`, wiersz `[KABINA]`, stała
+    // `ExitCabMissing` i wpięcie kabiny w `FirstRun`. Liczba ZMIERZONA
+    // przyrzadem tego testu.
+    // 529 -> 530 (14.09.2026, MB-05, poprawka `--cab` w KnownArguments).
+    private const int LiteralowWZasieguBramki = 530;
 
     /// <summary>Ile różnych — dolne ostrze, zmierzone 12.09.2026.</summary>
     private const int RoznychLiteralowWZasieguBramki = 362;
@@ -1352,7 +1356,11 @@ public sealed class UiTextTests
     // 550 -> 562 (14.09.2026, MB-04): `FirstRun.AssetsRoot`, `DomyslnyZapisWejsc`
     // i wiersz `[ZAPISY]`. Liczba ZMIERZONA przyrzadem tego testu, a nie
     // przepisana z jego komunikatu o bledzie.
-    private const int PozycjiStaregoCzytnika = 562;
+    // 562 -> 570 (14.09.2026, MB-05): `CabView.cs`, wiersz `[KABINA]`, stała
+    // `ExitCabMissing` i wpięcie kabiny w `FirstRun`. Liczba ZMIERZONA
+    // przyrzadem tego testu.
+    // 570 -> 571 (14.09.2026, MB-05, poprawka `--cab` w KnownArguments).
+    private const int PozycjiStaregoCzytnika = 571;
 
     /// <summary>
     /// Ile PLIKÓW korpusu stary czytnik czytał inaczej niż leksykalny — 6.D182.
@@ -1912,12 +1920,17 @@ public sealed class UiTextTests
     // 110 -> 120 (14.09.2026, MB-04): `FirstRun.AssetsRoot`, `DomyslnyZapisWejsc`
     // i wiersz `[ZAPISY]`. Liczba ZMIERZONA przyrzadem tego testu, a nie
     // przepisana z jego komunikatu o bledzie.
-    private const int ZgloszenFirstRunCalymPlikiem = 120;
+    // 120 -> 126 (14.09.2026, MB-05): `CabView.cs`, wiersz `[KABINA]`, stała
+    // `ExitCabMissing` i wpięcie kabiny w `FirstRun`. Liczba ZMIERZONA
+    // przyrzadem tego testu.
+    private const int ZgloszenFirstRunCalymPlikiem = 126;
 
     /// <summary>Ile daje ten sam plik liczony WIERSZ PO WIERSZU — 6.D180.</summary>
     // 122 -> 132 (14.09.2026, MB-04): `FirstRun.AssetsRoot`, `DomyslnyZapisWejsc`
     // i wiersz `[ZAPISY]`. Liczba ZMIERZONA przyrzadem tego testu.
-    private const int ZgloszenFirstRunWierszami = 132;
+    // 132 -> 138 (14.09.2026, MB-05): `CabView.cs` i wpięcie kabiny w `FirstRun`.
+    // Liczba ZMIERZONA przyrzadem tego testu.
+    private const int ZgloszenFirstRunWierszami = 138;
 
     /// <summary>Ile plików korpusu daje różne liczby obiema drogami — 6.D180.</summary>
     private const int PlikowZRoznicaDrog = 1;
@@ -2089,7 +2102,10 @@ public sealed class UiTextTests
     // 354 -> 363 (14.09.2026, MB-04): `FirstRun.AssetsRoot`, `DomyslnyZapisWejsc`
     // i wiersz `[ZAPISY]`. Liczba ZMIERZONA przyrzadem tego testu, a nie
     // przepisana z jego komunikatu o bledzie.
-    private const int LiteralowDotknietychZdejmowaniem = 363;
+    // 363 -> 367 (14.09.2026, MB-05): `CabView.cs`, wiersz `[KABINA]`, stała
+    // `ExitCabMissing` i wpięcie kabiny w `FirstRun`. Liczba ZMIERZONA
+    // przyrzadem tego testu.
+    private const int LiteralowDotknietychZdejmowaniem = 367;
 
     /// <summary>
     /// Ilu literałom zdejmowanie jednostek ZABIERA werdykt „to słowo" — 6.D155.
@@ -2762,13 +2778,21 @@ public sealed class UiTextTests
     // 96 -> 100 (14.09.2026, MB-04): `FirstRun.AssetsRoot`, `DomyslnyZapisWejsc`
     // i wiersz `[ZAPISY]`. Liczba ZMIERZONA przyrzadem tego testu, a nie
     // przepisana z jego komunikatu o bledzie.
-    private const int ZgloszenWaskichCalymPlikiem = 100;
+    // 100 -> 101 (14.09.2026, MB-05): `CabView.cs`, wiersz `[KABINA]`, stała
+    // `ExitCabMissing` i wpięcie kabiny w `FirstRun`. Liczba ZMIERZONA
+    // przyrzadem tego testu.
+    // 101 -> 102 (14.09.2026, MB-05, poprawka `--cab` w KnownArguments).
+    private const int ZgloszenWaskichCalymPlikiem = 102;
 
     /// <summary>Zgłoszeń wąskiej reguły, gdy czytnik dostaje WIERSZ — 6.D173/6.D186.</summary>
     // 108 -> 112 (14.09.2026, MB-04): `FirstRun.AssetsRoot`, `DomyslnyZapisWejsc`
     // i wiersz `[ZAPISY]`. Liczba ZMIERZONA przyrzadem tego testu, a nie
     // przepisana z jego komunikatu o bledzie.
-    private const int ZgloszenWaskichWierszami = 112;
+    // 112 -> 113 (14.09.2026, MB-05): `CabView.cs`, wiersz `[KABINA]`, stała
+    // `ExitCabMissing` i wpięcie kabiny w `FirstRun`. Liczba ZMIERZONA
+    // przyrzadem tego testu.
+    // 113 -> 114 (14.09.2026, MB-05, poprawka `--cab` w KnownArguments).
+    private const int ZgloszenWaskichWierszami = 114;
 
     /// <summary>
     /// Ile z nich stoi w kontekście CZYTANIA JSON-a — <b>18 obiema drogami</b>.
@@ -3127,7 +3151,9 @@ public sealed class UiTextTests
     // `Hud.Update`, a stał się wpisem katalogu.
     // 128 -> 131 (14.09.2026, MB-04): `FirstRun.AssetsRoot`, `DomyslnyZapisWejsc`
     // i wiersz `[ZAPISY]`. Liczba ZMIERZONA przyrzadem tego testu.
-    private const int LiteralowZKlamra = 131;
+    // 131 -> 134 (14.09.2026, MB-05): `CabView.cs` i wpięcie kabiny w `FirstRun`.
+    // Liczba ZMIERZONA przyrzadem tego testu.
+    private const int LiteralowZKlamra = 134;
 
     /// <summary>
     /// Ilu literałom <see cref="BezDziur"/> zabiera WSZYSTKIE słowa — 6.D188.
@@ -4085,7 +4111,10 @@ public sealed class UiTextTests
     // 27 -> 28 (14.09.2026, MB-04): `FirstRun.AssetsRoot`, `DomyslnyZapisWejsc`
     // i wiersz `[ZAPISY]`. Liczba ZMIERZONA przyrzadem tego testu, a nie
     // przepisana z jego komunikatu o bledzie.
-    private const int WierszyLoguWGame = 28;
+    // 28 -> 29 (14.09.2026, MB-05): `CabView.cs`, wiersz `[KABINA]`, stała
+    // `ExitCabMissing` i wpięcie kabiny w `FirstRun`. Liczba ZMIERZONA
+    // przyrzadem tego testu.
+    private const int WierszyLoguWGame = 29;
 
     // 21 -> 23 (13.09.2026, MB-02): dwa wiersze `[SESJA]`. `WierszyLoguPoAngielsku`
     // zostaje ZEREM i to ono jest tu zdaniem.
@@ -4094,11 +4123,16 @@ public sealed class UiTextTests
     private const int WierszyLoguPoPolsku = 24;
 
     // Wiersze, których szablon NIE MA WŁASNYCH SŁÓW — cała treść przychodzi z wywołania.
-    // Cztery, wszystkie w `FirstRun.cs`, i każdy z nich prowadzi do wytwórcy, który
-    // własne słowa MA i ma je po polsku. Sprawdza to asercja niżej, żeby „cztery bez
-    // słów" nie czytało się jako „cztery nieznanego języka".
+    // Wszystkie w `FirstRun.cs`, i każdy z nich prowadzi do wytwórcy, który własne
+    // słowa MA i ma je po polsku. Sprawdza to asercja niżej, żeby „bez słów" nie
+    // czytało się jako „nieznanego języka".
+    //
+    // CZTERY -> PIĘĆ (14.09.2026, MB-05): doszedł `CabView.cs:[KABINA]`. Lista jest
+    // WYPISANA, a nie liczona, i dlatego rośnie ręcznie: jej treścią jest odpowiedź
+    // „kto te słowa naprawdę pisze", a tej nie da się wyprowadzić z samego `FirstRun`.
     private static readonly string[] WytworcyWierszaBezSlow =
     {
+        "CabView.cs:[KABINA]",
         "RunHeader.cs:[PRZEJAZD]",
         "StationView.cs:[PERON]",
         "TrainView.cs:[SKŁAD]",

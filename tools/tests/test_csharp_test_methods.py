@@ -330,11 +330,20 @@ ROZKLAD_POSTACI = {
         # 3799 -> 3853 i 667 -> 674 (14.09.2026, MB-03): `TractionBlockTests.cs`.
         # Liczby ZMIERZONE przyrzadem, nie wyprowadzone z liczby metod — pierwsza
         # proba wpisana „z glowy" dala 3862/676 i bramka ja odrzucila.
-        "zwykly": 3871,
-        "interpolowany ($)": 674,
-        "werbatim (@)": 50,
+        # 3871 -> 3912, 674 -> 675, 50 -> 54 i 7 -> 8 (14.09.2026, MB-05):
+        # `CabPlacementTests.cs`. **Tu drgnely CZTERY postacie, a nie dwie jak zwykle**,
+        # i to jest tresc, a nie cztery liczby: bramka leksykalna tego pliku czyta
+        # zrodlo wyrazeniami regularnymi, wiec niesie werbatim (`@"..."`, +4) i jeden
+        # literal surowy — postacie, ktorych testy arytmetyczne nie uzywaja wcale.
+        # 3912 -> 3996 i 54 -> 55 (14.09.2026, audyt bramki MB-05):
+        # `CabPlacementTests.cs` przepisany z 6 metod na 10, z czytnikiem zrodla
+        # (`TylkoKod`, `Wywolania`, `Glebokosc`, `ZnakPrzed`), ktory ma wlasna
+        # kontrole negatywna na literalach surowych. `interpolowany ($)` nie drgnal.
+        "zwykly": 3996,
+        "interpolowany ($)": 675,
+        "werbatim (@)": 55,
         "surowy interpolowany ($$\"\"\")": 13,
-        "surowy (\"\"\")": 7,
+        "surowy (\"\"\")": 8,
         "werbatim interpolowany ($@)": 1,
     },
     "src": {
@@ -349,8 +358,13 @@ ROZKLAD_POSTACI = {
         # `FirstRun.DomyslnyZapisWejsc` i wiersz `[ZAPISY]`. Cztery pozostale
         # postacie nie drgnely. Liczby ZMIERZONE `czytnik.klasy_literalow`, czyli
         # przyrzadem tej bramki — nie przepisane z jej komunikatu o bledzie.
-        "zwykly": 1293,
-        "interpolowany ($)": 462,
+        # 1293 -> 1298 i 462 -> 465 (14.09.2026, MB-05): `CabView.cs` i wpiecie
+        # kabiny w `FirstRun`. Cztery pozostale postacie znowu nie drgnely, tak samo
+        # jak przy MB-02 — caly przyrost idzie w dwie postacie, ktore `src/` juz ma.
+        # 1298 -> 1299 (14.09.2026, MB-05, poprawka `--cab`): jeden napis w
+        # `RunPlan.KnownArguments`. `interpolowany` nie drgnelo.
+        "zwykly": 1299,
+        "interpolowany ($)": 465,
         "werbatim (@)": 0,
         "surowy interpolowany ($$\"\"\")": 1,
         "surowy (\"\"\")": 1,

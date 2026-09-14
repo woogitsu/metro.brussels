@@ -155,7 +155,13 @@ public sealed class RunPlanTests
         // nie policzone z tablicy w kodzie — dlatego rozjazd w którąkolwiek stronę
         // (argument dopisany, usunięty, przesunięty między rodzinami) jest tu FAIL-em,
         // a nie cichą zmianą pokrycia.
-        Assert.AreEqual(17, samotnych, "argumentów bez zależności");
+        // 17 -> 18 (14.09.2026, MB-05): `--cab`. Argument SAMOTNY, tak jak `--shell`
+        // i `--platforms`, bo jest tym samym: ścieżką do bryły wczytywanej przez
+        // scenę, i nie wymaga żadnego towarzysza. Że ta liczba drgnęła, jest tu
+        // dowodem, a nie kosztem: `FirstRun` czytało `--cab` już wcześniej, a plan
+        // odrzucał je jako nieznane — nadpisanie było nieosiągalne i żaden test
+        // tego nie widział, bo nikt tego argumentu nie podawał.
+        Assert.AreEqual(18, samotnych, "argumentów bez zależności");
         Assert.AreEqual(3, zZaleznoscia, "argumentów z zależnością");
         Assert.AreEqual(
             RunPlan.KnownArguments.Length, samotnych + zZaleznoscia,

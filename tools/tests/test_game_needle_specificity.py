@@ -251,6 +251,24 @@ MAX_GAME_JUSTIFIED_NEEDLES = 4
 #: `FirstRun.cs`: `private double? SufitKmh() =>` i wyrazenie warunku trybu. Ta sama
 #: rodzina, co cztery igly `TrainingWiringTests.cs` — literowka w nich wywraca test
 #: natychmiast, wiec nie jest to klasa cicha.
+#: **48 -> 50 (14.09.2026, MB-05).** Dwie nowe igly `CabPlacementTests.cs` na KOD:
+#: `trainLength` (czy scena podaje kabinie dlugosc SKLADU) i `TrainLayout.PlaceWithRear(`
+#: (czy `CabView` idzie przez wersje z zadanym ogonem). Ta sama rodzina i ten sam powod
+#: co wyzej, ale z pomiarem, ktorego tamte dwa wpisy nie mialy: bramka LICZBOWA tych
+#: dwoch rzeczy NIE LAPIE i to jest zmierzone — trzy kontrole negatywne na testach
+#: arytmetycznych `CabPlacementTests` wyszly ZIELONE, bo mutacje siedza w wezlach
+#: Godota, ktorych `dotnet test` nie powola. Igla na kod jest tu wiec jedyna droga,
+#: a nie droga wygodniejsza.
+#: **50 -> 48 (14.09.2026, audyt bramki MB-05) i ta zapadka schodzi W DOL, co jest
+#: tu POPRAWNYM kierunkiem, a nie regresja.** Znikly dokladnie te dwie igly, ktore
+#: akapit wyzej opisuje: `trainLength` i `TrainLayout.PlaceWithRear(`. Nie zniknela
+#: jednak ochrona — obie byly argumentami `Assert.IsTrue(....Contains("..."))`, czyli
+#: pytaly o PISOWNIE TOKENU, i obie przechodzily mutacje dajaca usterke 0,700 m
+#: (`chainage - trainLength + 0.7` oraz `PlaceWithRear(axis, _bodies, rearChainageM
+#: + 0.7)`) — zmierzone, 292/292 kazda. W ich miejsce weszly `Assert.AreEqual` na
+#: CALA liste argumentow, ktorych `igly()` z definicji nie liczy, bo liczy wylacznie
+#: `Contains` w `Assert.IsTrue` i `StringAssert.Contains`. Zapadka mowi wiec prawde:
+#: igiel jest mniej, a bramka jest mocniejsza.
 MAX_GAME_UNMATCHED_NEEDLES = 48
 
 #: Progi KW. Literowka we wzorcu daje zero dopasowan i caly modul zielony; te trzy
@@ -287,6 +305,14 @@ MIN_GAME_MESSAGES = 142
 # i piec w `TrainingWiringTests.cs`.
 # 65 -> 87 (14.09.2026, MB-03): czternascie roznych igiel w `RunSummaryTests.cs`,
 # piec w `TrainingWiringTests.cs` i osiem w `TractionBlockTests.cs`.
+# 87 -> 89 (14.09.2026, MB-05): dwie igly `CabPlacementTests.cs` — `trainLength`
+# i `TrainLayout.PlaceWithRear(`. Obie sa iglami na KOD, nie na komunikat, i obie
+# licza sie takze w `MAX_GAME_UNMATCHED_NEEDLES` (48 -> 50); powod stoi tam.
+# 89 -> 87 (14.09.2026, audyt bramki MB-05): te same dwie igly ZNIKLY, bo obie
+# pytaly o pisownie tokenu i obie przepuszczaly usterke 0,700 m (zmierzone: 292/292).
+# Zastapily je porownania dokladne calej listy argumentow, ktorych `igly()` nie liczy.
+# Bramka jest przez to mocniejsza, a liczba mniejsza — powod pelny stoi przy
+# `MAX_GAME_UNMATCHED_NEEDLES`.
 MIN_GAME_NEEDLES = 87
 MIN_GAME_SOURCES = 18
 

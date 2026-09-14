@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=8 format=3]
 
 ; Struktura sceny pierwszego przejazdu. Celowo płaska i celowo pusta z danych:
 ; geometria tunelu i składu jest wczytywana z build/ w czasie działania (patrz
@@ -9,6 +9,7 @@
 [ext_resource type="Script" path="res://World/TunnelView.cs" id="2_tunnel"]
 [ext_resource type="Script" path="res://World/TrainView.cs" id="3_train"]
 [ext_resource type="Script" path="res://World/StationView.cs" id="5_station"]
+[ext_resource type="Script" path="res://World/CabView.cs" id="6_cab"]
 [ext_resource type="Script" path="res://UI/Hud.cs" id="4_hud"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hud"]
@@ -31,6 +32,14 @@ script = ExtResource("5_station")
 
 [node name="Train" type="Node3D" parent="."]
 script = ExtResource("3_train")
+
+; Kabina stoi OBOK składu, a nie pod nim, i to jest treść, a nie porządek (MB-05).
+; Widoczność w Godocie dziedziczy się po rodzicu: węzeł pod `Train` gasłby razem
+; z nim, gdy `ApplyView` chowa skorupę w widoku kabinowym — czyli dokładnie wtedy,
+; kiedy ma być widoczny. Pole „Skończone, gdy" pozycji MB-05 żąda wprost, żeby
+; wnętrze „nie znikało razem ze skorupą ukrywaną w trybie kabinowym".
+[node name="Cab" type="Node3D" parent="."]
+script = ExtResource("6_cab")
 
 [node name="CabCamera" type="Camera3D" parent="."]
 current = true

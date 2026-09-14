@@ -90,6 +90,31 @@ public static class TrainLayout
     public static double RearChainageM(IReadOnlyList<ITrainBody> bodies, double frontChainageM) =>
         frontChainageM - LengthM(bodies);
 
+    /// <summary>
+    /// Ogon SKŁADU o zmierzonej długości <paramref name="trainLengthM"/>, którego czoło
+    /// stoi w <paramref name="frontChainageM"/>.
+    ///
+    /// <para><b>Po co osobno od <see cref="RearChainageM"/> — i to jest cała treść tej
+    /// metody.</b> Tamta bierze BRYŁY i liczy ich rozpiętość sama, więc podanie jej brył
+    /// kabiny jest wywołaniem poprawnym składniowo i błędnym co do treści: rozpiętość
+    /// kabiny to 93,300 m przy składzie 94,000 m, a wynik wychodzi wtedy 0,700 m za
+    /// daleko. Dokładnie to wywołanie stało w scenie przed MB-05 i nie zapaliło niczego.
+    /// Ta bierze LICZBĘ, więc sprawdzić jej nie ma jak — i nie udaje, że sprawdza. Jej
+    /// treścią jest to, że odejmowanie ogona stoi w JEDNYM miejscu, przybitym liczbowo
+    /// w <c>tests/Game.Tests/CabPlacementTests.cs</c>, a nie w wyrażeniu wpisanym
+    /// w argument wywołania — bo wyrażenia w argumencie nie widzi żaden test, a jego
+    /// mutacja (<c>chainage - trainLength + 0.7</c>) przechodziła 292/292.</para>
+    ///
+    /// <para><b>Zera nie odrzuca i to jest decyzja, nie przeoczenie.</b> Sprawdzone
+    /// w <c>FirstRun</c>: przy <c>--no-geometry</c> skorupa nie jest wczytywana wcale,
+    /// a <c>PlaceEverything</c> leci mimo to, więc <see cref="TrainView.LengthM"/> jest
+    /// wtedy zerem. Rzut byłby awarią trybu, który ma działać bez geometrii — i byłby
+    /// to CICHY ODWRÓT tej samej rodziny co usunięty stąd fallback na 94,0 m, tylko
+    /// w drugą stronę.</para>
+    /// </summary>
+    public static double RearOfTrain(double frontChainageM, double trainLengthM) =>
+        frontChainageM - trainLengthM;
+
     /// <summary>Decyzja o jednej bryle: jej cięciwa na osi i to, czy oś ją pokrywa.</summary>
     public static BodyPlacement PlacementFor(
         TrackAxis axis, BodySpan span, double rearChainageM, int index)
@@ -170,6 +195,55 @@ public static class TrainLayout
                 bodies[index].Transform = axis.BodyTransform(placement);
             }
         }
+    }
+
+    /// <summary>
+    /// Plan i jego wykonanie dla zbioru brył, którego OGON JEST ZADANY Z ZEWNĄTRZ.
+    ///
+    /// <para><b>Po co to istnieje i co bez tego wychodzi — zmierzone przy MB-05.</b>
+    /// <see cref="Place(SceneAxis, IReadOnlyList{ITrainBody}, double)"/> liczy ogon jako
+    /// <c>czoło − LengthM(bryły)</c>, czyli z ROZPIĘTOŚCI SAMEGO ZBIORU. Dla skorupy jest
+    /// to poprawne, bo skorupa JEST składem: jej rozpiętość to 94,000 m. Dla kabiny już
+    /// nie — bryły kabiny mają wspólny układ współrzędnych ze skorupą (oba generatory
+    /// wychodzą z <c>m7_layout.py</c>), ale rozpiętość WŁASNĄ 93,300 m, bo kabina zaczyna
+    /// się 0,35 m za czołem i kończy 0,35 m przed ogonem.</para>
+    ///
+    /// <para>Skutek liczbowy, policzony wprost: przy czole na 2000,000 m szyba czołowa
+    /// lądowała na <b>2000,350 m</b>, czyli <b>0,35 m PRZED czołem składu</b>, zamiast na
+    /// 1999,650 m — <b>0,700 m za daleko</b>. Kabina wystawała przodem przez czoło pudła,
+    /// a oko maszynisty — 1998,200 m, czyli 1,80 m za czołem, liczone z kilometrażu czoła
+    /// i NIEZALEŻNE od położenia kabiny — wypadało za oparciem fotela zamiast nad
+    /// siedziskiem: poprawnie siedzisko zajmuje 1998,100–1998,550 m i obejmuje oko,
+    /// z usterką stoi na 1998,800–1999,250 m, a oparcie na 1998,700–1998,800 m. Pulpit
+    /// odsuwał się przy tym z 0,70 m na 1,40 m przed okiem. Żadna bramka liczbowa tego
+    /// nie widziała: obie liczby są poprawnymi rozpiętościami swoich zbiorów.</para>
+    ///
+    /// <para><b>Ten akapit jest PRZEPISANY, a nie dopisany obok</b> (audyt 14.09.2026).
+    /// Poprzednia wersja mówiła, że oko „zostawało za szybą zamiast przed nią" i że
+    /// „w kadrze nie było więc ramy szyby w ogóle". Pierwsze jest nieprawdą: oko stoi
+    /// na 1998,200 m w obu przypadkach i po tej samej stronie płaszczyzny szyby, tylko
+    /// dalej od niej (−1,450 m poprawnie, −2,150 m z usterką). Drugie jest nieprawdziwym
+    /// związkiem przyczynowym: ramy szyby nie ma w kadrze ani przed poprawką, ani po
+    /// niej, bo nie niesie jej żadna bryła kabiny — przesunięcie o 0,700 m nie mogło
+    /// tego wywołać ani odwołać.</para>
+    ///
+    /// <para>Dlatego ogon jest tu ARGUMENTEM, a nie wynikiem: zbiór brył, który nie jest
+    /// całym składem, nie umie sam odpowiedzieć, gdzie kończy się skład.</para>
+    /// </summary>
+    public static int PlaceWithRear(
+        SceneAxis axis, IReadOnlyList<ITrainBody> bodies, double rearChainageM)
+    {
+        ArgumentNullException.ThrowIfNull(axis);
+        ArgumentNullException.ThrowIfNull(bodies);
+
+        var plan = new List<BodyPlacement>(bodies.Count);
+        for (var index = 0; index < bodies.Count; index++)
+        {
+            plan.Add(PlacementFor(axis.Axis, bodies[index].Span, rearChainageM, index));
+        }
+
+        Apply(axis, bodies, plan);
+        return plan.Count - HiddenCount(plan);
     }
 
     /// <summary>Plan i jego wykonanie w jednym kroku. Zwraca liczbę ustawionych brył.</summary>

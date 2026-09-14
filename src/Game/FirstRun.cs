@@ -172,6 +172,7 @@ public sealed partial class FirstRun : Node3D
     private string _assetDirectory = string.Empty;
     private StandardMaterial3D? _tunnelMaterial;
     private TrainView _train = null!;
+    private CabView _cabView = null!;
     private StationView _platforms = null!;
     private Camera3D _cab = null!;
     private Camera3D _chase = null!;
@@ -261,6 +262,20 @@ public sealed partial class FirstRun : Node3D
     /// gdzie go zobaczyć, więc tam odpowiedzią jest wiersz HUD-u, nie odmowa.</para>
     /// </summary>
     private const int ExitViewUnavailable = 13;
+
+    /// <summary>
+    /// Kabina się nie wczytała. Odmowa tą samą drogą co przy skorupie i peronach —
+    /// i z tego samego powodu, który Issue #107 zmierzyło dwa razy.
+    ///
+    /// <para><b>Scena bez kabiny wygląda dziś DOKŁADNIE tak, jak wyglądała poprawnie
+    /// przed MB-05</b>, i to jest cała treść tej stałej. Kamera kabinowa stoi wewnątrz
+    /// skorupy, a skorupa jest w tym widoku ukryta, więc brak wnętrza daje kadr z samym
+    /// tunelem — czyli obraz, który <c>godot-first-run.yml</c> sprawdzał i uznawał za
+    /// dobry przez cały czas, kiedy kabiny nie było. Bramka oglądająca metryki klatki
+    /// nie ma tu czego zauważyć: klatka jest poprawna, tylko pokazuje o jeden przedmiot
+    /// mniej, niż powinna.</para>
+    /// </summary>
+    private const int ExitCabMissing = 14;
 
     private bool _scriptedMode;
     private bool _lineMode;
@@ -380,6 +395,7 @@ public sealed partial class FirstRun : Node3D
 
         _tunnel = GetNode<TunnelView>("Tunnel");
         _train = GetNode<TrainView>("Train");
+        _cabView = GetNode<CabView>("Cab");
         _platforms = GetNode<StationView>("Platforms");
         _cab = GetNode<Camera3D>("CabCamera");
         _chase = GetNode<Camera3D>("ChaseCamera");
@@ -1060,6 +1076,7 @@ public sealed partial class FirstRun : Node3D
         var manifestPath = Argument("manifest") ?? Path.Combine(assets, "chunks", "L1_A-chunks.json");
         var shellPath = Argument("shell") ?? Path.Combine(assets, "M7_shell.glb");
         var platformsPath = Argument("platforms") ?? Path.Combine(assets, "L1_A-platforms.glb");
+        var cabPath = Argument("cab") ?? Path.Combine(assets, "M7_cab.glb");
 
         using var manifestFile = FileAccess.Open(manifestPath, FileAccess.ModeFlags.Read);
         if (manifestFile is null)
@@ -1115,9 +1132,25 @@ public sealed partial class FirstRun : Node3D
             return;
         }
 
+        // KABINA WCHODZI TĄ SAMĄ DROGĄ CO SKORUPA I PERONY, łącznie z odmową przy zerze
+        // brył (MB-05). Odrzucenie wyniku `Load` jest tu tą samą usterką co przy składzie
+        // z Issue #107: scena szłaby dalej bez wnętrza, a że kamera kabinowa i tak stoi
+        // w środku skorupy, kadr wyglądałby jak przed tą pozycją — czyli bramka
+        // `godot-first-run.yml` zostawałaby zielona na scenie, która kabiny nie ma.
+        var cabBodies = _cabView.Load(cabPath, trainMaterial);
+        if (cabBodies <= 0)
+        {
+            Abort(ExitCabMissing,
+                $"[KABINA] {cabPath} nie dał ani jednej bryły. Wygeneruj kabinę "
+                + "(tools/blender/m7_cab_build.py --out …/M7_cab.glb) albo uruchom "
+                + "z --no-geometry.");
+            return;
+        }
+
         GD.Print(_tunnel.Describe(manifest));
         GD.Print(_platforms.Describe());
         GD.Print(_train.Describe());
+        GD.Print(_cabView.Describe());
         var drift = Math.Abs(manifest.AxisLengthM - _axis!.LengthM);
         GD.Print(string.Create(
             CultureInfo.InvariantCulture,
@@ -1607,6 +1640,11 @@ public sealed partial class FirstRun : Node3D
         // wnętrze i nic poza tym. Kabina jako model wnętrza nie istnieje (T-220 jej
         // świadomie nie robi), więc jedyne uczciwe rozwiązanie to schować bryłę.
         _train.Visible = view != ViewKind.Cab;
+
+        // ...a wnętrze DOKŁADNIE ODWROTNIE, tym SAMYM warunkiem (MB-05). Drugi,
+        // niezależny przełącznik dałby stan, w którym nie widać ani skorupy, ani
+        // kabiny — kadr pusty, wyglądający jak niewczytana geometria.
+        _cabView.Visible = view == ViewKind.Cab;
     }
 
     private void PlaceEverything()
@@ -1646,6 +1684,23 @@ public sealed partial class FirstRun : Node3D
         // pochodzi teraz zawsze z wczytanej geometrii.
         var trainLength = _train.LengthM;
         _train.PlaceAt(_sceneAxis, chainage);
+
+        // Kabina jedzie po OGONIE SKORUPY, a nie po własnej rozpiętości, i to jest
+        // poprawka usterki znalezionej RACHUNKIEM przy MB-05, nie oglądaniem klatki:
+        // bryły kabiny mają wspólny układ współrzędnych ze skorupą, ale własną
+        // rozpiętość 93,300 m wobec 94,000 m składu, więc liczenie ogona z nich samych
+        // stawiało szybę czołową 0,700 m za daleko — 0,35 m PRZED czołem pudła.
+        //
+        // ODEJMOWANIA TU NIE MA i to jest poprawka DRUGA, z tej samej rodziny co
+        // pierwsza: `chainage - trainLength` było wyrażeniem wpisanym w argument, więc
+        // nie widział go żaden test, a dopisanie do niego `+ 0.7` przechodziło 292/292.
+        // Arytmetyka ogona stoi teraz w `TrainLayout.RearOfTrain`, przybita liczbowo
+        // w `tests/Game.Tests/CabPlacementTests.cs`; tutaj zostaje jedno: CZYJĄ długość
+        // jej podajemy. `trainLength` jest długością SKORUPY (wiersz wyżej) i bramka
+        // `Scena_bierze_dlugosc_SKLADU_a_nie_kabiny` pyta o ten wiersz osobno — bo
+        // podmiana `_train.LengthM` na `_cabView.LengthM` daje dokładnie tę samą
+        // usterkę 0,700 m, a tokenu `trainLength` w argumencie nie rusza.
+        _cabView.PlaceAt(_sceneAxis, TrainLayout.RearOfTrain(chainage, trainLength));
 
         // Dostępność widoku goniącego — decyzja właściciela z 05.09.2026, cała
         // arytmetyka w `ChaseCameraAim.Availability`. Długość bierze się STĄD, czyli

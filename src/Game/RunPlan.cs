@@ -33,7 +33,11 @@ public sealed class RunPlan
     {
         "telemetry", "shot", "sample-every", "steps-per-frame", "jitter",
         "at-chainage", "view", "axis", "no-geometry", "assets", "manifest", "shell",
-        "platforms",
+        // `cab` stoi przy `shell` i `platforms`, bo jest tym samym: ścieżką do bryły
+        // wczytywanej przez scenę. Bez tego wpisu `FirstRun` CZYTAŁO `--cab`, a plan
+        // odrzucał je jako „nieznany argument" — czyli nadpisanie było nieosiągalne,
+        // a jedyną drogą do innej kabiny było przeniesienie pliku.
+        "platforms", "cab",
         "line", "calls", "limit-kmh", "signalling",
         "input-log", "replay", "from-telemetry",
     };
