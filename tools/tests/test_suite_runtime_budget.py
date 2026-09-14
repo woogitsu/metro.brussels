@@ -1539,6 +1539,14 @@ KONTENEROW_Z_DATA_ISO = 3
 #: była wtedy prozą w przebraniu asercji. Dziś każda pozycja ma podany moduł, a bramka
 #: żąda, żeby stała tam NAPRAWDĘ była i żeby w jej literale NAPRAWDĘ nie było daty —
 #: plus równości na liczbie pozycji, żeby skreślenie wpisu nie przeszło po cichu.
+#:
+#: **ILU ZAPISÓW TA GRANICA DOTYCZY — dopisane 14.09.2026 (6.D206), a nie przepisane,
+#: bo zdanie wyżej jest nadal prawdziwe; brakowało mu skali.** Kontenerów, których `#:`
+#: deklaruje pomiar z datą, jest w drzewie **29**, a datę ISO w literale niesie
+#: z nich **JEDEN** — `POMIARY`. `POMIARY_BRAKOW` nie jest więc wyjątkiem; wyjątkiem
+#: jest `POMIARY`. Granica nie jest szczeliną w sicie, tylko kształtem całego sita,
+#: i dlatego bramki z niej NIE MA: zapalałaby się na dziewięćdziesięciu stałych
+#: napisanych poprawnie. Liczby i rozstrzygnięcie: sekcja 6.D206 na końcu tego modułu.
 STALE_BEZ_DATY_W_LITERALE = {
     "SZESC_PRZYPADKOW": (
         "tools/tests/test_field_paths.py",
@@ -1736,6 +1744,221 @@ def test_ile_ksztaltow_zapisu_pomiaru_niesie_drzewo():
         "pętla granic wykonała %d obrotów przy %d wymienionych — pusta pętla przechodzi "
         "każdą asercję w środku, więc bez tego licznika granica jest prozą w przebraniu "
         "asercji (zmierzone: KN-5b wyszła ZIELONA)" % (sprawdzonych, GRANIC_SITA_DATY))
+
+
+# --- 6.D206: ILU ZAPISOW POMIARU DOTYCZY GRANICA Z 6.D193 ---------------------------
+#
+# **Odpowiedz: prawie wszystkich. Granica nie jest szczelina w sicie — jest sitem.**
+#
+# 6.D193 zapisalo, ze kryterium daty w literale nie widzi `POMIARY_BRAKOW`, bo tamta
+# data stoi w komentarzu `#:` i w notacji polskiej. Pozycja 6.D206 pytala, ILU zapisow
+# ta granica dotyczy — „jeden przypadek jest anegdota". Zmierzone 14.09.2026 na `71db020`:
+#
+#     stalych modulowych pod `tools/` o nazwie WIELKIMI        1191
+#     z nich z komentarzem `#:`                                 555
+#     z nich `#:` mowi „zmierzone"/„zmierzono"                  119
+#     z nich komentarz niesie TAKZE date                         91
+#     z tych 91 literal NIE niesie daty ISO                      89
+#     z tych 91 to KONTENERY (jedyne, ktorym ksztalt przysluguje) 29
+#     z tych 29 literal NIE niesie daty ISO                      28
+#
+# **Po TYM commicie szeroka liczba wynosi 92, i to nie jest usterka pomiaru — to jest
+# pomiar, ktory zmienil sie przez to, ze zostal zapisany.** Komentarz `#:` nad
+# `MIN_STALYCH_Z_POMIAREM_W_KOMENTARZU` nizej sam deklaruje pomiar z data, wiec wchodzi
+# do populacji, ktora opisuje. Ta sama mechanika co `ADRESOW_W_WYKONANYCH` z 6.D158,
+# gdzie domkniecie pozycji przenosi jej wlasny blok do zbioru mierzonego.
+#
+# **Liczba, na ktorej stoi rozstrzygniecie, NIE drgnela:** kontenerow jest nadal 29,
+# bo obie nowe stale sa skalarami. Samozwrotnosc przesunela populacje szeroka i nie
+# ruszyla waskiej — a wyrok zapada na waskiej.
+#
+# **`POMIARY_BRAKOW` nie jest wyjatkiem — wyjatkiem jest `POMIARY`.** Kontener,
+# ktorego `#:` deklaruje pomiar z data i ktory te date ma takze w literale, jest
+# w calym drzewie **jeden**. Drugi zapis z data ISO w literale to
+# `DZIEN_PIERWSZEGO_WYNOSZENIA`, ktory kontenerem nie jest: jest sama data.
+#
+# **ROZSTRZYGNIECIE: granica ZOSTAJE granica i bramki z niej NIE ROBIE.** Bramka
+# „komentarz deklaruje pomiar, a literal daty nie niesie" zapalalaby sie na 89 stalych
+# napisanych poprawnie — prog, ratchet i tablica przypadkow nie maja gdzie nosic daty
+# i nosic jej nie powinny. Bramka swiecaca na poprawnym tekscie zostaje wylaczona,
+# nie poprawiona (6.D27), wiec jej tu nie ma.
+#
+# **Pilnowane jest co innego i to sie da pilnowac:** ZBIOR stalych, ktore date ISO
+# w literale niosa. Zbior, a nie liczba (6.D131) — liczba 91 rosnie przy kazdej nowej
+# stalej z datowanym komentarzem, czyli przy poprawnej pracy, a zbior dwoch nazw zmienia
+# sie tylko wtedy, gdy ktos nowy przyjmie ksztalt `POMIARY` albo gdy `POMIARY` go porzuci.
+
+#: Stale pod `tools/`, ktorych `#:` deklaruje pomiar Z DATA, a literal date ISO NIESIE.
+#: Zbior, nie liczba — patrz akapit wyzej. Wartoscia jest modul i powod.
+Z_DATA_ISO_W_LITERALE = {
+    "POMIARY": (
+        "tools/tests/test_suite_runtime_budget.py",
+        "lista pomiarow czasu zestawu; data jest PIERWSZYM polem kazdej krotki"),
+    "DZIEN_PIERWSZEGO_WYNOSZENIA": (
+        "tools/tests/test_timing_record.py",
+        "skalar, ktory JEST data — kontenerem nie jest, wiec ksztalt mu nie przysluguje"),
+}
+
+#: Podlogi na obie populacje. PODLOGI, nie rownosci: obie rosna przy kazdej nowej stalej
+#: z datowanym komentarzem, czyli przy pracy poprawnej. Bronia przed jedna rzecza —
+#: skanem, ktory oslepl i odpowiada zerem tak samo jak skan widzacy (6.D27). Zmierzone
+#: 14.09.2026: 91 i 29 PRZED tym commitem, 92 i 29 po nim — roznica to ten komentarz,
+#: patrz akapit o samozwrotnosci wyzej.
+MIN_STALYCH_Z_POMIAREM_W_KOMENTARZU = 80
+MIN_KONTENEROW_Z_POMIAREM_W_KOMENTARZU = 25
+
+_DATA_PL = re.compile(r"\b\d{1,2}\.\d{2}\.\d{4}\b")
+_DEKLARACJA_POMIARU = re.compile(r"[Zz]mierzon[eoy]|[Zz]mierzono")
+
+
+def _komentarz_hash_dwukropek(linie, wiersz):
+    """Blok `#:` stojacy BEZPOSREDNIO nad wierszem `wiersz` (1-based), sklejony."""
+    out = []
+    i = wiersz - 2
+    while i >= 0 and linie[i].lstrip().startswith("#:"):
+        out.append(linie[i].lstrip()[2:].strip())
+        i -= 1
+    return "\n".join(reversed(out))
+
+
+def stale_z_pomiarem_w_komentarzu_w_zrodle(zrodlo, sciezka="<pamiec>"):
+    """`[(plik, wiersz, nazwa, kontener, data_w_literale)]` dla JEDNEGO zrodla.
+
+    Wydzielone ze skanu drzewa, zeby dalo sie podac przyrzadowi wejscie syntetyczne —
+    pole „Weryfikacja" 6.D206 zada kontroli negatywnej pokazujacej, ze stala z data
+    dopisana do komentarza WCHODZI do tej liczby, a takiej kontroli nie da sie zrobic
+    na drzewie bez zmieniania cudzego modulu.
+    """
+    import ast
+
+    nazwa_stalej = re.compile(r"^[A-Z][A-Z0-9_]{3,}$")
+    linie = zrodlo.split("\n")
+    try:
+        drzewo = ast.parse(zrodlo)
+    except SyntaxError:
+        return []
+    out = []
+    for wezel in drzewo.body:
+        if not isinstance(wezel, ast.Assign):
+            continue
+        for cel in wezel.targets:
+            nazwa = getattr(cel, "id", None)
+            if not nazwa or not nazwa_stalej.match(nazwa):
+                continue
+            komentarz = _komentarz_hash_dwukropek(linie, wezel.lineno)
+            if not komentarz or not _DEKLARACJA_POMIARU.search(komentarz):
+                continue
+            if not (_DATA_PL.search(komentarz) or _DATA_ISO.search(komentarz)):
+                continue
+            out.append((
+                sciezka, wezel.lineno, nazwa,
+                isinstance(wezel.value, (ast.Tuple, ast.List, ast.Dict)),
+                bool(_DATA_ISO.search(ast.unparse(wezel.value)))))
+    return out
+
+
+def stale_z_pomiarem_w_komentarzu():
+    """To samo przez cale `tools/`, przez `tree_walk.walk` — jak `stale_z_data_iso`."""
+    import tree_walk as tw
+
+    out = []
+    for baza, _kat, pliki in tw.walk(os.path.join(ROOT, "tools")):
+        for plik in sorted(pliki):
+            if not plik.endswith(".py"):
+                continue
+            sciezka = os.path.join(baza, plik)
+            with open(sciezka, encoding="utf-8", errors="replace") as uchwyt:
+                out.extend(stale_z_pomiarem_w_komentarzu_w_zrodle(
+                    uchwyt.read(), os.path.relpath(sciezka, ROOT)))
+    return out
+
+
+def test_przyrzad_6D206_WIDZI_date_dopisana_do_komentarza():
+    """Kontrola PRZYRZADU na wejsciu syntetycznym, zadana wprost przez pole „Weryfikacja".
+
+    Bez niej liczba 91 znaczylaby tyle, co skan, ktory ja wypisal: przyrzad niewidzacy
+    daty w notacji polskiej odpowiedzialby mniejsza liczba i nic by tego nie zdradzilo.
+    Cztery probki roznia sie od siebie DOKLADNIE JEDNA rzecza naraz.
+    """
+    bez_daty = '#: Zmierzone na drzewie.\nPROBKA_JEDEN = (1, 2)\n'
+    z_data_pl = '#: Zmierzone 10.09.2026 na `a202423`.\nPROBKA_DWA = (1, 2)\n'
+    z_data_iso = '#: Zmierzone 2026-09-10 na `a202423`.\nPROBKA_TRZY = (1, 2)\n'
+    bez_pomiaru = '#: Lista rzeczy z 10.09.2026.\nPROBKA_CZTERY = (1, 2)\n'
+
+    assert stale_z_pomiarem_w_komentarzu_w_zrodle(bez_daty) == [], (
+        "komentarz mowi o pomiarze, ale daty nie niesie — nie jest datowanym zapisem "
+        "pomiaru i do tej liczby wchodzic nie ma")
+    assert stale_z_pomiarem_w_komentarzu_w_zrodle(bez_pomiaru) == [], (
+        "komentarz niesie date, ale pomiaru nie deklaruje — sito po samej dacie "
+        "zglaszaloby kazda liste z data w prozie")
+
+    for zrodlo, etykieta in ((z_data_pl, "polskiej"), (z_data_iso, "ISO")):
+        trafienia = stale_z_pomiarem_w_komentarzu_w_zrodle(zrodlo)
+        assert len(trafienia) == 1, (
+            "data w notacji %s dopisana do komentarza NIE weszla do liczby — przyrzad "
+            "jej nie widzi, wiec kazda liczba, ktora poda, jest zanizona: %s"
+            % (etykieta, trafienia))
+        _p, _w, nazwa, kontener, w_literale = trafienia[0]
+        assert kontener is True and w_literale is False, (nazwa, kontener, w_literale)
+
+    # I DRUGA STRONA: literal Z data ISO ma byc rozpoznany jako niosacy date, inaczej
+    # zbior `Z_DATA_ISO_W_LITERALE` bylby pusty z powodu przyrzadu, a nie drzewa.
+    z_literalem = ('#: Zmierzone 10.09.2026.\n'
+                   'PROBKA_PIEC = (("2026-09-10", 1.0),)\n')
+    trafienia = stale_z_pomiarem_w_komentarzu_w_zrodle(z_literalem)
+    assert [t[4] for t in trafienia] == [True], (
+        "literal z data ISO nie zostal rozpoznany jako niosacy date: %s" % (trafienia,))
+
+
+def test_ile_zapisow_pomiaru_niesie_date_WYLACZNIE_w_prozie():
+    """Pole „Skonczone, gdy" 6.D206 zada liczby ZE ZRODEL — i ona rozstrzyga pozycje.
+
+    Kryterium daty w literale widzi **jeden kontener na 29**. Granica z 6.D193 nie jest
+    wiec szczelina, tylko ksztaltem calego sita — i dlatego zostaje ZAPISANA, a bramki
+    z niej nie ma: zapalalaby sie na 89 stalych napisanych poprawnie.
+    """
+    import ast
+
+    znalezione = stale_z_pomiarem_w_komentarzu()
+    kontenery = [t for t in znalezione if t[3]]
+
+    assert len(znalezione) >= MIN_STALYCH_Z_POMIAREM_W_KOMENTARZU, (
+        "stalych z datowana deklaracja pomiaru w `#:` jest %d przy podlodze %d — skan "
+        "oslepl albo drzewo sie skurczylo, a zero odpowiada tak samo jak skan widzacy"
+        % (len(znalezione), MIN_STALYCH_Z_POMIAREM_W_KOMENTARZU))
+    assert len(kontenery) >= MIN_KONTENEROW_Z_POMIAREM_W_KOMENTARZU, (
+        "kontenerow wsrod nich jest %d przy podlodze %d" % (
+            len(kontenery), MIN_KONTENEROW_Z_POMIAREM_W_KOMENTARZU))
+
+    # ZBIOR, nie liczba: to on rozstrzyga, czy granica nadal opisuje drzewo.
+    z_data = {nazwa for _p, _w, nazwa, _k, w_literale in znalezione if w_literale}
+    assert z_data == set(Z_DATA_ISO_W_LITERALE), (
+        "stale z data ISO w literale to dzis %s, a wymienione sa %s — ktos przyjal "
+        "ksztalt `POMIARY` albo `POMIARY` go porzucil; jedno i drugie zmienia "
+        "rozstrzygniecie 6.D206 i ma byc widoczne"
+        % (sorted(z_data), sorted(Z_DATA_ISO_W_LITERALE)))
+
+    # I DRUGA STRONA, na wzor `STALE_BEZ_DATY_W_LITERALE`: kazda wymieniona stala ma
+    # w podanym module NAPRAWDE stac. Licznik obrotow, bo pusta petla przechodzi.
+    sprawdzonych = 0
+    for nazwa, (modul, powod) in sorted(Z_DATA_ISO_W_LITERALE.items()):
+        wezel = _stala_w_module(os.path.join(ROOT, modul), nazwa)
+        assert wezel is not None, (
+            "`%s` nie stoi juz w `%s`" % (nazwa, modul))
+        assert _DATA_ISO.search(ast.unparse(wezel)), (nazwa, modul)
+        assert len(powod) > 40, (nazwa, powod)
+        sprawdzonych += 1
+    assert sprawdzonych == len(Z_DATA_ISO_W_LITERALE), sprawdzonych
+
+    # `POMIARY_BRAKOW` — stala, od ktorej pozycja wyszla — ma byc w tej populacji
+    # i ma NIE miec daty w literale. To jest zdanie 6.D193 sprawdzone, a nie powtorzone.
+    nazwy = {t[2] for t in znalezione}
+    assert "POMIARY_BRAKOW" in nazwy, (
+        "`POMIARY_BRAKOW` wypadlo z populacji datowanych zapisow pomiaru — pozycja "
+        "6.D206 wyszla wlasnie od niego")
+    assert "POMIARY_BRAKOW" not in z_data, (
+        "`POMIARY_BRAKOW` niesie dzis date ISO w literale — granica z 6.D193 mowila, "
+        "ze nie niesie")
 
 
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —

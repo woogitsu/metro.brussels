@@ -1560,7 +1560,15 @@ def test_wzorzec_rodziny_lapie_zdanie_ktore_ma_lapac_i_nie_bierze_sasiedztwa():
 #: Komunikat werdyktu JEST wyjściem tej funkcji, a nie jej opisem — jedzie do logu joba
 #: i to z niego `tools/ci/timing_record.py` składa wpisy `POMIARY`, więc asercja na jego
 #: treść jest asercją na zachowanie, tylko wyrażoną literałem.
-ASERCJI_NAPISOWYCH_RAZEM = 878
+#: **878 -> 880 (14.09.2026, 6.D206), z powodem.** Doszły dwie asercje
+#: w `test_suite_runtime_budget.py`, obie w
+#: `test_przyrzad_6D206_WIDZI_date_dopisana_do_komentarza`:
+#: `"POMIARY_BRAKOW" in nazwy` i `"POMIARY_BRAKOW" not in z_data`. Stoją na NAPISIE
+#: z konieczności i to jest ich treść: populacja, którą 6.D206 mierzy, JEST zbiorem
+#: nazw stałych, a pytanie „czy `POMIARY_BRAKOW` do niej wchodzi" nie ma innej postaci
+#: niż literał z tą nazwą. Do listy `NA_ZRODLE_PY` nie należą — `nazwy` i `z_data` są
+#: wynikiem skanu drzewa, a nie odczytem pliku.
+ASERCJI_NAPISOWYCH_RAZEM = 880
 
 #: **Kotwica wpisu to `(plik, funkcja, operator, literał)`, a NIE numer wiersza.**
 #: Numer przesuwa się przy każdej edycji pliku i lista rozjechałaby się sama z siebie.
