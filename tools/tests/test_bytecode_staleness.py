@@ -520,7 +520,7 @@ KROK_ZESTAWU = "Run tool tests"
 #: PÓŹNIEJ, w nazwanym kroku tego samego joba. Liczba jest tu po to, żeby poprawione
 #: zdanie miało czym się zestarzeć widocznie.
 BAJTKOD_PO_COMPILEALL_KATALOGI = 7
-BAJTKOD_PO_COMPILEALL_PLIKI = 204
+BAJTKOD_PO_COMPILEALL_PLIKI = 205
 
 
 def _workflow_zestawu():
@@ -794,7 +794,7 @@ KATALOG_Z_PYTHONEM = "tools"
 #: caly Python stoi pod `tools/`, to `compileall -q tools` kompiluje CALOSC, a skan
 #: sekwencji czyta CALOSC. Gdy te dwie liczby sie rozejda, znaczy to, ze gdzies
 #: pojawil sie modul poza zasiegiem obu.
-MODULOW_W_CALYM_DRZEWIE = 204
+MODULOW_W_CALYM_DRZEWIE = 205
 
 
 def moduly_calego_drzewa(korzen=None):

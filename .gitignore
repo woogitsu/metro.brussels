@@ -29,3 +29,8 @@ TestResults/
 .import/
 .mono/
 export_presets.cfg
+# WYJĄTEK, a nie zdjęcie wiersza (MB-04, 14.09.2026). Preset eksportu jest od tej pory
+# WEJŚCIEM procesu pakowania, a nie wytworem edytora: bez niego `--export-pack`
+# i `--export-release` kończą się błędem o braku pliku. Wyjątek jest imienny, żeby
+# presety innych projektów Godota w drzewie nadal były ignorowane.
+!src/Game/export_presets.cfg

@@ -462,7 +462,7 @@ public sealed partial class FirstRun : Node3D
         _replayMode = plan.ReplayMode;
         _readsKeyboard = plan.ReadsKeyboard;
         _fromTelemetryMode = plan.FromTelemetryMode;
-        _inputLogPath = plan.InputLogPath;
+        _inputLogPath = plan.InputLogPath ?? DomyslnyZapisWejsc(plan);
         _replayPath = plan.ReplayPath;
         _fromTelemetryPath = plan.FromTelemetryPath;
         _callsPath = plan.CallsPath;
@@ -494,10 +494,136 @@ public sealed partial class FirstRun : Node3D
         GetTree().Quit(code);
     }
 
+    /// <summary>
+    /// Domyślna ścieżka do zasobu — z KATALOGU REPOZYTORIUM w checkoucie, a z katalogu
+    /// obok BINARKI w paczce dla gracza (MB-04).
+    ///
+    /// <para><b>Dlaczego to nie może zostać przy samym <c>res://</c>.</b> Zmierzone
+    /// 14.09.2026 własną sondą, na wyeksportowanej paczce uruchomionej z dwóch różnych
+    /// katalogów bieżących: <c>ProjectSettings.GlobalizePath("res://")</c> zwraca
+    /// wtedy <b>NAPIS PUSTY</b>. Poprzednia wersja tej metody sklejała z niego
+    /// <c>"../../" + relative</c>, więc w paczce dawała ścieżkę WZGLĘDNĄ do katalogu
+    /// bieżącego PROCESU — bez żadnego związku z tym, gdzie leży gra. Gracz, który
+    /// kliknie ikonę, dostawał dwa poziomy nad przypadkowym katalogiem i pustą scenę
+    /// albo <c>[ZASOBY] brak manifestu</c>, zależnie od tego, skąd akurat uruchomił.</para>
+    ///
+    /// <para><b>Rozstrzygnięcie: pytamy o BINARKĘ, nie o <c>res://</c>.</b>
+    /// <c>OS.GetExecutablePath()</c> jest bezwzględna i poprawna w OBU układach —
+    /// to też jest zmierzone tą samą sondą, a nie przyjęte. W checkoucie binarką jest
+    /// silnik leżący poza drzewem, więc tam nadal rozstrzyga <c>res://</c>; w paczce
+    /// binarką jest sama gra i zasoby leżą obok niej.</para>
+    ///
+    /// <para><b>Jak odróżniamy jeden układ od drugiego.</b> Po tym samym, co się różni:
+    /// pusty wynik <c>GlobalizePath</c> znaczy „zasoby są w paczce", bo katalog
+    /// projektu nie istnieje na dysku. Warunek nie zgaduje po nazwie pliku ani po
+    /// zmiennej środowiskowej — pyta o tę jedną rzecz, która naprawdę się zmienia.</para>
+    /// </summary>
+    /// <param name="relative">Ścieżka względna, np. <c>data/track/L1_A.json</c>.</param>
     private static string RepoPath(string relative)
     {
         var projectDirectory = ProjectSettings.GlobalizePath("res://");
-        return Path.GetFullPath(Path.Combine(projectDirectory, "..", "..", relative));
+        if (projectDirectory.Length > 0)
+        {
+            return Path.GetFullPath(Path.Combine(projectDirectory, "..", "..", relative));
+        }
+
+        // PACZKA. Zasoby leżą w podkatalogu `zasoby/` obok binarki — jeden katalog,
+        // a nie dwa poziomy w górę, bo w paczce nie ma nad czym iść w górę.
+        var exeDirectory = OS.GetExecutablePath().GetBaseDir();
+        return Path.GetFullPath(Path.Combine(exeDirectory, PackageAssetsDirectory, relative));
+    }
+
+    /// <summary>
+    /// Nazwa katalogu z zasobami runtime w paczce dla gracza. Stoi w JEDNYM miejscu,
+    /// bo czyta ją i scena, i <c>tools/release/package-playable.sh</c>, a dwie kopie
+    /// rozjechałyby się przy pierwszej zmianie układu paczki — wtedy gra szukałaby
+    /// zasobów tam, gdzie skrypt ich nie położył, i nie powiedziałaby dlaczego.
+    /// </summary>
+    public const string PackageAssetsDirectory = "zasoby";
+
+    /// <summary>
+    /// Katalog z wygenerowaną geometrią: <c>build/t400</c> w checkoucie, a SAM
+    /// <c>zasoby/</c> w paczce dla gracza.
+    ///
+    /// <para><b>Dlaczego to nie może być <c>RepoPath("build/t400")</c>, choć tak było
+    /// do 14.09.2026.</b> Zmierzone na wyeksportowanej paczce uruchomionej spoza
+    /// checkoutu, ze ścieżki ze spacjami: scena szukała wtedy manifestu pod
+    /// <c>…/MetroBXL/zasoby/build/t400/chunks/L1_A-chunks.json</c> i kończyła się
+    /// <c>[ASSETS] brak manifestu</c> z kodem 4. Ścieżka składała się poprawnie —
+    /// niepoprawna była jej TREŚĆ: <c>build/t400</c> to nazwa katalogu WYJŚCIOWEGO
+    /// generatorów w drzewie źródeł, a w paczce nie ma ani generatorów, ani drzewa.</para>
+    ///
+    /// <para><b>Dlaczego nie odwrotnie — dołożeniem <c>build/t400/</c> w skrypcie
+    /// pakującym.</b> Bo wtedy gracz dostaje w swojej paczce katalog o nazwie
+    /// „build", czyli nazwę cudzego procesu budowania, i pierwsza zmiana katalogu
+    /// wyjściowego generatorów (dziś <c>t400</c>, jutro inny) cicho rozjeżdża paczkę
+    /// z grą. Układ paczki ma zależeć od paczki, a nie od tego, jak nazywa się
+    /// katalog roboczy w repozytorium.</para>
+    ///
+    /// <para>Rozróżnienie idzie po tym samym warunku co w <see cref="RepoPath"/> —
+    /// pustym wyniku <c>GlobalizePath("res://")</c> — żeby nie było dwóch niezależnych
+    /// odpowiedzi na jedno pytanie „czy to paczka".</para>
+    /// </summary>
+    private static string AssetsRoot()
+    {
+        var projectDirectory = ProjectSettings.GlobalizePath("res://");
+        if (projectDirectory.Length > 0)
+        {
+            return Path.GetFullPath(Path.Combine(projectDirectory, "..", "..", "build", "t400"));
+        }
+
+        return Path.GetFullPath(
+            Path.Combine(OS.GetExecutablePath().GetBaseDir(), PackageAssetsDirectory));
+    }
+
+    /// <summary>
+    /// Domyślne miejsce zapisu wejść maszynisty, gdy nie podano <c>--input-log</c>:
+    /// <c>user://zapisy/ostatni-przejazd.log</c> — albo <c>null</c>, gdy przejazdem
+    /// nie kieruje człowiek.
+    ///
+    /// <para><b>Dlaczego to w ogóle powstało (MB-04, 14.09.2026).</b> Bez tej metody
+    /// <c>_recorder</c> tworzył się WYŁĄCZNIE przy jawnym <c>--input-log</c>, więc
+    /// gracz uruchamiający paczkę dwukliknięciem nie zapisywał niczego. Pole
+    /// „Skończone, gdy" pozycji MB-04 wymaga wprost, żeby „logi trafiały do katalogu
+    /// użytkownika", a napisany wcześniej `CZYTAJ-TO-NAJPIERW.txt` już to GŁOSIŁ —
+    /// czyli paczka obiecywała rzecz, której nie robiła. Zapis jest tu dokładany,
+    /// a nie obietnica usuwana, bo to zapis jest treścią pozycji.</para>
+    ///
+    /// <para><b>Tylko przejazd prowadzony z klawiatury.</b> <c>--replay</c>,
+    /// <c>--line</c>, <c>--shot</c> i przebieg skryptowy dostają <c>null</c>: zapis
+    /// WEJŚĆ MASZYNISTY z przejazdu, którego maszynista nie prowadził, byłby zapisem
+    /// wejść, których nikt nie wcisnął. Warunek pyta <c>plan.ReadsKeyboard</c>, czyli
+    /// tę jedną rzecz, która to rozstrzyga, a nie o tryb z nazwy.</para>
+    ///
+    /// <para><b><c>user://</c>, a nie katalog obok binarki.</b> Paczka bywa rozpakowana
+    /// tam, gdzie gracz nie ma prawa zapisu, a <c>user://</c> jest jedyną ścieżką,
+    /// którą Godot gwarantuje jako zapisywalną na każdej z platform. Na Linuksie
+    /// wychodzi z tego <c>~/.local/share/godot/app_userdata/&lt;projekt&gt;/</c>.</para>
+    ///
+    /// <para><b>Jedna nazwa, nadpisywana.</b> Znacznik czasu w nazwie dawałby katalog
+    /// rosnący bez granicy, którego nikt nigdy nie sprząta. Nadpisywanie jest wyborem
+    /// i dlatego stoi wypisane w <c>CZYTAJ-TO-NAJPIERW.txt</c>, a nie tylko tutaj.</para>
+    /// </summary>
+    private static string? DomyslnyZapisWejsc(RunPlan plan)
+    {
+        if (!plan.ReadsKeyboard)
+        {
+            return null;
+        }
+
+        const string katalog = "user://zapisy";
+        using var dostep = DirAccess.Open("user://");
+        if (dostep is not null && !dostep.DirExists("zapisy"))
+        {
+            var blad = dostep.MakeDir("zapisy");
+            if (blad != Error.Ok)
+            {
+                GD.PrintErr($"[WEJŚCIE] nie da się założyć {katalog}: {blad}");
+                return null;
+            }
+        }
+
+        return $"{katalog}/ostatni-przejazd.log";
     }
 
     // --- budowa ------------------------------------------------------------------
@@ -572,6 +698,16 @@ public sealed partial class FirstRun : Node3D
         if (_inputLogPath is not null)
         {
             _recorder = new InputLogRecorder();
+
+            // ŚCIEŻKA BEZWZGLĘDNA NA STARCIE, a nie dopiero przy zapisie, i nie
+            // wyliczona przez czytającego z nazwy projektu. Gracz ma się dowiedzieć,
+            // GDZIE leżą jego przejazdy, zanim pierwszy z nich powstanie; dla mnie
+            // i dla CI jest to jedyny sposób ZMIERZENIA tej ścieżki zamiast
+            // wyprowadzenia jej z `config/name` — a wyprowadzenie było przy MB-04
+            // po prostu błędne (`MetroBXL/` zamiast rzeczywistej nazwy projektu).
+            GD.Print(string.Create(
+                CultureInfo.InvariantCulture,
+                $"[ZAPISY] wejścia maszynisty -> {ProjectSettings.GlobalizePath(_inputLogPath)}"));
         }
 
         if (_lineMode)
@@ -920,7 +1056,7 @@ public sealed partial class FirstRun : Node3D
             return;
         }
 
-        var assets = Argument("assets") ?? RepoPath("build/t400");
+        var assets = Argument("assets") ?? AssetsRoot();
         var manifestPath = Argument("manifest") ?? Path.Combine(assets, "chunks", "L1_A-chunks.json");
         var shellPath = Argument("shell") ?? Path.Combine(assets, "M7_shell.glb");
         var platformsPath = Argument("platforms") ?? Path.Combine(assets, "L1_A-platforms.glb");

@@ -14,5 +14,24 @@
 #
 # Format: dwie linie `klucz=wartość`. Czyta to `tools/ci/godot_install.sh`,
 # `tools/tests/test_ci_workflows.py` i `tools/tests/test_engine_version.py`.
+# SZABLONY EKSPORTU — trzecia linia, dołożona 14.09.2026 przy MB-04.
+#
+# Dlaczego TUTAJ, a nie w osobnym pliku. Ten plik sam nazywa siebie „JEDNO źródło
+# prawdy o wersji Godota i o sumie kontrolnej jego archiwum", a szablony eksportu SĄ
+# archiwum tego samego wydania i tej samej wersji — rozdzielenie ich dałoby dwa
+# miejsca, w których wersja musiałaby się zgadzać, i pierwszą aktualizację, przy której
+# by się rozjechały.
+#
+# Dlaczego wariant `mono`. Projekt jest na Godocie mono (`Godot_v…_mono_linux_x86_64`
+# wyżej), a szablony muszą pochodzić z tego samego wariantu — inaczej eksport odmawia.
+#
+# Suma pochodzi z `SHA512-SUMS.txt` TEGO SAMEGO wydania, czyli stamtąd, skąd bierze się
+# suma silnika. Ta sama zasada, co przy Blenderze: bierzemy to, co wydawca podpisał,
+# a nie to, co wygodniej porównać. Do 14.09.2026 szablony nie były przypięte NIGDZIE —
+# `grep` po `docs/`, `tools/` i `.github/` dawał zero trafień — więc ich pobranie było
+# jedyną drogą do repozytorium bez ani jednej sumy. Przy modelu zagrożenia z `CLAUDE.md`
+# §9 (joby na maszynie właściciela, z dostępem do `GITHUB_TOKEN`) była to dokładnie ta
+# nierówność standardu, którą 6.D68 usunęło dla samego silnika.
 version=4.7.2-stable
 sha512=1855960b27ee3ef5e66e5e228cced69d55637b24334a7411162687dcd077d8f9f645348cdb8eae984bec8135d49ed855a1e3a16476786b8bce60774fd8402d13
+templates_sha512=bb5c41d72370ed743660361f6228006f808ab04ca33abdc545d740b044f3fe057f32ae8cb7873a1bc86ddcd82ae683b9f6dfdfe4179852f2c0f1acde2ff6bd5a

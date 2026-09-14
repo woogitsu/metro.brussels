@@ -192,7 +192,10 @@ public sealed class UiTextTests
     /// Ile literałów — dolne ostrze, zmierzone 12.09.2026; 480 → 496 przy MB-02
     /// (`RunSummary.cs` i wpisy `summary.*` w katalogu).
     /// </summary>
-    private const int LiteralowWZasieguBramki = 509;
+    // 509 -> 521 (14.09.2026, MB-04): `FirstRun.AssetsRoot`, `DomyslnyZapisWejsc`
+    // i wiersz `[ZAPISY]`. Liczba ZMIERZONA przyrzadem tego testu, a nie
+    // przepisana z jego komunikatu o bledzie.
+    private const int LiteralowWZasieguBramki = 521;
 
     /// <summary>Ile różnych — dolne ostrze, zmierzone 12.09.2026.</summary>
     private const int RoznychLiteralowWZasieguBramki = 362;
@@ -1346,7 +1349,10 @@ public sealed class UiTextTests
     /// </summary>
     // 521 -> 537 (13.09.2026, MB-02). Różnica między czytnikami zostaje ta sama co
     // do sztuki — rośnie tylko korpus.
-    private const int PozycjiStaregoCzytnika = 550;
+    // 550 -> 562 (14.09.2026, MB-04): `FirstRun.AssetsRoot`, `DomyslnyZapisWejsc`
+    // i wiersz `[ZAPISY]`. Liczba ZMIERZONA przyrzadem tego testu, a nie
+    // przepisana z jego komunikatu o bledzie.
+    private const int PozycjiStaregoCzytnika = 562;
 
     /// <summary>
     /// Ile PLIKÓW korpusu stary czytnik czytał inaczej niż leksykalny — 6.D182.
@@ -1903,10 +1909,15 @@ public sealed class UiTextTests
     /// <summary>Ile zgłoszeń daje <c>FirstRun.cs</c> liczony CAŁYM PLIKIEM — 6.D180.</summary>
     // 106 -> 110 i 118 -> 122 (13.09.2026, MB-02). RÓŻNICA ZOSTAJE NA 12 i to ona
     // jest treścią tej pary, a nie żadna z liczb osobno.
-    private const int ZgloszenFirstRunCalymPlikiem = 110;
+    // 110 -> 120 (14.09.2026, MB-04): `FirstRun.AssetsRoot`, `DomyslnyZapisWejsc`
+    // i wiersz `[ZAPISY]`. Liczba ZMIERZONA przyrzadem tego testu, a nie
+    // przepisana z jego komunikatu o bledzie.
+    private const int ZgloszenFirstRunCalymPlikiem = 120;
 
     /// <summary>Ile daje ten sam plik liczony WIERSZ PO WIERSZU — 6.D180.</summary>
-    private const int ZgloszenFirstRunWierszami = 122;
+    // 122 -> 132 (14.09.2026, MB-04): `FirstRun.AssetsRoot`, `DomyslnyZapisWejsc`
+    // i wiersz `[ZAPISY]`. Liczba ZMIERZONA przyrzadem tego testu.
+    private const int ZgloszenFirstRunWierszami = 132;
 
     /// <summary>Ile plików korpusu daje różne liczby obiema drogami — 6.D180.</summary>
     private const int PlikowZRoznicaDrog = 1;
@@ -2075,7 +2086,10 @@ public sealed class UiTextTests
     /// </summary>
     // 335 -> 348 (13.09.2026, MB-02). Zasięg mechaniki, nie liczba usterek: liczba
     // ZABRANYCH werdyktów niżej ma zostać na dwóch i to ona jest tu treścią.
-    private const int LiteralowDotknietychZdejmowaniem = 354;
+    // 354 -> 363 (14.09.2026, MB-04): `FirstRun.AssetsRoot`, `DomyslnyZapisWejsc`
+    // i wiersz `[ZAPISY]`. Liczba ZMIERZONA przyrzadem tego testu, a nie
+    // przepisana z jego komunikatu o bledzie.
+    private const int LiteralowDotknietychZdejmowaniem = 363;
 
     /// <summary>
     /// Ilu literałom zdejmowanie jednostek ZABIERA werdykt „to słowo" — 6.D155.
@@ -2745,10 +2759,16 @@ public sealed class UiTextTests
     };
 
     /// <summary>Zgłoszeń wąskiej reguły, gdy czytnik dostaje CAŁY plik — 6.D173/6.D186.</summary>
-    private const int ZgloszenWaskichCalymPlikiem = 96;
+    // 96 -> 100 (14.09.2026, MB-04): `FirstRun.AssetsRoot`, `DomyslnyZapisWejsc`
+    // i wiersz `[ZAPISY]`. Liczba ZMIERZONA przyrzadem tego testu, a nie
+    // przepisana z jego komunikatu o bledzie.
+    private const int ZgloszenWaskichCalymPlikiem = 100;
 
     /// <summary>Zgłoszeń wąskiej reguły, gdy czytnik dostaje WIERSZ — 6.D173/6.D186.</summary>
-    private const int ZgloszenWaskichWierszami = 108;
+    // 108 -> 112 (14.09.2026, MB-04): `FirstRun.AssetsRoot`, `DomyslnyZapisWejsc`
+    // i wiersz `[ZAPISY]`. Liczba ZMIERZONA przyrzadem tego testu, a nie
+    // przepisana z jego komunikatu o bledzie.
+    private const int ZgloszenWaskichWierszami = 112;
 
     /// <summary>
     /// Ile z nich stoi w kontekście CZYTANIA JSON-a — <b>18 obiema drogami</b>.
@@ -3105,7 +3125,9 @@ public sealed class UiTextTests
     // 129 -> 128 (14.09.2026, MB-03) — SPADEK z tego samego powodu, co przy
     // `DziurNaEkranie`: wiersz prędkości przestał być literałem z klamrami w ciele
     // `Hud.Update`, a stał się wpisem katalogu.
-    private const int LiteralowZKlamra = 128;
+    // 128 -> 131 (14.09.2026, MB-04): `FirstRun.AssetsRoot`, `DomyslnyZapisWejsc`
+    // i wiersz `[ZAPISY]`. Liczba ZMIERZONA przyrzadem tego testu.
+    private const int LiteralowZKlamra = 131;
 
     /// <summary>
     /// Ilu literałom <see cref="BezDziur"/> zabiera WSZYSTKIE słowa — 6.D188.
@@ -4060,11 +4082,16 @@ public sealed class UiTextTests
     // brzmi inaczej, niż pozycja zakładała (patrz raport §5).
     // 25 -> 27 (13.09.2026, MB-02): dwa wiersze `[SESJA]` — jednorazowy z gałęzi
     // panelu wyniku i podsumowanie na końcu odtworzenia.
-    private const int WierszyLoguWGame = 27;
+    // 27 -> 28 (14.09.2026, MB-04): `FirstRun.AssetsRoot`, `DomyslnyZapisWejsc`
+    // i wiersz `[ZAPISY]`. Liczba ZMIERZONA przyrzadem tego testu, a nie
+    // przepisana z jego komunikatu o bledzie.
+    private const int WierszyLoguWGame = 28;
 
     // 21 -> 23 (13.09.2026, MB-02): dwa wiersze `[SESJA]`. `WierszyLoguPoAngielsku`
     // zostaje ZEREM i to ono jest tu zdaniem.
-    private const int WierszyLoguPoPolsku = 23;
+    // 23 -> 24 (14.09.2026, MB-04): `FirstRun.AssetsRoot`, `DomyslnyZapisWejsc`
+    // i wiersz `[ZAPISY]`. Liczba ZMIERZONA przyrzadem tego testu.
+    private const int WierszyLoguPoPolsku = 24;
 
     // Wiersze, których szablon NIE MA WŁASNYCH SŁÓW — cała treść przychodzi z wywołania.
     // Cztery, wszystkie w `FirstRun.cs`, i każdy z nich prowadzi do wytwórcy, który
