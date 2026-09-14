@@ -67,6 +67,17 @@ echo "[PRZYGOTOWANIE] skorupa M7 -> $OUT/M7_shell.glb"
     --out "$OUT/M7_shell.glb" --envelope-out "$OUT/M7_envelope.glb" \
     --report "$OUT/M7_shell.json"
 
+# Kabina kanoniczna — OBIE, czołowa i ogonowa (MB-05). Scena stawia je tą samą
+# arytmetyką co skorupę i wybiera widokiem, a nie plikiem: gdyby generator oddawał
+# tylko jedną, kabina zależałaby od kierunku jazdy, a plik z jednym końcem wyglądałby
+# przy zmianie kierunku dokładnie jak kabina, która zniknęła.
+#
+# Układ jest KANONICZNY i nie jest kabiną M7 — generator powtarza to zdanie w raporcie
+# obok geometrii, a scena w wierszu `[KABINA]` logu przejazdu.
+echo "[PRZYGOTOWANIE] kabina kanoniczna -> $OUT/M7_cab.glb"
+"$BLENDER_EXE" --background --python-exit-code 7 --python tools/blender/m7_cab_build.py -- \
+    --out "$OUT/M7_cab.glb" --report "$OUT/M7_cab.json"
+
 # Perony. Dwa kroki, bo taki jest podział T-211: kilometraże i dolna granica odsunięcia
 # krawędzi liczą się czystym Pythonem, a bryły powstają w Blenderze.
 #

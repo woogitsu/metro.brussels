@@ -21,6 +21,21 @@ import csharp_pins as CP  # noqa: E402
 #: Zapadka działa w obie strony, jak przy asercjach bez komunikatu z 6.D127: w górę
 #: mówi „doszedł pin, skategoryzuj go", w dół — „pin zniknął, zdejmij go z tabeli".
 PINY_GRY = {
+    # MB-05: jeden pin w `CabPlacementTests.cs` — brzmienie warunku widocznosci kabiny
+    # (`view == ViewKind.Cab`). KATEGORIA C: wartosc liczona w JEDNYM miejscu, czyli
+    # w `FirstRun.ApplyView`. Trzy liczby tego pliku nie sa pinami napisowymi i stoja
+    # w `ROZKLAD_LICZBOWYCH` (218 -> 221).
+    #
+    # 1 -> 6 (14.09.2026, audyt bramki MB-05). Ten wpis jest PRZEPISANY, a nie dopisany
+    # obok: piec nowych pinow to nie rozbudowa, tylko zamiana asercji, ktore pytaly
+    # o PISOWNIE, na asercje pytajace o TRESC. Stare `Contains("trainLength")` bylo
+    # prawda rowniez dla `chainage - trainLength + 0.7` (zmierzone: 292/292), wiec
+    # w miejsce dwoch `Contains` weszly porownania dokladne calej listy argumentow:
+    # `_sceneAxis, TrainLayout.RearOfTrain(chainage, trainLength)`, `_train.LengthM`,
+    # `_sceneAxis, chainage`, `TrainLayout.PlaceWithRear(axis, _bodies, rearChainageM)`
+    # i pin kontroli przyrzadu. Wszystkie KATEGORII C — kazda wartosc stoi w JEDNYM
+    # miejscu zrodla, o ktore bramka pyta.
+    "CabPlacementTests.cs": 6,
     "ChunkManifestTests.cs": 3,
     "HudLayoutTests.cs": 1,
     "RunHeaderTests.cs": 1,
@@ -79,20 +94,37 @@ PINY_RDZENIA = 76
 #: 1236/1237). Powod jest jeden i stoi WYZEJ od nich: trzywierszowy komentarz z powodem
 #: przy `LiteralowWZasieguBramki` (509 -> 521). Tresc pinow znowu nie zmienila sie ani
 #: o znak — sprawdzone `diff`em blokow z `git show HEAD:` wobec drzewa, a nie oceną.
+#:
+#: MB-05 przesunelo je o TRZECIE trzy wiersze, a potem — poprawka `--cab` w tym samym
+#: commicie — o CZWARTY, JEDEN wiersz: koncowe polozenie to 1160/1166/1171 oraz
+#: 1240/1241. Drugi ruch zrobil JEDNOWIERSZOWY komentarz przy `LiteralowWZasieguBramki`
+#: (529 -> 530), czyli nawet jedna linijka powyzej kotwicy ja przesuwa.
+#: Powod pierwszego ruchu byl ten sam co przy MB-04 i w tym samym miejscu (521 -> 529). Tresc znowu bez zmiany
+#: o znak, znowu sprawdzona `diff`em. **Trzy razy z rzedu ta sama kotwica przesunela
+#: sie o ten sam komentarz i to jest znak, a nie zbieg**: kotwica po numerze wiersza
+#: placi ten koszt przy KAZDEJ edycji powyzej siebie. Zamiana jej na kotwice po TRESCI
+#: jest pozycja do kolejki, nie robota do zrobienia po drodze przy aktywnym kamieniu
+#: milowym (CLAUDE.md §8).
 KATEGORIE = {
     "A": {
-        ("UiTextTests.cs", 1156), ("UiTextTests.cs", 1162), ("UiTextTests.cs", 1167),
+        ("UiTextTests.cs", 1160), ("UiTextTests.cs", 1166), ("UiTextTests.cs", 1171),
         ("SignallingHudTests.cs", 37),
     },
     "B": {
-        ("UiTextTests.cs", 1236), ("UiTextTests.cs", 1237),
+        ("UiTextTests.cs", 1240), ("UiTextTests.cs", 1241),
     },
 }
 
 #: Ile pinów wpada do kategorii C — reszta, liczona, nie wpisana.
 # 41 -> 46 (14.09.2026, MB-03): piec pinow `TractionBlockTests.cs` — cztery brzmienia
 # wiersza blokady i jedno brzmienie wariantu `hud.speed.no-limit`.
-LICZBA_C = 46
+# 46 -> 47 (14.09.2026, MB-05): jeden pin `CabPlacementTests.cs` — brzmienie warunku
+# widocznosci kabiny (`view == ViewKind.Cab`). Kategoria C, bo jest to wartosc liczona
+# w JEDNYM miejscu: `FirstRun.ApplyView` ma ten warunek raz i bramka pyta o jego tresc.
+# 47 -> 52 (14.09.2026, audyt bramki MB-05): piec pinow `CabPlacementTests.cs`
+# w miejsce dwoch asercji `Contains`, ktore pytaly o pisownie tokenu, a nie o tresc
+# wyrazenia. Kategoria C, bo kazda z tych wartosci stoi w JEDNYM miejscu zrodla.
+LICZBA_C = 52
 
 
 def test_ile_pinow_stoi_w_testach_warstwy_gry():
@@ -104,9 +136,10 @@ def test_ile_pinow_stoi_w_testach_warstwy_gry():
         "— doszedł pin do skategoryzowania albo zniknął pin do zdjęcia"
         % (sorted(zmierzone.items()), sorted(PINY_GRY.items())))
 
-    assert sum(zmierzone.values()) == 52, (
-        "pinów warstwy gry jest %d, a pomiar z 14.09.2026 dał 51 "
-        "(47 po 6.D155, 45 przed nim; +5 przy MB-03)"
+    assert sum(zmierzone.values()) == 58, (
+        "pinów warstwy gry jest %d, a pomiar z 14.09.2026 dał 58 "
+        "(47 po 6.D155, 45 przed nim; +5 przy MB-03, +1 przy MB-05, "
+        "+5 przy audycie bramki MB-05 — zamiana `Contains` na porównania dokładne)"
         % sum(zmierzone.values()))
 
     ile_rdzenia = len(CP.piny("tests/Sim.Tests"))
@@ -130,8 +163,13 @@ def test_kazdy_pin_ma_kategorie_i_suma_sie_zgadza():
     assert len(wszystkie - nazwane) == LICZBA_C, (
         "do kategorii C wpada %d pinów przy zapisanych %d"
         % (len(wszystkie - nazwane), LICZBA_C))
-    assert len(KATEGORIE["A"]) + len(KATEGORIE["B"]) + LICZBA_C == 52, (
-        "kategorie nie sumują się do 47: A=%d, B=%d, C=%d"
+    # 52 -> 53 (14.09.2026, MB-05): pin `CabPlacementTests.cs` w kategorii C.
+    # KOMUNIKAT MOWI DZIS TE SAMA LICZBE CO ASERCJA, i to jest poprawka przy okazji,
+    # ktora NIE jest przy okazji: stalo tu „nie sumują się do 47" przy warunku na 52,
+    # czyli komunikat bledu podawal liczbe o piec mniejsza od tej, ktorej bramka
+    # pilnowala. Kto by na niego trafil, szukalby rozbieznosci, ktorej nie ma.
+    assert len(KATEGORIE["A"]) + len(KATEGORIE["B"]) + LICZBA_C == 58, (
+        "kategorie nie sumują się do 53: A=%d, B=%d, C=%d"
         % (len(KATEGORIE["A"]), len(KATEGORIE["B"]), LICZBA_C))
 
 
@@ -152,10 +190,10 @@ def test_regula_po_ksztalcie_literalu_myli_sie_i_dlatego_jej_nie_ma():
                      if not regula.search(tresci[p])]
     zlapane_z_b = [p for p in sorted(KATEGORIE["B"]) if regula.search(tresci[p])]
 
-    assert przepuszczone == [("UiTextTests.cs", 1167)], (
+    assert przepuszczone == [("UiTextTests.cs", 1171)], (
         "reguła po kształcie przestała przepuszczać wiersz o hamulcu awaryjnym — "
         "rozstrzygnięcie 6.D131 wymaga przeliczenia: %s" % przepuszczone)
-    assert zlapane_z_b == [("UiTextTests.cs", 1237)], (
+    assert zlapane_z_b == [("UiTextTests.cs", 1241)], (
         "reguła po kształcie przestała łapić wejście syntetyczne: %s" % zlapane_z_b)
 
 
@@ -169,11 +207,11 @@ def test_czytnik_widzi_pin_takze_wtedy_gdy_literal_jest_sklejony():
     tresci = {(plik, wiersz): tresc
               for plik, wiersz, _r, tresc in CP.piny("tests/Game.Tests")}
 
-    assert len(tresci[("UiTextTests.cs", 1156)]) == 122, (
+    assert len(tresci[("UiTextTests.cs", 1160)]) == 122, (
         "sklejanie literałów przestało działać: %d znaków"
-        % len(tresci[("UiTextTests.cs", 1156)]))
-    assert len(tresci[("UiTextTests.cs", 1167)]) == 98, (
-        len(tresci[("UiTextTests.cs", 1167)]))
+        % len(tresci[("UiTextTests.cs", 1160)]))
+    assert len(tresci[("UiTextTests.cs", 1171)]) == 98, (
+        len(tresci[("UiTextTests.cs", 1171)]))
     assert len(tresci[("SignallingHudTests.cs", 37)]) == 84, (
         len(tresci[("SignallingHudTests.cs", 37)]))
 
@@ -245,9 +283,20 @@ ROZKLAD_LICZBOWYCH = {
         # liczbe — `DesignAssumptions.TrainingTargets == 2`.
         # 216 -> 218 (14.09.2026, MB-03): dwie liczby siatki w `TractionBlockTests.cs`
         # (21 par i 20 par z blokada). `calkowite_z_tolerancja` zostaje ZEREM.
-        "razem": 218, "z_tolerancja": 98, "bez_tolerancji": 120,
-        "zmiennoprzecinkowe": 104, "zmiennoprzecinkowe_bez_tolerancji": 6,
-        "calkowite": 114, "calkowite_z_tolerancja": 0, "tolerancja_zero": 18,
+        # 218 -> 221 (14.09.2026, MB-05): trzy liczby w `CabPlacementTests.cs` —
+        # dwie liczby wywolan (`_cabView.PlaceAt` i `_cabView.Visible` maja stac
+        # DOKLADNIE raz) i jeden pin polozenia. `calkowite_z_tolerancja` zostaje ZEREM.
+        # 221 -> 229 (14.09.2026, audyt bramki MB-05): osiem liczb, ktore
+        # WYKONUJA arytmetyke, a nie czytaja zrodlo. Powod jest pomiarem:
+        # `Ta_sama_wspolrzedna_X_daje_ten_sam_kilometraz_w_obu_zbiorach` liczyla
+        # OBIE strony rownosci tym samym wyrazeniem na tych samych brylach, wiec
+        # podmiana bryl kabiny na `(-999, -998)` dawala `1/1 przeszlo`. Teraz
+        # porownywane sa DWA plany (skorupy i kabiny) i trzeci, zly — stad 1906,0 m,
+        # 0,35 m za czolem, 0,700 m roznicy i zgodnosc z `RearChainageM(Skorupa())`.
+        # `calkowite_z_tolerancja` zostaje ZEREM.
+        "razem": 229, "z_tolerancja": 103, "bez_tolerancji": 126,
+        "zmiennoprzecinkowe": 109, "zmiennoprzecinkowe_bez_tolerancji": 6,
+        "calkowite": 120, "calkowite_z_tolerancja": 0, "tolerancja_zero": 18,
     },
     "tests/Sim.Tests": {
         # 441 -> 454 (13.09.2026, MB-02): trzynaście pinów liczbowych

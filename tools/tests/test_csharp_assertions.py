@@ -348,9 +348,33 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 #: **1419 -> 1433 i 2868 -> 2882 (14.09.2026, MB-03).** Czternascie asercji
 #: w `TractionBlockTests.cs` (4 metody), wszystkie Z KOMUNIKATEM —
 #: `BEZ_KOMUNIKATU_RAZEM` znow nie drgnelo.
-Z_KOMUNIKATEM_RAZEM = 1438
+#:
+#: **1438 -> 1453 i 2887 -> 2902 (14.09.2026, MB-05).** Pietnascie asercji
+#: w `CabPlacementTests.cs` (6 metod), wszystkie Z KOMUNIKATEM —
+#: `BEZ_KOMUNIKATU_RAZEM` znow nie drgnelo, `NIEROZSTRZYGNIETYCH` tez nie.
+#: Trzy z tych metod czytaja ZRODLO, a nie licza — i to nie jest wybor stylu:
+#: trzy kontrole negatywne na trzech metodach arytmetycznych tego samego pliku
+#: wyszly ZIELONE, bo mutacje siedza w wezlach Godota, ktorych `dotnet test`
+#: nie powola.
+#:
+#: **1453 -> 1475 i 2902 -> 2924 (14.09.2026, audyt bramki MB-05).** Dwadziescia dwie
+#: asercje, wszystkie Z KOMUNIKATEM — `BEZ_KOMUNIKATU_RAZEM` i `NIEROZSTRZYGNIETYCH`
+#: znow nie drgnely. Powod jest pomiarem, nie rozbudowa: bramka lekyskalna dolozona
+#: wyzej byla TAUTOLOGICZNA. Zmierzone na starym kodzie — cztery mutacje dajace te
+#: sama usterke 0,700 m (`_train.LengthM` -> `_cabView.LengthM`; `+ 0.7` w argumencie
+#: wywolania; `+ 0.7` w ciele `CabView.PlaceAt`; cale wywolanie owiniete w `if`)
+#: przechodzily **292/292 kazda**. Tautologia byla przy tym w JEDNEJ metodzie, a nie
+#: w calym pliku, i ta roznica jest tu tresci a nie niuansem: podmiana bryl kabiny
+#: na `(-999, -998)` dawala bez filtra `290/292` (dwie inne metody ja lapaly), ale
+#: `--filter Ta_sama_wspolrzedna_X_daje_ten_sam_kilometraz_w_obu_zbiorach` dawal
+#: `1/1 przeszlo` — ta metoda liczyla OBIE strony rownosci tym samym wyrazeniem na
+#: tych samych brylach. Po przepisaniu kazda z czterech mutacji daje jedna czerwien,
+#: ta sama tautologia pod tym samym filtrem `1 failed`, a bez filtra cztery. Cztery nowe metody testowe (6 -> 10) i piny na CALA liste
+#: argumentow zamiast na token w niej — `Contains("trainLength")` bylo prawda takze dla
+#: `chainage - trainLength + 0.7`.
+Z_KOMUNIKATEM_RAZEM = 1475
 NIEROZSTRZYGNIETYCH = 68
-ASERCJI_RAZEM = 2887
+ASERCJI_RAZEM = 2924
 
 
 def _rozklad():
