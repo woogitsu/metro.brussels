@@ -353,9 +353,13 @@ ROZKLAD_POSTACI = {
         # a nie szum: `HandleTrainKeysGateTests` składa wzorce `Regex` z nazwy klawisza,
         # więc potrzebuje `$@"..."` — gałąź, która do dziś miała w `tests/` JEDNO
         # wystąpienie. Wszystkie liczby PRZELICZONE po scaleniu obu gałęzi.
-        "zwykly": 4242,
-        "interpolowany ($)": 717,
-        "werbatim (@)": 56,
+        # 4242 -> 4258, 717 -> 725 i 56 -> 62 (14.09.2026, 6.D210): literały nowego
+        # pliku `DefaultArmAuditTests.cs`. Werbatim rośnie o sześć, bo próbki
+        # syntetyczne klasyfikatora są zapisane jako `@"..."` z `\n` w środku —
+        # kontrola przyrządu potrzebuje kodu C# jako DANYCH, a nie jako kodu.
+        "zwykly": 4258,
+        "interpolowany ($)": 725,
+        "werbatim (@)": 62,
         "surowy interpolowany ($$\"\"\")": 13,
         "surowy (\"\"\")": 8,
         "werbatim interpolowany ($@)": 4,
