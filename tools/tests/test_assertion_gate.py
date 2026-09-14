@@ -1552,7 +1552,15 @@ def test_wzorzec_rodziny_lapie_zdanie_ktore_ma_lapac_i_nie_bierze_sasiedztwa():
 #: `POSTACIE_LITERALU` w tym samym module. Stoi na ZACHOWANIU własnego testu: pilnuje,
 #: żeby oczekiwana maska NIOSŁA KLAMRY, bo maska bez klamr przeszłaby także u czytnika,
 #: który połyka resztę pliku — czyli jest to strażnik wyroczni, a nie odczyt tekstu.
-ASERCJI_NAPISOWYCH_RAZEM = 872
+#: **872 -> 878, z powodem.** Sześć asercji doszło razem z progiem na czasie CPU
+#: w `test_suite_runtime_budget.py`. Wszystkie sześć stoi na NAPISIE i tak ma być: pięć
+#: czyta KOMUNIKAT `werdykt` (`"SUFIT INFORMACYJNY" in komunikat`, `"CPU/sciana" in
+#: komunikat`, `f"{sciana:.3f}" in komunikat`), a jedna — TEKST KROKU CI
+#: (`"SUITE_CPU_BUDGET_S" in step`), tak samo jak sąsiadujące z nią bramki na workflow.
+#: Komunikat werdyktu JEST wyjściem tej funkcji, a nie jej opisem — jedzie do logu joba
+#: i to z niego `tools/ci/timing_record.py` składa wpisy `POMIARY`, więc asercja na jego
+#: treść jest asercją na zachowanie, tylko wyrażoną literałem.
+ASERCJI_NAPISOWYCH_RAZEM = 878
 
 #: **Kotwica wpisu to `(plik, funkcja, operator, literał)`, a NIE numer wiersza.**
 #: Numer przesuwa się przy każdej edycji pliku i lista rozjechałaby się sama z siebie.
