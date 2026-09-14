@@ -379,12 +379,26 @@ public sealed class LineDrive
             // Miara nieczuła na pochylenie — ile kroków postoju w ogóle woła ochronę,
             // na przejeździe L1_A przy limicie 72 km/h i wymianie 8 s:
             //
-            //     bez tego wiersza   OCHRONA w krokach postoju:      0 / 21 791
-            //     z tym wierszem     OCHRONA w krokach postoju: 21 791 / 21 791
+            //     bez tego wiersza   OCHRONA w krokach postoju:      0 / 21 780
+            //     z tym wierszem     OCHRONA w krokach postoju: 21 780 / 21 780
             //     najdłuższa cisza ochrony: 1981 kroków (16,51 s) -> 0
             //
-            // Gałąź postoju to **25,33 % wszystkich kroków** przejazdu (21 791
-            // z 86 032), więc nie było to okno brzegowe. Skutek ruchowy zależy od
+            // Gałąź postoju to **25,32 % wszystkich kroków** przejazdu (21 780
+            // z 86 032), więc nie było to okno brzegowe.
+            //
+            // **LICZBA W TYM AKAPICIE JEST POPRAWIONA, a nie dopisana obok**
+            // (audyt 14.09.2026). Stało tu **21 791** i **25,33 %**, i było to
+            // nieprawdą — a co gorsza, nieprawdą SPRZECZNĄ Z DWOMA INNYMI MIEJSCAMI
+            // TEGO SAMEGO COMMITA: `reports/mb06-wspolne-komendy.md` i
+            // `ControlOwnerTests.cs` podawały od początku 21 780 i 25,32 %. Trzy
+            // artefakty, dwie liczby, żadnego porównania między nimi. Przeliczone
+            // ponownie na `data/track/L1_A.json` przy limicie 72 km/h i wymianie 8 s:
+            // kroków postoju jest **21 780**, tak samo z planem sygnalizacji i bez
+            // niego. Wniosek dla następnego, kto będzie tu pisał liczbę: liczba
+            // powtórzona w trzech miejscach musi być w trzech miejscach ZMIERZONA
+            // albo w jednym, a w pozostałych dwóch zacytowana — nie przepisana.
+            //
+            // Skutek ruchowy zależy od
             // pochylenia: na −3 % skład staczał się przy OTWARTYCH drzwiach, meldując
             // ten ruch sygnalizacji przez `MoveTrain`. Liczba metrów zależy od tego,
             // w której fazie drzwi maszynista przejmie — 5,83 m do 1,73 m/s przy

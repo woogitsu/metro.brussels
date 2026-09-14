@@ -394,21 +394,25 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 #: **2962 -> 2963 (14.09.2026, MB-07).** Bilans trzech przepisanych testów
 #: `LineCoreTests.cs`, które przypinały ZATOR: asercji przybyło o jedną netto,
 #: a `Z_KOMUNIKATEM_RAZEM` nie drgnęło, bo wszystkie mają komunikat.
-#: **1519 -> 1644 (14.09.2026, MB-08).** Sto dwadzieścia pięć asercji w trzech nowych
-#: plikach testowych (`ManualDoorsTests`, `ManualDoorsOnLineTests`, `DoorPromptTests`)
-#: i w bramce leksykalnej `HandleTrainKeysGateTests` — **wszystkie z komunikatem**,
+#: **1519/2966 -> ?/? (14.09.2026, MB-08) — i obie liczby są PRZELICZONE na drzewie
+#: PO scaleniu audytu MB-06 (#605), a nie zsumowane z dwóch gałęzi.** Gałąź MB-08
+#: wyszła z `0ae0acf`, gdzie stało 1519/2966; audyt MB-06 podniósł te same stałe
+#: niezależnie, do 1521/2968. Zsumowanie przyrostów dałoby liczbę, której nie ma
+#: w żadnym drzewie — to jest dokładnie ten rozjazd, przed którym ostrzega wpis audytu
+#: wyżej, i dlatego wartości niżej pochodzą z przebiegu na scalonym drzewie.
+#:
+#: Sto dwadzieścia pięć asercji MB-08 w trzech nowych plikach testowych
+#: (`ManualDoorsTests`, `ManualDoorsOnLineTests`, `DoorPromptTests`) i w bramce
+#: leksykalnej `HandleTrainKeysGateTests` — **wszystkie z komunikatem**,
 #: `BEZ_KOMUNIKATU_RAZEM` i `NIEROZSTRZYGNIETYCH` nie drgnęły. Ale nie od razu:
 #: `test_lista_asercji_C_bez_komunikatu_moze_tylko_malec` zapaliła się na **54**
 #: asercjach bez komunikatu (4 + 15 + 35) i komunikaty zostały DOPISANE, a pliki nie
 #: trafiły na listę wyjątków. Ta sama pomyłka co przy MB-06, o rząd wielkości większa,
 #: i z tego samego powodu: pisząc nowy plik testowy łatwo przyjąć, że komunikat jest
 #: potrzebny tylko tam, gdzie asercja „może być niejasna".
-Z_KOMUNIKATEM_RAZEM = 1644
+Z_KOMUNIKATEM_RAZEM = 1646
 NIEROZSTRZYGNIETYCH = 68
-# 2966 -> 3091 (14.09.2026, MB-08): trzy nowe pliki testowe — `ManualDoorsTests`,
-# `ManualDoorsOnLineTests` i `DoorPromptTests` — plus bramka leksykalna
-# `HandleTrainKeysGateTests`. Liczba PRZELICZONA przebiegiem.
-ASERCJI_RAZEM = 3091
+ASERCJI_RAZEM = 3093
 
 
 def _rozklad():

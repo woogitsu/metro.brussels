@@ -347,13 +347,14 @@ ROZKLAD_POSTACI = {
         # nie drgnal przy MB-06, bo `ControlOwnerTests.cs` nie czyta zrodla
         # wyrazeniami regularnymi: pyta rdzen o zachowanie, a rdzen da sie zawolac
         # bez silnika.
-        # 4093 -> 4233, 691 -> 716, 55 -> 56 i 1 -> 4 (14.09.2026, MB-08): trzy nowe
-        # pliki testowe i bramka leksykalna. Postac `werbatim interpolowany ($@)`
-        # rosnie z jednego na cztery i to jest tresc, a nie szum: `HandleTrainKeysGateTests`
-        # sklada wzorce `Regex` z nazwy klawisza, wiec potrzebuje $@"..." — galaz,
-        # ktora do dzis miala w `tests/` JEDNO wystapienie.
-        "zwykly": 4233,
-        "interpolowany ($)": 716,
+        # 4093 -> 4102 i 691 -> 692 (14.09.2026, audyt MB-06): literały nowego testu.
+        # MB-08 dokłada trzy pliki testowe i bramkę leksykalną. Postać
+        # `werbatim interpolowany ($@)` rośnie z jednego na cztery i to jest treść,
+        # a nie szum: `HandleTrainKeysGateTests` składa wzorce `Regex` z nazwy klawisza,
+        # więc potrzebuje `$@"..."` — gałąź, która do dziś miała w `tests/` JEDNO
+        # wystąpienie. Wszystkie liczby PRZELICZONE po scaleniu obu gałęzi.
+        "zwykly": 4242,
+        "interpolowany ($)": 717,
         "werbatim (@)": 56,
         "surowy interpolowany ($$\"\"\")": 13,
         "surowy (\"\"\")": 8,

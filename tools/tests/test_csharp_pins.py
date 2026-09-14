@@ -343,15 +343,18 @@ ROZKLAD_LICZBOWYCH = {
         # — „drugi skład przed zajętym blokiem nadal jedzie" — bo zmierzone jest, że
         # w oknie pomiarowym skład PEŁZNIE 0,008539847973193317 m/s, więc asercja o zerze
         # opisywałaby inny stan niż ten, o który test pyta. Stąd `tolerancja_zero` 114 -> 113.
-        # 461 -> 471 (14.09.2026, MB-08): dziesięć pinów liczbowych w testach drzwi —
+        # 461 -> 463 (14.09.2026, audyt MB-06): dwa piny testu werdyktu ochrony —
+        # liczba wierszy śladu (240) i liczba poleceń omijających ochronę (0). Oba
+        # CAŁKOWITE i BEZ TOLERANCJI, bo są liczbami zdarzeń, nie miarą fizyczną.
+        # 463 -> ? (14.09.2026, MB-08): dziesięć pinów liczbowych w testach drzwi —
         # `ManualDoorsTests` (liczby kroków cyklu ręcznego: 1021, 1020, długości faz)
         # i `ManualDoorsOnLineTests` (nietknięty kilometraż przy otwartych drzwiach).
-        # SZEŚĆ z nich ma tolerancję ZAPISANĄ JAKO 0.0 (`tolerancja_zero` 113 -> 119),
-        # bo pytanie brzmi tam „ani jeden bit", a nie „w przybliżeniu".
-        # `calkowite_z_tolerancja` zostaje ZEREM.
-        "razem": 471, "z_tolerancja": 188, "bez_tolerancji": 283,
+        # SZEŚĆ z nich ma tolerancję ZAPISANĄ JAKO 0.0, bo pytanie brzmi tam „ani jeden
+        # bit", a nie „w przybliżeniu". `calkowite_z_tolerancja` zostaje ZEREM.
+        # WSZYSTKIE liczby niżej są PRZELICZONE na drzewie po scaleniu obu gałęzi.
+        "razem": 473, "z_tolerancja": 188, "bez_tolerancji": 285,
         "zmiennoprzecinkowe": 196, "zmiennoprzecinkowe_bez_tolerancji": 8,
-        "calkowite": 275, "calkowite_z_tolerancja": 0, "tolerancja_zero": 119,
+        "calkowite": 277, "calkowite_z_tolerancja": 0, "tolerancja_zero": 119,
     },
 }
 
