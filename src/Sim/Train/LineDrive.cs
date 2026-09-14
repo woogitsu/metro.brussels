@@ -141,10 +141,61 @@ public sealed class LineDrive
     /// </summary>
     public DoorPhase Phase => _stop?.Phase ?? DoorPhase.Closed;
 
-    /// <summary>Ile sekund postoju zostało; zero poza postojem.</summary>
+    /// <summary>
+    /// Ile sekund postoju zostało; zero poza postojem, <b>NaN na postoju ręcznym</b>.
+    ///
+    /// <para>NaN, a nie zero i nie jakakolwiek liczba — bo na postoju ręcznym długość
+    /// fazy otwartej podaje CZŁOWIEK i nikt jej z góry nie zna (MB-08). Zero znaczyłoby
+    /// „już koniec", a liczba z <see cref="DoorCycle.PassengerExchangeSeconds"/> byłaby
+    /// założeniem scenariusza podanym jako pomiar. Widok ma na to gałąź, a nie
+    /// formatowanie.</para>
+    /// </summary>
     public double DwellRemainingSeconds => _stop is null
         ? 0.0
-        : Math.Max(0.0, _cycle.DwellSeconds - _stop.SecondsSinceStopped);
+        : _stop.Control == DoorControl.Manual
+            ? double.NaN
+            : Math.Max(0.0, _cycle.DwellSeconds - _stop.SecondsSinceStopped);
+
+    /// <summary>
+    /// Tryb sterowania drzwiami, który dostanie <b>NASTĘPNY</b> postój tego składu.
+    ///
+    /// <para><b>Czytany przy zakładaniu postoju, nie w każdym kroku</b> — i to jest
+    /// treść, nie szczegół. Pole „Weryfikacja" MB-08 żąda, żeby przejęcie i oddanie
+    /// sterowania <b>w czasie cyklu</b> nie resetowało drzwi; tryb zamrożony na czas
+    /// postoju spełnia to z definicji, bo nie ma czego resetować. Zmiana trybu w środku
+    /// cyklu wymagałaby przeniesienia stanu między dwiema różnymi maszynami faz i każde
+    /// takie przeniesienie byłoby wymyśloną regułą.</para>
+    ///
+    /// <para><b>Skutek dla przejazdu autopilota: żaden.</b> Domyślną wartością jest
+    /// <see cref="DoorControl.Automatic"/>, a <see cref="LineCore"/> ustawia
+    /// <see cref="DoorControl.Manual"/> wyłącznie składom, które w tej chwili prowadzi
+    /// człowiek. Przejazd bez ani jednego przejęcia idzie więc tą samą maszyną,
+    /// co przed MB-08 — zmierzone na sześciu osiach co do bajtu.</para>
+    /// </summary>
+    public DoorControl DoorControl { get; set; } = DoorControl.Automatic;
+
+    /// <summary>Tryb sterowania drzwiami TRWAJĄCEGO postoju; <c>null</c> poza postojem.</summary>
+    public DoorControl? StopDoorControl => _stop?.Control;
+
+    /// <summary>
+    /// Polecenie otwarcia drzwi od maszynisty.
+    ///
+    /// <para>Odmowa <see cref="DoorRefusal.OutsidePlatformWindow"/> pada tutaj, a nie
+    /// w <see cref="StationStop"/>, i nie da się jej tam przenieść: postój w ogóle nie
+    /// istnieje, dopóki skład nie stanie w oknie peronu, więc obiekt, który miałby
+    /// odmówić, jeszcze nie powstał. To jest ta sama granica, co między „czy wolno
+    /// ciągnąć" a „gdzie stoi skład".</para>
+    /// </summary>
+    /// <returns>Przyjęcie albo odmowa z powodem.</returns>
+    public DoorRequestResult RequestDoorOpen() => _stop is null
+        ? DoorRequestResult.Refused(DoorRefusal.OutsidePlatformWindow)
+        : _stop.RequestOpen(_state);
+
+    /// <summary>Polecenie zamknięcia drzwi od maszynisty.</summary>
+    /// <returns>Przyjęcie albo odmowa z powodem.</returns>
+    public DoorRequestResult RequestDoorClose() => _stop is null
+        ? DoorRequestResult.Refused(DoorRefusal.OutsidePlatformWindow)
+        : _stop.RequestClose();
 
     /// <summary>Stacja, do której skład jedzie; <c>null</c> po ostatniej.</summary>
     public AxisStation? NextStation => Finished ? null : _stations[_next];
@@ -253,7 +304,7 @@ public sealed class LineDrive
             && chainage >= target - _settings.StopWindowM
             && chainage - _departedFromM >= _settings.StopWindowM)
         {
-            _stop = new StationStop(_cycle, _step);
+            _stop = new StationStop(_cycle, _step, DoorControl);
             _calls.Add(new StationCall(
                 _stations[_next].Name,
                 _stations[_next].StopId,
@@ -270,6 +321,37 @@ public sealed class LineDrive
 
         if (_stop is not null)
         {
+            // AUTOPILOT DOPILNOWUJE RĘCZNIE OTWARTEGO POSTOJU. To jest odpowiedź na pole
+            // „Wyjście" MB-08: „obsługa TYCH SAMYCH reguł przez AI" — nie druga maszyna
+            // drzwi dla AI, tylko ta sama maszyna z drugim palcem na przycisku.
+            //
+            // Sytuacja, dla której to istnieje, jest jedna i konkretna: maszynista
+            // przejął skład, stanął, otworzył drzwi i ODDAŁ sterowanie. Bez tych paru
+            // wierszy skład stałby z otwartymi drzwiami do końca przejazdu, bo jedyne
+            // polecenie zamknięcia w trybie ręcznym pochodzi od człowieka, a człowieka
+            // już nie ma; blokada trakcji trzymałaby przy tym nastawnik na zerze, więc
+            // nie byłoby to nawet widoczne jako ruch — linia po prostu by stanęła.
+            //
+            // Autopilot nie dostaje tu ani jednej reguły, której nie ma gracz: wciska
+            // te same dwa polecenia i dostaje te same odmowy. Czas, po którym zamyka,
+            // to `PassengerExchangeSeconds` — czyli **założenie scenariusza**, dokładnie
+            // to samo, którym rządzi się jego własny cykl automatyczny.
+            //
+            // Warunek `DriverInput is null` znaczy „nikogo nie ma przy nastawniku".
+            // Przy człowieku u steru te wiersze milczą i drzwi należą wyłącznie do niego.
+            if (_stop.Control == DoorControl.Manual && DriverInput is null)
+            {
+                if (_stop.Phase == DoorPhase.Closed && !_stop.Finished)
+                {
+                    _stop.RequestOpen(_state);
+                }
+                else if (_stop.Phase == DoorPhase.Open
+                         && _stop.SecondsInPhase >= _cycle.PassengerExchangeSeconds)
+                {
+                    _stop.RequestClose();
+                }
+            }
+
             // NA POSTOJU DŹWIGNIA TEŻ NALEŻY DO WŁAŚCICIELA, ale drzwi rozstrzygają.
             // `Filter` jest jedynym miejscem posuwającym licznik cyklu drzwi i musi
             // zostać zawołane dokładnie raz na krok — dlatego komenda maszynisty wchodzi
@@ -341,7 +423,42 @@ public sealed class LineDrive
                 _state.TimeSeconds(_step), _start + _state.DistanceM, _state.SpeedMps,
                 _state.BrakeRateMps2, held, phase));
 
-            if (_stop.Finished)
+            // ODJAZD BEZ OBSŁUGI DRZWI — możliwy WYŁĄCZNIE w trybie ręcznym i wyłącznie
+            // do przodu. W trybie automatycznym nie ma jak: cykl rusza sam w pierwszym
+            // kroku o zerowej prędkości, a blokada trakcji trzyma skład do końca kontroli
+            // zamknięcia. W ręcznym maszynista ma drzwi zamknięte i wolną trakcję od
+            // pierwszego kroku postoju, więc wolno mu po prostu odjechać.
+            //
+            // Bez tego warunku skład jechałby dalej GAŁĘZIĄ POSTOJU przez resztę osi:
+            // `_next` nigdy by się nie posunął, hamowanie do następnej stacji nigdy nie
+            // zostałoby policzone, a gałąź postoju nie zna ani autorytetu, ani zatrzasku.
+            // Byłaby to usterka cicha — skład jedzie, HUD pokazuje drzwi zamknięte,
+            // a przejazd nie kończy się nigdy.
+            //
+            // Stacja mijana w ten sposób zostaje w `Calls` z czasem odjazdu, bo skład
+            // NAPRAWDĘ tam był i NAPRAWDĘ odjechał. Czego ten zapis nie mówi, to czy
+            // ktokolwiek wsiadł; osobnej kolumny nie ma świadomie — plik `--calls` jest
+            // porównywany ze sceną co do bajtu (`godot-first-run.yml`), więc nowa kolumna
+            // zerwałaby cudzą bramkę. Brak jest nazwany w odbiorze #26.
+            // WARUNEK „SKŁAD JEDZIE" JEST TU KONIECZNY, a nie ostrożnościowy. Okno
+            // zatrzymania jest w tej klasie JEDNOSTRONNE — postój zakłada się przy
+            // `chainage >= target - StopWindowM`, bez ograniczenia od góry — więc skład,
+            // który przestrzelił peron o sześć metrów, staje i dostaje normalny postój.
+            // Bez pytania o prędkość taki postój byłby uznany za „odjazd bez obsługi"
+            // w tym samym kroku, w którym powstał: zmierzone na ręcznym przejeździe osi
+            // syntetycznej — trzy stacje, trzy postoje, WSZYSTKIE zamknięte natychmiast
+            // (zatrzymania na 2005,72 m przy stacji 2000,00 m i oknie 5,00 m).
+            //
+            // „Odjazd bez obsługi" ma znaczyć ODJAZD. Skład stojący za peronem stoi,
+            // a nie odjeżdża, i wolno mu jeszcze otworzyć drzwi.
+            var behindPlatform = _start + _state.DistanceM > target + _settings.StopWindowM;
+            var leftWithoutService = _stop.Control == DoorControl.Manual
+                && !_stop.Finished
+                && _stop.Phase == DoorPhase.Closed
+                && behindPlatform
+                && _state.SpeedMps > 0.0;
+
+            if (_stop.Finished || leftWithoutService)
             {
                 _calls[^1] = _calls[^1] with { DepartureSeconds = _state.TimeSeconds(_step) };
                 _departedAtSeconds = _state.TimeSeconds(_step);

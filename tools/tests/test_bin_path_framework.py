@@ -157,8 +157,13 @@ MAX_JUSTIFICATIONS = 14
 #: plus ten commit): **29** ścieżek `bin/…/netX.Y/` w `reports/` i `docs/`, w 8 plikach,
 #: z tego 22 niezgodne z `net10.0`. Na samej bazie było ich 19 w 7 plikach — różnicę
 #: wnosi ten commit i mówi to wprost, bo bramka liczy także własny raport (6.A26).
-MIN_PATHS_IN_TREE = 29
-MIN_FILES_WITH_PATHS = 8
+# 29 -> 30 (14.09.2026, MB-08): ścieżka dopisana przez `HandleTrainKeysGateTests`,
+# która szuka korzenia repozytorium po `MetroBxl.sln` i czyta `src/Game/FirstRun.cs`.
+MIN_PATHS_IN_TREE = 30
+# 8 -> 9 (14.09.2026, MB-08): `HandleTrainKeysGateTests.cs` — dziewiąty plik,
+# który składa ścieżkę do drzewa. Ta zapadka idzie w parze z `MIN_PATHS_IN_TREE`
+# i obie ruszają się razem, bo nowa bramka leksykalna czyta źródło `src/Game/`.
+MIN_FILES_WITH_PATHS = 9
 
 
 def _read(path):

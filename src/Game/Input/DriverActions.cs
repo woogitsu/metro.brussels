@@ -57,17 +57,19 @@ public sealed record DriverBinding(
 /// Typ <c>Godot.Key</c> jest tu wyłącznie <b>stałą kompilacji</b> (<c>(int)Key.W</c>
 /// to w IL liczba 87), więc odczyt tabeli nie ładuje ani jednej klasy silnika.</para>
 ///
-/// <para><b>Czego tu nie ma.</b> Drzwi i osobnego stopnia awaryjnego. Tabela opisuje
+/// <para><b>Czego tu nie ma.</b> Osobnego stopnia hamulca awaryjnego. Tabela opisuje
 /// sterowanie, które scena naprawdę czyta; hamulec awaryjny jest w niej dlatego, że
 /// istniał już wcześniej (<see cref="EmergencyBrake"/>), a nie dlatego, że tu
-/// powstaje.</para>
+/// powstaje — i nadal robi DOKŁADNIE to, co pełny hamulec służbowy.</para>
 ///
-/// <para><b>To zdanie jest PRZEPISANE, a nie dopisane obok</b> (MB-07, 14.09.2026).
-/// Do tej pozycji stało tu, że nie ma w tabeli „nowych poleceń sterujących — drzwi,
-/// PRZEJĘCIA SKŁADU, osobnego stopnia awaryjnego" i że tabela opisuje „DOKŁADNIE to,
-/// co scena robiła przed tą zmianą". Przejęcie składu jest w niej od MB-07 i oba
-/// człony tamtego zdania przestały być prawdziwe, więc nie zostają obok nowych
-/// wierszy jako zdanie, które czytający wziąłby za aktualne.</para>
+/// <para><b>To zdanie jest PRZEPISANE, a nie dopisane obok — po raz DRUGI</b>
+/// (MB-07 i MB-08, 14.09.2026). Pierwsza wersja mówiła, że nie ma w tabeli „nowych
+/// poleceń sterujących — drzwi, PRZEJĘCIA SKŁADU, osobnego stopnia awaryjnego"
+/// i że tabela opisuje „DOKŁADNIE to, co scena robiła przed tą zmianą". Druga skreśliła
+/// z tej listy przejęcie składu, bo weszło w MB-07. Dziś skreślone są też DRZWI:
+/// <c>D</c> i <c>F</c> stoją w tabeli od MB-08 i scena je czyta. Z trzech członów
+/// pierwotnego zdania został jeden i to on stoi w akapicie wyżej — reszta nie zostaje
+/// obok jako zdanie, które czytający wziąłby za aktualne.</para>
 /// </summary>
 public static class DriverActions
 {
@@ -100,6 +102,12 @@ public static class DriverActions
 
     /// <summary>Oddanie sterowania autopilotowi — MB-07.</summary>
     public const string TrainRelease = "train_release";
+
+    /// <summary>Otwarcie drzwi na postoju ręcznym — MB-08.</summary>
+    public const string DoorOpen = "door_open";
+
+    /// <summary>Zamknięcie drzwi na postoju ręcznym — MB-08.</summary>
+    public const string DoorClose = "door_close";
 
     /// <summary>
     /// Rozdzielacz między pozycjami wiersza pomocy. Dwie spacje z każdej strony, bo
@@ -153,6 +161,17 @@ public static class DriverActions
             TrainTake, "T", UiText.Get("input.train-take"), new[] { (int)Key.T }),
         new DriverBinding(
             TrainRelease, "O", UiText.Get("input.train-release"), new[] { (int)Key.O }),
+
+        // MB-08. `D` i `F` z tego samego powodu, co `N`, `T` i `O`: jednoliterowe, więc
+        // nazwa klawisza przybija się do kodu fizycznego bez ani jednego wpisu
+        // w `KeyNames`. Sąsiadują ze sobą, bo otwarcie i zamknięcie to jeden gest
+        // maszynisty w dwóch kierunkach — ale są DWOMA klawiszami, nie przełącznikiem:
+        // przełącznik naciśnięty w fazie `Opening` nie miałby jednoznacznego znaczenia,
+        // a odmowa z powodem ma.
+        new DriverBinding(
+            DoorOpen, "D", UiText.Get("input.door-open"), new[] { (int)Key.D }),
+        new DriverBinding(
+            DoorClose, "F", UiText.Get("input.door-close"), new[] { (int)Key.F }),
     };
 
     /// <summary>
@@ -167,9 +186,17 @@ public static class DriverActions
     /// Tamta lista mówi „ten klawisz jest w tabeli, ale tu nie działa"; ta mówi „tego
     /// klawisza tu w ogóle nie ma".</para>
     /// </summary>
+    /// <remarks>
+    /// <para><b>Drzwi dołączyły do tej listy w MB-08 i ten akapit jest dopisany, a nie
+    /// przepisany</b> — powód wyżej zostaje w całości, bo jest ten sam. Przejazd ręczny
+    /// obsługuje stacje przez <c>StationService</c>, który zna WYŁĄCZNIE cykl
+    /// automatyczny; <c>D</c> i <c>F</c> nie miałyby tam czego otworzyć ani zamknąć.
+    /// Tryb ręczny drzwi istnieje tam, gdzie istnieje właściciel sterowania — czyli
+    /// w <c>LineCore</c>, czyli w trybie <c>--line</c>.</para>
+    /// </remarks>
     public static readonly IReadOnlyList<string> OnlyWithTheLine = new[]
     {
-        TrainNext, TrainTake, TrainRelease,
+        TrainNext, TrainTake, TrainRelease, DoorOpen, DoorClose,
     };
 
     /// <summary>

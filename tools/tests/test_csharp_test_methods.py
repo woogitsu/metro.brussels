@@ -348,12 +348,17 @@ ROZKLAD_POSTACI = {
         # wyrazeniami regularnymi: pyta rdzen o zachowanie, a rdzen da sie zawolac
         # bez silnika.
         # 4093 -> 4102 i 691 -> 692 (14.09.2026, audyt MB-06): literały nowego testu.
-        "zwykly": 4102,
-        "interpolowany ($)": 692,
-        "werbatim (@)": 55,
+        # MB-08 dokłada trzy pliki testowe i bramkę leksykalną. Postać
+        # `werbatim interpolowany ($@)` rośnie z jednego na cztery i to jest treść,
+        # a nie szum: `HandleTrainKeysGateTests` składa wzorce `Regex` z nazwy klawisza,
+        # więc potrzebuje `$@"..."` — gałąź, która do dziś miała w `tests/` JEDNO
+        # wystąpienie. Wszystkie liczby PRZELICZONE po scaleniu obu gałęzi.
+        "zwykly": 4242,
+        "interpolowany ($)": 717,
+        "werbatim (@)": 56,
         "surowy interpolowany ($$\"\"\")": 13,
         "surowy (\"\"\")": 8,
-        "werbatim interpolowany ($@)": 1,
+        "werbatim interpolowany ($@)": 4,
     },
     "src": {
         # 1223 -> 1264 i 446 -> 456 (13.09.2026, MB-02): `TrainingSession.cs`,
@@ -381,8 +386,15 @@ ROZKLAD_POSTACI = {
         # w `RunPlan` (nazwy argumentów, komunikaty odmowy zakresu) i w `FirstRun`
         # (nazwy węzłów widoków, odmowa przy zerze brył widoku pochodnego) oraz
         # w `LineCore` (nic nowego napisowego — stąd przyrost tylko po stronie gry).
-        "zwykly": 1323,
-        "interpolowany ($)": 478,
+        # 1323 -> 1377 i 478 -> 480 (14.09.2026, MB-08). Przyrost `zwykly` jest tu
+        # NIETYPOWO duzy i ma jeden powod: `DoorPrompt` i `UiText` niosa dziewiec
+        # nowych kluczy katalogu, a `DoorControl.cs` — piec zdan odmowy i komplet
+        # opisow czlonow; do tego dochodza klawisze `D`/`F` i szablony wiersza stacji.
+        # `interpolowany` rusza sie o DWA, bo jedynymi nowymi napisami skladanymi sa
+        # komunikaty odmowy konstruktora i wypis `ToString` postoju.
+        # Cztery pozostale postacie znowu nie drgnely.
+        "zwykly": 1377,
+        "interpolowany ($)": 480,
         "werbatim (@)": 0,
         "surowy interpolowany ($$\"\"\")": 1,
         "surowy (\"\"\")": 1,

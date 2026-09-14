@@ -183,7 +183,10 @@ public sealed class DriverActionsTests
         // 5 -> 8 (14.09.2026, MB-07): `N`, `T`, `O`. Wszystkie trzy są jednoliterowe
         // WŁAŚNIE PO TO, żeby ta pętla przybiła ich nazwy do kodów bez ani jednego wpisu
         // w `KeyNames` — kod fizyczny litery jest jej kodem ASCII.
-        Assert.AreEqual(8, checkedNames, "zmieniła się liczba jednoliterowych klawiszy sterowania");
+        // 8 -> 10 (14.09.2026, MB-08): `D` i `F`, drzwi na postoju ręcznym. Z tego samego
+        // powodu jednoliterowe i z tym samym skutkiem: obie nazwy wchodzą pod tę pętlę,
+        // a nie pod pin z ręki niżej.
+        Assert.AreEqual(10, checkedNames, "zmieniła się liczba jednoliterowych klawiszy sterowania");
     }
 
     /// <summary>
@@ -241,7 +244,8 @@ public sealed class DriverActionsTests
         Assert.AreEqual(DriverActions.All.Count, sprawdzone,
             "pętla nie dotknęła wszystkich wierszy tabeli przypisań");
         // 7 -> 10 (14.09.2026, MB-07): `train_next`, `train_take`, `train_release`.
-        Assert.AreEqual(10, sprawdzone, "zmieniła się liczba przypisań sterowania");
+        // 10 -> 12 (14.09.2026, MB-08): `door_open`, `door_close`.
+        Assert.AreEqual(12, sprawdzone, "zmieniła się liczba przypisań sterowania");
     }
 
     /// <summary>
@@ -486,6 +490,14 @@ public sealed class DriverActionsTests
                 // końcu, po obsłudze przejazdu.
                 DriverActions.TrainNext, DriverActions.TrainTake,
                 DriverActions.TrainRelease,
+
+                // MB-08: dwa klawisze drzwi. Po tej samej stronie i z tego samego
+                // powodu — drzwi ręczne istnieją WYŁĄCZNIE tam, gdzie istnieje
+                // właściciel sterowania, czyli w `LineCore`, czyli pod `--line`.
+                // Pod autopilotem `LineCore.RequestDoorOpen` ODMAWIA, więc wiersz
+                // pomocy autopilota wymienia je jako działające zgodnie z prawdą:
+                // klawisz działa, a odpowiedzią jest odmowa z powodem.
+                DriverActions.DoorOpen, DriverActions.DoorClose,
             },
             wszystkie,
             "tabela przypisań się zmieniła — rozstrzygnij, po której stronie stoi nowy klawisz");

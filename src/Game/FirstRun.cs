@@ -193,6 +193,21 @@ public sealed partial class FirstRun : Node3D
     private bool _trainNextKeyHeld;
     private bool _trainTakeKeyHeld;
     private bool _trainReleaseKeyHeld;
+    private bool _doorOpenKeyHeld;
+    private bool _doorCloseKeyHeld;
+
+    /// <summary>
+    /// Ostatnia ODMOWA polecenia drzwi; <c>null</c>, gdy ostatnie polecenie przeszło
+    /// albo gdy nie było żadnego (MB-08).
+    ///
+    /// <para><b>Trzyma się jej do NASTĘPNEGO polecenia, a nie przez N klatek.</b>
+    /// Komunikat gasnący po czasie ściennym byłby jedyną rzeczą w tej scenie, która
+    /// zależy od tego, ile klatek zdążyło się narysować — a determinizm tego przejazdu
+    /// jest przybity bramką porównującą telemetrię co do bitu. Odmowa gaśnie, gdy
+    /// gracz zrobi coś, co się udaje, albo gdy postój się kończy; do tego czasu stoi
+    /// na ekranie, bo dokładnie tak długo jest prawdziwa.</para>
+    /// </summary>
+    private DoorRefusal? _doorRefusal;
 
     /// <summary>Widok składu obserwowanego, albo <see cref="_train"/> poza trybem linii.</summary>
     private TrainView ObservedTrainView()
@@ -1483,6 +1498,16 @@ public sealed partial class FirstRun : Node3D
             // byłoby czterema poprawkami, z których każda mogłaby zostać w tyle.
             _observed = Math.Clamp(_observed, 0, _lineCore.Trains.Count - 1);
             _line = _lineCore.Trains[_observed].Drive;
+
+            // ODMOWA GAŚNIE Z KOŃCEM POSTOJU — MB-08. Nie po czasie i nie po klatkach
+            // (powód przy `_doorRefusal`): przestaje być prawdziwa dokładnie wtedy, gdy
+            // przestaje istnieć postój, którego dotyczyła. Bez tego wiersza odmowa
+            // z jednej stacji witałaby gracza na następnej.
+            if (_line is not { AtStation: true })
+            {
+                _doorRefusal = null;
+            }
+
             if (_line is null)
             {
                 // Skład jeszcze nie wjechał na plan (wejście zajęte). Krok się odbył,
@@ -1987,18 +2012,25 @@ public sealed partial class FirstRun : Node3D
         var nextKey = Godot.Input.IsActionPressed(DriverActions.TrainNext);
         var takeKey = Godot.Input.IsActionPressed(DriverActions.TrainTake);
         var releaseKey = Godot.Input.IsActionPressed(DriverActions.TrainRelease);
+        var doorOpenKey = Godot.Input.IsActionPressed(DriverActions.DoorOpen);
+        var doorCloseKey = Godot.Input.IsActionPressed(DriverActions.DoorClose);
 
         if (_lineCore is null || _lineCore.Trains.Count == 0)
         {
             _trainNextKeyHeld = nextKey;
             _trainTakeKeyHeld = takeKey;
             _trainReleaseKeyHeld = releaseKey;
+            _doorOpenKeyHeld = doorOpenKey;
+            _doorCloseKeyHeld = doorCloseKey;
             return;
         }
 
         if (nextKey && !_trainNextKeyHeld)
         {
             _observed = (_observed + 1) % _lineCore.Trains.Count;
+
+            // Odmowa dotyczyła składu, którego gracz już nie ogląda — MB-08.
+            _doorRefusal = null;
             ApplyView();
         }
 
@@ -2023,10 +2055,35 @@ public sealed partial class FirstRun : Node3D
             ApplyView();
         }
 
+        // DRZWI — MB-08. Na ZBOCZU, tak samo jak trzy klawisze wyżej i z tego samego
+        // powodu: trzymany klawisz wysyłałby polecenie w każdej klatce, więc drugie
+        // i dalsze wracałyby odmową „drzwi są już otwarte" i wiersz HUD-u pokazywałby
+        // odmowę zamiast skutku, który właśnie nastąpił.
+        //
+        // Rdzeń ODMAWIA, a nie rzuca (powód przy `LineCore.RequestDoorOpen`), więc nie
+        // ma tu żadnego warunku „czy wolno zapytać" — pytanie wolno zadać zawsze,
+        // a rozstrzyga odpowiedź. Warunek postawiony TUTAJ byłby drugim źródłem prawdy
+        // o tym, kiedy wolno otworzyć drzwi, i to źródłem po stronie widoku.
+        if (doorOpenKey && !_doorOpenKeyHeld)
+        {
+            ZapamietajOdpowiedzDrzwi(_lineCore.RequestDoorOpen(observed.Id));
+        }
+
+        if (doorCloseKey && !_doorCloseKeyHeld)
+        {
+            ZapamietajOdpowiedzDrzwi(_lineCore.RequestDoorClose(observed.Id));
+        }
+
         _trainNextKeyHeld = nextKey;
         _trainTakeKeyHeld = takeKey;
         _trainReleaseKeyHeld = releaseKey;
+        _doorOpenKeyHeld = doorOpenKey;
+        _doorCloseKeyHeld = doorCloseKey;
     }
+
+    /// <summary>Zapamiętuje odpowiedź rdzenia na polecenie drzwi do wiersza HUD — MB-08.</summary>
+    private void ZapamietajOdpowiedzDrzwi(DoorRequestResult odpowiedz) =>
+        _doorRefusal = odpowiedz.Ok ? null : odpowiedz.Refusal;
 
     /// <summary>
     /// Przejazd od nowa. CO reset obejmuje, rozstrzyga <see cref="RunReset.Apply"/> —
@@ -2322,12 +2379,31 @@ public sealed partial class FirstRun : Node3D
             var zaLinie = _line.Calls.Count;
             if (_line.AtStation)
             {
+                var blad = _line.Calls[^1].StopErrorM.ToString(
+                    BladZatrzymaniaFormat, CultureInfo.InvariantCulture);
+
+                // POSTÓJ RĘCZNY MA WŁASNY SZABLON, a nie ten sam z inną dziurą — MB-08.
+                // Pole „jeszcze N s" na postoju ręcznym nie ma czego pokazać: fazę
+                // otwartą kończy człowiek, więc `DwellRemainingSeconds` zwraca NaN
+                // (powód przy tej właściwości), a `NaN.ToString("F1")` to napis „NaN”.
+                // Dwa osobne wywołania `UiText.Format` z literałem klucza, a nie jedno
+                // z kluczem za `?:` — z tego samego powodu, co przy wierszu obsługi
+                // stacji niżej: skan `UiTextTests` czyta klucz WPROST po nawiasie.
+                if (_line.StopDoorControl == DoorControl.Manual)
+                {
+                    return UiText.Format(
+                        "hud.station.doors-manual",
+                        Faza(_line.Phase),
+                        DoorPrompt.For(_line.Phase, _doorRefusal),
+                        blad,
+                        zaLinie);
+                }
+
                 return UiText.Format(
                     "hud.station.doors",
                     Faza(_line.Phase),
                     _line.DwellRemainingSeconds.ToString("F1", CultureInfo.InvariantCulture),
-                    _line.Calls[^1].StopErrorM.ToString(
-                        BladZatrzymaniaFormat, CultureInfo.InvariantCulture),
+                    blad,
                     zaLinie);
             }
 
