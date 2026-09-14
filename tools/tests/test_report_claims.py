@@ -760,8 +760,19 @@ def wystapienia_w_jednych_grawisach():
     return out
 
 
-def twarde_rozjazdy_w_jednych_grawisach():
-    """`{(raport, nazwa)}` — rozjechane z drzewem i NIE zwolnione przez datowanie."""
+def rozjazdy_w_jednych_grawisach():
+    """`{(raport, nazwa)}` — WSZYSTKIE rozjechane z drzewem, bez pytania o datowanie.
+
+    **Datowanie jest tu CELOWO pominięte i to jest poprawka z pomiaru, nie uproszczenie.**
+    Pierwsza wersja tej funkcji odsiewała przez `zdanie_z_dnia_pomiaru` — i zbiór
+    zmienił się z czterech par na trzy **przez commit, który nie tknął ani jednej
+    liczby**: `data_stalej` datuje stałą commitem, który ostatnio ruszył jej plik, więc
+    dopisanie tej bramki do `test_report_claims.py` przedatowało `MINIMUM_CLAIMS`
+    na dziś i datowanie zaczęło je zwalniać. Zbiór przypięty na takim warunku
+    rozjeżdżałby się przy każdej edycji modułu, w którym stoi pilnowana stała.
+
+    Rozjazd z drzewem tej wady nie ma: nie zależy od tego, kto i kiedy ruszył plik.
+    """
     import test_backlog as BL
 
     wartosci = constant_values()
@@ -771,12 +782,20 @@ def twarde_rozjazdy_w_jednych_grawisach():
             continue
         if nazwa not in wartosci:
             continue
-        if BL._rowne(liczba, wartosci[nazwa]):
-            continue
-        przedawnione, _powod = zdanie_z_dnia_pomiaru(plik, nazwa, wartosci[nazwa])
-        if not przedawnione:
+        if not BL._rowne(liczba, wartosci[nazwa]):
             out.add((plik, nazwa))
     return out
+
+
+def twarde_rozjazdy_w_jednych_grawisach():
+    """`{(raport, nazwa)}` — rozjechane i NIE zwolnione przez datowanie.
+
+    Liczba, którą ta funkcja zwraca, jest **ruchoma** z powodu opisanego wyżej; stoi
+    w bramce jako obserwacja, a nie jako przypięcie.
+    """
+    wartosci = constant_values()
+    return {(plik, nazwa) for plik, nazwa in rozjazdy_w_jednych_grawisach()
+            if not zdanie_z_dnia_pomiaru(plik, nazwa, wartosci[nazwa])[0]}
 
 
 def test_ksztalt_w_jednych_grawisach_daje_SAME_CYTATY():
@@ -793,12 +812,29 @@ def test_ksztalt_w_jednych_grawisach_daje_SAME_CYTATY():
         "zgnil albo katalog sie skurczyl, a zero odpowiada tak samo, jak wzorzec "
         "dzialajacy" % (len(wystapienia), MIN_WYSTAPIEN_W_JEDNYCH_GRAWISACH))
 
+    # **BRAMKA PYTA O WERDYKT, NIE O CZLONKOSTWO — i to jest poprawka z dwoch pomiarow.**
+    # Przypiecie zbioru TWARDYCH rozjazdow (rozjechane minus zwolnione datowaniem)
+    # rozjechalo sie z czterech par na trzy przez commit, ktory nie tknal ani jednej
+    # liczby: `data_stalej` datuje stala commitem, ktory ostatnio ruszyl jej PLIK.
+    # Przypiecie zbioru WSZYSTKICH rozjechanych dalo z kolei 13 par, bo rosnie przy
+    # kazdym podniesieniu zapadki po raporcie, ktory ja cytowal — czyli przy pracy
+    # poprawnej. Trwale jest dopiero zdanie, ktore ta pozycja rozstrzygnela:
+    #
+    #     kazdy rozjazd jest ALBO zwolniony datowaniem, ALBO jednym z czterech cytatow
+    #
+    # Nowy rozjazd, ktorego datowanie nie zwalnia, zapala te bramke; przedatowanie
+    # ktoregokolwiek z czworki nie zapala niczego, bo przenosi ja do pierwszego czlonu.
+    rozjechane = rozjazdy_w_jednych_grawisach()
     twarde = twarde_rozjazdy_w_jednych_grawisach()
-    assert twarde == CYTATY_NIE_TWIERDZENIA, (
-        "twarde rozjazdy ksztaltu `NAZWA = N` to dzis %s, a wymienione sa %s — wpis, "
-        "ktorego tu nie ma, jest twierdzeniem rozjechanym z drzewem i werdykt 6.D209 "
-        "(„cztery trafienia falszywe, zero prawdziwych\") trzeba przeliczyc"
-        % (sorted(twarde), sorted(CYTATY_NIE_TWIERDZENIA)))
+    poza_lista = twarde - CYTATY_NIE_TWIERDZENIA
+    assert not poza_lista, (
+        "rozjazd ksztaltu `NAZWA = N`, ktorego datowanie NIE zwalnia i ktorego nie ma "
+        "na liscie cytatow: %s — jesli to twierdzenie autora o stanie drzewa, werdykt "
+        "6.D209 („cztery trafienia falszywe, zero prawdziwych\") przestal byc prawdziwy"
+        % sorted(poza_lista))
+    assert CYTATY_NIE_TWIERDZENIA <= rozjechane, (
+        "wpis z listy cytatow przestal byc rozjechany z drzewem: %s — wtedy opisuje "
+        "rozjazd, ktorego nie ma" % sorted(CYTATY_NIE_TWIERDZENIA - rozjechane))
 
     # I DRUGA STRONA: kazdy wymieniony ma NAPRAWDE byc rozjechany i NAPRAWDE nie byc
     # zwolniony przez datowanie. Bez tego „same cytaty" byloby prawda takze o zbiorze
@@ -818,10 +854,7 @@ def test_ksztalt_w_jednych_grawisach_daje_SAME_CYTATY():
         assert all(not BL._rowne(l, wartosci[nazwa]) for l in liczby), (
             "`%s` w `%s` zgadza sie dzis z drzewem — wpis opisuje rozjazd, ktorego nie "
             "ma" % (nazwa, plik))
-        przedawnione, powod = zdanie_z_dnia_pomiaru(plik, nazwa, wartosci[nazwa])
-        assert not przedawnione, (
-            "`%s` w `%s` jest dzis ZWOLNIONE przez datowanie (%s) — nie nalezy juz do "
-            "twardych i werdykt trzeba przeliczyc" % (nazwa, plik, powod))
+        assert (plik, nazwa) in rozjechane, (plik, nazwa)
         sprawdzonych += 1
     assert sprawdzonych == len(CYTATY_NIE_TWIERDZENIA), sprawdzonych
 

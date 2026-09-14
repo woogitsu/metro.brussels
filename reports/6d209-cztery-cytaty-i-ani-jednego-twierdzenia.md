@@ -44,12 +44,25 @@ i 0 na usterce**. Bramka świecąca na poprawnym tekście zostaje wyłączona, n
 poprawiona (6.D27) — więc jej nie ma. Granica jest **zapisana**, razem z liczbami
 i z czterema nazwanymi przypadkami, które ją rozstrzygnęły.
 
-Zamiast bramki na kształcie stoi bramka na **werdykcie**:
-`test_ksztalt_w_jednych_grawisach_daje_SAME_CYTATY` porównuje zbiór twardych rozjazdów
-z `CYTATY_NIE_TWIERDZENIA` w obie strony, a wpis piąty znaczy, że ktoś napisał
-w raporcie twierdzenie tego kształtu rozjechane z drzewem — czyli że werdykt przestał
-być prawdziwy i trzeba go przeliczyć. Zbiór, a nie liczba (6.D131): czwórka jest jego
-długością, a nie treścią.
+Zamiast bramki na kształcie stoi bramka na **werdykcie**, i jej ostateczna postać
+wyszła z **dwóch nieudanych**, obu zmierzonych, a nie przewidzianych:
+
+1. **przypięcie zbioru TWARDYCH rozjazdów** (rozjechane minus zwolnione datowaniem)
+   rozjechało się z czterech par na trzy **przez commit, który nie tknął ani jednej
+   liczby** — `data_stalej` datuje stałą commitem, który ostatnio ruszył jej **plik**,
+   więc dopisanie tej bramki do `test_report_claims.py` przedatowało jedną ze stałych
+   na dziś i datowanie zaczęło ją zwalniać;
+2. **przypięcie zbioru WSZYSTKICH rozjechanych** dało **13 par**, bo rośnie przy każdym
+   podniesieniu zapadki po raporcie, który ją cytował — czyli przy pracy poprawnej.
+
+Trwałe jest dopiero zdanie, które ta pozycja rozstrzygnęła:
+
+> każdy rozjazd jest **albo** zwolniony datowaniem, **albo** jednym z czterech cytatów
+
+Nowy rozjazd, którego datowanie nie zwalnia, zapala bramkę; przedatowanie
+któregokolwiek z czwórki nie zapala niczego, bo przenosi ją do pierwszego członu.
+Lista czterech jest przy tym sprawdzana z drugiej strony: każdy wpis ma **naprawdę**
+być dziś rozjechany z drzewem (6.D131 — zbiór, nie liczba).
 
 ## 4. Datowanie tych czterech NIE zwalnia — osobne znalezisko
 
@@ -104,8 +117,10 @@ zmienić zdaniem o niej samej, nie jest pomiarem drzewa.
 Domknięcie 6.D209 zszedł zapas **udokumentowany** do **11** przy progu 12 i zapaliło
 `test_the_documented_shortfall_is_written_down_while_it_lasts`. `CLAUDE.md` §8 każe
 wtedy najpierw uzupełnić kolejkę — **a pozycji wymyślonej na miejscu nie bierze się
-nigdy**, więc nowa wyszła z tego pomiaru: **6.D219**, o remisie dat z sekcji 8.
-`MINIMUM_DETAIL_BLOCKS` stoi tym samym commitem na **286** (było 285).
+nigdy**, więc nowa wyszła z tego pomiaru: **6.D219**, o remisie dat z sekcji 9.
+Podłoga na liczbę bloków szczegółów poszła tym samym commitem o jeden w górę — wartości
+raport nie podaje, bo zestarzeje się przy następnym domknięciu, a pilnuje jej
+`tools/tests/test_backlog.py`.
 
 ## 8. Czego świadomie nie zrobiłem
 
@@ -127,6 +142,12 @@ nigdy**, więc nowa wyszła z tego pomiaru: **6.D219**, o remisie dat z sekcji 8
   wygląda dla skanu tak samo.
 - **`data_stalej` dla dwóch z czterech zwraca tę samą sekundę, co `data_raportu`** —
   bo zapadka i raport weszły jednym commitem. Reguła „raport nie starszy od stałej"
-  rozstrzyga wtedy przez `>=`, czyli traktuje remis jako brak zwolnienia. Jest to wybór
-  zapisany w kodzie i tu tylko odnotowany; nie sprawdzałem, ilu twierdzeń w całym
-  katalogu ten remis dotyczy.
+  rozstrzyga wtedy przez `>=`, czyli traktuje remis jako brak zwolnienia. Wpisane jako
+  **6.D219**; ilu twierdzeń w katalogu ten remis dotyczy, nie sprawdzałem.
+- **`data_stalej` datuje stałą commitem, który ruszył jej PLIK, a nie jej wiersz** —
+  zmierzone na sobie: dopisanie tej bramki do `test_report_claims.py` przedatowało
+  `MINIMUM_CLAIMS` na dziś, choć wartość stoi nietknięta od 06.09.2026. Każda edycja
+  modułu przenosi więc wszystkie jego stałe w przyszłość i **zwalnia** twierdzenia
+  raportów, które je cytują. Ta pozycja obeszła to, nie pytając datowania o członkostwo
+  (sekcja 3); ile twierdzeń w katalogu jest przez to zwalnianych bez powodu, jest
+  pytaniem, którego nie zadałem.

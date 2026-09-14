@@ -380,11 +380,14 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 # 283 -> 285 (14.09.2026, MB-08): 6.M1 (`--replay` nie działa z `--line`)
 # i 6.M2 (jednostronne okno zatrzymania w `LineDrive`) — oba znaleziska POBOCZNE
 # z MB-08, zapisane tak, jak każe `CLAUDE.md` §8 przy aktywnym kamieniu milowym.
-# 285 -> 286 (14.09.2026, 6.D209): blok szesciu pol dla 6.D219 — remis dat raportu
-# i stalej. Domkniecie 6.D209 zbilo zapas udokumentowany do 11 przy progu 12, a §8
-# `CLAUDE.md` kaze wtedy najpierw uzupelnic kolejke. Pozycja nie jest wymyslona na
-# miejscu: wyszla z pomiaru 6.D209, ktory znalazl remis w polowie wlasnej probki.
-MINIMUM_DETAIL_BLOCKS = 286
+# 285 -> 286 (14.09.2026, 6.D208): blok szesciu pol dla 6.D218 — zapas
+# udokumentowany zszedl do 11 po domknieciu 6.D207 i 6.D208, czyli ponizej progu
+# doby pracy, a §8 `CLAUDE.md` kaze wtedy najpierw uzupelnic kolejke.
+# 286 -> 287 (14.09.2026, 6.D209): blok szesciu pol dla 6.D219 — remis dat raportu
+# i stalej. Domkniecie 6.D209 zbilo zapas znowu do 11, a pozycji wymyslonej na miejscu
+# nie bierze sie nigdy: 6.D219 wyszlo z pomiaru 6.D209, ktory znalazl remis w polowie
+# wlasnej probki.
+MINIMUM_DETAIL_BLOCKS = 287
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
