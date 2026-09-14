@@ -1675,11 +1675,16 @@ def _istnieje_w_drzewie(nazwa):
 # pozycji — `docs/TASKS.md`, `test_backlog.py` i `reports/6d196-…`. „Weryfikacja"
 # rosnie o jeden (388 -> 389) za `tools/tests/test_all.py` z plotka tego bloku.
 # Przeliczone na drzewie po scaleniu #612.
-# 952 -> 955 (14.09.2026, 6.D210): trzy adresy z pola „Wejście" WLASNEGO bloku tej
-# pozycji — `src/Game/FirstRun.cs`, `tests/Game.Tests/UiTextTests.cs` i
-# `reports/6d197-…`. „Weryfikacja" NIE DRGA: plotek tej pozycji wola `dotnet test`,
-# a nie `tools/tests/test_all.py`, wiec nie niesie ani adresu, ani wywolania modulu.
-ADRESOW_W_WYKONANYCH = {"Wejście": 955, "Wyjście": 63, "Weryfikacja": 389}
+# 952 -> 955 (14.09.2026, 6.D209): trzy adresy z pola „Wejście" WLASNEGO bloku tej
+# pozycji — `test_report_claims.py`, `test_backlog.py` i `reports/6d196-…`.
+# „Weryfikacja" rosnie o jeden (389 -> 390) za `tools/tests/test_all.py` z plotka.
+# Przeliczone na drzewie po scaleniu #613.
+# 955 -> 958 (14.09.2026, 6.D210): trzy adresy z pola „Wejście" WLASNEGO bloku tej
+# pozycji — `src/Game/FirstRun.cs`, `tests/Game.Tests/UiTextTests.cs` i `reports/6d197-…`.
+# „Weryfikacja" NIE DRGA i to jest treść, a nie brak: płotek tej pozycji woła
+# `dotnet test tests/Sim.Tests`, a nie `tools/tests/test_all.py`, więc nie niesie ani
+# adresu, ani wywołania modułu. Przeliczone na drzewie po scaleniu #614.
+ADRESOW_W_WYKONANYCH = {"Wejście": 958, "Wyjście": 63, "Weryfikacja": 390}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
@@ -1697,7 +1702,10 @@ ADRESOW_W_WYKONANYCH = {"Wejście": 955, "Wyjście": 63, "Weryfikacja": 389}
 # 125 -> 126 (14.09.2026, 6.D208): jedno wywolanie modulu wiecej —
 # `test_backlog.py` z plotka „Weryfikacji" bloku tej pozycji. Przeliczone na drzewie
 # po scaleniu #612.
-WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 126}
+# 126 -> 127 (14.09.2026, 6.D209): jedno wywolanie modulu wiecej —
+# `test_backlog.py` z plotka „Weryfikacji" bloku tej pozycji. Przeliczone na drzewie
+# po scaleniu #613.
+WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 127}
 
 #: Ilu kandydatow zlego adresu daje regula prozy, per pole — 6.D158.
 # 12 -> 13 (14.09.2026, 6.D204): trzynastym kandydatem jest `test_mutation_sweep.py`

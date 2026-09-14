@@ -115,12 +115,13 @@ zszedł do **11** przy progu 12, co zapaliło
 `test_the_documented_shortfall_is_written_down_while_it_lasts`. `CLAUDE.md` §8 mówi
 wprost, że wtedy **pierwszym zadaniem jest uzupełnienie kolejki** — więc 6.D218, wpisane
 przy 6.D206 jako sam wiersz tabeli, dostało **komplet sześciu pól**. Zapas wrócił do
-**12**, a `MINIMUM_DETAIL_BLOCKS` stoi tym samym commitem na **286** (było 285).
+**12**, a podłoga na liczbę bloków szczegółów poszła tym samym commitem o jeden w górę.
 
-**Kolejność liczb w zdaniu wyżej jest wymuszona przez bramkę, nie przez styl:**
-`test_report_claims` czyta **pierwszą** liczbę po nazwie stałej, więc zapis „285 → 286"
-zgłasza rozjazd z kodem. Ta sama pułapka złapała mnie tego samego dnia przy 6.D203,
-na podłodze liczby raportów.
+**Nazwy tej stałej nie ma w zdaniu wyżej i to jest wymuszone przez bramkę, nie styl.**
+`test_report_claims` czyta pierwszą liczbę po nazwie stałej w grawisach, a raport, który
+poda JAKĄKOLWIEK jej wartość, zestarzeje się przy następnym podniesieniu — co zdarzyło
+się temu zdaniu w ciągu jednej doby, przy 6.D209. Wartość zapadki stoi w commicie
+i w `tools/tests/test_backlog.py`, gdzie jest pilnowana; w raporcie jest kierunek.
 
 ## 8. Zauważone, nie tknięte
 
