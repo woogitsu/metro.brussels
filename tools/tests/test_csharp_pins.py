@@ -28,6 +28,11 @@ PINY_GRY = {
     "RunResetTests.cs": 2,
     "SignallingHudTests.cs": 1,
     "TelemetryTrackTests.cs": 1,
+    # MB-03: cztery piny w `TractionBlockTests.cs` — trzy brzmienia wiersza blokady
+    # i jedno przy dwóch blokadach naraz. Wszystkie cztery to KATEGORIA C: kazdy jest
+    # wynikiem JEDNEJ przemiany napisu (`TractionBlock.Line` na wpisie katalogu),
+    # a nie wynikiem zlozonym z kilku zrodel ani wejsciem syntetycznym.
+    "TractionBlockTests.cs": 4,
     "UiTextTests.cs": 8,
 }
 
@@ -80,7 +85,8 @@ KATEGORIE = {
 }
 
 #: Ile pinów wpada do kategorii C — reszta, liczona, nie wpisana.
-LICZBA_C = 41
+# 41 -> 45 (14.09.2026, MB-03): cztery piny `TractionBlockTests.cs`.
+LICZBA_C = 45
 
 
 def test_ile_pinow_stoi_w_testach_warstwy_gry():
@@ -92,8 +98,9 @@ def test_ile_pinow_stoi_w_testach_warstwy_gry():
         "— doszedł pin do skategoryzowania albo zniknął pin do zdjęcia"
         % (sorted(zmierzone.items()), sorted(PINY_GRY.items())))
 
-    assert sum(zmierzone.values()) == 47, (
-        "pinów warstwy gry jest %d, a pomiar z 12.09.2026 dał 47 (45 przed 6.D155)"
+    assert sum(zmierzone.values()) == 51, (
+        "pinów warstwy gry jest %d, a pomiar z 14.09.2026 dał 51 "
+        "(47 po 6.D155, 45 przed nim; +4 przy MB-03)"
         % sum(zmierzone.values()))
 
     ile_rdzenia = len(CP.piny("tests/Sim.Tests"))
@@ -117,7 +124,7 @@ def test_kazdy_pin_ma_kategorie_i_suma_sie_zgadza():
     assert len(wszystkie - nazwane) == LICZBA_C, (
         "do kategorii C wpada %d pinów przy zapisanych %d"
         % (len(wszystkie - nazwane), LICZBA_C))
-    assert len(KATEGORIE["A"]) + len(KATEGORIE["B"]) + LICZBA_C == 47, (
+    assert len(KATEGORIE["A"]) + len(KATEGORIE["B"]) + LICZBA_C == 51, (
         "kategorie nie sumują się do 47: A=%d, B=%d, C=%d"
         % (len(KATEGORIE["A"]), len(KATEGORIE["B"]), LICZBA_C))
 
@@ -230,9 +237,11 @@ ROZKLAD_LICZBOWYCH = {
     "tests/Game.Tests": {
         # 215 -> 216 (13.09.2026, MB-02): `TrainingWiringTests.cs` przybija jedna
         # liczbe — `DesignAssumptions.TrainingTargets == 2`.
-        "razem": 216, "z_tolerancja": 98, "bez_tolerancji": 118,
+        # 216 -> 218 (14.09.2026, MB-03): dwie liczby siatki w `TractionBlockTests.cs`
+        # (21 par i 20 par z blokada). `calkowite_z_tolerancja` zostaje ZEREM.
+        "razem": 218, "z_tolerancja": 98, "bez_tolerancji": 120,
         "zmiennoprzecinkowe": 104, "zmiennoprzecinkowe_bez_tolerancji": 6,
-        "calkowite": 112, "calkowite_z_tolerancja": 0, "tolerancja_zero": 18,
+        "calkowite": 114, "calkowite_z_tolerancja": 0, "tolerancja_zero": 18,
     },
     "tests/Sim.Tests": {
         # 441 -> 454 (13.09.2026, MB-02): trzynaście pinów liczbowych

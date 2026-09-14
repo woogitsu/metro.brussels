@@ -1712,13 +1712,34 @@ public sealed partial class FirstRun : Node3D
         }
 
         _hud.Update(
-            _state.SpeedKmh, _acceleration, chainage, _axis.LengthM,
+            _state.SpeedKmh, Units.MpsToKmh(SpeedLimitMps), _acceleration,
+            chainage, _axis.LengthM,
             name, distance, _command.Throttle, _command.Brake, _mode,
             StationLine(), SignallingLine(), _viewLine,
             EmergencyBrake.Notice(_activeKeys, _command),
             HelpLine(),
-            SummaryLine());
+            SummaryLine(),
+            TractionLine());
     }
+
+    /// <summary>
+    /// Wiersz HUD o blokadzie trakcji — MB-03.
+    ///
+    /// <para><b>Ta metoda niczego nie rozstrzyga.</b> Podaje <see cref="TractionBlock"/>
+    /// stan DWÓCH właścicieli blokady, odczytany z tego samego kroku, z którego wyszło
+    /// polecenie kontrolera: obsługi stacji (<c>StationService.TractionAllowed</c>)
+    /// i ochrony pociągu (<c>CabProtection.Decision</c>). Trzeciego filtru nastawnika
+    /// w rdzeniu nie ma — ograniczenie prędkości obcina prędkość PO kroku
+    /// (<c>TrainController.Advance</c>), a nastawnika nie rusza.</para>
+    ///
+    /// <para>Poza postojem <c>TractionAllowed</c> jest prawdą, bo <c>Phase</c> zwraca
+    /// wtedy <c>DoorPhase.Closed</c>; przebieg bez obsługi stacji (<c>_stations</c>
+    /// jest nullem) blokady drzwiami nie ma z definicji.</para>
+    /// </summary>
+    private string TractionLine() => TractionBlock.Line(
+        _stations?.TractionAllowed ?? true,
+        Faza(_stations?.Phase ?? DoorPhase.Closed),
+        _cabProtection?.Decision);
 
     /// <summary>
     /// Panel wyniku; pusty, dopóki sesja trwa — i pusty w przebiegu, który sesji nie ma.

@@ -72,6 +72,16 @@ public static class UiText
             // „chainage" jest tu angielskie i takie zostaje: napis przeniesiony
             // co do znaku, bo ta pozycja robi miejsce, nie treść.
             ["hud.position"] = "chainage {0} m / {1} m     {2} za {3} m",
+
+            // Wiersz prędkości — MB-03. Do 13.09.2026 składał się WPROST w ciele
+            // `Hud.Update` i nie niósł sufitu; sufit stał wyłącznie w wierszu
+            // sygnalizacji, czyli w diagnostyce, którą MB-03 odsuwa na dół panelu.
+            // Gracz reguluje prędkość w każdej sekundzie jazdy i musi wiedzieć,
+            // kiedy przestać dodawać — bez tej liczby wiersz mówi „ile", a nie „ile wolno".
+            //
+            // Słowo brzmi `sufit`, a nie `limit`, i to jest słowo, którego repozytorium
+            // już używa na tę wielkość (`FirstRun.cs`, wiersz `[LIMIT] … sufit maszynisty`).
+            ["hud.speed"] = "{0} km/h   sufit {1} km/h     a = {2} m/s²",
             ["hud.controls"] = "ciąg {0} {1}   hamulec {2} {3}   [{4}]{5}",
 
             // --- wiersz stacji (`FirstRun.StationLine`) — 6.D99 -------------------
@@ -91,6 +101,14 @@ public static class UiText
             ["hud.station.in-window"] = "  W OKNIE — zatrzymaj się",
             ["hud.traction.free"] = "trakcja WOLNA",
             ["hud.traction.locked"] = "trakcja ZABLOKOWANA",
+
+            // --- wiersz blokady trakcji (`TractionBlock`) — MB-03 -----------------
+            // Trzy wpisy, bo filtry nastawnika w rdzeniu są DWA, a ochrona ma dwa
+            // stopnie. Nazwa fazy drzwi przychodzi dziurą z `FirstRun.Faza`, a nie
+            // jest tu wpisana drugi raz — ta sama granica, co przy wierszu stacji.
+            ["hud.traction.doors"] = "TRAKCJA ODCIĘTA — drzwi: {0}",
+            ["hud.traction.atp-service"] = "TRAKCJA ODCIĘTA — ATP hamuje służbowo",
+            ["hud.traction.atp-emergency"] = "TRAKCJA ODCIĘTA — ATP hamuje awaryjnie",
 
             // --- fazy cyklu drzwi (`FirstRun.Faza`) — 6.D99 -----------------------
             // Siedem, nie osiem: `DoorPhase` ma siedem wartości, a ósme ramię

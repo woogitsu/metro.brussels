@@ -4,7 +4,7 @@ using Godot;
 namespace MetroBxl.Game.UI;
 
 /// <summary>
-/// Podgląd stanu przejazdu. Osiem pól tekstowych i nic więcej: prędkość, położenie na
+/// Podgląd stanu przejazdu. Dziewięć pól tekstowych i nic więcej: prędkość, położenie na
 /// osi, to co robią nastawniki, stacja — dojazd albo faza cyklu drzwi — sygnalizacja,
 /// czyli prędkość dopuszczalna z autorytetem jazdy, widok, gdy pokazywany jest inny niż
 /// zamówiony, i opis sterowania, gdy przy sterowaniu siedzi człowiek.
@@ -27,6 +27,7 @@ public sealed partial class Hud : CanvasLayer
     private Label? _view;
     private Label? _help;
     private Label? _summary;
+    private Label? _traction;
 
     /// <inheritdoc/>
     public override void _Ready()
@@ -39,8 +40,11 @@ public sealed partial class Hud : CanvasLayer
         _view = GetNode<Label>("Panel/Rows/View");
         _help = GetNode<Label>("Panel/Rows/Help");
         _summary = GetNode<Label>("Panel/Rows/Summary");
+        _traction = GetNode<Label>("Panel/Rows/Traction");
 
-        foreach (var label in new[] { _speed, _position, _controls, _station, _signalling, _view, _help, _summary })
+        foreach (var label in new[]
+                 { _speed, _position, _controls, _station, _signalling, _view, _help,
+                   _summary, _traction })
         {
             label.AddThemeFontSizeOverride("font_size", 20);
             label.AddThemeColorOverride("font_color", new Color(0.92f, 0.94f, 0.96f));
@@ -68,10 +72,20 @@ public sealed partial class Hud : CanvasLayer
         // są zmierzone na klatce bez geometrii, czyli na samym HUD-zie. Sesji
         // treningowej przebieg skryptowy zresztą nie ma.
         _summary.Visible = false;
+
+        // Wiersz blokady trakcji startuje ukryty jak pięć powyższych i z tego samego
+        // powodu. Ma przy tym jeszcze jeden: MILCZENIE ZNACZY „JEDŹ" (MB-03), więc
+        // wiersz widoczny od pierwszej klatki mówiłby o blokadzie, której nie ma.
+        _traction.Visible = false;
     }
 
-    /// <summary>Odświeża wszystkie osiem wierszy.</summary>
+    /// <summary>Odświeża wszystkie dziewięć wierszy.</summary>
     /// <param name="speedKmh">Prędkość w km/h.</param>
+    /// <param name="speedLimitKmh">
+    /// Sufit prędkości tego przejazdu w km/h — ta sama liczba, którą dostaje kontroler.
+    /// Stoi w wierszu prędkości od MB-03, bo gracz reguluje prędkość co sekundę,
+    /// a wcześniej sufit był wyłącznie w wierszu sygnalizacji, czyli w diagnostyce.
+    /// </param>
     /// <param name="accelerationMps2">Przyspieszenie ze znakiem.</param>
     /// <param name="chainageM">Chainage czoła składu.</param>
     /// <param name="axisLengthM">Długość osi pakietu.</param>
@@ -132,8 +146,19 @@ public sealed partial class Hud : CanvasLayer
     /// i z tego samego powodu: liczby wyniku mieszkają w rdzeniu, a druga kopia tej
     /// wiedzy tutaj rozjechałaby się z pierwszą.</para>
     /// </param>
+    /// <param name="traction">
+    /// Wiersz o blokadzie trakcji — składa go <c>MetroBxl.Game.UI.TractionBlock</c>
+    /// z odczytu dwóch filtrów rdzenia (obsługa stacji i ochrona pociągu). Puste
+    /// znaczy „trakcja wolna", a nie „nie wiem": milczenie jest tu informacją,
+    /// bo wiersz pojawia się wtedy i tylko wtedy, gdy gracz ciągnie i nic się nie dzieje.
+    ///
+    /// <para>HUD tego napisu NIE SKŁADA — ta sama zasada, co przy pięciu poprzednich:
+    /// który filtr blokuje, wiedzą `StationService` i `CabProtection`, a druga kopia
+    /// tej wiedzy tutaj rozjechałaby się z pierwszą.</para>
+    /// </param>
     public void Update(
         double speedKmh,
+        double speedLimitKmh,
         double accelerationMps2,
         double chainageM,
         double axisLengthM,
@@ -147,17 +172,24 @@ public sealed partial class Hud : CanvasLayer
         string view,
         string emergency,
         string help,
-        string summary)
+        string summary,
+        string traction)
     {
         if (_speed is null || _position is null || _controls is null
             || _station is null || _signalling is null || _view is null || _help is null
-            || _summary is null)
+            || _summary is null || _traction is null)
         {
             return;
         }
 
-        _speed.Text = string.Create(
-            CultureInfo.InvariantCulture, $"{speedKmh,6:F1} km/h     a = {accelerationMps2,6:F2} m/s²");
+        // Słowa idą z katalogu od MB-03; do tego dnia ten jeden wiersz składał się
+        // WPROST tutaj i był jedynym, który omijał `UiText` — czyli dokładnie tym
+        // wyjątkiem, przez który katalog przestaje być jednym miejscem.
+        _speed.Text = UiText.Format(
+            "hud.speed",
+            speedKmh.ToString("F1", CultureInfo.InvariantCulture).PadLeft(6),
+            speedLimitKmh.ToString("F1", CultureInfo.InvariantCulture),
+            accelerationMps2.ToString("F2", CultureInfo.InvariantCulture).PadLeft(6));
         // Słowa idą z katalogu (`UiText`), liczby są formatowane TUTAJ — 6.D83.
         // Granica jest postawiona świadomie: szablon niesie kolejność pól i słowa,
         // a `F1`, `F0` i szerokości pól zostają w kodzie, bo pole „Skończone, gdy"
@@ -188,6 +220,11 @@ public sealed partial class Hud : CanvasLayer
         // w `TrainingResult`, a druga kopia tej wiedzy tutaj rozjechałaby się z pierwszą.
         _summary.Text = summary;
         _summary.Visible = summary.Length > 0;
+
+        // Wiersz blokady trakcji — składa go `TractionBlock` z odczytu DWÓCH filtrów
+        // rdzenia, a nie HUD. Pusty znaczy „trakcja wolna", czyli wiersza nie ma.
+        _traction.Text = traction;
+        _traction.Visible = traction.Length > 0;
     }
 
     private static string Bar(double value)

@@ -344,9 +344,13 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 #: C# zaczyna z komunikatem przy kazdej asercji. Ta bramka zapalila sie pierwsza
 #: w tym commicie, na 43 asercjach bez powodu, i wszystkie 43 dostaly powod.
 #: `NIEROZSTRZYGNIETYCH` bez zmian: czytnik zaklasyfikowal kazda z 112.
-Z_KOMUNIKATEM_RAZEM = 1419
+#:
+#: **1419 -> 1433 i 2868 -> 2882 (14.09.2026, MB-03).** Czternascie asercji
+#: w `TractionBlockTests.cs` (4 metody), wszystkie Z KOMUNIKATEM —
+#: `BEZ_KOMUNIKATU_RAZEM` znow nie drgnelo.
+Z_KOMUNIKATEM_RAZEM = 1433
 NIEROZSTRZYGNIETYCH = 68
-ASERCJI_RAZEM = 2868
+ASERCJI_RAZEM = 2882
 
 
 def _rozklad():

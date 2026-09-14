@@ -327,8 +327,11 @@ ROZKLAD_POSTACI = {
     "tests": {
         # 3555 -> 3734 i 655 -> 665 (13.09.2026, MB-02): `TrainingSessionTests.cs`
         # i `RunSummaryTests.cs`. Cztery pozostale postacie bez zmian.
-        "zwykly": 3799,
-        "interpolowany ($)": 667,
+        # 3799 -> 3853 i 667 -> 674 (14.09.2026, MB-03): `TractionBlockTests.cs`.
+        # Liczby ZMIERZONE przyrzadem, nie wyprowadzone z liczby metod — pierwsza
+        # proba wpisana „z glowy" dala 3862/676 i bramka ja odrzucila.
+        "zwykly": 3853,
+        "interpolowany ($)": 674,
         "werbatim (@)": 50,
         "surowy interpolowany ($$\"\"\")": 13,
         "surowy (\"\"\")": 7,
@@ -339,8 +342,11 @@ ROZKLAD_POSTACI = {
         # `TrainingResult.cs` i `RunSummary.cs`. Cztery postacie o liczbie 0 albo 1
         # NIE DRGNELY i to jest tu trescia, a nie dwie liczby, ktore urosly: caly
         # przyrost poszedl w dwie postacie, ktore `src/` juz mial.
-        "zwykly": 1265,
-        "interpolowany ($)": 460,
+        # 1265 -> 1281 i 460 -> 459 (14.09.2026, MB-03): `TractionBlock.cs`
+        # i cztery wpisy katalogu; postac interpolowana SPADLA o jeden, bo wiersz
+        # predkosci przestal byc interpolowany w ciele `Hud.Update`.
+        "zwykly": 1281,
+        "interpolowany ($)": 459,
         "werbatim (@)": 0,
         "surowy interpolowany ($$\"\"\")": 1,
         "surowy (\"\"\")": 1,
