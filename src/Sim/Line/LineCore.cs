@@ -88,6 +88,33 @@ public sealed class LineTrain
     /// </summary>
     internal long? FinishedAtStep { get; set; }
 
+    /// <summary>
+    /// Kto prowadzi ten skład — MB-06. Domyślnie <see cref="ControlOwner.Autopilot"/>.
+    ///
+    /// <para>Pole jest tu, a nie w <see cref="LineDrive"/>, bo właściciel sterowania jest
+    /// własnością POJAZDU NA LINII, a nie jego bieżącego przejazdu: <c>Drive</c> znika
+    /// i powstaje od nowa przy każdym nawrocie (faza 4 <c>Step</c>), a przejęcie ma
+    /// przetrwać obieg. Trzymanie go w <c>Drive</c> oddawałoby sterowanie autopilotowi
+    /// po cichu, w środku nawrotu, i nikt by tego nie zauważył — bo skład i tak wtedy
+    /// stoi.</para>
+    /// </summary>
+    public ControlOwner Owner { get; internal set; } = ControlOwner.Autopilot;
+
+    /// <summary>
+    /// Położenie dźwigni maszynisty — trwa DO ZMIANY, a nie do końca kroku.
+    ///
+    /// <para><b>Dlaczego trwa.</b> Nastawnik jest dźwignią, a nie przyciskiem: człowiek
+    /// stawia go raz i zostaje, gdzie go postawiono. Komenda wygasająca po kroku dawałaby
+    /// skład, który przy każdej zgubionej klatce przechodzi na wybieg — czyli sterowanie
+    /// zależne od tego, jak szybko rysuje się obraz. Ta sama zasada, co w kabinie
+    /// (<c>FirstRun</c> trzyma położenie nastawnika między klatkami).</para>
+    ///
+    /// <para><c>null</c> dopóki nikt nie przejął sterowania; ustawiane na komendę
+    /// wykonywaną w chwili przejęcia, żeby przejęcie nie zmieniło ani prędkości,
+    /// ani kursu.</para>
+    /// </summary>
+    public DriverCommand? DriverCommand { get; internal set; }
+
     /// <summary>Prawda, gdy skład jest na planie.</summary>
     public bool OnLine => Drive is not null;
 
@@ -560,6 +587,116 @@ public sealed class LineCore
     }
 
     /// <summary>
+    /// Oddaje sterowanie składem człowiekowi, zaczynając od komendy, którą skład
+    /// wykonuje w tej chwili.
+    ///
+    /// <para><b>Przejęcie nie zmienia ani pozycji, ani prędkości, ani kursu</b> — pole
+    /// „Weryfikacja" MB-06 żąda tego wprost. Bierze się to stąd, że dźwignia startuje
+    /// z <c>LineDrive.LastCommand</c>, czyli z polecenia PRZED ochroną, które autopilot
+    /// wydał w poprzednim kroku. Przejęcie zaczynające się od zera nastawnika zmieniłoby
+    /// wszystkie trzy rzeczy już w następnym kroku, a wyglądałoby na „samo przełączenie".</para>
+    ///
+    /// <para><b>Skład, który nie wszedł jeszcze na plan, przejąć się NIE DA — i to jest
+    /// poprawka twierdzenia, które stało tu wcześniej.</b> Poprzednia wersja obiecywała,
+    /// że „dźwignia dostanie wtedy pozycję przy wjeździe", i było to nieprawdą
+    /// o mierzalnych skutkach. `Drive` powstaje w fazie 1 tego samego kroku, a jego
+    /// `LastCommand` jest wtedy jeszcze inicjalizatorem pola (<c>Coast</c>, czyli
+    /// <c>default(DriverCommand)</c>) — bo `Step` jeszcze nie biegł. Przejęty przed
+    /// wjazdem skład dostawał więc wybieg z zerową prędkością, **stał na kilometrażu
+    /// wjazdowym w nieskończoność** i blokował blok wjazdowy: zmierzone — po 100 s
+    /// przejęty skład miał 0,000 m i 0,000 m/s wobec 997,498 m i 16,667 m/s pod
+    /// autopilotem, a drugi skład po 250 s wciąż nie był na planie.</para>
+    ///
+    /// <para>Odmowa, a nie podstawienie jakiejkolwiek komendy — bo nie ma komendy,
+    /// którą skład „właśnie wykonuje", dopóki nie wykonuje żadnej. To ta sama zasada,
+    /// co przy <see cref="Drive(string, DriverCommand)"/>: cichy brak skutku wygląda
+    /// w logu tak samo jak sterowanie, które nic nie daje. Po wjeździe składu na plan
+    /// przejęcie działa normalnie.</para>
+    /// </summary>
+    /// <param name="trainId">Identyfikator składu.</param>
+    /// <returns>Pojazd, którego sterowanie przejęto.</returns>
+    /// <exception cref="ArgumentException">Nie ma składu o tym identyfikatorze.</exception>
+    /// <exception cref="InvalidOperationException">Skład nie wszedł jeszcze na plan.</exception>
+    public LineTrain TakeControl(string trainId)
+    {
+        var train = Find(trainId);
+        if (train.Drive is null)
+        {
+            throw new InvalidOperationException(
+                $"Skład {trainId} nie wszedł jeszcze na plan — nie ma czego przejąć. "
+                + "Przejęcie jest możliwe dopiero po wyjeździe.");
+        }
+
+        train.Owner = ControlOwner.Driver;
+        train.DriverCommand ??= train.Drive.LastCommand;
+        return train;
+    }
+
+    /// <summary>
+    /// Oddaje sterowanie autopilotowi.
+    ///
+    /// <para><b>Oddanie też nie zmienia stanu składu</b>, i to nie dlatego, że o to
+    /// zadbano osobno: autopilot liczy swoje polecenie i posuwa swój zatrzask hamowania
+    /// przez CAŁY czas przejęcia (powód przy <c>LineDrive.DriverInput</c>), więc
+    /// w kroku po oddaniu jest dokładnie tam, gdzie byłby, gdyby prowadził sam.</para>
+    ///
+    /// <para>Dźwignia jest przy oddaniu ZAPOMINANA. Zostawiona pamiętałaby położenie
+    /// sprzed oddania i następne przejęcie zaczynałoby się od komendy, której skład
+    /// w tej chwili nie wykonuje — czyli dokładnie od tego skoku, którego
+    /// <see cref="TakeControl"/> unika.</para>
+    /// </summary>
+    /// <param name="trainId">Identyfikator składu.</param>
+    /// <returns>Pojazd, którego sterowanie oddano.</returns>
+    /// <exception cref="ArgumentException">Nie ma składu o tym identyfikatorze.</exception>
+    public LineTrain ReleaseControl(string trainId)
+    {
+        var train = Find(trainId);
+        train.Owner = ControlOwner.Autopilot;
+        train.DriverCommand = null;
+        return train;
+    }
+
+    /// <summary>
+    /// Stawia dźwignię maszynisty składu <paramref name="trainId"/>.
+    ///
+    /// <para>Odmawia, gdy sterowania nie przejęto — i jest to ODMOWA, a nie ciche
+    /// przejęcie. Komenda podana składowi prowadzonemu przez autopilota nie miałaby
+    /// gdzie zadziałać, więc wołający, który jej nie widzi, wierzyłby, że prowadzi,
+    /// a prowadziłby autopilot. Cichy brak skutku wygląda w logu tak samo jak
+    /// sterowanie, które nic nie daje.</para>
+    /// </summary>
+    /// <param name="trainId">Identyfikator składu.</param>
+    /// <param name="command">Nowe położenie dźwigni.</param>
+    /// <exception cref="ArgumentException">Nie ma składu o tym identyfikatorze.</exception>
+    /// <exception cref="InvalidOperationException">Sterowania tego składu nie przejęto.</exception>
+    public void Drive(string trainId, DriverCommand command)
+    {
+        var train = Find(trainId);
+        if (train.Owner != ControlOwner.Driver)
+        {
+            throw new InvalidOperationException(
+                $"Sterowania składu {trainId} nie przejęto — zawołaj najpierw TakeControl.");
+        }
+
+        train.DriverCommand = command;
+    }
+
+    /// <summary>Pojazd o zadanym identyfikatorze albo wyjątek z jego nazwą.</summary>
+    private LineTrain Find(string trainId)
+    {
+        ArgumentNullException.ThrowIfNull(trainId);
+        foreach (var train in _trains)
+        {
+            if (string.Equals(train.Id, trainId, StringComparison.Ordinal))
+            {
+                return train;
+            }
+        }
+
+        throw new ArgumentException($"Nie ma składu o identyfikatorze {trainId}.", nameof(trainId));
+    }
+
+    /// <summary>
     /// Jeden krok zegara linii nad wszystkimi składami. Fazy w kolejności opisanej
     /// przy klasie: wyjazdy, odczyt autorytetów, jazda i meldunek ruchu.
     /// </summary>
@@ -691,6 +828,25 @@ public sealed class LineCore
             }
 
             var id = train.Id;
+
+            // WŁAŚCICIEL STEROWANIA WCHODZI TUTAJ, w fazie 3, tuż przed krokiem — bo
+            // tutaj i tylko tutaj polecenie dociera do kontrolera. Autopilot dostaje
+            // `null`, czyli prowadzi tak jak przed MB-06, co do bitu.
+            //
+            // Dźwignia przejętego składu bez ani jednej komendy dostaje pozycję
+            // z poprzedniego kroku (`LastCommand`) — nie wybieg. Wybieg byłby cichą
+            // zmianą prowadzenia w chwili przejęcia, czyli dokładnie tym, czego pole
+            // „Weryfikacja" MB-06 zabrania.
+            if (train.Owner == ControlOwner.Driver)
+            {
+                train.DriverCommand ??= train.Drive.LastCommand;
+                train.Drive.DriverInput = train.DriverCommand;
+            }
+            else
+            {
+                train.Drive.DriverInput = null;
+            }
+
             train.Drive.Step(trace is null ? null : point => trace(id, point));
             _signalling.MoveTrain(id, train.Drive.ChainageM);
         }
