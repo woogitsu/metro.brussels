@@ -1560,7 +1560,15 @@ def test_wzorzec_rodziny_lapie_zdanie_ktore_ma_lapac_i_nie_bierze_sasiedztwa():
 #: Komunikat werdyktu JEST wyjściem tej funkcji, a nie jej opisem — jedzie do logu joba
 #: i to z niego `tools/ci/timing_record.py` składa wpisy `POMIARY`, więc asercja na jego
 #: treść jest asercją na zachowanie, tylko wyrażoną literałem.
-#: **878 -> 879 (14.09.2026, 6.D207), z powodem.** Doszła jedna asercja
+#: **878 -> 880 (14.09.2026, 6.D206), z powodem.** Doszły dwie asercje
+#: w `test_suite_runtime_budget.py`, obie w
+#: `test_przyrzad_6D206_WIDZI_date_dopisana_do_komentarza`:
+#: `"POMIARY_BRAKOW" in nazwy` i `"POMIARY_BRAKOW" not in z_data`. Stoją na NAPISIE
+#: z konieczności i to jest ich treść: populacja, którą 6.D206 mierzy, JEST zbiorem
+#: nazw stałych, a pytanie „czy `POMIARY_BRAKOW` do niej wchodzi" nie ma innej postaci
+#: niż literał z tą nazwą. Do listy `NA_ZRODLE_PY` nie należą — `nazwy` i `z_data` są
+#: wynikiem skanu drzewa, a nie odczytem pliku.
+#: **880 -> 881 (14.09.2026, 6.D207), z powodem.** Doszła jedna asercja
 #: w `test_prose_counts.py`, w `test_sito_jest_SLEPE_na_przypadek_dla_ktorego_powstalo`:
 #: `"od 6.D193 jest to SPRAWDZANE" in doc`. Stoi na NAPISIE i tak ma być — pilnuje,
 #: że docstring, w którym 6.D193 zamieniło deklarację niesprawdzaną na sprawdzaną,
@@ -1568,7 +1576,7 @@ def test_wzorzec_rodziny_lapie_zdanie_ktore_ma_lapac_i_nie_bierze_sasiedztwa():
 #: od której 6.D207 wyszło, a ta bramka jest jedynym miejscem, które to zauważy.
 #: Do listy `NA_ZRODLE_PY` nie należy: `doc` jest docstringiem wyjętym przez `ast`,
 #: a nie tekstem pliku.
-ASERCJI_NAPISOWYCH_RAZEM = 879
+ASERCJI_NAPISOWYCH_RAZEM = 881
 
 #: **Kotwica wpisu to `(plik, funkcja, operator, literał)`, a NIE numer wiersza.**
 #: Numer przesuwa się przy każdej edycji pliku i lista rozjechałaby się sama z siebie.
