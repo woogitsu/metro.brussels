@@ -171,8 +171,10 @@ public sealed class UiTextTests
     /// cztery i zostałaby wyłączona; zapadka na zbiorze pilnuje dokładnie tego,
     /// o czym mówi akapit o ryzyku przy <see cref="NazwyKlawiszySilnika"/>.</para>
     /// </summary>
+    // MB-07 dokłada do korpusu bramki `N`, `O` i `T` — nazwy trzech klawiszy obsługi
+    // linii. Zbiór, nie liczba, więc wpisane są nazwy, a nie licznik.
     private static readonly string[] NazwyKlawiszyWZasieguBramki =
-        { "C", "F1", "F2", "R", "S", "W", "X" };
+        { "C", "F1", "F2", "N", "O", "R", "S", "T", "W", "X" };
 
     /// <summary>
     /// Nazwy klawiszy widoczne dopiero SZERZEJ niż bramka — 6.D153.
@@ -199,7 +201,13 @@ public sealed class UiTextTests
     // `ExitCabMissing` i wpięcie kabiny w `FirstRun`. Liczba ZMIERZONA
     // przyrzadem tego testu.
     // 529 -> 530 (14.09.2026, MB-05, poprawka `--cab` w KnownArguments).
-    private const int LiteralowWZasieguBramki = 530;
+    // 530 -> 543 (14.09.2026, MB-07): literały dołożone przez drugi skład —
+    // nazwy argumentów `trains`/`headway-steps` w `RunPlan`, komunikaty odmowy
+    // zakresu i nazwy węzłów widoków w `FirstRun`. Liczba jest PRZELICZONA
+    // przebiegiem, a nie wyprowadzona z liczby dopisanych wierszy.
+    // 543 -> 557 (14.09.2026, MB-07): trzy klawisze obsługi linii (N/T/O), wiersz
+    // `[TUNEL koniec]` i komunikaty zakresu `--trains`. Liczba PRZELICZONA przebiegiem.
+    private const int LiteralowWZasieguBramki = 557;
 
     /// <summary>Ile różnych — dolne ostrze, zmierzone 12.09.2026.</summary>
     private const int RoznychLiteralowWZasieguBramki = 362;
@@ -1163,10 +1171,24 @@ public sealed class UiTextTests
             + "Esc wyjście",
             DriverActions.Help);
 
+        // MB-07: pod autopilotem doszły trzy klawisze, które DZIAŁAJĄ — wybór składu
+        // i przejęcie. Stoją przed zdaniem o klawiszach przejętych przez rdzeń, bo
+        // zdanie „prowadzi rdzeń: … nie działają" ma kończyć wiersz.
         Assert.AreEqual(
-            "C widok  ·  Esc wyjście  ·  "
-            + "prowadzi rdzeń: W, S, X, Spacja, R nie działają",
-            DriverActions.HelpWhenTheCoreDrives);
+            "C widok  ·  Esc wyjście  ·  N następny skład  ·  T przejmij  ·  O oddaj"
+            + "  ·  prowadzi rdzeń: W, S, X, Spacja, R nie działają",
+            DriverActions.HelpWhenTheCoreDrives,
+            "wiersz pomocy pod autopilotem rozjechał się z katalogiem");
+
+        // Wiersz dla składu PRZEJĘTEGO: prowadzenie znów działa, resetu w przejeździe
+        // linii nie ma, a oddanie sterowania musi być widoczne — inaczej gracz nie ma
+        // jak wrócić pod autopilota.
+        Assert.AreEqual(
+            "W ciąg  ·  S hamulec  ·  X wybieg  ·  "
+            + "Spacja hamulec awaryjny (= pełny służbowy)  ·  C widok  ·  Esc wyjście"
+            + "  ·  N następny skład  ·  T przejmij  ·  O oddaj",
+            DriverActions.HelpWhenTheDriverHasTaken,
+            "wiersz pomocy dla składu przejętego rozjechał się z katalogiem");
 
         Assert.AreEqual(
             "HAMULEC AWARYJNY (Spacja) = pełny hamulec SŁUŻBOWY 1.00 — "
@@ -1360,7 +1382,13 @@ public sealed class UiTextTests
     // `ExitCabMissing` i wpięcie kabiny w `FirstRun`. Liczba ZMIERZONA
     // przyrzadem tego testu.
     // 570 -> 571 (14.09.2026, MB-05, poprawka `--cab` w KnownArguments).
-    private const int PozycjiStaregoCzytnika = 571;
+    // 571 -> 584 (14.09.2026, MB-07): literały dołożone przez drugi skład —
+    // nazwy argumentów `trains`/`headway-steps` w `RunPlan`, komunikaty odmowy
+    // zakresu i nazwy węzłów widoków w `FirstRun`. Liczba jest PRZELICZONA
+    // przebiegiem, a nie wyprowadzona z liczby dopisanych wierszy.
+    // 584 -> 598 (14.09.2026, MB-07): trzy klawisze obsługi linii (N/T/O), wiersz
+    // `[TUNEL koniec]` i komunikaty zakresu `--trains`. Liczba PRZELICZONA przebiegiem.
+    private const int PozycjiStaregoCzytnika = 598;
 
     /// <summary>
     /// Ile PLIKÓW korpusu stary czytnik czytał inaczej niż leksykalny — 6.D182.
@@ -1682,14 +1710,17 @@ public sealed class UiTextTests
     /// <summary>Ile literałów dociera na ekran drogą <c>Hud.Update</c> — 6.D183.</summary>
     // 74 -> 87 (13.09.2026, MB-02): osiem kluczy `summary.*`, trzy formaty liczb
     // i dwa człony komunikatu wyjątku z ramienia domyślnego `RunSummary.Naglowek`.
-    private const int LiteralowNaEkranie = 94;
+    // 94 -> 101 (14.09.2026, MB-07): trzy klawisze obsługi linii (N/T/O), wiersz
+    // `[TUNEL koniec]` i komunikaty zakresu `--trains`. Liczba PRZELICZONA przebiegiem.
+    private const int LiteralowNaEkranie = 101;
 
     /// <summary>Ile z nich jest KLUCZEM katalogu, a nie tekstem — 6.D183.</summary>
     // 28 -> 36 (13.09.2026, MB-02): osiem kluczy `summary.*` panelu wyniku.
     // 36 -> 41 (14.09.2026, MB-03): `hud.speed`, `hud.speed.no-limit` i trzy klucze
     // `hud.traction.*`. Drugi wariant wiersza prędkości doszedł po regresji znalezionej
     // przebiegiem CI — patrz `Tryb_BEZ_SUFITU_nie_pyta_o_sufit…`.
-    private const int KluczyKatalogunaEkranie = 41;
+    // 41 -> 44 (14.09.2026, MB-07): przeliczone przebiegiem.
+    private const int KluczyKatalogunaEkranie = 44;
 
     /// <summary>
     /// Ile literałów z tej drogi niesie SŁOWO w rozumieniu bramki — 6.D183.
@@ -1923,14 +1954,22 @@ public sealed class UiTextTests
     // 120 -> 126 (14.09.2026, MB-05): `CabView.cs`, wiersz `[KABINA]`, stała
     // `ExitCabMissing` i wpięcie kabiny w `FirstRun`. Liczba ZMIERZONA
     // przyrzadem tego testu.
-    private const int ZgloszenFirstRunCalymPlikiem = 126;
+    // 126 -> 130 (14.09.2026, MB-07): literały dołożone przez drugi skład —
+    // nazwy argumentów `trains`/`headway-steps` w `RunPlan`, komunikaty odmowy
+    // zakresu i nazwy węzłów widoków w `FirstRun`. Liczba jest PRZELICZONA
+    // przebiegiem, a nie wyprowadzona z liczby dopisanych wierszy.
+    // 130 -> 134 (14.09.2026, MB-07): trzy klawisze obsługi linii (N/T/O), wiersz
+    // `[TUNEL koniec]` i komunikaty zakresu `--trains`. Liczba PRZELICZONA przebiegiem.
+    private const int ZgloszenFirstRunCalymPlikiem = 134;
 
     /// <summary>Ile daje ten sam plik liczony WIERSZ PO WIERSZU — 6.D180.</summary>
     // 122 -> 132 (14.09.2026, MB-04): `FirstRun.AssetsRoot`, `DomyslnyZapisWejsc`
     // i wiersz `[ZAPISY]`. Liczba ZMIERZONA przyrzadem tego testu.
     // 132 -> 138 (14.09.2026, MB-05): `CabView.cs` i wpięcie kabiny w `FirstRun`.
     // Liczba ZMIERZONA przyrzadem tego testu.
-    private const int ZgloszenFirstRunWierszami = 138;
+    // 138 -> 142 (14.09.2026, MB-07): jak wyżej — literały drugiego składu.
+    // 142 -> 146 (14.09.2026, MB-07): przeliczone przebiegiem.
+    private const int ZgloszenFirstRunWierszami = 146;
 
     /// <summary>Ile plików korpusu daje różne liczby obiema drogami — 6.D180.</summary>
     private const int PlikowZRoznicaDrog = 1;
@@ -2105,7 +2144,13 @@ public sealed class UiTextTests
     // 363 -> 367 (14.09.2026, MB-05): `CabView.cs`, wiersz `[KABINA]`, stała
     // `ExitCabMissing` i wpięcie kabiny w `FirstRun`. Liczba ZMIERZONA
     // przyrzadem tego testu.
-    private const int LiteralowDotknietychZdejmowaniem = 367;
+    // 367 -> 378 (14.09.2026, MB-07): literały dołożone przez drugi skład —
+    // nazwy argumentów `trains`/`headway-steps` w `RunPlan`, komunikaty odmowy
+    // zakresu i nazwy węzłów widoków w `FirstRun`. Liczba jest PRZELICZONA
+    // przebiegiem, a nie wyprowadzona z liczby dopisanych wierszy.
+    // 378 -> 381 (14.09.2026, MB-07): trzy klawisze obsługi linii (N/T/O), wiersz
+    // `[TUNEL koniec]` i komunikaty zakresu `--trains`. Liczba PRZELICZONA przebiegiem.
+    private const int LiteralowDotknietychZdejmowaniem = 381;
 
     /// <summary>
     /// Ilu literałom zdejmowanie jednostek ZABIERA werdykt „to słowo" — 6.D155.
@@ -2372,7 +2417,9 @@ public sealed class UiTextTests
     // rodziny 6.D154…6.D183 już widzą. Spadek jest tu wynikiem pożądanym i dlatego
     // zapadka równościowa go pokazuje: gdyby ktoś wiersz prędkości złożył z powrotem
     // w kodzie, liczba wróciłaby do dwudziestu i ten test by o tym powiedział.
-    private const int DziurNaEkranie = 18;
+    // 18 -> 20 (14.09.2026, MB-07): trzy klawisze obsługi linii (N/T/O), wiersz
+    // `[TUNEL koniec]` i komunikaty zakresu `--trains`. Liczba PRZELICZONA przebiegiem.
+    private const int DziurNaEkranie = 20;
 
     /// <summary>
     /// Które z tych dziur wstawiają wartość wyliczenia — WPISANE, nie wyprowadzone.
@@ -2782,7 +2829,11 @@ public sealed class UiTextTests
     // `ExitCabMissing` i wpięcie kabiny w `FirstRun`. Liczba ZMIERZONA
     // przyrzadem tego testu.
     // 101 -> 102 (14.09.2026, MB-05, poprawka `--cab` w KnownArguments).
-    private const int ZgloszenWaskichCalymPlikiem = 102;
+    // 102 -> 104 (14.09.2026, MB-07): literały dołożone przez drugi skład —
+    // nazwy argumentów `trains`/`headway-steps` w `RunPlan`, komunikaty odmowy
+    // zakresu i nazwy węzłów widoków w `FirstRun`. Liczba jest PRZELICZONA
+    // przebiegiem, a nie wyprowadzona z liczby dopisanych wierszy.
+    private const int ZgloszenWaskichCalymPlikiem = 104;
 
     /// <summary>Zgłoszeń wąskiej reguły, gdy czytnik dostaje WIERSZ — 6.D173/6.D186.</summary>
     // 108 -> 112 (14.09.2026, MB-04): `FirstRun.AssetsRoot`, `DomyslnyZapisWejsc`
@@ -2792,7 +2843,11 @@ public sealed class UiTextTests
     // `ExitCabMissing` i wpięcie kabiny w `FirstRun`. Liczba ZMIERZONA
     // przyrzadem tego testu.
     // 113 -> 114 (14.09.2026, MB-05, poprawka `--cab` w KnownArguments).
-    private const int ZgloszenWaskichWierszami = 114;
+    // 114 -> 116 (14.09.2026, MB-07): literały dołożone przez drugi skład —
+    // nazwy argumentów `trains`/`headway-steps` w `RunPlan`, komunikaty odmowy
+    // zakresu i nazwy węzłów widoków w `FirstRun`. Liczba jest PRZELICZONA
+    // przebiegiem, a nie wyprowadzona z liczby dopisanych wierszy.
+    private const int ZgloszenWaskichWierszami = 116;
 
     /// <summary>
     /// Ile z nich stoi w kontekście CZYTANIA JSON-a — <b>18 obiema drogami</b>.
@@ -3153,7 +3208,9 @@ public sealed class UiTextTests
     // i wiersz `[ZAPISY]`. Liczba ZMIERZONA przyrzadem tego testu.
     // 131 -> 134 (14.09.2026, MB-05): `CabView.cs` i wpięcie kabiny w `FirstRun`.
     // Liczba ZMIERZONA przyrzadem tego testu.
-    private const int LiteralowZKlamra = 134;
+    // 134 -> 139 (14.09.2026, MB-07): jak wyżej — literały drugiego składu.
+    // 139 -> 144 (14.09.2026, MB-07): przeliczone przebiegiem.
+    private const int LiteralowZKlamra = 144;
 
     /// <summary>
     /// Ilu literałom <see cref="BezDziur"/> zabiera WSZYSTKIE słowa — 6.D188.
@@ -3167,7 +3224,8 @@ public sealed class UiTextTests
     // prędkości z ciała `Hud.Update`: `BezJednostek` zostawiał w nim samo `a`, więc
     // `BezDziur` zabierało mu ostatnie słowo. Po przeniesieniu do katalogu wiersz
     // niesie `sufit`, czyli słowo, którego żadna z tych dwóch mechanik nie zabiera.
-    private const int ZabranychWszystkieSlowa = 13;
+    // 13 -> 14 (14.09.2026, MB-07): przeliczone przebiegiem.
+    private const int ZabranychWszystkieSlowa = 14;
 
     /// <summary>
     /// Ile z nich stoi na drodze <c>Hud.Update</c>, czyli dociera na ekran — 6.D188.
@@ -3182,7 +3240,9 @@ public sealed class UiTextTests
     // 4 -> 3 (14.09.2026, MB-03): ten sam literał wiersza prędkości, co przy
     // `ZabranychWszystkieSlowa`. Trzy, które zostają, to dziury złożone wyłącznie
     // z interpolacji — a te nigdy nie były tekstem dla gracza.
-    private const int ZabranychNaDrodzeNaEkran = 3;
+    // 3 -> 4 (14.09.2026, MB-07): drugi `{binding.KeyName} {binding.Meaning}` —
+    // z `BuildDriverHasTakenHelp`, czyli z wiersza pomocy dla składu przejętego.
+    private const int ZabranychNaDrodzeNaEkran = 4;
 
     /// <summary>Literały z drogi na ekran, którym <c>BezDziur</c> zabiera wszystko — 6.D188.</summary>
     private static readonly string[] ZabraneNaEkranie =
@@ -3190,6 +3250,14 @@ public sealed class UiTextTests
         "{ostrzezenie}{ingerencja}",
         "{binding.KeyName} {binding.Meaning}",
         "{b.KeyName} {b.Meaning}",
+
+        // CZWARTY DOŁOŻONY 14.09.2026 (MB-07): drugie wystąpienie
+        // `"{binding.KeyName} {binding.Meaning}"` — z `BuildDriverHasTakenHelp`, czyli
+        // z wiersza pomocy dla składu PRZEJĘTEGO przez gracza. Ten sam szablon co wyżej
+        // i z tego samego powodu: dziura złożona wyłącznie z interpolacji, bez ani
+        // jednego słowa dla gracza. Zbiór jest tu listą, a nie zbiorem, więc powtórzenie
+        // wpisuje się drugi raz — i to jest poprawne, bo pomiar liczy WYSTĄPIENIA.
+        "{binding.KeyName} {binding.Meaning}",
 
         // CZWARTY ZDJĘTY 14.09.2026 (MB-03), a nie przeniesiony: literał
         // `"{speedKmh,6:F1} km/h     a = {accelerationMps2,6:F2} m/s²"` przestał
@@ -4130,13 +4198,16 @@ public sealed class UiTextTests
     // 28 -> 29 (14.09.2026, MB-05): `CabView.cs`, wiersz `[KABINA]`, stała
     // `ExitCabMissing` i wpięcie kabiny w `FirstRun`. Liczba ZMIERZONA
     // przyrzadem tego testu.
-    private const int WierszyLoguWGame = 29;
+    // 29 -> 30 (14.09.2026, MB-07): trzy klawisze obsługi linii (N/T/O), wiersz
+    // `[TUNEL koniec]` i komunikaty zakresu `--trains`. Liczba PRZELICZONA przebiegiem.
+    private const int WierszyLoguWGame = 30;
 
     // 21 -> 23 (13.09.2026, MB-02): dwa wiersze `[SESJA]`. `WierszyLoguPoAngielsku`
     // zostaje ZEREM i to ono jest tu zdaniem.
     // 23 -> 24 (14.09.2026, MB-04): `FirstRun.AssetsRoot`, `DomyslnyZapisWejsc`
     // i wiersz `[ZAPISY]`. Liczba ZMIERZONA przyrzadem tego testu.
-    private const int WierszyLoguPoPolsku = 24;
+    // 24 -> 25 (14.09.2026, MB-07): wiersz `[TUNEL koniec]` — własne słowa, polskie.
+    private const int WierszyLoguPoPolsku = 25;
 
     // Wiersze, których szablon NIE MA WŁASNYCH SŁÓW — cała treść przychodzi z wywołania.
     // Wszystkie w `FirstRun.cs`, i każdy z nich prowadzi do wytwórcy, który własne

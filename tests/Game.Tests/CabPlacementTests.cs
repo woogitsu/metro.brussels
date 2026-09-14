@@ -637,8 +637,18 @@ public class CabPlacementTests
             + "znaczy \u201Epod warunkiem\u201D — a wywołanie, które nie wykonuje się "
             + "nigdy, wygląda w wyszukiwaniu tekstu dokładnie tak samo jak wykonywane "
             + "co klatkę");
-        Assert.AreEqual(';', ZnakPrzed(kod, kabina[0].Indeks),
-            "wywołanie ma stać zaraz po innej INSTRUKCJI. Znak `)` przed nim znaczy "
+        // **Dozwolone znaki są DWA, i ten wiersz jest PRZEPISANY, a nie rozluźniony**
+        // (MB-07, 14.09.2026). Do tej pozycji stało tu `AreEqual(';', …)`, bo przed
+        // wywołaniem kabiny stała jedna instrukcja — `_train.PlaceAt(…);`. MB-07 wstawia
+        // między nie pętlę ustawiającą POZOSTAŁE składy, więc znakiem poprzedzającym
+        // jest dziś `}`, czyli koniec bloku. Jedno i drugie znaczy to samo, o co ten
+        // strażnik pyta: wywołanie stoi NA POZIOMIE INSTRUKCJI, a nie jako ciało
+        // bezklamrowego `if`. Rozróżnienie zostaje nietknięte — `)` nadal zapala test,
+        // i to jest jedyny znak, który ten strażnik ma odrzucać.
+        var znak = ZnakPrzed(kod, kabina[0].Indeks);
+        Assert.IsTrue(znak is ';' or '}',
+            $"wywołanie ma stać zaraz po innej INSTRUKCJI albo po zamknięciu bloku, "
+            + $"a stoi po znaku `{znak}`. Znak `)` przed nim znaczy "
             + "`if (…) _cabView.PlaceAt(…);` bez klamer — ten wariant ma tę samą "
             + "głębokość co poprawny i rozróżnia go dopiero ten znak");
     }

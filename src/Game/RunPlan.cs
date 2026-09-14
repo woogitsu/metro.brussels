@@ -40,6 +40,10 @@ public sealed class RunPlan
         "platforms", "cab",
         "line", "calls", "limit-kmh", "signalling",
         "input-log", "replay", "from-telemetry",
+        // MB-07. Oba wpisy są KONIECZNE, a nie wygodne: lista jest JAWNA i argument
+        // spoza niej zatrzymuje przebieg, więc bez nich `--trains=2` byłoby odrzucone
+        // jako nieznane — dokładnie tak, jak `--cab` było odrzucane do MB-05.
+        "trains", "headway-steps",
     };
 
     /// <summary>Widoki, jakie scena potrafi ustawić. Inna wartość jest BŁĘDEM, nie domyślną.</summary>
@@ -122,6 +126,15 @@ public sealed class RunPlan
 
     /// <summary>Domyślna liczba kroków symulacji na klatkę.</summary>
     public const long DefaultStepsPerFrame = 120L;
+
+    /// <summary>Ile składów bez `--trains`. JEDEN — patrz <see cref="Trains"/>.</summary>
+    public const long DefaultTrains = 1L;
+
+    /// <summary>Górne ostrze `--trains`. Patrz uzasadnienie przy sprawdzeniu zakresu.</summary>
+    public const long MaxTrains = 16L;
+
+    /// <summary>Odstęp wyjazdu bez `--headway-steps`: 37 200 kroków = 310 s.</summary>
+    public const long DefaultHeadwaySteps = 37200L;
 
     private RunPlan(IReadOnlyDictionary<string, string> arguments)
     {
@@ -338,6 +351,31 @@ public sealed class RunPlan
     /// <summary>Nierówność czasów klatek, którą tryb telemetrii wstrzykuje celowo.</summary>
     public double Jitter { get; private init; }
 
+    /// <summary>Ile składów wpuścić na plan. Domyślnie JEDEN.</summary>
+    /// <remarks>
+    /// <para><b>Domyślna jedynka jest treścią, a nie wygodą.</b> Pole „Czego NIE wolno
+    /// zrobić bez pomiaru" pozycji MB-07 mówi wprost: liczbę składów zwiększa się
+    /// dopiero po zmierzeniu renderu, ticków, pamięci i przycięć streamingu. Domyślna
+    /// dwójka zwiększyłaby ją WSZYSTKIM przebiegom naraz — w tym bramkom CI, których
+    /// wzorce są przybite do przejazdu jednego składu — i zrobiłaby to po cichu.</para>
+    /// </remarks>
+    public long Trains { get; private init; } = DefaultTrains;
+
+    /// <summary>Odstęp wyjazdu kolejnych składów, w krokach symulacji.</summary>
+    /// <remarks>
+    /// <para><b>Domyślne 37 200 kroków to 310 s przy kroku 1/120 s</b>, czyli zmierzony
+    /// takt L1/L5 z GTFS (`docs/21-measured-vs-assumed.md` §4d, T-113). Jest to
+    /// <b>9,1× powyżej zmierzonego minimum</b>: pierwszy krok, w którym blok wjazdowy
+    /// jest wolny, to <b>4073</b> przy limicie planu 72 km/h.</para>
+    ///
+    /// <para><b>Czego ta liczba NIE jest: rozkładem STIB.</b> Pole „Czego NIE wolno
+    /// przedstawiać jako rozkładu" zabrania tego wprost, i słusznie — pakiet A to
+    /// fragment L1_A, a nie linia. 310 s jest tu ODSTĘPEM SCENARIUSZA, którego wartość
+    /// wzięto ze zmierzonego taktu, żeby nie była zmyślona; kursem rozkładowym nie jest
+    /// ani jeden z tych składów.</para>
+    /// </remarks>
+    public long HeadwaySteps { get; private init; } = DefaultHeadwaySteps;
+
     /// <summary>Kilometraż, na którym ma powstać zrzut.</summary>
     public double ShotChainageM { get; private init; }
 
@@ -419,6 +457,45 @@ public sealed class RunPlan
         if (!TryDouble(arguments, "jitter", 0.0, out var jitter, out error))
         {
             return Refusal(arguments, exitBadArgumentValue, error!);
+        }
+
+        if (!TryLong(arguments, "trains", DefaultTrains, out var trains, out error))
+        {
+            return Refusal(arguments, exitBadArgumentValue, error!);
+        }
+
+        // Zakres jest tu SPRAWDZANY, inaczej niż przy `--steps-per-frame`, i to nie
+        // jest niekonsekwencja. `--trains=0` dałoby przejazd bez ani jednego składu,
+        // czyli PUSTĄ SCENĘ kończącą się kodem 0 — a to jest dokładnie ten wynik,
+        // przed którym ostrzega §5 CLAUDE.md („skrypt bez błędu potrafi wyprodukować
+        // pustą scenę"). Górne ostrze stoi na SZESNASTU i jest arbitralne w wartości,
+        // ale nie w istnieniu: koszt drugiego składu jest zmierzony (35 752 B
+        // geometrii), kosztu szesnastu nikt nie mierzył, a liczba bez ostrza zamienia
+        // literówkę w minutę czekania na scenę, której nie da się narysować.
+        if (trains is < 1 or > MaxTrains)
+        {
+            return Refusal(arguments, exitBadArgumentValue,
+                $"[ARGUMENT] '--trains={trains}' jest poza zakresem 1..{MaxTrains}. "
+                + "Zero składów daje pustą scenę kończącą się powodzeniem, a górne "
+                + "ostrze stoi tam, dokąd sięga pomiar (MB-07).");
+        }
+
+        if (!TryLong(arguments, "headway-steps", DefaultHeadwaySteps, out var headwaySteps, out error))
+        {
+            return Refusal(arguments, exitBadArgumentValue, error!);
+        }
+
+        // Zmierzone na `data/track/L1_A.json` + `classic-2026.json` przy limicie planu:
+        // pierwszy krok, w którym blok wjazdowy jest CLEAR, to 4073 — i wiąże tam
+        // RYGLOWANIE TRASY, a nie zajętość pudła (sama długość składu dałaby 1817).
+        // Odstęp mniejszy nie jest błędem argumentu: skład po prostu czeka, a `LineCore`
+        // rozstrzyga to poprawnie. Odstęp UJEMNY jest błędem, bo `LineCore.Add` odmawia
+        // wyjazdu w przeszłości i robi to wyjątkiem w środku `_Ready`.
+        if (headwaySteps < 0L)
+        {
+            return Refusal(arguments, exitBadArgumentValue,
+                $"[ARGUMENT] '--headway-steps={headwaySteps}' jest ujemny — wyjazd "
+                + "w przeszłości jest cichym przesunięciem rozkładu, nie wyjazdem.");
         }
 
         if (!TryDouble(arguments, "at-chainage", 0.0, out var chainage, out error))
@@ -618,6 +695,8 @@ public sealed class RunPlan
             SignallingPath = Argument(arguments, "signalling"),
             SampleEvery = sampleEvery,
             StepsPerFrame = stepsPerFrame,
+            Trains = trains,
+            HeadwaySteps = headwaySteps,
             Jitter = jitter,
             ShotChainageM = chainage,
             View = view switch

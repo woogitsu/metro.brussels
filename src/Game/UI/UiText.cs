@@ -146,6 +146,12 @@ public static class UiText
             ["input.view"] = "widok",
             ["input.reset"] = "od nowa",
             ["input.quit"] = "wyjście",
+
+            // MB-07. Krótkie, bo wchodzą do wiersza pomocy obok siedmiu poprzednich,
+            // a ten wiersz ma się dać przeczytać wzrokiem z fotela.
+            ["input.train-next"] = "następny skład",
+            ["input.train-take"] = "przejmij",
+            ["input.train-release"] = "oddaj",
             ["help.core-drives"] = "prowadzi rdzeń: {0} nie działają",
 
             // --- hamulec awaryjny (`EmergencyBrake`) — 6.D99 ----------------------

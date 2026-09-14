@@ -118,7 +118,11 @@ public sealed class RunPlanTests
         {
             var value = name switch
             {
-                "sample-every" or "steps-per-frame" => "10",
+                "sample-every" or "steps-per-frame" or "headway-steps" => "10",
+                // `--trains` MUSI dostać wartość z zakresu 1..MaxTrains, bo poza nim
+                // plan odmawia — a ten test pyta, czy argument DZIAŁA SAMOTNIE, nie czy
+                // odrzuca bzdury. Od tego jest osobna asercja przy `MaxTrains`.
+                "trains" => "2",
                 "jitter" or "at-chainage" => "1.5",
                 "view" => "cab",
                 "limit-kmh" => "70",
@@ -161,7 +165,11 @@ public sealed class RunPlanTests
         // dowodem, a nie kosztem: `FirstRun` czytało `--cab` już wcześniej, a plan
         // odrzucał je jako nieznane — nadpisanie było nieosiągalne i żaden test
         // tego nie widział, bo nikt tego argumentu nie podawał.
-        Assert.AreEqual(18, samotnych, "argumentów bez zależności");
+        // 18 -> 20 (14.09.2026, MB-07): `--trains` i `--headway-steps`. Oba SAMOTNE
+        // i oba LICZBOWE, więc na liście `PathArguments` ich nie ma i być nie powinno —
+        // tamta mówi o kształcie WARTOŚCI, a pusta wartość liczbowa odpada już na
+        // `TryLong`. Zakres `--trains` sprawdza osobna asercja przy `MaxTrains`.
+        Assert.AreEqual(20, samotnych, "argumentów bez zależności");
         Assert.AreEqual(3, zZaleznoscia, "argumentów z zależnością");
         Assert.AreEqual(
             RunPlan.KnownArguments.Length, samotnych + zZaleznoscia,
