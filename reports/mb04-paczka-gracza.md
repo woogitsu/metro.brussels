@@ -242,6 +242,76 @@ kod wyjścia: 4
 Komunikat nazywa **bezwzględną ścieżkę w paczce**, więc mówi graczowi, którego pliku
 brakuje i gdzie. Plik przywrócony, rozmiar zgodny (71 730 B).
 
+## 7.1 BRAMKA SEKWENCJI UCIECZKI BYŁA NIEPOPRAWNA NA PYTHONIE 3.12+ — i to CI mnie o tym powiedziało
+
+Ta pozycja przeszła u mnie 2466/2466 i **padła w CI, na ośmiu jobach naraz**. Padał
+jeden test, `test_zrodla_tools_nie_niosa_ani_jednej_zlej_sekwencji_ucieczki`, meldując
+pięć złych sekwencji ucieczki w `tools/tests/test_player_package.py` — moim własnym,
+nowym pliku.
+
+**Te pięć literałów jest POPRAWNE i nie wolno ich „naprawiać".** Wszystkie są postaci
+`rf"..."`, czyli surowe; `\w` i `\$` w regexie to dokładnie to, czego regex chce.
+CPython na runnerze nie ma do nich zastrzeżeń — `compileall` w kroku obok przeszedł
+bez jednego ostrzeżenia.
+
+**Niepoprawny był CZYTNIK bramki.** Chodził po `ast`, brał dla każdego literału
+`ast.get_source_segment` i odsiewał literały surowe po prefiksie **w tym fragmencie**.
+Do 3.11 części f-stringa dziedziczyły pozycję całego literału, więc fragment zawierał
+`rf"` i odsianie działało. Od 3.12 (**PEP 701**) każdy kawałek tekstu f-stringa ma
+własne `lineno/col_offset`, wskazujące sam tekst **bez prefiksu** — wzorzec odsiewający
+przestawał trafiać.
+
+Zmierzone na tym drzewie, czterema interpreterami:
+
+| interpreter | trafień | kod |
+|---|---|---|
+| 3.11.15 | **0** | 0 |
+| 3.12.3 | **5** | 1 |
+| 3.13.12 | **5** | 1 |
+| 3.14.0rc2 | **5** | 1 |
+
+**Runner ma 3.14.4, a to drzewo miało 3.11.15 — i ta różnica jest całą przyczyną,
+dla której bramka była zielona u mnie i czerwona w CI.** Od tej pozycji uruchamiam
+zestaw na `/usr/bin/python3.13`, czyli po stronie PEP 701; sprawdzam obie wersje.
+
+**Poprawka: czytnikiem jest `tokenize`, nie `ast.get_source_segment`.** Tokenizer podaje
+prefiks tam, gdzie on w źródle naprawdę stoi, i robi to tak samo na obu epokach —
+**bez ani jednego rozgałęzienia po `sys.version_info`**: do 3.11 cały f-string to jeden
+`STRING` z prefiksem, od 3.12 to `FSTRING_START` (niosący `rf"`), `FSTRING_MIDDLE`
+(sam tekst) i `FSTRING_END`, a te nazwy po prostu nie padają na 3.11. Gałąź nietestowana
+na danej wersji cicho by nie działała — tego właśnie unikamy.
+
+**Wariant „badać cały `JoinedStr` raz" został odrzucony POMIAREM, nie argumentem.**
+Zaimplementowany i uruchomiony: na dzisiejszym drzewie daje zero trafień, ale wnosi
+**nową klasę fałszywego alarmu dokładnie na tych wersjach, dla których robimy
+poprawkę** — od 3.12 ukośnik jest legalny w polu podstawienia, więc skan po całym
+fragmencie czyta KOD podstawienia jak tekst napisu i zapala się na
+`f"{re.sub(r'\d', '', s)}"`. Wersja z tokenizerem daje tam zero.
+
+`ast.parse` **zostaje**, ale wyłącznie jako przyrząd kontrolny — odpowiada na inne
+pytanie („czy moduł w ogóle się parsuje"), którego sam tokenizer nie umie zadać, bo
+jest leksykalny i `def f(:` przechodzi przez niego bez sprzeciwu. Wyłapywanie modułów
+nieparsowalnych to połowa tej bramki (KN-1 z 6.D147).
+
+**Bramka złapała przy okazji mnie samego:** przepisując funkcję, zgubiłem prefiks `r`
+przy jej własnych docstringach i natychmiast zameldowała `\d`, `\|` i `\.` w moim
+nowym tekście. CPython potwierdził to niezależnie `SyntaxWarning`-iem.
+
+**Trzy kontrole negatywne, wszystkie na kopii, `md5sum -c: OK` po każdej:**
+
+| KN | mutacja | 3.11.15 | 3.13.12 |
+|---|---|---|---|
+| KN-A | `"zle \d tutaj"` bez prefiksu `r` | 1 trafienie | 1 trafienie |
+| KN-B | `f"zle {1} \w tutaj"` bez prefiksu `r` | 1 trafienie | 1 trafienie |
+| KN-C | `rf"zewn \w {f'wewn \q'} koniec"` — zewnętrzny surowy, **wewnętrzny nie** | 0 (składnia nie istnieje na 3.11; plik ląduje w `nieparsowalne`) | **1 trafienie** |
+
+KN-C jest tu treścią, a nie ozdobą: pokazuje, że stos surowości działa, i że zdolność
+tej bramki **rośnie** z wersją interpretera zamiast na niej padać.
+
+Na całym drzewie po poprawce: **0 trafień, 205 modułów, 0 nieparsowalnych** na 3.11.15
+i na 3.13.12. `MAX_SEKWENCJI_UCIECZKI = 0` i `MINIMUM_MODULOW_SKANOWANYCH = 100`
+zostają bez zmiany.
+
 ## 8. Czego świadomie NIE zrobiłem
 
 - **Odbioru na Windows x64** — §3.3, oznaczone jako niewykonane.
@@ -259,12 +329,20 @@ brakuje i gdzie. Plik przywrócony, rozmiar zgodny (71 730 B).
   a nie zasobem. W paczce wyglądałby jak zapis cudzego przejazdu.
 - Paczka waży **159 MB**, z czego binarka 73,7 MB, a `.pck` 12 kB. Reszta to runtime
   .NET. Nie ruszam tego w tej pozycji.
-- **Uruchomienie Godota na tym drzewie wytwarza 24 pliki `*.cs.uid`**, których
-  `.gitignore` nie ignoruje i których w repozytorium nie ma. Do tego commita **nie
-  weszły** (reguła 10 `CLAUDE.md` — jedno zadanie, jedna gałąź, jeden commit): czy
-  je wersjonować, jest decyzją o całym drzewie, a nie skutkiem ubocznym pakowania.
-  Dopóki nie wejdą, `git clean -ffdx` z checkoutu kasuje je w CI przy każdym
-  przebiegu i Godot odtwarza je od nowa — czyli stan sprzed tej pozycji, niezmieniony.
+- **Uruchomienie Godota na tym drzewie wytwarza 24 pliki `*.cs.uid`** — i to MB-04
+  jest pierwszą pozycją, która je wywołuje, bo pierwszą, która uruchamia eksporter
+  na checkoucie. Do drzewa **nie weszły**; `.gitignore` dostał wiersz `*.cs.uid`,
+  żeby robocza kopia nie zostawała brudna po każdym pakowaniu.
+
+  **To zapis stanu zastanego, nie rozstrzygnięcie sporu**, i tak stoi w samym
+  `.gitignore`. Zmierzone w dniu wpisu: śledzonych `*.uid` jest w repozytorium
+  **zero**, a `src/Game/Scenes/FirstRun.tscn` nie odwołuje się do ani jednego
+  `uid://` — scena ładuje się bez nich, a `git clean -ffdx` z `actions/checkout`
+  kasuje je w CI przy każdym przebiegu. Projekt Godot zaleca coś przeciwnego i przy
+  pierwszym `uid://` w scenie ten wiersz trzeba będzie zdjąć; wpisanie do drzewa
+  dwudziestu czterech plików, do których dziś nic nie sięga, byłoby jednak zmianą
+  o CAŁYM drzewie przemyconą jako skutek uboczny pakowania. **Sprawdzone, że wiersz
+  niczego nie psuje:** eksport po jego dodaniu daje ten sam `.pck` o **12 012 B**.
 - **Komunikat `[ASSETS] brak manifestu` odsyła gracza do `tools/blender/tunnel_sweep.py`**,
   czyli do narzędzia, którego w paczce nie ma i mieć nie będzie. Ścieżkę brakującego
   pliku podaje poprawnie, więc komunikat jest użyteczny — ale drugie zdanie jest radą

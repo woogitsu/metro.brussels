@@ -34,3 +34,20 @@ export_presets.cfg
 # i `--export-release` kończą się błędem o braku pliku. Wyjątek jest imienny, żeby
 # presety innych projektów Godota w drzewie nadal były ignorowane.
 !src/Game/export_presets.cfg
+
+# Pliki tożsamości skryptów Godota (`*.cs.uid`) — MB-04, 14.09.2026.
+#
+# ZOSTAJĄ POZA DRZEWEM, BO TO JEST STAN ZASTANY, a nie rozstrzygnięcie sporu.
+# Zmierzone w dniu wpisu: śledzonych `*.uid` jest w repozytorium **zero**, a
+# `src/Game/Scenes/FirstRun.tscn` nie odwołuje się do ani jednego `uid://` — scena
+# ładuje się bez nich. Pojawiły się dopiero teraz, bo MB-04 jest pierwszą pozycją,
+# która uruchamia eksporter Godota na checkoucie; wytwarza je każde uruchomienie
+# `tools/release/package-playable.sh`, a `git clean -ffdx` z `actions/checkout`
+# kasuje je w CI przy każdym przebiegu.
+#
+# CZYM TEN WIERSZ NIE JEST: decyzją, że wersjonować ich NIE NALEŻY. Projekt Godot
+# zaleca coś przeciwnego i przy pierwszym `uid://` w scenie albo w `.tscn` ten wiersz
+# trzeba będzie zdjąć. Wpisanie do drzewa dwudziestu czterech plików, do których nic
+# dziś nie sięga, byłoby jednak zmianą o CAŁYM drzewie przemyconą jako skutek uboczny
+# pakowania — a to jest decyzja właściciela, nie skutek uboczny (reguła 10 CLAUDE.md).
+*.cs.uid
