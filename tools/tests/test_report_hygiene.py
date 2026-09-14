@@ -331,7 +331,8 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 #: żądanego przez jej pole „Wyjście" nie ma; wybór między trzema mechanizmami jest
 #: decyzją właściciela. Policzona na drzewie.
 # 328 -> 329 (14.09.2026, MB-08): `reports/mb08-drzwi-reczne.md`.
-MIN_REPORTS = 329
+# 329 -> 330 (14.09.2026, 6.D203): `reports/6d203-liczebniki-w-prozie.md`.
+MIN_REPORTS = 330
 
 #: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
 #: wierszem zaczynającym się od `**`, z którego `_header_shapes` czyta kształt.
