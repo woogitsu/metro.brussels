@@ -64,6 +64,12 @@ jobs:
         # próg jest sprawdzany TU, w bash, PO zakończeniu procesu, a nie przez
         # zmianę `return` w `main()`.
         #
+        # CO ODRZUCA: czas CPU (`SUITE_CPU_BUDGET_S`), nie czas ściany. Przepisane,
+        # a nie dopisane obok: do tej pozycji werdykt liczył się ze ściany, a na 265
+        # artefaktach `czas-zestawu` z 10-14.09.2026 wszystkie trzy przebiegi, które
+        # ten próg przekroczyły, miały TRZY NAJNIŻSZE stosunki CPU/ściana z całych 265.
+        # Ściana zostaje mierzona i wypisywana jako sufit informacyjny.
+        #
         # Próg NIE jest wpisany tu z ręki: `tools/tests/test_suite_runtime_budget.py`
         # niesie `SUITE_RUNTIME_BUDGET_S`, jedno miejsce prawdy z uzasadnieniem
         # marginesu w docstringu, i to jego czyta poniższy `python3 -c`. Podniesienie
@@ -71,6 +77,7 @@ jobs:
         run: |
           set -euo pipefail
           budget="$(python3 -c "import sys; sys.path.insert(0,'tools/tests'); import test_suite_runtime_budget as B; print(B.SUITE_RUNTIME_BUDGET_S)")"
+          cpu_budget="$(python3 -c "import sys; sys.path.insert(0,'tools/tests'); import test_suite_runtime_budget as B; print(B.SUITE_CPU_BUDGET_S)")"
           # SYGNAL MIERZALNOSCI (6.D42), na razie WYPISYWANY, nie bramkujacy.
           # `times` z przekierowaniem dziala w TEJ powloce; w `$(...)` daje zera —
           # zmierzone. Roznica dwoch odczytow to czas CPU samego zestawu.
@@ -86,7 +93,7 @@ jobs:
           elapsed=$(python3 -c "print(f'{$end - $start:.3f}')")
           cpu=$(python3 -c "import sys; sys.path.insert(0,'tools/tests'); import test_suite_runtime_budget as B; print(f\"{B.cpu_dzieci(sys.argv[1]) - B.cpu_dzieci(sys.argv[2]):.3f}\")" "$RUNNER_TEMP/times-po.txt" "$RUNNER_TEMP/times-przed.txt")
           echo "czas sciany test_all.py: ${elapsed} s (prog ${budget} s)"
-          echo "czas CPU zestawu: ${cpu} s"
+          echo "czas CPU zestawu: ${cpu} s (prog ${cpu_budget} s)"
           # WERDYKT LICZY MODUL, NIE TEN YAML (6.D42). Przebieg, w ktorym maszyna nie
           # oddawala CPU, NIE JEST porownywany z progiem — zamiast tego mowi o tym
           # wprost. Ta sama konstrukcja, co w `tools/ci/assert_linecore_budget.py`.
@@ -101,7 +108,7 @@ jobs:
           # oddawala CPU, NIE JEST porownywany z progiem — zamiast tego mowi o tym
           # wprost. Ta sama konstrukcja, co w `tools/ci/assert_linecore_budget.py`.
           python3 -c "import sys; sys.path.insert(0,'tools/tests'); import test_suite_runtime_budget as B; odrzuc, komunikat = B.werdykt(float(sys.argv[1]), float(sys.argv[2])); print(komunikat); sys.exit(1 if odrzuc else 0)" "$elapsed" "$cpu" || {
-            echo "::error::zestaw test_all.py przekroczyl prog czasu sciany: ${elapsed} s > ${budget} s"
+            echo "::error::zestaw test_all.py przekroczyl prog czasu CPU: ${cpu} s > ${cpu_budget} s (czas sciany ${elapsed} s, sufit informacyjny ${budget} s)"
             exit 1
           }
 
