@@ -387,7 +387,10 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 # i stalej. Domkniecie 6.D209 zbilo zapas znowu do 11, a pozycji wymyslonej na miejscu
 # nie bierze sie nigdy: 6.D219 wyszlo z pomiaru 6.D209, ktory znalazl remis w polowie
 # wlasnej probki.
-MINIMUM_DETAIL_BLOCKS = 287
+# 287 -> 288 (14.09.2026, 6.D210): blok szesciu pol dla 6.D220 — ten sam typ i dwie
+# przeciwne decyzje o ramieniu domyslnym w jednym pliku. Ta sama mechanika: domkniecie
+# 6.D210 zbilo zapas do 11, a pozycja wyszla z pomiaru, nie z potrzeby zapelnienia.
+MINIMUM_DETAIL_BLOCKS = 288
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je

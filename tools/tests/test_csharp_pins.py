@@ -352,9 +352,13 @@ ROZKLAD_LICZBOWYCH = {
         # SZEŚĆ z nich ma tolerancję ZAPISANĄ JAKO 0.0, bo pytanie brzmi tam „ani jeden
         # bit", a nie „w przybliżeniu". `calkowite_z_tolerancja` zostaje ZEREM.
         # WSZYSTKIE liczby niżej są PRZELICZONE na drzewie po scaleniu obu gałęzi.
-        "razem": 473, "z_tolerancja": 188, "bez_tolerancji": 285,
+        # 473 -> 474 (14.09.2026, 6.D210): JEDEN pin liczbowy nowego pliku
+        # `DefaultArmAuditTests.cs` — podłoga `MinimumSwitches` porównywana z liczbą
+        # znalezionych switchy. CAŁKOWITY i BEZ TOLERANCJI, bo jest liczbą miejsc
+        # w kodzie, nie miarą fizyczną; `calkowite_z_tolerancja` zostaje ZEREM.
+        "razem": 474, "z_tolerancja": 188, "bez_tolerancji": 286,
         "zmiennoprzecinkowe": 196, "zmiennoprzecinkowe_bez_tolerancji": 8,
-        "calkowite": 277, "calkowite_z_tolerancja": 0, "tolerancja_zero": 119,
+        "calkowite": 278, "calkowite_z_tolerancja": 0, "tolerancja_zero": 119,
     },
 }
 

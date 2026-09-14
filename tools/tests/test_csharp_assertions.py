@@ -410,9 +410,16 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 #: trafiły na listę wyjątków. Ta sama pomyłka co przy MB-06, o rząd wielkości większa,
 #: i z tego samego powodu: pisząc nowy plik testowy łatwo przyjąć, że komunikat jest
 #: potrzebny tylko tam, gdzie asercja „może być niejasna".
-Z_KOMUNIKATEM_RAZEM = 1646
+#: **1646 -> 1652 (14.09.2026, 6.D210)** — te same sześć asercji, co przy
+#: `ASERCJI_RAZEM` niżej. Wszystkie z komunikatem od pierwszego przebiegu: przy
+#: MB-08 ta sama bramka złapała 54 asercje bez komunikatu i lekcja weszła.
+Z_KOMUNIKATEM_RAZEM = 1652
 NIEROZSTRZYGNIETYCH = 68
-ASERCJI_RAZEM = 3093
+#: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
+#: `tests/Sim.Tests/DefaultArmAuditTests.cs` — bramki na ramionach domyślnych
+#: switchy `src/Sim/`. Wszystkie z komunikatem, więc `Z_KOMUNIKATEM_RAZEM` rośnie
+#: o tyle samo, a `BEZ_KOMUNIKATU_RAZEM` i `NIEROZSTRZYGNIETYCH` nie drgają.
+ASERCJI_RAZEM = 3099
 
 
 def _rozklad():
