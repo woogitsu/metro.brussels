@@ -1514,7 +1514,14 @@ CLAIM_W_JEDNYCH_GRAWISACH = re.compile(
 #: z datą i dzisiejsza z nazwą stałej, a bramka liczy **cztery** twierdzenia zamiast
 #: dwóch: po dwa na stałą. Rozjazd zrobiły trzy pozycje tego samego dnia (6.D191,
 #: 6.D196, 6.D201) — czyli dokładnie tempo, dla którego ta bramka istnieje.
-TWIERDZEN_W_POLACH_SKAD = 4
+#: **4 -> 0 (14.09.2026, 6.D203) i jest to SPADEK POŻĄDANY, a nie regresja.**
+#: Wszystkie cztery twierdzenia stały w polu „Skąd" pozycji **6.D203** — tej samej,
+#: na której ta bramka zapaliła się dzień wcześniej. Pozycja została domknięta, więc
+#: jej pole „Skąd" wypadło z populacji pozycji OTWARTYCH i liczba zeszła do zera.
+#: Zero nie znaczy tu „bramka oślepła": skan po `docs/TASKS.md` widzi ten kształt
+#: nadal, tylko w blokach domkniętych, których ta bramka świadomie nie ogląda —
+#: bo zdanie w domkniętej pozycji jest zapisem przeszłości, a nie stanem dzisiejszym.
+TWIERDZEN_W_POLACH_SKAD = 0
 
 
 def _pole_skad(blok):

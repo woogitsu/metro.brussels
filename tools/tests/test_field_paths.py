@@ -1647,10 +1647,17 @@ def _istnieje_w_drzewie(nazwa):
 #: `test_jaka_czesc_adresow_obejrzala_regula_kandydatow_6D146` jest odporny na ten
 #: ruch z wyboru — stoi w przedziale, nie w rownosci — i po dwoch domknieciach nadal
 #: pokazuje te sama jedna trzynasta.
-ADRESOW_W_WYKONANYCH = {"Wejście": 931, "Wyjście": 63, "Weryfikacja": 383}
+# 931 -> 935 (14.09.2026, 6.D203): cztery adresy dopisane w wierszu domknięcia
+# tej pozycji — `test_prose_counts.py`, `test_runner_number_parsing.py`,
+# `test_backlog.py` i sam raport. „Weryfikacja" rośnie o jeden (383 -> 384),
+# a „Wyjście" nie drga — blok sześciu pól pozycji nie był ruszany, zmienił
+# się WIERSZ TABELI, a skan czyta oba.
+ADRESOW_W_WYKONANYCH = {"Wejście": 935, "Wyjście": 63, "Weryfikacja": 384}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
-WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 120}
+# 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
+# „Weryfikacja" — `test_backlog.prog_z_dokumentu` z wiersza domknięcia.
+WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 121}
 
 #: Ilu kandydatow zlego adresu daje regula prozy, per pole — 6.D158.
 KANDYDATOW_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 12}
