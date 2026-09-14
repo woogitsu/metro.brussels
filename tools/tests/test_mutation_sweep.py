@@ -521,6 +521,23 @@ def test_plain_assignment_is_not_mutated():
 
 def test_tests_are_never_targets():
     # Mutowanie testów pokazywałoby, że testy sprawdzają same siebie.
+    #
+    # **Od 6.D204 na wyniku tej bramki stoi jeszcze jedno zdanie — i dolnego ostrza
+    # mimo to NIE dostała, bo pomiar pokazał, że byłoby czwartym zdaniem o tym samym.**
+    # Zdanie brzmi: mapy dwóch przebiegów tego samego commita różnią się czterema
+    # kluczami katalogów próbnych, a nie szkodzi to nikomu **wyłącznie dlatego**, że te
+    # katalogi leżą pod `tools/tests/` — tam, gdzie `was_executed` nigdy nie zagląda.
+    # Pętla po PUSTEJ liście celów przechodzi bez ani jednego sprawdzenia i
+    # „potwierdziłaby" to zerem (6.D27), więc ostrze wygląda na potrzebne.
+    #
+    # Zmierzone 14.09.2026 zawężeniem `targets()`, trzy razy, przy 71 celach w drzewie
+    # i bazie 133/133: do 3 celów — **113/133**, czyli 20 testów tego modułu czerwonych;
+    # do 55 — **131/133**, czyli 2; do 24 dobranych tak, by zachowały wszystkie trzy pliki
+    # przypięte z NAZWY w `test_targets_cover_the_real_tools` — **129/133**, czyli 4.
+    # Zawężenia, które zapala WYŁĄCZNIE ostrze na liczbie, nie udało się zbudować:
+    # niezależnie od niego zapalają się `..._cover_the_real_tools` (zbiór nazw, nie
+    # liczba — 6.D131), `test_zaden_cel_mutacji_nie_lezy_poza_kodem_narzedzi`
+    # (`len(cele) > 20`, postawione dokładnie na tę pułapkę) i testy `--only`.
     for path in sweep.targets():
         assert os.sep + "tests" + os.sep not in path, path
         assert "__pycache__" not in path, path
@@ -2543,6 +2560,36 @@ def test_the_fingerprint_refusal_names_the_dirty_tree_when_that_is_the_cause():
 # --- mapa pokrycia liczona RAZ na commit i zapamietana (6.B36) -------------------
 
 
+# --- 6.D204: czy mapa pokrycia jest pamiecia podreczna DZIALAJACA -------------------
+#
+# **TAK, i sprawdzaja to DWA testy nizej — nowej bramki ta pozycja NIE dolozyla, bo
+# dolozyc nie bylo czego.** Zapisane, zeby nie zostalo napisane po raz trzeci.
+#
+# Pozycja postawila teze, ze mapa niesie cztery klucze katalogow probnych po cudzym
+# przebiegu i przez to moze byc pamiecia bezuzyteczna. Nie niesie i nie ma jak: miedzy
+# `coverage_map` a `zapisz_pokrycie` stoi `pokrycie_w_celach`. Teza opisuje WEJSCIE
+# obciecia, a mowi o jego wyjsciu. Zmierzone 14.09.2026 na `8e9f830`:
+#
+#     SUROWA  (wyjscie `coverage_map`)   201 kluczy, 36 475 wierszy, 4 efemeryczne
+#     OBCIETA (to, co idzie na dysk)      64 klucze,   8 711 wierszy, 0 efemerycznych
+#     celow 71, z tego 7 zestaw nie uruchamia wcale; sciezek z mutacja 70, zadna
+#     nie lezy pod `tools/tests/`, wiec przeciecie z kluczami efemerycznymi wynosi 0
+#
+# „Efemeryczne" znaczy tu KLUCZ, KTOREGO NIE MA NA DYSKU, a nie klucz o przedrostku
+# piaskownicy. Roznica nie jest slowna: `tempfile` dobiera przyrostek z alfabetu
+# z podkreslnikiem (`test_wiele__vlngc3k`), wiec sito po przedrostku gubi czesc
+# piaskownic i przy pierwszym przebiegu sondy dalo ZERO zamiast czterech.
+#
+# **Droga zapis → odczyt → tozsamosc jest juz obstawiona, i to jest ZMIERZONE, nie
+# przeczytane.** Napisalem byl trzecia bramke na te sama droge, zanim kontrola
+# negatywna pokazala, ze dwie ponizej zapalaja sie na tych samych mutacjach:
+# zapis gubiacy jeden klucz → `..._survives_a_round_trip` czerwony; odczyt przyjmujacy
+# cudzy commit → `..._from_another_commit_is_refused` czerwony. Trzecia bramka byla wiec
+# trzecim zdaniem o tym samym i zostala usunieta, a nie zostawiona „na wszelki wypadek".
+# Pytanie to zadano zreszta juz raz, 07.09.2026, szesc dni przed wpisaniem pozycji —
+# odpowiedzia bylo napisanie `pokrycie_w_celach` (`reports/pamiec-pokrycia.md`).
+
+
 def test_the_remembered_map_survives_a_round_trip():
     """Zapis i odczyt nie gubia ani jednego wiersza.
 
@@ -3470,6 +3517,7 @@ def test_obserwator_okna_widzi_brud_tam_gdzie_brud_jest():
             f"czyli pustka w bramce wyżej niczego nie dowodzi: {widziane['w_trakcie']!r}")
         assert _stan_roboczy(repo, "data") == "", (
             "po zamknięciu okna plik nie wrócił do stanu z HEAD")
+
 
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
 # z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3

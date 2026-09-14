@@ -1652,15 +1652,26 @@ def _istnieje_w_drzewie(nazwa):
 # `test_backlog.py` i sam raport. „Weryfikacja" rośnie o jeden (383 -> 384),
 # a „Wyjście" nie drga — blok sześciu pól pozycji nie był ruszany, zmienił
 # się WIERSZ TABELI, a skan czyta oba.
-ADRESOW_W_WYKONANYCH = {"Wejście": 935, "Wyjście": 63, "Weryfikacja": 384}
+# 935 -> 938 (14.09.2026, 6.D204): trzy adresy z pola „Wejście" WŁASNEGO bloku
+# tej pozycji, ktory domkniecie przenioslo do wykonanych — `tools/tests/mutation_sweep.py`,
+# `tools/tests/test_module_entrypoints.py` i `reports/6d191-nie-ta-zmienna.md`.
+# „Weryfikacja" rosnie o jeden (384 -> 385) za `tools/tests/test_all.py` z plotka tego
+# bloku, „Wyjscie" nie drga — to pole nie cytuje ani jednego adresu.
+ADRESOW_W_WYKONANYCH = {"Wejście": 938, "Wyjście": 63, "Weryfikacja": 385}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
 # „Weryfikacja" — `test_backlog.prog_z_dokumentu` z wiersza domknięcia.
-WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 121}
+# 121 -> 122 (14.09.2026, 6.D204): jedno wywolanie modulu wiecej —
+# `test_module_entrypoints.py` z plotka „Weryfikacji" bloku tej pozycji.
+WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 122}
 
 #: Ilu kandydatow zlego adresu daje regula prozy, per pole — 6.D158.
-KANDYDATOW_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 12}
+# 12 -> 13 (14.09.2026, 6.D204): trzynastym kandydatem jest `test_mutation_sweep.py`
+# z plotka „Weryfikacji" bloku tej pozycji — nazwa modulu bez sciezki, ktorej proza
+# bloku nie wymienia. Ten sam ksztalt co dwanascie poprzednich (6.D36 i 6.D90 daja go
+# na tym samym module), a nie zly adres: plik istnieje i zestaw go uruchamia.
+KANDYDATOW_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 13}
 
 
 def adresy_pola_w_wykonanych(pole):

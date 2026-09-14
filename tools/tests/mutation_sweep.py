@@ -757,6 +757,22 @@ def pokrycie_w_celach(mapa: dict[str, set[int]]) -> dict[str, set[int]]:
        w celach leży **7 582**. Sto pięć kluczy to `tools/tests/` — zestaw
        obserwujący sam siebie.
 
+    **Liczby wyżej są z 07.09.2026 i zestarzały się; dzisiejsze stoją obok, a nie
+    zamiast** (14.09.2026, 6.D204, na `8e9f830`) — tamte są powodem, dla którego ta
+    funkcja powstała, i przepisane przestałyby nim być:
+
+        SUROWA  (wejście)   201 kluczy, 36 475 wierszy, 4 efemeryczne, 137 z `tools/tests/`
+        OBCIĘTA (wyjście)    64 klucze,   8 711 wierszy, 0 efemerycznych, 0 z `tools/tests/`
+        celów 71, z tego 7 zestaw nie uruchamia wcale
+
+    Proporcja się nie zmieniła: obcięcie zdejmuje **76 %** wierszy i **68 %** kluczy,
+    a zdanie „nadmiar jest większy od treści" jest dziś prawdziwsze niż było.
+
+    **„Efemeryczne" liczone jest po ISTNIENIU PLIKU, a nie po przedrostku nazwy**, i to
+    jest poprawka z pomiaru: `tempfile` dobiera przyrostek z alfabetu, w którym jest
+    także podkreślnik (`test_wiele__vlngc3k`), więc sito `test_wiele_[a-z0-9]{8}` gubi
+    część piaskownic i przy pierwszym przebiegu tej sondy zgłosiło ZERO zamiast czterech.
+
     **Obcięcie nie zmienia ani jednego werdyktu**, bo `was_executed` pyta wyłącznie
     o `mutation.path`, a ten jest zawsze celem. To jest jedyny czytnik tej mapy.
     """
@@ -899,10 +915,22 @@ def zapisz_pokrycie(path: str, commit: str, mapa: dict[str, set[int]]) -> None:
     # i bez zegara. Liczby: `reports/6d191-nie-ta-zmienna.md`.
     #
     # Docelowy zostaje WSPÓLNY i to jest wybór z pomiaru: mapa kosztuje jeden pełny
-    # przebieg zestawu z licznikiem wierszy (`coverage_map`), a jest pamięcią podręczną
-    # commita — uczynienie jej unikatową kasowałoby tę pamięć przy każdym przebiegu.
-    # Dzielenie jest bezpieczne, bo sweep ODMAWIA na brudnym drzewie (kod 2), więc
-    # jeden commit znaczy jedno drzewo i jedną mapę.
+    # przebieg zestawu z licznikiem wierszy (`coverage_map`) — zmierzone 14.09.2026 na
+    # trzech przebiegach: **845,5 / 855,2 / 857,0 s** — a jest pamięcią podręczną
+    # commita; uczynienie jej unikatową kasowałoby
+    # tę pamięć przy każdym przebiegu. Dzielenie jest bezpieczne, bo sweep ODMAWIA na
+    # brudnym drzewie (kod 2), więc jeden commit znaczy jedno drzewo i jedną mapę.
+    #
+    # **CO DOKŁADNIE JEST TU PAMIĘTANE — dopisane 14.09.2026 (6.D204), bo pozycja
+    # kolejki postawiła tezę, że mapa niesie klucze katalogów po cudzym przebiegu.**
+    # Nie niesie i nie ma jak: między `coverage_map` a tym zapisem stoi
+    # `pokrycie_w_celach`, które zostawia wyłącznie cele mutacji. Zmierzone tego dnia:
+    # wejście obcięcia ma 201 kluczy i 4 efemeryczne, wyjście — 64 klucze i ZERO
+    # efemerycznych. Teza pozycji opisuje WEJŚCIE obcięcia, a mówi o jego wyjściu.
+    #
+    # Pamięć sprawdzona też od końca do końca, czego nie robiła dotąd żadna bramka:
+    # zapis tej mapy i odczyt tym samym commitem dają słownik TOŻSAMY, a odczyt innym
+    # commitem — `None` (`test_pamiec_pokrycia_dziala_OD_KONCA_DO_KONCA`).
     tymczasowy = f"{path}.czesciowy-{PROCES_ZNACZNIK}"
     with open(tymczasowy, "w", encoding="utf-8") as handle:
         json.dump(dane, handle)
