@@ -408,6 +408,224 @@ def test_znalezione_deklaracje_slowne_nadal_stoja_w_drzewie():
             "zdejmij wpis albo przywróć zdanie" % (modul, zdanie))
 
 
+# --- 6.D207: CZY DA SIE ODSIAC ZDANIE DEKLARUJACE POMIAR, POD KTORYM NIC NIE STOI ----
+#
+# **ODPOWIEDZ: NIE DA SIE, i nie jest to ostroznosc — sa to DWIE liczby.**
+#
+# Pozycja wyszla od zdania „Innych list pomiarow w drzewie NIE MA, i to jest zmierzone,
+# nie zalozone", ktore stalo w docstringu
+# `test_zaden_wpis_nie_niesie_rangi_OTWARTEJ_w_tej_liscie` **przy zerze linii kodu
+# wykonujacych tamten skan** — a mimo to przeszlo pelny zestaw, przeglad i scalenie.
+#
+# Zmierzone 14.09.2026 na `3d1223b`:
+#
+#     docstringow w `tools/tests/`                                     2489
+#     zdan DEKLARUJACYCH pomiar                                          29
+#     z nich zdan o CUDZYM pomiarze (wzorzec „6.Dxxx zmierzylo")           0
+#     deklaracji w docstringu MODULU albo KLASY (brak ciala do sprawdzenia) 4
+#     funkcji POMOCNICZYCH z deklaracja i ZEREM asercji                    5
+#     funkcji TESTOWYCH z deklaracja                                      19
+#     z nich testowych z deklaracja i ZEREM asercji                        0
+#
+# **TRAFIENIA FALSZYWE: 5 na 5, czyli 100 %.** Jedyne sito, ktore da sie napisac
+# mechanicznie — „docstring deklaruje pomiar, a w ciele nie ma ani jednej asercji" —
+# zglasza wylacznie POMOCNIKI (`pokrycie_w_celach`, `wiersze_starego_bajtkodu`,
+# `documents`, `_dziennik_testu`, `cpu_dzieci`). Pomocnik bez asercji jest poprawny
+# z definicji: liczy i zwraca, a sprawdza go wolajacy. Bramka swiecaca na poprawnym
+# tekscie zostaje wylaczona, nie poprawiona (6.D27).
+#
+# **TRAFIENIE POMINIETE: 1 na 1, i to jest liczba wazniejsza.** Sito jest slepe na
+# przypadek, dla ktorego pozycje napisano. W commicie, ktory to zdanie WPROWADZIL
+# (`a5e9ff0`, 6.D163), funkcja miala **6 asercji** — sito powiedzialoby o niej
+# „zielona" dokladnie tak samo, jak mowi dzis, gdy zdanie jest juz sprawdzane
+# (6.D193 dolozylo skan). **Ten sam werdykt na wejsciu poprawnym i na wadliwym**
+# znaczy, ze przyrzad nie mierzy tej roznicy — rodzina 6.D75.
+#
+# **TRAFIEN PRAWDZIWYCH W DZISIEJSZYM DRZEWIE JEST ZERO, i to jest trzecia liczba.**
+# Jedyne znane w historii tego repozytorium naprawilo 6.D193: tamten docstring mowi dzis
+# „od 6.D193 jest to SPRAWDZANE, a nie przeczytane" i deklaracji pomiaru juz nie niesie.
+# Sita nie da sie wiec sprawdzic na zbiorze prawdziwych trafien, bo taki zbior jest
+# pusty — stad para syntetyczna w bramce nizej i liczba wzieta z commita, ktory usterke
+# WPROWADZIL, a nie z drzewa, ktore ja juz zabralo.
+#
+# Dlaczego inaczej sie nie da: zdanie deklaruje, ze ZMIERZONO KONKRETNA RZECZ,
+# a asercja obok mierzy JAKAS rzecz. Zwiazanie jednego z drugim jest rozbiorem
+# znaczenia zdania, a nie skladni — czyli §8 `CLAUDE.md`, nie praca dla wzorca.
+#
+# **CO WIEC ZOSTAJE W DRZEWIE:** populacja i jej rozklad, zeby liczby, na ktorych ten
+# werdykt stoi, nie zestarzaly sie w ciszy, oraz ZBIOR pieciu pomocnikow — bo to on,
+# a nie liczba 5, rozstrzyga o „100 % trafien falszywych".
+
+#: Wzorzec zdania DEKLARUJACEGO wlasny pomiar. Nie jest to sito po slowie „zmierzone":
+#: tym slowem zaczyna sie w tym drzewie niemal kazde pole „Skad" (6.D196 zmierzylo, ze
+#: `HISTORICAL_MARKERS` z nim w srodku jest spelnione zawsze). Lapane sa ZWROTY, ktore
+#: stawiaja pomiar w opozycji do zalozenia albo nazywaja jego wykonanie.
+WZORZEC_DEKLARACJI_POMIARU = re.compile(
+    r"zmierzone,\s*(?:a\s*)?nie\s+(?:zało|zalo|wywnio|przewid)"
+    r"|to\s+jest\s+zmierzone|jest\s+to\s+zmierzone"
+    r"|policzon[aeo]\s+ze\s+źródeł|policzon[aeo]\s+na\s+drzewie"
+    r"|skan\s+znalazł|sprawdzone\s+wykonaniem|zmierzone\s+wykonaniem"
+    r"|odtworzone\s+celowo",
+    re.IGNORECASE)
+
+#: Podloga na liczbe deklaracji. PODLOGA, nie rownosc: deklaracji przybywa z kazda
+#: pozycja, ktora cos zmierzy, czyli przy pracy poprawnej. Broni przed jedna rzecza —
+#: wzorcem, ktory zgnil i odpowiada zerem tak samo jak wzorzec dzialajacy (6.D27).
+#: Zmierzone 14.09.2026: 29 zdan w 2489 docstringach.
+MIN_DEKLARACJI_POMIARU = 22
+
+#: Funkcje, ktore sito „deklaracja bez asercji" zglasza — WSZYSTKIE POMOCNICZE,
+#: czyli wszystkie falszywe. Zbior, nie liczba (6.D131): to on niesie zdanie
+#: „100 % trafien falszywych", a liczba 5 jest tylko jego dlugoscia.
+DEKLARACJE_BEZ_ASERCJI = {
+    ("tools/tests/mutation_sweep.py", "pokrycie_w_celach"),
+    ("tools/tests/mutation_sweep.py", "wiersze_starego_bajtkodu"),
+    ("tools/tests/test_docs_ci_claims.py", "documents"),
+    ("tools/tests/test_mutation_sweep.py", "_dziennik_testu"),
+    ("tools/tests/test_suite_runtime_budget.py", "cpu_dzieci"),
+}
+
+#: Funkcja, na ktorej zmierzono TRAFIENIE POMINIETE, i jej liczba asercji w commicie
+#: `a5e9ff0`, ktory wprowadzil do jej docstringu zdanie niesprawdzane niczym.
+FUNKCJA_TRAFIENIA_POMINIETEGO = (
+    "tools/tests/test_suite_runtime_budget.py",
+    "test_zaden_wpis_nie_niesie_rangi_OTWARTEJ_w_tej_liscie")
+ASERCJI_W_COMMICIE_a5e9ff0 = 6
+
+
+def _funkcje_z_deklaracja_pomiaru():
+    """`[(plik, nazwa, asercji, czy_test)]` — funkcje pod `tools/tests/`, ktorych
+    docstring deklaruje pomiar. Przez `tree_walk.walk`, jak kazdy skan w tym projekcie.
+    """
+    import ast
+    import tree_walk as tw
+
+    out = []
+    for baza, _kat, pliki in tw.walk(os.path.join(ROOT, "tools", "tests")):
+        for plik in sorted(pliki):
+            if not plik.endswith(".py"):
+                continue
+            sciezka = os.path.join(baza, plik)
+            with open(sciezka, encoding="utf-8", errors="replace") as uchwyt:
+                try:
+                    drzewo = ast.parse(uchwyt.read())
+                except SyntaxError:
+                    continue
+            for wezel in ast.walk(drzewo):
+                if not isinstance(wezel, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    continue
+                doc = ast.get_docstring(wezel) or ""
+                if not WZORZEC_DEKLARACJI_POMIARU.search(doc):
+                    continue
+                asercji = sum(1 for w in ast.walk(wezel) if isinstance(w, ast.Assert))
+                out.append((os.path.relpath(sciezka, ROOT), wezel.name, asercji,
+                            wezel.name.startswith("test_")))
+    return out
+
+
+def test_sito_deklaracji_bez_asercji_zglasza_SAME_POMOCNIKI():
+    """Trafienia falszywe: 5 na 5 — pierwsza z dwoch liczb, ktorych zadalo pole „Wyjscie".
+
+    Pomocnik bez asercji jest poprawny z definicji: liczy i zwraca, a sprawdza go
+    wolajacy. Sito, ktore zglasza wylacznie ich, nie zglasza ani jednej usterki.
+    """
+    znalezione = _funkcje_z_deklaracja_pomiaru()
+
+    assert len(znalezione) >= MIN_DEKLARACJI_POMIARU, (
+        "funkcji z deklaracja pomiaru w docstringu jest %d przy podlodze %d — wzorzec "
+        "zgnil albo drzewo sie skurczylo, a zero odpowiada tak samo jak wzorzec "
+        "dzialajacy" % (len(znalezione), MIN_DEKLARACJI_POMIARU))
+
+    bez_asercji = {(plik, nazwa) for plik, nazwa, asercji, _t in znalezione if asercji == 0}
+    assert bez_asercji == DEKLARACJE_BEZ_ASERCJI, (
+        "sito „deklaracja bez asercji\" zglasza dzis %s, a wymienione sa %s — jesli "
+        "doszla funkcja TESTOWA, werdykt 6.D207 („100 %% trafien falszywych\") "
+        "przestal byc prawdziwy i trzeba go przeliczyc"
+        % (sorted(bez_asercji), sorted(DEKLARACJE_BEZ_ASERCJI)))
+
+    # I DRUGA STRONA: kazda wymieniona ma NAPRAWDE nie byc testem. Bez tego zdanie
+    # „same pomocniki\" byloby prawdziwe takze o zbiorze, ktory zawiera test.
+    sprawdzonych = 0
+    for _plik, nazwa in sorted(DEKLARACJE_BEZ_ASERCJI):
+        assert not nazwa.startswith("test_"), (
+            "`%s` jest funkcja TESTOWA bez ani jednej asercji — to nie jest trafienie "
+            "falszywe, tylko usterka, i wymienia ja takze bramka asercji" % nazwa)
+        sprawdzonych += 1
+    assert sprawdzonych == len(DEKLARACJE_BEZ_ASERCJI), sprawdzonych
+
+    # ASERCJI „zadna funkcja TESTOWA nie stoi tu bez asercji" TU NIE MA, i jest to
+    # decyzja z pomiaru, a nie przeoczenie. Kontrola negatywna KN-2b (test z deklaracja
+    # w docstringu i pustym cialem, puszczona przez CALY zestaw) dala 2475/2479: obok
+    # porownania zbioru wyzej zapalily sie `test_kn2_deklaracja_bez_asercji: przeszedl
+    # bez wykonania ani jednej asercji` z bramki asercji (6.D25) oraz dwie zapadki.
+    # Osobne zdanie o tym samym byloby wiec CZWARTYM — a porownanie zbioru wyzej mowi
+    # WIECEJ: nazywa funkcje i wiaze ja z werdyktem „100 %% trafien falszywych".
+
+
+def test_sito_jest_SLEPE_na_przypadek_dla_ktorego_powstalo():
+    """Trafienie pominiete: 1 na 1 — druga liczba, i ta rozstrzyga.
+
+    Sito odpowiada „zielone" na obu czlonach pary, ktora rozni sie DOKLADNIE tym,
+    czy deklarowany pomiar jest wykonywany. Para jest syntetyczna, bo drzewo niesie
+    dzis tylko czlon poprawny — ale liczba pod nia jest z drzewa: w commicie
+    `a5e9ff0`, ktory wprowadzil zdanie niesprawdzane niczym, funkcja miala SZESC
+    asercji. Rodzina 6.D75: ten sam werdykt na wejsciu poprawnym i na wadliwym.
+    """
+    import ast
+
+    wspolny_docstring = '\'\'\'Cos tam. Innych list w drzewie NIE MA, i to jest zmierzone, nie zalozone.\'\'\''
+    poprawna = (
+        "def test_a():\n"
+        "    %s\n"
+        "    assert not inne_listy_w_drzewie(), 'zdanie wyzej sprawdzone'\n" % wspolny_docstring)
+    wadliwa = (
+        "def test_b():\n"
+        "    %s\n"
+        "    assert 2 + 2 == 4, 'asercja o czym innym'\n" % wspolny_docstring)
+
+    werdykty = []
+    for zrodlo in (poprawna, wadliwa):
+        fn = ast.parse(zrodlo).body[0]
+        doc = ast.get_docstring(fn) or ""
+        asercji = sum(1 for w in ast.walk(fn) if isinstance(w, ast.Assert))
+        assert WZORZEC_DEKLARACJI_POMIARU.search(doc), (
+            "wzorzec nie widzi deklaracji we wlasnym wejsciu syntetycznym — wtedy cala "
+            "ta bramka mowi o niczym")
+        werdykty.append(asercji == 0)
+
+    assert werdykty == [False, False], (
+        "sito rozroznilo czlony pary, ktore roznia sie TYLKO tym, czy deklarowany "
+        "pomiar jest wykonywany — jesli tak, werdykt 6.D207 („odsiac sie NIE DA\") "
+        "trzeba przeliczyc: %s" % werdykty)
+
+    # KOTWICY W DRZEWIE NIE MA I BYC NIE MOZE — to jest czesc odpowiedzi, a nie brak
+    # w bramce. Jedyne znane TRAFIENIE PRAWDZIWE w historii tego repozytorium zostalo
+    # NAPRAWIONE przez 6.D193: docstring `test_zaden_wpis_nie_niesie_rangi_OTWARTEJ_w_tej_liscie`
+    # mowi dzis „od 6.D193 jest to SPRAWDZANE, a nie przeczytane" i deklaracji pomiaru
+    # juz nie niesie. Populacja trafien prawdziwych w dzisiejszym drzewie wynosi wiec
+    # ZERO, a sita nie da sie sprawdzic na zbiorze pustym — stad para syntetyczna wyzej
+    # i liczba historyczna nizej, wzieta z commita, ktory te usterke wprowadzil.
+    assert ASERCJI_W_COMMICIE_a5e9ff0 >= 1, (
+        "liczba asercji w `a5e9ff0` mowi %d — przy zerze sito ZOBACZYLOBY tamta "
+        "usterke i werdykt „odsiac sie nie da\" bylby falszywy"
+        % ASERCJI_W_COMMICIE_a5e9ff0)
+
+    plik, nazwa = FUNKCJA_TRAFIENIA_POMINIETEGO
+    with open(os.path.join(ROOT, plik), encoding="utf-8") as uchwyt:
+        drzewo = ast.parse(uchwyt.read())
+    trafiona = [w for w in ast.walk(drzewo)
+                if isinstance(w, ast.FunctionDef) and w.name == nazwa]
+    assert len(trafiona) == 1, (
+        "`%s` nie stoi juz w `%s` — kotwica pomiaru 6.D207 wskazuje na nic"
+        % (nazwa, plik))
+    doc = ast.get_docstring(trafiona[0]) or ""
+    assert "od 6.D193 jest to SPRAWDZANE" in doc, (
+        "docstring `%s` przestal mowic, ze zdanie jest sprawdzane — jesli deklaracja "
+        "wrocila bez skanu pod spodem, wraca tez usterka, od ktorej wyszlo 6.D207"
+        % nazwa)
+
+
+
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
 # z licznikiem asercji i z odmowa przy zerze testow.
 if __name__ == "__main__":

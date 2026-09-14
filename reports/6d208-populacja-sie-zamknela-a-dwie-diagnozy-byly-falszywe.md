@@ -108,7 +108,21 @@ a nie przypadkowo trafiona.
 - **Nie przeliczyłem „14 z 22" z 6.D216** — wymaga uruchomienia czytnika `Literaly`,
   a skan po ogranicznikach mierzy co innego. Granica zapisana w polu.
 
-## 7. Zauważone, nie tknięte
+## 7. Kolejka — domknięcie tej pozycji zbiło zapas poniżej progu
+
+Po domknięciu 6.D207 i 6.D208 zapas **udokumentowany** (pozycje z kompletem sześciu pól)
+zszedł do **11** przy progu 12, co zapaliło
+`test_the_documented_shortfall_is_written_down_while_it_lasts`. `CLAUDE.md` §8 mówi
+wprost, że wtedy **pierwszym zadaniem jest uzupełnienie kolejki** — więc 6.D218, wpisane
+przy 6.D206 jako sam wiersz tabeli, dostało **komplet sześciu pól**. Zapas wrócił do
+**12**, a `MINIMUM_DETAIL_BLOCKS` stoi tym samym commitem na **286** (było 285).
+
+**Kolejność liczb w zdaniu wyżej jest wymuszona przez bramkę, nie przez styl:**
+`test_report_claims` czyta **pierwszą** liczbę po nazwie stałej, więc zapis „285 → 286"
+zgłasza rozjazd z kodem. Ta sama pułapka złapała mnie tego samego dnia przy 6.D203,
+na podłodze liczby raportów.
+
+## 8. Zauważone, nie tknięte
 
 - **Bramka `twierdzenia_w_polach_skad()` zwraca dziś zero**, i zero znaczy tu dwie różne
   rzeczy naraz: „nie ma rozjazdów" i „nie ma twierdzeń w kształcie, który czytnik widzi".
