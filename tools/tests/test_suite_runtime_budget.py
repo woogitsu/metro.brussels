@@ -51,6 +51,7 @@ o czułości bramki, a nie skutkiem ubocznym poprawiania zapisu pomiaru.
 """
 import os
 import re
+import statistics
 import sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -197,6 +198,71 @@ SUITE_RUNTIME_BUDGET_S = 150.0
 #: podawało, stoi w `reports/zapis-czasu-zestawu.md`, gdzie jest historią.
 MARGIN = SUITE_RUNTIME_BUDGET_S / MEASURED_MAX_WALL_S
 
+# --- PRÓG NA CZASIE CPU: co ODRZUCA bramka, i dlaczego już nie czas ściany ----------
+
+#: Osiem przebiegów runnera na DZISIEJSZYM drzewie (2466 testów, 126 modułów),
+#: wzięte z artefaktów `czas-zestawu` (`python-tests.yml`, krok „Zapis czasu przebiegu
+#: jako artefakt", retencja 30 dni): `(id artefaktu, ściana_s, cpu_s)`.
+#:
+#: **Po co osobna lista, skoro `POMIARY` już jest.** `POMIARY` niesie czas ŚCIANY,
+#: a czas CPU tylko pośrednio, jako stosunek w polu „na czym" — i wyłącznie dla drzew
+#: z 11. i 13.09.2026 (2315-2433 testów). Margines progu CPU ma opisywać drzewo, dla
+#: którego go liczono, a nie tamto; wpisy `POMIARY` dla dzisiejszego drzewa wymagają
+#: swoich logów w `tests/data/ci-logs/` (6.D190) i to jest osobna pozycja.
+#:
+#: **Każdy wiersz jest do odtworzenia jednym poleceniem**, bo id artefaktu stoi obok
+#: liczby — inaczej byłaby to lista liczb przepisanych z ręki, czyli to, co 6.D26
+#: zdjęło z `MEASURED_MAX_WALL_S`:
+#:
+#:   curl -sL -H "Authorization: Bearer $GITHUB_TOKEN" \
+#:     https://api.github.com/repos/woogitsu/metro.brussels/actions/artifacts/<ID>/zip
+POMIARY_CPU_BIEZACEGO_DRZEWA = (
+    (10339175683, 141.080, 212.746),
+    (10338927190, 131.201, 202.146),
+    (10341466241, 123.685, 209.685),
+    (10341033235, 121.671, 203.091),
+    (10341643027, 136.248, 199.405),
+    (10341963856, 164.734, 226.537),
+    (10344952688, 142.498, 201.193),
+    (10345580689, 128.564, 196.031),
+)
+
+#: Najwyższy i środkowy ZMIERZONY czas CPU dzisiejszego drzewa — wyprowadzone, nie
+#: wpisane, z tego samego powodu co `MEASURED_MAX_WALL_S`.
+MEASURED_MAX_CPU_S = max(cpu for _id, _w, cpu in POMIARY_CPU_BIEZACEGO_DRZEWA)
+MEASURED_MED_CPU_S = statistics.median(
+    [cpu for _id, _w, cpu in POMIARY_CPU_BIEZACEGO_DRZEWA])
+
+#: PRÓG, KTÓRY ODRZUCA. Od tej pozycji werdykt liczy się z czasu CPU, a nie ze ściany.
+#:
+#: **Skąd 440, i to są DWA rachunki dające tę samą liczbę.** Reguła 6.D11 brzmiała
+#: „dwukrotność zmierzonego maksimum" (`150,0 = 1,947 x 77,04`); ta sama reguła nad
+#: maksimum CPU dzisiejszego drzewa daje `1,947 x 226,537 = 441,1`. Margines tamtego
+#: progu nad MEDIANĄ czterech przebiegów tamtego dnia wynosił `150,0 / 68,705 = 2,183`;
+#: ta sama liczba nad medianą CPU dzisiejszego drzewa daje `2,183 x 202,618 = 442,4`.
+#: Wybrane **440,0** leży pod obiema (marginesy `1,942` i `2,172`), czyli jest odrobinę
+#: CIAŚNIEJSZE niż to, co ustawiono 06.09.2026, a nie luźniejsze.
+#:
+#: **Czego ta zmiana NIE naprawia, wypisane razem z liczbą.** Czas CPU też zależy od
+#: maszyny: na IDENTYCZNYM drzewie zmierzono rozrzut `x1,239` (23,9 %), wobec `x1,412`
+#: (41,2 %) na ścianie — czyli CPU jest mniej wrażliwy, a nie niewrażliwy. Margines
+#: 1,942 zostawia nad tym rozrzutem jeszcze 57 % zapasu, i to jest cały powód, dla
+#: którego próg na CPU w ogóle stoi wyżej niż szum. Liczby: `WZORZEC_ROZRZUTU` niżej.
+SUITE_CPU_BUDGET_S = 440.0
+
+#: Margines progu CPU — liczony, jak `MARGIN`, a nie opisany prozą.
+MARGIN_CPU = SUITE_CPU_BUDGET_S / MEASURED_MAX_CPU_S
+
+#: ROZRZUT NA IDENTYCZNYM DRZEWIE, zmierzony na 265 artefaktach `czas-zestawu`
+#: z 10-14.09.2026 (30 grup o tej samej parze (testów, modułów), w każdej >= 3
+#: przebiegi): `(mediana grup, maksimum grup)` ilorazu max/min.
+#:
+#: To jest liczba, która mówi, ILE margines musi unieść, zanim zacznie mówić o kodzie.
+WZORZEC_ROZRZUTU = {
+    "sciana": (1.091, 1.412),
+    "cpu": (1.048, 1.239),
+}
+
 
 #: Wzorzec wiersza wyjścia wbudowanego `times`: `0m0.002s 0m0.000s`.
 TIMES_WIERSZ = re.compile(r"^(\d+)m([\d.]+)s\s+(\d+)m([\d.]+)s\s*$")
@@ -278,7 +344,7 @@ MASZYNA_PROGU = MASZYNA_RUNNER
 
 
 def werdykt(elapsed_s, cpu_s, budget_s=SUITE_RUNTIME_BUDGET_S, podloga=MIERZALNOSC_MIN,
-            maszyna=MASZYNA_PROGU):
+            maszyna=MASZYNA_PROGU, cpu_budget_s=SUITE_CPU_BUDGET_S):
     """Czy przebieg wolno porównać z progiem, i czy go przekroczył.
 
     Zwraca `(czy_odrzucic, komunikat)`. Odrzucenie znaczy „ten zestaw naprawdę
@@ -295,6 +361,21 @@ def werdykt(elapsed_s, cpu_s, budget_s=SUITE_RUNTIME_BUDGET_S, podloga=MIERZALNO
     sesji przechodzi pierwszy warunek (stosunek 0,991, wysoko nad podłogą 0,75)
     i nie przechodzi drugiego, a do 6.D149 była to jedna rzecz i pomiar kontenera
     dostawał odpowiedź progu, który jego nie dotyczy.
+
+    **CO JEST PORÓWNYWANE Z PROGIEM — przepisane, a nie dopisane obok.** Do tej
+    pozycji odrzucenie liczyło się z czasu ŚCIANY. Zmierzone na 265 artefaktach
+    `czas-zestawu` z 10-14.09.2026: na drzewie o tej samej liczbie testów i modułów
+    ściana rozjeżdża się o `x1,412`, a czas CPU o `x1,239` — i trzy jedyne przebiegi,
+    które w tym oknie przekroczyły próg 150 s, mają TRZY NAJNIŻSZE stosunki CPU/ściana
+    z całych 265 (1,375, 1,403, 1,471 wobec mediany 1,765). Były to więc przebiegi,
+    w których maszyna oddała mniej rdzeni, a nie przebiegi, w których zestaw zaczął
+    liczyć więcej. Werdykt odrzuca od tej pozycji na `SUITE_CPU_BUDGET_S`;
+    `SUITE_RUNTIME_BUDGET_S` zostaje jako SUFIT INFORMACYJNY i wchodzi do komunikatu.
+
+    **Podłoga mierzalności ZOSTAJE i to nie jest ozdoba** — ale jej powód się zwęził.
+    Broniła czasu ściany przed maszyną, która nie oddaje CPU; czas CPU tej obrony
+    potrzebuje w dużo mniejszym stopniu (dlatego ta pozycja w ogóle powstała), a przy
+    stosunku poniżej 0,75 nie mówi o kodzie ani jedno, ani drugie.
 
     **Kolejność jest tu treścią.** Maszyna rozstrzyga PIERWSZA, bo komunikat podłogi
     obiecuje „ten pomiar nie mówi nic o kodzie" — a dla spokojnego kontenera jest to
@@ -317,12 +398,18 @@ def werdykt(elapsed_s, cpu_s, budget_s=SUITE_RUNTIME_BUDGET_S, podloga=MIERZALNO
             f"wiec czas sciany {elapsed_s:.3f} s NIE JEST porownywany z progiem "
             f"{budget_s} s — ten pomiar nie mowi nic o kodzie, tylko o maszynie, "
             "na ktorej go zrobiono")
-    if over_budget(elapsed_s, budget_s):
+    if over_budget(cpu_s, cpu_budget_s):
         return True, (
-            f"zestaw test_all.py przekroczyl prog czasu sciany: {elapsed_s:.3f} s "
-            f"> {budget_s} s przy stosunku CPU/sciana {stosunek:.3f} "
-            f"(podloga mierzalnosci {podloga}) — maszyna oddawala CPU, wiec to jest "
-            "pomiar kodu")
+            f"zestaw test_all.py przekroczyl prog czasu CPU: {cpu_s:.3f} s "
+            f"> {cpu_budget_s} s (czas sciany {elapsed_s:.3f} s, stosunek CPU/sciana "
+            f"{stosunek:.3f}) — czas CPU nie zalezy od tego, ile rdzeni maszyna "
+            "akurat oddala, wiec to jest pomiar kodu")
+    if over_budget(elapsed_s, budget_s):
+        return False, (
+            f"czas CPU {cpu_s:.3f} s jest w progu {cpu_budget_s} s, a czas sciany "
+            f"{elapsed_s:.3f} s przekroczyl SUFIT INFORMACYJNY {budget_s} s przy "
+            f"stosunku CPU/sciana {stosunek:.3f} — praca zestawu sie nie zmienila, "
+            "zmienila sie maszyna; werdykt liczy sie z czasu CPU")
     return False, (f"czas sciany {elapsed_s:.3f} s w progu {budget_s} s, "
                    f"stosunek CPU/sciana {stosunek:.3f} (podloga {podloga})")
 
@@ -432,13 +519,25 @@ def test_kontener_przekroczylby_prog_i_podloga_by_go_NIE_zatrzymala():
         "testu przestaje byc prawdziwa i podzial na maszyny trzeba przemyslec od nowa"
         % (stosunek, MIERZALNOSC_MIN))
 
-    # Polowa PIERWSZA (6.D135): z maszyna nienazwana pomiar kontenera dostaje
-    # odpowiedz progu i zostaje odrzucony. To jest usterka, ktora nazwala 6.D149.
+    # Polowa PIERWSZA (6.D135), PRZEPISANA razem z progiem, a nie dopisana obok.
+    # Do tej pozycji brzmiala: „z maszyna nienazwana pomiar kontenera dostaje odpowiedz
+    # progu i ZOSTAJE ODRZUCONY". Na progu ze SCIANY to byla prawda i nadal nia jest —
+    # `over_budget` ponizej wykonuje tamten rachunek. Na progu z CPU juz nie: kontener
+    # liczy te sama prace szeregowo, wiec jego CPU (169,185 s) stoi glęboko w progu
+    # 440 s, mimo ze jego SCIANA (170,685 s) sufit 150 s przekracza.
+    #
+    # To jest drugi, niezalezny powod, dla ktorego prog na CPU jest lepszy od progu na
+    # scianie, i dlatego stoi tu jako rachunek: warunek maszyny z 6.D149 przestaje byc
+    # JEDYNA rzecza, ktora dzieli ten pomiar od falszywej czerwieni.
+    assert over_budget(KONTENER_11_09_SCIANA, SUITE_RUNTIME_BUDGET_S) is True, (
+        "sciana kontenera (%.3f s) przestala przekraczac sufit %.1f s — wtedy caly ten "
+        "test opisuje nieistniejaca sytuacje"
+        % (KONTENER_11_09_SCIANA, SUITE_RUNTIME_BUDGET_S))
     odrzucony, komunikat = werdykt(KONTENER_11_09_SCIANA, KONTENER_11_09_CPU)
-    assert odrzucony is True, (
-        "pomiar kontenera NIE zostalby odrzucony (%.3f s przy progu %.1f s): %s"
-        % (KONTENER_11_09_SCIANA, SUITE_RUNTIME_BUDGET_S, komunikat))
-    assert "pomiar kodu" in komunikat, komunikat
+    assert odrzucony is False, (
+        "pomiar kontenera zostal odrzucony (CPU %.3f s przy progu %.1f s): %s"
+        % (KONTENER_11_09_CPU, SUITE_CPU_BUDGET_S, komunikat))
+    assert "SUFIT INFORMACYJNY" in komunikat, komunikat
 
     # Polowa DRUGA (6.D149): z maszyna NAZWANA ten sam pomiar nie jest z progiem
     # porownywany wcale — i komunikat mowi, dlaczego. Podloga sie w nim nie pojawia,
@@ -783,8 +882,8 @@ def test_maszyna_progu_jest_ta_ktora_daje_MEASURED_MAX_WALL_S():
     # maszyny progu porownuje. Bez drugiej polowy „odmawia" byloby prawda takze dla
     # funkcji odmawiajacej zawsze.
     for maszyna in MASZYNY:
-        odrzucony, komunikat = werdykt(SUITE_RUNTIME_BUDGET_S + 10.0,
-                                       SUITE_RUNTIME_BUDGET_S + 10.0,
+        odrzucony, komunikat = werdykt(SUITE_CPU_BUDGET_S + 10.0,
+                                       SUITE_CPU_BUDGET_S + 10.0,
                                        maszyna=maszyna)
         if maszyna == MASZYNA_PROGU:
             assert odrzucony is True, (maszyna, komunikat)
@@ -1197,8 +1296,10 @@ def test_werdykt_odmawia_porownania_gdy_maszyna_nie_oddawala_cpu():
     assert odrzuc is False, komunikat
     assert "NIE JEST porownywany" in komunikat, komunikat
 
-    # 2. Prawdziwe spowolnienie KODU: maszyna oddaje CPU, czas ponad progiem.
-    odrzuc, komunikat = werdykt(200.0, 200.0)
+    # 2. Prawdziwe spowolnienie KODU: maszyna oddaje CPU, czas CPU ponad progiem.
+    #    Liczba przepisana razem z progiem: do tej pozycji odrzucała ściana 200 s,
+    #    dziś odrzuca CPU powyżej `SUITE_CPU_BUDGET_S`, a 200 s CPU stoi w progu.
+    odrzuc, komunikat = werdykt(300.0, SUITE_CPU_BUDGET_S + 1.0)
     assert odrzuc is True, komunikat
     assert "przekroczyl prog" in komunikat, komunikat
 
@@ -1540,3 +1641,111 @@ def test_ile_ksztaltow_zapisu_pomiaru_niesie_drzewo():
 if __name__ == "__main__":
     import test_all
     raise SystemExit(test_all.main(__file__))
+
+
+# --- PRÓG NA CZASIE CPU: bramki na tę zmianę ----------------------------------------
+
+
+def test_prog_cpu_stoi_nad_zmierzonym_maksimum_z_marginesem_reguly_6D11():
+    """Ta sama kontrola, co `test_budget_stays_above_the_measured_maximum_with_a_real
+    _margin`, tylko dla progu, który od tej pozycji ODRZUCA.
+
+    Dwie liczby zamiast jednej, bo reguła 6.D11 miała dwa czytania i oba są zapisane:
+    margines nad MAKSIMUM (1,947 = 150,0/77,04) i nad MEDIANĄ (2,183 = 150,0/68,705)
+    przebiegów z dnia, w którym próg ustawiono. Próg 440 s ma leżeć pod OBOMA — czyli
+    być ciaśniejszy niż tamten, a nie luźniejszy.
+    """
+    assert SUITE_CPU_BUDGET_S > MEASURED_MAX_CPU_S, (
+        SUITE_CPU_BUDGET_S, MEASURED_MAX_CPU_S)
+    assert MARGIN_CPU == SUITE_CPU_BUDGET_S / MEASURED_MAX_CPU_S, (
+        "margines %.4f przestal byc ILORAZEM tych dwoch stalych — wtedy jest trzecia "
+        "liczba wpisana z reki i rozjedzie sie z nimi po cichu (6.B28)" % MARGIN_CPU)
+    nad_maksimum = 150.0 / 77.04
+    nad_mediana = 150.0 / 68.705
+    assert MARGIN_CPU < nad_maksimum, (
+        "margines progu CPU (%.4f) jest LUŹNIEJSZY niż margines, z jakim 06.09.2026 "
+        "ustawiono próg ściany nad maksimum tamtego dnia (%.4f)"
+        % (MARGIN_CPU, nad_maksimum))
+    assert SUITE_CPU_BUDGET_S / MEASURED_MED_CPU_S < nad_mediana, (
+        "margines progu CPU nad medianą (%.4f) jest luźniejszy niż tamten (%.4f)"
+        % (SUITE_CPU_BUDGET_S / MEASURED_MED_CPU_S, nad_mediana))
+    # I żeby nie stopniał do czegoś ciasnego: musi unieść ZMIERZONY rozrzut CPU
+    # na identycznym drzewie, i to z zapasem.
+    _med, max_rozrzut = WZORZEC_ROZRZUTU["cpu"]
+    assert MARGIN_CPU > max_rozrzut * 1.4, (
+        "margines %.4f nie stoi 40 %% nad zmierzonym rozrzutem CPU %.4f — wtedy próg "
+        "zaczyna mierzyć maszynę, dokładnie tak jak próg na ścianie"
+        % (MARGIN_CPU, max_rozrzut))
+
+
+def test_prog_cpu_NIE_zapalilby_sie_na_zadnym_zmierzonym_przebiegu():
+    """Kontrola obustronna: cisza na materiale i głos na spowolnieniu.
+
+    Sama pierwsza połowa byłaby prawdziwa także dla progu nieskończonego, więc druga
+    jest tu warunkiem, a nie ozdobą — ta sama konstrukcja, co przy `MASZYNA_PROGU`.
+    """
+    for ident, sciana, cpu in POMIARY_CPU_BIEZACEGO_DRZEWA:
+        odrzuc, komunikat = werdykt(sciana, cpu)
+        assert odrzuc is False, (ident, komunikat)
+    # I ten sam materiał na STARYM progu: trzy z ośmiu... a dokładnie jeden, i to jest
+    # cała pozycja — przebieg 10341963856 (164,734 s) był CZERWONY, a ten sam commit
+    # w powtórzeniu 10344952688 (142,498 s) ZIELONY, przy czasach CPU 226,537
+    # i 201,193 s. Bramka wykonuje ten rachunek, żeby nie był zdaniem w raporcie.
+    czerwone_na_scianie = [i for i, w, _c in POMIARY_CPU_BIEZACEGO_DRZEWA
+                           if over_budget(w, SUITE_RUNTIME_BUDGET_S)]
+    assert czerwone_na_scianie == [10341963856], czerwone_na_scianie
+    para = {i: (w, c) for i, w, c in POMIARY_CPU_BIEZACEGO_DRZEWA
+            if i in (10341963856, 10344952688)}
+    assert para[10341963856][0] / para[10344952688][0] > 1.15, para
+    assert para[10341963856][1] / para[10344952688][1] < 1.15, para
+
+    # DRUGA POŁOWA: prawdziwe spowolnienie nadal odrzucane. Punkt odniesienia to
+    # najwyższy zmierzony przebieg — zestaw, który zaczyna liczyć o `MARGIN_CPU`
+    # więcej, ma zapalić bramkę bez względu na to, jak szybka jest maszyna.
+    for mnoznik, spodziewane in ((1.0, False), (MARGIN_CPU + 0.01, True)):
+        cpu = MEASURED_MAX_CPU_S * mnoznik
+        odrzuc, _k = werdykt(cpu / 1.6, cpu)
+        assert odrzuc is spodziewane, (mnoznik, cpu, odrzuc)
+
+
+def test_przekroczony_SUFIT_sciany_nie_jest_juz_werdyktem_ale_jest_w_logu():
+    """Przebieg z incydentu 14.09.2026 (ściana 164,734 s, CPU 226,537 s).
+
+    Ma przejść — i ma powiedzieć, CZEMU przeszedł, bo bramka, która milczy o pominiętym
+    porównaniu, jest przyrządem meldującym sprawdzenie, którego nie zrobił (6.D27).
+    """
+    odrzuc, komunikat = werdykt(164.734, 226.537)
+    assert odrzuc is False, komunikat
+    assert "SUFIT INFORMACYJNY" in komunikat, komunikat
+    assert "164.734" in komunikat and "226.537" in komunikat, komunikat
+    assert "CPU/sciana" in komunikat, komunikat
+
+
+def test_kazda_galaz_werdyktu_niesie_OBIE_liczby():
+    """Cztery gałęzie, cztery komunikaty — i w każdym ma stać ściana ORAZ CPU.
+
+    Komunikat z jedną liczbą zaprasza do porównywania przebiegów, których nie wolno
+    porównać; to jest ta sama usterka, którą 6.D42 naprawiło wypisaniem stosunku.
+    """
+    przypadki = (
+        (200.0, 80.0, MASZYNA_KONTENER, "inna maszyna"),
+        (335.668, 70.8, MASZYNA_PROGU, "ponizej podlogi"),
+        (300.0, SUITE_CPU_BUDGET_S + 1.0, MASZYNA_PROGU, "ponad progiem CPU"),
+        (164.734, 226.537, MASZYNA_PROGU, "ponad sufitem sciany"),
+        (128.564, 196.031, MASZYNA_PROGU, "w progu"),
+    )
+    for sciana, cpu, maszyna, opis in przypadki:
+        _o, komunikat = werdykt(sciana, cpu, maszyna=maszyna)
+        assert "CPU/sciana" in komunikat, (opis, komunikat)
+        assert f"{sciana:.3f}" in komunikat, (opis, komunikat)
+
+
+def test_krok_ci_czyta_prog_CPU_z_tego_pliku_a_nie_z_drugiej_kopii():
+    """To samo, co `test_ci_gate_step_reads_this_files_constant_not_a_second_copy`,
+    dla stałej, która od tej pozycji rozstrzyga."""
+    text = _workflow_text()
+    step_start = text.index("Run tool tests")
+    step = text[step_start:text.index("\n      - name:", step_start)]
+    assert "SUITE_CPU_BUDGET_S" in step, step
+    assert not re.search(r"cpu_budget\s*=\s*[\"\']?\d", step), (
+        "próg CPU wpisany do YAML-a jako goła liczba — druga kopia:\n" + step)
