@@ -345,8 +345,12 @@ ROZKLAD_POSTACI = {
         # 1265 -> 1281 i 460 -> 459 (14.09.2026, MB-03): `TractionBlock.cs`
         # i cztery wpisy katalogu; postac interpolowana SPADLA o jeden, bo wiersz
         # predkosci przestal byc interpolowany w ciele `Hud.Update`.
-        "zwykly": 1284,
-        "interpolowany ($)": 459,
+        # 1284 -> 1293 i 459 -> 462 (14.09.2026, MB-04): `FirstRun.AssetsRoot`,
+        # `FirstRun.DomyslnyZapisWejsc` i wiersz `[ZAPISY]`. Cztery pozostale
+        # postacie nie drgnely. Liczby ZMIERZONE `czytnik.klasy_literalow`, czyli
+        # przyrzadem tej bramki — nie przepisane z jej komunikatu o bledzie.
+        "zwykly": 1293,
+        "interpolowany ($)": 462,
         "werbatim (@)": 0,
         "surowy interpolowany ($$\"\"\")": 1,
         "surowy (\"\"\")": 1,

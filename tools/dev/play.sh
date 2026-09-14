@@ -20,7 +20,17 @@ cd "$ROOT"
 GODOT_EXE="${GODOT_BIN:-godot}"
 ASSETS="${ASSETS_DIR:-$ROOT/build/t400}"
 PLAN="$ROOT/data/design/signalling/classic-2026.json"
-INPUT_LOG="${INPUT_LOG:-$ASSETS/playtest-input.log}"
+# ZAPIS WEJŚĆ IDZIE DO KATALOGU UŻYTKOWNIKA, nie obok zasobów (MB-04, 14.09.2026).
+# Ten wiersz jest przepisany, a nie dopisany obok: do 14.09.2026 log lądował
+# w `$ASSETS`, czyli w paczce dla gracza — w katalogu binarki. Na Windowsie w
+# `Program Files` zapis by po prostu padł, a `FirstRun.WriteInputLog` nie ma dokąd
+# się cofnąć. `user://` jest jedyną ścieżką, która w paczce ZAWSZE jest zapisywalna
+# i została zmierzona jako poprawna także z `.pck`
+# (`/root/.local/share/godot/app_userdata/<nazwa>/`).
+#
+# W checkoucie ta zmienna nadal wskazuje `build/`, bo tu nikt nie szuka logów
+# w katalogu użytkownika, a `build/` i tak nie idzie do gita (reguła 8).
+INPUT_LOG="${INPUT_LOG:-$ROOT/build/t400/playtest-input.log}"
 
 if ! command -v "$GODOT_EXE" >/dev/null 2>&1 && [ ! -x "$GODOT_EXE" ]; then
     echo "[TRENING] nie ma Godota: '$GODOT_EXE'." >&2

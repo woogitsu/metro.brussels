@@ -1552,7 +1552,7 @@ def test_wzorzec_rodziny_lapie_zdanie_ktore_ma_lapac_i_nie_bierze_sasiedztwa():
 #: `POSTACIE_LITERALU` w tym samym module. Stoi na ZACHOWANIU własnego testu: pilnuje,
 #: żeby oczekiwana maska NIOSŁA KLAMRY, bo maska bez klamr przeszłaby także u czytnika,
 #: który połyka resztę pliku — czyli jest to strażnik wyroczni, a nie odczyt tekstu.
-ASERCJI_NAPISOWYCH_RAZEM = 870
+ASERCJI_NAPISOWYCH_RAZEM = 872
 
 #: **Kotwica wpisu to `(plik, funkcja, operator, literał)`, a NIE numer wiersza.**
 #: Numer przesuwa się przy każdej edycji pliku i lista rozjechałaby się sama z siebie.

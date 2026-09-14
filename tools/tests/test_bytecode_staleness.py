@@ -52,12 +52,14 @@ zmian i jest powodem, dla ktorego obrona ma byc w narzedziu, a nie w pamieci.
 """
 
 import ast
+import io
 import os
 import re
 import shutil
 import subprocess
 import sys
 import tempfile
+import tokenize
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -520,7 +522,7 @@ KROK_ZESTAWU = "Run tool tests"
 #: PÓŹNIEJ, w nazwanym kroku tego samego joba. Liczba jest tu po to, żeby poprawione
 #: zdanie miało czym się zestarzeć widocznie.
 BAJTKOD_PO_COMPILEALL_KATALOGI = 7
-BAJTKOD_PO_COMPILEALL_PLIKI = 204
+BAJTKOD_PO_COMPILEALL_PLIKI = 205
 
 
 def _workflow_zestawu():
@@ -653,8 +655,80 @@ def _po_ukosnikach(fragment):
     return out
 
 
+def _sekwencje_w_zrodle(zrodlo):
+    r"""`[(wiersz, sekwencja)]` — zle ucieczki w JEDNYM zrodle, czytane z TOKENOW.
+
+    **Czytane z `tokenize`, a nie z `ast.get_source_segment`, i to jest wybor
+    ZMIERZONY (14.09.2026, MB-04).** Poprzednia wersja chodzila po `ast`, brala dla
+    kazdego `ast.Constant` fragment zrodla i odsiewala literaly surowe po prefiksie
+    W TYM FRAGMENCIE. Do 3.11 czesci f-stringa dziedziczyly pozycje CALEGO literalu,
+    wiec fragment zawieral `rf"` i odsianie dzialalo. Od 3.12 (PEP 701) kazdy kawalek
+    tekstu f-stringa ma WLASNE `lineno/col_offset`, wskazujace sam tekst BEZ prefiksu
+    — `SUROWY` przestawal trafiac, a bramka meldowala poprawne literaly `rf"..."`
+    jako zle sekwencje.
+
+    **Zmierzone na TYM drzewie, czterema interpreterami:**
+
+        3.11.15     0 trafien   kod 0
+        3.12.3      5 trafien   kod 1   ← wszystkie FALSZYWE
+        3.13.12     5 trafien   kod 1
+        3.14.0rc2   5 trafien   kod 1
+
+    Runner CI ma 3.14.4, a to drzewo mialo 3.11.15 — i **ta roznica jest cala
+    przyczyna, dla ktorej bramka byla zielona u mnie i czerwona w CI**. Zgloszone
+    piec sekwencji to literaly `rf"..."` w `tools/tests/test_player_package.py`;
+    sa POPRAWNE i nie wolno ich „naprawiac".
+
+    **Dlaczego tokenizer, a nie latanie `ast`.** Tokenizer podaje prefiks tam, gdzie
+    on w zrodle naprawde stoi, i robi to tak samo na obu epokach — **bez ani jednego
+    rozgalezienia po `sys.version_info`**: do 3.11 caly f-string to jeden `STRING`
+    z prefiksem, od 3.12 to `FSTRING_START` (niosacy `rf"`), `FSTRING_MIDDLE` (sam
+    tekst) i `FSTRING_END`, a nazwy tych tokenow po prostu nie padaja na 3.11.
+    Galaz nietestowana na danej wersji cicho by nie dzialala — tego wlasnie unikamy.
+
+    **Wariant „badac caly `JoinedStr` raz" zostal odrzucony POMIAREM, nie argumentem.**
+    Zaimplementowany i uruchomiony: na dzisiejszym drzewie daje zero trafien, ale
+    wnosi NOWA klase falszywego alarmu dokladnie na tych wersjach, dla ktorych robimy
+    poprawke — od 3.12 ukosnik jest legalny w polu podstawienia, wiec skan po calym
+    fragmencie czyta KOD podstawienia jak tekst napisu i zapala sie na
+    `f"{re.sub(r'\d', '', s)}"`. Ta wersja daje tam zero.
+    """
+    out = []
+    # Jeden wpis na KAZDY otwarty f-string; `[-1]` mowi, wewnatrz ktorego stoi
+    # biezacy `FSTRING_MIDDLE`. Stos, a nie flaga: od 3.12 f-string wolno zagniezdzic
+    # w polu podstawienia innego, a w `rf"{f'\w'}"` zewnetrzny jest surowy, a
+    # wewnetrzny NIE.
+    surowy_stos = []
+    for token in tokenize.generate_tokens(io.StringIO(zrodlo).readline):
+        nazwa = tokenize.tok_name[token.type]
+        if nazwa == "FSTRING_START":
+            surowy_stos.append(bool(SUROWY.match(token.string)))
+            continue
+        if nazwa == "FSTRING_END":
+            if surowy_stos:
+                surowy_stos.pop()
+            continue
+        if nazwa == "FSTRING_MIDDLE":
+            if surowy_stos and surowy_stos[-1]:
+                continue
+        elif nazwa == "STRING":
+            if SUROWY.match(token.string):
+                continue
+        else:
+            continue
+        # Odsianie po ZRODLE tokenu, nie po wartosci literalu. Scislejsze niz dawne
+        # i nie potrzebuje juz dowodu szczelnosci: token niesie tekst tak, jak stoi
+        # w pliku, wiec brak ukosnika w tokenie znaczy brak ukosnika w zrodle.
+        if "\\" not in token.string:
+            continue
+        for znak in _po_ukosnikach(token.string):
+            if znak not in PRAWIDLOWE_PO_UKOSNIKU:
+                out.append((token.start[0], "\\" + znak))
+    return out
+
+
 def sekwencje_ucieczki(korzen=None):
-    """`[(plik, wiersz, sekwencja)]` dla kazdej NIEPRAWIDLOWEJ ucieczki w `tools/`.
+    r"""`[(plik, wiersz, sekwencja)]` dla kazdej NIEPRAWIDLOWEJ ucieczki w `tools/`.
 
     **Czytane ze ZRODLA, nie z ostrzezen interpretera, i to jest wybor zmierzony.**
     CPython zglasza te sekwencje jako `DeprecationWarning` do 3.11 wlacznie,
@@ -666,7 +740,13 @@ def sekwencje_ucieczki(korzen=None):
     **Drugie ograniczenie interpretera, wazniejsze:** CPython zglasza tylko PIERWSZA
     zla sekwencje w danym literale. W drzewie sprzed tej pozycji byly cztery
     ostrzezenia, ale **dziewiec** wystapien — `test_next_task.py` mial sam cztery
-    (`\\|`, `\\.`, `\\d`). Skan po zrodle widzi wszystkie.
+    (`\|`, `\.`, `\d`). Skan po zrodle widzi wszystkie.
+
+    **`ast.parse` zostaje, ale juz WYLACZNIE jako przyrzad kontrolny.** Czytnikiem
+    jest `_sekwencje_w_zrodle` (tokenizer); `ast.parse` odpowiada tu na inne pytanie
+    — czy modul w ogole sie parsuje. Sam `tokenize` tego nie umie, bo jest
+    leksykalny i `def f(:` przechodzi przez niego bez sprzeciwu, a wylapywanie
+    modulow nieparsowalnych jest polowa tej bramki (KN-1 z 6.D147).
     """
     import tree_walk as TW
 
@@ -681,7 +761,7 @@ def sekwencje_ucieczki(korzen=None):
         with open(sciezka, encoding="utf-8") as uchwyt:
             zrodlo = uchwyt.read()
         try:
-            drzewo = ast.parse(zrodlo)
+            ast.parse(zrodlo)
         except SyntaxError as blad:
             # NIE `continue` po cichu. Zmierzone przy kontroli KN-1 tej pozycji:
             # plik, ktory sie nie parsuje, wypadal ze skanu bez sladu, a bramka
@@ -689,28 +769,13 @@ def sekwencje_ucieczki(korzen=None):
             # przeczytala — rodzina 6.D27, tym razem w przyrzadzie tej pozycji.
             nieparsowalne.append((os.path.relpath(sciezka, korzen), str(blad)))
             continue
-        for wezel in ast.walk(drzewo):
-            if not isinstance(wezel, ast.Constant):
-                continue
-            if not isinstance(wezel.value, (str, bytes)):
-                continue
-            # Odsianie PRZED `get_source_segment`, i to nie jest optymalizacja bez
-            # powodu: tamta funkcja tnie cale zrodlo na wiersze przy KAZDYM wywolaniu,
-            # a literalow jest w `tools/` kilkadziesiat tysiecy — bez tego wiersza skan
-            # nie konczyl sie w 100 s. Odsianie jest SZCZELNE: sekwencja nieprawidlowa
-            # zostaje w wartosci razem z ukosnikiem (`"\\|"` -> `\\|`), a prawidlowa
-            # sie na cos zamienia (`"\\n"` -> nowa linia), wiec literal bez ukosnika
-            # w WARTOSCI nie moze niesc sekwencji, ktorej ta bramka szuka.
-            if "\\" not in (wezel.value if isinstance(wezel.value, str)
-                            else wezel.value.decode("latin-1")):
-                continue
-            fragment = ast.get_source_segment(zrodlo, wezel)
-            if fragment is None or SUROWY.match(fragment):
-                continue
-            for znak in _po_ukosnikach(fragment):
-                if znak not in PRAWIDLOWE_PO_UKOSNIKU:
-                    znalezione.append((os.path.relpath(sciezka, korzen),
-                                       wezel.lineno, "\\" + znak))
+        try:
+            trafienia = _sekwencje_w_zrodle(zrodlo)
+        except (tokenize.TokenError, SyntaxError) as blad:
+            nieparsowalne.append((os.path.relpath(sciezka, korzen), str(blad)))
+            continue
+        for wiersz, sekwencja in trafienia:
+            znalezione.append((os.path.relpath(sciezka, korzen), wiersz, sekwencja))
     return znalezione, len(sciezki), nieparsowalne
 
 
@@ -794,7 +859,7 @@ KATALOG_Z_PYTHONEM = "tools"
 #: caly Python stoi pod `tools/`, to `compileall -q tools` kompiluje CALOSC, a skan
 #: sekwencji czyta CALOSC. Gdy te dwie liczby sie rozejda, znaczy to, ze gdzies
 #: pojawil sie modul poza zasiegiem obu.
-MODULOW_W_CALYM_DRZEWIE = 204
+MODULOW_W_CALYM_DRZEWIE = 205
 
 
 def moduly_calego_drzewa(korzen=None):
