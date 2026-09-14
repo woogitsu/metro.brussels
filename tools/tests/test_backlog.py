@@ -383,7 +383,11 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 # 285 -> 286 (14.09.2026, 6.D208): blok szesciu pol dla 6.D218 — zapas
 # udokumentowany zszedl do 11 po domknieciu 6.D207 i 6.D208, czyli ponizej progu
 # doby pracy, a §8 `CLAUDE.md` kaze wtedy najpierw uzupelnic kolejke.
-MINIMUM_DETAIL_BLOCKS = 286
+# 286 -> 287 (14.09.2026, 6.D209): blok szesciu pol dla 6.D219 — remis dat raportu
+# i stalej. Domkniecie 6.D209 zbilo zapas znowu do 11, a pozycji wymyslonej na miejscu
+# nie bierze sie nigdy: 6.D219 wyszlo z pomiaru 6.D209, ktory znalazl remis w polowie
+# wlasnej probki.
+MINIMUM_DETAIL_BLOCKS = 287
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
