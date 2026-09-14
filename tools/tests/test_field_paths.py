@@ -1666,7 +1666,10 @@ def _istnieje_w_drzewie(nazwa):
 # „Weryfikacja" rosnie o jeden (386 -> 387) za `tools/tests/test_all.py` z plotka tego
 # bloku. Liczba jest PRZELICZONA na drzewie po scaleniu #610, a nie zsumowana z dwoch
 # galezi: obie pozycje domknieto tego samego dnia i obie dokladaly do tej samej puli.
-ADRESOW_W_WYKONANYCH = {"Wejście": 945, "Wyjście": 63, "Weryfikacja": 387}
+# 945 -> 948 (14.09.2026, 6.D208): trzy adresy z pola „Wejście" WLASNEGO bloku tej
+# pozycji — `docs/TASKS.md`, `test_backlog.py` i `reports/6d196-…`. „Weryfikacja"
+# rosnie o jeden (387 -> 388) za `tools/tests/test_all.py` z plotka tego bloku.
+ADRESOW_W_WYKONANYCH = {"Wejście": 948, "Wyjście": 63, "Weryfikacja": 388}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
@@ -1678,7 +1681,9 @@ ADRESOW_W_WYKONANYCH = {"Wejście": 945, "Wyjście": 63, "Weryfikacja": 387}
 # 123 -> 124 (14.09.2026, 6.D206): jedno wywolanie modulu wiecej —
 # `test_readme_claims.py` z plotka „Weryfikacji" bloku tej pozycji. Przeliczone na
 # drzewie po scaleniu #610.
-WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 124}
+# 124 -> 125 (14.09.2026, 6.D208): jedno wywolanie modulu wiecej —
+# `test_backlog.py` z plotka „Weryfikacji" bloku tej pozycji.
+WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 125}
 
 #: Ilu kandydatow zlego adresu daje regula prozy, per pole — 6.D158.
 # 12 -> 13 (14.09.2026, 6.D204): trzynastym kandydatem jest `test_mutation_sweep.py`
