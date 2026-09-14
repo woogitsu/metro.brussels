@@ -247,7 +247,11 @@ MAX_GAME_JUSTIFIED_NEEDLES = 4
 #: i WARUNKAMI w ciele metody wezla Godota, a nie wiedza, ktora da sie z niego wypchnac.
 #: Igla na kod nie ma dopasowania w rodzinie komunikatow i miec go nie moze; literowka
 #: w niej wywraca test natychmiast, wiec nie jest to klasa cicha.
-MAX_GAME_UNMATCHED_NEEDLES = 46
+#: **46 -> 48 (14.09.2026, MB-03).** Dwie nowe igly `TractionBlockTests.cs` na KOD
+#: `FirstRun.cs`: `private double? SufitKmh() =>` i wyrazenie warunku trybu. Ta sama
+#: rodzina, co cztery igly `TrainingWiringTests.cs` — literowka w nich wywraca test
+#: natychmiast, wiec nie jest to klasa cicha.
+MAX_GAME_UNMATCHED_NEEDLES = 48
 
 #: Progi KW. Literowka we wzorcu daje zero dopasowan i caly modul zielony; te trzy
 #: liczby sa jedynym powodem, dla ktorego taka literowka jest widoczna. Zmierzone
@@ -281,7 +285,9 @@ MIN_GAME_MESSAGES = 142
 #: `MIN_REPORTS`, poprawiane przy kazdym raporcie.
 # 65 -> 84 (13.09.2026, MB-02): czternascie roznych igiel w `RunSummaryTests.cs`
 # i piec w `TrainingWiringTests.cs`.
-MIN_GAME_NEEDLES = 84
+# 65 -> 87 (14.09.2026, MB-03): czternascie roznych igiel w `RunSummaryTests.cs`,
+# piec w `TrainingWiringTests.cs` i osiem w `TractionBlockTests.cs`.
+MIN_GAME_NEEDLES = 87
 MIN_GAME_SOURCES = 18
 
 #: Igla, na ktorej stoja kontrole dodatnia i przyrzadu. Musi byc SWOISTA i musi stac

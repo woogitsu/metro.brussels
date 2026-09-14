@@ -1712,13 +1712,52 @@ public sealed partial class FirstRun : Node3D
         }
 
         _hud.Update(
-            _state.SpeedKmh, _acceleration, chainage, _axis.LengthM,
+            _state.SpeedKmh, SufitKmh(), _acceleration,
+            chainage, _axis.LengthM,
             name, distance, _command.Throttle, _command.Brake, _mode,
             StationLine(), SignallingLine(), _viewLine,
             EmergencyBrake.Notice(_activeKeys, _command),
             HelpLine(),
-            SummaryLine());
+            SummaryLine(),
+            TractionLine());
     }
+
+    /// <summary>
+    /// Sufit prędkości do wiersza HUD albo <c>null</c>, gdy przejazd go NIE MA.
+    ///
+    /// <para><b>Ta metoda istnieje z powodu, który znalazł PRZEBIEG, a nie lektura.</b>
+    /// Pierwsza wersja MB-03 podawała tu <c>Units.MpsToKmh(SpeedLimitMps)</c> bez
+    /// warunku — a <c>RunHeader.SpeedLimitMps</c> RZUCA przy odtwarzaniu telemetrii,
+    /// i rzuca świadomie: ruch jest wtedy zadany plikiem, a nie liczony. Skutkiem był
+    /// wyjątek W KAŻDEJ KLATCE (zmierzone: 12 983 w 90 sekundach), przebieg, który
+    /// nigdy nie dochodził do swojego warunku końca, i job CI wiszący dziewiętnaście
+    /// minut zamiast czterdziestu jeden sekund.</para>
+    ///
+    /// <para>Warunek pyta o TRYB, a nie łapie wyjątku: wyjątek jest tu informacją, że
+    /// pytanie nie ma sensu, więc poprawną odpowiedzią jest go nie zadać. Złapanie go
+    /// zamieniłoby świadomą decyzję `RunHeader` w cichy `catch`.</para>
+    /// </summary>
+    private double? SufitKmh() =>
+        _fromTelemetryMode ? null : Units.MpsToKmh(SpeedLimitMps);
+
+    /// <summary>
+    /// Wiersz HUD o blokadzie trakcji — MB-03.
+    ///
+    /// <para><b>Ta metoda niczego nie rozstrzyga.</b> Podaje <see cref="TractionBlock"/>
+    /// stan DWÓCH właścicieli blokady, odczytany z tego samego kroku, z którego wyszło
+    /// polecenie kontrolera: obsługi stacji (<c>StationService.TractionAllowed</c>)
+    /// i ochrony pociągu (<c>CabProtection.Decision</c>). Trzeciego filtru nastawnika
+    /// w rdzeniu nie ma — ograniczenie prędkości obcina prędkość PO kroku
+    /// (<c>TrainController.Advance</c>), a nastawnika nie rusza.</para>
+    ///
+    /// <para>Poza postojem <c>TractionAllowed</c> jest prawdą, bo <c>Phase</c> zwraca
+    /// wtedy <c>DoorPhase.Closed</c>; przebieg bez obsługi stacji (<c>_stations</c>
+    /// jest nullem) blokady drzwiami nie ma z definicji.</para>
+    /// </summary>
+    private string TractionLine() => TractionBlock.Line(
+        _stations?.TractionAllowed ?? true,
+        Faza(_stations?.Phase ?? DoorPhase.Closed),
+        _cabProtection?.Decision);
 
     /// <summary>
     /// Panel wyniku; pusty, dopóki sesja trwa — i pusty w przebiegu, który sesji nie ma.

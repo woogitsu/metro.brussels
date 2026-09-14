@@ -95,6 +95,21 @@ theme_override_styles/panel = SubResource("StyleBoxFlat_hud")
 [node name="Speed" type="Label" parent="Hud/Panel/Rows"]
 text = "0.0 km/h"
 
+; Wiersz blokady trakcji — MB-03. Stoi DRUGI, zaraz pod prędkością, bo to on mówi
+; graczowi, dlaczego pociąg nie rusza; startuje UKRYTY, a jego treść przychodzi
+; z `TractionBlock.Line`, czyli z odczytu dwóch filtrów rdzenia.
+[node name="Traction" type="Label" parent="Hud/Panel/Rows"]
+autowrap_mode = 3
+text = "trakcja"
+
+; Wiersz stacji stoi PRZED wierszem pozycji — MB-03. Niesie cel i odległość do punktu
+; zatrzymania, czyli NASTĘPNE DZIAŁANIE; wiersz pozycji niesie kilometraż osi, czyli
+; współrzędną dewelopera. Zawija z tego samego powodu, co wiersz pozycji: nazwa
+; dwujęzyczna nie ma spacji przy pionowej kresce.
+[node name="Station" type="Label" parent="Hud/Panel/Rows"]
+autowrap_mode = 3
+text = "stacja"
+
 ; Wiersz pozycji ZAWIJA — 6.D82. To on niesie nazwę stacji i odległość do peronu,
 ; więc to on jako pierwszy przekracza szerokość panelu. `autowrap_mode = 3` to
 ; zawijanie po słowach z podziałem długiego słowa w ostatniej chwili: nazwa
@@ -106,9 +121,6 @@ text = "chainage"
 
 [node name="Controls" type="Label" parent="Hud/Panel/Rows"]
 text = "ciag / hamulec"
-
-[node name="Station" type="Label" parent="Hud/Panel/Rows"]
-text = "stacja"
 
 [node name="Signalling" type="Label" parent="Hud/Panel/Rows"]
 text = "sygnalizacja"

@@ -192,7 +192,7 @@ public sealed class UiTextTests
     /// Ile literałów — dolne ostrze, zmierzone 12.09.2026; 480 → 496 przy MB-02
     /// (`RunSummary.cs` i wpisy `summary.*` w katalogu).
     /// </summary>
-    private const int LiteralowWZasieguBramki = 501;
+    private const int LiteralowWZasieguBramki = 509;
 
     /// <summary>Ile różnych — dolne ostrze, zmierzone 12.09.2026.</summary>
     private const int RoznychLiteralowWZasieguBramki = 362;
@@ -1346,7 +1346,7 @@ public sealed class UiTextTests
     /// </summary>
     // 521 -> 537 (13.09.2026, MB-02). Różnica między czytnikami zostaje ta sama co
     // do sztuki — rośnie tylko korpus.
-    private const int PozycjiStaregoCzytnika = 542;
+    private const int PozycjiStaregoCzytnika = 550;
 
     /// <summary>
     /// Ile PLIKÓW korpusu stary czytnik czytał inaczej niż leksykalny — 6.D182.
@@ -1583,6 +1583,12 @@ public sealed class UiTextTests
         // i dokładnie tak się stało: ta bramka zapaliła się pierwsza, zanim panel wyniku
         // pojawił się na ekranie.
         "summary",
+
+        // DZIEWIĄTY — MB-03, wiersz blokady trakcji. KOLEJNOŚĆ jest tu treścią:
+        // porównanie idzie `CollectionAssert.AreEqual`, czyli po kolejności sygnatury,
+        // a nie po zbiorze. Wpisanie go obok `help` wywraca test, i słusznie —
+        // argumenty `Hud.Update` mają jedną kolejność, nie dwie.
+        "traction",
     };
 
     /// <summary>
@@ -1641,6 +1647,12 @@ public sealed class UiTextTests
         ("summary", "FirstRun.cs", "private string SummaryLine()"),
         ("summary", "UI/RunSummary.cs", "public static string Compose("),
         ("summary", "UI/RunSummary.cs", "private static string Naglowek(TrainingEnding ending)"),
+
+        // MB-03: wiersz blokady trakcji. Droga jest krótka i to jest wybór —
+        // `FirstRun.TractionLine` podaje stan DWÓCH właścicieli blokady, a wybór
+        // brzmienia robi `TractionBlock.Line` z katalogu `UiText`.
+        ("traction", "FirstRun.cs", "private string TractionLine()"),
+        ("traction", "UI/TractionBlock.cs", "public static string Line("),
     };
 
     /// <summary>Napisy, o których 6.D175 i 6.D179 wiedzą, że widzi je gracz.</summary>
@@ -1656,11 +1668,14 @@ public sealed class UiTextTests
     /// <summary>Ile literałów dociera na ekran drogą <c>Hud.Update</c> — 6.D183.</summary>
     // 74 -> 87 (13.09.2026, MB-02): osiem kluczy `summary.*`, trzy formaty liczb
     // i dwa człony komunikatu wyjątku z ramienia domyślnego `RunSummary.Naglowek`.
-    private const int LiteralowNaEkranie = 87;
+    private const int LiteralowNaEkranie = 94;
 
     /// <summary>Ile z nich jest KLUCZEM katalogu, a nie tekstem — 6.D183.</summary>
     // 28 -> 36 (13.09.2026, MB-02): osiem kluczy `summary.*` panelu wyniku.
-    private const int KluczyKatalogunaEkranie = 36;
+    // 36 -> 41 (14.09.2026, MB-03): `hud.speed`, `hud.speed.no-limit` i trzy klucze
+    // `hud.traction.*`. Drugi wariant wiersza prędkości doszedł po regresji znalezionej
+    // przebiegiem CI — patrz `Tryb_BEZ_SUFITU_nie_pyta_o_sufit…`.
+    private const int KluczyKatalogunaEkranie = 41;
 
     /// <summary>
     /// Ile literałów z tej drogi niesie SŁOWO w rozumieniu bramki — 6.D183.
@@ -1721,7 +1736,10 @@ public sealed class UiTextTests
     /// w ciele <c>Hud.Update</c>, co pilnuje asercja niżej, i to ona jest treścią tej
     /// liczby, a nie sama liczba.</para>
     /// </summary>
-    private const int PrzypisanText = 8;
+    // 8 -> 9 (14.09.2026, MB-03): dziewiąta etykieta to wiersz blokady trakcji.
+    // Droga na ekran zostaje JEDNA — wszystkie dziewięć przypisań stoi w ciele
+    // `Hud.Update`, co pilnuje asercja niżej.
+    private const int PrzypisanText = 9;
 
     private static string ZrodloGry(string wzgledna) =>
         Zrodlo(new[] { "src", "Game" }.Concat(wzgledna.Split('/')).ToArray());
@@ -2057,12 +2075,26 @@ public sealed class UiTextTests
     /// </summary>
     // 335 -> 348 (13.09.2026, MB-02). Zasięg mechaniki, nie liczba usterek: liczba
     // ZABRANYCH werdyktów niżej ma zostać na dwóch i to ona jest tu treścią.
-    private const int LiteralowDotknietychZdejmowaniem = 349;
+    private const int LiteralowDotknietychZdejmowaniem = 354;
 
     /// <summary>
     /// Ilu literałom zdejmowanie jednostek ZABIERA werdykt „to słowo" — 6.D155.
     /// </summary>
-    private const int WerdyktowZabranychPrzezZdejmowanie = 2;
+    //
+    // **2 -> 1 (14.09.2026, MB-03), i ta liczba SPADŁA z powodu, który trzeba
+    // przeczytać, a nie przeliczyć.** Drugim z dwóch był literał wiersza prędkości
+    // stojący w ciele `Hud.Update`: po zdjęciu dziur i jednostek zostawało z niego
+    // samo `a`, czyli jedna litera, więc sito odbierało mu werdykt „to jest słowo".
+    // MB-03 przeniosło ten wiersz do katalogu jako `hud.speed` i dołożyło do niego
+    // słowo `sufit` — a wtedy resztka brzmi `ufita` (zmierzone: `sufit` traci `s`,
+    // bo `s` JEST jednostką, i skleja się z `a` od `a =`). Dwie litery pod rząd
+    // znaczą, że werdykt ZOSTAJE, więc literał wypada ze zbioru „zabranych".
+    //
+    // **To nie jest regres, tylko dokładnie ten ruch, o który chodziło 6.D83:**
+    // wiersz prędkości przestał być napisem bez słów składanym w kodzie i stał się
+    // wpisem katalogu niosącym polskie słowo. Zbiór „zabranych" kurczy się więc do
+    // jednego elementu, którym jest `Esc` — nazwa klawisza, a nie tekst dla gracza.
+    private const int WerdyktowZabranychPrzezZdejmowanie = 1;
 
     /// <summary>
     /// Ilu literałom zdejmowanie werdykt DAJE — 6.D155. Zero, i nie jest to
@@ -2138,37 +2170,47 @@ public sealed class UiTextTests
             + $"zmierzonych {WerdyktowZabranychPrzezZdejmowanie}: "
             + string.Join(" | ", zabrane));
 
-        // I KTÓRE to są — bo pole „Skończone, gdy" pozycji pyta, czy któryś jest
-        // tekstem dla gracza. Odpowiedź brzmi TAK, i jest tu wykonana, nie napisana.
+        // I KTÓRY to jest — bo pole „Skończone, gdy" pozycji pyta, czy któryś jest
+        // tekstem dla gracza. **Do 14.09.2026 odpowiedź brzmiała TAK i była tu
+        // wykonana; po MB-03 brzmi NIE, i to też jest tu wykonane.** Zbiór ma dziś
+        // jeden element i jest nim `Esc`, czyli NAPIS NA KLAWISZU — ta sama granica,
+        // którą `UiText` stawia między „co klawisz robi" a „jak się nazywa".
         Assert.IsTrue(zabrane.Contains("Esc", StringComparer.Ordinal),
-            "„Esc” przestał być jednym z dwóch — na nim stoi rozstrzygnięcie 6.D142: "
+            "„Esc” przestał być w zbiorze — na nim stoi rozstrzygnięcie 6.D142: "
             + string.Join(" | ", zabrane));
         Assert.IsTrue(NazwyKlawiszy.Contains("Esc", StringComparer.Ordinal),
             "„Esc” wypadł z `NazwyKlawiszy`, więc zdanie o bezczynności wyjątku "
             + "z 6.D142 opisuje inny stan");
 
+        // **Ten akapit jest PRZEPISANY przy MB-03, a nie dopisany obok.** Do 14.09.2026
+        // stało tu wyszukanie „drugiego z dwóch" przez `zabrane.Single(…)` i asercja,
+        // że stoi on w ciele `Hud.Update`. Po przeniesieniu wiersza prędkości do
+        // katalogu drugiego nie ma, a `Single` RZUCAŁBY — czyli bramka padałaby
+        // wyjątkiem zamiast komunikatem i nie powiedziałaby, co się zmieniło.
+        //
+        // Pytanie zostaje to samo, tylko zadane właściwej stronie: wiersz prędkości
+        // ma dalej mieć w sobie SYMBOL PRZYSPIESZENIA i nic poza nim ponad słowa
+        // katalogu. Bierzemy go więc stamtąd, gdzie teraz mieszka.
+        var wierszPredkosci = UiText.Get("hud.speed");
         var wHudUpdate = Literaly(CialoDeklaracji(
             HudSource(), "public void Update("));
-        var drugi = zabrane.Single(l => !string.Equals(l, "Esc", StringComparison.Ordinal));
-        Assert.IsTrue(wHudUpdate.Contains(drugi, StringComparer.Ordinal),
-            $"drugi z dwóch literałów („{drugi}”) przestał stać w ciele `Hud.Update`, "
-            + "więc odpowiedź „tak, jeden z nich to tekst dla gracza” przestała "
-            + "wynikać z drogi wywołania prześledzonej w 6.D183");
-        // CO w nim zostaje, a nie „czy zostaje słowo" — to drugie wynikałoby
-        // z samego członkostwa w `zabrane` i byłoby zdaniem o sobie samym.
-        // Zostaje JEDNA litera: `a`, symbol przyspieszenia. Reszta wiersza to dziury
-        // interpolacji, jednostki, spacje i znak równości — czyli dokładnie to, co
-        // pole „Skończone, gdy" 6.D83 kazało ZOSTAWIĆ w kodzie.
-        var resztka = BezJednostek(BezDziur(drugi))
+        Assert.IsFalse(wHudUpdate.Contains(wierszPredkosci, StringComparer.Ordinal),
+            "wiersz prędkości wrócił do ciała `Hud.Update` — katalog przestaje być "
+            + "jednym miejscem dokładnie w tym jednym wierszu, w którym nim nie był");
+        // CO w nim zostaje, a nie „czy zostaje słowo". Zostaje `ufita`: `sufit` bez
+        // litery `s` (bo `s` JEST jednostką i sito zjada ją także w środku wyrazu)
+        // sklejone z `a` od `a =`. Zapadka stoi na WYNIKU PRZYRZĄDU, a nie na tym,
+        // czego się po nim spodziewano — `sufita` byłoby zgadywaniem.
+        var resztka = BezJednostek(BezDziur(wierszPredkosci))
             .Replace(" ", string.Empty, StringComparison.Ordinal)
             .Replace("=", string.Empty, StringComparison.Ordinal);
-        Assert.AreEqual("a", resztka,
-            $"po zdjęciu dziur i jednostek w „{drugi}” zostaje „{resztka}” zamiast "
-            + "samego symbolu przyspieszenia — wiersz prędkości niesie wtedy coś, "
-            + "czego 6.D83 nie przewidziało, i milczenie bramki wymaga nowego powodu");
-        Assert.AreEqual(1, resztka.Length,
-            "resztka przestała być JEDNOLITEROWA, więc nie jest już oczywiste, "
-            + "że wiersz nie ma słowa z własnego prawa");
+        Assert.AreEqual("ufita", resztka,
+            $"po zdjęciu dziur i jednostek w „{wierszPredkosci}” zostaje „{resztka}” "
+            + "zamiast `ufita` — wiersz prędkości niesie wtedy inne słowa, niż mówi "
+            + "ten pomiar, i milczenie sita wymaga nowego powodu");
+        Assert.IsTrue(resztka.Length > 1,
+            $"resztka („{resztka}”) wróciła do JEDNEJ litery — wiersz prędkości stracił "
+            + "słowo z własnego prawa, czyli `sufit`, i znów jest napisem bez słów");
     }
 
     /// <summary>
@@ -2291,7 +2333,16 @@ public sealed class UiTextTests
     /// wszystkie liczone po literałach — zobaczyć jej nie mogą. Dwudziesta pierwsza
     /// dziura zapala ten test i każe ją zaklasyfikować, zamiast wpaść po cichu.</para>
     /// </summary>
-    private const int DziurNaEkranie = 20;
+    //
+    // **20 -> 18 (14.09.2026, MB-03), i ta liczba SPADŁA, a nie urosła.** Wiersz
+    // prędkości był do tego dnia JEDYNYM, który składał się interpolacją WPROST
+    // w ciele `Hud.Update` (`$"{speedKmh,6:F1} km/h … {accelerationMps2,6:F2} m/s²"`),
+    // czyli omijał katalog. MB-03 przenosi go do `UiText` jako `hud.speed`, więc dwie
+    // dziury znikają, a na ich miejsce wchodzą pola szablonu — czyli LITERAŁY, które
+    // rodziny 6.D154…6.D183 już widzą. Spadek jest tu wynikiem pożądanym i dlatego
+    // zapadka równościowa go pokazuje: gdyby ktoś wiersz prędkości złożył z powrotem
+    // w kodzie, liczba wróciłaby do dwudziestu i ten test by o tym powiedział.
+    private const int DziurNaEkranie = 18;
 
     /// <summary>
     /// Które z tych dziur wstawiają wartość wyliczenia — WPISANE, nie wyprowadzone.
@@ -3051,7 +3102,10 @@ public sealed class UiTextTests
     /// <summary>Ile literałów korpusu niesie w ogóle parę klamer — 6.D188.</summary>
     // 124 -> 125 (13.09.2026, MB-02): `"+0.000;-0.000;0.000"` klamry nie ma, ale
     // ma ją komunikat wyjątku z `RunSummary`.
-    private const int LiteralowZKlamra = 129;
+    // 129 -> 128 (14.09.2026, MB-03) — SPADEK z tego samego powodu, co przy
+    // `DziurNaEkranie`: wiersz prędkości przestał być literałem z klamrami w ciele
+    // `Hud.Update`, a stał się wpisem katalogu.
+    private const int LiteralowZKlamra = 128;
 
     /// <summary>
     /// Ilu literałom <see cref="BezDziur"/> zabiera WSZYSTKIE słowa — 6.D188.
@@ -3060,16 +3114,27 @@ public sealed class UiTextTests
     /// a <c>BezJednostek(BezDziur(literał))</c> już nie. Zmierzone na 480 literałach
     /// <c>src/Game/</c>.</para>
     /// </summary>
-    private const int ZabranychWszystkieSlowa = 14;
+    //
+    // **14 -> 13 (14.09.2026, MB-03), i znów SPADEK.** Wypadł literał wiersza
+    // prędkości z ciała `Hud.Update`: `BezJednostek` zostawiał w nim samo `a`, więc
+    // `BezDziur` zabierało mu ostatnie słowo. Po przeniesieniu do katalogu wiersz
+    // niesie `sufit`, czyli słowo, którego żadna z tych dwóch mechanik nie zabiera.
+    private const int ZabranychWszystkieSlowa = 13;
 
     /// <summary>
     /// Ile z nich stoi na drodze <c>Hud.Update</c>, czyli dociera na ekran — 6.D188.
     ///
-    /// <para><b>Cztery — i ani jedno nie jest tekstem dla gracza.</b> To jest
+    /// <para><b>Trzy — i ani jedno nie jest tekstem dla gracza.</b> To jest
     /// odpowiedź pozycji na pytanie „czy któryś z nich jest tekstem dla gracza":
-    /// docierają, ale zabrane im słowa to nazwy zmiennych z wnętrza dziur.</para>
+    /// docierają, ale zabrane im słowa to nazwy zmiennych z wnętrza dziur.
+    /// <b>Było cztery do 14.09.2026</b>; czwartym był wiersz prędkości składany
+    /// w kodzie, i on jako jedyny mógł być kiedyś tekstem dla gracza — dlatego
+    /// wyprowadził się do katalogu (MB-03), a nie dlatego, że przestał docierać.</para>
     /// </summary>
-    private const int ZabranychNaDrodzeNaEkran = 4;
+    // 4 -> 3 (14.09.2026, MB-03): ten sam literał wiersza prędkości, co przy
+    // `ZabranychWszystkieSlowa`. Trzy, które zostają, to dziury złożone wyłącznie
+    // z interpolacji — a te nigdy nie były tekstem dla gracza.
+    private const int ZabranychNaDrodzeNaEkran = 3;
 
     /// <summary>Literały z drogi na ekran, którym <c>BezDziur</c> zabiera wszystko — 6.D188.</summary>
     private static readonly string[] ZabraneNaEkranie =
@@ -3077,7 +3142,14 @@ public sealed class UiTextTests
         "{ostrzezenie}{ingerencja}",
         "{binding.KeyName} {binding.Meaning}",
         "{b.KeyName} {b.Meaning}",
-        "{speedKmh,6:F1} km/h     a = {accelerationMps2,6:F2} m/s²",
+
+        // CZWARTY ZDJĘTY 14.09.2026 (MB-03), a nie przeniesiony: literał
+        // `"{speedKmh,6:F1} km/h     a = {accelerationMps2,6:F2} m/s²"` przestał
+        // istnieć — wiersz prędkości mieszka od tej pory w katalogu jako `hud.speed`.
+        // Trzy, które zostają, to dziury złożone wyłącznie z interpolacji, czyli
+        // nazwy zmiennych, a nie tekst dla gracza; odpowiedź 6.D188 na pytanie
+        // „czy któryś z nich jest tekstem dla gracza" zostaje więc NIE, i to tym
+        // mocniej, że jedyny kandydat wyprowadził się do katalogu.
     };
 
     /// <summary>
@@ -3797,7 +3869,10 @@ public sealed class UiTextTests
     // 12 -> 15 (13.09.2026, MB-02): trzy formatowania liczb w `RunSummary.Compose`.
     // Granica „słowa w katalogu, formaty w kodzie" zostaje tam, gdzie 6.D83 ją
     // postawiło — i te trzy wywołania są jej kolejnym przypadkiem, nie wyjątkiem.
-    private const int ToStringZArgumentemWGame = 15;
+    // 15 -> 18 (14.09.2026, MB-03): trzy formatowania liczb w wierszu prędkości,
+    // przeniesione z ciała `Hud.Update` do wywołania `UiText.Format`. Granica
+    // „słowa w katalogu, formaty w kodzie" zostaje tam, gdzie 6.D83 ją postawiło.
+    private const int ToStringZArgumentemWGame = 18;
 
     private const int ToStringZArgumentemNaWyliczeniuWGame = 0;
 
