@@ -347,8 +347,9 @@ ROZKLAD_POSTACI = {
         # nie drgnal przy MB-06, bo `ControlOwnerTests.cs` nie czyta zrodla
         # wyrazeniami regularnymi: pyta rdzen o zachowanie, a rdzen da sie zawolac
         # bez silnika.
-        "zwykly": 4093,
-        "interpolowany ($)": 691,
+        # 4093 -> 4102 i 691 -> 692 (14.09.2026, audyt MB-06): literały nowego testu.
+        "zwykly": 4102,
+        "interpolowany ($)": 692,
         "werbatim (@)": 55,
         "surowy interpolowany ($$\"\"\")": 13,
         "surowy (\"\"\")": 8,

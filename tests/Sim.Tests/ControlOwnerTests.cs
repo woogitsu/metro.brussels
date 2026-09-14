@@ -290,6 +290,54 @@ public sealed class ControlOwnerTests
     }
 
     [TestMethod]
+    public void NA_POSTOJU_werdykt_ochrony_DOCIERA_do_kontrolera_a_nie_tylko_pada()
+    {
+        // **TEN TEST ISTNIEJE, BO POPRZEDNI NIE MA ZĘBÓW — i to jest zmierzone**
+        // (audyt 14.09.2026). `NA_POSTOJU_ochrona_ma_OSTATNIE_slowo_nad_dzwignia` pyta,
+        // czy skład RUSZYŁ, a fixture stoi na torze POZIOMYM. „Nie ruszył" jest tam
+        // więc prawdą z FIZYKI, nie z ochrony: mutacja wyrzucająca werdykt
+        // (`held = Supervisor(held)` -> `_ = Supervisor(held)`) przechodziła **633/633**,
+        // a przy CAŁKOWITYM skreśleniu ochrony padały tylko dwa testy z czterech.
+        // Ochrona była wołana, jej odpowiedź szła do kosza, i żadna z bramek gałęzi
+        // postoju tego nie widziała — bo wszystkie pytały o WYWOŁANIE, nie o SKUTEK.
+        //
+        // Ten pyta o werdykt tam, gdzie on naprawdę ląduje: `TracePoint.Command` niesie
+        // `held` PO ochronie, czyli dokładnie to polecenie, które dostaje
+        // `_controller.Advance`. Gałąź JAZDY takiej luki nie miała — tam ta sama
+        // mutacja daje trzy czerwienie, bo skutek widać na jadącym składzie.
+        var line = DoPostoju();
+        var drive = line.Trains[0].Drive!;
+        drive.Supervisor = _ => DriverCommand.FullServiceBrake;
+
+        line.TakeControl("A");
+        line.Drive("A", DriverCommand.Coast);
+
+        var widziane = new List<DriverCommand>();
+        for (var i = 0; i < 240; i++)
+        {
+            line.Step((id, point) =>
+            {
+                if (string.Equals(id, "A", StringComparison.Ordinal))
+                {
+                    widziane.Add(point.Command);
+                }
+            });
+        }
+
+        Assert.AreEqual(240, widziane.Count,
+            "ślad nie dał wiersza w każdym kroku — bez tego reszta asercji mierzy "
+            + "mniejszą próbkę, niż mówi");
+
+        var omijajace = widziane.FindAll(c => c.Brake < 1.0);
+        Assert.AreEqual(0, omijajace.Count,
+            $"{omijajace.Count} z {widziane.Count} poleceń docierających do kontrolera "
+            + "NIE jest werdyktem ochrony — ochrona zażądała pełnego hamulca służbowego "
+            + "(Brake = 1,00), a do `_controller.Advance` poszło coś słabszego. Ochrona "
+            + "wołana, ale jej odpowiedź wyrzucona: dokładnie ta dziura, której nie "
+            + "widzi pytanie 'czy skład ruszył' na torze poziomym");
+    }
+
+    [TestMethod]
     public void Przejecie_skladu_PRZED_wjazdem_na_plan_jest_ODMOWA()
     {
         // Audyt zmierzył, co dawało ciche przejęcie: dźwignia dostawała
