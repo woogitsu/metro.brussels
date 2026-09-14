@@ -85,3 +85,45 @@ python3 tools/ci/timing_record.py --z-logu tests/data/ci-logs/tools-pr<NUMER>.lo
 więc każde własne zdanie doklejone do pola „na czym" zapala bramkę. Pierwsza wersja
 wpisów 6.D190 była pisana z ręki i miała trzy usterki naraz: złą datę, ogon o LIŚCIE
 zamiast o przebiegu i „2433 testy" tam, gdzie log daje „2433 testów".
+
+## Które przebiegi MUSZĄ tu trafić, a które wolno pominąć (6.D205)
+
+**Dobór był do 14.09.2026 nieopisany** — logi dochodziły tam, gdzie ktoś akurat
+pamiętał. Reguła niżej jest zapisana, bo lista rośnie i bez niej rośnie przypadkiem.
+
+**Obowiązkowo wchodzi przebieg runnera, który ustanawia CO NAJMNIEJ JEDNO z trzech:**
+
+1. **nowe maksimum ściany** — `MEASURED_MAX_WALL_S` jest z tej listy WYPROWADZANE,
+   więc przebieg pominięty nie obniża liczby, tylko każe `MARGIN` mówić o zapasie,
+   którego nie ma;
+2. **maszynę, której lista jeszcze nie zna** — `test_slowo_runner_stoi_nad_DWIEMA_maszynami_ale_ich_NIE_rozdziela`
+   czyta nazwy maszyn **z tych logów**, więc maszyna bez logu to maszyna, której
+   słowo „runner" po cichu nie obejmuje;
+3. **nowy skrajny stosunek CPU/ściana** — na zakresie tego stosunku stoi
+   `test_runner_liczy_rownolegle_a_kontener_szeregowo`, czyli całe rozstrzygnięcie
+   6.D149, że runner i kontener to nie są porównywalne przebiegi.
+
+**Każdy inny przebieg wolno dopisać i żadnego nie trzeba.** Przebieg bez logu w tym
+katalogu nie wchodzi w ogóle (6.D152), a przebieg spoza runnera zostaje człowiekowi
+(sekcja „Czego tu nie ma").
+
+**Powodem tego kształtu NIE jest koszt jednego logu, i to jest zmierzone.** Dwanaście
+repozytoriów pustych, logi dokładane po jednym, `git gc --aggressive --prune=now`
+po każdym, mierzony katalog `objects/pack`:
+
+| logów | pack | krańcowo | w katalogu roboczym |
+|---:|---:|---:|---:|
+| 1 | 73 374 B | 73 374 B | 295 887 B |
+| 6 | 233 543 B | 31 804 B | 299 496 B |
+| 8 | 301 745 B | **33 188 B** | 289 016 B |
+| 9 | 331 888 B | **30 143 B** | 286 666 B |
+| 12 | 427 099 B | 31 444 B | 287 344 B |
+
+Koszt krańcowy jest **30–35 KB**, czyli **ok. jednej dziewiątej** rozmiaru pliku
+w katalogu roboczym: git pakuje zlibem i deltuje logi tego samego joba, a te są dla
+delty materiałem niemal idealnym. Sześć pierwszych daje 233 543 B — zgodne z 234 858 B,
+które ten plik podawał od 6.D152; rozmiar packa nie jest powtarzalny co do bajtu.
+
+**Powodem jest LICZBA przebiegów.** Runner wykonał 25 (11.09), 29 (12.09) i 31 (13.09)
+przebiegów `python-tests.yml` z PR-ów; „zapisujemy każdy" to ok. **1 MB historii
+dziennie**, i to jest ta decyzja, której do tej pozycji nie było nigdzie zapisanej.

@@ -187,6 +187,34 @@ POMIARY_RUNNERA = tuple(w for w in POMIARY if w[3] == MASZYNA_RUNNER)
 #: tylko to, że próg jest jakąś liczbą dodatnią.
 MEASURED_MAX_WALL_S = max(sekundy for _d, sekundy, _m, _maszyna, _g in POMIARY_RUNNERA)
 
+#: CZEGO TA LICZBA NIE OBEJMUJE — dopisane 14.09.2026 (6.D205), bo bez tego zdania
+#: czyta się ją jako „najwyższa ściana, jaką runner zmierzył", a jest to najwyższa
+#: ściana, jaką ktoś ZAPISAŁ tutaj.
+#:
+#: Dwa przebiegi runnera z 13.09.2026 leżą WYŻEJ i wpisu nie mają: PR #580 — 130,046 s
+#: (job 103685939363) i PR #581 — 130,982 s (job 103717054000, maszyna
+#: `metro-wsl-DOM-NEW-03`, której ta lista nie zna). Oba spełniają regułę doboru
+#: z `tests/data/ci-logs/README.md` i oba powinny tu być.
+#:
+#: NIE WESZŁY, bo wejście wywraca cztery asercje naraz — ZMIERZONE, nie wywnioskowane,
+#: przez wstawienie obu wpisów razem z logami do osobnego drzewa roboczego: 28/32,
+#: czerwone `test_budget_stays_above_the_measured_maximum_with_a_real_margin`
+#: (MARGIN spada 1,2886 -> 1,1452, poniżej progu 1,2),
+#: `test_jeden_prog_dla_obu_maszyn_przestalby_widziec_regres_na_runnerze`,
+#: `test_runner_liczy_rownolegle_a_kontener_szeregowo` (stosunek 1,453 poniżej
+#: dotychczasowego minimum 1,599) i `test_slowo_runner_stoi_nad_DWIEMA_maszynami_ale_ich_NIE_rozdziela`
+#: (trzecia maszyna przy zapadce na dwóch).
+#:
+#: Każda z tych czterech naprawa jest zmianą ZAPASU albo rozstrzygnięcia 6.D149,
+#: czyli tym, co pole „Poza zakresem" 6.D205 wyklucza. Wiersz stoi więc w sekcji
+#: „Czego agent nie ruszy bez decyzji" w `docs/TASKS.md`.
+#:
+#: Co ta lista wie NIEZALEŻNIE od tego: `POMIARY_CPU_BIEZACEGO_DRZEWA` niżej niesie
+#: ścianę 164,734 s z runnera, czyli powyżej `SUITE_RUNTIME_BUDGET_S`, i liczy to
+#: `test_prog_cpu_NIE_zapalilby_sie_na_zadnym_zmierzonym_przebiegu`. Maksimum ściany
+#: nie jest więc w projekcie NIEZNANE — jest rozdzielone na dwie listy o różnych
+#: warunkach wejścia: ta wymaga zacommitowanego logu, tamta bierze artefakt.
+
 #: Próg bramki CI. Czytany z TEGO pliku przez krok „Run tool tests" w
 #: `python-tests.yml` (`python3 -c "... import test_suite_runtime_budget ..."`) —
 #: jedno miejsce prawdy, nie liczba wpisana w YAML z ręki.
@@ -945,6 +973,81 @@ PRZEBIEGOW_RUNNERA_11_09 = 6
 #: z kazdym przebiegiem CI, ktory ktos zapisze, a zero znaczy zepsuty czytnik listy —
 #: i to jest jedyna rzecz, przed ktora ta liczba ma bronic (6.D27).
 MIN_WPISOW_RUNNERA = 6
+
+#: Koszt KRANCOWY jednego logu joba w historii repozytorium, w bajtach — 6.D205.
+#:
+#: Zmierzone 14.09.2026: dwanascie pustych repozytoriow, logi dokladane po jednym,
+#: `git gc --aggressive --prune=now` po kazdym, mierzony katalog `objects/pack`.
+#: Pierwszy log 73 374 B, kazdy nastepny 30 143 - 35 014 B; osmy 33 188, dziewiaty
+#: 30 143. Ponizej stoi NAJNIZSZY zmierzony, zeby liczba byla podloga tego, co
+#: wychodzi z pomiaru, a nie jego srodkiem.
+#:
+#: **Wartosc jest tu po to, zeby uzasadnienie reguly doboru nie zestarzalo sie w ciszy.**
+#: Rozmiar pliku w katalogu roboczym to ok. 287 000 B, czyli DZIEWIEC RAZY wiecej;
+#: kto siegnie po te druga liczbe, policzy koszt historii dziewieciokrotnie za wysoko
+#: i odrzuci regule z powodu, ktorego nie ma. Tak wlasnie liczyl ten katalog do 6.D152,
+#: gdy trzymal logi spakowane gzipem.
+KOSZT_KRANCOWY_LOGU_B = 30143
+
+#: Zdania reguly doboru, ktore ta bramka CYTUJE z `tests/data/ci-logs/README.md`.
+#: Reguly nie da sie sprawdzic wykonaniem — mowi o przebiegach, ktorych w drzewie
+#: NIE MA, a zestaw do GitHuba nie siega. Cytat jest wiec tym, na co pozwala pole
+#: „Weryfikacja" 6.D205: „albo bramka, albo zdanie, ktore bramka cytuje".
+ZDANIA_REGULY_DOBORU = (
+    "Obowiązkowo wchodzi przebieg runnera, który ustanawia CO NAJMNIEJ JEDNO z trzech",
+    "nowe maksimum ściany",
+    "maszynę, której lista jeszcze nie zna",
+    "nowy skrajny stosunek CPU/ściana",
+    "Każdy inny przebieg wolno dopisać i żadnego nie trzeba",
+)
+
+
+def test_regula_doboru_przebiegow_stoi_w_drzewie_RAZEM_ze_swoimi_liczbami():
+    """Pole „Wyjscie" 6.D205 zada reguly ZAPISANEJ, a nie rozstrzygnietej w raporcie.
+
+    Bramka sprawdza trzy rzeczy, i kazda z nich psuje sie inaczej:
+
+    1. **zdania reguly stoja** — bez tego regula znika przy pierwszym przepisaniu
+       README i nikt tego nie zobaczy;
+    2. **nazwy testow, na ktore regula sie powoluje, ISTNIEJA w tym module** — regula
+       uzasadnia dwa ze swoich trzech punktow konkretnymi bramkami, wiec po zmianie
+       nazwy wskazywalaby na nic;
+    3. **liczba kosztu w README zgadza sie z `KOSZT_KRANCOWY_LOGU_B`** — czyli
+       uzasadnienie reguly i stala mowia to samo, a nie dwie rzeczy (6.D26).
+    """
+    sciezka = os.path.join(ROOT, "tests", "data", "ci-logs", "README.md")
+    with open(sciezka, encoding="utf-8") as uchwyt:
+        readme = uchwyt.read()
+
+    for zdanie in ZDANIA_REGULY_DOBORU:
+        assert zdanie in readme, (
+            "regula doboru przebiegow nie stoi juz w `tests/data/ci-logs/README.md` — "
+            "brakuje zdania %r; lista wpisow runnera rosnie wtedy tak, jak rosla "
+            "do 6.D205, czyli przypadkiem" % zdanie)
+
+    wlasny = globals()
+    for nazwa in ("test_slowo_runner_stoi_nad_DWIEMA_maszynami_ale_ich_NIE_rozdziela",
+                  "test_runner_liczy_rownolegle_a_kontener_szeregowo"):
+        assert nazwa in readme, (
+            "regula przestala powolywac sie na `%s` — punkt, ktory ta bramka "
+            "uzasadniala, stoi wtedy bez powodu" % nazwa)
+        assert callable(wlasny.get(nazwa)), (
+            "regula w README powoluje sie na `%s`, a takiej bramki w tym module NIE MA "
+            "— cytat wskazuje na nic" % nazwa)
+
+    # Separator tysiecy czytany JAKIMKOLWIEK odstepem, bo README pisze „30 143",
+    # a spacja nierozdzielajaca i zwykla wygladaja tak samo i roznia sie bajtem.
+    cyfry = str(KOSZT_KRANCOWY_LOGU_B)
+    wzorzec = re.compile(cyfry[:-3] + r"\s*" + cyfry[-3:])
+    assert wzorzec.search(readme), (
+        "README nie podaje juz kosztu krancowego %s B, a `KOSZT_KRANCOWY_LOGU_B` "
+        "stoi na tej liczbie — uzasadnienie reguly i stala rozjechaly sie" % cyfry)
+
+    # KONTROLA PRZYRZADU: bez niej wszystkie asercje wyzej przechodza tak samo dobrze
+    # na pliku PUSTYM, jak na pelnym (6.D27).
+    assert len(readme) > 3000, (
+        "README logow ma %d znakow — czytnik dostal cos innego niz ten plik"
+        % len(readme))
 
 
 def test_liczba_przebiegow_runnera_z_11_09_jest_FAKTEM_HISTORYCZNYM():
