@@ -172,6 +172,40 @@ public sealed partial class FirstRun : Node3D
     private string _assetDirectory = string.Empty;
     private StandardMaterial3D? _tunnelMaterial;
     private TrainView _train = null!;
+
+    /// <summary>
+    /// Widoki składów po NAZWIE — MB-07. Skład zerowy jest tu pod
+    /// <see cref="SignalledTrainId"/> i jest TYM SAMYM obiektem co <see cref="_train"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Dlaczego mapa, a nie lista równoległa do <c>LineCore.Trains</c>.</b>
+    /// Bo równoległość dwóch list jest niesprawdzalna: rozjeżdżają się po cichu przy
+    /// pierwszym składzie, który wejdzie albo zejdzie w innej kolejności, a skutkiem
+    /// jest widok jadący po cudzym kilometrażu — czyli obraz, który wygląda poprawnie
+    /// i nie zgadza się z niczym. Klucz po nazwie rozjechać się nie może: albo widok
+    /// dla tej nazwy jest, albo go nie ma.</para>
+    /// </remarks>
+    private readonly Dictionary<string, TrainView> _trainViews = new(StringComparer.Ordinal);
+
+    /// <summary>Indeks składu OBSERWOWANEGO w <c>LineCore.Trains</c> — MB-07.</summary>
+    private int _observed;
+
+    private bool _trainNextKeyHeld;
+    private bool _trainTakeKeyHeld;
+    private bool _trainReleaseKeyHeld;
+
+    /// <summary>Widok składu obserwowanego, albo <see cref="_train"/> poza trybem linii.</summary>
+    private TrainView ObservedTrainView()
+    {
+        if (_lineCore is null || _lineCore.Trains.Count == 0)
+        {
+            return _train;
+        }
+
+        var id = _lineCore.Trains[Math.Clamp(_observed, 0, _lineCore.Trains.Count - 1)].Id;
+        return _trainViews.TryGetValue(id, out var widok) ? widok : _train;
+    }
+
     private CabView _cabView = null!;
     private StationView _platforms = null!;
     private Camera3D _cab = null!;
@@ -241,6 +275,20 @@ public sealed partial class FirstRun : Node3D
     /// domysłach — <c>Sim.Runner</c> używa tego samego napisu.
     /// </summary>
     private const string SignalledTrainId = "KABINA";
+
+    /// <summary>
+    /// Nazwa składu o indeksie <paramref name="index"/> — MB-07.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Skład zerowy zachowuje nazwę <c>KABINA</c> i to nie jest sentyment.</b>
+    /// Ta nazwa stoi w wierszach telemetrii, w pliku zatrzymań i w <c>Sim.Runner</c>,
+    /// a bramka CI porównuje obie strony PO NAZWIE. Przemianowanie go na „SKLAD-01"
+    /// rozjechałoby scenę z rdzeniem w każdym przebiegu, w którym składów jest jeden —
+    /// czyli w każdym dzisiejszym.</para>
+    /// </remarks>
+    private static string TrainIdAt(int index) =>
+        index == 0 ? SignalledTrainId : string.Create(
+            CultureInfo.InvariantCulture, $"SKLAD-{index + 1:00}");
 
     /// <summary>
     /// Perony się nie wczytały. Odmowa, a nie cichy przejazd bez nich — i to jest
@@ -793,7 +841,13 @@ public sealed partial class FirstRun : Node3D
                     return;
                 }
 
-                _lineCore.Add(SignalledTrainId, 0L);
+                // MB-07: N składów, każdy o własnym kroku wyjazdu. Przy `--trains=1`
+                // (domyślnie) pętla wykonuje się RAZ i robi dokładnie to, co robił
+                // pojedynczy `Add` przed tą pozycją — łącznie z nazwą i krokiem zero.
+                for (var i = 0; i < _plan!.Trains; i++)
+                {
+                    _lineCore.Add(TrainIdAt(i), i * _plan.HeadwaySteps);
+                }
                 GD.Print(string.Create(
                     CultureInfo.InvariantCulture,
                     $"[SYGNALIZACJA] {signalling.Blocks.Count} bloków, {signalling.Routes.Count} tras, "
@@ -1120,6 +1174,29 @@ public sealed partial class FirstRun : Node3D
             return;
         }
 
+        // MB-07: widoki składów po nazwie. Skład zerowy to węzeł `Train` z `.tscn`,
+        // kolejne powstają obok niego i BIORĄ JEGO SIATKI — patrz `LoadSharedFrom`.
+        // Przy `--trains=1` pętla nie wykonuje się ani razu i scena jest ta sama.
+        _trainViews[TrainIdAt(0)] = _train;
+        for (var i = 1; i < _plan!.Trains; i++)
+        {
+            var widok = new TrainView { Name = $"Train{i + 1}" };
+            AddChild(widok);
+            var wspolne = widok.LoadSharedFrom(_train, trainMaterial);
+            if (wspolne <= 0)
+            {
+                // Ta sama odmowa co przy składzie zerowym i z tego samego powodu:
+                // skład bez brył jest niewidoczny i nieruchomy, a przebieg kończy się
+                // kodem 0. Cisza tutaj byłaby usterką z Issue #107, tylko N-tą kopią.
+                Abort(ExitTrainMissing,
+                    $"[SKŁAD] {TrainIdAt(i)} nie dostał ani jednej bryły ze składu "
+                    + "zerowego — scena bez składu nie jest przejazdem");
+                return;
+            }
+
+            _trainViews[TrainIdAt(i)] = widok;
+        }
+
         // Perony wchodzą PRZED wypisaniem opisu sceny, żeby log przejazdu mówił
         // o tym, co scena naprawdę trzyma, a nie o połowie tego.
         var slabs = _platforms.Load(platformsPath, platformMaterial);
@@ -1372,8 +1449,40 @@ public sealed partial class FirstRun : Node3D
             }
 
             var przed = _state.SpeedMps;
+
+            // DŹWIGNIA MASZYNISTY WCHODZI TUTAJ, PRZED krokiem linii — MB-07.
+            //
+            // `_notch.Advance` posuwa nastawnik DOKŁADNIE RAZ na krok symulacji, tak samo
+            // jak w trybie ręcznym i z tego samego powodu: nastawnik jest dźwignią, więc
+            // jego położenie zależy od liczby KROKÓW, a nie od tego, ile klatek zdążyło
+            // się narysować. Wołanie go raz na klatkę dałoby sterowanie szybsze na
+            // szybszej maszynie.
+            //
+            // Klawisze biorą się z `_keys`, a nie z `_replay`: odtworzenie prowadzi
+            // JEDEN skład kabiną i `LineCore` go nie zna (MB-06, pole „Poza zakresem"),
+            // więc w tej gałęzi `_replay` jest zawsze nullem i sięganie po niego
+            // udawałoby obsługę, której nie ma.
+            //
+            // `Drive` jest ODMOWĄ na składzie prowadzonym przez autopilota (MB-06), więc
+            // pytanie o właściciela nie jest tu ostrożnością — bez niego każdy krok
+            // rzucałby wyjątkiem w środku `_Process`.
+            var obserwowany = _lineCore.Trains[
+                Math.Clamp(_observed, 0, _lineCore.Trains.Count - 1)];
+            if (obserwowany.Owner == ControlOwner.Driver)
+            {
+                _lineCore.Drive(obserwowany.Id, _notch.Advance(_keys, _step));
+            }
+
             _lineCore.Step((id, point) => _command = point.Command);
-            _line = _lineCore.Trains[0].Drive;
+
+            // MB-07: `_line` to prowadzenie składu OBSERWOWANEGO, a nie zerowego.
+            // Jednym przypisaniem przechodzą na nowy skład: obie kamery, okno
+            // streamingu, wiersz pozycji i wiersz stacji — bo wszystkie wiszą na
+            // `ChainageM`, czyli na `_line?.ChainageM`. To jest cała treść wyboru
+            // składu; gdyby każda z tych rzeczy czytała skład osobno, przełączenie
+            // byłoby czterema poprawkami, z których każda mogłaby zostać w tyle.
+            _observed = Math.Clamp(_observed, 0, _lineCore.Trains.Count - 1);
+            _line = _lineCore.Trains[_observed].Drive;
             if (_line is null)
             {
                 // Skład jeszcze nie wjechał na plan (wejście zajęte). Krok się odbył,
@@ -1639,7 +1748,20 @@ public sealed partial class FirstRun : Node3D
         // po solidify obie powierzchnie, więc bez ukrycia składu widać z bliska jego
         // wnętrze i nic poza tym. Kabina jako model wnętrza nie istnieje (T-220 jej
         // świadomie nie robi), więc jedyne uczciwe rozwiązanie to schować bryłę.
-        _train.Visible = view != ViewKind.Cab;
+        // MB-07: chowa się widok składu OBSERWOWANEGO, bo to w nim siedzi kamera.
+        // Chowanie `_train` na sztywno ukrywałoby skład zerowy także wtedy, gdy gracz
+        // patrzy z kabiny składu drugiego — czyli znikałby skład, na który się NIE
+        // patrzy, a ten, w którym siedzi kamera, zasłaniałby jej cały kadr.
+        var obserwowany = ObservedTrainView();
+        foreach (var widok in _trainViews.Values)
+        {
+            widok.Visible = widok == obserwowany ? view != ViewKind.Cab : true;
+        }
+
+        if (_trainViews.Count == 0)
+        {
+            _train.Visible = view != ViewKind.Cab;
+        }
 
         // ...a wnętrze DOKŁADNIE ODWROTNIE, tym SAMYM warunkiem (MB-05). Drugi,
         // niezależny przełącznik dałby stan, w którym nie widać ani skorupy, ani
@@ -1684,6 +1806,33 @@ public sealed partial class FirstRun : Node3D
         // pochodzi teraz zawsze z wczytanej geometrii.
         var trainLength = _train.LengthM;
         _train.PlaceAt(_sceneAxis, chainage);
+
+        // MB-07: POZOSTAŁE składy stoją tam, gdzie stoją W RDZENIU, a nie tam, gdzie
+        // patrzy kamera. Pętla jest pusta przy `--trains=1`.
+        //
+        // Widok składu, który jeszcze nie wjechał na plan (`Drive is null`), jest
+        // UKRYWANY, a nie zostawiany w origo. Zostawiony stałby na kilometrażu zero
+        // razem z peronem stacji zerowej i wyglądałby jak skład zaparkowany na stacji —
+        // czyli jak stan gry, a nie jak jego brak.
+        if (_lineCore is not null && _trainViews.Count > 1)
+        {
+            foreach (var skladRdzenia in _lineCore.Trains)
+            {
+                if (!_trainViews.TryGetValue(skladRdzenia.Id, out var widok) || widok == _train)
+                {
+                    continue;
+                }
+
+                var prowadzenie = skladRdzenia.Drive;
+                widok.Visible = prowadzenie is not null;
+                if (prowadzenie is not null)
+                {
+                    widok.PlaceAt(
+                        _sceneAxis,
+                        Math.Min(prowadzenie.ChainageM, _axis.LengthM));
+                }
+            }
+        }
 
         // Kabina jedzie po OGONIE SKORUPY, a nie po własnej rozpiętości, i to jest
         // poprawka usterki znalezionej RACHUNKIEM przy MB-05, nie oglądaniem klatki:
@@ -1815,6 +1964,68 @@ public sealed partial class FirstRun : Node3D
         }
 
         _resetKeyHeld = resetKey;
+
+        HandleTrainKeys();
+    }
+
+    /// <summary>
+    /// Wybór obserwowanego składu i przejęcie sterowania — MB-07.
+    ///
+    /// <para><b>Wszystkie trzy klawisze działają na ZBOCZU, nie przy trzymaniu</b>, tak
+    /// samo jak <c>C</c> i <c>R</c>. Przy trzymaniu <c>N</c> przełączałoby skład co
+    /// klatkę, czyli kilkadziesiąt razy na sekundę, a <c>T</c> i <c>O</c> wołałyby rdzeń
+    /// bez potrzeby. Nastawnik jazdy jest dźwignią i działa inaczej — ale te trzy są
+    /// przyciskami i to jest różnica w obsłudze, nie niekonsekwencja.</para>
+    ///
+    /// <para>Poza trybem <c>--line</c> metoda nie robi NIC i nie jest to zaniechanie:
+    /// bez <c>LineCore</c> nie ma ani czego przejmować, ani między czym przełączać,
+    /// a ciche przestawianie pola, którego nikt nie czyta, wygląda jak działające
+    /// sterowanie.</para>
+    /// </summary>
+    private void HandleTrainKeys()
+    {
+        var nextKey = Godot.Input.IsActionPressed(DriverActions.TrainNext);
+        var takeKey = Godot.Input.IsActionPressed(DriverActions.TrainTake);
+        var releaseKey = Godot.Input.IsActionPressed(DriverActions.TrainRelease);
+
+        if (_lineCore is null || _lineCore.Trains.Count == 0)
+        {
+            _trainNextKeyHeld = nextKey;
+            _trainTakeKeyHeld = takeKey;
+            _trainReleaseKeyHeld = releaseKey;
+            return;
+        }
+
+        if (nextKey && !_trainNextKeyHeld)
+        {
+            _observed = (_observed + 1) % _lineCore.Trains.Count;
+            ApplyView();
+        }
+
+        var observed = _lineCore.Trains[Math.Clamp(_observed, 0, _lineCore.Trains.Count - 1)];
+
+        if (takeKey && !_trainTakeKeyHeld && observed.Owner == ControlOwner.Autopilot)
+        {
+            // `TakeControl` RZUCA, gdy skład nie wszedł jeszcze na plan (MB-06), i ten
+            // wyjątek nie ma prawa wyjść z `_Process`: wywróciłby klatkę, a nie powiedział
+            // graczowi, czemu nic się nie stało. Wiersz `hud.owner.not-on-line` mówi to
+            // za niego — i mówi to z tego samego odczytu, który tu odmawia.
+            if (observed.OnLine)
+            {
+                _lineCore.TakeControl(observed.Id);
+                ApplyView();
+            }
+        }
+
+        if (releaseKey && !_trainReleaseKeyHeld && observed.Owner == ControlOwner.Driver)
+        {
+            _lineCore.ReleaseControl(observed.Id);
+            ApplyView();
+        }
+
+        _trainNextKeyHeld = nextKey;
+        _trainTakeKeyHeld = takeKey;
+        _trainReleaseKeyHeld = releaseKey;
     }
 
     /// <summary>
@@ -1985,9 +2196,42 @@ public sealed partial class FirstRun : Node3D
     /// zachowanie zostaje, HUD ma to powiedzieć.</para>
     /// </summary>
     /// <returns>Opis sterowania albo pusty napis.</returns>
-    private string HelpLine() => _readsKeyboard
-        ? (_lineMode ? DriverActions.HelpWhenTheCoreDrives : DriverInput.Help)
-        : string.Empty;
+    /// <remarks>
+    /// <para><b>Wybór idzie po WŁAŚCICIELU sterowania, a nie po trybie</b> — MB-07,
+    /// 14.09.2026. Do tej pozycji `--line` znaczyło „rdzeń prowadzi" i jedno wynikało
+    /// z drugiego. Od MB-07 skład da się przejąć, a wtedy pięć klawiszy z listy
+    /// <c>DriverActions.TakenOverByTheCore</c> ZACZYNA działać. Wiersz zbudowany z tej
+    /// listy mówiłby w tym stanie nieprawdę — i byłaby to dokładnie ta usterka, dla
+    /// której ta lista powstała („bezgłośnie bezskuteczne", tylko w drugą stronę:
+    /// bezgłośnie SKUTECZNE).</para>
+    /// </remarks>
+    private string HelpLine()
+    {
+        if (!_readsKeyboard)
+        {
+            return string.Empty;
+        }
+
+        if (!_lineMode)
+        {
+            return DriverInput.Help;
+        }
+
+        return ObservedOwner() == ControlOwner.Driver
+            ? DriverActions.HelpWhenTheDriverHasTaken
+            : DriverActions.HelpWhenTheCoreDrives;
+    }
+
+    /// <summary>Właściciel sterowania składem OBSERWOWANYM; autopilot poza trybem linii.</summary>
+    private ControlOwner ObservedOwner()
+    {
+        if (_lineCore is null || _lineCore.Trains.Count == 0)
+        {
+            return ControlOwner.Autopilot;
+        }
+
+        return _lineCore.Trains[Math.Clamp(_observed, 0, _lineCore.Trains.Count - 1)].Owner;
+    }
 
     /// <summary>
     /// Wiersz HUD o sygnalizacji: prędkość dopuszczalna, autorytet jazdy, powód jego
@@ -2037,7 +2281,10 @@ public sealed partial class FirstRun : Node3D
             return SignallingHud.WithoutSignalling;
         }
 
-        var train = _lineCore.Trains[0];
+        // MB-07: wiersz mówi o składzie OBSERWOWANYM, a nie o zerowym. Gdyby został
+        // przy zerowym, po przełączeniu kamery HUD opisywałby bloki i autorytet
+        // składu, którego nie widać w kadrze — i wyglądałoby to na poprawny wiersz.
+        var train = _lineCore.Trains[Math.Clamp(_observed, 0, _lineCore.Trains.Count - 1)];
         if (train.Drive is null || train.Authority is not MovementAuthority authority)
         {
             return SignallingHud.NotOnPlanYet;
@@ -2356,6 +2603,30 @@ public sealed partial class FirstRun : Node3D
         foreach (var call in result.Calls)
         {
             GD.Print($"[STACJA] {call}");
+        }
+
+        // DRUGI WYPIS `[TUNEL]`, NA KOŃCU PRZEJAZDU — MB-07, 14.09.2026.
+        //
+        // Pierwszy stoi w `SetUpScene` i opisuje BUDOWĘ SCENY, a nie przejazd: jest
+        // wypisywany raz, zanim padnie pierwszy krok, więc dla całego przejazdu mówi
+        // `wczytań 2 zwolnień 0` — czyli stan okna startowego. Zmierzone na tym samym
+        // przejeździe sondą w kopii: naprawdę jest **44 wczytania i 43 zwolnienia**,
+        // maksimum **1 wczytanie i 1 zwolnienie na klatkę**, a szczyt rezydentnych to
+        // **4 z 12** chunków.
+        //
+        // Bez tego wiersza regresji streamingu NIE MA JAK ZOBACZYĆ, a MB-07 podwaja
+        // liczbę rzeczy, za którymi okno może pójść: pole „Czego NIE wolno zrobić bez
+        // pomiaru" tej pozycji wymienia przycięcia streamingu wprost. Wiersz różni się
+        // od pierwszego znacznikiem `koniec`, żeby dało się je rozróżnić w logu
+        // i w bramce — dwa wiersze o tej samej treści byłyby gorsze niż jeden.
+        if (_manifest is not null)
+        {
+            GD.Print(string.Create(
+                CultureInfo.InvariantCulture,
+                $"[TUNEL koniec] {_manifest.Id}: wczytań {_tunnel.Loaded} zwolnień "
+                + $"{_tunnel.Freed} przez cały przejazd, rezydentne na końcu "
+                + $"{_tunnel.LoadedChunks}/{_manifest.Chunks.Count} chunków, "
+                + $"{_tunnel.MeshNodes} siatek"));
         }
 
         WriteCalls(result);

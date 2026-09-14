@@ -117,35 +117,70 @@ public sealed class LineCoreTests
     // --- sprzężenie: drugi skład widzi pierwszy ------------------------------
 
     [TestMethod]
-    public void Drugi_sklad_zatrzymuje_sie_przed_blokiem_zajetym_przez_pierwszy()
+    public void Drugi_sklad_widzi_pierwszy_i_dojezdza_po_jego_zejsciu_z_planu()
     {
-        // Sprzężenie, dla którego cała ta klasa istnieje. Pierwszy skład dojeżdża do
-        // ostatniej stacji i tam zostaje — model nie zna zawracania. Drugi ma stanąć
-        // przed jego blokiem i tam zostać, a powodem ma być zajętość, nie koniec planu.
+        // Sprzężenie, dla którego cała ta klasa istnieje: drugi skład MA WIDZIEĆ
+        // pierwszy i stawać przed jego blokiem, a powodem ma być zajętość, nie koniec
+        // planu.
+        //
+        // **TEN TEST JEST PRZEPISANY, A NIE DOPISANY OBOK** (MB-07, 14.09.2026), razem
+        // z nazwą. Poprzednia wersja nazywała się
+        // `Drugi_sklad_zatrzymuje_sie_przed_blokiem_zajetym_przez_pierwszy` i żądała,
+        // żeby linia skończyła się na `step-budget`, bo „linia bez zawracania nie ma
+        // prawa zameldować, że wszystkie składy dojechały". Przypinała tym ZATOR:
+        // skład, który dojechał, zostawał na ostatnim peronie NA ZAWSZE, a drugi stał
+        // za nim w nieskończoność — zmierzone 400 000 kroków, czyli 55 minut symulacji,
+        // przy każdym odstępie tak samo. Decyzja właściciela z 14.09.2026: skład, który
+        // dojechał, SCHODZI Z PLANU (`LineTrain.LeftPlan`). Sprzężenie zostaje, znika
+        // wyłącznie jego wieczność.
+        //
+        // Test jest przez to MOCNIEJSZY, nie słabszy: pyta o jedno i o drugie — że drugi
+        // skład NAPRAWDĘ stanął za pierwszym (inaczej sprzężenia nie ma i test
+        // przechodziłby także na linii, na której składy się nie widzą) i że po zejściu
+        // pierwszego z planu dojechał (inaczej zator wrócił).
         var line = Line();
         line.Add("A", 0L);
         line.Add("B", 30L * FixedStep.SimulationHertz);
 
-        var reason = line.Run(20L * 60L * FixedStep.SimulationHertz);
-
-        Assert.AreEqual("step-budget", reason,
-            "linia bez zawracania nie ma prawa zameldować, że wszystkie składy dojechały");
         var leader = line.Trains[0];
         var follower = line.Trains[1];
 
-        Assert.IsTrue(leader.Finished, "pierwszy skład nie dojechał");
-        Assert.IsFalse(follower.Finished, "drugi skład dojechał przez zajęty peron końcowy");
+        var heldByLeader = false;
+        var budget = 20L * 60L * FixedStep.SimulationHertz;
+        while (!line.Finished && line.Steps < budget)
+        {
+            line.Step();
 
-        var authority = follower.Authority!.Value;
-        Assert.AreEqual(AuthorityLimit.OccupiedBlock, authority.Reason,
-            $"drugi skład stoi z powodu {authority.Reason}, a nie przez skład przed sobą");
-        Assert.AreEqual("A", line.Signalling.OccupantOf(authority.LimitBlockId),
-            "blok, który zatrzymał drugi skład, nie jest blokiem pierwszego");
-        Assert.IsTrue(follower.Drive!.ChainageM <= authority.EndChainageM,
-            $"czoło drugiego składu jest na {follower.Drive!.ChainageM:F3} m, " +
-            $"a autorytet kończy się na {authority.EndChainageM:F3} m");
-        Assert.AreEqual(0.0, follower.Drive!.State.SpeedMps, 0.0,
-            "drugi skład przed zajętym blokiem nadal jedzie");
+            if (follower.Drive is null || follower.Authority is not MovementAuthority auth
+                || auth.Reason != AuthorityLimit.OccupiedBlock)
+            {
+                continue;
+            }
+
+            // Zatrzymanie ma pochodzić OD SKŁADU PRZED SOBĄ, a nie od czegokolwiek, co
+            // akurat zajmuje blok — stąd pytanie o zajmującego PO NAZWIE.
+            if (!string.Equals("A", line.Signalling.OccupantOf(auth.LimitBlockId), StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            heldByLeader = true;
+            Assert.IsTrue(follower.Drive.ChainageM <= auth.EndChainageM,
+                $"czoło drugiego składu jest na {follower.Drive.ChainageM:F3} m, " +
+                $"a autorytet kończy się na {auth.EndChainageM:F3} m");
+        }
+
+        Assert.IsTrue(heldByLeader,
+            "drugi skład ANI RAZU nie został zatrzymany blokiem pierwszego — sprzężenia "
+            + "nie ma");
+        Assert.IsTrue(line.Finished,
+            $"linia nie skończyła się w {budget} krokach — skład, który dojechał, nie "
+            + "zszedł z planu i zator wrócił");
+        Assert.IsTrue(leader.Finished, "pierwszy skład nie dojechał");
+        Assert.IsTrue(leader.LeftPlan, "pierwszy skład dojechał, ale nie zszedł z planu");
+        Assert.IsTrue(follower.Finished,
+            "drugi skład NIE dojechał, choć pierwszy zszedł z planu — czyli peron "
+            + "końcowy nie został zwolniony");
     }
 
     [TestMethod]
@@ -467,40 +502,49 @@ public sealed class LineCoreTests
     }
 
     [TestMethod]
-    public void Na_prawdziwym_planie_drugi_sklad_nie_dojedzie_do_konca_bez_turnbacku()
+    public void Na_prawdziwym_planie_drugi_sklad_DOJEZDZA_bo_pierwszy_schodzi_z_planu()
     {
-        // To NIE jest test naprawy, to test PRZYPINAJĄCY znaną dziurę. Pierwszy skład
-        // kończy przejazd na ostatnim peronie i **nigdy z niego nie odjeżdża**, bo
-        // turnbacku w modelu nie ma (T-320, punkt „Zostaje": „bez turnbacku nie da się
-        // ..."). Ostatni blok peronowy zostaje więc zajęty na zawsze i drugi skład nie
-        // ma jak zaryglować ostatniej trasy.
+        // **TEN TEST JEST PRZEPISANY, A NIE USUNIĘTY** (MB-07, 14.09.2026) — dokładnie
+        // tak, jak żądała jego poprzednia wersja. Nazywał się
+        // `Na_prawdziwym_planie_drugi_sklad_nie_dojedzie_do_konca_bez_turnbacku`
+        // i mówił o sobie: „To NIE jest test naprawy, to test PRZYPINAJĄCY znaną dziurę
+        // […] Dzień, w którym turnback wejdzie, ten test ZAUWAŻY — i wtedy trzeba go
+        // przepisać, a nie usunąć." Dziura została naprawiona inaczej, niż tamten
+        // komentarz przewidywał: nie turnbackiem, tylko ZEJŚCIEM Z PLANU (decyzja
+        // właściciela z 14.09.2026, `LineTrain.LeftPlan`) — skutek dla tego testu jest
+        // jednak ten sam, bo ostatni peron przestaje być zajęty na zawsze.
         //
-        // Zmierzone przy budżecie 200 000 kroków: A robi 11 zatrzymań i staje na
-        // 6686,05 m, B robi 10 i staje na 5514,04 m, czyli za Schumanem. Dzień, w którym
-        // turnback wejdzie, ten test ZAUWAŻY — i wtedy trzeba go przepisać, a nie usunąć.
+        // Liczby STARE, dla porządku: A robiło 11 zatrzymań i stawało na 6686,05 m,
+        // B robiło 10 i stawało na 5514,04 m, czyli za Schumanem, przy budżecie
+        // 200 000 kroków i `line.Finished` fałszywym.
+        //
+        // Liczby NOWE, zmierzone 14.09.2026 na tym samym planie i tym samym odstępie:
+        // linia kończy się sama po 104 480 krokach, A schodzi z planu w kroku 89 959,
+        // OBA składy robią po 11 zatrzymań i oba stają na 6686,05 m.
         var line = RealLine();
         line.Add("A", 0L);
         line.Add("B", 30L * FixedStep.SimulationHertz);
-        for (var i = 0L; i < 200_000L; i++)
-        {
-            line.Step();
-        }
+        var reason = line.Run(200_000L);
 
         var a = line.Trains[0].Drive!.Result("x");
         var b = line.Trains[1].Drive!.Result("x");
 
+        Assert.AreEqual("arrived", reason,
+            $"linia skończyła się z powodu `{reason}` — jeżeli `step-budget`, to znaczy, "
+            + "że skład, który dojechał, znów zostaje na peronie i zator wrócił");
         Assert.AreEqual(11, a.Calls.Count, "pierwszy skład ma przejechać całą oś");
-        Assert.AreEqual(10, b.Calls.Count,
-            $"drugi skład zrobił {b.Calls.Count} zatrzymań — jeżeli 11, turnback wszedł "
-            + "i ten test trzeba przepisać");
-        Assert.IsFalse(line.Finished, "linia nie ma prawa być skończona, dopóki B stoi");
+        Assert.AreEqual(11, b.Calls.Count,
+            $"drugi skład zrobił {b.Calls.Count} zatrzymań zamiast 11 — nie dojechał "
+            + "do końca osi, więc peron końcowy nie został zwolniony");
+        Assert.IsTrue(line.Trains[0].LeftPlan,
+            "pierwszy skład dojechał, ale NIE zszedł z planu");
 
-        var terminus = line.Signalling.Plan.Blocks[^1];
+        // Peron końcowy trzyma na końcu DRUGI skład, a nie pierwszy — bo pierwszy już
+        // zjechał. To jest ta asercja, która odróżnia „zwolniony" od „nigdy niezajęty".
         var lastPlatform = line.Signalling.Plan.Blocks
             .Where(block => block.IsPlatform).Last();
-        Assert.AreEqual("A", line.Signalling.OccupantOf(lastPlatform.Id),
-            $"ostatni peron {lastPlatform.Id} nie jest zajęty przez A, więc blokada ma inny powód");
-        Assert.IsTrue(terminus.EndM > 0.0);
+        Assert.AreEqual("B", line.Signalling.OccupantOf(lastPlatform.Id),
+            $"ostatni peron {lastPlatform.Id} nie jest zajęty przez B");
     }
 
     // --- turnback ------------------------------------------------------------
@@ -572,28 +616,32 @@ public sealed class LineCoreTests
     }
 
     [TestMethod]
-    public void Po_zakleszczeniu_odmowy_rosna_dokladnie_w_tempie_odstepu()
+    public void Gdy_sklad_stoi_za_zajetym_blokiem_odmowy_rosna_dokladnie_w_tempie_odstepu()
     {
-        // LICZBA ODMÓW NIE JEST FAKTEM O SIECI — TEMPO JEST.
+        // LICZBA ODMÓW NIE JEST FAKTEM O SIECI — TEMPO JEST. Ten akapit zostaje
+        // w całości, bo jego powód się nie zmienił: do 05.09.2026 trzy miejsca
+        // w repozytorium podawały trzy różne „zmierzone" liczby odmów dla tego samego
+        // zdania „dwa składy na pakiecie A" (3050, 1118, 158). Żadna nie była błędem
+        // pomiaru — to były trzy różne budżety pętli.
         //
-        // Do 05.09.2026 trzy miejsca w repozytorium podawały trzy różne „zmierzone"
-        // liczby odmów dla tego samego zdania „dwa składy na pakiecie A": dokumentacja
-        // `RouteDispatcher` 3050, komentarz przy teście odstępu 1118, komentarz przy
-        // teście dławika 158. Żadna nie była błędem pomiaru — to były trzy różne
-        // budżety pętli.
+        // **TEN TEST JEST PRZEPISANY, A NIE DOPISANY OBOK** (MB-07, 14.09.2026), razem
+        // z nazwą. Nazywał się `Po_zakleszczeniu_odmowy_rosna_dokladnie_w_tempie_odstepu`
+        // i utrzymywał stan pomiarowy ZAKLESZCZENIEM: „model nie zna zawracania, więc
+        // drugi skład staje przed zajętym peronem końcowym i pyta o trasę
+        // w nieskończoność". Zakleszczenia już nie ma — skład, który dojechał, schodzi
+        // z planu (decyzja właściciela z 14.09.2026) — więc okno, w którym drugi skład
+        // jest CIĄGLE odmawiany, jest dziś SKOŃCZONE i trzeba je podać, a nie zakładać,
+        // że trwa wiecznie. Mierzona własność jest ta sama: PRZYROST odmów w oknie,
+        // w którym skład stoi za zajętym blokiem, wynosi dokładnie tyle, ile mieści się
+        // w nim odstępów żądań.
         //
-        // Powód jest w modelu, nie w liczeniu: model nie zna zawracania, więc drugi
-        // skład staje przed zajętym peronem końcowym i pyta o trasę w nieskończoność.
-        // Suma odmów rośnie tak długo, jak długo ktoś kręci zegarem — zmierzone przy
-        // odstępie wyjazdu 30 s: 155 odmów po 60 000 krokach, 451 po 120 000, 951 po
-        // 180 000, 2451 po 360 000.
-        //
-        // Sprawdzalną własnością jest PRZYROST: w zakleszczeniu wynosi dokładnie tyle,
-        // ile mieści się odstępów w upływie czasu. Ten test mierzy różnicę między dwoma
-        // budżetami, więc nie zależy od tego, kiedy zakleszczenie nastąpiło — a każda
-        // zmiana odstępu żądań rozjeżdża go natychmiast.
-        const long Wczesniej = 180_000L;
-        const long Pozniej = 360_000L;
+        // Okno ZMIERZONE 14.09.2026 na `RealLine()` przy odstępie wyjazdu 30 s: między
+        // krokiem 4399 a 14599 odmowa pada co DOKŁADNIE `DefaultRequestIntervalSteps`
+        // bez ani jednej przerwy — 10 200 kroków, czyli 85 odstępów. Poza tym oknem
+        // przyrost jest nieregularny, bo drugi skład raz stoi, a raz jedzie; dlatego
+        // okno jest wpisane, a nie dobrane „jakieś duże".
+        const long Wczesniej = 4_399L;
+        const long Pozniej = 14_599L;
 
         long OdmowyPo(long budzet)
         {
@@ -605,8 +653,29 @@ public sealed class LineCoreTests
                 line.Step();
             }
 
-            Assert.IsFalse(line.Finished,
-                "linia się skończyła, więc nie ma zakleszczenia i ten test mierzy co innego");
+            Assert.AreEqual(budzet, line.Steps,
+                "linia skończyła się przed końcem okna pomiarowego, więc ten test mierzy "
+                + "co innego, niż mówi");
+            var follower = line.Trains[1];
+            Assert.IsNotNull(follower.Drive, "drugi skład nie wyjechał w oknie pomiarowym");
+
+            // **Powody są DWA i to jest zmierzone, a nie przezorność.** Pierwsza wersja
+            // tego strażnika żądała `OccupiedBlock` i padła na kroku 14 599, bo stoi tam
+            // `BlockNotReserved`. Jedno i drugie znaczy „zatrzymany przez sygnalizację":
+            // blok przed składem jest zajęty ALBO trasa przez niego nie jest zaryglowana,
+            // a odmowy nastawni biorą się dokładnie z tej drugiej sytuacji. Wpisanie
+            // samego `OccupiedBlock` opisywałoby więc inne okno niż to, które mierzymy.
+            var reason = follower.Authority!.Value.Reason;
+            Assert.IsTrue(
+                reason is AuthorityLimit.OccupiedBlock or AuthorityLimit.BlockNotReserved,
+                $"w kroku {budzet} drugi skład stoi z powodu {reason}, a nie przez "
+                + "sygnalizację — okno pomiarowe przestało być oknem ciągłej odmowy");
+            // **Asercji „stoi z prędkością zero" tu NIE MA i to jest wynik pomiaru,
+            // a nie przeoczenie.** Dopisałem ją i padła: w kroku 4399 drugi skład jedzie
+            // **0,008539847973193317 m/s**, czyli pełznie 8,5 mm/s przed zamkniętym
+            // autorytetem. Tempo odmów nie zależy od tego, czy skład stoi co do bitu —
+            // zależy od tego, czy nastawnia odmawia — więc warunkiem okna jest POWÓD
+            // zatrzymania, a nie zero na prędkościomierzu.
             return line.Dispatcher.Refused;
         }
 
@@ -619,10 +688,8 @@ public sealed class LineCoreTests
         // DRUGA ASERCJA NIE JEST POWTÓRZENIEM PIERWSZEJ i bez niej test byłby słabszy,
         // niż wygląda. Pierwsza liczy `odstepow` z tej samej stałej, którą sprawdza, więc
         // przy zmianie odstępu OBIE STRONY przesuwają się razem i porównanie nadal
-        // wychodzi. Zmierzone kontrolą negatywną: po podwojeniu
-        // `DefaultRequestIntervalSteps` przyrost spada do 750, a pierwsza asercja tego
-        // nie widzi — zapala się dopiero ta.
-        Assert.AreEqual(1500L, przyrost, "zmierzone 05.09.2026: 1500 odmów na 180 000 kroków");
+        // wychodzi — zapala się dopiero ta.
+        Assert.AreEqual(85L, przyrost, "zmierzone 14.09.2026: 85 odmów na 10 200 kroków");
     }
 
     [TestMethod]

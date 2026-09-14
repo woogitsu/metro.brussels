@@ -341,6 +341,62 @@ public sealed partial class TrainView : Node3D
     }
 
     /// <summary>
+    /// Drugi i każdy następny skład: te same SIATKI, własne węzły. Zwraca liczbę brył.
+    ///
+    /// <para><b>Dlaczego nie <see cref="Load"/> drugi raz i dlaczego nie
+    /// <c>Duplicate()</c> — obie odpowiedzi są POMIAREM, nie ostrożnością</b>
+    /// (14.09.2026, MB-07).</para>
+    ///
+    /// <para><c>GlbLoader.Load</c> buduje scenę przez <c>GltfDocument.AppendFromFile</c>
+    /// za każdym razem od nowa, więc dwa wywołania <b>nie współdzielą ani jednego
+    /// zasobu</b>: zmierzone „wspólnych zasobów <c>Mesh</c> 0 z 11", drugi skład
+    /// kosztuje wtedy <b>666 252 B</b>. Ta metoda kosztuje <b>35 752 B</b>, czyli
+    /// <b>18,6× mniej</b> — bo bierze <c>Mesh</c> ze składu źródłowego zamiast czytać
+    /// plik.</para>
+    ///
+    /// <para><c>Duplicate()</c> byłoby jeszcze krótsze i jest PUŁAPKĄ: kopiuje
+    /// właściwości Godota, a nie pola C#. Lista <c>_bodies</c> zostaje w duplikacie
+    /// <b>pusta</b>, więc <see cref="PlaceAt"/> nie ustawia niczego, a
+    /// <see cref="LengthM"/> jest zerem — drugi skład byłby niewidoczny i nieruchomy
+    /// w origo, a kabina pojechałaby po <c>czoło − 0</c>. Zmierzone: duplikat ma
+    /// <c>BodyCount=0</c> i <c>LengthM=0.000</c> przy 11 węzłach siatek w scenie.
+    /// Jest to dokładnie ten rodzaj usterki, który przechodzi bramki — skrypt wykona
+    /// się bez błędu.</para>
+    ///
+    /// <para><b>Rozpiętości nie liczy drugi raz</b>: geometria jest ta sama, więc
+    /// <see cref="BodySpan"/>, <see cref="LengthM"/>, <see cref="WidthM"/>
+    /// i <see cref="RoofHeightM"/> są KOPIOWANE ze źródła. Drugi rachunek na tych
+    /// samych bryłach mógłby dać inną liczbę tylko przez pomyłkę.</para>
+    ///
+    /// <para>Materiał zostaje per-instancja (<c>MaterialOverride</c>), więc
+    /// współdzielenie <c>Mesh</c> nie zabiera możliwości pomalowania składów różnie.</para>
+    /// </summary>
+    public int LoadSharedFrom(TrainView source, StandardMaterial3D material)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        if (source._bodies.Count == 0)
+        {
+            // Odmowa, a nie ciche zero: skład zbudowany z pustego źródła wygląda
+            // w logu tak samo jak zbudowany poprawnie, a w kadrze go nie ma.
+            return 0;
+        }
+
+        foreach (var wzor in source._bodies)
+        {
+            var mesh = new MeshInstance3D { Mesh = ((MeshInstance3D)wzor.Node).Mesh };
+            AddChild(mesh);
+            _bodies.Add(new NodeBody(mesh, wzor.Span));
+        }
+
+        LengthM = source.LengthM;
+        WidthM = source.WidthM;
+        RoofHeightM = source.RoofHeightM;
+
+        GlbLoader.ApplyNeutralMaterial(this, material);
+        return _bodies.Count;
+    }
+
+    /// <summary>
     /// Ustawia wszystkie bryły dla zadanego chainage **czoła** składu.
     ///
     /// Ogon liczy się od czoła przez zmierzoną rozpiętość brył, a nie przez 94,0 m

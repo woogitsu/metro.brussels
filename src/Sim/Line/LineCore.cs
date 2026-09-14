@@ -116,7 +116,25 @@ public sealed class LineTrain
     public DriverCommand? DriverCommand { get; internal set; }
 
     /// <summary>Prawda, gdy skład jest na planie.</summary>
-    public bool OnLine => Drive is not null;
+    public bool OnLine => Drive is not null && !LeftPlan;
+
+    /// <summary>
+    /// Skład ZJECHAŁ Z PLANU po dojechaniu do ostatniej stacji — MB-07, 14.09.2026.
+    ///
+    /// <para><b>Czym to się różni od nawrotu.</b> Nawrót zwalnia bloki i wpuszcza
+    /// skład z powrotem na początek osi jako następny obieg; zjazd zwalnia bloki
+    /// i NIE wpuszcza go z powrotem. Jedno i drugie jest wypisaniem z planu; różni
+    /// je to, czy pojazd wraca.</para>
+    ///
+    /// <para><b>Dlaczego <c>Drive</c> ZOSTAJE, choć skład zjechał.</b> Bo
+    /// <see cref="Finished"/> czyta <c>Drive.Finished</c>, a
+    /// <see cref="LineCore.Finished"/> jest koniunkcją po składach. Wyzerowanie
+    /// <c>Drive</c> przy zjeździe cofnęłoby skład do stanu „czeka na wyjazd",
+    /// przez co linia NIGDY nie byłaby skończona, a pętla przebiegu kręciłaby się
+    /// bez końca — zmierzone na tej samej usterce od drugiej strony. Wynik przejazdu
+    /// też stoi w <c>Drive</c> i jest po zjeździe nadal potrzebny.</para>
+    /// </summary>
+    public bool LeftPlan { get; internal set; }
 
     /// <summary>
     /// Prawda, gdy skład dojechał do ostatniej stacji osi.
@@ -747,6 +765,13 @@ public sealed class LineCore
                 continue;
             }
 
+            if (train.LeftPlan)
+            {
+                // Skład zjechał z planu — nie ma dla kogo ryglować trasy, a nastawnia
+                // nie zna już tego identyfikatora.
+                continue;
+            }
+
             _dispatcher.Dispatch(_signalling, train.Id, train.Drive.ChainageM, Steps);
         }
 
@@ -755,6 +780,14 @@ public sealed class LineCore
         {
             if (train.Drive is null)
             {
+                continue;
+            }
+
+            if (train.LeftPlan)
+            {
+                // Jak wyżej: `Authority` woła `Require(trainId)`, a zjechanego składu
+                // w systemie blokowym już nie ma. Autorytet i decyzja ochrony zostają
+                // wyzerowane w chwili zjazdu i nie są liczone od nowa.
                 continue;
             }
 
@@ -822,8 +855,11 @@ public sealed class LineCore
         // 3. jazda i meldunek ruchu
         foreach (var train in _trains)
         {
-            if (train.Drive is null)
+            if (train.Drive is null || train.LeftPlan)
             {
+                // Skład zjechany z planu NIE jest krokowany i NIE melduje ruchu.
+                // `MoveTrain` woła `Require(trainId)`, więc meldunek po zjeździe
+                // byłby wyjątkiem w środku kroku linii, a nie cichym pominięciem.
                 continue;
             }
 
@@ -863,6 +899,49 @@ public sealed class LineCore
         // do autorytetów dopiero w następnym kroku — tak samo jak każda inna zmiana
         // zajętości. Wypisanie w fazie 1 dałoby skład, który znika, zanim ktokolwiek
         // zobaczył jego przyjazd.
+        //
+        // **BEZ NAWROTU FAZA TEŻ DZIAŁA i to jest poprawka z MB-07 (14.09.2026).**
+        // Ten akapit jest DOPISANY obok akapitu wyżej, a nie zamiast niego: opis
+        // nawrotu zostaje w całości i nic z niego nie znika.
+        //
+        // Do 14.09.2026 cała faza stała pod `if (_turnbackSteps > 0L)`, więc przy
+        // `turnbackSeconds: 0` — czyli tak, jak woła ją SCENA — skład, który dojechał,
+        // zostawał na ostatnim peronie NA ZAWSZE. Akapit wyżej opisuje dokładnie ten
+        // skutek („ostatni peron zostawał zajęty NA ZAWSZE… drugi skład stawał na
+        // 5514,04 m") i został napisany, gdy naprawiano to DLA NAWROTU. Przy zerowym
+        // nawrocie usterka została nietknięta i jest zmierzona ponownie, tą samą
+        // liczbą: KABINA kończy na 6686,05 m trzymając `S11` i `P12`, a SKLAD-02
+        // staje na **5514,01 m** z autorytetem 5514,35 m i powodem `OccupiedBlock`,
+        // i stoi tam przez 400 000 kroków, czyli 55 minut symulacji. Odstęp nie ma
+        // z tym nic wspólnego: 4200 i 37 200 kroków dają wynik CO DO CENTYMETRA ten sam.
+        //
+        // Decyzja właściciela z 14.09.2026: skład, który dojechał, SCHODZI Z PLANU.
+        // Bez nawrotu znaczy to „zjazd do zajezdni" — bloki wolne, pojazd nie wraca.
+        // `Drive` przy tym ZOSTAJE; dlaczego, stoi przy `LineTrain.LeftPlan`.
+        foreach (var train in _trains)
+        {
+            if (train.Drive is not { Finished: true } || train.LeftPlan)
+            {
+                continue;
+            }
+
+            if (train.FinishedAtStep is null)
+            {
+                train.FinishedAtStep = Steps;
+                continue;
+            }
+
+            if (_turnbackSteps > 0L)
+            {
+                continue;
+            }
+
+            _signalling.ReleaseTrain(train.Id);
+            train.LeftPlan = true;
+            train.Authority = null;
+            train.Protection = null;
+        }
+
         if (_turnbackSteps > 0L)
         {
             foreach (var train in _trains)

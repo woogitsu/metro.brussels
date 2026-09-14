@@ -57,11 +57,17 @@ public sealed record DriverBinding(
 /// Typ <c>Godot.Key</c> jest tu wyłącznie <b>stałą kompilacji</b> (<c>(int)Key.W</c>
 /// to w IL liczba 87), więc odczyt tabeli nie ładuje ani jednej klasy silnika.</para>
 ///
-/// <para><b>Czego tu nie ma.</b> Nowych poleceń sterujących — drzwi, przejęcia składu,
-/// osobnego stopnia awaryjnego. Tabela opisuje DOKŁADNIE to, co scena robiła przed tą
-/// zmianą, tylko przez <c>InputMap</c> zamiast po kodach klawiszy; hamulec awaryjny jest
-/// w niej dlatego, że istniał już wcześniej (<see cref="EmergencyBrake"/>), a nie
-/// dlatego, że tu powstaje.</para>
+/// <para><b>Czego tu nie ma.</b> Drzwi i osobnego stopnia awaryjnego. Tabela opisuje
+/// sterowanie, które scena naprawdę czyta; hamulec awaryjny jest w niej dlatego, że
+/// istniał już wcześniej (<see cref="EmergencyBrake"/>), a nie dlatego, że tu
+/// powstaje.</para>
+///
+/// <para><b>To zdanie jest PRZEPISANE, a nie dopisane obok</b> (MB-07, 14.09.2026).
+/// Do tej pozycji stało tu, że nie ma w tabeli „nowych poleceń sterujących — drzwi,
+/// PRZEJĘCIA SKŁADU, osobnego stopnia awaryjnego" i że tabela opisuje „DOKŁADNIE to,
+/// co scena robiła przed tą zmianą". Przejęcie składu jest w niej od MB-07 i oba
+/// człony tamtego zdania przestały być prawdziwe, więc nie zostają obok nowych
+/// wierszy jako zdanie, które czytający wziąłby za aktualne.</para>
 /// </summary>
 public static class DriverActions
 {
@@ -85,6 +91,15 @@ public static class DriverActions
 
     /// <summary>Wyjście ze sceny.</summary>
     public const string Quit = "run_quit";
+
+    /// <summary>Następny skład jako obserwowany — MB-07.</summary>
+    public const string TrainNext = "train_next";
+
+    /// <summary>Przejęcie sterowania obserwowanym składem — MB-07.</summary>
+    public const string TrainTake = "train_take";
+
+    /// <summary>Oddanie sterowania autopilotowi — MB-07.</summary>
+    public const string TrainRelease = "train_release";
 
     /// <summary>
     /// Rozdzielacz między pozycjami wiersza pomocy. Dwie spacje z każdej strony, bo
@@ -126,6 +141,35 @@ public static class DriverActions
         new DriverBinding(
             Quit, KeyNames.For(Key.Escape), UiText.Get("input.quit"),
             new[] { (int)Key.Escape }),
+
+        // MB-07. **Wszystkie trzy są JEDNOLITEROWE i to jest wybór, nie przypadek:**
+        // `DriverActionsTests.JednoliterowaNazwaKlawiszaZgadzaSieZJegoKodemFizycznym`
+        // przybija wtedy nazwę do kodu bez ani jednego wpisu w `KeyNames`, bo kod
+        // fizyczny litery jest jej kodem ASCII. `Tab` i `PgUp`/`PgDn` odpadły z tego
+        // powodu, a `Tab` dodatkowo koliduje z wbudowanym `ui_focus_next`.
+        new DriverBinding(
+            TrainNext, "N", UiText.Get("input.train-next"), new[] { (int)Key.N }),
+        new DriverBinding(
+            TrainTake, "T", UiText.Get("input.train-take"), new[] { (int)Key.T }),
+        new DriverBinding(
+            TrainRelease, "O", UiText.Get("input.train-release"), new[] { (int)Key.O }),
+    };
+
+    /// <summary>
+    /// Akcje, które mają sens WYŁĄCZNIE w przejeździe prowadzonym przez linię — MB-07.
+    ///
+    /// <para><b>Po co ta lista istnieje.</b> `N`, `T` i `O` wybierają skład i przejmują
+    /// nad nim sterowanie, a poza trybem <c>--line</c> nie ma ani składów do wybierania,
+    /// ani `LineCore`, który mógłby oddać sterowanie. Wypisanie ich w wierszu pomocy
+    /// przejazdu ręcznego byłoby obietnicą trzech klawiszy, które nic nie robią — czyli
+    /// DOKŁADNIE tą usterką, dla której powstało <see cref="TakenOverByTheCore"/>
+    /// (<c>reports/droga-do-grywalnosci.md</c> §5.4, „bezgłośnie bezskuteczne").
+    /// Tamta lista mówi „ten klawisz jest w tabeli, ale tu nie działa"; ta mówi „tego
+    /// klawisza tu w ogóle nie ma".</para>
+    /// </summary>
+    public static readonly IReadOnlyList<string> OnlyWithTheLine = new[]
+    {
+        TrainNext, TrainTake, TrainRelease,
     };
 
     /// <summary>
@@ -137,8 +181,31 @@ public static class DriverActions
     /// i do <c>project.godot</c> naraz albo nie przechodzi nigdzie — a poprzednia wersja
     /// tego opisu była osobną stałą, więc mogła (i musiała) rozjechać się cicho.</para>
     /// </summary>
+    /// <remarks>
+    /// <para><b>Pomija akcje z <see cref="OnlyWithTheLine"/></b> (MB-07): ten wiersz
+    /// opisuje przejazd RĘCZNY, w którym nie ma ani składów do wybierania, ani rdzenia,
+    /// od którego można coś przejąć.</para>
+    /// </remarks>
     public static string Help { get; } =
-        string.Join(HelpSeparator, All.Select(binding => $"{binding.KeyName} {binding.Meaning}"));
+        string.Join(
+            HelpSeparator,
+            All.Where(binding => !OnlyWithTheLine.Contains(binding.Action))
+                .Select(binding => $"{binding.KeyName} {binding.Meaning}"));
+
+    /// <summary>
+    /// Wiersz pomocy dla składu PRZEJĘTEGO przez gracza w trybie <c>--line</c> — MB-07.
+    ///
+    /// <para>Prowadzenie działa (gracz właśnie je przejął), więc wymienia te same
+    /// klawisze co <see cref="Help"/>, a do tego obsługę linii. Nie wymienia
+    /// <c>Reset</c>: przejazd linii resetu nie ma, a ta różnica jest właśnie tym,
+    /// czego <see cref="TakenOverByTheCore"/> pilnuje.</para>
+    /// </summary>
+    public static string HelpWhenTheDriverHasTaken { get; } = BuildDriverHasTakenHelp();
+
+    private static string BuildDriverHasTakenHelp() => string.Join(
+        HelpSeparator,
+        All.Where(binding => binding.Action != Reset)
+            .Select(binding => $"{binding.KeyName} {binding.Meaning}"));
 
     /// <summary>
     /// Akcje, które w przejeździe prowadzonym przez rdzeń (<c>--line</c>) NIE DZIAŁAJĄ,
@@ -159,6 +226,21 @@ public static class DriverActions
     /// — dopisanie klawisza wymaga wtedy rozstrzygnięcia, po której stronie stoi,
     /// zamiast cichego wpadnięcia do tej, która akurat jest domyślna.</para>
     /// </summary>
+    /// <remarks>
+    /// <para><b>Ta lista opisuje przejazd pod AUTOPILOTEM, a nie tryb <c>--line</c>
+    /// w całości — i to rozróżnienie jest nowe</b> (MB-07, 14.09.2026). Do tej pozycji
+    /// jedno i drugie znaczyło to samo, bo składu nie dało się przejąć. Od MB-07
+    /// <c>Power</c>, <c>Brake</c>, <c>Coast</c> i <c>Emergency</c> DZIAŁAJĄ, gdy gracz
+    /// przejmie skład klawiszem <c>T</c> — więc lista mówiłaby nieprawdę, gdyby wiersz
+    /// pomocy budowany z niej pokazywał się w OBU stanach. Nie pokazuje się:
+    /// <c>FirstRun.HelpLine</c> wybiera go po WŁAŚCICIELU sterowania, a nie po trybie.
+    /// Sama lista zostaje niezmieniona, bo zdanie, które niesie, jest nadal prawdziwe
+    /// dla stanu, który opisuje.</para>
+    ///
+    /// <para><c>TrainNext</c>, <c>TrainTake</c> i <c>TrainRelease</c> stoją po stronie
+    /// DZIAŁAJĄCEJ, bo działają właśnie wtedy, gdy prowadzi rdzeń — bez rdzenia nie ma
+    /// czego przejmować ani między czym przełączać.</para>
+    /// </remarks>
     public static readonly IReadOnlyList<string> TakenOverByTheCore = new[]
     {
         Power, Brake, Coast, Emergency, Reset,

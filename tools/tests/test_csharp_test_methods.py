@@ -347,8 +347,8 @@ ROZKLAD_POSTACI = {
         # nie drgnal przy MB-06, bo `ControlOwnerTests.cs` nie czyta zrodla
         # wyrazeniami regularnymi: pyta rdzen o zachowanie, a rdzen da sie zawolac
         # bez silnika.
-        "zwykly": 4075,
-        "interpolowany ($)": 685,
+        "zwykly": 4093,
+        "interpolowany ($)": 691,
         "werbatim (@)": 55,
         "surowy interpolowany ($$\"\"\")": 13,
         "surowy (\"\"\")": 8,
@@ -376,8 +376,12 @@ ROZKLAD_POSTACI = {
         # DRGNELO i to jest tresc: `ControlOwner.cs` jest typem bez ani jednego napisu.
         # 1299 -> 1300 i 467 -> 468 (14.09.2026, MB-06, poprawka dziury w ochronie):
         # komunikat odmowy `TakeControl` przed wjazdem na plan.
-        "zwykly": 1300,
-        "interpolowany ($)": 468,
+        # 1300 -> 1308 i 468 -> 473 (14.09.2026, MB-07): literały drugiego składu
+        # w `RunPlan` (nazwy argumentów, komunikaty odmowy zakresu) i w `FirstRun`
+        # (nazwy węzłów widoków, odmowa przy zerze brył widoku pochodnego) oraz
+        # w `LineCore` (nic nowego napisowego — stąd przyrost tylko po stronie gry).
+        "zwykly": 1323,
+        "interpolowany ($)": 478,
         "werbatim (@)": 0,
         "surowy interpolowany ($$\"\"\")": 1,
         "surowy (\"\"\")": 1,

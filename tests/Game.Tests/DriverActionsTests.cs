@@ -180,7 +180,10 @@ public sealed class DriverActionsTests
             checkedNames++;
         }
 
-        Assert.AreEqual(5, checkedNames, "zmieniła się liczba jednoliterowych klawiszy sterowania");
+        // 5 -> 8 (14.09.2026, MB-07): `N`, `T`, `O`. Wszystkie trzy są jednoliterowe
+        // WŁAŚNIE PO TO, żeby ta pętla przybiła ich nazwy do kodów bez ani jednego wpisu
+        // w `KeyNames` — kod fizyczny litery jest jej kodem ASCII.
+        Assert.AreEqual(8, checkedNames, "zmieniła się liczba jednoliterowych klawiszy sterowania");
     }
 
     /// <summary>
@@ -237,7 +240,8 @@ public sealed class DriverActionsTests
 
         Assert.AreEqual(DriverActions.All.Count, sprawdzone,
             "pętla nie dotknęła wszystkich wierszy tabeli przypisań");
-        Assert.AreEqual(7, sprawdzone, "zmieniła się liczba przypisań sterowania");
+        // 7 -> 10 (14.09.2026, MB-07): `train_next`, `train_take`, `train_release`.
+        Assert.AreEqual(10, sprawdzone, "zmieniła się liczba przypisań sterowania");
     }
 
     /// <summary>
@@ -246,17 +250,48 @@ public sealed class DriverActionsTests
     [TestMethod]
     public void WierszPomocyWymieniaKazdaAkcjeZTabeli()
     {
+        // **PRZEPISANE, a nie rozluźnione** (MB-07, 14.09.2026). Do tej pozycji wiersz
+        // pomocy wymieniał KAŻDĄ akcję z tabeli, bo każda działała w przejeździe
+        // ręcznym. `N`, `T` i `O` nie działają — poza trybem `--line` nie ma ani składów
+        // do wybierania, ani rdzenia, od którego można coś przejąć — więc wymienienie
+        // ich byłoby obietnicą trzech martwych klawiszy. Test pilnuje teraz OBU stron
+        // podziału, czyli jest mocniejszy: że wiersz ręczny wymienia wszystko POZA
+        // `OnlyWithTheLine` i że nie gubi przy tym niczego innego.
         var help = DriverActions.Help;
+        var tylkoZLinia = new HashSet<string>(DriverActions.OnlyWithTheLine);
 
         foreach (var binding in DriverActions.All)
         {
-            StringAssert.Contains(help, $"{binding.KeyName} {binding.Meaning}", help);
+            var pozycja = $"{binding.KeyName} {binding.Meaning}";
+            if (tylkoZLinia.Contains(binding.Action))
+            {
+                Assert.IsFalse(help.Contains(pozycja, StringComparison.Ordinal),
+                    $"wiersz pomocy przejazdu RĘCZNEGO obiecuje '{pozycja}', a ten "
+                    + "klawisz działa wyłącznie w trybie `--line`: " + help);
+                continue;
+            }
+
+            StringAssert.Contains(help, pozycja, help);
         }
 
         Assert.AreEqual(
-            DriverActions.All.Count - 1,
+            DriverActions.All.Count - tylkoZLinia.Count - 1,
             Regex.Matches(help, Regex.Escape(DriverActions.HelpSeparator)).Count,
             help);
+
+        // Druga strona podziału: klawisze linii MUSZĄ stać w wierszu dla składu
+        // przejętego, inaczej gracz nie ma jak oddać sterowania.
+        var przejety = DriverActions.HelpWhenTheDriverHasTaken;
+        foreach (var binding in DriverActions.All)
+        {
+            if (!tylkoZLinia.Contains(binding.Action))
+            {
+                continue;
+            }
+
+            StringAssert.Contains(
+                przejety, $"{binding.KeyName} {binding.Meaning}", przejety);
+        }
     }
 
     /// <summary>
@@ -443,6 +478,14 @@ public sealed class DriverActionsTests
                 DriverActions.Power, DriverActions.Brake, DriverActions.Coast,
                 DriverActions.Emergency, DriverActions.ViewToggle,
                 DriverActions.Reset, DriverActions.Quit,
+
+                // MB-07: trzy klawisze obsługi linii. Stoją po stronie DZIAŁAJĄCEJ
+                // (nie ma ich na liście niżej), bo działają właśnie wtedy, gdy prowadzi
+                // rdzeń — bez rdzenia nie ma czego przejmować ani między czym
+                // przełączać. Kolejność jest tu treścią: wchodzą do wiersza pomocy na
+                // końcu, po obsłudze przejazdu.
+                DriverActions.TrainNext, DriverActions.TrainTake,
+                DriverActions.TrainRelease,
             },
             wszystkie,
             "tabela przypisań się zmieniła — rozstrzygnij, po której stronie stoi nowy klawisz");
