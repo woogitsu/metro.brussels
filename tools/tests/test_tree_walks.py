@@ -145,7 +145,7 @@ def klasa_zapadki(nazwa, porownania):
 
 
 #: **Wszystkie zapadki pod `tools/tests/`, każda z klasą i modułem.**
-#: 49 zapadek: **17 przybitych, 3 częściowe, 28 WOLNE i 1 poza zasięgiem skanu.**
+#: 50 zapadek: **17 przybitych, 3 częściowe, 29 WOLNE i 1 poza zasięgiem skanu.**
 #:
 #: **To zdanie jest przepisane, a nie dopisane obok (12.09.2026).** Stało tu
 #: „Trzydzieści osiem: 13 przybitych, 3 częściowe, 21 WOLNYCH i 1 poza zasięgiem
@@ -195,6 +195,10 @@ ZAPADKI = {
     # Werdykt 6.D207 („odsiac sie NIE DA") nie stoi zreszta na niej, tylko na ZBIORZE
     # `DEKLARACJE_BEZ_ASERCJI`, porownywanym z drzewem w obie strony.
     "MIN_DEKLARACJI_POMIARU": (WOLNA, "test_prose_counts.py"),
+    # 6.D209: podloga na skan ksztaltu `NAZWA = N` w `reports/`. WOLNA, bo jest progiem
+    # jednostronnym: raportow przybywa. Werdykt 6.D209 nie stoi na niej, tylko na ZBIORZE
+    # `CYTATY_NIE_TWIERDZENIA`, porownywanym z drzewem w obie strony.
+    "MIN_WYSTAPIEN_W_JEDNYCH_GRAWISACH": (WOLNA, "test_report_claims.py"),
     "MINIMUM_LICZB_SLOWNYCH": (WOLNA, "test_prose_counts.py"),
     # 6.D206: dwie podlogi na skan stalych, ktorych `#:` deklaruje datowany pomiar.
     # WOLNE, bo sa progami jednostronnymi: obie populacje rosna przy kazdym nowym
@@ -688,14 +692,15 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
         "znaczy, że komuś ubył strażnik; w stronę `przybita`, że doszedł i wpis "
         "trzeba poprawić" % inna_klasa)
 
-    assert len(w_drzewie) == ZAPADEK_RAZEM == 49, (
+    assert len(w_drzewie) == ZAPADEK_RAZEM == 50, (
         "zapadek w drzewie %d, na liście %d, pomiar z 11.09.2026 mówił 38, "
         "po 6.D146 — 40, po 6.D147 — 42 (doszła zapadka na sekwencje ucieczki "
         "i próg KW jej skanu), po 6.D187 — 44 (dwa progi KW skanu gołych nazw), "
         "po 6.D190 — 45 (podłoga na liczbę wpisów runnera), po 6.D203 — 46 "
         "(dolne ostrze na skan liczebników), po 6.D206 — 48 (dwie podłogi na skan "
         "stałych z datowaną deklaracją pomiaru w komentarzu `#:`), a po 6.D207 — 49 "
-        "(podłoga na skan zdań deklarujących pomiar w docstringach)"
+        "(podłoga na skan zdań deklarujących pomiar w docstringach), a po 6.D209 — 50 "
+        "(podłoga na skan kształtu `NAZWA = N` w raportach)"
         % (len(w_drzewie), ZAPADEK_RAZEM))
 
     # Liczby zbiorcze. **Nie jest to ozdobnik komunikatu i pokazała to KN-7.**
@@ -705,12 +710,12 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
     # a „21 wolnych" staje się nieprawdą, której nie zgłasza nic. KN-7 wykonała
     # dokładnie ten scenariusz: jedyną czerwienią była ta asercja.
     ile = collections.Counter(w_drzewie.values())
-    assert (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM]) == (17, 3, 28, 1), (
+    assert (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM]) == (17, 3, 29, 1), (
         "klasy zapadek: przybitych %d, częściowych %d, WOLNYCH %d, poza skanem %d — "
         "pomiar z 11.09.2026 mówił 13/3/21/1, po 6.D146 — 13/3/23/1, a po 6.D147 — "
         "14/3/24/1, po 6.D151 — 15/3/23/1, po 6.D167 — 17/3/21/1, po 6.D187 — "
         "17/3/23/1, po 6.D190 — 17/3/24/1, po 6.D203 — 17/3/25/1, po 6.D206 — "
-        "17/3/27/1, a po 6.D207 — 17/3/28/1; wolne to te, "
+        "17/3/27/1, po 6.D207 — 17/3/28/1, a po 6.D209 — 17/3/29/1; wolne to te, "
         "które da się ruszyć "
         "w zakazaną stronę bez zapalenia czegokolwiek: %s"
         % (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM],

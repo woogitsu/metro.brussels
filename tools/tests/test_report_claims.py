@@ -666,6 +666,176 @@ def test_wszystkie_workflowy_biora_PELNA_historie():
         f"bo domyślna głębokość to 1: {braki}")
 
 
+# --- 6.D209: KSZTALT `NAZWA = N` W `reports/` — POSZERZYC CZY ZAPISAC GRANICE --------
+#
+# **ODPOWIEDZ: NIE poszerzac, i sa to CZTERY trafienia falszywe przy ZERZE prawdziwych.**
+#
+# `CLAIM` wyzej rozpoznaje twierdzenie w ksztalcie ``` `NAZWA` ``` … liczba i zakazuje
+# grawisa w przerwie — zwezenie swiadome, zeby tabele odwzorowan nie dawaly falszywych
+# trafien. Ksztalt ``` `NAZWA = N` ```, w ktorym nazwa i liczba stoja w JEDNEJ parze
+# grawisow, jest dla niego niewidzialny. Pozycja 6.D209 pytala, ilu twierdzen to dotyczy
+# i czy wzorzec ma je obejmowac.
+#
+# Zmierzone 14.09.2026 na `b941625`, przyrzadem tego modulu (`constant_values`,
+# `zdanie_z_dnia_pomiaru`) i wzorcem `test_backlog.CLAIM_W_JEDNYCH_GRAWISACH` —
+# jednym, WSPOLNYM, zeby drugi wzorzec nie zaczal zyc wlasnym zyciem:
+#
+#     wystapien ksztaltu w `reports/`                      51  (13.09 bylo 41)
+#     z nazwa, ktora drzewo zna                            45  (13.09 bylo 35)
+#     roznych nazw wsrod wystapien                         42
+#     ROZJECHANYCH z drzewem                               15
+#     z nich ZWOLNIONYCH przez datowanie (6.D108)          11
+#     z nich TWARDYCH — raport nie starszy od stalej        4
+#
+# **Wszystkie CZTERY twarde sa CYTATAMI, nie twierdzeniami autora**, i widac to dopiero
+# w zdaniu obok liczby:
+#
+#   * `6d156…:16` — „Odtwarza `NIEROZSTRZYGNIETYCH = 72` dokladnie, wiec mierzy to, co
+#     bramka": wartosc WEJSCIOWA sondy z dnia raportu, nie stan drzewa;
+#   * `odsylacz-nie-jest-wartoscia.md:121` — „Czytajacy mial prawo przeczytac ja jako
+#     `MINIMUM_CLAIMS = 15`": cytat BLEDNEGO odczytu, opisany jako bledny;
+#   * `rozstep-budzetu-kroku.md:127` — „Przyrzad czytal `KOD_NIEMIERZALNY = 1`, gdy
+#     w pliku stalo `3`": cytat odczytu PRZYRZADU, ktory raport zglasza jako usterke;
+#   * `sciezki-w-polach-blokow.md:128` — „z zapadka podniesiona razem z wpisem
+#     (`MAX_EXCEPTIONS = 2`)": opis nastawy KONTROLI NEGATYWNEJ.
+#
+# **Datowanie tych czterech NIE ZWALNIA i to jest osobne znalezisko.** Dla dwoch raport
+# i stala maja TEN SAM commit (raport i zapadka weszly razem), dla dwoch raport jest
+# nowszy od stalej. Mechanizm z 6.D108 odsiewa zdania, ktore zestarzaly sie w czasie —
+# a te nie zestarzaly sie wcale, tylko nigdy nie byly zdaniami o stanie drzewa.
+#
+# **ROZSTRZYGNIECIE: `CLAIM` zostaje taki, jaki jest.** Poszerzenie dalo by dzis
+# 4 czerwienie na tekscie poprawnym i 0 na usterce — czyli bramke, ktora 6.D27 kaze
+# wylaczyc, a nie poprawiac. Granica jest zapisana tutaj, razem z liczbami i z czterema
+# nazwanymi przypadkami, ktore ja rozstrzygnely.
+
+#: Podloga na liczbe wystapien ksztaltu `NAZWA = N` w `reports/`. PODLOGA, nie rownosc:
+#: raportow przybywa. Broni przed wzorcem, ktory zgnil i odpowiada zerem tak samo, jak
+#: wzorzec dzialajacy (6.D27). Zmierzone 14.09.2026: 51.
+MIN_WYSTAPIEN_W_JEDNYCH_GRAWISACH = 40
+
+#: Cztery twarde rozjazdy, WSZYSTKIE bedace cytatami. Zbior, nie liczba (6.D131): to on
+#: niesie werdykt „4 trafienia falszywe, 0 prawdziwych", a czworka jest jego dlugoscia.
+#: Wpis piaty znaczy, ze ktos napisal w raporcie twierdzenie tego ksztaltu rozjechane
+#: z drzewem — i wtedy rozstrzygniecie 6.D209 trzeba przeliczyc, bo przestaje byc prawda,
+#: ze prawdziwych trafien nie ma.
+#: Raport, ktory OPISUJE te cztery przypadki, a przez to je CYTUJE — i staje sie ich
+#: piatym, szostym, siodmym i osmym wystapieniem. Wylaczony z populacji, bo inaczej
+#: pomiar mierzylby wlasny zapis: bramka zapalila sie na nim przy pierwszym przebiegu
+#: po dopisaniu raportu (2477/2481, cztery nowe pary).
+#:
+#: **Wylaczenie jest WASKIE i przybite z dwoch stron:** dotyczy jednego pliku, a bramka
+#: nizej zada, zeby ten plik NAPRAWDE cytowal wszystkie cztery nazwy — wiec amnestia
+#: nie obejmuje twierdzenia, ktore ktos w tym raporcie napisalby o czyms innym.
+#: Ta sama rodzina co `_moduly_do_pomiaru` z 6.D203: liczba, ktora da sie zmienic
+#: zdaniem o niej samej, nie jest pomiarem drzewa.
+RAPORT_SAMOZWROTNY = "6d209-cztery-cytaty-i-ani-jednego-twierdzenia.md"
+
+CYTATY_NIE_TWIERDZENIA = {
+    ("6d156-zawezenie-szczelne-i-odrzucone.md", "NIEROZSTRZYGNIETYCH"),
+    ("odsylacz-nie-jest-wartoscia.md", "MINIMUM_CLAIMS"),
+    ("rozstep-budzetu-kroku.md", "KOD_NIEMIERZALNY"),
+    ("sciezki-w-polach-blokow.md", "MAX_EXCEPTIONS"),
+}
+
+
+def wystapienia_w_jednych_grawisach():
+    """`[(raport, wiersz, nazwa, liczba)]` — ksztalt `NAZWA = N` we wszystkich raportach.
+
+    Wzorzec jest POZYCZONY z `test_backlog`, a nie przepisany: dwie kopie tego samego
+    wyrazenia rozjechalyby sie przy pierwszej poprawce, a ta bramka i tamta maja mowic
+    o tym samym ksztalcie.
+    """
+    import test_backlog as BL
+
+    out = []
+    katalog = os.path.join(ROOT, "reports")
+    for plik in sorted(os.listdir(katalog)):
+        if not plik.endswith(".md"):
+            continue
+        with open(os.path.join(katalog, plik), encoding="utf-8") as uchwyt:
+            for numer, wiersz in enumerate(uchwyt.read().split("\n"), 1):
+                for nazwa, liczba in BL.CLAIM_W_JEDNYCH_GRAWISACH.findall(wiersz):
+                    out.append((plik, numer, nazwa, liczba))
+    return out
+
+
+def twarde_rozjazdy_w_jednych_grawisach():
+    """`{(raport, nazwa)}` — rozjechane z drzewem i NIE zwolnione przez datowanie."""
+    import test_backlog as BL
+
+    wartosci = constant_values()
+    out = set()
+    for plik, _numer, nazwa, liczba in wystapienia_w_jednych_grawisach():
+        if plik == RAPORT_SAMOZWROTNY:
+            continue
+        if nazwa not in wartosci:
+            continue
+        if BL._rowne(liczba, wartosci[nazwa]):
+            continue
+        przedawnione, _powod = zdanie_z_dnia_pomiaru(plik, nazwa, wartosci[nazwa])
+        if not przedawnione:
+            out.add((plik, nazwa))
+    return out
+
+
+def test_ksztalt_w_jednych_grawisach_daje_SAME_CYTATY():
+    """Werdykt 6.D209 w jednej asercji: 4 trafienia falszywe, 0 prawdziwych.
+
+    Poszerzenie `CLAIM` na ten ksztalt dalo by dzis cztery czerwienie na tekscie
+    poprawnym — bo wszystkie cztery twarde rozjazdy sa CYTATAMI: wartoscia wejsciowa
+    sondy, cytatem bledu, odczytem przyrzadu i nastawa kontroli negatywnej. Bramka
+    swiecaca na poprawnym tekscie zostaje wylaczona, nie poprawiona (6.D27).
+    """
+    wystapienia = wystapienia_w_jednych_grawisach()
+    assert len(wystapienia) >= MIN_WYSTAPIEN_W_JEDNYCH_GRAWISACH, (
+        "wystapien ksztaltu `NAZWA = N` w `reports/` jest %d przy podlodze %d — wzorzec "
+        "zgnil albo katalog sie skurczyl, a zero odpowiada tak samo, jak wzorzec "
+        "dzialajacy" % (len(wystapienia), MIN_WYSTAPIEN_W_JEDNYCH_GRAWISACH))
+
+    twarde = twarde_rozjazdy_w_jednych_grawisach()
+    assert twarde == CYTATY_NIE_TWIERDZENIA, (
+        "twarde rozjazdy ksztaltu `NAZWA = N` to dzis %s, a wymienione sa %s — wpis, "
+        "ktorego tu nie ma, jest twierdzeniem rozjechanym z drzewem i werdykt 6.D209 "
+        "(„cztery trafienia falszywe, zero prawdziwych\") trzeba przeliczyc"
+        % (sorted(twarde), sorted(CYTATY_NIE_TWIERDZENIA)))
+
+    # I DRUGA STRONA: kazdy wymieniony ma NAPRAWDE byc rozjechany i NAPRAWDE nie byc
+    # zwolniony przez datowanie. Bez tego „same cytaty" byloby prawda takze o zbiorze
+    # wpisow, ktorych zadna z tych dwoch wlasnosci nie dotyczy. Licznik obrotow, bo
+    # pusta petla przechodzi kazda regule w srodku (6.D27).
+    import test_backlog as BL
+
+    wartosci = constant_values()
+    sprawdzonych = 0
+    for plik, nazwa in sorted(CYTATY_NIE_TWIERDZENIA):
+        assert nazwa in wartosci, (
+            "`%s` nie jest juz stala jednoznaczna w drzewie — wpis opisuje rozjazd, "
+            "ktorego nie da sie policzyc" % nazwa)
+        liczby = [l for p, _n, n2, l in wystapienia if p == plik and n2 == nazwa]
+        assert liczby, (
+            "w `%s` nie ma juz ani jednego wystapienia `%s = N`" % (plik, nazwa))
+        assert all(not BL._rowne(l, wartosci[nazwa]) for l in liczby), (
+            "`%s` w `%s` zgadza sie dzis z drzewem — wpis opisuje rozjazd, ktorego nie "
+            "ma" % (nazwa, plik))
+        przedawnione, powod = zdanie_z_dnia_pomiaru(plik, nazwa, wartosci[nazwa])
+        assert not przedawnione, (
+            "`%s` w `%s` jest dzis ZWOLNIONE przez datowanie (%s) — nie nalezy juz do "
+            "twardych i werdykt trzeba przeliczyc" % (nazwa, plik, powod))
+        sprawdzonych += 1
+    assert sprawdzonych == len(CYTATY_NIE_TWIERDZENIA), sprawdzonych
+
+    # WYLACZENIE SAMOZWROTNE PRZYBITE Z DRUGIEJ STRONY: raport, ktory pomijamy, ma
+    # NAPRAWDE cytowac wszystkie cztery nazwy. Bez tego „wylaczylem raport o tej
+    # bramce" bylo by amnestia na cokolwiek, co ktos w nim napisze.
+    with open(os.path.join(ROOT, "reports", RAPORT_SAMOZWROTNY), encoding="utf-8") as u:
+        samozwrotny = u.read()
+    for _plik, nazwa in sorted(CYTATY_NIE_TWIERDZENIA):
+        assert "`%s = " % nazwa in samozwrotny, (
+            "`%s` nie jest juz cytowane w `%s` — wylaczenie tego raportu z populacji "
+            "przestaje mieć powod i staje sie amnestia" % (nazwa, RAPORT_SAMOZWROTNY))
+
+
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
 # z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
 # tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
