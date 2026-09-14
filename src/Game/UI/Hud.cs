@@ -82,9 +82,18 @@ public sealed partial class Hud : CanvasLayer
     /// <summary>Odświeża wszystkie dziewięć wierszy.</summary>
     /// <param name="speedKmh">Prędkość w km/h.</param>
     /// <param name="speedLimitKmh">
-    /// Sufit prędkości tego przejazdu w km/h — ta sama liczba, którą dostaje kontroler.
-    /// Stoi w wierszu prędkości od MB-03, bo gracz reguluje prędkość co sekundę,
-    /// a wcześniej sufit był wyłącznie w wierszu sygnalizacji, czyli w diagnostyce.
+    /// Sufit prędkości tego przejazdu w km/h — ta sama liczba, którą dostaje kontroler
+    /// — albo <c>null</c>, gdy przejazd sufitu NIE MA.
+    ///
+    /// <para>Stoi w wierszu prędkości od MB-03, bo gracz reguluje prędkość co sekundę,
+    /// a wcześniej sufit był wyłącznie w wierszu sygnalizacji, czyli w diagnostyce.</para>
+    ///
+    /// <para><b><c>null</c> jest tu STANEM POPRAWNYM, a nie brakiem danych</b>, i to
+    /// jest jedyna rzecz, którą ten argument rozstrzyga. Odtwarzanie telemetrii nie ma
+    /// prędkości dopuszczalnej: ruch jest zadany plikiem, a nie liczony
+    /// (<c>RunHeader.SpeedLimitMps</c> RZUCA w tym trybie i rzuca świadomie). Wiersz
+    /// dostaje wtedy drugi szablon, bez sufitu — bo wpisanie zera, `NaN` albo prędkości
+    /// konstrukcyjnej byłoby liczbą, która nie jest wynikiem niczego.</para>
     /// </param>
     /// <param name="accelerationMps2">Przyspieszenie ze znakiem.</param>
     /// <param name="chainageM">Chainage czoła składu.</param>
@@ -158,7 +167,7 @@ public sealed partial class Hud : CanvasLayer
     /// </param>
     public void Update(
         double speedKmh,
-        double speedLimitKmh,
+        double? speedLimitKmh,
         double accelerationMps2,
         double chainageM,
         double axisLengthM,
@@ -185,11 +194,14 @@ public sealed partial class Hud : CanvasLayer
         // Słowa idą z katalogu od MB-03; do tego dnia ten jeden wiersz składał się
         // WPROST tutaj i był jedynym, który omijał `UiText` — czyli dokładnie tym
         // wyjątkiem, przez który katalog przestaje być jednym miejscem.
-        _speed.Text = UiText.Format(
-            "hud.speed",
-            speedKmh.ToString("F1", CultureInfo.InvariantCulture).PadLeft(6),
-            speedLimitKmh.ToString("F1", CultureInfo.InvariantCulture),
-            accelerationMps2.ToString("F2", CultureInfo.InvariantCulture).PadLeft(6));
+        var predkosc = speedKmh.ToString("F1", CultureInfo.InvariantCulture).PadLeft(6);
+        var przyspieszenie =
+            accelerationMps2.ToString("F2", CultureInfo.InvariantCulture).PadLeft(6);
+        _speed.Text = speedLimitKmh is { } sufit
+            ? UiText.Format(
+                "hud.speed", predkosc,
+                sufit.ToString("F1", CultureInfo.InvariantCulture), przyspieszenie)
+            : UiText.Format("hud.speed.no-limit", predkosc, przyspieszenie);
         // Słowa idą z katalogu (`UiText`), liczby są formatowane TUTAJ — 6.D83.
         // Granica jest postawiona świadomie: szablon niesie kolejność pól i słowa,
         // a `F1`, `F0` i szerokości pól zostają w kodzie, bo pole „Skończone, gdy"

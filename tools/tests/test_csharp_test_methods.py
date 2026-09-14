@@ -330,7 +330,7 @@ ROZKLAD_POSTACI = {
         # 3799 -> 3853 i 667 -> 674 (14.09.2026, MB-03): `TractionBlockTests.cs`.
         # Liczby ZMIERZONE przyrzadem, nie wyprowadzone z liczby metod — pierwsza
         # proba wpisana „z glowy" dala 3862/676 i bramka ja odrzucila.
-        "zwykly": 3853,
+        "zwykly": 3871,
         "interpolowany ($)": 674,
         "werbatim (@)": 50,
         "surowy interpolowany ($$\"\"\")": 13,
@@ -345,7 +345,7 @@ ROZKLAD_POSTACI = {
         # 1265 -> 1281 i 460 -> 459 (14.09.2026, MB-03): `TractionBlock.cs`
         # i cztery wpisy katalogu; postac interpolowana SPADLA o jeden, bo wiersz
         # predkosci przestal byc interpolowany w ciele `Hud.Update`.
-        "zwykly": 1281,
+        "zwykly": 1284,
         "interpolowany ($)": 459,
         "werbatim (@)": 0,
         "surowy interpolowany ($$\"\"\")": 1,

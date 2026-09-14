@@ -32,7 +32,7 @@ PINY_GRY = {
     # i jedno przy dwóch blokadach naraz. Wszystkie cztery to KATEGORIA C: kazdy jest
     # wynikiem JEDNEJ przemiany napisu (`TractionBlock.Line` na wpisie katalogu),
     # a nie wynikiem zlozonym z kilku zrodel ani wejsciem syntetycznym.
-    "TractionBlockTests.cs": 4,
+    "TractionBlockTests.cs": 5,
     "UiTextTests.cs": 8,
 }
 
@@ -85,8 +85,9 @@ KATEGORIE = {
 }
 
 #: Ile pinów wpada do kategorii C — reszta, liczona, nie wpisana.
-# 41 -> 45 (14.09.2026, MB-03): cztery piny `TractionBlockTests.cs`.
-LICZBA_C = 45
+# 41 -> 46 (14.09.2026, MB-03): piec pinow `TractionBlockTests.cs` — cztery brzmienia
+# wiersza blokady i jedno brzmienie wariantu `hud.speed.no-limit`.
+LICZBA_C = 46
 
 
 def test_ile_pinow_stoi_w_testach_warstwy_gry():
@@ -98,9 +99,9 @@ def test_ile_pinow_stoi_w_testach_warstwy_gry():
         "— doszedł pin do skategoryzowania albo zniknął pin do zdjęcia"
         % (sorted(zmierzone.items()), sorted(PINY_GRY.items())))
 
-    assert sum(zmierzone.values()) == 51, (
+    assert sum(zmierzone.values()) == 52, (
         "pinów warstwy gry jest %d, a pomiar z 14.09.2026 dał 51 "
-        "(47 po 6.D155, 45 przed nim; +4 przy MB-03)"
+        "(47 po 6.D155, 45 przed nim; +5 przy MB-03)"
         % sum(zmierzone.values()))
 
     ile_rdzenia = len(CP.piny("tests/Sim.Tests"))
@@ -124,7 +125,7 @@ def test_kazdy_pin_ma_kategorie_i_suma_sie_zgadza():
     assert len(wszystkie - nazwane) == LICZBA_C, (
         "do kategorii C wpada %d pinów przy zapisanych %d"
         % (len(wszystkie - nazwane), LICZBA_C))
-    assert len(KATEGORIE["A"]) + len(KATEGORIE["B"]) + LICZBA_C == 51, (
+    assert len(KATEGORIE["A"]) + len(KATEGORIE["B"]) + LICZBA_C == 52, (
         "kategorie nie sumują się do 47: A=%d, B=%d, C=%d"
         % (len(KATEGORIE["A"]), len(KATEGORIE["B"]), LICZBA_C))
 

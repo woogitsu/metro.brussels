@@ -61,6 +61,7 @@ zakazywało go wprost.
 | KN-4 | `_traction.Visible = true` — wiersz widoczny ZAWSZE | **284/284 ZIELONA** |
 | KN-4b | to samo, po dołożeniu bramki | **284/285** |
 | KN-5 | wiersz prędkości wraca do ciała `Hud.Update` | 276/284 |
+| KN-6 | sufit wraca do wywołania BEZWARUNKOWEGO (regresja z §4.2) | 285/286 |
 
 `md5sum -c` na trzech plikach po każdej: `OK`.
 
@@ -81,6 +82,52 @@ Doszła bramka leksykalna — jedyna droga, jaka tu jest: **każdy wiersz, któr
 milczeć, chowa się po długości WŁASNEGO napisu**, a trzy widoczne zawsze (`_speed`,
 `_position`, `_controls`) są wymienione **z nazwy**, żeby lista nie mogła opisywać
 dowolnego podzbioru. Po niej KN-4 zapala się: 284/285.
+
+## 4.2. REGRESJA, KTÓRĄ ZNALAZŁ PRZEBIEG CI — i której nie znalazłby żaden przegląd
+
+Pierwsza wersja tej zmiany podawała do HUD-u `Units.MpsToKmh(SpeedLimitMps)`
+**bez warunku**. Wszystkie testy przeszły: 285/285, 618/618, 2461/2461. Scena, którą
+uruchomiłem u siebie, też przeszła — bo uruchomiłem ją w trybie **odtworzenia**.
+
+`RunHeader.SpeedLimitMps` **RZUCA** przy odtwarzaniu telemetrii i rzuca **świadomie**:
+ruch jest wtedy zadany plikiem, a nie liczony, więc żadna liczba nie byłaby tam wynikiem
+prowadzenia przebiegu. To jest dokładnie ta usterka, dla której `RunHeader` w ogóle
+powstał (`limit=80.0 km/h` obok przejazdu jadącego 70).
+
+Skutek, odtworzony u siebie po tym, jak CI go pokazało:
+
+```
+$ godot --headless --path src/Game -- --assets=…       --from-telemetry=…/godot.csv --steps-per-frame=600
+kod: 124 (timeout)
+$ grep -c "Odtwarzanie telemetrii nie ma prędkości" ft.log
+12983
+```
+
+**12 983 wyjątki w 90 sekundach** — jeden na klatkę. Przebieg nigdy nie dochodził do
+swojego warunku końca, więc job CI wisiał **dziewiętnaście minut zamiast czterdziestu
+jeden sekund**. Kod wyjścia tego nie odróżniał: proces nie padał, tylko się nie kończył.
+
+**Dlaczego żaden przegląd by tego nie złapał.** `SpeedLimitMps` jest właściwością
+i w czterech trybach z pięciu zwraca liczbę. Piąty jest jedynym, w którym rzuca, i jest
+tym, którego nie uruchomiłem. Testy jednostkowe go nie ruszają, bo `FirstRun` jest
+węzłem Godota.
+
+**Naprawa idzie tą samą drogą, co rozstrzygnięcie 6.D99 dla wiersza stacji:**
+dwa szablony katalogu, nie jeden z pustym polem. `hud.speed.no-limit` jest wariantem
+BEZ sufitu, a `FirstRun.SufitKmh()` pyta o **tryb**, a nie łapie wyjątku — wyjątek jest
+tu informacją, że pytanie nie ma sensu, więc poprawną odpowiedzią jest go nie zadać.
+Złapanie go zamieniłoby świadomą decyzję `RunHeader` w cichy `catch`.
+
+Po naprawie, u siebie:
+
+```
+kod: 0
+wyjątków „Odtwarzanie telemetrii nie ma prędkości": 0
+[RUCH ZADANY] koniec: próbek przyjętych=320 z 320 kroków=38194 t=318.283 s …
+```
+
+Doszła bramka leksykalna (`Tryb_BEZ_SUFITU_nie_pyta_o_sufit…`) i **KN-6**: przywrócenie
+bezwarunkowego wywołania zapala ją, 285/286.
 
 ## 5. Trzy zapadki SPADŁY i każdy spadek jest wynikiem pożądanym
 
@@ -118,7 +165,7 @@ repozytorium już używa na tę wielkość (wiersz `[LIMIT] … sufit maszynisty
 ## 6. Rzeczywiste wyjście weryfikacji
 
 ```
-$ dotnet test tests/Game.Tests   → 285/285
+$ dotnet test tests/Game.Tests   → 286/286
 $ dotnet test tests/Sim.Tests    → 618/618
 $ python3 tools/tests/test_all.py
   RAZEM …, 2461 testów, 125 modułów

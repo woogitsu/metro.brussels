@@ -202,7 +202,64 @@ public sealed class TractionBlockTests
         }
     }
 
-    private static string HudSource()
+    /// <summary>
+    /// Wiersz prędkości ma DWA warianty, a tryb bez sufitu nie pyta o sufit —
+    /// bramka na REGRESJĘ, którą znalazł przebieg CI, a nie lektura.
+    ///
+    /// <para><b>Co się stało.</b> Pierwsza wersja MB-03 podawała do HUD-u
+    /// <c>Units.MpsToKmh(SpeedLimitMps)</c> bez warunku. <c>RunHeader.SpeedLimitMps</c>
+    /// RZUCA przy odtwarzaniu telemetrii i rzuca świadomie: ruch jest wtedy zadany
+    /// plikiem, a nie liczony, więc żadna liczba nie byłaby tam wynikiem prowadzenia
+    /// przebiegu. Skutkiem był wyjątek w KAŻDEJ KLATCE — zmierzone: <b>12 983
+    /// w 90 sekundach</b> — przebieg, który nigdy nie dochodził do warunku końca,
+    /// i job CI wiszący <b>dziewiętnaście minut zamiast czterdziestu jeden sekund</b>.
+    /// Kod wyjścia tego nie odróżniał: proces nie padał, tylko się nie kończył.</para>
+    ///
+    /// <para><b>Dlaczego bramka jest LEKSYKALNA.</b> `FirstRun` jest węzłem Godota,
+    /// więc warunku w jego metodzie nie wywoła żaden test jednostkowy — to samo
+    /// ograniczenie, co przy `TrainingWiringTests`. Sprawdzane są więc trzy rzeczy,
+    /// których zniknięcie przywróciłoby usterkę: że sufit idzie przez `SufitKmh()`,
+    /// że ta metoda pyta o TRYB, i że katalog ma drugi wariant wiersza.</para>
+    /// </summary>
+    [TestMethod]
+    public void Tryb_BEZ_SUFITU_nie_pyta_o_sufit_i_ma_wlasny_wariant_wiersza()
+    {
+        var kod = FirstRunSource();
+
+        StringAssert.Contains(kod, "private double? SufitKmh() =>",
+            "zniknęła metoda `SufitKmh` — sufit wraca do wywołania bezwarunkowego, "
+            + "a `RunHeader.SpeedLimitMps` rzuca przy odtwarzaniu telemetrii");
+        StringAssert.Contains(kod, "_fromTelemetryMode ? null : Units.MpsToKmh(SpeedLimitMps)",
+            "`SufitKmh` przestała pytać o TRYB — wyjątek jest tu informacją, że pytanie "
+            + "nie ma sensu, więc poprawną odpowiedzią jest go nie zadać");
+        Assert.IsFalse(
+            kod.Contains("Units.MpsToKmh(SpeedLimitMps), _acceleration",
+                StringComparison.Ordinal),
+            "sufit wraca do `_hud.Update` bez warunku — to jest dokładnie ta regresja, "
+            + "która zawiesiła job CI na dziewiętnaście minut");
+
+        // Katalog MA drugi wariant, i to jest druga połowa tej samej regresji: bez
+        // niego warunek wyżej nie miałby czego wyświetlić.
+        Assert.AreEqual(
+            "{0} km/h     a = {1} m/s²", UiText.Get("hud.speed.no-limit"),
+            "wariant wiersza prędkości BEZ sufitu zmienił brzmienie albo zniknął");
+        // IGŁA WZMOCNIONA, a nie wpisana na listę wyjątków: samo „sufit" pasuje
+        // do TRZECH komunikatów `src/Game/` (`RunPlan.cs:595`, `FirstRun.cs:717`
+        // i ten wpis), więc `test_every_needle_matches_at_most_one_message…` miało
+        // rację, a `test_a_weakened_needle_lights_up_the_first_rung` przestawało
+        // cokolwiek pokazywać — szczebel pierwszy zapalał się JUŻ przed osłabieniem.
+        // `"km/h   sufit"` (z trzema spacjami) występuje w `src/Game/` DOKŁADNIE RAZ.
+        StringAssert.Contains(UiText.Get("hud.speed"), "km/h   sufit",
+            "wariant Z sufitem przestał go nazywać albo zmienił odstęp — a odstęp "
+            + "jest tu jedyną rzeczą, która odróżnia tę igłę od dwóch innych "
+            + "komunikatów `src/Game/` niosących słowo „sufit”");
+    }
+
+    private static string FirstRunSource() => ZrodloGry("FirstRun.cs");
+
+    private static string HudSource() => ZrodloGry(System.IO.Path.Combine("UI", "Hud.cs"));
+
+    private static string ZrodloGry(string wzgledna)
     {
         var katalog = System.IO.Directory.GetCurrentDirectory();
         while (katalog is not null
@@ -213,6 +270,6 @@ public sealed class TractionBlockTests
 
         Assert.IsNotNull(katalog, "nie znaleziono korzenia repozytorium");
         return System.IO.File.ReadAllText(
-            System.IO.Path.Combine(katalog!, "src", "Game", "UI", "Hud.cs"));
+            System.IO.Path.Combine(katalog!, "src", "Game", wzgledna));
     }
 }

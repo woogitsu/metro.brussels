@@ -82,6 +82,19 @@ public static class UiText
             // Słowo brzmi `sufit`, a nie `limit`, i to jest słowo, którego repozytorium
             // już używa na tę wielkość (`FirstRun.cs`, wiersz `[LIMIT] … sufit maszynisty`).
             ["hud.speed"] = "{0} km/h   sufit {1} km/h     a = {2} m/s²",
+
+            // DRUGI WARIANT, BEZ SUFITU — i to nie jest ozdoba, tylko jedyna poprawna
+            // odpowiedź dla odtwarzania telemetrii. `RunHeader.SpeedLimitMps` RZUCA
+            // w tym trybie, i rzuca świadomie: ruch jest zadany plikiem, a nie liczony,
+            // więc żadna liczba nie byłaby tam wynikiem prowadzenia przebiegu.
+            // Wpisanie czegokolwiek — zera, `NaN`, prędkości konstrukcyjnej — byłoby
+            // dokładnie tą usterką, dla której `RunHeader` w ogóle powstał
+            // (`limit=80.0 km/h` obok przejazdu jadącego 70).
+            //
+            // Dwa szablony, a nie jeden z pustym polem: pusty sufit zostawiłby
+            // w wierszu dwie spacje i słowo „sufit" bez liczby. Ta sama decyzja i ten
+            // sam powód, co przy dwóch wariantach cyklu drzwi w wierszu stacji (6.D99).
+            ["hud.speed.no-limit"] = "{0} km/h     a = {1} m/s²",
             ["hud.controls"] = "ciąg {0} {1}   hamulec {2} {3}   [{4}]{5}",
 
             // --- wiersz stacji (`FirstRun.StationLine`) — 6.D99 -------------------

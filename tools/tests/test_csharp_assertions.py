@@ -348,9 +348,9 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 #: **1419 -> 1433 i 2868 -> 2882 (14.09.2026, MB-03).** Czternascie asercji
 #: w `TractionBlockTests.cs` (4 metody), wszystkie Z KOMUNIKATEM —
 #: `BEZ_KOMUNIKATU_RAZEM` znow nie drgnelo.
-Z_KOMUNIKATEM_RAZEM = 1433
+Z_KOMUNIKATEM_RAZEM = 1438
 NIEROZSTRZYGNIETYCH = 68
-ASERCJI_RAZEM = 2882
+ASERCJI_RAZEM = 2887
 
 
 def _rozklad():

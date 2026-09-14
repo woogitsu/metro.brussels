@@ -1712,7 +1712,7 @@ public sealed partial class FirstRun : Node3D
         }
 
         _hud.Update(
-            _state.SpeedKmh, Units.MpsToKmh(SpeedLimitMps), _acceleration,
+            _state.SpeedKmh, SufitKmh(), _acceleration,
             chainage, _axis.LengthM,
             name, distance, _command.Throttle, _command.Brake, _mode,
             StationLine(), SignallingLine(), _viewLine,
@@ -1721,6 +1721,24 @@ public sealed partial class FirstRun : Node3D
             SummaryLine(),
             TractionLine());
     }
+
+    /// <summary>
+    /// Sufit prędkości do wiersza HUD albo <c>null</c>, gdy przejazd go NIE MA.
+    ///
+    /// <para><b>Ta metoda istnieje z powodu, który znalazł PRZEBIEG, a nie lektura.</b>
+    /// Pierwsza wersja MB-03 podawała tu <c>Units.MpsToKmh(SpeedLimitMps)</c> bez
+    /// warunku — a <c>RunHeader.SpeedLimitMps</c> RZUCA przy odtwarzaniu telemetrii,
+    /// i rzuca świadomie: ruch jest wtedy zadany plikiem, a nie liczony. Skutkiem był
+    /// wyjątek W KAŻDEJ KLATCE (zmierzone: 12 983 w 90 sekundach), przebieg, który
+    /// nigdy nie dochodził do swojego warunku końca, i job CI wiszący dziewiętnaście
+    /// minut zamiast czterdziestu jeden sekund.</para>
+    ///
+    /// <para>Warunek pyta o TRYB, a nie łapie wyjątku: wyjątek jest tu informacją, że
+    /// pytanie nie ma sensu, więc poprawną odpowiedzią jest go nie zadać. Złapanie go
+    /// zamieniłoby świadomą decyzję `RunHeader` w cichy `catch`.</para>
+    /// </summary>
+    private double? SufitKmh() =>
+        _fromTelemetryMode ? null : Units.MpsToKmh(SpeedLimitMps);
 
     /// <summary>
     /// Wiersz HUD o blokadzie trakcji — MB-03.

@@ -192,7 +192,7 @@ public sealed class UiTextTests
     /// Ile literałów — dolne ostrze, zmierzone 12.09.2026; 480 → 496 przy MB-02
     /// (`RunSummary.cs` i wpisy `summary.*` w katalogu).
     /// </summary>
-    private const int LiteralowWZasieguBramki = 508;
+    private const int LiteralowWZasieguBramki = 509;
 
     /// <summary>Ile różnych — dolne ostrze, zmierzone 12.09.2026.</summary>
     private const int RoznychLiteralowWZasieguBramki = 362;
@@ -1346,7 +1346,7 @@ public sealed class UiTextTests
     /// </summary>
     // 521 -> 537 (13.09.2026, MB-02). Różnica między czytnikami zostaje ta sama co
     // do sztuki — rośnie tylko korpus.
-    private const int PozycjiStaregoCzytnika = 549;
+    private const int PozycjiStaregoCzytnika = 550;
 
     /// <summary>
     /// Ile PLIKÓW korpusu stary czytnik czytał inaczej niż leksykalny — 6.D182.
@@ -1668,12 +1668,14 @@ public sealed class UiTextTests
     /// <summary>Ile literałów dociera na ekran drogą <c>Hud.Update</c> — 6.D183.</summary>
     // 74 -> 87 (13.09.2026, MB-02): osiem kluczy `summary.*`, trzy formaty liczb
     // i dwa człony komunikatu wyjątku z ramienia domyślnego `RunSummary.Naglowek`.
-    private const int LiteralowNaEkranie = 93;
+    private const int LiteralowNaEkranie = 94;
 
     /// <summary>Ile z nich jest KLUCZEM katalogu, a nie tekstem — 6.D183.</summary>
     // 28 -> 36 (13.09.2026, MB-02): osiem kluczy `summary.*` panelu wyniku.
-    // 36 -> 40 (14.09.2026, MB-03): `hud.speed` i trzy klucze `hud.traction.*`.
-    private const int KluczyKatalogunaEkranie = 40;
+    // 36 -> 41 (14.09.2026, MB-03): `hud.speed`, `hud.speed.no-limit` i trzy klucze
+    // `hud.traction.*`. Drugi wariant wiersza prędkości doszedł po regresji znalezionej
+    // przebiegiem CI — patrz `Tryb_BEZ_SUFITU_nie_pyta_o_sufit…`.
+    private const int KluczyKatalogunaEkranie = 41;
 
     /// <summary>
     /// Ile literałów z tej drogi niesie SŁOWO w rozumieniu bramki — 6.D183.
@@ -2073,7 +2075,7 @@ public sealed class UiTextTests
     /// </summary>
     // 335 -> 348 (13.09.2026, MB-02). Zasięg mechaniki, nie liczba usterek: liczba
     // ZABRANYCH werdyktów niżej ma zostać na dwóch i to ona jest tu treścią.
-    private const int LiteralowDotknietychZdejmowaniem = 353;
+    private const int LiteralowDotknietychZdejmowaniem = 354;
 
     /// <summary>
     /// Ilu literałom zdejmowanie jednostek ZABIERA werdykt „to słowo" — 6.D155.
