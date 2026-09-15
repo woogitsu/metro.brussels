@@ -1700,7 +1700,11 @@ def _istnieje_w_drzewie(nazwa):
 # pozycji — `prune-merged-branches.yml`, `test_ci_workflows.py`, `docs/04-conventions.md`
 # i `reports/6d211-…`. „Weryfikacja" rośnie o jeden (391 -> 392) za
 # `tools/tests/test_all.py` z płotka tego bloku.
-ADRESOW_W_WYKONANYCH = {"Wejście": 971, "Wyjście": 63, "Weryfikacja": 392}
+# 971 -> 973 (15.09.2026, 6.D213): DWA adresy z pola „Wejście" WŁASNEGO bloku tej
+# pozycji — `tests/Game.Tests/UiTextTests.cs` i `reports/6d199-…`. Pozostałe pozycje
+# tego pola to katalogi (`src/Sim/**/*.cs`, `tests/Sim.Tests/`), a `PATH_TOKEN` czyta
+# pliki. „Weryfikacja" NIE DRGA: płotek tej pozycji woła `dotnet test`, nie `test_all.py`.
+ADRESOW_W_WYKONANYCH = {"Wejście": 973, "Wyjście": 63, "Weryfikacja": 392}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu

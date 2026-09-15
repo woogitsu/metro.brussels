@@ -322,9 +322,14 @@ ROZKLAD_LICZBOWYCH = {
         # — piec powodow odmowy, piec roznych zdan i piec faz ruchu skrzydel. Zadna
         # nie jest tolerancja, wiec `z_tolerancja` i `tolerancja_zero` stoja w miejscu,
         # a `calkowite_z_tolerancja` zostaje ZEREM.
-        "razem": 232, "z_tolerancja": 103, "bez_tolerancji": 129,
+        # 232 -> 233 (15.09.2026, 6.D213): JEDEN pin liczbowy bramki na `.ToString()`
+        # w rdzeniu — `Assert.AreEqual(0, naWyliczeniu.Count, …)`, czyli „na wartości
+        # wyliczenia nie stoi ANI JEDNO". CAŁKOWITY i BEZ TOLERANCJI, bo jest liczbą
+        # miejsc w kodzie; `calkowite_z_tolerancja` zostaje ZEREM. Podłogi tej bramki
+        # do liczby nie wchodzą — stoją jako `>=`, a nie jako pin równościowy.
+        "razem": 233, "z_tolerancja": 103, "bez_tolerancji": 130,
         "zmiennoprzecinkowe": 109, "zmiennoprzecinkowe_bez_tolerancji": 6,
-        "calkowite": 123, "calkowite_z_tolerancja": 0, "tolerancja_zero": 18,
+        "calkowite": 124, "calkowite_z_tolerancja": 0, "tolerancja_zero": 18,
     },
     "tests/Sim.Tests": {
         # 441 -> 454 (13.09.2026, MB-02): trzynaście pinów liczbowych

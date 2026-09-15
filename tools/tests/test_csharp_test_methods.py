@@ -368,9 +368,12 @@ ROZKLAD_POSTACI = {
         # komunikaty tej kontroli nazywają próbkę słowami, a nie wstawiają jej wartości,
         # bo próbka jest stała i wypisanie jej niczego nie dopowiada. Werbatim rośnie
         # o dwa — oba to wzorce `Regex` czytnika surowego, gdzie ukośnik jest treścią.
-        "zwykly": 4345,
-        "interpolowany ($)": 739,
-        "werbatim (@)": 66,
+        # 4345 -> 4384, 739 -> 744 i 66 -> 67 (15.09.2026, 6.D213): literały bramki
+        # na `.ToString()` w rdzeniu i jej kontroli przyrządu. Werbatim rośnie o JEDEN
+        # — wzorzec `Regex` deklaracji zmiennej, gdzie ukośnik jest treścią.
+        "zwykly": 4384,
+        "interpolowany ($)": 744,
+        "werbatim (@)": 67,
         "surowy interpolowany ($$\"\"\")": 13,
         "surowy (\"\"\")": 8,
         "werbatim interpolowany ($@)": 4,
