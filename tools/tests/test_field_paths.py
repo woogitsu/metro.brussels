@@ -1743,7 +1743,17 @@ def _istnieje_w_drzewie(nazwa):
 # „Weryfikacja" rosnie o jeden (397 -> 398) za `tools/tests/test_all.py` z plotka
 # tego bloku, a `WYWOLAN_W_WYKONANYCH` NIE DRGA: plotek wola zestaw BEZ nazwy
 # modulu, a `MODULE_CALL` liczy wylacznie `test_all.py <modul>`.
-ADRESOW_W_WYKONANYCH = {"Wejście": 997, "Wyjście": 63, "Weryfikacja": 398}
+# 997 -> 1003 (15.09.2026, 6.D223): SZESC adresow z pola „Wejscie" WLASNEGO bloku
+# tej pozycji — `reports/6d212-…`, `test_camera_aim.py`, `test_clearance_profile.py`,
+# `test_dimension_audit.py`, `test_environment_doc.py` i `test_stations.py`; siodma
+# pozycja tego pola (`tools/tests/*.py`) jest wzorcem, a `PATH_TOKEN` czyta pliki.
+# Ten sam mechanizm co przy 6.D221 i tak samo wyliczony — DIFFEM
+# `adresy_pola_w_wykonanych` przed edycja i po niej: 6.D223 zostalo w tym commicie
+# ODHACZONE, wiec jego wlasny blok wszedl do `bloki_wykonane()` w calosci.
+# „Weryfikacja" rosnie o jeden (398 -> 399) za `tools/tests/test_all.py` z plotka
+# tego bloku, a `WYWOLAN_W_WYKONANYCH` NIE DRGA z tego samego powodu co wtedy:
+# plotek wola zestaw BEZ nazwy modulu.
+ADRESOW_W_WYKONANYCH = {"Wejście": 1003, "Wyjście": 63, "Weryfikacja": 399}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
