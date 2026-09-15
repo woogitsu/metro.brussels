@@ -413,13 +413,21 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 #: **1646 -> 1652 (14.09.2026, 6.D210)** — te same sześć asercji, co przy
 #: `ASERCJI_RAZEM` niżej. Wszystkie z komunikatem od pierwszego przebiegu: przy
 #: MB-08 ta sama bramka złapała 54 asercje bez komunikatu i lekcja weszła.
-Z_KOMUNIKATEM_RAZEM = 1652
+#: **1652 -> 1667 (14.09.2026, 6.D211)** — te same piętnaście asercji, co przy
+#: `ASERCJI_RAZEM` niżej, wszystkie z komunikatem.
+Z_KOMUNIKATEM_RAZEM = 1667
 NIEROZSTRZYGNIETYCH = 68
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
 #: `tests/Sim.Tests/DefaultArmAuditTests.cs` — bramki na ramionach domyślnych
 #: switchy `src/Sim/`. Wszystkie z komunikatem, więc `Z_KOMUNIKATEM_RAZEM` rośnie
 #: o tyle samo, a `BEZ_KOMUNIKATU_RAZEM` i `NIEROZSTRZYGNIETYCH` nie drgają.
-ASERCJI_RAZEM = 3099
+#: **3099 -> 3114 (14.09.2026, 6.D211).** Piętnaście asercji bramki na POŁYKANYCH
+#: członach ramion domyślnych, dopisanej do `tests/Sim.Tests/DefaultArmAuditTests.cs`:
+#: osiem w bramce drzewa, cztery w kontroli przyrządu na wejściu syntetycznym,
+#: trzy w pomocnikach czytających korpus metody. Wszystkie z komunikatem, więc
+#: `Z_KOMUNIKATEM_RAZEM` rośnie o tyle samo, a `BEZ_KOMUNIKATU_RAZEM`
+#: i `NIEROZSTRZYGNIETYCH` nie drgają.
+ASERCJI_RAZEM = 3114
 
 
 def _rozklad():

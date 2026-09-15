@@ -1684,7 +1684,14 @@ def _istnieje_w_drzewie(nazwa):
 # „Weryfikacja" NIE DRGA i to jest treść, a nie brak: płotek tej pozycji woła
 # `dotnet test tests/Sim.Tests`, a nie `tools/tests/test_all.py`, więc nie niesie ani
 # adresu, ani wywołania modułu. Przeliczone na drzewie po scaleniu #614.
-ADRESOW_W_WYKONANYCH = {"Wejście": 958, "Wyjście": 63, "Weryfikacja": 390}
+# 958 -> 964 (14.09.2026, 6.D211): SZEŚĆ adresów z pola „Wejście" WŁASNEGO bloku tej
+# pozycji — `FixedBlockSystem.cs`, `SignallingEvent.cs`, `LineCore.cs`, `CabProtection.cs`,
+# `TrainProtection.cs` i `reports/6d197-…`. Najwięcej, ile ta zapadka podniosła się przy
+# jednym domknięciu; siódma pozycja pola — `tests/Sim.Tests/` — do liczby NIE weszła, bo
+# jest katalogiem, a `PATH_TOKEN` czyta pliki. „Weryfikacja" nie drga z tego samego powodu
+# co przy 6.D210: płotek woła `dotnet test tests/Sim.Tests`, nie `tools/tests/test_all.py`.
+# Przeliczone na drzewie po scaleniu #615.
+ADRESOW_W_WYKONANYCH = {"Wejście": 964, "Wyjście": 63, "Weryfikacja": 390}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
