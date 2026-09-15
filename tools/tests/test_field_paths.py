@@ -1759,7 +1759,11 @@ def _istnieje_w_drzewie(nazwa):
 # czyta pliki. Ten sam mechanizm co przy 6.D221 i 6.D223 i tak samo wyliczony —
 # DIFFEM `adresy_pola_w_wykonanych` przed edycja i po niej. „Weryfikacja" NIE DRGA:
 # plotek tego bloku wola `dotnet test`, nie `test_all.py`.
-ADRESOW_W_WYKONANYCH = {"Wejście": 1005, "Wyjście": 63, "Weryfikacja": 399}
+# 6.D225: 1005/63/399 -> 1007/63/400. Policzone DIFFEM list, nie odejmowaniem:
+# doszły trzy adresy z WŁASNEGO bloku 6.D225, który wszedł do `bloki_wykonane()`
+# w chwili odhaczenia wiersza — `test_csharp_test_methods.py` i
+# `test_dead_constants_csharp.py` w polu „Wejście”, `test_all.py` w „Weryfikacji”.
+ADRESOW_W_WYKONANYCH = {"Wejście": 1007, "Wyjście": 63, "Weryfikacja": 400}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
@@ -1796,7 +1800,9 @@ ADRESOW_W_WYKONANYCH = {"Wejście": 1005, "Wyjście": 63, "Weryfikacja": 399}
 # `test_prose_counts.py` z plotka „Weryfikacji" bloku tej pozycji.
 # 133 -> 134 (15.09.2026, 6.D219): jedno wywolanie modulu wiecej —
 # `test_backlog.py` z plotka „Weryfikacji" bloku 6.D230.
-WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 134}
+# 6.D225: „Weryfikacja” 134 -> 135. Policzone DIFFEM listy: doszło JEDNO
+# wywołanie, `test_all.py test_dead_constants_csharp.py` z własnego bloku 6.D225.
+WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 135}
 
 #: Ilu kandydatow zlego adresu daje regula prozy, per pole — 6.D158.
 # 12 -> 13 (14.09.2026, 6.D204): trzynastym kandydatem jest `test_mutation_sweep.py`

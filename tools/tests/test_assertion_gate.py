@@ -1598,7 +1598,11 @@ def test_wzorzec_rodziny_lapie_zdanie_ktore_ma_lapac_i_nie_bierze_sasiedztwa():
 #: z bloku kodu i liczba spoza sekcji mają do wyniku NIE wejść. Do listy `NA_ZRODLE_PY`
 #: nie należą — `twierdzenia` jest wynikiem czytnika po wejściu SYNTETYCZNYM, a nie
 #: odczytem pliku z drzewa.
-ASERCJI_NAPISOWYCH_RAZEM = 886
+#: 886 -> 889 przy 6.D225: trzy asercje `literał in coś` doszły w
+#: `test_dead_constants_csharp.py` i wszystkie trzy stoją na ZACHOWANIU, nie na
+#: NAPISIE — pytają, czy nazwa stałej jest w wyniku `martwe()`, czyli o werdykt
+#: skanu na wstrzykniętym drzewie, a nie o brzmienie komunikatu.
+ASERCJI_NAPISOWYCH_RAZEM = 889
 
 #: **Kotwica wpisu to `(plik, funkcja, operator, literał)`, a NIE numer wiersza.**
 #: Numer przesuwa się przy każdej edycji pliku i lista rozjechałaby się sama z siebie.

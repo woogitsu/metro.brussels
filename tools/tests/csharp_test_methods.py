@@ -126,6 +126,112 @@ def klasy_literalow(source):
             if rodzaj == "literal"]
 
 
+#: Postaci literalu, w ktorych klamra moze otwierac dziure interpolacji. Reszta
+#: `POSTACIE` klamry nie interpretuje wcale — i to nie jest ostroznosc, tylko pomiar:
+#: na drzewie z 15.09.2026 klamre NIE bedaca dziura ma 104 literalow zwyklych,
+#: 24 werbatim i 8 surowych. Wzorzec szukajacy `{nazwa}` w kazdym literale wzialby
+#: kazda z nich za odczyt.
+POSTACIE_Z_DZIURA = (POSTACIE[1], POSTACIE[3], POSTACIE[5])
+
+
+def dziury_interpolacji(source):
+    """Zakresy `(start, koniec)` KODU w dziurach interpolacji — indeksy w `source`.
+
+    Idzie tym samym `_przebieg`, co `maska` i `klasy_literalow`, i to jest cala tresc
+    tej funkcji — rodzina 6.D213. Drugi rozbior literalow mowilby o sobie, a nie o tym,
+    co `maska` naprawde zaslania.
+
+    **Po co.** `maska` zamienia literal na spacje W CALOSCI, razem z dziurami — a dziura
+    interpolacji jest KODEM, ktory sie wykonuje. Stala czytana wylacznie przez
+    `$"...{Nazwa}..."` wygladala przez to dla kazdego skanu czytajacego na masce
+    dokladnie tak samo jak martwa (6.D214, `CzlonWyrazenia`).
+
+    **Ile klamr otwiera dziure, mowi liczba znakow dolara, a nie postac literalu.**
+    W literale surowym z przedrostkiem `$$` dziure otwiera dopiero `{{`, a POJEDYNCZA
+    klamra jest tam zwyklym znakiem; w zwyklym `$"..."` jest odwrotnie — dziure otwiera
+    `{`, a `{{` jest uciekniete. Zmierzone 15.09.2026: wszystkie **14** literalow
+    o przedrostku podwojnego dolara niosa w tym drzewie klamre, ktora dziura NIE jest.
+
+    Domkniecie liczone jest na zagniezdzeniu, wiec `{f(new[]{1})}` konczy sie tam,
+    gdzie trzeba, a literal napisowy w srodku dziury nie myli licznika — bo licznik
+    chodzi po `_przebieg`, a nie po surowym tekscie.
+    """
+    wynik = []
+    przesuniecie = 0
+    for rodzaj, kawalek, klasa in _przebieg(source):
+        if rodzaj == "literal" and klasa in POSTACIE_Z_DZIURA:
+            for start, koniec in _dziury_w_literale(kawalek):
+                wynik.append((przesuniecie + start, przesuniecie + koniec))
+        przesuniecie += len(kawalek)
+    return wynik
+
+
+def _rozbior_prefiksu(kawalek):
+    """`(dolary, surowy, poczatek_tresci, koniec_tresci)` literalu z `_przebieg`."""
+    i = 0
+    dolary = 0
+    verbatim = False
+    while i < len(kawalek) and kawalek[i] in "@$":
+        dolary += kawalek[i] == "$"
+        verbatim = verbatim or kawalek[i] == "@"
+        i += 1
+    cudzyslowy = 0
+    while i + cudzyslowy < len(kawalek) and kawalek[i + cudzyslowy] == '"':
+        cudzyslowy += 1
+    surowy = cudzyslowy >= 3 and not verbatim
+    zamkniecie = cudzyslowy if surowy else 1
+    tresc = i + cudzyslowy
+    return dolary, surowy, tresc, max(tresc, len(kawalek) - zamkniecie)
+
+
+def _dziury_w_literale(kawalek):
+    """Zakresy dziur WZGLEDEM kawalka literalu."""
+    dolary, surowy, a, b = _rozbior_prefiksu(kawalek)
+    if not dolary:
+        return []
+    otwiera = dolary if surowy else 1
+    wynik = []
+    i = a
+    while i < b:
+        if kawalek[i] != "{":
+            i += 1
+            continue
+        bieg = 0
+        while i + bieg < b and kawalek[i + bieg] == "{":
+            bieg += 1
+        # Surowy: bieg krotszy niz liczba dolarow to zwykle znaki. Nie-surowy:
+        # `{{` jest uciekniete parami, wiec dziure otwiera dopiero klamra nieparzysta.
+        if bieg < otwiera or (not surowy and bieg % 2 == 0):
+            i += bieg
+            continue
+        start = i + bieg
+        koniec = _koniec_dziury(kawalek, start, b, otwiera)
+        wynik.append((start, koniec))
+        i = koniec + otwiera
+    return wynik
+
+
+def _koniec_dziury(kawalek, start, b, zamyka):
+    """Indeks pierwszej klamry domykajacej dziure, liczony na zagniezdzeniu."""
+    reszta = kawalek[start:b]
+    glebokosc = 0
+    poz = 0
+    for rodzaj, czesc, _klasa in _przebieg(reszta):
+        if rodzaj != "kod":
+            poz += len(czesc)
+            continue
+        for znak in czesc:
+            if znak == "{":
+                glebokosc += 1
+            elif znak == "}":
+                if glebokosc:
+                    glebokosc -= 1
+                elif reszta[poz:poz + zamyka] == "}" * zamyka:
+                    return start + poz
+            poz += 1
+    return b
+
+
 def _przebieg(source):
     """`(rodzaj, kawalek, klasa)` dla calego pliku — JEDYNY rozbior w tym module.
 

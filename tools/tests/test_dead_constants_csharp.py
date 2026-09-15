@@ -63,21 +63,20 @@ DEKLARACJA = re.compile(
 MINIMUM_DEKLARACJI = 200
 
 #: Stale nieczytane, uznane po obejrzeniu: nazwa -> (plik, powod).
-#: Do 15.09.2026 **pusto**, i to bylo wynikiem pomiaru, nie zalozeniem: jedyna nieczytana
-#: stala tego drzewa (`StationChainagesM`) zostala USUNIETA, bo byla prywatnym polem testu.
 #:
-#: **Pierwszy wpis doszedl przy 6.D214 i jest o SKANERZE, nie o stalej.** `CzlonWyrazenia`
-#: jest czytana dwa razy — w obu wzorcach `.ToString()` — ale WYLACZNIE przez interpolacje
-#: napisu (`$@"...{CzlonWyrazenia}..."`), a skan szuka nazwy jako osobnego slowa w kodzie.
-#: Stala zyje, bramka jej nie widzi; usuniecie zlamaloby oba czytniki. Ile jeszcze stalych
-#: C# jest czytanych wylacznie tak, nie policzyl nikt — wpisane jako 6.D225.
-UZASADNIONE = {
-    "CzlonWyrazenia": (
-        "tests/Game.Tests/UiTextTests.cs",
-        "czytana dwa razy, ale wylacznie przez interpolacje napisu w obu wzorcach "
-        "`.ToString()`; skan szuka nazwy jako osobnego slowa i interpolacji nie widzi "
-        "(6.D214, granica skanera zapisana jako 6.D225)"),
-}
+#: **Pusto, i to jest wynik pomiaru, a nie zalozenie — po raz drugi.** Do 15.09.2026
+#: bylo tu pusto, bo jedyna nieczytana stala tego drzewa (`StationChainagesM`) zostala
+#: USUNIETA, bo byla prywatnym polem testu. Przy 6.D214 doszedl wpis `CzlonWyrazenia`,
+#: ktory nie byl o stalej, tylko **o skanerze**: stala byla czytana dwa razy, ale
+#: wylacznie przez interpolacje napisu, a skan czytal na masce, ktora literal zaslania
+#: W CALOSCI — razem z dziura, czyli razem z kodem, ktory sie wykonuje.
+#:
+#: **Ten akapit jest przepisany, a nie dopisany obok (15.09.2026, 6.D225): wpis znika,
+#: bo znika powod, dla ktorego istnial.** `martwe()` czyta od dzis `maska_z_dziurami`,
+#: wiec stala czytana wylacznie przez `$"...{Nazwa}..."` nie jest juz nieczytana —
+#: i lista wraca do pustej. Wyjatek na liscie opisywalby granice skanera jako wlasciwosc
+#: STALEJ, a to jest dokladnie ta pomylka, ktora 6.D27 kaze wylaczac, a nie hodowac.
+UZASADNIONE = {}
 
 
 def _pliki(root, rozszerzenia, drzewa=DRZEWA):
@@ -151,6 +150,24 @@ def _odczyty(tresc):
     return licznik
 
 
+def maska_z_dziurami(source):
+    """`CTM.maska`, ale DZIURY INTERPOLACJI zostaja widoczne jako kod — 6.D225.
+
+    Znak w znak tej samej dlugosci co `source`, tak samo jak `maska`. Tresc kazdej
+    dziury przepuszczona jest przez `maska` jeszcze raz, bo dziura jest kodem C#
+    i moze niesc wlasny literal (`{slownik["klucz"]}`) albo komentarz — a nazwa
+    w napisie nie jest odczytem takze wtedy, gdy napis stoi w dziurze.
+
+    Oba czytniki sa **pozyczone** (`CTM.maska`, `CTM.dziury_interpolacji`), a nie
+    przepisane: drugi rozbior mowilby o sobie, a nie o tym, co skan naprawde widzi
+    (6.D213).
+    """
+    bufor = list(CTM.maska(source))
+    for start, koniec in CTM.dziury_interpolacji(source):
+        bufor[start:koniec] = list(CTM.maska(source[start:koniec]))
+    return "".join(bufor)
+
+
 def martwe(root=ROOT):
     """Nazwa -> pliki deklaracji, dla stalych nieczytanych NIGDZIE.
 
@@ -170,10 +187,27 @@ def martwe(root=ROOT):
     martwych jest zero i przed maska, i po niej. Wartosc tej poprawki jest wiec
     wylacznie zapobiegawcza i dowodzi jej kontrola dodatnia na wstrzykniętym wejsciu,
     nie zmiana liczby.
+
+    **Maska ma od 15.09.2026 (6.D225) DZIURE NA DZIURY INTERPOLACJI, i to zdanie jest
+    przepisane, a nie dopisane obok.** Do tego dnia stalo tu, ze odczyty liczy `maska`;
+    to juz nieprawda — liczy je `maska_z_dziurami`. Powod jest zmierzony: `maska`
+    zaslania literal W CALOSCI, a dziura interpolacji NIE jest trescia napisu, tylko
+    kodem, ktory sie wykonuje. Stala czytana wylacznie przez `$"...{Nazwa}..."`
+    wygladala przez to dokladnie tak samo jak martwa, a komunikat bramki zachecal do
+    jej usuniecia. Na drzewie z 15.09.2026 zmiana przesuwa **jedna** stala
+    (`CzlonWyrazenia`, 6.D214): martwych **1 -> 0**.
+
+    **Ile klamr otwiera dziure, mowi liczba dolarow** — patrz `CTM.dziury_interpolacji`.
+    Wzorzec szukajacy `{nazwa}` w kazdym literale byl sprawdzony i ODRZUCONY: na tym
+    drzewie daje odczyt dla **16 nazw**, dla ktorych odczytu nie ma (`case`, `if`,
+    `return`, `var`, `void` z fragmentow C# cytowanych w napisach zwyklych, i dalej).
+    Zadna z tej szesnastki nie jest dzis zadeklarowana jako stala, wiec werdyktu by
+    nie zmienil — ale kazda z nich to stala, ktorej bramka BY NIE ZGLOSILA, gdyby
+    kiedys taka nazwe dostala.
     """
     tresc = _tresc_csharp(root)
     znalezione = deklaracje(tresc, root)
-    odczyty = _odczyty({k: CTM.maska(v) for k, v in tresc.items()})
+    odczyty = _odczyty({k: maska_z_dziurami(v) for k, v in tresc.items()})
     poza = _tresc_poza_csharp(root)
     wynik = {}
     for nazwa, gdzie in znalezione.items():
@@ -316,6 +350,181 @@ def test_the_pattern_reads_the_shapes_this_repository_actually_uses():
     # PascalCase, nie WIELKIE_LITERY — kryterium na wielkie litery nie zlapaloby
     # w tym repozytorium ani jednej stalej C#.
     assert all(not n.isupper() for n in list(deklaracje())[:20]), list(deklaracje())[:5]
+
+
+#: Pietnascie probek na wszystkie szesc postaci literalu — 6.D225. Kazda niesie
+#: nazwe wlasna, wiec „widziana" i „niewidziana" rozstrzyga sie po nazwie, a nie po
+#: liczbie trafien. Cztery ostatnie to nie postacie, tylko GRANICE: specyfikator
+#: formatu, wyrownanie, literal w dziurze i komentarz otaczajacy.
+#: Trzy cudzyslowy skladane, a nie wpisane — inaczej zamknelyby docstring modulu.
+Q = '"' * 3
+
+PROBKI_DZIUR = (
+    ('var a = $"x{Alfa}y";', ("Alfa",), "interpolowany"),
+    ('var a = $@"x{Beta}y";', ("Beta",), "werbatim interpolowany"),
+    ('var a = @$"x{Gama}y";', ("Gama",), "werbatim interpolowany, malpa pierwsza"),
+    ('var a = $"x{{Delta}}y";', (), "podwojna klamra jest uciekniete, nie dziura"),
+    ('var a = $$' + Q + 'x{Epsilon}y' + Q + ';', (),
+     "surowy z dwoma dolarami: POJEDYNCZA klamra to zwykly znak"),
+    ('var a = $$' + Q + 'x{{Zeta}}y' + Q + ';', ("Zeta",),
+     "surowy z dwoma dolarami: dziure otwiera dopiero podwojna klamra"),
+    ('var a = $' + Q + 'x{Eta}y' + Q + ';', ("Eta",),
+     "surowy z jednym dolarem: dziure otwiera pojedyncza klamra"),
+    ('var a = "x{Theta}y";', (), "bez dolara nie ma dziury w ogole"),
+    ('var a = @"x{Jota}y";', (), "werbatim bez dolara tez nie"),
+    ('var a = ' + Q + 'x{Kappa}y' + Q + ';', (), "surowy bez dolara tez nie"),
+    ('var a = $"{Lambda:yyyy}";', ("Lambda", "yyyy"),
+     "GRANICA: specyfikator formatu wchodzi jako identyfikator — patrz docstring"),
+    ('var a = $"{My,5}";', ("My",), "wyrownanie"),
+    ('var a = $$' + Q + '{{slownik["Ni"]}}' + Q + ';', (),
+     "napis W DZIURZE nie jest odczytem — tresc dziury idzie przez maske drugi raz"),
+    ('var a = $"{slownik["Ksi"]}";', ("Ksi",),
+     "GRANICA ODZIEDZICZONA: cudzyslow w dziurze literalu NIE-surowego urywa literal "
+     "juz w `_przebieg` — patrz docstring"),
+    ('// $"{Omikron}"', (), "dziura w komentarzu nie jest kodem"),
+)
+
+
+def test_dziura_interpolacji_jest_kodem_a_reszta_literalu_nie():
+    """Kontrola PRZYRZADU na wejsciu wlasnym: szesc postaci literalu i cztery granice.
+
+    Zbior rozjazdow jest tu z zalozenia pusty, wiec bez tego testu poszerzenie skanu
+    o dziure bylo by twierdzeniem bez dowodu (rodzina 6.D159). Wejscie jest CELOWO
+    inne niz cokolwiek w drzewie — probka czytajaca drzewo mowilaby o drzewie,
+    a pytanie jest o czytnik.
+
+    **GRANICA NAZWANA, a nie przemilczana: specyfikator formatu wchodzi jako odczyt.**
+    W `$"{Lambda:yyyy}"` czesc za dwukropkiem nie jest kodem, a czytnik oddaje z niej
+    `yyyy`. Odciecie jej bylo rozwazone i ODRZUCONE, bo pomylka szlaby wtedy w DROZSZA
+    strone: uciety fragment to identyfikator mniej, czyli stala moglaby wyjsc na martwa,
+    choc jest czytana — a bramka zapalajaca sie na poprawnym kodzie zostaje wylaczona,
+    nie poprawiona (6.D27). Zmierzona cena tej granicy na drzewie z 15.09.2026:
+    specyfikatory daja **16 roznych** tokenow (`F0`-`F9`, `E3`, `E6`, `R`, `D4`, `P0`,
+    `yyyy`, `MM`, `dd`, `e`) i **ani jeden** z nich nie jest zadeklarowany jako stala,
+    wiec dzis nie trzyma przy zyciu niczego.
+
+    **GRANICA ODZIEDZICZONA po `maska`, i ta jest STARSZA niz 6.D225.** W literale
+    NIE-surowym cudzyslow domyka literal takze wtedy, gdy stoi w dziurze
+    (`$"{slownik["Ksi"]}"`, legalne od C# 11) — `_przebieg` urywa tam literal i reszta
+    wiersza idzie u niego jako KOD. Dziury liczone sa juz na tak urwanym kawalku, wiec
+    ta pomylka jest dziedziczona, a nie wniesiona: przed 6.D225 `maska` oddawala z tej
+    probki dokladnie to samo `Ksi`. Kierunek jest tanszy z dwoch (wiecej identyfikatorow
+    widzianych, czyli falszywy negatyw bramki), ale nie jest zerowy: zmierzone
+    15.09.2026, w `src/` i `tests/` jest **55** takich literalow, prawie wszystkie
+    z `string.Join("...")` w dziurze. Poprawka nalezy do `_przebieg`, nie do tego skanu,
+    i jest wpisana do kolejki osobno.
+    """
+    for zapis, oczekiwane, opis in PROBKI_DZIUR:
+        widziane = set(IDENTYFIKATOR.findall(maska_z_dziurami(zapis))) - {"var", "a", "slownik"}
+        assert widziane == set(oczekiwane), (
+            "%s: z %r czytnik widzi %s, a ma widziec %s"
+            % (opis, zapis, sorted(widziane), sorted(oczekiwane)))
+        assert len(maska_z_dziurami(zapis)) == len(zapis), (
+            "maska_z_dziurami zmienila dlugosc na %r — indeksy przestaly wskazywac "
+            "te same miejsca co w oryginale" % (zapis,))
+
+
+def test_probki_pokrywaja_KAZDA_z_szesciu_postaci_literalu():
+    """Bez tego `PROBKI_DZIUR` moglyby sie zwezic do czterech postaci i nikt by nie
+    zauwazyl — dokladnie ta pomylka, ktora 6.D201 znalazlo w docstringu `maska`."""
+    widziane = set()
+    for zapis, _oczekiwane, _opis in PROBKI_DZIUR:
+        widziane.update(CTM.klasy_literalow(zapis))
+    brakujace = sorted(set(CTM.POSTACIE) - widziane)
+    assert not brakujace, (
+        "PROBKI_DZIUR nie niosa ani jednego literalu postaci: " + ", ".join(brakujace))
+
+
+def test_stala_czytana_WYLACZNIE_przez_interpolacje_nie_jest_zglaszana():
+    """Sedno 6.D225, kontrola DODATNIA na wstrzyknietym drzewie.
+
+    Do 15.09.2026 ta stala byla zglaszana jako martwa — i to nie jest teza, tylko
+    zdarzenie: `CzlonWyrazenia` w `tests/Game.Tests/UiTextTests.cs` zapalilo bramke
+    przy 6.D214 i musialo dostac wpis w `UZASADNIONE`.
+    """
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as katalog:
+        _wstrzyknij(katalog, "\n".join([
+            "public static class Atrapa",
+            "{",
+            "    private const string CzlonProbki225 = \"czlon\";",
+            "",
+            '    public static string Opis() => $@"wzorzec {CzlonProbki225} konczy zdanie";',
+            "}",
+            "",
+        ]))
+        znalezione = martwe(katalog)
+        assert "CzlonProbki225" not in znalezione, (
+            "stala czytana wylacznie przez interpolacje nadal zglaszana jako martwa: "
+            + repr(znalezione))
+
+
+def test_stala_naprawde_martwa_jest_zglaszana_NADAL():
+    """Drugi brzeg tego samego przebiegu: poszerzenie skanu nie moze go oslepic.
+
+    Bez tego testu `maska_z_dziurami` oddajaca caly literal jako kod przeszlaby
+    kontrole wyzej na zielono — i bramka przestalaby zglaszac cokolwiek.
+    """
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as katalog:
+        _wstrzyknij(katalog, "\n".join([
+            "public static class Atrapa",
+            "{",
+            "    private const string MartwaProbka225 = \"nic\";",
+            "",
+            '    public static string Opis() => "MartwaProbka225 stoi tu tylko w napisie";',
+            "}",
+            "",
+        ]))
+        znalezione = martwe(katalog)
+        assert "MartwaProbka225" in znalezione, (
+            "stala wymieniona wylacznie w NAPISIE (nie w dziurze) uznana za czytana — "
+            "poszerzenie skanu zdjelo maske z calego literalu: " + repr(znalezione))
+
+
+def test_klamra_w_literale_NIE_interpolowanym_nie_jest_odczytem():
+    """Granica, dla ktorej ten skan liczy dolary, a nie szuka `{nazwa}`.
+
+    Napis zwykly niosacy `{Nazwa}` (na przyklad wzorzec formatu albo fragment JSON-a)
+    nie jest odczytem. Zmierzone 15.09.2026: taka klamre niesie **104** literalow
+    zwyklych, **24** werbatim i **8** surowych tego drzewa — wzorzec `{nazwa}` bez
+    liczenia dolarow wzialby kazdy z nich za odczyt.
+    """
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as katalog:
+        _wstrzyknij(katalog, "\n".join([
+            "public static class Atrapa",
+            "{",
+            "    private const string PoleProbki225 = \"pole\";",
+            "",
+            '    public static string Wzorzec() => "{PoleProbki225} nie jest dziura";',
+            "}",
+            "",
+        ]))
+        znalezione = martwe(katalog)
+        assert "PoleProbki225" in znalezione, (
+            "klamra w literale BEZ dolara policzona jako dziura — bramka przestalaby "
+            "zglaszac stale naprawde martwe: " + repr(znalezione))
+
+
+#: Ile dziur interpolacji ma widziec skan, zeby pomiar byl pomiarem. Ta sama pulapka,
+#: co przy `MINIMUM_DEKLARACJI`: literowka w `dziury_interpolacji` dalaby zero dziur,
+#: zero odzyskanych odczytow i zielona bramke — bo dzis zadna stala nie wyszlaby przez
+#: to na martwa. Zapadka DOLNA, klasa WOLNA. Zmierzone 15.09.2026: **2116**
+#: (2037 w postaci `$`, 69 w surowej interpolowanej, 10 w werbatim interpolowanej).
+MINIMUM_DZIUR = 1800
+
+
+def test_the_gate_sees_the_interpolation_holes_it_is_supposed_to_see():
+    """Prog na liczbe dziur — bez niego oslepiony czytnik dziur jest dzis ZIELONY."""
+    ile = sum(len(CTM.dziury_interpolacji(z)) for z in _tresc_csharp().values())
+    assert ile >= MINIMUM_DZIUR, (
+        "skan widzi %d dziur interpolacji przy progu %d — `dziury_interpolacji` "
+        "przestalo pasowac do ksztaltu, w jakim to repozytorium pisze interpolacje"
+        % (ile, MINIMUM_DZIUR))
 
 
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw.
