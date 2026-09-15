@@ -63,11 +63,21 @@ DEKLARACJA = re.compile(
 MINIMUM_DEKLARACJI = 200
 
 #: Stale nieczytane, uznane po obejrzeniu: nazwa -> (plik, powod).
-#: **Pusto** — i to jest wynik pomiaru, nie zalozenie. Jedyna nieczytana stala tego
-#: drzewa (`StationChainagesM`) zostala USUNIETA, bo byla prywatnym polem testu, nikt
-#: jej nie czytal i nie nalezala do zadnego udokumentowanego zbioru — inaczej niz
-#: `LOCATION_STATION` po stronie Pythona, ktore spisuje wyliczenie GTFS.
-UZASADNIONE = {}
+#: Do 15.09.2026 **pusto**, i to bylo wynikiem pomiaru, nie zalozeniem: jedyna nieczytana
+#: stala tego drzewa (`StationChainagesM`) zostala USUNIETA, bo byla prywatnym polem testu.
+#:
+#: **Pierwszy wpis doszedl przy 6.D214 i jest o SKANERZE, nie o stalej.** `CzlonWyrazenia`
+#: jest czytana dwa razy — w obu wzorcach `.ToString()` — ale WYLACZNIE przez interpolacje
+#: napisu (`$@"...{CzlonWyrazenia}..."`), a skan szuka nazwy jako osobnego slowa w kodzie.
+#: Stala zyje, bramka jej nie widzi; usuniecie zlamaloby oba czytniki. Ile jeszcze stalych
+#: C# jest czytanych wylacznie tak, nie policzyl nikt — wpisane jako 6.D225.
+UZASADNIONE = {
+    "CzlonWyrazenia": (
+        "tests/Game.Tests/UiTextTests.cs",
+        "czytana dwa razy, ale wylacznie przez interpolacje napisu w obu wzorcach "
+        "`.ToString()`; skan szuka nazwy jako osobnego slowa i interpolacji nie widzi "
+        "(6.D214, granica skanera zapisana jako 6.D225)"),
+}
 
 
 def _pliki(root, rozszerzenia, drzewa=DRZEWA):

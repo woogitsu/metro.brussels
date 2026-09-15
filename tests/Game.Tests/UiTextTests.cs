@@ -4203,8 +4203,44 @@ public sealed class UiTextTests
 
     private const int ToStringZArgumentemNaWyliczeniuWGame = 0;
 
+    /// <summary>
+    /// Człon wyrażenia: nazwa, ewentualnie z indeksatorem — 6.D214.
+    ///
+    /// <para><b>Indeksator jest tu treścią, a nie ozdobą.</b> Do 15.09.2026 oba wzorce
+    /// niżej brały nazwę jako <c>([\w.]+)</c>, a ta klasa nie wchodzi w <c>]</c>. Na
+    /// wyrażeniu <c>_line.Calls[^1].StopErrorM.ToString(…)</c> dopasowanie zaczynało się
+    /// więc ZA nawiasem i zgłoszenie brzmiało <c>.StopErrorM</c> — z kropką na początku
+    /// i bez nazwy obiektu.</para>
+    ///
+    /// <para><b>To NIE jest „weź więcej znaków", przed czym ostrzegało pole pozycji.</b>
+    /// Poszerzenie jest STRUKTURALNE: człon wyrażenia w C# może nieść indeksator, więc
+    /// wzorzec opisuje człon, a nie długość. Zmierzone na drzewie: zgłoszeń jest tyle
+    /// samo co przedtem (3 + 18 w <c>src/Game/</c>, 3 + 5 w <c>src/Sim/</c>), różnią się
+    /// <b>dokładnie dwa</b> i oba na korzyść — <c>.StopErrorM</c> staje się
+    /// <c>_line.Calls[^1].StopErrorM</c> i <c>_stations.Calls[^1].StopErrorM</c>.</para>
+    ///
+    /// <para><b>I to jest szkoda, którą urwanie robiło naprawdę:</b> te dwa wyrażenia
+    /// NIE SĄ tym samym wyrażeniem, a stary czytnik zwijał je do jednego napisu. Komunikat
+    /// bramki nie odróżniał więc dwóch różnych miejsc — a istnieje po to, żeby nie trzeba
+    /// było wracać do pliku i szukać ręcznie.</para>
+    ///
+    /// <para><b>Nawias OKRĄGŁY doszedł z tego samego pomiaru i jest INNĄ klasą niż
+    /// urwanie.</b> <c>Units.MpsToKmh(PermittedSpeedMps).ToString("R", …)</c>
+    /// w <c>SignallingPlan.cs:216</c> był dla obu czytników — starego i nowego —
+    /// <b>NIEWIDOCZNY</b>, a nie urwany: przed <c>.ToString</c> stoi <c>)</c>, więc
+    /// dopasowanie nie zaczynało się w ogóle. Poszerzenie o <c>\([^()]*\)</c> dodaje
+    /// <b>dokładnie to jedno</b> zgłoszenie i nie rusza żadnego z pozostałych 28.</para>
+    ///
+    /// <para><b>Granica, która zostaje:</b> nawiasy ZAGNIEŻDŻONE
+    /// (<c>f(g(x)).ToString()</c>) nadal są niewidoczne, bo <c>[^()]*</c> w nie nie
+    /// wchodzi. Dziś takiego wyrażenia w <c>src/</c> nie ma; kontrola przyrządu wykonuje
+    /// ten przypadek, żeby granica była zmierzona, a nie opowiedziana.</para>
+    /// </summary>
+    private const string CzlonWyrazenia = @"\w+(?:\[[^\]\[]*\]|\([^()]*\))?";
+
     private static readonly Regex WzorzecToStringBezArgumentu =
-        new(@"([\w.]+)\.ToString\(\s*\)", RegexOptions.Compiled);
+        new($@"((?:{CzlonWyrazenia})(?:\.{CzlonWyrazenia})*)\.ToString\(\s*\)",
+            RegexOptions.Compiled);
 
     // ---------------------------------------------------------------------
     // 6.D213 — `.ToString()` w RDZENIU; siostra bramki 6.D199 dla `src/Game/`
@@ -4388,8 +4424,105 @@ public sealed class UiTextTests
             + "opisuje stan, którego już nie ma");
     }
 
+    /// <summary>Podłoga na liczbę zgłoszeń obu czytników `.ToString()` w całym `src/`.</summary>
+    /// <remarks>
+    /// <para>Zmierzone 15.09.2026 na CAŁYM <c>src/</c>: <b>53</b> — 3 + 18
+    /// w <c>src/Game/</c>, 3 + 6 w <c>src/Sim/</c> (szóste doszło razem z nawiasem
+    /// okrągłym) i 1 + 22 w <c>src/Sim.Runner/</c>.</para>
+    /// <para><b>Pierwsza wersja tej podłogi stała na 30 i to była moja pomyłka,
+    /// zmierzona.</b> Trzydziestka wzięła się z dwóch katalogów, a czytnik chodzi po
+    /// wszystkich trzech — podłoga stała więc <b>23 poniżej</b> stanu faktycznego
+    /// i nie zapalała się przy COFNIĘCIU wzorca: wariant bez nawiasu okrągłego daje 52,
+    /// goły <c>\w+</c> też 52, a 52 &gt;= 30. Na 53 oba cofnięcia zapalają.</para>
+    /// <para>Podłoga, nie równość — wywołań przybywa z kodem. Ale podłoga POSTAWIONA
+    /// NA ZMIERZONEJ WARTOŚCI, a nie z zapasem: zapas jest tu dokładnie tym, co odbiera
+    /// bramce zdolność wykrywania.</para>
+    /// </remarks>
+    private const int MinimumZgloszenToString = 53;
+
+    /// <summary>Zgłoszenia obu czytników `.ToString()` w całym `src/`, z adresem.</summary>
+    private static List<string> ZgloszeniaToString()
+    {
+        var out_ = new List<string>();
+        foreach (var sciezka in PlikiZrodlowe())
+        {
+            var czysty = KodLeksykalnie(File.ReadAllText(sciezka));
+            foreach (var wzorzec in new[] { WzorzecToStringBezArgumentu, WzorzecToStringZArgumentem })
+            {
+                foreach (Match m in wzorzec.Matches(czysty))
+                {
+                    out_.Add($"{Path.GetFileName(sciezka)}:{m.Groups[1].Value}");
+                }
+            }
+        }
+
+        return out_;
+    }
+
+    [TestMethod]
+    public void Zadne_zgloszenie_ToString_nie_jest_URWANE_na_indeksatorze()
+    {
+        var zgloszenia = ZgloszeniaToString();
+        Assert.IsTrue(zgloszenia.Count >= MinimumZgloszenToString,
+            $"zgłoszeń `.ToString()` w `src/` znaleziono {zgloszenia.Count} przy podłodze "
+            + $"{MinimumZgloszenToString} — zero znaczy „czytnik przestał czytać”");
+
+        var urwane = zgloszenia
+            .Where(z => z[(z.IndexOf(':') + 1)..] is var cel
+                        && (cel.StartsWith('.') || cel.EndsWith('.')))
+            .OrderBy(z => z, StringComparer.Ordinal)
+            .ToList();
+        Assert.AreEqual(0, urwane.Count,
+            "zgłoszenie z kropką na brzegu, czyli nazwa URWANA: "
+            + string.Join(", ", urwane)
+            + " — komunikat bramki istnieje po to, żeby nie trzeba było wracać do pliku "
+            + "i szukać ręcznie; nazwa bez obiektu tego nie daje (6.D214)");
+    }
+
+    [TestMethod]
+    public void Czytnik_ToString_czyta_CZLON_Z_INDEKSATOREM_a_stary_go_gubil()
+    {
+        // Kontrola PRZYRZĄDU: bramka wyżej stoi po poprawce na ZERZE, więc czytnik,
+        // który przestałby cokolwiek znajdować, dałby tę samą zieleń. Próbka wykonuje
+        // OBA czytniki — dzisiejszy i ten sprzed 6.D214 — na tym samym tekście.
+        const string probka = "var x = _line.Calls[^1].StopErrorM.ToString(\"0.0\");\n"
+                              + "var y = _plain.Field.ToString();\n";
+        var stary = new Regex(@"([\w.]+)\.ToString\(\s*[^)\s]");
+        var staryBez = new Regex(@"([\w.]+)\.ToString\(\s*\)");
+
+        Assert.AreEqual("_line.Calls[^1].StopErrorM",
+            WzorzecToStringZArgumentem.Match(probka).Groups[1].Value,
+            "dzisiejszy czytnik nie wziął członu z indeksatorem — po to ta pozycja istnieje");
+        Assert.AreEqual(".StopErrorM", stary.Match(probka).Groups[1].Value,
+            "czytnik SPRZED 6.D214 przestał gubić nazwę — próbka nie rozdziela już obu "
+            + "czytników i nie mówi o poprawce niczego");
+
+        // I druga strona: na wyrażeniu BEZ indeksatora oba czytniki mają dać to samo.
+        Assert.AreEqual(WzorzecToStringBezArgumentu.Match(probka).Groups[1].Value,
+            staryBez.Match(probka).Groups[1].Value,
+            "poszerzenie zmieniło odczyt wyrażenia bez indeksatora — miało zmienić "
+            + "DOKŁADNIE te przypadki, w których stary czytnik się mylił");
+
+        // NAWIAS OKRĄGŁY: wywołanie na wyniku metody było NIEWIDOCZNE, nie urwane.
+        const string poMetodzie = "var z = Units.MpsToKmh(v).ToString(kultura);\n";
+        Assert.AreEqual("Units.MpsToKmh(v)",
+            WzorzecToStringZArgumentem.Match(poMetodzie).Groups[1].Value,
+            "dzisiejszy czytnik nie widzi wywołania na wyniku metody — a `SignallingPlan.cs:216` "
+            + "jest dokładnie tym przypadkiem");
+        Assert.IsFalse(stary.IsMatch(poMetodzie),
+            "czytnik SPRZED 6.D214 zaczął widzieć wywołanie na wyniku metody — próbka "
+            + "przestała rozdzielać oba czytniki");
+
+        // GRANICA, wykonana a nie opowiedziana: nawiasy ZAGNIEŻDŻONE zostają niewidoczne.
+        const string zagniezdzone = "var q = f(g(x)).ToString(kultura);\n";
+        Assert.IsFalse(WzorzecToStringZArgumentem.IsMatch(zagniezdzone),
+            "czytnik zaczął czytać nawiasy ZAGNIEŻDŻONE — granica zapisana przy "
+            + "`CzlonWyrazenia` opisuje wtedy stan, którego już nie ma, i trzeba ją przepisać");
+    }
+
     private static readonly Regex WzorzecToStringZArgumentem =
-        new(@"([\w.]+)\.ToString\(\s*[^)\s]", RegexOptions.Compiled);
+        new($@"((?:{CzlonWyrazenia})(?:\.{CzlonWyrazenia})*)\.ToString\(\s*[^)\s]",
+            RegexOptions.Compiled);
 
     /// <summary>
     /// Kod z komentarzami i literałami zamienionymi na spacje — ZACHOWUJE DŁUGOŚĆ,

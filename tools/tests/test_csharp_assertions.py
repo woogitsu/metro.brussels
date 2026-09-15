@@ -419,7 +419,9 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 #: `ASERCJI_RAZEM` niżej, wszystkie z komunikatem.
 #: **1675 -> 1682 (15.09.2026, 6.D213)** — te same siedem asercji, co przy
 #: `ASERCJI_RAZEM` niżej, wszystkie z komunikatem.
-Z_KOMUNIKATEM_RAZEM = 1682
+#: **1682 -> 1690 (15.09.2026, 6.D214)** — te same osiem asercji, co przy
+#: `ASERCJI_RAZEM` niżej, wszystkie z komunikatem.
+Z_KOMUNIKATEM_RAZEM = 1690
 NIEROZSTRZYGNIETYCH = 68
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
 #: `tests/Sim.Tests/DefaultArmAuditTests.cs` — bramki na ramionach domyślnych
@@ -444,7 +446,12 @@ NIEROZSTRZYGNIETYCH = 68
 #: wywołań na wyliczeniu) i trzy w kontroli przyrządu — po jednej na każde
 #: z trzech podstawień, w tym na to, przy którym sito jest ŚLEPE. Wszystkie
 #: z komunikatem; `BEZ_KOMUNIKATU_RAZEM` i `NIEROZSTRZYGNIETYCH` nie drgają.
-ASERCJI_RAZEM = 3129
+#: **3129 -> 3137 (15.09.2026, 6.D214).** Osiem asercji bramki na zgłoszeniach
+#: URWANYCH i jej kontroli przyrządu: dwie w bramce drzewa (podłoga na liczbę
+#: zgłoszeń, zero zgłoszeń z kropką na brzegu) i sześć w kontroli — po parze na
+#: indeksator, nawias okrągły i nawiasy ZAGNIEŻDŻONE, czyli na granicę, która
+#: zostaje. Wszystkie z komunikatem.
+ASERCJI_RAZEM = 3137
 
 
 def _rozklad():

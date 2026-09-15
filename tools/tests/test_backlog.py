@@ -404,7 +404,10 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 # 291 -> 292 (15.09.2026, 6.D213): blok szesciu pol dla 6.D224 — `var`
 # z wnioskowanym typem wyliczeniowym, czyli DRUGA slepa plamka sita, ktorej
 # 6.D213 nie policzylo i tak to zapisalo. Domkniecie 6.D213 zbilo zapas do 11.
-MINIMUM_DETAIL_BLOCKS = 292
+# 292 -> 293 (15.09.2026, 6.D214): blok szesciu pol dla 6.D225 — stale czytane
+# wylacznie przez interpolacje, ktore skan widzi jako martwe. Pozycja NIE wyszla
+# z progu zapasu, tylko ZGLOSILA JA SAMA BRAMKA projektu podczas tej pracy.
+MINIMUM_DETAIL_BLOCKS = 293
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je

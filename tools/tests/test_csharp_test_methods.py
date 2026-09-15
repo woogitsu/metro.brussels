@@ -371,12 +371,17 @@ ROZKLAD_POSTACI = {
         # 4345 -> 4384, 739 -> 744 i 66 -> 67 (15.09.2026, 6.D213): literały bramki
         # na `.ToString()` w rdzeniu i jej kontroli przyrządu. Werbatim rośnie o JEDEN
         # — wzorzec `Regex` deklaracji zmiennej, gdzie ukośnik jest treścią.
-        "zwykly": 4384,
-        "interpolowany ($)": 744,
-        "werbatim (@)": 67,
+        # 4384 -> 4406, 744 -> 747, 67 -> 68 i 4 -> 6 (15.09.2026, 6.D214): literały
+        # bramki na zgłoszeniach urwanych. Postać `werbatim interpolowany ($@)` rośnie
+        # z czterech na SZEŚĆ i to jest treść: oba wzorce `.ToString()` składają się dziś
+        # z `CzlonWyrazenia` przez interpolację, a ukośnik w nich jest treścią — czyli
+        # jedyna postać, która daje i jedno, i drugie.
+        "zwykly": 4406,
+        "interpolowany ($)": 747,
+        "werbatim (@)": 68,
         "surowy interpolowany ($$\"\"\")": 13,
         "surowy (\"\"\")": 8,
-        "werbatim interpolowany ($@)": 4,
+        "werbatim interpolowany ($@)": 6,
     },
     "src": {
         # 1223 -> 1264 i 446 -> 456 (13.09.2026, MB-02): `TrainingSession.cs`,
