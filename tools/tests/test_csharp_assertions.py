@@ -423,7 +423,9 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 #: `ASERCJI_RAZEM` niżej, wszystkie z komunikatem.
 #: **1690 -> 1696 (15.09.2026, 6.D215)** — szesc z siedmiu nowych asercji ma
 #: komunikat; siodma sklada go ze zbioru, ktory porownuje.
-Z_KOMUNIKATEM_RAZEM = 1708
+#: **1708 -> 1723 (15.09.2026, 6.D224)** — te same pietnascie asercji, co przy
+#: `ASERCJI_RAZEM` nizej, wszystkie z komunikatem.
+Z_KOMUNIKATEM_RAZEM = 1723
 NIEROZSTRZYGNIETYCH = 68
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
 #: `tests/Sim.Tests/DefaultArmAuditTests.cs` — bramki na ramionach domyślnych
@@ -466,7 +468,18 @@ NIEROZSTRZYGNIETYCH = 68
 #: o wytworcy komunikatu bez wlasnych slow (liczba wolajacych `RunPlan.Refusal`,
 #: podloga na literaly `[ARGUMENT]`, jezyk kazdego). Wszystkie z komunikatem;
 #: `BEZ_KOMUNIKATU_RAZEM` i `NIEROZSTRZYGNIETYCH` nie drgaja.
-ASERCJI_RAZEM = 3155
+#: **3155 -> 3170 (15.09.2026, 6.D224).** Pietnascie asercji bramki na DRUGIEJ
+#: slepej plamce sita rdzenia, w `tests/Game.Tests/UiTextTests.cs`: jedenascie
+#: w bramce drzewa (podloga na liczbe plikow, rownosc „surowo == po masce",
+#: niezerowa liczba slow `var`, a dalej po cztery na kazdy wpis wykazu — liczba pol,
+#: obecnosc pliku, obecnosc typu w zbiorze wyliczen i DOKLADNIE JEDNO trafienie
+#: wzorca deklaracji — plus zbior czytelny wzorcem, liczba NAKLADANIA sie obu plamek,
+#: zbior pozycji poza pierwsza plamka i zero wywolan `.ToString()`) oraz cztery
+#: w kontroli przyrzadu: sito SLEPE na typ wnioskowany, sito WIDZACE ten sam kod
+#: z typem jawnym, czytnik rozpoznajacy `var nazwa = Wyliczenie.Czlon` i granica,
+#: na ktorej ten czytnik milczy, bo inicjalizatorem jest wywolanie. Wszystkie
+#: z komunikatem; `BEZ_KOMUNIKATU_RAZEM` i `NIEROZSTRZYGNIETYCH` nie drgaja.
+ASERCJI_RAZEM = 3170
 
 
 def _rozklad():

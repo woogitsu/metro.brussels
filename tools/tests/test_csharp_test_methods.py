@@ -381,12 +381,21 @@ ROZKLAD_POSTACI = {
         # cztery probki tej bramki opisuja literaly surowe i werbatim, ale opisuja je
         # jako DANE w napisach zwyklych, a nie zapisuja w tych postaciach — inaczej
         # probka byla by tym, co mierzy.
-        "zwykly": 4511,
-        "interpolowany ($)": 769,
-        "werbatim (@)": 76,
+        # 4511 -> 4562, 769 -> 783, 76 -> 88 i 6 -> 7 (15.09.2026, 6.D224): literaly
+        # bramki na DRUGIEJ slepej plamce sita rdzenia. Werbatim rosnie o DWANASCIE
+        # i to jest tresc: dziesiec z nich to wpisy wykazu
+        # `VarOTypieWyliczeniowymWRdzeniu`, gdzie czwartym polem jest WZORZEC
+        # deklaracji, a ukosnik wsteczny w nim jest trescia; dwa pozostale to wzorce
+        # `Regex` czytnika (`\bvar\b` i `var nazwa = Wyliczenie.Czlon`). Postac
+        # `werbatim interpolowany ($@)` rosnie o JEDEN — wzorzec `.ToString()`
+        # skladany z nazwy zmiennej przez `Regex.Escape`, czyli jedyne miejsce,
+        # ktore potrzebuje i ukosnika jako tresci, i wstawienia wartosci.
+        "zwykly": 4562,
+        "interpolowany ($)": 783,
+        "werbatim (@)": 88,
         "surowy interpolowany ($$\"\"\")": 13,
         "surowy (\"\"\")": 8,
-        "werbatim interpolowany ($@)": 6,
+        "werbatim interpolowany ($@)": 7,
     },
     "src": {
         # 1223 -> 1264 i 446 -> 456 (13.09.2026, MB-02): `TrainingSession.cs`,
