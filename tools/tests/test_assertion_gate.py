@@ -1576,7 +1576,18 @@ def test_wzorzec_rodziny_lapie_zdanie_ktore_ma_lapac_i_nie_bierze_sasiedztwa():
 #: od której 6.D207 wyszło, a ta bramka jest jedynym miejscem, które to zauważy.
 #: Do listy `NA_ZRODLE_PY` nie należy: `doc` jest docstringiem wyjętym przez `ast`,
 #: a nie tekstem pliku.
-ASERCJI_NAPISOWYCH_RAZEM = 881
+#: **881 -> 883 (15.09.2026, 6.D222), z powodem.** Doszły dwie asercje
+#: w `test_ci_workflows.py`: `"with" in str(blad)` w
+#: `test_loader_scisly_WIDZI_duplikat_ktorego_safe_load_NIE_widzi` i
+#: `"tabulator we wcieciu" not in przeszlo` w
+#: `test_ile_ksztaltow_PyYAML_przepuszcza_a_ile_odrzuca`. Obie stoją na NAPISIE
+#: Z KONIECZNOŚCI i to jest ich treść: pierwsza pyta, czy KOMUNIKAT loadera nazywa
+#: klucz — komunikat bez nazwy nie mówi, gdzie szukać, więc jego treść jest tu
+#: zachowaniem, nie opisem; druga pyta o członkostwo w zbiorze nazw próbek, a nazwa
+#: próbki nie ma innej postaci niż literał. Do listy `NA_ZRODLE_PY` nie należą:
+#: `blad` jest wyjątkiem PyYAML-a, a `przeszlo` wynikiem pętli po próbkach
+#: syntetycznych — żadne z nich nie jest odczytem pliku.
+ASERCJI_NAPISOWYCH_RAZEM = 883
 
 #: **Kotwica wpisu to `(plik, funkcja, operator, literał)`, a NIE numer wiersza.**
 #: Numer przesuwa się przy każdej edycji pliku i lista rozjechałaby się sama z siebie.
