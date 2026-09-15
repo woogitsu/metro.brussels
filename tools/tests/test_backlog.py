@@ -419,7 +419,11 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 # przy zepsutej skladni omija filtr `catch`, wiec droga bledu konczy sie po angielsku
 # i ze stosem. Pozycja NIE wyszla z progu zapasu, tylko z pomiaru tej pozycji:
 # 2 z 4 probek przelatuja obok filtru.
-MINIMUM_DETAIL_BLOCKS = 297
+# 297 -> 298 (15.09.2026, 6.D219): blok szesciu pol dla 6.D230 — dwa czytniki tego
+# samego katalogu i dwie rozne granice: `claims_in_reports` pomija bloki ogrodzone,
+# `wystapienia_w_jednych_grawisach` nie. Pozycja NIE wyszla z progu zapasu, tylko
+# z czerwieni, ktora ta bramka zapalila na raporcie 6.D219.
+MINIMUM_DETAIL_BLOCKS = 298
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je

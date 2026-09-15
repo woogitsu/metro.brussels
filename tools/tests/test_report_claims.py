@@ -1096,3 +1096,78 @@ def test_maska_adresow_wycina_adres_a_zostawia_liczbe():
     assert CYFRA_W_PROZIE.findall(po) == ["23", "53"], (
         "maska zjadla liczbe z twierdzenia %r -> %r — bramka milczalaby o tym, o co pyta"
         % (zostaje, po))
+
+
+# --- 6.D219: REMIS dat raportu i stałej — ćwierć populacji, a nie przypadek brzegowy --
+#
+# **Zmierzone 15.09.2026 na całym katalogu, obu kształtach twierdzeń:**
+#
+#     klasa dat          CLAIM   `NAZWA = N`   razem   rozjechanych
+#     REMIS                  3            23      26              2
+#     stała nowsza          15            14      29             27
+#     raport nowszy         38             8      46              1
+#
+# **Remis to 26 ze 101, czyli ćwierć populacji** — a dla kształtu `` `NAZWA = N` ``
+# 23 z 45, czyli ponad połowę. Teza „remis to brzeg" jest zmierzona jako nieprawdziwa.
+#
+# **ROZSTRZYGNIĘCIE: `>=` ZOSTAJE, remis NIE zwalnia.** Powód jest z odsetka rozjazdu,
+# nie z wygody: klasa zwalniana dziś (`stała nowsza`) ma **93,1 %** rozjazdu, remis
+# **7,7 %**, a klasa pilnowana (`raport nowszy`) — 2,2 %. Datowanie z 6.D108 istnieje po
+# to, żeby zwalniać zdania ZESTARZAŁE; remis zachowuje się jak populacja świeża, nie jak
+# zestarzała. Oba rozjechane remisy to zresztą dokładnie ten przypadek, przed którym
+# ostrzegało pole pozycji — twierdzenie wpisane w commicie, który stałą ustawił
+# (`6d156…/NIEROZSTRZYGNIETYCH`, `sciezki-w-polach-blokow.md/MAX_EXCEPTIONS`); pod `>=`
+# są łapane i skierowane do oceny człowieka, pod `>` zniknęłyby bez słowa.
+#
+# **Czego ta pozycja NIE robi: nie przybija populacji remisu.** Klasa zależy od
+# `data_stalej`, a ta datuje stałą commitem, który ruszył jej PLIK, nie jej wiersz —
+# zapadka na 26 rozjechałaby się przy pierwszej edycji dowolnego modułu niosącego
+# cytowaną stałą. Zmierzone na żywo: zbiór twardych rozjazdów z 6.D209 zmalał z 4 na 3
+# bez zmiany jednej cyfry w raporcie, bo `test_report_claims.py` został tknięty.
+
+
+def test_REMIS_dat_NIE_zwalnia_twierdzenia():
+    """Decyzja o remisie, nazwana z imienia — bo dotąd nie była nazwana nigdzie.
+
+    **To nie jest druga bramka, tylko nazwanie istniejącej.** Zmierzone 15.09.2026:
+    odwrócenie operatora w `zdanie_z_dnia_pomiaru` zapala w całym zestawie DOKŁADNIE
+    JEDEN test — trzeci blok `test_zdanie_datowane_nie_jest_pilnowane_a_zdanie_biezace_jest`,
+    czyli kontrolę na wejściu SYNTETYCZNYM. Żadna bramka czytająca dzisiejsze raporty tej
+    zmiany nie widzi i widzieć nie może: remis nie daje dziś ani jednej czerwieni.
+    Decyzja jest więc pilnowana wyłącznie syntetycznie, od 6.D108 — a nazwa tamtego testu
+    mówi o zdaniu DATOWANYM, nie o remisie, więc następny agent szukałby jej w środku
+    testu o czym innym.
+
+    Wejście syntetyczne, bo remisu nie da się wytworzyć w drzewie roboczym: raport tknięty
+    w drzewie dostaje `TERAZ`, a stała nietknięta ma datę z historii — wychodzi klasa
+    „raport nowszy", nie remis.
+    """
+    zastane = dict(C_PAMIEC)
+    try:
+        C_PAMIEC["gdzie"] = {"PROBNA_STALA": ["tools/tests/probny.py"]}
+        C_PAMIEC["zmienione"] = set()
+        C_PAMIEC[("data", "PROBNA_STALA")] = _dt(2026, 9, 11)
+
+        # REMIS: zapadka i raport weszły jednym commitem — raport pisze o NOWEJ wartości.
+        C_PAMIEC[("raport", "probny.md")] = _dt(2026, 9, 11)
+        przedawnione, powod = zdanie_z_dnia_pomiaru("probny.md", "PROBNA_STALA", "1")
+        assert not przedawnione, (
+            "REMIS dat zwolnił twierdzenie z pilnowania — a zmierzone 15.09.2026: remis "
+            "to 26 twierdzeń ze 101 (ćwierć populacji, dla kształtu `NAZWA = N` ponad "
+            f"połowa), z czego rozjechane są DWA. Powód: {powod}")
+
+        # O DOBĘ WCZEŚNIEJ: stała ruszyła PO raporcie — zdanie jest o swoim dniu.
+        C_PAMIEC[("raport", "probny.md")] = _dt(2026, 9, 10)
+        przedawnione, _ = zdanie_z_dnia_pomiaru("probny.md", "PROBNA_STALA", "1")
+        assert przedawnione, (
+            "zdanie starsze od stałej PRZESTAŁO być zwalniane — wtedy asercja wyżej "
+            "przechodzi dlatego, że mechanizm 6.D108 nie działa wcale, a nie dlatego, "
+            "że remis jest pilnowany")
+
+        # O DOBĘ PÓŹNIEJ: raport nowszy — pilnowany, tak samo jak remis.
+        C_PAMIEC[("raport", "probny.md")] = _dt(2026, 9, 12)
+        przedawnione, _ = zdanie_z_dnia_pomiaru("probny.md", "PROBNA_STALA", "1")
+        assert not przedawnione, "raport nowszy od stałej ma być pilnowany"
+    finally:
+        C_PAMIEC.clear()
+        C_PAMIEC.update(zastane)
