@@ -42,9 +42,18 @@ import test_tree_walks as TW
 
 #: Zdanie o rejestrze zapadek. Cztery liczby: razem, przybite, częściowe, wolne.
 #: Ostatnia (poza skanem) stoi w tym samym zdaniu i też jest czytana.
+#:
+#: **Kształt przepisany 15.09.2026 (6.D218), a nie dopisany obok.** Do tego dnia wzorzec
+#: brzmiał `(\d+)\s+zapadek:\s*\*\*(\d+)\s+przybitych,…(\d+)\s+WOLNE\s+i…`,
+#: czyli **wymuszał cztery formy gramatyczne bez względu na liczebnik przed nimi**.
+#: Zmierzone na całej historii rejestru: zdanie było błędne przy KAŻDEJ wartości —
+#: 46/25, 48/27, 49/28, 50/29, 51/30 żądały „WOLNYCH" zamiast „WOLNE", a przy 54/33 błąd
+#: przeskoczył o słowo, bo „WOLNE" po 33 jest już poprawne, a „54 zapadek" po 54 nie.
+#: Dziś liczba stoi PO etykiecie, więc przypadek rządzony jest dwukropkiem, a nie
+#: liczebnikiem, i wzorzec nie wymusza **żadnej** formy. Przechwyceń jest nadal pięć.
 WZORZEC_ZAPADEK = re.compile(
-    r"(\d+)\s+zapadek:\s*\*\*(\d+)\s+przybitych,\s*(\d+)\s+częściowe,\s*"
-    r"(\d+)\s+WOLNE\s+i\s+(\d+)\s+poza\s+zasięgiem\s+skanu\.\*\*")
+    r"Zapadek:\s*(\d+)\.\s*\*\*Przybitych:\s*(\d+),\s*częściowych:\s*(\d+),\s*"
+    r"WOLNYCH:\s*(\d+),\s*poza\s+zasięgiem\s+skanu:\s*(\d+)\.\*\*")
 
 #: Zdanie o liczbie modułów zestawu.
 WZORZEC_MODULOW = re.compile(r"robi to samo dla (\d+) modulow")
@@ -55,8 +64,14 @@ WZORZEC_MODULOW = re.compile(r"robi to samo dla (\d+) modulow")
 #: jej z niczym ani jedno wywołanie, a `len(POMOCNIKI)` nie było przybite w drzewie
 #: nigdzie. Czwarty pomocnik dopisany do krotki zostawiłby to zdanie nieprawdziwym
 #: i nikt by się o tym nie dowiedział — dokładnie ten kształt, który ten moduł łapie.
+#:
+#: **Kształt przepisany 15.09.2026 (6.D218).** Do tego dnia wzorzec brzmiał
+#: `([A-Za-z…]+) pomocniki, ktore maja byc JEDYNA droga` i wymuszał formę `pomocniki` —
+#: poprawną po „trzy", ale **błędną po każdym liczebniku spoza 2–4**, czyli po każdym,
+#: do którego ta krotka mogłaby urosnąć. Dziś liczebnik stoi PO etykiecie.
 WZORZEC_POMOCNIKOW = re.compile(
-    r"([A-Za-zĄąĆćĘꣳŃńÓóŚśŹźŻż]+) pomocniki, ktore maja byc JEDYNA droga")
+    r"Pomocnikow, ktore maja byc JEDYNA droga wartosci opcji do liczby: "
+    r"([A-Za-zĄąĆćĘꣳŃńÓóŚśŹźŻż]+)")
 
 #: Liczebniki potrzebne do PRZECZYTANIA deklaracji, a nie do SKANOWANIA prozy —
 #: i ta granica jest treścią, a nie ostrożnością (6.D203, pomiar niżej). Mapa jest
@@ -196,18 +211,34 @@ def test_czytnik_nie_widzi_deklaracji_zapisanej_slownie_i_mowi_o_tym_glosno():
     („trafień: 0"), a nie przechodzi. Bramka nie da się obejść zapisem słownym —
     da się nią najwyżej zapalić.
     """
-    slownie = ("#: Trzydzieści osiem zapadek: **13 przybitych, 3 częściowe,\n"
-               "#: 21 WOLNYCH i 1 poza zasięgiem skanu.**")
+    # Obie próbki noszą KSZTAŁT DZISIEJSZY (6.D218: liczba po etykiecie). Próbka
+    # w starym kształcie mierzyłaby od 15.09.2026 to, czy wzorzec widzi zdanie, którego
+    # w drzewie już nie ma — czyli nic.
+    slownie = ("#: Zapadek: trzydzieści osiem. **Przybitych: 13, częściowych: 3,\n"
+               "#: WOLNYCH: 21, poza zasięgiem skanu: 1.**")
     assert WZORZEC_ZAPADEK.findall(slownie) == [], (
         "czytnik zobaczył deklarację zapisaną słownie — wtedy zapis słowny "
         "przestaje być głośnym brakiem, a staje się cichym obejściem")
 
-    cyframi = ("#: 42 zapadek: **15 przybitych, 3 częściowe, 23 WOLNE "
-               "i 1 poza zasięgiem skanu.**")
+    cyframi = ("#: Zapadek: 42. **Przybitych: 15, częściowych: 3, WOLNYCH: 23, "
+               "poza zasięgiem skanu: 1.**")
     assert WZORZEC_ZAPADEK.findall(cyframi) == [("42", "15", "3", "23", "1")], (
         "czytnik przestał widzieć deklarację zapisaną cyframi — kontrola wyżej "
         "mierzyłaby wtedy nie obejście, tylko własną ślepotę: %s"
         % WZORZEC_ZAPADEK.findall(cyframi))
+
+    # **Trzecia próbka jest nowa (6.D218) i to ona pilnuje ODPORNOŚCI KSZTAŁTU.**
+    # Stary wzorzec miał formy wpisane na sztywno, więc zdanie zapisane POPRAWNĄ
+    # polszczyzną przy innym liczebniku wypadało spod bramki — dokładnie to, co
+    # ta pozycja naprawia. Dziś cztery różne liczebniki, wymagające po polsku
+    # czterech różnych form, czyta ten sam wzorzec bez zmiany ani jednego słowa.
+    for liczba in ("1", "2", "5", "22"):
+        probka = ("#: Zapadek: %s. **Przybitych: %s, częściowych: %s, WOLNYCH: %s, "
+                  "poza zasięgiem skanu: %s.**" % ((liczba,) * 5))
+        assert WZORZEC_ZAPADEK.findall(probka) == [((liczba,) * 5)], (
+            "wzorzec nie przeczytał zdania z liczebnikiem `%s` — kształt znów zależy "
+            "od liczby, a po polsku forma po liczebniku zmienia się z jego końcówką "
+            "(6.D218)" % liczba)
 
 
 def test_zdanie_o_liczbie_pomocnikow_zgadza_sie_z_krotka():
@@ -228,10 +259,13 @@ def test_zdanie_o_liczbie_pomocnikow_zgadza_sie_z_krotka():
         "zdanie o liczbie pomocników nie zostało znalezione (trafień: %d) — "
         "albo je przeredagowano, albo wzorzec zgnił" % len(trafienia))
 
-    # WIELKOŚĆ LITERY ZDEJMOWANA TUTAJ, a nie dopisywana do mapy drugim kluczem:
-    # deklaracja zaczyna zdanie, więc stoi z wielkiej („Trzy pomocniki"), a mapa ma
-    # służyć też skanowi, który czyta środek zdania. Dwa klucze na to samo słowo
-    # rozjechałyby się przy pierwszej edycji jednego z nich.
+    # WIELKOŚĆ LITERY ZDEJMOWANA TUTAJ, a nie dopisywana do mapy drugim kluczem.
+    # **Powód jest dziś inny niż w dniu, w którym to napisano, i dlatego jest przepisany
+    # (6.D218).** Stało tu, że „deklaracja zaczyna zdanie, więc stoi z wielkiej
+    # (»Trzy pomocniki«)" — po zmianie kształtu zdania liczebnik stoi w ŚRODKU i z małej.
+    # `.lower()` zostaje mimo to: mapa ma służyć też skanowi czytającemu środek zdania,
+    # a dwa klucze na to samo słowo rozjechałyby się przy pierwszej edycji jednego z nich.
+    # Zdjęcie wielkości litery jest więc odporne na OBA kształty, i to jest jego wartość.
     slowo = trafienia[0].lower()
     assert slowo in LICZEBNIKI, (
         "liczebnik `%s` nie jest w mapie — deklaracja przestałaby być czytana, "
@@ -278,7 +312,8 @@ DEKLARACJE_SLOWNE = (
     # z `MINIMUM_READY_ITEMS`. Ten komentarz jest jej echem, nie źródłem.
     ("test_backlog.py", "dwanaście pozycji to dolna granica doby pracy"),
     # ŻYWA I NIEPILNOWANA PRZEZ NIC — jedyna taka w drzewie; to ona dostała wzorzec.
-    ("test_runner_number_parsing.py", "Trzy pomocniki, ktore maja byc JEDYNA droga"),
+    ("test_runner_number_parsing.py",
+     "Pomocnikow, ktore maja byc JEDYNA droga wartosci opcji do liczby: trzy"),
 )
 
 #: Dolne ostrze na skan liczebników z pomiaru 6.D203. Zmierzone 14.09.2026 na prozie
@@ -631,3 +666,162 @@ def test_sito_jest_SLEPE_na_przypadek_dla_ktorego_powstalo():
 if __name__ == "__main__":
     import test_all
     raise SystemExit(test_all.main(__file__))
+
+
+# --- 6.D218: wzorce prozy nie wymuszają formy gramatycznej po liczebniku -----------
+#
+# **Skąd.** Wzorzec z formą wpisaną na sztywno (`(\d+)\s+WOLNE`) żąda jednej odmiany,
+# a po polsku odmiana zależy od KOŃCÓWKI liczebnika: 1 → l.poj., końcówka 2/3/4 poza
+# 12–14 → l.mn. mianownik, reszta → l.mn. dopełniacz. Zapadka rośnie, więc taki wzorzec
+# prędzej czy później **zapala się na zdaniu napisanym POPRAWNIE** — czyli ma kształt,
+# który 6.D27 każe wyłączyć, a nie obchodzić. Obejście jest tu tanie (napisać błędnie),
+# więc usterka utrwala się po cichu przy każdym podniesieniu.
+#
+# **Zmierzone 15.09.2026 na całej historii rejestru zapadek — błąd był ZAWSZE:**
+#
+#     46/17/3/25   „25 WOLNE”     (ma być WOLNYCH)
+#     48/17/3/27   „27 WOLNE”     (ma być WOLNYCH)
+#     49/17/3/28   „28 WOLNE”     (ma być WOLNYCH)
+#     50/17/3/29   „29 WOLNE”     (ma być WOLNYCH)
+#     51/17/3/30   „30 WOLNE”     (ma być WOLNYCH)
+#     54/17/3/33   „54 zapadek”   (ma być zapadki — błąd PRZESKOCZYŁ o słowo)
+#
+# Przy 33 forma `WOLNE` zrobiła się poprawna, a błędne zrobiło się `zapadek` po 54.
+# Sześć wartości, sześć błędów, za każdym razem dokładnie jeden — i ani razu nie
+# zapaliło się nic, bo bramką był ten sam wzorzec, który błąd wymuszał.
+#
+# **ROZSTRZYGNIĘCIE: zdania zmieniają KSZTAŁT, wzorce NIE są poszerzane.** Wzorzec
+# przyjmujący obie formy przestaje pilnować czegokolwiek — a kształt, w którym liczba
+# stoi PO etykiecie, nie wymusza niczego i przechwytuje tyle samo. Wzór był w tym pliku
+# od początku: `WZORZEC_MODULOW` czyta „dla N modulow” i jest odporny, bo przypadek
+# narzuca **przyimek**, a nie liczba.
+
+#: Przyimki, które rządzą przypadkiem SAME i zwalniają liczebnik z rządzenia nim.
+#: Bez tej listy skan niżej zapaliłby się na `WZORZEC_MODULOW`, czyli na wzorcu
+#: POPRAWNYM — a bramka świecąca na poprawnym tekście zostaje wyłączona, nie poprawiona.
+#: Lista jest krótka i to jest jej granica, powiedziana wprost: rządzić przypadkiem
+#: potrafi też czasownik i wyrażenie przyimkowe, a tych skan nie rozpoznaje.
+PRZYIMKI_RZADZACE = ("dla", "do", "od", "bez", "oprocz", "oprócz", "wedlug", "według",
+                     "z", "ze", "u", "spośród", "sposrod", "poza", "przy", "nad", "pod",
+                     "w", "we", "na", "o", "po")
+
+#: Wzorce prozy niosące LICZBĘ — te i tylko te mogą wymuszać formę po liczebniku.
+#: `WZORZEC_DEKLARACJI_POMIARU` liczby nie niesie i do tej krotki nie należy.
+WZORCE_Z_LICZBA = (
+    ("WZORZEC_ZAPADEK", WZORZEC_ZAPADEK),
+    ("WZORZEC_MODULOW", WZORZEC_MODULOW),
+    ("WZORZEC_POMOCNIKOW", WZORZEC_POMOCNIKOW),
+)
+
+#: Przechwycenie liczby (cyframi albo słownie) i słowo, które po nim następuje.
+#: **Klasa litery zapisana jako `[^\W\d_]`, a nie wyliczeniem polskich znaków**, i to
+#: jest poprawka z pomiaru: klasy wypisane z ręki w tym pliku mają uszkodzone kodowanie
+#: (`Ęꣳ` zamiast `ĘęŁł`), więc skan zatrzymywał się w środku słowa — „częściowe"
+#: czytał jako „cz". Klasa uniwersalna nie ma tego problemu i nie wymaga pilnowania.
+_LICZBA_RZADZI = re.compile(
+    r"\((?:\\d\+|\[[^\]]*\]\+)\)(?:\\s[+*]|\s)+([^\W\d_]+)", re.UNICODE)
+
+
+def formy_wymuszane_po_liczebniku(wzorce=None):
+    """`(nazwa, słowo)` dla każdego wzorca, w którym przechwycona LICZBA rządzi słowem.
+
+    Czyta ŹRÓDŁO wzorca (`.pattern`), a nie prozę — bo wymuszenie jest własnością
+    wzorca, nie zdania: zdanie da się napisać poprawnie tylko wtedy, gdy wzorzec na to
+    pozwala. Przyimek stojący bezpośrednio przed przechwyceniem zwalnia: to on wtedy
+    rządzi przypadkiem, a liczba nie ma nic do rzeczy (`WZORZEC_MODULOW`).
+    """
+    out = []
+    for nazwa, wzorzec in (wzorce if wzorce is not None else WZORCE_Z_LICZBA):
+        zrodlo = wzorzec.pattern
+        for m in _LICZBA_RZADZI.finditer(zrodlo):
+            # Przyimek PO liczbie — liczba nie rządzi przyimkiem, tylko tym, co za nim.
+            # Bez tego warunku skan zgłaszał „1 poza zasięgiem skanu" jako wymuszenie
+            # formy `poza`, czyli trafienie fałszywe na zdaniu poprawnym (6.D27).
+            if m.group(1).lower() in PRZYIMKI_RZADZACE:
+                continue
+            przed = re.findall(r"([^\W\d_]+)[\W\d_]*$", zrodlo[:m.start()], re.UNICODE)
+            if przed and przed[-1].lower() in PRZYIMKI_RZADZACE:
+                continue
+            out.append((nazwa, m.group(1)))
+    return sorted(set(out))
+
+
+def test_zaden_wzorzec_prozy_nie_wymusza_formy_po_liczebniku():
+    """Zbiór PUSTY — i dlatego stoi przy nim kontrola przyrządu (6.D159).
+
+    Pusty zbiór odpowiada „nic nie wymusza” tak samo przekonująco jak skan, który
+    oślepł. Druga połowa testu podaje więc skanowi OBA kształty sprzed tej pozycji
+    i żąda, żeby je zobaczył.
+    """
+    wymuszane = formy_wymuszane_po_liczebniku()
+    assert wymuszane == [], (
+        "wzorzec prozy wymusza formę gramatyczną po liczebniku: %s — po polsku forma "
+        "zależy od końcówki liczby, a zapadki rosną, więc taki wzorzec zapali się "
+        "kiedyś na zdaniu napisanym POPRAWNIE (6.D27). Odpowiedzią jest zmiana "
+        "KSZTAŁTU zdania (liczba po etykiecie), a nie poszerzenie wzorca o obie "
+        "formy — wzorzec przyjmujący obie przestaje pilnować czegokolwiek (6.D218)"
+        % wymuszane)
+
+    # KONTROLA PRZYRZĄDU: oba kształty sprzed 6.D218, podane skanowi wprost.
+    stary_zapadek = re.compile(
+        r"(\d+)\s+zapadek:\s*\*\*(\d+)\s+przybitych,\s*(\d+)\s+częściowe,\s*"
+        r"(\d+)\s+WOLNE\s+i\s+(\d+)\s+poza\s+zasięgiem\s+skanu\.\*\*")
+    stary_pomocnikow = re.compile(
+        r"([A-Za-zĄąĆćĘꣳŃńÓóŚśŹźŻż]+) pomocniki, ktore maja byc JEDYNA droga")
+    widziane = formy_wymuszane_po_liczebniku(
+        (("stary_zapadek", stary_zapadek), ("stary_pomocnikow", stary_pomocnikow)))
+    assert widziane == [
+        ("stary_pomocnikow", "pomocniki"),
+        ("stary_zapadek", "WOLNE"),
+        ("stary_zapadek", "częściowe"),
+        ("stary_zapadek", "przybitych"),
+        ("stary_zapadek", "zapadek"),
+    ], (
+        "skan NIE WIDZI kształtów, które ta pozycja usunęła — wtedy pusty zbiór wyżej "
+        "mówi tyle, co skan, który go wypisał: %s" % widziane)
+
+    # GRANICA, WYKONANA: przyimek zwalnia, i to jest powód, dla którego
+    # `WZORZEC_MODULOW` nie jest usterką mimo kształtu „liczba, potem rzeczownik”.
+    zwolniony = formy_wymuszane_po_liczebniku(
+        (("z_przyimkiem", re.compile(r"robi to samo dla (\d+) modulow")),))
+    assert zwolniony == [], (
+        "skan zapalił się na wzorcu, w którym przypadkiem rządzi PRZYIMEK "
+        "(«dla N modulow») — to jest zdanie poprawne przy każdej liczbie, "
+        "a bramka ma na nim "
+        "milczeć: %s" % zwolniony)
+
+
+def test_forma_po_liczebniku_zgadza_sie_z_polska_odmiana():
+    """Reguła odmiany, na której stoi rozstrzygnięcie wyżej — wykonana, nie opisana.
+
+    Bez niej zdanie „błąd był przy KAŻDEJ wartości historii” byłoby prozą przy zapadce,
+    czyli tym, czego ten moduł pilnuje u innych.
+    """
+    def forma(n):
+        if n == 1:
+            return "poj"
+        if n % 100 in (12, 13, 14):
+            return "dop"
+        return "mian" if n % 10 in (2, 3, 4) else "dop"
+
+    for liczba, oczekiwana in ((1, "poj"), (2, "mian"), (3, "mian"), (4, "mian"),
+                               (5, "dop"), (12, "dop"), (13, "dop"), (14, "dop"),
+                               (22, "mian"), (25, "dop"), (30, "dop"), (33, "mian"),
+                               (54, "mian"), (111, "dop"), (122, "mian")):
+        assert forma(liczba) == oczekiwana, (
+            "odmiana po %d wyszła `%s`, a ma być `%s`" % (liczba, forma(liczba), oczekiwana))
+
+    # Historia rejestru zapadek: przy KAŻDEJ wartości stary kształt wymuszał dokładnie
+    # jedną formę błędną. Liczby z `test_tree_walks.py` i z komunikatów jego asercji.
+    stary_ksztalt = {"zapadek": "dop", "przybitych": "dop", "częściowe": "mian",
+                     "WOLNE": "mian"}
+    historia = ((46, 17, 3, 25), (48, 17, 3, 27), (49, 17, 3, 28),
+                (50, 17, 3, 29), (51, 17, 3, 30), (54, 17, 3, 33))
+    for razem, przybite, czesciowe, wolne in historia:
+        zle = [slowo for liczba, slowo in ((razem, "zapadek"), (przybite, "przybitych"),
+                                           (czesciowe, "częściowe"), (wolne, "WOLNE"))
+               if forma(liczba) != stary_ksztalt[slowo]]
+        assert len(zle) == 1, (
+            "przy rejestrze %d/%d/%d/%d stary kształt wymuszał %d form błędnych (%s), "
+            "a pomiar 6.D218 mówi o dokładnie jednej przy każdej z sześciu wartości"
+            % (razem, przybite, czesciowe, wolne, len(zle), zle))
