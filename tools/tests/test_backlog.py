@@ -407,7 +407,11 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 # 292 -> 293 (15.09.2026, 6.D214): blok szesciu pol dla 6.D225 — stale czytane
 # wylacznie przez interpolacje, ktore skan widzi jako martwe. Pozycja NIE wyszla
 # z progu zapasu, tylko ZGLOSILA JA SAMA BRAMKA projektu podczas tej pracy.
-MINIMUM_DETAIL_BLOCKS = 293
+# 293 -> 294 (15.09.2026, 6.D215): blok szesciu pol dla 6.D226 — dwie listy
+# tych samych czterech zapisow literalu, ktorych zgodnosci nie pilnuje nic.
+# Pozycja wyszla z KN-4 tej pozycji: skreslenie jednej z czterech przeszlo
+# na zielono, dopoki bramka nie zaczela pytac o ZBIOR.
+MINIMUM_DETAIL_BLOCKS = 294
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je

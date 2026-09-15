@@ -133,11 +133,11 @@ KATEGORIE = {
         # nowe człony wiersza pomocy (`D otwórz drzwi`, `F zamknij drzwi`), czyli po raz
         # pierwszy zmieniła się także TREŚĆ dwóch z nich. Sprawdzone wypisem skanera,
         # a nie liczeniem wierszy z ręki.
-        ("UiTextTests.cs", 1176), ("UiTextTests.cs", 1189), ("UiTextTests.cs", 1207),
+        ("UiTextTests.cs", 1265), ("UiTextTests.cs", 1278), ("UiTextTests.cs", 1296),
         ("SignallingHudTests.cs", 37),
     },
     "B": {
-        ("UiTextTests.cs", 1276), ("UiTextTests.cs", 1277),
+        ("UiTextTests.cs", 1365), ("UiTextTests.cs", 1366),
     },
 }
 
@@ -221,10 +221,10 @@ def test_regula_po_ksztalcie_literalu_myli_sie_i_dlatego_jej_nie_ma():
                      if not regula.search(tresci[p])]
     zlapane_z_b = [p for p in sorted(KATEGORIE["B"]) if regula.search(tresci[p])]
 
-    assert przepuszczone == [("UiTextTests.cs", 1207)], (
+    assert przepuszczone == [("UiTextTests.cs", 1296)], (
         "reguła po kształcie przestała przepuszczać wiersz o hamulcu awaryjnym — "
         "rozstrzygnięcie 6.D131 wymaga przeliczenia: %s" % przepuszczone)
-    assert zlapane_z_b == [("UiTextTests.cs", 1277)], (
+    assert zlapane_z_b == [("UiTextTests.cs", 1366)], (
         "reguła po kształcie przestała łapić wejście syntetyczne: %s" % zlapane_z_b)
 
 
@@ -238,11 +238,11 @@ def test_czytnik_widzi_pin_takze_wtedy_gdy_literal_jest_sklejony():
     tresci = {(plik, wiersz): tresc
               for plik, wiersz, _r, tresc in CP.piny("tests/Game.Tests")}
 
-    assert len(tresci[("UiTextTests.cs", 1176)]) == 122, (
+    assert len(tresci[("UiTextTests.cs", 1265)]) == 122, (
         "sklejanie literałów przestało działać: %d znaków"
-        % len(tresci[("UiTextTests.cs", 1176)]))
-    assert len(tresci[("UiTextTests.cs", 1207)]) == 98, (
-        len(tresci[("UiTextTests.cs", 1207)]))
+        % len(tresci[("UiTextTests.cs", 1265)]))
+    assert len(tresci[("UiTextTests.cs", 1296)]) == 98, (
+        len(tresci[("UiTextTests.cs", 1296)]))
     assert len(tresci[("SignallingHudTests.cs", 37)]) == 84, (
         len(tresci[("SignallingHudTests.cs", 37)]))
 
@@ -338,9 +338,11 @@ ROZKLAD_LICZBOWYCH = {
         # urwane.Count, …)`, czyli „zgloszen urwanych nie ma ANI JEDNEGO". CALKOWITY
         # i BEZ TOLERANCJI; podloga `MinimumZgloszenToString` do liczby nie wchodzi,
         # bo stoi jako `>=`.
-        "razem": 234, "z_tolerancja": 103, "bez_tolerancji": 131,
+        # 234 -> 235 (15.09.2026, 6.D215): JEDEN pin liczbowy — "warunek stoi
+        # w JEDNYM miejscu". CALKOWITY i BEZ TOLERANCJI: to liczba miejsc w kodzie.
+        "razem": 235, "z_tolerancja": 103, "bez_tolerancji": 132,
         "zmiennoprzecinkowe": 109, "zmiennoprzecinkowe_bez_tolerancji": 6,
-        "calkowite": 125, "calkowite_z_tolerancja": 0, "tolerancja_zero": 18,
+        "calkowite": 126, "calkowite_z_tolerancja": 0, "tolerancja_zero": 18,
     },
     "tests/Sim.Tests": {
         # 441 -> 454 (13.09.2026, MB-02): trzynaście pinów liczbowych

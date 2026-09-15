@@ -443,6 +443,87 @@ public sealed class UiTextTests
     /// tak samo jak napis, w którym stoi. Kolejność jest kolejnością CUDZYSŁOWU
     /// OTWIERAJĄCEGO, więc napis zewnętrzny stoi przed swoimi zagnieżdżonymi.</para>
     /// </summary>
+    /// <summary>
+    /// Cztery postacie literału, na których rozstrzyga się „surowy czy werbatim" — 6.D215.
+    ///
+    /// <para>Kolumny: zapis, treść, którą ma zwrócić <see cref="Literaly"/>, i kod po
+    /// <see cref="KodLeksykalnie"/>. Zbiór jest POŻYCZONY z `POSTACIE_LITERALU`
+    /// w `tools/tests/test_csharp_test_methods.py` (6.D200) — te same cztery zapisy,
+    /// bo pytanie jest to samo; oczekiwania są własne, bo czytniki są inne.</para>
+    ///
+    /// <para><b>Drzewo tych czytników na tej gałęzi NIE ĆWICZY</b> — zapis werbatim
+    /// z potrójnym cudzysłowem stoi w `tests/` i `src/` raz i to w komentarzu. Dowodem
+    /// może być więc wyłącznie wejście syntetyczne, tak jak przy 6.D200.</para>
+    /// </summary>
+    private static readonly (string Zapis, string Tresc, string PoMasce)[] PostacieLiteralu =
+    {
+        ("var x = @\"\"\"a\"; var y = 1;", "\"\"a", "var x =       ; var y = 1;"),
+        ("var x = @\"a\"\"\"; var y = 1;", "a\"\"", "var x =       ; var y = 1;"),
+        ("var x = \"\"\"a\"\"\"; var y = 1;", "a", "var x =        ; var y = 1;"),
+        ("var x = $@\"\"\"a\"; var y = 1;", "\"\"a", "var x =        ; var y = 1;"),
+    };
+
+    [TestMethod]
+    public void Czytnik_literalow_ROZROZNIA_werbatim_od_surowego_na_obu_galeziach()
+    {
+        var sprawdzonych = 0;
+        foreach (var (zapis, tresc, poMasce) in PostacieLiteralu)
+        {
+            CollectionAssert.AreEqual(new[] { tresc }, Literaly(zapis),
+                $"`Literaly` czyta `{zapis}` jako [{string.Join(" | ", Literaly(zapis))}] "
+                + $"zamiast [{tresc}] — trzy cudzysłowy PO `@` to werbatim, nie literał "
+                + "surowy, a pomylenie tego wciąga do literału resztę wiersza (6.D215)");
+            Assert.AreEqual(poMasce, KodLeksykalnie(zapis),
+                $"`KodLeksykalnie` maskuje `{zapis}` jako `{KodLeksykalnie(zapis)}` "
+                + $"zamiast `{poMasce}`");
+            sprawdzonych++;
+        }
+
+        Assert.AreEqual(PostacieLiteralu.Length, sprawdzonych,
+            $"pętla po postaciach wykonała {sprawdzonych} obrotów przy "
+            + $"{PostacieLiteralu.Length} postaciach — pusta pętla przechodzi każdą "
+            + "asercję w środku");
+
+        // ZBIÓR PRZEDROSTKÓW, nie ich liczba (6.D131). Kontrola negatywna pokazała, że
+        // sama pętla nie broni tabeli: skreślenie jednej z czterech postaci przechodziło
+        // na zielono, bo pętla po trzech wykonuje się poprawnie. Pytanie brzmi więc
+        // wprost o to, KTÓRE cztery — bo każda odpowiada innej gałęzi czytnika.
+        var przedrostki = PostacieLiteralu
+            .Select(w => w.Zapis[(w.Zapis.IndexOf('=') + 2)..].Split('a')[0])
+            .OrderBy(x => x, StringComparer.Ordinal)
+            .ToList();
+        CollectionAssert.AreEqual(
+            new List<string> { "\"\"\"", "$@\"\"\"", "@\"", "@\"\"\"" }, przedrostki,
+            "tabela postaci literału opisuje dziś przedrostki ["
+            + string.Join(", ", przedrostki) + "] — cztery gałęzie czytnika to: werbatim "
+            + "z potrójnym cudzysłowem NA POCZĄTKU, werbatim z potrójnym na KOŃCU, "
+            + "literał SUROWY i werbatim INTERPOLOWANY; skreślenie którejkolwiek zdejmuje "
+            + "jedną gałąź spod pomiaru (6.D215)");
+    }
+
+    [TestMethod]
+    public void Obaj_wolajacy_biora_te_galaz_z_JEDNEGO_miejsca()
+    {
+        // Kontrola przyrządu i zarazem odpowiedź pozycji: czytników z tą gałęzią jest
+        // JEDEN (`CzytajLiteral`), a `Literaly` i `KodLeksykalnie` są jego WOŁAJĄCYMI.
+        // Gdyby któryś dorobił sobie własną kopię warunku, ta próbka nadal by przeszła,
+        // ale źródło przestałoby mieć jedno miejsce — więc pytamy o nie wprost.
+        var zrodlo = File.ReadAllText(Path.Combine(
+            RepositoryRoot(), "tests", "Game.Tests", "UiTextTests.cs"));
+        // Liczone po kodzie ZAMASKOWANYM, i to jest poprawka z pomiaru: pierwsza wersja
+        // czytała plik surowo i dostała CZTERY zamiast jednego, bo łapała własne
+        // komunikaty tej bramki. Czytnik, o który ta pozycja pyta, służy tu do zadania
+        // pytania o samego siebie.
+        var wystapien = Regex.Matches(KodLeksykalnie(zrodlo), @"cudzyslowow >= 3").Count;
+        Assert.AreEqual(1, wystapien,
+            $"warunek `cudzyslowow >= 3` stoi w {wystapien} miejscach — 6.D215 zmierzyło, "
+            + "że jest JEDNO (`CzytajLiteral`), a `Literaly` i `KodLeksykalnie` tylko je "
+            + "wołają; druga kopia rozjedzie się przy pierwszej poprawce");
+        Assert.IsTrue(Regex.IsMatch(KodLeksykalnie(zrodlo), @"cudzyslowow >= 3 && !doslowny"),
+            "warunek stracił człon `&& !doslowny` — wraca gałąź, na której `Literaly` "
+            + "wciąga resztę wiersza, a `KodLeksykalnie` rzuca `IndexOutOfRangeException`");
+    }
+
     private static List<string> Literaly(string kod)
     {
         var wynik = new List<string>();
@@ -585,7 +666,15 @@ public sealed class UiTextTests
             cudzyslowow++;
         }
 
-        var surowy = cudzyslowow >= 3;
+        // 6.D215: po `@` napisu SUROWEGO w C# nie ma — trzy cudzysłowy po `@` otwierają
+        // werbatim o treści `"…`, a nie literał surowy. Do 15.09.2026 ten wiersz brał
+        // każde trzy cudzysłowy za surowy, nie patrząc na przedrostek, i to jest ta sama
+        // gałąź, którą 6.D200 naprawiło po stronie Pythona (`maska`). Zmierzone przed
+        // poprawką na wejściu syntetycznym: `Literaly` wciągało do literału RESZTĘ
+        // WIERSZA (`a"; var y = 1;`), a `KodLeksykalnie` rzucało
+        // `IndexOutOfRangeException` — czyli awaria jest GŁOŚNA, nie cicha, i to jest
+        // poprawka do przypuszczenia z pola pozycji, które bało się ciszy.
+        var surowy = cudzyslowow >= 3 && !doslowny;
         var otwierajacych = surowy ? cudzyslowow : 1;
         var tresc = new StringBuilder();
         var zagniezdzone = new List<string>();
