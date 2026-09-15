@@ -1753,7 +1753,13 @@ def _istnieje_w_drzewie(nazwa):
 # „Weryfikacja" rosnie o jeden (398 -> 399) za `tools/tests/test_all.py` z plotka
 # tego bloku, a `WYWOLAN_W_WYKONANYCH` NIE DRGA z tego samego powodu co wtedy:
 # plotek wola zestaw BEZ nazwy modulu.
-ADRESOW_W_WYKONANYCH = {"Wejście": 1003, "Wyjście": 63, "Weryfikacja": 399}
+# 1003 -> 1005 (15.09.2026, 6.D224): DWA adresy z pola „Wejscie" WLASNEGO bloku tej
+# pozycji — `tests/Game.Tests/UiTextTests.cs` i `reports/6d213-…`; pozostale pozycje
+# tego pola byly juz liczone albo sa wzorcami (`src/Sim/**/*.cs`), a `PATH_TOKEN`
+# czyta pliki. Ten sam mechanizm co przy 6.D221 i 6.D223 i tak samo wyliczony —
+# DIFFEM `adresy_pola_w_wykonanych` przed edycja i po niej. „Weryfikacja" NIE DRGA:
+# plotek tego bloku wola `dotnet test`, nie `test_all.py`.
+ADRESOW_W_WYKONANYCH = {"Wejście": 1005, "Wyjście": 63, "Weryfikacja": 399}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu

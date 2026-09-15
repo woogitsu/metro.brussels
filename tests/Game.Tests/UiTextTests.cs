@@ -4465,31 +4465,11 @@ public sealed class UiTextTests
         // syntetyczne wykonują trzy przypadki, w tym ten, w którym sito jest ŚLEPE.
         var baza = PlikiRdzenia().Select(File.ReadAllText).ToList();
 
-        // PRZYROST, a nie suma. Pierwsza wersja zwracała wszystkie trafienia zbioru
-        // `baza + próbka` i przez to KN-1 — która dokłada wywołanie do RDZENIA —
-        // zapalała tę kontrolę razem z bramką drzewa. Kontrola przyrządu ma mówić
-        // o próbce, a nie o tym, co akurat leży w drzewie.
-        List<string> trafienia(IEnumerable<string> zrodla)
-        {
-            var (jednoznaczne, _) = NazwyWyliczeniowychWRdzeniu(zrodla);
-            return CeleToStringBezArgumentu(zrodla)
-                .Where(c => jednoznaczne.Contains(c[(c.LastIndexOf('.') + 1)..]))
-                .ToList();
-        }
-
-        var bezProbki = trafienia(baza);
-
-        List<string> traf(string dopisek)
-        {
-            var zProbka = trafienia(baza.Append(dopisek).ToList());
-            var przyrost = new List<string>(zProbka);
-            foreach (var juz in bezProbki)
-            {
-                przyrost.Remove(juz);
-            }
-
-            return przyrost;
-        }
+        // PRZYROST, a nie suma — powód stoi przy <see cref="PrzyrostSitaRdzenia"/>,
+        // dokąd oba czytniki przeniosły się przy 6.D224, bo woła je teraz także
+        // druga kontrola przyrządu. Druga kopia rozjechałaby się przy pierwszej
+        // poprawce (6.D213).
+        List<string> traf(string dopisek) => PrzyrostSitaRdzenia(baza, dopisek);
 
         CollectionAssert.AreEqual(new string[0],
             traf("class A { void M() { string probaNapis = \"x\"; var s = probaNapis.ToString(); } }"),
@@ -4511,6 +4491,373 @@ public sealed class UiTextTests
             + "`) — a zmierzone jest, że nie "
             + "widzi; jeżeli zaczęło widzieć, ślepa plamka zniknęła i `NazwyDwuznaczneWRdzeniu` "
             + "opisuje stan, którego już nie ma");
+    }
+
+    /// <summary>
+    /// Trafienia sita rdzenia: cele `.ToString()`, których ostatni człon jest nazwą
+    /// zadeklarowaną w `src/Sim/` z typem wyliczeniowym JEDNOZNACZNIE.
+    /// </summary>
+    /// <remarks>
+    /// <para>Wyjęte z ciała <see cref="Sito_rdzenia_milczy_na_kodzie_poprawnym_i_ma_NAZWANA_slepa_plamke"/>
+    /// przy 6.D224, bo od tej pozycji woła je DRUGA kontrola przyrządu. Druga kopia
+    /// rozjechałaby się przy pierwszej poprawce, a 6.D213 usunęło już jedną taką
+    /// z tego pliku.</para>
+    /// </remarks>
+    private static List<string> TrafieniaSitaRdzenia(IEnumerable<string> zrodla)
+    {
+        var (jednoznaczne, _) = NazwyWyliczeniowychWRdzeniu(zrodla);
+        return CeleToStringBezArgumentu(zrodla)
+            .Where(c => jednoznaczne.Contains(c[(c.LastIndexOf('.') + 1)..]))
+            .ToList();
+    }
+
+    /// <summary>PRZYROST trafień sita po dołożeniu JEDNEJ próbki do rdzenia.</summary>
+    /// <remarks>
+    /// <para><b>Przyrost, a nie suma.</b> Pierwsza wersja zwracała wszystkie trafienia
+    /// zbioru `baza + próbka` i przez to kontrola negatywna dokładająca wywołanie do
+    /// RDZENIA zapalała kontrolę przyrządu razem z bramką drzewa. Kontrola przyrządu
+    /// ma mówić o próbce, a nie o tym, co akurat leży w drzewie.</para>
+    /// </remarks>
+    private static List<string> PrzyrostSitaRdzenia(List<string> baza, string dopisek)
+    {
+        var przyrost = new List<string>(TrafieniaSitaRdzenia(baza.Append(dopisek).ToList()));
+        foreach (var juz in TrafieniaSitaRdzenia(baza))
+        {
+            przyrost.Remove(juz);
+        }
+
+        return przyrost;
+    }
+
+    // ---------------------------------------------------------------------
+    // 6.D224 — DRUGA ślepa plamka tego samego sita: typ WNIOSKOWANY (`var`)
+    // ---------------------------------------------------------------------
+
+    // Ile jest `var`-ów w rdzeniu — zmierzone 15.09.2026, ale NIE przybite, i to jest
+    // rozstrzygnięcie, a nie przeoczenie. Słowo `var` stoi w 57 plikach `src/Sim/`
+    // 536 razy, tyle samo surowo i po masce `KodLeksykalnie`; 535 z nich wiąże jedną
+    // nazwę, a jedno (`ServiceDay.cs`, `foreach (var (moment, delta) in events)`)
+    // rozkłada krotkę i żadnej nazwy pojedynczej nie deklaruje.
+    //
+    // Podłogi na 536 tu NIE MA, bo została ZMIERZONA jako bramka świecąca na kodzie
+    // poprawnym (6.D27). Kontrola negatywna: zamiana `var phase = _stop.Phase;`
+    // w `LineDrive.cs` na `DoorPhase phase = _stop.Phase;` — czyli dokładnie ta
+    // poprawka, na którą ta pozycja wskazuje — daje 535 i zapala podłogę
+    // komunikatem „czytnik przestał czytać”, który w tym przypadku jest nieprawdą.
+    // Podłoga `MinimumToStringWRdzeniu` tej wady nie ma, bo tamtych wywołań przybywa
+    // razem z kodem i nikt ich celowo nie usuwa; `var`-y usuwa się celowo.
+    //
+    // Zamiast podłogi stoją dwa sprawdzenia, które oślepłego czytnika łapią mocniej:
+    // równość „surowo == po masce" oraz dziesięć wzorców z wykazu, z których KAŻDY
+    // musi trafić w zamaskowane źródło dokładnie raz.
+
+    /// <summary>
+    /// Ile z <see cref="VarOTypieWyliczeniowymWRdzeniu"/> wpada RÓWNIEŻ w pierwszą
+    /// ślepą plamkę, czyli nosi nazwę z <see cref="NazwyDwuznaczneWRdzeniu"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>To jest najważniejsza liczba tej pozycji i dlatego stoi w kodzie,
+    /// a nie w raporcie: 8 z 10.</b> Obie plamki się NAKŁADAJĄ. Nawet doskonałe
+    /// wnioskowanie typu dla `var` — Roslyn, metadane, cokolwiek — pokazałoby situ
+    /// tylko <b>2 z 10</b> tych deklaracji, bo zawężenie do nazw JEDNOZNACZNYCH
+    /// odrzuciłoby pozostałe osiem (`phase` ×3, `status` ×4, `variant` ×1) niezależnie
+    /// od tego, jak dobrze rozpoznany jest ich typ. Cena domknięcia drugiej plamki
+    /// wynosi więc <b>2 pozycje z 10 i 0 usterek</b> — zmierzone, nie oszacowane:
+    /// wywołań `.ToString()` na którejkolwiek z tych dziesięciu nazw jest dziś ZERO.</para>
+    /// <para><b>Zależność idzie też w drugą stronę i to jest pomiar, nie domysł.</b>
+    /// Druga plamka nie tylko nakłada się na pierwszą — częściowo ją WYTWARZA.
+    /// <see cref="DeklaracjaZmiennej"/> bierze `var` za nazwę typu, a `var` nie stoi
+    /// w <see cref="NieTyp"/>, więc każda nazwa zadeklarowana przez `var` ląduje
+    /// w koszyku „inne typy" i tym samym może uczynić DWUZNACZNĄ tę samą nazwę użytą
+    /// gdzie indziej z wyliczeniem. Zmierzone podstawieniem 15.09.2026: gdyby `var`
+    /// dopisać do <see cref="NieTyp"/>, nazw dwuznacznych byłoby <b>4, nie 5</b>
+    /// (odpadłaby `expected`, dwuznaczna WYŁĄCZNIE przez
+    /// `ProtectionMode.cs` `var expected = ForHistoricalDate(date)`, gdzie typem jest
+    /// klasa `ProtectionMode`), a jednoznacznych <b>20 zamiast 19</b>. Podstawienia
+    /// nie wykonuję — `NazwyDwuznaczneWRdzeniu` jest przybite przy 6.D213 i jego
+    /// zmiana jest osobną decyzją, nie skutkiem ubocznym tej pozycji.</para>
+    /// </remarks>
+    private const int NakladaniePlamek = 8;
+
+    /// <summary>
+    /// `var`-y w `src/Sim/`, pod którymi kryje się wartość typu wyliczeniowego —
+    /// DRUGA ślepa plamka sita, wypisana Z NAZWY, a nie policzona (6.D131).
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Pole: `ścieżka | nazwa | typ | wzorzec deklaracji`.</b> Czwarte pole
+    /// musi trafiać w zamaskowane źródło DOKŁADNIE RAZ — bez niego dwie deklaracje
+    /// `var status` w `SignallingPlan.cs` byłyby jednym wpisem i wykaz miałby 9 pozycji
+    /// zamiast 10, a liczba <see cref="NakladaniePlamek"/> nie miałaby z czego wyjść.
+    /// Numeru wiersza w kluczu NIE MA świadomie: zapalałby się przy każdym przesunięciu
+    /// linii, czyli na kodzie poprawnym (6.D27).</para>
+    /// <para><b>Dlaczego wykaz, a nie liczba (6.D131).</b> Liczba 10 przechodzi
+    /// po podbiciu cyfry; wykaz każe powiedzieć, KTÓRA deklaracja doszła i jakiego
+    /// jest typu — a tego wzorzec odczytać nie umie, więc musi to zrobić autor.</para>
+    /// <para><b>Dlaczego wszystkie dziesięć, a nie tylko te dwie, które pierwsza plamka
+    /// przepuszcza.</b> Wykaz opisuje, czego nie widzi TEN czytnik — deklarację
+    /// z typem wnioskowanym. To, co z tą samą nazwą robi sito nazw, jest własnością
+    /// DRUGIEGO przyrządu i zmienia się razem z nim: <see cref="NazwyDwuznaczneWRdzeniu"/>
+    /// jest przybite ręcznie i może się skurczyć, a wtedy pozycje dziś „zasłonięte
+    /// podwójnie" przechodzą pod wyłączną odpowiedzialność tego wykazu. Wykaz obcięty
+    /// do dwóch nie zauważyłby tego przejścia i — co ważniejsze — nie dałoby się z niego
+    /// policzyć <see cref="NakladaniePlamek"/>, czyli jedynego zdania, dla którego
+    /// ta pozycja powstała. Wybór jest więc z zakresu pomiaru, nie z wygody: wykaz
+    /// dwuelementowy byłby krótszy, ale mierzyłby cudzy przyrząd.</para>
+    /// <para><b>GRANICA tego wykazu, zmierzona, a nie opowiedziana.</b> Dziewięciu
+    /// z dziesięciu wpisów nie da się z drzewa WYPROWADZIĆ — można tylko sprawdzić,
+    /// że nadal tam stoją. Skutek jest taki, że skreślenie jednego z tych dziewięciu
+    /// RAZEM z obniżeniem <see cref="NakladaniePlamek"/> o jeden przechodzi
+    /// na zielono; zmierzone 15.09.2026 na wpisie `Train/StationStop.cs` (8→7).
+    /// Nie jest to wada do naprawienia wzorcem — jest to dokładnie ta plamka, którą
+    /// wykaz opisuje: gdyby dało się ją policzyć, nie byłaby ślepa. Domknięcie wymaga
+    /// rozbioru składni, czyli zależności, czyli decyzji właściciela (§8), a ta zapadła
+    /// tak, że bramka ZOSTAJE NA ŹRÓDLE. Jedyny wpis, który drzewo potwierdza samo,
+    /// to `FixedBlockSystem.cs|reason|AuthorityLimit` — sprawdzenie 2 w bramce niżej.</para>
+    /// <para><b>Czego wzorzec NIE odczyta i dlaczego wykaz musi być ręczny.</b>
+    /// Typ dziewięciu z dziesięciu tych deklaracji jest typem ZWRACANYM: przez
+    /// `ParameterStatusParser.Parse` (×4), przez wyrażenie `switch` (×1), przez odczyt
+    /// właściwości z innego pliku (×1), przez argument generyczny słownika w `out var`
+    /// (×1) i przez element kolekcji w `foreach` (×2). Jedyny kształt czytelny wzorcem
+    /// to `var nazwa = Wyliczenie.Człon` i w całym rdzeniu stoi on RAZ —
+    /// `FixedBlockSystem.cs`, `var reason = AuthorityLimit.EndOfLine`. Tę jedną pozycję
+    /// bramka niżej wylicza i porównuje ze zbiorem; pozostałe dziewięć umie tylko
+    /// sprawdzić, że nadal tam stoją.</para>
+    /// </remarks>
+    private static readonly string[] VarOTypieWyliczeniowymWRdzeniu =
+    {
+        @"Physics/VehicleRegistry.cs|status|ParameterStatus|var status = ParameterStatusParser\.Parse\(",
+        @"Signalling/CbtcTestArea.cs|status|ParameterStatus|var status = ParameterStatusParser\.Parse\(root\.GetProperty\(",
+        @"Signalling/FixedBlockSystem.cs|reason|AuthorityLimit|var reason = AuthorityLimit\.EndOfLine;",
+        @"Signalling/SignallingPlan.cs|status|ParameterStatus|var status = ParameterStatusParser\.Parse\(Required\(root,",
+        @"Signalling/SignallingPlan.cs|status|ParameterStatus|var status = ParameterStatusParser\.Parse\(element\.GetProperty\(",
+        @"Signalling/SignallingPlan.cs|variant|ProtectionVariant|var variant = \(Required\(root,[^\n]*\) switch",
+        @"Signalling/TrainProtection.cs|previous|ProtectionAction|_lastAction\.TryGetValue\(trainId, out var previous\)",
+        @"Train/DoorCycle.cs|phase|DoorPhase|foreach \(var phase in Sequence\)",
+        @"Train/LineDrive.cs|phase|DoorPhase|var phase = _stop\.Phase;",
+        @"Train/StationStop.cs|phase|DoorPhase|foreach \(var phase in DoorCycle\.Sequence\)",
+    };
+
+    /// <summary>
+    /// Wpisy z <see cref="VarOTypieWyliczeniowymWRdzeniu"/>, których pierwsza ślepa
+    /// plamka NIE zasłania — czyli cały zysk z domknięcia drugiej.
+    /// </summary>
+    private static readonly string[] VarPozaPierwszaPlamka =
+    {
+        "Signalling/FixedBlockSystem.cs|reason|AuthorityLimit",
+        "Signalling/TrainProtection.cs|previous|ProtectionAction",
+    };
+
+    /// <summary>
+    /// `var nazwa = Wyliczenie.Człon` — JEDYNY kształt, w którym wzorzec odczyta typ
+    /// wnioskowany bez rozbioru składni.
+    /// </summary>
+    private static readonly Regex VarZCzlonemWyliczenia =
+        new(@"\bvar\s+([A-Za-z_]\w*)\s*=\s*([A-Za-z_]\w*)\s*\.\s*[A-Za-z_]\w*", RegexOptions.Compiled);
+
+    /// <summary>
+    /// `etykieta|nazwa|Typ` dla tych `var`-ów, których typ wyliczeniowy wzorzec
+    /// UMIE odczytać. Wołana i przez bramkę drzewa, i przez kontrolę przyrządu.
+    /// </summary>
+    private static SortedSet<string> VarWyliczenioweCzytelneWzorcem(
+        IEnumerable<(string Etykieta, string Kod)> zrodla, ISet<string> typy)
+    {
+        var wynik = new SortedSet<string>(StringComparer.Ordinal);
+        foreach (var (etykieta, kod) in zrodla)
+        {
+            foreach (Match m in VarZCzlonemWyliczenia.Matches(KodLeksykalnie(kod)))
+            {
+                if (typy.Contains(m.Groups[2].Value))
+                {
+                    wynik.Add($"{etykieta}|{m.Groups[1].Value}|{m.Groups[2].Value}");
+                }
+            }
+        }
+
+        return wynik;
+    }
+
+    private static string KluczWpisu(string wpis) =>
+        string.Join("|", wpis.Split('|').Take(3));
+
+    [TestMethod]
+    public void Var_o_typie_wyliczeniowym_to_DRUGA_slepa_plamka_sita_rdzenia()
+    {
+        var pliki = PlikiRdzenia();
+        Assert.IsTrue(pliki.Count > 10, $"plików rdzenia znaleziono {pliki.Count} — skan oślepł");
+
+        var typy = new HashSet<string>(WyliczeniaZrodel().Keys, StringComparer.Ordinal);
+        var slowoVar = new Regex(@"\bvar\b", RegexOptions.Compiled);
+        var maski = new Dictionary<string, string>(StringComparer.Ordinal);
+        var surowo = 0;
+        var poMasce = 0;
+        foreach (var sciezka in pliki)
+        {
+            var kod = File.ReadAllText(sciezka);
+            var maska = KodLeksykalnie(kod);
+            maski[sciezka] = maska;
+            surowo += slowoVar.Matches(kod).Count;
+            poMasce += slowoVar.Matches(maska).Count;
+        }
+
+        // Relacja, nie liczba: gdyby słowo `var` weszło w rdzeniu do komentarza albo
+        // do literału, wykaz niżej mógłby opisywać tekst, którego kompilator nie widzi.
+        Assert.AreEqual(surowo, poMasce,
+            $"słowo `var` czyta się w rdzeniu inaczej surowo ({surowo}) niż po masce "
+            + $"({poMasce}) — weszło do komentarza albo do literału, a wtedy wykaz "
+            + "`VarOTypieWyliczeniowymWRdzeniu` może opisywać tekst, którego nie ma w kodzie");
+        Assert.IsTrue(poMasce > 0, $"słów `var` w rdzeniu znaleziono {poMasce} — czytnik oślepł");
+
+        // 1. Każdy wpis wykazu nadal stoi w drzewie — i stoi DOKŁADNIE RAZ.
+        var czytelneZWykazu = new SortedSet<string>(StringComparer.Ordinal);
+        foreach (var wpis in VarOTypieWyliczeniowymWRdzeniu)
+        {
+            var pola = wpis.Split('|');
+            Assert.AreEqual(4, pola.Length, $"wpis `{wpis}` nie ma czterech pól");
+            var ogon = pola[0].Replace('/', Path.DirectorySeparatorChar);
+            var sciezka = pliki.SingleOrDefault(p => p.EndsWith(
+                Path.DirectorySeparatorChar + ogon, StringComparison.Ordinal));
+            Assert.IsNotNull(sciezka,
+                $"wpis `{wpis}`: pliku `{pola[0]}` nie ma w `src/Sim/` — wykaz drugiej "
+                + "ślepej plamki opisuje drzewo, którego już nie ma");
+            Assert.IsTrue(typy.Contains(pola[2]),
+                $"wpis `{wpis}`: `{pola[2]}` nie jest dziś wyliczeniem zadeklarowanym "
+                + "w `src/` — albo typ zmienił postać, albo wykaz kłamie");
+
+            var trafienia = Regex.Matches(maski[sciezka], pola[3]);
+            Assert.AreEqual(1, trafienia.Count,
+                $"wpis `{wpis}`: wzorzec deklaracji trafia w `{pola[0]}` {trafienia.Count} razy "
+                + "zamiast raz. Deklaracja zniknęła, zmieniła kształt albo pojawiła się druga "
+                + "taka sama — a każdy z tych trzech przypadków wymaga ODPOWIEDZI, jakiego "
+                + "typu jest dziś ta zmienna; wzorzec sam tego nie odczyta");
+
+            var czytelny = VarZCzlonemWyliczenia.Match(trafienia[0].Value);
+            if (czytelny.Success && typy.Contains(czytelny.Groups[2].Value))
+            {
+                czytelneZWykazu.Add($"{Path.GetFileName(sciezka)}|{czytelny.Groups[1].Value}|"
+                    + czytelny.Groups[2].Value);
+            }
+        }
+
+        // 2. Część MIERZALNA: `var nazwa = Wyliczenie.Człon` liczy się wzorcem, więc
+        //    zbiór policzony z drzewa musi się zgadzać ze zbiorem wyprowadzonym z wykazu.
+        //    Dołożenie takiego `var`-a do `src/Sim/` zapala tę właśnie równość.
+        var czytelneZDrzewa = VarWyliczenioweCzytelneWzorcem(
+            pliki.Select(p => (Path.GetFileName(p), File.ReadAllText(p))), typy);
+        CollectionAssert.AreEqual(czytelneZWykazu.ToArray(), czytelneZDrzewa.ToArray(),
+            "zbiór `var`-ów o typie wyliczeniowym CZYTELNYM wzorcem rozjechał się z wykazem: "
+            + $"z wykazu [{string.Join(", ", czytelneZWykazu)}], z drzewa "
+            + $"[{string.Join(", ", czytelneZDrzewa)}]. To jedyna część drugiej ślepej "
+            + "plamki, którą wzorzec umie policzyć — reszta wykazu jest ręczna i tak "
+            + "ma zostać do decyzji właściciela (§8)");
+
+        // 3. NAKŁADANIE SIĘ obu plamek, policzone, a nie opowiedziane.
+        var dwuznaczne = new HashSet<string>(NazwyDwuznaczneWRdzeniu, StringComparer.Ordinal);
+        var wObu = VarOTypieWyliczeniowymWRdzeniu
+            .Where(w => dwuznaczne.Contains(w.Split('|')[1])).ToList();
+        Assert.AreEqual(NakladaniePlamek, wObu.Count,
+            $"nakładanie się obu ślepych plamek wynosi dziś {wObu.Count} z "
+            + $"{VarOTypieWyliczeniowymWRdzeniu.Length}, a przybite jest {NakladaniePlamek}. "
+            + "Ta liczba mówi, ile kosztowałoby domknięcie DRUGIEJ plamki: pozycje "
+            + "zasłonięte także przez PIERWSZĄ nie stałyby się widoczne nawet przy "
+            + "doskonałym wnioskowaniu typu. Zmieniła się, bo doszedł/odszedł `var` "
+            + "albo bo `NazwyDwuznaczneWRdzeniu` się skurczyło — w obu razach trzeba "
+            + "przeliczyć, czy zysk z domknięcia nadal jest wart pracy");
+        CollectionAssert.AreEqual(VarPozaPierwszaPlamka,
+            VarOTypieWyliczeniowymWRdzeniu
+                .Where(w => !dwuznaczne.Contains(w.Split('|')[1]))
+                .Select(KluczWpisu)
+                .ToArray(),
+            "zmienił się zbiór pozycji, które przepuszcza PIERWSZA plamka, a zatrzymuje "
+            + "DRUGA — czyli cały zysk z jej domknięcia. Dziś są to dwie pozycje "
+            + "i zero usterek");
+
+        // 4. Bramka stoi na ZERZE — i to jest stan drzewa, nie własność przyrządu.
+        //    Sprawdzenie jest zawężone do PLIKU wpisu, a nie do całego rdzenia: sito
+        //    po samej nazwie dawało w 6.D213 fałszywe trafienie na `string status`.
+        //    GRANICA, zmierzona: `TrainProtection.cs` ma DWA `var previous` — ten
+        //    z wykazu (`ProtectionAction`) i drugi, `bool`, z `_lastDoorRelease`.
+        //    Wywołanie na tym drugim zapaliłoby ten warunek niesłusznie; wtedy wpis
+        //    dostaje nazwany wyjątek, a bramka NIE jest wyłączana.
+        var wywolania = new List<string>();
+        foreach (var wpis in VarOTypieWyliczeniowymWRdzeniu)
+        {
+            var pola = wpis.Split('|');
+            var ogon = pola[0].Replace('/', Path.DirectorySeparatorChar);
+            var sciezka = pliki.Single(p => p.EndsWith(
+                Path.DirectorySeparatorChar + ogon, StringComparison.Ordinal));
+            if (Regex.IsMatch(maski[sciezka], $@"\b{Regex.Escape(pola[1])}\.ToString\(\s*\)"))
+            {
+                wywolania.Add(KluczWpisu(wpis));
+            }
+        }
+
+        Assert.AreEqual(0, wywolania.Count,
+            "`.ToString()` na `var`-ze o typie wyliczeniowym w `src/Sim/`: "
+            + string.Join(", ", wywolania.Distinct())
+            + " — sito z 6.D213 tego NIE widzi, bo czyta deklaracje wzorcem `Typ nazwa`. "
+            + "Rdzeń nie ma ekranu (`CLAUDE.md` §4.9), więc angielski identyfikator idzie "
+            + "do dziennika albo do telemetrii. Zamień na jawne odwzorowanie — albo, jeśli "
+            + "wywołanie stoi na innej zmiennej o tej samej nazwie w tym pliku, dopisz "
+            + "nazwany wyjątek zamiast wyłączać bramkę");
+    }
+
+    /// <summary>
+    /// Kontrola PRZYRZĄDU dla 6.D224 — obie gałęzie wykonane, bo bramka stoi na zerze.
+    /// </summary>
+    /// <remarks>
+    /// <para>Bramka wyżej kończy się na <c>Assert.AreEqual(0, …)</c>, więc sito, które
+    /// przestałoby cokolwiek rozpoznawać, dałoby tę samą zieleń. Trzy próbki syntetyczne
+    /// rozstrzygają to, czego zielony przebieg nie rozstrzyga: że plamka jest PRAWDZIWA
+    /// (gałąź A), że przyrząd na tym samym kodzie z typem JAWNYM działa (gałąź B),
+    /// i że mierzalna część wykazu naprawdę reaguje na dołożonego `var`-a (gałąź C).</para>
+    /// <para>Nazwy próbek są celowo takie, jakich w drzewie nie ma — tak samo jak
+    /// w <see cref="Sito_rdzenia_milczy_na_kodzie_poprawnym_i_ma_NAZWANA_slepa_plamke"/>,
+    /// i z tego samego powodu: kontrola przyrządu ma nie zależeć od drzewa.</para>
+    /// </remarks>
+    [TestMethod]
+    public void Kontrola_przyrzadu_6D224_sito_jest_SLEPE_na_var_i_widzi_typ_JAWNY()
+    {
+        var baza = PlikiRdzenia().Select(File.ReadAllText).ToList();
+
+        // GAŁĄŹ A — plamka jest PRAWDZIWA: typ wnioskowany, nazwa jednoznaczna, sito milczy.
+        CollectionAssert.AreEqual(new string[0],
+            PrzyrostSitaRdzenia(baza,
+                "class Sz1 { void M() { var probaFazaVar = DoorPhase.Open; "
+                + "var s = probaFazaVar.ToString(); } }"),
+            "sito ZOBACZYŁO `.ToString()` na zmiennej z typem WNIOSKOWANYM — a zmierzone "
+            + "jest, że nie widzi. Jeżeli zaczęło widzieć, druga ślepa plamka zniknęła "
+            + "i `VarOTypieWyliczeniowymWRdzeniu` opisuje stan, którego już nie ma");
+
+        // GAŁĄŹ B — przyrząd DZIAŁA: ten sam kod z typem JAWNYM i tak samo jednoznaczną
+        // nazwą zapala. Bez tej gałęzi gałąź A mierzyłaby zepsute sito, a nie plamkę.
+        CollectionAssert.AreEqual(new[] { "probaFazaJawna" },
+            PrzyrostSitaRdzenia(baza,
+                "class Sz2 { void M() { DoorPhase probaFazaJawna = DoorPhase.Open; "
+                + "var s = probaFazaJawna.ToString(); } }"),
+            "sito NIE zobaczyło `.ToString()` na zmiennej o typie JAWNYM i nazwie "
+            + "jednoznacznej — czyli nie widzi tego, po co istnieje, a gałąź A nie mówi "
+            + "wtedy nic o `var`");
+
+        // GAŁĄŹ C — mierzalna część wykazu reaguje na dołożonego `var`-a. Bez niej
+        // kontrola negatywna „dołóż `var` do `src/Sim/`" nie miałaby czego zapalić.
+        var typy = new HashSet<string>(WyliczeniaZrodel().Keys, StringComparer.Ordinal);
+        CollectionAssert.AreEqual(new[] { "próbka|probaFazaVar|DoorPhase" },
+            VarWyliczenioweCzytelneWzorcem(
+                new[] { ("próbka", "class Sz3 { void M() { var probaFazaVar = DoorPhase.Open; } }") },
+                typy).ToArray(),
+            "czytnik nie rozpoznał kształtu `var nazwa = Wyliczenie.Człon` — jedynego, "
+            + "który umie odczytać; równość zbiorów w bramce wyżej przestałaby wtedy "
+            + "reagować na dołożonego `var`-a");
+
+        // GRANICA, wykonana a nie opowiedziana: ten sam czytnik NIE odczyta typu, gdy
+        // inicjalizator jest wywołaniem — a tak stoi 9 z 10 pozycji wykazu.
+        CollectionAssert.AreEqual(new string[0],
+            VarWyliczenioweCzytelneWzorcem(
+                new[] { ("próbka", "class Sz4 { void M() { var probaStatusVar = "
+                    + "ParameterStatusParser.Parse(tekst); } }") },
+                typy).ToArray(),
+            "czytnik zaczął odczytywać typ z WYWOŁANIA — granica zapisana przy "
+            + "`VarOTypieWyliczeniowymWRdzeniu` opisuje wtedy stan, którego już nie ma");
     }
 
     /// <summary>Podłoga na liczbę zgłoszeń obu czytników `.ToString()` w całym `src/`.</summary>

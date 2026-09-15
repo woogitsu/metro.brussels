@@ -345,9 +345,19 @@ ROZKLAD_LICZBOWYCH = {
         # o drodze bledu, a nie progiem: pierwszy mowi, ile razy silnik dopisuje
         # sie do komunikatu, drugi — ilu wytworcow ma jedyne wywolanie `Abort`
         # bez wlasnego literalu. Oba calkowite i bez tolerancji.
-        "razem": 237, "z_tolerancja": 103, "bez_tolerancji": 134,
+        # 237 -> 240 (15.09.2026, 6.D224): TRZY piny liczbowe bramki na DRUGIEJ
+        # slepej plamce sita rdzenia — „wpis wykazu ma CZTERY pola", „wzorzec
+        # deklaracji trafia w plik DOKLADNIE RAZ" i „`.ToString()` na `var`-ze
+        # o typie wyliczeniowym nie stoi ANI RAZ". Wszystkie CALKOWITE i BEZ
+        # TOLERANCJI, bo kazdy jest liczba miejsc w kodzie. Liczba NAKLADANIA sie
+        # obu plamek do rozkladu NIE WCHODZI i to jest tresc, a nie przeoczenie:
+        # stoi jako stala `NakladaniePlamek`, wiec w asercji nie ma literalu.
+        # Podloga na liczbe slow `var` tez nie wchodzi — zostala ZDJETA, bo
+        # zmierzono, ze zapala sie na kodzie poprawnym (6.D27): zamiana jednego
+        # `var` na typ jawny daje 535 przy pinie 536.
+        "razem": 240, "z_tolerancja": 103, "bez_tolerancji": 137,
         "zmiennoprzecinkowe": 109, "zmiennoprzecinkowe_bez_tolerancji": 6,
-        "calkowite": 128, "calkowite_z_tolerancja": 0, "tolerancja_zero": 18,
+        "calkowite": 131, "calkowite_z_tolerancja": 0, "tolerancja_zero": 18,
     },
     "tests/Sim.Tests": {
         # 441 -> 454 (13.09.2026, MB-02): trzynaście pinów liczbowych
