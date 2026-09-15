@@ -401,7 +401,10 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 # 290 -> 291 (15.09.2026, 6.D222): blok szesciu pol dla 6.D223 — dwadziescia
 # jeden przypuszczen z 6.D212, ktore po dwoch sprawdzonych podstawieniem maja
 # 0 na 2 trafien. Pozycja wybrana przez wlasciciela klikalnie, a nie z progu.
-MINIMUM_DETAIL_BLOCKS = 291
+# 291 -> 292 (15.09.2026, 6.D213): blok szesciu pol dla 6.D224 — `var`
+# z wnioskowanym typem wyliczeniowym, czyli DRUGA slepa plamka sita, ktorej
+# 6.D213 nie policzylo i tak to zapisalo. Domkniecie 6.D213 zbilo zapas do 11.
+MINIMUM_DETAIL_BLOCKS = 292
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je

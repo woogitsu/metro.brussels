@@ -2552,11 +2552,14 @@ public sealed class UiTextTests
     /// a jest nim <c>Dry</c>. Raportu nie poprawiam (6.D108: raport jest historią);
     /// granica stoi tutaj.</para>
     ///
-    /// <para><b>Maska nie jest nowym czytnikiem</b> — składa
+    /// <para><b>Maska nie jest nowym czytnikiem — i za pierwszym razem BYŁA, co
+    /// poprawia 6.D213.</b> 6.D212 dopisało tu własne `Zamaskowany`, składające
     /// <see cref="PominNieNapis"/>, <see cref="PrefiksLiteralu"/> i
-    /// <see cref="CzytajLiteral"/>, te same prymitywy, na których stoi
-    /// <see cref="Literaly"/> i <see cref="CialoDeklaracji"/>. Druga kopia czytnika
-    /// rozjechałaby się przy pierwszej poprawce.</para>
+    /// <see cref="CzytajLiteral"/> — czyli dokładnie to, co robił już
+    /// <see cref="KodLeksykalnie"/> z 6.D199, w TYM SAMYM pliku. Zmierzone przy
+    /// 6.D213: oba czytniki dają wynik <b>identyczny znak w znak na każdym pliku
+    /// <c>src/</c></b>, więc kopia poszła, a wołany jest czytnik, który był
+    /// pierwszy.</para>
     /// </summary>
     private static Dictionary<string, List<string>> WyliczeniaZrodel()
     {
@@ -2638,7 +2641,7 @@ public sealed class UiTextTests
     {
         var wynik = new Dictionary<string, List<string>>(StringComparer.Ordinal);
         foreach (Match m in Regex.Matches(
-            Zamaskowany(source), @"\benum\s+(\w+)\s*\{([^}]*)\}"))
+            KodLeksykalnie(source), @"\benum\s+(\w+)\s*\{([^}]*)\}"))
         {
             wynik[m.Groups[1].Value] = Regex
                 .Matches(m.Groups[2].Value, @"^\s*(\w+)", RegexOptions.Multiline)
@@ -2646,42 +2649,6 @@ public sealed class UiTextTests
         }
 
         return wynik;
-    }
-
-    /// <summary>
-    /// Kod z wygaszonymi komentarzami i literałami. Znak w znak tej samej długości
-    /// i z zachowanymi końcami wierszy — sito członów jest zakotwiczone na początku
-    /// wiersza, więc sklejenie dwóch wierszy zmieniłoby wynik tak samo skutecznie,
-    /// jak zgubienie członu.
-    /// </summary>
-    private static string Zamaskowany(string source)
-    {
-        var wynik = new StringBuilder(source.Length);
-        var i = 0;
-        while (i < source.Length)
-        {
-            var po = PominNieNapis(source, i, source.Length);
-            if (po == i && PrefiksLiteralu(source, i, source.Length) >= 0)
-            {
-                po = CzytajLiteral(source, i, source.Length, new List<string>());
-            }
-
-            if (po > i)
-            {
-                for (var j = i; j < po; j++)
-                {
-                    wynik.Append(source[j] == '\n' ? '\n' : ' ');
-                }
-
-                i = po;
-                continue;
-            }
-
-            wynik.Append(source[i]);
-            i++;
-        }
-
-        return wynik.ToString();
     }
 
     /// <summary>Wszystkie pliki <c>.cs</c> pod <c>src/</c>, bez wygenerowanych.</summary>
@@ -4238,6 +4205,188 @@ public sealed class UiTextTests
 
     private static readonly Regex WzorzecToStringBezArgumentu =
         new(@"([\w.]+)\.ToString\(\s*\)", RegexOptions.Compiled);
+
+    // ---------------------------------------------------------------------
+    // 6.D213 — `.ToString()` w RDZENIU; siostra bramki 6.D199 dla `src/Game/`
+    // ---------------------------------------------------------------------
+
+    /// <summary>Podłoga na liczbę wywołań `.ToString()` bez argumentu w `src/Sim/`.</summary>
+    /// <remarks>
+    /// <para><b>Podłoga, a NIE równość, i to jest rozstrzygnięcie pola „Czego NIE wolno
+    /// przyjąć bez pomiaru".</b> Dziś wywołania są trzy — `FixedBlockSystem.cs:521`
+    /// i `InputLog.cs:321` na <c>StringBuilder</c>, `DriverKeys.cs:85` na
+    /// <c>const char NoneCode</c>. Wszystkie trzy są zachowaniem normalnym i przybywa
+    /// ich razem z kodem, więc równość świeciłaby przy commitach, które niczego nie psują,
+    /// i skończyłaby wyłączona (6.D27). Podłoga pilnuje czego innego: żeby skan nie
+    /// oślepł — zero wywołań znaczyłoby „czytnik przestał czytać", a nie „rdzeń czysty".</para>
+    /// </remarks>
+    private const int MinimumToStringWRdzeniu = 3;
+
+    /// <summary>
+    /// Nazwy w `src/Sim/`, które noszą typ wyliczeniowy **i jakiś inny** — ślepa plamka
+    /// sita po nazwie, wypisana Z NAZWY, a nie policzona (6.D131).
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Zmierzone 15.09.2026 trzema podstawieniami, nie przyjęte.</b> Sito po
+    /// samej nazwie daje FAŁSZYWE TRAFIENIE na kodzie poprawnym: <c>string status</c>
+    /// z <c>status.ToString()</c> zapala je, choć nie ma tam żadnego wyliczenia.
+    /// Sito zawężone do nazw JEDNOZNACZNYCH (19 z 24) milczy na tym samym kodzie
+    /// i zapala na <c>DoorPhase faza</c> — ale milczy też na
+    /// <c>ParameterStatus status</c>, czyli na prawdziwej usterce noszącej nazwę
+    /// dwuznaczną. Ślepa plamka jest więc ceną, którą płacimy za brak trafień
+    /// fałszywych, i dlatego stoi tu wypisana, a nie schowana w liczbie.</para>
+    /// <para>Te same nazwy, które 6.D197 wskazało dla <c>src/Game/</c>
+    /// (<c>ProtectionMode.cs:33</c> i <c>ParameterStatus.cs:32</c> biorą
+    /// <c>string status</c>) — w rdzeniu zjawisko powtarza się co do nazwy.</para>
+    /// </remarks>
+    private static readonly string[] NazwyDwuznaczneWRdzeniu =
+        { "Reason", "expected", "phase", "status", "variant" };
+
+    private static readonly Regex DeklaracjaZmiennej =
+        new(@"\b([A-Za-z_]\w*)\??\s+([a-zA-Z_]\w*)\s*(?=[;,=)])", RegexOptions.Compiled);
+
+    /// <summary>Słowa, po których `Typ nazwa` nie jest deklaracją.</summary>
+    private static readonly HashSet<string> NieTyp = new(StringComparer.Ordinal)
+        { "return", "new", "case", "is", "as", "out", "ref", "in", "typeof", "await", "throw" };
+
+    /// <summary>Pliki rdzenia — `src/Sim/`, bez wygenerowanych.</summary>
+    private static List<string> PlikiRdzenia() =>
+        PlikiZrodlowe()
+            .Where(p => p.Contains(Path.Combine("src", "Sim") + Path.DirectorySeparatorChar,
+                                   StringComparison.Ordinal))
+            .ToList();
+
+    /// <summary>
+    /// `(jednoznaczne, dwuznaczne)` — nazwy zadeklarowane w rdzeniu z typem
+    /// wyliczeniowym, rozdzielone po tym, czy ta sama nazwa nosi gdzieś inny typ.
+    /// </summary>
+    private static (HashSet<string> Jednoznaczne, SortedSet<string> Dwuznaczne)
+        NazwyWyliczeniowychWRdzeniu(IEnumerable<string> zrodla)
+    {
+        var typy = new HashSet<string>(WyliczeniaZrodel().Keys, StringComparer.Ordinal);
+        var wyliczeniowe = new SortedSet<string>(StringComparer.Ordinal);
+        var inne = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var kod in zrodla)
+        {
+            foreach (Match m in DeklaracjaZmiennej.Matches(KodLeksykalnie(kod)))
+            {
+                var typ = m.Groups[1].Value;
+                var nazwa = m.Groups[2].Value;
+                if (typy.Contains(typ))
+                {
+                    wyliczeniowe.Add(nazwa);
+                }
+                else if (!NieTyp.Contains(typ))
+                {
+                    inne.Add(nazwa);
+                }
+            }
+        }
+
+        var dwuznaczne = new SortedSet<string>(wyliczeniowe.Where(inne.Contains), StringComparer.Ordinal);
+        return (new HashSet<string>(wyliczeniowe.Where(n => !inne.Contains(n)), StringComparer.Ordinal),
+                dwuznaczne);
+    }
+
+    /// <summary>Cele wywołań `.ToString()` bez argumentu, czytane leksykalnie.</summary>
+    private static List<string> CeleToStringBezArgumentu(IEnumerable<string> zrodla) =>
+        zrodla
+            .SelectMany(kod => WzorzecToStringBezArgumentu.Matches(KodLeksykalnie(kod))
+                .Select(m => m.Groups[1].Value))
+            .ToList();
+
+    [TestMethod]
+    public void W_rdzeniu_zadne_ToString_nie_stoi_na_wartosci_wyliczenia()
+    {
+        var zrodla = PlikiRdzenia().Select(File.ReadAllText).ToList();
+        Assert.IsTrue(zrodla.Count > 10, $"plików rdzenia znaleziono {zrodla.Count} — skan oślepł");
+
+        var cele = CeleToStringBezArgumentu(zrodla);
+        Assert.IsTrue(cele.Count >= MinimumToStringWRdzeniu,
+            $"wywołań `.ToString()` bez argumentu w rdzeniu znaleziono {cele.Count} przy "
+            + $"podłodze {MinimumToStringWRdzeniu} — zero znaczy „czytnik przestał czytać”, "
+            + "a nie „rdzeń czysty”");
+
+        var (jednoznaczne, dwuznaczne) = NazwyWyliczeniowychWRdzeniu(zrodla);
+        CollectionAssert.AreEqual(NazwyDwuznaczneWRdzeniu, dwuznaczne.ToArray(),
+            "zbiór nazw dwuznacznych w rdzeniu się zmienił — to ŚLEPA PLAMKA tej bramki "
+            + "i rośnie razem z nią; nowa nazwa wymaga wpisania tutaj razem z powodem, "
+            + $"dziś: [{string.Join(", ", dwuznaczne)}]");
+
+        var naWyliczeniu = cele
+            .Where(c => jednoznaczne.Contains(c[(c.LastIndexOf('.') + 1)..]))
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(c => c, StringComparer.Ordinal)
+            .ToList();
+        Assert.AreEqual(0, naWyliczeniu.Count,
+            "`.ToString()` na wartości typu wyliczeniowego w `src/Sim/`: "
+            + string.Join(", ", naWyliczeniu)
+            + " — rdzeń nie ma ekranu (`CLAUDE.md` §4.9), więc angielski identyfikator "
+            + "idzie do DZIENNIKA albo do TELEMETRII i wygląda tam poprawnie, dopóki ktoś "
+            + "nie weźmie tego pliku za źródło nazw. Nazwij drogę wyniku i dopisz ją "
+            + "do raportu 6.D213, albo zamień wywołanie na jawne odwzorowanie");
+    }
+
+    [TestMethod]
+    public void Sito_rdzenia_milczy_na_kodzie_poprawnym_i_ma_NAZWANA_slepa_plamke()
+    {
+        // Nazwy próbek są CELOWO takie, jakich w drzewie nie ma (`probaFaza`,
+        // `probaNapis`, `probaStatus`). Pierwsza wersja użyła `faza` i `status`
+        // — wtedy KN-1, która dokłada do rdzenia `DoorPhase faza`, zapalała
+        // DWA testy zamiast jednego: kontrola przyrządu liczyła trafienie
+        // z drzewa razem ze swoim. Kontrola przyrządu ma nie zależeć od drzewa.
+        // Kontrola PRZYRZĄDU: bramka wyżej stoi dziś na ZERZE, więc sito, które
+        // przestałoby cokolwiek rozpoznawać, dałoby tę samą zieleń. Trzy próbki
+        // syntetyczne wykonują trzy przypadki, w tym ten, w którym sito jest ŚLEPE.
+        var baza = PlikiRdzenia().Select(File.ReadAllText).ToList();
+
+        // PRZYROST, a nie suma. Pierwsza wersja zwracała wszystkie trafienia zbioru
+        // `baza + próbka` i przez to KN-1 — która dokłada wywołanie do RDZENIA —
+        // zapalała tę kontrolę razem z bramką drzewa. Kontrola przyrządu ma mówić
+        // o próbce, a nie o tym, co akurat leży w drzewie.
+        List<string> trafienia(IEnumerable<string> zrodla)
+        {
+            var (jednoznaczne, _) = NazwyWyliczeniowychWRdzeniu(zrodla);
+            return CeleToStringBezArgumentu(zrodla)
+                .Where(c => jednoznaczne.Contains(c[(c.LastIndexOf('.') + 1)..]))
+                .ToList();
+        }
+
+        var bezProbki = trafienia(baza);
+
+        List<string> traf(string dopisek)
+        {
+            var zProbka = trafienia(baza.Append(dopisek).ToList());
+            var przyrost = new List<string>(zProbka);
+            foreach (var juz in bezProbki)
+            {
+                przyrost.Remove(juz);
+            }
+
+            return przyrost;
+        }
+
+        CollectionAssert.AreEqual(new string[0],
+            traf("class A { void M() { string probaNapis = \"x\"; var s = probaNapis.ToString(); } }"),
+            "sito zapaliło się na napisie — to KOD POPRAWNY, a bramka świecąca "
+            + "na poprawnym tekście zostaje wyłączona, nie poprawiona (6.D27)");
+
+        CollectionAssert.AreEqual(new[] { "probaFaza" },
+            traf("class B { void M(DoorPhase probaFaza) { var s = probaFaza.ToString(); } }"),
+            "sito NIE zobaczyło `.ToString()` na wartości `DoorPhase` — czyli nie widzi "
+            + "tego, po co istnieje");
+
+        // Ta JEDNA próbka bierze nazwę Z DRZEWA i to jest konieczne, a nie
+        // niedopatrzenie: ślepa plamka jest własnością zbioru nazw dwuznacznych
+        // w `src/Sim/`, więc nazwa wymyślona na miejscu nie byłaby dwuznaczna
+        // i sito by ją ZOBACZYŁO — czyli próbka mierzyłaby co innego.
+        CollectionAssert.AreEqual(new string[0],
+            traf($"class C {{ void M(ParameterStatus {NazwyDwuznaczneWRdzeniu[3]}) {{ var s = {NazwyDwuznaczneWRdzeniu[3]}.ToString(); }} }}"),
+            "sito zobaczyło wywołanie na nazwie DWUZNACZNEJ (`" + NazwyDwuznaczneWRdzeniu[3]
+            + "`) — a zmierzone jest, że nie "
+            + "widzi; jeżeli zaczęło widzieć, ślepa plamka zniknęła i `NazwyDwuznaczneWRdzeniu` "
+            + "opisuje stan, którego już nie ma");
+    }
 
     private static readonly Regex WzorzecToStringZArgumentem =
         new(@"([\w.]+)\.ToString\(\s*[^)\s]", RegexOptions.Compiled);

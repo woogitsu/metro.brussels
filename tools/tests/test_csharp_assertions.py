@@ -417,7 +417,9 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 #: `ASERCJI_RAZEM` niżej, wszystkie z komunikatem.
 #: **1667 -> 1675 (15.09.2026, 6.D212)** — te same osiem asercji, co przy
 #: `ASERCJI_RAZEM` niżej, wszystkie z komunikatem.
-Z_KOMUNIKATEM_RAZEM = 1675
+#: **1675 -> 1682 (15.09.2026, 6.D213)** — te same siedem asercji, co przy
+#: `ASERCJI_RAZEM` niżej, wszystkie z komunikatem.
+Z_KOMUNIKATEM_RAZEM = 1682
 NIEROZSTRZYGNIETYCH = 68
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
 #: `tests/Sim.Tests/DefaultArmAuditTests.cs` — bramki na ramionach domyślnych
@@ -436,7 +438,13 @@ NIEROZSTRZYGNIETYCH = 68
 #: czwórki zieleń mówiłaby tyle, co czytnik, który ją wypisał: rozjazd w drzewie wynosi
 #: dziś ZERO. Wszystkie z komunikatem, `BEZ_KOMUNIKATU_RAZEM` i `NIEROZSTRZYGNIETYCH`
 #: nie drgają.
-ASERCJI_RAZEM = 3122
+#: **3122 -> 3129 (15.09.2026, 6.D213).** Siedem asercji bramki na `.ToString()`
+#: w RDZENIU, w `tests/Game.Tests/UiTextTests.cs`: cztery w bramce drzewa (podłoga
+#: na liczbę plików, podłoga na liczbę wywołań, zbiór nazw dwuznacznych, zero
+#: wywołań na wyliczeniu) i trzy w kontroli przyrządu — po jednej na każde
+#: z trzech podstawień, w tym na to, przy którym sito jest ŚLEPE. Wszystkie
+#: z komunikatem; `BEZ_KOMUNIKATU_RAZEM` i `NIEROZSTRZYGNIETYCH` nie drgają.
+ASERCJI_RAZEM = 3129
 
 
 def _rozklad():
