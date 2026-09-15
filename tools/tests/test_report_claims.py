@@ -875,3 +875,224 @@ def test_ksztalt_w_jednych_grawisach_daje_SAME_CYTATY():
 if __name__ == "__main__":
     import test_all
     raise SystemExit(test_all.main(__file__))
+
+
+# --- 6.D216: sekcja „zauwazone, nie tkniete” — czytnik, podlogi i GRANICA -----------
+#
+# **Skad ten blok.** Sekcja „zauwazone, nie tkniete” stoi w 153 raportach z 343 i niesie
+# **205 twierdzen liczbowych** (punkt z cyfra po zamaskowaniu adresow; liczebnikow
+# zapisanych slowem jest osobno 92). `CLAIM` wyzej pilnuje z nich **DWA**. Dla porownania
+# w calych raportach `CLAIM` pilnuje 54 twierdzen — sekcja „zauwazone” dostarcza bramce
+# 2 z 54, a sama niesie 205. Zmierzone 15.09.2026, pelny wykaz:
+# `reports/6d216-dwiescie-piec-twierdzen-i-dwa-pilnowane.md`.
+#
+# **Adres jest pilnowany, liczba nie jest.** W zdaniu „`src/Sim.Runner/` ma 23 z 53
+# zgloszen" `test_report_hygiene.test_kazda_sciezka_wymieniona_w_raporcie_rozwiazuje_sie_w_drzewie`
+# sprawdza, ze `src/Sim.Runner/` istnieje. Ze jest ich 23 — nie sprawdza nic.
+#
+# **ROZSTRZYGNIECIE: bramki na PRAWDZIWOSCI tych zdan NIE MA, i sa to trzy powody.**
+#
+# 1. Automat, ktory istnieje, pilnuje 2 z 205. Poszerzenie `CLAIM` o ksztalt bez
+#    grawisow rozstrzygnelo 6.D209 — przeciw, pomiarem.
+# 2. **Przeliczalnosc jest wlasnoscia CZYTNIKA, nie zdania.** Twierdzen 6.D207 nie da sie
+#    dzis przeliczyc nie dlatego, ze sa niejasne, tylko dlatego, ze sito, ktore je
+#    wyprodukowalo, nie zostalo w drzewie — i nie zostalo SLUSZNIE (5 trafien falszywych
+#    na 5, 6.D27). Bramka zadajaca przeliczalnosci karalaby te pozycje, ktore posluchaly
+#    reguly projektu.
+# 3. **Automat nie odrozni falszu od zdania, ktore sie zestarzalo.** Mechanizm 6.D108
+#    (`zdanie_z_dnia_pomiaru`) zwalnia twierdzenie po dacie STALEJ z gita; te zdania
+#    zadnej stalej nie cytuja, wiec kotwicy nie maja. Zmierzone na parze z jednego dnia:
+#    „51” z 6.D209 (dzis 55, POPRAWNE w swoim dniu) i „ramion `when` w `src/Sim/` nie ma”
+#    z 6.D210 (dzis cztery, od 05.09.2026, czyli FALSZYWE w swoim dniu) wygladaja dla
+#    automatu porownujacego z dzisiejszym drzewem IDENTYCZNIE.
+#
+# **Co wiec tu stoi.** Czytnik sekcji z podlogami i kontrola przyrzadu. Prawdziwosci nie
+# pilnuje i nie udaje, ze pilnuje — pilnuje, ze nastepna pozycja pytajaca o to samo nie
+# bedzie musiala odtwarzac sita z prozy, czyli zamyka dokladnie to, co powod drugi nazwal
+# po imieniu.
+
+#: Naglowek dowolnego poziomu w raporcie.
+NAGLOWEK_RAPORTU = re.compile(r"^(#{1,6})\s+(.*)$")
+
+#: Rdzen nazwy sekcji. Brzmien jest w katalogu **23** po odjeciu numeru („Zauwazone przy
+#: okazji", „Zauwazone po drodze, nie tkniete”, „Co zauwazone przy okazji, nietkniete”),
+#: a numer waha sie od 5 do 10 — dlatego pytanie idzie o rdzen, nie o cale zdanie.
+#: Granica powiedziana wprost: sekcja nazwana „Uwagi na marginesie” wypadlaby z pomiaru.
+SEKCJA_ZAUWAZONE = re.compile(r"zauwa[zż]on", re.IGNORECASE)
+
+#: Ksztalty, ktore NIOSA cyfre, a twierdzeniem o drzewie nie sa: data, numer pozycji,
+#: numer PR-a, numer sekcji, sciezka z numerem wiersza, skrot commita. Bez tej maski
+#: kazdy punkt powolujacy sie na `6.D200` liczylby sie jako twierdzenie liczbowe —
+#: zmierzone: 320 punktow przed maska, 205 po.
+ADRES_NIE_TWIERDZENIE = re.compile(
+    r"\b\d{2}\.\d{2}\.\d{4}\b"
+    r"|\b6\.D\d+\b|\bMB-\d+\b|\bKN-\d+[a-z]?\b"
+    r"|#\d+\b|§\s?\d+(?:\.\d+)*"
+    r"|[\w./-]+\.(?:cs|py|md|json|yml|glb|sh|txt|csproj)(?::\d+(?:-\d+)?)?"
+    r"|\b[0-9a-f]{7,40}\b"
+    r"|\bwiersz\w*\s+\d+\b")
+
+#: Liczba w prozie. `(?<![\w.])` odcina koncowke wersji i numer po kropce, `(?![\w])`
+#: odcina `2026-09` i `net10`.
+CYFRA_W_PROZIE = re.compile(r"(?<![\w.])\d+(?![\w])")
+
+#: Podlogi, nie rownosci: raportow przybywa z kazda pozycja, a rownosc kazalaby podnosic
+#: te liczbe przy kazdym commicie z raportem. Zmierzone 15.09.2026 na drzewie SPRZED tego
+#: commita: 157 sekcji w 153 raportach, 205 twierdzen liczbowych. Podlogi stoja na
+#: wartosciach PO nim — raport 6.D216 dokłada wlasna sekcje i dwa twierdzenia, a podloga
+#: ma kasac dzis, nie wczoraj.
+MIN_SEKCJI_ZAUWAZONE = 158
+MIN_RAPORTOW_Z_SEKCJA = 154
+MIN_TWIERDZEN_W_ZAUWAZONYCH = 207
+
+
+def _zrodla_raportow():
+    for path in sorted(glob.glob(os.path.join(REPORTS, "*.md"))):
+        with open(path, encoding="utf-8") as handle:
+            yield os.path.basename(path), handle.read()
+
+
+def sekcje_zauwazone(zrodla=None):
+    """`(raport, naglowek, wiersze)` dla kazdej sekcji „zauwazone” w katalogu.
+
+    `zrodla` to pary `(nazwa, tekst)`; domyslnie caly `reports/`. Wejscie syntetyczne
+    jest tu trescia, a nie wygoda: bez niego kontrola przyrzadu nie mialaby czym
+    udowodnic, ze dopisane twierdzenie WCHODZI do pomiaru.
+    """
+    for nazwa, tekst in (zrodla if zrodla is not None else _zrodla_raportow()):
+        wiersze = tekst.splitlines()
+        otwarta = None
+        for i, w in enumerate(wiersze):
+            naglowek = NAGLOWEK_RAPORTU.match(w)
+            if not naglowek:
+                continue
+            if otwarta is not None:
+                yield nazwa, otwarta[0], wiersze[otwarta[1]:i]
+                otwarta = None
+            if SEKCJA_ZAUWAZONE.search(naglowek.group(2)):
+                otwarta = (naglowek.group(2), i + 1)
+        if otwarta is not None:
+            yield nazwa, otwarta[0], wiersze[otwarta[1]:]
+
+
+def punkty_sekcji(tresc):
+    """Wypunktowania i akapity sekcji; wiersze ciagu dalszego sklejone w jeden punkt.
+
+    Bloki ogrodzone ``` i wiersze tabeli wypadaja — to cytat i zestawienie, a nie
+    zdanie raportu. Ta sama granica, co przy `FENCE` wyzej, i z tego samego powodu.
+    """
+    out, biezacy, w_bloku = [], [], False
+    for w in tresc:
+        if FENCE.match(w):
+            w_bloku = not w_bloku
+            continue
+        if w_bloku or w.lstrip().startswith("|"):
+            continue
+        if not w.strip():
+            if biezacy:
+                out.append(" ".join(biezacy))
+                biezacy = []
+            continue
+        if re.match(r"^\s*(?:[-*]|\d+\.)\s", w) and biezacy:
+            out.append(" ".join(biezacy))
+            biezacy = []
+        biezacy.append(w.strip())
+    if biezacy:
+        out.append(" ".join(biezacy))
+    return out
+
+
+def twierdzenia_liczbowe_w_zauwazonych(zrodla=None):
+    """`(raport, naglowek, punkt)` dla punktow niosacych liczbe po masce adresow."""
+    for nazwa, naglowek, tresc in sekcje_zauwazone(zrodla):
+        for punkt in punkty_sekcji(tresc):
+            if CYFRA_W_PROZIE.search(ADRES_NIE_TWIERDZENIE.sub(
+                    lambda m: "·" * len(m.group(0)), punkt)):
+                yield nazwa, naglowek, punkt
+
+
+def test_czytnik_sekcji_zauwazone_widzi_caly_katalog():
+    """Podloga, nie rownosc — a zero znaczyloby „czytnik oslepl”, nie „nie ma sekcji”."""
+    sekcje = list(sekcje_zauwazone())
+    raporty = {s[0] for s in sekcje}
+    assert len(sekcje) >= MIN_SEKCJI_ZAUWAZONE, (
+        "sekcji „zauwazone” znaleziono %d przy podlodze %d — czytnik przestal widziec "
+        "naglowki, a pusty skan odpowiada „zero twierdzen” tak samo przekonujaco jak "
+        "widzacy" % (len(sekcje), MIN_SEKCJI_ZAUWAZONE))
+    assert len(raporty) >= MIN_RAPORTOW_Z_SEKCJA, (
+        "raportow z taka sekcja znaleziono %d przy podlodze %d"
+        % (len(raporty), MIN_RAPORTOW_Z_SEKCJA))
+
+    twierdzenia = list(twierdzenia_liczbowe_w_zauwazonych())
+    assert len(twierdzenia) >= MIN_TWIERDZEN_W_ZAUWAZONYCH, (
+        "twierdzen liczbowych w tych sekcjach znaleziono %d przy podlodze %d — maska "
+        "adresow zjadla za duzo albo czytnik punktow przestal sklejac wiersze"
+        % (len(twierdzenia), MIN_TWIERDZEN_W_ZAUWAZONYCH))
+
+
+def test_twierdzenie_DOPISANE_do_sekcji_WCHODZI_do_pomiaru():
+    """Kontrola przyrzadu, o ktora prosilo pole „Weryfikacja” pozycji 6.D216.
+
+    Podlogi wyzej sa spelnione takze przez czytnik, ktory czyta polowe katalogu. Dowodem,
+    ze pomiar naprawde obejmuje zdanie dopisane do sekcji, moze byc tylko wejscie
+    syntetyczne — tu cztery probki, kazda o innej granicy.
+    """
+    probka = "\n".join([
+        "# Raport probny",
+        "",
+        "## 1. Cos",
+        "",
+        "- zdanie bez liczby",
+        "",
+        "## 8. Zauwazone przy okazji, nietkniete",
+        "",
+        "- **`src/Sim/Train/Probka.cs` ma 17 wywolan** i nikt tego nie pilnuje.",
+        "- zdanie bez zadnej liczby, wiec nie jest twierdzeniem liczbowym",
+        "- powolanie sie na 6.D200 i §7 z 13.09.2026, i nic wiecej",
+        "",
+        "```",
+        "liczba w bloku kodu: 999",
+        "```",
+        "",
+        "## 9. Dalej",
+        "",
+        "- 42 stoi poza sekcja",
+    ])
+    sekcje = list(sekcje_zauwazone([("probka.md", probka)]))
+    assert len(sekcje) == 1, "czytnik znalazl %d sekcji zamiast jednej" % len(sekcje)
+
+    twierdzenia = [t[2] for t in twierdzenia_liczbowe_w_zauwazonych([("probka.md", probka)])]
+    assert len(twierdzenia) == 1, (
+        "z sekcji probnej wyszlo %d twierdzen zamiast jednego: %r" % (len(twierdzenia), twierdzenia))
+    assert "17" in twierdzenia[0], (
+        "twierdzenie dopisane do sekcji NIE weszlo do pomiaru — kontrola przyrzadu "
+        "nie przechodzi, wiec podlogi wyzej nie mowia o niczym: %r" % (twierdzenia,))
+    assert "999" not in twierdzenia[0], "liczba z bloku kodu weszla jako twierdzenie"
+    assert "42" not in twierdzenia[0], "liczba spoza sekcji weszla jako twierdzenie"
+
+
+def test_maska_adresow_wycina_adres_a_zostawia_liczbe():
+    """Granica maski, wykonana a nie opisana: szesc ksztaltow adresu i jedna liczba.
+
+    Bez maski punkt „zmierzone 13.09.2026 przy 6.D201 (PR #550), §7, `plik.cs:42`”
+    liczylby sie jako twierdzenie liczbowe — a nie mowi o drzewie ani jednej liczby.
+    """
+    adresy = [
+        "zmierzone 13.09.2026 przy 6.D201",
+        "PR #550 i MB-07, KN-4b",
+        "sekcja §7 oraz §4.1",
+        "`tools/tests/test_backlog.py:1564`",
+        "commit 2b95084 i 877ab66",
+        "wiersz 362 tego pliku",
+    ]
+    for adres in adresy:
+        po = ADRES_NIE_TWIERDZENIE.sub(lambda m: "·" * len(m.group(0)), adres)
+        assert not CYFRA_W_PROZIE.search(po), (
+            "maska zostawila liczbe w adresie %r -> %r — punkt powolujacy sie na numer "
+            "pozycji liczylby sie jako twierdzenie o drzewie" % (adres, po))
+
+    zostaje = "ma 23 z 53 zgloszen"
+    po = ADRES_NIE_TWIERDZENIE.sub(lambda m: "·" * len(m.group(0)), zostaje)
+    assert CYFRA_W_PROZIE.findall(po) == ["23", "53"], (
+        "maska zjadla liczbe z twierdzenia %r -> %r — bramka milczalaby o tym, o co pyta"
+        % (zostaje, po))

@@ -1587,7 +1587,18 @@ def test_wzorzec_rodziny_lapie_zdanie_ktore_ma_lapac_i_nie_bierze_sasiedztwa():
 #: próbki nie ma innej postaci niż literał. Do listy `NA_ZRODLE_PY` nie należą:
 #: `blad` jest wyjątkiem PyYAML-a, a `przeszlo` wynikiem pętli po próbkach
 #: syntetycznych — żadne z nich nie jest odczytem pliku.
-ASERCJI_NAPISOWYCH_RAZEM = 883
+#: **883 -> 886 (15.09.2026, 6.D216), z powodem.** Doszły trzy asercje
+#: w `test_report_claims.py`, wszystkie w
+#: `test_twierdzenie_DOPISANE_do_sekcji_WCHODZI_do_pomiaru`: `"17" in twierdzenia[0]`,
+#: `"999" not in twierdzenia[0]` i `"42" not in twierdzenia[0]`. Stoją na NAPISIE
+#: Z KONIECZNOŚCI i to jest cała ich treść: kontrola przyrządu pyta, czy twierdzenie
+#: DOPISANE do sekcji próbnej weszło do wyniku czytnika, a wynik czytnika jest listą
+#: napisów — pytanie „czy to zdanie w niej jest" nie ma innej postaci niż literał
+#: z liczbą z tego zdania. Dwie pozostałe są tą samą asercją w drugą stronę: liczba
+#: z bloku kodu i liczba spoza sekcji mają do wyniku NIE wejść. Do listy `NA_ZRODLE_PY`
+#: nie należą — `twierdzenia` jest wynikiem czytnika po wejściu SYNTETYCZNYM, a nie
+#: odczytem pliku z drzewa.
+ASERCJI_NAPISOWYCH_RAZEM = 886
 
 #: **Kotwica wpisu to `(plik, funkcja, operator, literał)`, a NIE numer wiersza.**
 #: Numer przesuwa się przy każdej edycji pliku i lista rozjechałaby się sama z siebie.

@@ -1712,7 +1712,13 @@ def _istnieje_w_drzewie(nazwa):
 # pozycji — `csharp_test_methods.py`, `UiTextTests.cs`, `test_csharp_test_methods.py`
 # i `reports/6d200-…`. „Weryfikacja" rosnie o jeden (393 -> 394) za
 # `tools/tests/test_all.py` z plotka tego bloku.
-ADRESOW_W_WYKONANYCH = {"Wejście": 980, "Wyjście": 63, "Weryfikacja": 394}
+# 980 -> 983 (15.09.2026, 6.D216): TRZY adresy z pol „Wejscie" DWOCH wlasnych blokow
+# tej pozycji — `test_report_claims.py` i `reports/6d210-…` w 6.D227,
+# `src/Sim/Train/DriverKeys.cs` tamze; pozostale pozycje obu pol to katalogi
+# (`reports/*.md`) albo powtorzenia, a `PATH_TOKEN` liczy kazdy adres raz.
+# „Weryfikacja" rosnie o jeden (394 -> 395) za `tools/tests/test_report_claims.py`
+# z plotka bloku 6.D227.
+ADRESOW_W_WYKONANYCH = {"Wejście": 983, "Wyjście": 63, "Weryfikacja": 395}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
@@ -1743,7 +1749,9 @@ ADRESOW_W_WYKONANYCH = {"Wejście": 980, "Wyjście": 63, "Weryfikacja": 394}
 # `test_csharp_test_methods.py` z plotka „Weryfikacji" bloku tej pozycji.
 # 130 -> 131 (15.09.2026, 6.D215): jedno wywolanie modulu wiecej —
 # `test_csharp_test_methods.py` z plotka „Weryfikacji" bloku tej pozycji.
-WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 131}
+# 131 -> 132 (15.09.2026, 6.D216): jedno wywolanie modulu wiecej —
+# `test_report_claims.py` z plotka „Weryfikacji" bloku 6.D227.
+WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 132}
 
 #: Ilu kandydatow zlego adresu daje regula prozy, per pole — 6.D158.
 # 12 -> 13 (14.09.2026, 6.D204): trzynastym kandydatem jest `test_mutation_sweep.py`
