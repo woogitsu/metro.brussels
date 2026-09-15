@@ -72,7 +72,10 @@ USPRAWIEDLIWIENIA = {}
 #: wyzszy od stanu faktycznego padlby przy pierwszym przebiegu.
 MINIMUM_MIEJSC = 5
 
-#: Trzy pomocniki, ktore maja byc JEDYNA droga wartosci opcji do liczby.
+#: Pomocnikow, ktore maja byc JEDYNA droga wartosci opcji do liczby: trzy.
+#: (Ksztalt zdania zmieniony 15.09.2026 przy 6.D218: liczebnik stoi PO etykiecie,
+#: wiec `WZORZEC_POMOCNIKOW` nie wymusza juz formy `pomocniki` — poprawnej po 3,
+#: ale bledniej po kazdej liczbie spoza 2-4.)
 POMOCNIKI = ("NumberValue", "LongValue", "IntValue")
 
 #: Fragmenty komunikatu — bez polskich znakow diakrytycznych tam, gdzie to mozliwe,

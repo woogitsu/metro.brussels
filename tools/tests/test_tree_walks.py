@@ -145,15 +145,30 @@ def klasa_zapadki(nazwa, porownania):
 
 
 #: **Wszystkie zapadki pod `tools/tests/`, każda z klasą i modułem.**
-#: 54 zapadek: **17 przybitych, 3 częściowe, 33 WOLNE i 1 poza zasięgiem skanu.**
+#: Zapadek: 54. **Przybitych: 17, częściowych: 3, WOLNYCH: 33, poza zasięgiem skanu: 1.**
 #:
-#: **To zdanie jest przepisane, a nie dopisane obok (12.09.2026).** Stało tu
-#: „Trzydzieści osiem: 13 przybitych, 3 częściowe, 21 WOLNYCH i 1 poza zasięgiem
-#: skanu", zmierzone 11.09.2026 na `52752c9` — i przestało być prawdą, gdy rejestr
-#: urósł o cztery pozycje. Nie zauważył tego żaden test, bo bramka niżej porównuje
-#: SŁOWNIK z drzewem, a nie to zdanie ze słownikiem. Od 12.09.2026 porównuje je
-#: `test_prose_counts.py`, więc liczby wyżej nie mogą się już rozjechać po cichu.
-#: Suma stoi CYFRAMI, nie słownie, i to jest warunek działania tamtej bramki.
+#: **To zdanie jest przepisane, a nie dopisane obok — po raz DRUGI (15.09.2026).**
+#: Stało tu najpierw „Trzydzieści osiem: 13 przybitych…" (11.09.2026, `52752c9`)
+#: i przestało być prawdą, gdy rejestr urósł o cztery pozycje; nie zauważył tego żaden
+#: test, bo bramka niżej porównuje SŁOWNIK z drzewem, a nie to zdanie ze słownikiem.
+#: Od 12.09.2026 porównuje je `test_prose_counts.py`, więc liczby nie mogą się już
+#: rozjechać po cichu. Suma stoi CYFRAMI, nie słownie, i to jest warunek działania
+#: tamtej bramki.
+#:
+#: **Dziś zmienia się KSZTAŁT, nie liczby, i powód jest gramatyczny (6.D218).** Do
+#: 15.09.2026 zdanie brzmiało „N zapadek: **A przybitych, B częściowe, C WOLNE i D poza
+#: zasięgiem skanu.**", a `WZORZEC_ZAPADEK` miał te cztery formy wpisane na sztywno —
+#: więc wymuszał je **bez względu na liczebnik, który przed nimi stoi**. Po polsku forma
+#: zależy od końcówki liczebnika, a rejestr rośnie, więc zdanie **było błędne przy
+#: KAŻDEJ wartości w swojej historii**: 46/25, 48/27, 49/28, 50/29 i 51/30 żądały
+#: „WOLNYCH", a przy 54/33 błąd przeskoczył o słowo — `WOLNE` po 33 jest poprawne,
+#: ale „54 zapadek" po 54 już nie (ma być „zapadki").
+#:
+#: **Nowy kształt nie wymusza żadnej formy**, bo liczba stoi PO etykiecie, a rzeczownik
+#: jest rządzony dwukropkiem, nie liczebnikiem. Wzór był w tym samym pliku od początku:
+#: `WZORZEC_MODULOW` czyta „dla N modulow" i jest odporny, bo przypadek narzuca przyimek
+#: „dla", a nie liczba. Wzorzec przechwytuje nadal te same PIĘĆ liczb i nie jest przez
+#: to ani o jotę luźniejszy — a poszerzenie go o obie formy byłoby, i dlatego odpada.
 #:
 #: **Lista jest z NAZWAMI, nie z samymi liczbami, i to jest wybór.** Same liczby
 #: przepuściłyby zamianę jednej zapadki przybitej na inną wolną — suma stoi, a zdanie
