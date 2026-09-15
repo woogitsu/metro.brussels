@@ -376,9 +376,14 @@ ROZKLAD_POSTACI = {
         # z czterech na SZEŚĆ i to jest treść: oba wzorce `.ToString()` składają się dziś
         # z `CzlonWyrazenia` przez interpolację, a ukośnik w nich jest treścią — czyli
         # jedyna postać, która daje i jedno, i drugie.
-        "zwykly": 4406,
-        "interpolowany ($)": 747,
-        "werbatim (@)": 68,
+        # 4406 -> 4438, 747 -> 754 i 68 -> 70 (15.09.2026, 6.D215): literaly bramki
+        # na galezi surowy-czy-werbatim. Postac `surowy (""")` NIE DRGA i to jest tresc:
+        # cztery probki tej bramki opisuja literaly surowe i werbatim, ale opisuja je
+        # jako DANE w napisach zwyklych, a nie zapisuja w tych postaciach — inaczej
+        # probka byla by tym, co mierzy.
+        "zwykly": 4438,
+        "interpolowany ($)": 754,
+        "werbatim (@)": 70,
         "surowy interpolowany ($$\"\"\")": 13,
         "surowy (\"\"\")": 8,
         "werbatim interpolowany ($@)": 6,
