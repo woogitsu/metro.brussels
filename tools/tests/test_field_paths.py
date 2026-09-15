@@ -1734,7 +1734,16 @@ def _istnieje_w_drzewie(nazwa):
 # 991 -> 993 (15.09.2026, 6.D220): DWA adresy z pola „Wejscie" wlasnego bloku 6.D231 —
 # `tests/Sim.Tests/DefaultArmAuditTests.cs` i `reports/6d220-…`; pozostale adresy tego
 # pola byly juz liczone. „Weryfikacja" NIE DRGA: plotek tego bloku wola `dotnet test`.
-ADRESOW_W_WYKONANYCH = {"Wejście": 993, "Wyjście": 63, "Weryfikacja": 397}
+# 993 -> 997 (15.09.2026, 6.D221): CZTERY adresy z pola „Wejscie" WLASNEGO bloku
+# tej pozycji — `tools/tests/test_field_paths.py`, `tests/Sim.Tests/DefaultArmAuditTests.cs`,
+# `docs/TASKS.md` i `reports/6d211-…`. Tym razem NIE jest to blok pozycji obcej
+# dopisany przy okazji: 6.D221 zostalo w tym samym commicie ODHACZONE, wiec jego
+# wlasny blok wszedl do `bloki_wykonane()` w calosci. Rozjazd wyliczony diffem
+# `adresy_pola_w_wykonanych` przed edycja i po niej, nie odjeciem liczb.
+# „Weryfikacja" rosnie o jeden (397 -> 398) za `tools/tests/test_all.py` z plotka
+# tego bloku, a `WYWOLAN_W_WYKONANYCH` NIE DRGA: plotek wola zestaw BEZ nazwy
+# modulu, a `MODULE_CALL` liczy wylacznie `test_all.py <modul>`.
+ADRESOW_W_WYKONANYCH = {"Wejście": 997, "Wyjście": 63, "Weryfikacja": 398}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
@@ -1947,7 +1956,14 @@ MIN_GOLYCH_W_DOKUMENTACH = 1200
 #: `tools/dev/prepare-playable.sh`. Nowej rodziny nie zakladaja: to druga z czterech
 #: juz wymienionych nizej — wytwory przebiegu, ktorych regula 8 zabrania komitowac.
 #: Ich obecnosc w drzewie byloby usterka, a NIEobecnosc usterka nie jest.
-GOLYCH_BEZ_ODPOWIEDNIKA = 35
+#: **35 -> 36 (15.09.2026, 6.D221), przeczytane po kolei — a raczej po jednej.**
+#: Doszla `plik.cs` z wiersza 6.D221 w `docs/TASKS.md`, gdzie stoi w ksztalcie
+#: ``` `plik.cs` (`Nazwa`) ``` jako ZAPIS KONWENCJI pola „Wejscie", a nie jako adres:
+#: nazwa opisuje tam wzorzec, ktorym sito przechodzilo po 153 parach. Nowej rodziny
+#: nie zaklada — to PIERWSZA z czterech wymienionych nizej, nazwy zastepcze prozy,
+#: ta sama co `PLIK.json`, `AXIS.csv` i `a.py`. Plik o tej nazwie w drzewie byloby
+#: usterka, bo zdanie mowi o KSZTALCIE nazwy, a nie o pliku.
+GOLYCH_BEZ_ODPOWIEDNIKA = 36
 
 #: To samo, ale WYLACZNIE w trzech polach skanowanych — czyli tam, gdzie poszerzony
 #: `PATH_TOKEN` naprawde by zapalal. Zmierzone 13.09.2026: **244** wystapienia,

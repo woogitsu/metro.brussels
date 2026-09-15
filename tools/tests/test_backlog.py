@@ -427,7 +427,14 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 # metodzie WYRAZENIOWEJ oddaje korpus NASTEPNEJ. Pozycja NIE wyszla z progu zapasu,
 # tylko z przebiegu czytnika przy tej pozycji: `BrakingDistanceM` dostaje 3056 znakow
 # korpusu `Supervise`, a straz `deklaracji == 1` przepuszcza to bez slowa.
-MINIMUM_DETAIL_BLOCKS = 299
+# 299 -> 305 (15.09.2026, 6.D221): szesc blokow szesciu pol naraz — 6.D232 … 6.D237.
+# Skok o szesc, a nie o jeden, bo kolejka zeszla po domknieciu 6.D221 do JEDENASTU
+# pozycji DO WZIECIA przy progu dwunastu, a `CLAUDE.md` §8 kaze wtedy uzupelnic ja
+# PIERWSZYM zadaniem. Pozycje nie sa wymyslone na miejscu (§8 tego zabrania): kazda
+# wyszla z pomiaru wykonanego przy 6.D218 … 6.D229 i niesie liczby z tamtych przebiegow.
+# Liczba POLICZONA przez `len(detail_sections(...))` na pliku PO edycji, nie wpisana
+# z pamieci — tak jak kaze komentarz przy tej stalej od poczatku.
+MINIMUM_DETAIL_BLOCKS = 305
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
