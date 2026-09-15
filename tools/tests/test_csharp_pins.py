@@ -55,7 +55,11 @@ PINY_GRY = {
     # 8 -> 9 (14.09.2026, MB-07): pin na wiersz pomocy dla składu PRZEJĘTEGO
     # (`HelpWhenTheDriverHasTaken`). Kategoria C — napis składa się w JEDNYM miejscu,
     # w `DriverActions.BuildDriverHasTakenHelp`, i bramka pyta o jego treść.
-    "UiTextTests.cs": 9,
+    # 9 -> 12 (15.09.2026, 6.D214): trzy piny bramki na zgloszeniach URWANYCH —
+    # pelne wyrazenie z indeksatorem, zgloszenie starego czytnika i wyrazenie
+    # po wyniku metody. Kategoria C: kazda z tych wartosci jest tresc JEDNEGO
+    # miejsca w drzewie, a nie liczba miejsc.
+    "UiTextTests.cs": 12,
 }
 
 #: Ile pinów stoi w `tests/Sim.Tests` — liczba PORÓWNAWCZA, o którą prosiło pole
@@ -148,7 +152,8 @@ KATEGORIE = {
 # wyrazenia. Kategoria C, bo kazda z tych wartosci stoi w JEDNYM miejscu zrodla.
 # 52 -> 53 (14.09.2026, MB-07): pin wiersza pomocy dla składu przejętego.
 # 53 -> 55 (14.09.2026, MB-08): dwa piny `DoorPromptTests.cs`.
-LICZBA_C = 55
+# 55 -> 58 (15.09.2026, 6.D214): trzy piny `UiTextTests.cs` opisane wyzej.
+LICZBA_C = 58
 
 
 def test_ile_pinow_stoi_w_testach_warstwy_gry():
@@ -160,7 +165,9 @@ def test_ile_pinow_stoi_w_testach_warstwy_gry():
         "— doszedł pin do skategoryzowania albo zniknął pin do zdjęcia"
         % (sorted(zmierzone.items()), sorted(PINY_GRY.items())))
 
-    assert sum(zmierzone.values()) == 61, (
+    # 61 -> 64 (15.09.2026, 6.D214): trzy piny `UiTextTests.cs` bramki na
+    # zgloszeniach URWANYCH.
+    assert sum(zmierzone.values()) == 64, (
         "pinów warstwy gry jest %d, a pomiar z 14.09.2026 dał 61 "
         "(47 po 6.D155, 45 przed nim; +5 przy MB-03, +1 przy MB-05, "
         "+5 przy audycie bramki MB-05, +2 przy MB-08 — `DoorPromptTests`)"
@@ -192,8 +199,8 @@ def test_kazdy_pin_ma_kategorie_i_suma_sie_zgadza():
     # ktora NIE jest przy okazji: stalo tu „nie sumują się do 47" przy warunku na 52,
     # czyli komunikat bledu podawal liczbe o piec mniejsza od tej, ktorej bramka
     # pilnowala. Kto by na niego trafil, szukalby rozbieznosci, ktorej nie ma.
-    assert len(KATEGORIE["A"]) + len(KATEGORIE["B"]) + LICZBA_C == 61, (
-        "kategorie nie sumują się do 61: A=%d, B=%d, C=%d"
+    assert len(KATEGORIE["A"]) + len(KATEGORIE["B"]) + LICZBA_C == 64, (
+        "kategorie nie sumują się do 64: A=%d, B=%d, C=%d"
         % (len(KATEGORIE["A"]), len(KATEGORIE["B"]), LICZBA_C))
 
 
@@ -327,9 +334,13 @@ ROZKLAD_LICZBOWYCH = {
         # wyliczenia nie stoi ANI JEDNO". CAŁKOWITY i BEZ TOLERANCJI, bo jest liczbą
         # miejsc w kodzie; `calkowite_z_tolerancja` zostaje ZEREM. Podłogi tej bramki
         # do liczby nie wchodzą — stoją jako `>=`, a nie jako pin równościowy.
-        "razem": 233, "z_tolerancja": 103, "bez_tolerancji": 130,
+        # 233 -> 234 (15.09.2026, 6.D214): JEDEN pin liczbowy — `Assert.AreEqual(0,
+        # urwane.Count, …)`, czyli „zgloszen urwanych nie ma ANI JEDNEGO". CALKOWITY
+        # i BEZ TOLERANCJI; podloga `MinimumZgloszenToString` do liczby nie wchodzi,
+        # bo stoi jako `>=`.
+        "razem": 234, "z_tolerancja": 103, "bez_tolerancji": 131,
         "zmiennoprzecinkowe": 109, "zmiennoprzecinkowe_bez_tolerancji": 6,
-        "calkowite": 124, "calkowite_z_tolerancja": 0, "tolerancja_zero": 18,
+        "calkowite": 125, "calkowite_z_tolerancja": 0, "tolerancja_zero": 18,
     },
     "tests/Sim.Tests": {
         # 441 -> 454 (13.09.2026, MB-02): trzynaście pinów liczbowych

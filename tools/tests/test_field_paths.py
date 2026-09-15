@@ -1704,7 +1704,11 @@ def _istnieje_w_drzewie(nazwa):
 # pozycji — `tests/Game.Tests/UiTextTests.cs` i `reports/6d199-…`. Pozostałe pozycje
 # tego pola to katalogi (`src/Sim/**/*.cs`, `tests/Sim.Tests/`), a `PATH_TOKEN` czyta
 # pliki. „Weryfikacja" NIE DRGA: płotek tej pozycji woła `dotnet test`, nie `test_all.py`.
-ADRESOW_W_WYKONANYCH = {"Wejście": 973, "Wyjście": 63, "Weryfikacja": 392}
+# 973 -> 976 (15.09.2026, 6.D214): TRZY adresy z pola „Wejście" WŁASNEGO bloku tej
+# pozycji — `tests/Game.Tests/UiTextTests.cs`, `src/Game/FirstRun.cs` i `reports/6d199-…`.
+# „Weryfikacja" rośnie o jeden (392 -> 393) za `tools/tests/test_csharp_test_methods.py`
+# z płotka tego bloku.
+ADRESOW_W_WYKONANYCH = {"Wejście": 976, "Wyjście": 63, "Weryfikacja": 393}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
@@ -1731,14 +1735,20 @@ ADRESOW_W_WYKONANYCH = {"Wejście": 973, "Wyjście": 63, "Weryfikacja": 392}
 # patrz `test_zero_wywolan_poza_Weryfikacja_jest_STRUKTURALNE`.
 # 128 -> 129 (15.09.2026, 6.D222): jedno wywolanie modulu wiecej —
 # `test_ci_workflows.py` z plotka „Weryfikacji" bloku tej pozycji.
-WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 129}
+# 129 -> 130 (15.09.2026, 6.D214): jedno wywolanie modulu wiecej —
+# `test_csharp_test_methods.py` z plotka „Weryfikacji" bloku tej pozycji.
+WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 130}
 
 #: Ilu kandydatow zlego adresu daje regula prozy, per pole — 6.D158.
 # 12 -> 13 (14.09.2026, 6.D204): trzynastym kandydatem jest `test_mutation_sweep.py`
 # z plotka „Weryfikacji" bloku tej pozycji — nazwa modulu bez sciezki, ktorej proza
 # bloku nie wymienia. Ten sam ksztalt co dwanascie poprzednich (6.D36 i 6.D90 daja go
 # na tym samym module), a nie zly adres: plik istnieje i zestaw go uruchamia.
-KANDYDATOW_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 13}
+# 13 -> 14 (15.09.2026, 6.D214): czternastym kandydatem jest
+# `test_csharp_test_methods.py` z plotka „Weryfikacji" bloku tej pozycji — nazwa
+# modulu bez sciezki, ktorej proza bloku nie wymienia. Ten sam ksztalt co
+# trzynascie poprzednich, a nie zly adres: plik istnieje i zestaw go uruchamia.
+KANDYDATOW_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 14}
 
 
 def adresy_pola_w_wykonanych(pole):
