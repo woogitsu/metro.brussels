@@ -2533,21 +2533,155 @@ public sealed class UiTextTests
     /// i znajduje ZERO dziur, cicho i na zielono. Skanowanym korpusem zostaje droga
     /// <c>Hud.Update</c> w <c>src/Game/</c>; rdzeń jest tu SŁOWNIKIEM TYPÓW.</para>
     /// </summary>
+    /// <summary>
+    /// Wyliczenia <c>src/</c> czytane Z TEKSTU ZAMASKOWANEGO — 6.D212.
+    ///
+    /// <para><b>Do 15.09.2026 czytało z tekstu SUROWEGO, a zmiana nie bierze się
+    /// z usterki w drzewie, tylko z pomiaru.</b> Oba czytniki dają dziś wynik
+    /// identyczny — <b>20 wyliczeń surowo i 20 po masce, zero rozjazdów</b> — bo
+    /// sito członów odrzuca wiersze zaczynające się od <c>/</c>. Zmierzone są
+    /// natomiast <b>podstawienia, które je rozdzielają</b>, i jest ich trzy:
+    /// komentarz blokowy PRZED członem w jego wierszu (<c>/* x */ Dry,</c> — surowy
+    /// gubi człon), słowo <c>enum</c> w komentarzu blokowym i słowo <c>enum</c>
+    /// w literale (surowy wymyśla CAŁE wyliczenie, którego w kodzie nie ma).</para>
+    ///
+    /// <para><b>Czwarte podstawienie NIE rozdziela ich i to jest poprawka do
+    /// zapisanego zdania, a nie nowe ustalenie.</b> <c>reports/6d197-…</c> §6 mówi,
+    /// że „komentarz członu w tym samym wierszu (<c>Dry, // sucha</c>) przesunąłby
+    /// oba czytniki". Zmierzone: nie przesuwa — sito bierze PIERWSZE SŁOWO wiersza,
+    /// a jest nim <c>Dry</c>. Raportu nie poprawiam (6.D108: raport jest historią);
+    /// granica stoi tutaj.</para>
+    ///
+    /// <para><b>Maska nie jest nowym czytnikiem</b> — składa
+    /// <see cref="PominNieNapis"/>, <see cref="PrefiksLiteralu"/> i
+    /// <see cref="CzytajLiteral"/>, te same prymitywy, na których stoi
+    /// <see cref="Literaly"/> i <see cref="CialoDeklaracji"/>. Druga kopia czytnika
+    /// rozjechałaby się przy pierwszej poprawce.</para>
+    /// </summary>
     private static Dictionary<string, List<string>> WyliczeniaZrodel()
     {
         var wynik = new Dictionary<string, List<string>>(StringComparer.Ordinal);
         foreach (var sciezka in PlikiZrodlowe())
         {
-            foreach (Match m in Regex.Matches(
-                File.ReadAllText(sciezka), @"\benum\s+(\w+)\s*\{([^}]*)\}"))
+            foreach (var para in WyliczeniaZTekstu(File.ReadAllText(sciezka)))
+            {
+                wynik[para.Key] = para.Value;
+            }
+        }
+
+        return wynik;
+    }
+
+    /// <summary>
+    /// Kontrola PRZYRZĄDU, nie drzewa — 6.D212.
+    ///
+    /// <para>Rozjazd między czytnikiem surowym a maskującym wynosi dziś w całym
+    /// <c>src/</c> <b>zero</b>, więc sam zielony przebieg nie mówi o masce nic:
+    /// czytnik, który maski nie stosuje, odpowiedziałby tak samo. Próbki niżej są
+    /// syntetyczne i każda z nich NAPRAWDĘ rozdziela oba czytniki — poza ostatnią,
+    /// która jest tu po to, żeby pokazać, że ich NIE rozdziela.</para>
+    /// </summary>
+    [TestMethod]
+    public void Czytnik_wyliczen_nie_daje_sie_nabrac_na_enum_w_komentarzu_ani_w_literale()
+    {
+        const string wKomentarzu =
+            "/* public enum Duch { Alfa, } */\npublic enum Proba\n{\n    Dry,\n    Wet,\n}\n";
+        const string wLiterale =
+            "const string s = \"public enum Duch { Alfa, }\";\npublic enum Proba\n{\n    Dry,\n    Wet,\n}\n";
+        const string komentarzPrzedCzlonem =
+            "public enum Proba\n{\n    /* x */ Dry,\n    Wet,\n}\n";
+        const string komentarzZaCzlonem =
+            "public enum Proba\n{\n    Dry, // sucha\n    Wet,\n}\n";
+
+        CollectionAssert.AreEqual(new[] { "Proba" }, WyliczeniaZTekstu(wKomentarzu).Keys.ToList(),
+            "wyliczenie z KOMENTARZA weszło do wyniku — maska nie działa");
+        CollectionAssert.AreEqual(new[] { "Proba" }, WyliczeniaZTekstu(wLiterale).Keys.ToList(),
+            "wyliczenie z LITERAŁU weszło do wyniku — maska nie działa");
+        CollectionAssert.AreEqual(new[] { "Dry", "Wet" },
+            WyliczeniaZTekstu(komentarzPrzedCzlonem)["Proba"],
+            "komentarz PRZED członem zjadł człon — maska nie działa");
+
+        // Czwarta próbka jest granicą, a nie usterką: `Dry, // sucha` czyta się tak samo
+        // z maską i bez niej, bo sito bierze PIERWSZE SŁOWO wiersza. Zdanie z §6 raportu
+        // 6.D197, które mówi inaczej, jest tym pomiarem obalone.
+        CollectionAssert.AreEqual(new[] { "Dry", "Wet" },
+            WyliczeniaZTekstu(komentarzZaCzlonem)["Proba"], "komentarz ZA członem nie ma prawa nic zmienić");
+
+        // I dopiero to mówi, że maska jest do czegoś potrzebna: czytnik SUROWY,
+        // czyli dokładnie ten sprzed tej pozycji, daje na trzech pierwszych próbkach
+        // inny wynik, a na czwartej ten sam.
+        var surowy = new Func<string, Dictionary<string, List<string>>>(zrodlo =>
+        {
+            var wynik = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+            foreach (Match m in Regex.Matches(zrodlo, @"\benum\s+(\w+)\s*\{([^}]*)\}"))
             {
                 wynik[m.Groups[1].Value] = Regex
                     .Matches(m.Groups[2].Value, @"^\s*(\w+)", RegexOptions.Multiline)
                     .Select(x => x.Groups[1].Value).ToList();
             }
+
+            return wynik;
+        });
+
+        Assert.IsTrue(surowy(wKomentarzu).ContainsKey("Duch"),
+            "czytnik surowy NIE dał się nabrać na komentarz — próbka przestała rozdzielać czytniki");
+        Assert.IsTrue(surowy(wLiterale).ContainsKey("Duch"),
+            "czytnik surowy NIE dał się nabrać na literał — próbka przestała rozdzielać czytniki");
+        CollectionAssert.AreEqual(new[] { "Wet" }, surowy(komentarzPrzedCzlonem)["Proba"],
+            "czytnik surowy NIE zgubił członu — próbka przestała rozdzielać czytniki");
+        CollectionAssert.AreEqual(new[] { "Dry", "Wet" }, surowy(komentarzZaCzlonem)["Proba"],
+            "czytnik surowy przeczytał `Dry, // sucha` inaczej niż maskujący — granica z §6 wróciła");
+    }
+
+    /// <summary>Wyliczenia jednego źródła — osobno, żeby kontrola przyrządu miała co wołać.</summary>
+    private static Dictionary<string, List<string>> WyliczeniaZTekstu(string source)
+    {
+        var wynik = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        foreach (Match m in Regex.Matches(
+            Zamaskowany(source), @"\benum\s+(\w+)\s*\{([^}]*)\}"))
+        {
+            wynik[m.Groups[1].Value] = Regex
+                .Matches(m.Groups[2].Value, @"^\s*(\w+)", RegexOptions.Multiline)
+                .Select(x => x.Groups[1].Value).ToList();
         }
 
         return wynik;
+    }
+
+    /// <summary>
+    /// Kod z wygaszonymi komentarzami i literałami. Znak w znak tej samej długości
+    /// i z zachowanymi końcami wierszy — sito członów jest zakotwiczone na początku
+    /// wiersza, więc sklejenie dwóch wierszy zmieniłoby wynik tak samo skutecznie,
+    /// jak zgubienie członu.
+    /// </summary>
+    private static string Zamaskowany(string source)
+    {
+        var wynik = new StringBuilder(source.Length);
+        var i = 0;
+        while (i < source.Length)
+        {
+            var po = PominNieNapis(source, i, source.Length);
+            if (po == i && PrefiksLiteralu(source, i, source.Length) >= 0)
+            {
+                po = CzytajLiteral(source, i, source.Length, new List<string>());
+            }
+
+            if (po > i)
+            {
+                for (var j = i; j < po; j++)
+                {
+                    wynik.Append(source[j] == '\n' ? '\n' : ' ');
+                }
+
+                i = po;
+                continue;
+            }
+
+            wynik.Append(source[i]);
+            i++;
+        }
+
+        return wynik.ToString();
     }
 
     /// <summary>Wszystkie pliki <c>.cs</c> pod <c>src/</c>, bez wygenerowanych.</summary>

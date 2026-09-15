@@ -1691,7 +1691,12 @@ def _istnieje_w_drzewie(nazwa):
 # jest katalogiem, a `PATH_TOKEN` czyta pliki. „Weryfikacja" nie drga z tego samego powodu
 # co przy 6.D210: płotek woła `dotnet test tests/Sim.Tests`, nie `tools/tests/test_all.py`.
 # Przeliczone na drzewie po scaleniu #615.
-ADRESOW_W_WYKONANYCH = {"Wejście": 964, "Wyjście": 63, "Weryfikacja": 390}
+# 964 -> 967 (15.09.2026, 6.D212): trzy adresy z pola „Wejście" WŁASNEGO bloku tej
+# pozycji — `tests/Game.Tests/UiTextTests.cs`, `tools/tests/csharp_test_methods.py`
+# i `reports/6d197-…`. „Weryfikacja" rośnie o jeden (390 -> 391), bo płotek tej pozycji
+# woła `tools/tests/test_all.py` — inaczej niż przy 6.D210 i 6.D211, gdzie wołał
+# `dotnet test`. Przeliczone na drzewie po scaleniu #616.
+ADRESOW_W_WYKONANYCH = {"Wejście": 967, "Wyjście": 63, "Weryfikacja": 391}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
@@ -1712,7 +1717,11 @@ ADRESOW_W_WYKONANYCH = {"Wejście": 964, "Wyjście": 63, "Weryfikacja": 390}
 # 126 -> 127 (14.09.2026, 6.D209): jedno wywolanie modulu wiecej —
 # `test_backlog.py` z plotka „Weryfikacji" bloku tej pozycji. Przeliczone na drzewie
 # po scaleniu #613.
-WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 127}
+# 127 -> 128 (15.09.2026, 6.D212): jedno wywolanie modulu wiecej —
+# `test_csharp_test_methods.py` z plotka „Weryfikacji" bloku tej pozycji.
+# Zera w dwoch pozostalych polach nie drgaja i to jest STRUKTURALNE, nie przypadkowe:
+# patrz `test_zero_wywolan_poza_Weryfikacja_jest_STRUKTURALNE`.
+WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 128}
 
 #: Ilu kandydatow zlego adresu daje regula prozy, per pole — 6.D158.
 # 12 -> 13 (14.09.2026, 6.D204): trzynastym kandydatem jest `test_mutation_sweep.py`
