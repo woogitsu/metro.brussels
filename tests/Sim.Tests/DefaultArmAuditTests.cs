@@ -107,12 +107,228 @@ public sealed class DefaultArmAuditTests
         }
     }
 
+    /// <summary>
+    /// Człony, które ramię domyślne POŁYKA — po NAZWIE, nie po liczbie (6.D211).
+    ///
+    /// <para><b>Dlaczego nazwy, a nie liczba.</b> Pole „Czego NIE wolno przyjąć bez
+    /// pomiaru" pozycji 6.D211 pyta wprost, czy zapadka równościowa na LICZBIE
+    /// obsłużonych członów jest tu właściwą formą. Nie jest, i powód jest ten sam, który
+    /// 6.D131 zapisało dla zapadek: liczba rośnie razem z wyliczeniem, więc jej
+    /// podniesienie jest <b>cichym sposobem na połknięcie członu zmieniającego stan</b>.
+    /// Nazwa tego nie pozwala — kto dopisuje człon, musi albo wpisać go tutaj razem
+    /// z powodem, albo dołożyć ramię; jedno i drugie jest decyzją zapisaną.</para>
+    ///
+    /// <para><b>Wszystkie cztery filtry są ŚWIADOME i zadaniem NIE było ich naprawianie.</b>
+    /// <c>Replay</c> odtwarza stan z dziennika, a zdarzenia czysto sprawozdawcze stanu
+    /// nie zmieniają. Trzy filtry na <c>ProtectionAction</c> połykają <c>None</c>, czyli
+    /// „nic nie rób" — ramię byłoby puste i tylko powtarzałoby domyślne.</para>
+    ///
+    /// <para>Zbiór porównywany jest W OBIE STRONY: człon dopisany do wyliczenia wchodzi
+    /// do połykanych i zapala bramkę, a ramię dołożone do filtra wyjmuje go z połykanych
+    /// i zapala ją tak samo. Stan zmierzony 14.09.2026: 7 z 17 członów
+    /// <c>SignallingEventKind</c> w <c>Replay</c> i trzy razy 2 z 3 członów
+    /// <c>ProtectionAction</c>.</para>
+    /// </summary>
+    private static readonly (string Plik, string Metoda, string Wyliczenie, string[] Polykane, string Powod)[]
+        PolykaneCzlony =
+    {
+        ("src/Sim/Signalling/FixedBlockSystem.cs", "Replay", "SignallingEventKind",
+            new[]
+            {
+                "AuthorityIssued", "AuthorityViolation", "DoorInhibit", "DoorRelease",
+                "EmergencyIntervention", "OverspeedIntervention", "OverspeedWarning",
+                "RouteRejected", "RouteRequested", "TrainDeregistered",
+            },
+            "zdarzenia sprawozdawcze — nie zmieniają stanu, który Replay odtwarza z dziennika"),
+        ("src/Sim/Signalling/TrainProtection.cs", "Supervise", "ProtectionAction",
+            new[] { "None" },
+            "None znaczy „nic nie rób\" — ramię byłoby puste i tylko powtarzałoby domyślne"),
+        ("src/Sim/Signalling/CabProtection.cs", "Supervise", "ProtectionAction",
+            new[] { "None" },
+            "None znaczy „nic nie rób\" — ramię byłoby puste i tylko powtarzałoby domyślne"),
+        ("src/Sim/Line/LineCore.cs", "Step", "ProtectionAction",
+            new[] { "None" },
+            "None znaczy „nic nie rób\" — ramię byłoby puste i tylko powtarzałoby domyślne"),
+    };
+
+    [TestMethod]
+    public void Kazdy_swiadomy_filtr_ma_polykane_czlony_wypisane_Z_NAZWY()
+    {
+        var root = FindRepositoryRoot();
+        Assert.IsNotNull(root, "nie znaleziono korzenia repozytorium");
+
+        var czlony = WszystkieCzlonyRdzenia(root!);
+        var sprawdzonych = 0;
+
+        foreach (var (plik, metoda, wyliczenie, polykane, powod) in PolykaneCzlony)
+        {
+            var sciezka = Path.Combine(root!, plik.Replace('/', Path.DirectorySeparatorChar));
+            Assert.IsTrue(File.Exists(sciezka),
+                $"{plik} nie istnieje — wpis opisuje plik, którego nie ma");
+            Assert.IsTrue(czlony.ContainsKey(wyliczenie),
+                $"wyliczenia {wyliczenie} nie ma już w rdzeniu — wpis o filtrze " +
+                $"{plik}:{metoda} opisuje typ, którego nie ma");
+            Assert.IsTrue(powod.Length > 20, $"{plik}:{metoda} — powód bez treści");
+
+            var zrodlo = File.ReadAllText(sciezka);
+            var korpusMetody = KorpusMetody(zrodlo, metoda, out var deklaracji);
+            Assert.AreEqual(1, deklaracji,
+                $"{plik}: deklaracji metody {metoda} znaleziono {deklaracji}, a wpis niżej " +
+                "opisuje jedną — metoda zniknęła albo doszło przeciążenie");
+            Assert.IsNotNull(korpusMetody,
+                $"{plik}:{metoda} — nie udało się domknąć korpusu metody");
+
+            var obsluzone = ObsluzoneCzlony(korpusMetody!, wyliczenie);
+            Assert.AreEqual(1, obsluzone.Count,
+                $"{plik}:{metoda} — switchy instrukcyjnych po {wyliczenie} znaleziono " +
+                $"{obsluzone.Count}, a wpis niżej opisuje jeden; zero znaczy oślepły " +
+                "czytnik etykiet, a wtedy „połykane\" niżej nic nie znaczy");
+
+            var faktycznie = czlony[wyliczenie]
+                .Where(c => !obsluzone[0].Contains(c))
+                .OrderBy(c => c, StringComparer.Ordinal)
+                .ToList();
+            var wypisane = polykane.OrderBy(c => c, StringComparer.Ordinal).ToList();
+
+            CollectionAssert.AreEqual(wypisane, faktycznie,
+                $"{plik}:{metoda} połyka dziś [{string.Join(", ", faktycznie)}], a wypisane " +
+                $"są [{string.Join(", ", wypisane)}] — jeśli doszedł człon, wpisz go tutaj " +
+                "razem z powodem ALBO dołóż ramię; podniesienie samej liczby byłoby cichym " +
+                "połknięciem (6.D211)");
+            sprawdzonych++;
+        }
+
+        Assert.AreEqual(PolykaneCzlony.Length, sprawdzonych,
+            $"pętla po filtrach wykonała się {sprawdzonych} razy zamiast " +
+            $"{PolykaneCzlony.Length} — pusta pętla przechodzi każdą regułę w środku");
+    }
+
+    [TestMethod]
+    public void Czytnik_polykanych_reaguje_i_na_dolozony_czlon_i_na_dolozone_ramie()
+    {
+        // Kontrola przyrządu, nie drzewa: bez niej zieleń wyżej znaczyłaby tyle, co
+        // czytnik, który ją wypisał. Czytnik ślepy na etykiety zgłosiłby jako „połykane"
+        // CAŁE wyliczenie, a czytnik ślepy na nowy człon nie zgłosiłby go nigdy —
+        // obie ślepoty zapala ta próbka, bo obie zmiany są tu wykonane naprawdę.
+        const string trzyCzlony = "public enum Proba\n{\n    Alfa,\n    Beta,\n    Gamma,\n}\n";
+        const string czteryCzlony =
+            "public enum Proba\n{\n    Alfa,\n    Beta,\n    Gamma,\n    Delta,\n}\n";
+        const string jednoRamie =
+            "public void Filtr(Proba p)\n{\n    switch (p)\n    {\n        case Proba.Alfa:\n" +
+            "            break;\n        default:\n            break;\n    }\n}\n";
+        const string dwaRamiona =
+            "public void Filtr(Proba p)\n{\n    switch (p)\n    {\n        case Proba.Alfa:\n" +
+            "        case Proba.Beta:\n            break;\n        default:\n" +
+            "            break;\n    }\n}\n";
+
+        var nazwy = CzlonyNazwy(trzyCzlony);
+        CollectionAssert.AreEqual(new[] { "Alfa", "Beta", "Gamma" }, nazwy["Proba"],
+            "czytnik członów nie odtworzył wyliczenia syntetycznego");
+
+        CollectionAssert.AreEqual(new[] { "Beta", "Gamma" }, Polykane(jednoRamie, "Filtr", nazwy),
+            "przy jednym ramieniu czytnik ma zgłosić DWA połykane człony");
+        CollectionAssert.AreEqual(new[] { "Gamma" }, Polykane(dwaRamiona, "Filtr", nazwy),
+            "ramię dołożone do filtra ma WYJĄĆ człon z połykanych — czytnik tego nie zobaczył");
+        CollectionAssert.AreEqual(new[] { "Beta", "Delta", "Gamma" },
+            Polykane(jednoRamie, "Filtr", CzlonyNazwy(czteryCzlony)),
+            "człon dopisany do wyliczenia ma WEJŚĆ do połykanych — czytnik tego nie zobaczył");
+    }
+
+    /// <summary>Połykane człony jednego filtra — wspólna droga pomiaru i kontroli przyrządu.</summary>
+    private static List<string> Polykane(
+        string zrodlo, string metoda, Dictionary<string, List<string>> czlony)
+    {
+        var korpus = KorpusMetody(zrodlo, metoda, out _);
+        Assert.IsNotNull(korpus, $"nie domknięto korpusu metody {metoda}");
+
+        var typ = czlony.Keys.Single();
+        var obsluzone = ObsluzoneCzlony(korpus!, typ);
+        Assert.AreEqual(1, obsluzone.Count, $"switchy po {typ} w {metoda}: {obsluzone.Count}");
+
+        return czlony[typ]
+            .Where(c => !obsluzone[0].Contains(c))
+            .OrderBy(c => c, StringComparer.Ordinal)
+            .ToList();
+    }
+
+    /// <summary>Zbiory członów pokrytych etykietami <c>case Typ.Człon:</c> — po jednym na switch.</summary>
+    private static List<HashSet<string>> ObsluzoneCzlony(string korpusMetody, string wyliczenie)
+    {
+        var out_ = new List<HashSet<string>>();
+        foreach (var poczatek in PoczatkiSwitchy(korpusMetody))
+        {
+            var korpus = Korpus(korpusMetody, poczatek);
+            if (korpus is null)
+            {
+                continue;
+            }
+
+            var zbior = EtykietaInstrukcyjna.Matches(korpus)
+                .Where(m => string.Equals(m.Groups[1].Value, wyliczenie, StringComparison.Ordinal))
+                .Select(m => m.Groups[2].Value)
+                .ToHashSet(StringComparer.Ordinal);
+            if (zbior.Count > 0)
+            {
+                out_.Add(zbior);
+            }
+        }
+
+        return out_;
+    }
+
+    /// <summary>
+    /// Korpus metody o podanej nazwie. Deklaracja rozpoznawana jest po MODYFIKATORZE
+    /// DOSTĘPU na początku wiersza, bo wywołań tej samej nazwy jest w rdzeniu więcej
+    /// niż deklaracji (<c>Supervise</c> ma w <c>CabProtection.cs</c> jedną deklarację
+    /// i jedno wywołanie cztery wiersze niżej). Liczbę trafień zwraca osobno: „zero"
+    /// i „dwie" to dwie różne usterki i wołający ma je rozróżnić.
+    /// </summary>
+    private static string? KorpusMetody(string zrodlo, string metoda, out int deklaracji)
+    {
+        var wzorzec = new Regex(
+            @"^[ \t]*(?:public|private|internal|protected)[^;=\n]*\b" + Regex.Escape(metoda) + @"\s*\(",
+            RegexOptions.Multiline);
+        var trafienia = wzorzec.Matches(zrodlo);
+        deklaracji = trafienia.Count;
+        return deklaracji == 1 ? Korpus(zrodlo, trafienia[0].Index) : null;
+    }
+
+    /// <summary>Człony wszystkich wyliczeń rdzenia, po nazwie.</summary>
+    private static Dictionary<string, List<string>> WszystkieCzlonyRdzenia(string root)
+    {
+        var mapa = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        foreach (var plik in ZrodlaRdzenia(root))
+        {
+            foreach (var para in CzlonyNazwy(File.ReadAllText(plik)))
+            {
+                mapa[para.Key] = para.Value;
+            }
+        }
+
+        return mapa;
+    }
+
+    /// <summary>Liczby członów wyliczeń. Czyta je <see cref="CzlonyNazwy"/> — jeden czytnik, nie dwa.</summary>
     private static Dictionary<string, int> Czlony(string zrodlo)
     {
         var mapa = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var para in CzlonyNazwy(zrodlo))
+        {
+            mapa[para.Key] = para.Value.Count;
+        }
+
+        return mapa;
+    }
+
+    /// <summary>Człony wyliczeń po NAZWIE — 6.D211 potrzebuje nazw, 6.D210 ich liczby.</summary>
+    private static Dictionary<string, List<string>> CzlonyNazwy(string zrodlo)
+    {
+        var mapa = new Dictionary<string, List<string>>(StringComparer.Ordinal);
         foreach (Match m in Wyliczenie.Matches(zrodlo))
         {
-            mapa[m.Groups[1].Value] = Czlon.Matches(m.Groups[2].Value).Count;
+            mapa[m.Groups[1].Value] = Czlon.Matches(m.Groups[2].Value)
+                .Select(c => c.Groups[1].Value)
+                .ToList();
         }
 
         return mapa;
@@ -169,14 +385,7 @@ public sealed class DefaultArmAuditTests
         var root = FindRepositoryRoot();
         Assert.IsNotNull(root, "nie znaleziono korzenia repozytorium");
 
-        var pliki = Directory
-            .EnumerateFiles(Path.Combine(root!, "src", "Sim"), "*.cs", SearchOption.AllDirectories)
-            .Where(p => !p.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}",
-                                    StringComparison.Ordinal))
-            .Where(p => !p.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}",
-                                    StringComparison.Ordinal))
-            .OrderBy(p => p, StringComparer.Ordinal)
-            .ToList();
+        var pliki = ZrodlaRdzenia(root!);
 
         var czlony = new Dictionary<string, int>(StringComparer.Ordinal);
         var zrodla = new List<(string Plik, string Tresc)>();
@@ -246,6 +455,19 @@ public sealed class DefaultArmAuditTests
         }
 
         return null;
+    }
+
+    /// <summary>Pliki źródłowe rdzenia — bez <c>bin/</c> i <c>obj/</c>, w porządku stałym.</summary>
+    private static List<string> ZrodlaRdzenia(string root)
+    {
+        return Directory
+            .EnumerateFiles(Path.Combine(root, "src", "Sim"), "*.cs", SearchOption.AllDirectories)
+            .Where(p => !p.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}",
+                                    StringComparison.Ordinal))
+            .Where(p => !p.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}",
+                                    StringComparison.Ordinal))
+            .OrderBy(p => p, StringComparer.Ordinal)
+            .ToList();
     }
 
     private static string? FindRepositoryRoot()

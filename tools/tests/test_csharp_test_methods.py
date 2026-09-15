@@ -357,9 +357,15 @@ ROZKLAD_POSTACI = {
         # pliku `DefaultArmAuditTests.cs`. Werbatim rośnie o sześć, bo próbki
         # syntetyczne klasyfikatora są zapisane jako `@"..."` z `\n` w środku —
         # kontrola przyrządu potrzebuje kodu C# jako DANYCH, a nie jako kodu.
-        "zwykly": 4258,
-        "interpolowany ($)": 725,
-        "werbatim (@)": 62,
+        # 4258 -> 4318, 725 -> 739 i 62 -> 64 (14.09.2026, 6.D211): literały bramki
+        # na połykanych członach, dopisanej do tego samego pliku. Werbatim rośnie
+        # o DWA i tylko o dwa — oba to wzorce `Regex` w `KorpusMetody`, gdzie ukośnik
+        # wsteczny jest treścią; próbki syntetyczne tej bramki są zwykłymi napisami
+        # z `\n`, bo składają się z kilku kawałków przez `+`, a werbatim nie znosi
+        # sklejania z sekwencjami ucieczki w jednym wyrażeniu.
+        "zwykly": 4318,
+        "interpolowany ($)": 739,
+        "werbatim (@)": 64,
         "surowy interpolowany ($$\"\"\")": 13,
         "surowy (\"\"\")": 8,
         "werbatim interpolowany ($@)": 4,

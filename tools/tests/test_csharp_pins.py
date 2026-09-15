@@ -356,9 +356,16 @@ ROZKLAD_LICZBOWYCH = {
         # `DefaultArmAuditTests.cs` — podłoga `MinimumSwitches` porównywana z liczbą
         # znalezionych switchy. CAŁKOWITY i BEZ TOLERANCJI, bo jest liczbą miejsc
         # w kodzie, nie miarą fizyczną; `calkowite_z_tolerancja` zostaje ZEREM.
-        "razem": 474, "z_tolerancja": 188, "bez_tolerancji": 286,
+        # 474 -> 477 (14.09.2026, 6.D211): TRZY piny liczbowe bramki na połykanych
+        # członach — raz „deklaracji metody jest DOKŁADNIE jedna" i dwa razy „switchy
+        # po tym wyliczeniu jest DOKŁADNIE jeden" (w bramce drzewa i w pomocniku,
+        # którego woła także kontrola przyrządu). Wszystkie CAŁKOWITE i BEZ TOLERANCJI,
+        # bo są liczbami miejsc w kodzie; `calkowite_z_tolerancja` zostaje ZEREM.
+        # Pin `PolykaneCzlony.Length == sprawdzonych` do tej liczby NIE wchodzi: obie
+        # strony są wyrażeniami, a nie literałem.
+        "razem": 477, "z_tolerancja": 188, "bez_tolerancji": 289,
         "zmiennoprzecinkowe": 196, "zmiennoprzecinkowe_bez_tolerancji": 8,
-        "calkowite": 278, "calkowite_z_tolerancja": 0, "tolerancja_zero": 119,
+        "calkowite": 281, "calkowite_z_tolerancja": 0, "tolerancja_zero": 119,
     },
 }
 

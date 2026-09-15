@@ -390,7 +390,11 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 # 287 -> 288 (14.09.2026, 6.D210): blok szesciu pol dla 6.D220 — ten sam typ i dwie
 # przeciwne decyzje o ramieniu domyslnym w jednym pliku. Ta sama mechanika: domkniecie
 # 6.D210 zbilo zapas do 11, a pozycja wyszla z pomiaru, nie z potrzeby zapelnienia.
-MINIMUM_DETAIL_BLOCKS = 288
+# 288 -> 289 (14.09.2026, 6.D211): blok szesciu pol dla 6.D221 — nazwa metody
+# w prozie wiersza, ktorej plik jej nie deklaruje. Ta sama mechanika trzeci raz
+# z rzedu: domkniecie zbilo zapas do 11, a pozycja wyszla z pomiaru — znalazlem
+# ja, czytajac wlasny wiersz 6.D210 sprzed kilku godzin.
+MINIMUM_DETAIL_BLOCKS = 289
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
