@@ -3943,3 +3943,178 @@ def test_kazda_wartosc_retencji_ma_POWOD_albo_ZAPISANA_GRANICE():
         "trzydziestodniową retencję ma dziś %s — powód z 6.D164 mówi o artefakcie CZASU "
         "i o nim jednym; przy drugim kroku z tą wartością trzeba go przeliczyć"
         % sorted(z_powodem))
+
+
+# ---------------------------------------------------------------------------
+# 6.D222 — duplikat klucza, którego `yaml.safe_load` nie widzi, a Actions odrzuca
+# ---------------------------------------------------------------------------
+
+class LoaderBezDuplikatow(yaml.SafeLoader):
+    """`SafeLoader`, który odrzuca duplikat klucza — tak jak parser Actions.
+
+    PyYAML przyjmuje duplikat **bez wyjątku i bez ostrzeżenia**, ostatni wygrywa;
+    parser Actions tworzy wtedy przebieg, który kończy się startup failure **bez
+    ani jednego joba**. Różnica kosztowała ten projekt 161 martwych przebiegów
+    `prune-merged-branches.yml` — patrz `WORKFLOW_KTORY_NIE_WYSTARTOWAL`.
+    """
+
+    def construct_mapping(self, node, deep=False):
+        widziane = set()
+        for klucz_node, _ in node.value:
+            klucz = self.construct_object(klucz_node, deep=deep)
+            if klucz in widziane:
+                raise yaml.constructor.ConstructorError(
+                    None, None,
+                    "duplikat klucza `%s`" % (klucz,), klucz_node.start_mark)
+            widziane.add(klucz)
+        return super().construct_mapping(node, deep=deep)
+
+
+def _wczytaj_scisle(path):
+    """Plik YAML przez loader odrzucający duplikaty; `ConstructorError` puszczamy dalej."""
+    with open(path, encoding="utf-8") as uchwyt:
+        return yaml.load(uchwyt.read(), Loader=LoaderBezDuplikatow)
+
+
+def _pliki_yaml_ci():
+    """Workflowy i akcje lokalne — wszystko, co parsuje Actions."""
+    return sorted(
+        [os.path.join(WORKFLOWS, n) for n in _workflows()] + _action_files())
+
+
+#: Ile plików YAML-a czyta Actions w tym repozytorium. Podłoga, nie równość:
+#: skan, który przestałby cokolwiek znajdować, odpowiedziałby „zero duplikatów"
+#: tak samo przekonująco jak skan widzący.
+MIN_PLIKOW_YAML_CI = 11
+
+#: Kształty, które `yaml.safe_load` PRZEPUSZCZA — zmierzone 15.09.2026 na dziewięciu
+#: próbkach syntetycznych; przechodzi osiem, odpada tylko tabulator we wcięciu.
+#: **Dowód, że Actions odrzuca, istnieje dla JEDNEGO z nich** — duplikatu klucza,
+#: i jest nim 161 przebiegów startup failure. O pozostałych siedmiu ten moduł nie
+#: twierdzi nic, bo tego nie zmierzył.
+PRZEPUSZCZANYCH_PRZEZ_PYYAML = 8
+
+#: Workflow, którego duplikat `with:` zabił od 6.D108 (`2b95084`, PR #550).
+WORKFLOW_KTORY_NIE_WYSTARTOWAL = "prune-merged-branches.yml"
+
+
+def test_zaden_plik_yaml_CI_nie_ma_duplikatu_klucza():
+    """Duplikat klucza jest dla Actions błędem SKŁADNI, a dla PyYAML-a nie jest niczym.
+
+    Zmierzone przy 6.D222: `prune-merged-branches.yml` miał dwa klucze `with:`
+    w kroku `Checkout` (wiersze 52 i 54) od commita `2b95084` i przez to **nie
+    wystartował ani razu** — 161 przebiegów, sto na sto `push`/`failure`, każdy
+    z ZEREM jobów. Osiemdziesiąt kilka testów tego modułu było na nim zielonych,
+    bo `yaml.safe_load` duplikat po cichu przyjmuje.
+    """
+    pliki = _pliki_yaml_ci()
+    assert len(pliki) >= MIN_PLIKOW_YAML_CI, (
+        "plików YAML-a CI znaleziono %d przy podłodze %d — skan oślepł albo katalog "
+        "się skurczył, a pusty skan odpowiada „zero duplikatów” tak samo jak widzący"
+        % (len(pliki), MIN_PLIKOW_YAML_CI))
+
+    zle = []
+    for path in pliki:
+        try:
+            _wczytaj_scisle(path)
+        except yaml.YAMLError as blad:
+            zle.append("%s: %s" % (os.path.relpath(path, ROOT), blad))
+    assert not zle, (
+        "plik YAML-a, którego parser Actions nie przyjmie — przebieg powstanie "
+        "i zginie jako startup failure, BEZ ani jednego joba:\n" + "\n".join(zle))
+
+
+def test_loader_scisly_WIDZI_duplikat_ktorego_safe_load_NIE_widzi():
+    """Kontrola PRZYRZĄDU, nie drzewa.
+
+    Po poprawce 6.D222 duplikatów w drzewie jest **zero**, więc bramka wyżej stoi
+    na zbiorze pustym i sama z siebie nie znaczy nic (6.D27, 6.D159): loader, który
+    przestałby cokolwiek odrzucać, dałby tę samą zieleń. Ta próbka wykonuje oba
+    czytniki na tym samym tekście i żąda, żeby ODPOWIEDZIAŁY RÓŻNIE.
+    """
+    z_duplikatem = ("jobs:\n  a:\n    runs-on: self-hosted\n"
+                    "    with:\n      x: 1\n    with:\n      x: 2\n")
+    bez_duplikatu = "jobs:\n  a:\n    runs-on: self-hosted\n    with:\n      x: 2\n"
+
+    # PyYAML: duplikat przechodzi i wygrywa ostatni — czyli usterka wygląda jak kod.
+    cichy = yaml.safe_load(z_duplikatem)
+    assert cichy["jobs"]["a"]["with"] == {"x": 2}, (
+        "`yaml.safe_load` przestał po cichu przyjmować duplikat — gdyby tak było "
+        "naprawdę, cała ta bramka jest niepotrzebna i trzeba ją zdjąć, a nie poprawić")
+
+    # Loader ścisły: ten sam tekst jest błędem, i komunikat nazywa klucz.
+    try:
+        yaml.load(z_duplikatem, Loader=LoaderBezDuplikatow)
+        raise AssertionError("loader ścisły przepuścił duplikat — nie odróżnia się "
+                             "już od `safe_load` i bramka wyżej nic nie znaczy")
+    except yaml.constructor.ConstructorError as blad:
+        assert "with" in str(blad), (
+            "loader ścisły odrzucił duplikat, ale nie nazwał klucza `with` — "
+            "komunikat bez nazwy nie mówi, gdzie szukać: %s" % blad)
+
+    # I druga strona: tekst POPRAWNY ma przejść przez oba tak samo.
+    assert (yaml.load(bez_duplikatu, Loader=LoaderBezDuplikatow)
+            == yaml.safe_load(bez_duplikatu)), (
+        "loader ścisły zmienia wynik na tekście bez duplikatu — to już nie jest "
+        "zawężenie `safe_load`, tylko inny czytnik")
+
+
+def test_ile_ksztaltow_PyYAML_przepuszcza_a_ile_odrzuca():
+    """Osiem z dziewięciu — i tylko o jednym wiadomo, że Actions go odrzuca.
+
+    Liczba jest tu po to, żeby nie dało się przeczytać tej pozycji jako „duplikat
+    klucza to jedyna różnica między PyYAML-em a Actions". Różnic jest więcej;
+    zmierzone jest, ile z nich PyYAML przepuszcza, a NIE zmierzone — które
+    z nich Actions odrzuca. Jedyny dowód po tamtej stronie to 161 przebiegów
+    `WORKFLOW_KTORY_NIE_WYSTARTOWAL`.
+    """
+    probki = {
+        "duplikat klucza w mapowaniu": "a:\n  x: 1\na:\n  x: 2\n",
+        "duplikat klucza na jednym poziomie": "jobs:\n  a:\n    r: x\n  a:\n    r: y\n",
+        "kotwica i alias": "krok: &k\n  uses: a/b\ninny: *k\n",
+        "klucz scalajacy": "baza: &b\n  x: 1\nnowy:\n  <<: *b\n  y: 2\n",
+        "`on:` jako klucz": "on:\n  push:\n",
+        "`yes`/`no` jako wartosc": "flaga: yes\n",
+        "liczba osemkowa": "tryb: 0755\n",
+        "liczba szescdziesietna": "czas: 1:30\n",
+        "tabulator we wcieciu": "a:\n\tx: 1\n",
+    }
+    przeszlo, sprawdzonych = [], 0
+    for nazwa, tekst in probki.items():
+        try:
+            yaml.safe_load(tekst)
+            przeszlo.append(nazwa)
+        except yaml.YAMLError:
+            pass
+        sprawdzonych += 1
+
+    assert sprawdzonych == len(probki), (
+        "pętla po próbkach wykonała %d obrotów przy %d próbkach — pusta pętla "
+        "przechodzi każdą regułę w środku" % (sprawdzonych, len(probki)))
+    assert len(przeszlo) == PRZEPUSZCZANYCH_PRZEZ_PYYAML, (
+        "`yaml.safe_load` przepuszcza dziś %d kształtów z %d, a zmierzono %d: %s"
+        % (len(przeszlo), len(probki), PRZEPUSZCZANYCH_PRZEZ_PYYAML, przeszlo))
+    assert "tabulator we wcieciu" not in przeszlo, (
+        "tabulator we wcięciu przestał być błędem — próbka, która miała być "
+        "kontrolą od strony ODRZUCENIA, przestała nią być")
+
+
+def test_workflow_ktory_nie_wystartowal_ma_JEDEN_klucz_with_w_checkoucie():
+    """Przybita jest USTERKA, a nie tylko jej brak.
+
+    Bramka wyżej mówi „żaden plik nie ma duplikatu" i to zdanie byłoby prawdziwe
+    także wtedy, gdyby ktoś ten workflow skasował. Ten test pyta o konkretny plik
+    i konkretny krok — czyli o to, co 6.D222 naprawiło.
+    """
+    tekst = _text(WORKFLOW_KTORY_NIE_WYSTARTOWAL)
+    checkout = [w for w in tekst.split("\n") if "actions/checkout@" in w]
+    assert len(checkout) == 1, (
+        "`%s` ma %d kroków `actions/checkout@` — wpis 6.D222 opisuje jeden"
+        % (WORKFLOW_KTORY_NIE_WYSTARTOWAL, len(checkout)))
+    po_checkoucie = tekst.split("actions/checkout@", 1)[1]
+    do_nastepnego_kroku = po_checkoucie.split("\n      - name:", 1)[0]
+    assert do_nastepnego_kroku.count("\n        with:") == 1, (
+        "krok `Checkout` w `%s` ma %d kluczy `with:` — dwa są dla Actions błędem "
+        "składni i zabijają CAŁY przebieg, a `yaml.safe_load` ich nie widzi"
+        % (WORKFLOW_KTORY_NIE_WYSTARTOWAL,
+           do_nastepnego_kroku.count("\n        with:")))

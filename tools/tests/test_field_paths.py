@@ -1696,7 +1696,11 @@ def _istnieje_w_drzewie(nazwa):
 # i `reports/6d197-…`. „Weryfikacja" rośnie o jeden (390 -> 391), bo płotek tej pozycji
 # woła `tools/tests/test_all.py` — inaczej niż przy 6.D210 i 6.D211, gdzie wołał
 # `dotnet test`. Przeliczone na drzewie po scaleniu #616.
-ADRESOW_W_WYKONANYCH = {"Wejście": 967, "Wyjście": 63, "Weryfikacja": 391}
+# 967 -> 971 (15.09.2026, 6.D222): CZTERY adresy z pola „Wejście" WŁASNEGO bloku tej
+# pozycji — `prune-merged-branches.yml`, `test_ci_workflows.py`, `docs/04-conventions.md`
+# i `reports/6d211-…`. „Weryfikacja" rośnie o jeden (391 -> 392) za
+# `tools/tests/test_all.py` z płotka tego bloku.
+ADRESOW_W_WYKONANYCH = {"Wejście": 971, "Wyjście": 63, "Weryfikacja": 392}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
@@ -1721,7 +1725,9 @@ ADRESOW_W_WYKONANYCH = {"Wejście": 967, "Wyjście": 63, "Weryfikacja": 391}
 # `test_csharp_test_methods.py` z plotka „Weryfikacji" bloku tej pozycji.
 # Zera w dwoch pozostalych polach nie drgaja i to jest STRUKTURALNE, nie przypadkowe:
 # patrz `test_zero_wywolan_poza_Weryfikacja_jest_STRUKTURALNE`.
-WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 128}
+# 128 -> 129 (15.09.2026, 6.D222): jedno wywolanie modulu wiecej —
+# `test_ci_workflows.py` z plotka „Weryfikacji" bloku tej pozycji.
+WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 129}
 
 #: Ilu kandydatow zlego adresu daje regula prozy, per pole — 6.D158.
 # 12 -> 13 (14.09.2026, 6.D204): trzynastym kandydatem jest `test_mutation_sweep.py`
