@@ -1104,7 +1104,7 @@ właściciel.
 | 6.D218 | **ZROBIONE w #PR (15.09.2026): sześć wartości, sześć błędów, i za każdym razem dokładnie jeden.** **ILU WZORCÓW TO DOTYCZY: DWÓCH z czterech.** `WZORZEC_ZAPADEK` wymuszał **cztery** formy (`zapadek`, `przybitych`, `częściowe`, `WOLNE`), `WZORZEC_POMOCNIKOW` jedną (`pomocniki`), `WZORZEC_MODULOW` **żadnej** — i to nie przez ostrożność, tylko przez budowę zdania: w „dla N modulow" przypadkiem rządzi **przyimek**, nie liczebnik, więc wzór na poprawkę leżał w tym samym pliku od początku. `WZORZEC_DEKLARACJI_POMIARU` liczby nie niesie. **ZDANIE O REJESTRZE BYŁO BŁĘDNE PRZY KAŻDEJ WARTOŚCI SWOJEJ HISTORII** — 46/25, 48/27, 49/28, 50/29 i 51/30 żądały „WOLNYCH" zamiast „WOLNE", a przy 54/33 błąd **przeskoczył o słowo**: `WOLNE` po 33 zrobiło się poprawne, a „54 zapadek" po 54 błędne (ma być „zapadki"). Sześć wartości, sześć błędów, za każdym razem dokładnie jeden — błąd nie zniknął ani razu, tylko zmienił miejsce. **I ani razu nic się nie zapaliło**, bo bramką był ten sam wzorzec, który błąd wymuszał; ostatni raz utrwaliło się to w commicie BEZPOŚREDNIO PRZED tą pozycją (6.D216, 51 → 54). **ROZSTRZYGNIĘCIE: zdania zmieniają KSZTAŁT, wzorce NIE są poszerzane** — wzorzec przyjmujący obie formy przestaje odróżniać zdanie poprawne od niepoprawnego. Nowy kształt stawia liczbę PO etykiecie („Zapadek: 54. **Przybitych: 17, częściowych: 3, WOLNYCH: 33, poza zasięgiem skanu: 1.**"), przypadkiem rządzi dwukropek, a **przechwyceń jest nadal pięć** — wzorzec nie jest o jotę luźniejszy. **BRAMKA:** `formy_wymuszane_po_liczebniku()` czyta ŹRÓDŁO wzorca (`.pattern`), nie prozę, bo wymuszenie jest własnością wzorca; zbiór ma być PUSTY, więc stoi przy nim kontrola przyrządu (6.D159) podająca oba kształty sprzed tej pozycji. Dwie granice, obie WYKONANE: przyimek **przed** liczbą zwalnia (inaczej skan zapala się na `WZORZEC_MODULOW`, czyli na wzorcu poprawnym) i przyimek **po** liczbie też (inaczej „1 poza zasięgiem skanu" wchodzi jako wymuszenie formy `poza`). **POMYŁKA WŁASNEJ BRAMKI, ZŁAPANA PRZED WERDYKTEM:** klasę liter skopiowałem z tego pliku, a klasy w `test_prose_counts.py` mają **uszkodzone kodowanie** (`Ęꣳ` zamiast `ĘęŁł`) — skan czytał „częściowe" jako „cz"; stoi `[^\W\d_]`. KN: KN-1 (wzorzec i zdanie cofnięte) 2; KN-2 (`WZORZEC_POMOCNIKOW` cofnięty) 2; KN-3 (czytnik oślepiony) 1 — kontrola przyrządu; KN-4 (reguła „przyimek PO liczbie" zdjęta) 1; KN-5 (`dla` zdjęte z listy) 1 — `WZORZEC_MODULOW` zgłoszony fałszywie. Weryfikacja: moduł **11/11**, zestaw **2490/2490**. Raport: `reports/6d218-blad-przy-kazdej-wartosci-historii.md`. Czego nie zrobiłem: nie poszerzyłem żadnego wzorca o obie formy; nie zmieniłem wartości żadnej zapadki ani rejestru (54/17/3/33/1 stoją nietknięte, zmienił się wyłącznie kształt zdania); nie naprawiałem uszkodzonego kodowania klas liter. Treść pierwotna: **`WZORZEC_ZAPADEK` żąda formy „N WOLNE", która po większości liczebników jest błędem gramatycznym** | zauważone 14.09.2026 przy 6.D206: podniesienie rejestru z 46 na 48 zapadek wymagało zdania „27 WOLNE", bo `WZORZEC_ZAPADEK` w `tools/tests/test_prose_counts.py` ma tę formę wpisaną na sztywno (`(\d+)\s+WOLNE\s+i`). Po liczebniku 27 poprawna jest forma „WOLNYCH" i **napisanie jej zapala bramkę** — sprawdzone wykonaniem: `7/7` przy „WOLNE", `6/7` przy „WOLNYCH", z komunikatem „zdanie nie zostało znalezione (trafień: 0)". Jest to bramka świecąca na poprawnym tekście, czyli kształt, który 6.D27 każe wyłączyć, a nie poprawiać obejściem — z tą różnicą, że tutaj obejście jest tanie (napisać niepoprawnie), więc usterka utrwala się cicho przy każdym podniesieniu. Pozycja ma **policzyć, ilu wzorców prozy w `test_prose_counts.py` to dotyczy** (odmiana po liczebniku: WOLNE/WOLNYCH, częściowe/częściowych, przybitych) i rozstrzygnąć, czy wzorce przyjmują obie formy, czy zdanie rejestru zmienia kształt na taki, który odmiany nie wymaga — **„poszerzyć wzorzec" NIE jest odpowiedzią domyślną**: wzorzec przyjmujący wszystko przestaje pilnować czegokolwiek | M |
 | 6.D219 | **ZROBIONE w #PR (15.09.2026): remis to ĆWIERĆ populacji, a zachowuje się jak zdanie świeże.** **LICZBY (obu kształtów, cały katalog):** REMIS **26 twierdzeń ze 101** (kształt `CLAIM` 3, kształt `NAZWA = N` **23 z 45, czyli ponad połowa**), z czego rozjechanych **2**. Teza pola „Czego NIE wolno przyjąć bez pomiaru" („remis jest regułą, a nie brzegiem") potwierdzona na populacji **jedenaście razy większej** niż cztery przypadki z 6.D209. **ROZSTRZYGNIĘCIE: `>=` ZOSTAJE, remis NIE zwalnia** — i powód jest z odsetka rozjazdu, nie z wygody: klasa zwalniana dziś (stała nowsza) ma **93,1 %** rozjazdu, remis **7,7 %**, klasa pilnowana (raport nowszy) 2,2 %. Datowanie 6.D108 istnieje po to, żeby zwalniać zdania ZESTARZAŁE; remis zachowuje się jak populacja świeża. Oba rozjechane remisy to zresztą dokładnie ten przypadek, przed którym ostrzegało pole — twierdzenie wpisane w commicie, który stałą ustawił; pod `>=` są łapane i idą do oceny człowieka, pod `>` zniknęłyby bez słowa. **ILE ZMIENIA ZAMIANA OPERATORA, zmierzone:** baza **16/16**, zwolnionych 15 z 56; po mutacji **15/17**, zwolnionych **18** z 56 — czyli dokładnie trzy twierdzenia kształtu `CLAIM` i 23 wystąpienia drugiego kształtu przestałyby być pilnowane. **ZNALEZISKO, KTÓREGO POZYCJA NIE ZAMAWIAŁA: decyzja JEST przybita, tylko nie tam, gdzie się patrzy.** Odwrócenie operatora zapala w całym zestawie **kontrolę na wejściu SYNTETYCZNYM**, a nie żadną bramkę czytającą dzisiejsze raporty — i widzieć jej nie mogą, bo remis nie daje dziś ani jednej czerwieni. Decyzja była pilnowana wyłącznie syntetycznie od 6.D108, w teście, którego nazwa mówi o zdaniu DATOWANYM, nie o remisie. Ta pozycja nie dokłada drugiej bramki — **nazywa istniejącą**: `test_REMIS_dat_NIE_zwalnia_twierdzenia`, trzy gałęzie na wejściu syntetycznym. **CZEGO NIE ROBI: nie przybija populacji remisu** — klasa zależy od `data_stalej`, a ta datuje stałą commitem, który ruszył jej PLIK, nie wiersz; zmierzone na żywo: zbiór twardych rozjazdów z 6.D209 zmalał z 4 na 3 bez zmiany jednej cyfry w raporcie. KN: KN-1 (operator odwrócony) **15/17** — zapala nowy test I stary; KN-2 (nowy test oślepiony, operator odwrócony) **16/17** — czyli nowy test niesie własny ciężar, a nie powiela starego. Weryfikacja: moduł **17/17**, zestaw **2491/2491**. Raport: `reports/6d219-remis-to-cwierc-populacji.md`. Czego nie zrobiłem: nie zmieniłem operatora; nie przybiłem liczby remisów ani zbioru par; nie poprawiałem liczb w raportach (6.D108); nie tknąłem `CLAIM` ani sposobu, w jaki `data_stalej` czyta git. Treść pierwotna: **Remis dat raportu i stałej — `>=` liczy go jako brak zwolnienia, a przy tym sposobie pracy remis to POŁOWA próbki** | zmierzone 14.09.2026 przy 6.D209: `zdanie_z_dnia_pomiaru` zwalnia twierdzenie, gdy stała zmieniła się PO raporcie, a warunek `data_raportu >= data_stalej` traktuje remis jako brak zwolnienia. Z czterech twardych rozjazdów znalezionych tamtego dnia **dwa** mają obie daty równe **co do sekundy** — bo zapadka i raport weszły jednym commitem, czyli tak, jak ten projekt pracuje. Kierunek poprawki NIE jest oczywisty: `>` zwalniałoby dokładnie te twierdzenia, które autor pisał patrząc na nową wartość, czyli najłatwiejsze do napisania źle. Pozycja ma policzyć, ilu twierdzeń w `reports/` remis dotyczy, i rozstrzygnąć na podstawie tego, ile z nich jest rozjechanych | M |
 | 6.D220 | **ZROBIONE w #PR (15.09.2026): par jest JEDNA, a sito naiwne mówi sześć.** **LICZBY:** switchy po wyliczeniu w `src/Sim/` **14**; grup (plik × wyliczenie) z więcej niż jednym switchem **1**; **plików z dwiema PRZECIWNYMI decyzjami na tym samym wyliczeniu — 1**. Jedyna para: `src/Sim/Signalling/TrainProtection.cs`, `ProtectionAction`, strona rzucająca `Apply` (wiersz 108, wyrażeniowy, **3/3**, `_ => throw`), strona cicha `Supervise` (deklaracja 307, switch 362, instrukcyjny, **2/3**, `default: break;`), **zbiór rozejścia `{None}`**. **DOWÓD 6.D210 JEST POJEDYNCZY, NIE WZORCOWY** — tamta pozycja nazwała ten plik „najmocniejszym dowodem", a jest jedynym. **OBIE DECYZJE SIĘ ZE SOBĄ NIE KŁÓCĄ, i to jest odpowiedź na pole „Czego NIE wolno przyjąć bez pomiaru":** strona rzucająca obsługuje `None` jako `ProtectionAction.None => requested`, czyli „przepuść bez zmiany" — ta sama semantyka, co połknięcie po stronie cichej. **Sprzeczności zero**; strony różnią się POSTACIĄ, nie decyzją. **SITO PO BLISKOŚCI MÓWI SZEŚĆ** (switch + człon wyliczenia w promieniu 900 znaków) — **5 trafień fałszywych na 6**, w całości switche po `string` i `char`, których ramiona zwracają człony wyliczenia (`ParameterStatus.cs:32`, `ProtectionMode.cs:33`, `SignallingPlan.cs:559` i `:574`, `DriverKeys.cs:141`, `InputLog.cs:377`). Kontrola przyrządu na populacji: odrzuconych switchy 7, wszystkie obejrzane, wszystkie po napisie albo znaku; switchy po wyliczeniu BEZ ramienia domyślnego **zero**. **ROZSTRZYGNIĘCIE: BRAMKA NIE POWSTAJE** — trzy powody, każdy zmierzony: (1) zapalałaby się na kodzie POPRAWNYM, bo 6.D210 rozstrzygnęło, że podział jest własnością MIEJSCA, więc druga taka para jest kodem oczekiwanym (6.D27); (2) **jedyna rzecz warta pilnowania JEST JUŻ PILNOWANA jako ZBIÓR i w obie strony** — rozejście `{None}` równa się zbiorowi przybitemu wpisem 6.D211, bo strona rzucająca ma 3/3, więc nowa bramka nie dodałaby ani jednego twierdzenia; (3) byłaby drugim czytnikiem tego samego faktu (6.D213). Bramka stałaby dziś na zbiorze JEDNOELEMENTOWYM, a po zmianie formy — na pustym. **Warunek powrotu do tej decyzji, wypisany:** para, w której strona rzucająca ma pokrycie CZĘŚCIOWE; w drzewie jest jeden taki switch (`StationStop.cs`, `DoorPhase`, 5/7), ale bez pary w swoim pliku. KN: KN-1 (para dołożona do `src/Sim/`) par **1 → 2**, rozejście `[Gamma]` — to kontrola, o którą prosiło pole „Weryfikacja"; KN-2 (ciche ramię zamienione na `throw`) par wraca do **1**, a grup „>1 switch" zostaje 2, czyli przyrząd rozróżnia DECYZJĘ, a nie samą wielokrotność; KN-3 (para rozbita na dwa pliki) par **1**, „po typie" 1 → 2; KN-4 (człon dopisany do `ProtectionAction`) zapala **istniejącą** bramkę 6.D211. Weryfikacja: `dotnet test tests/Sim.Tests` **662/662**, zestaw **2492/2492**. Raport: `reports/6d220-para-jest-jedna-a-sito-mowi-szesc.md`. Czego nie zrobiłem: nie postawiłem bramki; nie zmieniłem zachowania żadnego ramienia ani nie ujednoliciłem decyzji w pliku; nie przybijałem podziału postaci (6.D210); `src/Game/` nietknięte. Treść pierwotna: **Ten sam plik, ten sam typ, dwie przeciwne decyzje o ramieniu domyślnym — ile razy tak jest** | zmierzone 14.09.2026 przy 6.D210: `TrainProtection.cs` niesie switch wyrażeniowy w `Apply` (`ProtectionAction`, 3/3, ramię **rzucające**) i instrukcyjny w `Replay` (ten sam typ, 2/3, ramię **ciche**). Obie decyzje są uzasadnione, a plik jest najmocniejszym dowodem rozstrzygnięcia 6.D210, że podział postaci jest własnością MIEJSCA, a nie projektu. **Ilu plików to dotyczy, nie policzył nikt** — a dopiero ta liczba mówi, czy dowód jest jeden, czy jest ich dość, by nazwać wzorcem. Pozycja ma policzyć pary tym samym klasyfikatorem, co 6.D210, i przy każdej podać człony rozchodzące się między stronami: czy gdziekolwiek ciche ramię połyka człon, o który druga metoda w tym samym pliku pyta wprost | M |
-| 6.D221 | **Nazwa metody w prozie wiersza, której plik jej nie deklaruje — ile takich jest** | znalezione 14.09.2026 przy 6.D211: wiersz 6.D210 mówi „instrukcyjny cichy w `Replay`" o `TrainProtection.cs`, a switch stoi w metodzie `Supervise` (deklaracja w wierszu 307, switch w 362) i metody `Replay` ten plik **nie ma w ogóle**. `test_field_paths` sprawdza istnienie PLIKU, nazwy metody nie ogląda żaden skan. Zgrubna populacja: **126 zdań** z nazwą pliku `.cs` i nazwą w grawisach naraz, w nich **486 par** — a większość nazw to typy i stałe, więc **liczba trafień fałszywych jest częścią odpowiedzi** | M |
+| 6.D221 | **ZROBIONE w #PR (15.09.2026): jedno trafienie prawdziwe na trzydzieści pięć, a fałszywe robi WŁASNY czytnik.** **POPULACJA:** **157** zdań niosących nazwę pliku `.cs` i nazwę w grawisach, **341** par (plik, nazwa), 250 różnych; plików `.cs` wymienionych w prozie, a nieobecnych w drzewie — **zero**. Rozkład: **124** metoda TEGO pliku (zdanie poprawne), 93 nazwa nieznana drzewu, 49 typ innego pliku, **45 metoda INNEGO pliku** (35 par różnych), 19 składowa tego pliku, 11 typ tego pliku. **SITO NAIWNE ZAPALIŁOBY SIĘ NA 217 z 341 par, czyli na dwóch trzecich zdań POPRAWNYCH.** **SITO ZAWĘŻONE** („nazwa jest metodą, ale nie tego pliku") daje **35** par; obejrzane wszystkie, zdanie po zdaniu: **prawdziwe JEDNO** — znane z 6.D210 (`Replay` przy `TrainProtection.cs`), czyli **34 fałszywe na 35, 97 %**. Fałszywe dzielą się na trzy rodzaje, wszystkie będące zdaniami poprawnymi: pole „Wejście" wymieniające plik i metodę innego pliku obok siebie (nazwa należy do pliku PRZED nią), zdanie mówiące o dwóch plikach naraz, oraz nazwa TESTU zamiast metody produkcyjnej. **SITO PO KONWENCJI** `plik.cs` (`Nazwa`) daje **153** pary i **22** rozjazdy — ale **większość z nich to ŚLEPOTA MOJEGO czytnika deklaracji, nie kłamstwo prozy**: `PostacieLiteralu` i `ZrodlaHud` mają typ zwracany z nawiasem (`private static readonly (string, string, string)[]`), na którym wzorzec niezachłanny się zatrzymywał, a `NazwyWyliczeniowychWRdzeniu` i `PolykaneCzlony` deklarację wieloliniową. **`KorpusMetody` z drzewa tej ślepoty NIE MA** — jego wzorzec jest zachłanny, więc typ krotkowy przechodzi; ślepota była w czytniku napisanym na jeden pomiar i gdybym jej nie sprawdził, wpisałbym 22 rozjazdy jako wynik. **TRAFIENIA PRAWDZIWE POZA 6.D210: SĄ TRZY i żadne nie jest tą samą klasą** — `KszaltSciezkiWezla` (×3; drzewo tej nazwy **nie zna nigdzie**, jest `SciezkaWezla`), `ReadTelemetry` (jest `ReadTelemetryTrack`) i `KodBezKomentarzy` (jest `KodBezKomentarzyDlaStaregoCzytnika`); dwa ostatnie to **skróty nazwy, która w pliku JEST**, czyli mylą o nazwę, a nie o miejsce. Wszystkie trzy stoją w blokach DOMKNIĘTYCH (6.D173, 6.D179), więc są zapisem swojego dnia (6.D108). **ROZSTRZYGNIĘCIE: BRAMKA NIE POWSTAJE** — (1) sito naiwne świeci na dwóch trzecich zdań poprawnych (6.D27); (2) sito zawężone ma 97 % trafień fałszywych, czyli zawężenie przesuwa liczby, nie klasę odpowiedzi; (3) sito po konwencji ma trafienia fałszywe pochodzące z CZYTNIKA, więc ich usunięcie wymaga rozbioru składni C# albo metadanych, czyli decyzji o zależności (§8). Ta sama odpowiedź co w 6.D207 i z tego samego powodu: **liczba trafień fałszywych jest częścią odpowiedzi, nie kosztem ubocznym**. Weryfikacja: zestaw **2491/2491**. Raport: `reports/6d221-jedno-trafienie-na-trzydziesci-piec.md`. Czego nie zrobiłem: nie postawiłem bramki; nie poprawiłem ani jednego wiersza pozycji domkniętej, w tym trzech wystąpień `KszaltSciezkiWezla`; nie tknąłem `KorpusMetody` (to 6.D231); numerów wierszy nie oglądałem (6.D208). Treść pierwotna: **Nazwa metody w prozie wiersza, której plik jej nie deklaruje — ile takich jest** | znalezione 14.09.2026 przy 6.D211: wiersz 6.D210 mówi „instrukcyjny cichy w `Replay`" o `TrainProtection.cs`, a switch stoi w metodzie `Supervise` (deklaracja w wierszu 307, switch w 362) i metody `Replay` ten plik **nie ma w ogóle**. `test_field_paths` sprawdza istnienie PLIKU, nazwy metody nie ogląda żaden skan. Zgrubna populacja: **126 zdań** z nazwą pliku `.cs` i nazwą w grawisach naraz, w nich **486 par** — a większość nazw to typy i stałe, więc **liczba trafień fałszywych jest częścią odpowiedzi** | M |
 | 6.D222 | **ZROBIONE w #PR (15.09.2026): workflow nie wystartował ANI RAZU od 6.D108, a osiemdziesiąt dwa testy były na nim zielone.** **USTERKA:** `prune-merged-branches.yml` miał **dwa klucze `with:`** w kroku `Checkout` (wiersze 52 i 54), oba z `fetch-depth: 0`, dopisane commitem `2b95084` (PR #550) — drugi blok znak w znak taki sam jak pierwszy, więc w diffie wyglądał jak KONTEKST, nie jak dodanie. **SKUTEK, ZMIERZONY:** **161 przebiegów**, w ostatniej stronie stu **100 na 100 `push`/`failure`**, każdy z **ZEREM jobów** — to startup failure, nie awaria kroku; workflow deklaruje wyłącznie `workflow_dispatch`, a przebieg z `push` powstaje dlatego, że pliku nie da się sparsować. **Kasowanie scalonych gałęzi nie zadziałało zatem ani razu**, a to jedyna robota tego workflowa. **DLACZEGO NIE WIDZIAŁA TEGO ŻADNA BRAMKA:** `test_ci_workflows.py` czytał przez `yaml.safe_load` (28 wywołań), a PyYAML przyjmuje duplikat **bez wyjątku i bez ostrzeżenia** — 82 testy oglądały dokument, **którego GitHub nigdy nie zobaczył**. **ODPOWIEDŹ POPRAWIONA PO POMIARZE, a nie wykonana z planu:** blok pozycji zapowiadał „loader wołany zamiast gołego `yaml.safe_load`", ale wywołań jest **28** i przepięcie wszystkich nic nie dokłada — po usunięciu duplikatu czytają dokładnie to, co Actions. Stoi więc **jedna bramka** parsująca każdy plik YAML-a CI (**11**: dziesięć workflowów i akcje lokalne, z podłogą na tę liczbę) loaderem `LoaderBezDuplikatow`, który zawęża `SafeLoader` o JEDNĄ regułę — asercja żąda, żeby na tekście BEZ duplikatu oba czytniki dały wynik identyczny. **OSIEM KSZTAŁTÓW Z DZIEWIĘCIU przechodzi przez `yaml.safe_load`** (duplikat klucza ×2, kotwica, klucz scalający, `on:`, `yes`/`no`, ósemkowa, sześćdziesiętna; odpada tylko tabulator) — **a dowód, że Actions odrzuca, istnieje dla JEDNEGO**, i jest nim te 161 przebiegów; o pozostałych siedmiu moduł nie twierdzi nic (§4.1). **`on:` → `True` NIE jest nowym znaleziskiem i to jest sprawdzone:** `_wyzwalacze()` już to obsługuje i ma własną kontrolę przyrządu, a ze sparsowanego dokumentu moduł bierze wyłącznie `document["jobs"]`. **CZTERY KONTROLE NEGATYWNE, baza 86/86 (było 82), `md5sum -c: OK` po każdej:** KN-1 (duplikat przywrócony) **84/86**, zapalają dwie bramki; KN-2 (duplikat `permissions:` w **innym** workflow) **85/86** — bramka nie jest zakotwiczona w jednym znanym przypadku; KN-3 (loader oślepiony) **85/86** na kontroli przyrządu; **KN-4 (duplikat OBECNY, moduł SPRZED tej pozycji) — 82/82 ZIELONE**, czyli ślepota jest ZMIERZONA, a nie zadeklarowana, i to jest dokładnie ta kontrola, o którą prosiło pole „Weryfikacja". **POZA ZAKRESEM, zgodnie z polem:** workflowa nie uruchomiłem i żadnej gałęzi nie skasowałem (to decyzja właściciela przez `workflow_dispatch` z `dry_run`); 28 wywołań `yaml.safe_load` nietkniętych; nie sprawdzałem, które z siedmiu pozostałych kształtów Actions odrzuca — wymagałoby to wysłania siedmiu celowo zepsutych workflowów na maszynę właściciela. **ZAUWAŻONE:** czerwony przebieg tego workflowa widać przy KAŻDYM pushu, także na `main`, i przez 161 przebiegów nie zapalił niczyjej uwagi — znalazłem go, bo stał czerwony obok PR-a, którym się akurat zajmowałem; nie sprawdzałem, czy duplikat w akcji lokalnej daje startup failure całego przebiegu, czy tylko błąd kroku. Raport: `reports/6d222-sto-szescdziesiat-jeden-martwych-przebiegow.md` | M |
 | 6.D223 | **Dwadzieścia jeden przypuszczeń „zawartości nie pilnuje nic", które mają 0 na 2 trafień** | 6.D212 podzieliło 48 zbiorów mierzonych tylko co do długości na 27 pilnowanych i **21 nie** — ale dwa z tych 21 sprawdzone podstawieniem okazały się **pilnowane**. Liczba 21 jest dziś liczbą PRZYPUSZCZEŃ, nie usterek; rozstrzyga dopiero podstawienie, a dziewiętnastu nikt nie wykonał. Część z nich to kontrole przyrządu, gdzie `len()` jest podłogą i pytanie jest źle postawione — to też trzeba zapisać | M |
 | 6.D224 | **`var` z wnioskowanym typem wyliczeniowym — druga ślepa plamka sita, nikt jej nie policzył** | zmierzone 15.09.2026 przy 6.D213: sito czyta deklaracje WZORCEM (`Typ nazwa`), więc `var faza = ...` z `.ToString()` przejdzie bez śladu. Pierwsza plamka (pięć nazw dwuznacznych) jest wypisana z nazwy; **tej drugiej nie policzył nikt**. Pytanie nie brzmi „ile `var`-ów" — `var` w rdzeniu stoi najczęściej przy `StringBuilder` i kolekcjach, czyli tam, gdzie wywołanie jest POPRAWNE — tylko czy typ da się rozstrzygnąć bez rozbioru składni | S |
@@ -1115,6 +1115,12 @@ właściciel.
 | 6.D229 | **`JsonDocument.Parse` przy zepsutej składni omija filtr `catch` — droga błędu kończy się po angielsku i stosem** | zmierzone 15.09.2026 przy 6.D217 na czterech próbkach: `ReadSignallingPlan` w `src/Game/FirstRun.cs:1034` łapie `when (error is ArgumentException or FormatException)`, a `SignallingPlan.FromJson` woła `JsonDocument.Parse`, który przy `{{{` i przy napisie pustym rzuca **`JsonReaderException`** — **2 z 4 przelatują**. Skutek: `--signalling` na pliku o zepsutej składni kończy się **angielskim komunikatem .NET-a i stosem wywołań** zamiast polskim wierszem `[SYGNALIZACJA] … nie jest planem`. Dla porównania `InputLog.Parse` na tych samych kształtach rzuca **zawsze** polski `FormatException`, bo jest własnym czytnikiem tekstu, a nie nakładką na `System.Text.Json`. **Ta sama rodzina co 6.A12** (`KeyNotFoundException`, kod 134 i stos), domknięta wtedy dla `GetProperty` przez `Required()` — ale samo **parsowanie nigdy nie zostało owinięte** | M |
 | 6.D230 | **Dwa czytniki tego samego katalogu, dwie różne granice — jeden pomija bloki kodu, drugi nie** | znalezione 15.09.2026 przy 6.D219, przez zapalenie bramki na WŁASNYM raporcie tej pozycji. `claims_in_reports()` w `tools/tests/test_report_claims.py` pomija bloki ogrodzone ``` — z powodem zapisanym przy stałej `FENCE` („to cytaty, nie twierdzenia", pierwsza wersja bramki wywróciła się na raporcie cytującym wyjście własnej kontroli negatywnej). `wystapienia_w_jednych_grawisach()` w tym samym module czyta **ten sam katalog** i bloków **nie pomija** — więc zacytowanie cudzego twierdzenia w jego własnym kształcie ``` `NAZWA = N` ``` wewnątrz bloku kodu jest dla niego twierdzeniem autora. Kosztowało to jedną czerwień przy 6.D219 i zostało obejście przez wypisanie cytatu bez grawisów — czyli **przez zmianę tekstu, a nie rozstrzygnięcie**. Pozycja ma policzyć, ile twierdzeń w katalogu stoi dziś w blokach kodu i ilu z nich dotyczy ta różnica, oraz rozstrzygnąć, czy granica ma być ta sama po obu stronach — **„ujednolicić" NIE jest odpowiedzią domyślną**: pominięcie bloków po drugiej stronie zdejmuje spod pomiaru kształt, którego 6.D209 użyło jako dowodu | M |
 | 6.D231 | **`KorpusMetody` przy metodzie WYRAŻENIOWEJ zwraca korpus NASTĘPNEJ metody** | zmierzone 15.09.2026 przy 6.D220, przebiegiem czytnika na prawdziwym pliku rdzenia. `KorpusMetody` (`tests/Sim.Tests/DefaultArmAuditTests.cs:286`) znajduje deklarację wzorcem po modyfikatorze dostępu, a korpus wycina `Korpus` (`:432`), który szuka **pierwszej klamry po indeksie deklaracji**. Metoda wyrażeniowa klamry nie ma, więc pierwszą napotkaną jest klamra metody NASTĘPNEJ. Zmierzone na `src/Sim/Signalling/TrainProtection.cs`: pytanie o `BrakingDistanceM` (wiersz 295, `=>`) zwraca **3056 znaków zaczynających się od `ArgumentNullException.ThrowIfNull(system)`**, czyli korpus `Supervise` — a `BrakingDistanceM` parametru `system` **nie ma w ogóle**. Oba pytania dają `deklaracji = 1`, więc jedyna straż tego czytnika przepuszcza to bez słowa. Dziś nieszkodliwe, bo wszystkie cztery wpisy `PolykaneCzlony` nazywają metody klamrowe — ale wpis nazywający metodę wyrażeniową mierzyłby **cudzą metodę** i byłby zielony | S |
+| 6.D232 | **Podłoga skanu deklaracji C# stoi 185 poniżej stanu drzewa** | zmierzone 15.09.2026 przy 6.D218 czytnikiem samego modułu: `tools/tests/test_dead_constants_csharp.py` widzi dziś **385** deklaracji w **336** różnych nazwach i **148** plikach, a jego podłoga `MINIMUM_DEKLARACJI` stoi na **200** — wpisana na pomiarze z 07.09.2026, gdy deklaracji było 234. Margines wynosi **185**, czyli 48,1 %. Zmierzone podstawieniem, ile podłoga przepuszcza: wycięcie z wzorca całej gałęzi na `static readonly` zabiera **82** deklaracje (zostaje 303) i podłogę **przechodzi**, wymuszenie modyfikatora dostępu zabiera 43 (zostaje 342) i też przechodzi. Podłoga broni więc przed wzorcem MARTWYM, a nie przed wzorcem OKALECZONYM — a to drugie jest kształtem, który się zdarza | S |
+| 6.D233 | **`KeyNotFoundException` omija filtr w trzech czytnikach z czterech, a w czwartym osłona kończy się na wierzchu dokumentu** | zmierzone 15.09.2026 skanem gołych `GetProperty` po `src/`: **3** w `src/Sim/Line/TrackAxis.cs`, **13** w `src/Sim/Signalling/CbtcTestArea.cs`, **24** w `src/Game/Assets/ChunkManifest.cs` i **10** w `src/Sim/Signalling/SignallingPlan.cs` — razem 50. Wspólny handler w `src/Sim.Runner/Program.cs` (wiersz 247) łapie `IOException`, `ArgumentException`, `FormatException` i `InvalidOperationException`, a `KeyNotFoundException` nie. Potwierdzone na prawdziwym CLI: `axis --axis <plik {}>` kończy się **kodem 134** z `Unhandled exception. KeyNotFoundException` i stosem. **Poprawka do zdania, z którego pozycja wyszła:** osłonę (`Required`) ma jeden loader z czterech i obejmuje ona WYŁĄCZNIE pola wierzchnie — blok, trasa i parametr czytane są w nim surowo | M |
+| 6.D234 | **Typ rdzenia, którego nie woła nic poza testami** | zmierzone 15.09.2026: `CbtcTestArea.FromJson` (`src/Sim/Signalling/CbtcTestArea.cs`, wiersz 155) nie ma ANI JEDNEGO wołającego w `src/`, a wszystkie wywołania stoją w `tests/Sim.Tests/ProtectionModeTests.cs`; nazwa typu pada w `src/` wyłącznie we własnym pliku (wiersze 95, 100, 155, 205). Żadna bramka tego nie widzi — skan martwych stałych liczy DEKLARACJE STAŁYCH, nie typy, więc typ wołany wyłącznie z `tests/` wygląda dziś dla wszystkich bramek tak samo, jak typ wołany z gry. Nie jest to zgłoszenie martwego kodu: `docs/16-protection-modes.md` opisuje ten typ jako kod trybów ochrony, a klasa niesie `OnAxis` i `IsDynamicTestSite`, czyli wiedzę o sieci | M |
+| 6.D235 | **Dwa z pięciu czytników sceny bez `try` — i oba to geometria** | zmierzone 15.09.2026: `src/Game/FirstRun.cs` czyta treść pliku w pięciu miejscach (wiersze 720, 1032, 1059, 1087, 1159); osłonę `try` mają dwa (1030 i 1057, oba z filtrem `when (error is ArgumentException or FormatException)`), 1087 pyta przez `TryParse` i osłony nie potrzebuje, a **720 (`TrackAxis.FromJson`) i 1159 (`ChunkManifest.FromJson`) nie mają żadnej**. Oba mają nad sobą sprawdzenie otwarcia pliku z własnym `Abort`, czyli droga błędu dla pliku BRAKUJĄCEGO jest domknięta, a dla ZŁEGO nie — a `_axis` powstaje przed wszystkim innym, więc to pierwsza rzecz, na której gracz się potknie | M |
+| 6.D236 | **Uszkodzona klasa liter gubi 24 liczebniki z 92** | zmierzone 15.09.2026 przy 6.D218: `tools/tests/test_prose_counts.py` niesie klasę liter wypisaną z ręki w trzech miejscach, a na miejscu `ę`, `Ł` i `ł` stoi w niej **jeden** znak **U+A8F3 DEVANAGARI SIGN CANDRABINDU VIRAMA** — `pięć` czyta się jako `['pi', 'ć']`. Z 92 kluczy mapy liczebników klasa nie dopasowuje **24** (wszystkich przez samo `ę`; `Ł` ani `ł` w żadnym liczebniku nie stoi). Na populacji 22 modułów skan widzi **1624** liczby słowne przy **1725**, czyli gubi **101** — a jego podłoga stoi na 900 i tego nie ruszy. Cicha jest utrata tylko w jednym z trzech miejsc: w drugim ta sama klasa zapala bramkę z **fałszywą diagnozą** „wzorzec zgnił" | S |
+| 6.D237 | **Bramka istnienia modułu czyta pierwszy argument, a zestaw wykonuje wszystkie** | zmierzone 15.09.2026: komentarz przy `MODULE_CALL` w `tools/tests/test_field_paths.py` uzasadnia zawężenie zdaniem, że `test_all.py` kończy się na `main(sys.argv[1])` i „drugiego argumentu nie czyta nikt"; strażnik `__main__` woła dziś `main(sys.argv[1:])`, a `test_all.py test_crs.py test_lod.py` daje **82/82 przeszło** i **2 modułów**. Komentarz nie niesie daty ani markera przeszłości, więc nie jest zapisem swojego dnia (6.D108) — powstał w 6.D101 (10.09.2026), a narzędzie zmieniło się w 6.D114 (11.09.2026). **Połowa tezy OBALONA pomiarem:** literówka w drugiej nazwie przechodzi bez śladu tylko wtedy, gdy nazwa jest BEZ rozszerzenia — z rozszerzeniem łapie ją skan gołych nazw z 6.D187, niezależnie od pozycji; takich nazw jest w drzewie **zero** | S |
 | 6.D172 | **ZROBIONE w #554 (12.09.2026): pięć dzienników mutacji miało nazwę STAŁĄ, więc dwa równoległe joby na jednej maszynie dzieliły jeden plik.** Znalezione przez czerwony `tunnel-alignment (L1_B)` w PR #553, komunikatem `[MUTACJE] PRZERWANE — dziennik /tmp/metro-mutacje-6b39-nieistniejacy.jsonl trzyma inny przebieg.` **Odmowa zadziałała POPRAWNIE** — to mechanizm odcisku treści z 6.B32; wadliwa była stała nazwa. Obrona, którą te nazwy miały dać, jest opisana w docstringu `_sweep_cli` („test padałby od stanu maszyny, nie od kodu”, 6.B19) i **rozumowanie było trafne — objęło tylko przebiegi KOLEJNE, nie równoległe**. Macierz `tunnel-alignment` startuje trzy joby w odstępie sekundy na tej samej maszynie (§9), więc dzielą `/tmp`: L1_A 10:50:55Z i L1_B 10:50:56Z chodziły obok siebie sześć minut. **ODTWORZONE CELOWO, nie wywnioskowane z czasów**: dwa równoległe `mutation_sweep.py` na jedną ścieżkę dają odmowę **6 razy na 6**, gdy różnią się treścią (`--only camera_aim.py` kontra `--only lod_paths.py`), i **0 razy na 2**, gdy treść jest ta sama — a to drugie jest POPRAWNE i wymagane przez `test_ta_sama_tresc_trafia_w_ten_sam_dziennik`. Kolizja nie potrzebuje więc pecha co do milisekundy: wystarczą dwa równoległe procesy o różnej treści, a moduł woła `_sweep_6b39` **dziewięć razy** z różnymi argumentami. **To poprawia zdanie z mojego komentarza na #553**, gdzie napisałem, że awaria „zależy od nałożenia się czasów” — brzmi jak rzadki zbieg, a zmierzone jest, że przy nakładających się jobach to reguła, nie wyjątek. PID, a nie licznik ani znacznik czasu: ma być stały w obrębie procesu (inaczej wznowienie zgubiłoby plik) i różny między procesami. Raport: `reports/6d172-dziennik-na-dwa-joby.md` | S |
 
 #### Szczegóły pozycji z kompletem sześciu pól
@@ -11986,6 +11992,242 @@ nie sięga, nawet gdy nie ma nic innego do roboty; wtedy sięga po fazę 5.
 - **Poza zakresem:** dopisywanie piątego wpisu do `PolykaneCzlony`; zmiana klasyfikatora
   ramion z 6.D210; rozbiór składni C# — czytnik ma zostać wzorcowy.
 - **Zależy od:** 6.D210, 6.D211, 6.D220.
+
+##### 6.D232 · Podłoga skanu deklaracji C# — 185 poniżej stanu drzewa
+
+- **Skąd:** zmierzone 15.09.2026 przy 6.D218, przebiegiem samego modułu, a nie czytaniem
+  kodu. `tools/tests/test_dead_constants_csharp.py` widzi dziś **385** deklaracji
+  w **336** różnych nazwach i **148** plikach; jego podłoga `MINIMUM_DEKLARACJI` stoi
+  na **200** i pochodzi z pomiaru z 07.09.2026, gdy deklaracji było **234**.
+- **Co dokładnie wyszło:** margines wynosi **185**, czyli **48,1 %** dzisiejszego stanu.
+  Zmierzone podstawieniem, ile podłoga przepuszcza: wycięcie z wzorca całej gałęzi
+  na `static readonly` zabiera **82** deklaracje (zostaje **303**) i podłogę
+  **przechodzi**; wymuszenie modyfikatora dostępu zabiera **43** (zostaje **342**)
+  i też przechodzi.
+- **Co ta liczba naprawdę mówi:** podłoga broni przed wzorcem **martwym** — takim,
+  który przestał łapać cokolwiek — a nie przed wzorcem **okaleczonym**, któremu odpadła
+  jedna gałąź. Drugi kształt jest tym, który się zdarza: 6.D218 zaczęło się dokładnie
+  od klasy liter, której odpadł jeden znak.
+- **Czego NIE wolno zrobić bez pomiaru:** podnieść podłogi do dzisiejszych 385 i uznać
+  rzecz za domkniętą. Równość na liczbie deklaracji zapali się przy każdym dopisanym
+  polu w `src/`, czyli na poprawnej zmianie — a bramka zapalająca się na poprawnym
+  tekście zostaje wyłączona, nie poprawiona (6.D27). Pierwszą liczbą tej pozycji jest
+  **rozkład deklaracji po gałęziach wzorca**, bo dopiero on mówi, którą gałąź da się
+  przybić osobno.
+- **Wejście:** `tools/tests/test_dead_constants_csharp.py` (`MINIMUM_DEKLARACJI`, wzorzec
+  deklaracji), `src/Sim/`, `src/Game/`, `src/Sim.Runner/`,
+  `reports/6d131-piny-wpisane-z-reki.md`.
+- **Wyjście:** rozkład dzisiejszych 385 deklaracji po gałęziach wzorca (ile na
+  `const`, ile na `static readonly`, ile na pozostałe) oraz straż, która odpadnięcie
+  **pojedynczej gałęzi** zapala — albo zapisany powód, dla którego przy tym rozkładzie
+  się nie da.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_dead_constants_csharp.py
+  ```
+  Oczekiwane: zielone, a kontrola negatywna wycina z wzorca gałąź `static readonly`
+  i **zapala** bramkę — dziś ta sama mutacja przechodzi z wynikiem 303 przy podłodze 200.
+- **Skończone, gdy:** wycięcie dowolnej pojedynczej gałęzi wzorca kończy się czerwienią,
+  a rozkład po gałęziach stoi zmierzony w komentarzu przy stałej, nie zgrubny.
+- **Poza zakresem:** poszerzanie wzorca o nowe kształty deklaracji; zmiana listy plików
+  skanowanych; ruszanie `MINIMUM_NAZW` i `MINIMUM_PLIKOW`, jeśli rozkład ich nie dotyczy.
+- **Zależy od:** 6.D27, 6.D131, 6.D218.
+
+
+##### 6.D233 · `KeyNotFoundException` poza filtrem — trzy czytniki z czterech
+
+- **Skąd:** zmierzone 15.09.2026 skanem gołych `GetProperty` po `src/`, potwierdzone
+  przebiegiem prawdziwego CLI. Gołych odczytów jest **50**: **3** w
+  `src/Sim/Line/TrackAxis.cs`, **13** w `src/Sim/Signalling/CbtcTestArea.cs`, **24**
+  w `src/Game/Assets/ChunkManifest.cs` i **10** w `src/Sim/Signalling/SignallingPlan.cs`.
+- **Co dokładnie wyszło:** wspólny handler w `src/Sim.Runner/Program.cs` (wiersz 247)
+  łapie `IOException`, `ArgumentException`, `FormatException` i `InvalidOperationException`.
+  `KeyNotFoundException` w tej liście nie stoi, a `JsonElement.GetProperty` rzuca
+  właśnie ją. Przebieg na pliku osi o treści `{}` kończy się **kodem 134** z wypisem
+  `Unhandled exception. KeyNotFoundException` i stosem — czyli zrzutem środowiska
+  uruchomieniowego, a nie komunikatem narzędzia.
+- **Poprawka do zdania, z którego pozycja wyszła:** osłonę w kształcie pomocnika
+  `Required` ma **jeden** loader z czterech, i obejmuje ona **wyłącznie pola wierzchnie**
+  dokumentu. Blok, trasa i parametr czytane są w nim surowo, więc „czwarty jest
+  osłonięty" jest prawdą tylko o wierzchu.
+- **Czego NIE wolno przyjąć bez pomiaru:** że dopisanie `KeyNotFoundException` do
+  wspólnego handlera zamyka rzecz. Komunikat złapanego wyjątku nie mówi, **którego pola
+  brakło** — a to jest jedyna informacja, po którą gracz sięga. Drugą liczbą tej pozycji
+  jest więc to, ile z 50 odczytów da się przepuścić przez jednego pomocnika bez zmiany
+  kształtu dokumentu.
+- **Wejście:** `src/Sim.Runner/Program.cs`, `src/Sim/Line/TrackAxis.cs`,
+  `src/Sim/Signalling/CbtcTestArea.cs`, `src/Sim/Signalling/SignallingPlan.cs`,
+  `src/Game/Assets/ChunkManifest.cs`, `docs/04-conventions.md`.
+- **Wyjście:** droga błędu, w której brak pola w pliku JSON kończy się komunikatem
+  nazywającym plik i pole oraz kodem wyjścia narzędzia — a nie kodem 134 ze stosem;
+  bramka, która goły `GetProperty` poza osłoną liczy.
+- **Weryfikacja:**
+  ```bash
+  dotnet test tests/Sim.Tests && python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: zielone, a kontrola negatywna woła CLI na pliku osi o treści `{}`
+  i pokazuje komunikat z nazwą pola zamiast `Unhandled exception` — dziś ta sama
+  komenda daje kod 134.
+- **Skończone, gdy:** żaden z czterech czytników nie kończy przebiegu zrzutem
+  środowiska uruchomieniowego na dokumencie bez wymaganego pola, a liczba gołych
+  odczytów stoi przybita w bramce.
+- **Poza zakresem:** zmiana kształtu plików w `data/` (§4.6); przepisywanie czytników
+  na inny mechanizm parsowania; 6.D229, które dotyczy samego tekstu JSON, a nie pól.
+- **Zależy od:** 6.D229.
+
+
+##### 6.D234 · Typ rdzenia wołany wyłącznie z testów
+
+- **Skąd:** zmierzone 15.09.2026 skanem wołających po `src/`. `CbtcTestArea.FromJson`
+  (`src/Sim/Signalling/CbtcTestArea.cs`, wiersz 155) nie ma **ani jednego** wołającego
+  w `src/`; wszystkie wywołania stoją w `tests/Sim.Tests/ProtectionModeTests.cs`.
+  Nazwa typu pada w `src/` wyłącznie we własnym pliku — wiersze 95, 100, 155 i 205.
+- **Czego to NIE jest:** zgłoszeniem martwego kodu. `docs/16-protection-modes.md` opisuje
+  ten typ jako kod trybów ochrony, a klasa niesie `OnAxis` i `IsDynamicTestSite`, czyli
+  wiedzę o sieci. Usunięcie go byłoby usunięciem danych, nie kodu — a dane w tym projekcie
+  mają źródło (§4.1).
+- **Dlaczego to widać dopiero teraz:** żadna bramka tego kształtu nie ogląda. Skan
+  martwych stałych liczy **deklaracje stałych**, nie typy, więc typ wołany wyłącznie
+  z `tests/` wygląda dla wszystkich dzisiejszych bramek dokładnie tak samo jak typ
+  wołany z gry.
+- **Czego NIE wolno przyjąć bez pomiaru:** że przypadek jest jeden. Pierwszą liczbą
+  tej pozycji jest **ilu typów publicznych w `src/Sim/` dotyczy to samo** — bo bramka
+  postawiona na jednej nazwie jest zapadką na nazwie, a projekt woli zbiór od liczby
+  (6.D131) i nazwy od liczby (6.D211).
+- **Wejście:** `src/Sim/Signalling/CbtcTestArea.cs`, `tests/Sim.Tests/ProtectionModeTests.cs`,
+  `docs/16-protection-modes.md`, `tools/tests/test_dead_constants_csharp.py`.
+- **Wyjście:** lista typów publicznych `src/Sim/`, których jedynymi wołającymi są pliki
+  spod `tests/`, oraz rozstrzygnięcie dla każdego — z tym, że „zostaje, bo niesie wiedzę
+  o sieci, i jest to zapisane" jest odpowiedzią dopuszczalną.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py && dotnet test tests/Sim.Tests
+  ```
+  Oczekiwane: zielone, a kontrola negatywna dopisuje do `src/Sim/` typ publiczny bez
+  wołającego i pokazuje, że lista go widzi — dziś żaden mechanizm go nie widzi.
+- **Skończone, gdy:** liczba takich typów stoi zmierzona, a każdy ma zapisane
+  rozstrzygnięcie; `CbtcTestArea` przestaje być jedynym znanym przypadkiem przez to,
+  że nikt nie policzył pozostałych.
+- **Poza zakresem:** usuwanie `CbtcTestArea`; podłączanie go do gry, bo to decyzja
+  projektowa (§8); ruszanie `docs/16-protection-modes.md`.
+- **Zależy od:** 6.D131, 6.D211.
+
+
+##### 6.D235 · Dwa czytniki sceny bez `try` — i oba to geometria
+
+- **Skąd:** zmierzone 15.09.2026 na `src/Game/FirstRun.cs`. Plik czyta treść pliku
+  w **pięciu** miejscach: wiersze 720, 1032, 1059, 1087 i 1159. Osłonę `try` mają
+  **dwa** — 1030 i 1057, oba z filtrem `when (error is ArgumentException or
+  FormatException)`; 1087 pyta przez `TryParse` i osłony nie potrzebuje.
+- **Co dokładnie wyszło:** **720** (`TrackAxis.FromJson`) i **1159**
+  (`ChunkManifest.FromJson`) nie mają żadnej. Oba mają nad sobą sprawdzenie otwarcia
+  pliku z własnym `Abort`, więc droga błędu dla pliku **brakującego** jest domknięta,
+  a dla **złego** nie.
+- **Dlaczego akurat te dwa bolą najbardziej:** `_axis` powstaje przed wszystkim innym
+  w tej ścieżce, więc uszkodzony plik osi jest pierwszą rzeczą, na której gracz się
+  potknie — i potknie się zrzutem środowiska uruchomieniowego zamiast komunikatu
+  pierwszego uruchomienia, który ten plik po to właśnie ma.
+- **Czego NIE da się użyć jako miary:** przejścia `dotnet test tests/Game.Tests`. Jest
+  zielone dziś i będzie zielone z osłoną i bez niej — testy wołają czytniki na plikach
+  poprawnych. Miarą jest **przebieg na pliku uszkodzonym**, porównany dla wszystkich
+  pięciu miejsc.
+- **Wejście:** `src/Game/FirstRun.cs`, `src/Sim/Line/TrackAxis.cs`,
+  `src/Game/Assets/ChunkManifest.cs`, `tests/Game.Tests/UiTextTests.cs`
+  (`DrogaBledu`, `WolajacyAbort`).
+- **Wyjście:** droga błędu dla pliku uszkodzonego w wierszach 720 i 1159 —
+  z komunikatem po polsku i przez `Abort`, tak jak dwa miejsca osłonięte — oraz bramka
+  licząca czytniki treści pliku bez osłony w `src/Game/`.
+- **Weryfikacja:**
+  ```bash
+  dotnet test tests/Game.Tests && python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: zielone, a kontrola negatywna zdejmuje osłonę z wiersza 1030 i **zapala**
+  bramkę — dziś jej zdjęcie nie zmienia niczego w wyniku.
+- **Skończone, gdy:** wszystkie pięć miejsc ma domkniętą drogę błędu dla pliku ZŁEGO,
+  a nie tylko dla brakującego, i liczba czytników bez osłony stoi przybita.
+- **Poza zakresem:** poszerzanie filtra wyjątków w `src/Sim.Runner/` (6.D233); zmiana
+  treści komunikatów już istniejących; dokładanie nowych kroków pierwszego uruchomienia.
+- **Zależy od:** 6.D217, 6.D233.
+
+
+##### 6.D236 · Uszkodzona klasa liter — 24 liczebniki z 92 poza skanem
+
+- **Skąd:** zmierzone 15.09.2026 przy 6.D218. `tools/tests/test_prose_counts.py` niesie
+  klasę liter wypisaną z ręki w **trzech** miejscach, a na miejscu `ę`, `Ł` i `ł` stoi
+  w niej **jeden** znak: **U+A8F3 DEVANAGARI SIGN CANDRABINDU VIRAMA**. Napis `pięć`
+  czyta się przez tę klasę jako dwa człony.
+- **Co dokładnie wyszło:** z **92** kluczy mapy liczebników klasa nie dopasowuje **24** —
+  wszystkich przez samo `ę`; `Ł` ani `ł` w żadnym liczebniku nie stoi, więc dwa z trzech
+  podmienionych znaków nie kosztują dziś nic. Na populacji **22** modułów skan widzi
+  **1624** liczby słowne przy **1725** obecnych, czyli gubi **101**. Jego podłoga stoi
+  na **900** i tej straty nie ruszy.
+- **Gdzie utrata jest cicha, a gdzie nie:** cicha jest w jednym z trzech miejsc.
+  W drugim ta sama klasa zapala bramkę z **fałszywą diagnozą** — komunikatem mówiącym,
+  że zgnił wzorzec prozy, podczas gdy zgniła klasa liter w czytniku. To jest gorszy
+  z dwóch kształtów: czerwień kierująca następnego agenta pod zły adres.
+- **Czego NIE wolno zrobić bez pomiaru:** podmienić znak i uznać rzecz za domkniętą.
+  Klasa wypisana z ręki zepsuje się znowu, a `[^\W\d_]` z `re.UNICODE` jest tu drogą
+  zmierzoną — 6.D218 przeszło na nią i to ona wykryła resztę przypadków. Pierwszą
+  liczbą tej pozycji jest **ile jeszcze klas liter w `tools/tests/` jest wypisanych
+  z ręki**, bo ta sama pułapka stoi wszędzie tam.
+- **Wejście:** `tools/tests/test_prose_counts.py`, `tools/tests/`,
+  `reports/6d218-blad-przy-kazdej-wartosci-historii.md`.
+- **Wyjście:** liczba klas liter wypisanych z ręki w `tools/tests/`, klasa naprawiona
+  we wszystkich trzech miejscach `test_prose_counts.py` oraz bramka, która znak spoza
+  alfabetu łacińskiego i polskiego w klasie liter **zapala**.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_prose_counts.py
+  ```
+  Oczekiwane: zielone, skan widzi 1725 zamiast 1624, a kontrola negatywna podmienia
+  jeden znak klasy na znak spoza obu alfabetów i **zapala** bramkę — dziś dokładnie
+  taka podmiana stoi w drzewie i nie zapala niczego.
+- **Skończone, gdy:** wszystkie 92 klucze mapy liczebników przechodzą przez klasę liter,
+  liczba klas wypisanych z ręki stoi zmierzona, a fałszywa diagnoza z drugiego miejsca
+  znika razem z powodem.
+- **Poza zakresem:** podnoszenie podłogi skanu liczb słownych; zmiana mapy liczebników;
+  reguła zgodności liczebnika z formą, która weszła w 6.D218.
+- **Zależy od:** 6.D218.
+
+
+##### 6.D237 · Bramka istnienia modułu czyta pierwszy argument, zestaw wykonuje wszystkie
+
+- **Skąd:** zmierzone 15.09.2026 na `tools/tests/test_field_paths.py`. Komentarz przy
+  `MODULE_CALL` uzasadnia zawężenie zdaniem, że `test_all.py` kończy się na
+  `main(sys.argv[1])` i drugiego argumentu nie czyta nikt. Strażnik `__main__` woła
+  dziś `main(sys.argv[1:])`.
+- **Co dokładnie wyszło:** przebieg `test_all.py test_crs.py test_lod.py` daje
+  **82/82 przeszło** i **2 modułów** — czyli obie nazwy zostają wykonane. Komentarz nie
+  niesie daty ani markera przeszłości, więc nie jest zapisem swojego dnia (6.D108):
+  powstał w 6.D101 (10.09.2026), a narzędzie zmieniło się w 6.D114 (11.09.2026).
+- **Połowa tezy OBALONA pomiarem:** literówka w drugiej nazwie przechodzi bez śladu
+  **tylko wtedy, gdy nazwa jest bez rozszerzenia**. Z rozszerzeniem łapie ją skan gołych
+  nazw z 6.D187, niezależnie od pozycji argumentu. Takich nazw — bez rozszerzenia,
+  na drugim i dalszym miejscu — jest dziś w drzewie **zero**, więc dziura jest realna,
+  ale pusta.
+- **Czego NIE wolno zrobić:** poprawić komentarza i zostawić wzorca. Pusta dziura jest
+  dokładnie tym kształtem, który 6.D159 kazał zamykać **kontrolą przyrządu**, a nie
+  samym zerem: bramka o pustym zbiorze nie odróżnia „nie ma czego łapać" od „nie łapię".
+- **Wejście:** `tools/tests/test_field_paths.py` (`MODULE_CALL` i komentarz przy nim),
+  `tools/tests/test_all.py` (strażnik `__main__`), skan gołych nazw z 6.D187
+  (ten sam moduł),
+  `reports/6d159-caly-python-stoi-pod-tools.md`.
+- **Wyjście:** `MODULE_CALL` obejmujące **wszystkie** argumenty wywołania albo zapisany
+  powód zawężenia oparty na dzisiejszym narzędziu; komentarz przepisany z datą; kontrola
+  przyrządu na syntetycznej nazwie na drugim miejscu.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_field_paths.py
+  ```
+  Oczekiwane: zielone, a kontrola negatywna psuje nazwę modułu stojącą **na drugim
+  miejscu** wywołania i **zapala** bramkę — dziś taka literówka przechodzi.
+- **Skończone, gdy:** literówka w nazwie modułu zapala bramkę niezależnie od pozycji
+  argumentu, a komentarz przy stałej mówi o dzisiejszym narzędziu i niesie datę.
+- **Poza zakresem:** zmiana strażnika `__main__` w `test_all.py`; poszerzanie skanu
+  gołych nazw z 6.D187; poprawianie innych komentarzy bez daty (6.D108 dotyczy raportów,
+  nie komentarzy w kodzie).
+- **Zależy od:** 6.D101, 6.D108, 6.D159, 6.D187.
+
 
 #### Rozstrzygnięte 11.09.2026 — jedna decyzja właściciela
 
