@@ -415,7 +415,11 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 # SZERSZYM niz zmierzony; wyszlo z recznego przegladu, gdzie 6.D210 §9 mowi o calym
 # `src/Sim/`, a mierzylo switche po WYLICZENIU) i 6.D228 (skan po RDZENIU SLOWA —
 # naglowek sekcji „zauwazone" ma 23 brzmienia, a synonim wypada bez sladu).
-MINIMUM_DETAIL_BLOCKS = 296
+# 296 -> 297 (15.09.2026, 6.D217): blok szesciu pol dla 6.D229 — `JsonDocument.Parse`
+# przy zepsutej skladni omija filtr `catch`, wiec droga bledu konczy sie po angielsku
+# i ze stosem. Pozycja NIE wyszla z progu zapasu, tylko z pomiaru tej pozycji:
+# 2 z 4 probek przelatuja obok filtru.
+MINIMUM_DETAIL_BLOCKS = 297
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je

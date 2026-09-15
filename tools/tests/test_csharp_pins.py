@@ -340,9 +340,14 @@ ROZKLAD_LICZBOWYCH = {
         # bo stoi jako `>=`.
         # 234 -> 235 (15.09.2026, 6.D215): JEDEN pin liczbowy — "warunek stoi
         # w JEDNYM miejscu". CALKOWITY i BEZ TOLERANCJI: to liczba miejsc w kodzie.
-        "razem": 235, "z_tolerancja": 103, "bez_tolerancji": 132,
+        # 235 -> 237 (15.09.2026, 6.D217): DWA piny liczbowe — „dziur z tekstem
+        # OBCYM jest 9" i „wolajacych `RunPlan.Refusal` jest 26". Oba sa zdaniem
+        # o drodze bledu, a nie progiem: pierwszy mowi, ile razy silnik dopisuje
+        # sie do komunikatu, drugi — ilu wytworcow ma jedyne wywolanie `Abort`
+        # bez wlasnego literalu. Oba calkowite i bez tolerancji.
+        "razem": 237, "z_tolerancja": 103, "bez_tolerancji": 134,
         "zmiennoprzecinkowe": 109, "zmiennoprzecinkowe_bez_tolerancji": 6,
-        "calkowite": 126, "calkowite_z_tolerancja": 0, "tolerancja_zero": 18,
+        "calkowite": 128, "calkowite_z_tolerancja": 0, "tolerancja_zero": 18,
     },
     "tests/Sim.Tests": {
         # 441 -> 454 (13.09.2026, MB-02): trzynaście pinów liczbowych

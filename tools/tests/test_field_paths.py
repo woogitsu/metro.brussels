@@ -1718,7 +1718,11 @@ def _istnieje_w_drzewie(nazwa):
 # (`reports/*.md`) albo powtorzenia, a `PATH_TOKEN` liczy kazdy adres raz.
 # „Weryfikacja" rosnie o jeden (394 -> 395) za `tools/tests/test_report_claims.py`
 # z plotka bloku 6.D227.
-ADRESOW_W_WYKONANYCH = {"Wejście": 983, "Wyjście": 63, "Weryfikacja": 395}
+# 983 -> 986 (15.09.2026, 6.D217): TRZY adresy z pola „Wejscie" wlasnego bloku 6.D229 —
+# `src/Sim/Train/InputLog.cs`, `src/Sim.Runner/Program.cs` i `reports/obsada-planu.md`;
+# reszta pola powtarza adresy juz liczone gdzie indziej, a `PATH_TOKEN` liczy kazdy raz.
+# „Weryfikacja" NIE DRGA: plotek tego bloku wola `dotnet test`, nie `test_all.py`.
+ADRESOW_W_WYKONANYCH = {"Wejście": 986, "Wyjście": 63, "Weryfikacja": 395}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
