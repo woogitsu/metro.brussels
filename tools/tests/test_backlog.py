@@ -411,7 +411,11 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 # tych samych czterech zapisow literalu, ktorych zgodnosci nie pilnuje nic.
 # Pozycja wyszla z KN-4 tej pozycji: skreslenie jednej z czterech przeszlo
 # na zielono, dopoki bramka nie zaczela pytac o ZBIOR.
-MINIMUM_DETAIL_BLOCKS = 294
+# 294 -> 296 (15.09.2026, 6.D216): DWA bloki szesciu pol — 6.D227 (zdanie o zakresie
+# SZERSZYM niz zmierzony; wyszlo z recznego przegladu, gdzie 6.D210 §9 mowi o calym
+# `src/Sim/`, a mierzylo switche po WYLICZENIU) i 6.D228 (skan po RDZENIU SLOWA —
+# naglowek sekcji „zauwazone" ma 23 brzmienia, a synonim wypada bez sladu).
+MINIMUM_DETAIL_BLOCKS = 296
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je

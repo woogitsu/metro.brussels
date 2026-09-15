@@ -145,7 +145,7 @@ def klasa_zapadki(nazwa, porownania):
 
 
 #: **Wszystkie zapadki pod `tools/tests/`, każda z klasą i modułem.**
-#: 51 zapadek: **17 przybitych, 3 częściowe, 30 WOLNE i 1 poza zasięgiem skanu.**
+#: 54 zapadek: **17 przybitych, 3 częściowe, 33 WOLNE i 1 poza zasięgiem skanu.**
 #:
 #: **To zdanie jest przepisane, a nie dopisane obok (12.09.2026).** Stało tu
 #: „Trzydzieści osiem: 13 przybitych, 3 częściowe, 21 WOLNYCH i 1 poza zasięgiem
@@ -208,7 +208,15 @@ ZAPADKI = {
     # strony — te dwie bronia wylacznie przed skanem, ktory oslepl (6.D27).
     "MIN_KONTENEROW_Z_POMIAREM_W_KOMENTARZU": (WOLNA, "test_suite_runtime_budget.py"),
     "MIN_PLIKOW_YAML_CI": (WOLNA, "test_ci_workflows.py"),
+    # 6.D216: trzy podlogi na czytnik sekcji „zauwazone, nie tkniete". WOLNE i to jest
+    # wlasnosc przedmiotu, nie niedbalstwo: raportow przybywa z kazda pozycja, wiec
+    # rownosc kazalaby je podnosic przy kazdym commicie z raportem. Przed ruszeniem
+    # w zakazana strone broni ich `test_twierdzenie_DOPISANE_do_sekcji_WCHODZI_do_pomiaru`
+    # — kontrola przyrzadu na wejsciu syntetycznym, ktora nie zalezy od katalogu.
+    "MIN_RAPORTOW_Z_SEKCJA": (WOLNA, "test_report_claims.py"),
+    "MIN_SEKCJI_ZAUWAZONE": (WOLNA, "test_report_claims.py"),
     "MIN_STALYCH_Z_POMIAREM_W_KOMENTARZU": (WOLNA, "test_suite_runtime_budget.py"),
+    "MIN_TWIERDZEN_W_ZAUWAZONYCH": (WOLNA, "test_report_claims.py"),
     "MINIMUM_METOD": (WOLNA, "test_csharp_assertions.py"),
     "MINIMUM_MIEJSC": (WOLNA, "test_runner_number_parsing.py"),
     "MINIMUM_MODES": (WOLNA, "test_run_mode_claims.py"),
@@ -693,7 +701,7 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
         "znaczy, że komuś ubył strażnik; w stronę `przybita`, że doszedł i wpis "
         "trzeba poprawić" % inna_klasa)
 
-    assert len(w_drzewie) == ZAPADEK_RAZEM == 51, (
+    assert len(w_drzewie) == ZAPADEK_RAZEM == 54, (
         "zapadek w drzewie %d, na liście %d, pomiar z 11.09.2026 mówił 38, "
         "po 6.D146 — 40, po 6.D147 — 42 (doszła zapadka na sekwencje ucieczki "
         "i próg KW jej skanu), po 6.D187 — 44 (dwa progi KW skanu gołych nazw), "
@@ -702,7 +710,9 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
         "stałych z datowaną deklaracją pomiaru w komentarzu `#:`), a po 6.D207 — 49 "
         "(podłoga na skan zdań deklarujących pomiar w docstringach), a po 6.D209 — 50 "
         "(podłoga na skan kształtu `NAZWA = N` w raportach), a po 6.D222 — 51 "
-        "(podłoga na liczbę plików YAML-a CI oglądanych przez loader ścisły)"
+        "(podłoga na liczbę plików YAML-a CI oglądanych przez loader ścisły), "
+        "a po 6.D216 — 54 (trzy podłogi na czytnik sekcji „zauważone”: sekcje, raporty "
+        "i twierdzenia liczbowe)"
         % (len(w_drzewie), ZAPADEK_RAZEM))
 
     # Liczby zbiorcze. **Nie jest to ozdobnik komunikatu i pokazała to KN-7.**
@@ -712,12 +722,13 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
     # a „21 wolnych" staje się nieprawdą, której nie zgłasza nic. KN-7 wykonała
     # dokładnie ten scenariusz: jedyną czerwienią była ta asercja.
     ile = collections.Counter(w_drzewie.values())
-    assert (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM]) == (17, 3, 30, 1), (
+    assert (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM]) == (17, 3, 33, 1), (
         "klasy zapadek: przybitych %d, częściowych %d, WOLNYCH %d, poza skanem %d — "
         "pomiar z 11.09.2026 mówił 13/3/21/1, po 6.D146 — 13/3/23/1, a po 6.D147 — "
         "14/3/24/1, po 6.D151 — 15/3/23/1, po 6.D167 — 17/3/21/1, po 6.D187 — "
         "17/3/23/1, po 6.D190 — 17/3/24/1, po 6.D203 — 17/3/25/1, po 6.D206 — "
-        "17/3/27/1, po 6.D207 — 17/3/28/1, a po 6.D209 — 17/3/29/1, a po 6.D222 — 17/3/30/1; wolne to te, "
+        "17/3/27/1, po 6.D207 — 17/3/28/1, a po 6.D209 — 17/3/29/1, a po 6.D222 — "
+        "17/3/30/1, a po 6.D216 — 17/3/33/1; wolne to te, "
         "które da się ruszyć "
         "w zakazaną stronę bez zapalenia czegokolwiek: %s"
         % (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM],
