@@ -423,7 +423,11 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 # samego katalogu i dwie rozne granice: `claims_in_reports` pomija bloki ogrodzone,
 # `wystapienia_w_jednych_grawisach` nie. Pozycja NIE wyszla z progu zapasu, tylko
 # z czerwieni, ktora ta bramka zapalila na raporcie 6.D219.
-MINIMUM_DETAIL_BLOCKS = 298
+# 298 -> 299 (15.09.2026, 6.D220): blok szesciu pol dla 6.D231 — `KorpusMetody` przy
+# metodzie WYRAZENIOWEJ oddaje korpus NASTEPNEJ. Pozycja NIE wyszla z progu zapasu,
+# tylko z przebiegu czytnika przy tej pozycji: `BrakingDistanceM` dostaje 3056 znakow
+# korpusu `Supervise`, a straz `deklaracji == 1` przepuszcza to bez slowa.
+MINIMUM_DETAIL_BLOCKS = 299
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je

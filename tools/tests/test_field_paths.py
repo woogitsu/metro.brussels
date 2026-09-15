@@ -1731,7 +1731,10 @@ def _istnieje_w_drzewie(nazwa):
 # `tools/tests/test_backlog.py` i `reports/6d219-…`; reszta pola byla juz liczona.
 # „Weryfikacja" rosnie o jeden (396 -> 397) za `tools/tests/test_backlog.py`
 # z plotka tego bloku.
-ADRESOW_W_WYKONANYCH = {"Wejście": 991, "Wyjście": 63, "Weryfikacja": 397}
+# 991 -> 993 (15.09.2026, 6.D220): DWA adresy z pola „Wejscie" wlasnego bloku 6.D231 —
+# `tests/Sim.Tests/DefaultArmAuditTests.cs` i `reports/6d220-…`; pozostale adresy tego
+# pola byly juz liczone. „Weryfikacja" NIE DRGA: plotek tego bloku wola `dotnet test`.
+ADRESOW_W_WYKONANYCH = {"Wejście": 993, "Wyjście": 63, "Weryfikacja": 397}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
