@@ -4870,6 +4870,23 @@ public sealed class UiTextTests
         // znakach uznałoby oba wiersze `[SESJA]` za angielskie, a `WierszyLoguPoAngielsku`
         // wyszłoby z zera i przestałoby być zdaniem o drzewie.
         "SESJA", "trwa",
+
+        // **6.D217: dziewięć z dwudziestu dziewięciu komunikatów DROGI BŁĘDU nie ma
+        // ani jednego ogonka**, czyli 31 % wobec 12 % w logu przejazdu (3 z 25). Nie
+        // jest to przypadek: droga błędu nazywa ARGUMENTY i PLIKI (`--limit-kmh`,
+        // `.glb`, `[ASSETS]`), więc jej zdania są krótkie i techniczne, a krótkie
+        // polskie zdanie techniczne często ogonka nie ma. Dwanaście słów niżej pokrywa
+        // wszystkie dziewięć; każde dobrane tak, żeby nie było podciągiem zwykłego
+        // słowa angielskiego — dlatego stoi „nieznan", a nie „nie" (to drugie siedzi
+        // w „denied" i uznałoby komunikat ANGIELSKI za polski).
+        //
+        // **Cena, wypisana z nazwy, nie przemilczana:** komunikat angielski zawierający
+        // którykolwiek z tych podciągów przejdzie jako polski. Dziś takiego nie ma —
+        // literałów angielskich w drodze błędu jest ZERO — a gdy powstanie, złapie go
+        // `Zrodla_tekstu_OBCEGO_i_WLASNEGO_sa_wymienione_Z_NAZWY_i_rozdzielone`,
+        // bo tekst obcy wchodzi tu wyłącznie dziurą.
+        "brak", "plik", "albo", "wymaga", "Wygeneruj", "uruchom",
+        "nieznan", "Znane", "zakresem", "ujemny", "pasuje", "planem",
     };
 
     private static bool WygladaPoPolsku(string tekst) =>
@@ -4882,14 +4899,267 @@ public sealed class UiTextTests
     // `(plik, wiersz, tekst szablonu bez dziur)` dla każdego wywołania `GD.Print`
     // w `src/Game/`. Czyta po źródle BEZ komentarzy i bez literałów innych niż
     // argument — `GD.Print` w komentarzu nie jest wypisem.
-    private static List<(string Plik, int Wiersz, string Szablon)> WierszeLogu()
+
+    // --- 6.D217: droga błędu — ilu wołających `Abort` i w jakim języku piszą ---------
+    //
+    // **Skąd ten blok.** 6.D202 policzyło język LOGU PRZEJAZDU (`GD.Print`) i drogi błędu
+    // nie objęło ani razu — to własność jego pytania, nie przeoczenie. Ta pozycja liczy
+    // drugą drogę: tę, którą gracz zobaczy, gdy gra się nie uruchomi.
+    //
+    // **Tekst obcy wchodzi tu WYŁĄCZNIE interpolacją, nigdy literałem** — zmierzone,
+    // nie założone. Literałów angielskich w drodze błędu jest ZERO; angielszczyzna
+    // przychodzi z dziur, a wszystkie dziury z tekstem obcym niosą **jeden typ**:
+    // `Error` Godota (`FileAccess.GetOpenError()`, wynik `DirAccess.MakeDir`, wynik
+    // `GltfDocument.AppendFromFile`). Przetłumaczyć się ich nie da bez mapy nazw,
+    // czyli bez decyzji, której w `docs/` nie ma (§8).
+
+    /// <summary>Wołający <c>Abort</c> w <c>src/Game/</c> — bez samej deklaracji.</summary>
+    /// <remarks>
+    /// Deklaracja odsiewana jest po <b>modyfikatorze dostępu</b>, tak samo jak w 6.D211
+    /// i z tego samego powodu: sito po samej nazwie bierze wywołanie za deklarację
+    /// i odwrotnie. `Abort` ma dziś deklarację w `FirstRun.cs:568` i 21 wywołań.
+    /// <para><b>Odsiew jest JEDEN, i to jest poprawka z kontroli negatywnej.</b> Pierwsza
+    /// wersja miała dwa naraz — wyprzedzenie ujemne <c>(?&lt;!private\svoid\s)</c> we
+    /// wzorcu ORAZ ten warunek — więc KN-1 (zdjęcie warunku) wyszła ZIELONA i czytała się
+    /// jako „bramka tego nie łapie". Łapała, tylko drugim mechanizmem. Wyprzedzenie
+    /// poszło, bo było węższe: wypisywało <c>private void</c> z nazwy i przepuściłoby
+    /// deklarację <c>private static void</c> albo <c>internal</c>.</para>
+    /// </remarks>
+    private static List<(string Plik, int Wiersz, string Szablon, List<string> Dziury)>
+        WolajacyAbort() =>
+        Wywolania(@"(?<!\w)Abort\s*\(")
+            .Where(w => !DeklaracjaAbort(w.Plik, w.Wiersz))
+            .ToList();
+
+    private static bool DeklaracjaAbort(string plik, int wiersz)
     {
-        var wynik = new List<(string, int, string)>();
+        var sciezka = PlikiGryZKatalogiem().Single(p => Path.GetFileName(p) == plik);
+        var wiersze = File.ReadAllLines(sciezka);
+        return Regex.IsMatch(wiersze[wiersz - 1],
+            @"^\s*(?:public|private|protected|internal)\b[^(]*\bAbort\s*\(");
+    }
+
+    /// <summary>Cała droga błędu: <c>Abort</c> oraz oba wypisy błędu poza nim.</summary>
+    private static List<(string Skad, string Plik, int Wiersz, string Szablon, List<string> Dziury)>
+        DrogaBledu()
+    {
+        var wynik = WolajacyAbort()
+            .Select(w => ("Abort", w.Plik, w.Wiersz, w.Szablon, w.Dziury))
+            .ToList();
+        foreach (var nazwa in new[] { "GD.PrintErr", "GD.PushError" })
+        {
+            wynik.AddRange(Wywolania(Regex.Escape(nazwa) + @"\s*\(")
+                // Dwa wypisy stoją W ŚRODKU `Abort` i niosą jego argument, nie własny
+                // literał — liczenie ich osobno podwoiłoby każdy komunikat drogi.
+                .Where(w => w.Szablon.Trim().Length > 0 || w.Dziury.Count > 0)
+                .Select(w => (nazwa, w.Plik, w.Wiersz, w.Szablon, w.Dziury)));
+        }
+
+        return wynik;
+    }
+
+    //: Ilu wołających ma `Abort` (bez deklaracji) i ile wypisów błędu stoi poza nim.
+    //: Zmierzone 15.09.2026: 21 i 5 (`GD.PrintErr` 2, `GD.PushError` 3). Pole „Skąd"
+    //: pozycji mówiło `GD.PrintErr` 3 i `GD.PushError` 4 — te liczby są z WYWOŁANIAMI
+    //: WEWNĄTRZ `Abort`, które niosą jego argument, a nie własny literał.
+    private const int WolajacychAbort = 21;
+    private const int WypisowBleduPozaAbort = 5;
+
+    /// <summary>
+    /// Dziury drogi błędu niosące tekst <b>obcy</b>, każda z wytwórcą. Zbiór, nie liczba
+    /// — 6.D131: liczba przechodzi po podbiciu cyfry, zbiór mówi, KTÓRE.
+    /// </summary>
+    /// <remarks>
+    /// <b>Kluczem jest PARA (plik, wyrażenie), a nie samo wyrażenie — i to jest poprawka
+    /// z pomiaru, nie ostrożność.</b> Dziura `{error}` stoi w drodze błędu DWA RAZY
+    /// i za każdym razem znaczy co innego: w `GlbLoader.cs:39` jest to `Error` Godota
+    /// z `AppendFromFile` (tekst OBCY), a w `FirstRun.cs:1089` out-param
+    /// `TelemetryTrack.TryParse` (tekst WŁASNY). Pierwsza wersja tej bramki kluczowała
+    /// po samej nazwie i policzyła dziewięć dziur obcych jako dziesięć — dokładnie ta
+    /// sama pomyłka, którą 6.D213 zmierzyło na `string status`.
+    /// </remarks>
+    private static readonly (string Plik, string Wyrazenie, string Wytworca)[] ZrodlaTekstuObcego =
+    {
+        ("FirstRun.cs", "FileAccess.GetOpenError()", "Error Godota — wynik otwarcia pliku"),
+        ("FirstRun.cs", "blad", "Error Godota — wynik DirAccess.MakeDir"),
+        ("GlbLoader.cs", "error", "Error Godota — wynik GltfDocument.AppendFromFile"),
+    };
+
+    /// <summary>
+    /// Dziury drogi błędu niosące tekst <b>własny</b>, każda z wytwórcą. Rozdzielenie
+    /// tych dwóch zbiorów jest całym pytaniem pozycji: tylko o drugi da się cokolwiek
+    /// rozstrzygnąć, bo pierwszy pisze silnik.
+    /// </summary>
+    private static readonly (string Plik, string Wyrazenie, string Wytworca)[] ZrodlaTekstuWlasnego =
+    {
+        ("FirstRun.cs", "error.Message", "wyjątek z `src/Sim/` — filtr `when (error is "
+            + "ArgumentException or FormatException)` wpuszcza WYŁĄCZNIE nasze typy, "
+            + "a nasze rzuty są polskie"),
+        ("FirstRun.cs", "error", "out-param `TelemetryTrack.TryParse` (FirstRun.cs:1089)"),
+        ("FirstRun.cs", "availability.Reason",
+            "`ViewAssumption.Reason` z `src/Game/DesignAssumptions.cs`"),
+    };
+
+    /// <summary>
+    /// Miejsca drogi błędu <b>bez własnych słów</b>, każde z wytwórcą do sprawdzenia.
+    /// Dwa, i są DWÓCH RÓŻNYCH RODZAJÓW — dlatego stoją z powodem, a nie jako liczba.
+    /// </summary>
+    private static readonly (string Plik, string Znacznik, string Powod)[] DrogaBezWlasnychSlow =
+    {
+        ("FirstRun.cs", "[ARGUMENT]",
+            "`Abort(plan.ExitCode, plan.Error!)` — nie ma ŻADNEGO literału; treść "
+            + "przychodzi z `RunPlan.Refusal`, którego wołających jest 26"),
+        ("GlbLoader.cs", "AppendFromFile",
+            "literał JEST, ale jego jedyne słowo to nazwa metody Godota — po polsku "
+            + "ani po angielsku nie jest, bo nie jest zdaniem"),
+    };
+
+    [TestMethod]
+    public void Droga_bledu_ZAWIERA_Abort_a_kazdy_jej_komunikat_ze_slowami_jest_po_polsku()
+    {
+        var droga = DrogaBledu();
+
+        // KONTROLA PRZYRZĄDU, o którą prosiło pole „Weryfikacja" pozycji wprost:
+        // „lista zawiera `Abort` — jeśli nie zawiera, skan nie widzi drogi, którą
+        // 6.D202 wskazało palcem". Bez niej wszystkie liczby niżej mogłyby opisywać
+        // zbiór, w którym drogi błędu nie ma w ogóle (rodzina 6.D159).
+        Assert.IsTrue(droga.Any(w => w.Skad == "Abort"),
+            "skan NIE ZNAJDUJE ani jednego wołającego `Abort` — to ta droga, o którą "
+            + "pyta 6.D217, i bez niej pozostałe asercje są o czym innym");
+
+        var abort = droga.Where(w => w.Skad == "Abort").ToList();
+        Assert.AreEqual(WolajacychAbort, abort.Count,
+            $"wołających `Abort` jest {abort.Count}, a zmierzono {WolajacychAbort} — "
+            + "jeżeli doszła deklaracja, sito po modyfikatorze dostępu przestało "
+            + "działać (6.D211): " + string.Join(", ", abort.Select(w => $"{w.Plik}:{w.Wiersz}")));
+        Assert.AreEqual(WypisowBleduPozaAbort, droga.Count - abort.Count,
+            $"wypisów błędu poza `Abort` jest {droga.Count - abort.Count}, "
+            + $"a zmierzono {WypisowBleduPozaAbort}");
+
+        var zeSlowami = droga
+            .Where(w => Regex.IsMatch(w.Szablon, @"\p{L}{2,}"))
+            .Where(w => !DrogaBezWlasnychSlow.Any(b => b.Plik == w.Plik
+                && w.Szablon.Contains(b.Znacznik, StringComparison.Ordinal)))
+            .ToList();
+        foreach (var w in zeSlowami)
+        {
+            Assert.IsTrue(WygladaPoPolsku(w.Szablon),
+                $"`{w.Plik}:{w.Wiersz}` nie ma ani polskich liter, ani znanego słowa "
+                + $"polskiego bez znaków: „{w.Szablon.Trim()}”. Droga błędu jest tą, "
+                + "którą czyta ten, komu gra się NIE uruchomiła — nierozpoznany język "
+                + "jest tam droższy, nie tańszy (6.D217)");
+        }
+
+        // **Literałów angielskich w drodze błędu jest ZERO i to jest zdanie o drzewie,
+        // nie życzenie.** Angielszczyzna wchodzi tu wyłącznie interpolacją — pilnują
+        // tego dwa testy niżej, każdy o innym zbiorze dziur.
+        Assert.IsTrue(zeSlowami.Count >= 18,
+            $"komunikatów z własnymi słowami jest {zeSlowami.Count} — poniżej osiemnastu "
+            + "znaczy, że czytnik przestał czytać, a nie że droga błędu zmalała");
+    }
+
+    [TestMethod]
+    public void Zrodla_tekstu_OBCEGO_i_WLASNEGO_sa_wymienione_Z_NAZWY_i_rozdzielone()
+    {
+        var dziury = DrogaBledu()
+            .SelectMany(w => w.Dziury.Select(d => (w.Plik, w.Wiersz, Dziura: d.Split(':')[0].Trim())))
+            .ToList();
+
+        // Dziura, która NIE jest ani ścieżką, ani liczbą, ani własnym identyfikatorem
+        // drzewa, musi stać na jednej z dwóch list — z wytwórcą. Rozdzielenie jest całym
+        // pytaniem pozycji: o tekst z silnika nie da się rozstrzygnąć nic.
+        var nazwane = ZrodlaTekstuObcego.Select(z => z.Plik + "|" + z.Wyrazenie)
+            .Concat(ZrodlaTekstuWlasnego.Select(z => z.Plik + "|" + z.Wyrazenie))
+            .ToHashSet(StringComparer.Ordinal);
+
+        var obce = dziury
+            .Where(d => ZrodlaTekstuObcego.Any(z => z.Plik == d.Plik && z.Wyrazenie == d.Dziura))
+            .ToList();
+        Assert.AreEqual(9, obce.Count,
+            $"dziur z tekstem OBCYM jest {obce.Count}, a zmierzono 9 (siedem "
+            + "`FileAccess.GetOpenError()`, jedna z `MakeDir`, jedna z `AppendFromFile`): "
+            + string.Join(", ", obce.Select(d => $"{d.Plik}:{d.Wiersz} {d.Dziura}")));
+
+        // ZBIÓR, nie liczba (6.D131): gdyby doszedł czwarty wytwórca tekstu obcego,
+        // liczba 9 podniesiona o jeden nie powiedziałaby, KTÓRY.
+        CollectionAssert.AreEqual(
+            new[] { "Error Godota — wynik DirAccess.MakeDir",
+                    "Error Godota — wynik GltfDocument.AppendFromFile",
+                    "Error Godota — wynik otwarcia pliku" },
+            ZrodlaTekstuObcego.Select(z => z.Wytworca).OrderBy(x => x, StringComparer.Ordinal).ToArray(),
+            "zbiór wytwórców tekstu obcego się zmienił — dziś wszystkie trzy to JEDEN typ "
+            + "(`Error` Godota) i to jest treść tej pozycji: tekstu z silnika nie da się "
+            + "przetłumaczyć bez mapy nazw, czyli bez decyzji, której w `docs/` nie ma");
+
+        foreach (var (plik, wyrazenie, wytworca) in ZrodlaTekstuWlasnego)
+        {
+            Assert.IsTrue(dziury.Any(d => d.Plik == plik && d.Dziura == wyrazenie),
+                $"dziury `{wyrazenie}` nie ma już w drodze błędu, a lista mówi o drzewie "
+                + $"sprzed zmiany ({wytworca})");
+        }
+
+        Assert.IsTrue(nazwane.Count == 6,
+            $"list jest razem {nazwane.Count} pozycji zamiast sześciu — dopisanie wytwórcy "
+            + "do jednej listy bez drugiej rozdziela zbiory po cichu");
+    }
+
+    [TestMethod]
+    public void Komunikat_BEZ_WLASNYCH_SLOW_prowadzi_do_wytworcy_ktory_pisze_po_polsku()
+    {
+        // Bez tego „dwa bez słów" czytałoby się jako „dwa nieznanego języka" — ta sama
+        // różnica, którą 6.D202 nazwało dla czterech wierszy logu.
+        var refusal = File.ReadAllText(Path.Combine(
+            RepositoryRoot(), "src", "Game", "RunPlan.cs"));
+        var czysty = KodLeksykalnie(refusal);
+        var wolan = Regex.Matches(czysty, @"return Refusal\s*\(").Count;
+        Assert.AreEqual(26, wolan,
+            $"wołających `RunPlan.Refusal` jest {wolan}, a zmierzono 26 — to ONE są "
+            + "treścią jedynego wywołania `Abort` bez własnego literału "
+            + "(`FirstRun.cs:533`), więc ich liczba jest zdaniem o drodze błędu");
+
+        var literaly = Literaly(refusal)
+            .Where(l => l.Contains("[ARGUMENT]", StringComparison.Ordinal))
+            .ToList();
+        Assert.IsTrue(literaly.Count >= 19,
+            $"literałów `[ARGUMENT]` w `RunPlan.cs` jest {literaly.Count} — poniżej "
+            + "dziewiętnastu znaczy, że czytnik przestał czytać");
+        foreach (var l in literaly)
+        {
+            Assert.IsTrue(WygladaPoPolsku(l),
+                "literał `[ARGUMENT]` w `RunPlan.cs` nie wygląda po polsku, więc "
+                + "komunikat, który gracz zobaczy zamiast uruchomionej gry, przestał "
+                + $"być polski: „{l}”");
+        }
+    }
+
+    private static List<(string Plik, int Wiersz, string Szablon)> WierszeLogu() =>
+        Wywolania(@"GD\.Print\s*\(")
+            .Select(w => (w.Plik, w.Wiersz, w.Szablon))
+            .ToList();
+
+    /// <summary>
+    /// <c>(plik, wiersz, szablon bez dziur, treść dziur)</c> dla każdego wywołania
+    /// pasującego do <paramref name="wzorzecWywolania"/> w <c>src/Game/</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Wydzielone z <c>WierszeLogu</c> przy 6.D217, a nie napisane obok.</b>
+    /// Droga błędu potrzebuje dokładnie tego samego czytania — po źródle bez komentarzy
+    /// i bez literałów innych niż argument — i różni się WYŁĄCZNIE nazwą wywołania.
+    /// Druga kopia rozjechałaby się przy pierwszej poprawce, a 6.D213 usunęło już jedną
+    /// taką kopię w tym pliku.</para>
+    /// <para><b>Dziury są zwracane osobno i to jest treść, nie wygoda:</b> tekst obcy
+    /// wchodzi do tej drogi WYŁĄCZNIE interpolacją, nigdy literałem, więc pytanie „skąd
+    /// ten angielski" nie ma odpowiedzi w szablonie — tylko w dziurze.</para>
+    /// </remarks>
+    private static List<(string Plik, int Wiersz, string Szablon, List<string> Dziury)>
+        Wywolania(string wzorzecWywolania)
+    {
+        var wynik = new List<(string, int, string, List<string>)>();
         foreach (var sciezka in PlikiGryZKatalogiem())
         {
             var kod = File.ReadAllText(sciezka);
             var czysty = KodLeksykalnie(kod);
-            foreach (Match m in Regex.Matches(czysty, @"GD\.Print\s*\("))
+            foreach (Match m in Regex.Matches(czysty, wzorzecWywolania))
             {
                 var otwarcie = czysty.IndexOf('(', m.Index + m.Length - 1);
                 var glebia = 0;
@@ -4913,10 +5183,15 @@ public sealed class UiTextTests
                 }
 
                 var argument = kod.Substring(otwarcie + 1, koniec - otwarcie - 1);
-                var szablon = string.Join(" ", Literaly(argument)
+                var literaly = Literaly(argument);
+                var szablon = string.Join(" ", literaly
                     .Select(l => Regex.Replace(l, @"\{[^{}]*\}", " ")));
+                var dziury = literaly
+                    .SelectMany(l => Regex.Matches(l, @"\{([^{}]*)\}")
+                        .Select(d => d.Groups[1].Value))
+                    .ToList();
                 var wiersz = kod.Substring(0, m.Index).Count(z => z == '\n') + 1;
-                wynik.Add((Path.GetFileName(sciezka), wiersz, szablon));
+                wynik.Add((Path.GetFileName(sciezka), wiersz, szablon, dziury));
             }
         }
 

@@ -423,7 +423,7 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 #: `ASERCJI_RAZEM` niżej, wszystkie z komunikatem.
 #: **1690 -> 1696 (15.09.2026, 6.D215)** — szesc z siedmiu nowych asercji ma
 #: komunikat; siodma sklada go ze zbioru, ktory porownuje.
-Z_KOMUNIKATEM_RAZEM = 1696
+Z_KOMUNIKATEM_RAZEM = 1708
 NIEROZSTRZYGNIETYCH = 68
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
 #: `tests/Sim.Tests/DefaultArmAuditTests.cs` — bramki na ramionach domyślnych
@@ -457,7 +457,16 @@ NIEROZSTRZYGNIETYCH = 68
 #: surowy-czy-werbatim: dwie w petli po czterech postaciach (tresc literalu
 #: i kod po masce), jedna na liczbe obrotow petli, jedna na ZBIOR przedrostkow
 #: i dwie w bramce o jednym miejscu warunku.
-ASERCJI_RAZEM = 3143
+#: **3143 -> 3155 (15.09.2026, 6.D217).** Dwanascie asercji bramki na DRODZE BLEDU
+#: w `tests/Game.Tests/UiTextTests.cs`: piec w bramce jezyka (kontrola przyrzadu
+#: „lista zawiera `Abort`", liczba wolajacych, liczba wypisow poza `Abort`, jezyk
+#: kazdego komunikatu, podloga na liczbe komunikatow ze slowami), cztery w bramce
+#: rozdzielajacej zrodla tekstu obcego od wlasnego (liczba dziur obcych, ZBIOR
+#: wytworcow, obecnosc kazdego zrodla wlasnego, suma obu list) i trzy w bramce
+#: o wytworcy komunikatu bez wlasnych slow (liczba wolajacych `RunPlan.Refusal`,
+#: podloga na literaly `[ARGUMENT]`, jezyk kazdego). Wszystkie z komunikatem;
+#: `BEZ_KOMUNIKATU_RAZEM` i `NIEROZSTRZYGNIETYCH` nie drgaja.
+ASERCJI_RAZEM = 3155
 
 
 def _rozklad():

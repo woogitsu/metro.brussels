@@ -381,9 +381,9 @@ ROZKLAD_POSTACI = {
         # cztery probki tej bramki opisuja literaly surowe i werbatim, ale opisuja je
         # jako DANE w napisach zwyklych, a nie zapisuja w tych postaciach — inaczej
         # probka byla by tym, co mierzy.
-        "zwykly": 4438,
-        "interpolowany ($)": 754,
-        "werbatim (@)": 70,
+        "zwykly": 4511,
+        "interpolowany ($)": 769,
+        "werbatim (@)": 76,
         "surowy interpolowany ($$\"\"\")": 13,
         "surowy (\"\"\")": 8,
         "werbatim interpolowany ($@)": 6,
