@@ -363,9 +363,14 @@ ROZKLAD_POSTACI = {
         # wsteczny jest treścią; próbki syntetyczne tej bramki są zwykłymi napisami
         # z `\n`, bo składają się z kilku kawałków przez `+`, a werbatim nie znosi
         # sklejania z sekwencjami ucieczki w jednym wyrażeniu.
-        "zwykly": 4318,
+        # 4318 -> 4345 i 64 -> 66 (15.09.2026, 6.D212): literały kontroli przyrządu
+        # czytnika wyliczeń i maski. Postać interpolowana NIE DRGA i to jest treść:
+        # komunikaty tej kontroli nazywają próbkę słowami, a nie wstawiają jej wartości,
+        # bo próbka jest stała i wypisanie jej niczego nie dopowiada. Werbatim rośnie
+        # o dwa — oba to wzorce `Regex` czytnika surowego, gdzie ukośnik jest treścią.
+        "zwykly": 4345,
         "interpolowany ($)": 739,
-        "werbatim (@)": 64,
+        "werbatim (@)": 66,
         "surowy interpolowany ($$\"\"\")": 13,
         "surowy (\"\"\")": 8,
         "werbatim interpolowany ($@)": 4,

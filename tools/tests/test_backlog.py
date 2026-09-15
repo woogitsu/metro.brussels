@@ -394,7 +394,11 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 # w prozie wiersza, ktorej plik jej nie deklaruje. Ta sama mechanika trzeci raz
 # z rzedu: domkniecie zbilo zapas do 11, a pozycja wyszla z pomiaru — znalazlem
 # ja, czytajac wlasny wiersz 6.D210 sprzed kilku godzin.
-MINIMUM_DETAIL_BLOCKS = 289
+# 289 -> 290 (15.09.2026, 6.D212): blok szesciu pol dla 6.D222 — workflow,
+# ktory nie wystartowal ani razu od 6.D108, i bramka, ktora tego nie widzi.
+# Pozycja NIE wyszla z progu zapasu, tylko ze znaleziska po drodze: przebieg
+# `prune-merged-branches.yml` stal czerwony na galezi PR-a 6.D211.
+MINIMUM_DETAIL_BLOCKS = 290
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je

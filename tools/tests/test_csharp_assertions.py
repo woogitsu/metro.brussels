@@ -415,7 +415,9 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 #: MB-08 ta sama bramka złapała 54 asercje bez komunikatu i lekcja weszła.
 #: **1652 -> 1667 (14.09.2026, 6.D211)** — te same piętnaście asercji, co przy
 #: `ASERCJI_RAZEM` niżej, wszystkie z komunikatem.
-Z_KOMUNIKATEM_RAZEM = 1667
+#: **1667 -> 1675 (15.09.2026, 6.D212)** — te same osiem asercji, co przy
+#: `ASERCJI_RAZEM` niżej, wszystkie z komunikatem.
+Z_KOMUNIKATEM_RAZEM = 1675
 NIEROZSTRZYGNIETYCH = 68
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
 #: `tests/Sim.Tests/DefaultArmAuditTests.cs` — bramki na ramionach domyślnych
@@ -427,7 +429,14 @@ NIEROZSTRZYGNIETYCH = 68
 #: trzy w pomocnikach czytających korpus metody. Wszystkie z komunikatem, więc
 #: `Z_KOMUNIKATEM_RAZEM` rośnie o tyle samo, a `BEZ_KOMUNIKATU_RAZEM`
 #: i `NIEROZSTRZYGNIETYCH` nie drgają.
-ASERCJI_RAZEM = 3114
+#: **3114 -> 3122 (15.09.2026, 6.D212).** Osiem asercji kontroli przyrządu
+#: czytnika wyliczeń w `tests/Game.Tests/UiTextTests.cs`: cztery żądają, żeby czytnik
+#: MASKUJĄCY nie dał się nabrać na `enum` w komentarzu ani w literale, i cztery — żeby
+#: czytnik SUROWY dał się nabrać na trzech próbkach, a na czwartej nie. Bez tej drugiej
+#: czwórki zieleń mówiłaby tyle, co czytnik, który ją wypisał: rozjazd w drzewie wynosi
+#: dziś ZERO. Wszystkie z komunikatem, `BEZ_KOMUNIKATU_RAZEM` i `NIEROZSTRZYGNIETYCH`
+#: nie drgają.
+ASERCJI_RAZEM = 3122
 
 
 def _rozklad():
