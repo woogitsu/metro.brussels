@@ -434,7 +434,13 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 # wyszla z pomiaru wykonanego przy 6.D218 … 6.D229 i niesie liczby z tamtych przebiegow.
 # Liczba POLICZONA przez `len(detail_sections(...))` na pliku PO edycji, nie wpisana
 # z pamieci — tak jak kaze komentarz przy tej stalej od poczatku.
-MINIMUM_DETAIL_BLOCKS = 305
+# 305 -> 307 (15.09.2026, 6.D223): dwa bloki szesciu pol — 6.D238 i 6.D239.
+# Obie pozycje wyszly z POMIARU tej pozycji, a nie z progu zapasu: sa to dwie
+# jedyne dziury, ktore 19 podstawien znalazlo i ktorych naprawianie blok 6.D223
+# stawia poza zakresem — cytat przypinajacy WARTOSC zamiast WIERSZA (`test_t401_citation`)
+# i tytul dziela w rejestrze praw, ktorego nie pilnuje nic. Liczba POLICZONA przez
+# `len(detail_sections(...))` na pliku PO edycji, nie wpisana z pamieci.
+MINIMUM_DETAIL_BLOCKS = 307
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
