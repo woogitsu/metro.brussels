@@ -243,15 +243,64 @@ def granice_plytkiego_klonu():
     return _PAMIEC["granice"]
 
 
+def _git_surowy(*argumenty):
+    """To samo co `_git`, ale BEZ `.strip()` — wyjście bajt w bajt.
+
+    **Osobna funkcja, a nie zmiana `_git`, i to jest treść, nie ostrożność.**
+    `.strip()` w `_git` jest NOŚNE dla czterech pozostałych wywołań w tym module:
+    `rev-parse --git-dir` sklejałby się z `\n` w ścieżkę nieistniejącą, a
+    `_data(_git("log", "-1", "--format=%cI", ...))` dostawałby ISO z ogonkiem, na
+    którym `datetime.fromisoformat` rzuca `ValueError`. Zamiana globalna naprawiłaby
+    jedno wywołanie i zepsuła trzy.
+
+    `--porcelain -z` jest tu jedynym formatem, w którym biały znak na BRZEGU wyjścia
+    NIESIE ZNACZENIE: wiodąca spacja to kolumna indeksu w polu statusu `XY`.
+    """
+    wynik = subprocess.run(("git",) + argumenty, cwd=ROOT,
+                           capture_output=True, text=True)
+    return wynik.stdout if wynik.returncode == 0 else ""
+
+
+def sciezki_ze_statusu(wypis):
+    """`git status --porcelain -z` -> zbiór ścieżek. Funkcja CZYSTA, bez gita.
+
+    **Dwa pola, nie jedno, przy zmianie nazwy.** W postaci `-z` wpis `R` albo `C`
+    niesie ścieżkę nową we własnym polu, a ŹRÓDŁO w polu NASTĘPNYM — **bez kolumn
+    `XY`**. Pętla, która tego pola nie konsumuje, bierze `alfa.txt` za wpis statusu
+    i wkłada do zbioru jego `[3:]`, czyli `a.txt`: ciąg, którego w drzewie nie ma,
+    a prawdziwego źródła nie wkłada wcale. Zmierzone 16.09.2026 na repozytorium
+    próbnym: `git mv alfa.txt delta.txt` daje `R  delta.txt\0alfa.txt\0`.
+    """
+    pola = wypis.split("\0")
+    sciezki = set()
+    i = 0
+    while i < len(pola):
+        wpis = pola[i]
+        i += 1
+        if len(wpis) < 4:
+            continue
+        sciezki.add(wpis[3:])
+        if wpis[0] in "RC" or wpis[1] in "RC":
+            if i < len(pola):
+                zrodlo = pola[i]
+                i += 1
+                if zrodlo:
+                    sciezki.add(zrodlo)
+    return sciezki
+
+
 def zmienione_w_drzewie():
-    """Ścieżki (względem `ROOT`) zmienione lub nieśledzone wobec HEAD."""
+    """Ścieżki (względem `ROOT`) zmienione lub nieśledzone wobec HEAD.
+
+    **`_git_surowy`, nie `_git`, i to jest cała usterka 6.D248.** `git status
+    --porcelain -z` zaczyna wpis pliku NIEZAINDEKSOWANEGO od SPACJI (` M plik`),
+    a `.strip()` na CAŁYM wyjściu zjada tę spację w **pierwszym** wpisie — po czym
+    `[3:]` obcina pierwszy znak ścieżki. Zmierzone: przy jednym zmienionym pliku
+    funkcja zwracała `{'ools/tests/test_all.py'}`.
+    """
     if "zmienione" not in _PAMIEC:
-        wypis = _git("status", "--porcelain", "-z")
-        sciezki = set()
-        for kawalek in wypis.split("\0"):
-            if len(kawalek) > 3:
-                sciezki.add(kawalek[3:])
-        _PAMIEC["zmienione"] = sciezki
+        _PAMIEC["zmienione"] = sciezki_ze_statusu(
+            _git_surowy("status", "--porcelain", "-z"))
     return _PAMIEC["zmienione"]
 
 
@@ -595,6 +644,113 @@ def test_raport_tkniety_w_drzewie_jest_pilnowany_mimo_starej_stalej():
     finally:
         C_PAMIEC.clear()
         C_PAMIEC.update(zastane)
+
+
+def test_status_porcelain_NIE_gubi_pierwszego_znaku_pierwszej_sciezki():
+    """6.D248: `zmienione_w_drzewie()` na PRAWDZIWYM gicie, w repozytorium próbnym.
+
+    **Przez `subprocess`, a nie przez samą `sciezki_ze_statusu`, i to jest treść tej
+    bramki.** Usterka siedziała w `.strip()` **NAD** parserem — kontrola wołająca samą
+    funkcję czystą byłaby zielona razem z nią. Bramka musi więc przejść tę samą drogę,
+    którą chodzi moduł: `git status` -> odczyt -> rozbiór.
+
+    **Konfiguracja LOKALNA repozytorium próbnego, a nie `git -c` przy wywołaniach
+    bramki** — to jest odpowiedź na 6.D27 i wyszła z pomiaru, nie z przewidywania.
+    `git status` woła tu kod PRODUKCYJNY (`_git_surowy`), do którego żadne `-c`
+    podane przy `init`/`add` nie dociera. Konfiguracja lokalna bije globalną i czyta
+    ją każde wywołanie gita w tym katalogu, także cudze.
+
+    **Asercje stoją na ZBIORZE ścieżek, nie na literach statusu.** Dzięki temu
+    `status.renames=false` — który zamienia `R` na parę `D`+`A`, czyli zmienia
+    KSZTAŁT wyjścia, a nie jego treść — nie zapala bramki na kodzie poprawnym.
+    """
+    import tempfile
+    with tempfile.TemporaryDirectory() as katalog:
+        def git(*a):
+            return subprocess.run(("git", "-C", katalog) + a,
+                                  capture_output=True, text=True, check=True)
+        git("init", "-q", ".")
+        for klucz, wartosc in (("user.email", "t@example.invalid"),
+                               ("user.name", "t"),
+                               ("status.showUntrackedFiles", "all"),
+                               ("status.renames", "true"),
+                               ("core.quotePath", "false"),
+                               ("core.excludesFile", os.devnull)):
+            git("config", klucz, wartosc)
+        for nazwa in ("alfa.txt", "beta.txt", "gamma.txt"):
+            with open(os.path.join(katalog, nazwa), "w", encoding="utf-8") as u:
+                u.write("x\n")
+        git("add", "-A")
+        git("commit", "-q", "-m", "x")
+
+        # **`zmienione_w_drzewie()` NAPRAWDĘ, z podmienionym `ROOT`, a nie
+        # `sciezki_ze_statusu` na cudzym wypisie — i to jest poprawka z KN-1.**
+        # Pierwsza wersja tej bramki wołała `git status` własnym podprocesem
+        # i podawała wynik parserowi. Zmierzone: przywrócenie `.strip()`
+        # w `_git_surowy` dawało przy niej **21/21 NA ZIELONO** — bramka pisana
+        # na tę usterkę nie obejmowała jej ani trochę, bo usterka siedzi
+        # w ODCZYCIE, a tamta droga odczyt omijała. Po tej zmianie ta sama
+        # mutacja daje 20/21. Podmiana `ROOT` idzie tym samym idiomem, co
+        # istniejąca w tym module podmiana `REPORTS`.
+        def widziane():
+            global ROOT
+            stary_root, stara_pamiec = ROOT, dict(_PAMIEC)
+            ROOT = katalog
+            try:
+                _PAMIEC.pop("zmienione", None)
+                return set(zmienione_w_drzewie())
+            finally:
+                ROOT = stary_root
+                _PAMIEC.clear()
+                _PAMIEC.update(stara_pamiec)
+
+        # Czyste repozytorium — zbiór pusty. Bez tego każda asercja niżej byłaby
+        # spełniona także przez parser zwracający wszystko, co popadnie.
+        assert widziane() == set(), (
+            "czyste repozytorium dało niepusty zbiór: %s" % sorted(widziane()))
+
+        # JEDEN plik niezaindeksowany — dokładnie przypadek usterki: wiodąca spacja
+        # w pierwszym (i jedynym) wpisie.
+        with open(os.path.join(katalog, "alfa.txt"), "a", encoding="utf-8") as u:
+            u.write("zmiana\n")
+        assert widziane() == {"alfa.txt"}, (
+            "pierwsza ścieżka wyszła z parsera obcięta albo zgubiona: %s — "
+            "`git status --porcelain -z` zaczyna wpis pliku NIEZAINDEKSOWANEGO "
+            "od SPACJI, więc `.strip()` na całym wyjściu przesuwa ją o znak"
+            % sorted(widziane()))
+
+        # TRZY naraz — usterka psuła zawsze dokładnie pierwszy wpis, więc przypadek
+        # jednoplikowy sam nie odróżnia „obcina pierwszy" od „obcina każdy".
+        with open(os.path.join(katalog, "beta.txt"), "a", encoding="utf-8") as u:
+            u.write("zmiana\n")
+        with open(os.path.join(katalog, "z spacja w nazwie.txt"), "w",
+                  encoding="utf-8") as u:
+            u.write("x\n")
+        assert widziane() == {"alfa.txt", "beta.txt", "z spacja w nazwie.txt"}, (
+            "zbiór przy trzech wpisach (w tym ścieżce ze spacją i pliku "
+            "nieśledzonym) się nie zgadza: %s" % sorted(widziane()))
+
+        # ZMIANA NAZWY — źródło ORAZ cel. Pole źródłowe stoi w osobnym kawałku BEZ
+        # kolumn `XY`; pętla, która go nie konsumuje, wkłada do zbioru jego `[3:]`.
+        git("add", "-A")
+        git("commit", "-q", "-m", "y")
+        git("mv", "gamma.txt", "delta.txt")
+        widzi = widziane()
+        assert "gamma.txt" in widzi and "delta.txt" in widzi, (
+            "zmiana nazwy: brak źródła albo brak celu w zbiorze: %s" % sorted(widzi))
+        assert "ma.txt" not in widzi and "mma.txt" not in widzi, (
+            "w zbiorze stoi śmieć z POLA ŹRÓDŁOWEGO, obcięty o trzy znaki: %s — "
+            "pole źródłowe wpisu `R` nie jest wpisem statusu i nie wolno go ciąć"
+            % sorted(widzi))
+
+        # Zmiana ZAINDEKSOWANA nie ma wiodącej spacji, więc usterka jej nie dotykała
+        # — i właśnie dlatego stoi tu osobno: bez niej bramka nie odróżnia „naprawione"
+        # od „nigdy nie było zepsute dla tego kształtu".
+        with open(os.path.join(katalog, "alfa.txt"), "a", encoding="utf-8") as u:
+            u.write("kolejna\n")
+        git("add", "alfa.txt")
+        assert "alfa.txt" in widziane(), (
+            "zmiana ZAINDEKSOWANA wypadła ze zbioru: %s" % sorted(widziane()))
 
 
 def test_commit_GRANICZNY_nie_jest_data_tylko_koncem_widzenia():
