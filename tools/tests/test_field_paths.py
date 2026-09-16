@@ -1763,11 +1763,22 @@ def _istnieje_w_drzewie(nazwa):
 # siedem adresów z WŁASNEGO bloku 6.D240, który wszedł do `bloki_wykonane()` w chwili
 # odhaczenia wiersza — sześć w polu „Wejście” (akcja sondująca, workflow, dwa zestawy
 # apt, dwa moduły testowe) i `test_all.py` w „Weryfikacji”.
+# 6.D241: 1011/63/400 -> 1013/64/401. Policzone DIFFEM list, nie odejmowaniem:
+# cztery adresy z WŁASNEGO bloku 6.D241, który wszedł do `bloki_wykonane()` w chwili
+# odhaczenia wiersza — `tools/tests/test_all.py` i `tools/ci/blender_smoke.sh`
+# w polu „Wejście”, `tools/tests/test_doctor_test_log.py` w „Wyjściu” (to pole drga
+# tu pierwszy raz od 6.D224 i dlatego jest wypisane osobno) oraz `tools/tests/test_all.py`
+# w „Weryfikacji”.
 # 6.D243: 1011/63/400 -> 1014/63/401. Policzone DIFFEM list, nie odejmowaniem:
 # cztery adresy z WŁASNEGO bloku 6.D243 — trzy w polu „Wejście”
 # (`.github/workflows/godot-first-run.yml`, `tools/ci/apt-packages/blender.txt`,
 # `tools/tests/test_ci_workflows.py`) i `tools/tests/test_all.py` w „Weryfikacji”.
-ADRESOW_W_WYKONANYCH = {"Wejście": 1014, "Wyjście": 63, "Weryfikacja": 401}
+# SCALENIE 6.D241 + 6.D243: 1016/64/402. **PRZELICZONE NA DRZEWIE PO SCALENIU,
+# a nie zsumowane z dwóch gałęzi** — i to nie jest ostrożność: 6.D243 sama dawała
+# 1014/63/401, 6.D241 sama 1013/64/401, a drzewo scalone ma 1016/64/402. Ani jedna
+# z tych dwóch liczb nie jest tu prawdziwa, bo oba bloki weszły do `bloki_wykonane()`
+# naraz i oba cytują `tools/tests/test_all.py` w „Weryfikacji”.
+ADRESOW_W_WYKONANYCH = {"Wejście": 1016, "Wyjście": 64, "Weryfikacja": 402}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
@@ -1806,9 +1817,13 @@ ADRESOW_W_WYKONANYCH = {"Wejście": 1014, "Wyjście": 63, "Weryfikacja": 401}
 # `test_backlog.py` z plotka „Weryfikacji" bloku 6.D230.
 # 6.D240: „Weryfikacja” 134 -> 135. Policzone DIFFEM listy: doszło JEDNO wywołanie,
 # `test_all.py test_ci_workflows.py` z własnego bloku 6.D240.
+# 6.D241: „Weryfikacja” 135 -> 136. Policzone DIFFEM listy: doszło JEDNO wywołanie,
+# `test_all.py test_doctor_test_log.py` z własnego bloku 6.D241.
 # 6.D243: „Weryfikacja” 135 -> 136. Policzone DIFFEM listy: doszło JEDNO wywołanie,
 # `test_all.py test_ci_workflows.py` z własnego bloku 6.D243.
-WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 136}
+# SCALENIE 6.D241 + 6.D243: „Weryfikacja” 137. Przeliczone na drzewie po scaleniu:
+# każdy z dwóch bloków niesie jedno wywołanie modułu w płotku „Weryfikacji”.
+WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 137}
 
 #: Ilu kandydatow zlego adresu daje regula prozy, per pole — 6.D158.
 # 12 -> 13 (14.09.2026, 6.D204): trzynastym kandydatem jest `test_mutation_sweep.py`

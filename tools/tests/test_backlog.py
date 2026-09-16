@@ -440,7 +440,7 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 # stawia poza zakresem — cytat przypinajacy WARTOSC zamiast WIERSZA (`test_t401_citation`)
 # i tytul dziela w rejestrze praw, ktorego nie pilnuje nic. Liczba POLICZONA przez
 # `len(detail_sections(...))` na pliku PO edycji, nie wpisana z pamieci.
-MINIMUM_DETAIL_BLOCKS = 309  # 6.D243: doszedł blok tej pozycji
+MINIMUM_DETAIL_BLOCKS = 310  # scalenie 6.D241 + 6.D243: DWA bloki, przeliczone
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
