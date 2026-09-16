@@ -145,7 +145,7 @@ def klasa_zapadki(nazwa, porownania):
 
 
 #: **Wszystkie zapadki pod `tools/tests/`, każda z klasą i modułem.**
-#: Zapadek: 57. **Przybitych: 17, częściowych: 3, WOLNYCH: 36, poza zasięgiem skanu: 1.**
+#: Zapadek: 58. **Przybitych: 17, częściowych: 3, WOLNYCH: 37, poza zasięgiem skanu: 1.**
 #:
 #: **To zdanie jest przepisane, a nie dopisane obok — po raz DRUGI (15.09.2026).**
 #: Stało tu najpierw „Trzydzieści osiem: 13 przybitych…" (11.09.2026, `52752c9`)
@@ -200,6 +200,11 @@ ZAPADKI = {
     "MINIMUM_CALLERS": (WOLNA, "test_platform_length_in_pipeline.py"),
     "MINIMUM_CLAIMS": (WOLNA, "test_report_claims.py"),
     "MINIMUM_DEKLARACJI": (WOLNA, "test_dead_constants_csharp.py"),
+    # 6.D225: dolne ostrze na skan dziur interpolacji. Bez niego oślepiony
+    # czytnik dziur jest dziś ZIELONY — martwych nie przybywa, bo dziś żadna
+    # stała nie wychodzi przez to na martwą. Klasa WOLNA: liczba dziur rośnie
+    # razem z kodem i przybicie jej czerwieniałoby przy każdej nowej interpolacji.
+    "MINIMUM_DZIUR": (WOLNA, "test_dead_constants_csharp.py"),
     "MINIMUM_DETAIL_BLOCKS": (PRZYBITA, "test_backlog.py"),
     "MINIMUM_DOCUMENTED_ITEMS": (CZESCIOWA, "test_backlog.py"),
     # 6.D203: dolne ostrze na skan liczebników z `test_prose_counts.py` — pilnuje,
@@ -728,7 +733,7 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
         "znaczy, że komuś ubył strażnik; w stronę `przybita`, że doszedł i wpis "
         "trzeba poprawić" % inna_klasa)
 
-    assert len(w_drzewie) == ZAPADEK_RAZEM == 57, (
+    assert len(w_drzewie) == ZAPADEK_RAZEM == 58, (
         "zapadek w drzewie %d, na liście %d, pomiar z 11.09.2026 mówił 38, "
         "po 6.D146 — 40, po 6.D147 — 42 (doszła zapadka na sekwencje ucieczki "
         "i próg KW jej skanu), po 6.D187 — 44 (dwa progi KW skanu gołych nazw), "
@@ -741,7 +746,10 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
         "a po 6.D216 — 54 (trzy podłogi na czytnik sekcji „zauważone”: sekcje, raporty "
         "i twierdzenia liczbowe), a po 6.D227 — 57 (dwie podłogi na czytnik slajsu "
         "zakresu: wąski i szeroki; szeroki stoi obok wąskiego, bo zwężenie WZORCA "
-        "i zwężenie OKNA zapalają różne)"
+        "i zwężenie OKNA zapalają różne), a po scaleniu 6.D225 — 58 (podłoga "
+        "`MINIMUM_DZIUR` na czytnik dziur interpolacji). **Liczba jest PRZELICZONA "
+        "z drzewa scalonego, a nie wzięta z żadnej strony konfliktu:** gałąź miała 56, "
+        "`main` 57, a scalone drzewo niesie OBIE zapadki i ma 58"
         % (len(w_drzewie), ZAPADEK_RAZEM))
 
     # Liczby zbiorcze. **Nie jest to ozdobnik komunikatu i pokazała to KN-7.**
@@ -751,14 +759,14 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
     # a „21 wolnych" staje się nieprawdą, której nie zgłasza nic. KN-7 wykonała
     # dokładnie ten scenariusz: jedyną czerwienią była ta asercja.
     ile = collections.Counter(w_drzewie.values())
-    assert (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM]) == (17, 3, 36, 1), (
+    assert (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM]) == (17, 3, 37, 1), (
         "klasy zapadek: przybitych %d, częściowych %d, WOLNYCH %d, poza skanem %d — "
         "pomiar z 11.09.2026 mówił 13/3/21/1, po 6.D146 — 13/3/23/1, a po 6.D147 — "
         "14/3/24/1, po 6.D151 — 15/3/23/1, po 6.D167 — 17/3/21/1, po 6.D187 — "
         "17/3/23/1, po 6.D190 — 17/3/24/1, po 6.D203 — 17/3/25/1, po 6.D206 — "
         "17/3/27/1, po 6.D207 — 17/3/28/1, a po 6.D209 — 17/3/29/1, a po 6.D222 — "
         "17/3/30/1, a po 6.D216 — 17/3/33/1, a po 6.D240 — 17/3/34/1, a po 6.D227 — "
-        "17/3/36/1; wolne to te, "
+        "17/3/36/1, a po 6.D225 — 17/3/37/1; wolne to te, "
         "które da się ruszyć "
         "w zakazaną stronę bez zapalenia czegokolwiek: %s"
         % (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM],

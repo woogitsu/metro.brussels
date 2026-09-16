@@ -372,7 +372,21 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 # `reports/6d223-podstawienie-myli-sie-w-obie-strony.md`.
 # 350 -> 351 (15.09.2026, 6.D224):
 # `reports/6d224-druga-plamka-tego-samego-sita.md`.
-MIN_REPORTS = 357
+# 351 -> 353: doszły DWA raporty, 6.D225 (`reports/6d225-dziura-interpolacji.md`)
+# i 6.D240 (`reports/6d240-sonda-nie-pytala-o-moduly.md`).
+# PO SCALENIU z `main`, ktory dolozyl `reports/6d241-…` i podniosl te sama zapadke
+# niezaleznie na 353: ZADNA z dwoch liczb nie opisuje drzewa scalonego, bo obie
+# gałęzie liczyly 353 wobec ROZNYCH zbiorow plikow. Liczba nizej jest PRZELICZONA
+# z katalogu po scaleniu.
+# PIATY konflikt na tej zapadce w ciagu jednej doby (16.09.2026, scalenie `main`
+# do 6.D250): galaz niosla 357, `main` 361, katalog po scaleniu ma 362. Zadna
+# ze stron nie opisywala drzewa, ktore powstalo — jak w czterech poprzednich.
+# To NIE jest usterka zapadki: rownosc (6.D45) jest tu wlasciwa, bo katalog ma
+# byc policzony co do pliku. Jest to natomiast ZMIERZONA CENA pracy rownoleglej
+# i zapisuje sie ja tutaj, zeby nastepny scalajacy nie szukal winy w liczbie:
+# kazda galaz dokladajaca raport wejdzie w ten konflikt, a jedynym poprawnym
+# rozstrzygnieciem jest POLICZENIE katalogu po scaleniu, nigdy wybor strony.
+MIN_REPORTS = 362
 
 #: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
 #: wierszem zaczynającym się od `**`, z którego `_header_shapes` czyta kształt.

@@ -1773,7 +1773,42 @@ def _istnieje_w_drzewie(nazwa):
 # trzy adresy z WŁASNEGO bloku 6.D247 — `tools/tests/test_suite_runtime_budget.py`
 # i `.github/workflows/python-tests.yml` w polu „Wejście”, `tools/tests/test_all.py`
 # w „Weryfikacji”.
-ADRESOW_W_WYKONANYCH = {"Wejście": 1015, "Wyjście": 64, "Weryfikacja": 402}
+# 6.D226: 1011/63/400 -> 1015/63/401. Policzone DIFFEM list: pięć adresów z WŁASNEGO
+# bloku 6.D226, który wszedł do `bloki_wykonane()` w chwili odhaczenia wiersza —
+# cztery w polu „Wejście” (dwa raporty i dwa pliki tabeli) i `test_all.py` w „Weryfikacji”.
+# 6.D243: 1011/63/400 -> 1014/63/401. Policzone DIFFEM list, nie odejmowaniem:
+# cztery adresy z WŁASNEGO bloku 6.D243 — trzy w polu „Wejście”
+# (`.github/workflows/godot-first-run.yml`, `tools/ci/apt-packages/blender.txt`,
+# `tools/tests/test_ci_workflows.py`) i `tools/tests/test_all.py` w „Weryfikacji”.
+# SCALENIE 6.D241 + 6.D243: 1016/64/402. **PRZELICZONE NA DRZEWIE PO SCALENIU,
+# a nie zsumowane z dwóch gałęzi** — i to nie jest ostrożność: 6.D243 sama dawała
+# 1014/63/401, 6.D241 sama 1013/64/401, a drzewo scalone ma 1016/64/402. Ani jedna
+# z tych dwóch liczb nie jest tu prawdziwa, bo oba bloki weszły do `bloki_wykonane()`
+# naraz i oba cytują `tools/tests/test_all.py` w „Weryfikacji”.
+# 6.D242: 1011/63/400 -> 1015/63/401. Policzone DIFFEM list, nie odejmowaniem:
+# pięć adresów z WŁASNEGO bloku 6.D242, który wszedł do `bloki_wykonane()` w chwili
+# odhaczenia wiersza — cztery w polu „Wejście” (`tools/ci/blender_install.sh`,
+# `.github/actions/probe-tools/action.yml`, `tools/ci/apt-packages/blender.txt`,
+# `tools/tests/test_ci_workflows.py`) i `tools/tests/test_all.py` w „Weryfikacji”.
+# „Wyjście” NIE DRGA: pole wymienia nazwy stałych i funkcji, nie ścieżki.
+# 1005/63/399 -> 1013/63/401 po scaleniu 6.D225 i 6.D240. Liczba jest PRZELICZONA
+# Z DRZEWA po scaleniu, a nie wzięta z żadnej z dwóch gałęzi: 6.D225 samo dawało
+# 1007/63/400, 6.D240 samo 1011/63/400, a scalone drzewo ma OBA bloki i daje
+# 1013/63/401. Wzięcie którejkolwiek strony konfliktu byłoby tu liczbą fałszywą,
+# a zsumowanie przyrostów (+2 i +6) dałoby 1013 przypadkiem, bo pola „Weryfikacja”
+# nakładają się na `test_all.py`. Policzone DIFFEM list, nie odejmowaniem.
+# PO SCALENIU 6.D225 z `main`: obie galezie podnosily te zapadke niezaleznie
+# i ZADNA Z DWOCH LICZB nie jest prawdziwa dla drzewa scalonego. Liczba nizej jest
+# PRZELICZONA DIFFEM Z DRZEWA po scaleniu; sumowanie przyrostow byloby tu bledem,
+# bo pola „Weryfikacja" obu blokow wolaja `test_all.py`, czyli ten sam adres.
+# 1028/64/406 -> 1033/65/407 (16.09.2026, 6.D228). Przyrost NIE pochodzi z nowych
+# adresow: blok 6.D228 dostal adnotacje ZROBIONE, wiec PRZESZEDL z populacji blokow
+# OTWARTYCH do WYKONANYCH razem ze swoimi polami. Zmierzone PODSTAWIENIEM, nie
+# odejmowaniem: po zdjeciu samego napisu ZROBIONE z wiersza czytnik daje z powrotem
+# 1028/64/406 i 141 wywolan, czyli dokladnie stare zapadki. Te cztery liczby rusza
+# odtad KAZDA adnotacja ZROBIONE, a nie tylko dopisany adres — i to jest wlasciwosc
+# populacji „bloki wykonane", nie usterka.
+ADRESOW_W_WYKONANYCH = {"Wejście": 1033, "Wyjście": 65, "Weryfikacja": 407}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
@@ -1816,7 +1851,26 @@ ADRESOW_W_WYKONANYCH = {"Wejście": 1015, "Wyjście": 64, "Weryfikacja": 402}
 # `test_all.py test_doctor_test_log.py` z własnego bloku 6.D241.
 # 6.D247: „Weryfikacja” 135 -> 136. Policzone DIFFEM listy: doszło JEDNO wywołanie,
 # `test_all.py test_suite_runtime_budget.py` z własnego bloku 6.D247.
-WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 137}
+# 6.D226: „Weryfikacja” 135 -> 136. DIFFEM listy: doszło JEDNO wywołanie,
+# `test_all.py test_csharp_test_methods.py` z własnego bloku 6.D226.
+# 6.D243: „Weryfikacja” 135 -> 136. Policzone DIFFEM listy: doszło JEDNO wywołanie,
+# `test_all.py test_ci_workflows.py` z własnego bloku 6.D243.
+# SCALENIE 6.D241 + 6.D243: „Weryfikacja” 137. Przeliczone na drzewie po scaleniu:
+# każdy z dwóch bloków niesie jedno wywołanie modułu w płotku „Weryfikacji”.
+# 6.D242: „Weryfikacja” 135 -> 136. Policzone DIFFEM listy: doszło JEDNO wywołanie,
+# `test_all.py test_ci_workflows.py` z własnego bloku 6.D242.
+# „Weryfikacja” 134 -> 136 po scaleniu 6.D225 i 6.D240: dwa wywołania modułu, po
+# jednym z własnego bloku każdej pozycji (`test_all.py test_dead_constants_csharp.py`
+# i `test_all.py test_ci_workflows.py`). Każda gałąź osobno dawała 135; liczba jest
+# przeliczona z drzewa po scaleniu.
+# PO SCALENIU: 136 -> 137, przeliczone Z DRZEWA scalonego, nie zlozone z dwoch
+# galezi — kazda dawala 136 wobec ROZNYCH zbiorow blokow i zadna nie opisuje drzewa,
+# ktore powstalo. Zsumowanie przyrostow (+2 i +2) dalo by 138, czyli o jeden za duzo:
+# pola „Weryfikacja" obu galezi wolaja `test_all.py`, wiec jeden adres jest WSPOLNY.
+# 141 -> 142 (16.09.2026, 6.D228): z tego samego powodu co `ADRESOW_W_WYKONANYCH`
+# wyzej — blok 6.D228 przeszedl do populacji WYKONANYCH ze swoim plotkiem
+# „Weryfikacja". Podstawienie: bez napisu ZROBIONE czytnik daje z powrotem 141.
+WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 142}
 
 #: Ilu kandydatow zlego adresu daje regula prozy, per pole — 6.D158.
 # 12 -> 13 (14.09.2026, 6.D204): trzynastym kandydatem jest `test_mutation_sweep.py`

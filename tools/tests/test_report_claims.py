@@ -1018,11 +1018,30 @@ if __name__ == "__main__":
 #: Naglowek dowolnego poziomu w raporcie.
 NAGLOWEK_RAPORTU = re.compile(r"^(#{1,6})\s+(.*)$")
 
-#: Rdzen nazwy sekcji. Brzmien jest w katalogu **23** po odjeciu numeru („Zauwazone przy
-#: okazji", „Zauwazone po drodze, nie tkniete”, „Co zauwazone przy okazji, nietkniete”),
-#: a numer waha sie od 5 do 10 — dlatego pytanie idzie o rdzen, nie o cale zdanie.
-#: Granica powiedziana wprost: sekcja nazwana „Uwagi na marginesie” wypadlaby z pomiaru.
-SEKCJA_ZAUWAZONE = re.compile(r"zauwa[zż]on", re.IGNORECASE)
+#: Rdzen nazwy sekcji. Brzmien jest w katalogu **36** po odjeciu numeru, a numer sekcji
+#: waha sie **od 2 do 12** — dlatego pytanie idzie o rdzen, nie o cale zdanie.
+#:
+#: **`zauwa[zż]on` -> `zauwa[zż]` (16.09.2026, 6.D228, decyzja wlasciciela). Ten akapit
+#: jest PRZEPISANY, a nie dopisany obok, i zmienia sie w nim ZDANIE O GRANICY, nie tylko
+#: rdzen.** Stalo tu: „sekcja nazwana »Uwagi na marginesie« wypadlaby z pomiaru". Zdanie
+#: bylo o przypadku HIPOTETYCZNYM — naglowka „Uwagi na marginesie" nie ma w katalogu ani
+#: razu — a prawdziwa granica biegla o wiele blizej i kosztowala **32 realne sekcje**:
+#: rdzen z koncowka imieslowu nie widzial rodziny odmian `zauwazylem`, czyli naglowkow
+#: „Co zauwazylem przy okazji, ale nie tknalem" (i dziesieciu dalszych brzmien).
+#: Zmierzone 16.09.2026 na `e1c63f7`: przed rozszerzeniem **169** sekcji w **165**
+#: raportach, po nim **201** w **197**; twierdzen liczbowych 219 -> 271.
+#:
+#: **Gdzie granica biegnie TERAZ, z liczbami zamiast przykladu hipotetycznego:**
+#:
+#: 1. Rdzen pyta o SLOWO, wiec poza pomiarem zostaje sekcja o tej samej tresci nazwana
+#:    slowem INNYM: „Znalezione po drodze, nie tkniete", „Co wyszlo przy okazji",
+#:    „Czego nie tknalem". Objecie ich wymaga LISTY SYNONIMOW, nie rdzenia — inna klasa
+#:    i ta pozycja jej nie podejmuje.
+#: 2. W druga strone: rdzen nie pyta, czy naglowek JEST sekcja — wchodzi slowo w dowolnej
+#:    roli. Zmierzone: 1 z 32 dolozonych taka sekcja nie jest
+#:    (`serializacja-jobow-ci.md` §7 „Bramka, bo zestaw tej zmiany nie zauwazyl"),
+#:    czyli zanieczyszczenie **3,1 %**, i jest ono POLICZONE, a nie oszacowane.
+SEKCJA_ZAUWAZONE = re.compile(r"zauwa[zż]", re.IGNORECASE)
 
 #: Ksztalty, ktore NIOSA cyfre, a twierdzeniem o drzewie nie sa: data, numer pozycji,
 #: numer PR-a, numer sekcji, sciezka z numerem wiersza, skrot commita. Bez tej maski
@@ -1041,13 +1060,27 @@ ADRES_NIE_TWIERDZENIE = re.compile(
 CYFRA_W_PROZIE = re.compile(r"(?<![\w.])\d+(?![\w])")
 
 #: Podlogi, nie rownosci: raportow przybywa z kazda pozycja, a rownosc kazalaby podnosic
-#: te liczbe przy kazdym commicie z raportem. Zmierzone 15.09.2026 na drzewie SPRZED tego
-#: commita: 157 sekcji w 153 raportach, 205 twierdzen liczbowych. Podlogi stoja na
-#: wartosciach PO nim — raport 6.D216 dokłada wlasna sekcje i dwa twierdzenia, a podloga
-#: ma kasac dzis, nie wczoraj.
-MIN_SEKCJI_ZAUWAZONE = 158
-MIN_RAPORTOW_Z_SEKCJA = 154
-MIN_TWIERDZEN_W_ZAUWAZONYCH = 207
+#: te liczbe przy kazdym commicie z raportem.
+#:
+#: **Przeliczone 16.09.2026 (6.D228) razem z rozszerzeniem rdzenia, w TYM SAMYM commicie,
+#: bo rozszerzenie przesuwa populacje o 32 sekcje.** Zmierzone na `e1c63f7`: **201**
+#: sekcji w **197** raportach, **271** twierdzen liczbowych.
+#:
+#: **Zapas 5 / 5 / 8 jest tu NOWY i ma powod, ktorego poprzednia wersja nie miala.**
+#: Tamte podlogi staly na wartosci z dnia commita, czyli z zapasem ZERO, i nigdy sie nie
+#: zapalily — bo w calej historii `reports/` nie ma ANI JEDNEGO usuniecia pliku ani
+#: zmiany nazwy (`--diff-filter=D` i `--diff-filter=R` daja zero). Teraz zapas jest
+#: potrzebny, bo ISTNIEJE ZNANA POPRAWKA, ktora te liczby OBNIZY: jeden z 32 dolozonych
+#: naglowkow sekcja nie jest i wnosi 1 sekcje, 1 raport i 2 twierdzenia. Podloga bez
+#: zapasu zapalilaby sie na jego poprawieniu, czyli na pracy POPRAWNEJ (6.D27).
+#:
+#: **Zapas nie oslepia bramki i to jest zmierzone, nie zalozone:** najmniejsza awaria,
+#: ktora te podlogi maja lapac — cofniecie rdzenia do `zauwa[zż]on` — kosztuje
+#: **32 / 32 / 52**, czyli szesc razy wiecej niz zapas. Oslepienie czytnika do zera
+#: kosztuje 201 / 197 / 271.
+MIN_SEKCJI_ZAUWAZONE = 196
+MIN_RAPORTOW_Z_SEKCJA = 192
+MIN_TWIERDZEN_W_ZAUWAZONYCH = 263
 
 
 def _zrodla_raportow():
@@ -1204,19 +1237,31 @@ def test_slajs_zakresu_jest_LICZONY_a_nie_odtwarzany_z_prozy():
     """6.D227: klasa 6.D210 ma co najmniej pięć wystąpień, a nie liczy jej nic.
 
     **Skąd.** 6.D210 §9 pisze „ramion `when` w `src/Sim/` dziś nie ma", a są cztery
-    (`src/Sim/Train/DriverKeys.cs:143,146,149,152`), od `877ab66` z 05.09.2026 — dziesięć
-    dni przed tamtym zdaniem. Nie jest to zwykła pomyłka: switch w `DriverKeys.cs`
+    (`src/Sim/Train/DriverKeys.cs:143,146,149,152`), od `877ab66` z 05.09.2026 — dziewięć
+    dni przed tamtym zdaniem (6d210 nosi nagłówek 14.09.2026; do 16.09 stało tu „dziesięć",
+    rozbieżne z raportem i komunikatem commitu tej samej pozycji). Nie jest to zwykła pomyłka: switch w `DriverKeys.cs`
     chodzi po `const char`, więc do populacji klasyfikatora 6.D210 **nie należy**
     i w tym zakresie zdanie jest PRAWDZIWE. Fałszywe robi je to, że zakres wzięto
     z kontekstu akapitu, a zapisano jako nazwę całego katalogu.
 
     **Zmierzone 16.09.2026, ręcznym przeglądem slajsu zawężonego do samych katalogów
-    (14 pozycji przy dzisiejszym wzorcu): pięć pewnych i jeden graniczny.** Poza przypadkiem założycielskim: `6d191`
-    („nigdy nie trafia w to samo" przy populacji dwóch przebiegów), `6d201`
-    („wszystkie 42 … sprawdzone na próbce pięciu pierwszych"), `podloga-sciezek-na-raport`
-    („22 wzmianki … wszystkie pod `.github/`" — a wzmianek o `tools/ci/*` jest dziś 65
-    w 27 raportach) i `ramka-w-sciezce` („poza `reports/` i `docs/` nie ma ani jednej" —
-    pomiar objął pięć miejsc, a katalogów najwyższego poziomu jest osiem).
+    (14 pozycji przy dzisiejszym wzorcu): CZTERY pewne.** Poza przypadkiem
+    założycielskim: `6d191` („nigdy nie trafia w to samo" przy populacji dwóch
+    przebiegów), `6d201` („wszystkie 42 … sprawdzone na próbce pięciu pierwszych")
+    i `ramka-w-sciezce` („poza `reports/` i `docs/` nie ma ani jednej" — pomiar objął
+    pięć miejsc, a katalogów najwyższego poziomu jest osiem).
+
+    **Ten akapit jest PRZEPISANY, a nie dopisany obok, i powód jest zawstydzający.**
+    Pierwsza wersja mówiła „pięć pewnych i jeden graniczny" i wymieniała wśród nich
+    `podloga-sciezek-na-raport`. **Tego raportu nie ma w ŻADNYM z dwóch slajsów** —
+    zmierzone: `waski=False szeroki=False`. Powód: jego zdanie mówi o `` `.github/` ``,
+    a `ZAKRES_W_GRAWISACH` żąda `[A-Za-z_]` jako pierwszego znaku, więc ścieżka
+    zaczynająca się KROPKĄ jest dla czytnika niewidzialna. Zakres, który tamto zdanie
+    NAZYWAŁO („slajs czternastu pozycji"), był więc szerszy od ZMIERZONEGO — czyli
+    dokładnie klasa 6.D210, popełniona w commicie, który ją gasi. Granica jest teraz
+    NAZWANA i ma własną bramkę
+    (`test_czytnik_zakresu_MILCZY_na_sciezce_zaczynajacej_sie_KROPKA`), zamiast czekać
+    na kolejny przegląd.
     """
     waski = list(twierdzenia_o_zakresie())
     szeroki = list(slajs_szeroki())
@@ -1278,6 +1323,45 @@ def test_czytnik_zakresu_MILCZY_na_zakresie_nazwanym_SLOWEM_i_to_jest_zapisane()
     assert len(slajs("- w `src/Sim/` nie ma ani jednego takiego ramienia")) == 1, (
         "ten sam zakres w grawisach też przestał być widziany — wtedy asercja wyżej "
         "jest zielona nad czytnikiem ślepym na wszystko")
+    # **Trzecia asercja, dopisana 16.09.2026 po przeglądzie adwersaryjnym.** Bez niej
+    # zdanie kontrolne wyżej („w całym rdzeniu symulacji…") nie ma ANI grawisów, ANI
+    # ukośnika — więc nie odróżnia „milczy bez grawisów" od „milczy bez ukośnika".
+    # Zmierzone: skreślenie grawisów ze wzorca (`ZAKRES_W_GRAWISACH` bez nich) daje
+    # 40/70 zamiast 35/64, a ta bramka zostawała ZIELONA. Bramka nazwana od granicy
+    # nie mierzyła granicy, którą nazywa.
+    assert slajs("- w src/Sim/ nie ma ani jednego takiego ramienia") == [], (
+        "zakres BEZ grawisów wszedł do slajsu — nazwa stałej mówi `W_GRAWISACH`, "
+        "a czytnik przestał ich wymagać; wtedy do pomiaru wchodzi każda ścieżka "
+        "z prozy, także wymieniona mimochodem")
+
+
+def test_czytnik_zakresu_MILCZY_na_sciezce_zaczynajacej_sie_KROPKA():
+    """DRUGA cicha granica, nazwana 16.09.2026 — i nazwana, bo mnie na niej złapano.
+
+    `ZAKRES_W_GRAWISACH` żąda `[A-Za-z_]` jako pierwszego znaku, więc `` `.github/` ``
+    i `` `.claude/` `` są dla czytnika niewidzialne. Nie jest to granica teoretyczna:
+    `reports/podloga-sciezek-na-raport.md` niesie zdanie „22 wzmianki … **wszystkie**
+    pod `.github/`", czyli podręcznikowy okaz klasy 6.D210 — a slajs go NIE WIDZI
+    (zmierzone: `waski=False szeroki=False`). Pierwsza wersja docstringa nad
+    `test_slajs_zakresu_jest_LICZONY…` wymieniała ten raport wśród znalezisk slajsu,
+    co było **nieprawdą tej samej klasy, którą ta pozycja gasi**.
+
+    **Dlaczego granica ZOSTAJE, a nie znika.** Dopuszczenie kropki na początku każe
+    wzorcowi łapać też skróty zdaniowe w rodzaju `` `.md` `` i końcówki ścieżek
+    cytowane bez katalogu, a te nie nazywają żadnego zakresu. Poszerzenie jest do
+    zrobienia, ale zmienia POPULACJĘ obu slajsów i obie podłogi, więc jest osobną
+    pozycją — nie przypisem do tej. Do tego czasu granica ma stać ZMIERZONA
+    i psuć się głośno w obie strony, zamiast czekać na następny przegląd.
+    """
+    def slajs(tekst):
+        return list(twierdzenia_o_zakresie([("p.md", "# R\n\n## 8. Zauważone\n\n" + tekst + "\n")]))
+
+    assert slajs("- wzmianek jest 22 i wszystkie leżą pod `.github/`") == [], (
+        "czytnik zaczął widzieć ścieżkę zaczynającą się KROPKĄ — jeżeli to zamierzone, "
+        "przepisz zdanie o granicy i przelicz OBIE podłogi, bo populacja slajsu rośnie")
+    assert len(slajs("- wzmianek jest 22 i wszystkie leżą pod `github/akcje`")) == 1, (
+        "ta sama ścieżka BEZ wiodącej kropki też przestała być widziana — wtedy "
+        "asercja wyżej jest zielona nad czytnikiem ślepym na wszystko")
 
 
 def test_czytnik_sekcji_zauwazone_widzi_caly_katalog():
@@ -1338,6 +1422,37 @@ def test_twierdzenie_DOPISANE_do_sekcji_WCHODZI_do_pomiaru():
         "nie przechodzi, wiec podlogi wyzej nie mowia o niczym: %r" % (twierdzenia,))
     assert "999" not in twierdzenia[0], "liczba z bloku kodu weszla jako twierdzenie"
     assert "42" not in twierdzenia[0], "liczba spoza sekcji weszla jako twierdzenie"
+
+
+def test_rdzen_widzi_rodzine_ZAUWAZYLEM_a_nie_tylko_ZAUWAZONE():
+    """Rozszerzenie rdzenia z 6.D228 postawione na ZACHOWANIU, nie na podlodze.
+
+    Podloga `MIN_SEKCJI_ZAUWAZONE` zapala sie po cofnieciu rdzenia, ale mowi tylko
+    „sekcji jest za malo” — a taki komunikat da sie uciszyc obnizeniem podlogi, czyli
+    dokladnie tym ruchem, przed ktorym 6.D27 ostrzega. Ta bramka mowi, KTOREGO
+    brzmienia zabraklo, i na wejsciu syntetycznym, wiec obnizenie podlogi jej nie
+    dotyczy. Cztery probki: dwie MAJA wejsc, dwie NIE MAJA — i te dwie sa granica
+    wypisana przy stalej, wykonana zamiast opisanej.
+    """
+    def naglowek(tekst):
+        return "\n".join(["# Raport probny", "", "## 8. " + tekst, "",
+                           "- **`src/Sim/Probka.cs` ma 17 wywolan** i nikt tego nie pilnuje."])
+
+    for tekst in ("Co zauwazylem przy okazji, ale nie tknalem",
+                  "Co zauważyłem przy okazji, ale nie tknąłem",
+                  "Zauważone przy okazji, nie tknięte"):
+        probka = [("probka.md", naglowek(tekst))]
+        assert len(list(sekcje_zauwazone(probka))) == 1, (
+            "rdzen NIE widzi naglowka %r — a takich naglowkow jest w katalogu 32 "
+            "i to one byly cala trescia 6.D228; jesli `SEKCJA_ZAUWAZONE` wrocilo do "
+            "koncowki imieslowu, ta asercja jest pierwsza, ktora to powie" % tekst)
+
+    for tekst in ("Uwagi na marginesie", "Znalezione po drodze, nie tkniete"):
+        probka = [("probka.md", naglowek(tekst))]
+        assert list(sekcje_zauwazone(probka)) == [], (
+            "naglowek %r wszedl do pomiaru, a komentarz przy `SEKCJA_ZAUWAZONE` mowi "
+            "wprost, ze rdzen pyta o SLOWO i takie brzmienia zostaja poza nim — "
+            "rozeszly sie kod i zdanie o granicy" % tekst)
 
 
 def test_maska_adresow_wycina_adres_a_zostawia_liczbe():
