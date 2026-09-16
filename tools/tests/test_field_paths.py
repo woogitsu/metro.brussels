@@ -1769,6 +1769,10 @@ def _istnieje_w_drzewie(nazwa):
 # w polu „Wejście”, `tools/tests/test_doctor_test_log.py` w „Wyjściu” (to pole drga
 # tu pierwszy raz od 6.D224 i dlatego jest wypisane osobno) oraz `tools/tests/test_all.py`
 # w „Weryfikacji”.
+# 6.D247: 1011/63/400 -> 1013/63/401. Policzone DIFFEM list, nie odejmowaniem:
+# trzy adresy z WŁASNEGO bloku 6.D247 — `tools/tests/test_suite_runtime_budget.py`
+# i `.github/workflows/python-tests.yml` w polu „Wejście”, `tools/tests/test_all.py`
+# w „Weryfikacji”.
 # 6.D242: 1011/63/400 -> 1015/63/401. Policzone DIFFEM list, nie odejmowaniem:
 # pięć adresów z WŁASNEGO bloku 6.D242, który wszedł do `bloki_wykonane()` w chwili
 # odhaczenia wiersza — cztery w polu „Wejście” (`tools/ci/blender_install.sh`,
@@ -1816,6 +1820,8 @@ ADRESOW_W_WYKONANYCH = {"Wejście": 1017, "Wyjście": 64, "Weryfikacja": 402}
 # `test_all.py test_ci_workflows.py` z własnego bloku 6.D240.
 # 6.D241: „Weryfikacja” 135 -> 136. Policzone DIFFEM listy: doszło JEDNO wywołanie,
 # `test_all.py test_doctor_test_log.py` z własnego bloku 6.D241.
+# 6.D247: „Weryfikacja” 135 -> 136. Policzone DIFFEM listy: doszło JEDNO wywołanie,
+# `test_all.py test_suite_runtime_budget.py` z własnego bloku 6.D247.
 # 6.D242: „Weryfikacja” 135 -> 136. Policzone DIFFEM listy: doszło JEDNO wywołanie,
 # `test_all.py test_ci_workflows.py` z własnego bloku 6.D242.
 WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 137}
