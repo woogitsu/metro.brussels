@@ -1011,6 +1011,171 @@ def twierdzenia_liczbowe_w_zauwazonych(zrodla=None):
                 yield nazwa, naglowek, punkt
 
 
+#: Orzeczenia UNIWERSALNE i NEGATYWNE — 6.D227.
+#:
+#: Lista jest WYBOREM, nie prawdą o języku, i dlatego stoi tu z liczbą obok: przy niej
+#: slajs wąski ma **35** pozycji, a slajs szeroki (zakres nazwany + orzeczenie
+#: gdziekolwiek w punkcie) — **64**. Różnica jest tu treścią, nie szumem: wąski pyta
+#: o zdania, w których zakres i orzeczenie STOJĄ OBOK SIEBIE, czyli o kształt, na
+#: którym potknęło się 6.D210.
+ORZECZENIA_ZAKRESU = (
+    "nie ma", "nie istnieje", "brak", "ani jeden", "ani jednej", "ani jednego",
+    "żaden", "żadna", "żadnego", "wszystkie", "każdy", "każda", "jedyny", "jedyna",
+    "nigdzie", "zero", "nie znalazłem", "nigdy",
+)
+
+#: Ile znaków może dzielić zakres od orzeczenia, żeby uznać je za stojące OBOK.
+#: Zmierzone 16.09.2026, na tym samym czytniku i tym samym katalogu: przy oknie **60**
+#: slajs wąski ma **35** pozycji, przy **20** — **17**, czyli mniej niż połowę. Okno
+#: jest więc WYBOREM, który zmienia wynik dwukrotnie, i dlatego stoi tu z obiema
+#: liczbami zamiast samo.
+OKNO_ZAKRESU = 60
+
+#: Katalog albo plik w grawisach — ZAKRES NAZWANY. **Plik jest tu policzony razem
+#: z katalogiem i to jest wybór, nie przeoczenie:** zdanie „w `src/Sim/Line/LineCore.cs`
+#: nie ma ani jednego" nazywa zakres tak samo jak zdanie o katalogu, a klasa, o którą
+#: pyta ta pozycja, bierze się z tego, że NAZWANY zakres jest szerszy od ZMIERZONEGO —
+#: bez względu na to, czy nazwą jest katalog, czy plik.
+#:
+#: Zmierzone, bo różnica jest duża i chcę, żeby następny czytający ją widział:
+#: wzorzec obejmujący **wyłącznie katalogi** (kończące się ukośnikiem) daje przy tym
+#: samym oknie **14** pozycji, a ten — **35**. Zawężenie do katalogów odcina więc
+#: dwie trzecie slajsu.
+ZAKRES_W_GRAWISACH = re.compile(r"`[A-Za-z_][\w./-]*/[\w./*-]*`")
+
+#: Podłogi obu slajsów. **Podłogi, nie równości, i to jest wybór z powodem:** raportów
+#: przybywa, a przepisywać ich nie wolno (6.D108), więc równość zapalałaby się na
+#: każdym nowym poprawnym raporcie (6.D27). Zero znaczyłoby „czytnik oślepł", a nie
+#: „nie ma takich zdań" — i dlatego podłoga w ogóle stoi.
+MIN_TWIERDZEN_O_ZAKRESIE = 35
+MIN_SLAJS_SZEROKI = 64
+
+
+def twierdzenia_o_zakresie(zrodla=None):
+    """`(raport, naglowek, punkt)` dla punktów, w których zakres stoi OBOK orzeczenia.
+
+    **Czego ta funkcja NIE robi, i to jest jej treść, nie zastrzeżenie:** nie mówi ani
+    słowa o tym, czy zdanie jest PRAWDZIWE. Liczy KSZTAŁT. 6.D216 zmierzyło trzema
+    powodami, że sito prawdziwości postawić się nie da, a 6.D227 sprawdziło to jeszcze
+    raz i znalazło trzy przypadki tekstu POPRAWNEGO, na których takie sito by się
+    zapaliło: `6d197` („domyślnych PO WYLICZENIU jest w `src/Sim/` zero" — prawdziwe
+    i zawężone, kształt identyczny), `6d209` („wystąpień … 51", dziś 55 — poprawne
+    w swoim dniu) i `6d185` („`KcvFunction` w `src/Game/` nie pada ani razu" — bez
+    kotwicy, a prawdziwe).
+
+    **Po co więc ta funkcja istnieje.** Bo slajsu, o który pyta ta klasa, nie liczy
+    dziś NIC — zmierzone podstawieniem: trzy mutacje w trzech różnych raportach,
+    w tym jedna zamieniająca zdanie prawdziwe w fałszywe, dały `2493/2493 przeszło`
+    i kod 0. Podłogi 6.D216 nie drgnęły, bo liczą sekcje i punkty z cyfrą, a żadna
+    z mutacji nie zmienia ani jednego, ani drugiego. Następna pozycja pytająca o tę
+    klasę nie będzie więc odtwarzać slajsu z prozy — i to jest cała zdobycz.
+    """
+    for nazwa, naglowek, tresc in sekcje_zauwazone(zrodla):
+        for punkt in punkty_sekcji(tresc):
+            maly = punkt.lower()
+            for trafienie in ZAKRES_W_GRAWISACH.finditer(punkt):
+                od = max(0, trafienie.start() - OKNO_ZAKRESU)
+                do = min(len(punkt), trafienie.end() + OKNO_ZAKRESU)
+                okno = maly[od:do]
+                if any(o in okno for o in ORZECZENIA_ZAKRESU):
+                    yield nazwa, naglowek, punkt
+                    break
+
+
+def slajs_szeroki(zrodla=None):
+    """Punkty z zakresem nazwanym i orzeczeniem GDZIEKOLWIEK — druga, luźniejsza miara.
+
+    Stoi obok wąskiej, bo bez niej zwężenie WZORCA i zwężenie OKNA zapalałyby tę samą
+    asercję i nie dałoby się ich odróżnić. Przy dzisiejszym drzewie: **64** wobec **35**.
+    """
+    for nazwa, naglowek, tresc in sekcje_zauwazone(zrodla):
+        for punkt in punkty_sekcji(tresc):
+            maly = punkt.lower()
+            if ZAKRES_W_GRAWISACH.search(punkt) and any(
+                    o in maly for o in ORZECZENIA_ZAKRESU):
+                yield nazwa, naglowek, punkt
+
+
+def test_slajs_zakresu_jest_LICZONY_a_nie_odtwarzany_z_prozy():
+    """6.D227: klasa 6.D210 ma co najmniej pięć wystąpień, a nie liczy jej nic.
+
+    **Skąd.** 6.D210 §9 pisze „ramion `when` w `src/Sim/` dziś nie ma", a są cztery
+    (`src/Sim/Train/DriverKeys.cs:143,146,149,152`), od `877ab66` z 05.09.2026 — dziesięć
+    dni przed tamtym zdaniem. Nie jest to zwykła pomyłka: switch w `DriverKeys.cs`
+    chodzi po `const char`, więc do populacji klasyfikatora 6.D210 **nie należy**
+    i w tym zakresie zdanie jest PRAWDZIWE. Fałszywe robi je to, że zakres wzięto
+    z kontekstu akapitu, a zapisano jako nazwę całego katalogu.
+
+    **Zmierzone 16.09.2026, ręcznym przeglądem slajsu zawężonego do samych katalogów
+    (14 pozycji przy dzisiejszym wzorcu): pięć pewnych i jeden graniczny.** Poza przypadkiem założycielskim: `6d191`
+    („nigdy nie trafia w to samo" przy populacji dwóch przebiegów), `6d201`
+    („wszystkie 42 … sprawdzone na próbce pięciu pierwszych"), `podloga-sciezek-na-raport`
+    („22 wzmianki … wszystkie pod `.github/`" — a wzmianek o `tools/ci/*` jest dziś 65
+    w 27 raportach) i `ramka-w-sciezce` („poza `reports/` i `docs/` nie ma ani jednej" —
+    pomiar objął pięć miejsc, a katalogów najwyższego poziomu jest osiem).
+    """
+    waski = list(twierdzenia_o_zakresie())
+    szeroki = list(slajs_szeroki())
+    assert len(waski) >= MIN_TWIERDZEN_O_ZAKRESIE, (
+        "slajs wąski ma %d pozycji przy podłodze %d — czytnik przestał widzieć "
+        "zakresy albo orzeczenia, a pusty slajs czyta się jak „nie ma takich zdań”"
+        % (len(waski), MIN_TWIERDZEN_O_ZAKRESIE))
+    assert len(szeroki) >= MIN_SLAJS_SZEROKI, (
+        "slajs szeroki ma %d pozycji przy podłodze %d — zwężenie WZORCA zapala się "
+        "tutaj, a zwężenie OKNA w asercji wyżej; bez dwóch podłóg nie da się ich "
+        "odróżnić" % (len(szeroki), MIN_SLAJS_SZEROKI))
+    assert len(waski) <= len(szeroki), (
+        "slajs wąski (%d) jest szerszy od szerokiego (%d) — jeden z czytników "
+        "przestał być zawężeniem drugiego" % (len(waski), len(szeroki)))
+
+
+def test_czytnik_zakresu_liczy_KSZTALT_a_nie_prawdziwosc():
+    """Kontrola przyrządu na wejściu SYNTETYCZNYM, w obie strony — i to jest sedno.
+
+    Zdanie ZAWĘŻONE („w switchach po wyliczeniu") ma wejść do pomiaru tak samo, jak
+    niezawężone. Bez tej asercji ktoś wziąłby tę bramkę za sito prawdziwości — a nią
+    nie jest i być nie może (6.D216, trzy powody; 6.D227, trzy nazwane przypadki
+    tekstu poprawnego).
+    """
+    def slajs(tekst):
+        return list(twierdzenia_o_zakresie([("p.md", "# R\n\n## 8. Zauważone\n\n" + tekst + "\n")]))
+
+    assert len(slajs("- ramion `when` w `src/Sim/` dziś nie ma")) == 1, (
+        "przypadek ZAŁOŻYCIELSKI tej pozycji — dosłowne zdanie z 6.D210 — wypadł "
+        "ze slajsu; bramka jest wtedy zielona nad klasą, dla której powstała")
+    assert len(slajs(
+        "- ramion `when` w switchach po wyliczeniu w `src/Sim/` dziś nie ma")) == 1, (
+        "zdanie ZAWĘŻONE wypadło ze slajsu — wtedy bramka zaczyna orzekać "
+        "o prawdziwości, a tego 6.D216 zabroniło trzema powodami")
+    # Druga strona: sam zakres bez orzeczenia i samo orzeczenie bez zakresu.
+    assert slajs("- czytnik chodzi po `src/Sim/` i zlicza ramiona") == [], (
+        "sam ZAKRES, bez orzeczenia uniwersalnego, wszedł do slajsu — czytnik liczy "
+        "wtedy każdą wzmiankę o katalogu i podłoga przestaje cokolwiek znaczyć")
+    assert slajs("- nie ma tu ani jednego takiego przypadku") == [], (
+        "samo ORZECZENIE, bez nazwanego zakresu, weszło do slajsu — a klasa 6.D210 "
+        "bierze się właśnie z tego, że zakres jest NAZWANY szerzej niż zmierzony")
+
+
+def test_czytnik_zakresu_MILCZY_na_zakresie_nazwanym_SLOWEM_i_to_jest_zapisane():
+    """Granica, o którą pozycja prosi wprost: na czym sito MILCZY.
+
+    Zakres nazwany słowem, bez grawisów i bez ukośnika, jest dla czytnika niewidzialny.
+    Nie jest to usterka do naprawienia przy okazji: poszerzenie na prozę wymagałoby
+    rozpoznawania nazw katalogów po znaczeniu, a nie po kształcie, i zapalałoby się
+    na zdaniach o czymkolwiek. Granica ma być NAZWANA, a nie zostawiona do odkrycia —
+    to jest ta sama cicha granica, o którą pyta 6.D228 dla rdzenia słowa.
+    """
+    def slajs(tekst):
+        return list(twierdzenia_o_zakresie([("p.md", "# R\n\n## 8. Zauważone\n\n" + tekst + "\n")]))
+
+    assert slajs("- w całym rdzeniu symulacji nie ma ani jednego takiego ramienia") == [], (
+        "czytnik zaczął widzieć zakres nazwany SŁOWEM — jeśli to zamierzone, "
+        "zdanie o granicy trzeba przepisać, a nie zostawić")
+    assert len(slajs("- w `src/Sim/` nie ma ani jednego takiego ramienia")) == 1, (
+        "ten sam zakres w grawisach też przestał być widziany — wtedy asercja wyżej "
+        "jest zielona nad czytnikiem ślepym na wszystko")
+
+
 def test_czytnik_sekcji_zauwazone_widzi_caly_katalog():
     """Podloga, nie rownosc — a zero znaczyloby „czytnik oslepl”, nie „nie ma sekcji”."""
     sekcje = list(sekcje_zauwazone())

@@ -1769,6 +1769,10 @@ def _istnieje_w_drzewie(nazwa):
 # w polu „Wejście”, `tools/tests/test_doctor_test_log.py` w „Wyjściu” (to pole drga
 # tu pierwszy raz od 6.D224 i dlatego jest wypisane osobno) oraz `tools/tests/test_all.py`
 # w „Weryfikacji”.
+# 6.D247: 1011/63/400 -> 1013/63/401. Policzone DIFFEM list, nie odejmowaniem:
+# trzy adresy z WŁASNEGO bloku 6.D247 — `tools/tests/test_suite_runtime_budget.py`
+# i `.github/workflows/python-tests.yml` w polu „Wejście”, `tools/tests/test_all.py`
+# w „Weryfikacji”.
 # 1005/63/399 -> 1013/63/401 po scaleniu 6.D225 i 6.D240. Liczba jest PRZELICZONA
 # Z DRZEWA po scaleniu, a nie wzięta z żadnej z dwóch gałęzi: 6.D225 samo dawało
 # 1007/63/400, 6.D240 samo 1011/63/400, a scalone drzewo ma OBA bloki i daje
@@ -1820,6 +1824,8 @@ ADRESOW_W_WYKONANYCH = {"Wejście": 1015, "Wyjście": 64, "Weryfikacja": 402}
 # `test_all.py test_ci_workflows.py` z własnego bloku 6.D240.
 # 6.D241: „Weryfikacja” 135 -> 136. Policzone DIFFEM listy: doszło JEDNO wywołanie,
 # `test_all.py test_doctor_test_log.py` z własnego bloku 6.D241.
+# 6.D247: „Weryfikacja” 135 -> 136. Policzone DIFFEM listy: doszło JEDNO wywołanie,
+# `test_all.py test_suite_runtime_budget.py` z własnego bloku 6.D247.
 # „Weryfikacja” 134 -> 136 po scaleniu 6.D225 i 6.D240: dwa wywołania modułu, po
 # jednym z własnego bloku każdej pozycji (`test_all.py test_dead_constants_csharp.py`
 # i `test_all.py test_ci_workflows.py`). Każda gałąź osobno dawała 135; liczba jest

@@ -235,7 +235,13 @@ ZAPADKI = {
     # — kontrola przyrzadu na wejsciu syntetycznym, ktora nie zalezy od katalogu.
     "MIN_RAPORTOW_Z_SEKCJA": (WOLNA, "test_report_claims.py"),
     "MIN_SEKCJI_ZAUWAZONE": (WOLNA, "test_report_claims.py"),
+    # 6.D227: obie podlogi slajsu zakresu. WOLNE z tego samego powodu co sasiedzi
+    # wyzej — raportow przybywa, przepisywac ich nie wolno (6.D108), wiec rownosc
+    # zapalalaby sie na kazdym nowym poprawnym raporcie. Sa DWIE, bo zwezenie
+    # WZORCA i zwezenie OKNA zapalaja rozne: bez pary nie da sie ich odroznic.
+    "MIN_SLAJS_SZEROKI": (WOLNA, "test_report_claims.py"),
     "MIN_STALYCH_Z_POMIAREM_W_KOMENTARZU": (WOLNA, "test_suite_runtime_budget.py"),
+    "MIN_TWIERDZEN_O_ZAKRESIE": (WOLNA, "test_report_claims.py"),
     "MIN_TWIERDZEN_W_ZAUWAZONYCH": (WOLNA, "test_report_claims.py"),
     "MINIMUM_METOD": (WOLNA, "test_csharp_assertions.py"),
     "MINIMUM_MIEJSC": (WOLNA, "test_runner_number_parsing.py"),
@@ -738,7 +744,12 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
         "(podłoga na skan kształtu `NAZWA = N` w raportach), a po 6.D222 — 51 "
         "(podłoga na liczbę plików YAML-a CI oglądanych przez loader ścisły), "
         "a po 6.D216 — 54 (trzy podłogi na czytnik sekcji „zauważone”: sekcje, raporty "
-        "i twierdzenia liczbowe)"
+        "i twierdzenia liczbowe), a po 6.D227 — 57 (dwie podłogi na czytnik slajsu "
+        "zakresu: wąski i szeroki; szeroki stoi obok wąskiego, bo zwężenie WZORCA "
+        "i zwężenie OKNA zapalają różne), a po scaleniu 6.D225 — 58 (podłoga "
+        "`MINIMUM_DZIUR` na czytnik dziur interpolacji). **Liczba jest PRZELICZONA "
+        "z drzewa scalonego, a nie wzięta z żadnej strony konfliktu:** gałąź miała 56, "
+        "`main` 57, a scalone drzewo niesie OBIE zapadki i ma 58"
         % (len(w_drzewie), ZAPADEK_RAZEM))
 
     # Liczby zbiorcze. **Nie jest to ozdobnik komunikatu i pokazała to KN-7.**
@@ -754,8 +765,8 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
         "14/3/24/1, po 6.D151 — 15/3/23/1, po 6.D167 — 17/3/21/1, po 6.D187 — "
         "17/3/23/1, po 6.D190 — 17/3/24/1, po 6.D203 — 17/3/25/1, po 6.D206 — "
         "17/3/27/1, po 6.D207 — 17/3/28/1, a po 6.D209 — 17/3/29/1, a po 6.D222 — "
-        "17/3/30/1, a po 6.D216 — 17/3/33/1, a po 6.D225 — 17/3/34/1, a po 6.D240 — "
-        "17/3/35/1; wolne to te, "
+        "17/3/30/1, a po 6.D216 — 17/3/33/1, a po 6.D240 — 17/3/34/1, a po 6.D227 — "
+        "17/3/36/1, a po 6.D225 — 17/3/37/1; wolne to te, "
         "które da się ruszyć "
         "w zakazaną stronę bez zapalenia czegokolwiek: %s"
         % (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM],
