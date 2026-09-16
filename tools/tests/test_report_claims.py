@@ -934,11 +934,30 @@ if __name__ == "__main__":
 #: Naglowek dowolnego poziomu w raporcie.
 NAGLOWEK_RAPORTU = re.compile(r"^(#{1,6})\s+(.*)$")
 
-#: Rdzen nazwy sekcji. Brzmien jest w katalogu **23** po odjeciu numeru („Zauwazone przy
-#: okazji", „Zauwazone po drodze, nie tkniete”, „Co zauwazone przy okazji, nietkniete”),
-#: a numer waha sie od 5 do 10 — dlatego pytanie idzie o rdzen, nie o cale zdanie.
-#: Granica powiedziana wprost: sekcja nazwana „Uwagi na marginesie” wypadlaby z pomiaru.
-SEKCJA_ZAUWAZONE = re.compile(r"zauwa[zż]on", re.IGNORECASE)
+#: Rdzen nazwy sekcji. Brzmien jest w katalogu **36** po odjeciu numeru, a numer sekcji
+#: waha sie **od 2 do 12** — dlatego pytanie idzie o rdzen, nie o cale zdanie.
+#:
+#: **`zauwa[zż]on` -> `zauwa[zż]` (16.09.2026, 6.D228, decyzja wlasciciela). Ten akapit
+#: jest PRZEPISANY, a nie dopisany obok, i zmienia sie w nim ZDANIE O GRANICY, nie tylko
+#: rdzen.** Stalo tu: „sekcja nazwana »Uwagi na marginesie« wypadlaby z pomiaru". Zdanie
+#: bylo o przypadku HIPOTETYCZNYM — naglowka „Uwagi na marginesie" nie ma w katalogu ani
+#: razu — a prawdziwa granica biegla o wiele blizej i kosztowala **32 realne sekcje**:
+#: rdzen z koncowka imieslowu nie widzial rodziny odmian `zauwazylem`, czyli naglowkow
+#: „Co zauwazylem przy okazji, ale nie tknalem" (i dziesieciu dalszych brzmien).
+#: Zmierzone 16.09.2026 na `e1c63f7`: przed rozszerzeniem **169** sekcji w **165**
+#: raportach, po nim **201** w **197**; twierdzen liczbowych 219 -> 271.
+#:
+#: **Gdzie granica biegnie TERAZ, z liczbami zamiast przykladu hipotetycznego:**
+#:
+#: 1. Rdzen pyta o SLOWO, wiec poza pomiarem zostaje sekcja o tej samej tresci nazwana
+#:    slowem INNYM: „Znalezione po drodze, nie tkniete", „Co wyszlo przy okazji",
+#:    „Czego nie tknalem". Objecie ich wymaga LISTY SYNONIMOW, nie rdzenia — inna klasa
+#:    i ta pozycja jej nie podejmuje.
+#: 2. W druga strone: rdzen nie pyta, czy naglowek JEST sekcja — wchodzi slowo w dowolnej
+#:    roli. Zmierzone: 1 z 32 dolozonych taka sekcja nie jest
+#:    (`serializacja-jobow-ci.md` §7 „Bramka, bo zestaw tej zmiany nie zauwazyl"),
+#:    czyli zanieczyszczenie **3,1 %**, i jest ono POLICZONE, a nie oszacowane.
+SEKCJA_ZAUWAZONE = re.compile(r"zauwa[zż]", re.IGNORECASE)
 
 #: Ksztalty, ktore NIOSA cyfre, a twierdzeniem o drzewie nie sa: data, numer pozycji,
 #: numer PR-a, numer sekcji, sciezka z numerem wiersza, skrot commita. Bez tej maski
@@ -957,13 +976,27 @@ ADRES_NIE_TWIERDZENIE = re.compile(
 CYFRA_W_PROZIE = re.compile(r"(?<![\w.])\d+(?![\w])")
 
 #: Podlogi, nie rownosci: raportow przybywa z kazda pozycja, a rownosc kazalaby podnosic
-#: te liczbe przy kazdym commicie z raportem. Zmierzone 15.09.2026 na drzewie SPRZED tego
-#: commita: 157 sekcji w 153 raportach, 205 twierdzen liczbowych. Podlogi stoja na
-#: wartosciach PO nim — raport 6.D216 dokłada wlasna sekcje i dwa twierdzenia, a podloga
-#: ma kasac dzis, nie wczoraj.
-MIN_SEKCJI_ZAUWAZONE = 158
-MIN_RAPORTOW_Z_SEKCJA = 154
-MIN_TWIERDZEN_W_ZAUWAZONYCH = 207
+#: te liczbe przy kazdym commicie z raportem.
+#:
+#: **Przeliczone 16.09.2026 (6.D228) razem z rozszerzeniem rdzenia, w TYM SAMYM commicie,
+#: bo rozszerzenie przesuwa populacje o 32 sekcje.** Zmierzone na `e1c63f7`: **201**
+#: sekcji w **197** raportach, **271** twierdzen liczbowych.
+#:
+#: **Zapas 5 / 5 / 8 jest tu NOWY i ma powod, ktorego poprzednia wersja nie miala.**
+#: Tamte podlogi staly na wartosci z dnia commita, czyli z zapasem ZERO, i nigdy sie nie
+#: zapalily — bo w calej historii `reports/` nie ma ANI JEDNEGO usuniecia pliku ani
+#: zmiany nazwy (`--diff-filter=D` i `--diff-filter=R` daja zero). Teraz zapas jest
+#: potrzebny, bo ISTNIEJE ZNANA POPRAWKA, ktora te liczby OBNIZY: jeden z 32 dolozonych
+#: naglowkow sekcja nie jest i wnosi 1 sekcje, 1 raport i 2 twierdzenia. Podloga bez
+#: zapasu zapalilaby sie na jego poprawieniu, czyli na pracy POPRAWNEJ (6.D27).
+#:
+#: **Zapas nie oslepia bramki i to jest zmierzone, nie zalozone:** najmniejsza awaria,
+#: ktora te podlogi maja lapac — cofniecie rdzenia do `zauwa[zż]on` — kosztuje
+#: **32 / 32 / 52**, czyli szesc razy wiecej niz zapas. Oslepienie czytnika do zera
+#: kosztuje 201 / 197 / 271.
+MIN_SEKCJI_ZAUWAZONE = 196
+MIN_RAPORTOW_Z_SEKCJA = 192
+MIN_TWIERDZEN_W_ZAUWAZONYCH = 263
 
 
 def _zrodla_raportow():
@@ -1254,6 +1287,37 @@ def test_twierdzenie_DOPISANE_do_sekcji_WCHODZI_do_pomiaru():
         "nie przechodzi, wiec podlogi wyzej nie mowia o niczym: %r" % (twierdzenia,))
     assert "999" not in twierdzenia[0], "liczba z bloku kodu weszla jako twierdzenie"
     assert "42" not in twierdzenia[0], "liczba spoza sekcji weszla jako twierdzenie"
+
+
+def test_rdzen_widzi_rodzine_ZAUWAZYLEM_a_nie_tylko_ZAUWAZONE():
+    """Rozszerzenie rdzenia z 6.D228 postawione na ZACHOWANIU, nie na podlodze.
+
+    Podloga `MIN_SEKCJI_ZAUWAZONE` zapala sie po cofnieciu rdzenia, ale mowi tylko
+    „sekcji jest za malo” — a taki komunikat da sie uciszyc obnizeniem podlogi, czyli
+    dokladnie tym ruchem, przed ktorym 6.D27 ostrzega. Ta bramka mowi, KTOREGO
+    brzmienia zabraklo, i na wejsciu syntetycznym, wiec obnizenie podlogi jej nie
+    dotyczy. Cztery probki: dwie MAJA wejsc, dwie NIE MAJA — i te dwie sa granica
+    wypisana przy stalej, wykonana zamiast opisanej.
+    """
+    def naglowek(tekst):
+        return "\n".join(["# Raport probny", "", "## 8. " + tekst, "",
+                           "- **`src/Sim/Probka.cs` ma 17 wywolan** i nikt tego nie pilnuje."])
+
+    for tekst in ("Co zauwazylem przy okazji, ale nie tknalem",
+                  "Co zauważyłem przy okazji, ale nie tknąłem",
+                  "Zauważone przy okazji, nie tknięte"):
+        probka = [("probka.md", naglowek(tekst))]
+        assert len(list(sekcje_zauwazone(probka))) == 1, (
+            "rdzen NIE widzi naglowka %r — a takich naglowkow jest w katalogu 32 "
+            "i to one byly cala trescia 6.D228; jesli `SEKCJA_ZAUWAZONE` wrocilo do "
+            "koncowki imieslowu, ta asercja jest pierwsza, ktora to powie" % tekst)
+
+    for tekst in ("Uwagi na marginesie", "Znalezione po drodze, nie tkniete"):
+        probka = [("probka.md", naglowek(tekst))]
+        assert list(sekcje_zauwazone(probka)) == [], (
+            "naglowek %r wszedl do pomiaru, a komentarz przy `SEKCJA_ZAUWAZONE` mowi "
+            "wprost, ze rdzen pyta o SLOWO i takie brzmienia zostaja poza nim — "
+            "rozeszly sie kod i zdanie o granicy" % tekst)
 
 
 def test_maska_adresow_wycina_adres_a_zostawia_liczbe():

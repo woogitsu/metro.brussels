@@ -378,7 +378,7 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 # niezaleznie na 353: ZADNA z dwoch liczb nie opisuje drzewa scalonego, bo obie
 # gałęzie liczyly 353 wobec ROZNYCH zbiorow plikow. Liczba nizej jest PRZELICZONA
 # z katalogu po scaleniu.
-MIN_REPORTS = 360
+MIN_REPORTS = 361
 
 #: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
 #: wierszem zaczynającym się od `**`, z którego `_header_shapes` czyta kształt.
