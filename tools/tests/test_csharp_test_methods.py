@@ -17,6 +17,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import csharp_test_methods as czytnik  # noqa: E402
 
+#: Korzen repozytorium — 6.D226 czyta oba pliki tabeli ze ZRODLA.
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+
 #: Ile metod testowych czytnik ma widziec co najmniej. ZMIERZONE 07.09.2026 po
 #: naprawie liczenia klamr (6.B28): **719**, czyli wszystkie atrybuty testowe
 #: w `tests/`. Prog stoi tu, bo poprzedni (`> 100`) byl spelniony rowniez wtedy,
@@ -241,6 +244,181 @@ POSTACIE_LITERALU = (
     ('x = """a"""; {}', "x =        ; {}", "surowy, otwarty trzema cudzyslowami"),
     ('x = $@"""a"; {}', "x =        ; {}", "werbatim interpolowany — NIE surowy"),
 )
+
+
+#: Tabela po stronie C# — 6.D226. Nazwa pliku i nazwa tablicy, obie sprawdzane.
+TABELA_CSHARP = ("tests/Game.Tests/UiTextTests.cs", "PostacieLiteralu")
+
+#: Ucieczki zwyklego literalu C#. Tabela jest MALA i to jest wybor: dekoder ma
+#: obsluzyc dokladnie to, co w tej tabeli stoi, a na wszystkim innym PASC GLOSNO
+#: (`KeyError`), a nie oddac napis przepuszczony bez zmiany. Dekoder milczacy
+#: o nieznanej ucieczce mowilby o sobie, a nie o pliku.
+UCIECZKI_CSHARP = {'"': '"', "\\": "\\", "n": "\n", "t": "\t", "r": "\r", "0": "\0"}
+
+
+def _odkoduj_zwykly_literal_csharp(kawalek):
+    """Tresc zwyklego literalu C# (`"..."`) — ucieczki rozwiniete.
+
+    **Dekoder jest PRZYBITY DO KOMPILATORA, nie do wyobrazenia (6.D226).** Zmierzone
+    16.09.2026: `dotnet test` zmuszony asercja do wypisania czterech wartosci
+    `PostacieLiteralu[i].Zapis` oddal je znak w znak tak, jak zwraca je ten dekoder
+    na tym samym pliku — wlacznie z postacia werbatim o potrojnym cudzyslowie.
+    Bez tego porownania dekoder bylby drugim czytnikiem tabeli, a nie jej odczytem.
+    """
+    assert kawalek.startswith('"'), kawalek
+    i, out = 1, []
+    while i < len(kawalek):
+        if kawalek[i] == "\\":
+            out.append(UCIECZKI_CSHARP[kawalek[i + 1]])
+            i += 2
+            continue
+        if kawalek[i] == '"':
+            return "".join(out)
+        out.append(kawalek[i])
+        i += 1
+    raise AssertionError("literal bez domkniecia: " + kawalek)
+
+
+def _sam_literal(tekst):
+    """Sam literal napisowy z `... = <literal>; ...`, albo None.
+
+    **Porownywany jest SAM LITERAL, a nie caly zapis, i to jest rozstrzygniecie
+    6.D226 oparte na pomiarze trzech stopni.** Zmierzone 16.09.2026:
+    (A) tekst zapisu BEZ odkodowania — rozjazd **4/4**, na samym escapowaniu, bo ten
+        sam cudzyslow pisze sie inaczej w Pythonie i w C#;
+    (B) tresc po odkodowaniu, CALY `Zapis` — rozjazd **4/4**, na rusztowaniu
+        (`x = ` wobec `var x = `, `{}` wobec `var y = 1;`);
+    (C) sam literal (od `= ` do domykajacego `;`) — **zbiory ROWNE co do znaku**.
+    Porownanie calych zapisow byloby wiec bramka swiecaca na kodzie POPRAWNYM, czyli
+    bramka do wylaczenia, nie do utrzymania (6.D27).
+
+    Odsiew niebedacych literalem idzie przez `klasy_literalow`, a nie przez wlasne
+    pytanie o pierwszy znak: kolumna `PoMasce` tabeli C# ma ksztalt
+    `var x =       ; var y = 1;`, wiec wycinek miedzy `= ` a `;` jest tam pusty
+    i bez tego odsiewu wszedlby do zbioru jako piaty element.
+    """
+    i = tekst.find("= ")
+    if i < 0:
+        return None
+    j = tekst.find(";", i)
+    if j < 0:
+        return None
+    wycinek = tekst[i + 2:j]
+    kawalki = [(rodzaj, kawalek) for rodzaj, kawalek, _ in czytnik._przebieg(wycinek)]
+    literaly = [kawalek for rodzaj, kawalek in kawalki if rodzaj == "literal"]
+    if len(literaly) != 1 or literaly[0] != wycinek:
+        return None
+    return wycinek
+
+
+#: **GRANICA NAZWANA, a nie przemilczana (6.D226).** Literal niosacy SREDNIK w tresci
+#: zostalby uciety po obu stronach TAK SAMO, wiec rozjazd za srednikiem bylby dla tej
+#: bramki niewidoczny. Sita na to swiadomie NIE MA: jedyne tanie (parzystosc
+#: cudzyslowow) zapala sie na literale POPRAWNYM z uciekanym cudzyslowem, czyli
+#: bylaby to bramka z 6.D27. Dzis zadna z czterech postaci srednika nie niesie.
+ZAPADKA_ZAPISOW = 4
+
+
+def zapisy_python():
+    """Same literaly z `POSTACIE_LITERALU`, czytane ZE ZRODLA, nie z importu.
+
+    Ze zrodla, bo pytanie brzmi „co stoi w pliku", a nie „co widzi ten proces" —
+    ta sama roznica, ktora 6.D131 nazwalo przy masce skladanej w tescie.
+    """
+    import ast as _ast
+    tekst = open(os.path.join(ROOT, "tools", "tests",
+                              "test_csharp_test_methods.py"), encoding="utf-8").read()
+    blok = tekst[tekst.index("POSTACIE_LITERALU = ("):]
+    blok = blok[:blok.index("\n)\n") + 3]
+    wynik = []
+    for element in _ast.parse(blok).body[0].value.elts:
+        literal = _sam_literal(_ast.literal_eval(element.elts[0]))
+        if literal:
+            wynik.append(literal)
+    return wynik
+
+
+def zapisy_csharp(zrodlo=None):
+    """Same literaly z tablicy `PostacieLiteralu` po stronie C#.
+
+    **Czytnik POZYCZONY (6.D213):** literaly bierze `czytnik._przebieg`, ten sam,
+    ktorym chodzi `maska`. Ma to skutek, ktory warto nazwac: wiersz tabeli zakomentowany
+    — blokowo albo przez `//` — jest wtedy KOMENTARZEM, a nie wierszem, **za darmo**
+    i bez ani jednej wlasnej reguly. Zmierzone: `maska` jest tu zlym narzedziem, bo
+    zaslania literaly W CALOSCI i czytnik na masce widzi ZERO wierszy tabeli.
+    """
+    if zrodlo is None:
+        with open(os.path.join(ROOT, TABELA_CSHARP[0]), encoding="utf-8") as uchwyt:
+            zrodlo = uchwyt.read()
+    blok = zrodlo[zrodlo.index(TABELA_CSHARP[1] + " ="):]
+    blok = blok[:blok.index("};") + 2]
+    wynik = []
+    for rodzaj, kawalek, _klasa in czytnik._przebieg(blok):
+        if rodzaj != "literal" or not kawalek.startswith('"'):
+            continue
+        literal = _sam_literal(_odkoduj_zwykly_literal_csharp(kawalek))
+        if literal:
+            wynik.append(literal)
+    return wynik
+
+
+def test_zbior_zapisow_literalu_jest_TEN_SAM_po_obu_stronach():
+    """6.D226: dwie listy tych samych czterech zapisow i nic nie pilnowalo zgodnosci.
+
+    **Oczekiwania MUSZA byc osobne** — `maska` zwraca kod, `Literaly` tresc — ale
+    **zapisy maja byc te same**, bo pytanie jest to samo: ktore cztery ksztalty
+    rozstrzygaja o galezi „surowy czy werbatim".
+
+    **ASYMETRIA, dla ktorej ta bramka istnieje, jest ZMIERZONA (16.09.2026).**
+    Skreslenie jednej z czterech postaci **po stronie C#** zapala od 6.D215
+    (`dotnet test tests/Game.Tests` -> `Failed: 1, Passed: 317`, na asercji zbioru
+    przedrostkow). To samo skreslenie **po stronie Pythona** — czyli w liscie, ktora
+    jest ZRODLEM — dawalo `python3 tools/tests/test_all.py` -> **2497/2497 przeszlo**,
+    zero czerwieni. Lista bedaca zrodlem byla chroniona SLABIEJ niz jej kopia.
+    """
+    py = zapisy_python()
+    cs = zapisy_csharp()
+    assert len(py) == ZAPADKA_ZAPISOW and len(cs) == ZAPADKA_ZAPISOW, (
+        "zapisow jest %d po stronie Pythona i %d po stronie C# przy zapadce %d — "
+        "czytnik przestal widziec wiersze tabeli albo tabela sie zwezila"
+        % (len(py), len(cs), ZAPADKA_ZAPISOW))
+    assert set(py) == set(cs), (
+        "ZBIORY zapisow literalu rozjechaly sie miedzy %s a %s:\n"
+        "  tylko w Pythonie: %s\n  tylko w C#: %s\n"
+        "kazdy zapis odpowiada innej galezi czytnika, wiec skreslenie jednego po "
+        "JEDNEJ stronie zdejmuje te galaz spod pomiaru po tej stronie i tylko po niej"
+        % ("tools/tests/test_csharp_test_methods.py", TABELA_CSHARP[0],
+           sorted(set(py) - set(cs)), sorted(set(cs) - set(py))))
+
+
+def test_czytnik_zapisow_WIDZI_rozjazd_na_wejsciu_wlasnym():
+    """Kontrola PRZYRZADU: zbior rozjazdow jest z zalozenia pusty (rodzina 6.D159).
+
+    Wejscie jest **CELOWO inne** niz tabela w drzewie — inaczej ta kontrola stalaby
+    sie trzecia kopia tej samej czworki, a pytanie brzmi o czytnik, nie o tabele.
+
+    **Pulapka w wejsciu to KOMENTARZ BLOKOWY MIEDZY wierszami tabeli**, i to jest
+    ksztalt, ktory naprawde cos mierzy: czytnik naiwny (regeks po `("`) wzialby
+    zakomentowany wiersz za wiersz tabeli. Czytnik pozyczony z `_przebieg` odsiewa
+    go za darmo — i ten test pilnuje, ze nadal odsiewa.
+    """
+    probna = (
+        '    private static readonly (string Zapis, string Tresc)[] PostacieLiteralu =\n'
+        '    {\n'
+        '        ("var a = @\\"alfa\\"; var b = 1;", "alfa"),\n'
+        '        /* ("var a = @\\"beta\\"; var b = 1;", "beta"), */\n'
+        '        ("var a = $@\\"gama\\"; var b = 1;", "gama"),\n'
+        '        // ("var a = @\\"delta\\"; var b = 1;", "delta"),\n'
+        '    };\n')
+    widziane = zapisy_csharp(probna)
+    assert widziane == ['@"alfa"', '$@"gama"'], (
+        "czytnik zapisow widzi %s — wiersz zakomentowany BLOKOWO albo przez `//` "
+        "nie jest wierszem tabeli, a czytnik naiwny bierze oba" % (widziane,))
+
+    rozjazd = probna.replace('$@\\"gama\\"', '@\\"gama\\"')
+    assert zapisy_csharp(rozjazd) != widziane, (
+        "podmiana przedrostka `$@` na `@` nie zmienila odczytu — czytnik nie czyta "
+        "przedrostka, wiec porownanie zbiorow bylo by zielone nad rozjazdem")
 
 
 def test_maska_ROZROZNIA_werbatim_od_surowego_na_obu_galeziach():
