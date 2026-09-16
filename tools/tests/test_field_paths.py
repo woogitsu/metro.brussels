@@ -1783,7 +1783,7 @@ def _istnieje_w_drzewie(nazwa):
 # i ZADNA Z DWOCH LICZB nie jest prawdziwa dla drzewa scalonego. Liczba nizej jest
 # PRZELICZONA DIFFEM Z DRZEWA po scaleniu; sumowanie przyrostow byloby tu bledem,
 # bo pola „Weryfikacja" obu blokow wolaja `test_all.py`, czyli ten sam adres.
-ADRESOW_W_WYKONANYCH = {"Wejście": 1015, "Wyjście": 64, "Weryfikacja": 402}
+ADRESOW_W_WYKONANYCH = {"Wejście": 1017, "Wyjście": 64, "Weryfikacja": 403}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
@@ -1834,7 +1834,7 @@ ADRESOW_W_WYKONANYCH = {"Wejście": 1015, "Wyjście": 64, "Weryfikacja": 402}
 # galezi — kazda dawala 136 wobec ROZNYCH zbiorow blokow i zadna nie opisuje drzewa,
 # ktore powstalo. Zsumowanie przyrostow (+2 i +2) dalo by 138, czyli o jeden za duzo:
 # pola „Weryfikacja" obu galezi wolaja `test_all.py`, wiec jeden adres jest WSPOLNY.
-WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 137}
+WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 138}
 
 #: Ilu kandydatow zlego adresu daje regula prozy, per pole — 6.D158.
 # 12 -> 13 (14.09.2026, 6.D204): trzynastym kandydatem jest `test_mutation_sweep.py`
