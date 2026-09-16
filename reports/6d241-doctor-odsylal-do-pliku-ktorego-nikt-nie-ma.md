@@ -197,14 +197,23 @@ Zapadki podniesione w tym samym commicie, każda z wartością DZISIEJSZĄ:
 `ASERCJI_NAPISOWYCH_RAZEM` **898** (było 886: osiem asercji pierwszej wersji modułu
 i cztery z poprawek po przeglądzie z §4a),
 `BAJTKOD_PO_COMPILEALL_PLIKI` **206** (było 205), `MODULOW_W_CALYM_DRZEWIE` **206**
-(było 205), `MIN_REPORTS` **353** (było 352), proza o liczbie modułów **127** (było 126),
+(było 205), `MIN_REPORTS` **354**, proza o liczbie modułów **127** (było 126),
 rozkład `tools/tests` **135** — w komentarzu zapadki stała liczba z 13.09.2026 i rozjechała
 się o cztery. **Tę ostatnią liczbę POPRAWIŁEM w tym commicie**, i jest to jedyna zmiana
 w tej pozycji, która nie wynika mechanicznie z dodania modułu, raportu i bloku. Pierwsza
 wersja tego raportu i opis commita mówiły o niej „zauważone, **nie tknięte**” — i to było
 nieprawdą, co znalazł przegląd z §4a. Zdanie jest tu **przepisane, a nie dopisane obok**.
 Bramki na ten rozkład **nadal nie ma** — i to zostaje do kolejki. Dalej, wszystkie policzone **diffem list**, nie odejmowaniem:
-`MINIMUM_DETAIL_BLOCKS` **309**, `ADRESOW_W_WYKONANYCH` **1013** / **64** / **401**
+`MINIMUM_DETAIL_BLOCKS` **310**, `ADRESOW_W_WYKONANYCH` **1016** / **64** / **402**
 (doszły cztery adresy własnego bloku tej pozycji; pole „Wyjście” drgnęło tu pierwszy
-raz od 6.D224) i `WYWOLAN_W_WYKONANYCH` **136** w polu „Weryfikacja” (jedno wywołanie
+raz od 6.D224) i `WYWOLAN_W_WYKONANYCH` **137** w polu „Weryfikacja” (jedno wywołanie
 `test_all.py test_doctor_test_log.py` z płotka własnego bloku).
+
+**Cztery z tych liczb są PRZELICZONE PRZY SCALENIU z 6.D243, a nie zsumowane** — i to
+jest tu treść, nie przypis. Chodzi o cztery zapadki: liczbę raportów, liczbę bloków
+sześciu pól, rozkład adresów i liczbę wywołań modułu. Ta pozycja sama dawała
+353 / 309 / 1013-64-401 / 136; 6.D243 sama — 353 / 309 / 1014-63-401 / 136. Drzewo
+scalone ma **354 / 310 / 1016-64-402 / 137**. **Ani jedna z liczb obu gałęzi nie jest
+prawdziwa po scaleniu**, bo oba bloki wchodzą do `bloki_wykonane()` naraz i oba cytują
+`tools/tests/test_all.py` w „Weryfikacji”. Wzięcie którejkolwiek strony konfliktu
+dałoby liczbę fałszywą — dlatego są policzone na drzewie po scaleniu.
