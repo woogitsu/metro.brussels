@@ -1,7 +1,8 @@
 name: Sonda narzędzi runnera
 description: >
-  Sprawdza, których bibliotek współdzielonych i poleceń brakuje, żeby instalacja
-  odpalała się tylko przy braku. Jedna implementacja zamiast siedmiu kopii.
+  Sprawdza, których bibliotek współdzielonych, poleceń i modułów Pythona brakuje,
+  żeby instalacja odpalała się tylko przy braku. Jedna implementacja zamiast ośmiu
+  kopii.
 
 # DLACZEGO TA AKCJA ISTNIEJE.
 #
@@ -9,7 +10,20 @@ description: >
 # w `godot-first-run.yml` z jedną dodatkową kontrolą (`xvfb-run`). Zmierzone sumami
 # SHA-256 treści kroków, nie na oko.
 #
-# Sonda pyta o BIBLIOTEKI I POLECENIA, nie o Blendera ani Godota. Blender przychodzi
+# SONDA PYTA TEŻ O MODUŁY PYTHONA — 16.09.2026, i ten akapit jest przepisany,
+# a nie dopisany obok. Poprzednia wersja mówiła „sonda pyta o BIBLIOTEKI I POLECENIA"
+# i była to prawda opisująca lukę, nie decyzję: `tools/tests/test_all.py` importuje
+# `yaml` w pięciu modułach, a PyYAML nie był ani sondowany, ani w żadnym zestawie apt.
+# Działał wyłącznie dlatego, że maszyny puli miały go z innych powodów — dokładnie ta
+# sama sytuacja, co `unzip` (kod 127, 07.09.2026) i `curl` (6.D77, 10.09.2026).
+# 15.09.2026 przestał: CZTERY joby naraz padły na `ModuleNotFoundError: No module
+# named 'yaml'` na trzech różnych maszynach puli (`github-runner-02`, `-03`, `-04`),
+# przy czym `station-details` i `tunnel-alignment` zdążyły wcześniej **poprawnie
+# wyrenderować** geometrię — czyli brak wychodził po ośmiu minutach pracy, a nie
+# w sondzie. To jest trzeci raz ta sama klasa i dlatego sonda pyta teraz także
+# o import.
+#
+# Sonda nie pyta o Blendera ani o Godota. Blender przychodzi
 # z przypiętego tarballa przez `tools/ci/blender_install.sh`, który sam sprawdza wersję
 # i sam jest tanią operacją, gdy się zgadza. Sonda na `command -v blender` byłaby tu
 # wręcz szkodliwa: na maszynie, która kiedykolwiek dostała Blendera z apt, znalazłaby
@@ -43,12 +57,20 @@ inputs:
       Puste pomija sondę poleceń.
     required: false
     default: ""
+  python-modules:
+    description: >
+      Moduły Pythona sondowane przez `python3 -c "import X"`, rozdzielone spacją
+      (np. "yaml"). Puste pomija sondę modułów. Sondą jest IMPORT, a nie obecność
+      pakietu w apt: nazwa pakietu (`python3-yaml`) i nazwa modułu (`yaml`) są różne,
+      a znaczenie ma wyłącznie to, czy `test_all.py` zdoła go zaimportować.
+    required: false
+    default: ""
 
 outputs:
   libs:
     description: >
-      `present`, gdy wszystko z `libraries` i `commands` jest na miejscu; `missing`,
-      gdy czegoś brakuje. Ta sama umowa co przed wydzieleniem, więc warunki
+      `present`, gdy wszystko z `libraries`, `commands` i `python-modules` jest na
+      miejscu; `missing`, gdy czegoś brakuje. Ta sama umowa co przed wydzieleniem, więc warunki
       `if: steps.tools.outputs.libs == 'missing'` w workflowach zostają bez zmian.
     value: ${{ steps.probe.outputs.libs }}
 
@@ -82,6 +104,7 @@ runs:
       env:
         WANT_LIBRARIES: ${{ inputs.libraries }}
         WANT_COMMANDS: ${{ inputs.commands }}
+        WANT_PYTHON_MODULES: ${{ inputs.python-modules }}
       run: |
         set -euo pipefail
         missing=""
@@ -98,9 +121,16 @@ runs:
         for tool in ${WANT_COMMANDS:-}; do
           command -v "$tool" >/dev/null 2>&1 || missing="$missing $tool"
         done
+        # Sondą modułu jest IMPORT w osobnym procesie, nie `pip show` ani `dpkg -l`.
+        # Pakiet zainstalowany, ale niewidoczny dla TEGO `python3` (inna wersja
+        # interpretera, zepsuty `sys.path`) jest dla zestawu brakiem tak samo, jak brak
+        # pakietu — a `test_all.py` woła dokładnie ten interpreter.
+        for modul in ${WANT_PYTHON_MODULES:-}; do
+          python3 -c "import $modul" >/dev/null 2>&1 || missing="$missing python3:$modul"
+        done
         if [ -z "$missing" ]; then
           echo "libs=present" >> "$GITHUB_OUTPUT"
-          echo "wszystko sondowane jest na miejscu: ${WANT_LIBRARIES:-} ${WANT_COMMANDS:-}"
+          echo "wszystko sondowane jest na miejscu: ${WANT_LIBRARIES:-} ${WANT_COMMANDS:-} ${WANT_PYTHON_MODULES:-}"
         else
           echo "libs=missing" >> "$GITHUB_OUTPUT"
           echo "brakuje:$missing — krok instalacji je doinstaluje"

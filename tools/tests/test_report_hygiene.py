@@ -372,7 +372,11 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 # `reports/6d223-podstawienie-myli-sie-w-obie-strony.md`.
 # 350 -> 351 (15.09.2026, 6.D224):
 # `reports/6d224-druga-plamka-tego-samego-sita.md`.
-MIN_REPORTS = 352  # 6.D225: doszedł `reports/6d225-dziura-interpolacji.md`
+# 351 -> 353: doszły DWA raporty, 6.D225 (`reports/6d225-dziura-interpolacji.md`)
+# i 6.D240 (`reports/6d240-sonda-nie-pytala-o-moduly.md`). Liczba jest przeliczona
+# z drzewa po scaleniu, a nie zsumowana z dwóch gałęzi — obie podniosły ją niezależnie
+# z 351 na 352 i naiwne wzięcie którejkolwiek strony dałoby 352 przy 353 plikach.
+MIN_REPORTS = 353
 
 #: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
 #: wierszem zaczynającym się od `**`, z którego `_header_shapes` czyta kształt.

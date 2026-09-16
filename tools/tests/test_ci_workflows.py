@@ -9,10 +9,14 @@ import glob
 import os
 import re
 import secrets
+import subprocess
+import sys
+import tempfile
 
 import yaml
 
 import assertion_gate as AG
+import tree_walk as TW
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 WORKFLOWS = os.path.join(ROOT, ".github", "workflows")
@@ -86,11 +90,14 @@ def test_ci_every_package_install_step_has_a_step_timeout():
                 continue
             checked += 1
             assert "timeout-minutes:" in step, (name, step.splitlines()[0].strip())
-    # Siedem, odkąd doszedł `material-style-smoke.yml` (bramka T-902). Liczba jest
-    # tu po to, żeby workflow, który PRZESTAŁ instalować biblioteki, nie wypadł
-    # z pętli po cichu — pętla po samych znalezionych krokach przeszłaby wtedy
-    # pusta i zielona.
-    assert checked == 7, f"oczekiwano siedmiu kroków instalacji, znaleziono {checked}"
+    # OSIEM od 16.09.2026 (6.D240), i ten komentarz jest przepisany, a nie dopisany
+    # obok. Poprzednia wersja mówiła „siedem, odkąd doszedł `material-style-smoke.yml`".
+    # Ósmy krok to `python-tests.yml` i jest PIERWSZYM, który nie instaluje niczego
+    # do renderowania: job `tools` nie miał dotąd ani sondy, ani instalacji, a zależał
+    # od PyYAML przez pięć modułów zestawu. Powód liczby zostaje ten sam co był:
+    # workflow, który PRZESTAŁ instalować, nie ma wypaść z pętli po cichu — pętla po
+    # samych znalezionych krokach przeszłaby wtedy pusta i zielona.
+    assert checked == 8, f"oczekiwano ośmiu kroków instalacji, znaleziono {checked}"
 
 
 # --- bramki na `tools/ci/*.sh`: WYKONANIE, nie napis w pliku --------------------
@@ -335,11 +342,14 @@ def test_ci_step_budget_covers_a_slow_mirror():
             assert step_budget * 60 >= install_s, (name, step_budget * 60, install_s)
             # po instalacji ma jeszcze zostać czas na samą pracę joba
             assert job_budget - step_budget >= 10, (name, job_budget, step_budget)
-    # Siedem, odkąd doszedł `material-style-smoke.yml` (bramka T-902). Liczba jest
-    # tu po to, żeby workflow, który PRZESTAŁ instalować biblioteki, nie wypadł
-    # z pętli po cichu — pętla po samych znalezionych krokach przeszłaby wtedy
-    # pusta i zielona.
-    assert checked == 7, f"oczekiwano siedmiu kroków instalacji, znaleziono {checked}"
+    # OSIEM od 16.09.2026 (6.D240), i ten komentarz jest przepisany, a nie dopisany
+    # obok. Poprzednia wersja mówiła „siedem, odkąd doszedł `material-style-smoke.yml`".
+    # Ósmy krok to `python-tests.yml` i jest PIERWSZYM, który nie instaluje niczego
+    # do renderowania: job `tools` nie miał dotąd ani sondy, ani instalacji, a zależał
+    # od PyYAML przez pięć modułów zestawu. Powód liczby zostaje ten sam co był:
+    # workflow, który PRZESTAŁ instalować, nie ma wypaść z pętli po cichu — pętla po
+    # samych znalezionych krokach przeszłaby wtedy pusta i zielona.
+    assert checked == 8, f"oczekiwano ośmiu kroków instalacji, znaleziono {checked}"
 
 
 PACKAGE_SETS = os.path.join(ROOT, "tools", "ci", "apt-packages")
@@ -348,6 +358,22 @@ PACKAGE_SETS = os.path.join(ROOT, "tools", "ci", "apt-packages")
 def _declared_set(step):
     match = re.search(r"apt_install\.sh --set ([A-Za-z0-9_-]+)", step)
     return match.group(1) if match else None
+
+
+def _sonda_pyta_o_sonames(name):
+    """Czy KTÓRYKOLWIEK job tego workflowa sonduje biblioteki współdzielone.
+
+    Odróżnia job renderujący od joba czysto pythonowego bez drugiej listy nazw —
+    czyta to, co w drzewie naprawdę stoi w `libraries:` (6.D213).
+    """
+    document = yaml.safe_load(_text(name))
+    for job in (document.get("jobs") or {}).values():
+        for step in job.get("steps") or []:
+            if str(step.get("uses", "")) != PROBE_ACTION:
+                continue
+            if ((step.get("with") or {}).get("libraries") or "").split():
+                return True
+    return False
 
 
 def test_ci_package_lists_live_in_one_place():
@@ -364,18 +390,33 @@ def test_ci_package_lists_live_in_one_place():
             assert os.path.isfile(path), (name, path)
             packages = [line.strip() for line in open(path, encoding="utf-8")
                         if line.strip() and not line.startswith("#")]
-            # Zestawy niosą już tylko BIBLIOTEKI systemowe — sam Blender przychodzi
-            # z przypiętego tarballa (`test_ci_blender_workflows_install_the_pinned_...`).
-            # Warunek zostaje mocny: zestaw musi dawać kontekst EGL, bo bez niego
-            # Blender startuje i wywraca się dopiero przy pierwszym renderze.
-            assert "libegl1" in packages, (declared, packages)
+            # Sam Blender przychodzi z przypiętego tarballa
+            # (`test_ci_blender_workflows_install_the_pinned_...`), więc zestawy niosą
+            # biblioteki systemowe i — od 16.09.2026 — moduły Pythona.
+            #
+            # WARUNEK EGL DOTYCZY ZESTAWÓW RENDERUJĄCYCH, a nie wszystkich, i to zdanie
+            # jest przepisane, a nie dopisane obok. Poprzednia wersja żądała `libegl1`
+            # od KAŻDEGO zestawu i była prawdziwa wobec drzewa, w którym każdy zestaw
+            # renderował. `python.txt` nie renderuje nic — job `tools` uruchamia sam
+            # zestaw testów — więc dziesięć bibliotek startowych Blendera byłoby tam
+            # instalacją 190 MB pod nic.
+            #
+            # Kryterium jest MECHANICZNE i czytane Z DRZEWA, nie z drugiej listy nazw
+            # zestawów: renderuje ten job, którego sonda pyta o sonames. Zestaw
+            # instalowany przez taki job musi dawać kontekst EGL, bo bez niego Blender
+            # startuje i wywraca się dopiero przy pierwszym renderze.
+            if _sonda_pyta_o_sonames(name):
+                assert "libegl1" in packages, (declared, packages)
             assert "blender" not in packages, (declared, packages,
                                                "zestaw apt znów instaluje Blendera")
-    # Siedem, odkąd doszedł `material-style-smoke.yml` (bramka T-902). Liczba jest
-    # tu po to, żeby workflow, który PRZESTAŁ instalować biblioteki, nie wypadł
-    # z pętli po cichu — pętla po samych znalezionych krokach przeszłaby wtedy
-    # pusta i zielona.
-    assert checked == 7, f"oczekiwano siedmiu kroków instalacji, znaleziono {checked}"
+    # OSIEM od 16.09.2026 (6.D240), i ten komentarz jest przepisany, a nie dopisany
+    # obok. Poprzednia wersja mówiła „siedem, odkąd doszedł `material-style-smoke.yml`".
+    # Ósmy krok to `python-tests.yml` i jest PIERWSZYM, który nie instaluje niczego
+    # do renderowania: job `tools` nie miał dotąd ani sondy, ani instalacji, a zależał
+    # od PyYAML przez pięć modułów zestawu. Powód liczby zostaje ten sam co był:
+    # workflow, który PRZESTAŁ instalować, nie ma wypaść z pętli po cichu — pętla po
+    # samych znalezionych krokach przeszłaby wtedy pusta i zielona.
+    assert checked == 8, f"oczekiwano ośmiu kroków instalacji, znaleziono {checked}"
 
 
 def test_ci_cache_key_hashes_the_same_package_list_the_step_installs():
@@ -651,10 +692,22 @@ def test_the_order_gate_is_looking_at_workflows_that_actually_install_packages()
     zostawiłoby bramkę zieloną.
     """
     z_instalacja = [n for n in _workflows() if "apt_install.sh" in _text(n)]
-    assert len(z_instalacja) == 7, z_instalacja
-    # I że w tych siedmiu jest co mierzyć: każdy woła co najmniej jedno polecenie
+    assert len(z_instalacja) == 8, z_instalacja
+    # I że jest co mierzyć: workflow RENDERUJĄCY woła co najmniej jedno polecenie
     # z tabeli, choćby przez instalator Blendera.
-    for name in z_instalacja:
+    #
+    # **Warunek jest zawężony do renderujących 16.09.2026 (6.D240) i to zdanie jest
+    # przepisane, a nie dopisane obok.** Poprzednia wersja żądała polecenia z tabeli
+    # od KAŻDEGO z siedmiu i była prawdziwa wobec drzewa, w którym każdy workflow
+    # instalujący cokolwiek instalował też `curl`. `python-tests.yml` instaluje
+    # MODUŁ Pythona i nie woła ani `curl`, ani `unzip`, ani `xvfb-run` — nie ma tam
+    # czego pilnować bramce kolejności i **to jest prawda o nim, a nie jego usterka**.
+    # Zawężenie idzie po tym samym kryterium, co warunek EGL wyżej: czy sonda pyta
+    # o sonames. Liczba renderujących jest asercją, więc wypadnięcie któregoś z nich
+    # nie przejdzie po cichu.
+    renderujace = [n for n in z_instalacja if _sonda_pyta_o_sonames(n)]
+    assert len(renderujace) == 7, renderujace
+    for name in renderujace:
         document = yaml.safe_load(_text(name))
         steps = list(document["jobs"].values())[0]["steps"]
         uzyte = set()
@@ -2060,6 +2113,19 @@ POLECENIA_Z_PAKIETOW = {
 }
 
 
+#: Moduł Pythona -> pakiet Debiana, który go dostarcza — 6.D240.
+#:
+#: **Ta tabela NIE jest tożsamościowa i to jest cały powód, dla którego istnieje.**
+#: `POLECENIA_Z_PAKIETOW` wyżej ma wpisy, gdzie polecenie i pakiet nazywają się tak
+#: samo (`curl`, `unzip`); tutaj nie zachodzi to ANI RAZ: moduł `yaml` przychodzi
+#: z pakietu `python3-yaml`. Reguły mechanicznej („dopisz przedrostek") świadomie nie
+#: ma — trafiałaby w PyYAML i myliła się na pierwszym module, którego pakiet nazywa
+#: się inaczej, a takich w Debianie jest więcej niż zgodnych.
+MODULY_Z_PAKIETOW = {
+    "yaml": "python3-yaml",
+}
+
+
 NAZWY_PAKIETOW_WYJATKI = {
     "libX11.so.6": "libx11-6",
 }
@@ -2184,6 +2250,16 @@ def test_kazda_kopia_listy_sonames_niesie_TEN_SAM_zestaw():
             for i, (libs, gdzie) in enumerate(sorted(kopie.items()), 1)))
 
 
+#: Ile wywołań akcji sondującej NIE podaje ani jednej biblioteki — 6.D240.
+#: Jedno: `python-tests.yml`, job `tools`, który nic nie renderuje i sonduje MODUŁY
+#: Pythona. Bez tej stałej podłoga niżej porównywałaby liczbę kopii listy sonames
+#: z liczbą wszystkich wywołań sondy i zapalałaby się na wywołaniu poprawnym (6.D27),
+#: a rozluźnienie jej do nierówności zdjęłoby ochronę, po którą powstała: przy
+#: `zebrane <= wolania` oślepienie parsera YAML-a przechodzi na zielono.
+#: Stała jest liczona w drugą stronę osobną asercją, więc nie może zestarzeć się cicho.
+WYWOLAN_SONDY_BEZ_BIBLIOTEK = 1
+
+
 def test_kopii_listy_sonames_jest_TYLE_ILE_WOLA_AKCJI_SONDUJACEJ():
     """Podłoga na liczbę kopii, ale **nie stała** — liczona z drzewa.
 
@@ -2203,11 +2279,18 @@ def test_kopii_listy_sonames_jest_TYLE_ILE_WOLA_AKCJI_SONDUJACEJ():
     assert wolania > 1, (
         "w drzewie jest %d wywołań %s — skan tekstowy przestał je widzieć, więc "
         "podłoga tej bramki nie chroni niczego" % (wolania, PROBE_ACTION))
-    assert zebrane == wolania, (
-        "parser YAML-a zebrał %d kopii listy sonames, a wywołań akcji sondującej "
-        "jest w tekście %d — skan przestał czytać część workflowów, a wtedy "
-        "porównanie kopii ze sobą jest zielone nad rozjazdem w tych nieczytanych"
-        % (zebrane, wolania))
+    assert zebrane + WYWOLAN_SONDY_BEZ_BIBLIOTEK == wolania, (
+        "parser YAML-a zebrał %d kopii listy sonames, wywołań sondy bez bibliotek "
+        "jest zadeklarowanych %d, a wywołań akcji sondującej jest w tekście %d — "
+        "skan przestał czytać część workflowów, a wtedy porównanie kopii ze sobą "
+        "jest zielone nad rozjazdem w tych nieczytanych"
+        % (zebrane, WYWOLAN_SONDY_BEZ_BIBLIOTEK, wolania))
+    bez = [n for n in _workflows()
+           if PROBE_ACTION in _text(n) and not _sonda_pyta_o_sonames(n)]
+    assert len(bez) == WYWOLAN_SONDY_BEZ_BIBLIOTEK, (
+        "wywołań sondy BEZ bibliotek jest %d (%s), a stała mówi %d — podnieś ją "
+        "razem z powodem albo sprawdź, czy sonda renderująca nie zgubiła listy"
+        % (len(bez), ", ".join(bez), WYWOLAN_SONDY_BEZ_BIBLIOTEK))
 
 
 def test_tool_installation_is_conditional_on_the_tool_being_missing():
@@ -2260,13 +2343,36 @@ def test_tool_installation_is_conditional_on_the_tool_being_missing():
           wanted = (probe[0].get("with") or {})
           packages = _apt_set_packages(_apt_set_of(text))
           sonames = (wanted.get("libraries") or "").split()
-          assert sonames, \
-              f"{name}: sonda nie podaje ani jednej biblioteki, więc zawsze zwróci present"
+          moduly = (wanted.get("python-modules") or "").split()
+          # **Sonda ma pytać o COKOLWIEK, co ten workflow instaluje — 16.09.2026
+          # (6.D240), i ten warunek jest przepisany, a nie dopisany obok.** Poprzednia
+          # wersja żądała niepustego `libraries:` i była prawdziwa wobec drzewa,
+          # w którym każdy job instalujący cokolwiek renderował. Job `tools`
+          # z `python-tests.yml` instaluje MODUŁ Pythona i bibliotek nie sonduje;
+          # żądanie od niego sonames kazałoby mu pytać o coś, czego nie instaluje,
+          # czyli robić dokładnie tę usterkę, którą ta bramka tropi.
+          #
+          # Zostaje to, po co bramka powstała: sonda pusta zawsze zwróci `present`,
+          # więc instalacja nie odpali się NIGDY — i wtedy brak wychodzi dopiero
+          # w środku pracy joba. Dokładnie to zdarzyło się 15.09.2026, gdy `tools`
+          # nie miał sondy w ogóle.
+          assert sonames or moduly, (
+              f"{name}: sonda nie podaje ani jednej biblioteki i ani jednego modułu, "
+              "więc zawsze zwróci present, a instalacja nie odpali się nigdy")
           for soname in sonames:
               package = _debian_package_for(soname)
               assert package in packages, (
                   f"{name}: sonda pyta o {soname} (pakiet {package}), a zestaw apt "
                   f"tego workflow tego nie instaluje: {sorted(packages)}")
+          for modul in moduly:
+              package = MODULY_Z_PAKIETOW.get(modul)
+              assert package, (
+                  f"{name}: sonda pyta o moduł {modul!r}, którego nie ma "
+                  "w MODULY_Z_PAKIETOW — dopisz go razem z nazwą pakietu, bo nazwa "
+                  "modułu i nazwa pakietu NIE są tym samym napisem")
+              assert package in packages, (
+                  f"{name}: sonda pyta o moduł {modul} (pakiet {package}), a zestaw "
+                  f"apt tego workflow tego nie instaluje: {sorted(packages)}")
 
           # Sonda poleceń musi iść za zestawem apt W OBIE STRONY, dla KAŻDEGO
           # polecenia z `POLECENIA_Z_PAKIETOW`, nie tylko dla `xvfb-run`.
@@ -2303,7 +2409,188 @@ def test_tool_installation_is_conditional_on_the_tool_being_missing():
               if "blender_install.sh" in run:
                   assert step.get("if") is None, \
                       f"{name}: instalator Blendera jest własną sondą i nie ma być bramkowany"
-    assert checked == 7, checked
+    # OSIEM od 16.09.2026 (6.D240): doszedł job `tools` z `python-tests.yml`, pierwszy
+    # bramkowany sondą, który nie renderuje. Podłoga jest tu po to, żeby job, który
+    # PRZESTAŁ bramkować instalację, nie wypadł z pętli po cichu.
+    assert checked == 8, checked
+
+
+#: Moduły, bez których `tools/tests/test_all.py` nie wstaje — 6.D240. Liczone
+#: Z DRZEWA przez `_moduly_spoza_biblioteki_standardowej()`, nie wpisane tutaj:
+#: lista wpisana z ręki rozjechałaby się przy pierwszym nowym imporcie i byłaby
+#: tą samą usterką, którą 6.D45 zmierzyło na `MIN_REPORTS`.
+#: Podłoga jest na LICZBĘ skanowanych modułów, żeby oślepiony skan nie wyszedł
+#: zielony na pustym zbiorze (rodzina 6.D159).
+MINIMUM_MODULOW_ZESTAWU = 100
+
+
+def _moduly_spoza_biblioteki_standardowej():
+    """Nazwy modułów spoza stdlib importowane przez `tools/tests/*.py`.
+
+    Czyta AST, nie grep: `import yaml` w komentarzu albo w napisie nie jest importem,
+    a `from yaml import safe_load` jest. Odsiew po `sys.stdlib_module_names` bierze
+    wiedzę z interpretera, a nie z drugiej listy nazw wpisanej do testu (6.D213).
+    """
+    import ast as _ast
+    katalog = os.path.join(ROOT, "tools", "tests")
+    # **`wlasne` to KAŻDY moduł pod `tools/`, nie tylko `tools/tests/`** — i ten wiersz
+    # jest tu dlatego, że pierwsza wersja brała wyłącznie `tools/tests/*.py`
+    # i zameldowała 63 „zależności spoza stdlib", wśród nich `braking`, `sweep`
+    # i `validate`, czyli własny kod projektu wołany przez `sys.path.insert`.
+    # Złapała to ta sama bramka, którą ten czytnik obsługuje — czyli ślepota czytnika
+    # nie zdążyła stać się wynikiem (rodzina 6.D221).
+    # Przejście idzie `tree_walk.walk`, nie `os.walk` — 6.D36. Bez wspólnego filtra
+    # skan wchodzi do kopii drzewa leżących pod katalogami z `.gitignore` i bierze
+    # STARE nazwy modułów za własne. Złapała to bramka
+    # `test_no_tool_walks_the_tree_without_the_shared_filter`, u mnie, przed werdyktem.
+    wlasne = set()
+    for _gdzie, _pod, pliki in TW.walk(os.path.join(ROOT, "tools"), ROOT):
+        wlasne |= {n[:-3] for n in pliki if n.endswith(".py")}
+    obce = set()
+    zeskanowanych = 0
+    for nazwa in sorted(os.listdir(katalog)):
+        if not nazwa.endswith(".py"):
+            continue
+        zeskanowanych += 1
+        with open(os.path.join(katalog, nazwa), encoding="utf-8") as uchwyt:
+            drzewo = _ast.parse(uchwyt.read(), filename=nazwa)
+        for wezel in _ast.walk(drzewo):
+            if isinstance(wezel, _ast.Import):
+                korzenie = [a.name.split(".")[0] for a in wezel.names]
+            elif isinstance(wezel, _ast.ImportFrom):
+                korzenie = [(wezel.module or "").split(".")[0]] if wezel.level == 0 else []
+            else:
+                continue
+            for korzen in korzenie:
+                if korzen and korzen not in wlasne and korzen not in sys.stdlib_module_names:
+                    obce.add(korzen)
+    return obce, zeskanowanych
+
+
+def _uruchom_sonde(libraries="", commands="", python_modules=""):
+    """Uruchamia CIAŁO kroku sondy z akcji i zwraca wartość `libs`.
+
+    **Wykonanie, a nie napis w pliku** — rodzina bramek `apt_install.sh` z 04.09.2026.
+    Powód jest tu zmierzony, nie zapożyczony: KN-3 przy 6.D240 zastąpiła pętlę
+    sondującą moduły napisem `true`, zostawiając w pliku i opis wejścia, i komentarz,
+    i **cały zestaw wyszedł 87/87 na zielono**. Bramka pytająca „czy w akcji stoi
+    `python3 -c`" przeszłaby tę mutację tak samo, bo napis by został.
+    """
+    body = _action_body(PROBE_ACTION)
+    with tempfile.TemporaryDirectory(prefix="metro-sonda-") as katalog:
+        wyjscie = os.path.join(katalog, "github_output")
+        open(wyjscie, "w", encoding="utf-8").close()
+        skrypt = os.path.join(katalog, "sonda.sh")
+        with open(skrypt, "w", encoding="utf-8") as uchwyt:
+            uchwyt.write(body)
+        srodowisko = dict(os.environ,
+                          WANT_LIBRARIES=libraries,
+                          WANT_COMMANDS=commands,
+                          WANT_PYTHON_MODULES=python_modules,
+                          GITHUB_OUTPUT=wyjscie)
+        proces = subprocess.run(["bash", skrypt], env=srodowisko,
+                                capture_output=True, text=True)
+        assert proces.returncode == 0, (proces.returncode, proces.stderr)
+        tresc = open(wyjscie, encoding="utf-8").read()
+    for wiersz in tresc.splitlines():
+        if wiersz.startswith("libs="):
+            return wiersz.split("=", 1)[1].strip()
+    raise AssertionError("sonda nie zapisała `libs=` do GITHUB_OUTPUT: " + tresc)
+
+
+def test_sonda_modulow_NAPRAWDE_sonduje_a_nie_tylko_o_tym_pisze():
+    """Kontrola przyrządu sondy, wykonana na jej WŁASNYM ciele — 6.D240.
+
+    Trzy przebiegi, bo dwa pierwsze osobno nic nie znaczą: sonda zwracająca zawsze
+    `missing` przeszłaby przebieg drugi, a sonda zwracająca zawsze `present` —
+    pierwszy. Trzeci pilnuje, żeby pusta lista nie zaczęła nagle meldować braku,
+    bo wtedy siedem jobów renderujących instalowałoby pakiety przy każdym przebiegu.
+
+    **Zmierzone, dlaczego ta bramka istnieje:** bez niej zastąpienie pętli
+    sondującej moduły napisem `true` przechodzi CAŁY zestaw na zielono (KN-3), a job
+    melduje wtedy `present` nad brakującym modułem — czyli instalacja nie odpala się
+    nigdy i brak wychodzi w środku przebiegu. To jest dokładnie ta awaria, po której
+    ta pozycja powstała, tylko wpuszczona z powrotem inną drogą.
+    """
+    assert _uruchom_sonde(python_modules="yaml") == "present", (
+        "sonda melduje brak modułu `yaml`, który ten interpreter ma — sonda "
+        "zawsze-missing kazałaby siedmiu jobom instalować pakiety przy każdym przebiegu")
+    nieistniejacy = "metro_bxl_modul_ktorego_nie_ma_" + secrets.token_hex(8)
+    assert _uruchom_sonde(python_modules=nieistniejacy) == "missing", (
+        "sonda melduje `present` dla modułu %r, którego NIE MA — pętla sondująca "
+        "moduły nie wykonuje się, więc instalacja nie odpali się nigdy" % nieistniejacy)
+    assert _uruchom_sonde() == "present", (
+        "sonda z pustymi listami melduje brak — wtedy każdy job instalowałby pakiety "
+        "przy każdym przebiegu, czyli odwrotność tego, po co ta sonda powstała")
+
+
+def test_kazdy_workflow_uruchamiajacy_zestaw_SONDUJE_jego_zaleznosci():
+    """6.D240: zależność realna, zadeklarowana nigdzie, kosztowała cztery joby naraz.
+
+    15.09.2026 `tools`, `visual-regression`, `station-details` i `tunnel-alignment`
+    padły JEDNOCZEŚNIE na `ModuleNotFoundError: No module named 'yaml'`, na trzech
+    różnych maszynach puli, przy **2386 testach przechodzących z 2389**. PyYAML nie był
+    ani sondowany, ani w żadnym zestawie apt — działał wyłącznie dlatego, że maszyny
+    puli miały go z innych powodów. Trzeci raz ta sama klasa: `unzip` doszedł do kodu
+    127 (07.09.2026), `curl` do 6.D77 (10.09.2026).
+
+    **Dlaczego to bramka, a nie sama poprawka konfiguracji.** Poprawka gasi dzisiejszy
+    pożar; bez tej bramki nowy workflow wołający zestaw wchodzi bez sondy i awaria
+    wraca tą samą drogą. Bramka pyta o to, co jest naprawdę sprawdzalne z drzewa:
+    **każdy workflow, który uruchamia `test_all.py` — wprost albo przez skrypt
+    z `tools/ci/` — musi sondować każdą pozabibliotekową zależność tego zestawu.**
+
+    **Czego ta bramka NIE robi, i to jest wypisane, a nie przemilczane:** nie sprawdza,
+    czy pakiet jest zainstalowany na maszynie — tego z repozytorium sprawdzić się nie
+    da. Sprawdza, że job **spyta**, zanim zacznie pracę. Cała wartość jest w momencie:
+    `station-details` i `tunnel-alignment` zdążyły 15.09.2026 **poprawnie wyrenderować**
+    geometrię, zanim brak wyszedł — czyli osiem minut pracy poszło na komunikat, który
+    sonda oddaje w sekundę.
+    """
+    obce, zeskanowanych = _moduly_spoza_biblioteki_standardowej()
+    assert zeskanowanych >= MINIMUM_MODULOW_ZESTAWU, (
+        "skan przeszedł po %d plikach `tools/tests/*.py` przy podłodze %d — czytnik "
+        "przestał widzieć katalog, a wtedy pusty zbiór zależności czyta się jako "
+        "jako brak zaleznosci" % (zeskanowanych, MINIMUM_MODULOW_ZESTAWU))
+    assert obce, (
+        "skan nie znalazł ANI JEDNEJ zależności spoza stdlib — to jest dokładnie ten "
+        "wynik, który dostałby czytnik oślepiony, a `yaml` w drzewie stoi")
+
+    skrypty_z_zestawem = {
+        nazwa for nazwa in os.listdir(os.path.join(ROOT, "tools", "ci"))
+        if nazwa.endswith(".sh")
+        and "test_all.py" in open(os.path.join(ROOT, "tools", "ci", nazwa),
+                                  encoding="utf-8").read()}
+    sprawdzonych = 0
+    for name in _workflows():
+        text = _text(name)
+        wola_zestaw = "test_all.py" in text or any(
+            skrypt in text for skrypt in skrypty_z_zestawem)
+        if not wola_zestaw:
+            continue
+        document = yaml.safe_load(text)
+        for jobname, job in (document.get("jobs") or {}).items():
+            kroki = job.get("steps") or []
+            if not any("test_all.py" in str(k.get("run", "")) or any(
+                    s in str(k.get("run", "")) for s in skrypty_z_zestawem)
+                    for k in kroki):
+                continue
+            sprawdzonych += 1
+            sondowane = set()
+            for krok in kroki:
+                if str(krok.get("uses", "")) == PROBE_ACTION:
+                    sondowane |= set(
+                        ((krok.get("with") or {}).get("python-modules") or "").split())
+            brakujace = sorted(obce - sondowane)
+            assert not brakujace, (
+                "%s:%s uruchamia zestaw testów, a nie sonduje jego zależności %s — "
+                "brak wyjdzie dopiero w środku przebiegu, po minutach pracy, zamiast "
+                "w sondzie (6.D240; 15.09.2026 kosztowało to cztery joby naraz)"
+                % (name, jobname, ", ".join(brakujace)))
+    assert sprawdzonych >= 4, (
+        "bramka obejrzała tylko %d jobów uruchamiających zestaw — 15.09.2026 padły "
+        "CZTERY naraz, więc skan widzący mniej nie widzi tego, co się zepsuło"
+        % sprawdzonych)
 
 
 def test_godot_lives_outside_the_workspace_that_checkout_wipes():

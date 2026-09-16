@@ -145,7 +145,7 @@ def klasa_zapadki(nazwa, porownania):
 
 
 #: **Wszystkie zapadki pod `tools/tests/`, każda z klasą i modułem.**
-#: Zapadek: 55. **Przybitych: 17, częściowych: 3, WOLNYCH: 34, poza zasięgiem skanu: 1.**
+#: Zapadek: 56. **Przybitych: 17, częściowych: 3, WOLNYCH: 35, poza zasięgiem skanu: 1.**
 #:
 #: **To zdanie jest przepisane, a nie dopisane obok — po raz DRUGI (15.09.2026).**
 #: Stało tu najpierw „Trzydzieści osiem: 13 przybitych…" (11.09.2026, `52752c9`)
@@ -255,6 +255,12 @@ ZAPADKI = {
     "MIN_MESSAGES": (WOLNA, "test_needle_specificity.py"),
     "MIN_BLOKOW_WYKONANYCH": (WOLNA, "test_field_paths.py"),
     "MINIMUM_MODULOW_SKANOWANYCH": (WOLNA, "test_bytecode_staleness.py"),
+    # 6.D240: podłoga na liczbę plików `tools/tests/*.py`, po których chodzi skan
+    # zależności zestawu. Bez niej oślepiony czytnik oddaje PUSTY zbiór zależności,
+    # a pusty zbiór czyta się jako „zestaw niczego nie potrzebuje" i bramka sondy
+    # wychodzi zielona nad każdym brakiem. Klasa WOLNA: modułów przybywa razem
+    # z zadaniami, więc przybicie czerwieniałoby przy każdym nowym module.
+    "MINIMUM_MODULOW_ZESTAWU": (WOLNA, "test_ci_workflows.py"),
     "MIN_MODULE_NAMES": (WOLNA, "test_field_paths.py"),
     "MIN_WYWOLAN_W_WYKONANYCH": (WOLNA, "test_field_paths.py"),
     "MIN_NEEDLES": (WOLNA, "test_needle_specificity.py"),
@@ -721,7 +727,7 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
         "znaczy, że komuś ubył strażnik; w stronę `przybita`, że doszedł i wpis "
         "trzeba poprawić" % inna_klasa)
 
-    assert len(w_drzewie) == ZAPADEK_RAZEM == 55, (
+    assert len(w_drzewie) == ZAPADEK_RAZEM == 56, (
         "zapadek w drzewie %d, na liście %d, pomiar z 11.09.2026 mówił 38, "
         "po 6.D146 — 40, po 6.D147 — 42 (doszła zapadka na sekwencje ucieczki "
         "i próg KW jej skanu), po 6.D187 — 44 (dwa progi KW skanu gołych nazw), "
@@ -742,13 +748,14 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
     # a „21 wolnych" staje się nieprawdą, której nie zgłasza nic. KN-7 wykonała
     # dokładnie ten scenariusz: jedyną czerwienią była ta asercja.
     ile = collections.Counter(w_drzewie.values())
-    assert (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM]) == (17, 3, 34, 1), (
+    assert (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM]) == (17, 3, 35, 1), (
         "klasy zapadek: przybitych %d, częściowych %d, WOLNYCH %d, poza skanem %d — "
         "pomiar z 11.09.2026 mówił 13/3/21/1, po 6.D146 — 13/3/23/1, a po 6.D147 — "
         "14/3/24/1, po 6.D151 — 15/3/23/1, po 6.D167 — 17/3/21/1, po 6.D187 — "
         "17/3/23/1, po 6.D190 — 17/3/24/1, po 6.D203 — 17/3/25/1, po 6.D206 — "
         "17/3/27/1, po 6.D207 — 17/3/28/1, a po 6.D209 — 17/3/29/1, a po 6.D222 — "
-        "17/3/30/1, a po 6.D216 — 17/3/33/1, a po 6.D225 — 17/3/34/1; wolne to te, "
+        "17/3/30/1, a po 6.D216 — 17/3/33/1, a po 6.D225 — 17/3/34/1, a po 6.D240 — "
+        "17/3/35/1; wolne to te, "
         "które da się ruszyć "
         "w zakazaną stronę bez zapalenia czegokolwiek: %s"
         % (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM],

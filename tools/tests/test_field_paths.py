@@ -1759,11 +1759,13 @@ def _istnieje_w_drzewie(nazwa):
 # czyta pliki. Ten sam mechanizm co przy 6.D221 i 6.D223 i tak samo wyliczony —
 # DIFFEM `adresy_pola_w_wykonanych` przed edycja i po niej. „Weryfikacja" NIE DRGA:
 # plotek tego bloku wola `dotnet test`, nie `test_all.py`.
-# 6.D225: 1005/63/399 -> 1007/63/400. Policzone DIFFEM list, nie odejmowaniem:
-# doszły trzy adresy z WŁASNEGO bloku 6.D225, który wszedł do `bloki_wykonane()`
-# w chwili odhaczenia wiersza — `test_csharp_test_methods.py` i
-# `test_dead_constants_csharp.py` w polu „Wejście”, `test_all.py` w „Weryfikacji”.
-ADRESOW_W_WYKONANYCH = {"Wejście": 1007, "Wyjście": 63, "Weryfikacja": 400}
+# 1005/63/399 -> 1013/63/401 po scaleniu 6.D225 i 6.D240. Liczba jest PRZELICZONA
+# Z DRZEWA po scaleniu, a nie wzięta z żadnej z dwóch gałęzi: 6.D225 samo dawało
+# 1007/63/400, 6.D240 samo 1011/63/400, a scalone drzewo ma OBA bloki i daje
+# 1013/63/401. Wzięcie którejkolwiek strony konfliktu byłoby tu liczbą fałszywą,
+# a zsumowanie przyrostów (+2 i +6) dałoby 1013 przypadkiem, bo pola „Weryfikacja”
+# nakładają się na `test_all.py`. Policzone DIFFEM list, nie odejmowaniem.
+ADRESOW_W_WYKONANYCH = {"Wejście": 1013, "Wyjście": 63, "Weryfikacja": 401}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
@@ -1800,9 +1802,11 @@ ADRESOW_W_WYKONANYCH = {"Wejście": 1007, "Wyjście": 63, "Weryfikacja": 400}
 # `test_prose_counts.py` z plotka „Weryfikacji" bloku tej pozycji.
 # 133 -> 134 (15.09.2026, 6.D219): jedno wywolanie modulu wiecej —
 # `test_backlog.py` z plotka „Weryfikacji" bloku 6.D230.
-# 6.D225: „Weryfikacja” 134 -> 135. Policzone DIFFEM listy: doszło JEDNO
-# wywołanie, `test_all.py test_dead_constants_csharp.py` z własnego bloku 6.D225.
-WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 135}
+# „Weryfikacja” 134 -> 136 po scaleniu 6.D225 i 6.D240: dwa wywołania modułu, po
+# jednym z własnego bloku każdej pozycji (`test_all.py test_dead_constants_csharp.py`
+# i `test_all.py test_ci_workflows.py`). Każda gałąź osobno dawała 135; liczba jest
+# przeliczona z drzewa po scaleniu.
+WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 136}
 
 #: Ilu kandydatow zlego adresu daje regula prozy, per pole — 6.D158.
 # 12 -> 13 (14.09.2026, 6.D204): trzynastym kandydatem jest `test_mutation_sweep.py`
