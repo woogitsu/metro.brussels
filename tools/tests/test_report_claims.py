@@ -23,12 +23,15 @@ z kodem, albo raport wysyła czytelnika po nieistniejący próg. Ta różnica �
 liczby. Prawdę czyta `WARTOSC_W_KODZIE` z `tools/` i `src/`; raport jest stroną
 porównywaną, nigdy źródłem.
 """
+import ast
 import datetime
 import glob
 import os
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import tree_walk as TW  # noqa: E402
@@ -206,7 +209,28 @@ def _git(*argumenty):
 
 
 def _data(iso):
-    return datetime.datetime.fromisoformat(iso) if iso else None
+    """Data z wypisu `git log --format=%cI`, ODPORNA na doklejone wiersze — 6.D250.
+
+    **Bierze OSTATNI niepusty wiersz, a nie cały napis, i to jest treść tej funkcji.**
+    `log.showSignature` w konfiguracji gita każe dokleić PRZED wypisem wynik weryfikacji
+    podpisu (`No signature` na commicie niepodpisanym, wiersz `signature` na
+    podpisanym), więc `--format=%cI` przestaje być jedyną treścią wyjścia.
+    `fromisoformat` rzucał wtedy `ValueError`, a padały TRZY zastane bramki tego
+    modułu — **na kodzie POPRAWNYM**. Zmierzone 16.09.2026 na tym repozytorium:
+    TRZY bramki padają bez poprawki, zero z nią, przy tym samym `~/.gitconfig`
+    (proporcja była 17/20 w dniu pomiaru i 18/21 po scaleniu #640 — dlatego stoi
+    tu LICZBA PADAJĄCYCH, a nie ułamek: mianownik rusza każda cudza praca).
+
+    Wywołania mają dodatkowo `--no-show-signature`, więc te wiersze zwykle w ogóle nie
+    powstają. **Obie drogi są tu celowo, bo bronią przed czym innym:** flaga usuwa
+    znany powód, a ta funkcja przeżywa KAŻDY doklejony wiersz — także taki, którego
+    dziś nie znamy. Sama flaga nie wystarcza, bo dotyczy wywołań wymienionych z ręki
+    i nowe wywołanie `git log` w tym module odtworzyłoby usterkę bez śladu.
+    """
+    if not iso:
+        return None
+    wiersze = [w for w in iso.splitlines() if w.strip()]
+    return datetime.datetime.fromisoformat(wiersze[-1].strip()) if wiersze else None
 
 
 _PAMIEC = {}
@@ -341,9 +365,14 @@ def data_z_commita(wypis, granice):
     Wejście jest tu więc syntetyczne z konieczności, nie z wygody: ta sama bramka ma
     działać tak samo w kontenerze z klonem płytkim i na runnerze z `fetch-depth: 0`.
     """
-    if not wypis or " " not in wypis:
+    if not wypis:
         return None
-    sha, iso = wypis.split(" ", 1)
+    # OSTATNI niepusty wiersz — z tego samego powodu co w `_data` (6.D250):
+    # `log.showSignature` dokleja wiersze PRZED wypisem, a `sha` stoi w tym właściwym.
+    wiersze = [w for w in wypis.splitlines() if w.strip()]
+    if not wiersze or " " not in wiersze[-1]:
+        return None
+    sha, iso = wiersze[-1].strip().split(" ", 1)
     return None if sha in granice else _data(iso)
 
 
@@ -373,7 +402,9 @@ def data_stalej(nazwa, wartosc_w_drzewie):
         # Skutek był taki, że stała dostawała datę CUDZEGO commitu — tego samego,
         # który wniósł cytujący ją raport — więc daty wychodziły równe co do sekundy
         # i twierdzenie raportu nie było zwalniane, choć zmieniło się po nim.
-        wypis = _git("log", "-1", "--full-history", "--format=%H %cI",
+        # `--no-show-signature` — patrz `data_raportu` niżej, ten sam powód.
+        wypis = _git("log", "-1", "--full-history", "--no-show-signature",
+                     "--format=%H %cI",
                      "-G", DEFINICJA_W_HISTORII % re.escape(nazwa), "--", *pliki)
         _PAMIEC[klucz] = data_z_commita(wypis, granice_plytkiego_klonu())
     return _PAMIEC[klucz]
@@ -394,7 +425,20 @@ def data_raportu(nazwa_pliku):
         # Zmierzone 16.09.2026 na odtworzonej scalance: z `--full-history` po obu
         # stronach data `6d241-…md` skacze na 14:44:31 i bramka zgłasza TRZY
         # twierdzenia tego raportu jako nieaktualne, choć zmieniły się przed nim.
-        _PAMIEC[klucz] = _data(_git("log", "-1", "--format=%cI", "--", wzgledna))
+        # **`--no-show-signature`, i to nie jest ozdoba — 6.D250.** `log.showSignature`
+        # w CUDZYM `~/.gitconfig` każe gitowi dokleić przed wypisem wiersze weryfikacji
+        # podpisu, więc `--format=%cI` przestaje być jedyną treścią wyjścia:
+        #     'signature\n813f660c… 2026-09-02T21:47:55+00:00'
+        # `datetime.fromisoformat` rzuca na tym `ValueError`, a padają wtedy TRZY
+        # zastane bramki tego modułu — na kodzie POPRAWNYM. Jest to 6.D27 od strony
+        # fałszywego alarmu: bramka melduje usterkę, której nie ma, i to komunikatem
+        # nie do odróżnienia od prawdziwej. Zmierzone 16.09.2026: bez flagi TRZY czerwone,
+        # z flagą 20/20, przy tym samym kodzie i tym samym `~/.gitconfig`.
+        # Flaga jest tu ODPORNIEJSZA niż `-c log.showSignature=false`: dotyczy tego
+        # jednego wywołania i nie zależy od tego, czy ustawienie przyszło z pliku
+        # globalnego, lokalnego czy ze zmiennej środowiskowej.
+        _PAMIEC[klucz] = _data(_git("log", "-1", "--no-show-signature",
+                                    "--format=%cI", "--", wzgledna))
     return _PAMIEC[klucz]
 
 
@@ -789,6 +833,241 @@ def test_status_porcelain_NIE_gubi_pierwszego_znaku_pierwszej_sciezki():
         assert "alfa.txt" in widziane(), (
             "zmiana ZAINDEKSOWANA wypadła ze zbioru: %s" % sorted(widziane()))
 
+def test_datowanie_PRZEZYWA_wiersze_doklejone_przed_wypisem_loga():
+    """6.D250: `log.showSignature` psuł TRZY zastane bramki na kodzie POPRAWNYM.
+
+    **Skąd.** `log.showSignature = true` w konfiguracji gita każe dokleić przed
+    wypisem wynik weryfikacji podpisu, więc `--format=%cI` przestaje być jedyną
+    treścią wyjścia i `fromisoformat` rzuca `ValueError`. Zmierzone 16.09.2026 na tym
+    repozytorium: **trzy bramki czerwone** bez poprawki, **zero** z nią, ten sam kod i ten sam
+    `~/.gitconfig`. Jest to 6.D27 od strony FAŁSZYWEGO ALARMU — bramka meldowała
+    usterkę, której nie ma, komunikatem nieodróżnialnym od prawdziwej awarii.
+
+    **Wejście jest SYNTETYCZNE i to jest wybór z pomiaru, nie wygoda.** Pierwsza
+    wersja tej bramki budowała repozytorium próbne z `log.showSignature=true`.
+    Kontrola negatywna ją obaliła: zdjęcie `--no-show-signature` z `data_raportu`
+    dawało przy niej **21/21 NA ZIELONO**. Powód zmierzony — git dokleja te wiersze
+    tylko wtedy, gdy commit jest PODPISANY albo gdy `gpg.format` wskazuje backend,
+    który zgłasza błąd; commity repozytorium próbnego są niepodpisane, więc fixture
+    nie odtwarzał niczego. **To zostaje prawdą — ale zdanie, które tu stało po niej,
+    było FAŁSZYWE i jest PRZEPISANE, a nie dopisane obok (16.09.2026).** Stało:
+    „bramka wierna wymagałaby kluczy podpisujących w środowisku przebiegu". Nie
+    wymagałaby, i jest to zmierzone: commit z nagłówkiem `gpgsig` składa się z ręki
+    przez `git hash-object -t commit -w --stdin`, a podpis może być UDAWANY, bo git
+    dokleja wiersze o podpisie **niezależnie od wyniku weryfikacji**. Bramka wierna
+    stoi więc niżej w tym module (`test_KAZDE_wywolanie_git_log_daje_TEN_SAM_wypis…`)
+    i żadnych kluczy nie potrzebuje. Zdanie zostało obalone, bo zaczęłoby odstraszać
+    od bramek behawioralnych w miejscach, gdzie są wykonalne — a to jest koszt
+    większy niż jedna bramka.
+
+    Ta bramka mierzy mimo to **zachowanie PARSERA**, i to nadal jest właściwy
+    przedmiot: parser ma być odporny na wielowierszowy wypis niezależnie od tego,
+    czy flaga gdziekolwiek stoi. Obie połowy poprawki mają dziś własną bramkę.
+    """
+    assert _data("2026-09-16T14:00:00+00:00") == datetime.datetime(
+        2026, 9, 16, 14, 0, tzinfo=datetime.timezone.utc), (
+        "`_data` przestała czytać zwykły wypis jednowierszowy — wtedy asercje niżej "
+        "są zielone nad czytnikiem, który nie czyta niczego")
+    for doklejka in ("No signature\n",
+                     "signature\n813f660cf19451eac69941aecae84b33d4cfd5e7\n",
+                     "gpg: Signature made Wed 16 Sep 2026\ngpg: Good signature\n"):
+        assert _data(doklejka + "2026-09-16T14:00:00+00:00") == datetime.datetime(
+            2026, 9, 16, 14, 0, tzinfo=datetime.timezone.utc), (
+            "`_data` nie przeżyła wierszy doklejonych przed wypisem (%r) — "
+            "`log.showSignature` w cudzej konfiguracji wywraca przez to bramki "
+            "tego modułu na kodzie POPRAWNYM" % doklejka)
+    assert data_z_commita(
+        "No signature\n813f660c 2026-09-16T14:00:00+00:00", frozenset()) == \
+        datetime.datetime(2026, 9, 16, 14, 0, tzinfo=datetime.timezone.utc), (
+        "`data_z_commita` nie przeżyła doklejki — bierze `sha` z pierwszego wiersza "
+        "zamiast z tego, który niesie format")
+    # Druga strona: commit GRANICZNY ma nadal dawać `None`, także z doklejką.
+    assert data_z_commita("No signature\n813f660c 2026-09-16T14:00:00+00:00",
+                          frozenset({"813f660c"})) is None, (
+        "doklejka zasłoniła rozpoznanie commitu GRANICZNEGO — `None` znaczy "
+        "„nie wiadomo” i nie wolno go zgubić")
+
+
+def _repo_z_PODPISANYM_commitem(baza):
+    """Repozytorium próbne z commitem niosącym nagłówek `gpgsig` — bez ani jednej binarki.
+
+    **Commit powstaje przez `git hash-object -t commit -w`, a nie przez `git commit`,
+    i to jest wybór z pomiaru.** `git commit` na maszynie z `commit.gpgsign = true`
+    w cudzym `~/.gitconfig` woła program podpisujący; gdy tego programu nie ma, kończy
+    kodem **128**, a bramka melduje usterkę, której nie ma. Obiekt commitu składany
+    z ręki nie woła niczego i wychodzi tak samo na każdej maszynie. Piny
+    `commit.gpgsign=false` i `core.hooksPath=os.devnull` stoją tu mimo to, bo
+    `git add` i `git write-tree` wykonuje się w cudzym środowisku, a pin kosztuje
+    jedno wywołanie.
+
+    Podpis jest UDAWANY (`AAAA`) i to wystarcza: git ogląda ramkę armor, próbuje
+    zweryfikować i **niezależnie od wyniku** dokleja wiersz do wypisu. Weryfikacja
+    udana nie jest do niczego potrzebna — potrzebna jest doklejka.
+    """
+    repo = os.path.join(baza, "repo")
+    os.makedirs(repo)
+
+    def g(*a, **kw):
+        return subprocess.run(("git",) + a, cwd=repo, capture_output=True, text=True, **kw)
+
+    g("init", "-q", "-b", "glowna", ".")
+    for klucz, wartosc in (("user.name", "Probny"),
+                           ("user.email", "probny@example.invalid"),
+                           ("commit.gpgsign", "false"),
+                           ("core.hooksPath", os.devnull)):
+        g("config", klucz, wartosc)
+    with open(os.path.join(repo, "a.txt"), "w") as plik:
+        plik.write("a\n")
+    g("add", "-A")
+    drzewo = g("write-tree").stdout.strip()
+    podpis = "-----BEGIN SSH SIGNATURE-----\nAAAA\n-----END SSH SIGNATURE-----"
+    tresc = ("tree %s\n"
+             "author Probny <probny@example.invalid> 1789000000 +0000\n"
+             "committer Probny <probny@example.invalid> 1789000000 +0000\n"
+             "gpgsig %s\n\nprobny\n" % (drzewo, podpis.replace("\n", "\n ")))
+    sha = subprocess.run(["git", "hash-object", "-t", "commit", "-w", "--stdin"],
+                         cwd=repo, input=tresc, capture_output=True, text=True).stdout.strip()
+    g("update-ref", "HEAD", sha)
+    return repo
+
+
+def _srodowisko(baza, nazwa, tresc_gitconfig):
+    """`HOME` (i XDG) odsunięte na własny katalog z podaną konfiguracją gita.
+
+    Dwa takie środowiska — jedno z `log.showSignature = true`, drugie z konfiguracją
+    PUSTĄ — są całą miarą tej bramki: wywołanie zgodne z regułą daje w obu ten sam
+    wypis, wywołanie bez flagi daje inny.
+    """
+    dom = os.path.join(baza, nazwa)
+    os.makedirs(dom)
+    with open(os.path.join(dom, ".gitconfig"), "w") as plik:
+        plik.write(tresc_gitconfig)
+    srodowisko = dict(os.environ)
+    srodowisko["HOME"] = dom
+    # XDG odsunięty razem z HOME, żeby cudzy `~/.config/git/config` nie wchodził
+    # do pomiaru trzecią drogą.
+    srodowisko["XDG_CONFIG_HOME"] = os.path.join(dom, ".config")
+    srodowisko.pop("GIT_CONFIG_GLOBAL", None)
+    return srodowisko
+
+
+def _wywolania_git_log(zrodlo):
+    """`[(wiersz, argv)]` — wszystkie wywołania `git log` w module, czytane z AST.
+
+    Znajdowanie jest STATYCZNE, a sprawdzenie BEHAWIORALNE, i ten podział jest tu
+    treścią. Statyczne znajdowanie łapie także wywołanie DOPISANE jutro — czyli tę
+    samą klasę, o której mówi docstring `_data`. Gdyby zamiast tego szpiegować
+    `_git` w trakcie przebiegu, bramka widziałaby tylko te wywołania, które akurat
+    wykonały się na dzisiejszym drzewie.
+    """
+    znalezione = []
+    for wezel in ast.walk(ast.parse(zrodlo)):
+        if not isinstance(wezel, ast.Call):
+            continue
+        if isinstance(wezel.func, ast.Name) and wezel.func.id == "_git":
+            argv = [a.value for a in wezel.args
+                    if isinstance(a, ast.Constant) and isinstance(a.value, str)]
+        elif isinstance(wezel.func, ast.Attribute) and wezel.func.attr == "run" \
+                and wezel.args and isinstance(wezel.args[0], (ast.List, ast.Tuple)):
+            argv = [e.value for e in wezel.args[0].elts
+                    if isinstance(e, ast.Constant) and isinstance(e.value, str)]
+            if argv[:1] == ["git"]:
+                argv = argv[1:]
+        else:
+            continue
+        if argv[:1] == ["log"]:
+            znalezione.append((wezel.lineno, argv))
+    return znalezione
+
+
+def _same_przelaczniki_ksztaltu(argv):
+    """Argumenty WYBIERAJĄCE commit odcięte, zostają te, które rządzą WYPISEM.
+
+    Odcięte są: pathspec (wszystko za `--`) i `-G <wzorzec>`. Commit do wypisania
+    daje repozytorium próbne, a bramka mierzy KSZTAŁT wypisu — nie to, który commit
+    wyszedł.
+    """
+    zostaje, i = [], 0
+    while i < len(argv):
+        if argv[i] == "--":
+            break
+        if argv[i] == "-G":
+            i += 2
+            continue
+        zostaje.append(argv[i])
+        i += 1
+    return zostaje
+
+
+def test_KAZDE_wywolanie_git_log_daje_TEN_SAM_wypis_pod_cudza_konfiguracja():
+    """6.D250, połowa DRUGA: `--no-show-signature` na wywołaniach — bramka BEHAWIORALNA.
+
+    **Czego pilnuje.** Poprawka 6.D250 ma dwie połowy: flagę na wywołaniach `git log`
+    i parser biorący OSTATNI niepusty wiersz. Bramkę miała tylko druga.
+    Zmierzone 16.09.2026 na gałęzi `claude/6d250-podpis-w-wypisie-loga`: zdjęcie
+    `--no-show-signature` z OBU wywołań zostawia moduł na **21/21, kod 0**, także pod
+    `HOME` z `log.showSignature = true`. Połowa (a) nie była więc pilnowana niczym —
+    parser ją zasłaniał. Parser jest obroną DRUGĄ i ma nią pozostać; ta bramka pilnuje
+    PIERWSZEJ, żeby obie były naprawdę dwie.
+
+    **Mierzoną własnością jest RÓWNOŚĆ WYPISÓW, a nie liczba wierszy, i to jest
+    poprawka z pomiaru 6.D27.** Pierwsza wersja tej bramki żądała DOKŁADNIE jednego
+    niepustego wiersza. Zapalała się wtedy na kodzie POPRAWNYM — zmierzone na dwóch
+    kształtach: wywołanie z `--format=%H%n%cI` (dwa pola, dwa wiersze, flaga na
+    miejscu) dawało `21/22`, tak samo wywołanie, którego format przyszedł ze stałej
+    modułu, więc AST nie widział go w argumentach i git wypisywał nagłówek domyślny
+    (4 wiersze). Oba są poprawne i oba bramka meldowała jako usterkę. Równość wypisów
+    nie zna żadnego z tych kształtów: obchodzi ją wyłącznie to, czy cudza konfiguracja
+    ZMIENIA wynik.
+
+    **Dlaczego to mierzy zachowanie, a nie napis.** Bramka nie szuka w źródle nazwy
+    flagi. Bierze argumenty każdego wywołania `git log` z AST, uruchamia je **prawdziwym
+    gitem** na repozytorium próbnym z commitem PODPISANYM — raz pod konfiguracją
+    z `log.showSignature = true`, raz pod pustą — i porównuje wypisy. Zamiana flagi na
+    `-c log.showSignature=false` albo na cokolwiek innego o tym samym skutku przejdzie
+    tę bramkę, i tak ma być: pilnowany jest skutek.
+
+    **Kontrola potencji fixture'u jest częścią bramki, nie jej przygotowaniem.**
+    Zmierzone: repozytorium próbne z commitem NIEPODPISANYM daje ten sam wypis pod obiema
+    konfiguracjami — czyli fixture, który nie odtwarza niczego, a bramka nad nim jest
+    zielona zawsze. Pierwsza wersja bramki 6.D250 padła dokładnie na tym. Dlatego każde
+    wywołanie jest puszczane także z ODJĘTĄ flagą: gdy wersja odjęta przestanie dawać
+    różnicę, bramka mówi, że straciła zdolność widzenia — zamiast przejść po cichu.
+    """
+    zrodlo = open(os.path.abspath(__file__), encoding="utf-8").read()
+    wywolania = _wywolania_git_log(zrodlo)
+    assert len(wywolania) >= 2, (
+        "AST znalazło %d wywołań `git log` w tym module, a datowanie stoi na dwóch "
+        "(`data_stalej`, `data_raportu`) — bramka nad zerem wywołań byłaby zielona "
+        "zawsze" % len(wywolania))
+
+    baza = tempfile.mkdtemp(prefix="6d250-podpis-")
+    try:
+        repo = _repo_z_PODPISANYM_commitem(baza)
+        cudza = _srodowisko(baza, "dom-cudzy", "[log]\n\tshowSignature = true\n")
+        pusta = _srodowisko(baza, "dom-pusty", "")
+
+        def wypis(argumenty, srodowisko):
+            return subprocess.run(["git"] + argumenty, cwd=repo, capture_output=True,
+                                  text=True, env=srodowisko).stdout
+
+        for wiersz, argv in wywolania:
+            ksztalt = _same_przelaczniki_ksztaltu(argv)
+            odjeta = [a for a in ksztalt if a != "--no-show-signature"]
+            assert wypis(odjeta, cudza) != wypis(odjeta, pusta), (
+                "fixture przestał odtwarzać usterkę 6.D250: wywołanie z wiersza %d "
+                "z odjętą flagą daje ten sam wypis pod obiema konfiguracjami. Dopóki to "
+                "nie wróci, asercja niżej jest zielona nad niczym" % wiersz)
+            pod_cudza, pod_pusta = wypis(ksztalt, cudza), wypis(ksztalt, pusta)
+            assert pod_cudza == pod_pusta, (
+                "wywołanie `git log` z wiersza %d wypisuje pod cudzą konfiguracją co "
+                "innego niż pod pustą:\n  cudza: %r\n  pusta: %r\n"
+                "Doklejone wiersze weryfikacji podpisu wywracały przez to TRZY zastane "
+                "bramki tego modułu na kodzie POPRAWNYM (6.D250). Parser bierze ostatni "
+                "wiersz i to zasłania skutek, ale obrona pierwsza ma działać sama"
+                % (wiersz, pod_cudza, pod_pusta))
+    finally:
+        shutil.rmtree(baza, ignore_errors=True)
 
 def test_commit_GRANICZNY_nie_jest_data_tylko_koncem_widzenia():
     """„Nie wiadomo" ma być odróżnione od „dawno" — inaczej to 6.D27 w czystej postaci.

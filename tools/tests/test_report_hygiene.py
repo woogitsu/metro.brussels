@@ -390,7 +390,17 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 # jest tu wlasciwa, bo katalog raportow ma byc policzony co do pliku; kosztem jest
 # konflikt przy KAZDEJ pracy rownoleglej dokladajacej raport. Zapisane jako cena,
 # nie jako usterka.
-MIN_REPORTS = 362
+# PIATY konflikt na tej zapadce w ciagu jednej doby (16.09.2026, scalenie `main`
+# do 6.D250): galaz niosla 357, `main` 361, katalog po scaleniu ma 362. Zadna
+# ze stron nie opisywala drzewa, ktore powstalo — jak w czterech poprzednich.
+# To NIE jest usterka zapadki: rownosc (6.D45) jest tu wlasciwa, bo katalog ma
+# byc policzony co do pliku. Jest to natomiast ZMIERZONA CENA pracy rownoleglej
+# i zapisuje sie ja tutaj, zeby nastepny scalajacy nie szukal winy w liczbie:
+# kazda galaz dokladajaca raport wejdzie w ten konflikt, a jedynym poprawnym
+# rozstrzygnieciem jest POLICZENIE katalogu po scaleniu, nigdy wybor strony.
+# SZOSTY konflikt na tej zapadce w ciagu doby (scalenie #641 do 6.D248).
+# Wartosc znowu POLICZONA z katalogu po scaleniu, nie wybrana ze stron.
+MIN_REPORTS = 363
 
 #: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
 #: wierszem zaczynającym się od `**`, z którego `_header_shapes` czyta kształt.
