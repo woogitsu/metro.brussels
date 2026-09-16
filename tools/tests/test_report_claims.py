@@ -206,7 +206,26 @@ def _git(*argumenty):
 
 
 def _data(iso):
-    return datetime.datetime.fromisoformat(iso) if iso else None
+    """Data z wypisu `git log --format=%cI`, ODPORNA na doklejone wiersze — 6.D250.
+
+    **Bierze OSTATNI niepusty wiersz, a nie cały napis, i to jest treść tej funkcji.**
+    `log.showSignature` w konfiguracji gita każe dokleić PRZED wypisem wynik weryfikacji
+    podpisu (`No signature` na commicie niepodpisanym, wiersz `signature` na
+    podpisanym), więc `--format=%cI` przestaje być jedyną treścią wyjścia.
+    `fromisoformat` rzucał wtedy `ValueError`, a padały TRZY zastane bramki tego
+    modułu — **na kodzie POPRAWNYM**. Zmierzone 16.09.2026 na tym repozytorium:
+    17/20 bez poprawki, 20/20 z nią, przy tym samym `~/.gitconfig`.
+
+    Wywołania mają dodatkowo `--no-show-signature`, więc te wiersze zwykle w ogóle nie
+    powstają. **Obie drogi są tu celowo, bo bronią przed czym innym:** flaga usuwa
+    znany powód, a ta funkcja przeżywa KAŻDY doklejony wiersz — także taki, którego
+    dziś nie znamy. Sama flaga nie wystarcza, bo dotyczy wywołań wymienionych z ręki
+    i nowe wywołanie `git log` w tym module odtworzyłoby usterkę bez śladu.
+    """
+    if not iso:
+        return None
+    wiersze = [w for w in iso.splitlines() if w.strip()]
+    return datetime.datetime.fromisoformat(wiersze[-1].strip()) if wiersze else None
 
 
 _PAMIEC = {}
@@ -292,9 +311,14 @@ def data_z_commita(wypis, granice):
     Wejście jest tu więc syntetyczne z konieczności, nie z wygody: ta sama bramka ma
     działać tak samo w kontenerze z klonem płytkim i na runnerze z `fetch-depth: 0`.
     """
-    if not wypis or " " not in wypis:
+    if not wypis:
         return None
-    sha, iso = wypis.split(" ", 1)
+    # OSTATNI niepusty wiersz — z tego samego powodu co w `_data` (6.D250):
+    # `log.showSignature` dokleja wiersze PRZED wypisem, a `sha` stoi w tym właściwym.
+    wiersze = [w for w in wypis.splitlines() if w.strip()]
+    if not wiersze or " " not in wiersze[-1]:
+        return None
+    sha, iso = wiersze[-1].strip().split(" ", 1)
     return None if sha in granice else _data(iso)
 
 
@@ -324,7 +348,9 @@ def data_stalej(nazwa, wartosc_w_drzewie):
         # Skutek był taki, że stała dostawała datę CUDZEGO commitu — tego samego,
         # który wniósł cytujący ją raport — więc daty wychodziły równe co do sekundy
         # i twierdzenie raportu nie było zwalniane, choć zmieniło się po nim.
-        wypis = _git("log", "-1", "--full-history", "--format=%H %cI",
+        # `--no-show-signature` — patrz `data_raportu` niżej, ten sam powód.
+        wypis = _git("log", "-1", "--full-history", "--no-show-signature",
+                     "--format=%H %cI",
                      "-G", DEFINICJA_W_HISTORII % re.escape(nazwa), "--", *pliki)
         _PAMIEC[klucz] = data_z_commita(wypis, granice_plytkiego_klonu())
     return _PAMIEC[klucz]
@@ -345,7 +371,20 @@ def data_raportu(nazwa_pliku):
         # Zmierzone 16.09.2026 na odtworzonej scalance: z `--full-history` po obu
         # stronach data `6d241-…md` skacze na 14:44:31 i bramka zgłasza TRZY
         # twierdzenia tego raportu jako nieaktualne, choć zmieniły się przed nim.
-        _PAMIEC[klucz] = _data(_git("log", "-1", "--format=%cI", "--", wzgledna))
+        # **`--no-show-signature`, i to nie jest ozdoba — 6.D250.** `log.showSignature`
+        # w CUDZYM `~/.gitconfig` każe gitowi dokleić przed wypisem wiersze weryfikacji
+        # podpisu, więc `--format=%cI` przestaje być jedyną treścią wyjścia:
+        #     'signature\n813f660c… 2026-09-02T21:47:55+00:00'
+        # `datetime.fromisoformat` rzuca na tym `ValueError`, a padają wtedy TRZY
+        # zastane bramki tego modułu — na kodzie POPRAWNYM. Jest to 6.D27 od strony
+        # fałszywego alarmu: bramka melduje usterkę, której nie ma, i to komunikatem
+        # nie do odróżnienia od prawdziwej. Zmierzone 16.09.2026: bez flagi 17/20,
+        # z flagą 20/20, przy tym samym kodzie i tym samym `~/.gitconfig`.
+        # Flaga jest tu ODPORNIEJSZA niż `-c log.showSignature=false`: dotyczy tego
+        # jednego wywołania i nie zależy od tego, czy ustawienie przyszło z pliku
+        # globalnego, lokalnego czy ze zmiennej środowiskowej.
+        _PAMIEC[klucz] = _data(_git("log", "-1", "--no-show-signature",
+                                    "--format=%cI", "--", wzgledna))
     return _PAMIEC[klucz]
 
 
@@ -615,6 +654,51 @@ def test_raport_tkniety_w_drzewie_jest_pilnowany_mimo_starej_stalej():
     finally:
         C_PAMIEC.clear()
         C_PAMIEC.update(zastane)
+
+
+def test_datowanie_PRZEZYWA_wiersze_doklejone_przed_wypisem_loga():
+    """6.D250: `log.showSignature` psuł TRZY zastane bramki na kodzie POPRAWNYM.
+
+    **Skąd.** `log.showSignature = true` w konfiguracji gita każe dokleić przed
+    wypisem wynik weryfikacji podpisu, więc `--format=%cI` przestaje być jedyną
+    treścią wyjścia i `fromisoformat` rzuca `ValueError`. Zmierzone 16.09.2026 na tym
+    repozytorium: **17/20** bez poprawki, **20/20** z nią, ten sam kod i ten sam
+    `~/.gitconfig`. Jest to 6.D27 od strony FAŁSZYWEGO ALARMU — bramka meldowała
+    usterkę, której nie ma, komunikatem nieodróżnialnym od prawdziwej awarii.
+
+    **Wejście jest SYNTETYCZNE i to jest wybór z pomiaru, nie wygoda.** Pierwsza
+    wersja tej bramki budowała repozytorium próbne z `log.showSignature=true`.
+    Kontrola negatywna ją obaliła: zdjęcie `--no-show-signature` z `data_raportu`
+    dawało przy niej **21/21 NA ZIELONO**. Powód zmierzony — git dokleja te wiersze
+    tylko wtedy, gdy commit jest PODPISANY albo gdy `gpg.format` wskazuje backend,
+    który zgłasza błąd; commity repozytorium próbnego są niepodpisane, więc fixture
+    nie odtwarzał niczego. Bramka wierna wymagałaby kluczy podpisujących w środowisku
+    przebiegu, czyli zależności od cudzej konfiguracji — a to jest dokładnie ta klasa,
+    której ta pozycja broni. Mierzone jest więc **zachowanie PARSERA** na wejściu,
+    które git w takiej konfiguracji produkuje.
+    """
+    assert _data("2026-09-16T14:00:00+00:00") == datetime.datetime(
+        2026, 9, 16, 14, 0, tzinfo=datetime.timezone.utc), (
+        "`_data` przestała czytać zwykły wypis jednowierszowy — wtedy asercje niżej "
+        "są zielone nad czytnikiem, który nie czyta niczego")
+    for doklejka in ("No signature\n",
+                     "signature\n813f660cf19451eac69941aecae84b33d4cfd5e7\n",
+                     "gpg: Signature made Wed 16 Sep 2026\ngpg: Good signature\n"):
+        assert _data(doklejka + "2026-09-16T14:00:00+00:00") == datetime.datetime(
+            2026, 9, 16, 14, 0, tzinfo=datetime.timezone.utc), (
+            "`_data` nie przeżyła wierszy doklejonych przed wypisem (%r) — "
+            "`log.showSignature` w cudzej konfiguracji wywraca przez to bramki "
+            "tego modułu na kodzie POPRAWNYM" % doklejka)
+    assert data_z_commita(
+        "No signature\n813f660c 2026-09-16T14:00:00+00:00", frozenset()) == \
+        datetime.datetime(2026, 9, 16, 14, 0, tzinfo=datetime.timezone.utc), (
+        "`data_z_commita` nie przeżyła doklejki — bierze `sha` z pierwszego wiersza "
+        "zamiast z tego, który niesie format")
+    # Druga strona: commit GRANICZNY ma nadal dawać `None`, także z doklejką.
+    assert data_z_commita("No signature\n813f660c 2026-09-16T14:00:00+00:00",
+                          frozenset({"813f660c"})) is None, (
+        "doklejka zasłoniła rozpoznanie commitu GRANICZNEGO — `None` znaczy "
+        "„nie wiadomo” i nie wolno go zgubić")
 
 
 def test_commit_GRANICZNY_nie_jest_data_tylko_koncem_widzenia():
