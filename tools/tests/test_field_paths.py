@@ -1801,7 +1801,14 @@ def _istnieje_w_drzewie(nazwa):
 # i ZADNA Z DWOCH LICZB nie jest prawdziwa dla drzewa scalonego. Liczba nizej jest
 # PRZELICZONA DIFFEM Z DRZEWA po scaleniu; sumowanie przyrostow byloby tu bledem,
 # bo pola „Weryfikacja" obu blokow wolaja `test_all.py`, czyli ten sam adres.
-ADRESOW_W_WYKONANYCH = {"Wejście": 1028, "Wyjście": 64, "Weryfikacja": 406}
+# 1028/64/406 -> 1033/65/407 (16.09.2026, 6.D228). Przyrost NIE pochodzi z nowych
+# adresow: blok 6.D228 dostal adnotacje ZROBIONE, wiec PRZESZEDL z populacji blokow
+# OTWARTYCH do WYKONANYCH razem ze swoimi polami. Zmierzone PODSTAWIENIEM, nie
+# odejmowaniem: po zdjeciu samego napisu ZROBIONE z wiersza czytnik daje z powrotem
+# 1028/64/406 i 141 wywolan, czyli dokladnie stare zapadki. Te cztery liczby rusza
+# odtad KAZDA adnotacja ZROBIONE, a nie tylko dopisany adres — i to jest wlasciwosc
+# populacji „bloki wykonane", nie usterka.
+ADRESOW_W_WYKONANYCH = {"Wejście": 1033, "Wyjście": 65, "Weryfikacja": 407}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
@@ -1860,7 +1867,10 @@ ADRESOW_W_WYKONANYCH = {"Wejście": 1028, "Wyjście": 64, "Weryfikacja": 406}
 # galezi — kazda dawala 136 wobec ROZNYCH zbiorow blokow i zadna nie opisuje drzewa,
 # ktore powstalo. Zsumowanie przyrostow (+2 i +2) dalo by 138, czyli o jeden za duzo:
 # pola „Weryfikacja" obu galezi wolaja `test_all.py`, wiec jeden adres jest WSPOLNY.
-WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 141}
+# 141 -> 142 (16.09.2026, 6.D228): z tego samego powodu co `ADRESOW_W_WYKONANYCH`
+# wyzej — blok 6.D228 przeszedl do populacji WYKONANYCH ze swoim plotkiem
+# „Weryfikacja". Podstawienie: bez napisu ZROBIONE czytnik daje z powrotem 141.
+WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 142}
 
 #: Ilu kandydatow zlego adresu daje regula prozy, per pole — 6.D158.
 # 12 -> 13 (14.09.2026, 6.D204): trzynastym kandydatem jest `test_mutation_sweep.py`
