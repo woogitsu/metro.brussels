@@ -1648,7 +1648,7 @@ def test_wzorzec_rodziny_lapie_zdanie_ktore_ma_lapac_i_nie_bierze_sasiedztwa():
 #: o której nie ma wiersza w logu, jest ciszą, której nikt nie zauważy. Bez tej
 #: asercji test byłby zielony także wtedy, gdyby podłoga pomijała porównanie
 #: MILCZĄC. Do `NA_ZRODLE_PY` nie należy z tego samego powodu co tamte dziesięć.
-ASERCJI_NAPISOWYCH_RAZEM = 897
+ASERCJI_NAPISOWYCH_RAZEM = 909
 
 #: **Kotwica wpisu to `(plik, funkcja, operator, literał)`, a NIE numer wiersza.**
 #: Numer przesuwa się przy każdej edycji pliku i lista rozjechałaby się sama z siebie.
