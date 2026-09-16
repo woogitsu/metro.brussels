@@ -1779,7 +1779,7 @@ def _istnieje_w_drzewie(nazwa):
 # `.github/actions/probe-tools/action.yml`, `tools/ci/apt-packages/blender.txt`,
 # `tools/tests/test_ci_workflows.py`) i `tools/tests/test_all.py` w „Weryfikacji”.
 # „Wyjście” NIE DRGA: pole wymienia nazwy stałych i funkcji, nie ścieżki.
-ADRESOW_W_WYKONANYCH = {"Wejście": 1017, "Wyjście": 64, "Weryfikacja": 402}
+ADRESOW_W_WYKONANYCH = {"Wejście": 1019, "Wyjście": 64, "Weryfikacja": 403}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
@@ -1824,7 +1824,7 @@ ADRESOW_W_WYKONANYCH = {"Wejście": 1017, "Wyjście": 64, "Weryfikacja": 402}
 # `test_all.py test_suite_runtime_budget.py` z własnego bloku 6.D247.
 # 6.D242: „Weryfikacja” 135 -> 136. Policzone DIFFEM listy: doszło JEDNO wywołanie,
 # `test_all.py test_ci_workflows.py` z własnego bloku 6.D242.
-WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 137}
+WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 138}
 
 #: Ilu kandydatow zlego adresu daje regula prozy, per pole — 6.D158.
 # 12 -> 13 (14.09.2026, 6.D204): trzynastym kandydatem jest `test_mutation_sweep.py`
