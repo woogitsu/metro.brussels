@@ -1598,7 +1598,23 @@ def test_wzorzec_rodziny_lapie_zdanie_ktore_ma_lapac_i_nie_bierze_sasiedztwa():
 #: z bloku kodu i liczba spoza sekcji mają do wyniku NIE wejść. Do listy `NA_ZRODLE_PY`
 #: nie należą — `twierdzenia` jest wynikiem czytnika po wejściu SYNTETYCZNYM, a nie
 #: odczytem pliku z drzewa.
-ASERCJI_NAPISOWYCH_RAZEM = 886
+#: **886 -> 896 (16.09.2026, 6.D247).** Doszło dziesięć asercji w
+#: `test_suite_runtime_budget.py`, wszystkie na KOMUNIKACIE, który `werdykt` zwraca
+#: — a komunikat jest tu ZACHOWANIEM, nie opisem: cała ta funkcja ma dwa wyjścia,
+#: `(czy_odrzucic, komunikat)`, i to drugie mówi, KTÓRA z trzech gałęzi zadziałała.
+#: Pytanie „czy zatrzymała go podłoga, czy próg" nie ma innej postaci niż literał
+#: z komunikatu.
+#: Pięć w `test_incydent_z_docker_runnera_JEST_ODMOWIONY_a_nie_odrzucony` i
+#: `test_werdykt_odmawia_porownania_gdy_maszyna_nie_oddawala_cpu`
+#: (`"NIE JEST porownywany"`, `"przekroczyl prog"`, `"w progu"` w obie strony),
+#: jedna w `test_kontener_przekroczylby_prog_a_od_6D247_zatrzymuje_go_PODLOGA`,
+#: i cztery w `test_krok_CI_NIE_podaje_nazwy_maszyny_i_to_jest_WYBOR_a_nie_przeoczenie`
+#: — te ostatnie na TREŚCI kroku workflowa (`"maszyna="`, `"RUNNER_NAME"`,
+#: `"B.werdykt("`, nazwa modułu), bo pytanie brzmi, czy nazwa maszyny dociera do
+#: werdyktu, a nazwa jest napisem z definicji.
+#: Do `NA_ZRODLE_PY` nie należą: komunikat jest wynikiem wywołania funkcji, a krok
+#: workflowa jest YAML-em, nie źródłem `.py`.
+ASERCJI_NAPISOWYCH_RAZEM = 896
 
 #: **Kotwica wpisu to `(plik, funkcja, operator, literał)`, a NIE numer wiersza.**
 #: Numer przesuwa się przy każdej edycji pliku i lista rozjechałaby się sama z siebie.

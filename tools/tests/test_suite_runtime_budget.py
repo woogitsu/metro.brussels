@@ -361,7 +361,59 @@ def over_budget(elapsed_s, budget_s=SUITE_RUNTIME_BUDGET_S):
 #:
 #: Runner ma dziś DWA pomiary (n=2, rozrzut 2,9 %) i to jest granica tej liczby,
 #: wypisana razem z nią: `reports/mierzalnosc-czasu-zestawu.md` §5.
-MIERZALNOSC_MIN = 0.75
+#: **0,75 -> 1,168 (16.09.2026, 6.D247, decyzja właściciela). Ten akapit jest
+#: PRZEPISANY, a nie dopisany obok, i zmienia się w nim PYTANIE, nie tylko liczba.**
+#:
+#: Do 16.09.2026 podłoga odpowiadała na pytanie „czy maszyna oddawała rdzenie”
+#: i rozdzielała kontener spokojny (0,987) od obciążonego (0,451). Rozdzielała je
+#: poprawnie i robi to nadal — ale **przestało to wystarczać**, bo pula wykonująca
+#: joby przestała być tą, na której próg skalibrowano.
+#:
+#: **Co się stało.** 16.09.2026 job `tools` padł na `docker-runner-02` z czasem CPU
+#: **517,499 s** przy progu 440,0 s, stosunkiem CPU/ściana **0,992** i zestawem zielonym
+#: w całości (`2497/2497 przeszło`). Ten sam commit bywa zielony w **159 s ściany**
+#: na `metro-wsl-DOM-NEW-*`. Stosunek 0,992 leży **wysoko nad starą podłogą 0,75**,
+#: więc pomiar został porównany z progiem, który opisuje inną maszynę.
+#:
+#: **Dlaczego nie załatwił tego warunek maszyny z 6.D149 — i to jest tu najważniejsze.**
+#: Krok CI woła `B.werdykt(float(sys.argv[1]), float(sys.argv[2]))`, czyli DWA argumenty.
+#: `maszyna` zostaje przy wartości domyślnej `MASZYNA_PROGU`, więc gałąź
+#: `if maszyna != MASZYNA_PROGU` **nie wykonuje się w CI ani razu** — nic w kroku
+#: nie czyta `RUNNER_NAME` i nazwa maszyny nie dociera do werdyktu w żadnej postaci.
+#: Rozstrzygnięcie 6.D149 broni wyłącznie wywołań wewnątrz tego modułu.
+#:
+#: **Skąd 1,168.** Materiał kalibracyjny i incydent rozdzielają się bez reszty:
+#:
+#:   `POMIARY_RUNNERA`, 8 wpisów, `metro-wsl`       CPU/ściana  1,599 – 1,971
+#:   `POMIARY_CPU_BIEZACEGO_DRZEWA`, 8 artefaktów    CPU/ściana  1,375 – 1,695
+#:   kontener sesji, 7 wpisów                       CPU/ściana  0,987 – 0,991
+#:   `docker-runner-02`, job `tools`, PR #633       CPU/ściana  **0,992**
+#:
+#: Luka między najniższym przebiegiem kalibracyjnym (1,375) a incydentem (0,992)
+#: wynosi **x1,386**; środek geometryczny to **1,168**. Przy tej podłodze incydent
+#: jest ODMÓWIONY z komunikatem, a **wszystkie osiem** przebiegów
+#: `POMIARY_CPU_BIEZACEGO_DRZEWA` jest nadal PORÓWNANYCH — zmierzone.
+#:
+#: **Dlaczego nie nazwa maszyny.** `CLAUDE.md` §9 zabrania robić z nazwy maszyny
+#: selektora; podłoga nie wymienia żadnej nazwy i nie mówi nic o liczebności puli.
+#: Mierzy wyłącznie liczbę, którą krok i tak liczy i i tak wypisuje.
+#:
+#: KIERUNEK BŁĘDU ZOSTAJE BEZPIECZNY i to nadal jest część wyboru. Zbyt wysoka
+#: podłoga NIE czerwieni CI — sprawia, że porównanie z progiem zostaje pominięte,
+#: a wiersz o tym trafia do logu. Fałszywy alarm, który wyłącza bramki (6.D27),
+#: jest tu niemożliwy z konstrukcji.
+#:
+#: **CZEGO TA PODWYŻKA NIE ROBI, i to jest wypisane, a nie przemilczane:** na maszynie
+#: oddającej jeden rdzeń bramka po prostu MILKNIE. Prawdziwy regres kodu, który
+#: trafi na `docker-runner-*`, przejdzie niezauważony — tak samo, jak dziś przechodzi
+#: każdy przebieg kontenera. Wybór między fałszywym alarmem a ciszą został podjęty
+#: świadomie i jest decyzją właściciela z 16.09.2026, nie wnioskiem agenta.
+#:
+#: **GRANICA TEJ LICZBY, wypisana razem z nią: n = 1.** Pod podłogą stoi JEDEN
+#: przebieg `docker-runner-*`. Stara 0,75 miała n = 2 i też to mówiła
+#: (`reports/mierzalnosc-czasu-zestawu.md` §5). Zanim 1,168 zacznie być traktowana
+#: jak liczba dojrzała, powinna mieć kilka przebiegów z tej puli.
+MIERZALNOSC_MIN = 1.168
 
 #: Maszyna, na której próg został SKALIBROWANY — 6.D149.
 #:
@@ -528,8 +580,13 @@ KONTENER_11_09_SCIANA = 170.685
 KONTENER_11_09_CPU = 169.185
 
 
-def test_kontener_przekroczylby_prog_i_podloga_by_go_NIE_zatrzymala():
-    """**Sedno 6.D135, wykonane jako rachunek. Od 6.D149 ma DRUGA polowe.**
+def test_kontener_przekroczylby_prog_a_od_6D247_zatrzymuje_go_PODLOGA():
+    """**Sedno 6.D135, wykonane jako rachunek. Od 6.D149 ma DRUGA polowe, od 6.D247 TRZECIA.**
+
+    **Nazwa jest PRZEPISANA 16.09.2026, bo przestała być prawdziwa.** Do tego dnia
+    brzmiała `…_podloga_by_go_NIE_zatrzymala` i opisywała stan, w którym kontener
+    (0,987) leżał nad podłogą 0,75. Podłoga poszła na 1,168 i zatrzymuje go dziś jako
+    pierwsza — wynik ten sam, POWÓD inny.
 
     Podłoga mierzalności (6.D42) powstała po to, żeby czas maszyny OBCIĄŻONEJ nie był
     porównywany z progiem — zmierzone wtedy stosunki to 0,451 i 0,444 pod obciążeniem
@@ -541,10 +598,21 @@ def test_kontener_przekroczylby_prog_i_podloga_by_go_NIE_zatrzymala():
     jednym progiem opisywać obie maszyny — i to jest powód, dla którego `MEASURED_MAX_WALL_S`
     bierze dziś tylko `POMIARY_RUNNERA`.
     """
+    # **PRZEPISANE 16.09.2026 (6.D247), a nie dopisane obok, i odwraca się tu ZNAK.**
+    # Do tego dnia stało tu `stosunek > MIERZALNOSC_MIN` z komunikatem „kontener spadł
+    # poniżej podłogi — wtedy teza tego testu przestaje być prawdziwa”. Podłoga
+    # poszła 0,75 → 1,168 i kontener **jest dziś pod nią** — czyli to, co tamten
+    # komunikat zapowiadał jako powrót do przemyślenia, właśnie się stało
+    # i zostało przemyślane: podłoga przejęła rolę, którą miał wyłącznie warunek
+    # maszyny — a ten w CI **nie wykonuje się ani razu** (krok woła `werdykt`
+    # z dwoma argumentami, więc `maszyna` zostaje domyślna).
+    #
+    # WYNIK dla kontenera jest ten sam co przedtem — nieodrzucony — zmienił się
+    # POWÓD, i to jest cała treść tej zmiany.
     stosunek = KONTENER_11_09_CPU / KONTENER_11_09_SCIANA
-    assert stosunek > MIERZALNOSC_MIN, (
-        "kontener spadl ponizej podlogi mierzalnosci (%.3f < %.2f) — wtedy teza tego "
-        "testu przestaje byc prawdziwa i podzial na maszyny trzeba przemyslec od nowa"
+    assert stosunek < MIERZALNOSC_MIN, (
+        "kontener (%.3f) wrócił nad podłogę %.3f — wtedy o jego nieodrzuceniu znowu "
+        "decyduje WYŁĄCZNIE warunek maszyny, który w CI jest gałęzią martwą"
         % (stosunek, MIERZALNOSC_MIN))
 
     # Polowa PIERWSZA (6.D135), PRZEPISANA razem z progiem, a nie dopisana obok.
@@ -565,7 +633,10 @@ def test_kontener_przekroczylby_prog_i_podloga_by_go_NIE_zatrzymala():
     assert odrzucony is False, (
         "pomiar kontenera zostal odrzucony (CPU %.3f s przy progu %.1f s): %s"
         % (KONTENER_11_09_CPU, SUITE_CPU_BUDGET_S, komunikat))
-    assert "SUFIT INFORMACYJNY" in komunikat, komunikat
+    # **Komunikat jest dziś INNY i to jest zmierzone, nie założone:** przed 6.D247
+    # pomiar dochodził do porównania i słyszał o sufićie informacyjnym; dziś
+    # zatrzymuje go podłoga i słyszy, że nie mówi o kodzie.
+    assert "NIE JEST porownywany" in komunikat, komunikat
 
     # Polowa DRUGA (6.D149): z maszyna NAZWANA ten sam pomiar nie jest z progiem
     # porownywany wcale — i komunikat mowi, dlaczego. Podloga sie w nim nie pojawia,
@@ -583,6 +654,8 @@ def test_kontener_przekroczylby_prog_i_podloga_by_go_NIE_zatrzymala():
 
     # I strona druga: najwyzszy przebieg RUNNERA przechodzi, i to z zapasem.
     najwyzszy = max(POMIARY_RUNNERA, key=lambda w: w[1])
+    # Mnożnik 1,599 to najniższy stosunek CPU/ściana zapisany w `POMIARY_RUNNERA`,
+    # czyli liczba z pomiaru, a nie dobrana — i leży nad podłogą 1,168.
     odrzucony_runner, _k = werdykt(najwyzszy[1], najwyzszy[1] * 1.599)
     assert odrzucony_runner is False, (
         "najwyzszy zmierzony przebieg runnera (%.3f s) nie miesci sie w progu — "
@@ -909,10 +982,16 @@ def test_maszyna_progu_jest_ta_ktora_daje_MEASURED_MAX_WALL_S():
     # Kontrola przyrzadu: dla KAZDEJ maszyny spoza progu `werdykt` odmawia, a dla
     # maszyny progu porownuje. Bez drugiej polowy „odmawia" byloby prawda takze dla
     # funkcji odmawiajacej zawsze.
+    # **Para (ściana, CPU) PRZEPISANA 16.09.2026 (6.D247), a nie dobrana na nowo.**
+    # Do tego dnia stało tu `werdykt(prog+10, prog+10)`, czyli stosunek **1,000** —
+    # nad starą podłogą 0,75, więc pomiar dochodził do warunku maszyny. Po podniesieniu
+    # podłogi do 1,168 zatrzymywałaby go PIERWSZA gałąź i test mierzyłby podłogę
+    # zamiast maszyny — czyli nie to, o czym mówi jego nazwa. Ściana jest więc dzielona
+    # przez 1,6, mnożnik z **pomiaru** (`POMIARY_RUNNERA` niesie stosunki 1,599–1,971).
+    cpu_ponad = SUITE_CPU_BUDGET_S + 10.0
+    sciana_w_pasmie = cpu_ponad / 1.6
     for maszyna in MASZYNY:
-        odrzucony, komunikat = werdykt(SUITE_CPU_BUDGET_S + 10.0,
-                                       SUITE_CPU_BUDGET_S + 10.0,
-                                       maszyna=maszyna)
+        odrzucony, komunikat = werdykt(sciana_w_pasmie, cpu_ponad, maszyna=maszyna)
         if maszyna == MASZYNA_PROGU:
             assert odrzucony is True, (maszyna, komunikat)
         else:
@@ -1187,10 +1266,26 @@ def test_powtorzenia_kontenera_NIE_ruszaja_maksimum_a_dryf_drzewa_rusza():
         trafienie = re.search(r"CPU/ściana (\d+),(\d+)", gdzie)
         assert trafienie, ("powtorzenie nie podaje stosunku CPU/ściana: " + gdzie)
         stosunki.append(float("%s.%s" % trafienie.groups()))
-    assert min(stosunki) > MIERZALNOSC_MIN, (
-        "powtorzenie z stosunkiem %.3f lezy pod podloga %.2f — ten przebieg mowi "
-        "o maszynie, nie o kodzie, wiec do rozrzutu kodu nie nalezy"
-        % (min(stosunki), MIERZALNOSC_MIN))
+    # **PRZEPISANE 16.09.2026 (6.D247), a nie dopisane obok.** Do tego dnia stało tu
+    # `min(stosunki) > MIERZALNOSC_MIN` z komunikatem „ten przebieg mówi o maszynie,
+    # nie o kodzie” — przy podłodze 0,75 kontener (0,987) leżał nad nią i asercja
+    # była spełniona. Po 0,75 → 1,168 leży pod nią, a **rozstrzygnięcie 6.D160 stoi
+    # dalej i nie zależy od podłogi**: sześć powtórzeń mierzy ten sam kod na tej samej
+    # maszynie, więc ich rozrzut mówi o kodzie bez względu na to, czy ta maszyna jest
+    # porównywalna z progiem RUNNERA. Podłoga odpowiada na pytanie „czy ten pomiar
+    # wolno postawić obok progu”, a nie „czy te sześć liczb można porównać ze sobą”.
+    #
+    # Pytanie jest więc przepisane na to, o które tu naprawdę chodzi: że sześć
+    # powtórzeń mierzyło maszynę w JEDNYM stanie, a nie raz obciążoną i raz spokojną.
+    rozrzut_stosunkow = max(stosunki) / min(stosunki)
+    assert rozrzut_stosunkow < 1.05, (
+        "stosunki CPU/ściana szesciu powtorzen rozjezdzaja sie o %.4f (%.3f–%.3f) — "
+        "maszyna byla w ROZNYCH stanach, wiec rozrzut scian nie mowi juz o kodzie"
+        % (rozrzut_stosunkow, min(stosunki), max(stosunki)))
+    assert max(stosunki) < MIERZALNOSC_MIN, (
+        "powtorzenie ze stosunkiem %.3f wrocilo nad podloge %.3f — kontener przestal "
+        "byc maszyna SZEREGOWA, a caly rachunek 6.D160 opisuje maszyne szeregowa"
+        % (max(stosunki), MIERZALNOSC_MIN))
 
 
 def test_prog_dla_kontenera_nie_zapalilby_sie_na_zadnym_zmierzonym_przebiegu():
@@ -1406,11 +1501,25 @@ def test_werdykt_odmawia_porownania_gdy_maszyna_nie_oddawala_cpu():
     assert odrzuc is True, komunikat
     assert "przekroczyl prog" in komunikat, komunikat
 
-    # 3. Zmierzone przebiegi w progu — runner i spokojny kontener.
-    for sciana, cpu in ((53.517, 70.804), (91.742, 90.522)):
+    # 3. Zmierzone przebiegi RUNNERA w progu. **Lista przepisana 16.09.2026 (6.D247),
+    #    a nie skrócona po cichu:** stała tu obok para spokojnego kontenera
+    #    `(91.742, 90.522)`, stosunek **0,987**. Przy podłodze 0,75 dochodziła do
+    #    porównania i słyszała „w progu”; przy 1,168 zatrzymuje ją podłoga — bo
+    #    maszyna oddająca jeden rdzeń nie jest tą, którą próg opisuje. Para nie znika
+    #    z testu: przenosi się niżej, do punktu 4, jako asercja na NOWE zachowanie.
+    for sciana, cpu in ((53.517, 70.804), (121.671, 203.091)):
         odrzuc, komunikat = werdykt(sciana, cpu)
         assert odrzuc is False, komunikat
         assert "w progu" in komunikat, komunikat
+
+    # 4. Strona czwarta, dopisana przy 6.D247: maszyna SZEREGOWA, przebieg zdrowy
+    #    i głęboko w progu — a mimo to NIE porównywany, bo próg jej nie opisuje.
+    #    To jest dokładnie ta cisza, którą wariant (d) kupuje w zamian za fałszywy
+    #    alarm, i dlatego stoi tu jako asercja, a nie jako zdanie w komentarzu.
+    odrzuc, komunikat = werdykt(91.742, 90.522)
+    assert odrzuc is False, komunikat
+    assert "NIE JEST porownywany" in komunikat, komunikat
+    assert "w progu" not in komunikat, komunikat
 
 
 def test_podloga_mierzalnosci_lezy_miedzy_zmierzonymi_stanami_maszyny():
@@ -1420,14 +1529,37 @@ def test_podloga_mierzalnosci_lezy_miedzy_zmierzonymi_stanami_maszyny():
     obciążenia i nad najwyższym pod obciążeniem. Wartości są tu wpisane jako dane
     pomiaru — ich źródłem jest `reports/mierzalnosc-czasu-zestawu.md`.
     """
-    bez_obciazenia = (0.987, 0.988, 1.323)
-    pod_obciazeniem = (0.451, 0.444)
-    assert MIERZALNOSC_MIN < min(bez_obciazenia), (
-        f"podłoga {MIERZALNOSC_MIN} jest nad zmierzonym przebiegiem bez obciążenia "
-        f"{min(bez_obciazenia)} — bramka pomijałaby porównanie na zdrowej maszynie")
-    assert MIERZALNOSC_MIN > max(pod_obciazeniem), (
-        f"podłoga {MIERZALNOSC_MIN} jest pod zmierzonym przebiegiem POD obciążeniem "
-        f"{max(pod_obciazeniem)} — bramka porównywałaby czas maszyny z progiem kodu")
+    # **Brzegi PRZEPISANE, a nie dopisane obok — 6.D247, 16.09.2026.** Do tego dnia
+    # podłoga rozdzielała maszynę OBCIĄŻONĄ od SPOKOJNEJ (0,451 wobec 0,987) i robiła
+    # to poprawnie. Przestało wystarczać: pula wykonująca joby przestała być tą,
+    # na której próg skalibrowano, a maszyna spokojna oddająca JEDEN rdzeń (0,992)
+    # jest od maszyny kalibracyjnej (1,375 i wyżej) nieodróżnialna starą podłogą.
+    # Brzegami są więc dziś PASMA KALIBRACJI, a nie stany obciążenia.
+    w_pasmie_kalibracji = (1.375, 1.599, 1.695, 1.971)
+    poza_pasmem = (0.451, 0.444, 0.987, 0.988, 0.992)
+    assert MIERZALNOSC_MIN < min(w_pasmie_kalibracji), (
+        f"podłoga {MIERZALNOSC_MIN} jest nad najniższym przebiegiem KALIBRACYJNYM "
+        f"{min(w_pasmie_kalibracji)} — bramka pomijałaby porównanie na maszynie, "
+        "którą próg opisuje, czyli milczałaby zawsze")
+    assert MIERZALNOSC_MIN > max(poza_pasmem), (
+        f"podłoga {MIERZALNOSC_MIN} jest pod najwyższym przebiegiem SPOZA pasma "
+        f"{max(poza_pasmem)} — bramka porównywałaby z progiem maszynę, której "
+        "ten próg nie opisuje, i to jest usterka, którą 6.D247 domyka")
+    # Zapas po obu stronach, wypisany liczbą, żeby następna maszyna puli była widoczna.
+    assert min(w_pasmie_kalibracji) / MIERZALNOSC_MIN > 1.17, (
+        "zapas nad podłogą do najniższego przebiegu kalibracyjnego zszedł poniżej 17 %% "
+        "(%.4f) — podłoga zaczyna dotykać maszyny, którą ma przepuszczać"
+        % (min(w_pasmie_kalibracji) / MIERZALNOSC_MIN))
+
+
+def _tekst_kroku_werdyktu():
+    """Treść kroku CI „Run tool tests" — JEDEN czytnik, nie dwie kopie (6.D213).
+
+    Wydzielone przy 6.D247, bo to samo wycięcie robiły odtąd dwa testy.
+    """
+    text = _workflow_text()
+    start = text.index("Run tool tests")
+    return text[start:text.index("\n      - name:", start)]
 
 
 def test_krok_ci_liczy_werdykt_modulem_a_nie_wlasnym_porownaniem():
@@ -1436,9 +1568,7 @@ def test_krok_ci_liczy_werdykt_modulem_a_nie_wlasnym_porownaniem():
     Druga kopia warunku rozjechałaby się z modułem przy pierwszej zmianie podłogi —
     ta sama rodzina, co `test_ci_gate_step_reads_this_files_constant_not_a_second_copy`.
     """
-    text = _workflow_text()
-    step_start = text.index("Run tool tests")
-    step = text[step_start:text.index("\n      - name:", step_start)]
+    step = _tekst_kroku_werdyktu()
     assert "B.werdykt(" in step, (
         "krok nie woła `werdykt` z tego modułu:\n" + step)
     assert not re.search(r"sys\.exit\(0 if float\('?\$?\w+'?\) <=", step), (
@@ -2075,3 +2205,86 @@ def test_krok_ci_czyta_prog_CPU_z_tego_pliku_a_nie_z_drugiej_kopii():
     assert "SUITE_CPU_BUDGET_S" in step, step
     assert not re.search(r"cpu_budget\s*=\s*[\"\']?\d", step), (
         "próg CPU wpisany do YAML-a jako goła liczba — druga kopia:\n" + step)
+
+
+#: Przebieg, który wymusił rozstrzygnięcie 6.D247 — job `tools` na PR #633,
+#: maszyna `docker-runner-02`, 16.09.2026. Zestaw przeszedł w całości
+#: (`2497/2497 przeszło`, `RAZEM 518.283 s, 2498 testów, 127 modułów`), a job padł
+#: na bramce budżetu: `czas CPU zestawu: 517.499 s (prog 440.0 s)`.
+#:
+#: Liczby stoją tu jako DANE POMIARU, nie jako próg: żaden rachunek ich nie używa,
+#: a jedyna asercja pyta, co `werdykt` na nich mówi.
+INCYDENT_DOCKER_SCIANA = 521.900
+INCYDENT_DOCKER_CPU = 517.499
+
+
+def test_incydent_z_docker_runnera_JEST_ODMOWIONY_a_nie_odrzucony():
+    """Przebieg, od którego zaczęło się 6.D247, kończy się dziś ODMOWĄ — nie czerwienią.
+
+    **To jest asercja na rozstrzygnięcie właściciela z 16.09.2026** (wariant „sufit
+    mierzalności"), a nie na liczbę: pyta o ZNAK werdyktu na danych, które ten
+    wariant miał obsłużyć. Bez niej podłoga 1,168 byłaby liczbą, o której nic nie
+    wiadomo poza tym, że stoi w pliku.
+
+    **Dwie strony, bo jedna nie wystarcza.** Sama odmowa na incydencie byłaby
+    spełniona także przez podłogę ustawioną absurdalnie wysoko — taka bramka
+    milczałaby zawsze i nikt by tego nie zauważył, bo kierunek błędu jest cichy.
+    Druga strona pyta więc, czy WSZYSTKIE osiem przebiegów kalibracyjnych nadal
+    dochodzi do porównania.
+    """
+    odrzuc, komunikat = werdykt(INCYDENT_DOCKER_SCIANA, INCYDENT_DOCKER_CPU)
+    assert odrzuc is False, (
+        "przebieg z `docker-runner-02` (CPU %.3f s, stosunek %.3f) nadal jest "
+        "ODRZUCANY, czyli rozstrzygnięcie 6.D247 nie działa: %s"
+        % (INCYDENT_DOCKER_CPU,
+           INCYDENT_DOCKER_CPU / INCYDENT_DOCKER_SCIANA, komunikat))
+    assert "NIE JEST porownywany" in komunikat, komunikat
+    assert "przekroczyl prog" not in komunikat, komunikat
+
+    # Strona druga: podłoga nie może uciszyć maszyny, którą próg OPISUJE.
+    porownane = 0
+    for _run, sciana, cpu in POMIARY_CPU_BIEZACEGO_DRZEWA:
+        _o, k = werdykt(sciana, cpu)
+        assert "NIE JEST porownywany" not in k, (
+            "przebieg kalibracyjny (%.3f s ściany, %.3f s CPU, stosunek %.3f) przestał "
+            "być porównywany z progiem — podłoga %.3f ucisza maszynę, którą ten próg "
+            "opisuje, czyli bramka milczy zawsze"
+            % (sciana, cpu, cpu / sciana, MIERZALNOSC_MIN))
+        porownane += 1
+    assert porownane == len(POMIARY_CPU_BIEZACEGO_DRZEWA), (porownane,)
+    assert porownane >= 8, (
+        "przebiegów kalibracyjnych jest %d — poniżej ośmiu, na których mierzono "
+        "rozstrzygnięcie 6.D247" % porownane)
+
+
+def test_krok_CI_NIE_podaje_nazwy_maszyny_i_to_jest_WYBOR_a_nie_przeoczenie():
+    """Warunek maszyny z 6.D149 jest w CI gałęzią martwą — i ma nią zostać.
+
+    **Zmierzone 16.09.2026 (6.D247).** Krok „Run tool tests" woła werdykt z DWOMA
+    argumentami pozycyjnymi, więc `maszyna` zostaje przy domyślnym `MASZYNA_PROGU`,
+    a gałąź `if maszyna != MASZYNA_PROGU` nie wykonuje się w CI **ani razu**. Nic
+    w kroku nie czyta `RUNNER_NAME`. Rozstrzygnięcie 6.D149 broni więc wyłącznie
+    wywołań wewnątrz tego modułu — i przez to przebieg z `docker-runner-02` doszedł
+    do porównania z progiem, którego ta maszyna nie dotyczy.
+
+    **Dlaczego to NIE jest usterka do naprawienia dopisaniem argumentu.** Podanie
+    nazwy maszyny zrobiłoby z niej selektor, czego `CLAUDE.md` §9 zabrania wprost
+    („Runnera nie wybiera się po nazwie"), a liczebność puli nie ma prawa stać
+    w drzewie. Rozstrzygnięcie właściciela z 16.09.2026 idzie więc inną drogą:
+    odsiewa PODŁOGA, która nie wymienia żadnej nazwy i mierzy wyłącznie liczbę,
+    którą krok i tak liczy.
+
+    Ta bramka pilnuje, żeby nikt nie „naprawił" martwej gałęzi przez dopisanie nazwy.
+    """
+    krok = _tekst_kroku_werdyktu()
+    assert "B.werdykt(" in krok, krok
+    assert "maszyna=" not in krok, (
+        "krok CI podaje `werdykt` nazwę maszyny — to robi z niej selektor, czego "
+        "`CLAUDE.md` §9 zabrania; odsiewaniem jest PODŁOGA, nie nazwa:\n" + krok)
+    assert "RUNNER_NAME" not in krok, (
+        "krok CI czyta `RUNNER_NAME` — ta nazwa nie ma prawa dotrzeć do werdyktu "
+        "(`CLAUDE.md` §9):\n" + krok)
+    # Kontrola przyrządu: czytnik naprawdę widzi treść kroku, a nie pusty napis.
+    assert "SUITE_CPU_BUDGET_S" in krok or "test_suite_runtime_budget" in krok, (
+        "czytnik kroku oddał tekst, w którym nie ma ani nazwy modułu, ani progu — "
+        "wtedy trzy asercje wyżej są zielone nad niczym:\n" + krok)
