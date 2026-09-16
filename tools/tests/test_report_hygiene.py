@@ -382,6 +382,8 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 # i 360) i ZADNA nie opisuje drzewa scalonego. Ta zapadka jest pilnowana na
 # ROWNOSC (6.D45), wiec wzięcie ktorejkolwiek strony daje czerwien natychmiast.
 # Liczba nizej jest POLICZONA z katalogu po scaleniu, a nie wybrana.
+# Trzecie starcie tej samej zapadki tego samego dnia (16.09.2026): gałąź zdalna
+# niosla 357, lokalna 361. Wartosc nizej jest ZNOWU policzona z katalogu.
 MIN_REPORTS = 361
 
 #: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
