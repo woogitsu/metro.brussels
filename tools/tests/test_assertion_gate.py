@@ -1654,7 +1654,16 @@ def test_wzorzec_rodziny_lapie_zdanie_ktore_ma_lapac_i_nie_bierze_sasiedztwa():
 #: `nietozsamosciowe` jest zbiorem NAZW POLECEŃ wyliczonym z `POLECENIA_Z_PAKIETOW`,
 #: a pytanie „czy `xz` jest w nim" nie ma innej postaci niż literał z tą nazwą. Do listy
 #: `NA_ZRODLE_PY` nie należy — zbiór powstaje z tabeli w kodzie, a nie z odczytu pliku.
-ASERCJI_NAPISOWYCH_RAZEM = 910
+#: 886 -> 889 przy 6.D225: trzy asercje `literał in coś` doszły w
+#: `test_dead_constants_csharp.py` i wszystkie trzy stoją na ZACHOWANIU, nie na
+#: NAPISIE — pytają, czy nazwa stałej jest w wyniku `martwe()`, czyli o werdykt
+#: skanu na wstrzykniętym drzewie, a nie o brzmienie komunikatu.
+#: **898 -> 901 (16.09.2026, scalenie 6.D225 z `main`).** Obie gałęzie podnosiły
+#: tę zapadkę niezależnie i ŻADNA Z DWÓCH LICZB nie jest prawdziwa dla drzewa
+#: scalonego. Dodawanie przyrostów też nie jest tu poprawne: lista `NA_ZRODLE_PY`
+#: i skan chodzą po CAŁYM drzewie, więc liczbę trzeba ZMIERZYĆ po scaleniu,
+#: a nie złożyć z dwóch cudzych.
+ASERCJI_NAPISOWYCH_RAZEM = 913
 
 #: **Kotwica wpisu to `(plik, funkcja, operator, literał)`, a NIE numer wiersza.**
 #: Numer przesuwa się przy każdej edycji pliku i lista rozjechałaby się sama z siebie.

@@ -372,7 +372,13 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 # `reports/6d223-podstawienie-myli-sie-w-obie-strony.md`.
 # 350 -> 351 (15.09.2026, 6.D224):
 # `reports/6d224-druga-plamka-tego-samego-sita.md`.
-MIN_REPORTS = 359
+# 351 -> 353: doszły DWA raporty, 6.D225 (`reports/6d225-dziura-interpolacji.md`)
+# i 6.D240 (`reports/6d240-sonda-nie-pytala-o-moduly.md`).
+# PO SCALENIU z `main`, ktory dolozyl `reports/6d241-…` i podniosl te sama zapadke
+# niezaleznie na 353: ZADNA z dwoch liczb nie opisuje drzewa scalonego, bo obie
+# gałęzie liczyly 353 wobec ROZNYCH zbiorow plikow. Liczba nizej jest PRZELICZONA
+# z katalogu po scaleniu.
+MIN_REPORTS = 360
 
 #: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
 #: wierszem zaczynającym się od `**`, z którego `_header_shapes` czyta kształt.
