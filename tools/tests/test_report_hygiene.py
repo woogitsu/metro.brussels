@@ -378,6 +378,18 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 # niezaleznie na 353: ZADNA z dwoch liczb nie opisuje drzewa scalonego, bo obie
 # gałęzie liczyly 353 wobec ROZNYCH zbiorow plikow. Liczba nizej jest PRZELICZONA
 # z katalogu po scaleniu.
+# PO SCALENIU 6.D248 z `main`: obie strony konfliktu niosly WLASNA liczbe (356
+# i 360) i ZADNA nie opisuje drzewa scalonego. Ta zapadka jest pilnowana na
+# ROWNOSC (6.D45), wiec wzięcie ktorejkolwiek strony daje czerwien natychmiast.
+# Liczba nizej jest POLICZONA z katalogu po scaleniu, a nie wybrana.
+# Trzecie starcie tej samej zapadki tego samego dnia (16.09.2026): gałąź zdalna
+# niosla 357, lokalna 361. Wartosc nizej jest ZNOWU policzona z katalogu.
+# Czwarte starcie tego samego dnia (scalenie #642). Tym razem obie strony niosly
+# 361, czyli konflikt byl wylacznie na KOMENTARZU — ale to juz czwarty raz, gdy
+# ta zapadka wymaga recznego rozstrzygniecia w ciagu jednej doby. Rownosc (6.D45)
+# jest tu wlasciwa, bo katalog raportow ma byc policzony co do pliku; kosztem jest
+# konflikt przy KAZDEJ pracy rownoleglej dokladajacej raport. Zapisane jako cena,
+# nie jako usterka.
 # PIATY konflikt na tej zapadce w ciagu jednej doby (16.09.2026, scalenie `main`
 # do 6.D250): galaz niosla 357, `main` 361, katalog po scaleniu ma 362. Zadna
 # ze stron nie opisywala drzewa, ktore powstalo — jak w czterech poprzednich.
@@ -386,7 +398,9 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 # i zapisuje sie ja tutaj, zeby nastepny scalajacy nie szukal winy w liczbie:
 # kazda galaz dokladajaca raport wejdzie w ten konflikt, a jedynym poprawnym
 # rozstrzygnieciem jest POLICZENIE katalogu po scaleniu, nigdy wybor strony.
-MIN_REPORTS = 362
+# SZOSTY konflikt na tej zapadce w ciagu doby (scalenie #641 do 6.D248).
+# Wartosc znowu POLICZONA z katalogu po scaleniu, nie wybrana ze stron.
+MIN_REPORTS = 363
 
 #: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
 #: wierszem zaczynającym się od `**`, z którego `_header_shapes` czyta kształt.

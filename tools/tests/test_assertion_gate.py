@@ -1663,7 +1663,26 @@ def test_wzorzec_rodziny_lapie_zdanie_ktore_ma_lapac_i_nie_bierze_sasiedztwa():
 #: scalonego. Dodawanie przyrostów też nie jest tu poprawne: lista `NA_ZRODLE_PY`
 #: i skan chodzą po CAŁYM drzewie, więc liczbę trzeba ZMIERZYĆ po scaleniu,
 #: a nie złożyć z dwóch cudzych.
-ASERCJI_NAPISOWYCH_RAZEM = 913
+#: **+5 (16.09.2026, 6.D248) — RÓŻNICA, bo wartość bezwzględna tego wiersza
+#: zestarzała się już DWA RAZY.** Stało tu `898 -> 903`, potem `909 -> 914`,
+#: i oba końce były nieprawdziwe dla drzewa scalonego: pozycja dokłada PIĘĆ
+#: asercji, a scalenia z cudzą pracą ruszającą tę samą zapadkę przesuwały
+#: podstawę niezależnie. Wartość niżej jest ZMIERZONA z drzewa PO scaleniu,
+#: a nie wzięta z którejkolwiek gałęzi ani złożona z przyrostów. Doszło pięć
+#: asercji w NOWEJ bramce
+#: `test_status_porcelain_NIE_gubi_pierwszego_znaku_pierwszej_sciezki`, wszystkie
+#: kształtu `"plik.txt" in zbior` / `not in`. Stoją na ZACHOWANIU, nie na napisie:
+#: `zbior` jest **wynikiem wywołania** `zmienione_w_drzewie()` na repozytorium
+#: próbnym, a pytanie „czy parser wkłada do zbioru ścieżkę PEŁNĄ" nie ma innej
+#: postaci niż literał ze ścieżką, którą sama bramka wcześniej utworzyła.
+#: Dwie z pięciu (`"ma.txt" not in`, `"mma.txt" not in`) pytają w drugą stronę:
+#: czy w zbiorze NIE MA śmiecia obciętego z pola źródłowego wpisu `R`.
+#: Pozostałe asercje tej bramki stoją na RÓWNOŚCI ZBIORÓW i tu się nie liczą —
+#: równość jest tam możliwa, bo zbiór jest znany co do elementu; przy zmianie
+#: nazwy nie jest, bo `status.renames` zmienia kształt wyjścia.
+#: Do `NA_ZRODLE_PY` nie należą: zbiór jest wynikiem wywołania funkcji, a ścieżki
+#: pochodzą z katalogu tymczasowego, nie z drzewa projektu.
+ASERCJI_NAPISOWYCH_RAZEM = 918
 
 #: **Kotwica wpisu to `(plik, funkcja, operator, literał)`, a NIE numer wiersza.**
 #: Numer przesuwa się przy każdej edycji pliku i lista rozjechałaby się sama z siebie.
