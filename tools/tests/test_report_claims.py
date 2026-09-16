@@ -146,24 +146,27 @@ def _same_number(from_report, from_code):
 FENCE = re.compile(r"^\s*```")
 
 
-def claims_in_reports(values):
+def claims_in_reports(values, zrodla=None):
     """`(raport, wiersz, nazwa, liczba z raportu, wartość z kodu)` dla każdego trafienia.
 
     Bloki ogrodzone ``` są pomijane: to cytaty, nie twierdzenia.
+
+    `zrodla` to pary `(nazwa, tekst)`; domyślnie cały `reports/`. Wejście syntetyczne
+    jest tu treścią, a nie wygodą (6.D230): bez niego nie da się postawić obok siebie
+    tego czytnika i `wystapienia_w_jednych_grawisach()` na JEDNYM dokumencie, a bez
+    tego nie da się zmierzyć, że granica bloku kodu jest po obu stronach ta sama.
     """
-    for path in sorted(glob.glob(os.path.join(REPORTS, "*.md"))):
-        name = os.path.basename(path)
-        with open(path, encoding="utf-8") as handle:
-            w_bloku = False
-            for number, line in enumerate(handle.read().splitlines(), 1):
-                if FENCE.match(line):
-                    w_bloku = not w_bloku
-                    continue
-                if w_bloku:
-                    continue
-                for constant, _between, said in CLAIM.findall(line):
-                    if constant in values:
-                        yield name, number, constant, said, values[constant]
+    for name, tekst in (zrodla if zrodla is not None else _zrodla_raportow()):
+        w_bloku = False
+        for number, line in enumerate(tekst.splitlines(), 1):
+            if FENCE.match(line):
+                w_bloku = not w_bloku
+                continue
+            if w_bloku:
+                continue
+            for constant, _between, said in CLAIM.findall(line):
+                if constant in values:
+                    yield name, number, constant, said, values[constant]
 
 
 # --- 6.D108: zdanie o wartości BIEŻĄCEJ a zdanie o wartości Z DNIA POMIARU ----------
@@ -1485,7 +1488,10 @@ def test_scalanka_NIE_TREESAME_usterki_NIE_POKAZUJE_i_dlatego_fixture_jest_taki(
 
 #: Podloga na liczbe wystapien ksztaltu `NAZWA = N` w `reports/`. PODLOGA, nie rownosc:
 #: raportow przybywa. Broni przed wzorcem, ktory zgnil i odpowiada zerem tak samo, jak
-#: wzorzec dzialajacy (6.D27). Zmierzone 14.09.2026: 51.
+#: wzorzec dzialajacy (6.D27). Zmierzone 14.09.2026: 51; 16.09.2026 (6.D230): 58 przy
+#: dawnej granicy i 55 przy dzisiejszej, bo trzy wystapienia stoja w blokach kodu.
+#: Zapadka zostaje WOLNA i zostaje na 40: 6.D230 obnizylo populacje o 3, a nie podnioslo
+#: podlogi — podniesienie jej do 55 zamienialoby ja w rownosc na katalogu, ktory rosnie.
 MIN_WYSTAPIEN_W_JEDNYCH_GRAWISACH = 40
 
 #: Cztery twarde rozjazdy, WSZYSTKIE bedace cytatami. Zbior, nie liczba (6.D131): to on
@@ -1513,8 +1519,34 @@ CYTATY_NIE_TWIERDZENIA = {
 }
 
 
-def wystapienia_w_jednych_grawisach():
-    """`[(raport, wiersz, nazwa, liczba)]` — ksztalt `NAZWA = N` we wszystkich raportach.
+#: **GRANICA BLOKU KODU JEST TA SAMA PO OBU STRONACH — 6.D230.**
+#:
+#: Do 16.09.2026 ten czytnik czytal `reports/` petla po WSZYSTKICH wierszach, a
+#: `claims_in_reports()` bloki ogrodzone pomijal. Ten sam katalog, dwie granice, i nikt
+#: tego nie zapisal — autor cytujacy cudze twierdzenie musial wiedziec, ktorym z dwoch
+#: ksztaltow go zapisac. 6.D219 tej wiedzy uzylo: wypisalo cytat BEZ grawisow i nazwalo
+#: to „wyborem, nie niechlujstwem". To jest zmiana tekstu pod bramke, czyli to, co
+#: 6.D108 nazwalo obchodzeniem zamiast rozstrzygania.
+#:
+#: **Ujednolicone W STRONE POMIJANIA i to jest pomiar, nie domysl.** Pole pozycji
+#: ostrzegalo, ze pominiecie blokow zdejmuje spod pomiaru ksztalt, na ktorym 6.D209
+#: oparlo werdykt. Zmierzone 16.09.2026 na `e420f14`: wystapien ksztaltu `NAZWA = N`
+#: w `reports/` jest 58, z czego W BLOKACH KODU stoja 3 — wszystkie trzy w jednym
+#: raporcie (`6d196-…:61,73,74`), a WSZYSTKIE CZTERY wystapienia, na ktorych stoi
+#: `CYTATY_NIE_TWIERDZENIA`, oraz wszystkie cztery ich cytaty w `RAPORT_SAMOZWROTNY`
+#: stoja POZA blokami. Ostrzezenie nie potwierdzilo sie: baza dowodowa 6.D209 nie
+#: traci ani jednego wystapienia, a wylaczenie samozwrotne zostaje nosne.
+#:
+#: **Powod jest ten sam, ktory stoi przy `FENCE`, i tu tez jest zmierzony.** Trojka
+#: z blokow to raz przyklad dydaktyczny („<- CLAIM nie widzi"), a dwa razy CYTAT
+#: WYJSCIA wlasnej bramki — z liczbami, ktore byly prawdziwe w dniu raportu i sa
+#: dzis nieprawdziwe (19 przy 24, 10 przy 9). Dzis zwalnia je datowanie, ale zwalnia
+#: je WARUNKOWO: `data_raportu` liczy sie od ostatniego ruszenia PLIKU, wiec poprawka
+#: literowki gdziekolwiek w tym raporcie przedatowuje go na dzis i obie pary staja
+#: sie TWARDE. Zmierzone kontrola negatywna KN-5: bramka czerwienieje po edycji
+#: KOSMETYCZNEJ raportu — czyli na tekscie poprawnym (6.D27).
+def _wystapienia_w_tekscie(tekst, pomijaj_bloki):
+    """`[(wiersz, nazwa, liczba)]` — ksztalt `NAZWA = N` w JEDNYM dokumencie.
 
     Wzorzec jest POZYCZONY z `test_backlog`, a nie przepisany: dwie kopie tego samego
     wyrazenia rozjechalyby sie przy pierwszej poprawce, a ta bramka i tamta maja mowic
@@ -1523,14 +1555,30 @@ def wystapienia_w_jednych_grawisach():
     import test_backlog as BL
 
     out = []
-    katalog = os.path.join(ROOT, "reports")
-    for plik in sorted(os.listdir(katalog)):
-        if not plik.endswith(".md"):
-            continue
-        with open(os.path.join(katalog, plik), encoding="utf-8") as uchwyt:
-            for numer, wiersz in enumerate(uchwyt.read().split("\n"), 1):
-                for nazwa, liczba in BL.CLAIM_W_JEDNYCH_GRAWISACH.findall(wiersz):
-                    out.append((plik, numer, nazwa, liczba))
+    w_bloku = False
+    for numer, wiersz in enumerate(tekst.split("\n"), 1):
+        if pomijaj_bloki:
+            if FENCE.match(wiersz):
+                w_bloku = not w_bloku
+                continue
+            if w_bloku:
+                continue
+        for nazwa, liczba in BL.CLAIM_W_JEDNYCH_GRAWISACH.findall(wiersz):
+            out.append((numer, nazwa, liczba))
+    return out
+
+
+def wystapienia_w_jednych_grawisach(zrodla=None, pomijaj_bloki=True):
+    """`[(raport, wiersz, nazwa, liczba)]` — ksztalt `NAZWA = N` we wszystkich raportach.
+
+    `pomijaj_bloki` stoi w sygnaturze NIE jako nastawa do wybierania, tylko zeby
+    kontrola negatywna KN-1 mogla postawic dawna granice obok dzisiejszej bez
+    przepisywania funkcji. Wolanie produkcyjne nie podaje jej nigdy.
+    """
+    out = []
+    for plik, tekst in (zrodla if zrodla is not None else _zrodla_raportow()):
+        for numer, nazwa, liczba in _wystapienia_w_tekscie(tekst, pomijaj_bloki):
+            out.append((plik, numer, nazwa, liczba))
     return out
 
 
@@ -1641,6 +1689,71 @@ def test_ksztalt_w_jednych_grawisach_daje_SAME_CYTATY():
         assert "`%s = " % nazwa in samozwrotny, (
             "`%s` nie jest juz cytowane w `%s` — wylaczenie tego raportu z populacji "
             "przestaje mieć powod i staje sie amnestia" % (nazwa, RAPORT_SAMOZWROTNY))
+
+
+def test_granica_bloku_kodu_jest_TA_SAMA_po_obu_stronach():
+    """ODPOWIEDZ 6.D230: jedna granica, i jest ona WYKONANA, a nie opisana.
+
+    **Dlaczego wejscie syntetyczne, a nie `reports/`.** Katalog nie moze tego
+    rozstrzygnac: oba czytniki sa nad nim ZIELONE i byly zielone takze wtedy, gdy
+    granice mialy rozne — roznica zapala sie dopiero, gdy ktos napisze raport
+    cytujacy cudze twierdzenie w jego wlasnym ksztalcie. Bramka oparta na liczbach
+    z katalogu mierzylaby wiec wielkosc katalogu, a nie granice. Ta sama rodzina, co
+    `test_twierdzenie_DOPISANE_do_sekcji_WCHODZI_do_pomiaru` z 6.D216.
+
+    **Probka niesie KAZDY z czterech przypadkow**: oba ksztalty (`CLAIM`
+    i `` `NAZWA = N` ``) raz w bloku i raz poza nim. Bez czlonu „poza blokiem"
+    bramke przeszedlby czytnik, ktory nie widzi NICZEGO — pusty zbior spelnia
+    „nie widzi cytatu" tak samo dobrze, jak czytnik dzialajacy (6.D27).
+    """
+    probka = "\n".join([
+        "# Raport probny 6.D230",
+        "",
+        "Poza blokiem: `MINIMUM_CLAIMS = 4242` oraz `MINIMUM_CLAIMS` mowi 4242.",
+        "",
+        "```",
+        "W bloku:    `MINIMUM_CLAIMS = 7777` oraz `MINIMUM_CLAIMS` mowi 7777.",
+        "```",
+        "",
+    ])
+    zrodla = [("probka.md", probka)]
+
+    jedne = wystapienia_w_jednych_grawisach(zrodla)
+    claim = list(claims_in_reports({"MINIMUM_CLAIMS": MINIMUM_CLAIMS}, zrodla))
+
+    liczby_jedne = [l for _n, _w, _z, l in jedne]
+    liczby_claim = [said for _n, _w, _c, said, _v in claim]
+
+    # 1. ZADEN czytnik nie widzi czlonu W BLOKU. To jest cale rozstrzygniecie 6.D230
+    #    i dlatego stoi PIERWSZE: gdy granica sie rozjedzie, komunikat ma mowic
+    #    o granicy, a nie o liczniku obrotow ponizej.
+    assert [l for l in liczby_jedne if l == "7777"] == [], (
+        "`wystapienia_w_jednych_grawisach()` czyta twierdzenie z BLOKU KODU jako "
+        "twierdzenie autora, a `claims_in_reports()` go pomija — granica rozjechala "
+        "sie z powrotem i cytowanie cudzego twierdzenia w jego wlasnym ksztalcie "
+        "znowu zapala bramke na tekscie poprawnym (6.D219, 6.D27)")
+    assert [l for l in liczby_claim if l == "7777"] == [], (
+        "`claims_in_reports()` przestal pomijac bloki ogrodzone — powod stoi przy "
+        "`FENCE` i jest zmierzony na `reports/report-claims-audit.md`")
+
+    # 2. LICZNIK OBROTOW: oba widza czlon POZA blokiem. Bez tego warunek 1 spelnia
+    #    takze czytnik, ktory nie widzi NICZEGO (6.D27). Rownosc, a nie `in`:
+    #    ksztalt `literal in cos` jest pilnowany przez `test_assertion_gate.py`,
+    #    a ta asercja stoi na ZWROCIE czytnika, nie na napisie.
+    assert liczby_jedne == ["4242"], (
+        "czytnik `NAZWA = N` na probce dal %r zamiast samego czlonu SPOZA bloku — "
+        "jesli pusto, to nie widzi NICZEGO i warunek wyzej nie mowi o niczym"
+        % (jedne,))
+    assert liczby_claim == ["4242"], (
+        "czytnik `CLAIM` na probce dal %r zamiast samego czlonu SPOZA bloku"
+        % (claim,))
+
+    # 3. DAWNA granica ma te probke przeciac — inaczej zdanie „ujednolicone" byloby
+    #    prawda takze o probce, ktorej roznica nigdy nie dotyczyla.
+    dawne = wystapienia_w_jednych_grawisach(zrodla, pomijaj_bloki=False)
+    assert [l for _n, _w, _z, l in dawne] == ["4242", "7777"], (
+        "probka nie odroznia dawnej granicy od dzisiejszej (%r) — kontrola przyrzadu "
+        "nie mowi o niczym" % (dawne,))
 
 
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
