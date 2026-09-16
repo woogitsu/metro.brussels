@@ -2149,7 +2149,12 @@ def _debian_package_for(soname):
     if wyjatek:
         return wyjatek
     match = re.fullmatch(r"(lib[A-Za-z0-9_+-]*)\.so\.(\d+)", soname)
-    assert match, f"nie umiem wyprowadzić pakietu z sonamu {soname!r}"
+    assert match, (
+        f"nie umiem wyprowadzić pakietu z sonamu {soname!r} — reguła mechaniczna "
+        f"oczekuje kształtu `lib<nazwa>.so.<ABI>`. Jeżeli soname jest poprawny, "
+        f"a kształtu nie ma, dopisz go do `NAZWY_PAKIETOW_WYJATKI` razem z nazwą "
+        f"pakietu; komunikat, który tej tablicy nie nazywa, zostawia czytającego "
+        f"z awarią bez wskazanego miejsca naprawy")
     return (match.group(1) + match.group(2)).lower()
 
 
@@ -4439,6 +4444,17 @@ def pakiety_bez_pokrycia_sonda(name):
     pokryte = set()
     for job in (document.get("jobs") or {}).values():
         for krok in job.get("steps") or []:
+            # **`id: tools`, a nie „jakakolwiek sonda" — i to jest cała różnica.**
+            # Wersja pierwsza tej funkcji sumowała sondy z KAŻDEGO kroku wołającego
+            # akcję, a bramkuje instalację wyłącznie ta z `id: tools`
+            # (`if: steps.tools.outputs.libs == 'missing'`). Zmierzone podstawieniem:
+            # przeniesienie `libXcursor.so.1 libwayland-cursor.so.0` z sondy bramkującej
+            # do dodanego kroku `id: nieuzywana` dało 89/90 — a jedyną czerwienią była
+            # zapadka 6.D44 na identyczności kopii, czyli bramka o CZYM INNYM. Ta
+            # funkcja MILCZAŁA nad dokładnie tą konfiguracją, dla której powstała.
+            # Sąsiadka `test_tool_installation_is_conditional…` wybiera krok tak samo.
+            if krok.get("id") != "tools":
+                continue
             if str(krok.get("uses", "")) != PROBE_ACTION:
                 continue
             wanted = krok.get("with") or {}
@@ -4498,3 +4514,27 @@ def test_lista_pakietow_bez_sondy_NIE_jest_workaroundem():
         assert pakiet in wszystkie, (
             "%s stoi w `PAKIETY_BEZ_SONDY`, a nie ma go w ŻADNYM zestawie apt — "
             "wyjątek przeżył pakiet, którego dotyczył" % pakiet)
+        # **Trzecia asercja, i to ona odróżnia powód od prozy.** Dwie wyżej sprawdzają
+        # DŁUGOŚĆ napisu i istnienie pakietu — a obie przechodzi powód ZMYŚLONY, byle
+        # wiarygodny. Zmierzone podstawieniem 16.09.2026: dopisanie `libxcursor1`
+        # i `libwayland-cursor0` z powodem zmyślonym, przy zdjętych sonamach ze
+        # wszystkich siedmiu sond, dało **2503/2503 NA ZIELONO** — czyli dokładnie
+        # konfigurację, dla której 6.D243 powstało, uciszało się dopisaniem nazwy.
+        #
+        # Sprawdzalne w drzewie jest to: `_debian_package_for` wyprowadza nazwę
+        # MECHANICZNIE i jej wynik ma zawsze kształt `lib…<cyfry>`. Pakiet o takim
+        # kształcie **da się** wyprowadzić z jakiegoś sonamu, więc zdanie „nie ma
+        # sonamu, o który da się spytać" jest dla niego z góry podejrzane.
+        # `libgl1-mesa-dri` tego kształtu NIE ma (po cyfrze idzie `-mesa-dri`), więc
+        # jedyny dzisiejszy wyjątek przechodzi — a `libxcursor1` i `libwayland-cursor0`
+        # nie przechodzą. Wyjątek na pakiet o kształcie sonamowym jest więc możliwy,
+        # ale wymaga zdjęcia tej asercji, czyli ruchu WIDOCZNEGO w diffie — a nie
+        # dopisania jednej linijki do słownika.
+        assert not re.fullmatch(r"lib[a-z0-9_+-]*[0-9]", pakiet), (
+            "%s ma kształt nazwy WYPROWADZALNEJ z sonamu (`lib…<cyfry>`, dokładnie "
+            "to, co zwraca `_debian_package_for`) — a wpis na tej liście deklaruje, "
+            "że sonamu do sondowania NIE MA. Jedno z dwóch jest nieprawdą. Jeżeli "
+            "pakiet naprawdę nie wozi żadnego `*.so.N`, pokaż to pomiarem `dpkg -L` "
+            "w raporcie i zdejmij tę asercję ŚWIADOMIE; dopisanie nazwy do słownika "
+            "nie wystarcza, bo tak właśnie wyłącza się bramkę zamiast ją naprawiać "
+            "(6.D27)" % pakiet)

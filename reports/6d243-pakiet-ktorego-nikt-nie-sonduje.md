@@ -53,8 +53,37 @@ pyta, czy zestaw instaluje to, o co sonda pyta. Nikt nie pytał w drugą stronę
   `libxcursor1` i `libwayland-cursor0` w **obu** zestawach apt.
 - `test_kazdy_pakiet_zestawu_apt_jest_O_COS_PYTANY_przez_sonde` — kierunek odwrotny.
 - `PAKIETY_BEZ_SONDY` — lista wyjątków **z powodami**, dziś jednoelementowa, oraz
-  `test_lista_pakietow_bez_sondy_NIE_jest_workaroundem`, który żąda powodu dłuższego
-  niż 60 znaków i obecności pakietu w jakimkolwiek zestawie.
+  `test_lista_pakietow_bez_sondy_NIE_jest_workaroundem` z **trzema** asercjami.
+
+**Ten punkt jest PRZEPISANY, a nie dopisany obok (16.09.2026, po przeglądzie
+adwersaryjnym własnej zmiany).** Poprzednia wersja mówiła, że strażnik „żąda powodu
+dłuższego niż 60 znaków i obecności pakietu w jakimkolwiek zestawie" — i to była
+prawda, która **nie wystarczała**. Obie te asercje przechodzi powód ZMYŚLONY, byle
+wiarygodny i dostatecznie długi. Zmierzone podstawieniem: dopisanie `libxcursor1`
+i `libwayland-cursor0` do słownika z powodem zmyślonym, przy zdjętych sonamach ze
+wszystkich siedmiu sond, dało **2503/2503 NA ZIELONO** — czyli bramka, która powstała
+po to, żeby złapać dokładnie tę konfigurację, dawała się uciszyć **dopisaniem dwóch
+linijek**. Był to workaround wpisany w test, który nazywa się „NIE jest workaroundem".
+
+Trzecia asercja pyta o coś **sprawdzalnego w drzewie**: `_debian_package_for` wyprowadza
+nazwę mechanicznie i jej wynik ma zawsze kształt `lib…<cyfry>`. Pakiet o takim kształcie
+**da się** wyprowadzić z jakiegoś sonamu, więc zdanie „sonamu do sondowania nie ma" jest
+dla niego z góry sprzeczne. `libgl1-mesa-dri` tego kształtu nie ma (po cyfrze idzie
+`-mesa-dri`), więc jedyny dzisiejszy wyjątek przechodzi; `libxcursor1`
+i `libwayland-cursor0` nie przechodzą. Wyjątek na pakiet o kształcie sonamowym jest
+nadal możliwy, ale wymaga **zdjęcia asercji**, czyli ruchu widocznego w diffie.
+
+**Druga usterka z tego samego przeglądu, też przepisana zamiast dopisanej:**
+`pakiety_bez_pokrycia_sonda` sumowała sondy z **każdego** kroku wołającego akcję,
+a instalację bramkuje wyłącznie ta z `id: tools`
+(`if: steps.tools.outputs.libs == 'missing'`). Zmierzone: przeniesienie obu sonames
+z sondy bramkującej do dodanego kroku `id: nieuzywana` dało **89/90**, a jedyną
+czerwienią była zapadka **6.D44 na identyczności kopii** — bramka o czym innym, która
+trafiła przypadkiem. Nowa funkcja **milczała** nad konfiguracją, dla której powstała.
+Po dopisaniu filtru `krok.get("id") != "tools"` ta sama mutacja daje **88/90**,
+a komunikat nazywa oba pakiety. Sąsiadka `test_tool_installation_is_conditional…`
+wybierała krok tak samo od początku — kopiowanie jej wyboru było jednowierszowe
+i zostało pominięte.
 
 **Dlaczego sonames idą do wszystkich siedmiu kopii, choć kursora potrzebuje jeden job.**
 Identyczność wszystkich kopii jest **ochroną z 6.D44**, a nie porządkiem: rozluźnienie
