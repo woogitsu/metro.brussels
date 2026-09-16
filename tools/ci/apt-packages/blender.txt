@@ -59,3 +59,21 @@ libsm6
 # Ta sama klasa co `unzip` (07.09.2026) i `curl` (6.D77): zależność realna,
 # zadeklarowana nigdzie.
 python3-yaml
+
+# `libxcursor1` i `libwayland-cursor0` dopisane 16.09.2026 (6.D243). Godot z serwerem
+# wyświetlania ładuje kursor DYNAMICZNIE, już po starcie — więc brak tych bibliotek
+# nie zatrzymuje ani budowania, ani żadnego z czterdziestu kroków headless. Wychodzi
+# dopiero na kroku 41, po siedmiu minutach pracy:
+#     libXcursor.so.1: cannot open shared object file: No such file or directory
+#     ERROR: Can't load XCursor dynamically.
+#     libwayland-cursor.so.0: cannot open shared object file
+#     ERROR: Unable to create DisplayServer, all display drivers failed.
+# Zmierzone NA `main` (`bac8789`, run 35065478579, `docker-runner-04`), nie na gałęzi:
+# na maszynach `metro-wsl-DOM-NEW-*` ten sam krok jest zielony, bo one te biblioteki
+# mają z innych powodów. Piąty raz ta sama klasa, po `unzip` (07.09.2026), `curl`
+# (6.D77), `python3-yaml` (6.D240) i `xz` (6.D242): zależność realna, zadeklarowana
+# nigdzie. W OBU zestawach, bo lista sonames jest w całym drzewie jedna (6.D44), a jej
+# identyczność jest ochroną przed sondą zawężoną — różnicą między zestawami
+# zostają wyłącznie `xvfb` i `unzip`, jak dotąd.
+libxcursor1
+libwayland-cursor0
