@@ -312,7 +312,19 @@ def data_stalej(nazwa, wartosc_w_drzewie):
         return TERAZ
     klucz = ("data", nazwa)
     if klucz not in _PAMIEC:
-        wypis = _git("log", "-1", "--format=%H %cI",
+        # **`--full-history`, i to jest cała usterka 6.D249.** Bez niej `git log`
+        # UPRASZCZA HISTORIĘ: na commicie scalenia idzie tylko jedną gałęzią i commit,
+        # który naprawdę zmienił stałą, przestaje być widoczny. Przebieg `pull_request`
+        # stoi ZAWSZE na scalance (`Merge <gałąź> into <baza>`), więc datowanie
+        # działało inaczej w CI niż lokalnie — a lokalnie nikt tego nie widział, bo
+        # `git merge` gałęzi zawierającej bazę robi przewinięcie, nie scalenie.
+        # Zmierzone 16.09.2026 na odtworzonej scalance `Merge fe41b7d into 135d323`:
+        #     bez `--full-history`  -> 135d323 (commit, który wniósł RAPORT)
+        #     z  `--full-history`   -> fe41b7d (commit, który zmienił STAŁĄ)
+        # Skutek był taki, że stała dostawała datę CUDZEGO commitu — tego samego,
+        # który wniósł cytujący ją raport — więc daty wychodziły równe co do sekundy
+        # i twierdzenie raportu nie było zwalniane, choć zmieniło się po nim.
+        wypis = _git("log", "-1", "--full-history", "--format=%H %cI",
                      "-G", DEFINICJA_W_HISTORII % re.escape(nazwa), "--", *pliki)
         _PAMIEC[klucz] = data_z_commita(wypis, granice_plytkiego_klonu())
     return _PAMIEC[klucz]
@@ -325,6 +337,14 @@ def data_raportu(nazwa_pliku):
         return TERAZ
     klucz = ("raport", nazwa_pliku)
     if klucz not in _PAMIEC:
+        # **BEZ `--full-history`, inaczej niż w `data_stalej` wyżej — i ta asymetria
+        # jest ZMIERZONA, nie przeoczona.** Tam pytamy, który commit ZMIENIŁ stałą,
+        # a odpowiedzi szuka `-G` po DIFFACH, których scalenie domyślnie nie pokazuje.
+        # Tutaj pytamy, kiedy raport ostatnio TKNIĘTO — a `--full-history` dorzuca tu
+        # scalenia, które raport wyłącznie PRZENIOSŁY, i przesuwa jego datę w przód.
+        # Zmierzone 16.09.2026 na odtworzonej scalance: z `--full-history` po obu
+        # stronach data `6d241-…md` skacze na 14:44:31 i bramka zgłasza TRZY
+        # twierdzenia tego raportu jako nieaktualne, choć zmieniły się przed nim.
         _PAMIEC[klucz] = _data(_git("log", "-1", "--format=%cI", "--", wzgledna))
     return _PAMIEC[klucz]
 
