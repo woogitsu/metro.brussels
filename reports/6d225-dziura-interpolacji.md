@@ -80,8 +80,9 @@ stała.
 po `maska`, a nie wniesiona dziś.** W `$"{slownik["Ksi"]}"` (legalne od C# 11) `_przebieg`
 kończy literał na cudzysłowie wewnątrz dziury, więc reszta wiersza idzie u niego jako kod.
 Przed 6.D225 `maska` oddawała z tej próbki dokładnie to samo `Ksi`. Zmierzone
-15.09.2026: w `src/` i `tests/` jest **55** takich literałów, prawie wszystkie
-z `string.Join("…")` w dziurze. Poprawka należy do `_przebieg`, nie do tego skanu.
+15.09.2026: w `src/` i `tests/` jest **55** takich literałów w **28** plikach,
+z tego **21 (38 %)** z `string.Join("…")` w dziurze. (Pierwsze brzmienie tego zdania
+mówiło „prawie wszystkie" i było **zawyżeniem** — poprawione po przeliczeniu.) Poprawka należy do `_przebieg`, nie do tego skanu.
 
 ## 7. Kontrole negatywne — pięć, każda z przewidywaniem PRZED przebiegiem
 

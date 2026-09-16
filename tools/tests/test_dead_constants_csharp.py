@@ -410,8 +410,9 @@ def test_dziura_interpolacji_jest_kodem_a_reszta_literalu_nie():
     ta pomylka jest dziedziczona, a nie wniesiona: przed 6.D225 `maska` oddawala z tej
     probki dokladnie to samo `Ksi`. Kierunek jest tanszy z dwoch (wiecej identyfikatorow
     widzianych, czyli falszywy negatyw bramki), ale nie jest zerowy: zmierzone
-    15.09.2026, w `src/` i `tests/` jest **55** takich literalow, prawie wszystkie
-    z `string.Join("...")` w dziurze. Poprawka nalezy do `_przebieg`, nie do tego skanu,
+    15.09.2026, w `src/` i `tests/` jest **55** takich literalow w **28** plikach,
+    z tego **21 (38 %)** z `string.Join(...)` w dziurze. Pierwsze brzmienie mowilo
+    „prawie wszystkie" i bylo ZAWYZENIEM — poprawione po przeliczeniu. Poprawka nalezy do `_przebieg`, nie do tego skanu,
     i jest wpisana do kolejki osobno.
     """
     for zapis, oczekiwane, opis in PROBKI_DZIUR:
