@@ -1629,7 +1629,7 @@ def test_wzorzec_rodziny_lapie_zdanie_ktore_ma_lapac_i_nie_bierze_sasiedztwa():
 #: `nietozsamosciowe` jest zbiorem NAZW POLECEŃ wyliczonym z `POLECENIA_Z_PAKIETOW`,
 #: a pytanie „czy `xz` jest w nim" nie ma innej postaci niż literał z tą nazwą. Do listy
 #: `NA_ZRODLE_PY` nie należy — zbiór powstaje z tabeli w kodzie, a nie z odczytu pliku.
-ASERCJI_NAPISOWYCH_RAZEM = 887
+ASERCJI_NAPISOWYCH_RAZEM = 899
 
 #: **Kotwica wpisu to `(plik, funkcja, operator, literał)`, a NIE numer wiersza.**
 #: Numer przesuwa się przy każdej edycji pliku i lista rozjechałaby się sama z siebie.
