@@ -1623,6 +1623,31 @@ def test_wzorzec_rodziny_lapie_zdanie_ktore_ma_lapac_i_nie_bierze_sasiedztwa():
 #: zawężenie grepa do `FAIL test_` przechodziło 8/8) oraz
 #: `"ANI JEDNEGO wiersza FAIL" not in wypis` przy logu z bajtem NUL. Do `NA_ZRODLE_PY`
 #: nie należą: `wypis` jest `stdout + stderr` podprocesu, a nie odczytem pliku.
+#: **886 -> 896 (16.09.2026, 6.D247).** Doszło dziesięć asercji w
+#: `test_suite_runtime_budget.py`, wszystkie na KOMUNIKACIE, który `werdykt` zwraca
+#: — a komunikat jest tu ZACHOWANIEM, nie opisem: cała ta funkcja ma dwa wyjścia,
+#: `(czy_odrzucic, komunikat)`, i to drugie mówi, KTÓRA z trzech gałęzi zadziałała.
+#: Pytanie „czy zatrzymała go podłoga, czy próg" nie ma innej postaci niż literał
+#: z komunikatu.
+#: Pięć w `test_incydent_z_docker_runnera_JEST_ODMOWIONY_a_nie_odrzucony` i
+#: `test_werdykt_odmawia_porownania_gdy_maszyna_nie_oddawala_cpu`
+#: (`"NIE JEST porownywany"`, `"przekroczyl prog"`, `"w progu"` w obie strony),
+#: jedna w `test_kontener_przekroczylby_prog_a_od_6D247_zatrzymuje_go_PODLOGA`,
+#: i cztery w `test_krok_CI_NIE_podaje_nazwy_maszyny_i_to_jest_WYBOR_a_nie_przeoczenie`
+#: — te ostatnie na TREŚCI kroku workflowa (`"maszyna="`, `"RUNNER_NAME"`,
+#: `"B.werdykt("`, nazwa modułu), bo pytanie brzmi, czy nazwa maszyny dociera do
+#: werdyktu, a nazwa jest napisem z definicji.
+#: Do `NA_ZRODLE_PY` nie należą: komunikat jest wynikiem wywołania funkcji, a krok
+#: workflowa jest YAML-em, nie źródłem `.py`.
+#: **896 -> 897 (16.09.2026, 6.D247, po przeglądzie adwersaryjnym).** Doszła JEDNA,
+#: w `test_podloga_UCISZA_regres_ktory_stara_podloga_by_zlapala_i_to_jest_LICZBA`,
+#: i jest tego samego rodzaju co dziesięć wyżej: `"NIE JEST porownywany" in komunikat`
+#: pyta, KTÓRA gałąź werdyktu zadziałała, a gałąź rozpoznaje się po komunikacie, bo
+#: to on jest drugim wyjściem funkcji. Stoi tam, gdzie stoi, z powodu: reszta tego
+#: testu dowodzi, że przebieg **125 % progu CPU** zostaje przepuszczony — a cisza,
+#: o której nie ma wiersza w logu, jest ciszą, której nikt nie zauważy. Bez tej
+#: asercji test byłby zielony także wtedy, gdyby podłoga pomijała porównanie
+#: MILCZĄC. Do `NA_ZRODLE_PY` nie należy z tego samego powodu co tamte dziesięć.
 #: **898 -> 903 (16.09.2026, 6.D248).** Doszło pięć asercji w NOWEJ bramce
 #: `test_status_porcelain_NIE_gubi_pierwszego_znaku_pierwszej_sciezki`, wszystkie
 #: kształtu `"plik.txt" in zbior` / `not in`. Stoją na ZACHOWANIU, nie na napisie:
