@@ -152,10 +152,17 @@ dotnet test tests/Game.Tests
   `tools/tests/test_tree_walks.py` w tym samym commicie. Bez niej oślepiony czytnik dziur
   jest **dziś zielony**: martwych nie przybywa, bo żadna stała nie wychodzi przez to na
   martwą. KN-1 pokazała to wprost.
-- **`ASERCJI_NAPISOWYCH_RAZEM` 889** (było 886) — trzy nowe asercje, wszystkie stoją
+- **`ASERCJI_NAPISOWYCH_RAZEM` **o trzy** — trzy nowe asercje, wszystkie stoją
   na ZACHOWANIU: pytają, czy nazwa stałej jest w wyniku `martwe()` na wstrzykniętym
   drzewie, a nie o brzmienie komunikatu.
-- **Rejestr zapadek: 55** (było 54), rozkład **17/3/34/1** (było 17/3/33/1).
+- **Rejestr zapadek: o jedną**, w klasie WOLNA.
+
+**Wartości BEZWZGLĘDNYCH tych dwóch zapadek ten akapit nie podaje, i to jest poprawka
+z 6.D249, nie oszczędność.** Stało tu `889` i `55`; po scaleniu z cudzą pracą ruszającą
+te same zapadki obie przestały opisywać drzewo — **bez commitu, który by je zmienił**.
+Raport cytujący bezwzględną wartość zapadki jest nieodporny na scalenie; przeżywa
+RÓŻNICA. Wartości bezwzględne stoją tam, gdzie zmieniają się razem ze stałą —
+w komentarzu przy niej.
 - `MINIMUM_DEKLARACJI` **200** — bez zmiany, i to jest rozstrzygnięcie 6.D232, którego
   ta pozycja nie rusza.
 
