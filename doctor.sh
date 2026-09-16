@@ -398,6 +398,63 @@ if [ "${MBXL_DOCTOR_RUNNING:-0}" = "1" ]; then
 fi
 export MBXL_DOCTOR_RUNNING=1
 
+#: Ile wierszy `FAIL` wypisać z logu zestawu. Sufit, a nie wybór estetyczny:
+#: przebieg, w którym padł JEDEN moduł, potrafi dać kilkadziesiąt wierszy `FAIL`,
+#: a wypis ma zmieścić się w logu joba CI i w `build/t010/report.txt`.
+WYCIAG_FAILI=${MBXL_WYCIAG_FAILI:-40}
+
+# WYPIS ZAMIAST ODESŁANIA DO PLIKU, KTÓREGO NIKT NIE MA — 6.D241, 16.09.2026.
+# Ten blok jest PRZEPISANY, a nie dopisany obok: poprzednia wersja kończyła się na
+# `BLAD  testy nie przechodzą — zobacz $log_file` i to było zdanie prawdziwe wyłącznie
+# na maszynie, na której się stało.
+#
+# W CI plik `$log_file` leży poza workspace i NIE JEST zbierany. Zmierzone 16.09.2026
+# na dwóch przebiegach `blender-smoke` (joby 104696967107 i 104702701634, maszyna
+# `docker-runner-04`, dwie RÓŻNE gałęzie): jedyny ślad po padniętym zestawie w całym
+# logu joba to ten jeden wiersz, a artefakt ma "1 file uploaded" i 1393 / 1394 bajtów,
+# czyli sam `report.txt`. Nazwy padającego testu nie da się stamtąd odzyskać niczym.
+#
+# To jest ta sama rodzina, którą ten projekt tropi od 6.D27: KOMUNIKAT NIE JEST
+# WYNIKIEM. Doctor melduje porażkę i odsyła do dowodu, którego czytający nie ma.
+#
+# DLACZEGO WYCIĄG, A NIE `tail`. Zmierzone na zielonym przebiegu z tego samego dnia:
+# log ma **2836 wierszy**, a wiersz `N/M przeszło` stoi na **2707**, czyli **129 od
+# końca** — za nim idzie wyłącznie lista czasów 126 modułów. `tail -n 100` nie sięga
+# więc nawet do podsumowania, a wiersze `FAIL` są rozrzucone po CAŁEJ długości, bo
+# zestaw wypisuje je w trakcie pętli po modułach. Ogon jest tu złym przyrządem i to
+# jest liczba, nie wrażenie.
+wypisz_wyciag_z_logu() {
+  plik="$1"
+  # Bez potoku do `head`: `set -o pipefail` w doctorze nie stoi, ale ten sam wyścig
+  # SIGPIPE opisany przy sondzie narzędzi (`.github/actions/probe-tools`) nie ma tu
+  # po co powstawać. `grep` bez trafienia kończy kodem 1, stąd `|| true` — inaczej
+  # podstawienie oddaje kod, którego nikt nie czyta, i cichy pusty napis.
+  # `-a` NIE JEST OSTROŻNOŚCIĄ NA ZAPAS — zmierzone 16.09.2026, jeden bajt NUL
+  # w logu wystarczy. Bez niego GNU grep uznaje plik za binarny, wypisuje
+  # `binary file matches` na stderr (które `2>/dev/null` zjada) i oddaje PUSTE stdout,
+  # a pusty wynik wpada w gałąź „padł poza ciałem testu". Doctor twierdziłby wtedy
+  # przyczynę, której nie zmierzył — czyli byłby GORSZY niż przed 6.D241, bo stary
+  # komunikat nie mówił nic, a ten mówiłby nieprawdę. `blender_smoke.sh` przechwytuje
+  # stdout i stderr uruchamianych procesów do tego samego pliku, więc bajt spoza tekstu
+  # nie jest tam hipotezą.
+  faile="$(grep -a -E '^[[:space:]]*FAIL ' "$plik" 2>/dev/null || true)"
+  if [ -z "$faile" ]; then
+    echo "        w logu nie ma ANI JEDNEGO wiersza FAIL — zestaw padł POZA ciałem testu"
+    echo "        (błąd importu, bramka asercji albo przerwany przebieg); ogon logu:"
+    tail -n 5 "$plik" 2>/dev/null | cat -v | sed 's/^/        /'
+  else
+    echo "        wiersze FAIL ($(printf '%s\n' "$faile" | wc -l | tr -d ' ') szt., pierwsze $WYCIAG_FAILI):"
+    printf '%s\n' "$faile" | sed -n "1,${WYCIAG_FAILI}p" | sed 's/^/        /'
+  fi
+  podsumowanie="$(grep -a -E '[0-9]+/[0-9]+ przeszło|^  RAZEM ' "$plik" 2>/dev/null || true)"
+  if [ -n "$podsumowanie" ]; then
+    echo "        podsumowanie:"
+    printf '%s\n' "$podsumowanie" | sed 's/^/        /'
+  else
+    echo "        w logu nie ma wiersza 'N/M przeszło' ani 'RAZEM' — przebieg nie doszedł do końca"
+  fi
+}
+
 if [ "$RUN_TESTS" -eq 1 ]; then
 echo ""
 echo "Testy narzędzi:"
@@ -405,7 +462,8 @@ log_file="${TMPDIR:-/tmp}/mbxl_tests.log"
 if python3 tools/tests/test_all.py >"$log_file" 2>&1; then
   echo "  ok    $(grep -o "[0-9]*/[0-9]* przeszło" "$log_file")"
 else
-  echo "  BLAD  testy nie przechodzą — zobacz $log_file"
+  echo "  BLAD  testy nie przechodzą — wyciąg z $log_file:"
+  wypisz_wyciag_z_logu "$log_file"
   required_bad=$((required_bad + 1))
 fi
 
