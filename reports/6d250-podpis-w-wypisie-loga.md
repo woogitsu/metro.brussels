@@ -22,6 +22,12 @@ FAIL test_ksztalt_w_jednych_grawisach_daje_SAME_CYTATY: (to samo)
 17/20 przeszło
 ```
 
+**Liczbą tej pozycji są TRZY PADAJĄCE BRAMKI, a nie ułamek `17/20`** — i to zdanie
+jest dopisane 16.09.2026, bo mianownik zdążył się zestarzeć w ciągu doby. Po scaleniu
+#640 ten sam pomiar na `origin/main` daje **18/21**: padają te same trzy bramki, a
+modułowi przybył jeden test. Wartość bezwzględna opisuje więc dzień pomiaru, nie
+usterkę; usterkę opisuje liczba padających i ich nazwy, i te są niezmienne.
+
 **To jest 6.D27 od strony fałszywego alarmu i przez to gorsze niż cisza.** Bramka
 meldowała usterkę, której nie ma, komunikatem (`Invalid isoformat string`)
 nieodróżnialnym od prawdziwej awarii. Ktoś, kto zobaczy to u siebie, pójdzie szukać
@@ -93,7 +99,8 @@ Po każdej plik przywrócony z kopii, nie `git checkout --`; `md5sum -c` → `OK
 ```
 
 Z wrogim `~/.gitconfig` (`log.showSignature = true`), na kodzie z poprawką:
-`20/20 przeszło` w module — wobec **17/20** bez niej.
+moduł **bez ani jednej czerwieni** — wobec **trzech** bez niej (w liczbach dnia
+pomiaru 20/20 wobec 17/20; po #640 byłoby 21/21 wobec 18/21, patrz §1).
 
 ## 6. Zauważone, nietknięte
 
