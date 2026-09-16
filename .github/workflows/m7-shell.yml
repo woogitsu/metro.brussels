@@ -69,7 +69,15 @@ jobs:
         id: tools
         uses: ./.github/actions/probe-tools
         with:
-          libraries: libEGL.so.1 libGL.so.1 libX11.so.6 libXext.so.6 libXrender.so.1 libXfixes.so.3 libXi.so.6 libxkbcommon.so.0 libICE.so.6 libSM.so.6
+          # `libXcursor.so.1` i `libwayland-cursor.so.0` dopisane 16.09.2026 (6.D243)
+          # i są tu WE WSZYSTKICH SIEDMIU KOPIACH, choć potrzebuje ich jeden job.
+          # Kursora żąda wyłącznie `godot-first-run`, na kroku 41 — pierwszym, który
+          # woła silnik z serwerem wyświetlania zamiast headless. Iden­tyczność wszystkich
+          # kopii jest jednak OCHRONĄ z 6.D44, a nie porządkiem: rozluźnienie jej do
+          # „każda kopia jest nadzbiorem bazy” otwiera z powrotem dziurę, przez którą
+          # ZAWĘŻONA sonda melduje `present` i pomija instalację. Dwa pakiety więcej
+          # na maszynie, która kursora nie używa, kosztują mniej niż ta dziura.
+          libraries: libEGL.so.1 libGL.so.1 libX11.so.6 libXext.so.6 libXrender.so.1 libXfixes.so.3 libXi.so.6 libxkbcommon.so.0 libICE.so.6 libSM.so.6 libXcursor.so.1 libwayland-cursor.so.0
           commands: curl xz
           python-modules: yaml
 
