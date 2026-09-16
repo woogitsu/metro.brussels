@@ -1632,7 +1632,7 @@ def test_wzorzec_rodziny_lapie_zdanie_ktore_ma_lapac_i_nie_bierze_sasiedztwa():
 #: scalonego. Dodawanie przyrostów też nie jest tu poprawne: lista `NA_ZRODLE_PY`
 #: i skan chodzą po CAŁYM drzewie, więc liczbę trzeba ZMIERZYĆ po scaleniu,
 #: a nie złożyć z dwóch cudzych.
-ASERCJI_NAPISOWYCH_RAZEM = 889
+ASERCJI_NAPISOWYCH_RAZEM = 901
 
 #: **Kotwica wpisu to `(plik, funkcja, operator, literał)`, a NIE numer wiersza.**
 #: Numer przesuwa się przy każdej edycji pliku i lista rozjechałaby się sama z siebie.
