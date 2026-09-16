@@ -407,7 +407,7 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 # poprawnosci sumy. Sześć poprzednich razy ratowal marker konfliktu, tu nie
 # ratowalo nic poza rownoscia z 6.D45, ktora zapalila sie po scaleniu.
 # WNIOSEK: liczbe trzeba POLICZYC po KAZDYM scaleniu, takze po czystym.
-MIN_REPORTS = 365
+MIN_REPORTS = 366
 
 #: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
 #: wierszem zaczynającym się od `**`, z którego `_header_shapes` czyta kształt.
