@@ -72,6 +72,14 @@ jobs:
         uses: ./.github/actions/probe-tools
         with:
           python-modules: yaml
+          # `xz` — 6.D242, 16.09.2026. Ten job niczego nie rozpakowuje SAM, ale
+          # zestaw testowy owszem: `test_ci_blender_installer_*` wykonują
+          # `tools/ci/blender_install.sh`, a ten rozpakowuje tarball przez `tar -xJf`,
+          # czyli przez osobne binarium `xz`. 16.09.2026 brak `xz` na maszynach
+          # `docker-runner-*` zatrzymał TRZY joby naraz; w `tools` awaria nie wyszła
+          # tylko dlatego, że trafił na maszynę, która `xz` miała. Sonda pyta więc
+          # tam, gdzie zależność jest, a nie tam, gdzie łatwiej ją zobaczyć.
+          commands: xz
 
       - name: Cache pakietów apt
         if: steps.tools.outputs.libs == 'missing'

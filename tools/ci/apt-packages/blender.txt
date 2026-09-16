@@ -77,3 +77,13 @@ python3-yaml
 # zostają wyłącznie `xvfb` i `unzip`, jak dotąd.
 libxcursor1
 libwayland-cursor0
+# `xz-utils` dopisany 16.09.2026 (6.D242) i jest to CZWARTY raz ta sama klasa,
+# po `unzip` (kod 127, 07.09.2026), `curl` (6.D77) i `python3-yaml` (6.D240).
+# `tools/ci/blender_install.sh` rozpakowuje tarball przez `tar -xJf`, a GNU tar
+# NIE dekompresuje xz sam — uruchamia osobne binarium `xz`. Bez niego tar kończy
+# `tar (child): xz: Cannot exec: No such file or directory`, i to jest komunikat,
+# który zatrzymał TRZY joby naraz 16.09.2026 na `docker-runner-01/03/04`.
+# ZALEŻNOŚĆ JEST NIEWIDOCZNA Z NAZWY: w skrypcie nie stoi napis `xz`, tylko flaga
+# `-J`. Dlatego nie wystarczyło jej wypatrzeć okiem — pilnuje jej dziś bramka
+# czytająca flagi kompresji z `tools/ci/*.sh`.
+xz-utils
