@@ -1598,7 +1598,13 @@ def test_wzorzec_rodziny_lapie_zdanie_ktore_ma_lapac_i_nie_bierze_sasiedztwa():
 #: z bloku kodu i liczba spoza sekcji mają do wyniku NIE wejść. Do listy `NA_ZRODLE_PY`
 #: nie należą — `twierdzenia` jest wynikiem czytnika po wejściu SYNTETYCZNYM, a nie
 #: odczytem pliku z drzewa.
-ASERCJI_NAPISOWYCH_RAZEM = 886
+#: **886 -> 887 (16.09.2026, 6.D242), z powodem.** Doszła JEDNA asercja
+#: w `test_ci_workflows.py`, w `test_tabela_polecen_NIE_jest_tozsamosciowa_w_kazdym_wpisie`:
+#: `"xz" in nietozsamosciowe`. Stoi na NAPISIE Z KONIECZNOŚCI i to jest jej treść:
+#: `nietozsamosciowe` jest zbiorem NAZW POLECEŃ wyliczonym z `POLECENIA_Z_PAKIETOW`,
+#: a pytanie „czy `xz` jest w nim" nie ma innej postaci niż literał z tą nazwą. Do listy
+#: `NA_ZRODLE_PY` nie należy — zbiór powstaje z tabeli w kodzie, a nie z odczytu pliku.
+ASERCJI_NAPISOWYCH_RAZEM = 887
 
 #: **Kotwica wpisu to `(plik, funkcja, operator, literał)`, a NIE numer wiersza.**
 #: Numer przesuwa się przy każdej edycji pliku i lista rozjechałaby się sama z siebie.

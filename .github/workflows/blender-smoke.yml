@@ -106,7 +106,7 @@ jobs:
         uses: ./.github/actions/probe-tools
         with:
           libraries: libEGL.so.1 libGL.so.1 libX11.so.6 libXext.so.6 libXrender.so.1 libXfixes.so.3 libXi.so.6 libxkbcommon.so.0 libICE.so.6 libSM.so.6
-          commands: curl
+          commands: curl xz
           python-modules: yaml
 
       - name: Cache pakietów apt

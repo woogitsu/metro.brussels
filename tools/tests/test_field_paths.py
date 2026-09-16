@@ -1763,7 +1763,13 @@ def _istnieje_w_drzewie(nazwa):
 # siedem adresów z WŁASNEGO bloku 6.D240, który wszedł do `bloki_wykonane()` w chwili
 # odhaczenia wiersza — sześć w polu „Wejście” (akcja sondująca, workflow, dwa zestawy
 # apt, dwa moduły testowe) i `test_all.py` w „Weryfikacji”.
-ADRESOW_W_WYKONANYCH = {"Wejście": 1011, "Wyjście": 63, "Weryfikacja": 400}
+# 6.D242: 1011/63/400 -> 1015/63/401. Policzone DIFFEM list, nie odejmowaniem:
+# pięć adresów z WŁASNEGO bloku 6.D242, który wszedł do `bloki_wykonane()` w chwili
+# odhaczenia wiersza — cztery w polu „Wejście” (`tools/ci/blender_install.sh`,
+# `.github/actions/probe-tools/action.yml`, `tools/ci/apt-packages/blender.txt`,
+# `tools/tests/test_ci_workflows.py`) i `tools/tests/test_all.py` w „Weryfikacji”.
+# „Wyjście” NIE DRGA: pole wymienia nazwy stałych i funkcji, nie ścieżki.
+ADRESOW_W_WYKONANYCH = {"Wejście": 1015, "Wyjście": 63, "Weryfikacja": 401}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
@@ -1802,7 +1808,9 @@ ADRESOW_W_WYKONANYCH = {"Wejście": 1011, "Wyjście": 63, "Weryfikacja": 400}
 # `test_backlog.py` z plotka „Weryfikacji" bloku 6.D230.
 # 6.D240: „Weryfikacja” 134 -> 135. Policzone DIFFEM listy: doszło JEDNO wywołanie,
 # `test_all.py test_ci_workflows.py` z własnego bloku 6.D240.
-WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 135}
+# 6.D242: „Weryfikacja” 135 -> 136. Policzone DIFFEM listy: doszło JEDNO wywołanie,
+# `test_all.py test_ci_workflows.py` z własnego bloku 6.D242.
+WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 136}
 
 #: Ilu kandydatow zlego adresu daje regula prozy, per pole — 6.D158.
 # 12 -> 13 (14.09.2026, 6.D204): trzynastym kandydatem jest `test_mutation_sweep.py`
