@@ -1808,7 +1808,11 @@ def _istnieje_w_drzewie(nazwa):
 # 1028/64/406 i 141 wywolan, czyli dokladnie stare zapadki. Te cztery liczby rusza
 # odtad KAZDA adnotacja ZROBIONE, a nie tylko dopisany adres — i to jest wlasciwosc
 # populacji „bloki wykonane", nie usterka.
-ADRESOW_W_WYKONANYCH = {"Wejście": 1033, "Wyjście": 65, "Weryfikacja": 407}
+# 1033/65/407 -> 1038/65/408 i 142 -> 143 (16.09.2026, 6.D239): adnotacja ZROBIONE na
+# wierszu 6.D239 przeniosla jego blok z populacji OTWARTYCH do WYKONANYCH razem z polami,
+# dokladnie tak, jak opisuje komentarz z 6.D228 wyzej. Pole „Wyjscie" nie drgnelo, bo ten
+# blok nie nazywa w nim zadnej sciezki. Przeliczone z drzewa, nie odejmowaniem.
+ADRESOW_W_WYKONANYCH = {"Wejście": 1038, "Wyjście": 65, "Weryfikacja": 408}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
@@ -1870,7 +1874,7 @@ ADRESOW_W_WYKONANYCH = {"Wejście": 1033, "Wyjście": 65, "Weryfikacja": 407}
 # 141 -> 142 (16.09.2026, 6.D228): z tego samego powodu co `ADRESOW_W_WYKONANYCH`
 # wyzej — blok 6.D228 przeszedl do populacji WYKONANYCH ze swoim plotkiem
 # „Weryfikacja". Podstawienie: bez napisu ZROBIONE czytnik daje z powrotem 141.
-WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 142}
+WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 143}
 
 #: Ilu kandydatow zlego adresu daje regula prozy, per pole — 6.D158.
 # 12 -> 13 (14.09.2026, 6.D204): trzynastym kandydatem jest `test_mutation_sweep.py`

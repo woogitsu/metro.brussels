@@ -400,7 +400,7 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 # rozstrzygnieciem jest POLICZENIE katalogu po scaleniu, nigdy wybor strony.
 # SZOSTY konflikt na tej zapadce w ciagu doby (scalenie #641 do 6.D248).
 # Wartosc znowu POLICZONA z katalogu po scaleniu, nie wybrana ze stron.
-MIN_REPORTS = 363
+MIN_REPORTS = 364
 
 #: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
 #: wierszem zaczynającym się od `**`, z którego `_header_shapes` czyta kształt.
