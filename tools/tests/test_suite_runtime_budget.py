@@ -1695,15 +1695,23 @@ KSZTALTY_W_DRZEWIE = {KSZTALT_A: 1, KSZTALT_C: 2}
 KSZTALTY_BEZ_PRZYKLADU = (KSZTALT_B, KSZTALT_D, KSZTALT_E)
 
 #: Ile stałych modułowych pod `tools/` niesie JAKĄKOLWIEK datę ISO w literale — górne
-#: ograniczenie na „coś, co może być zapisem pomiaru". **Siedem, i te dwie liczby opisują
-#: DWIE RÓŻNE populacje, co pomyliłem przy pierwszym podejściu:** kontenerów (krotka,
-#: lista, słownik) jest **trzy** i tylko one dają się sklasyfikować po położeniu daty;
-#: pozostałe cztery to dwa widoki `POMIARY` odcięte datą (`POMIARY_RUNNERA_11_09`,
-#: `POMIARY_KONTENERA_JEDNO_DRZEWO` — wyrażenia, nie literały) i dwa skalary
-#: (`AS_OF`, `DZIEN_PIERWSZEGO_WYNOSZENIA`). Widok nie jest osobnym zapisem, a skalar
-#: nie jest listą — ale **oba niosą datę i oba musi widzieć skan**, inaczej „siedem"
-#: byłoby liczbą bez przedmiotu.
-STALYCH_Z_DATA_ISO = 7
+#: ograniczenie na „coś, co może być zapisem pomiaru". **Jedenaście, i te dwie liczby
+#: opisują DWIE RÓŻNE populacje, co pomyliłem przy pierwszym podejściu:** kontenerów
+#: (krotka, lista, słownik) jest **trzy** i tylko one dają się sklasyfikować po położeniu
+#: daty; pozostałe osiem to dwa widoki `POMIARY` odcięte datą (`POMIARY_RUNNERA_11_09`,
+#: `POMIARY_KONTENERA_JEDNO_DRZEWO` — wyrażenia, nie literały) i sześć skalarów
+#: (`AS_OF`, `DZIEN_PIERWSZEGO_WYNOSZENIA` oraz cztery daty commitów repozytorium
+#: próbnego z 6.D251: `DATA_KORZENIA`, `DATA_COMMITU_RAPORTU`, `DATA_COMMITU_STALEJ`,
+#: `DATA_SCALENIA`). Widok nie jest osobnym zapisem, a skalar nie jest listą — ale **oba
+#: niosą datę i oba musi widzieć skan**, inaczej „jedenaście" byłoby liczbą bez
+#: przedmiotu.
+#:
+#: **Podniesione z siedmiu o CZTERY (16.09.2026, 6.D251) i to jest cała zmiana:** bramka
+#: na upraszczanie historii potrzebuje repozytorium próbnego o commitach RÓŻNYCH co do
+#: doby, bo `data_stalej` zwraca datę, nie SHA — daty commitów są więc w niej danymi
+#: wejściowymi, a nie zapisem pomiaru. Kontenerów nie przybyło: wszystkie cztery są
+#: skalarami, więc `KONTENEROW_Z_DATA_ISO` zostaje trójką.
+STALYCH_Z_DATA_ISO = 11
 
 #: Ile z tych siedmiu to KONTENERY, czyli jedyne, którym kształt w ogóle przysługuje.
 KONTENEROW_Z_DATA_ISO = 3
