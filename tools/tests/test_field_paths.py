@@ -1776,7 +1776,7 @@ def _istnieje_w_drzewie(nazwa):
 # 6.D226: 1011/63/400 -> 1015/63/401. Policzone DIFFEM list: pięć adresów z WŁASNEGO
 # bloku 6.D226, który wszedł do `bloki_wykonane()` w chwili odhaczenia wiersza —
 # cztery w polu „Wejście” (dwa raporty i dwa pliki tabeli) i `test_all.py` w „Weryfikacji”.
-ADRESOW_W_WYKONANYCH = {"Wejście": 1017, "Wyjście": 64, "Weryfikacja": 402}
+ADRESOW_W_WYKONANYCH = {"Wejście": 1019, "Wyjście": 64, "Weryfikacja": 403}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
@@ -1821,7 +1821,7 @@ ADRESOW_W_WYKONANYCH = {"Wejście": 1017, "Wyjście": 64, "Weryfikacja": 402}
 # `test_all.py test_suite_runtime_budget.py` z własnego bloku 6.D247.
 # 6.D226: „Weryfikacja” 135 -> 136. DIFFEM listy: doszło JEDNO wywołanie,
 # `test_all.py test_csharp_test_methods.py` z własnego bloku 6.D226.
-WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 137}
+WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 138}
 
 #: Ilu kandydatow zlego adresu daje regula prozy, per pole — 6.D158.
 # 12 -> 13 (14.09.2026, 6.D204): trzynastym kandydatem jest `test_mutation_sweep.py`
