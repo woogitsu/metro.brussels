@@ -1661,7 +1661,7 @@ def test_wzorzec_rodziny_lapie_zdanie_ktore_ma_lapac_i_nie_bierze_sasiedztwa():
 #: nazwy nie jest, bo `status.renames` zmienia kształt wyjścia.
 #: Do `NA_ZRODLE_PY` nie należą: zbiór jest wynikiem wywołania funkcji, a ścieżki
 #: pochodzą z katalogu tymczasowego, nie z drzewa projektu.
-ASERCJI_NAPISOWYCH_RAZEM = 903
+ASERCJI_NAPISOWYCH_RAZEM = 914
 
 #: **Kotwica wpisu to `(plik, funkcja, operator, literał)`, a NIE numer wiersza.**
 #: Numer przesuwa się przy każdej edycji pliku i lista rozjechałaby się sama z siebie.
