@@ -29,3 +29,12 @@ libxi6
 libxkbcommon0
 libice6
 libsm6
+# `python3-yaml` dopisany 16.09.2026. Joby renderujące kończą się `[VERIFY]` na
+# `tools/tests/test_all.py`, a pięć jego modułów importuje `yaml`
+# (`test_ci_workflows`, `test_docs_ci_claims`, `test_engine_version`,
+# `test_report_claims`, `test_timing_record`). PyYAML nie był ani sondowany, ani
+# w żadnym zestawie — działał wyłącznie dlatego, że maszyny puli miały go z innych
+# powodów. 15.09.2026 przestał i zatrzymał CZTERY joby naraz na trzech maszynach.
+# Ta sama klasa co `unzip` (07.09.2026) i `curl` (6.D77): zależność realna,
+# zadeklarowana nigdzie.
+python3-yaml

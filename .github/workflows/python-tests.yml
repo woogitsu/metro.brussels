@@ -19,7 +19,16 @@ jobs:
     # dopisany bez łańcucha zależności nie miałby żadnej ochrony.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: self-hosted
-    timeout-minutes: 15
+    # 35 od 16.09.2026 (6.D240), i to jest przepisane, a nie dopisane obok: było 15.
+    # Doszedł warunkowy krok instalacji o suficie 25 minut, a bramka
+    # `test_ci_step_budget_covers_a_slow_mirror` żąda, żeby po instalacji zostało
+    # jeszcze 10 minut na pracę joba. To ROZLUŹNIENIE sufitu i trzeba to powiedzieć
+    # wprost — ale nie zdejmuje ochrony przed zestawem, który spuchł: czas zestawu
+    # pilnuje osobno `SUITE_CPU_BUDGET_S` z `tools/tests/test_suite_runtime_budget.py`,
+    # sprawdzany po zakończeniu procesu, i to on, a nie sufit joba, jest tu bramką.
+    # Instalacja odpala się wyłącznie przy braku, więc w zwykłym przebiegu job nadal
+    # kończy się w kilkunastu minutach.
+    timeout-minutes: 35
 
     steps:
       - name: Checkout
@@ -45,6 +54,48 @@ jobs:
           set -euo pipefail
           command -v python3
           python3 --version
+
+      # Sonda narzędzi: JEDNA implementacja w `.github/actions/probe-tools`.
+      #
+      # TEN JOB SONDUJE MODUŁY, A NIE BIBLIOTEKI, i to jest jedyne takie wywołanie
+      # w drzewie. Nic tu nie renderuje, więc dziesięć sonames Blendera byłoby
+      # instalacją 190 MB pod nic; zależność, którą ten job naprawdę ma, to PyYAML,
+      # importowany przez pięć modułów zestawu.
+      #
+      # DLACZEGO TEN KROK W OGÓLE ISTNIEJE — 16.09.2026. Do tego dnia job nie miał
+      # ani sondy, ani instalacji: `command -v python3` i `compileall` to było wszystko.
+      # Brak PyYAML na maszynie puli zatrzymał 15.09.2026 ten job razem z trzema
+      # innymi, a `2386/2389` przechodziło — czyli czerwień była o zależności, nie
+      # o kodzie. `CLAUDE.md` §9 każe instalować WARUNKOWO, po sondzie, i tak to tu stoi.
+      - name: Czy moduły Pythona zestawu już są
+        id: tools
+        uses: ./.github/actions/probe-tools
+        with:
+          python-modules: yaml
+
+      - name: Cache pakietów apt
+        if: steps.tools.outputs.libs == 'missing'
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cache/metro-apt
+          key: apt-${{ runner.os }}-python-${{ hashFiles('tools/ci/apt-packages/python.txt') }}
+          restore-keys: apt-${{ runner.os }}-python-
+
+      - name: Install Python modules
+        if: steps.tools.outputs.libs == 'missing'
+        shell: bash
+        # 25, a nie 30: sufit kroku musi pomieścić WŁASNY sufit `apt_install.sh`
+        # (`INSTALL_TIMEOUT_S` = 1500 s), inaczej krok ubiłby instalator, który wciąż
+        # legalnie pracuje. Trzydziestu nie ma, bo ten zestaw to JEDEN mały pakiet,
+        # a każda minuta sufitu kroku podnosi wymagany sufit joba o minutę.
+        timeout-minutes: 25
+        run: |
+          set -euo pipefail
+          export APT_CACHE_DIR="$HOME/.cache/metro-apt"
+          bash tools/ci/apt_install.sh --set python
+          # Bramka, nie ozdoba: pod `pipefail` brak modułu kończy krok błędem TUTAJ,
+          # a nie po ośmiu minutach w środku zestawu — o to całe 6.D240 chodzi.
+          python3 -c "import yaml; print('[SONDA] PyYAML', yaml.__version__)"
 
       - name: Compile Python tools
         shell: bash
