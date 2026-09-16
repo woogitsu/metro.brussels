@@ -211,9 +211,19 @@ raport jako miejsce wyprowadzenia dzisiejszej.
   RAZEM 210.675 s, 2497 testów, 126 modułów
 ```
 
-Zapadka `ASERCJI_NAPISOWYCH_RAZEM` podniesiona 896 → **897** z powodem wpisanym
-w komentarzu: doszła jedna asercja na komunikacie werdyktu, bez której nowy test byłby
-zielony także wtedy, gdyby podłoga pomijała porównanie **milcząc**.
+Zapadka `ASERCJI_NAPISOWYCH_RAZEM` urosła w tej pozycji **o jeden**, z powodem
+wpisanym w komentarzu: doszła jedna asercja na komunikacie werdyktu, bez której nowy
+test byłby zielony także wtedy, gdyby podłoga pomijała porównanie **milcząc**.
+
+**To zdanie jest PRZEPISANE 16.09.2026 (6.D249) i powód jest sam w sobie pomiarem.**
+Stało tu „podniesiona 896 → **897**" i w dniu pisania było prawdą o tej gałęzi.
+Scalenie ścisnęło jednak tę pozycję i cudzą pracę w **jeden** commit, a zapadka
+wyszła z niego na **909** — więc liczba w raporcie przestała opisywać drzewo, i to
+**bez żadnego commitu, który by ją zmienił**. Datowanie 6.D108 nie umie tego zwolnić:
+stała i raport mają wtedy dosłownie ten sam commit, więc daty są równe co do sekundy.
+Zapisana jest więc RÓŻNICA („o jeden"), która scalenia przeżywa, a nie para liczb,
+która ich nie przeżywa. Bezwzględne wartości stoją tam, gdzie się nie starzeją —
+w komentarzu przy samej stałej.
 
 ## 10. Zauważone przy okazji, nie tknięte
 
