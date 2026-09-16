@@ -513,7 +513,7 @@ KROK_ZESTAWU = "Run tool tests"
 #: **201 → 202 przy 6.D138**, bo doszedł moduł `test_mass_copies.py`. Bramka niżej
 #: zapaliła się na tej jedynce sama, w pierwszym przebiegu po dopisaniu pliku, i to
 #: jest dowód, że mierzy drzewo, a nie własny komentarz. Rozkład dzisiejszy:
-#: `tools/tests` **131**, `tools/blender` 29, `tools/track` 23, `tools/ci` 9,
+#: `tools/tests` **135**, `tools/blender` 29, `tools/track` 23, `tools/ci` 9,
 #: `tools/visual` 5, `tools/physics` 3, `tools/data` 2.
 #:
 #: **Po co ta liczba stoi tutaj.** Zdanie w `docs/06-worked-example.md` mówiło do
@@ -522,7 +522,7 @@ KROK_ZESTAWU = "Run tool tests"
 #: PÓŹNIEJ, w nazwanym kroku tego samego joba. Liczba jest tu po to, żeby poprawione
 #: zdanie miało czym się zestarzeć widocznie.
 BAJTKOD_PO_COMPILEALL_KATALOGI = 7
-BAJTKOD_PO_COMPILEALL_PLIKI = 205
+BAJTKOD_PO_COMPILEALL_PLIKI = 206
 
 
 def _workflow_zestawu():
@@ -859,7 +859,7 @@ KATALOG_Z_PYTHONEM = "tools"
 #: caly Python stoi pod `tools/`, to `compileall -q tools` kompiluje CALOSC, a skan
 #: sekwencji czyta CALOSC. Gdy te dwie liczby sie rozejda, znaczy to, ze gdzies
 #: pojawil sie modul poza zasiegiem obu.
-MODULOW_W_CALYM_DRZEWIE = 205
+MODULOW_W_CALYM_DRZEWIE = 206
 
 
 def moduly_calego_drzewa(korzen=None):

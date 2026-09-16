@@ -1598,7 +1598,32 @@ def test_wzorzec_rodziny_lapie_zdanie_ktore_ma_lapac_i_nie_bierze_sasiedztwa():
 #: z bloku kodu i liczba spoza sekcji mają do wyniku NIE wejść. Do listy `NA_ZRODLE_PY`
 #: nie należą — `twierdzenia` jest wynikiem czytnika po wejściu SYNTETYCZNYM, a nie
 #: odczytem pliku z drzewa.
-ASERCJI_NAPISOWYCH_RAZEM = 886
+#: **886 -> 894 (16.09.2026, 6.D241), z powodem.** Doszło osiem asercji w NOWYM
+#: module `test_doctor_test_log.py`. **Sześć z nich stoi na WYJŚCIU `doctor.sh`
+#: uruchomionego w podprocesie**, a nie na tekście pliku: `"BLAD" in wypis`,
+#: `"2/2500 przesz" in wypis`, `"2500/2500 przesz" in wypis`,
+#: `"wiersze FAIL" not in wypis`, `"ANI JEDNEGO wiersza FAIL" in wypis` oraz
+#: `"No module named 'yaml'" in wypis`. Wypis programu JEST tu zachowaniem — cała
+#: pozycja 6.D241 wyszła z tego, że doctor meldował porażkę i NIE pokazywał dowodu,
+#: więc pytanie „czy w wyjściu stoi nazwa padłego testu" nie ma innej postaci niż
+#: literał. Do `NA_ZRODLE_PY` nie należą: `wypis` jest `stdout + stderr` podprocesu,
+#: a nie odczytem pliku z drzewa.
+#: **Dwie pozostałe stoją na treści `doctor.sh` i to jest ich treść:**
+#: `"wypisz_wyciag_z_logu" in galaz` i `"nie przechodzą — zobacz" not in galaz`
+#: w `test_doctor_NIE_odsyla_juz_do_pliku_zamiast_pokazac_jego_tresc`. Bez nich
+#: wypis mógłby powstać jako DRUGI komunikat obok starego i sześć asercji wyżej
+#: byłoby zielonych, mimo że mylące zdanie zostało — pytają więc o to, że blok
+#: został PRZEPISANY, a nie dopisany obok. Do `NA_ZRODLE_PY` też nie należą: ta lista
+#: jest o źródle **.py**, a `galaz` to wycinek skryptu powłoki.
+#: **894 -> 898 (16.09.2026, 6.D241, po adwersaryjnym przeglądzie).** Doszły cztery
+#: asercje w `test_doctor_test_log.py`, wszystkie na WYJŚCIU `doctor.sh` z podprocesu:
+#: `"2/2500 przesz" in wypis` i `"0/2500 przesz" in wypis` (podsumowanie przy długim
+#: logu i przy padnięciu całego przebiegu), `"wiersze FAIL (" in wypis` (asercja na
+#: GAŁĄŹ, bez której bramka mierzyła ogon logu zamiast wyciągu — zmierzone: bez niej
+#: zawężenie grepa do `FAIL test_` przechodziło 8/8) oraz
+#: `"ANI JEDNEGO wiersza FAIL" not in wypis` przy logu z bajtem NUL. Do `NA_ZRODLE_PY`
+#: nie należą: `wypis` jest `stdout + stderr` podprocesu, a nie odczytem pliku.
+ASERCJI_NAPISOWYCH_RAZEM = 898
 
 #: **Kotwica wpisu to `(plik, funkcja, operator, literał)`, a NIE numer wiersza.**
 #: Numer przesuwa się przy każdej edycji pliku i lista rozjechałaby się sama z siebie.
