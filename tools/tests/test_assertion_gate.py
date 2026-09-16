@@ -1648,7 +1648,11 @@ def test_wzorzec_rodziny_lapie_zdanie_ktore_ma_lapac_i_nie_bierze_sasiedztwa():
 #: o której nie ma wiersza w logu, jest ciszą, której nikt nie zauważy. Bez tej
 #: asercji test byłby zielony także wtedy, gdyby podłoga pomijała porównanie
 #: MILCZĄC. Do `NA_ZRODLE_PY` nie należy z tego samego powodu co tamte dziesięć.
-#: **898 -> 903 (16.09.2026, 6.D248).** Doszło pięć asercji w NOWEJ bramce
+#: **909 -> 914 (16.09.2026, 6.D248), czyli O PIĘĆ.** Ten wiersz mówił wcześniej
+#: `898 -> 903` i był nieprawdziwy w obu końcach: pozycja dokłada PIĘĆ asercji,
+#: ale scalenie z cudzą pracą ruszającą tę samą zapadkę przesunęło oba końce
+#: o jedenaście. Liczby stoją tu przeliczone Z DRZEWA po scaleniu, a nie
+#: przepisane z gałęzi. Doszło pięć asercji w NOWEJ bramce
 #: `test_status_porcelain_NIE_gubi_pierwszego_znaku_pierwszej_sciezki`, wszystkie
 #: kształtu `"plik.txt" in zbior` / `not in`. Stoją na ZACHOWANIU, nie na napisie:
 #: `zbior` jest **wynikiem wywołania** `zmienione_w_drzewie()` na repozytorium

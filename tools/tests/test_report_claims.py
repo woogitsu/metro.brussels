@@ -675,7 +675,24 @@ def test_status_porcelain_NIE_gubi_pierwszego_znaku_pierwszej_sciezki():
                                ("status.showUntrackedFiles", "all"),
                                ("status.renames", "true"),
                                ("core.quotePath", "false"),
-                               ("core.excludesFile", os.devnull)):
+                               ("core.excludesFile", os.devnull),
+                               # **Te dwa piny NIE dotycza wypisu `status`, tylko tego,
+                               # czy `git commit` w ogole sie UDA — i bez nich bramka
+                               # pada na kodzie POPRAWNYM pod cudza konfiguracja.**
+                               # Zmierzone 16.09.2026 (6.D248, poprawka po audycie):
+                               # `HOME` z `commit.gpgsign = true` i podpisywaczem,
+                               # ktorego nie ma, dawal `20/21` i `git commit` konczacy
+                               # sie kodem **128** — bramka meldowala usterke, ktorej
+                               # nie ma. To nie jest przypadek teoretyczny: `gpgsign`
+                               # stoi w `/root/.gitconfig` tego kontenera na `true`,
+                               # a bramka przechodzila WYLACZNIE dlatego, ze binarka
+                               # podpisujaca przypadkiem istniala. `core.hooksPath`
+                               # jest z tej samej rodziny: cudzy `pre-commit`, ktory
+                               # konczy sie bledem, zatrzymuje `commit` tak samo.
+                               # Reszta pinow mowi o TRESCI wypisu, te dwa o tym,
+                               # czy jest co wypisywac.
+                               ("commit.gpgsign", "false"),
+                               ("core.hooksPath", os.devnull)):
             git("config", klucz, wartosc)
         for nazwa in ("alfa.txt", "beta.txt", "gamma.txt"):
             with open(os.path.join(katalog, nazwa), "w", encoding="utf-8") as u:

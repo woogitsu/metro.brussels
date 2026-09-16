@@ -132,10 +132,21 @@ objaw byłby czytelny.
   RAZEM 216.504 s, 2505 testów, 127 modułów
 ```
 
-Zapadka `ASERCJI_NAPISOWYCH_RAZEM` stoi po tej pozycji na **903** (poprzednio o pięć
-mniej), z powodem przy stałej: pięć asercji
-kształtu `"plik.txt" in zbior`, wszystkie na ZACHOWANIU (zbiór jest wynikiem wywołania),
-dwie z nich w drugą stronę — czy w zbiorze NIE MA śmiecia z pola źródłowego.
+Zapadka `ASERCJI_NAPISOWYCH_RAZEM` rośnie po tej pozycji **o pięć**, z powodem przy
+stałej: pięć asercji kształtu `"plik.txt" in zbior`, wszystkie na ZACHOWANIU (zbiór jest
+wynikiem wywołania), dwie z nich w drugą stronę — czy w zbiorze NIE MA śmiecia z pola
+źródłowego.
+
+**Różnica, nie wartość bezwzględna, i to jest poprawka z 16.09.2026 — zdanie jest
+PRZEPISANE, a nie dopisane obok.** Stało tu „stoi po tej pozycji na **903**", i było to
+prawdą przez czterdzieści jeden minut: scalenie z cudzą pracą ruszającą tę samą zapadkę
+przesunęło ją na **914**, nie zmieniając w tej pozycji ani jednej asercji. Bramka
+twierdzeń tego nie zapaliła, bo 6.D108 zwalnia twierdzenie starsze od stałej — a raport
+był starszy o te czterdzieści jeden minut, **wewnątrz tego samego PR-a**. Wartość
+bezwzględna zapadki jest więc w raporcie nieodporna z definicji: przeżywa dokładnie do
+następnego scalenia, a bramka tego nie widzi. Wartości bezwzględne należą do komentarza
+przy stałej, gdzie rusza je ten sam commit, który rusza stałą. To ten sam wniosek, który
+6.D249 wyciągnęło z drugiej strony.
 
 ## 9. Zauważone, nietknięte
 
