@@ -1138,6 +1138,308 @@ def test_wszystkie_workflowy_biora_PELNA_historie():
         f"bo domyślna głębokość to 1: {braki}")
 
 
+# --- 6.D251: BRAMKA NA UPRASZCZANIE HISTORII — PRAWDZIWA SCALANKA JAKO WEJSCIE ------
+#
+# **Skad ta bramka.** 6.D249 zapalilo `main` na czerwono: `data_stalej` wolala
+# `git log -1 -G<definicja> -- <pliki>` BEZ `--full-history`, a `git log` z pathspec
+# UPRASZCZA HISTORIE — na commicie scalenia TREESAME wobec pierwszego rodzica idzie
+# wylacznie tym rodzicem, wiec commit z galezi, ktory stala naprawde zmienil, jest
+# niewidoczny i stala dostaje date CUDZEGO commitu: tego, ktory wniosl cytujacy ja
+# raport. Przebieg `pull_request` stoi ZAWSZE na scalance, wiec datowanie odpowiadalo
+# w CI inaczej niz lokalnie. Poprawka weszla bez bramki, bo `main` plonal; ta pozycja
+# ja dostawia.
+#
+# **Wejsciem jest PRAWDZIWE repozytorium z PRAWDZIWYM `git merge --no-ff`**, a nie
+# podstawiona pamiec podreczna, i wolana jest PRAWDZIWA `data_stalej`. Podstawienie
+# `_PAMIEC[("data", …)]` opisywaloby odpowiedz, ktorej ta bramka ma dowodzic, a kontrola
+# na funkcji czystej byla by zielona RAZEM z usterka: caly mechanizm siedzi w argumentach
+# `git log`, a nie w tym, co z jego wypisem robi Python.
+#
+# **Ksztalt scalanki jest TRESCIA, nie dekoracja — i to jest ZMIERZONE.** „Oczywista"
+# topologia (galaz zmienia stala, `main` jej nie rusza) usterki NIE POKAZUJE: scalanka
+# nie jest wtedy TREESAME wobec pierwszego rodzica, upraszczanie idzie w strone galezi
+# i obie wersje `git log` odpowiadaja TAK SAMO. Zmierzone 16.09.2026 na obu repo
+# probnych z tego bloku:
+#
+#     scalanka TREESAME       bez `--full-history` -> commit RAPORTU  (09-02)
+#                             z  `--full-history` -> commit STALEJ   (09-04)
+#     scalanka NIE-TREESAME   obie wersje         -> commit STALEJ   (09-04)
+#
+# Dlatego commit galezi przepisuje stala na wartosc, KTORA `main` JUZ MA — drzewo
+# scalanki jest wtedy identyczne z drzewem pierwszego rodzica. Testy nizej pilnuja obu
+# polowek: ze scalanka TREESAME wersje odroznia, i ze NIE-TREESAME ich nie odroznia.
+# Bez tej drugiej polowki nastepny czytajacy uproscilby fixture do topologii oczywistej
+# i dostal bramke zielona na usterce.
+#
+# **Asymetria `--full-history` jest pilnowana Z OBU STRON.** `data_stalej` pyta, ktory
+# commit ZMIENIL stala, a odpowiedzi szuka `-G` po diffach, ktorych uproszczona historia
+# nie pokazuje. `data_raportu` pyta, kiedy raport TKNIETO — i tam `--full-history`
+# dorzuca scalenia, ktore raport wylacznie PRZENIOSLY, przesuwajac jego date w przod.
+# Na tej samej scalance: bez `--full-history` raport ma date 09-02 (swojego commitu),
+# z `--full-history` — 09-05 (scalenia). Obie usterki dzialaja w te sama strone: zdanie
+# datowane przestaje byc zwalniane i bramka zapala sie na raporcie POPRAWNYM.
+
+#: Daty commitow repozytorium probnego. Rozne co do DOBY i to jest treść: `data_stalej`
+#: zwraca date, nie SHA, wiec wylacznie po niej da sie powiedziec, KTORY commit funkcja
+#: wskazala. Dwa commity o tej samej dacie bylyby nieodroznialne, a bramka mowilaby
+#: wtedy „zwrocila jakas date" zamiast „zwrocila ten commit".
+DATA_KORZENIA = "2026-09-01T10:00:00+00:00"
+DATA_COMMITU_RAPORTU = "2026-09-02T10:00:00+00:00"
+DATA_COMMITU_STALEJ = "2026-09-04T10:00:00+00:00"
+DATA_SCALENIA = "2026-09-05T10:00:00+00:00"
+
+
+def _repozytorium_ze_scaleniem(katalog, main_podnosi_stala):
+    """Repo gita z PRAWDZIWYM `git merge --no-ff`. Zwraca SHA scalanki.
+
+    `main_podnosi_stala=True` daje scalanke TREESAME wobec pierwszego rodzica — ksztalt,
+    na ktorym usterka 6.D249 jest widoczna. `False` daje topologie „oczywista", na
+    ktorej nie jest. Ksztalt jest sprawdzany porownaniem DRZEW, a nie zakladany.
+    """
+    import subprocess
+
+    def git(*argumenty, kiedy=None):
+        srodowisko = dict(os.environ)
+        if kiedy:
+            srodowisko["GIT_AUTHOR_DATE"] = kiedy
+            srodowisko["GIT_COMMITTER_DATE"] = kiedy
+        wynik = subprocess.run(("git",) + argumenty, cwd=katalog, env=srodowisko,
+                               capture_output=True, text=True)
+        assert wynik.returncode == 0, (
+            "repozytorium probne nie powstalo: git %s -> %d\n%s\n%s"
+            % (" ".join(argumenty), wynik.returncode, wynik.stdout, wynik.stderr))
+        return wynik.stdout.strip()
+
+    def zapisz(wzgledna, tresc):
+        pelna = os.path.join(katalog, wzgledna)
+        os.makedirs(os.path.dirname(pelna), exist_ok=True)
+        with open(pelna, "w", encoding="utf-8") as uchwyt:
+            uchwyt.write(tresc)
+
+    git("init", "-q", "-b", "main")
+    # 6.D27: konfiguracja gita WLASCICIELA nie moze rozstrzygac o wyniku bramki, a `-c`
+    # podane przez bramke NIE dociera do kodu produkcyjnego — `data_stalej` wola `_git`,
+    # ktory sklada wlasne argv. Przypiete jest wiec LOKALNIE w repozytorium probnym:
+    # tam, i tylko tam, siega `cwd=ROOT` z `_git`. `log.showSignature` wywracalo juz
+    # trzy bramki na kodzie POPRAWNYM (6.D250), bo dokleja do wypisu `git log` wiersze,
+    # ktorych zaden z tych parserow sie nie spodziewa.
+    for klucz, wartosc in (("user.email", "probne@example.invalid"),
+                           ("user.name", "probne"),
+                           ("commit.gpgsign", "false"),
+                           ("tag.gpgsign", "false"),
+                           ("log.showSignature", "false"),
+                           # 6.D251, ZMIERZONE: `merge.verifySignatures = true` w konfiguracji
+                           # globalnej wywraca `git merge --no-ff` kodem 128 („does not have
+                           # a GPG signature") i te trzy testy padają na KODZIE POPRAWNYM.
+                           # Pin na `commit.gpgsign` tego NIE załatwia: tamten dotyczy
+                           # PISANIA podpisu, ten — SPRAWDZANIA cudzego przy scalaniu.
+                           ("merge.verifySignatures", "false"),
+                           ("merge.ff", "false"),
+                           ("status.showUntrackedFiles", "normal"),
+                           ("gc.auto", "0"),
+                           # `os.devnull` zamiast nieistniejącego katalogu w `katalog`:
+                           # tamten fixture sam zapisuje pliki pod `katalog`, więc ścieżka
+                           # „na pewno pustego katalogu" jest założeniem, a `/dev/null`
+                           # katalogiem nie będzie nigdy.
+                           ("core.hooksPath", os.devnull)):
+        git("config", "--local", klucz, wartosc)
+
+    zapisz("tools/stale.py", "PROG_PROBNY = 1\n")
+    git("add", "-A")
+    git("commit", "-qm", "korzen", kiedy=DATA_KORZENIA)
+    git("branch", "galaz")
+
+    # `main`: commit, ktory wnosi RAPORT. Przy ksztalcie TREESAME podnosi przy okazji
+    # stala — bo wlasnie o to chodzi: galaz przepisze ja potem na wartosc, KTORA `main`
+    # JUZ MA, i drzewo scalanki wyjdzie identyczne z drzewem tego commitu.
+    if main_podnosi_stala:
+        zapisz("tools/stale.py", "PROG_PROBNY = 2\n")
+    zapisz("reports/probny.md", "Stala `PROG_PROBNY` to 1 w dniu pomiaru.\n")
+    git("add", "-A")
+    git("commit", "-qm", "raport", kiedy=DATA_COMMITU_RAPORTU)
+
+    # Galaz: commit, ktory STALA ZMIENIL. To jego ma wskazac `data_stalej`.
+    git("checkout", "-q", "galaz")
+    zapisz("tools/stale.py", "PROG_PROBNY = 2\n")
+    git("add", "-A")
+    git("commit", "-qm", "stala", kiedy=DATA_COMMITU_STALEJ)
+
+    git("checkout", "-q", "main")
+    git("merge", "--no-ff", "-q", "-m", "Merge galaz into main", "galaz",
+        kiedy=DATA_SCALENIA)
+
+    drzewo_scalanki = git("rev-parse", "HEAD^{tree}")
+    drzewo_rodzica = git("rev-parse", "HEAD^1^{tree}")
+    assert (drzewo_scalanki == drzewo_rodzica) is main_podnosi_stala, (
+        "ksztalt scalanki wyszedl inny, niz fixture zamawial: TREESAME wobec pierwszego "
+        "rodzica=%s przy zamowieniu %s — a to OD NIEGO zalezy, czy usterka jest w ogole "
+        "widoczna" % (drzewo_scalanki == drzewo_rodzica, main_podnosi_stala))
+    return git("rev-parse", "HEAD")
+
+
+#: Flagi, ktore WYLACZAJA upraszczanie historii. Rodzina, nie jedna flaga, i to jest
+#: ZMIERZONE (6.D27, 16.09.2026): `--simplify-merges` sama z siebie IMPLIKUJE pelna
+#: historie, wiec przy zapisie `--full-history --simplify-merges` — rownowaznym,
+#: dajacym te sama poprawna odpowiedz 09-04 — odjecie samego `--full-history` usterki
+#: NIE odtwarza i ten test zapala sie na KODZIE POPRAWNYM komunikatem „fixture przestal
+#: odwzorowywac usterke". Odejmowana jest wiec cala rodzina.
+BEZ_UPRASZCZANIA = ("--full-history", "--simplify-merges", "--sparse", "--dense")
+
+
+def _bez_full_history(prawdziwy):
+    """`_git` z odjeta rodzina `BEZ_UPRASZCZANIA` — usterka 6.D249 na zywym kodzie."""
+    return lambda *a: prawdziwy(*[x for x in a if x not in BEZ_UPRASZCZANIA])
+
+
+def _z_full_history(prawdziwy):
+    """`_git` z DOLOZONYM `--full-history` — druga strona asymetrii."""
+    def opakowany(*a):
+        if a and a[0] == "log" and "--full-history" not in a:
+            a = (a[0], "--full-history") + a[1:]
+        return prawdziwy(*a)
+    return opakowany
+
+
+def _na_repozytorium_probnym(katalog):
+    """Podstawia `ROOT` i czysci `_PAMIEC` — idiom tego modulu, tylko z `ROOT` w komplecie.
+
+    `data_stalej` i `data_raportu` wolaja gita z `cwd=ROOT`, wiec samo podstawienie
+    pamieci podrecznej nie wystarcza: to wlasnie wypis gita jest tu mierzony.
+    """
+    globals()["ROOT"] = katalog
+    _PAMIEC.clear()
+    _PAMIEC["gdzie"] = {"PROG_PROBNY": [os.path.join("tools", "stale.py")]}
+    _PAMIEC["zmienione"] = set()
+    _PAMIEC["granice"] = set()
+
+
+def test_datowanie_stalej_na_SCALANCE_wskazuje_commit_KTORY_STALA_ZMIENIL():
+    """6.D249 na prawdziwej scalance: `--full-history` w `data_stalej` jest OBOWIAZKOWE.
+
+    Wejscie: repo z `git merge --no-ff`, scalanka TREESAME wobec pierwszego rodzica.
+    Stala zmienil commit galezi (09-04); raport wniosl commit `main` (09-02).
+
+    Druga polowa testu odtwarza usterke na ZYWYM kodzie — odejmuje `--full-history`
+    z argumentow gita i sprawdza, ze odpowiedz przeskakuje na commit RAPORTU. Bez niej
+    fixture moglby z czasem zgnic w taki, na ktorym obie wersje odpowiadaja tak samo,
+    a bramka byla by zielona nie wiadomo z czego.
+    """
+    import tempfile
+
+    zastany_root, zastana_pamiec, zastany_git = ROOT, dict(_PAMIEC), _git
+    try:
+        with tempfile.TemporaryDirectory() as katalog:
+            _repozytorium_ze_scaleniem(katalog, main_podnosi_stala=True)
+            _na_repozytorium_probnym(katalog)
+
+            assert data_stalej("PROG_PROBNY", "2") == _data(DATA_COMMITU_STALEJ), (
+                "`data_stalej` na scalance wskazala %s zamiast commitu, ktory stala "
+                "ZMIENIL (%s) — `git log` z pathspec uproscil historie i poszedl samym "
+                "pierwszym rodzicem" % (data_stalej("PROG_PROBNY", "2"),
+                                        _data(DATA_COMMITU_STALEJ)))
+
+            # Zdanie raportu o wartosci 1 ma byc ZWOLNIONE: stala zmieniła się PO nim.
+            przedawnione, powod = zdanie_z_dnia_pomiaru("probny.md", "PROG_PROBNY", "2")
+            assert przedawnione, (
+                "twierdzenie raportu nie zostalo zwolnione, choc stala zmienila sie po "
+                "nim — to jest dokladnie ten skutek, ktory zapalil `main`: %s" % powod)
+
+            # DRUGA STRONA: usterka odtworzona na zywym kodzie.
+            _na_repozytorium_probnym(katalog)
+            globals()["_git"] = _bez_full_history(zastany_git)
+            zle = data_stalej("PROG_PROBNY", "2")
+            globals()["_git"] = zastany_git
+            assert zle == _data(DATA_COMMITU_RAPORTU), (
+                "bez `--full-history` odpowiedz NIE przeskoczyla na commit raportu (%s) "
+                "— fixture przestal odwzorowywac usterke 6.D249" % zle)
+
+            _PAMIEC.pop(("raport", "probny.md"), None)
+            globals()["_git"] = _bez_full_history(zastany_git)
+            przedawnione_zle, _p = zdanie_z_dnia_pomiaru("probny.md", "PROG_PROBNY", "2")
+            globals()["_git"] = zastany_git
+            assert not przedawnione_zle, (
+                "usterka odtworzona, a twierdzenie mimo to zwolnione — wtedy ten test "
+                "nie mierzy tego, co opisuje")
+    finally:
+        globals()["ROOT"] = zastany_root
+        globals()["_git"] = zastany_git
+        _PAMIEC.clear()
+        _PAMIEC.update(zastana_pamiec)
+
+
+def test_datowanie_RAPORTU_na_scalance_nie_liczy_scalenia_ktore_raport_PRZENIOSLO():
+    """Druga strona asymetrii: w `data_raportu` `--full-history` PSUJE.
+
+    Ta sama scalanka, to samo repo. `data_raportu` ma odpowiedziec data commitu, ktory
+    raport wniosl (09-02), a nie data scalenia, ktore raport wylacznie PRZENIOSLO
+    (09-05). Bez tego testu ktos „naprawilby" asymetrie symetria — dolozyl
+    `--full-history` po obu stronach — i bramka zaczela by zapalac sie na raportach
+    poprawnych, bo kazdy z nich datowalby sie ostatnim scaleniem, ktore go dotknelo.
+    """
+    import tempfile
+
+    zastany_root, zastana_pamiec, zastany_git = ROOT, dict(_PAMIEC), _git
+    try:
+        with tempfile.TemporaryDirectory() as katalog:
+            _repozytorium_ze_scaleniem(katalog, main_podnosi_stala=True)
+            _na_repozytorium_probnym(katalog)
+
+            assert data_raportu("probny.md") == _data(DATA_COMMITU_RAPORTU), (
+                "`data_raportu` wskazala %s zamiast commitu, ktory raport wniosl (%s)"
+                % (data_raportu("probny.md"), _data(DATA_COMMITU_RAPORTU)))
+
+            _na_repozytorium_probnym(katalog)
+            globals()["_git"] = _z_full_history(zastany_git)
+            zle = data_raportu("probny.md")
+            globals()["_git"] = zastany_git
+            assert zle == _data(DATA_SCALENIA), (
+                "z `--full-history` data raportu NIE przeskoczyla na scalenie (%s) — "
+                "wtedy asymetria opisana w `data_raportu` przestaje byc prawda" % zle)
+            assert zle > _data(DATA_COMMITU_STALEJ), (
+                "scalenie ma byc PO zmianie stalej — inaczej ta usterka nie zabieralaby "
+                "zwolnienia zadnemu twierdzeniu i test nie mowilby o niczym")
+    finally:
+        globals()["ROOT"] = zastany_root
+        globals()["_git"] = zastany_git
+        _PAMIEC.clear()
+        _PAMIEC.update(zastana_pamiec)
+
+
+def test_scalanka_NIE_TREESAME_usterki_NIE_POKAZUJE_i_dlatego_fixture_jest_taki():
+    """Dlaczego fixture wyzej ma ksztalt, ktory ma — zmierzone, nie zalozone.
+
+    Topologia „oczywista" (galaz zmienia stala, `main` jej nie rusza) daje scalanke
+    NIE-TREESAME wobec pierwszego rodzica: upraszczanie idzie wtedy w strone galezi
+    i obie wersje `git log` — z `--full-history` i bez — odpowiadaja TAK SAMO.
+    Bramka zbudowana na tym ksztalcie byla by zielona razem z usterka 6.D249.
+    """
+    import tempfile
+
+    zastany_root, zastana_pamiec, zastany_git = ROOT, dict(_PAMIEC), _git
+    try:
+        with tempfile.TemporaryDirectory() as katalog:
+            _repozytorium_ze_scaleniem(katalog, main_podnosi_stala=False)
+
+            _na_repozytorium_probnym(katalog)
+            z_poprawka = data_stalej("PROG_PROBNY", "2")
+
+            _na_repozytorium_probnym(katalog)
+            globals()["_git"] = _bez_full_history(zastany_git)
+            z_usterka = data_stalej("PROG_PROBNY", "2")
+            globals()["_git"] = zastany_git
+
+            assert z_poprawka == _data(DATA_COMMITU_STALEJ), z_poprawka
+            assert z_usterka == z_poprawka, (
+                "na scalance NIE-TREESAME wersje jednak sie roznia (%s vs %s) — wtedy "
+                "powod, dla ktorego fixture wyzej ma ksztalt TREESAME, przestal byc "
+                "prawda i ten blok trzeba przeliczyc" % (z_usterka, z_poprawka))
+    finally:
+        globals()["ROOT"] = zastany_root
+        globals()["_git"] = zastany_git
+        _PAMIEC.clear()
+        _PAMIEC.update(zastana_pamiec)
+
+
 # --- 6.D209: KSZTALT `NAZWA = N` W `reports/` — POSZERZYC CZY ZAPISAC GRANICE --------
 #
 # **ODPOWIEDZ: NIE poszerzac, i sa to CZTERY trafienia falszywe przy ZERZE prawdziwych.**
