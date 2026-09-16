@@ -400,7 +400,14 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 # rozstrzygnieciem jest POLICZENIE katalogu po scaleniu, nigdy wybor strony.
 # SZOSTY konflikt na tej zapadce w ciagu doby (scalenie #641 do 6.D248).
 # Wartosc znowu POLICZONA z katalogu po scaleniu, nie wybrana ze stron.
-MIN_REPORTS = 364
+# SIODME starcie tej zapadki w ciagu doby (scalenie #643 do 6.D239) i PIERWSZE,
+# ktore NIE BYLO KONFLIKTEM — i dlatego jest tu zapisane osobno. Obie galezie
+# dokladaly po jednym raporcie i obie ustawily 364, wiec git scalil je CZYSTO,
+# bez markera. Drzewo scalone ma jednak 365 plikow: zgodnosc stron NIE ZNACZY
+# poprawnosci sumy. Sześć poprzednich razy ratowal marker konfliktu, tu nie
+# ratowalo nic poza rownoscia z 6.D45, ktora zapalila sie po scaleniu.
+# WNIOSEK: liczbe trzeba POLICZYC po KAZDYM scaleniu, takze po czystym.
+MIN_REPORTS = 365
 
 #: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
 #: wierszem zaczynającym się od `**`, z którego `_header_shapes` czyta kształt.
