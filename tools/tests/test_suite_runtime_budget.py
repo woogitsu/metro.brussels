@@ -49,6 +49,7 @@ działanie, a osobny test pilnuje, żeby żadna liczba w tej prozie nie rozjecha
 z liczbą w kodzie. Próg 150,0 zostaje **nietknięty**: jego zmiana jest decyzją
 o czułości bramki, a nie skutkiem ubocznym poprawiania zapisu pomiaru.
 """
+import math
 import os
 import re
 import statistics
@@ -80,12 +81,17 @@ MASZYNY = (MASZYNA_RUNNER, MASZYNA_KONTENER)
 #:   runner, sześć przebiegów CI   89,5–116,4 s ściany, CPU/ściana **1,599–1,971**
 #:   kontener sesji, jeden przebieg  **170,685 s** ściany, CPU/ściana **0,991**
 #:
-#: **Kontener przekracza dziś próg o 14 % i podłoga mierzalności go NIE zatrzymuje**
-#: — 0,991 stoi wysoko nad `MIERZALNOSC_MIN` (0,75), więc `werdykt` uznałby ten pomiar
-#: za „pomiar kodu" i odrzucił. Test niżej wykonuje ten rachunek, żeby zdanie nie było
-#: opinią. Nie jest to usterka bramki: bramka chodzi WYŁĄCZNIE na runnerze, w kroku
-#: „Run tool tests". Jest to natomiast dowód, że **jedna lista na dwie maszyny daje
-#: margines nieprawdziwy dla obu** — dokładnie to, o co pytała pozycja 6.D135.
+#: **Kontener przekracza dziś próg o 14 %, a od 6.D247 zatrzymuje go PODŁOGA.**
+#: Ten akapit jest PRZEPISANY, a nie dopisany obok (16.09.2026): poprzednia wersja
+#: mówiła, że podłoga kontenera NIE zatrzymuje, bo 0,991 stało wysoko nad
+#: `MIERZALNOSC_MIN` (0,75) — i to już nieprawda. Po podwyżce 0,75 → 1,168 stosunek
+#: 0,991 leży POD podłogą, więc `werdykt` nie dopuszcza tego pomiaru do porównania
+#: z progiem i mówi o tym wierszem w komunikacie. Test niżej wykonuje ten rachunek,
+#: żeby zdanie nie było opinią, i ma odwróconą polaryzację razem z tym akapitem.
+#: Nie jest to usterka bramki: bramka chodzi WYŁĄCZNIE na runnerze, w kroku
+#: „Run tool tests". Zostaje natomiast dowód, że **jedna lista na dwie maszyny daje
+#: margines nieprawdziwy dla obu** — dokładnie to, o co pytała pozycja 6.D135;
+#: zmieniła się droga, którą drzewo to dziś mówi, a nie sam wniosek.
 #:
 #: Runner liczy zestaw RÓWNOLEGLE (CPU/ściana powyżej jedynki), kontener szeregowo
 #: (0,99). To nie są te same przebiegi tego samego zestawu — to dwa różne pomiary
@@ -134,7 +140,7 @@ POMIARY = (
      "job `tools`, PR #528, CPU/ściana 1,599 — 2335 testów"),
     ("2026-09-11", 170.685, 122, MASZYNA_KONTENER,
      "kontener sesji, maszyna spokojna, CPU/ściana 0,991 — 2335 testów; PRZEKRACZA "
-     "próg 150 s i podłoga mierzalności tego nie zatrzymuje, patrz komentarz wyżej"),
+     "próg 150 s, a od 6.D247 zatrzymuje go PODŁOGA 1,168, patrz komentarz wyżej"),
     # SZEŚĆ POWTÓRZEŃ NA JEDNYM DRZEWIE — 6.D160. Do tej pozycji kontener miał na
     # dzisiejszym drzewie JEDEN przebieg, więc rozrzutu nie było z czego policzyć.
     # Sześć poniżej zrobiono jedno po drugim, tym samym przyrządem, co krok CI
@@ -339,7 +345,14 @@ def over_budget(elapsed_s, budget_s=SUITE_RUNTIME_BUDGET_S):
 #: PODŁOGA STOSUNKU CPU/ŚCIANA — poniżej niej czas ściany NIE JEST porównywany
 #: z progiem, bo nie mówi o kodzie, tylko o maszynie (6.D42).
 #:
-#: WSZYSTKIE LICZBY, Z KTÓRYCH TA JEDNA WYSZŁA, zmierzone 09.09.2026:
+#: **DZISIEJSZA WARTOŚĆ TO 1,168. Akapity do wiersza z „0,75 -> 1,168" opisują
+#: WYPROWADZENIE POPRZEDNIE (09.09.2026) i są tu jako historia, nie jako stan.**
+#: Ten wiersz stoi na SZCZYCIE bloku, a nie pod nim, i to jest wybór: deklaracja
+#: wtopiona za wywodem zostawia czytającego, który zaczął od góry, ze zdaniami
+#: w czasie teraźniejszym o liczbie, której już nie ma — dokładnie ta pomyłka,
+#: przed którą `CLAUDE.md` §9 przestrzega przy własnym akapicie o etykietach.
+#:
+#: WSZYSTKIE LICZBY, Z KTÓRYCH WYSZŁA POPRZEDNIA PODŁOGA, zmierzone 09.09.2026:
 #:
 #:   kontener sesji, 4 rdzenie, maszyna spokojna    CPU/ściana  0,987 i 0,988
 #:   kontener sesji, 4 rdzenie, 8 procesów w tle    CPU/ściana  0,451 i 0,444
@@ -413,6 +426,24 @@ def over_budget(elapsed_s, budget_s=SUITE_RUNTIME_BUDGET_S):
 #: przebieg `docker-runner-*`. Stara 0,75 miała n = 2 i też to mówiła
 #: (`reports/mierzalnosc-czasu-zestawu.md` §5). Zanim 1,168 zacznie być traktowana
 #: jak liczba dojrzała, powinna mieć kilka przebiegów z tej puli.
+#:
+#: **Odnośnik czytany razem z ostrzeżeniem, i to jest wybór.**
+#: `reports/mierzalnosc-czasu-zestawu.md` jest raportem z 09.09.2026 i mówi o podłodze
+#: **0,75** — w swoim dniu prawdziwie. **6.D108 zabrania go przepisywać**, więc nie
+#: został tknięty; wyprowadzenie dzisiejszej liczby stoi w
+#: `reports/6d247-sufit-mierzalnosci-zamiast-nazwy-maszyny.md`. Wskazanie obu naraz
+#: jest tu potrzebne dlatego, że każdy z pięciu odnośników w tym module prowadzi
+#: dziś do liczby, której moduł już nie wykonuje — i bez tego zdania czytający
+#: musiałby się o tym dowiedzieć sam.
+#:
+#: **CZEGO TA PODŁOGA NIE WIDZI, liczbą, a nie zdaniem:** przebieg
+#: (471,700 s ściany, 550,400 s CPU) ma stosunek 1,167, czyli o 0,001 pod podłogą,
+#: a jego CPU stoi na **125 %** progu — i zostaje PRZEPUSZCZONY. Pod starą podłogą
+#: 0,75 byłby odrzucony. Cisza wariantu (d) nie ogranicza się więc do maszyny
+#: oddającej jeden rdzeń: obejmuje każdy przebieg o niskim stosunku, przy CPU
+#: dowolnie wysokim. Pilnuje tego
+#: `test_podloga_UCISZA_regres_ktory_stara_podloga_by_zlapala_i_to_jest_LICZBA`,
+#: żeby cena tego wyboru stała w drzewie jako przypadek z liczbami.
 MIERZALNOSC_MIN = 1.168
 
 #: Maszyna, na której próg został SKALIBROWANY — 6.D149.
@@ -438,9 +469,13 @@ def werdykt(elapsed_s, cpu_s, budget_s=SUITE_RUNTIME_BUDGET_S, podloga=MIERZALNO
     **Warunki są DWA i od 6.D149 są rozdzielone — to jest rozstrzygnięcie tamtej
     pozycji.** Podłoga odpowiada na pytanie „czy ten pomiar mówi o KODZIE, czy
     o maszynie"; maszyna — na pytanie „czy ten PRÓG mówi o tej maszynie". Kontener
-    sesji przechodzi pierwszy warunek (stosunek 0,991, wysoko nad podłogą 0,75)
-    i nie przechodzi drugiego, a do 6.D149 była to jedna rzecz i pomiar kontenera
-    dostawał odpowiedź progu, który jego nie dotyczy.
+    sesji nie przechodzi dziś ANI JEDNEGO: stosunek 0,991 leży pod podłogą 1,168,
+    a maszyna nie jest maszyną progu. **Zdanie jest przepisane, a nie dopisane obok
+    (6.D247):** do 16.09.2026 stało tu, że kontener przechodzi pierwszy warunek
+    „wysoko nad podłogą 0,75", i po podwyżce jest to nieprawda. Rozdzielenie warunków
+    z 6.D149 zostaje nietknięte — zmieniła się wyłącznie odpowiedź, jaką pierwszy
+    z nich daje na jednym przykładzie. Do 6.D149 była to jedna rzecz i pomiar
+    kontenera dostawał odpowiedź progu, który jego nie dotyczy.
 
     **CO JEST PORÓWNYWANE Z PROGIEM — przepisane, a nie dopisane obok.** Do tej
     pozycji odrzucenie liczyło się z czasu ŚCIANY. Zmierzone na 265 artefaktach
@@ -455,7 +490,9 @@ def werdykt(elapsed_s, cpu_s, budget_s=SUITE_RUNTIME_BUDGET_S, podloga=MIERZALNO
     **Podłoga mierzalności ZOSTAJE i to nie jest ozdoba** — ale jej powód się zwęził.
     Broniła czasu ściany przed maszyną, która nie oddaje CPU; czas CPU tej obrony
     potrzebuje w dużo mniejszym stopniu (dlatego ta pozycja w ogóle powstała), a przy
-    stosunku poniżej 0,75 nie mówi o kodzie ani jedno, ani drugie.
+    stosunku poniżej podłogi nie mówi o kodzie ani jedno, ani drugie. Liczba podłogi
+    stoi w `MIERZALNOSC_MIN` i od 6.D247 wynosi **1,168**, nie 0,75 — wypisana tu
+    z ręki rozjeżdżałaby się przy każdej jej zmianie, i właśnie dlatego jej tu nie ma.
 
     **Kolejność jest tu treścią.** Maszyna rozstrzyga PIERWSZA, bo komunikat podłogi
     obiecuje „ten pomiar nie mówi nic o kodzie" — a dla spokojnego kontenera jest to
@@ -1556,8 +1593,27 @@ def _tekst_kroku_werdyktu():
     """Treść kroku CI „Run tool tests" — JEDEN czytnik, nie dwie kopie (6.D213).
 
     Wydzielone przy 6.D247, bo to samo wycięcie robiły odtąd dwa testy.
+
+    **Asercja na JEDNOKROTNOŚĆ nazwy stoi tu, a nie w teście, i to jest wybór.**
+    Wersja pierwsza brała `text.index(...)`, czyli **pierwsze** wystąpienie — a krok
+    o nazwie zawierającej tę frazę wystarczy postawić wyżej, żeby czytnik oddawał
+    jego treść zamiast treści kroku bramkującego. Zmierzone podstawieniem 16.09.2026:
+    krok-atrapa `Sonda Run tool tests` przed krokiem prawdziwym, a w prawdziwym
+    `B.werdykt(maszyna=os.environ.get('RUNNER_NAME',''), …)` — czyli dokładnie to,
+    czego `test_krok_CI_NIE_podaje_nazwy_maszyny…` zabrania — dało **34/37**, a ta
+    bramka była wśród zielonych. Trzy czerwienie pochodziły od starszych sąsiadek
+    i trafiły przypadkiem, bo one czytają krok po swojemu.
+
+    Asercja jest w CZYTNIKU, bo inaczej każdy jego użytkownik musiałby ją powtórzyć —
+    a to jest ta sama druga kopia, przed którą broni 6.D213.
     """
     text = _workflow_text()
+    ile = text.count("Run tool tests")
+    assert ile == 1, (
+        "fraza „Run tool tests” stoi w `%s` %d razy, a czytnik bierze PIERWSZE "
+        "wystąpienie — drugi krok o takiej nazwie przesłania krok bramkujący "
+        "i wszystkie bramki czytające go przez ten czytnik robią się zielone "
+        "nad krokiem, którego nie oglądają" % (WORKFLOW, ile))
     start = text.index("Run tool tests")
     return text[start:text.index("\n      - name:", start)]
 
@@ -2255,6 +2311,78 @@ def test_incydent_z_docker_runnera_JEST_ODMOWIONY_a_nie_odrzucony():
     assert porownane >= 8, (
         "przebiegów kalibracyjnych jest %d — poniżej ośmiu, na których mierzono "
         "rozstrzygnięcie 6.D247" % porownane)
+
+
+def test_podloga_mierzalnosci_JEST_PRZYBITA_do_pomiaru_z_ktorego_wyszla():
+    """Podłoga ma się zgadzać ze środkiem geometrycznym luki, a nie być liczbą z ręki.
+
+    **Skąd ta bramka, 16.09.2026, z przeglądu adwersaryjnego 6.D247.** Sama
+    `MIERZALNOSC_MIN` nie była przybita niczym: podmiana `1.168` na `1.0` dawała
+    **37/37 przeszło**, choć przy 1,0 incydent `docker-runner-02` (0,992) leży już
+    tylko **o 0,008** pod podłogą, a cały akapit o „środku geometrycznym luki" staje
+    się nieprawdą — po cichu. Liczba, którą da się przesunąć bez zapalenia czegokolwiek,
+    jest liczbą, o której proza mówi, a drzewo nie wie.
+
+    Przybita jest do **wyliczenia**, a nie do samej siebie: podłoga ma być średnią
+    geometryczną najniższego przebiegu kalibracyjnego i najwyższego przebiegu
+    odmówionego. Dzięki temu dopisanie nowego przebiegu do któregokolwiek zbioru
+    **przelicza** podłogę zamiast ją unieważniać, a rozjazd wychodzi tutaj.
+    """
+    dol_kalibracji = min(cpu / sciana for _, sciana, cpu in POMIARY_CPU_BIEZACEGO_DRZEWA)
+    gora_odmowiona = INCYDENT_DOCKER_CPU / INCYDENT_DOCKER_SCIANA
+    srodek = math.sqrt(dol_kalibracji * gora_odmowiona)
+    assert gora_odmowiona < dol_kalibracji, (
+        "przebieg ODMÓWIONY (%.3f) nie leży już pod najniższym przebiegiem "
+        "KALIBRACYJNYM (%.3f) — zbiory się przecięły i podłogi nie da się między nie "
+        "wstawić; wtedy trzeba przeliczyć cały wybór, a nie poprawić stałą"
+        % (gora_odmowiona, dol_kalibracji))
+    assert abs(MIERZALNOSC_MIN - srodek) <= 0.001, (
+        "`MIERZALNOSC_MIN` stoi na %.4f, a środek geometryczny luki między "
+        "najniższym przebiegiem kalibracyjnym (%.4f) a przebiegiem odmówionym "
+        "(%.4f) wynosi %.4f — jedno z dwóch jest z ręki. Proza nad stałą wywodzi ją "
+        "z tego wyliczenia, więc rozjazd znaczy, że proza opisuje inną liczbę niż ta, "
+        "którą wykonuje kod" % (MIERZALNOSC_MIN, dol_kalibracji, gora_odmowiona, srodek))
+    # Kontrola przyrządu: podłoga naprawdę rozdziela oba zbiory, a nie tylko wypada
+    # między dwie liczby, które akurat podano.
+    for _, sciana, cpu in POMIARY_CPU_BIEZACEGO_DRZEWA:
+        assert cpu / sciana >= MIERZALNOSC_MIN, (
+            "przebieg kalibracyjny %.3f/%.3f = %.3f wpadł POD podłogę %.3f — podłoga "
+            "przestała porównywać materiał, na którym próg został skalibrowany"
+            % (cpu, sciana, cpu / sciana, MIERZALNOSC_MIN))
+
+
+def test_podloga_UCISZA_regres_ktory_stara_podloga_by_zlapala_i_to_jest_LICZBA():
+    """Cena wariantu (d), wypisana liczbą zamiast zdaniem — 16.09.2026.
+
+    Proza nad stałą mówi, że na maszynie oddającej jeden rdzeń bramka MILKNIE, i to
+    jest prawda ogólna. **Czego nie mówiła, a co przegląd adwersaryjny wyciągnął:**
+    milknie także na przebiegu, który przekracza próg CPU o **ćwierć** — bo o dopuszczeniu
+    do porównania decyduje wyłącznie stosunek, a ten może być niski przy CPU dowolnie
+    wysokim. Przebieg (471,700 s ściany, 550,400 s CPU) ma stosunek **1,167**, czyli
+    o **0,001** pod podłogą, a jego CPU stoi **125 %** progu. Pod starą podłogą 0,75
+    ten przebieg byłby ODRZUCONY.
+
+    Bramka nie żąda, żeby tak nie było — wariant (d) wybrał właściciel i cisza jest
+    jego świadomą ceną. Żąda, żeby ta cena stała w drzewie jako **przypadek z liczbami**,
+    a nie jako zdanie o „maszynie oddającej jeden rdzeń". Gdy ktoś podłogę ruszy, ten
+    test powie mu, co dokładnie przestaje być widziane.
+    """
+    sciana, cpu = 471.700, 550.400
+    odrzuc, komunikat = werdykt(sciana, cpu)
+    assert cpu > SUITE_CPU_BUDGET_S, (
+        "przypadek kontrolny przestał przekraczać próg (%.3f wobec %.1f) — wtedy nie "
+        "mierzy już niczego" % (cpu, SUITE_CPU_BUDGET_S))
+    assert cpu / sciana < MIERZALNOSC_MIN, (
+        "przypadek kontrolny (%.3f) wyszedł NAD podłogę %.3f — jeżeli podłoga spadła "
+        "świadomie, przepisz ten test razem z nią; jeżeli nie, cisza opisana w prozie "
+        "nad stałą zmieniła zasięg" % (cpu / sciana, MIERZALNOSC_MIN))
+    assert odrzuc is False, (
+        "przebieg %.1f %% progu CPU zostaje dziś ODRZUCONY, a proza nad stałą mówi, "
+        "że podłoga go przepuszcza — jedno z dwóch trzeba przepisać"
+        % (100.0 * cpu / SUITE_CPU_BUDGET_S))
+    assert "NIE JEST porownywany" in komunikat, (
+        "komunikat nie mówi, że porównanie zostało POMINIĘTE — a cisza bez wiersza "
+        "w logu jest ciszą, której nikt nie zauważy:\n" + komunikat)
 
 
 def test_krok_CI_NIE_podaje_nazwy_maszyny_i_to_jest_WYBOR_a_nie_przeoczenie():

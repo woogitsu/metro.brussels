@@ -119,14 +119,103 @@ liczb wniosek „ta asercja jest potrzebna" byłby nieuzasadniony.
 KN-3 pilnuje, żeby nikt nie „naprawił" martwej gałęzi przez dopisanie nazwy maszyny
 do kroku — czego §9 zabrania.
 
-## 8. Weryfikacja
+## 8. Przegląd adwersaryjny własnej zmiany — cztery usterki, dwie krytyczne
+
+Sekcja dopisana 16.09.2026, po przejrzeniu tej zmiany pod kątem „co w niej jest
+zielone nad konfiguracją, dla której powstało". **Wszystkie cztery były moje i żadnej
+nie znalazłem przy pisaniu.**
+
+### 8.1. Czytnik kroku brał PIERWSZE wystąpienie nazwy — KRYTYCZNE
+
+`_tekst_kroku_werdyktu()` szukał `text.index("Run tool tests")`. Krok o nazwie
+zawierającej tę frazę wystarczy postawić **wyżej**, żeby czytnik oddawał jego treść.
+Zmierzone podstawieniem: krok-atrapa `Sonda Run tool tests` przed krokiem prawdziwym,
+a w prawdziwym `B.werdykt(maszyna=os.environ.get('RUNNER_NAME',''), …)` — czyli
+dokładnie to, czego `test_krok_CI_NIE_podaje_nazwy_maszyny…` zabrania:
 
 ```
-  2495/2495 przeszło
-  RAZEM 222.264 s, 2495 testów, 126 modułów
+FAIL test_ci_gate_step_is_a_comparison_that_can_exit_non_zero
+FAIL test_krok_ci_czyta_prog_CPU_z_tego_pliku_a_nie_z_drugiej_kopii
+FAIL test_krok_ci_mierzy_czas_cpu_zestawu_a_nie_tylko_sciane
+34/37 przeszło
 ```
 
-## 9. Zauważone przy okazji, nie tknięte
+**Bramka o nazwie maszyny była wśród ZIELONYCH.** Trzy czerwienie pochodzą od
+starszych sąsiadek, które czytają krok po swojemu, i trafiły przypadkiem.
+
+Asercja na jednokrotność stoi teraz **w czytniku**, nie w teście — inaczej każdy jego
+użytkownik musiałby ją powtórzyć, a to jest druga kopia, przed którą broni 6.D213.
+Ta sama mutacja daje po poprawce **32/37**, a bramka o nazwie maszyny czerwieni się
+z własnym komunikatem.
+
+### 8.2. Podłoga nie była przybita NICZYM — KRYTYCZNE
+
+Podmiana `MIERZALNOSC_MIN` z `1.168` na `1.0` dawała **37/37 przeszło**. Przy 1,0
+incydent `docker-runner-02` (0,992) leży już tylko **o 0,008** pod podłogą, a cały
+akapit o „środku geometrycznym luki" staje się nieprawdą — po cichu. Liczba, którą da
+się przesunąć bez zapalenia czegokolwiek, jest liczbą, o której proza mówi, a drzewo
+nie wie.
+
+`test_podloga_mierzalnosci_JEST_PRZYBITA_do_pomiaru_z_ktorego_wyszla` przybija ją do
+**wyliczenia**, a nie do samej siebie: średnia geometryczna najniższego przebiegu
+kalibracyjnego (1,3752) i przebiegu odmówionego (0,9916) wynosi **1,1677**. Dopisanie
+nowego przebiegu do któregokolwiek zbioru **przelicza** podłogę zamiast ją unieważniać.
+Ta sama mutacja daje po poprawce **37/39** z komunikatem podającym obie liczby.
+
+### 8.3. Cisza wariantu (d) jest szersza, niż mówiła proza — LICZBĄ
+
+Akapit nad stałą mówił, że na maszynie oddającej jeden rdzeń bramka MILKNIE, i to jest
+prawda ogólna. Czego nie mówił: milknie także na przebiegu przekraczającym próg CPU
+o **ćwierć**, bo o dopuszczeniu do porównania decyduje **wyłącznie stosunek**, a ten
+może być niski przy CPU dowolnie wysokim.
+
+| ściana | CPU | stosunek | % progu CPU | werdykt |
+|---|---|---|---|---|
+| 471,700 s | 550,400 s | **1,167** | **125 %** | `odrzuc=False` |
+
+Pod starą podłogą 0,75 ten przebieg byłby **odrzucony**. Nie żądam, żeby tak nie było —
+wariant (d) wybrał właściciel i cisza jest jego świadomą ceną. Żądam, żeby ta cena
+stała w drzewie jako **przypadek z liczbami**, a nie jako zdanie o „maszynie oddającej
+jeden rdzeń": pilnuje tego
+`test_podloga_UCISZA_regres_ktory_stara_podloga_by_zlapala_i_to_jest_LICZBA`.
+
+### 8.4. Trzy zdania stały się nieprawdą i nie zostały przepisane
+
+Wszystkie trzy mówiły o podłodze **0,75** w czasie teraźniejszym i wszystkie są teraz
+przepisane, a nie dopisane obok:
+
+- akapit „kontener przekracza próg i podłoga go NIE zatrzymuje" — dziś **zatrzymuje**;
+- pole opisowe wpisu `POMIARY` z 11.09.2026, niosące to samo zdanie;
+- zdanie w `werdykt`, że kontener „przechodzi pierwszy warunek, wysoko nad podłogą 0,75"
+  — dziś nie przechodzi **ani jednego**.
+
+Czwarta poprawka jest o **położeniu**, nie o treści: deklaracja `0,75 -> 1,168` stała
+**pod** całym wyprowadzeniem starej liczby, więc czytający od góry napotykał zdania
+w czasie teraźniejszym o liczbie, której już nie ma. Marker przeszłości stoi teraz
+na **szczycie** bloku. Jest to dokładnie ta pomyłka, przed którą `CLAUDE.md` §9
+przestrzega przy własnym akapicie o etykietach runnera — i popełniłem ją w tym samym
+commicie, w którym tamten akapit czytałem.
+
+### 8.5. Czego NIE zrobiłem i dlaczego
+
+`reports/mierzalnosc-czasu-zestawu.md` **nie został tknięty**, choć mówi o podłodze
+0,75. Jest raportem z 09.09.2026 i w swoim dniu był prawdziwy, a **6.D108 zabrania
+przepisywać raporty**. Zamiast tego moduł, który do niego odsyła w pięciu miejscach,
+niesie teraz zdanie o tym, że odnośnik prowadzi do liczby poprzedniej, i wskazuje ten
+raport jako miejsce wyprowadzenia dzisiejszej.
+
+## 9. Weryfikacja
+
+```
+  2497/2497 przeszło
+  RAZEM 210.675 s, 2497 testów, 126 modułów
+```
+
+Zapadka `ASERCJI_NAPISOWYCH_RAZEM` podniesiona 896 → **897** z powodem wpisanym
+w komentarzu: doszła jedna asercja na komunikacie werdyktu, bez której nowy test byłby
+zielony także wtedy, gdyby podłoga pomijała porównanie **milcząc**.
+
+## 10. Zauważone przy okazji, nie tknięte
 
 `POMIARY_RUNNERA` (89,5–116,4 s ściany) i `POMIARY_CPU_BIEZACEGO_DRZEWA`
 (121,7–164,7 s) to **dwa rozłączne pasma** tej samej maszyny i tego samego joba,

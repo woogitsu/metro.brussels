@@ -1614,7 +1614,16 @@ def test_wzorzec_rodziny_lapie_zdanie_ktore_ma_lapac_i_nie_bierze_sasiedztwa():
 #: werdyktu, a nazwa jest napisem z definicji.
 #: Do `NA_ZRODLE_PY` nie należą: komunikat jest wynikiem wywołania funkcji, a krok
 #: workflowa jest YAML-em, nie źródłem `.py`.
-ASERCJI_NAPISOWYCH_RAZEM = 896
+#: **896 -> 897 (16.09.2026, 6.D247, po przeglądzie adwersaryjnym).** Doszła JEDNA,
+#: w `test_podloga_UCISZA_regres_ktory_stara_podloga_by_zlapala_i_to_jest_LICZBA`,
+#: i jest tego samego rodzaju co dziesięć wyżej: `"NIE JEST porownywany" in komunikat`
+#: pyta, KTÓRA gałąź werdyktu zadziałała, a gałąź rozpoznaje się po komunikacie, bo
+#: to on jest drugim wyjściem funkcji. Stoi tam, gdzie stoi, z powodu: reszta tego
+#: testu dowodzi, że przebieg **125 % progu CPU** zostaje przepuszczony — a cisza,
+#: o której nie ma wiersza w logu, jest ciszą, której nikt nie zauważy. Bez tej
+#: asercji test byłby zielony także wtedy, gdyby podłoga pomijała porównanie
+#: MILCZĄC. Do `NA_ZRODLE_PY` nie należy z tego samego powodu co tamte dziesięć.
+ASERCJI_NAPISOWYCH_RAZEM = 897
 
 #: **Kotwica wpisu to `(plik, funkcja, operator, literał)`, a NIE numer wiersza.**
 #: Numer przesuwa się przy każdej edycji pliku i lista rozjechałaby się sama z siebie.
