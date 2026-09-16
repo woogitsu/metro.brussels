@@ -91,6 +91,63 @@ pokazał, a nie czy liczba stoi w kodzie. Bez tego `WYCIAG_FAILI` byłby napisem
 **KN-4b jest tą, która mierzy własną ślepotę bramki**, a nie kodu: to jedyna kontrola,
 w której mutowany jest test, nie `doctor.sh`.
 
+## 4a. Cztery usterki tej pozycji, znalezione adwersaryjnym przeglądem PO pierwszym push-u
+
+Sześć kontroli negatywnych z §4 wyszło zgodnie z przewidywaniem — i to **nie wystarczyło**.
+Osobny przegląd, którego zadaniem było tę zmianę złamać, a nie potwierdzić, znalazł cztery
+rzeczy. Wszystkie cztery sprawdziłem sam, zanim je poprawiłem.
+
+**(1) Bramka była ślepa na ROZMIAR logu — i to jest najcięższe.** Atrapa miała **49**
+wierszy, prawdziwy log **2836**. Mutacja `doctor.sh` odsyłająca do pliku przy logu
+dłuższym niż 200 wierszy przechodziła **5/5** — czyli w CI czytający dostawałby samą
+ścieżkę, dokładnie stan sprzed tej pozycji. Asercja `"nie przechodzą — zobacz" not in
+galaz` tego nie łapie, bo mutacja pisze napis własny. Domknięte atrapą na **2900**
+wierszy z `FAIL`-ami na początku i na końcu.
+
+**(2) Jeden bajt NUL zamieniał doctora w zmyślacza przyczyny.** GNU grep bez `-a` uznaje
+plik z NUL-em za binarny, wypisuje `binary file matches` na stderr (zjadane przez
+`2>/dev/null`) i oddaje puste stdout — a pusty wynik wpadał w gałąź „padł poza ciałem
+testu”. Zmierzone przeze mnie na logu z jednym NUL-em: oba wypisane zdania były
+nieprawdziwe, bo wiersz `FAIL` i wiersz `N/M przeszło` w tym logu **stały**. To jest
+gorsze niż stan sprzed 6.D241: stary komunikat nie mówił nic, ten mówiłby nieprawdę.
+Domknięte przez `grep -a` w obu wywołaniach, `cat -v` na ogonie i własną bramkę.
+
+**(3) Bramka nie znała trzech postaci `FAIL` zestawu** — `FAIL <przebieg>`,
+`FAIL <zestaw>`, `FAIL <bramka asercji>` (`test_all.py` 743/748/753), czyli dokładnie
+tych, które opisują padnięcie całego przebiegu — tak jak 6.D240. Zawężenie grepa do
+`FAIL test_` przechodziło **5/5**. **Pierwsza poprawka była za słaba i to też jest
+zmierzone:** atrapa z tymi trzema postaciami przechodziła przy zawężonym grepie
+**8/8**, bo zawężenie wypycha przebieg do gałęzi „zero wierszy FAIL”, a ta pokazuje
+OGON logu — w którym te same trzy napisy stoją. Bramka mierzyła więc ogon, nie wyciąg.
+Dopiero asercja na **gałąź** (`"wiersze FAIL (" in wypis`) zamyka tę drogę: po niej
+ta sama mutacja daje **7/8**.
+
+**(4) Bramka zapalała się na kodzie CAŁKOWICIE POPRAWNYM** — 6.D27 w mojej własnej
+zmianie. `_doctor_z_atrapa` zdejmowało `MBXL_DOCTOR_RUNNING`, ale **nie**
+`MBXL_WYCIAG_FAILI`, czyli tej jednej zmiennej, o którą bramka pyta. Zmierzone:
+`MBXL_WYCIAG_FAILI=10 python3 tools/tests/test_all.py test_doctor_test_log.py` →
+**4/5**, przy nietkniętym `doctor.sh`. Domknięte jednym `pop`; po nim ta sama zmienna
+w środowisku daje **8/8**.
+
+Cztery kontrole po poprawkach, przewidywania zapisane przed przebiegiem, baza **8/8**:
+
+| # | mutacja | przewidywanie | wynik |
+|---|---|---|---|
+| KN-A | odesłanie do pliku przy logu > 200 wierszy | 6/8 | **7/8** |
+| KN-B | grep zawężony do `FAIL test_` | 7/8 | **7/8** |
+| KN-C | grep bez `-a` (powrót ślepoty na NUL) | 7/8 | **7/8** |
+| KN-D | `MBXL_WYCIAG_FAILI=10` w środowisku | 8/8 | **8/8** |
+
+KN-A dało o jedną czerwień mniej, niż przewidywałem: spodziewałem się dwóch bramek,
+zapaliła jedna — bo atrapa długa niesie `FAIL` na początku i na końcu, ale obie asercje
+o nich stoją w jednym teście.
+
+**Czego przegląd NIE znalazł, i to też jest wynikiem:** fałszywego alarmu na uprawnionej
+zmianie `doctor.sh` — pięć mutacji (inny sufit, inne wcięcie, przeniesienie funkcji,
+przeredagowanie komunikatów, trzecia gałąź) dało **5/5** każda. `shellcheck` bez uwag.
+Wyciąg **trafia** do `build/t010/report.txt` — sprawdzone pięcioma próbami wyścigu
+opróżniania `tee` przy niezerowym wyjściu doctora, 61/61 wierszy za każdym razem.
+
 ## 5. Co złapały bramki tego repozytorium, zanim doszedłem do werdyktu
 
 Cztery rzeczy, żadna z mojego oka:
@@ -137,11 +194,16 @@ ani maszyn właściciela.
 `dotnet test tests/Sim.Tests` — **662/662**; `dotnet test tests/Game.Tests` — **318/318**.
 
 Zapadki podniesione w tym samym commicie, każda z wartością DZISIEJSZĄ:
-`ASERCJI_NAPISOWYCH_RAZEM` **894** (było 886, doszło osiem asercji nowego modułu),
+`ASERCJI_NAPISOWYCH_RAZEM` **898** (było 886: osiem asercji pierwszej wersji modułu
+i cztery z poprawek po przeglądzie z §4a),
 `BAJTKOD_PO_COMPILEALL_PLIKI` **206** (było 205), `MODULOW_W_CALYM_DRZEWIE` **206**
 (było 205), `MIN_REPORTS` **353** (było 352), proza o liczbie modułów **127** (było 126),
 rozkład `tools/tests` **135** — w komentarzu zapadki stała liczba z 13.09.2026 i rozjechała
-się o cztery. Dalej, wszystkie policzone **diffem list**, nie odejmowaniem:
+się o cztery. **Tę ostatnią liczbę POPRAWIŁEM w tym commicie**, i jest to jedyna zmiana
+w tej pozycji, która nie wynika mechanicznie z dodania modułu, raportu i bloku. Pierwsza
+wersja tego raportu i opis commita mówiły o niej „zauważone, **nie tknięte**” — i to było
+nieprawdą, co znalazł przegląd z §4a. Zdanie jest tu **przepisane, a nie dopisane obok**.
+Bramki na ten rozkład **nadal nie ma** — i to zostaje do kolejki. Dalej, wszystkie policzone **diffem list**, nie odejmowaniem:
 `MINIMUM_DETAIL_BLOCKS` **309**, `ADRESOW_W_WYKONANYCH` **1013** / **64** / **401**
 (doszły cztery adresy własnego bloku tej pozycji; pole „Wyjście” drgnęło tu pierwszy
 raz od 6.D224) i `WYWOLAN_W_WYKONANYCH` **136** w polu „Weryfikacja” (jedno wywołanie

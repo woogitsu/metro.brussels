@@ -429,16 +429,24 @@ wypisz_wyciag_z_logu() {
   # SIGPIPE opisany przy sondzie narzędzi (`.github/actions/probe-tools`) nie ma tu
   # po co powstawać. `grep` bez trafienia kończy kodem 1, stąd `|| true` — inaczej
   # podstawienie oddaje kod, którego nikt nie czyta, i cichy pusty napis.
-  faile="$(grep -E '^[[:space:]]*FAIL ' "$plik" 2>/dev/null || true)"
+  # `-a` NIE JEST OSTROŻNOŚCIĄ NA ZAPAS — zmierzone 16.09.2026, jeden bajt NUL
+  # w logu wystarczy. Bez niego GNU grep uznaje plik za binarny, wypisuje
+  # `binary file matches` na stderr (które `2>/dev/null` zjada) i oddaje PUSTE stdout,
+  # a pusty wynik wpada w gałąź „padł poza ciałem testu". Doctor twierdziłby wtedy
+  # przyczynę, której nie zmierzył — czyli byłby GORSZY niż przed 6.D241, bo stary
+  # komunikat nie mówił nic, a ten mówiłby nieprawdę. `blender_smoke.sh` przechwytuje
+  # stdout i stderr uruchamianych procesów do tego samego pliku, więc bajt spoza tekstu
+  # nie jest tam hipotezą.
+  faile="$(grep -a -E '^[[:space:]]*FAIL ' "$plik" 2>/dev/null || true)"
   if [ -z "$faile" ]; then
     echo "        w logu nie ma ANI JEDNEGO wiersza FAIL — zestaw padł POZA ciałem testu"
     echo "        (błąd importu, bramka asercji albo przerwany przebieg); ogon logu:"
-    tail -n 5 "$plik" 2>/dev/null | sed 's/^/        /'
+    tail -n 5 "$plik" 2>/dev/null | cat -v | sed 's/^/        /'
   else
     echo "        wiersze FAIL ($(printf '%s\n' "$faile" | wc -l | tr -d ' ') szt., pierwsze $WYCIAG_FAILI):"
     printf '%s\n' "$faile" | sed -n "1,${WYCIAG_FAILI}p" | sed 's/^/        /'
   fi
-  podsumowanie="$(grep -E '[0-9]+/[0-9]+ przeszło|^  RAZEM ' "$plik" 2>/dev/null || true)"
+  podsumowanie="$(grep -a -E '[0-9]+/[0-9]+ przeszło|^  RAZEM ' "$plik" 2>/dev/null || true)"
   if [ -n "$podsumowanie" ]; then
     echo "        podsumowanie:"
     printf '%s\n' "$podsumowanie" | sed 's/^/        /'

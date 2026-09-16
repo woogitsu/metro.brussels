@@ -1615,7 +1615,15 @@ def test_wzorzec_rodziny_lapie_zdanie_ktore_ma_lapac_i_nie_bierze_sasiedztwa():
 #: byłoby zielonych, mimo że mylące zdanie zostało — pytają więc o to, że blok
 #: został PRZEPISANY, a nie dopisany obok. Do `NA_ZRODLE_PY` też nie należą: ta lista
 #: jest o źródle **.py**, a `galaz` to wycinek skryptu powłoki.
-ASERCJI_NAPISOWYCH_RAZEM = 894
+#: **894 -> 898 (16.09.2026, 6.D241, po adwersaryjnym przeglądzie).** Doszły cztery
+#: asercje w `test_doctor_test_log.py`, wszystkie na WYJŚCIU `doctor.sh` z podprocesu:
+#: `"2/2500 przesz" in wypis` i `"0/2500 przesz" in wypis` (podsumowanie przy długim
+#: logu i przy padnięciu całego przebiegu), `"wiersze FAIL (" in wypis` (asercja na
+#: GAŁĄŹ, bez której bramka mierzyła ogon logu zamiast wyciągu — zmierzone: bez niej
+#: zawężenie grepa do `FAIL test_` przechodziło 8/8) oraz
+#: `"ANI JEDNEGO wiersza FAIL" not in wypis` przy logu z bajtem NUL. Do `NA_ZRODLE_PY`
+#: nie należą: `wypis` jest `stdout + stderr` podprocesu, a nie odczytem pliku.
+ASERCJI_NAPISOWYCH_RAZEM = 898
 
 #: **Kotwica wpisu to `(plik, funkcja, operator, literał)`, a NIE numer wiersza.**
 #: Numer przesuwa się przy każdej edycji pliku i lista rozjechałaby się sama z siebie.
