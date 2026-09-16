@@ -90,13 +90,44 @@ z 05.09.2026 — **dziewięć dni przed** tamtym zdaniem):
 
 - `6d191` — „nigdy nie trafia w to samo" przy populacji **dwóch** przebiegów;
 - `6d201` — „wszystkie 42 … sprawdzone na próbce **pięciu pierwszych**";
-- `podloga-sciezek-na-raport` — „22 wzmianki … wszystkie pod `.github/`", a wzmianek
-  o `tools/ci/*` jest dziś **65** w **27** raportach;
 - `ramka-w-sciezce` — „poza `reports/` i `docs/` nie ma ani jednej", a pomiar objął
   **pięć** miejsc przy **ośmiu** katalogach najwyższego poziomu.
 
 Przegląd ręczny szedł po slajsie zawężonym do samych katalogów (14 pozycji):
-pięć pewnych i jeden graniczny.
+**cztery pewne**.
+
+### 6.1. Ta lista jest PRZEPISANA 16.09.2026, a powód jest zawstydzający
+
+Pierwsza wersja miała **pięć** pozycji i „jeden graniczny", a wśród nich
+`podloga-sciezek-na-raport` („22 wzmianki … wszystkie pod `.github/`"). **Tego raportu
+nie ma w żadnym z dwóch slajsów.** Zmierzone:
+
+```
+podloga-sciezek-na-raport.md     waski=False szeroki=False
+```
+
+Powód: `ZAKRES_W_GRAWISACH` żąda `[A-Za-z_]` jako pierwszego znaku, a `` `.github/` ``
+zaczyna się KROPKĄ. Zakres, który tamto zdanie NAZYWAŁO — „slajs czternastu pozycji" —
+był więc szerszy od ZMIERZONEGO. Jest to **dokładnie klasa 6.D210, popełniona
+w raporcie pozycji, która tę klasę gasi**, i nie znalazłem tego sam: znalazł to przegląd
+adwersaryjny. Wpisuję to tutaj, a nie w przypisie, bo pozycja bez tego zdania uczyłaby,
+że sito wystarczy postawić.
+
+Wtórnie fałszywe były jeszcze dwa zdania §2, i też są przepisane: z trzech przypadków
+tekstu poprawnego, o których pisałem „stoją w slajsie", w slajsie wąskim stoi **jeden**
+(`6d197`). `6d209` nie stoi w żadnym — jego zdanie leży w tabeli, a `punkty_sekcji`
+wiersze tabel odrzuca, i nie jest to sekcja „Zauważone". `6d185` stoi wyłącznie
+w slajsie **szerokim**, bo jego orzeczenie brzmi „nie pada **ani razu**", a
+`ORZECZENIA_ZAKRESU` zna „ani jeden/jednej/jednego". Argument §2 to przeżywa — sito
+prawdziwości zapaliłoby się na nich niezależnie od tego, w którym slajsie stoją — ale
+zdanie o slajsie było nieprawdziwe i nie ma go prawa zastąpić „w zasadzie o to chodziło".
+
+**Co z tego weszło do drzewa.** Granica na ścieżce z wiodącą kropką jest teraz NAZWANA
+i ma własną bramkę (`test_czytnik_zakresu_MILCZY_na_sciezce_zaczynajacej_sie_KROPKA`),
+a bramka granicy słownej dostała trzecią asercję, bez której nie mierzyła granicy,
+którą nazywa: skreślenie grawisów ze wzorca dawało 40/70 zamiast 35/64 i **zostawało
+zielone**. Poszerzenia wzorca o kropkę NIE robię w tym commicie — zmienia populację
+obu slajsów i obie podłogi, więc jest osobną pozycją.
 
 ## 7. Weryfikacja — rzeczywiste wyjście
 

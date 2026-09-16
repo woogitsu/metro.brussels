@@ -1648,11 +1648,28 @@ def test_wzorzec_rodziny_lapie_zdanie_ktore_ma_lapac_i_nie_bierze_sasiedztwa():
 #: o której nie ma wiersza w logu, jest ciszą, której nikt nie zauważy. Bez tej
 #: asercji test byłby zielony także wtedy, gdyby podłoga pomijała porównanie
 #: MILCZĄC. Do `NA_ZRODLE_PY` nie należy z tego samego powodu co tamte dziesięć.
-#: **909 -> 914 (16.09.2026, 6.D248), czyli O PIĘĆ.** Ten wiersz mówił wcześniej
-#: `898 -> 903` i był nieprawdziwy w obu końcach: pozycja dokłada PIĘĆ asercji,
-#: ale scalenie z cudzą pracą ruszającą tę samą zapadkę przesunęło oba końce
-#: o jedenaście. Liczby stoją tu przeliczone Z DRZEWA po scaleniu, a nie
-#: przepisane z gałęzi. Doszło pięć asercji w NOWEJ bramce
+#: **886 -> 887 (16.09.2026, 6.D242), z powodem.** Doszła JEDNA asercja
+#: w `test_ci_workflows.py`, w `test_tabela_polecen_NIE_jest_tozsamosciowa_w_kazdym_wpisie`:
+#: `"xz" in nietozsamosciowe`. Stoi na NAPISIE Z KONIECZNOŚCI i to jest jej treść:
+#: `nietozsamosciowe` jest zbiorem NAZW POLECEŃ wyliczonym z `POLECENIA_Z_PAKIETOW`,
+#: a pytanie „czy `xz` jest w nim" nie ma innej postaci niż literał z tą nazwą. Do listy
+#: `NA_ZRODLE_PY` nie należy — zbiór powstaje z tabeli w kodzie, a nie z odczytu pliku.
+#: 886 -> 889 przy 6.D225: trzy asercje `literał in coś` doszły w
+#: `test_dead_constants_csharp.py` i wszystkie trzy stoją na ZACHOWANIU, nie na
+#: NAPISIE — pytają, czy nazwa stałej jest w wyniku `martwe()`, czyli o werdykt
+#: skanu na wstrzykniętym drzewie, a nie o brzmienie komunikatu.
+#: **898 -> 901 (16.09.2026, scalenie 6.D225 z `main`).** Obie gałęzie podnosiły
+#: tę zapadkę niezależnie i ŻADNA Z DWÓCH LICZB nie jest prawdziwa dla drzewa
+#: scalonego. Dodawanie przyrostów też nie jest tu poprawne: lista `NA_ZRODLE_PY`
+#: i skan chodzą po CAŁYM drzewie, więc liczbę trzeba ZMIERZYĆ po scaleniu,
+#: a nie złożyć z dwóch cudzych.
+#: **+5 (16.09.2026, 6.D248) — RÓŻNICA, bo wartość bezwzględna tego wiersza
+#: zestarzała się już DWA RAZY.** Stało tu `898 -> 903`, potem `909 -> 914`,
+#: i oba końce były nieprawdziwe dla drzewa scalonego: pozycja dokłada PIĘĆ
+#: asercji, a scalenia z cudzą pracą ruszającą tę samą zapadkę przesuwały
+#: podstawę niezależnie. Wartość niżej jest ZMIERZONA z drzewa PO scaleniu,
+#: a nie wzięta z którejkolwiek gałęzi ani złożona z przyrostów. Doszło pięć
+#: asercji w NOWEJ bramce
 #: `test_status_porcelain_NIE_gubi_pierwszego_znaku_pierwszej_sciezki`, wszystkie
 #: kształtu `"plik.txt" in zbior` / `not in`. Stoją na ZACHOWANIU, nie na napisie:
 #: `zbior` jest **wynikiem wywołania** `zmienione_w_drzewie()` na repozytorium
@@ -1665,7 +1682,7 @@ def test_wzorzec_rodziny_lapie_zdanie_ktore_ma_lapac_i_nie_bierze_sasiedztwa():
 #: nazwy nie jest, bo `status.renames` zmienia kształt wyjścia.
 #: Do `NA_ZRODLE_PY` nie należą: zbiór jest wynikiem wywołania funkcji, a ścieżki
 #: pochodzą z katalogu tymczasowego, nie z drzewa projektu.
-ASERCJI_NAPISOWYCH_RAZEM = 914
+ASERCJI_NAPISOWYCH_RAZEM = 918
 
 #: **Kotwica wpisu to `(plik, funkcja, operator, literał)`, a NIE numer wiersza.**
 #: Numer przesuwa się przy każdej edycji pliku i lista rozjechałaby się sama z siebie.

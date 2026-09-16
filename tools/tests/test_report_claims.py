@@ -361,7 +361,19 @@ def data_stalej(nazwa, wartosc_w_drzewie):
         return TERAZ
     klucz = ("data", nazwa)
     if klucz not in _PAMIEC:
-        wypis = _git("log", "-1", "--format=%H %cI",
+        # **`--full-history`, i to jest cała usterka 6.D249.** Bez niej `git log`
+        # UPRASZCZA HISTORIĘ: na commicie scalenia idzie tylko jedną gałęzią i commit,
+        # który naprawdę zmienił stałą, przestaje być widoczny. Przebieg `pull_request`
+        # stoi ZAWSZE na scalance (`Merge <gałąź> into <baza>`), więc datowanie
+        # działało inaczej w CI niż lokalnie — a lokalnie nikt tego nie widział, bo
+        # `git merge` gałęzi zawierającej bazę robi przewinięcie, nie scalenie.
+        # Zmierzone 16.09.2026 na odtworzonej scalance `Merge fe41b7d into 135d323`:
+        #     bez `--full-history`  -> 135d323 (commit, który wniósł RAPORT)
+        #     z  `--full-history`   -> fe41b7d (commit, który zmienił STAŁĄ)
+        # Skutek był taki, że stała dostawała datę CUDZEGO commitu — tego samego,
+        # który wniósł cytujący ją raport — więc daty wychodziły równe co do sekundy
+        # i twierdzenie raportu nie było zwalniane, choć zmieniło się po nim.
+        wypis = _git("log", "-1", "--full-history", "--format=%H %cI",
                      "-G", DEFINICJA_W_HISTORII % re.escape(nazwa), "--", *pliki)
         _PAMIEC[klucz] = data_z_commita(wypis, granice_plytkiego_klonu())
     return _PAMIEC[klucz]
@@ -374,6 +386,14 @@ def data_raportu(nazwa_pliku):
         return TERAZ
     klucz = ("raport", nazwa_pliku)
     if klucz not in _PAMIEC:
+        # **BEZ `--full-history`, inaczej niż w `data_stalej` wyżej — i ta asymetria
+        # jest ZMIERZONA, nie przeoczona.** Tam pytamy, który commit ZMIENIŁ stałą,
+        # a odpowiedzi szuka `-G` po DIFFACH, których scalenie domyślnie nie pokazuje.
+        # Tutaj pytamy, kiedy raport ostatnio TKNIĘTO — a `--full-history` dorzuca tu
+        # scalenia, które raport wyłącznie PRZENIOSŁY, i przesuwa jego datę w przód.
+        # Zmierzone 16.09.2026 na odtworzonej scalance: z `--full-history` po obu
+        # stronach data `6d241-…md` skacze na 14:44:31 i bramka zgłasza TRZY
+        # twierdzenia tego raportu jako nieaktualne, choć zmieniły się przed nim.
         _PAMIEC[klucz] = _data(_git("log", "-1", "--format=%cI", "--", wzgledna))
     return _PAMIEC[klucz]
 
@@ -1273,19 +1293,31 @@ def test_slajs_zakresu_jest_LICZONY_a_nie_odtwarzany_z_prozy():
     """6.D227: klasa 6.D210 ma co najmniej pięć wystąpień, a nie liczy jej nic.
 
     **Skąd.** 6.D210 §9 pisze „ramion `when` w `src/Sim/` dziś nie ma", a są cztery
-    (`src/Sim/Train/DriverKeys.cs:143,146,149,152`), od `877ab66` z 05.09.2026 — dziesięć
-    dni przed tamtym zdaniem. Nie jest to zwykła pomyłka: switch w `DriverKeys.cs`
+    (`src/Sim/Train/DriverKeys.cs:143,146,149,152`), od `877ab66` z 05.09.2026 — dziewięć
+    dni przed tamtym zdaniem (6d210 nosi nagłówek 14.09.2026; do 16.09 stało tu „dziesięć",
+    rozbieżne z raportem i komunikatem commitu tej samej pozycji). Nie jest to zwykła pomyłka: switch w `DriverKeys.cs`
     chodzi po `const char`, więc do populacji klasyfikatora 6.D210 **nie należy**
     i w tym zakresie zdanie jest PRAWDZIWE. Fałszywe robi je to, że zakres wzięto
     z kontekstu akapitu, a zapisano jako nazwę całego katalogu.
 
     **Zmierzone 16.09.2026, ręcznym przeglądem slajsu zawężonego do samych katalogów
-    (14 pozycji przy dzisiejszym wzorcu): pięć pewnych i jeden graniczny.** Poza przypadkiem założycielskim: `6d191`
-    („nigdy nie trafia w to samo" przy populacji dwóch przebiegów), `6d201`
-    („wszystkie 42 … sprawdzone na próbce pięciu pierwszych"), `podloga-sciezek-na-raport`
-    („22 wzmianki … wszystkie pod `.github/`" — a wzmianek o `tools/ci/*` jest dziś 65
-    w 27 raportach) i `ramka-w-sciezce` („poza `reports/` i `docs/` nie ma ani jednej" —
-    pomiar objął pięć miejsc, a katalogów najwyższego poziomu jest osiem).
+    (14 pozycji przy dzisiejszym wzorcu): CZTERY pewne.** Poza przypadkiem
+    założycielskim: `6d191` („nigdy nie trafia w to samo" przy populacji dwóch
+    przebiegów), `6d201` („wszystkie 42 … sprawdzone na próbce pięciu pierwszych")
+    i `ramka-w-sciezce` („poza `reports/` i `docs/` nie ma ani jednej" — pomiar objął
+    pięć miejsc, a katalogów najwyższego poziomu jest osiem).
+
+    **Ten akapit jest PRZEPISANY, a nie dopisany obok, i powód jest zawstydzający.**
+    Pierwsza wersja mówiła „pięć pewnych i jeden graniczny" i wymieniała wśród nich
+    `podloga-sciezek-na-raport`. **Tego raportu nie ma w ŻADNYM z dwóch slajsów** —
+    zmierzone: `waski=False szeroki=False`. Powód: jego zdanie mówi o `` `.github/` ``,
+    a `ZAKRES_W_GRAWISACH` żąda `[A-Za-z_]` jako pierwszego znaku, więc ścieżka
+    zaczynająca się KROPKĄ jest dla czytnika niewidzialna. Zakres, który tamto zdanie
+    NAZYWAŁO („slajs czternastu pozycji"), był więc szerszy od ZMIERZONEGO — czyli
+    dokładnie klasa 6.D210, popełniona w commicie, który ją gasi. Granica jest teraz
+    NAZWANA i ma własną bramkę
+    (`test_czytnik_zakresu_MILCZY_na_sciezce_zaczynajacej_sie_KROPKA`), zamiast czekać
+    na kolejny przegląd.
     """
     waski = list(twierdzenia_o_zakresie())
     szeroki = list(slajs_szeroki())
@@ -1347,6 +1379,45 @@ def test_czytnik_zakresu_MILCZY_na_zakresie_nazwanym_SLOWEM_i_to_jest_zapisane()
     assert len(slajs("- w `src/Sim/` nie ma ani jednego takiego ramienia")) == 1, (
         "ten sam zakres w grawisach też przestał być widziany — wtedy asercja wyżej "
         "jest zielona nad czytnikiem ślepym na wszystko")
+    # **Trzecia asercja, dopisana 16.09.2026 po przeglądzie adwersaryjnym.** Bez niej
+    # zdanie kontrolne wyżej („w całym rdzeniu symulacji…") nie ma ANI grawisów, ANI
+    # ukośnika — więc nie odróżnia „milczy bez grawisów" od „milczy bez ukośnika".
+    # Zmierzone: skreślenie grawisów ze wzorca (`ZAKRES_W_GRAWISACH` bez nich) daje
+    # 40/70 zamiast 35/64, a ta bramka zostawała ZIELONA. Bramka nazwana od granicy
+    # nie mierzyła granicy, którą nazywa.
+    assert slajs("- w src/Sim/ nie ma ani jednego takiego ramienia") == [], (
+        "zakres BEZ grawisów wszedł do slajsu — nazwa stałej mówi `W_GRAWISACH`, "
+        "a czytnik przestał ich wymagać; wtedy do pomiaru wchodzi każda ścieżka "
+        "z prozy, także wymieniona mimochodem")
+
+
+def test_czytnik_zakresu_MILCZY_na_sciezce_zaczynajacej_sie_KROPKA():
+    """DRUGA cicha granica, nazwana 16.09.2026 — i nazwana, bo mnie na niej złapano.
+
+    `ZAKRES_W_GRAWISACH` żąda `[A-Za-z_]` jako pierwszego znaku, więc `` `.github/` ``
+    i `` `.claude/` `` są dla czytnika niewidzialne. Nie jest to granica teoretyczna:
+    `reports/podloga-sciezek-na-raport.md` niesie zdanie „22 wzmianki … **wszystkie**
+    pod `.github/`", czyli podręcznikowy okaz klasy 6.D210 — a slajs go NIE WIDZI
+    (zmierzone: `waski=False szeroki=False`). Pierwsza wersja docstringa nad
+    `test_slajs_zakresu_jest_LICZONY…` wymieniała ten raport wśród znalezisk slajsu,
+    co było **nieprawdą tej samej klasy, którą ta pozycja gasi**.
+
+    **Dlaczego granica ZOSTAJE, a nie znika.** Dopuszczenie kropki na początku każe
+    wzorcowi łapać też skróty zdaniowe w rodzaju `` `.md` `` i końcówki ścieżek
+    cytowane bez katalogu, a te nie nazywają żadnego zakresu. Poszerzenie jest do
+    zrobienia, ale zmienia POPULACJĘ obu slajsów i obie podłogi, więc jest osobną
+    pozycją — nie przypisem do tej. Do tego czasu granica ma stać ZMIERZONA
+    i psuć się głośno w obie strony, zamiast czekać na następny przegląd.
+    """
+    def slajs(tekst):
+        return list(twierdzenia_o_zakresie([("p.md", "# R\n\n## 8. Zauważone\n\n" + tekst + "\n")]))
+
+    assert slajs("- wzmianek jest 22 i wszystkie leżą pod `.github/`") == [], (
+        "czytnik zaczął widzieć ścieżkę zaczynającą się KROPKĄ — jeżeli to zamierzone, "
+        "przepisz zdanie o granicy i przelicz OBIE podłogi, bo populacja slajsu rośnie")
+    assert len(slajs("- wzmianek jest 22 i wszystkie leżą pod `github/akcje`")) == 1, (
+        "ta sama ścieżka BEZ wiodącej kropki też przestała być widziana — wtedy "
+        "asercja wyżej jest zielona nad czytnikiem ślepym na wszystko")
 
 
 def test_czytnik_sekcji_zauwazone_widzi_caly_katalog():

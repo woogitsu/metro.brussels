@@ -2110,7 +2110,91 @@ POLECENIA_Z_PAKIETOW = {
     # `test_ci_no_step_uses_a_packaged_command_before_installing_it` nie ma czego
     # pilnować dla `curl`, a to właśnie `curl` woła oba instalatory.
     "curl": "curl",
+    # `xz` dopisany 16.09.2026 (6.D242). Wpis jest NIETOŻSAMOŚCIOWY — polecenie
+    # nazywa się `xz`, a pakiet `xz-utils`.
+    #
+    # ZALEŻNOŚĆ, KTÓREJ NIE WIDAĆ Z NAZWY, i to jest tu treścią. W żadnym skrypcie
+    # nie stoi napis `xz`: `tools/ci/blender_install.sh` ma `tar -xJf`, a GNU tar
+    # NIE dekompresuje xz sam — uruchamia osobne binarium. Trzy poprzednie wpisy tej
+    # tabeli (`unzip`, `xvfb-run`, `curl`) były wołane PO NAZWIE i dało się je
+    # wypatrzyć grepem; ten nie. Dlatego 6.D242 nie kończy się na dopisaniu wiersza.
+    "xz": "xz-utils",
 }
+
+
+#: Ile jobów wykonuje skrypt wołający `tar` z kompresją — PODŁOGA, nie równość.
+#: Zmierzone 16.09.2026: **8** (`blender-smoke`, `godot-first-run:first-run`,
+#: `m7-shell`, `material-style`, `python-tests:tools`, `station-details`,
+#: `tunnel-alignment`, `visual-regression`). Nowy workflow ma tę liczbę podnieść,
+#: a nie obniżyć — podłoga pilnuje PRZEJŚCIA, nie kompletu: bramka, która nie widzi
+#: żadnego joba, jest zielona z tego samego powodu co bramka spełniona.
+JOBOW_Z_KOMPRESOREM = 8
+
+#: Ile wpisów `POLECENIA_Z_PAKIETOW` ma nazwę pakietu INNĄ niż nazwa polecenia.
+#: Zmierzone 16.09.2026: **2 z 4** (`xvfb-run` -> `xvfb`, `xz` -> `xz-utils`).
+NIETOZSAMOSCIOWYCH_POLECEN = 2
+
+
+#: Litera zwięzłej opcji `tar` -> binarium, KTÓRE GNU TAR URUCHAMIA — 6.D242.
+#:
+#: To nie jest lista formatów, tylko lista PROCESÓW. `tar -xJf` nie rozpakowuje xz
+#: wewnątrz siebie: robi `fork`/`exec` na `xz`, a gdy go nie ma, kończy komunikatem
+#: `tar (child): xz: Cannot exec: No such file or directory`. Dokładnie ten wiersz
+#: zatrzymał 16.09.2026 trzy joby naraz (`visual-regression` na `docker-runner-03`,
+#: `tunnel-alignment (L1_A)` na `-01`, `blender-smoke` na `-04`) przy **2492
+#: przechodzących z 2494** — czyli po ponad dziesięciu minutach pracy.
+#:
+#: `z` (gzip) stoi tu razem z resztą, choć gzip jest dziś na każdej maszynie puli.
+#: Powód: ta tabela ma mówić, co tar URUCHAMIA, a nie co akurat bywa obecne —
+#: „bywa obecne" jest dokładnie tym założeniem, które w tym repozytorium zawiodło
+#: cztery razy (`unzip`, `curl`, `python3-yaml`, `xz`).
+KOMPRESORY_TARA = {
+    "J": "xz",
+    "j": "bzip2",
+    "z": "gzip",
+    "Z": "compress",
+    "--xz": "xz",
+    "--bzip2": "bzip2",
+    "--gzip": "gzip",
+    "--zstd": "zstd",
+    "--lzma": "lzma",
+}
+
+
+def kompresory_w_skrypcie(tresc):
+    """`{binarium}` uruchamiane przez wywołania `tar` w treści skryptu — 6.D242.
+
+    Czyta OPCJE, nie nazwy: `-xJf` daje `xz`, choć napisu `xz` w tym wierszu nie ma.
+    Skupisko krótkich opcji rozbierane jest na litery, bo `tar` dopuszcza `-xJf`
+    tak samo jak `-x -J -f`; opcje długie dopasowywane są w całości.
+    """
+    znalezione = set()
+    for wiersz in tresc.splitlines():
+        if not re.search(r"(^|[|&;(\s])tar\s", wiersz):
+            continue
+        for slowo in wiersz.split():
+            if slowo.startswith("--"):
+                if slowo in KOMPRESORY_TARA:
+                    znalezione.add(KOMPRESORY_TARA[slowo])
+            elif slowo.startswith("-") and len(slowo) > 1:
+                for litera in slowo[1:]:
+                    if litera in KOMPRESORY_TARA:
+                        znalezione.add(KOMPRESORY_TARA[litera])
+    return znalezione
+
+
+def _skrypty_ci_z_kompresorem():
+    """`{nazwa skryptu: {binaria}}` dla `tools/ci/*.sh`, które wołają tar z kompresją."""
+    katalog = os.path.join(ROOT, "tools", "ci")
+    wynik = {}
+    for nazwa in sorted(os.listdir(katalog)):
+        if not nazwa.endswith(".sh"):
+            continue
+        with open(os.path.join(katalog, nazwa), encoding="utf-8") as uchwyt:
+            kompresory = kompresory_w_skrypcie(uchwyt.read())
+        if kompresory:
+            wynik[nazwa] = kompresory
+    return wynik
 
 
 #: Moduł Pythona -> pakiet Debiana, który go dostarcza — 6.D240.
@@ -2149,7 +2233,12 @@ def _debian_package_for(soname):
     if wyjatek:
         return wyjatek
     match = re.fullmatch(r"(lib[A-Za-z0-9_+-]*)\.so\.(\d+)", soname)
-    assert match, f"nie umiem wyprowadzić pakietu z sonamu {soname!r}"
+    assert match, (
+        f"nie umiem wyprowadzić pakietu z sonamu {soname!r} — reguła mechaniczna "
+        f"oczekuje kształtu `lib<nazwa>.so.<ABI>`. Jeżeli soname jest poprawny, "
+        f"a kształtu nie ma, dopisz go do `NAZWY_PAKIETOW_WYJATKI` razem z nazwą "
+        f"pakietu; komunikat, który tej tablicy nie nazywa, zostawia czytającego "
+        f"z awarią bez wskazanego miejsca naprawy")
     return (match.group(1) + match.group(2)).lower()
 
 
@@ -4405,3 +4494,286 @@ def test_workflow_ktory_nie_wystartowal_ma_JEDEN_klucz_with_w_checkoucie():
         "składni i zabijają CAŁY przebieg, a `yaml.safe_load` ich nie widzi"
         % (WORKFLOW_KTORY_NIE_WYSTARTOWAL,
            do_nastepnego_kroku.count("\n        with:")))
+
+
+#: Pakiety, które zestaw apt instaluje, a ŻADNA sonda o nie nie pyta — z powodem.
+#:
+#: Wpis na tej liście jest deklaracją: „ten pakiet nie ma sonamu, o który da się
+#: spytać, i wiemy dlaczego". Bez niej bramka niżej zapalałaby się na konfiguracji
+#: poprawnej (6.D27); z listą wpisaną bez powodów byłaby workaroundem.
+PAKIETY_BEZ_SONDY = {
+    "libgl1-mesa-dri":
+        "nie dostarcza ANI JEDNEGO pliku `libGL.so*` — `dpkg -L` daje zero dopasowań; "
+        "wozi wyłącznie sterowniki DRI ładowane przez `libGL.so.1` w czasie pracy, "
+        "więc sondy na soname postawić się na nim nie da (zmierzone 07.09.2026, "
+        "`reports/biblioteki-startowe-blendera.md`)",
+}
+
+
+def pakiety_bez_pokrycia_sonda(name):
+    """Pakiety z zestawu apt tego workflow, o które nie pyta ANI JEDNA sonda — 6.D243.
+
+    Kierunek ODWROTNY do `test_tool_installation_is_conditional_on_the_tool_being_missing`,
+    i to jest cała treść tej funkcji. Tamta pyta „czy zestaw instaluje to, o co sonda
+    pyta"; ta pyta „czy sonda pyta o to, co zestaw instaluje".
+    """
+    text = _text(name)
+    document = yaml.safe_load(text)
+    # Workflow bez kroku instalacji apt nie ma czego sondować — `_apt_set_of` w takim
+    # przypadku ASERTUJE, więc warunek stoi PRZED wywołaniem, a nie po nim.
+    if "apt_install.sh --set " not in text:
+        return set()
+    zestaw = _apt_set_of(text)
+    pakiety = set(_apt_set_packages(zestaw))
+    pokryte = set()
+    for job in (document.get("jobs") or {}).values():
+        for krok in job.get("steps") or []:
+            # **`id: tools`, a nie „jakakolwiek sonda" — i to jest cała różnica.**
+            # Wersja pierwsza tej funkcji sumowała sondy z KAŻDEGO kroku wołającego
+            # akcję, a bramkuje instalację wyłącznie ta z `id: tools`
+            # (`if: steps.tools.outputs.libs == 'missing'`). Zmierzone podstawieniem:
+            # przeniesienie `libXcursor.so.1 libwayland-cursor.so.0` z sondy bramkującej
+            # do dodanego kroku `id: nieuzywana` dało 89/90 — a jedyną czerwienią była
+            # zapadka 6.D44 na identyczności kopii, czyli bramka o CZYM INNYM. Ta
+            # funkcja MILCZAŁA nad dokładnie tą konfiguracją, dla której powstała.
+            # Sąsiadka `test_tool_installation_is_conditional…` wybiera krok tak samo.
+            if krok.get("id") != "tools":
+                continue
+            if str(krok.get("uses", "")) != PROBE_ACTION:
+                continue
+            wanted = krok.get("with") or {}
+            for soname in (wanted.get("libraries") or "").split():
+                pokryte.add(_debian_package_for(soname))
+            for polecenie in (wanted.get("commands") or "").split():
+                pokryte.add(POLECENIA_Z_PAKIETOW.get(polecenie, polecenie))
+            for modul in (wanted.get("python-modules") or "").split():
+                pokryte.add(MODULY_Z_PAKIETOW.get(modul, modul))
+    return {p for p in pakiety if p not in pokryte and p not in PAKIETY_BEZ_SONDY}
+
+
+def test_kazdy_pakiet_zestawu_apt_jest_O_COS_PYTANY_przez_sonde():
+    """Pakiet instalowany, o który nikt nie pyta, NIGDY się nie zainstaluje — 6.D243.
+
+    **Skąd, i to nie jest rozumowanie, tylko kontrola negatywna.** 16.09.2026, przy
+    domykaniu tej pozycji, KN-3 zdjęła `libXcursor.so.1` i `libwayland-cursor.so.0`
+    z **wszystkich siedmiu** sond, zostawiając `libxcursor1` i `libwayland-cursor0`
+    w obu zestawach apt. Zestaw przeszedł **88/88** — a jest to konfiguracja, w której
+    pakiet stoi na liście i **nie zainstaluje się nigdy**: instalacja odpala się
+    warunkowo (`if: steps.tools.outputs.libs == 'missing'`), więc sonda niepytająca
+    o nic z tej biblioteki melduje `present` i krok jest pomijany.
+
+    **To jest dokładnie droga, którą przyszła awaria tej pozycji.** `libXcursor.so.1`
+    nie stał ani w sondzie, ani w zestawie — ale gdyby ktoś dopisał sam pakiet,
+    naprawa byłaby POZORNA, a drzewo milczałoby tak samo. Wiązanie było
+    jednokierunkowe: `test_tool_installation_is_conditional_on_the_tool_being_missing`
+    pyta, czy zestaw instaluje to, o co sonda pyta. Ta bramka pyta w drugą stronę.
+
+    **Czego ta bramka NIE robi:** nie sprawdza, czy pakiet jest na maszynie — tego
+    z repozytorium sprawdzić się nie da. Sprawdza, czy job ma jak zauważyć jego brak.
+    """
+    for name in _workflows():
+        bez_pokrycia = sorted(pakiety_bez_pokrycia_sonda(name))
+        assert not bez_pokrycia, (
+            "%s: zestaw apt instaluje %s, a żadna sonda o to nie pyta — instalacja "
+            "jest warunkowa, więc ten pakiet nie zainstaluje się NIGDY, a brak wyjdzie "
+            "dopiero w środku pracy joba. Dopisz sondę albo wpisz pakiet do "
+            "`PAKIETY_BEZ_SONDY` Z POWODEM." % (name, bez_pokrycia))
+
+
+def test_lista_pakietow_bez_sondy_NIE_jest_workaroundem():
+    """Każdy wpis `PAKIETY_BEZ_SONDY` niesie powód i naprawdę jest w jakimś zestawie.
+
+    Bez tej asercji poprzednia bramka dałaby się uciszyć dopisaniem nazwy — czyli
+    byłaby bramką, którą się wyłącza zamiast naprawiać (6.D27, od drugiej strony).
+    """
+    assert PAKIETY_BEZ_SONDY, "lista pusta — wtedy wyjątek przestał być wyjątkiem"
+    wszystkie = set()
+    for nazwa in os.listdir(PACKAGE_SETS):
+        if nazwa.endswith(".txt"):
+            wszystkie |= set(_apt_set_packages(nazwa[:-len(".txt")]))
+    for pakiet, powod in sorted(PAKIETY_BEZ_SONDY.items()):
+        assert len(powod) >= 60, (
+            "wyjątek na %s ma powód krótszy niż 60 znaków — to nie jest powód, "
+            "tylko zgoda" % pakiet)
+        assert pakiet in wszystkie, (
+            "%s stoi w `PAKIETY_BEZ_SONDY`, a nie ma go w ŻADNYM zestawie apt — "
+            "wyjątek przeżył pakiet, którego dotyczył" % pakiet)
+        # **Trzecia asercja, i to ona odróżnia powód od prozy.** Dwie wyżej sprawdzają
+        # DŁUGOŚĆ napisu i istnienie pakietu — a obie przechodzi powód ZMYŚLONY, byle
+        # wiarygodny. Zmierzone podstawieniem 16.09.2026: dopisanie `libxcursor1`
+        # i `libwayland-cursor0` z powodem zmyślonym, przy zdjętych sonamach ze
+        # wszystkich siedmiu sond, dało **2503/2503 NA ZIELONO** — czyli dokładnie
+        # konfigurację, dla której 6.D243 powstało, uciszało się dopisaniem nazwy.
+        #
+        # Sprawdzalne w drzewie jest to: `_debian_package_for` wyprowadza nazwę
+        # MECHANICZNIE i jej wynik ma zawsze kształt `lib…<cyfry>`. Pakiet o takim
+        # kształcie **da się** wyprowadzić z jakiegoś sonamu, więc zdanie „nie ma
+        # sonamu, o który da się spytać" jest dla niego z góry podejrzane.
+        # `libgl1-mesa-dri` tego kształtu NIE ma (po cyfrze idzie `-mesa-dri`), więc
+        # jedyny dzisiejszy wyjątek przechodzi — a `libxcursor1` i `libwayland-cursor0`
+        # nie przechodzą. Wyjątek na pakiet o kształcie sonamowym jest więc możliwy,
+        # ale wymaga zdjęcia tej asercji, czyli ruchu WIDOCZNEGO w diffie — a nie
+        # dopisania jednej linijki do słownika.
+        assert not re.fullmatch(r"lib[a-z0-9_+-]*[0-9]", pakiet), (
+            "%s ma kształt nazwy WYPROWADZALNEJ z sonamu (`lib…<cyfry>`, dokładnie "
+            "to, co zwraca `_debian_package_for`) — a wpis na tej liście deklaruje, "
+            "że sonamu do sondowania NIE MA. Jedno z dwóch jest nieprawdą. Jeżeli "
+            "pakiet naprawdę nie wozi żadnego `*.so.N`, pokaż to pomiarem `dpkg -L` "
+            "w raporcie i zdejmij tę asercję ŚWIADOMIE; dopisanie nazwy do słownika "
+            "nie wystarcza, bo tak właśnie wyłącza się bramkę zamiast ją naprawiać "
+            "(6.D27)" % pakiet)
+def _joby_wykonujace_skrypt(nazwa_skryptu, skrypty_z_zestawem):
+    """`[(workflow, job, {sondowane polecenia})]` dla jobów, które ten skrypt wykonują.
+
+    „Wykonują" znaczy dwie drogi i obie są tu liczone: krok woła skrypt WPROST, albo
+    krok uruchamia zestaw testów, a zestaw wykonuje skrypt. Druga droga jest tą, przez
+    którą 16.09.2026 przyszła awaria — `test_ci_blender_installer_*` uruchamiają
+    `tools/ci/blender_install.sh` przez `_run_blender_installer`, więc job, który
+    Blendera nie instaluje wcale, i tak potrzebuje jego rozpakowywacza.
+    """
+    wynik = []
+    for name in _workflows():
+        text = _text(name)
+        document = yaml.safe_load(text)
+        for jobname, job in (document.get("jobs") or {}).items():
+            kroki = job.get("steps") or []
+            wprost = any(nazwa_skryptu in str(k.get("run", "")) for k in kroki)
+            przez_zestaw = any(
+                "test_all.py" in str(k.get("run", "")) or any(
+                    s in str(k.get("run", "")) for s in skrypty_z_zestawem)
+                for k in kroki)
+            if not (wprost or przez_zestaw):
+                continue
+            sondowane = set()
+            for krok in kroki:
+                if str(krok.get("uses", "")) == PROBE_ACTION:
+                    sondowane |= set(
+                        ((krok.get("with") or {}).get("commands") or "").split())
+            wynik.append((name, jobname, sondowane))
+    return wynik
+
+
+def _skrypty_z_zestawem():
+    return {
+        nazwa for nazwa in os.listdir(os.path.join(ROOT, "tools", "ci"))
+        if nazwa.endswith(".sh")
+        and "test_all.py" in open(os.path.join(ROOT, "tools", "ci", nazwa),
+                                  encoding="utf-8").read()}
+
+
+def test_kazdy_kompresor_wolany_przez_tara_ma_pakiet_w_tabeli():
+    """Binarium, które `tar` uruchamia, stoi w `POLECENIA_Z_PAKIETOW` — 6.D242.
+
+    **Skąd.** 16.09.2026 padły TRZY joby naraz — `visual-regression` na
+    `docker-runner-03`, `tunnel-alignment (L1_A)` na `-01`, `blender-smoke` na `-04` —
+    przy **2492 testach przechodzących z 2494**. W dwóch logach, w których nazwy widać,
+    stoją te same dwa wiersze `FAIL`: `test_ci_blender_installer_NAZYWA_powod_gdy_
+    wersja_wyszla_pusta` i `test_ci_blender_installer_refuses_a_tarball_whose_checksum_
+    does_not_match`, a w obu komunikatach ten sam powód: `tar (child): xz: Cannot exec:
+    No such file or directory`.
+
+    **Czwarty raz ta sama klasa**, po `unzip` (kod 127, 07.09.2026), `curl` (6.D77)
+    i `python3-yaml` (6.D240): zależność realna, zadeklarowana nigdzie, działająca
+    wyłącznie dlatego, że maszyny puli miały ją z innych powodów.
+
+    **Dlaczego trzy poprzednie razy nie wystarczyły.** Tamte zależności były wołane
+    PO NAZWIE — `unzip …`, `curl …`, `import yaml` — więc dało się je znaleźć grepem
+    po nazwie, i dokładnie tak zbudowane są dzisiejsze bramki. Tej nazwy w skrypcie
+    NIE MA: stoi `tar -xJf`, a `xz` jest dopiero tym, co GNU tar z tej litery uruchomi.
+    Bramka na nazwy przepuściłaby to czwarty raz.
+    """
+    z_kompresorem = _skrypty_ci_z_kompresorem()
+    assert z_kompresorem, (
+        "czytnik nie znalazł ANI JEDNEGO wywołania `tar` z kompresją w `tools/ci/` — "
+        "to jest dokładnie ten wynik, który oddałby czytnik oślepiony, a "
+        "`blender_install.sh` ma `tar -xJf`")
+    for skrypt, kompresory in sorted(z_kompresorem.items()):
+        for polecenie in sorted(kompresory):
+            assert polecenie in POLECENIA_Z_PAKIETOW, (
+                "%s uruchamia przez `tar` polecenie `%s`, a tabela "
+                "`POLECENIA_Z_PAKIETOW` go nie zna — czyli ani bramka kolejności, "
+                "ani sonda nie mają czego pilnować" % (skrypt, polecenie))
+
+
+def test_kazdy_job_wykonujacy_skrypt_z_tarem_SONDUJE_jego_kompresor():
+    """Job, który ten skrypt wykonuje — wprost albo przez zestaw — pyta o kompresor.
+
+    **Czego ta bramka NIE robi, i to jest wypisane, a nie przemilczane:** nie sprawdza,
+    czy binarium leży na maszynie — tego z repozytorium sprawdzić się nie da. Sprawdza,
+    że job SPYTA, zanim zacznie pracę. Cała wartość jest w momencie: 16.09.2026
+    `visual-regression` i `tunnel-alignment` doszły do **2492 przechodzących z 2494**,
+    czyli pracowały po dziesięć minut, zanim brak wyszedł — sonda oddaje to w sekundę.
+
+    **Dlaczego liczy się także droga przez zestaw.** Job `tools` z `python-tests.yml`
+    nie instaluje Blendera i nie rozpakowuje niczego SAM, a mimo to potrzebuje `xz`,
+    bo zestaw wykonuje instalator. Bramka pytająca wyłącznie o kroki wołające skrypt
+    wprost minęłaby ten job — a to właśnie on jest jedynym konsumentem zestawu bez
+    Blendera.
+    """
+    z_kompresorem = _skrypty_ci_z_kompresorem()
+    skrypty_z_zestawem = _skrypty_z_zestawem()
+    sprawdzonych = 0
+    for skrypt, kompresory in sorted(z_kompresorem.items()):
+        for workflow, jobname, sondowane in _joby_wykonujace_skrypt(
+                skrypt, skrypty_z_zestawem):
+            sprawdzonych += 1
+            brakujace = sorted(kompresory - sondowane)
+            assert not brakujace, (
+                "%s:%s wykonuje `tools/ci/%s`, który uruchamia przez `tar` %s, "
+                "a sonda o to nie pyta — brak wyjdzie po minutach pracy, komunikatem "
+                "`tar (child): <nazwa>: Cannot exec`, zamiast w sekundę"
+                % (workflow, jobname, skrypt, brakujace))
+    assert sprawdzonych >= JOBOW_Z_KOMPRESOREM, (
+        "bramka obejrzała %d jobów przy podłodze %d — przejście przestało widzieć "
+        "workflowy, a wtedy pusty zbiór czyta się jak brak usterki"
+        % (sprawdzonych, JOBOW_Z_KOMPRESOREM))
+
+
+def test_czytnik_kompresorow_WIDZI_flage_i_NIE_widzi_jej_tam_gdzie_jej_nie_ma():
+    """Kontrola przyrządu na wejściu SYNTETYCZNYM, w obie strony.
+
+    Bez niej bramka wyżej byłaby zielona także wtedy, gdy czytnik nie widzi niczego —
+    a pusty zbiór wymagań spełnia każdy job. Druga połowa jest równie potrzebna:
+    czytnik widzący kompresor w KAŻDYM `tar` kazałby sondować `gzip` przy `tar -xf`,
+    czyli zapalałby się na skrypcie poprawnym (6.D27).
+    """
+    assert kompresory_w_skrypcie("tar -xJf a.tar.xz -C /tmp") == {"xz"}, (
+        "czytnik nie widzi `J` w skupisku kr\u00f3tkich opcji \u2014 a tak w\u0142a\u015bnie zapisany "
+        "jest jedyny dzisiejszy przypadek w `blender_install.sh`")
+    assert kompresory_w_skrypcie("tar --xz -xf a") == {"xz"}, (
+        "czytnik nie widzi opcji D\u0141UGIEJ \u2014 `--xz` znaczy to samo co `-J`")
+    assert kompresory_w_skrypcie("tar -xzf a.tar.gz") == {"gzip"}, (
+        "czytnik widzi tylko `xz` \u2014 a tabela ma m\u00f3wi\u0107 o ka\u017cdym kompresorze, "
+        "kt\u00f3ry tar URUCHAMIA, nie o jednym zapami\u0119tanym")
+    assert kompresory_w_skrypcie("tar --zstd -cf a b") == {"zstd"}, (
+        "czytnik nie widzi kompresji przy PAKOWANIU \u2014 `-c` potrzebuje binarium "
+        "tak samo jak `-x`")
+    assert kompresory_w_skrypcie("tar -xf a.tar") == set(), (
+        "czytnik widzi kompresor w GO\u0141YM `tar` \u2014 kaza\u0142by sondowa\u0107 binarium, "
+        "kt\u00f3rego ten skrypt nie uruchamia, czyli zapala\u0142by si\u0119 na kodzie poprawnym")
+    assert kompresory_w_skrypcie("echo -J; grep -z wzorzec plik") == set(), (
+        "czytnik bierze liter\u0119 kompresora spoza wywo\u0142ania `tar` \u2014 `grep -z` i `echo -J` "
+        "nie uruchamiaj\u0105 niczego, a wygl\u0105daj\u0105 tak samo")
+    assert kompresory_w_skrypcie("# komentarz o tar -xJf, bez wywołania") == {"xz"}, (
+        "czytnik czyta TEKST, nie składnię powłoki — komentarz z `tar -xJf` jest dla "
+        "niego wywołaniem i to jest WYBÓR: nadmiar żąda jednej sondy więcej, "
+        "a niedomiar kosztuje cały job")
+
+
+def test_tabela_polecen_NIE_jest_tozsamosciowa_w_kazdym_wpisie():
+    """`xz` -> `xz-utils` jest wpisem NIETOŻSAMOŚCIOWYM i to jest tu treścią.
+
+    Gdyby wszystkie wpisy `POLECENIA_Z_PAKIETOW` były tożsamościowe, tabela byłaby
+    zbędna — wystarczyłby zbiór nazw. Zmierzone: tożsamościowe są `unzip` i `curl`,
+    nietożsamościowe `xvfb-run` -> `xvfb` i `xz` -> `xz-utils`, czyli **dwa z czterech**.
+    """
+    assert KOMPRESORY_TARA, KOMPRESORY_TARA
+    nietozsamosciowe = {
+        polecenie for polecenie, pakiet in POLECENIA_Z_PAKIETOW.items()
+        if polecenie != pakiet}
+    assert "xz" in nietozsamosciowe, sorted(POLECENIA_Z_PAKIETOW.items())
+    assert POLECENIA_Z_PAKIETOW["xz"] == "xz-utils", POLECENIA_Z_PAKIETOW["xz"]
+    assert len(nietozsamosciowe) == NIETOZSAMOSCIOWYCH_POLECEN, (
+        "wpisów nietożsamościowych jest %d przy zapadce %d — jeśli doszedł, dopisz "
+        "powód; jeśli ubył, tabela zaczyna być zbiorem nazw"
+        % (len(nietozsamosciowe), NIETOZSAMOSCIOWYCH_POLECEN))
