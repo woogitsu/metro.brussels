@@ -1,0 +1,16 @@
+# Zestaw dla jobów, które uruchamiają WYŁĄCZNIE zestaw testów Pythona — dziś jeden,
+# `tools` z `python-tests.yml`. Ten plik jest KLUCZEM CACHE'A tego joba.
+#
+# DLACZEGO OSOBNY ZESTAW, A NIE `blender.txt`. Job `tools` niczego nie renderuje,
+# więc dziesięć bibliotek startowych Blendera byłoby tam instalacją 190 MB pod nic.
+# Zestawy są rozłączne nie dlatego, że tak ładniej, tylko dlatego, że sonda i zestaw
+# muszą do siebie pasować: `tools` sonduje MODUŁY, nie sonames, i instaluje dokładnie
+# to, o co pytał.
+#
+# DLACZEGO TEN ZESTAW W OGÓLE POWSTAŁ — 16.09.2026. Do tego dnia job `tools` nie miał
+# ANI sondy, ANI kroku instalacji: jedyne, co robił przed zestawem, to `command -v
+# python3` i `python3 -m compileall`. Zależność od PyYAML była realna (pięć modułów)
+# i niezadeklarowana nigdzie, więc 15.09.2026 padła razem z trzema innymi jobami na
+# `ModuleNotFoundError: No module named 'yaml'`, przy 2386 testach przechodzących
+# z 2389. Ta sama klasa co `unzip` i `curl`, tylko o jeden rodzaj zależności dalej.
+python3-yaml
