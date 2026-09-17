@@ -530,7 +530,7 @@ public sealed class SignallingPlan
     public static SignallingPlan FromJson(string json)
     {
         ArgumentNullException.ThrowIfNull(json);
-        using var document = JsonDocument.Parse(json);
+        using var document = JsonText.Parse(json, "plan sygnalizacji");
         var root = document.RootElement;
 
         var schema = Required(root, "schema_version", "dokument").GetInt32();

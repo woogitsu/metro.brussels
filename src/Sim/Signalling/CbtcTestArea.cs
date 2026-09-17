@@ -155,7 +155,7 @@ public sealed class CbtcTestArea
     public static CbtcTestArea FromJson(string json)
     {
         ArgumentNullException.ThrowIfNull(json);
-        using var document = JsonDocument.Parse(json);
+        using var document = JsonText.Parse(json, "definicja strefy testowej CBTC");
         var root = document.RootElement;
 
         var schema = root.GetProperty("schema_version").GetInt32();

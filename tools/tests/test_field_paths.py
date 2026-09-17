@@ -2002,7 +2002,10 @@ def _istnieje_w_drzewie(nazwa):
 # 1056/65/412 -> 1058/65/413 (17.09.2026, 6.D232): OSMY raz ta sama przyczyna —
 # adnotacja ZROBIONE przenosi blok pozycji do populacji WYKONANYCH. Cztery NOWE bloki
 # (6.D252-6.D255) tej liczby NIE ruszaja, bo sa OTWARTE; licza sie do `MIN_PATHS`.
-ADRESOW_W_WYKONANYCH = {"Wejście": 1058, "Wyjście": 65, "Weryfikacja": 413}
+# 1058/65/413 -> 1064/65/413 (17.09.2026, 6.D229): DZIEWIATY raz ta sama przyczyna —
+# adnotacja ZROBIONE przenosi blok pozycji do populacji WYKONANYCH. Pole „Weryfikacja"
+# nie drgnelo, bo plotek tego bloku wola adresy juz w niej stojace.
+ADRESOW_W_WYKONANYCH = {"Wejście": 1064, "Wyjście": 65, "Weryfikacja": 413}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu

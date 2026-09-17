@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text.Json;
+using MetroBxl.Sim;
 
 namespace MetroBxl.Game.Assets;
 
@@ -149,7 +150,7 @@ public sealed class ChunkManifest
     public static ChunkManifest FromJson(string json)
     {
         ArgumentNullException.ThrowIfNull(json);
-        using var document = JsonDocument.Parse(json);
+        using var document = JsonText.Parse(json, "manifest chunków");
         var root = document.RootElement;
 
         var size = root.GetProperty("profile_size_m");

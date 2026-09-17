@@ -215,7 +215,11 @@ public sealed class UiTextTests
     // 557 -> 573 (14.09.2026, MB-08): dwa klawisze drzwi (D/F) z ich kluczami,
     // trzeci wariant wiersza stacji, podpowiedź drzwi i pięć powodów odmowy.
     // Liczba PRZELICZONA przebiegiem, a nie wyprowadzona z liczby dopisanych wierszy.
-    private const int LiteralowWZasieguBramki = 573;
+    // 573 -> 574 (17.09.2026, 6.D229): JEDEN literał — argument `what` przekazany
+    // do `JsonText.Parse` w `src/Game/Assets/ChunkManifest.cs` ("manifest chunków").
+    // Jest to napis, który trafia do WIERSZA ODMOWY widzianego przez gracza, więc
+    // wchodzi do korpusu z tego samego powodu, co komunikaty `Abort` w `FirstRun`.
+    private const int LiteralowWZasieguBramki = 574;
 
     /// <summary>Ile różnych — dolne ostrze, zmierzone 12.09.2026.</summary>
     private const int RoznychLiteralowWZasieguBramki = 362;
@@ -1493,7 +1497,11 @@ public sealed class UiTextTests
     // `[TUNEL koniec]` i komunikaty zakresu `--trains`. Liczba PRZELICZONA przebiegiem.
     // 598 -> 614 (14.09.2026, MB-08): ten sam korpus co wyżej, drugą drogą.
     // Liczba PRZELICZONA przebiegiem.
-    private const int PozycjiStaregoCzytnika = 614;
+    // 614 -> 615 (17.09.2026, 6.D229): JEDEN literał — argument `what` przekazany
+    // do `JsonText.Parse` w `src/Game/Assets/ChunkManifest.cs` ("manifest chunków").
+    // Jest to napis, który trafia do WIERSZA ODMOWY widzianego przez gracza, więc
+    // wchodzi do korpusu z tego samego powodu, co komunikaty `Abort` w `FirstRun`.
+    private const int PozycjiStaregoCzytnika = 615;
 
     /// <summary>
     /// Ile PLIKÓW korpusu stary czytnik czytał inaczej niż leksykalny — 6.D182.
@@ -2277,7 +2285,11 @@ public sealed class UiTextTests
     // ROZSTRZYGNIĘCIE TEJ SEKCJI SIĘ NIE ZMIENIA i to jest sprawdzone poniżej,
     // a nie założone: liczba WERDYKTÓW zmienionych przez zdejmowanie jednostek
     // stoi na dwóch, więc nowe literały wchodzą pod mechanikę, a nie pod wyjątek.
-    private const int LiteralowDotknietychZdejmowaniem = 393;
+    // 393 -> 394 (17.09.2026, 6.D229): JEDEN literał — argument `what` przekazany
+    // do `JsonText.Parse` w `src/Game/Assets/ChunkManifest.cs` ("manifest chunków").
+    // Jest to napis, który trafia do WIERSZA ODMOWY widzianego przez gracza, więc
+    // wchodzi do korpusu z tego samego powodu, co komunikaty `Abort` w `FirstRun`.
+    private const int LiteralowDotknietychZdejmowaniem = 394;
 
     /// <summary>
     /// Ilu literałom zdejmowanie jednostek ZABIERA werdykt „to słowo" — 6.D155.

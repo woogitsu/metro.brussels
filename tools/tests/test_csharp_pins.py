@@ -133,11 +133,16 @@ KATEGORIE = {
         # nowe człony wiersza pomocy (`D otwórz drzwi`, `F zamknij drzwi`), czyli po raz
         # pierwszy zmieniła się także TREŚĆ dwóch z nich. Sprawdzone wypisem skanera,
         # a nie liczeniem wierszy z ręki.
-        ("UiTextTests.cs", 1265), ("UiTextTests.cs", 1278), ("UiTextTests.cs", 1296),
+        # OSMY ruch tych kotwic (6.D229, 17.09.2026): 1265/1278/1296 -> 1269/1282/1300
+        # i 1365/1366 -> 1369/1370. Powod jest TEN SAM, co szesc z siedmiu razy wyzej —
+        # komentarz z powodem przy `LiteralowWZasieguBramki`, tym razem o cztery wiersze.
+        # TRESC pinow nie drgnela; przesunal sie wylacznie numer wiersza. Sprawdzone
+        # wypisem skanera, a nie liczeniem wierszy z reki.
+        ("UiTextTests.cs", 1269), ("UiTextTests.cs", 1282), ("UiTextTests.cs", 1300),
         ("SignallingHudTests.cs", 37),
     },
     "B": {
-        ("UiTextTests.cs", 1365), ("UiTextTests.cs", 1366),
+        ("UiTextTests.cs", 1369), ("UiTextTests.cs", 1370),
     },
 }
 
@@ -221,10 +226,10 @@ def test_regula_po_ksztalcie_literalu_myli_sie_i_dlatego_jej_nie_ma():
                      if not regula.search(tresci[p])]
     zlapane_z_b = [p for p in sorted(KATEGORIE["B"]) if regula.search(tresci[p])]
 
-    assert przepuszczone == [("UiTextTests.cs", 1296)], (
+    assert przepuszczone == [("UiTextTests.cs", 1300)], (
         "reguła po kształcie przestała przepuszczać wiersz o hamulcu awaryjnym — "
         "rozstrzygnięcie 6.D131 wymaga przeliczenia: %s" % przepuszczone)
-    assert zlapane_z_b == [("UiTextTests.cs", 1366)], (
+    assert zlapane_z_b == [("UiTextTests.cs", 1370)], (
         "reguła po kształcie przestała łapić wejście syntetyczne: %s" % zlapane_z_b)
 
 
@@ -238,11 +243,11 @@ def test_czytnik_widzi_pin_takze_wtedy_gdy_literal_jest_sklejony():
     tresci = {(plik, wiersz): tresc
               for plik, wiersz, _r, tresc in CP.piny("tests/Game.Tests")}
 
-    assert len(tresci[("UiTextTests.cs", 1265)]) == 122, (
+    assert len(tresci[("UiTextTests.cs", 1269)]) == 122, (
         "sklejanie literałów przestało działać: %d znaków"
-        % len(tresci[("UiTextTests.cs", 1265)]))
-    assert len(tresci[("UiTextTests.cs", 1296)]) == 98, (
-        len(tresci[("UiTextTests.cs", 1296)]))
+        % len(tresci[("UiTextTests.cs", 1269)]))
+    assert len(tresci[("UiTextTests.cs", 1300)]) == 98, (
+        len(tresci[("UiTextTests.cs", 1300)]))
     assert len(tresci[("SignallingHudTests.cs", 37)]) == 84, (
         len(tresci[("SignallingHudTests.cs", 37)]))
 
@@ -402,9 +407,13 @@ ROZKLAD_LICZBOWYCH = {
         # i raz przy jej klamrowej sasiadce w kontroli DODATNIEJ. Oba CALKOWITE
         # i BEZ TOLERANCJI, bo sa liczbami miejsc w kodzie, nie miara fizyczna;
         # `calkowite_z_tolerancja` zostaje ZEREM.
-        "razem": 479, "z_tolerancja": 188, "bez_tolerancji": 291,
+        # 479 -> 480 (17.09.2026, 6.D229): JEDEN pin liczbowy bramki
+        # `BrokenJsonRefusalTests.cs` — podloga na liczbe przejrzanych par
+        # loader x ksztalt. CALKOWITY i BEZ TOLERANCJI, bo jest liczba przebiegow
+        # petli, nie miara fizyczna. Przeliczone z drzewa po scaleniu.
+        "razem": 480, "z_tolerancja": 188, "bez_tolerancji": 292,
         "zmiennoprzecinkowe": 196, "zmiennoprzecinkowe_bez_tolerancji": 8,
-        "calkowite": 283, "calkowite_z_tolerancja": 0, "tolerancja_zero": 119,
+        "calkowite": 284, "calkowite_z_tolerancja": 0, "tolerancja_zero": 119,
     },
 }
 
