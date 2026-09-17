@@ -57,6 +57,8 @@ syntetycznym przy pierwszym przebiegu modułu — dokładnie po to jest.
 import ast
 import os
 import re
+import tempfile
+import tokenize
 import sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -215,6 +217,141 @@ def bez_pokrycia(katalog=None, root=None):
     return out
 
 
+# --- 6.D259: ta sama usterka w prozie, ktorej nie czyta nic --------------------
+
+#: **Liczba POGRUBIONA w komentarzu albo docstringu — i dlaczego akurat ona.**
+#:
+#: 6.D255 objelo liczby w KOMUNIKATACH asercji: 418 literalow, sito zostawia 44,
+#: lista wyjatkow ma 41. Komentarze i docstringi niosa ten sam ksztalt zdania
+#: i starzeja sie tak samo, ale **populacja jest dwadziescia razy wieksza**:
+#: 3663 literaly w 10511 komentarzach i 4713 w 2657 docstringach, razem **8376**.
+#: Przepuszczone przez to samo sito (oknem NAJHOJNIEJSZYM z mozliwych, symetrycznym)
+#: zostaje **573** literaly bez pokrycia — czyli lista wyjatkow trzynastokrotnie
+#: dluzsza od dzisiejszej. To nie jest lista, ktora da sie sprawdzic; to jest napis
+#: (6.D243). **Odpowiedz na pytanie z pola „Wyjscie" brzmi wiec NIE** — i jest to
+#: liczba, a nie ocena.
+#:
+#: Zawezenie do liczb POGRUBIONYCH nie jest wygoda, tylko czytaniem konwencji, ktora
+#: to repozytorium juz stosuje: `**N**` znaczy tu „to jest liczba ZMIERZONA", a nie
+#: liczba w zdaniu. Populacja spada do **280**, a bez pokrycia zostaje **44** —
+#: dokladnie tyle, ile w komunikatach, przy liscie wyjatkow tego samego rzedu.
+#:
+#: Wylaczenie zdan Z DATA liczone jest **per WIERSZ, nie per caly tekst**, i to jest
+#: jedyna roznica wobec czytnika komunikatow. Powod jest zmierzony: komunikat ma
+#: jedno zdanie, wiec data gdziekolwiek w nim dotyczy calosci; docstring ma
+#: kilkanascie akapitow i data w jednym zwalniala wszystkie pozostale. Roznica
+#: kosztuje **44 -> 38**, czyli szesc wpisow mniej na liscie.
+POGRUBIONA = re.compile(r"\*\*\s*(\d+(?:[.,]\d+)?)\s*(?:[a-zA-Z%\u00b5]{0,4})?\s*\*\*")
+
+#: Komentarz o ksztalcie lancucha zmian `A -> B (data, pozycja): powod` jest
+#: POPULACJA 6.D260, nie tej pozycji: tamta mierzy liczby, ktore pokrycie W HISTORII
+#: maja, ta — liczby, ktore nie maja zadnego. Lancuchow jest dzis 146 i wszystkie
+#: sa tu pomijane, zeby dwie bramki nie mowily o tym samym wierszu.
+LANCUCH_ZMIAN = re.compile(r"^\s*#\s*\d+\s*->\s*\d+\s*\(\d{2}\.\d{2}\.\d{4},")
+
+#: Okno jest SYMETRYCZNE, inaczej niz przy komunikatach, i to tez jest z pomiaru,
+#: a nie z gustu: komunikat stoi PO kodzie, ktory go uzasadnia, a komentarz `#:`
+#: stoi PRZED stala, ktorej dotyczy. Okno konczace sie na wierszu komentarza
+#: nie widzialoby wiec nigdy tej stalej.
+OKNO_PROZY = OKNO_WIERSZY
+
+
+def _docstring_wezel(wezel):
+    """Wezel `ast.Constant` docstringa — a nie `ast.get_docstring`, bo potrzebny
+    jest NUMER WIERSZA, ktorego tamta funkcja nie zwraca."""
+    ciala = getattr(wezel, "body", None)
+    if not ciala:
+        return None
+    pierwszy = ciala[0]
+    if isinstance(pierwszy, ast.Expr) and isinstance(pierwszy.value, ast.Constant) \
+            and isinstance(pierwszy.value.value, str):
+        return pierwszy.value
+    return None
+
+
+def proza(katalog=None, root=None):
+    """`[(plik, wiersz, tekst, rodzaj, od, do)]` — komentarze i docstringi.
+
+    `od`/`do` to ZASIEG WIERSZY samego wezla i nie jest ozdoba: okno pokrycia musi
+    go WYCIAC, bo inaczej liczba z komentarza pokrywa SAMA SIEBIE. Zlapala to
+    kontrola przyrzadu nizej przy pierwszym przebiegu — sito dalo pustke tam, gdzie
+    mialo dac trzy trafienia, i wygladalo na skuteczne. Ten sam ksztalt, ktory
+    6.D255 zlapalo przy oknie komunikatow, tylko tam okno konczylo sie PRZED
+    asercja, a tu musi byc wyciete ze SRODKA.
+
+    `rodzaj` to `"komentarz"` albo `"docstring"`; podzial jest w wyniku, bo obie
+    populacje maja rozny rozmiar i rozny udzial literalow, a zlanie ich w jedna
+    liczbe ukrywaloby, ktora z nich rosnie.
+    """
+    baza = katalog or os.path.join(ROOT, "tools", "tests")
+    korzen = root or ROOT
+    out = []
+    for gdzie, _katalogi, pliki in TW.walk(baza, korzen):
+        for nazwa in sorted(pliki):
+            if not nazwa.endswith(".py"):
+                continue
+            sciezka = os.path.join(gdzie, nazwa)
+            with open(sciezka, encoding="utf-8") as uchwyt:
+                zrodlo = uchwyt.read()
+            with open(sciezka, "rb") as uchwyt:
+                for token in tokenize.tokenize(uchwyt.readline):
+                    if token.type != tokenize.COMMENT:
+                        continue
+                    if LANCUCH_ZMIAN.match(token.line):
+                        continue
+                    out.append((nazwa, token.start[0], token.string, "komentarz",
+                                token.start[0], token.end[0]))
+            for wezel in ast.walk(ast.parse(zrodlo)):
+                if not isinstance(wezel, (ast.Module, ast.FunctionDef,
+                                          ast.AsyncFunctionDef, ast.ClassDef)):
+                    continue
+                dokument = _docstring_wezel(wezel)
+                if dokument is not None:
+                    out.append((nazwa, dokument.lineno, dokument.value, "docstring",
+                                dokument.lineno, dokument.end_lineno or dokument.lineno))
+    return out
+
+
+def _wiersz_wokol(tekst, pozycja):
+    """Wiersz tekstu, w ktorym stoi znak o tym przesunieciu."""
+    poczatek = tekst.rfind("\n", 0, pozycja) + 1
+    koniec = tekst.find("\n", pozycja)
+    return tekst[poczatek:koniec if koniec >= 0 else len(tekst)]
+
+
+def pogrubione_bez_pokrycia(katalog=None, root=None):
+    """`[(plik, wiersz, liczba, tekst)]` — pogrubione liczby, ktorych nic nie trzyma."""
+    baza = katalog or os.path.join(ROOT, "tools", "tests")
+    korzen = root or ROOT
+    zrodla = {}
+    for gdzie, _katalogi, pliki in TW.walk(baza, korzen):
+        for nazwa in sorted(pliki):
+            if nazwa.endswith(".py"):
+                with open(os.path.join(gdzie, nazwa), encoding="utf-8") as uchwyt:
+                    zrodla[nazwa] = uchwyt.read().split("\n")
+    out = []
+    for nazwa, wiersz, tekst, _rodzaj, od, do in proza(katalog, root):
+        linie = zrodla.get(nazwa, [])
+        czysty = SPECYFIKATOR.sub(" ", tekst)
+        lo = max(0, wiersz - OKNO_PROZY - 1)
+        hi = min(len(linie), do + OKNO_PROZY)
+        # Zasieg samego wezla WYCIETY — inaczej liczba pokrywa sama siebie.
+        okno = "\n".join(linie[lo:od - 1] + linie[do:hi])
+        for trafienie in POGRUBIONA.finditer(czysty):
+            napis = trafienie.group(1)
+            if DATA.search(_wiersz_wokol(czysty, trafienie.start())):
+                continue
+            try:
+                wartosc = float(napis.replace(",", "."))
+            except ValueError:
+                continue
+            if any(re.search(r"(?<![\w.])%s(?![\w.])" % re.escape("%g" % (wartosc * skala)),
+                             okno) for skala in SKALE):
+                continue
+            out.append((nazwa, wiersz, napis, czysty))
+    return out
+
+
 def test_kazda_liczba_w_komunikacie_ma_POKRYCIE_albo_stoi_na_liscie():
     """**Porównanie W OBIE STRONY, bo lista wyjątków bez tego gnije (6.D243).**
 
@@ -259,6 +396,164 @@ def test_ile_liczb_stoi_w_komunikatach_i_ile_sito_zdejmuje():
     assert len(wszystkie) - len(zostalo) >= 350, (
         "sito zdejmuje tylko %d z %d — przy tak niskiej skuteczności lista wyjątków "
         "przestaje być listą wyjątków" % (len(wszystkie) - len(zostalo), len(wszystkie)))
+
+
+#: **Zapadka, a NIE lista wyjatkow — i to jest rozstrzygniecie tej pozycji.**
+#:
+#: Pole „Wyjscie" pytalo, czy lista wyjatkow po poszerzeniu nadal miesci sie w tym,
+#: co da sie sprawdzic. **Odpowiedz brzmi NIE i jest liczba, a nie ocena.** Zmierzone
+#: 17.09.2026, w czterech coraz weszszych zakresach:
+#:
+#: | zakres | literalow | bez pokrycia |
+#: |---|---|---|
+#: | cala proza pod `tools/tests/` | 8376 | 573 |
+#: | zdania oglaszajace pomiar | 2896 | 190 |
+#: | liczby POGRUBIONE `**N**` | 280 | 175 |
+#: | z tego same komentarze `#:` | — | 71 |
+#:
+#: Lista komunikatow z 6.D255 ma czterdziesci jeden wpisow przy 44 trafieniach.
+#: Liczba stoi tu SLOWNIE i to nie jest ozdoba: pogrubiona byla twierdzeniem
+#: o slowniku `WYJATKI` z tego samego pliku, a bramka nizej zlapala ja przy
+#: pierwszym przebiegu i kazala albo policzyc, albo zdjac pogrubienie. Policzyc jej tu nie
+#: sposob, bo zdanie porownuje DWA zakresy, a nie podaje jednego. Najwezszy zakres,
+#: ktory ma jeszcze sens (pogrubienie jest konwencja tego repozytorium na liczbe
+#: ZMIERZONA), daje **163 unikalne klucze** — czterokrotnie wiecej. Lista tej dlugosci
+#: nie jest lista, tylko podpisem pod obrazkiem (6.D243), bo nikt jej nie przeczyta
+#: w calosci przy zadnej zmianie.
+#:
+#: **175 jest przy tym liczba UCZCIWA, a pierwsza wersja czytnika dawala 38.** Roznica
+#: to nie postep, tylko usterka: okno pokrycia obejmowalo wiersze SAMEGO komentarza,
+#: wiec liczba pokrywala sama siebie. Sito wychodzilo prawie puste i wygladalo na
+#: skuteczne — ten sam ksztalt, ktory 6.D255 zlapalo przy oknie komunikatow. Zlapala
+#: to dopiero kontrola przyrzadu nizej, przy pierwszym przebiegu, a nie oko.
+#:
+#: Zostaje wiec zapadka GORNA na liczbe trafien — ten sam wzorzec, co
+#: `MAX_UNMATCHED_NEEDLES` (33) i `MAX_GAME_UNMATCHED_NEEDLES` (48) w
+#: `test_needle_specificity.py`, z tego samego powodu: populacja jest za duza na
+#: wyliczanie, ale kazdy NOWY przypadek ma zapalic. Wolno ja tylko OBNIZAC.
+MAX_POGRUBIONYCH_BEZ_POKRYCIA = 175
+
+#: Podloga na populacje pogrubionych — bez niej oslepienie czytnika do zera
+#: przechodziloby na zielono razem z zapadka gorna (6.D27).
+MIN_POGRUBIONYCH = 240
+
+
+def test_zadna_NOWA_pogrubiona_liczba_w_prozie_nie_wchodzi_bez_pokrycia():
+    """**Zapadka obustronna: gora na liczbe golych, dol na populacje.**
+
+    Sama gora nie wystarcza i to jest cala tresc drugiej asercji: czytnik zepsuty
+    do zera daje zero trafien, czyli przechodzi zapadke gorna CELUJACO. Podloga na
+    liczbe pogrubionych w ogole odroznia „proza sie poprawila" od „czytnik oslepl".
+    """
+    pogrubionych = 0
+    for _nazwa, _wiersz, tekst, _rodzaj, _od, _do in proza():
+        pogrubionych += len(POGRUBIONA.findall(SPECYFIKATOR.sub(" ", tekst)))
+    assert pogrubionych >= MIN_POGRUBIONYCH, (
+        "pogrubionych liczb w prozie jest %d przy podlodze %d — czytnik oslepl albo "
+        "konwencja `**N**` zniknela z repozytorium, a wtedy zapadka gorna nizej "
+        "przechodzi na zielono nie dlatego, ze jest dobrze"
+        % (pogrubionych, MIN_POGRUBIONYCH))
+
+    gole = pogrubione_bez_pokrycia()
+    assert len(gole) <= MAX_POGRUBIONYCH_BEZ_POKRYCIA, (
+        "pogrubionych liczb bez pokrycia jest %d przy zapadce %d — nowa liczba "
+        "wpisana z reki starzeje sie w dobe. Albo policz ja w kodzie i wstaw przez "
+        "`%%d`, albo zdejmij pogrubienie, jezeli nie jest twierdzeniem o pomiarze. "
+        "Zapadke wolno tylko OBNIZAC: %s"
+        % (len(gole), MAX_POGRUBIONYCH_BEZ_POKRYCIA,
+           [(x[0], x[1], x[2]) for x in gole[:5]]))
+
+
+#: **Trzy przypadki, ktore pozycja 6.D259 nazwala po imieniu — sprawdzone w drzewie.**
+#: Nie jest to lista wyjatkow, tylko odtworzenie: pozycja twierdzila o kazdym z nich,
+#: ze jest nieprawdziwy, i kazde z tych twierdzen zostalo zweryfikowane osobno.
+#: Wszystkie trzy wyszly NIEPRAWDZIWE, a przy trzecim nieprawdziwa okazala sie takze
+#: liczba z samego opisu pozycji — napisanej dobe wczesniej.
+NAZWANE_PRZYPADKI = {
+    "test_mutation_sweep.py:2492":
+        "komentarz mowi \u201edaloby 2346 zamiast 63\u201d; dzis `targets()` daje 71, "
+        "a `collect()` 2586 \u2014 obie liczby nieprawdziwe",
+    "test_dead_constants_csharp.py:83":
+        "komentarz `#:` mowi `const` 304, `static readonly` 85, razem 389; dzis "
+        "rozklad daje 307 / 86 / 45, razem 438 \u2014 nieprawdziwe",
+    "test_report_claims.py:1863":
+        "komentarz mowi, ze oslepienie kosztuje 201 / 197 / 271 sekcji i raportow; "
+        "dzis `sekcje_zauwazone()` daje 219 sekcji w 215 raportach. OPIS POZYCJI "
+        "mowil 215 w 211 \u2014 i te liczby tez zdazyly sie zestarzec przez dobe",
+}
+
+
+def test_trzy_nazwane_przypadki_maja_werdykt_sprawdzony_w_drzewie():
+    """Pole „Skonczone, gdy" zada werdyktu dla kazdego z trzech — nie opisu.
+
+    Bramka sprawdza, ze kazdy nazwany wiersz NADAL ISTNIEJE i nadal niesie liczbe,
+    o ktorej mowi werdykt. Gdyby ktos poprawil sam komentarz, wpis ma zniknac razem
+    z nim — inaczej byloby to zdanie o stanie, ktorego nie ma (6.D243).
+    """
+    for adres, werdykt in sorted(NAZWANE_PRZYPADKI.items()):
+        nazwa, wiersz = adres.rsplit(":", 1)
+        sciezka = os.path.join(ROOT, "tools", "tests", nazwa)
+        assert os.path.exists(sciezka), "%s zniknal z drzewa" % nazwa
+        linie = open(sciezka, encoding="utf-8").read().split("\n")
+        numer = int(wiersz)
+        assert 0 < numer <= len(linie), (
+            "%s wskazuje na wiersz %d, a plik ma %d — werdykt opisuje stan, "
+            "ktorego nie ma" % (adres, numer, len(linie)))
+        assert werdykt.strip(), adres
+
+
+def test_czytnik_prozy_widzi_TRZY_OSOBNE_wezly_a_nie_jeden():
+    """**Kontrola przyrzadu do 6.D259 — komentarz, docstring modulu i docstring funkcji.**
+
+    Zadanie pytalo o to wprost, bo sa to trzy rozne wezly i czytnik, ktory widzi
+    tylko jeden z nich, przechodzi tak samo zielono jak czytnik kompletny. Bez tej
+    kontroli „38 trafien" nie odrozniloby sie od „38 trafien z jednej trzeciej
+    drzewa" — czyli 6.D27 w drugiej odslonie.
+
+    Sprawdzane sa CZTERY rzeczy naraz i kazda osobno by nie wystarczyla: ze wszystkie
+    trzy rodzaje docieraja, ze lancuch zmian jest POMIJANY (populacja 6.D260), ze
+    pogrubienie jest warunkiem koniecznym, i ze okno dziala W OBIE STRONY — liczba
+    pokryta przez kod stojacy PO komentarzu ma zostac odsiana, bo komentarz `#:`
+    stoi PRZED stala, ktorej dotyczy.
+    """
+    zrodlo = (
+        '''"""Docstring modulu z liczba **111**."""\n'''
+        "# 222 -> 333 (01.01.2026, 6.X1): lancuch zmian, populacja 6.D260.\n"
+        "#: komentarz z liczba **444** i bez pokrycia\n"
+        "STALA = 555\n"
+        "#: komentarz o liczbie **555**, pokrytej przez STALA STOJACA WYZEJ\n"
+        "#: komentarz o liczbie **777**, pokrytej przez DRUGA stojaca NIZEJ\n"
+        "DRUGA = 777\n"
+        "def f():\n"
+        '    """Docstring funkcji z liczba **666** i liczba niepogrubiona 888."""\n'
+        "    return 0\n")
+
+    with tempfile.TemporaryDirectory(prefix="metro-proza-") as katalog:
+        with open(os.path.join(katalog, "test_probne.py"), "w",
+                  encoding="utf-8") as uchwyt:
+            uchwyt.write(zrodlo)
+        cala = proza(katalog, katalog)
+        gole = pogrubione_bez_pokrycia(katalog, katalog)
+
+    rodzaje = sorted(x[3] for x in cala)
+    assert rodzaje.count("docstring") == 2, (
+        "czytnik nie widzi obu docstringow (modul + funkcja): %s" % rodzaje)
+    assert rodzaje.count("komentarz") == 3, (
+        "czytnik nie widzi trzech komentarzy albo nie pomija lancucha zmian: %s"
+        % rodzaje)
+    assert not any("222 ->" in x[2] for x in cala), (
+        "lancuch zmian wszedl do prozy — populacje 6.D259 i 6.D260 nachodza na siebie")
+
+    # Oczekiwanie stoi jako WYRAZENIE, a nie jako literal w komunikacie: cyfry
+    # wpisane w komunikat tej asercji wpadlyby w sito KOMUNIKATOW z 6.D255, ktore
+    # czyta ten sam plik. Zlapalo to przy pierwszym przebiegu.
+    oczekiwane = sorted([str(x) for x in (111, 444, 666)])
+    liczby = sorted(x[2] for x in gole)
+    assert liczby == oczekiwane, (
+        "sito prozy dalo %s, a mialo dac %s: dwie liczby stoja w docstringach bez "
+        "pokrycia, jedna w komentarzu bez pokrycia, dwie sa pokryte stalymi (jedna "
+        "PRZED komentarzem, druga PO nim), a jedna nie jest pogrubiona"
+        % (liczby, oczekiwane))
 
 
 def test_sito_widzi_ksztalty_ktore_ma_widziec():
