@@ -61,11 +61,102 @@ ZAPADKA_NAZWA = re.compile(r"^(MAX|MIN|MINIMUM)_[A-Z0-9_]+$")
 ODWROTNY_OPERATOR = {"Lt": "Gt", "Gt": "Lt", "LtE": "GtE", "GtE": "LtE",
                      "Eq": "Eq", "NotEq": "NotEq"}
 
+#: Operator ZAPRZECZONY — i to jest INNA tabela niż ta wyżej, mimo podobieństwa.
+#: Tamta zamienia STRONY (`PRÓG >= x` na `x <= PRÓG`), ta zaprzecza CAŁEMU zdaniu
+#: (`not (x >= PRÓG)` na `x < PRÓG`). Pomylenie ich daje klasyfikator, który czyta
+#: `if x < PRÓG: raise` jako strażnika mierzącego odwrotnie, zamiast jako tę samą
+#: asercję napisaną inaczej — czyli dokładnie usterkę 6.D258.
+ZAPRZECZONY_OPERATOR = {"Lt": "GtE", "GtE": "Lt", "Gt": "LtE", "LtE": "Gt",
+                        "Eq": "NotEq", "NotEq": "Eq"}
+
 #: Trzy klasy i czwarta, która mówi o granicy przyrządu, a nie o zapadce.
 PRZYBITA = "przybita"
 CZESCIOWA = "czesciowa"
 WOLNA = "wolna"
 POZA_SKANEM = "poza skanem"
+
+
+#: **6.D258: która postać zdania COKOLWIEK twierdzi, a która tylko wygląda.**
+#: Do 17.09.2026 `_porownania_zapadek` czytał każde `ast.Compare` z nazwą zapadki
+#: tak, jak stoi napisane — a to jest czytanie PISOWNI, nie treści. `assert x >= PRÓG`
+#: i `if x < PRÓG: raise AssertionError(...)` są tym samym zdaniem, różnią się
+#: wyłącznie zapisem, a klasyfikator przestawiał przez to klasę z `wolna` na
+#: `czesciowa` i wypisywał „doszedł strażnik". Żaden strażnik nie dochodził.
+#: Zmierzone 6.D254 (KN-1), pełne wyjście: `reports/6d254-klasa-zapadki-a-zachowanie.md` §5.
+BEZ_TWIERDZENIA = "bez twierdzenia"
+
+
+def _wyjatki_bloku(ciala):
+    """Czy ten blok zdań podnosi wyjątek — wprost albo przez `assert False`."""
+    for zdanie in ciala:
+        for pod in ast.walk(zdanie):
+            if isinstance(pod, ast.Raise):
+                return True
+    return False
+
+
+def polaryzacja_porownania(wezel, rodzic):
+    """Czy to porównanie coś TWIERDZI, a jeśli tak — czy wprost, czy przez zaprzeczenie.
+
+    Zwraca ``+1`` (zdanie twierdzi to, co stoi napisane), ``-1`` (zdanie twierdzi
+    ZAPRZECZENIE tego, co stoi napisane) albo ``None`` (nie twierdzi nic).
+
+    Trzy postacie twierdzą, i każda jest w drzewie zmierzona:
+
+    * ``assert <cmp>`` — ``+1``; 134 porównania z nazwą zapadki, czyli prawie całość;
+    * ``assert not <cmp>`` — ``-1``; jedno porównanie;
+    * ``if <cmp>: ... raise ...`` — ``-1``, bo warunek gałęzi opisuje wtedy PORAŻKĘ,
+      a twierdzeniem jest jego zaprzeczenie. W drzewie z 17.09.2026 takiego zdania
+      NIE MA ANI JEDNEGO — ta gałąź istnieje po to, żeby przepisanie asercji na tę
+      postać nie ruszało klasy, a nie dlatego, że coś tak dziś stoi.
+
+    Nie twierdzą nic — i to jest druga połowa treści tej funkcji:
+
+    * ``if <cmp>:`` bez ``raise`` w ciele — gałąź redakcyjna albo wybór MIĘDZY
+      asercjami; dwa porównania (`mutation_sweep.py:1427` wybiera szerokość tabeli,
+      `test_backlog.py:1090` wybiera, KTÓRĄ asercję puścić);
+    * filtr wyrażenia listowego — jedno (`test_field_paths.py:1533`).
+
+    **Dlaczego „nie twierdzi nic", skoro dwa ostatnie kształty na wynik WPŁYWAJĄ.**
+    Wpływają — ale nie własnym padem, tylko przez asercję stojącą DALEJ, której ten
+    czytnik nie widzi i widzieć nie może bez przejścia przepływu danych. Zaliczenie
+    ich do strażników byłoby więc twierdzeniem mocniejszym niż pomiar: klasa `przybita`
+    znaczy „ruch o jeden PADA", a tego o gałęzi redakcyjnej nie wiadomo. Ten sam wybór
+    co w 6.D254: przyrząd ma mówić o tym, co widzi.
+    """
+    gora = rodzic.get(wezel)
+    znak = 1
+    while gora is not None:
+        if isinstance(gora, ast.UnaryOp) and isinstance(gora.op, ast.Not):
+            znak = -znak
+            gora = rodzic.get(gora)
+            continue
+        if isinstance(gora, ast.Assert):
+            return znak if gora.test is not None else None
+        if isinstance(gora, ast.If):
+            if wezel is gora.test or _pod_testem(wezel, gora.test):
+                # Wyjatek w CIELE: warunek opisuje porazke, twierdzeniem jest
+                # jego zaprzeczenie. Wyjatek w ODNODZE `else`: warunek opisuje
+                # przypadek dobry, wiec twierdzeniem jest on sam. Zadnej z tych
+                # dwoch postaci nie ma dzis w drzewie ani razu — obie sa tu po to,
+                # zeby przepisanie asercji nie ruszalo klasy, i obie maja wlasny
+                # przypadek w kontroli przyrzadu, bo bez niego druga bylaby
+                # zgadywaniem.
+                if _wyjatki_bloku(gora.body):
+                    return -znak
+                if _wyjatki_bloku(gora.orelse):
+                    return znak
+                return None
+            return None
+        if isinstance(gora, (ast.comprehension, ast.IfExp, ast.While,
+                             ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+            return None
+        gora = rodzic.get(gora)
+    return None
+
+
+def _pod_testem(wezel, test):
+    return any(pod is wezel for pod in ast.walk(test))
 
 
 def _porownania_zapadek(katalog=None, root=None):
@@ -85,6 +176,10 @@ def _porownania_zapadek(katalog=None, root=None):
                 continue
             with open(os.path.join(gdzie, nazwa_pliku), encoding="utf-8") as uchwyt:
                 drzewo = ast.parse(uchwyt.read())
+            rodzic = {}
+            for wezel in ast.walk(drzewo):
+                for dziecko in ast.iter_child_nodes(wezel):
+                    rodzic[dziecko] = wezel
             for wezel in ast.walk(drzewo):
                 if isinstance(wezel, ast.Assign):
                     for cel in wezel.targets:
@@ -92,11 +187,19 @@ def _porownania_zapadek(katalog=None, root=None):
                             out.setdefault(cel.id, (nazwa_pliku, []))
                 if not isinstance(wezel, ast.Compare):
                     continue
+                # 6.D258: najpierw POSTAĆ ZDANIA, dopiero potem operator. Porównanie,
+                # które niczego nie twierdzi, nie jest ani nośne, ani strzegące —
+                # a zdanie zaprzeczone twierdzi operator ZAPRZECZONY, nie zapisany.
+                znak = polaryzacja_porownania(wezel, rodzic)
+                if znak is None:
+                    continue
                 czlony = [wezel.left] + list(wezel.comparators)
                 for i, operator in enumerate(wezel.ops):
                     nazwa_op = type(operator).__name__
                     if nazwa_op not in ODWROTNY_OPERATOR:
                         continue
+                    if znak < 0:
+                        nazwa_op = ZAPRZECZONY_OPERATOR[nazwa_op]
                     lewy, prawy = czlony[i], czlony[i + 1]
                     for stala, druga, relacja in ((lewy, prawy, nazwa_op),
                                                   (prawy, lewy,
@@ -145,7 +248,7 @@ def klasa_zapadki(nazwa, porownania):
 
 
 #: **Wszystkie zapadki pod `tools/tests/`, każda z klasą i modułem.**
-#: Zapadek: 63. **Przybitych: 17, częściowych: 3, WOLNYCH: 42, poza zasięgiem skanu: 1.**
+#: Zapadek: 63. **Przybitych: 17, częściowych: 3, WOLNYCH: 41, poza zasięgiem skanu: 2.**
 #:
 #: **To zdanie jest przepisane, a nie dopisane obok — po raz DRUGI (15.09.2026).**
 #: Stało tu najpierw „Trzydzieści osiem: 13 przybitych…" (11.09.2026, `52752c9`)
@@ -190,7 +293,22 @@ ZAPADKI = {
     "MAX_GLOB_WPROST": (WOLNA, "test_tree_walks.py"),
     "MAX_JUSTIFICATIONS": (PRZYBITA, "test_bin_path_framework.py"),
     "MAX_JUSTIFIED_NEEDLES": (PRZYBITA, "test_needle_specificity.py"),
-    "MAX_ODCISKOW_W_RAPORCIE": (WOLNA, "mutation_sweep.py"),
+    # 6.D258: `wolna` -> `poza skanem`, i to JEDYNY werdykt, który poprawka
+    # polaryzacji rusza na dzisiejszym drzewie. Jedyne porównanie tej zapadki
+    # to `if len(odciski) <= PRÓG:` w `mutation_sweep.py:1427` — gałąź wybierająca
+    # SZEROKOŚĆ TABELI w raporcie, bez `raise` w żadnej z odnóg. Nie twierdzi nic,
+    # więc klasyfikator jej już nie widzi, a zapadka zostaje bez ani jednego
+    # porównania. `wolna` mówiła „strażnika nie ma"; `poza skanem` mówi „nie ma
+    # też nośnego" — i to drugie jest prawdą, której pierwsze nie niosło.
+    "MAX_ODCISKOW_W_RAPORCIE": (POZA_SKANEM, "mutation_sweep.py"),
+    # Pomiar 6.D254 NIE ZNIKA razem z wpisem w `ROZSTRZYGALNE_POMIAREM`,
+    # z ktorego ta zapadka wypadla, bo tamten slownik opisuje wylacznie klase
+    # `wolna`: dwa uzycia w `test_mutation_sweep.py` przez `sweep.NAZWA` buduja
+    # wejscie jako `range(PROG)` i `range(PROG + 1)`, czyli PARE na granicy —
+    # ksztalt najmocniejszy z mozliwych. Zmierzone mutacja: granica jedzie RAZEM
+    # z progiem, wiec 8 -> 1008 daje 133/133 i nie zapala nic. Werdykt sie wiec
+    # nie zmienil; zmienila sie tylko jego NAZWA, z „nie ma straznika" na
+    # „nie ma tez nosnego".
     "MAX_REPORTS_WITHOUT_FIELD_LINE": (PRZYBITA, "test_report_hygiene.py"),
     "MAX_ROZSZERZEN_BEZ_TRAFIEN": (WOLNA, "test_report_hygiene.py"),
     "MAX_SEKWENCJI_UCIECZKI": (PRZYBITA, "test_bytecode_staleness.py"),
@@ -320,6 +438,61 @@ ZAPADEK_RAZEM = len(ZAPADKI)
 
 # --- 6.D254: czy KLASA mówi prawdę o ZACHOWANIU -------------------------------
 
+def swiadkowie_klasy(nazwa, katalog=None, root=None):
+    """`[(plik, wiersz, postac)]` — gdzie stoi kazde TWIERDZACE porownanie tej zapadki.
+
+    **Po co, skoro klase i tak liczy `klasa_zapadki` (6.D258).** Bo komunikat bramki
+    klas twierdzil dotad PRZYCZYNE („doszedl straznik", „ubyl straznik"), a przyczyny
+    nie mierzyl: widzial wylacznie klase PRZED i PO. Przy przepisaniu asercji na
+    `if … : raise` mowil wiec o straznku, ktory nie doszedl, a przy dzisiejszej
+    poprawce polaryzacji mowilby o straznku przy zmianie do `poza skanem`, ktorej
+    zdanie nie przewiduje w ogole.
+
+    Ten czytnik nie zgaduje przyczyny — podaje MIEJSCA I POSTACIE, z ktorych klasa
+    wyszla. Czytajacy widzi wtedy sam, czy ten sam wiersz zmienil pisownie, czy
+    doszedl wiersz nowy. **Odroznienia „tresc kontra pisownia" bramka nie zrobi za
+    niego i to jest granica przyrzadu, nie przeoczenie:** do tego potrzebny bylby
+    stan PRZED zmiana, a bramka ma do dyspozycji tylko rejestr (klase) i dzisiejsze
+    drzewo. Ten sam ksztalt, ktory 6.D255 nazwalo czwarta nieprawda nie do zlapania.
+    """
+    baza = katalog or os.path.join(ROOT, "tools", "tests")
+    korzen = root or ROOT
+    out = []
+    for gdzie, _katalogi, pliki in TW.walk(baza, korzen):
+        for nazwa_pliku in sorted(pliki):
+            if not nazwa_pliku.endswith(".py"):
+                continue
+            with open(os.path.join(gdzie, nazwa_pliku), encoding="utf-8") as uchwyt:
+                drzewo = ast.parse(uchwyt.read())
+            rodzic = {}
+            for wezel in ast.walk(drzewo):
+                for dziecko in ast.iter_child_nodes(wezel):
+                    rodzic[dziecko] = wezel
+            for wezel in ast.walk(drzewo):
+                if not isinstance(wezel, ast.Compare):
+                    continue
+                if not any((isinstance(n, ast.Name) and n.id == nazwa)
+                           or (isinstance(n, ast.Attribute) and n.attr == nazwa)
+                           for n in ast.walk(wezel)):
+                    continue
+                znak = polaryzacja_porownania(wezel, rodzic)
+                postac = {1: "wprost", -1: "zaprzeczone",
+                          None: BEZ_TWIERDZENIA}[znak]
+                out.append((nazwa_pliku, wezel.lineno, postac))
+    return sorted(out)
+
+
+def _argumenty_wyjatku(exc):
+    """Wyrażenia liczone WYŁĄCZNIE przy padzie — argumenty `raise <Wyjątek>(…)`.
+
+    Sam `raise NAZWA` bez wywołania nie niesie żadnego wyrażenia, więc daje pustkę;
+    `raise AssertionError(f"… {PRÓG} …")` niesie f-string i to on jest komunikatem.
+    """
+    if isinstance(exc, ast.Call):
+        return list(exc.args) + [k.value for k in exc.keywords]
+    return []
+
+
 def uzycia_zapadek(katalog=None, root=None):
     """`{nazwa: [(plik, wiersz, rola)]}` dla wszystkich użyć nazw o kształcie zapadki.
 
@@ -355,6 +528,17 @@ def uzycia_zapadek(katalog=None, root=None):
                 if isinstance(wezel, ast.Assert) and wezel.msg is not None:
                     for pod in ast.walk(wezel.msg):
                         w_komunikacie.add(id(pod))
+                # 6.D258, DRUGA GŁOWA tej samej usterki: komunikat przeniesiony
+                # z `assert …, (…)` do `raise AssertionError(…)` przestawał być
+                # komunikatem i stawał się roli `inna` — czyli DRUGIM UŻYCIEM,
+                # o którym bramka `wolnych` mówiła „werdykt przestał wynikać
+                # z kształtu". Nie przestawał; zmieniła się PISOWNIA. Zmierzone
+                # 17.09.2026 przy KN-1: ta bramka (moja własna, z 6.D254) padała
+                # razem z bramką klas, a pozycja 6.D258 znała tylko tę drugą.
+                if isinstance(wezel, ast.Raise) and wezel.exc is not None:
+                    for arg in _argumenty_wyjatku(wezel.exc):
+                        for pod in ast.walk(arg):
+                            w_komunikacie.add(id(pod))
             for wezel in ast.walk(drzewo):
                 if isinstance(wezel, ast.Assign):
                     for cel in wezel.targets:
@@ -410,11 +594,6 @@ def wolne_rozstrzygalne_pomiarem(katalog=None, root=None):
 #: Obie zmierzono mutacją 17.09.2026 (6.D254) i obie wyszły `wolna` mimo drugiego
 #: użycia; liczby są w `reports/6d254-klasa-zapadki-a-zachowanie.md`.
 ROZSTRZYGALNE_POMIAREM = {
-    "MAX_ODCISKOW_W_RAPORCIE":
-        "dwa użycia w `test_mutation_sweep.py` przez `sweep.NAZWA` budują wejście "
-        "jako `range(PRÓG)` i `range(PRÓG + 1)`, czyli PARĘ na granicy — kształt "
-        "najmocniejszy z możliwych. Zmierzone: granica jedzie RAZEM z progiem, więc "
-        "8 -> 1008 daje 133/133 i nie zapala nic.",
     "MINIMUM_CLAIMS":
         "drugie porównanie (`checked - datowane >= PRÓG`) i wejście syntetyczne 6.D230 "
         "w `test_report_claims.py:1722`. Zmierzone: 10 -> 0 daje 29/29, bo asercje "
@@ -898,10 +1077,18 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
 
     inna_klasa = [(n, ZAPADKI[n][0], k) for n, k in sorted(w_drzewie.items())
                   if k != ZAPADKI[n][0]]
+    # 6.D258: komunikat podaje ZMIERZONE miejsca i postacie porownan, a nie
+    # domyslana przyczyne. Poprzednia wersja mowila „doszedl straznik" takze
+    # wtedy, gdy nikt nie doszedl, a tylko przepisano asercje na `if … : raise`
+    # — i nie miala zdania o zmianie do `poza skanem`, ktora dzis jest mozliwa.
+    swiadkowie = {n: swiadkowie_klasy(n) for n, _b, _j in inna_klasa}
     assert inna_klasa == [], (
-        "zapadka zmieniła klasę (nazwa, było, jest): %s — zmiana W STRONĘ `wolna` "
-        "znaczy, że komuś ubył strażnik; w stronę `przybita`, że doszedł i wpis "
-        "trzeba poprawić" % inna_klasa)
+        "zapadka zmieniła klasę (nazwa, było, jest): %s. Porownania tej zapadki "
+        "w drzewie, z postacia zdania: %s. Ten sam wiersz w innej postaci znaczy, "
+        "ze zmienila sie PISOWNIA i poprawic trzeba czytnik, a nie wpis; wiersz "
+        "nowy albo znikniety znaczy, ze zmienila sie TRESC i poprawic trzeba wpis. "
+        "Bramka tego za czytajacego nie rozstrzygnie, bo nie ma stanu PRZED zmiana."
+        % (inna_klasa, swiadkowie))
 
     assert len(w_drzewie) == ZAPADEK_RAZEM == 63, (
         "zapadek w drzewie %d, na liście %d, pomiar z 11.09.2026 mówił 38, "
@@ -938,7 +1125,7 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
     # a „21 wolnych" staje się nieprawdą, której nie zgłasza nic. KN-7 wykonała
     # dokładnie ten scenariusz: jedyną czerwienią była ta asercja.
     ile = collections.Counter(w_drzewie.values())
-    assert (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM]) == (17, 3, 42, 1), (
+    assert (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM]) == (17, 3, 41, 2), (
         "klasy zapadek: przybitych %d, częściowych %d, WOLNYCH %d, poza skanem %d — "
         "pomiar z 11.09.2026 mówił 13/3/21/1, po 6.D146 — 13/3/23/1, a po 6.D147 — "
         "14/3/24/1, po 6.D151 — 15/3/23/1, po 6.D167 — 17/3/21/1, po 6.D187 — "
@@ -946,7 +1133,9 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
         "17/3/27/1, po 6.D207 — 17/3/28/1, a po 6.D209 — 17/3/29/1, a po 6.D222 — "
         "17/3/30/1, a po 6.D216 — 17/3/33/1, a po 6.D240 — 17/3/34/1, a po 6.D227 — "
         "17/3/36/1, a po 6.D225 — 17/3/37/1, a po 6.D237 — 17/3/38/1, a po 6.D238 — "
-        "17/3/39/1, a po 6.D232 — 17/3/42/1; wolne to te, "
+        "17/3/39/1, a po 6.D232 — 17/3/42/1, a po 6.D258 — 17/3/41/2 "
+        "(poprawka polaryzacji przestala widziec galaz, ktora niczego nie twierdzi); "
+        "wolne to te, "
         "które da się ruszyć "
         "w zakazaną stronę bez zapalenia czegokolwiek: %s"
         % (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM],
@@ -1004,25 +1193,148 @@ def test_strona_zapisu_porownania_nie_zmienia_klasy():
         % sorted(klasy.items()))
 
 
-def test_klasa_POZA_SKANEM_mowi_o_granicy_przyrzadu_a_nie_o_zapadce():
-    """Próg trafiający do porównania przez zmienną jest dla skanu niewidzialny.
+def test_czytnik_polaryzacji_widzi_ksztalt_ktory_ma_widziec():
+    """**Kontrola przyrzadu do 6.D258 — piec postaci zdania na drzewie probnym.**
 
-    Jedyny taki dziś w drzewie to `MIN_PATHS` — słownik trzech progów, porównywany
-    przez zmienną pętli. Zdanie „skan go nie widzi" jest tu WYNIKIEM, a nie
-    zastrzeżeniem na wszelki wypadek, i ma własny kształt klasy, żeby nikt nie
-    przeczytał go jako „nieużywany".
+    Bez niej poprawka polaryzacji bylaby nie do odroznienia od czytnika, ktory
+    po prostu przestal cokolwiek widziec: klasyfikator odkladajacy KAZDE porownanie
+    daje same `poza skanem` i tez „nie zmienia klasy przy przepisaniu asercji".
+    To jest 6.D27 w czystej postaci, wiec kazda z piaciu postaci ma tu wlasny
+    oczekiwany werdykt, a nie wspolny.
+
+    Pary sa dobrane tak, zeby ROZNICA byla trescia: `MAX_ASERCJA` i `MAX_GALAZ_RAISE`
+    to TO SAMO zdanie napisane dwoma sposobami i musza dostac te sama klase; gdyby
+    czytnik czytal pisownie, dostalyby rozne.
+    """
+    zrodlo = (
+        # 1. straznik wprost — `assert PROG <= …` strzeze zapadki MAX
+        "MAX_ASERCJA = 3\n"
+        "def a():\n"
+        "    assert len(lista) <= MAX_ASERCJA\n"
+        "    assert MAX_ASERCJA <= len(lista)\n"
+        # 2. TO SAMO zdanie jako galaz z podniesieniem wyjatku
+        "MAX_GALAZ_RAISE = 3\n"
+        "def b():\n"
+        "    if len(lista) > MAX_GALAZ_RAISE:\n"
+        "        raise AssertionError('za duzo')\n"
+        "    if MAX_GALAZ_RAISE > len(lista):\n"
+        "        raise AssertionError('za malo')\n"
+        # 3. galaz BEZ podniesienia wyjatku — nie twierdzi nic
+        "MAX_GALAZ_CICHA = 3\n"
+        "def c():\n"
+        "    if len(lista) <= MAX_GALAZ_CICHA:\n"
+        "        print('waska tabela')\n"
+        "    else:\n"
+        "        print('szeroka tabela')\n"
+        # 4. zaprzeczenie pod `assert not`
+        "MAX_POD_NOT = 3\n"
+        "def d():\n"
+        "    assert not len(lista) > MAX_POD_NOT\n"
+        "    assert not MAX_POD_NOT > len(lista)\n"
+        # 5. wyjatek w ODNODZE, nie w ciele - twierdzeniem jest sam warunek
+        "MAX_ODNOGA_RAISE = 3\n"
+        "def f():\n"
+        "    if len(lista) <= MAX_ODNOGA_RAISE:\n"
+        "        pass\n"
+        "    else:\n"
+        "        raise AssertionError('za duzo')\n"
+        "    if MAX_ODNOGA_RAISE <= len(lista):\n"
+        "        pass\n"
+        "    else:\n"
+        "        raise AssertionError('za malo')\n"
+        # 6. filtr wyrazenia listowego - nie twierdzi nic
+        "MAX_FILTR = 3\n"
+        "def e():\n"
+        "    krotkie = [x for x in lista if len(x) < MAX_FILTR]\n"
+        "    assert krotkie == []\n")
+
+    with tempfile.TemporaryDirectory(prefix="metro-polaryzacja-") as katalog:
+        with open(os.path.join(katalog, "test_probne.py"), "w",
+                  encoding="utf-8") as uchwyt:
+            uchwyt.write(zrodlo)
+        klasy = zapadki_w_drzewie(katalog, katalog)
+
+    oczekiwane = {
+        "MAX_ASERCJA": PRZYBITA,
+        "MAX_GALAZ_RAISE": PRZYBITA,
+        "MAX_GALAZ_CICHA": POZA_SKANEM,
+        "MAX_POD_NOT": PRZYBITA,
+        "MAX_ODNOGA_RAISE": PRZYBITA,
+        "MAX_FILTR": POZA_SKANEM,
+    }
+    assert klasy == oczekiwane, (
+        "czytnik polaryzacji dal %s, a mial dac %s"
+        % (sorted(klasy.items()), sorted(oczekiwane.items())))
+
+    # Para jest tu trescia: to samo zdanie dwoma sposobami, jedna klasa.
+    assert klasy["MAX_ASERCJA"] == klasy["MAX_GALAZ_RAISE"], (
+        "asercja i rownowazna jej galaz z `raise` dostaly rozne klasy — czytnik "
+        "wrocil do czytania pisowni")
+    # I kontrola w druga strone: gdyby czytnik odkladal WSZYSTKO, te trzy
+    # bylyby `poza skanem` razem z dwoma pozostalymi i test wyzej by to zlapal.
+    assert klasy["MAX_GALAZ_CICHA"] != klasy["MAX_ASERCJA"], (
+        "galaz bez `raise` dostala klase straznika — polaryzacja nie jest czytana")
+
+
+def test_klasa_POZA_SKANEM_mowi_o_granicy_przyrzadu_a_nie_o_zapadce():
+    """Klasa opisuje DWIE granice przyrzadu i kazda ma wlasny ksztalt w drzewie.
+
+    **Ten test jest przepisany, a nie dopisany obok (6.D258).** Do 17.09.2026 zdal
+    jedno zdanie: „jedyny taki dzis to `MIN_PATHS`" — i to przestalo byc prawda,
+    gdy poprawka polaryzacji przestala widziec porownania, ktore niczego nie
+    twierdza. Klasa ma od dzis dwoch czlonkow z DWOCH ROZNYCH powodow, a lista
+    nazw bez powodow bylaby napisem (6.D243), wiec kazdy powod jest tu sprawdzany
+    W DRZEWIE, osobno:
+
+    * ``MIN_PATHS`` — slownik trzech progow, porownywany PRZEZ ZMIENNA PETLI.
+      Skan czyta `ast.Name` po stronie stalej, a tam stoi `floor`, wiec progu nie
+      widzi. Granica dotyczy CZYTNIKA NAZWY.
+    * ``MAX_ODCISKOW_W_RAPORCIE`` — jedyne porownanie stoi w galezi `if`, ktorej
+      zadna odnoga nie podnosi wyjatku; galaz wybiera szerokosc tabeli w raporcie.
+      Skan widzi nazwe doskonale i swiadomie ja odklada. Granica dotyczy
+      POLARYZACJI, czyli tego, ze zdanie niczego nie twierdzi.
+
+    Roznica miedzy nimi jest tresc, a nie formalnosc: pierwszego da sie wciagnac
+    do skanu lepszym czytnikiem, drugiego nie da sie nigdy — bo tam nie ma czego
+    czytac.
     """
     poza = sorted(n for n, (k, _m) in ZAPADKI.items() if k == POZA_SKANEM)
-    assert poza == ["MIN_PATHS"], poza
-    assert zapadki_w_drzewie()["MIN_PATHS"] == POZA_SKANEM, (
-        "MIN_PATHS przestał być poza skanem — sprawdź, czy porównanie nie przestało "
-        "iść przez zmienną, i przenieś go do właściwej klasy")
+    assert poza == ["MAX_ODCISKOW_W_RAPORCIE", "MIN_PATHS"], poza
 
+    w_drzewie = zapadki_w_drzewie()
+    for nazwa in poza:
+        assert w_drzewie[nazwa] == POZA_SKANEM, (
+            "%s przestal byc poza skanem — sprawdz, ktory z dwoch ksztaltow "
+            "zniknal, i przenies wpis do wlasciwej klasy" % nazwa)
+
+    # Ksztalt pierwszy: prog przez zmienna petli.
     zrodlo = open(os.path.join(ROOT, "tools", "tests", "test_field_paths.py"),
                   encoding="utf-8").read()
     assert "for field, floor in MIN_PATHS.items()" in zrodlo, (
-        "kształt, na którym stoi klasa POZA_SKANEM, zniknął z `test_field_paths.py` "
-        "— klasa opisuje wtedy stan, którego nie ma")
+        "ksztalt, na ktorym stoi POZA_SKANEM dla MIN_PATHS, zniknal "
+        "z `test_field_paths.py` — klasa opisuje wtedy stan, ktorego nie ma")
+
+    # Ksztalt drugi: jedyne porownanie w galezi, ktora nie podnosi wyjatku.
+    # Sprawdzone POLARYZACJA, a nie napisem: gdyby ktos dopisal tam `raise`,
+    # zdanie zaczeloby twierdzic i klasa musialaby sie zmienic.
+    drzewo = ast.parse(open(os.path.join(ROOT, "tools", "tests",
+                                         "mutation_sweep.py"),
+                            encoding="utf-8").read())
+    rodzic = {}
+    for wezel in ast.walk(drzewo):
+        for dziecko in ast.iter_child_nodes(wezel):
+            rodzic[dziecko] = wezel
+    znalezione = []
+    for wezel in ast.walk(drzewo):
+        if not isinstance(wezel, ast.Compare):
+            continue
+        if not any(isinstance(n, ast.Name) and n.id == "MAX_ODCISKOW_W_RAPORCIE"
+                   for n in ast.walk(wezel)):
+            continue
+        znalezione.append((wezel.lineno, polaryzacja_porownania(wezel, rodzic)))
+    assert znalezione and all(znak is None for _w, znak in znalezione), (
+        "porownanie MAX_ODCISKOW_W_RAPORCIE zaczelo cos twierdzic: %s — zapadka "
+        "wyszla poza swoja klase i wpis trzeba przeliczyc" % znalezione)
 
 
 def test_ktore_wolne_zapadki_sa_PRZESADZONE_ksztaltem_a_ktore_zmierzone():
@@ -1052,8 +1364,11 @@ def test_ktore_wolne_zapadki_sa_PRZESADZONE_ksztaltem_a_ktore_zmierzone():
 
     wolnych = sum(1 for _n, (k, _m) in ZAPADKI.items() if k == WOLNA)
     przesadzonych = wolnych - len(ROZSTRZYGALNE_POMIAREM)
-    assert (wolnych, przesadzonych) == (42, 40), (
-        "wolnych %d, z tego przesądzonych kształtem %d — pomiar 17.09.2026 dał 42 i 40; "
+    assert (wolnych, przesadzonych) == (41, 40), (
+        "wolnych %d, z tego przesądzonych kształtem %d — pomiar 17.09.2026 dał 42 i 40, "
+        "a po 6.D258 daje 41 i 40: `MAX_ODCISKOW_W_RAPORCIE` wyszło z klasy `wolna` "
+        "do `poza skanem`, więc ubyla ZAPADKA i ubyl jej WPIS w słowniku rozstrzygnięć "
+        "— różnica została ta sama; "
         "obie liczby są POCHODNE, więc rozjazd znaczy, że zmienił się rejestr albo "
         "kształt użycia, a nie że ktoś pomylił się w arytmetyce" % (wolnych, przesadzonych))
 
