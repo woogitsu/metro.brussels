@@ -580,7 +580,10 @@ ROZKLAD_POSTACI = {
         # wykazach, fragmenty komunikatu odmowy i teksty asercji. Trzy interpolowane
         # to komunikaty par loader x ksztalt, ktore MUSZA nazwac pare, inaczej FAIL
         # nie mowi ktora. Cztery pozostale postacie nie drgnely. Przeliczone z drzewa.
-        "zwykly": 4602,
+        # 4602 -> 4641 (17.09.2026, 6.D233): literaly bramki `test_json_required`
+        # i `RequiredFieldTests.cs`. Postac interpolowana NIE drga: komunikaty tej
+        # okolicy wstawiaja nazwe pola przez argument osłony, a nie przez interpolacje.
+        "zwykly": 4641,
         "interpolowany ($)": 792,
         "werbatim (@)": 88,
         "surowy interpolowany ($$\"\"\")": 13,
@@ -627,8 +630,12 @@ ROZKLAD_POSTACI = {
         # "manifest chunkow": w `ChunkManifest.cs` i w `Sim.Runner/Program.cs`.
         # `interpolowany` rusza sie o JEDEN, bo skladany napis jest tu jeden: wiersz
         # odmowy w `JsonText.Parse`. Cztery pozostale postacie nie drgnely.
-        "zwykly": 1384,
-        "interpolowany ($)": 481,
+        # 1384 -> 1409 i 481 -> 489 (17.09.2026, 6.D233): literaly osłony
+        # `JsonFields.RequiredField` i jej wołań — każdy odczyt wymaganego pola
+        # niesie dziś NAZWĘ pola i opis właściciela, bo bez nich komunikat odmowy
+        # nie mówi, czego brakuje. Przeliczone z drzewa.
+        "zwykly": 1409,
+        "interpolowany ($)": 489,
         "werbatim (@)": 0,
         "surowy interpolowany ($$\"\"\")": 1,
         "surowy (\"\"\")": 1,

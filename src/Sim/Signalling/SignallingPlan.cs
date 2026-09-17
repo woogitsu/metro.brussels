@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Text.Json;
+using MetroBxl.Sim.Json;
 using MetroBxl.Sim.Line;
 using MetroBxl.Sim.Physics;
 
@@ -568,10 +569,10 @@ public sealed class SignallingPlan
         foreach (var element in Required(root, "blocks", "dokument").EnumerateArray())
         {
             blocks.Add(new Block(
-                element.GetProperty("id").GetString() ?? throw new FormatException("blok bez id"),
-                element.GetProperty("start_m").GetDouble(),
-                element.GetProperty("end_m").GetDouble(),
-                (element.GetProperty("kind").GetString() ?? string.Empty) switch
+                element.RequiredField("id", "blok").GetString() ?? throw new FormatException("blok bez id"),
+                element.RequiredField("start_m", "blok").GetDouble(),
+                element.RequiredField("end_m", "blok").GetDouble(),
+                (element.RequiredField("kind", "blok").GetString() ?? string.Empty) switch
                 {
                     "platform" => BlockKind.Platform,
                     "interstation" => BlockKind.Interstation,
@@ -584,15 +585,15 @@ public sealed class SignallingPlan
         foreach (var element in Required(root, "routes", "dokument").EnumerateArray())
         {
             var ids = new List<string>();
-            foreach (var id in element.GetProperty("blocks").EnumerateArray())
+            foreach (var id in element.RequiredField("blocks", "trasa").EnumerateArray())
             {
                 ids.Add(id.GetString() ?? throw new FormatException("trasa wskazuje blok bez identyfikatora"));
             }
 
             routes.Add(new Route(
-                element.GetProperty("id").GetString() ?? throw new FormatException("trasa bez id"),
-                element.GetProperty("from").GetString() ?? throw new FormatException("trasa bez from"),
-                element.GetProperty("to").GetString() ?? throw new FormatException("trasa bez to"),
+                element.RequiredField("id", "trasa").GetString() ?? throw new FormatException("trasa bez id"),
+                element.RequiredField("from", "trasa").GetString() ?? throw new FormatException("trasa bez from"),
+                element.RequiredField("to", "trasa").GetString() ?? throw new FormatException("trasa bez to"),
                 ids.ToArray()));
         }
 
@@ -764,13 +765,13 @@ public sealed class SignallingPlan
                 $"pole {name} musi być obiektem z polami value i status — goła liczba nie mówi, skąd pochodzi");
         }
 
-        var status = ParameterStatusParser.Parse(element.GetProperty("status").GetString() ?? string.Empty);
+        var status = ParameterStatusParser.Parse(element.RequiredField("status", $"pole {name}").GetString() ?? string.Empty);
         if (status != ParameterStatus.DesignModel &&
             (!element.TryGetProperty("source_id", out var source) || string.IsNullOrWhiteSpace(source.GetString())))
         {
             throw new FormatException($"pole {name} deklaruje status '{ParameterStatusParser.ToRegistryString(status)}' bez source_id");
         }
 
-        return element.GetProperty("value").GetDouble();
+        return element.RequiredField("value", $"pole {name}").GetDouble();
     }
 }

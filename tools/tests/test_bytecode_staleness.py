@@ -522,7 +522,8 @@ KROK_ZESTAWU = "Run tool tests"
 #: PÓŹNIEJ, w nazwanym kroku tego samego joba. Liczba jest tu po to, żeby poprawione
 #: zdanie miało czym się zestarzeć widocznie.
 BAJTKOD_PO_COMPILEALL_KATALOGI = 7
-BAJTKOD_PO_COMPILEALL_PLIKI = 207
+#: 207 -> 208 (17.09.2026, 6.D233): doszedl `tools/tests/test_json_required.py`.
+BAJTKOD_PO_COMPILEALL_PLIKI = 208
 
 
 def _workflow_zestawu():
@@ -859,7 +860,8 @@ KATALOG_Z_PYTHONEM = "tools"
 #: caly Python stoi pod `tools/`, to `compileall -q tools` kompiluje CALOSC, a skan
 #: sekwencji czyta CALOSC. Gdy te dwie liczby sie rozejda, znaczy to, ze gdzies
 #: pojawil sie modul poza zasiegiem obu.
-MODULOW_W_CALYM_DRZEWIE = 207
+#: 207 -> 208 (17.09.2026, 6.D233): doszedl `tools/tests/test_json_required.py`.
+MODULOW_W_CALYM_DRZEWIE = 208
 
 
 def moduly_calego_drzewa(korzen=None):

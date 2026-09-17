@@ -4638,10 +4638,10 @@ public sealed class UiTextTests
     private static readonly string[] VarOTypieWyliczeniowymWRdzeniu =
     {
         @"Physics/VehicleRegistry.cs|status|ParameterStatus|var status = ParameterStatusParser\.Parse\(",
-        @"Signalling/CbtcTestArea.cs|status|ParameterStatus|var status = ParameterStatusParser\.Parse\(root\.GetProperty\(",
+        @"Signalling/CbtcTestArea.cs|status|ParameterStatus|var status = ParameterStatusParser\.Parse\(root\.RequiredField\(",
         @"Signalling/FixedBlockSystem.cs|reason|AuthorityLimit|var reason = AuthorityLimit\.EndOfLine;",
         @"Signalling/SignallingPlan.cs|status|ParameterStatus|var status = ParameterStatusParser\.Parse\(Required\(root,",
-        @"Signalling/SignallingPlan.cs|status|ParameterStatus|var status = ParameterStatusParser\.Parse\(element\.GetProperty\(",
+        @"Signalling/SignallingPlan.cs|status|ParameterStatus|var status = ParameterStatusParser\.Parse\(element\.RequiredField\(",
         @"Signalling/SignallingPlan.cs|variant|ProtectionVariant|var variant = \(Required\(root,[^\n]*\) switch",
         @"Signalling/TrainProtection.cs|previous|ProtectionAction|_lastAction\.TryGetValue\(trainId, out var previous\)",
         @"Train/DoorCycle.cs|phase|DoorPhase|foreach \(var phase in Sequence\)",

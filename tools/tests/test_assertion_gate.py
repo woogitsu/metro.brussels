@@ -1682,7 +1682,14 @@ def test_wzorzec_rodziny_lapie_zdanie_ktore_ma_lapac_i_nie_bierze_sasiedztwa():
 #: nazwy nie jest, bo `status.renames` zmienia kształt wyjścia.
 #: Do `NA_ZRODLE_PY` nie należą: zbiór jest wynikiem wywołania funkcji, a ścieżki
 #: pochodzą z katalogu tymczasowego, nie z drzewa projektu.
-ASERCJI_NAPISOWYCH_RAZEM = 918
+#: **918 -> 920 (17.09.2026, 6.D233).** Dwie asercje w NOWEJ bramce
+#: `test_json_required.py`, obie kształtu `"napis" in tresc`:
+#: `"public static JsonElement RequiredField(" in tresc` i
+#: `"throw new FormatException(" in tresc`. Stoją NA NAPISIE i to jest ich treść:
+#: pytają o kształt ŹRÓDŁA osłony — czy metoda istnieje i czy rzuca wyjątek z rodziny,
+#: którą łapie wspólny handler `Sim.Runner`. Zachowania osłony pilnują testy C#
+#: w `tests/Sim.Tests/RequiredFieldTests.cs`, a nie ta bramka.
+ASERCJI_NAPISOWYCH_RAZEM = 920
 
 #: **Kotwica wpisu to `(plik, funkcja, operator, literał)`, a NIE numer wiersza.**
 #: Numer przesuwa się przy każdej edycji pliku i lista rozjechałaby się sama z siebie.

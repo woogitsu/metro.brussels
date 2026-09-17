@@ -418,7 +418,8 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 # zostalo PRZEWIDZIANE zamiast zlapane. Galaz mierzyla baze 368 i ustawiala 369,
 # `main` po 6.D232 mial 371, a katalog po scaleniu ma 372. Autor pomiaru zapisal to
 # w raporcie PRZED scaleniem, powolujac sie na wniosek z osmego starcia wyzej.
-MIN_REPORTS = 372
+# 372 -> 373 (17.09.2026, 6.D233): jeden raport dopisany.
+MIN_REPORTS = 373
 
 #: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
 #: wierszem zaczynającym się od `**`, z którego `_header_shapes` czyta kształt.

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using MetroBxl.Sim.Json;
 using MetroBxl.Sim.Line;
 using MetroBxl.Sim.Physics;
 using MetroBxl.Sim.Signalling;
@@ -244,10 +245,39 @@ public static class Program
                 _ => Unknown(args[0]),
             };
         }
-        catch (Exception exception) when (exception is IOException or ArgumentException or FormatException or InvalidOperationException)
+        catch (Exception exception) when (exception is IOException or ArgumentException or FormatException or InvalidOperationException or KeyNotFoundException)
         {
             Console.Error.WriteLine("BŁĄD: " + exception.Message);
             return 1;
+        }
+    }
+
+    /// <summary>
+    /// Treść pliku przepuszczona przez czytnik rdzenia, z NAZWĄ PLIKU doklejoną do
+    /// odmowy.
+    /// </summary>
+    /// <remarks>
+    /// Zmierzone 17.09.2026 (6.D233): czytniki dostają <c>string json</c>, a nie
+    /// ścieżkę, więc pola brakującego nie da się przypisać do pliku z ich wnętrza.
+    /// Wspólny handler <see cref="Main"/> widzi z kolei wyjątek, ale nie wie, który
+    /// z ośmiu argumentów go wywołał: komunikat „dokument nie ma pola 'points'" nie
+    /// mówi, czy chodzi o oś, plan, czy manifest. Nazwę pliku dokłada więc to
+    /// miejsce — jedyne, które zna OBIE połowy.
+    /// </remarks>
+    /// <typeparam name="T">Typ zwracany przez czytnik.</typeparam>
+    /// <param name="path">Ścieżka pliku.</param>
+    /// <param name="parse">Czytnik rdzenia.</param>
+    /// <returns>To, co zwrócił czytnik.</returns>
+    private static T FromFile<T>(string path, Func<string, T> parse)
+    {
+        try
+        {
+            return parse(File.ReadAllText(path));
+        }
+        catch (Exception exception) when (exception is FormatException or KeyNotFoundException
+                                          or ArgumentException or InvalidOperationException)
+        {
+            throw new FormatException($"{path}: {exception.Message}", exception);
         }
     }
 
@@ -707,8 +737,8 @@ public static class Program
                 $"replay --limit-kmh {ceiling.ToString(Inv)} nie jest dodatnią prędkością");
         }
 
-        var log = InputLog.Parse(File.ReadAllText(keysPath));
-        var axis = TrackAxis.FromJson(File.ReadAllText(axisPath));
+        var log = FromFile(keysPath, InputLog.Parse);
+        var axis = FromFile(axisPath, static text => TrackAxis.FromJson(text));
         var manualPlan = SignallingPlan.FromFile(signallingPath);
         if (!string.Equals(manualPlan.AxisId, axis.Id, StringComparison.Ordinal))
         {
@@ -1043,7 +1073,7 @@ public static class Program
     private static int Axis(string[] args)
     {
         var axisPath = Option(args, "--axis") ?? throw new ArgumentException("axis wymaga --axis");
-        var axis = TrackAxis.FromJson(File.ReadAllText(axisPath));
+        var axis = FromFile(axisPath, static text => TrackAxis.FromJson(text));
 
         Console.Out.WriteLine(string.Create(
             Inv,
@@ -1075,8 +1105,23 @@ public static class Program
             return 0;
         }
 
-        using var manifest = MetroBxl.Sim.JsonText.Parse(File.ReadAllText(manifestPath), "manifest chunków");
-        var manifestLength = manifest.RootElement.GetProperty("axis_length_m").GetDouble();
+        // ZŁOŻENIE TRZECH OSŁON, a nie wybór jednej ze stron (17.09.2026, 6.D233
+        // scalane po 6.D229): `FromFile` dokłada do komunikatu ŚCIEŻKĘ, bo jest
+        // jedynym miejscem, które ją zna; `JsonText.Parse` odmawia po polsku przy
+        // zepsutej SKŁADNI (6.D229); `RequiredField` odmawia po polsku przy braku
+        // POLA (ta pozycja). Każda z trzech łapie inne wejście i żadna nie zastępuje
+        // pozostałych — wybranie którejkolwiek strony konfliktu gubiłoby jedną z nich.
+        // Odczyt POLA stoi WEWNĄTRZ `FromFile`, a nie obok niego, i to jest poprawka
+        // z pomiaru: przy odczycie na zewnątrz komunikat gubił ŚCIEŻKĘ, bo tylko
+        // `FromFile` ją zna. Zmierzone na CLI — `--manifest <plik {}>` dawało
+        // „manifest chunków nie ma wymaganego pola 'axis_length_m'" bez nazwy pliku,
+        // podczas gdy `--axis <ten sam plik>` nazwę pliku podawało. Dwa komunikaty
+        // o tej samej klasie błędu, różniące się tym, czy da się znaleźć winny plik.
+        var manifestLength = FromFile(manifestPath, static text =>
+        {
+            using var manifest = MetroBxl.Sim.JsonText.Parse(text, "manifest chunków");
+            return manifest.RootElement.RequiredField("axis_length_m", "manifest chunków").GetDouble();
+        });
         var delta = Math.Abs(manifestLength - axis.LengthM);
 
         // Manifest zapisuje długość zaokrągloną do 1 mm (sort_keys + round w generatorze),
@@ -1115,7 +1160,7 @@ public static class Program
         // trakcji, i to przy opcji, której nikt nie podał.
         var coastFromM = OptionalNumber(args, "--coast-from-m");
 
-        var axis = TrackAxis.FromJson(File.ReadAllText(axisPath));
+        var axis = FromFile(axisPath, static text => TrackAxis.FromJson(text));
         var model = VehicleModel.M7;
         var trainLoad = load switch
         {
@@ -1151,7 +1196,7 @@ public static class Program
         }
         else
         {
-            var plan = SignallingPlan.FromJson(File.ReadAllText(signallingPath));
+            var plan = FromFile(signallingPath, SignallingPlan.FromJson);
             core = LineCore.M7(plan, axis, conditions, settings, turnbackSeconds: 0.0, atp: true);
             core.Add(SignalledTrainId, 0L);
             while (!core.Finished && core.Steps < LineRun.DefaultStepBudget)
@@ -1285,7 +1330,8 @@ public static class Program
     /// </summary>
     private static bool CompareWithTimetable(LineRunResult result, TrackAxis axis, string path)
     {
-        using var document = MetroBxl.Sim.JsonText.Parse(File.ReadAllText(path), "rozkład");
+        using var document = FromFile(path,
+            static text => MetroBxl.Sim.JsonText.Parse(text, "rozkład"));
         if (!document.RootElement.TryGetProperty("segments", out var segments))
         {
             throw new ArgumentException($"{path} nie ma pola segments — to nie jest wyjście tools/track/timetable.py");
@@ -1303,9 +1349,9 @@ public static class Program
             // i ma diakrytyki, w GTFS jest jedna i wersalikami; dopasowanie po tekście
             // wymagałoby normalizacji Unicode, której ten projekt nie ma — csproj ma
             // InvariantGlobalization, więc Normalize(FormD) jest tu pustą operacją.
-            var key = (segment.GetProperty("from_stop").GetString() ?? string.Empty,
-                       segment.GetProperty("to_stop").GetString() ?? string.Empty);
-            scheduled[key] = segment.GetProperty("median_s").GetDouble();
+            var key = (segment.RequiredField("from_stop", $"odcinek rozkładu w {path}").GetString() ?? string.Empty,
+                       segment.RequiredField("to_stop", $"odcinek rozkładu w {path}").GetString() ?? string.Empty);
+            scheduled[key] = segment.RequiredField("median_s", $"odcinek rozkładu w {path}").GetDouble();
         }
 
         var slower = false;
@@ -1680,7 +1726,7 @@ public static class Program
                 "service-day wymaga --timetable: doba służby powstaje z obiegów rozkładu, "
                 + "a nie z osi — bez pliku nie ma czego odtwarzać");
 
-        var day = ServiceDay.FromJson(File.ReadAllText(timetablePath));
+        var day = FromFile(timetablePath, ServiceDay.FromJson);
 
         var peak = day.Peak;
         Console.WriteLine(string.Create(Inv,
@@ -1805,8 +1851,8 @@ public static class Program
         var counts = ParseTrainCounts(Command(args), "--trains", Option(args, "--trains")
             ?? throw new ArgumentException("budget wymaga --trains, np. --trains 1,2,4,8"));
 
-        var axis = TrackAxis.FromJson(File.ReadAllText(axisPath));
-        var plan = SignallingPlan.FromJson(File.ReadAllText(signallingPath));
+        var axis = FromFile(axisPath, static text => TrackAxis.FromJson(text));
+        var plan = FromFile(signallingPath, SignallingPlan.FromJson);
         var model = VehicleModel.M7;
         var trainLoad = load switch
         {

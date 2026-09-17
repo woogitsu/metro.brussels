@@ -430,7 +430,7 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 #: **1732 -> 1741 (17.09.2026, 6.D229)** — dziewiec asercji bramki
 #: `tests/Sim.Tests/BrokenJsonRefusalTests.cs`, wszystkie z komunikatem, wiec obie
 #: stale rusza sie o tyle samo.
-Z_KOMUNIKATEM_RAZEM = 1741
+Z_KOMUNIKATEM_RAZEM = 1756
 NIEROZSTRZYGNIETYCH = 68
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
 #: `tests/Sim.Tests/DefaultArmAuditTests.cs` — bramki na ramionach domyślnych
@@ -504,7 +504,7 @@ NIEROZSTRZYGNIETYCH = 68
 #: 3179 — obie strony podawaly TE SAMA liczbe o ROZNYCH zbiorach asercji, czyli
 #: dokladnie ten uklad, ktory przy `MIN_REPORTS` opisano jako czyste scalenie
 #: o blednej sumie. Drzewo scalone ma 3188.
-ASERCJI_RAZEM = 3188
+ASERCJI_RAZEM = 3203
 
 
 def _rozklad():
