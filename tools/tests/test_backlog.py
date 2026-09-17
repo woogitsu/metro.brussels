@@ -440,7 +440,16 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 # stawia poza zakresem — cytat przypinajacy WARTOSC zamiast WIERSZA (`test_t401_citation`)
 # i tytul dziela w rejestrze praw, ktorego nie pilnuje nic. Liczba POLICZONA przez
 # `len(detail_sections(...))` na pliku PO edycji, nie wpisana z pamieci.
-MINIMUM_DETAIL_BLOCKS = 312
+# 312 -> 315 (17.09.2026): trzy bloki szesciu pol dla pozycji, ktore staly w tabeli
+# BEZ bloku — 6.D169, 6.D170, 6.D171. Nie jest to uzupelnienie kolejki: pozycji do
+# wziecia bylo 14 przed i jest 14 po, bo wiersze tych pozycji staly w tabeli od
+# 12.09.2026. Ruszyl licznik `documented_items` (10 -> 13), czyli ten, ktory mowi,
+# ile pozycji da sie wziac BEZ dopytywania — i to on byl pod progiem dwunastu.
+# Czwarta pozycja bez bloku, 6.D168, bloku NIE dostala i jest to wynik zapisany
+# w `docs/TASKS.md`: jej pole „Wyjscie" trzeba by wymyslic, bo wiersz stawia wybor
+# miedzy zapisem do `data/` (§4.6) a oknem przejsciowym bez daty konca.
+# Liczba POLICZONA przez `len(detail_sections(...))` na pliku PO edycji.
+MINIMUM_DETAIL_BLOCKS = 315
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je

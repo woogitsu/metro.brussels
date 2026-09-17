@@ -749,9 +749,13 @@ ustawić wyżej niż próg — pilnują tego `test_the_documented_reserve_does_n
 `test_the_documented_ratchet_does_not_lag_behind_the_file`
 i `test_the_ratchet_cannot_be_set_above_what_it_guards`.
 
-**Zapas udokumentowany:** luka jest otwarta i akapit stoi tu dokładnie dlatego —
-`test_the_documented_shortfall_is_written_down_while_it_lasts` żąda go, dopóki
-luka trwa, i zapali się, gdy zostanie tu po jej domknięciu.
+**Akapit z nagłówkiem `Zapas udokumentowany:` stąd ZNIKNĄŁ 17.09.2026 i jest to
+zdanie przepisane, a nie dopisane obok.** Stała tu wersja mówiąca „luka jest otwarta
+i akapit stoi tu dokładnie dlatego"; luka została domknięta trzema blokami (6.D169,
+6.D170, 6.D171), zapas udokumentowany doszedł do **trzynastu** przy progu dwunastu,
+a zdjęcia akapitu zażądała ta sama bramka, która go wcześniej wymagała — gałąź `else`
+`test_the_documented_shortfall_is_written_down_while_it_lasts`: „zapas doszedł do progu,
+a plan nadal opisuje lukę". Kontrola w obie strony jest tu wykonana, nie opisana.
 
 **Liczby są tu podane WYŁĄCZNIE z datą i commitem, i to jest poprawka wyciągnięta
 z pierwszej wersji tego akapitu, napisanej dzień wcześniej.** Tamta mówiła
@@ -770,24 +774,73 @@ python3 -c "import sys,io; sys.path.insert(0,'tools/tests'); import test_backlog
   print(len(tb.do_wziecia(t)), len(tb.documented_items(t)), tb.MINIMUM_READY_ITEMS)"
 ```
 
-Stan na 17.09.2026, na bazie `1902b4d`: **14 do wzięcia, 10 udokumentowanych,
-próg dwanaście**.
+Stan na 17.09.2026, po dopisaniu trzech bloków: **14 do wzięcia, 13 udokumentowanych,
+próg dwanaście**. Przed nimi, na bazie `1902b4d`, było **14 do wzięcia
+i 10 udokumentowanych** — liczba do wzięcia nie drgnęła i to jest treść, a nie
+przypadek: bloki opisują pozycje, które w tabeli **już stały**, więc pracy nie
+przybyło ani o jedną pozycję. Przybyło opisu, jak ją wykonać.
 
-**Luka nie jest zastana — zrobiło ją domknięcie pracy, i to jest ta sama mechanika,
+**Luka nie była zastana — zrobiło ją domknięcie pracy, i to jest ta sama mechanika,
 którą opisuje akapit o 06.09.2026 wyżej.** W ciągu doby 16–17.09.2026 adnotację
 `ZROBIONE` dostało pięć wierszy (6.D228, 6.D239, 6.D236, 6.D230, 6.D237),
 a `open_items` takie wiersze odsiewa. Zmierzone podstawieniem, nie odejmowaniem:
 na `main` przed scaleniem 6.D230 czytnik dawał 16 do wzięcia i 12 udokumentowanych,
 czyli równo próg; każda kolejna adnotacja zbijała obie liczby o jeden.
 **Licznik opada, gdy praca idzie dobrze** — a próg §8 `CLAUDE.md` mierzy pozycje
-**do wzięcia**, których jest nadal ponad dwanaście, więc doba pracy przed agentem
-stoi. Brakuje **opisu, jak wykonać** części z nich, nie samej pracy.
+**do wzięcia**, których było nadal ponad dwanaście, więc doba pracy przed agentem
+stała. Brakowało **opisu, jak wykonać** części z nich, nie samej pracy.
 
-**Czego ta luka NIE domyka się:** dopisaniem pól z głowy do którejkolwiek z czterech
-pozycji bez bloku — zakazuje tego akapit wyżej i §8 `CLAUDE.md`, a wymyślenie cudzej
-„Weryfikacji" jest braniem zadania wymyślonego na miejscu o jeden krok wcześniej.
-Domknie ją pierwsza pozycja, której pola da się **odczytać** z `docs/`, `reports/`
-albo `data/`, z podaniem w polu **Skąd**, skąd wzięło się każde.
+**Czym ta luka została domknięta i czym NIE.** Nie dopisaniem pól z głowy: pozycji bez
+bloku były **cztery** (6.D168, 6.D169, 6.D170, 6.D171), a bloki dostały **trzy**. Każdy
+z trzech ma w polu **Skąd** plik i miejsce, z którego pozostałe pola zostały odczytane:
+6.D169 z `reports/6d166-liczby-w-prozie.md` i §1.1.1 `docs/23-environment.md`,
+6.D170 z `CLAUDE.md` §3 zestawionego z katalogiem `docs/` oraz
+`reports/6d239-macierz-praw-wiazana-z-dokumentem.md`, 6.D171 z wiersza `| 6.D171 |`,
+`reports/6d196-osiemdziesiat-liczb-polowa-nieprawdziwa.md` i zapadki liczby raportów
+w `tools/tests/test_report_hygiene.py`.
+
+**6.D168 bloku nie dostała i to jest wynik, nie zaniechanie.** Jej wiersz stawia
+rozstrzygnięcie między dwiema drogami — „albo idzie razem z odświeżeniem snapshotu
+STIB (dotyka `data/`, reguła 4.6), albo z jawnie zapisanym oknem przejściowym" —
+a obie mają treść, której **nie da się odczytać** z `docs/`, `reports/` ani `data/`:
+pierwsza żąda zapisu do `data/`, drugiej brakuje daty końca okna. Pole „Wyjście"
+i pole „Skończone, gdy" wyszłyby więc z głowy, a to jest dokładnie to, czego zakazuje
+akapit wyżej. Zmierzona część pozycji trzyma się i została sprawdzona 17.09.2026:
+`python3 tools/track/data_freshness.py` daje `przeterminowanych okien: 13` przy kodzie
+wyjścia **0**, wszystkie trzynaście z jednej daty `2026-08-28` i jednego pobrania
+`2026-09-01`; ruchoma jest wyłącznie liczba dni — w wierszu stoi 15, dziś jest **20**.
+
+**Zapas udokumentowany:** luka jest wciąż otwarta i akapit stoi tu dokładnie dlatego —
+`test_the_documented_shortfall_is_written_down_while_it_lasts` żąda go, dopóki luka
+trwa, i zapali się, gdy zostanie tu po jej domknięciu. Rozstrzyga czytnik, nie ten
+tekst:
+
+```
+python3 -c "import sys,io; sys.path.insert(0,'tools/tests'); import test_backlog as tb; \
+  t=io.open('docs/TASKS.md',encoding='utf-8').read(); \
+  print(len(tb.do_wziecia(t)), len(tb.documented_items(t)), tb.MINIMUM_READY_ITEMS)"
+```
+
+**Trzy bloki dopisane, a luka zmalała z czterech pozycji do JEDNEJ — nie do zera,
+i powód jest zmierzony, nie domniemany.** Bloki 6.D169, 6.D170 i 6.D171 podniosły
+licznik udokumentowanych o trzy (8 → 11), ale w tym samym czasie scalono trzy dalsze
+pozycje (6.D237, 6.D238, 6.D231), a każda adnotacja `ZROBIONE` zdejmuje jedną pozycję
+z obu liczników naraz. **Praca nad kolejką i praca z kolejki znoszą się tu wzajemnie
+jeden do jednego** — i to jest ta sama mechanika, którą akapit o 06.09.2026 wyżej
+opisuje zdaniem „licznik opada, gdy praca idzie dobrze". Pomiar udokumentowanego
+zapasu przed dopisaniem bloków dał **osiem**, po dopisaniu — **jedenaście**, przy
+progu dwanaście.
+
+**Ostatnią brakującą pozycją jest 6.D168 i jej blok NIE POWSTANIE bez decyzji
+właściciela** — powód stoi w akapicie wyżej i jest to powód z pomiaru, nie z ostrożności:
+obie drogi, które jej wiersz dopuszcza, żądają treści, której w drzewie nie ma.
+Domknięcie luki przez dopisanie jej pól z głowy jest zakazane przez §8 `CLAUDE.md`
+mocniej niż samo istnienie luki.
+
+**Pozycji DO WZIĘCIA jest dziś dokładnie dwanaście, czyli RÓWNO na progu §8**, i to
+jest osobne ostrzeżenie: następne domknięcie zepchnie kolejkę pod próg, po którym §8
+każe uzupełnienie kolejki wziąć jako **pierwsze** zadanie. Liczba jest do odczytania
+poleceniem wyżej, nie z tego zdania — bo to zdanie jest prawdziwe przez jedno scalenie.
 
 Szacunki godzin niżej są zgrubne i celowo podane jako przedziały. Podstawa: w sesji
 02.09.2026 jedno zadanie z pełną weryfikacją, przeglądem mutacyjnym, commitem i PR-em
@@ -9965,6 +10018,155 @@ nie sięga, nawet gdy nie ma nic innego do roboty; wtedy sięga po fazę 5.
 - **Poza zakresem:** zmiana `git ls-files` na chodzenie po katalogach (to zdejmowałoby
   ochronę przed `build/`), i zmiana kodu wyjścia zestawu.
 - **Zależy od:** 6.D55, 6.D152.
+
+
+##### 6.D169 · Zdanie o konkretnej maszynie w `docs/23` stoi bez daty przy sobie
+
+- **Skąd:** wiersz `| 6.D169 |` pasma D (zauważone 12.09.2026 przy audycie) plus
+  `reports/6d166-liczby-w-prozie.md`, sekcja „Zauważone przy okazji", która nazywa tę
+  pozycję wprost: „Zdanie mówi »na tej maszynie« i opisuje kontener z 08.09.2026;
+  różnica wobec `test_dotnet_version.py` (10.0.401, 10.09.2026) to dwa kontenery
+  z dwóch dni, a po 6.D108 oba zdania są poprawne w swoim dniu. Pozycja 6.D169
+  zapisuje to, co tu naprawdę jest: zdanie o maszynie bez daty przy sobie".
+  Mechanizm, do którego ten cytat odsyła, jest opisany w
+  `reports/6d108-data-stalej-rozstrzyga.md` §2 („Porządek dwóch dat") i działa na
+  `reports/`, nie na `docs/` — to jest cała treść pozycji. Wiersz tabeli
+  z 12.09.2026, sześć pól z 17.09.2026.
+- **Wejście:** `docs/23-environment.md` — §1.1.1 „`doctor.sh` czyta wersję Blendera
+  i dlatego nie da się nabrać", zdanie „Na tej maszynie `/root/.dotnet/dotnet` zgłasza
+  **10.0.400**"; `tools/tests/test_dotnet_version.py` (nota z 10.09.2026 o 10.0.401);
+  `reports/6d166-liczby-w-prozie.md`; `reports/6d108-data-stalej-rozstrzyga.md`;
+  `reports/6d125-decyzja-as-of-wymagane.md` jako wzór zapisu rozstrzygnięcia.
+- **Wyjście:** raport w `reports/` z imienną listą zdań `docs/23-environment.md`
+  mówiących o konkretnej maszynie, z werdyktem przy każdym (niesie datę / nie niesie),
+  oraz data dopisana przy tym zdaniu w `docs/23-environment.md`, którego werdykt brzmi
+  „nie niesie".
+- **Weryfikacja:**
+  ```bash
+  grep -nic "tej maszynie\|tym kontenerze\|czystej maszynie" docs/23-environment.md
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: siedem trafień, jak dziś, i zielony zestaw. Liczba trafień **nie ma
+  spaść** — pozycja dopisuje daty, nie kasuje zdań; spadek znaczy, że zdanie zniknęło
+  zamiast dostać datę.
+- **Skończone, gdy:** wszystkie **siedem** zdań `docs/23-environment.md` mówiących
+  o maszynie ma w tym samym akapicie datę. Zmierzone 17.09.2026, imiennie po numerach
+  wierszy: datę niosą już **sześć** (34 — akapit otwiera „Ta sekcja powstała
+  08.09.2026", 144 — „08.09.2026 o 06:07", 254 — „zmierzony 03.09.2026", 313 —
+  „Zmierzone 03.09.2026", 455 — „04.09.2026 na tym kontenerze", 474 — zdanie o maszynie
+  DOWOLNEJ, nie o konkretnej), a bez daty stoi **jedno**: wiersz 160 w §1.1.1, ten sam,
+  który nazywa `reports/6d166-liczby-w-prozie.md`. Pozycja jest skończona, gdy tych bez
+  daty jest **zero**, a raport podaje tę siódemkę imiennie — żeby następny czytelnik nie
+  musiał liczyć jej od nowa.
+- **Poza zakresem:** przeliczanie samej wersji SDK. 10.0.400 i 10.0.401 to dwa różne
+  kontenery z dwóch różnych dni i po 6.D108 **oba zdania są poprawne w swoim dniu** —
+  poprawienie liczby byłoby wpisaniem stanu dzisiejszego kontenera w zdanie o cudzym.
+  Poza zakresem jest też bramka: rozpoznanie „zdania o konkretnej maszynie" wymaga
+  osądu, a bramka na kształcie zapalałaby się na czterech akapitach poprawnych z sześciu
+  — czyli byłaby bramką z 6.D27, wyłączaną zamiast naprawianą.
+- **Zależy od:** 6.D108 (zrobione), 6.D166 (zrobione w #552).
+
+##### 6.D170 · Kryterium wejścia do Mapy dokumentów w `CLAUDE.md` §3
+
+- **Skąd:** wiersz `| 6.D170 |` pasma D (zmierzone 12.09.2026) plus dwa niezależne
+  potwierdzenia w drzewie: `CLAUDE.md` §3 („Mapa dokumentów") zestawiona z zawartością
+  `docs/`, oraz `reports/6d239-macierz-praw-wiazana-z-dokumentem.md`, sekcja „Zauważone
+  przy okazji": „**`docs/18-rights-matrix.md` nie stoi w Mapie dokumentów `CLAUDE.md`
+  §3** — dokładnie przypadek opisany w 6.D170". Wiersz tabeli z 12.09.2026, sześć pól
+  z 17.09.2026.
+- **Wejście:** `CLAUDE.md` §3 (tabela `| plik | do czego |`), katalog `docs/`
+  — w szczególności pięć dokumentów gatunku „ground truth" stojących poza tabelą:
+  `docs/08-m7-ground-truth.md`, `docs/10-signalling-ground-truth.md`,
+  `docs/11-station-ground-truth.md`, `docs/12-infrastructure-ground-truth.md`,
+  `docs/09-data-provenance.md`; `docs/00-network-data.md` jako dokument, który §3
+  nazywa źródłem prawdy; `tools/tests/test_backlog.py` jako wzór bramki czytającej
+  `CLAUDE.md` i porównującej jego zdanie z pomiarem.
+- **Wyjście:** kryterium zapisane jednym zdaniem nad tabelą w `CLAUDE.md` §3 oraz
+  bramka `tools/tests/test_docs_map.py`, która z tego kryterium liczy zbiór wymagany
+  i porównuje go z tabelą. Gdy pomiar pokaże, że kryterium odróżniającego dzisiejsze
+  czternaście od dwunastu pozostałych **nie ma**, wyjściem jest raport w `reports/`
+  mówiący to wprost — tak jak 6.D174 i 6.D176 zapisały „miejsca użycia tą metodą NIE
+  da się zmierzyć". Wynik negatywny jest tu wynikiem, nie porażką.
+- **Weryfikacja:**
+  ```bash
+  python3 -c 'import re,glob,io; s=io.open("CLAUDE.md",encoding="utf-8").read(); \
+    s=s.split("## 3. Mapa dokumentów")[1].split("\n## 4.")[0]; \
+    w=set(re.findall(r"\|\s*`([^`]+)`\s*\|",s)); d=set(glob.glob("docs/*.md")); \
+    print(len(w), len(d), len(d-w))'
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane dziś: `16 26 12` — szesnaście pozycji tabeli (czternaście z `docs/`
+  i dwie z `data/`), dwadzieścia sześć plików w `docs/`, dwanaście poza tabelą.
+  Po pozycji: trzecia liczba równa liczbie, którą kryterium wyklucza świadomie,
+  i zielony zestaw.
+- **Skończone, gdy:** każdy z **26** plików `docs/*.md` jest po jednej ze stron
+  kryterium, a bramka pada, gdy nowy plik `docs/` nie zostanie przypisany do żadnej.
+  Liczby wejściowe, zmierzone 17.09.2026: tabela §3 ma **16** wierszy, `docs/` ma
+  **26** plików `.md`, poza tabelą stoi **12** i jest to dokładnie ta dwunastka, którą
+  wymienia wiersz `| 6.D170 |` (`08`, `09`, `10`, `11`, `12`, `15`, `16`, `17`, `18`,
+  `19`, `20`, `21`). Liczby z wiersza — 24 pliki i 13 wymienionych — są **starsze
+  o pięć dni i jedna z nich nie zgadza się z gitem**: na `e9a89a1` (11.09.2026,
+  ostatnia zmiana `CLAUDE.md` przed tamtym pomiarem) `docs/` miał **25** plików `.md`,
+  a §3 wymieniała **13** z nich plus dwa z `data/`. Od tamtego dnia doszedł dokładnie
+  jeden plik, `docs/PLAYABILITY.md`, i wszedł **do tabeli** — stąd 26 i 14 dzisiaj,
+  a **zbiór dwunastu niewymienionych nie drgnął ani o jedną pozycję**. Pozycja ma
+  przeliczyć te liczby u siebie, a nie przepisać którąkolwiek z nich.
+- **Poza zakresem:** dopisywanie brakujących dwunastu do tabeli „na oko", bo tabela
+  urośnie wtedy do rozmiaru katalogu i przestanie być mapą. Poza zakresem jest też
+  treść samych dokumentów i ich nazwy — pozycja rozstrzyga, **co wchodzi do mapy**,
+  a nie co ma stać w mapowanych plikach.
+- **Zależy od:** niczego; `CLAUDE.md` §3 i katalog `docs/` są w drzewie.
+
+##### 6.D171 · Sześć raportów bez ani jednego odsyłacza
+
+- **Skąd:** wiersz `| 6.D171 |` pasma D (zmierzone 12.09.2026), który wymienia całą
+  szóstkę imiennie, plus `reports/6d196-osiemdziesiat-liczb-polowa-nieprawdziwa.md`,
+  sekcja „Zauważone przy okazji", gdzie ta pozycja stoi wśród czterech bez pól
+  („**6.D168–6.D171 nie mają pól »Skąd« w ogóle.**"). Powód, dla którego skasowanie
+  raportu nie jest tu wyjściem, stoi w `tools/tests/test_report_hygiene.py` przy
+  zapadce liczby raportów i w wierszu `| 6.D45 |` tej samej tabeli. Wiersz tabeli
+  z 12.09.2026, sześć pól z 17.09.2026.
+- **Wejście:** sześć raportów bez odsyłacza — `reports/audyt-sekcja-6-weryfikacja.md`,
+  `reports/audyt-weryfikacja.md`, `reports/decyzje-wlasciciela-07-09.md`,
+  `reports/runda-pieciu-agentow.md`, `reports/sonda-doctor-bez-dotnet.md`,
+  `reports/uzupelnienie-kolejki-10-09.md`; `tools/tests/test_report_hygiene.py`
+  (zapadka na liczbę raportów i jej opis w kontroli negatywnej nr 14);
+  `docs/TASKS.md` jako miejsce, w którym odsyłacz zwykle stoi.
+- **Wyjście:** rozstrzygnięcie zapisane w `reports/` — dla każdego z sześciu albo
+  odsyłacz dopisany tam, gdzie należy, albo nazwanie go archiwum i wyłączenie ze
+  zbioru, którego pilnuje zapadka; przy wariancie drugim lista wyłączonych stoi
+  w `tools/tests/test_report_hygiene.py` z powodem przy każdej pozycji, tak jak
+  `EXCEPTIONS` w `tools/tests/test_field_paths.py`.
+- **Weryfikacja:**
+  ```bash
+  for R in audyt-sekcja-6-weryfikacja audyt-weryfikacja decyzje-wlasciciela-07-09 \
+           runda-pieciu-agentow sonda-doctor-bez-dotnet uzupelnienie-kolejki-10-09; do
+      echo -n "$R -> "
+      grep -rl --include=*.md --include=*.py --include=*.sh -e "$R" docs tools reports \
+          | grep -cv "^reports/$R"
+  done
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane dziś, wykonane 17.09.2026: `1 1 1 1 1 3`. Piątka jedynek to za każdym
+  razem sam wiersz `| 6.D171 |` w `docs/TASKS.md`, czyli wzmianka, która powstała
+  z policzenia braku, a nie odsyłacz do treści. Trójka przy `uzupelnienie-kolejki-10-09`
+  jest **trafieniem po przedrostku**, nie odsyłaczem: `tools/tests/test_report_hygiene.py`
+  (wiersz 291) i `reports/6d108-ksztaltu-nie-ma.md` (wiersz 47) mówią o
+  `uzupelnienie-kolejki-10-09-druga.md`, czyli o innym pliku. Po pozycji: przy każdym
+  z sześciu odsyłacz z nazwą pełną, albo wpis na liście archiwum z powodem. Zestaw
+  zielony w obu wariantach.
+- **Skończone, gdy:** wszystkie **6** raportów ma albo odsyłacz spoza własnego pliku
+  i spoza wiersza `| 6.D171 |`, albo wpis na liście archiwum z powodem; raportów
+  w `reports/` jest dziś **368** i liczba ta **nie ma spaść** — zapadka pilnuje, że
+  katalog nie chudnie, i to jest jedyny powód, dla którego kasowanie jest tu zamknięte.
+  Raportów bez wpisu w `docs/TASKS.md` było 12.09.2026 **21 z 275**; ta para liczb jest
+  stanem tamtego dnia i pozycja ma ją przeliczyć, a nie przepisać.
+- **Poza zakresem:** kasowanie któregokolwiek z sześciu i obniżanie zapadki liczby
+  raportów — obniżenie zapadki jest dokładnie tym, przed czym broni 6.D45. Poza
+  zakresem jest też dopisywanie odsyłacza „byle gdzie", żeby licznik się zgodził:
+  odsyłacz ma stać w miejscu, w którym ktoś go naprawdę przeczyta, albo raport ma
+  zostać nazwany archiwum.
+- **Zależy od:** 6.D45 (zrobione 08.09.2026), 6.D196 (zrobione).
 
 
 ##### 6.D173 · 108 literałów to nazwy pól JSON i identyfikatory
