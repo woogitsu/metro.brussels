@@ -248,7 +248,7 @@ def klasa_zapadki(nazwa, porownania):
 
 
 #: **Wszystkie zapadki pod `tools/tests/`, każda z klasą i modułem.**
-#: Zapadek: 68. **Przybitych: 17, częściowych: 3, WOLNYCH: 46, poza zasięgiem skanu: 2.**
+#: Zapadek: 69. **Przybitych: 17, częściowych: 3, WOLNYCH: 47, poza zasięgiem skanu: 2.**
 #:
 #: **To zdanie jest przepisane, a nie dopisane obok — po raz DRUGI (15.09.2026).**
 #: Stało tu najpierw „Trzydzieści osiem: 13 przybitych…" (11.09.2026, `52752c9`)
@@ -316,6 +316,8 @@ ZAPADKI = {
     # 6.D260: obie WOLNE, obie stoja wylacznie jako prawa strona jednej podlogi.
     # 6.D261: podloga na liczbe podpisow `private static`, WOLNA — stoi wylacznie
     # jako prawa strona jednego porownania, obok DWoCH rownosci na liczby rodzin.
+    # 6.D262: podloga na liczbe zapadek o JEDNYM twierdzacym porownaniu, WOLNA.
+    "MIN_ZAPADEK_O_KROK": (WOLNA, "test_tree_walks.py"),
     "MIN_PODPISOW_POMOCNIKA": (WOLNA, "test_csharp_test_methods.py"),
     "MIN_OGNIW_RAZEM": (WOLNA, "test_value_chains.py"),
     "MIN_STALYCH_Z_LANCUCHEM": (WOLNA, "test_value_chains.py"),
@@ -1069,6 +1071,195 @@ def test_skan_filtrow_widzi_ksztalt_ktory_ma_widziec():
         f"lista z `.gitignore` skurczyła się do {len(nazwy)} nazw — skan miałby "
         "wtedy czego nie szukać")
 
+#: **Ile zapadek jest O KROK od `poza skanem` — 6.D262.**
+#:
+#: Czytnik polaryzacji z 6.D258 swiadomie odklada porownania, ktore niczego nie
+#: twierdza. Zapadka, ktorej WSZYSTKIE porownania sa odlozone, zostaje bez ani
+#: jednego i wypada z klasyfikacji — tak stalo sie z `MAX_ODCISKOW_W_RAPORCIE`.
+#: Pytanie 6.D262 brzmialo: ile zapadek jest od tego stanu o JEDNO skreslenie.
+#:
+#: Zmierzone 17.09.2026 na 69 zapadkach, rozkladem par `(twierdzacych, odlozonych)`:
+#:
+#: | para | zapadek |
+#: |---|---|
+#: | (0, 0) | 1 |
+#: | (0, 1) | 1 |
+#: | (1, 0) | 48 |
+#: | (2, 0) | 11 |
+#: | (2, 1) | 1 |
+#: | (3, 0) | 2 |
+#: | (4, 0) | 3 |
+#: | (12, 0) | 1 |
+#: | (13, 1) | 1 |
+#:
+#: **Czterdziesci osiem z szescdziesieciu dziewieciu ma DOKLADNIE JEDNO twierdzace
+#: porownanie** — czyli skreslenie jednej asercji wypycha je z klasyfikacji.
+#: Liczba ta nie jest jednak alarmem, tylko ksztaltem tego rejestru: kazda nowa
+#: zapadka RODZI SIE w tym stanie, bo powstaje jako prawa strona jednej podlogi.
+#: Dlatego stoi tu PODLOGA, a nie rownosc — rownosc czerwienialaby przy kazdej
+#: nowej pozycji, czyli na pracy poprawnej (6.D27).
+MIN_ZAPADEK_O_KROK = 40
+
+#: **Zapadki, ktore MAJA porownanie odlozone — i to jest zbior, ktory da sie przybic.**
+#: Trzy, i kazda znaczy co innego:
+#:
+#: * ``MAX_ODCISKOW_W_RAPORCIE`` — JEDYNE porownanie jest odlozone, wiec zapadka
+#:   ma zero twierdzacych i jest juz `poza skanem`. To jest stan, ktorego 6.D262
+#:   szukalo, i istnieje on dzis DOKLADNIE RAZ.
+#: * ``MINIMUM_POWODU`` — dwa twierdzace obok jednego odlozonego (filtr wyrazenia
+#:   listowego). Skreslenie obu twierdzacych byloby potrzebne, zeby cos sie stalo.
+#: * ``MINIMUM_READY_ITEMS`` — trzynascie twierdzacych obok jednego odlozonego.
+#:   Najdalej od granicy ze wszystkich zapadek tego rejestru.
+#:
+#: Porownanie jest W OBIE STRONY: nowe odlozone porownanie zapala bramke, zniknięcie
+#: istniejacego zapala ja tak samo (6.D243).
+Z_PORONANIEM_ODLOZONYM = {
+    "MAX_ODCISKOW_W_RAPORCIE": (0, 1),
+    "MINIMUM_POWODU": (2, 1),
+    "MINIMUM_READY_ITEMS": (13, 1),
+}
+
+
+def porownania_per_zapadka(katalog=None, root=None):
+    """`{nazwa: (twierdzacych, odlozonych)}` — po obu stronach polaryzacji.
+
+    Czytnik jest tu POZYCZONY z 6.D258 (`polaryzacja_porownania`), a nie napisany
+    drugi raz (6.D213): rozjazd miedzy tym licznikiem a klasyfikatorem znaczylby,
+    ze dwie bramki mowia o roznych drzewach.
+    """
+    baza = katalog or os.path.join(ROOT, "tools", "tests")
+    korzen = root or ROOT
+    out = {}
+    for gdzie, _katalogi, pliki in TW.walk(baza, korzen):
+        for nazwa_pliku in sorted(pliki):
+            if not nazwa_pliku.endswith(".py"):
+                continue
+            with open(os.path.join(gdzie, nazwa_pliku), encoding="utf-8") as uchwyt:
+                drzewo = ast.parse(uchwyt.read())
+            rodzic = {}
+            for wezel in ast.walk(drzewo):
+                for dziecko in ast.iter_child_nodes(wezel):
+                    rodzic[dziecko] = wezel
+            for wezel in ast.walk(drzewo):
+                if not isinstance(wezel, ast.Compare):
+                    continue
+                # Nazwa musi byc CZLONEM porownania, a nie stac gdziekolwiek w nim.
+                # Pierwsza wersja czytala `ast.walk` po calym wezle i liczyla przez to
+                # `assert len(x) <= PROG + 1` oraz `range(PROG)` w argumencie — czyli
+                # wiecej, niz widzi klasyfikator. Rozjazd zlapala kontrola przyrzadu
+                # nizej przy pierwszym przebiegu; definicja jest tu POZYCZONA
+                # z `_porownania_zapadek`, a nie napisana drugi raz (6.D213).
+                nazwy = set()
+                for czlon in [wezel.left] + list(wezel.comparators):
+                    if isinstance(czlon, ast.Name) and ZAPADKA_NAZWA.match(czlon.id):
+                        nazwy.add(czlon.id)
+                    elif isinstance(czlon, ast.Attribute) \
+                            and ZAPADKA_NAZWA.match(czlon.attr):
+                        nazwy.add(czlon.attr)
+                if not nazwy:
+                    continue
+                twierdzi = polaryzacja_porownania(wezel, rodzic) is not None
+                for nazwa in nazwy:
+                    t, o = out.get(nazwa, (0, 0))
+                    out[nazwa] = (t + 1, o) if twierdzi else (t, o + 1)
+    return out
+
+
+def test_ile_zapadek_jest_O_KROK_od_wypadniecia_z_klasyfikacji():
+    """**Obie liczby, ktorych zadalo pole „Wyjscie" 6.D262.**
+
+    Podloga na „o krok", bo kazda nowa zapadka rodzi sie w tym stanie; rownosc na
+    zbiorze zapadek z porownaniem ODLOZONYM, bo ten zbior jest maly i stabilny,
+    a to on opisuje ksztalt, o ktory pozycja pytala.
+    """
+    per = porownania_per_zapadka()
+    o_krok = sorted(n for n in ZAPADKI if per.get(n, (0, 0))[0] == 1)
+    bez_twierdzacych = sorted(n for n in ZAPADKI if per.get(n, (0, 0))[0] == 0)
+
+    assert len(o_krok) >= MIN_ZAPADEK_O_KROK, (
+        "zapadek o JEDNYM twierdzacym porownaniu jest %d przy podlodze %d — czytnik "
+        "polaryzacji przestal widziec asercje, bo ich UBYC tylu naraz nie moglo"
+        % (len(o_krok), MIN_ZAPADEK_O_KROK))
+
+    # Zapadka bez ani jednego twierdzacego porownania MUSI byc `poza skanem` —
+    # inaczej rejestr twierdzi o niej cos, czego nic nie mierzy.
+    zle = [(n, ZAPADKI[n][0]) for n in bez_twierdzacych
+           if ZAPADKI[n][0] != POZA_SKANEM]
+    assert zle == [], (
+        "zapadka bez ani jednego TWIERDZACEGO porownania ma klase inna niz "
+        "`poza skanem`: %s — rejestr mowi o niej cos, czego nie mierzy nic" % zle)
+
+    odlozone = {n: per[n] for n in per if per[n][1] > 0}
+    assert odlozone == Z_PORONANIEM_ODLOZONYM, (
+        "zbior zapadek z porownaniem ODLOZONYM rozjechal sie z pomiarem: %s wobec %s"
+        % (sorted(odlozone.items()), sorted(Z_PORONANIEM_ODLOZONYM.items())))
+
+
+#: **Dwanascie progow, ktorych klasyfikator NIE WIDZI — znalezione 6.D262 przez
+#: kontrole przyrzadu, a nie przez pomiar, ktory ta pozycja planowala.**
+#:
+#: Wszystkie dwanascie ma ksztalt zapadki (`MAX_`/`MIN_`), wszystkie sa porownywane
+#: W `tools/tests/`, czyli wewnatrz zasiegu skanu — ale docieraja tam przez
+#: `modul.NAZWA`, a `_porownania_zapadek` czyta po stronie stalej wylacznie
+#: `ast.Name`. Sa wiec w ZADNYM rejestrze, nie maja klasy i nie pilnuje ich nic.
+#:
+#: 6.D254 nazwalo te slepote, ale na dwoch nazwach, ktore w rejestrze JUZ BYLY
+#: (`MAX_ODCISKOW_W_RAPORCIE`, `MINIMUM_DETAIL_BLOCKS`). Tu widac jej pelny koszt:
+#: dwanascie progow calkowicie poza rejestrem, miedzy innymi `MAX_MARKS`,
+#: `MAX_GAP_M` i `MIN_AXIS_POINTS` — czyli progi geometrii toru, nie narzedziowe
+#: drobiazgi.
+#:
+#: **Zbior stoi tu PRZYBITY, a nie naprawiony**, bo naprawa znaczy rozszerzenie
+#: rejestru o stale spoza `tools/tests/`, a to jest decyzja o ZASIEGU `ZAPADKI`,
+#: nie pomiar. Zapisane jako pozycja 6.D266. Dopoki tam stoi, bramka nizej pilnuje,
+#: zeby lista nie rosla po cichu.
+POZA_ZASIEGIEM_KLASYFIKATORA = {
+    "MAX_AXIS_LENGTH_M", "MAX_ECEF_RESIDUAL_M", "MAX_GAP_M", "MAX_MARKS",
+    "MAX_PLAUSIBLE_VERTICES", "MAX_SEED_WAYS", "MAX_TWIST_DEG",
+    "MINIMUM_ARTEFACT_BYTES", "MIN_AXIS_POINTS", "MIN_CENTERLINE_POINTS",
+    "MIN_PLAUSIBLE_VERTICES", "MIN_SENSIBLE_STEP_M",
+}
+
+
+def test_licznik_porownan_zgadza_sie_z_KLASYFIKATOREM_CO_DO_NAZWY():
+    """**Kontrola przyrzadu: dwa czytniki, jedno drzewo — i zmierzona roznica.**
+
+    `porownania_per_zapadka` czyta po stronie stalej TAKZE `ast.Attribute`,
+    a `_porownania_zapadek` wylacznie `ast.Name`. Roznica nie jest przypadkiem
+    i nie jest tu zamiatana: jest PRZYBITA co do nazwy, bo kazda nazwa w niej
+    to prog, ktorego nie pilnuje nic.
+
+    Test padl przy pierwszym przebiegu i to on te dwanascie nazw znalazl —
+    pozycja 6.D262 planowala policzyc co innego.
+    """
+    per = porownania_per_zapadka()
+    z_klasyfikatora = _porownania_zapadek()
+
+    maja_twierdzace = {n for n in per if per[n][0] > 0}
+    klasyfikator_widzi = {n for n, w in z_klasyfikatora.items() if w[1]}
+
+    tylko_licznik = maja_twierdzace - klasyfikator_widzi
+    assert tylko_licznik == POZA_ZASIEGIEM_KLASYFIKATORA, (
+        "zbior progow niewidzialnych dla klasyfikatora sie zmienil: doszly %s, "
+        "ubyly %s. Kazda z tych nazw ma ksztalt zapadki i jest porownywana "
+        "w `tools/tests/`, ale dociera tam przez `modul.NAZWA` — czego "
+        "`_porownania_zapadek` nie czyta (6.D254, 6.D266)"
+        % (sorted(tylko_licznik - POZA_ZASIEGIEM_KLASYFIKATORA),
+           sorted(POZA_ZASIEGIEM_KLASYFIKATORA - tylko_licznik)))
+
+    assert klasyfikator_widzi - maja_twierdzace == set(), (
+        "klasyfikator widzi zapadke, ktorej licznik nie widzi: %s — roznica ma isc "
+        "TYLKO w jedna strone, bo licznik czyta scisle WIECEJ ksztaltow"
+        % sorted(klasyfikator_widzi - maja_twierdzace))
+
+    # I zadna z dwunastu nie moze po cichu trafic do rejestru: wtedy przestaje
+    # byc niewidzialna i wpis nalezy zdjac.
+    w_rejestrze = sorted(POZA_ZASIEGIEM_KLASYFIKATORA & set(ZAPADKI))
+    assert w_rejestrze == [], (
+        "prog uznany za niewidzialny stoi w rejestrze `ZAPADKI`: %s — zdejmij go "
+        "z `POZA_ZASIEGIEM_KLASYFIKATORA`" % w_rejestrze)
+
+
 def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
     """Zapadka na zapadki — porównanie W OBIE STRONY, bo inaczej byłaby wolna.
 
@@ -1102,7 +1293,7 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
         "Bramka tego za czytajacego nie rozstrzygnie, bo nie ma stanu PRZED zmiana."
         % (inna_klasa, swiadkowie))
 
-    assert len(w_drzewie) == ZAPADEK_RAZEM == 68, (
+    assert len(w_drzewie) == ZAPADEK_RAZEM == 69, (
         "zapadek w drzewie %d, na liście %d, pomiar z 11.09.2026 mówił 38, "
         "po 6.D146 — 40, po 6.D147 — 42 (doszła zapadka na sekwencje ucieczki "
         "i próg KW jej skanu), po 6.D187 — 44 (dwa progi KW skanu gołych nazw), "
@@ -1137,7 +1328,7 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
     # a „21 wolnych" staje się nieprawdą, której nie zgłasza nic. KN-7 wykonała
     # dokładnie ten scenariusz: jedyną czerwienią była ta asercja.
     ile = collections.Counter(w_drzewie.values())
-    assert (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM]) == (17, 3, 46, 2), (
+    assert (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM]) == (17, 3, 47, 2), (
         "klasy zapadek: przybitych %d, częściowych %d, WOLNYCH %d, poza skanem %d — "
         "pomiar z 11.09.2026 mówił 13/3/21/1, po 6.D146 — 13/3/23/1, a po 6.D147 — "
         "14/3/24/1, po 6.D151 — 15/3/23/1, po 6.D167 — 17/3/21/1, po 6.D187 — "
@@ -1147,7 +1338,8 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
         "17/3/36/1, a po 6.D225 — 17/3/37/1, a po 6.D237 — 17/3/38/1, a po 6.D238 — "
         "17/3/39/1, a po 6.D232 — 17/3/42/1, a po 6.D258 — 17/3/41/2, "
         "a po 6.D259 — 17/3/43/2 (dwie zapadki bramki prozy), a po 6.D260 — 17/3/45/2 "
-        "(dwie podlogi bramki lancuchow), a po 6.D261 — 17/3/46/2 (podloga bramki rodzin) "
+        "(dwie podlogi bramki lancuchow), a po 6.D261 — 17/3/46/2 (podloga bramki rodzin), "
+        "a po 6.D262 — 17/3/47/2 (podloga bramki o krok) "
         "(poprawka polaryzacji przestala widziec galaz, ktora niczego nie twierdzi); "
         "wolne to te, "
         "które da się ruszyć "
@@ -1378,14 +1570,15 @@ def test_ktore_wolne_zapadki_sa_PRZESADZONE_ksztaltem_a_ktore_zmierzone():
 
     wolnych = sum(1 for _n, (k, _m) in ZAPADKI.items() if k == WOLNA)
     przesadzonych = wolnych - len(ROZSTRZYGALNE_POMIAREM)
-    assert (wolnych, przesadzonych) == (46, 45), (
+    assert (wolnych, przesadzonych) == (47, 46), (
         "wolnych %d, z tego przesądzonych kształtem %d — pomiar 17.09.2026 dał 42 i 40, "
         "a po 6.D258 daje 41 i 40: `MAX_ODCISKOW_W_RAPORCIE` wyszło z klasy `wolna` "
         "do `poza skanem`, więc ubyla ZAPADKA i ubyl jej WPIS w słowniku rozstrzygnięć; "
         "a po 6.D259 daje 43 i 42, bo doszły dwie zapadki bramki prozy, obie stojące "
         "wyłącznie jako prawa strona jednego porównania, więc obie PRZESĄDZONE "
         "kształtem; a po 6.D260 daje 45 i 44 z tego samego powodu, dwiema podlogami "
-        "bramki lancuchow; a po 6.D261 daje 46 i 45, podloga bramki rodzin "
+        "bramki lancuchow; a po 6.D261 daje 46 i 45, podloga bramki rodzin; a po 6.D262 "
+        "daje 47 i 46, podloga bramki o krok "
         "— różnica została ta sama; "
         "obie liczby są POCHODNE, więc rozjazd znaczy, że zmienił się rejestr albo "
         "kształt użycia, a nie że ktoś pomylił się w arytmetyce" % (wolnych, przesadzonych))
