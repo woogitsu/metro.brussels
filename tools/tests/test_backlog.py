@@ -454,7 +454,11 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 # po domknieciu 6.D232. Policzone czytnikiem `detail_sections` na pliku PO edycji.
 # 319 -> 320 (17.09.2026, 6.D233): blok pozycji 6.D256, zapisujacej niewiadoma,
 # na ktorej stoi zawezenie zakresu 6.D233. Policzone czytnikiem po edycji.
-MINIMUM_DETAIL_BLOCKS = 320
+# 320 -> 321 (17.09.2026, 6.D253): blok pozycji 6.D257, dopisany jako uzupelnienie
+# kolejki wymuszone przez `test_the_documented_shortfall_is_written_down_while_it_lasts`
+# po adnotacji ZROBIONE na 6.D253 (zapas spadl na 11 przy progu 12).
+# Policzone czytnikiem `detail_sections` na pliku PO edycji.
+MINIMUM_DETAIL_BLOCKS = 321
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je

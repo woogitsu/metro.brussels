@@ -11,6 +11,7 @@ Zestaw Pythona ma na to `assertion_gate` od #139 — test bez ani jednej asercji
 sie tam jako PORAZKA. Po stronie C# nie bylo nic.
 """
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -742,6 +743,81 @@ def test_klasy_literalow_i_maska_ida_TYM_SAMYM_przebiegiem():
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
 # z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
 # tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+
+#: Kształt, po którym test szuka korzenia repozytorium przez KATALOG `.git` — 6.D253.
+#: Wzorzec stoi na SUROWYM źródle, a nie na masce, i to jest wymóg, nie skrót:
+#: `maska()` zamienia literały na spacje, a `".git"` JEST literałem, więc po masce
+#: tego kształtu nie da się zobaczyć w ogóle.
+KORZEN_PO_GIT = re.compile(r'Directory\.Exists\(\s*[^)]*"\.git"')
+
+
+def _bez_komentarza(wiersz):
+    """Wiersz z uciętym komentarzem `//` — żeby proza o usterce jej nie udawała."""
+    i = wiersz.find("//")
+    return wiersz if i < 0 else wiersz[:i]
+
+
+def korzen_po_katalogu_git():
+    """`[(plik, numer, wiersz)]` — miejsca szukające korzenia po KATALOGU `.git`."""
+    out = []
+    for sciezka in czytnik.pliki():
+        with open(sciezka, encoding="utf-8") as uchwyt:
+            tresc = uchwyt.read()
+        for numer, wiersz in enumerate(tresc.split("\n"), 1):
+            if KORZEN_PO_GIT.search(_bez_komentarza(wiersz)):
+                out.append((os.path.basename(sciezka), numer, wiersz.strip()))
+    return out
+
+
+def test_zaden_test_nie_szuka_korzenia_repozytorium_po_KATALOGU_git():
+    """W worktree `.git` jest PLIKIEM, więc `Directory.Exists` nie znajdzie go nigdy.
+
+    **Zmierzone 17.09.2026, nie wywnioskowane z dokumentacji gita.** Dwa pliki
+    (`TractionBlockTests.cs`, `TrainingWiringTests.cs`) szukały tak korzenia i w worktree
+    padało przez to **siedem** testów `Game.Tests`, przy zerze w głównym katalogu
+    roboczym. Rozkład jest zmierzony osobno, cofnięciem po jednym miejscu naraz:
+    `TrainingWiringTests` odpowiada za **pięć**, `TractionBlockTests` za **dwa**.
+
+    **Dlaczego to bramka, a nie tylko poprawka.** `CLAUDE.md` §5 wymienia jako
+    weryfikację kodu `test_all.py` i `dotnet test tests/Sim.Tests` — `Game.Tests` w tej
+    pętli **nie stoi**. Czerwień, na którą nikt nie patrzy, stoi dowolnie długo, a agenci
+    tego projektu pracują w worktree z instrukcji, czyli dokładnie w układzie, w którym
+    ta usterka się objawia.
+
+    Wzór poprawny jest w tym samym katalogu: `HandleTrainKeysGateTests` szuka korzenia
+    przez `File.Exists` na `MetroBxl.sln` — plik, który jest treścią repozytorium
+    i plikiem w OBU układach.
+    """
+    winne = korzen_po_katalogu_git()
+    assert winne == [], (
+        "test szuka korzenia repozytorium po KATALOGU `.git`, a w worktree `.git` jest "
+        "PLIKIEM — pętla dojdzie wtedy do korzenia systemu plików i test padnie na "
+        "maszynie agenta, zostając zielony u autora: %s. Wzór: `File.Exists` na "
+        "`MetroBxl.sln`, jak w `HandleTrainKeysGateTests`." % winne)
+
+
+def test_bramka_na_korzen_widzi_ksztalt_ktory_ma_widziec():
+    """Kontrola przyrządu: pusty wynik wyżej ma znaczyć „nie ma", a nie „nie patrzę".
+
+    Bez tego testu literówka we wzorcu dałaby zero winnych i zieleń — nieodróżnialne
+    od stanu poprawnego (6.D27 w drugą stronę).
+    """
+    zle = 'var katalog = Directory.GetCurrentDirectory();\n' \
+          'while (katalog is not null && !Directory.Exists(Path.Combine(katalog, ".git")))'
+    assert KORZEN_PO_GIT.search(zle) is not None, (
+        "wzorzec nie widzi kształtu, dla którego powstał — bramka wyżej mierzyłaby "
+        "wtedy milczenie")
+
+    dobre = 'while (katalog is not null && !File.Exists(Path.Combine(katalog, "MetroBxl.sln")))'
+    assert KORZEN_PO_GIT.search(dobre) is None, (
+        "wzorzec zapala się na wzorze POPRAWNYM — taka bramka zostaje wyłączona, "
+        "nie naprawiona (6.D27)")
+
+    w_komentarzu = '// dawniej: Directory.Exists(Path.Combine(katalog, ".git"))'
+    assert KORZEN_PO_GIT.search(_bez_komentarza(w_komentarzu)) is None, (
+        "wzorzec liczy PROZĘ o usterce jako usterkę — wtedy nie da się o niej napisać "
+        "w komentarzu bez zapalenia bramki")
+
 if __name__ == "__main__":
     import test_all
     raise SystemExit(test_all.main(__file__))

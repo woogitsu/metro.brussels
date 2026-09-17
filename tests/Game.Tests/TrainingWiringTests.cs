@@ -28,8 +28,11 @@ public sealed class TrainingWiringTests
 {
     private static string FirstRunSource()
     {
-        var katalog = Directory.GetCurrentDirectory();
-        while (katalog is not null && !Directory.Exists(Path.Combine(katalog, ".git")))
+        // Korzeń po `MetroBxl.sln`, a NIE po katalogu `.git` — 6.D253. W worktree
+        // `.git` jest PLIKIEM, więc `Directory.Exists` nie znajdowało go nigdy.
+        // Drugie z DWÓCH miejsc z tą usterką; pierwotny pomiar nazywał tylko jedno.
+        var katalog = AppContext.BaseDirectory;
+        while (katalog is not null && !File.Exists(Path.Combine(katalog, "MetroBxl.sln")))
         {
             katalog = Directory.GetParent(katalog)?.FullName;
         }
