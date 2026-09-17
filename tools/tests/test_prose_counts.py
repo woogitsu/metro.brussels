@@ -71,7 +71,7 @@ WZORZEC_MODULOW = re.compile(r"robi to samo dla (\d+) modulow")
 #: do którego ta krotka mogłaby urosnąć. Dziś liczebnik stoi PO etykiecie.
 WZORZEC_POMOCNIKOW = re.compile(
     r"Pomocnikow, ktore maja byc JEDYNA droga wartosci opcji do liczby: "
-    r"([A-Za-zĄąĆćĘꣳŃńÓóŚśŹźŻż]+)")
+    r"([^\W\d_]+)")
 
 #: Liczebniki potrzebne do PRZECZYTANIA deklaracji, a nie do SKANOWANIA prozy —
 #: i ta granica jest treścią, a nie ostrożnością (6.D203, pomiar niżej). Mapa jest
@@ -369,7 +369,7 @@ def _liczby_slowne_w_prozie(modul):
         if proza is not None:
             for i, wiersz in enumerate(proza):
                 slowa = [w for w in re.findall(
-                    r"[A-Za-zĄąĆćĘꣳŃńÓóŚśŹźŻż]+", wiersz)
+                    r"[^\W\d_]+", wiersz)
                     if w.lower() in LICZEBNIKI]
                 if slowa:
                     out.setdefault(token.start[0] + i, []).extend(slowa)
@@ -714,10 +714,34 @@ WZORCE_Z_LICZBA = (
 )
 
 #: Przechwycenie liczby (cyframi albo słownie) i słowo, które po nim następuje.
-#: **Klasa litery zapisana jako `[^\W\d_]`, a nie wyliczeniem polskich znaków**, i to
-#: jest poprawka z pomiaru: klasy wypisane z ręki w tym pliku mają uszkodzone kodowanie
-#: (`Ęꣳ` zamiast `ĘęŁł`), więc skan zatrzymywał się w środku słowa — „częściowe"
-#: czytał jako „cz". Klasa uniwersalna nie ma tego problemu i nie wymaga pilnowania.
+#: **Klasa litery zapisana jako `[^\W\d_]`, a nie wyliczeniem polskich znaków** — i od
+#: 16.09.2026 (6.D236) jest tak w KAŻDEJ ŻYWEJ klasie tego modułu. Akapit jest PRZEPISANY,
+#: a nie dopisany obok: stało tu, że klasy wypisane z ręki „mają" uszkodzone kodowanie,
+#: i było to prawdą o dwóch — `WZORZEC_POMOCNIKOW` i skan w `_liczby_slowne_w_prozie`
+#: niosły w miejscu `ęŁł` jeden znak `U+A8F3` (DEVANAGARI SIGN CANDRABINDU VIRAMA).
+#:
+#: **Skan zatrzymywał się w środku słowa, i to w OBIE strony.** Gubił: „częściowe" czytał
+#: jako „cz". Ale też ZMYŚLAŁ: „często" rozcinał na „cz" + „sto", a `sto` jest kluczem mapy
+#: liczebników o wartości 100. Zmierzone 16.09.2026 na całym drzewie `.py`/`.md`:
+#: **1606 zgubionych liczebników** i **31 fałszywych setek**, przy czym fałszywe biorą się
+#: z WIĘCEJ niż jednego słowa — `często`, `gęsto`, a także `stoi` i `stoją`, czyli wyrazów
+#: pospolitych. Z 92 kluczy mapy klasa zepsuta nie dopasowywała CAŁEGO słowa dla **24**.
+#:
+#: **Dlaczego klasa uniwersalna, a nie wyliczenie poprawione ręką — to jest pomiar, nie
+#: gust.** Oba dają dziś na drzewie wynik IDENTYCZNY (0 zgubionych, 0 fałszywych), więc
+#: liczba ich nie rozróżnia. Rozróżnia je TRYB AWARII: wyliczenie tnie słowo na każdej
+#: literze, której nie wymieniono, a to drzewo nosi `é`, `è`, `à`, `µ` i `Δ` w setkach
+#: wystąpień. Rozcięcie nie jest skutkiem ubocznym tej usterki, tylko jej MECHANIZMEM —
+#: 31 fałszywych setek powstało dokładnie tak. Wybrana jest więc klasa, która nie tnie
+#: i nie wymaga pilnowania listy.
+#:
+#: **Czego ta poprawka NIE naprawia i jest to zmierzone:** usterki nie łapała ANI JEDNA
+#: bramka — ani przed, ani po. Przebieg z klasami zepsutymi daje `119/119`, bo ostrze
+#: `MINIMUM_LICZB_SLOWNYCH` stoi setki trafień niżej niż populacja. Weryfikacją tej
+#: pozycji są więc POMIARY wypisane wyżej, a nie zieleń zestawu.
+#:
+#: Jedyne pozostałe `U+A8F3` w tym module stoi w CYTACIE historycznym
+#: (`stary_pomocnikow`) i jest tam NIECZYNNE — patrz komentarz przy nim.
 _LICZBA_RZADZI = re.compile(
     r"\((?:\\d\+|\[[^\]]*\]\+)\)(?:\\s[+*]|\s)+([^\W\d_]+)", re.UNICODE)
 
@@ -766,6 +790,13 @@ def test_zaden_wzorzec_prozy_nie_wymusza_formy_po_liczebniku():
     stary_zapadek = re.compile(
         r"(\d+)\s+zapadek:\s*\*\*(\d+)\s+przybitych,\s*(\d+)\s+częściowe,\s*"
         r"(\d+)\s+WOLNE\s+i\s+(\d+)\s+poza\s+zasięgiem\s+skanu\.\*\*")
+    # **`U+A8F3` w klasie nizej jest CYTATEM, nie usterka (6.D236).** Tak brzmial ten
+    # wzorzec przed 6.D218, razem ze swoim uszkodzonym kodowaniem. Klasa jest tu
+    # NIECZYNNA: `_LICZBA_RZADZI` dopasowuje ja jako `\[[^\]]*\]\+` i przechwytuje
+    # dopiero slowo PO niej (`pomocniki`, czysty ASCII). Zmierzone podstawieniem
+    # siedmiu roznych klas — wszystkie daja ten sam wynik. Naprawiac tu nie ma czego,
+    # a poprawienie zamienilo by cytat w parafraze i skasowalo jedyny slad, ze usterka
+    # jest STARSZA niz 6.D218.
     stary_pomocnikow = re.compile(
         r"([A-Za-zĄąĆćĘꣳŃńÓóŚśŹźŻż]+) pomocniki, ktore maja byc JEDYNA droga")
     widziane = formy_wymuszane_po_liczebniku(
