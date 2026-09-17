@@ -179,19 +179,6 @@ public sealed class DesignModelAuditTests
         Assert.IsFalse(string.IsNullOrWhiteSpace(VehicleRegistry.M7.AsOf));
     }
 
-    private static string? FindRepositoryRoot()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "CLAUDE.md")))
-            {
-                return directory.FullName;
-            }
-
-            directory = directory.Parent;
-        }
-
-        return null;
-    }
+    private static string? FindRepositoryRoot() =>
+        MetroBxl.Tests.Shared.KorzenRepozytorium.SciezkaAlboNull;
 }

@@ -170,20 +170,6 @@ public sealed class HudLayoutTests
             + "6.D82 dotyczył tej, więc trzeba go powtórzyć dla nowej");
     }
 
-    private static string RepositoryRoot()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "CLAUDE.md")))
-            {
-                return directory.FullName;
-            }
-
-            directory = directory.Parent;
-        }
-
-        Assert.Inconclusive("Test uruchomiony poza drzewem repozytorium.");
-        throw new InvalidOperationException();
-    }
+    private static string RepositoryRoot() =>
+        MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka;
 }

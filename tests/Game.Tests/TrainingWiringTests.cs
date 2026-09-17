@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using MetroBxl.Tests.Shared;
 using MetroBxl.Sim.Train;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -26,20 +27,8 @@ namespace MetroBxl.Game.Tests;
 [TestClass]
 public sealed class TrainingWiringTests
 {
-    private static string FirstRunSource()
-    {
-        // Korzeń po `MetroBxl.sln`, a NIE po katalogu `.git` — 6.D253. W worktree
-        // `.git` jest PLIKIEM, więc `Directory.Exists` nie znajdowało go nigdy.
-        // Drugie z DWÓCH miejsc z tą usterką; pierwotny pomiar nazywał tylko jedno.
-        var katalog = AppContext.BaseDirectory;
-        while (katalog is not null && !File.Exists(Path.Combine(katalog, "MetroBxl.sln")))
-        {
-            katalog = Directory.GetParent(katalog)?.FullName;
-        }
-
-        Assert.IsNotNull(katalog, "nie znaleziono korzenia repozytorium");
-        return File.ReadAllText(Path.Combine(katalog!, "src", "Game", "FirstRun.cs"));
-    }
+    private static string FirstRunSource() =>
+        KorzenRepozytorium.Tresc("src", "Game", "FirstRun.cs");
 
     [TestMethod]
     public void OBSERWACJA_SESJI_STOI_NA_KONCU_KROKU_A_NIE_NA_POCZATKU()

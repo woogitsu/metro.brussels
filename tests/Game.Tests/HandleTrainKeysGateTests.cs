@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using MetroBxl.Tests.Shared;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -41,21 +42,9 @@ public sealed class HandleTrainKeysGateTests
 
     private static string Zrodlo()
     {
-        var sciezka = Path.Combine(Korzen(), "src", "Game", "FirstRun.cs");
+        var sciezka = KorzenRepozytorium.Plik("src", "Game", "FirstRun.cs");
         Assert.IsTrue(File.Exists(sciezka), $"nie ma pliku {sciezka}");
         return File.ReadAllText(sciezka);
-    }
-
-    private static string Korzen()
-    {
-        var katalog = new DirectoryInfo(AppContext.BaseDirectory);
-        while (katalog is not null && !File.Exists(Path.Combine(katalog.FullName, "MetroBxl.sln")))
-        {
-            katalog = katalog.Parent;
-        }
-
-        Assert.IsNotNull(katalog, "nie znaleziono korzenia repozytorium");
-        return katalog!.FullName;
     }
 
     /// <summary>Ciało metody: od pierwszej klamry po nagłówku do jej pary.</summary>

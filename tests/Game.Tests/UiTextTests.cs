@@ -1370,22 +1370,8 @@ public sealed class UiTextTests
         Assert.AreEqual("brak dalszych stacji   ", BezDziur("brak dalszych stacji   {0}"));
     }
 
-    private static string RepositoryRoot()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "CLAUDE.md")))
-            {
-                return directory.FullName;
-            }
-
-            directory = directory.Parent;
-        }
-
-        Assert.Inconclusive("Test uruchomiony poza drzewem repozytorium.");
-        throw new InvalidOperationException();
-    }
+    private static string RepositoryRoot() =>
+        MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka;
 
     /// <summary>
     /// Wyjątek na nazwy klawiszy ma PRZEDMIOT — 6.D142.

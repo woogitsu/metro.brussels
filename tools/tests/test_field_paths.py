@@ -2030,7 +2030,13 @@ def _istnieje_w_drzewie(nazwa):
 # bloku tej pozycji, ktory adnotacja ZROBIONE przeniosla do wykonanych. Blok 6.D259,
 # dopisany tym samym commitem, do tych liczb NIE wchodzi: jest pozycja OTWARTA.
 # Liczby PRZELICZONE czytnikami na pliku PO edycji, nie zsumowane.
-ADRESOW_W_WYKONANYCH = {"Wejście": 1080, "Wyjście": 65, "Weryfikacja": 416}
+# 1080 -> 1085 i „Weryfikacja" 416 -> 418 (17.09.2026, 6.D257): adresy z pol WLASNEGO
+# bloku tej pozycji, ktory adnotacja ZROBIONE przeniosla do wykonanych. Pole „Wejscie"
+# tego bloku wymienia PIEC plikow (cztery miejsca plus modul bramki), a „Weryfikacja"
+# niesie DWA adresy `tests/` obok wywolania modulu. UWAGA PRZY SCALANIU: galaz 6.D256
+# rusza te same liczby z innego powodu — po scaleniu PRZELICZYC czytnikiem, nie sumowac.
+# Blok 6.D261, dopisany tym samym commitem, do tych liczb NIE wchodzi: pozycja OTWARTA.
+ADRESOW_W_WYKONANYCH = {"Wejście": 1085, "Wyjście": 65, "Weryfikacja": 418}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu

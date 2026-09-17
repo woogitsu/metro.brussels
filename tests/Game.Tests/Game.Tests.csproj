@@ -28,6 +28,15 @@
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
 
+  <!--
+    Korzeń repozytorium: JEDEN pomocnik LINKOWANY do obu projektów testowych
+    (6.D257). Nie jest to nowa zależność — plik źródłowy wchodzi do każdego
+    projektu jako jego własny kod, a trzeci projekt byłby zależnością obu.
+  -->
+  <ItemGroup>
+    <Compile Include="../Shared/KorzenRepozytorium.cs" Link="KorzenRepozytorium.cs" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.6.0" />
     <PackageReference Include="MSTest.TestAdapter" Version="3.0.4" />

@@ -584,8 +584,19 @@ ROZKLAD_POSTACI = {
         # 4602 -> 4641 (17.09.2026, 6.D233): literaly bramki `test_json_required`
         # i `RequiredFieldTests.cs`. Postac interpolowana NIE drga: komunikaty tej
         # okolicy wstawiaja nazwe pola przez argument osłony, a nie przez interpolacje.
-        "zwykly": 4641,
-        "interpolowany ($)": 792,
+        # 4641 -> 4609 i 792 -> 794 (17.09.2026, 6.D257): DZIEWIETNASCIE wlasnych petli
+        # szukania korzenia zastapionych JEDNYM pomocnikiem
+        # `tests/Shared/KorzenRepozytorium.cs`.
+        # **Liczba kopii jest ZMIERZONA, a nie wzieta z opisu pozycji: pozycja mowila
+        # o CZTERECH, a w drzewie stalo ICH DZIEWIETNASCIE** — cztery na markerze
+        # `MetroBxl.sln` i PIETNASCIE na `CLAUDE.md`, w ksztalcie wielowierszowym,
+        # ktorego pierwsza wersja bramki nie widziala.
+        # Zwyklych UBYWA trzydziesci dwa: kazda kopia niosla marker i komunikat odmowy,
+        # a pomocnik trzyma marker w JEDNEJ stalej. Interpolowanych PRZYBYWAJA dwa —
+        # komunikat odmowy pomocnika nazywa marker i katalog startu, czego zadna
+        # z kopii nie robila. Przeliczone z drzewa, nie zsumowane.
+        "zwykly": 4609,
+        "interpolowany ($)": 794,
         "werbatim (@)": 88,
         "surowy interpolowany ($$\"\"\")": 13,
         "surowy (\"\"\")": 8,
@@ -817,6 +828,128 @@ def test_bramka_na_korzen_widzi_ksztalt_ktory_ma_widziec():
     assert KORZEN_PO_GIT.search(_bez_komentarza(w_komentarzu)) is None, (
         "wzorzec liczy PROZĘ o usterce jako usterkę — wtedy nie da się o niej napisać "
         "w komentarzu bez zapalenia bramki")
+
+#: Kształt WŁASNEJ pętli szukania korzenia: wspinaczka w górę drzewa katalogów,
+#: sterowana `File.Exists`/`Directory.Exists`. Bramka wyżej pilnuje MARKERA
+#: (`.git` kontra `MetroBxl.sln`); ta pilnuje LICZBY KOPII — bo kopia z poprawnym
+#: markerem przechodziłaby tamtą bez słowa, a to jest dokładnie ten kształt długu,
+#: który 6.D253 zostawiło po sobie.
+#:
+#: **Czyta BLOK, a nie wiersz, i to jest wymóg, nie ostrożność.** Pierwsza wersja tej
+#: bramki żądała `File.Exists` w TYM SAMYM wierszu co `while` i przez to nie widziała
+#: PIĘTNASTU kopii kształtu `while (directory is not null) { if (File.Exists(…)) … }`
+#: — a przechodziła na zielono, twierdząc „dokładnie jedno miejsce". Zmierzone przy
+#: 6.D257: cztery kopie, o których mówił opis pozycji, plus piętnaście, o których
+#: nie mówił nikt, przy DWÓCH różnych markerach (`MetroBxl.sln` i `CLAUDE.md`).
+WHILE = re.compile(r"\bwhile\s*\(")
+ISTNIENIE = re.compile(r"(?:File|Directory)\.Exists\(")
+
+#: Ile wierszy po `while` czytać w poszukiwaniu sprawdzenia istnienia. Osiem —
+#: tyle zajmuje najdłuższa z piętnastu znalezionych kopii (nagłówek, klamra,
+#: `if`, klamra, `return`, klamra, pusty wiersz, krok w górę).
+OKNO_PETLI = 8
+
+#: Gdzie ta JEDNA pętla wolno stać. Pomocnik jest LINKOWANY do obu projektów
+#: testowych, więc jedna kopia obsługuje `Game.Tests` i `Sim.Tests` naraz —
+#: trzeci projekt byłby nową zależnością obu, a plik źródłowy nią nie jest.
+JEDYNA_PETLA_KORZENIA = "KorzenRepozytorium.cs"
+
+
+def _petla_w_bloku(linie, i):
+    """Czy `while` w wierszu `i` sprawdza ISTNIENIE pliku w swoim oknie."""
+    okno = "\n".join(_bez_komentarza(w) for w in linie[i:i + OKNO_PETLI])
+    return ISTNIENIE.search(okno) is not None
+
+
+def wlasne_petle_korzenia():
+    """`[(plik, numer, wiersz)]` — każda WŁASNA wspinaczka po drzewie katalogów."""
+    out = []
+    for sciezka in czytnik.pliki():
+        with open(sciezka, encoding="utf-8") as uchwyt:
+            linie = uchwyt.read().split("\n")
+        for i, wiersz in enumerate(linie):
+            if WHILE.search(_bez_komentarza(wiersz)) and _petla_w_bloku(linie, i):
+                out.append((os.path.basename(sciezka), i + 1, wiersz.strip()))
+    return out
+
+
+def test_korzenia_repozytorium_szuka_DOKLADNIE_JEDNO_miejsce():
+    """**Bramka z 6.D253 pilnuje markera, a nie liczby kopii — i to jest luka (6.D257).**
+
+    Przed tą pozycją cztery pliki testowe szukały korzenia czterema własnymi pętlami,
+    różniącymi się punktem startu (`AppContext.BaseDirectory` kontra
+    `Directory.GetCurrentDirectory()`) i typem uchwytu (`string` kontra `DirectoryInfo`).
+    Marker ujednoliciła 6.D253; procedury nie ujednolicił nikt, bo nie pilnowała jej
+    żadna bramka: **piąta kopia z poprawnym markerem przechodziła bez słowa.**
+
+    Ta bramka mówi „jedna", a nie „nie więcej niż cztery": równość jest tańsza
+    i mocniejsza, bo pomocnik jest LINKOWANY do obu projektów i nie ma powodu, dla
+    którego druga kopia miałaby powstać.
+    """
+    widziane = wlasne_petle_korzenia()
+
+    poza = sorted(x for x in widziane if x[0] != JEDYNA_PETLA_KORZENIA)
+    assert poza == [], (
+        "własna pętla szukania korzenia poza `%s`: %s — pożycz pomocnika "
+        "(`KorzenRepozytorium.Plik(...)` albo `.Tresc(...)`) zamiast pisać piątą "
+        "kopię; marker poprawny nie wystarcza, bo kopii pilnuje liczba, nie kształt"
+        % (JEDYNA_PETLA_KORZENIA, poza))
+
+    assert len(widziane) == 1, (
+        "pętli szukania korzenia jest %d, a ma być DOKŁADNIE jedna: %s"
+        % (len(widziane), widziane))
+
+
+def test_bramka_na_liczbe_petli_widzi_ksztalt_ktory_ma_widziec():
+    """Kontrola PRZYRZĄDU — bez niej literówka we wzorcu dałaby zero pętli i zieleń,
+    czyli stan NIEODRÓŻNIALNY od drzewa z jedną pętlą (6.D27).
+
+    Cztery kształty osobno, bo cztery stały w drzewie przed tą pozycją: uchwyt
+    `string` z `GetParent`, uchwyt `DirectoryInfo` z `Parent`, marker `.git`
+    i ten sam kod w komentarzu.
+    """
+    jednowierszowa = ['while (katalog is not null '
+                      '&& !File.Exists(Path.Combine(katalog, "MetroBxl.sln")))', "{", "}"]
+    przez_uchwyt = ['while (katalog is not null '
+                    '&& !File.Exists(Path.Combine(katalog.FullName, "MetroBxl.sln")))',
+                    "{", "}"]
+    po_gicie = ['while (katalog is not null '
+                '&& !Directory.Exists(Path.Combine(katalog, ".git")))', "{", "}"]
+    # **Kształt, którego pierwsza wersja tej bramki NIE WIDZIAŁA** — a stał w drzewie
+    # w piętnastu kopiach. Sprawdzenie istnienia jest trzy wiersze niżej niż `while`.
+    wielowierszowa = [
+        "while (directory is not null)",
+        "{",
+        '    if (File.Exists(Path.Combine(directory.FullName, "CLAUDE.md")))',
+        "    {",
+        "        return directory.FullName;",
+        "    }",
+        "",
+        "    directory = directory.Parent;",
+    ]
+
+    for ksztalt in (jednowierszowa, przez_uchwyt, po_gicie, wielowierszowa):
+        assert WHILE.search(_bez_komentarza(ksztalt[0])) is not None \
+            and _petla_w_bloku(ksztalt, 0), (
+                "czytnik nie widzi własnej pętli: %r" % ksztalt[0])
+
+    w_komentarzu = ["        // while (directory is not null) — dawny wzór",
+                    "        // if (File.Exists(x)) return y;"]
+    assert not (WHILE.search(_bez_komentarza(w_komentarzu[0]))
+                and _petla_w_bloku(w_komentarzu, 0)), (
+        "czytnik zapalił się na PROZIE o dawnym wzorze — wtedy nie da się o tej "
+        "usterce napisać w komentarzu, a ten plik robi to w kilku miejscach")
+
+    wolanie = ['var kod = KorzenRepozytorium.Tresc("src", "Game", "FirstRun.cs");']
+    assert WHILE.search(_bez_komentarza(wolanie[0])) is None, (
+        "czytnik zapalił się na WOŁANIU pomocnika, czyli na tym, co ta bramka "
+        "ma promować: %r" % wolanie[0])
+
+    # Pętla BEZ sprawdzania istnienia pliku NIE jest szukaniem korzenia.
+    obca = ["while (i < n)", "{", "    suma += tab[i];", "}"]
+    assert not _petla_w_bloku(obca, 0), (
+        "czytnik zapalił się na zwykłej pętli — wtedy każdy `while` w testach "
+        "byłby kopią szukania korzenia: %r" % obca)
 
 if __name__ == "__main__":
     import test_all

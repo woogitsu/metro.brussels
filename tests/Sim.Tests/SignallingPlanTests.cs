@@ -21,22 +21,8 @@ public sealed class SignallingPlanTests
 {
     private const string AxisId = "L1_A";
 
-    private static string RepositoryRoot()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "CLAUDE.md")))
-            {
-                return directory.FullName;
-            }
-
-            directory = directory.Parent;
-        }
-
-        Assert.Inconclusive("Test uruchomiony poza drzewem repozytorium.");
-        throw new InvalidOperationException();
-    }
+    private static string RepositoryRoot() =>
+        MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka;
 
     private static string PlanPath() =>
         Path.Combine(RepositoryRoot(), "data", "design", "signalling", "classic-2026.json");

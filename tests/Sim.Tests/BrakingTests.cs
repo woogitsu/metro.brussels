@@ -857,19 +857,6 @@ public sealed class BrakingTests
                 $"{message}: oczekiwano {expected:R}, jest {actual:R}"));
     }
 
-    private static string RepoRoot()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "CLAUDE.md")))
-            {
-                return directory.FullName;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new FileNotFoundException("nie znalazłem katalogu repozytorium (brak CLAUDE.md w górę drzewa)");
-    }
+    private static string RepoRoot() =>
+        MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka;
 }

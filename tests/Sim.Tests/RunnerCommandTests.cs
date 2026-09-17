@@ -736,21 +736,8 @@ public sealed class RunnerCommandTests
     // --- plik, ktory planem nie jest (6.A13) --------------------------------------
 
     /// <summary>Katalog repozytorium — po pliku <c>CLAUDE.md</c>, tak jak w innych testach.</summary>
-    private static string RepoRoot()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "CLAUDE.md")))
-            {
-                return directory.FullName;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new FileNotFoundException("nie znalazłem katalogu repozytorium (brak CLAUDE.md w górę drzewa)");
-    }
+    private static string RepoRoot() =>
+        MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka;
 
     /// <summary>
     /// Sedno pozycji 6.A13. Plik <c>cbtc-test-2026.json</c> LEŻY w <c>data/</c> i nie jest
