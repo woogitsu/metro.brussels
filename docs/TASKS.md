@@ -749,22 +749,39 @@ ustawić wyżej niż próg — pilnują tego `test_the_documented_reserve_does_n
 `test_the_documented_ratchet_does_not_lag_behind_the_file`
 i `test_the_ratchet_cannot_be_set_above_what_it_guards`.
 
-**Zapas udokumentowany:** zmierzone 17.09.2026 na tym drzewie, czytnikami
-`test_backlog`, a nie policzone z ręki: **15 pozycji do wzięcia**, z tego
-**11 z kompletem sześciu pól**. Próg `MINIMUM_READY_ITEMS` stoi na dwunastu,
-więc luka wynosi **jedną pozycję** i akapit stoi tu dokładnie dlatego —
+**Zapas udokumentowany:** luka jest otwarta i akapit stoi tu dokładnie dlatego —
 `test_the_documented_shortfall_is_written_down_while_it_lasts` żąda go, dopóki
 luka trwa, i zapali się, gdy zostanie tu po jej domknięciu.
 
+**Liczby są tu podane WYŁĄCZNIE z datą i commitem, i to jest poprawka wyciągnięta
+z pierwszej wersji tego akapitu, napisanej dzień wcześniej.** Tamta mówiła
+„15 pozycji do wzięcia, z tego 11 z kompletem sześciu pól" — i **przestała być
+prawdą w commicie, który ją wprowadzał do obiegu**: adnotacja `ZROBIONE` postawiona
+w następnej pozycji zbiła obie liczby o jeden, zanim ktokolwiek zdążył je
+przeczytać. Nie jest to niedopatrzenie: dokładnie to samo opisuje akapit
+o 06.09.2026 wyżej („licznik opada, gdy praca idzie dobrze"), więc powtórzenie
+tego błędu w akapicie, który ten akapit cytuje, jest wynikiem wartym zapisania.
+**Liczba stanu kolejki wpisana do planu jest prawdziwa przez jedno scalenie.**
+Rozstrzyga czytnik, nie ten tekst:
+
+```
+python3 -c "import sys,io; sys.path.insert(0,'tools/tests'); import test_backlog as tb; \
+  t=io.open('docs/TASKS.md',encoding='utf-8').read(); \
+  print(len(tb.do_wziecia(t)), len(tb.documented_items(t)), tb.MINIMUM_READY_ITEMS)"
+```
+
+Stan na 17.09.2026, na bazie `1902b4d`: **14 do wzięcia, 10 udokumentowanych,
+próg dwanaście**.
+
 **Luka nie jest zastana — zrobiło ją domknięcie pracy, i to jest ta sama mechanika,
 którą opisuje akapit o 06.09.2026 wyżej.** W ciągu doby 16–17.09.2026 adnotację
-`ZROBIONE` dostały cztery wiersze (6.D228, 6.D239, 6.D236, 6.D230), a `open_items`
-takie wiersze odsiewa. Zmierzone podstawieniem, nie odejmowaniem: na `origin/main`
-przed scaleniem tej gałęzi czytnik daje 16 do wzięcia i 12 udokumentowanych, czyli
-równo próg; adnotacja 6.D230 zbija obie liczby o jeden. **Licznik opada, gdy praca
-idzie dobrze** — i próg §8 `CLAUDE.md` mierzy pozycje **do wzięcia**, których jest
-piętnaście, więc doba pracy przed agentem stoi; brakuje **opisu jak wykonać** jednej
-z nich, nie samej pracy.
+`ZROBIONE` dostało pięć wierszy (6.D228, 6.D239, 6.D236, 6.D230, 6.D237),
+a `open_items` takie wiersze odsiewa. Zmierzone podstawieniem, nie odejmowaniem:
+na `main` przed scaleniem 6.D230 czytnik dawał 16 do wzięcia i 12 udokumentowanych,
+czyli równo próg; każda kolejna adnotacja zbijała obie liczby o jeden.
+**Licznik opada, gdy praca idzie dobrze** — a próg §8 `CLAUDE.md` mierzy pozycje
+**do wzięcia**, których jest nadal ponad dwanaście, więc doba pracy przed agentem
+stoi. Brakuje **opisu, jak wykonać** części z nich, nie samej pracy.
 
 **Czego ta luka NIE domyka się:** dopisaniem pól z głowy do którejkolwiek z czterech
 pozycji bez bloku — zakazuje tego akapit wyżej i §8 `CLAUDE.md`, a wymyślenie cudzej
