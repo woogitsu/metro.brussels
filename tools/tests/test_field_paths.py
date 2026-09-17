@@ -1994,7 +1994,9 @@ def _istnieje_w_drzewie(nazwa):
 # 1044/65/410 -> 1047/65/411 (17.09.2026, 6.D237): PIATY raz ta sama przyczyna —
 # adnotacja ZROBIONE przenosi blok pozycji z populacji OTWARTYCH do WYKONANYCH razem
 # z jego polami. Przeliczone z drzewa.
-ADRESOW_W_WYKONANYCH = {"Wejście": 1047, "Wyjście": 65, "Weryfikacja": 411}
+# 1047/65/411 -> 1052/65/412 (17.09.2026, 6.D238): SZOSTY raz ta sama przyczyna —
+# adnotacja ZROBIONE przenosi blok pozycji do populacji WYKONANYCH. Przeliczone z drzewa.
+ADRESOW_W_WYKONANYCH = {"Wejście": 1052, "Wyjście": 65, "Weryfikacja": 412}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
@@ -2084,7 +2086,9 @@ ADRESOW_W_WYKONANYCH = {"Wejście": 1047, "Wyjście": 65, "Weryfikacja": 411}
 # 164 -> 165 (17.09.2026): adnotacja ZROBIONE na wierszu tej pozycji, ta sama
 # przyczyna co przy `ADRESOW_W_WYKONANYCH` wyzej. Wywolanie w plotku jest
 # JEDNOargumentowe, wiec `nazwy_z_dalszego_argumentu` nie drga i zostaje 19.
-WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 165}
+# 165 -> 166 (17.09.2026, 6.D238): jak wyzej, jedno wywolanie JEDNOargumentowe
+# z plotka „Weryfikacji" tego bloku.
+WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 166}
 
 #: Ilu kandydatow zlego adresu daje regula prozy, per pole — 6.D158.
 # 12 -> 13 (14.09.2026, 6.D204): trzynastym kandydatem jest `test_mutation_sweep.py`
