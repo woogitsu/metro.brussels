@@ -410,7 +410,8 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 # OSME starcie (scalenie #645 do 6.D230), znowu CZYSTE i znowu o jeden za malo:
 # obie strony dawaly 366, katalog po scaleniu ma 367. Drugi raz z rzedu potwierdza
 # wniosek wyzej — to nie byl przypadek jednego scalenia.
-MIN_REPORTS = 367
+# 367 -> 368 (17.09.2026, 6.D237): jeden raport dopisany, bez scalenia.
+MIN_REPORTS = 368
 
 #: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
 #: wierszem zaczynającym się od `**`, z którego `_header_shapes` czyta kształt.
