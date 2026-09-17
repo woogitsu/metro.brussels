@@ -68,14 +68,22 @@ POZOSTALE_GOLE = {
     # najtańszej naprawy — „odtworzenie 6.D181 mierzy wtedy inny korpus i nie ma prawa
     # go poprawiać". Po wyjęciu `src/Game/` z zakresu `Game.Tests` daje 318/318.
     #
-    # **Zamrożenie korpusu w pliku-migawce zostało WYKONANE i NIE ROZWIĄZAŁO tego** —
-    # migawka bajt w bajt z dnia pomiaru daje 108 zamiast przypiętych 116. Powód nie
-    # został ustalony i dlatego zawężenie jest tymczasowe, a nie rozstrzygnięciem:
-    # korpus, zbiór 21 plików i każdy czytnik w łańcuchu (`ZrodlaGry`, `ZgloszeniaWaskie`,
-    # `SlowaWierszPoWierszu`, `SlowaWKodzie`, `Literaly`, `SciezkaWezla`, `WzorzecSlowa`,
-    # `NazwyKlawiszy`, `BezJednostek`, `BezDziur`) są bajtowo IDENTYCZNE z commitem,
-    # na którym te liczby przypięto — a wynik i tak jest inny. Pełny wywód i liczby:
-    # `reports/6d233-oslona-pola-i-zawezenie-zakresu.md` §5.
+    # **Zawężenie jest TRWAŁE, a nie tymczasowe, i ten akapit jest przepisany, a nie
+    # dopisany obok (6.D256).** Do 17.09.2026 stało tu, że zamrożenie korpusu „daje 108
+    # zamiast przypiętych 116", że „powód nie został ustalony" i że wejścia są bajtowo
+    # identyczne „z commitem, na którym te liczby przypięto". **Ostatnia część była
+    # nieprawdziwa i to ona wywracała wniosek:** migawkę zamrożono z `7771af3`, a to
+    # jest commit, na którym przypięto **108**, nie 116 — sto szesnaście przypięto trzy
+    # pozycje MB później, w `0ae0acf`. Migawka dała więc dokładnie tę liczbę, którą
+    # miała dać. Zmierzone przebiegami w trzech układach: worktree `7771af3` (stała 108)
+    # przechodzi, worktree `0ae0acf` (stała 116) przechodzi, dzisiejsze drzewo
+    # (stała 116) przechodzi. Niewiadomej nie ma.
+    #
+    # **Powodem zawężenia jest więc to, co zmierzono niezależnie i co się nie zmieniło:**
+    # osłonięcie tego jednego pliku zmienia `src/Game/`, czyli korpus, który te odtworzenia
+    # mierzą Z DEFINICJI. Odtworzone 17.09.2026 własnoręcznie — wszystkie 24 gołe odczyty
+    # zamienione na `RequiredField` dają `Failed: 6, Passed: 312, Total: 318`, a po
+    # przywróceniu `318/318`. Sześć, tak samo jak przy 6.D233.
     #
     # Ta liczba jest strażnikiem zawężenia, a nie jego opisem: zbiór porównywany jest
     # w OBIE strony, więc osłonięcie tych odczytów bez zdjęcia wpisu zapali bramkę.
