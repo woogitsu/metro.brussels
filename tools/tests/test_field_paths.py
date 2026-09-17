@@ -2026,7 +2026,11 @@ def _istnieje_w_drzewie(nazwa):
 # Blok 6.D258, dopisany tym samym commitem, do tych liczb NIE wchodzi: jest pozycja
 # OTWARTA, a skan czyta wylacznie bloki wykonanych. Liczby PRZELICZONE czytnikami
 # `adresy_pola_w_wykonanych` i `wywolania_pola_w_wykonanych` na pliku PO edycji.
-ADRESOW_W_WYKONANYCH = {"Wejście": 1077, "Wyjście": 65, "Weryfikacja": 415}
+# 1077 -> 1080 i „Weryfikacja" 415 -> 416 (17.09.2026, 6.D255): adresy z pol WLASNEGO
+# bloku tej pozycji, ktory adnotacja ZROBIONE przeniosla do wykonanych. Blok 6.D259,
+# dopisany tym samym commitem, do tych liczb NIE wchodzi: jest pozycja OTWARTA.
+# Liczby PRZELICZONE czytnikami na pliku PO edycji, nie zsumowane.
+ADRESOW_W_WYKONANYCH = {"Wejście": 1080, "Wyjście": 65, "Weryfikacja": 416}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
@@ -2120,7 +2124,7 @@ ADRESOW_W_WYKONANYCH = {"Wejście": 1077, "Wyjście": 65, "Weryfikacja": 415}
 # z plotka „Weryfikacji" tego bloku.
 # 166 -> 167 (17.09.2026, 6.D232): jedno wywolanie JEDNOargumentowe z plotka
 # „Weryfikacji" bloku tej pozycji, ta sama przyczyna co przy adresach wyzej.
-WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 168}
+WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 169}
 
 #: Ilu kandydatow zlego adresu daje regula prozy, per pole — 6.D158.
 # 12 -> 13 (14.09.2026, 6.D204): trzynastym kandydatem jest `test_mutation_sweep.py`

@@ -2226,9 +2226,10 @@ def test_rdzen_widzi_rodzine_ZAUWAZYLEM_a_nie_tylko_ZAUWAZONE():
                   "Zauważone przy okazji, nie tknięte"):
         probka = [("probka.md", naglowek(tekst))]
         assert len(list(sekcje_zauwazone(probka))) == 1, (
-            "rdzen NIE widzi naglowka %r — a takich naglowkow jest w katalogu 32 "
+            "rdzen NIE widzi naglowka %r — a takich naglowkow jest w katalogu %d "
             "i to one byly cala trescia 6.D228; jesli `SEKCJA_ZAUWAZONE` wrocilo do "
-            "koncowki imieslowu, ta asercja jest pierwsza, ktora to powie" % tekst)
+            "koncowki imieslowu, ta asercja jest pierwsza, ktora to powie"
+            % (tekst, len(list(sekcje_zauwazone()))))
 
     for tekst in ("Uwagi na marginesie", "Znalezione po drodze, nie tkniete"):
         probka = [("probka.md", naglowek(tekst))]
