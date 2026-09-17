@@ -487,7 +487,31 @@ echo "Testy rdzenia symulacji:"
 # Rozstrzygnięcie: gdy SDK nie umie zbudować docelowej wersji, testy się NIE
 # uruchamiają, a doctor mówi wprost, czego brakuje. Nadal liczy się to jako błąd
 # wymagany — środowisko jest niesprawne — ale powód jest prawdziwy.
-if ! command -v "${DOTNET_BIN:-dotnet}" >/dev/null 2>&1; then
+# **Runner rozstrzygnięty PRZED gałęzią, a nie sondą `PATH` w samej gałęzi — 6.D252.**
+# Do 17.09.2026 stało tu `if ! command -v "${DOTNET_BIN:-dotnet}"`, czyli pytanie
+# o obecność w `PATH`. Skutkiem był doctor, który **w jednym przebiegu przeczy sam
+# sobie**: cztery wiersze wyżej wypisywał „SDK JEST na dysku: /root/.dotnet/dotnet
+# (wersja 10.0.401)", a tutaj „pomijam — brak dotnet". Zmierzone na tym kontenerze,
+# oba wiersze w jednym wyjściu.
+#
+# **Dlaczego to nie jest kosmetyka:** `CLAUDE.md` §5 nazywa `dotnet test tests/Sim.Tests`
+# częścią obowiązkowej pętli weryfikacji, a §8 mówi, że zatrzymanie się jest poprawnym
+# wynikiem pracy. Wiersz „brak dotnet" wygląda więc jak uczciwe zatrzymanie z §8, a jest
+# pominięciem połowy pętli z §5 — i tak został przeczytany CZTERY RAZY w jednej sesji,
+# mimo że wiersz z prawdziwą ścieżką stał wyżej w tym samym wyjściu.
+#
+# Rozstrzygnięcie jest tym samym, które `CLAUDE.md` §9 zapisało przy Blenderze: sonda
+# ma pytać o ZDOLNOŚĆ narzędzia, nie o jego obecność w `PATH`. Gdy `$DOTNET_BIN` nie
+# jest osiągalny, wchodzi SDK znalezione na dysku — to samo, którego ścieżkę doctor
+# i tak już wypisuje w podpowiedzi. Gdy nie ma ANI JEDNEGO, komunikat „brak dotnet"
+# zostaje, bo wtedy jest prawdziwy; pilnuje tego kontrola negatywna w bramce.
+if command -v "${DOTNET_BIN:-dotnet}" >/dev/null 2>&1; then
+  DOTNET_DO_TESTOW="${DOTNET_BIN:-dotnet}"
+else
+  DOTNET_DO_TESTOW="$SDK_NA_DYSKU"
+fi
+
+if [ -z "$DOTNET_DO_TESTOW" ]; then
   echo "  pomijam — brak dotnet"
 elif [ -n "$REQUIRED_TFM" ] && [ -n "$HAVE_SDK_MAJOR" ] \
      && [ "$HAVE_SDK_MAJOR" -lt "$REQUIRED_TFM" ] 2>/dev/null; then
@@ -496,7 +520,7 @@ elif [ -n "$REQUIRED_TFM" ] && [ -n "$HAVE_SDK_MAJOR" ] \
   required_bad=$((required_bad + 1))
 else
   sim_log="${TMPDIR:-/tmp}/mbxl_sim_tests.log"
-  if "${DOTNET_BIN:-dotnet}" test tests/Sim.Tests --nologo -v q >"$sim_log" 2>&1; then
+  if "$DOTNET_DO_TESTOW" test tests/Sim.Tests --nologo -v q >"$sim_log" 2>&1; then
     sim_passed=$(grep -oE "Passed: +[0-9]+" "$sim_log" | tail -1 | grep -oE "[0-9]+")
     sim_total=$(grep -oE "Total( tests)?: +[0-9]+" "$sim_log" | tail -1 | grep -oE "[0-9]+")
     echo "  ok    ${sim_passed}/${sim_total} przeszło"
