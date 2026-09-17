@@ -59,8 +59,53 @@ DEKLARACJA = re.compile(
 
 #: Ile deklaracji bramka ma widziec, zeby pomiar byl pomiarem. Bez tego progu literowka
 #: w `DEKLARACJA` dalaby zero deklaracji, zero martwych i zielona bramke — ta sama
-#: pulapka, ktora `MINIMUM_CLAIMS` zamyka w `test_report_claims.py`. Zmierzone: 234.
-MINIMUM_DEKLARACJI = 200
+#: pulapka, ktora `MINIMUM_CLAIMS` zamyka w `test_report_claims.py`.
+#:
+#: **Wartosc jest PRZELICZONA 17.09.2026 (6.D232), a ten akapit przepisany, a nie
+#: dopisany obok.** Stalo tu `= 200` i „Zmierzone: 234" — pomiar z 07.09.2026. Drzewo
+#: ma dzis **389** deklaracji, wiec podloga stala **189** nizej, czyli 48,6 % populacji,
+#: i przepuszczala mutacje, dla ktorych istnieje: wyciecie z wzorca calej galezi na
+#: `static readonly` zabiera 85 deklaracji (zostaje 304) i przy progu 200 PRZECHODZILO.
+#:
+#: **Rownosci (`== 389`) tu nie ma i nie bedzie**: populacja rosnie z kazdym nowym polem
+#: w `src/`, wiec rownosc zapalalaby sie na pracy poprawnej, a taka bramka zostaje
+#: wylaczona, nie poprawiona (6.D27). Zapas **59** (15,2 %) jest dobrany POMIAREM
+#: historii, a nie ostroznoscia: w 572 rewizjach first-parent, ktore niosa jakikolwiek
+#: plik `.cs`, liczba deklaracji spadla **raz** i **o jeden** (`8f27a033`, 05.09.2026,
+#: 199 -> 198). Zapas jest wiec 59 razy glebszy niz najglebszy spadek, jaki to
+#: repozytorium kiedykolwiek zrobilo.
+#:
+#: **Ta podloga jest jednak SUMA i sama nie wystarcza** — patrz `MINIMUM_CONST`,
+#: `MINIMUM_STATIC_READONLY` i `MINIMUM_BEZ_MODYFIKATORA` nizej.
+MINIMUM_DEKLARACJI = 330
+
+#: **Rozklad dzisiejszych deklaracji po GALEZIACH wzorca (6.D232, 17.09.2026):**
+#: `const` **304**, `static readonly` **85**, razem **389**; bez modyfikatora dostepu
+#: stoi **43** z nich (`public` 145, `private` 201).
+#:
+#: **Po co trzy podlogi zamiast jednej.** Suma broni przed wzorcem MARTWYM — takim,
+#: ktory przestal lapac cokolwiek. Nie broni przed wzorcem OKALECZONYM, ktoremu odpadla
+#: jedna galaz, a to jest ksztalt, ktory sie w tym repozytorium zdarza (6.D218 zaczelo
+#: sie od klasy liter, ktorej odpadl jeden znak). Zmierzone podstawieniem 17.09.2026:
+#: wymuszenie modyfikatora dostepu (`(?:public|private|internal|protected)` bez `?`)
+#: zabiera **43** deklaracje, zostaje **346** — i SUME przechodzi nawet przy progu 330.
+#: Dopiero `MINIMUM_BEZ_MODYFIKATORA` to zapala.
+#:
+#: **Zapas kazdej z trzech to te same ~15 %, i tez z pomiaru historii tych 572 rewizji:**
+#: `const` spadl raz o jeden (164 z 165), `static readonly` raz o jeden (38 z 39),
+#: a deklaracji bez modyfikatora dostepu nie ubylo **ani razu**. Wszystkie trzy sa
+#: zapadkami DOLNYMI klasy WOLNEJ z tego samego powodu co `MINIMUM_DZIUR`: populacja
+#: rosnie razem z kodem, wiec przybicie czerwienialoby przy kazdej nowej stalej.
+MINIMUM_CONST = 258
+MINIMUM_STATIC_READONLY = 72
+MINIMUM_BEZ_MODYFIKATORA = 36
+
+#: Galaz wzorca rozpoznawana NA TYM, CO WZORZEC DOPASOWAL (`match.group(0)`), a nie
+#: drugim rozbiorem zrodla — drugi rozbior mowilby o sobie, a nie o tym, co skan
+#: naprawde widzi (6.D213). Gdy galaz odpadnie od `DEKLARACJA`, przestana przychodzic
+#: dopasowania tego ksztaltu i licznik spadnie do zera SAM.
+STATIC_READONLY = re.compile(r"static\s+readonly")
+MODYFIKATOR_DOSTEPU = re.compile(r"^\s*(?:public|private|internal|protected)\b")
 
 #: Stale nieczytane, uznane po obejrzeniu: nazwa -> (plik, powod).
 #:
@@ -106,6 +151,28 @@ def deklaracje(tresc=None, root=ROOT):
         for match in DEKLARACJA.finditer(zawartosc):
             znalezione.setdefault(match.group(1), []).append(sciezka)
     return znalezione
+
+
+def rozklad(tresc=None, root=ROOT):
+    """Galaz wzorca -> ile deklaracji tego ksztaltu widzi skan.
+
+    Klucze: `const`, `static readonly` i `bez modyfikatora` — ten ostatni NIE jest
+    trzecia galezia rozlaczna z dwiema pierwszymi, tylko przekrojem przez obie.
+    Stoi tu, bo wymuszenie modyfikatora dostepu jest okaleczeniem, ktorego suma
+    deklaracji nie widzi: zabiera 43 z 389, czyli 11 %.
+    """
+    tresc = _tresc_csharp(root) if tresc is None else tresc
+    wynik = {"const": 0, "static readonly": 0, "bez modyfikatora": 0}
+    for zawartosc in tresc.values():
+        for match in DEKLARACJA.finditer(zawartosc):
+            trafienie = match.group(0)
+            if STATIC_READONLY.search(trafienie):
+                wynik["static readonly"] += 1
+            else:
+                wynik["const"] += 1
+            if not MODYFIKATOR_DOSTEPU.match(trafienie):
+                wynik["bez modyfikatora"] += 1
+    return wynik
 
 
 def _tresc_poza_csharp(root=ROOT):
@@ -225,6 +292,56 @@ def test_the_gate_sees_the_declarations_it_is_supposed_to_see():
     assert ile >= MINIMUM_DEKLARACJI, (
         "bramka widzi %d deklaracji przy progu %d — wzorzec przestal pasowac do "
         "ksztaltu, w jakim to repozytorium pisze stale C#" % (ile, MINIMUM_DEKLARACJI))
+
+
+def test_kazda_galaz_wzorca_ma_wlasna_podloge():
+    """Odpadniecie POJEDYNCZEJ galezi `DEKLARACJA` konczy sie czerwienia — 6.D232.
+
+    Sumy to nie lapie i to jest ZMIERZONE, nie przewidziane. Pomiar 16.09.2026:
+    przy 389 deklaracjach wymuszenie modyfikatora dostepu zostawialo 346, czyli
+    wiecej niz `MINIMUM_DEKLARACJI`; powtorzone 17.09.2026 na drzewie scalonym przy
+    390 deklaracjach dalo **DOKLADNIE JEDNA** czerwien — te podloge — a suma
+    przeszla. Trzy podlogi mowia wiec trzy rozne rzeczy, a nie jedna trzy razy.
+
+    **Liczby w komunikatach tego testu sa LICZONE, a nie wpisane, i to jest poprawka
+    z 17.09.2026.** Pierwsza wersja komunikatu mowila „zabiera ich 43 z 389" —
+    literalem, ktory zestarzal sie w ciagu doby (dzis 44 z 390) i ktorego nie pilnuje
+    zadna bramka: `test_report_claims` czyta `reports/`, nie komunikaty asercji
+    w `tools/tests/`. Twierdzenie w komunikacie bramki jest twierdzeniem tak samo jak
+    w raporcie, tylko nikt go nie sprawdza — wiec albo jest liczone, albo go nie ma.
+    """
+    widziane = rozklad()
+    # **Kierunek zapisu jest tu trescia, a nie stylem, i kosztowal dwa przebiegi.**
+    # Kazda podloga stoi w porownaniu PO IMIENIU i po TEJ SAMEJ stronie, co
+    # `MINIMUM_DEKLARACJI` wyzej (`populacja >= PROG`). Dwie wczesniejsze postacie
+    # zostaly odrzucone przez klasyfikator zapadek z `test_tree_walks.py`, a nie
+    # przez oko: petla po krotce `(nazwa, prog)` dala klase POZA SKANEM (nazwa nie
+    # pada w zadnym `Compare`, tak jak przy `MIN_PATHS`), a zbieranie brakow przez
+    # `if widziane[...] < PROG` dalo CZESCIOWA — bo od strony stalej jest to `Gt`,
+    # czyli STRAZ, a strazy tu nie ma zadnej. Zapadka opisana w rejestrze jako
+    # strzezona, a nieprzybita niczym, jest napisem (6.D213).
+    assert widziane["const"] >= MINIMUM_CONST, (
+        "galaz `const` daje %d przy progu %d (rozklad: %r) — wzorzec przestal lapac "
+        "ksztalt, ktory lapal" % (widziane["const"], MINIMUM_CONST, widziane))
+    assert widziane["static readonly"] >= MINIMUM_STATIC_READONLY, (
+        "galaz `static readonly` daje %d przy progu %d (rozklad: %r) — wyciecie tej "
+        "galezi z wzorca sume deklaracji przechodzilo"
+        % (widziane["static readonly"], MINIMUM_STATIC_READONLY, widziane))
+    assert widziane["bez modyfikatora"] >= MINIMUM_BEZ_MODYFIKATORA, (
+        "deklaracji bez modyfikatora dostepu jest %d przy progu %d (rozklad: %r) — "
+        "wymuszenie modyfikatora w `DEKLARACJA` zabiera je wszystkie, a SUMA "
+        "zostaje na %d przy progu %d i PRZECHODZI"
+        % (widziane["bez modyfikatora"], MINIMUM_BEZ_MODYFIKATORA, widziane,
+           widziane["const"] + widziane["static readonly"]
+           - widziane["bez modyfikatora"], MINIMUM_DEKLARACJI))
+
+    # Druga polowa, i bez niej pierwsza mowilaby o sumie dwa razy: galezie maja sie
+    # SUMOWAC do tego, co liczy `deklaracje()`. Gdyby `rozklad` zaczal czytac cos
+    # innego niz wzorzec, obie podlogi chodzilyby po dwoch roznych populacjach.
+    ile = sum(len(v) for v in deklaracje().values())
+    assert widziane["const"] + widziane["static readonly"] == ile, (
+        "rozklad po galeziach daje %d, a `deklaracje()` %d — czytniki sie rozjechaly"
+        % (widziane["const"] + widziane["static readonly"], ile))
 
 
 def test_every_unread_csharp_constant_is_justified():
