@@ -1992,7 +1992,8 @@ def test_czytnik_asercji_napisowych_WIDZI_to_co_ma_widziec():
                    'assert "a" == x',            # nie `in`
                    'assert 5 in x'):             # literał, ale nie napisowy
         assert czlony_napisowe(ast.parse(milczy).body[0]) == [], (
-            "czytnik zapalił się na %r — wtedy 849 opisuje co innego, niż mówi" % milczy)
+            "czytnik zapalił się na %r — wtedy %d opisuje co innego, niż mówi"
+            % (milczy, ASERCJI_NAPISOWYCH_RAZEM))
 
 
 def test_ile_bramek_stoi_na_NAPISIE_a_nie_na_ZACHOWANIU():

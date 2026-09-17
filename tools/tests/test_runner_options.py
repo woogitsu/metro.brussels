@@ -534,7 +534,7 @@ def test_the_equals_form_count_has_not_collapsed_to_nothing():
         "to, co lapaly 07.09.2026 (426 wystapien na drzewie do scalenia)")
     assert liczby["scena"] > 0, (
         "ani jedna komenda SCENY nie uzywa postaci z rownoscia, a scena jej WYMAGA "
-        "(`RunPlan`, 27 testow w tests/Game.Tests) — wykrywanie sceny jest zepsute, "
+        "(`RunPlan` w tests/Game.Tests) — wykrywanie sceny jest zepsute, "
         f"a wtedy jej komendy poleca do kubelka runnera. Liczby: {liczby}")
     assert liczby["razem"] == liczby["runner"] + liczby["scena"] + liczby["proza"], (
         f"kubelki nie sumuja sie do calosci: {liczby}")

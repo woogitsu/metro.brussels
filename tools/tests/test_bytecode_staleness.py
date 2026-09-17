@@ -523,7 +523,8 @@ KROK_ZESTAWU = "Run tool tests"
 #: zdanie miało czym się zestarzeć widocznie.
 BAJTKOD_PO_COMPILEALL_KATALOGI = 7
 #: 207 -> 208 (17.09.2026, 6.D233): doszedl `tools/tests/test_json_required.py`.
-BAJTKOD_PO_COMPILEALL_PLIKI = 208
+#: 208 -> 209 (17.09.2026, 6.D255): doszedl `tools/tests/test_message_claims.py`.
+BAJTKOD_PO_COMPILEALL_PLIKI = 209
 
 
 def _workflow_zestawu():
@@ -861,7 +862,8 @@ KATALOG_Z_PYTHONEM = "tools"
 #: sekwencji czyta CALOSC. Gdy te dwie liczby sie rozejda, znaczy to, ze gdzies
 #: pojawil sie modul poza zasiegiem obu.
 #: 207 -> 208 (17.09.2026, 6.D233): doszedl `tools/tests/test_json_required.py`.
-MODULOW_W_CALYM_DRZEWIE = 208
+#: 208 -> 209 (17.09.2026, 6.D255): doszedl `tools/tests/test_message_claims.py`.
+MODULOW_W_CALYM_DRZEWIE = 209
 
 
 def moduly_calego_drzewa(korzen=None):
