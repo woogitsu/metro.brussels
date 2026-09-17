@@ -332,11 +332,31 @@ SCENE_CALL = "--path src/Game"
 #: (6.D101). Nazwa modułu stoi po `test_all.py` jako GOŁY ARGUMENT, bez ukośnika,
 #: więc `PATH_TOKEN` jej nie widzi z definicji: tamten wzorzec ukośnika żąda.
 #:
-#: **Brany jest WYŁĄCZNIE pierwszy argument** i to nie jest uproszczenie, tylko
-#: zgodność z narzędziem: `test_all.py` kończy się na
-#: `main(sys.argv[1]) if len(sys.argv)>1 else main()`, więc drugiego argumentu nie
-#: czyta nikt. Skan liczący wszystkie argumenty mówiłby o wywołaniu, którego nie ma.
-MODULE_CALL = re.compile(r"test_all\.py\s+(\S+)")
+#: **Brane są WSZYSTKIE argumenty wywołania, nie tylko pierwszy — i ten akapit jest
+#: PRZEPISANY, a nie dopisany obok (16.09.2026, 6.D237).** Do tego dnia stało tu, że
+#: „brany jest WYŁĄCZNIE pierwszy argument", z uzasadnieniem, że `test_all.py` kończy
+#: się na `main(sys.argv[1]) if len(sys.argv)>1 else main()`, więc drugiego argumentu
+#: nie czyta nikt. **To już nieprawda i nie było prawdą od 11.09.2026**: komentarz
+#: powstał w 6.D101 (10.09.2026), a strażnik `__main__` zmieniono w 6.D114 na
+#: `main(sys.argv[1:]) if len(sys.argv)>1 else main()`. Zmierzone 16.09.2026 —
+#: `python3 tools/tests/test_all.py test_crs.py test_lod.py` daje **82/82 przeszło**
+#: i **2 modułów**, czyli obie nazwy zostają wykonane.
+#:
+#: **Wzorzec bierze OGON wywołania, a nie jeden token, i rozbiera go PREFIKSOWO** —
+#: token po tokenie, aż do pierwszego, który nazwą modułu nie jest. Postać „wszystkie
+#: tokeny z ogona" (bez zatrzymania) jest o jedną literę krótsza i **zmierzenie
+#: pokazało, że jest zła**: 16.09.2026 na `docs/TASKS.md` dawała **8 fałszywych
+#: zgłoszeń** na wszystkich blokach (`grep`, `RAZEM`, `done` z potoku w 6.D26, `echo`
+#: z `; echo "kod: $?"` w 6.D44/45/63, `dotnet` i `test` z `&& dotnet test` w 6.D234),
+#: a bez filtru `MODULE_ARGUMENT` — **17**. Postać prefiksowa daje **0**. To jest ta
+#: sama rodzina co 6.D27: bramka zapalająca się na poleceniu POPRAWNYM zostaje
+#: wyłączona, nie naprawiona.
+#:
+#: **Ogon kończy też token z średnikiem** i to nie jest kosmetyka: `test_x.py;` jest
+#: nazwą modułu po odcięciu średnika (tak czyta ją `MODULE_ARGUMENT` od 6.D101), ale
+#: średnik jest końcem POLECENIA — bez zatrzymania na nim `echo` z `; echo "kod: $?"`
+#: wchodzi jako nazwa modułu. Trzy takie wiersze stoją dziś w `docs/TASKS.md`.
+MODULE_CALL = re.compile(r"test_all\.py((?:\s+\S+)*)")
 
 #: Kształt, jaki musi mieć argument, żeby BYĆ nazwą modułu. Zmierzone na dzisiejszym
 #: `docs/TASKS.md`: po `test_all.py` stoi też `|` (wywołanie całego zestawu w potoku)
@@ -480,19 +500,49 @@ def unknown_options(blocks=None):
     return found
 
 
+def _rozbior_ogona(ogon):
+    """Nazwy modulu z ogona JEDNEGO wywolania `test_all.py`, po kolei — 6.D237.
+
+    **Jedyny rozbior ogona w tym module i to jest wymog, a nie porzadek (6.D213).**
+    Do 17.09.2026 ta sama petla stala DWA RAZY: tu i w `nazwy_z_dalszego_argumentu`.
+    Kopie nie rozjechaly sie tresciowo, ale rozjechaly sie w tym, co WIDZA bramki:
+    kontrola negatywna oslepiajaca `module_names` (`return out` na wejsciu) zapalila
+    DWANASCIE testow, a podloga `MIN_NAZW_Z_DALSZEGO_ARGUMENTU` — ktora istnieje
+    dokladnie po to, zeby lapac zwezenie tego rozbioru — ZOSTALA ZIELONA, bo czytala
+    wlasna kopie. Podloga pilnujaca czytnika, ktorego nie uzywa, jest napisem.
+
+    Zatrzymanie jest PREFIKSOWE: token po tokenie, az do pierwszego, ktory nazwa
+    modulu nie jest, oraz wlacznie z tym, ktory niesie srednik (`test_x.py;` konczy
+    polecenie). Powod liczbowo stoi przy `MODULE_CALL`.
+    """
+    out = []
+    for surowy in ogon.split():
+        token = surowy.rstrip(";")
+        if not MODULE_ARGUMENT.match(token):
+            break
+        out.append(token)
+        if token != surowy:
+            break
+    return out
+
+
 def module_names(text):
     """Nazwy modułów wołanych przez `test_all.py` w blokach ogrodzonych treści.
 
     Płotek, a nie cała treść pola: w prozie ta sama nazwa bywa CYTOWANA („bramkę
     trzyma `test_backlog.py`"), a cytat nie jest wywołaniem. To samo zawężenie, co
     przy skanie opcji, i z tego samego zmierzonego powodu.
+
+    **Argumentów jest tyle, ile stoi w wierszu — 6.D237 (16.09.2026).** Rozbiór jest
+    PREFIKSOWY: token po tokenie, aż do pierwszego, który nazwą modułu nie jest, oraz
+    włącznie z tym, który niesie średnik (`test_x.py;` kończy polecenie). Powód
+    liczbowo: postać bez zatrzymania dawała na `docs/TASKS.md` osiem fałszywych
+    zgłoszeń, ta — zero. Pełny wywód przy `MODULE_CALL`.
     """
     out = []
     for line in _code_lines(text):
         for call in MODULE_CALL.finditer(line):
-            token = call.group(1).rstrip(";")
-            if MODULE_ARGUMENT.match(token):
-                out.append(token)
+            out.extend(_rozbior_ogona(call.group(1)))
     return out
 
 
@@ -865,6 +915,124 @@ def test_the_module_shape_reads_the_name_the_way_the_runner_does():
         pass
     else:
         raise AssertionError("`_only_path` przyjął moduł, którego nie ma")
+
+
+# --- 6.D237: argument DRUGI i dalszy, czyli ogon wywolania ------------------------
+
+#: Ile nazw modulu przychodzi z DALSZEGO niz pierwszy argumentu `test_all.py`, na
+#: blokach WSZYSTKICH. Zmierzone 16.09.2026 na `e420f14`: **19** — szesnascie w polach
+#: „Weryfikacja" blokow WYKONANYCH (6.D138, 6.D144, 6.D151, 6.D162, 6.D163, 6.D192,
+#: 6.D193, 6.D194, 6.D203, 6.D204, 6.D205, 6.D206, 6.D207, 6.D209, 6.D216, 6.D218)
+#: i trzy w blokach, ktore 16.09.2026 byly jeszcze OTWARTE (6.D228 dwa, 6.D230 jeden).
+#: **Na dzis wszystkie dziewietnascie stoi w blokach WYKONANYCH** — scalenie #644
+#: i #646 przeniosla tamte trzy; POPULACJA SIE NIE ZMIENILA, bo prog liczy sie na
+#: blokach WSZYSTKICH i to jest wlasnie powod, dla ktorego tak jest liczony.
+#: Prog stoi NIZEJ, na 15, zeby nie ruszac go przy kazdej scalonej pozycji.
+#:
+#: **Prog jest KW, a nie rownoscia, i liczony na blokach WSZYSTKICH** — te same dwa
+#: wybory, co przy `MIN_MODULE_NAMES` i z tych samych powodow: bloki wykonane sa
+#: zamrozone, wiec liczba na nich tylko rosnie, a na blokach otwartych malalaby od
+#: SPRZATANIA kolejki. Broni przed jedna rzecza i tylko przed nia: cichym powrotem
+#: `MODULE_CALL` do postaci jednoargumentowej, po ktorym ta liczba spada do ZERA,
+#: a zero czyta sie jako „takich wywolan nie ma" (6.D27).
+MIN_NAZW_Z_DALSZEGO_ARGUMENTU = 15
+
+
+def nazwy_z_dalszego_argumentu(blocks=None):
+    """`[(numer, pole, nazwa)]` dla nazw stojacych na DRUGIM i dalszym miejscu."""
+    out = []
+    for numer, body in (blocks if blocks is not None else _all_blocks()).items():
+        for pole in FIELDS:
+            for line in _code_lines(field_body(body, pole) or ""):
+                for call in MODULE_CALL.finditer(line):
+                    for token in _rozbior_ogona(call.group(1))[1:]:
+                        out.append((numer, pole, token))
+    return out
+
+
+def test_skan_widzi_zmierzona_liczbe_nazw_z_DALSZEGO_argumentu():
+    """Prog KW na sam SKAN, nie na jego werdykt — 6.D237.
+
+    Bez niego powrot `MODULE_CALL` do jednego argumentu daje tu zero, a zero czyta
+    sie jako „wywolan wieloargumentowych nie ma" — czyli dokladnie jako zdanie,
+    ktore ta pozycja OBALILA pomiarem (`test_all.py test_crs.py test_lod.py` daje
+    82/82 przeszlo i 2 modulow).
+    """
+    widziane = nazwy_z_dalszego_argumentu()
+    assert len(widziane) >= MIN_NAZW_Z_DALSZEGO_ARGUMENTU, (
+        "skan widzi %d nazw modulu na drugim i dalszym miejscu wywolania przy progu "
+        "%d — 16.09.2026 bylo ich 19; spadek znaczy zwezony `MODULE_CALL` albo "
+        "zepsute ciecie pola, a nie posprzatane bloki"
+        % (len(widziane), MIN_NAZW_Z_DALSZEGO_ARGUMENTU))
+
+
+def test_literowka_na_DRUGIM_miejscu_wywolania_zapala_bramke():
+    """Kontrola przyrzadu na wejsciu syntetycznym — 6.D237, wg reguly 6.D159.
+
+    **Dziura jest REALNA, ale PUSTA i to jest zmierzone.** Nazw modulu BEZ
+    rozszerzenia, stojacych na drugim lub dalszym miejscu, jest dzis w `docs/TASKS.md`
+    **zero** — na 19 wystapien dalszego argumentu wszystkie 19 konczy sie na `.py`.
+    Nazwe Z rozszerzeniem lapie od 6.D187 skan golych nazw, niezaleznie od pozycji;
+    bez rozszerzenia nie lapie jej nic i to jest ta polowa, ktora ta pozycja zamyka.
+    Bramka o pustym zbiorze nie odrozniaja „nie ma czego lapac" od „nie lapie", wiec
+    rozstrzyga PODSTAWIENIE, a nie cisza drzewa.
+    """
+    plotek = "\n\n  ```bash\n  python3 tools/tests/test_all.py %s\n  ```\n"
+
+    # Ksztalt, dla ktorego ta pozycja powstala: literowka BEZ rozszerzenia, na drugim
+    # miejscu. Do 16.09.2026 przechodzila bez sladu przez CALY zestaw.
+    assert _zapala("Weryfikacja", plotek % "test_crs.py test_nie_ma_takiego") == [
+        "moduł"], (
+        "literowka bez rozszerzenia na DRUGIM miejscu nie zapala niczego — to jest "
+        "dokladnie stan sprzed 6.D237: %s"
+        % _zapala("Weryfikacja", plotek % "test_crs.py test_nie_ma_takiego"))
+
+    # Trzecie miejsce tez, bo „drugie" nie ma byc przypadkiem wzorca liczacego do dwoch.
+    assert missing_modules({"6.D999": _mutacja(
+        "Weryfikacja", plotek % "test_crs.py test_lod.py test_nie_ma_takiego")}) == [
+        ("6.D999", "Weryfikacja", "test_nie_ma_takiego")], (
+        "literowka na TRZECIM miejscu nie zostala zgloszona albo zgloszono cos "
+        "innego: %s" % missing_modules({"6.D999": _mutacja(
+            "Weryfikacja", plotek % "test_crs.py test_lod.py test_nie_ma_takiego")}))
+
+    # Kierunek przeciwny — poprawne wywolanie dwoch i trzech modulow milczy.
+    for poprawne in ("test_crs.py test_lod.py",
+                     "test_crs.py test_lod.py test_backlog.py",
+                     "test_crs.py test_report_claims"):
+        assert _zapala("Weryfikacja", plotek % poprawne) == [], (
+            "poprawne wywolanie `%s` zapalilo bramke: %s"
+            % (poprawne, _zapala("Weryfikacja", plotek % poprawne)))
+
+
+def test_ogon_wywolania_KONCZY_SIE_na_pierwszym_tokenie_ktory_nazwa_nie_jest():
+    """Trzy POPRAWNE polecenia, na ktorych postac naiwna zapalalaby sie falszywie.
+
+    **Postac naiwna nie jest tu strachem na wrobla, tylko zmierzona alternatywa.**
+    Ogon czytany do konca wiersza, bez zatrzymania, dawal 16.09.2026 na `docs/TASKS.md`
+    **osiem** falszywych zgloszen (bez filtru `MODULE_ARGUMENT` — **siedemnascie**),
+    postac prefiksowa — **zero**. Wszystkie osiem stoi w poleceniach POPRAWNYCH, wiec
+    bramka z ta postacia zostalaby wylaczona, a nie naprawiona (6.D27).
+
+    Trzy wiersze nizej sa przepisane z `docs/TASKS.md` co do znaku: potok (6.D26),
+    srednik (6.D44, 6.D45, 6.D63) i `&&` (6.D234).
+    """
+    wiersze = {
+        "for i in 1 2 3; do python3 tools/tests/test_all.py | grep RAZEM; done":
+            [],
+        "python3 tools/tests/test_all.py test_ci_workflows.py; echo \"kod: $?\"":
+            ["test_ci_workflows.py"],
+        "python3 tools/tests/test_all.py && dotnet test tests/Sim.Tests":
+            [],
+    }
+    for wiersz, oczekiwane in wiersze.items():
+        plotek = "\n\n  ```bash\n  %s\n  ```\n" % wiersz
+        assert module_names(plotek) == oczekiwane, (
+            "ogon wiersza `%s` przeczytany jako %s, a nazwami modulu sa %s — "
+            "rozbior przestal sie zatrzymywac na tokenie, ktory nazwa nie jest"
+            % (wiersz, module_names(plotek), oczekiwane))
+        assert _zapala("Weryfikacja", plotek) == [], (
+            "poprawne polecenie `%s` zapalilo bramke: %s"
+            % (wiersz, _zapala("Weryfikacja", plotek)))
 
 
 def test_the_two_new_shapes_catch_the_measured_cases_and_leave_the_prose_alone():
@@ -1823,7 +1991,10 @@ def _istnieje_w_drzewie(nazwa):
 # ROZNYCH wartosci (1040 i 1042) — bo kazda widziala tylko SWOJE domkniecie.
 # Drzewo scalone niesie OBIE adnotacje, wiec zadna ze stron nie jest poprawna.
 # Wartosc nizej PRZELICZONA z drzewa po scaleniu.
-ADRESOW_W_WYKONANYCH = {"Wejście": 1044, "Wyjście": 65, "Weryfikacja": 410}
+# 1044/65/410 -> 1047/65/411 (17.09.2026, 6.D237): PIATY raz ta sama przyczyna —
+# adnotacja ZROBIONE przenosi blok pozycji z populacji OTWARTYCH do WYKONANYCH razem
+# z jego polami. Przeliczone z drzewa.
+ADRESOW_W_WYKONANYCH = {"Wejście": 1047, "Wyjście": 65, "Weryfikacja": 411}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
@@ -1890,7 +2061,30 @@ ADRESOW_W_WYKONANYCH = {"Wejście": 1044, "Wyjście": 65, "Weryfikacja": 410}
 # mozliwy — kazda strona konfliktu widziala TYLKO swoje domkniecie i kazda dawala
 # 144. Drzewo scalone niesie OBIE adnotacje. Wartosc PRZELICZONA Z DRZEWA po
 # scaleniu, nie zsumowana z przyrostow galezi.
-WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 145}
+# 6.D237 (17.09.2026): „Weryfikacja” 145 -> 164. To JEDYNY skok tej liczby, który
+# nie jest przybyciem bloku: `MODULE_CALL` czyta od dziś WSZYSTKIE argumenty
+# wywołania, a nie pierwszy, więc te same wiersze oddają o DZIEWIĘTNAŚCIE nazw
+# więcej. Policzone PODSTAWIENIEM wzorca, nie odjęciem: ten sam czytnik nad tym
+# samym drzewem, raz z dawną postacią jednoargumentową i raz z dzisiejszą, daje
+# 145 i 164, `DOSZLO 19`, `UBYLO []`. Dziewiętnaście wywołań dwuargumentowych stoi
+# w „Weryfikacji” bloków 6.D138, 6.D144, 6.D151, 6.D162, 6.D163, 6.D192, 6.D193,
+# 6.D194, 6.D203, 6.D204, 6.D205, 6.D206, 6.D207, 6.D209, 6.D216, 6.D218, 6.D228
+# (dwa) i 6.D230.
+#
+# **Liczba jest o TRZY większa niż w pomiarze tej pozycji z 16.09.2026 (156 przy
+# bazie 140) i nie jest to rozbieżność pomiaru.** Tamten pomiar stał na drzewie,
+# w którym 6.D228 i 6.D230 były blokami OTWARTYMI, a ich trzy wywołania dwu-
+# argumentowe liczyły się do populacji „wszystkie bloki", nie do „wykonane".
+# Scalenie #644 i #646 przeniosło oba bloki do WYKONANYCH razem z ich płotkami —
+# ta sama mechanika, którą opisuje komentarz 6.D228 wyżej, tu widoczna po raz piąty.
+# Wartość jest PRZELICZONA na dzisiejszym drzewie, a nie przepisana z pomiaru.
+#
+# Zera w dwóch pozostałych polach NIE DRGAJĄ mimo poszerzenia — patrz
+# `test_zero_wywolan_poza_Weryfikacja_jest_STRUKTURALNE`.
+# 164 -> 165 (17.09.2026): adnotacja ZROBIONE na wierszu tej pozycji, ta sama
+# przyczyna co przy `ADRESOW_W_WYKONANYCH` wyzej. Wywolanie w plotku jest
+# JEDNOargumentowe, wiec `nazwy_z_dalszego_argumentu` nie drga i zostaje 19.
+WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 165}
 
 #: Ilu kandydatow zlego adresu daje regula prozy, per pole — 6.D158.
 # 12 -> 13 (14.09.2026, 6.D204): trzynastym kandydatem jest `test_mutation_sweep.py`
@@ -1901,7 +2095,13 @@ WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 145}
 # `test_csharp_test_methods.py` z plotka „Weryfikacji" bloku tej pozycji — nazwa
 # modulu bez sciezki, ktorej proza bloku nie wymienia. Ten sam ksztalt co
 # trzynascie poprzednich, a nie zly adres: plik istnieje i zestaw go uruchamia.
-KANDYDATOW_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 14}
+# 14 -> 17 (16.09.2026, 6.D237): trzej nowi kandydaci wchodzą nie z nowego bloku,
+# tylko z poszerzenia `MODULE_CALL` na WSZYSTKIE argumenty — `test_timing_record.py`
+# z 6.D162 i 6.D194 oraz `test_suite_runtime_budget.py` z 6.D192, każdy stojący na
+# DRUGIM miejscu wywołania. Policzone DIFFEM listy: `UBYLO []`. Żaden nie jest złym
+# adresem — wszystkie trzy moduły są w drzewie i zestaw je uruchamia; to ten sam
+# kształt, co czternaście poprzednich (proza bloku nazywa bramkę po tym, co robi).
+KANDYDATOW_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 17}
 
 
 def adresy_pola_w_wykonanych(pole):
