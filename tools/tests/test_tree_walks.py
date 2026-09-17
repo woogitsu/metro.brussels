@@ -145,7 +145,7 @@ def klasa_zapadki(nazwa, porownania):
 
 
 #: **Wszystkie zapadki pod `tools/tests/`, każda z klasą i modułem.**
-#: Zapadek: 60. **Przybitych: 17, częściowych: 3, WOLNYCH: 39, poza zasięgiem skanu: 1.**
+#: Zapadek: 63. **Przybitych: 17, częściowych: 3, WOLNYCH: 42, poza zasięgiem skanu: 1.**
 #:
 #: **To zdanie jest przepisane, a nie dopisane obok — po raz DRUGI (15.09.2026).**
 #: Stało tu najpierw „Trzydzieści osiem: 13 przybitych…" (11.09.2026, `52752c9`)
@@ -200,6 +200,14 @@ ZAPADKI = {
     "MINIMUM_CALLERS": (WOLNA, "test_platform_length_in_pipeline.py"),
     "MINIMUM_CLAIMS": (WOLNA, "test_report_claims.py"),
     "MINIMUM_DEKLARACJI": (WOLNA, "test_dead_constants_csharp.py"),
+    # 6.D232: trzy podłogi na GAŁĘZIE wzorca deklaracji, obok podłogi na sumę.
+    # Suma broni przed wzorcem MARTWYM, a nie przed OKALECZONYM: wymuszenie
+    # modyfikatora dostępu zabiera 43 z 389 deklaracji i sumę przechodzi.
+    # Wszystkie trzy WOLNE z tego samego powodu co `MINIMUM_DZIUR` obok: stałych
+    # przybywa razem z kodem, więc przybicie czerwieniałoby przy każdej nowej.
+    "MINIMUM_BEZ_MODYFIKATORA": (WOLNA, "test_dead_constants_csharp.py"),
+    "MINIMUM_CONST": (WOLNA, "test_dead_constants_csharp.py"),
+    "MINIMUM_STATIC_READONLY": (WOLNA, "test_dead_constants_csharp.py"),
     # 6.D225: dolne ostrze na skan dziur interpolacji. Bez niego oślepiony
     # czytnik dziur jest dziś ZIELONY — martwych nie przybywa, bo dziś żadna
     # stała nie wychodzi przez to na martwą. Klasa WOLNA: liczba dziur rośnie
@@ -753,7 +761,7 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
         "znaczy, że komuś ubył strażnik; w stronę `przybita`, że doszedł i wpis "
         "trzeba poprawić" % inna_klasa)
 
-    assert len(w_drzewie) == ZAPADEK_RAZEM == 60, (
+    assert len(w_drzewie) == ZAPADEK_RAZEM == 63, (
         "zapadek w drzewie %d, na liście %d, pomiar z 11.09.2026 mówił 38, "
         "po 6.D146 — 40, po 6.D147 — 42 (doszła zapadka na sekwencje ucieczki "
         "i próg KW jej skanu), po 6.D187 — 44 (dwa progi KW skanu gołych nazw), "
@@ -772,7 +780,13 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
         "`main` 57, a scalone drzewo niesie OBIE zapadki i ma 58, a po 6.D237 — 59 "
         "(podłoga na liczbę nazw modułu przychodzących z DRUGIEGO i dalszego "
         "argumentu `test_all.py`), a po 6.D238 — 60 (podłoga na liczbę wierszy tabeli §4 "
-        "T-401 czytanych przez wiązanie arytmetyczne kolumny różnicy)"
+        "T-401 czytanych przez wiązanie arytmetyczne kolumny różnicy), a po 6.D232 — 63 "
+        "(TRZY podłogi na GAŁĘZIE wzorca deklaracji C#: `const`, `static readonly` "
+        "i przekrój „bez modyfikatora dostępu”, bo suma deklaracji broni przed wzorcem "
+        "MARTWYM, a nie przed OKALECZONYM). Liczba 63 jest PRZELICZONA z drzewa po "
+        "scaleniu, a nie wzięta z żadnej strony konfliktu: gałąź 6.D232 mierzyła bazę "
+        "59 i dawała 62, `main` miał w tym czasie 60, a scalone drzewo niesie WSZYSTKIE "
+        "zapadki obu stron"
         % (len(w_drzewie), ZAPADEK_RAZEM))
 
     # Liczby zbiorcze. **Nie jest to ozdobnik komunikatu i pokazała to KN-7.**
@@ -782,7 +796,7 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
     # a „21 wolnych" staje się nieprawdą, której nie zgłasza nic. KN-7 wykonała
     # dokładnie ten scenariusz: jedyną czerwienią była ta asercja.
     ile = collections.Counter(w_drzewie.values())
-    assert (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM]) == (17, 3, 39, 1), (
+    assert (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM]) == (17, 3, 42, 1), (
         "klasy zapadek: przybitych %d, częściowych %d, WOLNYCH %d, poza skanem %d — "
         "pomiar z 11.09.2026 mówił 13/3/21/1, po 6.D146 — 13/3/23/1, a po 6.D147 — "
         "14/3/24/1, po 6.D151 — 15/3/23/1, po 6.D167 — 17/3/21/1, po 6.D187 — "
@@ -790,7 +804,7 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
         "17/3/27/1, po 6.D207 — 17/3/28/1, a po 6.D209 — 17/3/29/1, a po 6.D222 — "
         "17/3/30/1, a po 6.D216 — 17/3/33/1, a po 6.D240 — 17/3/34/1, a po 6.D227 — "
         "17/3/36/1, a po 6.D225 — 17/3/37/1, a po 6.D237 — 17/3/38/1, a po 6.D238 — "
-        "17/3/39/1; wolne to te, "
+        "17/3/39/1, a po 6.D232 — 17/3/42/1; wolne to te, "
         "które da się ruszyć "
         "w zakazaną stronę bez zapalenia czegokolwiek: %s"
         % (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM],

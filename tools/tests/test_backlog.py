@@ -449,7 +449,10 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 # w `docs/TASKS.md`: jej pole „Wyjscie" trzeba by wymyslic, bo wiersz stawia wybor
 # miedzy zapisem do `data/` (§4.6) a oknem przejsciowym bez daty konca.
 # Liczba POLICZONA przez `len(detail_sections(...))` na pliku PO edycji.
-MINIMUM_DETAIL_BLOCKS = 315
+# 315 -> 319 (17.09.2026): cztery bloki pozycji 6.D252-6.D255, dopisane jako
+# uzupelnienie kolejki wymuszone przez `test_the_queue_holds_at_least_a_day_of_work`
+# po domknieciu 6.D232. Policzone czytnikiem `detail_sections` na pliku PO edycji.
+MINIMUM_DETAIL_BLOCKS = 319
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je

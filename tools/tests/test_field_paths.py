@@ -1999,7 +1999,10 @@ def _istnieje_w_drzewie(nazwa):
 # 1052/65/412 -> 1056/65/412 (17.09.2026, 6.D231): SIODMY raz ta sama przyczyna —
 # adnotacja ZROBIONE przenosi blok pozycji do populacji WYKONANYCH. Pole „Weryfikacja"
 # NIE drgnelo, bo plotek tego bloku wola te same adresy, co juz w niej stoja.
-ADRESOW_W_WYKONANYCH = {"Wejście": 1056, "Wyjście": 65, "Weryfikacja": 412}
+# 1056/65/412 -> 1058/65/413 (17.09.2026, 6.D232): OSMY raz ta sama przyczyna —
+# adnotacja ZROBIONE przenosi blok pozycji do populacji WYKONANYCH. Cztery NOWE bloki
+# (6.D252-6.D255) tej liczby NIE ruszaja, bo sa OTWARTE; licza sie do `MIN_PATHS`.
+ADRESOW_W_WYKONANYCH = {"Wejście": 1058, "Wyjście": 65, "Weryfikacja": 413}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
@@ -2091,7 +2094,9 @@ ADRESOW_W_WYKONANYCH = {"Wejście": 1056, "Wyjście": 65, "Weryfikacja": 412}
 # JEDNOargumentowe, wiec `nazwy_z_dalszego_argumentu` nie drga i zostaje 19.
 # 165 -> 166 (17.09.2026, 6.D238): jak wyzej, jedno wywolanie JEDNOargumentowe
 # z plotka „Weryfikacji" tego bloku.
-WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 166}
+# 166 -> 167 (17.09.2026, 6.D232): jedno wywolanie JEDNOargumentowe z plotka
+# „Weryfikacji" bloku tej pozycji, ta sama przyczyna co przy adresach wyzej.
+WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 167}
 
 #: Ilu kandydatow zlego adresu daje regula prozy, per pole — 6.D158.
 # 12 -> 13 (14.09.2026, 6.D204): trzynastym kandydatem jest `test_mutation_sweep.py`
