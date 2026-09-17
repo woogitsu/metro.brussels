@@ -2008,7 +2008,17 @@ def _istnieje_w_drzewie(nazwa):
 # 1064/65/413 -> 1070/65/414 (17.09.2026, 6.D233): DZIESIATY raz ta sama przyczyna —
 # adnotacja ZROBIONE przenosi blok pozycji do populacji WYKONANYCH razem z polami.
 # 1070/65/414 -> 1072/65/414 (17.09.2026, 6.D252): JEDENASTY raz ta sama przyczyna.
-ADRESOW_W_WYKONANYCH = {"Wejście": 1072, "Wyjście": 65, "Weryfikacja": 414}
+# „Wejście" 1072 -> 1075 (17.09.2026, 6.D253): TRZY adresy z pola „Wejście"
+# WLASNEGO bloku tej pozycji, ktory adnotacja ZROBIONE przeniosla do wykonanych —
+# `tests/Game.Tests/TractionBlockTests.cs`, `tests/Game.Tests/TrainingWiringTests.cs`
+# i `tests/Game.Tests/HandleTrainKeysGateTests.cs`. „Weryfikacja" NIE DRGA i to jest
+# tresc, a nie brak: plotek tej pozycji wola `~/.dotnet/dotnet test tests/Game.Tests`,
+# a nie `tools/tests/test_all.py`, wiec nie niesie ani adresu, ani wywolania modulu —
+# ten sam ksztalt co przy 6.D210. „Wyjscie" nie drga, bo to pole nie cytuje ani jednego
+# adresu. Blok 6.D257, dopisany tym samym commitem, do tych liczb NIE wchodzi: jest
+# pozycja OTWARTA, a skan czyta wylacznie bloki wykonanych. Liczby PRZELICZONE
+# czytnikiem `adresy_pola_w_wykonanych` na pliku PO edycji, nie zsumowane.
+ADRESOW_W_WYKONANYCH = {"Wejście": 1075, "Wyjście": 65, "Weryfikacja": 414}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu

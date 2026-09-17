@@ -261,9 +261,16 @@ public sealed class TractionBlockTests
 
     private static string ZrodloGry(string wzgledna)
     {
-        var katalog = System.IO.Directory.GetCurrentDirectory();
+        // **Korzeń po `MetroBxl.sln`, a NIE po katalogu `.git` — 6.D253.**
+        // W worktree `.git` jest PLIKIEM, nie katalogiem, więc `Directory.Exists`
+        // nie znajdowało go nigdy i pętla dochodziła do korzenia systemu plików.
+        // Zmierzone: w worktree padało SIEDEM testów `Game.Tests`, w głównym
+        // katalogu roboczym ani jeden — a agenci tego projektu pracują w worktree
+        // z instrukcji. `.sln` jest treścią repozytorium i jest PLIKIEM w obu
+        // układach; ten sam wzór działa od dawna w `HandleTrainKeysGateTests`.
+        var katalog = System.AppContext.BaseDirectory;
         while (katalog is not null
-               && !System.IO.Directory.Exists(System.IO.Path.Combine(katalog, ".git")))
+               && !System.IO.File.Exists(System.IO.Path.Combine(katalog, "MetroBxl.sln")))
         {
             katalog = System.IO.Directory.GetParent(katalog)?.FullName;
         }
