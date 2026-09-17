@@ -1817,7 +1817,13 @@ def _istnieje_w_drzewie(nazwa):
 # OTWARTYCH do WYKONANYCH razem z jego polami. Trzeci raz tego samego dnia, wiec nie
 # jest to niespodzianka, tylko WLASCIWOSC populacji „bloki wykonane": rusza ja KAZDE
 # domkniecie pozycji. Przeliczone z drzewa.
-ADRESOW_W_WYKONANYCH = {"Wejście": 1040, "Wyjście": 65, "Weryfikacja": 409}
+# 1038/65/408 -> 1042/65/409 i 143 -> 144 (16.09.2026, 6.D230): adnotacja ZROBIONE
+# przeniosla blok tej pozycji do populacji WYKONANYCH. Czwarty raz tego samego dnia.
+# Obie strony tego konfliktu podnosily TE SAMA zapadke z TEGO SAMEGO powodu, do
+# ROZNYCH wartosci (1040 i 1042) — bo kazda widziala tylko SWOJE domkniecie.
+# Drzewo scalone niesie OBIE adnotacje, wiec zadna ze stron nie jest poprawna.
+# Wartosc nizej PRZELICZONA z drzewa po scaleniu.
+ADRESOW_W_WYKONANYCH = {"Wejście": 1044, "Wyjście": 65, "Weryfikacja": 410}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
@@ -1879,7 +1885,12 @@ ADRESOW_W_WYKONANYCH = {"Wejście": 1040, "Wyjście": 65, "Weryfikacja": 409}
 # 141 -> 142 (16.09.2026, 6.D228): z tego samego powodu co `ADRESOW_W_WYKONANYCH`
 # wyzej — blok 6.D228 przeszedl do populacji WYKONANYCH ze swoim plotkiem
 # „Weryfikacja". Podstawienie: bez napisu ZROBIONE czytnik daje z powrotem 141.
-WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 144}
+# 142 -> 144 (16.09.2026, 6.D239 i 6.D236) i 144 -> 145 PO SCALENIU (6.D230):
+# ta sama przyczyna co przy `ADRESOW_W_WYKONANYCH` wyzej i ten sam blad byl tu
+# mozliwy — kazda strona konfliktu widziala TYLKO swoje domkniecie i kazda dawala
+# 144. Drzewo scalone niesie OBIE adnotacje. Wartosc PRZELICZONA Z DRZEWA po
+# scaleniu, nie zsumowana z przyrostow galezi.
+WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 145}
 
 #: Ilu kandydatow zlego adresu daje regula prozy, per pole — 6.D158.
 # 12 -> 13 (14.09.2026, 6.D204): trzynastym kandydatem jest `test_mutation_sweep.py`
