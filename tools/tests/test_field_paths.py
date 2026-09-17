@@ -2046,7 +2046,9 @@ def _istnieje_w_drzewie(nazwa):
 # WLASNEGO bloku tej pozycji. Blok 6.D264, dopisany tym samym commitem, do tych
 # liczb NIE wchodzi: pozycja OTWARTA. `WYWOLAN` nie drga (171): plotek 6.D260 wola
 # `~/.dotnet/dotnet test`, ktory niesie ADRES, ale nie jest wywolaniem modulu.
-ADRESOW_W_WYKONANYCH = {"Wejście": 1102, "Wyjście": 65, "Weryfikacja": 424}
+# 1102 -> 1105 i „Weryfikacja" 424 -> 425 (17.09.2026, 6.D261): adresy z pol
+# WLASNEGO bloku tej pozycji. Blok 6.D265 do tych liczb NIE wchodzi: pozycja OTWARTA.
+ADRESOW_W_WYKONANYCH = {"Wejście": 1105, "Wyjście": 65, "Weryfikacja": 425}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
@@ -2144,7 +2146,9 @@ ADRESOW_W_WYKONANYCH = {"Wejście": 1102, "Wyjście": 65, "Weryfikacja": 424}
 # `test_tree_walks.py` z plotka „Weryfikacji" bloku tej pozycji.
 # 170 -> 171 (17.09.2026, 6.D259): jedno wywolanie modulu wiecej —
 # `test_message_claims.py` z plotka „Weryfikacji" bloku tej pozycji.
-WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 171}
+# 171 -> 172 (17.09.2026, 6.D261): jedno wywolanie modulu wiecej —
+# `test_csharp_test_methods.py` z plotka „Weryfikacji" bloku tej pozycji.
+WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 172}
 
 #: Ilu kandydatow zlego adresu daje regula prozy, per pole — 6.D158.
 # 12 -> 13 (14.09.2026, 6.D204): trzynastym kandydatem jest `test_mutation_sweep.py`

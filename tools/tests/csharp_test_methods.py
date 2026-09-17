@@ -492,3 +492,91 @@ def main():
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+#: Podpis pomocnika `private static` — 6.D261. Typ zwracany lapany leniwie,
+#: bo bywa generyczny (`List<(string, int)>`), tablicowy i dopuszczalny (`string?`);
+#: rozstrzyga NAWIAS po nazwie, ktory odroznia metode od pola.
+PODPIS_POMOCNIKA = re.compile(
+    r"^\s*private\s+static\s+(?:readonly\s+)?[\w<>,\[\]\?\s]+?\s+(\w+)\s*\(")
+
+
+def _cialo_pomocnika(linie, i):
+    """Wiersze metody od jej podpisu do domykajacej klamry — albo do `;`.
+
+    Dwie postacie i obie sa w drzewie: cialo w klamrach oraz metoda wyrazeniowa
+    `=> ...;`, ktora klamry nie ma wcale. Czytnik liczacy same klamry gubilby te
+    druga, a wsrod powtorzonych pomocnikow jest ona POSTACIA WIEKSZOSCI.
+    """
+    j = i
+    while j < len(linie) and "{" not in linie[j]:
+        if ";" in linie[j]:
+            return linie[i:j + 1]
+        j += 1
+    if j >= len(linie):
+        return linie[i:i + 1]
+    glebokosc = 0
+    k = j
+    while k < len(linie):
+        glebokosc += linie[k].count("{") - linie[k].count("}")
+        if k > j and glebokosc <= 0:
+            return linie[i:k + 1]
+        if k == j and glebokosc == 0 and "}" in linie[k]:
+            return linie[i:k + 1]
+        k += 1
+    return linie[i:k]
+
+
+def _tresc(blok):
+    """Biale znaki zdjete — porownujemy TRESC, a nie wciecie."""
+    return re.sub(r"\s+", " ", " ".join(blok)).strip()
+
+
+def pomocnicy(root=ROOT):
+    """`{nazwa: [(plik, projekt, wiersz, tresc)]}` dla podpisow `private static`.
+
+    Tresc jest tu ZNORMALIZOWANA, a nie zahaszowana, i to jest wybor: bramka
+    ma umiec pokazac, CZYM rodziny sie roznia, a nie tylko ze sie roznia.
+
+    **`plik` niesie PROJEKT, a nie sama nazwe pliku, i to jest poprawka z pierwszego
+    przebiegu kontroli przyrzadu.** Pierwsza wersja kluczowala po `basename`, wiec dwa
+    pliki o tej samej nazwie w roznych projektach byly dla niej JEDNYM plikiem —
+    a rodzina wymaga dwoch. W dzisiejszym drzewie powtorzonych nazw plikow nie ma
+    ani jednej, wiec zadna liczba w tym module by sie nie ruszyla i usterka przeszlaby
+    caly zestaw na zielono; zlapal ja dopiero fixture, ktory takie dwa pliki tworzy.
+    """
+    out = {}
+    for path in pliki(root):
+        projekt = os.path.basename(os.path.dirname(path))
+        linie = open(path, encoding="utf-8").read().split("\n")
+        for i, lin in enumerate(linie):
+            trafienie = PODPIS_POMOCNIKA.match(lin)
+            if not trafienie:
+                continue
+            out.setdefault(trafienie.group(1), []).append(
+                (os.path.join(projekt, os.path.basename(path)), projekt, i + 1,
+                 _tresc(_cialo_pomocnika(linie, i))))
+    return out
+
+
+def rodziny_pomocnikow(root=ROOT):
+    """`(identyczne, jednoimienne)` — nazwy padajace w WIECEJ NIZ JEDNYM pliku.
+
+    Podzial jest cala trescia 6.D261 i pytalo o niego pole „Wyjscie": ta sama nazwa
+    nad TYM SAMYM cialem jest duplikatem do scalenia, a nad INNYM — zbiegiem nazw,
+    ktorego scalac nie wolno. Zlanie ich w jedna liczbe „24 powtorzone nazwy" nie
+    mowi, ktora z tych dwoch rzeczy sie widzi.
+    """
+    identyczne, jednoimienne = {}, {}
+    for nazwa, wystapienia in pomocnikow_w_wielu_plikach(root).items():
+        tresci = {w[3] for w in wystapienia}
+        (identyczne if len(tresci) == 1 else jednoimienne)[nazwa] = wystapienia
+    return identyczne, jednoimienne
+
+
+def pomocnikow_w_wielu_plikach(root=ROOT):
+    """Same rodziny — nazwa musi pasc w co najmniej DWoCH plikach.
+
+    Dwa pomocniki o tej samej nazwie w JEDNYM pliku to przeciazenie, a nie
+    duplikat miedzy plikami, i do tego skanu nie naleza.
+    """
+    return {n: w for n, w in pomocnicy(root).items() if len({x[0] for x in w}) > 1}

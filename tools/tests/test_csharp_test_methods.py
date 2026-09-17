@@ -13,6 +13,7 @@ sie tam jako PORAZKA. Po stronie C# nie bylo nic.
 import os
 import re
 import sys
+import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -959,3 +960,102 @@ def test_bramka_na_liczbe_petli_widzi_ksztalt_ktory_ma_widziec():
 if __name__ == "__main__":
     import test_all
     raise SystemExit(test_all.main(__file__))
+
+# --- 6.D261: powtorzona nazwa pomocnika — duplikat czy zbieg nazw ---------------
+
+#: **Dwadziescia cztery nazwy `private static` padaja w wiecej niz jednym pliku,
+#: i to sa DWIE rozne rzeczy, a nie jedna.** 6.D257 znalazlo najwieksza rodzine
+#: (szukanie korzenia) i scalilo jej LOGIKE; ta pozycja pyta o reszte i rozdziela
+#: je pomiarem. Zmierzone 17.09.2026 na 67 plikach i 237 podpisach:
+#:
+#: * **10 rodzin IDENTYCZNYCH** — ta sama nazwa nad tym samym cialem po normalizacji
+#:   bialych znakow. Z tego TRZY (`RepositoryRoot` x9, `RepoRoot` x3,
+#:   `FindRepositoryRoot` x3, razem **15 kopii**) sa jednowierszowymi DELEGACJAMI
+#:   do `KorzenRepozytorium`, zostawionymi przez 6.D257: tamta pozycja zdjela petle,
+#:   a nie opakowania. Pozostale SIEDEM to po DWIE kopie kazda.
+#: * **14 rodzin JEDNOIMIENNYCH** — ta sama nazwa nad ROZNYM cialem. Najliczniejsze:
+#:   `Settings` x7 w czterech postaciach, `Level` x7 w trzech, `Plan` x6 w czterech.
+#:   Scalenie ich byloby bledem, a nie sprzataniem.
+#:
+#: **Odpowiedz na pytanie z pola „Wyjscie" brzmi: ZADNA z siedmiu nie zasluguje
+#: na wspolny plik** — i jest to liczba, a nie ocena. Wszystkie siedem ma po DWIE
+#: kopie, wszystkie sa jednowierszowe (48–163 znaki tresci), a SZESC z siedmiu stoi
+#: w obrebie JEDNEGO projektu. Wspolny plik kosztuje wpis `Compile Include` w kazdym
+#: `.csproj`, ktory go bierze; dla jednowierszowca uzywanego dwa razy w tym samym
+#: projekcie jest to koszt wiekszy niz oszczednosc. Jedyna rodzina miedzyprojektowa
+#: (`Notch`) jest zarazem najkrotsza z calej dziesiatki.
+RODZIN_IDENTYCZNYCH = 10
+RODZIN_JEDNOIMIENNYCH = 14
+
+#: Podloga na liczbe podpisow — WOLNA, bo pomocnikow przybywa razem z testami.
+MIN_PODPISOW_POMOCNIKA = 200
+
+
+def test_ile_rodzin_pomocnikow_jest_DUPLIKATEM_a_ile_ZBIEGIEM_NAZW():
+    """**Obie liczby, ktorych zadalo pole „Wyjscie" — rownosciami, nie progiem.**
+
+    Rownosc jest tu wyborem: dopisanie DWUDZIESTEJ PIATEJ powtorzonej nazwy zmienia
+    jedna z tych dwoch liczb bez wzgledu na to, do ktorej kupki wpadnie — a prog
+    zlapalby tylko jedna ze stron. Podloga na liczbe podpisow stoi obok, zeby
+    czytnik oslepiony do zera nie przeszedl obu rownosci przez zejscie do (0, 0).
+    """
+    podpisow = sum(len(w) for w in czytnik.pomocnicy().values())
+    assert podpisow >= MIN_PODPISOW_POMOCNIKA, (
+        "podpisow `private static` pod `tests/` jest %d przy podlodze %d — czytnik "
+        "oslepl albo pomocnicy zniknęli, a wtedy obie rownosci nizej przechodza "
+        "zejsciem do zera" % (podpisow, MIN_PODPISOW_POMOCNIKA))
+
+    identyczne, jednoimienne = czytnik.rodziny_pomocnikow()
+    assert (len(identyczne), len(jednoimienne)) == (RODZIN_IDENTYCZNYCH,
+                                                    RODZIN_JEDNOIMIENNYCH), (
+        "rodzin identycznych %d i jednoimiennych %d, a pomiar 17.09.2026 dal %d i %d. "
+        "Identyczne: %s. Jednoimienne: %s. Rodzina IDENTYCZNA to ta sama nazwa nad TYM "
+        "SAMYM cialem — kandydat do scalenia; JEDNOIMIENNA to ta sama nazwa nad INNYM "
+        "cialem i scalac jej NIE WOLNO"
+        % (len(identyczne), len(jednoimienne), RODZIN_IDENTYCZNYCH,
+           RODZIN_JEDNOIMIENNYCH, sorted(identyczne), sorted(jednoimienne)))
+
+
+def test_czytnik_rodzin_odroznia_TO_SAMO_CIALO_od_TEJ_SAMEJ_NAZWY():
+    """**Kontrola przyrzadu do 6.D261 — piec ksztaltow na drzewie probnym.**
+
+    Zadanie zadalo jej wprost: dwie metody o tej samej nazwie i ROZNYCH cialach maja
+    zostac policzone jako rodzina „ta sama nazwa, inna tresc", a nie jako duplikat.
+    Bez tego liczby (10, 14) nie odroznialyby sie od czytnika, ktory kazda powtorzona
+    nazwe wrzuca do jednej kupki — a taki tez daje sume 24.
+
+    Sprawdzane sa naraz: rozroznienie cial, obojetnosc na WCIECIE (tresc, nie zapis),
+    pominiecie nazwy padajacej w JEDNYM pliku (przeciazenie, nie duplikat) oraz
+    metoda WYRAZENIOWA `=> ...;`, ktora klamry nie ma — a jest postacia wiekszosci
+    powtorzonych pomocnikow w tym drzewie.
+    """
+    a = ("class A {\n"
+         "    private static int Ten() { return 1; }\n"
+         "    private static int Inny() { return 1; }\n"
+         "    private static int Wyrazeniowy() => 7;\n"
+         "    private static int WJednymPliku() { return 2; }\n"
+         "    private static int WJednymPliku(int x) { return x; }\n"
+         "}\n")
+    b = ("class B {\n"
+         "    private static int Ten() {   return 1;   }\n"
+         "    private static int Inny() { return 999; }\n"
+         "    private static int Wyrazeniowy() => 7;\n"
+         "}\n")
+
+    with tempfile.TemporaryDirectory(prefix="metro-pomocnicy-") as katalog:
+        for projekt, tresc in (("Alfa.Tests", a), ("Beta.Tests", b)):
+            os.makedirs(os.path.join(katalog, "tests", projekt))
+            with open(os.path.join(katalog, "tests", projekt, "T.cs"), "w",
+                      encoding="utf-8") as uchwyt:
+                uchwyt.write(tresc)
+        identyczne, jednoimienne = czytnik.rodziny_pomocnikow(katalog)
+
+    assert sorted(identyczne) == ["Ten", "Wyrazeniowy"], (
+        "identyczne dalo %s — `Ten` rozni sie tylko WCIECIEM, a `Wyrazeniowy` jest "
+        "metoda bez klamry; obie maja byc duplikatem" % sorted(identyczne))
+    assert sorted(jednoimienne) == ["Inny"], (
+        "jednoimienne dalo %s — `Inny` ma to samo imie nad ROZNYM cialem i nie jest "
+        "duplikatem" % sorted(jednoimienne))
+    assert "WJednymPliku" not in identyczne and "WJednymPliku" not in jednoimienne, (
+        "przeciazenie w JEDNYM pliku policzone jako rodzina miedzy plikami")
+
