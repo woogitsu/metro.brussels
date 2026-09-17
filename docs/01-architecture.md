@@ -9,6 +9,7 @@ Rdzeń symulacji linii działa krokiem stałym **1/120 s**, bez grafiki. Stan ob
 ```text
 src/
   Sim/                    rdzeń — ZERO zależności od Godota
+    Json/                 odczyt pola wymaganego z dokumentu JSON
     Line/                 oś, trasa, kilometraż
     Physics/              trakcja, opory, hamowanie, dynamika
     Signalling/           bloki stałe, ochrona pociągu, plany tras

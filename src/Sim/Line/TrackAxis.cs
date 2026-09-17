@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text.Json;
+using MetroBxl.Sim.Json;
 
 namespace MetroBxl.Sim.Line;
 
@@ -248,7 +249,7 @@ public sealed class TrackAxis
         }
 
         var raw = new List<AxisPoint>();
-        foreach (var point in root.GetProperty("points").EnumerateArray())
+        foreach (var point in root.RequiredField("points", "oś").EnumerateArray())
         {
             raw.Add(new AxisPoint(point[0].GetDouble(), point[1].GetDouble(), point[2].GetDouble()));
         }
@@ -268,8 +269,8 @@ public sealed class TrackAxis
             foreach (var station in stationArray.EnumerateArray())
             {
                 stations.Add(new AxisStation(
-                    station.GetProperty("name").GetString() ?? "?",
-                    station.GetProperty("chainage_m").GetDouble(),
+                    station.RequiredField("name", "stacja osi").GetString() ?? "?",
+                    station.RequiredField("chainage_m", "stacja osi").GetDouble(),
                     station.TryGetProperty("stop_id", out var stopId)
                         ? stopId.GetString() ?? string.Empty
                         : string.Empty,

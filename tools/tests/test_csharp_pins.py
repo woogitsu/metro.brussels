@@ -411,9 +411,9 @@ ROZKLAD_LICZBOWYCH = {
         # `BrokenJsonRefusalTests.cs` — podloga na liczbe przejrzanych par
         # loader x ksztalt. CALKOWITY i BEZ TOLERANCJI, bo jest liczba przebiegow
         # petli, nie miara fizyczna. Przeliczone z drzewa po scaleniu.
-        "razem": 480, "z_tolerancja": 188, "bez_tolerancji": 292,
+        "razem": 481, "z_tolerancja": 188, "bez_tolerancji": 293,
         "zmiennoprzecinkowe": 196, "zmiennoprzecinkowe_bez_tolerancji": 8,
-        "calkowite": 284, "calkowite_z_tolerancja": 0, "tolerancja_zero": 119,
+        "calkowite": 285, "calkowite_z_tolerancja": 0, "tolerancja_zero": 119,
     },
 }
 

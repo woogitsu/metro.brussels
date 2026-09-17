@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text.Json;
+using MetroBxl.Sim.Json;
 using MetroBxl.Sim.Line;
 using MetroBxl.Sim.Physics;
 
@@ -158,14 +159,14 @@ public sealed class CbtcTestArea
         using var document = JsonText.Parse(json, "definicja strefy testowej CBTC");
         var root = document.RootElement;
 
-        var schema = root.GetProperty("schema_version").GetInt32();
+        var schema = root.RequiredField("schema_version", "definicja strefy testowej").GetInt32();
         if (schema != CurrentSchemaVersion)
         {
             throw new FormatException(
                 $"definicja strefy testowej ma schema_version {schema}, a rdzeń zna {CurrentSchemaVersion}");
         }
 
-        var status = ParameterStatusParser.Parse(root.GetProperty("status").GetString() ?? string.Empty);
+        var status = ParameterStatusParser.Parse(root.RequiredField("status", "definicja strefy testowej").GetString() ?? string.Empty);
         if (status != ParameterStatus.DesignModel)
         {
             // Ta sama reguła co przy planie bloków z T-313: awans bez identyfikatora
@@ -174,17 +175,17 @@ public sealed class CbtcTestArea
             if (string.IsNullOrWhiteSpace(sourceId))
             {
                 throw new FormatException(
-                    $"strefa {root.GetProperty("area_id").GetString()} ma status " +
+                    $"strefa {root.RequiredField("area_id", "definicja strefy testowej").GetString()} ma status " +
                     $"'{ParameterStatusParser.ToRegistryString(status)}' bez source_id — " +
                     "granice bez źródła muszą zostać design_model");
             }
         }
 
-        var extent = root.GetProperty("extent");
+        var extent = root.RequiredField("extent", "definicja strefy testowej");
         var stages = new List<CbtcTestStage>();
-        foreach (var element in root.GetProperty("stages").EnumerateArray())
+        foreach (var element in root.RequiredField("stages", "definicja strefy testowej").EnumerateArray())
         {
-            stages.Add((element.GetProperty("id").GetString() ?? string.Empty) switch
+            stages.Add((element.RequiredField("id", "etap testów").GetString() ?? string.Empty) switch
             {
                 "static_communications" => CbtcTestStage.StaticCommunications,
                 "dynamic_train_running" => CbtcTestStage.DynamicTrainRunning,
@@ -193,7 +194,7 @@ public sealed class CbtcTestArea
         }
 
         var sites = new List<CbtcDynamicTestSite>();
-        foreach (var element in root.GetProperty("dynamic_test_locations").EnumerateArray())
+        foreach (var element in root.RequiredField("dynamic_test_locations", "definicja strefy testowej").EnumerateArray())
         {
             sites.Add(new CbtcDynamicTestSite(
                 Text(element, "station"),
@@ -203,15 +204,15 @@ public sealed class CbtcTestArea
         }
 
         return new CbtcTestArea(
-            root.GetProperty("area_id").GetString() ?? throw new FormatException("strefa bez area_id"),
-            root.GetProperty("mode").GetString() ?? throw new FormatException("strefa bez mode"),
+            root.RequiredField("area_id", "definicja strefy testowej").GetString() ?? throw new FormatException("strefa bez area_id"),
+            root.RequiredField("mode", "definicja strefy testowej").GetString() ?? throw new FormatException("strefa bez mode"),
             status,
             DateOnly.ParseExact(
-                root.GetProperty("as_of").GetString() ?? throw new FormatException("strefa bez as_of"),
+                root.RequiredField("as_of", "definicja strefy testowej").GetString() ?? throw new FormatException("strefa bez as_of"),
                 "yyyy-MM-dd",
                 CultureInfo.InvariantCulture),
-            extent.GetProperty("from_station").GetString() ?? throw new FormatException("brak from_station"),
-            extent.GetProperty("to_station").GetString() ?? throw new FormatException("brak to_station"),
+            extent.RequiredField("from_station", "pole extent").GetString() ?? throw new FormatException("brak from_station"),
+            extent.RequiredField("to_station", "pole extent").GetString() ?? throw new FormatException("brak to_station"),
             stages,
             sites,
             Strings(root, "source_fact_ids"),
@@ -292,7 +293,7 @@ public sealed class CbtcTestArea
     private static IReadOnlyList<string> Strings(JsonElement element, string property)
     {
         var values = new List<string>();
-        foreach (var item in element.GetProperty(property).EnumerateArray())
+        foreach (var item in element.RequiredField(property, "definicja strefy testowej").EnumerateArray())
         {
             values.Add(item.GetString() ?? throw new InvalidDataException($"pusty wpis w {property}"));
         }

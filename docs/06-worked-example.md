@@ -130,20 +130,21 @@ właściciela.**
 obok.** Poprzednia wersja mówiła: „`actions/checkout` robi `git clean -ffdx`,
 `__pycache__` jest w `.gitignore`, więc każdy przebieg CI zaczyna zimno". Pierwsza
 połowa jest prawdziwa, **druga nie** i obalił ją log przebiegu: zestaw wypisuje tam
-`[BAJTKOD] wyczyszczono 7 kat. __pycache__ (207 plikow) pod tools/`, czyli **207 plików
+`[BAJTKOD] wyczyszczono 7 kat. __pycache__ (208 plikow) pod tools/`, czyli **208 plików
 bajtkodu leżało, zanim wystartował**. (Liczba rośnie z każdym nowym modułem
 narzędziowym: 201 w dniu pomiaru, 202 po dopisaniu `test_mass_copies.py` przy 6.D138,
 203 po dopisaniu `test_prose_counts.py` przy 6.D166, 204 po dopisaniu
 `test_playable_scripts.py` przy MB-01, 205 po dopisaniu `test_player_package.py`
 przy MB-04, 206 po dopisaniu `test_doctor_test_log.py` przy 6.D241, 207 po dopisaniu
-`test_rights_matrix_doc.py` przy 6.D239 — bramka zapalała
+`test_rights_matrix_doc.py` przy 6.D239, 208 po dopisaniu
+`test_json_required.py` przy 6.D233 — bramka zapalała
 się na każdej z tych jedynek sama.)
 
 Tworzy je **jeden nazwany krok tego samego joba** — `Compile Python tools`, czyli
 `python3 -m compileall -q tools`, stojący w `python-tests.yml` bezpośrednio przed
 krokiem „Run tool tests". Liczby zgadzają się co do pliku i są odtwarzalne lokalnie:
-na czystym drzewie `compileall` daje **7 katalogów i 207 plików**, z tym samym
-rozkładem (`tools/tests` 136, `tools/blender` 29, `tools/track` 23, `tools/ci` 9,
+na czystym drzewie `compileall` daje **7 katalogów i 208 plików**, z tym samym
+rozkładem (`tools/tests` 137, `tools/blender` 29, `tools/track` 23, `tools/ci` 9,
 `tools/visual` 5, `tools/physics` 3, `tools/data` 2).
 
 Wniosek zostaje ten sam, ale wynika z czego innego: ten bajtkod powstał **z tego samego
