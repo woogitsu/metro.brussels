@@ -318,6 +318,148 @@ ZAPADKI = {
 ZAPADEK_RAZEM = len(ZAPADKI)
 
 
+# --- 6.D254: czy KLASA mówi prawdę o ZACHOWANIU -------------------------------
+
+def uzycia_zapadek(katalog=None, root=None):
+    """`{nazwa: [(plik, wiersz, rola)]}` dla wszystkich użyć nazw o kształcie zapadki.
+
+    Cztery role, i podział na nie jest CAŁĄ treścią tego czytnika:
+
+    * ``definicja`` — przypisanie,
+    * ``nosna`` — nazwa stoi wprost w `ast.Compare`, czyli od niej coś zależy,
+    * ``komunikat`` — nazwa stoi w `Assert.msg`, czyli w wyrażeniu liczonym
+      WYŁĄCZNIE przy padzie; nie zależy od niej nic,
+    * ``inna`` — wszystko pozostałe: argument, arytmetyka, `range(PRÓG + 1)`.
+
+    **Czyta `ast.Attribute` na równi z `ast.Name`, i to jest różnica wobec
+    `_porownania_zapadek`.** Tamten czytnik widzi wyłącznie `ast.Name`, więc zapadka
+    używana w innym module jako `moduł.NAZWA` jest dla klasyfikatora niewidzialna.
+    Zmierzone 17.09.2026: tak stoją `MAX_ODCISKOW_W_RAPORCIE` (`sweep.` w
+    `test_mutation_sweep.py`) i `MINIMUM_DETAIL_BLOCKS` (`tb.` w `test_field_paths.py`).
+    """
+    baza = katalog or os.path.join(ROOT, "tools", "tests")
+    korzen = root or ROOT
+    out = {}
+    for gdzie, _katalogi, pliki in TW.walk(baza, korzen):
+        for nazwa_pliku in sorted(pliki):
+            if not nazwa_pliku.endswith(".py"):
+                continue
+            with open(os.path.join(gdzie, nazwa_pliku), encoding="utf-8") as uchwyt:
+                drzewo = ast.parse(uchwyt.read())
+            rodzic = {}
+            for wezel in ast.walk(drzewo):
+                for dziecko in ast.iter_child_nodes(wezel):
+                    rodzic[dziecko] = wezel
+            w_komunikacie = set()
+            for wezel in ast.walk(drzewo):
+                if isinstance(wezel, ast.Assert) and wezel.msg is not None:
+                    for pod in ast.walk(wezel.msg):
+                        w_komunikacie.add(id(pod))
+            for wezel in ast.walk(drzewo):
+                if isinstance(wezel, ast.Assign):
+                    for cel in wezel.targets:
+                        if isinstance(cel, ast.Name) and ZAPADKA_NAZWA.match(cel.id):
+                            out.setdefault(cel.id, []).append(
+                                (nazwa_pliku, wezel.lineno, "definicja"))
+                nazwa = None
+                if isinstance(wezel, ast.Name) and isinstance(wezel.ctx, ast.Load) \
+                        and ZAPADKA_NAZWA.match(wezel.id):
+                    nazwa = wezel.id
+                elif isinstance(wezel, ast.Attribute) and ZAPADKA_NAZWA.match(wezel.attr):
+                    nazwa = wezel.attr
+                if nazwa is None:
+                    continue
+                if id(wezel) in w_komunikacie:
+                    rola = "komunikat"
+                elif isinstance(rodzic.get(wezel), ast.Compare):
+                    rola = "nosna"
+                else:
+                    rola = "inna"
+                out.setdefault(nazwa, []).append((nazwa_pliku, wezel.lineno, rola))
+    return out
+
+
+def wolne_rozstrzygalne_pomiarem(katalog=None, root=None):
+    """Które zapadki klasy `wolna` NIE mają werdyktu przesądzonego kształtem.
+
+    **Podział, którego rejestr sam nie robi, a który zmienia sens słowa `wolna`.**
+    Zapadka używana wyłącznie jako prawa strona JEDNEJ podłogi `assert len(X) >= PRÓG`
+    jest `wolna` z arytmetyki, a nie z pomiaru: `len(X) >= 0` zachodzi przy KAŻDEJ
+    zawartości repozytorium, więc obniżenie progu nie może zapalić niczego — także
+    przy czytniku oślepionym do zera, czyli przy dokładnie tej awarii, przed którą
+    ta podłoga ma bronić (6.D27). Mutacja takiej zapadki niczego nie rozstrzyga;
+    jej jedyna treść to „nazwa nie jest użyta nigdzie indziej".
+
+    Zapadka, która ma DRUGIE użycie — drugie porównanie, arytmetykę na progu,
+    odwołanie z innego modułu — mogła zapalić i musiała zostać zmierzona.
+    """
+    out = {}
+    for nazwa, gdzie in uzycia_zapadek(katalog, root).items():
+        if ZAPADKI.get(nazwa, (None,))[0] != WOLNA:
+            continue
+        nosne = [x for x in gdzie if x[2] == "nosna"]
+        inne = [x for x in gdzie if x[2] == "inna"]
+        if len(nosne) != 1 or inne:
+            out[nazwa] = sorted(nosne + inne)
+    return out
+
+
+#: Zapadki `wolna`, których werdykt trzeba było ZMIERZYĆ, a nie odczytać z kształtu
+#: — z powodem, bo sam fakt drugiego użycia nie mówi, czy to użycie cokolwiek trzyma.
+#:
+#: Obie zmierzono mutacją 17.09.2026 (6.D254) i obie wyszły `wolna` mimo drugiego
+#: użycia; liczby są w `reports/6d254-klasa-zapadki-a-zachowanie.md`.
+ROZSTRZYGALNE_POMIAREM = {
+    "MAX_ODCISKOW_W_RAPORCIE":
+        "dwa użycia w `test_mutation_sweep.py` przez `sweep.NAZWA` budują wejście "
+        "jako `range(PRÓG)` i `range(PRÓG + 1)`, czyli PARĘ na granicy — kształt "
+        "najmocniejszy z możliwych. Zmierzone: granica jedzie RAZEM z progiem, więc "
+        "8 -> 1008 daje 133/133 i nie zapala nic.",
+    "MINIMUM_CLAIMS":
+        "drugie porównanie (`checked - datowane >= PRÓG`) i wejście syntetyczne 6.D230 "
+        "w `test_report_claims.py:1722`. Zmierzone: 10 -> 0 daje 29/29, bo asercje "
+        "przy wejściu syntetycznym stoją na liczbach z próbki, nie na wartości z kodu.",
+}
+
+#: Jak DALEKO trzeba ruszyć zapadkę `czesciowa`, żeby cokolwiek padło — zmierzone
+#: mutacją 17.09.2026 (6.D254), po jednym kroku aż do granicy zapłonu.
+#:
+#: **Klasa `czesciowa` nie upadła w pomiarze i to jest wynik odwrotny do tego, którego
+#: pozycja szukała.** Wszystkie trzy zachowują się dokładnie tak, jak twierdzą: ruch
+#: o jeden przechodzi, ruch dostatecznie daleki zapala. Upadło co innego — słowo
+#: „daleki". Odległość zapłonu jest zmierzona i wynosi od **3** do **113** kroków
+#: przy wartościach 10 i 120, a klasa o niej nie mówi NIC.
+#:
+#: Skutek jest praktyczny, nie stylistyczny: pomiar krokiem proporcjonalnym
+#: (ćwierć wartości) pokazuje `MINIMUM_SUPPORTED_MAJOR` jako `czesciowa`, a dwie
+#: pozostałe jako `wolna` — czyli **ta sama klasa, ten sam przyrząd, dwa różne
+#: werdykty**, w zależności od tego, jak duży krok ktoś wybierze. Dla dwóch z trzech
+#: zapala się dopiero strażnik mierzący ATRAPĘ z kontroli przyrządu: napis `"bo tak"`
+#: (7 znaków) i warunek `0 < próg`. Klasa mówi „strażnik o innej populacji" i to jest
+#: prawda — tyle że tą populacją jest wejście syntetyczne, a nie drzewo, więc zapadka
+#: przejeżdża cały swój legalny zakres, zanim cokolwiek drgnie.
+#:
+#: Trójka: `(wartość w drzewie, najwyższa wartość, przy której PADA, co pada)`.
+ODLEGLOSC_ZAPLONU_CZESCIOWYCH = {
+    "MINIMUM_SUPPORTED_MAJOR": (
+        10, 7,
+        "`test_parsers_reject_what_they_should`; 10 -> 9 daje 51/51 kod 0, "
+        "10 -> 7 daje 50/51 kod 1. Strażnikiem jest `tfm_major('net8.0')`, czyli 8 "
+        "— odległość zapłonu TRZY i jako jedyna mieści się w kroku proporcjonalnym."),
+    "MINIMUM_POWODU": (
+        120, 7,
+        "`test_kazda_poprawka_zapisu_wykonanego_niesie_date_i_powod`; 119 i 90 dają "
+        "43/43 kod 0, 8 daje 43/43 kod 0, 7 daje 42/43 kod 1. Strażnikiem jest napis "
+        "`bo tak` z kontroli przyrządu, długość 7 — odległość zapłonu STO TRZYNAŚCIE."),
+    "MINIMUM_DOCUMENTED_ITEMS": (
+        6, 0,
+        "`test_the_ratchet_cannot_be_set_above_what_it_guards`; 5, 3 i 1 dają 36/36 "
+        "kod 0, dopiero 0 daje 35/36 kod 1. Strażnikiem jest warunek o KSZTAŁCIE "
+        "stałej (`0 < próg < próg doby pracy`), a nie podłoga na liczbę pozycji "
+        "— odległość zapłonu SZEŚĆ, czyli cały legalny zakres."),
+}
+
+
 def zapadki_w_drzewie(katalog=None, root=None):
     """`{nazwa: klasa}` dla każdej stałej o kształcie zapadki pod `tools/tests/`."""
     return {nazwa: klasa_zapadki(nazwa, porownania)
@@ -881,6 +1023,118 @@ def test_klasa_POZA_SKANEM_mowi_o_granicy_przyrzadu_a_nie_o_zapadce():
     assert "for field, floor in MIN_PATHS.items()" in zrodlo, (
         "kształt, na którym stoi klasa POZA_SKANEM, zniknął z `test_field_paths.py` "
         "— klasa opisuje wtedy stan, którego nie ma")
+
+
+def test_ktore_wolne_zapadki_sa_PRZESADZONE_ksztaltem_a_ktore_zmierzone():
+    """**Słowo `wolna` znaczy w rejestrze dwie różne rzeczy — 6.D254.**
+
+    Czterdzieści z czterdziestu dwóch zapadek tej klasy pada w drzewie wyłącznie jako
+    prawa strona jednej podłogi `assert len(X) >= PRÓG`. Dla nich `wolna` jest
+    TAUTOLOGIĄ kształtu: `len(X) >= 0` zachodzi zawsze, więc żaden ruch w dół nie ma
+    czego zapalić i pomiar był rozstrzygnięty, zanim cokolwiek uruchomiono. Dwie mają
+    drugie użycie i musiały zostać zmierzone naprawdę.
+
+    Porównanie jest W OBIE STRONY, bo inaczej bramka byłaby wolna dokładnie w tym
+    znaczeniu, które opisuje.
+    """
+    widziane = wolne_rozstrzygalne_pomiarem()
+
+    nowe = sorted(n for n in widziane if n not in ROZSTRZYGALNE_POMIAREM)
+    assert nowe == [], (
+        "zapadka `wolna` dostała DRUGIE użycie: %s — jej werdykt przestał wynikać "
+        "z kształtu i trzeba go zmierzyć mutacją, a wynik dopisać z powodem"
+        % [(n, widziane[n]) for n in nowe])
+
+    znikniete = sorted(n for n in ROZSTRZYGALNE_POMIAREM if n not in widziane)
+    assert znikniete == [], (
+        "wpis o zapadce rozstrzygalnej pomiarem, która dziś ma już tylko jedną "
+        "podłogę: %s — zdejmij wpis, bo powód zniknął" % znikniete)
+
+    wolnych = sum(1 for _n, (k, _m) in ZAPADKI.items() if k == WOLNA)
+    przesadzonych = wolnych - len(ROZSTRZYGALNE_POMIAREM)
+    assert (wolnych, przesadzonych) == (42, 40), (
+        "wolnych %d, z tego przesądzonych kształtem %d — pomiar 17.09.2026 dał 42 i 40; "
+        "obie liczby są POCHODNE, więc rozjazd znaczy, że zmienił się rejestr albo "
+        "kształt użycia, a nie że ktoś pomylił się w arytmetyce" % (wolnych, przesadzonych))
+
+
+def test_kazda_zapadka_czesciowa_ma_ZMIERZONA_odleglosc_zaplonu():
+    """**Klasa `czesciowa` jest jedyną, która twierdzi coś o ODLEGŁOŚCI — i nie mówi,
+    o jakiej (6.D254).**
+
+    Pomiar 17.09.2026 ruszył każdą z trzech aż do granicy zapłonu. Wszystkie trzy
+    zachowały się zgodnie z klasą, ale odległości są nieporównywalne: 3 kroki przy
+    wartości 10, 113 przy 120 i 6 przy 6, czyli cały legalny zakres. Ten sam przyrząd
+    z krokiem proporcjonalnym daje więc dla tej jednej klasy DWA różne werdykty,
+    zależnie od tego, jak duży krok ktoś wybierze — i dlatego odległość ma stać
+    zapisana, a nie być domyślana.
+
+    Bramka nie mierzy zachowania (mutacja nie mieści się w zestawie), tylko pilnuje,
+    żeby żadna `czesciowa` nie została bez pomiaru i żeby nie dało się dopisać pomiaru
+    dla zapadki, która `czesciowa` nie jest. Porównanie idzie W OBIE STRONY.
+    """
+    czesciowe = sorted(n for n, (k, _m) in ZAPADKI.items() if k == CZESCIOWA)
+
+    bez_pomiaru = [n for n in czesciowe if n not in ODLEGLOSC_ZAPLONU_CZESCIOWYCH]
+    assert bez_pomiaru == [], (
+        "zapadka `czesciowa` bez zmierzonej odległości zapłonu: %s — klasa twierdzi, "
+        "że „daleki ruch zapala\", więc dopóki nikt nie poda JAK daleki, twierdzenie "
+        "jest niesprawdzalne" % bez_pomiaru)
+
+    nie_czesciowe = sorted(n for n in ODLEGLOSC_ZAPLONU_CZESCIOWYCH if n not in czesciowe)
+    assert nie_czesciowe == [], (
+        "pomiar odległości zapłonu dla zapadki, która w rejestrze `czesciowa` nie jest: "
+        "%s — dla pozostałych klas odległość nie znaczy nic" % nie_czesciowe)
+
+    for nazwa, (wartosc, prog, _co) in sorted(ODLEGLOSC_ZAPLONU_CZESCIOWYCH.items()):
+        assert 0 <= prog < wartosc, (
+            "%s: zapłon przy %d, a wartość w drzewie %d — zapłon w granicach albo "
+            "powyżej wartości znaczy, że zapadka jest CZERWONA już dziś albo że "
+            "pomiar opisuje inną stałą" % (nazwa, prog, wartosc))
+
+    odleglosci = {n: w - p for n, (w, p, _c) in ODLEGLOSC_ZAPLONU_CZESCIOWYCH.items()}
+    assert min(odleglosci.values()) == 3 and max(odleglosci.values()) == 113, (
+        "odległości zapłonu %s — pomiar 17.09.2026 dał od 3 do 113; rozjazd znaczy, "
+        "że któraś zapadka albo jej strażnik się ruszyły i pomiar trzeba powtórzyć"
+        % sorted(odleglosci.items()))
+
+
+def test_czytnik_uzyc_widzi_ksztalt_ktory_ma_widziec():
+    """Kontrola przyrządu na wejściu SYNTETYCZNYM — bez niej literówka we wzorcu
+    dałaby zero „rozstrzygalnych" i zieleń, czyli stan NIEODRÓŻNIALNY od drzewa,
+    w którym każda zapadka jest jednostronną podłogą (6.D27).
+
+    Cztery role czytnika sprawdzone osobno, bo trzy z nich decydują o podziale:
+    `komunikat` i `definicja` NIE liczą się jako użycie, `nosna` i `inna` liczą.
+    """
+    import tempfile
+    zrodlo = (
+        "MIN_JEDNA_PODLOGA = 5\n"
+        "MIN_Z_KOMUNIKATEM = 5\n"
+        "MIN_Z_DRUGIM_UZYCIEM = 5\n"
+        "MAX_PRZEZ_MODUL = 5\n"
+        "def t():\n"
+        "    assert len(x) >= MIN_JEDNA_PODLOGA\n"
+        "    assert len(x) >= MIN_Z_KOMUNIKATEM, 'próg %d' % MIN_Z_KOMUNIKATEM\n"
+        "    assert len(x) >= MIN_Z_DRUGIM_UZYCIEM\n"
+        "    y = range(MIN_Z_DRUGIM_UZYCIEM + 1)\n"
+        "    assert len(y) <= inny.MAX_PRZEZ_MODUL\n"
+    )
+    with tempfile.TemporaryDirectory() as katalog:
+        with open(os.path.join(katalog, "test_probka.py"), "w",
+                  encoding="utf-8") as uchwyt:
+            uchwyt.write(zrodlo)
+        widziane = uzycia_zapadek(katalog, katalog)
+
+    role = {n: sorted(r for _p, _l, r in gdzie) for n, gdzie in widziane.items()}
+    assert role["MIN_JEDNA_PODLOGA"] == ["definicja", "nosna"], role
+    assert role["MIN_Z_KOMUNIKATEM"] == ["definicja", "komunikat", "nosna"], (
+        "nazwa w `Assert.msg` została policzona jako użycie nośne — a jest liczona "
+        "WYŁĄCZNIE przy padzie i nie zależy od niej nic: %s" % role)
+    assert role["MIN_Z_DRUGIM_UZYCIEM"] == ["definicja", "inna", "nosna"], role
+    assert role["MAX_PRZEZ_MODUL"] == ["definicja", "nosna"], (
+        "`moduł.NAZWA` nie został zobaczony — a to jest cały powód, dla którego ten "
+        "czytnik istnieje obok `_porownania_zapadek`: %s" % role)
 
 
 if __name__ == "__main__":
