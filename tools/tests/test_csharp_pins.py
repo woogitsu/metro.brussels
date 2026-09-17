@@ -396,9 +396,15 @@ ROZKLAD_LICZBOWYCH = {
         # bo są liczbami miejsc w kodzie; `calkowite_z_tolerancja` zostaje ZEREM.
         # Pin `PolykaneCzlony.Length == sprawdzonych` do tej liczby NIE wchodzi: obie
         # strony są wyrażeniami, a nie literałem.
-        "razem": 477, "z_tolerancja": 188, "bez_tolerancji": 289,
+        # 477 -> 479 (17.09.2026, 6.D231): DWA piny liczbowe kontroli przyrzadu
+        # czytnika korpusu — dwa razy „deklaracji jest DOKLADNIE jedna", raz przy
+        # metodzie wyrazeniowej (straz ma byc SPELNIONA, bo na tym polegala usterka)
+        # i raz przy jej klamrowej sasiadce w kontroli DODATNIEJ. Oba CALKOWITE
+        # i BEZ TOLERANCJI, bo sa liczbami miejsc w kodzie, nie miara fizyczna;
+        # `calkowite_z_tolerancja` zostaje ZEREM.
+        "razem": 479, "z_tolerancja": 188, "bez_tolerancji": 291,
         "zmiennoprzecinkowe": 196, "zmiennoprzecinkowe_bez_tolerancji": 8,
-        "calkowite": 281, "calkowite_z_tolerancja": 0, "tolerancja_zero": 119,
+        "calkowite": 283, "calkowite_z_tolerancja": 0, "tolerancja_zero": 119,
     },
 }
 

@@ -568,8 +568,15 @@ ROZKLAD_POSTACI = {
         # `werbatim interpolowany ($@)` rosnie o JEDEN — wzorzec `.ToString()`
         # skladany z nazwy zmiennej przez `Regex.Escape`, czyli jedyne miejsce,
         # ktore potrzebuje i ukosnika jako tresci, i wstawienia wartosci.
-        "zwykly": 4562,
-        "interpolowany ($)": 783,
+        # 4562 -> 4583 i 783 -> 789 (17.09.2026, 6.D231): literaly czytnika korpusu
+        # odmawiajacego metodzie wyrazeniowej i jego kontroli przyrzadu. WERBATIM
+        # NIE DRGA i to jest tresc: probka syntetyczna tej kontroli jest sklejana
+        # z szesciu kawalkow przez `+` i niesie `\n`, a werbatim nie znosi sekwencji
+        # ucieczki; jedyny wzorzec `Regex` tego czytnika stal w pliku juz wczesniej
+        # i policzony jest od 6.D211. Postac interpolowana rosnie o SZESC — tyle
+        # komunikatow tej okolicy wstawia zmierzona wartosc zamiast ja opisywac.
+        "zwykly": 4583,
+        "interpolowany ($)": 789,
         "werbatim (@)": 88,
         "surowy interpolowany ($$\"\"\")": 13,
         "surowy (\"\"\")": 8,

@@ -171,12 +171,13 @@ public sealed class DefaultArmAuditTests
             Assert.IsTrue(powod.Length > 20, $"{plik}:{metoda} — powód bez treści");
 
             var zrodlo = File.ReadAllText(sciezka);
-            var korpusMetody = KorpusMetody(zrodlo, metoda, out var deklaracji);
+            var korpusMetody =
+                KorpusMetody(zrodlo, metoda, out var deklaracji, out var powodCzytnika);
             Assert.AreEqual(1, deklaracji,
                 $"{plik}: deklaracji metody {metoda} znaleziono {deklaracji}, a wpis niżej " +
                 "opisuje jedną — metoda zniknęła albo doszło przeciążenie");
             Assert.IsNotNull(korpusMetody,
-                $"{plik}:{metoda} — nie udało się domknąć korpusu metody");
+                $"{plik}:{metoda} — czytnik korpusu ODMÓWIŁ: {powodCzytnika}");
 
             var obsluzone = ObsluzoneCzlony(korpusMetody!, wyliczenie);
             Assert.AreEqual(1, obsluzone.Count,
@@ -234,12 +235,52 @@ public sealed class DefaultArmAuditTests
             "człon dopisany do wyliczenia ma WEJŚĆ do połykanych — czytnik tego nie zobaczył");
     }
 
+    [TestMethod]
+    public void Czytnik_korpusu_ODMAWIA_metodzie_wyrazeniowej_zamiast_czytac_cudza()
+    {
+        // 6.D231. Próbka jest złożona z dwóch składowych w tej samej kolejności, co
+        // w rdzeniu: WYRAŻENIOWA przed KLAMROWĄ. Bez sąsiadki poniżej `Korpus` nie
+        // znalazłby żadnej klamry i zwróciłby null Z INNEGO POWODU — a wtedy zieleń tej
+        // kontroli nie mówiłaby nic o usterce, którą 6.D231 zmierzyło na drzewie.
+        const string probka =
+            "public static double Hamowanie(double v) => v * v / 2.0;\n"
+            + "\n"
+            + "public static void Nadzoruj(object system)\n"
+            + "{\n"
+            + "    ArgumentNullException.ThrowIfNull(system);\n"
+            + "}\n";
+
+        var wyrazeniowa = KorpusMetody(probka, "Hamowanie", out var deklaracjiW, out var powodW);
+        Assert.AreEqual(1, deklaracjiW,
+            "straż liczby deklaracji ma być SPEŁNIONA — usterka 6.D231 polegała właśnie " +
+            "na tym, że przy spełnionej straży czytnik oddawał cudzy korpus");
+        Assert.IsNull(wyrazeniowa,
+            $"metoda wyrażeniowa ma dostać ODMOWĘ, a czytnik zwrócił: {wyrazeniowa}");
+        Assert.IsNotNull(powodW,
+            "odmowa bez powodu jest nieodróżnialna od niedomkniętej klamry");
+        StringAssert.Contains(powodW!, "WYRAŻENIOWA",
+            $"powód odmowy ma NAZYWAĆ kształt ciała, a mówi: {powodW}");
+        Assert.IsFalse(powodW!.Contains("ThrowIfNull", StringComparison.Ordinal),
+            "powód ma być powodem, a nie cudzą treścią podaną inną drogą");
+
+        // Kontrola DODATNIA: sąsiadka KLAMROWA — czyli dokładnie ten korpus, który
+        // czytnik podstawiał pod pytanie wyżej — ma się nadal czytać BEZ ZMIANY.
+        // Bramka zapalająca się na pracy poprawnej zostaje wyłączona, nie poprawiona (6.D27).
+        var klamrowa = KorpusMetody(probka, "Nadzoruj", out var deklaracjiK, out var powodK);
+        Assert.AreEqual(1, deklaracjiK, "sąsiadka klamrowa ma dokładnie jedną deklarację");
+        Assert.IsNull(powodK,
+            $"metoda klamrowa NIE ma być odrzucana, a powód brzmi: {powodK}");
+        Assert.IsNotNull(klamrowa, "metoda klamrowa ma nadal oddać swój korpus");
+        StringAssert.Contains(klamrowa!, "ThrowIfNull(system)",
+            "korpus metody klamrowej ma być JEJ WŁASNY");
+    }
+
     /// <summary>Połykane człony jednego filtra — wspólna droga pomiaru i kontroli przyrządu.</summary>
     private static List<string> Polykane(
         string zrodlo, string metoda, Dictionary<string, List<string>> czlony)
     {
-        var korpus = KorpusMetody(zrodlo, metoda, out _);
-        Assert.IsNotNull(korpus, $"nie domknięto korpusu metody {metoda}");
+        var korpus = KorpusMetody(zrodlo, metoda, out _, out var powodCzytnika);
+        Assert.IsNotNull(korpus, $"czytnik korpusu ODMÓWIŁ metodzie {metoda}: {powodCzytnika}");
 
         var typ = czlony.Keys.Single();
         var obsluzone = ObsluzoneCzlony(korpus!, typ);
@@ -283,14 +324,54 @@ public sealed class DefaultArmAuditTests
     /// i jedno wywołanie cztery wiersze niżej). Liczbę trafień zwraca osobno: „zero"
     /// i „dwie" to dwie różne usterki i wołający ma je rozróżnić.
     /// </summary>
-    private static string? KorpusMetody(string zrodlo, string metoda, out int deklaracji)
+    /// <remarks>
+    /// <para><b>Metodę WYRAŻENIOWĄ czytnik ODMAWIA, a nie mierzy (6.D231).</b> Korpus
+    /// wycinany jest od PIERWSZEJ KLAMRY po deklaracji, a metoda o ciele
+    /// <c>=&gt; wyrażenie;</c> własnej klamry nie ma — pierwszą napotkaną jest więc
+    /// klamra czegoś INNEGO. Zmierzone 17.09.2026 przebiegiem czytnika po <c>src/Sim/</c>:
+    /// deklaracji z modyfikatorem dostępu i nawiasem jest <b>380</b>, z tego
+    /// WYRAŻENIOWYCH <b>123</b>; switch niesie <b>10</b> z nich, a switch PO WYLICZENIU
+    /// <b>8</b>. Przed tą poprawką <b>81</b> z tych 123 czytnik przepuszczał BEZ ODMOWY:
+    /// 41 razy zwracał korpus CUDZY (dla <c>BrakingDistanceM</c>
+    /// w <c>src/Sim/Signalling/TrainProtection.cs</c> — 3056 znaków korpusu
+    /// <c>Supervise</c>), 40 razy urywek własnego wyrażenia. <c>deklaracji == 1</c> było
+    /// przy tym SPEŁNIONE, więc żadna asercja się nie zapalała.</para>
+    /// <para>Rozpoznanie jest LEKSYKALNE i takie ma zostać — rozbiór składni C# jest poza
+    /// zakresem. Między deklaracją a pierwszą klamrą metody KLAMROWEJ stoi wyłącznie
+    /// lista parametrów i ewentualne ograniczenia typów, a w żadnym z nich <c>=&gt;</c>
+    /// wystąpić nie może; w metodzie WYRAŻENIOWEJ <c>=&gt;</c> stoi z definicji PRZED
+    /// każdą klamrą, jaką jej ciało niesie.</para>
+    /// </remarks>
+    private static string? KorpusMetody(
+        string zrodlo, string metoda, out int deklaracji, out string? powod)
     {
         var wzorzec = new Regex(
             @"^[ \t]*(?:public|private|internal|protected)[^;=\n]*\b" + Regex.Escape(metoda) + @"\s*\(",
             RegexOptions.Multiline);
         var trafienia = wzorzec.Matches(zrodlo);
         deklaracji = trafienia.Count;
-        return deklaracji == 1 ? Korpus(zrodlo, trafienia[0].Index) : null;
+        if (deklaracji != 1)
+        {
+            powod = $"deklaracji metody {metoda} znaleziono {deklaracji}, a czytnik " +
+                "obsługuje dokładnie jedną";
+            return null;
+        }
+
+        var poczatek = trafienia[0].Index;
+        var klamra = zrodlo.IndexOf('{', poczatek);
+        var glowa = klamra < 0 ? zrodlo[poczatek..] : zrodlo[poczatek..klamra];
+        if (glowa.Contains("=>", StringComparison.Ordinal))
+        {
+            powod = $"metoda {metoda} jest WYRAŻENIOWA (=>) — własnej klamry nie ma, " +
+                "więc pierwsza klamra po deklaracji należy już do czegoś innego (6.D231)";
+            return null;
+        }
+
+        var korpus = Korpus(zrodlo, poczatek);
+        powod = korpus is null
+            ? $"korpusu metody {metoda} nie udało się domknąć klamrami"
+            : null;
+        return korpus;
     }
 
     /// <summary>Człony wszystkich wyliczeń rdzenia, po nazwie.</summary>
