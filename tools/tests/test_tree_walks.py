@@ -145,7 +145,7 @@ def klasa_zapadki(nazwa, porownania):
 
 
 #: **Wszystkie zapadki pod `tools/tests/`, każda z klasą i modułem.**
-#: Zapadek: 59. **Przybitych: 17, częściowych: 3, WOLNYCH: 38, poza zasięgiem skanu: 1.**
+#: Zapadek: 60. **Przybitych: 17, częściowych: 3, WOLNYCH: 39, poza zasięgiem skanu: 1.**
 #:
 #: **To zdanie jest przepisane, a nie dopisane obok — po raz DRUGI (15.09.2026).**
 #: Stało tu najpierw „Trzydzieści osiem: 13 przybitych…" (11.09.2026, `52752c9`)
@@ -280,6 +280,19 @@ ZAPADKI = {
     "MIN_PATHS": (POZA_SKANEM, "test_field_paths.py"),
     "MIN_PATHS_IN_TREE": (PRZYBITA, "test_bin_path_framework.py"),
     "MIN_REPORTS": (PRZYBITA, "test_report_hygiene.py"),
+    # 6.D238: podłoga na liczbę wierszy tabeli §4 `reports/T-401-line-run.md`,
+    # które czyta wiązanie arytmetyczne kolumny różnicy. WOLNA, i to jest wybór
+    # wymuszony przez 6.D108: raport jest zapisem swojego dnia, a równość zapalałaby
+    # się na DOPISANIU wiersza, czyli na pracy poprawnej (6.D27). Zapasu nie ma i mieć
+    # nie musi, ale POWÓD JEST INNY, NIŻ NAPISAŁEM NAJPIERW, i poprawiła to kontrola
+    # negatywna. Zdanie brzmiało: „liczbę wierszy przybija już `set(found) == PACKAGES`
+    # w `lower_bound_kmh`, więc usunięcie wiersza zapala TAMTĄ równość, a NIE tę
+    # podłogę". Zmierzone: usunięcie wiersza zapala SZEŚĆ bramek i ta podłoga jest
+    # wśród nich. Prawdziwe zostaje tylko to, że podłoga nie jest JEDYNYM strażnikiem
+    # liczby wierszy; nieprawdziwe było, że nic nie dokłada. Dokłada komunikat, który
+    # nazywa POWÓD spadku („oślepły wzorzec, a nie skrócona tabela"), a tamta równość
+    # wypisuje sam zbiór pakietów.
+    "MIN_WIERSZY_Z_ARYTMETYKA": (WOLNA, "test_t401_citation.py"),
     "MIN_WPISOW_RUNNERA": (WOLNA, "test_suite_runtime_budget.py"),
 }
 
@@ -740,7 +753,7 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
         "znaczy, że komuś ubył strażnik; w stronę `przybita`, że doszedł i wpis "
         "trzeba poprawić" % inna_klasa)
 
-    assert len(w_drzewie) == ZAPADEK_RAZEM == 59, (
+    assert len(w_drzewie) == ZAPADEK_RAZEM == 60, (
         "zapadek w drzewie %d, na liście %d, pomiar z 11.09.2026 mówił 38, "
         "po 6.D146 — 40, po 6.D147 — 42 (doszła zapadka na sekwencje ucieczki "
         "i próg KW jej skanu), po 6.D187 — 44 (dwa progi KW skanu gołych nazw), "
@@ -758,7 +771,8 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
         "z drzewa scalonego, a nie wzięta z żadnej strony konfliktu:** gałąź miała 56, "
         "`main` 57, a scalone drzewo niesie OBIE zapadki i ma 58, a po 6.D237 — 59 "
         "(podłoga na liczbę nazw modułu przychodzących z DRUGIEGO i dalszego "
-        "argumentu `test_all.py`)"
+        "argumentu `test_all.py`), a po 6.D238 — 60 (podłoga na liczbę wierszy tabeli §4 "
+        "T-401 czytanych przez wiązanie arytmetyczne kolumny różnicy)"
         % (len(w_drzewie), ZAPADEK_RAZEM))
 
     # Liczby zbiorcze. **Nie jest to ozdobnik komunikatu i pokazała to KN-7.**
@@ -768,14 +782,15 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
     # a „21 wolnych" staje się nieprawdą, której nie zgłasza nic. KN-7 wykonała
     # dokładnie ten scenariusz: jedyną czerwienią była ta asercja.
     ile = collections.Counter(w_drzewie.values())
-    assert (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM]) == (17, 3, 38, 1), (
+    assert (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM]) == (17, 3, 39, 1), (
         "klasy zapadek: przybitych %d, częściowych %d, WOLNYCH %d, poza skanem %d — "
         "pomiar z 11.09.2026 mówił 13/3/21/1, po 6.D146 — 13/3/23/1, a po 6.D147 — "
         "14/3/24/1, po 6.D151 — 15/3/23/1, po 6.D167 — 17/3/21/1, po 6.D187 — "
         "17/3/23/1, po 6.D190 — 17/3/24/1, po 6.D203 — 17/3/25/1, po 6.D206 — "
         "17/3/27/1, po 6.D207 — 17/3/28/1, a po 6.D209 — 17/3/29/1, a po 6.D222 — "
         "17/3/30/1, a po 6.D216 — 17/3/33/1, a po 6.D240 — 17/3/34/1, a po 6.D227 — "
-        "17/3/36/1, a po 6.D225 — 17/3/37/1, a po 6.D237 — 17/3/38/1; wolne to te, "
+        "17/3/36/1, a po 6.D225 — 17/3/37/1, a po 6.D237 — 17/3/38/1, a po 6.D238 — "
+        "17/3/39/1; wolne to te, "
         "które da się ruszyć "
         "w zakazaną stronę bez zapalenia czegokolwiek: %s"
         % (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM],

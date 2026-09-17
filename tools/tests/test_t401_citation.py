@@ -150,6 +150,168 @@ def _citations():
                     yield label, unit
 
 
+#: CAŁY wiersz tabeli §4, wszystkie sześć pól — 6.D238 (16.09.2026).
+#:
+#: `ROW` wyżej bierze TRZY PIERWSZE pola i to wystarcza do maksimum, ale nie wiąże
+#: wiersza z pakietem: **zamiana kolumny C# między dwoma pakietami zostawia maksimum
+#: bez zmian**, więc dotąd przechodziła. Zmierzone 16.09.2026 podstawieniem
+#: L5_D ↔ L6_F (58,68 ↔ 55,05): `python3 tools/tests/test_all.py test_t401_citation.py`
+#: dał **5/5 przeszło**. Strony C# to nie ratuje i to też jest zmierzone, nie założone:
+#: `grep -rn "T-401-line-run" --include=*.cs` daje dwa trafienia i **oba są
+#: komentarzami** (`tests/Sim.Tests/LineRunTests.cs:18`,
+#: `tests/Sim.Tests/SignallingPlanTests.cs:321`).
+#: **Wzorzec NIE JEST zakotwiczony na końcu wiersza i to jest poprawka z pomiaru,
+#: a nie wygoda (17.09.2026, 6.D238).** Pierwsza wersja kończyła się na `\|\s*$`,
+#: czyli żądała, żeby kolumn było DOKŁADNIE sześć. Kontrola DODATNIA to obaliła:
+#: dopisanie siódmej kolumny do wszystkich sześciu wierszy — praca POPRAWNA, którą
+#: blok tej pozycji wymienia wprost („tabela ma kolumnę, którą kolejne przebiegi
+#: dopisują") — oślepiało czytnik do ZERA wierszy i zapalało TRZY bramki, w tym
+#: podłogę niżej. Przewidziane było ZIELONE, zmierzone 51/54. To jest 6.D27 w czystej
+#: postaci: bramka, która pali się na pracy poprawnej, zostaje wyłączona, nie
+#: naprawiona. Po zdjęciu kotwicy ta sama mutacja daje 54/54.
+#:
+#: Kolumn wymaganych jest sześć PIERWSZYCH, w tej kolejności; siódma i dalsze są
+#: czytnikowi obojętne. Zawężenia po lewej stronie zostają: pakiet, dwie liczby
+#: z pogrubioną drugą, różnica ze znakiem i dwa odcinki.
+WIERSZ_PELNY = re.compile(
+    r"^\|\s*(L\d_[A-F])\s*\|\s*([\d,]+)\s*\|\s*\*\*([\d,]+)\*\*\s*\|"
+    r"\s*([+-][\d,]+)\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|", re.M)
+
+#: Zdanie §4, które NAZYWA wiersz wiążący — „rośnie z X km/h (Python, wiąże ODCINEK)
+#: do Y km/h (C#, ten sam odcinek)". Jest to drugi, niezależny koniec tego samego
+#: łańcucha: tabela mówi, ile, a to zdanie — KTÓRY odcinek.
+ZDANIE_WIAZACE = re.compile(
+    r"z \*\*([\d,]+) km/h\*\*\s*\(Python,\s*wiąże\s+([^)]+?)\)\s*"
+    r"do\s*\*\*([\d,]+) km/h\*\*\s*\(C#", re.S)
+
+#: Ile wierszy tabeli §4 czyta wiązanie arytmetyczne. Zmierzone 16.09.2026 na
+#: `e420f14`: tabela ma **6 wierszy po 6 kolumn, czyli 36 komórek**, a **CYTOWANY
+#: przez bramki jest DOKŁADNIE JEDEN wiersz z sześciu** — L5_D, i to wyłącznie przez
+#: swoją wartość C# (58,68 km/h, jedenaście wystąpień w pięciu plikach). Pozostałe
+#: pięć wierszy, czyli 30 z 36 komórek, nie było przed 6.D238 związane niczym.
+#:
+#: **Próg jest KW, a nie równością, i to jest wybór wymuszony przez 6.D108.** Raport
+#: jest zapisem swojego dnia; równość na CAŁEJ tabeli zapalałaby się na dopisaniu
+#: wiersza, czyli na pracy poprawnej (6.D27). Liczbę wierszy przybija zresztą już
+#: `set(found) == PACKAGES` w `lower_bound_kmh`, więc druga równość nie dodałaby nic
+#: prócz drugiego miejsca do poprawiania.
+MIN_WIERSZY_Z_ARYTMETYKA = 6
+
+
+def wiersze_pelne(tekst=None):
+    """`[(pakiet, python, csharp, delta, odcinek_py, odcinek_cs)]` — tabela §4."""
+    return WIERSZ_PELNY.findall(_read(SOURCE) if tekst is None else tekst)
+
+
+def _na_liczbe(surowa):
+    """Liczba z komórki tabeli: przecinek dziesiętny, opcjonalny znak."""
+    return float(surowa.replace(",", "."))
+
+
+def niespojne_arytmetycznie(tekst=None):
+    """`[(pakiet, python, csharp, delta)]` dla wierszy, w których C# − Python ≠ Δ."""
+    zle = []
+    for pakiet, py, cs, delta, _op, _oc in wiersze_pelne(tekst):
+        if round(_na_liczbe(cs) - _na_liczbe(py), 2) != round(_na_liczbe(delta), 2):
+            zle.append((pakiet, py, cs, delta))
+    return zle
+
+
+def test_skan_widzi_zmierzona_liczbe_wierszy_tabeli_paragrafu_4():
+    """Próg KW na sam SKAN — 6.D238.
+
+    Wzorzec sześciopolowy jest dłuższy od `ROW` o trzy pola, więc łatwiej mu oślepnąć
+    na przeformatowaniu tabeli. Zero wierszy znaczyłoby „nie ma niespójnych", czyli
+    to samo co zielono — a to jest rodzina, którą projekt tropi od 6.D27.
+    """
+    wiersze = wiersze_pelne()
+    assert len(wiersze) >= MIN_WIERSZY_Z_ARYTMETYKA, (
+        "wzorzec sześciopolowy widzi %d wierszy tabeli §4 przy progu %d — "
+        "16.09.2026 było ich 6 (36 komórek); spadek znaczy oślepły wzorzec, "
+        "a nie skróconą tabelę" % (len(wiersze), MIN_WIERSZY_Z_ARYTMETYKA))
+    assert len(wiersze) == len(ROW.findall(_read(SOURCE))), (
+        "wzorzec sześciopolowy widzi %d wierszy, a trzypolowy %d — jeden z nich "
+        "czyta tabelę w połowie"
+        % (len(wiersze), len(ROW.findall(_read(SOURCE)))))
+
+
+def test_kolumna_roznicy_zgadza_sie_z_arytmetyka_w_KAZDYM_wierszu():
+    """Wiązanie, które łapie ZAMIANĘ KOLUMNY MIĘDZY PAKIETAMI — 6.D238.
+
+    **Wiąże wiersz ze sobą samym, a nie tabelę z drugą kopią liczb**, i to jest cała
+    różnica wobec `lower_bound_kmh`: maksimum kolumny jest niewrażliwe na przestawienie
+    jej wartości między wierszami, a Δ nie jest. Dopisanie NOWEGO wiersza zostaje przy
+    tym pracą poprawną — nowy wiersz musi tylko zgadzać się sam ze sobą (6.D108).
+
+    Zmierzone 16.09.2026: dziś zgadza się wszystkie sześć wierszy; po zamianie
+    kolumny C# między L5_D a L6_F dwa z nich przestają (L5_D: 55,05 − 57,64 = −2,59
+    opisane jako +1,04; L6_F: 58,68 − 54,10 = +4,58 opisane jako +0,95).
+    """
+    zle = niespojne_arytmetycznie()
+    assert zle == [], (
+        "w tabeli §4 kolumna różnicy nie wychodzi z własnego wiersza: %s — "
+        "tak wygląda kolumna przestawiona między pakietami" % zle)
+
+    # KONTROLA PRZYRZĄDU: ta sama tabela z zamienioną kolumną MUSI dać czerwień.
+    # Bez tego zdanie „zgadza się wszystkie sześć" jest prawdą także dla czytnika,
+    # który nie widzi ani jednego wiersza.
+    podmieniona = _read(SOURCE).replace(
+        "| L5_D | 57,64 | **58,68** | +1,04 |",
+        "| L5_D | 57,64 | **55,05** | +1,04 |", 1).replace(
+        "| L6_F | 54,10 | **55,05** | +0,95 |",
+        "| L6_F | 54,10 | **58,68** | +0,95 |", 1)
+    assert podmieniona != _read(SOURCE), (
+        "podstawienie kontrolne niczego nie zmieniło — wiersze tabeli §4 zmieniły "
+        "kształt i kontrola przyrządu mierzy tekst, którego nie ma")
+    zlapane = {p for p, _py, _cs, _d in niespojne_arytmetycznie(podmieniona)}
+    assert zlapane == {"L5_D", "L6_F"}, (
+        "zamiana kolumny C# między L5_D a L6_F złapana jako %s, a ma być jako "
+        "oba pakiety naraz" % (sorted(zlapane) or "nic"))
+
+    # Druga strona kontroli: wiersz DOPISANY i spójny sam ze sobą jest pracą poprawną
+    # i zapalić się nie ma — inaczej bramka czerwieniałaby od kolejnego przebiegu.
+    dopisany = _read(SOURCE).replace(
+        "| L6_F | 54,10 | **55,05** | +0,95 | Bockstael → Stuyvenbergh | Bockstael → Stuyvenbergh |",
+        "| L6_F | 54,10 | **55,05** | +0,95 | Bockstael → Stuyvenbergh | Bockstael → Stuyvenbergh |\n"
+        "| L9_G | 50,00 | **51,25** | +1,25 | Nowy → Odcinek | Nowy → Odcinek |", 1)
+    assert niespojne_arytmetycznie(dopisany) == [], (
+        "wiersz DOPISANY i spójny sam ze sobą zapalił bramkę: %s — bramka "
+        "zapalająca się na pracy poprawnej zostaje wyłączona, nie naprawiona (6.D27)"
+        % niespojne_arytmetycznie(dopisany))
+
+
+def test_wiersz_wiazacy_jest_TYM_ktory_nazywa_proza_paragrafu_4():
+    """Drugi koniec łańcucha: nie WARTOŚĆ, tylko KTÓRY wiersz ją daje — 6.D238.
+
+    Maksimum kolumny mówi ILE, a zdanie §4 („rośnie z 57,64 km/h (Python, wiąże
+    Beaulieu → Demey) do 58,68 km/h") mówi KTÓRY odcinek. Po zamianie kolumny między
+    pakietami maksimum stoi, a te dwa końce się rozjeżdżają — i dopiero to jest
+    usterką widoczną dla bramki.
+    """
+    zdanie = ZDANIE_WIAZACE.search(_read(SOURCE))
+    assert zdanie, (
+        "w §4 nie ma zdania nazywającego wiersz wiążący — bez niego ta bramka "
+        "porównuje maksimum z niczym")
+
+    granica = lower_bound_kmh()
+    wiazace = [w for w in wiersze_pelne() if _na_liczbe(w[2]) == granica]
+    assert len(wiazace) == 1, wiazace
+    pakiet, py, cs, _delta, _op, odcinek_cs = wiazace[0]
+
+    assert _na_liczbe(zdanie.group(3)) == granica, (
+        "zdanie §4 mówi o %s km/h, a maksimum kolumny C# daje %.2f"
+        % (zdanie.group(3), granica))
+    assert _na_liczbe(zdanie.group(1)) == _na_liczbe(py), (
+        "zdanie §4 podaje stronę pythonową %s km/h, a wiersz wiążący (%s) ma %s — "
+        "kolumna C# stoi przy innym pakiecie niż proza"
+        % (zdanie.group(1), pakiet, py))
+    assert zdanie.group(2).strip() == odcinek_cs.strip(), (
+        "zdanie \u00a74 wi\u0105\u017ce odcinek \u201e%s\u201d, a wiersz o maksimum "
+        "%s km/h (%s) wskazuje \u201e%s\u201d \u2014 po zamianie kolumny mi\u0119dzy "
+        "pakietami wygl\u0105da to dok\u0142adnie tak"
+        % (zdanie.group(2).strip(), cs, pakiet, odcinek_cs.strip()))
+
+
 def test_t401_lower_bound_comes_from_the_table_and_not_from_a_second_copy():
     """Bramka bez tego testu mogłaby czytać tabelę pusto i porównywać z niczym."""
     rows = ROW.findall(_read(SOURCE))
