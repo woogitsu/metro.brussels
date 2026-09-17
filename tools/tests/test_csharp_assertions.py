@@ -434,7 +434,10 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 # — wszystkie mialy komunikat (`"nie znaleziono korzenia repozytorium"` albo
 # `"Test uruchomiony poza drzewem repozytorium."`), wiec ubywaja z obu liczb naraz.
 # Przeliczone z drzewa.
-Z_KOMUNIKATEM_RAZEM = 1743
+# 1743 -> 1750 (17.09.2026, 6.D260): SIEDEM asercji z komunikatem dokladanych przez
+# kontrole przyrzadu czytnika lancuchow w `UiTextTests.cs`. Wszystkie SIEDEM ma
+# komunikat, wiec obie zapadki — ta i `ASERCJI_RAZEM` — rosna o tyle samo.
+Z_KOMUNIKATEM_RAZEM = 1750
 NIEROZSTRZYGNIETYCH = 68
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
 #: `tests/Sim.Tests/DefaultArmAuditTests.cs` — bramki na ramionach domyślnych
@@ -517,7 +520,11 @@ NIEROZSTRZYGNIETYCH = 68
 #: a plik bez zaleznosci od frameworka wchodzi do obu projektow tak samo. Ubytek jest
 #: wiec TRESCIA tej pozycji, nie kosztem. **Liczba kopii ZMIERZONA, nie wzieta z opisu:
 #: pozycja mowila o CZTERECH, w drzewie stalo DZIEWIETNASCIE.** Przeliczone z drzewa.
-ASERCJI_RAZEM = 3190
+# 3190 -> 3197 (17.09.2026, 6.D260): SIEDEM asercji dokladanych przez kontrole
+# przyrzadu `Czytnik_lancucha_odpowiada_o_TEJ_stalej_i_tylko_o_dawnych_wartosciach`
+# w `UiTextTests.cs` — trzy postaci odpowiedzi i trzy przypadki, w ktorych czytnik
+# ma milczec (dzisiejsza wartosc, liczba spoza lancucha, cudza stala).
+ASERCJI_RAZEM = 3197
 
 
 def _rozklad():

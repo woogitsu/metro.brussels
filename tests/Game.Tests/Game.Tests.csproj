@@ -35,6 +35,7 @@
   -->
   <ItemGroup>
     <Compile Include="../Shared/KorzenRepozytorium.cs" Link="KorzenRepozytorium.cs" />
+    <Compile Include="../Shared/LancuchZmian.cs" Link="LancuchZmian.cs" />
   </ItemGroup>
 
   <ItemGroup>

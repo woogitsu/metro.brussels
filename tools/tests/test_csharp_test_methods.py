@@ -595,9 +595,14 @@ ROZKLAD_POSTACI = {
         # a pomocnik trzyma marker w JEDNEJ stalej. Interpolowanych PRZYBYWAJA dwa —
         # komunikat odmowy pomocnika nazywa marker i katalog startu, czego zadna
         # z kopii nie robila. Przeliczone z drzewa, nie zsumowane.
-        "zwykly": 4609,
-        "interpolowany ($)": 794,
-        "werbatim (@)": 88,
+        # 4609 -> 4627, 794 -> 797 i 88 -> 92 (17.09.2026, 6.D260): `LancuchZmian.cs`
+        # w `tests/Shared/` i kontrola przyrzadu w `UiTextTests.cs`. Werbatim rosnie
+        # o CZTERY, bo wzorce lancucha zapisane sa jako `@"..."` — literal werbatim
+        # jest dla wyrazenia regularnego jedyna postacia, w ktorej `\d` nie wymaga
+        # podwajania ukosnika. Przeliczone z drzewa, nie zsumowane.
+        "zwykly": 4627,
+        "interpolowany ($)": 797,
+        "werbatim (@)": 92,
         "surowy interpolowany ($$\"\"\")": 13,
         "surowy (\"\"\")": 8,
         "werbatim interpolowany ($@)": 7,

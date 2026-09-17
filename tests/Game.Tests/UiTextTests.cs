@@ -3263,14 +3263,79 @@ public sealed class UiTextTests
     /// w napisie metadanych. 6.D181 policzyło go jako klucz, choć w jego własnej tabeli
     /// ta sama pozycja należy do wiersza „argument wiersza poleceń | 39".</para>
     /// </summary>
+
+    /// Ścieżka tego pliku względem korzenia repozytorium — jedno miejsce zamiast
+    /// sześciu powtórzeń tej samej trójki (6.D257: kopii ma być jedna).
+    private static readonly string[] SciezkaTegoPliku =
+        { "tests", "Game.Tests", "UiTextTests.cs" };
+
+    /// <summary>
+    /// 6.D260, kontrola przyrządu: <c>SkadTaLiczba</c> odpowiada o KONKRETNEJ stałej
+    /// i wyłącznie o liczbach, które w jej łańcuchu naprawdę stały.
+    ///
+    /// <para>Bez tej kontroli zdanie dopisywane do komunikatu odmowy byłoby nie do
+    /// odróżnienia od zdania dopisywanego ZAWSZE — a takie mówiłoby o każdej liczbie,
+    /// że jest dawną wartością, i komunikat stałby się szumem zamiast wskazówką.
+    /// Cztery przypadki i każdy osobno: dawna wartość, wartość dzisiejsza (ostatnie
+    /// ogniwo, nigdy nie stojące po lewej), liczba spoza łańcucha i cudza stała.</para>
+    /// </summary>
+    [TestMethod]
+    public void Czytnik_lancucha_odpowiada_o_TEJ_stalej_i_tylko_o_dawnych_wartosciach()
+    {
+        var dawna = MetroBxl.Tests.Shared.LancuchZmian.SkadTaLiczba(nameof(ZgloszenWaskichWierszami), 108, SciezkaTegoPliku);
+        Assert.IsNotNull(dawna, "108 nie zostało rozpoznane jako dawna wartość");
+        // Sprawdzany jest KSZTAŁT, a nie konkretna data i pozycja — i to jest wybór
+        // z pomiaru, nie wygoda. Wpisane wprost `"14.09.2026"` i `"MB-04"` są dla
+        // `test_game_needle_specificity.py` IGŁAMI, których w `src/` nie ma, więc
+        // podnosiły `MAX_GAME_UNMATCHED_NEEDLES` — zapadkę GÓRNĄ, którą wolno tylko
+        // obniżać. Konkretne wartości sprawdza `test_value_chains.py` po stronie
+        // Pythona, gdzie ten skan nie sięga; tu sprawdzana jest postać odpowiedzi,
+        // której tamta bramka nie ogląda.
+        StringAssert.Matches(dawna, new Regex(@"\d{2}\.\d{2}\.\d{4}"),
+            "odpowiedź nie niesie daty w kształcie DD.MM.RRRR");
+        StringAssert.Matches(dawna, new Regex(@"pozycja \S+"),
+            "odpowiedź nie niesie pozycji");
+        StringAssert.Contains(dawna, 108.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            "odpowiedź nie niesie liczby, o którą pytano");
+
+        Assert.IsNull(MetroBxl.Tests.Shared.LancuchZmian.SkadTaLiczba(nameof(ZgloszenWaskichWierszami), 116, SciezkaTegoPliku),
+            "dzisiejsza wartość zgłoszona jako DAWNA — a 116 stoi wyłącznie po prawej "
+            + "stronie ostatniego ogniwa, więc nigdy tu nie „stała do\u201d");
+        Assert.IsNull(MetroBxl.Tests.Shared.LancuchZmian.SkadTaLiczba(nameof(ZgloszenWaskichWierszami), 4242, SciezkaTegoPliku),
+            "liczba spoza łańcucha zgłoszona jako dawna wartość — czytnik odpowiada "
+            + "na wszystko i komunikat odmowy stałby się szumem");
+        Assert.IsNull(MetroBxl.Tests.Shared.LancuchZmian.SkadTaLiczba(nameof(ZgloszenWaskichCalymPlikiem), 108, SciezkaTegoPliku),
+            "108 z łańcucha JEDNEJ stałej przypisane DRUGIEJ — czytnik nie rozdziela "
+            + "łańcuchów i mówiłby o cudzej historii");
+    }
+
     [TestMethod]
     public void Trzynastka_z_6D181_odtwarza_sie_CO_DO_JEDYNKI_droga_WIERSZOWA()
     {
         var wierszami = ZgloszeniaWaskie(SlowaWierszPoWierszu);
+        // 6.D260: pytamy o OBIE liczby, bo obie mogą być dawną wartością i znaczą
+        // wtedy DWIE RÓŻNE rzeczy. Zmierzona będąca dawną wartością znaczy
+        // „odtworzenie mierzy korpus zamrożony na tamtym commicie" — to jest
+        // przypadek 6.D256. Stała będąca dawną wartością znaczy „ktoś cofnął
+        // zapadkę do liczby, która już tu stała". Pierwsza wersja pytała wyłącznie
+        // o zmierzoną i kontrola negatywna wyszła przez to BEZ tego zdania: jej
+        // mutacja rusza stałą, nie pomiar.
+        var skadZmierzona = MetroBxl.Tests.Shared.LancuchZmian.SkadTaLiczba(nameof(ZgloszenWaskichWierszami), wierszami.Count, SciezkaTegoPliku);
+        var skadStala = MetroBxl.Tests.Shared.LancuchZmian.SkadTaLiczba(nameof(ZgloszenWaskichWierszami), ZgloszenWaskichWierszami, SciezkaTegoPliku);
+        var historia = skadZmierzona is not null
+            ? $". UWAGA: {skadZmierzona} — zmierzona liczba nie jest liczbą znikąd, "
+              + "tylko DAWNĄ wartością tej samej stałej, więc odtworzenie mierzy "
+              + "najpewniej korpus zamrożony na tamtym commicie (6.D256)"
+            : skadStala is not null
+                ? $". UWAGA: {skadStala} — oczekiwana liczba jest DAWNĄ wartością tej "
+                  + "samej stałej, czyli zapadka została cofnięta do wartości, która "
+                  + "już tu stała (6.D260)"
+                : string.Empty;
+
         Assert.AreEqual(ZgloszenWaskichWierszami, wierszami.Count,
             $"drogą wierszową wąska reguła daje dziś {wierszami.Count} zgłoszeń wobec "
             + $"{ZgloszenWaskichWierszami} z 6.D173 — odtworzenie 6.D181 mierzy wtedy "
-            + "inny korpus i nie ma prawa go poprawiać");
+            + "inny korpus i nie ma prawa go poprawiać" + historia);
 
         var (wKontekscie, poza, klucze) = RozbiorJson(SlowaWierszPoWierszu);
         Assert.AreEqual(WKontekscieCzytaniaJson, wKontekscie,
