@@ -424,7 +424,12 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 # 375 -> 376 (17.09.2026, 6.D254): jeden raport dopisany.
 # 376 -> 377 (17.09.2026, 6.D255): jeden raport dopisany.
 # 377 -> 378 (17.09.2026, 6.D256): jeden raport dopisany.
-MIN_REPORTS = 378
+# 378 -> 379 (17.09.2026, 6.D257): jeden raport dopisany. PRZELICZONE Z KATALOGU
+# po scaleniu #658: obie galezie podnosily te zapadke do 378 z INNEGO powodu
+# (kazda o swoj wlasny raport), wiec suma z ktorejkolwiek strony bylaby o jeden
+# za mala — to ten sam ksztalt, ktory 6.D229 zlapalo jako czyste scalenie
+# o blednej sumie.
+MIN_REPORTS = 379
 
 #: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
 #: wierszem zaczynającym się od `**`, z którego `_header_shapes` czyta kształt.

@@ -35,21 +35,8 @@ public sealed class ProvenanceSidecarTests
     /// <c>CLAUDE.md</c>. Host testów ma katalog roboczy w <c>bin/</c>, więc
     /// ścieżka względna z treści polecenia CI nie rozwiązuje się tutaj.
     /// </summary>
-    private static string RepoRoot()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "CLAUDE.md")))
-            {
-                return directory.FullName;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new FileNotFoundException("nie znalazłem katalogu repozytorium (brak CLAUDE.md w górę drzewa)");
-    }
+    private static string RepoRoot() =>
+        MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka;
 
     private static string NewDirectory()
     {

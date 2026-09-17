@@ -430,7 +430,11 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 #: **1732 -> 1741 (17.09.2026, 6.D229)** — dziewiec asercji bramki
 #: `tests/Sim.Tests/BrokenJsonRefusalTests.cs`, wszystkie z komunikatem, wiec obie
 #: stale rusza sie o tyle samo.
-Z_KOMUNIKATEM_RAZEM = 1756
+# 1756 -> 1743 (17.09.2026, 6.D257): te same TRZYNASCIE asercji co przy `ASERCJI_RAZEM`
+# — wszystkie mialy komunikat (`"nie znaleziono korzenia repozytorium"` albo
+# `"Test uruchomiony poza drzewem repozytorium."`), wiec ubywaja z obu liczb naraz.
+# Przeliczone z drzewa.
+Z_KOMUNIKATEM_RAZEM = 1743
 NIEROZSTRZYGNIETYCH = 68
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
 #: `tests/Sim.Tests/DefaultArmAuditTests.cs` — bramki na ramionach domyślnych
@@ -504,7 +508,16 @@ NIEROZSTRZYGNIETYCH = 68
 #: 3179 — obie strony podawaly TE SAMA liczbe o ROZNYCH zbiorach asercji, czyli
 #: dokladnie ten uklad, ktory przy `MIN_REPORTS` opisano jako czyste scalenie
 #: o blednej sumie. Drzewo scalone ma 3188.
-ASERCJI_RAZEM = 3203
+#: 3203 -> 3190 (17.09.2026, 6.D257): TRZYNASCIE asercji znika razem z DZIEWIETNASTOMA
+#: wlasnymi petlami szukania korzenia, zastapionymi jednym pomocnikiem
+#: `tests/Shared/KorzenRepozytorium.cs`. Cztery to `Assert.IsNotNull(katalog, …)`
+#: z kopii na markerze `MetroBxl.sln`, reszta to `Assert.Inconclusive(…)` z kopii na
+#: markerze `CLAUDE.md`. Pomocnik NIE wola `Assert` — brak korzenia nie jest
+#: niespelnionym oczekiwaniem testu, tylko niemozliwym do przeprowadzenia przebiegiem,
+#: a plik bez zaleznosci od frameworka wchodzi do obu projektow tak samo. Ubytek jest
+#: wiec TRESCIA tej pozycji, nie kosztem. **Liczba kopii ZMIERZONA, nie wzieta z opisu:
+#: pozycja mowila o CZTERECH, w drzewie stalo DZIEWIETNASCIE.** Przeliczone z drzewa.
+ASERCJI_RAZEM = 3190
 
 
 def _rozklad():

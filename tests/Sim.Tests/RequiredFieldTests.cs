@@ -145,17 +145,7 @@ public sealed class RequiredFieldTests
             return System.Text.Encoding.UTF8.GetString(buffer.ToArray());
         }
 
-        private static string RepoFile(string relative)
-        {
-            var directory = AppContext.BaseDirectory;
-            while (directory is not null
-                   && !System.IO.File.Exists(System.IO.Path.Combine(directory, "MetroBxl.sln")))
-            {
-                directory = System.IO.Directory.GetParent(directory)?.FullName;
-            }
-
-            Assert.IsNotNull(directory, "nie znaleziono korzenia repozytorium");
-            return System.IO.Path.Combine(directory!, relative);
-        }
+        private static string RepoFile(string relative) =>
+            MetroBxl.Tests.Shared.KorzenRepozytorium.Plik(relative);
     }
 }

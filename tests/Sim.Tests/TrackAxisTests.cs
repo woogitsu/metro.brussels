@@ -435,21 +435,8 @@ public sealed class TrackAxisTests
             $$"""{"id":"T","length_m":0.0,"vertical":{"status":"not_modelled"},"points":[{{coordinates}}],"stations":[]}""");
     }
 
-    private static string? FindRepositoryRoot()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "CLAUDE.md")))
-            {
-                return directory.FullName;
-            }
-
-            directory = directory.Parent;
-        }
-
-        return null;
-    }
+    private static string? FindRepositoryRoot() =>
+        MetroBxl.Tests.Shared.KorzenRepozytorium.SciezkaAlboNull;
 
     [TestMethod]
     public void CoversChordSaysWhenAChordHasNoLengthOnThisAxis()

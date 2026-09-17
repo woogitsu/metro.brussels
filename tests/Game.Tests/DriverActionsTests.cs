@@ -398,22 +398,8 @@ public sealed class DriverActionsTests
 
     private static RunPlan Plan(params string[] arguments) => RunPlan.Parse(arguments, 8, 9);
 
-    private static string RepositoryRoot()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "CLAUDE.md")))
-            {
-                return directory.FullName;
-            }
-
-            directory = directory.Parent;
-        }
-
-        Assert.Inconclusive("Test uruchomiony poza drzewem repozytorium.");
-        throw new InvalidOperationException();
-    }
+    private static string RepositoryRoot() =>
+        MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka;
 
     /// <summary>
     /// Wiersz pomocy pod <c>--line</c> ma mówić PRAWDĘ o tym trybie: skład prowadzi
