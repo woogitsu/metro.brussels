@@ -1705,7 +1705,11 @@ def test_wzorzec_rodziny_lapie_zdanie_ktore_ma_lapac_i_nie_bierze_sasiedztwa():
 # zeby stala BEZ ogniwa nie trafila do wyniku. Stoi na NAPISIE, bo pyta o klucz
 # slownika, ale klucz ten jest ZBUDOWANY przez czytnik z drzewa probnego,
 # a nie przepisany — zachowanie jest wiec tym, co ta asercja mierzy.
-ASERCJI_NAPISOWYCH_RAZEM = 926
+# 926 -> 928 (17.09.2026, 6.D261): dwie asercje ksztaltu `literal in cos` wiecej
+# — kontrola przyrzadu czytnika rodzin zada, zeby PRZECIAZENIE w jednym pliku NIE
+# trafilo do zadnej z dwoch kupek. Stoja na NAPISIE (nazwa pomocnika), ale nazwa
+# jest ZBUDOWANA przez czytnik z drzewa probnego, a nie przepisana.
+ASERCJI_NAPISOWYCH_RAZEM = 928
 
 #: **Kotwica wpisu to `(plik, funkcja, operator, literał)`, a NIE numer wiersza.**
 #: Numer przesuwa się przy każdej edycji pliku i lista rozjechałaby się sama z siebie.

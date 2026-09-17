@@ -248,7 +248,7 @@ def klasa_zapadki(nazwa, porownania):
 
 
 #: **Wszystkie zapadki pod `tools/tests/`, każda z klasą i modułem.**
-#: Zapadek: 67. **Przybitych: 17, częściowych: 3, WOLNYCH: 45, poza zasięgiem skanu: 2.**
+#: Zapadek: 68. **Przybitych: 17, częściowych: 3, WOLNYCH: 46, poza zasięgiem skanu: 2.**
 #:
 #: **To zdanie jest przepisane, a nie dopisane obok — po raz DRUGI (15.09.2026).**
 #: Stało tu najpierw „Trzydzieści osiem: 13 przybitych…" (11.09.2026, `52752c9`)
@@ -314,6 +314,9 @@ ZAPADKI = {
     # gorna pilnuje, zeby nie przybylo golych liczb, dolna — zeby czytnik nie oslepl,
     # bo oslepiony przechodzi gorna CELUJACO (6.D27).
     # 6.D260: obie WOLNE, obie stoja wylacznie jako prawa strona jednej podlogi.
+    # 6.D261: podloga na liczbe podpisow `private static`, WOLNA — stoi wylacznie
+    # jako prawa strona jednego porownania, obok DWoCH rownosci na liczby rodzin.
+    "MIN_PODPISOW_POMOCNIKA": (WOLNA, "test_csharp_test_methods.py"),
     "MIN_OGNIW_RAZEM": (WOLNA, "test_value_chains.py"),
     "MIN_STALYCH_Z_LANCUCHEM": (WOLNA, "test_value_chains.py"),
     "MAX_POGRUBIONYCH_BEZ_POKRYCIA": (WOLNA, "test_message_claims.py"),
@@ -1099,7 +1102,7 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
         "Bramka tego za czytajacego nie rozstrzygnie, bo nie ma stanu PRZED zmiana."
         % (inna_klasa, swiadkowie))
 
-    assert len(w_drzewie) == ZAPADEK_RAZEM == 67, (
+    assert len(w_drzewie) == ZAPADEK_RAZEM == 68, (
         "zapadek w drzewie %d, na liście %d, pomiar z 11.09.2026 mówił 38, "
         "po 6.D146 — 40, po 6.D147 — 42 (doszła zapadka na sekwencje ucieczki "
         "i próg KW jej skanu), po 6.D187 — 44 (dwa progi KW skanu gołych nazw), "
@@ -1134,7 +1137,7 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
     # a „21 wolnych" staje się nieprawdą, której nie zgłasza nic. KN-7 wykonała
     # dokładnie ten scenariusz: jedyną czerwienią była ta asercja.
     ile = collections.Counter(w_drzewie.values())
-    assert (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM]) == (17, 3, 45, 2), (
+    assert (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM]) == (17, 3, 46, 2), (
         "klasy zapadek: przybitych %d, częściowych %d, WOLNYCH %d, poza skanem %d — "
         "pomiar z 11.09.2026 mówił 13/3/21/1, po 6.D146 — 13/3/23/1, a po 6.D147 — "
         "14/3/24/1, po 6.D151 — 15/3/23/1, po 6.D167 — 17/3/21/1, po 6.D187 — "
@@ -1144,7 +1147,7 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
         "17/3/36/1, a po 6.D225 — 17/3/37/1, a po 6.D237 — 17/3/38/1, a po 6.D238 — "
         "17/3/39/1, a po 6.D232 — 17/3/42/1, a po 6.D258 — 17/3/41/2, "
         "a po 6.D259 — 17/3/43/2 (dwie zapadki bramki prozy), a po 6.D260 — 17/3/45/2 "
-        "(dwie podlogi bramki lancuchow) "
+        "(dwie podlogi bramki lancuchow), a po 6.D261 — 17/3/46/2 (podloga bramki rodzin) "
         "(poprawka polaryzacji przestala widziec galaz, ktora niczego nie twierdzi); "
         "wolne to te, "
         "które da się ruszyć "
@@ -1375,14 +1378,14 @@ def test_ktore_wolne_zapadki_sa_PRZESADZONE_ksztaltem_a_ktore_zmierzone():
 
     wolnych = sum(1 for _n, (k, _m) in ZAPADKI.items() if k == WOLNA)
     przesadzonych = wolnych - len(ROZSTRZYGALNE_POMIAREM)
-    assert (wolnych, przesadzonych) == (45, 44), (
+    assert (wolnych, przesadzonych) == (46, 45), (
         "wolnych %d, z tego przesądzonych kształtem %d — pomiar 17.09.2026 dał 42 i 40, "
         "a po 6.D258 daje 41 i 40: `MAX_ODCISKOW_W_RAPORCIE` wyszło z klasy `wolna` "
         "do `poza skanem`, więc ubyla ZAPADKA i ubyl jej WPIS w słowniku rozstrzygnięć; "
         "a po 6.D259 daje 43 i 42, bo doszły dwie zapadki bramki prozy, obie stojące "
         "wyłącznie jako prawa strona jednego porównania, więc obie PRZESĄDZONE "
         "kształtem; a po 6.D260 daje 45 i 44 z tego samego powodu, dwiema podlogami "
-        "bramki lancuchow "
+        "bramki lancuchow; a po 6.D261 daje 46 i 45, podloga bramki rodzin "
         "— różnica została ta sama; "
         "obie liczby są POCHODNE, więc rozjazd znaczy, że zmienił się rejestr albo "
         "kształt użycia, a nie że ktoś pomylił się w arytmetyce" % (wolnych, przesadzonych))
