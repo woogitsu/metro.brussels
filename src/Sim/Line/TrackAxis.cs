@@ -231,7 +231,7 @@ public sealed class TrackAxis
     {
         ArgumentNullException.ThrowIfNull(json);
 
-        using var document = JsonDocument.Parse(json);
+        using var document = JsonText.Parse(json, "oś trasy");
         var root = document.RootElement;
 
         var id = root.TryGetProperty("id", out var idElement)

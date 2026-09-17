@@ -414,7 +414,11 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 # 368 -> 369 (17.09.2026, 6.D238): jak wyzej.
 # 369 -> 370 (17.09.2026, 6.D231): jak wyzej.
 # 370 -> 371 (17.09.2026, 6.D232): jak wyzej.
-MIN_REPORTS = 371
+# 371 -> 372 (17.09.2026, 6.D229): DZIEWIATE starcie tej zapadki i PIERWSZE, ktore
+# zostalo PRZEWIDZIANE zamiast zlapane. Galaz mierzyla baze 368 i ustawiala 369,
+# `main` po 6.D232 mial 371, a katalog po scaleniu ma 372. Autor pomiaru zapisal to
+# w raporcie PRZED scaleniem, powolujac sie na wniosek z osmego starcia wyzej.
+MIN_REPORTS = 372
 
 #: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
 #: wierszem zaczynającym się od `**`, z którego `_header_shapes` czyta kształt.

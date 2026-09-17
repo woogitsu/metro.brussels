@@ -427,7 +427,10 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 #: `ASERCJI_RAZEM` nizej, wszystkie z komunikatem.
 #: **1723 -> 1732 (17.09.2026, 6.D231)** — te same dziewiec asercji, co przy
 #: `ASERCJI_RAZEM` nizej, wszystkie z komunikatem.
-Z_KOMUNIKATEM_RAZEM = 1732
+#: **1732 -> 1741 (17.09.2026, 6.D229)** — dziewiec asercji bramki
+#: `tests/Sim.Tests/BrokenJsonRefusalTests.cs`, wszystkie z komunikatem, wiec obie
+#: stale rusza sie o tyle samo.
+Z_KOMUNIKATEM_RAZEM = 1741
 NIEROZSTRZYGNIETYCH = 68
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
 #: `tests/Sim.Tests/DefaultArmAuditTests.cs` — bramki na ramionach domyślnych
@@ -491,7 +494,17 @@ NIEROZSTRZYGNIETYCH = 68
 #: na kodzie poprawnym (6.D27). Wszystkie z komunikatem, wiec
 #: `Z_KOMUNIKATEM_RAZEM` rosnie o tyle samo, a `BEZ_KOMUNIKATU_RAZEM`
 #: i `NIEROZSTRZYGNIETYCH` nie drgaja.
-ASERCJI_RAZEM = 3179
+#: **3179 -> 3188 (17.09.2026, 6.D229).** Dziewiec asercji bramki na odmowie przy
+#: ZEPSUTEJ SKLADNI JSON-a: cztery po parach loader x ksztalt (oczekiwany
+#: `FormatException`, zgodnosc z filtrem `Sim.Runner:247`, zgodnosc z filtrem
+#: `FirstRun:1034`, PODLOGA na liczbe przejrzanych par), cztery na jezyku odmowy
+#: i jedna na tym, ze powod parsera zostaje jako `InnerException`.
+#: **Liczba jest PRZELICZONA z drzewa po scaleniu, a nie zlozona z dwoch stron:**
+#: galaz 6.D229 mierzyla baze 3170 i dawala 3179, a `main` po 6.D231 mial ROWNIEZ
+#: 3179 — obie strony podawaly TE SAMA liczbe o ROZNYCH zbiorach asercji, czyli
+#: dokladnie ten uklad, ktory przy `MIN_REPORTS` opisano jako czyste scalenie
+#: o blednej sumie. Drzewo scalone ma 3188.
+ASERCJI_RAZEM = 3188
 
 
 def _rozklad():

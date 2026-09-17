@@ -195,7 +195,7 @@ public sealed class ServiceDay
     {
         ArgumentNullException.ThrowIfNull(json);
 
-        using var document = JsonDocument.Parse(json);
+        using var document = JsonText.Parse(json, "doba służby");
         var root = document.RootElement;
 
         var date = root.TryGetProperty("date", out var dateElement)

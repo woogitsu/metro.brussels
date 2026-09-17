@@ -575,8 +575,13 @@ ROZKLAD_POSTACI = {
         # ucieczki; jedyny wzorzec `Regex` tego czytnika stal w pliku juz wczesniej
         # i policzony jest od 6.D211. Postac interpolowana rosnie o SZESC — tyle
         # komunikatow tej okolicy wstawia zmierzona wartosc zamiast ja opisywac.
-        "zwykly": 4583,
-        "interpolowany ($)": 789,
+        # 4583 -> 4602 i 789 -> 792 (17.09.2026, 6.D229): literaly bramki
+        # `BrokenJsonRefusalTests.cs` — nazwy loaderow i ksztaltow wejscia w dwoch
+        # wykazach, fragmenty komunikatu odmowy i teksty asercji. Trzy interpolowane
+        # to komunikaty par loader x ksztalt, ktore MUSZA nazwac pare, inaczej FAIL
+        # nie mowi ktora. Cztery pozostale postacie nie drgnely. Przeliczone z drzewa.
+        "zwykly": 4602,
+        "interpolowany ($)": 792,
         "werbatim (@)": 88,
         "surowy interpolowany ($$\"\"\")": 13,
         "surowy (\"\"\")": 8,
@@ -615,8 +620,15 @@ ROZKLAD_POSTACI = {
         # `interpolowany` rusza sie o DWA, bo jedynymi nowymi napisami skladanymi sa
         # komunikaty odmowy konstruktora i wypis `ToString` postoju.
         # Cztery pozostale postacie znowu nie drgnely.
-        "zwykly": 1377,
-        "interpolowany ($)": 480,
+        # 1377 -> 1384 i 480 -> 481 (17.09.2026, 6.D229). Siedem nowych `zwykly` to
+        # SIEDEM ARGUMENTOW `what` przekazanych do `JsonText.Parse` — po jednym na
+        # kazde miejsce parsowania pliku uzytkownika ("plan sygnalizacji", "os trasy",
+        # "doba sluzby", "definicja strefy testowej CBTC", "rozklad" i DWA RAZY
+        # "manifest chunkow": w `ChunkManifest.cs` i w `Sim.Runner/Program.cs`.
+        # `interpolowany` rusza sie o JEDEN, bo skladany napis jest tu jeden: wiersz
+        # odmowy w `JsonText.Parse`. Cztery pozostale postacie nie drgnely.
+        "zwykly": 1384,
+        "interpolowany ($)": 481,
         "werbatim (@)": 0,
         "surowy interpolowany ($$\"\"\")": 1,
         "surowy (\"\"\")": 1,

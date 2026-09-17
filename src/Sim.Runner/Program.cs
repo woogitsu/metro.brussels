@@ -1075,7 +1075,7 @@ public static class Program
             return 0;
         }
 
-        using var manifest = System.Text.Json.JsonDocument.Parse(File.ReadAllText(manifestPath));
+        using var manifest = MetroBxl.Sim.JsonText.Parse(File.ReadAllText(manifestPath), "manifest chunków");
         var manifestLength = manifest.RootElement.GetProperty("axis_length_m").GetDouble();
         var delta = Math.Abs(manifestLength - axis.LengthM);
 
@@ -1285,7 +1285,7 @@ public static class Program
     /// </summary>
     private static bool CompareWithTimetable(LineRunResult result, TrackAxis axis, string path)
     {
-        using var document = System.Text.Json.JsonDocument.Parse(File.ReadAllText(path));
+        using var document = MetroBxl.Sim.JsonText.Parse(File.ReadAllText(path), "rozkład");
         if (!document.RootElement.TryGetProperty("segments", out var segments))
         {
             throw new ArgumentException($"{path} nie ma pola segments — to nie jest wyjście tools/track/timetable.py");
