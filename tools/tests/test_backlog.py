@@ -463,7 +463,9 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 # Policzone czytnikiem `detail_sections` na pliku PO edycji.
 # 322 -> 323 (17.09.2026, 6.D255): blok pozycji 6.D259, dopisany jako uzupelnienie
 # kolejki po adnotacji ZROBIONE na 6.D255 (zapas spadl na 11 przy progu 12).
-MINIMUM_DETAIL_BLOCKS = 323
+# 323 -> 324 (17.09.2026, 6.D256): blok pozycji 6.D260, dopisany jako uzupelnienie
+# kolejki po adnotacji ZROBIONE na 6.D256 (zapas spadl na 11 przy progu 12).
+MINIMUM_DETAIL_BLOCKS = 324
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
