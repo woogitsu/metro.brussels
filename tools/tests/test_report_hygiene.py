@@ -430,7 +430,8 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 # za mala — to ten sam ksztalt, ktory 6.D229 zlapalo jako czyste scalenie
 # o blednej sumie.
 # 379 -> 380 (17.09.2026, 6.D258): jeden raport dopisany.
-MIN_REPORTS = 380
+# 380 -> 381 (17.09.2026, 6.D259): jeden raport dopisany.
+MIN_REPORTS = 381
 
 #: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
 #: wierszem zaczynającym się od `**`, z którego `_header_shapes` czyta kształt.
