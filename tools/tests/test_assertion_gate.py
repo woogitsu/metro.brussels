@@ -1689,7 +1689,18 @@ def test_wzorzec_rodziny_lapie_zdanie_ktore_ma_lapac_i_nie_bierze_sasiedztwa():
 #: pytają o kształt ŹRÓDŁA osłony — czy metoda istnieje i czy rzuca wyjątek z rodziny,
 #: którą łapie wspólny handler `Sim.Runner`. Zachowania osłony pilnują testy C#
 #: w `tests/Sim.Tests/RequiredFieldTests.cs`, a nie ta bramka.
-ASERCJI_NAPISOWYCH_RAZEM = 920
+#: **920 -> 925 (17.09.2026, 6.D252).** Pięć asercji w dwóch NOWYCH testach
+#: `test_dotnet_version.py`, wszystkie kształtu `"napis" in output` / `not in`.
+#: Stoją na ZACHOWANIU, nie na napisie, i różnica jest tu sprawdzalna: `output`
+#: jest **wyjściem URUCHOMIONEJ** gałęzi decyzyjnej doctora (`_run_decision_bez_path`
+#: wycina ją ze skryptu i wykonuje w podstawionym środowisku), a nie treścią pliku.
+#: Pytanie „czy doctor wypisał »pomijam — brak dotnet«" nie ma innej postaci niż
+#: literał z tym komunikatem — tak samo jak przy bramce `status --porcelain` wyżej.
+#: Trzy pytają wprost, dwie w drugą stronę (`not in`): czy komunikat o braku
+#: ZNIKNĄŁ tam, gdzie SDK jest, i czy NIE pojawiło się „nie przechodzi" tam,
+#: gdzie nie było czym uruchomić.
+#: Do `NA_ZRODLE_PY` nie należą: `output` pochodzi z podprocesu, nie z drzewa.
+ASERCJI_NAPISOWYCH_RAZEM = 925
 
 #: **Kotwica wpisu to `(plik, funkcja, operator, literał)`, a NIE numer wiersza.**
 #: Numer przesuwa się przy każdej edycji pliku i lista rozjechałaby się sama z siebie.

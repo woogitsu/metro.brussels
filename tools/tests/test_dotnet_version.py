@@ -1035,7 +1035,7 @@ def test_doctor_cannot_recurse_into_itself():
 
 #: Kotwice gałęzi decyzyjnej w `doctor.sh`. Gdy któraś zniknie, test PADA zamiast
 #: cicho przejść na pustym zbiorze — bramka bez wejścia jest gorsza niż jej brak.
-DECISION_OPEN = 'if ! command -v "${DOTNET_BIN:-dotnet}" >/dev/null 2>&1; then'
+DECISION_OPEN = 'if command -v "${DOTNET_BIN:-dotnet}" >/dev/null 2>&1; then'
 DECISION_CLOSE = '  echo "  BLAD  dotnet test nie przechodzi — zobacz $sim_log"'
 
 
@@ -1708,6 +1708,99 @@ def test_wypis_trzech_stanow_nie_drgnal():
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
 # z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
 # tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
+
+def _run_decision_bez_path(tmp_path, sdk_na_dysku):
+    """Uruchamia gałąź decyzyjną z PUSTYM `PATH` i zadanym `SDK_NA_DYSKU`.
+
+    **Po co osobny pomocnik, skoro `_run_decision` już jest.** Tamten zawsze podaje
+    `DOTNET_BIN` wskazujący na atrapę, więc sonda `command -v` zawsze się udaje —
+    i gałąź „nie ma czym uruchomić" nie zachodzi tam ANI RAZU. Ta usterka (6.D252)
+    żyła dokładnie w tej gałęzi, której tamten pomocnik nie umie osiągnąć.
+    """
+    import subprocess
+    import stat
+
+    if sdk_na_dysku:
+        shim = os.path.join(tmp_path, "sdk-na-dysku")
+        with open(shim, "w", encoding="utf-8") as handle:
+            handle.write(
+                "#!/bin/sh\n"
+                "if [ \"$1\" = test ]; then\n"
+                "  echo 'Passed!  - Failed: 0, Passed: 7, Total: 7'\n"
+                "  exit 0\n"
+                "fi\n"
+                "echo '10.0.401'\n")
+        os.chmod(shim, os.stat(shim).st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+    else:
+        shim = ""
+
+    script = os.path.join(tmp_path, "branch-bez-path.sh")
+    with open(script, "w", encoding="utf-8") as handle:
+        handle.write(
+            # `PATH` ZOSTAJE prawdziwy, a nieosiągalna jest sama NAZWA binarki.
+            # Pierwsza wersja tego pomocnika zerowała `PATH` i to był błąd zmierzony,
+            # nie teoretyczny: bez `PATH` znikają `grep`, `cut` i `tail`, których
+            # doctor używa do odczytania liczby testów z logu, więc wypisywał
+            # `ok    / przeszło` — puste liczby. Test mierzyłby wtedy brak coreutils,
+            # a nie gałąź decyzyjną.
+            'DOTNET_BIN="dotnet-nie-ma-takiej-binarki"\n'
+            'REQUIRED_TFM=""\n'
+            'HAVE_SDK_MAJOR=""\n'
+            f'SDK_NA_DYSKU="{shim}"\n'
+            "required_bad=0\n"
+            f'TMPDIR="{tmp_path}"\n'
+            + _decision_branch()
+            + "\necho \"required_bad=$required_bad\"\n")
+
+    done = subprocess.run(["bash", script], cwd=ROOT, capture_output=True,
+                          text=True, timeout=300)
+    return done.stdout + done.stderr
+
+
+def test_doctor_uruchamia_testy_z_SDK_POZA_PATH_zamiast_meldowac_brak():
+    """SDK poza `PATH`, ale ZNALEZIONE na dysku, ma uruchomić testy — 6.D252.
+
+    <b>Konfiguracja, DLA KTÓREJ ta poprawka powstała.</b> Do 17.09.2026 gałąź pytała
+    `command -v "${DOTNET_BIN:-dotnet}"`, czyli o obecność w `PATH`, i przy pustym
+    `PATH` wypisywała „pomijam — brak dotnet" — mimo że `SDK_NA_DYSKU` niosło działającą
+    ścieżkę, którą doctor wypisuje cztery wiersze wyżej we własnej podpowiedzi.
+    Jeden przebieg przeczył wtedy sam sobie.
+    """
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp_path:
+        output = _run_decision_bez_path(tmp_path, sdk_na_dysku=True)
+
+    assert "pomijam — brak dotnet" not in output, (
+        "doctor melduje brak `dotnet`, choć SDK na dysku zostało znalezione i jego "
+        "ścieżka stoi w podpowiedzi tego samego przebiegu — to jest fałszywy brak, "
+        "który czyta się jak poprawne zatrzymanie z §8, a jest pominięciem połowy "
+        "pętli weryfikacji z §5:\n" + output)
+    assert "7/7 przeszło" in output, (
+        "doctor nie uruchomił testów rdzenia SDK znalezionym na dysku:\n" + output)
+    assert "required_bad=0" in output, (
+        "uruchomione i zaliczone testy policzyły się jako błąd wymagany:\n" + output)
+
+
+def test_doctor_NADAL_melduje_brak_gdy_nie_ma_ANI_JEDNEGO_dotneta():
+    """Kontrola negatywna: poprawka nie zamienia sondy w atrapę mówiącą zawsze „jest".
+
+    Bez tego testu poprzedni przeszedłby także wtedy, gdyby gałąź „brak dotnet"
+    została usunięta w ogóle — a wtedy doctor na maszynie bez SDK próbowałby
+    uruchomić pusty napis i mówił o niezaliczonych testach zamiast o braku narzędzia.
+    """
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp_path:
+        output = _run_decision_bez_path(tmp_path, sdk_na_dysku=False)
+
+    assert "pomijam — brak dotnet" in output, (
+        "na maszynie bez ŻADNEGO `dotnet` doctor przestał meldować brak — sonda "
+        "zamieniła się w atrapę, która zawsze mówi „jest”:\n" + output)
+    assert "nie przechodzi" not in output, (
+        "doctor mówi o niezaliczonych testach, choć nie miał czym ich uruchomić — "
+        "to wysyła czytającego w kod symulacji zamiast w środowisko:\n" + output)
+
 if __name__ == "__main__":
     import test_all
     raise SystemExit(test_all.main(__file__))
