@@ -2042,7 +2042,11 @@ def _istnieje_w_drzewie(nazwa):
 # 1092 -> 1097 i „Weryfikacja" 421 -> 423 (17.09.2026, 6.D259): adresy z pol
 # WLASNEGO bloku tej pozycji. Blok 6.D263, dopisany tym samym commitem, do tych
 # liczb NIE wchodzi: pozycja OTWARTA. PRZELICZONE CZYTNIKIEM po scaleniu #660.
-ADRESOW_W_WYKONANYCH = {"Wejście": 1097, "Wyjście": 65, "Weryfikacja": 423}
+# 1097 -> 1102 i „Weryfikacja" 423 -> 424 (17.09.2026, 6.D260): adresy z pol
+# WLASNEGO bloku tej pozycji. Blok 6.D264, dopisany tym samym commitem, do tych
+# liczb NIE wchodzi: pozycja OTWARTA. `WYWOLAN` nie drga (171): plotek 6.D260 wola
+# `~/.dotnet/dotnet test`, ktory niesie ADRES, ale nie jest wywolaniem modulu.
+ADRESOW_W_WYKONANYCH = {"Wejście": 1102, "Wyjście": 65, "Weryfikacja": 424}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu

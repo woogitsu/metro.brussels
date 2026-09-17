@@ -524,7 +524,8 @@ KROK_ZESTAWU = "Run tool tests"
 BAJTKOD_PO_COMPILEALL_KATALOGI = 7
 #: 207 -> 208 (17.09.2026, 6.D233): doszedl `tools/tests/test_json_required.py`.
 #: 208 -> 209 (17.09.2026, 6.D255): doszedl `tools/tests/test_message_claims.py`.
-BAJTKOD_PO_COMPILEALL_PLIKI = 209
+#: 209 -> 210 (17.09.2026, 6.D260): doszedl `tools/tests/test_value_chains.py`.
+BAJTKOD_PO_COMPILEALL_PLIKI = 210
 
 
 def _workflow_zestawu():
@@ -863,7 +864,8 @@ KATALOG_Z_PYTHONEM = "tools"
 #: pojawil sie modul poza zasiegiem obu.
 #: 207 -> 208 (17.09.2026, 6.D233): doszedl `tools/tests/test_json_required.py`.
 #: 208 -> 209 (17.09.2026, 6.D255): doszedl `tools/tests/test_message_claims.py`.
-MODULOW_W_CALYM_DRZEWIE = 209
+#: 209 -> 210 (17.09.2026, 6.D260): doszedl `tools/tests/test_value_chains.py`.
+MODULOW_W_CALYM_DRZEWIE = 210
 
 
 def moduly_calego_drzewa(korzen=None):
