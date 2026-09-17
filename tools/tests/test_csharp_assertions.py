@@ -425,7 +425,9 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 #: komunikat; siodma sklada go ze zbioru, ktory porownuje.
 #: **1708 -> 1723 (15.09.2026, 6.D224)** — te same pietnascie asercji, co przy
 #: `ASERCJI_RAZEM` nizej, wszystkie z komunikatem.
-Z_KOMUNIKATEM_RAZEM = 1723
+#: **1723 -> 1732 (17.09.2026, 6.D231)** — te same dziewiec asercji, co przy
+#: `ASERCJI_RAZEM` nizej, wszystkie z komunikatem.
+Z_KOMUNIKATEM_RAZEM = 1732
 NIEROZSTRZYGNIETYCH = 68
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
 #: `tests/Sim.Tests/DefaultArmAuditTests.cs` — bramki na ramionach domyślnych
@@ -479,7 +481,17 @@ NIEROZSTRZYGNIETYCH = 68
 #: z typem jawnym, czytnik rozpoznajacy `var nazwa = Wyliczenie.Czlon` i granica,
 #: na ktorej ten czytnik milczy, bo inicjalizatorem jest wywolanie. Wszystkie
 #: z komunikatem; `BEZ_KOMUNIKATU_RAZEM` i `NIEROZSTRZYGNIETYCH` nie drgaja.
-ASERCJI_RAZEM = 3170
+#: **3170 -> 3179 (17.09.2026, 6.D231).** Dziewiec asercji kontroli przyrzadu
+#: czytnika korpusu w `tests/Sim.Tests/DefaultArmAuditTests.cs`: piec na ODMOWIE
+#: metodzie WYRAZENIOWEJ (straz `deklaracji == 1` nadal SPELNIONA, zwrot `null`,
+#: powod niepusty, powod NAZYWA ksztalt ciala, powod nie niesie cudzej tresci)
+#: i cztery na kontroli DODATNIEJ, czyli na sasiadce KLAMROWEJ, ktorej korpus
+#: czytnik podstawial pod tamto pytanie: jedna deklaracja, brak powodu odmowy,
+#: zwrot niepusty i tresc WLASNA. Bez tej czworki bramka zapalalaby sie tak samo
+#: na kodzie poprawnym (6.D27). Wszystkie z komunikatem, wiec
+#: `Z_KOMUNIKATEM_RAZEM` rosnie o tyle samo, a `BEZ_KOMUNIKATU_RAZEM`
+#: i `NIEROZSTRZYGNIETYCH` nie drgaja.
+ASERCJI_RAZEM = 3179
 
 
 def _rozklad():
