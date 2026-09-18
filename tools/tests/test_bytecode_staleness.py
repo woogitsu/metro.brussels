@@ -513,7 +513,7 @@ KROK_ZESTAWU = "Run tool tests"
 #: **201 → 202 przy 6.D138**, bo doszedł moduł `test_mass_copies.py`. Bramka niżej
 #: zapaliła się na tej jedynce sama, w pierwszym przebiegu po dopisaniu pliku, i to
 #: jest dowód, że mierzy drzewo, a nie własny komentarz. Rozkład dzisiejszy:
-#: `tools/tests` **142**, `tools/blender` 29, `tools/track` 23, `tools/ci` 9,
+#: `tools/tests` **143**, `tools/blender` 29, `tools/track` 23, `tools/ci` 10,
 #: `tools/visual` 5, `tools/physics` 3, `tools/data` 2.
 #:
 #: **Rozklad modulow po katalogach — 6.D263, i to jest zapadka na ZDANIE, nie na sume.**
@@ -530,11 +530,10 @@ KROK_ZESTAWU = "Run tool tests"
 #: przyrost W JEDNYM katalogu przy niezmienionej sumie jest zdarzeniem, ktorego
 #: suma nie widzi.
 ROZKLAD_MODULOW = {
-    # 139 -> 140 (6.D277) -> 141 (6.D278) -> 142 (6.D279), 18.09.2026: trzy moduly.
-    "tools/tests": 142,
+    "tools/tests": 143,  # 139 -> 143 (18.09.2026, 6.D277 do 6.D280)
     "tools/blender": 29,
     "tools/track": 23,
-    "tools/ci": 9,
+    "tools/ci": 10,  # 9 -> 10 (18.09.2026, 6.D280)
     "tools/visual": 5,
     "tools/physics": 3,
     "tools/data": 2,
@@ -560,7 +559,8 @@ BAJTKOD_PO_COMPILEALL_KATALOGI = 7
 # 210 -> 211 (18.09.2026, 6.D277): doszedl `test_digit_boundaries.py`.
 # 211 -> 212 (18.09.2026, 6.D278): doszedl `test_one_bold_sentences.py`.
 # 212 -> 213 (18.09.2026, 6.D279): doszedl `test_commit_claims.py`.
-BAJTKOD_PO_COMPILEALL_PLIKI = 213
+# 213 -> 215 (18.09.2026, 6.D280): doszly `assert_render_sums.py` i jego bramka.
+BAJTKOD_PO_COMPILEALL_PLIKI = 215
 
 
 def _workflow_zestawu():
@@ -903,7 +903,8 @@ KATALOG_Z_PYTHONEM = "tools"
 # 210 -> 211 (18.09.2026, 6.D277): ten sam modul, ta sama jedynka.
 # 211 -> 212 (18.09.2026, 6.D278): jak wyzej.
 # 212 -> 213 (18.09.2026, 6.D279): jak wyzej.
-MODULOW_W_CALYM_DRZEWIE = 213
+# 213 -> 215 (18.09.2026, 6.D280): dwa pliki naraz, narzedzie i bramka.
+MODULOW_W_CALYM_DRZEWIE = 215
 
 
 def moduly_calego_drzewa(korzen=None):

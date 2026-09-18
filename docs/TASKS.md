@@ -1252,8 +1252,11 @@ właściciel.
 | 6.D277 | **ZROBIONE w #PR (18.09.2026): trzy liczby to 7 / 7 / 1, a pole „Weryfikacja” tej pozycji twierdzi nieprawdę o KIERUNKU — i to jest jej główne znalezisko.** Literałów `re.compile` pod `tools/` z `\b` bezpośrednio przy cyfrze lub `\d` jest **7**, w **5** plikach (`test_backlog.py`, `test_message_claims.py` × 2, `test_report_claims.py`, `test_report_hygiene.py` × 2, `test_suite_runtime_budget.py`); samych granic — **20**, bo `ADRES_NIE_TWIERDZENIE` niesie ich dziewięć w jednym literale. Wejściem z ułamkiem pisanym przecinkiem bywa **7 z 7**, czyli wszystkie. Rozcięcie ŻYWE jest **1** i nie było znane: `\b[0-9a-f]{7,40}\b` z `ADRES_NIE_TWIERDZENIE` wycina `5400088` ze środka `5400088,438`, bo siedmiocyfrowa część całkowita składa się z samych znaków legalnych w hex. **L1 JEST DOLNYM OSZACOWANIEM I LICZBA NIEWIDOCZNYCH JEST PODANA:** literałów nieczytelnych statycznie (f-string, sklejenie, zmienna) jest **10** przy **184** czytelnych. **POLE „WERYFIKACJA” BYŁO BŁĘDNE, zmierzone na kompletnej kopii drzewa:** zapowiadało, że przywrócenie `\b` „zapala dziś bramkę liczbą populacji, bo urwane człony ją podnosiły” — a daje `19/19 przeszło, kod 0`, bo urwane człony populację OBNIŻAŁY (**259** wobec **247**), a `MAX_GOLYCH_W_PROZIE_POMIAROWEJ` jest zapadką GÓRNĄ i spadek przechodzi ją celująco (6.D27 od strony populacji). Pola nie poprawiam po fakcie — rozjazd jest zapisany. **PIERWSZE KRYTERIUM ROZCIĘCIA BYŁO FAŁSZYWE i złapał je przypadek wywołujący, a nie zielony zestaw:** „sąsiad jest cyfrą, przecinkiem albo kropką” dawało **5942** trafień na samym `_DATA_PL`, flagując poprawną datę, po której stoi przecinek zdaniowy; kryterium poprawione na „granica wypada ŚCIŚLE WEWNĄTRZ tokenu `\d+(?:[.,]\d+)*`” daje na ciągu `0,090 / 0,087 / 0,085 s` **2** rozcięcia starym wzorcem i **0** naprawionym. **KONTROLA NEGATYWNA — i ona wykryła ŚLEPOTĘ MOJEJ WŁASNEJ BRAMKI:** pierwsza wersja testu żywych rozcięć brała `SMIECI_W_PROZIE` po indeksach 1 i 2, a wzorzec naprawiony przy 6.D275 stoi pod indeksem 4 — mutacja dała wtedy **2** czerwienie zamiast **3**; po dopisaniu indeksu kontrola daje `2/5 przeszło` i zgłasza m.in. `0 / 1500` wycięte ze środka `900,0`. **KONTROLA PRZYRZĄDU:** `\bkod\s+\d+` ma `\b` przy literze i na listę NIE trafia, a `\bMB-\d+\b` trafia wyłącznie granicą za `\d+`. **SAMOZWROTNOŚĆ WIDOCZNA, NIE UKRYTA:** skan znajduje `\b` przy cyfrze we własnych atrapach tego modułu i słusznie — stoją w zbiorze przybitym, a poza liczbą nagłówkową, z osobnym testem na to odejmowanie. **CZTERY PRZEWIDYWANIA Z SIEDMIU NIETRAFIONE** i wszystkie zapisane jako niezgodne. Nowy moduł: `tools/tests/test_digit_boundaries.py` (5 testów, 4,2 s). Wzorców NIE przepisywano — każdy jest osobną zmianą zachowania cudzej bramki i jest to poza zakresem. Raport: `reports/6d277-granica-przy-cyfrze.md` | M |
 | 6.D278 | **ZROBIONE w #PR (18.09.2026): trzy liczby to 132 / 42 / 96, a KOSZT PODŁOGI JEST POLICZONY NA CAŁEJ HISTORII, nie oszacowany.** Zdań prozy pod `tools/tests/` z DOKŁADNIE JEDNĄ liczbą pogrubioną, stojących poza akapitem z zapowiedzią pomiaru, jest **132**, w **42** plikach; liczb gołych stoi w nich **96**, czyli niecałe **37 %** całej populacji **259**. Zdań niosących choć jedną gołą jest **53** ze 132. Liczby policzone DWIEMA różnie zbudowanymi pętlami — sito zgodne samo ze sobą czyta się tak samo jak poprawne (6.D276). **DZIURA POKAZANA OBOK SIEBIE:** ta sama mutacja (zdjęcie pogrubienia zdaniu z listy, `csharp_assertions.py`) daje na nowej bramce `1/3 przeszło` (podłoga 131 wobec 132, w 41 plikach wobec 42), a na starej zapadce górnej `19/19 przeszło` — zapadka górna przepuszcza spadek CELUJĄCO, bo jest górna. **KOSZT:** na **664** rewizjach `tools/tests/`, każdej porównanej ze SWOIM PIERWSZYM RODZICEM, podłoga na zdania zapaliłaby się **2** razy, a na gołe **1** raz — obie na pracy uprawnionej, i po **4** czerwone przebiegi na `main`, wszystkie z jednego zdarzenia z 09.09.2026. To ten sam rząd, co koszt przyjęty przy 6.D270. Ze **129** scaleń żadne nie obniżyło populacji wobec drugiego rodzica. **KSZTAŁT, KTÓREGO BAŁEM SIĘ NAJBARDZIEJ, NIE ISTNIEJE:** spadków typu „zdaniu przybyła DRUGA pogrubiona” — czyli zapaleń na pracy, której `MAX_POGRUBIONYCH_BEZ_POKRYCIA` sama żąda — w historii nie ma ANI JEDNEGO; rozumowałem z reguły zapadki, a nie z tego, co ludzie robili. **POMIAR KOSZTU OMAL NIE WYSZEDŁ ZAWYŻONY SIEDMIOKROTNIE:** pierwsze podejście liczyło różnice między kolejnymi pozycjami `git rev-list --reverse` i dało **20** spadków zamiast dwóch — ARTEFAKT PORZĄDKU, bo `rev-list` przeplata gałęzie; cztery różne commity dawały identyczny spadek, a żaden niczego z prozy nie usunął. **BRAMKA ZŁAPAŁA MNIE DWA RAZY:** raz samozwrotność (proza tego modułu ma dokładnie ten kształt, który moduł mierzy — plik odjęty jawnie, jak w 6.D277), raz `MAX_POGRUBIONYCH_BEZ_POKRYCIA` **175 → 177**, bo wpisałem liczby kosztu jako pogrubione i bez pokrycia; lekarstwem jest to, którego żąda jej własny komunikat — liczby stoją w kodzie i wchodzą do komunikatu przez `%d`. **PODŁOGI NA LICZBĘ PLIKÓW ŚWIADOMIE NIE POSTAWIŁEM:** jej kosztu nikt nie policzył, a zapadka bez policzonego kosztu jest tym, czego ta seria nie robi. **TRZY PRZEWIDYWANIA Z PIĘCIU NIETRAFIONE.** `ZAPOWIEDZ_POMIARU` nieposzerzona, obie zapadki górne nietknięte, niczego nie pogrubiono. Nowy moduł: `tools/tests/test_one_bold_sentences.py`. Raport: `reports/6d278-jedno-zdjecie-od-znikniecia.md` | M |
 | 6.D279 | **ZROBIONE w #PR (18.09.2026): cztery liczby to 218 / 217 i 468 / 464, a ŻYWĄ INSTANCJĘ ZJAWISKA WYPRODUKOWAŁEM SAM, w commicie tej samej serii.** Na **1012** commitach: komunikatów zgłaszających zmianę zapadki (nazwa z rejestru, a PO niej para wartości) jest **218**, z tego widać w diffie **217** — różnica **1** (`8ae17c40`). Komunikatów zgłaszających WYKONANĄ kontrolę negatywną **468**, ze śladem w drzewie **464** — różnica **4** (`3f40cd09`, `758fe8f7`, `c0afb220`, `e940dc9e`). **PARA ODWROTNA LICZY 152** — ruch zapadki BEZ wzmianki w komunikacie jest tu kilkadziesiąt razy częstszy niż wzmianka bez ruchu, i tej liczby nikt nie zamawiał. **LICZBY ZALEŻĄ OD SZEROKOŚCI KOTWICY I JEST TO ZMIERZONE, NIE ZASTRZEŻONE:** A daje **218** przy parze po nazwie i **225**, gdy przyjąć ją też przed nazwą; B daje **468** przy wymogu śladu wykonania, **475** po dorzuceniu samego `KN` i **458** dla samej frazy bez wymogu wykonania. Granica „zgłasza wykonaną” wobec „wspomina” jest PROGIEM CZYTNIKA, nie faktem w drzewie. **`--diff-merges=first-parent` JEST ROZSTRZYGNIĘCIEM, NIE WYGODĄ:** domyślnie `git log -p` pomija diff scalenia w całości, a scalenia niosą te same zgłoszenia co commity gałęzi — bez tego kilkanaście scaleń wpada do „zgłoszone bez widocznego” z powodu czysto technicznego (sprawdzone na `bb3896e8`). **MÓJ PIERWSZY CZYTNIK BYŁ BŁĘDNY i to ja się myliłem, nie rozpoznanie:** dał **225/223/493/489**, bo kotwica A szukała pary wartości w CAŁYM oknie zamiast po nazwie, a kotwica B liczyła WZMIANKI zamiast kontroli WYKONANYCH; po poprawieniu A odtwarza się co do jedności. **ŻYWA INSTANCJA:** mój własny commit 6.D278 (`4a9529f`) wykonał kontrolę negatywną — jej wyjście stoi w raporcie i w PR — a jego komunikat nie zawiera ani razu słowa „kontrol”; `git log -1 --format=%B 4a9529f | grep -c kontrol` daje **0**. Przypadek jest PRZYBITY jako kontrola przyrządu. **KONTROLA NEGATYWNA** (kompletna kopia drzewa RAZEM z `.git`, bo moduł czyta historię): liczenie `zglasza_i_widac` z KOMUNIKATU zamiast z diffa daje `4/5 przeszło` i czerwień z nazwą commita. Przewidywałem DWIE czerwienie, jest JEDNA — asercja podzbioru nie zapala się, bo zbiór staje się RÓWNY, a nie większy; zapisane, nie poprawione. **BRAMKI TEJ SERII ZŁAPAŁY MNIE TRZY RAZY NA JEDNYM MODULE:** moja własna bramka z 6.D277 znalazła w nim `\b` przy cyfrze; pierwsza poprawka tego wzorca była BŁĘDNA i złapała ją podłoga (`(?![\d,.])` gubi `KN-1` kończące zdanie KROPKĄ — **468 → 467**, poprawne jest węższe `(?!\d)`); klasyfikator klas uznał pięć moich stałych za `poza skanem`, bo porównywałem je w PĘTLI, a nie gołą nazwą. Bramki odrzucającej commit po treści komunikatu NIE MA i jest to wybór — różnicy A1−A2 też nie przybiłem, bo to ta sama bramka tylnymi drzwiami. Nowy moduł: `tools/tests/test_commit_claims.py`. Raport: `reports/6d279-zapis-tylko-w-komunikacie.md` | M |
-| 6.D280 | **Ten sam commit dał na `tunnel-alignment (L2_E)` raz czerwień, raz zieleń — a `docs/17-visual-regression.md` §Determinizm twierdzi, że losowości nie ma** | zmierzone 18.09.2026 przy 6.D275, na własnym PR #675. Przebieg 35332005261 na SHA `bc1685b`: job padł na `BŁĄD: LOD 2 nie ma rzadszej siatki niż LOD 0 na: axis75`, gdzie LOD 2 dał `ink=0.4936` przy LOD 0 `0.0971`, podczas gdy siostrzane kamery `axis05/25/50` stoją przy `0.025`. Ponowienie **tego samego SHA** przeszło. Różnica między próbami, którą widać w logu: pierwsza szła na `actions-runner-metro-03`, druga na `actions-runner-metro-01` — czyli podejrzenie pada na MASZYNĘ, nie na losowość w kodzie, i tego właśnie §Determinizm nie obiecuje ani nie wyklucza. Potok **już zapisuje** `sha256` każdego PNG w metadanych przebiegu, więc pytanie „czy ten sam commit daje ten sam piksel na dwóch maszynach" jest odpowiadalne z danych, które są — tylko nikt ich nie porównuje. Ile par (ten sam commit, dwie maszyny) leży w artefaktach CI, dla ilu `sha256` PNG się różni i które kamery się rozjeżdżają, nie policzył nikt | M |
+| 6.D280 | **ZROBIONE w #PR (18.09.2026): trzy liczby to 1 / 1 / 1, a pole „Wejscie” tej pozycji wskazuje sume, ktora do tego porownania SIE NIE NADAJE.** Par o tym samym commicie z DWOCH maszyn, dajacych sie porownac w artefaktach, jest **1** (przebieg `35332005261`, job `L2_E`, SHA `bc1685b7`); rozni sie w niej **1** klatka i jest to **jedna** kamera: `LOD2/axis75`, `ink` **0,493582** wobec **0,041489**, czyli blisko dwunastokrotnie, przy siostrzanych `axis05/25/50` bit-identycznych. Populacja: **757** przebiegow, **2194** artefaktow `t-210-tunnel-`, **1744** niewygaslych, **20** par prob, **17** dwumaszynowych, komplet artefaktow ma **jedna**. **WARTOSC, KTORA POLE „WYJSCIE” NAZYWA NIEODCZYTANA, JEST ODCZYTANA:** `ink` dla `axis75` w przebiegu zielonym to **0,041489**, z artefaktu `-2`, trzema zgodnymi drogami (`report.txt` w. 491, `LOD2-render-sanity.json`, przeliczenie z PNG) — nie zgadnieta z tego, ze job byl zielony. **GLOWNE ZNALEZISKO, KTOREGO NIE PRZEWIDZIALEM:** metadane niosa dwie sumy, a `sha256` CALEGO PLIKU rozni sie na **21 z 21** klatek pary dwumaszynowej, ale takze na **37 z 37** klatek pary z TEJ SAMEJ maszyny, gdzie piksele sa bit-identyczne — sito na niej zglasza KAZDA pare i liczba przestaje cokolwiek znaczyc. Porownuje sie `idat_sha256`, i jest to wynik pomiaru, nie wybor. **CZEGO Z TEGO NIE WOLNO WYCIAGNAC:** para porownywalna jest w historii JEDNA, wiec nie wychodzi z niej ani czestosc, ani to, czy `axis75` jest kamera wyroznina; **16** par dwumaszynowych nie ma kompletu artefaktow i jest to BRAK POMIARU, a nie zero roznic — zmierzony powod: ponowienie `re-run all jobs` KASUJE artefakty poprzedniej proby (artefakt `9835478468` daje dzis **404**, a nie komunikat o wygasnieciu). **DWA SPROSTOWANIA DO TRESCI POZYCJI:** nazwy `actions-runner-metro-03/-01` to katalogi instalacji runnera, a `runner_name` w API to `metro-wsl-DOM-NEW-03/-01`; oba joby raportuja `Machine name: 'DOM-NEW'` i ten sam katalog domowy, wiec zdania o tym, ze roznica jest maszyna, NIE uznaje za zamkniete. **KONTROLA NEGATYWNA:** oslepione sito daje `2/4 przeszlo`; przewidywalem JEDNA czerwien, sa DWIE — a kontrola przyrzadu o parze z jednej maszyny przechodzi na oslepionym sicie CELUJACO, bo pusta lista jest tam wynikiem oczekiwanym, i dokladnie dlatego jest osobnym testem. **PRZYCZYNY ROZJAZDU NIE USTALILEM I NIE MOGLEM:** wymaga Blendera, ktorego w tym srodowisku nie ma — `CLAUDE.md` §2. Progu bramki LOD ani potoku renderu nie tknalem; komparator NIE jest wpiety do zadnego workflowa i to tez jest wybor. Nowe pliki: `tools/ci/assert_render_sums.py`, `tools/tests/test_render_sums.py`. Raport: `reports/6d280-ten-sam-commit-dwa-piksele.md` | M |
 | 6.D281 | **Szukanie po POPULACJI znajduje zdjęcia pogrubienia, których szukanie po KOMUNIKATACH commitów nie widzi — i odwrotnie** | zmierzone 18.09.2026 przy 6.D278: 6.D275 ustaliło, że zdjęcie pogrubienia zgłasza dwanaście komunikatów, a w diffie widać zero, bo ruch zachodzi w drzewie roboczym przed commitem, i nazwało detektor historyczny ślepym Z NATURY. Idąc od strony POPULACJI (spadek liczby zdań o jednej pogrubionej) znalazłem jedno zdjęcie **widoczne w diffie** — `ab88b4c`, gdzie `156` i `157` straciły pogrubienie i przetrwały jako liczby gołe. To nie jest sprzeczność, tylko inny zbiór wejściowy; ale znaczy, że „ślepy z natury” dotyczy jednej z dwóch dróg, a nie obu. Ile zdjęć widzi droga po populacji, ile droga po komunikatach, ile obie i ile żadna — nie policzył nikt | M |
+| 6.D282 | **Ile ze 152 ruchow zapadki bez wzmianki w komunikacie to census, a ile decyzja** | zmierzone 18.09.2026 przy 6.D279: para odwrotna liczy **152** commity — ruch zapadki BEZ wzmianki w komunikacie jest kilkadziesiat razy czestszy niz wzmianka bez ruchu. Liczba nic nie znaczy, dopoki nie odrozni sie podniesienia RUTYNOWEGO (census po dodaniu pliku, gdzie prog jedzie za drzewem) od zmiany progu, ktora jest DECYZJA. Ktorych jest ile, nie policzyl nikt; czytnik stoi w `tools/tests/test_commit_claims.py` | M |
+| 6.D283 | **Dla ilu z 464 slad w commicie opisuje TE kontrole, a nie jakakolwiek** | zmierzone 18.09.2026 przy 6.D279: kryterium sladu kontroli negatywnej jest szczelne od gory, nieszczelne od dolu — sprawdza, czy w commicie stoi raport w `reports/` albo plik testu, a NIE czy ten raport opisuje kontrole wymieniona w komunikacie. Liczba **464** jest wiec gorna granica, a nie pomiarem zgodnosci | M |
+| 6.D284 | **Ile pogrubionych liczb jest pokrytych WYLACZNIE zbiegiem cyfr z odleglosci bliskiej szerokosci okna — czyli krucho** | zmierzone 18.09.2026 przy 6.D278 i 6.D280, dwa razy pod rzad i za kazdym na cudzej prozie: dopisanie JEDNEGO wiersza ogniwa lancucha zerwalo pokrycie liczby, ktorej nikt nie ruszal, a zlozenie ogniwa w jeden wiersz przesunelo inna liczbe z klasy MIESZANEJ do KODU. Klasa `pokryta zbiegiem` jest z natury krucha i bramka sama ja tak nazywa; ile jej wpisow wisi na wlosku, nie policzyl nikt | M |
 
 #### Szczegóły pozycji z kompletem sześciu pól
 
@@ -14031,3 +14034,93 @@ w drzewie**, a nie tylko w rozmowie — z tego samego powodu, co dwie sekcje wy�
 - **Poza zakresem:** bramka na komunikaty commitów — to jest 6.D279 i osobne
   rozstrzygnięcie; przepisywanie historii; poszerzanie `ZAPOWIEDZ_POMIARU`; `src/`.
 - **Zależy od:** 6.D275, 6.D278.
+##### 6.D282 · Census czy decyzja — rozbior 152 ruchow bez wzmianki
+
+- **Skąd:** zmierzone 18.09.2026 przy 6.D279. Para odwrotna — commity, ktorych diff
+  rusza zapadke, a komunikat nie wymienia jej ani razu — liczy **152**, czyli
+  kilkadziesiat razy wiecej niz para przeciwna. Pomiar:
+  `reports/6d279-zapis-tylko-w-komunikacie.md` §8.1.
+- **Dlaczego bez decyzji:** pozycja **dzieli policzona juz populacje** na dwie klasy
+  i nie wprowadza zadnej nowej bramki ani nie zmienia czytnika.
+- **Wejście:** `tools/tests/test_commit_claims.py` (`cztery_populacje`,
+  `widoczne_bez_zgloszonego`), `tools/tests/test_tree_walks.py` (rejestr `ZAPADKI`),
+  `git log` dla calego repozytorium.
+- **Wyjście:** ile ze 152 ruchow to podniesienie RUTYNOWE, czyli takie, w ktorym prog
+  jedzie za wielkoscia mierzona przez ten sam commit (census plikow, raportow, blokow);
+  ile to zmiana progu, ktora jest decyzja; ile nie da sie zaklasyfikowac. Trzy liczby,
+  a nie ocena.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_commit_claims.py
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: modul zielony i caly zestaw zielony. Kontrola negatywna: commit
+  podnoszacy prog BEZ zmiany wielkosci, ktora ten prog mierzy, ma trafic do klasy
+  DECYZJA, a nie do census — inaczej sito zwraca wszystko jako rutyne. Kontrola
+  przyrzadu: commit dodajacy plik i podnoszacy census o jeden ma trafic do RUTYNY.
+- **Skończone, gdy:** trzy liczby sa policzone i wypisane z adresami commitow,
+  a kontrola negatywna konczy sie czerwienia.
+- **Poza zakresem:** bramka odrzucajaca ruch zapadki bez wzmianki — to jest wprost
+  poza zakresem 6.D279 i zostaje osobnym rozstrzygnieciem; `src/`.
+- **Zależy od:** 6.D279.
+##### 6.D283 · Slad kontroli a kontrola, ktorej slad dotyczy
+
+- **Skąd:** zmierzone 18.09.2026 przy 6.D279. Kryterium sladu kontroli negatywnej
+  sprawdza, czy w commicie stoi raport w `reports/` albo plik testu — a nie, czy ten
+  raport opisuje kontrole wymieniona w komunikacie. Pomiar:
+  `reports/6d279-zapis-tylko-w-komunikacie.md` §8.2.
+- **Dlaczego bez decyzji:** pozycja **zaciesnia kryterium i mierzy roznice**, nie
+  zmieniajac ani zapadek, ani tego, co komunikat ma zawierac.
+- **Wejście:** `tools/tests/test_commit_claims.py` (`KONTROLA_NEGATYWNA`,
+  `WYNIK_KONTROLI`, `SLAD_KONTROLI`), `git log -p`, `reports/`.
+- **Wyjście:** dla ilu z **464** commitow raport dopisany w tym samym commicie
+  wymienia nazwe modulu albo zapadki, o ktorej mowi komunikat; dla ilu nie wymienia
+  niczego wspolnego; dla ilu commit nie dopisuje raportu, tylko plik testu.
+  Trzy liczby, a nie ocena.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_commit_claims.py
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: modul zielony i caly zestaw zielony. Kontrola negatywna: commit,
+  ktory dopisuje raport o czym INNYM niz kontrola z komunikatu, ma wypasc z klasy
+  `slad dotyczy tej kontroli`. Kontrola przyrzadu: commit, w ktorym raport wymienia
+  te sama nazwe co komunikat, ma w niej zostac.
+- **Skończone, gdy:** trzy liczby sa policzone i wypisane z adresami commitow,
+  a kontrola negatywna konczy sie czerwienia.
+- **Poza zakresem:** zmiana `MIN_ZGLASZA_KONTROLE` ani `MIN_ZGLASZA_KONTROLE_ZE_SLADEM`
+  — zacisniecie kryterium obniza populacje, a podloge wolno obnizac tylko z powodem,
+  ktory ta pozycja dopiero ma dostarczyc; `src/`.
+- **Zależy od:** 6.D279.
+##### 6.D284 · Pokrycie, ktore wisi na wlosku
+
+- **Skąd:** zmierzone 18.09.2026 przy 6.D278 i 6.D280, dwa razy pod rzad i za kazdym
+  razem na prozie, ktorej nie pisalem. Raz dopisanie JEDNEGO wiersza ogniwa lancucha
+  wypchnelo liczbe pokrywajaca poza okno i `MAX_POGRUBIONYCH_BEZ_POKRYCIA` zapalila sie
+  na liczbie, ktorej nikt nie ruszal. Raz zlozenie ogniwa w jeden wiersz przesunelo inna
+  liczbe z klasy MIESZANEJ do KODU. Pomiary:
+  `reports/6d278-jedno-zdjecie-od-znikniecia.md` §8 i
+  `reports/6d280-ten-sam-commit-dwa-piksele.md` §7.
+- **Dlaczego bez decyzji:** pozycja **liczy, ile wpisow wisi na wlosku**, i nie zmienia
+  ani szerokosci okna, ani klas pokrycia — jedno i drugie byloby osobnym
+  rozstrzygnieciem o zachowaniu cudzej bramki.
+- **Wejście:** `tools/tests/test_message_claims.py` (`OKNO_PROZY`,
+  `gole_w_prozie_pomiarowej`, `klasy_pokrycia_zbiegiem`, `POKRYTYCH_ZBIEGIEM_CYFR`).
+- **Wyjście:** ile pogrubionych liczb ma pokrycie WYLACZNIE zbiegiem cyfr; ile z nich
+  ma najblizsze pokrycie dalej niz polowa okna; ile ma je w ostatnim wierszu okna,
+  czyli zniknie po dopisaniu jednego wiersza gdziekolwiek pomiedzy. Trzy liczby,
+  a nie ocena.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_message_claims.py
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: modul zielony i caly zestaw zielony. Kontrola negatywna: liczba, ktorej
+  jedyne pokrycie stoi w ostatnim wierszu okna, ma trafic na liste kruchych — dzis
+  nie odroznia jej od pokrytej solidnie nic. Kontrola przyrzadu: liczba pokryta
+  przypisaniem stalej w sasiednim wierszu ma NIE trafic na te liste.
+- **Skończone, gdy:** trzy liczby sa policzone i wypisane z adresami, a kontrola
+  negatywna konczy sie czerwienia.
+- **Poza zakresem:** zmiana `OKNO_PROZY`, `MAX_POGRUBIONYCH_BEZ_POKRYCIA` ani klas
+  pokrycia; pogrubianie i odpogrubianie czegokolwiek; `src/`.
+- **Zależy od:** 6.D278.
