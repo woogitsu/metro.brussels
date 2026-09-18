@@ -1164,7 +1164,7 @@ właściciel.
 | 6.D166 | **ZROBIONE w #552 (12.09.2026): liczby wpisane w prozę obok bramki są porównywane z tym, co bramka mierzy.** Audyt repozytorium z 12.09.2026 znalazł dwa zdania nieprawdziwe, oba stojące PRZY przyrządzie mierzącym dokładnie tę samą rzecz: `test_tree_walks.py` opisywał rejestr jako „Trzydzieści osiem: 13 przybitych, 3 częściowe, 21 WOLNYCH i 1 poza zasięgiem skanu”, gdy `len(ZAPADKI)` dawało **42** przy rozkładzie **15 / 3 / 23 / 1**; `test_all.py` mówił „robi to samo dla 120 modulow”, gdy modułów było **123** (dziś **124**, bo doszedł ten). **Nie znalazł ich żaden test i nie mógł**: akapit sam zapewnia, że „rozjechać się ta lista nie może, bo jest porównywana z drzewem W OBIE STRONY” — i to prawda o LIŚCIE, a nieprawda o ZDANIU nad nią. **Samo przeliczenie było odrzucone**: naprawia dzisiaj i pozwala rozjechać się jutro, więc razem z liczbami wchodzi `tools/tests/test_prose_counts.py`, który czyta deklarację ze źródła i porównuje ją z `len(ZAPADKI)`, z rozkładem klas oraz z zawartością `tools/tests/`. **Zapis słowny nie jest PRZEPUSZCZANY, tylko NIEWIDZIANY**, a dolne ostrze na czytnik zamienia niewidzenie w czerwone „trafień: 0”. **Pierwsza wersja trzeciego testu była skanem po słowach w całym pliku i ZAPALIŁA SIĘ NA WŁASNYM AKAPICIE**, który cytuje dawne brzmienie — karałaby za opisanie przeszłości, czyli za to, czego projekt wymaga w każdym przepisanym akapicie; zastąpiona kontrolą przyrządu z wejściem syntetycznym (ta sama obserwacja co 6.D108: kształtu nie ma). Cztery kontrole, `md5sum -c: OK` na trzech plikach po każdej, baza 3/3: KN-1 (suma 42→41) 2/3; **KN-2 (jeden człon kłamie, 23 WOLNE→22, SUMA ZOSTAJE PRAWDZIWA) 2/3 — to jest ta kontrola, dla której lista stoi z nazwami, a nie z samymi liczbami**; KN-3 (moduły 124→123) 2/3; KN-4 (deklaracja przepisana słownie) 2/3 dolnym ostrzem. Raport: `reports/6d166-liczby-w-prozie.md` | S |
 | 6.D167 | **ZROBIONE w #553 (12.09.2026): dwie zapadki `bin/…/netX.Y` dostały strażnika i przeszły z klasy WOLNA do PRZYBITA.** `MIN_PATHS_IN_TREE` (29) i `MIN_FILES_WITH_PATHS` (8) miały po asercji **nośnej** (`len(hits) >= MIN_…`), padającej gdy kurczy się drzewo, i ani jednej **strzegącej**, padającej gdy ktoś obniży samą stałą — a stały przy tym DOKŁADNIE na stanie drzewa. To połączenie jest gorsze niż każda z tych rzeczy osobno: pierwsze skasowanie ścieżki zapala bramkę, a najbliższą pod ręką „naprawą” jest obniżenie stałej, po którym nie zapala się nic. **Rozstrzygnięcie przybiciem równością, bo koszt wyszedł ZEROWY**: populacja nie zmieniła się ani razu w **59 przejściach** historii `reports/` i `docs/` (jedna wartość w całym oknie) — ta sama metoda i **przeciwne zalecenie** niż przy 6.D153, gdzie para (literały, różne) zmieniała się w 29 przejściach na 39 i przybity został zbiór, nie liczba. **Kształt wyrażenia po prawej jest TREŚCIĄ**: `klasa_zapadki` porównuje `ast.dump` obu stron, więc `len(hits)` i `len(files)` muszą w strażniku stać znak w znak tak, jak w asercji nośnej. **Bramka z 6.D166 zadziałała tu PIERWSZY RAZ NAPRAWDĘ**, a nie w kontroli: przejście obu zapadek zmienia rozkład 15/3/23/1 na **17/3/21/1**, a proza `test_tree_walks.py` została zapalona komunikatem `proza: 15 przybitych, rejestr: 17`. Trzy kontrole, `md5sum -c: OK` na dwóch plikach po każdej, baza 29/29: KN-1 (`MIN_PATHS_IN_TREE` 29→28) 28/29; KN-2 (`MIN_FILES_WITH_PATHS` 8→7) 28/29; **KN-3 (strażnik zostaje, ale mierzy INNĄ populację: `len(hits)`→`0`) 28/29 komunikatem `zapadka zmieniła klasę: przybita → czesciowa` — i to jest kontrola, dla której ta pozycja ma sens**, bo dopiero ona mierzy, że działa POWÓD, a nie sama obecność asercji. Poza zakresem: pozostałe 21 zapadek klasy WOLNA — żadna nie stoi dziś równo na drzewie, a pułapką jest połączenie, nie sama klasa. Raport: `reports/6d167-straznicy-dwoch-zapadek.md` | S |
 | 6.D168 | **`data_freshness.py` chodzi w CI bez `--strict`, a przeterminowanych okien jest 13 z 13** | zmierzone 12.09.2026: `.github/workflows/python-tests.yml` woła narzędzie bez `--strict`, więc 13 ostrzeżeń wypisuje się i nie zatrzymuje niczego. Wszystkie pochodzą z jednego pola `dataset_validity.date_fin = 28/08/2026` w `data/network/shapes-manifest.json`, a archiwum pobrano **01.09.2026, cztery dni po zamknięciu okna**; na dziś przeterminowanie wynosi **15 dni**. Właściciel zdecydował 12.09.2026 dopiąć `--strict`. **Pozycja musi rozstrzygnąć, co z tym, że dopięcie zatrzyma CI natychmiast** — 13 z 13 okien jest dziś przeterminowanych, więc albo idzie razem z odświeżeniem snapshotu STIB (dotyka `data/`, reguła 4.6), albo z jawnie zapisanym oknem przejściowym. Zgadywanie zakazane: hierarchia źródeł z `docs/07-open-data-research.md` | M |
-| 6.D169 | **`docs/23-environment.md` opisuje maszynę w czasie teraźniejszym, bez daty przy zdaniu** | zauważone 12.09.2026 przy audycie: §1.1.1 mówi „Na tej maszynie `/root/.dotnet/dotnet` zgłasza **10.0.400**”, a `test_dotnet_version.py` notuje z 10.09.2026 „kontener tej sesji ma **10.0.401**”. **Sprzeczności NIE MA** — to dwa różne kontenery z dwóch różnych dni i po 6.D108 oba zdania są poprawne w swoim dniu; pozycja NIE jest więc o przeliczeniu liczby. Jest o tym, że zdanie o maszynie stoi w czasie teraźniejszym **bez daty przy sobie**, więc czytelnik nie ma jak odróżnić opisu dnia od opisu stanu bieżącego, a mechanizm z 6.D108 działa na raportach, nie na `docs/`. Zakres: rozstrzygnąć, czy zdania o konkretnej maszynie w `docs/23` mają nosić datę, czy przenieść się do `reports/` | S |
+| 6.D169 | **ZROBIONE w #PR (18.09.2026): zdanie dostało datę, a przyrząd z pola „Weryfikacja” liczy WIERSZE, nie zdania — populacja jest OŚMIOELEMENTOWA, nie siedmioelementowa.** Zdanie z §1.1.1 (w. 160) niesie odtąd datę **08.09.2026**, odczytaną z historii (`git log -S` wskazuje commit `4143e64`, 6.D48), a nie przepisaną z raportu. **ROZBIEŻNOŚĆ PIERWSZA, ZMIERZONA:** `grep -nic` z pola „Weryfikacja” daje **7** i to się zgadza, ale siódemka nie jest liczbą zdań — akapit od w. 85 ma sformułowanie `w tym / kontenerze` **rozcięte przez zawijanie wiersza**, więc `grep` go nie widzi, a czytnik składający akapit w płaski napis widzi i mówi **8**. Zawijania **nie zszyto** i to jest wybór: zszycie podniosłoby `grep` do ośmiu, czyli zapaliłoby kryterium, którego pole pilnuje. **ROZBIEŻNOŚĆ DRUGA:** pole „Skończone, gdy” wpisało w. 474 między te, które „datę niosą już”, choć jego własny nawias podaje powód z INNEJ kolumny („zdanie o maszynie DOWOLNEJ”), a akapit daty nie niesie ani w zdaniu, ani w akapicie. Poprawny rozkład to **pięć z datą, jedno poza populacją, jedno bez daty**, a nie „sześć z datą, jedno bez” — więc „tych bez daty jest zero” w dosłownym brzmieniu spełnić się nie da i spełniona jest wersja poprawiona: **zero zdań o KONKRETNEJ maszynie bez daty**. **Zdanie o maszynie dowolnej zostaje bez daty świadomie:** opisuje własność drzewa (trzy pakiety w `tests/Sim.Tests`, sprawdzone — trzy wiersze `PackageReference`, czwarte trafienie grepa to komentarz), a data zawęziłaby zdanie prawdziwe o każdej czystej maszynie do zdania o jednej. **TRZECI PUNKT POMIAROWY, którego pozycja nie miała:** w kontenerze tej sesji (18.09.2026) `/root/.dotnet` **nie istnieje w ogóle**, a `command -v dotnet` milczy — zdanie bez daty starzeje się więc nie tylko co do WERSJI, ale co do ISTNIENIA narzędzia; do dokumentu tego nie dopisano, bo pole „Wyjście” żąda daty, nie drugiego pomiaru. **KONTROLE, przewidywania spisane PRZED przebiegami, wszystkie na PEŁNEJ kopii drzewa z `.git`, korzeń podawany wprost:** KN-1 (data cofnięta na kopii) → kopia **2** bez daty, drzewo robocze **1**; KN-2 (zdanie SKASOWANE zamiast udatowane) → `grep -nic` = **6**, czyli spadek, przed którym ostrzega pole; KN-3 (dopisane NOWE zdanie o maszynie bez daty) → czytnik **2** zamiast 1, więc nie jest przypięty do znanych zdań; KN-4 (`MIN_REPORTS` 402→403 bez pliku raportu) → **9/18**, kod 1. **KN-2 POKAZAŁO WIĘCEJ, NIŻ PRZEWIDYWAŁO:** licznik „bez daty” po skasowaniu zdania wyszedł **dokładnie taki sam jak po poprawnym udatowaniu** — kasowanie i datowanie są dla niego nieodróżnialne, odróżnia je dopiero liczba populacji, i dlatego pole pilnuje `grep -nic`, a nie liczby zdań bez daty. **Bramki NIE MA i nie powstaje** — pole „Poza zakresem” mówi, że bramka na kształcie zapalałaby się na akapitach poprawnych, czyli byłaby bramką z 6.D27. Zapadki: `MIN_REPORTS` o jeden. Weryfikacja: `grep -nic` **7** przed i **7** po; zestaw zielony. Raport: `reports/6d169-zdanie-o-maszynie-bez-daty.md`. **Czego NIE zrobiono:** nie skasowano ani jednego zdania; nie przeliczano wersji SDK (pole „Poza zakresem”); nie zszyto zawijania w w. 85–86; nie ruszono `tools/tests/test_dotnet_version.py` ani jego noty z 10.09.2026. **ZAUWAŻONE:** wzorzec z pola „Weryfikacja” nie ma granic słowa i łapie `czystym kontenerze` wnętrzem wyrazu — zmierzone: `printf 'na czystym kontenerze\n' | grep -c "tym kontenerze"` daje `1`, a z `\b` daje `0`; na werdykt nie wpływa, ale zgodność pola z czytnikiem jest w tym wierszu przypadkiem. Treść pierwotna: **`docs/23-environment.md` opisuje maszynę w czasie teraźniejszym, bez daty przy zdaniu** | zauważone 12.09.2026 przy audycie: §1.1.1 mówi „Na tej maszynie `/root/.dotnet/dotnet` zgłasza **10.0.400**”, a `test_dotnet_version.py` notuje z 10.09.2026 „kontener tej sesji ma **10.0.401**”. **Sprzeczności NIE MA** — to dwa różne kontenery z dwóch różnych dni i po 6.D108 oba zdania są poprawne w swoim dniu; pozycja NIE jest więc o przeliczeniu liczby. Jest o tym, że zdanie o maszynie stoi w czasie teraźniejszym **bez daty przy sobie**, więc czytelnik nie ma jak odróżnić opisu dnia od opisu stanu bieżącego, a mechanizm z 6.D108 działa na raportach, nie na `docs/`. Zakres: rozstrzygnąć, czy zdania o konkretnej maszynie w `docs/23` mają nosić datę, czy przenieść się do `reports/` | S |
 | 6.D170 | **Połowa `docs/` stoi poza Mapą dokumentów w `CLAUDE.md` §3** | zmierzone 12.09.2026: `docs/` ma **24** pliki `.md`, a §3 wymienia **13** (plus 2 z `data/`). Niewymienione jest **12**: `08-m7-ground-truth`, `09-data-provenance`, `10-signalling-ground-truth`, `11-station-ground-truth`, `12-infrastructure-ground-truth`, `15-classic-signalling`, `16-protection-modes`, `17-visual-regression`, `18-rights-matrix`, `19-audio-rights-and-recording`, `20-art-direction`, `21-measured-vs-assumed`. Mapa może być selektywna z założenia — ale **pięć z tych dwunastu to dokumenty „ground truth”, czyli ten sam gatunek co `docs/00`**, który §3 nazywa źródłem prawdy. Pozycja ma rozstrzygnąć kryterium wejścia do Mapy i przybić je bramką, żeby nie zależało od pamięci piszącego | S |
 | 6.D171 | **Sześć raportów nie jest cytowanych nigdzie w repozytorium** | zmierzone 12.09.2026: raportów bez wpisu w `docs/TASKS.md` jest **21 z 275**, a z tego **6 nie ma ani jednego odsyłacza** w `docs/`, w innym raporcie ani w `tools/`: `audyt-sekcja-6-weryfikacja.md`, `audyt-weryfikacja.md`, `decyzje-wlasciciela-07-09.md`, `runda-pieciu-agentow.md`, `sonda-doctor-bez-dotnet.md`, `uzupelnienie-kolejki-10-09.md`. Liczą się do `MIN_REPORTS`, więc skasować ich nie wolno bez obniżenia zapadki, a obniżenie zapadki jest dokładnie tym, przed czym broni 6.D45. Pozycja ma rozstrzygnąć, czy raport bez odsyłacza to dług (dopisać odsyłacz), czy świadome archiwum (nazwać je i wyłączyć z licznika) | S |
 | 6.D184 | **ZROBIONE w #PR (13.09.2026): zdjęty z SZESNASTU miejsc, zostaje w JEDNYM, i żadna przybita liczba się nie ruszyła.** **Miejsc było SIEDEMNAŚCIE, nie dziesięć** — siedem doszło od 12.09 i **z mojej ręki**, przy 6.D182, 6.D183, 6.D155 i 6.D180, czyli w tej samej sesji, która potem tę pozycję wzięła. **NA DZISIEJSZYM KORPUSIE OBCINACZ NIE ZMIENIA NICZEGO:** `Literaly` daje **480** z nim i **480** bez, `SlowaWKodzie` **347** i **347**, różnica w **zero** plikach z dwudziestu jeden. Powód jest strukturalny: `SlowaWKodzie` iteruje po `Literaly(kod)`, więc OBA czytniki dziedziczą po nim obsługę komentarzy, a ten pomija je sam od 6.D182. **A SZKODZIĆ POTRAFI, pokazane liczbą:** na napisie surowym, którego drugi wiersz zaczyna się od `//`, czytnik daje literał **33** znaki, a po obcinaczu **18** — piętnaście znaków ze Środka, po cichu. Wejście musiało być SYNTETYCZNE, bo na korpusie obie drogi są nierozróżnialne. **ZOSTAJE W JEDNYM MIEJSCU I TO JEST WYNIK POMIARU:** pierwsze podejście zdjęło go ze wszystkich siedemnastu i zestaw poszedł na czerwono — `PozycjiStaregoCzytnika` spadło z **521** na **861**, bo `StaryCzytnik` (wejście kontroli negatywnej) bez obcinacza łapie cudzysłowy w komentarzach. Obcinanie literału jest tam nieszkodliwe — ten czytnik ma być zły. Nazwa zmieniona na `KodBezKomentarzyDlaStaregoCzytnika`, żeby jedyna rola stała w nazwie. **Dwie bramki pilnują powrotu:** wejście syntetyczne (33 wobec 18) i zapadka równościowa na liczbę wystąpień nazwy (trzy: definicja, wejście starego czytnika, wejście kontroli) — bez tej drugiej obcinacz wróciłby na drogę żywego czytnika BEZ ani jednej czerwonej liczby. Bramka wycina ze skanu WŁASNĄ metodę, bo licząc siebie dawała **4 zamiast 3** (ta sama konstrukcja, co przy 6.D161). **Cztery kontrole negatywne, baza 249/249:** KN-1 248/249, KN-2 **247/249**, KN-3 248/249, KN-4 **247/249**. Liczby 480, 362 i 521 są takie same przed i po. `src/Game/` i czytnika `Literaly` nie tknąłem („Poza zakresem”). Raport: `reports/6d184-obcinacz-z-siedemnastu-do-jednego.md` | S |
@@ -1257,6 +1257,9 @@ właściciel.
 | 6.D282 | **Ile ze 152 ruchow zapadki bez wzmianki w komunikacie to census, a ile decyzja** | zmierzone 18.09.2026 przy 6.D279: para odwrotna liczy **152** commity — ruch zapadki BEZ wzmianki w komunikacie jest kilkadziesiat razy czestszy niz wzmianka bez ruchu. Liczba nic nie znaczy, dopoki nie odrozni sie podniesienia RUTYNOWEGO (census po dodaniu pliku, gdzie prog jedzie za drzewem) od zmiany progu, ktora jest DECYZJA. Ktorych jest ile, nie policzyl nikt; czytnik stoi w `tools/tests/test_commit_claims.py` | M |
 | 6.D283 | **Dla ilu z 464 slad w commicie opisuje TE kontrole, a nie jakakolwiek** | zmierzone 18.09.2026 przy 6.D279: kryterium sladu kontroli negatywnej jest szczelne od gory, nieszczelne od dolu — sprawdza, czy w commicie stoi raport w `reports/` albo plik testu, a NIE czy ten raport opisuje kontrole wymieniona w komunikacie. Liczba **464** jest wiec gorna granica, a nie pomiarem zgodnosci | M |
 | 6.D284 | **Ile pogrubionych liczb jest pokrytych WYLACZNIE zbiegiem cyfr z odleglosci bliskiej szerokosci okna — czyli krucho** | zmierzone 18.09.2026 przy 6.D278 i 6.D280, dwa razy pod rzad i za kazdym na cudzej prozie: dopisanie JEDNEGO wiersza ogniwa lancucha zerwalo pokrycie liczby, ktorej nikt nie ruszal, a zlozenie ogniwa w jeden wiersz przesunelo inna liczbe z klasy MIESZANEJ do KODU. Klasa `pokryta zbiegiem` jest z natury krucha i bramka sama ja tak nazywa; ile jej wpisow wisi na wlosku, nie policzyl nikt | M |
+| 6.D285 | **Osiem akapitów `docs/23-environment.md` o konkretnej maszynie jest dziś udatowanych, a dziewiąty nie zapali niczego** | zmierzone 18.09.2026 przy 6.D169: po dopisaniu daty zdań o KONKRETNEJ maszynie bez daty jest zero, ale pilnuje tego **wyłącznie ten pomiar**. Pole „Poza zakresem” 6.D169 słusznie odrzuciło bramkę NA KSZTAŁCIE (zapalałaby się na akapitach poprawnych, czyli byłaby bramką z 6.D27) — nie odrzuciło bramki na PRZYPIĘTYM ZBIORZE, czyli takiej, która zna dzisiejszą ósemkę i zapala się na dziewiątym akapicie, a nie na żadnym z ośmiu | M |
+| 6.D286 | **Ile pól „Weryfikacja” w `docs/TASKS.md` liczy `grep`-em wiersze, a mówi o zdaniach** | zmierzone 18.09.2026 na 6.D169: pole żądało siedmiu trafień i siedem dostało, ale populacja liczy OSIEM zdań — ósme ma sformułowanie rozcięte przez zawijanie wiersza, więc `grep` go nie widzi. Usterka jest w PRZYRZĄDZIE pola, nie w dokumencie, i nie ma powodu, dla którego miałaby dotyczyć jednej pozycji; ile innych pól stawia wielowyrazowy wzorzec na zawijanej prozie, nie policzył nikt | M |
+| 6.D287 | **Ten sam czytnik na całym `docs/` — ile zdań o konkretnej maszynie bez daty stoi poza `docs/23-environment.md`** | 6.D169 zmierzyło JEDEN plik, bo tylko o nim mówiła pozycja. Kryterium („zdanie o konkretnej maszynie ma nieść datę w swoim akapicie”) nie jest jednak własnością tego pliku — jest własnością dokumentacji. Czytnik z 6.D169 przyjmuje korzeń wprost i chodzi po akapitach, więc puszczenie go po reszcie `docs/` jest pomiarem, nie nową konstrukcją | M |
 
 #### Szczegóły pozycji z kompletem sześciu pól
 
@@ -14124,3 +14127,100 @@ w drzewie**, a nie tylko w rozmowie — z tego samego powodu, co dwie sekcje wy�
 - **Poza zakresem:** zmiana `OKNO_PROZY`, `MAX_POGRUBIONYCH_BEZ_POKRYCIA` ani klas
   pokrycia; pogrubianie i odpogrubianie czegokolwiek; `src/`.
 - **Zależy od:** 6.D278.
+
+
+##### 6.D285 · Dziewiąty akapit o maszynie nie zapali niczego
+
+- **Skąd:** zmierzone 18.09.2026 przy 6.D169, `reports/6d169-zdanie-o-maszynie-bez-daty.md`
+  §2 i §7. Po dopisaniu daty zdań o KONKRETNEJ maszynie bez daty jest **zero**, ale
+  pilnuje tego wyłącznie ten jeden pomiar, wykonany ręką i zapisany w raporcie.
+- **Dlaczego bez decyzji:** pozycja **nie rozstrzyga kształtu** zdania o maszynie.
+  Bramka na kształcie została odrzucona przez 6.D169 z powodem i ten powód zostaje;
+  ta pozycja pyta o bramkę na PRZYPIĘTYM ZBIORZE — o dokładnie tę konstrukcję, którą
+  projekt ma już w `GRANICE_PRZY_CYFRZE` i w `DEKLARACJE_BEZ_ASERCJI`.
+- **Wejście:** `docs/23-environment.md`; `reports/6d169-zdanie-o-maszynie-bez-daty.md`
+  (lista ósemki z numerami akapitów); wzorce prozy z `tools/tests/test_message_claims.py`
+  (`DATA`, `GRANICA_ZDANIA`) — do POŻYCZENIA, nie do napisania drugi raz.
+- **Wyjście:** nowy moduł bramki z przypiętym zbiorem ośmiu akapitów (klucz: pierwsze
+  zdanie akapitu, nie numer wiersza — 6.D169 pokazało, że numery przesuwają się przy
+  każdej zmianie) i asercją, że akapit spoza zbioru mówiący o konkretnej maszynie
+  niesie datę.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: zielony zestaw. Kontrola negatywna: dopisanie do `docs/23-environment.md`
+  akapitu „Na tej maszynie X działa" bez daty ma dać CZERWIEŃ i nazwać ten akapit;
+  KN-3 z 6.D169 zmierzyło, że sam czytnik taki akapit widzi (**2** zamiast 1), więc
+  kontrola sprawdza bramkę, a nie czytnik. Kontrola przyrządu: przypięta ósemka ma
+  przechodzić bez zmian w dokumencie, a zdanie o maszynie DOWOLNEJ (w. 474) ma NIE
+  trafiać do populacji.
+- **Skończone, gdy:** bramka stoi, kontrola negatywna kończy się czerwienią z nazwą
+  akapitu, a przypięty zbiór ma **osiem** wpisów, każdy z powodem widocznym przy nim.
+- **Poza zakresem:** dopisywanie i kasowanie zdań w `docs/23-environment.md`;
+  zszywanie zawijania w w. 85–86 (to 6.D286); rozszerzanie bramki na inne pliki `docs/`
+  (to 6.D287); `src/`.
+- **Zależy od:** 6.D169.
+
+##### 6.D286 · Pole „Weryfikacja", które liczy wiersze, a mówi o zdaniach
+
+- **Skąd:** zmierzone 18.09.2026 na 6.D169,
+  `reports/6d169-zdanie-o-maszynie-bez-daty.md` §3. Pole żądało **siedmiu** trafień
+  `grep -nic` i siedem dostało, ale zdań w populacji jest **osiem**: akapit od w. 85 ma
+  `w tym / kontenerze` rozcięte przez zawijanie, a `grep` dopasowuje w obrębie wiersza.
+  Pole nie kłamie o swojej liczbie — kłamie o tym, czego ta liczba jest miarą.
+- **Dlaczego bez decyzji:** pozycja **liczy**, ile pól ma tę własność, i niczego nie
+  przepisuje. Poprawianie któregokolwiek pola zmienia liczbę, której to pole pilnuje —
+  a to jest osobne rozstrzygnięcie, po jednym na pole.
+- **Wejście:** `docs/TASKS.md` (bloki szczegółów, pola „Weryfikacja" i ich bloki
+  ```bash```); pliki, na które te polecenia wskazują.
+- **Wyjście:** ile pól „Weryfikacja" woła `grep` ze wzorcem zawierającym **spację**
+  (czyli wielowyrazowym) na pliku, który zawija wiersze; dla ilu z nich dzisiejszy
+  wynik `grep` różni się od wyniku czytnika składającego akapit w płaski napis; lista
+  imienna tych, dla których się różni. Trzy liczby i lista, a nie ocena.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: zielony zestaw. Kontrola negatywna: pole, którego wzorzec jest
+  jednowyrazowy, ma NIE trafić na listę. Kontrola przyrządu: pole z 6.D169 ma na tę
+  listę trafić — jest jedynym, o którym z góry wiadomo, że tam należy.
+- **Skończone, gdy:** trzy liczby są policzone, lista imienna jest wypisana z numerami
+  pozycji, a obie kontrole dają wynik przewidziany przed przebiegiem.
+- **Poza zakresem:** poprawianie samych pól „Weryfikacja"; zszywanie zawijania
+  w plikach, na które wskazują; zmiana wzorców w tych poleceniach; `src/`.
+- **Zależy od:** 6.D169.
+
+##### 6.D287 · Ten sam czytnik, cały katalog `docs/`
+
+- **Skąd:** 6.D169 zmierzyło **jeden** plik, bo tylko o nim mówiła pozycja
+  (`reports/6d169-zdanie-o-maszynie-bez-daty.md` §2). Kryterium „zdanie o konkretnej
+  maszynie ma nieść datę w swoim akapicie" nie jest jednak własnością
+  `docs/23-environment.md` — jest własnością dokumentacji, a `docs/` ma kilkanaście
+  innych plików, w tym `docs/06-worked-example.md` i `docs/PLAYABILITY.md`, pisane tą
+  samą ręką i w tym samym czasie teraźniejszym.
+- **Dlaczego bez decyzji:** pozycja **liczy**, i nie dopisuje ani jednej daty. Co zrobić
+  ze znalezionymi zdaniami, jest osobnym rozstrzygnięciem — 6.D169 pokazało, że
+  werdykt „dopisać datę" nie jest automatyczny, bo zdanie o maszynie DOWOLNEJ daty
+  dostać nie powinno.
+- **Wejście:** cały `docs/`; czytnik z 6.D169 (korzeń podawany wprost argumentem,
+  akapit składany w płaski napis) i wzorce `DATA`, `GRANICA_ZDANIA` pożyczone
+  z `tools/tests/test_message_claims.py`.
+- **Wyjście:** raport z tabelą: plik, akapit, zdanie, werdykt (niesie datę / nie niesie /
+  poza populacją, bo o maszynie dowolnej). Osobno liczba zbiorcza dla całego `docs/`
+  i osobno dla `docs/23-environment.md`, żeby było widać, ile z tego znał już 6.D169.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: zielony zestaw. Kontrola przyrządu: puszczony po samym
+  `docs/23-environment.md` czytnik ma odtworzyć **osiem** zdań i **jedno** bez daty,
+  czyli liczby z 6.D169 — inaczej mierzy co innego niż tam. Kontrola negatywna:
+  akapit dopisany na kopii, mówiący o konkretnej maszynie bez daty, ma podnieść liczbę
+  o jeden.
+- **Skończone, gdy:** tabela obejmuje wszystkie pliki `docs/`, liczba dla
+  `docs/23-environment.md` zgadza się z 6.D169 co do cyfry, a obie kontrole dają wynik
+  przewidziany przed przebiegiem.
+- **Poza zakresem:** dopisywanie dat gdziekolwiek; bramka (to 6.D285, i tylko dla
+  jednego pliku); `reports/`, bo tam mechanizm z 6.D108 już działa; `src/`.
+- **Zależy od:** 6.D169.
