@@ -115,11 +115,27 @@ MINIMUM_DEKLARACJI = 330
 #: i oba razy za cene jednowierszowej korekty. Zapadka dolna, ktorej wolno rosnac,
 #: jest tu tansza niz dziura, ktora zostawia zapas.
 #:
-#: **Wariant z ROWNOSCIAMI zostaje dla wlasciciela jako 6.D273**, bo odwraca
-#: rozstrzygniecie 6.D232, a nie dokreca go. Pole „Dlaczego bez decyzji" pozycji
-#: 6.D270 twierdzilo, ze rownosci sa ruchem, ktorego „zapadka nie zabrania" —
-#: prawda o regule, ale przemilczenie tamtego pomiaru, i jest to blad w pozycji
-#: mojego autorstwa, poprawiony przy jej wykonaniu.
+#: **ROWNOSCI ODRZUCONE DECYZJA WLASCICIELA, 18.09.2026, pozycja 6.D273 — wariant (c),
+#: ciasne podlogi zostaja.** Ten akapit jest PRZEPISANY, a nie dopisany obok:
+#: poprzednia wersja mowila, ze wariant z rownosciami „zostaje dla wlasciciela",
+#: i to juz nieprawda, bo rozstrzygniecie zapadlo.
+#:
+#: Decyzja ma pod soba liczbe, ktorej pozycja 6.D273 nie miala, a ktorej zadalo jej
+#: pole „Wyjscie": na 155 rewizjach dotykajacych `src/` albo `tests/` rozklad C#
+#: zmienia sie w 86, czyli w ponad polowie. Rownosc zadalaby wiec korekty progu
+#: w ponad polowie rewizji dotykajacych C#; ciasna podloga zapala sie wylacznie
+#: na SPADKU galezi, a spadki sa w tej historii dwa.
+#:
+#: **PRZESLANKA WARIANTU (b) BYLA NIEPRAWDZIWA i to tez jest zmierzone.** Pozycja
+#: opisywala go jako rownosc na galezi `bez modyfikatora`, „ktora przez 572 rewizje
+#: nie ruszyla sie ani razu". Galaz ta ruszyla sie 24 razy, wszystkie w gore;
+#: prawdziwe jest zdanie wezsze — nie SPADLA ani razu. Rownosc zapala sie na ruchu
+#: w obie strony, wiec (b) kosztowalby 24 korekty, a nie zero.
+#: Pomiar: `reports/6d273-ciasne-podlogi-zostaja.md`.
+#:
+#: **Co zostaje OTWARTE i jest to swiadome:** dziura PRZYROSTU W ZLEJ GALEZI. Stala
+#: dopisana jako `static readonly` tam, gdzie konwencja zada `const`, podnosi jedna
+#: galaz i nie zapala niczego. Zostaje, bo jej zamkniecie kosztuje 86 korekt na 155.
 # 258 -> 307 (18.09.2026, 6.D270): zapas 49 zdjety, podloga na wartosci zmierzonej.
 MINIMUM_CONST = 307
 # 72 -> 89 (18.09.2026, 6.D270): zapas 17 zdjety.
