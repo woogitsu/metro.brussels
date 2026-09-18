@@ -145,7 +145,7 @@ Tworzy je **jeden nazwany krok tego samego joba** — `Compile Python tools`, cz
 `python3 -m compileall -q tools`, stojący w `python-tests.yml` bezpośrednio przed
 krokiem „Run tool tests". Liczby zgadzają się co do pliku i są odtwarzalne lokalnie:
 na czystym drzewie `compileall` daje **7 katalogów i 210 plików**, z tym samym
-rozkładem (`tools/tests` 138, `tools/blender` 29, `tools/track` 23, `tools/ci` 9,
+rozkładem (`tools/tests` 139, `tools/blender` 29, `tools/track` 23, `tools/ci` 9,
 `tools/visual` 5, `tools/physics` 3, `tools/data` 2).
 
 Wniosek zostaje ten sam, ale wynika z czego innego: ten bajtkod powstał **z tego samego

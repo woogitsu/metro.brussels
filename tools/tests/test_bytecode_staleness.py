@@ -513,8 +513,39 @@ KROK_ZESTAWU = "Run tool tests"
 #: **201 → 202 przy 6.D138**, bo doszedł moduł `test_mass_copies.py`. Bramka niżej
 #: zapaliła się na tej jedynce sama, w pierwszym przebiegu po dopisaniu pliku, i to
 #: jest dowód, że mierzy drzewo, a nie własny komentarz. Rozkład dzisiejszy:
-#: `tools/tests` **136**, `tools/blender` 29, `tools/track` 23, `tools/ci` 9,
+#: `tools/tests` **139**, `tools/blender` 29, `tools/track` 23, `tools/ci` 9,
 #: `tools/visual` 5, `tools/physics` 3, `tools/data` 2.
+#:
+#: **Rozklad modulow po katalogach — 6.D263, i to jest zapadka na ZDANIE, nie na sume.**
+#:
+#: Suma (`MODULOW_W_CALYM_DRZEWIE`) byla przybita od 6.D255 i przez to KAZDY przyrost
+#: lapala. Rozkladu nie pilnowalo nic — a zdanie o nim stoi w dwoch miejscach
+#: (komentarz wyzej i `docs/06-worked-example.md`). Zmierzone 18.09.2026: OBA byly
+#: nieprawdziwe, kazde inaczej. Komentarz mowil o `tools/tests` **136** przy 139
+#: w drzewie; dokument mowil **138**, a liczbe te wpisalem przy 6.D260 przez
+#: PODNIESIENIE poprzedniej o jeden, zamiast przez policzenie.
+#:
+#: Rownosc per katalog, a nie podloga: katalogow jest siedem i nie przybywa ich
+#: co pozycje, wiec rownosc nie czerwienieje na pracy poprawnej — a to wlasnie
+#: przyrost W JEDNYM katalogu przy niezmienionej sumie jest zdarzeniem, ktorego
+#: suma nie widzi.
+ROZKLAD_MODULOW = {
+    "tools/tests": 139,
+    "tools/blender": 29,
+    "tools/track": 23,
+    "tools/ci": 9,
+    "tools/visual": 5,
+    "tools/physics": 3,
+    "tools/data": 2,
+}
+
+#:
+#: **136 -> 139 (18.09.2026, 6.D263): liczba byla NIEPRAWDZIWA i znalazlo ja sito
+#: prozy z 6.D259.** Szesc pozostalych liczb tego zdania jest poprawnych co do
+#: jednej — i zadna z nich nie jest POGRUBIONA. Sito oglada wylacznie pogrubione,
+#: wiec zglosilo dokladnie te jedna, ktora sie zestarzala. Jest to najkrotszy
+#: dowod, ze konwencja „pogrubienie znaczy liczba zmierzona" niesie tresc,
+#: a nie ozdobe.
 #:
 #: **Po co ta liczba stoi tutaj.** Zdanie w `docs/06-worked-example.md` mówiło do
 #: 11.09.2026, że „każdy przebieg CI zaczyna zimno". Pierwsza połowa uzasadnienia
@@ -990,3 +1021,61 @@ def test_skan_ZNAJDUJE_zla_sekwencje_poza_tools_gdy_taka_jest():
             "wejscie syntetyczne przestalo sie parsowac: %s" % nieparsowalne)
         assert [s for _p, _w, s in znalezione] == ["\\d"], (
             "skan nie znalazl `\\\\d` w katalogu spoza `tools/`: %s" % znalezione)
+
+
+
+def rozklad_modulow(korzen=None):
+    """`{katalog: ile plikow .py}` — POZYCZONYM czytnikiem, nie wlasnym globem.
+
+    Pierwsza wersja wolala `glob.glob(..., recursive=True)` i zlapala to bramka
+    `test_zaden_rekurencyjny_glob_nie_omija_wspolnego_odsiania`: wlasny glob omija
+    odsianie z `.gitignore`, wiec liczylby pliki, ktorych suma nie liczy — dwie
+    bramki mowilyby o dwoch roznych drzewach. Tu uzywany jest `moduly_calego_drzewa`,
+    czyli dokladnie ten czytnik, ktory daje sume.
+    """
+    out = {}
+    for sciezka in moduly_calego_drzewa(korzen):
+        katalog = os.path.dirname(sciezka).replace(os.sep, "/")
+        if katalog:
+            out[katalog] = out.get(katalog, 0) + 1
+    return out
+
+
+def test_rozklad_modulow_po_katalogach_zgadza_sie_z_drzewem():
+    """**Zapadka na ZDANIE o rozkladzie, nie tylko na sume — 6.D263.**
+
+    Suma lapie kazdy przyrost, ale nie widzi PRZESUNIECIA: plik przeniesiony
+    z `tools/track/` do `tools/tests/` zostawia sume bez zmian, a oba zdania
+    o rozkladzie czyni nieprawdziwymi. Zmierzone 18.09.2026: oba i tak juz byly
+    nieprawdziwe, kazde inna liczba.
+    """
+    w_drzewie = rozklad_modulow()
+    assert w_drzewie == ROZKLAD_MODULOW, (
+        "rozklad modulow po katalogach rozjechal sie ze zdaniem: w drzewie %s, "
+        "w stalej %s — popraw OBA zdania (komentarz wyzej i `docs/06-worked-example.md`), "
+        "bo mowia o tej samej rzeczy"
+        % (sorted(w_drzewie.items()), sorted(ROZKLAD_MODULOW.items())))
+
+    # Suma rozkladu MUSI byc ta sama liczba, ktora pilnuje zapadka sumy — inaczej
+    # dwie bramki mowilyby o dwoch roznych drzewach.
+    assert sum(ROZKLAD_MODULOW.values()) == MODULOW_W_CALYM_DRZEWIE, (
+        "suma rozkladu to %d, a zapadka sumy stoi na %d"
+        % (sum(ROZKLAD_MODULOW.values()), MODULOW_W_CALYM_DRZEWIE))
+
+
+def test_oba_zdania_o_rozkladzie_niosa_TE_SAME_liczby():
+    """Komentarz i `docs/06-worked-example.md` mowia o tym samym — niech mowia zgodnie.
+
+    Bez tego testu jedno z dwoch zdan moze sie zestarzec w milczeniu, i **dokladnie
+    tak sie stalo**: przez dobe stalo 136 w jednym i 138 w drugim, przy 139 w drzewie.
+    """
+    dokument = open(os.path.join(ROOT, "docs", "06-worked-example.md"),
+                    encoding="utf-8").read()
+    zrodlo = open(os.path.join(ROOT, "tools", "tests",
+                               "test_bytecode_staleness.py"), encoding="utf-8").read()
+    for katalog, ile in sorted(ROZKLAD_MODULOW.items()):
+        wzor = re.compile(r"`%s`\s*\**\s*%d\b" % (re.escape(katalog), ile))
+        assert wzor.search(dokument), (
+            "`docs/06-worked-example.md` nie niesie pary %s = %d" % (katalog, ile))
+        assert wzor.search(zrodlo), (
+            "komentarz w tym module nie niesie pary %s = %d" % (katalog, ile))
