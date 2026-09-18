@@ -122,6 +122,9 @@ WYJATKI = {
     ("test_csharp_assertions.py", "0.0"): "cytat zapisu tolerancji w C#, nie wielkość",
     ("test_csharp_pins.py", "0.0"): "jak wyżej",
     ("test_dead_constants.py", "90,0"): "to samo zdanie co w `test_constant_names.py`",
+    ("test_message_claims.py", "04"): "człon nazwy `docs/04-conventions.md` z fikstury kontroli przyrządu — sprawdzane jest, że sito go NIE liczy",
+    ("test_message_claims.py", "085"): "urwany człon `0,085` z tej samej fikstury; asercja żąda, żeby go w populacji NIE było",
+    ("test_message_claims.py", "0,085"): "ta sama fikstura, człon nierozcięty",
     ("test_line_calls_gate.py", "80"): "prędkość konstrukcyjna M7 z `data/network/lines.json`, sprawdzona 17.09.2026",
     ("test_linecore_budget_gate.py", "115,9"): "rozstęp atrapy `NIESTABILNY_W_PROGU`, składanej w tym samym pliku",
     ("test_linecore_budget_gate.py", "16,000"): "pomiar atrapy `SLABO_UWARUNKOWANY_PONAD_PROGIEM`",
@@ -1157,3 +1160,254 @@ def test_czytnik_klas_odroznia_KOMENTARZ_od_KODU():
         "komentarz z kodem daly klase %r — mieszanina ma byc trzecia klasa, "
         "bo inaczej wpada do jednej z dwoch i przekreca obie"
         % _klasa_wierszy(mieszane))
+
+
+# --- 6.D275: zdjecie pogrubienia wyprowadza liczbe spod OBU sit ----------------
+
+#: **Zdjecie pogrubienia jest jedynym lekarstwem, jakie `MAX_POGRUBIONYCH_BEZ_POKRYCIA`
+#: dopuszcza — i wyprowadza liczbe spod KAZDEGO czytnika tego drzewa.**
+#:
+#: Zapadka wyzej stawia autora przed wyborem: policz liczbe w kodzie albo zdejmij
+#: pogrubienie. Drugie wyjscie jest zawsze dostepne i zawsze tansze, a census pokrycia
+#: (6.D264) i sito jednostek (6.D272) czytaja WYLACZNIE `**N**`. Zaspokojenie jednej
+#: bramki wyprowadza wiec liczbe spod drugiej, a liczba zostaje w zdaniu i starzeje sie
+#: dalej. Ze nie jest to teoretyczne, pokazalo 6.D271: trzy NIEPOGRUBIONE figury w
+#: `test_dead_constants_csharp.py` byly nieprawdziwe i znalazlo je czytanie, nie bramka.
+#:
+#: **Trzy liczby, i pierwsze dwie mowia, dlaczego detektora historycznego tu nie ma.**
+#: Zmierzone 18.09.2026 na 660 commitach dotykajacych `tools/tests/`:
+#:
+#: | co | ile |
+#: |---|---|
+#: | commitow ZGLASZAJACYCH zdjecie pogrubienia w komunikacie | 12 |
+#: | z tego widocznych w DIFFIE (wiersz identyczny co do gwiazdek) | 0 |
+#: | liczb niepogrubionych stojacych DZIS w prozie ogłaszajacej pomiar | nizej |
+#:
+#: Zero w drugim wierszu nie jest usterka wzorca, tylko wlasnoscia przebiegu: zapadka
+#: zapala sie PRZED commitem, autor zdejmuje pogrubienie i commituje wersje JUZ bez
+#: niego. Wersja pogrubiona nie istnieje w zadnym drzewie, wiec zaden diff jej nie
+#: pokazuje. Wzorzec luzniejszy (podobienstwo wiersza >= 0,6) daje dwa trafienia
+#: i **oba sa falszywe** — w obu liczba pochodzi z numeru pozycji `6.A24`, a nie
+#: ze zdjetego pogrubienia. Detektor historyczny jest tu slepy Z NATURY; jedyny
+#: zapis jest w komunikatach commitow, a tych nie czyta zaden czytnik tego drzewa.
+#: Dlatego pozycja mierzy STAN DZISIEJSZY, a nie historie.
+
+#: **Zapowiedz pomiaru — druga konwencja tego repozytorium, obok `**N**`.**
+#: Samo „zdanie z pogrubiona liczba" nie wystarcza i to jest zmierzone, a nie przyjete:
+#: instancja, ktora wywolala te pozycje (132 i 36 w `test_dead_constants.py`), stoi
+#: w akapicie otwartym pogrubionym lead-inem `**Zmierzone <data>:**`, w ktorym zadna
+#: liczba pogrubiona nie jest. Sito na sam `**N**` bylo wiec slepe dokladnie na przypadek,
+#: ktory pozycje wywolal — sprawdzone przed napisaniem bramki. Lead-inow tego ksztaltu
+#: jest w drzewie 57.
+ZAPOWIEDZ_POMIARU = re.compile(r"\*\*[^*]{0,60}[Zz]mierzon[a-z]{0,4}[^*]{0,60}\*\*")
+
+#: Cyfry, ktore nie sa twierdzeniem o pomiarze i musza wypasc PRZED liczeniem:
+#: sciezki i wzorce w grawisach (`docs/04-conventions.md`, `{7,40}`), talie testow
+#: (`14/15`), kody wyjscia (`kod 1`) i numery pozycji (`6.B36`). Bez tego czyszczenia
+#: populacja rosnie o 50 na samym `test_report_hygiene.py`, ktorego docstring jest
+#: transkryptem kontroli negatywnych — czyli sito liczyloby transkrypt, a nie proze.
+SMIECI_W_PROZIE = (
+    re.compile(r"`[^`]*`"),
+    re.compile(r"\b6\.[A-Z]\d+\b"),
+    # Numery kamieni milowych (`MB-01`) i notacja wykladnicza (`2,47e-05`) rozpadaja
+    # sie na czlony dokladnie tak samo jak talie wyzej — zlapane tym samym sitem
+    # po naprawie talii, a nie przewidziane.
+    re.compile(r"\bMB-\d+\b"),
+    re.compile(r"\d+(?:[.,]\d+)?e[-+]?\d+"),
+    # Granice `(?<![\d,.])` sa tu TRESCIA, a nie ostroznoscia: `\b` wycinal
+    # `090 / 0` ze srodka ciagu `0,090 / 0,087 / 0,085 s`, zostawiajac `0` i `085`
+    # jako osobne „liczby". Zmierzone: bez tych granic populacja rosla o 6 urwanych
+    # czlonow, a kazdy czytal sie jak liczba niepogrubiona.
+    re.compile(r"(?<![\d,.])\d+\s*/\s*\d+(?![\d,.])"),
+    re.compile(r"\bkod\s+\d+(?![\d,.])"),
+    DATA,
+)
+
+#: Granica zdania. Akapit jest jednostka dla lead-inu `**Zmierzone:**` (bo on otwiera
+#: akapit), a zdanie — dla pogrubionej liczby (bo ona stoi w zdaniu). Dwie jednostki
+#: sa tu z pomiaru: jedna wspolna zabiera albo instancje z 6.D269 (przy zdaniu), albo
+#: caly akapit za kazda pogrubiona liczba (przy akapicie).
+GRANICA_ZDANIA = re.compile(r"(?<=[.!?:])\s+")
+
+
+def _akapity_prozy(tekst):
+    """Akapity wezla prozy — bloki rozdzielone pustym wierszem, bez znakow `#:`."""
+    biezacy, out = [], []
+    for wiersz in tekst.split("\n"):
+        naga = re.sub(r"^\s*#:?\s?", "", wiersz).rstrip()
+        if not naga.strip():
+            if biezacy:
+                out.append("\n".join(biezacy))
+                biezacy = []
+        else:
+            biezacy.append(naga)
+    if biezacy:
+        out.append("\n".join(biezacy))
+    return out
+
+
+def gole_w_prozie_pomiarowej(katalog=None, root=None):
+    """`[(plik, wiersz, napis, zdanie, pokryte)]` — liczby NIEPOGRUBIONE stojace
+    w prozie, ktora pomiar oglasza.
+
+    Okno pokrycia jest TO SAMO, co w `pogrubione_bez_pokrycia`, razem z wycieciem
+    zasiegu samego wezla — inaczej liczba pokrywa sama siebie (6.D259).
+    """
+    baza = katalog or os.path.join(ROOT, "tools", "tests")
+    korzen = root or ROOT
+    zrodla = {}
+    for gdzie, _katalogi, pliki in TW.walk(baza, korzen):
+        for nazwa in sorted(pliki):
+            if nazwa.endswith(".py"):
+                with open(os.path.join(gdzie, nazwa), encoding="utf-8") as uchwyt:
+                    zrodla[nazwa] = uchwyt.read().split("\n")
+    out, widziane = [], set()
+    for nazwa, wiersz, tekst, _rodzaj, od, do in proza(katalog, root):
+        czysty = SPECYFIKATOR.sub(" ", tekst)
+        linie = zrodla.get(nazwa, [])
+        lo = max(0, wiersz - OKNO_PROZY - 1)
+        hi = min(len(linie), do + OKNO_PROZY)
+        okno = "\n".join(linie[lo:od - 1] + linie[do:hi])
+        for akapit in _akapity_prozy(czysty):
+            ma_zapowiedz = bool(ZAPOWIEDZ_POMIARU.search(akapit))
+            for zdanie in GRANICA_ZDANIA.split(akapit):
+                ma_pogrubiona = bool(POGRUBIONA.search(zdanie)) \
+                    and not DATA.search(zdanie)
+                if not (ma_zapowiedz or ma_pogrubiona):
+                    continue
+                reszta = POGRUBIONA.sub(" ", ZAPOWIEDZ_POMIARU.sub(" ", zdanie))
+                for smiec in SMIECI_W_PROZIE:
+                    reszta = smiec.sub(" ", reszta)
+                for trafienie in LICZBA.finditer(reszta):
+                    napis = trafienie.group(1)
+                    try:
+                        wartosc = float(napis.replace(",", "."))
+                    except ValueError:
+                        continue
+                    klucz = (nazwa, wiersz, trafienie.start(), napis)
+                    if klucz in widziane:
+                        continue
+                    widziane.add(klucz)
+                    pokryte = any(
+                        re.search(r"(?<![\w.])%s(?![\w.])"
+                                  % re.escape("%g" % (wartosc * skala)), okno)
+                        for skala in SKALE)
+                    out.append((nazwa, wiersz, napis, zdanie, pokryte))
+    return out
+
+
+def zdan_ogloszonych_pomiarem(katalog=None, root=None):
+    """Ile zdan prozy oglasza pomiar — populacja, na ktorej stoi zapadka nizej."""
+    ile = 0
+    for _nazwa, _wiersz, tekst, _rodzaj, _od, _do in proza(katalog, root):
+        czysty = SPECYFIKATOR.sub(" ", tekst)
+        for akapit in _akapity_prozy(czysty):
+            ma_zapowiedz = bool(ZAPOWIEDZ_POMIARU.search(akapit))
+            for zdanie in GRANICA_ZDANIA.split(akapit):
+                if ma_zapowiedz or (POGRUBIONA.search(zdanie)
+                                    and not DATA.search(zdanie)):
+                    ile += 1
+    return ile
+
+
+#: **Zapadka GORNA, i jej wysokosc jest jedyna liczba tej pozycji, ktora nie jest
+#: pomiarem, tylko rozstrzygnieciem — dlatego stoi tu z uzasadnieniem.**
+#:
+#: Populacja liczb NIEPOGRUBIONYCH w prozie oglaszajacej pomiar jest CZTERY RAZY
+#: wieksza od tej, ktora pilnuje `MAX_POGRUBIONYCH_BEZ_POKRYCIA`, i nie ma listy
+#: wyjatkow zadnej. Wyliczac jej nie sposob (6.D243: lista tej dlugosci jest podpisem
+#: pod obrazkiem), wiec zostaje ten sam wzorzec, co zapadka wyzej: gora na liczbe
+#: trafien, podloga na populacje. **Wolno ja tylko OBNIZAC.**
+#:
+#: Czego ta zapadka NIE robi, i obie granice sa ZMIERZONE, a nie zastrzezone.
+#:
+#: PIERWSZA: nie odroznia liczby ZDJETEJ z pogrubienia od takiej, ktora pogrubienia
+#: nigdy nie miala. Odroznic ich nie da sie z drzewa, bo — jak mowi tabela wyzej —
+#: zdjecie zachodzi przed commitem i zero takich zdjec widac w diffie na 660
+#: commitach. Zapadka lapie WEJSCIE do populacji, czyli i jedno, i drugie.
+#:
+#: DRUGA, i wazniejsza, bo przeczy temu, po co ta zapadka powstala: droga ucieczki
+#: jest zamknieta TYLKO CZESCIOWO. Zdjecie pogrubienia liczbie, ktora byla w zdaniu
+#: JEDYNA pogrubiona i stoi poza akapitem z zapowiedzia, wyprowadza cale zdanie
+#: z populacji — liczba nie wchodzi tutaj, tylko znika z obu sit. Zmierzone
+#: 18.09.2026 NA WLASNEJ PROZIE tej pozycji, a nie na przykladzie: zapadka
+#: `MAX_POGRUBIONYCH_BEZ_POKRYCIA` zapalila sie na liczbie pogrubionej w akapicie
+#: wyzej, jedynym lekarstwem bylo zdjecie pogrubienia (wartosc jest pomiarem
+#: historii gita, wiec policzyc jej w zestawie nie sposob) — i populacja tej zapadki
+#: SPADLA o dwa zamiast urosnac o jeden. Kierunek jest odwrotny do zamierzonego
+#: i jest to wynik, nie usterka do obejscia.
+#:
+#: Poszerzenie zapowiedzi na dowolne slowo pomiaru (`zmierzon`, `pomiar`, `policzon`,
+#: bez pogrubienia) zamyka i ten przypadek — i zostalo ODRZUCONE po pomiarze, nie
+#: z gustu: daje 3685 zdan i 1373 liczby gole, czyli piec razy wiecej niz dzis,
+#: przy liscie wyjatkow zerowej. Lista tej dlugosci nie jest lista, tylko podpisem
+#: pod obrazkiem (6.D243). Zapadka zostaje waska, a to, czego nie lapie, stoi tu
+#: wypisane liczba.
+MAX_GOLYCH_W_PROZIE_POMIAROWEJ = 259
+
+#: Podloga na populacje zdan oglaszajacych pomiar — bez niej oslepienie czytnika
+#: do zera przechodzi zapadke gorna CELUJACO (6.D27, ten sam powod co
+#: `MIN_POGRUBIONYCH` wyzej).
+MIN_ZDAN_POMIAROWYCH = 420
+
+
+def test_zadna_NOWA_liczba_niepogrubiona_nie_wchodzi_do_prozy_pomiarowej():
+    """**Druga polowa pary z `MAX_POGRUBIONYCH_BEZ_POKRYCIA` — i to jest cala tresc.**
+
+    Tamta zapadka dopuszcza dwa lekarstwa: policz liczbe w kodzie albo zdejmij
+    pogrubienie. Drugie bylo dotad DARMOWE, bo po zdjeciu nie czytalo liczby nic.
+    Ta zapadka nadaje mu cene: liczba zdjeta z pogrubienia zostaje w zdaniu, ktore
+    pomiar oglasza, wiec wchodzi TUTAJ. Zadna z dwoch nie da sie odtad zaspokoic
+    kosztem drugiej.
+    """
+    zdan = zdan_ogloszonych_pomiarem()
+    assert zdan >= MIN_ZDAN_POMIAROWYCH, (
+        "zdan oglaszajacych pomiar jest %d przy podlodze %d — czytnik oslepl albo "
+        "obie konwencje (`**N**` i `**Zmierzone:**`) zniknely z drzewa, a wtedy "
+        "zapadka gorna nizej przechodzi na zielono nie dlatego, ze jest dobrze"
+        % (zdan, MIN_ZDAN_POMIAROWYCH))
+
+    gole = gole_w_prozie_pomiarowej()
+    assert len(gole) <= MAX_GOLYCH_W_PROZIE_POMIAROWEJ, (
+        "liczb niepogrubionych w prozie oglaszajacej pomiar jest %d przy zapadce "
+        "%d. Zdjecie pogrubienia NIE jest wyjsciem z `MAX_POGRUBIONYCH_BEZ_POKRYCIA` "
+        "— liczba laduje wtedy tutaj. Policz ja w kodzie i wstaw przez `%%d` albo "
+        "przepisz zdanie tak, zeby pomiaru nie oglaszalo. Zapadke wolno tylko "
+        "OBNIZAC: %s"
+        % (len(gole), MAX_GOLYCH_W_PROZIE_POMIAROWEJ,
+           [(x[0], x[1], x[2]) for x in gole[:5]]))
+
+
+def test_sito_prozy_pomiarowej_NIE_liczy_cyfr_spoza_twierdzenia():
+    """**Kontrola przyrzadu: gdyby sito liczylo kazda cyfre, dalo by tysiace.**
+
+    Trzy ksztalty musza z niego wypasc, i kazdy zostal zlapany na zywym drzewie,
+    a nie wymyslony: sciezka w grawisach, talia testow rozcinajaca liczbe dziesietna
+    i numer pozycji. Czwarty musi PRZEJSC — inaczej sito nie widzi tego, co pozycje
+    wywolalo.
+    """
+    reszta = "**Zmierzone:** plik `docs/04-conventions.md` ma 12 naglowkow."
+    for smiec in SMIECI_W_PROZIE:
+        reszta = smiec.sub(" ", reszta)
+    assert "04" not in reszta, (
+        "sciezka w grawisach przetrwala czyszczenie — `04` z nazwy pliku wejdzie "
+        "do populacji jako liczba, a nie jest twierdzeniem o pomiarze: %r" % reszta)
+    assert "12" in reszta, (
+        "czyszczenie zabralo liczbe SPOZA grawisow — sito oslepnie na to, co ma "
+        "liczyc: %r" % reszta)
+
+    reszta = "srednio 0,090 / 0,087 / 0,085 s"
+    for smiec in SMIECI_W_PROZIE:
+        reszta = smiec.sub(" ", reszta)
+    assert not re.search(r"(?<![\w.,])085(?![\w.,])", reszta), (
+        "talia rozcieła liczbe dziesietna — `085` wchodzi do populacji jako "
+        "osobna liczba, a jest czlonem `0,085`: %r" % reszta)
+
+    gole = gole_w_prozie_pomiarowej()
+    wywolujaca = [x for x in gole
+                  if x[0] == "test_dead_constants.py" and x[2] in ("132", "36")]
+    assert len(wywolujaca) == 2, (
+        "liczby 132 i 36 z `test_dead_constants.py` — jedyna znana instancja "
+        "ksztaltu, ktory te pozycje wywolal — NIE sa w populacji (%d z 2). Sito "
+        "na sam `**N**` bylo na nie slepe i dlatego stoi obok `ZAPOWIEDZ_POMIARU`; "
+        "jezeli wypadly, zapowiedz przestala je lapac" % len(wywolujaca))
