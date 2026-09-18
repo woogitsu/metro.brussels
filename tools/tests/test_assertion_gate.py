@@ -1715,7 +1715,13 @@ def test_wzorzec_rodziny_lapie_zdanie_ktore_ma_lapac_i_nie_bierze_sasiedztwa():
 # Stoja na NAPISIE (literal w tekscie), ale tekst jest WYNIKIEM czyszczenia
 # wykonanego przez `SMIECI_W_PROZIE`, a nie napisem przepisanym — mierzone jest
 # zachowanie wzorcow, nie ich tresc.
-ASERCJI_NAPISOWYCH_RAZEM = 930
+# 930 -> 932 (18.09.2026, 6.D170): dwie asercje ksztaltu `literal in cos` wiecej
+# — kontrola wbudowana `test_docs_map.py` pyta, czy sciezka z tabeli §3 ZNIKNELA
+# z tekstu po wycieciu sekcji i czy cytat spoza §3 w nim ZOSTAL. Stoja na NAPISIE
+# (sciezka jako literal), ale tekst jest WYNIKIEM wyciecia wykonanego przez
+# `poza_paragrafem_3`, a nie napisem przepisanym — mierzone jest zachowanie
+# czytnika, nie jego tresc.
+ASERCJI_NAPISOWYCH_RAZEM = 932
 
 #: **Kotwica wpisu to `(plik, funkcja, operator, literał)`, a NIE numer wiersza.**
 #: Numer przesuwa się przy każdej edycji pliku i lista rozjechałaby się sama z siebie.

@@ -248,7 +248,7 @@ def klasa_zapadki(nazwa, porownania):
 
 
 #: **Wszystkie zapadki pod `tools/tests/`, każda z klasą i modułem.**
-#: Zapadek: 85. **Przybitych: 18, częściowych: 3, WOLNYCH: 62, poza zasięgiem skanu: 2.**
+#: Zapadek: 86. **Przybitych: 18, częściowych: 3, WOLNYCH: 63, poza zasięgiem skanu: 2.**
 #:
 #: **To zdanie jest przepisane, a nie dopisane obok — po raz DRUGI (15.09.2026).**
 #: Stało tu najpierw „Trzydzieści osiem: 13 przybitych…" (11.09.2026, `52752c9`)
@@ -428,6 +428,11 @@ ZAPADKI = {
     "MIN_PATHS": (POZA_SKANEM, "test_field_paths.py"),
     "MIN_PATHS_IN_TREE": (PRZYBITA, "test_bin_path_framework.py"),
     "MIN_REPORTS": (PRZYBITA, "test_report_hygiene.py"),
+    # 6.D170: podloga na liczbe plikow `.md` BEZPOSREDNIO w `docs/`. WOLNA, i to
+    # jest wybor: rownosc zapalalaby sie na dopisaniu dokumentu, czyli na pracy
+    # poprawnej (6.D27), a kompletnosc PRZYPISANIA pilnuje osobny test tej samej
+    # bramki — ten, ktory nazywa plik nieprzypisany do zadnej ze stron.
+    "MIN_DOKUMENTOW": (WOLNA, "test_docs_map.py"),
     # 6.D238: podłoga na liczbę wierszy tabeli §4 `reports/T-401-line-run.md`,
     # które czyta wiązanie arytmetyczne kolumny różnicy. WOLNA, i to jest wybór
     # wymuszony przez 6.D108: raport jest zapisem swojego dnia, a równość zapalałaby
@@ -1329,7 +1334,8 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
 
     # 74 -> 77 (18.09.2026, 6.D277): trojka na granice `\b` przy cyfrze.
     # 77 -> 79 (6.D278) -> 84 (6.D279) -> 85 (6.D266): podloga drugiego rejestru.
-    assert len(w_drzewie) == ZAPADEK_RAZEM == 85, (
+    # 85 -> 86 (18.09.2026, 6.D170): `MIN_DOKUMENTOW` bramki Mapy dokumentow.
+    assert len(w_drzewie) == ZAPADEK_RAZEM == 86, (
         "zapadek w drzewie %d, na liście %d, pomiar z 11.09.2026 mówił 38, "
         "po 6.D146 — 40, po 6.D147 — 42 (doszła zapadka na sekwencje ucieczki "
         "i próg KW jej skanu), po 6.D187 — 44 (dwa progi KW skanu gołych nazw), "
@@ -1373,7 +1379,8 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
     # WOLNYCH 56 -> 61 (18.09.2026, 6.D279): piec nowych, kazda jako prawa strona
     # jednego porownania.
     # WOLNYCH 61 -> 62 (18.09.2026, 6.D266): podloga populacji progow danych.
-    assert (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM]) == (18, 3, 62, 2), (
+    # WOLNYCH 62 -> 63 (18.09.2026, 6.D170): podloga na liczbe plikow `docs/*.md`.
+    assert (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM]) == (18, 3, 63, 2), (
         "klasy zapadek: przybitych %d, częściowych %d, WOLNYCH %d, poza skanem %d — "
         "pomiar z 11.09.2026 mówił 13/3/21/1, po 6.D146 — 13/3/23/1, a po 6.D147 — "
         "14/3/24/1, po 6.D151 — 15/3/23/1, po 6.D167 — 17/3/21/1, po 6.D187 — "
@@ -1618,7 +1625,9 @@ def test_ktore_wolne_zapadki_sa_PRZESADZONE_ksztaltem_a_ktore_zmierzone():
     przesadzonych = wolnych - len(ROZSTRZYGALNE_POMIAREM)
     # (51, 50) -> (54, 53) (18.09.2026, 6.D277): jak wyzej.
     # (54, 53) -> (56, 55) (6.D278) -> (61, 60) (6.D279) -> (62, 61) (6.D266).
-    assert (wolnych, przesadzonych) == (62, 61), (
+    # (62, 61) -> (63, 62) (18.09.2026, 6.D170): `MIN_DOKUMENTOW` bramki Mapy,
+    # tez wylacznie jako prawa strona jednej podlogi, wiec PRZESADZONA ksztaltem.
+    assert (wolnych, przesadzonych) == (63, 62), (
         "wolnych %d, z tego przesądzonych kształtem %d — pomiar 17.09.2026 dał 42 i 40, "
         "a po 6.D258 daje 41 i 40: `MAX_ODCISKOW_W_RAPORCIE` wyszło z klasy `wolna` "
         "do `poza skanem`, więc ubyla ZAPADKA i ubyl jej WPIS w słowniku rozstrzygnięć; "

@@ -28,6 +28,18 @@ i powiedz o tym. Nie próbuj obejść.
 
 ## 3. Mapa dokumentów
 
+**Kryterium wejścia jest jednostronne, i to jest wynik pomiaru, nie wybór zapisu**
+(18.09.2026, 6.D170). Skład Mapy jest decyzją właściciela: pomiar na całym `docs/` nie
+znalazł ani jednej własności mierzalnej z drzewa, która dzieliłaby dzisiejsze wiersze
+od dokumentów stojących poza tabelą. Podział pokrywa się wyłącznie z przedziałem
+numerów w nazwach plików, a ten nie jest ani chronologiczny, ani tematyczny — po dwa
+kontrprzykłady w każdą stronę stoją w `reports/6d170-kryterium-wejscia-do-mapy.md`.
+Twarde są natomiast dwie rzeczy. **Dokument, na który powołuje się którykolwiek INNY
+punkt tego pliku, musi stać w tej tabeli.** I **każdy plik `docs/*.md` musi stać albo
+tutaj, albo w przypiętym zbiorze „świadomie poza Mapą” w `tools/tests/test_docs_map.py`**
+— nowy plik bez przypisania zapala bramkę, żeby skład Mapy nie zależał od pamięci
+piszącego.
+
 | plik | do czego |
 |---|---|
 | `docs/00-network-data.md` | fakty o sieci — **źródło prawdy**, nie zmieniasz |
