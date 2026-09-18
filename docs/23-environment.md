@@ -157,7 +157,8 @@ opisana wyżej odpowiada na obu; `command -v` odpowiada tylko na tej z dowiązan
 
 #### 1.1.1 `doctor.sh` czyta wersję Blendera i dlatego nie da się nabrać — ale o .NET pyta `PATH`
 
-Tego nie było w opisie pozycji 6.D48 i wyszło z pomiaru. Na tej maszynie
+Tego nie było w opisie pozycji 6.D48 i wyszło z pomiaru. Na tej maszynie — czyli
+w kontenerze z 08.09.2026, a nie w dowolnym dzisiejszym —
 `/root/.dotnet/dotnet` zgłasza **10.0.400**, a doctor melduje brak:
 
 ```
