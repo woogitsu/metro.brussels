@@ -32,6 +32,7 @@ wymaga tego opisu w każdym przepisanym akapicie.
 """
 
 import ast
+import importlib
 import collections
 import os
 import re
@@ -41,6 +42,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 sys.path.insert(0, os.path.join(ROOT, "tools", "tests"))
 
 import test_tree_walks as TW
+import tree_walk as SPACER  # `walk` stoi TU, nie w `test_tree_walks`
 
 #: Zdanie o rejestrze zapadek. Cztery liczby: razem, przybite, częściowe, wolne.
 #: Ostatnia (poza skanem) stoi w tym samym zdaniu i też jest czytana.
@@ -1184,3 +1186,213 @@ def test_czytnik_wyliczen_widzi_ksztalt_ktory_ma_widziec():
         "po podziale akapit ma niesc po dwie pary, a niesie %s — granica "
         "wypadla w zlym miejscu"
         % [len(_pary_wyliczenia(a[2])) for a in akapity])
+
+
+# --- 6.D272: liczba w prozie a JEDNOSTKA, ktora liczy bramka obok --------------
+
+#: **Czytnik zwracajacy ODWZOROWANIE ma na pytanie „ile" DWIE odpowiedzi** —
+#: liczbe kluczy i liczbe elementow — i nic nie mowi, ktora z nich podaje zdanie
+#: prozy stojace obok. Zmierzone 18.09.2026 przy 6.D269 przez podloge wlasnej
+#: bramki: proza mowila o 132 wiazaniach domyslnych, czytnik dawal 81, i OBA
+#: byly prawdziwe (132 to pary „funkcja + stala", 81 to pary `(modul, nazwa)`).
+#:
+#: **Zmierzone: czytnikow wolalnych bez argumentu, zwracajacych odwzorowanie
+#: o wartosciach-zbiorach, jest 24, z czego 22 daja DWIE ROZNE miary.** Odrzucone
+#: po drodze: 16 o wartosciach, ktore zbiorami nie sa (odwzorowanie na liczbe albo
+#: napis — `len` dalby tam znaki, nie elementy), 1 pusty, 2 o miarach ROWNYCH.
+#:
+#: **Zdan prozy nazywajacych ktorakolwiek z dwoch miar jest TRZY, a rozjechanych
+#: ZERO** — i to jest odpowiedz na pole „Wyjscie" 6.D272, czyli teza tej pozycji
+#: w postaci ogolnej sie NIE POTWIERDZILA:
+#:
+#: * `test_dead_constants_csharp` mowi „ma dzis N deklaracji" i „razem N" —
+#:   ELEMENTY (396 przy 345 kluczach), a bramka liczy `sum(len(v))`. Zgodne.
+#: * `test_provenance_classes` mowi „Pole `status` stoi w N plikach JSON" —
+#:   KLUCZE (20 przy 36 elementach), a bramka liczy `len()`. Zgodne.
+#: * `test_tree_writes` mowi „przedtem 7, dzis N" o `MAX_ZAPISOW_W_DRZEWIE` —
+#:   ELEMENTY (5 przy 2 kluczach), a bramka liczy `sum(len(m))`. Zgodne.
+#:
+#: **DWA dalsze trafienia byly ZBIEGIEM WARTOSCI, nie zdaniami o tych czytnikach**,
+#: i jest to czwarty raz w tej serii, kiedy dopasowanie liczby PO WARTOSCI dalo
+#: falszywy alarm (6.D267, 6.D268 dwa razy, teraz tu): `test_tree_walks` niesie
+#: pogrubione `3`, ale jest to odleglosc zaplonu w krokach, a nie miara
+#: `wolne_rozstrzygalne_pomiarem`; `wszystkie_kopiowania` ma klucze 5 i elementy 7,
+#: a zdanie z `5` i `7` opisuje HISTORIE zapadki `MAX_ZAPISOW_W_DRZEWIE`.
+#: Dlatego bramka nizej stoi na KOTWICACH ZDAN, a nie na dopasowaniu wartosci.
+#:
+#: **Instancja, ktora te pozycje wywolala, jest dla tego sita NIEWIDZIALNA, i to
+#: jest znalezisko o SPRZEZENIU DWOCH BRAMEK.** Liczby 132, 36 i 81 stoja
+#: w `test_dead_constants.py` BEZ POGRUBIENIA, bo przy 6.D269 zapadka gorna
+#: `MAX_POGRUBIONYCH_BEZ_POKRYCIA` zapalila sie na nich i pogrubienie trzeba bylo
+#: zdjac — podnosic jej nie wolno. Zaspokojenie jednej bramki wyprowadzilo te
+#: liczby z pola widzenia drugiej, bo census i to sito czytaja WYLACZNIE liczby
+#: pogrubione. Zdjecie pogrubienia zdarzylo mi sie w tej serii SZESC razy.
+#: Census stoi na KANDYDATACH z AST, a nie na wywolanych czytnikach, i powod jest
+#: ZMIERZONY: sam skan AST kosztuje 0,6 s, a wywolanie wszystkich 41 czytnikow —
+#: 22,4 s, bo czesc z nich chodzi po drzewie. Zestaw rosl z 263 s na 301 s za jedna
+#: bramke, czyli o czternascie procent, a droga polowa odpowiadala „rozjechanych
+#: ZERO". Kandydat z AST lapie NOWY czytnik odwzorowania rownie dobrze — tylko nie
+#: liczy mu obu miar, a te liczy sie dla dwoch czytnikow spod kotwic i to wystarcza.
+#: Pelny przebieg po wszystkich czytnikach zostaje w `dwie_miary_czytnikow`
+#: i da sie go wywolac na zadanie; bramka go nie wola.
+KANDYDATOW_ODWZOROWAN = 41
+
+#: Kotwice zdan, ktore miare NAZYWAJA, i miara, ktorej uzywa bramka obok.
+#: Kotwica, a nie dopasowanie wartosci — patrz akapit o dwoch zbiegach wyzej.
+MIARA_W_PROZIE = {
+    ("test_dead_constants_csharp.py", r"ma dzis \*\*(\d+)\*\* deklaracji"): "elementy",
+    ("test_dead_constants_csharp.py", r"razem \*\*(\d+)\*\*;"): "elementy",
+    ("test_provenance_classes.py", r"stoi w \*\*(\d+)\*\* plikach JSON"): "klucze",
+}
+
+#: Czytnik za kazda kotwica — zeby „elementy" i „klucze" bylo z czego policzyc.
+CZYTNIK_ZA_KOTWICA = {
+    "test_dead_constants_csharp.py": ("test_dead_constants_csharp", "deklaracje"),
+    "test_provenance_classes.py": ("test_provenance_classes", "statusy_w_katalogu_danych"),
+}
+
+ZBIORY_WARTOSCI = (list, set, tuple, dict, frozenset)
+
+
+def czytniki_odwzorowan(root=None):
+    """`[(modul, funkcja)]` — funkcje wolalne BEZ ARGUMENTU, zwracajace odwzorowanie.
+
+    Bez argumentu, bo tylko takie da sie policzyc nie zgadujac, co podstawic —
+    a zgadywanie `root` daloby liczbe o innym drzewie. Ilu kandydatow to odsiewa,
+    podaje asercja nizej, zeby zawezenie bylo policzone, a nie podpisane.
+    """
+    korzen = root or ROOT
+    out = []
+    for gdzie, _pod, pliki in SPACER.walk(os.path.join(korzen, "tools", "tests"), korzen):
+        for nazwa in sorted(pliki):
+            if not nazwa.endswith(".py"):
+                continue
+            try:
+                drzewo = ast.parse(open(os.path.join(gdzie, nazwa), encoding="utf-8").read())
+            except (SyntaxError, OSError):
+                continue
+            for funkcja in ast.walk(drzewo):
+                if not isinstance(funkcja, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    continue
+                if funkcja.name.startswith("test_") or funkcja.name.startswith("_"):
+                    continue
+                if len(funkcja.args.args) != len(funkcja.args.defaults):
+                    continue
+                slowniki = set()
+                for wezel in ast.walk(funkcja):
+                    if not isinstance(wezel, ast.Assign):
+                        continue
+                    wartosc = wezel.value
+                    nazwa_wywolania = None
+                    if isinstance(wartosc, ast.Call):
+                        f = wartosc.func
+                        nazwa_wywolania = (f.attr if isinstance(f, ast.Attribute)
+                                           else getattr(f, "id", None))
+                    if isinstance(wartosc, (ast.Dict, ast.DictComp)) or \
+                            nazwa_wywolania in ("defaultdict", "dict", "Counter",
+                                                "OrderedDict"):
+                        slowniki |= {t.id for t in wezel.targets
+                                     if isinstance(t, ast.Name)}
+                for wezel in ast.walk(funkcja):
+                    if not (isinstance(wezel, ast.Return) and wezel.value is not None):
+                        continue
+                    zwracane = wezel.value
+                    if isinstance(zwracane, (ast.Dict, ast.DictComp)) or \
+                            (isinstance(zwracane, ast.Name) and zwracane.id in slowniki):
+                        out.append((nazwa[:-3], funkcja.name))
+                        break
+    return out
+
+
+#: Wynik liczony RAZ na przebieg. Koszt jest zmierzony, nie oszacowany: sam skan
+#: AST kosztuje 0,6 s, ale WYWOLANIE 41 czytnikow — 22,4 s, bo czesc z nich chodzi
+#: po drzewie. Dwa testy nizej wolaly to dwa razy, czyli 45 s na przebieg, i to
+#: byla piata czesc calego zestawu za jedna bramke. Pamiec podreczna zbija to do
+#: jednego przebiegu; zwracany slownik jest WSPOLNY, wiec nikt go nie modyfikuje.
+_PAMIEC_DWU_MIAR = {}
+
+
+def dwie_miary_czytnikow():
+    """`({(modul, funkcja): (kluczy, elementow)}, odrzucone)` — tylko miary ROZNE."""
+    if _PAMIEC_DWU_MIAR:
+        return _PAMIEC_DWU_MIAR["miary"], _PAMIEC_DWU_MIAR["odrzucone"]
+    out, odrzucone = {}, collections.Counter()
+    for modul, funkcja in czytniki_odwzorowan():
+        try:
+            wynik = getattr(importlib.import_module(modul), funkcja)()
+        except Exception as blad:                      # noqa: BLE001
+            odrzucone[type(blad).__name__] += 1
+            continue
+        if not isinstance(wynik, dict) or not wynik:
+            odrzucone["nie odwzorowanie albo puste"] += 1
+            continue
+        if not all(isinstance(w, ZBIORY_WARTOSCI) for w in wynik.values()):
+            # Wartosc, ktora zbiorem nie jest: `len` dalby tam znaki napisu albo
+            # padl na liczbie — a wtedy „elementy" nie znacza nic. Zmierzone:
+            # `bloki_wykonane` dawalo 712777 „elementow", czyli ZNAKI.
+            odrzucone["wartosci nie sa zbiorami"] += 1
+            continue
+        kluczy, elementow = len(wynik), sum(len(w) for w in wynik.values())
+        if kluczy == elementow:
+            odrzucone["miary rowne"] += 1
+        else:
+            out[(modul, funkcja)] = (kluczy, elementow)
+    _PAMIEC_DWU_MIAR["miary"], _PAMIEC_DWU_MIAR["odrzucone"] = out, odrzucone
+    return out, odrzucone
+
+
+def test_ile_czytnikow_ma_DWIE_MIARY_i_ktora_nazywa_proza():
+    """**Trzy liczby z pola „Wyjscie" 6.D272 — rownosciami, nie progiem.**
+
+    Rownosc na liczbie czytnikow, bo kazdy NOWY czytnik odwzorowania wnosi te
+    sama dwuznacznosc i ma zostac obejrzany; prog przepuscilby go w milczeniu.
+    """
+    kandydaci = czytniki_odwzorowan()
+    assert len(kandydaci) == KANDYDATOW_ODWZOROWAN, (
+        "czytnikow odwzorowan wolalnych bez argumentu jest %d, a pomiar "
+        "18.09.2026 dal %d. Kazdy nowy ma zostac obejrzany, bo jego wynik da sie "
+        "policzyc na DWA sposoby — klucze albo elementy — a zdanie prozy obok nie "
+        "mowi, ktory podaje. Zmierzone 18.09.2026: z 41 kandydatow 24 dalo sie "
+        "policzyc, 22 daja dwie ROZNE miary, a zdan nazywajacych miare jest TRZY "
+        "i rozjechanych ZERO" % (len(kandydaci), KANDYDATOW_ODWZOROWAN))
+
+    for (plik, wzor), oczekiwana in sorted(MIARA_W_PROZIE.items()):
+        modul, funkcja = CZYTNIK_ZA_KOTWICA[plik]
+        wynik = getattr(importlib.import_module(modul), funkcja)()
+        kluczy = len(wynik)
+        elementow = sum(len(w) for w in wynik.values())
+        zrodlo = _zrodlo(plik)
+        trafienia = re.findall(wzor, zrodlo)
+        assert len(trafienia) == 1, (
+            "kotwica %r lapie %d zdan w %s — przy dwoch czytnik bierze pierwsze "
+            "i porownuje nie to zdanie, przy zerze porownuje nic"
+            % (wzor, len(trafienia), plik))
+        z_prozy = int(trafienia[0])
+        nalezy = kluczy if oczekiwana == "klucze" else elementow
+        druga = elementow if oczekiwana == "klucze" else kluczy
+        assert z_prozy == nalezy, (
+            "%s: proza mowi %d, a bramka obok liczy %s, czyli %d (druga miara: %d). "
+            "Jezeli proza podaje DRUGA miare, zdanie opisuje inna populacje niz "
+            "bramka pod nim — i oba moga byc prawdziwe naraz"
+            % (plik, z_prozy, oczekiwana, nalezy, druga))
+
+
+def test_zawezenie_do_czytnikow_BEZ_ARGUMENTU_jest_policzone():
+    """**Ile kandydatow odsiewa zawezenie — liczba, nie podpis (6.D243).**
+
+    Zawezenie bez liczby jest napisem: gdyby odsiewalo wszystko, bramka wyzej
+    stalaby na pustym zbiorze i przechodzila zawsze.
+    """
+    kandydaci = czytniki_odwzorowan()
+    bez_argumentu = set(kandydaci)
+    assert len(bez_argumentu) == len(kandydaci), (
+        "czytnik zwrocil ten sam (modul, funkcja) dwa razy — %d wpisow przy %d "
+        "roznych" % (len(kandydaci), len(bez_argumentu)))
+    assert all(not f.startswith(("test_", "_")) for _m, f in kandydaci), (
+        "wsrod kandydatow jest test albo funkcja prywatna — sito przestalo "
+        "odsiewac to, co ma odsiewac")
+    # Dolne ostrze: pusta lista dalaby rownosc wyzej do porownania z zerem,
+    # a bramka bylaby zielona nie widzac niczego (6.D27).
+    assert len(kandydaci) > 20, (
+        "kandydatow jest %d — skan AST oslepl, a wtedy rownosc wyzej pilnuje "
+        "liczby, ktorej nikt nie mierzy" % len(kandydaci))
