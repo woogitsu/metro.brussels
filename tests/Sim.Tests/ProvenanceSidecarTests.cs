@@ -35,9 +35,6 @@ public sealed class ProvenanceSidecarTests
     /// <c>CLAUDE.md</c>. Host testów ma katalog roboczy w <c>bin/</c>, więc
     /// ścieżka względna z treści polecenia CI nie rozwiązuje się tutaj.
     /// </summary>
-    private static string RepoRoot() =>
-        MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka;
-
     private static string NewDirectory()
     {
         var path = Path.Combine(Path.GetTempPath(), "mbxl-6a21-" + Guid.NewGuid().ToString("N"));
@@ -113,7 +110,7 @@ public sealed class ProvenanceSidecarTests
         var trace = Path.Combine(directory, "trace.csv");
         var calls = Path.Combine(directory, "calls.csv");
         Assert.AreEqual(0, RunQuiet(
-            "line", "--axis", Path.Combine(RepoRoot(), "data", "track", "L1_A.json"),
+            "line", "--axis", Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "data", "track", "L1_A.json"),
             "--limit-kmh", "72", "--exchange-s", "20",
             "--trace", trace, "--calls", calls));
 
@@ -124,7 +121,7 @@ public sealed class ProvenanceSidecarTests
             var settings = File.ReadAllLines(beside);
             Assert.AreEqual("# polecenie: " + command, settings[0], string.Join("\n", settings));
             Assert.IsTrue(
-                settings.Contains("# axis: " + Path.Combine(RepoRoot(), "data", "track", "L1_A.json")),
+                settings.Contains("# axis: " + Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "data", "track", "L1_A.json")),
                 "nastawy nie nazywają osi przejazdu: " + string.Join("\n", settings));
             Assert.IsFalse(
                 File.ReadAllLines(path).Any(r => r.StartsWith("#", StringComparison.Ordinal)),

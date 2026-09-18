@@ -358,7 +358,7 @@ public sealed class RunHeaderTests
     [TestMethod]
     public void LimitTrybuRecznegoPochodziZPlikuPlanuANieZKodu()
     {
-        var path = Path.Combine(RepositoryRoot(), RunPlan.ManualSpeedLimitPlanPath);
+        var path = Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, RunPlan.ManualSpeedLimitPlanPath);
         Assert.IsTrue(File.Exists(path), path);
 
         var signalling = SignallingPlan.FromJson(File.ReadAllText(path));
@@ -367,10 +367,6 @@ public sealed class RunHeaderTests
         Assert.AreEqual(PlanLimitKmh, Units.MpsToKmh(limitMps), 1e-9, path);
         Assert.AreEqual("classic_2026", signalling.Mode, path);
     }
-
-    private static string RepositoryRoot() =>
-        MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka;
-
     // --- pozostałe liczby nagłówka ------------------------------------------------
 
     /// <summary>

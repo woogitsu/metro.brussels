@@ -191,7 +191,7 @@ public sealed class TrackAxisTests
     [TestMethod]
     public void Os_pakietu_A_zgadza_sie_z_geometria_generatora()
     {
-        var root = FindRepositoryRoot();
+        var root = MetroBxl.Tests.Shared.KorzenRepozytorium.SciezkaAlboNull;
         if (root is null)
         {
             Assert.Inconclusive("brak repozytorium na dysku — kontrola osi pakietu A pominięta");
@@ -343,7 +343,7 @@ public sealed class TrackAxisTests
     [TestMethod]
     public void Wszystkie_stacje_w_danych_maja_nazwe_jednojezyczna()
     {
-        var root = FindRepositoryRoot();
+        var root = MetroBxl.Tests.Shared.KorzenRepozytorium.SciezkaAlboNull;
         if (root is null)
         {
             Assert.Inconclusive("brak repozytorium na dysku — kontrola danych pominięta");
@@ -434,10 +434,6 @@ public sealed class TrackAxisTests
             CultureInfo.InvariantCulture,
             $$"""{"id":"T","length_m":0.0,"vertical":{"status":"not_modelled"},"points":[{{coordinates}}],"stations":[]}""");
     }
-
-    private static string? FindRepositoryRoot() =>
-        MetroBxl.Tests.Shared.KorzenRepozytorium.SciezkaAlboNull;
-
     [TestMethod]
     public void CoversChordSaysWhenAChordHasNoLengthOnThisAxis()
     {

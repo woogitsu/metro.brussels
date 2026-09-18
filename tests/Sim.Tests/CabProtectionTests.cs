@@ -65,12 +65,8 @@ public sealed class CabProtectionTests
         long EmergencyInterventions,
         int LockedRoutes,
         IReadOnlyList<string> Telemetry);
-
-    private static string RepositoryRoot() =>
-        MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka;
-
     private static InputLog Keys(string name) => InputLog.Parse(
-        File.ReadAllText(Path.Combine(RepositoryRoot(), "tests", "data", name)));
+        File.ReadAllText(Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "tests", "data", name)));
 
     /// <summary>
     /// Przejazd ręczny odtworzony z zapisu wejść — ta sama kolejność działań, co

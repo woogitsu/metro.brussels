@@ -160,7 +160,7 @@ public sealed class DesignModelAuditTests
     [TestMethod]
     public void Osadzony_rejestr_jest_identyczny_z_plikiem_w_data()
     {
-        var repoRoot = FindRepositoryRoot();
+        var repoRoot = MetroBxl.Tests.Shared.KorzenRepozytorium.SciezkaAlboNull;
         if (repoRoot is null)
         {
             Assert.Inconclusive("Test uruchomiony poza drzewem repozytorium — nie ma z czym porównać.");
@@ -178,7 +178,4 @@ public sealed class DesignModelAuditTests
         Assert.AreEqual(1, VehicleRegistry.M7.SchemaVersion);
         Assert.IsFalse(string.IsNullOrWhiteSpace(VehicleRegistry.M7.AsOf));
     }
-
-    private static string? FindRepositoryRoot() =>
-        MetroBxl.Tests.Shared.KorzenRepozytorium.SciezkaAlboNull;
 }

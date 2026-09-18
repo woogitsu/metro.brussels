@@ -39,7 +39,7 @@ public sealed class DriverActionsTests
     /// </summary>
     private static IReadOnlyDictionary<string, IReadOnlyList<MappedEvent>> InputMapFromProject()
     {
-        var path = Path.Combine(RepositoryRoot(), "src", "Game", "project.godot");
+        var path = Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "src", "Game", "project.godot");
         Assert.IsTrue(File.Exists(path), path);
         var text = File.ReadAllText(path);
 
@@ -345,7 +345,7 @@ public sealed class DriverActionsTests
     [TestMethod]
     public void ZadenPlikSrcGameNieCzytaKlawiszyPoKodzie()
     {
-        var root = Path.Combine(RepositoryRoot(), "src", "Game");
+        var root = Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "src", "Game");
         var offenders = new List<string>();
 
         foreach (var file in Directory.EnumerateFiles(root, "*.cs", SearchOption.AllDirectories))
@@ -387,7 +387,7 @@ public sealed class DriverActionsTests
     [TestMethod]
     public void ScenaMaWierszPomocyWPanelu()
     {
-        var path = Path.Combine(RepositoryRoot(), "src", "Game", "Scenes", "FirstRun.tscn");
+        var path = Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "src", "Game", "Scenes", "FirstRun.tscn");
         var text = File.ReadAllText(path);
 
         StringAssert.Contains(
@@ -397,10 +397,6 @@ public sealed class DriverActionsTests
     }
 
     private static RunPlan Plan(params string[] arguments) => RunPlan.Parse(arguments, 8, 9);
-
-    private static string RepositoryRoot() =>
-        MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka;
-
     /// <summary>
     /// Wiersz pomocy pod <c>--line</c> ma mówić PRAWDĘ o tym trybie: skład prowadzi
     /// <c>LineDrive</c>, więc z siedmiu klawiszy działają dwa.

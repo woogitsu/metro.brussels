@@ -266,12 +266,8 @@ public class CabPlacementTests
     // literał surowy z JSON-em pełnym klamer. Stąd `TylkoKod` i jego własna kontrola
     // negatywna niżej: bramka, która myli się w liczeniu klamer, kłamie ciszej niż ta,
     // której nie ma wcale.
-
-    private static string RepositoryRoot() =>
-        MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka;
-
     private static string Zrodlo(params string[] czesci) =>
-        File.ReadAllText(Path.Combine(RepositoryRoot(), Path.Combine(czesci)));
+        File.ReadAllText(Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, Path.Combine(czesci)));
 
     /// <summary>
     /// Źródło z wymazaną treścią komentarzy i literałów — bajt w bajt tej samej

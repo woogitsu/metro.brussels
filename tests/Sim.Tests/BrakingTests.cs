@@ -813,7 +813,7 @@ public sealed class BrakingTests
     [TestMethod]
     public void Katalog_zalozen_hamowania_jest_wypisany_w_audycie()
     {
-        var audit = File.ReadAllText(Path.Combine(RepoRoot(), "docs", "21-measured-vs-assumed.md"));
+        var audit = File.ReadAllText(Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "docs", "21-measured-vs-assumed.md"));
 
         foreach (var entry in BrakingAssumptions.All)
         {
@@ -831,7 +831,7 @@ public sealed class BrakingTests
     [TestMethod]
     public void Rejestr_M7_nie_zna_parametrow_hamulca_ktorych_nie_ma_w_zrodlach()
     {
-        var registry = File.ReadAllText(Path.Combine(RepoRoot(), "data", "vehicle", "m7-spec.json"));
+        var registry = File.ReadAllText(Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "data", "vehicle", "m7-spec.json"));
 
         foreach (var forbidden in new[]
                  {
@@ -856,7 +856,4 @@ public sealed class BrakingTests
                 CultureInfo.InvariantCulture,
                 $"{message}: oczekiwano {expected:R}, jest {actual:R}"));
     }
-
-    private static string RepoRoot() =>
-        MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka;
 }

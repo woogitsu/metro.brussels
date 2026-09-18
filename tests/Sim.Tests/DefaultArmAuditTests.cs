@@ -154,7 +154,7 @@ public sealed class DefaultArmAuditTests
     [TestMethod]
     public void Kazdy_swiadomy_filtr_ma_polykane_czlony_wypisane_Z_NAZWY()
     {
-        var root = FindRepositoryRoot();
+        var root = MetroBxl.Tests.Shared.KorzenRepozytorium.SciezkaAlboNull;
         Assert.IsNotNull(root, "nie znaleziono korzenia repozytorium");
 
         var czlony = WszystkieCzlonyRdzenia(root!);
@@ -463,7 +463,7 @@ public sealed class DefaultArmAuditTests
 
     private static List<Ramie> Zebrane()
     {
-        var root = FindRepositoryRoot();
+        var root = MetroBxl.Tests.Shared.KorzenRepozytorium.SciezkaAlboNull;
         Assert.IsNotNull(root, "nie znaleziono korzenia repozytorium");
 
         var pliki = ZrodlaRdzenia(root!);
@@ -550,7 +550,4 @@ public sealed class DefaultArmAuditTests
             .OrderBy(p => p, StringComparer.Ordinal)
             .ToList();
     }
-
-    private static string? FindRepositoryRoot() =>
-        MetroBxl.Tests.Shared.KorzenRepozytorium.SciezkaAlboNull;
 }

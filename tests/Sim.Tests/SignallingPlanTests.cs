@@ -20,18 +20,14 @@ namespace MetroBxl.Sim.Tests;
 public sealed class SignallingPlanTests
 {
     private const string AxisId = "L1_A";
-
-    private static string RepositoryRoot() =>
-        MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka;
-
     private static string PlanPath() =>
-        Path.Combine(RepositoryRoot(), "data", "design", "signalling", "classic-2026.json");
+        Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "data", "design", "signalling", "classic-2026.json");
 
     internal static SignallingPlan PackageAPlan() => SignallingPlan.FromFile(PlanPath());
 
     internal static TrackAxis PackageAAxis() =>
         TrackAxis.FromJson(File.ReadAllText(
-            Path.Combine(RepositoryRoot(), "data", "track", AxisId + ".json")));
+            Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "data", "track", AxisId + ".json")));
 
     /// <summary>Oś syntetyczna o zadanych kilometrażach stacji — wzorowana na LineRunTests.</summary>
     internal static TrackAxis SyntheticAxis(params double[] stationChainages)

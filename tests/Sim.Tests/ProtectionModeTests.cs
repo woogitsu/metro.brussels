@@ -23,15 +23,11 @@ namespace MetroBxl.Sim.Tests;
 public sealed class ProtectionModeTests
 {
     private static readonly DateOnly HistoricalScenario = new(2026, 8, 31);
-
-    private static string RepositoryRoot() =>
-        MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka;
-
     private static string GroundTruthPath() =>
-        Path.Combine(RepositoryRoot(), "data", "signalling", "ground-truth.json");
+        Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "data", "signalling", "ground-truth.json");
 
     private static string AreaPath() =>
-        Path.Combine(RepositoryRoot(), "data", "design", "signalling", "cbtc-test-2026.json");
+        Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "data", "design", "signalling", "cbtc-test-2026.json");
 
     private static CbtcTestArea Area() => CbtcTestArea.FromJson(File.ReadAllText(AreaPath()));
 
