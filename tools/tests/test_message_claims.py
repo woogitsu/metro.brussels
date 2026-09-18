@@ -636,7 +636,7 @@ PRZYPISANIE_STALEJ = re.compile(r"^\s*([A-Z][A-Z0-9_]*)\s*=\s*\S")
 #: opisuje w tej bramce dwie bardzo rozne rzeczy i dotad nie bylo tego widac.
 #: Rozroznienie jest od dzis PRZYBITE dwiema rownosciami i porownywane z drzewem.
 POKRYTYCH_PRZYPISANIEM = 15
-POKRYTYCH_ZBIEGIEM_CYFR = 49
+POKRYTYCH_ZBIEGIEM_CYFR = 51
 
 
 def pozycje_pokrycia(katalog=None, root=None):
@@ -752,7 +752,10 @@ def test_czytnik_pokrycia_odroznia_PRZYPISANIE_od_ZBIEGU_CYFR():
 
 # --- 6.D268: ktora z liczb pokrytych ZBIEGIEM CYFR jest nieprawdziwa -----------
 
-#: **Rozklad 49 liczb pokrytych zbiegiem cyfr po plikach, zmierzony 18.09.2026.**
+#: **Rozklad 51 liczb pokrytych zbiegiem cyfr po plikach, zmierzony 18.09.2026.**
+#: Przy 6.D268 bylo ich 49; 6.D270 dolozylo DWIE w `test_dead_constants_csharp.py`
+#: (zapas galezi: 49 i 17), obie w grupie A i obie prawdziwe — census zapalil sie
+#: na nich i to jest jego robota, a nie usterka.
 #: Rozklad, a nie sama suma: pozycja 6.D267 zmierzyla, ze suma nie widzi
 #: przesuniecia miedzy czlonami, a tu czlonem jest PLIK. Adresy z numerami
 #: wierszy stoja w `reports/6d268-pokryte-przypadkiem.md` i tam jest ich miejsce,
@@ -767,7 +770,7 @@ ZBIEGIEM_PER_PLIK = {
     "test_bin_path_framework.py": 1,
     "test_bytecode_staleness.py": 2,
     "test_csharp_assertions.py": 1,
-    "test_dead_constants_csharp.py": 7,
+    "test_dead_constants_csharp.py": 9,
     "test_dotnet_version.py": 1,
     "test_field_paths.py": 1,
     "test_game_needle_specificity.py": 1,
@@ -801,7 +804,7 @@ ZBIEGIEM_PER_PLIK = {
 #: pozycji i **nie obejmuje tej, w ktorej rozjazd faktycznie jest** — akapit
 #: o deklaracjach C# nazywa `const` i `static readonly`, a nie `rozklad`.
 #: Podzial jest wiec wynikiem przeczytania 49 zdan i tak ma byc czytany.
-ZBIEGIEM_GRUPA_A = 21
+ZBIEGIEM_GRUPA_A = 23
 ZBIEGIEM_GRUPA_B = 28
 
 #: **Potwierdzone rozjazdy: SIEDEM twierdzen w JEDNYM module.** Wszystkie osiem

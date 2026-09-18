@@ -91,14 +91,41 @@ MINIMUM_DEKLARACJI = 330
 #: zabiera **43** deklaracje, zostaje **346** — i SUME przechodzi nawet przy progu 330.
 #: Dopiero `MINIMUM_BEZ_MODYFIKATORA` to zapala.
 #:
-#: **Zapas kazdej z trzech to te same ~15 %, i tez z pomiaru historii tych 572 rewizji:**
+#: **Zapas kazdej z trzech byl te same ~15 %, a od 6.D270 wynosi ZERO — ten akapit
+#: jest PRZEPISANY 18.09.2026, a nie dopisany obok.** Do tego dnia podlogi staly
+#: 258 / 72 / 36 przy populacji 307 / 89 / 45, czyli z zapasem 49 / 17 / 9.
+#: 6.D267 zmierzylo, co ten zapas przepuszcza: **49** deklaracji dalo sie przeniesc
+#: z `const` na `static readonly` i **17** w druga strone, nie zapalajac NICZEGO,
+#: bo przeniesienie nie rusza SUMY, a kazda galaz zostawala nad swoja podloga.
+#: Suma broni wiec przed wzorcem MARTWYM, trzy podlogi bronily przed OKALECZONYM,
+#: a przed PRZESUNIETYM nie bronilo nic.
+#:
+#: **Dlaczego podlogi, a nie rownosci — i dlaczego to NIE jest odwrocenie 6.D232.**
+#: Tamta pozycja wybrala klase WOLNA swiadomie i z pomiaru: „populacja rosnie razem
+#: z kodem, wiec przybicie czerwienialoby przy kazdej nowej stalej". Powod ten jest
+#: nadal prawdziwy, wiec rownosci NIE wchodza — zostaja podlogami, tylko CIASNYMI.
+#: Podloga ustawiona na dzisiejszej wartosci lapie przesuniecie, bo przesuniecie
+#: ZMNIEJSZA jedna galaz, a na wzroscie populacji milczy, bo wzrost tylko ja oddala.
+#: Rownosc zapalalaby sie na jednym i drugim; to jest cala roznica i caly powod.
+#:
+#: **Cena jest policzona, nie oszacowana, z tej samej historii 572 rewizji:**
 #: `const` spadl raz o jeden (164 z 165), `static readonly` raz o jeden (38 z 39),
-#: a deklaracji bez modyfikatora dostepu nie ubylo **ani razu**. Wszystkie trzy sa
-#: zapadkami DOLNYMI klasy WOLNEJ z tego samego powodu co `MINIMUM_DZIUR`: populacja
-#: rosnie razem z kodem, wiec przybicie czerwienialoby przy kazdej nowej stalej.
-MINIMUM_CONST = 258
-MINIMUM_STATIC_READONLY = 72
-MINIMUM_BEZ_MODYFIKATORA = 36
+#: a deklaracji bez modyfikatora dostepu nie ubylo ani razu. Ciasna podloga
+#: zapalilaby sie wiec **dwa** razy na 572 rewizje, oba razy na zmianie uprawnionej
+#: i oba razy za cene jednowierszowej korekty. Zapadka dolna, ktorej wolno rosnac,
+#: jest tu tansza niz dziura, ktora zostawia zapas.
+#:
+#: **Wariant z ROWNOSCIAMI zostaje dla wlasciciela jako 6.D273**, bo odwraca
+#: rozstrzygniecie 6.D232, a nie dokreca go. Pole „Dlaczego bez decyzji" pozycji
+#: 6.D270 twierdzilo, ze rownosci sa ruchem, ktorego „zapadka nie zabrania" —
+#: prawda o regule, ale przemilczenie tamtego pomiaru, i jest to blad w pozycji
+#: mojego autorstwa, poprawiony przy jej wykonaniu.
+# 258 -> 307 (18.09.2026, 6.D270): zapas 49 zdjety, podloga na wartosci zmierzonej.
+MINIMUM_CONST = 307
+# 72 -> 89 (18.09.2026, 6.D270): zapas 17 zdjety.
+MINIMUM_STATIC_READONLY = 89
+# 36 -> 45 (18.09.2026, 6.D270): zapas 9 zdjety.
+MINIMUM_BEZ_MODYFIKATORA = 45
 
 #: Galaz wzorca rozpoznawana NA TYM, CO WZORZEC DOPASOWAL (`match.group(0)`), a nie
 #: drugim rozbiorem zrodla — drugi rozbior mowilby o sobie, a nie o tym, co skan
