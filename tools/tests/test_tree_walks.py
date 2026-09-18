@@ -248,7 +248,7 @@ def klasa_zapadki(nazwa, porownania):
 
 
 #: **Wszystkie zapadki pod `tools/tests/`, każda z klasą i modułem.**
-#: Zapadek: 72. **Przybitych: 18, częściowych: 3, WOLNYCH: 49, poza zasięgiem skanu: 2.**
+#: Zapadek: 74. **Przybitych: 18, częściowych: 3, WOLNYCH: 51, poza zasięgiem skanu: 2.**
 #:
 #: **To zdanie jest przepisane, a nie dopisane obok — po raz DRUGI (15.09.2026).**
 #: Stało tu najpierw „Trzydzieści osiem: 13 przybitych…" (11.09.2026, `52752c9`)
@@ -323,6 +323,11 @@ ZAPADKI = {
     "MIN_STALYCH_Z_LANCUCHEM": (WOLNA, "test_value_chains.py"),
     "MAX_POGRUBIONYCH_BEZ_POKRYCIA": (WOLNA, "test_message_claims.py"),
     "MIN_POGRUBIONYCH": (WOLNA, "test_message_claims.py"),
+    # 6.D275: para na proze OGLASZAJACA pomiar, gorna + podloga. Obie WOLNE
+    # z tego samego powodu co para wyzej: populacja rosnie z kazdym akapitem
+    # pomiarowym, wiec rownosc czerwienialaby na poprawnej pracy (6.D27).
+    "MAX_GOLYCH_W_PROZIE_POMIAROWEJ": (WOLNA, "test_message_claims.py"),
+    "MIN_ZDAN_POMIAROWYCH": (WOLNA, "test_message_claims.py"),
     "MAX_REPORTS_WITHOUT_FIELD_LINE": (PRZYBITA, "test_report_hygiene.py"),
     "MAX_ROZSZERZEN_BEZ_TRAFIEN": (WOLNA, "test_report_hygiene.py"),
     "MAX_SEKWENCJI_UCIECZKI": (PRZYBITA, "test_bytecode_staleness.py"),
@@ -1297,7 +1302,7 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
         "Bramka tego za czytajacego nie rozstrzygnie, bo nie ma stanu PRZED zmiana."
         % (inna_klasa, swiadkowie))
 
-    assert len(w_drzewie) == ZAPADEK_RAZEM == 72, (
+    assert len(w_drzewie) == ZAPADEK_RAZEM == 74, (
         "zapadek w drzewie %d, na liście %d, pomiar z 11.09.2026 mówił 38, "
         "po 6.D146 — 40, po 6.D147 — 42 (doszła zapadka na sekwencje ucieczki "
         "i próg KW jej skanu), po 6.D187 — 44 (dwa progi KW skanu gołych nazw), "
@@ -1322,7 +1327,9 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
         "MARTWYM, a nie przed OKALECZONYM). Liczba 63 jest PRZELICZONA z drzewa po "
         "scaleniu, a nie wzięta z żadnej strony konfliktu: gałąź 6.D232 mierzyła bazę "
         "59 i dawała 62, `main` miał w tym czasie 60, a scalone drzewo niesie WSZYSTKIE "
-        "zapadki obu stron"
+        "zapadki obu stron, a po 6.D275 — 74 (gora i podloga bramki prozy "
+        "OGLASZAJACEJ pomiar, ktora jest druga polowa pary z "
+        "`MAX_POGRUBIONYCH_BEZ_POKRYCIA`)"
         % (len(w_drzewie), ZAPADEK_RAZEM))
 
     # Liczby zbiorcze. **Nie jest to ozdobnik komunikatu i pokazała to KN-7.**
@@ -1332,7 +1339,7 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
     # a „21 wolnych" staje się nieprawdą, której nie zgłasza nic. KN-7 wykonała
     # dokładnie ten scenariusz: jedyną czerwienią była ta asercja.
     ile = collections.Counter(w_drzewie.values())
-    assert (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM]) == (18, 3, 49, 2), (
+    assert (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM]) == (18, 3, 51, 2), (
         "klasy zapadek: przybitych %d, częściowych %d, WOLNYCH %d, poza skanem %d — "
         "pomiar z 11.09.2026 mówił 13/3/21/1, po 6.D146 — 13/3/23/1, a po 6.D147 — "
         "14/3/24/1, po 6.D151 — 15/3/23/1, po 6.D167 — 17/3/21/1, po 6.D187 — "
@@ -1343,7 +1350,8 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
         "17/3/39/1, a po 6.D232 — 17/3/42/1, a po 6.D258 — 17/3/41/2, "
         "a po 6.D259 — 17/3/43/2 (dwie zapadki bramki prozy), a po 6.D260 — 17/3/45/2 "
         "(dwie podlogi bramki lancuchow), a po 6.D261 — 17/3/46/2 (podloga bramki rodzin), "
-        "a po 6.D262 — 17/3/47/2 (podloga bramki o krok) "
+        "a po 6.D262 — 17/3/47/2 (podloga bramki o krok), "
+        "a po 6.D275 — 18/3/51/2 (gora i podloga bramki prozy OGLASZAJACEJ pomiar) "
         "(poprawka polaryzacji przestala widziec galaz, ktora niczego nie twierdzi); "
         "wolne to te, "
         "które da się ruszyć "
@@ -1574,7 +1582,7 @@ def test_ktore_wolne_zapadki_sa_PRZESADZONE_ksztaltem_a_ktore_zmierzone():
 
     wolnych = sum(1 for _n, (k, _m) in ZAPADKI.items() if k == WOLNA)
     przesadzonych = wolnych - len(ROZSTRZYGALNE_POMIAREM)
-    assert (wolnych, przesadzonych) == (49, 48), (
+    assert (wolnych, przesadzonych) == (51, 50), (
         "wolnych %d, z tego przesądzonych kształtem %d — pomiar 17.09.2026 dał 42 i 40, "
         "a po 6.D258 daje 41 i 40: `MAX_ODCISKOW_W_RAPORCIE` wyszło z klasy `wolna` "
         "do `poza skanem`, więc ubyla ZAPADKA i ubyl jej WPIS w słowniku rozstrzygnięć; "

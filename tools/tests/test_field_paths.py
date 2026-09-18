@@ -2055,7 +2055,7 @@ def _istnieje_w_drzewie(nazwa):
 # WLASNEGO bloku tej pozycji. Blok 6.D267 do tych liczb NIE wchodzi: pozycja OTWARTA.
 # 1113 -> 1117 i „Weryfikacja" 429 -> 431 (18.09.2026, 6.D264): adresy z pol
 # WLASNEGO bloku tej pozycji. Blok 6.D268 do tych liczb NIE wchodzi: pozycja OTWARTA.
-ADRESOW_W_WYKONANYCH = {"Wejście": 1162, "Wyjście": 65, "Weryfikacja": 446}
+ADRESOW_W_WYKONANYCH = {"Wejście": 1167, "Wyjście": 65, "Weryfikacja": 448}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
@@ -2161,7 +2161,7 @@ ADRESOW_W_WYKONANYCH = {"Wejście": 1162, "Wyjście": 65, "Weryfikacja": 446}
 # `test_bytecode_staleness.py` z plotka „Weryfikacji" bloku tej pozycji.
 # 174 -> 175 (18.09.2026, 6.D264): jedno wywolanie modulu wiecej —
 # `test_message_claims.py` z plotka „Weryfikacji" bloku tej pozycji.
-WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 183}
+WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 184}
 
 #: Ilu kandydatow zlego adresu daje regula prozy, per pole — 6.D158.
 # 12 -> 13 (14.09.2026, 6.D204): trzynastym kandydatem jest `test_mutation_sweep.py`

@@ -1709,7 +1709,13 @@ def test_wzorzec_rodziny_lapie_zdanie_ktore_ma_lapac_i_nie_bierze_sasiedztwa():
 # — kontrola przyrzadu czytnika rodzin zada, zeby PRZECIAZENIE w jednym pliku NIE
 # trafilo do zadnej z dwoch kupek. Stoja na NAPISIE (nazwa pomocnika), ale nazwa
 # jest ZBUDOWANA przez czytnik z drzewa probnego, a nie przepisana.
-ASERCJI_NAPISOWYCH_RAZEM = 928
+# 928 -> 930 (18.09.2026, 6.D275): dwie asercje ksztaltu `literal in cos` wiecej
+# — kontrola przyrzadu sita prozy pomiarowej. Pyta, czy po czyszczeniu w tekscie
+# ZOSTAL czlon `04` z nazwy pliku i czy ZOSTALA liczba `12` spoza grawisow.
+# Stoja na NAPISIE (literal w tekscie), ale tekst jest WYNIKIEM czyszczenia
+# wykonanego przez `SMIECI_W_PROZIE`, a nie napisem przepisanym — mierzone jest
+# zachowanie wzorcow, nie ich tresc.
+ASERCJI_NAPISOWYCH_RAZEM = 930
 
 #: **Kotwica wpisu to `(plik, funkcja, operator, literał)`, a NIE numer wiersza.**
 #: Numer przesuwa się przy każdej edycji pliku i lista rozjechałaby się sama z siebie.

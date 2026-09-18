@@ -1247,8 +1247,11 @@ właściciel.
 | 6.D272 | **ZROBIONE w #PR (18.09.2026): rozjechanych ZERO — a jedyna znana instancja jest dla tego sita NIEWIDZIALNA, bo inna bramka kazała mi zdjąć jej pogrubienie.** Czytników odwzorowań wołalnych bez argumentu jest **41**, policzyć dało się **24**, dwie RÓŻNE miary (klucze ≠ elementy) dają **22**, zdań prozy nazywających którąkolwiek miarę jest **3**, a rozjechanych z miarą swojej bramki **0**. Odrzucone: 16 o wartościach niebędących zbiorami (`len` dałby tam ZNAKI — `bloki_wykonane` dawało 712 777 „elementów"), 1 pusty, 2 o miarach równych. Wszystkie trzy zdania są zgodne: `test_dead_constants_csharp` mówi ELEMENTY (396 przy 345 kluczach) i bramka liczy `sum(len(v))`; `test_provenance_classes` mówi KLUCZE (20 przy 36) i bramka liczy `len()`; `test_tree_writes` mówi ELEMENTY (5 przy 2) i bramka liczy `sum(len(m))`. **TEZA W POSTACI OGÓLNEJ SIĘ NIE POTWIERDZIŁA. ZNALEZISKO O SPRZĘŻENIU DWÓCH BRAMEK:** liczby 132, 36 i 81 — jedyna zmierzona instancja tego kształtu, z 6.D269 — stoją BEZ POGRUBIENIA, bo przy 6.D269 zapadka `MAX_POGRUBIONYCH_BEZ_POKRYCIA` zapaliła się na nich i pogrubienie trzeba było zdjąć (podnosić jej nie wolno). Census i to sito czytają WYŁĄCZNIE liczby pogrubione, więc zaspokojenie jednej bramki wyprowadziło te liczby z pola widzenia drugiej. Zdjęcie pogrubienia zdarzyło mi się w tej serii **sześć** razy i każde było poprawnym ruchem wobec zapadki, która je wymusiła — „rozjechanych zero" znaczy więc co innego, gdy wiadomo, że jedyna znana instancja jest poza zasięgiem. **DWA TRAFIENIA BYŁY ZBIEGIEM WARTOŚCI, CZWARTY RAZ W TEJ SERII:** sito dopasowywało liczbę po WARTOŚCI w obrębie modułu, nie po podmiocie zdania — `test_tree_walks` niesie `3`, ale to odległość zapłonu w krokach, a nie miara `wolne_rozstrzygalne_pomiarem`; `wszystkie_kopiowania` ma klucze 5 i elementy 7, a zdanie z 5 i 7 opisuje HISTORIĘ zapadki `MAX_ZAPISOW_W_DRZEWIE`. Ten sam błąd co przy 6.D267 i dwa razy przy 6.D268; za każdym razem łapało go przeczytanie źródła, nie bramka. Dlatego bramka stoi na KOTWICACH ZDAŃ. **KOSZT ZMIERZONY I ZBITY DZIESIĘCIOKROTNIE:** pierwsza wersja wołała 41 czytników w dwóch testach — skan AST 0,60 s, wywołanie czytników 22,40 s, dwa przebiegi 45 s, zestaw z 263 s na 321 s (+22 %). Pamięć podręczna dała 301 s, ale dopiero przeniesienie CENSUSU NA KANDYDATÓW Z AST zdjęło koszt: moduł 28,7 s → **7,0 s**, zestaw → **281,7 s**. Kandydat z AST łapie nowy czytnik równie dobrze, a droga połowa odpowiadała dokładnie za „rozjechanych zero" — płaciłem 22 sekundy za zero. Pełny przebieg został w `dwie_miary_czytnikow` na żądanie. **KONTROLE:** proza podająca DRUGĄ miarę (20 → 36) → `FAIL … proza mowi 36, a bramka obok liczy klucze, czyli 20 (druga miara: 36)`; stan bazowy → `16/16`; zdublowanie zdania z kotwicą → `FAIL … kotwica lapie 2 zdan`. **CZWARTY RAZ KOPIA DRZEWA BYŁA NIEPEŁNA:** baza na kopii dała 21 zamiast 22, bo `kopie_listy_sonames` czyta `.github/workflows/` — `FileNotFoundError` policzony jako odrzucenie i milcząco zmniejszający census. Komplet to: `tools`, `src`, `tests`, `docs`, `reports`, `data`, `.gitignore`, `.github` oraz `CLAUDE.md`. Raport: `reports/6d272-jednostka-liczby.md` | M |
 | 6.D273 | **Czy trzy podłogi gałęzi deklaracji C# mają zostać RÓWNOŚCIAMI — odwrócenie rozstrzygnięcia 6.D232** | zmierzone 18.09.2026 przy 6.D270: podłogi podniesiono do wartości zmierzonych (307/89/45), co zamyka dziurę przesunięcia, ale zostawia je podłogami. Równość łapałaby dodatkowo PRZYROST w złej gałęzi (np. stała dopisana jako `static readonly` tam, gdzie konwencja żąda `const`), czego podłoga nie widzi. **WYMAGA DECYZJI WŁAŚCICIELA:** 6.D232 wybrało klasę WOLNĄ świadomie i z pomiaru 572 rewizji — „populacja rośnie razem z kodem, więc przybicie czerwieniałoby przy każdej nowej stałej" — a ten powód jest nadal prawdziwy, więc równość to nie dokręcenie zapadki, tylko odwrócenie tamtej decyzji. Koszt jest policzalny i policzony w połowie: ciasna podłoga zapala się 2 razy na 572 rewizje; równość zapalałaby się przy KAŻDEJ nowej deklaracji C#, a ile ich przybywa na rewizję, nie policzył nikt | D |
 | 6.D274 | **ZROBIONE w #PR (18.09.2026): trzy czwarte „pokrycia" nie ma z kodem nic wspólnego.** Z **54** liczb klasy `zbieg`: **41** pokrytych WYŁĄCZNIE prozą (w oknie ani jednego wiersza kodu), **11** wyłącznie kodem, **2** mieszane, a **9** stoi w PARACH WZAJEMNYCH, gdzie zdanie A pokrywa B, a B pokrywa A. 6.D264 nazwało tę klasę zbiegiem cyfr i mierzyło ją względem KODU — okno czyta jednak WIERSZE PLIKU, nie odróżniając kodu od komentarza, więc w 41 przypadkach na 54 wiersz pokrywający jest po prostu innym zdaniem prozy o tej samej liczbie. **SIEDEM par stoi w `test_dead_constants_csharp.py`, gdzie zjawisko zobaczyłem przy 6.D271, ale DWIE gdzie indziej** (`test_report_claims.py`, `test_suite_runtime_budget.py`) — nie jest to więc własność jednego pliku, i dlatego bramka pilnuje rozkładu par PO PLIKACH, a nie samej sumy (6.D267 zmierzyło, że suma przesunięcia nie widzi). **KLASYFIKACJA PO PEŁNYM ZBIORZE, SPRAWDZONA, A NIE ZAŁOŻONA:** pierwsze podejście czytało pole `pokrywajace`, które trzyma tylko DWA pierwsze wiersze — na nim „wyłącznie proza" znaczyłoby „obie zapamiętane są prozą", a trzeci wiersz mógłby być kodem; przeliczone po całym zbiorze daje TE SAME 41/11/2. **Klasa liczy się W TYM SAMYM PRZEBIEGU co pokrycie**, w pętli, która i tak zbiera wiersze pokrywające — drugi skan tych samych okien kosztowałby tyle, co cały czytnik, a 6.D272 zmierzyło, ile taki skan potrafi kosztować (22 s za odpowiedź „zero"). Zestaw 281,7 s → **287,9 s**. **KONTROLA NEGATYWNA — PRZEWIDYWANIE SPRECYZOWANE PRZEZ POMIAR:** usunięcie jednego zdania pary wzajemnej, wybranej celowo SPOZA modułu, w którym zjawisko zobaczyłem, dało `par wzajemnych jest 8, a pomiar dal 9` oraz `klasy pokrycia zbiegiem: {'kod': 11, 'proza': 39, 'mieszane': 2}`. Przewidziałem spadek klasy „proza" o JEDEN, a zmierzyłem o DWA — i powód jest tezą tej pozycji: para jest WZAJEMNA, więc usunięcie jednego zdania zabiera pokrycie OBU liczbom naraz. Zapisuję jako sprecyzowanie, nie jako trafienie, bo jedynkę wpisałem przed przebiegiem. **KONTROLA PRZYRZĄDU — trzy kształty naraz**, bo równość na trzech klasach przeszłaby także przy czytniku wrzucającym wszystko do jednej; wcięcie jest tu treścią, bo komentarz stoi wcięty razem z kodem, który opisuje, więc `startswith("#")` bez `strip()` zapadłby całą klasę „proza" do zera przy zielonej bramce. **TRZY LICZBY PRZESZŁY ZE ZBIEGU DO PRZYPISANIA i to jest POPRAWA:** dopisanie stałych postawiło pogrubione 41, 11 i 2 obok stałych, które je niosą — `POKRYTYCH_PRZYPISANIEM` 15 → **18**, a 6.D264 nazwało ten kierunek poprawą wprost. **PAR NIE ROZDZIELANO:** każde rozdzielenie odbiera pokrycie DWÓM liczbom naraz i podnosi `MAX_POGRUBIONYCH_BEZ_POKRYCIA`, której podnosić nie wolno — wynika to wprost z kontroli negatywnej, gdzie jedna mutacja przesunęła dwie liczby. Raport: `reports/6d274-proza-pokryta-proza.md` | M |
-| 6.D275 | **Liczby ZDJĘTE Z POGRUBIENIA, żeby zaspokoić zapadkę 6.D259, wypadają z pola widzenia OBU sit prozy — i nic ich potem nie czyta** | zmierzone 18.09.2026 przy 6.D272: jedyna znana instancja kształtu 6.D272 (132 / 36 / 81 z 6.D269) jest dla sita niewidzialna, bo przy 6.D269 `MAX_POGRUBIONYCH_BEZ_POKRYCIA` zapaliła się na tych liczbach i pogrubienie trzeba było zdjąć — podnosić zapadki górnej nie wolno. Census pokrycia i sito jednostek czytają WYŁĄCZNIE liczby pogrubione, więc zaspokojenie jednej bramki wyprowadza liczbę spod drugiej. W tej serii zdjąłem pogrubienie **sześć** razy (6.D260, 6.D262, 6.D264, 6.D269, 6.D270, 6.D271) i za każdym razem był to ruch poprawny wobec zapadki, która go wymusiła. Że to nie jest teoretyczne, pokazało 6.D271: trzy NIEPOGRUBIONE figury w `test_dead_constants_csharp.py` (85, 304, `== 389`) były nieprawdziwe i nie widziało ich nic — znalazłem je czytaniem, nie bramką. Ile liczb zdjęto z pogrubienia w całej historii drzewa i ile z nich jest dziś nieprawdziwych, nie policzył nikt | M |
+| 6.D275 | **ZROBIONE w #PR (18.09.2026): zdjęcie pogrubienia jest DARMOWE, a tam, gdzie już nie jest, kosztuje ODWROTNIE.** Pole „Wyjście" przeformułowane decyzją właściciela na trzy liczby, bo pierwotne pytanie ma odpowiedź mylącą: **12** commitów na 660 ZGŁASZA zdjęcie pogrubienia w komunikacie, a w DIFFIE widać **0** — zapadka zapala się PRZED commitem, więc wersja pogrubiona nie istnieje w żadnym drzewie i detektor historyczny jest ślepy Z NATURY (wzorzec luźniejszy daje dwa trafienia i **oba są fałszywe**, w tym `fea3014`, notowany wcześniej jako jedyne prawdziwe). Trzecia liczba jest tą, o którą chodzi: **259** liczb niepogrubionych stoi dziś w prozie ogłaszającej pomiar, **209** bez pokrycia — przy **175** pilnowanych przez `MAX_POGRUBIONYCH_BEZ_POKRYCIA` i przy liście wyjątków ZEROWEJ. **SITO NA SAM `**N**` BYŁO ŚLEPE NA PRZYPADEK, KTÓRY POZYCJĘ WYWOŁAŁ:** 132 i 36 z 6.D269 stoją w akapicie z lead-inem `**Zmierzone:**`, w którym żadna liczba pogrubiona nie jest — stąd druga konwencja `ZAPOWIEDZ_POMIARU` (**57** lead-inów) i asercja żądająca obu tych liczb po imieniu. **ZNALEZISKO, KTÓREGO POZYCJA NIE PLANOWAŁA, i przeczy ono temu, po co bramka powstała:** droga ucieczki jest zamknięta TYLKO CZĘŚCIOWO. Zmierzone NA WŁASNEJ PROZIE: pogrubiona zerówka z wiersza L2 zapaliła tamtą zapadkę, jedynym lekarstwem było zdjęcie pogrubienia (wartość jest pomiarem historii gita, więc policzyć jej w zestawie nie sposób) — i populacja NOWEJ zapadki SPADŁA o dwa zamiast urosnąć o jeden, bo zdanie przestało być prozą ogłaszającą pomiar i wypadło z niej razem z sąsiednią liczbą. Wiąże więc tylko tam, gdzie zdanie zachowuje inną pogrubioną albo stoi w akapicie z zapowiedzią; instancja z 6.D269 jest takim przypadkiem i jest złapana. Poszerzenie na dowolne słowo pomiaru bez pogrubienia ODRZUCONE PO POMIARZE: **3685** zdań i **1373** liczby gołe, pięć razy więcej niż dziś, przy zerowej liście (6.D243). Zapadka `MAX_GOLYCH_W_PROZIE_POMIAROWEJ = 259` (górna, wolno tylko OBNIŻAĆ) plus podłoga `MIN_ZDAN_POMIAROWYCH = 420` przeciw oślepieniu (6.D27). Dwie usterki czytnika złapane pomiarem, żadna nieprzewidziana: talia testów rozcinała liczby dziesiętne (`0,090 / 0,087` na `0` i `085`), a po jej naprawie tak samo wyszły `MB-01` i notacja wykładnicza. **PRZEWIDYWANIE L3 BYŁO NIETRAFIONE i jest to zapisane:** 203 ± 5 wobec **259**, bo mierzyłem przymiarkę, a nie zjawisko. Raport: `reports/6d275-zdjete-pogrubienie.md` | M |
 | 6.D276 | **Czytnik zwracający PRÓBKĘ dowodu wygląda tak samo jak zwracający całość — i policzyłem na próbce, zanim się zorientowałem** | zmierzone 18.09.2026 przy 6.D274: `pozycje_pokrycia` trzyma w polu `pokrywajace` tylko DWA pierwsze wiersze (`pokrywajace[:2]`), bo pole służyło do pokazania przykładu w komunikacie. Klasyfikując pokrycie na „prozę" i „kod" przeczytałem to pole jako CAŁOŚĆ i dostałem 41/11/2 — przeliczenie po pełnym zbiorze dało te same liczby, więc błędu nie było, ale **nie dlatego, że sprawdziłem, tylko dlatego, że się udało**. Wycinków `[:N]` wewnątrz czytników (nie-testów) jest w `tools/tests/` **20**, w 13 plikach, najgęściej w `mutation_sweep.py` i `test_validate_axis.py` (po 3). Ile z nich karmi porównanie albo równość, a ile służy tylko komunikatowi — czyli w ilu miejscach próbka może zostać policzona jako całość — nie policzył nikt | M |
+| 6.D277 | **Wzorzec czyszczący prozę potrafi ROZCIĄĆ liczbę, a urwany człon czyta się jak liczba — dwa razy w jednym czytniku** | zmierzone 18.09.2026 przy 6.D275: `\b\d+\s*/\s*\d+\b` wycinał `090 / 0` ze środka `0,090 / 0,087 / 0,085 s`, zostawiając `0` i `085` jako osobne „liczby" w populacji zapadki; po naprawie tej jednej granicy TYM SAMYM sitem wyszły dwa kolejne kształty (`MB-01` na `01`, `2,47e-05` na `05`), czyli wzorzec, nie wypadek. Żadnego z trzech nie przewidziałem. `\b` przy cyfrach nie jest granicą liczby, bo przecinek i kropka są dla niego granicą słowa — a w tym repozytorium ułamek zapisuje się przecinkiem. Ile wzorców pod `tools/` zawiera `\b` bezpośrednio przy `\d`, ile z nich działa na prozie z ułamkami i ile daje dziś urwane człony, nie policzył nikt | M |
+| 6.D278 | **Ile zdań jest JEDNO zdjęcie pogrubienia od zniknięcia z obu sit — bo tyle wynosi dziura zmierzona na własnej prozie** | zmierzone 18.09.2026 przy 6.D275: zdjęcie pogrubienia liczbie, która była w zdaniu JEDYNĄ pogrubioną i stoi poza akapitem z zapowiedzią pomiaru, wyprowadza całe zdanie z populacji `MAX_GOLYCH_W_PROZIE_POMIAROWEJ` — populacja SPADA, zamiast urosnąć. Złapane na własnej prozie tej pozycji, nie na przykładzie. Zapadka wiąże więc tylko część przypadków, a która to część, wiadomo z jednej liczby: ile zdań prozy ma DOKŁADNIE JEDNĄ liczbę pogrubioną i stoi poza akapitem z zapowiedzią. Poszerzenie sita jest odrzucone pomiarem (3685 zdań, 1373 liczby gołe, zerowa lista), więc pozycja ma zmierzyć DZIURĘ, a nie ją załatać | M |
+| 6.D279 | **Komunikat commita jest jedynym miejscem, gdzie zapis istnieje — i nie czyta go żaden czytnik tego drzewa** | zmierzone 18.09.2026 przy 6.D275: zdjęcie pogrubienia zgłasza **12** commitów na 660, a w diffie widać **0**, bo ruch zachodzi przed commitem. Jedyny ślad jest w prozie komunikatu, a wszystkie czytniki tego drzewa czytają PLIKI. Ten sam kształt mają inne twierdzenia wpisywane wyłącznie w komunikat: „zapadka podniesiona", „kontrola negatywna czerwona", „liczby przeliczone". Ile commitów zgłasza w komunikacie zmianę zapadki, ile z tych zmian widać w diffie, i ile komunikatów zgłasza kontrolę negatywną, której w drzewie nie ma śladu — nie policzył nikt. Pozycja LICZY, a nie wprowadza bramki na komunikaty | M |
 
 #### Szczegóły pozycji z kompletem sześciu pól
 
@@ -13768,11 +13771,18 @@ w drzewie**, a nie tylko w rozmowie — z tego samego powodu, co dwie sekcje wy�
   `reports/6d272-jednostka-liczby.md`, `reports/6d271-siedem-liczb.md`,
   `reports/6d269-martwe-podstawienie.md`, historia `git log -p` dla
   `tools/tests/*.py`.
-- **Wyjście:** ile liczb w historii drzewa zdjęto z pogrubienia (zostawiając samą
-  liczbę), w ilu commitach i w ilu plikach; ile z nich stoi dziś w prozie
-  niezmienionych; ile z tych jest dziś NIEPRAWDZIWYCH — z liczbą, a nie z oceną.
-  Że ostatnia liczba nie jest zerem, wiadomo z góry: 6.D271 znalazło trzy takie
-  w jednym module (85, 304, `== 389`), więc pomiar ma podać ILE, a nie CZY.
+- **Wyjście:** **PRZEFORMUŁOWANE decyzją właściciela z 18.09.2026, i to jest zapisane,
+  a nie przemilczane.** Pierwotnie pole pytało, ile liczb w historii drzewa zdjęto
+  z pogrubienia. Odpowiedź na to pytanie jest **myląca, a nie mała**: zdjęcie zachodzi
+  PRZED commitem (zapadka zapala się w drzewie roboczym), więc wersja pogrubiona nie
+  trafia do żadnego drzewa i żaden diff jej nie pokazuje. Detektor historyczny jest tu
+  ślepy z natury. Pole zastępują **trzy liczby**:
+  1. ile commitów ZGŁASZA zdjęcie pogrubienia w komunikacie,
+  2. ile z nich widać w DIFFIE — czyli jak wielka jest luka między jednym a drugim,
+  3. ile liczb NIEPOGRUBIONYCH stoi dziś w prozie `tools/tests/` w zdaniu ogłaszającym
+     pomiar, bo to one są poza zasięgiem obu sit.
+  Trzecia jest tą, o którą naprawdę chodziło: 6.D271 znalazło trzy takie nieprawdziwe
+  w jednym module i nie widziała ich żadna bramka.
 - **Weryfikacja:**
   ```bash
   python3 tools/tests/test_all.py test_message_claims.py
@@ -13784,7 +13794,7 @@ w drzewie**, a nie tylko w rozmowie — z tego samego powodu, co dwie sekcje wy�
   Kontrola przyrządu: liczba, która pogrubienia nigdy nie miała, ma NIE trafić
   na listę zdjętych — inaczej sito liczy każdą niepogrubioną liczbę w drzewie,
   a tych są tysiące.
-- **Skończone, gdy:** cztery liczby są policzone i wypisane z adresami, a kontrola
+- **Skończone, gdy:** trzy liczby są policzone i wypisane z adresami, a kontrola
   negatywna kończy się czerwienią.
 - **Poza zakresem:** zmiana `MAX_POGRUBIONYCH_BEZ_POKRYCIA`, okna ani wzorca
   pogrubienia — to 6.D259; przywracanie pogrubienia znalezionym liczbom (poza
@@ -13839,3 +13849,100 @@ w drzewie**, a nie tylko w rozmowie — z tego samego powodu, co dwie sekcje wy�
 
 
 
+##### 6.D277 · Wzorzec czyszczący rozcina liczbę
+
+- **Skąd:** zmierzone 18.09.2026 przy 6.D275, na własnym czytniku i dwa razy pod rząd.
+  Wzorzec talii testów `\b\d+\s*/\s*\d+\b` wycinał `090 / 0` ze środka ciągu
+  `0,090 / 0,087 / 0,085 s`, zostawiając `0` i `085` jako osobne liczby w populacji
+  zapadki. Po naprawie tej jednej granicy tym samym sitem wyszły dwa kolejne kształty:
+  `MB-01` rozpadał się na `01`, a `2,47e-05` na `05`. Pomiar:
+  `reports/6d275-zdjete-pogrubienie.md` §3.1.
+- **Dlaczego bez decyzji:** pozycja **liczy** wystąpienia i klasyfikuje je, a nie
+  przepisuje wzorców. Kształt jest rozpoznawalny maszynowo: `\b` stojące bezpośrednio
+  przy `\d` w literale wzorca.
+- **Wejście:** `tools/tests/test_message_claims.py` (`SMIECI_W_PROZIE`),
+  `tools/tests/` i `tools/` w całości — literały `re.compile`,
+  `reports/6d275-zdjete-pogrubienie.md`.
+- **Wyjście:** ile literałów wzorców pod `tools/` zawiera `\b` bezpośrednio przy `\d`
+  i w ilu plikach; dla ilu z nich wejściem bywa proza z ułamkami dziesiętnymi zapisanymi
+  przecinkiem; oraz ile daje dziś urwany człon na żywym drzewie. Trzy liczby, a nie ocena.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_message_claims.py
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: moduł zielony i cały zestaw zielony. Kontrola negatywna: przywrócenie
+  `\b` w `SMIECI_W_PROZIE` ma zapalić bramkę — dziś zapala ją tylko liczba populacji,
+  i to przypadkiem, bo urwane człony akurat ją podnosiły. Kontrola przyrządu: wzorzec
+  z `\b` przy literze, a nie przy cyfrze, ma NIE trafić na listę.
+- **Skończone, gdy:** trzy liczby są policzone i wypisane z adresami, a kontrola
+  negatywna kończy się czerwienią.
+- **Poza zakresem:** przepisywanie znalezionych wzorców poza tym jednym, który już
+  naprawiono (każde jest osobną zmianą zachowania bramki, która go używa); zmiana
+  `MAX_GOLYCH_W_PROZIE_POMIAROWEJ`; `src/`.
+- **Zależy od:** 6.D275.
+##### 6.D278 · Ile zdań jest jedno zdjęcie od zniknięcia
+
+- **Skąd:** zmierzone 18.09.2026 przy 6.D275, na własnej prozie tej pozycji, a nie
+  na przykładzie. Zapadka `MAX_GOLYCH_W_PROZIE_POMIAROWEJ` miała nadać cenę zdjęciu
+  pogrubienia. Nadaje ją tylko wtedy, gdy zdanie zachowuje inną liczbę pogrubioną albo
+  stoi w akapicie z zapowiedzią pomiaru. Gdy pogrubiona była w zdaniu JEDYNA, zdjęcie
+  wyprowadza całe zdanie z populacji i liczba znika spod obu sit — populacja SPADA.
+  Pomiar: `reports/6d275-zdjete-pogrubienie.md` §4.
+- **Dlaczego bez decyzji:** pozycja **mierzy dziurę**, a nie ją łata. Łatanie wymagałoby
+  poszerzenia zapowiedzi, a to jest odrzucone pomiarem w 6.D275 (3685 zdań, 1373 liczby
+  gołe, lista wyjątków zerowa) i byłoby osobnym rozstrzygnięciem.
+- **Wejście:** `tools/tests/test_message_claims.py` (`gole_w_prozie_pomiarowej`,
+  `ZAPOWIEDZ_POMIARU`, `POGRUBIONA`, `GRANICA_ZDANIA`),
+  `reports/6d275-zdjete-pogrubienie.md`.
+- **Wyjście:** ile zdań prozy pod `tools/tests/` ma DOKŁADNIE JEDNĄ liczbę pogrubioną
+  i stoi poza akapitem z zapowiedzią pomiaru — czyli ile jest jedno zdjęcie od zniknięcia
+  z obu sit; w ilu plikach; oraz ile liczb gołych stoi dziś w tych właśnie zdaniach, bo
+  one znikną razem ze zdaniem. Trzy liczby, a nie ocena.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_message_claims.py
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: moduł zielony i cały zestaw zielony. Kontrola negatywna: zdjęcie
+  pogrubienia zdaniu z tej listy ma być zgłoszone jako UBYTEK populacji, a nie przejść
+  jako poprawa — dziś spadek populacji przechodzi zapadkę górną celująco. Kontrola
+  przyrządu: zdanie z dwiema pogrubionymi ma NIE trafić na listę, bo jedno zdjęcie
+  go z populacji nie wyprowadza.
+- **Skończone, gdy:** trzy liczby są policzone i wypisane z adresami, a kontrola
+  negatywna kończy się czerwienią.
+- **Poza zakresem:** poszerzanie `ZAPOWIEDZ_POMIARU`, zmiana
+  `MAX_GOLYCH_W_PROZIE_POMIAROWEJ` ani `MAX_POGRUBIONYCH_BEZ_POKRYCIA`; pogrubianie
+  czegokolwiek, bo każde podnosi tamtą zapadkę; `src/`.
+- **Zależy od:** 6.D275.
+##### 6.D279 · Zapis, który istnieje tylko w komunikacie commita
+
+- **Skąd:** zmierzone 18.09.2026 przy 6.D275. Zdjęcie pogrubienia zgłasza dwanaście
+  commitów na 660, a w diffie widać zero, bo ruch zachodzi w drzewie roboczym przed
+  commitem. Jedyny ślad jest w prozie komunikatu, a wszystkie czytniki tego drzewa
+  czytają PLIKI. Pomiar: `reports/6d275-zdjete-pogrubienie.md` §1.
+- **Dlaczego bez decyzji:** pozycja **liczy**, a nie wprowadza bramki na komunikaty
+  commitów — bramka na komunikat jest osobnym rozstrzygnięciem i ma inny koszt
+  (komunikatu nie da się poprawić bez przepisania historii).
+- **Wejście:** `git log` dla całego repozytorium, `tools/tests/test_message_claims.py`,
+  `tools/tests/test_tree_walks.py` (rejestr `ZAPADKI`),
+  `reports/6d275-zdjete-pogrubienie.md`.
+- **Wyjście:** ile komunikatów commitów zgłasza ZMIANĘ zapadki i dla ilu z nich zmianę
+  widać w diffie tego samego commita; ile komunikatów zgłasza wykonaną kontrolę
+  negatywną i dla ilu z nich w drzewie stoi jej ślad (raport w `reports/` albo test).
+  Cztery liczby, a nie ocena — dwie pary, każda „zgłoszone" wobec „widoczne".
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_message_claims.py
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: moduł zielony i cały zestaw zielony. Kontrola negatywna: komunikat
+  zgłaszający podniesienie zapadki, której diff nie rusza, ma trafić do pary „zgłoszone
+  bez widocznego" — inaczej sito mierzy zgodność, której nie sprawdza. Kontrola
+  przyrządu: commit zmieniający zapadkę BEZ wzmianki w komunikacie ma trafić do pary
+  odwrotnej, a nie wypaść z obu.
+- **Skończone, gdy:** cztery liczby są policzone i wypisane z adresami commitów,
+  a kontrola negatywna kończy się czerwienią.
+- **Poza zakresem:** bramka odrzucająca commit po treści komunikatu — osobne
+  rozstrzygnięcie; przepisywanie historii; `src/`.
+- **Zależy od:** 6.D275.
