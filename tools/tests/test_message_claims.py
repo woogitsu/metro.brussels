@@ -639,8 +639,8 @@ POKRYTYCH_PRZYPISANIEM = 15
 POKRYTYCH_ZBIEGIEM_CYFR = 49
 
 
-def pokrycie_pogrubionych(katalog=None, root=None):
-    """`{"przypisanie": n, "zbieg": n, "bez pokrycia": n}` — 6.D264.
+def pozycje_pokrycia(katalog=None, root=None):
+    """`{klasa: [(plik, wiersz, napis, zdanie, wiersze pokrywajace)]}` — 6.D268.
 
     Czytnik POZYCZONY: okno, skale i wzorzec pogrubienia sa te same, ktorych uzywa
     `pogrubione_bez_pokrycia`. Dwa czytniki rozjechalyby sie przy pierwszej zmianie
@@ -655,7 +655,7 @@ def pokrycie_pogrubionych(katalog=None, root=None):
             if nazwa.endswith(".py"):
                 with open(os.path.join(gdzie, nazwa), encoding="utf-8") as uchwyt:
                     zrodla[nazwa] = uchwyt.read().split("\n")
-    out = {"przypisanie": 0, "zbieg": 0, "bez pokrycia": 0}
+    out = {"przypisanie": [], "zbieg": [], "bez pokrycia": []}
     for nazwa, wiersz, tekst, _rodzaj, od, do in proza(katalog, root):
         linie = zrodla.get(nazwa, [])
         czysty = SPECYFIKATOR.sub(" ", tekst)
@@ -675,13 +675,27 @@ def pokrycie_pogrubionych(katalog=None, root=None):
                 wzor = re.compile(r"(?<![\w.])%s(?![\w.])"
                                   % re.escape("%g" % (wartosc * skala)))
                 pokrywajace += [l for l in okno if wzor.search(l)]
+            wpis = (nazwa, wiersz, napis,
+                    _wiersz_wokol(czysty, trafienie.start()).strip(),
+                    tuple(l.strip() for l in pokrywajace[:2]))
             if not pokrywajace:
-                out["bez pokrycia"] += 1
+                out["bez pokrycia"].append(wpis)
             elif any(PRZYPISANIE_STALEJ.match(l) for l in pokrywajace):
-                out["przypisanie"] += 1
+                out["przypisanie"].append(wpis)
             else:
-                out["zbieg"] += 1
+                out["zbieg"].append(wpis)
     return out
+
+
+def pokrycie_pogrubionych(katalog=None, root=None):
+    """`{"przypisanie": n, "zbieg": n, "bez pokrycia": n}` — 6.D264, LICZNIK.
+
+    Od 6.D268 jest to WIDOK na `pozycje_pokrycia`, a nie osobny przebieg. Dwa
+    przebiegi po tym samym drzewie rozjechalyby sie przy pierwszej zmianie okna,
+    a zdanie „z 64 pokrytych 15 ma przypisanie" opisywaloby wtedy dwa rozne okna
+    (6.D213). Zgodnosc licznika z lista pilnuje osobna asercja nizej.
+    """
+    return {k: len(v) for k, v in pozycje_pokrycia(katalog, root).items()}
 
 
 def test_ile_POKRYCIA_daje_przypisanie_stalej_a_ile_zbieg_cyfr():
@@ -735,3 +749,220 @@ def test_czytnik_pokrycia_odroznia_PRZYPISANIE_od_ZBIEGU_CYFR():
         "PRZYPISANIEM `PROG = 7`, **8** pokryte ZBIEGIEM CYFR w filtrze "
         "`len(x) > 8`, a **9** bez pokrycia" % rozklad)
 
+
+# --- 6.D268: ktora z liczb pokrytych ZBIEGIEM CYFR jest nieprawdziwa -----------
+
+#: **Rozklad 49 liczb pokrytych zbiegiem cyfr po plikach, zmierzony 18.09.2026.**
+#: Rozklad, a nie sama suma: pozycja 6.D267 zmierzyla, ze suma nie widzi
+#: przesuniecia miedzy czlonami, a tu czlonem jest PLIK. Adresy z numerami
+#: wierszy stoja w `reports/6d268-pokryte-przypadkiem.md` i tam jest ich miejsce,
+#: bo numer wiersza rusza sie przy kazdym dopisanym akapicie, a liczba per plik
+#: nie. Porownywany W OBIE STRONY (6.D243).
+ZBIEGIEM_PER_PLIK = {
+    "csharp_pins.py": 1,
+    "csharp_test_methods.py": 1,
+    "mutation_sweep.py": 2,
+    "test_all.py": 1,
+    "test_assertion_gate.py": 2,
+    "test_bin_path_framework.py": 1,
+    "test_bytecode_staleness.py": 2,
+    "test_csharp_assertions.py": 1,
+    "test_dead_constants_csharp.py": 7,
+    "test_dotnet_version.py": 1,
+    "test_field_paths.py": 1,
+    "test_game_needle_specificity.py": 1,
+    "test_json_required.py": 1,
+    "test_mass_copies.py": 2,
+    "test_message_claims.py": 1,
+    "test_mutation_sweep.py": 4,
+    "test_prose_counts.py": 1,
+    "test_provenance_classes.py": 1,
+    "test_report_claims.py": 5,
+    "test_report_hygiene.py": 4,
+    "test_suite_runtime_budget.py": 8,
+    "test_t401_citation.py": 1,
+}
+
+#: **Podzial 49 na grupe A i B — odpowiedz na pole „Wyjscie", przez CZYTANIE.**
+#:
+#: Grupa A twierdzi o DZISIEJSZYM drzewie; grupa B nie — bo opisuje pomiar
+#: przebiegu (czas, stosunek CPU do sciany, numer joba), cytuje dawna wartosc,
+#: nazywa commit jako punkt odniesienia albo opisuje zachowanie narzedzia,
+#: a nie licznosc w drzewie.
+#:
+#: **Podzialu NIE DA SIE zmechanizowac czytnikami, ktore to drzewo ma, i jest to
+#: zmierzone czterema nieudanymi probami, nie zalozone.** Kolejno: znaczniki
+#: przeszlosci z `test_docs_ci_claims.HISTORICAL_MARKERS` zawieraja „zmierzone",
+#: ktore pada w niemal kazdym akapicie tego repozytorium, wiec zmiotlyby do B
+#: prawie cala populacje; znaczniki czytane ze ZDANIA gubia punkt odniesienia
+#: stojacy w pierwszym zdaniu akapitu; `proza` zwraca po jednym wpisie na WIERSZ
+#: komentarza, wiec „akapit" bez sklejania z 6.D267 jest jednym wierszem;
+#: a zawezenie do akapitow, ktore NAZYWAJA swoj czytnik w grawisach, daje piec
+#: pozycji i **nie obejmuje tej, w ktorej rozjazd faktycznie jest** — akapit
+#: o deklaracjach C# nazywa `const` i `static readonly`, a nie `rozklad`.
+#: Podzial jest wiec wynikiem przeczytania 49 zdan i tak ma byc czytany.
+ZBIEGIEM_GRUPA_A = 21
+ZBIEGIEM_GRUPA_B = 28
+
+#: **Potwierdzone rozjazdy: SIEDEM twierdzen w JEDNYM module.** Wszystkie osiem
+#: jest „pokryte" zbiegiem cyfr, wiec bramka 6.D259 ich nie widzi, a bramka
+#: 6.D264 liczy je jako pokryte — czyli dziala dokladnie tak, jak 6.D264 opisalo,
+#: i dlatego ta pozycja istnieje.
+#:
+#: **Lista jest DLUGIEM, nie wynikiem, i porownywana jest W OBIE STRONY.** Pole
+#: „Poza zakresem" tej pozycji zabrania poprawiania znalezionych liczb, wiec
+#: siedem nieprawdziwych twierdzen zostaje w drzewie — ale zostaje WPISANE, a nie
+#: przemilczane, i przypisane pozycji 6.D271, ktora je poprawia. Poprawienie
+#: ktoregokolwiek zapali bramke z zadaniem zdjecia wpisu: to jest ksztalt
+#: `LANCUCHY_PRZERWANE` z 6.D260, a nie 6.D27 — bramka nie karze poprawnosci,
+#: tylko wymaga, zeby ksiegowanie za nia nadazylo.
+ROZJAZDY_POKRYTE_ZBIEGIEM = {
+    ("test_dead_constants_csharp.py", "deklaracji razem"): (389, 396),
+    ("test_dead_constants_csharp.py", "const"): (304, 307),
+    ("test_dead_constants_csharp.py", "static readonly"): (85, 89),
+    ("test_dead_constants_csharp.py", "razem w rozkladzie"): (389, 396),
+    ("test_dead_constants_csharp.py", "bez modyfikatora (zdanie 1)"): (43, 45),
+    ("test_dead_constants_csharp.py", "bez modyfikatora (zdanie 2)"): (43, 45),
+    ("test_dead_constants_csharp.py", "zostaje po odjeciu"): (346, 351),
+}
+
+
+#: Kotwice zdan, z ktorych czytana jest strona PROZY. Kotwica, a nie numer
+#: wiersza: numer rusza sie przy kazdym dopisanym akapicie, a fraza zdania nie.
+#: Kazda jest JEDNOZNACZNA w module — pilnuje tego asercja nizej, bo kotwica
+#: lapiaca dwa zdania czytalaby pierwsze z nich dla obu opisow.
+KOTWICE_DEKLARACJI = {
+    "deklaracji razem": r"ma dzis \*\*(\d+)\*\* deklaracji",
+    "const": r"`const` \*\*(\d+)\*\*",
+    "static readonly": r"`static readonly` \*\*(\d+)\*\*",
+    "razem w rozkladzie": r"razem \*\*(\d+)\*\*;",
+    "bez modyfikatora (zdanie 1)": r"stoi \*\*(\d+)\*\* z nich",
+    "bez modyfikatora (zdanie 2)": r"zabiera \*\*(\d+)\*\* deklaracje",
+    "zostaje po odjeciu": r"zostaje \*\*(\d+)\*\*",
+}
+
+
+def rozjazdy_z_drzewa(root=None):
+    """`{(plik, opis): (proza, drzewo)}` — OBIE strony przeliczone, zadna wpisana.
+
+    **Pierwsza wersja wpisywala strone PROZY z reki i kontrola negatywna to
+    zlapala.** Poprawienie liczby w prozie nie ruszalo wtedy niczego w tej
+    funkcji, wiec bramka nizej nie umiala zobaczyc poprawy — a jej wlasny
+    docstring twierdzil, ze umie. Bramka, ktora nie zapala sie na zdarzeniu,
+    o ktorym mowi, jest ksztaltem 6.D27 i tu byla nim przez jeden przebieg.
+
+    Czytniki strony DRZEWA sa pozyczone z `test_dead_constants_csharp`
+    (`deklaracje`, `rozklad`, `MINIMUM_DEKLARACJI`): druga kopia wzorca
+    deklaracji C# rozjechalaby sie z tamta przy pierwszej zmianie i bramka
+    mowilaby o innym drzewie niz bramka, ktora tych liczb pilnuje (6.D213).
+    """
+    import test_dead_constants_csharp as DCS
+    korzen = root or ROOT
+    plik = "test_dead_constants_csharp.py"
+    with open(os.path.join(korzen, "tools", "tests", plik), encoding="utf-8") as u:
+        zrodlo = u.read()
+    proza_liczb = {}
+    for opis, wzor in KOTWICE_DEKLARACJI.items():
+        trafienia = re.findall(wzor, zrodlo)
+        proza_liczb[opis] = [int(x) for x in trafienia]
+
+    ile = sum(len(v) for v in DCS.deklaracje().values())
+    r = DCS.rozklad()
+    bez = r["bez modyfikatora"]
+    z_drzewa = {
+        "deklaracji razem": ile,
+        "const": r["const"],
+        "static readonly": r["static readonly"],
+        "razem w rozkladzie": ile,
+        "bez modyfikatora (zdanie 1)": bez,
+        "bez modyfikatora (zdanie 2)": bez,
+        "zostaje po odjeciu": ile - bez,
+    }
+    out = {}
+    for opis, wartosc in z_drzewa.items():
+        trafienia = proza_liczb[opis]
+        out[(plik, opis)] = (trafienia[0] if len(trafienia) == 1 else None, wartosc)
+    return out
+
+
+def test_kotwice_zdan_o_deklaracjach_lapia_PO_JEDNYM_zdaniu():
+    """**Dolne ostrze na kotwice — bez niego bramka nizej czyta nie to zdanie.**
+
+    Kotwica lapiaca dwa zdania dawalaby dla obu opisow liczbe pierwszego z nich,
+    a kotwica lapiaca zero dawalaby `None` i porownanie przechodzilo cicho.
+    """
+    zmierzone = rozjazdy_z_drzewa()
+    puste = sorted(k for k, v in zmierzone.items() if v[0] is None)
+    assert puste == [], (
+        "kotwica nie zlapala DOKLADNIE jednego zdania dla: %s — albo zdanie "
+        "przeredagowano, albo kotwica lapie dwa i czyta pierwsze" % puste)
+
+
+def test_licznik_pokrycia_i_lista_pokrycia_MOWIA_o_tym_samym_drzewie():
+    """**Dolne ostrze na rozszczepienie czytnika — 6.D268.**
+
+    `pokrycie_pogrubionych` jest od tej pozycji WIDOKIEM na `pozycje_pokrycia`,
+    a nie osobnym przebiegiem. Ta asercja stoi, zeby rozszczepienie ich z powrotem
+    na dwa przebiegi paslo glosno: dwa przebiegi po tym samym drzewie zgadzaja sie
+    dzis i rozjezdzaja przy pierwszej zmianie okna, czyli usterka wchodzilaby
+    niewidzialna (6.D213).
+    """
+    licznik = pokrycie_pogrubionych()
+    lista = pozycje_pokrycia()
+    assert licznik == {k: len(v) for k, v in lista.items()}, (
+        "licznik mowi %r, a lista ma %r pozycji — czytniki rozjechaly sie"
+        % (licznik, {k: len(v) for k, v in lista.items()}))
+
+
+def test_rozklad_pokrytych_zbiegiem_PO_PLIKACH_zgadza_sie_z_drzewem():
+    """**Rozklad, nie suma — 6.D267 zmierzylo, ze suma przesuniecia nie widzi.**
+
+    Rownosc per plik, bo plikow jest 22 i nie przybywa ich co pozycje, a kazde
+    przesuniecie liczby miedzy plikami znaczy, ze akapit sie przeniosl albo
+    zniknal — i to chce sie zobaczyc.
+    """
+    import collections
+    zmierzony = dict(collections.Counter(
+        n for n, _w, _x, _z, _p in pozycje_pokrycia()["zbieg"]))
+    brak = sorted(set(zmierzony) - set(ZBIEGIEM_PER_PLIK))
+    zbedne = sorted(set(ZBIEGIEM_PER_PLIK) - set(zmierzony))
+    assert (brak, zbedne) == ([], []), (
+        "pliki bez wpisu: %s; wpisy bez pliku w drzewie: %s" % (brak, zbedne))
+    assert zmierzony == ZBIEGIEM_PER_PLIK, (
+        "rozklad po plikach rozjechal sie z pomiarem 18.09.2026: %r wobec %r"
+        % (sorted(zmierzony.items()), sorted(ZBIEGIEM_PER_PLIK.items())))
+    assert sum(ZBIEGIEM_PER_PLIK.values()) == POKRYTYCH_ZBIEGIEM_CYFR, (
+        "rozklad sumuje sie do %d, a zapadka sumy stoi na %d — dwa zdania o tej "
+        "samej populacji niosa rozne liczby"
+        % (sum(ZBIEGIEM_PER_PLIK.values()), POKRYTYCH_ZBIEGIEM_CYFR))
+    assert ZBIEGIEM_GRUPA_A + ZBIEGIEM_GRUPA_B == POKRYTYCH_ZBIEGIEM_CYFR, (
+        "podzial na grupy sumuje sie do %d przy populacji %d"
+        % (ZBIEGIEM_GRUPA_A + ZBIEGIEM_GRUPA_B, POKRYTYCH_ZBIEGIEM_CYFR))
+
+
+def test_ROZJAZDY_nadal_sa_rozjazdami_i_lista_nie_zostala_z_tylu():
+    """**Dlug wpisany, a nie przemilczany — i porownywany W OBIE STRONY (6.D243).**
+
+    **Osma pozycja zostala zdjeta i powod jest zmierzony, nie estetyczny.** Zdanie
+    „Zapas 59" jest rowniez nieprawdziwe (dzis 66), ale jest POCHODNA sumy
+    deklaracji: falszywe dlatego, ze falszywa jest suma, ktora na liscie stoi.
+    Zeby je porownac, trzeba bylo siegnac po `MINIMUM_DEKLARACJI` — a to dalo tej
+    zapadce DRUGIE uzycie i zapalilo bramke z 6.D254, ktora wtedy zada zmierzenia
+    jej klasy mutacja. Cena byla wyzsza od zysku: pochodna nie niesie informacji
+    ponad ta, ktora niesie suma.
+
+    Bramka zapala sie TAKZE wtedy, gdy ktos liczbe POPRAWI: wpis przestaje byc
+    rozjazdem i ma zniknac z listy. Nie jest to karanie poprawnosci (6.D27),
+    bo poprawa jest tu ruchem o DWA kroki — liczba i wpis — i drugi krok bez
+    bramki bylby zapomniany, a lista bez sprawdzania jest napisem (6.D243).
+    """
+    zmierzone = rozjazdy_z_drzewa()
+    nadal = {k: v for k, v in zmierzone.items() if v[0] != v[1]}
+    naprawione = sorted(k for k, v in zmierzone.items() if v[0] == v[1])
+    assert naprawione == [], (
+        "te twierdzenia przestaly byc rozjazdami — zdejmij je z "
+        "`ROZJAZDY_POKRYTE_ZBIEGIEM` w tym samym commicie, w ktorym je "
+        "poprawiasz: %s" % naprawione)
+    assert nadal == ROZJAZDY_POKRYTE_ZBIEGIEM, (
+        "lista rozjazdow rozjechala sie z drzewem: zmierzone %r, wpisane %r"
+        % (sorted(nadal.items()), sorted(ROZJAZDY_POKRYTE_ZBIEGIEM.items())))
