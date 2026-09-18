@@ -482,7 +482,8 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 # 334 -> 335 (18.09.2026, 6.D268): blok pozycji 6.D271.
 # 335 -> 336 (18.09.2026, 6.D269): blok pozycji 6.D272.
 # 336 -> 337 (18.09.2026, 6.D270): blok pozycji 6.D273.
-MINIMUM_DETAIL_BLOCKS = 337
+# 337 -> 338 (18.09.2026, 6.D271): blok pozycji 6.D274.
+MINIMUM_DETAIL_BLOCKS = 338
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je

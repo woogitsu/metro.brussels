@@ -636,7 +636,7 @@ PRZYPISANIE_STALEJ = re.compile(r"^\s*([A-Z][A-Z0-9_]*)\s*=\s*\S")
 #: opisuje w tej bramce dwie bardzo rozne rzeczy i dotad nie bylo tego widac.
 #: Rozroznienie jest od dzis PRZYBITE dwiema rownosciami i porownywane z drzewem.
 POKRYTYCH_PRZYPISANIEM = 15
-POKRYTYCH_ZBIEGIEM_CYFR = 51
+POKRYTYCH_ZBIEGIEM_CYFR = 54
 
 
 def pozycje_pokrycia(katalog=None, root=None):
@@ -752,10 +752,12 @@ def test_czytnik_pokrycia_odroznia_PRZYPISANIE_od_ZBIEGU_CYFR():
 
 # --- 6.D268: ktora z liczb pokrytych ZBIEGIEM CYFR jest nieprawdziwa -----------
 
-#: **Rozklad 51 liczb pokrytych zbiegiem cyfr po plikach, zmierzony 18.09.2026.**
-#: Przy 6.D268 bylo ich 49; 6.D270 dolozylo DWIE w `test_dead_constants_csharp.py`
-#: (zapas galezi: 49 i 17), obie w grupie A i obie prawdziwe — census zapalil sie
-#: na nich i to jest jego robota, a nie usterka.
+#: **Rozklad 54 liczb pokrytych zbiegiem cyfr po plikach, zmierzony 18.09.2026.**
+#: Przy 6.D268 bylo ich 49; 6.D270 dolozylo DWIE (zapas galezi), a 6.D271 TRZY —
+#: poprawiajac trzynascie nieprawdziwych figur w `test_dead_constants_csharp.py`
+#: pogrubilo trzy, ktore wczesniej stały bez pogrubienia i przez to byly dla
+#: censusu niewidoczne. Wszystkie piec jest w grupie A i wszystkie sa prawdziwe;
+#: census zapalil sie na nich za kazdym razem i to jest jego robota.
 #: Rozklad, a nie sama suma: pozycja 6.D267 zmierzyla, ze suma nie widzi
 #: przesuniecia miedzy czlonami, a tu czlonem jest PLIK. Adresy z numerami
 #: wierszy stoja w `reports/6d268-pokryte-przypadkiem.md` i tam jest ich miejsce,
@@ -770,7 +772,7 @@ ZBIEGIEM_PER_PLIK = {
     "test_bin_path_framework.py": 1,
     "test_bytecode_staleness.py": 2,
     "test_csharp_assertions.py": 1,
-    "test_dead_constants_csharp.py": 9,
+    "test_dead_constants_csharp.py": 12,
     "test_dotnet_version.py": 1,
     "test_field_paths.py": 1,
     "test_game_needle_specificity.py": 1,
@@ -804,7 +806,7 @@ ZBIEGIEM_PER_PLIK = {
 #: pozycji i **nie obejmuje tej, w ktorej rozjazd faktycznie jest** — akapit
 #: o deklaracjach C# nazywa `const` i `static readonly`, a nie `rozklad`.
 #: Podzial jest wiec wynikiem przeczytania 49 zdan i tak ma byc czytany.
-ZBIEGIEM_GRUPA_A = 23
+ZBIEGIEM_GRUPA_A = 26
 ZBIEGIEM_GRUPA_B = 28
 
 #: **Potwierdzone rozjazdy: SIEDEM twierdzen w JEDNYM module.** Wszystkie osiem
@@ -819,15 +821,7 @@ ZBIEGIEM_GRUPA_B = 28
 #: ktoregokolwiek zapali bramke z zadaniem zdjecia wpisu: to jest ksztalt
 #: `LANCUCHY_PRZERWANE` z 6.D260, a nie 6.D27 — bramka nie karze poprawnosci,
 #: tylko wymaga, zeby ksiegowanie za nia nadazylo.
-ROZJAZDY_POKRYTE_ZBIEGIEM = {
-    ("test_dead_constants_csharp.py", "deklaracji razem"): (389, 396),
-    ("test_dead_constants_csharp.py", "const"): (304, 307),
-    ("test_dead_constants_csharp.py", "static readonly"): (85, 89),
-    ("test_dead_constants_csharp.py", "razem w rozkladzie"): (389, 396),
-    ("test_dead_constants_csharp.py", "bez modyfikatora (zdanie 1)"): (43, 45),
-    ("test_dead_constants_csharp.py", "bez modyfikatora (zdanie 2)"): (43, 45),
-    ("test_dead_constants_csharp.py", "zostaje po odjeciu"): (346, 351),
-}
+ROZJAZDY_POKRYTE_ZBIEGIEM = {}
 
 
 #: Kotwice zdan, z ktorych czytana jest strona PROZY. Kotwica, a nie numer
@@ -841,7 +835,24 @@ KOTWICE_DEKLARACJI = {
     "razem w rozkladzie": r"razem \*\*(\d+)\*\*;",
     "bez modyfikatora (zdanie 1)": r"stoi \*\*(\d+)\*\* z nich",
     "bez modyfikatora (zdanie 2)": r"zabiera \*\*(\d+)\*\* deklaracje",
-    "zostaje po odjeciu": r"zostaje \*\*(\d+)\*\*",
+    # Kotwica ZAWEZONA przy 6.D271: dolozenie drugiego zdania o kształcie
+    # „(zostaje N)" zrobilo
+    # `zostaje \*\*(\d+)\*\*` dwuznacznym, a czytnik zwracal wtedy `None`
+    # i porownanie przechodzilo cicho. Zlapala to kontrola jednoznacznosci
+    # kotwic, dopisana razem z nimi przy 6.D268 — czyli bramka, ktora istnieje
+    # dokladnie na ten wypadek.
+    "zostaje po odjeciu": r"deklaracje, zostaje \*\*(\d+)\*\*",
+    # Szesc kotwic dolozonych przy 6.D271. Lista siedmiu z 6.D268 miala siedem
+    # wpisow, bo tyle zlapaly KOTWICE — a nie bo tyle bylo nieprawdziwych.
+    # W tym samym module stalo ich TRZYNASCIE; szesciu nie widzialo nic, bo trzy
+    # sa NIEPOGRUBIONE (census ich nie liczy), a trzech nie obejmowala zadna
+    # kotwica. Te szesc jest od dzis objete.
+    "stara podloga nizej o": r"stara podloga 200 lezala \*\*(\d+)\*\* nizej",
+    "galaz static readonly zabiera": r"zabiera \*\*(\d+)\*\* deklaracji",
+    "po wycieciu galezi zostaje": r"\(zostaje \*\*(\d+)\*\*\)",
+    "rownosc w nawiasie": r"Rownosci \(`== (\d+)`\)",
+    "zapas nad suma": r"Zapas \*\*(\d+)\*\* \(",
+    "zapas razy glebszy": r"Zapas jest wiec \*\*(\d+)\*\* razy glebszy",
 }
 
 
@@ -871,6 +882,11 @@ def rozjazdy_z_drzewa(root=None):
 
     ile = sum(len(v) for v in DCS.deklaracje().values())
     r = DCS.rozklad()
+    trafienie = re.search(r"^MINIMUM_DEKLARACJI = (\d+)$", zrodlo, re.M)
+    assert trafienie, ("nie znalazlem `MINIMUM_DEKLARACJI = N` w zrodle — "
+                       "kotwica podlogi sumy czyta ten plik jako tekst i bez tego "
+                       "wiersza dwa porownania nizej milcza")
+    podloga_sumy = int(trafienie.group(1))
     bez = r["bez modyfikatora"]
     z_drzewa = {
         "deklaracji razem": ile,
@@ -880,6 +896,18 @@ def rozjazdy_z_drzewa(root=None):
         "bez modyfikatora (zdanie 1)": bez,
         "bez modyfikatora (zdanie 2)": bez,
         "zostaje po odjeciu": ile - bez,
+        "stara podloga nizej o": ile - 200,
+        "galaz static readonly zabiera": r["static readonly"],
+        "po wycieciu galezi zostaje": ile - r["static readonly"],
+        "rownosc w nawiasie": ile,
+        # Podloga czytana ze ZRODLA jako tekst, a nie brana przez `DCS.MINIMUM_DEKLARACJI`.
+        # Powod jest zmierzony, nie estetyczny: siegniecie po symbol daje tej zapadce
+        # DRUGIE uzycie i zapala bramke z 6.D254, ktora wtedy zada zmierzenia jej klasy
+        # mutacja — bo klasa zapadki wynika u niej z KSZTALTU uzyc. Odczyt literalu
+        # uzyciem nie jest, a kotwice i tak czytaja ten sam plik jako tekst. Przy 6.D268
+        # ta sama kolizja kosztowala zdjecie wiersza z listy; tu wiersz jest potrzebny.
+        "zapas nad suma": ile - podloga_sumy,
+        "zapas razy glebszy": ile - podloga_sumy,
     }
     out = {}
     for opis, wartosc in z_drzewa.items():
@@ -961,7 +989,8 @@ def test_ROZJAZDY_nadal_sa_rozjazdami_i_lista_nie_zostala_z_tylu():
     """
     zmierzone = rozjazdy_z_drzewa()
     nadal = {k: v for k, v in zmierzone.items() if v[0] != v[1]}
-    naprawione = sorted(k for k, v in zmierzone.items() if v[0] == v[1])
+    naprawione = sorted(k for k, v in zmierzone.items()
+                        if v[0] == v[1] and k in ROZJAZDY_POKRYTE_ZBIEGIEM)
     assert naprawione == [], (
         "te twierdzenia przestaly byc rozjazdami — zdejmij je z "
         "`ROZJAZDY_POKRYTE_ZBIEGIEM` w tym samym commicie, w ktorym je "
