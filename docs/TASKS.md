@@ -1252,6 +1252,7 @@ właściciel.
 | 6.D277 | **Wzorzec czyszczący prozę potrafi ROZCIĄĆ liczbę, a urwany człon czyta się jak liczba — dwa razy w jednym czytniku** | zmierzone 18.09.2026 przy 6.D275: `\b\d+\s*/\s*\d+\b` wycinał `090 / 0` ze środka `0,090 / 0,087 / 0,085 s`, zostawiając `0` i `085` jako osobne „liczby" w populacji zapadki; po naprawie tej jednej granicy TYM SAMYM sitem wyszły dwa kolejne kształty (`MB-01` na `01`, `2,47e-05` na `05`), czyli wzorzec, nie wypadek. Żadnego z trzech nie przewidziałem. `\b` przy cyfrach nie jest granicą liczby, bo przecinek i kropka są dla niego granicą słowa — a w tym repozytorium ułamek zapisuje się przecinkiem. Ile wzorców pod `tools/` zawiera `\b` bezpośrednio przy `\d`, ile z nich działa na prozie z ułamkami i ile daje dziś urwane człony, nie policzył nikt | M |
 | 6.D278 | **Ile zdań jest JEDNO zdjęcie pogrubienia od zniknięcia z obu sit — bo tyle wynosi dziura zmierzona na własnej prozie** | zmierzone 18.09.2026 przy 6.D275: zdjęcie pogrubienia liczbie, która była w zdaniu JEDYNĄ pogrubioną i stoi poza akapitem z zapowiedzią pomiaru, wyprowadza całe zdanie z populacji `MAX_GOLYCH_W_PROZIE_POMIAROWEJ` — populacja SPADA, zamiast urosnąć. Złapane na własnej prozie tej pozycji, nie na przykładzie. Zapadka wiąże więc tylko część przypadków, a która to część, wiadomo z jednej liczby: ile zdań prozy ma DOKŁADNIE JEDNĄ liczbę pogrubioną i stoi poza akapitem z zapowiedzią. Poszerzenie sita jest odrzucone pomiarem (3685 zdań, 1373 liczby gołe, zerowa lista), więc pozycja ma zmierzyć DZIURĘ, a nie ją załatać | M |
 | 6.D279 | **Komunikat commita jest jedynym miejscem, gdzie zapis istnieje — i nie czyta go żaden czytnik tego drzewa** | zmierzone 18.09.2026 przy 6.D275: zdjęcie pogrubienia zgłasza **12** commitów na 660, a w diffie widać **0**, bo ruch zachodzi przed commitem. Jedyny ślad jest w prozie komunikatu, a wszystkie czytniki tego drzewa czytają PLIKI. Ten sam kształt mają inne twierdzenia wpisywane wyłącznie w komunikat: „zapadka podniesiona", „kontrola negatywna czerwona", „liczby przeliczone". Ile commitów zgłasza w komunikacie zmianę zapadki, ile z tych zmian widać w diffie, i ile komunikatów zgłasza kontrolę negatywną, której w drzewie nie ma śladu — nie policzył nikt. Pozycja LICZY, a nie wprowadza bramki na komunikaty | M |
+| 6.D280 | **Ten sam commit dał na `tunnel-alignment (L2_E)` raz czerwień, raz zieleń — a `docs/17-visual-regression.md` §Determinizm twierdzi, że losowości nie ma** | zmierzone 18.09.2026 przy 6.D275, na własnym PR #675. Przebieg 35332005261 na SHA `bc1685b`: job padł na `BŁĄD: LOD 2 nie ma rzadszej siatki niż LOD 0 na: axis75`, gdzie LOD 2 dał `ink=0.4936` przy LOD 0 `0.0971`, podczas gdy siostrzane kamery `axis05/25/50` stoją przy `0.025`. Ponowienie **tego samego SHA** przeszło. Różnica między próbami, którą widać w logu: pierwsza szła na `actions-runner-metro-03`, druga na `actions-runner-metro-01` — czyli podejrzenie pada na MASZYNĘ, nie na losowość w kodzie, i tego właśnie §Determinizm nie obiecuje ani nie wyklucza. Potok **już zapisuje** `sha256` każdego PNG w metadanych przebiegu, więc pytanie „czy ten sam commit daje ten sam piksel na dwóch maszynach" jest odpowiadalne z danych, które są — tylko nikt ich nie porównuje. Ile par (ten sam commit, dwie maszyny) leży w artefaktach CI, dla ilu `sha256` PNG się różni i które kamery się rozjeżdżają, nie policzył nikt | M |
 
 #### Szczegóły pozycji z kompletem sześciu pól
 
@@ -13946,3 +13947,47 @@ w drzewie**, a nie tylko w rozmowie — z tego samego powodu, co dwie sekcje wy�
 - **Poza zakresem:** bramka odrzucająca commit po treści komunikatu — osobne
   rozstrzygnięcie; przepisywanie historii; `src/`.
 - **Zależy od:** 6.D275.
+##### 6.D280 · Ten sam commit, raz czerwień, raz zieleń
+
+- **Skąd:** zmierzone 18.09.2026 przy 6.D275, na własnym PR #675, a nie na
+  przykładzie. Przebieg `35332005261` na SHA `bc1685b`: `tunnel-alignment (L2_E)`
+  padł na `BŁĄD: LOD 2 nie ma rzadszej siatki niż LOD 0 na: axis75` (LOD 2
+  `ink=0.4936` przy LOD 0 `0.0971`, gdy siostrzane `axis05/25/50` stoją przy
+  `0.025`), a ponowienie **tego samego SHA** przeszło. Diff tamtego PR nie ruszał
+  ani jednej linii potoku geometrii; ten sam job był zielony na dziesięciu
+  poprzednich gałęziach, w tym na dzisiejszym wierzchołku `main`.
+- **Dlaczego bez decyzji:** pozycja **liczy** rozjazdy w danych, które potok już
+  zapisuje, i nie zmienia ani progu bramki LOD, ani potoku renderu. Jedyna różnica
+  między próbami widoczna w logu to maszyna: `actions-runner-metro-03` wobec
+  `actions-runner-metro-01`. Podejrzenie pada więc na maszynę, a nie na losowość
+  w kodzie — i dokładnie tego `docs/17-visual-regression.md` §Determinizm nie
+  obiecuje: wymienia sześć gwarancji (stałe transformy kamer, jawna rozdzielczość,
+  stałe światło, brak ditheru, stała liczba próbek, metadane), a o zgodności
+  MIĘDZY MASZYNAMI nie mówi ani słowa.
+- **Wejście:** `tools/ci/tunnel_alignment.sh` (porównanie tuszu LOD 0 wobec LOD 2),
+  `docs/17-visual-regression.md` §Determinizm, artefakty CI
+  `t-210-tunnel-L2_E-35332005261-1` i `-2` (ta sama para prób, dwa wyniki),
+  metadane przebiegu z `sha256` każdego PNG.
+- **Wyjście:** ile par „ten sam commit, dwie maszyny" leży w artefaktach CI; dla
+  ilu z nich `sha256` przynajmniej jednego PNG się różni; które kamery się
+  rozjeżdżają i o ile. Trzy liczby, a nie ocena. **Czego ta pozycja NIE ma
+  wpisanego z góry:** wartości `ink` dla `axis75` w przebiegu, który PRZESZEDŁ —
+  nie została odczytana, bo leży poza oknem logu, które udało się pobrać. Ma
+  zostać odczytana z artefaktu `-2`, a nie zgadnięta z tego, że job był zielony.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_visual_gates.py
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: moduł zielony i cały zestaw zielony. Kontrola negatywna: para PNG
+  o różnych `sha256` przy tym samym commicie ma zostać zgłoszona — dziś nie
+  zgłasza tego nic, bo sumy są ZAPISYWANE, a nie porównywane między przebiegami.
+  Kontrola przyrządu: para o tych samych sumach ma pozostać zielona, inaczej sito
+  zgłasza każdą parę i liczba przestaje cokolwiek znaczyć.
+- **Skończone, gdy:** trzy liczby są policzone i wypisane z adresami przebiegów,
+  a kontrola negatywna kończy się czerwienią.
+- **Poza zakresem:** zmiana progu bramki LOD w `tools/ci/tunnel_alignment.sh` ani
+  potoku renderu — jedno i drugie wymaga Blendera i jest osobnym rozstrzygnięciem;
+  dopisywanie do §Determinizm obietnicy zgodności między maszynami, dopóki nie
+  wiadomo, czy jest prawdziwa; `src/`.
+- **Zależy od:** —
