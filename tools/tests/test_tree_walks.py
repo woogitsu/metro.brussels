@@ -248,7 +248,7 @@ def klasa_zapadki(nazwa, porownania):
 
 
 #: **Wszystkie zapadki pod `tools/tests/`, każda z klasą i modułem.**
-#: Zapadek: 74. **Przybitych: 18, częściowych: 3, WOLNYCH: 51, poza zasięgiem skanu: 2.**
+#: Zapadek: 77. **Przybitych: 18, częściowych: 3, WOLNYCH: 54, poza zasięgiem skanu: 2.**
 #:
 #: **To zdanie jest przepisane, a nie dopisane obok — po raz DRUGI (15.09.2026).**
 #: Stało tu najpierw „Trzydzieści osiem: 13 przybitych…" (11.09.2026, `52752c9`)
@@ -442,6 +442,14 @@ ZAPADKI = {
     # wypisuje sam zbiór pakietów.
     "MIN_WIERSZY_Z_ARYTMETYKA": (WOLNA, "test_t401_citation.py"),
     "MIN_WPISOW_RUNNERA": (WOLNA, "test_suite_runtime_budget.py"),
+    # 6.D277: trojka na granice `\b` przy cyfrze. Wszystkie WOLNE, bo kazda stoi
+    # wylacznie jako prawa strona jednego porownania. Para jest tu trescia: gorna
+    # `MAX_ROZCIEC_ZYWYCH` pilnuje, zeby nie przybylo rozciec, a obie podlogi —
+    # zeby skaner i korpus nie oslepły, bo oslepiony daje zero rozciec i przechodzi
+    # gore CELUJACO (6.D27).
+    "MAX_ROZCIEC_ZYWYCH": (WOLNA, "test_digit_boundaries.py"),
+    "MIN_LITERALOW_SKANOWANYCH": (WOLNA, "test_digit_boundaries.py"),
+    "MIN_TEKSTOW_W_KORPUSIE": (WOLNA, "test_digit_boundaries.py"),
 }
 
 #: Ile zapadek razem. Liczba jest POCHODNA ze słownika wyżej i stoi osobno po to,
@@ -1302,7 +1310,8 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
         "Bramka tego za czytajacego nie rozstrzygnie, bo nie ma stanu PRZED zmiana."
         % (inna_klasa, swiadkowie))
 
-    assert len(w_drzewie) == ZAPADEK_RAZEM == 74, (
+    # 74 -> 77 (18.09.2026, 6.D277): trojka na granice `\b` przy cyfrze.
+    assert len(w_drzewie) == ZAPADEK_RAZEM == 77, (
         "zapadek w drzewie %d, na liście %d, pomiar z 11.09.2026 mówił 38, "
         "po 6.D146 — 40, po 6.D147 — 42 (doszła zapadka na sekwencje ucieczki "
         "i próg KW jej skanu), po 6.D187 — 44 (dwa progi KW skanu gołych nazw), "
@@ -1339,7 +1348,9 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
     # a „21 wolnych" staje się nieprawdą, której nie zgłasza nic. KN-7 wykonała
     # dokładnie ten scenariusz: jedyną czerwienią była ta asercja.
     ile = collections.Counter(w_drzewie.values())
-    assert (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM]) == (18, 3, 51, 2), (
+    # WOLNYCH 51 -> 54 (18.09.2026, 6.D277): trzy nowe, kazda jako prawa strona
+    # jednego porownania, wiec przesadzone ksztaltem tak samo jak reszta tej klasy.
+    assert (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM]) == (18, 3, 54, 2), (
         "klasy zapadek: przybitych %d, częściowych %d, WOLNYCH %d, poza skanem %d — "
         "pomiar z 11.09.2026 mówił 13/3/21/1, po 6.D146 — 13/3/23/1, a po 6.D147 — "
         "14/3/24/1, po 6.D151 — 15/3/23/1, po 6.D167 — 17/3/21/1, po 6.D187 — "
@@ -1582,7 +1593,8 @@ def test_ktore_wolne_zapadki_sa_PRZESADZONE_ksztaltem_a_ktore_zmierzone():
 
     wolnych = sum(1 for _n, (k, _m) in ZAPADKI.items() if k == WOLNA)
     przesadzonych = wolnych - len(ROZSTRZYGALNE_POMIAREM)
-    assert (wolnych, przesadzonych) == (51, 50), (
+    # (51, 50) -> (54, 53) (18.09.2026, 6.D277): jak wyzej.
+    assert (wolnych, przesadzonych) == (54, 53), (
         "wolnych %d, z tego przesądzonych kształtem %d — pomiar 17.09.2026 dał 42 i 40, "
         "a po 6.D258 daje 41 i 40: `MAX_ODCISKOW_W_RAPORCIE` wyszło z klasy `wolna` "
         "do `poza skanem`, więc ubyla ZAPADKA i ubyl jej WPIS w słowniku rozstrzygnięć; "
