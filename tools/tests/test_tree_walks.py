@@ -248,7 +248,7 @@ def klasa_zapadki(nazwa, porownania):
 
 
 #: **Wszystkie zapadki pod `tools/tests/`, każda z klasą i modułem.**
-#: Zapadek: 79. **Przybitych: 18, częściowych: 3, WOLNYCH: 56, poza zasięgiem skanu: 2.**
+#: Zapadek: 84. **Przybitych: 18, częściowych: 3, WOLNYCH: 61, poza zasięgiem skanu: 2.**
 #:
 #: **To zdanie jest przepisane, a nie dopisane obok — po raz DRUGI (15.09.2026).**
 #: Stało tu najpierw „Trzydzieści osiem: 13 przybitych…" (11.09.2026, `52752c9`)
@@ -447,6 +447,14 @@ ZAPADKI = {
     # `MAX_ROZCIEC_ZYWYCH` pilnuje, zeby nie przybylo rozciec, a obie podlogi —
     # zeby skaner i korpus nie oslepły, bo oslepiony daje zero rozciec i przechodzi
     # gore CELUJACO (6.D27).
+    # 6.D279: piec podlog na populacje czytane z historii gita. Wszystkie WOLNE,
+    # kazda jako prawa strona jednego porownania. Historia tylko rosnie, wiec
+    # rownosc czerwienialaby przy kazdym nowym commicie.
+    "MIN_ZGLASZA_ZMIANE_ZAPADKI": (WOLNA, "test_commit_claims.py"),
+    "MIN_ZGLASZA_I_WIDAC": (WOLNA, "test_commit_claims.py"),
+    "MIN_ZGLASZA_KONTROLE": (WOLNA, "test_commit_claims.py"),
+    "MIN_ZGLASZA_KONTROLE_ZE_SLADEM": (WOLNA, "test_commit_claims.py"),
+    "MIN_ZGLASZA_SZEROKO": (WOLNA, "test_commit_claims.py"),
     # 6.D278: para podlog na zdania o JEDNEJ pogrubionej i na stojace w nich
     # liczby gole. Obie WOLNE, obie jako prawa strona jednego porownania.
     "MIN_ZDAN_O_JEDNEJ_POGRUBIONEJ": (WOLNA, "test_one_bold_sentences.py"),
@@ -1315,8 +1323,8 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
         % (inna_klasa, swiadkowie))
 
     # 74 -> 77 (18.09.2026, 6.D277): trojka na granice `\b` przy cyfrze.
-    # 77 -> 79 (18.09.2026, 6.D278): para podlog na zdania o JEDNEJ pogrubionej.
-    assert len(w_drzewie) == ZAPADEK_RAZEM == 79, (
+    # 77 -> 79 (6.D278) -> 84 (6.D279): piec podlog na historie gita.
+    assert len(w_drzewie) == ZAPADEK_RAZEM == 84, (
         "zapadek w drzewie %d, na liście %d, pomiar z 11.09.2026 mówił 38, "
         "po 6.D146 — 40, po 6.D147 — 42 (doszła zapadka na sekwencje ucieczki "
         "i próg KW jej skanu), po 6.D187 — 44 (dwa progi KW skanu gołych nazw), "
@@ -1357,7 +1365,9 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
     # jednego porownania, wiec przesadzone ksztaltem tak samo jak reszta tej klasy.
     # WOLNYCH 54 -> 56 (18.09.2026, 6.D278): obie nowe stoja jako prawa strona
     # jednego porownania, wiec przesadzone ksztaltem jak reszta tej klasy.
-    assert (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM]) == (18, 3, 56, 2), (
+    # WOLNYCH 56 -> 61 (18.09.2026, 6.D279): piec nowych, kazda jako prawa strona
+    # jednego porownania.
+    assert (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM]) == (18, 3, 61, 2), (
         "klasy zapadek: przybitych %d, częściowych %d, WOLNYCH %d, poza skanem %d — "
         "pomiar z 11.09.2026 mówił 13/3/21/1, po 6.D146 — 13/3/23/1, a po 6.D147 — "
         "14/3/24/1, po 6.D151 — 15/3/23/1, po 6.D167 — 17/3/21/1, po 6.D187 — "
@@ -1601,8 +1611,8 @@ def test_ktore_wolne_zapadki_sa_PRZESADZONE_ksztaltem_a_ktore_zmierzone():
     wolnych = sum(1 for _n, (k, _m) in ZAPADKI.items() if k == WOLNA)
     przesadzonych = wolnych - len(ROZSTRZYGALNE_POMIAREM)
     # (51, 50) -> (54, 53) (18.09.2026, 6.D277): jak wyzej.
-    # (54, 53) -> (56, 55) (18.09.2026, 6.D278): jak wyzej.
-    assert (wolnych, przesadzonych) == (56, 55), (
+    # (54, 53) -> (56, 55) (6.D278) -> (61, 60) (6.D279): jak wyzej.
+    assert (wolnych, przesadzonych) == (61, 60), (
         "wolnych %d, z tego przesądzonych kształtem %d — pomiar 17.09.2026 dał 42 i 40, "
         "a po 6.D258 daje 41 i 40: `MAX_ODCISKOW_W_RAPORCIE` wyszło z klasy `wolna` "
         "do `poza skanem`, więc ubyla ZAPADKA i ubyl jej WPIS w słowniku rozstrzygnięć; "
