@@ -2061,7 +2061,9 @@ def _istnieje_w_drzewie(nazwa):
 # wykonanych, a jego pola „Wejscie" i „Weryfikacja" niosa po dwa adresy.
 # 1179 -> 1182 i 454 -> 456 (18.09.2026, 6.D279): blok 6.D279 przeszedl do
 # wykonanych; jego pole „Wejscie" niesie trzy adresy, „Weryfikacja" dwa.
-ADRESOW_W_WYKONANYCH = {"Wejście": 1182, "Wyjście": 65, "Weryfikacja": 456}
+# 1182 -> 1184 i 456 -> 458 (18.09.2026, 6.D280): blok 6.D280 przeszedl do
+# wykonanych, a jego pola niosa po dwa adresy.
+ADRESOW_W_WYKONANYCH = {"Wejście": 1184, "Wyjście": 65, "Weryfikacja": 458}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
@@ -2173,7 +2175,9 @@ ADRESOW_W_WYKONANYCH = {"Wejście": 1182, "Wyjście": 65, "Weryfikacja": 456}
 # `test_message_claims.py` z plotka „Weryfikacji" bloku tej pozycji.
 # 187 -> 188 (18.09.2026, 6.D279): jedno wywolanie modulu wiecej —
 # `test_message_claims.py` z plotka „Weryfikacji" bloku tej pozycji.
-WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 188}
+# 188 -> 189 (18.09.2026, 6.D280): jedno wywolanie modulu wiecej —
+# `test_visual_gates.py` z plotka „Weryfikacji" bloku tej pozycji.
+WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 189}
 
 #: Ilu kandydatow zlego adresu daje regula prozy, per pole — 6.D158.
 # 12 -> 13 (14.09.2026, 6.D204): trzynastym kandydatem jest `test_mutation_sweep.py`
@@ -2190,7 +2194,10 @@ WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 188}
 # DRUGIM miejscu wywołania. Policzone DIFFEM listy: `UBYLO []`. Żaden nie jest złym
 # adresem — wszystkie trzy moduły są w drzewie i zestaw je uruchamia; to ten sam
 # kształt, co czternaście poprzednich (proza bloku nazywa bramkę po tym, co robi).
-KANDYDATOW_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 17}
+# 17 -> 18 (18.09.2026, 6.D280): osiemnastym kandydatem jest `test_visual_gates.py`
+# z plotka „Weryfikacji" bloku tej pozycji — nazwa modulu bez sciezki, ktorej proza
+# bloku nie wymienia. Ten sam ksztalt co siedemnascie poprzednich, a nie zly adres.
+KANDYDATOW_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 18}
 
 
 def adresy_pola_w_wykonanych(pole):
@@ -2362,7 +2369,10 @@ MIN_GOLYCH_W_DOKUMENTACH = 1200
 #: nie zaklada — to PIERWSZA z czterech wymienionych nizej, nazwy zastepcze prozy,
 #: ta sama co `PLIK.json`, `AXIS.csv` i `a.py`. Plik o tej nazwie w drzewie byloby
 #: usterka, bo zdanie mowi o KSZTALCIE nazwy, a nie o pliku.
-GOLYCH_BEZ_ODPOWIEDNIKA = 36
+# 36 -> 38 (18.09.2026, 6.D280): doszly `LOD2-render-sanity.json`
+# i `_metadata.json` — pliki ARTEFAKTU CI, ktorych w drzewie nie ma
+# i byc nie moze, bo powstaja w przebiegu i regula 8 zabrania ich komitowac.
+GOLYCH_BEZ_ODPOWIEDNIKA = 38
 
 #: To samo, ale WYLACZNIE w trzech polach skanowanych — czyli tam, gdzie poszerzony
 #: `PATH_TOKEN` naprawde by zapalal. Zmierzone 13.09.2026: **244** wystapienia,

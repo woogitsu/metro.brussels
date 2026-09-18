@@ -488,7 +488,12 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 # 340 -> 343 (18.09.2026, 6.D275): bloki pozycji 6.D277, 6.D278 i 6.D279.
 # 343 -> 344 (18.09.2026, 6.D280): blok pozycji 6.D280.
 # 344 -> 345 (18.09.2026, 6.D278): blok pozycji 6.D281.
-MINIMUM_DETAIL_BLOCKS = 345
+# 345 -> 348 (18.09.2026, 6.D280): bloki pozycji 6.D282, 6.D283 i 6.D284,
+# dopisane jako uzupelnienie kolejki wymuszone przez
+# `test_the_documented_shortfall_is_written_down_while_it_lasts` po adnotacji
+# ZROBIONE na 6.D280 (zapas spadl na 11 przy progu 12).
+# Policzone czytnikiem `detail_sections` na pliku PO edycji.
+MINIMUM_DETAIL_BLOCKS = 348
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je

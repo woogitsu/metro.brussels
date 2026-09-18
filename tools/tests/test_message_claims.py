@@ -640,8 +640,17 @@ PRZYPISANIE_STALEJ = re.compile(r"^\s*([A-Z][A-Z0-9_]*)\s*=\s*\S")
 #: zapadki gornej nie wolno, a i tak nie o to chodzi. Znaczy, ze slowo „pokrycie"
 #: opisuje w tej bramce dwie bardzo rozne rzeczy i dotad nie bylo tego widac.
 #: Rozroznienie jest od dzis PRZYBITE dwiema rownosciami i porownywane z drzewem.
-POKRYTYCH_PRZYPISANIEM = 18
-POKRYTYCH_ZBIEGIEM_CYFR = 54
+# 18 -> 16 (18.09.2026, 6.D280): DWIE liczby przeszly z `przypisania` do `zbiegu`,
+# i nie jest to regresja, ktora ten kierunek zwykle oznacza — stale stoja na swoim
+# miejscu. Przyczyna jest zmierzona: rozklad PO PLIKACH pokazuje przyrost dokladnie
+# w tym module, 1 -> 4, czyli tam, gdzie dopisalem trzy ogniwa lancucha. Ogniwo
+# niesie pare wartosci, wiec wchodzi w okno prozy opisujacej te sama stala.
+# Ten sam ksztalt zlapal mnie przy 6.D278 i 6.D280; zapisany jako pozycja 6.D284.
+POKRYTYCH_PRZYPISANIEM = 16
+# 54 -> 56 (18.09.2026, 6.D280): dwie liczby wiecej pokryte zbiegiem, obie
+# z ogniw lancucha dopisanych w tym module — patrz komentarz przy
+# `POKRYTYCH_PRZYPISANIEM`.
+POKRYTYCH_ZBIEGIEM_CYFR = 56
 
 
 def pozycje_pokrycia(katalog=None, root=None):
@@ -796,7 +805,7 @@ ZBIEGIEM_PER_PLIK = {
     "test_game_needle_specificity.py": 1,
     "test_json_required.py": 1,
     "test_mass_copies.py": 2,
-    "test_message_claims.py": 1,
+    "test_message_claims.py": 3,  # 1 -> 3 (18.09.2026, 6.D280)
     "test_mutation_sweep.py": 4,
     "test_prose_counts.py": 1,
     "test_provenance_classes.py": 1,
@@ -824,7 +833,9 @@ ZBIEGIEM_PER_PLIK = {
 #: pozycji i **nie obejmuje tej, w ktorej rozjazd faktycznie jest** — akapit
 #: o deklaracjach C# nazywa `const` i `static readonly`, a nie `rozklad`.
 #: Podzial jest wiec wynikiem przeczytania 49 zdan i tak ma byc czytany.
-ZBIEGIEM_GRUPA_A = 26
+# 26 -> 28 (18.09.2026, 6.D280): dwie nowe liczby klasy `zbieg` to wiersze
+# wyliczenia klas pokrycia — twierdza o DZISIEJSZYM drzewie, wiec grupa A.
+ZBIEGIEM_GRUPA_A = 28
 ZBIEGIEM_GRUPA_B = 28
 
 #: **Potwierdzone rozjazdy: SIEDEM twierdzen w JEDNYM module.** Wszystkie osiem
@@ -1025,11 +1036,11 @@ def test_ROZJAZDY_nadal_sa_rozjazdami_i_lista_nie_zostala_z_tylu():
 #: PLIKU, nie odrozniajac kodu od komentarza, wiec wiersz pokrywajacy bywa po
 #: prostu INNYM ZDANIEM PROZY o tej samej liczbie.
 #:
-#: Zmierzone 18.09.2026 z 54 liczb klasy `zbieg`:
+#: Zmierzone 18.09.2026 z 56 liczb klasy `zbieg`:
 #:
-#: * **41** pokrytych WYLACZNIE proza — w oknie nie ma ani jednego wiersza kodu;
-#: * **11** pokrytych wylacznie kodem;
-#: * **2** mieszane.
+#: * **43** pokrytych WYLACZNIE proza — w oknie nie ma ani jednego wiersza kodu;
+#: * **12** pokrytych wylacznie kodem;
+#: * **1** mieszana.
 #:
 #: **Dziewiec z nich stoi w PARACH WZAJEMNYCH**, gdzie zdanie A pokrywa B, a B
 #: pokrywa A — dwa zdania prozy certyfikuja sie nawzajem i zaden kod w tym nie
@@ -1046,9 +1057,13 @@ def test_ROZJAZDY_nadal_sa_rozjazdami_i_lista_nie_zostala_z_tylu():
 #: **Liczy sie to w TYM SAMYM przebiegu, co pokrycie.** Drugi skan tych samych
 #: okien kosztowalby tyle, co caly czytnik, a 6.D272 zmierzylo, ile taki drugi
 #: skan potrafi kosztowac: 22 s za odpowiedz „zero".
-POKRYTYCH_WYLACZNIE_PROZA = 41
-POKRYTYCH_WYLACZNIE_KODEM = 11
-POKRYTYCH_MIESZANIE = 2
+# 41 -> 43 (18.09.2026, 6.D280): jak wyzej.
+POKRYTYCH_WYLACZNIE_PROZA = 43
+# 11 -> 12 i 2 -> 1 (18.09.2026, 6.D280): jedna liczba przeszla z klasy
+# MIESZANEJ do KODU, bo ogniwo lancucha rozkladu modulow stoi odtad w tym
+# samym wierszu co wpis slownika, a nie osobnym wierszem prozy nad nim.
+POKRYTYCH_WYLACZNIE_KODEM = 12
+POKRYTYCH_MIESZANIE = 1
 
 #: Pary wzajemne, przybite ADRESAMI WIERSZY. Numer wiersza rusza sie przy kazdym
 #: dopisanym akapicie powyzej, wiec przybicie po nim bylo by krucheszczyzna —
