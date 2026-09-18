@@ -248,7 +248,7 @@ def klasa_zapadki(nazwa, porownania):
 
 
 #: **Wszystkie zapadki pod `tools/tests/`, każda z klasą i modułem.**
-#: Zapadek: 69. **Przybitych: 17, częściowych: 3, WOLNYCH: 47, poza zasięgiem skanu: 2.**
+#: Zapadek: 70. **Przybitych: 18, częściowych: 3, WOLNYCH: 47, poza zasięgiem skanu: 2.**
 #:
 #: **To zdanie jest przepisane, a nie dopisane obok — po raz DRUGI (15.09.2026).**
 #: Stało tu najpierw „Trzydzieści osiem: 13 przybitych…" (11.09.2026, `52752c9`)
@@ -386,6 +386,7 @@ ZAPADKI = {
     "MINIMUM_METOD": (WOLNA, "test_csharp_assertions.py"),
     "MINIMUM_MIEJSC": (WOLNA, "test_runner_number_parsing.py"),
     "MINIMUM_MODES": (WOLNA, "test_run_mode_claims.py"),
+    "MINIMUM_PAR_ROZKLADU": (PRZYBITA, "test_prose_counts.py"),
     "MINIMUM_POWODU": (CZESCIOWA, "test_field_paths.py"),
     "MINIMUM_READY_ITEMS": (PRZYBITA, "test_backlog.py"),
     "MINIMUM_SUPPORTED_MAJOR": (CZESCIOWA, "test_dotnet_version.py"),
@@ -1115,6 +1116,7 @@ MIN_ZAPADEK_O_KROK = 40
 #: istniejacego zapala ja tak samo (6.D243).
 Z_PORONANIEM_ODLOZONYM = {
     "MAX_ODCISKOW_W_RAPORCIE": (0, 1),
+    "MINIMUM_PAR_ROZKLADU": (2, 1),
     "MINIMUM_POWODU": (2, 1),
     "MINIMUM_READY_ITEMS": (13, 1),
 }
@@ -1293,7 +1295,7 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
         "Bramka tego za czytajacego nie rozstrzygnie, bo nie ma stanu PRZED zmiana."
         % (inna_klasa, swiadkowie))
 
-    assert len(w_drzewie) == ZAPADEK_RAZEM == 69, (
+    assert len(w_drzewie) == ZAPADEK_RAZEM == 70, (
         "zapadek w drzewie %d, na liście %d, pomiar z 11.09.2026 mówił 38, "
         "po 6.D146 — 40, po 6.D147 — 42 (doszła zapadka na sekwencje ucieczki "
         "i próg KW jej skanu), po 6.D187 — 44 (dwa progi KW skanu gołych nazw), "
@@ -1328,7 +1330,7 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
     # a „21 wolnych" staje się nieprawdą, której nie zgłasza nic. KN-7 wykonała
     # dokładnie ten scenariusz: jedyną czerwienią była ta asercja.
     ile = collections.Counter(w_drzewie.values())
-    assert (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM]) == (17, 3, 47, 2), (
+    assert (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM]) == (18, 3, 47, 2), (
         "klasy zapadek: przybitych %d, częściowych %d, WOLNYCH %d, poza skanem %d — "
         "pomiar z 11.09.2026 mówił 13/3/21/1, po 6.D146 — 13/3/23/1, a po 6.D147 — "
         "14/3/24/1, po 6.D151 — 15/3/23/1, po 6.D167 — 17/3/21/1, po 6.D187 — "

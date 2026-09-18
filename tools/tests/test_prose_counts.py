@@ -31,6 +31,8 @@ które CYTUJĄ dawne brzmienie, czyli karałby za opisanie przeszłości, a proj
 wymaga tego opisu w każdym przepisanym akapicie.
 """
 
+import ast
+import collections
 import os
 import re
 import sys
@@ -856,3 +858,329 @@ def test_forma_po_liczebniku_zgadza_sie_z_polska_odmiana():
             "przy rejestrze %d/%d/%d/%d stary kształt wymuszał %d form błędnych (%s), "
             "a pomiar 6.D218 mówi o dokładnie jednej przy każdej z sześciu wartości"
             % (razem, przybite, czesciowe, wolne, len(zle), zle))
+
+
+# --- 6.D267: wyliczenie „nazwa + liczba" a rozklad pilnowany sama suma ---------
+
+#: Czytniki POZYCZONE (6.D213), a nie przepisane: `proza` chodzi po komentarzach
+#: i docstringach pod `tools/tests/`, `paragraphs` dzieli markdown na akapity.
+#: Zadna z nich nie wiaze katalogu domyslnym argumentem w sposob, ktory 6.D269
+#: opisuje jako martwy — oba biora `None` i licza sciezke w ciele.
+import test_docs_ci_claims as DCC
+import test_message_claims as MC
+
+#: Para „nazwa + liczba": nazwa w grawisach albo WIELKIMI_LITERAMI, potem liczba
+#: (byc moze pogrubiona). Nazwa z rozszerzeniem pliku jest ODSYLACZEM `plik:wiersz`,
+#: a nie czlonem rozkladu, i jest odsiewana — inaczej kazde `raport.md 127` wchodzi
+#: do wyliczenia i sito liczy odsylacze, dokladnie jak w 6.D263.
+PARA_NAZWA_LICZBA = re.compile(
+    r"`([A-Za-z_][\w./-]*)`\s*\*{0,2}(\d+)\*{0,2}"
+    r"|\b([A-Z][A-Z0-9_]{2,})\s*[=:]\s*\*{0,2}(\d+)\*{0,2}")
+ODSYLACZ_PLIKU = re.compile(r"\.(md|py|cs|json|csv|txt|glb|png)$")
+
+#: Ile par czyni wyliczenie ROZKLADEM. Trzy, a nie dwie, i pole „Weryfikacja"
+#: 6.D267 zadalo tego wprost: przy ZNANEJ sumie dwie pary wyznaczaja sie nawzajem,
+#: wiec para nie jest rozkladem, ktory suma moglaby przepuscic.
+MINIMUM_PAR_ROZKLADU = 3
+
+#: Dokumenty POZA zasiegiem i kazde z powodem, ktory jest ten sam.
+#: `reports/` wyklucza wprost pole „Poza zakresem" 6.D267: liczba opisuje tam stan
+#: z dnia pomiaru i starzec sie NIE MA. `docs/TASKS.md` wyklucza TEN SAM powod,
+#: i to jest rozstrzygniecie tej pozycji, a nie przeoczenie: wiersz ZROBIONE
+#: i pole „Skad" sa zapisem pomiaru z jego dnia, nie twierdzeniem o dzisiejszym
+#: drzewie. Liczba jest podana W OBIE STRONY (6.D243) — `WYLICZEN_Z_TASKS`
+#: mowi, ile pozycja ODRZUCA, zeby wykluczenie dalo sie sprawdzic, a nie tylko
+#: przeczytac. Bez tego wykluczenia sito liczy 150 nazw z jednego wiersza tabeli,
+#: bo `paragraphs` skleja KOLEJNE wiersze tabeli w jeden akapit.
+POZA_ZASIEGIEM_DOKUMENTOW = (os.path.join("reports", ""), os.path.join("docs", "TASKS.md"))
+
+
+def _pary_wyliczenia(tekst):
+    """`[(nazwa, liczba)]` — pary „nazwa + liczba" z jednego akapitu."""
+    out = []
+    for m in PARA_NAZWA_LICZBA.finditer(tekst):
+        nazwa = m.group(1) or m.group(3)
+        liczba = int(m.group(2) or m.group(4))
+        if ODSYLACZ_PLIKU.search(nazwa):
+            continue
+        out.append((nazwa, liczba))
+    return out
+
+
+def _akapity_komentarzy(wezly):
+    """Kolejne wiersze komentarza SKLEJONE w akapit, z `#:` pustym jako granica.
+
+    **Granica jest tu trescia, nie formatowaniem, i zlapala to kontrola przyrzadu.**
+    Wiersz `#:` bez tresci jest pustym wierszem BLOKU komentarza — dokladnie tym,
+    czym pusty wiersz dla `paragraphs`. Bez tego dwa akapity zlewaja sie w jeden
+    i do wyliczenia wpadaja pary z sasiedniego zdania: rozklad modulow
+    w `test_bytecode_staleness.py` wychodzil wtedy z suma 346 zamiast 210, bo
+    lapal jeszcze dawna liczbe z akapitu obok. Suma 346 nie trafia w zadna stala,
+    wiec wyliczenie wygladalo na NIEPILNOWANE — czyli sito zglaszalo dziure
+    dokladnie tam, gdzie bramka 6.D263 stoi.
+    """
+    zebrane = collections.defaultdict(list)
+    out = []
+    for plik, wiersz, tekst, rodzaj, _od, _do in wezly:
+        if rodzaj == "komentarz":
+            zebrane[plik].append((wiersz, tekst))
+        else:
+            out.append((plik, wiersz, tekst, "docstring"))
+    for plik, lista in zebrane.items():
+        grupa = []
+        for wiersz, tekst in sorted(lista):
+            if tekst.lstrip("#").lstrip(":").strip() == "" or (
+                    grupa and wiersz != grupa[-1][0] + 1):
+                if grupa:
+                    out.append((plik, grupa[0][0],
+                                " ".join(x[1] for x in grupa), "komentarz"))
+                grupa = []
+                if tekst.lstrip("#").lstrip(":").strip() == "":
+                    continue
+            grupa.append((wiersz, tekst))
+        if grupa:
+            out.append((plik, grupa[0][0], " ".join(x[1] for x in grupa), "komentarz"))
+    return out
+
+
+def _stale_calkowite(sciezka):
+    """`{nazwa: wartosc}` — stale calkowite modulu ORAZ sumy slownikow calkowitych.
+
+    Suma slownika wchodzi, bo wlasnie tak stoi zapadka, ktorej ta pozycja szuka:
+    `ROZKLAD_MODULOW` jest slownikiem, a zdanie prozy niesie jego sume.
+    """
+    try:
+        drzewo = ast.parse(open(sciezka, encoding="utf-8").read())
+    except (SyntaxError, OSError):
+        return {}
+    out = {}
+    for wezel in ast.walk(drzewo):
+        if not isinstance(wezel, ast.Assign):
+            continue
+        for cel in wezel.targets:
+            if not (isinstance(cel, ast.Name) and cel.id.isupper()):
+                continue
+            if isinstance(wezel.value, ast.Constant) and \
+                    isinstance(wezel.value.value, int) and \
+                    not isinstance(wezel.value.value, bool):
+                out[cel.id] = wezel.value.value
+            elif isinstance(wezel.value, ast.Dict):
+                liczby = [x.value for x in wezel.value.values
+                          if isinstance(x, ast.Constant) and isinstance(x.value, int)]
+                if liczby and len(liczby) == len(wezel.value.values):
+                    out["sum(" + cel.id + ")"] = sum(liczby)
+    return out
+
+
+def wyliczenia_prozy(root=None):
+    """`[(odcisk, pary, suma, stala_trzymajaca_sume|None)]` dla >=3 par.
+
+    `odcisk` to `(plik, posortowane NAZWY)`, a nie `(plik, wiersz)`, i jest to
+    wybor: numer wiersza rusza sie przy kazdym dopisanym akapicie powyzej, wiec
+    przybicie po nim zapalaloby bramke na przesunieciu, ktore nic nie znaczy.
+    Nazwy czlonow rozkladu sa trwale — zmienia je dopiero zmiana samego rozkladu.
+    """
+    korzen = root or TW.ROOT
+    out = []
+    wezly = _akapity_komentarzy(MC.proza(root=korzen))
+    for sciezka in DCC.documents():
+        rel = os.path.relpath(sciezka, korzen)
+        if any(rel.startswith(x) for x in POZA_ZASIEGIEM_DOKUMENTOW):
+            continue
+        with open(sciezka, encoding="utf-8") as uchwyt:
+            tekst = uchwyt.read()
+        for pierwszy, wiersze in DCC.paragraphs(tekst):
+            wezly.append((rel, pierwszy, "\n".join(wiersze), "markdown"))
+    for plik, _wiersz, tekst, rodzaj in wezly:
+        pary = _pary_wyliczenia(tekst)
+        if len(pary) < MINIMUM_PAR_ROZKLADU:
+            continue
+        suma = sum(liczba for _n, liczba in pary)
+        trzyma = None
+        if rodzaj != "markdown":
+            stale = _stale_calkowite(os.path.join(korzen, "tools", "tests", plik))
+            trzyma = next((n for n, w in sorted(stale.items()) if w == suma), None)
+        out.append(((plik, tuple(sorted({n for n, _l in pary}))), pary, suma, trzyma))
+    return out
+
+
+#: **Odpowiedz na trzy pytania pola „Wyjscie" 6.D267, zmierzona 18.09.2026.**
+#:
+#: Wyliczen o tym ksztalcie — nazwa i liczba, trzy pary albo wiecej — stoi
+#: w zasiegu DZIESIEC, licząc TEN akapit: siedem w prozie pythonowej pod
+#: `tools/tests/`, dwa w markdownie (`docs/`, `CLAUDE.md`) i ten jeden, ktory
+#: opisuje pozostale. Stala trzymajaca sume istnieje dla JEDNEGO. Rozkladow
+#: rozjezdzajacych sie dzis ze stanem drzewa jest ZERO.
+#:
+#: **Ten akapit liczy sam siebie i jest to wybor, nie przeoczenie.** Bramka
+#: nizej zapalila sie na nim przy pierwszym przebiegu — dokladnie tak, jak ma —
+#: bo wymienia po nazwie czlony cudzych wyliczen. Wyciecie go z zasiegu
+#: wymagaloby wyjatku na „akapit opisujacy bramke", a taki wyjatek zdejmuje
+#: z zasiegu takze kazdy PRZYSZLY akapit tego kształtu. Klasa jest tansza
+#: i sprawdzalna.
+#:
+#: **Trzecia liczba nie jest jednak wynikiem tego sita i to jest glowne znalezisko:
+#: ksztalt „nazwa + liczba" zlewa co najmniej CZTERY rozne zwiazki**, a rozkladem
+#: — caloscia podzielona na nazwane czesci — jest tylko jeden z nich:
+#:
+#: * ROZKLAD: `tools/tests` 139, `tools/blender` 29, … razem 210. Stoi w DWOCH
+#:   miejscach (`test_bytecode_staleness.py` i `docs/06-worked-example.md`),
+#:   ma sume w `sum(ROZKLAD_MODULOW)` i jest pilnowany PER CZLON od 6.D263.
+#: * WARTOSC STALEJ: `DEFAULT_RING_STEP_M` 5, `DEFAULT_STATION_HALO_M` 90, …
+#:   — to nie czesci calosci, tylko wartosci progow; sumowanie ich nie znaczy nic.
+#: * LUZ PROGU, a nie jego wartosc: `MIN_GAME_MESSAGES` 8, `MIN_MESSAGES` 9, …
+#:   w `test_game_needle_specificity.py` podaje, ILE KAZDY PROG PRZEPUSZCZAL,
+#:   a nie ile wynosi. Sito czytajace „nazwa + liczba" jako „stala + wartosc"
+#:   zglosiloby tu cztery rozjazdy (8 przy 142, 9 przy 97, 2 przy 68, 1 przy 18)
+#:   i wszystkie CZTERY bylyby falszywe.
+#: * CYTAT BLEDNEGO ODCZYTU, opisany jako bledny: `NIEROZSTRZYGNIETYCH` 72,
+#:   `MINIMUM_CLAIMS` 15, … w `test_report_claims.py` cytuje odczyty, ktore ten
+#:   sam akapit nazywa usterkami. Bramka na te cztery pary zapalalaby sie na
+#:   PRAWIDLOWEJ prozie — czyli poszlaby do wylaczenia, ksztalt 6.D27.
+#:
+#: Falszywych alarmow byloby wiec OSIEM z dziewieciu wyliczen, gdyby sito uznalo
+#: kazda pare „nazwa + liczba" za czlon rozkladu. Zlapane czytaniem zrodla,
+#: nie przez bramke — i dlatego przybita jest KLASA kazdego wyliczenia, a nie
+#: sama ich liczba.
+KLASA_ROZKLAD = "rozklad"
+KLASA_WARTOSC = "wartosc stalej"
+KLASA_LUZ = "luz progu"
+KLASA_CYTAT = "cytat bledu"
+KLASA_LANCUCH = "lancuch rewizji"
+KLASA_PARAMETRY = "parametry sceny"
+KLASA_DWA_ROZKLADY = "dwa rozklady w akapicie"
+KLASA_OPIS = "opis cudzych wyliczen"
+
+#: Odcisk -> klasa. Porownywane W OBIE STRONY (6.D243): wpis bez wyliczenia
+#: w drzewie jest podpisem po czyms, czego nie ma, i zapala tak samo jak
+#: wyliczenie bez wpisu.
+KLASY_WYLICZEN = {
+    ("docs/06-worked-example.md",
+     ("tools/blender", "tools/ci", "tools/data", "tools/physics", "tools/tests",
+      "tools/track", "tools/visual")): KLASA_ROZKLAD,
+    ("test_bytecode_staleness.py",
+     ("tools/blender", "tools/ci", "tools/data", "tools/physics", "tools/tests",
+      "tools/track", "tools/visual")): KLASA_ROZKLAD,
+    ("docs/17-visual-regression.md",
+     ("depth_m", "frame_width_m", "slab_radius_m", "yaw_deg")): KLASA_PARAMETRY,
+    ("test_clearance_profile.py",
+     ("bore_single", "box_double", "station")): KLASA_WARTOSC,
+    ("test_dead_constants_csharp.py",
+     ("const", "private", "public")): KLASA_DWA_ROZKLADY,
+    ("test_dimension_audit.py",
+     ("DEFAULT_MAX_CHUNK_M", "DEFAULT_MIN_CHUNK_M", "DEFAULT_RING_STEP_M",
+      "DEFAULT_STATION_HALO_M", "UV_METRES_PER_UNIT")): KLASA_WARTOSC,
+    ("test_field_paths.py",
+     ("D226", "D240", "D241", "D242", "D243", "D247")): KLASA_LANCUCH,
+    ("test_game_needle_specificity.py",
+     ("MIN_GAME_MESSAGES", "MIN_GAME_SOURCES", "MIN_MESSAGES",
+      "MIN_NEEDLES")): KLASA_LUZ,
+    ("test_report_claims.py",
+     ("KOD_NIEMIERZALNY", "MAX_EXCEPTIONS", "MINIMUM_CLAIMS",
+      "NIEROZSTRZYGNIETYCH")): KLASA_CYTAT,
+    # Akapit powyzej, ktory opisuje pozostale dziewiec. Liczy sam siebie i to
+    # jest wybor opisany przy `KLASA_OPIS` — wyjatek na „akapit o bramce"
+    # zdjalby z zasiegu takze kazdy przyszly akapit tego ksztaltu.
+    ("test_prose_counts.py",
+     ("DEFAULT_RING_STEP_M", "DEFAULT_STATION_HALO_M", "MINIMUM_CLAIMS",
+      "MIN_GAME_MESSAGES", "MIN_MESSAGES", "NIEROZSTRZYGNIETYCH",
+      "tools/blender", "tools/tests")): KLASA_OPIS,
+}
+
+#: Ile wyliczen odrzuca wykluczenie `docs/TASKS.md`. Stoi tu, zeby wykluczenie
+#: bylo SPRAWDZALNE, a nie podpisane — 6.D243 w druga strone.
+WYLICZEN_Z_TASKS = 7
+
+#: Ile wyliczen ma sume trzymana przez stala W TYM SAMYM MODULE.
+WYLICZEN_Z_SUMA_W_STALEJ = 1
+
+
+def test_ile_wyliczen_prozy_jest_ROZKLADEM_a_ile_INNYM_ZWIAZKIEM():
+    """**Trzy liczby, ktorych zadalo pole „Wyjscie" 6.D267 — rownosciami.**
+
+    Rownosc, a nie prog, bo kazde nowe wyliczenie ma zostac SKLASYFIKOWANE:
+    prog na liczbe wyliczen przepuscilby dopisany rozklad pilnowany sama suma,
+    czyli dokladnie to, czego ta pozycja szuka.
+    """
+    wyliczenia = wyliczenia_prozy()
+    odciski = {o for o, _p, _s, _t in wyliczenia}
+
+    brak_wpisu = sorted(odciski - set(KLASY_WYLICZEN))
+    zbedny_wpis = sorted(set(KLASY_WYLICZEN) - odciski)
+    assert (brak_wpisu, zbedny_wpis) == ([], []), (
+        "wyliczenia bez klasy: %s; wpisy bez wyliczenia w drzewie: %s. Kazde "
+        "wyliczenie o ksztalcie nazwa+liczba, co najmniej %d par, ma miec klase, bo "
+        "WIEKSZOSC z nich NIE jest rozkladem i bramka bez klasy zapalalaby sie na "
+        "prawidlowej prozie"
+        % (brak_wpisu, zbedny_wpis, MINIMUM_PAR_ROZKLADU))
+
+    rozkladow = sum(1 for o in odciski if KLASY_WYLICZEN[o] == KLASA_ROZKLAD)
+    z_suma = sum(1 for _o, _p, _s, t in wyliczenia if t)
+    assert (len(wyliczenia), rozkladow, z_suma) == (10, 2, WYLICZEN_Z_SUMA_W_STALEJ), (
+        "wyliczen %d, rozkladow %d, z suma w stalej %d — pomiar 18.09.2026 dal "
+        "10, 2 i %d. Dwa rozklady to TEN SAM rozklad modulow w dwoch miejscach"
+        % (len(wyliczenia), rozkladow, z_suma, WYLICZEN_Z_SUMA_W_STALEJ))
+
+
+def test_wykluczenie_TASKS_md_jest_SPRAWDZALNE_a_nie_podpisane():
+    """**Ile wyliczen odrzuca wykluczenie — liczba, nie zdanie (6.D243).**
+
+    `docs/TASKS.md` jest poza zasiegiem z tego samego powodu co `reports/`:
+    wiersz ZROBIONE jest zapisem pomiaru z jego dnia. Wykluczenie bez liczby
+    jest podpisem — a gdyby odrzucalo ZERO, byloby martwe i nikt by tego nie
+    zobaczyl.
+    """
+    wewnatrz = len(wyliczenia_prozy())
+    globalne = POZA_ZASIEGIEM_DOKUMENTOW
+    try:
+        globals()["POZA_ZASIEGIEM_DOKUMENTOW"] = (os.path.join("reports", ""),)
+        z_taskami = len(wyliczenia_prozy())
+    finally:
+        globals()["POZA_ZASIEGIEM_DOKUMENTOW"] = globalne
+    assert z_taskami - wewnatrz == WYLICZEN_Z_TASKS, (
+        "wykluczenie `docs/TASKS.md` odrzuca %d wyliczen, a pomiar dal %d"
+        % (z_taskami - wewnatrz, WYLICZEN_Z_TASKS))
+
+
+def test_czytnik_wyliczen_widzi_ksztalt_ktory_ma_widziec():
+    """**Kontrola przyrzadu — trzy zadania pola „Weryfikacja" i jedna usterka.**
+
+    1. Wyliczenie o DWOCH parach NIE jest rozkladem: przy znanej sumie dwie pary
+       wyznaczaja sie nawzajem. Zadalo tego pole „Weryfikacja" wprost.
+    2. Pusty wiersz `#:` DZIELI akapit. Bez tego rozklad modulow wychodzil
+       z suma 346 zamiast 210 i wygladal na niepilnowany.
+    3. Odsylacz `plik.md 127` NIE jest para rozkladu.
+    """
+    # Wzorce stoja w ZMIENNYCH, a nie wprost w asercjach: sito liczb w komunikatach
+    # czyta cale wyrazenie `msg`, wiec cyfra z wzorca wpadala do niego jako liczba
+    # wpisana z reki — i sluszne jest, ze wpadala, bo w komunikacie nie da sie jej
+    # odroznic od liczby ogloszonej przez asercje.
+    dwie = "`a` 1, `b` 2"
+    trzy = "`a` 1, `b` 2, `c` 3"
+    odsylacze = "`raport.md` 127 `inny.md` 9 `trzeci.md` 4"
+
+    assert len(_pary_wyliczenia(dwie)) == 2, (
+        "czytnik znalazl %d par tam, gdzie stoja dwie — bez tego ostrza asercja "
+        "nizej przechodzi takze przy czytniku slepym do zera"
+        % len(_pary_wyliczenia(dwie)))
+    assert len(_pary_wyliczenia(dwie)) < MINIMUM_PAR_ROZKLADU, (
+        "dwie pary weszly jako rozklad — przy znanej sumie wyznaczaja sie nawzajem")
+    assert len(_pary_wyliczenia(trzy)) == MINIMUM_PAR_ROZKLADU, (
+        "trzy pary daly %d przy progu %d — czytnik nie widzi ksztaltu, ktory ma widziec"
+        % (len(_pary_wyliczenia(trzy)), MINIMUM_PAR_ROZKLADU))
+
+    assert _pary_wyliczenia(odsylacze) == [], (
+        "odsylacz `plik:wiersz` wszedl jako czlon rozkladu — sito liczy odsylacze: %s"
+        % _pary_wyliczenia(odsylacze))
+
+    wezly = [("p.py", 1, "#: `a` 1, `b` 2", "komentarz", 1, 1),
+             ("p.py", 2, "#:", "komentarz", 2, 2),
+             ("p.py", 3, "#: `c` 3, `d` 4", "komentarz", 3, 3)]
+    akapity = _akapity_komentarzy(wezly)
+    assert len(akapity) == 2, (
+        "pusty `#:` nie podzielil akapitu — dwa zdania zlewaja sie w jedno "
+        "wyliczenie i suma wychodzi z par, ktore do niego nie naleza: %r" % (akapity,))
+    assert all(len(_pary_wyliczenia(a[2])) == 2 for a in akapity), (
+        "po podziale akapit ma niesc po dwie pary, a niesie %s — granica "
+        "wypadla w zlym miejscu"
+        % [len(_pary_wyliczenia(a[2])) for a in akapity])
