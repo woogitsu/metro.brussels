@@ -351,7 +351,7 @@ public sealed class RunnerCommandTests
     public void Line_zna_wybieg_i_nie_odmawia_go()
     {
         var result = Run(
-            "line", "--axis", Path.Combine(RepoRoot(), "data", "track", "L1_A.json"),
+            "line", "--axis", Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "data", "track", "L1_A.json"),
             "--limit-kmh", "72", "--exchange-s", "20", "--coast-from-m", "250");
 
         Assert.AreEqual(0, result.ExitCode, result.StdErr);
@@ -379,7 +379,7 @@ public sealed class RunnerCommandTests
     public void Line_z_jednym_minusem_konczy_sie_kodem_jeden()
     {
         var result = Run(
-            "line", "--axis", Path.Combine(RepoRoot(), "data", "track", "L1_A.json"),
+            "line", "--axis", Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "data", "track", "L1_A.json"),
             "--limit-kmh", "72", "--exchange-s", "20", "-zmyslona", "7");
 
         Assert.AreEqual(1, result.ExitCode, result.StdOut + result.StdErr);
@@ -402,7 +402,7 @@ public sealed class RunnerCommandTests
     public void Wartosc_ujemna_znanej_opcji_nie_jest_brana_za_opcje()
     {
         var result = Run(
-            "line", "--axis", Path.Combine(RepoRoot(), "data", "track", "L1_A.json"),
+            "line", "--axis", Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "data", "track", "L1_A.json"),
             "--limit-kmh", "72", "--exchange-s", "20", "--stop-window-m", "-5");
 
         Assert.AreEqual(1, result.ExitCode, result.StdOut + result.StdErr);
@@ -421,7 +421,7 @@ public sealed class RunnerCommandTests
     public void Goly_minus_nie_jest_zglaszany_jako_nieznana_opcja()
     {
         var result = Run(
-            "line", "--axis", Path.Combine(RepoRoot(), "data", "track", "L1_A.json"),
+            "line", "--axis", Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "data", "track", "L1_A.json"),
             "--limit-kmh", "72", "--exchange-s", "20", "-");
 
         Assert.IsFalse(
@@ -447,9 +447,9 @@ public sealed class RunnerCommandTests
         try
         {
             var result = Run(
-                "budget", "--axis", Path.Combine(RepoRoot(), "data", "track", "L1_A.json"),
+                "budget", "--axis", Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "data", "track", "L1_A.json"),
                 "--signalling", Path.Combine(
-                    RepoRoot(), "data", "design", "signalling", "classic-2026.json"),
+                    MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "data", "design", "signalling", "classic-2026.json"),
                 "--limit-kmh", "72", "--exchange-s", "20", "--headway-s", "90",
                 "--steps", "200", "--repeats", "1", "--warmup", "0", "--trains", "1",
                 "--coast-from-m", "250", "--out", output);
@@ -487,9 +487,9 @@ public sealed class RunnerCommandTests
         {
             string[] wspolne =
             {
-                "budget", "--axis", Path.Combine(RepoRoot(), "data", "track", "L1_A.json"),
+                "budget", "--axis", Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "data", "track", "L1_A.json"),
                 "--signalling", Path.Combine(
-                    RepoRoot(), "data", "design", "signalling", "classic-2026.json"),
+                    MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "data", "design", "signalling", "classic-2026.json"),
                 "--limit-kmh", "72", "--exchange-s", "20", "--headway-s", "90",
                 "--steps", "200", "--repeats", "1", "--warmup", "0", "--trains", "1",
             };
@@ -569,9 +569,9 @@ public sealed class RunnerCommandTests
     public void Budget_zna_wybieg_i_wypisuje_go_w_naglowku()
     {
         var result = Run(
-            "budget", "--axis", Path.Combine(RepoRoot(), "data", "track", "L1_A.json"),
+            "budget", "--axis", Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "data", "track", "L1_A.json"),
             "--signalling", Path.Combine(
-                RepoRoot(), "data", "design", "signalling", "classic-2026.json"),
+                MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "data", "design", "signalling", "classic-2026.json"),
             "--limit-kmh", "72", "--exchange-s", "20", "--headway-s", "90",
             "--steps", "200", "--repeats", "1", "--warmup", "0", "--trains", "1",
             "--coast-from-m", "250");
@@ -593,9 +593,9 @@ public sealed class RunnerCommandTests
     public void Budget_bez_wybiegu_melduje_ze_jest_wylaczony()
     {
         var result = Run(
-            "budget", "--axis", Path.Combine(RepoRoot(), "data", "track", "L1_A.json"),
+            "budget", "--axis", Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "data", "track", "L1_A.json"),
             "--signalling", Path.Combine(
-                RepoRoot(), "data", "design", "signalling", "classic-2026.json"),
+                MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "data", "design", "signalling", "classic-2026.json"),
             "--limit-kmh", "72", "--exchange-s", "20", "--headway-s", "90",
             "--steps", "200", "--repeats", "1", "--warmup", "0", "--trains", "1");
 
@@ -622,7 +622,7 @@ public sealed class RunnerCommandTests
         var result = Run(
             "replay", "--keys", "build/nie-istnieje.keys",
             "--signalling", Path.Combine(
-                RepoRoot(), "data", "design", "signalling", "classic-2026.json"),
+                MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "data", "design", "signalling", "classic-2026.json"),
             "--coast-from-m", "250");
 
         Assert.AreEqual(1, result.ExitCode);
@@ -736,9 +736,6 @@ public sealed class RunnerCommandTests
     // --- plik, ktory planem nie jest (6.A13) --------------------------------------
 
     /// <summary>Katalog repozytorium — po pliku <c>CLAUDE.md</c>, tak jak w innych testach.</summary>
-    private static string RepoRoot() =>
-        MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka;
-
     /// <summary>
     /// Sedno pozycji 6.A13. Plik <c>cbtc-test-2026.json</c> LEŻY w <c>data/</c> i nie jest
     /// atrapą — to on wywrócił proces: <c>JsonElement.GetProperty</c> rzucało
@@ -749,11 +746,11 @@ public sealed class RunnerCommandTests
     [TestMethod]
     public void Plik_ktory_nie_jest_planem_konczy_sie_odmowa_a_nie_sygnalem()
     {
-        var plan = Path.Combine(RepoRoot(), "data", "design", "signalling", "cbtc-test-2026.json");
+        var plan = Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "data", "design", "signalling", "cbtc-test-2026.json");
         Assert.IsTrue(File.Exists(plan), "plik z data/ zniknął — test straciłby swój przedmiot: " + plan);
 
         var result = Run(
-            "budget", "--axis", Path.Combine(RepoRoot(), "data", "track", "L1_A.json"),
+            "budget", "--axis", Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "data", "track", "L1_A.json"),
             "--signalling", plan,
             "--limit-kmh", "72", "--exchange-s", "20", "--headway-s", "10",
             "--steps", "2000", "--trains", "2");
@@ -772,8 +769,8 @@ public sealed class RunnerCommandTests
     public void Prawdziwy_plan_nadal_przechodzi()
     {
         var result = Run(
-            "budget", "--axis", Path.Combine(RepoRoot(), "data", "track", "L1_A.json"),
-            "--signalling", Path.Combine(RepoRoot(), "data", "design", "signalling", "classic-2026.json"),
+            "budget", "--axis", Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "data", "track", "L1_A.json"),
+            "--signalling", Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "data", "design", "signalling", "classic-2026.json"),
             "--limit-kmh", "72", "--exchange-s", "20", "--headway-s", "10",
             "--steps", "2000", "--trains", "2");
 
@@ -982,7 +979,7 @@ public sealed class RunnerCommandTests
     public void Kropka_dziesietna_i_wykladnik_nadal_przechodza()
     {
         var result = Run(
-            "line", "--axis", Path.Combine(RepoRoot(), "data", "track", "L1_A.json"),
+            "line", "--axis", Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "data", "track", "L1_A.json"),
             "--limit-kmh", "7.2E1", "--exchange-s", "20", "--stop-window-m", "5.5");
 
         Assert.AreEqual(0, result.ExitCode, result.StdErr);
@@ -1091,7 +1088,7 @@ public sealed class RunnerCommandTests
         try
         {
             var result = Run(
-                "line", "--axis", Path.Combine(RepoRoot(), "data", "track", "L1_A.json"),
+                "line", "--axis", Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "data", "track", "L1_A.json"),
                 "--limit-kmh", "72", "--exchange-s", "20", "--trace", trace);
 
             Assert.AreEqual(0, result.ExitCode, result.StdErr);
@@ -1155,7 +1152,7 @@ public sealed class RunnerCommandTests
     public void Opcja_podana_raz_nadal_przechodzi()
     {
         var result = Run(
-            "line", "--axis", Path.Combine(RepoRoot(), "data", "track", "L1_A.json"),
+            "line", "--axis", Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "data", "track", "L1_A.json"),
             "--limit-kmh", "72", "--exchange-s", "20");
 
         Assert.AreEqual(0, result.ExitCode, result.StdErr);
@@ -1172,9 +1169,9 @@ public sealed class RunnerCommandTests
     public void Powtorzona_flaga_nie_jest_odmowa()
     {
         var result = Run(
-            "budget", "--axis", Path.Combine(RepoRoot(), "data", "track", "L1_A.json"),
+            "budget", "--axis", Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "data", "track", "L1_A.json"),
             "--signalling", Path.Combine(
-                RepoRoot(), "data", "design", "signalling", "classic-2026.json"),
+                MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "data", "design", "signalling", "classic-2026.json"),
             "--limit-kmh", "72", "--exchange-s", "20", "--headway-s", "90",
             "--trains", "2", "--steps", "100", "--atp", "--atp");
 
@@ -1352,9 +1349,9 @@ public sealed class RunnerCommandTests
     public void Wartosc_po_fladze_jest_czlonem_pozycyjnym_i_konczy_sie_odmowa()
     {
         var result = Run(
-            "budget", "--axis", Path.Combine(RepoRoot(), "data", "track", "L1_A.json"),
+            "budget", "--axis", Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "data", "track", "L1_A.json"),
             "--signalling", Path.Combine(
-                RepoRoot(), "data", "design", "signalling", "classic-2026.json"),
+                MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "data", "design", "signalling", "classic-2026.json"),
             "--limit-kmh", "72", "--exchange-s", "20", "--headway-s", "90",
             "--trains", "2", "--steps", "100", "--atp", "1");
 
@@ -1371,9 +1368,9 @@ public sealed class RunnerCommandTests
     public void Czlon_pozycyjny_nieznany_poleceniu_konczy_sie_odmowa()
     {
         var result = Run(
-            "budget", "--axis", Path.Combine(RepoRoot(), "data", "track", "L1_A.json"),
+            "budget", "--axis", Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "data", "track", "L1_A.json"),
             "--signalling", Path.Combine(
-                RepoRoot(), "data", "design", "signalling", "classic-2026.json"),
+                MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "data", "design", "signalling", "classic-2026.json"),
             "--limit-kmh", "72", "--exchange-s", "20", "--headway-s", "90",
             "--trains", "2", "--steps", "100", "zmyslony_czlon");
 
@@ -1441,7 +1438,7 @@ public sealed class RunnerCommandTests
     public void Wartosci_znanych_opcji_nie_licza_sie_jako_czlony_pozycyjne()
     {
         var result = Run(
-            "line", "--axis", Path.Combine(RepoRoot(), "data", "track", "L1_A.json"),
+            "line", "--axis", Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "data", "track", "L1_A.json"),
             "--limit-kmh", "72", "--exchange-s", "20", "--stop-window-m", "1.5",
             "--brake-usage", "0.8");
 
@@ -1466,7 +1463,7 @@ public sealed class RunnerCommandTests
     public void Wartosc_ujemna_po_znanej_opcji_nie_jest_czlonem_pozycyjnym()
     {
         var result = Run(
-            "line", "--axis", Path.Combine(RepoRoot(), "data", "track", "L1_A.json"),
+            "line", "--axis", Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "data", "track", "L1_A.json"),
             "--limit-kmh", "72", "--exchange-s", "20", "--coast-from-m", "-1");
 
         Assert.IsFalse(result.StdErr.Contains("człon pozycyjny"), result.StdErr);

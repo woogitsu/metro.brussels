@@ -157,13 +157,9 @@ public sealed class RunResetTests
             Telemetry.Add(State.Steps.ToString(CultureInfo.InvariantCulture));
         }
     }
-
-    private static string RepositoryRoot() =>
-        MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka;
-
     private static TrackAxis PackageAAxis()
         => TrackAxis.FromJson(
-            File.ReadAllText(Path.Combine(RepositoryRoot(), "data", "track", "L1_A.json")));
+            File.ReadAllText(Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "data", "track", "L1_A.json")));
 
     /// <summary>
     /// Prędkość dopuszczalna trybu ręcznego — z tego samego planu sygnalizacji, z którego
@@ -172,7 +168,7 @@ public sealed class RunResetTests
     /// </summary>
     private static double ManualLimitMps()
         => SignallingPlan.FromJson(
-            File.ReadAllText(Path.Combine(RepositoryRoot(), RunPlan.ManualSpeedLimitPlanPath)))
+            File.ReadAllText(Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, RunPlan.ManualSpeedLimitPlanPath)))
             .PermittedSpeedMps;
 
     private static Cab NewCab()

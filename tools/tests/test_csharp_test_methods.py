@@ -963,28 +963,41 @@ if __name__ == "__main__":
 
 # --- 6.D261: powtorzona nazwa pomocnika — duplikat czy zbieg nazw ---------------
 
-#: **Dwadziescia cztery nazwy `private static` padaja w wiecej niz jednym pliku,
-#: i to sa DWIE rozne rzeczy, a nie jedna.** 6.D257 znalazlo najwieksza rodzine
-#: (szukanie korzenia) i scalilo jej LOGIKE; ta pozycja pyta o reszte i rozdziela
-#: je pomiarem. Zmierzone 17.09.2026 na 67 plikach i 237 podpisach:
+#: **Dwadziescia jeden nazw `private static` pada w wiecej niz jednym pliku,
+#: i to sa DWIE rozne rzeczy, a nie jedna.** Ten akapit jest PRZEPISANY 18.09.2026
+#: przy 6.D265, a nie dopisany obok: pomiar 6.D261 z 17.09.2026 dal 24 nazwy przy
+#: 237 podpisach i dziesiec rodzin identycznych, i to juz nieprawda — trzy z tamtych
+#: rodzin byly opakowaniami, ktore ta pozycja zdjela. Dzis: 67 plikow, 222 podpisy.
 #:
-#: * **10 rodzin IDENTYCZNYCH** — ta sama nazwa nad tym samym cialem po normalizacji
-#:   bialych znakow. Z tego TRZY (`RepositoryRoot` x9, `RepoRoot` x3,
-#:   `FindRepositoryRoot` x3, razem **15 kopii**) sa jednowierszowymi DELEGACJAMI
-#:   do `KorzenRepozytorium`, zostawionymi przez 6.D257: tamta pozycja zdjela petle,
-#:   a nie opakowania. Pozostale SIEDEM to po DWIE kopie kazda.
-#: * **14 rodzin JEDNOIMIENNYCH** — ta sama nazwa nad ROZNYM cialem. Najliczniejsze:
-#:   `Settings` x7 w czterech postaciach, `Level` x7 w trzech, `Plan` x6 w czterech.
-#:   Scalenie ich byloby bledem, a nie sprzataniem.
+#: * **7 rodzin IDENTYCZNYCH** — ta sama nazwa nad tym samym cialem po normalizacji
+#:   bialych znakow, kazda po DWIE kopie. 6.D261 liczylo tu dziesiec, bo TRZY byly
+#:   jednowierszowymi DELEGACJAMI do `KorzenRepozytorium` (`RepositoryRoot` x9,
+#:   `RepoRoot` x3, `FindRepositoryRoot` x3), zostawionymi przez 6.D257: tamta
+#:   pozycja zdjela PETLE, a nie OPAKOWANIA, i jest to roznica, ktorej nie nazwala.
+#:   6.D265 zdjelo pietnascie definicji i przepisalo 58 wywolan w pietnastu
+#:   plikach — piecdziesiat trzy na `KorzenRepozytorium.Sciezka` i piec na
+#:   `.SciezkaAlboNull`, bo `FindRepositoryRoot` zwracalo `string?`.
+#: * **14 rodzin JEDNOIMIENNYCH** — ta sama nazwa nad ROZNYM cialem, i ta liczba
+#:   sie NIE ruszyla: zadna z trzech zdjetych nazw nie stala nad innym cialem.
+#:   Najliczniejsze: `Settings` x7 w czterech postaciach, `Level` x7 w trzech,
+#:   `Plan` x6 w czterech. Scalenie ich byloby bledem, a nie sprzataniem.
 #:
-#: **Odpowiedz na pytanie z pola „Wyjscie" brzmi: ZADNA z siedmiu nie zasluguje
-#: na wspolny plik** — i jest to liczba, a nie ocena. Wszystkie siedem ma po DWIE
-#: kopie, wszystkie sa jednowierszowe (48–163 znaki tresci), a SZESC z siedmiu stoi
-#: w obrebie JEDNEGO projektu. Wspolny plik kosztuje wpis `Compile Include` w kazdym
-#: `.csproj`, ktory go bierze; dla jednowierszowca uzywanego dwa razy w tym samym
-#: projekcie jest to koszt wiekszy niz oszczednosc. Jedyna rodzina miedzyprojektowa
-#: (`Notch`) jest zarazem najkrotsza z calej dziesiatki.
-RODZIN_IDENTYCZNYCH = 10
+#: **Odpowiedz 6.D261 na pytanie „ktora z pozostalych zasluguje na wspolny plik"
+#: brzmi: ZADNA** — i zostaje w mocy, bo 6.D265 nie ruszylo ani jednej z nich.
+#: Wszystkie siedem ma po DWIE kopie, wszystkie sa jednowierszowe (48–163 znaki
+#: tresci), a SZESC z siedmiu stoi w obrebie JEDNEGO projektu. Wspolny plik kosztuje
+#: wpis `Compile Include` w kazdym `.csproj`, ktory go bierze; dla jednowierszowca
+#: uzywanego dwa razy w tym samym projekcie jest to koszt wiekszy niz oszczednosc.
+#: Jedyna rodzina miedzyprojektowa (`Notch`) jest zarazem najkrotsza z siodemki.
+#:
+#: **Granica rodziny lezy przy DWOCH kopiach, nie przy jednej**, i jest to zmierzone
+#: kontrola przyrzadu 6.D265 na drzewie probnym, a nie wywnioskowane z definicji:
+#: przywrocenie JEDNEJ kopii `RepoRoot` daje nadal siedem, dwoch i trzech — osiem.
+#: Rodzina to nazwa w WIECEJ NIZ JEDNYM pliku, wiec przedostatnia kopia zabiera
+#: z rejestru takze ostatnia. Zdanie „zostawienie jednego opakowania da osiem"
+#: z pola „Weryfikacja" tej pozycji jest wiec prawdziwe dla RODZINY, a falszywe
+#: dla KOPII — i dopiero pomiar to rozdzielil.
+RODZIN_IDENTYCZNYCH = 7
 RODZIN_JEDNOIMIENNYCH = 14
 
 #: Podloga na liczbe podpisow — WOLNA, bo pomocnikow przybywa razem z testami.

@@ -303,7 +303,7 @@ public sealed class UiTextTests
     private const int LiteralowWTablicyKeyNames = 2;
 
     private static string Zrodlo(params string[] czesci) =>
-        File.ReadAllText(Path.Combine(RepositoryRoot(), Path.Combine(czesci)));
+        File.ReadAllText(Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, Path.Combine(czesci)));
 
     private static string HudSource() => Zrodlo("src", "Game", "UI", "Hud.cs");
 
@@ -315,7 +315,7 @@ public sealed class UiTextTests
     /// </summary>
     private static List<string> ZrodlaGry()
     {
-        var korzen = Path.Combine(RepositoryRoot(), "src", "Game");
+        var korzen = Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "src", "Game");
         var katalog = Path.Combine(korzen, "UI", "UiText.cs");
         return Directory.GetFiles(korzen, "*.cs", SearchOption.AllDirectories)
             .Where(p => !p.Split(Path.DirectorySeparatorChar).Contains(".godot"))
@@ -513,7 +513,7 @@ public sealed class UiTextTests
         // Gdyby któryś dorobił sobie własną kopię warunku, ta próbka nadal by przeszła,
         // ale źródło przestałoby mieć jedno miejsce — więc pytamy o nie wprost.
         var zrodlo = File.ReadAllText(Path.Combine(
-            RepositoryRoot(), "tests", "Game.Tests", "UiTextTests.cs"));
+            MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "tests", "Game.Tests", "UiTextTests.cs"));
         // Liczone po kodzie ZAMASKOWANYM, i to jest poprawka z pomiaru: pierwsza wersja
         // czytała plik surowo i dostała CZTERY zamiast jednego, bo łapała własne
         // komunikaty tej bramki. Czytnik, o który ta pozycja pyta, służy tu do zadania
@@ -1369,10 +1369,6 @@ public sealed class UiTextTests
         Assert.AreEqual(" ", BezDziur("{binding.KeyName} {binding.Meaning}"));
         Assert.AreEqual("brak dalszych stacji   ", BezDziur("brak dalszych stacji   {0}"));
     }
-
-    private static string RepositoryRoot() =>
-        MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka;
-
     /// <summary>
     /// Wyjątek na nazwy klawiszy ma PRZEDMIOT — 6.D142.
     ///
@@ -2154,7 +2150,7 @@ public sealed class UiTextTests
         CollectionAssert.AreEqual(new[] { "FirstRun.cs" }, rozne,
             "różnią się inne pliki niż w pomiarze 6.D180: " + string.Join(", ", rozne));
 
-        var kodFirstRun = File.ReadAllText(Path.Combine(RepositoryRoot(), "src", "Game", "FirstRun.cs"));
+        var kodFirstRun = File.ReadAllText(Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "src", "Game", "FirstRun.cs"));
         var caly = SlowaWKodzie(kodFirstRun);
         var wierszami = SlowaWierszPoWierszu(kodFirstRun);
         Assert.AreEqual(ZgloszenFirstRunCalymPlikiem, caly.Count,
@@ -2740,7 +2736,7 @@ public sealed class UiTextTests
 
     /// <summary>Wszystkie pliki <c>.cs</c> pod <c>src/</c>, bez wygenerowanych.</summary>
     private static List<string> PlikiZrodlowe() =>
-        Directory.GetFiles(Path.Combine(RepositoryRoot(), "src"), "*.cs",
+        Directory.GetFiles(Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "src"), "*.cs",
                 SearchOption.AllDirectories)
             .Where(p => !p.Split(Path.DirectorySeparatorChar).Contains(".godot"))
             .Where(p => !p.Split(Path.DirectorySeparatorChar).Contains("obj"))
@@ -5074,7 +5070,7 @@ public sealed class UiTextTests
     }
 
     private static List<string> PlikiGryZKatalogiem() =>
-        Directory.GetFiles(Path.Combine(RepositoryRoot(), "src", "Game"), "*.cs",
+        Directory.GetFiles(Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "src", "Game"), "*.cs",
                 SearchOption.AllDirectories)
             .Where(p => !p.Split(Path.DirectorySeparatorChar).Contains(".godot"))
             .Where(p => !p.Split(Path.DirectorySeparatorChar).Contains("obj"))
@@ -5519,7 +5515,7 @@ public sealed class UiTextTests
         // Bez tego „dwa bez słów" czytałoby się jako „dwa nieznanego języka" — ta sama
         // różnica, którą 6.D202 nazwało dla czterech wierszy logu.
         var refusal = File.ReadAllText(Path.Combine(
-            RepositoryRoot(), "src", "Game", "RunPlan.cs"));
+            MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "src", "Game", "RunPlan.cs"));
         var czysty = KodLeksykalnie(refusal);
         var wolan = Regex.Matches(czysty, @"return Refusal\s*\(").Count;
         Assert.AreEqual(26, wolan,

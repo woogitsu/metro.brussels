@@ -74,7 +74,7 @@ public sealed class HudLayoutTests
     }
 
     private static string Scene() =>
-        File.ReadAllText(Path.Combine(RepositoryRoot(), "src", "Game", "Scenes", "FirstRun.tscn"));
+        File.ReadAllText(Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "src", "Game", "Scenes", "FirstRun.tscn"));
 
     [TestMethod]
     public void Panel_miesci_sie_w_widoku_dla_kazdej_z_trzech_rozdzielczosci()
@@ -149,7 +149,7 @@ public sealed class HudLayoutTests
         // Pole „Skończone, gdy" mówi o NAJDŁUŻSZEJ nazwie z danych osi. Gdyby doszła
         // dłuższa, pomiar ze zrzutów przestałby dotyczyć najgorszego przypadku —
         // i ten test jest miejscem, w którym to widać, zamiast po cichu.
-        var root = RepositoryRoot();
+        var root = MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka;
         var najdluzsza = "";
         var stacji = 0;
         foreach (var plik in Directory.GetFiles(Path.Combine(root, "data", "track"), "*.json"))
@@ -169,7 +169,4 @@ public sealed class HudLayoutTests
             "najdłuższa nazwa stacji w danych osi zmieniła się — pomiar ze zrzutów "
             + "6.D82 dotyczył tej, więc trzeba go powtórzyć dla nowej");
     }
-
-    private static string RepositoryRoot() =>
-        MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka;
 }
