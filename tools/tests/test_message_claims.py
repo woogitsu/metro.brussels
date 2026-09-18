@@ -600,3 +600,138 @@ def test_sito_widzi_ksztalty_ktore_ma_widziec():
 if __name__ == "__main__":
     import test_all
     raise SystemExit(test_all.main(__file__))
+
+# --- 6.D264: czym jest „pokrycie" — przypisaniem stalej czy zbiegiem cyfr --------
+
+#: Przypisanie stalej: wiersz zaczynajacy sie NAZWA WIELKIMI LITERAMI i znakiem `=`.
+#: Ten sam ksztalt, ktory czyta `ZAPADKA_NAZWA` w `test_tree_walks.py`, tylko bez
+#: wymogu przedrostka `MAX`/`MIN` — bo pokrycie daje KAZDA stala, nie tylko zapadka.
+PRZYPISANIE_STALEJ = re.compile(r"^\s*([A-Z][A-Z0-9_]*)\s*=\s*\S")
+
+#: **Czym jest „pokrycie" w bramce z 6.D259 — zmierzone 18.09.2026.**
+#:
+#: Pogrubionych liczb w prozie jest 286. Z tego 47 stoi w wierszu z DATA i sito je
+#: pomija; zostaje 239, a z nich 175 nie ma pokrycia (zapadka gorna wyzej w tym
+#: pliku). Pokrytych jest wiec 64 — i to o nich pytala pozycja 6.D264:
+#:
+#: **Liczby tego akapitu stoja BEZ POGRUBIENIA, i jest to trzeci raz w tej serii,
+#: kiedy zapisanie wyniku pomiaru kosztuje zdjecie pogrubienia.** Dwie z nich (15 i 49)
+#: pogrubienie MAJA, bo stoja obok stalych, ktore je niosa — i to jest dokladnie
+#: roznica, ktora ta pozycja mierzy. Cena tamtej bramki jest wiec widoczna w tym
+#: samym akapicie, ktory ja opisuje — i nie jest obchodzona w milczeniu.
+#:
+#: | co daje pokrycie | ile |
+#: |---|---|
+#: | PRZYPISANIE STALEJ w oknie | 15 |
+#: | przypadkowe wystapienie tej samej cyfry | 49 |
+#:
+#: **Trzy czwarte „pokrycia" jest zbiegiem cyfr, a nie zapisem w kodzie.** Przyklady
+#: sa dosadne: pogrubione `0` „pokrywa" wiersz `while i < len(maska) and glebokosc > 0:`,
+#: a pogrubione `1` — wiersz `"kod": 1,` z tablicy przypadkow testowych. Liczba
+#: uznana za pokryta nie jest wiec liczba, ktorej cokolwiek PILNUJE; jest liczba,
+#: ktorej ta sama cyfra gdzies obok przypadkiem stoi.
+#:
+#: **Czego to NIE znaczy.** Nie znaczy, ze zapadke 175 trzeba podniesc — podniesc
+#: zapadki gornej nie wolno, a i tak nie o to chodzi. Znaczy, ze slowo „pokrycie"
+#: opisuje w tej bramce dwie bardzo rozne rzeczy i dotad nie bylo tego widac.
+#: Rozroznienie jest od dzis PRZYBITE dwiema rownosciami i porownywane z drzewem.
+POKRYTYCH_PRZYPISANIEM = 15
+POKRYTYCH_ZBIEGIEM_CYFR = 49
+
+
+def pokrycie_pogrubionych(katalog=None, root=None):
+    """`{"przypisanie": n, "zbieg": n, "bez pokrycia": n}` — 6.D264.
+
+    Czytnik POZYCZONY: okno, skale i wzorzec pogrubienia sa te same, ktorych uzywa
+    `pogrubione_bez_pokrycia`. Dwa czytniki rozjechalyby sie przy pierwszej zmianie
+    okna, a zdanie „z 64 pokrytych 15 ma przypisanie" byloby wtedy zdaniem o dwoch
+    roznych oknach.
+    """
+    baza = katalog or os.path.join(ROOT, "tools", "tests")
+    korzen = root or ROOT
+    zrodla = {}
+    for gdzie, _katalogi, pliki in TW.walk(baza, korzen):
+        for nazwa in sorted(pliki):
+            if nazwa.endswith(".py"):
+                with open(os.path.join(gdzie, nazwa), encoding="utf-8") as uchwyt:
+                    zrodla[nazwa] = uchwyt.read().split("\n")
+    out = {"przypisanie": 0, "zbieg": 0, "bez pokrycia": 0}
+    for nazwa, wiersz, tekst, _rodzaj, od, do in proza(katalog, root):
+        linie = zrodla.get(nazwa, [])
+        czysty = SPECYFIKATOR.sub(" ", tekst)
+        lo = max(0, wiersz - OKNO_PROZY - 1)
+        hi = min(len(linie), do + OKNO_PROZY)
+        okno = linie[lo:od - 1] + linie[do:hi]
+        for trafienie in POGRUBIONA.finditer(czysty):
+            napis = trafienie.group(1)
+            if DATA.search(_wiersz_wokol(czysty, trafienie.start())):
+                continue
+            try:
+                wartosc = float(napis.replace(",", "."))
+            except ValueError:
+                continue
+            pokrywajace = []
+            for skala in SKALE:
+                wzor = re.compile(r"(?<![\w.])%s(?![\w.])"
+                                  % re.escape("%g" % (wartosc * skala)))
+                pokrywajace += [l for l in okno if wzor.search(l)]
+            if not pokrywajace:
+                out["bez pokrycia"] += 1
+            elif any(PRZYPISANIE_STALEJ.match(l) for l in pokrywajace):
+                out["przypisanie"] += 1
+            else:
+                out["zbieg"] += 1
+    return out
+
+
+def test_ile_POKRYCIA_daje_przypisanie_stalej_a_ile_zbieg_cyfr():
+    """**Obie liczby, ktorych zadalo pole „Wyjscie" 6.D264 — rownosciami.**
+
+    Rownosc, a nie podloga: populacja pokrytych jest maly ulamkiem prozy i nie rosnie
+    co pozycje, a KAZDE przejscie liczby z kupki „zbieg" do kupki „przypisanie" jest
+    poprawa, ktora chce sie widziec. Trzecia liczba (bez pokrycia) stoi juz przybita
+    zapadka gorna i jest tu sprawdzana na ZGODNOSC z nia — inaczej dwa czytniki
+    mowilyby o dwoch roznych drzewach.
+    """
+    rozklad = pokrycie_pogrubionych()
+    assert (rozklad["przypisanie"], rozklad["zbieg"]) == (POKRYTYCH_PRZYPISANIEM,
+                                                          POKRYTYCH_ZBIEGIEM_CYFR), (
+        "pokrycie przez PRZYPISANIE %d i przez ZBIEG CYFR %d, a pomiar 18.09.2026 dal "
+        "%d i %d. Przejscie liczby ze `zbiegu` do `przypisania` jest POPRAWA (liczba "
+        "stanela obok swojej stalej); w druga strone znaczy, ze stala zniknela, "
+        "a proza o niej zostala"
+        % (rozklad["przypisanie"], rozklad["zbieg"],
+           POKRYTYCH_PRZYPISANIEM, POKRYTYCH_ZBIEGIEM_CYFR))
+
+    assert rozklad["bez pokrycia"] == len(pogrubione_bez_pokrycia()), (
+        "ten czytnik widzi %d liczb bez pokrycia, a `pogrubione_bez_pokrycia` %d — "
+        "dwa czytniki tej samej rzeczy sie rozjechaly"
+        % (rozklad["bez pokrycia"], len(pogrubione_bez_pokrycia())))
+
+
+def test_czytnik_pokrycia_odroznia_PRZYPISANIE_od_ZBIEGU_CYFR():
+    """**Kontrola przyrzadu do 6.D264 — cztery ksztalty na drzewie probnym.**
+
+    Zadanie zadalo jej wprost: liczba pokryta przypisaniem ma trafic do pierwszej
+    kupki, a pokryta przypadkowym wystapieniem tej samej cyfry — do drugiej. Bez
+    tego para (15, 49) nie odroznialaby sie od czytnika, ktory wszystko wrzuca
+    do jednej kupki, a taki tez daje sume 64.
+    """
+    zrodlo = (
+        "#: proza o liczbie **7** i o liczbie **8**\n"
+        "#: oraz o liczbie **9**, ktorej nic nie trzyma\n"
+        "PROG = 7\n"
+        "def f(lista):\n"
+        "    return [x for x in lista if len(x) > 8]\n")
+
+    with tempfile.TemporaryDirectory(prefix="metro-pokrycie-") as katalog:
+        with open(os.path.join(katalog, "test_probne.py"), "w",
+                  encoding="utf-8") as uchwyt:
+            uchwyt.write(zrodlo)
+        rozklad = pokrycie_pokrycia = pokrycie_pogrubionych(katalog, katalog)
+
+    assert rozklad == {"przypisanie": 1, "zbieg": 1, "bez pokrycia": 1}, (
+        "czytnik dal %s, a mial dac po jednym w kazdej kupce: **7** pokryte "
+        "PRZYPISANIEM `PROG = 7`, **8** pokryte ZBIEGIEM CYFR w filtrze "
+        "`len(x) > 8`, a **9** bez pokrycia" % rozklad)
+
