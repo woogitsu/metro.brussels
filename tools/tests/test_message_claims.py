@@ -122,6 +122,7 @@ WYJATKI = {
     ("test_csharp_assertions.py", "0.0"): "cytat zapisu tolerancji w C#, nie wielkość",
     ("test_csharp_pins.py", "0.0"): "jak wyżej",
     ("test_dead_constants.py", "90,0"): "to samo zdanie co w `test_constant_names.py`",
+    ("test_message_claims.py", "2"): "człon zapisu `pokrywajace[:2]` cytowanego w komunikacie — nazwa wycinka z `pozycje_pokrycia`, nie wielkość mierzona",
     ("test_message_claims.py", "04"): "człon nazwy `docs/04-conventions.md` z fikstury kontroli przyrządu — sprawdzane jest, że sito go NIE liczy",
     ("test_message_claims.py", "085"): "urwany człon `0,085` z tej samej fikstury; asercja żąda, żeby go w populacji NIE było",
     ("test_message_claims.py", "0,085"): "ta sama fikstura, człon nierozcięty",
@@ -1411,3 +1412,306 @@ def test_sito_prozy_pomiarowej_NIE_liczy_cyfr_spoza_twierdzenia():
         "ksztaltu, ktory te pozycje wywolal — NIE sa w populacji (%d z 2). Sito "
         "na sam `**N**` bylo na nie slepe i dlatego stoi obok `ZAPOWIEDZ_POMIARU`; "
         "jezeli wypadly, zapowiedz przestala je lapac" % len(wywolujaca))
+
+
+# --- 6.D276: probka dowodu wyglada tak samo jak calosc -------------------------
+
+#: **Wycinek `[:N]` w czytniku wyglada identycznie, czy wycina DOWOD, czy NAPIS —
+#: i policzylem na probce, zanim sie zorientowalem (6.D274).**
+#:
+#: `pozycje_pokrycia` trzyma w polu `pokrywajace` dwa pierwsze wiersze, bo pole sluzy
+#: PRZYKLADOWI w komunikacie. Klasyfikujac pokrycie przeczytalem je jako calosc;
+#: przeliczenie po pelnym zbiorze dalo te same liczby, wiec wynik byl dobry — ale
+#: zgodnosc byla PRZYPADKIEM, a nie skutkiem sprawdzenia.
+#:
+#: **Trzy liczby, i pierwsza prostuje pole „Wyjscie" tej pozycji.** Zmierzone
+#: 18.09.2026 na `tools/tests/`, w funkcjach NIE-testowych, dla wycinkow `[:N]`
+#: o literale calkowitym dodatnim:
+#:
+#: | co | ile |
+#: |---|---|
+#: | wycinkow `[:N]` w czytnikach | 19 |
+#: | plikow, w ktorych stoja | 12 |
+#: | z tego WYCHODZACYCH z czytnika (wartosc dociera do wyniku) | 6 |
+#: | z tego skracajacych KOLEKCJE, a nie napis do wypisania | 3 |
+#:
+#: **Pole „Wyjscie" pozycji mowilo „20 wycinkow w 13 plikach" i obie liczby byly zle,
+#: kazda z innego powodu.** Dwadziescia bierze sie z PODWOJNEGO LICZENIA: `ast.walk`
+#: na funkcji zewnetrznej odwiedza tez wezly funkcji zagniezdzonej, wiec wycinek
+#: z `test_tool_refusals.py:84` wpada raz jako `asserty` i raz jako `zejdz`. Blad jest
+#: odtwarzalny i **popelnilem go sam dwa razy** — w rozpoznaniu przed pozycja i we
+#: wlasnym przewidywaniu. Trzynastu plikow nie daje **zadna** z szesciu sprawdzonych
+#: definicji (literal dodatni, literal dowolny, gorna granica dowolna, literal > 1,
+#: zakres `tools/tests`, zakres `tools`) ani zadne z trzech sprawdzonych drzew
+#: historycznych; najprosciej tlumaczy to liczba wpisana z reki, ktorej nikt nie
+#: porownal z drzewem — czyli ksztalt 6.D268, w pozycji, ktora sama jest O LICZENIU
+#: NA PROBCE.
+#:
+#: **Odpowiedz na pytanie o szkode brzmi ZERO, i to nie jest brak znaleziska.**
+#: Zaden z trzech wycinkow skracajacych kolekcje nie daje dzis innej liczby niz pelny
+#: zbior, bo w dwoch przypadkach autor postawil obok PELNY LICZNIK
+#: (`"padly": failed[:5]` tuz przy `"ile_padlo": len(failed)`), a trzeci jest fikstura,
+#: w ktorej skrocenie JEST trescia (asercja obok mowi wprost „wsrod pierwszych
+#: pieciu"). To jest wzorzec poprawny i on wlasnie stanowi tresc bramki nizej:
+#: probka wolno, ale obok ma stac licznik z calosci.
+WYCINKOW_W_CZYTNIKACH = 19
+PLIKOW_Z_WYCINKAMI = 12
+WYCHODZACYCH_Z_CZYTNIKA = 6
+
+#: Zbior PRZYBITY CO DO NAZWY, a nie zapadka — bo jest trzyelementowy i da sie
+#: przeczytac w calosci (6.D243: lista, ktorej nikt nie przeczyta, jest podpisem
+#: pod obrazkiem, ale TRZY wpisy przeczyta kazdy). Porownywany W OBIE STRONY:
+#: nowy wycinek skracajacy kolekcje zapala pierwsza polowe, znikniecie wpisu — druga.
+#: Werdykt `"licznik"` znaczy, ze w tej samej funkcji stoi `len(<baza>)` na PELNYM
+#: zbiorze; `"fikstura"` — ze skrocenie jest trescia testu, a nie probka dowodu.
+#: **Klucz to `(plik, funkcja, WYRAZENIE)` — nie numer wiersza, i to jest poprawka
+#: zrobiona na wlasnym bledzie w tym samym pliku.** Pierwsza wersja kotwiczyla po
+#: numerze wiersza; rozjechala sie **przy nastepnej wlasnej edycji tego modulu**,
+#: czyli dokladnie tak, jak mowi komentarz przy `WYJATKI` wyzej („kotwice po numerze
+#: wiersza ruszyly sie w tym repozytorium osmy raz w niecale cztery doby", 6.D229).
+#: Regula byla zapisana dziesiec ekranow wyzej i i tak ja zlamalem.
+#:
+#: Werdykt jest DEKLAROWANY — i to jest
+#: rozstrzygniecie, nie wygoda.** Roznicy „kolekcja czy napis" z AST wyczytac sie
+#: NIE DA: `wiersz[:60]` i `pokrywajace[:2]` to dla parsera ten sam ksztalt, a jedno
+#: skraca napis do wypisania, drugie zbior dowodow. Pierwsza wersja tej bramki
+#: probowala wywnioskowac to z tego, czy wycinana jest gola nazwa — i wpuscila
+#: `wiersz[:60]`, bo to tez gola nazwa. Zbior obejmuje wiec WSZYSTKIE szesc
+#: wychodzacych, kazdy z werdyktem, i jest porownywany W OBIE STRONY (6.D243).
+#: Werdykty: `"licznik"` — skraca kolekcje i w tej samej funkcji stoi `len(<baza>)`
+#: na pelnym zbiorze; `"fikstura"` — skrocenie JEST trescia testu; `"napis"` —
+#: skraca tekst do wypisania, wiec liczyc z tego nie ma czego.
+WYCHODZACE_Z_CZYTNIKA_WERDYKT = {
+    ("mutation_sweep.py", "check_one", "failed[:5]"): ("licznik", "failed"),
+    ("test_conflict_markers.py", "znaczniki_w_drzewie", "wiersz[:60]"): ("napis", None),
+    ("test_dimension_audit.py", "_platform_prose_offenders",
+     "line.strip()[:160]"): ("napis", None),
+    ("test_message_claims.py", "pozycje_pokrycia",
+     "pokrywajace[:2]"): ("licznik", "pokrywajace"),
+    ("test_tool_refusals.py", "asserty",
+     "ast.unparse(dziecko.test)[:80]"): ("napis", None),
+    ("test_validate_axis.py", "z_forma", "stops[:5]"): ("fikstura", None),
+}
+
+#: Wywolania, ktore wartosc PRZENOSZA dalej, zamiast ja zjadac. Bez `append` i reszty
+#: mutujacych lancuch urywa sie na `ast.Expr`, a przypadek, ktory te pozycje wywolal,
+#: wychodzi jako „lokalny" — klasyfikator mylil sie na nim TRZY RAZY z rzedu i za
+#: kazdym razem wygladal wiarygodnie. Dlatego kontrola przyrzadu nizej zada tego
+#: jednego przypadku PO IMIENIU.
+PRZENOSZACE_WARTOSC = ("append", "extend", "add", "update", "insert",
+                       "sorted", "list", "tuple", "set", "dict", "reversed")
+MUTUJACE_ODBIORNIK = ("append", "extend", "add", "update", "insert")
+POJEMNIKI_AST = (ast.List, ast.Tuple, ast.Dict, ast.Set, ast.ListComp,
+                 ast.SetComp, ast.DictComp, ast.GeneratorExp, ast.Starred)
+
+
+def _rodzice(drzewo):
+    mapa = {}
+    for wezel in ast.walk(drzewo):
+        for dziecko in ast.iter_child_nodes(wezel):
+            mapa[dziecko] = wezel
+    return mapa
+
+
+def _dokad_plynie(wezel, rodzice, funkcja, skoki=0):
+    """`"WYCHODZI"`, gdy wartosc wycinka dociera do wyniku czytnika.
+
+    Skok przez ODBIORNIK metody mutujacej (`out[...].append(x)` niesie `x` do `out`,
+    a nie do wyniku wywolania) jest tu TRESCIA, a nie ostroznoscia: bez niego
+    `pozycje_pokrycia` — przypadek, ktory te pozycje wywolal — wychodzi jako
+    „lokalny", i tak wlasnie mylil sie pierwszy klasyfikator.
+    """
+    biezacy = wezel
+    while True:
+        rodzic = rodzice.get(biezacy)
+        if rodzic is None or rodzic is funkcja:
+            return "lokalny"
+        if isinstance(rodzic, ast.Return):
+            return "WYCHODZI"
+        if isinstance(rodzic, POJEMNIKI_AST):
+            biezacy = rodzic
+            continue
+        if isinstance(rodzic, ast.Call):
+            nazwa = (rodzic.func.attr if isinstance(rodzic.func, ast.Attribute)
+                     else getattr(rodzic.func, "id", ""))
+            if nazwa not in PRZENOSZACE_WARTOSC:
+                return "zjedzony"
+            if isinstance(rodzic.func, ast.Attribute) and nazwa in MUTUJACE_ODBIORNIK:
+                korzen = rodzic.func.value
+                while isinstance(korzen, (ast.Subscript, ast.Attribute)):
+                    korzen = korzen.value
+                if isinstance(korzen, ast.Name) and skoki < 3:
+                    return _przez_nazwe(korzen.id, rodzice, funkcja, skoki + 1, korzen)
+                return "lokalny"
+            biezacy = rodzic
+            continue
+        if isinstance(rodzic, ast.Assign):
+            if skoki >= 3:
+                return "za-daleko"
+            cele = [t.id for t in rodzic.targets if isinstance(t, ast.Name)]
+            if not cele:
+                return "przypisany-zlozony"
+            for cel in cele:
+                if _przez_nazwe(cel, rodzice, funkcja, skoki + 1) == "WYCHODZI":
+                    return "WYCHODZI"
+            return "lokalny"
+        if isinstance(rodzic, ast.Compare):
+            return "porownanie"
+        if isinstance(rodzic, ast.BinOp):
+            return "wyrazenie"
+        biezacy = rodzic
+
+
+def _przez_nazwe(nazwa, rodzice, funkcja, skoki, pomijany=None):
+    """Dokad plynie wartosc zwiazana z ta nazwa — po wszystkich jej odczytach."""
+    wyniki = set()
+    for uzycie in ast.walk(funkcja):
+        if isinstance(uzycie, ast.Name) and uzycie.id == nazwa \
+                and isinstance(uzycie.ctx, ast.Load) and uzycie is not pomijany:
+            wyniki.add(_dokad_plynie(uzycie, rodzice, funkcja, skoki))
+    if "WYCHODZI" in wyniki:
+        return "WYCHODZI"
+    return sorted(wyniki)[0] if wyniki else "nieuzyty"
+
+
+def wycinki_w_czytnikach(katalog=None, root=None):
+    """`[(plik, funkcja, wiersz, wyrazenie, baza, klasa)]` — wycinki `[:N]`
+    w funkcjach NIE-testowych pod `tools/tests/`.
+
+    Deduplikacja po `(plik, wiersz, kolumna)` NIE jest ostroznoscia: `ast.walk`
+    na funkcji zewnetrznej odwiedza wezly funkcji zagniezdzonej, wiec bez niej
+    jeden wycinek liczy sie dwa razy — i tak powstalo „20" w polu „Wyjscie".
+    """
+    baza_kat = katalog or os.path.join(ROOT, "tools", "tests")
+    korzen = root or ROOT
+    widziane = {}
+    for gdzie, _katalogi, pliki in TW.walk(baza_kat, korzen):
+        for nazwa in sorted(pliki):
+            if not nazwa.endswith(".py"):
+                continue
+            with open(os.path.join(gdzie, nazwa), encoding="utf-8") as uchwyt:
+                drzewo = ast.parse(uchwyt.read())
+            rodzice = _rodzice(drzewo)
+            for funkcja in ast.walk(drzewo):
+                if not isinstance(funkcja, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    continue
+                if funkcja.name.startswith("test_"):
+                    continue
+                for wezel in ast.walk(funkcja):
+                    if not (isinstance(wezel, ast.Subscript)
+                            and isinstance(wezel.slice, ast.Slice)):
+                        continue
+                    kawalek = wezel.slice
+                    if kawalek.lower is not None or kawalek.step is not None:
+                        continue
+                    if not (isinstance(kawalek.upper, ast.Constant)
+                            and isinstance(kawalek.upper.value, int)
+                            and kawalek.upper.value > 0):
+                        continue
+                    klucz = (nazwa, wezel.lineno, wezel.col_offset)
+                    klasa = _dokad_plynie(wezel, rodzice, funkcja)
+                    wpis = (nazwa, funkcja.name, wezel.lineno,
+                            ast.unparse(wezel),
+                            wezel.value.id if isinstance(wezel.value, ast.Name) else None,
+                            klasa)
+                    if klucz not in widziane or klasa == "WYCHODZI":
+                        widziane[klucz] = wpis
+    return sorted(widziane.values())
+
+
+def _ma_licznik_z_calosci(plik, funkcja, baza, katalog=None, root=None):
+    """Czy w tej funkcji stoi `len(<baza>)` na PELNEJ nazwie, a nie na wycinku."""
+    baza_kat = katalog or os.path.join(ROOT, "tools", "tests")
+    korzen = root or ROOT
+    for gdzie, _katalogi, pliki in TW.walk(baza_kat, korzen):
+        if plik not in pliki:
+            continue
+        with open(os.path.join(gdzie, plik), encoding="utf-8") as uchwyt:
+            drzewo = ast.parse(uchwyt.read())
+        for wezel in ast.walk(drzewo):
+            if not isinstance(wezel, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            if wezel.name != funkcja:
+                continue
+            for w in ast.walk(wezel):
+                if isinstance(w, ast.Call) and getattr(w.func, "id", "") == "len" \
+                        and w.args and isinstance(w.args[0], ast.Name) \
+                        and w.args[0].id == baza:
+                    return True
+    return False
+
+
+def test_probka_dowodu_ma_obok_licznik_z_CALOSCI():
+    """**Probka wolno, ale obok ma stac licznik z calosci — i to jest caly wzorzec.**
+
+    Nie zakaz wycinkow: `"padly": failed[:5]` obok `"ile_padlo": len(failed)` jest
+    zapisem POPRAWNYM i to z niego ta bramka bierze regule. Zakazane jest skrocenie
+    kolekcji, ktora WYCHODZI z czytnika, bez licznika liczonego z pelnego zbioru.
+    """
+    wycinki = wycinki_w_czytnikach()
+    assert len(wycinki) == WYCINKOW_W_CZYTNIKACH, (
+        "wycinkow `[:N]` w czytnikach jest %d przy zapisanych %d — jezeli doszedl, "
+        "rozstrzygnij, czy WYCHODZI z czytnika i czy skraca kolekcje, czy napis"
+        % (len(wycinki), WYCINKOW_W_CZYTNIKACH))
+    assert len({x[0] for x in wycinki}) == PLIKOW_Z_WYCINKAMI, (
+        "plikow z wycinkami jest %d przy zapisanych %d"
+        % (len({x[0] for x in wycinki}), PLIKOW_Z_WYCINKAMI))
+
+    wychodzace = [x for x in wycinki if x[5] == "WYCHODZI"]
+    assert len(wychodzace) == WYCHODZACYCH_Z_CZYTNIKA, (
+        "wycinkow WYCHODZACYCH z czytnika jest %d przy zapisanych %d: %s"
+        % (len(wychodzace), WYCHODZACYCH_Z_CZYTNIKA,
+           [(x[0], x[2], x[3]) for x in wychodzace]))
+
+    # W OBIE STRONY (6.D243): zbior przybity musi zgadzac sie z drzewem i w jedna,
+    # i w druga strone, inaczej gnije jak kazda lista wyjatkow.
+    w_drzewie = {(x[0], x[1], x[3]) for x in wychodzace}
+    zapisane = set(WYCHODZACE_Z_CZYTNIKA_WERDYKT)
+    assert w_drzewie == zapisane, (
+        "zbior wycinkow WYCHODZACYCH z czytnika rozjechal sie z drzewem.\n"
+        "  w drzewie, a nie na liscie: %s\n"
+        "  na liscie, a nie w drzewie: %s"
+        % (sorted(w_drzewie - zapisane), sorted(zapisane - w_drzewie)))
+
+    for (plik, funkcja, _wyrazenie), (werdykt, baza) in sorted(
+            WYCHODZACE_Z_CZYTNIKA_WERDYKT.items()):
+        if werdykt != "licznik":
+            continue
+        assert _ma_licznik_z_calosci(plik, funkcja, baza), (
+            "`%s` w `%s:%s` skraca kolekcje, ktora WYCHODZI z czytnika, a `len(%s)` "
+            "na PELNEJ nazwie w tej funkcji juz nie stoi. Probka bez licznika z calosci "
+            "wyglada tak samo jak calosc — i tak wlasnie policzylem przy 6.D274"
+            % (baza, plik, funkcja, baza))
+
+
+def test_sledzenie_wartosci_ZNA_skok_przez_odbiornik_metody_mutujacej():
+    """**Kontrola przyrzadu: klasyfikator mylil sie tu TRZY RAZY i za kazdym razem
+    wygladal wiarygodnie.**
+
+    Wersja pierwsza konczyla lancuch na kazdym wywolaniu, druga przepuszczala
+    `append`, ale gubila ODBIORNIK, trzecia liczyla wycinek z funkcji zagniezdzonej
+    dwa razy. Kazda dawala liczbe, ktora czytalo sie jak wynik. Dlatego przypadek,
+    ktory te pozycje wywolal, jest tu zadany PO IMIENIU, a nie przez sume.
+    """
+    wycinki = wycinki_w_czytnikach()
+    wywolujacy = [x for x in wycinki
+                  if x[0] == "test_message_claims.py" and x[1] == "pozycje_pokrycia"]
+    assert len(wywolujacy) == 1, (
+        "wycinek `pokrywajace[:2]` z `pozycje_pokrycia` — przypadek, ktory te pozycje "
+        "wywolal — wystepuje w wyniku %d razy zamiast raz" % len(wywolujacy))
+    assert wywolujacy[0][5] == "WYCHODZI", (
+        "`pokrywajace[:2]` wyszlo jako %r zamiast `WYCHODZI`. Wartosc wedruje przez "
+        "`out[...].append(wpis)`, czyli przez ODBIORNIK metody mutujacej; jezeli "
+        "klasyfikator przestal robic ten skok, znowu nie widzi wlasnego przypadku"
+        % wywolujacy[0][5])
+
+    # Drugi kraniec: wycinek, ktory z czytnika NIE wychodzi, ma NIE wejsc do zbioru.
+    zjedzone = [x for x in wycinki if x[5] == "zjedzony"]
+    assert zjedzone, (
+        "zadnego wycinka nie uznano za zjedzony — klasyfikator zwraca jedna klase "
+        "dla wszystkiego, a wtedy liczba WYCHODZACYCH nic nie znaczy")
+    assert not any((x[0], x[1], x[3]) in WYCHODZACE_Z_CZYTNIKA_WERDYKT
+                   for x in zjedzone), (
+        "wycinek zjedzony przez wywolanie trafil do zbioru wychodzacych: %s"
+        % [(x[0], x[2], x[3]) for x in zjedzone
+           if (x[0], x[1], x[3]) in WYCHODZACE_Z_CZYTNIKA_WERDYKT])
