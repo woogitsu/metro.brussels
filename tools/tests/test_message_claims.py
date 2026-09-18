@@ -55,6 +55,7 @@ wyglądało na skuteczniejsze, niż jest. Złapała to kontrola przyrządu na we
 syntetycznym przy pierwszym przebiegu modułu — dokładnie po to jest.
 """
 import ast
+import collections
 import os
 import re
 import tempfile
@@ -635,7 +636,7 @@ PRZYPISANIE_STALEJ = re.compile(r"^\s*([A-Z][A-Z0-9_]*)\s*=\s*\S")
 #: zapadki gornej nie wolno, a i tak nie o to chodzi. Znaczy, ze slowo „pokrycie"
 #: opisuje w tej bramce dwie bardzo rozne rzeczy i dotad nie bylo tego widac.
 #: Rozroznienie jest od dzis PRZYBITE dwiema rownosciami i porownywane z drzewem.
-POKRYTYCH_PRZYPISANIEM = 15
+POKRYTYCH_PRZYPISANIEM = 18
 POKRYTYCH_ZBIEGIEM_CYFR = 54
 
 
@@ -662,6 +663,9 @@ def pozycje_pokrycia(katalog=None, root=None):
         lo = max(0, wiersz - OKNO_PROZY - 1)
         hi = min(len(linie), do + OKNO_PROZY)
         okno = linie[lo:od - 1] + linie[do:hi]
+        # Numery wierszy okna — do rozpoznania PAR WZAJEMNYCH (6.D274): bez nich
+        # wiadomo, ze cos pokrywa, ale nie wiadomo CO.
+        numery_okna = list(range(lo + 1, od)) + list(range(do + 1, hi + 1))
         for trafienie in POGRUBIONA.finditer(czysty):
             napis = trafienie.group(1)
             if DATA.search(_wiersz_wokol(czysty, trafienie.start())):
@@ -670,14 +674,24 @@ def pozycje_pokrycia(katalog=None, root=None):
                 wartosc = float(napis.replace(",", "."))
             except ValueError:
                 continue
-            pokrywajace = []
+            pokrywajace, numery_pokrywajace = [], []
             for skala in SKALE:
                 wzor = re.compile(r"(?<![\w.])%s(?![\w.])"
                                   % re.escape("%g" % (wartosc * skala)))
-                pokrywajace += [l for l in okno if wzor.search(l)]
+                for numer, linia in zip(numery_okna, okno):
+                    if wzor.search(linia):
+                        pokrywajace.append(linia)
+                        numery_pokrywajace.append(numer)
+            # Klasa liczona z PELNEGO zbioru, a nie z dwoch zapamietanych nizej:
+            # probka dwoch wierszy dawalaby „wylacznie proza" takze wtedy, gdy
+            # trzeci wiersz w oknie jest kodem (6.D274).
+            proza_ile = sum(1 for l in pokrywajace if l.strip().startswith("#"))
+            klasa_pokrycia = ("proza" if proza_ile == len(pokrywajace)
+                              else "kod" if proza_ile == 0 else "mieszane")
             wpis = (nazwa, wiersz, napis,
                     _wiersz_wokol(czysty, trafienie.start()).strip(),
-                    tuple(l.strip() for l in pokrywajace[:2]))
+                    tuple(l.strip() for l in pokrywajace[:2]),
+                    klasa_pokrycia, tuple(numery_pokrywajace))
             if not pokrywajace:
                 out["bez pokrycia"].append(wpis)
             elif any(PRZYPISANIE_STALEJ.match(l) for l in pokrywajace):
@@ -954,7 +968,7 @@ def test_rozklad_pokrytych_zbiegiem_PO_PLIKACH_zgadza_sie_z_drzewem():
     """
     import collections
     zmierzony = dict(collections.Counter(
-        n for n, _w, _x, _z, _p in pozycje_pokrycia()["zbieg"]))
+        w[0] for w in pozycje_pokrycia()["zbieg"]))
     brak = sorted(set(zmierzony) - set(ZBIEGIEM_PER_PLIK))
     zbedne = sorted(set(ZBIEGIEM_PER_PLIK) - set(zmierzony))
     assert (brak, zbedne) == ([], []), (
@@ -998,3 +1012,148 @@ def test_ROZJAZDY_nadal_sa_rozjazdami_i_lista_nie_zostala_z_tylu():
     assert nadal == ROZJAZDY_POKRYTE_ZBIEGIEM, (
         "lista rozjazdow rozjechala sie z drzewem: zmierzone %r, wpisane %r"
         % (sorted(nadal.items()), sorted(ROZJAZDY_POKRYTE_ZBIEGIEM.items())))
+
+
+# --- 6.D274: pokrycie PROZA PRZEZ PROZE, bez udzialu kodu ---------------------
+
+#: **Trzy czwarte „pokrycia" nie ma z kodem nic wspolnego.** 6.D264 nazwalo te
+#: klase ZBIEGIEM CYFR i mierzylo ja wzgledem KODU — okno czyta jednak WIERSZE
+#: PLIKU, nie odrozniajac kodu od komentarza, wiec wiersz pokrywajacy bywa po
+#: prostu INNYM ZDANIEM PROZY o tej samej liczbie.
+#:
+#: Zmierzone 18.09.2026 z 54 liczb klasy `zbieg`:
+#:
+#: * **41** pokrytych WYLACZNIE proza — w oknie nie ma ani jednego wiersza kodu;
+#: * **11** pokrytych wylacznie kodem;
+#: * **2** mieszane.
+#:
+#: **Dziewiec z nich stoi w PARACH WZAJEMNYCH**, gdzie zdanie A pokrywa B, a B
+#: pokrywa A — dwa zdania prozy certyfikuja sie nawzajem i zaden kod w tym nie
+#: uczestniczy. Siedem par stoi w `test_dead_constants_csharp.py`, gdzie zjawisko
+#: zobaczylem przy 6.D271, ale DWIE stoja gdzie indziej (`test_report_claims.py`
+#: i `test_suite_runtime_budget.py`), wiec nie jest to wlasnosc jednego pliku.
+#:
+#: **Klasyfikacja idzie po PELNYM zbiorze wierszy pokrywajacych, a nie po dwoch
+#: zapamietanych w `pozycje_pokrycia`** — pole tamtej funkcji trzyma tylko dwa
+#: pierwsze, wiec „wylacznie proza" znaczyloby na nim „obie zapamietane sa proza".
+#: Przeliczone od nowa po calym zbiorze daje te same 41/11/2; roznicy nie ma,
+#: ale jest to SPRAWDZONE, a nie zalozone.
+#:
+#: **Liczy sie to w TYM SAMYM przebiegu, co pokrycie.** Drugi skan tych samych
+#: okien kosztowalby tyle, co caly czytnik, a 6.D272 zmierzylo, ile taki drugi
+#: skan potrafi kosztowac: 22 s za odpowiedz „zero".
+POKRYTYCH_WYLACZNIE_PROZA = 41
+POKRYTYCH_WYLACZNIE_KODEM = 11
+POKRYTYCH_MIESZANIE = 2
+
+#: Pary wzajemne, przybite ADRESAMI WIERSZY. Numer wiersza rusza sie przy kazdym
+#: dopisanym akapicie powyzej, wiec przybicie po nim bylo by krucheszczyzna —
+#: dlatego przybita jest LICZBA par i rozklad po plikach, a same adresy stoja
+#: w `reports/6d274-proza-pokryta-proza.md`, gdzie starzec sie nie maja.
+PAR_WZAJEMNYCH = 9
+PAR_WZAJEMNYCH_PER_PLIK = {
+    "test_dead_constants_csharp.py": 7,
+    "test_report_claims.py": 1,
+    "test_suite_runtime_budget.py": 1,
+}
+
+
+def _klasa_wierszy(wiersze):
+    """`"proza"` / `"kod"` / `"mieszane"` — po PELNYM zbiorze, nie po probce."""
+    proza_ile = sum(1 for l in wiersze if l.strip().startswith("#"))
+    if proza_ile == len(wiersze):
+        return "proza"
+    return "kod" if proza_ile == 0 else "mieszane"
+
+
+def klasy_pokrycia_zbiegiem():
+    """`{"proza": n, "kod": n, "mieszane": n}` — z JEDNEGO przebiegu czytnika.
+
+    Czyta szosty czlon wpisu, ktory `pozycje_pokrycia` wypelnia w tej samej
+    petli, w ktorej liczy pokrycie. Osobny skan tych samych okien dalby te sama
+    liczbe za cene drugiego przebiegu po drzewie (6.D272).
+    """
+    out = collections.Counter()
+    for wpis in pozycje_pokrycia()["zbieg"]:
+        out[wpis[5]] += 1
+    return dict(out)
+
+
+def pary_wzajemne():
+    """`[((plik, wiersz, napis), (plik, wiersz, napis))]` — A pokrywa B i B pokrywa A."""
+    pokrywajace = {}
+    for wpis in pozycje_pokrycia()["zbieg"]:
+        pokrywajace[(wpis[0], wpis[1], wpis[2])] = set(wpis[6])
+    out = []
+    for lewy, numery_lewego in pokrywajace.items():
+        for prawy, numery_prawego in pokrywajace.items():
+            if lewy >= prawy or lewy[0] != prawy[0]:
+                continue
+            if prawy[1] in numery_lewego and lewy[1] in numery_prawego:
+                out.append((lewy, prawy))
+    return sorted(out)
+
+
+def test_ile_pokrycia_daje_INNA_PROZA_a_ile_KOD():
+    """**Trzy liczby z pola „Wyjscie" 6.D274 — rownosciami, nie progiem.**
+
+    Rownosc, bo kazde przejscie liczby z klasy KOD do klasy PROZA znaczy, ze
+    pokrycie przestal dawac kod, a zaczelo dawac sasiednie zdanie — i to jest
+    zmiana, ktora chce sie zobaczyc, a nie przepuscic.
+    """
+    klasy = klasy_pokrycia_zbiegiem()
+    assert klasy == {"proza": POKRYTYCH_WYLACZNIE_PROZA,
+                     "kod": POKRYTYCH_WYLACZNIE_KODEM,
+                     "mieszane": POKRYTYCH_MIESZANIE}, (
+        "klasy pokrycia zbiegiem: %r, a pomiar 18.09.2026 dal proza %d, kod %d, "
+        "mieszane %d. Liczba pokryta INNYM ZDANIEM PROZY nie jest pilnowana przez "
+        "nic — kodu w tym pokryciu nie ma"
+        % (klasy, POKRYTYCH_WYLACZNIE_PROZA, POKRYTYCH_WYLACZNIE_KODEM,
+           POKRYTYCH_MIESZANIE))
+    assert sum(klasy.values()) == POKRYTYCH_ZBIEGIEM_CYFR, (
+        "klasy sumuja sie do %d, a zapadka populacji stoi na %d — dwa zdania "
+        "o tej samej populacji niosa rozne liczby"
+        % (sum(klasy.values()), POKRYTYCH_ZBIEGIEM_CYFR))
+
+
+def test_ile_par_CERTYFIKUJE_SIE_NAWZAJEM():
+    """**Para wzajemna: A pokrywa B, B pokrywa A, a kodu w tym nie ma.**
+
+    Porownanie per plik, a nie sama suma: 6.D267 zmierzylo, ze suma przesuniecia
+    miedzy czlonami nie widzi, a tu czlonem jest plik. Rozklad pilnuje takze tego,
+    zeby zjawisko nie zostalo odczytane jako wlasnosc JEDNEGO modulu — dwie z
+    dziewieciu par stoja poza tym, w ktorym je zobaczylem.
+    """
+    pary = pary_wzajemne()
+    assert len(pary) == PAR_WZAJEMNYCH, (
+        "par wzajemnych jest %d, a pomiar 18.09.2026 dal %d: %s"
+        % (len(pary), PAR_WZAJEMNYCH, [(a[0], a[1], b[1]) for a, b in pary]))
+    per_plik = collections.Counter(a[0] for a, _b in pary)
+    assert dict(per_plik) == PAR_WZAJEMNYCH_PER_PLIK, (
+        "rozklad par po plikach %r, a pomiar dal %r"
+        % (dict(per_plik), PAR_WZAJEMNYCH_PER_PLIK))
+
+
+def test_czytnik_klas_odroznia_KOMENTARZ_od_KODU():
+    """**Kontrola przyrzadu — bez niej rownosc wyzej przejdzie przy czytniku slepym.**
+
+    Trzy ksztalty naraz: sam komentarz, sam kod i mieszanina. Wciecie jest tu
+    trescia, bo komentarz w tym drzewie stoi wciety razem z kodem, ktory opisuje,
+    a `startswith` bez `strip` uznalby go za kod.
+    """
+    same_komentarze = ["#: liczba 41 stoi tu", "    # a tu 41"]
+    sam_kod = ["PROG = 41", "    x = 41"]
+    mieszane = ["#: liczba 41", "PROG = 41"]
+
+    assert _klasa_wierszy(same_komentarze) == "proza", (
+        "dwa komentarze daly klase %r — wciety `#` nie zostal rozpoznany, "
+        "a tak wlasnie stoi komentarz przy kodzie, ktory opisuje"
+        % _klasa_wierszy(same_komentarze))
+    assert _klasa_wierszy(sam_kod) == "kod", (
+        "dwa wiersze kodu daly klase %r — wtedy KAZDE pokrycie liczy sie jako "
+        "proza i rownosc wyzej mowi o czym innym, niz mysli"
+        % _klasa_wierszy(sam_kod))
+    assert _klasa_wierszy(mieszane) == "mieszane", (
+        "komentarz z kodem daly klase %r — mieszanina ma byc trzecia klasa, "
+        "bo inaczej wpada do jednej z dwoch i przekreca obie"
+        % _klasa_wierszy(mieszane))
