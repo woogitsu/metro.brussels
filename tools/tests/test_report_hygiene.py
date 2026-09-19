@@ -454,7 +454,8 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 # 401 -> 402 (18.09.2026, 6.D266): jeden raport dopisany.
 # 402 -> 403 (18.09.2026, 6.D169): jeden raport dopisany.
 # 403 -> 404 (18.09.2026, 6.D170): jeden raport dopisany.
-MIN_REPORTS = 404
+# 404 -> 405 (19.09.2026, 6.D171): jeden raport dopisany.
+MIN_REPORTS = 405
 
 #: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
 #: wierszem zaczynającym się od `**`, z którego `_header_shapes` czyta kształt.
@@ -1477,6 +1478,250 @@ def test_detektor_przykladu_naglowka_widzi_blok_wciety():
     assert _header_field_line(
         "# Tytuł\n\n**Zmierzone na commicie:** `737d592`\n") == (
         "**Zmierzone na commicie:** `737d592`")
+
+
+#: **6.D171: sześć raportów, do których nie prowadził ani jeden odsyłacz.**
+#:
+#: Zmierzone 19.09.2026 na `5b42cf9`, poleceniem z pola „Weryfikacja" tej pozycji:
+#: każdy z sześciu był wymieniony DOKŁADNIE RAZ poza własnym plikiem, i za każdym razem
+#: był to wiersz `| 6.D171 |` w `docs/TASKS.md` — czyli wzmianka, która powstała
+#: z POLICZENIA BRAKU, a nie odsyłacz do treści. Siódme trafienie przy
+#: `uzupelnienie-kolejki-10-09` było trafieniem PO PRZEDROSTKU: dwa miejsca mówią
+#: o pliku `uzupelnienie-kolejki-10-09-druga.md`, czyli o czym innym.
+#:
+#: **Co łączy tę szóstkę, i to jest wynik, a nie przypadek:** wszystkie sześć powstało
+#: PRZED konwencją nazw `6dNNN-*`, czyli zanim istniał mechanizm, który odsyłacze
+#: tworzy — adnotacja ZROBIONE w wierszu pozycji cytująca `reports/6dNNN-….md`.
+#: Nie zgubił ich nikt; nigdy nie miały skąd być zacytowane.
+SZOSTKA_6D171 = frozenset({
+    "audyt-sekcja-6-weryfikacja",
+    "audyt-weryfikacja",
+    "decyzje-wlasciciela-07-09",
+    "runda-pieciu-agentow",
+    "sonda-doctor-bez-dotnet",
+    "uzupelnienie-kolejki-10-09",
+})
+
+#: Raport nazwany ARCHIWUM: zapis jednego dnia, który nie niesie wiedzy żywej, więc
+#: odsyłacza dostać nie może — nie ma miejsca, którego treść by wyjaśniał.
+#:
+#: **Powodem NIE jest „nikt go nie cytuje".** Tak brzmi objaw, który ta pozycja
+#: mierzyła, i wpisanie go tutaj zrobiłoby z listy podpis zamiast rozstrzygnięcia —
+#: klasa usterki, którą projekt tropi od 6.D27. Powodem jest to, że raport opisuje
+#: ZDARZENIE, a nie regułę: po zdarzeniu nie zostaje w drzewie nic, co by go
+#: potrzebowało.
+#:
+#: **Kasowania tu nie ma i być nie może** — `MIN_REPORTS` pilnuje, żeby katalog nie
+#: chudł, i to jest cały powód, dla którego wariantem drugim jest ARCHIWUM,
+#: a nie usunięcie pliku (6.D45).
+ARCHIWUM = {
+    "uzupelnienie-kolejki-10-09":
+        "Zapis JEDNEGO dnia: kolejka stała 10.09.2026 dokładnie na progu dwunastu "
+        "pozycji, więc sesja dopisała sześć nowych, zanim wzięła cokolwiek. Sześć "
+        "pozycji, które z tego wyszły, ma dziś własne wiersze i własne raporty; sam "
+        "przebieg uzupełniania nie zostawił w drzewie ani jednej reguły, która "
+        "odsyłałaby do tego opisu. Reguła, którą ten dzień stosował, mieszka "
+        "w `CLAUDE.md` §8 i w `tools/tests/test_backlog.py`, a nie tutaj.",
+}
+
+#: Dwa raporty, do których nie prowadzi ani jeden odsyłacz W CAŁYM DRZEWIE — nawet
+#: taki z policzenia braku. Zmierzone 19.09.2026 na `5b42cf9`, na korpusie
+#: `docs`, `tools`, `reports`, `.github`, `src`, `tests`, `CLAUDE.md` i `doctor.sh`.
+#:
+#: **Nie należą do 6.D171 i dlatego nie są tu rozstrzygane, tylko PRZYBITE.** Pole
+#: „Wejście" tamtej pozycji wymienia sześć plików imiennie i te dwa nie są wśród nich;
+#: `6d227-…` należy przy tym do pozycji, która jest OTWARTA, więc jej odsyłacz
+#: powstanie sam w chwili domknięcia. Liczba stoi tu po to, żeby trzeci taki raport
+#: zapalił bramkę, zamiast dołączyć po cichu.
+RAPORTY_BEZ_ODSYLACZA_POZA_6D171 = frozenset({
+    "6d227-zakres-nazwany-szerzej-niz-zmierzony",
+    "6d248-pierwsza-sciezka-obcieta",
+})
+
+#: Katalogi korpusu, w którym szukamy odsyłaczy, plus dwa pliki z korzenia.
+KORPUS_KATALOGI = ("docs", "tools", "reports", ".github", "src", "tests")
+KORPUS_PLIKI = ("CLAUDE.md", "doctor.sh")
+KORPUS_ROZSZERZENIA = (".md", ".py", ".sh", ".yml", ".cs", ".json")
+
+#: Wiersz tabeli i blok szczegłów pozycji, która brak POLICZYŁA — oba trzeba
+#: z korpusu WYCIĄĆ, żeby pytanie miało sens.
+#:
+#: **Blok szczegółów doszedł tu po kontroli, nie przed nią.** Pierwsza wersja wycinała
+#: sam wiersz tabeli — i KN-1b (wpis w `ARCHIWUM` podmieniony na inny raport szóstki)
+#: dał **23/23**, czyli bramka ogłosiła, że raport bez odsyłacza odsyłacz ma. Miał go
+#: w polu „Weryfikacja" bloku `##### 6.D171`, które wymienia wszystkie sześć nazw
+#: w pętli `for R in …`. To ta sama klasa co wiersz tabeli i co ten moduł: wzmianka
+#: powstała z POLICZENIA BRAKU nie jest odsyłaczem — tylko że tym razem stała
+#: w trzecim miejscu, o którym nie pomyślałem.
+WIERSZ_LICZACY_BRAK = "| 6.D171 |"
+BLOK_LICZACY_BRAK = "##### 6.D171"
+
+
+def _korpus(root=ROOT):
+    """`{sciezka wzgledna: tresc}` — drzewo bez gałęzi pominiętych w `.gitignore`."""
+    import tree_walk as TW
+    korpus = {}
+    for katalog in KORPUS_KATALOGI:
+        for baza, _k, pliki in TW.walk(os.path.join(root, katalog), root):
+            for nazwa in pliki:
+                if nazwa.endswith(KORPUS_ROZSZERZENIA):
+                    sciezka = os.path.join(baza, nazwa)
+                    with open(sciezka, encoding="utf-8", errors="ignore") as uchwyt:
+                        klucz = os.path.relpath(sciezka, root).replace(os.sep, "/")
+                        korpus[klucz] = uchwyt.read()
+    for nazwa in KORPUS_PLIKI:
+        with open(os.path.join(root, nazwa), encoding="utf-8") as uchwyt:
+            korpus[nazwa] = uchwyt.read()
+    return korpus
+
+
+#: Ten plik. **Wycinany z korpusu i to jest treść, nie ostrożność** — złapał to
+#: pierwszy przebieg tej bramki, nie oko. `SZOSTKA_6D171` i
+#: `RAPORTY_BEZ_ODSYLACZA_POZA_6D171` WYMIENIAJĄ nazwy raportów, więc bez tego
+#: wycięcia każdy raport przypięty na liście robił się dla czytnika „zacytowany"
+#: — bramka ogłaszałaby wtedy, że sierot nie ma, dokładnie dlatego, że sama je
+#: wymienia. Zmierzone: bez wycięcia zbiór sierot wyszedł **pusty** przy dwóch
+#: sierotach w drzewie. To ta sama zasada, która każe wycinać wiersz `| 6.D171 |`:
+#: wzmianka powstała z POLICZENIA BRAKU nie jest odsyłaczem.
+MODUL_TEJ_BRAMKI = "tools/tests/test_report_hygiene.py"
+
+
+def _bez_wiersza_liczacego_brak(korpus):
+    """Korpus bez wiersza `| 6.D171 |` i bez tego modułu — kopia, nie zmiana w miejscu."""
+    zwezony = {p: t for p, t in korpus.items() if p != MODUL_TEJ_BRAMKI}
+    zostaw, w_bloku = [], False
+    for wiersz in zwezony.get("docs/TASKS.md", "").split("\n"):
+        if wiersz.startswith(BLOK_LICZACY_BRAK):
+            w_bloku = True
+            continue
+        if w_bloku and wiersz.startswith("##### "):
+            w_bloku = False
+        if w_bloku or wiersz.startswith(WIERSZ_LICZACY_BRAK):
+            continue
+        zostaw.append(wiersz)
+    zwezony["docs/TASKS.md"] = "\n".join(zostaw)
+    return zwezony
+
+
+def _bez_wlasnej_listy(korpus):
+    """Korpus bez tego modułu — do pytania o CAŁY katalog, nie o szóstkę."""
+    return {p: t for p, t in korpus.items() if p != MODUL_TEJ_BRAMKI}
+
+
+def odsylacze(nazwa, korpus):
+    """Pliki korpusu, które wymieniają ten raport — bez jego własnego pliku.
+
+    **Dopasowanie ma GRANICĘ i znalazła to kontrola negatywna, nie oko.** Pierwsza
+    wersja pytała `nazwa in tresc`, czyli po przedrostku — a wtedy
+    `uzupelnienie-kolejki-10-09` „miało odsyłacz" w dwóch miejscach, które mówią
+    o pliku `uzupelnienie-kolejki-10-09-druga.md`, czyli o czym innym. KN-1 (wpis
+    zdjęty z `ARCHIWUM`) miał wtedy zapalić bramkę i **nie zapalił jej**: test
+    główny przeszedł na zielono na raporcie, który żadnego odsyłacza nie ma.
+    Pułapkę nazywa wprost pole „Weryfikacja" pozycji 6.D171 — i bramka wpadła w nią
+    mimo to, dopóki pomiar tego nie pokazał.
+    """
+    wlasny = "reports/%s.md" % nazwa
+    wzorzec = re.compile(re.escape(nazwa) + r"(?![-\w])")
+    return sorted(p for p, tresc in korpus.items()
+                  if p != wlasny and wzorzec.search(tresc))
+
+
+def test_kazdy_z_szostki_6D171_ma_odsylacz_albo_wpis_w_ARCHIWUM():
+    """Rozstrzygnięcie 6.D171: albo odsyłacz, albo nazwanie archiwum — nigdy nic."""
+    zwezony = _bez_wiersza_liczacego_brak(_korpus())
+    nierozstrzygniete = []
+    for nazwa in sorted(SZOSTKA_6D171):
+        if nazwa in ARCHIWUM:
+            continue
+        if not odsylacze(nazwa, zwezony):
+            nierozstrzygniete.append(nazwa)
+    assert not nierozstrzygniete, (
+        "te raporty nie mają ani odsyłacza spoza własnego pliku i spoza wiersza %s, "
+        "ani wpisu w ARCHIWUM: %s — dopisz jedno albo drugie"
+        % (WIERSZ_LICZACY_BRAK, nierozstrzygniete))
+
+
+def test_ARCHIWUM_nie_rozrasta_sie_po_cichu_i_kazdy_wpis_ma_POWOD():
+    """Lista wyjątków z podpisem zamiast powodu jest podpisem — 6.D27."""
+    spoza = sorted(set(ARCHIWUM) - SZOSTKA_6D171)
+    assert not spoza, (
+        "ARCHIWUM wymienia raporty spoza szóstki 6.D171: %s — archiwizowanie czegokolwiek "
+        "innego jest osobnym rozstrzygnięciem, nie skutkiem ubocznym tej listy" % spoza)
+    for nazwa, powod in sorted(ARCHIWUM.items()):
+        assert len(powod) > 200, (
+            "powód przy %r ma %d znaków — za mało, żeby powiedzieć, DLACZEGO ten raport "
+            "nie ma czego wyjaśniać" % (nazwa, len(powod)))
+        assert "nikt go nie cytuje" not in powod, (
+            "powód przy %r powtarza OBJAW zamiast podać przyczynę" % nazwa)
+
+
+def test_kazdy_wpis_ARCHIWUM_wskazuje_plik_ktory_LEZY_w_reports():
+    """Wpis o pliku, którego nie ma, opisuje wczorajszy katalog."""
+    widma = sorted(n for n in ARCHIWUM
+                   if not os.path.exists(os.path.join(REPORTS, "%s.md" % n)))
+    assert not widma, ("ARCHIWUM wskazuje raporty, których w `reports/` nie ma: %s" % widma)
+
+
+def test_szostka_6D171_LEZY_w_reports_i_zwezenie_korpusu_ROBI_ROZNICE():
+    """Kontrola przyrządu — bez niej test wyżej jest zielony na pustym zbiorze.
+
+    Szóstka ma w drzewie być, a zwężenie korpusu ma **zmieniać odpowiedź** — inaczej
+    wycinanie wiersza `| 6.D171 |` jest ozdobą, a nie treścią kryterium.
+    """
+    brak = sorted(n for n in SZOSTKA_6D171
+                  if not os.path.exists(os.path.join(REPORTS, "%s.md" % n)))
+    assert not brak, ("szóstka 6.D171 wymienia raporty, których nie ma: %s" % brak)
+
+    pelny = _korpus()
+    zwezony = _bez_wiersza_liczacego_brak(pelny)
+    assert len(pelny["docs/TASKS.md"]) > len(zwezony["docs/TASKS.md"]), (
+        "zwężenie korpusu nic nie usunęło — wiersz %s zmienił kształt albo zniknął, "
+        "a wtedy kryterium tej bramki milczy o tym, o co pyta" % WIERSZ_LICZACY_BRAK)
+    # Pytanie jest o WIERSZ ZACZYNAJĄCY SIĘ od znacznika, nie o wzmiankę w prozie:
+    # inne pozycje wolno o 6.D171 mówić, a ich zdania odsyłaczami do szóstki nie są.
+    wiersze = zwezony["docs/TASKS.md"].split("\n")
+    assert not [w for w in wiersze if w.startswith(WIERSZ_LICZACY_BRAK)], (
+        "zwężony `docs/TASKS.md` nadal niesie wiersz %s" % WIERSZ_LICZACY_BRAK)
+    assert not [w for w in wiersze if w.startswith(BLOK_LICZACY_BRAK)], (
+        "zwężony `docs/TASKS.md` nadal niesie blok %s — a to właśnie jego pole "
+        "`Weryfikacja` wymienia wszystkie sześć nazw" % BLOK_LICZACY_BRAK)
+    # Blok szczegłów JEST w pełnym korpusie i wymienia szóstkę — bez tego zdania
+    # wycięcie wyżej nic nie znaczy.
+    for nazwa in sorted(SZOSTKA_6D171):
+        assert nazwa in pelny["docs/TASKS.md"], (
+            "`docs/TASKS.md` nie wymienia %r — pozycja 6.D171 zmieniła kształt "
+            "i zwężenie mierzy co innego" % nazwa)
+    assert ARCHIWUM, (
+        "ARCHIWUM jest puste — kontrola przyrządu niżej nie ma czego sprawdzić; "
+        "jeżeli rozstrzygnięcie 6.D171 zmieniło się na `wszystkie dostają odsyłacz`, "
+        "zdejmij tę asercję razem z powodem")
+    z_archiwum = sorted(ARCHIWUM)[0]
+    assert odsylacze(z_archiwum, pelny), (
+        "raport %r nie jest wymieniony nawet w PEŁNYM korpusie — czytnik odsyłaczy "
+        "przestał czytać drzewo" % z_archiwum)
+
+    # Druga połowa zwężenia: TEN moduł wymienia wszystkie sześć nazw, więc bez jego
+    # wycięcia każda z nich miałaby „odsyłacz" — do własnej pozycji na liście.
+    assert MODUL_TEJ_BRAMKI in pelny, (
+        "korpus nie zawiera %s — wycięcie niżej niczego nie wycina" % MODUL_TEJ_BRAMKI)
+    assert MODUL_TEJ_BRAMKI not in zwezony, (
+        "zwężony korpus nadal zawiera %s — bramka liczyłaby własną listę jako "
+        "odsyłacz" % MODUL_TEJ_BRAMKI)
+    for nazwa in sorted(SZOSTKA_6D171):
+        assert MODUL_TEJ_BRAMKI in odsylacze(nazwa, pelny), (
+            "ten moduł nie wymienia %r, choć stoi ono w SZOSTKA_6D171 — kontrola "
+            "zwężenia mierzyłaby wtedy co innego" % nazwa)
+
+
+def test_ile_raportow_nie_ma_odsylacza_W_OGOLE_poza_szostka_6D171():
+    """Cały katalog, nie sama szóstka: trzeci taki raport ma zapalić bramkę."""
+    korpus = _bez_wlasnej_listy(_korpus())
+    sieroty = {nazwa[:-3] for nazwa, _tresc in _reports()}
+    sieroty = {n for n in sieroty if not odsylacze(n, korpus)}
+    assert sieroty == RAPORTY_BEZ_ODSYLACZA_POZA_6D171, (
+        "raportów bez ani jednego odsyłacza w drzewie jest %s, a przybite było %s "
+        "— nowy taki raport rozstrzygnij tak samo jak szóstkę 6.D171: odsyłacz albo "
+        "ARCHIWUM z powodem" % (sorted(sieroty), sorted(RAPORTY_BEZ_ODSYLACZA_POZA_6D171)))
 
 
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
