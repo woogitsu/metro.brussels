@@ -476,7 +476,8 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 # 423 -> 424 (19.09.2026, 6.D297): jeden raport dopisany.
 # 424 -> 425 (19.09.2026, 6.D298): jeden raport dopisany.
 # 425 -> 426 (19.09.2026, 6.D299): jeden raport dopisany.
-MIN_REPORTS = 426
+# 426 -> 427 (19.09.2026, 6.D300): jeden raport dopisany.
+MIN_REPORTS = 427
 
 #: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
 #: wierszem zaczynającym się od `**`, z którego `_header_shapes` czyta kształt.
@@ -964,7 +965,8 @@ PATH_TOKEN = re.compile(r'`((?:\.(?=[A-Za-z0-9_]+/))?[A-Za-z0-9_][A-Za-z0-9_./-]
 #: dla zapadki RÓWNOŚCIOWEJ; podłoga stosunkowa ma z natury jeden brzeg twardy
 #: i jeden z zapasem. Powód i rachunek stoją w `reports/podloga-sciezek-na-raport.md`
 #: oraz — dla tej zmiany — w `reports/6d179-koniec-pakietu-i-usterka-czytnika.md` §6.
-SCIEZEK_NA_RAPORT_MIN = 5
+# 5 -> 4 (19.09.2026, 6.D300): brzeg od gory, rachunek w raporcie 6.D300 §9.
+SCIEZEK_NA_RAPORT_MIN = 4
 
 #: Rozszerzenie, którego zdjęcie ze wzorca jest ZAWĘŻENIEM KONTROLNYM dla podłogi
 #: wyżej: najprawdopodobniejszy realny dryf (ktoś zacieśnia wzorzec „do plików
