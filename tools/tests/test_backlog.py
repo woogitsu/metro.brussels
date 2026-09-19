@@ -549,7 +549,17 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 # adnotacja ZROBIONE na 6.D296 SIODMY raz z rzedu zbila zapas na 11 przy progu 12.
 # Pozycja wychodzi z §3 i §9 raportu 6.D296: trzy z dziewieciu wpisow ginacych
 # przy pieciu wierszach stoja w dwoch modulach o najgestszej prozie.
-MINIMUM_DETAIL_BLOCKS = 369
+# 369 -> 370 (19.09.2026, 6.D297): jeden blok dopisany — 6.D306, ile modulow
+# zestawu wola wlasny czytnik drzewa wiecej niz raz z tej samej pary. Dopisany
+# jako UZUPELNIENIE KOLEJKI, OSMY raz z rzedu, ale z innego powodu niz siedem
+# poprzednich: adnotacja ZROBIONE na 6.D297 zbila zapas na 12, czyli ROWNO do
+# progu, a nie pod niego. Bramka zapasu bylaby zielona; czerwona bylaby dopiero
+# przy nastepnym domknieciu, czyli w CUDZYM pull requescie. Precedens stoi
+# w tym samym pliku przy 106 -> 111 i 112 -> 118 z 07-08.09.2026, gdzie zapas
+# rowny progowi byl powodem uzupelnienia, a nie powodem odczekania.
+# Pozycja wychodzi z §1 i §7 raportu 6.D297: dziewiec z trzynastu wolan idzie
+# z pary domyslnej, a drugi taki modul zmierzono przy 6.D283.
+MINIMUM_DETAIL_BLOCKS = 370
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
