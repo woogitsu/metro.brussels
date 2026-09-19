@@ -172,14 +172,21 @@ planie.** Nowy test broni konkretnego zachowania gry albo procesu dostarczenia.
 Snapshot audytu (`c2a5f9d`) jest od dzisiejszego `main` starszy o **jeden commit
 i dziewiętnaście minut**, a ten commit nie rusza ani jednego pliku w `src/`, `data/`,
 `.github/` ani `tools/blender/`. Osiem twierdzeń o stanie kodu sprawdzono po kolei
-i **wszystkie osiem jest aktualne**:
+i w dniu audytu wszystkie osiem było aktualnych.
+
+**To zdanie jest PRZEPISANE, a nie dopisane obok (19.09.2026).** Do dziś brzmiało
+„wszystkie osiem jest aktualne" w czasie teraźniejszym i przestało być prawdą:
+**dwa wiersze poniżej opisują stan, którego już nie ma**, bo domknęły je MB-05…MB-08.
+Tabela zostaje w brzmieniu z dnia audytu — bo opisuje AUDYT, a nie dzisiejsze drzewo —
+a przy obu nieaktualnych wierszach stoi dzisiejszy dowód. Kolumna „wynik" mówi więc
+odtąd o dniu audytu, a nie o dniu czytania:
 
 | twierdzenie audytu | wynik | dowód |
 |---|---|---|
 | brak końca ręcznego przejazdu | **aktualne** | `FirstRun.cs:988-1060`; `_done = true` tylko w czterech `Finish*`, żaden nie dotyczy trybu ręcznego |
 | `_done` odcina `R`/`Esc` | **aktualne** | `FirstRun.cs:1010` `if (_done) return;` stoi PRZED odczytem klawiatury w `:1015-1030` |
-| kabina niewpięta | **aktualne** | `grep m7_cab` w `src/Game/**` — zero trafień |
-| jeden `TrainView` | **aktualne** | `FirstRun.tscn:32`, `FirstRun.cs:362`; scena bierze `_lineCore.Trains[0]` (`:1117`, `:1690`) |
+| kabina niewpięta | **NIEAKTUALNE od 19.09.2026** | w dniu audytu `grep m7_cab` dawał zero; dziś kabina jest wpięta: `src/Game/Scenes/FirstRun.tscn:12`, `src/Game/World/CabView.cs`, `src/Game/FirstRun.cs:224` i `:461` |
+| jeden `TrainView` | **NIEAKTUALNE od 19.09.2026** | w dniu audytu scena brała `_lineCore.Trains[0]`; dziś `src/Game/RunPlan.cs:134` niesie `MaxTrains = 16`, a `src/Game/FirstRun.cs:188` słownik widoków składów |
 | `placeholders.json` to metadane | **aktualne** | `data/audio/` = dwa pliki, oba `.json`, zero nagrań; zero `AudioStream` w `src/` |
 | ścieżki poza `res://` | **aktualne** | `FirstRun.cs:477-481` `RepoPath` = `res://` + `../../` |
 | reguła zapasu egzekwowana | **aktualne** | `test_backlog.py:70`, `:694-698`, `:914` |
