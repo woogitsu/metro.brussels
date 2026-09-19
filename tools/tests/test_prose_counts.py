@@ -1235,7 +1235,11 @@ def test_czytnik_wyliczen_widzi_ksztalt_ktory_ma_widziec():
 #: liczy mu obu miar, a te liczy sie dla dwoch czytnikow spod kotwic i to wystarcza.
 #: Pelny przebieg po wszystkich czytnikach zostaje w `dwie_miary_czytnikow`
 #: i da sie go wywolac na zadanie; bramka go nie wola.
-KANDYDATOW_ODWZOROWAN = 41
+# 41 -> 42 (19.09.2026, 6.D234): doszedl `typy_publiczne` w nowej bramce
+# `test_csharp_type_callers.py`. Obejrzany, jak kaze ta rownosc: zwraca
+# odwzorowanie nazwa -> (rodzaj, plik), a proza obok podaje LICZBE KLUCZY,
+# czyli liczbe typow — i tak samo liczy ja `MIN_TYPOW_PUBLICZNYCH`.
+KANDYDATOW_ODWZOROWAN = 42
 
 #: Kotwice zdan, ktore miare NAZYWAJA, i miara, ktorej uzywa bramka obok.
 #: Kotwica, a nie dopasowanie wartosci — patrz akapit o dwoch zbiegach wyzej.
