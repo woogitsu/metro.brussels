@@ -570,7 +570,12 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 # DZIESIATY raz z rzedu i TRZECI raz z powodu zapasu ROWNEGO progowi.
 # Pozycja wychodzi z §2 i §8 raportu 6.D299: piec z siedmiu nazw koliduje,
 # a skan po samej nazwie trafia w 15 % wolan.
-MINIMUM_DETAIL_BLOCKS = 372
+# 372 -> 373 (19.09.2026, 6.D300): jeden blok dopisany — 6.D309, ile bramek
+# odejmuje dzisiejsze drzewo od przypietego zbioru. Dopisany jako UZUPELNIENIE
+# KOLEJKI, JEDENASTY raz z rzedu i CZWARTY raz z powodu zapasu ROWNEGO progowi.
+# Pozycja wychodzi z §2 i §8 raportu 6.D300: regula B przesunela siedemnascie
+# wyrazen do klasy zbiorowej, a nie liczbowej.
+MINIMUM_DETAIL_BLOCKS = 373
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
