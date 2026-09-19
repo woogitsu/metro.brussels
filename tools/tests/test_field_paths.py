@@ -2077,7 +2077,10 @@ def _istnieje_w_drzewie(nazwa):
 # 1210 -> 1218, 68 -> 70 i 465 -> 469 (19.09.2026, 6.D171): blok 6.D171 przeszedl do
 # wykonanych. Jego pole "Wejscie" niesie OSIEM adresow (szesc raportow bez odsylacza,
 # bramka i `docs/TASKS.md`), "Wyjscie" dwa, "Weryfikacja" cztery.
-ADRESOW_W_WYKONANYCH = {"Wejście": 1218, "Wyjście": 70, "Weryfikacja": 469}
+# 1218 -> 1222 i 469 -> 470 (19.09.2026, 6.D227): blok 6.D227 przeszedl do wykonanych.
+# Jego pole "Wejscie" niesie piec adresow, "Weryfikacja" jeden; "Wyjscie" zero, bo
+# to pole mowi o LICZBIE i o rozstrzygnieciu, a nie o sciezkach.
+ADRESOW_W_WYKONANYCH = {"Wejście": 1222, "Wyjście": 70, "Weryfikacja": 470}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
@@ -2195,7 +2198,10 @@ ADRESOW_W_WYKONANYCH = {"Wejście": 1218, "Wyjście": 70, "Weryfikacja": 469}
 # `test_dead_constants_csharp.py` z plotka „Weryfikacji" bloku tej pozycji.
 # 190 -> 191 (18.09.2026, 6.D266): jedno wywolanie modulu wiecej —
 # `test_tree_walks.py` z plotka „Weryfikacji" bloku tej pozycji.
-WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 191}
+# 191 -> 192 (19.09.2026, 6.D227): blok 6.D227 przeszedl do wykonanych, a jego pole
+# "Weryfikacja" wola `test_all.py test_report_claims.py` — czyli JEDNO wywolanie
+# modulu, nie sam adres.
+WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 192}
 
 #: Ilu kandydatow zlego adresu daje regula prozy, per pole — 6.D158.
 # 12 -> 13 (14.09.2026, 6.D204): trzynastym kandydatem jest `test_mutation_sweep.py`
