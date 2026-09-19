@@ -2097,7 +2097,14 @@ def _istnieje_w_drzewie(nazwa):
 # 1238 -> 1239, 70 -> 71 i 482 -> 484 (19.09.2026, 6.D287): blok 6.D287 przeszedl
 # do wykonanych; jego pole "Wejscie" niesie jeden adres, "Wyjscie" jeden
 # (pierwszy raz w tej serii, bo to pole nazywa plik raportu), "Weryfikacja" dwa.
-ADRESOW_W_WYKONANYCH = {"Wejście": 1239, "Wyjście": 71, "Weryfikacja": 484}
+# 1239 -> 1244 i 484 -> 485 (19.09.2026, 6.D288): blok 6.D288 przeszedl do
+# wykonanych; jego pole "Wejscie" niesie PIEC adresow (`data/network/lines.json`,
+# `docs/00-network-data.md`, `reports/audyt-weryfikacja.md`, `test_stations.py`
+# i `test_network_declarations.py`), "Weryfikacja" jeden, "Wyjscie" zero — to pole
+# mowi o raporcie w `reports/`, ale nie podaje jego sciezki. Liczby ZMIERZONE
+# czytnikiem, nie policzone z bloku: przy 6.D287 policzylem je z bloku i pomylilem
+# sie w obu (485 zamiast 484, 70 zamiast 71).
+ADRESOW_W_WYKONANYCH = {"Wejście": 1244, "Wyjście": 71, "Weryfikacja": 485}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
