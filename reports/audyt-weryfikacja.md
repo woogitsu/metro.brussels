@@ -150,6 +150,34 @@ Obie rzeczy dotykają `data/`, które jest tylko do odczytu, i obie są twierdze
 o sieci, których nie wolno zgadywać. Poszły więc do sekcji decyzji właściciela,
 nie do kolejki.
 
+### KOREKTA 19.09.2026, `9895e06` — dwa zdania tej sekcji są nieprawdziwe
+
+**Zdanie „żadna bramka tych dwóch liczb nie zestawia" było prawdziwe o 12:08:55
+i przestało nim być o 16:55:32 TEGO SAMEGO DNIA**, dziewięć commitów dalej:
+`a3a8a7b` („Reguła liczenia 60 → 59 była w danych przez cały czas, a raport ogłosił
+jej brak", #441) postawił `tools/tests/test_network_declarations.py:159` i `:183`.
+Dziś parę 60/59 dotykają **trzy** miejsca — te dwa oraz `tools/tests/test_all.py:218`
+— a `:183` zestawia obie liczby w jednym wyrażeniu i żąda, by bloki `station_notes`
+wymieniały nadmiarowe nazwy **z nazwy**.
+
+**Zdanie „nic w repozytorium tego nie mówi" też jest nieprawdziwe**, i było takie
+już w chwili pomiaru. `data/network/lines.json` niesie blok
+`station_notes.simonis_elisabeth` („to JEDEN kompleks stacyjny o dwóch halach
+peronowych") oraz `counting_rules` z liczbami 60/59/69 **maszynowo**; blok stał
+w drzewie od 07.09.2026 (`b019436`).
+
+**Liczby tej sekcji zostają** — `docs/04-conventions.md` zabrania przeliczania
+pomiaru z datą, a dziura wewnętrzna w L2 jest zmierzona poprawnie. Nieprawdziwy jest
+wniosek o braku pokrycia, więc korekta stoi obok, a nie w miejscu zdania.
+
+**Dlaczego ta korekta powstaje dopiero po dziesięciu dniach, a nie tego samego dnia:**
+twierdzenie niosły DWA raporty z 09.09.2026, a korekta trafiła do jednego.
+`reports/simonis-elisabeth-regula-liczenia.md` §8 zapowiada blok korekty dla
+„§5 tamtego raportu" — i blok ten stoi w `reports/przystanki-wobec-gtfs.md:98`.
+Ten raport, niosący to samo zdanie w tej samej sekcji, korekty nie dostał; jego
+nieskorygowaną kopię przeczytało 6.D171 dnia 19.09.2026 i z niej powstała pozycja
+6.D288. Pomiar nawrotu: `reports/6d288-szescdziesiat-wobec-piecdziesieciu-dziewieciu.md`.
+
 ## 6. Czego jeszcze nie sprawdziłem
 
 Findingi o zgodności manifestu dźwięku ze schematem oraz czternaście pozycji
