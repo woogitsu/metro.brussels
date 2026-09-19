@@ -534,7 +534,12 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 # ZROBIONE na 6.D293 CZWARTY raz z rzedu zbila zapas na 11 przy progu 12.
 # Pozycja wychodzi z §8 raportu 6.D293, gdzie para scalenie/galaz zostala
 # znaleziona w JEDNEJ klasie, bo tylko do niej ktos zajrzal.
-MINIMUM_DETAIL_BLOCKS = 366
+# 366 -> 367 (19.09.2026, 6.D294): jeden blok dopisany — 6.D303, zapadki, ktorych
+# dzisiejszy slownik nie zna. Dopisany jako UZUPELNIENIE KOLEJKI, bo adnotacja
+# ZROBIONE na 6.D294 PIATY raz z rzedu zbila zapas na 11 przy progu 12.
+# Pozycja wychodzi z §3 raportu 6.D294, gdzie zero w wierszu o zapadkach zostalo
+# nazwane wlasnoscia WZORCA, a nie drzewa — i pytanie zostawione otwarte.
+MINIMUM_DETAIL_BLOCKS = 367
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
