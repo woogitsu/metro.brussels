@@ -544,7 +544,12 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 # adnotacja ZROBIONE na 6.D295 SZOSTY raz z rzedu zbila zapas na 11 przy progu 12.
 # Pozycja wychodzi z §2 i §9 raportu 6.D295: komentarzy 11 836, docstringow 2843,
 # a najdluzszy docstring liczy 139 wierszy przy komentarzu zawsze jednowierszowym.
-MINIMUM_DETAIL_BLOCKS = 368
+# 368 -> 369 (19.09.2026, 6.D296): jeden blok dopisany — 6.D305, srednia z dwoch
+# populacji czy jedna liczba o drzewie. Dopisany jako UZUPELNIENIE KOLEJKI, bo
+# adnotacja ZROBIONE na 6.D296 SIODMY raz z rzedu zbila zapas na 11 przy progu 12.
+# Pozycja wychodzi z §3 i §9 raportu 6.D296: trzy z dziewieciu wpisow ginacych
+# przy pieciu wierszach stoja w dwoch modulach o najgestszej prozie.
+MINIMUM_DETAIL_BLOCKS = 369
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
