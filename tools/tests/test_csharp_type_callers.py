@@ -107,29 +107,41 @@ def _pliki_cs(root=ROOT):
     return out
 
 
-def typy_publiczne(zrodla=None, root=ROOT):
-    """`{nazwa: (rodzaj, plik)}` dla typów publicznych zadeklarowanych w `src/Sim/`."""
+#: Katalog, o którym ta bramka orzeka. Stoi jako DOMYŚLNA WARTOŚĆ parametru, a nie
+#: jako napis w ciele czytnika — 6.D289. Powód jest zmierzony dwa razy: 6.D281 na
+#: czytniku biorącym korpus ze stałej modułowej i 6.D285 na czytniku przyjmującym
+#: ścieżkę argumentem. Zawężenie w ciele znaczy, że pytanie „co ten sam skan pokazuje
+#: gdzie indziej" wymaga DRUGIEJ KOPII czytnika, a druga kopia rozjeżdża się z pierwszą.
+RDZEN = "src/Sim/"
+
+
+def typy_publiczne(zrodla=None, root=ROOT, przedrostek=RDZEN):
+    """`{nazwa: (rodzaj, plik)}` dla typów publicznych zadeklarowanych pod `przedrostek`."""
     zrodla = _pliki_cs(root) if zrodla is None else zrodla
     typy = {}
     for plik, tresc in sorted(zrodla.items()):
-        if not plik.startswith("src/Sim/"):
+        if not plik.startswith(przedrostek):
             continue
         for rodzaj, nazwa in TYP.findall(tresc):
             typy.setdefault(nazwa, (rodzaj, plik))
     return typy
 
 
-def rozklad_wolajacych(zrodla=None, root=ROOT):
+def rozklad_wolajacych(zrodla=None, root=ROOT, przedrostek=RDZEN):
     """`(wolane_z_src, tylko_testy, niewolane)` — trzy zbiory nazw.
 
     Maska literałów i komentarzy POŻYCZONA z `test_dead_constants_csharp.py`.
     Bez niej wzmianka w komentarzu liczyłaby się jako wołanie, a wtedy zbiór
     „tylko testy" mówiłby o prozie, nie o kodzie.
+
+    `przedrostek` zawęża tylko stronę DEKLARUJĄCĄ. Strona wołająca zostaje całym
+    `src/` i `tests/` niezależnie od niego, bo pytanie brzmi „czy ktokolwiek woła",
+    a nie „czy woła sąsiad z katalogu".
     """
     zrodla = _pliki_cs(root) if zrodla is None else zrodla
     maski = {p: CS.maska_z_dziurami(t) for p, t in zrodla.items()}
     z_src, tylko_testy, niewolane = set(), set(), set()
-    for nazwa, (_rodzaj, wlasny) in typy_publiczne(zrodla, root).items():
+    for nazwa, (_rodzaj, wlasny) in typy_publiczne(zrodla, root, przedrostek).items():
         slowo = re.compile(r"\b%s\b" % re.escape(nazwa))
         gdzie = [p for p, m in maski.items() if p != wlasny and slowo.search(m)]
         if any(p.startswith("src/") for p in gdzie):
@@ -250,6 +262,89 @@ def test_typ_wolany_z_src_NIE_trafia_do_zadnego_zbioru():
     assert z_src == {"Uzywany"} and not tylko_testy and not niewolane, (
         "typ wołany z `src/` trafił na listę: tylko_testy=%s, niewolane=%s"
         % (tylko_testy, niewolane))
+
+
+#: Scena główna gry i skrypt, który silnik wiąże w jej korzeniu — 6.D289.
+#:
+#: **TO NIE JEST ROZSZERZENIE CENSUSU NA `src/Game/`.** Nie ma tu podłogi liczby
+#: typów tego katalogu ani przypiętego zbioru jego nazw; bramka niżej sprawdza
+#: PRZESŁANKĘ rozstrzygnięcia, że zasięg censusu zostaje przy rdzeniu.
+#:
+#: Rozstrzygnięcie brzmi: zasięg zostaje, bo zbiór przypięty dla `src/Game/`
+#: musiałby nieść punkt wejścia gry jako „nienazwany nigdzie". W rdzeniu wszystkie
+#: wpisy `NIEWOLANE_PO_NAZWIE` dzieli JEDEN mechanizm, nazwany wyżej w tym module
+#: (wołający piszą `var`), i każdy czytelnik może go sprawdzić. Tutaj ten sam
+#: mechanizm pokrywa wszystkie prócz jednego, a ten jeden wymaga powodu innej klasy:
+#: wiązania w pliku, którego przyrząd nie otwiera i sprawdzić nie umie.
+#:
+#: **Warunek zmiany.** Zasięg rozszerza się wtedy i tylko wtedy, gdy czytnik nauczy
+#: się czytać wiązania silnika (`*.tscn`, `project.godot`) oraz konwencję punktu
+#: wejścia — czyli gdy powód każdego wpisu stanie się sprawdzalny tak samo jak
+#: w rdzeniu. Sam wzrost liczby typów w tych katalogach takim powodem nie jest.
+#:
+#: Bramka stoi, bo zdanie o drzewie zostawione w prozie starzeje się po cichu.
+#: Zmierzyła to 6.D288 na zdaniu, które przestało być prawdziwe tego samego
+#: popołudnia, w którym je zapisano, i wróciło po dziesięciu dniach jako pozycja
+#: kolejki — dlatego werdykt dostaje asercję, a nie akapit.
+PROJEKT_GODOT = "src/Game/project.godot"
+SCENA_GLOWNA_TSCN = "src/Game/Scenes/FirstRun.tscn"
+SKRYPT_KORZENIA = "FirstRun"
+
+
+def _tekst(wzgledna, root=ROOT):
+    with open(os.path.join(root, wzgledna), encoding="utf-8") as uchwyt:
+        return uchwyt.read()
+
+
+def test_skan_po_nazwie_NIE_WIDZI_wiazania_silnika_i_to_jest_powod_zasiegu():
+    """Punkt wejścia gry wychodzi skanowi jako „nienazwany nigdzie" — 6.D289.
+
+    Trzy fakty, z których wynika rozstrzygnięcie o zasięgu. Rozjazd któregokolwiek
+    znaczy, że rozstrzygnięcie trzeba przeczytać na nowo, a nie że bramka jest
+    zepsuta.
+    """
+    zrodla = _pliki_cs()
+    typy = typy_publiczne(zrodla, przedrostek="src/Game/")
+    assert SKRYPT_KORZENIA in typy, (
+        "`%s` przestał być typem publicznym `src/Game/` — przesłanka rozstrzygnięcia "
+        "o zasięgu zniknęła" % SKRYPT_KORZENIA)
+
+    _z_src, _tylko_testy, niewolane = rozklad_wolajacych(zrodla, przedrostek="src/Game/")
+    assert SKRYPT_KORZENIA in niewolane, (
+        "skan po nazwie widzi już wołającego dla `%s` — wiązanie silnika przestało "
+        "być jedynym, więc powód zawężenia censusu do rdzenia trzeba przeliczyć"
+        % SKRYPT_KORZENIA)
+
+    godot = _tekst(PROJEKT_GODOT)
+    assert 'run/main_scene="res://Scenes/FirstRun.tscn"' in godot, (
+        "`%s` nie wskazuje już `%s` jako sceny głównej" % (PROJEKT_GODOT, SCENA_GLOWNA_TSCN))
+    tscn = _tekst(SCENA_GLOWNA_TSCN)
+    assert 'path="res://FirstRun.cs"' in tscn, (
+        "`%s` nie wiąże już `FirstRun.cs` — to, czego skan po nazwie nie widzi, "
+        "zmieniło kształt" % SCENA_GLOWNA_TSCN)
+
+
+def test_slepota_siedzi_w_KORZENIU_sceny_a_nie_w_calym_katalogu():
+    """Kontrola przyrządu do bramki wyżej — 6.D289.
+
+    Bez niej zdanie „skan nie widzi wiązań silnika" brzmiałoby jak zdanie o całym
+    `src/Game/`, a jest zdaniem o jednym węźle. Scena wiąże kilka skryptów i skan
+    widzi wołającego dla każdego POZA korzeniem — bo wszystkie pozostałe wymienia
+    z nazwy `FirstRun.cs`. Gdyby ta asercja padła, zawężenie censusu miałoby powód
+    szerszy, niż dziś ma, i też wymagałoby przeliczenia.
+    """
+    tscn = _tekst(SCENA_GLOWNA_TSCN)
+    wiazane = re.findall(r'\[ext_resource type="Script" path="res://([^"]+)\.cs"', tscn)
+    assert len(wiazane) > 1, (
+        "scena wiąże jeden skrypt albo wzorzec przestał je czytać: %s" % wiazane)
+
+    zrodla = _pliki_cs()
+    _z_src, _tylko_testy, niewolane = rozklad_wolajacych(zrodla, przedrostek="src/Game/")
+    nazwy = [w.rsplit("/", 1)[-1] for w in wiazane]
+    slepe = sorted(n for n in nazwy if n in niewolane)
+    assert slepe == [SKRYPT_KORZENIA], (
+        "skryptów sceny niewidocznych dla skanu jest %s, a przesłanka mówi o samym "
+        "korzeniu — powód zawężenia censusu zmienił zasięg" % (slepe,))
 
 
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw.

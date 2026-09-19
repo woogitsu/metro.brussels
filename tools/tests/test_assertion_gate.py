@@ -1730,7 +1730,17 @@ def test_wzorzec_rodziny_lapie_zdanie_ktore_ma_lapac_i_nie_bierze_sasiedztwa():
 # — kontrola wzorca typu zada, zeby slowo `struct` NIE wyszlo jako nazwa typu.
 # Stoi na NAPISIE, ale napis jest WYNIKIEM rozbioru probki przez `TYP`, a nie
 # napisem przepisanym: mierzone jest zachowanie wzorca.
-ASERCJI_NAPISOWYCH_RAZEM = 934
+# 934 -> 936 (19.09.2026, 6.D289): dwie asercje ksztaltu `literal in cos` wiecej
+# — bramka na przeslance rozstrzygniecia o zasiegu censusu typow pyta, czy
+# `project.godot` wskazuje scene glowna i czy ta scena wiaze `FirstRun.cs`.
+# **Stoja na NAPISIE i NIE mam dla nich usprawiedliwienia, ktore maja wpisy wyzej:**
+# tamte literaly sa WYNIKIEM rozbioru wykonanego przez czytnik, a te dwa sa wierszami
+# konfiguracji PRZEPISANYMI z plikow. Tak ma byc i to jest wlasciwe pytanie: przedmiotem
+# asercji jest to, CO TE DWA PLIKI MOWIA, bo z tego zdania wynika rozstrzygniecie,
+# ze census zostaje przy rdzeniu. Gdyby pytaly o zachowanie czytnika, nie pilnowalyby
+# przeslanki, tylko przyrzadu. Do `NA_ZRODLE_PY` nie naleza: prawa strona to
+# `project.godot` i `.tscn`, a nie zrodlo `.py`.
+ASERCJI_NAPISOWYCH_RAZEM = 936
 
 #: **Kotwica wpisu to `(plik, funkcja, operator, literał)`, a NIE numer wiersza.**
 #: Numer przesuwa się przy każdej edycji pliku i lista rozjechałaby się sama z siebie.
