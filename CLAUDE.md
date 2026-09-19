@@ -44,7 +44,7 @@ piszącego.
 |---|---|
 | `docs/00-network-data.md` | fakty o sieci — **źródło prawdy**, nie zmieniasz |
 | `docs/01-architecture.md` | podział na moduły, krok czasowy, determinizm |
-| `docs/02-simulation.md` | równania i **tablica referencyjna** dla testów fizyki |
+| `docs/02-simulation.md` | równania i parametry M7; tablice referencyjne dla testów fizyki stoją w raportach, nie tutaj |
 | `docs/03-legal.md` | twarde blokady prawne |
 | `docs/04-conventions.md` | jednostki, osie, nazewnictwo, git |
 | `docs/05-glossary.md` | słownik FR/NL/PL — do czytania źródeł STIB |
