@@ -112,6 +112,11 @@ powiedzieć, która jest która.
 
 ### DECYZJA WŁAŚCICIELA 07.09.2026 — godzina zostaje
 
+Pełny zapis tej decyzji — razem z trzema pozostałymi z tego samego dnia i z tym, czego
+one NIE rozstrzygnęły — stoi w `reports/decyzje-wlasciciela-07-09.md`. Ten akapit jest
+skutkiem czwartej z nich; tamten raport mówi, skąd wzięły się wszystkie cztery i które
+wiersze kolejki zdjęły.
+
 Pytanie padło, bo właściciel zapytał wprost: „Czemu nie działasz? I czemu triger cię
 nie obudził?". Odpowiedź jest **zmierzona**, nie domyślona, i jest w niej rzecz
 niewygodna dla tego dokumentu:

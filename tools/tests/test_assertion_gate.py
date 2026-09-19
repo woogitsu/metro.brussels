@@ -1721,7 +1721,12 @@ def test_wzorzec_rodziny_lapie_zdanie_ktore_ma_lapac_i_nie_bierze_sasiedztwa():
 # (sciezka jako literal), ale tekst jest WYNIKIEM wyciecia wykonanego przez
 # `poza_paragrafem_3`, a nie napisem przepisanym — mierzone jest zachowanie
 # czytnika, nie jego tresc.
-ASERCJI_NAPISOWYCH_RAZEM = 932
+# 932 -> 933 (19.09.2026, 6.D170 -> 6.D171): jedna asercja ksztaltu `literal in cos`
+# wiecej — `test_ARCHIWUM_nie_rozrasta_sie_po_cichu_i_kazdy_wpis_ma_POWOD` zabrania,
+# zeby powod przy wpisie ARCHIWUM powtarzal OBJAW (`nikt go nie cytuje`) zamiast
+# podac przyczyne. Stoi na NAPISIE i to jest tu WLASCIWE pytanie: przedmiotem
+# asercji jest tresc uzasadnienia pisanego rekami, a nie zachowanie czytnika.
+ASERCJI_NAPISOWYCH_RAZEM = 933
 
 #: **Kotwica wpisu to `(plik, funkcja, operator, literał)`, a NIE numer wiersza.**
 #: Numer przesuwa się przy każdej edycji pliku i lista rozjechałaby się sama z siebie.

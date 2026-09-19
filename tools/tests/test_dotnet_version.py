@@ -8,6 +8,11 @@ się na komunikat o brakującym targeting packu, który nie wskazuje na workflow
 
 Powód drugi: .NET 8 kończy wsparcie 10.11.2026. Test pilnuje też, żeby projekt
 nie osunął się z powrotem na wersję po dacie końca wsparcia.
+
+Powód trzeci, i on jest o TYM module, a nie o projekcie: ten plik sam kiedyś
+ZAKŁADAŁ środowisko zamiast je gwarantować — po wymianie puli runnerów bramka
+`tools` zrobiła się czerwona na commitach, które nie tykały ani `doctor.sh`, ani
+testów SDK. Objaw, przyczyna i poprawka: `reports/sonda-doctor-bez-dotnet.md`.
 """
 import json
 import os

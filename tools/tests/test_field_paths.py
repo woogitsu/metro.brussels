@@ -2074,7 +2074,10 @@ def _istnieje_w_drzewie(nazwa):
 # 1203 -> 1210, 67 -> 68 i 464 -> 465 (18.09.2026, 6.D170): blok 6.D170 przeszedl do
 # wykonanych; jego pole "Wejscie" niesie SIEDEM adresow (piec dokumentow gatunku
 # ground truth, `CLAUDE.md` i wzor bramki), "Wyjscie" jeden, "Weryfikacja" jeden.
-ADRESOW_W_WYKONANYCH = {"Wejście": 1210, "Wyjście": 68, "Weryfikacja": 465}
+# 1210 -> 1218, 68 -> 70 i 465 -> 469 (19.09.2026, 6.D171): blok 6.D171 przeszedl do
+# wykonanych. Jego pole "Wejscie" niesie OSIEM adresow (szesc raportow bez odsylacza,
+# bramka i `docs/TASKS.md`), "Wyjscie" dwa, "Weryfikacja" cztery.
+ADRESOW_W_WYKONANYCH = {"Wejście": 1218, "Wyjście": 70, "Weryfikacja": 469}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu

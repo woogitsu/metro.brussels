@@ -116,7 +116,8 @@ wersja przypisywała mu wykrywanie wywróconych normalnych („widać »przez« 
 a to zostało **zmierzone jako nieprawda**: para fixture różniąca się wyłącznie windingiem
 dała klatki `_inside` różne o **cztery bajty na 737 tysięcy**, czyli o szum kompresji,
 a obejrzane nie różniły się niczym — wersja z odwróconymi ścianami wyglądała jak zdrowy
-tunel (6.D75, `reports/6d75-klatka-orientacji.md`). Zdolność istnieje od 09.09.2026,
+tunel (6.D75, `reports/6d75-klatka-orientacji.md`; pomiar pierwotny, w rundzie,
+w której to wyszło: `reports/runda-pieciu-agentow.md`). Zdolność istnieje od 09.09.2026,
 tylko w **osobnej klatce `_normals`**: kulling na materiale kontrolnym byłby dosłowniej
 zgodny z dawnym brzmieniem tego wiersza, ale ten sam skrypt renderuje też pudło pojazdu
 i przekroje stacji, oglądane **legalnie od tyłu**, więc zapalałby się na poprawnej
