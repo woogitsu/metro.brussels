@@ -513,7 +513,13 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 # tym samym czytnikiem na pliku PO edycji.
 # 361 -> 362 (19.09.2026, 6.D289): jeden blok szesciu pol dopisany — 6.D298,
 # cztery drogi uzycia, ktorych skan po nazwie nie widzi.
-MINIMUM_DETAIL_BLOCKS = 362
+# 362 -> 363 (19.09.2026, 6.D290): jeden blok dopisany — 6.D299, siedem typow
+# zwracanych wylacznie w liczbie mnogiej. Dopisany jako UZUPELNIENIE KOLEJKI,
+# bo adnotacja ZROBIONE na 6.D290 zbila zapas na 11 przy progu 12 i zapalila
+# `test_the_documented_shortfall_is_written_down_while_it_lasts`. Pozycja nie jest
+# wymyslona na miejscu: wychodzi z §8 raportu 6.D290, gdzie siodemka zostala
+# policzona i SWIADOMIE nietknieta.
+MINIMUM_DETAIL_BLOCKS = 363
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
