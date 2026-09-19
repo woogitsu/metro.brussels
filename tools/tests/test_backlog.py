@@ -511,7 +511,9 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 # 358 -> 361 (19.09.2026, 6.D284): bloki 6.D295, 6.D296 i 6.D297, zapisane jako
 # poboczne znaleziska tej pozycji i NIE wziete od razu (CLAUDE.md §8). Policzone
 # tym samym czytnikiem na pliku PO edycji.
-MINIMUM_DETAIL_BLOCKS = 361
+# 361 -> 362 (19.09.2026, 6.D289): jeden blok szesciu pol dopisany — 6.D298,
+# cztery drogi uzycia, ktorych skan po nazwie nie widzi.
+MINIMUM_DETAIL_BLOCKS = 362
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
