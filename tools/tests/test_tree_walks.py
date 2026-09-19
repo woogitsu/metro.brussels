@@ -248,7 +248,7 @@ def klasa_zapadki(nazwa, porownania):
 
 
 #: **Wszystkie zapadki pod `tools/tests/`, każda z klasą i modułem.**
-#: Zapadek: 90. **Przybitych: 18, częściowych: 3, WOLNYCH: 67, poza zasięgiem skanu: 2.**
+#: Zapadek: 91. **Przybitych: 18, częściowych: 3, WOLNYCH: 68, poza zasięgiem skanu: 2.**
 #:
 #: **To zdanie jest przepisane, a nie dopisane obok — po raz DRUGI (15.09.2026).**
 #: Stało tu najpierw „Trzydzieści osiem: 13 przybitych…" (11.09.2026, `52752c9`)
@@ -472,6 +472,7 @@ ZAPADKI = {
     "MIN_SLAD_DOTYCZY_WASKO": (WOLNA, "test_commit_claims.py"),
     "MIN_SLAD_DOTYCZY_SZEROKO": (WOLNA, "test_commit_claims.py"),
     "MIN_SLAD_BEZ_RAPORTU": (WOLNA, "test_commit_claims.py"),
+    "MINIMUM_AKAPITOW": (WOLNA, "test_machine_paragraphs.py"),
     # 6.D278: para podlog na zdania o JEDNEJ pogrubionej i na stojace w nich
     # liczby gole. Obie WOLNE, obie jako prawa strona jednego porownania.
     "MIN_ZDAN_O_JEDNEJ_POGRUBIONEJ": (WOLNA, "test_one_bold_sentences.py"),
@@ -1347,7 +1348,9 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
     # warianty klasy `dotyczy` i klasa `bez raportu`. Waski i szeroki stoja OBOK
     # siebie z tego samego powodu co przy 6.D227: zwezenie OKNA i zwezenie NAZW
     # zapalaja rozne, wiec jedna podloga nie zastapi drugiej.
-    assert len(w_drzewie) == ZAPADEK_RAZEM == 90, (
+    # 90 -> 91 (19.09.2026, 6.D285): podloga na liczbe akapitow czytanych
+    # w `docs/23-environment.md` — bez niej zbior przypiety zgadza sie z pustka.
+    assert len(w_drzewie) == ZAPADEK_RAZEM == 91, (
         "zapadek w drzewie %d, na liście %d, pomiar z 11.09.2026 mówił 38, "
         "po 6.D146 — 40, po 6.D147 — 42 (doszła zapadka na sekwencje ucieczki "
         "i próg KW jej skanu), po 6.D187 — 44 (dwa progi KW skanu gołych nazw), "
@@ -1394,7 +1397,8 @@ def test_kazda_zapadka_ma_klase_i_klasa_zgadza_sie_z_drzewem():
     # WOLNYCH 62 -> 63 (18.09.2026, 6.D170): podloga na liczbe plikow `docs/*.md`.
     # WOLNYCH 63 -> 64 (19.09.2026, 6.D234): podloga na liczbe typow publicznych.
     # WOLNYCH 64 -> 67 (19.09.2026, 6.D283): trzy podlogi na klasy sladu kontroli.
-    assert (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM]) == (18, 3, 67, 2), (
+    # WOLNYCH 67 -> 68 (19.09.2026, 6.D285): podloga bramki akapitow o maszynie.
+    assert (ile[PRZYBITA], ile[CZESCIOWA], ile[WOLNA], ile[POZA_SKANEM]) == (18, 3, 68, 2), (
         "klasy zapadek: przybitych %d, częściowych %d, WOLNYCH %d, poza skanem %d — "
         "pomiar z 11.09.2026 mówił 13/3/21/1, po 6.D146 — 13/3/23/1, a po 6.D147 — "
         "14/3/24/1, po 6.D151 — 15/3/23/1, po 6.D167 — 17/3/21/1, po 6.D187 — "
@@ -1644,7 +1648,9 @@ def test_ktore_wolne_zapadki_sa_PRZESADZONE_ksztaltem_a_ktore_zmierzone():
     # (63, 62) -> (64, 63) (19.09.2026, 6.D234): `MIN_TYPOW_PUBLICZNYCH`, tak samo.
     # (64, 63) -> (67, 66) (19.09.2026, 6.D283): trzy podlogi klas sladu, kazda
     # wylacznie jako prawa strona jednego porownania, wiec wszystkie przesadzone.
-    assert (wolnych, przesadzonych) == (67, 66), (
+    # (67, 66) -> (68, 67) (19.09.2026, 6.D285): `MINIMUM_AKAPITOW`, tak samo
+    # wylacznie jako prawa strona jednego porownania.
+    assert (wolnych, przesadzonych) == (68, 67), (
         "wolnych %d, z tego przesądzonych kształtem %d — pomiar 17.09.2026 dał 42 i 40, "
         "a po 6.D258 daje 41 i 40: `MAX_ODCISKOW_W_RAPORCIE` wyszło z klasy `wolna` "
         "do `poza skanem`, więc ubyla ZAPADKA i ubyl jej WPIS w słowniku rozstrzygnięć; "
