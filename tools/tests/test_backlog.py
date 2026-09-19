@@ -529,7 +529,12 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 # bo adnotacja ZROBIONE na 6.D292 trzeci raz z rzedu zbila zapas na 11 przy progu 12.
 # Pozycja wychodzi z §1, §2 i §7 raportu 6.D292, gdzie ten sam prog dal dwa
 # PRZECIWNE werdykty o tej samej nazwie, zaleznie od mianownika.
-MINIMUM_DETAIL_BLOCKS = 365
+# 365 -> 366 (19.09.2026, 6.D293): jeden blok dopisany — 6.D302, scalenie i jego
+# galaz w jednej populacji. Dopisany jako UZUPELNIENIE KOLEJKI, bo adnotacja
+# ZROBIONE na 6.D293 CZWARTY raz z rzedu zbila zapas na 11 przy progu 12.
+# Pozycja wychodzi z §8 raportu 6.D293, gdzie para scalenie/galaz zostala
+# znaleziona w JEDNEJ klasie, bo tylko do niej ktos zajrzal.
+MINIMUM_DETAIL_BLOCKS = 366
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
