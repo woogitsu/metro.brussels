@@ -519,7 +519,12 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 # `test_the_documented_shortfall_is_written_down_while_it_lasts`. Pozycja nie jest
 # wymyslona na miejscu: wychodzi z §8 raportu 6.D290, gdzie siodemka zostala
 # policzona i SWIADOMIE nietknieta.
-MINIMUM_DETAIL_BLOCKS = 363
+# 363 -> 364 (19.09.2026, 6.D291): jeden blok dopisany — 6.D300, odejmowanie,
+# ktorego skladnia nie orzeka. Dopisany jako UZUPELNIENIE KOLEJKI, bo adnotacja
+# ZROBIONE na 6.D291 znow zbila zapas na 11 przy progu 12. Pozycja wychodzi
+# z §3 i §4 raportu 6.D291, gdzie trojka nierozstrzygalna zostala nazwana
+# z imienia i SWIADOMIE nietknieta.
+MINIMUM_DETAIL_BLOCKS = 364
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
