@@ -2124,7 +2124,10 @@ def _istnieje_w_drzewie(nazwa):
 # 1251 -> 1252 i 492 -> 494 (19.09.2026, 6.D294): blok 6.D294 przeszedl do
 # wykonanych; jego pole "Wejscie" niesie jeden nowy adres, "Weryfikacja" dwa.
 # Liczby ZMIERZONE czytnikiem, nie policzone z bloku.
-ADRESOW_W_WYKONANYCH = {"Wejście": 1252, "Wyjście": 71, "Weryfikacja": 494}
+# 1252 -> 1253 i 494 -> 496 (19.09.2026, 6.D295): blok 6.D295 przeszedl do
+# wykonanych; jego pole "Wejscie" niesie jeden nowy adres, "Weryfikacja" dwa.
+# Liczby ZMIERZONE czytnikiem, nie policzone z bloku.
+ADRESOW_W_WYKONANYCH = {"Wejście": 1253, "Wyjście": 71, "Weryfikacja": 496}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
@@ -2256,7 +2259,9 @@ ADRESOW_W_WYKONANYCH = {"Wejście": 1252, "Wyjście": 71, "Weryfikacja": 494}
 # `test_commit_claims.py` z plotka "Weryfikacji" bloku 6.D302.
 # 199 -> 200 (19.09.2026, 6.D294): jedno wywolanie modulu wiecej —
 # `test_tree_walks.py` z plotka "Weryfikacji" bloku 6.D303.
-WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 200}
+# 200 -> 201 (19.09.2026, 6.D295): jedno wywolanie modulu wiecej —
+# `test_message_claims.py` z plotka "Weryfikacji" bloku 6.D304.
+WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 201}
 
 #: Ilu kandydatow zlego adresu daje regula prozy, per pole — 6.D158.
 # 12 -> 13 (14.09.2026, 6.D204): trzynastym kandydatem jest `test_mutation_sweep.py`
