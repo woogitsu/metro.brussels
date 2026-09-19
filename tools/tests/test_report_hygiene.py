@@ -478,7 +478,8 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 # 425 -> 426 (19.09.2026, 6.D299): jeden raport dopisany.
 # 426 -> 427 (19.09.2026, 6.D300): jeden raport dopisany.
 # 427 -> 428 (19.09.2026, 6.D301): jeden raport dopisany.
-MIN_REPORTS = 428
+# 428 -> 429 (19.09.2026, 6.D302): jeden raport dopisany.
+MIN_REPORTS = 429
 
 #: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
 #: wierszem zaczynającym się od `**`, z którego `_header_shapes` czyta kształt.
