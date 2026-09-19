@@ -455,7 +455,8 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 # 402 -> 403 (18.09.2026, 6.D169): jeden raport dopisany.
 # 403 -> 404 (18.09.2026, 6.D170): jeden raport dopisany.
 # 404 -> 405 (19.09.2026, 6.D171): jeden raport dopisany.
-MIN_REPORTS = 405
+# 405 -> 406 (19.09.2026, 6.D227): jeden raport dopisany.
+MIN_REPORTS = 406
 
 #: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
 #: wierszem zaczynającym się od `**`, z którego `_header_shapes` czyta kształt.
@@ -1533,8 +1534,11 @@ ARCHIWUM = {
 #: `6d227-…` należy przy tym do pozycji, która jest OTWARTA, więc jej odsyłacz
 #: powstanie sam w chwili domknięcia. Liczba stoi tu po to, żeby trzeci taki raport
 #: zapalił bramkę, zamiast dołączyć po cichu.
+# 19.09.2026, 6.D227: `6d227-…` ZNIKŃ z tego zbioru i to jest dokładnie ten ruch,
+# którego komentarz wyżej się spodziewał. Raport należał do pozycji, która była
+# zrobiona od 16.09.2026, ale nie miała adnotacji ZROBIONE — a odsyłacz do raportu
+# powstaje właśnie w adnotacji. Adnotacja weszła, odsyłacz powstał sam.
 RAPORTY_BEZ_ODSYLACZA_POZA_6D171 = frozenset({
-    "6d227-zakres-nazwany-szerzej-niz-zmierzony",
     "6d248-pierwsza-sciezka-obcieta",
 })
 
