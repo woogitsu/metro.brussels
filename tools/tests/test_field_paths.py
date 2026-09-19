@@ -2080,7 +2080,9 @@ def _istnieje_w_drzewie(nazwa):
 # 1218 -> 1222 i 469 -> 470 (19.09.2026, 6.D227): blok 6.D227 przeszedl do wykonanych.
 # Jego pole "Wejscie" niesie piec adresow, "Weryfikacja" jeden; "Wyjscie" zero, bo
 # to pole mowi o LICZBIE i o rozstrzygnieciu, a nie o sciezkach.
-ADRESOW_W_WYKONANYCH = {"Wejście": 1222, "Wyjście": 70, "Weryfikacja": 470}
+# 1222 -> 1226 i 470 -> 471 (19.09.2026, 6.D234): blok 6.D234 przeszedl do
+# wykonanych; jego pole "Wejscie" niesie cztery adresy, "Weryfikacja" jeden.
+ADRESOW_W_WYKONANYCH = {"Wejście": 1226, "Wyjście": 70, "Weryfikacja": 471}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu

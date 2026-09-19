@@ -144,14 +144,15 @@ przy MB-04, 206 po dopisaniu `test_doctor_test_log.py` przy 6.D241, 207 po dopis
 `test_commit_claims.py` przy 6.D279, 215 po dopisaniu
 `assert_render_sums.py` i `test_render_sums.py` przy 6.D280, 216 po dopisaniu
 `test_data_thresholds.py` przy 6.D266, 217 po dopisaniu
-`test_docs_map.py` przy 6.D170 — bramka zapalała
+`test_docs_map.py` przy 6.D170, 218 po dopisaniu
+`test_csharp_type_callers.py` przy 6.D234 — bramka zapalała
 się na każdej z tych jedynek sama.)
 
 Tworzy je **jeden nazwany krok tego samego joba** — `Compile Python tools`, czyli
 `python3 -m compileall -q tools`, stojący w `python-tests.yml` bezpośrednio przed
 krokiem „Run tool tests". Liczby zgadzają się co do pliku i są odtwarzalne lokalnie:
-na czystym drzewie `compileall` daje **7 katalogów i 217 plików**, z tym samym
-rozkładem (`tools/tests` 145, `tools/blender` 29, `tools/track` 23, `tools/ci` 10,
+na czystym drzewie `compileall` daje **7 katalogów i 218 plików**, z tym samym
+rozkładem (`tools/tests` 146, `tools/blender` 29, `tools/track` 23, `tools/ci` 10,
 `tools/visual` 5, `tools/physics` 3, `tools/data` 2).
 
 Wniosek zostaje ten sam, ale wynika z czego innego: ten bajtkod powstał **z tego samego

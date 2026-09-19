@@ -1726,7 +1726,11 @@ def test_wzorzec_rodziny_lapie_zdanie_ktore_ma_lapac_i_nie_bierze_sasiedztwa():
 # zeby powod przy wpisie ARCHIWUM powtarzal OBJAW (`nikt go nie cytuje`) zamiast
 # podac przyczyne. Stoi na NAPISIE i to jest tu WLASCIWE pytanie: przedmiotem
 # asercji jest tresc uzasadnienia pisanego rekami, a nie zachowanie czytnika.
-ASERCJI_NAPISOWYCH_RAZEM = 933
+# 933 -> 934 (19.09.2026, 6.D234): jedna asercja ksztaltu `literal in cos` wiecej
+# — kontrola wzorca typu zada, zeby slowo `struct` NIE wyszlo jako nazwa typu.
+# Stoi na NAPISIE, ale napis jest WYNIKIEM rozbioru probki przez `TYP`, a nie
+# napisem przepisanym: mierzone jest zachowanie wzorca.
+ASERCJI_NAPISOWYCH_RAZEM = 934
 
 #: **Kotwica wpisu to `(plik, funkcja, operator, literał)`, a NIE numer wiersza.**
 #: Numer przesuwa się przy każdej edycji pliku i lista rozjechałaby się sama z siebie.
