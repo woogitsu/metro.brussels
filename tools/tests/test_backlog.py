@@ -524,7 +524,12 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 # ZROBIONE na 6.D291 znow zbila zapas na 11 przy progu 12. Pozycja wychodzi
 # z §3 i §4 raportu 6.D291, gdzie trojka nierozstrzygalna zostala nazwana
 # z imienia i SWIADOMIE nietknieta.
-MINIMUM_DETAIL_BLOCKS = 364
+# 364 -> 365 (19.09.2026, 6.D292): jeden blok dopisany — 6.D301, mianownik
+# szerszy niz populacja, ktora bramka czyta. Dopisany jako UZUPELNIENIE KOLEJKI,
+# bo adnotacja ZROBIONE na 6.D292 trzeci raz z rzedu zbila zapas na 11 przy progu 12.
+# Pozycja wychodzi z §1, §2 i §7 raportu 6.D292, gdzie ten sam prog dal dwa
+# PRZECIWNE werdykty o tej samej nazwie, zaleznie od mianownika.
+MINIMUM_DETAIL_BLOCKS = 365
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je

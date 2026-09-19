@@ -2115,7 +2115,10 @@ def _istnieje_w_drzewie(nazwa):
 # 1248 -> 1249 i 487 -> 488 (19.09.2026, 6.D291): blok 6.D291 przeszedl do
 # wykonanych; jego pole "Wejscie" niesie dwa adresy (jeden stoi juz gdzie indziej),
 # "Weryfikacja" jeden. Liczby ZMIERZONE czytnikiem, nie policzone z bloku.
-ADRESOW_W_WYKONANYCH = {"Wejście": 1249, "Wyjście": 71, "Weryfikacja": 488}
+# 1249 -> 1250 i 488 -> 490 (19.09.2026, 6.D292): blok 6.D292 przeszedl do
+# wykonanych; jego pole "Wejscie" niesie jeden nowy adres, "Weryfikacja" dwa.
+# Liczby ZMIERZONE czytnikiem, nie policzone z bloku.
+ADRESOW_W_WYKONANYCH = {"Wejście": 1250, "Wyjście": 71, "Weryfikacja": 490}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
@@ -2241,7 +2244,9 @@ ADRESOW_W_WYKONANYCH = {"Wejście": 1249, "Wyjście": 71, "Weryfikacja": 488}
 # 193 -> 194 (19.09.2026, 6.D282): blok 6.D282 wola `test_all.py test_commit_claims.py`.
 # 196 -> 197 (19.09.2026, 6.D289): jedno wywolanie modulu wiecej —
 # `test_csharp_type_callers.py` z plotka „Weryfikacji" bloku 6.D298.
-WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 197}
+# 197 -> 198 (19.09.2026, 6.D292): jedno wywolanie modulu wiecej —
+# `test_commit_claims.py` z plotka "Weryfikacji" bloku 6.D292.
+WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 198}
 
 #: Ilu kandydatow zlego adresu daje regula prozy, per pole — 6.D158.
 # 12 -> 13 (14.09.2026, 6.D204): trzynastym kandydatem jest `test_mutation_sweep.py`
