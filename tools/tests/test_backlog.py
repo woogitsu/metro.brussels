@@ -559,7 +559,13 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 # rowny progowi byl powodem uzupelnienia, a nie powodem odczekania.
 # Pozycja wychodzi z §1 i §7 raportu 6.D297: dziewiec z trzynastu wolan idzie
 # z pary domyslnej, a drugi taki modul zmierzono przy 6.D283.
-MINIMUM_DETAIL_BLOCKS = 370
+# 370 -> 371 (19.09.2026, 6.D298): jeden blok dopisany — 6.D307, ile nazw typow
+# stoi w PROZIE bramek i ile z nich juz nie istnieje. Dopisany jako UZUPELNIENIE
+# KOLEJKI, DZIEWIATY raz z rzedu i DRUGI raz z powodu zapasu ROWNEGO progowi,
+# a nie mniejszego — adnotacja ZROBIONE na 6.D298 zbila go na 12. Pozycja
+# wychodzi z §3 i §11 raportu 6.D298: 32 pliki czytaja zrodla C#, a nazwa typu
+# pada w 73, i roznica to proza, ktorej nie pilnuje nic.
+MINIMUM_DETAIL_BLOCKS = 371
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je

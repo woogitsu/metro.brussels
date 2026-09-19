@@ -2135,7 +2135,12 @@ def _istnieje_w_drzewie(nazwa):
 # osmiu poprzednich adnotacjach — blok wymienia `test_message_claims.py`
 # i `test_suite_runtime_budget.py`. "Weryfikacja" niesie dwa, jak zwykle.
 # Liczby ZMIERZONE czytnikiem, nie policzone z bloku.
-ADRESOW_W_WYKONANYCH = {"Wejście": 1256, "Wyjście": 71, "Weryfikacja": 500}
+# 1256 -> 1260 i 500 -> 501 (19.09.2026, 6.D298): blok 6.D298 przeszedl do
+# wykonanych; jego pole "Wejscie" niesie CZTERY nowe adresy (scena, projekt
+# Godota, `test_player_package.py`, raport 6.D289 — piaty, `test_csharp_type_
+# callers.py`, stoi juz od 6.D289), a "Weryfikacja" jeden, bo plotek wola tylko
+# ten jeden modul. Liczby ZMIERZONE czytnikiem, nie policzone z bloku.
+ADRESOW_W_WYKONANYCH = {"Wejście": 1260, "Wyjście": 71, "Weryfikacja": 501}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
@@ -2276,7 +2281,9 @@ ADRESOW_W_WYKONANYCH = {"Wejście": 1256, "Wyjście": 71, "Weryfikacja": 500}
 # przeszedl do wykonanych. Tym razem NIE z bloku uzupelniajacego kolejke —
 # blok 6.D306 tez wchodzi tym commitem, ale jego plotek liczy sie dopiero
 # wtedy, gdy pozycja bedzie zrobiona; czytnik widzi wylacznie bloki wykonane.
-WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 203}
+# 203 -> 204 (19.09.2026, 6.D298): jedno wywolanie modulu wiecej —
+# `test_csharp_type_callers.py` z plotka "Weryfikacji" bloku 6.D298.
+WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 204}
 
 #: Ilu kandydatow zlego adresu daje regula prozy, per pole — 6.D158.
 # 12 -> 13 (14.09.2026, 6.D204): trzynastym kandydatem jest `test_mutation_sweep.py`
