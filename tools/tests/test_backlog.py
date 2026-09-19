@@ -508,7 +508,10 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 # `test_the_documented_shortfall_is_written_down_while_it_lasts` po adnotacji
 # ZROBIONE na 6.D283 (zapas spadl na 11 przy progu 12). Policzone czytnikiem
 # `detail_sections` na pliku PO edycji, nie wpisane z pamieci.
-MINIMUM_DETAIL_BLOCKS = 358
+# 358 -> 361 (19.09.2026, 6.D284): bloki 6.D295, 6.D296 i 6.D297, zapisane jako
+# poboczne znaleziska tej pozycji i NIE wziete od razu (CLAUDE.md §8). Policzone
+# tym samym czytnikiem na pliku PO edycji.
+MINIMUM_DETAIL_BLOCKS = 361
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je

@@ -701,10 +701,14 @@ def pozycje_pokrycia(katalog=None, root=None):
             proza_ile = sum(1 for l in pokrywajace if l.strip().startswith("#"))
             klasa_pokrycia = ("proza" if proza_ile == len(pokrywajace)
                               else "kod" if proza_ile == 0 else "mieszane")
+            # Osmy czlon to ZASIEG bloku prozy (6.D284): bez niego odleglosc
+            # wiersza pokrywajacego od bloku trzeba by liczyc drugim przebiegiem
+            # `proza`, a dwa przebiegi po tym samym drzewie rozjezdzaja sie przy
+            # pierwszej zmianie okna — ten modul zna to z 6.D213.
             wpis = (nazwa, wiersz, napis,
                     _wiersz_wokol(czysty, trafienie.start()).strip(),
                     tuple(l.strip() for l in pokrywajace[:2]),
-                    klasa_pokrycia, tuple(numery_pokrywajace))
+                    klasa_pokrycia, tuple(numery_pokrywajace), (od, do))
             if not pokrywajace:
                 out["bez pokrycia"].append(wpis)
             elif any(PRZYPISANIE_STALEJ.match(l) for l in pokrywajace):
@@ -1096,6 +1100,142 @@ def klasy_pokrycia_zbiegiem():
     for wpis in pozycje_pokrycia()["zbieg"]:
         out[wpis[5]] += 1
     return dict(out)
+
+
+#: Ile liczb klasy `zbieg` ma NAJBLIZSZE pokrycie dalej niz polowa okna, i ile ma
+#: KAZDE pokrycie dokladnie na skraju okna. Zmierzone 19.09.2026 przy 6.D284.
+#: Rownosci, a nie progi, z tego samego powodu co przy rozkladzie klas pokrycia:
+#: populacja jest mala, a kazde przejscie wpisu do klasy kruchych albo z niej jest
+#: zdarzeniem, ktore chce sie zobaczyc. Adresy stoja w raporcie, nie tutaj — numer
+#: wiersza rusza sie przy kazdym dopisanym akapicie i ta pozycja wlasnie tego dotyczy.
+POKRYCIE_DALEJ_NIZ_POLOWA_OKNA = 22
+POKRYCIE_NA_SKRAJU_OKNA = 1
+
+#: Ktora to liczba — para (plik, napis), a NIE numer wiersza. Stoi tu, bo sama
+#: licznosc kruchych jest na zdarzenie, dla ktorego ta pozycja powstala, SLEPA:
+#: kontrola negatywna KN-1 wypchnela pokrycie jednej liczby poza okno i w tej samej
+#: chwili wciagnela do klasy `zbieg` inna, rowniez na skraju — licznosc zostala ta
+#: sama, a krucha byla juz inna liczba. Zmierzone 19.09.2026 przy 6.D284; numeru
+#: wiersza tu nie ma z tego samego powodu, dla ktorego nie ma go w `ZBIEGIEM_PER_PLIK`.
+KRUCHE_ADRESY = (("test_message_claims.py", "12"),)
+
+#: Skraj okna prozy: odleglosc wiersza pokrywajacego od bloku, przy ktorej dopisanie
+#: JEDNEGO wiersza pomiedzy wypycha pokrycie poza okno. Rowna szerokosci okna
+#: z definicji, a nie z pomiaru — stoi tu nazwana, zeby warunek w kodzie nizej dalo
+#: sie przeczytac bez liczenia w glowie.
+SKRAJ_OKNA = OKNO_PROZY
+
+
+def dystanse_pokrycia(katalog=None, root=None):
+    """`[(plik, wiersz, napis, najblizsze, strony)]` dla klasy `zbieg` — 6.D284.
+
+    Odleglosc liczona jest tak, jak czytnik BUDUJE okno, a nie tak, jak wygodnie
+    ja opisac: przed blokiem od wiersza prozy (`lo` idzie od `wiersz`), za blokiem
+    od konca bloku (`hi` idzie od `do`). Dla bloku jednowierszowego to jedno i to
+    samo; dla wielowierszowego okno jest niesymetryczne i to jest wlasnosc czytnika,
+    nie tej funkcji.
+    """
+    out = []
+    for wpis in pozycje_pokrycia(katalog, root)["zbieg"]:
+        nazwa, wiersz, napis = wpis[0], wpis[1], wpis[2]
+        od, do = wpis[7]
+        pary = [(wiersz - numer, "przed") if numer < od else (numer - do, "za")
+                for numer in wpis[6]]
+        if not pary:
+            continue
+        out.append((nazwa, wiersz, napis, min(p[0] for p in pary),
+                    tuple(sorted({p[1] for p in pary})), tuple(p[0] for p in pary)))
+    return sorted(out)
+
+
+def pokrycie_dalekie(katalog=None, root=None):
+    """Wpisy, ktorych NAJBLIZSZE pokrycie stoi dalej niz polowa okna — 6.D284."""
+    return [w for w in dystanse_pokrycia(katalog, root) if w[3] > SKRAJ_OKNA / 2]
+
+
+def kruche_pokrycie(katalog=None, root=None):
+    """Wpisy, ktorych KAZDE pokrycie stoi na skraju okna — 6.D284.
+
+    Taki wpis traci pokrycie po dopisaniu JEDNEGO wiersza gdziekolwiek miedzy
+    blokiem a wierszem pokrywajacym, czyli po pracy, ktora jego samego nie dotyczy.
+    Warunek jest na WSZYSTKICH pokryciach, nie na najblizszym: wpis z drugim
+    pokryciem bliżej przezyje takie dopisanie i kruchy nie jest.
+    """
+    return [w for w in dystanse_pokrycia(katalog, root)
+            if all(d == SKRAJ_OKNA for d in w[5])]
+
+
+def test_ile_pokrycia_WISI_NA_WLOSKU():
+    """**Trzy liczby z pola „Wyjscie" 6.D284 — populacja, dalekie i kruche.**
+
+    Pozycja wzięła się z dwóch przypadków, w których dopisanie jednego wiersza
+    ogniwa łańcucha zapaliło bramkę na liczbie, której nikt nie ruszał. Liczba
+    krucha nie jest sama w sobie usterką; nieznana — jest, bo wtedy zapala się
+    jako niespodzianka przy cudzej pracy.
+    """
+    wszystkie = dystanse_pokrycia()
+    assert len(wszystkie) == POKRYTYCH_ZBIEGIEM_CYFR, (
+        "czytnik odleglosci widzi %d wpisow klasy `zbieg`, a zapadka populacji stoi "
+        "na %d — dwa czytniki tej samej populacji sie rozjechaly"
+        % (len(wszystkie), POKRYTYCH_ZBIEGIEM_CYFR))
+
+    dalekie, kruche = pokrycie_dalekie(), kruche_pokrycie()
+    assert (len(dalekie), len(kruche)) == (POKRYCIE_DALEJ_NIZ_POLOWA_OKNA,
+                                           POKRYCIE_NA_SKRAJU_OKNA), (
+        "dalej niz polowa okna %d, na skraju okna %d, a pomiar 19.09.2026 dal "
+        "%d i %d. Wpis WCHODZACY do klasy kruchych znaczy, ze czyjas proza urosla "
+        "miedzy liczba a jej pokryciem; wychodzacy — ze pokrycie stanelo blizej. "
+        "Kruche dzis: %s"
+        % (len(dalekie), len(kruche), POKRYCIE_DALEJ_NIZ_POLOWA_OKNA,
+           POKRYCIE_NA_SKRAJU_OKNA, [(w[0], w[2]) for w in kruche]))
+
+    # Porownanie po ADRESIE wpisu, a nie po tozsamosci obiektu: oba sita wolaja
+    # czytnik osobno, wiec `id` porownywaloby dwie kopie tej samej krotki i nie
+    # przechodzilo NIGDY. Zlapala to ta asercja przy pierwszym przebiegu.
+    assert tuple((w[0], w[2]) for w in kruche) == KRUCHE_ADRESY, (
+        "krucha jest dzis %r, a pomiar 19.09.2026 dal %r — licznosc sama tej "
+        "zmiany nie pokazuje, bo wpis wchodzacy do klasy i wychodzacy z niej "
+        "znosza sie w niej nawzajem"
+        % (tuple((w[0], w[2]) for w in kruche), KRUCHE_ADRESY))
+
+    assert ({(w[0], w[1], w[2]) for w in kruche}
+            <= {(w[0], w[1], w[2]) for w in dalekie}), (
+        "wpis kruchy, ktory nie jest daleki — skraj okna jest z definicji dalej "
+        "niz jego polowa, wiec to znaczy, ze oba sita licza inna odleglosc")
+
+
+def test_liczba_pokryta_NA_SKRAJU_okna_trafia_na_liste_kruchych():
+    """**Kontrola negatywna 6.D284 — na drzewie probnym, dwa kształty naraz.**
+
+    Dziś liczby pokrytej na skraju okna nie odróżnia od pokrytej tuż obok nic:
+    obie stoją w klasie `zbieg` i obie liczą się tak samo. Bez tej kontroli lista
+    kruchych mogłaby być pusta z powodu, o którym sama nic nie mówi.
+    """
+    krucha = ["#: proza o liczbie **7**"] + ["# wypelniacz"] * 18 + [
+        "def f(lista):", "    return len(lista) > 7"]
+    solidna = ["#: proza o liczbie **8**", "def g(lista):",
+               "    return len(lista) > 8"]
+
+    with tempfile.TemporaryDirectory(prefix="metro-wlosek-") as katalog:
+        for nazwa, wiersze in (("test_krucha.py", krucha),
+                               ("test_solidna.py", solidna)):
+            with open(os.path.join(katalog, nazwa), "w", encoding="utf-8") as uchwyt:
+                uchwyt.write("\n".join(wiersze) + "\n")
+        rozklad = pokrycie_pogrubionych(katalog, katalog)
+        odleglosci = {w[0]: w[3] for w in dystanse_pokrycia(katalog, katalog)}
+        kruche = [w[0] for w in kruche_pokrycie(katalog, katalog)]
+
+    assert rozklad["zbieg"] == 2, (
+        "drzewo probne dalo %s, a obie liczby maja byc pokryte ZBIEGIEM CYFR — "
+        "kontrola nie mowi o tym, o czym mysli, jezeli ktoras wpadla gdzie indziej"
+        % rozklad)
+    assert odleglosci == {"test_krucha.py": SKRAJ_OKNA, "test_solidna.py": 2}, (
+        "odleglosci pokrycia: %r, a maja byc na skraju okna i w drugim wierszu "
+        "za blokiem" % odleglosci)
+    assert kruche == ["test_krucha.py"], (
+        "na liscie kruchych stoi %r, a ma stac wylacznie liczba pokryta na skraju "
+        "okna: solidna ma pokrycie tuz za blokiem i dopisanie wiersza jej nie "
+        "ruszy" % kruche)
 
 
 def pary_wzajemne():
