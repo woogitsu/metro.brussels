@@ -575,7 +575,10 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 # KOLEJKI, JEDENASTY raz z rzedu i CZWARTY raz z powodu zapasu ROWNEGO progowi.
 # Pozycja wychodzi z §2 i §8 raportu 6.D300: regula B przesunela siedemnascie
 # wyrazen do klasy zbiorowej, a nie liczbowej.
-MINIMUM_DETAIL_BLOCKS = 373
+# 373 -> 374 (19.09.2026, 6.D301): jeden blok dopisany — 6.D310, tolerancja
+# wzgledna bez jednostki. DWUNASTE uzupelnienie z rzedu, piate z powodu zapasu
+# ROWNEGO progowi. Pozycja wychodzi z §2 i §8 raportu 6.D301.
+MINIMUM_DETAIL_BLOCKS = 374
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
