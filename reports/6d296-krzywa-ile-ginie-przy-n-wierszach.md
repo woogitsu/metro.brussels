@@ -168,8 +168,40 @@ wpisów naraz. Środek okna jest najpłaszczy — dokładnie odwrotnie, niż zga
 
 ## 9. Zauważone przy okazji, nietknięte
 
-Trzy z dziewięciu wpisów ginących przy pięciu wierszach stoją w **`test_message_claims.py`
-i `test_bytecode_staleness.py`** — modułach, w których proza pomiarowa jest najgęstsza.
-Czy gęstość prozy koreluje z odległością pokrycia, ta pozycja nie pyta; gdyby korelowała,
-ryzyko nie rozkładałoby się równo po drzewie i krzywa z §2 byłaby średnią z dwóch różnych
-populacji.
+**Cztery** z dziewięciu wpisów ginących przy pięciu wierszach stoją w
+`test_message_claims.py` i `test_bytecode_staleness.py` — po dwa w każdym.
+
+**Ten akapit jest przepisany 19.09.2026, a nie dopisany obok, bo pierwsza jego wersja
+zawierała DWA zdania nieprawdziwe i oba zostały zmierzone.** Mówiła „trzy" zamiast
+czterech, i nazywała te moduły „modułami, w których proza pomiarowa jest najgęstsza".
+
+**I jedno, i drugie dało się sprawdzić bez żadnego nowego pomiaru.** Lista
+dziewięciu adresów stoi w §3 TEGO SAMEGO raportu; wystarczyło ją policzyć.
+Bramka `test_report_claims.py` twierdzenia w raportach czyta, ale tego nie
+zapaliła, bo słowo „trzy" stoi tu SŁOWNIE, a wzorzec `CLAIM` szuka cyfry.
+Liczba wypisana słowem jest poza zasięgiem bramki — i to jest jedyna rzecz
+z tej korekty, która dotyczy przyrządu, a nie mojej uwagi.
+
+Pierwsze — rozkład dziewięciorga po plikach, policzony, a nie przejrzany:
+
+```
+test_bytecode_staleness.py   2      test_mutation_sweep.py        1
+test_message_claims.py       2      test_report_claims.py         1
+mutation_sweep.py            1      test_suite_runtime_budget.py  1
+test_dotnet_version.py       1
+```
+
+Drugie — żaden z tych dwóch modułów nie jest pierwszy w ŻADNEJ z trzech miar, którymi
+da się gęstość prozy policzyć na 147 plikach korpusu. Bloków prozy bezwzględnie:
+miejsca dziewiąte i dziewiętnaste. Bloków na wiersz pliku: dziesiąte i czterdzieste
+szóste. Wierszy pliku: dziewiąte i siedemnaste. Pierwsze miejsca zajmują kolejno
+`test_field_paths.py`, `test_csharp_pins.py` i `test_ci_workflows.py`. Zdanie
+o najgęstszej prozie było domysłem z tego, jak te moduły wyglądają przy czytaniu,
+a nie pomiarem — i przy pomiarze nie zostało z niego nic.
+
+**Czego korekta NIE obala: samego skupienia ani pytania.** Cztery wpisy z dziewięciu
+w dwóch plikach na sto czterdzieści siedem to nadal skupienie i to mocniejsze niż
+trzy. Czy odległość pokrycia koreluje z czymkolwiek mierzalnym w module, ta pozycja
+nie pytała i dziś nadal nie wiadomo; gdyby korelowała, ryzyko nie rozkładałoby się
+równo po drzewie i krzywa z §2 byłaby średnią z dwóch różnych populacji. Obalona jest
+podana przy pytaniu PRZYCZYNA, nie pytanie.

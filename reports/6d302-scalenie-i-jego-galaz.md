@@ -55,11 +55,16 @@ To jest znalezisko, którego pytanie nie zakładało, a mój warunek obalenia
 przewidział jako możliwość.
 
 Z czterdziestu ośmiu par **dwadzieścia jeden** ma scalenie w innej klasie niż jego
-własna gałąź. Kierunek jest jednostronny i mówi coś o tym repozytorium: w każdej
-z tych par to **gałąź** trafia do klasy węższej (`dotyczy`), a **scalenie** do
-szerszej (`nic_wspolnego`). Przykłady z listy:
+własna gałąź.
+
+**Kierunek jest przeważający, a NIE jednostronny — ten akapit jest przepisany
+19.09.2026, a nie dopisany obok.** Pierwsza wersja mówiła „kierunek jest jednostronny"
+i „w każdej z tych par", i to zostało zmierzone jako nieprawda. W dwudziestu parach
+gałąź trafia do klasy węższej (`dotyczy`), a scalenie do szerszej (`nic_wspolnego`);
+w jednej jest dokładnie odwrotnie, i ta jedna stoi na początku listy:
 
 ```
+d3bd70811149 [dotyczy]       + 07dc360acd8d [nic_wspolnego]   <- KONTRPRZYKLAD
 c1f5618689ac [nic_wspolnego] + 7f7f4b2c6cf7 [dotyczy]
 e8db22f07822 [nic_wspolnego] + 3089415ce538 [dotyczy]
 efccb6160f9e [nic_wspolnego] + bbf63233b0f7 [dotyczy]
@@ -67,7 +72,16 @@ f259d5d4b2ca [nic_wspolnego] + 6e0d525b5fa8 [dotyczy]
 f684e40a3af5 [nic_wspolnego] + cf0176343343 [dotyczy]
 ```
 
-Powód jest zrozumiały po przeczytaniu, co klasa `dotyczy` sprawdza: raport dopisany
+Kontrprzykład stał w moim własnym wypisie — napisałem „jednostronny", bo przeczytałem
+czoło listy zamiast policzyć wszystkie dwadzieścia jeden. Liczba 20/21 zostaje mocnym
+zdaniem o tym repozytorium; nieprawdziwe było wyłącznie uogólnienie z kilku wypisanych
+przykładów na nieprzeliczoną populację. **To jest dokładnie ten kształt błędu, który
+§5 tej samej pozycji nazywa u siebie** — „domyśliłem to sobie z jej pojedynczości" —
+i popełniłem go o dwie sekcje wcześniej, w tym samym raporcie, tego samego dnia.
+(Pierwsza wersja tej korekty odsyłała do §8; §8 w tym raporcie NIE ISTNIEJE — kończy
+się na §7. Odsyłacz poprawiony przy sprawdzaniu, zanim wszedł do commita.)
+
+Powód przewagi jest zrozumiały po przeczytaniu, co klasa `dotyczy` sprawdza: raport dopisany
 w tym samym commicie ma wymieniać nazwę modułu albo zapadki, którą wymienia też
 komunikat. Komunikat scalenia jest **inny** niż komunikat gałęzi — przy scaleniu
 squashem tytuł bywa przepisany na zdanie o pozycji, a nie o module. Gałąź zachowuje
@@ -114,8 +128,11 @@ mówi, że para jest wyjątkiem; to ja domyśliłem to sobie z jej pojedynczośc
 
 ## 7. Zauważone przy okazji, nietknięte
 
-Skoro w dwudziestu jeden parach gałąź stoi w klasie ciaśniejszej niż jej własne
-scalenie, to komunikat scalenia **traci** informację, którą niesie komunikat gałęzi.
+Skoro w dwudziestu parach z dwudziestu jeden gałąź stoi w klasie ciaśniejszej niż
+jej własne scalenie, to komunikat scalenia **traci** informację, którą niesie
+komunikat gałęzi. (Liczba poprawiona 19.09.2026 razem z §4: stało tu „w dwudziestu
+jeden parach", czyli to samo uogólnienie, TRZECI raz w tym samym raporcie. Wniosek
+się nie zmienia — zmienia się jego zasięg.)
 Przy 6.D279 rozstrzygnięto, że scalenia mają być w populacji, bo niosą ten sam
 komunikat co commit gałęzi — a ta liczba pokazuje, że w dwudziestu jeden przypadkach
 na czterdzieści osiem **nie niosą**. Czy to podważa tamto rozstrzygnięcie, ta pozycja
