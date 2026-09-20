@@ -2168,7 +2168,8 @@ def _istnieje_w_drzewie(nazwa):
 # 1302 -> 1305 i 520 -> 521 (20.09.2026, 6.D315): blok 6.D315 przeszedl do wykonanych; ZMIERZONE.
 # 1305 -> 1308 i 521 -> 522 (20.09.2026, 6.D316): blok 6.D316 przeszedl do wykonanych; ZMIERZONE.
 # 1308 -> 1310 i 522 -> 523 (20.09.2026, 6.D317): blok 6.D317 przeszedl do wykonanych; ZMIERZONE.
-ADRESOW_W_WYKONANYCH = {"Wejście": 1310, "Wyjście": 71, "Weryfikacja": 523}
+# 1310 -> 1313 i 523 -> 524 (20.09.2026, 6.D318): blok 6.D318 przeszedl do wykonanych; ZMIERZONE.
+ADRESOW_W_WYKONANYCH = {"Wejście": 1313, "Wyjście": 71, "Weryfikacja": 524}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
@@ -2331,7 +2332,8 @@ ADRESOW_W_WYKONANYCH = {"Wejście": 1310, "Wyjście": 71, "Weryfikacja": 523}
 # 218 -> 220 (20.09.2026, 6.D315): DWA wywolania wiecej — plotek 6.D315 wola dwa moduly.
 # 220 -> 222 (20.09.2026, 6.D316): DWA wywolania wiecej — plotek 6.D316 tez wola dwa moduly.
 # 222 -> 223 (20.09.2026, 6.D317): jedno wywolanie wiecej — plotek 6.D317 wola jeden modul.
-WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 223}
+# 223 -> 224 (20.09.2026, 6.D318): jedno wywolanie wiecej — plotek 6.D318 wola jeden modul.
+WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 224}
 
 #: Ilu kandydatow zlego adresu daje regula prozy, per pole — 6.D158.
 # 12 -> 13 (14.09.2026, 6.D204): trzynastym kandydatem jest `test_mutation_sweep.py`
