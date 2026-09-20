@@ -588,7 +588,8 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 # 379 -> 381 (20.09.2026, 6.D307): dwa bloki dopisane — 6.D316 i 6.D317.
 # 381 -> 382 (20.09.2026, 6.D308): jeden blok dopisany — 6.D318.
 # 382 -> 383 (20.09.2026, 6.D309): jeden blok dopisany — 6.D319.
-MINIMUM_DETAIL_BLOCKS = 383
+# 383 -> 384 (20.09.2026, 6.D310): jeden blok dopisany — 6.D320.
+MINIMUM_DETAIL_BLOCKS = 384
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
