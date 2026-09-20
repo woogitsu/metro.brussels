@@ -584,7 +584,8 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 # 375 -> 376 (19.09.2026, 6.D303): jeden blok dopisany — 6.D312, cytaty prozy
 # o stalych, ktorych juz nie ma. CZTERNASTE uzupelnienie z rzedu, siodme
 # z powodu zapasu ROWNEGO progowi. Pozycja z §3 i §7 raportu 6.D303.
-MINIMUM_DETAIL_BLOCKS = 376
+# 376 -> 379 (19.09.2026, 6.D304): trzy bloki dopisane — 6.D313, 6.D314, 6.D315.
+MINIMUM_DETAIL_BLOCKS = 379
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
