@@ -2174,7 +2174,8 @@ def _istnieje_w_drzewie(nazwa):
 # 1319 -> 1321 i 526 -> 527 (20.09.2026, 6.D321): blok 6.D321 przeszedl do wykonanych; ZMIERZONE.
 # 1321 -> 1324 i 527 -> 529 (20.09.2026, 6.D322): blok 6.D322 przeszedl do wykonanych; ZMIERZONE.
 # 1324 -> 1326 i 529 -> 530 (20.09.2026, 6.D323): blok 6.D323 przeszedl do wykonanych; ZMIERZONE.
-ADRESOW_W_WYKONANYCH = {"Wejście": 1326, "Wyjście": 71, "Weryfikacja": 530}
+# 1326 -> 1328 i 530 -> 531 (20.09.2026, 6.D324): blok 6.D324 przeszedl do wykonanych; ZMIERZONE.
+ADRESOW_W_WYKONANYCH = {"Wejście": 1328, "Wyjście": 71, "Weryfikacja": 531}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
@@ -2343,7 +2344,8 @@ ADRESOW_W_WYKONANYCH = {"Wejście": 1326, "Wyjście": 71, "Weryfikacja": 530}
 # 227 -> 228 (20.09.2026, 6.D321): jedno wywolanie wiecej — plotek 6.D321 wola jeden modul.
 # 228 -> 230 (20.09.2026, 6.D322): DWA wywolania wiecej — plotek 6.D322 wola dwa moduly.
 # 230 -> 231 (20.09.2026, 6.D323): jedno wywolanie wiecej — plotek 6.D323 wola jeden modul.
-WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 231}
+# 231 -> 233 (20.09.2026, 6.D324): DWA wywolania wiecej — plotek 6.D324 wola dwa moduly.
+WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 233}
 
 #: Ilu kandydatow zlego adresu daje regula prozy, per pole — 6.D158.
 # 12 -> 13 (14.09.2026, 6.D204): trzynastym kandydatem jest `test_mutation_sweep.py`
@@ -2363,7 +2365,9 @@ WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 231}
 # 17 -> 18 (18.09.2026, 6.D280): osiemnastym kandydatem jest `test_visual_gates.py`
 # z plotka „Weryfikacji" bloku tej pozycji — nazwa modulu bez sciezki, ktorej proza
 # bloku nie wymienia. Ten sam ksztalt co siedemnascie poprzednich, a nie zly adres.
-KANDYDATOW_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 18}
+# 18 -> 19 (20.09.2026, 6.D324): jeden kandydat wiecej — plotek 6.D324 wymienia
+# `tools/physics/reference.py`, ktory regula prozy bierze za kandydata zlego adresu.
+KANDYDATOW_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 19}
 
 
 def adresy_pola_w_wykonanych(pole):
