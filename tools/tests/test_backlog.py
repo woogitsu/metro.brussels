@@ -606,7 +606,9 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 # udokumentowany spadl do 11 przy progu 12 i te dwa bloki podniosly go do 13.
 # 406 -> 408 (21.09.2026, 6.D334): dwa bloki dopisane — 6.D343 i 6.D344; zapas
 # udokumentowany spadl do 11 przy progu 12 i te dwa bloki podniosly go do 13.
-MINIMUM_DETAIL_BLOCKS = 408
+# 408 -> 410 (21.09.2026, 6.D336): dwa bloki dopisane — 6.D345 i 6.D346; zapas
+# udokumentowany spadl do 11 przy progu 12 i te dwa bloki podniosly go do 13.
+MINIMUM_DETAIL_BLOCKS = 410
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
