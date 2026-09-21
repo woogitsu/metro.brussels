@@ -1599,7 +1599,9 @@ def test_the_open_item_filter_reacts_to_the_marker_and_not_to_something_else():
 #: ani do `MINIMUM_DETAIL_BLOCKS`. Dzięki temu wprowadzenie planu grywalności NIE
 #: podniosło ani nie obniżyło żadnej istniejącej zapadki — a gdyby weszło do tamtych
 #: liczb, nie dałoby się odróżnić „przybyło pracy" od „zmieniono miarę".
-POZYCJI_PASMA_M = 9
+# 9 -> 10 (21.09.2026, MB-09): kamien M2 otwarty decyzja wlasciciela, wiec pasmo M
+# dostaje dziesiata pozycje — kontrakt M2 i siedem punktow odbioru. ZMIERZONE.
+POZYCJI_PASMA_M = 10
 
 #: Pola, których żąda `CLAUDE.md` §6 — te same, co dla kolejki 6.x.
 POLA_PASMA_M = ("Wejście", "Wyjście", "Weryfikacja", "Skończone, gdy",
