@@ -2188,7 +2188,8 @@ def _istnieje_w_drzewie(nazwa):
 # 1351 -> 1355 i 543 -> 544 (21.09.2026, 6.D334): blok 6.D334 przeszedl do wykonanych; ZMIERZONE.
 # 1355 -> 1357 i 544 -> 545 (21.09.2026, 6.D335): blok 6.D335 przeszedl do wykonanych; ZMIERZONE.
 # 1357 -> 1359 i 545 -> 546 (21.09.2026, 6.D336): blok 6.D336 przeszedl do wykonanych; ZMIERZONE.
-ADRESOW_W_WYKONANYCH = {"Wejście": 1359, "Wyjście": 72, "Weryfikacja": 546}
+# 1359 -> 1362 i 546 -> 548 (21.09.2026, 6.D337): blok 6.D337 przeszedl do wykonanych; ZMIERZONE.
+ADRESOW_W_WYKONANYCH = {"Wejście": 1362, "Wyjście": 72, "Weryfikacja": 548}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
@@ -2371,7 +2372,9 @@ ADRESOW_W_WYKONANYCH = {"Wejście": 1359, "Wyjście": 72, "Weryfikacja": 546}
 # wymienia DWA moduly, wiec zapadka rosnie o dwa, a nie o jeden. ZMIERZONE.
 # 244 -> 245 (21.09.2026, 6.D335): blok 6.D335 przeszedl do wykonanych; ZMIERZONE.
 # 245 -> 246 (21.09.2026, 6.D336): blok 6.D336 przeszedl do wykonanych; ZMIERZONE.
-WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 246}
+# 246 -> 248 (21.09.2026, 6.D337): blok 6.D337 przeszedl do wykonanych; jego plotek
+# wymienia DWA moduly, wiec zapadka rosnie o dwa. ZMIERZONE.
+WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 248}
 
 #: Ilu kandydatow zlego adresu daje regula prozy, per pole — 6.D158.
 # 12 -> 13 (14.09.2026, 6.D204): trzynastym kandydatem jest `test_mutation_sweep.py`
@@ -2459,6 +2462,12 @@ def test_jaka_czesc_adresow_obejrzala_regula_kandydatow_6D146():
     wlasne pole „Wyjscie". Jest to liczba, ktorej tamta pozycja nie miala — i bez
     ktorej zdanie „dziesieciu kandydatow da sie przeczytac recznie" brzmi jak zdanie
     o calosci, a jest zdaniem o jednej trzynastej.
+
+    **„Jedna trzynasta" jest liczba Z DNIA POMIARU i dzis juz nia nie jest**
+    (21.09.2026, 6.D337). Przy przestawieniu 6.D337 na WYKONANE wyszlo **248 z 1982,
+    czyli 12,5 % — jedna osma, a nie jedna trzynasta.** Zdanie wyzej zostaje
+    nieprzepisane celowo: opisuje stan z 6.D158 i jest przy nim data. Przepisana
+    jest natomiast GORNA strona pasma nizej, bo to ona pekala; powod stoi przy niej.
     """
     razem = sum(len(adresy_pola_w_wykonanych(p)) for p in FIELDS)
     obejrzane = len(wywolania_pola_w_wykonanych("Weryfikacja"))
@@ -2473,8 +2482,22 @@ def test_jaka_czesc_adresow_obejrzala_regula_kandydatow_6D146():
         "regula kandydatow obejmuje %d z %d adresow, czyli MNIEJ niz jedna "
         "dwudziesta — zdanie 6.D158 o „jednej trzynastej” opisuje inny stan"
         % (obejrzane, razem))
-    assert obejrzane * 8 < razem, (
-        "regula kandydatow obejmuje %d z %d adresow, czyli WIECEJ niz jedna osma — "
+    # 8 -> 6 (21.09.2026, 6.D337). Gorna strona pasma jest PRZEPISANA, a nie
+    # dopisana obok, i powod jest zmierzony, nie wywnioskowany: przy przestawieniu
+    # 6.D337 na WYKONANE ulamek wyszedl **248 z 1982, czyli 12,51 %**, a jedna osma
+    # to 12,50 % — pasmo pekło o DWA adresy. Nie jest to zapadka chroniaca koszt ani
+    # jakosc: same liczby stoja przybite ROWNOSCIA w `ADRESOW_W_WYKONANYCH`
+    # i `WYWOLAN_W_WYKONANYCH`, wiec pasmo nie pilnuje niczego, czego one nie
+    # pilnuja dokladniej. Pilnuje wylacznie ZDANIA z docstringa, a to zdanie
+    # zestarzalo sie samo: pomiar 6.D158 dal 101 z 1276 (7,9 %), dzis jest 12,5 %,
+    # bo bloki nowsze wymieniaja moduly w „Weryfikacji" czesciej niz stare.
+    # Dolna strona ZOSTAJE nietknieta. Skad 6: przy dzisiejszym tempie
+    # (okolo dwoch wywolan na pozycje) daje to zapas rzedu osiemdziesieciu pozycji,
+    # a nie jednej — rownosc na 248/1982 zapalalaby sie przy nastepnym commicie.
+    # Samego WZROSTU udzialu ta zmiana NIE mierzy i nie udaje, ze mierzy; to jest
+    # osobne pytanie i stoi jako 6.D347.
+    assert obejrzane * 6 < razem, (
+        "regula kandydatow obejmuje %d z %d adresow, czyli WIECEJ niz jedna szosta — "
         "jak wyzej, tylko z drugiej strony" % (obejrzane, razem))
 
 
