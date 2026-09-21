@@ -1306,7 +1306,7 @@ właściciel.
 | 6.D331 | **ZROBIONE w #PR (20.09.2026): tylko DZIEWIETNASCIE z pieciudziesieciu siedmiu jest stala kodu — a PIETNASCIE nazw nie istnieje nigdzie poza proza, ktora o nich mowi.** **KONTROLA PRZYRZADU ZDANA:** `L1_A` -> IDENTYFIKATOR ODCINKA z adresem `data/track/L1_A.json`, `F0_N` -> KLUCZ DANYCH z adresem `tools/physics/reference.py`; dwie nazwy, dwie ROZNE klasy. **CZTERY KLASY SUMUJA SIE DO POPULACJI:** identyfikator odcinka **6**, klucz danych **7**, stala kodu **19**, cos jeszcze **25**, suma **57** — sprawdzone, a nie zalozone, i wychodzi, inaczej niz w 6.D312, gdzie cztery klasy dawaly 101 przy populacji 57. Roznica nie jest zasluga: tam byly to cztery NIEZALEZNE WLASNOSCI, tutaj podzial z konstrukcji. **POPULACJA: nazw 57 co do jedynki, wystapien 189 wobec 170** — roznicy nie uzgadniam, podaje przyczyne: moje sito odsiewa kazda nazwe po lewej stronie przypisania oraz nazwy funkcji i klas (8859 wobec 1226). **GLOWNE ZNALEZISKO: PIETNASCIE NAZW NIE MA W TYM DRZEWIE ADRESU W OGOLE** — `BUILD_DIRS`, `CHECKED_HASH`, `GAME_SOURCE_GLOB`, `GAME_SOURCE_SKIP`, `HAMOWANIA_MUTANT`, `INSTALL_ATTEMPTS`, `KOTWICA_ZABLOKOWANA`, `MAX_X`, `MAX_Y`, `MIN_GOLYCH_ROZNYCH`, `MIN_RADIUS_M`, `POLECENIE_KOMPILACJI`, `WARTOSC_W_KODZIE`, `WIELKIE_LITERY`, `WIELKIMI_LITERAMI`. **I czesc z nich stoi w prozie PO TO, ZEBY POWIEDZIEC, ZE ICH NIE MA:** „`GAME_SOURCE_GLOB` i `GAME_SOURCE_SKIP` zniknely razem z wlasna regula", „nazwa `INSTALL_ATTEMPTS` nie pada", `MIN_RADIUS_M` to stala MARTWA, z ktorej powodu istnieje bramka. **TEN SAM KSZTALT CO „CYTAT ZAPRZECZONY" Z 6.D322:** obecnosc nazwy czyta kazdy skan, jej zaprzeczenie — zaden. Klasa „cos jeszcze" dzieli sie na: nazwa wylacznie w prozie **15**, nazwa z CUDZEJ biblioteki **6** (`FSTRING_*` z `token`, `RUSAGE_CHILDREN` z `resource`, `BLENDER_EEVEE`, `BLENDER_EEVEE_NEXT`), zmienna srodowiskowa CZYTANA nie przypisywana **4**. **USTERKA PRZYRZADU ZGLOSZONA:** skan „przypisane poza `tools/**/*.py`" pominal `doctor.sh` z KORZENIA repozytorium i osiem nazw z adresem wpadlo do klasy resztkowej; liczby sa juz po poprawce, a znalazlo ja CZYTANIE klasy resztkowej, nie kontrola. **ILE SIEDZI W KLASIE INNEJ, NIZ MOWI 6.D312: stala kodu jest 19 z 57, pozostale 38 sa czyms innym.** Wyjatki nazwane przez 6.D312 §10 (identyfikatory i tokeny CPythona) obejmuja **dziewiec z trzydziestu osmiu**, czyli niecala czwarta czesc — **blad jest SYSTEMATYCZNY, nie pojedynczy**. CZEGO NIE ZROBIONO: nie tknieto bloku 6.D312 ani 6.D324, nie zmieniono zadnego wzorca, nie odsiano identyfikatorow, NIE POSTAWIONO BRAMKI na klasie pietnastu (zapalalaby sie na zdaniu „tej stalej juz nie ma", czyli na prozie, ktora mowi prawde), nie tknieto `src/` ani `data/`. Raport: `reports/6d331-pietnascie-nazw-tylko-w-prozie.md` | M |
 | 6.D332 | **ZROBIONE w #PR (20.09.2026): prog 440 s lezy WEWNATRZ — a margines zjadl ZESTAW, nie maszyna, i to nie przyrostem testow.** **KONTROLA PRZYRZADU ZDANA CO DO TRZECIEGO MIEJSCA:** przebieg `35514424835` proba 1 **464,149 s**, proba 2 **362,590 s** — i OBIE PADLY NA TEJ SAMEJ MASZYNIE (`metro-wsl-DOM-NEW-01`), czego pole nie zadalo, a co przesadza, ze rozrzut nie jest roznica miedzy maszynami. Zrodlo: **570 niewygaslych artefaktow `czas-zestawu`**, wszystkie, nie probka (6.D313 mialo 538). **TRZY LICZBY.** (1) Zestaw dolozyl od dnia ustawienia progu (14.09.2026, `2db590a`) **+147,983 s** CPU: mediana dnia 209,425 -> 357,408 s. Rozbite na przyczyny: **+16,357 s** to przyrost testow (2471 -> 2664), a **+131,626 s** to PODROZENIE POJEDYNCZEGO TESTU (0,08475 -> 0,13416 s na test). Przyrost testow odpowiada wiec za **jedenascie procent**, a za osiemdziesiat dziewiec — koszt jednego testu. (2) Rozrzut CPU tego samego commita: **mediana 1,280, maksimum 2,166**; grup piec, prob jedenascie — populacja jest mala i mowie to wprost, zamiast dobierac grup o innym ksztalcie. (3) **WERDYKT: lezy WEWNATRZ**, i to przy MEDIANIE, nie przy maksimum — 357,408 x 1,280 = **457,482 s**, o 17,482 s nad progiem; prog pada przy ilorazie **1,2311**, a mediana rozrzutu wynosi 1,280, wiec TYPOWE PONOWIENIE dzisiejszego commita przekracza prog. Mnoze, a nie dodaje, i to jest tresc: przyrost zestawu jest addytywny, rozrzut multiplikatywny. **ROZBICIE MARGINESU: 230,575 s w dniu ustawienia; ZESTAW zjadl 147,983 s (64 %), MASZYNA doklada 100,074 s przy medianie rozrzutu — razem 248,057 s przy 230,575 s marginesu, i stad czerwien.** Zadna z wielkosci nie jest zerem i zadna sama nie wystarcza. **MASZYNA SIE NIE POGORSZYLA — stosunek CPU do sciany SPADL** z 1,847 w szczycie do 1,370 dzisiaj, a jego maksimum z 2,091 do 1,567. Zdanie „to maszyna" nie ma oparcia w zadnym z dwoch odczytow. **PRZEWIDYWANIA: cztery trafione, dwa obalone.** Z3 („przyrost mniejszy niz 60 s") obalone — +147,983 s; Z5 („maszyna zjada wiecej") obalone — 100,074 wobec 147,983 s, wiec **prog zestarzal sie z powodu PRACY, nie maszyny**; oba padly z tej samej przyczyny, ktora zapisuje: nie docenilem tempa wzrostu kosztu jednego testu. CZEGO NIE ZROBIONO: **NIE RUSZONO `SUITE_CPU_BUDGET_S` ani zadnej podlogi czasu** — zapadki gorne wylacznie sie obniza, a pomiar mowiacy, ze prog jest ciasny, nie jest powodem, zeby go podniesc; tak samo rozstrzygnelo 6.D313. Nie przyspieszano zestawu, nie zmieniono workflowa, nie tknieto `src/` ani `data/`, nie dobierano grup do rozrzutu. Raport: `reports/6d332-prog-lezy-wewnatrz-margines-zjadl-zestaw.md` | M |
 | 6.D333 | **ZROBIONE w #PR (20.09.2026): sto pietnascie streszczen i SZESCDZIESIAT PIEC doslownych powtorzen tytulu — a cztery ksztalty spisane z gory zostawily siedemdziesiat siedem w klasie resztkowej.** **POPULACJA WYSZLA ROWNO 199 i to jest pierwsze znalezisko**, bo przewidywalem, ze nie wyjdzie: scalen jest **dokladnie 336**, tyle samo co przy 6.D323, mimo ze w miedzyczasie domknieto kilka pozycji. Powod jest mechaniczny — **repozytorium scala SQUASHEM, a squash daje commit o JEDNYM rodzicu**, wiec populacja „scalenie" rosnie wylacznie o scalenia `main` do galezi. Kazdy pomiar „na N scaleniach" mierzy tu populacje, ktora prawie stoi w miejscu, a nie tempo pracy. **CZTERY KSZTALTY SUMUJA SIE DO 199:** wypis CI **4**, cytat z pola **3**, streszczenie zdaniami **115**, INNE **77**. **Klasa resztkowa ma 39 % populacji i nie jest resztka** — zapisuje to jako wynik, nie jako niedorobke. **PRZECZYTANA dzieli sie na: POWTORZENIE TYTULU (galezi albo scalenia) 65, automat gita `# Conflicts:` 8, jeden wiersz NOWEJ TRESCI 4.** Szescdziesiat piec komunikatow to DOSLOWNE powtorzenie tytulu — podobienstwo w wielu wypadkach rowne **1,00**. **Pole mowilo, ze „tylko pierwszy ksztalt jest nadmiarowy wobec komunikatu galezi"; NADMIAROWE SA DWA, a drugi w stopniu skrajnym** — ogon nie streszcza galezi, tylko ja CYTUJE. Podaje 115 i 65 OSOBNO, zamiast zlac w jedna liczbe, bo starzeja sie inaczej: streszczenie moze przestac pasowac do galezi, powtorzenie nie moze. **PIATA LICZBA: ogon krotszy niz trzy wiersze ma 91 z 199, czyli 46 %.** **KOLEJNOSC ROZSTRZYGANIA JEST TRESCIA:** siedem komunikatow pasuje do wiecej niz jednego ksztaltu, a **wszystkie cztery wypisy CI i wszystkie trzy cytaty z pola sa JEDNOCZESNIE streszczeniami** — przy odwrotnej kolejnosci streszczenie mialoby 122, a obie tamte ZERO. **USTERKA PRZYRZADU ZGLOSZONA:** zdanie prozy BYWA ZAWINIETE, a ja testowalem wiersz po wierszu, wiec komunikat lamany na 80 znakow wpadal do klasy resztkowej; sklejenie akapitu dalo **83 -> 77**. Czwarty raz w tej sesji, gdy sito myli sie na JEDNOSTCE TEKSTU, a nie na regule. CZEGO NIE ZROBIONO: nie przepisano ani jednego komunikatu, nie ustanowiono reguly pisania komunikatow scalenia, nie tknieto `klasy_sladu` ani `DIFF_SCALENIA`, nie tknieto `src/` ani `data/`; NIE DOCIAGANO SITA DO ZERA w klasie resztkowej — podklasy sa odczytem klasy „inne", a nie podmiana czterech ksztaltow spisanych przed pomiarem. Raport: `reports/6d333-sto-pietnascie-streszczen-i-szescdziesiat-piec-powtorzen.md` | M |
-| 6.D334 | **Trzynascie wzorcow liczy ADRES PLIKU jako nazwe — ile pomiarow prozy to dotyka** | zmierzone 20.09.2026 przy 6.D324: z osiemnastu wzorcow lapiacych identyfikator odcinka **trzynascie lapie go jako czesc sciezki albo wiersza tabeli**, a nie jako nazwe — `data/track/L1_A.json` jest prawdziwym plikiem. Kazdy pomiar „ile nazw o ksztalcie stalej stoi w prozie" liczy wiec razem z nimi ADRESY PLIKOW, a ile takich pomiarow stoi w drzewie, nie policzyl nikt | M |
+| 6.D334 | **ZROBIONE w #PR (20.09.2026): pomiarow nazw w prozie sa DWA i oba odsiewaja adresy — a moj przyrzad przez trzy wersje mowil „zero", „jeden" i „piec".** **GLOWNE ZNALEZISKO METODOLOGICZNE: sito na ZRODLE wzorca nie dziala.** Wersja pierwsza dopasowywala tekst `re.compile(...)` innym wzorcem i dala ZERO przy kontroli zadajacej niezera — bo `CLAIM` pisze klase jako `[A-Z][A-Z0-9_]{3,}`, `PATH_TOKEN` jako `[A-Za-z0-9_][A-Za-z0-9_./+-]*`, a `NAZWA_ZAPADKI` SKLADA SIE W CZASIE WYKONANIA z `"|".join(...)`, wiec w zrodle w ogole nie istnieje. Wersja druga jest FUNKCJONALNA (kompiluje wzorzec i puszczam go na zdaniu wzorcowym, gdzie ta sama nazwa stoi raz golo, a raz w sciezce) i dala JEDEN, bo „uzycie do policzenia" sprawdzalem w oknie +-5 wierszy. Wersja trzecia liczy uzycie na poziomie modulu i dopiero ona przechodzi kontrole. **SCIEZKA LICZBY PRZEZ TRZY WERSJE: 0 -> 1 -> 5.** **AUTOMAT DAL PIEC, CZYTANIE ZOSTAWILO DWA:** `CLAIM` (`test_report_claims.py:85`) i `PARA_NAZWA_LICZBA` (`test_prose_counts.py:878`). Odpadly `IDENTYFIKATOR` (skanuje KOD C#, nie proze), `TOKEN_LICZBOWY` (lapie LICZBY — trafil w cyfre `1` wewnatrz `L1_A`, czyli TEN SAM ksztalt co usterka z 6.D322, tylko z drugiej strony) i `NEXT_LABEL` (czyta etykiety runnera dopiero po kotwicy `runs-on:`, wiec prozy z adresem nigdy nie widzi). **OBA ODSIEWAJA ADRESY, czyli DWA Z DWOCH**, a automat mowil „jeden z dwoch" — bo `test_prose_counts.py` odsiewa WLASNYM `ODSYLACZ_PLIKU`, stojacym wiersz pod tym, ktory liczy, i z komentarzem mowiacym dokladnie to, czego ta pozycja szukala. **ILE WNIOSKUJE O LICZBIE NAZW ROZNYCH: ZERO.** `CLAIM` porownuje liczbe TRAFIEN z `MINIMUM_CLAIMS`, `PARA_NAZWA_LICZBA` liczy PARY w akapicie przy `MINIMUM_PAR_ROZKLADU`, a zbior `odciski` jest zbiorem odciskow wyliczen, nie nazw; jedyne `set(...)` przy nazwach buduje sie z `DEFINITION`, czyli z KODU. **WNIOSEK, KTOREGO ZADALO POLE: liczenie adresu jako nazwy nie psuje w tym drzewie niczego.** **PRZEWIDYWANIA: trzy trafione, trzy obalone, i wszystkie trzy obalenia w te sama strone** — spodziewalem sie drzewa, w ktorym liczenie nazw w prozie jest rozpowszechnione i nieostrozne; jest rzadkie i ostrozne. U2 obalone (dwa, nie ponad dziesiec), U3 obalone (odsiewaja wszystkie), U4 obalone (zaden nie wnioskuje). CZEGO NIE ZROBIONO: nie zmieniono zadnego wzorca, nie odsiano adresow, NIE POSTAWIONO BRAMKI na wyniku, nie tknieto `src/` ani `data/`; NIE DOCIAGANO SITA DO ZERA falszywych trafien — trzy moduly odrzucone zostawiam w wyniku automatu i odrzucam je CZYTANIEM, bo zwezanie wzorca pod znany wynik byloby dopasowywaniem przyrzadu do odpowiedzi (6.D322). Raport: `reports/6d334-dwa-pomiary-i-oba-odsiewaja-adresy.md` | M |
 | 6.D335 | **Dwiescie osiem czytnikow konczy sie na bibliotece standardowej** | zmierzone 20.09.2026 przy 6.D326: z 428 czytnikow o nierozstrzygnietym kluczu **208 zwraca wynik wywolania, ktorego celu NIE MA w `tools/tests/`** — `subprocess`, `re`, `json`, `os.path`, `collections`. Zadna liczba skokow tego nie domknie, bo cel nie jest czytnikiem tego projektu. Ktore to wywolania i ile z nich ma JEDNOZNACZNY ksztalt zwrotu, nie policzyl nikt; nie wolno przy tym przyjac, ze wywolanie biblioteki standardowej ma ksztalt jednoznaczny, bo `json.load` zwraca co sie da, a `re.search` zwraca dopasowanie ALBO None | M |
 | 6.D336 | **Dwiescie cztery czytniki zwracaja zmienna spoza zasiegu** | zmierzone 20.09.2026 przy 6.D326: z 428 czytnikow o nierozstrzygnietym kluczu **204 zwracaja zmienna SPOZA ZASIEGU funkcji** — argument, globalna albo wartosc z petli. Regula jednego skoku z 6.D309 zaglada do przypisan W ZASIEGU, wiec jest dla nich bezczynna Z DEFINICJI, a nie z niedopatrzenia. Trzy podklasy maja trzy rozne koszty rozstrzygniecia: zmienna z petli bywa rozstrzygalna w tej samej funkcji, globalna bywa stala modulowa o jawnym ksztalcie, a dopiero argument wymaga wyjscia poza funkcje | M |
 | 6.D337 | **Ile raportow podaje liczbe, ktorej z ich wlasnego opisu nie da sie odtworzyc** | zmierzone 20.09.2026 przy 6.D328: liczba 136 nazw i 202 pary z 6.D317 nie wychodzi w ZADNYM z dwunastu odczytan definicji, ktora tamten raport przy niej zapisal — a drzewo sie nie zmienilo. Ile jeszcze raportow podaje liczbe populacji, nie nazywajac przy niej czytnika ani ksztaltu, nie policzyl nikt | M |
@@ -1315,6 +1315,8 @@ właściciel.
 | 6.D340 | **Jednostka na czlonie innym niz ostatni — ile nazw tak robi** | zmierzone 20.09.2026 przy 6.D330: `SecondsInPhase` i `SecondsSinceStopped` niosa jednostke na PIERWSZYM czlonie, a przyrzad tamtej pozycji widzi tylko ostatni i liczy je jako `phase` i `stopped`. Ile nazw definicja przyrostka pomija, nie policzyl nikt | M |
 | 6.D341 | **Ktore moduly podrozaly — rozbicie stu trzydziestu jeden sekund po module** | zmierzone 20.09.2026 przy 6.D332: zestaw podrozal o 147,983 s CPU, z czego przyrost liczby testow odpowiada za 16,357 s, a **131,626 s** to podrozenie POJEDYNCZEGO testu. Ktore moduly to robia, nie policzyl nikt — a artefakt `czas-zestawu` niesie czas i liczbe testow PER MODUL | M |
 | 6.D342 | **Liczba z pomiaru zapisana bez swojej pary — ile takich stalych** | zmierzone 20.09.2026 przy 6.D332: commit `7cfabea` ma dwie proby o ilorazie 2,166. Wyzsza z nich drzewo zapisuje jako nazwana stala i opisuje komentarzem, NIZSZA NIE STOI NIGDZIE. Ile stalych z pomiaru ma pare, ktorej drzewo nie odnotowuje, nie policzyl nikt | M |
+| 6.D343 | **Wzorzec skladany w czasie wykonania — ile ich jest i czego nie widzi skan po zrodle** | zmierzone 21.09.2026 przy 6.D334: sito rozpoznajace wzorce po KSZTALCIE ICH ZRODLA dalo zero przy kontroli zadajacej niezera, bo czesc wzorcow nie istnieje w zrodle jako literal — sklada sie dopiero w czasie wykonania z `"|".join(...)`. Ile takich wzorcow jest, nie policzyl nikt | M |
+| 6.D344 | **Odsiewanie adresu napisane po raz drugi na miejscu — ile takich kopii** | zmierzone 21.09.2026 przy 6.D334: dwa pomiary nazw w prozie odsiewaja adresy plikow i KAZDY WLASNYM wzorcem — jeden pozycza `ADRES_NIE_TWIERDZENIE`, drugi ma `ODSYLACZ_PLIKU` napisany wiersz pod tym, ktory liczy. Ile jeszcze razy to samo odsiewanie jest napisane od nowa, nie policzyl nikt | M |
 
 #### Szczegóły pozycji z kompletem sześciu pól
 
@@ -16279,3 +16281,83 @@ w drzewie**, a nie tylko w rozmowie — z tego samego powodu, co dwie sekcje wy�
   bramka na parach; `src/`; `data/`.
 - **Zależy od:** 6.D332 (stamtąd `7cfabea` i obie liczby), 6.D313 (stamtąd metoda
   czytania artefaktów).
+
+##### 6.D343 · Wzorzec składany w czasie wykonania — ile ich jest i czego nie widzi skan po źródle
+
+- **Skąd:** zmierzone 21.09.2026 przy 6.D334,
+  `reports/6d334-dwa-pomiary-i-oba-odsiewaja-adresy.md` §1. Sito rozpoznające wzorce
+  po **kształcie ich źródła** dało zero przy kontroli żądającej niezera, bo część
+  wzorców w `tools/tests/` nie istnieje w źródle jako literał — składa się dopiero
+  w czasie wykonania z `"|".join(...)` po zbiorze nazw. Ile takich wzorców jest
+  i co jeszcze umyka skanowi po źródle, nie policzył nikt.
+- **Dlaczego bez decyzji:** pozycja **LICZY**. Żadnego wzorca nie przepisuje na
+  literał i żadnego skanu nie naprawia — przepisanie wzorca jest zmianą bramki.
+- **Czego NIE wolno przyjąć bez pomiaru:** że wzorzec składany jest rzadkością.
+  Składanie bywa jedynym sposobem: wzorzec wyliczający **nazwy zapadek** musi je
+  brać ze zbioru, bo inaczej lista w dwóch miejscach rozjedzie się przy pierwszej
+  nowej zapadce. Klasa, która tego nie rozróżni, policzy konieczność jako niedbałość.
+- **Wejście:** `reports/6d334-dwa-pomiary-i-oba-odsiewaja-adresy.md` (stamtąd trzy
+  wersje sita i powód, dla którego źródło nie wystarcza),
+  `tools/tests/test_commit_claims.py`, `tools/tests/test_report_claims.py`,
+  `tools/tests/tree_walk.py` (`znajdz` — do POŻYCZENIA).
+- **Wyjście:** ile wywołań `re.compile` w `tools/tests/` dostaje literał, a ile
+  wyrażenie; z tych drugich — ile składa się z **listy nazw**, a ile z czegoś
+  innego; oraz ile z nich skan po źródle przepuściłby jako „brak wzorca". Trzy
+  liczby i lista imienna wzorców składanych.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_commit_claims.py test_report_claims.py
+  ```
+  Oczekiwane: zielone. Kontrola przyrządu: `NAZWA_ZAPADKI` z `test_commit_claims.py`
+  ma wyjść w klasie „składany z listy nazw" — 6.D334 §1 zmierzyło to wprost, więc
+  przyrząd stawiający go gdzie indziej czyta `re.compile` inaczej, niż działa.
+- **Skończone, gdy:** trzy liczby stoją z listą imienną, i powiedziano wprost, ile
+  wzorców skan po źródle by pominął — **także gdy jeden**, bo wtedy usterka z 6.D334
+  §1 jest wypadkiem, a nie wzorcem.
+- **Poza zakresem:** przepisywanie któregokolwiek wzorca; zmiana sposobu składania;
+  bramka na literalności wzorca; `src/`; `data/`.
+- **Zależy od:** 6.D334 (stamtąd trzy wersje sita), 6.D324 (stamtąd populacja wzorców).
+
+##### 6.D344 · Odsiewanie adresu napisane po raz drugi na miejscu — ile takich kopii
+
+- **Skąd:** zmierzone 21.09.2026 przy 6.D334,
+  `reports/6d334-dwa-pomiary-i-oba-odsiewaja-adresy.md` §3. Dwa pomiary nazw
+  w prozie odsiewają adresy plików i **każdy własnym wzorcem**: jeden pożycza
+  `ADRES_NIE_TWIERDZENIE`, drugi ma `ODSYLACZ_PLIKU` napisany wiersz pod tym, który
+  liczy. Ile jeszcze razy to samo odsiewanie jest w drzewie napisane od nowa,
+  nie policzył nikt.
+- **Dlaczego bez decyzji:** pozycja **LICZY i porównuje kształty**. Scalenie kopii
+  w jeden wzorzec jest decyzją o bramkach — dotyka modułów z własnymi kontrolami
+  negatywnymi i 6.D334 wyklucza je wprost.
+- **Czego NIE wolno przyjąć bez pomiaru:** że każda kopia jest zbędna. Wzorzec
+  odsiewający **rozszerzenie na końcu nazwy** i wzorzec odsiewający **ścieżkę
+  z ukośnikiem** wyglądają podobnie, a łapią rozłączne rzeczy: nazwa z samym
+  rozszerzeniem wpada w pierwszy i nie wpada w drugi. Klasa, która tego nie
+  rozróżni, policzy dwa różne sita jako jedno powtórzone.
+- **Wejście:** `reports/6d334-dwa-pomiary-i-oba-odsiewaja-adresy.md` (stamtąd oba
+  wzorce i powód odsiewania), `tools/tests/test_prose_counts.py`,
+  `tools/tests/test_report_claims.py`, `tools/tests/test_field_paths.py`,
+  `tools/tests/test_report_hygiene.py`.
+- **Wyjście:** ile wzorców w `tools/tests/` odsiewa adres pliku; ile z nich jest
+  pożyczonych, a ile napisanych na miejscu; oraz ile par łapie **to samo**
+  sprawdzone wejściem wzorcowym, a ile rozłączne rzeczy. Trzy liczby i tabela par
+  z wynikiem porównania.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_prose_counts.py test_report_hygiene.py
+  ```
+  Oczekiwane: zielone. Kontrola przyrządu: `ODSYLACZ_PLIKU` i `PATH_TOKEN` mają
+  wyjść jako para łapiąca **rozłączne** rzeczy — pierwszy bierze nazwę z samym
+  rozszerzeniem, drugi wymaga ukośnika, więc przyrząd stawiający je jako kopię
+  czyta wzorce inaczej, niż działają. Wejście wzorcowe do tego porównania budujesz
+  sam i **nie wpisujesz do pola gołej nazwy pliku**: bramka
+  `test_w_polach_blokow_OTWARTYCH_nie_ma_ANI_JEDNEJ_golej_nazwy_bez_odpowiednika`
+  zapala się na niej, i słusznie.
+- **Skończone, gdy:** trzy liczby stoją, tabela par stoi z wynikiem porównania na
+  wejściu wzorcowym, i powiedziano wprost, ile kopii jest naprawdę tym samym sitem
+  — **także gdy żadna**, bo wtedy powtórzenia nie ma, a jest rodzina sit o różnych
+  zasięgach.
+- **Poza zakresem:** scalanie wzorców; zmiana któregokolwiek z nich; bramka na
+  powtórzeniu; `src/`; `data/`.
+- **Zależy od:** 6.D334 (stamtąd oba wzorce), 6.D337 (stamtąd rozróżnienie dowodu
+  przy liczbie i odsyłacza).
