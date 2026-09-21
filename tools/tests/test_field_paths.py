@@ -2197,7 +2197,8 @@ def _istnieje_w_drzewie(nazwa):
 # 1375 -> 1379 i 553 -> 554 (21.09.2026, 6.D343): blok 6.D343 przeszedl do wykonanych; ZMIERZONE.
 # 1379 -> 1384 i 554 -> 555 (21.09.2026, 6.D344): blok 6.D344 przeszedl do wykonanych; ZMIERZONE.
 # 1384 -> 1386 i 555 -> 556 (21.09.2026, 6.D345): blok 6.D345 przeszedl do wykonanych; ZMIERZONE.
-ADRESOW_W_WYKONANYCH = {"Wejście": 1386, "Wyjście": 72, "Weryfikacja": 556}
+# 1386 -> 1389 i 556 -> 557 (21.09.2026, 6.D347): blok 6.D347 przeszedl do wykonanych; ZMIERZONE.
+ADRESOW_W_WYKONANYCH = {"Wejście": 1389, "Wyjście": 73, "Weryfikacja": 557}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
@@ -2393,7 +2394,8 @@ ADRESOW_W_WYKONANYCH = {"Wejście": 1386, "Wyjście": 72, "Weryfikacja": 556}
 # 256 -> 258 (21.09.2026, 6.D344): blok 6.D344 przeszedl do wykonanych; jego plotek
 # wymienia DWA moduly, wiec zapadka rosnie o dwa. ZMIERZONE.
 # 258 -> 259 (21.09.2026, 6.D345): blok 6.D345 przeszedl do wykonanych; ZMIERZONE.
-WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 259}
+# 259 -> 260 (21.09.2026, 6.D347): blok 6.D347 przeszedl do wykonanych; ZMIERZONE.
+WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 260}
 
 #: Ilu kandydatow zlego adresu daje regula prozy, per pole — 6.D158.
 # 12 -> 13 (14.09.2026, 6.D204): trzynastym kandydatem jest `test_mutation_sweep.py`
