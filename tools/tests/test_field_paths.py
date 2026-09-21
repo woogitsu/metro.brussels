@@ -2195,7 +2195,10 @@ def _istnieje_w_drzewie(nazwa):
 # 1370 -> 1372 i 551 -> 552 (21.09.2026, 6.D341): blok 6.D341 przeszedl do wykonanych; ZMIERZONE.
 # 1372 -> 1375 i 552 -> 553 (21.09.2026, 6.D342): blok 6.D342 przeszedl do wykonanych; ZMIERZONE.
 # 1375 -> 1379 i 553 -> 554 (21.09.2026, 6.D343): blok 6.D343 przeszedl do wykonanych; ZMIERZONE.
-ADRESOW_W_WYKONANYCH = {"Wejście": 1379, "Wyjście": 72, "Weryfikacja": 554}
+# 1379 -> 1384 i 554 -> 555 (21.09.2026, 6.D344): blok 6.D344 przeszedl do wykonanych; ZMIERZONE.
+# 1384 -> 1386 i 555 -> 556 (21.09.2026, 6.D345): blok 6.D345 przeszedl do wykonanych; ZMIERZONE.
+# 1386 -> 1389 i 556 -> 557 (21.09.2026, 6.D347): blok 6.D347 przeszedl do wykonanych; ZMIERZONE.
+ADRESOW_W_WYKONANYCH = {"Wejście": 1389, "Wyjście": 73, "Weryfikacja": 557}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
@@ -2388,7 +2391,11 @@ ADRESOW_W_WYKONANYCH = {"Wejście": 1379, "Wyjście": 72, "Weryfikacja": 554}
 # wymienia DWA moduly, wiec zapadka rosnie o dwa. ZMIERZONE.
 # 254 -> 256 (21.09.2026, 6.D343): blok 6.D343 przeszedl do wykonanych; jego plotek
 # wymienia DWA moduly, wiec zapadka rosnie o dwa. ZMIERZONE.
-WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 256}
+# 256 -> 258 (21.09.2026, 6.D344): blok 6.D344 przeszedl do wykonanych; jego plotek
+# wymienia DWA moduly, wiec zapadka rosnie o dwa. ZMIERZONE.
+# 258 -> 259 (21.09.2026, 6.D345): blok 6.D345 przeszedl do wykonanych; ZMIERZONE.
+# 259 -> 260 (21.09.2026, 6.D347): blok 6.D347 przeszedl do wykonanych; ZMIERZONE.
+WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 260}
 
 #: Ilu kandydatow zlego adresu daje regula prozy, per pole — 6.D158.
 # 12 -> 13 (14.09.2026, 6.D204): trzynastym kandydatem jest `test_mutation_sweep.py`
@@ -2417,7 +2424,10 @@ WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 256}
 # `test_tree_walks.py` z plotka „Weryfikacji" bloku tej pozycji — ta sama nazwa,
 # co przy 6.D329, i z tego samego powodu: modul bez sciezki, ktorego proza bloku
 # nie wymienia. Ten sam ksztalt co dwadziescia poprzednich, a nie zly adres.
-KANDYDATOW_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 21}
+# 21 -> 22 (21.09.2026, 6.D345): dwudziestym drugim kandydatem jest modul
+# z plotka „Weryfikacji" bloku tej pozycji — nazwa bez sciezki, ktorej proza
+# bloku nie wymienia. Ten sam ksztalt co dwadziescia jeden poprzednich.
+KANDYDATOW_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 22}
 
 
 def adresy_pola_w_wykonanych(pole):

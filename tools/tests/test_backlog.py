@@ -622,7 +622,9 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 # ze znalezisk 6.D343 (dwa wyluskania z jednego wzorca i szesc wzorcow, ktorych
 # tekst nie mowi, co wzorzec robi). Zapas udokumentowany spadlby po tej pozycji
 # do 11 przy progu 12; te dwa bloki podnosza go do 13.
-MINIMUM_DETAIL_BLOCKS = 417
+# 417 -> 419 (21.09.2026, 6.D344): dwa bloki dopisane - 6.D354 i 6.D355, oba
+# ze znalezisk 6.D344 (jedna nazwa na dwa sita i trzy sita uniwersalne).
+MINIMUM_DETAIL_BLOCKS = 419
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
@@ -1597,7 +1599,9 @@ def test_the_open_item_filter_reacts_to_the_marker_and_not_to_something_else():
 #: ani do `MINIMUM_DETAIL_BLOCKS`. Dzięki temu wprowadzenie planu grywalności NIE
 #: podniosło ani nie obniżyło żadnej istniejącej zapadki — a gdyby weszło do tamtych
 #: liczb, nie dałoby się odróżnić „przybyło pracy" od „zmieniono miarę".
-POZYCJI_PASMA_M = 9
+# 9 -> 10 (21.09.2026, MB-09): kamien M2 otwarty decyzja wlasciciela, wiec pasmo M
+# dostaje dziesiata pozycje — kontrakt M2 i siedem punktow odbioru. ZMIERZONE.
+POZYCJI_PASMA_M = 10
 
 #: Pola, których żąda `CLAUDE.md` §6 — te same, co dla kolejki 6.x.
 POLA_PASMA_M = ("Wejście", "Wyjście", "Weryfikacja", "Skończone, gdy",

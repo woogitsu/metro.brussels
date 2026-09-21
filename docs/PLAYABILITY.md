@@ -117,9 +117,12 @@ kosmetyka: licznik `test_backlog.py` liczy pozycje **DO WZIĘCIA**, a pozycja zr
 i nieoznaczona zawyża zapas o jeden — czyli dokładnie w tę stronę, przed którą ten
 licznik ma chronić.
 
-**Pasmo M jest domknięte: MB-00…MB-08 mają adnotacje.** Następny kamień milowy nie jest
-tu wpisany, bo jego zakres jest decyzją właściciela, a nie skutkiem ubocznym domknięcia
-poprzedniego.
+**Pasmo M jest domknięte: MB-00…MB-08 mają adnotacje.** **Ten akapit jest PRZEPISANY
+21.09.2026, a nie dopisany obok.** Poprzednia wersja kończyła się zdaniem, że następny
+kamień milowy nie jest tu wpisany, bo jego zakres jest decyzją właściciela — i to już
+nieprawda: **decyzja zapadła 21.09.2026 i kamień M2 jest AKTYWNY**, w zakresie szerokim.
+Jego kontrakt stoi w §9, a kolejność prac w §10. Zasada, z której tamto zdanie wyrastało,
+zostaje nietknięta: zakres wpisał właściciel, a nie domknięcie poprzedniego kamienia.
 
 Terminów ten dokument nie podaje i podawać nie będzie: brakuje pomiaru eksportu,
 ręcznego playtestu i kosztu integracji `LineDrive`.
@@ -209,3 +212,71 @@ wobec brzmienia audytu, a nie powtórzony.
 **Drugie ustalenie, którego audyt nie miał:** `export_presets.cfg` nie tylko nie istnieje
 — jest **jawnie w `.gitignore:31`**, w sekcji „wszystko, co silnik generuje obok
 projektu". MB-04 musi więc zmienić także `.gitignore`, a nie tylko dołożyć plik.
+
+## 9. Kontrakt M2 — „Linia jedzie bez gracza, a gracz może wejść i wyjść"
+
+**Wszystko w tej sekcji to DECYZJE PROJEKTOWE, nie odczytane fakty** — tak samo jak
+w §3 dla M1. Wpisane 21.09.2026 na polecenie właściciela, w zakresie SZEROKIM.
+
+**Dlaczego M2 potrzebuje kontraktu, a nie budowy.** M1 miał kontrakt i siedem punktów
+odbioru. M2 ma w tabeli §2 **jedno zdanie** — „kilka składów, wspólna sygnalizacja,
+ręczne drzwi, take/release" — i **zero punktów odbioru**. Tymczasem MB-06, MB-07 i MB-08
+dostarczyły wszystkie cztery rzeczy z tego zdania. Brakuje więc nie budowy, tylko
+**zdania, które da się sprawdzić i które dziś nie przechodzi**.
+
+**Odbiór M2 — siedem punktów:**
+
+| # | punkt | czym sprawdzany |
+|---|---|---|
+| 1 | Gracz uruchamia tryb linii **bez wpisywania argumentów**. | uruchomienie pakietu, nie wiersz poleceń |
+| 2 | **Linia jedzie bez gracza.** Patrzenie jest pełnoprawnym stanem: żaden skład nie czeka na wejście człowieka. | `line --signalling --trace` i `tools/ci/assert_line_trace.py --traces build/trace` bez zmiany co do bajtu |
+| 3 | Gracz **przejmuje** wybrany skład i **oddaje** go; pozostałe jadą dalej pod autopilotem. | ślad linii **bez** komend gracza ma tę samą sumę co przed przejęciem (reguła MB-06) |
+| 4 | Przy przejętym składzie drzwi obsługuje **ręcznie**; odjazd z otwartymi drzwiami jest zablokowany, a HUD mówi **dlaczego**. | `dotnet test tests/Sim.Tests` — test na ODMOWIE odjazdu, nie na wyjątku |
+| 5 | **Wynik opisuje LINIĘ**, nie tylko skład obserwowany: obsłużone stacje i błąd zatrzymania **każdego** składu. | wypis wyniku ma tyle wierszy, ile składów |
+| 6 | **Replay tego samego wejścia odtwarza przejazd linii co do bitu.** | `compare --tolerance 0` kodem 0 |
+| 7 | Start bez potrzebnego zasobu daje **zrozumiały błąd**, nie pustą scenę. | jak w §3 punkt 7 |
+
+**Dwa punkty NIE PRZECHODZĄ dziś, i oba są ZMIERZONE, a nie założone.**
+
+**Punkt 6 nie przechodzi.** Gałąź `LineCore` w `FirstRun.StepOnce` (`src/Game/FirstRun.cs`)
+wychodzi ze `StepOnce` w wierszach **1515 i 1520**, a `_recorder?.Record(stepIndex, keys)`
+stoi w wierszu **1630** — **nigdy go nie osiąga**. Bez zapisu wejść nie ma czego
+odtwarzać. Zamyka to pozycja 6.M1.
+
+**Punkt 5 nie przechodzi.** `TrainingResult` (`src/Sim/Train/TrainingResult.cs:93`) ma
+siedem pól: `Ending`, `Targets`, `TotalSeconds`, `TotalDistanceM` i trzy liczniki ATP.
+**Ani jedno nie ma wymiaru per skład** — `Targets` to lista CELÓW jednej sesji, a nie
+lista pociągów. Panel wyniku (`src/Game/UI/RunSummary.cs`) iteruje po `result.Targets`,
+więc wypisze tyle wierszy, ile celów, **niezależnie od liczby składów na linii**. Nie
+jest to rozszerzenie panelu, tylko **nowy wymiar w typie wyniku**.
+
+**Punkty 2, 3, 4 i 7 są dostarczone przez MB-06…MB-08, ale żaden nie ma dziś zapisanego
+kryterium odbioru** — przechodzą, a nie wiadomo wobec czego. **Nie wolno przyjąć, że
+„dostarczone" znaczy „przechodzi punkt odbioru":** MB-07 i MB-08 mają w §4 adnotacje
+o rzeczach **niewykonanych albo zapisanych jako BRAK**, a kontrakt, który uzna je za
+zamknięte bez sprawdzenia, przepisze adnotację na zgodę.
+
+**Czego ten kontrakt NIE przesądza.** Strony peronu (MB-08 zapisał ją jako BRAK, bo
+danych nie ma w `data/`), ścian kabiny (MB-05, zasobu nie ma), ani odbioru Windows x64
+(MB-04, niewykonany). Zakres szeroki obejmuje wszystkie trzy, ale **jako osobne pozycje
+z własnymi polami**, nie jako punkty odbioru — dwie wymagają decyzji właściciela,
+a trzecia środowiska, którego w kontenerze roboczym nie ma.
+
+## 10. Kolejność prac M2
+
+| # | pozycja | co odblokowuje | zależy od |
+|---|---|---|---|
+| 0 | **MB-09** kontrakt M2 i siedem punktów odbioru | wiadomo, co kończyć i wobec czego | — |
+| 1 | **6.M1** zapis wejść w gałęzi linii i `--replay` z `--line` | punkt 6 odbioru; bez niego M2 nie jest powtarzalne | MB-09 |
+| 2 | **6.M2** okno zatrzymania w `LineDrive` wobec `StationService` | rozstrzygnięcie różnicy nazwanej po jednej stronie i niepilnowanej po drugiej | MB-09 |
+| 3 | **wynik linii** — nowy wymiar w typie wyniku | punkt 5 odbioru | 6.M1 |
+| 4 | **strona peronu** | decyzja właściciela o źródle danych | — |
+| 5 | **ściany kabiny** | decyzja właściciela (ocena estetyczna) | — |
+| 6 | **playtest Windows x64** | środowisko, którego w kontenerze nie ma | — |
+
+**Największe ryzyko logiczne: 6.M1.** Zapis wejść w gałęzi linii dotyka determinizmu,
+a determinizm jest w tym projekcie własnością, na której wiszą wszystkie porównania
+śladów. Reguła MB-06 — ślad bez komend gracza ma tę samą sumę co przed zmianą — jest
+tu bramką, nie życzeniem.
+
+**Terminów ta sekcja nie podaje i podawać nie będzie**, z tego samego powodu co §4.
