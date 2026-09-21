@@ -622,7 +622,9 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 # ze znalezisk 6.D343 (dwa wyluskania z jednego wzorca i szesc wzorcow, ktorych
 # tekst nie mowi, co wzorzec robi). Zapas udokumentowany spadlby po tej pozycji
 # do 11 przy progu 12; te dwa bloki podnosza go do 13.
-MINIMUM_DETAIL_BLOCKS = 417
+# 417 -> 419 (21.09.2026, 6.D344): dwa bloki dopisane - 6.D354 i 6.D355, oba
+# ze znalezisk 6.D344 (jedna nazwa na dwa sita i trzy sita uniwersalne).
+MINIMUM_DETAIL_BLOCKS = 419
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
