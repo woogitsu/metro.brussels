@@ -138,11 +138,15 @@ KATEGORIE = {
         # komentarz z powodem przy `LiteralowWZasieguBramki`, tym razem o cztery wiersze.
         # TRESC pinow nie drgnela; przesunal sie wylacznie numer wiersza. Sprawdzone
         # wypisem skanera, a nie liczeniem wierszy z reki.
-        ("UiTextTests.cs", 1269), ("UiTextTests.cs", 1282), ("UiTextTests.cs", 1300),
+        # DZIEWIATY ruch tych kotwic (6.D235, 22.09.2026): 1269/1282/1300 -> 1272/1285/1303
+        # i 1369/1370 -> 1372/1373. Powod ten sam — komentarz z powodem przy
+        # `LiteralowWZasieguBramki`, tym razem o trzy wiersze. TRESC pinow nie drgnela.
+        # Przeliczone roznica plikow (difflib), a nie liczeniem wierszy z reki.
+        ("UiTextTests.cs", 1272), ("UiTextTests.cs", 1285), ("UiTextTests.cs", 1303),
         ("SignallingHudTests.cs", 37),
     },
     "B": {
-        ("UiTextTests.cs", 1369), ("UiTextTests.cs", 1370),
+        ("UiTextTests.cs", 1372), ("UiTextTests.cs", 1373),
     },
 }
 
@@ -226,10 +230,10 @@ def test_regula_po_ksztalcie_literalu_myli_sie_i_dlatego_jej_nie_ma():
                      if not regula.search(tresci[p])]
     zlapane_z_b = [p for p in sorted(KATEGORIE["B"]) if regula.search(tresci[p])]
 
-    assert przepuszczone == [("UiTextTests.cs", 1300)], (
+    assert przepuszczone == [("UiTextTests.cs", 1303)], (
         "reguła po kształcie przestała przepuszczać wiersz o hamulcu awaryjnym — "
         "rozstrzygnięcie 6.D131 wymaga przeliczenia: %s" % przepuszczone)
-    assert zlapane_z_b == [("UiTextTests.cs", 1370)], (
+    assert zlapane_z_b == [("UiTextTests.cs", 1373)], (
         "reguła po kształcie przestała łapić wejście syntetyczne: %s" % zlapane_z_b)
 
 
@@ -243,11 +247,11 @@ def test_czytnik_widzi_pin_takze_wtedy_gdy_literal_jest_sklejony():
     tresci = {(plik, wiersz): tresc
               for plik, wiersz, _r, tresc in CP.piny("tests/Game.Tests")}
 
-    assert len(tresci[("UiTextTests.cs", 1269)]) == 122, (
+    assert len(tresci[("UiTextTests.cs", 1272)]) == 122, (
         "sklejanie literałów przestało działać: %d znaków"
-        % len(tresci[("UiTextTests.cs", 1269)]))
-    assert len(tresci[("UiTextTests.cs", 1300)]) == 98, (
-        len(tresci[("UiTextTests.cs", 1300)]))
+        % len(tresci[("UiTextTests.cs", 1272)]))
+    assert len(tresci[("UiTextTests.cs", 1303)]) == 98, (
+        len(tresci[("UiTextTests.cs", 1303)]))
     assert len(tresci[("SignallingHudTests.cs", 37)]) == 84, (
         len(tresci[("SignallingHudTests.cs", 37)]))
 
@@ -360,9 +364,11 @@ ROZKLAD_LICZBOWYCH = {
         # Podloga na liczbe slow `var` tez nie wchodzi — zostala ZDJETA, bo
         # zmierzono, ze zapala sie na kodzie poprawnym (6.D27): zamiana jednego
         # `var` na typ jawny daje 535 przy pinie 536.
-        "razem": 240, "z_tolerancja": 103, "bez_tolerancji": 137,
+        # 240 -> 246 (22.09.2026, 6.D235): SZESC pinow calkowitych bez tolerancji
+        # w `FileReadGuardTests.cs` i `BadFileTests.cs`. Przeliczone z drzewa.
+        "razem": 246, "z_tolerancja": 103, "bez_tolerancji": 143,
         "zmiennoprzecinkowe": 109, "zmiennoprzecinkowe_bez_tolerancji": 6,
-        "calkowite": 131, "calkowite_z_tolerancja": 0, "tolerancja_zero": 18,
+        "calkowite": 137, "calkowite_z_tolerancja": 0, "tolerancja_zero": 18,
     },
     "tests/Sim.Tests": {
         # 441 -> 454 (13.09.2026, MB-02): trzynaście pinów liczbowych

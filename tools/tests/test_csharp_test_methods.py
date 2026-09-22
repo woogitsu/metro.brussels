@@ -603,9 +603,12 @@ ROZKLAD_POSTACI = {
         # podwajania ukosnika. Przeliczone z drzewa, nie zsumowane.
         # 4627 -> 4643 i 797 -> 802 (22.09.2026, 6.M2): `StopWindowParityTests.cs`.
         # Przeliczone z drzewa, nie zsumowane.
-        "zwykly": 4643,
-        "interpolowany ($)": 802,
-        "werbatim (@)": 92,
+        # 4643 -> 4720, 802 -> 812 i 92 -> 95 (22.09.2026, 6.D235): `FileReadGuardTests.cs`
+        # (tekst wzorcowy przyrzadu, trzy wzorce werbatim) i `BadFileTests.cs` (osiem
+        # zlych ksztaltow). Przeliczone z drzewa, nie zsumowane.
+        "zwykly": 4720,
+        "interpolowany ($)": 812,
+        "werbatim (@)": 95,
         "surowy interpolowany ($$\"\"\")": 13,
         "surowy (\"\"\")": 8,
         "werbatim interpolowany ($@)": 7,
@@ -655,7 +658,9 @@ ROZKLAD_POSTACI = {
         # niesie dziś NAZWĘ pola i opis właściciela, bo bez nich komunikat odmowy
         # nie mówi, czego brakuje. Przeliczone z drzewa.
         "zwykly": 1409,
-        "interpolowany ($)": 489,
+        # 489 -> 494 (22.09.2026, 6.D235): piec komunikatow `Abort` dla pliku ZLEGO
+        # w `FirstRun.cs`. Przeliczone z drzewa, nie zsumowane.
+        "interpolowany ($)": 494,
         "werbatim (@)": 0,
         "surowy interpolowany ($$\"\"\")": 1,
         "surowy (\"\"\")": 1,

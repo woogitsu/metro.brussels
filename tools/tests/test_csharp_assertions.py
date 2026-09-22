@@ -439,7 +439,8 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 # komunikat, wiec obie zapadki — ta i `ASERCJI_RAZEM` — rosna o tyle samo.
 # 1750 -> 1770 (22.09.2026, 6.M2): DWADZIESCIA asercji `StopWindowParityTests.cs`,
 # wszystkie z komunikatem — obie zapadki rosna o tyle samo.
-Z_KOMUNIKATEM_RAZEM = 1770
+# 1770 -> 1787 (22.09.2026, 6.D235): SIEDEMNASCIE asercji, wszystkie z komunikatem.
+Z_KOMUNIKATEM_RAZEM = 1787
 NIEROZSTRZYGNIETYCH = 68
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
 #: `tests/Sim.Tests/DefaultArmAuditTests.cs` — bramki na ramionach domyślnych
@@ -528,7 +529,9 @@ NIEROZSTRZYGNIETYCH = 68
 # ma milczec (dzisiejsza wartosc, liczba spoza lancucha, cudza stala).
 # 3197 -> 3217 (22.09.2026, 6.M2): DWADZIESCIA asercji `StopWindowParityTests.cs`,
 # kazda z komunikatem. Przeliczone z drzewa.
-ASERCJI_RAZEM = 3217
+# 3217 -> 3234 (22.09.2026, 6.D235): SIEDEMNASCIE asercji `FileReadGuardTests.cs`
+# i `BadFileTests.cs`. Przeliczone z drzewa.
+ASERCJI_RAZEM = 3234
 
 
 def _rozklad():
