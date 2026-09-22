@@ -601,8 +601,10 @@ ROZKLAD_POSTACI = {
         # o CZTERY, bo wzorce lancucha zapisane sa jako `@"..."` — literal werbatim
         # jest dla wyrazenia regularnego jedyna postacia, w ktorej `\d` nie wymaga
         # podwajania ukosnika. Przeliczone z drzewa, nie zsumowane.
-        "zwykly": 4627,
-        "interpolowany ($)": 797,
+        # 4627 -> 4643 i 797 -> 802 (22.09.2026, 6.M2): `StopWindowParityTests.cs`.
+        # Przeliczone z drzewa, nie zsumowane.
+        "zwykly": 4643,
+        "interpolowany ($)": 802,
         "werbatim (@)": 92,
         "surowy interpolowany ($$\"\"\")": 13,
         "surowy (\"\"\")": 8,

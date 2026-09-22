@@ -650,7 +650,8 @@ POKRYTYCH_PRZYPISANIEM = 16
 # 54 -> 56 (18.09.2026, 6.D280): dwie liczby wiecej pokryte zbiegiem, obie
 # z ogniw lancucha dopisanych w tym module — patrz komentarz przy
 # `POKRYTYCH_PRZYPISANIEM`.
-POKRYTYCH_ZBIEGIEM_CYFR = 56
+# 56 -> 57 (22.09.2026, 6.M2): zbieg w deklaracjach C#.
+POKRYTYCH_ZBIEGIEM_CYFR = 57
 
 
 def pozycje_pokrycia(katalog=None, root=None):
@@ -803,7 +804,7 @@ ZBIEGIEM_PER_PLIK = {
     "test_bin_path_framework.py": 1,
     "test_bytecode_staleness.py": 2,
     "test_csharp_assertions.py": 1,
-    "test_dead_constants_csharp.py": 12,
+    "test_dead_constants_csharp.py": 13,  # 12 -> 13 (22.09.2026, 6.M2)
     "test_dotnet_version.py": 1,
     "test_field_paths.py": 1,
     "test_game_needle_specificity.py": 1,
@@ -839,7 +840,8 @@ ZBIEGIEM_PER_PLIK = {
 #: Podzial jest wiec wynikiem przeczytania 49 zdan i tak ma byc czytany.
 # 26 -> 28 (18.09.2026, 6.D280): dwie nowe liczby klasy `zbieg` to wiersze
 # wyliczenia klas pokrycia — twierdza o DZISIEJSZYM drzewie, wiec grupa A.
-ZBIEGIEM_GRUPA_A = 28
+# 28 -> 29 (22.09.2026, 6.M2): „200 nizej" w deklaracjach C#, grupa A.
+ZBIEGIEM_GRUPA_A = 29
 ZBIEGIEM_GRUPA_B = 28
 
 #: **Potwierdzone rozjazdy: SIEDEM twierdzen w JEDNYM module.** Wszystkie osiem
@@ -1040,9 +1042,9 @@ def test_ROZJAZDY_nadal_sa_rozjazdami_i_lista_nie_zostala_z_tylu():
 #: PLIKU, nie odrozniajac kodu od komentarza, wiec wiersz pokrywajacy bywa po
 #: prostu INNYM ZDANIEM PROZY o tej samej liczbie.
 #:
-#: Zmierzone 18.09.2026 z 56 liczb klasy `zbieg`:
+#: Przeliczone 22.09.2026 (6.M2) z 57 liczb klasy `zbieg`:
 #:
-#: * **43** pokrytych WYLACZNIE proza — w oknie nie ma ani jednego wiersza kodu;
+#: * **44** pokrytych WYLACZNIE proza — w oknie nie ma ani jednego wiersza kodu;
 #: * **12** pokrytych wylacznie kodem;
 #: * **1** mieszana.
 #:
@@ -1061,8 +1063,8 @@ def test_ROZJAZDY_nadal_sa_rozjazdami_i_lista_nie_zostala_z_tylu():
 #: **Liczy sie to w TYM SAMYM przebiegu, co pokrycie.** Drugi skan tych samych
 #: okien kosztowalby tyle, co caly czytnik, a 6.D272 zmierzylo, ile taki drugi
 #: skan potrafi kosztowac: 22 s za odpowiedz „zero".
-# 41 -> 43 (18.09.2026, 6.D280): jak wyzej.
-POKRYTYCH_WYLACZNIE_PROZA = 43
+# 43 -> 44 (22.09.2026, 6.M2): zbieg w deklaracjach C#; wczesniej 41 -> 43 w 6.D280.
+POKRYTYCH_WYLACZNIE_PROZA = 44
 # 11 -> 12 i 2 -> 1 (18.09.2026, 6.D280): jedna liczba przeszla z klasy
 # MIESZANEJ do KODU, bo ogniwo lancucha rozkladu modulow stoi odtad w tym
 # samym wierszu co wpis slownika, a nie osobnym wierszem prozy nad nim.

@@ -411,9 +411,12 @@ ROZKLAD_LICZBOWYCH = {
         # `BrokenJsonRefusalTests.cs` — podloga na liczbe przejrzanych par
         # loader x ksztalt. CALKOWITY i BEZ TOLERANCJI, bo jest liczba przebiegow
         # petli, nie miara fizyczna. Przeliczone z drzewa po scaleniu.
-        "razem": 481, "z_tolerancja": 188, "bez_tolerancji": 293,
+        # 481 -> 488 (22.09.2026, 6.M2): SIEDEM pinow calkowitych bez tolerancji
+        # w `StopWindowParityTests.cs` (liczby wywolan, liczba minietych, liczba
+        # krokow postoju). Przeliczone z drzewa.
+        "razem": 488, "z_tolerancja": 188, "bez_tolerancji": 300,
         "zmiennoprzecinkowe": 196, "zmiennoprzecinkowe_bez_tolerancji": 8,
-        "calkowite": 285, "calkowite_z_tolerancja": 0, "tolerancja_zero": 119,
+        "calkowite": 292, "calkowite_z_tolerancja": 0, "tolerancja_zero": 119,
     },
 }
 

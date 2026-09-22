@@ -46,7 +46,9 @@ public readonly record struct StationApproach(
 /// staje z błędem 0,31 m, ten warunek nigdy nie wychodzi poza peron. Dla CZŁOWIEKA
 /// wychodzi natychmiast: skład zatrzymany 200 m za stacją spełniałby go tak samo
 /// dobrze i otworzyłby drzwi w tunelu. Tutaj wymagane jest
-/// <c>|chainage − cel| &lt;= okno</c> po obu stronach.</para>
+/// <c>|chainage − cel| &lt;= okno</c> po obu stronach. Ta sama różnica jest opisana
+/// z powodem przy <c>LineDrive</c>, a przybija ją z obu stron
+/// <c>StopWindowParityTests</c> (6.M2).</para>
 ///
 /// <para><b>Przejechana stacja jest przejechana na zawsze.</b> Skład nie ma biegu
 /// wstecznego (<see cref="DriverCommand"/> ma nastawnik i hamulec, nie ma kierunku),

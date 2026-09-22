@@ -24,6 +24,18 @@ namespace MetroBxl.Sim.Train;
 /// tylko **umożliwia** wspólny zegar; sprzężenie między składami — autorytet jazdy
 /// z T-313, takt, turnback — jest osobnym krokiem i częściowo czeka na decyzje,
 /// których nie ma w żadnym dokumencie (`docs/TASKS.md`, T-320, sekcja STOP).</para>
+///
+/// <para><b>Okno zatrzymania jest JEDNOSTRONNE, i to jest różnica wobec
+/// <see cref="StationService"/> — wybrana świadomie (6.M2), a nie przeoczona.</b>
+/// Postój zakłada się przy <c>chainage &gt;= cel − okno</c>, bez ograniczenia z góry;
+/// <c>StationService</c> wymaga <c>|chainage − cel| &lt;= okno</c>. Skład ręczny
+/// zatrzymany 50 m za peronem dostaje tu więc postój z błędem zatrzymania +50 m,
+/// a tam — stację miniętą. Powód, dla którego zostaje tak: dwustronne okno wymagałoby
+/// reguły dla składu stojącego ZA oknem, której żaden dokument nie podaje, bo ta klasa
+/// nie ma rejestru stacji miniętych, a odjazd bez obsługi (MB-08) jest gałęzią TRWAJĄCEGO
+/// postoju. Dla autopilota różnica nie ma skutku — staje z błędem rzędu 0,3 m — więc
+/// ślad sześciu osi jest przy tej odpowiedzi ten sam co do bajtu. Obie strony przybija
+/// <c>StopWindowParityTests</c> na jednym i tym samym stanie składu.</para>
 /// </summary>
 public sealed class LineDrive
 {
