@@ -99,7 +99,7 @@ test -s build/TEST.glb || fail "build/TEST.glb is empty"
 
 echo
 echo "[BLENDER] tunnel seam normals across every LOD pair"
-"$BLENDER_EXE" --background --python-exit-code 7 --python tools/tests/test_tunnel_seam_normals.py
+"$BLENDER_EXE" --background --python-exit-code 7 --python tools/blender/seam_normals_check.py
 
 echo
 echo "[BLENDER] render the exported GLB"

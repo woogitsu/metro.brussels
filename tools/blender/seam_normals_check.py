@@ -1,11 +1,11 @@
-"""Run with Blender: blender -b --python tools/tests/test_tunnel_seam_normals.py."""
+"""Run with Blender: blender -b --python tools/blender/seam_normals_check.py."""
 import json
 import math
 import os
 import sys
 
 HERE = os.path.dirname(__file__)
-sys.path.insert(0, os.path.join(HERE, "..", "blender"))
+sys.path.insert(0, HERE)
 import bpy
 import lod as LD
 import sweep as SW
