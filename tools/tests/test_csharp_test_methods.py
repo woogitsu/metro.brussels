@@ -622,7 +622,8 @@ ROZKLAD_POSTACI = {
         # `BrokenJsonRefusalTests.cs` — komunikaty asercji, argumenty `line`, wzorzec
         # slowa `@"..."` i dopasowanie slowa zakazanego `$@"..."`. ZMIERZONE.
         # 4843 -> 4850, 836 -> 837: `BrakingCueTests` i komunikaty jego asercji.
-        "zwykly": 4850,
+        # 4850 -> 4854 (24.09.2026, braking cue line): cztery komunikaty asercji.
+        "zwykly": 4854,
         "interpolowany ($)": 837,
         "werbatim (@)": 99,
         "surowy interpolowany ($$\"\"\")": 13,
@@ -679,7 +680,8 @@ ROZKLAD_POSTACI = {
         # 1450 -> 1452 (23.09.2026, 6.D356): DWA literaly polskiego opisu dokumentu
         # innego ksztaltu, `Program.WrongJsonShapeText` w `Sim.Runner`. ZMIERZONE.
         # 1452 -> 1455: trzy nowe literały `BrakingCue` i wskazówki stacji.
-        "zwykly": 1455,
+        # 1455 -> 1456 (24.09.2026, braking cue line): drugie uzycie klucza HUD.
+        "zwykly": 1456,
         # 489 -> 494 (22.09.2026, 6.D235): piec komunikatow `Abort` dla pliku ZLEGO
         # w `FirstRun.cs`. Przeliczone z drzewa, nie zsumowane.
         # 494 -> 513 (23.09.2026, 6.M1): komunikaty odmow i wiersze zapisu zdarzen

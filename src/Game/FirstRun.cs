@@ -2521,12 +2521,19 @@ public sealed partial class FirstRun : Node3D
                 return UiText.Format("hud.station.run-over", zaLinie);
             }
 
+            var odleglosc = nastepnaNaLinii.Value.ChainageM - ChainageM;
+            var hamowanieNaLinii = BrakingCue.ShouldPromptOnLine(
+                ObservedOwner() == ControlOwner.Driver, _command, odleglosc, _state.SpeedMps,
+                DesignAssumptions.ControlNotchRatePerSecond,
+                _controller.ServiceBrakeMps2, BrakingPointSolver.M7)
+                ? UiText.Get("hud.station.brake-now")
+                : string.Empty;
             return UiText.Format(
                 "hud.station.next",
                 nastepnaNaLinii.Value.Name,
                 (nastepnaNaLinii.Value.ChainageM - ChainageM).ToString(
                     "F0", CultureInfo.InvariantCulture),
-                zaLinie);
+                zaLinie) + hamowanieNaLinii;
         }
 
         if (_stations is null)
@@ -2565,7 +2572,7 @@ public sealed partial class FirstRun : Node3D
         var approach = _stations.Approach(ChainageM);
         var okno = approach.WithinWindow ? UiText.Get("hud.station.in-window") : string.Empty;
         var hamowanie = !approach.WithinWindow && BrakingCue.ShouldPrompt(
-            approach.DistanceM, _state.SpeedMps, _command.Throttle,
+            approach.DistanceM, _state.SpeedMps, _command.Throttle, _command.Brake,
             DesignAssumptions.ControlNotchRatePerSecond, _controller.ServiceBrakeMps2,
             BrakingPointSolver.M7)
             ? UiText.Get("hud.station.brake-now")

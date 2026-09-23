@@ -24,10 +24,10 @@ public sealed class BrakingCueTests
 
         Assert.IsTrue(distance > 185.0 && distance < 190.0,
             $"M7 brake cue drifted away from the measured first stop: {distance:F2} m");
-        Assert.IsFalse(BrakingCue.ShouldPrompt(250.0, speed, 1.0,
+        Assert.IsFalse(BrakingCue.ShouldPrompt(250.0, speed, 1.0, 0.0,
             DesignAssumptions.ControlNotchRatePerSecond, ServiceBrake, Solver),
             "at 250 m the first stop is still outside the advisory distance");
-        Assert.IsTrue(BrakingCue.ShouldPrompt(182.0, speed, 1.0,
+        Assert.IsTrue(BrakingCue.ShouldPrompt(182.0, speed, 1.0, 0.0,
             DesignAssumptions.ControlNotchRatePerSecond, ServiceBrake, Solver),
             "the measured brake change near 182 m must be within the cue window");
     }
@@ -35,10 +35,10 @@ public sealed class BrakingCueTests
     [TestMethod]
     public void Cue_is_silent_at_rest_and_after_the_stop()
     {
-        Assert.IsFalse(BrakingCue.ShouldPrompt(416.0, 0.0, 0.0,
+        Assert.IsFalse(BrakingCue.ShouldPrompt(416.0, 0.0, 0.0, 0.0,
             DesignAssumptions.ControlNotchRatePerSecond, ServiceBrake, Solver),
             "a stationary train must not receive a brake cue");
-        Assert.IsFalse(BrakingCue.ShouldPrompt(-2.0, 10.0, 0.0,
+        Assert.IsFalse(BrakingCue.ShouldPrompt(-2.0, 10.0, 0.0, 0.0,
             DesignAssumptions.ControlNotchRatePerSecond, ServiceBrake, Solver),
             "a passed stop must not receive a brake cue");
     }
@@ -52,5 +52,29 @@ public sealed class BrakingCueTests
             DesignAssumptions.ControlNotchRatePerSecond, ServiceBrake, Solver);
         Assert.AreEqual(22.5, powered - coasting, 1e-9,
             "Clearing full power takes 1.25 s at the actual notch rate");
+    }
+
+    [TestMethod]
+    public void Line_cue_needs_driver_control_and_disappears_when_braking_begins()
+    {
+        var speed = 18.0;
+        var command = DriverCommand.FullPower;
+
+        Assert.IsFalse(BrakingCue.ShouldPromptOnLine(
+            false, command, 150.0, speed,
+            DesignAssumptions.ControlNotchRatePerSecond, ServiceBrake, Solver),
+            "autonomous trains must not tell the player to brake");
+        Assert.IsTrue(BrakingCue.ShouldPromptOnLine(
+            true, command, 150.0, speed,
+            DesignAssumptions.ControlNotchRatePerSecond, ServiceBrake, Solver),
+            "the same train must show the cue after manual takeover");
+        Assert.IsFalse(BrakingCue.ShouldPromptOnLine(
+            true, new DriverCommand(0.0, 0.01), 150.0, speed,
+            DesignAssumptions.ControlNotchRatePerSecond, ServiceBrake, Solver),
+            "the cue must disappear as soon as the brake command begins");
+        Assert.IsFalse(BrakingCue.ShouldPrompt(
+            150.0, speed, 0.0, 0.01,
+            DesignAssumptions.ControlNotchRatePerSecond, ServiceBrake, Solver),
+            "the manual single-train HUD follows the same brake rule");
     }
 }

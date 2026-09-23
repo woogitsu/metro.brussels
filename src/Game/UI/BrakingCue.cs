@@ -1,5 +1,6 @@
 using System;
 using MetroBxl.Sim.Physics;
+using MetroBxl.Sim.Train;
 
 namespace MetroBxl.Game.UI;
 
@@ -37,9 +38,19 @@ public static class BrakingCue
 
     /// <summary>True when a moving train is close enough to advise braking now.</summary>
     public static bool ShouldPrompt(
-        double distanceToStopM, double speedMps, double throttle,
+        double distanceToStopM, double speedMps, double throttle, double brake,
         double notchRatePerSecond, double serviceBrakeMps2, BrakingPointSolver solver) =>
         double.IsFinite(distanceToStopM) && distanceToStopM > 0.0 && speedMps > 0.5 &&
+        brake <= 0.0 &&
         distanceToStopM <= AdvisoryDistanceM(
             speedMps, throttle, notchRatePerSecond, serviceBrakeMps2, solver);
+
+    /// <summary>The line HUD advises only the train currently driven by the player.</summary>
+    public static bool ShouldPromptOnLine(
+        bool driverControls, DriverCommand command, double distanceToStopM,
+        double speedMps, double notchRatePerSecond, double serviceBrakeMps2,
+        BrakingPointSolver solver) =>
+        driverControls && ShouldPrompt(
+            distanceToStopM, speedMps, command.Throttle, command.Brake,
+            notchRatePerSecond, serviceBrakeMps2, solver);
 }
