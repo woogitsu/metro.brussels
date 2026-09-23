@@ -144,6 +144,11 @@ public sealed class SceneAxis
         double chainageM, double setbackM, double heightM, double lateralM)
     {
         var at = Math.Clamp(chainageM - setbackM, 0.0, _axis.LengthM);
+        if (at == 0.0 || at == _axis.LengthM)
+        {
+            return CabPoint(chainageM, setbackM, heightM, lateralM);
+        }
+
         var centre = SmoothCentreLinePoint(at);
         var before = SmoothCentreLinePoint(Math.Max(0.0, at - 1.5));
         var after = SmoothCentreLinePoint(Math.Min(_axis.LengthM, at + 1.5));
@@ -166,6 +171,13 @@ public sealed class SceneAxis
             sum += CentreLinePoint(Math.Clamp(at + (i - 3) * 3.0, 0.0, _axis.LengthM)) * weights[i];
         }
 
-        return sum / 64.0f;
+        var smoothed = sum / 64.0f;
+        // Przy końcach próbki po jednej stronie są przycięte do tego samego punktu.
+        // Średnia przesuwałaby oko o 1,4 m w głąb trasy. Wygaszamy filtr płynnie
+        // przez jego 9-metrowy promień, zachowując dokładne końce osi.
+        var distanceFromEnd = Math.Min(at, _axis.LengthM - at);
+        var blend = (float)Math.Clamp(distanceFromEnd / 9.0, 0.0, 1.0);
+        blend = blend * blend * (3.0f - 2.0f * blend);
+        return CentreLinePoint(at).Lerp(smoothed, blend);
     }
 }

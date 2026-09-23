@@ -201,6 +201,36 @@ public sealed class SceneAxisTests
     }
 
     [TestMethod]
+    public void SmoothCabPointKeepsBothAxisEndsAndJoinsInteriorWithoutAJump()
+    {
+        var route = TrackAxis.FromJson("""
+            {"id":"ENDS","crs":"EPSG:31370",
+             "points":[[0,0,0],[20,5,0],[40,20,0],[60,40,0]],
+             "stations":[]}
+            """);
+        var scene = new SceneAxis(route, 2.10);
+        foreach (var at in new[] { 0.0, route.LengthM })
+        {
+            var original = scene.CabPoint(at, 0.0, 2.20, 0.0);
+            var smooth = scene.SmoothCabPoint(at, 0.0, 2.20, 0.0);
+            Assert.AreEqual(original.Position.X, smooth.Position.X, 1e-5f);
+            Assert.AreEqual(original.Position.Y, smooth.Position.Y, 1e-5f);
+            Assert.AreEqual(original.Position.Z, smooth.Position.Z, 1e-5f);
+            Assert.AreEqual(0.0f, original.Forward.AngleTo(smooth.Forward), 1e-5f);
+        }
+
+        // Granica 9 m to koniec wygaszania filtra. Sąsiednie próbki nie mogą
+        // przenieść kamery o wiele więcej niż przebyta odległość na osi.
+        foreach (var boundary in new[] { 9.0, route.LengthM - 9.0 })
+        {
+            var left = scene.SmoothCabPoint(boundary - 0.01, 0.0, 2.20, 0.0);
+            var right = scene.SmoothCabPoint(boundary + 0.01, 0.0, 2.20, 0.0);
+            Assert.IsTrue(left.Position.DistanceTo(right.Position) < 0.03f);
+            Assert.IsTrue(left.Forward.AngleTo(right.Forward) < 0.01f);
+        }
+    }
+
+    [TestMethod]
     public void ConstructorRefusesAMissingAxis()
     {
         Assert.ThrowsException<ArgumentNullException>(() => new SceneAxis(null!, 2.10));
