@@ -1186,9 +1186,11 @@ public sealed partial class FirstRun : Node3D
             return;
         }
 
-        var assets = Argument("assets") ?? AssetsRoot();
+        var assetsOverride = Argument("assets");
+        var assets = assetsOverride ?? AssetsRoot();
         var manifestPath = Argument("manifest") ?? Path.Combine(assets, "chunks", "L1_A-chunks.json");
-        var shellPath = Argument("shell") ?? Path.Combine(assets, "M7_shell.glb");
+        var shellOverride = Argument("shell");
+        var shellPath = shellOverride ?? Path.Combine(assets, "M7_shell.glb");
         var platformsPath = Argument("platforms") ?? Path.Combine(assets, "L1_A-platforms.glb");
         var cabPath = Argument("cab") ?? Path.Combine(assets, "M7_cab.glb");
 
@@ -1249,7 +1251,10 @@ public sealed partial class FirstRun : Node3D
         // zielony. Zmierzone audytem mutacyjnym (Issue #107): mutacja `TrainView.cs:38`
         // przechodziła bramki, tą samą drogą przeżyły `TrackOffsetM 2.10→0.0`
         // i `CabEyeHeightM 2.20→0.0`.
-        var bodies = _train.Load(shellPath, trainMaterial);
+        // Materiały proceduralnego M7 wolno zachować tylko przy domyślnych zasobach.
+        // --shell/--assets mogą wskazywać dowolny GLB i nadal dostają neutralny materiał.
+        var preserveGeneratedShellMaterials = shellOverride is null && assetsOverride is null;
+        var bodies = _train.Load(shellPath, trainMaterial, preserveGeneratedShellMaterials);
         if (bodies <= 0)
         {
             Abort(ExitTrainMissing,
@@ -1265,7 +1270,8 @@ public sealed partial class FirstRun : Node3D
         {
             var widok = new TrainView { Name = $"Train{i + 1}" };
             AddChild(widok);
-            var wspolne = widok.LoadSharedFrom(_train, trainMaterial);
+            var wspolne = widok.LoadSharedFrom(_train, trainMaterial,
+                preserveGeneratedShellMaterials);
             if (wspolne <= 0)
             {
                 // Ta sama odmowa co przy składzie zerowym i z tego samego powodu:

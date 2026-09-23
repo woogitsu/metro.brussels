@@ -64,7 +64,31 @@ def neutral_material():
     return material
 
 
-def build_tube(name, layout, start, end, extra_inset=0.0, taper_aware=True):
+def dark_panel_material():
+    """Własny, neutralny panel końcowy i mieszek; bez znaków i tekstur."""
+    existing = bpy.data.materials.get("M7_neutral_dark_panel")
+    if existing:
+        return existing
+    material = bpy.data.materials.new("M7_neutral_dark_panel")
+    material.use_nodes = True
+    bsdf = material.node_tree.nodes.get("Principled BSDF")
+    if bsdf:
+        bsdf.inputs["Base Color"].default_value = (0.115, 0.135, 0.155, 1.0)
+        bsdf.inputs["Roughness"].default_value = 0.75
+        if "Metallic" in bsdf.inputs:
+            bsdf.inputs["Metallic"].default_value = 0.0
+    return material
+
+
+def end_cap_with_panel(bm, ring):
+    """Wpuszczony neutralny panel czołowy, bez zmiany skrajni ani liczby brył."""
+    cap = bmesh.ops.contextual_create(bm, geom=ring)["faces"][0]
+    bmesh.ops.inset_region(bm, faces=[cap], thickness=0.18, depth=0.0)
+    cap.material_index = 1
+
+
+def build_tube(name, layout, start, end, extra_inset=0.0, taper_aware=True,
+               dark_start=False, dark_end=False, dark_body=False):
     """Zamknięta skorupa zbudowana z pierścieni przekroju wzdłuż X."""
     mesh = bpy.data.meshes.new(name)
     obj = bpy.data.objects.new(name, mesh)
@@ -82,12 +106,20 @@ def build_tube(name, layout, start, end, extra_inset=0.0, taper_aware=True):
         for i in range(count):
             j = (i + 1) % count
             bm.faces.new((a[i], a[j], b[j], b[i]))
-    bmesh.ops.contextual_create(bm, geom=rings[0])
-    bmesh.ops.contextual_create(bm, geom=rings[-1])
+    if dark_start:
+        end_cap_with_panel(bm, rings[0])
+    else:
+        bmesh.ops.contextual_create(bm, geom=rings[0])
+    if dark_end:
+        end_cap_with_panel(bm, rings[-1])
+    else:
+        bmesh.ops.contextual_create(bm, geom=rings[-1])
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     bm.to_mesh(mesh)
     bm.free()
-    mesh.materials.append(neutral_material())
+    mesh.materials.append(dark_panel_material() if dark_body else neutral_material())
+    if dark_start or dark_end:
+        mesh.materials.append(dark_panel_material())
     return obj
 
 
@@ -159,7 +191,8 @@ def build_shell(layout):
     cars = []
     for index in range(layout.cars):
         start, end = layout.car_body_span(index)
-        car = build_tube(f"M7_car_{index + 1}", layout, start, end)
+        car = build_tube(f"M7_car_{index + 1}", layout, start, end,
+                         dark_start=index == 0, dark_end=index == layout.cars - 1)
         solidify(car)
         car_doors = [d for d in doors if d["car"] == index]
         if car_doors:
@@ -170,7 +203,7 @@ def build_shell(layout):
     for index, (start, end) in enumerate(layout.articulation_spans()):
         from m7_layout import DESIGN_ARTICULATION_INSET_M
         joint = build_tube(f"M7_articulation_{index + 1}", layout, start, end,
-                           extra_inset=DESIGN_ARTICULATION_INSET_M)
+                           extra_inset=DESIGN_ARTICULATION_INSET_M, dark_body=True)
         solidify(joint)
         joints.append(joint)
     return cars, joints

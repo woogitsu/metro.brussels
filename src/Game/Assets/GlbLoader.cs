@@ -45,11 +45,12 @@ public static class GlbLoader
     }
 
     /// <summary>
-    /// Nadaje wszystkim siatkom poddrzewa jeden neutralny materiał.
+    /// Nadaje wszystkim siatkom poddrzewa jeden neutralny materiał. Jest to
+    /// bezpieczna ścieżka dla zewnętrznych plików podanych przez argumenty.
     ///
     /// <c>docs/03-legal.md</c> jest twarde: żadnych logo, liverii, piktogramów ani
-    /// wystroju STIB/MIVB. Materiał jest szary i tyle; wygląd docelowy nie jest
-    /// przedmiotem tego zadania i nie wolno go tu zgadywać.
+    /// wystroju STIB/MIVB. Własna proceduralna skorupa M7 zachowuje dwa neutralne
+    /// materiały z generatora; pozostałe GLB dostają jednolitą szarość.
     /// </summary>
     public static int ApplyNeutralMaterial(Node node, StandardMaterial3D material)
     {
