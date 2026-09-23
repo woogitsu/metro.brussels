@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using MetroBxl.Sim.Line;
 using MetroBxl.Sim.Signalling;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -89,10 +91,73 @@ public sealed class BrokenJsonRefusalTests
         StringAssert.Contains(error.Message, "plan sygnalizacji",
             "odmowa nie nazywa czytanego pliku");
 
-        // Powód parsera zostaje DOŁĄCZONY, a nie wyrzucony: bez niego nie widać,
-        // w którym miejscu pliku składnia się rozjechała.
+        // Powód parsera zostaje DOŁĄCZONY jako InnerException, a nie wyrzucony — ale
+        // od 6.D357 już nie w tekście odmowy: miejsce w pliku podaje sam komunikat,
+        // z liczb parsera (test niżej).
         Assert.IsInstanceOfType(error.InnerException, typeof(JsonException),
             "powód parsera ma zostać jako InnerException");
+    }
+
+    /// <summary>
+    /// Słowa komunikatu: ciągi liter z łącznikami w środku. Łącznik jest w słowie, bo
+    /// polska odmiana skrótowca pisze się z nim — „JSON-em” jest JEDNYM słowem
+    /// polskim, a nie angielskim „JSON” z doklejką. Bez tego sito uznałoby za tekst
+    /// parsera sam polski początek odmowy, który stał tu przed 6.D357.
+    /// </summary>
+    private static HashSet<string> Slowa(string tekst)
+        => Regex.Matches(tekst, @"\p{L}+(?:-\p{L}+)*")
+            .Select(m => m.Value.ToLowerInvariant())
+            .ToHashSet();
+
+    [TestMethod]
+    public void Odmowa_nie_niesie_tekstu_parsera_i_podaje_wiersz_oraz_bajt()
+    {
+        // 6.D357: do tej pozycji wiersz odmowy kończył się `error.Message` .NET-a,
+        // np. „'{' is an invalid start of a property name. Expected a '"'.
+        // LineNumber: 0 | BytePositionInLine: 1.” Pozycja stoi w wyjątku jako liczby,
+        // więc ma przyjść stamtąd, a nie ze zdania parsera.
+        var sprawdzonych = 0;
+        foreach (var (loader, wywolaj) in Loadery())
+        {
+            foreach (var (ksztalt, json) in ZepsutaSkladnia())
+            {
+                var error = Assert.ThrowsException<FormatException>(
+                    () => wywolaj(json),
+                    $"{loader} na `{ksztalt}`: oczekiwano FormatException");
+                var parser = (JsonException)error.InnerException!;
+
+                var wspolne = Slowa(error.Message).Intersect(Slowa(parser.Message)).ToList();
+                Assert.AreEqual(0, wspolne.Count,
+                    $"{loader} na `{ksztalt}`: odmowa niesie słowa parsera "
+                    + $"[{string.Join(", ", wspolne)}]: {error.Message}");
+
+                var pozycja = Regex.Match(error.Message, @"w wierszu (\d+), bajt (\d+)");
+                Assert.IsTrue(pozycja.Success,
+                    $"{loader} na `{ksztalt}`: odmowa nie podaje wiersza i bajtu: {error.Message}");
+                Assert.AreEqual(parser.LineNumber + 1, long.Parse(pozycja.Groups[1].Value),
+                    $"{loader} na `{ksztalt}`: wiersz nie jest `LineNumber` parsera liczonym od 1");
+                Assert.AreEqual(parser.BytePositionInLine + 1, long.Parse(pozycja.Groups[2].Value),
+                    $"{loader} na `{ksztalt}`: bajt nie jest `BytePositionInLine` parsera liczonym od 1");
+                sprawdzonych++;
+            }
+        }
+
+        Assert.AreEqual(10, sprawdzonych,
+            "test nie przeszedł po wszystkich parach loader × kształt");
+    }
+
+    [TestMethod]
+    public void Pozycja_jest_ta_sama_co_w_edytorze()
+    {
+        // Kontrola znaczenia, nie wzoru: test wyżej sprawdza, że liczby są liczbami
+        // parsera plus jeden, a ten — że plus jeden jest DOBRĄ poprawką. `x` stoi
+        // w trzecim wierszu, na trzeciej pozycji, tak jak pokaże go edytor.
+        var error = Assert.ThrowsException<FormatException>(
+            () => JsonText.Parse("{\n  \"a\": 1,\n  x\n}", "plik").Dispose(),
+            "plik z `x` zamiast klucza ma kończyć się FormatException");
+
+        StringAssert.Contains(error.Message, "w wierszu 3, bajt 3",
+            "pozycja błędu nie zgadza się z tym, co gracz zobaczy w edytorze");
     }
 
     [TestMethod]
