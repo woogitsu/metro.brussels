@@ -58,18 +58,23 @@ for previous, following in zip(result["chunks"], result["chunks"][1:]):
                                    frames=frames, profile=profile)
             right = TS.build_object(after, 0, "after", material,
                                     frames=frames, profile=profile)
-            assert left.data.has_custom_normals and right.data.has_custom_normals
+            if not (left.data.has_custom_normals and right.data.has_custom_normals):
+                raise ValueError("missing custom normals at tunnel seam")
             a = end_normals(left, len(before["ring_indices"]) - 1, len(profile))
             b = end_normals(right, 0, len(profile))
-            assert a.keys() == b.keys() == set(range(len(profile)))
+            if a.keys() != b.keys() or a.keys() != set(range(len(profile))):
+                raise ValueError("tunnel seam wall normals are incomplete")
             for wall in a:
                 dot = max(-1.0, min(1.0, sum(x * y for x, y in zip(a[wall], b[wall]))))
                 worst = max(worst, math.degrees(math.acos(dot)))
-            assert SW.chunk_gap_m(before, after, len(profile) + 1) < 1e-9
+            if SW.chunk_gap_m(before, after, len(profile) + 1) >= 1e-9:
+                raise ValueError("tunnel seam has a positional gap")
             bpy.data.objects.remove(left, do_unlink=True)
             bpy.data.objects.remove(right, do_unlink=True)
 
-assert worst < 0.05, f"seam normals differ by {worst:.6f} degrees"
-assert old_face_mismatch > 1.5, "negative control no longer exposes the seam crease"
+if worst >= 0.05:
+    raise ValueError(f"seam normals differ by {worst:.6f} degrees")
+if old_face_mismatch <= 1.5:
+    raise ValueError("negative control no longer exposes the seam crease")
 print(f"SEAM NORMALS OK: {len(result['chunks']) - 1} seams, 9 LOD pairs, "
       f"maximum {worst:.6f} degrees (old faces {old_face_mismatch:.6f} degrees)")

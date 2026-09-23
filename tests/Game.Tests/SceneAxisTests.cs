@@ -192,8 +192,10 @@ public sealed class SceneAxisTests
             var rawB = scene.CabPoint(at + 0.25, 0.0, 2.20, 0.0);
             largestSmoothStep = Math.Max(largestSmoothStep, smoothA.Forward.AngleTo(smoothB.Forward));
             largestRawStep = Math.Max(largestRawStep, rawA.Forward.AngleTo(rawB.Forward));
-            Assert.AreEqual(2.20f, smoothA.Position.Y, 1e-3f);
-            Assert.AreEqual(1.0f, smoothA.Forward.Length(), 1e-4f);
+            Assert.AreEqual(2.20f, smoothA.Position.Y, 1e-3f,
+                "wygładzanie nie może zmieniać wysokości oka");
+            Assert.AreEqual(1.0f, smoothA.Forward.Length(), 1e-4f,
+                "kierunek kamery musi pozostać wektorem jednostkowym");
         }
 
         Assert.IsTrue(largestSmoothStep < largestRawStep * 0.7f,
@@ -213,10 +215,14 @@ public sealed class SceneAxisTests
         {
             var original = scene.CabPoint(at, 0.0, 2.20, 0.0);
             var smooth = scene.SmoothCabPoint(at, 0.0, 2.20, 0.0);
-            Assert.AreEqual(original.Position.X, smooth.Position.X, 1e-5f);
-            Assert.AreEqual(original.Position.Y, smooth.Position.Y, 1e-5f);
-            Assert.AreEqual(original.Position.Z, smooth.Position.Z, 1e-5f);
-            Assert.AreEqual(0.0f, original.Forward.AngleTo(smooth.Forward), 1e-5f);
+            Assert.AreEqual(original.Position.X, smooth.Position.X, 1e-5f,
+                "koniec osi nie może przesuwać oka w poziomie");
+            Assert.AreEqual(original.Position.Y, smooth.Position.Y, 1e-5f,
+                "koniec osi nie może przesuwać oka w pionie");
+            Assert.AreEqual(original.Position.Z, smooth.Position.Z, 1e-5f,
+                "koniec osi nie może przesuwać oka w głąb tunelu");
+            Assert.AreEqual(0.0f, original.Forward.AngleTo(smooth.Forward), 1e-5f,
+                "kierunek kamery na końcu osi musi być dokładny");
         }
 
         // Granica 9 m to koniec wygaszania filtra. Sąsiednie próbki nie mogą
@@ -225,8 +231,10 @@ public sealed class SceneAxisTests
         {
             var left = scene.SmoothCabPoint(boundary - 0.01, 0.0, 2.20, 0.0);
             var right = scene.SmoothCabPoint(boundary + 0.01, 0.0, 2.20, 0.0);
-            Assert.IsTrue(left.Position.DistanceTo(right.Position) < 0.03f);
-            Assert.IsTrue(left.Forward.AngleTo(right.Forward) < 0.01f);
+            Assert.IsTrue(left.Position.DistanceTo(right.Position) < 0.03f,
+                "kamera nie może przeskakiwać na granicy wygaszania filtra");
+            Assert.IsTrue(left.Forward.AngleTo(right.Forward) < 0.01f,
+                "kamera nie może obracać się skokowo na granicy filtra");
         }
     }
 

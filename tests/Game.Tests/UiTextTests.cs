@@ -223,6 +223,7 @@ public sealed class UiTextTests
     // w `FirstRun`: po dwa przy osi i przy manifeście chunków, jeden przy planie
     // sygnalizacji. Liczba PRZELICZONA przebiegiem.
     // 579 -> 578 (23.09.2026, 6.M1): odtworzenie linii — zdarzenia w zapisie wejść, `ExecuteLineEvent` w `FirstRun` i nowa odmowa `--replay --line` bez `--signalling` w `RunPlan`. PRZELICZONE.
+    // 578 -> 582 (23.09.2026, tory i światła): cztery ścieżki zasobów i lamp w scenie pierwszego przejazdu. PRZELICZONE.
     // Track-detail asset path and practical-light setup in FirstRun.cs add four
     // source literals; recounted against the current playable scene.
     private const int LiteralowWZasieguBramki = 582;
@@ -1493,6 +1494,7 @@ public sealed class UiTextTests
     // w `FirstRun`: po dwa przy osi i przy manifeście chunków, jeden przy planie
     // sygnalizacji. Liczba PRZELICZONA przebiegiem.
     // 620 -> 619 (23.09.2026, 6.M1): odtworzenie linii — zdarzenia w zapisie wejść, `ExecuteLineEvent` w `FirstRun` i nowa odmowa `--replay --line` bez `--signalling` w `RunPlan`. PRZELICZONE.
+    // 619 -> 623 (23.09.2026, tory i światła): cztery pozycje źródłowe dodane do sceny. PRZELICZONE.
     private const int PozycjiStaregoCzytnika = 623;
 
     /// <summary>
@@ -2087,6 +2089,7 @@ public sealed class UiTextTests
     // w `FirstRun`: po dwa przy osi i przy manifeście chunków, jeden przy planie
     // sygnalizacji. Liczba PRZELICZONA przebiegiem.
     // 139 -> 137 (23.09.2026, 6.M1): odtworzenie linii — zdarzenia w zapisie wejść, `ExecuteLineEvent` w `FirstRun` i nowa odmowa `--replay --line` bez `--signalling` w `RunPlan`. PRZELICZONE.
+    // 137 -> 138 (23.09.2026, tory i światła): nowy literał na drodze całego pliku. PRZELICZONE.
     private const int ZgloszenFirstRunCalymPlikiem = 138;
 
     /// <summary>Ile daje ten sam plik liczony WIERSZ PO WIERSZU — 6.D180.</summary>
@@ -2100,6 +2103,7 @@ public sealed class UiTextTests
     // w `FirstRun`: po dwa przy osi i przy manifeście chunków, jeden przy planie
     // sygnalizacji. Liczba PRZELICZONA przebiegiem.
     // 151 -> 149 (23.09.2026, 6.M1): odtworzenie linii — zdarzenia w zapisie wejść, `ExecuteLineEvent` w `FirstRun` i nowa odmowa `--replay --line` bez `--signalling` w `RunPlan`. PRZELICZONE.
+    // 149 -> 150 (23.09.2026, tory i światła): nowy literał na drodze wierszy. PRZELICZONE.
     private const int ZgloszenFirstRunWierszami = 150;
 
     /// <summary>Ile plików korpusu daje różne liczby obiema drogami — 6.D180.</summary>

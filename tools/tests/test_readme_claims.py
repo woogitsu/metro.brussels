@@ -171,7 +171,7 @@ PUNKTY_BRAKOW = (
     "profilu pionowego",
     "stacji wynikających z danych",
     "wielu składów W SCENIE",
-    "wnętrza kabiny w scenie",
+    "wiernego wnętrza kabiny",
     "ciągłego kilometrażu linii",
 )
 
@@ -276,9 +276,9 @@ POMIARY_BRAKOW = {
     "wielu składów W SCENIE": (wezly_skladu_w_scenie, 1,
                                "węzłów `TrainView` w `FirstRun.tscn`",
                                r"Scena pokazuje \*\*(\w+)\*\*"),
-    "wnętrza kabiny w scenie": (wymiary_kabiny_z_zalozenia, 24,
+    "wiernego wnętrza kabiny": (wymiary_kabiny_z_zalozenia, 19,
                                 "wymiarów kabiny jako `design_assumption`",
-                                r"\*\*(\d+)\*\* jej wymiary"),
+                                r"\*\*(\d+)\*\* wymiarów"),
     "ciągłego kilometrażu linii": (dlugosc_pakietow_m, 34481,
                                    "metrów osi w sześciu pakietach",
                                    None),

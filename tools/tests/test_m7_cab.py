@@ -103,8 +103,10 @@ def test_fotel_stoi_pod_okiem_i_przed_sciana():
     oparcie = bryly["cab_front_seat_back"]
     sciana = bryly["cab_front_bulkhead_left"]
 
-    assert abs(siedzisko["x_from_m"] - m7_cab.DESIGN_SEAT_FRONT_M) < 1e-9
-    assert siedzisko["x_from_m"] <= 1.80 <= siedzisko["x_to_m"]
+    assert abs(siedzisko["x_from_m"] - m7_cab.DESIGN_SEAT_FRONT_M) < 1e-9, (
+        "fotel nie zaczyna się w zadanej pozycji projektowej")
+    assert siedzisko["x_from_m"] <= 1.80 <= siedzisko["x_to_m"], (
+        "oko maszynisty nie leży nad siedziskiem")
     assert siedzisko["x_to_m"] <= oparcie["x_from_m"], (siedzisko, oparcie)
     assert oparcie["x_to_m"] <= sciana["x_from_m"], (
         "oparcie fotela wchodzi w ścianę do przedziału pasażerskiego")
