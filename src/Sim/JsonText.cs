@@ -46,8 +46,32 @@ public static class JsonText
         }
         catch (JsonException error)
         {
-            throw new FormatException(
-                $"{what} nie jest poprawnym JSON-em: {error.Message}", error);
+            throw new FormatException(Refusal(what, error.LineNumber, error.BytePositionInLine), error);
         }
     }
+
+    /// <summary>
+    /// Wiersz odmowy zepsutej składni — po polsku, z pozycją błędu i <b>bez</b> tekstu
+    /// parsera (6.D357).
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Dlaczego bez <c>error.Message</c>.</b> Do 6.D357 odmowa doklejała zdanie
+    /// .NET-a, więc gracz czytał na przykład <c>oś trasy nie jest poprawnym JSON-em:
+    /// '{' is an invalid start of a property name. Expected a '"'. LineNumber: 0 |
+    /// BytePositionInLine: 1.</c> Jedyną informacją z tego zdania, której nie ma
+    /// początek po polsku, jest <b>pozycja</b> — a ta stoi w wyjątku jako liczby
+    /// (<c>LineNumber</c>, <c>BytePositionInLine</c>), więc da się ją podać bez
+    /// przepisywania tekstu parsera. Sam wyjątek parsera zostaje jako
+    /// <c>InnerException</c>, więc nic nie ginie dla kogoś, kto czyta stos.</para>
+    /// <para><b>Liczone od 1, a nie od 0.</b> Obie liczby .NET podaje od zera; edytor,
+    /// w którym gracz otworzy plik, numeruje wiersze od jedynki. Przepisanie zera
+    /// wprost wskazałoby wiersz o jeden za wcześnie.</para>
+    /// <para><b>Bajt, nie znak.</b> <c>BytePositionInLine</c> liczy bajty UTF-8, więc
+    /// w wierszu z polską literą przed błędem różni się od numeru kolumny edytora.
+    /// Komunikat mówi „bajt”, żeby nie obiecywać kolumny.</para>
+    /// </remarks>
+    private static string Refusal(string what, long? lineNumber, long? bytePositionInLine)
+        => lineNumber is { } line && bytePositionInLine is { } position
+            ? $"{what} nie jest poprawnym JSON-em: błąd składni w wierszu {line + 1}, bajt {position + 1}"
+            : $"{what} nie jest poprawnym JSON-em: błąd składni bez podanej pozycji";
 }

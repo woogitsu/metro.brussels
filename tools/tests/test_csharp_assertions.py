@@ -445,7 +445,9 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 # `LineReplayTests.cs` i nowy test `RunPlanTests.cs` oraz dwie asercje, ktore
 # dostaly komunikat. Przeliczone z drzewa.
 # 1829 -> 1842 (23.09.2026, 6.M3): TRZYNASCIE asercji, wszystkie z komunikatem.
-Z_KOMUNIKATEM_RAZEM = 1842
+# 1842 -> 1850 (23.09.2026, 6.D357): OSIEM asercji `BrokenJsonRefusalTests.cs`,
+# wszystkie z komunikatem — obie zapadki rosna o tyle samo; ZMIERZONE.
+Z_KOMUNIKATEM_RAZEM = 1850
 NIEROZSTRZYGNIETYCH = 68
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
 #: `tests/Sim.Tests/DefaultArmAuditTests.cs` — bramki na ramionach domyślnych
@@ -543,7 +545,11 @@ NIEROZSTRZYGNIETYCH = 68
 # Przeliczone z drzewa.
 # 3275 -> 3288 (23.09.2026, 6.M3): TRZYNASCIE asercji trzech testow okna drzwi
 # w `StopWindowParityTests.cs`. Przeliczone z drzewa.
-ASERCJI_RAZEM = 3288
+# 3288 -> 3296 (23.09.2026, 6.D357): OSIEM asercji `BrokenJsonRefusalTests.cs` —
+# szesc w petli po 10 parach loader x ksztalt (wyjatek, zero slow parsera, obecnosc
+# pozycji, wiersz, bajt, podloga na liczbe par) i dwie w kontroli pozycji z edytora;
+# ZMIERZONE.
+ASERCJI_RAZEM = 3296
 
 
 def _rozklad():

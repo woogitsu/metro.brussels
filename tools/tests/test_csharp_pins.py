@@ -432,9 +432,13 @@ ROZKLAD_LICZBOWYCH = {
 # Przeliczone z drzewa.
         # 493 -> 496 (23.09.2026, 6.M3): TRZY piny calkowite bez tolerancji w testach
         # okna drzwi (liczby wywolan i krokow z otwartymi drzwiami). Przeliczone z drzewa.
-        "razem": 496, "z_tolerancja": 189, "bez_tolerancji": 307,
+        # 496 -> 498 (23.09.2026, 6.D357): DWA piny `BrokenJsonRefusalTests.cs` —
+        # zero slow wspolnych z tekstem parsera i podloga 10 par loader x ksztalt
+        # w nowej bramce. Oba CALKOWITE i BEZ TOLERANCJI, bo sa liczbami, nie miara
+        # fizyczna; `calkowite_z_tolerancja` zostaje ZEREM. ZMIERZONE.
+        "razem": 498, "z_tolerancja": 189, "bez_tolerancji": 309,
         "zmiennoprzecinkowe": 197, "zmiennoprzecinkowe_bez_tolerancji": 8,
-        "calkowite": 299, "calkowite_z_tolerancja": 0, "tolerancja_zero": 120,
+        "calkowite": 301, "calkowite_z_tolerancja": 0, "tolerancja_zero": 120,
     },
 }
 

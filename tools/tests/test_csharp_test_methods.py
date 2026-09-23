@@ -614,9 +614,13 @@ ROZKLAD_POSTACI = {
         # Przeliczone z drzewa.
         # 4788 -> 4800 i 819 -> 820 (23.09.2026, 6.M3): testy okna drzwi
         # w `StopWindowParityTests.cs`. Przeliczone z drzewa.
-        "zwykly": 4800,
-        "interpolowany ($)": 820,
-        "werbatim (@)": 96,
+        # 4800 -> 4807, 820 -> 826 i 96 -> 98 (23.09.2026, 6.D357): dwie nowe metody
+        # `BrokenJsonRefusalTests.cs` — komunikaty asercji, ksztalt wielowierszowy
+        # i DWA wzorce werbatim (slowo z lacznikiem, pozycja „w wierszu …, bajt …");
+        # ZMIERZONE.
+        "zwykly": 4807,
+        "interpolowany ($)": 826,
+        "werbatim (@)": 98,
         "surowy interpolowany ($$\"\"\")": 13,
         "surowy (\"\"\")": 8,
         "werbatim interpolowany ($@)": 7,
@@ -673,7 +677,10 @@ ROZKLAD_POSTACI = {
         # w `FirstRun.cs`. Przeliczone z drzewa, nie zsumowane.
         # 494 -> 513 (23.09.2026, 6.M1): komunikaty odmow i wiersze zapisu zdarzen
         # linii (`InputLog`), wiersz `[ODTWORZENIE]` linii w `Sim.Runner`. Przeliczone.
-        "interpolowany ($)": 513,
+        # 513 -> 514 (23.09.2026, 6.D357): wiersz odmowy `JsonText.Parse` przestal
+        # doklejac `error.Message` i ma DWIE postacie — z pozycja z liczb parsera
+        # i bez niej, gdy parser jej nie podal; jedna byla, sa dwie. ZMIERZONE.
+        "interpolowany ($)": 514,
         "werbatim (@)": 0,
         "surowy interpolowany ($$\"\"\")": 1,
         "surowy (\"\"\")": 1,
