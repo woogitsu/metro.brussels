@@ -1,3 +1,4 @@
+using System;
 using MetroBxl.Game;
 using MetroBxl.Game.UI;
 using MetroBxl.Sim.Physics;
@@ -76,5 +77,70 @@ public sealed class BrakingCueTests
             150.0, speed, 0.0, 0.01,
             DesignAssumptions.ControlNotchRatePerSecond, ServiceBrake, Solver),
             "the manual single-train HUD follows the same brake rule");
+
+        var rate = DesignAssumptions.ControlNotchRatePerSecond;
+        var brakeAt = BrakingCue.AdvisoryDistanceM(speed, 0.0, rate, ServiceBrake, Solver);
+        var prepareAt = BrakingCue.PreparationDistanceM(speed, 0.0, rate, ServiceBrake, Solver);
+        Assert.IsTrue(prepareAt > brakeAt, "coasting also needs reading time");
+        Assert.IsFalse(BrakingCue.ShouldPrepare(prepareAt + 0.001, speed, 0.0, 0.0,
+            rate, ServiceBrake, Solver), "no preparation before the band");
+        Assert.IsTrue(BrakingCue.ShouldPrepare(prepareAt, speed, 0.0, 0.0,
+            rate, ServiceBrake, Solver), "preparation starts at its threshold");
+        Assert.IsFalse(BrakingCue.ShouldPrompt(prepareAt, speed, 0.0, 0.0,
+            rate, ServiceBrake, Solver), "the two messages cannot overlap");
+        Assert.IsFalse(BrakingCue.ShouldPrepare(brakeAt, speed, 0.0, 0.0,
+            rate, ServiceBrake, Solver), "preparation ends at the braking threshold");
+        Assert.IsTrue(BrakingCue.ShouldPrompt(brakeAt, speed, 0.0, 0.0,
+            rate, ServiceBrake, Solver), "braking starts at its threshold");
+        Assert.IsFalse(BrakingCue.ShouldPrepare(prepareAt, speed, 0.0, 0.01,
+            rate, ServiceBrake, Solver), "both messages disappear after brake onset");
+        Assert.IsFalse(BrakingCue.ShouldPrepareOnLine(false, DriverCommand.Coast,
+            prepareAt, speed, rate, ServiceBrake, Solver), "autopilot has no driver cue");
+        Assert.IsTrue(BrakingCue.ShouldPrepareOnLine(true, DriverCommand.Coast,
+            prepareAt, speed, rate, ServiceBrake, Solver), "player gets preparation");
+        Assert.IsFalse(BrakingCue.ShouldPrepareOnLine(true, new DriverCommand(0.0, 0.01),
+            prepareAt, speed, rate, ServiceBrake, Solver), "line cue also clears on brake");
+    }
+
+    [TestMethod]
+    public void Preparation_warns_before_a_late_full_service_stop()
+    {
+        var model = VehicleModel.M7;
+        var controller = new TrainController(model);
+        var conditions = RunConditions.Level(model, TrainLoad.Aw2);
+        var step = FixedStep.Simulation;
+        var rate = DesignAssumptions.ControlNotchRatePerSecond;
+        var oldCueWasLate = false;
+
+        foreach (var speedKmh in new[] { 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 72.0, 80.0 })
+        foreach (var throttle in new[] { 0.0, 0.5, 1.0 })
+        {
+            var speedMps = speedKmh / 3.6;
+            var notch = new DriverNotch(rate);
+            notch.Set(new DriverCommand(throttle, 0.0));
+            var state = new DriveState(0, speedMps, 0.0, 0.0);
+
+            // Read for 0.8 s without changing the present notch, then hold S.
+            for (var i = 0; i < 96; i++)
+                state = controller.Advance(state, conditions, notch.Command,
+                    model.DesignMaxSpeedKmh / 3.6, step, out _);
+            while (state.SpeedMps > 0.0 && state.Steps < 10000)
+            {
+                var command = notch.Advance(DriverKeys.Braking, step);
+                state = controller.Advance(state, conditions, command,
+                    model.DesignMaxSpeedKmh / 3.6, step, out _);
+            }
+
+            var oldDistance = BrakingCue.AdvisoryDistanceM(speedMps, throttle,
+                rate, controller.ServiceBrakeMps2, Solver);
+            var preparationDistance = BrakingCue.PreparationDistanceM(speedMps, throttle,
+                rate, controller.ServiceBrakeMps2, Solver);
+            oldCueWasLate |= state.DistanceM > oldDistance + 5.0;
+            Assert.IsTrue(state.DistanceM <= preparationDistance + 5.0,
+                $"{speedKmh:F0} km/h, throttle {throttle:F1}: warning is too late by "
+                + $"{state.DistanceM - preparationDistance:F3} m");
+        }
+
+        Assert.IsTrue(oldCueWasLate, "the measured old failure keeps this test meaningful");
     }
 }

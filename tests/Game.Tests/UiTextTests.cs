@@ -227,7 +227,8 @@ public sealed class UiTextTests
     // Track-detail asset path and practical-light setup in FirstRun.cs add four
     // source literals; recounted against the current playable scene.
     // 582 -> 584 (24.09.2026, braking cue): klucz `hud.station.brake-now` w obu gałęziach dojazdu.
-    private const int LiteralowWZasieguBramki = 584;
+    // 584 -> 586 (24.09.2026, preparing to brake): second cue key in both approaches.
+    private const int LiteralowWZasieguBramki = 586;
 
     /// <summary>Ile różnych — dolne ostrze, zmierzone 12.09.2026.</summary>
     private const int RoznychLiteralowWZasieguBramki = 362;
@@ -1497,7 +1498,8 @@ public sealed class UiTextTests
     // 620 -> 619 (23.09.2026, 6.M1): odtworzenie linii — zdarzenia w zapisie wejść, `ExecuteLineEvent` w `FirstRun` i nowa odmowa `--replay --line` bez `--signalling` w `RunPlan`. PRZELICZONE.
     // 619 -> 623 (23.09.2026, tory i światła): cztery pozycje źródłowe dodane do sceny. PRZELICZONE.
     // 623 -> 625 (24.09.2026, braking cue): klucz w obu gałęziach `FirstRun.StationLine`.
-    private const int PozycjiStaregoCzytnika = 625;
+    // 625 -> 627 (24.09.2026, preparing to brake): second cue key in both approaches.
+    private const int PozycjiStaregoCzytnika = 627;
 
     /// <summary>
     /// Ile PLIKÓW korpusu stary czytnik czytał inaczej niż leksykalny — 6.D182.
@@ -1838,7 +1840,8 @@ public sealed class UiTextTests
     // tego pliku do mapy `ZrodlaHud`; bez tego dopisania byłyby dla bramki
     // MARTWE, choć docierają na ekran. Liczba PRZELICZONA przebiegiem.
     // 115 -> 117 (24.09.2026, braking cue): klucz dociera do `Hud.Update` z obu gałęzi.
-    private const int LiteralowNaEkranie = 117;
+    // 117 -> 119 (24.09.2026, preparing to brake): visible in both station approaches.
+    private const int LiteralowNaEkranie = 119;
 
     /// <summary>Ile z nich jest KLUCZEM katalogu, a nie tekstem — 6.D183.</summary>
     // 28 -> 36 (13.09.2026, MB-02): osiem kluczy `summary.*` panelu wyniku.
@@ -1849,7 +1852,8 @@ public sealed class UiTextTests
     // 44 -> 47 (14.09.2026, MB-08): `hud.station.doors-manual`, `input.door-open`,
     // `input.door-close`. Przeliczone przebiegiem.
     // +2: podpowiedź hamowania jest kluczem katalogu w obu gałęziach dojazdu.
-    private const int KluczyKatalogunaEkranie = 58;
+    // 58 -> 60 (24.09.2026, preparing to brake): key in both approaches.
+    private const int KluczyKatalogunaEkranie = 60;
 
     /// <summary>
     /// Ile literałów z tej drogi niesie SŁOWO w rozumieniu bramki — 6.D183.
@@ -2302,7 +2306,8 @@ public sealed class UiTextTests
     // sygnalizacji. Liczba PRZELICZONA przebiegiem.
     // 399 -> 400 (23.09.2026, 6.M1): odtworzenie linii — zdarzenia w zapisie wejść, `ExecuteLineEvent` w `FirstRun` i nowa odmowa `--replay --line` bez `--signalling` w `RunPlan`. PRZELICZONE.
     // 400 -> 402 (24.09.2026, braking cue): dwa użycia klucza po zdjęciu jednostek.
-    private const int LiteralowDotknietychZdejmowaniem = 402;
+    // 402 -> 404 (24.09.2026, preparing to brake): two new catalog lookups.
+    private const int LiteralowDotknietychZdejmowaniem = 404;
 
     /// <summary>
     /// Ilu literałom zdejmowanie jednostek ZABIERA werdykt „to słowo" — 6.D155.

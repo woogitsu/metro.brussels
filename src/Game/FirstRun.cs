@@ -2596,7 +2596,12 @@ public sealed partial class FirstRun : Node3D
                 DesignAssumptions.ControlNotchRatePerSecond,
                 _controller.ServiceBrakeMps2, BrakingPointSolver.M7)
                 ? UiText.Get("hud.station.brake-now")
-                : string.Empty;
+                : BrakingCue.ShouldPrepareOnLine(
+                    ObservedOwner() == ControlOwner.Driver, _command, odleglosc, _state.SpeedMps,
+                    DesignAssumptions.ControlNotchRatePerSecond,
+                    _controller.ServiceBrakeMps2, BrakingPointSolver.M7)
+                    ? UiText.Get("hud.station.brake-prepare")
+                    : string.Empty;
             return UiText.Format(
                 "hud.station.next",
                 nastepnaNaLinii.Value.Name,
@@ -2645,7 +2650,12 @@ public sealed partial class FirstRun : Node3D
             DesignAssumptions.ControlNotchRatePerSecond, _controller.ServiceBrakeMps2,
             BrakingPointSolver.M7)
             ? UiText.Get("hud.station.brake-now")
-            : string.Empty;
+            : !approach.WithinWindow && BrakingCue.ShouldPrepare(
+                approach.DistanceM, _state.SpeedMps, _command.Throttle, _command.Brake,
+                DesignAssumptions.ControlNotchRatePerSecond, _controller.ServiceBrakeMps2,
+                BrakingPointSolver.M7)
+                ? UiText.Get("hud.station.brake-prepare")
+                : string.Empty;
         return UiText.Format(
             "hud.station.approach",
             approach.DisplayName,

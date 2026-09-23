@@ -10,6 +10,18 @@ public static class BrakingCue
     /// <summary>Small allowance for reading and reacting to the cue, in seconds.</summary>
     public const double ReactionLeadSeconds = 0.5;
 
+    /// <summary>Extra reading time before the braking instruction appears.</summary>
+    public const double PreparationLeadSeconds = 0.3;
+
+    /// <summary>
+    /// Powered approach margin measured with the M7 AW2 tunnel model at 120 Hz.
+    /// Holding S after 0.8 s reaction was late by at most 10.588 m in the
+    /// 10–80 km/h, 0/half/full power sweep. Together with 0.3 s extra reading
+    /// time, this covers that measured overshoot. The earlier message does not
+    /// promise a stop inside the station window; the driver must modulate braking.
+    /// </summary>
+    public const double PoweredPreparationMarginM = 8.5;
+
     /// <summary>
     /// The core solver covers the brake's physical jerk. Clearing the current power
     /// notch takes additional time before the driver's brake command can take effect.
@@ -45,12 +57,43 @@ public static class BrakingCue
         distanceToStopM <= AdvisoryDistanceM(
             speedMps, throttle, notchRatePerSecond, serviceBrakeMps2, solver);
 
+    /// <summary>
+    /// Earlier preparation band. A coasting train still gets time to read the warning;
+    /// a powered train gets additional room to clear its notch before braking.
+    /// </summary>
+    public static double PreparationDistanceM(
+        double speedMps, double throttle, double notchRatePerSecond,
+        double serviceBrakeMps2, BrakingPointSolver solver) =>
+        AdvisoryDistanceM(speedMps, throttle, notchRatePerSecond, serviceBrakeMps2, solver)
+        + speedMps * PreparationLeadSeconds
+        + throttle * PoweredPreparationMarginM;
+
+    /// <summary>True only between the preparation and braking thresholds.</summary>
+    public static bool ShouldPrepare(
+        double distanceToStopM, double speedMps, double throttle, double brake,
+        double notchRatePerSecond, double serviceBrakeMps2, BrakingPointSolver solver) =>
+        double.IsFinite(distanceToStopM) && distanceToStopM > 0.0 && speedMps > 0.5 &&
+        brake <= 0.0 &&
+        distanceToStopM > AdvisoryDistanceM(
+            speedMps, throttle, notchRatePerSecond, serviceBrakeMps2, solver) &&
+        distanceToStopM <= PreparationDistanceM(
+            speedMps, throttle, notchRatePerSecond, serviceBrakeMps2, solver);
+
     /// <summary>The line HUD advises only the train currently driven by the player.</summary>
     public static bool ShouldPromptOnLine(
         bool driverControls, DriverCommand command, double distanceToStopM,
         double speedMps, double notchRatePerSecond, double serviceBrakeMps2,
         BrakingPointSolver solver) =>
         driverControls && ShouldPrompt(
+            distanceToStopM, speedMps, command.Throttle, command.Brake,
+            notchRatePerSecond, serviceBrakeMps2, solver);
+
+    /// <summary>The preparation warning also belongs only to the player-controlled train.</summary>
+    public static bool ShouldPrepareOnLine(
+        bool driverControls, DriverCommand command, double distanceToStopM,
+        double speedMps, double notchRatePerSecond, double serviceBrakeMps2,
+        BrakingPointSolver solver) =>
+        driverControls && ShouldPrepare(
             distanceToStopM, speedMps, command.Throttle, command.Brake,
             notchRatePerSecond, serviceBrakeMps2, solver);
 }
