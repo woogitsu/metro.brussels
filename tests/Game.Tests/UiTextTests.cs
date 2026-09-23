@@ -219,7 +219,10 @@ public sealed class UiTextTests
     // do `JsonText.Parse` w `src/Game/Assets/ChunkManifest.cs` ("manifest chunków").
     // Jest to napis, który trafia do WIERSZA ODMOWY widzianego przez gracza, więc
     // wchodzi do korpusu z tego samego powodu, co komunikaty `Abort` w `FirstRun`.
-    private const int LiteralowWZasieguBramki = 574;
+    // 574 -> 579 (22.09.2026, 6.D235): PIĘĆ literałów — komunikaty `Abort` dla pliku ZŁEGO
+    // w `FirstRun`: po dwa przy osi i przy manifeście chunków, jeden przy planie
+    // sygnalizacji. Liczba PRZELICZONA przebiegiem.
+    private const int LiteralowWZasieguBramki = 579;
 
     /// <summary>Ile różnych — dolne ostrze, zmierzone 12.09.2026.</summary>
     private const int RoznychLiteralowWZasieguBramki = 362;
@@ -1483,7 +1486,10 @@ public sealed class UiTextTests
     // do `JsonText.Parse` w `src/Game/Assets/ChunkManifest.cs` ("manifest chunków").
     // Jest to napis, który trafia do WIERSZA ODMOWY widzianego przez gracza, więc
     // wchodzi do korpusu z tego samego powodu, co komunikaty `Abort` w `FirstRun`.
-    private const int PozycjiStaregoCzytnika = 615;
+    // 615 -> 620 (22.09.2026, 6.D235): PIĘĆ literałów — komunikaty `Abort` dla pliku ZŁEGO
+    // w `FirstRun`: po dwa przy osi i przy manifeście chunków, jeden przy planie
+    // sygnalizacji. Liczba PRZELICZONA przebiegiem.
+    private const int PozycjiStaregoCzytnika = 620;
 
     /// <summary>
     /// Ile PLIKÓW korpusu stary czytnik czytał inaczej niż leksykalny — 6.D182.
@@ -2073,7 +2079,10 @@ public sealed class UiTextTests
     // przebiegiem, a nie wyprowadzona z liczby dopisanych wierszy.
     // 130 -> 134 (14.09.2026, MB-07): trzy klawisze obsługi linii (N/T/O), wiersz
     // `[TUNEL koniec]` i komunikaty zakresu `--trains`. Liczba PRZELICZONA przebiegiem.
-    private const int ZgloszenFirstRunCalymPlikiem = 134;
+    // 134 -> 139 (22.09.2026, 6.D235): PIĘĆ literałów — komunikaty `Abort` dla pliku ZŁEGO
+    // w `FirstRun`: po dwa przy osi i przy manifeście chunków, jeden przy planie
+    // sygnalizacji. Liczba PRZELICZONA przebiegiem.
+    private const int ZgloszenFirstRunCalymPlikiem = 139;
 
     /// <summary>Ile daje ten sam plik liczony WIERSZ PO WIERSZU — 6.D180.</summary>
     // 122 -> 132 (14.09.2026, MB-04): `FirstRun.AssetsRoot`, `DomyslnyZapisWejsc`
@@ -2082,7 +2091,10 @@ public sealed class UiTextTests
     // Liczba ZMIERZONA przyrzadem tego testu.
     // 138 -> 142 (14.09.2026, MB-07): jak wyżej — literały drugiego składu.
     // 142 -> 146 (14.09.2026, MB-07): przeliczone przebiegiem.
-    private const int ZgloszenFirstRunWierszami = 146;
+    // 146 -> 151 (22.09.2026, 6.D235): PIĘĆ literałów — komunikaty `Abort` dla pliku ZŁEGO
+    // w `FirstRun`: po dwa przy osi i przy manifeście chunków, jeden przy planie
+    // sygnalizacji. Liczba PRZELICZONA przebiegiem.
+    private const int ZgloszenFirstRunWierszami = 151;
 
     /// <summary>Ile plików korpusu daje różne liczby obiema drogami — 6.D180.</summary>
     private const int PlikowZRoznicaDrog = 1;
@@ -2271,7 +2283,10 @@ public sealed class UiTextTests
     // do `JsonText.Parse` w `src/Game/Assets/ChunkManifest.cs` ("manifest chunków").
     // Jest to napis, który trafia do WIERSZA ODMOWY widzianego przez gracza, więc
     // wchodzi do korpusu z tego samego powodu, co komunikaty `Abort` w `FirstRun`.
-    private const int LiteralowDotknietychZdejmowaniem = 394;
+    // 394 -> 399 (22.09.2026, 6.D235): PIĘĆ literałów — komunikaty `Abort` dla pliku ZŁEGO
+    // w `FirstRun`: po dwa przy osi i przy manifeście chunków, jeden przy planie
+    // sygnalizacji. Liczba PRZELICZONA przebiegiem.
+    private const int LiteralowDotknietychZdejmowaniem = 399;
 
     /// <summary>
     /// Ilu literałom zdejmowanie jednostek ZABIERA werdykt „to słowo" — 6.D155.
@@ -3497,7 +3512,10 @@ public sealed class UiTextTests
     // Liczba ZMIERZONA przyrzadem tego testu.
     // 134 -> 139 (14.09.2026, MB-07): jak wyżej — literały drugiego składu.
     // 139 -> 144 (14.09.2026, MB-07): przeliczone przebiegiem.
-    private const int LiteralowZKlamra = 144;
+    // 144 -> 149 (22.09.2026, 6.D235): PIĘĆ literałów — komunikaty `Abort` dla pliku ZŁEGO
+    // w `FirstRun`: po dwa przy osi i przy manifeście chunków, jeden przy planie
+    // sygnalizacji. Liczba PRZELICZONA przebiegiem.
+    private const int LiteralowZKlamra = 149;
 
     /// <summary>
     /// Ilu literałom <see cref="BezDziur"/> zabiera WSZYSTKIE słowa — 6.D188.
@@ -5368,7 +5386,9 @@ public sealed class UiTextTests
     //: Zmierzone 15.09.2026: 21 i 5 (`GD.PrintErr` 2, `GD.PushError` 3). Pole „Skąd"
     //: pozycji mówiło `GD.PrintErr` 3 i `GD.PushError` 4 — te liczby są z WYWOŁANIAMI
     //: WEWNĄTRZ `Abort`, które niosą jego argument, a nie własny literał.
-    private const int WolajacychAbort = 21;
+    //: 21 -> 26 (22.09.2026, 6.D235): pięciu wołających — osłony pliku ZŁEGO, po dwie
+    //: klauzule przy osi i przy manifeście chunków, jedna nowa przy planie sygnalizacji.
+    private const int WolajacychAbort = 26;
     private const int WypisowBleduPozaAbort = 5;
 
     /// <summary>

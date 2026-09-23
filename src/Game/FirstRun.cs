@@ -717,7 +717,29 @@ public sealed partial class FirstRun : Node3D
             return;
         }
 
-        _axis = TrackAxis.FromJson(file.GetAsText());
+        // Plik ZŁY, a nie tylko brakujący, kończy się odmową — 6.D235. Ten sam filtr co
+        // w `ReadSignallingPlan` i `ReadInputLog`, i z tego samego powodu: wpuszcza
+        // WYŁĄCZNIE typy, które rzuca `src/Sim/`, a te rzuty są po polsku. Oś powstaje
+        // przed wszystkim innym, więc bez tej osłony uszkodzony plik osi był pierwszym,
+        // na czym gracz się potykał — zrzutem środowiska zamiast wierszem odmowy.
+        // Klauzula druga łapie dokument poprawny składniowo, ale innego kształtu
+        // (`BadFile`): na osi `[]` scena bez niej nie kończyła się, tylko wisiała.
+        try
+        {
+            _axis = TrackAxis.FromJson(file.GetAsText());
+        }
+        catch (Exception error) when (error is ArgumentException or FormatException)
+        {
+            Abort(ExitBadArgumentValue, $"[OŚ] {axisPath} nie jest osią trasy: {error.Message}");
+            return;
+        }
+        catch (Exception error) when (BadFile.IsWrongJsonShape(error))
+        {
+            Abort(ExitBadArgumentValue,
+                $"[OŚ] {axisPath} nie ma kształtu osi trasy: brak wymaganego pola albo pole złego typu");
+            return;
+        }
+
         _sceneAxis = new SceneAxis(_axis, DesignAssumptions.TrackOffsetM);
 
         _model = VehicleModel.M7;
@@ -1036,6 +1058,12 @@ public sealed partial class FirstRun : Node3D
             Abort(ExitBadArgumentValue, $"[SYGNALIZACJA] {path} nie jest planem: {error.Message}");
             return null;
         }
+        catch (Exception error) when (BadFile.IsWrongJsonShape(error))
+        {
+            Abort(ExitBadArgumentValue,
+                $"[SYGNALIZACJA] {path} nie ma kształtu planu: brak wymaganego pola albo pole złego typu");
+            return null;
+        }
     }
 
     /// <summary>
@@ -1156,7 +1184,27 @@ public sealed partial class FirstRun : Node3D
             return;
         }
 
-        var manifest = ChunkManifest.FromJson(manifestFile.GetAsText());
+        // Ta sama osłona co przy osi (6.D235), z tymi samymi DWIEMA klauzulami.
+        // `ChunkManifest.FromJson` na poprawnym JSON-ie bez wymaganego pola rzuca
+        // `KeyNotFoundException` z komunikatem .NET-a po angielsku — dlatego ta rodzina
+        // ma osobną klauzulę z własnymi słowami, a nie miejsce w filtrze pierwszym.
+        ChunkManifest manifest;
+        try
+        {
+            manifest = ChunkManifest.FromJson(manifestFile.GetAsText());
+        }
+        catch (Exception error) when (error is ArgumentException or FormatException)
+        {
+            Abort(ExitBadArgumentValue, $"[ASSETS] {manifestPath} nie jest manifestem chunków: {error.Message}");
+            return;
+        }
+        catch (Exception error) when (BadFile.IsWrongJsonShape(error))
+        {
+            Abort(ExitBadArgumentValue,
+                $"[ASSETS] {manifestPath} nie ma kształtu manifestu chunków: brak wymaganego pola albo pole złego typu");
+            return;
+        }
+
         _manifest = manifest;
         var tunnelMaterial = GlbLoader.NeutralMaterial(new Color(0.52f, 0.52f, 0.53f), 0.95f);
         var trainMaterial = GlbLoader.NeutralMaterial(new Color(0.80f, 0.81f, 0.83f), 0.45f);
