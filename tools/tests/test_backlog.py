@@ -28,6 +28,7 @@ odpowiednikiem „Wyniku" z `docs/TASK-TEMPLATE.md` jest trzecia kolumna, a `rea
 i tak wyklucza te numery z licznika. Wymaganie sześciu pól obowiązuje dokładnie te
 pozycje, które licznik zapasu liczy.
 """
+import functools
 import os
 import re
 
@@ -624,7 +625,8 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 # do 11 przy progu 12; te dwa bloki podnosza go do 13.
 # 417 -> 418 (22.09.2026, 6.M2): blok 6.M3 dopisany z kompletem szesciu pol.
 # 418 -> 420 (22.09.2026, 6.D235): bloki 6.D356 i 6.D357 dopisane z kompletem szesciu pol.
-MINIMUM_DETAIL_BLOCKS = 420
+# 420 -> 421 (23.09.2026, 6.D359): blok 6.D359 dopisany z kompletem szesciu pol.
+MINIMUM_DETAIL_BLOCKS = 421
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
@@ -1155,6 +1157,38 @@ def test_the_parser_actually_parses():
     assert queue_items("|---|---|---|") == [], "separator tabeli nie jest pozycją"
 
 
+def test_queue_row_z_pamiecia_daje_to_samo_co_czytanie_wiersz_po_wierszu():
+    """6.D359: słownik budowany raz na tekst nie zmienia ani jednej odpowiedzi.
+
+    Trzy własności, każda z własną kontrolą: pierwszy wiersz z numerem wygrywa
+    (tak czytała pętla), zmieniony tekst dostaje ŚWIEŻĄ odpowiedź, a nie tę
+    z pamięci, i numer nieobecny daje pusty napis. Na całym `docs/TASKS.md`
+    odpowiedź musi się zgadzać z pętlą dla każdego numeru z tabel.
+    """
+    dwa = "| 6.X1 | **pierwszy** | a |\n| 6.X1 | **drugi** | b |\n"
+    assert queue_row(dwa, "6.X1") == "| 6.X1 | **pierwszy** | a |", (
+        "przy dwóch wierszach z tym samym numerem wygrywa PIERWSZY: %r"
+        % queue_row(dwa, "6.X1"))
+    zmieniony = dwa.replace("pierwszy", "zmieniony")
+    assert queue_row(zmieniony, "6.X1") == "| 6.X1 | **zmieniony** | a |", (
+        "zmieniony tekst dostał odpowiedź z pamięci poprzedniego: %r"
+        % queue_row(zmieniony, "6.X1"))
+    assert queue_row(dwa, "6.X9") == "", "numer nieobecny ma dawać pusty napis"
+
+    def petla(text, number):
+        for line in text.splitlines():
+            match = re.match(r"^\|\s*(\d+\.[A-Za-z]?\d+)\s*\|", line)
+            if match and match.group(1) == number:
+                return line
+        return ""
+
+    text = _tasks()
+    numery = set(re.findall(r"^\|\s*(\d+\.[A-Za-z]?\d+)\s*\|", text, re.M))
+    assert len(numery) > 100, "za mało numerów w tabelach — przyrząd nie ma przedmiotu"
+    rozne = [n for n in sorted(numery) if queue_row(text, n) != petla(text, n)]
+    assert not rozne, "queue_row różni się od czytania wiersz po wierszu dla: %s" % rozne[:10]
+
+
 def test_the_threshold_is_not_trivially_satisfied():
     # Próg, który spełnia się sam, nie jest progiem. Ten test pada, gdyby ktoś
     # obniżył `MINIMUM_READY_ITEMS` do wartości, przy której bramka nigdy nie zaświeci.
@@ -1443,13 +1477,29 @@ def declared_report_outputs(body):
     return sorted(set(re.findall(r"reports/[A-Za-z0-9._-]+\.md", field)))
 
 
-def queue_row(text, number):
-    """Wiersz tabeli kolejki dla tego numeru — albo pusty napis."""
+@functools.lru_cache(maxsize=8)
+def _wiersze_kolejki(text):
+    """Numer pozycji -> PIERWSZY wiersz tabeli z tym numerem, dla całego tekstu naraz.
+
+    6.D359: `queue_row` dzielił cały plik na wiersze przy KAŻDYM wywołaniu, a
+    `open_items` woła go raz na pozycję — 430 razy na 16 797 wierszach, czyli
+    koszt rósł z kwadratem długości `docs/TASKS.md` (zmierzone: `splitlines`
+    1,4 s z 2,2 s jednego `open_items`). Słownik budowany raz na tekst daje ten
+    sam wynik, bo zachowuje to samo wyrażenie i tę samą regułę „wygrywa pierwszy
+    wiersz". Pamięć jest kluczowana TREŚCIĄ tekstu, więc kontrola podająca
+    zmieniony tekst dostaje świeży słownik, a nie stary.
+    """
+    wiersze = {}
     for line in text.splitlines():
         match = re.match(r"^\|\s*(\d+\.[A-Za-z]?\d+)\s*\|", line)
-        if match and match.group(1) == number:
-            return line
-    return ""
+        if match and match.group(1) not in wiersze:
+            wiersze[match.group(1)] = line
+    return wiersze
+
+
+def queue_row(text, number):
+    """Wiersz tabeli kolejki dla tego numeru — albo pusty napis."""
+    return _wiersze_kolejki(text).get(number, "")
 
 
 def finished_but_still_silent(text, exists=os.path.exists):
