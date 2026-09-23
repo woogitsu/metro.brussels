@@ -26,6 +26,7 @@ rozjazd jest KŁAMSTWEM wobec gracza:
    klawiszy do katalogu użytkownika", podczas gdy `_recorder` powstawał WYŁĄCZNIE przy
    jawnym `--input-log` — czyli paczka obiecywała rzecz, której nie robiła.
 """
+import json
 import os
 import re
 import shutil
@@ -216,8 +217,11 @@ def test_paczka_windows_ma_osobny_preset_i_instrukcje_startu():
         os.makedirs(os.path.join(src, "chunks"))
         for nazwa in ("M7_shell.glb", "M7_cab.glb", "L1_A-platforms.glb"):
             open(os.path.join(src, nazwa), "wb").close()
-        for nazwa in ("L1_A-chunks.json", "L1_A_000.glb"):
+        for nazwa in ("L1_A_000.glb", "L1_A_000_detail.glb"):
             open(os.path.join(src, "chunks", nazwa), "wb").close()
+        with open(os.path.join(src, "chunks", "L1_A-chunks.json"), "w",
+                  encoding="utf-8") as uchwyt:
+            json.dump({"chunks": [{"id": "L1_A_000"}]}, uchwyt)
 
         bin_dir = os.path.join(temp, "bin")
         os.makedirs(bin_dir)

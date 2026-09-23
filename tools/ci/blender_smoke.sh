@@ -84,7 +84,7 @@ echo
 # o sieci — jest artefaktem. Zapisywany do data/track/ mieszał się z sześcioma
 # prawdziwymi osiami i potrafił przewrócić test, który je przelicza.
 echo "[GENERATE] deterministic synthetic centerline"
-rm -f build/t010/TEST.json build/TEST.glb renders/TEST_iso.png renders/TEST_side.png renders/TEST_inside.png
+rm -f build/t010/TEST.json build/TEST.glb renders/TEST_iso.png renders/TEST_side.png renders/TEST_inside.png renders/TEST_track.png
 python3 tools/track/make_test_track.py --out build/t010/TEST.json
 test -s build/t010/TEST.json || fail "build/t010/TEST.json is empty"
 
@@ -93,13 +93,24 @@ echo "[BLENDER] generate GLB"
 "$BLENDER_EXE" --background --python-exit-code 7 --python tools/blender/tunnel_sweep.py -- \
   --centerline build/t010/TEST.json \
   --profile box_double \
-  --out build/TEST.glb
+  --out build/TEST.glb \
+  --chunk-dir build/t010/chunks --chunk-manifest build/t010/chunks/tunnel-chunks.json
 
 test -s build/TEST.glb || fail "build/TEST.glb is empty"
 
 echo
 echo "[BLENDER] tunnel seam normals across every LOD pair"
 "$BLENDER_EXE" --background --python-exit-code 7 --python tools/blender/seam_normals_check.py
+
+echo
+echo "[BLENDER] track detail and curved-track preview"
+"$BLENDER_EXE" --background --python-exit-code 7 --python tools/blender/track_detail.py -- \
+  --centerline build/t010/TEST.json --manifest build/t010/chunks/tunnel-chunks.json \
+  --out-dir build/t010/chunks
+"$BLENDER_EXE" --background --python-exit-code 7 --python tools/blender/render_track_preview.py -- \
+  --centerline build/t010/TEST.json --manifest build/t010/chunks/tunnel-chunks.json \
+  --tunnel-dir build/t010/chunks --detail-dir build/t010/chunks \
+  --out renders/TEST_track.png --at 120
 
 echo
 echo "[BLENDER] render the exported GLB"
@@ -116,6 +127,7 @@ checks = {
     Path('renders/TEST_iso.png'): b'\x89PNG\r\n\x1a\n',
     Path('renders/TEST_side.png'): b'\x89PNG\r\n\x1a\n',
     Path('renders/TEST_inside.png'): b'\x89PNG\r\n\x1a\n',
+    Path('renders/TEST_track.png'): b'\x89PNG\r\n\x1a\n',
 }
 for path, magic in checks.items():
     if not path.is_file():
