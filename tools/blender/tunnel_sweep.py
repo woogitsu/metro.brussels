@@ -114,7 +114,8 @@ def lod_entries(chunk, chunk_id, name_prefix, base_object, chunk_dir, frames, st
         else:
             mesh = LD.lod_chunk(frames, station_m, profile, first, last, level, uv_scale)
             obj = build_object(mesh, level, chunk_id, material,
-                               mesh_name=f"{chunk_id}_lod{level}")
+                               mesh_name=f"{chunk_id}_lod{level}",
+                               frames=frames, profile=profile)
             export_selected([obj], path)
             drop_object(obj)
         stats = LD.deviation_stats(frames, profile, station_m, first, last,
@@ -251,7 +252,47 @@ def load_centerline(path):
     return [tuple(float(c) for c in p) for p in points], stations, vertical, identifier
 
 
-def build_object(chunk, index, name, material, mesh_name=None):
+def boundary_normals(frames, profile, ring_index):
+    """Normal of each profile wall at a ring, using both global neighbours."""
+    flip = SW._needs_flip(frames[ring_index], profile)
+    normals = []
+    for column in range(len(profile)):
+        adjacent = []
+        for first, last in ((ring_index - 1, ring_index),
+                            (ring_index, ring_index + 1)):
+            if first < 0 or last >= len(frames):
+                continue
+            a = SW.ring_positions(frames[first], profile)
+            b = SW.ring_positions(frames[last], profile)
+            next_column = (column + 1) % len(profile)
+            quad = (a[column], a[next_column], b[next_column], b[column])
+            adjacent.append(SW.unit(SW.face_normal(quad, (3, 2, 1, 0) if flip
+                                                   else (0, 1, 2, 3))))
+        normals.append(SW.unit(tuple(sum(n[axis] for n in adjacent)
+                                     for axis in range(3))))
+    return normals
+
+
+def match_seam_normals(mesh, chunk, frames, profile):
+    """Set identical endpoint normals on neighbouring chunk GLBs and LODs."""
+    columns = len(profile) + 1
+    last_row_start = len(chunk["vertices"]) - columns
+    endpoints = {
+        0: boundary_normals(frames, profile, chunk["first_ring"]),
+        last_row_start: boundary_normals(frames, profile, chunk["last_ring"]),
+    }
+    normals = [tuple(corner.vector) for corner in mesh.corner_normals]
+    for polygon in mesh.polygons:
+        wall = polygon.index % len(profile)
+        for loop_index in polygon.loop_indices:
+            vertex = mesh.loops[loop_index].vertex_index
+            ring_start = (vertex // columns) * columns
+            if ring_start in endpoints:
+                normals[loop_index] = endpoints[ring_start][wall]
+    mesh.normals_split_custom_set(normals)
+
+
+def build_object(chunk, index, name, material, mesh_name=None, frames=None, profile=None):
     # Nazwa obiektu jest tym, co Godot zobaczy w zaimportowanej scenie, więc LOD-y
     # i kolizja dostają nazwę mówiącą, czym są, a nie kolejny „_chunkNN".
     mesh = bpy.data.meshes.new(mesh_name or f"{name}_chunk{index:02d}")
@@ -267,6 +308,8 @@ def build_object(chunk, index, name, material, mesh_name=None):
     for edge in mesh.edges:
         if abs(edge.vertices[1] - edge.vertices[0]) == columns:
             sharp.data[edge.index].value = True
+    if frames is not None and profile is not None:
+        match_seam_normals(mesh, chunk, frames, profile)
     layer = mesh.uv_layers.new(name="UVMap")
     for loop in mesh.loops:
         layer.data[loop.index].uv = chunk["uvs"][loop.vertex_index]
@@ -313,7 +356,8 @@ def main():
     chunks, frames, columns = result["chunks"], result["frames"], result["columns"]
 
     material = neutral_material()
-    objects = [build_object(chunk, i, name, material) for i, chunk in enumerate(chunks)]
+    objects = [build_object(chunk, i, name, material, frames=frames, profile=profile)
+               for i, chunk in enumerate(chunks)]
 
     gaps = [SW.chunk_gap_m(a, b, columns) for a, b in zip(chunks, chunks[1:])]
     stretch = [SW.uv_stretch(c, columns) for c in chunks]
