@@ -54,8 +54,8 @@ public sealed class DoorPromptTests
         var tekst = DoorPrompt.For(postoj.Phase, refusal: null);
         StringAssert.Contains(tekst, "D: otwórz drzwi",
             "podpowiedź ma prowadzić do obsługi peronu przed odjazdem");
-        StringAssert.Contains(tekst, "trakcja WOLNA",
-            "fizyczny stan nastawnika pozostaje widoczny");
+        Assert.AreEqual(UiText.Get("hud.doors.open-to-serve"), tekst,
+            "fizyczny stan nastawnika i polecenie otwarcia pozostają widoczne razem");
         Assert.IsFalse(tekst.Contains("można odjechać", StringComparison.OrdinalIgnoreCase),
             "odjazd z zamkniętymi drzwiami pominąłby obsługę peronu");
     }
@@ -74,7 +74,8 @@ public sealed class DoorPromptTests
                 DoorPrompt.For(phase, refusal: null), "+0.03", 1);
             var lines = text.Split('\n');
             Assert.AreEqual(3, lines.Length, "fazę, działanie i wynik trzeba odczytać osobno");
-            StringAssert.Contains(lines[0], "DRZWI", "pierwsza linia ma nazywać fazę");
+            Assert.AreEqual("DRZWI " + (phase == DoorPhase.Closed ? "zamknięte" : "otwarte")
+                + " (ręcznie)", lines[0], "pierwsza linia ma nazywać dokładną fazę");
             StringAssert.Contains(lines[1], action, "druga linia ma podawać następny klawisz");
             StringAssert.Contains(lines[2], "błąd zatrzymania +0.03 m",
                 "trzecia linia ma zachować dokładność zatrzymania");

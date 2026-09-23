@@ -81,7 +81,7 @@ MINIMUM_DEKLARACJI = 330
 
 #: **Rozklad dzisiejszych deklaracji po GALEZIACH wzorca (6.D232, 17.09.2026):**
 #: `const` **321**, `static readonly` **93**, razem **414**; bez modyfikatora dostepu
-#: stoi **49** z nich, pozostale 365 maja modyfikator dostepu.
+#: stoi **49** z nich; pozostale 365 (88,2 % calej populacji) maja modyfikator dostepu.
 #:
 #: **Po co trzy podlogi zamiast jednej.** Suma broni przed wzorcem MARTWYM — takim,
 #: ktory przestal lapac cokolwiek. Nie broni przed wzorcem OKALECZONYM, ktoremu odpadla

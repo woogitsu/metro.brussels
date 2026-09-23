@@ -40,7 +40,8 @@ PINY_GRY = {
     # MB-08: dwa piny w `DoorPromptTests.cs` — wyjscie awaryjne ramienia
     # domyslnego (`"99"`) i nazwa czlonu `None`, ktory NIE jest odmowa.
     # Oba KATEGORII C: wartosc stoi w JEDNYM miejscu zrodla, w `DoorPrompt.Reason`.
-    "DoorPromptTests.cs": 2,
+    # Trzeci pin sprawdza caly wiersz fazy recznej, zamiast niejednoznacznej igly DRZWI.
+    "DoorPromptTests.cs": 3,
     "HudLayoutTests.cs": 1,
     "RunHeaderTests.cs": 1,
     "RunPlanTests.cs": 30,
@@ -172,7 +173,8 @@ KATEGORIE = {
 # 53 -> 55 (14.09.2026, MB-08): dwa piny `DoorPromptTests.cs`.
 # 55 -> 58 (15.09.2026, 6.D214): trzy piny `UiTextTests.cs` opisane wyzej.
 # 58 -> 59 (24.09.2026, braking cue): pin w teście wskazówki hamowania.
-LICZBA_C = 59
+# 59 -> 60 (24.09.2026, integracja): dokladny wiersz fazy DoorPromptTests.
+LICZBA_C = 60
 
 
 def test_ile_pinow_stoi_w_testach_warstwy_gry():
@@ -186,7 +188,8 @@ def test_ile_pinow_stoi_w_testach_warstwy_gry():
 
     # 61 -> 64 (15.09.2026, 6.D214): trzy piny `UiTextTests.cs` bramki na
     # zgloszeniach URWANYCH.
-    assert sum(zmierzone.values()) == 64, (
+    # 64 -> 65 (24.09.2026, integracja): pin caly wiersz fazy.
+    assert sum(zmierzone.values()) == 65, (
         "pinów warstwy gry jest %d, a pomiar z 14.09.2026 dał 61 "
         "(47 po 6.D155, 45 przed nim; +5 przy MB-03, +1 przy MB-05, "
         "+5 przy audycie bramki MB-05, +2 przy MB-08 — `DoorPromptTests`)"
@@ -218,8 +221,8 @@ def test_kazdy_pin_ma_kategorie_i_suma_sie_zgadza():
     # ktora NIE jest przy okazji: stalo tu „nie sumują się do 47" przy warunku na 52,
     # czyli komunikat bledu podawal liczbe o piec mniejsza od tej, ktorej bramka
     # pilnowala. Kto by na niego trafil, szukalby rozbieznosci, ktorej nie ma.
-    assert len(KATEGORIE["A"]) + len(KATEGORIE["B"]) + LICZBA_C == 64, (
-        "kategorie nie sumują się do 64: A=%d, B=%d, C=%d"
+    assert len(KATEGORIE["A"]) + len(KATEGORIE["B"]) + LICZBA_C == 65, (
+        "kategorie nie sumują się do 65: A=%d, B=%d, C=%d"
         % (len(KATEGORIE["A"]), len(KATEGORIE["B"]), LICZBA_C))
 
 

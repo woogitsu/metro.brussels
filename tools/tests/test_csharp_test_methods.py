@@ -627,7 +627,8 @@ ROZKLAD_POSTACI = {
         # 4875 -> 4886 (24.09.2026, braking cue): testy warunku przejecia i hamulca.
         # 4886 -> 4892 (24.09.2026, PR #771): nazwy siatek i komunikat asercji.
         # 4892 -> 4901 i 838 -> 840 (24.09.2026, kamera): testy ciaglosci.
-        "zwykly": 4901,
+        # 4901 -> 4904 (24.09.2026, integracja): scisle porownania w DoorPromptTests.
+        "zwykly": 4904,
         "interpolowany ($)": 840,
         "werbatim (@)": 100,
         "surowy interpolowany ($$\"\"\")": 13,
