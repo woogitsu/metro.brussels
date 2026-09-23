@@ -222,7 +222,8 @@ public sealed class UiTextTests
     // 574 -> 579 (22.09.2026, 6.D235): PIĘĆ literałów — komunikaty `Abort` dla pliku ZŁEGO
     // w `FirstRun`: po dwa przy osi i przy manifeście chunków, jeden przy planie
     // sygnalizacji. Liczba PRZELICZONA przebiegiem.
-    private const int LiteralowWZasieguBramki = 579;
+    // 579 -> 578 (23.09.2026, 6.M1): odtworzenie linii — zdarzenia w zapisie wejść, `ExecuteLineEvent` w `FirstRun` i nowa odmowa `--replay --line` bez `--signalling` w `RunPlan`. PRZELICZONE.
+    private const int LiteralowWZasieguBramki = 578;
 
     /// <summary>Ile różnych — dolne ostrze, zmierzone 12.09.2026.</summary>
     private const int RoznychLiteralowWZasieguBramki = 362;
@@ -1489,7 +1490,8 @@ public sealed class UiTextTests
     // 615 -> 620 (22.09.2026, 6.D235): PIĘĆ literałów — komunikaty `Abort` dla pliku ZŁEGO
     // w `FirstRun`: po dwa przy osi i przy manifeście chunków, jeden przy planie
     // sygnalizacji. Liczba PRZELICZONA przebiegiem.
-    private const int PozycjiStaregoCzytnika = 620;
+    // 620 -> 619 (23.09.2026, 6.M1): odtworzenie linii — zdarzenia w zapisie wejść, `ExecuteLineEvent` w `FirstRun` i nowa odmowa `--replay --line` bez `--signalling` w `RunPlan`. PRZELICZONE.
+    private const int PozycjiStaregoCzytnika = 619;
 
     /// <summary>
     /// Ile PLIKÓW korpusu stary czytnik czytał inaczej niż leksykalny — 6.D182.
@@ -2082,7 +2084,8 @@ public sealed class UiTextTests
     // 134 -> 139 (22.09.2026, 6.D235): PIĘĆ literałów — komunikaty `Abort` dla pliku ZŁEGO
     // w `FirstRun`: po dwa przy osi i przy manifeście chunków, jeden przy planie
     // sygnalizacji. Liczba PRZELICZONA przebiegiem.
-    private const int ZgloszenFirstRunCalymPlikiem = 139;
+    // 139 -> 137 (23.09.2026, 6.M1): odtworzenie linii — zdarzenia w zapisie wejść, `ExecuteLineEvent` w `FirstRun` i nowa odmowa `--replay --line` bez `--signalling` w `RunPlan`. PRZELICZONE.
+    private const int ZgloszenFirstRunCalymPlikiem = 137;
 
     /// <summary>Ile daje ten sam plik liczony WIERSZ PO WIERSZU — 6.D180.</summary>
     // 122 -> 132 (14.09.2026, MB-04): `FirstRun.AssetsRoot`, `DomyslnyZapisWejsc`
@@ -2094,7 +2097,8 @@ public sealed class UiTextTests
     // 146 -> 151 (22.09.2026, 6.D235): PIĘĆ literałów — komunikaty `Abort` dla pliku ZŁEGO
     // w `FirstRun`: po dwa przy osi i przy manifeście chunków, jeden przy planie
     // sygnalizacji. Liczba PRZELICZONA przebiegiem.
-    private const int ZgloszenFirstRunWierszami = 151;
+    // 151 -> 149 (23.09.2026, 6.M1): odtworzenie linii — zdarzenia w zapisie wejść, `ExecuteLineEvent` w `FirstRun` i nowa odmowa `--replay --line` bez `--signalling` w `RunPlan`. PRZELICZONE.
+    private const int ZgloszenFirstRunWierszami = 149;
 
     /// <summary>Ile plików korpusu daje różne liczby obiema drogami — 6.D180.</summary>
     private const int PlikowZRoznicaDrog = 1;
@@ -2286,7 +2290,8 @@ public sealed class UiTextTests
     // 394 -> 399 (22.09.2026, 6.D235): PIĘĆ literałów — komunikaty `Abort` dla pliku ZŁEGO
     // w `FirstRun`: po dwa przy osi i przy manifeście chunków, jeden przy planie
     // sygnalizacji. Liczba PRZELICZONA przebiegiem.
-    private const int LiteralowDotknietychZdejmowaniem = 399;
+    // 399 -> 400 (23.09.2026, 6.M1): odtworzenie linii — zdarzenia w zapisie wejść, `ExecuteLineEvent` w `FirstRun` i nowa odmowa `--replay --line` bez `--signalling` w `RunPlan`. PRZELICZONE.
+    private const int LiteralowDotknietychZdejmowaniem = 400;
 
     /// <summary>
     /// Ilu literałom zdejmowanie jednostek ZABIERA werdykt „to słowo" — 6.D155.
@@ -3070,7 +3075,8 @@ public sealed class UiTextTests
     // nazwy argumentów `trains`/`headway-steps` w `RunPlan`, komunikaty odmowy
     // zakresu i nazwy węzłów widoków w `FirstRun`. Liczba jest PRZELICZONA
     // przebiegiem, a nie wyprowadzona z liczby dopisanych wierszy.
-    private const int ZgloszenWaskichCalymPlikiem = 104;
+    // 104 -> 105 (23.09.2026, 6.M1): odtworzenie linii — zdarzenia w zapisie wejść, `ExecuteLineEvent` w `FirstRun` i nowa odmowa `--replay --line` bez `--signalling` w `RunPlan`. PRZELICZONE.
+    private const int ZgloszenWaskichCalymPlikiem = 105;
 
     /// <summary>Zgłoszeń wąskiej reguły, gdy czytnik dostaje WIERSZ — 6.D173/6.D186.</summary>
     // 108 -> 112 (14.09.2026, MB-04): `FirstRun.AssetsRoot`, `DomyslnyZapisWejsc`
@@ -3084,7 +3090,8 @@ public sealed class UiTextTests
     // nazwy argumentów `trains`/`headway-steps` w `RunPlan`, komunikaty odmowy
     // zakresu i nazwy węzłów widoków w `FirstRun`. Liczba jest PRZELICZONA
     // przebiegiem, a nie wyprowadzona z liczby dopisanych wierszy.
-    private const int ZgloszenWaskichWierszami = 116;
+    // 116 -> 117 (23.09.2026, 6.M1): odtworzenie linii — zdarzenia w zapisie wejść, `ExecuteLineEvent` w `FirstRun` i nowa odmowa `--replay --line` bez `--signalling` w `RunPlan`. PRZELICZONE.
+    private const int ZgloszenWaskichWierszami = 117;
 
     /// <summary>
     /// Ile z nich stoi w kontekście CZYTANIA JSON-a — <b>18 obiema drogami</b>.
@@ -3309,8 +3316,10 @@ public sealed class UiTextTests
         StringAssert.Contains(dawna, 108.ToString(System.Globalization.CultureInfo.InvariantCulture),
             "odpowiedź nie niesie liczby, o którą pytano");
 
-        Assert.IsNull(MetroBxl.Tests.Shared.LancuchZmian.SkadTaLiczba(nameof(ZgloszenWaskichWierszami), 116, SciezkaTegoPliku),
-            "dzisiejsza wartość zgłoszona jako DAWNA — a 116 stoi wyłącznie po prawej "
+        // Od 6.M1 dzisiejszą wartością jest 117; 116 stało się dawną i stoi teraz po
+        // LEWEJ stronie ostatniego ogniwa łańcucha.
+        Assert.IsNull(MetroBxl.Tests.Shared.LancuchZmian.SkadTaLiczba(nameof(ZgloszenWaskichWierszami), 117, SciezkaTegoPliku),
+            "dzisiejsza wartość zgłoszona jako DAWNA — a 117 stoi wyłącznie po prawej "
             + "stronie ostatniego ogniwa, więc nigdy tu nie „stała do\u201d");
         Assert.IsNull(MetroBxl.Tests.Shared.LancuchZmian.SkadTaLiczba(nameof(ZgloszenWaskichWierszami), 4242, SciezkaTegoPliku),
             "liczba spoza łańcucha zgłoszona jako dawna wartość — czytnik odpowiada "
@@ -3515,7 +3524,8 @@ public sealed class UiTextTests
     // 144 -> 149 (22.09.2026, 6.D235): PIĘĆ literałów — komunikaty `Abort` dla pliku ZŁEGO
     // w `FirstRun`: po dwa przy osi i przy manifeście chunków, jeden przy planie
     // sygnalizacji. Liczba PRZELICZONA przebiegiem.
-    private const int LiteralowZKlamra = 149;
+    // 149 -> 148 (23.09.2026, 6.M1): odtworzenie linii w `FirstRun` i `RunPlan`. PRZELICZONE.
+    private const int LiteralowZKlamra = 148;
 
     /// <summary>
     /// Ilu literałom <see cref="BezDziur"/> zabiera WSZYSTKIE słowa — 6.D188.
@@ -4075,7 +4085,8 @@ public sealed class UiTextTests
     // 18 -> 20 (14.09.2026, MB-08): `DoorControl` i `DoorRefusal`, oba w `src/Sim`.
     // TRZECI ruch w trzy dni, więc zdanie o nieruchomości tej liczby zostaje
     // skreślone tak samo, jak zostało po drugim.
-    private const int WyliczenWSrc = 20;
+    // 20 -> 21 (23.09.2026, 6.M1): `LineEventKind` w `src/Sim/Train/InputLog.cs`. CZWARTY ruch.
+    private const int WyliczenWSrc = 21;
 
     // 22 -> 24 (13.09.2026, MB-02): `Ending` i `ending` z `TrainingEnding`.
     // 24 -> 25 (14.09.2026, MB-06): `Owner` z `ControlOwner`. JEDNA nazwa, a nie dwie
@@ -4096,7 +4107,8 @@ public sealed class UiTextTests
     // konstruktorem i polem, a powód odmowy wraca z metody i ląduje w polu widoku.
     // Typ, który podróżuje, dostaje nazwę w każdym miejscu, przez które przechodzi.
     // …plus `powodOdmowy` z `DoorPrompt.For` — razem DZIESIĘĆ, nie dziewięć.
-    private const int NazwPodWyliczeniem = 35;
+    // 35 -> 36 (23.09.2026, 6.M1): `LineEventKind rodzajZdarzenia` w `InputLog` i `InputLogRecorder`. PRZELICZONE.
+    private const int NazwPodWyliczeniem = 36;
 
     // Nazwy, pod którymi w `src/` stoi i wartość wyliczenia, i wartość innego typu.
     // Lista, a nie liczba, bo to nazwy rozstrzygają, czy skan po nazwie wolno puścić

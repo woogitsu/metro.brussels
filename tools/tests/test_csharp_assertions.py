@@ -310,7 +310,7 @@ BEZ_KOMUNIKATU = {
     "ReferenceParityTests.cs": 8,
     "RouteDispatcherTests.cs": 24,
     "RunHeaderTests.cs": 11,
-    "RunPlanTests.cs": 107,
+    "RunPlanTests.cs": 106,
     "RunResetTests.cs": 40,
     "RunnerCommandTests.cs": 126,
     "ScenarioDriveTests.cs": 35,
@@ -441,7 +441,10 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 # wszystkie z komunikatem — obie zapadki rosna o tyle samo.
 # 1770 -> 1787 (22.09.2026, 6.D235): SIEDEMNASCIE asercji, wszystkie z komunikatem.
 # 1787 -> 1792 (23.09.2026, 6.D365): te same PIEC asercji, wszystkie z komunikatem; ZMIERZONE.
-Z_KOMUNIKATEM_RAZEM = 1792
+# 1792 -> 1829 (23.09.2026, 6.M1): TRZYDZIESCI SIEDEM asercji z komunikatem —
+# `LineReplayTests.cs` i nowy test `RunPlanTests.cs` oraz dwie asercje, ktore
+# dostaly komunikat. Przeliczone z drzewa.
+Z_KOMUNIKATEM_RAZEM = 1829
 NIEROZSTRZYGNIETYCH = 68
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
 #: `tests/Sim.Tests/DefaultArmAuditTests.cs` — bramki na ramionach domyślnych
@@ -534,7 +537,10 @@ NIEROZSTRZYGNIETYCH = 68
 # i `BadFileTests.cs`. Przeliczone z drzewa.
 # 3234 -> 3239 (23.09.2026, 6.D365): PIEC asercji testow kultury — jedna w
 # `TrainingSessionTests.cs` (przecinek pl-PL) i cztery w `DoorCycleTests.cs`; ZMIERZONE.
-ASERCJI_RAZEM = 3239
+# 3239 -> 3275 (23.09.2026, 6.M1): TRZYDZIESCI SZESC asercji — `LineReplayTests.cs`
+# i nowy test `RunPlanTests.cs`, minus jedna zdjeta z `ReplayRefusesASecondSourceOfCommand`.
+# Przeliczone z drzewa.
+ASERCJI_RAZEM = 3275
 
 
 def _rozklad():

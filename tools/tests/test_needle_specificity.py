@@ -150,7 +150,9 @@ MAX_JUSTIFIED_NEEDLES = 7
 #: **33 z 68**. Rośnie tylko przez przepisanie igły na tekst, którego w literałach nie
 #: ma — czyli przez zamianę niejednoznaczności na niewidzialność — i dlatego jest
 #: zapadką, a nie wypisem.
-MAX_UNMATCHED_NEEDLES = 33
+#: 33 -> 32 (23.09.2026, 6.M1): jedna igla bez dopasowania dostala dopasowanie —
+#: zapadka idzie w dol, bo wolno jej tylko w dol.
+MAX_UNMATCHED_NEEDLES = 32
 
 #: Progi KW. Literówka we wzorcu daje zero dopasowań i cały moduł zielony; te dwie
 #: liczby są jedynym powodem, dla którego taka literówka jest widoczna. Zmierzone

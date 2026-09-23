@@ -1334,6 +1334,72 @@ jobs:
             build/t400/linia/core-calls.csv \
             build/t400/linia/scene-signalling-calls.csv --expect-calls 11
 
+      - name: Line replay — driver commands from the input log replay to the same bytes
+        shell: bash
+        # 6.M1. Przejazd LINII z maszynistą: przejęcie składu, hamowanie do Beekkant,
+        # otwarcie i zamknięcie drzwi, oddanie autopilotowi. Zapis wejść jest w
+        # repozytorium (`tests/data/m1-linia-drzwi.log`), a nie nagrywany tu — z tego
+        # samego powodu, co `manual-keys.log`: zapis nagrany w locie zgadzałby się sam
+        # ze sobą także wtedy, gdyby nagrywanie było zepsute.
+        #
+        # PORÓWNANIE IDZIE Z RDZENIEM. `Sim.Runner replay --line` i scena idą tą samą
+        # klasą `LineSession`, więc zgodność co do bitu przy dwóch rytmach klatek mówi,
+        # że polecenia wykonują się po NUMERZE KROKU, a nie po klatce.
+        #
+        # ZAPIS Z ODTWORZENIA ma wyjść CO DO BAJTU taki jak wzorzec: to jedyny sposób,
+        # żeby w CI sprawdzić pisarza zdarzeń (`ExecuteLineEvent` → `RecordEvent`)
+        # bez człowieka przy klawiaturze.
+        run: |
+          set -euo pipefail
+          mkdir -p build/t400/linia-odtworzenie
+          dotnet run --project src/Sim.Runner -c Release --no-build -- \
+            replay --keys tests/data/m1-linia-drzwi.log --line --atp --axis data/track/L1_A.json \
+            --signalling data/design/signalling/classic-2026.json \
+            --limit-kmh 70 --notch-rate 0.80 --exchange-s 8 --stop-window-m 5 \
+            --out build/t400/linia-odtworzenie/core.csv 2>&1 | tee build/t400/linia-odtworzenie/core.log
+          grep -q "zdarzeń linii=4 odmów drzwi=0" build/t400/linia-odtworzenie/core.log \
+            || { echo "BŁĄD: rdzeń nie wykonał czterech poleceń wzorca bez odmowy drzwi" >&2
+                 cat build/t400/linia-odtworzenie/core.log >&2; exit 1; }
+          for spf in 120 7; do
+            "$GODOT_BIN" --headless --path src/Game -- \
+              --line --limit-kmh=70 \
+              --signalling="$PWD/data/design/signalling/classic-2026.json" \
+              --replay="$PWD/tests/data/m1-linia-drzwi.log" \
+              --telemetry="$PWD/build/t400/linia-odtworzenie/scene-spf$spf.csv" \
+              --input-log="$PWD/build/t400/linia-odtworzenie/zapis-spf$spf.log" \
+              --steps-per-frame="$spf" \
+              2>&1 | tee "build/t400/linia-odtworzenie/scene-spf$spf.log"
+            python3 tools/ci/assert_no_godot_warnings.py "build/t400/linia-odtworzenie/scene-spf$spf.log"
+            grep -q "^\[ODTWORZENIE\] koniec: kroków=16000 " "build/t400/linia-odtworzenie/scene-spf$spf.log" \
+              || { echo "BŁĄD: odtworzenie linii przy $spf krokach na klatkę nie doszło do końca zapisu" >&2
+                   grep "^\[ODTWORZENIE\]" "build/t400/linia-odtworzenie/scene-spf$spf.log" >&2; exit 1; }
+            dotnet run --project src/Sim.Runner -c Release --no-build -- \
+              compare build/t400/linia-odtworzenie/core.csv \
+              "build/t400/linia-odtworzenie/scene-spf$spf.csv" --tolerance 0
+            cmp tests/data/m1-linia-drzwi.log "build/t400/linia-odtworzenie/zapis-spf$spf.log" \
+              || { echo "BŁĄD: zapis wejść z odtworzenia linii różni się od wzorca" >&2; exit 1; }
+          done
+          # KONTROLA NEGATYWNA w tym samym kroku: ten sam zapis BEZ wiersza przejęcia.
+          # Autopilot prowadzi wtedy skład sam, więc porównanie z rdzeniem liczonym na
+          # pełnym zapisie MUSI paść. Gdyby przeszło, zdarzenia linii byłyby czytane
+          # i pomijane.
+          grep -v "przejmij:" tests/data/m1-linia-drzwi.log > build/t400/linia-odtworzenie/bez-przejecia.log
+          "$GODOT_BIN" --headless --path src/Game -- \
+            --line --limit-kmh=70 \
+            --signalling="$PWD/data/design/signalling/classic-2026.json" \
+            --replay="$PWD/build/t400/linia-odtworzenie/bez-przejecia.log" \
+            --telemetry="$PWD/build/t400/linia-odtworzenie/scene-bez-przejecia.csv" \
+            --steps-per-frame=120 2>&1 | tee build/t400/linia-odtworzenie/negatyw.log
+          python3 tools/ci/assert_no_godot_warnings.py build/t400/linia-odtworzenie/negatyw.log
+          set +e
+          dotnet run --project src/Sim.Runner -c Release --no-build -- \
+            compare build/t400/linia-odtworzenie/core.csv \
+            build/t400/linia-odtworzenie/scene-bez-przejecia.csv --tolerance 0
+          rc=$?
+          set -e
+          test "$rc" -ne 0 || { echo "BŁĄD: odtworzenie bez przejęcia przeszło porównanie" >&2; exit 1; }
+          echo "[NEGATYW] odtworzenie linii bez przejęcia odrzucone, tak jak ma być"
+
       - name: ATP must really brake above the plan limit
         shell: bash
         # DOWÓD, ŻE OCHRONA POCIĄGU DZIAŁA, A NIE TYLKO LICZY.
