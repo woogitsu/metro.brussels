@@ -2621,7 +2621,8 @@ MIN_GOLYCH_W_DOKUMENTACH = 1200
 # 36 -> 38 (18.09.2026, 6.D280): doszly `LOD2-render-sanity.json`
 # i `_metadata.json` — pliki ARTEFAKTU CI, ktorych w drzewie nie ma
 # i byc nie moze, bo powstaja w przebiegu i regula 8 zabrania ich komitowac.
-GOLYCH_BEZ_ODPOWIEDNIKA = 38
+# 38 -> 41 (23.09.2026, 6.D368): trzy nowe nazwy probek plikow w opisie kolizji.
+GOLYCH_BEZ_ODPOWIEDNIKA = 41
 
 #: To samo, ale WYLACZNIE w trzech polach skanowanych — czyli tam, gdzie poszerzony
 #: `PATH_TOKEN` naprawde by zapalal. Zmierzone 13.09.2026: **244** wystapienia,

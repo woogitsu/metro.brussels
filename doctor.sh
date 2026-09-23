@@ -458,7 +458,8 @@ wypisz_wyciag_z_logu() {
 if [ "$RUN_TESTS" -eq 1 ]; then
 echo ""
 echo "Testy narzędzi:"
-log_file="${TMPDIR:-/tmp}/mbxl_tests.log"
+log_file="$(mktemp "${TMPDIR:-/tmp}/mbxl_tests.XXXXXX.log")"
+trap 'rm -f "${log_file:-}"' EXIT
 if python3 tools/tests/test_all.py >"$log_file" 2>&1; then
   echo "  ok    $(grep -o "[0-9]*/[0-9]* przeszło" "$log_file")"
 else
@@ -519,11 +520,12 @@ elif [ -n "$REQUIRED_TFM" ] && [ -n "$HAVE_SDK_MAJOR" ] \
   echo "        to nie jest niezaliczony test, tylko brak czym zbudować; patrz podpowiedź wyżej"
   required_bad=$((required_bad + 1))
 else
-  sim_log="${TMPDIR:-/tmp}/mbxl_sim_tests.log"
+  sim_log="$(mktemp "${TMPDIR:-/tmp}/mbxl_sim_tests.XXXXXX.log")"
   if "$DOTNET_DO_TESTOW" test tests/Sim.Tests --nologo -v q >"$sim_log" 2>&1; then
     sim_passed=$(grep -oE "Passed: +[0-9]+" "$sim_log" | tail -1 | grep -oE "[0-9]+")
     sim_total=$(grep -oE "Total( tests)?: +[0-9]+" "$sim_log" | tail -1 | grep -oE "[0-9]+")
     echo "  ok    ${sim_passed}/${sim_total} przeszło"
+    rm -f "$sim_log"
   elif grep -q "NETSDK1045" "$sim_log" 2>/dev/null; then
     # Sonda wersji wyżej mogła nie zadziałać (np. `dotnet --version` milczy),
     # a mimo to build padł dokładnie na tym. Log jest tu rozstrzygający.

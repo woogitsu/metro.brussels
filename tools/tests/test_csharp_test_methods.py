@@ -608,7 +608,8 @@ ROZKLAD_POSTACI = {
         # zlych ksztaltow). Przeliczone z drzewa, nie zsumowane.
         # 4720 -> 4730 i 95 -> 96 (23.09.2026, 6.D365): testy kultury w `DoorCycleTests.cs`
         # i `TrainingSessionTests.cs`, wzorzec czasu postoju jako `@"..."`; ZMIERZONE.
-        "zwykly": 4730,
+        # 4730 -> 4732 (23.09.2026, 6.D368): dwie postacie w tescie sciezki `a=b.csv`.
+        "zwykly": 4732,
         "interpolowany ($)": 812,
         "werbatim (@)": 96,
         "surowy interpolowany ($$\"\"\")": 13,

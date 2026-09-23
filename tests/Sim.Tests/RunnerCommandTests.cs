@@ -1084,7 +1084,9 @@ public sealed class RunnerCommandTests
     [TestMethod]
     public void Rownosc_w_wartosci_znanej_opcji_przechodzi()
     {
-        var trace = Path.Combine(Path.GetTempPath(), "a=b.csv");
+        var directory = Path.Combine(Path.GetTempPath(), "mbxl-runner-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        var trace = Path.Combine(directory, "a=b.csv");
         try
         {
             var result = Run(
@@ -1097,10 +1099,7 @@ public sealed class RunnerCommandTests
         }
         finally
         {
-            if (File.Exists(trace))
-            {
-                File.Delete(trace);
-            }
+            Directory.Delete(directory, recursive: true);
         }
     }
 

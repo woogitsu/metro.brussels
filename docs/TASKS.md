@@ -1331,6 +1331,7 @@ właściciel.
 | 6.D356 | **`Sim.Runner` na dokumencie JSON innego KSZTAŁTU wypisuje angielski komunikat `System.Text.Json`** | zmierzone 22.09.2026 przy 6.D235: `line --axis` na pliku `[]`, `5` i `{"points": 5}` kończy się kodem 1 — handler łapie `InvalidOperationException` — ale wierszem `BŁĄD: <plik>: The requested operation requires an element of type 'Object', but the target element has type 'Array'.` Scena dostała na to własne słowa (`BadFile`), CLI nie. Poprawka dotyczy wyłącznie tekstu odmowy, nie kodu wyjścia | S |
 | 6.D357 | **Wiersz odmowy przy zepsutej składni JSON niesie angielski ogon parsera** | zmierzone 22.09.2026 przy 6.D235: `JsonText.Parse` owija `JsonException` w `FormatException` z polskim początkiem, ale dokleja `error.Message` .NET-a, więc gracz widzi `oś trasy nie jest poprawnym JSON-em: '{' is an invalid start of a property name. Expected a '"'. LineNumber: 0 \| BytePositionInLine: 1.` Pozycja błędu jest w `JsonException` jako liczby (`LineNumber`, `BytePositionInLine`) i da się ją podać po polsku bez tekstu parsera | S |
 | 6.D365 | **ZROBIONE w #PR (23.09.2026): zagnieżdżony literał interpolowany formatuje się w kulturze BIEŻĄCEJ, zanim zewnętrzny `string.Create(InvariantCulture, …)` go zobaczy — i test „CultureInvariant” kultury nie przełączał.** Zmierzone przez audyt 23.09.2026 na runnerze `woogitsu-ubuntu26-i56500t-02` z `LANG=pl_PL.UTF-8`: 1 niepowodzenie z 675 (`TheResultLineIsCompleteAndCultureInvariant`, „-1,000 m” zamiast „-1.000 m”), z `LC_ALL=C` zielono. Przeszukanie `src/` po wierszach z dwoma `$"`: osiem zagnieżdżeń, z czego LICZBĘ formatują dwa — `TrainingResult.cs` (błąd zatrzymania) i `StationStop.cs` (czas od zatrzymania; zmierzone „0,24 s” na pl-PL); sześć pozostałych wstawia napis, `bool` albo `enum`. Oba zagnieżdżenia niosą teraz `InvariantCulture` same; oba testy przełączają `CurrentCulture` na pl-PL i przywracają ją w `finally`, więc łapią błąd na maszynie z `C` — kontrola negatywna czerwona bez zmiennych locale | S |
+| 6.D368 | **Stałe nazwy plików testowych w katalogu tymczasowym kolidują między runnerami** | zmierzone 23.09.2026: `RunnerCommandTests.Rownosc_w_wartosci_znanej_opcji_przechodzi` pisze do `a=b.csv`, a `doctor.sh` do `mbxl_tests.log` i `mbxl_sim_tests.log` pod wspólnym katalogiem tymczasowym. Równoległe przebiegi mogą pisać do tych samych ścieżek | S |
 
 #### Szczegóły pozycji z kompletem sześciu pól
 
@@ -16857,3 +16858,24 @@ w drzewie**, a nie tylko w rozmowie — z tego samego powodu, co dwie sekcje wy�
   wyborze techniki; `src/`; `data/`.
 - **Zależy od:** 6.D343 (stamtąd jedenaście wzorców), 6.D334 (stamtąd sito po
   kształcie źródła).
+
+##### 6.D368 · Izolacja plików tymczasowych testu CLI i doctora
+
+- **Skąd:** `tests/Sim.Tests/RunnerCommandTests.cs` używało stałego `a=b.csv`, a
+  `doctor.sh` stałych `mbxl_tests.log` i `mbxl_sim_tests.log`; współdzielony katalog
+  tymczasowy dopuszcza kolizję przy równoległych przebiegach.
+- **Wejście:** `tests/Sim.Tests/RunnerCommandTests.cs`, `doctor.sh`.
+- **Wyjście:** unikatowy katalog testu z plikiem zawierającym znak `=` w nazwie oraz unikatowe nazwy obu
+  logów doctora.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py
+  dotnet test tests/Sim.Tests
+  bash doctor.sh
+  ```
+  Oczekiwane: zielone zestawy, a dwa jednoczesne przebiegi nie używają tej
+  samej ścieżki logu.
+- **Skończone, gdy:** nazwa `a=b.csv` pozostaje wartością `--trace`, test usuwa
+  własny katalog, a dwa logi doctora dostają unikatowe ścieżki.
+- **Poza zakresem:** zmiana działania `Sim.Runner`, formatów śladu i progów CI.
+- **Zależy od:** nic.
