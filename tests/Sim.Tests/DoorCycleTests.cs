@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text.RegularExpressions;
 using MetroBxl.Sim.Physics;
 using MetroBxl.Sim.Train;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -152,6 +154,43 @@ public sealed class DoorCycleTests
         var filtered = stop.Filter(DriveState.AtRest, new DriverCommand(1.0, 0.7));
         Assert.AreEqual(0.0, filtered.Throttle, 0.0);
         Assert.AreEqual(0.7, filtered.Brake, 0.0, "skład ma stać, a nie toczyć się przy otwartych drzwiach");
+    }
+
+    /// <summary>
+    /// Wiersz postoju idzie do logu przebiegu, więc nie zależy od kultury maszyny —
+    /// także w części zagnieżdżonej, czasie od zatrzymania (23.09.2026, 6.D365).
+    /// Zagnieżdżony literał interpolowany formatuje się w kulturze BIEŻĄCEJ, zanim
+    /// zewnętrzny <c>string.Create(InvariantCulture, …)</c> go zobaczy — dlatego
+    /// kultura z przecinkiem jest tu ustawiana jawnie, a nie zostawiana maszynie.
+    /// </summary>
+    [TestMethod]
+    public void Wiersz_postoju_nie_zalezy_od_kultury_maszyny()
+    {
+        var stop = new StationStop(Cycle(5.0), Step);
+        for (var i = 0; i < 30; i++)
+        {
+            stop.Filter(DriveState.AtRest, new DriverCommand(0.0, 1.0));
+        }
+
+        Assert.IsTrue(stop.Started, "postój miał się rozpocząć — wiersz nie niesie czasu");
+        var previous = CultureInfo.CurrentCulture;
+        string line;
+        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("pl-PL");
+        try
+        {
+            Assert.AreEqual(",", CultureInfo.CurrentCulture.NumberFormat.NumberDecimalSeparator,
+                "kultura pl-PL nie ma przecinka dziesiętnego — test nie sprawdza tego, co obiecuje");
+            line = stop.ToString();
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = previous;
+        }
+
+        System.Console.WriteLine(line);
+        StringAssert.Matches(line, new Regex(@": \d+\.\d{2} s, faza "),
+            "czas od zatrzymania nie jest zapisany z kropką dziesiętną");
+        StringAssert.Contains(line, "pełny cykl 13.5 s", "pełny cykl nie jest zapisany z kropką dziesiętną");
     }
 
     // --- oś czasu ------------------------------------------------------------
