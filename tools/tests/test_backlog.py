@@ -631,7 +631,9 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 # 423 -> 424 (23.09.2026, 6.D366): blok czytnika `times` ma szesc pol; ZMIERZONE.
 # 424 -> 425 (23.09.2026, 6.D369): blok izolacji sciezek SDK ma szesc pol; ZMIERZONE.
 # 425 -> 426 (23.09.2026, 6.D367): blok paczki Windows ma szesc pol.
-MINIMUM_DETAIL_BLOCKS = 426
+# 426 -> 427 (23.09.2026, 6.D356): blok 6.D361 dopisany z kompletem szesciu pol
+# (znalezisko przy przeliczaniu zapadki rozkladu postaci literalu); ZMIERZONE.
+MINIMUM_DETAIL_BLOCKS = 427
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je

@@ -618,12 +618,15 @@ ROZKLAD_POSTACI = {
         # `BrokenJsonRefusalTests.cs` — komunikaty asercji, ksztalt wielowierszowy
         # i DWA wzorce werbatim (slowo z lacznikiem, pozycja „w wierszu …, bajt …");
         # ZMIERZONE.
-        "zwykly": 4807,
-        "interpolowany ($)": 826,
-        "werbatim (@)": 98,
+        # 4807 -> 4843, 826 -> 836, 98 -> 99 i 7 -> 8 (23.09.2026, 6.D356):
+        # `BrokenJsonRefusalTests.cs` — komunikaty asercji, argumenty `line`, wzorzec
+        # slowa `@"..."` i dopasowanie slowa zakazanego `$@"..."`. ZMIERZONE.
+        "zwykly": 4843,
+        "interpolowany ($)": 836,
+        "werbatim (@)": 99,
         "surowy interpolowany ($$\"\"\")": 13,
         "surowy (\"\"\")": 8,
-        "werbatim interpolowany ($@)": 7,
+        "werbatim interpolowany ($@)": 8,
     },
     "src": {
         # 1223 -> 1264 i 446 -> 456 (13.09.2026, MB-02): `TrainingSession.cs`,
@@ -672,7 +675,9 @@ ROZKLAD_POSTACI = {
         # 1409 -> 1450 (23.09.2026, 6.M1): kody i komunikaty zdarzen linii w
         # `InputLog`, `LineSession`, pola sidecara i odmowy `replay --line` w `Sim.Runner`,
         # nowa odmowa w `RunPlan`. Przeliczone z drzewa, nie zsumowane.
-        "zwykly": 1450,
+        # 1450 -> 1452 (23.09.2026, 6.D356): DWA literaly polskiego opisu dokumentu
+        # innego ksztaltu, `Program.WrongJsonShapeText` w `Sim.Runner`. ZMIERZONE.
+        "zwykly": 1452,
         # 489 -> 494 (22.09.2026, 6.D235): piec komunikatow `Abort` dla pliku ZLEGO
         # w `FirstRun.cs`. Przeliczone z drzewa, nie zsumowane.
         # 494 -> 513 (23.09.2026, 6.M1): komunikaty odmow i wiersze zapisu zdarzen

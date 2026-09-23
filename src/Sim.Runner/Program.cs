@@ -248,10 +248,50 @@ public static class Program
         }
         catch (Exception exception) when (exception is IOException or ArgumentException or FormatException or InvalidOperationException or KeyNotFoundException)
         {
-            Console.Error.WriteLine("BŁĄD: " + exception.Message);
+            Console.Error.WriteLine("BŁĄD: " + RefusalText(exception));
             return 1;
         }
     }
+
+    /// <summary>
+    /// Opis dokumentu poprawnego składniowo, ale innego KSZTAŁTU — własnymi słowami
+    /// runnera, bo komunikat <c>System.Text.Json</c> jest po angielsku (6.D356).
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Zmierzone 22.09.2026 przy 6.D235.</b> <c>line --axis</c> na plikach
+    /// <c>[]</c>, <c>5</c> i <c>{"points": 5}</c> kończyło się kodem 1, ale wierszem
+    /// <c>BŁĄD: &lt;plik&gt;: The requested operation requires an element of type
+    /// 'Object', but the target element has type 'Array'.</c> Scena dostała na to
+    /// własne słowa w <c>BadFile</c>; to jest odpowiednik po stronie CLI.</para>
+    /// </remarks>
+    public static string WrongJsonShapeText =>
+        "dokument JSON ma inny kształt, niż czyta ten czytnik: korzeń, pole albo wpis "
+        + "jest innego typu, niż wymaga, albo brakuje wymaganego pola";
+
+    /// <summary>
+    /// Czy wyjątek rzucił SAM <c>System.Text.Json</c> (<c>GetProperty</c>,
+    /// <c>Enumerate*</c>, <c>Get*</c> na elemencie złego typu), a nie loader rdzenia.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Po zestawie, a nie po typie, i to jest cała treść tej metody.</b>
+    /// Typy są te same po obu stronach: <c>src/Sim/</c> rzuca własne
+    /// <see cref="InvalidOperationException"/> i <see cref="KeyNotFoundException"/>
+    /// z komunikatami po polsku (np. <c>plan … nie ma bloku …</c>), i tych
+    /// komunikatów przepisywać nie wolno. Filtr po typie, jak <c>BadFile</c> sceny,
+    /// zgubiłby je; rozstrzyga więc zestaw metody, która wyjątek rzuciła.</para>
+    /// </remarks>
+    /// <param name="exception">Wyjątek z czytnika.</param>
+    public static bool IsWrongJsonShape(Exception exception) =>
+        exception is InvalidOperationException or KeyNotFoundException
+        && exception.TargetSite?.DeclaringType?.Assembly == typeof(System.Text.Json.JsonElement).Assembly;
+
+    /// <summary>
+    /// Tekst wiersza <c>BŁĄD: </c> wspólnego handlera. Dla dokumentu innego kształtu,
+    /// który nie przeszedł przez <see cref="FromFile{T}"/> (np. pole rozkładu złego
+    /// typu), komunikatu parsera nie przepisuje; w każdym innym przypadku bez zmiany.
+    /// </summary>
+    private static string RefusalText(Exception exception) =>
+        IsWrongJsonShape(exception) ? WrongJsonShapeText : exception.Message;
 
     /// <summary>
     /// Treść pliku przepuszczona przez czytnik rdzenia, z NAZWĄ PLIKU doklejoną do
@@ -278,7 +318,10 @@ public static class Program
         catch (Exception exception) when (exception is FormatException or KeyNotFoundException
                                           or ArgumentException or InvalidOperationException)
         {
-            throw new FormatException($"{path}: {exception.Message}", exception);
+            // 6.D356: komunikat `System.Text.Json` jest po angielsku i do wiersza odmowy
+            // nie wchodzi; zostaje jako InnerException, tak jak powód parsera przy 6.D229.
+            var reason = IsWrongJsonShape(exception) ? WrongJsonShapeText : exception.Message;
+            throw new FormatException($"{path}: {reason}", exception);
         }
     }
 
