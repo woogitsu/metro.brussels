@@ -40,6 +40,22 @@ cd "$ROOT"
 OUT="${1:-build/paczka}"
 ZASOBY_SRC="${2:-build/t400}"
 NAZWA="MetroBXL"
+case "${PACZKA_SYSTEM:-linux}" in
+    linux)
+        PRESET="Linux"
+        BINARKA="$NAZWA.x86_64"
+        URUCHOMIENIE="./$BINARKA"
+        ;;
+    windows)
+        PRESET="Windows Desktop"
+        BINARKA="$NAZWA.exe"
+        URUCHOMIENIE="$BINARKA"
+        ;;
+    *)
+        echo "[PACZKA] BŁĄD: PACZKA_SYSTEM musi mieć wartość linux albo windows." >&2
+        exit 2
+        ;;
+esac
 
 GODOT_EXE="${GODOT_BIN:-godot}"
 if ! command -v "$GODOT_EXE" >/dev/null 2>&1 && [ ! -x "$GODOT_EXE" ]; then
@@ -93,9 +109,9 @@ mkdir -p "$OUT/$NAZWA/zasoby/chunks"
 DOCELOWY="$OUT/$NAZWA"
 ZASOBY="$DOCELOWY/zasoby"
 
-echo "[PACZKA] eksport binarki -> $DOCELOWY/$NAZWA.x86_64"
+echo "[PACZKA] eksport binarki -> $DOCELOWY/$BINARKA"
 "$GODOT_EXE" --headless --path src/Game \
-    --export-release "Linux" "$ROOT/$DOCELOWY/$NAZWA.x86_64" 2>&1 | tee "$OUT/eksport.log"
+    --export-release "$PRESET" "$ROOT/$DOCELOWY/$BINARKA" 2>&1 | tee "$OUT/eksport.log"
 
 # **KOD WYJŚCIA ZERA TU NIE WYSTARCZA i to jest zmierzone.** Bez `MetroBxl.Game.sln`
 # eksport kończy się ZEREM, wypisując przy tym ostrzeżenie — i pakuje PEŁNE ŹRÓDŁA C#
@@ -108,7 +124,7 @@ if grep -q "no solution file was found" "$OUT/eksport.log"; then
     exit 6
 fi
 
-test -x "$DOCELOWY/$NAZWA.x86_64" || {
+test -f "$DOCELOWY/$BINARKA" || {
     echo "[PACZKA] BŁĄD: eksport nie zostawił binarki." >&2; exit 6; }
 
 echo "[PACZKA] zasoby runtime -> $ZASOBY"
@@ -122,12 +138,12 @@ mkdir -p "$ZASOBY/data/track" "$ZASOBY/data/design/signalling"
 cp data/track/L1_A.json "$ZASOBY/data/track/"
 cp data/design/signalling/classic-2026.json "$ZASOBY/data/design/signalling/"
 
-cat > "$DOCELOWY/CZYTAJ-TO-NAJPIERW.txt" <<'CZYTAJ'
+cat <<'CZYTAJ' | sed "s|@URUCHOMIENIE@|$URUCHOMIENIE|" > "$DOCELOWY/CZYTAJ-TO-NAJPIERW.txt"
 METRO BXL — trening: pierwsze dwa postoje
 =========================================
 
 URUCHOMIENIE
-    ./MetroBXL.x86_64
+    @URUCHOMIENIE@
 
     Nie trzeba podawać żadnych argumentów. Nie trzeba mieć Godota ani Blendera.
     Katalog `zasoby/` musi zostać obok binarki — gra czyta go po ścieżce liczonej
@@ -181,4 +197,4 @@ CZYTAJ
 echo "[PACZKA] rozmiar:"
 du -sh "$DOCELOWY" | sed 's/^/[PACZKA]   /'
 find "$ZASOBY" -type f | wc -l | sed 's/^/[PACZKA]   plików w zasobach: /'
-echo "[PACZKA] gotowe: $DOCELOWY/$NAZWA.x86_64"
+echo "[PACZKA] gotowe: $DOCELOWY/$BINARKA"

@@ -630,7 +630,8 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 # 422 -> 423 (23.09.2026, 6.D368): blok izolacji plikow tymczasowych ma szesc pol.
 # 423 -> 424 (23.09.2026, 6.D366): blok czytnika `times` ma szesc pol; ZMIERZONE.
 # 424 -> 425 (23.09.2026, 6.D369): blok izolacji sciezek SDK ma szesc pol; ZMIERZONE.
-MINIMUM_DETAIL_BLOCKS = 425
+# 425 -> 426 (23.09.2026, 6.D367): blok paczki Windows ma szesc pol.
+MINIMUM_DETAIL_BLOCKS = 426
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
