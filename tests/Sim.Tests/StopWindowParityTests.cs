@@ -63,7 +63,10 @@ public sealed class StopWindowParityTests
     }
 
     /// <summary>Prowadzi ręcznie do zatrzymania w okolicy <paramref name="aimM"/> i trzyma hamulec.</summary>
-    private static LineTrain DriveAndStop(double aimM)
+    private static LineTrain DriveAndStop(double aimM) => DriveAndStopOnLine(aimM).Train;
+
+    /// <summary>To samo co <see cref="DriveAndStop"/>, z linią — dla poleceń drzwi i oddania sterowania.</summary>
+    private static (LineCore Line, LineTrain Train) DriveAndStopOnLine(double aimM)
     {
         var line = Line();
         line.Add(TrainId, 0L);
@@ -84,7 +87,7 @@ public sealed class StopWindowParityTests
 
         Assert.AreEqual(200, stoodFor,
             $"skład nie stanął w okolicy {aimM:F1} m, kilometraż {train.Drive!.ChainageM:F2} m");
-        return train;
+        return (line, train);
     }
 
     [TestMethod]
@@ -153,5 +156,73 @@ public sealed class StopWindowParityTests
         Assert.IsFalse(service.AtStation, "StationService założył postój przed oknem");
         Assert.AreEqual(0, service.Calls.Count, "StationService odnotował wywołanie przed oknem");
         Assert.AreEqual(0, service.Missed.Count, "stacja przed składem została uznana za miniętą");
+    }
+
+    // --- 6.M3: okno DRZWI jest dwustronne (DECYZJA WŁAŚCICIELA 23.09.2026) ---------
+
+    [TestMethod]
+    public void Drzwi_50_m_ZA_peronem_sa_odmowione_z_powodem_poza_peronem()
+    {
+        var (line, train) = DriveAndStopOnLine(Stations[1] + OvershootM);
+        var drive = train.Drive!;
+        Assert.IsTrue(drive.AtStation, "przyrząd: bez postoju ten test nie pyta o drzwi na postoju");
+
+        var odpowiedz = line.RequestDoorOpen(TrainId);
+
+        Assert.IsFalse(odpowiedz.Ok, "drzwi otworzyły się 50 m za peronem");
+        Assert.AreEqual(DoorRefusal.OutsidePlatformWindow, odpowiedz.Refusal,
+            "odmowa ma nieść powód „skład stoi poza peronem”, a nie inny");
+        for (var i = 0; i < 2_000; i++)
+        {
+            line.Drive(TrainId, DriverCommand.FullServiceBrake);
+            line.Step();
+            Assert.AreEqual(DoorPhase.Closed, drive.Phase, $"krok {i}: drzwi ruszyły mimo odmowy");
+        }
+    }
+
+    [TestMethod]
+    public void Po_odmowie_maszynista_odjezdza_a_stacja_zostaje_jako_odjazd_bez_obslugi()
+    {
+        var (line, train) = DriveAndStopOnLine(Stations[1] + OvershootM);
+        var drive = train.Drive!;
+        Assert.IsFalse(line.RequestDoorOpen(TrainId).Ok, "przyrząd: drzwi miały być odmówione");
+
+        for (var i = 0; i < 400 && drive.AtStation; i++)
+        {
+            line.Drive(TrainId, new DriverCommand(0.5, 0.0));
+            line.Step();
+        }
+
+        Assert.IsFalse(drive.AtStation, "maszynista nie zdołał odjechać spod peronu, za którym stanął");
+        Assert.AreEqual(1, drive.Calls.Count, "stacja miała zostać odnotowana dokładnie raz");
+        Assert.IsTrue(double.IsFinite(drive.Calls[0].DepartureSeconds), "odjazd bez obsługi nie ma czasu odjazdu");
+        Assert.AreEqual(Stations[2], drive.NextStation!.Value.ChainageM, 1e-9,
+            "po odjeździe kolejną stacją ma być następna na osi");
+    }
+
+    [TestMethod]
+    public void Oddany_autopilotowi_za_peronem_odjezdza_bez_otwierania_drzwi()
+    {
+        // Autopilot dopilnowuje postojów ręcznych (MB-08) i woła `StationStop.RequestOpen`
+        // wprost, z pominięciem odmowy maszynisty — więc bez 6.M3 otworzyłby drzwi
+        // w tunelu, a z samą odmową stałby tam do końca przejazdu.
+        var (line, train) = DriveAndStopOnLine(Stations[1] + OvershootM);
+        var drive = train.Drive!;
+        line.ReleaseControl(TrainId);
+        Assert.AreEqual(ControlOwner.Autopilot, train.Owner, "przyrząd: sterowanie nie wróciło do autopilota");
+
+        var otwarte = 0;
+        for (var i = 0; i < 40_000 && drive.Calls.Count < 2; i++)
+        {
+            line.Step();
+            if (drive.Calls.Count == 1 && drive.Phase != DoorPhase.Closed)
+            {
+                otwarte++;
+            }
+        }
+
+        Assert.AreEqual(0, otwarte, "autopilot otworzył drzwi za peronem");
+        Assert.AreEqual(2, drive.Calls.Count, "autopilot nie dojechał do następnej stacji");
+        Assert.AreEqual(Stations[2], drive.Calls[1].ChainageM, 1e-9, "drugie wywołanie trafiło do innej stacji");
     }
 }

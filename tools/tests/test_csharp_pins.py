@@ -426,13 +426,15 @@ ROZKLAD_LICZBOWYCH = {
         # 481 -> 488 (22.09.2026, 6.M2): SIEDEM pinow calkowitych bez tolerancji
         # w `StopWindowParityTests.cs` (liczby wywolan, liczba minietych, liczba
         # krokow postoju). Przeliczone z drzewa.
-        # 488 -> 493 (23.09.2026, 6.M1): PIĘĆ pinów `LineReplayTests.cs` — cztery
-        # całkowite bez tolerancji (liczby zdarzeń, poleceń drzwi, zdarzeń jednego kroku,
-        # zdarzeń kroku obok) i jeden zmiennoprzecinkowy z tolerancją 0.0 (skład stoi).
-        # Przeliczone z drzewa.
-        "razem": 493, "z_tolerancja": 189, "bez_tolerancji": 304,
+# 488 -> 493 (23.09.2026, 6.M1): PIĘĆ pinów `LineReplayTests.cs` — cztery
+# całkowite bez tolerancji (liczby zdarzeń, poleceń drzwi, zdarzeń jednego kroku,
+# zdarzeń kroku obok) i jeden zmiennoprzecinkowy z tolerancją 0.0 (skład stoi).
+# Przeliczone z drzewa.
+        # 493 -> 496 (23.09.2026, 6.M3): TRZY piny calkowite bez tolerancji w testach
+        # okna drzwi (liczby wywolan i krokow z otwartymi drzwiami). Przeliczone z drzewa.
+        "razem": 496, "z_tolerancja": 189, "bez_tolerancji": 307,
         "zmiennoprzecinkowe": 197, "zmiennoprzecinkowe_bez_tolerancji": 8,
-        "calkowite": 296, "calkowite_z_tolerancja": 0, "tolerancja_zero": 120,
+        "calkowite": 299, "calkowite_z_tolerancja": 0, "tolerancja_zero": 120,
     },
 }
 

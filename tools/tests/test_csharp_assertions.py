@@ -444,7 +444,8 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 # 1792 -> 1829 (23.09.2026, 6.M1): TRZYDZIESCI SIEDEM asercji z komunikatem —
 # `LineReplayTests.cs` i nowy test `RunPlanTests.cs` oraz dwie asercje, ktore
 # dostaly komunikat. Przeliczone z drzewa.
-Z_KOMUNIKATEM_RAZEM = 1829
+# 1829 -> 1842 (23.09.2026, 6.M3): TRZYNASCIE asercji, wszystkie z komunikatem.
+Z_KOMUNIKATEM_RAZEM = 1842
 NIEROZSTRZYGNIETYCH = 68
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
 #: `tests/Sim.Tests/DefaultArmAuditTests.cs` — bramki na ramionach domyślnych
@@ -540,7 +541,9 @@ NIEROZSTRZYGNIETYCH = 68
 # 3239 -> 3275 (23.09.2026, 6.M1): TRZYDZIESCI SZESC asercji — `LineReplayTests.cs`
 # i nowy test `RunPlanTests.cs`, minus jedna zdjeta z `ReplayRefusesASecondSourceOfCommand`.
 # Przeliczone z drzewa.
-ASERCJI_RAZEM = 3275
+# 3275 -> 3288 (23.09.2026, 6.M3): TRZYNASCIE asercji trzech testow okna drzwi
+# w `StopWindowParityTests.cs`. Przeliczone z drzewa.
+ASERCJI_RAZEM = 3288
 
 
 def _rozklad():

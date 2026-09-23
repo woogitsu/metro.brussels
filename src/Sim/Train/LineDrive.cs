@@ -30,7 +30,8 @@ namespace MetroBxl.Sim.Train;
 /// Postój zakłada się przy <c>chainage &gt;= cel − okno</c>, bez ograniczenia z góry;
 /// <c>StationService</c> wymaga <c>|chainage − cel| &lt;= okno</c>. Skład ręczny
 /// zatrzymany 50 m za peronem dostaje tu więc postój z błędem zatrzymania +50 m,
-/// a tam — stację miniętą. Powód, dla którego zostaje tak: dwustronne okno wymagałoby
+/// a tam — stację miniętą; drzwi na takim postoju są jednak odmówione (6.M3), więc
+/// różnica dotyczy WYŁĄCZNIE zapisu wywołania, nie obsługi. Powód, dla którego zostaje tak: dwustronne okno wymagałoby
 /// reguły dla składu stojącego ZA oknem, której żaden dokument nie podaje, bo ta klasa
 /// nie ma rejestru stacji miniętych, a odjazd bez obsługi (MB-08) jest gałęzią TRWAJĄCEGO
 /// postoju. Dla autopilota różnica nie ma skutku — staje z błędem rzędu 0,3 m — więc
@@ -197,11 +198,26 @@ public sealed class LineDrive
     /// istnieje, dopóki skład nie stanie w oknie peronu, więc obiekt, który miałby
     /// odmówić, jeszcze nie powstał. To jest ta sama granica, co między „czy wolno
     /// ciągnąć" a „gdzie stoi skład".</para>
+    ///
+    /// <para><b>Odmawia także NA postoju, gdy czoło stoi za oknem peronu</b> — DECYZJA
+    /// WŁAŚCICIELA 23.09.2026 (6.M3). Okno zakładania postoju jest tu jednostronne (6.M2),
+    /// więc skład ręczny zatrzymany 50 m za peronem ma postój, a do tej zmiany mógł na nim
+    /// otworzyć drzwi w tunelu. Okno DRZWI jest od dziś dwustronne, jak w
+    /// <see cref="StationService"/>: <c>|chainage − cel| &lt;= okno</c>. Skład za oknem może
+    /// już tylko odjechać, a stacja zostaje w <see cref="Calls"/> jako odjazd bez obsługi.</para>
     /// </summary>
     /// <returns>Przyjęcie albo odmowa z powodem.</returns>
-    public DoorRequestResult RequestDoorOpen() => _stop is null
+    public DoorRequestResult RequestDoorOpen() => _stop is null || OutsideDoorWindow()
         ? DoorRequestResult.Refused(DoorRefusal.OutsidePlatformWindow)
         : _stop.RequestOpen(_state);
+
+    /// <summary>
+    /// Czy czoło stoi poza oknem drzwi bieżącej stacji — <c>|chainage − cel| &gt; okno</c>.
+    /// Jedno zdanie dla polecenia maszynisty i dla autopilota dopilnowującego postoju
+    /// ręcznego (6.M3), żeby obaj dostawali tę samą odmowę.
+    /// </summary>
+    private bool OutsideDoorWindow() =>
+        Math.Abs(ChainageM - _stations[_next].ChainageM) > _settings.StopWindowM;
 
     /// <summary>Polecenie zamknięcia drzwi od maszynisty.</summary>
     /// <returns>Przyjęcie albo odmowa z powodem.</returns>
@@ -351,9 +367,20 @@ public sealed class LineDrive
             //
             // Warunek `DriverInput is null` znaczy „nikogo nie ma przy nastawniku".
             // Przy człowieku u steru te wiersze milczą i drzwi należą wyłącznie do niego.
+            //
+            // POSTÓJ RĘCZNY ZA OKNEM DRZWI (6.M3): autopilot nie otwiera tu drzwi, bo nie
+            // wolno tego także maszyniście, tylko kończy postój odjazdem bez obsługi —
+            // tym samym, który maszynista dostaje, ruszając za peronem. Bez tego skład
+            // oddany autopilotowi stałby za peronem do końca przejazdu: drzwi nie da się
+            // otworzyć, więc cykl nigdy się nie skończy.
+            var abandoned = false;
             if (_stop.Control == DoorControl.Manual && DriverInput is null)
             {
-                if (_stop.Phase == DoorPhase.Closed && !_stop.Finished)
+                if (_stop.Phase == DoorPhase.Closed && !_stop.Finished && OutsideDoorWindow())
+                {
+                    abandoned = true;
+                }
+                else if (_stop.Phase == DoorPhase.Closed && !_stop.Finished)
                 {
                     _stop.RequestOpen(_state);
                 }
@@ -462,7 +489,10 @@ public sealed class LineDrive
             // (zatrzymania na 2005,72 m przy stacji 2000,00 m i oknie 5,00 m).
             //
             // „Odjazd bez obsługi" ma znaczyć ODJAZD. Skład stojący za peronem stoi,
-            // a nie odjeżdża, i wolno mu jeszcze otworzyć drzwi.
+            // a nie odjeżdża. **Zdanie przepisane 23.09.2026, a nie dopisane obok
+            // (DECYZJA WŁAŚCICIELA, 6.M3):** stało tu „i wolno mu jeszcze otworzyć
+            // drzwi" — i to już nieprawda. Za oknem drzwi odmawia `RequestDoorOpen`,
+            // więc stojący tam skład może już tylko odjechać.
             var behindPlatform = _start + _state.DistanceM > target + _settings.StopWindowM;
             var leftWithoutService = _stop.Control == DoorControl.Manual
                 && !_stop.Finished
@@ -470,7 +500,7 @@ public sealed class LineDrive
                 && behindPlatform
                 && _state.SpeedMps > 0.0;
 
-            if (_stop.Finished || leftWithoutService)
+            if (_stop.Finished || leftWithoutService || abandoned)
             {
                 _calls[^1] = _calls[^1] with { DepartureSeconds = _state.TimeSeconds(_step) };
                 _departedAtSeconds = _state.TimeSeconds(_step);

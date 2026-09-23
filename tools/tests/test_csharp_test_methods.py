@@ -612,8 +612,10 @@ ROZKLAD_POSTACI = {
         # 4732 -> 4788 i 812 -> 819 (23.09.2026, 6.M1): `LineReplayTests.cs` (zapisy
         # wejsc w tekscie, komunikaty asercji) i nowy test `RunPlanTests.cs`.
         # Przeliczone z drzewa.
-        "zwykly": 4788,
-        "interpolowany ($)": 819,
+        # 4788 -> 4800 i 819 -> 820 (23.09.2026, 6.M3): testy okna drzwi
+        # w `StopWindowParityTests.cs`. Przeliczone z drzewa.
+        "zwykly": 4800,
+        "interpolowany ($)": 820,
         "werbatim (@)": 96,
         "surowy interpolowany ($$\"\"\")": 13,
         "surowy (\"\"\")": 8,
