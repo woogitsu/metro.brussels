@@ -63,16 +63,16 @@ DEKLARACJA = re.compile(
 #:
 #: **Wartosc jest PRZELICZONA 17.09.2026 (6.D232), a ten akapit przepisany, a nie
 #: dopisany obok.** Stalo tu `= 200` i „Zmierzone: 234" — pomiar z 07.09.2026. Drzewo
-#: ma dzis **407** deklaracji, wiec stara podloga 200 lezala **207** nizej, czyli 50,9 % populacji,
+#: ma dzis **410** deklaracji, wiec stara podloga 200 lezala **210** nizej, czyli 51,2 % populacji,
 #: i przepuszczala mutacje, dla ktorych istnieje: wyciecie z wzorca calej galezi na
-#: `static readonly` zabiera **91** deklaracji (zostaje **316**) i przy progu 200 PRZECHODZILO.
+#: `static readonly` zabiera **93** deklaracji (zostaje **317**) i przy progu 200 PRZECHODZILO.
 #:
-#: **Rownosci (`== 407`) tu nie ma i nie bedzie**: populacja rosnie z kazdym nowym polem
+#: **Rownosci (`== 410`) tu nie ma i nie bedzie**: populacja rosnie z kazdym nowym polem
 #: w `src/`, wiec rownosc zapalalaby sie na pracy poprawnej, a taka bramka zostaje
-#: wylaczona, nie poprawiona (6.D27). Zapas **77** (18,9 %) jest dobrany POMIAREM
+#: wylaczona, nie poprawiona (6.D27). Zapas **80** (19,5 %) jest dobrany POMIAREM
 #: historii, a nie ostroznoscia: w 572 rewizjach first-parent, ktore niosa jakikolwiek
 #: plik `.cs`, liczba deklaracji spadla **raz** i **o jeden** (`8f27a033`, 05.09.2026,
-#: 199 -> 198). Zapas jest wiec **77** razy glebszy niz najglebszy spadek, jaki to
+#: 199 -> 198). Zapas jest wiec **80** razy glebszy niz najglebszy spadek, jaki to
 #: repozytorium kiedykolwiek zrobilo.
 #:
 #: **Ta podloga jest jednak SUMA i sama nie wystarcza** — patrz `MINIMUM_CONST`,
@@ -80,7 +80,7 @@ DEKLARACJA = re.compile(
 MINIMUM_DEKLARACJI = 330
 
 #: **Rozklad dzisiejszych deklaracji po GALEZIACH wzorca (6.D232, 17.09.2026):**
-#: `const` **316**, `static readonly` **91**, razem **407**; bez modyfikatora dostepu
+#: `const` **317**, `static readonly` **93**, razem **410**; bez modyfikatora dostepu
 #: stoi **45** z nich (`public` 148, `private` 209).
 #:
 #: **Po co trzy podlogi zamiast jednej.** Suma broni przed wzorcem MARTWYM — takim,
@@ -88,7 +88,7 @@ MINIMUM_DEKLARACJI = 330
 #: jedna galaz, a to jest ksztalt, ktory sie w tym repozytorium zdarza (6.D218 zaczelo
 #: sie od klasy liter, ktorej odpadl jeden znak). Zmierzone podstawieniem 17.09.2026:
 #: wymuszenie modyfikatora dostepu (`(?:public|private|internal|protected)` bez `?`)
-#: zabiera **45** deklaracje, zostaje **362** — i SUME przechodzi nawet przy progu 330.
+#: zabiera **45** deklaracje, zostaje **365** — i SUME przechodzi nawet przy progu 330.
 #: Dopiero `MINIMUM_BEZ_MODYFIKATORA` to zapala.
 #:
 #: **Zapas kazdej z trzech byl te same ~15 %, a od 6.D270 wynosi ZERO — ten akapit

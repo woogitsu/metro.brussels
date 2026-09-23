@@ -25,18 +25,22 @@ public sealed class BrakingCueTests
         Assert.IsTrue(distance > 185.0 && distance < 190.0,
             $"M7 brake cue drifted away from the measured first stop: {distance:F2} m");
         Assert.IsFalse(BrakingCue.ShouldPrompt(250.0, speed, 1.0,
-            DesignAssumptions.ControlNotchRatePerSecond, ServiceBrake, Solver));
+            DesignAssumptions.ControlNotchRatePerSecond, ServiceBrake, Solver),
+            "at 250 m the first stop is still outside the advisory distance");
         Assert.IsTrue(BrakingCue.ShouldPrompt(182.0, speed, 1.0,
-            DesignAssumptions.ControlNotchRatePerSecond, ServiceBrake, Solver));
+            DesignAssumptions.ControlNotchRatePerSecond, ServiceBrake, Solver),
+            "the measured brake change near 182 m must be within the cue window");
     }
 
     [TestMethod]
     public void Cue_is_silent_at_rest_and_after_the_stop()
     {
         Assert.IsFalse(BrakingCue.ShouldPrompt(416.0, 0.0, 0.0,
-            DesignAssumptions.ControlNotchRatePerSecond, ServiceBrake, Solver));
+            DesignAssumptions.ControlNotchRatePerSecond, ServiceBrake, Solver),
+            "a stationary train must not receive a brake cue");
         Assert.IsFalse(BrakingCue.ShouldPrompt(-2.0, 10.0, 0.0,
-            DesignAssumptions.ControlNotchRatePerSecond, ServiceBrake, Solver));
+            DesignAssumptions.ControlNotchRatePerSecond, ServiceBrake, Solver),
+            "a passed stop must not receive a brake cue");
     }
 
     [TestMethod]

@@ -223,7 +223,7 @@ public sealed class UiTextTests
     // w `FirstRun`: po dwa przy osi i przy manifeście chunków, jeden przy planie
     // sygnalizacji. Liczba PRZELICZONA przebiegiem.
     // 579 -> 578 (23.09.2026, 6.M1): odtworzenie linii — zdarzenia w zapisie wejść, `ExecuteLineEvent` w `FirstRun` i nowa odmowa `--replay --line` bez `--signalling` w `RunPlan`. PRZELICZONE.
-    // +1: `hud.station.brake-now` w ręcznej podpowiedzi hamowania.
+    // 578 -> 579 (24.09.2026, braking cue): `hud.station.brake-now` w podpowiedzi.
     private const int LiteralowWZasieguBramki = 579;
 
     /// <summary>Ile różnych — dolne ostrze, zmierzone 12.09.2026.</summary>
@@ -1492,7 +1492,7 @@ public sealed class UiTextTests
     // w `FirstRun`: po dwa przy osi i przy manifeście chunków, jeden przy planie
     // sygnalizacji. Liczba PRZELICZONA przebiegiem.
     // 620 -> 619 (23.09.2026, 6.M1): odtworzenie linii — zdarzenia w zapisie wejść, `ExecuteLineEvent` w `FirstRun` i nowa odmowa `--replay --line` bez `--signalling` w `RunPlan`. PRZELICZONE.
-    // +1: klucz podpowiedzi hamowania wywoływany z `FirstRun.StationLine`.
+    // 619 -> 620 (24.09.2026, braking cue): klucz w `FirstRun.StationLine`.
     private const int PozycjiStaregoCzytnika = 620;
 
     /// <summary>
@@ -1833,7 +1833,7 @@ public sealed class UiTextTests
     // podpowiedzi i pięć powodów odmowy. Weszły do skanu razem z dopisaniem
     // tego pliku do mapy `ZrodlaHud`; bez tego dopisania byłyby dla bramki
     // MARTWE, choć docierają na ekran. Liczba PRZELICZONA przebiegiem.
-    // +1: `hud.station.brake-now` dociera do `Hud.Update`.
+    // 115 -> 116 (24.09.2026, braking cue): klucz dociera do `Hud.Update`.
     private const int LiteralowNaEkranie = 116;
 
     /// <summary>Ile z nich jest KLUCZEM katalogu, a nie tekstem — 6.D183.</summary>
@@ -2295,7 +2295,7 @@ public sealed class UiTextTests
     // w `FirstRun`: po dwa przy osi i przy manifeście chunków, jeden przy planie
     // sygnalizacji. Liczba PRZELICZONA przebiegiem.
     // 399 -> 400 (23.09.2026, 6.M1): odtworzenie linii — zdarzenia w zapisie wejść, `ExecuteLineEvent` w `FirstRun` i nowa odmowa `--replay --line` bez `--signalling` w `RunPlan`. PRZELICZONE.
-    // +1: ten sam nowy literał ma werdykt korpusu po zdjęciu jednostek.
+    // 400 -> 401 (24.09.2026, braking cue): nowy literał po zdjęciu jednostek.
     private const int LiteralowDotknietychZdejmowaniem = 401;
 
     /// <summary>

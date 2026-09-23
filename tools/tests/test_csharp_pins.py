@@ -151,11 +151,12 @@ KATEGORIE = {
         # i 1372/1373 -> 1373/1374. Powod ten sam — komentarz z powodem przy
         # `LiteralowWZasieguBramki`, tym razem o jeden wiersz. TRESC pinow nie drgnela.
         # Przeliczone roznica plikow (difflib).
-        ("UiTextTests.cs", 1273), ("UiTextTests.cs", 1286), ("UiTextTests.cs", 1304),
+        # 24.09.2026: komentarz przy nowym kluczu hamowania przesunął kotwice o 1.
+        ("UiTextTests.cs", 1274), ("UiTextTests.cs", 1287), ("UiTextTests.cs", 1305),
         ("SignallingHudTests.cs", 37),
     },
     "B": {
-        ("UiTextTests.cs", 1373), ("UiTextTests.cs", 1374),
+        ("UiTextTests.cs", 1374), ("UiTextTests.cs", 1375),
     },
 }
 
@@ -239,10 +240,10 @@ def test_regula_po_ksztalcie_literalu_myli_sie_i_dlatego_jej_nie_ma():
                      if not regula.search(tresci[p])]
     zlapane_z_b = [p for p in sorted(KATEGORIE["B"]) if regula.search(tresci[p])]
 
-    assert przepuszczone == [("UiTextTests.cs", 1304)], (
+    assert przepuszczone == [("UiTextTests.cs", 1305)], (
         "reguła po kształcie przestała przepuszczać wiersz o hamulcu awaryjnym — "
         "rozstrzygnięcie 6.D131 wymaga przeliczenia: %s" % przepuszczone)
-    assert zlapane_z_b == [("UiTextTests.cs", 1374)], (
+    assert zlapane_z_b == [("UiTextTests.cs", 1375)], (
         "reguła po kształcie przestała łapić wejście syntetyczne: %s" % zlapane_z_b)
 
 
@@ -256,11 +257,11 @@ def test_czytnik_widzi_pin_takze_wtedy_gdy_literal_jest_sklejony():
     tresci = {(plik, wiersz): tresc
               for plik, wiersz, _r, tresc in CP.piny("tests/Game.Tests")}
 
-    assert len(tresci[("UiTextTests.cs", 1273)]) == 122, (
+    assert len(tresci[("UiTextTests.cs", 1274)]) == 122, (
         "sklejanie literałów przestało działać: %d znaków"
-        % len(tresci[("UiTextTests.cs", 1273)]))
-    assert len(tresci[("UiTextTests.cs", 1304)]) == 98, (
-        len(tresci[("UiTextTests.cs", 1304)]))
+        % len(tresci[("UiTextTests.cs", 1274)]))
+    assert len(tresci[("UiTextTests.cs", 1305)]) == 98, (
+        len(tresci[("UiTextTests.cs", 1305)]))
     assert len(tresci[("SignallingHudTests.cs", 37)]) == 84, (
         len(tresci[("SignallingHudTests.cs", 37)]))
 
@@ -375,8 +376,9 @@ ROZKLAD_LICZBOWYCH = {
         # `var` na typ jawny daje 535 przy pinie 536.
         # 240 -> 246 (22.09.2026, 6.D235): SZESC pinow calkowitych bez tolerancji
         # w `FileReadGuardTests.cs` i `BadFileTests.cs`. Przeliczone z drzewa.
-        "razem": 246, "z_tolerancja": 103, "bez_tolerancji": 143,
-        "zmiennoprzecinkowe": 109, "zmiennoprzecinkowe_bez_tolerancji": 6,
+        # 246 -> 247: jeden pomiar różnicy drogi przy pełnym ciągu w `BrakingCueTests`.
+        "razem": 247, "z_tolerancja": 104, "bez_tolerancji": 143,
+        "zmiennoprzecinkowe": 110, "zmiennoprzecinkowe_bez_tolerancji": 6,
         "calkowite": 137, "calkowite_z_tolerancja": 0, "tolerancja_zero": 18,
     },
     "tests/Sim.Tests": {

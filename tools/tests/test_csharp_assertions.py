@@ -449,7 +449,8 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 # wszystkie z komunikatem — obie zapadki rosna o tyle samo; ZMIERZONE.
 # 1850 -> 1865 (23.09.2026, 6.D356): PIETNASCIE asercji `BrokenJsonRefusalTests.cs`,
 # wszystkie z komunikatem — obie zapadki rosna o tyle samo; ZMIERZONE.
-Z_KOMUNIKATEM_RAZEM = 1865
+# 1865 -> 1871 (24.09.2026, braking cue): sześć asercji, każda z komunikatem.
+Z_KOMUNIKATEM_RAZEM = 1871
 NIEROZSTRZYGNIETYCH = 68
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
 #: `tests/Sim.Tests/DefaultArmAuditTests.cs` — bramki na ramionach domyślnych
@@ -555,7 +556,8 @@ NIEROZSTRZYGNIETYCH = 68
 # na odmowie CLI przy dokumencie innego KSZTALTU — trzy ksztalty przez
 # `Program.Main`, kontrola w druga strone na wlasnych wyjatkach rdzenia i wiersz
 # wspolnego handlera. Kazda z komunikatem; ZMIERZONE.
-ASERCJI_RAZEM = 3311
+# 3311 -> 3317 (24.09.2026, braking cue): sześć asercji `BrakingCueTests`.
+ASERCJI_RAZEM = 3317
 
 
 def _rozklad():
