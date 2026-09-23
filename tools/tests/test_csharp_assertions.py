@@ -449,7 +449,7 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 # wszystkie z komunikatem — obie zapadki rosna o tyle samo; ZMIERZONE.
 # 1850 -> 1865 (23.09.2026, 6.D356): PIETNASCIE asercji `BrokenJsonRefusalTests.cs`,
 # wszystkie z komunikatem — obie zapadki rosna o tyle samo; ZMIERZONE.
-# 1865 -> 1874 (23.09.2026): dziewiec nowych asercji z komunikatem.
+# 1865 -> 1874 (23.09.2026, tunel): dziewiec nowych asercji z komunikatem.
 Z_KOMUNIKATEM_RAZEM = 1874
 NIEROZSTRZYGNIETYCH = 68
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
@@ -556,7 +556,7 @@ NIEROZSTRZYGNIETYCH = 68
 # na odmowie CLI przy dokumencie innego KSZTALTU — trzy ksztalty przez
 # `Program.Main`, kontrola w druga strone na wlasnych wyjatkach rdzenia i wiersz
 # wspolnego handlera. Kazda z komunikatem; ZMIERZONE.
-# 3311 -> 3320 (23.09.2026): dziewiec asercji testow nowej sceny tunelu.
+# 3311 -> 3320 (23.09.2026, tunel): dziewiec asercji testow nowej sceny tunelu.
 ASERCJI_RAZEM = 3320
 
 

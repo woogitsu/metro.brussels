@@ -564,7 +564,7 @@ BAJTKOD_PO_COMPILEALL_KATALOGI = 7
 # 216 -> 217 (18.09.2026, 6.D170): doszedl `test_docs_map.py`.
 # 217 -> 218 (19.09.2026, 6.D234): doszedl `test_csharp_type_callers.py`.
 # 218 -> 219 (19.09.2026, 6.D285): doszedl `test_machine_paragraphs.py`.
-# 219 -> 222 (23.09.2026): trzy moduly narzedzi wizualnych pod tools/blender.
+# 219 -> 222 (23.09.2026, tunel): trzy moduly narzedzi wizualnych pod tools/blender.
 BAJTKOD_PO_COMPILEALL_PLIKI = 222
 
 
@@ -913,7 +913,7 @@ KATALOG_Z_PYTHONEM = "tools"
 # 216 -> 217 (18.09.2026, 6.D170): bramka Mapy dokumentow.
 # 217 -> 218 (19.09.2026, 6.D234): bramka wolajacych typow C#.
 # 218 -> 219 (19.09.2026, 6.D285): bramka akapitow o maszynie.
-# 219 -> 222 (23.09.2026): trzy moduly narzedzi wizualnych pod tools/blender.
+# 219 -> 222 (23.09.2026, tunel): trzy moduly narzedzi wizualnych pod tools/blender.
 MODULOW_W_CALYM_DRZEWIE = 222
 
 

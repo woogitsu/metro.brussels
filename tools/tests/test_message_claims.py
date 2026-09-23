@@ -645,12 +645,12 @@ PRZYPISANIE_STALEJ = re.compile(r"^\s*([A-Z][A-Z0-9_]*)\s*=\s*\S")
 # miejscu. Przyczyna jest zmierzona: rozklad PO PLIKACH pokazuje przyrost dokladnie
 # w tym module, 1 -> 4, czyli tam, gdzie dopisalem trzy ogniwa lancucha. Ogniwo
 # niesie pare wartosci, wiec wchodzi w okno prozy opisujacej te sama stala.
-# Ten sam ksztalt zlapal mnie przy 6.D278 i 6.D280; zapisany jako pozycja 6.D284.
-POKRYTYCH_PRZYPISANIEM = 16
+# 16 -> 15 (24.09.2026, tunel): historyczna proza o 43 nie ma juz obok stalej 43.
+POKRYTYCH_PRZYPISANIEM = 15
 # 54 -> 56 (18.09.2026, 6.D280): dwie liczby wiecej pokryte zbiegiem, obie
-# z ogniw lancucha dopisanych w tym module — patrz komentarz przy
-# `POKRYTYCH_PRZYPISANIEM`.
-POKRYTYCH_ZBIEGIEM_CYFR = 56
+# 56 -> 57 (24.09.2026, tunel): nowa liczba w opisie deklaracji C#.
+# `POKRYTYCH_PRZYPISANIEM` wyjasnia starsza zmiane z ogniw lancucha.
+POKRYTYCH_ZBIEGIEM_CYFR = 57
 
 
 def pozycje_pokrycia(katalog=None, root=None):
@@ -803,7 +803,7 @@ ZBIEGIEM_PER_PLIK = {
     "test_bin_path_framework.py": 1,
     "test_bytecode_staleness.py": 2,
     "test_csharp_assertions.py": 1,
-    "test_dead_constants_csharp.py": 12,
+    "test_dead_constants_csharp.py": 13,
     "test_dotnet_version.py": 1,
     "test_field_paths.py": 1,
     "test_game_needle_specificity.py": 1,
@@ -839,7 +839,8 @@ ZBIEGIEM_PER_PLIK = {
 #: Podzial jest wiec wynikiem przeczytania 49 zdan i tak ma byc czytany.
 # 26 -> 28 (18.09.2026, 6.D280): dwie nowe liczby klasy `zbieg` to wiersze
 # wyliczenia klas pokrycia — twierdza o DZISIEJSZYM drzewie, wiec grupa A.
-ZBIEGIEM_GRUPA_A = 28
+# 28 -> 29 (24.09.2026, tunel): deklaracje C# w obecnym drzewie.
+ZBIEGIEM_GRUPA_A = 29
 ZBIEGIEM_GRUPA_B = 28
 
 #: **Potwierdzone rozjazdy: SIEDEM twierdzen w JEDNYM module.** Wszystkie osiem
@@ -1062,7 +1063,8 @@ def test_ROZJAZDY_nadal_sa_rozjazdami_i_lista_nie_zostala_z_tylu():
 #: okien kosztowalby tyle, co caly czytnik, a 6.D272 zmierzylo, ile taki drugi
 #: skan potrafi kosztowac: 22 s za odpowiedz „zero".
 # 41 -> 43 (18.09.2026, 6.D280): jak wyzej.
-POKRYTYCH_WYLACZNIE_PROZA = 43
+# 43 -> 44 (24.09.2026, tunel): nowy zbieg pochodzi z prozy deklaracji C#.
+POKRYTYCH_WYLACZNIE_PROZA = 44
 # 11 -> 12 i 2 -> 1 (18.09.2026, 6.D280): jedna liczba przeszla z klasy
 # MIESZANEJ do KODU, bo ogniwo lancucha rozkladu modulow stoi odtad w tym
 # samym wierszu co wpis slownika, a nie osobnym wierszem prozy nad nim.
@@ -1108,7 +1110,7 @@ def klasy_pokrycia_zbiegiem():
 #: populacja jest mala, a kazde przejscie wpisu do klasy kruchych albo z niej jest
 #: zdarzeniem, ktore chce sie zobaczyc. Adresy stoja w raporcie, nie tutaj — numer
 #: wiersza rusza sie przy kazdym dopisanym akapicie i ta pozycja wlasnie tego dotyczy.
-POKRYCIE_DALEJ_NIZ_POLOWA_OKNA = 22
+POKRYCIE_DALEJ_NIZ_POLOWA_OKNA = 23
 POKRYCIE_NA_SKRAJU_OKNA = 1
 
 #: Ktora to liczba — para (plik, napis), a NIE numer wiersza. Stoi tu, bo sama
@@ -1117,7 +1119,7 @@ POKRYCIE_NA_SKRAJU_OKNA = 1
 #: chwili wciagnela do klasy `zbieg` inna, rowniez na skraju — licznosc zostala ta
 #: sama, a krucha byla juz inna liczba. Zmierzone 19.09.2026 przy 6.D284; numeru
 #: wiersza tu nie ma z tego samego powodu, dla ktorego nie ma go w `ZBIEGIEM_PER_PLIK`.
-KRUCHE_ADRESY = (("test_message_claims.py", "12"),)
+KRUCHE_ADRESY = (("test_message_claims.py", "1"),)
 
 #: Skraj okna prozy: odleglosc wiersza pokrywajacego od bloku, przy ktorej dopisanie
 #: JEDNEGO wiersza pomiedzy wypycha pokrycie poza okno. Rowna szerokosci okna
