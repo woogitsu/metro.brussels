@@ -1334,6 +1334,8 @@ właściciel.
 | 6.D368 | **Stałe nazwy plików testowych w katalogu tymczasowym kolidują między runnerami** | zmierzone 23.09.2026: `RunnerCommandTests.Rownosc_w_wartosci_znanej_opcji_przechodzi` pisze do `a=b.csv`, a `doctor.sh` do `mbxl_tests.log` i `mbxl_sim_tests.log` pod wspólnym katalogiem tymczasowym. Równoległe przebiegi mogą pisać do tych samych ścieżek | S |
 | 6.D366 | **ZROBIONE w #PR (23.09.2026): czytnik `times` przyjmował tylko kropkę, a `times` pisze separator ułamka z lokalizacji — job `tools` padał na runnerze `pl_PL.UTF-8` przed werdyktem budżetu.** Zmierzone 23.09.2026: job 107205600232 (run 35836807502) na `woogitsu-ubuntu26-i56500t-02` z `LANG=pl_PL.UTF-8` skończył się `ValueError: …times-po.txt: drugi wiersz nie wygląda jak wyjście times: '10m33,358s 0m11,208s'`; odtworzone w kontenerze sesji na lokalizacji zbudowanej `localedef`: `LC_ALL=pl_PL.UTF-8 bash -c times` daje `0m0,003s 0m0,000s`, `LC_ALL=C` — kropkę. **Wybrana droga (b), czytnik, nie (a), `LC_ALL=C` w workflowie:** wada siedzi w czytniku, który zakłada format, jakiego `times` nie obiecuje, a poprawka w jednym miejscu prawdy działa na każdym runnerze i dla każdego, kto czyta plik `times` poza tym krokiem; `LC_ALL=C` naprawiłby dwa wywołania z dziesięciu workflowów i zostawił czytnik tak samo kruchym. `TIMES_WIERSZ` przyjmuje `[.,]` jako jedyny separator, kształt pola poza tym bez zmian; nowy test: wiersz `10m33,358s 0m11,208s` daje 644,566 s, identycznie jak zapis kropką, a dwa separatory w polu nadal są odrzucane. Workflow, `SUITE_CPU_BUDGET_S` i reguły budżetu bez zmian | S |
 
+| 6.D369 | **Testy doctora udają brak SDK, lecz widzą systemowe `/opt/dotnet/dotnet`** | 23.09.2026: na runnerze z SDK 10.0.401 pod `/opt` pięć testów `test_dotnet_version.py` daje wynik zależny od hosta, choć podstawiają `HOME` i `PATH`. `doctor.sh` skanuje również trzy bezwzględne ścieżki systemowe. Kontrolowany prefiks tych ścieżek w testach ma zachować zwykłe zachowanie doctora i obie strony próby: brak oraz obecność SDK | S |
+
 #### Szczegóły pozycji z kompletem sześciu pól
 
 ##### MB-00 · Aktywna kolejka prowadząca do M1
@@ -16908,3 +16910,32 @@ w drzewie**, a nie tylko w rozmowie — z tego samego powodu, co dwie sekcje wy�
   własny katalog, a dwa logi doctora dostają unikatowe ścieżki.
 - **Poza zakresem:** zmiana działania `Sim.Runner`, formatów śladu i progów CI.
 - **Zależy od:** nic.
+
+##### 6.D369 · Izolacja systemowych ścieżek SDK w testach doctora
+
+- **Skąd:** joby #767 i #768 z 23.09.2026 uruchomione na runnerze z
+  `/opt/dotnet/dotnet` (10.0.401) dały pięć tych samych niepowodzeń w
+  `test_dotnet_version.py`. Test „bez SDK na dysku” podstawił własne `HOME` i `PATH`,
+  ale prawdziwy `doctor.sh` znalazł SDK w bezwzględnej ścieżce `/opt`.
+- **Wejście:** `doctor.sh`, `tools/tests/test_dotnet_version.py`, logi jobów
+  `107285400016` i `107285762826`.
+- **Wyjście:** systemowe ścieżki poszukiwania SDK przyjmują kontrolowany prefiks
+  ustawiany przez testy. Przy pustym prefiksie doctor nadal sprawdza te same
+  ścieżki `/usr` i `/opt`. Testy sprawdzają zarówno brak SDK pod prefiksem, jak
+  i znalezienie go w kontrolowanej ścieżce systemowej.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_dotnet_version.py
+  python3 tools/tests/test_all.py
+  bash doctor.sh --no-tests
+  ```
+  Oczekiwane: testy niezależne od tego, czy runner ma `/opt/dotnet/dotnet`.
+  Kontrola negatywna: bez prefiksu na hoście z `/opt/dotnet/dotnet` pięć
+  scenariuszy daje czerwone wyniki, zapisane w wymienionych logach.
+- **Skończone, gdy:** scenariusze „brak”, „za stare” i „jest” rozstrzygają się
+  tylko na podstawie atrap testu, a zwykły doctor zachowuje dotychczasowe
+  ścieżki i podpowiedzi.
+- **Poza zakresem:** zmiana wymaganego SDK, instalacja lub usuwanie SDK na
+  runnerze, zmiana budżetu CI i kodu gry.
+- **Zależy od:** 6.D366 i 6.D368, bo wspólny zielony przebieg weryfikuje te
+  poprawki runnerowe razem.

@@ -1740,7 +1740,10 @@ def test_wzorzec_rodziny_lapie_zdanie_ktore_ma_lapac_i_nie_bierze_sasiedztwa():
 # ze census zostaje przy rdzeniu. Gdyby pytaly o zachowanie czytnika, nie pilnowalyby
 # przeslanki, tylko przyrzadu. Do `NA_ZRODLE_PY` nie naleza: prawa strona to
 # `project.godot` i `.tscn`, a nie zrodlo `.py`.
-ASERCJI_NAPISOWYCH_RAZEM = 936
+# 936 -> 938 (23.09.2026, 6.D369): dwie asercje na WYNIKU doctora
+# sprawdzaja tekst podpowiedzi dla SDK w kontrolowanej sciezce systemowej.
+# Literały stoją na NAPISIE, ale tym napisem jest wynik przebiegu, nie zrodlo.
+ASERCJI_NAPISOWYCH_RAZEM = 938
 
 #: **Kotwica wpisu to `(plik, funkcja, operator, literał)`, a NIE numer wiersza.**
 #: Numer przesuwa się przy każdej edycji pliku i lista rozjechałaby się sama z siebie.

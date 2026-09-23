@@ -103,14 +103,20 @@ REQUIRED_TFM="$(sed -n 's/.*<TargetFramework>net\([0-9]*\)\..*/\1/p' src/Sim/Sim
 # Zdanie w prozie nie jest bramką; pilnuje tego dziś `tools/tests/test_doctor_dotnet.py`.
 SDK_NA_DYSKU=""
 if [ -n "$REQUIRED_TFM" ]; then
+  # 6.D369: testy podstawiają własny korzeń dla trzech systemowych ścieżek.
+  # Pusty prefiks zachowuje prawdziwe /usr i /opt; bez tego runner z SDK
+  # zainstalowanym globalnie zmienia wynik scenariusza „brak SDK na dysku".
+  sdk_system_root="${METRO_DOCTOR_SDK_ROOT:-}"
   # Lista kandydatów jest ta sama, co przed 6.D57, i CELOWO bez ścieżki
   # bezwzględnej do katalogu domowego roota. Pierwsza wersja tej poprawki dopisała
   # tu `/root/.dotnet/dotnet` — redundantnie, bo `$HOME` w tym środowisku JEST
   # `/root`, i szkodliwie, bo ścieżka bezwzględna przebija podstawiony `HOME`
   # w piaskownicy bramek z `tools/tests/test_dotnet_version.py`. Zaczerwieniły się
   # wtedy CZTERY istniejące testy naraz i to one wymusiły cofnięcie dopisku.
-  for candidate in "$HOME/.dotnet/dotnet" /usr/local/share/dotnet/dotnet \
-                   /usr/share/dotnet/dotnet /opt/dotnet/dotnet; do
+  for candidate in "$HOME/.dotnet/dotnet" \
+                   "$sdk_system_root/usr/local/share/dotnet/dotnet" \
+                   "$sdk_system_root/usr/share/dotnet/dotnet" \
+                   "$sdk_system_root/opt/dotnet/dotnet"; do
     [ -x "$candidate" ] || continue
     [ "$candidate" = "$(command -v "$DOTNET" 2>/dev/null)" ] && continue
     cand_major="$("$candidate" --version 2>/dev/null | cut -d. -f1)"
