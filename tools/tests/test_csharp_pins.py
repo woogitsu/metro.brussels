@@ -77,7 +77,9 @@ PINY_GRY = {
 # `Drugi_sklad_zatrzymuje_sie_przed_blokiem_zajetym_przez_pierwszy` — asercja
 # `AreEqual("step-budget", reason)` przypinała ZATOR jako wynik oczekiwany. Test pyta
 # dziś o `"arrived"`, ale przez zmienną, nie przez literał w tym miejscu.
-PINY_RDZENIA = 75
+# 75 -> 77 (23.09.2026, 6.D365): dwa piny `AreEqual(",", …)` w `DoorCycleTests.cs`
+# i `TrainingSessionTests.cs` — straz, ze pl-PL naprawde ma przecinek; ZMIERZONE.
+PINY_RDZENIA = 77
 
 #: Kategorie, po jednej pozycji na pin — zamknięte i sumujące się do liczby wyżej.
 #:

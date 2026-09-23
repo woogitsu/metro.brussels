@@ -606,9 +606,11 @@ ROZKLAD_POSTACI = {
         # 4643 -> 4720, 802 -> 812 i 92 -> 95 (22.09.2026, 6.D235): `FileReadGuardTests.cs`
         # (tekst wzorcowy przyrzadu, trzy wzorce werbatim) i `BadFileTests.cs` (osiem
         # zlych ksztaltow). Przeliczone z drzewa, nie zsumowane.
-        "zwykly": 4720,
+        # 4720 -> 4730 i 95 -> 96 (23.09.2026, 6.D365): testy kultury w `DoorCycleTests.cs`
+        # i `TrainingSessionTests.cs`, wzorzec czasu postoju jako `@"..."`; ZMIERZONE.
+        "zwykly": 4730,
         "interpolowany ($)": 812,
-        "werbatim (@)": 95,
+        "werbatim (@)": 96,
         "surowy interpolowany ($$\"\"\")": 13,
         "surowy (\"\"\")": 8,
         "werbatim interpolowany ($@)": 7,

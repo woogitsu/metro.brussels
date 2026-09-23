@@ -1330,6 +1330,7 @@ właściciel.
 | 6.D359 | **ZROBIONE w #PR (23.09.2026): `queue_row` dzielił cały `docs/TASKS.md` na wiersze przy KAŻDYM wywołaniu — koszt kolejki rósł z kwadratem długości pliku.** Decyzja właściciela z 23.09.2026: zestaw ma zejść pod próg 440 s bez ruszania progu. Pomiar zamiast szacunku: jedno wywołanie `python3` zamiast czterech w `doctor.sh` oszczędzałoby ~2 s z ~9 s, a profil `open_items` pokazał 430 wywołań `queue_row` i `splitlines` 1,4 s z 2,2 s. Słownik budowany raz na tekst (`functools.lru_cache`, kluczem jest treść) daje odpowiedź identyczną dla 443 numerów; cztery odczyty kolejki 6,96 → 0,15 s, `doctor.sh --no-tests` 10,5 → ~2,0 s, zestaw lokalnie 485 → 298 s ściany, 288,8 s CPU. Próg, `doctor.sh` i reguły bramek bez zmian | S |
 | 6.D356 | **`Sim.Runner` na dokumencie JSON innego KSZTAŁTU wypisuje angielski komunikat `System.Text.Json`** | zmierzone 22.09.2026 przy 6.D235: `line --axis` na pliku `[]`, `5` i `{"points": 5}` kończy się kodem 1 — handler łapie `InvalidOperationException` — ale wierszem `BŁĄD: <plik>: The requested operation requires an element of type 'Object', but the target element has type 'Array'.` Scena dostała na to własne słowa (`BadFile`), CLI nie. Poprawka dotyczy wyłącznie tekstu odmowy, nie kodu wyjścia | S |
 | 6.D357 | **Wiersz odmowy przy zepsutej składni JSON niesie angielski ogon parsera** | zmierzone 22.09.2026 przy 6.D235: `JsonText.Parse` owija `JsonException` w `FormatException` z polskim początkiem, ale dokleja `error.Message` .NET-a, więc gracz widzi `oś trasy nie jest poprawnym JSON-em: '{' is an invalid start of a property name. Expected a '"'. LineNumber: 0 \| BytePositionInLine: 1.` Pozycja błędu jest w `JsonException` jako liczby (`LineNumber`, `BytePositionInLine`) i da się ją podać po polsku bez tekstu parsera | S |
+| 6.D365 | **ZROBIONE w #PR (23.09.2026): zagnieżdżony literał interpolowany formatuje się w kulturze BIEŻĄCEJ, zanim zewnętrzny `string.Create(InvariantCulture, …)` go zobaczy — i test „CultureInvariant” kultury nie przełączał.** Zmierzone przez audyt 23.09.2026 na runnerze `woogitsu-ubuntu26-i56500t-02` z `LANG=pl_PL.UTF-8`: 1 niepowodzenie z 675 (`TheResultLineIsCompleteAndCultureInvariant`, „-1,000 m” zamiast „-1.000 m”), z `LC_ALL=C` zielono. Przeszukanie `src/` po wierszach z dwoma `$"`: osiem zagnieżdżeń, z czego LICZBĘ formatują dwa — `TrainingResult.cs` (błąd zatrzymania) i `StationStop.cs` (czas od zatrzymania; zmierzone „0,24 s” na pl-PL); sześć pozostałych wstawia napis, `bool` albo `enum`. Oba zagnieżdżenia niosą teraz `InvariantCulture` same; oba testy przełączają `CurrentCulture` na pl-PL i przywracają ją w `finally`, więc łapią błąd na maszynie z `C` — kontrola negatywna czerwona bez zmiennych locale | S |
 
 #### Szczegóły pozycji z kompletem sześciu pól
 
@@ -16781,6 +16782,43 @@ w drzewie**, a nie tylko w rozmowie — z tego samego powodu, co dwie sekcje wy�
 - **Poza zakresem:** dokument poprawny składniowo, ale innego kształtu (6.D356),
   zmiana typu wyjątku, `data/`.
 - **Zależy od:** 6.D235.
+
+##### 6.D365 · Zagnieżdżony literał interpolowany gubi kulturę niezmienną
+
+- **Skąd:** audyt 23.09.2026 na nowym runnerze właściciela
+  (`woogitsu-ubuntu26-i56500t-02`, maszyna `minihp`, `LANG=pl_PL.UTF-8`):
+  `dotnet test tests/Sim.Tests` daje 1 niepowodzenie z 675 —
+  `TheResultLineIsCompleteAndCultureInvariant`, linia wyniku niesie „-1,000 m”
+  zamiast „-1.000 m”. Z `LC_ALL=C` zielono. Zagnieżdżony `$"{błąd:+0.000;…} m"`
+  formatuje się w kulturze bieżącej, zanim zewnętrzny
+  `string.Create(CultureInfo.InvariantCulture, …)` dostanie gotowy napis. Test nazywa
+  się „CultureInvariant”, ale kultury nie przełącza, więc zależy od maszyny.
+  Pozycję wziął od ręki prowadzący sesję, bo psuje CI na runnerze właściciela.
+  Kontener sesji nie ma locale pl_PL (lista locale: C, C.utf8, POSIX), a mimo to
+  odtwarza audyt co do znaku: .NET bierze kulturę ze zmiennej LANG i dane z ICU, nie
+  z locale systemu — stary kod z LANG=pl_PL.UTF-8 daje tu to samo 1 z 675.
+- **Wejście:** `src/Sim/Train/TrainingResult.cs`, `src/Sim/Train/StationStop.cs`,
+  `tests/Sim.Tests/TrainingSessionTests.cs`, `tests/Sim.Tests/DoorCycleTests.cs`;
+  wzór przełączania kultury: `MovementAuthorityTests.cs`, `SpeedProfileTests.cs`,
+  `EnergyAccountTests.cs`.
+- **Wyjście:** zagnieżdżenia formatujące liczbę niosą `InvariantCulture` same; testy
+  obu linii ustawiają `CurrentCulture` na pl-PL i przywracają ją w `finally`.
+- **Weryfikacja:**
+  ```bash
+  dotnet test tests/Sim.Tests && dotnet test tests/Game.Tests
+  python3 tools/tests/test_all.py
+  python3 tools/ci/assert_line_trace.py --traces build/trace
+  ```
+  Oczekiwane: zielone; ślad sześciu osi bez zmiany co do bajtu. Kontrola negatywna:
+  przywrócone stare formatowanie w każdym z dwóch miejsc → odpowiedni test czerwony
+  w kontenerze z `C`, bez żadnej zmiennej locale.
+- **Skończone, gdy:** z 8 zagnieżdżeń literału interpolowanego w `src/` oba
+  formatujące liczbę (2 z 8) niosą `InvariantCulture`, a 2 testy są czerwone na
+  starym kodzie przy `LANG`/`LC_ALL` nieustawionych.
+- **Poza zakresem:** sześć zagnieżdżeń wstawiających napis, `bool` albo `enum`
+  (kultura ich nie dotyczy); `src/Game/`; analizator albo reguła zakazująca
+  zagnieżdżeń; `data/`.
+- **Zależy od:** nic.
 
 ##### 6.D353 · Ile bramek twierdzi o TREŚCI wzorca, a nie o jego zachowaniu
 

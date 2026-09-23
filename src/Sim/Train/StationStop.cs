@@ -305,9 +305,12 @@ public sealed class StationStop
     }
 
     /// <inheritdoc/>
+    /// <remarks>Zagnieżdżony literał niesie kulturę sam: formatuje się, zanim zewnętrzny
+    /// <c>string.Create</c> go zobaczy (23.09.2026, 6.D365 — na kulturze pl-PL stało tu
+    /// „0,24 s").</remarks>
     public override string ToString() => string.Create(
         CultureInfo.InvariantCulture,
         $"postój ({(_control == DoorControl.Manual ? "ręczny" : "automatyczny")}): " +
-        $"{(Started ? $"{SecondsSinceStopped:F2} s, faza {Phase}" : "jeszcze w ruchu")}, " +
+        $"{(Started ? string.Create(CultureInfo.InvariantCulture, $"{SecondsSinceStopped:F2} s, faza {Phase}") : "jeszcze w ruchu")}, " +
         $"pełny cykl {_cycle.DwellSeconds:F1} s");
 }

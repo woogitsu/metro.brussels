@@ -141,12 +141,15 @@ public readonly record struct TrainingResult(
             $"{TotalDistanceM:F3} m, ATP {AtpWarningEvents}/{AtpInterventionEvents}/" +
             $"{AtpEmergencyEvents}");
 
+        // Zagnieżdżony literał interpolowany formatuje się w kulturze BIEŻĄCEJ, zanim
+        // zewnętrzny `string.Create` go zobaczy — więc kulturę niesie każdy poziom
+        // osobno (23.09.2026, 6.D365: na runnerze z `pl_PL.UTF-8` stało tu „-1,000 m").
         foreach (var target in Targets)
         {
             wiersz += string.Create(
                 CultureInfo.InvariantCulture,
                 $" | {target.StopId} {(target.Served ? "obsłużony" : "pominięty")} " +
-                $"błąd {(target.StopErrorM is { } błąd ? $"{błąd:+0.000;-0.000;0.000} m" : "—")}");
+                $"błąd {(target.StopErrorM is { } błąd ? string.Create(CultureInfo.InvariantCulture, $"{błąd:+0.000;-0.000;0.000} m") : "—")}");
         }
 
         return wiersz;
