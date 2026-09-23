@@ -257,6 +257,16 @@ def build_object(chunk, index, name, material, mesh_name=None):
     mesh = bpy.data.meshes.new(mesh_name or f"{name}_chunk{index:02d}")
     mesh.from_pydata([tuple(v) for v in chunk["vertices"]], [], [list(f) for f in chunk["faces"]])
     mesh.update()
+    # Płaskie normalne na każdej 5-metrowej ścianie ujawniają kolejne pierścienie
+    # jako załamania łuku. Wygładzamy normalne wzdłuż tunelu, lecz zachowujemy
+    # ostre naroża projektowanego przekroju (krawędzie wzdłuż osi).
+    for polygon in mesh.polygons:
+        polygon.use_smooth = True
+    columns = len(chunk["vertices"]) // len(chunk["ring_indices"])
+    sharp = mesh.attributes.new("sharp_edge", "BOOLEAN", "EDGE")
+    for edge in mesh.edges:
+        if abs(edge.vertices[1] - edge.vertices[0]) == columns:
+            sharp.data[edge.index].value = True
     layer = mesh.uv_layers.new(name="UVMap")
     for loop in mesh.loops:
         layer.data[loop.index].uv = chunk["uvs"][loop.vertex_index]

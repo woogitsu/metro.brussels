@@ -33,8 +33,21 @@ def frame_at(frames, chainages, value):
     amount = (value - chainages[index]) / (chainages[index + 1] - chainages[index])
     a, b = frames[index], frames[index + 1]
     lerp = lambda x, y: tuple(x[i] * (1 - amount) + y[i] * amount for i in range(3))
-    position = lerp(a[0], b[0])
-    forward = SW.unit(lerp(a[1], b[1]))
+    # A linear position interpolation leaves the track on the 5 m chords of
+    # the tunnel axis, even when extra rail rings are added between them. Use
+    # the axis tangents as Hermite derivatives: the track still meets every
+    # measured frame and both sides of a chunk seam exactly.
+    span = chainages[index + 1] - chainages[index]
+    t = amount
+    h00, h10 = 2*t**3 - 3*t**2 + 1, t**3 - 2*t**2 + t
+    h01, h11 = -2*t**3 + 3*t**2, t**3 - t**2
+    position = tuple(h00*a[0][i] + h10*span*a[1][i]
+                     + h01*b[0][i] + h11*span*b[1][i] for i in range(3))
+    derivative = tuple((6*t*t - 6*t)*a[0][i]
+                       + (3*t*t - 4*t + 1)*span*a[1][i]
+                       + (-6*t*t + 6*t)*b[0][i]
+                       + (3*t*t - 2*t)*span*b[1][i] for i in range(3))
+    forward = SW.unit(derivative)
     # Preserve the transported frame used by the tunnel sweep. World-up would
     # detach furniture on any future graded or banked alignment.
     carried_right = lerp(a[2], b[2])
@@ -109,10 +122,16 @@ MATERIALS = {
 }
 
 
-def mesh_object(name, solids, mat):
+def mesh_object(name, solids, mat, smooth=False):
     mesh = bpy.data.meshes.new(name)
     mesh.from_pydata(solids.vertices, [], solids.faces)
     mesh.update()
+    if smooth:
+        for face in mesh.polygons:
+            face.use_smooth = True
+        # Smooth the lengthwise bends, but keep the rectangular rail head and
+        # ballast shoulders crisp rather than rounding their cross-sections.
+        mesh.set_sharp_from_angle(angle=math.radians(35))
     obj = bpy.data.objects.new(name, mesh)
     bpy.context.collection.objects.link(obj)
     obj.data.materials.append(mat)
@@ -133,7 +152,7 @@ def sweep_samples(frames, chainages, start, end):
         forward = frame_at(frames, chainages, at)[1]
         ahead = frame_at(frames, chainages, min(end, at + 4.0))[1]
         turn = math.acos(max(-1.0, min(1.0, SW.dot(forward, ahead))))
-        step = 2.0 if turn > 0.01 else 4.0 if turn > 0.003 else 8.0
+        step = 1.0 if turn > 0.01 else 2.0 if turn > 0.004 else 4.0 if turn > 0.0015 else 6.0
         at = min(end, at + step)
         samples.append(at)
     return samples
@@ -161,7 +180,8 @@ def make_chunk(entry, frames, chainages, out_dir, mats):
         for side in (-1, 1):
             solids["wall"].box(frame, side * 4.61, 2.18, 0.30, 0.12, 3.9)
             solids["lamp"].box(frame, side * 4.48, 3.35, 2.2, 0.14, 0.08)
-    objects = [mesh_object(entry["id"] + "_" + name, solids[name], mats[name])
+    objects = [mesh_object(entry["id"] + "_" + name, solids[name], mats[name],
+                           smooth=name in ("ballast", "rails"))
                for name in MATERIALS if solids[name].faces]
     bpy.ops.object.select_all(action="DESELECT")
     for obj in objects:
