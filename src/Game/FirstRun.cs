@@ -1223,7 +1223,7 @@ public sealed partial class FirstRun : Node3D
         }
 
         _manifest = manifest;
-        var tunnelMaterial = GlbLoader.NeutralMaterial(new Color(0.34f, 0.38f, 0.40f), 0.95f);
+        var tunnelMaterial = GlbLoader.TunnelConcreteMaterial();
         var trainMaterial = GlbLoader.NeutralMaterial(new Color(0.80f, 0.81f, 0.83f), 0.45f);
         var cabMaterial = GlbLoader.NeutralMaterial(new Color(0.13f, 0.17f, 0.20f), 0.80f);
 

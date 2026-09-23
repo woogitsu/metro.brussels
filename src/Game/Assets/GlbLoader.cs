@@ -1,4 +1,5 @@
 using Godot;
+using System;
 
 namespace MetroBxl.Game.Assets;
 
@@ -76,4 +77,33 @@ public static class GlbLoader
             Metallic = 0.0f,
             CullMode = BaseMaterial3D.CullModeEnum.Back,
         };
+
+    /// <summary>
+    /// Neutral concrete with restrained, repeating construction joints. Tunnel
+    /// UVs measure four metres per unit, so one texture tile is one short panel.
+    /// The texture is generated once at startup and needs no packaged image.
+    /// </summary>
+    public static StandardMaterial3D TunnelConcreteMaterial()
+    {
+        const int size = 128;
+        var image = Image.CreateEmpty(size, size, false, Image.Format.Rgba8);
+        for (var y = 0; y < size; y++)
+        {
+            for (var x = 0; x < size; x++)
+            {
+                var broad = 0.025f * MathF.Sin(x * MathF.Tau / size)
+                    + 0.018f * MathF.Sin(y * MathF.Tau * 2.0f / size);
+                var joint = y == 0 || y == size - 1 ? -0.09f : 0.0f;
+                var value = 0.97f + broad + joint;
+                image.SetPixel(x, y, new Color(value, value, value, 1.0f));
+            }
+        }
+        image.GenerateMipmaps();
+
+        var material = NeutralMaterial(new Color(0.42f, 0.43f, 0.42f), 0.96f);
+        material.AlbedoTexture = ImageTexture.CreateFromImage(image);
+        material.TextureFilter = BaseMaterial3D.TextureFilterEnum.LinearWithMipmaps;
+        material.TextureRepeat = true;
+        return material;
+    }
 }
