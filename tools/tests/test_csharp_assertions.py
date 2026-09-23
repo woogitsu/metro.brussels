@@ -452,7 +452,8 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 # 1865 -> 1874 (23.09.2026, tunel): dziewiec nowych asercji z komunikatem.
 # 1874 -> 1886 (24.09.2026, door-prompt-service): dwanascie asercji w
 # `DoorPromptTests.cs` i `HudLayoutTests.cs`, kazda z komunikatem; ZMIERZONE.
-Z_KOMUNIKATEM_RAZEM = 1886
+# 1886 -> 1896 (24.09.2026, braking cue): dziesiec asercji wskazowki hamowania.
+Z_KOMUNIKATEM_RAZEM = 1896
 NIEROZSTRZYGNIETYCH = 68
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
 #: `tests/Sim.Tests/DefaultArmAuditTests.cs` — bramki na ramionach domyślnych
@@ -561,7 +562,8 @@ NIEROZSTRZYGNIETYCH = 68
 # 3311 -> 3320 (23.09.2026, tunel): dziewiec asercji testow nowej sceny tunelu.
 # 3320 -> 3332 (24.09.2026, door-prompt-service): te same dwanascie asercji
 # nowych testow komunikatu postoju i ukladu HUD; ZMIERZONE.
-ASERCJI_RAZEM = 3332
+# 3332 -> 3342 (24.09.2026, braking cue): dziesiec asercji `BrakingCueTests`.
+ASERCJI_RAZEM = 3342
 
 
 def _rozklad():

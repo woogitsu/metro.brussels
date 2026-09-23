@@ -74,7 +74,8 @@ public sealed class HudLayoutTests
     }
 
     private static string Scene() =>
-        File.ReadAllText(Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "src", "Game", "Scenes", "FirstRun.tscn"));
+        File.ReadAllText(Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "src", "Game", "Scenes", "FirstRun.tscn"))
+            .Replace("\r\n", "\n", StringComparison.Ordinal);
 
     [TestMethod]
     public void Panel_miesci_sie_w_widoku_dla_kazdej_z_trzech_rozdzielczosci()

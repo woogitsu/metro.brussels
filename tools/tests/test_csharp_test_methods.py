@@ -624,8 +624,9 @@ ROZKLAD_POSTACI = {
         # 4843 -> 4851 i 836 -> 837 (23.09.2026): testy nowej sceny i komunikaty.
         # 4851 -> 4875 i 99 -> 100 (24.09.2026, door-prompt-service):
         # literały tekstowe i komunikaty asercji nowych testow postoju; ZMIERZONE.
-        "zwykly": 4875,
-        "interpolowany ($)": 837,
+        # 4875 -> 4886 (24.09.2026, braking cue): testy warunku przejecia i hamulca.
+        "zwykly": 4886,
+        "interpolowany ($)": 838,
         "werbatim (@)": 100,
         "surowy interpolowany ($$\"\"\")": 13,
         # 8 -> 10 (23.09.2026): dwie probki sceny w testach.
@@ -682,7 +683,8 @@ ROZKLAD_POSTACI = {
         # 1450 -> 1452 (23.09.2026, 6.D356): DWA literaly polskiego opisu dokumentu
         # innego ksztaltu, `Program.WrongJsonShapeText` w `Sim.Runner`. ZMIERZONE.
         # 1452 -> 1456 (23.09.2026): cztery literaly kodu nowej sceny.
-        "zwykly": 1456,
+        # 1456 -> 1460 (24.09.2026, braking cue): wskazowka w obu trybach.
+        "zwykly": 1460,
         # 489 -> 494 (22.09.2026, 6.D235): piec komunikatow `Abort` dla pliku ZLEGO
         # w `FirstRun.cs`. Przeliczone z drzewa, nie zsumowane.
         # 494 -> 513 (23.09.2026, 6.M1): komunikaty odmow i wiersze zapisu zdarzen

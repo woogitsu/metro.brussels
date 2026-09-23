@@ -151,11 +151,11 @@ KATEGORIE = {
         # i 1372/1373 -> 1373/1374. Powod ten sam — komentarz z powodem przy
         # `LiteralowWZasieguBramki`, tym razem o jeden wiersz. TRESC pinow nie drgnela.
         # Przeliczone roznica plikow (difflib).
-        ("UiTextTests.cs", 1276), ("UiTextTests.cs", 1289), ("UiTextTests.cs", 1307),
+        ("UiTextTests.cs", 1277), ("UiTextTests.cs", 1290), ("UiTextTests.cs", 1308),
         ("SignallingHudTests.cs", 37),
     },
     "B": {
-        ("UiTextTests.cs", 1376), ("UiTextTests.cs", 1377),
+        ("UiTextTests.cs", 1378), ("UiTextTests.cs", 1378),
     },
 }
 
@@ -171,7 +171,8 @@ KATEGORIE = {
 # 52 -> 53 (14.09.2026, MB-07): pin wiersza pomocy dla składu przejętego.
 # 53 -> 55 (14.09.2026, MB-08): dwa piny `DoorPromptTests.cs`.
 # 55 -> 58 (15.09.2026, 6.D214): trzy piny `UiTextTests.cs` opisane wyzej.
-LICZBA_C = 58
+# 58 -> 59 (24.09.2026, braking cue): pin w teście wskazówki hamowania.
+LICZBA_C = 59
 
 
 def test_ile_pinow_stoi_w_testach_warstwy_gry():
@@ -239,10 +240,10 @@ def test_regula_po_ksztalcie_literalu_myli_sie_i_dlatego_jej_nie_ma():
                      if not regula.search(tresci[p])]
     zlapane_z_b = [p for p in sorted(KATEGORIE["B"]) if regula.search(tresci[p])]
 
-    assert przepuszczone == [("UiTextTests.cs", 1307)], (
+    assert przepuszczone == [("UiTextTests.cs", 1308)], (
         "reguła po kształcie przestała przepuszczać wiersz o hamulcu awaryjnym — "
         "rozstrzygnięcie 6.D131 wymaga przeliczenia: %s" % przepuszczone)
-    assert zlapane_z_b == [("UiTextTests.cs", 1377)], (
+    assert zlapane_z_b == [("UiTextTests.cs", 1378)], (
         "reguła po kształcie przestała łapić wejście syntetyczne: %s" % zlapane_z_b)
 
 
@@ -256,11 +257,11 @@ def test_czytnik_widzi_pin_takze_wtedy_gdy_literal_jest_sklejony():
     tresci = {(plik, wiersz): tresc
               for plik, wiersz, _r, tresc in CP.piny("tests/Game.Tests")}
 
-    assert len(tresci[("UiTextTests.cs", 1276)]) == 122, (
+    assert len(tresci[("UiTextTests.cs", 1277)]) == 122, (
         "sklejanie literałów przestało działać: %d znaków"
-        % len(tresci[("UiTextTests.cs", 1276)]))
-    assert len(tresci[("UiTextTests.cs", 1307)]) == 98, (
-        len(tresci[("UiTextTests.cs", 1307)]))
+        % len(tresci[("UiTextTests.cs", 1277)]))
+    assert len(tresci[("UiTextTests.cs", 1308)]) == 98, (
+        len(tresci[("UiTextTests.cs", 1308)]))
     assert len(tresci[("SignallingHudTests.cs", 37)]) == 84, (
         len(tresci[("SignallingHudTests.cs", 37)]))
 
@@ -378,8 +379,8 @@ ROZKLAD_LICZBOWYCH = {
         # 246 -> 249: trzy piny pozycji widoku kabiny, kazdy float z tolerancja.
         # 249 -> 250 (24.09.2026, door-prompt-service): jeden pin liczby
         # wierszy komunikatu HUD; calkowity bez tolerancji. ZMIERZONE.
-        "razem": 250, "z_tolerancja": 106, "bez_tolerancji": 144,
-        "zmiennoprzecinkowe": 112, "zmiennoprzecinkowe_bez_tolerancji": 6,
+        "razem": 251, "z_tolerancja": 107, "bez_tolerancji": 144,
+        "zmiennoprzecinkowe": 113, "zmiennoprzecinkowe_bez_tolerancji": 6,
         "calkowite": 138, "calkowite_z_tolerancja": 0, "tolerancja_zero": 18,
     },
     "tests/Sim.Tests": {
