@@ -447,7 +447,9 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 # 1829 -> 1842 (23.09.2026, 6.M3): TRZYNASCIE asercji, wszystkie z komunikatem.
 # 1842 -> 1850 (23.09.2026, 6.D357): OSIEM asercji `BrokenJsonRefusalTests.cs`,
 # wszystkie z komunikatem — obie zapadki rosna o tyle samo; ZMIERZONE.
-Z_KOMUNIKATEM_RAZEM = 1850
+# 1850 -> 1865 (23.09.2026, 6.D356): PIETNASCIE asercji `BrokenJsonRefusalTests.cs`,
+# wszystkie z komunikatem — obie zapadki rosna o tyle samo; ZMIERZONE.
+Z_KOMUNIKATEM_RAZEM = 1865
 NIEROZSTRZYGNIETYCH = 68
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
 #: `tests/Sim.Tests/DefaultArmAuditTests.cs` — bramki na ramionach domyślnych
@@ -549,7 +551,11 @@ NIEROZSTRZYGNIETYCH = 68
 # szesc w petli po 10 parach loader x ksztalt (wyjatek, zero slow parsera, obecnosc
 # pozycji, wiersz, bajt, podloga na liczbe par) i dwie w kontroli pozycji z edytora;
 # ZMIERZONE.
-ASERCJI_RAZEM = 3296
+# 3296 -> 3311 (23.09.2026, 6.D356): PIETNASCIE asercji `BrokenJsonRefusalTests.cs`
+# na odmowie CLI przy dokumencie innego KSZTALTU — trzy ksztalty przez
+# `Program.Main`, kontrola w druga strone na wlasnych wyjatkach rdzenia i wiersz
+# wspolnego handlera. Kazda z komunikatem; ZMIERZONE.
+ASERCJI_RAZEM = 3311
 
 
 def _rozklad():

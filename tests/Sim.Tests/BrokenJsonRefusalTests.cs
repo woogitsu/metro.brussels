@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using MetroBxl.Sim.Line;
+using MetroBxl.Sim.Runner;
 using MetroBxl.Sim.Signalling;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -167,5 +168,149 @@ public sealed class BrokenJsonRefusalTests
         // składni. Plan pakietu A ma się wczytać tak samo jak przed 6.D229.
         var plan = SignallingPlanTests.PackageAPlan();
         Assert.IsTrue(plan.Blocks.Count > 0, "poprawny plan wczytał się pusty");
+    }
+    // --- 6.D356: dokument poprawny składniowo, ale innego KSZTAŁTU ---------------
+
+    /// <summary>Trzy kształty, na których 6.D235 zmierzyło angielski wiersz CLI.</summary>
+    private static IEnumerable<(string Nazwa, string Json)> InnyKsztalt()
+    {
+        yield return ("[]", "[]");
+        yield return ("5", "5");
+        yield return ("{\"points\": 5}", "{\"points\": 5}");
+    }
+
+    /// <summary>
+    /// <see cref="Program.Main"/> z przechwyconym stderr — ta sama droga, którą idzie
+    /// człowiek z terminala (kopia pomocnika z <c>RunnerCommandTests</c>).
+    /// </summary>
+    private static (int ExitCode, string StdErr) Uruchom(params string[] args)
+    {
+        var originalOut = Console.Out;
+        var originalError = Console.Error;
+        using var outWriter = new StringWriter();
+        using var errWriter = new StringWriter();
+        Console.SetOut(outWriter);
+        Console.SetError(errWriter);
+        try
+        {
+            return (Program.Main(args), errWriter.ToString());
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+            Console.SetError(originalError);
+        }
+    }
+
+    /// <summary>
+    /// Wiersz odmowy <c>line --axis</c> na dokumencie innego kształtu: kod 1 jak przed
+    /// 6.D356, ale bez ani jednego słowa z komunikatu <c>System.Text.Json</c>.
+    /// </summary>
+    /// <remarks>
+    /// Słowa zakazane nie są wpisane w test, tylko wzięte z PRAWDZIWEGO wyjątku tego
+    /// samego czytnika na tym samym kształcie — test nie zestarzeje się, gdy .NET zmieni
+    /// brzmienie komunikatu. Ścieżka pliku jest z wiersza usuwana przed porównaniem,
+    /// żeby katalog tymczasowy nie mógł ani zapalić, ani zgasić testu.
+    /// </remarks>
+    [TestMethod]
+    public void Inny_ksztalt_w_Sim_Runner_konczy_sie_kodem_1_i_wierszem_po_polsku()
+    {
+        var sprawdzonych = 0;
+        foreach (var (ksztalt, json) in InnyKsztalt())
+        {
+            var zrodlowy = Assert.ThrowsException<InvalidOperationException>(
+                () => TrackAxis.FromJson(json),
+                $"TrackAxis.FromJson na `{ksztalt}`: oczekiwano wyjątku System.Text.Json");
+            Assert.IsTrue(Program.IsWrongJsonShape(zrodlowy),
+                $"`{ksztalt}`: wyjątek nie został rozpoznany jako kształt: {zrodlowy.Message}");
+
+            var sciezka = Path.Combine(Path.GetTempPath(), $"6d356-{Guid.NewGuid():N}.json");
+            File.WriteAllText(sciezka, json);
+            try
+            {
+                var (kod, stderr) = Uruchom(
+                    "line", "--axis", sciezka, "--limit-kmh", "72", "--exchange-s", "20");
+
+                Assert.AreEqual(1, kod, $"`{ksztalt}`: kod wyjścia zmienił się");
+                StringAssert.StartsWith(stderr, "BŁĄD: " + sciezka + ": ",
+                    $"`{ksztalt}`: wiersz odmowy nie nazywa pliku: {stderr}");
+                StringAssert.Contains(stderr, Program.WrongJsonShapeText,
+                    $"`{ksztalt}`: wiersz odmowy nie mówi własnymi słowami: {stderr}");
+
+                var bezSciezki = stderr.Replace(sciezka, string.Empty, StringComparison.Ordinal);
+                var slowa = Regex.Matches(zrodlowy.Message, @"[A-Za-z]{3,}")
+                    .Select(m => m.Value)
+                    .Distinct(StringComparer.Ordinal)
+                    .ToArray();
+                Assert.IsTrue(slowa.Length >= 5,
+                    $"`{ksztalt}`: z komunikatu parsera wyszło za mało słów do porównania");
+                foreach (var slowo in slowa)
+                {
+                    Assert.IsFalse(
+                        Regex.IsMatch(bezSciezki, $@"\b{slowo}\b", RegexOptions.IgnoreCase),
+                        $"`{ksztalt}`: wiersz odmowy niesie słowo `{slowo}` z System.Text.Json: {stderr}");
+                }
+            }
+            finally
+            {
+                File.Delete(sciezka);
+            }
+
+            sprawdzonych++;
+        }
+
+        Assert.AreEqual(3, sprawdzonych, "test nie przeszedł po wszystkich trzech kształtach");
+    }
+
+    /// <summary>
+    /// Kontrola w drugą stronę: własne wyjątki rdzenia TYCH SAMYCH typów niosą polski
+    /// komunikat i rozpoznawane jako kształt być nie mogą — inaczej handler przepisałby
+    /// komunikat, którego ta pozycja nie dotyczy.
+    /// </summary>
+    [TestMethod]
+    public void Wlasny_wyjatek_rdzenia_tego_samego_typu_nie_jest_ksztaltem()
+    {
+        var plan = SignallingPlanTests.PackageAPlan();
+        var brakBloku = Assert.ThrowsException<KeyNotFoundException>(
+            () => plan.IndexOf("nie-ma-takiego-bloku"),
+            "plan pakietu A nie odmówił nieistniejącego bloku");
+        Assert.IsFalse(Program.IsWrongJsonShape(brakBloku),
+            "KeyNotFoundException rdzenia wzięty za dokument innego kształtu");
+
+        var brakPola = Assert.ThrowsException<FormatException>(
+            () => TrackAxis.FromJson("{}"),
+            "oś `{}` ma kończyć się polską odmową loadera");
+        Assert.IsFalse(Program.IsWrongJsonShape(brakPola),
+            "odmowa loadera na `{}` wzięta za wyjątek System.Text.Json");
+
+        Assert.IsFalse(Program.IsWrongJsonShape(new InvalidOperationException("x")),
+            "wyjątek bez miejsca rzucenia wzięty za wyjątek System.Text.Json");
+    }
+    /// <summary>
+    /// Wspólny handler <see cref="Program.Main"/>: pole złego typu w pliku, który
+    /// przeszedł już przez czytnik (<c>--timetable</c> z <c>"segments": 5</c>), rzuca
+    /// z <c>System.Text.Json</c> POZA <c>FromFile</c>. Kod 1 jak przed 6.D356, wiersz
+    /// bez angielskiego komunikatu.
+    /// </summary>
+    [TestMethod]
+    public void Inny_ksztalt_poza_czytnikiem_trafia_do_handlera_po_polsku()
+    {
+        var sciezka = Path.Combine(Path.GetTempPath(), $"6d356-{Guid.NewGuid():N}.json");
+        File.WriteAllText(sciezka, "{\"segments\": 5}");
+        try
+        {
+            var (kod, stderr) = Uruchom(
+                "line", "--axis",
+                Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "data", "track", "L1_A.json"),
+                "--limit-kmh", "72", "--exchange-s", "20", "--timetable", sciezka);
+
+            Assert.AreEqual(1, kod, $"kod wyjścia zmienił się: {stderr}");
+            Assert.AreEqual("BŁĄD: " + Program.WrongJsonShapeText, stderr.TrimEnd(),
+                "wiersz handlera nie jest polskim opisem kształtu");
+        }
+        finally
+        {
+            File.Delete(sciezka);
+        }
     }
 }

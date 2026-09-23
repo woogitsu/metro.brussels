@@ -79,7 +79,10 @@ PINY_GRY = {
 # dziś o `"arrived"`, ale przez zmienną, nie przez literał w tym miejscu.
 # 75 -> 77 (23.09.2026, 6.D365): dwa piny `AreEqual(",", …)` w `DoorCycleTests.cs`
 # i `TrainingSessionTests.cs` — straz, ze pl-PL naprawde ma przecinek; ZMIERZONE.
-PINY_RDZENIA = 77
+# 77 -> 78 (23.09.2026, 6.D356): pin napisowy `"BŁĄD: " + Program.WrongJsonShapeText`
+# w `BrokenJsonRefusalTests.cs` — wiersz wspolnego handlera `Sim.Runner` przy
+# dokumencie innego ksztaltu, porownany w calosci; ZMIERZONE.
+PINY_RDZENIA = 78
 
 #: Kategorie, po jednej pozycji na pin — zamknięte i sumujące się do liczby wyżej.
 #:
@@ -436,9 +439,12 @@ ROZKLAD_LICZBOWYCH = {
         # zero slow wspolnych z tekstem parsera i podloga 10 par loader x ksztalt
         # w nowej bramce. Oba CALKOWITE i BEZ TOLERANCJI, bo sa liczbami, nie miara
         # fizyczna; `calkowite_z_tolerancja` zostaje ZEREM. ZMIERZONE.
-        "razem": 498, "z_tolerancja": 189, "bez_tolerancji": 309,
+        # 498 -> 501 (23.09.2026, 6.D356): TRZY piny calkowite bez tolerancji
+        # w `BrokenJsonRefusalTests.cs` — dwa razy kod wyjscia 1 i podloga na liczbe
+        # przejrzanych ksztaltow. Przeliczone z drzewa; ZMIERZONE.
+        "razem": 501, "z_tolerancja": 189, "bez_tolerancji": 312,
         "zmiennoprzecinkowe": 197, "zmiennoprzecinkowe_bez_tolerancji": 8,
-        "calkowite": 301, "calkowite_z_tolerancja": 0, "tolerancja_zero": 120,
+        "calkowite": 304, "calkowite_z_tolerancja": 0, "tolerancja_zero": 120,
     },
 }
 
