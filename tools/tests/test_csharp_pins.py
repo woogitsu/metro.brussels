@@ -379,6 +379,7 @@ ROZKLAD_LICZBOWYCH = {
         # 246 -> 249: trzy piny pozycji widoku kabiny, kazdy float z tolerancja.
         # 249 -> 250 (24.09.2026, door-prompt-service): jeden pin liczby
         # wierszy komunikatu HUD; calkowity bez tolerancji. ZMIERZONE.
+        # 250 -> 251 (24.09.2026, kamera): zachowany kierunek na poczatku osi.
         "razem": 251, "z_tolerancja": 107, "bez_tolerancji": 144,
         "zmiennoprzecinkowe": 113, "zmiennoprzecinkowe_bez_tolerancji": 6,
         "calkowite": 138, "calkowite_z_tolerancja": 0, "tolerancja_zero": 18,

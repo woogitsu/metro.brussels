@@ -215,14 +215,19 @@ public sealed class SceneAxisTests
         {
             var original = scene.CabPoint(at, 0.0, 2.20, 0.0);
             var smooth = scene.SmoothCabPoint(at, 0.0, 2.20, 0.0);
-            Assert.AreEqual(original.Position.X, smooth.Position.X, 1e-5f,
-                "koniec osi nie może przesuwać oka w poziomie");
-            Assert.AreEqual(original.Position.Y, smooth.Position.Y, 1e-5f,
-                "koniec osi nie może przesuwać oka w pionie");
-            Assert.AreEqual(original.Position.Z, smooth.Position.Z, 1e-5f,
-                "koniec osi nie może przesuwać oka w głąb tunelu");
+            var endChord = at == 0.0
+                ? scene.Chord(0.0, Math.Min(route.LengthM, 1.0))
+                : scene.Chord(Math.Max(0.0, route.LengthM - 1.0), route.LengthM);
+            var expected = scene.CentreLinePoint(at)
+                + endChord.Right * 2.10f + endChord.Up * 2.20f;
+            Assert.AreEqual(expected.X, smooth.Position.X, 1e-5f,
+                "oko musi leżeć na końcu osi, nie w środku ostatniej cięciwy");
+            Assert.AreEqual(expected.Y, smooth.Position.Y, 1e-5f,
+                "wysokość oka nad końcem osi musi pozostać dokładna");
+            Assert.AreEqual(expected.Z, smooth.Position.Z, 1e-5f,
+                "odsunięcie oka od toru na końcu osi musi pozostać dokładne");
             Assert.AreEqual(0.0f, original.Forward.AngleTo(smooth.Forward), 1e-5f,
-                "kierunek kamery na końcu osi musi być dokładny");
+                "kierunek kamery na końcu osi nie może się zmienić");
         }
 
         // Granica 9 m to koniec wygaszania filtra. Sąsiednie próbki nie mogą
@@ -235,6 +240,28 @@ public sealed class SceneAxisTests
                 "kamera nie może przeskakiwać na granicy wygaszania filtra");
             Assert.IsTrue(left.Forward.AngleTo(right.Forward) < 0.01f,
                 "kamera nie może obracać się skokowo na granicy filtra");
+        }
+    }
+
+    [TestMethod]
+    public void SmoothCabPointHasNoFirstOrLastFrameJumpOnRealAxesAt80Kmh()
+    {
+        var frameDistanceM = 80.0 / 3.6 / 120.0;
+        foreach (var id in new[] { "L1_A", "L1_B", "L2_E", "L5_C", "L5_D", "L6_F" })
+        {
+            var route = TrackAxis.FromJson(
+                MetroBxl.Tests.Shared.KorzenRepozytorium.Tresc("data", "track", id + ".json"));
+            var scene = new SceneAxis(route, 2.10);
+            var first = scene.SmoothCabPoint(0.0, 0.0, 2.20, 0.0);
+            var afterFirst = scene.SmoothCabPoint(frameDistanceM, 0.0, 2.20, 0.0);
+            var beforeLast = scene.SmoothCabPoint(route.LengthM - frameDistanceM, 0.0, 2.20, 0.0);
+            var last = scene.SmoothCabPoint(route.LengthM, 0.0, 2.20, 0.0);
+            var firstStep = first.Position.DistanceTo(afterFirst.Position);
+            var lastStep = beforeLast.Position.DistanceTo(last.Position);
+            Assert.IsTrue(firstStep < 0.22f && lastStep < 0.22f,
+                $"{id}: oko przeskakuje na końcu osi: pierwszy krok {firstStep:F3} m, ostatni {lastStep:F3} m");
+            Assert.AreEqual(0.0f, scene.CabPoint(0.0, 0.0, 2.20, 0.0).Forward.AngleTo(first.Forward),
+                1e-5f, $"{id}: poprawka położenia nie może obracać kamery na starcie");
         }
     }
 

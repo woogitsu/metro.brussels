@@ -146,7 +146,17 @@ public sealed class SceneAxis
         var at = Math.Clamp(chainageM - setbackM, 0.0, _axis.LengthM);
         if (at == 0.0 || at == _axis.LengthM)
         {
-            return CabPoint(chainageM, setbackM, heightM, lateralM);
+            // CabPoint stawia oko w środku metrowej cięciwy. Na końcu osi
+            // przełączenie z wygładzonej osi cofałoby je więc o pół metra.
+            // Zachowaj dokładny kierunek z CabPoint, ale pozycję zakotwicz
+            // w punkcie końcowym osi.
+            var frame = at == 0.0
+                ? Chord(0.0, Math.Min(_axis.LengthM, 1.0))
+                : Chord(Math.Max(0.0, _axis.LengthM - 1.0), _axis.LengthM);
+            var endPosition = CentreLinePoint(at)
+                + frame.Right * (float)(_trackOffsetM + lateralM)
+                + frame.Up * (float)heightM;
+            return (endPosition, frame.Forward);
         }
 
         var centre = SmoothCentreLinePoint(at);
