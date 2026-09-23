@@ -325,7 +325,10 @@ MIN_GAME_SOURCES = 18
 #: Igla, na ktorej stoja kontrole dodatnia i przyrzadu. Musi byc SWOISTA i musi stac
 #: w tescie; oba testy mowia to wprost w komunikacie awarii, bo bez tego zniknieci
 #: probki wygladaloby jak zepsuta bramka.
-GAME_PROBKA = "--replay nie łączy się z --line"
+#: 23.09.2026, 6.M1: dawna probka „--replay nie łączy się z --line" zniknela razem
+#: z ta odmowa (`--replay` laczy sie od 6.M1 z `--line`); jej miejsce zajmuje komunikat
+#: odmowy, ktora zostala — odtworzenia linii bez planu sygnalizacji.
+GAME_PROBKA = "--replay z --line wymaga --signalling"
 
 #: Plik, w ktorym stoi komunikat probki — kontrola przyrzadu dopisuje do niego drugi.
 GAME_PROBKA_PLIK = os.path.join("src", "Game", "RunPlan.cs")

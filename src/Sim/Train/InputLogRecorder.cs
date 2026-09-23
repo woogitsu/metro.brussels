@@ -26,6 +26,7 @@ public sealed class InputLogRecorder
 {
     private readonly List<InputLogEntry> _entries = new();
     private readonly List<long> _resets = new();
+    private readonly List<InputLogEvent> _events = new();
     private long _nextStep;
     private bool _started;
 
@@ -73,7 +74,20 @@ public sealed class InputLogRecorder
     /// </summary>
     public void RecordReset() => _resets.Add(_nextStep);
 
+    /// <summary>
+    /// Zapisuje polecenie maszynisty w trybie linii — 6.M1. Polecenie wykonuje się
+    /// PRZED krokiem, który zostanie zapisany jako następny, bo scena wydaje je między
+    /// krokami (w obsłudze klawiszy klatki), a nie w środku kroku.
+    /// </summary>
+    /// <param name="rodzajZdarzenia">Rodzaj polecenia.</param>
+    /// <param name="trainId">Skład, którego polecenie dotyczy.</param>
+    public void RecordEvent(LineEventKind rodzajZdarzenia, string trainId) =>
+        _events.Add(new InputLogEvent(_nextStep, rodzajZdarzenia, trainId));
+
+    /// <summary>Liczba zapisanych zdarzeń linii — 6.M1.</summary>
+    public int EventCount => _events.Count;
+
     /// <summary>Składa zapis z zebranych zmian; długością przejazdu jest liczba zapisanych kroków.</summary>
     /// <returns>Zapis wejść gotowy do zapisania na dysk.</returns>
-    public InputLog Build() => new(_nextStep, _entries, _resets);
+    public InputLog Build() => new(_nextStep, _entries, _resets, _events);
 }

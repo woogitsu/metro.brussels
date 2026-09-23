@@ -253,7 +253,11 @@ public sealed class RunPlan
     /// widoków." Tryb ręczny jest drugim widokiem tej samej linii, z człowiekiem
     /// w miejscu autopilota.
     /// </summary>
-    public bool LineMode => HasFlag("line") && TelemetryPath is null;
+    ///
+    /// <para><b>Z <c>--replay</c> telemetria nie wyłącza trybu linii</b> (6.M1): jest
+    /// wtedy WYJŚCIEM odtworzenia, jak w odtworzeniu ręcznym, a nie drugim źródłem
+    /// polecenia.</para>
+    public bool LineMode => HasFlag("line") && (TelemetryPath is null || ReplayPath is not null);
 
     /// <summary>
     /// Plik, do którego przejazd linią wypisuje ZATRZYMANIA (CSV). Podanie go znaczy
@@ -517,7 +521,8 @@ public sealed class RunPlan
         // `--shot` nie jest sterownikiem, tylko migawką, więc z `--line` się łączy —
         // i właśnie po to, żeby dało się OBEJRZEĆ skład stojący przy peronie
         // z otwartymi drzwiami, a nie tylko przeczytać, że się zatrzymał.
-        if (arguments.ContainsKey("line") && arguments.ContainsKey("telemetry"))
+        if (arguments.ContainsKey("line") && arguments.ContainsKey("telemetry")
+            && !arguments.ContainsKey("replay"))
         {
             return Refusal(arguments, exitBadArgumentValue,
                 "[ARGUMENT] --line nie łączy się z --telemetry: to dwa różne źródła "
@@ -525,19 +530,29 @@ public sealed class RunPlan
                 + "z rdzeniem CO DO BITU, więc pomyłka tutaj wyglądałaby jak rozjazd fizyki");
         }
 
-        // `--replay` jest TRZECIM źródłem polecenia dla tego samego składu, obok
-        // klawiatury i autopilota. Ta sama zasada, co przy `--line` z `--telemetry`:
-        // dwa źródła naraz nie dają się rozróżnić po wyniku, więc pomyłka wyglądałaby
-        // jak rozjazd fizyki. `--shot` nie jest sterownikiem, ale odtworzenie kończy się
-        // na ostatnim kroku ZAPISU, a zrzut na zadanym kilometrażu — dwa różne warunki
-        // końca tego samego przebiegu, więc też odmowa.
-        if (arguments.ContainsKey("replay") && arguments.ContainsKey("line"))
+        // `--replay` RAZEM z `--line` jest od 6.M1 POPRAWNE, i ten akapit jest
+        // przepisany, a nie dopisany obok. Do 6.M1 stała tu odmowa „zapis wejść
+        // i autopilot to dwa różne źródła polecenia dla tego samego składu". Od MB-06
+        // linia ma jednak MASZYNISTĘ przy jednym ze składów, a zapis wejść niesie jego
+        // polecenia — przejęcie, oddanie, drzwi, obserwację — obok klawiszy. Autopilot
+        // prowadzi resztę linii i skład nieprzejęty, więc źródła się nie dublują: każdy
+        // skład ma w każdym kroku DOKŁADNIE jednego właściciela, a rozstrzyga go zapis.
+        //
+        // Jedna odmowa zostaje, i jest nowa: bez `--signalling` linię prowadzi sam
+        // `LineDrive`, bez `LineCore`, więc nie ma w niej maszynisty ani przejęcia —
+        // zapis wejść nie miałby do kogo trafić, a odtworzenie wyglądałoby jak przejazd
+        // autopilota podpisany cudzym zapisem.
+        if (arguments.ContainsKey("replay") && arguments.ContainsKey("line")
+            && !arguments.ContainsKey("signalling"))
         {
             return Refusal(arguments, exitBadArgumentValue,
-                "[ARGUMENT] --replay nie łączy się z --line: zapis wejść i autopilot to dwa "
-                + "różne źródła polecenia dla tego samego składu");
+                "[ARGUMENT] --replay z --line wymaga --signalling: bez planu sygnalizacji "
+                + "linia nie ma maszynisty, więc zapis wejść nie ma do kogo trafić");
         }
 
+        // `--shot` nie jest sterownikiem, ale odtworzenie kończy się
+        // na ostatnim kroku ZAPISU, a zrzut na zadanym kilometrażu — dwa różne warunki
+        // końca tego samego przebiegu, więc odmowa.
         if (arguments.ContainsKey("replay") && arguments.ContainsKey("shot"))
         {
             return Refusal(arguments, exitBadArgumentValue,
@@ -610,13 +625,15 @@ public sealed class RunPlan
         // skryptowym i w `--line` polecenie liczy rdzeń, więc plik nazwany „zapisem
         // wejść" opisywałby przejazd, którego nikt nie prowadził — i odtworzony
         // wyglądałby jak dowód determinizmu wejścia gracza, którym by nie był.
+        //
+        // `--line` jest od 6.M1 poza tą listą: przejazd linii ma maszynistę przy
+        // jednym ze składów (MB-06), a jego polecenia i klawisze trafiają do zapisu.
         if (arguments.ContainsKey("input-log") && !arguments.ContainsKey("replay")
-            && (arguments.ContainsKey("line") || arguments.ContainsKey("shot")
-                || arguments.ContainsKey("telemetry")))
+            && (arguments.ContainsKey("shot") || arguments.ContainsKey("telemetry")))
         {
             return Refusal(arguments, exitBadArgumentValue,
                 "[ARGUMENT] --input-log ma sens tylko w przejeździe prowadzonym z klawiatury "
-                + "albo odtwarzanym z --replay: w --line, --shot i --telemetry polecenie "
+                + "albo odtwarzanym z --replay: w --shot i --telemetry polecenie "
                 + "pochodzi z rdzenia, a nie od maszynisty");
         }
 

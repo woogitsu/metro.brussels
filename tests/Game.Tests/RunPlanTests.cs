@@ -940,11 +940,8 @@ public sealed class RunPlanTests
     [TestMethod]
     public void ReplayRefusesASecondSourceOfCommand()
     {
-        var zLinia = Parse("--replay=/tmp/keys.log", "--line", "--limit-kmh=70");
-        Assert.IsFalse(zLinia.IsValid, "--replay przeszło razem z --line");
-        Assert.IsTrue(zLinia.Error!.Contains("--replay nie łączy się z --line"), zLinia.Error);
-        Assert.AreEqual(BadArgumentValue, zLinia.ExitCode);
-
+        // `--replay` z `--line` jest od 6.M1 POPRAWNE (test niżej); odmową zostaje zrzut,
+        // bo to drugi warunek końca tego samego przebiegu.
         var zeZrzutem = Parse("--replay=/tmp/keys.log", "--shot=/tmp/a.png", "--at-chainage=2000");
         Assert.IsFalse(zeZrzutem.IsValid, "--replay przeszło razem z --shot");
         Assert.AreEqual(BadArgumentValue, zeZrzutem.ExitCode);
@@ -955,7 +952,10 @@ public sealed class RunPlanTests
     {
         // Plik nazwany „zapisem wejść", powstały z przebiegu, którego nikt nie prowadził,
         // wyglądałby po odtworzeniu jak dowód determinizmu wejścia gracza — i nim nie był.
-        foreach (var tryb in new[] { "--line --limit-kmh=70", "--shot=/tmp/a.png", "--telemetry=/tmp/o.csv" })
+        //
+        // `--line` wyszło z tej listy przy 6.M1: przejazd linii ma maszynistę przy jednym
+        // ze składów, a jego polecenia trafiają do zapisu (test niżej).
+        foreach (var tryb in new[] { "--shot=/tmp/a.png", "--telemetry=/tmp/o.csv" })
         {
             var arguments = new List<string> { "--input-log=/tmp/keys.log" };
             arguments.AddRange(tryb.Split(' '));
@@ -965,6 +965,39 @@ public sealed class RunPlanTests
             Assert.IsTrue(plan.Error!.Contains("--input-log ma sens tylko"), plan.Error);
             Assert.AreEqual(BadArgumentValue, plan.ExitCode, tryb);
         }
+    }
+
+    [TestMethod]
+    public void Linia_przyjmuje_odtworzenie_z_telemetria_i_zapis_wejsc_6M1()
+    {
+        // Odtworzenie linii: telemetria jest wtedy WYJŚCIEM, więc tryb zostaje liniowy,
+        // a nie skryptowy — inaczej scena zbudowałaby `ScenarioDrive` zamiast linii.
+        var odtworzenie = Parse(
+            "--replay=/tmp/keys.log", "--line", "--limit-kmh=70", "--signalling=/tmp/p.json",
+            "--telemetry=/tmp/o.csv");
+        Assert.IsTrue(odtworzenie.IsValid, odtworzenie.Error);
+        Assert.IsTrue(odtworzenie.LineMode, "odtworzenie z --telemetry przestało być trybem linii");
+        Assert.IsFalse(odtworzenie.ScriptedMode, "odtworzenie linii wpadło w przebieg skryptowy");
+        Assert.IsTrue(odtworzenie.ReplayMode, "--replay przestało być odtworzeniem");
+        Assert.IsFalse(odtworzenie.ReadsKeyboard, "odtworzenie linii czyta klawiaturę");
+
+        // Przejazd linii z klawiatury ZAPISUJE wejścia.
+        var zapis = Parse("--input-log=/tmp/keys.log", "--line", "--limit-kmh=70");
+        Assert.IsTrue(zapis.IsValid, zapis.Error);
+        Assert.IsTrue(zapis.LineMode, "--line z --input-log przestało być trybem linii");
+        Assert.IsTrue(zapis.ReadsKeyboard, "przejazd linii z zapisem wejść nie czyta klawiatury");
+
+        // Kontrola w drugą stronę: bez `--replay` para `--line --telemetry` zostaje ODMOWĄ,
+        // bo wtedy telemetria byłaby drugim źródłem polecenia.
+        var bezOdtworzenia = Parse("--line", "--limit-kmh=70", "--telemetry=/tmp/o.csv");
+        Assert.IsFalse(bezOdtworzenia.IsValid, "--line --telemetry przeszło bez --replay");
+        Assert.AreEqual(BadArgumentValue, bezOdtworzenia.ExitCode, "odmowa --line --telemetry bez --replay ma zły kod wyjścia");
+
+        // Bez planu sygnalizacji linia nie ma maszynisty — odtworzenie jest ODMOWĄ.
+        var bezPlanu = Parse("--replay=/tmp/keys.log", "--line", "--limit-kmh=70");
+        Assert.IsFalse(bezPlanu.IsValid, "--replay --line przeszło bez --signalling");
+        Assert.IsTrue(bezPlanu.Error!.Contains("--replay z --line wymaga --signalling"), bezPlanu.Error);
+        Assert.AreEqual(BadArgumentValue, bezPlanu.ExitCode, "odmowa --replay --line bez --signalling ma zły kod wyjścia");
     }
 
     [TestMethod]

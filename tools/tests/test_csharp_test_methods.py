@@ -609,8 +609,11 @@ ROZKLAD_POSTACI = {
         # 4720 -> 4730 i 95 -> 96 (23.09.2026, 6.D365): testy kultury w `DoorCycleTests.cs`
         # i `TrainingSessionTests.cs`, wzorzec czasu postoju jako `@"..."`; ZMIERZONE.
         # 4730 -> 4732 (23.09.2026, 6.D368): dwie postacie w tescie sciezki `a=b.csv`.
-        "zwykly": 4732,
-        "interpolowany ($)": 812,
+        # 4732 -> 4788 i 812 -> 819 (23.09.2026, 6.M1): `LineReplayTests.cs` (zapisy
+        # wejsc w tekscie, komunikaty asercji) i nowy test `RunPlanTests.cs`.
+        # Przeliczone z drzewa.
+        "zwykly": 4788,
+        "interpolowany ($)": 819,
         "werbatim (@)": 96,
         "surowy interpolowany ($$\"\"\")": 13,
         "surowy (\"\"\")": 8,
@@ -660,10 +663,15 @@ ROZKLAD_POSTACI = {
         # `JsonFields.RequiredField` i jej wołań — każdy odczyt wymaganego pola
         # niesie dziś NAZWĘ pola i opis właściciela, bo bez nich komunikat odmowy
         # nie mówi, czego brakuje. Przeliczone z drzewa.
-        "zwykly": 1409,
+        # 1409 -> 1450 (23.09.2026, 6.M1): kody i komunikaty zdarzen linii w
+        # `InputLog`, `LineSession`, pola sidecara i odmowy `replay --line` w `Sim.Runner`,
+        # nowa odmowa w `RunPlan`. Przeliczone z drzewa, nie zsumowane.
+        "zwykly": 1450,
         # 489 -> 494 (22.09.2026, 6.D235): piec komunikatow `Abort` dla pliku ZLEGO
         # w `FirstRun.cs`. Przeliczone z drzewa, nie zsumowane.
-        "interpolowany ($)": 494,
+        # 494 -> 513 (23.09.2026, 6.M1): komunikaty odmow i wiersze zapisu zdarzen
+        # linii (`InputLog`), wiersz `[ODTWORZENIE]` linii w `Sim.Runner`. Przeliczone.
+        "interpolowany ($)": 513,
         "werbatim (@)": 0,
         "surowy interpolowany ($$\"\"\")": 1,
         "surowy (\"\"\")": 1,

@@ -144,11 +144,15 @@ KATEGORIE = {
         # i 1369/1370 -> 1372/1373. Powod ten sam — komentarz z powodem przy
         # `LiteralowWZasieguBramki`, tym razem o trzy wiersze. TRESC pinow nie drgnela.
         # Przeliczone roznica plikow (difflib), a nie liczeniem wierszy z reki.
-        ("UiTextTests.cs", 1272), ("UiTextTests.cs", 1285), ("UiTextTests.cs", 1303),
+        # DZIESIATY ruch tych kotwic (6.M1, 23.09.2026): 1272/1285/1303 -> 1273/1286/1304
+        # i 1372/1373 -> 1373/1374. Powod ten sam — komentarz z powodem przy
+        # `LiteralowWZasieguBramki`, tym razem o jeden wiersz. TRESC pinow nie drgnela.
+        # Przeliczone roznica plikow (difflib).
+        ("UiTextTests.cs", 1273), ("UiTextTests.cs", 1286), ("UiTextTests.cs", 1304),
         ("SignallingHudTests.cs", 37),
     },
     "B": {
-        ("UiTextTests.cs", 1372), ("UiTextTests.cs", 1373),
+        ("UiTextTests.cs", 1373), ("UiTextTests.cs", 1374),
     },
 }
 
@@ -232,10 +236,10 @@ def test_regula_po_ksztalcie_literalu_myli_sie_i_dlatego_jej_nie_ma():
                      if not regula.search(tresci[p])]
     zlapane_z_b = [p for p in sorted(KATEGORIE["B"]) if regula.search(tresci[p])]
 
-    assert przepuszczone == [("UiTextTests.cs", 1303)], (
+    assert przepuszczone == [("UiTextTests.cs", 1304)], (
         "reguła po kształcie przestała przepuszczać wiersz o hamulcu awaryjnym — "
         "rozstrzygnięcie 6.D131 wymaga przeliczenia: %s" % przepuszczone)
-    assert zlapane_z_b == [("UiTextTests.cs", 1373)], (
+    assert zlapane_z_b == [("UiTextTests.cs", 1374)], (
         "reguła po kształcie przestała łapić wejście syntetyczne: %s" % zlapane_z_b)
 
 
@@ -249,11 +253,11 @@ def test_czytnik_widzi_pin_takze_wtedy_gdy_literal_jest_sklejony():
     tresci = {(plik, wiersz): tresc
               for plik, wiersz, _r, tresc in CP.piny("tests/Game.Tests")}
 
-    assert len(tresci[("UiTextTests.cs", 1272)]) == 122, (
+    assert len(tresci[("UiTextTests.cs", 1273)]) == 122, (
         "sklejanie literałów przestało działać: %d znaków"
-        % len(tresci[("UiTextTests.cs", 1272)]))
-    assert len(tresci[("UiTextTests.cs", 1303)]) == 98, (
-        len(tresci[("UiTextTests.cs", 1303)]))
+        % len(tresci[("UiTextTests.cs", 1273)]))
+    assert len(tresci[("UiTextTests.cs", 1304)]) == 98, (
+        len(tresci[("UiTextTests.cs", 1304)]))
     assert len(tresci[("SignallingHudTests.cs", 37)]) == 84, (
         len(tresci[("SignallingHudTests.cs", 37)]))
 
@@ -422,9 +426,13 @@ ROZKLAD_LICZBOWYCH = {
         # 481 -> 488 (22.09.2026, 6.M2): SIEDEM pinow calkowitych bez tolerancji
         # w `StopWindowParityTests.cs` (liczby wywolan, liczba minietych, liczba
         # krokow postoju). Przeliczone z drzewa.
-        "razem": 488, "z_tolerancja": 188, "bez_tolerancji": 300,
-        "zmiennoprzecinkowe": 196, "zmiennoprzecinkowe_bez_tolerancji": 8,
-        "calkowite": 292, "calkowite_z_tolerancja": 0, "tolerancja_zero": 119,
+        # 488 -> 493 (23.09.2026, 6.M1): PIĘĆ pinów `LineReplayTests.cs` — cztery
+        # całkowite bez tolerancji (liczby zdarzeń, poleceń drzwi, zdarzeń jednego kroku,
+        # zdarzeń kroku obok) i jeden zmiennoprzecinkowy z tolerancją 0.0 (skład stoi).
+        # Przeliczone z drzewa.
+        "razem": 493, "z_tolerancja": 189, "bez_tolerancji": 304,
+        "zmiennoprzecinkowe": 197, "zmiennoprzecinkowe_bez_tolerancji": 8,
+        "calkowite": 296, "calkowite_z_tolerancja": 0, "tolerancja_zero": 120,
     },
 }
 
@@ -444,7 +452,8 @@ ROZKLAD_LICZBOWYCH = {
 # z przepisanego testu zatoru — powod przy `ROZKLAD_LICZBOWYCH["tests/Sim.Tests"]`.
 # 145 -> 151 (14.09.2026, MB-08): sześć porównań z tolerancją 0.0 w testach
 # drzwi; `zmiennoprzecinkowe_bez_tolerancji` stoi w miejscu na ośmiu.
-DOKLADNE_ZMIENNOPRZECINKOWE = 151
+# 151 -> 152 (23.09.2026, 6.M1): jedno porównanie z tolerancją 0.0 w `LineReplayTests.cs`.
+DOKLADNE_ZMIENNOPRZECINKOWE = 152
 
 
 def test_ile_pinow_liczbowych_i_jak_sie_dziela():
@@ -488,7 +497,9 @@ def test_dokladnych_porownan_zmiennoprzecinkowych_jest_146_a_nie_14():
     # 131 -> 137 (14.09.2026, MB-08): sześć porównań z tolerancją 0.0 w nowych testach
     # drzwi — wszystkie tam, gdzie pytanie brzmi „ani jeden bit": nietknięty nastawnik,
     # nietknięty hamulec i nieruszony kilometraż przy otwierających się drzwiach.
-    assert zero == 137, ("tolerancji zapisanych jako 0.0: %d, pomiar mówił 137" % zero)
+    # 137 -> 138 (23.09.2026, 6.M1): jedno porównanie z tolerancją 0.0 w
+    # `LineReplayTests.cs` — skład ma STAĆ przed otwarciem drzwi, ani jednego bitu ruchu.
+    assert zero == 138, ("tolerancji zapisanych jako 0.0: %d, pomiar mówił 138" % zero)
     assert bez + zero == DOKLADNE_ZMIENNOPRZECINKOWE, (
         "porównań dokładnych jest %d, a stała mówi %d" % (bez + zero,
                                                           DOKLADNE_ZMIENNOPRZECINKOWE))

@@ -76,9 +76,10 @@ public static class Program
             ["drive"] = (new[] { "--out", "--sample-every" }, Array.Empty<string>(), 0),
             ["replay"] = (new[]
             {
-                "--axis", "--exchange-s", "--keys", "--limit-kmh", "--notch-rate",
-                "--out", "--sample-every", "--signalling", "--stop-window-m",
-            }, new[] { "--atp" }, 0),
+                "--axis", "--brake-usage", "--exchange-s", "--headway-steps", "--keys",
+                "--limit-kmh", "--notch-rate", "--out", "--sample-every", "--signalling",
+                "--stop-window-m", "--trains",
+            }, new[] { "--atp", "--line" }, 0),
             ["compare"] = (new[] { "--tolerance" }, Array.Empty<string>(), 2),
             ["axis"] = (new[] { "--axis", "--dump-points", "--manifest" }, Array.Empty<string>(), 0),
             ["parity"] = (Array.Empty<string>(), Array.Empty<string>(), 0),
@@ -739,6 +740,19 @@ public static class Program
 
         var log = FromFile(keysPath, InputLog.Parse);
         var axis = FromFile(axisPath, static text => TrackAxis.FromJson(text));
+        if (Array.IndexOf(args, "--line") >= 0)
+        {
+            if (!atp)
+            {
+                throw new ArgumentException(
+                    "replay --line wymaga --atp: linia z planem sygnalizacji jedzie w scenie "
+                    + "z ochroną pociągu, a odtworzenie bez niej byłoby innym przejazdem");
+            }
+
+            return ReplayLine(args, log, keysPath, axis, axisPath, signallingPath, output,
+                sampleEvery, notchRate, exchangeSeconds, stopWindowM, limitKmh);
+        }
+
         var manualPlan = SignallingPlan.FromFile(signallingPath);
         if (!string.Equals(manualPlan.AxisId, axis.Id, StringComparison.Ordinal))
         {
@@ -962,6 +976,130 @@ public static class Program
     }
 
     // --- compare ------------------------------------------------------------------
+
+    /// <summary>
+    /// <c>replay --line</c>: odtworzenie przejazdu LINII z zapisu wejść — 6.M1.
+    ///
+    /// <para>Prowadzi <see cref="LineSession"/>, czyli tę samą klasę, którą scena woła
+    /// w trybie <c>--line</c>. Zdarzenia linii (przejęcie, oddanie, drzwi, obserwacja)
+    /// wykonują się PRZED krokiem swojego numeru, klawisze biorą się po numerze kroku
+    /// — dokładnie tak, jak w scenie odtwarzającej ten sam zapis. Telemetria opisuje
+    /// skład OBSERWOWANY, bo to jego widzi gracz i do niego idzie dźwignia.</para>
+    ///
+    /// <para><b>Linia jedzie z ochroną pociągu</b> (<c>LineCore</c> z ATP), tak jak
+    /// <c>--line --signalling</c> w scenie; dlatego <c>--limit-kmh</c> i <c>--atp</c>
+    /// są tu wymagane — to drugie po to, żeby wywołanie mówiło o ochronie wprost,
+    /// tak jak każde inne odtworzenie porównywane ze sceną pod planem.</para>
+    ///
+    /// <para><b>Reset w zapisie linii jest ODMOWĄ.</b> Scena w trybie linii resetu nie
+    /// wykonuje — gałąź <c>LineCore</c> w <c>StepOnce</c> stoi przed obsługą resetu —
+    /// więc odtworzenie wykonujące go dałoby przejazd, którego nie było.</para>
+    /// </summary>
+    private static int ReplayLine(
+        string[] args, InputLog log, string keysPath, TrackAxis axis, string axisPath,
+        string signallingPath, string? output, long sampleEvery, double notchRate,
+        double exchangeSeconds, double stopWindowM, double? limitKmh)
+    {
+        if (limitKmh is null)
+        {
+            throw new ArgumentException(
+                "replay --line wymaga --limit-kmh: prędkość dopuszczalna linii nie ma w "
+                + "scenie wartości domyślnej, więc nie może jej mieć tutaj");
+        }
+
+        if (log.Resets.Count > 0)
+        {
+            throw new ArgumentException(string.Create(Inv,
+                $"replay --line: zapis {keysPath} ma {log.Resets.Count} resetów, a przejazd linii resetu nie zna"));
+        }
+
+        var brakeUsage = OptionalNumber(args, "--brake-usage") ?? 1.0;
+        var trains = (int)LongValue(Command(args), "--trains", Option(args, "--trains") ?? "1");
+        var headwaySteps = LongValue(Command(args), "--headway-steps",
+            Option(args, "--headway-steps") ?? "37200");
+        if (trains < 1)
+        {
+            throw new ArgumentException("replay --line --trains musi być co najmniej 1");
+        }
+
+        var model = VehicleModel.M7;
+        var step = FixedStep.Simulation;
+        var conditions = new RunConditions(
+            model.MassKg(TrainLoad.Aw2), 0.0, model.Adhesion(RailCondition.Dry), TrackEnvironment.Tunnel);
+        var settings = new LineRunSettings(
+            Units.KmhToMps(limitKmh.Value), exchangeSeconds, brakeUsage, stopWindowM);
+        var plan = FromFile(signallingPath, SignallingPlan.FromJson);
+        var core = LineCore.M7(plan, axis, conditions, settings, turnbackSeconds: 0.0, atp: true);
+        for (var i = 0; i < trains; i++)
+        {
+            core.Add(LineSession.TrainIdAt(i), i * headwaySteps);
+        }
+
+        var session = new LineSession(core, new DriverNotch(notchRate), step);
+        var lines = new List<string> { DriveTelemetry.Header };
+        var sessionStep = 0L;
+        var events = 0;
+        var doorRefusals = 0;
+        while (sessionStep < log.Steps)
+        {
+            foreach (var lineEvent in log.EventsAt(sessionStep))
+            {
+                events++;
+                if (session.Execute(lineEvent) is { Ok: false })
+                {
+                    doorRefusals++;
+                }
+            }
+
+            if (!session.Step(log.KeysAt(sessionStep)))
+            {
+                break;
+            }
+
+            sessionStep++;
+            var finished = sessionStep >= log.Steps || core.Finished;
+            if (session.Observed.Drive is { } drive
+                && (DriveTelemetry.IsSample(drive.State.Steps, sampleEvery) || finished))
+            {
+                lines.Add(session.TelemetryRow()!);
+            }
+        }
+
+        if (output is null)
+        {
+            foreach (var line in lines)
+            {
+                Console.Out.WriteLine(line);
+            }
+        }
+        else
+        {
+            File.WriteAllLines(output, lines);
+            WriteProvenanceBeside(
+                output, "replay --line",
+                ("keys", keysPath),
+                ("axis", axisPath),
+                ("signalling", signallingPath),
+                ("sample_every_steps", sampleEvery.ToString(Inv)),
+                ("notch_rate_per_s", notchRate.ToString(Inv)),
+                ("exchange_s", exchangeSeconds.ToString(Inv)),
+                ("stop_window_m", stopWindowM.ToString(Inv)),
+                ("brake_usage", brakeUsage.ToString(Inv)),
+                ("limit_kmh", limitKmh.Value.ToString(Inv)),
+                ("trains", trains.ToString(Inv)),
+                ("headway_steps", headwaySteps.ToString(Inv)));
+        }
+
+        var observed = session.Observed;
+        Console.Out.WriteLine(string.Create(
+            Inv,
+            $"[ODTWORZENIE] {keysPath}: linia, sesja={sessionStep} kroków, "
+            + $"zdarzeń linii={events} odmów drzwi={doorRefusals}, "
+            + $"obserwowany={observed.Id} właściciel={observed.Owner} "
+            + $"chainage={observed.Drive?.ChainageM ?? 0.0:F3} m "
+            + $"zatrzymań={observed.Drive?.Calls.Count ?? 0}"));
+        return 0;
+    }
 
     private static int Compare(string[] args)
     {

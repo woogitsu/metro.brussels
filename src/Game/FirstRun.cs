@@ -132,6 +132,13 @@ public sealed partial class FirstRun : Node3D
     private LineCore? _lineCore;
 
     /// <summary>
+    /// Sesja linii z maszynistą — 6.M1. Jedna droga kroku i poleceń dla klawiatury,
+    /// odtworzenia z zapisu i <c>Sim.Runner replay --line</c>; powód przy
+    /// <see cref="LineSession"/>.
+    /// </summary>
+    private LineSession? _lineSession;
+
+    /// <summary>
     /// Plan sygnalizacji, z którego tryb ręczny bierze prędkość dopuszczalną;
     /// <c>null</c> w trybie linii i w przebiegu skryptowym. Plan jest tu CZYTANY,
     /// a nie prowadzi — patrz <see cref="RunPlan.ManualSpeedLimitPlanPath"/>.
@@ -289,7 +296,7 @@ public sealed partial class FirstRun : Node3D
     /// naraz, a zdarzenia obu stron mają dać się porównać z rdzeniem po NAZWIE, a nie po
     /// domysłach — <c>Sim.Runner</c> używa tego samego napisu.
     /// </summary>
-    private const string SignalledTrainId = "KABINA";
+    private const string SignalledTrainId = LineSession.CabTrainId;
 
     /// <summary>
     /// Nazwa składu o indeksie <paramref name="index"/> — MB-07.
@@ -301,9 +308,7 @@ public sealed partial class FirstRun : Node3D
     /// rozjechałoby scenę z rdzeniem w każdym przebiegu, w którym składów jest jeden —
     /// czyli w każdym dzisiejszym.</para>
     /// </remarks>
-    private static string TrainIdAt(int index) =>
-        index == 0 ? SignalledTrainId : string.Create(
-            CultureInfo.InvariantCulture, $"SKLAD-{index + 1:00}");
+    private static string TrainIdAt(int index) => LineSession.TrainIdAt(index);
 
     /// <summary>
     /// Perony się nie wczytały. Odmowa, a nie cichy przejazd bez nich — i to jest
@@ -497,11 +502,18 @@ public sealed partial class FirstRun : Node3D
             // z jej własną fazą. `ManualTelemetryRow` wpisałby tu `manual` i echo
             // rozjechałoby się z oryginałem w dziesiątej kolumnie już w pierwszym
             // wierszu — a `compare` odrzuca różnicę fazy przed policzeniem czegokolwiek.
-            _telemetry.Add(_scripted is not null
-                ? DriveTelemetry.Row(_scripted)
-                : _track is not null
-                    ? FromTelemetryRow()
-                    : ManualTelemetryRow());
+            //
+            // W ODTWORZENIU LINII (6.M1) wiersza zerowego nie ma: skład wchodzi na plan
+            // dopiero w pierwszym kroku linii, więc stanu „przed pierwszym krokiem" nie
+            // ma czym opisać — i tak samo nie wypisuje go `Sim.Runner replay --line`.
+            if (!_lineMode)
+            {
+                _telemetry.Add(_scripted is not null
+                    ? DriveTelemetry.Row(_scripted)
+                    : _track is not null
+                        ? FromTelemetryRow()
+                        : ManualTelemetryRow());
+            }
         }
 
         PlaceEverything();
@@ -885,6 +897,8 @@ public sealed partial class FirstRun : Node3D
                 {
                     _lineCore.Add(TrainIdAt(i), i * _plan.HeadwaySteps);
                 }
+
+                _lineSession = new LineSession(_lineCore, _notch, _step);
                 GD.Print(string.Create(
                     CultureInfo.InvariantCulture,
                     $"[SYGNALIZACJA] {signalling.Blocks.Count} bloków, {signalling.Routes.Count} tras, "
@@ -1511,32 +1525,33 @@ public sealed partial class FirstRun : Node3D
                 return false;
             }
 
-            var przed = _state.SpeedMps;
-
-            // DŹWIGNIA MASZYNISTY WCHODZI TUTAJ, PRZED krokiem linii — MB-07.
+            // DŹWIGNIA MASZYNISTY I POLECENIA — MB-07, MB-08, od 6.M1 przez `LineSession`.
             //
-            // `_notch.Advance` posuwa nastawnik DOKŁADNIE RAZ na krok symulacji, tak samo
-            // jak w trybie ręcznym i z tego samego powodu: nastawnik jest dźwignią, więc
-            // jego położenie zależy od liczby KROKÓW, a nie od tego, ile klatek zdążyło
-            // się narysować. Wołanie go raz na klatkę dałoby sterowanie szybsze na
-            // szybszej maszynie.
+            // Nastawnik posuwa się DOKŁADNIE RAZ na krok, i tylko na składzie
+            // obserwowanym prowadzonym przez maszynistę — powód przy `LineSession.Step`.
+            // Od 6.M1 ten krok jest w rdzeniu, a nie tutaj: tę samą kolejność wykonuje
+            // `Sim.Runner replay --line`, a porównanie sceny z rdzeniem co do bitu
+            // znaczy coś tylko wtedy, gdy obie strony idą JEDNĄ drogą.
             //
-            // Klawisze biorą się z `_keys`, a nie z `_replay`: odtworzenie prowadzi
-            // JEDEN skład kabiną i `LineCore` go nie zna (MB-06, pole „Poza zakresem"),
-            // więc w tej gałęzi `_replay` jest zawsze nullem i sięganie po niego
-            // udawałoby obsługę, której nie ma.
-            //
-            // `Drive` jest ODMOWĄ na składzie prowadzonym przez autopilota (MB-06), więc
-            // pytanie o właściciela nie jest tu ostrożnością — bez niego każdy krok
-            // rzucałby wyjątkiem w środku `_Process`.
-            var obserwowany = _lineCore.Trains[
-                Math.Clamp(_observed, 0, _lineCore.Trains.Count - 1)];
-            if (obserwowany.Owner == ControlOwner.Driver)
+            // Klawisze i polecenia biorą się z `_replay` PO NUMERZE KROKU, gdy przejazd
+            // jest odtwarzany, a z klawiatury w pozostałych przypadkach. Polecenia
+            // z klawiatury wykonały się już w tej klatce, w `HandleTrainKeys`, przed
+            // pierwszym krokiem — i pod tym samym numerem kroku trafiły do zapisu.
+            var lineStep = _logStep;
+            if (_replay is not null)
             {
-                _lineCore.Drive(obserwowany.Id, _notch.Advance(_keys, _step));
+                foreach (var lineEvent in _replay.EventsAt(lineStep))
+                {
+                    ExecuteLineEvent(lineEvent);
+                }
             }
 
-            _lineCore.Step((id, point) => _command = point.Command);
+            var lineKeys = _replay?.KeysAt(lineStep) ?? _keys;
+            _recorder?.Record(lineStep, lineKeys);
+            _activeKeys = lineKeys;
+            _lineSession!.Step(lineKeys);
+            _logStep++;
+            _command = _lineSession.Command;
 
             // MB-07: `_line` to prowadzenie składu OBSERWOWANEGO, a nie zerowego.
             // Jednym przypisaniem przechodzą na nowy skład: obie kamery, okno
@@ -1544,7 +1559,7 @@ public sealed partial class FirstRun : Node3D
             // `ChainageM`, czyli na `_line?.ChainageM`. To jest cała treść wyboru
             // składu; gdyby każda z tych rzeczy czytała skład osobno, przełączenie
             // byłoby czterema poprawkami, z których każda mogłaby zostać w tyle.
-            _observed = Math.Clamp(_observed, 0, _lineCore.Trains.Count - 1);
+            _observed = _lineSession.ObservedIndex;
             _line = _lineCore.Trains[_observed].Drive;
 
             // ODMOWA GAŚNIE Z KOŃCEM POSTOJU — MB-08. Nie po czasie i nie po klatkach
@@ -1559,13 +1574,31 @@ public sealed partial class FirstRun : Node3D
             if (_line is null)
             {
                 // Skład jeszcze nie wjechał na plan (wejście zajęte). Krok się odbył,
-                // zegar linii idzie, ale prowadzenia jeszcze nie ma.
-                return true;
+                // zegar linii idzie, ale prowadzenia jeszcze nie ma. Odtworzenie kończy
+                // się jednak na długości ZAPISU także tutaj (6.M1) — inaczej kroki spoza
+                // zapisu wykonałyby się „z rozpędu" na reszcie akumulatora.
+                return _replay is null || _logStep < _replay.Steps;
             }
 
             _state = _line.State;
-            _acceleration = (_state.SpeedMps - przed) / _step.Seconds;
-            return true;
+            _acceleration = _lineSession.AccelerationMps2;
+
+            // KONIEC ODTWORZENIA LINII — 6.M1. Ten sam warunek próbki, co w
+            // `Sim.Runner replay --line`: stan składu obserwowanego, co `_sampleEvery`
+            // kroków JEGO przejazdu, plus ostatni krok zapisu albo linii.
+            if (_replay is null)
+            {
+                return true;
+            }
+
+            var lineFinished = _logStep >= _replay.Steps || _lineCore.Finished;
+            if (_telemetryPath is not null
+                && (DriveTelemetry.IsSample(_state.Steps, _sampleEvery) || lineFinished))
+            {
+                _telemetry.Add(_lineSession.TelemetryRow()!);
+            }
+
+            return !lineFinished;
         }
 
         if (_line is not null)
@@ -2042,6 +2075,36 @@ public sealed partial class FirstRun : Node3D
     }
 
     /// <summary>
+    /// Wykonuje polecenie maszynisty w trybie linii i zapisuje je pod numerem kroku,
+    /// PRZED którym się wykonało — 6.M1.
+    ///
+    /// <para>Jedno wejście dla klawiatury i dla odtworzenia. Zapis idzie tu, a nie przy
+    /// klawiszu, bo przy <c>--replay --input-log</c> ma powstać ta sama kopia zapisu,
+    /// co przy przejeździe z klawiatury — i wtedy polecenie przychodzi z pliku.</para>
+    /// </summary>
+    /// <param name="lineEvent">Polecenie; jego numer kroku zapis bierze z siebie.</param>
+    private void ExecuteLineEvent(InputLogEvent lineEvent)
+    {
+        _recorder?.RecordEvent(lineEvent.Kind, lineEvent.TrainId);
+        var response = _lineSession!.Execute(lineEvent);
+        if (response is DoorRequestResult drzwi)
+        {
+            ZapamietajOdpowiedzDrzwi(drzwi);
+            return;
+        }
+
+        if (lineEvent.Kind == LineEventKind.Observe)
+        {
+            _observed = _lineSession.ObservedIndex;
+
+            // Odmowa dotyczyła składu, którego gracz już nie ogląda — MB-08.
+            _doorRefusal = null;
+        }
+
+        ApplyView();
+    }
+
+    /// <summary>
     /// Wybór obserwowanego składu i przejęcie sterowania — MB-07.
     ///
     /// <para><b>Wszystkie trzy klawisze działają na ZBOCZU, nie przy trzymaniu</b>, tak
@@ -2073,34 +2136,31 @@ public sealed partial class FirstRun : Node3D
             return;
         }
 
+        // KAŻDE POLECENIE IDZIE PRZEZ `ExecuteLineEvent` — 6.M1. Ta sama metoda wykonuje
+        // polecenia odtwarzane z zapisu, więc to, co gracz zrobił klawiszem, i to, co
+        // odtworzenie zrobi z pliku, przechodzi jedną drogą: zapis, rdzeń, widok.
         if (nextKey && !_trainNextKeyHeld)
         {
-            _observed = (_observed + 1) % _lineCore.Trains.Count;
-
-            // Odmowa dotyczyła składu, którego gracz już nie ogląda — MB-08.
-            _doorRefusal = null;
-            ApplyView();
+            var next = _lineCore.Trains[(_lineSession!.ObservedIndex + 1) % _lineCore.Trains.Count];
+            ExecuteLineEvent(new InputLogEvent(_logStep, LineEventKind.Observe, next.Id));
         }
 
         var observed = _lineCore.Trains[Math.Clamp(_observed, 0, _lineCore.Trains.Count - 1)];
 
-        if (takeKey && !_trainTakeKeyHeld && observed.Owner == ControlOwner.Autopilot)
+        // `TakeControl` RZUCA, gdy skład nie wszedł jeszcze na plan (MB-06), i ten
+        // wyjątek nie ma prawa wyjść z `_Process`: wywróciłby klatkę, a nie powiedział
+        // graczowi, czemu nic się nie stało. Wiersz `hud.owner.not-on-line` mówi to
+        // za niego — i mówi to z tego samego odczytu, który tu odmawia. Ten sam warunek
+        // stoi w `LineSession.Execute`, więc polecenie z zapisu zachowa się identycznie.
+        if (takeKey && !_trainTakeKeyHeld && observed.Owner == ControlOwner.Autopilot
+            && observed.OnLine)
         {
-            // `TakeControl` RZUCA, gdy skład nie wszedł jeszcze na plan (MB-06), i ten
-            // wyjątek nie ma prawa wyjść z `_Process`: wywróciłby klatkę, a nie powiedział
-            // graczowi, czemu nic się nie stało. Wiersz `hud.owner.not-on-line` mówi to
-            // za niego — i mówi to z tego samego odczytu, który tu odmawia.
-            if (observed.OnLine)
-            {
-                _lineCore.TakeControl(observed.Id);
-                ApplyView();
-            }
+            ExecuteLineEvent(new InputLogEvent(_logStep, LineEventKind.Take, observed.Id));
         }
 
         if (releaseKey && !_trainReleaseKeyHeld && observed.Owner == ControlOwner.Driver)
         {
-            _lineCore.ReleaseControl(observed.Id);
-            ApplyView();
+            ExecuteLineEvent(new InputLogEvent(_logStep, LineEventKind.Release, observed.Id));
         }
 
         // DRZWI — MB-08. Na ZBOCZU, tak samo jak trzy klawisze wyżej i z tego samego
@@ -2114,12 +2174,12 @@ public sealed partial class FirstRun : Node3D
         // o tym, kiedy wolno otworzyć drzwi, i to źródłem po stronie widoku.
         if (doorOpenKey && !_doorOpenKeyHeld)
         {
-            ZapamietajOdpowiedzDrzwi(_lineCore.RequestDoorOpen(observed.Id));
+            ExecuteLineEvent(new InputLogEvent(_logStep, LineEventKind.DoorOpen, observed.Id));
         }
 
         if (doorCloseKey && !_doorCloseKeyHeld)
         {
-            ZapamietajOdpowiedzDrzwi(_lineCore.RequestDoorClose(observed.Id));
+            ExecuteLineEvent(new InputLogEvent(_logStep, LineEventKind.DoorClose, observed.Id));
         }
 
         _trainNextKeyHeld = nextKey;
@@ -2717,6 +2777,11 @@ public sealed partial class FirstRun : Node3D
         }
 
         _done = true;
+
+        // Linia skończyła się PRZED końcem zapisu albo przejazdu z klawiatury — 6.M1.
+        // Oba pliki mają wtedy powstać tak samo, jak przy końcu odtworzenia.
+        WriteTelemetry();
+        WriteInputLog();
         var result = _line!.Result("arrived");
         GD.Print(string.Create(
             CultureInfo.InvariantCulture,
