@@ -621,7 +621,9 @@ ROZKLAD_POSTACI = {
         # 4807 -> 4843, 826 -> 836, 98 -> 99 i 7 -> 8 (23.09.2026, 6.D356):
         # `BrokenJsonRefusalTests.cs` — komunikaty asercji, argumenty `line`, wzorzec
         # slowa `@"..."` i dopasowanie slowa zakazanego `$@"..."`. ZMIERZONE.
-        "zwykly": 4843,
+        # 4843 -> 4849 (24.09.2026): piec nazw siatek Beekkant i jeden wspolny
+        # komunikat asercji w StationEdgeVisibilityTests.cs.
+        "zwykly": 4849,
         "interpolowany ($)": 836,
         "werbatim (@)": 99,
         "surowy interpolowany ($$\"\"\")": 13,

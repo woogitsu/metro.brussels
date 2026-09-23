@@ -449,7 +449,8 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 # wszystkie z komunikatem — obie zapadki rosna o tyle samo; ZMIERZONE.
 # 1850 -> 1865 (23.09.2026, 6.D356): PIETNASCIE asercji `BrokenJsonRefusalTests.cs`,
 # wszystkie z komunikatem — obie zapadki rosna o tyle samo; ZMIERZONE.
-Z_KOMUNIKATEM_RAZEM = 1865
+# 1865 -> 1870 (24.09.2026): piec nowych asercji peronu ma komunikat.
+Z_KOMUNIKATEM_RAZEM = 1870
 NIEROZSTRZYGNIETYCH = 68
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
 #: `tests/Sim.Tests/DefaultArmAuditTests.cs` — bramki na ramionach domyślnych
@@ -555,7 +556,9 @@ NIEROZSTRZYGNIETYCH = 68
 # na odmowie CLI przy dokumencie innego KSZTALTU — trzy ksztalty przez
 # `Program.Main`, kontrola w druga strone na wlasnych wyjatkach rdzenia i wiersz
 # wspolnego handlera. Kazda z komunikatem; ZMIERZONE.
-ASERCJI_RAZEM = 3311
+# 3311 -> 3316 (24.09.2026): piec asercji z komunikatem sprawdza nazwy
+# dwoch pasow ostrzegawczych i trzech zwyklych bryl peronu.
+ASERCJI_RAZEM = 3316
 
 
 def _rozklad():
