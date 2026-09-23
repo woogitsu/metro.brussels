@@ -1327,6 +1327,7 @@ właściciel.
 | 6.D351 | **ZROBIONE w #PR (23.09.2026): podproces kosztuje w bramkach tyle, ile kosztuje CZYTANIE KOLEJKI — `doctor.sh` płaci 157,12 s z 199,5 s czasu podprocesów.** **KONTROLA PRZYRZADU ZDANA CO DO TYSIECZNEJ, ALE DOPIERO PO ODTWORZENIU, CO BYLO „DNIEM”:** pierwsze podejście dało 16,944 s zamiast 17,774 s, bo dniem w 6.D332 jest data ARTEFAKTU w UTC, a 20.09 było pobrane w trakcie dnia (48 artefaktów sprzed 20:00 UTC); z tymi dwiema regułami wracają co do trzeciego miejsca obie mediany 6.D332 i obie 6.D341. Cztery liczby: modułów z podprocesem 24 ze 139, wywołań 614 (615 z `test_all.py`), powtórnych 86 z 96 wywołań skryptów repozytorium (550 z 614 wszystkich programów), udział w medianie ściany 59,5 % → 54,5 %. **GŁÓWNE ZNALEZISKO:** koszt `doctor.sh` to nie start i nie sondy narzędzi (~1,4 s), tylko cztery parsowania `docs/TASKS.md` przez `test_backlog` (~9 s); 12 z 37 wywołań do nich dochodzi i kosztuje 125,50 s. Cache systemu plików niczego nie przyspiesza (10,714 / 10,527 / 10,321 s). Oba moduły z 6.D341 §8 czytają więc prozę, tylko pośrednio. Raport: `reports/6d351-koszt-podprocesow-w-bramkach.md`. Ze znaleziska dopisane 6.D358 | M |
 | 6.D352 | **Czy wyluskanie z `PATH_TOKEN` przetrwa DRUGA alternatywe w tym wzorcu** | zmierzone 21.09.2026 przy 6.D343: dwa miejsca wyluskuja liste rozszerzen z tekstu wzorca sciezek PIERWSZYM trafieniem, i obie maja obrone — jedna bramke, druga `assert`. Zadna nie sprawdza, czy grupa nieprzechwytujaca w tamtym wzorcu jest JEDNA; druga, dopisana kiedykolwiek, zostalaby wzieta albo pominieta zaleznie od kolejnosci | M |
 | 6.D353 | **Ile bramek twierdzi o TRESCI wzorca, a nie o jego zachowaniu** | zmierzone 21.09.2026 przy 6.D343: szesc z jedenastu wzorcow skladanych w czasie wykonania NIE odzyskuje sie ze zrodla wcale, wiec bramka sprawdzajaca taki wzorzec przez czytanie jego tekstu sprawdza szablon, a nie to, co wzorzec robi. Ile bramek robi jedno, a ile drugie, nie policzyl nikt | M |
+| 6.D359 | **ZROBIONE w #PR (23.09.2026): `queue_row` dzielił cały `docs/TASKS.md` na wiersze przy KAŻDYM wywołaniu — koszt kolejki rósł z kwadratem długości pliku.** Decyzja właściciela z 23.09.2026: zestaw ma zejść pod próg 440 s bez ruszania progu. Pomiar zamiast szacunku: jedno wywołanie `python3` zamiast czterech w `doctor.sh` oszczędzałoby ~2 s z ~9 s, a profil `open_items` pokazał 430 wywołań `queue_row` i `splitlines` 1,4 s z 2,2 s. Słownik budowany raz na tekst (`functools.lru_cache`, kluczem jest treść) daje odpowiedź identyczną dla 443 numerów; cztery odczyty kolejki 6,96 → 0,15 s, `doctor.sh --no-tests` 10,5 → ~2,0 s, zestaw lokalnie 485 → 298 s ściany, 288,8 s CPU. Próg, `doctor.sh` i reguły bramek bez zmian | S |
 | 6.D356 | **`Sim.Runner` na dokumencie JSON innego KSZTAŁTU wypisuje angielski komunikat `System.Text.Json`** | zmierzone 22.09.2026 przy 6.D235: `line --axis` na pliku `[]`, `5` i `{"points": 5}` kończy się kodem 1 — handler łapie `InvalidOperationException` — ale wierszem `BŁĄD: <plik>: The requested operation requires an element of type 'Object', but the target element has type 'Array'.` Scena dostała na to własne słowa (`BadFile`), CLI nie. Poprawka dotyczy wyłącznie tekstu odmowy, nie kodu wyjścia | S |
 | 6.D357 | **Wiersz odmowy przy zepsutej składni JSON niesie angielski ogon parsera** | zmierzone 22.09.2026 przy 6.D235: `JsonText.Parse` owija `JsonException` w `FormatException` z polskim początkiem, ale dokleja `error.Message` .NET-a, więc gracz widzi `oś trasy nie jest poprawnym JSON-em: '{' is an invalid start of a property name. Expected a '"'. LineNumber: 0 \| BytePositionInLine: 1.` Pozycja błędu jest w `JsonException` jako liczby (`LineNumber`, `BytePositionInLine`) i da się ją podać po polsku bez tekstu parsera | S |
 | 6.D358 | **Dlaczego jedno `open_items` na `docs/TASKS.md` trwa ~1,75 s** | zmierzone 23.09.2026 przy 6.D351: cztery odczyty kolejki w `doctor.sh` kosztują 8,7–9,0 s na przebieg (`open_items` ~1,75 s, `do_wziecia` ~3,5 s) przy starcie interpretera 0,012 s i imporcie 0,02 s; plik ma 16 797 wierszy. Czy czas rośnie z długością pliku liniowo, czy szybciej, i który krok czytnika go niesie, nie zmierzył nikt | M |
@@ -16734,6 +16735,29 @@ w drzewie**, a nie tylko w rozmowie — z tego samego powodu, co dwie sekcje wy�
 - **Poza zakresem:** zmiana kodów wyjścia, zmiana komunikatów loaderów z `src/Sim/`,
   `src/Game/`, zepsuta składnia (6.D357).
 - **Zależy od:** 6.D235.
+
+##### 6.D359 · Koszt kolejki rośnie z kwadratem długości `docs/TASKS.md`
+
+- **Skąd:** decyzja właściciela z 23.09.2026 po dwóch czerwonych `tools` w #757
+  (487,2 i 477,3 s CPU przy progu 440 s): „najpierw jeden odczyt kolejki”, próg
+  zostaje. Pomiar przed zmianą: `open_items` 1,89 s, `do_wziecia` 3,34 s,
+  `czeka_na_wlasciciela` 1,74 s w jednym procesie, więc jedno wywołanie zamiast
+  czterech oszczędza ~2 s z ~9 s. Profil: 430 wywołań `queue_row`, `splitlines`
+  1,4 s z 2,2 s.
+- **Wejście:** `tools/tests/test_backlog.py`, `docs/TASKS.md`, `doctor.sh`.
+- **Wyjście:** `queue_row` czyta ze słownika budowanego raz na tekst; test
+  porównujący go z czytaniem wiersz po wierszu na całym `docs/TASKS.md`.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_backlog.py test_next_task.py
+  ```
+  Oczekiwane: zielone. Kontrole negatywne: ostatni wiersz wygrywa, pamięć
+  ignorująca treść, inne wyrażenie numeru — każda czerwona.
+- **Skończone, gdy:** odpowiedź `queue_row` jest identyczna z czytaniem wiersz po
+  wierszu dla każdego numeru z tabel, a cztery odczyty kolejki trwają poniżej 0,5 s.
+- **Poza zakresem:** `doctor.sh`; `SUITE_CPU_BUDGET_S`; reguły bramek; inne
+  czytniki `test_backlog.py`; `src/`; `data/`.
+- **Zależy od:** 6.D351 (stamtąd koszt i miejsce).
 
 ##### 6.D357 · Wiersz odmowy przy zepsutej składni JSON niesie angielski ogon parsera
 

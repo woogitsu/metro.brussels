@@ -1091,7 +1091,9 @@ KLASY_WYLICZEN = {
 
 #: Ile wyliczen odrzuca wykluczenie `docs/TASKS.md`. Stoi tu, zeby wykluczenie
 #: bylo SPRAWDZALNE, a nie podpisane — 6.D243 w druga strone.
-WYLICZEN_Z_TASKS = 7
+#: 7 -> 8 (23.09.2026, 6.D359): pole „Skąd” bloku 6.D359 wylicza trzy czytniki
+#: kolejki z czasami (`open_items` / `do_wziecia` / `czeka_na_wlasciciela`).
+WYLICZEN_Z_TASKS = 8
 
 #: Ile wyliczen ma sume trzymana przez stala W TYM SAMYM MODULE.
 WYLICZEN_Z_SUMA_W_STALEJ = 1
