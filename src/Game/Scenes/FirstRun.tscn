@@ -132,6 +132,7 @@ text = "chainage"
 text = "ciag / hamulec"
 
 [node name="Signalling" type="Label" parent="Hud/Panel/Rows"]
+autowrap_mode = 3
 text = "sygnalizacja"
 
 ; Wiersz o widoku. Startuje UKRYTY tak samo jak Station i Signalling, i z tego samego

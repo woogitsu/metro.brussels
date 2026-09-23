@@ -144,6 +144,14 @@ public sealed class HudLayoutTests
     }
 
     [TestMethod]
+    public void Sygnalizacja_zawija_zamiast_rozszerzac_panel_recznego_postoju()
+    {
+        Assert.IsTrue(Regex.IsMatch(Scene(),
+                @"\[node name=""Signalling"" type=""Label"" parent=""Hud/Panel/Rows""\]\r?\nautowrap_mode = 3\r?\n"),
+            "długi autorytet jazdy rozszerza panel i ucina początek wskazówki drzwi przy 800x600");
+    }
+
+    [TestMethod]
     public void Najdluzsza_nazwa_stacji_z_danych_jest_ta_ktora_zmierzono()
     {
         // Pole „Skończone, gdy" mówi o NAJDŁUŻSZEJ nazwie z danych osi. Gdyby doszła
