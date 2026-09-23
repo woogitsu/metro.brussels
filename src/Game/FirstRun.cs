@@ -1297,6 +1297,13 @@ public sealed partial class FirstRun : Node3D
                 + "--component platform --component edge) albo uruchom z --no-geometry.");
             return;
         }
+        var namePlatePath = Path.Combine(assets, "L1_A-station-board.glb");
+        var nameMarkers = _platforms.AddNameMarkers(_sceneAxis, namePlatePath);
+        if (nameMarkers != _sceneAxis.Axis.Stations.Count)
+        {
+            Abort(5, $"[STACJA] {namePlatePath} nie dał tablic nazw wszystkich stacji.");
+            return;
+        }
 
         // KABINA WCHODZI TĄ SAMĄ DROGĄ CO SKORUPA I PERONY, łącznie z odmową przy zerze
         // brył (MB-05). Odrzucenie wyniku `Load` jest tu tą samą usterką co przy składzie

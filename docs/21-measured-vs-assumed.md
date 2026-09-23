@@ -327,6 +327,15 @@ i to jest rachunek, nie wybór. Wysokość peronu 1,03 m ma status `spec`.
 **Świadomie niemodelowane w T-212:** rzut stacji, liczba i położenie wyjść, bramki
 biletowe i kasy, konstrukcja (słupy, belki, dylatacje), instalacje.
 
+**Neutralne tablice nazw stacji** (`tools/blender/station_board.py`,
+`StationView.AddNameMarkers`) mają status `design_assumption`. Nazwy pochodzą z osi
+trasy; pełna nazwa dwujęzyczna zajmuje dwa wiersze. Jednorzędna płytka ma wysokość
+0,80 m i środek na 4,25 m nad główką szyny, a dwurzędna 1,10 m i środek na 4,40 m.
+Obie zaczynają się na 3,85 m: 0,25 m nad projektowym dachem M7 (3,60 m).
+Dwurzędna kończy się na 4,95 m: 0,35 m pod stropem komory (5,30 m).
+Położenie 15 m za osią stacji i neutralny wygląd są wyborem dla czytelności z kabiny,
+nie odwzorowaniem oznakowania STIB/MIVB.
+
 ## 4g. Kabina maszynisty — układ kanoniczny (`tools/blender/m7_cab.py`, 6.D119)
 
 **Wszystkie wartości w tej sekcji mają status `design_assumption`. Żadna nie pochodzi

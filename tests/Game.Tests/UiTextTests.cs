@@ -228,7 +228,8 @@ public sealed class UiTextTests
     // source literals; recounted against the current playable scene.
     // 582 -> 584 (24.09.2026, braking cue): klucz `hud.station.brake-now` w obu gałęziach dojazdu.
     // 584 -> 586 (24.09.2026, preparing to brake): second cue key in both approaches.
-    private const int LiteralowWZasieguBramki = 586;
+    // 586 -> 588 (24.09.2026, oznaczenia stacji): nazwa zasobu i odmowa jego braku.
+    private const int LiteralowWZasieguBramki = 588;
 
     /// <summary>Ile różnych — dolne ostrze, zmierzone 12.09.2026.</summary>
     private const int RoznychLiteralowWZasieguBramki = 362;
@@ -1499,7 +1500,8 @@ public sealed class UiTextTests
     // 619 -> 623 (23.09.2026, tory i światła): cztery pozycje źródłowe dodane do sceny. PRZELICZONE.
     // 623 -> 625 (24.09.2026, braking cue): klucz w obu gałęziach `FirstRun.StationLine`.
     // 625 -> 627 (24.09.2026, preparing to brake): second cue key in both approaches.
-    private const int PozycjiStaregoCzytnika = 627;
+    // 627 -> 629 (24.09.2026, oznaczenia stacji): dwa nowe literały FirstRun.
+    private const int PozycjiStaregoCzytnika = 629;
 
     /// <summary>
     /// Ile PLIKÓW korpusu stary czytnik czytał inaczej niż leksykalny — 6.D182.
@@ -2098,7 +2100,8 @@ public sealed class UiTextTests
     // sygnalizacji. Liczba PRZELICZONA przebiegiem.
     // 139 -> 137 (23.09.2026, 6.M1): odtworzenie linii — zdarzenia w zapisie wejść, `ExecuteLineEvent` w `FirstRun` i nowa odmowa `--replay --line` bez `--signalling` w `RunPlan`. PRZELICZONE.
     // 137 -> 138 (23.09.2026, tory i światła): nowy literał na drodze całego pliku. PRZELICZONE.
-    private const int ZgloszenFirstRunCalymPlikiem = 138;
+    // 138 -> 140 (24.09.2026, station-wayfinding): ścieżka tablicy i komunikat odmowy.
+    private const int ZgloszenFirstRunCalymPlikiem = 140;
 
     /// <summary>Ile daje ten sam plik liczony WIERSZ PO WIERSZU — 6.D180.</summary>
     // 122 -> 132 (14.09.2026, MB-04): `FirstRun.AssetsRoot`, `DomyslnyZapisWejsc`
@@ -2112,7 +2115,8 @@ public sealed class UiTextTests
     // sygnalizacji. Liczba PRZELICZONA przebiegiem.
     // 151 -> 149 (23.09.2026, 6.M1): odtworzenie linii — zdarzenia w zapisie wejść, `ExecuteLineEvent` w `FirstRun` i nowa odmowa `--replay --line` bez `--signalling` w `RunPlan`. PRZELICZONE.
     // 149 -> 150 (23.09.2026, tory i światła): nowy literał na drodze wierszy. PRZELICZONE.
-    private const int ZgloszenFirstRunWierszami = 150;
+    // 150 -> 152 (24.09.2026, station-wayfinding): te same dwa literały tablicy.
+    private const int ZgloszenFirstRunWierszami = 152;
 
     /// <summary>Ile plików korpusu daje różne liczby obiema drogami — 6.D180.</summary>
     private const int PlikowZRoznicaDrog = 1;
@@ -2307,7 +2311,8 @@ public sealed class UiTextTests
     // 399 -> 400 (23.09.2026, 6.M1): odtworzenie linii — zdarzenia w zapisie wejść, `ExecuteLineEvent` w `FirstRun` i nowa odmowa `--replay --line` bez `--signalling` w `RunPlan`. PRZELICZONE.
     // 400 -> 402 (24.09.2026, braking cue): dwa użycia klucza po zdjęciu jednostek.
     // 402 -> 404 (24.09.2026, preparing to brake): two new catalog lookups.
-    private const int LiteralowDotknietychZdejmowaniem = 404;
+    // 404 -> 406 (24.09.2026, station-wayfinding): dwa literały ścieżki i odmowy.
+    private const int LiteralowDotknietychZdejmowaniem = 406;
 
     /// <summary>
     /// Ilu literałom zdejmowanie jednostek ZABIERA werdykt „to słowo" — 6.D155.
@@ -3541,7 +3546,8 @@ public sealed class UiTextTests
     // w `FirstRun`: po dwa przy osi i przy manifeście chunków, jeden przy planie
     // sygnalizacji. Liczba PRZELICZONA przebiegiem.
     // 149 -> 148 (23.09.2026, 6.M1): odtworzenie linii w `FirstRun` i `RunPlan`. PRZELICZONE.
-    private const int LiteralowZKlamra = 148;
+    // 148 -> 149 (24.09.2026, station-wayfinding): odmowa przy braku GLB tablicy ma interpolowaną ścieżkę.
+    private const int LiteralowZKlamra = 149;
 
     /// <summary>
     /// Ilu literałom <see cref="BezDziur"/> zabiera WSZYSTKIE słowa — 6.D188.
@@ -5416,7 +5422,8 @@ public sealed class UiTextTests
     //: WEWNĄTRZ `Abort`, które niosą jego argument, a nie własny literał.
     //: 21 -> 26 (22.09.2026, 6.D235): pięciu wołających — osłony pliku ZŁEGO, po dwie
     //: klauzule przy osi i przy manifeście chunków, jedna nowa przy planie sygnalizacji.
-    private const int WolajacychAbort = 26;
+    // 26 -> 27 (24.09.2026): brak generowanej tablicy zatrzymuje uruchomienie.
+    private const int WolajacychAbort = 27;
     private const int WypisowBleduPozaAbort = 5;
 
     /// <summary>

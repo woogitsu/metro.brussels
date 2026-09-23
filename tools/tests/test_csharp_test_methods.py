@@ -630,7 +630,9 @@ ROZKLAD_POSTACI = {
         # 4901 -> 4904 (24.09.2026, integracja): scisle porownania w DoorPromptTests.
         # 4904 -> 4915 i 840 -> 842 (24.09.2026, dwustopniowe cue): testy obu faz.
         # 4915 -> 4920 (24.09.2026, S): cztery literały i komunikat asercji.
-        "zwykly": 4920,
+        # 4920 -> 4929 (24.09.2026, oznaczenia stacji): pelna nazwa i
+        # komunikaty pieciu asercji testow znacznikow; zmierzone czytnikiem.
+        "zwykly": 4929,
         "interpolowany ($)": 842,
         "werbatim (@)": 100,
         "surowy interpolowany ($$\"\"\")": 13,
@@ -690,7 +692,9 @@ ROZKLAD_POSTACI = {
         # 1452 -> 1456 (23.09.2026): cztery literaly kodu nowej sceny.
         # 1456 -> 1460 (24.09.2026, braking cue): wskazowka w obu trybach.
         # 1460 -> 1464 (24.09.2026, dwustopniowe cue): cztery nowe literały HUD.
-        "zwykly": 1464,
+        # 1464 -> 1465 i 514 -> 515 (24.09.2026, oznaczenia stacji):
+        # sciezka GLB i odmowa braku; zmierzone czytnikiem po obu katalogach.
+        "zwykly": 1465,
         # 489 -> 494 (22.09.2026, 6.D235): piec komunikatow `Abort` dla pliku ZLEGO
         # w `FirstRun.cs`. Przeliczone z drzewa, nie zsumowane.
         # 494 -> 513 (23.09.2026, 6.M1): komunikaty odmow i wiersze zapisu zdarzen
@@ -698,7 +702,7 @@ ROZKLAD_POSTACI = {
         # 513 -> 514 (23.09.2026, 6.D357): wiersz odmowy `JsonText.Parse` przestal
         # doklejac `error.Message` i ma DWIE postacie — z pozycja z liczb parsera
         # i bez niej, gdy parser jej nie podal; jedna byla, sa dwie. ZMIERZONE.
-        "interpolowany ($)": 514,
+        "interpolowany ($)": 515,
         "werbatim (@)": 0,
         "surowy interpolowany ($$\"\"\")": 1,
         "surowy (\"\"\")": 1,

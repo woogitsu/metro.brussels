@@ -28,14 +28,15 @@ ROOT = tree_walk.ROOT
 #: przez `bash x.sh` i nie uruchamia przez `./x.sh`, a instrukcja podaje jedno z dwoch.
 SKRYPTY = ("tools/dev/prepare-playable.sh", "tools/dev/play.sh")
 
-#: Generatory, ktore sklada sie na przepis pakietu A. ZMIERZONE 13.09.2026 z kroku
-#: `Generate package A geometry`, ktory ten skrypt zastapil — po jednym wywolaniu
-#: kazdego, w tej kolejnosci.
+#: Generatory przepisu pakietu A. Pierwsze cztery zmierzono 13.09.2026 z kroku
+#: `Generate package A geometry`; piaty generuje neutralna tablice nazw stacji.
+#: Kazdy ma jedno wywolanie w skrypcie, w tej kolejnosci.
 GENERATORY = (
     "tools/blender/tunnel_sweep.py",
     "tools/blender/m7_shell.py",
     "tools/track/station_layout.py",
     "tools/blender/station_kit.py",
+    "tools/blender/station_board.py",
 )
 
 #: Parametry, ktore MUSZA stac w przepisie jawnie — z powodem kazdego OSOBNO.
@@ -206,7 +207,8 @@ def test_brak_zasobu_konczy_sie_NAZWANYM_bledem_a_nie_pusta_scena():
     assert "prepare-playable.sh" in play, (
         "komunikat braku zasobow nie mowi, co uruchomic — a to jest cala roznica "
         "miedzy nazwanym bledem a pusta scena")
-    for wymagany in ("L1_A-chunks.json", "M7_shell.glb", "L1_A-platforms.glb"):
+    for wymagany in ("L1_A-chunks.json", "M7_shell.glb", "L1_A-platforms.glb",
+                     "L1_A-station-board.glb"):
         assert wymagany in play, (
             "`tools/dev/play.sh` nie sprawdza obecnosci `%s`" % wymagany)
 

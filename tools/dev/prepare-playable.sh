@@ -111,5 +111,9 @@ echo "[PRZYGOTOWANIE] bryły peronów -> $OUT/L1_A-platforms.glb"
     --out "$OUT/L1_A-platforms.glb" \
     --metrics "$OUT/L1_A-platforms-metrics.json"
 
+echo "[PRZYGOTOWANIE] neutralna tablica stacji -> $OUT/L1_A-station-board.glb"
+"$BLENDER_EXE" --background --python-exit-code 7 --python tools/blender/station_board.py -- \
+    --out "$OUT/L1_A-station-board.glb"
+
 ls -la "$OUT" "$OUT/chunks" | sed -n '1,20p'
 echo "[PRZYGOTOWANIE] gotowe. Trening: bash tools/dev/play.sh"

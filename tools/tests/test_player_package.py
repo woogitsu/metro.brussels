@@ -207,6 +207,12 @@ def test_skrypt_NIE_kopiuje_calego_katalogu_wyjsciowego():
     )
 
 
+def test_generowana_tablica_stacji_jest_w_paczce():
+    skrypt = _czytaj(SKRYPT)
+    assert 'cp "$ZASOBY_SRC/L1_A-station-board.glb" "$ZASOBY/"' in skrypt, (
+        "scena ładuje GLB neutralnej tablicy, lecz paczka go nie kopiuje")
+
+
 def test_paczka_windows_ma_osobny_preset_i_instrukcje_startu():
     """Paczka ma plik EXE i instrukcję dla gracza po przejściu całego skryptu."""
     if os.name == "nt":
@@ -215,7 +221,8 @@ def test_paczka_windows_ma_osobny_preset_i_instrukcje_startu():
     with tempfile.TemporaryDirectory() as temp:
         src = os.path.join(temp, "zasoby")
         os.makedirs(os.path.join(src, "chunks"))
-        for nazwa in ("M7_shell.glb", "M7_cab.glb", "L1_A-platforms.glb"):
+        for nazwa in ("M7_shell.glb", "M7_cab.glb", "L1_A-platforms.glb",
+                      "L1_A-station-board.glb"):
             open(os.path.join(src, nazwa), "wb").close()
         for nazwa in ("L1_A_000.glb", "L1_A_000_detail.glb"):
             open(os.path.join(src, "chunks", nazwa), "wb").close()
@@ -251,6 +258,9 @@ def test_paczka_windows_ma_osobny_preset_i_instrukcje_startu():
                 paczka = os.path.join(ROOT, out, "MetroBXL")
                 assert os.path.isfile(os.path.join(paczka, plik)), (
                     f"paczka {system or 'linux'} nie zawiera pliku {plik}")
+                assert os.path.isfile(os.path.join(paczka, "zasoby",
+                                                   "L1_A-station-board.glb")), (
+                    f"paczka {system or 'linux'} nie zawiera tablicy stacji")
                 assert plik in _czytaj(os.path.join(paczka, "CZYTAJ-TO-NAJPIERW.txt")), (
                     f"README paczki {system or 'linux'} nie wskazuje pliku {plik}")
                 assert preset in _czytaj(args), (

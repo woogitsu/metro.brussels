@@ -131,6 +131,7 @@ echo "[PACZKA] zasoby runtime -> $ZASOBY"
 cp "$ZASOBY_SRC/M7_shell.glb"        "$ZASOBY/"
 cp "$ZASOBY_SRC/M7_cab.glb"          "$ZASOBY/"
 cp "$ZASOBY_SRC/L1_A-platforms.glb"  "$ZASOBY/"
+cp "$ZASOBY_SRC/L1_A-station-board.glb" "$ZASOBY/"
 cp "$ZASOBY_SRC/chunks/L1_A-chunks.json" "$ZASOBY/chunks/"
 # Chunki i ich LOD-y — po nazwie, bo manifest wymienia je po nazwie.
 cp "$ZASOBY_SRC"/chunks/L1_A_*.glb "$ZASOBY/chunks/"
