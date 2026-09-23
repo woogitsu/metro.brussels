@@ -437,7 +437,9 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 # 1743 -> 1750 (17.09.2026, 6.D260): SIEDEM asercji z komunikatem dokladanych przez
 # kontrole przyrzadu czytnika lancuchow w `UiTextTests.cs`. Wszystkie SIEDEM ma
 # komunikat, wiec obie zapadki — ta i `ASERCJI_RAZEM` — rosna o tyle samo.
-Z_KOMUNIKATEM_RAZEM = 1750
+# 1750 -> 1770 (22.09.2026, 6.M2): DWADZIESCIA asercji `StopWindowParityTests.cs`,
+# wszystkie z komunikatem — obie zapadki rosna o tyle samo.
+Z_KOMUNIKATEM_RAZEM = 1770
 NIEROZSTRZYGNIETYCH = 68
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
 #: `tests/Sim.Tests/DefaultArmAuditTests.cs` — bramki na ramionach domyślnych
@@ -524,7 +526,9 @@ NIEROZSTRZYGNIETYCH = 68
 # przyrzadu `Czytnik_lancucha_odpowiada_o_TEJ_stalej_i_tylko_o_dawnych_wartosciach`
 # w `UiTextTests.cs` — trzy postaci odpowiedzi i trzy przypadki, w ktorych czytnik
 # ma milczec (dzisiejsza wartosc, liczba spoza lancucha, cudza stala).
-ASERCJI_RAZEM = 3197
+# 3197 -> 3217 (22.09.2026, 6.M2): DWADZIESCIA asercji `StopWindowParityTests.cs`,
+# kazda z komunikatem. Przeliczone z drzewa.
+ASERCJI_RAZEM = 3217
 
 
 def _rozklad():

@@ -2195,7 +2195,8 @@ def _istnieje_w_drzewie(nazwa):
 # 1370 -> 1372 i 551 -> 552 (21.09.2026, 6.D341): blok 6.D341 przeszedl do wykonanych; ZMIERZONE.
 # 1372 -> 1375 i 552 -> 553 (21.09.2026, 6.D342): blok 6.D342 przeszedl do wykonanych; ZMIERZONE.
 # 1375 -> 1379 i 553 -> 554 (21.09.2026, 6.D343): blok 6.D343 przeszedl do wykonanych; ZMIERZONE.
-ADRESOW_W_WYKONANYCH = {"Wejście": 1379, "Wyjście": 72, "Weryfikacja": 554}
+# 1379 -> 1381 i 554 -> 555 (22.09.2026, 6.M2): blok 6.M2 przeszedl do wykonanych; ZMIERZONE.
+ADRESOW_W_WYKONANYCH = {"Wejście": 1381, "Wyjście": 72, "Weryfikacja": 555}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
