@@ -65,7 +65,7 @@ public sealed class HudLayoutTests
         var block = next < 0 ? scene[start..] : scene[start..next];
 
         var found = new Dictionary<string, double>(StringComparer.Ordinal);
-        foreach (Match m in Regex.Matches(block, @"(?m)^([a-z_]+) = (-?[0-9.]+)$"))
+        foreach (Match m in Regex.Matches(block, @"(?m)^([a-z_]+) = (-?[0-9.]+)\r?$"))
         {
             found[m.Groups[1].Value] = double.Parse(m.Groups[2].Value, CultureInfo.InvariantCulture);
         }
@@ -131,7 +131,7 @@ public sealed class HudLayoutTests
         var next = scene.IndexOf("\n[node ", start + 1, StringComparison.Ordinal);
         var block = next < 0 ? scene[start..] : scene[start..next];
 
-        var tryb = Regex.Match(block, @"(?m)^autowrap_mode = ([0-9]+)$");
+        var tryb = Regex.Match(block, @"(?m)^autowrap_mode = ([0-9]+)\r?$");
         Assert.IsTrue(tryb.Success,
             "wiersz pozycji nie ma `autowrap_mode` — długa nazwa stacji zostanie UCIĘTA, "
             + "a nie zawinięta");
