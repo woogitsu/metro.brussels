@@ -2198,7 +2198,8 @@ def _istnieje_w_drzewie(nazwa):
 # 1379 -> 1381 i 554 -> 555 (22.09.2026, 6.M2): blok 6.M2 przeszedl do wykonanych; ZMIERZONE.
 # 1381 -> 1385 i 555 -> 556 (22.09.2026, 6.D235): blok 6.D235 przeszedl do wykonanych; ZMIERZONE.
 # 1385 -> 1387, 72 -> 73 i 556 -> 557 (23.09.2026, 6.D359): blok 6.D359 przeszedl do wykonanych; ZMIERZONE.
-ADRESOW_W_WYKONANYCH = {"Wejście": 1387, "Wyjście": 73, "Weryfikacja": 557}
+# 1387 -> 1389 i 557 -> 558 (23.09.2026, 6.D350): blok 6.D350 przeszedl do wykonanych; ZMIERZONE.
+ADRESOW_W_WYKONANYCH = {"Wejście": 1389, "Wyjście": 73, "Weryfikacja": 558}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
@@ -2393,7 +2394,9 @@ ADRESOW_W_WYKONANYCH = {"Wejście": 1387, "Wyjście": 73, "Weryfikacja": 557}
 # wymienia DWA moduly, wiec zapadka rosnie o dwa. ZMIERZONE.
 # 256 -> 258 (23.09.2026, 6.D359): blok 6.D359 przeszedl do wykonanych; jego plotek
 # wymienia DWA moduly, wiec zapadka rosnie o dwa. ZMIERZONE.
-WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 258}
+# 258 -> 260 (23.09.2026, 6.D350): blok 6.D350 przeszedl do wykonanych; jego plotek
+# wymienia DWA moduly, wiec zapadka rosnie o dwa. ZMIERZONE.
+WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 260}
 
 #: Ilu kandydatow zlego adresu daje regula prozy, per pole — 6.D158.
 # 12 -> 13 (14.09.2026, 6.D204): trzynastym kandydatem jest `test_mutation_sweep.py`
@@ -2425,7 +2428,11 @@ WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 258}
 # 21 -> 22 (23.09.2026, 6.D359): kandydat z plotka „Weryfikacji" bloku tej pozycji,
 # `test_next_task.py` — nazwa modulu bez sciezki, ktorej proza bloku nie wymienia
 # (odczytane wprost z `kandydaci_pola_w_wykonanych`). Ten sam ksztalt co poprzednie.
-KANDYDATOW_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 22}
+# 22 -> 24 (23.09.2026, 6.D350): dwaj kandydaci z plotka „Weryfikacji" bloku tej
+# pozycji, `test_tree_walks.py` i `test_suite_runtime_budget.py` — nazwy modulow bez
+# sciezki, ktorych proza bloku nie wymienia (odczytane wprost z
+# `kandydaci_pola_w_wykonanych`). Ten sam ksztalt co poprzednie, a nie zly adres; ZMIERZONE.
+KANDYDATOW_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 24}
 
 
 def adresy_pola_w_wykonanych(pole):
