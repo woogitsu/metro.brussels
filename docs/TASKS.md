@@ -1325,7 +1325,7 @@ właściciel.
 | 6.D349 | **Ile nazw niesie mianownik ulamka bez licznika** | zmierzone 21.09.2026 przy 6.D339: wszystkie piec mianownikow ulamka w nazwach stoi po `Per` albo po podkresleniu, ale JEDEN nie ma licznika - nazwa mowi na kilogram, nie mowiac, czego. Ile nazw w `src/` i `tools/` niesie mianownik, ktorego licznik nie pada w tej samej nazwie, nie policzyl nikt | M |
 | 6.D350 | **Ile bramek sumuje liczby zmiennoprzecinkowe w kolejnosci zaleznej od haszowania** | zmierzone 21.09.2026 przy 6.D341: przyrzad tamtej pozycji, uruchomiony trzy razy na TYCH SAMYCH danych, dal 74,418 / 74,418 / 74,417 s, a z ustalonym ziarnem haszowania dwa razy te sama wartosc; przyczyna jest w petli po ZBIORZE napisow i w tym, ze dodawanie float nie jest laczne. Ile miejsc pod `tools/` sumuje tak samo i w ilu kolejnosc NAPRAWDE zmienia wynik, nie policzyl nikt | M |
 | 6.D351 | **Ile kosztuje w bramkach uruchomienie cudzego skryptu** | zmierzone 21.09.2026 przy 6.D341: dwa moduly z pierwszej dziesiatki przyrostu wnosza razem 17,774 s i obydwa uruchamiaja `doctor.sh` w podprocesie; sa w tej dziesiatce jedynymi, ktore nie czytaja ani prozy, ani drzewa. Ile modulow pod `tools/tests/` startuje podproces i ile to razem kosztuje, nie policzyl nikt | M |
-| 6.D352 | **Czy wyluskanie z `PATH_TOKEN` przetrwa DRUGA alternatywe w tym wzorcu** | zmierzone 21.09.2026 przy 6.D343: dwa miejsca wyluskuja liste rozszerzen z tekstu wzorca sciezek PIERWSZYM trafieniem, i obie maja obrone — jedna bramke, druga `assert`. Zadna nie sprawdza, czy grupa nieprzechwytujaca w tamtym wzorcu jest JEDNA; druga, dopisana kiedykolwiek, zostalaby wzieta albo pominieta zaleznie od kolejnosci | M |
+| 6.D352 | **ZROBIONE w #PR (23.09.2026): druga grupa `(?:…)` mieści się w obu wzorcach i zagrożenie jest REALNE — a `assert` nie zapala się ani razu na dziewięciu wariantach.** **Poprawka założenia:** wzorców `PATH_TOKEN` są DWA, nie jeden — każde wyłuskanie czyta własny, a listy rozszerzeń różnią się pięcioma (`glb`, `jsonl`, `log`, `png`, `zip` zna tylko wzorzec pól kolejki). Kontrola przyrządu przechodzi: na każdym z dzisiejszych wzorców oba wyłuskania dają tę samą listę. Grup nieprzechwytujących: **1** we wzorcu pól kolejki, **2** we wzorcu raportów — drugą (opcjonalna wiodąca kropka) wyłuskanie przeżywa dzięki klasie `[a-z|]+`, nie dzięki obronie. Na wejściu syntetycznym (podział alternatywy, zagnieżdżenie, człon przed i po rozszerzeniu, nowe `sln|godot|cfg` przed albo po) kolejność grup decyduje o tym, co zostaje wzięte; bramka `test_wzorzec_golej_nazwy_dzieli_rozszerzenia_z_PATH_TOKEN` zapala się tylko, gdy druga grupa zabiera `csproj`, `geojson` albo `py` (3 z 17 rozszerzeń wyniesionych pojedynczo), a 5 z 17 nie zapala w module niczego — przy `yml` ginie 54 gołych nazw. `assert` w `_rozszerzenia_we_wzorcu` milczy na wszystkich dziewięciu wariantach; łapie za niego równość z `ROZSZERZENIA_PILNOWANE`, ślepa, gdy druga grupa stoi PO pierwszej. Żadnej obrony nie ruszono (poza zakresem). Raport: `reports/6d352-druga-grupa-miesci-sie-a-assert-nie-zapala-sie-ani-razu.md`; znalezisko poboczne — 6.D360. | M |
 | 6.D353 | **Ile bramek twierdzi o TRESCI wzorca, a nie o jego zachowaniu** | zmierzone 21.09.2026 przy 6.D343: szesc z jedenastu wzorcow skladanych w czasie wykonania NIE odzyskuje sie ze zrodla wcale, wiec bramka sprawdzajaca taki wzorzec przez czytanie jego tekstu sprawdza szablon, a nie to, co wzorzec robi. Ile bramek robi jedno, a ile drugie, nie policzyl nikt | M |
 | 6.D359 | **ZROBIONE w #PR (23.09.2026): `queue_row` dzielił cały `docs/TASKS.md` na wiersze przy KAŻDYM wywołaniu — koszt kolejki rósł z kwadratem długości pliku.** Decyzja właściciela z 23.09.2026: zestaw ma zejść pod próg 440 s bez ruszania progu. Pomiar zamiast szacunku: jedno wywołanie `python3` zamiast czterech w `doctor.sh` oszczędzałoby ~2 s z ~9 s, a profil `open_items` pokazał 430 wywołań `queue_row` i `splitlines` 1,4 s z 2,2 s. Słownik budowany raz na tekst (`functools.lru_cache`, kluczem jest treść) daje odpowiedź identyczną dla 443 numerów; cztery odczyty kolejki 6,96 → 0,15 s, `doctor.sh --no-tests` 10,5 → ~2,0 s, zestaw lokalnie 485 → 298 s ściany, 288,8 s CPU. Próg, `doctor.sh` i reguły bramek bez zmian | S |
 | 6.D356 | **ZROBIONE w #PR (23.09.2026): `Sim.Runner` na dokumencie innego KSZTAŁTU mówi po polsku — a o tym, czy wyjątek jest „kształtem”, rozstrzyga ZESTAW, który go rzucił, nie jego typ.** Filtr po typie, jak `BadFile` sceny, był tu niemożliwy: `src/Sim/` rzuca własne `KeyNotFoundException` i `InvalidOperationException` z polskimi komunikatami (`plan … nie ma bloku …`), więc `Program.IsWrongJsonShape` patrzy na `TargetSite` wyjątku i rozpoznaje tylko te rzucone przez `System.Text.Json`. Polski opis (`Program.WrongJsonShapeText`) wchodzi w DWÓCH miejscach: w `FromFile` (z nazwą pliku, powód parsera zostaje jako `InnerException`) i we wspólnym handlerze `Main` — bo kształt potrafi wyjść także POZA czytnikiem (`--timetable` z `"segments": 5` rzuca w `CompareWithTimetable`). **Test złapał moje własne słowo:** pierwsza wersja opisu mówiła „pole albo element”, a `element` stoi też w komunikacie `System.Text.Json` — test biorący słowa zakazane z PRAWDZIWEGO wyjątku zapalił się na tym i opis mówi dziś „wpis”. Trzy kształty z pomiaru (`[]`, `5`, `{"points": 5}`): kod 1 jak przed zmianą, wiersz bez ani jednego słowa parsera; `{}` nadal daje polską odmowę loadera. Ślad sześciu osi bez zmiany co do bajtu. Ze znaleziska dopisane 6.D361 | S |
@@ -1336,6 +1336,7 @@ właściciel.
 | 6.D368 | **Stałe nazwy plików testowych w katalogu tymczasowym kolidują między runnerami** | zmierzone 23.09.2026: `RunnerCommandTests.Rownosc_w_wartosci_znanej_opcji_przechodzi` pisze do `a=b.csv`, a `doctor.sh` do `mbxl_tests.log` i `mbxl_sim_tests.log` pod wspólnym katalogiem tymczasowym. Równoległe przebiegi mogą pisać do tych samych ścieżek | S |
 | 6.D369 | **Testy doctora udają brak SDK, lecz widzą systemowe `/opt/dotnet/dotnet`** | 23.09.2026: na runnerze z SDK 10.0.401 pod `/opt` pięć testów `test_dotnet_version.py` daje wynik zależny od hosta, choć podstawiają `HOME` i `PATH`. `doctor.sh` skanuje również trzy bezwzględne ścieżki systemowe. Kontrolowany prefiks tych ścieżek w testach ma zachować zwykłe zachowanie doctora i obie strony próby: brak oraz obecność SDK | S |
 | 6.D361 | **Komunikat bramki rozkładu postaci literału nazywa drzewo „zapisanym”, a zapis „zmierzonym”** | zmierzone 23.09.2026 przy 6.D356: `test_rozklad_SZESCIU_postaci_literalu_zgadza_sie_z_drzewem` wypisuje `rozklad postaci pod tests/ to <widziane>, a zmierzono <oczekiwany>` — liczby z DRZEWA stoją po „to”, a liczby wpisane w zapadkę po „zmierzono”. Przy rozjeździe czyta się to odwrotnie i łatwo przepisać do zapadki nie tę stronę. Poprawka dotyczy wyłącznie tekstu komunikatu | S |
+| 6.D360 | **Dwa wzorce o nazwie `PATH_TOKEN` różnią się pięcioma rozszerzeniami — ile ścieżek z tych pięciu stoi w raportach niesprawdzonych** | zmierzone 23.09.2026 przy 6.D352: wzorzec pól kolejki zna `glb`, `jsonl`, `log`, `png` i `zip`, wzorzec raportów nie zna żadnego z nich, więc ścieżka o takim rozszerzeniu w grawisach raportu nie jest sprawdzana, czy istnieje. Ile ich stoi w `reports/*.md` i ile z nich się nie rozwiązuje, nie policzył nikt | M |
 
 #### Szczegóły pozycji z kompletem sześciu pól
 
@@ -16984,3 +16985,41 @@ w drzewie**, a nie tylko w rozmowie — z tego samego powodu, co dwie sekcje wy�
   wykonywalny i README z jego nazwą, a paczka zawiera runtime .NET.
 - **Poza zakresem:** ręczny odbiór na Windows, zmiana sceny i zasobów gry.
 - **Zależy od:** MB-04.
+##### 6.D360 · Dwa wzorce o nazwie `PATH_TOKEN` różnią się pięcioma rozszerzeniami
+
+- **Skąd:** zmierzone 23.09.2026 przy 6.D352,
+  `reports/6d352-druga-grupa-miesci-sie-a-assert-nie-zapala-sie-ani-razu.md` §1 i §8.
+  `PATH_TOKEN` z `tools/tests/test_field_paths.py` zna siedemnaście rozszerzeń,
+  `PATH_TOKEN` z `tools/tests/test_report_hygiene.py` — dwanaście, i wszystkie dwanaście
+  są wśród tamtych siedemnastu. Pięć (`glb`, `jsonl`, `log`, `png`, `zip`) zna tylko
+  wzorzec pól kolejki, więc ścieżka o takim rozszerzeniu w grawisach raportu nie jest
+  sprawdzana, czy istnieje. Zdania uzasadniającego tę różnicę w drzewie nie znalazłem.
+- **Dlaczego bez decyzji:** pozycja **LICZY**. Żadnego wzorca nie poszerza i żadnej
+  listy nie zrównuje — dołożenie rozszerzenia do wzorca raportów zmienia bramkę,
+  a to jest decyzja właściciela.
+- **Czego NIE wolno przyjąć bez pomiaru:** że różnica jest przeoczeniem. Wzorzec
+  raportów ma kopię `ROZSZERZENIA_PILNOWANE` i bramkę pokrycia, która żąda żywego
+  trafienia albo jawnego wyjątku dla każdego rozszerzenia — rozszerzenie bez ani
+  jednej ścieżki w raportach mogło zostać pominięte celowo. Rozstrzyga liczba
+  trafień, nie domysł.
+- **Wejście:** `tools/tests/test_field_paths.py` (`PATH_TOKEN`),
+  `tools/tests/test_report_hygiene.py` (`PATH_TOKEN`, `_paths_in`,
+  `ROZSZERZENIA_PILNOWANE`, `ROZSZERZENIA_BEZ_TRAFIEN`), `reports/*.md`.
+- **Wyjście:** dla każdego z pięciu rozszerzeń: ile ścieżek w grawisach stoi dziś
+  w `reports/*.md` (tym samym filtrem co `_paths_in`, z ukośnikiem i bez
+  `IGNORED_PREFIXES`) i ile z nich nie rozwiązuje się w drzewie; oraz czy którykolwiek
+  commit albo raport zapisał powód różnicy. Pięć par liczb i jedno zdanie o powodzie.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_report_hygiene.py test_field_paths.py
+  ```
+  Oczekiwane: zielone. Kontrola przyrządu: ten sam licznik puszczony na rozszerzeniu
+  `md` ma dać liczbę ścieżek `.md`, którą daje `_pomiar_trafien` z
+  `tools/tests/test_report_hygiene.py` — inny wynik znaczy, że filtr przyrządu nie jest
+  filtrem bramki.
+- **Skończone, gdy:** pięć par liczb stoi z wypisem, kontrola na `md` się zgadza,
+  i powiedziano wprost, czy któraś z niesprawdzanych ścieżek się nie rozwiązuje —
+  **także gdy żadna**, bo wtedy różnica wzorców nic dziś nie kosztuje.
+- **Poza zakresem:** zmiana któregokolwiek `PATH_TOKEN`; zmiana `ROZSZERZENIA_PILNOWANE`
+  i `ROZSZERZENIA_BEZ_TRAFIEN`; poprawianie raportów ze złą ścieżką; `src/`; `data/`.
+- **Zależy od:** 6.D352 (stamtąd różnica pięciu rozszerzeń).
