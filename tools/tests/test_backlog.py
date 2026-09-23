@@ -633,7 +633,8 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 # 425 -> 426 (23.09.2026, 6.D367): blok paczki Windows ma szesc pol.
 # 426 -> 427 (23.09.2026, 6.D356): blok 6.D361 dopisany z kompletem szesciu pol
 # (znalezisko przy przeliczaniu zapadki rozkladu postaci literalu); ZMIERZONE.
-MINIMUM_DETAIL_BLOCKS = 427
+# 427 -> 428 (23.09.2026, 6.D352): blok 6.D360 dopisany z kompletem szesciu pol.
+MINIMUM_DETAIL_BLOCKS = 428
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
