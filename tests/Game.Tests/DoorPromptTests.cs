@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using MetroBxl.Game.UI;
+using MetroBxl.Sim.Physics;
 using MetroBxl.Sim.Train;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -23,24 +24,63 @@ public sealed class DoorPromptTests
     private static readonly DoorPhase[] WszystkieFazy = Enum.GetValues<DoorPhase>();
 
     [TestMethod]
-    public void Sygnal_gotowosci_do_odjazdu_zapala_sie_DOKLADNIE_tam_gdzie_rdzen_zwalnia_trakcje()
+    public void Podpowiedz_otwarcia_podaje_wolna_trakcje_DOKLADNIE_tam_gdzie_rdzen_ja_zwalnia()
     {
-        // TO JEST GŁÓWNY TEST TEGO PLIKU. Nie pyta „czy w fazie zamkniętej pisze
-        // «można odjechać»" — pyta, czy ZBIÓR faz, w których HUD to pisze, jest TYM SAMYM
-        // zbiorem, w którym `DoorCycle.TractionAllowed` zwalnia nastawnik. Pierwsze
-        // pytanie ma tę samą odpowiedź także wtedy, gdy oba zdania rozjadą się w ósmej
-        // fazie; drugie nie ma.
-        var gotowosc = UiText.Get("hud.doors.ready");
+        // Informacja o wolnej trakcji ma odpowiadać rdzeniowi, lecz nie zachęcać
+        // do odjazdu przed otwarciem drzwi i obsługą peronu.
+        var podpowiedz = UiText.Get("hud.doors.open-to-serve");
         var zHudu = WszystkieFazy
-            .Where(faza => DoorPrompt.For(faza, refusal: null) == gotowosc)
+            .Where(faza => DoorPrompt.For(faza, refusal: null) == podpowiedz)
             .ToList();
         var zRdzenia = WszystkieFazy.Where(DoorCycle.TractionAllowed).ToList();
 
         CollectionAssert.AreEqual(zRdzenia, zHudu,
-            "HUD mówi „można odjechać” w fazach " + string.Join(", ", zHudu)
+            "HUD podaje wolną trakcję w fazach " + string.Join(", ", zHudu)
             + ", a rdzeń zwalnia trakcję w " + string.Join(", ", zRdzenia));
         Assert.AreEqual(1, zRdzenia.Count, "bez tego ostrza zgodność dwóch pustych zbiorów "
             + "przeszłaby tak samo dobrze, jak zgodność dwóch prawdziwych");
+    }
+
+    [TestMethod]
+    public void Zamkniete_drzwi_przed_obsluga_peronu_nie_zachecaja_do_odjazdu()
+    {
+        var postoj = new StationStop(new DoorCycle(8.0), FixedStep.Simulation, DoorControl.Manual);
+        Assert.AreEqual(DoorPhase.Closed, postoj.Phase,
+            "ręczny postój przed otwarciem drzwi zaczyna się w fazie zamkniętej");
+        Assert.IsFalse(postoj.Finished, "peron nie został jeszcze obsłużony");
+        Assert.IsTrue(DoorCycle.TractionAllowed(postoj.Phase),
+            "fizyczna możliwość ruszenia nie oznacza zakończenia obsługi");
+
+        var tekst = DoorPrompt.For(postoj.Phase, refusal: null);
+        StringAssert.Contains(tekst, "D: otwórz drzwi",
+            "podpowiedź ma prowadzić do obsługi peronu przed odjazdem");
+        StringAssert.Contains(tekst, "trakcja WOLNA",
+            "fizyczny stan nastawnika pozostaje widoczny");
+        Assert.IsFalse(tekst.Contains("można odjechać", StringComparison.OrdinalIgnoreCase),
+            "odjazd z zamkniętymi drzwiami pominąłby obsługę peronu");
+    }
+
+    [TestMethod]
+    public void Reczny_postoj_rozdziela_faze_podpowiedz_i_wynik_na_czytelne_wiersze()
+    {
+        foreach (var (phase, action) in new[]
+        {
+            (DoorPhase.Closed, "D: otwórz drzwi"),
+            (DoorPhase.Open, "F zamyka drzwi"),
+        })
+        {
+            var text = UiText.Format("hud.station.doors-manual",
+                phase == DoorPhase.Closed ? "zamknięte" : "otwarte",
+                DoorPrompt.For(phase, refusal: null), "+0.03", 1);
+            var lines = text.Split('\n');
+            Assert.AreEqual(3, lines.Length, "fazę, działanie i wynik trzeba odczytać osobno");
+            StringAssert.Contains(lines[0], "DRZWI", "pierwsza linia ma nazywać fazę");
+            StringAssert.Contains(lines[1], action, "druga linia ma podawać następny klawisz");
+            StringAssert.Contains(lines[2], "błąd zatrzymania +0.03 m",
+                "trzecia linia ma zachować dokładność zatrzymania");
+            StringAssert.Contains(lines[2], "obsłużone 1",
+                "trzecia linia ma zachować licznik obsługi");
+        }
     }
 
     [TestMethod]
@@ -124,7 +164,7 @@ public sealed class DoorPromptTests
         Assert.AreEqual("None", DoorPrompt.Reason(DoorRefusal.None),
             "None nie jest odmową, więc nie ma klucza w katalogu");
         Assert.AreEqual(
-            UiText.Get("hud.doors.ready"), DoorPrompt.For(DoorPhase.Closed, refusal: null),
+            UiText.Get("hud.doors.open-to-serve"), DoorPrompt.For(DoorPhase.Closed, refusal: null),
             "brak odmowy to `null`, a nie `DoorRefusal.None`");
     }
 }

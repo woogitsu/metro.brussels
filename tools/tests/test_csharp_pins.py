@@ -376,9 +376,11 @@ ROZKLAD_LICZBOWYCH = {
         # 240 -> 246 (22.09.2026, 6.D235): SZESC pinow calkowitych bez tolerancji
         # w `FileReadGuardTests.cs` i `BadFileTests.cs`. Przeliczone z drzewa.
         # 246 -> 249: trzy piny pozycji widoku kabiny, kazdy float z tolerancja.
-        "razem": 249, "z_tolerancja": 106, "bez_tolerancji": 143,
+        # 249 -> 250 (24.09.2026, door-prompt-service): jeden pin liczby
+        # wierszy komunikatu HUD; calkowity bez tolerancji. ZMIERZONE.
+        "razem": 250, "z_tolerancja": 106, "bez_tolerancji": 144,
         "zmiennoprzecinkowe": 112, "zmiennoprzecinkowe_bez_tolerancji": 6,
-        "calkowite": 137, "calkowite_z_tolerancja": 0, "tolerancja_zero": 18,
+        "calkowite": 138, "calkowite_z_tolerancja": 0, "tolerancja_zero": 18,
     },
     "tests/Sim.Tests": {
         # 441 -> 454 (13.09.2026, MB-02): trzynaście pinów liczbowych

@@ -119,14 +119,12 @@ public static class UiText
             // wypisać w niej albo zero (nieprawda), albo `NaN` (napis dla programisty).
             // Ta sama decyzja i ten sam powód, co przy dwóch wariantach wyżej (6.D99).
             ["hud.station.doors-manual"] =
-                "DRZWI {0} (ręcznie)  {1}  błąd zatrzymania {2} m   obsłużone {3}",
+                "DRZWI {0} (ręcznie)\n{1}\nbłąd zatrzymania {2} m   obsłużone {3}",
 
-            // SYGNAŁ GOTOWOŚCI DO ODJAZDU z pola „Wyjście" MB-08 to pierwszy z tych
-            // trzech wpisów. Nie jest osobnym napisem obok fazy drzwi, bo byłby wtedy
-            // drugim źródłem prawdy o tej samej rzeczy: trakcja jest wolna DOKŁADNIE
-            // w fazie zamkniętej (`DoorCycle.TractionAllowed`), więc gotowość do odjazdu
-            // jest zdaniem o fazie, a nie dodatkowym stanem.
-            ["hud.doors.ready"] = "D otwiera drzwi   trakcja WOLNA — można odjechać",
+            // Przed obsługą peronu zamknięte drzwi pozwalają ruszyć, ale odjazd
+            // pozostawiłby stację bez obsługi. HUD podaje właściwy następny krok
+            // i osobno zachowuje prawdziwą informację o stanie trakcji.
+            ["hud.doors.open-to-serve"] = "D: otwórz drzwi   trakcja WOLNA",
             ["hud.doors.prompt-close"] = "F zamyka drzwi",
             ["hud.doors.working"] = "skrzydła w ruchu — trakcja ZABLOKOWANA",
             ["hud.doors.refused"] = "ODMOWA: {0}",

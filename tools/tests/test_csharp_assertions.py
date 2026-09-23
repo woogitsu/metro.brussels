@@ -450,7 +450,9 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 # 1850 -> 1865 (23.09.2026, 6.D356): PIETNASCIE asercji `BrokenJsonRefusalTests.cs`,
 # wszystkie z komunikatem — obie zapadki rosna o tyle samo; ZMIERZONE.
 # 1865 -> 1874 (23.09.2026, tunel): dziewiec nowych asercji z komunikatem.
-Z_KOMUNIKATEM_RAZEM = 1874
+# 1874 -> 1886 (24.09.2026, door-prompt-service): dwanascie asercji w
+# `DoorPromptTests.cs` i `HudLayoutTests.cs`, kazda z komunikatem; ZMIERZONE.
+Z_KOMUNIKATEM_RAZEM = 1886
 NIEROZSTRZYGNIETYCH = 68
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
 #: `tests/Sim.Tests/DefaultArmAuditTests.cs` — bramki na ramionach domyślnych
@@ -557,7 +559,9 @@ NIEROZSTRZYGNIETYCH = 68
 # `Program.Main`, kontrola w druga strone na wlasnych wyjatkach rdzenia i wiersz
 # wspolnego handlera. Kazda z komunikatem; ZMIERZONE.
 # 3311 -> 3320 (23.09.2026, tunel): dziewiec asercji testow nowej sceny tunelu.
-ASERCJI_RAZEM = 3320
+# 3320 -> 3332 (24.09.2026, door-prompt-service): te same dwanascie asercji
+# nowych testow komunikatu postoju i ukladu HUD; ZMIERZONE.
+ASERCJI_RAZEM = 3332
 
 
 def _rozklad():
