@@ -1071,13 +1071,13 @@ POKRYTYCH_WYLACZNIE_PROZA = 44
 POKRYTYCH_WYLACZNIE_KODEM = 12
 POKRYTYCH_MIESZANIE = 1
 
-#: Pary wzajemne, przybite ADRESAMI WIERSZY. Numer wiersza rusza sie przy kazdym
-#: dopisanym akapicie powyzej, wiec przybicie po nim bylo by krucheszczyzna —
+#: Liczba par wzajemnych i rozklad po plikach, przeliczone 24.09.2026 po integracji.
+#: Numer wiersza rusza sie przy kazdym dopisanym akapicie powyzej, wiec przybicie po nim byloby kruche —
 #: dlatego przybita jest LICZBA par i rozklad po plikach, a same adresy stoja
 #: w `reports/6d274-proza-pokryta-proza.md`, gdzie starzec sie nie maja.
-PAR_WZAJEMNYCH = 9
+PAR_WZAJEMNYCH = 12
 PAR_WZAJEMNYCH_PER_PLIK = {
-    "test_dead_constants_csharp.py": 7,
+    "test_dead_constants_csharp.py": 10,
     "test_report_claims.py": 1,
     "test_suite_runtime_budget.py": 1,
 }
@@ -1105,12 +1105,12 @@ def klasy_pokrycia_zbiegiem():
 
 
 #: Ile liczb klasy `zbieg` ma NAJBLIZSZE pokrycie dalej niz polowa okna, i ile ma
-#: KAZDE pokrycie dokladnie na skraju okna. Zmierzone 19.09.2026 przy 6.D284.
+#: KAZDE pokrycie dokladnie na skraju okna. Przeliczone 24.09.2026 po integracji.
 #: Rownosci, a nie progi, z tego samego powodu co przy rozkladzie klas pokrycia:
 #: populacja jest mala, a kazde przejscie wpisu do klasy kruchych albo z niej jest
 #: zdarzeniem, ktore chce sie zobaczyc. Adresy stoja w raporcie, nie tutaj — numer
 #: wiersza rusza sie przy kazdym dopisanym akapicie i ta pozycja wlasnie tego dotyczy.
-POKRYCIE_DALEJ_NIZ_POLOWA_OKNA = 23
+POKRYCIE_DALEJ_NIZ_POLOWA_OKNA = 22
 POKRYCIE_NA_SKRAJU_OKNA = 1
 
 #: Ktora to liczba — para (plik, napis), a NIE numer wiersza. Stoi tu, bo sama
@@ -1283,7 +1283,7 @@ def test_ile_par_CERTYFIKUJE_SIE_NAWZAJEM():
     Porownanie per plik, a nie sama suma: 6.D267 zmierzylo, ze suma przesuniecia
     miedzy czlonami nie widzi, a tu czlonem jest plik. Rozklad pilnuje takze tego,
     zeby zjawisko nie zostalo odczytane jako wlasnosc JEDNEGO modulu — dwie z
-    dziewieciu par stoja poza tym, w ktorym je zobaczylem.
+    dwunastu par stoja poza tym, w ktorym je zobaczylem.
     """
     pary = pary_wzajemne()
     assert len(pary) == PAR_WZAJEMNYCH, (
