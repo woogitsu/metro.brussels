@@ -625,7 +625,8 @@ ROZKLAD_POSTACI = {
         # 4851 -> 4875 i 99 -> 100 (24.09.2026, door-prompt-service):
         # literały tekstowe i komunikaty asercji nowych testow postoju; ZMIERZONE.
         # 4875 -> 4886 (24.09.2026, braking cue): testy warunku przejecia i hamulca.
-        "zwykly": 4886,
+        # 4886 -> 4892 (24.09.2026, PR #771): nazwy siatek i komunikat asercji.
+        "zwykly": 4892,
         "interpolowany ($)": 838,
         "werbatim (@)": 100,
         "surowy interpolowany ($$\"\"\")": 13,

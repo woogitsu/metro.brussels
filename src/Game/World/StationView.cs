@@ -54,15 +54,27 @@ public sealed partial class StationView : Node3D
         scene.Name = "Platforms";
         AddChild(scene);
         GlbLoader.ApplyNeutralMaterial(scene, material);
+        // The generated warning strips have their own `_edge` meshes. Give them
+        // a readable, unbranded color instead of the slab's gray override.
+        var edgeMaterial = GlbLoader.NeutralMaterial(new Color(0.92f, 0.74f, 0.28f), 0.85f);
 
         _slabs.Clear();
         foreach (var instance in MeshInstances(scene))
         {
+            if (IsEdgeMeshName((string)instance.Name))
+            {
+                instance.MaterialOverride = edgeMaterial;
+            }
+
             _slabs.Add(instance.GlobalTransform * instance.GetAabb());
         }
 
         return _slabs.Count;
     }
+
+    /// <summary>Generator station_kit oznacza pasy przy krawędzi sufiksem `_edge`.</summary>
+    public static bool IsEdgeMeshName(string name) =>
+        name.AsSpan().EndsWith(['_', 'e', 'd', 'g', 'e']);
 
     private static IEnumerable<MeshInstance3D> MeshInstances(Node node)
     {
