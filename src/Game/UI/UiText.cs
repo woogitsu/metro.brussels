@@ -112,6 +112,7 @@ public static class UiText
             ["hud.station.no-more"] = "brak dalszych stacji   {0}",
             ["hud.station.approach"] = "{0} za {1} m (okno ±{2} m){3}   {4}",
             ["hud.station.in-window"] = "  W OKNIE — zatrzymaj się",
+            ["hud.station.brake-now"] = "  HAMUJ TERAZ",
             // --- drzwi RĘCZNE (`FirstRun.StationLine`, `FirstRun.PodpowiedzDrzwi`) — MB-08 ---
             // Trzeci wariant wiersza stacji, a nie czwarta dziura w dwóch istniejących.
             // Postój ręczny nie ma pola „jeszcze N s" — długość fazy otwartej podaje

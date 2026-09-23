@@ -2564,12 +2564,18 @@ public sealed partial class FirstRun : Node3D
 
         var approach = _stations.Approach(ChainageM);
         var okno = approach.WithinWindow ? UiText.Get("hud.station.in-window") : string.Empty;
+        var hamowanie = !approach.WithinWindow && BrakingCue.ShouldPrompt(
+            approach.DistanceM, _state.SpeedMps, _command.Throttle,
+            DesignAssumptions.ControlNotchRatePerSecond, _controller.ServiceBrakeMps2,
+            BrakingPointSolver.M7)
+            ? UiText.Get("hud.station.brake-now")
+            : string.Empty;
         return UiText.Format(
             "hud.station.approach",
             approach.DisplayName,
             approach.DistanceM.ToString("F0", CultureInfo.InvariantCulture),
             _stations.WindowM.ToString("F1", CultureInfo.InvariantCulture),
-            okno,
+            okno + hamowanie,
             licznik);
     }
 
