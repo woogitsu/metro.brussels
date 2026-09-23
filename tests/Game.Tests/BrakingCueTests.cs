@@ -100,6 +100,22 @@ public sealed class BrakingCueTests
             prepareAt, speed, rate, ServiceBrake, Solver), "player gets preparation");
         Assert.IsFalse(BrakingCue.ShouldPrepareOnLine(true, new DriverCommand(0.0, 0.01),
             prepareAt, speed, rate, ServiceBrake, Solver), "line cue also clears on brake");
+
+        // The step of S input is earlier than the physical Brake > 0 step when
+        // clearing full power. Replay and keyboard both write the accepted keys
+        // into FirstRun._activeKeys before StationLine is composed.
+        var notch = new DriverNotch(rate);
+        notch.Set(DriverCommand.FullPower);
+        var clearing = notch.Advance(DriverKeys.Braking, FixedStep.Simulation);
+        Assert.IsTrue(clearing.Throttle > 0.0 && clearing.Brake == 0.0,
+            "the test must exercise the notch-clearing interval");
+        Assert.IsTrue(BrakingCue.MayAdvise(DriverKeys.Powering, DriverCommand.FullPower));
+        Assert.IsFalse(BrakingCue.MayAdvise(DriverKeys.Braking, clearing),
+            "S must clear the cue on its first accepted step, before Brake rises");
+        Assert.IsFalse(BrakingCue.MayAdvise(DriverKeys.EmergencyBraking,
+            DriverCommand.FullServiceBrake), "Space also clears the cue");
+        Assert.IsFalse(BrakingCue.MayAdvise(DriverKeys.None,
+            new DriverCommand(0.0, 0.01)), "an already applied brake keeps it hidden");
     }
 
     [TestMethod]

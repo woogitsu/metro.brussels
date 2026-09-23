@@ -7,6 +7,14 @@ namespace MetroBxl.Game.UI;
 /// <summary>Advisory brake cue for a manually driven station approach.</summary>
 public static class BrakingCue
 {
+    /// <summary>
+    /// Hide the instruction on the very step in which the driver presses S or Space.
+    /// From full power, S clears the traction notch for 1.25 s before Brake becomes
+    /// positive; waiting for that value would keep telling the driver to press S.
+    /// </summary>
+    public static bool MayAdvise(DriverKeys keys, DriverCommand command) =>
+        !keys.Brake && !keys.Emergency && command.Brake <= 0.0;
+
     /// <summary>Small allowance for reading and reacting to the cue, in seconds.</summary>
     public const double ReactionLeadSeconds = 0.5;
 

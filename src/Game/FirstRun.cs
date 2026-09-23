@@ -2591,12 +2591,13 @@ public sealed partial class FirstRun : Node3D
             }
 
             var odleglosc = nastepnaNaLinii.Value.ChainageM - ChainageM;
-            var hamowanieNaLinii = BrakingCue.ShouldPromptOnLine(
+            var pokazWskazowke = BrakingCue.MayAdvise(_activeKeys, _command);
+            var hamowanieNaLinii = pokazWskazowke && BrakingCue.ShouldPromptOnLine(
                 ObservedOwner() == ControlOwner.Driver, _command, odleglosc, _state.SpeedMps,
                 DesignAssumptions.ControlNotchRatePerSecond,
                 _controller.ServiceBrakeMps2, BrakingPointSolver.M7)
                 ? UiText.Get("hud.station.brake-now")
-                : BrakingCue.ShouldPrepareOnLine(
+                : pokazWskazowke && BrakingCue.ShouldPrepareOnLine(
                     ObservedOwner() == ControlOwner.Driver, _command, odleglosc, _state.SpeedMps,
                     DesignAssumptions.ControlNotchRatePerSecond,
                     _controller.ServiceBrakeMps2, BrakingPointSolver.M7)
@@ -2645,12 +2646,13 @@ public sealed partial class FirstRun : Node3D
 
         var approach = _stations.Approach(ChainageM);
         var okno = approach.WithinWindow ? UiText.Get("hud.station.in-window") : string.Empty;
-        var hamowanie = !approach.WithinWindow && BrakingCue.ShouldPrompt(
+        var pokazHamowanie = BrakingCue.MayAdvise(_activeKeys, _command);
+        var hamowanie = pokazHamowanie && !approach.WithinWindow && BrakingCue.ShouldPrompt(
             approach.DistanceM, _state.SpeedMps, _command.Throttle, _command.Brake,
             DesignAssumptions.ControlNotchRatePerSecond, _controller.ServiceBrakeMps2,
             BrakingPointSolver.M7)
             ? UiText.Get("hud.station.brake-now")
-            : !approach.WithinWindow && BrakingCue.ShouldPrepare(
+            : pokazHamowanie && !approach.WithinWindow && BrakingCue.ShouldPrepare(
                 approach.DistanceM, _state.SpeedMps, _command.Throttle, _command.Brake,
                 DesignAssumptions.ControlNotchRatePerSecond, _controller.ServiceBrakeMps2,
                 BrakingPointSolver.M7)
