@@ -624,7 +624,8 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 # do 11 przy progu 12; te dwa bloki podnosza go do 13.
 # 417 -> 418 (22.09.2026, 6.M2): blok 6.M3 dopisany z kompletem szesciu pol.
 # 418 -> 420 (22.09.2026, 6.D235): bloki 6.D356 i 6.D357 dopisane z kompletem szesciu pol.
-MINIMUM_DETAIL_BLOCKS = 420
+# 420 -> 421 (23.09.2026, 6.D351): blok 6.D358 dopisany z kompletem szesciu pol.
+MINIMUM_DETAIL_BLOCKS = 421
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
