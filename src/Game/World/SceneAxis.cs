@@ -134,4 +134,38 @@ public sealed class SceneAxis
         var position = frame.Origin + (frame.Up * (float)heightM) + (frame.Right * (float)lateralM);
         return (position, frame.Forward);
     }
+
+    /// <summary>
+    /// Wygładzona pozycja oka dla animowanego widoku kabiny. Oś i ustawienie pudeł
+    /// pozostają bez zmian; filtr rozkłada załamania kierunku z 5-metrowych odcinków
+    /// osi na kilka klatek jazdy. Próbki są symetryczne, więc nie dodają opóźnienia.
+    /// </summary>
+    public (Vector3 Position, Vector3 Forward) SmoothCabPoint(
+        double chainageM, double setbackM, double heightM, double lateralM)
+    {
+        var at = Math.Clamp(chainageM - setbackM, 0.0, _axis.LengthM);
+        var centre = SmoothCentreLinePoint(at);
+        var before = SmoothCentreLinePoint(Math.Max(0.0, at - 1.5));
+        var after = SmoothCentreLinePoint(Math.Min(_axis.LengthM, at + 1.5));
+        var forward = (after - before).Normalized();
+        var right = forward.Cross(Vector3.Up).Normalized();
+        var up = right.Cross(forward).Normalized();
+        var position = centre + right * (float)(_trackOffsetM + lateralM) + up * (float)heightM;
+        return (position, forward);
+    }
+
+    private Vector3 SmoothCentreLinePoint(double at)
+    {
+        // Dwumianowy filtr [1, 6, 15, 20, 15, 6, 1] / 64.
+        // Promień 9 m obejmuje kilka pierścieni tunelu, ale na łukach linii A
+        // odchyla oko od osi tylko nieznacznie.
+        ReadOnlySpan<int> weights = [1, 6, 15, 20, 15, 6, 1];
+        var sum = Vector3.Zero;
+        for (var i = 0; i < weights.Length; i++)
+        {
+            sum += CentreLinePoint(Math.Clamp(at + (i - 3) * 3.0, 0.0, _axis.LengthM)) * weights[i];
+        }
+
+        return sum / 64.0f;
+    }
 }

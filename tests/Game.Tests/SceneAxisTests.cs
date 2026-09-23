@@ -174,6 +174,33 @@ public sealed class SceneAxisTests
     }
 
     [TestMethod]
+    public void SmoothCabPointSpreadsDirectionChangesAcrossTheCurve()
+    {
+        var route = TrackAxis.FromJson("""
+            {"id":"BEND","crs":"EPSG:31370",
+             "points":[[0,0,0],[20,0,0],[40,5,0],[60,20,0],[75,40,0],[80,60,0]],
+             "stations":[]}
+            """);
+        var scene = new SceneAxis(route, 2.10);
+        var largestSmoothStep = 0.0f;
+        var largestRawStep = 0.0f;
+        for (var at = 10.0; at <= route.LengthM - 11.0; at += 0.25)
+        {
+            var smoothA = scene.SmoothCabPoint(at, 0.0, 2.20, 0.0);
+            var smoothB = scene.SmoothCabPoint(at + 0.25, 0.0, 2.20, 0.0);
+            var rawA = scene.CabPoint(at, 0.0, 2.20, 0.0);
+            var rawB = scene.CabPoint(at + 0.25, 0.0, 2.20, 0.0);
+            largestSmoothStep = Math.Max(largestSmoothStep, smoothA.Forward.AngleTo(smoothB.Forward));
+            largestRawStep = Math.Max(largestRawStep, rawA.Forward.AngleTo(rawB.Forward));
+            Assert.AreEqual(2.20f, smoothA.Position.Y, 1e-3f);
+            Assert.AreEqual(1.0f, smoothA.Forward.Length(), 1e-4f);
+        }
+
+        Assert.IsTrue(largestSmoothStep < largestRawStep * 0.7f,
+            $"Największy skok kierunku: wygładzony {largestSmoothStep}, surowy {largestRawStep}");
+    }
+
+    [TestMethod]
     public void ConstructorRefusesAMissingAxis()
     {
         Assert.ThrowsException<ArgumentNullException>(() => new SceneAxis(null!, 2.10));

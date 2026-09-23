@@ -1979,7 +1979,7 @@ public sealed partial class FirstRun : Node3D
             ApplyView();
         }
 
-        var (eye, forward) = _sceneAxis.CabPoint(
+        var (eye, forward) = _sceneAxis.SmoothCabPoint(
             chainage,
             DesignAssumptions.CabEyeSetbackM,
             DesignAssumptions.CabEyeHeightM,
