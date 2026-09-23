@@ -375,9 +375,11 @@ ROZKLAD_LICZBOWYCH = {
         # `var` na typ jawny daje 535 przy pinie 536.
         # 240 -> 246 (22.09.2026, 6.D235): SZESC pinow calkowitych bez tolerancji
         # w `FileReadGuardTests.cs` i `BadFileTests.cs`. Przeliczone z drzewa.
-        "razem": 246, "z_tolerancja": 103, "bez_tolerancji": 143,
+        # 246 -> 247 (24.09.2026, door-prompt-service): jeden pin liczby
+        # wierszy komunikatu HUD; calkowity bez tolerancji. ZMIERZONE.
+        "razem": 247, "z_tolerancja": 103, "bez_tolerancji": 144,
         "zmiennoprzecinkowe": 109, "zmiennoprzecinkowe_bez_tolerancji": 6,
-        "calkowite": 137, "calkowite_z_tolerancja": 0, "tolerancja_zero": 18,
+        "calkowite": 138, "calkowite_z_tolerancja": 0, "tolerancja_zero": 18,
     },
     "tests/Sim.Tests": {
         # 441 -> 454 (13.09.2026, MB-02): trzynaście pinów liczbowych

@@ -45,14 +45,17 @@ public sealed class DoorPromptTests
     public void Zamkniete_drzwi_przed_obsluga_peronu_nie_zachecaja_do_odjazdu()
     {
         var postoj = new StationStop(new DoorCycle(8.0), FixedStep.Simulation, DoorControl.Manual);
-        Assert.AreEqual(DoorPhase.Closed, postoj.Phase);
+        Assert.AreEqual(DoorPhase.Closed, postoj.Phase,
+            "ręczny postój przed otwarciem drzwi zaczyna się w fazie zamkniętej");
         Assert.IsFalse(postoj.Finished, "peron nie został jeszcze obsłużony");
         Assert.IsTrue(DoorCycle.TractionAllowed(postoj.Phase),
             "fizyczna możliwość ruszenia nie oznacza zakończenia obsługi");
 
         var tekst = DoorPrompt.For(postoj.Phase, refusal: null);
-        StringAssert.Contains(tekst, "D: otwórz drzwi");
-        StringAssert.Contains(tekst, "trakcja WOLNA");
+        StringAssert.Contains(tekst, "D: otwórz drzwi",
+            "podpowiedź ma prowadzić do obsługi peronu przed odjazdem");
+        StringAssert.Contains(tekst, "trakcja WOLNA",
+            "fizyczny stan nastawnika pozostaje widoczny");
         Assert.IsFalse(tekst.Contains("można odjechać", StringComparison.OrdinalIgnoreCase),
             "odjazd z zamkniętymi drzwiami pominąłby obsługę peronu");
     }
@@ -71,10 +74,12 @@ public sealed class DoorPromptTests
                 DoorPrompt.For(phase, refusal: null), "+0.03", 1);
             var lines = text.Split('\n');
             Assert.AreEqual(3, lines.Length, "fazę, działanie i wynik trzeba odczytać osobno");
-            StringAssert.Contains(lines[0], "DRZWI");
-            StringAssert.Contains(lines[1], action);
-            StringAssert.Contains(lines[2], "błąd zatrzymania +0.03 m");
-            StringAssert.Contains(lines[2], "obsłużone 1");
+            StringAssert.Contains(lines[0], "DRZWI", "pierwsza linia ma nazywać fazę");
+            StringAssert.Contains(lines[1], action, "druga linia ma podawać następny klawisz");
+            StringAssert.Contains(lines[2], "błąd zatrzymania +0.03 m",
+                "trzecia linia ma zachować dokładność zatrzymania");
+            StringAssert.Contains(lines[2], "obsłużone 1",
+                "trzecia linia ma zachować licznik obsługi");
         }
     }
 

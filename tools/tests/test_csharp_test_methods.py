@@ -621,9 +621,11 @@ ROZKLAD_POSTACI = {
         # 4807 -> 4843, 826 -> 836, 98 -> 99 i 7 -> 8 (23.09.2026, 6.D356):
         # `BrokenJsonRefusalTests.cs` — komunikaty asercji, argumenty `line`, wzorzec
         # slowa `@"..."` i dopasowanie slowa zakazanego `$@"..."`. ZMIERZONE.
-        "zwykly": 4843,
+        # 4843 -> 4867 i 99 -> 100 (24.09.2026, door-prompt-service):
+        # literały tekstowe i komunikaty asercji nowych testow postoju; ZMIERZONE.
+        "zwykly": 4867,
         "interpolowany ($)": 836,
-        "werbatim (@)": 99,
+        "werbatim (@)": 100,
         "surowy interpolowany ($$\"\"\")": 13,
         "surowy (\"\"\")": 8,
         "werbatim interpolowany ($@)": 8,
