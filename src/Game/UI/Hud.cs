@@ -46,11 +46,11 @@ public sealed partial class Hud : CanvasLayer
                  { _speed, _position, _controls, _station, _signalling, _view, _help,
                    _summary, _traction })
         {
-            label.AddThemeFontSizeOverride("font_size", 20);
+            label.AddThemeFontSizeOverride("font_size", 17);
             label.AddThemeColorOverride("font_color", new Color(0.92f, 0.94f, 0.96f));
         }
 
-        _speed.AddThemeFontSizeOverride("font_size", 34);
+        _speed.AddThemeFontSizeOverride("font_size", 27);
 
         // Wiersz stacji startuje UKRYTY. W .tscn ma tekst zastępczy, żeby scena dała się
         // otworzyć w edytorze, a widoczność ustawia dopiero `Update` — inaczej przebieg

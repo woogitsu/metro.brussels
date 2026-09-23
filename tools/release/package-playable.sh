@@ -134,6 +134,19 @@ cp "$ZASOBY_SRC/L1_A-platforms.glb"  "$ZASOBY/"
 cp "$ZASOBY_SRC/chunks/L1_A-chunks.json" "$ZASOBY/chunks/"
 # Chunki i ich LOD-y — po nazwie, bo manifest wymienia je po nazwie.
 cp "$ZASOBY_SRC"/chunks/L1_A_*.glb "$ZASOBY/chunks/"
+
+python3 - "$ZASOBY_SRC/chunks/L1_A-chunks.json" "$ZASOBY_SRC/chunks" <<'PY'
+import json
+import os
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    chunks = json.load(handle)["chunks"]
+missing = [entry["id"] + "_detail.glb" for entry in chunks
+           if not os.path.isfile(os.path.join(sys.argv[2], entry["id"] + "_detail.glb"))]
+if missing:
+    raise SystemExit("[PACZKA] BŁĄD: brak detali dla chunków: " + ", ".join(missing))
+PY
 mkdir -p "$ZASOBY/data/track" "$ZASOBY/data/design/signalling"
 cp data/track/L1_A.json "$ZASOBY/data/track/"
 cp data/design/signalling/classic-2026.json "$ZASOBY/data/design/signalling/"
@@ -177,8 +190,9 @@ ZADANIE
     na każdym, czas, droga i liczniki ochrony. `R` zaczyna od nowa.
 
 CZEGO W TEJ PACZCE NIE MA
-    Dźwięku, kabiny jako modelu wnętrza, innych linii niż pakiet A, rozkładu jazdy
-    i punktacji. Wynik to fakty, nie punkty.
+    Dźwięku, wiernego modelu kabiny M7, innych linii niż pakiet A, rozkładu jazdy
+    i punktacji. Widoczna kabina i wystrój tunelu są projektową wizualizacją;
+    wynik to fakty, nie punkty.
 
 ZAPIS WEJŚĆ
     Każdy przejazd prowadzony z klawiatury zapisuje naciśnięcia klawiszy do pliku

@@ -223,7 +223,9 @@ public sealed class UiTextTests
     // w `FirstRun`: po dwa przy osi i przy manifeście chunków, jeden przy planie
     // sygnalizacji. Liczba PRZELICZONA przebiegiem.
     // 579 -> 578 (23.09.2026, 6.M1): odtworzenie linii — zdarzenia w zapisie wejść, `ExecuteLineEvent` w `FirstRun` i nowa odmowa `--replay --line` bez `--signalling` w `RunPlan`. PRZELICZONE.
-    private const int LiteralowWZasieguBramki = 578;
+    // Track-detail asset path and practical-light setup in FirstRun.cs add four
+    // source literals; recounted against the current playable scene.
+    private const int LiteralowWZasieguBramki = 582;
 
     /// <summary>Ile różnych — dolne ostrze, zmierzone 12.09.2026.</summary>
     private const int RoznychLiteralowWZasieguBramki = 362;
@@ -1491,7 +1493,7 @@ public sealed class UiTextTests
     // w `FirstRun`: po dwa przy osi i przy manifeście chunków, jeden przy planie
     // sygnalizacji. Liczba PRZELICZONA przebiegiem.
     // 620 -> 619 (23.09.2026, 6.M1): odtworzenie linii — zdarzenia w zapisie wejść, `ExecuteLineEvent` w `FirstRun` i nowa odmowa `--replay --line` bez `--signalling` w `RunPlan`. PRZELICZONE.
-    private const int PozycjiStaregoCzytnika = 619;
+    private const int PozycjiStaregoCzytnika = 623;
 
     /// <summary>
     /// Ile PLIKÓW korpusu stary czytnik czytał inaczej niż leksykalny — 6.D182.
@@ -2085,7 +2087,7 @@ public sealed class UiTextTests
     // w `FirstRun`: po dwa przy osi i przy manifeście chunków, jeden przy planie
     // sygnalizacji. Liczba PRZELICZONA przebiegiem.
     // 139 -> 137 (23.09.2026, 6.M1): odtworzenie linii — zdarzenia w zapisie wejść, `ExecuteLineEvent` w `FirstRun` i nowa odmowa `--replay --line` bez `--signalling` w `RunPlan`. PRZELICZONE.
-    private const int ZgloszenFirstRunCalymPlikiem = 137;
+    private const int ZgloszenFirstRunCalymPlikiem = 138;
 
     /// <summary>Ile daje ten sam plik liczony WIERSZ PO WIERSZU — 6.D180.</summary>
     // 122 -> 132 (14.09.2026, MB-04): `FirstRun.AssetsRoot`, `DomyslnyZapisWejsc`
@@ -2098,7 +2100,7 @@ public sealed class UiTextTests
     // w `FirstRun`: po dwa przy osi i przy manifeście chunków, jeden przy planie
     // sygnalizacji. Liczba PRZELICZONA przebiegiem.
     // 151 -> 149 (23.09.2026, 6.M1): odtworzenie linii — zdarzenia w zapisie wejść, `ExecuteLineEvent` w `FirstRun` i nowa odmowa `--replay --line` bez `--signalling` w `RunPlan`. PRZELICZONE.
-    private const int ZgloszenFirstRunWierszami = 149;
+    private const int ZgloszenFirstRunWierszami = 150;
 
     /// <summary>Ile plików korpusu daje różne liczby obiema drogami — 6.D180.</summary>
     private const int PlikowZRoznicaDrog = 1;

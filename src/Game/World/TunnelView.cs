@@ -94,6 +94,20 @@ public sealed partial class TunnelView : Node3D
             scene.Name = chunk.Id;
             AddChild(scene);
             GlbLoader.ApplyNeutralMaterial(scene, material);
+            // Blender exports design-preview track furniture in world coordinates
+            // alongside each tunnel chunk. Keep its individual rail, ballast and
+            // light materials: applying the tunnel override would make everything
+            // the same gray again. Older asset sets without detail still load.
+            var detailPath = assetDirectory.TrimEnd('/') + "/" + chunk.Id + "_detail.glb";
+            if (FileAccess.FileExists(detailPath))
+            {
+                var detail = GlbLoader.Load(detailPath);
+                if (detail is not null)
+                {
+                    detail.Name = "TrackDetail";
+                    scene.AddChild(detail);
+                }
+            }
             _levels[chunk.Id] = level;
             Loaded++;
         }

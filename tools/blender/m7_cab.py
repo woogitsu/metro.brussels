@@ -11,7 +11,7 @@ siatki.
 **To nie jest kabina M7.** STIB nie publikuje rzutów kabiny, a `docs/03-legal.md` nie
 daje prawa do cudzych rysunków ani do odwzorowywania jej ze zdjęć. Ten moduł buduje
 układ **kanoniczny** — podłoga, ściana do przedziału pasażerskiego z jednymi drzwiami,
-pulpit i fotel — i mówi o tym wprost w `NOT_MODELLED`, tak samo jak zespół dostępu
+fotel, bez pulpitu — i mówi o tym wprost w `NOT_MODELLED`, tak samo jak zespół dostępu
 stacji mówi to o antresoli. Żadnej z tych liczb nie wolno przedstawiać jako wymiaru
 pojazdu M7.
 
@@ -48,13 +48,6 @@ DESIGN_CAB_BULKHEAD_M = 0.08
 #: Drzwi w ścianie do przedziału pasażerskiego: szerokość i wysokość światła.
 DESIGN_BULKHEAD_DOOR_WIDTH_M = 0.70
 DESIGN_BULKHEAD_DOOR_HEIGHT_M = 1.90
-#: Pulpit: blat, jego grubość i wysokość górnego lica nad podłogą kabiny.
-DESIGN_DESK_WIDTH_M = 1.40
-DESIGN_DESK_DEPTH_M = 0.60
-DESIGN_DESK_TOP_M = 0.95
-DESIGN_DESK_SLAB_M = 0.10
-#: Odstęp między licem szyby czołowej a przednią krawędzią pulpitu.
-DESIGN_DESK_FRONT_GAP_M = 0.15
 #: Fotel: siedzisko i oparcie. Siedzisko jest bryłą, nie kształtem — ta pozycja robi
 #: bryłę, nie wyposażenie.
 DESIGN_SEAT_WIDTH_M = 0.50
@@ -62,8 +55,8 @@ DESIGN_SEAT_DEPTH_M = 0.45
 DESIGN_SEAT_CUSHION_M = 0.48
 DESIGN_SEAT_BACK_HEIGHT_M = 0.55
 DESIGN_SEAT_BACK_M = 0.10
-#: Odstęp między tylną krawędzią pulpitu a przednią krawędzią siedziska.
-DESIGN_SEAT_GAP_FROM_DESK_M = 0.35
+#: Początek siedziska mierzony od czoła składu; utrzymuje oko kamery nad fotelem.
+DESIGN_SEAT_FRONT_M = 1.45
 #: Szyba czołowa: parapet i nadproże nad podłogą kabiny oraz margines od ściany bocznej.
 DESIGN_WINDSCREEN_SILL_M = 0.95
 DESIGN_WINDSCREEN_HEAD_M = 1.95
@@ -82,17 +75,12 @@ DESIGN_ASSUMPTIONS = {
     "cab_bulkhead_m": (DESIGN_CAB_BULKHEAD_M, "grubość ściany do przedziału pasażerskiego"),
     "bulkhead_door_width_m": (DESIGN_BULKHEAD_DOOR_WIDTH_M, "szerokość drzwi w ścianie kabiny"),
     "bulkhead_door_height_m": (DESIGN_BULKHEAD_DOOR_HEIGHT_M, "wysokość światła tych drzwi"),
-    "desk_width_m": (DESIGN_DESK_WIDTH_M, "szerokość pulpitu"),
-    "desk_depth_m": (DESIGN_DESK_DEPTH_M, "głębokość pulpitu wzdłuż osi"),
-    "desk_top_m": (DESIGN_DESK_TOP_M, "wysokość górnego lica pulpitu nad podłogą kabiny"),
-    "desk_slab_m": (DESIGN_DESK_SLAB_M, "grubość blatu pulpitu"),
-    "desk_front_gap_m": (DESIGN_DESK_FRONT_GAP_M, "odstęp szyby czołowej od pulpitu"),
     "seat_width_m": (DESIGN_SEAT_WIDTH_M, "szerokość siedziska"),
     "seat_depth_m": (DESIGN_SEAT_DEPTH_M, "głębokość siedziska"),
     "seat_cushion_m": (DESIGN_SEAT_CUSHION_M, "wysokość górnego lica siedziska nad podłogą"),
     "seat_back_height_m": (DESIGN_SEAT_BACK_HEIGHT_M, "wysokość oparcia nad siedziskiem"),
     "seat_back_m": (DESIGN_SEAT_BACK_M, "grubość oparcia"),
-    "seat_gap_from_desk_m": (DESIGN_SEAT_GAP_FROM_DESK_M, "odstęp pulpitu od siedziska"),
+    "seat_front_m": (DESIGN_SEAT_FRONT_M, "początek siedziska od czoła składu"),
     "windscreen_sill_m": (DESIGN_WINDSCREEN_SILL_M, "parapet szyby czołowej nad podłogą kabiny"),
     "windscreen_head_m": (DESIGN_WINDSCREEN_HEAD_M, "nadproże szyby czołowej"),
     "windscreen_margin_m": (DESIGN_WINDSCREEN_MARGIN_M, "margines szyby czołowej od ściany bocznej"),
@@ -104,7 +92,7 @@ DESIGN_ASSUMPTIONS = {
 #: Czego ten układ NIE odwzorowuje. Wypisane tak samo jawnie, jak wymiary — zdanie
 #: „to nie jest kabina M7" ma jechać razem z geometrią, a nie zostać w raporcie.
 NOT_MODELLED = (
-    "rozkład pulpitu i rozmieszczenie nastawników — STIB nie publikuje rzutów kabiny",
+    "pulpit i nastawniki są na razie pominięte, by nie zasłaniać toru; STIB nie publikuje rzutu kabiny",
     "kształt fotela maszynisty; tu jest bryła siedziska i oparcia, nie mebel",
     "przyrządy, wskaźniki i cokolwiek pokazującego stan pociągu",
     "rzeczywiste wymiary kabiny M7 — wszystkie liczby są design_assumption",
@@ -197,7 +185,7 @@ class Cab:
     # --- bryły ----------------------------------------------------------------
 
     def solids(self):
-        """Wszystkie bryły kabiny: podłoga, ściana z drzwiami, pulpit, fotel."""
+        """Wszystkie bryły kabiny: podłoga, ściana z drzwiami i fotel."""
         przedrostek = "cab_front" if self.end == 0 else "cab_rear"
         floor_top = self.floor_z + DESIGN_CAB_FLOOR_SLAB_M
         wnetrze_od = DESIGN_CAB_BULKHEAD_FRONT_M
@@ -219,20 +207,8 @@ class Cab:
         out.append(_box(f"{przedrostek}_bulkhead_head", "wall", x0, x1,
                         -polowa_drzwi, polowa_drzwi, nadproze, self.ceiling_z))
 
-        # Pulpit: bryła konsoli i blat nad nią.
-        desk_near = wnetrze_od + DESIGN_DESK_FRONT_GAP_M
-        desk_far = desk_near + DESIGN_DESK_DEPTH_M
-        polowa_pulpitu = DESIGN_DESK_WIDTH_M / 2.0
-        blat_od = floor_top + DESIGN_DESK_TOP_M - DESIGN_DESK_SLAB_M
-        x0, x1 = self.span(desk_near, desk_far)
-        out.append(_box(f"{przedrostek}_desk_body", "fitting", x0, x1,
-                        -polowa_pulpitu, polowa_pulpitu, floor_top, blat_od))
-        out.append(_box(f"{przedrostek}_desk_top", "fitting", x0, x1,
-                        -polowa_pulpitu, polowa_pulpitu, blat_od,
-                        floor_top + DESIGN_DESK_TOP_M))
-
-        # Fotel: siedzisko i oparcie za nim.
-        seat_near = desk_far + DESIGN_SEAT_GAP_FROM_DESK_M
+        # Fotel: siedzisko pod okiem kamery i oparcie za nim.
+        seat_near = DESIGN_SEAT_FRONT_M
         seat_far = seat_near + DESIGN_SEAT_DEPTH_M
         polowa_fotela = DESIGN_SEAT_WIDTH_M / 2.0
         x0, x1 = self.span(seat_near, seat_far)
@@ -266,8 +242,7 @@ class Cab:
             "z_from_m": round(floor_top + DESIGN_WINDSCREEN_SILL_M, 4),
             "z_to_m": round(floor_top + DESIGN_WINDSCREEN_HEAD_M, 4),
         }]
-        srodek = DESIGN_CAB_BULKHEAD_FRONT_M + DESIGN_DESK_FRONT_GAP_M \
-            + DESIGN_DESK_DEPTH_M + DESIGN_SEAT_GAP_FROM_DESK_M
+        srodek = DESIGN_SEAT_FRONT_M
         x0, x1 = self.span(srodek, srodek + DESIGN_CAB_WINDOW_LENGTH_M)
         for side in (1, -1):
             out.append({

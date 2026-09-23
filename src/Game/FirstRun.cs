@@ -178,6 +178,9 @@ public sealed partial class FirstRun : Node3D
     private ChunkManifest? _manifest;
     private string _assetDirectory = string.Empty;
     private StandardMaterial3D? _tunnelMaterial;
+    private bool _hasTrackDetail;
+    private readonly List<OmniLight3D> _trackLights = new();
+    private int _lightAnchor = int.MinValue;
     private TrainView _train = null!;
 
     /// <summary>
@@ -1220,8 +1223,9 @@ public sealed partial class FirstRun : Node3D
         }
 
         _manifest = manifest;
-        var tunnelMaterial = GlbLoader.NeutralMaterial(new Color(0.52f, 0.52f, 0.53f), 0.95f);
+        var tunnelMaterial = GlbLoader.NeutralMaterial(new Color(0.34f, 0.38f, 0.40f), 0.95f);
         var trainMaterial = GlbLoader.NeutralMaterial(new Color(0.80f, 0.81f, 0.83f), 0.45f);
+        var cabMaterial = GlbLoader.NeutralMaterial(new Color(0.13f, 0.17f, 0.20f), 0.80f);
 
         // Peron dostaje WŁASNY, ciemniejszy odcień szarości i to nie jest wybór
         // estetyczny, tylko warunek widzialności: płyta stoi 1,4 m od ściany komory
@@ -1234,6 +1238,8 @@ public sealed partial class FirstRun : Node3D
         // Katalog i materiał zapamiętane, bo streamowanie dokłada chunki w KAŻDEJ
         // klatce, a nie raz przy starcie.
         _assetDirectory = Path.GetDirectoryName(manifestPath) ?? assets;
+        _hasTrackDetail = manifest.Chunks.Count > 0 && FileAccess.FileExists(
+            Path.Combine(_assetDirectory, manifest.Chunks[0].Id + "_detail.glb"));
         _tunnelMaterial = tunnelMaterial;
         _tunnel.Stream(manifest, _assetDirectory, tunnelMaterial, _scenario.StartChainageM);
 
@@ -1291,7 +1297,7 @@ public sealed partial class FirstRun : Node3D
         // z Issue #107: scena szłaby dalej bez wnętrza, a że kamera kabinowa i tak stoi
         // w środku skorupy, kadr wyglądałby jak przed tą pozycją — czyli bramka
         // `godot-first-run.yml` zostawałaby zielona na scenie, która kabiny nie ma.
-        var cabBodies = _cabView.Load(cabPath, trainMaterial);
+        var cabBodies = _cabView.Load(cabPath, cabMaterial);
         if (cabBodies <= 0)
         {
             Abort(ExitCabMissing,
@@ -2040,6 +2046,63 @@ public sealed partial class FirstRun : Node3D
                 position,
                 ChaseCameraAim.LookTarget(position, middle, forwardAtCamera, Vector3.Up),
                 Vector3.Up);
+        }
+
+        UpdateTrackLights(streamChainage);
+    }
+
+    private void UpdateTrackLights(double chainageM)
+    {
+        if (!_hasTrackDetail)
+        {
+            return;
+        }
+
+        // The Blender fixtures repeat every 16 m. Reposition a small pool only
+        // when the camera crosses a fixture interval, so a full route never owns
+        // hundreds of live lights. Inspection view uses its own subject chainage.
+        const int spacingM = 16;
+        const int intervals = 10;
+        var anchor = (int)Math.Floor(chainageM / spacingM);
+        if (anchor == _lightAnchor)
+        {
+            return;
+        }
+
+        _lightAnchor = anchor;
+        while (_trackLights.Count < intervals * 2)
+        {
+            var light = new OmniLight3D
+            {
+                LightColor = new Color(1.0f, 0.86f, 0.68f),
+                LightEnergy = 0.8f,
+                OmniRange = 15.0f,
+                ShadowEnabled = false,
+            };
+            AddChild(light);
+            _trackLights.Add(light);
+        }
+
+        for (var slot = 0; slot < intervals; slot++)
+        {
+            var at = (anchor + slot - 2) * spacingM;
+            var visible = at >= 0 && at <= _axis.LengthM;
+            for (var side = 0; side < 2; side++)
+            {
+                var light = _trackLights[slot * 2 + side];
+                light.Visible = visible;
+                if (!visible)
+                {
+                    continue;
+                }
+
+                var from = Math.Max(0.0, at - 0.5);
+                var to = Math.Min(_axis.LengthM, at + 0.5);
+                var frame = _sceneAxis.Chord(from, to);
+                var lateral = side == 0 ? -4.48f : 4.48f;
+                light.Position = _sceneAxis.CentreLinePoint(at)
+                    + frame.Right * lateral + frame.Up * 3.35f;
+            }
         }
     }
 
