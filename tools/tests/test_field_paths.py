@@ -2198,7 +2198,8 @@ def _istnieje_w_drzewie(nazwa):
 # 1379 -> 1381 i 554 -> 555 (22.09.2026, 6.M2): blok 6.M2 przeszedl do wykonanych; ZMIERZONE.
 # 1381 -> 1385 i 555 -> 556 (22.09.2026, 6.D235): blok 6.D235 przeszedl do wykonanych; ZMIERZONE.
 # 1385 -> 1387, 72 -> 73 i 556 -> 557 (23.09.2026, 6.D359): blok 6.D359 przeszedl do wykonanych; ZMIERZONE.
-ADRESOW_W_WYKONANYCH = {"Wejście": 1387, "Wyjście": 73, "Weryfikacja": 557}
+# 1387 -> 1390 i 557 -> 559 (23.09.2026, 6.D366): blok 6.D366 przeszedl do wykonanych; ZMIERZONE.
+ADRESOW_W_WYKONANYCH = {"Wejście": 1390, "Wyjście": 73, "Weryfikacja": 559}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
@@ -2393,7 +2394,9 @@ ADRESOW_W_WYKONANYCH = {"Wejście": 1387, "Wyjście": 73, "Weryfikacja": 557}
 # wymienia DWA moduly, wiec zapadka rosnie o dwa. ZMIERZONE.
 # 256 -> 258 (23.09.2026, 6.D359): blok 6.D359 przeszedl do wykonanych; jego plotek
 # wymienia DWA moduly, wiec zapadka rosnie o dwa. ZMIERZONE.
-WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 258}
+# 258 -> 260 (23.09.2026, 6.D366): blok 6.D366 przeszedl do wykonanych; jego plotek
+# wymienia DWA wywolania `test_all.py`, wiec zapadka rosnie o dwa. ZMIERZONE.
+WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 260}
 
 #: Ilu kandydatow zlego adresu daje regula prozy, per pole — 6.D158.
 # 12 -> 13 (14.09.2026, 6.D204): trzynastym kandydatem jest `test_mutation_sweep.py`
@@ -2620,7 +2623,10 @@ MIN_GOLYCH_W_DOKUMENTACH = 1200
 # 36 -> 38 (18.09.2026, 6.D280): doszly `LOD2-render-sanity.json`
 # i `_metadata.json` — pliki ARTEFAKTU CI, ktorych w drzewie nie ma
 # i byc nie moze, bo powstaja w przebiegu i regula 8 zabrania ich komitowac.
-GOLYCH_BEZ_ODPOWIEDNIKA = 38
+# 38 -> 39 (23.09.2026, 6.D366): doszla `times-po.txt` z wiersza i bloku 6.D366,
+# gdzie stoi w cytacie komunikatu awarii — plik kroku `Run tool tests` zapisywany
+# do `$RUNNER_TEMP`, czyli POZA drzewem; druga rodzina, wytwory przebiegu; ZMIERZONE.
+GOLYCH_BEZ_ODPOWIEDNIKA = 39
 
 #: To samo, ale WYLACZNIE w trzech polach skanowanych — czyli tam, gdzie poszerzony
 #: `PATH_TOKEN` naprawde by zapalal. Zmierzone 13.09.2026: **244** wystapienia,

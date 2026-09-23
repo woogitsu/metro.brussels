@@ -299,7 +299,23 @@ WZORZEC_ROZRZUTU = {
 
 
 #: Wzorzec wiersza wyjścia wbudowanego `times`: `0m0.002s 0m0.000s`.
-TIMES_WIERSZ = re.compile(r"^(\d+)m([\d.]+)s\s+(\d+)m([\d.]+)s\s*$")
+#:
+#: **Separator ułamka jest z lokalizacji, nie z basha (6.D366).** Wbudowane `times`
+#: pisze część ułamkową znakiem dziesiętnym z `LC_NUMERIC`: pod `pl_PL.UTF-8` wiersz
+#: dzieci brzmi `10m33,358s 0m11,208s`. Zmierzone 23.09.2026 na runnerze
+#: `woogitsu-ubuntu26-i56500t-02` (job 107205600232, run 35836807502), który padł na
+#: tym wierszu PRZED werdyktem budżetu, i odtworzone w kontenerze sesji:
+#: `LC_ALL=pl_PL.UTF-8 bash -c times` daje `0m0,003s 0m0,000s`, `LC_ALL=C` — kropkę.
+#: Wzorzec przyjmuje więc oba separatory, a `_sekundy_times` sprowadza je do kropki;
+#: poza separatorem kształt jest ten sam co wcześniej — cyfry, najwyżej jeden znak
+#: ułamka, cyfry.
+TIMES_WIERSZ = re.compile(
+    r"^(\d+)m(\d+(?:[.,]\d+)?)s\s+(\d+)m(\d+(?:[.,]\d+)?)s\s*$")
+
+
+def _sekundy_times(tekst):
+    """Sekundy z pola `times`, z kropką albo przecinkiem jako separatorem ułamka."""
+    return float(tekst.replace(",", "."))
 
 
 def cpu_dzieci(sciezka):
@@ -330,7 +346,8 @@ def cpu_dzieci(sciezka):
     if dopasowanie is None:
         raise ValueError(f"{sciezka}: drugi wiersz nie wygląda jak wyjście `times`: {wiersze[1]!r}")
     minuty_u, sekundy_u, minuty_s, sekundy_s = dopasowanie.groups()
-    return int(minuty_u) * 60 + float(sekundy_u) + int(minuty_s) * 60 + float(sekundy_s)
+    return (int(minuty_u) * 60 + _sekundy_times(sekundy_u)
+            + int(minuty_s) * 60 + _sekundy_times(sekundy_s))
 
 
 def over_budget(elapsed_s, budget_s=SUITE_RUNTIME_BUDGET_S):
@@ -1512,6 +1529,44 @@ def test_cpu_dzieci_czyta_drugi_wiersz_times_i_odrzuca_smieci():
     for zle, opis in (("0m0.002s 0m0.000s\n", "jeden wiersz"),
                       ("", "pusty plik"),
                       ("0m0.002s 0m0.000s\nreal 1m30s\n", "inny format drugiego wiersza")):
+        try:
+            cpu_dzieci(zapisz(zle))
+        except ValueError:
+            continue
+        raise AssertionError(f"`cpu_dzieci` przyjęło wejście, którego nie powinno: {opis}")
+
+
+def test_cpu_dzieci_czyta_przecinek_z_lokalizacji_tak_samo_jak_kropke():
+    """6.D366: `times` pod `LANG=pl_PL.UTF-8` pisze ułamek przecinkiem.
+
+    Wiersz dzieci jest DOSŁOWNIE tym, na którym 23.09.2026 padł job `tools`
+    (job 107205600232) na runnerze `woogitsu-ubuntu26-i56500t-02`, zanim zdążył
+    wydać werdykt budżetu CPU. Ten sam czas zapisany kropką i przecinkiem ma dać
+    tę samą liczbę — i ma nie wywrócić czytnika żadnym `ValueError`.
+    """
+    import tempfile
+
+    def zapisz(tresc):
+        uchwyt = tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False, encoding="utf-8")
+        uchwyt.write(tresc)
+        uchwyt.close()
+        return uchwyt.name
+
+    kropka = cpu_dzieci(zapisz("0m0.059s 0m0.013s\n10m33.358s 0m11.208s\n"))
+    try:
+        przecinek = cpu_dzieci(zapisz("0m0,059s 0m0,013s\n10m33,358s 0m11,208s\n"))
+    except ValueError as blad:
+        raise AssertionError(
+            "czytnik odrzucił wiersz `times` z przecinkiem z lokalizacji — to jest "
+            f"dokładnie awaria z runnera pl_PL.UTF-8 (6.D366): {blad}") from None
+    assert abs(kropka - 644.566) < 1e-9, (
+        f"10m33.358s + 0m11.208s = 644,566 s, czytnik dał {kropka}")
+    assert przecinek == kropka, (
+        f"ten sam czas zapisany przecinkiem dał {przecinek}, kropką {kropka}")
+
+    for zle, opis in (("0m0,0s 0m0,0s\n1m2,3,4s 0m0,0s\n", "dwa przecinki w polu"),
+                      ("0m0,0s 0m0,0s\n1m2.3,4s 0m0,0s\n", "kropka i przecinek w polu"),
+                      ("0m0,0s 0m0,0s\n1m,5s 0m0,0s\n", "ułamek bez części całkowitej")):
         try:
             cpu_dzieci(zapisz(zle))
         except ValueError:

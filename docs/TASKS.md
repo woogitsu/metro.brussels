@@ -1330,6 +1330,7 @@ właściciel.
 | 6.D359 | **ZROBIONE w #PR (23.09.2026): `queue_row` dzielił cały `docs/TASKS.md` na wiersze przy KAŻDYM wywołaniu — koszt kolejki rósł z kwadratem długości pliku.** Decyzja właściciela z 23.09.2026: zestaw ma zejść pod próg 440 s bez ruszania progu. Pomiar zamiast szacunku: jedno wywołanie `python3` zamiast czterech w `doctor.sh` oszczędzałoby ~2 s z ~9 s, a profil `open_items` pokazał 430 wywołań `queue_row` i `splitlines` 1,4 s z 2,2 s. Słownik budowany raz na tekst (`functools.lru_cache`, kluczem jest treść) daje odpowiedź identyczną dla 443 numerów; cztery odczyty kolejki 6,96 → 0,15 s, `doctor.sh --no-tests` 10,5 → ~2,0 s, zestaw lokalnie 485 → 298 s ściany, 288,8 s CPU. Próg, `doctor.sh` i reguły bramek bez zmian | S |
 | 6.D356 | **`Sim.Runner` na dokumencie JSON innego KSZTAŁTU wypisuje angielski komunikat `System.Text.Json`** | zmierzone 22.09.2026 przy 6.D235: `line --axis` na pliku `[]`, `5` i `{"points": 5}` kończy się kodem 1 — handler łapie `InvalidOperationException` — ale wierszem `BŁĄD: <plik>: The requested operation requires an element of type 'Object', but the target element has type 'Array'.` Scena dostała na to własne słowa (`BadFile`), CLI nie. Poprawka dotyczy wyłącznie tekstu odmowy, nie kodu wyjścia | S |
 | 6.D357 | **Wiersz odmowy przy zepsutej składni JSON niesie angielski ogon parsera** | zmierzone 22.09.2026 przy 6.D235: `JsonText.Parse` owija `JsonException` w `FormatException` z polskim początkiem, ale dokleja `error.Message` .NET-a, więc gracz widzi `oś trasy nie jest poprawnym JSON-em: '{' is an invalid start of a property name. Expected a '"'. LineNumber: 0 \| BytePositionInLine: 1.` Pozycja błędu jest w `JsonException` jako liczby (`LineNumber`, `BytePositionInLine`) i da się ją podać po polsku bez tekstu parsera | S |
+| 6.D366 | **ZROBIONE w #PR (23.09.2026): czytnik `times` przyjmował tylko kropkę, a `times` pisze separator ułamka z lokalizacji — job `tools` padał na runnerze `pl_PL.UTF-8` przed werdyktem budżetu.** Zmierzone 23.09.2026: job 107205600232 (run 35836807502) na `woogitsu-ubuntu26-i56500t-02` z `LANG=pl_PL.UTF-8` skończył się `ValueError: …times-po.txt: drugi wiersz nie wygląda jak wyjście times: '10m33,358s 0m11,208s'`; odtworzone w kontenerze sesji na lokalizacji zbudowanej `localedef`: `LC_ALL=pl_PL.UTF-8 bash -c times` daje `0m0,003s 0m0,000s`, `LC_ALL=C` — kropkę. **Wybrana droga (b), czytnik, nie (a), `LC_ALL=C` w workflowie:** wada siedzi w czytniku, który zakłada format, jakiego `times` nie obiecuje, a poprawka w jednym miejscu prawdy działa na każdym runnerze i dla każdego, kto czyta plik `times` poza tym krokiem; `LC_ALL=C` naprawiłby dwa wywołania z dziesięciu workflowów i zostawił czytnik tak samo kruchym. `TIMES_WIERSZ` przyjmuje `[.,]` jako jedyny separator, kształt pola poza tym bez zmian; nowy test: wiersz `10m33,358s 0m11,208s` daje 644,566 s, identycznie jak zapis kropką, a dwa separatory w polu nadal są odrzucane. Workflow, `SUITE_CPU_BUDGET_S` i reguły budżetu bez zmian | S |
 
 #### Szczegóły pozycji z kompletem sześciu pól
 
@@ -16781,6 +16782,35 @@ w drzewie**, a nie tylko w rozmowie — z tego samego powodu, co dwie sekcje wy�
 - **Poza zakresem:** dokument poprawny składniowo, ale innego kształtu (6.D356),
   zmiana typu wyjątku, `data/`.
 - **Zależy od:** 6.D235.
+
+##### 6.D366 · Czytnik `times` zna tylko kropkę, a `times` pisze separator z lokalizacji
+
+- **Skąd:** zmierzone 23.09.2026. Job `tools` (job 107205600232, run 35836807502) na
+  runnerze `woogitsu-ubuntu26-i56500t-02` z `LANG=pl_PL.UTF-8` padł PRZED werdyktem
+  budżetu CPU wierszem `ValueError: …times-po.txt: drugi wiersz nie wygląda jak
+  wyjście times: '10m33,358s 0m11,208s'`. Wbudowane `times` pisze część ułamkową
+  separatorem z `LC_NUMERIC`, a `TIMES_WIERSZ` w `tools/tests/test_suite_runtime_budget.py`
+  przyjmuje wyłącznie `[\d.]+`; `.github/workflows/python-tests.yml` woła `times > …`
+  bez `LC_ALL=C`. Pozycja wzięta od ręki decyzją prowadzącego sesję, bo psuje CI
+  na nowym runnerze właściciela.
+- **Wejście:** `tools/tests/test_suite_runtime_budget.py` (`TIMES_WIERSZ`,
+  `cpu_dzieci`), `.github/workflows/python-tests.yml` (krok `Run tool tests`),
+  `tools/tests/test_ci_workflows.py` (bramki czytające treść kroków).
+- **Wyjście:** jedna z dwóch dróg, wybrana i uzasadniona w commicie — (a) `LC_ALL=C times`
+  w workflowie albo (b) czytnik przyjmujący oba separatory — oraz test czytnika na
+  wierszu `10m33,358s 0m11,208s` dającym ten sam czas co `10m33.358s 0m11.208s`.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_suite_runtime_budget.py test_ci_workflows.py
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: zielone. Kontrola negatywna: czytnik z samą kropką zapala nowy test.
+- **Skończone, gdy:** wiersz z przecinkiem i wiersz z kropką dają tę samą liczbę
+  644,566 s, plik `times` zapisany pod `pl_PL.UTF-8` czyta się bez `ValueError`,
+  a 1 kontrola negatywna (sama kropka) daje czerwone.
+- **Poza zakresem:** `SUITE_CPU_BUDGET_S` i każda inna reguła budżetu; konfiguracja
+  lokalizacji runnera; pozostałe workflowy; `src/`; `data/`.
+- **Zależy od:** 6.D42 (stamtąd `cpu_dzieci` i dwa odczyty `times`).
 
 ##### 6.D353 · Ile bramek twierdzi o TREŚCI wzorca, a nie o jego zachowaniu
 
