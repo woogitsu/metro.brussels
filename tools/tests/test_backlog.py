@@ -627,7 +627,10 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 # 418 -> 420 (22.09.2026, 6.D235): bloki 6.D356 i 6.D357 dopisane z kompletem szesciu pol.
 # 420 -> 421 (23.09.2026, 6.D359): blok 6.D359 dopisany z kompletem szesciu pol.
 # 421 -> 422 (23.09.2026, 6.D365): blok 6.D365 dopisany z kompletem szesciu pol; ZMIERZONE.
-MINIMUM_DETAIL_BLOCKS = 422
+# 422 -> 423 (23.09.2026, 6.D368): blok izolacji plikow tymczasowych ma szesc pol.
+# 423 -> 424 (23.09.2026, 6.D366): blok czytnika `times` ma szesc pol; ZMIERZONE.
+# 424 -> 425 (23.09.2026, 6.D369): blok izolacji sciezek SDK ma szesc pol; ZMIERZONE.
+MINIMUM_DETAIL_BLOCKS = 425
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je

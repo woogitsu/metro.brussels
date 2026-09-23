@@ -540,7 +540,8 @@ def _run_doctor(dotnet_version, home_version=None, podkatalog="bin"):
             stub(os.path.join(fake_home, ".dotnet", "dotnet"), home_version)
 
         env = dict(os.environ)
-        env.update(DOTNET_BIN=fake_bin, HOME=fake_home, LC_ALL="C")
+        env.update(DOTNET_BIN=fake_bin, HOME=fake_home, LC_ALL="C",
+                   METRO_DOCTOR_SDK_ROOT=tmp)
         # `--no-tests`, bo doctor bez tej flagi uruchamia `test_all.py` — czyli
         # ten zestaw uruchamiałby sam siebie, cztery razy pod rząd. Pierwsza wersja
         # tej bramki tak robiła i przekroczyła limit czasu; flaga powstała po to.
@@ -792,7 +793,7 @@ def _bin_bez_dotnet(katalog):
                 pass
     return sandbox
 
-def _run_doctor_bez_dotnet_w_path(home_version=None):
+def _run_doctor_bez_dotnet_w_path(home_version=None, system_version=None):
     """`doctor.sh` bez ŻADNEGO `dotnet` osiągalnego — scenariusz 6.D57.
 
     **To jest luka, przez którą usterka 6.D57 przeżyła**, i dlatego ta pomocnicza
@@ -820,6 +821,15 @@ def _run_doctor_bez_dotnet_w_path(home_version=None):
                              "exit 1\n" % home_version)
             os.chmod(sciezka, 0o755)
 
+        if system_version is not None:
+            sciezka = os.path.join(tmp, "usr", "share", "dotnet", "dotnet")
+            os.makedirs(os.path.dirname(sciezka), exist_ok=True)
+            with open(sciezka, "w", encoding="utf-8") as handle:
+                handle.write("#!/bin/sh\n"
+                             'if [ "$1" = "--version" ]; then echo "%s"; exit 0; fi\n'
+                             "exit 1\n" % system_version)
+            os.chmod(sciezka, 0o755)
+
         sciezka_bez_dotnet = _bin_bez_dotnet(tmp)
         # DOWÓD SCENARIUSZA, nie założenie. Bez tej asercji maszyna z `dotnet`
         # w miejscu, którego odsianie nie objęło, cicho zamieniłaby ten test
@@ -832,7 +842,8 @@ def _run_doctor_bez_dotnet_w_path(home_version=None):
         env = dict(os.environ)
         env.pop("DOTNET_BIN", None)
         env.pop("DOTNET_ROOT", None)
-        env.update(HOME=home, PATH=sciezka_bez_dotnet, LC_ALL="C")
+        env.update(HOME=home, PATH=sciezka_bez_dotnet, LC_ALL="C",
+                   METRO_DOCTOR_SDK_ROOT=tmp)
         done = subprocess.run(["bash", DOCTOR, "--no-tests"], cwd=ROOT, env=env,
                               capture_output=True, text=True, timeout=120)
         return done.stdout + done.stderr
@@ -880,6 +891,15 @@ def test_doctor_bez_dotnet_w_PATH_i_bez_sdk_na_dysku_nadal_kaze_instalowac():
     assert "SDK JEST na dysku" not in out, (
         "doctor obiecuje SDK, którego na dysku nie ma:\n" + out[:1500])
     assert "na dysku JEST nowsze SDK" not in out, out[:1500]
+
+
+def test_doctor_widzi_sdk_w_systemowej_sciezce_pod_kontrolowanym_korzeniem():
+    """Podstawiony korzeń zachowuje pozytywną gałąź szukania poza HOME."""
+    out = _run_doctor_bez_dotnet_w_path(system_version="99.0.100")
+    assert "SDK JEST na dysku" in out, (
+        "doctor nie znalazł SDK w kontrolowanej ścieżce systemowej:\n" + out[:1500])
+    assert "/usr/share/dotnet/dotnet" in out, (
+        "podpowiedź nie nazywa ścieżki znalezionego SDK:\n" + out[:1500])
 
 
 def test_doctor_does_not_invent_an_sdk_that_is_not_there():
@@ -939,7 +959,8 @@ def test_doctor_does_not_offer_the_sdk_it_was_already_told_to_use():
                          "exit 0; fi\nexit 1\n")
         os.chmod(path, 0o755)
         env = dict(os.environ)
-        env.update(DOTNET_BIN=path, HOME=home, LC_ALL="C")
+        env.update(DOTNET_BIN=path, HOME=home, LC_ALL="C",
+                   METRO_DOCTOR_SDK_ROOT=tmp)
         done = subprocess.run(["bash", DOCTOR, "--no-tests"], cwd=ROOT, env=env,
                               capture_output=True, text=True, timeout=120)
         out = done.stdout + done.stderr
@@ -1384,7 +1405,7 @@ def _przebieg_doctora(pin, zainstalowane):
 
         licznik = os.path.join(tmp, "wolania")
         srodowisko = dict(os.environ, DOTNET_BIN=atrapa, HOME=dom, LC_ALL="C",
-                          LICZNIK=licznik, **zmienne)
+                          LICZNIK=licznik, METRO_DOCTOR_SDK_ROOT=tmp, **zmienne)
         srodowisko.pop("DOTNET_ROOT", None)
         gotowe = subprocess.run(["bash", DOCTOR, "--no-tests"], cwd=drzewo,
                                 env=srodowisko, capture_output=True, text=True,

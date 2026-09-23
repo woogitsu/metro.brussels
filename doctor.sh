@@ -103,14 +103,20 @@ REQUIRED_TFM="$(sed -n 's/.*<TargetFramework>net\([0-9]*\)\..*/\1/p' src/Sim/Sim
 # Zdanie w prozie nie jest bramką; pilnuje tego dziś `tools/tests/test_doctor_dotnet.py`.
 SDK_NA_DYSKU=""
 if [ -n "$REQUIRED_TFM" ]; then
+  # 6.D369: testy podstawiają własny korzeń dla trzech systemowych ścieżek.
+  # Pusty prefiks zachowuje prawdziwe /usr i /opt; bez tego runner z SDK
+  # zainstalowanym globalnie zmienia wynik scenariusza „brak SDK na dysku".
+  sdk_system_root="${METRO_DOCTOR_SDK_ROOT:-}"
   # Lista kandydatów jest ta sama, co przed 6.D57, i CELOWO bez ścieżki
   # bezwzględnej do katalogu domowego roota. Pierwsza wersja tej poprawki dopisała
   # tu `/root/.dotnet/dotnet` — redundantnie, bo `$HOME` w tym środowisku JEST
   # `/root`, i szkodliwie, bo ścieżka bezwzględna przebija podstawiony `HOME`
   # w piaskownicy bramek z `tools/tests/test_dotnet_version.py`. Zaczerwieniły się
   # wtedy CZTERY istniejące testy naraz i to one wymusiły cofnięcie dopisku.
-  for candidate in "$HOME/.dotnet/dotnet" /usr/local/share/dotnet/dotnet \
-                   /usr/share/dotnet/dotnet /opt/dotnet/dotnet; do
+  for candidate in "$HOME/.dotnet/dotnet" \
+                   "$sdk_system_root/usr/local/share/dotnet/dotnet" \
+                   "$sdk_system_root/usr/share/dotnet/dotnet" \
+                   "$sdk_system_root/opt/dotnet/dotnet"; do
     [ -x "$candidate" ] || continue
     [ "$candidate" = "$(command -v "$DOTNET" 2>/dev/null)" ] && continue
     cand_major="$("$candidate" --version 2>/dev/null | cut -d. -f1)"
@@ -458,7 +464,8 @@ wypisz_wyciag_z_logu() {
 if [ "$RUN_TESTS" -eq 1 ]; then
 echo ""
 echo "Testy narzędzi:"
-log_file="${TMPDIR:-/tmp}/mbxl_tests.log"
+log_file="$(mktemp "${TMPDIR:-/tmp}/mbxl_tests.XXXXXX.log")"
+trap 'rm -f "${log_file:-}"' EXIT
 if python3 tools/tests/test_all.py >"$log_file" 2>&1; then
   echo "  ok    $(grep -o "[0-9]*/[0-9]* przeszło" "$log_file")"
 else
@@ -519,11 +526,12 @@ elif [ -n "$REQUIRED_TFM" ] && [ -n "$HAVE_SDK_MAJOR" ] \
   echo "        to nie jest niezaliczony test, tylko brak czym zbudować; patrz podpowiedź wyżej"
   required_bad=$((required_bad + 1))
 else
-  sim_log="${TMPDIR:-/tmp}/mbxl_sim_tests.log"
+  sim_log="$(mktemp "${TMPDIR:-/tmp}/mbxl_sim_tests.XXXXXX.log")"
   if "$DOTNET_DO_TESTOW" test tests/Sim.Tests --nologo -v q >"$sim_log" 2>&1; then
     sim_passed=$(grep -oE "Passed: +[0-9]+" "$sim_log" | tail -1 | grep -oE "[0-9]+")
     sim_total=$(grep -oE "Total( tests)?: +[0-9]+" "$sim_log" | tail -1 | grep -oE "[0-9]+")
     echo "  ok    ${sim_passed}/${sim_total} przeszło"
+    rm -f "$sim_log"
   elif grep -q "NETSDK1045" "$sim_log" 2>/dev/null; then
     # Sonda wersji wyżej mogła nie zadziałać (np. `dotnet --version` milczy),
     # a mimo to build padł dokładnie na tym. Log jest tu rozstrzygający.
