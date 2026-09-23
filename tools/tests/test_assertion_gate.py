@@ -1743,7 +1743,11 @@ def test_wzorzec_rodziny_lapie_zdanie_ktore_ma_lapac_i_nie_bierze_sasiedztwa():
 # 936 -> 938 (23.09.2026, 6.D369): dwie asercje na WYNIKU doctora
 # sprawdzaja tekst podpowiedzi dla SDK w kontrolowanej sciezce systemowej.
 # Literały stoją na NAPISIE, ale tym napisem jest wynik przebiegu, nie zrodlo.
-ASERCJI_NAPISOWYCH_RAZEM = 938
+# 938 -> 940 (23.09.2026, 6.D367): dwa literały w teście presetu Windows
+# czytają opcje `codesign/enable=false` i `application/modify_resources=false`
+# z export_presets.cfg. Stoją na NAPISIE i słusznie: badają zapisane ustawienia
+# eksportu, od których zależy działanie paczkowania na Linuksie.
+ASERCJI_NAPISOWYCH_RAZEM = 940
 
 #: **Kotwica wpisu to `(plik, funkcja, operator, literał)`, a NIE numer wiersza.**
 #: Numer przesuwa się przy każdej edycji pliku i lista rozjechałaby się sama z siebie.

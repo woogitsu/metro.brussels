@@ -28,6 +28,11 @@ rozjazd jest KŁAMSTWEM wobec gracza:
 """
 import os
 import re
+import shutil
+import subprocess
+import tempfile
+import uuid
+import assertion_gate
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 SKRYPT = os.path.join(ROOT, "tools", "release", "package-playable.sh")
@@ -49,7 +54,7 @@ def readme_z_skryptu(tekst=None):
     cały plik świeciłaby na zgodność KOMENTARZA z kodem — a gracz komentarza nie widzi.
     """
     tekst = _czytaj(SKRYPT) if tekst is None else tekst
-    dopasowanie = re.search(r"<<'CZYTAJ'\n(.*?)\nCZYTAJ\n", tekst, re.DOTALL)
+    dopasowanie = re.search(r"<<'CZYTAJ'[^\n]*\n(.*?)\nCZYTAJ\n", tekst, re.DOTALL)
     return dopasowanie.group(1) if dopasowanie else None
 
 
@@ -199,6 +204,64 @@ def test_skrypt_NIE_kopiuje_calego_katalogu_wyjsciowego():
         "skrypt kopiuje CAŁY katalog wyjściowy generatorów; do paczki wchodzi wtedy "
         "godot.csv (telemetria CI) i monolit L1_A.glb, którego scena nie czyta"
     )
+
+
+def test_paczka_windows_ma_osobny_preset_i_instrukcje_startu():
+    """Paczka ma plik EXE i instrukcję dla gracza po przejściu całego skryptu."""
+    if os.name == "nt":
+        assertion_gate.skip("test eksportu ze stubem wymaga ścieżek powłoki Linux")
+
+    with tempfile.TemporaryDirectory() as temp:
+        src = os.path.join(temp, "zasoby")
+        os.makedirs(os.path.join(src, "chunks"))
+        for nazwa in ("M7_shell.glb", "M7_cab.glb", "L1_A-platforms.glb"):
+            open(os.path.join(src, nazwa), "wb").close()
+        for nazwa in ("L1_A-chunks.json", "L1_A_000.glb"):
+            open(os.path.join(src, "chunks", nazwa), "wb").close()
+
+        bin_dir = os.path.join(temp, "bin")
+        os.makedirs(bin_dir)
+        with open(os.path.join(bin_dir, "dotnet"), "w", encoding="utf-8") as uchwyt:
+            uchwyt.write("#!/bin/sh\nexit 0\n")
+        godot = os.path.join(bin_dir, "godot")
+        with open(godot, "w", encoding="utf-8") as uchwyt:
+            uchwyt.write('#!/bin/sh\nprintf "%s\\n" "$@" > "$GODOT_ARGS"\n'
+                         'for ostatni; do :; done\nprintf "MZ" > "$ostatni"\n')
+        os.chmod(godot, 0o755)
+        os.chmod(os.path.join(bin_dir, "dotnet"), 0o755)
+
+        args = os.path.join(temp, "godot-args.txt")
+        bazowe_env = dict(os.environ, GODOT_BIN=godot, GODOT_TEMPLATES_DIR=temp,
+                          GODOT_ARGS=args, PATH=bin_dir + os.pathsep + os.environ["PATH"])
+        for system, plik, preset in ((None, "MetroBXL.x86_64", "Linux"),
+                                     ("windows", "MetroBXL.exe", "Windows Desktop")):
+            out = os.path.join("build", "test-paczka-" + uuid.uuid4().hex)
+            env = dict(bazowe_env)
+            env.pop("PACZKA_SYSTEM", None)
+            if system is not None:
+                env["PACZKA_SYSTEM"] = system
+            try:
+                wynik = subprocess.run(["bash", SKRYPT, out, src], cwd=ROOT, env=env,
+                                       capture_output=True, text=True, timeout=30)
+                assert wynik.returncode == 0, wynik.stdout + wynik.stderr
+                paczka = os.path.join(ROOT, out, "MetroBXL")
+                assert os.path.isfile(os.path.join(paczka, plik)), (
+                    f"paczka {system or 'linux'} nie zawiera pliku {plik}")
+                assert plik in _czytaj(os.path.join(paczka, "CZYTAJ-TO-NAJPIERW.txt")), (
+                    f"README paczki {system or 'linux'} nie wskazuje pliku {plik}")
+                assert preset in _czytaj(args), (
+                    f"eksport {system or 'linux'} nie wybrał presetu {preset}")
+            finally:
+                shutil.rmtree(os.path.join(ROOT, out), ignore_errors=True)
+
+        presety = _czytaj(os.path.join(ROOT, "src", "Game", "export_presets.cfg"))
+        assert re.search(r'\[preset\.1\]\s+name="Windows Desktop"\s+platform="Windows Desktop"', presety), (
+            "brak osobnego presetu Windows Desktop w konfiguracji eksportu")
+        opcje_windows = presety.split("[preset.1.options]", 1)[-1]
+        assert "codesign/enable=false" in opcje_windows, (
+            "preset Windows wymaga podpisywania bez skonfigurowanego certyfikatu")
+        assert "application/modify_resources=false" in opcje_windows, (
+            "preset Windows wymaga rcedit podczas eksportu na Linuksie")
 
 
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
