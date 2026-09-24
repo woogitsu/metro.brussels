@@ -236,7 +236,7 @@ public sealed class UiTextTests
     // 595 -> 596 (24.09.2026, stan składu po zjeździe): nowy wiersz HUD.
     // 596 -> 599 (24.09.2026, sceneria za Merode): dwie ścieżki GLB i odmowa niekompletnej pary.
     // 599 -> 601 (24.09.2026, cel stacji): rozmiar i kolor wyróżnionego celu w HUD.
-    // 601 -> 603 (koniec osi): nazwa i komunikat zatrzymania w HUD.
+    // 601 -> 603 (24.09.2026, koniec osi): nazwa i komunikat zatrzymania w HUD.
     private const int LiteralowWZasieguBramki = 603;
 
     /// <summary>Ile różnych — dolne ostrze, zmierzone 12.09.2026.</summary>
@@ -1516,7 +1516,7 @@ public sealed class UiTextTests
     // 636 -> 637 (24.09.2026, stan składu po zjeździe): ten sam wiersz HUD.
     // 637 -> 640 (24.09.2026, sceneria za Merode): te same trzy literały.
     // 640 -> 642 (24.09.2026, cel stacji): dwa wywołania ustawiające wygląd.
-    // 642 -> 644 (koniec osi): dwa klucze HUD.
+    // 642 -> 644 (24.09.2026, koniec osi): dwa klucze HUD.
     private const int PozycjiStaregoCzytnika = 644;
 
     /// <summary>
@@ -1860,7 +1860,7 @@ public sealed class UiTextTests
     // 115 -> 117 (24.09.2026, braking cue): klucz dociera do `Hud.Update` z obu gałęzi.
     // 117 -> 119 (24.09.2026, preparing to brake): visible in both station approaches.
     // 119 -> 115 (24.09.2026, HUD 800x600): format pozycji przeniesiony do PositionLine.
-    // 115 -> 117 (koniec osi): nazwa i komunikat docierają do Hud.Update.
+    // 115 -> 117 (24.09.2026, koniec osi): nazwa i komunikat docierają do Hud.Update.
     private const int LiteralowNaEkranie = 117;
 
     /// <summary>Ile z nich jest KLUCZEM katalogu, a nie tekstem — 6.D183.</summary>
@@ -1874,7 +1874,7 @@ public sealed class UiTextTests
     // 47 -> 58 (24.09.2026, integracja): podpowiedź hamowania w obu gałęziach dojazdu.
     // 58 -> 60 (24.09.2026, preparing to brake): key in both approaches.
     // 60 -> 59 (24.09.2026, HUD 800x600): klucz pozycji jest wołany w PositionLine.
-    // 59 -> 61 (koniec osi): nazwa i komunikat katalogu w HUD.
+    // 59 -> 61 (24.09.2026, koniec osi): nazwa i komunikat katalogu w HUD.
     private const int KluczyKatalogunaEkranie = 61;
 
     /// <summary>
@@ -2343,7 +2343,7 @@ public sealed class UiTextTests
     // 411 -> 412 (24.09.2026, stan składu po zjeździe): ten sam wiersz HUD.
     // 412 -> 415 (24.09.2026, sceneria za Merode): dwie ścieżki i odmowa.
     // 415 -> 416 (24.09.2026, cel stacji): nowy kolor w konstruktorze Godota.
-    // 416 -> 418 (koniec osi): dwa nowe klucze katalogu.
+    // 416 -> 418 (24.09.2026, koniec osi): dwa nowe klucze katalogu.
     private const int LiteralowDotknietychZdejmowaniem = 418;
 
     /// <summary>

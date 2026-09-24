@@ -725,7 +725,8 @@ ROZKLAD_POSTACI = {
         # 1512 -> 1513 (24.09.2026, T-320): odmowa pustego kursu.
         # 1513 -> 1514 (24.09.2026, T-320): wymóg planu w bramce.
         # 1514 -> 1516 (24.09.2026, T-320): błędna data i odmowa dnia służby.
-        "zwykly": 1516,
+        # 1516 -> 1523 (24.09.2026, koniec osi): komunikaty i klucze HUD.
+        "zwykly": 1523,
         # 489 -> 494 (22.09.2026, 6.D235): piec komunikatow `Abort` dla pliku ZLEGO
         # w `FirstRun.cs`. Przeliczone z drzewa, nie zsumowane.
         # 494 -> 513 (23.09.2026, 6.M1): komunikaty odmow i wiersze zapisu zdarzen

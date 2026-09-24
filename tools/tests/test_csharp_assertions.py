@@ -323,6 +323,8 @@ BEZ_KOMUNIKATU = {
     "StepAccumulatorTests.cs": 17,
     "StreamingPlanTests.cs": 30,
     "TelemetryTrackTests.cs": 33,
+    # Koniec osi: sześć dokładnych porównań stanu bez opisów w nowym teście.
+    "TrackEndStopTests.cs": 6,
     "TrackAxisTests.cs": 41,
     "TractionAndResistanceTests.cs": 16,
     "TrainControllerTests.cs": 23,
@@ -614,7 +616,8 @@ NIEROZSTRZYGNIETYCH = 68
 # 3487 -> 3492 (24.09.2026, T-320): pięć kontroli chronologii obiegu.
 # 3492 -> 3501 (24.09.2026, T-320): dziewięć kontroli bramki z planem.
 # 3501 -> 3506 (24.09.2026, T-320): dzień służby i zapis 25:00.
-ASERCJI_RAZEM = 3506
+# 3506 -> 3512 (24.09.2026, koniec osi): sześć kontroli stanu granicznego.
+ASERCJI_RAZEM = 3512
 
 
 def _rozklad():
