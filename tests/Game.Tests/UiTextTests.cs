@@ -2147,6 +2147,7 @@ public sealed class UiTextTests
     // 150 -> 152 (24.09.2026, station-wayfinding): te same dwa literały tablicy.
     // 152 -> 153 (24.09.2026, interaktywne R): nowy komunikat błędu.
     // 153 -> 156 (24.09.2026, sceneria za Merode): te same trzy literały.
+    // 156 -> 161 (24.09.2026, lampy scenerii): ścieżka osi i cztery odmowy dla złych danych.
     private const int ZgloszenFirstRunWierszami = 161;
 
     /// <summary>Ile plików korpusu daje różne liczby obiema drogami — 6.D180.</summary>
@@ -3591,6 +3592,7 @@ public sealed class UiTextTests
     // 149 -> 150 (24.09.2026, interaktywne R): interpolowany błąd restartu.
     // 150 -> 152 (24.09.2026, krótki HUD chase): dystans i próg.
     // 152 -> 153 (24.09.2026, integracja pomocy linii): jeden literał z klamrą.
+    // 153 -> 156 (24.09.2026, lampy scenerii): trzy komunikaty `Abort` z interpolacją.
     private const int LiteralowZKlamra = 156;
 
     /// <summary>
