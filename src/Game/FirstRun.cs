@@ -1791,11 +1791,21 @@ public sealed partial class FirstRun : Node3D
         // że blokada trakcji zadziałała w innym kroku. Tak samo `LineDrive` wpisuje do
         // śladu polecenie PO ingerencji: inaczej ślad mówiłby, czego maszynista chciał,
         // a nie czym pojechał.
+        if (TrackEndStop.Reached(ChainageM, _axis.LengthM))
+        {
+            effective = DriverCommand.Coast;
+        }
         _effectiveCommand = effective;
 
         _state = _controller.Advance(
             _state, _conditions, effective, SpeedLimitMps, _step, out var forces);
-        _acceleration = forces.AccelerationMps2;
+        _state = TrackEndStop.Apply(_state, _scenario.StartChainageM, _axis.LengthM);
+        if (TrackEndStop.Reached(ChainageM, _axis.LengthM))
+        {
+            _effectiveCommand = DriverCommand.Coast;
+        }
+        _acceleration = TrackEndStop.Reached(ChainageM, _axis.LengthM)
+            ? 0.0 : forces.AccelerationMps2;
         _logStep++;
 
         // MELDUNEK RUCHU PO KROKU — faza 3 kroku `LineCore`. Przed krokiem opisywałby
@@ -2351,6 +2361,11 @@ public sealed partial class FirstRun : Node3D
         var chainage = ChainageM;
         var name = "koniec pakietu";
         var distance = _axis.LengthM - chainage;
+        if (_stations is not null && TrackEndStop.Reached(chainage, _axis.LengthM))
+        {
+            name = UiText.Get("hud.station.track-end-name");
+            distance = 0.0;
+        }
 
         // Wiedza o tym, gdzie jest następna stacja, ma JEDNO miejsce. Poprzednio ta
         // pętla stała tutaj i była drugą kopią tego, co robi `StationService.Approach`;
@@ -2365,7 +2380,7 @@ public sealed partial class FirstRun : Node3D
                 distance = nastepna.Value.ChainageM - chainage;
             }
         }
-        else if (_stations is not null)
+        else if (_stations is not null && !TrackEndStop.Reached(chainage, _axis.LengthM))
         {
             var approach = _stations.Approach(chainage);
             if (approach.Exists)
@@ -2670,6 +2685,11 @@ public sealed partial class FirstRun : Node3D
         if (_stations is null)
         {
             return string.Empty;
+        }
+
+        if (TrackEndStop.Reached(ChainageM, _axis.LengthM))
+        {
+            return UiText.Get("hud.station.track-end");
         }
 
         var licznik = UiText.Format(

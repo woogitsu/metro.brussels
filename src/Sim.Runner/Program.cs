@@ -929,9 +929,15 @@ public static class Program
             // do kontrolera dokładnie takie, jak przedtem.
             effective = cab is null ? effective : cab.Apply(effective);
 
+            if (TrackEndStop.Reached(Chainage(), axis.LengthM))
+            {
+                effective = DriverCommand.Coast;
+            }
             state = controller.Advance(state, conditions, effective, speedLimitMps, step, out var forces);
-            acceleration = forces.AccelerationMps2;
-            command = effective;
+            state = TrackEndStop.Apply(state, scenario.StartChainageM, axis.LengthM);
+            var trackEndReached = TrackEndStop.Reached(Chainage(), axis.LengthM);
+            acceleration = trackEndReached ? 0.0 : forces.AccelerationMps2;
+            command = trackEndReached ? DriverCommand.Coast : effective;
             sessionStep++;
             if (state.SpeedMps > topSpeedMps)
             {
