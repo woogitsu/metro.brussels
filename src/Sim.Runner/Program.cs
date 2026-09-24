@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Security.Cryptography;
 using MetroBxl.Sim.Json;
 using MetroBxl.Sim.Line;
 using MetroBxl.Sim.Physics;
@@ -77,7 +78,7 @@ public static class Program
             ["replay"] = (new[]
             {
                 "--axis", "--brake-usage", "--exchange-s", "--headway-steps", "--keys",
-                "--limit-kmh", "--notch-rate", "--out", "--sample-every", "--signalling",
+                "--limit-kmh", "--notch-rate", "--out", "--sample-every", "--scheduled-entries", "--signalling",
                 "--stop-window-m", "--trains",
             }, new[] { "--atp", "--line" }, 0),
             ["compare"] = (new[] { "--tolerance" }, Array.Empty<string>(), 2),
@@ -755,6 +756,11 @@ public static class Program
                 + "bierze z planu sygnalizacji, a scenariusz podaje 80 km/h — prędkość "
                 + "konstrukcyjną M7, nie ograniczenie na torze");
         var axisPath = Option(args, "--axis") ?? "data/track/L1_A.json";
+        var scheduledEntriesPath = Option(args, "--scheduled-entries");
+        if (scheduledEntriesPath is not null && Array.IndexOf(args, "--line") < 0)
+        {
+            throw new ArgumentException("replay --scheduled-entries wymaga --line");
+        }
         var output = Option(args, "--out");
         var sampleEvery = LongValue(Command(args), "--sample-every",
             Option(args, "--sample-every") ?? DriveTelemetry.DefaultSampleEverySteps.ToString(Inv));
@@ -1077,6 +1083,13 @@ public static class Program
         }
 
         var brakeUsage = OptionalNumber(args, "--brake-usage") ?? 1.0;
+        var scheduledEntriesPath = Option(args, "--scheduled-entries");
+        if (scheduledEntriesPath is not null &&
+            (Option(args, "--trains") is not null || Option(args, "--headway-steps") is not null))
+        {
+            throw new ArgumentException(
+                "replay --scheduled-entries wyznacza wjazdy; nie łączy się z --trains ani --headway-steps");
+        }
         var trains = (int)LongValue(Command(args), "--trains", Option(args, "--trains") ?? "1");
         var headwaySteps = LongValue(Command(args), "--headway-steps",
             Option(args, "--headway-steps") ?? "37200");
@@ -1093,12 +1106,26 @@ public static class Program
             Units.KmhToMps(limitKmh.Value), exchangeSeconds, brakeUsage, stopWindowM);
         var plan = FromFile(signallingPath, SignallingPlan.FromJson);
         var core = LineCore.M7(plan, axis, conditions, settings, turnbackSeconds: 0.0, atp: true);
-        for (var i = 0; i < trains; i++)
+        LineEntryDispatcher? dispatcher = null;
+        if (scheduledEntriesPath is not null)
         {
-            core.Add(LineSession.TrainIdAt(i), i * headwaySteps);
+            var schedule = FromFile(scheduledEntriesPath,
+                text => LineEntrySchedule.FromJson(text, axis, step));
+            if (axis.Id != "L1_A" || schedule.Entries.Count != 2)
+            {
+                throw new ArgumentException("Scenariusz wymaga dokładnie dwóch wjazdów L1_A.");
+            }
+            dispatcher = new LineEntryDispatcher(core, schedule, schedule.ServiceDay);
+        }
+        else
+        {
+            for (var i = 0; i < trains; i++)
+            {
+                core.Add(LineSession.TrainIdAt(i), i * headwaySteps);
+            }
         }
 
-        var session = new LineSession(core, new DriverNotch(notchRate), step);
+        var session = new LineSession(core, new DriverNotch(notchRate), step, dispatcher);
         var lines = new List<string> { DriveTelemetry.Header };
         var sessionStep = 0L;
         var events = 0;
@@ -1120,8 +1147,8 @@ public static class Program
             }
 
             sessionStep++;
-            var finished = sessionStep >= log.Steps || core.Finished;
-            if (session.Observed.Drive is { } drive
+            var finished = sessionStep >= log.Steps || session.Finished;
+            if (core.Trains.Count > 0 && session.Observed.Drive is { } drive
                 && (DriveTelemetry.IsSample(drive.State.Steps, sampleEvery) || finished))
             {
                 lines.Add(session.TelemetryRow()!);
@@ -1138,8 +1165,8 @@ public static class Program
         else
         {
             File.WriteAllLines(output, lines);
-            WriteProvenanceBeside(
-                output, "replay --line",
+            var provenance = new List<(string Name, string Value)>
+            {
                 ("keys", keysPath),
                 ("axis", axisPath),
                 ("signalling", signallingPath),
@@ -1150,17 +1177,30 @@ public static class Program
                 ("brake_usage", brakeUsage.ToString(Inv)),
                 ("limit_kmh", limitKmh.Value.ToString(Inv)),
                 ("trains", trains.ToString(Inv)),
-                ("headway_steps", headwaySteps.ToString(Inv)));
+                ("headway_steps", headwaySteps.ToString(Inv)),
+            };
+            if (scheduledEntriesPath is not null)
+            {
+                provenance.RemoveRange(provenance.Count - 2, 2);
+                provenance.Add(("scheduled_entries", scheduledEntriesPath));
+                provenance.Add(("scheduled_entries_sha256",
+                    Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(scheduledEntriesPath))).ToLowerInvariant()));
+            }
+            WriteProvenanceBeside(output, "replay --line", provenance.ToArray());
         }
 
-        var observed = session.Observed;
+        var observed = core.Trains.Count > 0 ? session.Observed : null;
         Console.Out.WriteLine(string.Create(
             Inv,
             $"[ODTWORZENIE] {keysPath}: linia, sesja={sessionStep} kroków, "
             + $"zdarzeń linii={events} odmów drzwi={doorRefusals}, "
-            + $"obserwowany={observed.Id} właściciel={observed.Owner} "
-            + $"chainage={observed.Drive?.ChainageM ?? 0.0:F3} m "
-            + $"zatrzymań={observed.Drive?.Calls.Count ?? 0}"));
+            + $"obserwowany={observed?.Id ?? "brak"} właściciel={observed?.Owner.ToString() ?? "brak"} "
+            + $"chainage={observed?.Drive?.ChainageM ?? 0.0:F3} m "
+            + $"zatrzymań={observed?.Drive?.Calls.Count ?? 0}"));
+        if (dispatcher is not null)
+        {
+            Console.Out.WriteLine($"[ROZKŁAD] zarejestrowane wjazdy: {dispatcher.RegisteredEntries}");
+        }
         return 0;
     }
 
