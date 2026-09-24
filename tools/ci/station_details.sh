@@ -71,6 +71,33 @@ require_command "$BLENDER_EXE" || exit $?
 "$BLENDER_EXE" --version | sed -n '1,2p'
 test -f "$AXIS" || fail "brak osi wejściowej $AXIS"
 
+# Generator tablic jest częścią paczki, więc CI uruchamia prawdziwy Blender i
+# sprawdza wynikowy GLB, nie tylko obecność ścieżki w skrypcie pakowania.
+echo "[TABLICA] neutralna geometria stacji"
+"$BLENDER_EXE" --background --python-exit-code 7 --python tools/blender/station_board.py -- \
+  --out "$OUT/station-board.glb"
+python3 - "$OUT/station-board.glb" <<'PY'
+import json
+import struct
+import sys
+
+with open(sys.argv[1], "rb") as handle:
+    data = handle.read()
+assert data[:4] == b"glTF" and struct.unpack_from("<I", data, 4)[0] == 2
+assert struct.unpack_from("<I", data, 8)[0] == len(data)
+chunk_length, chunk_type = struct.unpack_from("<II", data, 12)
+assert chunk_type == 0x4E4F534A  # JSON
+document = json.loads(data[20:20 + chunk_length])
+assert len(document["meshes"]) == 1
+primitive = document["meshes"][0]["primitives"][0]
+position = document["accessors"][primitive["attributes"]["POSITION"]]
+indices = document["accessors"][primitive["indices"]]
+assert position["count"] == 24 and indices["count"] == 36
+assert all(abs(a - b) < 1e-5 for a, b in zip(position["min"], (-0.5, -0.5, -0.02)))
+assert all(abs(a - b) < 1e-5 for a, b in zip(position["max"], (0.5, 0.5, 0.02)))
+print("[TABLICA] GLB ma bryłę 1 x 1 x 0,04 m i 12 trójkątów")
+PY
+
 echo
 echo "[PERONY 1/4] layout z osi — czysty Python, bez Blendera"
 # `--platform-length-m design` bierze DECYZJĘ WŁAŚCICIELA (95,0 m, T-212) ze stałej

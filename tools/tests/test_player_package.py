@@ -207,12 +207,6 @@ def test_skrypt_NIE_kopiuje_calego_katalogu_wyjsciowego():
     )
 
 
-def test_generowana_tablica_stacji_jest_w_paczce():
-    skrypt = _czytaj(SKRYPT)
-    assert 'cp "$ZASOBY_SRC/L1_A-station-board.glb" "$ZASOBY/"' in skrypt, (
-        "scena ładuje GLB neutralnej tablicy, lecz paczka go nie kopiuje")
-
-
 def test_paczka_windows_ma_osobny_preset_i_instrukcje_startu():
     """Paczka ma plik EXE i instrukcję dla gracza po przejściu całego skryptu."""
     if os.name == "nt":
