@@ -235,7 +235,8 @@ public sealed class UiTextTests
     // 592 -> 595 (24.09.2026, integracja pomocy linii): trzy literały testów pomocy.
     // 595 -> 596 (24.09.2026, stan składu po zjeździe): nowy wiersz HUD.
     // 596 -> 599 (24.09.2026, sceneria za Merode): dwie ścieżki GLB i odmowa niekompletnej pary.
-    private const int LiteralowWZasieguBramki = 599;
+    // 599 -> 601 (24.09.2026): rozmiar i kolor wyróżnionego celu stacji w HUD.
+    private const int LiteralowWZasieguBramki = 601;
 
     /// <summary>Ile różnych — dolne ostrze, zmierzone 12.09.2026.</summary>
     private const int RoznychLiteralowWZasieguBramki = 362;
@@ -1513,7 +1514,8 @@ public sealed class UiTextTests
     // 633 -> 636 (24.09.2026, integracja pomocy linii): trzy pozycje źródłowe testów.
     // 636 -> 637 (24.09.2026, stan składu po zjeździe): ten sam wiersz HUD.
     // 637 -> 640 (24.09.2026, sceneria za Merode): te same trzy literały.
-    private const int PozycjiStaregoCzytnika = 640;
+    // 640 -> 642: dwa wywołania ustawiające wygląd celu stacji.
+    private const int PozycjiStaregoCzytnika = 642;
 
     /// <summary>
     /// Ile PLIKÓW korpusu stary czytnik czytał inaczej niż leksykalny — 6.D182.
@@ -2336,7 +2338,8 @@ public sealed class UiTextTests
     // 410 -> 411 (24.09.2026, integracja pomocy linii): jeden dodatkowy literał.
     // 411 -> 412 (24.09.2026, stan składu po zjeździe): ten sam wiersz HUD.
     // 412 -> 415 (24.09.2026, sceneria za Merode): dwie ścieżki i odmowa.
-    private const int LiteralowDotknietychZdejmowaniem = 415;
+    // 415 -> 416: nowy kolor stacji w wywołaniu konstruktora Godota.
+    private const int LiteralowDotknietychZdejmowaniem = 416;
 
     /// <summary>
     /// Ilu literałom zdejmowanie jednostek ZABIERA werdykt „to słowo" — 6.D155.

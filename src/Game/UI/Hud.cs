@@ -51,6 +51,10 @@ public sealed partial class Hud : CanvasLayer
         }
 
         _speed.AddThemeFontSizeOverride("font_size", 27);
+        // The next stop is the driver's immediate target, so distinguish it
+        // from the chainage and other diagnostic rows at first glance.
+        _station.AddThemeFontSizeOverride("font_size", 19);
+        _station.AddThemeColorOverride("font_color", new Color(0.98f, 0.88f, 0.62f));
 
         // Wiersz stacji startuje UKRYTY. W .tscn ma tekst zastępczy, żeby scena dała się
         // otworzyć w edytorze, a widoczność ustawia dopiero `Update` — inaczej przebieg
