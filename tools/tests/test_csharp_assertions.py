@@ -473,7 +473,9 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 # 1982 -> 1995 (24.09.2026, tablice na dojeździe i pomoc linii):
 # trzynaście kontroli z komunikatami; trzy nowe komunikaty dopisano przy scaleniu.
 # 1995 -> 1997 (24.09.2026, mocowania tablic): obie asercje opisują sens błędu.
-Z_KOMUNIKATEM_RAZEM = 1997
+# 1997 -> 2010 (24.09.2026, wejście składu od wskazanej stacji):
+# trzynaście nowych asercji opisuje także blokadę drugiego składu i dojazd.
+Z_KOMUNIKATEM_RAZEM = 2010
 NIEROZSTRZYGNIETYCH = 68
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
 #: `tests/Sim.Tests/DefaultArmAuditTests.cs` — bramki na ramionach domyślnych
@@ -600,7 +602,8 @@ NIEROZSTRZYGNIETYCH = 68
 # te same trzynaście kontroli z komunikatami.
 # 3441 -> 3447 (24.09.2026, stan składu po zjeździe): sześć asercji.
 # 3447 -> 3449 (24.09.2026, mocowania tablic): dwie asercje długości wsporników.
-ASERCJI_RAZEM = 3449
+# 3449 -> 3462 (24.09.2026, wejście składu od wskazanej stacji).
+ASERCJI_RAZEM = 3462
 
 
 def _rozklad():

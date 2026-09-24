@@ -79,9 +79,12 @@ public sealed class LineCoreTests
         var train = line.AddAtStation("B", 0L, 1);
         line.Step();
 
-        Assert.AreEqual(1, train.EntryStationIndex);
-        Assert.AreEqual(0L, train.EnteredAtStep);
-        Assert.IsNotNull(train.Drive);
+        Assert.AreEqual(1, train.EntryStationIndex,
+            "entry index must retain the chosen station");
+        Assert.AreEqual(0L, train.EnteredAtStep,
+            "the train should enter at its release step");
+        Assert.IsNotNull(train.Drive,
+            "entry should create an active drive");
         Assert.IsTrue(train.Drive.ChainageM >= 600.0 && train.Drive.ChainageM < 601.0,
             $"skład powinien wejść przy 600 m, jest przy {train.Drive.ChainageM} m");
         Assert.AreEqual(1400.0, train.Drive.NextStation!.Value.ChainageM, 0.0,
@@ -108,7 +111,8 @@ public sealed class LineCoreTests
         var second = line.AddAtStation("B", 0L, 1);
         line.Step();
 
-        Assert.AreEqual(0L, first.EnteredAtStep);
+        Assert.AreEqual(0L, first.EnteredAtStep,
+            "the first train should enter at its release step");
         Assert.IsNull(second.EnteredAtStep,
             "drugi skład musi czekać, gdy pierwszy zajmuje peron wejścia");
         Assert.IsNull(second.Drive, "oczekujący skład nie może pojawić się w prowadzeniu");
@@ -134,7 +138,8 @@ public sealed class LineCoreTests
         var plan = SignallingPlanTests.SyntheticPlan(requireRoute: false, Stations);
         var line = LineCore.M7(plan, axis, Level(), Settings(), turnbackSeconds: 240.0);
         Assert.ThrowsException<InvalidOperationException>(
-            () => line.AddAtStation("B", 0L, 1));
+            () => line.AddAtStation("B", 0L, 1),
+            "mid-axis entry cannot inherit an unspecified turnback trip");
     }
 
     [TestMethod]

@@ -472,9 +472,11 @@ ROZKLAD_LICZBOWYCH = {
         # 498 -> 501 (23.09.2026, 6.D356): TRZY piny calkowite bez tolerancji
         # w `BrokenJsonRefusalTests.cs` — dwa razy kod wyjscia 1 i podloga na liczbe
         # przejrzanych ksztaltow. Przeliczone z drzewa; ZMIERZONE.
-        "razem": 501, "z_tolerancja": 189, "bez_tolerancji": 312,
-        "zmiennoprzecinkowe": 197, "zmiennoprzecinkowe_bez_tolerancji": 8,
-        "calkowite": 304, "calkowite_z_tolerancja": 0, "tolerancja_zero": 120,
+        # 501 -> 505 (24.09.2026): three station/step pins and one
+        # chainage pin with exact 0.0 tolerance for mid-axis admission.
+        "razem": 505, "z_tolerancja": 190, "bez_tolerancji": 315,
+        "zmiennoprzecinkowe": 198, "zmiennoprzecinkowe_bez_tolerancji": 8,
+        "calkowite": 307, "calkowite_z_tolerancja": 0, "tolerancja_zero": 121,
     },
 }
 
@@ -495,7 +497,8 @@ ROZKLAD_LICZBOWYCH = {
 # 145 -> 151 (14.09.2026, MB-08): sześć porównań z tolerancją 0.0 w testach
 # drzwi; `zmiennoprzecinkowe_bez_tolerancji` stoi w miejscu na ośmiu.
 # 151 -> 152 (23.09.2026, 6.M1): jedno porównanie z tolerancją 0.0 w `LineReplayTests.cs`.
-DOKLADNE_ZMIENNOPRZECINKOWE = 152
+# 152 -> 153 (24.09.2026, next station after mid-axis entry).
+DOKLADNE_ZMIENNOPRZECINKOWE = 153
 
 
 def test_ile_pinow_liczbowych_i_jak_sie_dziela():
@@ -541,7 +544,7 @@ def test_dokladnych_porownan_zmiennoprzecinkowych_jest_146_a_nie_14():
     # nietknięty hamulec i nieruszony kilometraż przy otwierających się drzwiach.
     # 137 -> 138 (23.09.2026, 6.M1): jedno porównanie z tolerancją 0.0 w
     # `LineReplayTests.cs` — skład ma STAĆ przed otwarciem drzwi, ani jednego bitu ruchu.
-    assert zero == 138, ("tolerancji zapisanych jako 0.0: %d, pomiar mówił 138" % zero)
+    assert zero == 139, ("tolerancji zapisanych jako 0.0: %d, pomiar mówił 139" % zero)
     assert bez + zero == DOKLADNE_ZMIENNOPRZECINKOWE, (
         "porównań dokładnych jest %d, a stała mówi %d" % (bez + zero,
                                                           DOKLADNE_ZMIENNOPRZECINKOWE))

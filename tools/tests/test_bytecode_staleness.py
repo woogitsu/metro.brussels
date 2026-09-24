@@ -513,8 +513,8 @@ KROK_ZESTAWU = "Run tool tests"
 #: **201 → 202 przy 6.D138**, bo doszedł moduł `test_mass_copies.py`. Bramka niżej
 #: zapaliła się na tej jedynce sama, w pierwszym przebiegu po dopisaniu pliku, i to
 #: jest dowód, że mierzy drzewo, a nie własny komentarz. Rozkład dzisiejszy:
-#: `tools/tests` **147**, `tools/blender` 33, `tools/track` 23, `tools/ci` 10,
-#: `tools/visual` 5, `tools/physics` 3, `tools/data` 2.
+#: `tools/tests` **148**, `tools/blender` 33, `tools/track` 23, `tools/ci` 10,
+#: `tools/visual` 6, `tools/physics` 3, `tools/data` 2.
 #:
 #: **Rozklad modulow po katalogach — 6.D263, i to jest zapadka na ZDANIE, nie na sume.**
 #:
@@ -530,11 +530,11 @@ KROK_ZESTAWU = "Run tool tests"
 #: przyrost W JEDNYM katalogu przy niezmienionej sumie jest zdarzeniem, ktorego
 #: suma nie widzi.
 ROZKLAD_MODULOW = {
-    "tools/tests": 147,  # 139 -> 146 (6.D277 do 6.D234); 146 -> 147 (19.09.2026, 6.D285)
+    "tools/tests": 148,  # 147 -> 148 (24.09.2026, test exact-resolution replay)
     "tools/blender": 33,  # 32 -> 33 (24.09.2026): generator tablic stacji.
     "tools/track": 23,
     "tools/ci": 10,  # 9 -> 10 (18.09.2026, 6.D280)
-    "tools/visual": 5,
+    "tools/visual": 6,  # 5 -> 6 (24.09.2026, isolated replay renderer)
     "tools/physics": 3,
     "tools/data": 2,
 }
@@ -566,7 +566,8 @@ BAJTKOD_PO_COMPILEALL_KATALOGI = 7
 # 218 -> 219 (19.09.2026, 6.D285): doszedl `test_machine_paragraphs.py`.
 # 219 -> 222 (23.09.2026, tunel): trzy moduly narzedzi wizualnych pod tools/blender.
 # 222 -> 223 (24.09.2026, tablice stacji): station_board.py pod tools/blender.
-BAJTKOD_PO_COMPILEALL_PLIKI = 223
+# 223 -> 225 (24.09.2026, render replay): skrypt i test pod tools/.
+BAJTKOD_PO_COMPILEALL_PLIKI = 225
 
 
 def _workflow_zestawu():
@@ -916,7 +917,8 @@ KATALOG_Z_PYTHONEM = "tools"
 # 218 -> 219 (19.09.2026, 6.D285): bramka akapitow o maszynie.
 # 219 -> 222 (23.09.2026, tunel): trzy moduly narzedzi wizualnych pod tools/blender.
 # 222 -> 223 (24.09.2026, tablice stacji): station_board.py pod tools/blender.
-MODULOW_W_CALYM_DRZEWIE = 223
+# 223 -> 225 (24.09.2026, render replay): skrypt i test pod tools/.
+MODULOW_W_CALYM_DRZEWIE = 225
 
 
 def moduly_calego_drzewa(korzen=None):
