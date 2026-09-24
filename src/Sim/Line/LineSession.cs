@@ -44,6 +44,7 @@ public sealed class LineSession
     private readonly LineCore _core;
     private readonly DriverNotch _notch;
     private readonly FixedStep _step;
+    private readonly LineEntryDispatcher? _dispatcher;
     private readonly Dictionary<string, DriverCommand> _commands = new(StringComparer.Ordinal);
     private int _observed;
     private string? _notchTrainId;
@@ -52,12 +53,18 @@ public sealed class LineSession
     /// <param name="core">Linia; składy dodaje wołający, przed pierwszym krokiem.</param>
     /// <param name="notch">Nastawnik maszynisty — ten sam obiekt, który czyta HUD.</param>
     /// <param name="step">Krok symulacji linii.</param>
-    public LineSession(LineCore core, DriverNotch notch, FixedStep step)
+    /// <param name="dispatcher">Opcjonalny zegar rozkładowych wjazdów.</param>
+    public LineSession(LineCore core, DriverNotch notch, FixedStep step,
+        LineEntryDispatcher? dispatcher = null)
     {
         _core = core ?? throw new ArgumentNullException(nameof(core));
         _notch = notch ?? throw new ArgumentNullException(nameof(notch));
         _step = step;
+        _dispatcher = dispatcher;
     }
+
+    /// <summary>All scheduled entries and their trips are complete.</summary>
+    public bool Finished => _dispatcher?.Finished ?? _core.Finished;
 
     /// <summary>Linia, którą sesja prowadzi.</summary>
     public LineCore Core => _core;
@@ -154,9 +161,19 @@ public sealed class LineSession
     /// <returns><c>false</c>, gdy linia była już skończona i krok się nie odbył.</returns>
     public bool Step(DriverKeys keys)
     {
-        if (_core.Finished)
+        if (Finished)
         {
             return false;
+        }
+
+        // The first scheduled trip is registered during dispatcher.Step. Before
+        // that call there is no train for the driver's notch to address.
+        if (_core.Trains.Count == 0)
+        {
+            _dispatcher!.Step((id, point) => _commands[id] = point.Command);
+            Command = DriverCommand.Coast;
+            AccelerationMps2 = 0.0;
+            return true;
         }
 
         var observed = Observed;
@@ -167,7 +184,10 @@ public sealed class LineSession
             _notchTrainId = observed.Id;
         }
 
-        _core.Step((id, point) => _commands[id] = point.Command);
+        if (_dispatcher is null)
+            _core.Step((id, point) => _commands[id] = point.Command);
+        else
+            _dispatcher.Step((id, point) => _commands[id] = point.Command);
 
         observed = Observed;
         if (_commands.TryGetValue(observed.Id, out var command))

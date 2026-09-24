@@ -132,6 +132,7 @@ public sealed partial class FirstRun : Node3D
     private bool _summaryPrinted;
     private LineDrive? _line;
     private LineCore? _lineCore;
+    private LineEntryDispatcher? _lineDispatcher;
 
     /// <summary>
     /// Sesja linii z maszynistą — 6.M1. Jedna droga kroku i poleceń dla klawiatury,
@@ -900,12 +901,41 @@ public sealed partial class FirstRun : Node3D
                 // MB-07: N składów, każdy o własnym kroku wyjazdu. Przy `--trains=1`
                 // (domyślnie) pętla wykonuje się RAZ i robi dokładnie to, co robił
                 // pojedynczy `Add` przed tą pozycją — łącznie z nazwą i krokiem zero.
-                for (var i = 0; i < _plan!.Trains; i++)
+                if (_plan!.ScheduledEntriesPath is { } scheduledPath)
                 {
-                    _lineCore.Add(TrainIdAt(i), i * _plan.HeadwaySteps);
+                    using var scheduleFile = FileAccess.Open(scheduledPath, FileAccess.ModeFlags.Read);
+                    if (scheduleFile is null)
+                    {
+                        Abort(ExitMissingInput,
+                            $"[ROZKŁAD] nie da się otworzyć {scheduledPath}: {FileAccess.GetOpenError()}");
+                        return;
+                    }
+                    try
+                    {
+                        var schedule = LineEntrySchedule.FromJson(scheduleFile.GetAsText(), _axis, _step);
+                        if (_axis.Id != "L1_A" || schedule.Entries.Count != 2 ||
+                            schedule.Entries[0].ReleaseStep != 0)
+                            throw new ArgumentException(
+                                "Scenariusz wymaga dokładnie dwóch wjazdów L1_A, pierwszego w kroku 0.");
+                        _lineDispatcher = new LineEntryDispatcher(
+                            _lineCore, schedule, schedule.ServiceDay);
+                        GD.Print($"[ROZKŁAD] {schedule.Date}: dwa wejścia z {scheduledPath}");
+                    }
+                    catch (Exception error) when (error is ArgumentException or InvalidOperationException
+                                                  or FormatException or OverflowException)
+                    {
+                        Abort(ExitBadArgumentValue,
+                            $"[ROZKŁAD] niepoprawny plan wejść {scheduledPath}: {error.Message}");
+                        return;
+                    }
+                }
+                else
+                {
+                    for (var i = 0; i < _plan.Trains; i++)
+                        _lineCore.Add(TrainIdAt(i), i * _plan.HeadwaySteps);
                 }
 
-                _lineSession = new LineSession(_lineCore, _notch, _step);
+                _lineSession = new LineSession(_lineCore, _notch, _step, _lineDispatcher);
                 GD.Print(string.Create(
                     CultureInfo.InvariantCulture,
                     $"[SYGNALIZACJA] {signalling.Blocks.Count} bloków, {signalling.Routes.Count} tras, "
@@ -1595,7 +1625,7 @@ public sealed partial class FirstRun : Node3D
             // Linia z sygnalizacją. `LineCore.Step` robi w jednym kroku wszystko:
             // wyjazdy, żądania tras nastawni, odczyt autorytetów, jazdę i meldunek
             // ruchu. Scena nie powtarza ani jednej z tych faz — tylko patrzy.
-            if (_lineCore.Finished)
+            if (_lineSession!.Finished)
             {
                 return false;
             }
@@ -1666,7 +1696,7 @@ public sealed partial class FirstRun : Node3D
                 return true;
             }
 
-            var lineFinished = _logStep >= _replay.Steps || _lineCore.Finished;
+            var lineFinished = _logStep >= _replay.Steps || _lineSession.Finished;
             if (_telemetryPath is not null
                 && (DriveTelemetry.IsSample(_state.Steps, _sampleEvery) || lineFinished))
             {

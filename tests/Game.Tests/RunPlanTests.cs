@@ -103,6 +103,7 @@ public sealed class RunPlanTests
             ["line"] = new[] { "--limit-kmh=70" },
             ["limit-kmh"] = new[] { "--line" },
             ["calls"] = new[] { "--line", "--limit-kmh=70" },
+            ["scheduled-entries"] = new[] { "--line", "--limit-kmh=70", "--signalling=x" },
         };
 
         // `--signalling` ZESZŁO z tej listy 05.09.2026 i to jest treść G-5, a nie
@@ -170,7 +171,7 @@ public sealed class RunPlanTests
         // tamta mówi o kształcie WARTOŚCI, a pusta wartość liczbowa odpada już na
         // `TryLong`. Zakres `--trains` sprawdza osobna asercja przy `MaxTrains`.
         Assert.AreEqual(20, samotnych, "argumentów bez zależności");
-        Assert.AreEqual(3, zZaleznoscia, "argumentów z zależnością");
+        Assert.AreEqual(4, zZaleznoscia, "argumentów z zależnością");
         Assert.AreEqual(
             RunPlan.KnownArguments.Length, samotnych + zZaleznoscia,
             "pętla nie odwiedziła każdego znanego argumentu");
@@ -1240,10 +1241,10 @@ public sealed class RunPlanTests
     /// a petla wyzej nadal bylaby zielona — na mniejszym zbiorze.
     /// </summary>
     [TestMethod]
-    public void Lista_opcji_sciezkowych_jest_podzbiorem_znanych_i_ma_dziesiec_pozycji()
+    public void Lista_opcji_sciezkowych_jest_podzbiorem_znanych_i_ma_jedenascie_pozycji()
     {
-        Assert.AreEqual(10, RunPlan.PathArguments.Length,
-            "opcji sciezkowych bylo 10 przy 6.A28: " + string.Join(" ", RunPlan.PathArguments));
+        Assert.AreEqual(11, RunPlan.PathArguments.Length,
+            "opcji sciezkowych jest 11: " + string.Join(" ", RunPlan.PathArguments));
         foreach (var nazwa in RunPlan.PathArguments)
         {
             Assert.IsTrue(Array.IndexOf(RunPlan.KnownArguments, nazwa) >= 0,
