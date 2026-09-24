@@ -649,7 +649,8 @@ ROZKLAD_POSTACI = {
         # 5064 -> 5066 (24.09.2026, mocowania tablic): komunikaty dwóch asercji.
         # 5066 -> 5087 and 849 -> 850 (24.09.2026, mid-axis admission tests).
         # 5087 -> 5165, 850 -> 852 (24.09.2026, T-320): plan wejść i obiegi.
-        "zwykly": 5165,
+        # 5165 -> 5187 (24.09.2026, T-320): kursy, bloki i komunikaty bramki.
+        "zwykly": 5187,
         "interpolowany ($)": 852,
         "werbatim (@)": 101,
         "surowy interpolowany ($$\"\"\")": 13,
@@ -716,7 +717,8 @@ ROZKLAD_POSTACI = {
         # 1471 -> 1474 (24.09.2026, mid-axis entry validation and tests).
         # 1474 -> 1477 (24.09.2026, visual tail GLB paths and refusal).
         # 1510 -> 1512 (24.09.2026, kolor i rozmiar celu na starcie).
-        "zwykly": 1512,
+        # 1512 -> 1513 (24.09.2026, T-320): odmowa pustego kursu.
+        "zwykly": 1513,
         # 489 -> 494 (22.09.2026, 6.D235): piec komunikatow `Abort` dla pliku ZLEGO
         # w `FirstRun.cs`. Przeliczone z drzewa, nie zsumowane.
         # 494 -> 513 (23.09.2026, 6.M1): komunikaty odmow i wiersze zapisu zdarzen
@@ -726,7 +728,8 @@ ROZKLAD_POSTACI = {
         # i bez niej, gdy parser jej nie podal; jedna byla, sa dwie. ZMIERZONE.
         # 515 -> 516 (24.09.2026, interaktywne R): błąd przeładowania sceny.
         # 516 -> 518 (24.09.2026, krótki HUD chase): dystans i granica.
-        "interpolowany ($)": 527,
+        # 527 -> 529 (24.09.2026, T-320): zegar i ponowny kurs obiegu.
+        "interpolowany ($)": 529,
         "werbatim (@)": 0,
         "surowy interpolowany ($$\"\"\")": 1,
         "surowy (\"\"\")": 1,

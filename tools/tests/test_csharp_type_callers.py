@@ -75,7 +75,8 @@ TYLKO_TESTY = frozenset({
     "CbtcTestArea", "CbtcTestStage", "DriveSegment", "JsonFields", "KcvFunction",
     # T-320: typowany plan jest czytany w testach, integracja dyspozytury czeka.
     # T-320: walidator obiegów jest dopiero czytany w testach, bez dyspozytury.
-    "BlockContinuity", "LineRoute", "ProtectionMode", "ProtectionModeRegistry",
+    # T-320: bramka pojedynczego kursu nie ma jeszcze dyspozytora w src/.
+    "BlockContinuity", "LineEntryGate", "LineRoute", "ProtectionMode", "ProtectionModeRegistry",
     "ProtectionModeStatus", "ProtectionModeStatusParser", "RouteGap",
 })
 

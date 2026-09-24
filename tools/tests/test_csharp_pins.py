@@ -159,11 +159,12 @@ KATEGORIE = {
         # Przeliczone roznica plikow (difflib).
         # Dodatkowe ogniwo pomiaru korpusu przesuwa kotwice o kolejny wiersz.
         # 24.09.2026: komentarz o scenerii Merode przesunął kotwice o wiersz.
-        ("UiTextTests.cs", 1285), ("UiTextTests.cs", 1298), ("UiTextTests.cs", 1316),
+        # Dodatkowy komentarz o wyróżnieniu celu przesuwa kotwice o wiersz.
+        ("UiTextTests.cs", 1286), ("UiTextTests.cs", 1299), ("UiTextTests.cs", 1317),
         ("SignallingHudTests.cs", 39),
     },
     "B": {
-        ("UiTextTests.cs", 1385), ("UiTextTests.cs", 1386),
+        ("UiTextTests.cs", 1386), ("UiTextTests.cs", 1387),
     },
 }
 
@@ -261,10 +262,10 @@ def test_regula_po_ksztalcie_literalu_myli_sie_i_dlatego_jej_nie_ma():
                      if not regula.search(tresci[p])]
     zlapane_z_b = [p for p in sorted(KATEGORIE["B"]) if regula.search(tresci[p])]
 
-    assert przepuszczone == [("UiTextTests.cs", 1316)], (
+    assert przepuszczone == [("UiTextTests.cs", 1317)], (
         "reguła po kształcie przestała przepuszczać wiersz o hamulcu awaryjnym — "
         "rozstrzygnięcie 6.D131 wymaga przeliczenia: %s" % przepuszczone)
-    assert zlapane_z_b == [("UiTextTests.cs", 1386)], (
+    assert zlapane_z_b == [("UiTextTests.cs", 1387)], (
         "reguła po kształcie przestała łapić wejście syntetyczne: %s" % zlapane_z_b)
 
 
@@ -278,11 +279,11 @@ def test_czytnik_widzi_pin_takze_wtedy_gdy_literal_jest_sklejony():
     tresci = {(plik, wiersz): tresc
               for plik, wiersz, _r, tresc in CP.piny("tests/Game.Tests")}
 
-    assert len(tresci[("UiTextTests.cs", 1285)]) == 122, (
+    assert len(tresci[("UiTextTests.cs", 1286)]) == 122, (
         "sklejanie literałów przestało działać: %d znaków"
-        % len(tresci[("UiTextTests.cs", 1285)]))
-    assert len(tresci[("UiTextTests.cs", 1316)]) == 98, (
-        len(tresci[("UiTextTests.cs", 1316)]))
+        % len(tresci[("UiTextTests.cs", 1286)]))
+    assert len(tresci[("UiTextTests.cs", 1317)]) == 98, (
+        len(tresci[("UiTextTests.cs", 1317)]))
     assert len(tresci[("SignallingHudTests.cs", 39)]) == 84, (
         len(tresci[("SignallingHudTests.cs", 39)]))
 
@@ -477,9 +478,10 @@ ROZKLAD_LICZBOWYCH = {
         # 501 -> 505 (24.09.2026): three station/step pins and one
         # chainage pin with exact 0.0 tolerance for mid-axis admission.
         # 505 -> 508 (24.09.2026, T-320): plan wejść i dwie granice obiegu.
-        "razem": 508, "z_tolerancja": 190, "bez_tolerancji": 318,
+        # 508 -> 512 (24.09.2026, T-320): kroki, stacja i liczba składów.
+        "razem": 512, "z_tolerancja": 190, "bez_tolerancji": 322,
         "zmiennoprzecinkowe": 198, "zmiennoprzecinkowe_bez_tolerancji": 8,
-        "calkowite": 310, "calkowite_z_tolerancja": 0, "tolerancja_zero": 121,
+        "calkowite": 314, "calkowite_z_tolerancja": 0, "tolerancja_zero": 121,
     },
 }
 

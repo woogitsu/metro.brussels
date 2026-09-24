@@ -46,6 +46,66 @@ public sealed class LineCoreTests
             Settings());
     }
 
+    [TestMethod]
+    public void Bramka_kursu_czeka_na_dokladny_krok_i_zachowuje_stacje_wejscia()
+    {
+        var line = Line();
+        var gate = new LineEntryGate(line);
+        Assert.ThrowsException<ArgumentOutOfRangeException>(
+            () => gate.QueueDue(new ScheduledLineEntry("early", "block-a", 1, 2)),
+            "Kurs nie może zostać zarejestrowany przed releaseStep.");
+        line.Step();
+        line.Step();
+
+        var train = gate.QueueDue(new ScheduledLineEntry("beek", "block-a", 1, 2));
+        line.Step();
+
+        Assert.AreEqual(2L, train.EnteredAtStep,
+            "Wolny peron wpuszcza skład w rozkładowym kroku.");
+        Assert.AreEqual(1, train.EntryStationIndex,
+            "Bramka przekazuje indeks stacji do LineCore.");
+        Assert.IsTrue(train.Drive!.ChainageM >= 600.0,
+            "Skład startuje z drugiej stacji osi.");
+    }
+
+    [TestMethod]
+    public void Bramka_rejestruje_kurs_ale_zajety_blok_odklada_fizyczny_wjazd()
+    {
+        var line = Line();
+        var gate = new LineEntryGate(line);
+        var first = gate.QueueDue(new ScheduledLineEntry("first", "block-a", 0, 0));
+        var waiting = gate.QueueDue(new ScheduledLineEntry("waiting", "block-b", 0, 0));
+
+        line.Step();
+
+        Assert.AreEqual(0L, first.EnteredAtStep,
+            "Pierwszy skład wchodzi w swoim releaseStep.");
+        Assert.IsNull(waiting.EnteredAtStep,
+            "Zajęty blok przy peronie odkłada drugi wjazd.");
+        while (waiting.EnteredAtStep is null && line.Steps < LineRun.DefaultStepBudget)
+        {
+            line.Step();
+        }
+        Assert.IsNotNull(waiting.EnteredAtStep,
+            "Drugi skład wchodzi po zwolnieniu bloków.");
+        Assert.IsTrue(waiting.EnteredAtStep > waiting.ReleaseStep,
+            "Rzeczywisty wjazd może nastąpić później niż releaseStep.");
+    }
+
+    [TestMethod]
+    public void Bramka_odmawia_ponownego_kursu_tego_samego_obiegu()
+    {
+        var line = Line();
+        var gate = new LineEntryGate(line);
+        gate.QueueDue(new ScheduledLineEntry("one", "same-block", 0, 0));
+
+        Assert.ThrowsException<InvalidOperationException>(
+            () => gate.QueueDue(new ScheduledLineEntry("two", "same-block", 0, 0)),
+            "Drugi trip_id jednego block_id wymaga polityki użycia tego samego pojazdu.");
+        Assert.AreEqual(1, line.Trains.Count,
+            "Odmowa nie może pozostawić dodatkowego składu na linii.");
+    }
+
     private static List<LineRun.TracePoint> TraceOf(LineCore line, string trainId, long stepBudget)
     {
         var trace = new List<LineRun.TracePoint>();

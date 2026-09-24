@@ -91,6 +91,18 @@ lub Beekkant (`8742`, 155 przypadków, przerwy 4248–4708 s). To są tylko odst
 między odcinkami w pakiecie A; bez pełnej trasy między kursami nie można określić
 przejazdu technicznego, nawrotu ani chwili ponownego użycia składu w `LineCore`.
 
+**Bramka pojedynczego wjazdu.** `LineEntryGate.QueueDue` przyjmuje typowany kurs
+tylko wtedy, gdy `releaseStep` jest bieżącym krokiem LineCore, i przekazuje jego
+`trip_id` oraz indeks stacji do `AddAtStation`. Samo zgłoszenie nie oznacza fizycznego
+wjazdu: `LineCore.Step` sprawdza zajętość bloków i ustawia `EnteredAtStep` dopiero
+po wejściu. Test na dwóch kursach o tym samym czasie i peronie pokazuje opóźnienie
+drugiego składu. Bramka odmawia drugiego kursu tego samego `block_id`, ponieważ
+nie ma jeszcze reguły przekazania tożsamości pojazdu między kursami. Jej użycie
+nie jest dyspozyturą dla 357 kursów ani modelem przejazdu między krańcami osi.
+Gdy dwa kursy mają ten sam `releaseStep` i peron, pierwszy zgłoszony dostaje
+pierwszą próbę wjazdu; GTFS nie ustala tu priorytetu przy konflikcie, więc
+kolejności zgłoszeń nie należy przedstawiać jako oficjalnej decyzji ruchowej.
+
 ## Sprawdzenie
 
 Audyt opiera się na schemacie w `tools/track/timetable.py` i spisie plików śledzonych przez Git.
