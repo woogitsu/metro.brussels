@@ -76,6 +76,7 @@ public sealed partial class FirstRun : Node3D
 
     private TrackAxis _axis = null!;
     private SceneAxis _sceneAxis = null!;
+    private SceneAxis? _visualTailAxis;
     private VehicleModel _model = null!;
     private DriveScenario _scenario = null!;
     private RunConditions _conditions = null!;
@@ -1246,6 +1247,43 @@ public sealed partial class FirstRun : Node3D
             Path.Combine(_assetDirectory, manifest.Chunks[0].Id + "_detail.glb"));
         _tunnelMaterial = tunnelMaterial;
         _tunnel.Stream(manifest, _assetDirectory, tunnelMaterial, _scenario.StartChainageM);
+        var tailMeshes = _tunnel.LoadVisualContinuation(
+            Path.Combine(assets, "L1_A-visual-tail.glb"),
+            Path.Combine(assets, "L1_A-visual-tail-detail.glb"), tunnelMaterial);
+        if (tailMeshes < 0)
+        {
+            Abort(ExitMissingAssets, "[ASSETS] niekompletna wizualna kontynuacja za Merode; sprawdź pliki toru");
+            return;
+        }
+        var tailAxisPath = Path.Combine(assets, "L1_A-visual-tail-axis.json");
+        if (tailMeshes > 0)
+        {
+            using var tailAxisFile = FileAccess.Open(tailAxisPath, FileAccess.ModeFlags.Read);
+            if (tailAxisFile is null)
+            {
+                Abort(ExitMissingAssets, $"[ASSETS] nie da się odczytać {tailAxisPath}");
+                return;
+            }
+            try
+            {
+                var tailAxis = new SceneAxis(
+                    TrackAxis.FromJson(tailAxisFile.GetAsText()), DesignAssumptions.TrackOffsetM);
+                if (tailAxis.CentreLinePoint(0.0).DistanceTo(
+                    _sceneAxis.CentreLinePoint(_axis.LengthM)) > 0.02f)
+                    throw new ArgumentException("oś scenerii nie łączy się z końcem toru jazdy");
+                _visualTailAxis = tailAxis;
+            }
+            catch (Exception error) when (error is ArgumentException or FormatException)
+            {
+                Abort(ExitBadArgumentValue, $"[ASSETS] {tailAxisPath} nie jest osią scenerii: {error.Message}");
+                return;
+            }
+            catch (Exception error) when (BadFile.IsWrongJsonShape(error))
+            {
+                Abort(ExitBadArgumentValue, $"[ASSETS] {tailAxisPath} ma nieprawidłowy kształt osi scenerii");
+                return;
+            }
+        }
 
         // Wynik `Load` był ODRZUCANY. `TrainView.Load` zwraca liczbę brył i zero znaczy
         // „nie wczytałem nic" — bez tego sprawdzenia scena szła dalej bez składu, a że
@@ -1783,11 +1821,21 @@ public sealed partial class FirstRun : Node3D
         // że blokada trakcji zadziałała w innym kroku. Tak samo `LineDrive` wpisuje do
         // śladu polecenie PO ingerencji: inaczej ślad mówiłby, czego maszynista chciał,
         // a nie czym pojechał.
+        if (TrackEndStop.Reached(ChainageM, _axis.LengthM))
+        {
+            effective = DriverCommand.Coast;
+        }
         _effectiveCommand = effective;
 
         _state = _controller.Advance(
             _state, _conditions, effective, SpeedLimitMps, _step, out var forces);
-        _acceleration = forces.AccelerationMps2;
+        _state = TrackEndStop.Apply(_state, _scenario.StartChainageM, _axis.LengthM);
+        if (TrackEndStop.Reached(ChainageM, _axis.LengthM))
+        {
+            _effectiveCommand = DriverCommand.Coast;
+        }
+        _acceleration = TrackEndStop.Reached(ChainageM, _axis.LengthM)
+            ? 0.0 : forces.AccelerationMps2;
         _logStep++;
 
         // MELDUNEK RUCHU PO KROKU — faza 3 kroku `LineCore`. Przed krokiem opisywałby
@@ -2116,22 +2164,17 @@ public sealed partial class FirstRun : Node3D
         for (var slot = 0; slot < intervals; slot++)
         {
             var at = (anchor + slot - 2) * spacingM;
-            var visible = at >= 0 && at <= _axis.LengthM;
             for (var side = 0; side < 2; side++)
             {
                 var light = _trackLights[slot * 2 + side];
-                light.Visible = visible;
-                if (!visible)
+                var lateral = side == 0 ? -4.48f : 4.48f;
+                var position = _sceneAxis.FixturePoint(at, _visualTailAxis, lateral, 3.35);
+                light.Visible = position.HasValue;
+                if (!position.HasValue)
                 {
                     continue;
                 }
-
-                var from = Math.Max(0.0, at - 0.5);
-                var to = Math.Min(_axis.LengthM, at + 0.5);
-                var frame = _sceneAxis.Chord(from, to);
-                var lateral = side == 0 ? -4.48f : 4.48f;
-                light.Position = _sceneAxis.CentreLinePoint(at)
-                    + frame.Right * lateral + frame.Up * 3.35f;
+                light.Position = position.Value;
             }
         }
     }
@@ -2343,12 +2386,17 @@ public sealed partial class FirstRun : Node3D
         var chainage = ChainageM;
         var name = "koniec pakietu";
         var distance = _axis.LengthM - chainage;
+        if (_stations is not null && TrackEndStop.Reached(chainage, _axis.LengthM))
+        {
+            name = UiText.Get("hud.station.track-end-name");
+            distance = 0.0;
+        }
 
         // Wiedza o tym, gdzie jest następna stacja, ma JEDNO miejsce. Poprzednio ta
         // pętla stała tutaj i była drugą kopią tego, co robi `StationService.Approach`;
         // dwie kopie tej samej wiedzy rozjeżdżają się w chwili, gdy jedna z nich dostaje
         // okno zatrzymania, a druga nie.
-        if (_line is not null)
+        if (_line is not null && !TrackEndStop.Reached(chainage, _axis.LengthM))
         {
             var nastepna = _line.NextStation;
             if (nastepna is not null)
@@ -2357,7 +2405,7 @@ public sealed partial class FirstRun : Node3D
                 distance = nastepna.Value.ChainageM - chainage;
             }
         }
-        else if (_stations is not null)
+        else if (_stations is not null && !TrackEndStop.Reached(chainage, _axis.LengthM))
         {
             var approach = _stations.Approach(chainage);
             if (approach.Exists)
@@ -2366,7 +2414,7 @@ public sealed partial class FirstRun : Node3D
                 distance = approach.DistanceM;
             }
         }
-        else
+        else if (!TrackEndStop.Reached(chainage, _axis.LengthM))
         {
             foreach (var station in _axis.Stations)
             {
@@ -2591,6 +2639,13 @@ public sealed partial class FirstRun : Node3D
     {
         if (_line is not null)
         {
+            // Na końcu osi nazwa stacji i odległość pozostają dostępne w postoju,
+            // ale przed założeniem postoju pokaż faktyczny koniec toru.
+            if (TrackEndStop.Reached(ChainageM, _axis.LengthM) && !_line.AtStation)
+            {
+                return UiText.Get("hud.station.track-end");
+            }
+
             var zaLinie = _line.Calls.Count;
             if (_line.AtStation)
             {
@@ -2662,6 +2717,11 @@ public sealed partial class FirstRun : Node3D
         if (_stations is null)
         {
             return string.Empty;
+        }
+
+        if (TrackEndStop.Reached(ChainageM, _axis.LengthM))
+        {
+            return UiText.Get("hud.station.track-end");
         }
 
         var licznik = UiText.Format(
@@ -3191,10 +3251,10 @@ public sealed partial class FirstRun : Node3D
     /// Kształt pola `scene` jest ten sam, co w metadanych Blenderowych, żeby
     /// `check_geometry` nie potrzebowało dwóch ścieżek na dwa silniki.
     ///
-    /// Plik jest JEDEN na prefiks, więc kolejne ujęcia go nadpisują. Pole `scene` jest
-    /// dla wszystkich pięciu identyczne (ta sama wczytana geometria) i to ono jest tu
-    /// treścią; `last_shot` opisuje wyłącznie ostatnie ujęcie i tak się nazywa, żeby
-    /// nikt nie odczytał go jako opisu całego zestawu.
+    /// Plik jest JEDEN na prefiks, więc kolejne ujęcia go nadpisują. Pole `scene`
+    /// opisuje rezydentne chunki przejezdnej osi, które sprawdza predykat
+    /// streamowania. Osobna sceneria za końcem osi nie jest częścią tego manifestu
+    /// i nie może rozszerzać jego obwiedni. `last_shot` opisuje tylko ostatnie ujęcie.
     /// </summary>
     private void WriteShotMetadata(int width, int height)
     {
@@ -3242,7 +3302,7 @@ public sealed partial class FirstRun : Node3D
           "bbox_min": [{{lo.X:F4}}, {{lo.Y:F4}}, {{lo.Z:F4}}],
           "bbox_max": [{{hi.X:F4}}, {{hi.Y:F4}}, {{hi.Z:F4}}],
           "size_m": [{{bounds.Size.X:F4}}, {{bounds.Size.Y:F4}}, {{bounds.Size.Z:F4}}],
-          "mesh_objects": {{_tunnel.MeshNodes}},
+          "mesh_objects": {{_tunnel.ResidentMeshNodes}},
           "vertices": {{faces * 3}},
           "faces": {{faces}},
           "chunks_loaded": {{_tunnel.LoadedChunks}},

@@ -300,7 +300,8 @@ BEZ_KOMUNIKATU = {
     # tylko maleć i to jest jej cała treść — wpis podniesiony byłby cichym przyzwoleniem
     # na asercję, która nie mówi, co jest nie tak.
     "LineCoreTests.cs": 43,
-    "LineDriveTests.cs": 21,
+    # 21 -> 29 (24.09.2026): końcowy postój Merode i ślad po ograniczeniu osi.
+    "LineDriveTests.cs": 29,
     "LineRouteTests.cs": 14,
     "LineRunTests.cs": 28,
     "MovementAuthorityTests.cs": 30,
@@ -314,7 +315,8 @@ BEZ_KOMUNIKATU = {
     "RunResetTests.cs": 40,
     "RunnerCommandTests.cs": 126,
     "ScenarioDriveTests.cs": 35,
-    "SceneAxisTests.cs": 10,
+    # 10 -> 11 (24.09.2026): oprawa nie wykracza za zmierzoną scenerię.
+    "SceneAxisTests.cs": 11,
     "ServiceDayTests.cs": 31,
     "SignallingHudTests.cs": 21,
     "SignallingPlanTests.cs": 23,
@@ -323,6 +325,8 @@ BEZ_KOMUNIKATU = {
     "StepAccumulatorTests.cs": 17,
     "StreamingPlanTests.cs": 30,
     "TelemetryTrackTests.cs": 33,
+    # Koniec osi: sześć dokładnych porównań stanu bez opisów w nowym teście.
+    "TrackEndStopTests.cs": 6,
     "TrackAxisTests.cs": 41,
     "TractionAndResistanceTests.cs": 16,
     "TrainControllerTests.cs": 23,
@@ -473,7 +477,17 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 # 1982 -> 1995 (24.09.2026, tablice na dojeździe i pomoc linii):
 # trzynaście kontroli z komunikatami; trzy nowe komunikaty dopisano przy scaleniu.
 # 1995 -> 1997 (24.09.2026, mocowania tablic): obie asercje opisują sens błędu.
-Z_KOMUNIKATEM_RAZEM = 1997
+# 1997 -> 2010 (24.09.2026, wejście składu od wskazanej stacji):
+# trzynaście nowych asercji opisuje także blokadę drugiego składu i dojazd.
+# 2010 -> 2025 (24.09.2026, T-320): osiem asercji planu wejść i siedem
+# kontroli ciągłości obiegów ma komunikaty.
+# 2025 -> 2035 (24.09.2026, T-320): dziesięć kontroli bramki wjazdu.
+# 2035 -> 2040 (24.09.2026, T-320): pięć kontroli chronologii obiegu.
+# 2040 -> 2049 (24.09.2026, T-320): dziewięć asercji wykrywania pominiętych kursów.
+# 2049 -> 2054 (24.09.2026, T-320): walidacja dnia służby i godziny po północy.
+# 2054 -> 2063 (24.09.2026, koniec osi linii): dziewięć opisanych kontroli
+# postoju Merode i opraw scenerii.
+Z_KOMUNIKATEM_RAZEM = 2063
 NIEROZSTRZYGNIETYCH = 68
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
 #: `tests/Sim.Tests/DefaultArmAuditTests.cs` — bramki na ramionach domyślnych
@@ -600,7 +614,16 @@ NIEROZSTRZYGNIETYCH = 68
 # te same trzynaście kontroli z komunikatami.
 # 3441 -> 3447 (24.09.2026, stan składu po zjeździe): sześć asercji.
 # 3447 -> 3449 (24.09.2026, mocowania tablic): dwie asercje długości wsporników.
-ASERCJI_RAZEM = 3449
+# 3449 -> 3462 (24.09.2026, wejście składu od wskazanej stacji).
+# 3462 -> 3477 (24.09.2026, T-320): plan wejść i ciągłość obiegów.
+# 3477 -> 3487 (24.09.2026, T-320): dziesięć kontroli bramki wjazdu.
+# 3487 -> 3492 (24.09.2026, T-320): pięć kontroli chronologii obiegu.
+# 3492 -> 3501 (24.09.2026, T-320): dziewięć kontroli bramki z planem.
+# 3501 -> 3506 (24.09.2026, T-320): dzień służby i zapis 25:00.
+# 3506 -> 3512 (24.09.2026, koniec osi): sześć kontroli stanu granicznego.
+# 3512 -> 3530 (24.09.2026, koniec osi linii): końcowy postój i oprawy scenerii;
+# po dziewięć asercji z komunikatem i bez komunikatu.
+ASERCJI_RAZEM = 3530
 
 
 def _rozklad():

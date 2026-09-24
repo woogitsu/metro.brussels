@@ -48,6 +48,7 @@ public sealed class LineDrive
     private readonly LineRunSettings _settings;
     private readonly DoorCycle _cycle;
     private readonly double _start;
+    private readonly double _axisEndM;
     private readonly double _trigger;
     private readonly double _effectiveMassKg;
     private readonly List<StationCall> _calls;
@@ -85,13 +86,15 @@ public sealed class LineDrive
     /// <param name="controller">Kontroler z T-310.</param>
     /// <param name="solver">Solver punktu hamowania z T-311.</param>
     /// <param name="step">Krok stały.</param>
+    /// <param name="startStationIndex">Peron wejścia; domyślnie pierwszy na osi.</param>
     public LineDrive(
         TrackAxis axis,
         RunConditions conditions,
         LineRunSettings settings,
         TrainController controller,
         BrakingPointSolver solver,
-        FixedStep step)
+        FixedStep step,
+        int startStationIndex = 0)
     {
         ArgumentNullException.ThrowIfNull(axis);
         ArgumentNullException.ThrowIfNull(conditions);
@@ -106,6 +109,11 @@ public sealed class LineDrive
                 nameof(axis), axis.Stations.Count,
                 "Przejazd z zatrzymaniami wymaga co najmniej dwóch stacji na osi.");
         }
+        if (startStationIndex < 0 || startStationIndex >= axis.Stations.Count - 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(startStationIndex), startStationIndex,
+                "Stacja wejścia musi mieć następną stację na osi.");
+        }
 
         AxisId = axis.Id;
         _stations = axis.Stations;
@@ -115,7 +123,9 @@ public sealed class LineDrive
         _solver = solver;
         _step = step;
 
-        _start = _stations[0].ChainageM;
+        _start = _stations[startStationIndex].ChainageM;
+        _axisEndM = axis.LengthM;
+        _next = startStationIndex + 1;
         _cycle = new DoorCycle(settings.PassengerExchangeSeconds);
         _trigger = settings.BrakeUsageFraction * controller.ServiceBrakeMps2;
         _effectiveMassKg = controller.Dynamics.EffectiveMassKg(conditions.MassKg);
@@ -455,12 +465,15 @@ public sealed class LineDrive
 
             var phase = _stop.Phase;
             var beforeStop = _state;
-            _state = _controller.Advance(
+            var advancedStop = _controller.Advance(
                 _state, _conditions, held, _settings.SpeedLimitMps, _step, out var stopForces);
-            AccumulateEnergy(beforeStop, _state, stopForces);
+            _state = TrackEndStop.Apply(advancedStop, _start, _axisEndM);
+            AccumulateEnergy(beforeStop, _state, stopForces, advancedStop != _state);
             trace?.Invoke(new LineRun.TracePoint(
                 _state.TimeSeconds(_step), _start + _state.DistanceM, _state.SpeedMps,
-                _state.BrakeRateMps2, held, phase));
+                _state.BrakeRateMps2,
+                TrackEndStop.Reached(ChainageM, _axisEndM) ? DriverCommand.Coast : held,
+                phase));
 
             // ODJAZD BEZ OBSŁUGI DRZWI — możliwy WYŁĄCZNIE w trybie ręcznym i wyłącznie
             // do przodu. W trybie automatycznym nie ma jak: cykl rusza sam w pierwszym
@@ -580,12 +593,15 @@ public sealed class LineDrive
         // od ochrony, a nie obok niej.
         command = Supervisor is null ? command : Supervisor(command);
         var beforeRun = _state;
-        _state = _controller.Advance(
+        var advancedRun = _controller.Advance(
             _state, _conditions, command, _settings.SpeedLimitMps, _step, out var runForces);
-        AccumulateEnergy(beforeRun, _state, runForces);
+        _state = TrackEndStop.Apply(advancedRun, _start, _axisEndM);
+        AccumulateEnergy(beforeRun, _state, runForces, advancedRun != _state);
         trace?.Invoke(new LineRun.TracePoint(
             _state.TimeSeconds(_step), _start + _state.DistanceM, _state.SpeedMps,
-            _state.BrakeRateMps2, command, DoorPhase.Closed));
+            _state.BrakeRateMps2,
+            TrackEndStop.Reached(ChainageM, _axisEndM) ? DriverCommand.Coast : command,
+            DoorPhase.Closed));
         if (_state.SpeedMps > _topSpeed)
         {
             _topSpeed = _state.SpeedMps;
@@ -631,7 +647,8 @@ public sealed class LineDrive
     /// zera i do limitu. Tożsamość jest algebraiczna, więc działa bez względu na to, czy
     /// w danym kroku obcięcie faktycznie zaszło.</para>
     /// </summary>
-    private void AccumulateEnergy(DriveState before, DriveState after, StepForces forces)
+    private void AccumulateEnergy(DriveState before, DriveState after, StepForces forces,
+        bool axisEndClamped = false)
     {
         var travelled = after.DistanceM - before.DistanceM;
         var deltaSpeed = after.SpeedMps - before.SpeedMps;
@@ -642,7 +659,16 @@ public sealed class LineDrive
         _gradeWorkJ += forces.GradeN * travelled;
         _brakeWorkJ += _effectiveMassKg * after.BrakeRateMps2 * travelled;
         _discretizationWorkJ += 0.5 * _effectiveMassKg * deltaSpeed * deltaSpeed;
-        _clampedWorkJ += (netAll - (_effectiveMassKg * deltaSpeed / _step.Seconds)) * travelled;
+        // Zwykły krok ma travelled = v_po·dt i zachowuje historyczny rachunek bitowo.
+        // Na końcu osi odrzucamy też część DROGI kroku, więc tej równości już nie ma.
+        // Bilans liczony wtedy z rzeczywistego ΔE i rzeczywistej drogi opisuje dokładnie
+        // stan po ograniczeniu, który trafia do śladu i HUD.
+        _clampedWorkJ += axisEndClamped
+            ? netAll * travelled
+              - 0.5 * _effectiveMassKg *
+                (after.SpeedMps * after.SpeedMps - before.SpeedMps * before.SpeedMps)
+              - 0.5 * _effectiveMassKg * deltaSpeed * deltaSpeed
+            : (netAll - (_effectiveMassKg * deltaSpeed / _step.Seconds)) * travelled;
     }
 
     /// <summary>

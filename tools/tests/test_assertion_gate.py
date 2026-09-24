@@ -1747,7 +1747,10 @@ def test_wzorzec_rodziny_lapie_zdanie_ktore_ma_lapac_i_nie_bierze_sasiedztwa():
 # czytają opcje `codesign/enable=false` i `application/modify_resources=false`
 # z export_presets.cfg. Stoją na NAPISIE i słusznie: badają zapisane ustawienia
 # eksportu, od których zależy działanie paczkowania na Linuksie.
-ASERCJI_NAPISOWYCH_RAZEM = 940
+# 940 -> 941 (24.09.2026, odmowa bez osi scenerii): test szuka nazwy
+# brakującego JSON-a w stderr uruchomionego `play.sh`. To NAPIS będący WYNIKIEM
+# zachowania skryptu, a nie cytat ze źródła `.py`; nie należy do NA_ZRODLE_PY.
+ASERCJI_NAPISOWYCH_RAZEM = 941
 
 #: **Kotwica wpisu to `(plik, funkcja, operator, literał)`, a NIE numer wiersza.**
 #: Numer przesuwa się przy każdej edycji pliku i lista rozjechałaby się sama z siebie.

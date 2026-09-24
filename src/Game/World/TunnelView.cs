@@ -25,6 +25,53 @@ public sealed partial class TunnelView : Node3D
     /// <summary>Łączna liczba węzłów siatki w tunelu.</summary>
     public int MeshNodes { get; private set; }
 
+    /// <summary>Liczba siatek rezydentnych chunków osi jazdy, bez scenerii za końcem osi.</summary>
+    public int ResidentMeshNodes
+    {
+        get
+        {
+            var count = 0;
+            foreach (var id in _levels.Keys)
+            {
+                if (GetNodeOrNull<Node3D>(id) is { } chunk)
+                    count += CountMeshes(chunk);
+            }
+            return count;
+        }
+    }
+
+    /// <summary>
+    /// Keep measured route scenery visible beyond the last playable stop. This
+    /// does not enter the chunk manifest, driving axis, collision or simulation.
+    /// Zero means an older asset set without the optional pair; -1 means a
+    /// partial or unreadable pair.
+    /// </summary>
+    public int LoadVisualContinuation(string tunnelPath, string detailPath,
+        StandardMaterial3D material)
+    {
+        var hasTunnel = FileAccess.FileExists(tunnelPath);
+        var hasDetail = FileAccess.FileExists(detailPath);
+        if (!hasTunnel && !hasDetail)
+            return 0;
+        if (!hasTunnel || !hasDetail)
+            return -1;
+
+        var tunnel = GlbLoader.Load(tunnelPath);
+        var detail = GlbLoader.Load(detailPath);
+        if (tunnel is null || detail is null)
+        {
+            tunnel?.Free();
+            detail?.Free();
+            return -1;
+        }
+
+        GlbLoader.ApplyNeutralMaterial(tunnel, material);
+        AddChild(tunnel);
+        tunnel.AddChild(detail);
+        MeshNodes = CountMeshes(this);
+        return CountMeshes(tunnel);
+    }
+
     /// <summary>
     /// Doprowadza zawartość węzła do stanu, jakiego dla tego chainage żąda
     /// <see cref="StreamingPlan"/>: dokłada brakujące chunki, zwalnia te, które wypadły
@@ -164,7 +211,7 @@ public sealed partial class TunnelView : Node3D
     }
 
     /// <summary>
-    /// Obwiednia wczytanej geometrii tunelu w układzie świata.
+    /// Obwiednia rezydentnych chunków przejezdnej osi w układzie świata.
     ///
     /// Metryka obrazowa nie wykryje przesunięcia całej sceny, bo kamera jedzie razem
     /// z nią — dokładnie ta sama pułapka, którą <c>tools/visual/compare.py</c> opisuje
@@ -174,10 +221,15 @@ public sealed partial class TunnelView : Node3D
     public Aabb LoadedBounds()
     {
         Aabb? merged = null;
-        foreach (var instance in MeshInstances(this))
+        foreach (var id in _levels.Keys)
         {
-            var box = instance.GlobalTransform * instance.GetAabb();
-            merged = merged is null ? box : merged.Value.Merge(box);
+            if (GetNodeOrNull<Node3D>(id) is not { } chunk)
+                continue;
+            foreach (var instance in MeshInstances(chunk))
+            {
+                var box = instance.GlobalTransform * instance.GetAabb();
+                merged = merged is null ? box : merged.Value.Merge(box);
+            }
         }
 
         return merged ?? new Aabb();
@@ -185,17 +237,12 @@ public sealed partial class TunnelView : Node3D
 
     private static IEnumerable<MeshInstance3D> MeshInstances(Node node)
     {
+        if (node is MeshInstance3D instance)
+            yield return instance;
         foreach (var child in node.GetChildren())
         {
-            if (child is MeshInstance3D instance)
-            {
-                yield return instance;
-            }
-
             foreach (var nested in MeshInstances(child))
-            {
                 yield return nested;
-            }
         }
     }
 

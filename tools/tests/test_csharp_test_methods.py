@@ -647,12 +647,23 @@ ROZKLAD_POSTACI = {
         # 5054 -> 5064 (24.09.2026, test końca planu): wejścia i komunikaty
         # rzeczywistego przebiegu LineCore w SignallingHudTests.
         # 5064 -> 5066 (24.09.2026, mocowania tablic): komunikaty dwóch asercji.
-        "zwykly": 5066,
-        "interpolowany ($)": 849,
+        # 5066 -> 5087 and 849 -> 850 (24.09.2026, mid-axis admission tests).
+        # 5087 -> 5165, 850 -> 852 (24.09.2026, T-320): plan wejść i obiegi.
+        # 5165 -> 5187 (24.09.2026, T-320): kursy, bloki i komunikaty bramki.
+        # 5187 -> 5210 (24.09.2026, T-320): nazwy kursów i komunikaty kolejności.
+        # 5210 -> 5222 (24.09.2026, T-320): dwa kursy i komunikaty testów pominięcia.
+        # 5222 -> 5232 (24.09.2026, T-320): plan dnia i odmowy błędnej daty.
+        # 5232 -> 5236 (24.09.2026, test lamp i osłony czytnika osi scenerii).
+        # 5236 -> 5244 (24.09.2026, test skrętu osi scenerii i odmowy brakującego JSON).
+        "zwykly": 5244,
+        "interpolowany ($)": 852,
         "werbatim (@)": 101,
         "surowy interpolowany ($$\"\"\")": 13,
         # 8 -> 10 (23.09.2026): dwie probki sceny w testach.
-        "surowy (\"\"\")": 10,
+        # 10 -> 12 (24.09.2026, T-320): dwa dokumenty syntetycznego planu.
+        # 12 -> 13 (24.09.2026, T-320): plan z datą dnia służby.
+        # 14 -> 15 (24.09.2026, syntetyczna oś scenerii w SceneAxisTests).
+        "surowy (\"\"\")": 15,
         "werbatim interpolowany ($@)": 8,
     },
     "src": {
@@ -711,7 +722,16 @@ ROZKLAD_POSTACI = {
         # sciezka GLB i odmowa braku; zmierzone czytnikiem po obu katalogach.
         # 1465 -> 1468 (24.09.2026, HUD 800x600): klucz i dwa warianty pozycji.
         # 1470 -> 1471 (24.09.2026, HUD po końcu planu): nowy wiersz stanu.
-        "zwykly": 1471,
+        # 1471 -> 1474 (24.09.2026, mid-axis entry validation and tests).
+        # 1474 -> 1477 (24.09.2026, visual tail GLB paths and refusal).
+        # 1510 -> 1512 (24.09.2026, kolor i rozmiar celu na starcie).
+        # 1512 -> 1513 (24.09.2026, T-320): odmowa pustego kursu.
+        # 1513 -> 1514 (24.09.2026, T-320): wymóg planu w bramce.
+        # 1514 -> 1516 (24.09.2026, T-320): błędna data i odmowa dnia służby.
+        # 1516 -> 1523 (24.09.2026, koniec osi): komunikaty i klucze HUD.
+        # 1523 -> 1525 (24.09.2026, oś scenerii za Merode).
+        # 1525 -> 1526 (24.09.2026, ścieżka JSON tej osi w FirstRun).
+        "zwykly": 1526,
         # 489 -> 494 (22.09.2026, 6.D235): piec komunikatow `Abort` dla pliku ZLEGO
         # w `FirstRun.cs`. Przeliczone z drzewa, nie zsumowane.
         # 494 -> 513 (23.09.2026, 6.M1): komunikaty odmow i wiersze zapisu zdarzen
@@ -721,7 +741,11 @@ ROZKLAD_POSTACI = {
         # i bez niej, gdy parser jej nie podal; jedna byla, sa dwie. ZMIERZONE.
         # 515 -> 516 (24.09.2026, interaktywne R): błąd przeładowania sceny.
         # 516 -> 518 (24.09.2026, krótki HUD chase): dystans i granica.
-        "interpolowany ($)": 519,
+        # 527 -> 529 (24.09.2026, T-320): zegar i ponowny kurs obiegu.
+        # 529 -> 531 (24.09.2026, T-320): wskazanie pominiętego kursu i porządku.
+        # 531 -> 533 (24.09.2026, T-320): data planu i zegara.
+        # 533 -> 536 (24.09.2026, odmowy dla osi scenerii).
+        "interpolowany ($)": 536,
         "werbatim (@)": 0,
         "surowy interpolowany ($$\"\"\")": 1,
         "surowy (\"\"\")": 1,

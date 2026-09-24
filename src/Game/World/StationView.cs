@@ -58,7 +58,7 @@ public sealed partial class StationView : Node3D
         GlbLoader.ApplyNeutralMaterial(scene, material);
         // The generated warning strips have their own `_edge` meshes. Give them
         // a readable, unbranded color instead of the slab's gray override.
-        using var edgeMaterial = GlbLoader.NeutralMaterial(new Color(0.92f, 0.74f, 0.28f), 0.85f);
+        using var edgeMaterial = GlbLoader.NeutralMaterial(new Color(0.76f, 0.60f, 0.24f), 0.90f);
 
         _slabs.Clear();
         foreach (var instance in MeshInstances(scene))
@@ -126,7 +126,7 @@ public sealed partial class StationView : Node3D
             var names = station.Name.Split('|');
             var bilingual = names.Length == 2;
             var text = NameMarkerText(station.Name);
-            var fontSize = bilingual ? 46 : 60;
+            var fontSize = bilingual ? 42 : 60;
             var pixelSize = bilingual ? 0.0075f : 0.0095f;
             var longestLine = 0;
             foreach (var name in names)
@@ -137,8 +137,8 @@ public sealed partial class StationView : Node3D
                 2.5f, 8.0f);
             // The playable tunnel still uses box_double at stations: roof 4.70 m.
             // Keep the plate above the 3.60 m train and below that actual roof.
-            var height = bilingual ? 0.72f : 0.60f;
-            var centreHeight = bilingual ? 4.20f : 4.15f;
+            var height = bilingual ? 0.82f : 0.60f;
+            var centreHeight = 4.15f;
             foreach (var at in NameMarkerPositions(station.ChainageM, sceneAxis.Axis.LengthM))
             {
                 var frame = sceneAxis.Chord(at - 0.5, at + 0.5);
@@ -162,20 +162,28 @@ public sealed partial class StationView : Node3D
                     };
                     AddChild(hanger);
                 }
-                var label = new Label3D
+                foreach (var side in new[] { -1.0f, 1.0f })
                 {
-                    Text = text,
-                    Transform = new Transform3D(orientation,
-                        centre - frame.Up * (bilingual ? 0.12f : 0.0f) - frame.Forward * 0.04f),
-                    FontSize = fontSize,
-                    PixelSize = pixelSize,
-                    Modulate = new Color(0.90f, 0.91f, 0.90f),
-                    OutlineModulate = new Color(0.07f, 0.08f, 0.09f),
-                    OutlineSize = 6,
-                    DoubleSided = true,
-                    NoDepthTest = false,
-                };
-                AddChild(label);
+                    // Both approaches see the board face, not a blank back plate.
+                    var face = side < 0
+                        ? orientation
+                        : new Basis(-orientation.X, orientation.Y, -orientation.Z);
+                    var label = new Label3D
+                    {
+                        Text = text,
+                        Transform = new Transform3D(face,
+                            centre
+                            + frame.Forward * (side * 0.04f)),
+                        FontSize = fontSize,
+                        PixelSize = pixelSize,
+                        Modulate = new Color(0.90f, 0.91f, 0.90f),
+                        OutlineModulate = new Color(0.07f, 0.08f, 0.09f),
+                        OutlineSize = 6,
+                        DoubleSided = true,
+                        NoDepthTest = false,
+                    };
+                    AddChild(label);
+                }
             }
             count++;
         }

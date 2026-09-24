@@ -53,6 +53,52 @@ public sealed class LineDriveTests
             new BrakingPointSolver(VehicleModel.M7),
             FixedStep.Simulation);
 
+    [TestMethod]
+    public void Reczna_trakcja_na_Merode_nie_wyjezdza_poza_koniec_osi()
+    {
+        // Ostatni peron jest o 0,25 m za końcem geometrii, jak na pakiecie A.
+        var axis = TrackAxis.FromJson(
+            """
+            {"id":"END","length_m":0.0,"vertical":{"status":"not_modelled"},
+             "points":[[0,0,0],[100,0,0]],
+             "stations":[{"name":"Start","chainage_m":0,"stop_id":"P0"},
+                         {"name":"Merode","chainage_m":100.25,"stop_id":"P1"}]}
+            """, 0.0);
+        var drive = Drive(axis, Settings(limitKmh: 30.0));
+        drive.DoorControl = DoorControl.Manual;
+        drive.DriverInput = DriverCommand.FullPower;
+        var trace = new List<LineRun.TracePoint>();
+
+        while (drive.ChainageM < axis.LengthM && drive.Steps < 20_000)
+        {
+            drive.Step(trace.Add);
+            Assert.IsTrue(drive.ChainageM <= axis.LengthM,
+                "nawet krok przekraczający koniec nie może ruszyć składu poza oś");
+        }
+
+        Assert.AreEqual(axis.LengthM, drive.ChainageM, 1e-9);
+        Assert.AreEqual(0.0, drive.State.SpeedMps);
+        Assert.AreEqual(0.0, trace[^1].SpeedMps,
+            "ślad kroku granicznego musi pokazywać zatrzymanie, nie prędkość surową");
+        Assert.AreEqual(0.0, trace[^1].Command.Throttle,
+            "HUD ma pokazywać odcięty ciąg, choć nastawnik nadal jest na W");
+        for (var i = 0; i < 100; i++)
+        {
+            drive.Step(trace.Add);
+            Assert.AreEqual(axis.LengthM, drive.ChainageM, 1e-9);
+            Assert.AreEqual(0.0, drive.State.SpeedMps);
+            Assert.AreEqual(0.0, trace[^1].Command.Throttle);
+        }
+
+        Assert.IsTrue(drive.AtStation, "postój Merode musi powstać po zatrzymaniu");
+        Assert.AreEqual("Merode", drive.Calls[^1].Name);
+        Assert.AreEqual(-0.25, drive.Calls[^1].StopErrorM, 1e-9);
+        Assert.IsFalse(drive.Finished, "ręczny postój czeka na obsługę drzwi");
+        Assert.AreEqual(axis.LengthM, trace[^1].ChainageM, 1e-9);
+        Assert.IsTrue(drive.Result("manual-stop").Energy.RelativeResidual < 1e-8,
+            "bilans energii musi używać drogi i prędkości po ograniczeniu osi");
+    }
+
     private static List<LineRun.TracePoint> RunToEnd(LineDrive drive)
     {
         var trace = new List<LineRun.TracePoint>();

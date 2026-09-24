@@ -67,6 +67,33 @@ echo "[PRZYGOTOWANIE] tory i detale tunelu -> $OUT/chunks"
     --centerline data/track/L1_A.json --manifest "$OUT/chunks/L1_A-chunks.json" \
     --out-dir "$OUT/chunks"
 
+# The source line continues beyond the last playable stop. Keep 300 m of it as
+# scenery, without extending the driving axis or inventing an end wall.
+echo "[PRZYGOTOWANIE] wizualna kontynuacja za Merode -> $OUT/L1_A-visual-tail.glb"
+"$BLENDER_EXE" --background --python-exit-code 7 --python tools/blender/tunnel_sweep.py -- \
+    --centerline data/scenery/L1_A_visual_tail.json --profile box_double \
+    --name L1_A_visual_tail --max-chunk-m 500 --out "$OUT/L1_A-visual-tail.glb" \
+    --chunk-dir "$OUT/visual-tail-chunks" \
+    --chunk-manifest "$OUT/visual-tail-chunks/manifest.json"
+"$BLENDER_EXE" --background --python-exit-code 7 --python tools/blender/track_detail.py -- \
+    --centerline data/scenery/L1_A_visual_tail.json \
+    --manifest "$OUT/visual-tail-chunks/manifest.json" \
+    --out-dir "$OUT/visual-tail-chunks"
+python3 - "$OUT" <<'PY'
+import json
+from pathlib import Path
+import shutil
+import sys
+
+out = Path(sys.argv[1])
+entries = json.loads((out / "visual-tail-chunks/manifest.json").read_text())["chunks"]
+if len(entries) != 1:
+    raise SystemExit("visual tail must be a single detail chunk")
+source = out / "visual-tail-chunks" / (entries[0]["id"] + "_detail.glb")
+shutil.copyfile(source, out / "L1_A-visual-tail-detail.glb")
+shutil.copyfile("data/scenery/L1_A_visual_tail.json", out / "L1_A-visual-tail-axis.json")
+PY
+
 echo "[PRZYGOTOWANIE] skorupa M7 -> $OUT/M7_shell.glb"
 "$BLENDER_EXE" --background --python-exit-code 7 --python tools/blender/m7_shell.py -- \
     --out "$OUT/M7_shell.glb" --envelope-out "$OUT/M7_envelope.glb" \

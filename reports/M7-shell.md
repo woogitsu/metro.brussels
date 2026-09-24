@@ -139,3 +139,6 @@ Kabina, wnętrze pasażerskie, finalne szyby i materiały, realistyczne wózki,
 finalne podwozie, art pass, dźwięki, animacja drzwi i kinematyka przegubów.
 Człony są rozdzielone jako osobne obiekty pod przyszłą animację, ale nic tu nie
 udaje rzeczywistej kinematyki, bo nie ma na nią danych.
+
+Stan źródeł potrzebnych do wykonania prawdziwych szyb opisuje
+`reports/m7-window-evidence.md`.

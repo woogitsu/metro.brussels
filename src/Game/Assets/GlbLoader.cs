@@ -104,7 +104,7 @@ public static class GlbLoader
         }
         image.GenerateMipmaps();
 
-        var material = NeutralMaterial(new Color(0.42f, 0.43f, 0.42f), 0.96f);
+        var material = NeutralMaterial(new Color(0.37f, 0.38f, 0.38f), 0.96f);
         using var texture = ImageTexture.CreateFromImage(image);
         material.AlbedoTexture = texture;
         material.TextureFilter = BaseMaterial3D.TextureFilterEnum.LinearWithMipmaps;

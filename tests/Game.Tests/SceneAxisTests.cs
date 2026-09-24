@@ -29,6 +29,23 @@ public sealed class SceneAxisTests
     private static SceneAxis Scene(double offsetM) => new(StraightAxis(), offsetM);
 
     [TestMethod]
+    public void FixtureBeyondPlayableEndFollowsContinuationCurveAndStopsAtItsEnd()
+    {
+        var route = Scene(2.10);
+        var tail = new SceneAxis(TrackAxis.FromJson("""
+            {"id":"TAIL","points":[[300,0,0],[310,0,0],[320,10,0],[330,20,0]],"stations":[]}
+            """), 2.10);
+        var fixture = route.FixturePoint(route.Axis.LengthM + 25.0, tail, 0.0, 3.35);
+        Assert.IsTrue(fixture.HasValue);
+        Assert.IsTrue(fixture.Value.Z < -10.0f,
+            "oprawa ma skręcać z osią scenerii, a nie iść prostą za osią jazdy");
+        Assert.IsNull(route.FixturePoint(route.Axis.LengthM + tail.Axis.LengthM + 1.0,
+            tail, 0.0, 3.35), "po końcu zmierzonej scenerii nie wolno dopisywać lamp");
+        Assert.IsNull(route.FixturePoint(route.Axis.LengthM + 1.0, null, 0.0, 3.35),
+            "bez geometrii scenerii nie wolno zgadywać przebiegu lamp");
+    }
+
+    [TestMethod]
     public void ToSceneSwapsDataAxesIntoGodotAxes()
     {
         // Dane mają Z w górę, Godot ma Y w górę i −Z do przodu: (X, Z, −Y).

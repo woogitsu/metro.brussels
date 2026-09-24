@@ -234,7 +234,12 @@ public sealed class UiTextTests
     // 590 -> 592 (24.09.2026, krótki HUD chase): dystans i próg.
     // 592 -> 595 (24.09.2026, integracja pomocy linii): trzy literały testów pomocy.
     // 595 -> 596 (24.09.2026, stan składu po zjeździe): nowy wiersz HUD.
-    private const int LiteralowWZasieguBramki = 596;
+    // 596 -> 599 (24.09.2026, sceneria za Merode): dwie ścieżki GLB i odmowa niekompletnej pary.
+    // 599 -> 601 (24.09.2026, cel stacji): rozmiar i kolor wyróżnionego celu w HUD.
+    // 601 -> 603 (24.09.2026, koniec osi): nazwa i komunikat zatrzymania w HUD.
+    // 603 -> 604 (24.09.2026, tryb linii): komunikat końca toru przed postojem Merode.
+    // 604 -> 609 (24.09.2026, lampy scenerii): ścieżka osi i odmowy dla uszkodzonego JSON-a.
+    private const int LiteralowWZasieguBramki = 609;
 
     /// <summary>Ile różnych — dolne ostrze, zmierzone 12.09.2026.</summary>
     private const int RoznychLiteralowWZasieguBramki = 362;
@@ -1511,7 +1516,12 @@ public sealed class UiTextTests
     // 631 -> 633 (24.09.2026, krótki HUD chase): te same dwa napisy.
     // 633 -> 636 (24.09.2026, integracja pomocy linii): trzy pozycje źródłowe testów.
     // 636 -> 637 (24.09.2026, stan składu po zjeździe): ten sam wiersz HUD.
-    private const int PozycjiStaregoCzytnika = 637;
+    // 637 -> 640 (24.09.2026, sceneria za Merode): te same trzy literały.
+    // 640 -> 642 (24.09.2026, cel stacji): dwa wywołania ustawiające wygląd.
+    // 642 -> 644 (24.09.2026, koniec osi): dwa klucze HUD.
+    // 644 -> 645 (24.09.2026, tryb linii): komunikat końca toru w gałęzi LineDrive.
+    // 645 -> 650 (24.09.2026, lampy scenerii): pięć nowych literałów FirstRun.
+    private const int PozycjiStaregoCzytnika = 650;
 
     /// <summary>
     /// Ile PLIKÓW korpusu stary czytnik czytał inaczej niż leksykalny — 6.D182.
@@ -1854,7 +1864,9 @@ public sealed class UiTextTests
     // 115 -> 117 (24.09.2026, braking cue): klucz dociera do `Hud.Update` z obu gałęzi.
     // 117 -> 119 (24.09.2026, preparing to brake): visible in both station approaches.
     // 119 -> 115 (24.09.2026, HUD 800x600): format pozycji przeniesiony do PositionLine.
-    private const int LiteralowNaEkranie = 115;
+    // 115 -> 117 (24.09.2026, koniec osi): nazwa i komunikat docierają do Hud.Update.
+    // 117 -> 118 (24.09.2026, tryb linii): komunikat końca toru dociera do HUD.
+    private const int LiteralowNaEkranie = 118;
 
     /// <summary>Ile z nich jest KLUCZEM katalogu, a nie tekstem — 6.D183.</summary>
     // 28 -> 36 (13.09.2026, MB-02): osiem kluczy `summary.*` panelu wyniku.
@@ -1867,7 +1879,9 @@ public sealed class UiTextTests
     // 47 -> 58 (24.09.2026, integracja): podpowiedź hamowania w obu gałęziach dojazdu.
     // 58 -> 60 (24.09.2026, preparing to brake): key in both approaches.
     // 60 -> 59 (24.09.2026, HUD 800x600): klucz pozycji jest wołany w PositionLine.
-    private const int KluczyKatalogunaEkranie = 59;
+    // 59 -> 61 (24.09.2026, koniec osi): nazwa i komunikat katalogu w HUD.
+    // 61 -> 62 (24.09.2026, tryb linii): dodatkowa droga komunikatu końca toru.
+    private const int KluczyKatalogunaEkranie = 62;
 
     /// <summary>
     /// Ile literałów z tej drogi niesie SŁOWO w rozumieniu bramki — 6.D183.
@@ -2114,7 +2128,9 @@ public sealed class UiTextTests
     // 137 -> 138 (23.09.2026, tory i światła): nowy literał na drodze całego pliku. PRZELICZONE.
     // 138 -> 140 (24.09.2026, station-wayfinding): ścieżka tablicy i komunikat odmowy.
     // 140 -> 141 (24.09.2026, interaktywne R): odmowa przeładowania sceny.
-    private const int ZgloszenFirstRunCalymPlikiem = 141;
+    // 141 -> 144 (24.09.2026, sceneria za Merode): dwie ścieżki i odmowa.
+    // 144 -> 149 (24.09.2026, lampy scenerii): ścieżka osi i komunikaty odmowy.
+    private const int ZgloszenFirstRunCalymPlikiem = 149;
 
     /// <summary>Ile daje ten sam plik liczony WIERSZ PO WIERSZU — 6.D180.</summary>
     // 122 -> 132 (14.09.2026, MB-04): `FirstRun.AssetsRoot`, `DomyslnyZapisWejsc`
@@ -2130,7 +2146,9 @@ public sealed class UiTextTests
     // 149 -> 150 (23.09.2026, tory i światła): nowy literał na drodze wierszy. PRZELICZONE.
     // 150 -> 152 (24.09.2026, station-wayfinding): te same dwa literały tablicy.
     // 152 -> 153 (24.09.2026, interaktywne R): nowy komunikat błędu.
-    private const int ZgloszenFirstRunWierszami = 153;
+    // 153 -> 156 (24.09.2026, sceneria za Merode): te same trzy literały.
+    // 156 -> 161 (24.09.2026, lampy scenerii): ścieżka osi i cztery odmowy dla złych danych.
+    private const int ZgloszenFirstRunWierszami = 161;
 
     /// <summary>Ile plików korpusu daje różne liczby obiema drogami — 6.D180.</summary>
     private const int PlikowZRoznicaDrog = 1;
@@ -2331,7 +2349,12 @@ public sealed class UiTextTests
     // 408 -> 410 (24.09.2026, krótki HUD chase): te same dwa napisy.
     // 410 -> 411 (24.09.2026, integracja pomocy linii): jeden dodatkowy literał.
     // 411 -> 412 (24.09.2026, stan składu po zjeździe): ten sam wiersz HUD.
-    private const int LiteralowDotknietychZdejmowaniem = 412;
+    // 412 -> 415 (24.09.2026, sceneria za Merode): dwie ścieżki i odmowa.
+    // 415 -> 416 (24.09.2026, cel stacji): nowy kolor w konstruktorze Godota.
+    // 416 -> 418 (24.09.2026, koniec osi): dwa nowe klucze katalogu.
+    // 418 -> 419 (24.09.2026, tryb linii): ten sam komunikat końca toru.
+    // 419 -> 424 (24.09.2026, lampy scenerii): osłona nowego czytnika osi.
+    private const int LiteralowDotknietychZdejmowaniem = 424;
 
     /// <summary>
     /// Ilu literałom zdejmowanie jednostek ZABIERA werdykt „to słowo" — 6.D155.
@@ -3569,7 +3592,8 @@ public sealed class UiTextTests
     // 149 -> 150 (24.09.2026, interaktywne R): interpolowany błąd restartu.
     // 150 -> 152 (24.09.2026, krótki HUD chase): dystans i próg.
     // 152 -> 153 (24.09.2026, integracja pomocy linii): jeden literał z klamrą.
-    private const int LiteralowZKlamra = 153;
+    // 153 -> 156 (24.09.2026, lampy scenerii): trzy komunikaty `Abort` z interpolacją.
+    private const int LiteralowZKlamra = 156;
 
     /// <summary>
     /// Ilu literałom <see cref="BezDziur"/> zabiera WSZYSTKIE słowa — 6.D188.
@@ -5448,7 +5472,9 @@ public sealed class UiTextTests
     //: 21 -> 26 (22.09.2026, 6.D235): pięciu wołających — osłony pliku ZŁEGO, po dwie
     //: klauzule przy osi i przy manifeście chunków, jedna nowa przy planie sygnalizacji.
     // 26 -> 27 (24.09.2026): brak generowanej tablicy zatrzymuje uruchomienie.
-    private const int WolajacychAbort = 27;
+    // 27 -> 28 (24.09.2026): niekompletna para GLB za Merode zatrzymuje uruchomienie.
+    // 28 -> 31 (24.09.2026): trzy odmowy przy pliku osi scenerii.
+    private const int WolajacychAbort = 31;
     // 5 -> 6 (24.09.2026, interaktywne R): błąd przeładowania poza Abort.
     private const int WypisowBleduPozaAbort = 6;
 

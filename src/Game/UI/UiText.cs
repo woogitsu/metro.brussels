@@ -111,6 +111,8 @@ public static class UiText
             ["hud.station.next"] = "{0} za {1} m   obsłużone {2}",
             ["hud.station.counter"] = "obsłużone {0}  minięte {1}",
             ["hud.station.no-more"] = "brak dalszych stacji   {0}",
+            ["hud.station.track-end"] = "KONIEC TORU — skład zatrzymany",
+            ["hud.station.track-end-name"] = "koniec toru",
             ["hud.station.approach"] = "{0} za {1} m (okno ±{2} m){3}   {4}",
             ["hud.station.in-window"] = "  W OKNIE — zatrzymaj się",
             ["hud.station.brake-now"] = "  HAMUJ TERAZ (S)",
