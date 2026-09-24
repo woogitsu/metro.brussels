@@ -25,6 +25,21 @@ public sealed partial class TunnelView : Node3D
     /// <summary>Łączna liczba węzłów siatki w tunelu.</summary>
     public int MeshNodes { get; private set; }
 
+    /// <summary>Liczba siatek rezydentnych chunków osi jazdy, bez scenerii za końcem osi.</summary>
+    public int ResidentMeshNodes
+    {
+        get
+        {
+            var count = 0;
+            foreach (var id in _levels.Keys)
+            {
+                if (GetNodeOrNull<Node3D>(id) is { } chunk)
+                    count += CountMeshes(chunk);
+            }
+            return count;
+        }
+    }
+
     /// <summary>
     /// Keep measured route scenery visible beyond the last playable stop. This
     /// does not enter the chunk manifest, driving axis, collision or simulation.
@@ -196,7 +211,7 @@ public sealed partial class TunnelView : Node3D
     }
 
     /// <summary>
-    /// Obwiednia wczytanej geometrii tunelu w układzie świata.
+    /// Obwiednia rezydentnych chunków przejezdnej osi w układzie świata.
     ///
     /// Metryka obrazowa nie wykryje przesunięcia całej sceny, bo kamera jedzie razem
     /// z nią — dokładnie ta sama pułapka, którą <c>tools/visual/compare.py</c> opisuje
@@ -206,10 +221,15 @@ public sealed partial class TunnelView : Node3D
     public Aabb LoadedBounds()
     {
         Aabb? merged = null;
-        foreach (var instance in MeshInstances(this))
+        foreach (var id in _levels.Keys)
         {
-            var box = instance.GlobalTransform * instance.GetAabb();
-            merged = merged is null ? box : merged.Value.Merge(box);
+            if (GetNodeOrNull<Node3D>(id) is not { } chunk)
+                continue;
+            foreach (var instance in MeshInstances(chunk))
+            {
+                var box = instance.GlobalTransform * instance.GetAabb();
+                merged = merged is null ? box : merged.Value.Merge(box);
+            }
         }
 
         return merged ?? new Aabb();

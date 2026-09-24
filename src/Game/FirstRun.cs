@@ -3251,10 +3251,10 @@ public sealed partial class FirstRun : Node3D
     /// Kształt pola `scene` jest ten sam, co w metadanych Blenderowych, żeby
     /// `check_geometry` nie potrzebowało dwóch ścieżek na dwa silniki.
     ///
-    /// Plik jest JEDEN na prefiks, więc kolejne ujęcia go nadpisują. Pole `scene` jest
-    /// dla wszystkich pięciu identyczne (ta sama wczytana geometria) i to ono jest tu
-    /// treścią; `last_shot` opisuje wyłącznie ostatnie ujęcie i tak się nazywa, żeby
-    /// nikt nie odczytał go jako opisu całego zestawu.
+    /// Plik jest JEDEN na prefiks, więc kolejne ujęcia go nadpisują. Pole `scene`
+    /// opisuje rezydentne chunki przejezdnej osi, które sprawdza predykat
+    /// streamowania. Osobna sceneria za końcem osi nie jest częścią tego manifestu
+    /// i nie może rozszerzać jego obwiedni. `last_shot` opisuje tylko ostatnie ujęcie.
     /// </summary>
     private void WriteShotMetadata(int width, int height)
     {
@@ -3302,7 +3302,7 @@ public sealed partial class FirstRun : Node3D
           "bbox_min": [{{lo.X:F4}}, {{lo.Y:F4}}, {{lo.Z:F4}}],
           "bbox_max": [{{hi.X:F4}}, {{hi.Y:F4}}, {{hi.Z:F4}}],
           "size_m": [{{bounds.Size.X:F4}}, {{bounds.Size.Y:F4}}, {{bounds.Size.Z:F4}}],
-          "mesh_objects": {{_tunnel.MeshNodes}},
+          "mesh_objects": {{_tunnel.ResidentMeshNodes}},
           "vertices": {{faces * 3}},
           "faces": {{faces}},
           "chunks_loaded": {{_tunnel.LoadedChunks}},
