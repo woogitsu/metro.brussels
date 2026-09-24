@@ -1568,7 +1568,7 @@ public sealed partial class FirstRun : Node3D
             FinishScriptedRun();
         }
         else if (_lineMode && !_lineCompletionReported
-            && (_lineCore?.Finished ?? _line?.Finished ?? false))
+            && (_lineSession?.Finished ?? _line?.Finished ?? false))
         {
             FinishLineRun();
         }
@@ -3048,6 +3048,8 @@ public sealed partial class FirstRun : Node3D
             + $"{result.TotalDistanceM:F2} m, {result.TotalSeconds:F2} s, "
             + $"postoje {result.DwellSeconds:F2} s, kroków {result.Steps}, "
             + $"koniec={result.FinishReason}"));
+        if (_lineDispatcher is not null)
+            GD.Print($"[ROZKŁAD] zarejestrowane wjazdy: {_lineDispatcher.RegisteredEntries}");
         foreach (var call in result.Calls)
         {
             GD.Print($"[STACJA] {call}");
