@@ -2206,7 +2206,9 @@ def _istnieje_w_drzewie(nazwa):
 # 1405 -> 1408 i 565 -> 566 (23.09.2026, 6.D356): blok 6.D356 przeszedl do wykonanych; ZMIERZONE.
 # 1408 -> 1411 i 566 -> 567 (23.09.2026, 6.D352): blok 6.D352 przeszedl do wykonanych; ZMIERZONE.
 # 1411 -> 1413 i 567 -> 570 (25.09.2026, 6.D367): blok paczki Windows przeszedl do wykonanych; ZMIERZONE.
-ADRESOW_W_WYKONANYCH = {"Wejście": 1413, "Wyjście": 73, "Weryfikacja": 570}
+# 1413 -> 1414 i 570 -> 571 (25.09.2026, 6.D368): blok izolacji plikow
+# tymczasowych przeszedl do wykonanych; obie liczby zmierzone na drzewie.
+ADRESOW_W_WYKONANYCH = {"Wejście": 1414, "Wyjście": 73, "Weryfikacja": 571}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
