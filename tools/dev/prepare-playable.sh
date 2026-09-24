@@ -106,7 +106,7 @@ if [ "${2:-}" = "--connector-preview" ]; then
     "$BLENDER_EXE" --background --python-exit-code 7 --python tools/blender/track_detail.py -- \
         --centerline "$CONNECTOR_AXIS" \
         --manifest "$OUT/connector-preview-chunks/manifest.json" \
-        --out-dir "$OUT/connector-preview-chunks"
+        --out-dir "$OUT/connector-preview-chunks" --design-preview
     python3 - "$OUT" <<'PY'
 import json
 from pathlib import Path
