@@ -90,7 +90,7 @@ PINY_GRY = {
 # 78 -> 81 (24.09.2026, T-320): data, kurs i identyfikator obiegu.
 # 81 -> 85 (24.09.2026, T-320): cztery kursy w dwóch przejściach obiegu.
 # 85 -> 86 (24.09.2026, T-320): pierwszy trip_id po remisie w planie.
-# 86 -> 87 (24.09.2026): nazwa końcowego postoju Merode w LineDriveTests.
+# 86 -> 87 (24.09.2026, koniec osi linii): nazwa postoju Merode w LineDriveTests.
 PINY_RDZENIA = 87
 
 #: Kategorie, po jednej pozycji na pin — zamknięte i sumujące się do liczby wyżej.

@@ -485,6 +485,8 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 # 2035 -> 2040 (24.09.2026, T-320): pięć kontroli chronologii obiegu.
 # 2040 -> 2049 (24.09.2026, T-320): dziewięć asercji wykrywania pominiętych kursów.
 # 2049 -> 2054 (24.09.2026, T-320): walidacja dnia służby i godziny po północy.
+# 2054 -> 2063 (24.09.2026, koniec osi linii): dziewięć opisanych kontroli
+# postoju Merode i opraw scenerii.
 Z_KOMUNIKATEM_RAZEM = 2063
 NIEROZSTRZYGNIETYCH = 68
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
@@ -619,7 +621,7 @@ NIEROZSTRZYGNIETYCH = 68
 # 3492 -> 3501 (24.09.2026, T-320): dziewięć kontroli bramki z planem.
 # 3501 -> 3506 (24.09.2026, T-320): dzień służby i zapis 25:00.
 # 3506 -> 3512 (24.09.2026, koniec osi): sześć kontroli stanu granicznego.
-# 3512 -> 3530 (24.09.2026): końcowy postój linii i oprawy scenerii;
+# 3512 -> 3530 (24.09.2026, koniec osi linii): końcowy postój i oprawy scenerii;
 # po dziewięć asercji z komunikatem i bez komunikatu.
 ASERCJI_RAZEM = 3530
 
