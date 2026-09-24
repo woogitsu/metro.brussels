@@ -39,6 +39,8 @@ def main() -> None:
     parser.add_argument("--output", required=True, type=Path, help="PNG movie base path")
     parser.add_argument("--resolution", required=True, help="WIDTHxHEIGHT")
     parser.add_argument("--steps-per-frame", type=int, default=120)
+    parser.add_argument("--line", action="store_true", help="Replay a line session instead of a single train")
+    parser.add_argument("--limit-kmh", type=float, default=72.0, help="Required line speed limit")
     args = parser.parse_args()
     match = re.fullmatch(r"([1-9]\d*)x([1-9]\d*)", args.resolution)
     if match is None:
@@ -58,10 +60,14 @@ def main() -> None:
         project.write_text(set_viewport(project.read_text(encoding="utf-8"), width, height), encoding="utf-8")
         subprocess.run(["dotnet", "build", str(temporary_root / "src/Game/MetroBxl.Game.csproj"), "--nologo", "-v:q"], check=True)
         subprocess.run([str(args.godot.resolve()), "--headless", "--editor", "--path", str(temporary_root / "src/Game"), "--import"], check=True)
+        game_args = [f"--replay={args.replay.resolve()}", f"--assets={args.assets.resolve()}",
+                     f"--steps-per-frame={args.steps_per_frame}"]
+        if args.line:
+            game_args.extend(("--line", f"--limit-kmh={args.limit_kmh}",
+                              f"--signalling={temporary_root / 'data/design/signalling/classic-2026.json'}"))
         subprocess.run([str(args.godot.resolve()), "--path", str(temporary_root / "src/Game"),
                         "--fixed-fps", "30", "--write-movie", str(output), "--",
-                        f"--replay={args.replay.resolve()}", f"--assets={args.assets.resolve()}",
-                        f"--steps-per-frame={args.steps_per_frame}"], cwd=temporary_root, check=True)
+                        *game_args], cwd=temporary_root, check=True)
     frames = sorted(output.parent.glob(f"{output.stem}[0-9]*.png"))
     if not frames:
         raise RuntimeError("Godot did not write any movie frames")
