@@ -74,6 +74,17 @@ class Solids:
         self.faces.extend(tuple(start + i for i in face) for face in (
             (0,3,2,1),(4,5,6,7),(0,1,5,4),(1,2,6,5),(2,3,7,6),(3,0,4,7)))
 
+    def wall_plate(self, frame, lateral, height, length, plate_height):
+        """A thin, double-sided quad on the tunnel wall, not a light source."""
+        centre, forward, right, up = frame
+        centre = SW.add(centre, SW.add(SW.scale(right, lateral), SW.scale(up, height)))
+        start = len(self.vertices)
+        for along, vertical in ((-1, -1), (1, -1), (1, 1), (-1, 1)):
+            self.vertices.append(SW.add(centre, SW.add(
+                SW.scale(forward, along * length / 2),
+                SW.scale(up, vertical * plate_height / 2))))
+        self.faces.append((start, start + 1, start + 2, start + 3))
+
     def swept_prism(self, frames, chainages, samples, lateral, height, width, depth):
         """One connected rectangular prism; only the two ends need caps."""
         first = len(self.vertices)
@@ -101,6 +112,8 @@ class Solids:
 
 def material(name, color, metallic=0.0, emission=0.0):
     mat = bpy.data.materials.new(name)
+    if name == "curve_cue":
+        mat.use_backface_culling = False
     mat.diffuse_color = (*color, 1)
     mat.use_nodes = True
     node = mat.node_tree.nodes.get("Principled BSDF")
@@ -119,6 +132,7 @@ MATERIALS = {
     "rails": ((0.46, 0.53, 0.56), 0.75, 0),
     "wall": ((0.22, 0.29, 0.32), 0, 0),
     "lamp": ((0.90, 0.84, 0.64), 0, 3),
+    "curve_cue": ((0.55, 0.61, 0.62), 0, 0.60),
 }
 
 
@@ -142,6 +156,18 @@ def positions(start, end, pitch):
     first = math.ceil((start + 0.001) / pitch)
     last = math.floor((end - 0.001) / pitch)
     return (index * pitch for index in range(first, last + 1))
+
+
+def outside_of_curve(frames, chainages, at):
+    """Return the outer wall on a pronounced 16 m bend; omit near-straights."""
+    before = frame_at(frames, chainages, max(chainages[0], at - 8.0))[1]
+    after = frame_at(frames, chainages, min(chainages[-1], at + 8.0))[1]
+    up = frame_at(frames, chainages, at)[3]
+    signed_turn = math.atan2(SW.dot(SW.cross(before, after), up),
+                             SW.dot(before, after))
+    if abs(signed_turn) < 0.025:
+        return 0
+    return 1 if signed_turn > 0 else -1
 
 
 def sweep_samples(frames, chainages, start, end):
@@ -180,6 +206,15 @@ def make_chunk(entry, frames, chainages, out_dir, mats):
         for side in (-1, 1):
             solids["wall"].box(frame, side * 4.61, 2.18, 0.30, 0.12, 3.9)
             solids["lamp"].box(frame, side * 4.48, 3.35, 2.2, 0.14, 0.08)
+    # Low-emission plates mark only the OUTER wall of bends. Their
+    # eight-metre rhythm reveals where the track continues without any new
+    # dynamic lights or operator branding. The 4.63 m lateral offset sits just
+    # inside the 4.70 m tunnel wall, clear of the rail and train envelope.
+    for at in positions(start, end, 8.0):
+        side = outside_of_curve(frames, chainages, at)
+        if side:
+            solids["curve_cue"].wall_plate(frame_at(frames, chainages, at),
+                                           side * 4.63, 2.0, 0.22, 1.0)
     objects = [mesh_object(entry["id"] + "_" + name, solids[name], mats[name],
                            smooth=name in ("ballast", "rails"))
                for name in MATERIALS if solids[name].faces]
