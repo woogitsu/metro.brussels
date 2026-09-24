@@ -2105,7 +2105,7 @@ public sealed partial class FirstRun : Node3D
             var light = new OmniLight3D
             {
                 LightColor = new Color(1.0f, 0.86f, 0.68f),
-                LightEnergy = 0.8f,
+                LightEnergy = 1.3f,
                 OmniRange = 15.0f,
                 ShadowEnabled = false,
             };

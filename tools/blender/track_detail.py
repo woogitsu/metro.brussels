@@ -131,7 +131,7 @@ MATERIALS = {
     "sleepers": ((0.10, 0.12, 0.13), 0, 0),
     "rails": ((0.46, 0.53, 0.56), 0.75, 0),
     "wall": ((0.22, 0.29, 0.32), 0, 0),
-    "lamp": ((0.90, 0.84, 0.64), 0, 3),
+    "lamp": ((0.52, 0.44, 0.33), 0, 0.45),
     "curve_cue": ((0.55, 0.61, 0.62), 0, 0.60),
 }
 
@@ -205,7 +205,7 @@ def make_chunk(entry, frames, chainages, out_dir, mats):
         frame = frame_at(frames, chainages, at)
         for side in (-1, 1):
             solids["wall"].box(frame, side * 4.61, 2.18, 0.30, 0.12, 3.9)
-            solids["lamp"].box(frame, side * 4.48, 3.35, 2.2, 0.14, 0.08)
+            solids["lamp"].box(frame, side * 4.48, 3.35, 1.8, 0.14, 0.08)
     # Low-emission plates mark only the OUTER wall of bends. Their
     # eight-metre rhythm reveals where the track continues without any new
     # dynamic lights or operator branding. The 4.63 m lateral offset sits just
