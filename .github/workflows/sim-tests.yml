@@ -15,15 +15,9 @@ jobs:
     # tylko powód się przesunął: na jednorazowej maszynie GitHuba wersja .NET zmieniała
     # się z miesiąca na miesiąc, a na maszynie właściciela zależy od tego, co tam stoi.
     # W obu wypadkach pin jest jedyną odpowiedzią.
-    # Ten job chodzi na MASZYNIE WŁAŚCICIELA, nie na jednorazowej maszynie GitHuba.
-    # Kroki wykonują kod ze sprawdzonego refa — `tools/**`, `doctor.sh`, skrypty CI —
-    # więc bez tego warunku wystarczyłby pull request z forka, żeby uruchomić tam
-    # dowolny kod. `metro.brussels` jest prywatne, ale ma WŁĄCZONE forkowanie
-    # (`allow_forking: true`), więc uzasadnienie „forka nie da się zrobić" tu nie
-    # obowiązuje. Warunek nosi KAŻDY job; `needs:` nie jest zamiennikiem, bo job
-    # dopisany bez łańcucha zależności nie miałby żadnej ochrony.
+    # Zgodnie z polityką repo job nie uruchamia kodu z pull requestów forków.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 15
 
     steps:
