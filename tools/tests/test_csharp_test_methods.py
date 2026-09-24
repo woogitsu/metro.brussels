@@ -734,7 +734,8 @@ ROZKLAD_POSTACI = {
         # 1523 -> 1525 (24.09.2026, oś scenerii za Merode).
         # 1525 -> 1526 (24.09.2026, ścieżka JSON tej osi w FirstRun).
         # 1526 -> 1530: komunikaty odmowy, status przebiegu i zgodności osi.
-        "zwykly": 1530,
+        # 1530 -> 1531 (24.09.2026, świeża linia): komunikat odmowy konstruktora.
+        "zwykly": 1531,
         # 489 -> 494 (22.09.2026, 6.D235): piec komunikatow `Abort` dla pliku ZLEGO
         # w `FirstRun.cs`. Przeliczone z drzewa, nie zsumowane.
         # 494 -> 513 (23.09.2026, 6.M1): komunikaty odmow i wiersze zapisu zdarzen

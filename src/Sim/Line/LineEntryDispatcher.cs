@@ -20,6 +20,9 @@ public sealed class LineEntryDispatcher
     {
         _line = line ?? throw new ArgumentNullException(nameof(line));
         ArgumentNullException.ThrowIfNull(schedule);
+        if (line.Steps != 0 || line.Trains.Count != 0)
+            throw new ArgumentException(
+                "Dyspozytor wymaga świeżej linii bez wcześniejszych kroków i składów.", nameof(line));
         if (!string.Equals(line.AxisId, schedule.AxisId, StringComparison.Ordinal))
             throw new ArgumentException("Plan wejść dotyczy innej osi niż linia.", nameof(schedule));
         if (line.TurnbackEnabled)

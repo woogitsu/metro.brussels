@@ -94,4 +94,23 @@ public sealed class LineEntryDispatcherTests
         Assert.AreEqual(0L, line.Steps, "odmowa nie może przesunąć zegara");
         Assert.AreEqual(0, line.Trains.Count, "odmowa nie może zarejestrować połowy planu");
     }
+
+    [TestMethod]
+    public void Dyspozytor_odmawia_linii_z_juz_uruchomionym_zegarem_lub_skladem()
+    {
+        var axis = SignallingPlanTests.PackageAAxis();
+        var schedule = Schedule(axis, Entry("west", "block-west", "8733", 0));
+        var stepped = Line(axis);
+        stepped.Step();
+        Assert.ThrowsException<ArgumentException>(
+            () => new LineEntryDispatcher(stepped, schedule, schedule.ServiceDay),
+            "dyspozytor nie może pominąć wjazdu przypadającego przed bieżącym krokiem");
+
+        var occupied = Line(axis);
+        occupied.Add("existing", 0);
+        var emptySchedule = Schedule(axis, "");
+        Assert.ThrowsException<ArgumentException>(
+            () => new LineEntryDispatcher(occupied, emptySchedule, emptySchedule.ServiceDay),
+            "pusty plan nie może ogłosić końca linii mającej już aktywny skład");
+    }
 }
