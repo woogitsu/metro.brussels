@@ -39,6 +39,8 @@ def main() -> None:
     parser.add_argument("--output", required=True, type=Path, help="PNG movie base path")
     parser.add_argument("--resolution", required=True, help="WIDTHxHEIGHT")
     parser.add_argument("--steps-per-frame", type=int, default=120)
+    parser.add_argument("--source-root", type=Path, default=Path(__file__).resolve().parents[2],
+                        help="Repository checkout to render (default: this script's repository)")
     parser.add_argument("--line", action="store_true", help="Replay a line session instead of a single train")
     parser.add_argument("--limit-kmh", type=float, default=72.0, help="Required line speed limit")
     args = parser.parse_args()
@@ -46,7 +48,7 @@ def main() -> None:
     if match is None:
         parser.error("--resolution must be WIDTHxHEIGHT")
     width, height = map(int, match.groups())
-    root = Path(__file__).resolve().parents[2]
+    root = args.source_root.resolve()
     output = args.output.resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     if list(output.parent.glob(f"{output.stem}[0-9]*.png")):
