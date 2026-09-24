@@ -35,9 +35,12 @@ public sealed class TrainingWiringTests
         var end = source.IndexOf("if (_stations is null)", start, StringComparison.Ordinal);
         Assert.IsTrue(start >= 0 && end > start, "nie znaleziono wiersza stacji HUD");
         var stationLine = source[start..end];
-        StringAssert.Contains(stationLine, "_lineCore is { Trains.Count: > 0 }");
-        StringAssert.Contains(stationLine, "ObservedOwner() == ControlOwner.Driver");
-        StringAssert.Contains(stationLine, ": BrakingCueStage.None;");
+        StringAssert.Contains(stationLine, "_lineCore is { Trains.Count: > 0 }",
+            "podpowiedź wymaga istniejącego rdzenia linii");
+        StringAssert.Contains(stationLine, "ObservedOwner() == ControlOwner.Driver",
+            "autopilot nie powinien dostawać podpowiedzi maszynisty");
+        StringAssert.Contains(stationLine, ": BrakingCueStage.None;",
+            "bez rdzenia i kierowcy podpowiedź musi być pusta");
     }
 
     private static string FirstRunSource() =>

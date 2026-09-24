@@ -282,7 +282,9 @@ MAX_GAME_JUSTIFIED_NEEDLES = 4
 # 50 -> 54 (24.09.2026, interaktywne R): cztery asercje sprawdzaja ksztalt
 # sterowania sceny (guard konca, interaktywnosc, _done i raport raz), a nie
 # dokladny komunikat gracza; pozostaja jawne w zapadce.
-MAX_GAME_UNMATCHED_NEEDLES = 54
+# 54 -> 57 (24.09.2026, automat bez sygnalizacji): trzy igły
+# sprawdzają kształt warunku ochronnego, nie dosłowny komunikat HUD.
+MAX_GAME_UNMATCHED_NEEDLES = 57
 
 #: Progi KW. Literowka we wzorcu daje zero dopasowan i caly modul zielony; te trzy
 #: liczby sa jedynym powodem, dla ktorego taka literowka jest widoczna. Zmierzone
@@ -331,7 +333,8 @@ MIN_GAME_MESSAGES = 142
 # i `trakcja WOLNA` zastapiono rownoscia calego tekstu, bo trafialy do
 # kilku komunikatow i oslabialy swoistosc testu.
 # 90 -> 94 (24.09.2026, interaktywne R): te same cztery nowe igly.
-MIN_GAME_NEEDLES = 94
+# 94 -> 97 (24.09.2026, automat bez sygnalizacji): te same trzy igły.
+MIN_GAME_NEEDLES = 97
 MIN_GAME_SOURCES = 18
 
 #: Igla, na ktorej stoja kontrole dodatnia i przyrzadu. Musi byc SWOISTA i musi stac

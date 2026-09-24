@@ -639,7 +639,9 @@ ROZKLAD_POSTACI = {
         # komunikaty asercji oraz pełny wiersz pozycji; przeliczone czytnikiem.
         # 5000 -> 5021 (24.09.2026, interaktywne R): test kolejności guardów
         # i diagnostyki błędu, przeliczone czytnikiem testów.
-        "zwykly": 5021,
+        # 5021 -> 5030 (24.09.2026, automat bez sygnalizacji): trzy igły
+        # strażnika, trzy komunikaty asercji i pozostałe literały testu.
+        "zwykly": 5030,
         "interpolowany ($)": 844,
         "werbatim (@)": 100,
         "surowy interpolowany ($$\"\"\")": 13,
