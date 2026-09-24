@@ -2559,7 +2559,7 @@ public sealed partial class FirstRun : Node3D
         var train = _lineCore.Trains[Math.Clamp(_observed, 0, _lineCore.Trains.Count - 1)];
         if (train.Drive is null || train.Authority is not MovementAuthority authority)
         {
-            return SignallingHud.NotOnPlanYet;
+            return SignallingHud.WithoutAuthority(train);
         }
 
         if (train.Protection is not ProtectionDecision decision)

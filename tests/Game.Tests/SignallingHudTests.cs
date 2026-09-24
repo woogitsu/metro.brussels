@@ -1,7 +1,9 @@
 using System.Globalization;
 using MetroBxl.Game;
+using MetroBxl.Sim.Line;
 using MetroBxl.Sim.Physics;
 using MetroBxl.Sim.Signalling;
+using MetroBxl.Sim.Train;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace MetroBxl.Game.Tests;
@@ -100,5 +102,27 @@ public sealed class SignallingHudTests
         Assert.AreNotEqual(string.Empty, SignallingHud.WithoutProtection);
         Assert.AreNotEqual(string.Empty, SignallingHud.BeforeFirstStep);
         StringAssert.Contains(SignallingHud.WithoutSignalling, "(podaj --signalling)");
+    }
+
+    [TestMethod]
+    public void Po_zjezdzie_z_planu_HUD_nie_mowi_ze_sklad_jeszcze_nie_wjechal()
+    {
+        var axis = TrackAxis.FromJson(MetroBxl.Tests.Shared.KorzenRepozytorium.Tresc(
+            "data", "track", "L1_A.json"));
+        var plan = SignallingPlan.FromJson(MetroBxl.Tests.Shared.KorzenRepozytorium.Tresc(
+            "data", "design", "signalling", "classic-2026.json"));
+        var line = LineCore.M7(plan, axis,
+            RunConditions.Level(VehicleModel.M7, TrainLoad.Aw2),
+            new LineRunSettings(Units.KmhToMps(70.0), 8.0, 1.0, 5.0));
+        var train = line.Add("KABINA", 0L);
+        Assert.AreEqual(SignallingHud.NotOnPlanYet, SignallingHud.WithoutAuthority(train));
+
+        Assert.AreEqual("arrived", line.Run(120_000L));
+        line.Step(); // Zwolnienie bloków następuje w kroku po zakończeniu jazdy.
+        Assert.IsTrue(train.LeftPlan);
+        Assert.IsNull(train.Authority);
+        Assert.AreEqual(SignallingHud.LeftPlan, SignallingHud.WithoutAuthority(train));
+        StringAssert.DoesNotMatch(SignallingHud.WithoutAuthority(train),
+            new System.Text.RegularExpressions.Regex("jeszcze nie wjechał"));
     }
 }

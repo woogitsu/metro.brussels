@@ -436,6 +436,9 @@ których agent nie ruszy bez decyzji właściciela.
 ## Silnik
 
 ### [~] T-400 · Scena Godota i pierwszy przejazd
+- **HUD sygnalizacji po końcu linii (24.09.2026):** w `--line` skład, który zjechał
+  z planu po Merode, ma pusty autorytet. Wiersz rozróżnia teraz ten stan od składu,
+  który jeszcze czeka na pierwszy wjazd; test prowadzi rzeczywisty `LineCore` do końca.
 - **Zrobione (etap 1):** `src/Game/` — Godot 4.7.2 mono, jeden skład M7 jedzie 6,56 km po
   pakiecie A, napędzany rdzeniem. Rozjazd Godot ↔ rdzeń **0,000 m** przy progu 0, ten sam
   odcisk telemetrii przy nierównym podziale kroków. `reports/T-400-first-run.md`
