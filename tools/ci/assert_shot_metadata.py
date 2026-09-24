@@ -121,8 +121,8 @@ def glb_mesh_nodes(path):
 
 
 def check_visual_continuation(metadata, playable_axis_path, tail_axis_path, assets_dir=None,
-                              require_visual_tail=False):
-    """Check the visible 300 m tail separately from streamed playable chunks."""
+                              require_visual_tail=False, expected_kind="tail"):
+    """Check the selected visual continuation separately from playable chunks."""
     visual = metadata.get("visual_continuation")
     if visual is None and assets_dir is None and not require_visual_tail:
         return []  # Historical screenshot metadata did not have this section.
@@ -130,9 +130,22 @@ def check_visual_continuation(metadata, playable_axis_path, tail_axis_path, asse
         return ["visual_continuation.present: brak wartości logicznej"]
 
     problems = []
+    reported_kind = visual.get("kind")
+    if reported_kind is not None and reported_kind != expected_kind:
+        problems.append("visual_continuation.kind nie odpowiada wybranej scenerii")
+    if expected_kind == "connector_design_only":
+        if reported_kind != expected_kind:
+            problems.append("visual_continuation.kind: brak oznaczenia projektu łącznika")
+        if visual.get("vertical_status") != "not_modelled":
+            problems.append("visual_continuation.vertical_status: brak odmowy niwelety")
+        with open(tail_axis_path, encoding="utf-8") as handle:
+            source_sha = json.load(handle)["source"]["content_sha256"]
+        if visual.get("source_sha256") != source_sha:
+            problems.append("visual_continuation.source_sha256 różni się od osi projektu")
     if require_visual_tail and not visual["present"]:
         problems.append("visual_continuation: wymagany pakiet scenerii jest nieobecny")
-    glb_files = ("L1_A-visual-tail.glb", "L1_A-visual-tail-detail.glb")
+    prefix = "L1_A-B-connector-preview" if expected_kind == "connector_design_only" else "L1_A-visual-tail"
+    glb_files = (prefix + ".glb", prefix + "-detail.glb")
     if assets_dir is not None:
         paths = [os.path.join(assets_dir, name) for name in glb_files]
         existing = [os.path.isfile(path) for path in paths]
@@ -140,7 +153,7 @@ def check_visual_continuation(metadata, playable_axis_path, tail_axis_path, asse
             problems.append("visual_continuation: niekompletna para GLB")
         if visual["present"] != all(existing):
             problems.append("visual_continuation.present nie odpowiada parze GLB")
-        packaged_axis = os.path.join(assets_dir, "L1_A-visual-tail-axis.json")
+        packaged_axis = os.path.join(assets_dir, prefix + "-axis.json")
         if not any(existing) and os.path.exists(packaged_axis):
             problems.append("visual_continuation: oś bez pary GLB")
         if all(existing):
@@ -679,6 +692,9 @@ def main():
                         help="katalog z parą GLB i osią scenerii z bieżącego pakietu")
     parser.add_argument("--require-visual-tail", action="store_true",
                         help="wymagaj scenerii za Merode w bieżącym pakiecie CI")
+    parser.add_argument("--visual-continuation-kind", default="tail",
+                        choices=("tail", "connector_design_only"),
+                        help="rodzaj jedynej widocznej kontynuacji osi jazdy")
     parser.add_argument("--resolution", help="np. 1280x720")
     parser.add_argument("--view", help="widok ostatniego zrzutu")
     parser.add_argument("--at-chainage", type=float, help="chainage ostatniego zrzutu")
@@ -705,7 +721,8 @@ def main():
     if args.require_visual_tail and not args.visual_tail_assets:
         parser.error("--require-visual-tail wymaga --visual-tail-assets")
     problems += check_visual_continuation(metadata, args.axis, args.visual_tail_axis,
-                                          args.visual_tail_assets, args.require_visual_tail)
+                                          args.visual_tail_assets, args.require_visual_tail,
+                                          args.visual_continuation_kind)
     problems += check_train(metadata, args.m7_spec)
     # Peron sprawdzany TYLKO wtedy, gdy wołający podał, z czym go porównać. Bez tego
     # bramka nie ma niezależnej prawdy, a „przeszło" znaczyłoby wyłącznie „nie było

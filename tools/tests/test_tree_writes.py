@@ -96,6 +96,10 @@ METODY_SCIEZKI = ("write_text", "write_bytes")
 ZASLEPKA_TESTOW_SWEEPA = "test_this_file_is_the_stub_not_the_real_tests"
 
 POZA_DRZEWEM = {
+    ("test_connector_probe.py", "test_connector_probe_provenance_and_vertical_unknown", "Path.write_bytes"):
+        "próbne archiwum źródła w tempfile.TemporaryDirectory",
+    ("test_connector_probe.py", "test_connector_probe_provenance_and_vertical_unknown", "Path.write_text"):
+        "próbny manifest i osie w tempfile.TemporaryDirectory",
     ("test_render_replay.py", "test_real_png_header", "Path.write_bytes"):
         "naglowek probnej PNG zapisywany w tempfile.TemporaryDirectory",
     ("mutation_sweep.py", "zapisz_pokrycie", "os.replace"):
@@ -105,6 +109,9 @@ POZA_DRZEWEM = {
     ("test_shot_metadata_gate.py",
      "test_visual_continuation_uses_independent_axis_and_glb_pair", "shutil.copyfile"):
         "niezalezna os wizualnego przedluzenia kopiowana do tempfile.TemporaryDirectory",
+    ("test_shot_metadata_gate.py",
+     "test_connector_preview_requires_explicit_kind_and_unmodelled_vertical", "shutil.copyfile"):
+        "oś prototypowego łącznika kopiowana wyłącznie do tempfile.TemporaryDirectory",
     ("test_dotnet_version.py", "_atrapa_dotnet_root", "shutil.copy2"):
         "atrapa układu .NET budowana w katalogu tymczasowym",
     ("test_mutation_sweep.py", "_cele_na_boku", "shutil.copyfile"):

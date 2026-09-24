@@ -240,8 +240,12 @@ public sealed class UiTextTests
     // 603 -> 604 (24.09.2026, tryb linii): komunikat końca toru przed postojem Merode.
     // 604 -> 609 (24.09.2026, lampy scenerii): ścieżka osi i odmowy dla uszkodzonego JSON-a.
     // 609 -> 615 (24.09.2026, osobne metadane wizualnej kontynuacji).
-    // 615 -> 634 (24.09.2026, scena i plan dwóch wejść rozkładowych).
-    private const int LiteralowWZasieguBramki = 634;
+    // 615 -> 649 (24.09.2026, jawna opcja łącznika i kontrola pochodzenia osi).
+    // 649 -> 656 (24.09.2026, osłonięcie wymaganych pól JSON).
+    // 656 -> 660 (24.09.2026, etykieta prototypu w HUD).
+    // 660 -> 679 (25.09.2026, integracja rozkładu i projektowego podglądu).
+    private const int LiteralowWZasieguBramki = 679;
+
     /// <summary>Ile różnych — dolne ostrze, zmierzone 12.09.2026.</summary>
     private const int RoznychLiteralowWZasieguBramki = 362;
 
@@ -1523,8 +1527,11 @@ public sealed class UiTextTests
     // 644 -> 645 (24.09.2026, tryb linii): komunikat końca toru w gałęzi LineDrive.
     // 645 -> 650 (24.09.2026, lampy scenerii): pięć nowych literałów FirstRun.
     // 650 -> 663 (24.09.2026, pola i wartości osobnych metadanych scenerii).
-    // 663 -> 682 (24.09.2026, ten sam połączony korpus sceny).
-    private const int PozycjiStaregoCzytnika = 682;
+    // 663 -> 703 (24.09.2026, opcjonalny podgląd łącznika).
+    // 703 -> 710 (24.09.2026, osłonięcie wymaganych pól JSON).
+    // 710 -> 714 (24.09.2026, etykieta prototypu w HUD).
+    // 714 -> 733 (25.09.2026, integracja rozkładu i projektowego podglądu).
+    private const int PozycjiStaregoCzytnika = 733;
 
     /// <summary>
     /// Ile PLIKÓW korpusu stary czytnik czytał inaczej niż leksykalny — 6.D182.
@@ -1869,7 +1876,8 @@ public sealed class UiTextTests
     // 119 -> 115 (24.09.2026, HUD 800x600): format pozycji przeniesiony do PositionLine.
     // 115 -> 117 (24.09.2026, koniec osi): nazwa i komunikat docierają do Hud.Update.
     // 117 -> 118 (24.09.2026, tryb linii): komunikat końca toru dociera do HUD.
-    private const int LiteralowNaEkranie = 118;
+    // 118 -> 122 (24.09.2026, etykieta prototypu w istniejącym wierszu widoku).
+    private const int LiteralowNaEkranie = 122;
 
     /// <summary>Ile z nich jest KLUCZEM katalogu, a nie tekstem — 6.D183.</summary>
     // 28 -> 36 (13.09.2026, MB-02): osiem kluczy `summary.*` panelu wyniku.
@@ -1884,7 +1892,8 @@ public sealed class UiTextTests
     // 60 -> 59 (24.09.2026, HUD 800x600): klucz pozycji jest wołany w PositionLine.
     // 59 -> 61 (24.09.2026, koniec osi): nazwa i komunikat katalogu w HUD.
     // 61 -> 62 (24.09.2026, tryb linii): dodatkowa droga komunikatu końca toru.
-    private const int KluczyKatalogunaEkranie = 62;
+    // 62 -> 63 (24.09.2026, jawna etykieta projektowego łącznika).
+    private const int KluczyKatalogunaEkranie = 63;
 
     /// <summary>
     /// Ile literałów z tej drogi niesie SŁOWO w rozumieniu bramki — 6.D183.
@@ -1902,7 +1911,8 @@ public sealed class UiTextTests
     // na mapie `ZrodlaHud` — czyli jest to trafienie FAŁSZYWE tego sita, dokładnie tej
     // samej rodziny co `FalszyweTrafieniaSkanu` przy 6.D185. Lista niżej je odejmuje,
     // żeby główna liczba pozycji 6.D183 dalej odpowiadała na swoje pytanie.
-    private const int ZeSlowemNaEkranie = 24;
+    // 24 -> 25 (24.09.2026, status podglądu łącznika w HUD).
+    private const int ZeSlowemNaEkranie = 25;
 
     /// <summary>
     /// Literały, które sito liczy jako „tekst ze słowem", a na ekran NIE DOCIERAJĄ —
@@ -1919,7 +1929,7 @@ public sealed class UiTextTests
     };
 
     /// <summary>Ile napisów DLA GRACZA — 6.D183, po odjęciu listy wyżej.</summary>
-    private const int DlaGraczaNaEkranie = 22;
+    private const int DlaGraczaNaEkranie = 23;
 
     /// <summary>
     /// Ile z nich ma polski znak diakrytyczny — liczba PORÓWNAWCZA do 6.D175 — 6.D183.
@@ -2134,8 +2144,10 @@ public sealed class UiTextTests
     // 141 -> 144 (24.09.2026, sceneria za Merode): dwie ścieżki i odmowa.
     // 144 -> 149 (24.09.2026, lampy scenerii): ścieżka osi i komunikaty odmowy.
     // 149 -> 153 (24.09.2026, wypisywanie metadanych scenerii).
-    // 153 -> 159 (24.09.2026, obsługa rozkładu w scenie).
-    private const int ZgloszenFirstRunCalymPlikiem = 159;
+    // 153 -> 170 (24.09.2026, opcjonalny podgląd łącznika).
+    // 170 -> 177 (24.09.2026, osłonięcie wymaganych pól JSON).
+    // 177 -> 183 (25.09.2026, dodatkowe komunikaty rozkładu w scenie).
+    private const int ZgloszenFirstRunCalymPlikiem = 183;
 
     /// <summary>Ile daje ten sam plik liczony WIERSZ PO WIERSZU — 6.D180.</summary>
     // 122 -> 132 (14.09.2026, MB-04): `FirstRun.AssetsRoot`, `DomyslnyZapisWejsc`
@@ -2154,8 +2166,10 @@ public sealed class UiTextTests
     // 153 -> 156 (24.09.2026, sceneria za Merode): te same trzy literały.
     // 156 -> 161 (24.09.2026, lampy scenerii): ścieżka osi i cztery odmowy dla złych danych.
     // 161 -> 166 (24.09.2026, metadane wizualnej kontynuacji).
-    // 166 -> 172 (24.09.2026, obsługa rozkładu w scenie).
-    private const int ZgloszenFirstRunWierszami = 172;
+    // 166 -> 184 (24.09.2026, opcjonalny podgląd łącznika).
+    // 184 -> 191 (24.09.2026, osłonięcie wymaganych pól JSON).
+    // 191 -> 197 (25.09.2026, dodatkowe komunikaty rozkładu w scenie).
+    private const int ZgloszenFirstRunWierszami = 197;
 
     /// <summary>Ile plików korpusu daje różne liczby obiema drogami — 6.D180.</summary>
     private const int PlikowZRoznicaDrog = 1;
@@ -2362,8 +2376,11 @@ public sealed class UiTextTests
     // 418 -> 419 (24.09.2026, tryb linii): ten sam komunikat końca toru.
     // 419 -> 424 (24.09.2026, lampy scenerii): osłona nowego czytnika osi.
     // 424 -> 425 (24.09.2026, nowy literal osi scenerii).
-    // 425 -> 440 (24.09.2026, literały sceny i rozkładu).
-    private const int LiteralowDotknietychZdejmowaniem = 440;
+    // 425 -> 446 (24.09.2026, opcjonalny podgląd łącznika).
+    // 446 -> 447 (24.09.2026, osłonięcie wymaganych pól JSON).
+    // 447 -> 448 (24.09.2026, etykieta prototypu w HUD).
+    // 448 -> 463 (25.09.2026, zintegrowane literały sceny i rozkładu).
+    private const int LiteralowDotknietychZdejmowaniem = 463;
 
     /// <summary>
     /// Ilu literałom zdejmowanie jednostek ZABIERA werdykt „to słowo" — 6.D155.
@@ -3132,7 +3149,7 @@ public sealed class UiTextTests
     /// </summary>
     private static readonly (string Marker, int Ile)[] UdzialMarkerow =
     {
-        ("GetProperty", 18), ("GetString", 8), ("RootElement", 0),
+        ("GetProperty", 18), ("GetString", 10), ("RootElement", 2),
     };
 
     /// <summary>Zgłoszeń wąskiej reguły, gdy czytnik dostaje CAŁY plik — 6.D173/6.D186.</summary>
@@ -3149,8 +3166,9 @@ public sealed class UiTextTests
     // przebiegiem, a nie wyprowadzona z liczby dopisanych wierszy.
     // 104 -> 105 (23.09.2026, 6.M1): odtworzenie linii — zdarzenia w zapisie wejść, `ExecuteLineEvent` w `FirstRun` i nowa odmowa `--replay --line` bez `--signalling` w `RunPlan`. PRZELICZONE.
     // 105 -> 109 (24.09.2026, osobna sekcja metadanych scenerii).
-    // 109 -> 112 (24.09.2026, rozkład w scenie).
-    private const int ZgloszenWaskichCalymPlikiem = 112;
+    // 109 -> 118 (24.09.2026, opcjonalny podgląd łącznika).
+    // 118 -> 121 (25.09.2026, komunikaty rozkładu w scenie).
+    private const int ZgloszenWaskichCalymPlikiem = 121;
 
     /// <summary>Zgłoszeń wąskiej reguły, gdy czytnik dostaje WIERSZ — 6.D173/6.D186.</summary>
     // 108 -> 112 (14.09.2026, MB-04): `FirstRun.AssetsRoot`, `DomyslnyZapisWejsc`
@@ -3166,8 +3184,9 @@ public sealed class UiTextTests
     // przebiegiem, a nie wyprowadzona z liczby dopisanych wierszy.
     // 116 -> 117 (23.09.2026, 6.M1): odtworzenie linii — zdarzenia w zapisie wejść, `ExecuteLineEvent` w `FirstRun` i nowa odmowa `--replay --line` bez `--signalling` w `RunPlan`. PRZELICZONE.
     // 117 -> 122 (24.09.2026, osobna sekcja metadanych scenerii).
-    // 122 -> 125 (24.09.2026, rozkład w scenie).
-    private const int ZgloszenWaskichWierszami = 125;
+    // 122 -> 132 (24.09.2026, opcjonalny podgląd łącznika).
+    // 132 -> 135 (25.09.2026, komunikaty rozkładu w scenie).
+    private const int ZgloszenWaskichWierszami = 135;
 
     /// <summary>
     /// Ile z nich stoi w kontekście CZYTANIA JSON-a — <b>18 obiema drogami</b>.
@@ -3176,11 +3195,12 @@ public sealed class UiTextTests
     /// z markerem czytania jest wierszem POJEDYNCZYM, więc podział na wiersze nie ma
     /// tam czego rozciąć. Cała różnica 108 − 96 siedzi po stronie WYPISYWANIA.</para>
     /// </summary>
-    private const int WKontekscieCzytaniaJson = 18;
+    private const int WKontekscieCzytaniaJson = 22;
 
     /// <summary>Trafień „klucz JSON-a wypisywanego" drogą WIERSZOWĄ — liczba 6.D181.</summary>
     // 13 -> 14 (24.09.2026, pole present wypisywane w nowej sekcji).
-    private const int KluczyWypisywanychWierszami = 14;
+    // 14 -> 15 (24.09.2026, pole kind w podglądzie łącznika).
+    private const int KluczyWypisywanychWierszami = 15;
 
     /// <summary>Trafień „klucz JSON-a wypisywanego" drogą CAŁOPLIKOWĄ — 6.D186.</summary>
     private const int KluczyWypisywanychCalymPlikiem = 1;
@@ -3199,11 +3219,13 @@ public sealed class UiTextTests
 
     /// <summary>Kluczy RÓŻNYCH w napisie metadanych zrzutu — 6.D186.</summary>
     // 31 -> 34 (24.09.2026, visual_continuation, present i seam_gap_m).
-    private const int KluczyJsonWypisywanego = 34;
+    // 34 -> 37 (24.09.2026, rodzaj, profil pionowy i skrót źródła).
+    private const int KluczyJsonWypisywanego = 37;
 
     /// <summary>Wystąpień kluczy w tym samym napisie — 6.D186.</summary>
     // 35 -> 42 (24.09.2026, siedem wystąpień pól scenerii).
-    private const int WystapienKluczyJson = 42;
+    // 42 -> 45 (24.09.2026, trzy pola podglądu łącznika).
+    private const int WystapienKluczyJson = 45;
 
     /// <summary>
     /// Które z tych 31 nazw w ogóle padają w korpusie zgłoszeń — i skąd — 6.D186.
@@ -3329,13 +3351,11 @@ public sealed class UiTextTests
             + ", a zmierzono "
             + string.Join(", ", UdzialMarkerow.Select(u => $"{u.Marker}={u.Ile}")));
 
-        // Marker o udziale ZEROWYM musi tu być wskazany po nazwie, a nie tylko
-        // policzony: liczba `0` w tabeli czyta się jako pomiar, nazwa — jako wniosek.
+        // Podgląd łącznika czyta teraz RootElement razem z polami źródła, więc
+        // wszystkie trzy markery mają udział dodatni; pusty zbiór jest mierzoną kontrolą.
         var bezczynne = UdzialMarkerow.Where(u => u.Ile == 0).Select(u => u.Marker).ToList();
-        CollectionAssert.AreEqual(new[] { "RootElement" }, bezczynne,
-            "bezczynne markery to dziś " + string.Join(", ", bezczynne)
-            + " — jeśli `RootElement` przestał być bezczynny, KN-2 z 6.D186 zapali się "
-            + "i akapit o zielonej kontroli opisuje inny stan drzewa");
+        CollectionAssert.AreEqual(Array.Empty<string>(), bezczynne,
+            "nieoczekiwanie bezczynny marker: " + string.Join(", ", bezczynne));
     }
 
     /// <summary>
@@ -5494,8 +5514,8 @@ public sealed class UiTextTests
     // 26 -> 27 (24.09.2026): brak generowanej tablicy zatrzymuje uruchomienie.
     // 27 -> 28 (24.09.2026): niekompletna para GLB za Merode zatrzymuje uruchomienie.
     // 28 -> 31 (24.09.2026): trzy odmowy przy pliku osi scenerii.
-    // 31 -> 34 (24.09.2026, trzy odmowy obsługi pliku rozkładu).
-    private const int WolajacychAbort = 34;
+    // 33 -> 36 (25.09.2026, odmowy błędnego rozkładu).
+    private const int WolajacychAbort = 36;
     // 5 -> 6 (24.09.2026, interaktywne R): błąd przeładowania poza Abort.
     private const int WypisowBleduPozaAbort = 6;
 
@@ -5646,8 +5666,8 @@ public sealed class UiTextTests
             MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "src", "Game", "RunPlan.cs"));
         var czysty = KodLeksykalnie(refusal);
         var wolan = Regex.Matches(czysty, @"return Refusal\s*\(").Count;
-        Assert.AreEqual(28, wolan,
-            $"wołających `RunPlan.Refusal` jest {wolan}, a zmierzono 28 — to ONE są "
+        Assert.AreEqual(30, wolan,
+            $"wołających `RunPlan.Refusal` jest {wolan}, a zmierzono 30 — to ONE są "
             + "treścią jedynego wywołania `Abort` bez własnego literału "
             + "(`FirstRun.cs:533`), więc ich liczba jest zdaniem o drodze błędu");
 

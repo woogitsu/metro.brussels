@@ -37,7 +37,7 @@ public sealed class RunPlan
         // wczytywanej przez scenę. Bez tego wpisu `FirstRun` CZYTAŁO `--cab`, a plan
         // odrzucał je jako „nieznany argument" — czyli nadpisanie było nieosiągalne,
         // a jedyną drogą do innej kabiny było przeniesienie pliku.
-        "platforms", "cab",
+        "platforms", "cab", "visual-continuation",
         "line", "calls", "limit-kmh", "signalling", "scheduled-entries",
         "input-log", "replay", "from-telemetry",
         // MB-07. Oba wpisy są KONIECZNE, a nie wygodne: lista jest JAWNA i argument
@@ -449,6 +449,18 @@ public sealed class RunPlan
                     + "jako poprawny i przejechała cały odcinek, żeby wywrócić się "
                     + "dopiero przy zapisie wyniku. Podaj ścieżkę albo pomiń argument");
             }
+        }
+
+        if (arguments.TryGetValue("visual-continuation", out var continuation) &&
+            continuation is not ("tail" or "connector-preview"))
+        {
+            return Refusal(arguments, exitBadArgumentValue,
+                "[ARGUMENT] --visual-continuation przyjmuje tail albo connector-preview.");
+        }
+        if (continuation == "connector-preview" && arguments.ContainsKey("no-geometry"))
+        {
+            return Refusal(arguments, exitBadArgumentValue,
+                "[ARGUMENT] --visual-continuation=connector-preview wymaga geometrii.");
         }
 
         if (!TryLong(arguments, "sample-every", DefaultSampleEvery, out var sampleEvery, out var error))

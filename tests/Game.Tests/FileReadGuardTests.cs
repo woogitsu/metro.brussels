@@ -44,11 +44,12 @@ public sealed class FileReadGuardTests
     {
         "ChunkManifest.FromJson",
         "InputLog.Parse",
+        "JsonDocument.Parse",
         "LineEntrySchedule.FromJson",
         "SignallingPlan.FromJson",
         "TelemetryTrack.TryParse",
         "TrackAxis.FromJson",
-        "TrackAxis.FromJson",
+        "tailAxisFile.GetAsText",
     };
 
     private static List<string> PlikiCsWarstwyGry() =>
@@ -140,8 +141,8 @@ public sealed class FileReadGuardTests
             + string.Join(", ", bezOslony.Select(c => $"{c.Plik}:{c.Wiersz} {c.Wywolanie}"))
             + " — uszkodzony plik kończy się tam zrzutem środowiska, a nie wierszem `Abort`");
 
-        Assert.AreEqual(6, czytniki.Count(c => c.Oslona == "try"),
-            "osłoniętych blokiem try ma być sześć, a jest: "
+        Assert.AreEqual(7, czytniki.Count(c => c.Oslona == "try"),
+            "osłoniętych blokiem try ma być siedem, a jest: "
             + string.Join(", ", czytniki.Select(c => $"{c.Wywolanie}={c.Oslona}")));
         Assert.AreEqual(1, czytniki.Count(c => c.Oslona == "TryParse"),
             "osłonięty przez TryParse ma być jeden (telemetria), a jest: "
@@ -157,7 +158,8 @@ public sealed class FileReadGuardTests
         // ile czytników JSON, bo każdy z nich ma własny wiersz odmowy.
         var zrodlo = File.ReadAllText(Path.Combine(
             MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "src", "Game", "FirstRun.cs"));
-        var czytnikiJson = Czytniki().Count(c => c.Wywolanie.EndsWith(".FromJson", StringComparison.Ordinal));
+        var czytnikiJson = Czytniki().Count(c => c.Wywolanie.EndsWith(".FromJson", StringComparison.Ordinal)
+            || c.Wywolanie == "JsonDocument.Parse");
         var klauzule = Regex.Matches(zrodlo, @"catch \(Exception error\) when \(BadFile\.IsWrongJsonShape\(error\)\)").Count;
 
         Assert.AreEqual(5, czytnikiJson, $"czytników JSON w src/Game/ jest {czytnikiJson}, a zmierzono pięć");

@@ -94,6 +94,37 @@ shutil.copyfile(source, out / "L1_A-visual-tail-detail.glb")
 shutil.copyfile("data/scenery/L1_A_visual_tail.json", out / "L1_A-visual-tail-axis.json")
 PY
 
+if [ "${2:-}" = "--connector-preview" ]; then
+    CONNECTOR_AXIS=data/design/geometry/merode-montgomery-horizontal-probe.json
+    CONNECTOR_NAME=L1_A-B-connector-preview
+    echo "[PRZYGOTOWANIE] projektowy podgląd łącznika -> $OUT/$CONNECTOR_NAME.glb"
+    "$BLENDER_EXE" --background --python-exit-code 7 --python tools/blender/tunnel_sweep.py -- \
+        --centerline "$CONNECTOR_AXIS" --profile box_double --variant flat-preview \
+        --name "$CONNECTOR_NAME" --max-chunk-m 800 --out "$OUT/$CONNECTOR_NAME.glb" \
+        --chunk-dir "$OUT/connector-preview-chunks" \
+        --chunk-manifest "$OUT/connector-preview-chunks/manifest.json"
+    "$BLENDER_EXE" --background --python-exit-code 7 --python tools/blender/track_detail.py -- \
+        --centerline "$CONNECTOR_AXIS" \
+        --manifest "$OUT/connector-preview-chunks/manifest.json" \
+        --out-dir "$OUT/connector-preview-chunks"
+    python3 - "$OUT" <<'PY'
+import json
+from pathlib import Path
+import shutil
+import sys
+
+out = Path(sys.argv[1])
+name = "L1_A-B-connector-preview"
+entries = json.loads((out / "connector-preview-chunks/manifest.json").read_text())["chunks"]
+if len(entries) != 1:
+    raise SystemExit("connector preview must have exactly one detail chunk")
+detail = out / "connector-preview-chunks" / (entries[0]["id"] + "_detail.glb")
+shutil.copyfile(detail, out / (name + "-detail.glb"))
+shutil.copyfile("data/design/geometry/merode-montgomery-horizontal-probe.json",
+                out / (name + "-axis.json"))
+PY
+fi
+
 echo "[PRZYGOTOWANIE] skorupa M7 -> $OUT/M7_shell.glb"
 "$BLENDER_EXE" --background --python-exit-code 7 --python tools/blender/m7_shell.py -- \
     --out "$OUT/M7_shell.glb" --envelope-out "$OUT/M7_envelope.glb" \

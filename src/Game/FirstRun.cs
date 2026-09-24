@@ -1,12 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Text.Json;
 using Godot;
 using MetroBxl.Game.Assets;
 using MetroBxl.Game.Input;
 using MetroBxl.Game.UI;
 using MetroBxl.Game.World;
 using MetroBxl.Sim.Line;
+using MetroBxl.Sim.Json;
 using MetroBxl.Sim.Physics;
 using MetroBxl.Sim.Signalling;
 using MetroBxl.Sim.Train;
@@ -77,6 +79,9 @@ public sealed partial class FirstRun : Node3D
     private TrackAxis _axis = null!;
     private SceneAxis _sceneAxis = null!;
     private SceneAxis? _visualTailAxis;
+    private string _visualContinuationKind = "tail";
+    private string _visualContinuationVerticalStatus = "not_modelled";
+    private string _visualContinuationSourceSha256 = "";
     private VehicleModel _model = null!;
     private DriveScenario _scenario = null!;
     private RunConditions _conditions = null!;
@@ -1297,15 +1302,28 @@ public sealed partial class FirstRun : Node3D
             Path.Combine(_assetDirectory, manifest.Chunks[0].Id + "_detail.glb"));
         _tunnelMaterial = tunnelMaterial;
         _tunnel.Stream(manifest, _assetDirectory, tunnelMaterial, _scenario.StartChainageM);
+        var connectorPreview = Argument("visual-continuation") == "connector-preview";
+        var continuationName = connectorPreview ? "L1_A-B-connector-preview" : "L1_A-visual-tail";
+        _visualContinuationKind = connectorPreview ? "connector_design_only" : "tail";
+        if (connectorPreview && _axis.Id != "L1_A")
+        {
+            Abort(ExitBadArgumentValue, "[ASSETS] projektowy łącznik wymaga osi jazdy L1_A.");
+            return;
+        }
         var tailMeshes = _tunnel.LoadVisualContinuation(
-            Path.Combine(assets, "L1_A-visual-tail.glb"),
-            Path.Combine(assets, "L1_A-visual-tail-detail.glb"), tunnelMaterial);
+            Path.Combine(assets, continuationName + ".glb"),
+            Path.Combine(assets, continuationName + "-detail.glb"), tunnelMaterial);
         if (tailMeshes < 0)
         {
             Abort(ExitMissingAssets, "[ASSETS] niekompletna wizualna kontynuacja za Merode; sprawdź pliki toru");
             return;
         }
-        var tailAxisPath = Path.Combine(assets, "L1_A-visual-tail-axis.json");
+        if (connectorPreview && tailMeshes == 0)
+        {
+            Abort(ExitMissingAssets, "[ASSETS] brak pary GLB projektowego łącznika Merode–Montgomery.");
+            return;
+        }
+        var tailAxisPath = Path.Combine(assets, continuationName + "-axis.json");
         if (tailMeshes > 0)
         {
             using var tailAxisFile = FileAccess.Open(tailAxisPath, FileAccess.ModeFlags.Read);
@@ -1316,14 +1334,36 @@ public sealed partial class FirstRun : Node3D
             }
             try
             {
+                var tailJson = tailAxisFile.GetAsText();
                 var tailAxis = new SceneAxis(
-                    TrackAxis.FromJson(tailAxisFile.GetAsText()), DesignAssumptions.TrackOffsetM);
+                    TrackAxis.FromJson(tailJson), DesignAssumptions.TrackOffsetM);
                 if (tailAxis.CentreLinePoint(0.0).DistanceTo(
                     _sceneAxis.CentreLinePoint(_axis.LengthM)) > 0.02f)
                     throw new ArgumentException("oś scenerii nie łączy się z końcem toru jazdy");
+                if (connectorPreview)
+                {
+                    using var document = JsonDocument.Parse(tailJson);
+                    var root = document.RootElement;
+                    var source = root.RequiredField("source", "oś łącznika");
+                    var vertical = root.RequiredField("vertical", "oś łącznika");
+                    var sha = source.RequiredField("content_sha256", "źródło łącznika").GetString() ?? "";
+                    var playableAxisPath = Argument("axis") ?? RepoPath("data/track/L1_A.json");
+                    using var playableFile = FileAccess.Open(playableAxisPath, FileAccess.ModeFlags.Read);
+                    if (playableFile is null)
+                        throw new ArgumentException("brak osi jazdy do kontroli źródła łącznika");
+                    using var playable = JsonDocument.Parse(playableFile.GetAsText());
+                    var playableSha = playable.RootElement.RequiredField("source", "oś jazdy")
+                        .RequiredField("content_sha256", "źródło osi jazdy").GetString();
+                    if (tailAxis.Axis.Stations.Count != 0 ||
+                        vertical.RequiredField("status", "profil pionowy łącznika").GetString() != "not_modelled" ||
+                        source.RequiredField("purpose", "źródło łącznika").GetString() != "horizontal_geometry_probe" ||
+                        !string.Equals(sha, playableSha, StringComparison.Ordinal))
+                        throw new ArgumentException("łącznik nie jest projektem poziomym z tego samego źródła co L1_A");
+                    _visualContinuationSourceSha256 = sha;
+                }
                 _visualTailAxis = tailAxis;
             }
-            catch (Exception error) when (error is ArgumentException or FormatException)
+            catch (Exception error) when (error is ArgumentException or FormatException or JsonException)
             {
                 Abort(ExitBadArgumentValue, $"[ASSETS] {tailAxisPath} nie jest osią scenerii: {error.Message}");
                 return;
@@ -2510,11 +2550,14 @@ public sealed partial class FirstRun : Node3D
             }
         }
 
+        var viewLine = _visualContinuationKind == "connector_design_only"
+            ? UiText.Get("hud.connector-preview") + (_viewLine.Length > 0 ? " · " + _viewLine : "")
+            : _viewLine;
         _hud.Update(
             _state.SpeedKmh, SufitKmh(), _acceleration,
             chainage, _axis.LengthM,
             name, distance, _command.Throttle, _command.Brake, _mode,
-            StationLine(), SignallingLine(), _viewLine,
+            StationLine(), SignallingLine(), viewLine,
             EmergencyBrake.Notice(_activeKeys, _command,
                 !_lineMode || ObservedOwner() == ControlOwner.Driver),
             HelpLine(),
@@ -3418,6 +3461,9 @@ public sealed partial class FirstRun : Node3D
           "axis_length_m": {{_manifest.AxisLengthM:F3}}
          },
          "visual_continuation": {
+          "kind": "{{_visualContinuationKind}}",
+          "vertical_status": "{{_visualContinuationVerticalStatus}}",
+          "source_sha256": "{{_visualContinuationSourceSha256}}",
           "present": {{tailPresentJson}},
           "mesh_objects": {{_tunnel.VisualContinuationMeshNodes}},
           "bbox_min": {{tailMinJson}},
