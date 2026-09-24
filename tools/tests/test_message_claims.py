@@ -868,14 +868,15 @@ KOTWICE_DEKLARACJI = {
     "static readonly": r"`static readonly` \*\*(\d+)\*\*",
     "razem w rozkladzie": r"razem \*\*(\d+)\*\*;",
     "bez modyfikatora (zdanie 1)": r"stoi \*\*(\d+)\*\* z nich",
-    "bez modyfikatora (zdanie 2)": r"zabiera \*\*(\d+)\*\* deklaracji, zostaje",
+    # Zdanie w test_dead_constants_csharp mówi teraz „deklaracje”, nie „deklaracji”.
+    "bez modyfikatora (zdanie 2)": r"zabiera \*\*(\d+)\*\* deklaracje, zostaje",
     # Kotwica ZAWEZONA przy 6.D271: dolozenie drugiego zdania o kształcie
     # „(zostaje N)" zrobilo
     # `zostaje \*\*(\d+)\*\*` dwuznacznym, a czytnik zwracal wtedy `None`
     # i porownanie przechodzilo cicho. Zlapala to kontrola jednoznacznosci
     # kotwic, dopisana razem z nimi przy 6.D268 — czyli bramka, ktora istnieje
     # dokladnie na ten wypadek.
-    "zostaje po odjeciu": r"deklaracji, zostaje \*\*(\d+)\*\*",
+    "zostaje po odjeciu": r"deklaracje, zostaje \*\*(\d+)\*\*",
     # Szesc kotwic dolozonych przy 6.D271. Lista siedmiu z 6.D268 miala siedem
     # wpisow, bo tyle zlapaly KOTWICE — a nie bo tyle bylo nieprawdziwych.
     # W tym samym module stalo ich TRZYNASCIE; szesciu nie widzialo nic, bo trzy
