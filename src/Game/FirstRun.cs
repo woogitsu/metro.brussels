@@ -1168,7 +1168,7 @@ public sealed partial class FirstRun : Node3D
         // oświetlić wnętrze zamkniętej rury o normalnych skierowanych do środka.
         // Światło kierunkowe do takiego tunelu nie wejdzie; zostaje ambient plus
         // reflektor czołowy podwieszony pod kamerą kabiny.
-        var environment = new Environment
+        using var environment = new Environment
         {
             BackgroundMode = Environment.BGMode.Color,
             BackgroundColor = new Color(0.02f, 0.02f, 0.03f),
@@ -1228,8 +1228,8 @@ public sealed partial class FirstRun : Node3D
 
         _manifest = manifest;
         var tunnelMaterial = GlbLoader.TunnelConcreteMaterial();
-        var trainMaterial = GlbLoader.NeutralMaterial(new Color(0.80f, 0.81f, 0.83f), 0.45f);
-        var cabMaterial = GlbLoader.NeutralMaterial(new Color(0.13f, 0.17f, 0.20f), 0.80f);
+        using var trainMaterial = GlbLoader.NeutralMaterial(new Color(0.80f, 0.81f, 0.83f), 0.45f);
+        using var cabMaterial = GlbLoader.NeutralMaterial(new Color(0.13f, 0.17f, 0.20f), 0.80f);
 
         // Peron dostaje WŁASNY, ciemniejszy odcień szarości i to nie jest wybór
         // estetyczny, tylko warunek widzialności: płyta stoi 1,4 m od ściany komory
@@ -1237,7 +1237,7 @@ public sealed partial class FirstRun : Node3D
         // z kabiny w jedną plamę. Odcień zostaje neutralny — `docs/03-legal.md`
         // zabrania wystroju, piktogramów i barw STIB, a wygląd docelowy jest
         // przedmiotem osobnego zadania, nie tego.
-        var platformMaterial = GlbLoader.NeutralMaterial(new Color(0.34f, 0.34f, 0.36f), 0.90f);
+        using var platformMaterial = GlbLoader.NeutralMaterial(new Color(0.34f, 0.34f, 0.36f), 0.90f);
 
         // Katalog i materiał zapamiętane, bo streamowanie dokłada chunki w KAŻDEJ
         // klatce, a nie raz przy starcie.
@@ -2614,12 +2614,17 @@ public sealed partial class FirstRun : Node3D
                         zaLinie);
                 }
 
-                return UiText.Format(
+                var automaticStop = UiText.Format(
                     "hud.station.doors",
                     Faza(_line.Phase),
                     _line.DwellRemainingSeconds.ToString("F1", CultureInfo.InvariantCulture),
                     blad,
                     zaLinie);
+                // D/F also reach LineCore under autopilot. The core refuses them with
+                // AutomaticControl; show that answer while this stop is still active.
+                return _doorRefusal is null
+                    ? automaticStop
+                    : automaticStop + '\n' + DoorPrompt.For(_line.Phase, _doorRefusal);
             }
 
             var nastepnaNaLinii = _line.NextStation;
@@ -2901,6 +2906,10 @@ public sealed partial class FirstRun : Node3D
         // Jedyne miejsce, w którym zapis wejść z przejazdu KLAWIATUROWEGO może powstać:
         // taki przejazd nie kończy się sam, kończy go Esc albo zamknięcie okna.
         WriteInputLog();
+        // Meshes keep their own native references to the concrete material.
+        // Release the C# handle only after streaming has stopped with the scene.
+        _tunnelMaterial?.Dispose();
+        _tunnelMaterial = null;
         base._ExitTree();
     }
 

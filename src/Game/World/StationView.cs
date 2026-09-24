@@ -58,7 +58,7 @@ public sealed partial class StationView : Node3D
         GlbLoader.ApplyNeutralMaterial(scene, material);
         // The generated warning strips have their own `_edge` meshes. Give them
         // a readable, unbranded color instead of the slab's gray override.
-        var edgeMaterial = GlbLoader.NeutralMaterial(new Color(0.92f, 0.74f, 0.28f), 0.85f);
+        using var edgeMaterial = GlbLoader.NeutralMaterial(new Color(0.92f, 0.74f, 0.28f), 0.85f);
 
         _slabs.Clear();
         foreach (var instance in MeshInstances(scene))
@@ -97,6 +97,10 @@ public sealed partial class StationView : Node3D
         return stop - approach >= 15.0 ? [approach, stop] : [approach];
     }
 
+    /// <summary>Station chambers are not in the playable tunnel yet; its flat ceiling is 4.70 m.</summary>
+    public static float NameMarkerHangerLength(float centreHeight, float plateHeight) =>
+        4.70f - (centreHeight + plateHeight / 2);
+
     /// <summary>
     /// Place a neutral station-name marker above the tracks at each platform.
     /// The names come from the axis, not from copied operator signage.
@@ -115,14 +119,15 @@ public sealed partial class StationView : Node3D
         }
 
         var count = 0;
-        var boardMaterial = GlbLoader.NeutralMaterial(new Color(0.12f, 0.14f, 0.15f), 0.9f);
+        using var boardMaterial = GlbLoader.NeutralMaterial(new Color(0.12f, 0.14f, 0.15f), 0.9f);
+        using var hangerMaterial = GlbLoader.NeutralMaterial(new Color(0.27f, 0.30f, 0.31f), 0.7f);
         foreach (var station in sceneAxis.Axis.Stations)
         {
             var names = station.Name.Split('|');
             var bilingual = names.Length == 2;
             var text = NameMarkerText(station.Name);
             var fontSize = bilingual ? 46 : 60;
-            var pixelSize = bilingual ? 0.0095f : 0.016f;
+            var pixelSize = bilingual ? 0.0075f : 0.0095f;
             var longestLine = 0;
             foreach (var name in names)
             {
@@ -130,10 +135,10 @@ public sealed partial class StationView : Node3D
             }
             var width = Math.Clamp(longestLine * fontSize * pixelSize * 0.62f + 0.9f,
                 2.5f, 8.0f);
-            // Keep at least 0.25 m above the 3.60 m vehicle roof and 0.35 m
-            // below the 5.30 m chamber ceiling, including the two-line plate.
-            var height = bilingual ? 1.1f : 0.8f;
-            var centreHeight = bilingual ? 4.40f : 4.25f;
+            // The playable tunnel still uses box_double at stations: roof 4.70 m.
+            // Keep the plate above the 3.60 m train and below that actual roof.
+            var height = bilingual ? 0.72f : 0.60f;
+            var centreHeight = bilingual ? 4.20f : 4.15f;
             foreach (var at in NameMarkerPositions(station.ChainageM, sceneAxis.Axis.LengthM))
             {
                 var frame = sceneAxis.Chord(at - 0.5, at + 0.5);
@@ -144,6 +149,19 @@ public sealed partial class StationView : Node3D
                     new Basis(orientation.X * width, orientation.Y * height, orientation.Z), centre);
                 GlbLoader.ApplyNeutralMaterial(board, boardMaterial);
                 AddChild(board);
+                var hangerLength = NameMarkerHangerLength(centreHeight, height);
+                foreach (var side in new[] { -1.0f, 1.0f })
+                {
+                    var hanger = new MeshInstance3D
+                    {
+                        Mesh = new BoxMesh { Size = new Vector3(0.08f, hangerLength, 0.08f) },
+                        MaterialOverride = hangerMaterial,
+                        Transform = new Transform3D(orientation,
+                            centre + frame.Right * (side * width * 0.38f)
+                            + frame.Up * (height / 2 + hangerLength / 2)),
+                    };
+                    AddChild(hanger);
+                }
                 var label = new Label3D
                 {
                     Text = text,

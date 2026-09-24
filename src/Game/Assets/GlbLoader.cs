@@ -32,8 +32,11 @@ public static class GlbLoader
             return null;
         }
 
-        var document = new GltfDocument();
-        var state = new GltfState();
+        // Godot resources created by C# are not released promptly by the GC.
+        // Importing every streamed chunk without disposing these wrappers keeps
+        // the document and its state alive until shutdown, after the renderer.
+        using var document = new GltfDocument();
+        using var state = new GltfState();
         var error = document.AppendFromFile(absolutePath, state);
         if (error != Error.Ok)
         {
@@ -87,7 +90,7 @@ public static class GlbLoader
     public static StandardMaterial3D TunnelConcreteMaterial()
     {
         const int size = 128;
-        var image = Image.CreateEmpty(size, size, false, Image.Format.Rgba8);
+        using var image = Image.CreateEmpty(size, size, false, Image.Format.Rgba8);
         for (var y = 0; y < size; y++)
         {
             for (var x = 0; x < size; x++)
@@ -102,7 +105,8 @@ public static class GlbLoader
         image.GenerateMipmaps();
 
         var material = NeutralMaterial(new Color(0.42f, 0.43f, 0.42f), 0.96f);
-        material.AlbedoTexture = ImageTexture.CreateFromImage(image);
+        using var texture = ImageTexture.CreateFromImage(image);
+        material.AlbedoTexture = texture;
         material.TextureFilter = BaseMaterial3D.TextureFilterEnum.LinearWithMipmaps;
         material.TextureRepeat = true;
         return material;
