@@ -109,18 +109,22 @@ public sealed class DriverNotch
 
         if (keys.Power)
         {
+            // The same step cannot spend its full travel twice while crossing neutral.
+            var remaining = Math.Max(0.0, stepValue - brake);
             brake = Math.Max(0.0, brake - stepValue);
             if (brake <= 0.0)
             {
-                throttle = Math.Min(1.0, throttle + stepValue);
+                throttle = Math.Min(1.0, throttle + remaining);
             }
         }
         else if (keys.Brake)
         {
+            // Mirror the transition from power to braking.
+            var remaining = Math.Max(0.0, stepValue - throttle);
             throttle = Math.Max(0.0, throttle - stepValue);
             if (throttle <= 0.0)
             {
-                brake = Math.Min(1.0, brake + stepValue);
+                brake = Math.Min(1.0, brake + remaining);
             }
         }
         else if (keys.Coast)
