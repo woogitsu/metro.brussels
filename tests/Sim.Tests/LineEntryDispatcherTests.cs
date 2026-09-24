@@ -177,4 +177,25 @@ public sealed class LineEntryDispatcherTests
         Assert.AreEqual(2, line.Trains.Count, "oba kursy są w planie linii");
         Assert.AreEqual(2, dispatcher.RegisteredEntries, "dyspozytor zgłosił oba kursy");
     }
+
+    [TestMethod]
+    public void Pierwszy_krok_wjazdu_raportuje_rzeczywiste_polecenie_i_przyspieszenie()
+    {
+        var axis = SignallingPlanTests.PackageAAxis();
+        var schedule = Schedule(axis, Entry("west", "block-west", "8733", 0));
+        var line = Line(axis);
+        var session = new LineSession(line, new DriverNotch(0.5), FixedStep.Simulation,
+            new LineEntryDispatcher(line, schedule, schedule.ServiceDay));
+
+        Assert.IsTrue(session.Step(DriverKeys.None), "sesja ma wykonać krok rozkładowego wjazdu");
+        var drive = line.Trains[0].Drive;
+        Assert.IsNotNull(drive, "wolny peron musi wpuścić skład w tym samym kroku");
+        Assert.AreNotEqual(DriverCommand.Coast, drive.LastCommand,
+            "test wymaga niezerowego polecenia już w kroku wjazdu");
+        Assert.AreEqual(drive.LastCommand, session.Command,
+            "telemetria musi użyć polecenia z wykonanego kroku");
+        Assert.AreEqual(drive.State.SpeedMps / FixedStep.Simulation.Seconds,
+            session.AccelerationMps2, 1e-9,
+            "przyspieszenie pierwszego kroku musi wynikać z rzeczywistej zmiany prędkości");
+    }
 }

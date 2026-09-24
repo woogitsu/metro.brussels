@@ -173,8 +173,21 @@ public sealed class LineSession
         if (_core.Trains.Count == 0)
         {
             _dispatcher!.Step((id, point) => _commands[id] = point.Command);
-            Command = DriverCommand.Coast;
-            AccelerationMps2 = 0.0;
+            // A train may enter and drive during this very step. Report that
+            // step's actual command and acceleration, as on later steps.
+            if (_core.Trains.Count > 0)
+            {
+                var entered = Observed;
+                Command = _commands.TryGetValue(entered.Id, out var entryCommand)
+                    ? entryCommand : DriverCommand.Coast;
+                AccelerationMps2 = entered.Drive is { } entryDrive
+                    ? entryDrive.State.SpeedMps / _step.Seconds : 0.0;
+            }
+            else
+            {
+                Command = DriverCommand.Coast;
+                AccelerationMps2 = 0.0;
+            }
             return true;
         }
 
