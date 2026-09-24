@@ -32,28 +32,33 @@ def test_connector_probe_provenance_and_vertical_unknown():
         with patch.object(probe, "load_layers", return_value=([line], None, None)), \
              patch.object(probe, "pick_line", return_value=line):
             result = probe.generate(shapes, manifest, a, b)
-            assert result["source"]["content_sha256"] == digest
-            assert result["source"]["source_chainage_end_m"] == 700
-            assert result["vertical"]["status"] == "not_modelled"
-            assert result["vertical"]["z_values_are_placeholders"] is True
-            assert result["stations"] == []
-            assert result["points"][0] == [0, 0, 0]
-            assert result["points"][-1] == [700, 0, 0]
+            assert result["source"]["content_sha256"] == digest, result["source"]
+            assert result["source"]["source_chainage_end_m"] == 700, result["source"]
+            assert result["vertical"]["status"] == "not_modelled", result["vertical"]
+            assert result["vertical"]["z_values_are_placeholders"] is True, result["vertical"]
+            assert result["stations"] == [], result["stations"]
+            assert result["points"][0] == [0, 0, 0], result["points"][0]
+            assert result["points"][-1] == [700, 0, 0], result["points"][-1]
             metrics = result["plan_metrics"]
-            assert max(metrics["seam_a_angle_deg"], metrics["seam_b_angle_deg"]) <= 0.2
-            assert metrics["minimum_radius_m"] >= 100
-            assert metrics["maximum_source_offset_m"] <= 2
+            assert max(metrics["seam_a_angle_deg"], metrics["seam_b_angle_deg"]) <= 0.2, metrics
+            assert metrics["minimum_radius_m"] >= 100, metrics
+            assert metrics["maximum_source_offset_m"] <= 2, metrics
             with patch.object(probe, "circumradius", return_value=50):
                 try:
                     probe.generate(shapes, manifest, a, b)
                 except ValueError as error:
-                    assert "radius below probe limit" in str(error)
+                    assert "radius below probe limit" in str(error), str(error)
                 else:
                     raise AssertionError("tight connector plan was accepted")
             manifest.write_text(json.dumps({"content_sha256": "0" * 64}), encoding="utf-8")
             try:
                 probe.generate(shapes, manifest, a, b)
             except ValueError as error:
-                assert "hash differs" in str(error)
+                assert "hash differs" in str(error), str(error)
             else:
                 raise AssertionError("unpinned source archive was accepted")
+
+
+if __name__ == "__main__":
+    import test_all
+    raise SystemExit(test_all.main(__file__))
