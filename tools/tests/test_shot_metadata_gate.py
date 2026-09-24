@@ -25,6 +25,8 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 SCRIPT = os.path.join(ROOT, "tools", "ci", "assert_shot_metadata.py")
 AXIS = os.path.join(ROOT, "data", "track", "L1_A.json")
 TAIL_AXIS = os.path.join(ROOT, "data", "scenery", "L1_A_visual_tail.json")
+CONNECTOR_AXIS = os.path.join(ROOT, "data", "design", "geometry",
+                              "merode-montgomery-horizontal-probe.json")
 WORKFLOW = os.path.join(ROOT, ".github", "workflows", "godot-first-run.yml")
 
 sys.path.insert(0, os.path.join(ROOT, "tools", "ci"))
@@ -123,6 +125,36 @@ def test_visual_continuation_uses_independent_axis_and_glb_pair():
             handle.write(b"not a GLB")
         problems = G.check_visual_continuation(metadata, AXIS, TAIL_AXIS, assets)
         assert any("niepoprawny GLB" in problem for problem in problems), problems
+
+
+def test_connector_preview_requires_explicit_kind_and_unmodelled_vertical():
+    low, high = G.axis_scene_bbox(CONNECTOR_AXIS)
+    with open(CONNECTOR_AXIS, encoding="utf-8") as handle:
+        source_sha = json.load(handle)["source"]["content_sha256"]
+    visual = {
+        "kind": "connector_design_only", "vertical_status": "not_modelled",
+        "source_sha256": source_sha, "present": True, "mesh_objects": 2,
+        "bbox_min": [low[0] - 4.0, -1.2, low[2] - 4.0],
+        "bbox_max": [high[0] + 4.0, 4.7, high[2] + 4.0],
+        "axis_length_m": round(G.axis_length_m(CONNECTOR_AXIS), 3),
+        "seam_gap_m": 0.0,
+    }
+    with tempfile.TemporaryDirectory() as assets:
+        prefix = "L1_A-B-connector-preview"
+        for suffix in (".glb", "-detail.glb"):
+            _minimal_glb(os.path.join(assets, prefix + suffix))
+        shutil.copyfile(CONNECTOR_AXIS, os.path.join(assets, prefix + "-axis.json"))
+        metadata = {"visual_continuation": visual}
+        assert G.check_visual_continuation(metadata, AXIS, CONNECTOR_AXIS, assets,
+                                           expected_kind="connector_design_only") == [], "poprawny podgląd łącznika musi przejść"
+        for field, bad in (("kind", "tail"), ("vertical_status", "modelled"),
+                           ("source_sha256", "0" * 64)):
+            changed = json.loads(json.dumps(metadata))
+            changed["visual_continuation"][field] = bad
+            problems = G.check_visual_continuation(
+                changed, AXIS, CONNECTOR_AXIS, assets,
+                expected_kind="connector_design_only")
+            assert any(field in problem for problem in problems), (field, problems)
 
 
 def test_visual_continuation_allows_an_old_asset_set_without_the_pair():

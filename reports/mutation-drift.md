@@ -134,7 +134,7 @@ nie podaje liczby po triażu, więc jego wiersz ma w tej kolumnie kreskę, a nie
 | `tools/track/data_freshness.py` | parametry | 0 | 0 | 0 | 5 | 5 | moduł bez zmian od `fe92daa` — `git diff` pusty |
 | `tools/blender/placement.py` | placement | — | 26 | — | 40 | 40 | **nie przypisano**: raport triażu nie podaje liczby po; moduł bez zmian od `3262bb4` |
 | `tools/visual/pngio.py` | png-metadata | 7 | 4 | -3 | 38 | 38 | `b16ae65` scalił dwie kopie przycinania w jedną (−3 ocalałe równoważne) |
-| `tools/ci/assert_shot_metadata.py` | png-metadata | 2 | 32 | +30 | 33 | 108 | `a643f05` +4 ocalałe, `2c916de` +26 ocalałych (bramka peronu bez testów); 73 → 108 po dodaniu kontroli wizualnego przedłużenia, ocalałych nie przeliczono |
+| `tools/ci/assert_shot_metadata.py` | png-metadata | 2 | 32 | +30 | 33 | 114 | `a643f05` +4 ocalałe, `2c916de` +26 ocalałych (bramka peronu bez testów); 73 → 108 po dodaniu kontroli wizualnego przedłużenia, 108 → 114 po jawnej kontroli podglądu łącznika; ocalałych nie przeliczono |
 | `tools/track/surface_sections.py` | surface-width | 1 | 1 | 0 | 29 | 32 | `1cbad40` zmienił moduł, liczba mutacji bez zmian (29), ocalała ta sama. **29 → 32 (09.09.2026, 6.D61)**: ścieżka pełnego pokrycia dostała drugi licznik zgodności i liczbę punktów w halo portalu, a `range_position` czyta `PORTAL_HALO_M` w ciele funkcji zamiast w wartości domyślnej argumentu — trzy nowe porównania. Kolumna ocalałych **nieprzeliczona** i taka zostaje: 1 / 1 to pomiar z datą |
 | `tools/track/tunnel_width.py` | surface-width | 2 | 2 | 0 | 28 | 28 | moduł bez zmian od `b5bcf34` — `git diff` pusty |
 | `tools/track/validate.py` | validate | 2 | 2 | 0 | 36 | 39 | `b5c2eb9` dołożył 1 mutację, zabitą. **37 → 40 (09.09.2026, 6.D69)**: opcja `--package` przestała być pusta i dołożyła trzy porównania — identyfikator pakietu z osi wobec żądanego, obecność pakietu w rejestrze i zgodność trzech pól deklaracji z `build_packages`. Kolumna ocalałych **nieprzeliczona** i taka zostaje: 2 / 2 to pomiar z datą. **40 → 39 (10.09.2026, 6.D111)**: `_is_subsequence` porównywało nazwy przystanków operatorem `==`, a od tej pozycji woła `stop_names.ta_sama` — jedno porównanie mniej w zestawie starym. **Ubyła mutacja, nie kontrola**: reguła przeniosła się do `tools/track/stop_names.py`, a ten modułu nie ma w audycie, bo audyt obejmuje moduły sprzed 05.09.2026 — dopisanie go wymaga własnego przebiegu triażu, nie wiersza w tabeli |
@@ -157,7 +157,7 @@ modułach, których dotyczą.
 
 Raport `reports/mutation-triage-png-metadata.md` §Wynik podaje po triażu **2 ocalałe
 na 33 mutacje** (pokrycie 93,9 %), zmierzone na `737d592`, a wpisane commitem `c1101aa`.
-Dziś raport zachowuje historyczny pomiar 32 ocalałych; bieżący licznik AST to **108** mutacji. Nie jest to nowy pomiar liczby ocalałych.
+Dziś raport zachowuje historyczny pomiar 32 ocalałych; bieżący licznik AST to **114** mutacji. Nie jest to nowy pomiar liczby ocalałych.
 
 **Liczba mutacji przepisana 65 → 73 (08.09.2026, przy 6.C4), liczba ocalałych NIE
 przeliczona — i to jest wybór, nie zaniedbanie.** 6.C4 dopisała do tego modułu
