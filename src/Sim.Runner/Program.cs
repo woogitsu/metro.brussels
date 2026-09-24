@@ -1087,8 +1087,10 @@ public static class Program
         if (scheduledEntriesPath is not null &&
             (Option(args, "--trains") is not null || Option(args, "--headway-steps") is not null))
         {
+            var conflictingOption = Option(args, "--trains") is not null
+                ? "--trains" : "--headway-steps";
             throw new ArgumentException(
-                "replay --scheduled-entries wyznacza wjazdy; nie łączy się z --trains ani --headway-steps");
+                $"replay --scheduled-entries wyznacza wjazdy; nie łączy się z {conflictingOption}");
         }
         var trains = (int)LongValue(Command(args), "--trains", Option(args, "--trains") ?? "1");
         var headwaySteps = LongValue(Command(args), "--headway-steps",
