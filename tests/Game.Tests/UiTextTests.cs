@@ -4108,7 +4108,7 @@ public sealed class UiTextTests
     // TRZECI ruch w trzy dni, więc zdanie o nieruchomości tej liczby zostaje
     // skreślone tak samo, jak zostało po drugim.
     // 20 -> 21 (23.09.2026, 6.M1): `LineEventKind` w `src/Sim/Train/InputLog.cs`. CZWARTY ruch.
-    // 21 -> 22 (24.09.2026): `BrakingCueStage` zatrzaskuje fazę wskazówki hamowania.
+    // 21 -> 22 (24.09.2026, wskazówka hamowania): `BrakingCueStage` zatrzaskuje fazę wskazówki hamowania.
     private const int WyliczenWSrc = 22;
 
     // 22 -> 24 (13.09.2026, MB-02): `Ending` i `ending` z `TrainingEnding`.
@@ -4131,7 +4131,7 @@ public sealed class UiTextTests
     // Typ, który podróżuje, dostaje nazwę w każdym miejscu, przez które przechodzi.
     // …plus `powodOdmowy` z `DoorPrompt.For` — razem DZIESIĘĆ, nie dziewięć.
     // 35 -> 36 (23.09.2026, 6.M1): `LineEventKind rodzajZdarzenia` w `InputLog` i `InputLogRecorder`. PRZELICZONE.
-    // 36 -> 37 (24.09.2026): dodatkowa nazwa związana z `BrakingCueStage`.
+    // 36 -> 37 (24.09.2026, wskazówka hamowania): dodatkowa nazwa związana z `BrakingCueStage`.
     private const int NazwPodWyliczeniem = 37;
 
     // Nazwy, pod którymi w `src/` stoi i wartość wyliczenia, i wartość innego typu.

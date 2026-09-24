@@ -459,7 +459,8 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 # 1915 -> 1920 (24.09.2026, S): piec kontroli natychmiastowego wygaszenia.
 # 1920 -> 1925 (24.09.2026, oznaczenia stacji): piec asercji pelnej nazwy
 # i polozenia znacznikow, wszystkie z komunikatem; zmierzone z drzewa.
-Z_KOMUNIKATEM_RAZEM = 1925
+# 1925 -> 1939 (24.09.2026, pamiec cue): czternascie asercji testow fazy.
+Z_KOMUNIKATEM_RAZEM = 1939
 NIEROZSTRZYGNIETYCH = 68
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
 #: `tests/Sim.Tests/DefaultArmAuditTests.cs` — bramki na ramionach domyślnych
@@ -574,7 +575,8 @@ NIEROZSTRZYGNIETYCH = 68
 # 3349 -> 3361 (24.09.2026, dwustopniowe cue): te same dwanascie asercji.
 # 3361 -> 3366 (24.09.2026, S): piec kontroli natychmiastowego wygaszenia.
 # 3366 -> 3371 (24.09.2026, oznaczenia stacji): piec asercji nowych testow.
-ASERCJI_RAZEM = 3371
+# 3371 -> 3385 (24.09.2026, pamiec cue): te same czternascie asercji.
+ASERCJI_RAZEM = 3385
 
 
 def _rozklad():

@@ -632,8 +632,9 @@ ROZKLAD_POSTACI = {
         # 4915 -> 4920 (24.09.2026, S): cztery literały i komunikat asercji.
         # 4920 -> 4929 (24.09.2026, oznaczenia stacji): pelna nazwa i
         # komunikaty pieciu asercji testow znacznikow; zmierzone czytnikiem.
-        "zwykly": 4929,
-        "interpolowany ($)": 842,
+        # 4929 -> 4957 i 842 -> 843 (24.09.2026, pamiec cue): test przejazdu i zakresu pamieci.
+        "zwykly": 4957,
+        "interpolowany ($)": 843,
         "werbatim (@)": 100,
         "surowy interpolowany ($$\"\"\")": 13,
         # 8 -> 10 (23.09.2026): dwie probki sceny w testach.

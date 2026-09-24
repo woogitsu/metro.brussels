@@ -198,8 +198,10 @@ public sealed class BrakingCueTests
             }
         }
 
-        Assert.AreEqual(2701L, firstPrepare);
-        Assert.IsTrue(firstNow > firstPrepare);
+        Assert.AreEqual(2701L, firstPrepare,
+            "preparation must appear at the measured Beekkant replay step");
+        Assert.IsTrue(firstNow > firstPrepare,
+            "braking phase must follow the preparation phase");
     }
 
     [TestMethod]
@@ -215,14 +217,16 @@ public sealed class BrakingCueTests
 
         Assert.AreEqual(BrakingCueStage.Prepare,
             Phase("train-A", 509.73, true, DriverKeys.Powering,
-                DriverCommand.FullPower, prepareAt));
+                DriverCommand.FullPower, prepareAt),
+            "the first approach creates a preparation phase");
         Assert.AreEqual(BrakingCueStage.Prepare,
             Phase("train-A", 509.73, true, DriverKeys.Coasting,
                 DriverCommand.Coast, prepareAt + 20.0), "coast retains the displayed phase");
         Assert.AreEqual(BrakingCueStage.Now,
             Phase("train-A", 509.73, true, DriverKeys.Powering,
                 DriverCommand.FullPower,
-                BrakingCue.AdvisoryDistanceM(speed, 1.0, 0.8, ServiceBrake, Solver)));
+                BrakingCue.AdvisoryDistanceM(speed, 1.0, 0.8, ServiceBrake, Solver)),
+            "the current train advances to the braking phase");
         Assert.AreEqual(BrakingCueStage.Now,
             Phase("train-A", 509.73, true, DriverKeys.Coasting,
                 DriverCommand.Coast, prepareAt + 20.0), "NOW cannot regress to PREP");

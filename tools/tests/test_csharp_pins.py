@@ -390,9 +390,10 @@ ROZKLAD_LICZBOWYCH = {
         # 250 -> 251 (24.09.2026, braking cue): dystans z tolerancja.
         # 251 -> 252 (24.09.2026, kamera): pin kierunku z tolerancja.
         # 252 -> 255: trzy pomiary polozenia tablic z tolerancja.
-        "razem": 255, "z_tolerancja": 111, "bez_tolerancji": 144,
+        # 255 -> 256: krok pojawienia sie PREP w replay, calkowity bez tolerancji.
+        "razem": 256, "z_tolerancja": 111, "bez_tolerancji": 145,
         "zmiennoprzecinkowe": 117, "zmiennoprzecinkowe_bez_tolerancji": 6,
-        "calkowite": 138, "calkowite_z_tolerancja": 0, "tolerancja_zero": 18,
+        "calkowite": 139, "calkowite_z_tolerancja": 0, "tolerancja_zero": 18,
     },
     "tests/Sim.Tests": {
         # 441 -> 454 (13.09.2026, MB-02): trzynaście pinów liczbowych
