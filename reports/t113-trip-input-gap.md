@@ -44,6 +44,35 @@ Archiwum o wymaganym `content_sha256` jest teraz dostępne lokalnie. Generator z
 Następny etap może użyć tej projekcji jako wejścia do LineCore i porównać symulowane
 wyjazdy z GTFS. Polityka dyspozytora i adapter LineCore nadal nie są zaimplementowane.
 
+## Granica obecnego LineCore wobec 357 kursów (24.09.2026, `9280d3b`)
+
+Pomiar na tej samej projekcji i tym samym SHA GTFS: **176** kursów wchodzi na L1_A od
+Gare de l'Ouest (`stop_id` 8733, kilometraż 0), a **181** od Beekkant (`stop_id`
+8742, kilometraż 509,73 m). `LineCore.Add(trainId, releaseStep)` przyjmuje tylko
+identyfikator i krok wyjazdu. Faza wjazdu tworzy `LineDrive` dla całej osi i rejestruje
+każdy skład w `_entryChainageM = axis.Stations[0].ChainageM`. Podanie wszystkich 357
+kursów przez to API umieściłoby 181 składów na **złej stacji**. Nie jest to różnica
+zaokrąglenia czasu, tylko inna pozycja wejścia.
+
+W 357 kursach jest **39 różnych `block_id`**, każdy występuje wielokrotnie (najwięcej
+17 kursów jednego obiegu). Żadne dwa kolejne przejazdy pakietu A w tym samym obiegu
+nie nakładają się; najmniejsza przerwa po przyjeździe do Merode do następnego
+odjazdu z pierwszej stacji pakietu wynosi **2993 s**. To nie jest czas nawrotu na
+Merode: pomiędzy tymi przejazdami pojazd jedzie także poza pakietem A. `LineCore`
+ma jeden stały `ReleaseStep` na `LineTrain`, a jego nawrót ponownie wpuszcza ten sam
+skład po lokalnym czasie, bez przypisania następnego `trip_id` i jego godziny.
+Zgłoszenie każdego `trip_id` jako oddzielnego składu zgubiłoby tożsamość pojazdu;
+zgłoszenie jednego `block_id` nie zaplanowałoby kolejnych kursów.
+
+Ruch w tym samym czasie nie jest tu przeszkodą samą w sobie: rozkład osiąga maksimum
+**6** przejazdów równocześnie na osi, a `LineCore` obsługuje N składów na jednym
+zegarze i blokach. Brakuje **wejścia w środku osi oraz przeniesienia tego samego
+pojazdu między kursami według GTFS**. Adapter musi też jawnie ustalić początek
+zegara dnia i sprawdzać rzeczywisty krok wjazdu, bo zajęty blok może opóźnić
+`EnteredAtStep` względem rozkładowego `releaseStep`. Bez tych elementów nie należy
+twierdzić, że LineCore odtworzył 357 kursów. Nie zmieniono polityki dyspozytora,
+nawrotu ani stanu rdzenia.
+
 ## Sprawdzenie
 
 Audyt opiera się na schemacie w `tools/track/timetable.py` i spisie plików śledzonych przez Git.
