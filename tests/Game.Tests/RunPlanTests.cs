@@ -1254,17 +1254,17 @@ public sealed class RunPlanTests
     }
 
     [TestMethod]
-    public void Rozklad_dwoch_wejsc_wymaga_linii_i_sygnalizacji_oraz_odmawia_replay()
+    public void Rozklad_dwoch_wejsc_wymaga_linii_i_sygnalizacji_oraz_pozwala_na_replay()
     {
         var baseArgs = new[] { "--line", "--limit-kmh=70", "--signalling=plan.json",
             "--scheduled-entries=entries.json" };
         Assert.IsTrue(Parse(baseArgs).IsValid, "plan dwóch wejść ma jawny tryb linii i sygnalizację");
         Assert.IsFalse(Parse("--scheduled-entries=entries.json").IsValid,
             "plan bez linii nie może być cicho ignorowany");
-        Assert.IsFalse(Parse(baseArgs.Append("--replay=inputs.csv").ToArray()).IsValid,
-            "Runner nie umie jeszcze odtworzyć dyspozytora");
-        Assert.IsFalse(Parse(baseArgs.Append("--input-log=inputs.csv").ToArray()).IsValid,
-            "nie wolno zapisać przejazdu, którego Runner nie odtworzy");
+        Assert.IsTrue(Parse(baseArgs.Append("--replay=inputs.csv").ToArray()).IsValid,
+            "odtwarzanie rozkładu używa tego samego dyspozytora co scena");
+        Assert.IsTrue(Parse(baseArgs.Append("--input-log=inputs.csv").ToArray()).IsValid,
+            "wejścia maszynisty w rozkładzie można zapisać i odtworzyć");
     }
 
     /// <summary>
