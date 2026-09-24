@@ -96,6 +96,10 @@ METODY_SCIEZKI = ("write_text", "write_bytes")
 ZASLEPKA_TESTOW_SWEEPA = "test_this_file_is_the_stub_not_the_real_tests"
 
 POZA_DRZEWEM = {
+    ("test_connector_probe.py", "test_connector_probe_provenance_and_vertical_unknown", "Path.write_bytes"):
+        "próbne archiwum źródła w tempfile.TemporaryDirectory",
+    ("test_connector_probe.py", "test_connector_probe_provenance_and_vertical_unknown", "Path.write_text"):
+        "próbny manifest i osie w tempfile.TemporaryDirectory",
     ("test_render_replay.py", "test_real_png_header", "Path.write_bytes"):
         "naglowek probnej PNG zapisywany w tempfile.TemporaryDirectory",
     ("mutation_sweep.py", "zapisz_pokrycie", "os.replace"):

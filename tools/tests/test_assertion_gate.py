@@ -1750,7 +1750,10 @@ def test_wzorzec_rodziny_lapie_zdanie_ktore_ma_lapac_i_nie_bierze_sasiedztwa():
 # 940 -> 941 (24.09.2026, odmowa bez osi scenerii): test szuka nazwy
 # brakującego JSON-a w stderr uruchomionego `play.sh`. To NAPIS będący WYNIKIEM
 # zachowania skryptu, a nie cytat ze źródła `.py`; nie należy do NA_ZRODLE_PY.
-ASERCJI_NAPISOWYCH_RAZEM = 941
+# 941 -> 943 (24.09.2026, probe łącznika): dwa testy sprawdzają tekst
+# odmowy zwróconej przez generator dla zbyt małego promienia i obcego SHA.
+# To NAPIS będący WYNIKIEM wykonania, nie cytat ze źródła Pythona.
+ASERCJI_NAPISOWYCH_RAZEM = 943
 
 #: **Kotwica wpisu to `(plik, funkcja, operator, literał)`, a NIE numer wiersza.**
 #: Numer przesuwa się przy każdej edycji pliku i lista rozjechałaby się sama z siebie.
