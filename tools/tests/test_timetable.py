@@ -147,6 +147,35 @@ def test_timetable_separates_dwell_from_run_time():
     assert abs(segment["mean_s"] - 110.0) < 1e-9
 
 
+def test_timetable_preserves_trip_route_block_and_stop_times_for_line_core():
+    """Agregaty nie wystarczą do przypisania kursu do osi i obiegu pojazdu."""
+    records = TT.survey(_feed(), "20260902", {6})["trip_records"]
+    assert [row["trip_id"] for row in records] == ["T1", "T2"], "tylko aktywne kursy metra, w stałym porządku"
+    assert records[0] == {
+        "trip_id": "T1", "block_id": "B1", "route_id": "R1", "direction_id": "0",
+        "stops": [
+            {"stop_sequence": 1, "stop_id": "A", "arrival_s": 21600, "departure_s": 21615},
+            {"stop_sequence": 2, "stop_id": "B", "arrival_s": 21720, "departure_s": 21740},
+            {"stop_sequence": 3, "stop_id": "C", "arrival_s": 21840, "departure_s": 21840},
+        ],
+    }, "kurs musi zachować trasę, obieg i pełne godziny GTFS"
+    assert records[1]["block_id"] == "B1", "następny kurs należy do tego samego obiegu"
+
+
+def test_timetable_trip_projection_is_independent_of_gtfs_row_order():
+    original = TT.survey(_feed(), "20260902", {6})
+    rows = ["trip_id,arrival_time,departure_time,stop_id,stop_sequence"]
+    rows += ["T2,06:09:10,06:09:10,C,3", "T1,06:04:00,06:04:00,C,3",
+             "T2,06:07:10,06:07:30,B,2", "T1,06:02:00,06:02:20,B,2",
+             "T2,06:05:00,06:05:15,A,1", "T1,06:00:00,06:00:15,A,1",
+             "TT1,06:00:00,06:00:00,X,1"]
+    reordered = TT.survey(_feed(**{"stop_times.txt": "\n".join(rows) + "\n"}),
+                          "20260902", {6})
+    assert reordered["trip_records"] == original["trip_records"], "kolejność wierszy feedu nie zmienia projekcji"
+    assert reordered["duties"] == original["duties"], "nowy eksport nie zmienia obiegów"
+    assert reordered["lines"] == original["lines"], "nowy eksport nie zmienia taktów"
+
+
 def test_timetable_histogram_covers_every_intermediate_stop():
     report = TT.survey(_feed(), "20260902", {6})
     assert sum(report["dwell_histogram_s"].values()) == 2

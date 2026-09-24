@@ -282,6 +282,7 @@ def survey(archive, date_text, peak_hours, axis_paths=None):
     lines = {}
     segments = defaultdict(list)
     blocks = defaultdict(list)
+    trip_records = []
     terminus_stops = Counter()
     terminus_non_zero = Counter()
     dwell_written = 0
@@ -289,6 +290,17 @@ def survey(archive, date_text, peak_hours, axis_paths=None):
         stops.sort()
         route = trips[trip_id]["route_id"]
         direction = trips[trip_id].get("direction_id", "")
+        trip_records.append({
+            "trip_id": trip_id,
+            "block_id": trips[trip_id].get("block_id") or "",
+            "route_id": route,
+            "direction_id": direction,
+            "stops": [
+                {"stop_sequence": sequence, "stop_id": stop_id,
+                 "arrival_s": arrival, "departure_s": departure}
+                for sequence, stop_id, arrival, departure in stops
+            ],
+        })
         key = (route, direction)
         entry = lines.setdefault(key, {"departures": [], "trips": 0, "stops_per_trip": Counter(),
                                        "intervals": []})
@@ -386,6 +398,10 @@ def survey(archive, date_text, peak_hours, axis_paths=None):
         "calendar_dates_removed": removed,
         "metro_routes": {rid: r.get("route_short_name") for rid, r in sorted(routes.items())},
         "metro_trips": len(trips),
+        # Wierna projekcja kursów na aktywny dzień. Agregaty `duties` i `segments`
+        # gubią powiązanie kurs → kierunek → godzina na stacji; LineCore nie może
+        # odtworzyć wejścia na oś z samych okien całych kursów.
+        "trip_records": sorted(trip_records, key=lambda row: row["trip_id"]),
         "peak_hours": sorted(peak_hours),
         "lines": rows,
         "duties": block_summary(blocks),
