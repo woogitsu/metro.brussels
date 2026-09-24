@@ -160,4 +160,93 @@ public sealed class BrakingCueTests
 
         Assert.IsTrue(oldCueWasLate, "the measured old failure keeps this test meaningful");
     }
+
+    [TestMethod]
+    public void Coasting_does_not_make_preparation_disappear_on_the_real_Beekkant_approach()
+    {
+        var axis = MetroBxl.Sim.Line.TrackAxis.FromJson(
+            MetroBxl.Tests.Shared.KorzenRepozytorium.Tresc("data", "track", "L1_A.json"));
+        var stationM = axis.Stations[1].ChainageM;
+        var model = VehicleModel.M7;
+        var controller = new TrainController(model);
+        var conditions = RunConditions.Level(model, TrainLoad.Aw2);
+        var notch = new DriverNotch(DesignAssumptions.ControlNotchRatePerSecond);
+        var state = DriveState.AtRest;
+        var memory = new BrakingCueMemory();
+        var firstPrepare = -1L;
+        var firstNow = -1L;
+
+        for (var i = 0; i < 4000; i++)
+        {
+            var keys = state.Steps <= 2701 ? DriverKeys.Powering : DriverKeys.Coasting;
+            var command = notch.Advance(keys, FixedStep.Simulation);
+            state = controller.Advance(state, conditions, command,
+                model.DesignMaxSpeedKmh / 3.6, FixedStep.Simulation, out _);
+            var phase = memory.Update("player", stationM, true, keys, command,
+                stationM - 94.0 - state.DistanceM, state.SpeedMps,
+                DesignAssumptions.ControlNotchRatePerSecond,
+                controller.ServiceBrakeMps2, Solver);
+            if (phase == BrakingCueStage.Prepare && firstPrepare < 0)
+                firstPrepare = state.Steps;
+            if (firstPrepare >= 0 && firstNow < 0)
+                Assert.AreNotEqual(BrakingCueStage.None, phase,
+                    $"warning disappeared during coast at step {state.Steps}");
+            if (phase == BrakingCueStage.Now)
+            {
+                firstNow = state.Steps;
+                break;
+            }
+        }
+
+        Assert.AreEqual(2701L, firstPrepare);
+        Assert.IsTrue(firstNow > firstPrepare);
+    }
+
+    [TestMethod]
+    public void Warning_memory_is_scoped_to_station_train_and_driver()
+    {
+        var memory = new BrakingCueMemory();
+        var speed = 60.0 / 3.6;
+        var prepareAt = BrakingCue.PreparationDistanceM(speed, 1.0, 0.8, ServiceBrake, Solver);
+        BrakingCueStage Phase(string train, double station, bool driver, DriverKeys keys,
+            DriverCommand command, double distance) =>
+            memory.Update(train, station, driver, keys, command, distance, speed,
+                0.8, ServiceBrake, Solver);
+
+        Assert.AreEqual(BrakingCueStage.Prepare,
+            Phase("train-A", 509.73, true, DriverKeys.Powering,
+                DriverCommand.FullPower, prepareAt));
+        Assert.AreEqual(BrakingCueStage.Prepare,
+            Phase("train-A", 509.73, true, DriverKeys.Coasting,
+                DriverCommand.Coast, prepareAt + 20.0), "coast retains the displayed phase");
+        Assert.AreEqual(BrakingCueStage.Now,
+            Phase("train-A", 509.73, true, DriverKeys.Powering,
+                DriverCommand.FullPower,
+                BrakingCue.AdvisoryDistanceM(speed, 1.0, 0.8, ServiceBrake, Solver)));
+        Assert.AreEqual(BrakingCueStage.Now,
+            Phase("train-A", 509.73, true, DriverKeys.Coasting,
+                DriverCommand.Coast, prepareAt + 20.0), "NOW cannot regress to PREP");
+        Assert.AreEqual(BrakingCueStage.None,
+            Phase("train-A", 1500.0, true, DriverKeys.Coasting,
+                DriverCommand.Coast, prepareAt + 20.0), "next station starts fresh");
+        Assert.AreEqual(BrakingCueStage.None,
+            Phase("train-B", 509.73, true, DriverKeys.Coasting,
+                DriverCommand.Coast, prepareAt + 20.0), "next observed train starts fresh");
+        Assert.AreEqual(BrakingCueStage.None,
+            Phase("train-A", 509.73, false, DriverKeys.Powering,
+                DriverCommand.FullPower, prepareAt), "autopilot has no cue");
+        Assert.AreEqual(BrakingCueStage.Prepare,
+            Phase("train-A", 509.73, true, DriverKeys.Powering,
+                DriverCommand.FullPower, prepareAt), "driver can receive a fresh cue");
+        Assert.AreEqual(BrakingCueStage.None,
+            Phase("train-A", 509.73, true, DriverKeys.Braking,
+                DriverCommand.FullPower, prepareAt), "S hides it immediately");
+        Assert.AreEqual(BrakingCueStage.None,
+            Phase("train-A", 509.73, true, DriverKeys.EmergencyBraking,
+                DriverCommand.FullServiceBrake, prepareAt), "E hides it immediately");
+        memory.Reset();
+        Assert.AreEqual(BrakingCueStage.None,
+            Phase("train-A", 509.73, true, DriverKeys.Coasting,
+                DriverCommand.Coast, prepareAt + 20.0), "restart clears memory");
+    }
 }

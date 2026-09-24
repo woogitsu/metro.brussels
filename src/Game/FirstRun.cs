@@ -103,6 +103,7 @@ public sealed partial class FirstRun : Node3D
     /// ktoś akurat trzyma klawisz przy oglądaniu.
     /// </summary>
     private DriverKeys _activeKeys = DriverKeys.None;
+    private readonly BrakingCueMemory _brakingCueMemory = new();
 
     private FixedStep _step;
 
@@ -2299,6 +2300,7 @@ public sealed partial class FirstRun : Node3D
         _state = start.Drive;
         _keys = start.Keys;
         _activeKeys = start.ActiveKeys;
+        _brakingCueMemory.Reset();
         _command = start.Command;
         _effectiveCommand = start.EffectiveCommand;
         _acceleration = start.AccelerationMps2;
@@ -2598,16 +2600,15 @@ public sealed partial class FirstRun : Node3D
             }
 
             var odleglosc = nastepnaNaLinii.Value.ChainageM - ChainageM;
-            var pokazWskazowke = BrakingCue.MayAdvise(_activeKeys, _command);
-            var hamowanieNaLinii = pokazWskazowke && BrakingCue.ShouldPromptOnLine(
-                ObservedOwner() == ControlOwner.Driver, _command, odleglosc, _state.SpeedMps,
+            var fazaHamowaniaNaLinii = _brakingCueMemory.Update(
+                _lineCore!.Trains[Math.Clamp(_observed, 0, _lineCore.Trains.Count - 1)].Id,
+                nastepnaNaLinii.Value.ChainageM, ObservedOwner() == ControlOwner.Driver,
+                _activeKeys, _command, odleglosc, _state.SpeedMps,
                 DesignAssumptions.ControlNotchRatePerSecond,
-                _controller.ServiceBrakeMps2, BrakingPointSolver.M7)
+                _controller.ServiceBrakeMps2, BrakingPointSolver.M7);
+            var hamowanieNaLinii = fazaHamowaniaNaLinii == BrakingCueStage.Now
                 ? UiText.Get("hud.station.brake-now")
-                : pokazWskazowke && BrakingCue.ShouldPrepareOnLine(
-                    ObservedOwner() == ControlOwner.Driver, _command, odleglosc, _state.SpeedMps,
-                    DesignAssumptions.ControlNotchRatePerSecond,
-                    _controller.ServiceBrakeMps2, BrakingPointSolver.M7)
+                : fazaHamowaniaNaLinii == BrakingCueStage.Prepare
                     ? UiText.Get("hud.station.brake-prepare")
                     : string.Empty;
             return UiText.Format(
@@ -2653,16 +2654,14 @@ public sealed partial class FirstRun : Node3D
 
         var approach = _stations.Approach(ChainageM);
         var okno = approach.WithinWindow ? UiText.Get("hud.station.in-window") : string.Empty;
-        var pokazHamowanie = BrakingCue.MayAdvise(_activeKeys, _command);
-        var hamowanie = pokazHamowanie && !approach.WithinWindow && BrakingCue.ShouldPrompt(
-            approach.DistanceM, _state.SpeedMps, _command.Throttle, _command.Brake,
+        var fazaHamowania = _brakingCueMemory.Update(
+            SignalledTrainId, approach.ChainageM, !approach.WithinWindow,
+            _activeKeys, _command, approach.DistanceM, _state.SpeedMps,
             DesignAssumptions.ControlNotchRatePerSecond, _controller.ServiceBrakeMps2,
-            BrakingPointSolver.M7)
+            BrakingPointSolver.M7);
+        var hamowanie = fazaHamowania == BrakingCueStage.Now
             ? UiText.Get("hud.station.brake-now")
-            : pokazHamowanie && !approach.WithinWindow && BrakingCue.ShouldPrepare(
-                approach.DistanceM, _state.SpeedMps, _command.Throttle, _command.Brake,
-                DesignAssumptions.ControlNotchRatePerSecond, _controller.ServiceBrakeMps2,
-                BrakingPointSolver.M7)
+            : fazaHamowania == BrakingCueStage.Prepare
                 ? UiText.Get("hud.station.brake-prepare")
                 : string.Empty;
         return UiText.Format(

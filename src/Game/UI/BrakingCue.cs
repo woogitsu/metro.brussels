@@ -105,3 +105,62 @@ public static class BrakingCue
             distanceToStopM, speedMps, command.Throttle, command.Brake,
             notchRatePerSecond, serviceBrakeMps2, solver);
 }
+
+/// <summary>The visible step of the station braking hint.</summary>
+public enum BrakingCueStage
+{
+    /// <summary>No hint is visible.</summary>
+    None,
+    /// <summary>Get ready to brake.</summary>
+    Prepare,
+    /// <summary>Begin service braking.</summary>
+    Now
+}
+
+/// <summary>Keep a warning visible as the power notch moves toward coast.</summary>
+public sealed class BrakingCueMemory
+{
+    private (string TrainId, double StationM)? _target;
+    private BrakingCueStage _phase;
+
+    /// <summary>Forget the warning when a run restarts.</summary>
+    public void Reset()
+    {
+        _target = null;
+        _phase = BrakingCueStage.None;
+    }
+
+    /// <summary>Advance the warning for one observed train and station.</summary>
+    public BrakingCueStage Update(
+        string trainId, double stationM, bool driverControls, DriverKeys keys,
+        DriverCommand command, double distanceM, double speedMps,
+        double notchRatePerSecond, double serviceBrakeMps2, BrakingPointSolver solver)
+    {
+        var target = (trainId, stationM);
+        if (_target != target)
+        {
+            _target = target;
+            _phase = BrakingCueStage.None;
+        }
+
+        if (!driverControls || !double.IsFinite(distanceM) || distanceM <= 0.0 ||
+            speedMps <= 0.5)
+        {
+            Reset();
+            return BrakingCueStage.None;
+        }
+
+        if (!BrakingCue.MayAdvise(keys, command))
+            return BrakingCueStage.None;
+
+        var candidate = BrakingCue.ShouldPrompt(distanceM, speedMps,
+            command.Throttle, command.Brake, notchRatePerSecond, serviceBrakeMps2, solver)
+            ? BrakingCueStage.Now
+            : BrakingCue.ShouldPrepare(distanceM, speedMps,
+                command.Throttle, command.Brake, notchRatePerSecond, serviceBrakeMps2, solver)
+                ? BrakingCueStage.Prepare : BrakingCueStage.None;
+        if (candidate > _phase)
+            _phase = candidate;
+        return _phase;
+    }
+}
