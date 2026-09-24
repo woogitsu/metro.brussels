@@ -240,6 +240,8 @@ public sealed class UiTextTests
     // 603 -> 604 (24.09.2026, tryb linii): komunikat końca toru przed postojem Merode.
     // 604 -> 609 (24.09.2026, lampy scenerii): ścieżka osi i odmowy dla uszkodzonego JSON-a.
     // 609 -> 615 (24.09.2026, osobne metadane wizualnej kontynuacji).
+    // 615 -> 649 (24.09.2026, jawna opcja łącznika i kontrola pochodzenia osi).
+    // 649 -> 656 (24.09.2026, osłonięcie wymaganych pól JSON).
     private const int LiteralowWZasieguBramki = 656;
 
     /// <summary>Ile różnych — dolne ostrze, zmierzone 12.09.2026.</summary>
@@ -1523,6 +1525,8 @@ public sealed class UiTextTests
     // 644 -> 645 (24.09.2026, tryb linii): komunikat końca toru w gałęzi LineDrive.
     // 645 -> 650 (24.09.2026, lampy scenerii): pięć nowych literałów FirstRun.
     // 650 -> 663 (24.09.2026, pola i wartości osobnych metadanych scenerii).
+    // 663 -> 703 (24.09.2026, opcjonalny podgląd łącznika).
+    // 703 -> 710 (24.09.2026, osłonięcie wymaganych pól JSON).
     private const int PozycjiStaregoCzytnika = 710;
 
     /// <summary>
@@ -2133,6 +2137,8 @@ public sealed class UiTextTests
     // 141 -> 144 (24.09.2026, sceneria za Merode): dwie ścieżki i odmowa.
     // 144 -> 149 (24.09.2026, lampy scenerii): ścieżka osi i komunikaty odmowy.
     // 149 -> 153 (24.09.2026, wypisywanie metadanych scenerii).
+    // 153 -> 170 (24.09.2026, opcjonalny podgląd łącznika).
+    // 170 -> 177 (24.09.2026, osłonięcie wymaganych pól JSON).
     private const int ZgloszenFirstRunCalymPlikiem = 177;
 
     /// <summary>Ile daje ten sam plik liczony WIERSZ PO WIERSZU — 6.D180.</summary>
@@ -2152,6 +2158,8 @@ public sealed class UiTextTests
     // 153 -> 156 (24.09.2026, sceneria za Merode): te same trzy literały.
     // 156 -> 161 (24.09.2026, lampy scenerii): ścieżka osi i cztery odmowy dla złych danych.
     // 161 -> 166 (24.09.2026, metadane wizualnej kontynuacji).
+    // 166 -> 184 (24.09.2026, opcjonalny podgląd łącznika).
+    // 184 -> 191 (24.09.2026, osłonięcie wymaganych pól JSON).
     private const int ZgloszenFirstRunWierszami = 191;
 
     /// <summary>Ile plików korpusu daje różne liczby obiema drogami — 6.D180.</summary>
@@ -2359,6 +2367,8 @@ public sealed class UiTextTests
     // 418 -> 419 (24.09.2026, tryb linii): ten sam komunikat końca toru.
     // 419 -> 424 (24.09.2026, lampy scenerii): osłona nowego czytnika osi.
     // 424 -> 425 (24.09.2026, nowy literal osi scenerii).
+    // 425 -> 446 (24.09.2026, opcjonalny podgląd łącznika).
+    // 446 -> 447 (24.09.2026, osłonięcie wymaganych pól JSON).
     private const int LiteralowDotknietychZdejmowaniem = 447;
 
     /// <summary>
@@ -3145,6 +3155,7 @@ public sealed class UiTextTests
     // przebiegiem, a nie wyprowadzona z liczby dopisanych wierszy.
     // 104 -> 105 (23.09.2026, 6.M1): odtworzenie linii — zdarzenia w zapisie wejść, `ExecuteLineEvent` w `FirstRun` i nowa odmowa `--replay --line` bez `--signalling` w `RunPlan`. PRZELICZONE.
     // 105 -> 109 (24.09.2026, osobna sekcja metadanych scenerii).
+    // 109 -> 118 (24.09.2026, opcjonalny podgląd łącznika).
     private const int ZgloszenWaskichCalymPlikiem = 118;
 
     /// <summary>Zgłoszeń wąskiej reguły, gdy czytnik dostaje WIERSZ — 6.D173/6.D186.</summary>
@@ -3161,6 +3172,7 @@ public sealed class UiTextTests
     // przebiegiem, a nie wyprowadzona z liczby dopisanych wierszy.
     // 116 -> 117 (23.09.2026, 6.M1): odtworzenie linii — zdarzenia w zapisie wejść, `ExecuteLineEvent` w `FirstRun` i nowa odmowa `--replay --line` bez `--signalling` w `RunPlan`. PRZELICZONE.
     // 117 -> 122 (24.09.2026, osobna sekcja metadanych scenerii).
+    // 122 -> 132 (24.09.2026, opcjonalny podgląd łącznika).
     private const int ZgloszenWaskichWierszami = 132;
 
     /// <summary>
@@ -3174,6 +3186,7 @@ public sealed class UiTextTests
 
     /// <summary>Trafień „klucz JSON-a wypisywanego" drogą WIERSZOWĄ — liczba 6.D181.</summary>
     // 13 -> 14 (24.09.2026, pole present wypisywane w nowej sekcji).
+    // 14 -> 15 (24.09.2026, pole kind w podglądzie łącznika).
     private const int KluczyWypisywanychWierszami = 15;
 
     /// <summary>Trafień „klucz JSON-a wypisywanego" drogą CAŁOPLIKOWĄ — 6.D186.</summary>
@@ -3193,10 +3206,12 @@ public sealed class UiTextTests
 
     /// <summary>Kluczy RÓŻNYCH w napisie metadanych zrzutu — 6.D186.</summary>
     // 31 -> 34 (24.09.2026, visual_continuation, present i seam_gap_m).
+    // 34 -> 37 (24.09.2026, rodzaj, profil pionowy i skrót źródła).
     private const int KluczyJsonWypisywanego = 37;
 
     /// <summary>Wystąpień kluczy w tym samym napisie — 6.D186.</summary>
     // 35 -> 42 (24.09.2026, siedem wystąpień pól scenerii).
+    // 42 -> 45 (24.09.2026, trzy pola podglądu łącznika).
     private const int WystapienKluczyJson = 45;
 
     /// <summary>
