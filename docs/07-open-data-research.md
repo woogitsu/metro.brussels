@@ -83,7 +83,8 @@ nie są jednak automatycznie geometrią tor-po-torze ani profilem pionowym.
 projektowa**, wygenerowana z przypiętego archiwum STIB o SHA-256
 `bc41483ba5e42d3d8b8b94e0adfc16791a609d3938d0ca1bd1791521279acd6d`.
 Źródło i adres pobrania są w `data/network/shapes-manifest.json`; w artefakcie
-zapisano identyfikatory wejściowych osi i kanoniczne hashe ich JSON-ów.
+zapisano role wejściowych osi i kanoniczne hashe ich JSON-ów. Generator
+sprawdza identyfikatory `L1_A` i `L1_B` przy wczytaniu danych.
 Punkty źródłowej trasy handlowej wyznaczają 708,941 m między końcami pakietów,
 a wygładzona próba ma 708,972 m. Przy Montgomery ostatnie 100 m wygładza
 projektowy łuk Hermite’a; prowadnik stycznej przy Merode ma 1 m. Są to decyzje
