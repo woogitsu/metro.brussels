@@ -85,6 +85,18 @@ public sealed partial class StationView : Node3D
     public static double NameMarkerChainage(double stationM, double axisLengthM) =>
         Math.Clamp(stationM - 15.0, 8.0, axisLengthM - 8.0);
 
+    /// <summary>Keep a second name visible from the stopping point.</summary>
+    public static double StopMarkerChainage(double stationM, double axisLengthM) =>
+        Math.Clamp(stationM + 15.0, 8.0, axisLengthM - 8.0);
+
+    /// <summary>Avoid overlapping signs where route ends clamp the two positions together.</summary>
+    public static double[] NameMarkerPositions(double stationM, double axisLengthM)
+    {
+        var approach = NameMarkerChainage(stationM, axisLengthM);
+        var stop = StopMarkerChainage(stationM, axisLengthM);
+        return stop - approach >= 15.0 ? [approach, stop] : [approach];
+    }
+
     /// <summary>
     /// Place a neutral station-name marker above the tracks at each platform.
     /// The names come from the axis, not from copied operator signage.
@@ -106,8 +118,6 @@ public sealed partial class StationView : Node3D
         var boardMaterial = GlbLoader.NeutralMaterial(new Color(0.12f, 0.14f, 0.15f), 0.9f);
         foreach (var station in sceneAxis.Axis.Stations)
         {
-            var at = NameMarkerChainage(station.ChainageM, sceneAxis.Axis.LengthM);
-            var frame = sceneAxis.Chord(at - 0.5, at + 0.5);
             var names = station.Name.Split('|');
             var bilingual = names.Length == 2;
             var text = NameMarkerText(station.Name);
@@ -124,27 +134,31 @@ public sealed partial class StationView : Node3D
             // below the 5.30 m chamber ceiling, including the two-line plate.
             var height = bilingual ? 1.1f : 0.8f;
             var centreHeight = bilingual ? 4.40f : 4.25f;
-            var centre = sceneAxis.CentreLinePoint(at) + frame.Up * centreHeight;
-            var orientation = new Basis(frame.Right, frame.Up, -frame.Forward);
-            var board = (Node3D)platePrototype.Duplicate();
-            board.Transform = new Transform3D(
-                new Basis(orientation.X * width, orientation.Y * height, orientation.Z), centre);
-            GlbLoader.ApplyNeutralMaterial(board, boardMaterial);
-            AddChild(board);
-            var label = new Label3D
+            foreach (var at in NameMarkerPositions(station.ChainageM, sceneAxis.Axis.LengthM))
             {
-                Text = text,
-                Transform = new Transform3D(orientation,
-                    centre - frame.Up * (bilingual ? 0.12f : 0.0f) - frame.Forward * 0.04f),
-                FontSize = fontSize,
-                PixelSize = pixelSize,
-                Modulate = new Color(0.90f, 0.91f, 0.90f),
-                OutlineModulate = new Color(0.07f, 0.08f, 0.09f),
-                OutlineSize = 6,
-                DoubleSided = true,
-                NoDepthTest = false,
-            };
-            AddChild(label);
+                var frame = sceneAxis.Chord(at - 0.5, at + 0.5);
+                var centre = sceneAxis.CentreLinePoint(at) + frame.Up * centreHeight;
+                var orientation = new Basis(frame.Right, frame.Up, -frame.Forward);
+                var board = (Node3D)platePrototype.Duplicate();
+                board.Transform = new Transform3D(
+                    new Basis(orientation.X * width, orientation.Y * height, orientation.Z), centre);
+                GlbLoader.ApplyNeutralMaterial(board, boardMaterial);
+                AddChild(board);
+                var label = new Label3D
+                {
+                    Text = text,
+                    Transform = new Transform3D(orientation,
+                        centre - frame.Up * (bilingual ? 0.12f : 0.0f) - frame.Forward * 0.04f),
+                    FontSize = fontSize,
+                    PixelSize = pixelSize,
+                    Modulate = new Color(0.90f, 0.91f, 0.90f),
+                    OutlineModulate = new Color(0.07f, 0.08f, 0.09f),
+                    OutlineSize = 6,
+                    DoubleSided = true,
+                    NoDepthTest = false,
+                };
+                AddChild(label);
+            }
             count++;
         }
 

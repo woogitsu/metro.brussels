@@ -27,5 +27,20 @@ public sealed class StationWayfindingTests
             "The last marker is visible before reaching the terminal stop");
         Assert.AreEqual(494.73, StationView.NameMarkerChainage(509.73, lengthM), 1e-9,
             "An interior marker appears before the stopping point");
+        Assert.AreEqual(524.73, StationView.StopMarkerChainage(509.73, lengthM), 1e-9,
+            "A second marker remains visible at the stopping point");
+        Assert.AreEqual(15.0, StationView.StopMarkerChainage(0.0, lengthM), 1e-9,
+            "The first station has two distinct in-route positions");
+        Assert.AreEqual(6678.739, StationView.StopMarkerChainage(lengthM, lengthM), 1e-9,
+            "The terminal's second marker stays inside the route");
+        CollectionAssert.AreEqual(new[] { 494.73, 524.73 },
+            StationView.NameMarkerPositions(509.73, lengthM),
+            "An interior station has approach and stop markers");
+        CollectionAssert.AreEqual(new[] { 6671.739 },
+            StationView.NameMarkerPositions(lengthM, lengthM),
+            "The terminal must not show overlapping duplicate markers");
+        CollectionAssert.AreEqual(new[] { 8.0 },
+            StationView.NameMarkerPositions(0.0, lengthM),
+            "Clamped signs at the route start should not overlap");
     }
 }
