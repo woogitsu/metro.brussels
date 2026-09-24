@@ -165,16 +165,16 @@ public sealed class LineEntryDispatcherTests
         var firstStep = schedule.Entries[0].ReleaseStep;
         while (line.Steps < firstStep)
         {
-            Assert.IsTrue(session.Step(DriverKeys.None));
-            Assert.AreEqual(0, line.Trains.Count);
-            Assert.IsFalse(session.Finished);
+            Assert.IsTrue(session.Step(DriverKeys.None), "zegar sesji musi czekać na pierwszy wjazd");
+            Assert.AreEqual(0, line.Trains.Count, "przed terminem nie wolno dodać składu");
+            Assert.IsFalse(session.Finished, "przyszły kurs utrzymuje sesję aktywną");
         }
-        Assert.IsTrue(session.Step(DriverKeys.None));
-        Assert.AreEqual(1, line.Trains.Count);
-        Assert.AreEqual(firstStep, line.Trains[0].EnteredAtStep);
+        Assert.IsTrue(session.Step(DriverKeys.None), "pierwszy kurs ma wejść o czasie");
+        Assert.AreEqual(1, line.Trains.Count, "tylko pierwszy kurs jest już należny");
+        Assert.AreEqual(firstStep, line.Trains[0].EnteredAtStep, "fizyczny wjazd jest punktualny");
         while (line.Steps <= schedule.Entries[1].ReleaseStep)
-            Assert.IsTrue(session.Step(DriverKeys.None));
-        Assert.AreEqual(2, line.Trains.Count);
-        Assert.AreEqual(2, dispatcher.RegisteredEntries);
+            Assert.IsTrue(session.Step(DriverKeys.None), "sesja musi dotrwać do drugiego terminu");
+        Assert.AreEqual(2, line.Trains.Count, "oba kursy są w planie linii");
+        Assert.AreEqual(2, dispatcher.RegisteredEntries, "dyspozytor zgłosił oba kursy");
     }
 }
