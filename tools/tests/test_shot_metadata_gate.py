@@ -15,6 +15,8 @@ import json
 import math
 import os
 import re
+import shutil
+import struct
 import subprocess
 import sys
 import tempfile
@@ -22,6 +24,7 @@ import tempfile
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 SCRIPT = os.path.join(ROOT, "tools", "ci", "assert_shot_metadata.py")
 AXIS = os.path.join(ROOT, "data", "track", "L1_A.json")
+TAIL_AXIS = os.path.join(ROOT, "data", "scenery", "L1_A_visual_tail.json")
 WORKFLOW = os.path.join(ROOT, ".github", "workflows", "godot-first-run.yml")
 
 sys.path.insert(0, os.path.join(ROOT, "tools", "ci"))
@@ -76,6 +79,57 @@ def _run(metadata):
             capture_output=True, text=True)
     finally:
         os.unlink(path)
+
+
+def _minimal_glb(path):
+    document = json.dumps({"asset": {"version": "2.0"}, "nodes": [{"mesh": 0}],
+                           "meshes": [{"primitives": []}]}).encode("utf-8")
+    document += b" " * (-len(document) % 4)
+    payload = struct.pack("<I4s", len(document), b"JSON") + document
+    with open(path, "wb") as handle:
+        handle.write(b"glTF" + struct.pack("<II", 2, 12 + len(payload)) + payload)
+
+
+def test_visual_continuation_uses_independent_axis_and_glb_pair():
+    low, high = G.axis_scene_bbox(TAIL_AXIS)
+    visual = {
+        "present": True, "mesh_objects": 2,
+        "bbox_min": [low[0] - 4.0, -1.2, low[2] - 4.0],
+        "bbox_max": [high[0] + 4.0, 4.7, high[2] + 4.0],
+        "axis_length_m": round(G.axis_length_m(TAIL_AXIS), 3),
+        "seam_gap_m": 0.0,
+    }
+    metadata = {"visual_continuation": visual}
+    with tempfile.TemporaryDirectory() as assets:
+        for name in ("L1_A-visual-tail.glb", "L1_A-visual-tail-detail.glb"):
+            _minimal_glb(os.path.join(assets, name))
+        shutil.copyfile(TAIL_AXIS, os.path.join(assets, "L1_A-visual-tail-axis.json"))
+        assert G.check_visual_continuation(metadata, AXIS, TAIL_AXIS, assets) == []
+
+        # The camera would move with the mesh, so an image comparison cannot
+        # detect this 100 m displacement. The independent axis must reject it.
+        shifted = json.loads(json.dumps(metadata))
+        for key in ("bbox_min", "bbox_max"):
+            shifted["visual_continuation"][key][0] += 100.0
+        problems = G.check_visual_continuation(shifted, AXIS, TAIL_AXIS, assets)
+        assert any("obwiednia" in problem for problem in problems), problems
+
+        os.unlink(os.path.join(assets, "L1_A-visual-tail-detail.glb"))
+        problems = G.check_visual_continuation(metadata, AXIS, TAIL_AXIS, assets)
+        assert any("niekompletna para GLB" in problem for problem in problems), problems
+
+        with open(os.path.join(assets, "L1_A-visual-tail-detail.glb"), "wb") as handle:
+            handle.write(b"not a GLB")
+        problems = G.check_visual_continuation(metadata, AXIS, TAIL_AXIS, assets)
+        assert any("niepoprawny GLB" in problem for problem in problems), problems
+
+
+def test_visual_continuation_allows_an_old_asset_set_without_the_pair():
+    metadata = {"visual_continuation": {
+        "present": False, "mesh_objects": 0, "bbox_min": None, "bbox_max": None,
+        "axis_length_m": 0, "seam_gap_m": 0}}
+    with tempfile.TemporaryDirectory() as assets:
+        assert G.check_visual_continuation(metadata, AXIS, TAIL_AXIS, assets) == []
 
 
 # --- prawda liczona niezależnie -------------------------------------------------

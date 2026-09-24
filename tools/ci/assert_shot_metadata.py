@@ -27,7 +27,9 @@ tu Python przez `tools/blender/sweep.py`, a nie parser sceny.
 """
 import argparse
 import json
+import math
 import os
+import struct
 import sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -98,6 +100,108 @@ def axis_scene_bbox(axis_path, low_m=None, high_m=None):
     ys = [p[1] for p in points]
     zs = [p[2] for p in points]
     return ([min(xs), min(zs), -max(ys)], [max(xs), max(zs), -min(ys)])
+
+
+def glb_mesh_nodes(path):
+    """Read the exported GLB's node table, independently of Godot's scene tree."""
+    with open(path, "rb") as handle:
+        header = handle.read(20)
+        if len(header) != 20 or header[:4] != b"glTF":
+            raise ValueError(f"{path}: brak nagłówka GLB")
+        version, length = struct.unpack_from("<II", header, 4)
+        json_size, chunk_type = struct.unpack_from("<II", header, 12)
+        if version != 2 or length != os.path.getsize(path) or chunk_type != 0x4E4F534A \
+                or json_size == 0 or json_size > length - 20:
+            raise ValueError(f"{path}: niepoprawna struktura GLB")
+        document = json.loads(handle.read(json_size).rstrip(b" \x00"))
+    count = sum("mesh" in node for node in document.get("nodes", []))
+    if count <= 0:
+        raise ValueError(f"{path}: GLB bez węzłów siatki")
+    return count
+
+
+def check_visual_continuation(metadata, playable_axis_path, tail_axis_path, assets_dir=None):
+    """Check the visible 300 m tail separately from streamed playable chunks."""
+    visual = metadata.get("visual_continuation")
+    if visual is None and assets_dir is None:
+        return []  # Historical screenshot metadata did not have this section.
+    if not isinstance(visual, dict) or type(visual.get("present")) is not bool:
+        return ["visual_continuation.present: brak wartości logicznej"]
+
+    problems = []
+    glb_files = ("L1_A-visual-tail.glb", "L1_A-visual-tail-detail.glb")
+    if assets_dir is not None:
+        paths = [os.path.join(assets_dir, name) for name in glb_files]
+        existing = [os.path.isfile(path) for path in paths]
+        if any(existing) != all(existing):
+            problems.append("visual_continuation: niekompletna para GLB")
+        if visual["present"] != all(existing):
+            problems.append("visual_continuation.present nie odpowiada parze GLB")
+        packaged_axis = os.path.join(assets_dir, "L1_A-visual-tail-axis.json")
+        if not any(existing) and os.path.exists(packaged_axis):
+            problems.append("visual_continuation: oś bez pary GLB")
+        if all(existing):
+            try:
+                with open(packaged_axis, encoding="utf-8") as handle:
+                    packaged = json.load(handle)
+                with open(tail_axis_path, encoding="utf-8") as handle:
+                    canonical = json.load(handle)
+                if packaged != canonical:
+                    problems.append("visual_continuation: zapakowana oś różni się od osi scenerii")
+            except (OSError, ValueError) as error:
+                problems.append(f"visual_continuation: brak poprawnej osi w pakiecie: {error}")
+    else:
+        paths = []
+
+    if not visual["present"]:
+        if visual.get("mesh_objects") != 0 or visual.get("axis_length_m") != 0 \
+                or visual.get("seam_gap_m") != 0 \
+                or visual.get("bbox_min") is not None or visual.get("bbox_max") is not None:
+            problems.append("visual_continuation: brak zasobów wymaga zerowych metryk")
+        return problems
+
+    meshes = visual.get("mesh_objects")
+    if not isinstance(meshes, int) or isinstance(meshes, bool) or meshes <= 0:
+        problems.append("visual_continuation.mesh_objects musi być dodatnią liczbą")
+    if paths and all(os.path.isfile(path) for path in paths):
+        try:
+            actual_meshes = sum(glb_mesh_nodes(path) for path in paths)
+            if meshes != actual_meshes:
+                problems.append(f"visual_continuation.mesh_objects = {meshes}, GLB ma {actual_meshes}")
+        except (OSError, ValueError, json.JSONDecodeError) as error:
+            problems.append(f"visual_continuation: niepoprawny GLB: {error}")
+
+    axis_length = axis_length_m(tail_axis_path)
+    reported_length = visual.get("axis_length_m")
+    if not isinstance(reported_length, (int, float)) or not math.isfinite(reported_length) or \
+            abs(reported_length - axis_length) > AXIS_TOLERANCE_M:
+        problems.append(f"visual_continuation.axis_length_m = {reported_length}, oś daje {axis_length:.3f}")
+    playable_end = axis_points(playable_axis_path)[-1]
+    tail_start = axis_points(tail_axis_path)[0]
+    seam_gap = sum((a - b) ** 2 for a, b in zip(playable_end, tail_start)) ** 0.5
+    reported_gap = visual.get("seam_gap_m")
+    if not isinstance(reported_gap, (int, float)) or not math.isfinite(reported_gap) or \
+            abs(reported_gap - seam_gap) > 1e-3 \
+            or seam_gap > 0.02:
+        problems.append(f"visual_continuation.seam_gap_m = {reported_gap}, osie dają {seam_gap:.4f}")
+
+    lo, hi = visual.get("bbox_min"), visual.get("bbox_max")
+    if not all(isinstance(value, list) and len(value) == 3 and
+               all(isinstance(number, (int, float)) and math.isfinite(number)
+                   for number in value)
+               for value in (lo, hi)):
+        problems.append("visual_continuation: niekompletna obwiednia")
+    else:
+        axis_lo, axis_hi = axis_scene_bbox(tail_axis_path)
+        profile_width = max(profiles.dimensions("box_double"))
+        for coordinate, name in enumerate("XYZ"):
+            if lo[coordinate] > axis_lo[coordinate] + 1e-3 or \
+                    hi[coordinate] < axis_hi[coordinate] - 1e-3:
+                problems.append(f"visual_continuation: obwiednia nie zawiera osi {name}")
+            if max(axis_lo[coordinate] - lo[coordinate],
+                   hi[coordinate] - axis_hi[coordinate]) > profile_width:
+                problems.append(f"visual_continuation: obwiednia za daleko od osi {name}")
+    return problems
 
 
 def load_manifest(manifest_path):
@@ -565,6 +669,11 @@ def main():
     parser.add_argument("--manifest",
                         help="manifest chunków — pozwala policzyć predykat streamowania "
                              "niezależnie i porównać go z tym, co scena wczytała")
+    parser.add_argument("--visual-tail-axis",
+                        default=os.path.join(ROOT, "data", "scenery", "L1_A_visual_tail.json"),
+                        help="kanoniczna oś osobnej scenerii za Merode")
+    parser.add_argument("--visual-tail-assets",
+                        help="katalog z parą GLB i osią scenerii z bieżącego pakietu")
     parser.add_argument("--resolution", help="np. 1280x720")
     parser.add_argument("--view", help="widok ostatniego zrzutu")
     parser.add_argument("--at-chainage", type=float, help="chainage ostatniego zrzutu")
@@ -588,6 +697,8 @@ def main():
     expected = axis_length_m(args.axis)
     manifest = load_manifest(args.manifest) if args.manifest else None
     problems = check(metadata, args.axis, resolution, args.view, args.at_chainage, manifest)
+    problems += check_visual_continuation(metadata, args.axis, args.visual_tail_axis,
+                                          args.visual_tail_assets)
     problems += check_train(metadata, args.m7_spec)
     # Peron sprawdzany TYLKO wtedy, gdy wołający podał, z czym go porównać. Bez tego
     # bramka nie ma niezależnej prawdy, a „przeszło" znaczyłoby wyłącznie „nie było
@@ -612,6 +723,10 @@ def main():
     print(f"[METADANE] {scene['chunks_loaded']}/{scene['chunks_declared']} chunków rezydentnych, "
           f"{scene['mesh_objects']} obiektów, {scene['vertices']} wierzchołków, "
           f"oś {scene['axis_length_m']:.3f} m == {expected:.3f} m policzone niezależnie")
+    visual = metadata.get("visual_continuation")
+    if visual is not None:
+        print(f"[SCENERIA] za Merode: obecna={visual['present']}, "
+              f"siatek={visual['mesh_objects']}, oś={visual['axis_length_m']:.3f} m")
     train = metadata["train"]
     print(f"[SKŁAD] {train['bodies']} brył, {train['length_m']:.3f} m x {train['width_m']:.3f} m, "
           f"dach {train['roof_height_m']:.3f} m — zgodne z rejestrem M7 (status spec)")

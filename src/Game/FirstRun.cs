@@ -3303,6 +3303,21 @@ public sealed partial class FirstRun : Node3D
         var name = _shotPath[(_shotPath.LastIndexOf('/') + 1)..];
         var prefix = name.Contains('_') ? name[..name.IndexOf('_')] : "GODOT";
         var path = $"{directory}/{prefix}_metadata.json";
+        var tailBounds = _tunnel.VisualContinuationBounds();
+        var tailPresent = tailBounds.HasValue && _visualTailAxis is not null;
+        var tailPresentJson = tailPresent ? "true" : "false";
+        var tailLow = tailBounds?.Position ?? Vector3.Zero;
+        var tailHigh = tailBounds?.End ?? Vector3.Zero;
+        var tailMinJson = tailPresent
+            ? string.Create(CultureInfo.InvariantCulture,
+                $"[{tailLow.X:F4}, {tailLow.Y:F4}, {tailLow.Z:F4}]") : "null";
+        var tailMaxJson = tailPresent
+            ? string.Create(CultureInfo.InvariantCulture,
+                $"[{tailHigh.X:F4}, {tailHigh.Y:F4}, {tailHigh.Z:F4}]") : "null";
+        var tailLengthM = tailPresent ? _visualTailAxis!.Axis.LengthM : 0.0;
+        var tailSeamGapM = tailPresent
+            ? _visualTailAxis!.CentreLinePoint(0.0).DistanceTo(_sceneAxis.CentreLinePoint(_axis.LengthM))
+            : 0.0f;
         var json = string.Create(CultureInfo.InvariantCulture, $$"""
         {
          "engine": "godot",
@@ -3323,6 +3338,14 @@ public sealed partial class FirstRun : Node3D
           "window_low_m": {{_tunnel.WindowLowM:F3}},
           "window_high_m": {{_tunnel.WindowHighM:F3}},
           "axis_length_m": {{_manifest.AxisLengthM:F3}}
+         },
+         "visual_continuation": {
+          "present": {{tailPresentJson}},
+          "mesh_objects": {{_tunnel.VisualContinuationMeshNodes}},
+          "bbox_min": {{tailMinJson}},
+          "bbox_max": {{tailMaxJson}},
+          "axis_length_m": {{tailLengthM:F3}},
+          "seam_gap_m": {{tailSeamGapM:F4}}
          },
          "platforms": {
           "slabs": {{_platforms.SlabCount}},

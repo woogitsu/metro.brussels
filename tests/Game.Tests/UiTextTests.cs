@@ -239,7 +239,8 @@ public sealed class UiTextTests
     // 601 -> 603 (24.09.2026, koniec osi): nazwa i komunikat zatrzymania w HUD.
     // 603 -> 604 (24.09.2026, tryb linii): komunikat końca toru przed postojem Merode.
     // 604 -> 609 (24.09.2026, lampy scenerii): ścieżka osi i odmowy dla uszkodzonego JSON-a.
-    private const int LiteralowWZasieguBramki = 609;
+    // 609 -> 615 (24.09.2026, osobne metadane wizualnej kontynuacji).
+    private const int LiteralowWZasieguBramki = 615;
 
     /// <summary>Ile różnych — dolne ostrze, zmierzone 12.09.2026.</summary>
     private const int RoznychLiteralowWZasieguBramki = 362;
@@ -1521,7 +1522,8 @@ public sealed class UiTextTests
     // 642 -> 644 (24.09.2026, koniec osi): dwa klucze HUD.
     // 644 -> 645 (24.09.2026, tryb linii): komunikat końca toru w gałęzi LineDrive.
     // 645 -> 650 (24.09.2026, lampy scenerii): pięć nowych literałów FirstRun.
-    private const int PozycjiStaregoCzytnika = 650;
+    // 650 -> 663 (24.09.2026, pola i wartości osobnych metadanych scenerii).
+    private const int PozycjiStaregoCzytnika = 663;
 
     /// <summary>
     /// Ile PLIKÓW korpusu stary czytnik czytał inaczej niż leksykalny — 6.D182.
@@ -2130,7 +2132,8 @@ public sealed class UiTextTests
     // 140 -> 141 (24.09.2026, interaktywne R): odmowa przeładowania sceny.
     // 141 -> 144 (24.09.2026, sceneria za Merode): dwie ścieżki i odmowa.
     // 144 -> 149 (24.09.2026, lampy scenerii): ścieżka osi i komunikaty odmowy.
-    private const int ZgloszenFirstRunCalymPlikiem = 149;
+    // 149 -> 153 (24.09.2026, wypisywanie metadanych scenerii).
+    private const int ZgloszenFirstRunCalymPlikiem = 153;
 
     /// <summary>Ile daje ten sam plik liczony WIERSZ PO WIERSZU — 6.D180.</summary>
     // 122 -> 132 (14.09.2026, MB-04): `FirstRun.AssetsRoot`, `DomyslnyZapisWejsc`
@@ -2148,7 +2151,8 @@ public sealed class UiTextTests
     // 152 -> 153 (24.09.2026, interaktywne R): nowy komunikat błędu.
     // 153 -> 156 (24.09.2026, sceneria za Merode): te same trzy literały.
     // 156 -> 161 (24.09.2026, lampy scenerii): ścieżka osi i cztery odmowy dla złych danych.
-    private const int ZgloszenFirstRunWierszami = 161;
+    // 161 -> 166 (24.09.2026, metadane wizualnej kontynuacji).
+    private const int ZgloszenFirstRunWierszami = 166;
 
     /// <summary>Ile plików korpusu daje różne liczby obiema drogami — 6.D180.</summary>
     private const int PlikowZRoznicaDrog = 1;
@@ -2354,7 +2358,8 @@ public sealed class UiTextTests
     // 416 -> 418 (24.09.2026, koniec osi): dwa nowe klucze katalogu.
     // 418 -> 419 (24.09.2026, tryb linii): ten sam komunikat końca toru.
     // 419 -> 424 (24.09.2026, lampy scenerii): osłona nowego czytnika osi.
-    private const int LiteralowDotknietychZdejmowaniem = 424;
+    // 424 -> 425 (24.09.2026, nowy literal osi scenerii).
+    private const int LiteralowDotknietychZdejmowaniem = 425;
 
     /// <summary>
     /// Ilu literałom zdejmowanie jednostek ZABIERA werdykt „to słowo" — 6.D155.
@@ -3139,7 +3144,8 @@ public sealed class UiTextTests
     // zakresu i nazwy węzłów widoków w `FirstRun`. Liczba jest PRZELICZONA
     // przebiegiem, a nie wyprowadzona z liczby dopisanych wierszy.
     // 104 -> 105 (23.09.2026, 6.M1): odtworzenie linii — zdarzenia w zapisie wejść, `ExecuteLineEvent` w `FirstRun` i nowa odmowa `--replay --line` bez `--signalling` w `RunPlan`. PRZELICZONE.
-    private const int ZgloszenWaskichCalymPlikiem = 105;
+    // 105 -> 109 (24.09.2026, osobna sekcja metadanych scenerii).
+    private const int ZgloszenWaskichCalymPlikiem = 109;
 
     /// <summary>Zgłoszeń wąskiej reguły, gdy czytnik dostaje WIERSZ — 6.D173/6.D186.</summary>
     // 108 -> 112 (14.09.2026, MB-04): `FirstRun.AssetsRoot`, `DomyslnyZapisWejsc`
@@ -3154,7 +3160,8 @@ public sealed class UiTextTests
     // zakresu i nazwy węzłów widoków w `FirstRun`. Liczba jest PRZELICZONA
     // przebiegiem, a nie wyprowadzona z liczby dopisanych wierszy.
     // 116 -> 117 (23.09.2026, 6.M1): odtworzenie linii — zdarzenia w zapisie wejść, `ExecuteLineEvent` w `FirstRun` i nowa odmowa `--replay --line` bez `--signalling` w `RunPlan`. PRZELICZONE.
-    private const int ZgloszenWaskichWierszami = 117;
+    // 117 -> 122 (24.09.2026, osobna sekcja metadanych scenerii).
+    private const int ZgloszenWaskichWierszami = 122;
 
     /// <summary>
     /// Ile z nich stoi w kontekście CZYTANIA JSON-a — <b>18 obiema drogami</b>.
@@ -3166,7 +3173,8 @@ public sealed class UiTextTests
     private const int WKontekscieCzytaniaJson = 18;
 
     /// <summary>Trafień „klucz JSON-a wypisywanego" drogą WIERSZOWĄ — liczba 6.D181.</summary>
-    private const int KluczyWypisywanychWierszami = 13;
+    // 13 -> 14 (24.09.2026, pole present wypisywane w nowej sekcji).
+    private const int KluczyWypisywanychWierszami = 14;
 
     /// <summary>Trafień „klucz JSON-a wypisywanego" drogą CAŁOPLIKOWĄ — 6.D186.</summary>
     private const int KluczyWypisywanychCalymPlikiem = 1;
@@ -3184,10 +3192,12 @@ public sealed class UiTextTests
     private const string JedyneTrafienieCaloplikowe = "platforms";
 
     /// <summary>Kluczy RÓŻNYCH w napisie metadanych zrzutu — 6.D186.</summary>
-    private const int KluczyJsonWypisywanego = 31;
+    // 31 -> 34 (24.09.2026, visual_continuation, present i seam_gap_m).
+    private const int KluczyJsonWypisywanego = 34;
 
     /// <summary>Wystąpień kluczy w tym samym napisie — 6.D186.</summary>
-    private const int WystapienKluczyJson = 35;
+    // 35 -> 42 (24.09.2026, siedem wystąpień pól scenerii).
+    private const int WystapienKluczyJson = 42;
 
     /// <summary>
     /// Które z tych 31 nazw w ogóle padają w korpusie zgłoszeń — i skąd — 6.D186.
@@ -3379,10 +3389,9 @@ public sealed class UiTextTests
         StringAssert.Contains(dawna, 108.ToString(System.Globalization.CultureInfo.InvariantCulture),
             "odpowiedź nie niesie liczby, o którą pytano");
 
-        // Od 6.M1 dzisiejszą wartością jest 117; 116 stało się dawną i stoi teraz po
-        // LEWEJ stronie ostatniego ogniwa łańcucha.
-        Assert.IsNull(MetroBxl.Tests.Shared.LancuchZmian.SkadTaLiczba(nameof(ZgloszenWaskichWierszami), 117, SciezkaTegoPliku),
-            "dzisiejsza wartość zgłoszona jako DAWNA — a 117 stoi wyłącznie po prawej "
+        // Dzisiejsza wartość stoi wyłącznie po PRAWEJ stronie ostatniego ogniwa.
+        Assert.IsNull(MetroBxl.Tests.Shared.LancuchZmian.SkadTaLiczba(nameof(ZgloszenWaskichWierszami), ZgloszenWaskichWierszami, SciezkaTegoPliku),
+            "dzisiejsza wartość zgłoszona jako DAWNA — stoi wyłącznie po prawej "
             + "stronie ostatniego ogniwa, więc nigdy tu nie „stała do\u201d");
         Assert.IsNull(MetroBxl.Tests.Shared.LancuchZmian.SkadTaLiczba(nameof(ZgloszenWaskichWierszami), 4242, SciezkaTegoPliku),
             "liczba spoza łańcucha zgłoszona jako dawna wartość — czytnik odpowiada "
@@ -3593,7 +3602,8 @@ public sealed class UiTextTests
     // 150 -> 152 (24.09.2026, krótki HUD chase): dystans i próg.
     // 152 -> 153 (24.09.2026, integracja pomocy linii): jeden literał z klamrą.
     // 153 -> 156 (24.09.2026, lampy scenerii): trzy komunikaty `Abort` z interpolacją.
-    private const int LiteralowZKlamra = 156;
+    // 156 -> 158 (24.09.2026, osobne pola metadanych ogona).
+    private const int LiteralowZKlamra = 158;
 
     /// <summary>
     /// Ilu literałom <see cref="BezDziur"/> zabiera WSZYSTKIE słowa — 6.D188.
@@ -3609,7 +3619,8 @@ public sealed class UiTextTests
     // niesie `sufit`, czyli słowo, którego żadna z tych dwóch mechanik nie zabiera.
     // 13 -> 14 (14.09.2026, MB-07): przeliczone przebiegiem.
     // 14 -> 15 (24.09.2026, integracja pomocy linii): nowy wzorzec pomocy.
-    private const int ZabranychWszystkieSlowa = 15;
+    // 15 -> 17 (24.09.2026, formatowanie dwóch obwiedni scenerii).
+    private const int ZabranychWszystkieSlowa = 17;
 
     /// <summary>
     /// Ile z nich stoi na drodze <c>Hud.Update</c>, czyli dociera na ekran — 6.D188.
