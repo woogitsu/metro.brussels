@@ -146,11 +146,9 @@ Wszystkie oprócz ostatniego są bramkami, po jednej na zadanie weryfikacyjne;
 `prune-merged-branches` jest utrzymaniowy i odpala się wyłącznie ręcznie
 (`workflow_dispatch`).
 
-**Wszystkie chodzą na self-hosted runnerze**, na gołej etykiecie — bez ani jednej
-dodatkowej. Tego samego wymaga `tools/tests/test_ci_workflows.py`, gdzie komplet dwóch
-etykiet jest już odrzucany. Nazw ani liczby maszyn README nie podaje: dobór idzie po
-etykiecie, a liczebności puli nie da się sprawdzić z repozytorium. Runnera nie wybiera
-się po nazwie — to zwężałoby pulę do jednej maszyny.
+**Wszystkie chodzą na GitHub-hosted `ubuntu-latest`**. Tego samego wymaga
+`tools/tests/test_ci_workflows.py`; wcześniejszy selektor `self-hosted` nie jest
+już używany po upublicznieniu repozytorium 24.09.2026.
 
 Ten akapit stoi osobno i bez ani jednego markera przeszłości, żeby `test_docs_ci_claims.py`
 faktycznie go czytał; powód rozpisany w `CLAUDE.md` §9 i zmierzony

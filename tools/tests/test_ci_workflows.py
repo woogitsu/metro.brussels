@@ -1404,10 +1404,9 @@ def _runner_labels(job):
     return [repr(value)]
 
 
-#: Celowo jedyna etykieta w workflowach. Repozytorium ma trzy własne runnery,
-#: a GitHub przypisuje do nich automatycznie `Linux` i `X64`; wybór nie może
-#: zależeć od nazwy konkretnego CPU/GPU.
-REQUIRED_RUNNER_LABELS = ("self-hosted",)
+#: Publiczne repozytorium uruchamia wszystkie joby na hostowanych runnerach GitHuba.
+#: Jedna etykieta zabezpiecza przed przypadkowym powrotem do własnej puli.
+REQUIRED_RUNNER_LABELS = ("ubuntu-latest",)
 
 
 def _runner_mismatch(labels):
@@ -1422,8 +1421,8 @@ def _runner_mismatch(labels):
     return None
 
 
-def test_every_job_runs_on_a_self_hosted_runner():
-    """Każdy job używa dokładnie `runs-on: self-hosted`.
+def test_every_job_runs_on_a_github_hosted_ubuntu_runner():
+    """Każdy job używa dokładnie `runs-on: ubuntu-latest`.
 
     YAML jest parsowany, nie sprawdzany wyrażeniem regularnym, aby zmiana formy
     zapisu nie mogła ominąć tej bramki.
@@ -1442,28 +1441,25 @@ def test_every_job_runs_on_a_self_hosted_runner():
     # przeszłaby pusta i zielona, gdyby `jobs:` przestało być czytane.
     assert checked >= 7, f"sprawdzono tylko {checked} jobów — pętla nie widzi `jobs:`"
 
-    hosted = [name for name in _workflows() if "ubuntu-latest" in _text(name)]
-    assert not hosted, f"GitHub-hosted runner nadal wymieniony w: {hosted}"
+    assert checked >= 11, f"oczekiwano 11 jobów, wykryto {checked}"
 
 
 def test_the_runner_gate_fails_on_every_selector_that_would_miss_the_pool():
     """Kontrola negatywna: dodatkowa albo brakująca etykieta musi być błędem."""
-    # Każda dodatkowa etykieta zawęża pulę i jest sprzeczna z konfiguracją repo.
+    # Własna pula, inny obraz lub grupa są sprzeczne z konfiguracją repo.
     assert _runner_mismatch(["self-hosted", "Linux"])
     assert _runner_mismatch(["self-hosted", "gpu"])
     assert _runner_mismatch(["self-hosted", "self-hosted"])
     assert _runner_mismatch(["Linux"])
     # Grupa: zbiór maszyn dobierany po stronie GitHuba, niewidoczny z repozytorium.
     assert _runner_mismatch(_runner_labels({"runs-on": {"group": "own"}}))
-    # Maszyna GitHuba, czyli minuty, których na koncie nie ma.
-    assert _runner_mismatch(["ubuntu-latest"])
+    assert _runner_mismatch(["ubuntu-24.04"])
     assert _runner_mismatch(None)
 
-    # …a komplet z §9 przechodzi niezależnie od kolejności i wielkości liter, bo
-    # GitHub dobiera maszynę koniunkcją etykiet. Bez tych dwóch asercji „wszystko
+    # …a wybrany obraz przechodzi niezależnie od wielkości liter. Bez tych asercji „wszystko
     # jest błędem" byłoby dla bramki nie do odróżnienia od poprawnej detekcji.
     assert _runner_mismatch(list(REQUIRED_RUNNER_LABELS)) is None
-    assert _runner_mismatch(["SELF-HOSTED"]) is None
+    assert _runner_mismatch(["UBUNTU-LATEST"]) is None
     assert _runner_mismatch(
         _runner_labels({"runs-on": list(REQUIRED_RUNNER_LABELS)})) is None
 
