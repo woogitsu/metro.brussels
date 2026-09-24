@@ -237,17 +237,12 @@ public sealed partial class TunnelView : Node3D
 
     private static IEnumerable<MeshInstance3D> MeshInstances(Node node)
     {
+        if (node is MeshInstance3D instance)
+            yield return instance;
         foreach (var child in node.GetChildren())
         {
-            if (child is MeshInstance3D instance)
-            {
-                yield return instance;
-            }
-
             foreach (var nested in MeshInstances(child))
-            {
                 yield return nested;
-            }
         }
     }
 
