@@ -27,9 +27,9 @@ namespace MetroBxl.Game.Tests;
 /// nie ustawia stanu ręcznie: przejeżdża tę samą sekwencję klawiszy, co wzorzec
 /// <c>tests/data/manual-keys.log</c> (W od kroku 0, S od kroku 2800), zatrzymuje skład
 /// na Beekkant i mierzy licznik postoju przed resetem i po nim. Zatrzymanie wychodzi
-/// na 509,707 m przy błędzie −0,023 m, czyli dokładnie tam, gdzie zapisał to komentarz
-/// tamtego pliku — a jest to liczba policzona dwiema niezależnymi drogami
-/// (<c>docs/06-worked-example.md</c> §Wzór na dowód).</para>
+/// na 509,853 m przy błędzie +0,123 m. Ta kabina przesuwa nastawnik przez pozycję
+/// neutralną z ograniczoną drogą na krok; zapis <c>manual-keys.log</c> pozostaje
+/// osobnym wzorcem powtórzenia zapisanych poleceń.</para>
 /// </summary>
 [TestClass]
 public sealed class RunResetTests
@@ -216,10 +216,10 @@ public sealed class RunResetTests
             $"reszta={cab.Accumulator.CarrySeconds:R} s zapis={cab.Recorder.NextStep} krokow " +
             $"telemetria={cab.Telemetry.Count} wierszy"));
 
-        // Zgodność z komentarzem wzorca `tests/data/manual-keys.log`: zatrzymanie na
-        // 509,707 m, błąd −0,023 m. Druga droga do tej samej liczby.
-        Assert.AreEqual(509.707, call.StoppedAtChainageM, 5e-4, "czoło stanęło gdzie indziej");
-        Assert.AreEqual(-0.023, call.StopErrorM, 5e-4, "błąd zatrzymania");
+        // Ograniczony przesuw nastawnika przez neutral zmienia drogę hamowania.
+        // Zmierzony postój pozostaje w oknie Beekkant (±5 m), z otwartym cyklem drzwi.
+        Assert.AreEqual(509.853, call.StoppedAtChainageM, 5e-4, "czoło stanęło gdzie indziej");
+        Assert.AreEqual(0.123, call.StopErrorM, 5e-4, "błąd zatrzymania");
 
         cab.Reset();
 

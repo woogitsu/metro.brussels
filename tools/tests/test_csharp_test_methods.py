@@ -659,7 +659,8 @@ ROZKLAD_POSTACI = {
         # identyfikatory kursów, komunikaty wszystkich asercji i interpolowany krok diagnostyki.
         # 5410 -> 5510, 856 -> 858, 101 -> 102 (25.09.2026, integracja rozkładu
         # i podglądu łącznika wraz z pomiarami w UiTextTests).
-        "zwykly": 5510,
+        # 25.09.2026: cztery komunikaty asercji przej?cia przez neutral.
+        "zwykly": 5514,
         "interpolowany ($)": 858,
         "werbatim (@)": 102,
         "surowy interpolowany ($$\"\"\")": 13,

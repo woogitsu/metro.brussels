@@ -497,9 +497,10 @@ ROZKLAD_LICZBOWYCH = {
         # całkowitych pinów liczby kursów, bloków, stacji, kroków i wezwań.
         # 551 -> 560 (24.09.2026, adapter odtwarzania rozkladu): dziewiec
         # calkowitych pinow bez tolerancji, zmierzonych na polaczonym drzewie.
-        "razem": 560, "z_tolerancja": 191, "bez_tolerancji": 369,
-        "zmiennoprzecinkowe": 212, "zmiennoprzecinkowe_bez_tolerancji": 21,
-        "calkowite": 348, "calkowite_z_tolerancja": 0, "tolerancja_zero": 121,
+        # 560 -> 562 (25.09.2026, nastawnik): dwa piny przejścia przez neutral.
+        "razem": 562, "z_tolerancja": 193, "bez_tolerancji": 369,
+        "zmiennoprzecinkowe": 214, "zmiennoprzecinkowe_bez_tolerancji": 21,
+        "calkowite": 348, "calkowite_z_tolerancja": 0, "tolerancja_zero": 123,
     },
 }
 
@@ -524,7 +525,8 @@ ROZKLAD_LICZBOWYCH = {
 # 153 -> 155 (24.09.2026, koniec osi): dwa dokładne porównania prędkości.
 # 155 -> 160 (24.09.2026, LineDrive): pięć dokładnych porównań bez tolerancji.
 # 160 -> 166 (24.09.2026, dok?adne stany hamowania terminalowego).
-DOKLADNE_ZMIENNOPRZECINKOWE = 166
+# 166 -> 168 (25.09.2026, nastawnik): dwa dokładne zera przeciwnego kierunku.
+DOKLADNE_ZMIENNOPRZECINKOWE = 168
 
 
 def test_ile_pinow_liczbowych_i_jak_sie_dziela():
@@ -551,11 +553,11 @@ def test_pin_calkowity_NIGDY_nie_ma_tolerancji_i_to_nie_jest_zwyczaj():
         % razem)
 
 
-def test_dokladnych_porownan_zmiennoprzecinkowych_jest_166_a_nie_27():
+def test_dokladnych_porownan_zmiennoprzecinkowych_jest_168_a_nie_27():
     """**Sedno 6.D141: tolerancja `0.0` JEST porównaniem dokładnym.**
 
-    Licznik „bez tolerancji" mówi o dwudziestu jeden asercjach, a dokładnych porównań na
-    liczbie zmiennoprzecinkowej jest znacznie więcej — bo 139 podają tolerancję
+    Licznik „bez tolerancji" mówi o dwudziestu siedmiu asercjach, a dokładnych porównań na
+    liczbie zmiennoprzecinkowej jest znacznie więcej — bo 141 podaje tolerancję
     zapisaną jako `0.0`. Test liczy jedno i drugie, żeby ta różnica stała w kodzie,
     a nie tylko w raporcie.
     """
@@ -570,7 +572,7 @@ def test_dokladnych_porownan_zmiennoprzecinkowych_jest_166_a_nie_27():
     # nietknięty hamulec i nieruszony kilometraż przy otwierających się drzwiach.
     # 137 -> 138 (23.09.2026, 6.M1): jedno porównanie z tolerancją 0.0 w
     # `LineReplayTests.cs` — skład ma STAĆ przed otwarciem drzwi, ani jednego bitu ruchu.
-    assert zero == 139, ("tolerancji zapisanych jako 0.0: %d, pomiar mówił 139" % zero)
+    assert zero == 141, ("tolerancji zapisanych jako 0.0: %d, pomiar mówił 141" % zero)
     assert bez + zero == DOKLADNE_ZMIENNOPRZECINKOWE, (
         "porównań dokładnych jest %d, a stała mówi %d" % (bez + zero,
                                                           DOKLADNE_ZMIENNOPRZECINKOWE))
