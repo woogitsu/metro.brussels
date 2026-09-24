@@ -87,9 +87,9 @@ dotnet test tests/Sim.Tests          # rdzeń symulacji, bez Godota
   nie wjeżdża w blok zajęty przez inny. Scena pokazuje **jeden**: `FirstRun` ma jeden
   węzeł `TrainView`. To jest ograniczenie WIDOKU, nie rdzenia — T-320 ma etap 2
   zrobiony, a otwarty zostaje takt i obiegi z T-113;
-- **wnętrza kabiny w scenie.** Geometria kabiny jest od 6.D119 —
-  `tools/blender/m7_cab.py` buduje ją ze skryptu — ale **24** jej wymiary to
-  `design_assumption` i ani jeden nie pochodzi ze STIB, a scena nie ma węzła wnętrza;
+- **wiernego wnętrza kabiny.** Scena ma kanoniczny model z podłogą, tylną grodzią
+  i fotelem, obecnie bez pulpitu. `tools/blender/m7_cab.py` buduje go ze skryptu;
+  **19** wymiarów ma status `design_assumption` i żaden nie pochodzi ze STIB;
 - **ciągłego kilometrażu linii.** `data/track/` pokrywa pakiety, nie linie; między
   pakietami zostaje 4034 m bez geometrii — ta druga liczba jest z kształtów GTFS,
   których w repozytorium nie ma, więc **żadna bramka jej nie sprawdza** (6.D104 §5).

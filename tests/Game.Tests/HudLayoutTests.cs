@@ -65,7 +65,7 @@ public sealed class HudLayoutTests
         var block = next < 0 ? scene[start..] : scene[start..next];
 
         var found = new Dictionary<string, double>(StringComparer.Ordinal);
-        foreach (Match m in Regex.Matches(block, @"(?m)^([a-z_]+) = (-?[0-9.]+)$"))
+        foreach (Match m in Regex.Matches(block, @"(?m)^([a-z_]+) = (-?[0-9.]+)\r?$"))
         {
             found[m.Groups[1].Value] = double.Parse(m.Groups[2].Value, CultureInfo.InvariantCulture);
         }
@@ -74,7 +74,8 @@ public sealed class HudLayoutTests
     }
 
     private static string Scene() =>
-        File.ReadAllText(Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "src", "Game", "Scenes", "FirstRun.tscn"));
+        File.ReadAllText(Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "src", "Game", "Scenes", "FirstRun.tscn"))
+            .Replace("\r\n", "\n", StringComparison.Ordinal);
 
     [TestMethod]
     public void Panel_miesci_sie_w_widoku_dla_kazdej_z_trzech_rozdzielczosci()
@@ -131,7 +132,7 @@ public sealed class HudLayoutTests
         var next = scene.IndexOf("\n[node ", start + 1, StringComparison.Ordinal);
         var block = next < 0 ? scene[start..] : scene[start..next];
 
-        var tryb = Regex.Match(block, @"(?m)^autowrap_mode = ([0-9]+)$");
+        var tryb = Regex.Match(block, @"(?m)^autowrap_mode = ([0-9]+)\r?$");
         Assert.IsTrue(tryb.Success,
             "wiersz pozycji nie ma `autowrap_mode` — długa nazwa stacji zostanie UCIĘTA, "
             + "a nie zawinięta");
@@ -141,6 +142,22 @@ public sealed class HudLayoutTests
             $"`autowrap_mode = {wartosc}`: nazwa dwujęzyczna `Comte de Flandre|Graaf van "
             + "Vlaanderen` nie ma spacji przy pionowej kresce, więc potrzebne jest "
             + "zawijanie po słowach (2) albo mądre (3)");
+    }
+
+    [TestMethod]
+    public void Sygnalizacja_zawija_zamiast_rozszerzac_panel_recznego_postoju()
+    {
+        Assert.IsTrue(Regex.IsMatch(Scene(),
+                @"\[node name=""Signalling"" type=""Label"" parent=""Hud/Panel/Rows""\]\r?\nautowrap_mode = 3\r?\n"),
+            "długi autorytet jazdy rozszerza panel i ucina początek wskazówki drzwi przy 800x600");
+    }
+
+    [TestMethod]
+    public void Niedostepny_widok_chase_zawija_zamiast_wypychac_HUD_poza_800x600()
+    {
+        Assert.IsTrue(Regex.IsMatch(Scene(),
+                @"\[node name=""View"" type=""Label"" parent=""Hud/Panel/Rows""\]\r?\nautowrap_mode = 3\r?\n"),
+            "długi opis niedostępnego widoku chase rozszerza panel i ucina lewy margines przy 800x600");
     }
 
     [TestMethod]

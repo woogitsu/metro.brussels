@@ -46,6 +46,7 @@ public sealed class LineSession
     private readonly FixedStep _step;
     private readonly Dictionary<string, DriverCommand> _commands = new(StringComparer.Ordinal);
     private int _observed;
+    private string? _notchTrainId;
 
     /// <summary>Sesja na gotowej linii z dodanymi składami.</summary>
     /// <param name="core">Linia; składy dodaje wołający, przed pierwszym krokiem.</param>
@@ -98,12 +99,28 @@ public sealed class LineSession
         {
             case LineEventKind.Observe:
                 _observed = IndexOf(lineEvent.TrainId);
+                if (Observed.Owner == ControlOwner.Driver &&
+                    _notchTrainId is not null && _notchTrainId != Observed.Id &&
+                    Observed.DriverCommand is { } held)
+                {
+                    _notch.Set(held);
+                    _notchTrainId = Observed.Id;
+                }
+                Command = _commands.TryGetValue(Observed.Id, out var observedCommand)
+                    ? observedCommand : DriverCommand.Coast;
+                AccelerationMps2 = 0.0;
                 return null;
             case LineEventKind.Take:
                 var candidate = _core.Trains[IndexOf(lineEvent.TrainId)];
                 if (candidate.Owner == ControlOwner.Autopilot && candidate.OnLine)
                 {
                     _core.TakeControl(candidate.Id);
+                    if (candidate == Observed && _notchTrainId is not null &&
+                        _notchTrainId != candidate.Id && candidate.DriverCommand is { } captured)
+                    {
+                        _notch.Set(captured);
+                        _notchTrainId = candidate.Id;
+                    }
                 }
 
                 return null;
@@ -147,6 +164,7 @@ public sealed class LineSession
         if (observed.Owner == ControlOwner.Driver)
         {
             _core.Drive(observed.Id, _notch.Advance(keys, _step));
+            _notchTrainId = observed.Id;
         }
 
         _core.Step((id, point) => _commands[id] = point.Command);

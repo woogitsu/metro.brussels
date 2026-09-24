@@ -103,6 +103,7 @@ public sealed partial class FirstRun : Node3D
     /// ktoś akurat trzyma klawisz przy oglądaniu.
     /// </summary>
     private DriverKeys _activeKeys = DriverKeys.None;
+    private readonly BrakingCueMemory _brakingCueMemory = new();
 
     private FixedStep _step;
 
@@ -178,6 +179,9 @@ public sealed partial class FirstRun : Node3D
     private ChunkManifest? _manifest;
     private string _assetDirectory = string.Empty;
     private StandardMaterial3D? _tunnelMaterial;
+    private bool _hasTrackDetail;
+    private readonly List<OmniLight3D> _trackLights = new();
+    private int _lightAnchor = int.MinValue;
     private TrainView _train = null!;
 
     /// <summary>
@@ -449,6 +453,7 @@ public sealed partial class FirstRun : Node3D
     /// więc zapis wejść opisywałby przejazd, którego nie da się odtworzyć.</para>
     /// </summary>
     private bool _resetPending;
+    private bool _lineCompletionReported;
 
     private bool _done;
 
@@ -1183,9 +1188,11 @@ public sealed partial class FirstRun : Node3D
             return;
         }
 
-        var assets = Argument("assets") ?? AssetsRoot();
+        var assetsOverride = Argument("assets");
+        var assets = assetsOverride ?? AssetsRoot();
         var manifestPath = Argument("manifest") ?? Path.Combine(assets, "chunks", "L1_A-chunks.json");
-        var shellPath = Argument("shell") ?? Path.Combine(assets, "M7_shell.glb");
+        var shellOverride = Argument("shell");
+        var shellPath = shellOverride ?? Path.Combine(assets, "M7_shell.glb");
         var platformsPath = Argument("platforms") ?? Path.Combine(assets, "L1_A-platforms.glb");
         var cabPath = Argument("cab") ?? Path.Combine(assets, "M7_cab.glb");
 
@@ -1220,8 +1227,9 @@ public sealed partial class FirstRun : Node3D
         }
 
         _manifest = manifest;
-        var tunnelMaterial = GlbLoader.NeutralMaterial(new Color(0.52f, 0.52f, 0.53f), 0.95f);
+        var tunnelMaterial = GlbLoader.TunnelConcreteMaterial();
         var trainMaterial = GlbLoader.NeutralMaterial(new Color(0.80f, 0.81f, 0.83f), 0.45f);
+        var cabMaterial = GlbLoader.NeutralMaterial(new Color(0.13f, 0.17f, 0.20f), 0.80f);
 
         // Peron dostaje WŁASNY, ciemniejszy odcień szarości i to nie jest wybór
         // estetyczny, tylko warunek widzialności: płyta stoi 1,4 m od ściany komory
@@ -1234,6 +1242,8 @@ public sealed partial class FirstRun : Node3D
         // Katalog i materiał zapamiętane, bo streamowanie dokłada chunki w KAŻDEJ
         // klatce, a nie raz przy starcie.
         _assetDirectory = Path.GetDirectoryName(manifestPath) ?? assets;
+        _hasTrackDetail = manifest.Chunks.Count > 0 && FileAccess.FileExists(
+            Path.Combine(_assetDirectory, manifest.Chunks[0].Id + "_detail.glb"));
         _tunnelMaterial = tunnelMaterial;
         _tunnel.Stream(manifest, _assetDirectory, tunnelMaterial, _scenario.StartChainageM);
 
@@ -1243,7 +1253,10 @@ public sealed partial class FirstRun : Node3D
         // zielony. Zmierzone audytem mutacyjnym (Issue #107): mutacja `TrainView.cs:38`
         // przechodziła bramki, tą samą drogą przeżyły `TrackOffsetM 2.10→0.0`
         // i `CabEyeHeightM 2.20→0.0`.
-        var bodies = _train.Load(shellPath, trainMaterial);
+        // Materiały proceduralnego M7 wolno zachować tylko przy domyślnych zasobach.
+        // --shell/--assets mogą wskazywać dowolny GLB i nadal dostają neutralny materiał.
+        var preserveGeneratedShellMaterials = shellOverride is null && assetsOverride is null;
+        var bodies = _train.Load(shellPath, trainMaterial, preserveGeneratedShellMaterials);
         if (bodies <= 0)
         {
             Abort(ExitTrainMissing,
@@ -1259,7 +1272,8 @@ public sealed partial class FirstRun : Node3D
         {
             var widok = new TrainView { Name = $"Train{i + 1}" };
             AddChild(widok);
-            var wspolne = widok.LoadSharedFrom(_train, trainMaterial);
+            var wspolne = widok.LoadSharedFrom(_train, trainMaterial,
+                preserveGeneratedShellMaterials);
             if (wspolne <= 0)
             {
                 // Ta sama odmowa co przy składzie zerowym i z tego samego powodu:
@@ -1285,13 +1299,20 @@ public sealed partial class FirstRun : Node3D
                 + "--component platform --component edge) albo uruchom z --no-geometry.");
             return;
         }
+        var namePlatePath = Path.Combine(assets, "L1_A-station-board.glb");
+        var nameMarkers = _platforms.AddNameMarkers(_sceneAxis, namePlatePath);
+        if (nameMarkers != _sceneAxis.Axis.Stations.Count)
+        {
+            Abort(5, $"[STACJA] {namePlatePath} nie dał tablic nazw wszystkich stacji.");
+            return;
+        }
 
         // KABINA WCHODZI TĄ SAMĄ DROGĄ CO SKORUPA I PERONY, łącznie z odmową przy zerze
         // brył (MB-05). Odrzucenie wyniku `Load` jest tu tą samą usterką co przy składzie
         // z Issue #107: scena szłaby dalej bez wnętrza, a że kamera kabinowa i tak stoi
         // w środku skorupy, kadr wyglądałby jak przed tą pozycją — czyli bramka
         // `godot-first-run.yml` zostawałaby zielona na scenie, która kabiny nie ma.
-        var cabBodies = _cabView.Load(cabPath, trainMaterial);
+        var cabBodies = _cabView.Load(cabPath, cabMaterial);
         if (cabBodies <= 0)
         {
             Abort(ExitCabMissing,
@@ -1395,6 +1416,17 @@ public sealed partial class FirstRun : Node3D
             HandleViewKeys();
         }
 
+        // R w trybie linii odtwarza całą scenę: nową nastawnię, składy, licznik
+        // postojów i pamięć wskazówki. Ręczny RunReset dotyczy innego sterownika.
+        if (_lineMode && _readsKeyboard && _resetPending && _replay is null)
+        {
+            _resetPending = false;
+            var error = GetTree().ReloadCurrentScene();
+            if (error != Error.Ok)
+                GD.PushError($"[LINIA] nie udało się rozpocząć przejazdu od nowa: {error}");
+            return;
+        }
+
         // SESJA SKOŃCZONA: KLATKI IDĄ DALEJ, TICKI NIE — i nie ma tu `_done`.
         // To jest cała różnica między „koniec sesji" a „koniec procesu": `_done`
         // powoduje `return` przed odczytem klawiatury, więc gracz nie mógłby ani
@@ -1450,7 +1482,10 @@ public sealed partial class FirstRun : Node3D
         // zapis puścić przy różnym podziale kroków na klatki.
         var synthetic = _scriptedMode || _replayMode || _fromTelemetryMode
             || (_lineMode && _callsPath is not null);
-        AdvanceBy(synthetic ? SyntheticFrameSeconds() : delta);
+        // Po ostatnim postoju interaktywna linia czeka na N, C albo R. Nie dopisuj
+        // fikcyjnych kroków do akumulatora w klatkach tego ekranu.
+        if (!_lineCompletionReported)
+            AdvanceBy(synthetic ? SyntheticFrameSeconds() : delta);
         PlaceEverything();
         UpdateHud();
 
@@ -1458,7 +1493,8 @@ public sealed partial class FirstRun : Node3D
         {
             FinishScriptedRun();
         }
-        else if (_lineMode && (_lineCore?.Finished ?? _line?.Finished ?? false))
+        else if (_lineMode && !_lineCompletionReported
+            && (_lineCore?.Finished ?? _line?.Finished ?? false))
         {
             FinishLineRun();
         }
@@ -1966,14 +2002,14 @@ public sealed partial class FirstRun : Node3D
         // widok liczył się z liczby, której w kadrze nie ma.
         var availability = ChaseCameraAim.Availability(
             chainage, trainLength, DesignAssumptions.ChaseRevealFromM);
-        _viewLine = _view == ViewKind.Chase ? availability.Reason : string.Empty;
+        _viewLine = _view == ViewKind.Chase ? availability.HudHint : string.Empty;
         if (availability.Available != _chaseAvailable)
         {
             _chaseAvailable = availability.Available;
             ApplyView();
         }
 
-        var (eye, forward) = _sceneAxis.CabPoint(
+        var (eye, forward) = _sceneAxis.SmoothCabPoint(
             chainage,
             DesignAssumptions.CabEyeSetbackM,
             DesignAssumptions.CabEyeHeightM,
@@ -2041,6 +2077,63 @@ public sealed partial class FirstRun : Node3D
                 ChaseCameraAim.LookTarget(position, middle, forwardAtCamera, Vector3.Up),
                 Vector3.Up);
         }
+
+        UpdateTrackLights(streamChainage);
+    }
+
+    private void UpdateTrackLights(double chainageM)
+    {
+        if (!_hasTrackDetail)
+        {
+            return;
+        }
+
+        // The Blender fixtures repeat every 16 m. Reposition a small pool only
+        // when the camera crosses a fixture interval, so a full route never owns
+        // hundreds of live lights. Inspection view uses its own subject chainage.
+        const int spacingM = 16;
+        const int intervals = 10;
+        var anchor = (int)Math.Floor(chainageM / spacingM);
+        if (anchor == _lightAnchor)
+        {
+            return;
+        }
+
+        _lightAnchor = anchor;
+        while (_trackLights.Count < intervals * 2)
+        {
+            var light = new OmniLight3D
+            {
+                LightColor = new Color(1.0f, 0.86f, 0.68f),
+                LightEnergy = 1.3f,
+                OmniRange = 15.0f,
+                ShadowEnabled = false,
+            };
+            AddChild(light);
+            _trackLights.Add(light);
+        }
+
+        for (var slot = 0; slot < intervals; slot++)
+        {
+            var at = (anchor + slot - 2) * spacingM;
+            var visible = at >= 0 && at <= _axis.LengthM;
+            for (var side = 0; side < 2; side++)
+            {
+                var light = _trackLights[slot * 2 + side];
+                light.Visible = visible;
+                if (!visible)
+                {
+                    continue;
+                }
+
+                var from = Math.Max(0.0, at - 0.5);
+                var to = Math.Min(_axis.LengthM, at + 0.5);
+                var frame = _sceneAxis.Chord(from, to);
+                var lateral = side == 0 ? -4.48f : 4.48f;
+                light.Position = _sceneAxis.CentreLinePoint(at)
+                    + frame.Right * lateral + frame.Up * 3.35f;
+            }
+        }
     }
 
     private void HandleViewKeys()
@@ -2096,6 +2189,13 @@ public sealed partial class FirstRun : Node3D
         if (lineEvent.Kind == LineEventKind.Observe)
         {
             _observed = _lineSession.ObservedIndex;
+            // Zmiana obserwacji może przypaść na klatkę bez kroku 120 Hz.
+            // HUD i kamera muszą w tej klatce czytać już wybrany skład.
+            _line = _lineCore!.Trains[_observed].Drive;
+            _state = _line?.State ?? DriveState.AtRest;
+            _command = _lineSession.Command;
+            _acceleration = _lineSession.AccelerationMps2;
+            _activeKeys = _keys;
 
             // Odmowa dotyczyła składu, którego gracz już nie ogląda — MB-08.
             _doorRefusal = null;
@@ -2223,6 +2323,7 @@ public sealed partial class FirstRun : Node3D
         _state = start.Drive;
         _keys = start.Keys;
         _activeKeys = start.ActiveKeys;
+        _brakingCueMemory.Reset();
         _command = start.Command;
         _effectiveCommand = start.EffectiveCommand;
         _acceleration = start.AccelerationMps2;
@@ -2283,7 +2384,8 @@ public sealed partial class FirstRun : Node3D
             chainage, _axis.LengthM,
             name, distance, _command.Throttle, _command.Brake, _mode,
             StationLine(), SignallingLine(), _viewLine,
-            EmergencyBrake.Notice(_activeKeys, _command),
+            EmergencyBrake.Notice(_activeKeys, _command,
+                !_lineMode || ObservedOwner() == ControlOwner.Driver),
             HelpLine(),
             SummaryLine(),
             TractionLine());
@@ -2382,6 +2484,11 @@ public sealed partial class FirstRun : Node3D
             return DriverInput.Help;
         }
 
+        if (_lineCore is null)
+        {
+            return DriverActions.HelpWhenLegacyLineRuns;
+        }
+
         return ObservedOwner() == ControlOwner.Driver
             ? DriverActions.HelpWhenTheDriverHasTaken
             : DriverActions.HelpWhenTheCoreDrives;
@@ -2452,7 +2559,7 @@ public sealed partial class FirstRun : Node3D
         var train = _lineCore.Trains[Math.Clamp(_observed, 0, _lineCore.Trains.Count - 1)];
         if (train.Drive is null || train.Authority is not MovementAuthority authority)
         {
-            return SignallingHud.NotOnPlanYet;
+            return SignallingHud.WithoutAuthority(train);
         }
 
         if (train.Protection is not ProtectionDecision decision)
@@ -2521,12 +2628,30 @@ public sealed partial class FirstRun : Node3D
                 return UiText.Format("hud.station.run-over", zaLinie);
             }
 
+            var odleglosc = nastepnaNaLinii.Value.ChainageM - ChainageM;
+            // Automatyczny --line korzysta z LineDrive bez LineCore. Podpowiedź
+            // hamowania jest tylko dla przejętego składu, więc nie odczytuj tu
+            // identyfikatora pociągu, gdy rdzeń sesji nie istnieje.
+            var fazaHamowaniaNaLinii = _lineCore is { Trains.Count: > 0 }
+                && ObservedOwner() == ControlOwner.Driver
+                ? _brakingCueMemory.Update(
+                    _lineCore.Trains[Math.Clamp(_observed, 0, _lineCore.Trains.Count - 1)].Id,
+                    nastepnaNaLinii.Value.ChainageM, true,
+                    _activeKeys, _command, odleglosc, _state.SpeedMps,
+                    DesignAssumptions.ControlNotchRatePerSecond,
+                    _controller.ServiceBrakeMps2, BrakingPointSolver.M7)
+                : BrakingCueStage.None;
+            var hamowanieNaLinii = fazaHamowaniaNaLinii == BrakingCueStage.Now
+                ? UiText.Get("hud.station.brake-now")
+                : fazaHamowaniaNaLinii == BrakingCueStage.Prepare
+                    ? UiText.Get("hud.station.brake-prepare")
+                    : string.Empty;
             return UiText.Format(
                 "hud.station.next",
                 nastepnaNaLinii.Value.Name,
                 (nastepnaNaLinii.Value.ChainageM - ChainageM).ToString(
                     "F0", CultureInfo.InvariantCulture),
-                zaLinie);
+                zaLinie) + hamowanieNaLinii;
         }
 
         if (_stations is null)
@@ -2564,12 +2689,22 @@ public sealed partial class FirstRun : Node3D
 
         var approach = _stations.Approach(ChainageM);
         var okno = approach.WithinWindow ? UiText.Get("hud.station.in-window") : string.Empty;
+        var fazaHamowania = _brakingCueMemory.Update(
+            SignalledTrainId, approach.ChainageM, !approach.WithinWindow,
+            _activeKeys, _command, approach.DistanceM, _state.SpeedMps,
+            DesignAssumptions.ControlNotchRatePerSecond, _controller.ServiceBrakeMps2,
+            BrakingPointSolver.M7);
+        var hamowanie = fazaHamowania == BrakingCueStage.Now
+            ? UiText.Get("hud.station.brake-now")
+            : fazaHamowania == BrakingCueStage.Prepare
+                ? UiText.Get("hud.station.brake-prepare")
+                : string.Empty;
         return UiText.Format(
             "hud.station.approach",
             approach.DisplayName,
             approach.DistanceM.ToString("F0", CultureInfo.InvariantCulture),
             _stations.WindowM.ToString("F1", CultureInfo.InvariantCulture),
-            okno,
+            okno + hamowanie,
             licznik);
     }
 
@@ -2771,12 +2906,14 @@ public sealed partial class FirstRun : Node3D
 
     private void FinishLineRun()
     {
-        if (_done)
+        if (_lineCompletionReported)
         {
             return;
         }
 
-        _done = true;
+        _lineCompletionReported = true;
+        var interactive = _readsKeyboard && _callsPath is null && _replay is null;
+        _done = !interactive;
 
         // Linia skończyła się PRZED końcem zapisu albo przejazdu z klawiatury — 6.M1.
         // Oba pliki mają wtedy powstać tak samo, jak przy końcu odtworzenia.
@@ -2819,7 +2956,8 @@ public sealed partial class FirstRun : Node3D
         }
 
         WriteCalls(result);
-        GetTree().Quit();
+        if (!interactive)
+            GetTree().Quit();
     }
 
     /// <summary>

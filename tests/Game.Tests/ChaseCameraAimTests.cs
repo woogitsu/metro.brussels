@@ -303,6 +303,23 @@ public sealed class ChaseCameraAimTests
     }
 
     [TestMethod]
+    public void HudHintIsShortAndKeepsTheExclusiveBoundary()
+    {
+        Assert.AreEqual("Widok zewnętrzny za 90.0 m",
+            ChaseCameraAim.Availability(20.0, TrainM, RevealM).HudHint,
+            "HUD pokazuje rzeczywisty dystans do progu");
+        Assert.AreEqual("Widok zewnętrzny za 10.0 m",
+            ChaseCameraAim.Availability(100.0, TrainM, RevealM).HudHint,
+            "druga część pasma ma ten sam próg");
+        Assert.AreEqual("Widok zewnętrzny po minięciu 110.0 m",
+            ChaseCameraAim.Availability(RevealM, TrainM, RevealM).HudHint,
+            "sama granica nadal jest zamknięta");
+        Assert.AreEqual(string.Empty,
+            ChaseCameraAim.Availability(RevealM + 0.001, TrainM, RevealM).HudHint,
+            "za granicą wskazówka znika");
+    }
+
+    [TestMethod]
     public void TheReasonNamesTheRightCauseInEachHalfOfTheBand()
     {
         // 6.B43: pasmo ukrycia ma od tej pozycji DWA powody, więc jedno zdanie dla obu

@@ -134,4 +134,60 @@ public sealed class SceneAxis
         var position = frame.Origin + (frame.Up * (float)heightM) + (frame.Right * (float)lateralM);
         return (position, frame.Forward);
     }
+
+    /// <summary>
+    /// Wygładzona pozycja oka dla animowanego widoku kabiny. Oś i ustawienie pudeł
+    /// pozostają bez zmian; filtr rozkłada załamania kierunku z 5-metrowych odcinków
+    /// osi na kilka klatek jazdy. Próbki są symetryczne, więc nie dodają opóźnienia.
+    /// </summary>
+    public (Vector3 Position, Vector3 Forward) SmoothCabPoint(
+        double chainageM, double setbackM, double heightM, double lateralM)
+    {
+        var at = Math.Clamp(chainageM - setbackM, 0.0, _axis.LengthM);
+        if (at == 0.0 || at == _axis.LengthM)
+        {
+            // CabPoint stawia oko w środku metrowej cięciwy. Na końcu osi
+            // przełączenie z wygładzonej osi cofałoby je więc o pół metra.
+            // Zachowaj dokładny kierunek z CabPoint, ale pozycję zakotwicz
+            // w punkcie końcowym osi.
+            var frame = at == 0.0
+                ? Chord(0.0, Math.Min(_axis.LengthM, 1.0))
+                : Chord(Math.Max(0.0, _axis.LengthM - 1.0), _axis.LengthM);
+            var endPosition = CentreLinePoint(at)
+                + frame.Right * (float)(_trackOffsetM + lateralM)
+                + frame.Up * (float)heightM;
+            return (endPosition, frame.Forward);
+        }
+
+        var centre = SmoothCentreLinePoint(at);
+        var before = SmoothCentreLinePoint(Math.Max(0.0, at - 1.5));
+        var after = SmoothCentreLinePoint(Math.Min(_axis.LengthM, at + 1.5));
+        var forward = (after - before).Normalized();
+        var right = forward.Cross(Vector3.Up).Normalized();
+        var up = right.Cross(forward).Normalized();
+        var position = centre + right * (float)(_trackOffsetM + lateralM) + up * (float)heightM;
+        return (position, forward);
+    }
+
+    private Vector3 SmoothCentreLinePoint(double at)
+    {
+        // Dwumianowy filtr [1, 6, 15, 20, 15, 6, 1] / 64.
+        // Promień 9 m obejmuje kilka pierścieni tunelu, ale na łukach linii A
+        // odchyla oko od osi tylko nieznacznie.
+        ReadOnlySpan<int> weights = [1, 6, 15, 20, 15, 6, 1];
+        var sum = Vector3.Zero;
+        for (var i = 0; i < weights.Length; i++)
+        {
+            sum += CentreLinePoint(Math.Clamp(at + (i - 3) * 3.0, 0.0, _axis.LengthM)) * weights[i];
+        }
+
+        var smoothed = sum / 64.0f;
+        // Przy końcach próbki po jednej stronie są przycięte do tego samego punktu.
+        // Średnia przesuwałaby oko o 1,4 m w głąb trasy. Wygaszamy filtr płynnie
+        // przez jego 9-metrowy promień, zachowując dokładne końce osi.
+        var distanceFromEnd = Math.Min(at, _axis.LengthM - at);
+        var blend = (float)Math.Clamp(distanceFromEnd / 9.0, 0.0, 1.0);
+        blend = blend * blend * (3.0f - 2.0f * blend);
+        return CentreLinePoint(at).Lerp(smoothed, blend);
+    }
 }

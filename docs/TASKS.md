@@ -405,6 +405,12 @@ których agent nie ruszy bez decyzji właściciela.
   (`docs/21-measured-vs-assumed.md` §4f). Zostaje samo domknięcie taktu i obiegów
 - **Wejście z T-113:** takt 5:10 (L1/L5) i 5:40 (L2/L6), 48 kursów naraz w ruchu,
   71 obiegów pojazdów, rozkładowe czasy jazdy i postoju per odcinek (`build/timetable.json`)
+- **Pomiar granicy pakietu A (24.09.2026):** `reports/t320-package-a-capacity.md` —
+  syntetyczny takt 5:10 na jednej osi, osobno liczba zgłoszonych i jadących składów;
+  sieciowe 48 kursów/71 obiegów nie jest miarą obsady tego pakietu.
+- **Audyt wejścia offline (24.09.2026):** `reports/t113-trip-input-gap.md` — wersjonowane
+  agregaty T-113 nie zachowują trasy ani godzin stacji pojedynczego kursu; adapter
+  jednej osi wymaga źródłowego GTFS o SHA-256 z manifestu albo jego wiernej projekcji.
 - **Wejście z T-313:** plan bloków pakietu A, zajętość, movement authority i ATP
 - **Wejście z T-314:** tryb scenariusza; dla 31.08.2026 zawsze `classic_2026`
 - **Wyjście:** `src/Sim/Line/` — LineCore z wieloma składami; testy w `tests/Sim.Tests`
@@ -430,6 +436,9 @@ których agent nie ruszy bez decyzji właściciela.
 ## Silnik
 
 ### [~] T-400 · Scena Godota i pierwszy przejazd
+- **HUD sygnalizacji po końcu linii (24.09.2026):** w `--line` skład, który zjechał
+  z planu po Merode, ma pusty autorytet. Wiersz rozróżnia teraz ten stan od składu,
+  który jeszcze czeka na pierwszy wjazd; test prowadzi rzeczywisty `LineCore` do końca.
 - **Zrobione (etap 1):** `src/Game/` — Godot 4.7.2 mono, jeden skład M7 jedzie 6,56 km po
   pakiecie A, napędzany rdzeniem. Rozjazd Godot ↔ rdzeń **0,000 m** przy progu 0, ten sam
   odcisk telemetrii przy nierównym podziale kroków. `reports/T-400-first-run.md`

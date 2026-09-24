@@ -26,6 +26,7 @@ rozjazd jest KŁAMSTWEM wobec gracza:
    klawiszy do katalogu użytkownika", podczas gdy `_recorder` powstawał WYŁĄCZNIE przy
    jawnym `--input-log` — czyli paczka obiecywała rzecz, której nie robiła.
 """
+import json
 import os
 import re
 import shutil
@@ -214,10 +215,14 @@ def test_paczka_windows_ma_osobny_preset_i_instrukcje_startu():
     with tempfile.TemporaryDirectory() as temp:
         src = os.path.join(temp, "zasoby")
         os.makedirs(os.path.join(src, "chunks"))
-        for nazwa in ("M7_shell.glb", "M7_cab.glb", "L1_A-platforms.glb"):
+        for nazwa in ("M7_shell.glb", "M7_cab.glb", "L1_A-platforms.glb",
+                      "L1_A-station-board.glb"):
             open(os.path.join(src, nazwa), "wb").close()
-        for nazwa in ("L1_A-chunks.json", "L1_A_000.glb"):
+        for nazwa in ("L1_A_000.glb", "L1_A_000_detail.glb"):
             open(os.path.join(src, "chunks", nazwa), "wb").close()
+        with open(os.path.join(src, "chunks", "L1_A-chunks.json"), "w",
+                  encoding="utf-8") as uchwyt:
+            json.dump({"chunks": [{"id": "L1_A_000"}]}, uchwyt)
 
         bin_dir = os.path.join(temp, "bin")
         os.makedirs(bin_dir)
@@ -247,6 +252,9 @@ def test_paczka_windows_ma_osobny_preset_i_instrukcje_startu():
                 paczka = os.path.join(ROOT, out, "MetroBXL")
                 assert os.path.isfile(os.path.join(paczka, plik)), (
                     f"paczka {system or 'linux'} nie zawiera pliku {plik}")
+                assert os.path.isfile(os.path.join(paczka, "zasoby",
+                                                   "L1_A-station-board.glb")), (
+                    f"paczka {system or 'linux'} nie zawiera tablicy stacji")
                 assert plik in _czytaj(os.path.join(paczka, "CZYTAJ-TO-NAJPIERW.txt")), (
                     f"README paczki {system or 'linux'} nie wskazuje pliku {plik}")
                 assert preset in _czytaj(args), (

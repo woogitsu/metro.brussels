@@ -316,7 +316,7 @@ BEZ_KOMUNIKATU = {
     "ScenarioDriveTests.cs": 35,
     "SceneAxisTests.cs": 10,
     "ServiceDayTests.cs": 31,
-    "SignallingHudTests.cs": 15,
+    "SignallingHudTests.cs": 21,
     "SignallingPlanTests.cs": 23,
     "SpeedProfileTests.cs": 29,
     "StationServiceTests.cs": 53,
@@ -449,7 +449,30 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 # wszystkie z komunikatem — obie zapadki rosna o tyle samo; ZMIERZONE.
 # 1850 -> 1865 (23.09.2026, 6.D356): PIETNASCIE asercji `BrokenJsonRefusalTests.cs`,
 # wszystkie z komunikatem — obie zapadki rosna o tyle samo; ZMIERZONE.
-Z_KOMUNIKATEM_RAZEM = 1865
+# 1865 -> 1874 (23.09.2026, tunel): dziewiec nowych asercji z komunikatem.
+# 1874 -> 1886 (24.09.2026, door-prompt-service): dwanascie asercji w
+# `DoorPromptTests.cs` i `HudLayoutTests.cs`, kazda z komunikatem; ZMIERZONE.
+# 1886 -> 1896 (24.09.2026, braking cue): dziesiec asercji wskazowki hamowania.
+# 1896 -> 1901 (24.09.2026, PR #771): piec asercji krawedzi peronu z komunikatem.
+# 1901 -> 1903 (24.09.2026, kamera): dwie kontrole koncow osi.
+# 1903 -> 1915 (24.09.2026, dwustopniowe cue): dwanascie asercji z komunikatem.
+# 1915 -> 1920 (24.09.2026, S): piec kontroli natychmiastowego wygaszenia.
+# 1920 -> 1925 (24.09.2026, oznaczenia stacji): piec asercji pelnej nazwy
+# i polozenia znacznikow, wszystkie z komunikatem; zmierzone z drzewa.
+# 1925 -> 1939 (24.09.2026, pamiec cue): czternascie asercji testow fazy.
+# 1939 -> 1947 (24.09.2026, autopilot E): osiem asercji z komunikatem.
+# 1947 -> 1950 (24.09.2026, HUD 800x600): trzy asercje zachowania pozycji.
+# 1950 -> 1966 (24.09.2026, wybór składu i HUD): 17 nowych kontroli N/T,
+# jedna mniej po scaleniu dwóch sprawdzeń pełnego wiersza pozycji.
+# 1966 -> 1973 (24.09.2026, interaktywne R): siedem kontroli zakończenia,
+# wszystkie z komunikatem.
+# 1973 -> 1977 (24.09.2026, automat bez sygnalizacji): cztery asercje
+# strażnika BrakingCue, każda z komunikatem.
+# 1977 -> 1978 (24.09.2026, widok chase 800x600): jedna asercja zawijania View.
+# 1978 -> 1982 (24.09.2026, krótki HUD chase): cztery granice z opisem.
+# 1982 -> 1995 (24.09.2026, tablice na dojeździe i pomoc linii):
+# trzynaście kontroli z komunikatami; trzy nowe komunikaty dopisano przy scaleniu.
+Z_KOMUNIKATEM_RAZEM = 1995
 NIEROZSTRZYGNIETYCH = 68
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
 #: `tests/Sim.Tests/DefaultArmAuditTests.cs` — bramki na ramionach domyślnych
@@ -555,7 +578,27 @@ NIEROZSTRZYGNIETYCH = 68
 # na odmowie CLI przy dokumencie innego KSZTALTU — trzy ksztalty przez
 # `Program.Main`, kontrola w druga strone na wlasnych wyjatkach rdzenia i wiersz
 # wspolnego handlera. Kazda z komunikatem; ZMIERZONE.
-ASERCJI_RAZEM = 3311
+# 3311 -> 3320 (23.09.2026, tunel): dziewiec asercji testow nowej sceny tunelu.
+# 3320 -> 3332 (24.09.2026, door-prompt-service): te same dwanascie asercji
+# nowych testow komunikatu postoju i ukladu HUD; ZMIERZONE.
+# 3332 -> 3342 (24.09.2026, braking cue): dziesiec asercji `BrakingCueTests`.
+# 3342 -> 3347 (24.09.2026, PR #771): piec asercji `StationEdgeVisibilityTests`.
+# 3347 -> 3349 (24.09.2026, kamera): dwie asercje ciaglosci i kierunku.
+# 3349 -> 3361 (24.09.2026, dwustopniowe cue): te same dwanascie asercji.
+# 3361 -> 3366 (24.09.2026, S): piec kontroli natychmiastowego wygaszenia.
+# 3366 -> 3371 (24.09.2026, oznaczenia stacji): piec asercji nowych testow.
+# 3371 -> 3385 (24.09.2026, pamiec cue): te same czternascie asercji.
+# 3385 -> 3393 (24.09.2026, autopilot E): te same osiem asercji.
+# 3393 -> 3396 (24.09.2026, HUD 800x600): te same trzy asercje.
+# 3396 -> 3412 (24.09.2026, wybór składu i HUD): te same 16 netto.
+# 3412 -> 3419 (24.09.2026, interaktywne R): te same siedem kontroli.
+# 3419 -> 3423 (24.09.2026, automat bez sygnalizacji): te same cztery.
+# 3423 -> 3424 (24.09.2026, widok chase 800x600): ta sama asercja.
+# 3424 -> 3428 (24.09.2026, krótki HUD chase): cztery stany granicy.
+# 3428 -> 3441 (24.09.2026, integracja tablic i pomocy linii):
+# te same trzynaście kontroli z komunikatami.
+# 3441 -> 3447 (24.09.2026, stan składu po zjeździe): sześć asercji.
+ASERCJI_RAZEM = 3447
 
 
 def _rozklad():

@@ -275,7 +275,17 @@ MAX_GAME_JUSTIFIED_NEEDLES = 4
 # dałoby się wtedy obniżyć do 47 i byłoby to załatanie objawu: igła nie zaczęła
 # mierzyć drzewa, tylko przestała być syntetyczna. Poprawione po stronie TESTU
 # (`otwarte` -> `rozsunięte`), a nie po stronie tej liczby.
-MAX_GAME_UNMATCHED_NEEDLES = 48
+# 48 -> 50 (24.09.2026, integracja postoju): `błąd zatrzymania +0.03 m`
+# i `obsłużone 1` sa wynikami podstawienia do szablonu `hud.station.doors-manual`,
+# wiec nie wystepuja doslownie w komunikatach src/Game. Obie asercje stoja na
+# wyniku UiText.Format i literowka natychmiast wywraca DoorPromptTests.
+# 50 -> 54 (24.09.2026, interaktywne R): cztery asercje sprawdzaja ksztalt
+# sterowania sceny (guard konca, interaktywnosc, _done i raport raz), a nie
+# dokladny komunikat gracza; pozostaja jawne w zapadce.
+# 54 -> 57 (24.09.2026, automat bez sygnalizacji): trzy igły
+# sprawdzają kształt warunku ochronnego, nie dosłowny komunikat HUD.
+# 57 -> 59 (24.09.2026, pomoc starej linii): dwie igły wyboru gałęzi HUD.
+MAX_GAME_UNMATCHED_NEEDLES = 59
 
 #: Progi KW. Literowka we wzorcu daje zero dopasowan i caly modul zielony; te trzy
 #: liczby sa jedynym powodem, dla ktorego taka literowka jest widoczna. Zmierzone
@@ -319,7 +329,14 @@ MIN_GAME_MESSAGES = 142
 # Zastapily je porownania dokladne calej listy argumentow, ktorych `igly()` nie liczy.
 # Bramka jest przez to mocniejsza, a liczba mniejsza — powod pelny stoi przy
 # `MAX_GAME_UNMATCHED_NEEDLES`.
-MIN_GAME_NEEDLES = 87
+# 87 -> 90 (24.09.2026, integracja postoju): nowe asercje na dzialanie
+# `D: otwórz drzwi` oraz dwa sformatowane wyniki ponizej; ogolne `DRZWI`
+# i `trakcja WOLNA` zastapiono rownoscia calego tekstu, bo trafialy do
+# kilku komunikatow i oslabialy swoistosc testu.
+# 90 -> 94 (24.09.2026, interaktywne R): te same cztery nowe igly.
+# 94 -> 97 (24.09.2026, automat bez sygnalizacji): te same trzy igły.
+# 97 -> 99 (24.09.2026, pomoc starej linii): dwie nowe igły wyboru w HelpLine.
+MIN_GAME_NEEDLES = 99
 MIN_GAME_SOURCES = 18
 
 #: Igla, na ktorej stoja kontrole dodatnia i przyrzadu. Musi byc SWOISTA i musi stac

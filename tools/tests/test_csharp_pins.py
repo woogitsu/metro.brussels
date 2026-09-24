@@ -21,6 +21,7 @@ import csharp_pins as CP  # noqa: E402
 #: Zapadka działa w obie strony, jak przy asercjach bez komunikatu z 6.D127: w górę
 #: mówi „doszedł pin, skategoryzuj go", w dół — „pin zniknął, zdejmij go z tabeli".
 PINY_GRY = {
+    "ChaseCameraAimTests.cs": 3,
     # MB-05: jeden pin w `CabPlacementTests.cs` — brzmienie warunku widocznosci kabiny
     # (`view == ViewKind.Cab`). KATEGORIA C: wartosc liczona w JEDNYM miejscu, czyli
     # w `FirstRun.ApplyView`. Trzy liczby tego pliku nie sa pinami napisowymi i stoja
@@ -40,12 +41,16 @@ PINY_GRY = {
     # MB-08: dwa piny w `DoorPromptTests.cs` — wyjscie awaryjne ramienia
     # domyslnego (`"99"`) i nazwa czlonu `None`, ktory NIE jest odmowa.
     # Oba KATEGORII C: wartosc stoi w JEDNYM miejscu zrodla, w `DoorPrompt.Reason`.
-    "DoorPromptTests.cs": 2,
+    # Trzeci pin sprawdza caly wiersz fazy recznej, zamiast niejednoznacznej igly DRZWI.
+    "DoorPromptTests.cs": 3,
     "HudLayoutTests.cs": 1,
+    # Dwa dokładne warianty pozycji, oba wyniki pojedynczego formatera (C).
+    "HudPositionTests.cs": 2,
     "RunHeaderTests.cs": 1,
     "RunPlanTests.cs": 30,
     "RunResetTests.cs": 2,
-    "SignallingHudTests.cs": 1,
+    "SignallingHudTests.cs": 2,
+    "StationWayfindingTests.cs": 2,
     "TelemetryTrackTests.cs": 1,
     # MB-03: cztery piny w `TractionBlockTests.cs` — trzy brzmienia wiersza blokady
     # i jedno przy dwóch blokadach naraz. Wszystkie cztery to KATEGORIA C: kazdy jest
@@ -151,11 +156,12 @@ KATEGORIE = {
         # i 1372/1373 -> 1373/1374. Powod ten sam — komentarz z powodem przy
         # `LiteralowWZasieguBramki`, tym razem o jeden wiersz. TRESC pinow nie drgnela.
         # Przeliczone roznica plikow (difflib).
-        ("UiTextTests.cs", 1273), ("UiTextTests.cs", 1286), ("UiTextTests.cs", 1304),
-        ("SignallingHudTests.cs", 37),
+        # Dodatkowe ogniwo pomiaru korpusu przesuwa kotwice o kolejny wiersz.
+        ("UiTextTests.cs", 1284), ("UiTextTests.cs", 1297), ("UiTextTests.cs", 1315),
+        ("SignallingHudTests.cs", 39),
     },
     "B": {
-        ("UiTextTests.cs", 1373), ("UiTextTests.cs", 1374),
+        ("UiTextTests.cs", 1384), ("UiTextTests.cs", 1385),
     },
 }
 
@@ -171,7 +177,18 @@ KATEGORIE = {
 # 52 -> 53 (14.09.2026, MB-07): pin wiersza pomocy dla składu przejętego.
 # 53 -> 55 (14.09.2026, MB-08): dwa piny `DoorPromptTests.cs`.
 # 55 -> 58 (15.09.2026, 6.D214): trzy piny `UiTextTests.cs` opisane wyzej.
-LICZBA_C = 58
+# 58 -> 59 (24.09.2026, braking cue): pin w teście wskazówki hamowania.
+# 59 -> 60 (24.09.2026, integracja): dokladny wiersz fazy DoorPromptTests.
+# 60 -> 59 (24.09.2026, cue): dwa syntetyczne piny UiTextTests zajmuja teraz
+# osobne wiersze 1378/1379, wiec oba sa jawnie w kategorii B.
+# 59 -> 61 (24.09.2026, tablice stacji): dwie pelne nazwy w StationWayfindingTests.
+# 61 -> 62 (24.09.2026, HUD 800x600): jednoliniowy kilometraż przy widocznej stacji.
+# 62 -> 63 (24.09.2026, HUD bez wiersza stacji): pełny wiersz pozycji.
+# 63 -> 66 (24.09.2026, krótki HUD chase): trzy dokładne brzmienia
+# wskazówki przy różnych pozycjach względem granicy. Kategoria C,
+# bo tekst powstaje w jednym formatterze ChaseAvailability.HudHint.
+# 66 -> 67 (24.09.2026, test końca planu): wynik `LineCore.Run` jest jednym źródłem.
+LICZBA_C = 67
 
 
 def test_ile_pinow_stoi_w_testach_warstwy_gry():
@@ -185,7 +202,10 @@ def test_ile_pinow_stoi_w_testach_warstwy_gry():
 
     # 61 -> 64 (15.09.2026, 6.D214): trzy piny `UiTextTests.cs` bramki na
     # zgloszeniach URWANYCH.
-    assert sum(zmierzone.values()) == 64, (
+    # 64 -> 65 (24.09.2026, integracja): pin caly wiersz fazy.
+    # 65 -> 67 (24.09.2026, tablice stacji): dwie pelne nazwy.
+    # 67 -> 69 (24.09.2026, HUD 800x600): dwa dokładne warianty pozycji.
+    assert sum(zmierzone.values()) == 73, (
         "pinów warstwy gry jest %d, a pomiar z 14.09.2026 dał 61 "
         "(47 po 6.D155, 45 przed nim; +5 przy MB-03, +1 przy MB-05, "
         "+5 przy audycie bramki MB-05, +2 przy MB-08 — `DoorPromptTests`)"
@@ -217,8 +237,8 @@ def test_kazdy_pin_ma_kategorie_i_suma_sie_zgadza():
     # ktora NIE jest przy okazji: stalo tu „nie sumują się do 47" przy warunku na 52,
     # czyli komunikat bledu podawal liczbe o piec mniejsza od tej, ktorej bramka
     # pilnowala. Kto by na niego trafil, szukalby rozbieznosci, ktorej nie ma.
-    assert len(KATEGORIE["A"]) + len(KATEGORIE["B"]) + LICZBA_C == 64, (
-        "kategorie nie sumują się do 64: A=%d, B=%d, C=%d"
+    assert len(KATEGORIE["A"]) + len(KATEGORIE["B"]) + LICZBA_C == 73, (
+        "kategorie nie sumują się do 73: A=%d, B=%d, C=%d"
         % (len(KATEGORIE["A"]), len(KATEGORIE["B"]), LICZBA_C))
 
 
@@ -239,10 +259,10 @@ def test_regula_po_ksztalcie_literalu_myli_sie_i_dlatego_jej_nie_ma():
                      if not regula.search(tresci[p])]
     zlapane_z_b = [p for p in sorted(KATEGORIE["B"]) if regula.search(tresci[p])]
 
-    assert przepuszczone == [("UiTextTests.cs", 1304)], (
+    assert przepuszczone == [("UiTextTests.cs", 1315)], (
         "reguła po kształcie przestała przepuszczać wiersz o hamulcu awaryjnym — "
         "rozstrzygnięcie 6.D131 wymaga przeliczenia: %s" % przepuszczone)
-    assert zlapane_z_b == [("UiTextTests.cs", 1374)], (
+    assert zlapane_z_b == [("UiTextTests.cs", 1385)], (
         "reguła po kształcie przestała łapić wejście syntetyczne: %s" % zlapane_z_b)
 
 
@@ -256,13 +276,13 @@ def test_czytnik_widzi_pin_takze_wtedy_gdy_literal_jest_sklejony():
     tresci = {(plik, wiersz): tresc
               for plik, wiersz, _r, tresc in CP.piny("tests/Game.Tests")}
 
-    assert len(tresci[("UiTextTests.cs", 1273)]) == 122, (
+    assert len(tresci[("UiTextTests.cs", 1284)]) == 122, (
         "sklejanie literałów przestało działać: %d znaków"
-        % len(tresci[("UiTextTests.cs", 1273)]))
-    assert len(tresci[("UiTextTests.cs", 1304)]) == 98, (
-        len(tresci[("UiTextTests.cs", 1304)]))
-    assert len(tresci[("SignallingHudTests.cs", 37)]) == 84, (
-        len(tresci[("SignallingHudTests.cs", 37)]))
+        % len(tresci[("UiTextTests.cs", 1284)]))
+    assert len(tresci[("UiTextTests.cs", 1315)]) == 98, (
+        len(tresci[("UiTextTests.cs", 1315)]))
+    assert len(tresci[("SignallingHudTests.cs", 39)]) == 84, (
+        len(tresci[("SignallingHudTests.cs", 39)]))
 
     # Kontrola w drugą stronę: krótki pin ma zostać krótki, inaczej sklejanie
     # zjadałoby sąsiednie argumenty.
@@ -375,9 +395,18 @@ ROZKLAD_LICZBOWYCH = {
         # `var` na typ jawny daje 535 przy pinie 536.
         # 240 -> 246 (22.09.2026, 6.D235): SZESC pinow calkowitych bez tolerancji
         # w `FileReadGuardTests.cs` i `BadFileTests.cs`. Przeliczone z drzewa.
-        "razem": 246, "z_tolerancja": 103, "bez_tolerancji": 143,
-        "zmiennoprzecinkowe": 109, "zmiennoprzecinkowe_bez_tolerancji": 6,
-        "calkowite": 137, "calkowite_z_tolerancja": 0, "tolerancja_zero": 18,
+        # 246 -> 249: trzy piny pozycji widoku kabiny, kazdy float z tolerancja.
+        # 249 -> 250 (24.09.2026, door-prompt-service): jeden pin liczby
+        # wierszy komunikatu HUD; calkowity bez tolerancji. ZMIERZONE.
+        # 250 -> 251 (24.09.2026, braking cue): dystans z tolerancja.
+        # 251 -> 252 (24.09.2026, kamera): pin kierunku z tolerancja.
+        # 252 -> 255: trzy pomiary polozenia tablic z tolerancja.
+        # 255 -> 256: krok pojawienia sie PREP w replay, calkowity bez tolerancji.
+        # 256 -> 257: pin pelnego hamulca z tolerancja po przejeciu przez gracza.
+        # 257 -> 260 (24.09.2026, dwie tablice): trzy polozenia z tolerancja.
+        "razem": 260, "z_tolerancja": 115, "bez_tolerancji": 145,
+        "zmiennoprzecinkowe": 121, "zmiennoprzecinkowe_bez_tolerancji": 6,
+        "calkowite": 139, "calkowite_z_tolerancja": 0, "tolerancja_zero": 18,
     },
     "tests/Sim.Tests": {
         # 441 -> 454 (13.09.2026, MB-02): trzynaście pinów liczbowych

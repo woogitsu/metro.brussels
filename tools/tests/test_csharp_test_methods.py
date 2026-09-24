@@ -621,11 +621,37 @@ ROZKLAD_POSTACI = {
         # 4807 -> 4843, 826 -> 836, 98 -> 99 i 7 -> 8 (23.09.2026, 6.D356):
         # `BrokenJsonRefusalTests.cs` — komunikaty asercji, argumenty `line`, wzorzec
         # slowa `@"..."` i dopasowanie slowa zakazanego `$@"..."`. ZMIERZONE.
-        "zwykly": 4843,
-        "interpolowany ($)": 836,
-        "werbatim (@)": 99,
+        # 4843 -> 4851 i 836 -> 837 (23.09.2026): testy nowej sceny i komunikaty.
+        # 4851 -> 4875 i 99 -> 100 (24.09.2026, door-prompt-service):
+        # literały tekstowe i komunikaty asercji nowych testow postoju; ZMIERZONE.
+        # 4875 -> 4886 (24.09.2026, braking cue): testy warunku przejecia i hamulca.
+        # 4886 -> 4892 (24.09.2026, PR #771): nazwy siatek i komunikat asercji.
+        # 4892 -> 4901 i 838 -> 840 (24.09.2026, kamera): testy ciaglosci.
+        # 4901 -> 4904 (24.09.2026, integracja): scisle porownania w DoorPromptTests.
+        # 4904 -> 4915 i 840 -> 842 (24.09.2026, dwustopniowe cue): testy obu faz.
+        # 4915 -> 4920 (24.09.2026, S): cztery literały i komunikat asercji.
+        # 4920 -> 4929 (24.09.2026, oznaczenia stacji): pelna nazwa i
+        # komunikaty pieciu asercji testow znacznikow; zmierzone czytnikiem.
+        # 4929 -> 4957 i 842 -> 843 (24.09.2026, pamiec cue): test przejazdu i zakresu pamieci.
+        # 4957 -> 4970 (24.09.2026, autopilot E): osiem asercji i ich komunikaty.
+        # 4970 -> 4977 (24.09.2026, HUD 800x600): dwa testy pozycji i ich komunikaty.
+        # 4977 -> 5000, 843 -> 844 (24.09.2026, wybór składu i HUD): testy N/T,
+        # komunikaty asercji oraz pełny wiersz pozycji; przeliczone czytnikiem.
+        # 5000 -> 5021 (24.09.2026, interaktywne R): test kolejności guardów
+        # i diagnostyki błędu, przeliczone czytnikiem testów.
+        # 5021 -> 5030 (24.09.2026, automat bez sygnalizacji): trzy igły
+        # strażnika, trzy komunikaty asercji i pozostałe literały testu.
+        # 5030 -> 5031, werbatim 100 -> 101 (24.09.2026, chase 800x600):
+        # komunikat asercji oraz wzorzec węzła View.
+        # 5031 -> 5038 (24.09.2026, krótki HUD chase): teksty i komunikaty testu.
+        # 5054 -> 5064 (24.09.2026, test końca planu): wejścia i komunikaty
+        # rzeczywistego przebiegu LineCore w SignallingHudTests.
+        "zwykly": 5064,
+        "interpolowany ($)": 849,
+        "werbatim (@)": 101,
         "surowy interpolowany ($$\"\"\")": 13,
-        "surowy (\"\"\")": 8,
+        # 8 -> 10 (23.09.2026): dwie probki sceny w testach.
+        "surowy (\"\"\")": 10,
         "werbatim interpolowany ($@)": 8,
     },
     "src": {
@@ -677,7 +703,14 @@ ROZKLAD_POSTACI = {
         # nowa odmowa w `RunPlan`. Przeliczone z drzewa, nie zsumowane.
         # 1450 -> 1452 (23.09.2026, 6.D356): DWA literaly polskiego opisu dokumentu
         # innego ksztaltu, `Program.WrongJsonShapeText` w `Sim.Runner`. ZMIERZONE.
-        "zwykly": 1452,
+        # 1452 -> 1456 (23.09.2026): cztery literaly kodu nowej sceny.
+        # 1456 -> 1460 (24.09.2026, braking cue): wskazowka w obu trybach.
+        # 1460 -> 1464 (24.09.2026, dwustopniowe cue): cztery nowe literały HUD.
+        # 1464 -> 1465 i 514 -> 515 (24.09.2026, oznaczenia stacji):
+        # sciezka GLB i odmowa braku; zmierzone czytnikiem po obu katalogach.
+        # 1465 -> 1468 (24.09.2026, HUD 800x600): klucz i dwa warianty pozycji.
+        # 1470 -> 1471 (24.09.2026, HUD po końcu planu): nowy wiersz stanu.
+        "zwykly": 1471,
         # 489 -> 494 (22.09.2026, 6.D235): piec komunikatow `Abort` dla pliku ZLEGO
         # w `FirstRun.cs`. Przeliczone z drzewa, nie zsumowane.
         # 494 -> 513 (23.09.2026, 6.M1): komunikaty odmow i wiersze zapisu zdarzen
@@ -685,7 +718,9 @@ ROZKLAD_POSTACI = {
         # 513 -> 514 (23.09.2026, 6.D357): wiersz odmowy `JsonText.Parse` przestal
         # doklejac `error.Message` i ma DWIE postacie — z pozycja z liczb parsera
         # i bez niej, gdy parser jej nie podal; jedna byla, sa dwie. ZMIERZONE.
-        "interpolowany ($)": 514,
+        # 515 -> 516 (24.09.2026, interaktywne R): błąd przeładowania sceny.
+        # 516 -> 518 (24.09.2026, krótki HUD chase): dystans i granica.
+        "interpolowany ($)": 519,
         "werbatim (@)": 0,
         "surowy interpolowany ($$\"\"\")": 1,
         "surowy (\"\"\")": 1,

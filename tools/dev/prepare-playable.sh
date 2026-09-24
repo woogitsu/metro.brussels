@@ -62,6 +62,11 @@ echo "[PRZYGOTOWANIE] tunel pakietu A -> $OUT/L1_A.glb"
     --out "$OUT/L1_A.glb" --metrics "$OUT/L1_A-metrics.json" \
     --chunk-dir "$OUT/chunks" --chunk-manifest "$OUT/chunks/L1_A-chunks.json"
 
+echo "[PRZYGOTOWANIE] tory i detale tunelu -> $OUT/chunks"
+"$BLENDER_EXE" --background --python-exit-code 7 --python tools/blender/track_detail.py -- \
+    --centerline data/track/L1_A.json --manifest "$OUT/chunks/L1_A-chunks.json" \
+    --out-dir "$OUT/chunks"
+
 echo "[PRZYGOTOWANIE] skorupa M7 -> $OUT/M7_shell.glb"
 "$BLENDER_EXE" --background --python-exit-code 7 --python tools/blender/m7_shell.py -- \
     --out "$OUT/M7_shell.glb" --envelope-out "$OUT/M7_envelope.glb" \
@@ -105,6 +110,10 @@ echo "[PRZYGOTOWANIE] bryły peronów -> $OUT/L1_A-platforms.glb"
     --platform-gap-m 0.08 --component platform --component edge \
     --out "$OUT/L1_A-platforms.glb" \
     --metrics "$OUT/L1_A-platforms-metrics.json"
+
+echo "[PRZYGOTOWANIE] neutralna tablica stacji -> $OUT/L1_A-station-board.glb"
+"$BLENDER_EXE" --background --python-exit-code 7 --python tools/blender/station_board.py -- \
+    --out "$OUT/L1_A-station-board.glb"
 
 ls -la "$OUT" "$OUT/chunks" | sed -n '1,20p'
 echo "[PRZYGOTOWANIE] gotowe. Trening: bash tools/dev/play.sh"

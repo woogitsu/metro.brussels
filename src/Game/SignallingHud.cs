@@ -1,4 +1,5 @@
 using System.Globalization;
+using MetroBxl.Sim.Line;
 using MetroBxl.Sim.Physics;
 using MetroBxl.Sim.Signalling;
 
@@ -38,6 +39,13 @@ public static class SignallingHud
 
     /// <summary>Wiersz składu, który jeszcze nie wjechał na plan (wejście zajęte).</summary>
     public const string NotOnPlanYet = "sygnalizacja: skład jeszcze nie wjechał na plan";
+
+    /// <summary>Skład po końcu przejazdu zjechał z planu; nie oczekuje na wyjazd.</summary>
+    public const string LeftPlan = "sygnalizacja: skład zakończył przejazd i zjechał z planu";
+
+    /// <summary>Stan składu bez bieżącego autorytetu jazdy.</summary>
+    public static string WithoutAuthority(LineTrain train) =>
+        train.LeftPlan ? LeftPlan : NotOnPlanYet;
 
     /// <summary>Wiersz przejazdu pod planem, ale bez ochrony pociągu.</summary>
     public const string WithoutProtection = "sygnalizacja: linia bez ochrony pociągu";

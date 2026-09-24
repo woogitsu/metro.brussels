@@ -327,13 +327,22 @@ i to jest rachunek, nie wybór. Wysokość peronu 1,03 m ma status `spec`.
 **Świadomie niemodelowane w T-212:** rzut stacji, liczba i położenie wyjść, bramki
 biletowe i kasy, konstrukcja (słupy, belki, dylatacje), instalacje.
 
+**Neutralne tablice nazw stacji** (`tools/blender/station_board.py`,
+`StationView.AddNameMarkers`) mają status `design_assumption`. Nazwy pochodzą z osi
+trasy; pełna nazwa dwujęzyczna zajmuje dwa wiersze. Jednorzędna płytka ma wysokość
+0,80 m i środek na 4,25 m nad główką szyny, a dwurzędna 1,10 m i środek na 4,40 m.
+Obie zaczynają się na 3,85 m: 0,25 m nad projektowym dachem M7 (3,60 m).
+Dwurzędna kończy się na 4,95 m: 0,35 m pod stropem komory (5,30 m).
+Położenie 15 m za osią stacji i neutralny wygląd są wyborem dla czytelności z kabiny,
+nie odwzorowaniem oznakowania STIB/MIVB.
+
 ## 4g. Kabina maszynisty — układ kanoniczny (`tools/blender/m7_cab.py`, 6.D119)
 
 **Wszystkie wartości w tej sekcji mają status `design_assumption`. Żadna nie pochodzi
 ze STIB.** STIB nie publikuje rzutów kabiny, a `docs/03-legal.md` nie daje prawa do
 cudzych rysunków ani do odwzorowywania kabiny ze zdjęć. Układ zbudowany przez 6.D119
-jest **kanoniczny** — podłoga, ściana do przedziału pasażerskiego z jednymi drzwiami,
-pulpit i fotel — a nie odwzorowaniem kabiny M7, i tak jest opisany w `not_modelled`
+jest **kanoniczny** — podłoga, ściana do przedziału pasażerskiego z jednymi drzwiami
+i fotel, obecnie bez pulpitu — a nie odwzorowaniem kabiny M7, i tak jest opisany w `not_modelled`
 raportu generatora oraz w `reports/6d119-kabina-kanoniczna.md`.
 
 Ze `spec` przychodzą tu **wyłącznie** wymiary skorupy, przez `m7_layout.Layout`:
@@ -351,16 +360,11 @@ szerokość pudła, wysokość podłogi i długość składu. Wszystko poniżej 
 | `DESIGN_CAB_WINDOW_HEAD_M` | 1,60 m | nadproże okna bocznego |
 | `DESIGN_CAB_WINDOW_LENGTH_M` | 0,70 m | długość okna bocznego kabiny wzdłuż osi |
 | `DESIGN_CAB_WINDOW_SILL_M` | 1,00 m | parapet okna bocznego |
-| `DESIGN_DESK_DEPTH_M` | 0,60 m | głębokość pulpitu wzdłuż osi |
-| `DESIGN_DESK_FRONT_GAP_M` | 0,15 m | odstęp lica szyby czołowej od przedniej krawędzi pulpitu |
-| `DESIGN_DESK_SLAB_M` | 0,10 m | grubość blatu |
-| `DESIGN_DESK_TOP_M` | 0,95 m | wysokość górnego lica pulpitu nad podłogą kabiny |
-| `DESIGN_DESK_WIDTH_M` | 1,40 m | szerokość pulpitu |
 | `DESIGN_SEAT_BACK_HEIGHT_M` | 0,55 m | wysokość oparcia nad siedziskiem |
 | `DESIGN_SEAT_BACK_M` | 0,10 m | grubość oparcia |
 | `DESIGN_SEAT_CUSHION_M` | 0,48 m | wysokość górnego lica siedziska nad podłogą |
 | `DESIGN_SEAT_DEPTH_M` | 0,45 m | głębokość siedziska |
-| `DESIGN_SEAT_GAP_FROM_DESK_M` | 0,35 m | odstęp tylnej krawędzi pulpitu od przedniej krawędzi siedziska |
+| `DESIGN_SEAT_FRONT_M` | 1,45 m | początek siedziska od czoła składu; utrzymuje fotel pod okiem kamery bez pulpitu |
 | `DESIGN_SEAT_WIDTH_M` | 0,50 m | szerokość siedziska |
 | `DESIGN_WINDSCREEN_HEAD_M` | 1,95 m | nadproże szyby czołowej |
 | `DESIGN_WINDSCREEN_MARGIN_M` | 0,15 m | margines szyby czołowej od ściany bocznej |
@@ -372,7 +376,7 @@ wykładzina, więc zmiana szerokości pudła we `spec` przechodzi do kabiny sama
 Że każda bryła mieści się w tym przekroju, pilnuje `tools/tests/test_m7_cab.py`,
 a nie zdanie w tym dokumencie.
 
-**Świadomie niemodelowane w 6.D119:** rozkład pulpitu i rozmieszczenie nastawników,
+**Świadomie niemodelowane obecnie:** pulpit i nastawniki (usunięte, by odsłonić tory),
 kształt fotela, przyrządy i wskaźniki, rzeczywiste wymiary kabiny M7. Wycięcie szyb
 w skorupie należy do generatora skorupy i nie jest zrobione — otwory są tu policzone
 jako dane i sprawdzone, że mieszczą się w przekroju pudła.
