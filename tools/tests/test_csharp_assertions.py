@@ -300,7 +300,8 @@ BEZ_KOMUNIKATU = {
     # tylko maleć i to jest jej cała treść — wpis podniesiony byłby cichym przyzwoleniem
     # na asercję, która nie mówi, co jest nie tak.
     "LineCoreTests.cs": 43,
-    "LineDriveTests.cs": 21,
+    # 21 -> 29 (24.09.2026): końcowy postój Merode i ślad po ograniczeniu osi.
+    "LineDriveTests.cs": 29,
     "LineRouteTests.cs": 14,
     "LineRunTests.cs": 28,
     "MovementAuthorityTests.cs": 30,
@@ -314,7 +315,8 @@ BEZ_KOMUNIKATU = {
     "RunResetTests.cs": 40,
     "RunnerCommandTests.cs": 126,
     "ScenarioDriveTests.cs": 35,
-    "SceneAxisTests.cs": 10,
+    # 10 -> 11 (24.09.2026): oprawa nie wykracza za zmierzoną scenerię.
+    "SceneAxisTests.cs": 11,
     "ServiceDayTests.cs": 31,
     "SignallingHudTests.cs": 21,
     "SignallingPlanTests.cs": 23,
@@ -483,7 +485,7 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 # 2035 -> 2040 (24.09.2026, T-320): pięć kontroli chronologii obiegu.
 # 2040 -> 2049 (24.09.2026, T-320): dziewięć asercji wykrywania pominiętych kursów.
 # 2049 -> 2054 (24.09.2026, T-320): walidacja dnia służby i godziny po północy.
-Z_KOMUNIKATEM_RAZEM = 2054
+Z_KOMUNIKATEM_RAZEM = 2063
 NIEROZSTRZYGNIETYCH = 68
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
 #: `tests/Sim.Tests/DefaultArmAuditTests.cs` — bramki na ramionach domyślnych
@@ -617,7 +619,9 @@ NIEROZSTRZYGNIETYCH = 68
 # 3492 -> 3501 (24.09.2026, T-320): dziewięć kontroli bramki z planem.
 # 3501 -> 3506 (24.09.2026, T-320): dzień służby i zapis 25:00.
 # 3506 -> 3512 (24.09.2026, koniec osi): sześć kontroli stanu granicznego.
-ASERCJI_RAZEM = 3512
+# 3512 -> 3530 (24.09.2026): końcowy postój linii i oprawy scenerii;
+# po dziewięć asercji z komunikatem i bez komunikatu.
+ASERCJI_RAZEM = 3530
 
 
 def _rozklad():

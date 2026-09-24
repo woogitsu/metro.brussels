@@ -90,7 +90,8 @@ PINY_GRY = {
 # 78 -> 81 (24.09.2026, T-320): data, kurs i identyfikator obiegu.
 # 81 -> 85 (24.09.2026, T-320): cztery kursy w dwóch przejściach obiegu.
 # 85 -> 86 (24.09.2026, T-320): pierwszy trip_id po remisie w planie.
-PINY_RDZENIA = 86
+# 86 -> 87 (24.09.2026): nazwa końcowego postoju Merode w LineDriveTests.
+PINY_RDZENIA = 87
 
 #: Kategorie, po jednej pozycji na pin — zamknięte i sumujące się do liczby wyżej.
 #:
@@ -163,11 +164,12 @@ KATEGORIE = {
         # 24.09.2026: komentarz o scenerii Merode przesunął kotwice o wiersz.
         # Dodatkowy komentarz o wyróżnieniu celu przesuwa kotwice o wiersz.
         # Komentarz o końcu toru przesuwa kotwice o kolejny wiersz.
-        ("UiTextTests.cs", 1287), ("UiTextTests.cs", 1300), ("UiTextTests.cs", 1318),
+        # Dwa komentarze o lampach scenerii przesunęły te same piny o dwa wiersze.
+        ("UiTextTests.cs", 1289), ("UiTextTests.cs", 1302), ("UiTextTests.cs", 1320),
         ("SignallingHudTests.cs", 39),
     },
     "B": {
-        ("UiTextTests.cs", 1387), ("UiTextTests.cs", 1388),
+        ("UiTextTests.cs", 1389), ("UiTextTests.cs", 1390),
     },
 }
 
@@ -265,10 +267,10 @@ def test_regula_po_ksztalcie_literalu_myli_sie_i_dlatego_jej_nie_ma():
                      if not regula.search(tresci[p])]
     zlapane_z_b = [p for p in sorted(KATEGORIE["B"]) if regula.search(tresci[p])]
 
-    assert przepuszczone == [("UiTextTests.cs", 1318)], (
+    assert przepuszczone == [("UiTextTests.cs", 1320)], (
         "reguła po kształcie przestała przepuszczać wiersz o hamulcu awaryjnym — "
         "rozstrzygnięcie 6.D131 wymaga przeliczenia: %s" % przepuszczone)
-    assert zlapane_z_b == [("UiTextTests.cs", 1388)], (
+    assert zlapane_z_b == [("UiTextTests.cs", 1390)], (
         "reguła po kształcie przestała łapić wejście syntetyczne: %s" % zlapane_z_b)
 
 
@@ -282,11 +284,11 @@ def test_czytnik_widzi_pin_takze_wtedy_gdy_literal_jest_sklejony():
     tresci = {(plik, wiersz): tresc
               for plik, wiersz, _r, tresc in CP.piny("tests/Game.Tests")}
 
-    assert len(tresci[("UiTextTests.cs", 1287)]) == 122, (
+    assert len(tresci[("UiTextTests.cs", 1289)]) == 122, (
         "sklejanie literałów przestało działać: %d znaków"
-        % len(tresci[("UiTextTests.cs", 1287)]))
-    assert len(tresci[("UiTextTests.cs", 1318)]) == 98, (
-        len(tresci[("UiTextTests.cs", 1318)]))
+        % len(tresci[("UiTextTests.cs", 1289)]))
+    assert len(tresci[("UiTextTests.cs", 1320)]) == 98, (
+        len(tresci[("UiTextTests.cs", 1320)]))
     assert len(tresci[("SignallingHudTests.cs", 39)]) == 84, (
         len(tresci[("SignallingHudTests.cs", 39)]))
 
@@ -485,8 +487,9 @@ ROZKLAD_LICZBOWYCH = {
         # 512 -> 513 (24.09.2026, T-320): liczba przejść obiegu.
         # 513 -> 515 (24.09.2026, T-320): niezmieniony krok i dwa kursy planu.
         # 515 -> 517 (24.09.2026, koniec osi): odległość i zerowa prędkość.
-        "razem": 517, "z_tolerancja": 190, "bez_tolerancji": 327,
-        "zmiennoprzecinkowe": 200, "zmiennoprzecinkowe_bez_tolerancji": 10,
+        # 517 -> 523 (24.09.2026, LineDrive): granica Merode, prędkość, ślad i bilans.
+        "razem": 523, "z_tolerancja": 191, "bez_tolerancji": 332,
+        "zmiennoprzecinkowe": 206, "zmiennoprzecinkowe_bez_tolerancji": 15,
         "calkowite": 317, "calkowite_z_tolerancja": 0, "tolerancja_zero": 121,
     },
 }
@@ -498,9 +501,9 @@ ROZKLAD_LICZBOWYCH = {
 #: int, double)` nie ma przeciążenia, więc pin całkowity z tolerancją nie skompilowałby
 #: się. Zapadka z obu stron na tej zerowej liczbie pilnuje, żeby zdanie zostało prawdziwe.
 #:
-#: **Porównań DOKŁADNYCH na liczbie zmiennoprzecinkowej jest 155, nie 16.** Szesnaście
-#: nie ma trzeciego argumentu wcale, a **139 podaje tolerancję `0.0`** — czyli deklaruje
-#: dokładność jawnie. Sama liczba „16" byłaby niemal dziesięciokrotnie zaniżona i to jest
+#: **Porównań DOKŁADNYCH na liczbie zmiennoprzecinkowej jest 160, nie 21.** Dwadzieścia
+#: jeden nie ma trzeciego argumentu wcale, a **139 podaje tolerancję `0.0`** — czyli deklaruje
+#: dokładność jawnie. Sama liczba „21" byłaby znacznie zaniżona i to jest
 #: dokładnie ten kształt, który projekt tropi od 6.D27: licznik mówiący o czymś węższym,
 #: niż sugeruje jego nazwa.
 # 146 -> 145 (14.09.2026, MB-07): zniknal `AreEqual(0.0, …SpeedMps, 0.0)`
@@ -510,7 +513,8 @@ ROZKLAD_LICZBOWYCH = {
 # 151 -> 152 (23.09.2026, 6.M1): jedno porównanie z tolerancją 0.0 w `LineReplayTests.cs`.
 # 152 -> 153 (24.09.2026, next station after mid-axis entry).
 # 153 -> 155 (24.09.2026, koniec osi): dwa dokładne porównania prędkości.
-DOKLADNE_ZMIENNOPRZECINKOWE = 155
+# 155 -> 160 (24.09.2026, LineDrive): pięć dokładnych porównań bez tolerancji.
+DOKLADNE_ZMIENNOPRZECINKOWE = 160
 
 
 def test_ile_pinow_liczbowych_i_jak_sie_dziela():
@@ -537,10 +541,10 @@ def test_pin_calkowity_NIGDY_nie_ma_tolerancji_i_to_nie_jest_zwyczaj():
         % razem)
 
 
-def test_dokladnych_porownan_zmiennoprzecinkowych_jest_155_a_nie_16():
+def test_dokladnych_porownan_zmiennoprzecinkowych_jest_160_a_nie_21():
     """**Sedno 6.D141: tolerancja `0.0` JEST porównaniem dokładnym.**
 
-    Licznik „bez tolerancji" mówi o szesnastu asercjach, a dokładnych porównań na
+    Licznik „bez tolerancji" mówi o dwudziestu jeden asercjach, a dokładnych porównań na
     liczbie zmiennoprzecinkowej jest znacznie więcej — bo 139 podają tolerancję
     zapisaną jako `0.0`. Test liczy jedno i drugie, żeby ta różnica stała w kodzie,
     a nie tylko w raporcie.
@@ -549,7 +553,7 @@ def test_dokladnych_porownan_zmiennoprzecinkowych_jest_155_a_nie_16():
               for k in ROZKLAD_LICZBOWYCH)
     zero = sum(CP.rozklad_liczbowych(k)["tolerancja_zero"] for k in ROZKLAD_LICZBOWYCH)
 
-    assert bez == 16, ("zmiennoprzecinkowych bez tolerancji: %d, pomiar mówił 16" % bez)
+    assert bez == 21, ("zmiennoprzecinkowych bez tolerancji: %d, pomiar mówił 21" % bez)
     # 132 -> 131 (14.09.2026, MB-07): patrz `ROZKLAD_LICZBOWYCH["tests/Sim.Tests"]`.
     # 131 -> 137 (14.09.2026, MB-08): sześć porównań z tolerancją 0.0 w nowych testach
     # drzwi — wszystkie tam, gdzie pytanie brzmi „ani jeden bit": nietknięty nastawnik,
