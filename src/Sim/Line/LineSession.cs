@@ -98,6 +98,9 @@ public sealed class LineSession
         {
             case LineEventKind.Observe:
                 _observed = IndexOf(lineEvent.TrainId);
+                Command = _commands.TryGetValue(Observed.Id, out var observedCommand)
+                    ? observedCommand : DriverCommand.Coast;
+                AccelerationMps2 = 0.0;
                 return null;
             case LineEventKind.Take:
                 var candidate = _core.Trains[IndexOf(lineEvent.TrainId)];

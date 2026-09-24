@@ -2173,6 +2173,13 @@ public sealed partial class FirstRun : Node3D
         if (lineEvent.Kind == LineEventKind.Observe)
         {
             _observed = _lineSession.ObservedIndex;
+            // Zmiana obserwacji może przypaść na klatkę bez kroku 120 Hz.
+            // HUD i kamera muszą w tej klatce czytać już wybrany skład.
+            _line = _lineCore!.Trains[_observed].Drive;
+            _state = _line?.State ?? DriveState.AtRest;
+            _command = _lineSession.Command;
+            _acceleration = _lineSession.AccelerationMps2;
+            _activeKeys = _keys;
 
             // Odmowa dotyczyła składu, którego gracz już nie ogląda — MB-08.
             _doorRefusal = null;

@@ -21,6 +21,28 @@ namespace MetroBxl.Sim.Tests;
 [TestClass]
 public sealed class LineReplayTests
 {
+    [TestMethod]
+    public void Zmiana_obserwowanego_skladu_odswieza_polecenie_bez_kroku_fizyki()
+    {
+        var session = Sesja();
+        var second = LineSession.TrainIdAt(1);
+        session.Core.Add(second, 5000L);
+        for (var i = 0; i < 60; i++)
+            Assert.IsTrue(session.Step(DriverKeys.None));
+
+        var firstCommand = session.Command;
+        Assert.AreNotEqual(DriverCommand.Coast, firstCommand,
+            "pierwszy skład powinien już jechać, aby test wykrył stare polecenie");
+        session.Execute(new InputLogEvent(60L, LineEventKind.Observe, second));
+        Assert.AreEqual(second, session.Observed.Id);
+        Assert.IsNull(session.Observed.Drive);
+        Assert.AreEqual(DriverCommand.Coast, session.Command,
+            "skład jeszcze poza osią nie może odziedziczyć nastawnika pierwszego");
+        session.Execute(new InputLogEvent(60L, LineEventKind.Observe, LineSession.CabTrainId));
+        Assert.AreEqual(firstCommand, session.Command,
+            "powrót ma przywrócić polecenie tego samego składu bez kroku fizyki");
+    }
+
     private const double BeekkantM = 509.7;
     private const double WindowM = 5.0;
 

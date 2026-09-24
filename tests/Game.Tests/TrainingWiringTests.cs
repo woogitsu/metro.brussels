@@ -31,6 +31,23 @@ public sealed class TrainingWiringTests
         KorzenRepozytorium.Tresc("src", "Game", "FirstRun.cs");
 
     [TestMethod]
+    public void WYBOR_SKLADU_ODSWIEZA_HUD_I_KAMERE_BEZ_KROKU_FIZYKI()
+    {
+        var source = FirstRunSource();
+        var start = source.IndexOf("private void ExecuteLineEvent(", StringComparison.Ordinal);
+        var end = source.IndexOf("private void HandleTrainKeys(", start, StringComparison.Ordinal);
+        Assert.IsTrue(start >= 0 && end > start);
+        var observe = source[start..end];
+        var selection = observe.IndexOf("_observed = _lineSession.ObservedIndex;", StringComparison.Ordinal);
+        var drive = observe.IndexOf("_line = _lineCore!.Trains[_observed].Drive;", StringComparison.Ordinal);
+        var state = observe.IndexOf("_state = _line?.State ?? DriveState.AtRest;", StringComparison.Ordinal);
+        var command = observe.IndexOf("_command = _lineSession.Command;", StringComparison.Ordinal);
+        Assert.IsTrue(selection >= 0 && drive > selection && state > drive && command > state,
+            "N musi przełączyć nazwę stacji, położenie i komendę w tej samej klatce, "
+            + "także gdy akumulator nie wykona kroku 120 Hz");
+    }
+
+    [TestMethod]
     public void OBSERWACJA_SESJI_STOI_NA_KONCU_KROKU_A_NIE_NA_POCZATKU()
     {
         // Warunek zaliczenia pyta o prędkość PO kroku i o cykl drzwi PO filtrze stacji.
