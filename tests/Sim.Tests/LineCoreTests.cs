@@ -73,6 +73,61 @@ public sealed class LineCoreTests
     // --- tożsamość: sygnalizacja bez ruchu niczego nie zmienia ---------------
 
     [TestMethod]
+    public void Wejscie_na_drugiej_stacji_zaczyna_jazde_tam_i_widzi_nastepny_peron()
+    {
+        var line = Line();
+        var train = line.AddAtStation("B", 0L, 1);
+        line.Step();
+
+        Assert.AreEqual(1, train.EntryStationIndex);
+        Assert.AreEqual(0L, train.EnteredAtStep);
+        Assert.IsNotNull(train.Drive);
+        Assert.IsTrue(train.Drive.ChainageM >= 600.0 && train.Drive.ChainageM < 601.0,
+            $"skład powinien wejść przy 600 m, jest przy {train.Drive.ChainageM} m");
+        Assert.AreEqual(1400.0, train.Drive.NextStation!.ChainageM, 0.0,
+            "pierwszym celem po wejściu na drugiej stacji jest trzecia");
+        Assert.IsTrue(line.Signalling.BlocksOccupiedBy("B").Count > 0,
+            "wejście w środku osi musi zarejestrować zajętość bloków");
+    }
+
+    [TestMethod]
+    public void Dwa_wejscia_na_ten_sam_peron_nie_nakladaja_skladow()
+    {
+        var line = Line();
+        var first = line.AddAtStation("A", 0L, 1);
+        var second = line.AddAtStation("B", 0L, 1);
+        line.Step();
+
+        Assert.AreEqual(0L, first.EnteredAtStep);
+        Assert.IsNull(second.EnteredAtStep,
+            "drugi skład musi czekać, gdy pierwszy zajmuje peron wejścia");
+        Assert.IsNull(second.Drive, "oczekujący skład nie może pojawić się w prowadzeniu");
+    }
+
+    [TestMethod]
+    public void Stare_Add_i_jawne_wejscie_na_pierwszej_stacji_daja_identyczny_slad()
+    {
+        var oldApi = Line();
+        var explicitOrigin = Line();
+        oldApi.Add("A", 0L);
+        explicitOrigin.AddAtStation("A", 0L, 0);
+        var before = TraceOf(oldApi, "A", LineRun.DefaultStepBudget);
+        var after = TraceOf(explicitOrigin, "A", LineRun.DefaultStepBudget);
+        CollectionAssert.AreEqual(before, after,
+            "domyślne wejście nie może zmienić istniejącego przejazdu");
+    }
+
+    [TestMethod]
+    public void Wejscie_w_srodku_osi_odmawia_nawrotu_bez_rozkładu_kolejnego_kursu()
+    {
+        var axis = SignallingPlanTests.SyntheticAxis(Stations);
+        var plan = SignallingPlanTests.SyntheticPlan(requireRoute: false, Stations);
+        var line = LineCore.M7(plan, axis, Level(), Settings(), turnbackSeconds: 240.0);
+        Assert.ThrowsExactly<InvalidOperationException>(
+            () => line.AddAtStation("B", 0L, 1));
+    }
+
+    [TestMethod]
     public void Jeden_sklad_na_pustej_linii_jedzie_tak_samo_jak_bez_sygnalizacji()
     {
         // To jest ten test. Pusta linia znaczy: autorytet zawsze sięga dalej niż

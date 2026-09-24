@@ -14,10 +14,11 @@ namespace MetroBxl.Sim.Line;
 /// </summary>
 public sealed class LineTrain
 {
-    internal LineTrain(string id, long releaseStep)
+    internal LineTrain(string id, long releaseStep, int entryStationIndex)
     {
         Id = id;
         ReleaseStep = releaseStep;
+        EntryStationIndex = entryStationIndex;
     }
 
     /// <summary>Identyfikator składu; ten sam w sygnalizacji i w raporcie.</summary>
@@ -25,6 +26,9 @@ public sealed class LineTrain
 
     /// <summary>Krok zegara linii, na którym skład ma wyjechać z pierwszej stacji.</summary>
     public long ReleaseStep { get; }
+
+    /// <summary>Indeks peronu, na którym ten skład wchodzi na oś.</summary>
+    public int EntryStationIndex { get; }
 
     /// <summary>
     /// Krok zegara linii, na którym skład faktycznie wszedł na plan; <c>null</c>, dopóki
@@ -213,7 +217,6 @@ public sealed class LineCore
     private readonly BrakingPointSolver _solver;
     private readonly FixedStep _step;
     private readonly double _trainLengthM;
-    private readonly double _entryChainageM;
     private readonly List<LineTrain> _trains = new();
 
     /// <summary>Linia zbudowana ze złożonych osobno składników.</summary>
@@ -398,7 +401,6 @@ public sealed class LineCore
         _solver = solver;
         _step = step;
         _trainLengthM = trainLengthM;
-        _entryChainageM = axis.Stations[0].ChainageM;
 
         if (!double.IsFinite(turnbackSeconds) || turnbackSeconds < 0.0)
         {
@@ -581,8 +583,22 @@ public sealed class LineCore
     /// <param name="releaseStep">Krok wyjazdu; nie może leżeć w przeszłości linii.</param>
     /// <returns>Zgłoszony skład.</returns>
     public LineTrain Add(string trainId, long releaseStep)
+        => AddAtStation(trainId, releaseStep, 0);
+
+    /// <summary>Planuje pierwszy wjazd od wskazanej stacji osi, bez planowania kolejnego kursu.</summary>
+    public LineTrain AddAtStation(string trainId, long releaseStep, int stationIndex)
     {
         ArgumentNullException.ThrowIfNull(trainId);
+        if (stationIndex < 0 || stationIndex >= _axis.Stations.Count - 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(stationIndex), stationIndex,
+                "Stacja wejścia musi mieć następną stację na osi.");
+        }
+        if (stationIndex > 0 && TurnbackEnabled)
+        {
+            throw new InvalidOperationException(
+                "Nawrót składu ze środka osi wymaga osobnego rozkładu kolejnego kursu.");
+        }
         if (releaseStep < Steps)
         {
             throw new ArgumentOutOfRangeException(
@@ -599,7 +615,7 @@ public sealed class LineCore
             }
         }
 
-        var train = new LineTrain(trainId, releaseStep);
+        var train = new LineTrain(trainId, releaseStep, stationIndex);
         _trains.Add(train);
         return train;
     }
@@ -768,12 +784,14 @@ public sealed class LineCore
         // 1. wyjazdy
         foreach (var train in _trains)
         {
-            if (train.Drive is not null || train.ReleaseStep > Steps || !EntryIsClear())
+            var entry = _axis.Stations[train.EntryStationIndex].ChainageM;
+            if (train.Drive is not null || train.ReleaseStep > Steps || !EntryIsClear(entry))
             {
                 continue;
             }
 
-            train.Drive = new LineDrive(_axis, _conditions, _settings, _controller, _solver, _step);
+            train.Drive = new LineDrive(_axis, _conditions, _settings, _controller, _solver, _step,
+                train.EntryStationIndex);
             train.EnteredAtStep = Steps;
 
             // Filtr ochrony zakładany RAZ, przy wjeździe na plan, i czytający decyzję
@@ -788,7 +806,7 @@ public sealed class LineCore
                     : command;
             }
 
-            _signalling.RegisterTrain(train.Id, _entryChainageM, _trainLengthM);
+            _signalling.RegisterTrain(train.Id, entry, _trainLengthM);
         }
 
         // 1b. nastawnia — żądania tras PRZED odczytem autorytetów.
@@ -1084,11 +1102,11 @@ public sealed class LineCore
     /// wyjazd na później — nie jest to regulacja ruchu, tylko to, że dwa składy nie mieszczą
     /// się w jednym miejscu.
     /// </summary>
-    private bool EntryIsClear()
+    private bool EntryIsClear(double chainageM)
     {
         var plan = _signalling.Plan;
-        var front = Math.Clamp(_entryChainageM, plan.StartM, plan.EndM);
-        var rear = Math.Clamp(_entryChainageM - _trainLengthM, plan.StartM, plan.EndM);
+        var front = Math.Clamp(chainageM, plan.StartM, plan.EndM);
+        var rear = Math.Clamp(chainageM - _trainLengthM, plan.StartM, plan.EndM);
         foreach (var block in plan.Blocks)
         {
             if (block.Overlaps(rear, front) && _signalling.StateOf(block.Id) != BlockState.Clear)

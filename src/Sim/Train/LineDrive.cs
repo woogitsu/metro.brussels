@@ -85,13 +85,15 @@ public sealed class LineDrive
     /// <param name="controller">Kontroler z T-310.</param>
     /// <param name="solver">Solver punktu hamowania z T-311.</param>
     /// <param name="step">Krok stały.</param>
+    /// <param name="startStationIndex">Peron wejścia; domyślnie pierwszy na osi.</param>
     public LineDrive(
         TrackAxis axis,
         RunConditions conditions,
         LineRunSettings settings,
         TrainController controller,
         BrakingPointSolver solver,
-        FixedStep step)
+        FixedStep step,
+        int startStationIndex = 0)
     {
         ArgumentNullException.ThrowIfNull(axis);
         ArgumentNullException.ThrowIfNull(conditions);
@@ -106,6 +108,11 @@ public sealed class LineDrive
                 nameof(axis), axis.Stations.Count,
                 "Przejazd z zatrzymaniami wymaga co najmniej dwóch stacji na osi.");
         }
+        if (startStationIndex < 0 || startStationIndex >= axis.Stations.Count - 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(startStationIndex), startStationIndex,
+                "Stacja wejścia musi mieć następną stację na osi.");
+        }
 
         AxisId = axis.Id;
         _stations = axis.Stations;
@@ -115,7 +122,8 @@ public sealed class LineDrive
         _solver = solver;
         _step = step;
 
-        _start = _stations[0].ChainageM;
+        _start = _stations[startStationIndex].ChainageM;
+        _next = startStationIndex + 1;
         _cycle = new DoorCycle(settings.PassengerExchangeSeconds);
         _trigger = settings.BrakeUsageFraction * controller.ServiceBrakeMps2;
         _effectiveMassKg = controller.Dynamics.EffectiveMassKg(conditions.MassKg);
