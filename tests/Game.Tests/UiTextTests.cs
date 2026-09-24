@@ -243,7 +243,8 @@ public sealed class UiTextTests
     // 615 -> 649 (24.09.2026, jawna opcja łącznika i kontrola pochodzenia osi).
     // 649 -> 656 (24.09.2026, osłonięcie wymaganych pól JSON).
     // 656 -> 660 (24.09.2026, etykieta prototypu w HUD).
-    private const int LiteralowWZasieguBramki = 660;
+    // 660 -> 679 (25.09.2026, integracja rozkładu i projektowego podglądu).
+    private const int LiteralowWZasieguBramki = 679;
 
     /// <summary>Ile różnych — dolne ostrze, zmierzone 12.09.2026.</summary>
     private const int RoznychLiteralowWZasieguBramki = 362;
@@ -1529,7 +1530,8 @@ public sealed class UiTextTests
     // 663 -> 703 (24.09.2026, opcjonalny podgląd łącznika).
     // 703 -> 710 (24.09.2026, osłonięcie wymaganych pól JSON).
     // 710 -> 714 (24.09.2026, etykieta prototypu w HUD).
-    private const int PozycjiStaregoCzytnika = 714;
+    // 714 -> 733 (25.09.2026, integracja rozkładu i projektowego podglądu).
+    private const int PozycjiStaregoCzytnika = 733;
 
     /// <summary>
     /// Ile PLIKÓW korpusu stary czytnik czytał inaczej niż leksykalny — 6.D182.
@@ -2144,7 +2146,8 @@ public sealed class UiTextTests
     // 149 -> 153 (24.09.2026, wypisywanie metadanych scenerii).
     // 153 -> 170 (24.09.2026, opcjonalny podgląd łącznika).
     // 170 -> 177 (24.09.2026, osłonięcie wymaganych pól JSON).
-    private const int ZgloszenFirstRunCalymPlikiem = 177;
+    // 177 -> 183 (25.09.2026, dodatkowe komunikaty rozkładu w scenie).
+    private const int ZgloszenFirstRunCalymPlikiem = 183;
 
     /// <summary>Ile daje ten sam plik liczony WIERSZ PO WIERSZU — 6.D180.</summary>
     // 122 -> 132 (14.09.2026, MB-04): `FirstRun.AssetsRoot`, `DomyslnyZapisWejsc`
@@ -2165,7 +2168,8 @@ public sealed class UiTextTests
     // 161 -> 166 (24.09.2026, metadane wizualnej kontynuacji).
     // 166 -> 184 (24.09.2026, opcjonalny podgląd łącznika).
     // 184 -> 191 (24.09.2026, osłonięcie wymaganych pól JSON).
-    private const int ZgloszenFirstRunWierszami = 191;
+    // 191 -> 197 (25.09.2026, dodatkowe komunikaty rozkładu w scenie).
+    private const int ZgloszenFirstRunWierszami = 197;
 
     /// <summary>Ile plików korpusu daje różne liczby obiema drogami — 6.D180.</summary>
     private const int PlikowZRoznicaDrog = 1;
@@ -2375,7 +2379,8 @@ public sealed class UiTextTests
     // 425 -> 446 (24.09.2026, opcjonalny podgląd łącznika).
     // 446 -> 447 (24.09.2026, osłonięcie wymaganych pól JSON).
     // 447 -> 448 (24.09.2026, etykieta prototypu w HUD).
-    private const int LiteralowDotknietychZdejmowaniem = 448;
+    // 448 -> 463 (25.09.2026, zintegrowane literały sceny i rozkładu).
+    private const int LiteralowDotknietychZdejmowaniem = 463;
 
     /// <summary>
     /// Ilu literałom zdejmowanie jednostek ZABIERA werdykt „to słowo" — 6.D155.
@@ -3162,7 +3167,8 @@ public sealed class UiTextTests
     // 104 -> 105 (23.09.2026, 6.M1): odtworzenie linii — zdarzenia w zapisie wejść, `ExecuteLineEvent` w `FirstRun` i nowa odmowa `--replay --line` bez `--signalling` w `RunPlan`. PRZELICZONE.
     // 105 -> 109 (24.09.2026, osobna sekcja metadanych scenerii).
     // 109 -> 118 (24.09.2026, opcjonalny podgląd łącznika).
-    private const int ZgloszenWaskichCalymPlikiem = 118;
+    // 118 -> 121 (25.09.2026, komunikaty rozkładu w scenie).
+    private const int ZgloszenWaskichCalymPlikiem = 121;
 
     /// <summary>Zgłoszeń wąskiej reguły, gdy czytnik dostaje WIERSZ — 6.D173/6.D186.</summary>
     // 108 -> 112 (14.09.2026, MB-04): `FirstRun.AssetsRoot`, `DomyslnyZapisWejsc`
@@ -3179,7 +3185,8 @@ public sealed class UiTextTests
     // 116 -> 117 (23.09.2026, 6.M1): odtworzenie linii — zdarzenia w zapisie wejść, `ExecuteLineEvent` w `FirstRun` i nowa odmowa `--replay --line` bez `--signalling` w `RunPlan`. PRZELICZONE.
     // 117 -> 122 (24.09.2026, osobna sekcja metadanych scenerii).
     // 122 -> 132 (24.09.2026, opcjonalny podgląd łącznika).
-    private const int ZgloszenWaskichWierszami = 132;
+    // 132 -> 135 (25.09.2026, komunikaty rozkładu w scenie).
+    private const int ZgloszenWaskichWierszami = 135;
 
     /// <summary>
     /// Ile z nich stoi w kontekście CZYTANIA JSON-a — <b>18 obiema drogami</b>.
@@ -3415,8 +3422,8 @@ public sealed class UiTextTests
         Assert.IsNull(MetroBxl.Tests.Shared.LancuchZmian.SkadTaLiczba(nameof(ZgloszenWaskichWierszami), 4242, SciezkaTegoPliku),
             "liczba spoza łańcucha zgłoszona jako dawna wartość — czytnik odpowiada "
             + "na wszystko i komunikat odmowy stałby się szumem");
-        Assert.IsNull(MetroBxl.Tests.Shared.LancuchZmian.SkadTaLiczba(nameof(ZgloszenWaskichCalymPlikiem), 108, SciezkaTegoPliku),
-            "108 z łańcucha JEDNEJ stałej przypisane DRUGIEJ — czytnik nie rozdziela "
+        Assert.IsNull(MetroBxl.Tests.Shared.LancuchZmian.SkadTaLiczba(nameof(ZgloszenWaskichCalymPlikiem), 117, SciezkaTegoPliku),
+            "117 z łańcucha JEDNEJ stałej przypisane DRUGIEJ — czytnik nie rozdziela "
             + "łańcuchów i mówiłby o cudzej historii");
     }
 
@@ -3622,7 +3629,8 @@ public sealed class UiTextTests
     // 152 -> 153 (24.09.2026, integracja pomocy linii): jeden literał z klamrą.
     // 153 -> 156 (24.09.2026, lampy scenerii): trzy komunikaty `Abort` z interpolacją.
     // 156 -> 158 (24.09.2026, osobne pola metadanych ogona).
-    private const int LiteralowZKlamra = 158;
+    // 158 -> 163 (24.09.2026, komunikaty rozkładu).
+    private const int LiteralowZKlamra = 163;
 
     /// <summary>
     /// Ilu literałom <see cref="BezDziur"/> zabiera WSZYSTKIE słowa — 6.D188.
@@ -5347,14 +5355,16 @@ public sealed class UiTextTests
     // przyrzadem tego testu.
     // 29 -> 30 (14.09.2026, MB-07): trzy klawisze obsługi linii (N/T/O), wiersz
     // `[TUNEL koniec]` i komunikaty zakresu `--trains`. Liczba PRZELICZONA przebiegiem.
-    private const int WierszyLoguWGame = 30;
+    // 30 -> 32 (24.09.2026, log dwóch wejść rozkładowych).
+    private const int WierszyLoguWGame = 32;
 
     // 21 -> 23 (13.09.2026, MB-02): dwa wiersze `[SESJA]`. `WierszyLoguPoAngielsku`
     // zostaje ZEREM i to ono jest tu zdaniem.
     // 23 -> 24 (14.09.2026, MB-04): `FirstRun.AssetsRoot`, `DomyslnyZapisWejsc`
     // i wiersz `[ZAPISY]`. Liczba ZMIERZONA przyrzadem tego testu.
     // 24 -> 25 (14.09.2026, MB-07): wiersz `[TUNEL koniec]` — własne słowa, polskie.
-    private const int WierszyLoguPoPolsku = 25;
+    // 25 -> 27 (24.09.2026, dwa wiersze logu wejść rozkładowych).
+    private const int WierszyLoguPoPolsku = 27;
 
     // Wiersze, których szablon NIE MA WŁASNYCH SŁÓW — cała treść przychodzi z wywołania.
     // Wszystkie w `FirstRun.cs`, i każdy z nich prowadzi do wytwórcy, który własne
@@ -5504,7 +5514,8 @@ public sealed class UiTextTests
     // 26 -> 27 (24.09.2026): brak generowanej tablicy zatrzymuje uruchomienie.
     // 27 -> 28 (24.09.2026): niekompletna para GLB za Merode zatrzymuje uruchomienie.
     // 28 -> 31 (24.09.2026): trzy odmowy przy pliku osi scenerii.
-    private const int WolajacychAbort = 33;
+    // 33 -> 36 (25.09.2026, odmowy błędnego rozkładu).
+    private const int WolajacychAbort = 36;
     // 5 -> 6 (24.09.2026, interaktywne R): błąd przeładowania poza Abort.
     private const int WypisowBleduPozaAbort = 6;
 
@@ -5618,13 +5629,13 @@ public sealed class UiTextTests
         var obce = dziury
             .Where(d => ZrodlaTekstuObcego.Any(z => z.Plik == d.Plik && z.Wyrazenie == d.Dziura))
             .ToList();
-        Assert.AreEqual(9, obce.Count,
-            $"dziur z tekstem OBCYM jest {obce.Count}, a zmierzono 9 (siedem "
+        Assert.AreEqual(10, obce.Count,
+            $"dziur z tekstem OBCYM jest {obce.Count}, a zmierzono 10 (osiem "
             + "`FileAccess.GetOpenError()`, jedna z `MakeDir`, jedna z `AppendFromFile`): "
             + string.Join(", ", obce.Select(d => $"{d.Plik}:{d.Wiersz} {d.Dziura}")));
 
         // ZBIÓR, nie liczba (6.D131): gdyby doszedł czwarty wytwórca tekstu obcego,
-        // liczba 9 podniesiona o jeden nie powiedziałaby, KTÓRY.
+        // liczba 10 podniesiona o jeden nie powiedziałaby, KTÓRY.
         CollectionAssert.AreEqual(
             new[] { "Error Godota — wynik DirAccess.MakeDir",
                     "Error Godota — wynik GltfDocument.AppendFromFile",
@@ -5655,8 +5666,8 @@ public sealed class UiTextTests
             MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "src", "Game", "RunPlan.cs"));
         var czysty = KodLeksykalnie(refusal);
         var wolan = Regex.Matches(czysty, @"return Refusal\s*\(").Count;
-        Assert.AreEqual(28, wolan,
-            $"wołających `RunPlan.Refusal` jest {wolan}, a zmierzono 28 — to ONE są "
+        Assert.AreEqual(30, wolan,
+            $"wołających `RunPlan.Refusal` jest {wolan}, a zmierzono 30 — to ONE są "
             + "treścią jedynego wywołania `Abort` bez własnego literału "
             + "(`FirstRun.cs:533`), więc ich liczba jest zdaniem o drodze błędu");
 

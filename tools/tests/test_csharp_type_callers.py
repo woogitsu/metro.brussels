@@ -73,10 +73,10 @@ TYP = re.compile(
 #: --line`. Powód wpisu zniknął, więc zniknął wpis.
 TYLKO_TESTY = frozenset({
     "CbtcTestArea", "CbtcTestStage", "DriveSegment", "JsonFields", "KcvFunction",
-    # T-320: dyspozytor wejść korzysta już z LineEntryGate; sam pozostaje API
-    # wołanym na razie tylko przez testy, bez integracji z grą ani Sim.Runner.
+    # T-320: dyspozytor wejść korzysta z LineEntryGate i jest wołany przez grę
+    # oraz Sim.Runner. Walidator ciągłości pozostaje API testowym.
     # Walidator ciągłości obiegów nie jest jeszcze polityką transferu pojazdu.
-    "BlockContinuity", "LineEntryDispatcher", "LineRoute", "ProtectionMode", "ProtectionModeRegistry",
+    "BlockContinuity", "LineRoute", "ProtectionMode", "ProtectionModeRegistry",
     "ProtectionModeStatus", "ProtectionModeStatusParser", "RouteGap",
 })
 

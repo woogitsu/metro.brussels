@@ -167,11 +167,12 @@ KATEGORIE = {
         # Dodatkowy komentarz o wyróżnieniu celu przesuwa kotwice o wiersz.
         # Komentarz o końcu toru przesuwa kotwice o kolejny wiersz.
         # Dwa komentarze o lampach scenerii przesunęły te same piny o dwa wiersze.
-        ("UiTextTests.cs", 1293), ("UiTextTests.cs", 1306), ("UiTextTests.cs", 1324),
+        # 25.09.2026: komentarz z pomiarem połączonego korpusu przesuwa kotwice o wiersz.
+        ("UiTextTests.cs", 1294), ("UiTextTests.cs", 1307), ("UiTextTests.cs", 1325),
         ("SignallingHudTests.cs", 39),
     },
     "B": {
-        ("UiTextTests.cs", 1393), ("UiTextTests.cs", 1394),
+        ("UiTextTests.cs", 1394), ("UiTextTests.cs", 1395),
     },
 }
 
@@ -271,10 +272,10 @@ def test_regula_po_ksztalcie_literalu_myli_sie_i_dlatego_jej_nie_ma():
                      if not regula.search(tresci[p])]
     zlapane_z_b = [p for p in sorted(KATEGORIE["B"]) if regula.search(tresci[p])]
 
-    assert przepuszczone == [("UiTextTests.cs", 1324)], (
+    assert przepuszczone == [("UiTextTests.cs", 1325)], (
         "reguła po kształcie przestała przepuszczać wiersz o hamulcu awaryjnym — "
         "rozstrzygnięcie 6.D131 wymaga przeliczenia: %s" % przepuszczone)
-    assert zlapane_z_b == [("UiTextTests.cs", 1394)], (
+    assert zlapane_z_b == [("UiTextTests.cs", 1395)], (
         "reguła po kształcie przestała łapić wejście syntetyczne: %s" % zlapane_z_b)
 
 
@@ -288,11 +289,11 @@ def test_czytnik_widzi_pin_takze_wtedy_gdy_literal_jest_sklejony():
     tresci = {(plik, wiersz): tresc
               for plik, wiersz, _r, tresc in CP.piny("tests/Game.Tests")}
 
-    assert len(tresci[("UiTextTests.cs", 1293)]) == 122, (
+    assert len(tresci[("UiTextTests.cs", 1294)]) == 122, (
         "sklejanie literałów przestało działać: %d znaków"
-        % len(tresci[("UiTextTests.cs", 1293)]))
-    assert len(tresci[("UiTextTests.cs", 1324)]) == 98, (
-        len(tresci[("UiTextTests.cs", 1324)]))
+        % len(tresci[("UiTextTests.cs", 1294)]))
+    assert len(tresci[("UiTextTests.cs", 1325)]) == 98, (
+        len(tresci[("UiTextTests.cs", 1325)]))
     assert len(tresci[("SignallingHudTests.cs", 39)]) == 84, (
         len(tresci[("SignallingHudTests.cs", 39)]))
 
@@ -494,9 +495,11 @@ ROZKLAD_LICZBOWYCH = {
         # 517 -> 523 (24.09.2026, LineDrive): granica Merode, prędkość, ślad i bilans.
         # 523 -> 531 (24.09.2026, dwa wjazdy rozkładowe): osiem dokładnych
         # całkowitych pinów liczby kursów, bloków, stacji, kroków i wezwań.
-        "razem": 551, "z_tolerancja": 191, "bez_tolerancji": 360,
+        # 551 -> 560 (24.09.2026, adapter odtwarzania rozkladu): dziewiec
+        # calkowitych pinow bez tolerancji, zmierzonych na polaczonym drzewie.
+        "razem": 560, "z_tolerancja": 191, "bez_tolerancji": 369,
         "zmiennoprzecinkowe": 212, "zmiennoprzecinkowe_bez_tolerancji": 21,
-        "calkowite": 339, "calkowite_z_tolerancja": 0, "tolerancja_zero": 121,
+        "calkowite": 348, "calkowite_z_tolerancja": 0, "tolerancja_zero": 121,
     },
 }
 
