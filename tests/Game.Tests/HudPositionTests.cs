@@ -24,9 +24,7 @@ public sealed class HudPositionTests
 
         var line = Hud.PositionLine(2042.7, 6686.7, name, 12, false);
 
-        StringAssert.Contains(line, name,
-            "Bez osobnego wiersza stacji nazwa celu nadal musi być widoczna.");
-        StringAssert.Contains(line, "za 12 m",
-            "Bez osobnego wiersza stacji odległość nadal musi być widoczna.");
+        Assert.AreEqual("chainage    2042.7 m / 6686.7 m     " + name + " za 12 m", line,
+            "Bez osobnego wiersza stacji pełny cel i odległość muszą pozostać widoczne.");
     }
 }

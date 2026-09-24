@@ -43,8 +43,8 @@ PINY_GRY = {
     # Trzeci pin sprawdza caly wiersz fazy recznej, zamiast niejednoznacznej igly DRZWI.
     "DoorPromptTests.cs": 3,
     "HudLayoutTests.cs": 1,
-    # Jedna dokładna jednoliniowa pozycja przy widocznym celu, kategoria C.
-    "HudPositionTests.cs": 1,
+    # Dwa dokładne warianty pozycji, oba wyniki pojedynczego formatera (C).
+    "HudPositionTests.cs": 2,
     "RunHeaderTests.cs": 1,
     "RunPlanTests.cs": 30,
     "RunResetTests.cs": 2,
@@ -181,7 +181,8 @@ KATEGORIE = {
 # osobne wiersze 1378/1379, wiec oba sa jawnie w kategorii B.
 # 59 -> 61 (24.09.2026, tablice stacji): dwie pelne nazwy w StationWayfindingTests.
 # 61 -> 62 (24.09.2026, HUD 800x600): jednoliniowy kilometraż przy widocznej stacji.
-LICZBA_C = 62
+# 62 -> 63 (24.09.2026, HUD bez wiersza stacji): pełny wiersz pozycji.
+LICZBA_C = 63
 
 
 def test_ile_pinow_stoi_w_testach_warstwy_gry():
@@ -197,8 +198,8 @@ def test_ile_pinow_stoi_w_testach_warstwy_gry():
     # zgloszeniach URWANYCH.
     # 64 -> 65 (24.09.2026, integracja): pin caly wiersz fazy.
     # 65 -> 67 (24.09.2026, tablice stacji): dwie pelne nazwy.
-    # 67 -> 68 (24.09.2026, HUD 800x600): dokładny wiersz pozycji.
-    assert sum(zmierzone.values()) == 68, (
+    # 67 -> 69 (24.09.2026, HUD 800x600): dwa dokładne warianty pozycji.
+    assert sum(zmierzone.values()) == 69, (
         "pinów warstwy gry jest %d, a pomiar z 14.09.2026 dał 61 "
         "(47 po 6.D155, 45 przed nim; +5 przy MB-03, +1 przy MB-05, "
         "+5 przy audycie bramki MB-05, +2 przy MB-08 — `DoorPromptTests`)"
@@ -230,8 +231,8 @@ def test_kazdy_pin_ma_kategorie_i_suma_sie_zgadza():
     # ktora NIE jest przy okazji: stalo tu „nie sumują się do 47" przy warunku na 52,
     # czyli komunikat bledu podawal liczbe o piec mniejsza od tej, ktorej bramka
     # pilnowala. Kto by na niego trafil, szukalby rozbieznosci, ktorej nie ma.
-    assert len(KATEGORIE["A"]) + len(KATEGORIE["B"]) + LICZBA_C == 68, (
-        "kategorie nie sumują się do 68: A=%d, B=%d, C=%d"
+    assert len(KATEGORIE["A"]) + len(KATEGORIE["B"]) + LICZBA_C == 69, (
+        "kategorie nie sumują się do 69: A=%d, B=%d, C=%d"
         % (len(KATEGORIE["A"]), len(KATEGORIE["B"]), LICZBA_C))
 
 

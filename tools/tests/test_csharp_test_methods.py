@@ -635,8 +635,10 @@ ROZKLAD_POSTACI = {
         # 4929 -> 4957 i 842 -> 843 (24.09.2026, pamiec cue): test przejazdu i zakresu pamieci.
         # 4957 -> 4970 (24.09.2026, autopilot E): osiem asercji i ich komunikaty.
         # 4970 -> 4977 (24.09.2026, HUD 800x600): dwa testy pozycji i ich komunikaty.
-        "zwykly": 4977,
-        "interpolowany ($)": 843,
+        # 4977 -> 5000, 843 -> 844 (24.09.2026, wybór składu i HUD): testy N/T,
+        # komunikaty asercji oraz pełny wiersz pozycji; przeliczone czytnikiem.
+        "zwykly": 5000,
+        "interpolowany ($)": 844,
         "werbatim (@)": 100,
         "surowy interpolowany ($$\"\"\")": 13,
         # 8 -> 10 (23.09.2026): dwie probki sceny w testach.

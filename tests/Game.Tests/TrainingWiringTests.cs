@@ -36,7 +36,8 @@ public sealed class TrainingWiringTests
         var source = FirstRunSource();
         var start = source.IndexOf("private void ExecuteLineEvent(", StringComparison.Ordinal);
         var end = source.IndexOf("private void HandleTrainKeys(", start, StringComparison.Ordinal);
-        Assert.IsTrue(start >= 0 && end > start);
+        Assert.IsTrue(start >= 0 && end > start,
+            "nie znaleziono granic obsługi zdarzeń linii w FirstRun");
         var observe = source[start..end];
         var selection = observe.IndexOf("_observed = _lineSession.ObservedIndex;", StringComparison.Ordinal);
         var drive = observe.IndexOf("_line = _lineCore!.Trains[_observed].Drive;", StringComparison.Ordinal);

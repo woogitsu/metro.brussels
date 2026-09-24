@@ -28,14 +28,17 @@ public sealed class LineReplayTests
         var second = LineSession.TrainIdAt(1);
         session.Core.Add(second, 5000L);
         for (var i = 0; i < 60; i++)
-            Assert.IsTrue(session.Step(DriverKeys.None));
+            Assert.IsTrue(session.Step(DriverKeys.None),
+                "przebieg przed zmianą obserwowanego składu nie powinien się kończyć");
 
         var firstCommand = session.Command;
         Assert.AreNotEqual(DriverCommand.Coast, firstCommand,
             "pierwszy skład powinien już jechać, aby test wykrył stare polecenie");
         session.Execute(new InputLogEvent(60L, LineEventKind.Observe, second));
-        Assert.AreEqual(second, session.Observed.Id);
-        Assert.IsNull(session.Observed.Drive);
+        Assert.AreEqual(second, session.Observed.Id,
+            "zdarzenie obserwacji ma wybrać drugi skład");
+        Assert.IsNull(session.Observed.Drive,
+            "drugi skład nie powinien jeszcze być na osi");
         Assert.AreEqual(DriverCommand.Coast, session.Command,
             "skład jeszcze poza osią nie może odziedziczyć nastawnika pierwszego");
         session.Execute(new InputLogEvent(60L, LineEventKind.Observe, LineSession.CabTrainId));
@@ -50,13 +53,16 @@ public sealed class LineReplayTests
         var secondId = LineSession.TrainIdAt(1);
         session.Core.Add(secondId, 1500L);
         for (var i = 0; i < 60; i++)
-            Assert.IsTrue(session.Step(DriverKeys.None));
+            Assert.IsTrue(session.Step(DriverKeys.None),
+                "przebieg przed przejęciem nie powinien się kończyć");
         session.Execute(new InputLogEvent(60L, LineEventKind.Take, LineSession.CabTrainId));
         for (var i = 0; i < 6500; i++)
-            Assert.IsTrue(session.Step(DriverKeys.Powering));
+            Assert.IsTrue(session.Step(DriverKeys.Powering),
+                "przebieg do drugiego składu nie powinien się kończyć");
 
         var second = session.Core.Trains[1];
-        Assert.IsTrue(second.OnLine);
+        Assert.IsTrue(second.OnLine,
+            "drugi skład musi być na osi, by porównać nastawnik");
         var before = second.Drive!.LastCommand;
         Assert.AreEqual(DriverCommand.FullServiceBrake, before,
             "drugi skład musi naprawdę hamować, gdy pierwszy ma pełen ciąg");
@@ -65,7 +71,8 @@ public sealed class LineReplayTests
         session.Execute(new InputLogEvent(6560L, LineEventKind.Take, secondId));
         Assert.AreEqual(before, second.DriverCommand!.Value,
             "przejęcie nie zmienia polecenia przed kolejnym krokiem");
-        Assert.IsTrue(session.Step(DriverKeys.Powering));
+        Assert.IsTrue(session.Step(DriverKeys.Powering),
+            "pierwszy krok po przejęciu nie powinien kończyć przebiegu");
         var after = second.DriverCommand!.Value;
         Assert.IsTrue(Math.Abs(after.Throttle - before.Throttle) <= 0.02
             && Math.Abs(after.Brake - before.Brake) <= 0.02,
@@ -73,7 +80,8 @@ public sealed class LineReplayTests
 
         session.Execute(new InputLogEvent(6561L, LineEventKind.Observe, LineSession.CabTrainId));
         var firstBefore = session.Core.Trains[0].DriverCommand!.Value;
-        Assert.IsTrue(session.Step(DriverKeys.Braking));
+        Assert.IsTrue(session.Step(DriverKeys.Braking),
+            "krok po powrocie do pierwszego składu nie powinien kończyć przebiegu");
         var firstAfter = session.Core.Trains[0].DriverCommand!.Value;
         Assert.IsTrue(firstBefore.Throttle - firstAfter.Throttle < 0.02,
             "powrót do pierwszego składu też ma zacząć od jego własnego nastawnika");
