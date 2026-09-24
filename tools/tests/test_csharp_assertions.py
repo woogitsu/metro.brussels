@@ -316,7 +316,7 @@ BEZ_KOMUNIKATU = {
     "ScenarioDriveTests.cs": 35,
     "SceneAxisTests.cs": 10,
     "ServiceDayTests.cs": 31,
-    "SignallingHudTests.cs": 15,
+    "SignallingHudTests.cs": 21,
     "SignallingPlanTests.cs": 23,
     "SpeedProfileTests.cs": 29,
     "StationServiceTests.cs": 53,
@@ -597,7 +597,8 @@ NIEROZSTRZYGNIETYCH = 68
 # 3424 -> 3428 (24.09.2026, krótki HUD chase): cztery stany granicy.
 # 3428 -> 3441 (24.09.2026, integracja tablic i pomocy linii):
 # te same trzynaście kontroli z komunikatami.
-ASERCJI_RAZEM = 3441
+# 3441 -> 3447 (24.09.2026, stan składu po zjeździe): sześć asercji.
+ASERCJI_RAZEM = 3447
 
 
 def _rozklad():

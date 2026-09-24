@@ -644,7 +644,9 @@ ROZKLAD_POSTACI = {
         # 5030 -> 5031, werbatim 100 -> 101 (24.09.2026, chase 800x600):
         # komunikat asercji oraz wzorzec węzła View.
         # 5031 -> 5038 (24.09.2026, krótki HUD chase): teksty i komunikaty testu.
-        "zwykly": 5054,
+        # 5054 -> 5064 (24.09.2026, test końca planu): wejścia i komunikaty
+        # rzeczywistego przebiegu LineCore w SignallingHudTests.
+        "zwykly": 5064,
         "interpolowany ($)": 849,
         "werbatim (@)": 101,
         "surowy interpolowany ($$\"\"\")": 13,
@@ -707,7 +709,8 @@ ROZKLAD_POSTACI = {
         # 1464 -> 1465 i 514 -> 515 (24.09.2026, oznaczenia stacji):
         # sciezka GLB i odmowa braku; zmierzone czytnikiem po obu katalogach.
         # 1465 -> 1468 (24.09.2026, HUD 800x600): klucz i dwa warianty pozycji.
-        "zwykly": 1470,
+        # 1470 -> 1471 (24.09.2026, HUD po końcu planu): nowy wiersz stanu.
+        "zwykly": 1471,
         # 489 -> 494 (22.09.2026, 6.D235): piec komunikatow `Abort` dla pliku ZLEGO
         # w `FirstRun.cs`. Przeliczone z drzewa, nie zsumowane.
         # 494 -> 513 (23.09.2026, 6.M1): komunikaty odmow i wiersze zapisu zdarzen

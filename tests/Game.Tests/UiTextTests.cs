@@ -233,6 +233,7 @@ public sealed class UiTextTests
     // 589 -> 590 (24.09.2026, interaktywne R): komunikat odmowy przeładowania sceny.
     // 590 -> 592 (24.09.2026, krótki HUD chase): dystans i próg.
     // 592 -> 595 (24.09.2026, integracja pomocy linii): trzy literały testów pomocy.
+    // 595 -> 596 (24.09.2026, stan składu po zjeździe): nowy wiersz HUD.
     private const int LiteralowWZasieguBramki = 596;
 
     /// <summary>Ile różnych — dolne ostrze, zmierzone 12.09.2026.</summary>
@@ -1509,6 +1510,7 @@ public sealed class UiTextTests
     // 630 -> 631 (24.09.2026, interaktywne R): ten sam nowy komunikat.
     // 631 -> 633 (24.09.2026, krótki HUD chase): te same dwa napisy.
     // 633 -> 636 (24.09.2026, integracja pomocy linii): trzy pozycje źródłowe testów.
+    // 636 -> 637 (24.09.2026, stan składu po zjeździe): ten sam wiersz HUD.
     private const int PozycjiStaregoCzytnika = 637;
 
     /// <summary>
@@ -2328,6 +2330,7 @@ public sealed class UiTextTests
     // 407 -> 408 (24.09.2026, interaktywne R): komunikat błędu.
     // 408 -> 410 (24.09.2026, krótki HUD chase): te same dwa napisy.
     // 410 -> 411 (24.09.2026, integracja pomocy linii): jeden dodatkowy literał.
+    // 411 -> 412 (24.09.2026, stan składu po zjeździe): ten sam wiersz HUD.
     private const int LiteralowDotknietychZdejmowaniem = 412;
 
     /// <summary>
