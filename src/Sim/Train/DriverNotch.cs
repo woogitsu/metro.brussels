@@ -133,7 +133,7 @@ public sealed class DriverNotch
         return Command;
     }
 
-    /// <summary>Ustawia położenie dźwigni wprost — do resetu przejazdu.</summary>
+    /// <summary>Ustawia położenie dźwigni wprost — do resetu i przejęcia innego składu.</summary>
     /// <param name="command">Położenie, od którego dźwignia ma iść dalej.</param>
     public void Set(DriverCommand command) => Command = command.Clamped();
 }

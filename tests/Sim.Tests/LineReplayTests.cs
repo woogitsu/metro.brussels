@@ -43,6 +43,42 @@ public sealed class LineReplayTests
             "powrót ma przywrócić polecenie tego samego składu bez kroku fizyki");
     }
 
+    [TestMethod]
+    public void Przejecie_drugiego_skladu_nie_dziedziczy_nastawnika_pierwszego()
+    {
+        var session = Sesja();
+        var secondId = LineSession.TrainIdAt(1);
+        session.Core.Add(secondId, 1500L);
+        for (var i = 0; i < 60; i++)
+            Assert.IsTrue(session.Step(DriverKeys.None));
+        session.Execute(new InputLogEvent(60L, LineEventKind.Take, LineSession.CabTrainId));
+        for (var i = 0; i < 6500; i++)
+            Assert.IsTrue(session.Step(DriverKeys.Powering));
+
+        var second = session.Core.Trains[1];
+        Assert.IsTrue(second.OnLine);
+        var before = second.Drive!.LastCommand;
+        Assert.AreEqual(DriverCommand.FullServiceBrake, before,
+            "drugi skład musi naprawdę hamować, gdy pierwszy ma pełen ciąg");
+
+        session.Execute(new InputLogEvent(6560L, LineEventKind.Observe, secondId));
+        session.Execute(new InputLogEvent(6560L, LineEventKind.Take, secondId));
+        Assert.AreEqual(before, second.DriverCommand!.Value,
+            "przejęcie nie zmienia polecenia przed kolejnym krokiem");
+        Assert.IsTrue(session.Step(DriverKeys.Powering));
+        var after = second.DriverCommand!.Value;
+        Assert.IsTrue(Math.Abs(after.Throttle - before.Throttle) <= 0.02
+            && Math.Abs(after.Brake - before.Brake) <= 0.02,
+            $"nastawnik skoczył z {before} do {after} w jednym kroku 120 Hz");
+
+        session.Execute(new InputLogEvent(6561L, LineEventKind.Observe, LineSession.CabTrainId));
+        var firstBefore = session.Core.Trains[0].DriverCommand!.Value;
+        Assert.IsTrue(session.Step(DriverKeys.Braking));
+        var firstAfter = session.Core.Trains[0].DriverCommand!.Value;
+        Assert.IsTrue(firstBefore.Throttle - firstAfter.Throttle < 0.02,
+            "powrót do pierwszego składu też ma zacząć od jego własnego nastawnika");
+    }
+
     private const double BeekkantM = 509.7;
     private const double WindowM = 5.0;
 
