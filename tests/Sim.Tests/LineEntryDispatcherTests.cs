@@ -210,12 +210,12 @@ public sealed class LineEntryDispatcherTests
         var session = new LineSession(line, new DriverNotch(0.5), FixedStep.Simulation,
             new LineEntryDispatcher(line, schedule, schedule.ServiceDay));
         while (!line.Trains.Any(t => t.LeftPlan) && line.Steps < 200_000L)
-            Assert.IsTrue(session.Step(DriverKeys.None));
+            Assert.IsTrue(session.Step(DriverKeys.None), "sesja musi dojść do zjazdu pierwszego składu");
 
         Assert.IsTrue(line.Trains[0].LeftPlan, "pierwszy skład musi zjechać z planu");
         Assert.IsTrue(line.Trains[1].OnLine, "drugi skład musi być jeszcze na planie");
         Assert.AreEqual(1, session.ActiveObservedIndex, "obserwacja ma przejść na czynny skład");
-        Assert.AreEqual("beek", session.Observed.Id);
+        Assert.AreEqual("beek", session.Observed.Id, "obserwowany musi być drugi skład");
         Assert.IsNotNull(session.TelemetryRow(), "telemetria ma śledzić drugi skład");
         Assert.IsNull(session.NextActiveTrainId(), "samotnego czynnego składu nie można przełączyć na zjechany");
         Assert.AreEqual(0.0, session.AccelerationMps2, 0.0,
@@ -232,18 +232,18 @@ public sealed class LineEntryDispatcherTests
         var session = new LineSession(line, new DriverNotch(0.5), FixedStep.Simulation,
             new LineEntryDispatcher(line, schedule, schedule.ServiceDay));
         while (!line.Trains.Any(t => t.LeftPlan) && line.Steps < 200_000L)
-            Assert.IsTrue(session.Step(DriverKeys.None));
+            Assert.IsTrue(session.Step(DriverKeys.None), "sesja musi dojść do zjazdu przed późniejszym kursem");
 
-        Assert.IsTrue(line.Trains[0].LeftPlan);
+        Assert.IsTrue(line.Trains[0].LeftPlan, "pierwszy skład musi opuścić plan");
         Assert.IsNull(session.ActiveObservedIndex, "widok nie może śledzić zjechanego składu");
         Assert.IsNull(session.TelemetryRow(), "zjechany skład nie może emitować dalszej telemetrii");
-        Assert.AreEqual(DriverCommand.Coast, session.Command);
-        Assert.AreEqual(0.0, session.AccelerationMps2, 0.0);
-        Assert.IsNull(session.NextActiveTrainId());
+        Assert.AreEqual(DriverCommand.Coast, session.Command, "bez składu komenda ma być neutralna");
+        Assert.AreEqual(0.0, session.AccelerationMps2, 0.0, "bez składu przyspieszenie ma być zerowe");
+        Assert.IsNull(session.NextActiveTrainId(), "bez składu nie ma kolejnego celu obserwacji");
         while (line.Trains.Count < 2 && line.Steps < schedule.Entries[1].ReleaseStep + 1)
             Assert.IsTrue(session.Step(DriverKeys.None), "zegar musi doczekać drugiego kursu");
         Assert.AreEqual(1, session.ActiveObservedIndex, "kamera ma przejąć nowy skład po wjeździe");
-        Assert.AreEqual("beek", session.Observed.Id);
-        Assert.IsNotNull(session.TelemetryRow());
+        Assert.AreEqual("beek", session.Observed.Id, "kamera ma śledzić późniejszy kurs");
+        Assert.IsNotNull(session.TelemetryRow(), "telemetria ma wrócić wraz z nowym składem");
     }
 }

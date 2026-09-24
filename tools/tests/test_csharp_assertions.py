@@ -494,7 +494,9 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 # 2077 -> 2144 (24.09.2026, integracja dyspozytora, test granicy, hamowanie i metadane).
 # 2144 -> 2173 (24.09.2026, nowe testy sceny i adaptera rozkladu).
 # 2173 -> 2179 (24.09.2026, krok wjazdu i pozycja kabiny).
-Z_KOMUNIKATEM_RAZEM = 2179
+# 2179 -> 2198 (25.09.2026, obserwacja czynnych składów): dziewiętnaście
+# asercji w dwóch testach ma jawne komunikaty; klasy bez opisu nie rosną.
+Z_KOMUNIKATEM_RAZEM = 2198
 NIEROZSTRZYGNIETYCH = 69
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
 #: `tests/Sim.Tests/DefaultArmAuditTests.cs` — bramki na ramionach domyślnych
@@ -637,7 +639,8 @@ NIEROZSTRZYGNIETYCH = 69
 # 3544 -> 3606 (24.09.2026, testy dyspozytora, hamowania i scenerii).
 # 3606 -> 3635 (24.09.2026, scena i adapter odtwarzania rozkladu).
 # 3635 -> 3641 (24.09.2026, te same testy).
-ASERCJI_RAZEM = 3641
+# 3641 -> 3660 (25.09.2026, obserwacja czynnych składów): zmierzone w drzewie.
+ASERCJI_RAZEM = 3660
 
 
 def _rozklad():
