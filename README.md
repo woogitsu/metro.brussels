@@ -20,7 +20,7 @@ dotnet test tests/Sim.Tests          # rdzeń symulacji, bez Godota
 
 ## Stan: co działa, a czego nie ma
 
-**Rdzeń symulacji — `src/Sim/`, 63 plików `.cs`, kompiluje się i testuje bez silnika:**
+**Rdzeń symulacji — `src/Sim/`, 64 pliki `.cs`, kompiluje się i testuje bez silnika:**
 
 - fizyka: model trakcji M7, opór Davisa, hamowanie służbowe i granica przyczepności,
   krok stały 1/120 s liczony **licznikiem kroków**, nigdy `t += dt`;
