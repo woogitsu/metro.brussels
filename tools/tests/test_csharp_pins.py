@@ -47,6 +47,7 @@ PINY_GRY = {
     "RunPlanTests.cs": 30,
     "RunResetTests.cs": 2,
     "SignallingHudTests.cs": 1,
+    "StationWayfindingTests.cs": 2,
     "TelemetryTrackTests.cs": 1,
     # MB-03: cztery piny w `TractionBlockTests.cs` — trzy brzmienia wiersza blokady
     # i jedno przy dwóch blokadach naraz. Wszystkie cztery to KATEGORIA C: kazdy jest
@@ -152,11 +153,11 @@ KATEGORIE = {
         # i 1372/1373 -> 1373/1374. Powod ten sam — komentarz z powodem przy
         # `LiteralowWZasieguBramki`, tym razem o jeden wiersz. TRESC pinow nie drgnela.
         # Przeliczone roznica plikow (difflib).
-        ("UiTextTests.cs", 1278), ("UiTextTests.cs", 1291), ("UiTextTests.cs", 1309),
+        ("UiTextTests.cs", 1279), ("UiTextTests.cs", 1292), ("UiTextTests.cs", 1310),
         ("SignallingHudTests.cs", 37),
     },
     "B": {
-        ("UiTextTests.cs", 1378), ("UiTextTests.cs", 1379),
+        ("UiTextTests.cs", 1379), ("UiTextTests.cs", 1380),
     },
 }
 
@@ -176,7 +177,8 @@ KATEGORIE = {
 # 59 -> 60 (24.09.2026, integracja): dokladny wiersz fazy DoorPromptTests.
 # 60 -> 59 (24.09.2026, cue): dwa syntetyczne piny UiTextTests zajmuja teraz
 # osobne wiersze 1378/1379, wiec oba sa jawnie w kategorii B.
-LICZBA_C = 59
+# 59 -> 61 (24.09.2026, tablice stacji): dwie pelne nazwy w StationWayfindingTests.
+LICZBA_C = 61
 
 
 def test_ile_pinow_stoi_w_testach_warstwy_gry():
@@ -191,7 +193,8 @@ def test_ile_pinow_stoi_w_testach_warstwy_gry():
     # 61 -> 64 (15.09.2026, 6.D214): trzy piny `UiTextTests.cs` bramki na
     # zgloszeniach URWANYCH.
     # 64 -> 65 (24.09.2026, integracja): pin caly wiersz fazy.
-    assert sum(zmierzone.values()) == 65, (
+    # 65 -> 67 (24.09.2026, tablice stacji): dwie pelne nazwy.
+    assert sum(zmierzone.values()) == 67, (
         "pinów warstwy gry jest %d, a pomiar z 14.09.2026 dał 61 "
         "(47 po 6.D155, 45 przed nim; +5 przy MB-03, +1 przy MB-05, "
         "+5 przy audycie bramki MB-05, +2 przy MB-08 — `DoorPromptTests`)"
@@ -223,8 +226,8 @@ def test_kazdy_pin_ma_kategorie_i_suma_sie_zgadza():
     # ktora NIE jest przy okazji: stalo tu „nie sumują się do 47" przy warunku na 52,
     # czyli komunikat bledu podawal liczbe o piec mniejsza od tej, ktorej bramka
     # pilnowala. Kto by na niego trafil, szukalby rozbieznosci, ktorej nie ma.
-    assert len(KATEGORIE["A"]) + len(KATEGORIE["B"]) + LICZBA_C == 65, (
-        "kategorie nie sumują się do 65: A=%d, B=%d, C=%d"
+    assert len(KATEGORIE["A"]) + len(KATEGORIE["B"]) + LICZBA_C == 67, (
+        "kategorie nie sumują się do 67: A=%d, B=%d, C=%d"
         % (len(KATEGORIE["A"]), len(KATEGORIE["B"]), LICZBA_C))
 
 
@@ -245,10 +248,10 @@ def test_regula_po_ksztalcie_literalu_myli_sie_i_dlatego_jej_nie_ma():
                      if not regula.search(tresci[p])]
     zlapane_z_b = [p for p in sorted(KATEGORIE["B"]) if regula.search(tresci[p])]
 
-    assert przepuszczone == [("UiTextTests.cs", 1309)], (
+    assert przepuszczone == [("UiTextTests.cs", 1310)], (
         "reguła po kształcie przestała przepuszczać wiersz o hamulcu awaryjnym — "
         "rozstrzygnięcie 6.D131 wymaga przeliczenia: %s" % przepuszczone)
-    assert zlapane_z_b == [("UiTextTests.cs", 1379)], (
+    assert zlapane_z_b == [("UiTextTests.cs", 1380)], (
         "reguła po kształcie przestała łapić wejście syntetyczne: %s" % zlapane_z_b)
 
 
@@ -262,11 +265,11 @@ def test_czytnik_widzi_pin_takze_wtedy_gdy_literal_jest_sklejony():
     tresci = {(plik, wiersz): tresc
               for plik, wiersz, _r, tresc in CP.piny("tests/Game.Tests")}
 
-    assert len(tresci[("UiTextTests.cs", 1278)]) == 122, (
+    assert len(tresci[("UiTextTests.cs", 1279)]) == 122, (
         "sklejanie literałów przestało działać: %d znaków"
-        % len(tresci[("UiTextTests.cs", 1278)]))
-    assert len(tresci[("UiTextTests.cs", 1309)]) == 98, (
-        len(tresci[("UiTextTests.cs", 1309)]))
+        % len(tresci[("UiTextTests.cs", 1279)]))
+    assert len(tresci[("UiTextTests.cs", 1310)]) == 98, (
+        len(tresci[("UiTextTests.cs", 1310)]))
     assert len(tresci[("SignallingHudTests.cs", 37)]) == 84, (
         len(tresci[("SignallingHudTests.cs", 37)]))
 
@@ -386,8 +389,9 @@ ROZKLAD_LICZBOWYCH = {
         # wierszy komunikatu HUD; calkowity bez tolerancji. ZMIERZONE.
         # 250 -> 251 (24.09.2026, braking cue): dystans z tolerancja.
         # 251 -> 252 (24.09.2026, kamera): pin kierunku z tolerancja.
-        "razem": 252, "z_tolerancja": 108, "bez_tolerancji": 144,
-        "zmiennoprzecinkowe": 114, "zmiennoprzecinkowe_bez_tolerancji": 6,
+        # 252 -> 255: trzy pomiary polozenia tablic z tolerancja.
+        "razem": 255, "z_tolerancja": 111, "bez_tolerancji": 144,
+        "zmiennoprzecinkowe": 117, "zmiennoprzecinkowe_bez_tolerancji": 6,
         "calkowite": 138, "calkowite_z_tolerancja": 0, "tolerancja_zero": 18,
     },
     "tests/Sim.Tests": {

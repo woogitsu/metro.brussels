@@ -868,21 +868,21 @@ KOTWICE_DEKLARACJI = {
     "static readonly": r"`static readonly` \*\*(\d+)\*\*",
     "razem w rozkladzie": r"razem \*\*(\d+)\*\*;",
     "bez modyfikatora (zdanie 1)": r"stoi \*\*(\d+)\*\* z nich",
-    "bez modyfikatora (zdanie 2)": r"zabiera \*\*(\d+)\*\* deklaracje",
+    "bez modyfikatora (zdanie 2)": r"zabiera \*\*(\d+)\*\* deklaracji, zostaje",
     # Kotwica ZAWEZONA przy 6.D271: dolozenie drugiego zdania o kształcie
     # „(zostaje N)" zrobilo
     # `zostaje \*\*(\d+)\*\*` dwuznacznym, a czytnik zwracal wtedy `None`
     # i porownanie przechodzilo cicho. Zlapala to kontrola jednoznacznosci
     # kotwic, dopisana razem z nimi przy 6.D268 — czyli bramka, ktora istnieje
     # dokladnie na ten wypadek.
-    "zostaje po odjeciu": r"deklaracje, zostaje \*\*(\d+)\*\*",
+    "zostaje po odjeciu": r"deklaracji, zostaje \*\*(\d+)\*\*",
     # Szesc kotwic dolozonych przy 6.D271. Lista siedmiu z 6.D268 miala siedem
     # wpisow, bo tyle zlapaly KOTWICE — a nie bo tyle bylo nieprawdziwych.
     # W tym samym module stalo ich TRZYNASCIE; szesciu nie widzialo nic, bo trzy
     # sa NIEPOGRUBIONE (census ich nie liczy), a trzech nie obejmowala zadna
     # kotwica. Te szesc jest od dzis objete.
     "stara podloga nizej o": r"stara podloga 200 lezala \*\*(\d+)\*\* nizej",
-    "galaz static readonly zabiera": r"zabiera \*\*(\d+)\*\* deklaracji",
+    "galaz static readonly zabiera": r"`static readonly` zabiera \*\*(\d+)\*\* deklaracji",
     "po wycieciu galezi zostaje": r"\(zostaje \*\*(\d+)\*\*\)",
     "rownosc w nawiasie": r"Rownosci \(`== (\d+)`\)",
     "zapas nad suma": r"Zapas \*\*(\d+)\*\* \(",
@@ -1075,9 +1075,11 @@ POKRYTYCH_MIESZANIE = 1
 #: Numer wiersza rusza sie przy kazdym dopisanym akapicie powyzej, wiec przybicie po nim byloby kruche —
 #: dlatego przybita jest LICZBA par i rozklad po plikach, a same adresy stoja
 #: w `reports/6d274-proza-pokryta-proza.md`, gdzie starzec sie nie maja.
-PAR_WZAJEMNYCH = 12
+# 12 -> 10 (24.09.2026, tablice stacji): nowe deklaracje rozrozniaja dwie
+# pary, ktore poprzednio pokrywaly sie przypadkowo ta sama liczba.
+PAR_WZAJEMNYCH = 10
 PAR_WZAJEMNYCH_PER_PLIK = {
-    "test_dead_constants_csharp.py": 10,
+    "test_dead_constants_csharp.py": 8,
     "test_report_claims.py": 1,
     "test_suite_runtime_budget.py": 1,
 }
