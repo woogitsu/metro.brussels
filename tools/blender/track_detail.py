@@ -133,6 +133,7 @@ MATERIALS = {
     "wall": ((0.22, 0.29, 0.32), 0, 0),
     "lamp": ((0.52, 0.44, 0.33), 0, 0.45),
     "curve_cue": ((0.55, 0.61, 0.62), 0, 0.60),
+    "station_panel": ((0.16, 0.18, 0.19), 0, 0),
 }
 
 
@@ -184,7 +185,7 @@ def sweep_samples(frames, chainages, start, end):
     return samples
 
 
-def make_chunk(entry, frames, chainages, out_dir, mats):
+def make_chunk(entry, frames, chainages, stations, out_dir, mats):
     start, end = entry["start_m"], entry["end_m"]
     solids = {name: Solids() for name in MATERIALS}
     offsets = PROFILES["box_double"]["track_offsets"]
@@ -206,6 +207,17 @@ def make_chunk(entry, frames, chainages, out_dir, mats):
         for side in (-1, 1):
             solids["wall"].box(frame, side * 4.61, 2.18, 0.30, 0.12, 3.9)
             solids["lamp"].box(frame, side * 4.48, 3.35, 1.8, 0.14, 0.08)
+        # One shallow neutral panel between wall posts within each 95 m
+        # platform. It gives the otherwise blank station wall a readable bay
+        # rhythm without adding lights or projecting into the train envelope.
+        panel_at = at + 8.0
+        if panel_at + 3.6 < end and any(
+            abs(panel_at - station) <= 43.5 for station in stations
+        ):
+            panel_frame = frame_at(frames, chainages, panel_at)
+            for side in (-1, 1):
+                solids["station_panel"].box(panel_frame, side * 4.56, 1.40,
+                                             7.2, 0.04, 0.38)
     # Low-emission plates mark only the OUTER wall of bends. Their
     # eight-metre rhythm reveals where the track continues without any new
     # dynamic lights or operator branding. The 4.63 m lateral offset sits just
@@ -250,6 +262,7 @@ def main():
     mats = {name: material(name, *spec) for name, spec in MATERIALS.items()}
     for entry in entries:
         print("[DETAIL]", make_chunk(entry, result["frames"], result["station_m"],
+                                     [s["chainage_m"] for s in stations],
                                      args.out_dir, mats), flush=True)
 
 
