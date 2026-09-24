@@ -104,7 +104,8 @@ def test_visual_continuation_uses_independent_axis_and_glb_pair():
         for name in ("L1_A-visual-tail.glb", "L1_A-visual-tail-detail.glb"):
             _minimal_glb(os.path.join(assets, name))
         shutil.copyfile(TAIL_AXIS, os.path.join(assets, "L1_A-visual-tail-axis.json"))
-        assert G.check_visual_continuation(metadata, AXIS, TAIL_AXIS, assets) == []
+        problems = G.check_visual_continuation(metadata, AXIS, TAIL_AXIS, assets)
+        assert problems == [], problems
 
         # The camera would move with the mesh, so an image comparison cannot
         # detect this 100 m displacement. The independent axis must reject it.
@@ -129,7 +130,8 @@ def test_visual_continuation_allows_an_old_asset_set_without_the_pair():
         "present": False, "mesh_objects": 0, "bbox_min": None, "bbox_max": None,
         "axis_length_m": 0, "seam_gap_m": 0}}
     with tempfile.TemporaryDirectory() as assets:
-        assert G.check_visual_continuation(metadata, AXIS, TAIL_AXIS, assets) == []
+        problems = G.check_visual_continuation(metadata, AXIS, TAIL_AXIS, assets)
+        assert problems == [], problems
         problems = G.check_visual_continuation(metadata, AXIS, TAIL_AXIS, assets,
                                                 require_visual_tail=True)
         assert any("wymagany pakiet" in problem for problem in problems), problems
