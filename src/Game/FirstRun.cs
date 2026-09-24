@@ -2389,7 +2389,7 @@ public sealed partial class FirstRun : Node3D
                 distance = approach.DistanceM;
             }
         }
-        else
+        else if (!TrackEndStop.Reached(chainage, _axis.LengthM))
         {
             foreach (var station in _axis.Stations)
             {
