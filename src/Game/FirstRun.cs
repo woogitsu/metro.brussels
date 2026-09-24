@@ -2624,12 +2624,18 @@ public sealed partial class FirstRun : Node3D
             }
 
             var odleglosc = nastepnaNaLinii.Value.ChainageM - ChainageM;
-            var fazaHamowaniaNaLinii = _brakingCueMemory.Update(
-                _lineCore!.Trains[Math.Clamp(_observed, 0, _lineCore.Trains.Count - 1)].Id,
-                nastepnaNaLinii.Value.ChainageM, ObservedOwner() == ControlOwner.Driver,
-                _activeKeys, _command, odleglosc, _state.SpeedMps,
-                DesignAssumptions.ControlNotchRatePerSecond,
-                _controller.ServiceBrakeMps2, BrakingPointSolver.M7);
+            // Automatyczny --line korzysta z LineDrive bez LineCore. Podpowiedź
+            // hamowania jest tylko dla przejętego składu, więc nie odczytuj tu
+            // identyfikatora pociągu, gdy rdzeń sesji nie istnieje.
+            var fazaHamowaniaNaLinii = _lineCore is { Trains.Count: > 0 }
+                && ObservedOwner() == ControlOwner.Driver
+                ? _brakingCueMemory.Update(
+                    _lineCore.Trains[Math.Clamp(_observed, 0, _lineCore.Trains.Count - 1)].Id,
+                    nastepnaNaLinii.Value.ChainageM, true,
+                    _activeKeys, _command, odleglosc, _state.SpeedMps,
+                    DesignAssumptions.ControlNotchRatePerSecond,
+                    _controller.ServiceBrakeMps2, BrakingPointSolver.M7)
+                : BrakingCueStage.None;
             var hamowanieNaLinii = fazaHamowaniaNaLinii == BrakingCueStage.Now
                 ? UiText.Get("hud.station.brake-now")
                 : fazaHamowaniaNaLinii == BrakingCueStage.Prepare

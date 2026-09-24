@@ -27,6 +27,19 @@ namespace MetroBxl.Game.Tests;
 [TestClass]
 public sealed class TrainingWiringTests
 {
+    [TestMethod]
+    public void AUTOMATYCZNA_LINIA_NIE_ODCZYTUJE_NIEISTNIEJACEGO_LINE_CORE_W_HUD()
+    {
+        var source = FirstRunSource();
+        var start = source.IndexOf("private string StationLine()", StringComparison.Ordinal);
+        var end = source.IndexOf("if (_stations is null)", start, StringComparison.Ordinal);
+        Assert.IsTrue(start >= 0 && end > start, "nie znaleziono wiersza stacji HUD");
+        var stationLine = source[start..end];
+        StringAssert.Contains(stationLine, "_lineCore is { Trains.Count: > 0 }");
+        StringAssert.Contains(stationLine, "ObservedOwner() == ControlOwner.Driver");
+        StringAssert.Contains(stationLine, ": BrakingCueStage.None;");
+    }
+
     private static string FirstRunSource() =>
         KorzenRepozytorium.Tresc("src", "Game", "FirstRun.cs");
 
