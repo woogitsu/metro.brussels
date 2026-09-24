@@ -469,7 +469,8 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 # 1973 -> 1977 (24.09.2026, automat bez sygnalizacji): cztery asercje
 # strażnika BrakingCue, każda z komunikatem.
 # 1977 -> 1978 (24.09.2026, widok chase 800x600): jedna asercja zawijania View.
-Z_KOMUNIKATEM_RAZEM = 1978
+# 1978 -> 1982 (24.09.2026, krótki HUD chase): cztery granice z opisem.
+Z_KOMUNIKATEM_RAZEM = 1982
 NIEROZSTRZYGNIETYCH = 68
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
 #: `tests/Sim.Tests/DefaultArmAuditTests.cs` — bramki na ramionach domyślnych
@@ -591,7 +592,8 @@ NIEROZSTRZYGNIETYCH = 68
 # 3412 -> 3419 (24.09.2026, interaktywne R): te same siedem kontroli.
 # 3419 -> 3423 (24.09.2026, automat bez sygnalizacji): te same cztery.
 # 3423 -> 3424 (24.09.2026, widok chase 800x600): ta sama asercja.
-ASERCJI_RAZEM = 3424
+# 3424 -> 3428 (24.09.2026, krótki HUD chase): cztery stany granicy.
+ASERCJI_RAZEM = 3428
 
 
 def _rozklad():

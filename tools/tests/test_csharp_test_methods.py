@@ -643,7 +643,8 @@ ROZKLAD_POSTACI = {
         # strażnika, trzy komunikaty asercji i pozostałe literały testu.
         # 5030 -> 5031, werbatim 100 -> 101 (24.09.2026, chase 800x600):
         # komunikat asercji oraz wzorzec węzła View.
-        "zwykly": 5038,
+        # 5031 -> 5038 (24.09.2026, krótki HUD chase): teksty i komunikaty testu.
+        "zwykly": 5045,
         "interpolowany ($)": 847,
         "werbatim (@)": 101,
         "surowy interpolowany ($$\"\"\")": 13,
@@ -715,7 +716,8 @@ ROZKLAD_POSTACI = {
         # doklejac `error.Message` i ma DWIE postacie — z pozycja z liczb parsera
         # i bez niej, gdy parser jej nie podal; jedna byla, sa dwie. ZMIERZONE.
         # 515 -> 516 (24.09.2026, interaktywne R): błąd przeładowania sceny.
-        "interpolowany ($)": 517,
+        # 516 -> 518 (24.09.2026, krótki HUD chase): dystans i granica.
+        "interpolowany ($)": 519,
         "werbatim (@)": 0,
         "surowy interpolowany ($$\"\"\")": 1,
         "surowy (\"\"\")": 1,

@@ -231,7 +231,8 @@ public sealed class UiTextTests
     // 586 -> 588 (24.09.2026, oznaczenia stacji): nazwa zasobu i odmowa jego braku.
     // 588 -> 589 (24.09.2026, HUD 800x600): klucz krótszego kilometrażu.
     // 589 -> 590 (24.09.2026, interaktywne R): komunikat odmowy przeładowania sceny.
-    private const int LiteralowWZasieguBramki = 593;
+    // 590 -> 592 (24.09.2026, krótki HUD chase): dystans i próg.
+    private const int LiteralowWZasieguBramki = 595;
 
     /// <summary>Ile różnych — dolne ostrze, zmierzone 12.09.2026.</summary>
     private const int RoznychLiteralowWZasieguBramki = 362;
@@ -1505,7 +1506,8 @@ public sealed class UiTextTests
     // 627 -> 629 (24.09.2026, oznaczenia stacji): dwa nowe literały FirstRun.
     // 629 -> 630 (24.09.2026, HUD 800x600): nowy klucz krótkiej pozycji.
     // 630 -> 631 (24.09.2026, interaktywne R): ten sam nowy komunikat.
-    private const int PozycjiStaregoCzytnika = 634;
+    // 631 -> 633 (24.09.2026, krótki HUD chase): te same dwa napisy.
+    private const int PozycjiStaregoCzytnika = 636;
 
     /// <summary>
     /// Ile PLIKÓW korpusu stary czytnik czytał inaczej niż leksykalny — 6.D182.
@@ -2322,7 +2324,8 @@ public sealed class UiTextTests
     // 404 -> 406 (24.09.2026, station-wayfinding): dwa literały ścieżki i odmowy.
     // 406 -> 407 (24.09.2026, HUD 800x600): nowy klucz krótkiej pozycji.
     // 407 -> 408 (24.09.2026, interaktywne R): komunikat błędu.
-    private const int LiteralowDotknietychZdejmowaniem = 409;
+    // 408 -> 410 (24.09.2026, krótki HUD chase): te same dwa napisy.
+    private const int LiteralowDotknietychZdejmowaniem = 411;
 
     /// <summary>
     /// Ilu literałom zdejmowanie jednostek ZABIERA werdykt „to słowo" — 6.D155.
@@ -3558,7 +3561,8 @@ public sealed class UiTextTests
     // 149 -> 148 (23.09.2026, 6.M1): odtworzenie linii w `FirstRun` i `RunPlan`. PRZELICZONE.
     // 148 -> 149 (24.09.2026, station-wayfinding): odmowa przy braku GLB tablicy ma interpolowaną ścieżkę.
     // 149 -> 150 (24.09.2026, interaktywne R): interpolowany błąd restartu.
-    private const int LiteralowZKlamra = 151;
+    // 150 -> 152 (24.09.2026, krótki HUD chase): dystans i próg.
+    private const int LiteralowZKlamra = 153;
 
     /// <summary>
     /// Ilu literałom <see cref="BezDziur"/> zabiera WSZYSTKIE słowa — 6.D188.

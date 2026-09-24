@@ -2002,7 +2002,7 @@ public sealed partial class FirstRun : Node3D
         // widok liczył się z liczby, której w kadrze nie ma.
         var availability = ChaseCameraAim.Availability(
             chainage, trainLength, DesignAssumptions.ChaseRevealFromM);
-        _viewLine = _view == ViewKind.Chase ? availability.Reason : string.Empty;
+        _viewLine = _view == ViewKind.Chase ? availability.HudHint : string.Empty;
         if (availability.Available != _chaseAvailable)
         {
             _chaseAvailable = availability.Available;

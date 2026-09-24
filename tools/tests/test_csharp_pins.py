@@ -21,6 +21,7 @@ import csharp_pins as CP  # noqa: E402
 #: Zapadka działa w obie strony, jak przy asercjach bez komunikatu z 6.D127: w górę
 #: mówi „doszedł pin, skategoryzuj go", w dół — „pin zniknął, zdejmij go z tabeli".
 PINY_GRY = {
+    "ChaseCameraAimTests.cs": 3,
     # MB-05: jeden pin w `CabPlacementTests.cs` — brzmienie warunku widocznosci kabiny
     # (`view == ViewKind.Cab`). KATEGORIA C: wartosc liczona w JEDNYM miejscu, czyli
     # w `FirstRun.ApplyView`. Trzy liczby tego pliku nie sa pinami napisowymi i stoja
@@ -182,7 +183,10 @@ KATEGORIE = {
 # 59 -> 61 (24.09.2026, tablice stacji): dwie pelne nazwy w StationWayfindingTests.
 # 61 -> 62 (24.09.2026, HUD 800x600): jednoliniowy kilometraż przy widocznej stacji.
 # 62 -> 63 (24.09.2026, HUD bez wiersza stacji): pełny wiersz pozycji.
-LICZBA_C = 63
+# 63 -> 66 (24.09.2026, krótki HUD chase): trzy dokładne brzmienia
+# wskazówki przy różnych pozycjach względem granicy. Kategoria C,
+# bo tekst powstaje w jednym formatterze ChaseAvailability.HudHint.
+LICZBA_C = 66
 
 
 def test_ile_pinow_stoi_w_testach_warstwy_gry():
@@ -199,7 +203,7 @@ def test_ile_pinow_stoi_w_testach_warstwy_gry():
     # 64 -> 65 (24.09.2026, integracja): pin caly wiersz fazy.
     # 65 -> 67 (24.09.2026, tablice stacji): dwie pelne nazwy.
     # 67 -> 69 (24.09.2026, HUD 800x600): dwa dokładne warianty pozycji.
-    assert sum(zmierzone.values()) == 69, (
+    assert sum(zmierzone.values()) == 72, (
         "pinów warstwy gry jest %d, a pomiar z 14.09.2026 dał 61 "
         "(47 po 6.D155, 45 przed nim; +5 przy MB-03, +1 przy MB-05, "
         "+5 przy audycie bramki MB-05, +2 przy MB-08 — `DoorPromptTests`)"
@@ -231,8 +235,8 @@ def test_kazdy_pin_ma_kategorie_i_suma_sie_zgadza():
     # ktora NIE jest przy okazji: stalo tu „nie sumują się do 47" przy warunku na 52,
     # czyli komunikat bledu podawal liczbe o piec mniejsza od tej, ktorej bramka
     # pilnowala. Kto by na niego trafil, szukalby rozbieznosci, ktorej nie ma.
-    assert len(KATEGORIE["A"]) + len(KATEGORIE["B"]) + LICZBA_C == 69, (
-        "kategorie nie sumują się do 69: A=%d, B=%d, C=%d"
+    assert len(KATEGORIE["A"]) + len(KATEGORIE["B"]) + LICZBA_C == 72, (
+        "kategorie nie sumują się do 72: A=%d, B=%d, C=%d"
         % (len(KATEGORIE["A"]), len(KATEGORIE["B"]), LICZBA_C))
 
 
