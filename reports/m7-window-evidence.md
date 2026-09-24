@@ -1,6 +1,7 @@
 # M7: otwory i szyby boczne — stan źródeł
 
-24.09.2026. Odbiór wizualny bazowej skorupy: `build/train-qa/baseline-side.png`,
+**Zmierzone 24.09.2026 na commicie:** `a8a8e45`.
+Odbiór wizualny bazowej skorupy: `build/train-qa/baseline-side.png`,
 `baseline-front.png`, `baseline-iso.png` (lokalne, niepublikowane kadry).
 
 ## Co jest potwierdzone
@@ -12,7 +13,7 @@
 - [STIB, komunikat z 26.05.2021](https://stib.prezly.com/les-voyageurs-pourront-bientot-monter-dans-le-nouveau-metro-m7)
   potwierdza srebrny wygląd pudła i szersze drzwi. Oficjalne zdjęcia
   w obu komunikatach pokazują pojazd, lecz nie są zwymiarowanym rzutem bocznym.
-- Generator `tools/blender/m7_shell.py` wycina obecnie tylko otwory drzwiowe.
+- [Generator skorupy](../tools/blender/m7_shell.py) wycina obecnie tylko otwory drzwiowe.
   Ciemne prostokąty na renderze boku to otwory drzwi, nie okna.
 
 ## Czego nie potwierdzono

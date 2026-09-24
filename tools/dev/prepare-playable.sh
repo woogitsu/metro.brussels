@@ -71,12 +71,12 @@ echo "[PRZYGOTOWANIE] tory i detale tunelu -> $OUT/chunks"
 # scenery, without extending the driving axis or inventing an end wall.
 echo "[PRZYGOTOWANIE] wizualna kontynuacja za Merode -> $OUT/L1_A-visual-tail.glb"
 "$BLENDER_EXE" --background --python-exit-code 7 --python tools/blender/tunnel_sweep.py -- \
-    --centerline data/track/L1_A_visual_tail.json --profile box_double \
+    --centerline data/scenery/L1_A_visual_tail.json --profile box_double \
     --name L1_A_visual_tail --max-chunk-m 500 --out "$OUT/L1_A-visual-tail.glb" \
     --chunk-dir "$OUT/visual-tail-chunks" \
     --chunk-manifest "$OUT/visual-tail-chunks/manifest.json"
 "$BLENDER_EXE" --background --python-exit-code 7 --python tools/blender/track_detail.py -- \
-    --centerline data/track/L1_A_visual_tail.json \
+    --centerline data/scenery/L1_A_visual_tail.json \
     --manifest "$OUT/visual-tail-chunks/manifest.json" \
     --out-dir "$OUT/visual-tail-chunks"
 python3 - "$OUT" <<'PY'

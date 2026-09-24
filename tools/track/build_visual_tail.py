@@ -20,7 +20,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--shapes", required=True)
     parser.add_argument("--axis", default="data/track/L1_A.json")
-    parser.add_argument("--out", default="data/track/L1_A_visual_tail.json")
+    parser.add_argument("--out", default="data/scenery/L1_A_visual_tail.json")
     args = parser.parse_args()
 
     axis = json.loads(Path(args.axis).read_text(encoding="utf-8"))
