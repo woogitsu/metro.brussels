@@ -130,6 +130,18 @@ def test_visual_continuation_allows_an_old_asset_set_without_the_pair():
         "axis_length_m": 0, "seam_gap_m": 0}}
     with tempfile.TemporaryDirectory() as assets:
         assert G.check_visual_continuation(metadata, AXIS, TAIL_AXIS, assets) == []
+        problems = G.check_visual_continuation(metadata, AXIS, TAIL_AXIS, assets,
+                                                require_visual_tail=True)
+        assert any("wymagany pakiet" in problem for problem in problems), problems
+
+
+def test_ci_requires_the_generated_visual_continuation():
+    with open(WORKFLOW, encoding="utf-8") as handle:
+        workflow = handle.read()
+    calls = [line for line in workflow.splitlines()
+             if "--visual-tail-assets build/t400" in line]
+    assert len(calls) == 3, calls
+    assert all("--require-visual-tail" in line for line in calls), calls
 
 
 # --- prawda liczona niezależnie -------------------------------------------------

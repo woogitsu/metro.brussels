@@ -1509,7 +1509,7 @@ jobs:
             --metadata build/t400/linia/renders/LINIA_metadata.json \
             --axis data/track/L1_A.json \
             --manifest build/t400/chunks/L1_A-chunks.json \
-            --visual-tail-assets build/t400 \
+            --visual-tail-assets build/t400 --require-visual-tail \
             --resolution 1280x720 --view outside --at-chainage 509.73 \
             --platform-layout build/t400/L1_A-platforms.json \
             --platform-metrics build/t400/L1_A-platforms-metrics.json \
@@ -1560,7 +1560,7 @@ jobs:
               --metadata build/t400/linia/LINIA_metadata_bad.json \
               --axis data/track/L1_A.json \
               --manifest build/t400/chunks/L1_A-chunks.json \
-              --visual-tail-assets build/t400 \
+              --visual-tail-assets build/t400 --require-visual-tail \
               --resolution 1280x720 --view outside --at-chainage 509.73 \
               --platform-layout build/t400/L1_A-platforms.json \
               --platform-metrics build/t400/L1_A-platforms-metrics.json || rc=$?
@@ -1651,7 +1651,7 @@ jobs:
             --metadata build/t400/visual/GODOT_metadata.json \
             --axis data/track/L1_A.json \
             --manifest build/t400/chunks/L1_A-chunks.json \
-            --visual-tail-assets build/t400 \
+            --visual-tail-assets build/t400 --require-visual-tail \
             --resolution 1280x720 \
             --view cab --at-chainage 976 \
             --platform-layout build/t400/L1_A-platforms.json \

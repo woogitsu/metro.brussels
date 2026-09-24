@@ -120,15 +120,18 @@ def glb_mesh_nodes(path):
     return count
 
 
-def check_visual_continuation(metadata, playable_axis_path, tail_axis_path, assets_dir=None):
+def check_visual_continuation(metadata, playable_axis_path, tail_axis_path, assets_dir=None,
+                              require_visual_tail=False):
     """Check the visible 300 m tail separately from streamed playable chunks."""
     visual = metadata.get("visual_continuation")
-    if visual is None and assets_dir is None:
+    if visual is None and assets_dir is None and not require_visual_tail:
         return []  # Historical screenshot metadata did not have this section.
     if not isinstance(visual, dict) or type(visual.get("present")) is not bool:
         return ["visual_continuation.present: brak wartości logicznej"]
 
     problems = []
+    if require_visual_tail and not visual["present"]:
+        problems.append("visual_continuation: wymagany pakiet scenerii jest nieobecny")
     glb_files = ("L1_A-visual-tail.glb", "L1_A-visual-tail-detail.glb")
     if assets_dir is not None:
         paths = [os.path.join(assets_dir, name) for name in glb_files]
@@ -674,6 +677,8 @@ def main():
                         help="kanoniczna oś osobnej scenerii za Merode")
     parser.add_argument("--visual-tail-assets",
                         help="katalog z parą GLB i osią scenerii z bieżącego pakietu")
+    parser.add_argument("--require-visual-tail", action="store_true",
+                        help="wymagaj scenerii za Merode w bieżącym pakiecie CI")
     parser.add_argument("--resolution", help="np. 1280x720")
     parser.add_argument("--view", help="widok ostatniego zrzutu")
     parser.add_argument("--at-chainage", type=float, help="chainage ostatniego zrzutu")
@@ -697,8 +702,10 @@ def main():
     expected = axis_length_m(args.axis)
     manifest = load_manifest(args.manifest) if args.manifest else None
     problems = check(metadata, args.axis, resolution, args.view, args.at_chainage, manifest)
+    if args.require_visual_tail and not args.visual_tail_assets:
+        parser.error("--require-visual-tail wymaga --visual-tail-assets")
     problems += check_visual_continuation(metadata, args.axis, args.visual_tail_axis,
-                                          args.visual_tail_assets)
+                                          args.visual_tail_assets, args.require_visual_tail)
     problems += check_train(metadata, args.m7_spec)
     # Peron sprawdzany TYLKO wtedy, gdy wołający podał, z czym go porównać. Bez tego
     # bramka nie ma niezależnej prawdy, a „przeszło" znaczyłoby wyłącznie „nie było
