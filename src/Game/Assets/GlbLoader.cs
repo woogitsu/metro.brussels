@@ -32,8 +32,11 @@ public static class GlbLoader
             return null;
         }
 
-        var document = new GltfDocument();
-        var state = new GltfState();
+        // Godot resources created by C# are not released promptly by the GC.
+        // Importing every streamed chunk without disposing these wrappers keeps
+        // the document and its state alive until shutdown, after the renderer.
+        using var document = new GltfDocument();
+        using var state = new GltfState();
         var error = document.AppendFromFile(absolutePath, state);
         if (error != Error.Ok)
         {
