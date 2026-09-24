@@ -1,3 +1,4 @@
+using MetroBxl.Sim.Physics;
 using MetroBxl.Sim.Train;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -6,6 +7,54 @@ namespace MetroBxl.Sim.Tests;
 [TestClass]
 public sealed class TrackEndStopTests
 {
+    [TestMethod]
+    public void WeakManualBrakeCannotBypassTerminalIntervention()
+    {
+        var model = VehicleModel.M7;
+        var conditions = RunConditions.Level(model, TrainLoad.Aw0);
+        var controller = new TrainController(model);
+        var solver = new BrakingPointSolver(model);
+        var state = new DriveState(100, 8.0, 0.0, 0.0);
+        var requested = new DriverCommand(0.0, 0.01);
+        var required = TrackEndStop.RequiredBrake(state, 40.0, conditions, controller);
+        Assert.IsTrue(required.Brake > requested.Brake,
+            "test wymaga hamowania końcowego silniejszego niż ręczne 0,01");
+
+        var engaged = false;
+        var effective = TrackEndStop.ApproachCommand(state, 0.0, 40.0,
+            conditions, controller, solver, 0.0, requested,
+            terminalSection: true, ref engaged);
+
+        Assert.IsTrue(engaged,
+            "słaby hamulec maszynisty nie może zablokować interwencji końcowej");
+        Assert.AreEqual(0.0, effective.Throttle,
+            "interwencja końcowa musi odciąć ciąg");
+        Assert.IsTrue(effective.Brake >= required.Brake,
+            "hamowanie końcowe musi co najmniej dorównać wymaganej sile serwa");
+    }
+
+    [TestMethod]
+    public void TerminalInterventionNeverWeakensDriversStrongerServiceBrake()
+    {
+        var model = VehicleModel.M7;
+        var conditions = RunConditions.Level(model, TrainLoad.Aw0);
+        var controller = new TrainController(model);
+        var solver = new BrakingPointSolver(model);
+        var engaged = true;
+        var state = new DriveState(100, 8.0, 0.0, 0.0);
+        var calculated = TrackEndStop.RequiredBrake(state, 100.0, conditions, controller);
+        Assert.IsTrue(calculated.Brake < 1.0, "test wymaga słabszej komendy serwa");
+
+        var effective = TrackEndStop.ApproachCommand(state, 0.0, 100.0,
+            conditions, controller, solver, 1.0, DriverCommand.FullServiceBrake,
+            terminalSection: true, ref engaged);
+
+        Assert.AreEqual(0.0, effective.Throttle,
+            "interwencja przed końcem toru musi odciąć ciąg");
+        Assert.AreEqual(1.0, effective.Brake,
+            "serwo nie może osłabić pełnego hamowania zadanego przez maszynistę");
+    }
+
     [TestMethod]
     public void RepeatedPowerCannotMoveBeyondLastAxisPoint()
     {

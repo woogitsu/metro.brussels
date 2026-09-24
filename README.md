@@ -20,7 +20,7 @@ dotnet test tests/Sim.Tests          # rdzeń symulacji, bez Godota
 
 ## Stan: co działa, a czego nie ma
 
-**Rdzeń symulacji — `src/Sim/`, 64 pliki `.cs`, kompiluje się i testuje bez silnika:**
+**Rdzeń symulacji — `src/Sim/`, 65 plików `.cs`, kompiluje się i testuje bez silnika:**
 
 - fizyka: model trakcji M7, opór Davisa, hamowanie służbowe i granica przyczepności,
   krok stały 1/120 s liczony **licznikiem kroków**, nigdy `t += dt`;
@@ -28,6 +28,8 @@ dotnet test tests/Sim.Tests          # rdzeń symulacji, bez Godota
   nastawnia automatyczna ryglująca trasę na następny odcinek międzystacyjny;
 - prowadzenie: scenariusz jazdy, przejazd linią, cykl drzwi, postój na stacji,
   obsługa stacji dla składu prowadzonego ręcznie (okno zatrzymania, blokada trakcji);
+- dyspozytor zgłasza odrębne kursy na osi w ich krokach rozkładowych; ponowny kurs
+  tego samego `block_id` wymaga jeszcze modelu transferu pojazdu poza osią;
 - **sesja treningowa**: warunek końca przejazdu gracza, cele wskazywane identyfikatorami
   przystanków z osi, wynik powstający dokładnie raz i zerowany przez ten sam reset,
   co reszta stanu — liczniki ochrony liczą ZDARZENIA (zbocza), nie kroki;

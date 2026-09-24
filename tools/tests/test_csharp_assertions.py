@@ -301,7 +301,8 @@ BEZ_KOMUNIKATU = {
     # na asercję, która nie mówi, co jest nie tak.
     "LineCoreTests.cs": 43,
     # 21 -> 29 (24.09.2026): końcowy postój Merode i ślad po ograniczeniu osi.
-    "LineDriveTests.cs": 29,
+    # 29 -> 23 (24.09.2026): sze?? nowych asercji postoju dosta?o opisy.
+    "LineDriveTests.cs": 23,
     "LineRouteTests.cs": 14,
     "LineRunTests.cs": 28,
     "MovementAuthorityTests.cs": 30,
@@ -487,8 +488,12 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 # 2049 -> 2054 (24.09.2026, T-320): walidacja dnia służby i godziny po północy.
 # 2054 -> 2063 (24.09.2026, koniec osi linii): dziewięć opisanych kontroli
 # postoju Merode i opraw scenerii.
-Z_KOMUNIKATEM_RAZEM = 2063
-NIEROZSTRZYGNIETYCH = 68
+# 2063 -> 2077 (24.09.2026, dwa wjazdy rozkładowe): czternaście kontroli
+# ma teraz jawne komunikaty, także sześć porównań początkowo bez opisu.
+# Po integracji dyspozytora i hamowania: 2133 opisane asercje, zmierzone w drzewie.
+# 2077 -> 2144 (24.09.2026, integracja dyspozytora, test granicy, hamowanie i metadane).
+Z_KOMUNIKATEM_RAZEM = 2144
+NIEROZSTRZYGNIETYCH = 69
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
 #: `tests/Sim.Tests/DefaultArmAuditTests.cs` — bramki na ramionach domyślnych
 #: switchy `src/Sim/`. Wszystkie z komunikatem, więc `Z_KOMUNIKATEM_RAZEM` rośnie
@@ -623,7 +628,12 @@ NIEROZSTRZYGNIETYCH = 68
 # 3506 -> 3512 (24.09.2026, koniec osi): sześć kontroli stanu granicznego.
 # 3512 -> 3530 (24.09.2026, koniec osi linii): końcowy postój i oprawy scenerii;
 # po dziewięć asercji z komunikatem i bez komunikatu.
-ASERCJI_RAZEM = 3530
+# 3530 -> 3544 (24.09.2026, dwa wjazdy rozkładowe): czternaście kontroli
+# integracji LineEntrySchedule/LineEntryGate z planem blokowym L1_A. Wszystkie
+# mają komunikat; zapadka BEZ_KOMUNIKATU pozostaje surowa.
+# Po integracji dyspozytora i hamowania: 3595 wywolan, zmierzone w drzewie.
+# 3544 -> 3606 (24.09.2026, testy dyspozytora, hamowania i scenerii).
+ASERCJI_RAZEM = 3606
 
 
 def _rozklad():
@@ -780,9 +790,9 @@ if __name__ == "__main__":
 ZAWEZONYCH_PIERWSZYM_NAPISEM = 4
 
 #: Ilu zawezenie po literale CALKOWITYM dotyczyloby, gdyby je przyjac — 6.D156.
-#: Stoi tu, bo liczba odrzuconego zawezenia jest TRESCIA rozstrzygniecia: 25 to nie
+#: Stoi tu, bo liczba odrzuconego zawezenia jest TRESCIA rozstrzygniecia: 26 to nie
 #: „kilka", tylko szesciokrotnosc tego, co przyjeto, i mimo to nie wchodzi.
-ODRZUCONYCH_PIERWSZYM_CALKOWITYM = 25
+ODRZUCONYCH_PIERWSZYM_CALKOWITYM = 26
 
 
 def _pierwsze_argumenty_nierozstrzygnietych():

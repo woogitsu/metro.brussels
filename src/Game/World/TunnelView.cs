@@ -18,6 +18,7 @@ public sealed partial class TunnelView : Node3D
     private readonly Dictionary<string, int> _levels = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Node3D> _detailPrototypes = new(StringComparer.Ordinal);
     private bool _detailsPreloaded;
+    private Node3D? _visualContinuation;
 
     /// <summary>Liczba chunków rezydentnych w tej chwili.</summary>
     public int LoadedChunks => _levels.Count;
@@ -39,6 +40,14 @@ public sealed partial class TunnelView : Node3D
             return count;
         }
     }
+
+    /// <summary>Siatki osobnej scenerii za osią jazdy, łącznie z detalem toru.</summary>
+    public int VisualContinuationMeshNodes =>
+        _visualContinuation is null ? 0 : CountMeshes(_visualContinuation);
+
+    /// <summary>Obwiednia scenerii za osią jazdy; brak pary zasobów daje null.</summary>
+    public Aabb? VisualContinuationBounds() =>
+        _visualContinuation is null ? null : BoundsFor(_visualContinuation);
 
     /// <summary>
     /// Keep measured route scenery visible beyond the last playable stop. This
@@ -68,6 +77,7 @@ public sealed partial class TunnelView : Node3D
         GlbLoader.ApplyNeutralMaterial(tunnel, material);
         AddChild(tunnel);
         tunnel.AddChild(detail);
+        _visualContinuation = tunnel;
         MeshNodes = CountMeshes(this);
         return CountMeshes(tunnel);
     }
@@ -225,14 +235,23 @@ public sealed partial class TunnelView : Node3D
         {
             if (GetNodeOrNull<Node3D>(id) is not { } chunk)
                 continue;
-            foreach (var instance in MeshInstances(chunk))
-            {
-                var box = instance.GlobalTransform * instance.GetAabb();
-                merged = merged is null ? box : merged.Value.Merge(box);
-            }
+            var box = BoundsFor(chunk);
+            if (box is not null)
+                merged = merged is null ? box : merged.Value.Merge(box.Value);
         }
 
         return merged ?? new Aabb();
+    }
+
+    private static Aabb? BoundsFor(Node root)
+    {
+        Aabb? merged = null;
+        foreach (var instance in MeshInstances(root))
+        {
+            var box = instance.GlobalTransform * instance.GetAabb();
+            merged = merged is null ? box : merged.Value.Merge(box);
+        }
+        return merged;
     }
 
     private static IEnumerable<MeshInstance3D> MeshInstances(Node node)

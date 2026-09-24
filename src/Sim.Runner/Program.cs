@@ -835,6 +835,7 @@ public static class Program
         var state = DriveState.AtRest;
         var command = DriverCommand.Coast;
         var acceleration = 0.0;
+        var terminalBrakeEngaged = false;
 
         // SUFIT MASZYNISTY i PRĘDKOŚĆ DOPUSZCZALNA to dwie różne liczby, i dopiero ich
         // rozdzielenie czyni ochronę obserwowalną. Bez `--limit-kmh` są tą samą liczbą
@@ -899,6 +900,7 @@ public static class Program
                 state = restarted.Drive;
                 command = restarted.Command;
                 acceleration = restarted.AccelerationMps2;
+                terminalBrakeEngaged = false;
                 resets++;
 
                 // Wiersz zerowy nowego przejazdu — tak samo jak przy starcie, bo po
@@ -923,6 +925,15 @@ public static class Program
 
             // `Filter` posuwa licznik cyklu drzwi, więc DOKŁADNIE RAZ na krok.
             var effective = stations?.Filter(state, requested, Chainage()) ?? requested;
+            if (stations is { AtStation: true } && stations.Calls[^1].StopId == axis.Stations[^1].StopId)
+                terminalBrakeEngaged = true;
+            effective = TrackEndStop.ApproachCommand(
+                state, Chainage(),
+                axis.Stations.Count > 0
+                    ? Math.Min(axis.Stations[^1].ChainageM, axis.LengthM) : axis.LengthM,
+                conditions, controller, BrakingPointSolver.M7,
+                controller.ServiceBrakeMps2, effective, terminalSection: true,
+                ref terminalBrakeEngaged);
 
             // ATP na samym końcu łańcucha poleceń — Issue #26: „nie można ominąć ATP
             // przez input gracza". Bez ochrony `Apply` nie istnieje i polecenie idzie
@@ -933,10 +944,13 @@ public static class Program
             {
                 effective = DriverCommand.Coast;
             }
+            var beforeSpeed = state.SpeedMps;
             state = controller.Advance(state, conditions, effective, speedLimitMps, step, out var forces);
             state = TrackEndStop.Apply(state, scenario.StartChainageM, axis.LengthM);
             var trackEndReached = TrackEndStop.Reached(Chainage(), axis.LengthM);
-            acceleration = trackEndReached ? 0.0 : forces.AccelerationMps2;
+            acceleration = trackEndReached ||
+                (terminalBrakeEngaged && beforeSpeed <= 0.0 && state.SpeedMps <= 0.0)
+                ? 0.0 : forces.AccelerationMps2;
             command = trackEndReached ? DriverCommand.Coast : effective;
             sessionStep++;
             if (state.SpeedMps > topSpeedMps)

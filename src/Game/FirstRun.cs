@@ -172,6 +172,7 @@ public sealed partial class FirstRun : Node3D
     /// cyklu drzwi rozjeżdża jedno z drugim.
     /// </summary>
     private DriverCommand _effectiveCommand = DriverCommand.Coast;
+    private bool _terminalBrakeEngaged;
 
     private double _acceleration;
 
@@ -1805,6 +1806,15 @@ public sealed partial class FirstRun : Node3D
         // na krok symulacji — nie raz na klatkę. `AdvanceBy` woła `StepOnce` tyle razy,
         // ile kroków wypada w klatce, i to jest właściwe miejsce.
         var effective = _stations?.Filter(_state, _command, ChainageM) ?? _command;
+        if (_stations is { AtStation: true } && _stations.Calls[^1].StopId == _axis.Stations[^1].StopId)
+            _terminalBrakeEngaged = true;
+        effective = TrackEndStop.ApproachCommand(
+            _state, ChainageM,
+            _axis.Stations.Count > 0
+                ? Math.Min(_axis.Stations[^1].ChainageM, _axis.LengthM) : _axis.LengthM,
+            _conditions, _controller, BrakingPointSolver.M7,
+            _controller.ServiceBrakeMps2, effective, terminalSection: true,
+            ref _terminalBrakeEngaged);
 
         // ATP JEST OSTATNIM FILTREM POLECENIA i to jest wprost kryterium z Issue #26:
         // „nie można ominąć ATP przez input gracza". Gdyby ochrona stała przed filtrem
@@ -1827,6 +1837,7 @@ public sealed partial class FirstRun : Node3D
         }
         _effectiveCommand = effective;
 
+        var beforeSpeed = _state.SpeedMps;
         _state = _controller.Advance(
             _state, _conditions, effective, SpeedLimitMps, _step, out var forces);
         _state = TrackEndStop.Apply(_state, _scenario.StartChainageM, _axis.LengthM);
@@ -1835,6 +1846,7 @@ public sealed partial class FirstRun : Node3D
             _effectiveCommand = DriverCommand.Coast;
         }
         _acceleration = TrackEndStop.Reached(ChainageM, _axis.LengthM)
+            || (_terminalBrakeEngaged && beforeSpeed <= 0.0 && _state.SpeedMps <= 0.0)
             ? 0.0 : forces.AccelerationMps2;
         _logStep++;
 
@@ -2369,6 +2381,7 @@ public sealed partial class FirstRun : Node3D
         _brakingCueMemory.Reset();
         _command = start.Command;
         _effectiveCommand = start.EffectiveCommand;
+        _terminalBrakeEngaged = false;
         _acceleration = start.AccelerationMps2;
 
         // Wiersz zerowy — stan PRZED pierwszym krokiem — składa się tak samo jak
@@ -3290,6 +3303,21 @@ public sealed partial class FirstRun : Node3D
         var name = _shotPath[(_shotPath.LastIndexOf('/') + 1)..];
         var prefix = name.Contains('_') ? name[..name.IndexOf('_')] : "GODOT";
         var path = $"{directory}/{prefix}_metadata.json";
+        var tailBounds = _tunnel.VisualContinuationBounds();
+        var tailPresent = tailBounds.HasValue && _visualTailAxis is not null;
+        var tailPresentJson = tailPresent ? "true" : "false";
+        var tailLow = tailBounds?.Position ?? Vector3.Zero;
+        var tailHigh = tailBounds?.End ?? Vector3.Zero;
+        var tailMinJson = tailPresent
+            ? string.Create(CultureInfo.InvariantCulture,
+                $"[{tailLow.X:F4}, {tailLow.Y:F4}, {tailLow.Z:F4}]") : "null";
+        var tailMaxJson = tailPresent
+            ? string.Create(CultureInfo.InvariantCulture,
+                $"[{tailHigh.X:F4}, {tailHigh.Y:F4}, {tailHigh.Z:F4}]") : "null";
+        var tailLengthM = tailPresent ? _visualTailAxis!.Axis.LengthM : 0.0;
+        var tailSeamGapM = tailPresent
+            ? _visualTailAxis!.CentreLinePoint(0.0).DistanceTo(_sceneAxis.CentreLinePoint(_axis.LengthM))
+            : 0.0f;
         var json = string.Create(CultureInfo.InvariantCulture, $$"""
         {
          "engine": "godot",
@@ -3310,6 +3338,14 @@ public sealed partial class FirstRun : Node3D
           "window_low_m": {{_tunnel.WindowLowM:F3}},
           "window_high_m": {{_tunnel.WindowHighM:F3}},
           "axis_length_m": {{_manifest.AxisLengthM:F3}}
+         },
+         "visual_continuation": {
+          "present": {{tailPresentJson}},
+          "mesh_objects": {{_tunnel.VisualContinuationMeshNodes}},
+          "bbox_min": {{tailMinJson}},
+          "bbox_max": {{tailMaxJson}},
+          "axis_length_m": {{tailLengthM:F3}},
+          "seam_gap_m": {{tailSeamGapM:F4}}
          },
          "platforms": {
           "slabs": {{_platforms.SlabCount}},

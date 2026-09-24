@@ -59,6 +59,7 @@ public sealed class LineDrive
     private double _departedAtSeconds;
     private double _departedFromM;
     private bool _braking;
+    private bool _terminalBrakeEngaged;
     private double _brakingToM = double.NaN;
     private StationStop? _stop;
 
@@ -343,6 +344,10 @@ public sealed class LineDrive
             && chainage - _departedFromM >= _settings.StopWindowM)
         {
             _stop = new StationStop(_cycle, _step, DoorControl);
+            // A manually braked terminal stop also closes the route. Without
+            // this latch, S followed by W could depart from Merode again.
+            if (DriverInput is not null && _next == _stations.Count - 1)
+                _terminalBrakeEngaged = true;
             _calls.Add(new StationCall(
                 _stations[_next].Name,
                 _stations[_next].StopId,
@@ -409,6 +414,13 @@ public sealed class LineDrive
             var wanted = DriverInput ?? DriverCommand.FullServiceBrake;
             LastCommand = wanted;
             var held = _stop.Filter(_state, wanted);
+            if (DriverInput is not null && _terminalBrakeEngaged)
+            {
+                held = TrackEndStop.ApproachCommand(
+                    _state, chainage, Math.Min(target, _axisEndM), _conditions, _controller, _solver,
+                    _trigger,
+                    held, terminalSection: true, ref _terminalBrakeEngaged);
+            }
 
             // OCHRONA STOI ZA DRZWIAMI I ZA OBOMA WŁAŚCICIELAMI — także tutaj.
             //
@@ -587,6 +599,16 @@ public sealed class LineDrive
         command = DriverInput ?? command;
         LastCommand = command;
 
+        // Only a manually driven last segment needs this intervention; automatic
+        // driving already uses Command(target - chainage) for the same station.
+        if (DriverInput is not null && _next == _stations.Count - 1)
+        {
+            command = TrackEndStop.ApproachCommand(
+                _state, chainage, Math.Min(target, _axisEndM), _conditions, _controller, _solver,
+                _trigger,
+                command, terminalSection: true, ref _terminalBrakeEngaged);
+        }
+
         // OCHRONA STOI ZA OBOMA. To jest zdanie pola „Pułapka wypisana w audycie"
         // pozycji MB-06 wzięte dosłownie: nie ma gałęzi, w której komenda człowieka
         // omija `Supervisor`, i nie ma jej dlatego, że podmiana źródła stoi WYŻEJ
@@ -729,18 +751,8 @@ public sealed class LineDrive
         //
         // Dlatego próg wyzwala hamowanie wzorem z narastaniem, a samo hamowanie prowadzi
         // czysta kinematyka v²/2d — hamulec już narósł, więc nie ma czego doliczać.
-        var required = _state.SpeedMps * _state.SpeedMps / (2.0 * remainingM);
-
-        // Polecenie to opóźnienie **hamulca**, a nie całkowite: skład zwalnia też oporami
-        // ruchu i składową pochylenia, a te działają niezależnie od nastawy. Żeby sumaryczne
-        // opóźnienie wyszło takie, o jakie prosi kinematyka, hamulec dostaje różnicę.
-        var resistance = _controller.Dynamics.Resistance.ForceN(
-            _conditions.MassKg, _state.SpeedMps, _conditions.Environment);
-        var grade = TrainDynamics.GradeForceN(_conditions.MassKg, _conditions.GradePercent);
-        var passive = (resistance + grade) / _controller.Dynamics.EffectiveMassKg(_conditions.MassKg);
-
-        return new DriverCommand(
-            0.0, Math.Clamp((required - passive) / _controller.ServiceBrakeMps2, 0.0, 1.0));
+        // The station autopilot and terminal intervention share this exact command.
+        return TrackEndStop.RequiredBrake(_state, remainingM, _conditions, _controller);
     }
 
     /// <summary>

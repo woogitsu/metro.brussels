@@ -91,7 +91,9 @@ PINY_GRY = {
 # 81 -> 85 (24.09.2026, T-320): cztery kursy w dwóch przejściach obiegu.
 # 85 -> 86 (24.09.2026, T-320): pierwszy trip_id po remisie w planie.
 # 86 -> 87 (24.09.2026, koniec osi linii): nazwa postoju Merode w LineDriveTests.
-PINY_RDZENIA = 87
+# 87 -> 89 (24.09.2026, dwa wjazdy rozkładowe): oba składy muszą dojechać do Merode.
+# 89 -> 97 (24.09.2026, dispatcher, service brake i metadane).
+PINY_RDZENIA = 97
 
 #: Kategorie, po jednej pozycji na pin — zamknięte i sumujące się do liczby wyżej.
 #:
@@ -165,11 +167,11 @@ KATEGORIE = {
         # Dodatkowy komentarz o wyróżnieniu celu przesuwa kotwice o wiersz.
         # Komentarz o końcu toru przesuwa kotwice o kolejny wiersz.
         # Dwa komentarze o lampach scenerii przesunęły te same piny o dwa wiersze.
-        ("UiTextTests.cs", 1289), ("UiTextTests.cs", 1302), ("UiTextTests.cs", 1320),
+        ("UiTextTests.cs", 1290), ("UiTextTests.cs", 1303), ("UiTextTests.cs", 1321),
         ("SignallingHudTests.cs", 39),
     },
     "B": {
-        ("UiTextTests.cs", 1389), ("UiTextTests.cs", 1390),
+        ("UiTextTests.cs", 1390), ("UiTextTests.cs", 1391),
     },
 }
 
@@ -196,6 +198,8 @@ KATEGORIE = {
 # wskazówki przy różnych pozycjach względem granicy. Kategoria C,
 # bo tekst powstaje w jednym formatterze ChaseAvailability.HudHint.
 # 66 -> 67 (24.09.2026, test końca planu): wynik `LineCore.Run` jest jednym źródłem.
+# Dwa nowe piny Merode należą do tests/Sim.Tests, więc nie zmieniają kategorii
+# testów warstwy gry liczonej poniżej.
 LICZBA_C = 67
 
 
@@ -267,10 +271,10 @@ def test_regula_po_ksztalcie_literalu_myli_sie_i_dlatego_jej_nie_ma():
                      if not regula.search(tresci[p])]
     zlapane_z_b = [p for p in sorted(KATEGORIE["B"]) if regula.search(tresci[p])]
 
-    assert przepuszczone == [("UiTextTests.cs", 1320)], (
+    assert przepuszczone == [("UiTextTests.cs", 1321)], (
         "reguła po kształcie przestała przepuszczać wiersz o hamulcu awaryjnym — "
         "rozstrzygnięcie 6.D131 wymaga przeliczenia: %s" % przepuszczone)
-    assert zlapane_z_b == [("UiTextTests.cs", 1390)], (
+    assert zlapane_z_b == [("UiTextTests.cs", 1391)], (
         "reguła po kształcie przestała łapić wejście syntetyczne: %s" % zlapane_z_b)
 
 
@@ -284,11 +288,11 @@ def test_czytnik_widzi_pin_takze_wtedy_gdy_literal_jest_sklejony():
     tresci = {(plik, wiersz): tresc
               for plik, wiersz, _r, tresc in CP.piny("tests/Game.Tests")}
 
-    assert len(tresci[("UiTextTests.cs", 1289)]) == 122, (
+    assert len(tresci[("UiTextTests.cs", 1290)]) == 122, (
         "sklejanie literałów przestało działać: %d znaków"
-        % len(tresci[("UiTextTests.cs", 1289)]))
-    assert len(tresci[("UiTextTests.cs", 1320)]) == 98, (
-        len(tresci[("UiTextTests.cs", 1320)]))
+        % len(tresci[("UiTextTests.cs", 1290)]))
+    assert len(tresci[("UiTextTests.cs", 1321)]) == 98, (
+        len(tresci[("UiTextTests.cs", 1321)]))
     assert len(tresci[("SignallingHudTests.cs", 39)]) == 84, (
         len(tresci[("SignallingHudTests.cs", 39)]))
 
@@ -488,9 +492,11 @@ ROZKLAD_LICZBOWYCH = {
         # 513 -> 515 (24.09.2026, T-320): niezmieniony krok i dwa kursy planu.
         # 515 -> 517 (24.09.2026, koniec osi): odległość i zerowa prędkość.
         # 517 -> 523 (24.09.2026, LineDrive): granica Merode, prędkość, ślad i bilans.
-        "razem": 523, "z_tolerancja": 191, "bez_tolerancji": 332,
-        "zmiennoprzecinkowe": 206, "zmiennoprzecinkowe_bez_tolerancji": 15,
-        "calkowite": 317, "calkowite_z_tolerancja": 0, "tolerancja_zero": 121,
+        # 523 -> 531 (24.09.2026, dwa wjazdy rozkładowe): osiem dokładnych
+        # całkowitych pinów liczby kursów, bloków, stacji, kroków i wezwań.
+        "razem": 551, "z_tolerancja": 191, "bez_tolerancji": 360,
+        "zmiennoprzecinkowe": 212, "zmiennoprzecinkowe_bez_tolerancji": 21,
+        "calkowite": 339, "calkowite_z_tolerancja": 0, "tolerancja_zero": 121,
     },
 }
 
@@ -514,7 +520,8 @@ ROZKLAD_LICZBOWYCH = {
 # 152 -> 153 (24.09.2026, next station after mid-axis entry).
 # 153 -> 155 (24.09.2026, koniec osi): dwa dokładne porównania prędkości.
 # 155 -> 160 (24.09.2026, LineDrive): pięć dokładnych porównań bez tolerancji.
-DOKLADNE_ZMIENNOPRZECINKOWE = 160
+# 160 -> 166 (24.09.2026, dok?adne stany hamowania terminalowego).
+DOKLADNE_ZMIENNOPRZECINKOWE = 166
 
 
 def test_ile_pinow_liczbowych_i_jak_sie_dziela():
@@ -541,7 +548,7 @@ def test_pin_calkowity_NIGDY_nie_ma_tolerancji_i_to_nie_jest_zwyczaj():
         % razem)
 
 
-def test_dokladnych_porownan_zmiennoprzecinkowych_jest_160_a_nie_21():
+def test_dokladnych_porownan_zmiennoprzecinkowych_jest_166_a_nie_27():
     """**Sedno 6.D141: tolerancja `0.0` JEST porównaniem dokładnym.**
 
     Licznik „bez tolerancji" mówi o dwudziestu jeden asercjach, a dokładnych porównań na
@@ -553,7 +560,7 @@ def test_dokladnych_porownan_zmiennoprzecinkowych_jest_160_a_nie_21():
               for k in ROZKLAD_LICZBOWYCH)
     zero = sum(CP.rozklad_liczbowych(k)["tolerancja_zero"] for k in ROZKLAD_LICZBOWYCH)
 
-    assert bez == 21, ("zmiennoprzecinkowych bez tolerancji: %d, pomiar mówił 21" % bez)
+    assert bez == 27, ("zmiennoprzecinkowych bez tolerancji: %d, pomiar m?wi? 27" % bez)
     # 132 -> 131 (14.09.2026, MB-07): patrz `ROZKLAD_LICZBOWYCH["tests/Sim.Tests"]`.
     # 131 -> 137 (14.09.2026, MB-08): sześć porównań z tolerancją 0.0 w nowych testach
     # drzwi — wszystkie tam, gdzie pytanie brzmi „ani jeden bit": nietknięty nastawnik,
