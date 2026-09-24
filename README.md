@@ -54,8 +54,9 @@ dotnet test tests/Sim.Tests          # rdzeń symulacji, bez Godota
   `block_id`. Projekcja pełnych 357 kursów nie jest jeszcze obsługiwana, ponieważ
   ponowne użycie obiegu wymaga osobnej polityki transferu pojazdu. Testy korzystają
   z wyraźnie syntetycznych identyfikatorów kursów i obiegów; repozytorium nie zawiera
-  gotowego pliku dwóch rzeczywistych kursów GTFS. Ten wariant na razie odmawia
-  `--replay` i `--input-log`.
+  gotowego pliku dwóch rzeczywistych kursów GTFS. Odtwarzanie zapisu wejść działa
+  w scenie (`--replay=ZAPIS`) i w `Sim.Runner replay --line --scheduled-entries PLIK`;
+  obie drogi wykonują te same wejścia i dają identyczną telemetrię.
 - **sygnalizacja w kabinie** (`--signalling`, działa też BEZ `--line`): skład wchodzi
   na bloki, nastawnia rygluje mu trasy, a ATP **naprawdę hamuje za maszynistę** —
   ostrzeżenie, potem hamulec służbowy. HUD pokazuje prędkość dopuszczalną, autorytet
