@@ -644,8 +644,8 @@ ROZKLAD_POSTACI = {
         # 5030 -> 5031, werbatim 100 -> 101 (24.09.2026, chase 800x600):
         # komunikat asercji oraz wzorzec węzła View.
         # 5031 -> 5038 (24.09.2026, krótki HUD chase): teksty i komunikaty testu.
-        "zwykly": 5051,
-        "interpolowany ($)": 847,
+        "zwykly": 5054,
+        "interpolowany ($)": 849,
         "werbatim (@)": 101,
         "surowy interpolowany ($$\"\"\")": 13,
         # 8 -> 10 (23.09.2026): dwie probki sceny w testach.

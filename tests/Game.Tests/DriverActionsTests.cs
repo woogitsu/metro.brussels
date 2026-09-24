@@ -287,7 +287,8 @@ public sealed class DriverActionsTests
         // przejętego, inaczej gracz nie ma jak oddać sterowania.
         var przejety = DriverActions.HelpWhenTheDriverHasTaken;
         StringAssert.Contains(przejety, "R " + DriverActions.All.Single(
-            binding => binding.Action == DriverActions.Reset).Meaning);
+            binding => binding.Action == DriverActions.Reset).Meaning,
+            "po przejęciu składu pomoc musi pokazać działający restart R");
         foreach (var binding in DriverActions.All)
         {
             if (!tylkoZLinia.Contains(binding.Action))
@@ -447,10 +448,12 @@ public sealed class DriverActionsTests
         foreach (var binding in DriverActions.All)
         {
             if (dzialajace.Contains(binding.Action))
-                StringAssert.Contains(pomoc, $"{binding.KeyName} {binding.Meaning}");
+                StringAssert.Contains(pomoc, $"{binding.KeyName} {binding.Meaning}",
+                    $"działający klawisz {binding.KeyName} musi być opisany w pomocy");
             else
             {
-                StringAssert.Contains(ogon, binding.KeyName);
+                StringAssert.Contains(ogon, binding.KeyName,
+                    $"nieaktywny klawisz {binding.KeyName} musi być wymieniony w ostrzeżeniu");
                 Assert.IsFalse(pomoc.Contains($"{binding.KeyName} {binding.Meaning}",
                     StringComparison.Ordinal), $"nieaktywny klawisz {binding.KeyName}");
             }

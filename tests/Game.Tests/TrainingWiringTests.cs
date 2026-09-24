@@ -35,8 +35,10 @@ public sealed class TrainingWiringTests
         var end = source.IndexOf("private ControlOwner ObservedOwner()", start, StringComparison.Ordinal);
         Assert.IsTrue(start >= 0 && end > start, "nie znaleziono wyboru pomocy HUD");
         var help = source[start..end];
-        StringAssert.Contains(help, "if (_lineCore is null)");
-        StringAssert.Contains(help, "return DriverActions.HelpWhenLegacyLineRuns;");
+        StringAssert.Contains(help, "if (_lineCore is null)",
+            "bez LineCore pomoc musi przejść do opisu starszego trybu linii");
+        StringAssert.Contains(help, "return DriverActions.HelpWhenLegacyLineRuns;",
+            "starszy tryb linii musi mieć własny prawdziwy opis klawiszy");
     }
 
     [TestMethod]
