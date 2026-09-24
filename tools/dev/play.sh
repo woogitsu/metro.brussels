@@ -47,8 +47,10 @@ BRAKI=()
 for plik in \
     "$ASSETS/chunks/L1_A-chunks.json" \
     "$ASSETS/M7_shell.glb" \
-    "$ASSETS/L1_A-platforms.glb"
-    "$ASSETS/L1_A-station-board.glb"
+    "$ASSETS/L1_A-platforms.glb" \
+    "$ASSETS/L1_A-station-board.glb" \
+    "$ASSETS/L1_A-visual-tail.glb" \
+    "$ASSETS/L1_A-visual-tail-detail.glb"
 do
     [ -f "$plik" ] || BRAKI+=("$plik")
 done

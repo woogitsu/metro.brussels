@@ -234,7 +234,8 @@ public sealed class UiTextTests
     // 590 -> 592 (24.09.2026, krótki HUD chase): dystans i próg.
     // 592 -> 595 (24.09.2026, integracja pomocy linii): trzy literały testów pomocy.
     // 595 -> 596 (24.09.2026, stan składu po zjeździe): nowy wiersz HUD.
-    private const int LiteralowWZasieguBramki = 596;
+    // 596 -> 599 (24.09.2026, sceneria za Merode): dwie ścieżki GLB i odmowa niekompletnej pary.
+    private const int LiteralowWZasieguBramki = 599;
 
     /// <summary>Ile różnych — dolne ostrze, zmierzone 12.09.2026.</summary>
     private const int RoznychLiteralowWZasieguBramki = 362;
@@ -1511,7 +1512,8 @@ public sealed class UiTextTests
     // 631 -> 633 (24.09.2026, krótki HUD chase): te same dwa napisy.
     // 633 -> 636 (24.09.2026, integracja pomocy linii): trzy pozycje źródłowe testów.
     // 636 -> 637 (24.09.2026, stan składu po zjeździe): ten sam wiersz HUD.
-    private const int PozycjiStaregoCzytnika = 637;
+    // 637 -> 640 (24.09.2026, sceneria za Merode): te same trzy literały.
+    private const int PozycjiStaregoCzytnika = 640;
 
     /// <summary>
     /// Ile PLIKÓW korpusu stary czytnik czytał inaczej niż leksykalny — 6.D182.
@@ -2114,7 +2116,8 @@ public sealed class UiTextTests
     // 137 -> 138 (23.09.2026, tory i światła): nowy literał na drodze całego pliku. PRZELICZONE.
     // 138 -> 140 (24.09.2026, station-wayfinding): ścieżka tablicy i komunikat odmowy.
     // 140 -> 141 (24.09.2026, interaktywne R): odmowa przeładowania sceny.
-    private const int ZgloszenFirstRunCalymPlikiem = 141;
+    // 141 -> 144 (24.09.2026, sceneria za Merode): dwie ścieżki i odmowa.
+    private const int ZgloszenFirstRunCalymPlikiem = 144;
 
     /// <summary>Ile daje ten sam plik liczony WIERSZ PO WIERSZU — 6.D180.</summary>
     // 122 -> 132 (14.09.2026, MB-04): `FirstRun.AssetsRoot`, `DomyslnyZapisWejsc`
@@ -2130,7 +2133,8 @@ public sealed class UiTextTests
     // 149 -> 150 (23.09.2026, tory i światła): nowy literał na drodze wierszy. PRZELICZONE.
     // 150 -> 152 (24.09.2026, station-wayfinding): te same dwa literały tablicy.
     // 152 -> 153 (24.09.2026, interaktywne R): nowy komunikat błędu.
-    private const int ZgloszenFirstRunWierszami = 153;
+    // 153 -> 156 (24.09.2026, sceneria za Merode): te same trzy literały.
+    private const int ZgloszenFirstRunWierszami = 156;
 
     /// <summary>Ile plików korpusu daje różne liczby obiema drogami — 6.D180.</summary>
     private const int PlikowZRoznicaDrog = 1;
@@ -2331,7 +2335,8 @@ public sealed class UiTextTests
     // 408 -> 410 (24.09.2026, krótki HUD chase): te same dwa napisy.
     // 410 -> 411 (24.09.2026, integracja pomocy linii): jeden dodatkowy literał.
     // 411 -> 412 (24.09.2026, stan składu po zjeździe): ten sam wiersz HUD.
-    private const int LiteralowDotknietychZdejmowaniem = 412;
+    // 412 -> 415 (24.09.2026, sceneria za Merode): dwie ścieżki i odmowa.
+    private const int LiteralowDotknietychZdejmowaniem = 415;
 
     /// <summary>
     /// Ilu literałom zdejmowanie jednostek ZABIERA werdykt „to słowo" — 6.D155.
@@ -5448,7 +5453,8 @@ public sealed class UiTextTests
     //: 21 -> 26 (22.09.2026, 6.D235): pięciu wołających — osłony pliku ZŁEGO, po dwie
     //: klauzule przy osi i przy manifeście chunków, jedna nowa przy planie sygnalizacji.
     // 26 -> 27 (24.09.2026): brak generowanej tablicy zatrzymuje uruchomienie.
-    private const int WolajacychAbort = 27;
+    // 27 -> 28 (24.09.2026): niekompletna para GLB za Merode zatrzymuje uruchomienie.
+    private const int WolajacychAbort = 28;
     // 5 -> 6 (24.09.2026, interaktywne R): błąd przeładowania poza Abort.
     private const int WypisowBleduPozaAbort = 6;
 

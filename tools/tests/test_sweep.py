@@ -100,6 +100,13 @@ def test_sweep_chunk_lengths_sum_to_the_axis_length():
         assert b == c, "granice chunków muszą się stykać, nie zachodzić"
 
 
+def test_sweep_without_stations_keeps_a_short_visual_tail_in_one_chunk():
+    points = [(0.0, 0.0, 0.0), (150.0, 0.0, 0.0), (300.0, 0.0, 0.0)]
+    result = SW.sweep(points, BOX, 5.0, [], max_chunk_m=500.0)
+    assert len(result["chunks"]) == 1
+    assert abs(result["axis_length_m"] - 300.0) < 1e-6
+
+
 # --- siatka -------------------------------------------------------------------
 
 def test_sweep_mesh_has_no_gap_between_chunks():

@@ -444,7 +444,9 @@ def sweep(points, profile, ring_step=DEFAULT_RING_STEP_M, station_chainages=(),
     frames = rmf_frames(dense)
     station_m = chainages(dense)
     total = station_m[-1]
-    bounds = chunk_boundaries(total, station_chainages or (0.0, total), max_chunk_m,
+    # A scenery-only axis can have no stops. Do not invent endpoints as stops:
+    # their midpoint would split a short tail even when it fits one chunk.
+    bounds = chunk_boundaries(total, station_chainages, max_chunk_m,
                               DEFAULT_MIN_CHUNK_M, halo_m)
     edges = [0.0] + [b for _a, b in bounds]
     ring_index = [_nearest_ring(station_m, value) for value in edges]

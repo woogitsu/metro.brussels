@@ -26,6 +26,38 @@ public sealed partial class TunnelView : Node3D
     public int MeshNodes { get; private set; }
 
     /// <summary>
+    /// Keep measured route scenery visible beyond the last playable stop. This
+    /// does not enter the chunk manifest, driving axis, collision or simulation.
+    /// Zero means an older asset set without the optional pair; -1 means a
+    /// partial or unreadable pair.
+    /// </summary>
+    public int LoadVisualContinuation(string tunnelPath, string detailPath,
+        StandardMaterial3D material)
+    {
+        var hasTunnel = FileAccess.FileExists(tunnelPath);
+        var hasDetail = FileAccess.FileExists(detailPath);
+        if (!hasTunnel && !hasDetail)
+            return 0;
+        if (!hasTunnel || !hasDetail)
+            return -1;
+
+        var tunnel = GlbLoader.Load(tunnelPath);
+        var detail = GlbLoader.Load(detailPath);
+        if (tunnel is null || detail is null)
+        {
+            tunnel?.Free();
+            detail?.Free();
+            return -1;
+        }
+
+        GlbLoader.ApplyNeutralMaterial(tunnel, material);
+        AddChild(tunnel);
+        tunnel.AddChild(detail);
+        MeshNodes = CountMeshes(this);
+        return CountMeshes(tunnel);
+    }
+
+    /// <summary>
     /// Doprowadza zawartość węzła do stanu, jakiego dla tego chainage żąda
     /// <see cref="StreamingPlan"/>: dokłada brakujące chunki, zwalnia te, które wypadły
     /// z okna, i przeładowuje te, którym zmienił się poziom szczegółowości.

@@ -1246,6 +1246,14 @@ public sealed partial class FirstRun : Node3D
             Path.Combine(_assetDirectory, manifest.Chunks[0].Id + "_detail.glb"));
         _tunnelMaterial = tunnelMaterial;
         _tunnel.Stream(manifest, _assetDirectory, tunnelMaterial, _scenario.StartChainageM);
+        var tailMeshes = _tunnel.LoadVisualContinuation(
+            Path.Combine(assets, "L1_A-visual-tail.glb"),
+            Path.Combine(assets, "L1_A-visual-tail-detail.glb"), tunnelMaterial);
+        if (tailMeshes < 0)
+        {
+            Abort(ExitMissingAssets, "[ASSETS] niekompletna wizualna kontynuacja za Merode; sprawdź pliki toru");
+            return;
+        }
 
         // Wynik `Load` był ODRZUCANY. `TrainView.Load` zwraca liczbę brył i zero znaczy
         // „nie wczytałem nic" — bez tego sprawdzenia scena szła dalej bez składu, a że
