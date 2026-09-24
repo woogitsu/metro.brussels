@@ -103,6 +103,16 @@ Gdy dwa kursy mają ten sam `releaseStep` i peron, pierwszy zgłoszony dostaje
 pierwszą próbę wjazdu; GTFS nie ustala tu priorytetu przy konflikcie, więc
 kolejności zgłoszeń nie należy przedstawiać jako oficjalnej decyzji ruchowej.
 
+**Remisy rozkładowe.** W tej samej zweryfikowanej projekcji 20260902 wszystkie
+357 wartości `release_s` są różne; najmniejszy odstęp między dwoma wjazdami to
+55 s, czyli 6600 kroków przy 120 Hz. `LineEntrySchedule` porządkuje dane po
+`(releaseStep, trip_id)`, co daje stabilny porządek także dla przyszłego feedu
+z remisem; test syntetyczny go sprawdza. Jest to porządek techniczny, nie
+uprawnienie do pierwszeństwa na torze. `BlockContinuity` pokazuje przejścia
+posortowane po `block_id`, a wewnątrz obiegu po czasie wejścia i przy remisie
+po `trip_id`. Wywołujący bramkę powinien brać kursy w kolejności planu, lecz
+rozstrzygnięcie konfliktu wjazdów wymaga osobnej polityki ruchowej.
+
 ## Sprawdzenie
 
 Audyt opiera się na schemacie w `tools/track/timetable.py` i spisie plików śledzonych przez Git.

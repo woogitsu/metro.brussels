@@ -58,4 +58,27 @@ public sealed class BlockContinuityTests
         Assert.AreEqual(0, continuity.Transitions.Count,
             "Równoczesne kursy różnych obiegów nie są konfliktem ciągłości pojazdu.");
     }
+
+    [TestMethod]
+    public void Przejscia_obiegu_pozostaja_w_kolejnosci_czasu_przy_odwrotnych_trip_id()
+    {
+        var axis = SignallingPlanTests.PackageAAxis();
+        var json = ProjectionWindow(
+            RunWindow("a", "vehicle", "8733", "8072", 200, 250) + "," +
+            RunWindow("m", "vehicle", "8733", "8072", 300, 350) + "," +
+            RunWindow("z", "vehicle", "8733", "8072", 100, 150));
+
+        var continuity = BlockContinuity.FromJson(json, axis, FixedStep.Simulation);
+
+        Assert.AreEqual(2, continuity.Transitions.Count,
+            "Trzy odcinki jednego obiegu tworzą dwa przejścia.");
+        Assert.AreEqual("z", continuity.Transitions[0].PreviousTripId,
+            "Pierwsze przejście ma wcześniejszy releaseStep mimo późniejszego trip_id.");
+        Assert.AreEqual("a", continuity.Transitions[0].NextTripId,
+            "Pierwsze przejście prowadzi do drugiego kursu w czasie.");
+        Assert.AreEqual("a", continuity.Transitions[1].PreviousTripId,
+            "Drugie przejście zaczyna się od kursu środkowego.");
+        Assert.AreEqual("m", continuity.Transitions[1].NextTripId,
+            "Drugie przejście prowadzi do trzeciego kursu w czasie.");
+    }
 }

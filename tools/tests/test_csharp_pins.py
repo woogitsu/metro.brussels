@@ -88,7 +88,8 @@ PINY_GRY = {
 # w `BrokenJsonRefusalTests.cs` — wiersz wspolnego handlera `Sim.Runner` przy
 # dokumencie innego ksztaltu, porownany w calosci; ZMIERZONE.
 # 78 -> 81 (24.09.2026, T-320): data, kurs i identyfikator obiegu.
-PINY_RDZENIA = 81
+# 81 -> 85 (24.09.2026, T-320): cztery kursy w dwóch przejściach obiegu.
+PINY_RDZENIA = 85
 
 #: Kategorie, po jednej pozycji na pin — zamknięte i sumujące się do liczby wyżej.
 #:
@@ -479,9 +480,10 @@ ROZKLAD_LICZBOWYCH = {
         # chainage pin with exact 0.0 tolerance for mid-axis admission.
         # 505 -> 508 (24.09.2026, T-320): plan wejść i dwie granice obiegu.
         # 508 -> 512 (24.09.2026, T-320): kroki, stacja i liczba składów.
-        "razem": 512, "z_tolerancja": 190, "bez_tolerancji": 322,
+        # 512 -> 513 (24.09.2026, T-320): liczba przejść obiegu.
+        "razem": 513, "z_tolerancja": 190, "bez_tolerancji": 323,
         "zmiennoprzecinkowe": 198, "zmiennoprzecinkowe_bez_tolerancji": 8,
-        "calkowite": 314, "calkowite_z_tolerancja": 0, "tolerancja_zero": 121,
+        "calkowite": 315, "calkowite_z_tolerancja": 0, "tolerancja_zero": 121,
     },
 }
 

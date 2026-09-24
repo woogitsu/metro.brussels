@@ -650,7 +650,8 @@ ROZKLAD_POSTACI = {
         # 5066 -> 5087 and 849 -> 850 (24.09.2026, mid-axis admission tests).
         # 5087 -> 5165, 850 -> 852 (24.09.2026, T-320): plan wejść i obiegi.
         # 5165 -> 5187 (24.09.2026, T-320): kursy, bloki i komunikaty bramki.
-        "zwykly": 5187,
+        # 5187 -> 5210 (24.09.2026, T-320): nazwy kursów i komunikaty kolejności.
+        "zwykly": 5210,
         "interpolowany ($)": 852,
         "werbatim (@)": 101,
         "surowy interpolowany ($$\"\"\")": 13,

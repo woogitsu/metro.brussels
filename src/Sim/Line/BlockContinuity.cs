@@ -86,32 +86,30 @@ public sealed class BlockContinuity
             blockRuns.Add(projected);
         }
         var transitions = new List<BlockTransition>();
-        foreach (var block in byBlock)
+        var blockIds = new List<string>(byBlock.Keys);
+        blockIds.Sort(StringComparer.Ordinal);
+        foreach (var blockId in blockIds)
         {
-            block.Value.Sort((a, b) =>
+            var blockRuns = byBlock[blockId];
+            blockRuns.Sort((a, b) =>
             {
                 var byTime = a.ReleaseStep.CompareTo(b.ReleaseStep);
                 return byTime != 0 ? byTime : string.CompareOrdinal(a.TripId, b.TripId);
             });
-            for (var i = 1; i < block.Value.Count; i++)
+            for (var i = 1; i < blockRuns.Count; i++)
             {
-                var previous = block.Value[i - 1];
-                var next = block.Value[i];
+                var previous = blockRuns[i - 1];
+                var next = blockRuns[i];
                 var gap = next.ReleaseStep - previous.ExitStep;
                 if (gap < 0)
                 {
                     throw new ArgumentException(
-                        $"Obieg {block.Key}: kursy {previous.TripId} i {next.TripId} nakładają się.", nameof(json));
+                        $"Obieg {blockId}: kursy {previous.TripId} i {next.TripId} nakładają się.", nameof(json));
                 }
-                transitions.Add(new BlockTransition(block.Key, previous.TripId, next.TripId,
+                transitions.Add(new BlockTransition(blockId, previous.TripId, next.TripId,
                     gap, previous.ExitStationIndex, next.EntryStationIndex));
             }
         }
-        transitions.Sort((a, b) =>
-        {
-            var byBlockId = string.CompareOrdinal(a.BlockId, b.BlockId);
-            return byBlockId != 0 ? byBlockId : string.CompareOrdinal(a.PreviousTripId, b.PreviousTripId);
-        });
         return new BlockContinuity(runs.ToArray(), transitions.ToArray());
     }
 }
