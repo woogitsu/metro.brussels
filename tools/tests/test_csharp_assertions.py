@@ -479,7 +479,8 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 # kontroli ciągłości obiegów ma komunikaty.
 # 2025 -> 2035 (24.09.2026, T-320): dziesięć kontroli bramki wjazdu.
 # 2035 -> 2040 (24.09.2026, T-320): pięć kontroli chronologii obiegu.
-Z_KOMUNIKATEM_RAZEM = 2040
+# 2040 -> 2049 (24.09.2026, T-320): dziewięć asercji wykrywania pominiętych kursów.
+Z_KOMUNIKATEM_RAZEM = 2049
 NIEROZSTRZYGNIETYCH = 68
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
 #: `tests/Sim.Tests/DefaultArmAuditTests.cs` — bramki na ramionach domyślnych
@@ -610,7 +611,8 @@ NIEROZSTRZYGNIETYCH = 68
 # 3462 -> 3477 (24.09.2026, T-320): plan wejść i ciągłość obiegów.
 # 3477 -> 3487 (24.09.2026, T-320): dziesięć kontroli bramki wjazdu.
 # 3487 -> 3492 (24.09.2026, T-320): pięć kontroli chronologii obiegu.
-ASERCJI_RAZEM = 3492
+# 3492 -> 3501 (24.09.2026, T-320): dziewięć kontroli bramki z planem.
+ASERCJI_RAZEM = 3501
 
 
 def _rozklad():

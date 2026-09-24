@@ -113,6 +113,16 @@ posortowane po `block_id`, a wewnątrz obiegu po czasie wejścia i przy remisie
 po `trip_id`. Wywołujący bramkę powinien brać kursy w kolejności planu, lecz
 rozstrzygnięcie konfliktu wjazdów wymaga osobnej polityki ruchowej.
 
+**Kontrola pominiętych wjazdów.** Sama `QueueDue` odmawiała kursowi
+zgłoszonemu po jego `releaseStep`, ale nie mogła wykryć kursu, którego nikt
+w ogóle nie zgłosił. Bramka z przekazanym `LineEntrySchedule` ma teraz `Step()`:
+zatrzymuje zegar przed każdym krokiem, dla którego istnieje niezgłoszony kurs,
+i wymaga porządku planu przy jednakowym czasie. Nie tworzy składów automatycznie.
+Kontrola obowiązuje tylko wtedy, gdy wywołujący używa `LineEntryGate.Step()`
+zamiast bezpośredniego `LineCore.Step()`; API rdzenia nadal pozostaje dostępne
+do innych scenariuszy. Wjazd już zgłoszonego składu może zostać opóźniony przez
+zajęte bloki, co nadal mierzy `EnteredAtStep`.
+
 ## Sprawdzenie
 
 Audyt opiera się na schemacie w `tools/track/timetable.py` i spisie plików śledzonych przez Git.

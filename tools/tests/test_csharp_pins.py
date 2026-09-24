@@ -89,7 +89,8 @@ PINY_GRY = {
 # dokumencie innego ksztaltu, porownany w calosci; ZMIERZONE.
 # 78 -> 81 (24.09.2026, T-320): data, kurs i identyfikator obiegu.
 # 81 -> 85 (24.09.2026, T-320): cztery kursy w dwóch przejściach obiegu.
-PINY_RDZENIA = 85
+# 85 -> 86 (24.09.2026, T-320): pierwszy trip_id po remisie w planie.
+PINY_RDZENIA = 86
 
 #: Kategorie, po jednej pozycji na pin — zamknięte i sumujące się do liczby wyżej.
 #:
@@ -481,9 +482,10 @@ ROZKLAD_LICZBOWYCH = {
         # 505 -> 508 (24.09.2026, T-320): plan wejść i dwie granice obiegu.
         # 508 -> 512 (24.09.2026, T-320): kroki, stacja i liczba składów.
         # 512 -> 513 (24.09.2026, T-320): liczba przejść obiegu.
-        "razem": 513, "z_tolerancja": 190, "bez_tolerancji": 323,
+        # 513 -> 515 (24.09.2026, T-320): niezmieniony krok i dwa kursy planu.
+        "razem": 515, "z_tolerancja": 190, "bez_tolerancji": 325,
         "zmiennoprzecinkowe": 198, "zmiennoprzecinkowe_bez_tolerancji": 8,
-        "calkowite": 315, "calkowite_z_tolerancja": 0, "tolerancja_zero": 121,
+        "calkowite": 317, "calkowite_z_tolerancja": 0, "tolerancja_zero": 121,
     },
 }
 

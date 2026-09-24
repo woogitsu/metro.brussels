@@ -106,6 +106,64 @@ public sealed class LineCoreTests
             "Odmowa nie może pozostawić dodatkowego składu na linii.");
     }
 
+    [TestMethod]
+    public void Bramka_z_planem_odmawia_kroku_z_pominietym_kursem()
+    {
+        var axis = SignallingPlanTests.SyntheticAxis(0.0, 600.0, 1400.0, 2000.0);
+        var schedule = LineEntrySchedule.FromJson(
+            """
+            {"axis_id":"T","date":"20260902","source_gtfs_sha256":"test","runs":[
+              {"trip_id":"first","block_id":"A","first_stop_id":"P0","release_s":0},
+              {"trip_id":"second","block_id":"B","first_stop_id":"P1","release_s":1}
+            ]}
+            """, axis, FixedStep.Simulation);
+        var line = Line();
+        var gate = new LineEntryGate(line, schedule);
+
+        var firstError = Assert.ThrowsException<InvalidOperationException>(() => gate.Step(),
+            "Bramka musi zgłosić brak kursu przed pierwszym krokiem.");
+        StringAssert.Contains(firstError.Message, "first", "Odmowa wskazuje pominięty kurs.");
+        Assert.AreEqual(0L, line.Steps, "Odmowa nie przesuwa zegara.");
+        gate.QueueDue(schedule.Entries[0]);
+        while (line.Steps < schedule.Entries[1].ReleaseStep)
+        {
+            gate.Step();
+        }
+
+        var secondError = Assert.ThrowsException<InvalidOperationException>(() => gate.Step(),
+            "Pominięcie późniejszego releaseStep również zatrzymuje zegar.");
+        StringAssert.Contains(secondError.Message, "second", "Odmowa wskazuje drugi kurs.");
+        Assert.AreEqual(schedule.Entries[1].ReleaseStep, line.Steps,
+            "Odmowa nie przechodzi przez pominięty krok.");
+        gate.QueueDue(schedule.Entries[1]);
+        gate.Step();
+        Assert.AreEqual(2, line.Trains.Count, "Po zgłoszeniu obu kursów zegar może ruszyć.");
+    }
+
+    [TestMethod]
+    public void Bramka_z_planem_wymaga_porządku_trip_id_przy_remisie()
+    {
+        var axis = SignallingPlanTests.SyntheticAxis(0.0, 600.0, 1400.0, 2000.0);
+        var schedule = LineEntrySchedule.FromJson(
+            """
+            {"axis_id":"T","date":"20260902","source_gtfs_sha256":"test","runs":[
+              {"trip_id":"z","block_id":"B","first_stop_id":"P0","release_s":0},
+              {"trip_id":"a","block_id":"A","first_stop_id":"P0","release_s":0}
+            ]}
+            """, axis, FixedStep.Simulation);
+        var line = Line();
+        var gate = new LineEntryGate(line, schedule);
+
+        Assert.ThrowsException<InvalidOperationException>(
+            () => gate.QueueDue(schedule.Entries[1]),
+            "Przy remisie kolejność musi pochodzić z typowanego planu.");
+        gate.QueueDue(schedule.Entries[0]);
+        gate.QueueDue(schedule.Entries[1]);
+        gate.Step();
+        Assert.AreEqual("a", line.Trains[0].Id,
+            "Pierwsza próba wjazdu należy do pierwszego kursu planu.");
+    }
+
     private static List<LineRun.TracePoint> TraceOf(LineCore line, string trainId, long stepBudget)
     {
         var trace = new List<LineRun.TracePoint>();
