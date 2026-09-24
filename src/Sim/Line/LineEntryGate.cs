@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using MetroBxl.Sim.Train;
 
 namespace MetroBxl.Sim.Line;
 
@@ -37,7 +38,7 @@ public sealed class LineEntryGate
     /// bieżącemu krokowi. Nie zgłasza ich automatycznie. Wywołujący musi używać
     /// tej metody zamiast bezpośredniego LineCore.Step, aby kontrola działała.
     /// </summary>
-    public void Step()
+    public void Step(Action<string, LineRun.TracePoint>? trace = null)
     {
         if (_schedule is null)
         {
@@ -50,7 +51,7 @@ public sealed class LineEntryGate
             throw new InvalidOperationException(
                 $"Kurs {missed.TripId} obiegu {missed.BlockId} z releaseStep {missed.ReleaseStep} nie został zgłoszony przed krokiem {_line.Steps}.");
         }
-        _line.Step();
+        _line.Step(trace);
     }
 
     /// <summary>

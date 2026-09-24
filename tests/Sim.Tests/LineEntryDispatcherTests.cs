@@ -149,4 +149,53 @@ public sealed class LineEntryDispatcherTests
             () => new LineEntryDispatcher(occupied, emptySchedule, emptySchedule.ServiceDay),
             "pusty plan nie może ogłosić końca linii mającej już aktywny skład");
     }
+
+    [TestMethod]
+    public void Sesja_linii_czeka_na_pierwszy_wjazd_i_uzywa_tego_samego_zegara()
+    {
+        var axis = SignallingPlanTests.PackageAAxis();
+        // Syntetyczne identyfikatory; tylko stop_id i geometria pochodzą z L1_A.
+        var schedule = Schedule(axis, Entry("synthetic-west", "synthetic-a", "8733", 2) + "," +
+            Entry("synthetic-beek", "synthetic-b", "8742", 55));
+        var line = Line(axis);
+        var dispatcher = new LineEntryDispatcher(line, schedule, schedule.ServiceDay);
+        var session = new LineSession(line, new DriverNotch(0.5), FixedStep.Simulation, dispatcher);
+        Assert.ThrowsException<InvalidOperationException>(() => session.ObserveNext(),
+            "przed pierwszym wjazdem nie wolno przełączać nieistniejącego składu");
+        var firstStep = schedule.Entries[0].ReleaseStep;
+        while (line.Steps < firstStep)
+        {
+            Assert.IsTrue(session.Step(DriverKeys.None), "zegar sesji musi czekać na pierwszy wjazd");
+            Assert.AreEqual(0, line.Trains.Count, "przed terminem nie wolno dodać składu");
+            Assert.IsFalse(session.Finished, "przyszły kurs utrzymuje sesję aktywną");
+        }
+        Assert.IsTrue(session.Step(DriverKeys.None), "pierwszy kurs ma wejść o czasie");
+        Assert.AreEqual(1, line.Trains.Count, "tylko pierwszy kurs jest już należny");
+        Assert.AreEqual(firstStep, line.Trains[0].EnteredAtStep, "fizyczny wjazd jest punktualny");
+        while (line.Steps <= schedule.Entries[1].ReleaseStep)
+            Assert.IsTrue(session.Step(DriverKeys.None), "sesja musi dotrwać do drugiego terminu");
+        Assert.AreEqual(2, line.Trains.Count, "oba kursy są w planie linii");
+        Assert.AreEqual(2, dispatcher.RegisteredEntries, "dyspozytor zgłosił oba kursy");
+    }
+
+    [TestMethod]
+    public void Pierwszy_krok_wjazdu_raportuje_rzeczywiste_polecenie_i_przyspieszenie()
+    {
+        var axis = SignallingPlanTests.PackageAAxis();
+        var schedule = Schedule(axis, Entry("west", "block-west", "8733", 0));
+        var line = Line(axis);
+        var session = new LineSession(line, new DriverNotch(0.5), FixedStep.Simulation,
+            new LineEntryDispatcher(line, schedule, schedule.ServiceDay));
+
+        Assert.IsTrue(session.Step(DriverKeys.None), "sesja ma wykonać krok rozkładowego wjazdu");
+        var drive = line.Trains[0].Drive;
+        Assert.IsNotNull(drive, "wolny peron musi wpuścić skład w tym samym kroku");
+        Assert.AreNotEqual(DriverCommand.Coast, drive.LastCommand,
+            "test wymaga niezerowego polecenia już w kroku wjazdu");
+        Assert.AreEqual(drive.LastCommand, session.Command,
+            "telemetria musi użyć polecenia z wykonanego kroku");
+        Assert.AreEqual(drive.State.SpeedMps / FixedStep.Simulation.Seconds,
+            session.AccelerationMps2, 1e-9,
+            "przyspieszenie pierwszego kroku musi wynikać z rzeczywistej zmiany prędkości");
+    }
 }

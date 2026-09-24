@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using MetroBxl.Sim.Train;
 
 namespace MetroBxl.Sim.Line;
 
@@ -47,7 +48,7 @@ public sealed class LineEntryDispatcher
     public bool Finished => _next == _entries.Count && (_entries.Count == 0 || _line.Finished);
 
     /// <summary>Register every trip due now, then advance the shared line clock once.</summary>
-    public bool Step()
+    public bool Step(Action<string, LineRun.TracePoint>? trace = null)
     {
         if (Finished)
             return false;
@@ -56,7 +57,7 @@ public sealed class LineEntryDispatcher
             _gate.QueueDue(_entries[_next]);
             _next++;
         }
-        _gate.Step();
+        _gate.Step(trace);
         return true;
     }
 

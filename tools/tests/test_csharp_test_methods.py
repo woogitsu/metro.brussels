@@ -657,9 +657,11 @@ ROZKLAD_POSTACI = {
         # 5236 -> 5244 (24.09.2026, test skrętu osi scenerii i odmowy brakującego JSON).
         # 5244 -> 5268 i 852 -> 853 (24.09.2026, dwa wjazdy rozkładowe):
         # identyfikatory kursów, komunikaty wszystkich asercji i interpolowany krok diagnostyki.
-        "zwykly": 5410,
-        "interpolowany ($)": 856,
-        "werbatim (@)": 101,
+        # 5410 -> 5510, 856 -> 858, 101 -> 102 (25.09.2026, integracja rozkładu
+        # i podglądu łącznika wraz z pomiarami w UiTextTests).
+        "zwykly": 5510,
+        "interpolowany ($)": 858,
+        "werbatim (@)": 102,
         "surowy interpolowany ($$\"\"\")": 13,
         # 8 -> 10 (23.09.2026): dwie probki sceny w testach.
         # 10 -> 12 (24.09.2026, T-320): dwa dokumenty syntetycznego planu.
@@ -735,7 +737,8 @@ ROZKLAD_POSTACI = {
         # 1525 -> 1526 (24.09.2026, ścieżka JSON tej osi w FirstRun).
         # 1526 -> 1530: komunikaty odmowy, status przebiegu i zgodności osi.
         # 1530 -> 1531 (24.09.2026, świeża linia): komunikat odmowy konstruktora.
-        "zwykly": 1582,
+        # 1582 -> 1613 (25.09.2026, dwa wejścia rozkładowe w scenie i Runnerze).
+        "zwykly": 1613,
         # 489 -> 494 (22.09.2026, 6.D235): piec komunikatow `Abort` dla pliku ZLEGO
         # w `FirstRun.cs`. Przeliczone z drzewa, nie zsumowane.
         # 494 -> 513 (23.09.2026, 6.M1): komunikaty odmow i wiersze zapisu zdarzen
@@ -750,7 +753,8 @@ ROZKLAD_POSTACI = {
         # 531 -> 533 (24.09.2026, T-320): data planu i zegara.
         # 533 -> 536 (24.09.2026, odmowy dla osi scenerii).
         # 536 -> 537: odmowa ponownego użycia block_id wskazuje obieg.
-        "interpolowany ($)": 539,
+        # 539 -> 546 (24.09.2026, komunikaty rozkladu).
+        "interpolowany ($)": 546,
         "werbatim (@)": 0,
         "surowy interpolowany ($$\"\"\")": 1,
         "surowy (\"\"\")": 1,

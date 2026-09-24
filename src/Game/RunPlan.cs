@@ -38,7 +38,7 @@ public sealed class RunPlan
         // odrzucał je jako „nieznany argument" — czyli nadpisanie było nieosiągalne,
         // a jedyną drogą do innej kabiny było przeniesienie pliku.
         "platforms", "cab", "visual-continuation",
-        "line", "calls", "limit-kmh", "signalling",
+        "line", "calls", "limit-kmh", "signalling", "scheduled-entries",
         "input-log", "replay", "from-telemetry",
         // MB-07. Oba wpisy są KONIECZNE, a nie wygodne: lista jest JAWNA i argument
         // spoza niej zatrzymuje przebieg, więc bez nich `--trains=2` byłoby odrzucone
@@ -86,7 +86,7 @@ public sealed class RunPlan
     public static readonly string[] PathArguments =
     {
         "telemetry", "shot", "replay", "from-telemetry", "axis",
-        "manifest", "calls", "signalling", "input-log", "assets",
+        "manifest", "calls", "signalling", "input-log", "assets", "scheduled-entries",
     };
 
     /// <summary>
@@ -317,6 +317,9 @@ public sealed class RunPlan
     /// w trybie ręcznym tę samą parę sprawdza scena, zanim zbuduje ochronę.</para>
     /// </summary>
     public string? SignallingPath { get; private init; }
+
+    /// <summary>Explicit two-entry dated L1_A plan; absent in the normal line scenario.</summary>
+    public string? ScheduledEntriesPath { get; private init; }
 
     /// <summary>
     /// Czy KABINA jedzie pod sygnalizacją: przejazd prowadzony poleceniem maszynisty
@@ -712,6 +715,18 @@ public sealed class RunPlan
                 + "zatrzymań do wypisania");
         }
 
+        if (arguments.ContainsKey("scheduled-entries") &&
+            (!arguments.ContainsKey("line") || !arguments.ContainsKey("signalling")))
+        {
+            return Refusal(arguments, exitBadArgumentValue,
+                "[ARGUMENT] --scheduled-entries wymaga --line i --signalling.");
+        }
+        if (arguments.ContainsKey("scheduled-entries") &&
+            (arguments.ContainsKey("trains") || arguments.ContainsKey("headway-steps")))
+        {
+            return Refusal(arguments, exitBadArgumentValue,
+                "[ARGUMENT] --scheduled-entries wyznacza wjazdy; nie łączy się z --trains ani --headway-steps.");
+        }
         return new RunPlan(arguments)
         {
             TelemetryPath = Argument(arguments, "telemetry"),
@@ -722,6 +737,7 @@ public sealed class RunPlan
             FromTelemetryPath = Argument(arguments, "from-telemetry"),
             LimitKmh = limitKmh,
             SignallingPath = Argument(arguments, "signalling"),
+            ScheduledEntriesPath = Argument(arguments, "scheduled-entries"),
             SampleEvery = sampleEvery,
             StepsPerFrame = stepsPerFrame,
             Trains = trains,
