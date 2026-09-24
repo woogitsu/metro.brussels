@@ -41,8 +41,10 @@ Dla każdego rzeczywistego kursu trzeba znać co najmniej: `trip_id`, `block_id`
 
 Archiwum o wymaganym `content_sha256` jest teraz dostępne lokalnie. Generator zapisuje
 `trip_records`, a jego tryb `--project-trips` deterministycznie wybiera kursy przecinające pakiet A.
-Następny etap może użyć tej projekcji jako wejścia do LineCore i porównać symulowane
-wyjazdy z GTFS. Polityka dyspozytora i adapter LineCore nadal nie są zaimplementowane.
+Projekcja jest już wejściem dla `LineEntrySchedule`, a ograniczona bramka
+`LineEntryGate` rejestruje pojedyncze wjazdy na wskazanej stacji i w dniu służby.
+Pełna polityka dyspozytora i przejście tego samego pojazdu między kolejnymi kursami
+nie są zaimplementowane; nie wykonano porównania 357 symulowanych kursów z GTFS.
 
 ## Granica obecnego LineCore wobec 357 kursów (24.09.2026, `9280d3b`)
 
@@ -66,12 +68,13 @@ zgłoszenie jednego `block_id` nie zaplanowałoby kolejnych kursów.
 
 Ruch w tym samym czasie nie jest tu przeszkodą samą w sobie: rozkład osiąga maksimum
 **6** przejazdów równocześnie na osi, a `LineCore` obsługuje N składów na jednym
-zegarze i blokach. Brakuje **wejścia w środku osi oraz przeniesienia tego samego
-pojazdu między kursami według GTFS**. Adapter musi też jawnie ustalić początek
-zegara dnia i sprawdzać rzeczywisty krok wjazdu, bo zajęty blok może opóźnić
-`EnteredAtStep` względem rozkładowego `releaseStep`. Bez tych elementów nie należy
-twierdzić, że LineCore odtworzył 357 kursów. Nie zmieniono polityki dyspozytora,
-nawrotu ani stanu rdzenia.
+zegarze i blokach. **W chwili pomiaru** brakowało wejścia w środku osi oraz
+przeniesienia tego samego pojazdu między kursami według GTFS. Późniejszy
+`AddAtStation` rozwiązuje pierwszy brak, a `LineEntrySchedule` wiąże krok wejścia
+z dniem służby; `EnteredAtStep` nadal pokazuje faktyczny wjazd, który zajęty blok
+może opóźnić. **Przeniesienie pojazdu między kursami i pełna polityka ruchowa
+pozostają otwarte.** Nie należy twierdzić, że LineCore odtworzył 357 kursów.
+Nie zmieniono automatycznego nawrotu ani polityki dyspozytora.
 
 **Kontrola ciągłości obiegów po dodaniu planu wejść.** `BlockContinuity` używa
 `block_id` wyłącznie jako klucza tego samego obiegu pojazdu; GTFS nie nadaje tu
