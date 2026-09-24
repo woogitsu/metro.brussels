@@ -16,11 +16,14 @@ o czym mowi.
 """
 import os
 import re
+import subprocess
 import sys
+import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import tree_walk  # noqa: E402
+import assertion_gate  # noqa: E402
 
 ROOT = tree_walk.ROOT
 
@@ -216,6 +219,29 @@ def test_brak_zasobu_konczy_sie_NAZWANYM_bledem_a_nie_pusta_scena():
     assert "exit 3" in przygotowanie and "BLENDER_BIN" in przygotowanie, (
         "`prepare-playable.sh` nie zglasza braku Blendera osobnym kodem — `CLAUDE.md` "
         "§2 kaze przerwac i powiedziec, a nie probowac obejsc")
+
+
+def test_play_odmawia_gdy_GLBy_sa_a_brakuje_osi_scenerii():
+    if os.name == "nt":
+        assertion_gate.skip("test skryptu bash wymaga środowiska Linux")
+
+    with tempfile.TemporaryDirectory() as temp:
+        assets = os.path.join(temp, "assets")
+        os.makedirs(os.path.join(assets, "chunks"))
+        for name in ("chunks/L1_A-chunks.json", "M7_shell.glb", "L1_A-platforms.glb",
+                     "L1_A-station-board.glb", "L1_A-visual-tail.glb",
+                     "L1_A-visual-tail-detail.glb"):
+            open(os.path.join(assets, name), "wb").close()
+        godot = os.path.join(temp, "godot")
+        with open(godot, "w", encoding="utf-8") as handle:
+            handle.write("#!/bin/sh\nexit 0\n")
+        os.chmod(godot, 0o755)
+        env = dict(os.environ, GODOT_BIN=godot, ASSETS_DIR=assets,
+                   INPUT_LOG=os.path.join(temp, "input.log"))
+        result = subprocess.run(["bash", "tools/dev/play.sh"], cwd=ROOT, env=env,
+                                capture_output=True, text=True, timeout=10)
+        assert result.returncode == 4, result.stdout + result.stderr
+        assert "L1_A-visual-tail-axis.json" in result.stderr, result.stderr
 
 
 def test_czytnik_komentarzy_ODROZNIA_kod_od_komentarza_na_wejsciu_syntetycznym():

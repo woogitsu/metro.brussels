@@ -50,7 +50,8 @@ for plik in \
     "$ASSETS/L1_A-platforms.glb" \
     "$ASSETS/L1_A-station-board.glb" \
     "$ASSETS/L1_A-visual-tail.glb" \
-    "$ASSETS/L1_A-visual-tail-detail.glb"
+    "$ASSETS/L1_A-visual-tail-detail.glb" \
+    "$ASSETS/L1_A-visual-tail-axis.json"
 do
     [ -f "$plik" ] || BRAKI+=("$plik")
 done

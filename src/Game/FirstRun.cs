@@ -1256,7 +1256,7 @@ public sealed partial class FirstRun : Node3D
             return;
         }
         var tailAxisPath = Path.Combine(assets, "L1_A-visual-tail-axis.json");
-        if (tailMeshes > 0 && FileAccess.FileExists(tailAxisPath))
+        if (tailMeshes > 0)
         {
             using var tailAxisFile = FileAccess.Open(tailAxisPath, FileAccess.ModeFlags.Read);
             if (tailAxisFile is null)
