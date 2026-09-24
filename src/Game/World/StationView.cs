@@ -81,9 +81,9 @@ public sealed partial class StationView : Node3D
     /// <summary>Use the complete bilingual name, never abbreviated feed fields.</summary>
     public static string NameMarkerText(string axisName) => axisName.Replace('|', '\n');
 
-    /// <summary>Keep the marker inside the route, including terminal stations.</summary>
+    /// <summary>Show the name on approach while keeping terminal markers inside the route.</summary>
     public static double NameMarkerChainage(double stationM, double axisLengthM) =>
-        Math.Clamp(stationM + 15.0, 8.0, axisLengthM - 8.0);
+        Math.Clamp(stationM - 15.0, 8.0, axisLengthM - 8.0);
 
     /// <summary>
     /// Place a neutral station-name marker above the tracks at each platform.

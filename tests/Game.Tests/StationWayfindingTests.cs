@@ -21,11 +21,11 @@ public sealed class StationWayfindingTests
     public void TerminalMarkersStayInsideTheAxis()
     {
         const double lengthM = 6686.739;
-        Assert.AreEqual(15.0, StationView.NameMarkerChainage(0.0, lengthM), 1e-9,
+        Assert.AreEqual(8.0, StationView.NameMarkerChainage(0.0, lengthM), 1e-9,
             "The first station gets an in-route marker");
-        Assert.AreEqual(6678.739, StationView.NameMarkerChainage(lengthM, lengthM), 1e-9,
-            "The last marker leaves room for its orientation chord");
-        Assert.AreEqual(524.73, StationView.NameMarkerChainage(509.73, lengthM), 1e-9,
-            "An interior marker remains near its platform");
+        Assert.AreEqual(6671.739, StationView.NameMarkerChainage(lengthM, lengthM), 1e-9,
+            "The last marker is visible before reaching the terminal stop");
+        Assert.AreEqual(494.73, StationView.NameMarkerChainage(509.73, lengthM), 1e-9,
+            "An interior marker appears before the stopping point");
     }
 }
