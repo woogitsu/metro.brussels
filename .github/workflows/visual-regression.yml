@@ -27,15 +27,9 @@ permissions:
 
 jobs:
   visual-regression:
-    # Ten job chodzi na MASZYNIE WŁAŚCICIELA, nie na jednorazowej maszynie GitHuba.
-    # Kroki wykonują kod ze sprawdzonego refa — `tools/**`, `doctor.sh`, skrypty CI —
-    # więc bez tego warunku wystarczyłby pull request z forka, żeby uruchomić tam
-    # dowolny kod. `metro.brussels` jest prywatne, ale ma WŁĄCZONE forkowanie
-    # (`allow_forking: true`), więc uzasadnienie „forka nie da się zrobić" tu nie
-    # obowiązuje. Warunek nosi KAŻDY job; `needs:` nie jest zamiennikiem, bo job
-    # dopisany bez łańcucha zależności nie miałby żadnej ochrony.
+    # Zgodnie z polityką repo job nie uruchamia kodu z pull requestów forków.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 45
 
     # Los wysyłki artefaktów wychodzi z joba, bo drugi sygnał w liście checków musi
@@ -178,7 +172,7 @@ jobs:
     # Otoczka niczego nie zdejmuje ze strażnika fork-PR — alternatywa dwóch członów
     # zostaje w całości, i tego pilnuje `test_every_job_refuses_pull_requests_from_forks`.
     if: always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 5
 
     steps:
