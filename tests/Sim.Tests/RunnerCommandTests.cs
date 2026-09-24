@@ -74,7 +74,8 @@ public sealed class RunnerCommandTests
                 "--notch-rate", "0.80", "--exchange-s", "8", "--stop-window-m", "5",
                 "--out", output);
             Assert.AreEqual(0, result.ExitCode, result.StdErr);
-            StringAssert.Contains(result.StdOut, "stacja Merode");
+            StringAssert.Contains(result.StdOut, "stacja Merode",
+                "replay musi zgłosić obsługę końcowej stacji");
 
             var rows = File.ReadAllLines(output);
             var atEnd = rows[^1].Split(',');
@@ -82,7 +83,8 @@ public sealed class RunnerCommandTests
             var speed = double.Parse(atEnd[4], System.Globalization.CultureInfo.InvariantCulture);
             Assert.AreEqual(6686.35, chainage, 0.01,
                 "pełny ciąg ma kończyć hamowaniem przy Merode, przed twardym końcem osi");
-            Assert.AreEqual(0.0, speed);
+            Assert.AreEqual(0.0, speed,
+                "telemetria końcowa musi pokazać skład zatrzymany na Merode");
             Assert.AreEqual("0", atEnd[6], "stojący skład nie może raportować opóźnienia");
             Assert.AreEqual("0", atEnd[7], "telemetria ma pokazać odcięty ciąg");
             Assert.IsTrue(rows.Skip(1).Any(row =>

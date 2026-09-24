@@ -657,8 +657,8 @@ ROZKLAD_POSTACI = {
         # 5236 -> 5244 (24.09.2026, test skrętu osi scenerii i odmowy brakującego JSON).
         # 5244 -> 5268 i 852 -> 853 (24.09.2026, dwa wjazdy rozkładowe):
         # identyfikatory kursów, komunikaty wszystkich asercji i interpolowany krok diagnostyki.
-        "zwykly": 5268,
-        "interpolowany ($)": 853,
+        "zwykly": 5384,
+        "interpolowany ($)": 856,
         "werbatim (@)": 101,
         "surowy interpolowany ($$\"\"\")": 13,
         # 8 -> 10 (23.09.2026): dwie probki sceny w testach.

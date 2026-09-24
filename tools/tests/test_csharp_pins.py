@@ -92,7 +92,7 @@ PINY_GRY = {
 # 85 -> 86 (24.09.2026, T-320): pierwszy trip_id po remisie w planie.
 # 86 -> 87 (24.09.2026, koniec osi linii): nazwa postoju Merode w LineDriveTests.
 # 87 -> 89 (24.09.2026, dwa wjazdy rozkładowe): oba składy muszą dojechać do Merode.
-PINY_RDZENIA = 89
+PINY_RDZENIA = 95
 
 #: Kategorie, po jednej pozycji na pin — zamknięte i sumujące się do liczby wyżej.
 #:
@@ -493,9 +493,9 @@ ROZKLAD_LICZBOWYCH = {
         # 517 -> 523 (24.09.2026, LineDrive): granica Merode, prędkość, ślad i bilans.
         # 523 -> 531 (24.09.2026, dwa wjazdy rozkładowe): osiem dokładnych
         # całkowitych pinów liczby kursów, bloków, stacji, kroków i wezwań.
-        "razem": 531, "z_tolerancja": 191, "bez_tolerancji": 340,
-        "zmiennoprzecinkowe": 206, "zmiennoprzecinkowe_bez_tolerancji": 15,
-        "calkowite": 325, "calkowite_z_tolerancja": 0, "tolerancja_zero": 121,
+        "razem": 546, "z_tolerancja": 191, "bez_tolerancji": 355,
+        "zmiennoprzecinkowe": 212, "zmiennoprzecinkowe_bez_tolerancji": 21,
+        "calkowite": 334, "calkowite_z_tolerancja": 0, "tolerancja_zero": 121,
     },
 }
 
@@ -519,7 +519,7 @@ ROZKLAD_LICZBOWYCH = {
 # 152 -> 153 (24.09.2026, next station after mid-axis entry).
 # 153 -> 155 (24.09.2026, koniec osi): dwa dokładne porównania prędkości.
 # 155 -> 160 (24.09.2026, LineDrive): pięć dokładnych porównań bez tolerancji.
-DOKLADNE_ZMIENNOPRZECINKOWE = 160
+DOKLADNE_ZMIENNOPRZECINKOWE = 166
 
 
 def test_ile_pinow_liczbowych_i_jak_sie_dziela():
@@ -546,7 +546,7 @@ def test_pin_calkowity_NIGDY_nie_ma_tolerancji_i_to_nie_jest_zwyczaj():
         % razem)
 
 
-def test_dokladnych_porownan_zmiennoprzecinkowych_jest_160_a_nie_21():
+def test_dokladnych_porownan_zmiennoprzecinkowych_jest_166_a_nie_27():
     """**Sedno 6.D141: tolerancja `0.0` JEST porównaniem dokładnym.**
 
     Licznik „bez tolerancji" mówi o dwudziestu jeden asercjach, a dokładnych porównań na
@@ -558,7 +558,7 @@ def test_dokladnych_porownan_zmiennoprzecinkowych_jest_160_a_nie_21():
               for k in ROZKLAD_LICZBOWYCH)
     zero = sum(CP.rozklad_liczbowych(k)["tolerancja_zero"] for k in ROZKLAD_LICZBOWYCH)
 
-    assert bez == 21, ("zmiennoprzecinkowych bez tolerancji: %d, pomiar mówił 21" % bez)
+    assert bez == 27, ("zmiennoprzecinkowych bez tolerancji: %d, pomiar m?wi? 27" % bez)
     # 132 -> 131 (14.09.2026, MB-07): patrz `ROZKLAD_LICZBOWYCH["tests/Sim.Tests"]`.
     # 131 -> 137 (14.09.2026, MB-08): sześć porównań z tolerancją 0.0 w nowych testach
     # drzwi — wszystkie tam, gdzie pytanie brzmi „ani jeden bit": nietknięty nastawnik,

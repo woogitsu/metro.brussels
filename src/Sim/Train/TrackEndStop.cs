@@ -7,7 +7,7 @@ namespace MetroBxl.Sim.Train;
 public static class TrackEndStop
 {
     /// <summary>
-    /// Intervene on a powered terminal approach using the station autopilot's
+    /// Intervene on a moving terminal approach using the station autopilot's
     /// jerk-aware trigger and running brake command. The hard end clamp remains
     /// the fallback if service braking can no longer stop the train in time.
     /// </summary>
@@ -23,7 +23,7 @@ public static class TrackEndStop
 
         if (!engaged)
         {
-            if (!terminalSection || state.SpeedMps <= 0.0 || requested.Brake > 0.0)
+            if (!terminalSection || state.SpeedMps <= 0.0)
                 return requested;
             var remaining = terminalStationM - chainageM;
             if (remaining <= 0.0 ||
