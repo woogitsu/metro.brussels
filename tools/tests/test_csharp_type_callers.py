@@ -73,7 +73,8 @@ TYP = re.compile(
 #: --line`. Powód wpisu zniknął, więc zniknął wpis.
 TYLKO_TESTY = frozenset({
     "CbtcTestArea", "CbtcTestStage", "DriveSegment", "JsonFields", "KcvFunction",
-    "LineRoute", "ProtectionMode", "ProtectionModeRegistry",
+    # T-320: typowany plan jest czytany w testach, integracja dyspozytury czeka.
+    "LineEntrySchedule", "ScheduledLineEntry", "LineRoute", "ProtectionMode", "ProtectionModeRegistry",
     "ProtectionModeStatus", "ProtectionModeStatusParser", "RouteGap",
 })
 
