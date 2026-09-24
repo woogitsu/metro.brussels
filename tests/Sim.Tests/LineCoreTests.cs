@@ -118,7 +118,7 @@ public sealed class LineCoreTests
             ]}
             """, axis, FixedStep.Simulation);
         var line = Line();
-        var gate = new LineEntryGate(line, schedule);
+        var gate = new LineEntryGate(line, schedule, new DateOnly(2026, 9, 2));
 
         var firstError = Assert.ThrowsException<InvalidOperationException>(() => gate.Step(),
             "Bramka musi zgłosić brak kursu przed pierwszym krokiem.");
@@ -152,7 +152,7 @@ public sealed class LineCoreTests
             ]}
             """, axis, FixedStep.Simulation);
         var line = Line();
-        var gate = new LineEntryGate(line, schedule);
+        var gate = new LineEntryGate(line, schedule, new DateOnly(2026, 9, 2));
 
         Assert.ThrowsException<InvalidOperationException>(
             () => gate.QueueDue(schedule.Entries[1]),
@@ -162,6 +162,24 @@ public sealed class LineCoreTests
         gate.Step();
         Assert.AreEqual("a", line.Trains[0].Id,
             "Pierwsza próba wjazdu należy do pierwszego kursu planu.");
+    }
+
+    [TestMethod]
+    public void Bramka_odmawia_planu_z_innego_dnia_sluzby()
+    {
+        var axis = SignallingPlanTests.SyntheticAxis(0.0, 600.0, 1400.0, 2000.0);
+        var schedule = LineEntrySchedule.FromJson(
+            """
+            {"axis_id":"T","date":"20260902","source_gtfs_sha256":"test","runs":[
+              {"trip_id":"after-midnight","block_id":"A","first_stop_id":"P0","release_s":90000}
+            ]}
+            """, axis, FixedStep.Simulation);
+
+        Assert.ThrowsException<ArgumentException>(
+            () => new LineEntryGate(Line(), schedule, new DateOnly(2026, 9, 3)),
+            "Kurs o 25:00 nie może być przypisany do służby kolejnego dnia.");
+        var gate = new LineEntryGate(Line(), schedule, new DateOnly(2026, 9, 2));
+        Assert.IsNotNull(gate, "Dzień służby z projekcji przyjmuje późny kurs.");
     }
 
     private static List<LineRun.TracePoint> TraceOf(LineCore line, string trainId, long stepBudget)

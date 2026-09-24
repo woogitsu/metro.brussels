@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using MetroBxl.Sim.Json;
 using MetroBxl.Sim.Physics;
 
@@ -18,10 +19,11 @@ public readonly record struct ScheduledLineEntry(
 /// </summary>
 public sealed class LineEntrySchedule
 {
-    private LineEntrySchedule(string date, string axisId, string sourceGtfsSha256,
+    private LineEntrySchedule(string date, DateOnly serviceDay, string axisId, string sourceGtfsSha256,
         IReadOnlyList<ScheduledLineEntry> entries)
     {
         Date = date;
+        ServiceDay = serviceDay;
         AxisId = axisId;
         SourceGtfsSha256 = sourceGtfsSha256;
         Entries = entries;
@@ -29,6 +31,8 @@ public sealed class LineEntrySchedule
 
     /// <summary>Dzień służby zapisany w projekcji GTFS.</summary>
     public string Date { get; }
+    /// <summary>Dzień służby jako data kalendarzowa, niezależny od godzin GTFS po 24:00.</summary>
+    public DateOnly ServiceDay { get; }
     /// <summary>Identyfikator osi, na którą rzutowane są kursy.</summary>
     public string AxisId { get; }
     /// <summary>Odcisk źródłowego GTFS przeniesiony z projekcji.</summary>
@@ -61,6 +65,13 @@ public sealed class LineEntrySchedule
         }
         var date = root.RequiredField("date", "Plan wejść GTFS").GetString()
             ?? throw new ArgumentException("Plan bez daty.", nameof(json));
+        if (!DateOnly.TryParseExact(date, "yyyyMMdd", CultureInfo.InvariantCulture,
+                DateTimeStyles.None, out var serviceDay) ||
+            !string.Equals(serviceDay.ToString("yyyyMMdd", CultureInfo.InvariantCulture), date,
+                StringComparison.Ordinal))
+        {
+            throw new ArgumentException($"Niepoprawny dzień służby GTFS: {date}.", nameof(json));
+        }
         var sha = root.RequiredField("source_gtfs_sha256", "Plan wejść GTFS").GetString()
             ?? throw new ArgumentException("Plan bez odcisku GTFS.", nameof(json));
         var entries = new List<ScheduledLineEntry>();
@@ -106,6 +117,6 @@ public sealed class LineEntrySchedule
             var byTime = a.ReleaseStep.CompareTo(b.ReleaseStep);
             return byTime != 0 ? byTime : string.CompareOrdinal(a.TripId, b.TripId);
         });
-        return new LineEntrySchedule(date, axisId, sha, entries.ToArray());
+        return new LineEntrySchedule(date, serviceDay, axisId, sha, entries.ToArray());
     }
 }

@@ -24,6 +24,8 @@ public sealed class LineEntryScheduleTests
         var plan = LineEntrySchedule.FromJson(json, axis, FixedStep.Simulation);
 
         Assert.AreEqual("20260902", plan.Date, "Data służby musi być zachowana.");
+        Assert.AreEqual(new DateOnly(2026, 9, 2), plan.ServiceDay,
+            "Dzień służby musi być poprawną datą kalendarzową.");
         Assert.AreEqual(2, plan.Entries.Count, "Oba kursy muszą pozostać w planie.");
         Assert.AreEqual(new ScheduledLineEntry("beek", "block-b", 1, 19698L * 120),
             plan.Entries[0], "Beekkant jest stacją 1 i wcześniejszym wjazdem.");
@@ -43,6 +45,20 @@ public sealed class LineEntryScheduleTests
         Assert.AreEqual("a", plan.Entries[0].TripId, "Remis czasu sortuje się po trip_id.");
         Assert.AreEqual(90000L * 120, plan.Entries[0].ReleaseStep,
             "Godzina 25:00 nie zawija się do początku doby.");
+        Assert.AreEqual(new DateOnly(2026, 9, 2), plan.ServiceDay,
+            "Kurs o 25:00 nadal należy do poprzedniego dnia służby.");
+    }
+
+    [TestMethod]
+    public void Plan_odrzuca_nieistniejacy_dzien_sluzby()
+    {
+        var axis = SignallingPlanTests.PackageAAxis();
+        var json = EntryProjectionJson(EntryRunJson("late", "block-a", "8733", 90000))
+            .Replace("20260902", "20260230", StringComparison.Ordinal);
+
+        Assert.ThrowsException<ArgumentException>(
+            () => LineEntrySchedule.FromJson(json, axis, FixedStep.Simulation),
+            "Nieistniejąca data nie może identyfikować służby.");
     }
 
     [TestMethod]

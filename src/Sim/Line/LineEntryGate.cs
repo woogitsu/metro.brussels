@@ -21,9 +21,15 @@ public sealed class LineEntryGate
     }
 
     /// <summary>Bramka z kontrolą, czy wszystkie wjazdy planu zostały zgłoszone przed krokiem linii.</summary>
-    public LineEntryGate(LineCore line, LineEntrySchedule schedule) : this(line)
+    public LineEntryGate(LineCore line, LineEntrySchedule schedule, DateOnly serviceDay) : this(line)
     {
         _schedule = schedule ?? throw new ArgumentNullException(nameof(schedule));
+        if (_schedule.ServiceDay != serviceDay)
+        {
+            throw new ArgumentException(
+                $"Plan należy do dnia służby {_schedule.Date}, a zegar uruchomiono dla {serviceDay:yyyyMMdd}.",
+                nameof(serviceDay));
+        }
     }
 
     /// <summary>
