@@ -47,9 +47,9 @@ public sealed class StationWayfindingTests
     [TestMethod]
     public void NameBoardHangersReachTheStationCeiling()
     {
-        Assert.AreEqual(0.35f, StationView.NameMarkerHangerLength(4.40f, 1.1f), 0.001f,
-            "The single-line name board must connect to the ceiling");
-        Assert.AreEqual(0.65f, StationView.NameMarkerHangerLength(4.25f, 0.8f), 0.001f,
-            "The two-line name board must connect to the ceiling");
+        Assert.AreEqual(0.14f, StationView.NameMarkerHangerLength(4.20f, 0.72f), 0.001f,
+            "The single-line name board must connect to the playable ceiling");
+        Assert.AreEqual(0.25f, StationView.NameMarkerHangerLength(4.15f, 0.60f), 0.001f,
+            "The two-line name board must connect to the playable ceiling");
     }
 }

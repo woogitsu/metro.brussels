@@ -97,9 +97,9 @@ public sealed partial class StationView : Node3D
         return stop - approach >= 15.0 ? [approach, stop] : [approach];
     }
 
-    /// <summary>Length of the two slim hangers up to the flat centre of the station ceiling.</summary>
+    /// <summary>Station chambers are not in the playable tunnel yet; its flat ceiling is 4.70 m.</summary>
     public static float NameMarkerHangerLength(float centreHeight, float plateHeight) =>
-        5.30f - (centreHeight + plateHeight / 2);
+        4.70f - (centreHeight + plateHeight / 2);
 
     /// <summary>
     /// Place a neutral station-name marker above the tracks at each platform.
@@ -127,7 +127,7 @@ public sealed partial class StationView : Node3D
             var bilingual = names.Length == 2;
             var text = NameMarkerText(station.Name);
             var fontSize = bilingual ? 46 : 60;
-            var pixelSize = bilingual ? 0.0095f : 0.016f;
+            var pixelSize = bilingual ? 0.0075f : 0.0095f;
             var longestLine = 0;
             foreach (var name in names)
             {
@@ -135,10 +135,10 @@ public sealed partial class StationView : Node3D
             }
             var width = Math.Clamp(longestLine * fontSize * pixelSize * 0.62f + 0.9f,
                 2.5f, 8.0f);
-            // Keep at least 0.25 m above the 3.60 m vehicle roof and 0.35 m
-            // below the 5.30 m chamber ceiling, including the two-line plate.
-            var height = bilingual ? 1.1f : 0.8f;
-            var centreHeight = bilingual ? 4.40f : 4.25f;
+            // The playable tunnel still uses box_double at stations: roof 4.70 m.
+            // Keep the plate above the 3.60 m train and below that actual roof.
+            var height = bilingual ? 0.72f : 0.60f;
+            var centreHeight = bilingual ? 4.20f : 4.15f;
             foreach (var at in NameMarkerPositions(station.ChainageM, sceneAxis.Axis.LengthM))
             {
                 var frame = sceneAxis.Chord(at - 0.5, at + 0.5);
@@ -154,7 +154,7 @@ public sealed partial class StationView : Node3D
                 {
                     var hanger = new MeshInstance3D
                     {
-                        Mesh = new BoxMesh { Size = new Vector3(0.055f, hangerLength, 0.055f) },
+                        Mesh = new BoxMesh { Size = new Vector3(0.08f, hangerLength, 0.08f) },
                         MaterialOverride = hangerMaterial,
                         Transform = new Transform3D(orientation,
                             centre + frame.Right * (side * width * 0.38f)
