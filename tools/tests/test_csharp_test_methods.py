@@ -713,7 +713,8 @@ ROZKLAD_POSTACI = {
         # 1465 -> 1468 (24.09.2026, HUD 800x600): klucz i dwa warianty pozycji.
         # 1470 -> 1471 (24.09.2026, HUD po końcu planu): nowy wiersz stanu.
         # 1471 -> 1474 (24.09.2026, mid-axis entry validation and tests).
-        "zwykly": 1474,
+        # 1474 -> 1477 (24.09.2026, visual tail GLB paths and refusal).
+        "zwykly": 1477,
         # 489 -> 494 (22.09.2026, 6.D235): piec komunikatow `Abort` dla pliku ZLEGO
         # w `FirstRun.cs`. Przeliczone z drzewa, nie zsumowane.
         # 494 -> 513 (23.09.2026, 6.M1): komunikaty odmow i wiersze zapisu zdarzen

@@ -96,6 +96,8 @@ METODY_SCIEZKI = ("write_text", "write_bytes")
 ZASLEPKA_TESTOW_SWEEPA = "test_this_file_is_the_stub_not_the_real_tests"
 
 POZA_DRZEWEM = {
+    ("test_render_replay.py", "test_real_png_header", "Path.write_bytes"):
+        "naglowek probnej PNG zapisywany w tempfile.TemporaryDirectory",
     ("mutation_sweep.py", "zapisz_pokrycie", "os.replace"):
         "podmiana atomowa mapy pokrycia w `tempfile.gettempdir()`",
     ("test_ci_workflows.py", "_run_blender_installer", "shutil.copyfile"):

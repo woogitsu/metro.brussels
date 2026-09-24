@@ -103,8 +103,9 @@ def test_sweep_chunk_lengths_sum_to_the_axis_length():
 def test_sweep_without_stations_keeps_a_short_visual_tail_in_one_chunk():
     points = [(0.0, 0.0, 0.0), (150.0, 0.0, 0.0), (300.0, 0.0, 0.0)]
     result = SW.sweep(points, BOX, 5.0, [], max_chunk_m=500.0)
-    assert len(result["chunks"]) == 1
-    assert abs(result["axis_length_m"] - 300.0) < 1e-6
+    assert len(result["chunks"]) == 1, "the short visual tail must remain one LOD chunk"
+    assert abs(result["axis_length_m"] - 300.0) < 1e-6, (
+        "the visual tail must retain its measured 300 m length")
 
 
 # --- siatka -------------------------------------------------------------------
