@@ -44,6 +44,7 @@ public sealed class FileReadGuardTests
     {
         "ChunkManifest.FromJson",
         "InputLog.Parse",
+        "LineEntrySchedule.FromJson",
         "SignallingPlan.FromJson",
         "TelemetryTrack.TryParse",
         "TrackAxis.FromJson",
@@ -139,8 +140,8 @@ public sealed class FileReadGuardTests
             + string.Join(", ", bezOslony.Select(c => $"{c.Plik}:{c.Wiersz} {c.Wywolanie}"))
             + " — uszkodzony plik kończy się tam zrzutem środowiska, a nie wierszem `Abort`");
 
-        Assert.AreEqual(5, czytniki.Count(c => c.Oslona == "try"),
-            "osłoniętych blokiem try ma być pięć, a jest: "
+        Assert.AreEqual(6, czytniki.Count(c => c.Oslona == "try"),
+            "osłoniętych blokiem try ma być sześć, a jest: "
             + string.Join(", ", czytniki.Select(c => $"{c.Wywolanie}={c.Oslona}")));
         Assert.AreEqual(1, czytniki.Count(c => c.Oslona == "TryParse"),
             "osłonięty przez TryParse ma być jeden (telemetria), a jest: "
@@ -159,7 +160,7 @@ public sealed class FileReadGuardTests
         var czytnikiJson = Czytniki().Count(c => c.Wywolanie.EndsWith(".FromJson", StringComparison.Ordinal));
         var klauzule = Regex.Matches(zrodlo, @"catch \(Exception error\) when \(BadFile\.IsWrongJsonShape\(error\)\)").Count;
 
-        Assert.AreEqual(4, czytnikiJson, $"czytników JSON w src/Game/ jest {czytnikiJson}, a zmierzono cztery");
+        Assert.AreEqual(5, czytnikiJson, $"czytników JSON w src/Game/ jest {czytnikiJson}, a zmierzono pięć");
         Assert.AreEqual(czytnikiJson, klauzule,
             $"klauzul na zły kształt dokumentu jest {klauzule} przy {czytnikiJson} czytnikach JSON");
     }

@@ -494,9 +494,11 @@ ROZKLAD_LICZBOWYCH = {
         # 517 -> 523 (24.09.2026, LineDrive): granica Merode, prędkość, ślad i bilans.
         # 523 -> 531 (24.09.2026, dwa wjazdy rozkładowe): osiem dokładnych
         # całkowitych pinów liczby kursów, bloków, stacji, kroków i wezwań.
-        "razem": 551, "z_tolerancja": 191, "bez_tolerancji": 360,
+        # 551 -> 560 (24.09.2026, adapter odtwarzania rozkladu): dziewiec
+        # calkowitych pinow bez tolerancji, zmierzonych na polaczonym drzewie.
+        "razem": 560, "z_tolerancja": 191, "bez_tolerancji": 369,
         "zmiennoprzecinkowe": 212, "zmiennoprzecinkowe_bez_tolerancji": 21,
-        "calkowite": 339, "calkowite_z_tolerancja": 0, "tolerancja_zero": 121,
+        "calkowite": 348, "calkowite_z_tolerancja": 0, "tolerancja_zero": 121,
     },
 }
 

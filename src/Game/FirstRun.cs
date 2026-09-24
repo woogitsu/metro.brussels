@@ -132,6 +132,8 @@ public sealed partial class FirstRun : Node3D
     private bool _summaryPrinted;
     private LineDrive? _line;
     private LineCore? _lineCore;
+    private LineEntryDispatcher? _lineDispatcher;
+    private LineEntrySchedule? _scheduledEntries;
 
     /// <summary>
     /// Sesja linii z maszynistą — 6.M1. Jedna droga kroku i poleceń dla klawiatury,
@@ -232,6 +234,18 @@ public sealed partial class FirstRun : Node3D
 
         var id = _lineCore.Trains[Math.Clamp(_observed, 0, _lineCore.Trains.Count - 1)].Id;
         return _trainViews.TryGetValue(id, out var widok) ? widok : _train;
+    }
+
+    private bool TrainIsPresent(string id)
+    {
+        if (_lineCore is null)
+            return true;
+
+        foreach (var train in _lineCore.Trains)
+            if (train.Id == id && train.OnLine)
+                return true;
+
+        return false;
     }
 
     private CabView _cabView = null!;
@@ -900,12 +914,47 @@ public sealed partial class FirstRun : Node3D
                 // MB-07: N składów, każdy o własnym kroku wyjazdu. Przy `--trains=1`
                 // (domyślnie) pętla wykonuje się RAZ i robi dokładnie to, co robił
                 // pojedynczy `Add` przed tą pozycją — łącznie z nazwą i krokiem zero.
-                for (var i = 0; i < _plan!.Trains; i++)
+                if (_plan!.ScheduledEntriesPath is { } scheduledPath)
                 {
-                    _lineCore.Add(TrainIdAt(i), i * _plan.HeadwaySteps);
+                    using var scheduleFile = FileAccess.Open(scheduledPath, FileAccess.ModeFlags.Read);
+                    if (scheduleFile is null)
+                    {
+                        Abort(ExitMissingInput,
+                            $"[ROZKŁAD] nie da się otworzyć {scheduledPath}: {FileAccess.GetOpenError()}");
+                        return;
+                    }
+                    try
+                    {
+                        var schedule = LineEntrySchedule.FromJson(scheduleFile.GetAsText(), _axis, _step);
+                        if (_axis.Id != "L1_A" || schedule.Entries.Count != 2)
+                            throw new ArgumentException(
+                                "Scenariusz wymaga dokładnie dwóch wjazdów L1_A.");
+                        _lineDispatcher = new LineEntryDispatcher(
+                            _lineCore, schedule, schedule.ServiceDay);
+                        _scheduledEntries = schedule;
+                        GD.Print($"[ROZKŁAD] {schedule.Date}: dwa wejścia z {scheduledPath}");
+                    }
+                    catch (Exception error) when (error is ArgumentException or InvalidOperationException
+                                                  or FormatException or OverflowException)
+                    {
+                        Abort(ExitBadArgumentValue,
+                            $"[ROZKŁAD] niepoprawny plan wejść {scheduledPath}: {error.Message}");
+                        return;
+                    }
+                    catch (Exception error) when (BadFile.IsWrongJsonShape(error))
+                    {
+                        Abort(ExitBadArgumentValue,
+                            $"[ROZKŁAD] {scheduledPath} nie ma kształtu planu wejść: brak pola albo pole złego typu");
+                        return;
+                    }
+                }
+                else
+                {
+                    for (var i = 0; i < _plan.Trains; i++)
+                        _lineCore.Add(TrainIdAt(i), i * _plan.HeadwaySteps);
                 }
 
-                _lineSession = new LineSession(_lineCore, _notch, _step);
+                _lineSession = new LineSession(_lineCore, _notch, _step, _lineDispatcher);
                 GD.Print(string.Create(
                     CultureInfo.InvariantCulture,
                     $"[SYGNALIZACJA] {signalling.Blocks.Count} bloków, {signalling.Routes.Count} tras, "
@@ -1306,8 +1355,20 @@ public sealed partial class FirstRun : Node3D
         // MB-07: widoki składów po nazwie. Skład zerowy to węzeł `Train` z `.tscn`,
         // kolejne powstają obok niego i BIORĄ JEGO SIATKI — patrz `LoadSharedFrom`.
         // Przy `--trains=1` pętla nie wykonuje się ani razu i scena jest ta sama.
-        _trainViews[TrainIdAt(0)] = _train;
-        for (var i = 1; i < _plan!.Trains; i++)
+        var viewIds = new List<string>();
+        if (_scheduledEntries is { } entries)
+        {
+            foreach (var entry in entries.Entries)
+                viewIds.Add(entry.TripId);
+        }
+        else
+        {
+            for (var i = 0; i < _plan!.Trains; i++)
+                viewIds.Add(TrainIdAt(i));
+        }
+
+        _trainViews[viewIds[0]] = _train;
+        for (var i = 1; i < viewIds.Count; i++)
         {
             var widok = new TrainView { Name = $"Train{i + 1}" };
             AddChild(widok);
@@ -1319,12 +1380,12 @@ public sealed partial class FirstRun : Node3D
                 // skład bez brył jest niewidoczny i nieruchomy, a przebieg kończy się
                 // kodem 0. Cisza tutaj byłaby usterką z Issue #107, tylko N-tą kopią.
                 Abort(ExitTrainMissing,
-                    $"[SKŁAD] {TrainIdAt(i)} nie dostał ani jednej bryły ze składu "
+                    $"[SKŁAD] {viewIds[i]} nie dostał ani jednej bryły ze składu "
                     + "zerowego — scena bez składu nie jest przejazdem");
                 return;
             }
 
-            _trainViews[TrainIdAt(i)] = widok;
+            _trainViews[viewIds[i]] = widok;
         }
 
         // Perony wchodzą PRZED wypisaniem opisu sceny, żeby log przejazdu mówił
@@ -1533,7 +1594,7 @@ public sealed partial class FirstRun : Node3D
             FinishScriptedRun();
         }
         else if (_lineMode && !_lineCompletionReported
-            && (_lineCore?.Finished ?? _line?.Finished ?? false))
+            && (_lineSession?.Finished ?? _line?.Finished ?? false))
         {
             FinishLineRun();
         }
@@ -1595,7 +1656,7 @@ public sealed partial class FirstRun : Node3D
             // Linia z sygnalizacją. `LineCore.Step` robi w jednym kroku wszystko:
             // wyjazdy, żądania tras nastawni, odczyt autorytetów, jazdę i meldunek
             // ruchu. Scena nie powtarza ani jednej z tych faz — tylko patrzy.
-            if (_lineCore.Finished)
+            if (_lineSession!.Finished)
             {
                 return false;
             }
@@ -1627,6 +1688,14 @@ public sealed partial class FirstRun : Node3D
             _lineSession!.Step(lineKeys);
             _logStep++;
             _command = _lineSession.Command;
+
+            if (_lineCore.Trains.Count == 0)
+            {
+                // A dated plan may start after midnight. Until the first release
+                // there is no observed train; keep advancing the shared clock.
+                _line = null;
+                return _replay is null || _logStep < _replay.Steps;
+            }
 
             // MB-07: `_line` to prowadzenie składu OBSERWOWANEGO, a nie zerowego.
             // Jednym przypisaniem przechodzą na nowy skład: obie kamery, okno
@@ -1666,7 +1735,7 @@ public sealed partial class FirstRun : Node3D
                 return true;
             }
 
-            var lineFinished = _logStep >= _replay.Steps || _lineCore.Finished;
+            var lineFinished = _logStep >= _replay.Steps || _lineSession.Finished;
             if (_telemetryPath is not null
                 && (DriveTelemetry.IsSample(_state.Steps, _sampleEvery) || lineFinished))
             {
@@ -1955,9 +2024,9 @@ public sealed partial class FirstRun : Node3D
         // patrzy z kabiny składu drugiego — czyli znikałby skład, na który się NIE
         // patrzy, a ten, w którym siedzi kamera, zasłaniałby jej cały kadr.
         var obserwowany = ObservedTrainView();
-        foreach (var widok in _trainViews.Values)
+        foreach (var (id, widok) in _trainViews)
         {
-            widok.Visible = widok == obserwowany ? view != ViewKind.Cab : true;
+            widok.Visible = TrainIsPresent(id) && (widok != obserwowany || view != ViewKind.Cab);
         }
 
         if (_trainViews.Count == 0)
@@ -2007,26 +2076,23 @@ public sealed partial class FirstRun : Node3D
         // Fallback jest zbędny, odkąd `SetUpScene` odmawia startu bez brył: długość
         // pochodzi teraz zawsze z wczytanej geometrii.
         var trainLength = _train.LengthM;
-        _train.PlaceAt(_sceneAxis, chainage);
-
-        // MB-07: POZOSTAŁE składy stoją tam, gdzie stoją W RDZENIU, a nie tam, gdzie
-        // patrzy kamera. Pętla jest pusta przy `--trains=1`.
-        //
-        // Widok składu, który jeszcze nie wjechał na plan (`Drive is null`), jest
-        // UKRYWANY, a nie zostawiany w origo. Zostawiony stałby na kilometrażu zero
-        // razem z peronem stacji zerowej i wyglądałby jak skład zaparkowany na stacji —
-        // czyli jak stan gry, a nie jak jego brak.
-        if (_lineCore is not null && _trainViews.Count > 1)
+        if (_lineCore is null)
         {
+            _train.PlaceAt(_sceneAxis, chainage);
+        }
+        else
+        {
+            // Każdy widok stoi na kilometrażu pociągu o tym samym ID, także widok
+            // pierwszy. Przed rozkładowym wjazdem Drive nie istnieje: ukrycie
+            // zapobiega pozornemu pociągowi na stacji początkowej.
             foreach (var skladRdzenia in _lineCore.Trains)
             {
-                if (!_trainViews.TryGetValue(skladRdzenia.Id, out var widok) || widok == _train)
+                if (!_trainViews.TryGetValue(skladRdzenia.Id, out var widok))
                 {
                     continue;
                 }
 
                 var prowadzenie = skladRdzenia.Drive;
-                widok.Visible = prowadzenie is not null;
                 if (prowadzenie is not null)
                 {
                     widok.PlaceAt(
@@ -2034,6 +2100,7 @@ public sealed partial class FirstRun : Node3D
                         Math.Min(prowadzenie.ChainageM, _axis.LengthM));
                 }
             }
+            ApplyView();
         }
 
         // Kabina jedzie po OGONIE SKORUPY, a nie po własnej rozpiętości, i to jest
@@ -2614,6 +2681,12 @@ public sealed partial class FirstRun : Node3D
             return SignallingHud.WithoutSignalling;
         }
 
+        if (_lineCore.Trains.Count == 0)
+        {
+            return _lineDispatcher is null
+                ? SignallingHud.BeforeFirstStep : SignallingHud.AwaitingScheduledEntry;
+        }
+
         // MB-07: wiersz mówi o składzie OBSERWOWANYM, a nie o zerowym. Gdyby został
         // przy zerowym, po przełączeniu kamery HUD opisywałby bloki i autorytet
         // składu, którego nie widać w kadrze — i wyglądałoby to na poprawny wiersz.
@@ -3008,6 +3081,8 @@ public sealed partial class FirstRun : Node3D
             + $"{result.TotalDistanceM:F2} m, {result.TotalSeconds:F2} s, "
             + $"postoje {result.DwellSeconds:F2} s, kroków {result.Steps}, "
             + $"koniec={result.FinishReason}"));
+        if (_lineDispatcher is not null)
+            GD.Print($"[ROZKŁAD] zarejestrowane wjazdy: {_lineDispatcher.RegisteredEntries}");
         foreach (var call in result.Calls)
         {
             GD.Print($"[STACJA] {call}");

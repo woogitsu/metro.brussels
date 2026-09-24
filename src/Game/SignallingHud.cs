@@ -53,6 +53,9 @@ public static class SignallingHud
     /// <summary>Wiersz przed pierwszym krokiem, gdy decyzji ochrony jeszcze nie ma.</summary>
     public const string BeforeFirstStep = "sygnalizacja: przed pierwszym krokiem";
 
+    /// <summary>Zegar rozkładu biegnie, ale pierwszy skład jeszcze nie został zgłoszony.</summary>
+    public const string AwaitingScheduledEntry = "sygnalizacja: oczekiwanie na pierwszy wjazd rozkładowy";
+
     /// <summary>
     /// Wiersz z liczbami. Bierze gotową decyzję i gotowy autorytet — niczego nie liczy
     /// i niczego nie pyta o stan.

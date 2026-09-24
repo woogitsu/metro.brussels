@@ -597,8 +597,10 @@ public class CabPlacementTests
     }
 
     [TestMethod]
-    public void Ustawienie_kabiny_jest_BEZWARUNKOWE_i_stoi_obok_ustawienia_skorupy()
+    public void Ustawienie_kabiny_jest_BEZWARUNKOWE_wobec_wyboru_widoku_skorupy()
     {
+        // Widok skorupy jest teraz ustawiany według ID składu w linii, lecz kamera
+        // kabiny musi pozostać ustawiana bezwarunkowo z długości tej samej skorupy.
         // Mutacja Z z audytu: całe wywołanie owinięte w `if (trainLength < 0.0) { … }`,
         // czyli kabina NIE ustawiana ani razu. Liczenie WYSTĄPIEŃ tekstu daje wtedy
         // dalej jedynkę i bramka milczy — zmierzone, 292/292. Pytanie o głębokość
@@ -614,8 +616,10 @@ public class CabPlacementTests
             "skorupa ma dostać kilometraż CZOŁA — jeśli i ona pojedzie po czymś innym, "
             + "porównanie kabiny ze skorupą przestaje o czymkolwiek mówić");
 
-        Assert.AreEqual(Glebokosc(kod, skorupa[0].Indeks), Glebokosc(kod, kabina[0].Indeks),
-            "kabina ma być ustawiana na tej samej głębokości bloku co skorupa. Głębiej "
+        var dlugosc = Regex.Match(kod, @"\bvar\s+trainLength\s*=");
+        Assert.IsTrue(dlugosc.Success, "długość składu musi być czytana przed ustawieniem kabiny");
+        Assert.AreEqual(Glebokosc(kod, dlugosc.Index), Glebokosc(kod, kabina[0].Indeks),
+            "kabina ma być ustawiana na głębokości bezwarunkowego odczytu długości. Głębiej "
             + "znaczy \u201Epod warunkiem\u201D — a wywołanie, które nie wykonuje się "
             + "nigdy, wygląda w wyszukiwaniu tekstu dokładnie tak samo jak wykonywane "
             + "co klatkę");
