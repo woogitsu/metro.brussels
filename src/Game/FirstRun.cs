@@ -2371,7 +2371,7 @@ public sealed partial class FirstRun : Node3D
         // pętla stała tutaj i była drugą kopią tego, co robi `StationService.Approach`;
         // dwie kopie tej samej wiedzy rozjeżdżają się w chwili, gdy jedna z nich dostaje
         // okno zatrzymania, a druga nie.
-        if (_line is not null)
+        if (_line is not null && !TrackEndStop.Reached(chainage, _axis.LengthM))
         {
             var nastepna = _line.NextStation;
             if (nastepna is not null)
@@ -2614,6 +2614,13 @@ public sealed partial class FirstRun : Node3D
     {
         if (_line is not null)
         {
+            // Na końcu osi nazwa stacji i odległość pozostają dostępne w postoju,
+            // ale przed założeniem postoju pokaż faktyczny koniec toru.
+            if (TrackEndStop.Reached(ChainageM, _axis.LengthM) && !_line.AtStation)
+            {
+                return UiText.Get("hud.station.track-end");
+            }
+
             var zaLinie = _line.Calls.Count;
             if (_line.AtStation)
             {
