@@ -58,7 +58,7 @@ public sealed partial class StationView : Node3D
         GlbLoader.ApplyNeutralMaterial(scene, material);
         // The generated warning strips have their own `_edge` meshes. Give them
         // a readable, unbranded color instead of the slab's gray override.
-        var edgeMaterial = GlbLoader.NeutralMaterial(new Color(0.76f, 0.60f, 0.24f), 0.90f);
+        using var edgeMaterial = GlbLoader.NeutralMaterial(new Color(0.76f, 0.60f, 0.24f), 0.90f);
 
         _slabs.Clear();
         foreach (var instance in MeshInstances(scene))
@@ -119,8 +119,8 @@ public sealed partial class StationView : Node3D
         }
 
         var count = 0;
-        var boardMaterial = GlbLoader.NeutralMaterial(new Color(0.12f, 0.14f, 0.15f), 0.9f);
-        var hangerMaterial = GlbLoader.NeutralMaterial(new Color(0.27f, 0.30f, 0.31f), 0.7f);
+        using var boardMaterial = GlbLoader.NeutralMaterial(new Color(0.12f, 0.14f, 0.15f), 0.9f);
+        using var hangerMaterial = GlbLoader.NeutralMaterial(new Color(0.27f, 0.30f, 0.31f), 0.7f);
         foreach (var station in sceneAxis.Axis.Stations)
         {
             var names = station.Name.Split('|');
