@@ -84,10 +84,20 @@ public sealed class LineCoreTests
         Assert.IsNotNull(train.Drive);
         Assert.IsTrue(train.Drive.ChainageM >= 600.0 && train.Drive.ChainageM < 601.0,
             $"skład powinien wejść przy 600 m, jest przy {train.Drive.ChainageM} m");
-        Assert.AreEqual(1400.0, train.Drive.NextStation!.ChainageM, 0.0,
+        Assert.AreEqual(1400.0, train.Drive.NextStation!.Value.ChainageM, 0.0,
             "pierwszym celem po wejściu na drugiej stacji jest trzecia");
         Assert.IsTrue(line.Signalling.BlocksOccupiedBy("B").Count > 0,
             "wejście w środku osi musi zarejestrować zajętość bloków");
+
+        while (!train.Finished && line.Steps < LineRun.DefaultStepBudget)
+        {
+            line.Step();
+        }
+
+        Assert.IsTrue(train.Finished, "skład od Beekkant powinien dojechać do końca osi");
+        CollectionAssert.AreEqual(new[] { 1400.0, 2000.0 },
+            train.Drive!.Calls.Select(call => call.ChainageM).ToArray(),
+            "przejazd nie może zaliczyć stacji sprzed miejsca wejścia");
     }
 
     [TestMethod]
@@ -123,7 +133,7 @@ public sealed class LineCoreTests
         var axis = SignallingPlanTests.SyntheticAxis(Stations);
         var plan = SignallingPlanTests.SyntheticPlan(requireRoute: false, Stations);
         var line = LineCore.M7(plan, axis, Level(), Settings(), turnbackSeconds: 240.0);
-        Assert.ThrowsExactly<InvalidOperationException>(
+        Assert.ThrowsException<InvalidOperationException>(
             () => line.AddAtStation("B", 0L, 1));
     }
 
