@@ -522,7 +522,7 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 # 469 -> 470 (21.09.2026, 6.D343): jeden raport dopisany.
 # 470 -> 471 (23.09.2026, 6.D367): raport z eksportu i uruchomienia Windows.
 # 471 -> 472 (23.09.2026, 6.D352): jeden raport dopisany.
-MIN_REPORTS = 472
+MIN_REPORTS = 473
 
 #: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
 #: wierszem zaczynającym się od `**`, z którego `_header_shapes` czyta kształt.
