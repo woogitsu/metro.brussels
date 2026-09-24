@@ -141,6 +141,7 @@ text = "sygnalizacja"
 ; powodu: tekst zastępczy jest po to, żeby scena dała się otworzyć w edytorze, a nie
 ; po to, żeby trafił na pierwszą klatkę zrzutu. Widoczność ustawia dopiero `Hud.Update`.
 [node name="View" type="Label" parent="Hud/Panel/Rows"]
+autowrap_mode = 3
 text = "widok"
 
 ; Wiersz pomocy — opis sterowania. Startuje UKRYTY jak trzy powyższe, a jego treść

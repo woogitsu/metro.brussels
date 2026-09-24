@@ -153,6 +153,14 @@ public sealed class HudLayoutTests
     }
 
     [TestMethod]
+    public void Niedostepny_widok_chase_zawija_zamiast_wypychac_HUD_poza_800x600()
+    {
+        Assert.IsTrue(Regex.IsMatch(Scene(),
+                @"\[node name=""View"" type=""Label"" parent=""Hud/Panel/Rows""\]\r?\nautowrap_mode = 3\r?\n"),
+            "długi opis niedostępnego widoku chase rozszerza panel i ucina lewy margines przy 800x600");
+    }
+
+    [TestMethod]
     public void Najdluzsza_nazwa_stacji_z_danych_jest_ta_ktora_zmierzono()
     {
         // Pole „Skończone, gdy" mówi o NAJDŁUŻSZEJ nazwie z danych osi. Gdyby doszła

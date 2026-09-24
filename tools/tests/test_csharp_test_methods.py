@@ -641,9 +641,11 @@ ROZKLAD_POSTACI = {
         # i diagnostyki błędu, przeliczone czytnikiem testów.
         # 5021 -> 5030 (24.09.2026, automat bez sygnalizacji): trzy igły
         # strażnika, trzy komunikaty asercji i pozostałe literały testu.
-        "zwykly": 5037,
+        # 5030 -> 5031, werbatim 100 -> 101 (24.09.2026, chase 800x600):
+        # komunikat asercji oraz wzorzec węzła View.
+        "zwykly": 5038,
         "interpolowany ($)": 847,
-        "werbatim (@)": 100,
+        "werbatim (@)": 101,
         "surowy interpolowany ($$\"\"\")": 13,
         # 8 -> 10 (23.09.2026): dwie probki sceny w testach.
         "surowy (\"\"\")": 10,
