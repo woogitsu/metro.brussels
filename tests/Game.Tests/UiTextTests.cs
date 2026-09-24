@@ -240,8 +240,8 @@ public sealed class UiTextTests
     // 603 -> 604 (24.09.2026, tryb linii): komunikat końca toru przed postojem Merode.
     // 604 -> 609 (24.09.2026, lampy scenerii): ścieżka osi i odmowy dla uszkodzonego JSON-a.
     // 609 -> 615 (24.09.2026, osobne metadane wizualnej kontynuacji).
+    // 615 -> 634 (24.09.2026, scena i plan dwóch wejść rozkładowych).
     private const int LiteralowWZasieguBramki = 634;
-
     /// <summary>Ile różnych — dolne ostrze, zmierzone 12.09.2026.</summary>
     private const int RoznychLiteralowWZasieguBramki = 362;
 

@@ -242,7 +242,7 @@ def test_lancuch_ZgloszenWaskichWierszami_wyjasnia_108_z_6D256():
 
     assert ciagly(ogniwa), "lancuch tej stalej sie urwal"
     # 23.09.2026, 6.M1: lancuch wydluzyl sie o ogniwo 116 -> 117 (odtworzenie linii).
-    assert wartosc.strip() == ogniwa[-1][1] == "122", (
+    assert wartosc.strip() == ogniwa[-1][1] == "125", (
         "lancuch nie konczy sie na dzisiejszej wartosci: %s wobec %s"
         % (ogniwa[-1][1], wartosc))
 
