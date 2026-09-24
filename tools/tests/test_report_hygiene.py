@@ -525,7 +525,8 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 # 472 -> 473 (24.09.2026, pomiar przepustowości pakietu A): nowy raport.
 # 473 -> 474 (24.09.2026, luka danych kursów T-113): nowy raport.
 # 474 -> 475 (24.09.2026, źródła wymiarów okien M7).
-MIN_REPORTS = 475
+# 475 -> 476 (25.09.2026, 6.D360): pomiar pięciu rozszerzeń w raportach.
+MIN_REPORTS = 476
 
 #: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
 #: wierszem zaczynającym się od `**`, z którego `_header_shapes` czyta kształt.

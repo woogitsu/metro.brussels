@@ -2206,7 +2206,8 @@ def _istnieje_w_drzewie(nazwa):
 # 1405 -> 1408 i 565 -> 566 (23.09.2026, 6.D356): blok 6.D356 przeszedl do wykonanych; ZMIERZONE.
 # 1408 -> 1411 i 566 -> 567 (23.09.2026, 6.D352): blok 6.D352 przeszedl do wykonanych; ZMIERZONE.
 # 1411 -> 1413 i 567 -> 570 (25.09.2026, 6.D367): blok paczki Windows przeszedl do wykonanych; ZMIERZONE.
-ADRESOW_W_WYKONANYCH = {"Wejście": 1413, "Wyjście": 73, "Weryfikacja": 570}
+# 1413 -> 1415 i 570 -> 572 (25.09.2026, 6.D360): blok pomiaru rozszerzen przeszedl do wykonanych; ZMIERZONE.
+ADRESOW_W_WYKONANYCH = {"Wejście": 1415, "Wyjście": 73, "Weryfikacja": 572}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
@@ -2405,7 +2406,8 @@ ADRESOW_W_WYKONANYCH = {"Wejście": 1413, "Wyjście": 73, "Weryfikacja": 570}
 # wymienia DWA wywolania `test_all.py`, wiec zapadka rosnie o dwa. ZMIERZONE.
 # 260 -> 262 (23.09.2026, 6.D352): dwa wywolania test_all.py; ZMIERZONE.
 # 262 -> 263 (25.09.2026, 6.D367): blok paczki Windows ma jedno wywolanie zestawu; ZMIERZONE.
-WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 263}
+# 263 -> 265 (25.09.2026, 6.D360): blok ma dwa wywolania testowych modulow; ZMIERZONE.
+WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 265}
 
 #: Ilu kandydatow zlego adresu daje regula prozy, per pole — 6.D158.
 # 12 -> 13 (14.09.2026, 6.D204): trzynastym kandydatem jest `test_mutation_sweep.py`
