@@ -453,6 +453,7 @@ public sealed partial class FirstRun : Node3D
     /// więc zapis wejść opisywałby przejazd, którego nie da się odtworzyć.</para>
     /// </summary>
     private bool _resetPending;
+    private bool _lineCompletionReported;
 
     private bool _done;
 
@@ -1413,6 +1414,17 @@ public sealed partial class FirstRun : Node3D
             // Przesuw dźwigni przeniósł się do `StepOnce`, czyli pod licznik kroków.
             _keys = _input.Read();
             HandleViewKeys();
+        }
+
+        // R w trybie linii odtwarza całą scenę: nową nastawnię, składy, licznik
+        // postojów i pamięć wskazówki. Ręczny RunReset dotyczy innego sterownika.
+        if (_lineMode && _readsKeyboard && _resetPending && _replay is null)
+        {
+            _resetPending = false;
+            var error = GetTree().ReloadCurrentScene();
+            if (error != Error.Ok)
+                GD.PushError($"[LINIA] nie udało się rozpocząć przejazdu od nowa: {error}");
+            return;
         }
 
         // SESJA SKOŃCZONA: KLATKI IDĄ DALEJ, TICKI NIE — i nie ma tu `_done`.
@@ -2879,12 +2891,14 @@ public sealed partial class FirstRun : Node3D
 
     private void FinishLineRun()
     {
-        if (_done)
+        if (_lineCompletionReported)
         {
             return;
         }
 
-        _done = true;
+        _lineCompletionReported = true;
+        var interactive = _readsKeyboard && _callsPath is null && _replay is null;
+        _done = !interactive;
 
         // Linia skończyła się PRZED końcem zapisu albo przejazdu z klawiatury — 6.M1.
         // Oba pliki mają wtedy powstać tak samo, jak przy końcu odtworzenia.
@@ -2927,7 +2941,8 @@ public sealed partial class FirstRun : Node3D
         }
 
         WriteCalls(result);
-        GetTree().Quit();
+        if (!interactive)
+            GetTree().Quit();
     }
 
     /// <summary>

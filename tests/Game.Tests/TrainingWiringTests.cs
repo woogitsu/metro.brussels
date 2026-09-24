@@ -31,6 +31,31 @@ public sealed class TrainingWiringTests
         KorzenRepozytorium.Tresc("src", "Game", "FirstRun.cs");
 
     [TestMethod]
+    public void KONIEC_INTERAKTYWNEJ_LINII_ZOSTAWIA_KLAWISZE_I_RESET_R()
+    {
+        var source = FirstRunSource();
+        var process = source[source.IndexOf("public override void _Process(", StringComparison.Ordinal)
+            ..source.IndexOf("private long AdvanceBy(", StringComparison.Ordinal)];
+        var reset = process.IndexOf("if (_lineMode && _readsKeyboard && _resetPending && _replay is null)",
+            StringComparison.Ordinal);
+        var restart = process.IndexOf("GetTree().ReloadCurrentScene()", StringComparison.Ordinal);
+        var advance = process.IndexOf("AdvanceBy(synthetic", StringComparison.Ordinal);
+        Assert.IsTrue(reset >= 0 && restart > reset && advance > restart,
+            "R musi odtworzyć linię także po jej zakończeniu, przed kolejnym krokiem");
+
+        var finish = source[source.IndexOf("private void FinishLineRun()", StringComparison.Ordinal)
+            ..source.IndexOf("private void WriteCalls(", StringComparison.Ordinal)];
+        StringAssert.Contains(finish,
+            "var interactive = _readsKeyboard && _callsPath is null && _replay is null;");
+        StringAssert.Contains(finish, "_done = !interactive;");
+        var exitGuard = finish.IndexOf("if (!interactive)", StringComparison.Ordinal);
+        var exit = finish.IndexOf("GetTree().Quit()", StringComparison.Ordinal);
+        Assert.IsTrue(exitGuard >= 0 && exit > exitGuard,
+            "przebieg headless/replay ma nadal kończyć proces");
+        StringAssert.Contains(finish, "if (_lineCompletionReported)");
+    }
+
+    [TestMethod]
     public void WYBOR_SKLADU_ODSWIEZA_HUD_I_KAMERE_BEZ_KROKU_FIZYKI()
     {
         var source = FirstRunSource();
