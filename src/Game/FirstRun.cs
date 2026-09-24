@@ -913,10 +913,9 @@ public sealed partial class FirstRun : Node3D
                     try
                     {
                         var schedule = LineEntrySchedule.FromJson(scheduleFile.GetAsText(), _axis, _step);
-                        if (_axis.Id != "L1_A" || schedule.Entries.Count != 2 ||
-                            schedule.Entries[0].ReleaseStep != 0)
+                        if (_axis.Id != "L1_A" || schedule.Entries.Count != 2)
                             throw new ArgumentException(
-                                "Scenariusz wymaga dokładnie dwóch wjazdów L1_A, pierwszego w kroku 0.");
+                                "Scenariusz wymaga dokładnie dwóch wjazdów L1_A.");
                         _lineDispatcher = new LineEntryDispatcher(
                             _lineCore, schedule, schedule.ServiceDay);
                         GD.Print($"[ROZKŁAD] {schedule.Date}: dwa wejścia z {scheduledPath}");
@@ -926,6 +925,12 @@ public sealed partial class FirstRun : Node3D
                     {
                         Abort(ExitBadArgumentValue,
                             $"[ROZKŁAD] niepoprawny plan wejść {scheduledPath}: {error.Message}");
+                        return;
+                    }
+                    catch (Exception error) when (BadFile.IsWrongJsonShape(error))
+                    {
+                        Abort(ExitBadArgumentValue,
+                            $"[ROZKŁAD] {scheduledPath} nie ma kształtu planu wejść: brak pola albo pole złego typu");
                         return;
                     }
                 }
@@ -2642,6 +2647,11 @@ public sealed partial class FirstRun : Node3D
         if (_lineCore is null)
         {
             return SignallingHud.WithoutSignalling;
+        }
+
+        if (_lineCore.Trains.Count == 0)
+        {
+            return SignallingHud.BeforeFirstStep;
         }
 
         // MB-07: wiersz mówi o składzie OBSERWOWANYM, a nie o zerowym. Gdyby został

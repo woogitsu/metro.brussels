@@ -1222,7 +1222,7 @@ public sealed class RunPlanTests
     {
         foreach (var nazwa in RunPlan.PathArguments)
         {
-            if (nazwa == "calls")
+            if (nazwa is "calls" or "scheduled-entries")
             {
                 // `--calls` wymaga `--line`, a `--line` wymaga `--limit-kmh`.
                 continue;

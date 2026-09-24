@@ -149,4 +149,30 @@ public sealed class LineEntryDispatcherTests
             () => new LineEntryDispatcher(occupied, emptySchedule, emptySchedule.ServiceDay),
             "pusty plan nie może ogłosić końca linii mającej już aktywny skład");
     }
+
+    [TestMethod]
+    public void Sesja_linii_czeka_na_pierwszy_wjazd_i_uzywa_tego_samego_zegara()
+    {
+        var axis = SignallingPlanTests.PackageAAxis();
+        // Syntetyczne identyfikatory; tylko stop_id i geometria pochodzą z L1_A.
+        var schedule = Schedule(axis, Entry("synthetic-west", "synthetic-a", "8733", 2) + "," +
+            Entry("synthetic-beek", "synthetic-b", "8742", 55));
+        var line = Line(axis);
+        var dispatcher = new LineEntryDispatcher(line, schedule, schedule.ServiceDay);
+        var session = new LineSession(line, new DriverNotch(0.5), FixedStep.Simulation, dispatcher);
+        var firstStep = schedule.Entries[0].ReleaseStep;
+        while (line.Steps < firstStep)
+        {
+            Assert.IsTrue(session.Step(DriverKeys.None));
+            Assert.AreEqual(0, line.Trains.Count);
+            Assert.IsFalse(session.Finished);
+        }
+        Assert.IsTrue(session.Step(DriverKeys.None));
+        Assert.AreEqual(1, line.Trains.Count);
+        Assert.AreEqual(firstStep, line.Trains[0].EnteredAtStep);
+        while (line.Steps <= schedule.Entries[1].ReleaseStep)
+            Assert.IsTrue(session.Step(DriverKeys.None));
+        Assert.AreEqual(2, line.Trains.Count);
+        Assert.AreEqual(2, dispatcher.RegisteredEntries);
+    }
 }
