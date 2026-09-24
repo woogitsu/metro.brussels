@@ -498,9 +498,8 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 # 2179 -> 2198 (25.09.2026, obserwacja czynnych składów): dziewiętnaście
 # asercji w dwóch testach ma jawne komunikaty; klasy bez opisu nie rosną.
 # Równoległy pomiar gałęzi podglądu łącznika:
-# 2144 -> 2148 (24.09.2026, testy jawnej opcji łącznika i metadanych podglądu).
-# 2148 -> 2183 (25.09.2026, dwa wejścia rozkładowe): 35 asercji z komunikatem.
-# Połączone drzewo jest mierzone poniższą zapadką.
+# Równoległa gałąź miała pomiary 2144 → 2148 i 2148 → 2183.
+# 2198 -> 2202 (25.09.2026, integracja obserwacji i podglądu łącznika).
 Z_KOMUNIKATEM_RAZEM = 2202
 NIEROZSTRZYGNIETYCH = 69
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
@@ -647,9 +646,8 @@ NIEROZSTRZYGNIETYCH = 69
 # 3635 -> 3641 (24.09.2026, te same testy).
 # 3641 -> 3660 (25.09.2026, obserwacja czynnych składów): zmierzone w drzewie.
 # Równoległy pomiar gałęzi podglądu łącznika:
-# 3606 -> 3610 (24.09.2026, cztery asercje podglądu łącznika).
-# 3610 -> 3645 (25.09.2026, dwa wejścia rozkładowe): 35 nowych asercji.
-# Połączone drzewo jest mierzone poniższą zapadką.
+# Równoległa gałąź miała pomiary 3606 → 3610 i 3610 → 3645.
+# 3660 -> 3664 (25.09.2026, integracja obserwacji i podglądu łącznika).
 ASERCJI_RAZEM = 3664
 
 
