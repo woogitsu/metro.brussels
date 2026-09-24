@@ -733,7 +733,8 @@ ROZKLAD_POSTACI = {
         # 1516 -> 1523 (24.09.2026, koniec osi): komunikaty i klucze HUD.
         # 1523 -> 1525 (24.09.2026, oś scenerii za Merode).
         # 1525 -> 1526 (24.09.2026, ścieżka JSON tej osi w FirstRun).
-        "zwykly": 1526,
+        # 1526 -> 1530: komunikaty odmowy, status przebiegu i zgodności osi.
+        "zwykly": 1530,
         # 489 -> 494 (22.09.2026, 6.D235): piec komunikatow `Abort` dla pliku ZLEGO
         # w `FirstRun.cs`. Przeliczone z drzewa, nie zsumowane.
         # 494 -> 513 (23.09.2026, 6.M1): komunikaty odmow i wiersze zapisu zdarzen
@@ -747,7 +748,8 @@ ROZKLAD_POSTACI = {
         # 529 -> 531 (24.09.2026, T-320): wskazanie pominiętego kursu i porządku.
         # 531 -> 533 (24.09.2026, T-320): data planu i zegara.
         # 533 -> 536 (24.09.2026, odmowy dla osi scenerii).
-        "interpolowany ($)": 536,
+        # 536 -> 537: odmowa ponownego użycia block_id wskazuje obieg.
+        "interpolowany ($)": 537,
         "werbatim (@)": 0,
         "surowy interpolowany ($$\"\"\")": 1,
         "surowy (\"\"\")": 1,

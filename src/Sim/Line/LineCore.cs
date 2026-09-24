@@ -219,6 +219,9 @@ public sealed class LineCore
     private readonly double _trainLengthM;
     private readonly List<LineTrain> _trains = new();
 
+    /// <summary>Identity of the physical axis used by this line clock.</summary>
+    public string AxisId => _axis.Id;
+
     /// <summary>Linia zbudowana ze złożonych osobno składników.</summary>
     /// <param name="plan">Plan bloków dla tej samej osi.</param>
     /// <param name="axis">Oś z kilometrażem stacji.</param>
