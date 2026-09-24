@@ -62,13 +62,14 @@ public sealed class ScheduledReplayRunnerTests
         {
             WriteInputs(directory, 240, 10, 20, out var keys, out var schedule, out var output);
             var result = Run(ReplayArgs(keys, schedule, output));
-            Assert.AreEqual(0, result.ExitCode, result.StdErr);
-            StringAssert.Contains(result.StdOut, "sesja=240 kroków");
-            StringAssert.Contains(result.StdOut, "obserwowany=brak");
-            StringAssert.Contains(result.StdOut, "zarejestrowane wjazdy: 0");
-            CollectionAssert.AreEqual(new[] { DriveTelemetry.Header }, File.ReadAllLines(output));
+            Assert.AreEqual(0, result.ExitCode, "czekanie na pierwszy kurs ma kończyć się bez błędu");
+            StringAssert.Contains(result.StdOut, "sesja=240 kroków", "zegar musi czekać na pierwszy kurs");
+            StringAssert.Contains(result.StdOut, "obserwowany=brak", "przed wjazdem nie ma składu");
+            StringAssert.Contains(result.StdOut, "zarejestrowane wjazdy: 0", "kurs nie może wejść przed terminem");
+            CollectionAssert.AreEqual(new[] { DriveTelemetry.Header }, File.ReadAllLines(output),
+                "bez składu nie ma próbek telemetrii");
             StringAssert.Contains(File.ReadAllText(output + ".provenance.txt"),
-                "# scheduled_entries_sha256: ");
+                "# scheduled_entries_sha256: ", "plik nastaw musi identyfikować plan");
         }
         finally
         {
@@ -84,8 +85,9 @@ public sealed class ScheduledReplayRunnerTests
         {
             WriteInputs(directory, 125, 0, 1, out var keys, out var schedule, out var output);
             var result = Run(ReplayArgs(keys, schedule, output));
-            Assert.AreEqual(0, result.ExitCode, result.StdErr);
-            StringAssert.Contains(result.StdOut, "zarejestrowane wjazdy: 2");
+            Assert.AreEqual(0, result.ExitCode, "dwa kursy mają wejść bez błędu");
+            StringAssert.Contains(result.StdOut, "zarejestrowane wjazdy: 2",
+                "drugi kurs ma wejść dopiero po swoim terminie");
             Assert.IsTrue(File.ReadAllLines(output).Length > 1,
                 "pierwszy kurs powinien dać próbkę telemetrii");
         }
@@ -105,16 +107,24 @@ public sealed class ScheduledReplayRunnerTests
             var args = ReplayArgs(keys, schedule, output);
             var withoutLine = Array.FindAll(args, item => item != "--line");
             var refused = Run(withoutLine);
-            Assert.AreEqual(1, refused.ExitCode);
-            StringAssert.Contains(refused.StdErr, "wymaga --line");
+            Assert.AreEqual(1, refused.ExitCode, "plan bez trybu linii musi być odmową");
+            StringAssert.Contains(refused.StdErr, "wymaga --line", "odmowa ma podać brakujący tryb");
 
             var withCount = new string[args.Length + 2];
             Array.Copy(args, withCount, args.Length);
             withCount[^2] = "--trains";
             withCount[^1] = "2";
             refused = Run(withCount);
-            Assert.AreEqual(1, refused.ExitCode);
-            StringAssert.Contains(refused.StdErr, "nie łączy się z --trains");
+            Assert.AreEqual(1, refused.ExitCode, "plan i automatyczna liczba składów są sprzeczne");
+            StringAssert.Contains(refused.StdErr, "nie łączy się z --trains",
+                "odmowa ma nazwać sprzeczną opcję");
+
+            withCount[^2] = "--headway-steps";
+            withCount[^1] = "120";
+            refused = Run(withCount);
+            Assert.AreEqual(1, refused.ExitCode, "plan i automatyczny odstęp składów są sprzeczne");
+            StringAssert.Contains(refused.StdErr, "--headway-steps",
+                "odmowa ma nazwać odstęp niezależny od rozkładu");
         }
         finally
         {
