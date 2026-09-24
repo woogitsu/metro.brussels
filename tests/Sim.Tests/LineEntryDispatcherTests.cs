@@ -88,20 +88,29 @@ public sealed class LineEntryDispatcherTests
         var dispatcher = new LineEntryDispatcher(line, schedule, schedule.ServiceDay);
         var releaseStep = schedule.Entries[0].ReleaseStep;
 
-        Assert.AreEqual("step-budget", dispatcher.Run(releaseStep - 1));
-        Assert.AreEqual(releaseStep - 1, line.Steps);
-        Assert.AreEqual(0, dispatcher.RegisteredEntries);
-        Assert.AreEqual(0, line.Trains.Count);
+        Assert.AreEqual("step-budget", dispatcher.Run(releaseStep - 1),
+            "budzet N-1 powinien zatrzymac zegar przed pierwszym kursem");
+        Assert.AreEqual(releaseStep - 1, line.Steps,
+            "zegar musi zatrzymac sie na granicy budzetu N-1");
+        Assert.AreEqual(0, dispatcher.RegisteredEntries,
+            "kurs nie moze byc zgloszony w kroku N-1");
+        Assert.AreEqual(0, line.Trains.Count,
+            "przed releaseStep linia nie moze miec zaplanowanego skladu");
 
-        Assert.AreEqual("step-budget", dispatcher.Run(releaseStep));
-        Assert.AreEqual(releaseStep, line.Steps);
+        Assert.AreEqual("step-budget", dispatcher.Run(releaseStep),
+            "budzet N powinien zatrzymac sie przed wykonaniem kroku N");
+        Assert.AreEqual(releaseStep, line.Steps,
+            "zegar powinien dojsc dokladnie do releaseStep");
         Assert.AreEqual(0, dispatcher.RegisteredEntries,
             "budzet konczacy sie na releaseStep nie wykonuje jeszcze tego kroku");
-        Assert.AreEqual(0, line.Trains.Count);
+        Assert.AreEqual(0, line.Trains.Count,
+            "budzet N nie moze utworzyc skladu przed wykonaniem kroku N");
 
         dispatcher.Step();
-        Assert.AreEqual(releaseStep + 1, line.Steps);
-        Assert.AreEqual(1, dispatcher.RegisteredEntries);
+        Assert.AreEqual(releaseStep + 1, line.Steps,
+            "wykonanie kroku N powinno przesunac zegar do N+1");
+        Assert.AreEqual(1, dispatcher.RegisteredEntries,
+            "kurs ma zostac zgloszony podczas wykonania kroku N");
         Assert.AreEqual(releaseStep, line.Trains[0].EnteredAtStep,
             "wolny peron wpuszcza sklad w kroku releaseStep, bez opoznienia o jeden krok");
     }

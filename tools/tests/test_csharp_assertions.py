@@ -491,7 +491,8 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 # 2063 -> 2077 (24.09.2026, dwa wjazdy rozkładowe): czternaście kontroli
 # ma teraz jawne komunikaty, także sześć porównań początkowo bez opisu.
 # Po integracji dyspozytora i hamowania: 2133 opisane asercje, zmierzone w drzewie.
-Z_KOMUNIKATEM_RAZEM = 2133
+# 2077 -> 2144 (24.09.2026, integracja dyspozytora, test granicy, hamowanie i metadane).
+Z_KOMUNIKATEM_RAZEM = 2144
 NIEROZSTRZYGNIETYCH = 69
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
 #: `tests/Sim.Tests/DefaultArmAuditTests.cs` — bramki na ramionach domyślnych
@@ -631,7 +632,8 @@ NIEROZSTRZYGNIETYCH = 69
 # integracji LineEntrySchedule/LineEntryGate z planem blokowym L1_A. Wszystkie
 # mają komunikat; zapadka BEZ_KOMUNIKATU pozostaje surowa.
 # Po integracji dyspozytora i hamowania: 3595 wywolan, zmierzone w drzewie.
-ASERCJI_RAZEM = 3595
+# 3544 -> 3606 (24.09.2026, testy dyspozytora, hamowania i scenerii).
+ASERCJI_RAZEM = 3606
 
 
 def _rozklad():

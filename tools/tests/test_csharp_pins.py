@@ -92,7 +92,8 @@ PINY_GRY = {
 # 85 -> 86 (24.09.2026, T-320): pierwszy trip_id po remisie w planie.
 # 86 -> 87 (24.09.2026, koniec osi linii): nazwa postoju Merode w LineDriveTests.
 # 87 -> 89 (24.09.2026, dwa wjazdy rozkładowe): oba składy muszą dojechać do Merode.
-PINY_RDZENIA = 95
+# 89 -> 97 (24.09.2026, dispatcher, service brake i metadane).
+PINY_RDZENIA = 97
 
 #: Kategorie, po jednej pozycji na pin — zamknięte i sumujące się do liczby wyżej.
 #:
@@ -166,11 +167,11 @@ KATEGORIE = {
         # Dodatkowy komentarz o wyróżnieniu celu przesuwa kotwice o wiersz.
         # Komentarz o końcu toru przesuwa kotwice o kolejny wiersz.
         # Dwa komentarze o lampach scenerii przesunęły te same piny o dwa wiersze.
-        ("UiTextTests.cs", 1289), ("UiTextTests.cs", 1302), ("UiTextTests.cs", 1320),
+        ("UiTextTests.cs", 1290), ("UiTextTests.cs", 1303), ("UiTextTests.cs", 1321),
         ("SignallingHudTests.cs", 39),
     },
     "B": {
-        ("UiTextTests.cs", 1389), ("UiTextTests.cs", 1390),
+        ("UiTextTests.cs", 1390), ("UiTextTests.cs", 1391),
     },
 }
 
@@ -270,10 +271,10 @@ def test_regula_po_ksztalcie_literalu_myli_sie_i_dlatego_jej_nie_ma():
                      if not regula.search(tresci[p])]
     zlapane_z_b = [p for p in sorted(KATEGORIE["B"]) if regula.search(tresci[p])]
 
-    assert przepuszczone == [("UiTextTests.cs", 1320)], (
+    assert przepuszczone == [("UiTextTests.cs", 1321)], (
         "reguła po kształcie przestała przepuszczać wiersz o hamulcu awaryjnym — "
         "rozstrzygnięcie 6.D131 wymaga przeliczenia: %s" % przepuszczone)
-    assert zlapane_z_b == [("UiTextTests.cs", 1390)], (
+    assert zlapane_z_b == [("UiTextTests.cs", 1391)], (
         "reguła po kształcie przestała łapić wejście syntetyczne: %s" % zlapane_z_b)
 
 
@@ -287,11 +288,11 @@ def test_czytnik_widzi_pin_takze_wtedy_gdy_literal_jest_sklejony():
     tresci = {(plik, wiersz): tresc
               for plik, wiersz, _r, tresc in CP.piny("tests/Game.Tests")}
 
-    assert len(tresci[("UiTextTests.cs", 1289)]) == 122, (
+    assert len(tresci[("UiTextTests.cs", 1290)]) == 122, (
         "sklejanie literałów przestało działać: %d znaków"
-        % len(tresci[("UiTextTests.cs", 1289)]))
-    assert len(tresci[("UiTextTests.cs", 1320)]) == 98, (
-        len(tresci[("UiTextTests.cs", 1320)]))
+        % len(tresci[("UiTextTests.cs", 1290)]))
+    assert len(tresci[("UiTextTests.cs", 1321)]) == 98, (
+        len(tresci[("UiTextTests.cs", 1321)]))
     assert len(tresci[("SignallingHudTests.cs", 39)]) == 84, (
         len(tresci[("SignallingHudTests.cs", 39)]))
 
@@ -493,9 +494,9 @@ ROZKLAD_LICZBOWYCH = {
         # 517 -> 523 (24.09.2026, LineDrive): granica Merode, prędkość, ślad i bilans.
         # 523 -> 531 (24.09.2026, dwa wjazdy rozkładowe): osiem dokładnych
         # całkowitych pinów liczby kursów, bloków, stacji, kroków i wezwań.
-        "razem": 546, "z_tolerancja": 191, "bez_tolerancji": 355,
+        "razem": 551, "z_tolerancja": 191, "bez_tolerancji": 360,
         "zmiennoprzecinkowe": 212, "zmiennoprzecinkowe_bez_tolerancji": 21,
-        "calkowite": 334, "calkowite_z_tolerancja": 0, "tolerancja_zero": 121,
+        "calkowite": 339, "calkowite_z_tolerancja": 0, "tolerancja_zero": 121,
     },
 }
 
@@ -519,6 +520,7 @@ ROZKLAD_LICZBOWYCH = {
 # 152 -> 153 (24.09.2026, next station after mid-axis entry).
 # 153 -> 155 (24.09.2026, koniec osi): dwa dokładne porównania prędkości.
 # 155 -> 160 (24.09.2026, LineDrive): pięć dokładnych porównań bez tolerancji.
+# 160 -> 166 (24.09.2026, dok?adne stany hamowania terminalowego).
 DOKLADNE_ZMIENNOPRZECINKOWE = 166
 
 
