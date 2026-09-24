@@ -116,3 +116,14 @@ Względna reszta bilansu energii tego ręcznego przebiegu wyniosła `1,007e-13`.
 Pozycja obrazu i pozycja symulacji kończą się więc w tym samym miejscu.
 Scena pokazuje koniec toru, a po założeniu postoju obsługę Merode. Ta blokada
 nie buduje brakującego odcinka Merode–Montgomery opisanego wyżej.
+
+**Aktualizacja po `1fabd10` (24.09.2026).** Powyższy pomiar dokumentuje
+zabezpieczenie fizycznej granicy osi. W zwykłej jeździe ręcznej z pełnym ciągiem
+skład rozpoczyna teraz hamowanie służbowe przed Merode i staje na
+6686,349700 m, około 0,0003 m przed kilometrażem stacji, zamiast dojeżdżać do
+6686,739 m i zatrzymywać się przez przycięcie stanu. Zabezpieczenie granicy
+pozostaje na wypadek zbyt późnego hamowania. W osobnym przebiegu maszynista
+przełączył W → S → W; skład stanął na 6682,052 m (błąd −4,298 m, w oknie
+peronu ±5 m) i nie ruszył ponownie. Oba 65 000-krokowe zapisy odtworzono bez
+grafiki w Godot 4.7.2 i `Sim.Runner`; telemetria każdej pary była identyczna
+co do bajtu. Nadal brak przejezdnej osi Merode–Montgomery.
