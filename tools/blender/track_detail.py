@@ -25,6 +25,8 @@ def arguments():
     parser.add_argument("--centerline", required=True)
     parser.add_argument("--manifest", required=True)
     parser.add_argument("--out-dir", required=True)
+    parser.add_argument("--design-preview", action="store_true",
+                        help="add visible conceptual alignment markers to the design preview only")
     return parser.parse_args(args)
 
 
@@ -112,7 +114,7 @@ class Solids:
 
 def material(name, color, metallic=0.0, emission=0.0):
     mat = bpy.data.materials.new(name)
-    if name == "curve_cue":
+    if name in ("curve_cue", "preview_marker"):
         mat.use_backface_culling = False
     mat.diffuse_color = (*color, 1)
     mat.use_nodes = True
@@ -135,6 +137,10 @@ MATERIALS = {
     "curve_cue": ((0.55, 0.61, 0.62), 0, 0.60),
     "station_panel": ((0.16, 0.18, 0.19), 0, 0),
 }
+
+# A separate warm accent makes the unsurveyed continuation readable from the
+# stationary cab. It is visual annotation, not infrastructure or a signal.
+PREVIEW_MATERIAL = {"preview_marker": ((0.90, 0.48, 0.11), 0, 1.10)}
 
 
 def mesh_object(name, solids, mat, smooth=False):
@@ -185,9 +191,10 @@ def sweep_samples(frames, chainages, start, end):
     return samples
 
 
-def make_chunk(entry, frames, chainages, stations, out_dir, mats):
+def make_chunk(entry, frames, chainages, stations, out_dir, mats,
+               design_preview=False):
     start, end = entry["start_m"], entry["end_m"]
-    solids = {name: Solids() for name in MATERIALS}
+    solids = {name: Solids() for name in mats}
     offsets = PROFILES["box_double"]["track_offsets"]
     # One connected mesh per bed and rail; cap only the ends of each chunk.
     samples = sweep_samples(frames, chainages, start, end)
@@ -227,9 +234,17 @@ def make_chunk(entry, frames, chainages, stations, out_dir, mats):
         if side:
             solids["curve_cue"].wall_plate(frame_at(frames, chainages, at),
                                            side * 4.63, 2.0, 0.22, 1.0)
+    if design_preview:
+        # Paired narrow plates sit ahead of the Merode stop, away from the
+        # train envelope. A 12 m rhythm gives the projected bend depth cues.
+        for at in positions(start, end, 12.0):
+            frame = frame_at(frames, chainages, at)
+            for side in (-1, 1):
+                solids["preview_marker"].wall_plate(frame, side * 4.62,
+                                                     1.95, 0.35, 2.20)
     objects = [mesh_object(entry["id"] + "_" + name, solids[name], mats[name],
                            smooth=name in ("ballast", "rails"))
-               for name in MATERIALS if solids[name].faces]
+               for name in mats if solids[name].faces]
     bpy.ops.object.select_all(action="DESELECT")
     for obj in objects:
         obj.select_set(True)
@@ -259,11 +274,12 @@ def main():
     ):
         raise SystemExit("detail chunks do not match the tunnel manifest")
     os.makedirs(args.out_dir, exist_ok=True)
-    mats = {name: material(name, *spec) for name, spec in MATERIALS.items()}
+    specs = MATERIALS | (PREVIEW_MATERIAL if args.design_preview else {})
+    mats = {name: material(name, *spec) for name, spec in specs.items()}
     for entry in entries:
         print("[DETAIL]", make_chunk(entry, result["frames"], result["station_m"],
                                      [s["chainage_m"] for s in stations],
-                                     args.out_dir, mats), flush=True)
+                                     args.out_dir, mats, args.design_preview), flush=True)
 
 
 if __name__ == "__main__":
