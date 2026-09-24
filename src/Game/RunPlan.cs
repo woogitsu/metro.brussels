@@ -715,6 +715,12 @@ public sealed class RunPlan
             return Refusal(arguments, exitBadArgumentValue,
                 "[ARGUMENT] --scheduled-entries wyznacza wjazdy; nie łączy się z --trains ani --headway-steps.");
         }
+        if (arguments.ContainsKey("scheduled-entries") &&
+            (arguments.ContainsKey("replay") || arguments.ContainsKey("input-log")))
+        {
+            return Refusal(arguments, exitBadArgumentValue,
+                "[ARGUMENT] --scheduled-entries nie łączy się jeszcze z zapisem ani odtworzeniem wejść linii.");
+        }
 
         return new RunPlan(arguments)
         {

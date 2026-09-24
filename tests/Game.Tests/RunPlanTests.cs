@@ -1253,6 +1253,20 @@ public sealed class RunPlanTests
         CollectionAssert.AllItemsAreUnique(RunPlan.PathArguments);
     }
 
+    [TestMethod]
+    public void Rozklad_dwoch_wejsc_wymaga_linii_i_sygnalizacji_oraz_odmawia_replay()
+    {
+        var baseArgs = new[] { "--line", "--limit-kmh=70", "--signalling=plan.json",
+            "--scheduled-entries=entries.json" };
+        Assert.IsTrue(Parse(baseArgs).IsValid, "plan dwóch wejść ma jawny tryb linii i sygnalizację");
+        Assert.IsFalse(Parse("--scheduled-entries=entries.json").IsValid,
+            "plan bez linii nie może być cicho ignorowany");
+        Assert.IsFalse(Parse(baseArgs.Append("--replay=inputs.csv").ToArray()).IsValid,
+            "Runner nie umie jeszcze odtworzyć dyspozytora");
+        Assert.IsFalse(Parse(baseArgs.Append("--input-log=inputs.csv").ToArray()).IsValid,
+            "nie wolno zapisać przejazdu, którego Runner nie odtworzy");
+    }
+
     /// <summary>
     /// Pusta sciezka dawala `TelemetryPath` rowne napisowi PUSTEMU, nie `null` — i to
     /// jest mechanizm usterki, nie jej objaw. Warunek `_telemetryPath is not null`

@@ -1663,6 +1663,14 @@ public sealed partial class FirstRun : Node3D
             _logStep++;
             _command = _lineSession.Command;
 
+            if (_lineCore.Trains.Count == 0)
+            {
+                // A dated plan may start after midnight. Until the first release
+                // there is no observed train; keep advancing the shared clock.
+                _line = null;
+                return true;
+            }
+
             // MB-07: `_line` to prowadzenie składu OBSERWOWANEGO, a nie zerowego.
             // Jednym przypisaniem przechodzą na nowy skład: obie kamery, okno
             // streamingu, wiersz pozycji i wiersz stacji — bo wszystkie wiszą na
