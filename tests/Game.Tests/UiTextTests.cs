@@ -237,7 +237,8 @@ public sealed class UiTextTests
     // 596 -> 599 (24.09.2026, sceneria za Merode): dwie ścieżki GLB i odmowa niekompletnej pary.
     // 599 -> 601 (24.09.2026, cel stacji): rozmiar i kolor wyróżnionego celu w HUD.
     // 601 -> 603 (24.09.2026, koniec osi): nazwa i komunikat zatrzymania w HUD.
-    private const int LiteralowWZasieguBramki = 603;
+    // 603 -> 604 (24.09.2026, tryb linii): komunikat końca toru przed postojem Merode.
+    private const int LiteralowWZasieguBramki = 604;
 
     /// <summary>Ile różnych — dolne ostrze, zmierzone 12.09.2026.</summary>
     private const int RoznychLiteralowWZasieguBramki = 362;
@@ -1517,7 +1518,8 @@ public sealed class UiTextTests
     // 637 -> 640 (24.09.2026, sceneria za Merode): te same trzy literały.
     // 640 -> 642 (24.09.2026, cel stacji): dwa wywołania ustawiające wygląd.
     // 642 -> 644 (24.09.2026, koniec osi): dwa klucze HUD.
-    private const int PozycjiStaregoCzytnika = 644;
+    // 644 -> 645 (24.09.2026, tryb linii): komunikat końca toru w gałęzi LineDrive.
+    private const int PozycjiStaregoCzytnika = 645;
 
     /// <summary>
     /// Ile PLIKÓW korpusu stary czytnik czytał inaczej niż leksykalny — 6.D182.
@@ -1861,7 +1863,8 @@ public sealed class UiTextTests
     // 117 -> 119 (24.09.2026, preparing to brake): visible in both station approaches.
     // 119 -> 115 (24.09.2026, HUD 800x600): format pozycji przeniesiony do PositionLine.
     // 115 -> 117 (24.09.2026, koniec osi): nazwa i komunikat docierają do Hud.Update.
-    private const int LiteralowNaEkranie = 117;
+    // 117 -> 118 (24.09.2026, tryb linii): komunikat końca toru dociera do HUD.
+    private const int LiteralowNaEkranie = 118;
 
     /// <summary>Ile z nich jest KLUCZEM katalogu, a nie tekstem — 6.D183.</summary>
     // 28 -> 36 (13.09.2026, MB-02): osiem kluczy `summary.*` panelu wyniku.
@@ -1875,7 +1878,8 @@ public sealed class UiTextTests
     // 58 -> 60 (24.09.2026, preparing to brake): key in both approaches.
     // 60 -> 59 (24.09.2026, HUD 800x600): klucz pozycji jest wołany w PositionLine.
     // 59 -> 61 (24.09.2026, koniec osi): nazwa i komunikat katalogu w HUD.
-    private const int KluczyKatalogunaEkranie = 61;
+    // 61 -> 62 (24.09.2026, tryb linii): dodatkowa droga komunikatu końca toru.
+    private const int KluczyKatalogunaEkranie = 62;
 
     /// <summary>
     /// Ile literałów z tej drogi niesie SŁOWO w rozumieniu bramki — 6.D183.
@@ -2344,7 +2348,8 @@ public sealed class UiTextTests
     // 412 -> 415 (24.09.2026, sceneria za Merode): dwie ścieżki i odmowa.
     // 415 -> 416 (24.09.2026, cel stacji): nowy kolor w konstruktorze Godota.
     // 416 -> 418 (24.09.2026, koniec osi): dwa nowe klucze katalogu.
-    private const int LiteralowDotknietychZdejmowaniem = 418;
+    // 418 -> 419 (24.09.2026, tryb linii): ten sam komunikat końca toru.
+    private const int LiteralowDotknietychZdejmowaniem = 419;
 
     /// <summary>
     /// Ilu literałom zdejmowanie jednostek ZABIERA werdykt „to słowo" — 6.D155.
