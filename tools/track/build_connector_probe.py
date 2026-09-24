@@ -17,6 +17,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "blender"))
 import sweep  # noqa: E402
 
 
+def canonical_json_sha256(path):
+    """Hash parsed JSON so Windows and Linux checkout newlines give one identity."""
+    content = json.loads(path.read_text(encoding="utf-8"))
+    canonical = json.dumps(content, ensure_ascii=False, sort_keys=True,
+                           separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
+
+
 def unit(vector):
     length = math.hypot(vector[0], vector[1])
     return (vector[0] / length, vector[1] / length)
@@ -131,6 +139,16 @@ def generate(shapes, manifest, axis_a, axis_b):
                          "probe_limits": limits},
         "source": {"source_id": "stib_shapefiles", "content_sha256": actual,
                    "line_code": "001m", "variante": 1, "crs": "EPSG:31370",
+                   "generator": "tools/track/build_connector_probe.py",
+                   "generator_version": 1,
+                   "input_sha256": {
+                       "shapes": actual,
+                   },
+                   "input_json_sha256": {
+                       "manifest": canonical_json_sha256(manifest),
+                       "axis_a": canonical_json_sha256(axis_a),
+                       "axis_b": canonical_json_sha256(axis_b),
+                   },
                    "source_chainage_start_m": round(start, 6),
                    "source_chainage_end_m": round(end, 6),
                    "endpoint_offset_m": [round(offset_a, 6), round(offset_b, 6)],
@@ -151,7 +169,8 @@ def main(argv=None):
         parser.error("probe output must stay outside tracked data/")
     result = generate(args.shapes, args.manifest, args.axis_a, args.axis_b)
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    args.out.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n",
+                        encoding="utf-8", newline="\n")
     print(f"[PROBE] {result['length_m']:.3f} m; vertical and operational geometry unverified")
 
 

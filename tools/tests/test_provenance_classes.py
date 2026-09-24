@@ -604,21 +604,25 @@ def test_zadna_klasa_zakazana_nie_wraca_do_danych():
     """6.D134: `est` ma zero użyć w CAŁYM katalogu danych, nie tylko w pliku pojazdu.
 
     **Co tu jest nowe wobec asercji z 6.D89.** Tamta pytała `klasy_w_danych()`, czyli
-    wyłącznie `data/vehicle/m7-spec.json`. Pole `status` stoi w **21** plikach JSON
+    wyłącznie `data/vehicle/m7-spec.json`. Pole `status` stoi w **22** plikach JSON
     pod `data/`, o zupełnie różnych słownikach, więc nazwa wycofana mogła wrócić
-    w dowolnym z pozostałych dwudziestu i nie zgłosiłoby tego nic.
+    w dowolnym z pozostałych dwudziestu jeden i nie zgłosiłoby tego nic.
 
     **Zakazane są WYMIENIONE z nazwy, a nie wyliczone ze słownika modelu** — i nie jest
     to ostrożność, tylko liczba. Gdyby bramka żądała, żeby każdy status w `data/` należał
-    do klas z `docs/02-simulation.md`, zapaliłaby się na **17 z 21 plików** i **18
+    do klas z `docs/02-simulation.md`, zapaliłaby się na **18 z 22 plików** i **18
     nazwach** (`ok`, `unknown`, `source_backed`, `permission_required`, `not_modelled`…),
     bo to słowniki INNYCH dziedzin — praw, torów, stacji — a nie provenance modelu jazdy.
     Asercja niżej wykonuje tamtą regułę i żąda dokładnie tych liczb, żeby zdanie „byłaby
     szumem" nie stało się opinią.
+
+    Pomiar z 24.09.2026: projektowy łącznik dodał 22. plik z polem `status`
+    (`vertical=not_modelled`). Stąd kontrfaktyczny alarm objął 18 zamiast 17
+    plików, lecz liczba różnych nazw pozostała 18.
     """
     w_danych = statusy_w_katalogu_danych()
-    assert len(w_danych) >= 21, (
-        "pole `status` znaleziono w %d plikach — obecny pomiar mówił 21, "
+    assert len(w_danych) >= 22, (
+        "pole `status` znaleziono w %d plikach — obecny pomiar mówił 22, "
         "więc skan oślepł albo katalog się skurczył" % len(w_danych))
 
     trafienia = sorted(
@@ -637,9 +641,9 @@ def test_zadna_klasa_zakazana_nie_wraca_do_danych():
             for plik, licznik in w_danych.items()}
     plikow = sorted(plik for plik, nazwy in obce.items() if nazwy)
     nazw = sorted({n for nazwy in obce.values() for n in nazwy})
-    assert (len(plikow), len(nazw)) == (17, 18), (
+    assert (len(plikow), len(nazw)) == (18, 18), (
         "reguła „każdy status jest klasą modelu” zapaliłaby się dziś na %d plikach "
-        "i %d nazwach, a obecny pomiar mówił 17 i 18 — pliki: %s, nazwy: %s"
+        "i %d nazwach, a obecny pomiar mówił 18 i 18 — pliki: %s, nazwy: %s"
         % (len(plikow), len(nazw), plikow, nazw))
 
 
