@@ -1482,7 +1482,10 @@ public sealed partial class FirstRun : Node3D
         // zapis puścić przy różnym podziale kroków na klatki.
         var synthetic = _scriptedMode || _replayMode || _fromTelemetryMode
             || (_lineMode && _callsPath is not null);
-        AdvanceBy(synthetic ? SyntheticFrameSeconds() : delta);
+        // Po ostatnim postoju interaktywna linia czeka na N, C albo R. Nie dopisuj
+        // fikcyjnych kroków do akumulatora w klatkach tego ekranu.
+        if (!_lineCompletionReported)
+            AdvanceBy(synthetic ? SyntheticFrameSeconds() : delta);
         PlaceEverything();
         UpdateHud();
 
@@ -1490,7 +1493,8 @@ public sealed partial class FirstRun : Node3D
         {
             FinishScriptedRun();
         }
-        else if (_lineMode && (_lineCore?.Finished ?? _line?.Finished ?? false))
+        else if (_lineMode && !_lineCompletionReported
+            && (_lineCore?.Finished ?? _line?.Finished ?? false))
         {
             FinishLineRun();
         }

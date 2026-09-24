@@ -39,9 +39,14 @@ public sealed class TrainingWiringTests
         var reset = process.IndexOf("if (_lineMode && _readsKeyboard && _resetPending && _replay is null)",
             StringComparison.Ordinal);
         var restart = process.IndexOf("GetTree().ReloadCurrentScene()", StringComparison.Ordinal);
+        var idleGuard = process.IndexOf("if (!_lineCompletionReported)", StringComparison.Ordinal);
         var advance = process.IndexOf("AdvanceBy(synthetic", StringComparison.Ordinal);
         Assert.IsTrue(reset >= 0 && restart > reset && advance > restart,
             "R musi odtworzyć linię także po jej zakończeniu, przed kolejnym krokiem");
+        Assert.IsTrue(idleGuard > restart && advance > idleGuard,
+            "ekran końca linii nie powinien dopisywać pustych kroków do akumulatora");
+        StringAssert.Contains(process,
+            "else if (_lineMode && !_lineCompletionReported");
 
         var finish = source[source.IndexOf("private void FinishLineRun()", StringComparison.Ordinal)
             ..source.IndexOf("private void WriteCalls(", StringComparison.Ordinal)];
