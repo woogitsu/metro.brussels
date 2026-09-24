@@ -231,7 +231,7 @@ public sealed class UiTextTests
     // 586 -> 588 (24.09.2026, oznaczenia stacji): nazwa zasobu i odmowa jego braku.
     // 588 -> 589 (24.09.2026, HUD 800x600): klucz krótszego kilometrażu.
     // 589 -> 590 (24.09.2026, interaktywne R): komunikat odmowy przeładowania sceny.
-    private const int LiteralowWZasieguBramki = 590;
+    private const int LiteralowWZasieguBramki = 593;
 
     /// <summary>Ile różnych — dolne ostrze, zmierzone 12.09.2026.</summary>
     private const int RoznychLiteralowWZasieguBramki = 362;
@@ -1292,18 +1292,18 @@ public sealed class UiTextTests
         // obiecuje tu niczego, czego nie ma. Kolejność ta sama: zdanie o klawiszach
         // przejętych przez rdzeń kończy wiersz.
         Assert.AreEqual(
-            "C widok  ·  Esc wyjście  ·  N następny skład  ·  T przejmij  ·  O oddaj"
+            "C widok  ·  R od nowa  ·  Esc wyjście  ·  N następny skład  ·  T przejmij  ·  O oddaj"
             + "  ·  D otwórz drzwi  ·  F zamknij drzwi"
-            + "  ·  prowadzi rdzeń: W, S, X, Spacja, R nie działają",
+            + "  ·  prowadzi rdzeń: W, S, X, Spacja nie działają",
             DriverActions.HelpWhenTheCoreDrives,
             "wiersz pomocy pod autopilotem rozjechał się z katalogiem");
 
-        // Wiersz dla składu PRZEJĘTEGO: prowadzenie znów działa, resetu w przejeździe
-        // linii nie ma, a oddanie sterowania musi być widoczne — inaczej gracz nie ma
+        // Wiersz dla składu PRZEJĘTEGO: prowadzenie znów działa, R restartuje scenę,
+        // a oddanie sterowania musi być widoczne — inaczej gracz nie ma
         // jak wrócić pod autopilota.
         Assert.AreEqual(
             "W ciąg  ·  S hamulec  ·  X wybieg  ·  "
-            + "Spacja hamulec awaryjny (= pełny służbowy)  ·  C widok  ·  Esc wyjście"
+            + "Spacja hamulec awaryjny (= pełny służbowy)  ·  C widok  ·  R od nowa  ·  Esc wyjście"
             + "  ·  N następny skład  ·  T przejmij  ·  O oddaj"
             + "  ·  D otwórz drzwi  ·  F zamknij drzwi",
             DriverActions.HelpWhenTheDriverHasTaken,
@@ -1505,7 +1505,7 @@ public sealed class UiTextTests
     // 627 -> 629 (24.09.2026, oznaczenia stacji): dwa nowe literały FirstRun.
     // 629 -> 630 (24.09.2026, HUD 800x600): nowy klucz krótkiej pozycji.
     // 630 -> 631 (24.09.2026, interaktywne R): ten sam nowy komunikat.
-    private const int PozycjiStaregoCzytnika = 631;
+    private const int PozycjiStaregoCzytnika = 634;
 
     /// <summary>
     /// Ile PLIKÓW korpusu stary czytnik czytał inaczej niż leksykalny — 6.D182.
@@ -2322,7 +2322,7 @@ public sealed class UiTextTests
     // 404 -> 406 (24.09.2026, station-wayfinding): dwa literały ścieżki i odmowy.
     // 406 -> 407 (24.09.2026, HUD 800x600): nowy klucz krótkiej pozycji.
     // 407 -> 408 (24.09.2026, interaktywne R): komunikat błędu.
-    private const int LiteralowDotknietychZdejmowaniem = 408;
+    private const int LiteralowDotknietychZdejmowaniem = 409;
 
     /// <summary>
     /// Ilu literałom zdejmowanie jednostek ZABIERA werdykt „to słowo" — 6.D155.
@@ -3558,7 +3558,7 @@ public sealed class UiTextTests
     // 149 -> 148 (23.09.2026, 6.M1): odtworzenie linii w `FirstRun` i `RunPlan`. PRZELICZONE.
     // 148 -> 149 (24.09.2026, station-wayfinding): odmowa przy braku GLB tablicy ma interpolowaną ścieżkę.
     // 149 -> 150 (24.09.2026, interaktywne R): interpolowany błąd restartu.
-    private const int LiteralowZKlamra = 150;
+    private const int LiteralowZKlamra = 151;
 
     /// <summary>
     /// Ilu literałom <see cref="BezDziur"/> zabiera WSZYSTKIE słowa — 6.D188.
@@ -3573,7 +3573,7 @@ public sealed class UiTextTests
     // `BezDziur` zabierało mu ostatnie słowo. Po przeniesieniu do katalogu wiersz
     // niesie `sufit`, czyli słowo, którego żadna z tych dwóch mechanik nie zabiera.
     // 13 -> 14 (14.09.2026, MB-07): przeliczone przebiegiem.
-    private const int ZabranychWszystkieSlowa = 14;
+    private const int ZabranychWszystkieSlowa = 15;
 
     /// <summary>
     /// Ile z nich stoi na drodze <c>Hud.Update</c>, czyli dociera na ekran — 6.D188.

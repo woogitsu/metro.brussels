@@ -2484,6 +2484,11 @@ public sealed partial class FirstRun : Node3D
             return DriverInput.Help;
         }
 
+        if (_lineCore is null)
+        {
+            return DriverActions.HelpWhenLegacyLineRuns;
+        }
+
         return ObservedOwner() == ControlOwner.Driver
             ? DriverActions.HelpWhenTheDriverHasTaken
             : DriverActions.HelpWhenTheCoreDrives;

@@ -28,6 +28,18 @@ namespace MetroBxl.Game.Tests;
 public sealed class TrainingWiringTests
 {
     [TestMethod]
+    public void POMOC_LINII_BEZ_LINE_CORE_NIE_OBIECUJE_PRZEJECIA_SKLADU()
+    {
+        var source = FirstRunSource();
+        var start = source.IndexOf("private string HelpLine()", StringComparison.Ordinal);
+        var end = source.IndexOf("private ControlOwner ObservedOwner()", start, StringComparison.Ordinal);
+        Assert.IsTrue(start >= 0 && end > start, "nie znaleziono wyboru pomocy HUD");
+        var help = source[start..end];
+        StringAssert.Contains(help, "if (_lineCore is null)");
+        StringAssert.Contains(help, "return DriverActions.HelpWhenLegacyLineRuns;");
+    }
+
+    [TestMethod]
     public void AUTOMATYCZNA_LINIA_NIE_ODCZYTUJE_NIEISTNIEJACEGO_LINE_CORE_W_HUD()
     {
         var source = FirstRunSource();

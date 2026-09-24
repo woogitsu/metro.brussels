@@ -286,6 +286,8 @@ public sealed class DriverActionsTests
         // Druga strona podziału: klawisze linii MUSZĄ stać w wierszu dla składu
         // przejętego, inaczej gracz nie ma jak oddać sterowania.
         var przejety = DriverActions.HelpWhenTheDriverHasTaken;
+        StringAssert.Contains(przejety, "R " + DriverActions.All.Single(
+            binding => binding.Action == DriverActions.Reset).Meaning);
         foreach (var binding in DriverActions.All)
         {
             if (!tylkoZLinia.Contains(binding.Action))
@@ -435,6 +437,26 @@ public sealed class DriverActionsTests
         }
     }
 
+    [TestMethod]
+    public void LiniaBezLineCoreNieObiecujeWyboruSkladuAniDrzwi()
+    {
+        var pomoc = DriverActions.HelpWhenLegacyLineRuns;
+        var dzialajace = new HashSet<string>
+            { DriverActions.ViewToggle, DriverActions.Reset, DriverActions.Quit };
+        var ogon = pomoc[pomoc.IndexOf("prowadzi rdzeń:", StringComparison.Ordinal)..];
+        foreach (var binding in DriverActions.All)
+        {
+            if (dzialajace.Contains(binding.Action))
+                StringAssert.Contains(pomoc, $"{binding.KeyName} {binding.Meaning}");
+            else
+            {
+                StringAssert.Contains(ogon, binding.KeyName);
+                Assert.IsFalse(pomoc.Contains($"{binding.KeyName} {binding.Meaning}",
+                    StringComparison.Ordinal), $"nieaktywny klawisz {binding.KeyName}");
+            }
+        }
+    }
+
     /// <summary>
     /// Podział akcji na przejęte przez rdzeń i działające pod <c>--line</c> jest
     /// WYPISANY TU IMIENNIE — obie strony, po nazwie.
@@ -488,7 +510,7 @@ public sealed class DriverActionsTests
             new List<string>
             {
                 DriverActions.Power, DriverActions.Brake, DriverActions.Coast,
-                DriverActions.Emergency, DriverActions.Reset,
+                DriverActions.Emergency,
             },
             new List<string>(DriverActions.TakenOverByTheCore),
             "lista klawiszy przejętych przez rdzeń się zmieniła");

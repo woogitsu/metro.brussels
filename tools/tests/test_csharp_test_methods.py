@@ -641,8 +641,8 @@ ROZKLAD_POSTACI = {
         # i diagnostyki błędu, przeliczone czytnikiem testów.
         # 5021 -> 5030 (24.09.2026, automat bez sygnalizacji): trzy igły
         # strażnika, trzy komunikaty asercji i pozostałe literały testu.
-        "zwykly": 5030,
-        "interpolowany ($)": 844,
+        "zwykly": 5037,
+        "interpolowany ($)": 847,
         "werbatim (@)": 100,
         "surowy interpolowany ($$\"\"\")": 13,
         # 8 -> 10 (23.09.2026): dwie probki sceny w testach.
@@ -704,7 +704,7 @@ ROZKLAD_POSTACI = {
         # 1464 -> 1465 i 514 -> 515 (24.09.2026, oznaczenia stacji):
         # sciezka GLB i odmowa braku; zmierzone czytnikiem po obu katalogach.
         # 1465 -> 1468 (24.09.2026, HUD 800x600): klucz i dwa warianty pozycji.
-        "zwykly": 1468,
+        "zwykly": 1470,
         # 489 -> 494 (22.09.2026, 6.D235): piec komunikatow `Abort` dla pliku ZLEGO
         # w `FirstRun.cs`. Przeliczone z drzewa, nie zsumowane.
         # 494 -> 513 (23.09.2026, 6.M1): komunikaty odmow i wiersze zapisu zdarzen
@@ -713,7 +713,7 @@ ROZKLAD_POSTACI = {
         # doklejac `error.Message` i ma DWIE postacie — z pozycja z liczb parsera
         # i bez niej, gdy parser jej nie podal; jedna byla, sa dwie. ZMIERZONE.
         # 515 -> 516 (24.09.2026, interaktywne R): błąd przeładowania sceny.
-        "interpolowany ($)": 516,
+        "interpolowany ($)": 517,
         "werbatim (@)": 0,
         "surowy interpolowany ($$\"\"\")": 1,
         "surowy (\"\"\")": 1,
