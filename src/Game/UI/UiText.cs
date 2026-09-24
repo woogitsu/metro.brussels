@@ -113,6 +113,7 @@ public static class UiText
             ["hud.station.no-more"] = "brak dalszych stacji   {0}",
             ["hud.station.track-end"] = "KONIEC TORU — skład zatrzymany",
             ["hud.station.track-end-name"] = "koniec toru",
+            ["hud.connector-preview"] = "PROJEKT ŁĄCZNIKA — tory za Merode nieprzejezdne",
             ["hud.station.approach"] = "{0} za {1} m (okno ±{2} m){3}   {4}",
             ["hud.station.in-window"] = "  W OKNIE — zatrzymaj się",
             ["hud.station.brake-now"] = "  HAMUJ TERAZ (S)",

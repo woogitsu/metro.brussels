@@ -146,7 +146,7 @@ def test_connector_preview_requires_explicit_kind_and_unmodelled_vertical():
         shutil.copyfile(CONNECTOR_AXIS, os.path.join(assets, prefix + "-axis.json"))
         metadata = {"visual_continuation": visual}
         assert G.check_visual_continuation(metadata, AXIS, CONNECTOR_AXIS, assets,
-                                           expected_kind="connector_design_only") == []
+                                           expected_kind="connector_design_only") == [], "poprawny podgląd łącznika musi przejść"
         for field, bad in (("kind", "tail"), ("vertical_status", "modelled"),
                            ("source_sha256", "0" * 64)):
             changed = json.loads(json.dumps(metadata))

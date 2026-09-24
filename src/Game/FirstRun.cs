@@ -2480,11 +2480,14 @@ public sealed partial class FirstRun : Node3D
             }
         }
 
+        var viewLine = _visualContinuationKind == "connector_design_only"
+            ? UiText.Get("hud.connector-preview") + (_viewLine.Length > 0 ? " · " + _viewLine : "")
+            : _viewLine;
         _hud.Update(
             _state.SpeedKmh, SufitKmh(), _acceleration,
             chainage, _axis.LengthM,
             name, distance, _command.Throttle, _command.Brake, _mode,
-            StationLine(), SignallingLine(), _viewLine,
+            StationLine(), SignallingLine(), viewLine,
             EmergencyBrake.Notice(_activeKeys, _command,
                 !_lineMode || ObservedOwner() == ControlOwner.Driver),
             HelpLine(),

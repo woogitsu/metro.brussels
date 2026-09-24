@@ -242,7 +242,8 @@ public sealed class UiTextTests
     // 609 -> 615 (24.09.2026, osobne metadane wizualnej kontynuacji).
     // 615 -> 649 (24.09.2026, jawna opcja łącznika i kontrola pochodzenia osi).
     // 649 -> 656 (24.09.2026, osłonięcie wymaganych pól JSON).
-    private const int LiteralowWZasieguBramki = 656;
+    // 656 -> 660 (24.09.2026, etykieta prototypu w HUD).
+    private const int LiteralowWZasieguBramki = 660;
 
     /// <summary>Ile różnych — dolne ostrze, zmierzone 12.09.2026.</summary>
     private const int RoznychLiteralowWZasieguBramki = 362;
@@ -1527,7 +1528,8 @@ public sealed class UiTextTests
     // 650 -> 663 (24.09.2026, pola i wartości osobnych metadanych scenerii).
     // 663 -> 703 (24.09.2026, opcjonalny podgląd łącznika).
     // 703 -> 710 (24.09.2026, osłonięcie wymaganych pól JSON).
-    private const int PozycjiStaregoCzytnika = 710;
+    // 710 -> 714 (24.09.2026, etykieta prototypu w HUD).
+    private const int PozycjiStaregoCzytnika = 714;
 
     /// <summary>
     /// Ile PLIKÓW korpusu stary czytnik czytał inaczej niż leksykalny — 6.D182.
@@ -1872,7 +1874,8 @@ public sealed class UiTextTests
     // 119 -> 115 (24.09.2026, HUD 800x600): format pozycji przeniesiony do PositionLine.
     // 115 -> 117 (24.09.2026, koniec osi): nazwa i komunikat docierają do Hud.Update.
     // 117 -> 118 (24.09.2026, tryb linii): komunikat końca toru dociera do HUD.
-    private const int LiteralowNaEkranie = 118;
+    // 118 -> 122 (24.09.2026, etykieta prototypu w istniejącym wierszu widoku).
+    private const int LiteralowNaEkranie = 122;
 
     /// <summary>Ile z nich jest KLUCZEM katalogu, a nie tekstem — 6.D183.</summary>
     // 28 -> 36 (13.09.2026, MB-02): osiem kluczy `summary.*` panelu wyniku.
@@ -1887,7 +1890,8 @@ public sealed class UiTextTests
     // 60 -> 59 (24.09.2026, HUD 800x600): klucz pozycji jest wołany w PositionLine.
     // 59 -> 61 (24.09.2026, koniec osi): nazwa i komunikat katalogu w HUD.
     // 61 -> 62 (24.09.2026, tryb linii): dodatkowa droga komunikatu końca toru.
-    private const int KluczyKatalogunaEkranie = 62;
+    // 62 -> 63 (24.09.2026, jawna etykieta projektowego łącznika).
+    private const int KluczyKatalogunaEkranie = 63;
 
     /// <summary>
     /// Ile literałów z tej drogi niesie SŁOWO w rozumieniu bramki — 6.D183.
@@ -1905,7 +1909,8 @@ public sealed class UiTextTests
     // na mapie `ZrodlaHud` — czyli jest to trafienie FAŁSZYWE tego sita, dokładnie tej
     // samej rodziny co `FalszyweTrafieniaSkanu` przy 6.D185. Lista niżej je odejmuje,
     // żeby główna liczba pozycji 6.D183 dalej odpowiadała na swoje pytanie.
-    private const int ZeSlowemNaEkranie = 24;
+    // 24 -> 25 (24.09.2026, status podglądu łącznika w HUD).
+    private const int ZeSlowemNaEkranie = 25;
 
     /// <summary>
     /// Literały, które sito liczy jako „tekst ze słowem", a na ekran NIE DOCIERAJĄ —
@@ -1922,7 +1927,7 @@ public sealed class UiTextTests
     };
 
     /// <summary>Ile napisów DLA GRACZA — 6.D183, po odjęciu listy wyżej.</summary>
-    private const int DlaGraczaNaEkranie = 22;
+    private const int DlaGraczaNaEkranie = 23;
 
     /// <summary>
     /// Ile z nich ma polski znak diakrytyczny — liczba PORÓWNAWCZA do 6.D175 — 6.D183.
@@ -2369,7 +2374,8 @@ public sealed class UiTextTests
     // 424 -> 425 (24.09.2026, nowy literal osi scenerii).
     // 425 -> 446 (24.09.2026, opcjonalny podgląd łącznika).
     // 446 -> 447 (24.09.2026, osłonięcie wymaganych pól JSON).
-    private const int LiteralowDotknietychZdejmowaniem = 447;
+    // 447 -> 448 (24.09.2026, etykieta prototypu w HUD).
+    private const int LiteralowDotknietychZdejmowaniem = 448;
 
     /// <summary>
     /// Ilu literałom zdejmowanie jednostek ZABIERA werdykt „to słowo" — 6.D155.
