@@ -633,7 +633,8 @@ NIEROZSTRZYGNIETYCH = 69
 # mają komunikat; zapadka BEZ_KOMUNIKATU pozostaje surowa.
 # Po integracji dyspozytora i hamowania: 3595 wywolan, zmierzone w drzewie.
 # 3544 -> 3606 (24.09.2026, testy dyspozytora, hamowania i scenerii).
-ASERCJI_RAZEM = 3606
+# 3606 -> 3635 (24.09.2026, scena i adapter odtwarzania rozkladu).
+ASERCJI_RAZEM = 3635
 
 
 def _rozklad():
