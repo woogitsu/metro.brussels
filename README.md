@@ -47,6 +47,15 @@ dotnet test tests/Sim.Tests          # rdzeń symulacji, bez Godota
   w liczniku miniętych; błąd zatrzymania jest mierzony i pokazywany;
 - **tryb `--line`**: scena przejeżdża całą linię z 11 zatrzymaniami, prowadzona rdzeniem;
   zatrzymania sceny i rdzenia są identyczne co do wszystkich kolumn (próg **zerowy**);
+- **wariant dwóch wejść rozkładowych**: jawne `--line --signalling=PLAN
+  --limit-kmh=70 --scheduled-entries=PLIK` czyta zewnętrzny plik projekcji dwóch
+  kursów na osi `L1_A`. Zegar zaczyna o północy dnia służby i czeka na każdy
+  `release_s`; zajęty blok może opóźnić rzeczywisty wjazd. Plik musi mieć unikalne
+  `block_id`. Projekcja pełnych 357 kursów nie jest jeszcze obsługiwana, ponieważ
+  ponowne użycie obiegu wymaga osobnej polityki transferu pojazdu. Testy korzystają
+  z wyraźnie syntetycznych identyfikatorów kursów i obiegów; repozytorium nie zawiera
+  gotowego pliku dwóch rzeczywistych kursów GTFS. Ten wariant na razie odmawia
+  `--replay` i `--input-log`.
 - **sygnalizacja w kabinie** (`--signalling`, działa też BEZ `--line`): skład wchodzi
   na bloki, nastawnia rygluje mu trasy, a ATP **naprawdę hamuje za maszynistę** —
   ostrzeżenie, potem hamulec służbowy. HUD pokazuje prędkość dopuszczalną, autorytet
