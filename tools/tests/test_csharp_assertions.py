@@ -475,7 +475,9 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 # 1995 -> 1997 (24.09.2026, mocowania tablic): obie asercje opisują sens błędu.
 # 1997 -> 2010 (24.09.2026, wejście składu od wskazanej stacji):
 # trzynaście nowych asercji opisuje także blokadę drugiego składu i dojazd.
-Z_KOMUNIKATEM_RAZEM = 2010
+# 2010 -> 2025 (24.09.2026, T-320): osiem asercji planu wejść i siedem
+# kontroli ciągłości obiegów ma komunikaty.
+Z_KOMUNIKATEM_RAZEM = 2025
 NIEROZSTRZYGNIETYCH = 68
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
 #: `tests/Sim.Tests/DefaultArmAuditTests.cs` — bramki na ramionach domyślnych
@@ -603,7 +605,8 @@ NIEROZSTRZYGNIETYCH = 68
 # 3441 -> 3447 (24.09.2026, stan składu po zjeździe): sześć asercji.
 # 3447 -> 3449 (24.09.2026, mocowania tablic): dwie asercje długości wsporników.
 # 3449 -> 3462 (24.09.2026, wejście składu od wskazanej stacji).
-ASERCJI_RAZEM = 3462
+# 3462 -> 3477 (24.09.2026, T-320): plan wejść i ciągłość obiegów.
+ASERCJI_RAZEM = 3477
 
 
 def _rozklad():

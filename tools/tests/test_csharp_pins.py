@@ -87,7 +87,8 @@ PINY_GRY = {
 # 77 -> 78 (23.09.2026, 6.D356): pin napisowy `"BŁĄD: " + Program.WrongJsonShapeText`
 # w `BrokenJsonRefusalTests.cs` — wiersz wspolnego handlera `Sim.Runner` przy
 # dokumencie innego ksztaltu, porownany w calosci; ZMIERZONE.
-PINY_RDZENIA = 78
+# 78 -> 81 (24.09.2026, T-320): data, kurs i identyfikator obiegu.
+PINY_RDZENIA = 81
 
 #: Kategorie, po jednej pozycji na pin — zamknięte i sumujące się do liczby wyżej.
 #:
@@ -475,9 +476,10 @@ ROZKLAD_LICZBOWYCH = {
         # przejrzanych ksztaltow. Przeliczone z drzewa; ZMIERZONE.
         # 501 -> 505 (24.09.2026): three station/step pins and one
         # chainage pin with exact 0.0 tolerance for mid-axis admission.
-        "razem": 505, "z_tolerancja": 190, "bez_tolerancji": 315,
+        # 505 -> 508 (24.09.2026, T-320): plan wejść i dwie granice obiegu.
+        "razem": 508, "z_tolerancja": 190, "bez_tolerancji": 318,
         "zmiennoprzecinkowe": 198, "zmiennoprzecinkowe_bez_tolerancji": 8,
-        "calkowite": 307, "calkowite_z_tolerancja": 0, "tolerancja_zero": 121,
+        "calkowite": 310, "calkowite_z_tolerancja": 0, "tolerancja_zero": 121,
     },
 }
 

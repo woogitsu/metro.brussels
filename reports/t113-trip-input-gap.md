@@ -73,6 +73,24 @@ zegara dnia i sprawdzać rzeczywisty krok wjazdu, bo zajęty blok może opóźni
 twierdzić, że LineCore odtworzył 357 kursów. Nie zmieniono polityki dyspozytora,
 nawrotu ani stanu rdzenia.
 
+**Kontrola ciągłości obiegów po dodaniu planu wejść.** `BlockContinuity` używa
+`block_id` wyłącznie jako klucza tego samego obiegu pojazdu; GTFS nie nadaje tu
+numeru jednostki taboru. Dla każdego kursu sprawdza czas wejścia i wyjścia oraz
+stacje graniczne. Odrzuca nakładanie się dwóch kursów jednego obiegu, ale nie
+uznaje samej przerwy czasowej za dowód przejazdu poza pakietem.
+
+Na projekcji dnia 20260902 z archiwum STIB SHA-256
+`28c2fba48783e278d20f8f703759e3f729b72608d015e00d0f8215fa3b278bb6`
+walidator odczytał 357 odcinków kursów, 39 obiegów i 318 par sąsiednich odcinków
+tego samego obiegu **w projekcji L1_A**. Projekcja nie zawiera pełnych kursów
+poza osią, więc sąsiedztwo w niej nie dowodzi sąsiedztwa w całym GTFS. Nie było
+nakładek widocznych odcinków. **Wszystkie 318 par mają niewyjaśnioną
+trasę między granicami pakietu:** poprzedni kurs kończy się w Merode (`8072`),
+a następny zaczyna w Gare de l'Ouest (`8733`, 163 przypadki, przerwy 2993–3594 s)
+lub Beekkant (`8742`, 155 przypadków, przerwy 4248–4708 s). To są tylko odstępy
+między odcinkami w pakiecie A; bez pełnej trasy między kursami nie można określić
+przejazdu technicznego, nawrotu ani chwili ponownego użycia składu w `LineCore`.
+
 ## Sprawdzenie
 
 Audyt opiera się na schemacie w `tools/track/timetable.py` i spisie plików śledzonych przez Git.

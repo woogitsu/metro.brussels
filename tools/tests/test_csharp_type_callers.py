@@ -74,7 +74,8 @@ TYP = re.compile(
 TYLKO_TESTY = frozenset({
     "CbtcTestArea", "CbtcTestStage", "DriveSegment", "JsonFields", "KcvFunction",
     # T-320: typowany plan jest czytany w testach, integracja dyspozytury czeka.
-    "LineEntrySchedule", "ScheduledLineEntry", "LineRoute", "ProtectionMode", "ProtectionModeRegistry",
+    # T-320: walidator obiegów jest dopiero czytany w testach, bez dyspozytury.
+    "BlockContinuity", "LineRoute", "ProtectionMode", "ProtectionModeRegistry",
     "ProtectionModeStatus", "ProtectionModeStatusParser", "RouteGap",
 })
 
@@ -87,6 +88,8 @@ TYLKO_TESTY = frozenset({
 NIEWOLANE_PO_NAZWIE = frozenset({
     "BrakingPoint", "BrakingReferenceRow", "BrakingRunResult", "CbtcDynamicTestSite",
     "CbtcTestSpan", "DoorInterlock", "RegistryEntry", "RouteStation",
+    # T-320: typy wynikowe walidatora są używane przez API, bez osobnego wywołania po nazwie.
+    "BlockTransition", "ProjectedBlockRun",
     "RunRestartValues", "ServiceBlock", "ServicePeak", "SignallingAssumption",
     "StationApproach",
 })
