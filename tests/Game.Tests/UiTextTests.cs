@@ -232,6 +232,7 @@ public sealed class UiTextTests
     // 588 -> 589 (24.09.2026, HUD 800x600): klucz krótszego kilometrażu.
     // 589 -> 590 (24.09.2026, interaktywne R): komunikat odmowy przeładowania sceny.
     // 590 -> 592 (24.09.2026, krótki HUD chase): dystans i próg.
+    // 592 -> 595 (24.09.2026, integracja pomocy linii): trzy literały testów pomocy.
     private const int LiteralowWZasieguBramki = 595;
 
     /// <summary>Ile różnych — dolne ostrze, zmierzone 12.09.2026.</summary>
@@ -1507,6 +1508,7 @@ public sealed class UiTextTests
     // 629 -> 630 (24.09.2026, HUD 800x600): nowy klucz krótkiej pozycji.
     // 630 -> 631 (24.09.2026, interaktywne R): ten sam nowy komunikat.
     // 631 -> 633 (24.09.2026, krótki HUD chase): te same dwa napisy.
+    // 633 -> 636 (24.09.2026, integracja pomocy linii): trzy pozycje źródłowe testów.
     private const int PozycjiStaregoCzytnika = 636;
 
     /// <summary>
@@ -2325,6 +2327,7 @@ public sealed class UiTextTests
     // 406 -> 407 (24.09.2026, HUD 800x600): nowy klucz krótkiej pozycji.
     // 407 -> 408 (24.09.2026, interaktywne R): komunikat błędu.
     // 408 -> 410 (24.09.2026, krótki HUD chase): te same dwa napisy.
+    // 410 -> 411 (24.09.2026, integracja pomocy linii): jeden dodatkowy literał.
     private const int LiteralowDotknietychZdejmowaniem = 411;
 
     /// <summary>
@@ -3562,6 +3565,7 @@ public sealed class UiTextTests
     // 148 -> 149 (24.09.2026, station-wayfinding): odmowa przy braku GLB tablicy ma interpolowaną ścieżkę.
     // 149 -> 150 (24.09.2026, interaktywne R): interpolowany błąd restartu.
     // 150 -> 152 (24.09.2026, krótki HUD chase): dystans i próg.
+    // 152 -> 153 (24.09.2026, integracja pomocy linii): jeden literał z klamrą.
     private const int LiteralowZKlamra = 153;
 
     /// <summary>
@@ -3577,6 +3581,7 @@ public sealed class UiTextTests
     // `BezDziur` zabierało mu ostatnie słowo. Po przeniesieniu do katalogu wiersz
     // niesie `sufit`, czyli słowo, którego żadna z tych dwóch mechanik nie zabiera.
     // 13 -> 14 (14.09.2026, MB-07): przeliczone przebiegiem.
+    // 14 -> 15 (24.09.2026, integracja pomocy linii): nowy wzorzec pomocy.
     private const int ZabranychWszystkieSlowa = 15;
 
     /// <summary>

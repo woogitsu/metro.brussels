@@ -595,7 +595,8 @@ NIEROZSTRZYGNIETYCH = 68
 # 3419 -> 3423 (24.09.2026, automat bez sygnalizacji): te same cztery.
 # 3423 -> 3424 (24.09.2026, widok chase 800x600): ta sama asercja.
 # 3424 -> 3428 (24.09.2026, krótki HUD chase): cztery stany granicy.
-# 3428 -> 3441: te same trzynaście kontroli tablic i pomocy linii.
+# 3428 -> 3441 (24.09.2026, integracja tablic i pomocy linii):
+# te same trzynaście kontroli z komunikatami.
 ASERCJI_RAZEM = 3441
 
 
