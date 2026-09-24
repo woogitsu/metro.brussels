@@ -242,7 +242,7 @@ public sealed partial class FirstRun : Node3D
             return true;
 
         foreach (var train in _lineCore.Trains)
-            if (train.Id == id && train.Drive is not null)
+            if (train.Id == id && train.OnLine)
                 return true;
 
         return false;
