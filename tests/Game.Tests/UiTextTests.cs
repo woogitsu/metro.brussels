@@ -229,7 +229,8 @@ public sealed class UiTextTests
     // 582 -> 584 (24.09.2026, braking cue): klucz `hud.station.brake-now` w obu gałęziach dojazdu.
     // 584 -> 586 (24.09.2026, preparing to brake): second cue key in both approaches.
     // 586 -> 588 (24.09.2026, oznaczenia stacji): nazwa zasobu i odmowa jego braku.
-    private const int LiteralowWZasieguBramki = 588;
+    // 588 -> 589 (24.09.2026, HUD 800x600): klucz krótszego kilometrażu.
+    private const int LiteralowWZasieguBramki = 589;
 
     /// <summary>Ile różnych — dolne ostrze, zmierzone 12.09.2026.</summary>
     private const int RoznychLiteralowWZasieguBramki = 362;
@@ -1501,7 +1502,8 @@ public sealed class UiTextTests
     // 623 -> 625 (24.09.2026, braking cue): klucz w obu gałęziach `FirstRun.StationLine`.
     // 625 -> 627 (24.09.2026, preparing to brake): second cue key in both approaches.
     // 627 -> 629 (24.09.2026, oznaczenia stacji): dwa nowe literały FirstRun.
-    private const int PozycjiStaregoCzytnika = 629;
+    // 629 -> 630 (24.09.2026, HUD 800x600): nowy klucz krótkiej pozycji.
+    private const int PozycjiStaregoCzytnika = 630;
 
     /// <summary>
     /// Ile PLIKÓW korpusu stary czytnik czytał inaczej niż leksykalny — 6.D182.
@@ -1843,7 +1845,8 @@ public sealed class UiTextTests
     // MARTWE, choć docierają na ekran. Liczba PRZELICZONA przebiegiem.
     // 115 -> 117 (24.09.2026, braking cue): klucz dociera do `Hud.Update` z obu gałęzi.
     // 117 -> 119 (24.09.2026, preparing to brake): visible in both station approaches.
-    private const int LiteralowNaEkranie = 119;
+    // 119 -> 115 (24.09.2026, HUD 800x600): format pozycji przeniesiony do PositionLine.
+    private const int LiteralowNaEkranie = 115;
 
     /// <summary>Ile z nich jest KLUCZEM katalogu, a nie tekstem — 6.D183.</summary>
     // 28 -> 36 (13.09.2026, MB-02): osiem kluczy `summary.*` panelu wyniku.
@@ -1855,7 +1858,8 @@ public sealed class UiTextTests
     // `input.door-close`. Przeliczone przebiegiem.
     // 47 -> 58 (24.09.2026, integracja): podpowiedź hamowania w obu gałęziach dojazdu.
     // 58 -> 60 (24.09.2026, preparing to brake): key in both approaches.
-    private const int KluczyKatalogunaEkranie = 60;
+    // 60 -> 59 (24.09.2026, HUD 800x600): klucz pozycji jest wołany w PositionLine.
+    private const int KluczyKatalogunaEkranie = 59;
 
     /// <summary>
     /// Ile literałów z tej drogi niesie SŁOWO w rozumieniu bramki — 6.D183.
@@ -2312,7 +2316,8 @@ public sealed class UiTextTests
     // 400 -> 402 (24.09.2026, braking cue): dwa użycia klucza po zdjęciu jednostek.
     // 402 -> 404 (24.09.2026, preparing to brake): two new catalog lookups.
     // 404 -> 406 (24.09.2026, station-wayfinding): dwa literały ścieżki i odmowy.
-    private const int LiteralowDotknietychZdejmowaniem = 406;
+    // 406 -> 407 (24.09.2026, HUD 800x600): nowy klucz krótkiej pozycji.
+    private const int LiteralowDotknietychZdejmowaniem = 407;
 
     /// <summary>
     /// Ilu literałom zdejmowanie jednostek ZABIERA werdykt „to słowo" — 6.D155.

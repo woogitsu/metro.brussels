@@ -43,6 +43,8 @@ PINY_GRY = {
     # Trzeci pin sprawdza caly wiersz fazy recznej, zamiast niejednoznacznej igly DRZWI.
     "DoorPromptTests.cs": 3,
     "HudLayoutTests.cs": 1,
+    # Jedna dokładna jednoliniowa pozycja przy widocznym celu, kategoria C.
+    "HudPositionTests.cs": 1,
     "RunHeaderTests.cs": 1,
     "RunPlanTests.cs": 30,
     "RunResetTests.cs": 2,
@@ -153,11 +155,11 @@ KATEGORIE = {
         # i 1372/1373 -> 1373/1374. Powod ten sam — komentarz z powodem przy
         # `LiteralowWZasieguBramki`, tym razem o jeden wiersz. TRESC pinow nie drgnela.
         # Przeliczone roznica plikow (difflib).
-        ("UiTextTests.cs", 1279), ("UiTextTests.cs", 1292), ("UiTextTests.cs", 1310),
+        ("UiTextTests.cs", 1280), ("UiTextTests.cs", 1293), ("UiTextTests.cs", 1311),
         ("SignallingHudTests.cs", 37),
     },
     "B": {
-        ("UiTextTests.cs", 1379), ("UiTextTests.cs", 1380),
+        ("UiTextTests.cs", 1380), ("UiTextTests.cs", 1381),
     },
 }
 
@@ -178,7 +180,8 @@ KATEGORIE = {
 # 60 -> 59 (24.09.2026, cue): dwa syntetyczne piny UiTextTests zajmuja teraz
 # osobne wiersze 1378/1379, wiec oba sa jawnie w kategorii B.
 # 59 -> 61 (24.09.2026, tablice stacji): dwie pelne nazwy w StationWayfindingTests.
-LICZBA_C = 61
+# 61 -> 62 (24.09.2026, HUD 800x600): jednoliniowy kilometraż przy widocznej stacji.
+LICZBA_C = 62
 
 
 def test_ile_pinow_stoi_w_testach_warstwy_gry():
@@ -194,7 +197,8 @@ def test_ile_pinow_stoi_w_testach_warstwy_gry():
     # zgloszeniach URWANYCH.
     # 64 -> 65 (24.09.2026, integracja): pin caly wiersz fazy.
     # 65 -> 67 (24.09.2026, tablice stacji): dwie pelne nazwy.
-    assert sum(zmierzone.values()) == 67, (
+    # 67 -> 68 (24.09.2026, HUD 800x600): dokładny wiersz pozycji.
+    assert sum(zmierzone.values()) == 68, (
         "pinów warstwy gry jest %d, a pomiar z 14.09.2026 dał 61 "
         "(47 po 6.D155, 45 przed nim; +5 przy MB-03, +1 przy MB-05, "
         "+5 przy audycie bramki MB-05, +2 przy MB-08 — `DoorPromptTests`)"
@@ -226,8 +230,8 @@ def test_kazdy_pin_ma_kategorie_i_suma_sie_zgadza():
     # ktora NIE jest przy okazji: stalo tu „nie sumują się do 47" przy warunku na 52,
     # czyli komunikat bledu podawal liczbe o piec mniejsza od tej, ktorej bramka
     # pilnowala. Kto by na niego trafil, szukalby rozbieznosci, ktorej nie ma.
-    assert len(KATEGORIE["A"]) + len(KATEGORIE["B"]) + LICZBA_C == 67, (
-        "kategorie nie sumują się do 67: A=%d, B=%d, C=%d"
+    assert len(KATEGORIE["A"]) + len(KATEGORIE["B"]) + LICZBA_C == 68, (
+        "kategorie nie sumują się do 68: A=%d, B=%d, C=%d"
         % (len(KATEGORIE["A"]), len(KATEGORIE["B"]), LICZBA_C))
 
 
@@ -248,10 +252,10 @@ def test_regula_po_ksztalcie_literalu_myli_sie_i_dlatego_jej_nie_ma():
                      if not regula.search(tresci[p])]
     zlapane_z_b = [p for p in sorted(KATEGORIE["B"]) if regula.search(tresci[p])]
 
-    assert przepuszczone == [("UiTextTests.cs", 1310)], (
+    assert przepuszczone == [("UiTextTests.cs", 1311)], (
         "reguła po kształcie przestała przepuszczać wiersz o hamulcu awaryjnym — "
         "rozstrzygnięcie 6.D131 wymaga przeliczenia: %s" % przepuszczone)
-    assert zlapane_z_b == [("UiTextTests.cs", 1380)], (
+    assert zlapane_z_b == [("UiTextTests.cs", 1381)], (
         "reguła po kształcie przestała łapić wejście syntetyczne: %s" % zlapane_z_b)
 
 
@@ -265,11 +269,11 @@ def test_czytnik_widzi_pin_takze_wtedy_gdy_literal_jest_sklejony():
     tresci = {(plik, wiersz): tresc
               for plik, wiersz, _r, tresc in CP.piny("tests/Game.Tests")}
 
-    assert len(tresci[("UiTextTests.cs", 1279)]) == 122, (
+    assert len(tresci[("UiTextTests.cs", 1280)]) == 122, (
         "sklejanie literałów przestało działać: %d znaków"
-        % len(tresci[("UiTextTests.cs", 1279)]))
-    assert len(tresci[("UiTextTests.cs", 1310)]) == 98, (
-        len(tresci[("UiTextTests.cs", 1310)]))
+        % len(tresci[("UiTextTests.cs", 1280)]))
+    assert len(tresci[("UiTextTests.cs", 1311)]) == 98, (
+        len(tresci[("UiTextTests.cs", 1311)]))
     assert len(tresci[("SignallingHudTests.cs", 37)]) == 84, (
         len(tresci[("SignallingHudTests.cs", 37)]))
 

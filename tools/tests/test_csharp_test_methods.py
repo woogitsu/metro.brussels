@@ -634,7 +634,8 @@ ROZKLAD_POSTACI = {
         # komunikaty pieciu asercji testow znacznikow; zmierzone czytnikiem.
         # 4929 -> 4957 i 842 -> 843 (24.09.2026, pamiec cue): test przejazdu i zakresu pamieci.
         # 4957 -> 4970 (24.09.2026, autopilot E): osiem asercji i ich komunikaty.
-        "zwykly": 4970,
+        # 4970 -> 4977 (24.09.2026, HUD 800x600): dwa testy pozycji i ich komunikaty.
+        "zwykly": 4977,
         "interpolowany ($)": 843,
         "werbatim (@)": 100,
         "surowy interpolowany ($$\"\"\")": 13,
@@ -696,7 +697,8 @@ ROZKLAD_POSTACI = {
         # 1460 -> 1464 (24.09.2026, dwustopniowe cue): cztery nowe literały HUD.
         # 1464 -> 1465 i 514 -> 515 (24.09.2026, oznaczenia stacji):
         # sciezka GLB i odmowa braku; zmierzone czytnikiem po obu katalogach.
-        "zwykly": 1465,
+        # 1465 -> 1468 (24.09.2026, HUD 800x600): klucz i dwa warianty pozycji.
+        "zwykly": 1468,
         # 489 -> 494 (22.09.2026, 6.D235): piec komunikatow `Abort` dla pliku ZLEGO
         # w `FirstRun.cs`. Przeliczone z drzewa, nie zsumowane.
         # 494 -> 513 (23.09.2026, 6.M1): komunikaty odmow i wiersze zapisu zdarzen

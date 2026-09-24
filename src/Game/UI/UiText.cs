@@ -72,6 +72,7 @@ public static class UiText
             // „chainage" jest tu angielskie i takie zostaje: napis przeniesiony
             // co do znaku, bo ta pozycja robi miejsce, nie treść.
             ["hud.position"] = "chainage {0} m / {1} m     {2} za {3} m",
+            ["hud.position.with-station"] = "chainage {0} m / {1} m",
 
             // Wiersz prędkości — MB-03. Do 13.09.2026 składał się WPROST w ciele
             // `Hud.Update` i nie niósł sufitu; sufit stał wyłącznie w wierszu
