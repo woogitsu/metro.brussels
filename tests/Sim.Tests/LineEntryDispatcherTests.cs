@@ -160,6 +160,8 @@ public sealed class LineEntryDispatcherTests
         var line = Line(axis);
         var dispatcher = new LineEntryDispatcher(line, schedule, schedule.ServiceDay);
         var session = new LineSession(line, new DriverNotch(0.5), FixedStep.Simulation, dispatcher);
+        Assert.ThrowsException<InvalidOperationException>(() => session.ObserveNext(),
+            "przed pierwszym wjazdem nie wolno przełączać nieistniejącego składu");
         var firstStep = schedule.Entries[0].ReleaseStep;
         while (line.Steps < firstStep)
         {

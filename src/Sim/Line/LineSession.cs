@@ -89,6 +89,8 @@ public sealed class LineSession
     /// <returns>Identyfikator składu, który jest obserwowany po zmianie.</returns>
     public string ObserveNext()
     {
+        if (_core.Trains.Count == 0)
+            throw new InvalidOperationException("Nie ma jeszcze składu do obserwowania.");
         _observed = (ObservedIndex + 1) % _core.Trains.Count;
         return Observed.Id;
     }

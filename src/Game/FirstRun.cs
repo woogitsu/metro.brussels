@@ -2659,7 +2659,8 @@ public sealed partial class FirstRun : Node3D
 
         if (_lineCore.Trains.Count == 0)
         {
-            return SignallingHud.BeforeFirstStep;
+            return _lineDispatcher is null
+                ? SignallingHud.BeforeFirstStep : SignallingHud.AwaitingScheduledEntry;
         }
 
         // MB-07: wiersz mówi o składzie OBSERWOWANYM, a nie o zerowym. Gdyby został
