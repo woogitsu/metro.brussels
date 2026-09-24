@@ -91,6 +91,7 @@ if len(entries) != 1:
     raise SystemExit("visual tail must be a single detail chunk")
 source = out / "visual-tail-chunks" / (entries[0]["id"] + "_detail.glb")
 shutil.copyfile(source, out / "L1_A-visual-tail-detail.glb")
+shutil.copyfile("data/scenery/L1_A_visual_tail.json", out / "L1_A-visual-tail-axis.json")
 PY
 
 echo "[PRZYGOTOWANIE] skorupa M7 -> $OUT/M7_shell.glb"

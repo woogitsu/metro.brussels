@@ -50,6 +50,29 @@ public sealed class SceneAxis
     /// <summary>Punkt osi **trasy** w scenie, bez przesunięcia na tor.</summary>
     public Vector3 CentreLinePoint(double chainageM) => ToScene(_axis.PointAt(chainageM));
 
+    /// <summary>Pozycja oprawy wzdłuż osi jazdy lub rzeczywistej osi scenerii za nią.</summary>
+    public Vector3? FixturePoint(double chainageM, SceneAxis? continuation,
+        double lateralM, double heightM)
+    {
+        if (chainageM < 0.0)
+            return null;
+        var axis = this;
+        var at = chainageM;
+        if (chainageM > _axis.LengthM)
+        {
+            if (continuation is null)
+                return null;
+            axis = continuation;
+            at -= _axis.LengthM;
+        }
+        if (at > axis._axis.LengthM)
+            return null;
+        var frame = axis.Chord(Math.Max(0.0, at - 0.5),
+            Math.Min(axis._axis.LengthM, at + 0.5));
+        return axis.CentreLinePoint(at) + frame.Right * (float)lateralM
+            + frame.Up * (float)heightM;
+    }
+
     /// <summary>
     /// Ramka toru dla cięciwy od <paramref name="fromChainageM"/> do
     /// <paramref name="toChainageM"/>. Cięciwa, a nie styczna, bo na niej stoi pudło.

@@ -238,7 +238,8 @@ public sealed class UiTextTests
     // 599 -> 601 (24.09.2026, cel stacji): rozmiar i kolor wyróżnionego celu w HUD.
     // 601 -> 603 (24.09.2026, koniec osi): nazwa i komunikat zatrzymania w HUD.
     // 603 -> 604 (24.09.2026, tryb linii): komunikat końca toru przed postojem Merode.
-    private const int LiteralowWZasieguBramki = 604;
+    // 604 -> 609 (24.09.2026, lampy scenerii): ścieżka osi i odmowy dla uszkodzonego JSON-a.
+    private const int LiteralowWZasieguBramki = 609;
 
     /// <summary>Ile różnych — dolne ostrze, zmierzone 12.09.2026.</summary>
     private const int RoznychLiteralowWZasieguBramki = 362;
@@ -1519,7 +1520,8 @@ public sealed class UiTextTests
     // 640 -> 642 (24.09.2026, cel stacji): dwa wywołania ustawiające wygląd.
     // 642 -> 644 (24.09.2026, koniec osi): dwa klucze HUD.
     // 644 -> 645 (24.09.2026, tryb linii): komunikat końca toru w gałęzi LineDrive.
-    private const int PozycjiStaregoCzytnika = 645;
+    // 645 -> 650 (24.09.2026, lampy scenerii): pięć nowych literałów FirstRun.
+    private const int PozycjiStaregoCzytnika = 650;
 
     /// <summary>
     /// Ile PLIKÓW korpusu stary czytnik czytał inaczej niż leksykalny — 6.D182.
@@ -2127,7 +2129,8 @@ public sealed class UiTextTests
     // 138 -> 140 (24.09.2026, station-wayfinding): ścieżka tablicy i komunikat odmowy.
     // 140 -> 141 (24.09.2026, interaktywne R): odmowa przeładowania sceny.
     // 141 -> 144 (24.09.2026, sceneria za Merode): dwie ścieżki i odmowa.
-    private const int ZgloszenFirstRunCalymPlikiem = 144;
+    // 144 -> 149 (24.09.2026, lampy scenerii): ścieżka osi i komunikaty odmowy.
+    private const int ZgloszenFirstRunCalymPlikiem = 149;
 
     /// <summary>Ile daje ten sam plik liczony WIERSZ PO WIERSZU — 6.D180.</summary>
     // 122 -> 132 (14.09.2026, MB-04): `FirstRun.AssetsRoot`, `DomyslnyZapisWejsc`
@@ -2144,7 +2147,7 @@ public sealed class UiTextTests
     // 150 -> 152 (24.09.2026, station-wayfinding): te same dwa literały tablicy.
     // 152 -> 153 (24.09.2026, interaktywne R): nowy komunikat błędu.
     // 153 -> 156 (24.09.2026, sceneria za Merode): te same trzy literały.
-    private const int ZgloszenFirstRunWierszami = 156;
+    private const int ZgloszenFirstRunWierszami = 161;
 
     /// <summary>Ile plików korpusu daje różne liczby obiema drogami — 6.D180.</summary>
     private const int PlikowZRoznicaDrog = 1;
@@ -2349,7 +2352,8 @@ public sealed class UiTextTests
     // 415 -> 416 (24.09.2026, cel stacji): nowy kolor w konstruktorze Godota.
     // 416 -> 418 (24.09.2026, koniec osi): dwa nowe klucze katalogu.
     // 418 -> 419 (24.09.2026, tryb linii): ten sam komunikat końca toru.
-    private const int LiteralowDotknietychZdejmowaniem = 419;
+    // 419 -> 424 (24.09.2026, lampy scenerii): osłona nowego czytnika osi.
+    private const int LiteralowDotknietychZdejmowaniem = 424;
 
     /// <summary>
     /// Ilu literałom zdejmowanie jednostek ZABIERA werdykt „to słowo" — 6.D155.
@@ -3587,7 +3591,7 @@ public sealed class UiTextTests
     // 149 -> 150 (24.09.2026, interaktywne R): interpolowany błąd restartu.
     // 150 -> 152 (24.09.2026, krótki HUD chase): dystans i próg.
     // 152 -> 153 (24.09.2026, integracja pomocy linii): jeden literał z klamrą.
-    private const int LiteralowZKlamra = 153;
+    private const int LiteralowZKlamra = 156;
 
     /// <summary>
     /// Ilu literałom <see cref="BezDziur"/> zabiera WSZYSTKIE słowa — 6.D188.
@@ -5467,7 +5471,8 @@ public sealed class UiTextTests
     //: klauzule przy osi i przy manifeście chunków, jedna nowa przy planie sygnalizacji.
     // 26 -> 27 (24.09.2026): brak generowanej tablicy zatrzymuje uruchomienie.
     // 27 -> 28 (24.09.2026): niekompletna para GLB za Merode zatrzymuje uruchomienie.
-    private const int WolajacychAbort = 28;
+    // 28 -> 31 (24.09.2026): trzy odmowy przy pliku osi scenerii.
+    private const int WolajacychAbort = 31;
     // 5 -> 6 (24.09.2026, interaktywne R): błąd przeładowania poza Abort.
     private const int WypisowBleduPozaAbort = 6;
 

@@ -217,7 +217,7 @@ def test_paczka_windows_ma_osobny_preset_i_instrukcje_startu():
         os.makedirs(os.path.join(src, "chunks"))
         for nazwa in ("M7_shell.glb", "M7_cab.glb", "L1_A-platforms.glb",
                       "L1_A-station-board.glb", "L1_A-visual-tail.glb",
-                      "L1_A-visual-tail-detail.glb"):
+                      "L1_A-visual-tail-detail.glb", "L1_A-visual-tail-axis.json"):
             open(os.path.join(src, nazwa), "wb").close()
         for nazwa in ("L1_A_000.glb", "L1_A_000_detail.glb"):
             open(os.path.join(src, "chunks", nazwa), "wb").close()
@@ -256,7 +256,8 @@ def test_paczka_windows_ma_osobny_preset_i_instrukcje_startu():
                 assert os.path.isfile(os.path.join(paczka, "zasoby",
                                                    "L1_A-station-board.glb")), (
                     f"paczka {system or 'linux'} nie zawiera tablicy stacji")
-                for tail_file in ("L1_A-visual-tail.glb", "L1_A-visual-tail-detail.glb"):
+                for tail_file in ("L1_A-visual-tail.glb", "L1_A-visual-tail-detail.glb",
+                                  "L1_A-visual-tail-axis.json"):
                     assert os.path.isfile(os.path.join(paczka, "zasoby", tail_file)), (
                         f"paczka {system or 'linux'} nie zawiera {tail_file}")
                 assert plik in _czytaj(os.path.join(paczka, "CZYTAJ-TO-NAJPIERW.txt")), (

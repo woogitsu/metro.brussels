@@ -76,6 +76,7 @@ public sealed partial class FirstRun : Node3D
 
     private TrackAxis _axis = null!;
     private SceneAxis _sceneAxis = null!;
+    private SceneAxis? _visualTailAxis;
     private VehicleModel _model = null!;
     private DriveScenario _scenario = null!;
     private RunConditions _conditions = null!;
@@ -1254,6 +1255,35 @@ public sealed partial class FirstRun : Node3D
             Abort(ExitMissingAssets, "[ASSETS] niekompletna wizualna kontynuacja za Merode; sprawdź pliki toru");
             return;
         }
+        var tailAxisPath = Path.Combine(assets, "L1_A-visual-tail-axis.json");
+        if (tailMeshes > 0 && FileAccess.FileExists(tailAxisPath))
+        {
+            using var tailAxisFile = FileAccess.Open(tailAxisPath, FileAccess.ModeFlags.Read);
+            if (tailAxisFile is null)
+            {
+                Abort(ExitMissingAssets, $"[ASSETS] nie da się odczytać {tailAxisPath}");
+                return;
+            }
+            try
+            {
+                var tailAxis = new SceneAxis(
+                    TrackAxis.FromJson(tailAxisFile.GetAsText()), DesignAssumptions.TrackOffsetM);
+                if (tailAxis.CentreLinePoint(0.0).DistanceTo(
+                    _sceneAxis.CentreLinePoint(_axis.LengthM)) > 0.02f)
+                    throw new ArgumentException("oś scenerii nie łączy się z końcem toru jazdy");
+                _visualTailAxis = tailAxis;
+            }
+            catch (Exception error) when (error is ArgumentException or FormatException)
+            {
+                Abort(ExitBadArgumentValue, $"[ASSETS] {tailAxisPath} nie jest osią scenerii: {error.Message}");
+                return;
+            }
+            catch (Exception error) when (BadFile.IsWrongJsonShape(error))
+            {
+                Abort(ExitBadArgumentValue, $"[ASSETS] {tailAxisPath} ma nieprawidłowy kształt osi scenerii");
+                return;
+            }
+        }
 
         // Wynik `Load` był ODRZUCANY. `TrainView.Load` zwraca liczbę brył i zero znaczy
         // „nie wczytałem nic" — bez tego sprawdzenia scena szła dalej bez składu, a że
@@ -2134,22 +2164,17 @@ public sealed partial class FirstRun : Node3D
         for (var slot = 0; slot < intervals; slot++)
         {
             var at = (anchor + slot - 2) * spacingM;
-            var visible = at >= 0 && at <= _axis.LengthM;
             for (var side = 0; side < 2; side++)
             {
                 var light = _trackLights[slot * 2 + side];
-                light.Visible = visible;
-                if (!visible)
+                var lateral = side == 0 ? -4.48f : 4.48f;
+                var position = _sceneAxis.FixturePoint(at, _visualTailAxis, lateral, 3.35);
+                light.Visible = position.HasValue;
+                if (!position.HasValue)
                 {
                     continue;
                 }
-
-                var from = Math.Max(0.0, at - 0.5);
-                var to = Math.Min(_axis.LengthM, at + 0.5);
-                var frame = _sceneAxis.Chord(from, to);
-                var lateral = side == 0 ? -4.48f : 4.48f;
-                light.Position = _sceneAxis.CentreLinePoint(at)
-                    + frame.Right * lateral + frame.Up * 3.35f;
+                light.Position = position.Value;
             }
         }
     }
