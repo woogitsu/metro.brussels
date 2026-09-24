@@ -43,4 +43,11 @@ public sealed class StationWayfindingTests
             StationView.NameMarkerPositions(0.0, lengthM),
             "Clamped signs at the route start should not overlap");
     }
+
+    [TestMethod]
+    public void NameBoardHangersReachTheStationCeiling()
+    {
+        Assert.AreEqual(0.35f, StationView.NameMarkerHangerLength(4.40f, 1.1f), 0.001f);
+        Assert.AreEqual(0.65f, StationView.NameMarkerHangerLength(4.25f, 0.8f), 0.001f);
+    }
 }

@@ -97,6 +97,10 @@ public sealed partial class StationView : Node3D
         return stop - approach >= 15.0 ? [approach, stop] : [approach];
     }
 
+    /// <summary>Length of the two slim hangers up to the flat centre of the station ceiling.</summary>
+    public static float NameMarkerHangerLength(float centreHeight, float plateHeight) =>
+        5.30f - (centreHeight + plateHeight / 2);
+
     /// <summary>
     /// Place a neutral station-name marker above the tracks at each platform.
     /// The names come from the axis, not from copied operator signage.
@@ -116,6 +120,7 @@ public sealed partial class StationView : Node3D
 
         var count = 0;
         var boardMaterial = GlbLoader.NeutralMaterial(new Color(0.12f, 0.14f, 0.15f), 0.9f);
+        var hangerMaterial = GlbLoader.NeutralMaterial(new Color(0.27f, 0.30f, 0.31f), 0.7f);
         foreach (var station in sceneAxis.Axis.Stations)
         {
             var names = station.Name.Split('|');
@@ -144,6 +149,19 @@ public sealed partial class StationView : Node3D
                     new Basis(orientation.X * width, orientation.Y * height, orientation.Z), centre);
                 GlbLoader.ApplyNeutralMaterial(board, boardMaterial);
                 AddChild(board);
+                var hangerLength = NameMarkerHangerLength(centreHeight, height);
+                foreach (var side in new[] { -1.0f, 1.0f })
+                {
+                    var hanger = new MeshInstance3D
+                    {
+                        Mesh = new BoxMesh { Size = new Vector3(0.055f, hangerLength, 0.055f) },
+                        MaterialOverride = hangerMaterial,
+                        Transform = new Transform3D(orientation,
+                            centre + frame.Right * (side * width * 0.38f)
+                            + frame.Up * (height / 2 + hangerLength / 2)),
+                    };
+                    AddChild(hanger);
+                }
                 var label = new Label3D
                 {
                     Text = text,
