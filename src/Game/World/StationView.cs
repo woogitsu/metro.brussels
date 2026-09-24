@@ -127,7 +127,7 @@ public sealed partial class StationView : Node3D
             var bilingual = names.Length == 2;
             var text = NameMarkerText(station.Name);
             var fontSize = bilingual ? 46 : 60;
-            var pixelSize = bilingual ? 0.0075f : 0.0095f;
+            var pixelSize = bilingual ? 0.0085f : 0.0095f;
             var longestLine = 0;
             foreach (var name in names)
             {
@@ -137,8 +137,8 @@ public sealed partial class StationView : Node3D
                 2.5f, 8.0f);
             // The playable tunnel still uses box_double at stations: roof 4.70 m.
             // Keep the plate above the 3.60 m train and below that actual roof.
-            var height = bilingual ? 0.72f : 0.60f;
-            var centreHeight = bilingual ? 4.20f : 4.15f;
+            var height = bilingual ? 0.82f : 0.60f;
+            var centreHeight = 4.15f;
             foreach (var at in NameMarkerPositions(station.ChainageM, sceneAxis.Axis.LengthM))
             {
                 var frame = sceneAxis.Chord(at - 0.5, at + 0.5);
