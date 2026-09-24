@@ -658,9 +658,10 @@ ROZKLAD_POSTACI = {
         # 5244 -> 5268 i 852 -> 853 (24.09.2026, dwa wjazdy rozkładowe):
         # identyfikatory kursów, komunikaty wszystkich asercji i interpolowany krok diagnostyki.
         # 5400 -> 5491 i 856 -> 858 po polaczeniu testow sceny i Runnera.
-        "zwykly": 5491,
+        # 5491 -> 5500: test pierwszego kroku i dostosowanie kontroli kabiny.
+        "zwykly": 5500,
         "interpolowany ($)": 858,
-        "werbatim (@)": 101,
+        "werbatim (@)": 102,
         "surowy interpolowany ($$\"\"\")": 13,
         # 8 -> 10 (23.09.2026): dwie probki sceny w testach.
         # 10 -> 12 (24.09.2026, T-320): dwa dokumenty syntetycznego planu.

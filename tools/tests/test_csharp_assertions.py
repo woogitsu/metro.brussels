@@ -493,7 +493,8 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 # Po integracji dyspozytora i hamowania: 2133 opisane asercje, zmierzone w drzewie.
 # 2077 -> 2144 (24.09.2026, integracja dyspozytora, test granicy, hamowanie i metadane).
 # 2144 -> 2173 (24.09.2026, nowe testy sceny i adaptera rozkladu).
-Z_KOMUNIKATEM_RAZEM = 2173
+# 2173 -> 2179 (24.09.2026, krok wjazdu i pozycja kabiny).
+Z_KOMUNIKATEM_RAZEM = 2179
 NIEROZSTRZYGNIETYCH = 69
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
 #: `tests/Sim.Tests/DefaultArmAuditTests.cs` — bramki na ramionach domyślnych
@@ -635,7 +636,8 @@ NIEROZSTRZYGNIETYCH = 69
 # Po integracji dyspozytora i hamowania: 3595 wywolan, zmierzone w drzewie.
 # 3544 -> 3606 (24.09.2026, testy dyspozytora, hamowania i scenerii).
 # 3606 -> 3635 (24.09.2026, scena i adapter odtwarzania rozkladu).
-ASERCJI_RAZEM = 3635
+# 3635 -> 3641 (24.09.2026, te same testy).
+ASERCJI_RAZEM = 3641
 
 
 def _rozklad():
