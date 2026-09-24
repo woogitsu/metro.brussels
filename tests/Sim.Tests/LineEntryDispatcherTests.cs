@@ -80,6 +80,33 @@ public sealed class LineEntryDispatcherTests
     }
 
     [TestMethod]
+    public void Kurs_jest_zglaszany_dokladnie_na_granicy_release_step_a_budzet_jej_nie_przekracza()
+    {
+        var axis = SignallingPlanTests.PackageAAxis();
+        var schedule = Schedule(axis, Entry("west", "block-west", "8733", 1));
+        var line = Line(axis);
+        var dispatcher = new LineEntryDispatcher(line, schedule, schedule.ServiceDay);
+        var releaseStep = schedule.Entries[0].ReleaseStep;
+
+        Assert.AreEqual("step-budget", dispatcher.Run(releaseStep - 1));
+        Assert.AreEqual(releaseStep - 1, line.Steps);
+        Assert.AreEqual(0, dispatcher.RegisteredEntries);
+        Assert.AreEqual(0, line.Trains.Count);
+
+        Assert.AreEqual("step-budget", dispatcher.Run(releaseStep));
+        Assert.AreEqual(releaseStep, line.Steps);
+        Assert.AreEqual(0, dispatcher.RegisteredEntries,
+            "budzet konczacy sie na releaseStep nie wykonuje jeszcze tego kroku");
+        Assert.AreEqual(0, line.Trains.Count);
+
+        dispatcher.Step();
+        Assert.AreEqual(releaseStep + 1, line.Steps);
+        Assert.AreEqual(1, dispatcher.RegisteredEntries);
+        Assert.AreEqual(releaseStep, line.Trains[0].EnteredAtStep,
+            "wolny peron wpuszcza sklad w kroku releaseStep, bez opoznienia o jeden krok");
+    }
+
+    [TestMethod]
     public void Powtórzony_block_id_jest_odmową_przed_pierwszym_krokiem()
     {
         var axis = SignallingPlanTests.PackageAAxis();
