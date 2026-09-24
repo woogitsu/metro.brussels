@@ -16,6 +16,8 @@ namespace MetroBxl.Game.World;
 public sealed partial class TunnelView : Node3D
 {
     private readonly Dictionary<string, int> _levels = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, Node3D> _detailPrototypes = new(StringComparer.Ordinal);
+    private bool _detailsPreloaded;
 
     /// <summary>Liczba chunków rezydentnych w tej chwili.</summary>
     public int LoadedChunks => _levels.Count;
@@ -41,6 +43,20 @@ public sealed partial class TunnelView : Node3D
     public int Stream(ChunkManifest manifest, string assetDirectory,
         StandardMaterial3D material, double chainageM, double heading = 1.0)
     {
+        // Detale toru są niewielkie, ale parsowanie GLB podczas jazdy powoduje
+        // wyraźne przycięcie na granicy chunku. Przygotuj je przed pierwszą klatką.
+        if (!_detailsPreloaded)
+        {
+            foreach (var chunk in manifest.Chunks)
+            {
+                var path = assetDirectory.TrimEnd('/') + "/" + chunk.Id + "_detail.glb";
+                if (FileAccess.FileExists(path) && GlbLoader.Load(path) is { } prototype)
+                    _detailPrototypes.Add(chunk.Id, prototype);
+            }
+
+            _detailsPreloaded = true;
+        }
+
         var plan = StreamingPlan.LodPlan(manifest, chainageM, heading);
         var window = StreamingPlan.Window(manifest, chainageM, heading);
         WindowLowM = window.LowM;
@@ -98,15 +114,11 @@ public sealed partial class TunnelView : Node3D
             // alongside each tunnel chunk. Keep its individual rail, ballast and
             // light materials: applying the tunnel override would make everything
             // the same gray again. Older asset sets without detail still load.
-            var detailPath = assetDirectory.TrimEnd('/') + "/" + chunk.Id + "_detail.glb";
-            if (FileAccess.FileExists(detailPath))
+            if (_detailPrototypes.TryGetValue(chunk.Id, out var prototype))
             {
-                var detail = GlbLoader.Load(detailPath);
-                if (detail is not null)
-                {
-                    detail.Name = "TrackDetail";
-                    scene.AddChild(detail);
-                }
+                var detail = (Node3D)prototype.Duplicate();
+                detail.Name = "TrackDetail";
+                scene.AddChild(detail);
             }
             _levels[chunk.Id] = level;
             Loaded++;
@@ -114,6 +126,15 @@ public sealed partial class TunnelView : Node3D
 
         MeshNodes = CountMeshes(this);
         return _levels.Count;
+    }
+
+    /// <summary>Zwalnia przygotowane siatki po zamknięciu sceny.</summary>
+    public override void _ExitTree()
+    {
+        foreach (var prototype in _detailPrototypes.Values)
+            prototype.Free();
+        _detailPrototypes.Clear();
+        base._ExitTree();
     }
 
     /// <summary>Poziom, w jakim wisi każdy rezydentny chunk. Do metadanych zrzutu.</summary>
