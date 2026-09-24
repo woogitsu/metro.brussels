@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using MetroBxl.Sim.Runner;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -16,12 +17,9 @@ namespace MetroBxl.Sim.Tests;
 /// zestaw, bo istniejące testy wołają metody rdzenia bezpośrednio, z pominięciem
 /// <c>Program.Main</c>.
 ///
-/// <para><b>Czego te testy NIE robią.</b> Nie sprawdzają treści telemetrii ani liczb
-/// o sieci — to robią <c>LineRunTests</c>, <c>LineBudgetTests</c>, <c>TrackAxisTests</c>
-/// i <c>ClassicSignallingScenarioTests</c>, wołając rdzeń bezpośrednio. Tu wchodzi się
-/// WYŁĄCZNIE przez <see cref="Program.Main"/> — tą samą drogą, którą idzie CI
-/// i człowiek z terminala — i patrzy wyłącznie na kod wyjścia oraz na to, czy komunikat
-/// wygląda jak odmowa, a nie na zawartość przejazdu.</para>
+/// <para>Większość testów sprawdza odmowy i kody wyjścia. Test końcowego hamowania
+/// dodatkowo czyta telemetrię, bo komenda może zakończyć się kodem zero mimo
+/// brutalnego zderzenia z końcem osi.</para>
 ///
 /// <para><b>Poza zakresem, świadomie (docs/TASKS.md, 6.A9).</b> Zmiana zachowania
 /// <c>Program.cs</c> — w tym „poprawienie" kodu wyjścia czy komunikatu. Testy przybijają
@@ -58,6 +56,47 @@ public sealed class RunnerCommandTests
         {
             Console.SetOut(originalOut);
             Console.SetError(originalError);
+        }
+    }
+
+    [TestMethod]
+    public void ManualReplayFullPowerStopsAtMerodeByServiceBrake()
+    {
+        var keys = Path.GetTempFileName();
+        var output = Path.GetTempFileName();
+        try
+        {
+            File.WriteAllText(keys, "wersja=1\nkroki=65000\nkrok;klawisze\n0;W\n");
+            var root = MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka;
+            var result = Run("replay", "--keys", keys, "--axis",
+                Path.Combine(root, "data", "track", "L1_A.json"),
+                "--signalling", Path.Combine(root, "data", "design", "signalling", "classic-2026.json"),
+                "--notch-rate", "0.80", "--exchange-s", "8", "--stop-window-m", "5",
+                "--out", output);
+            Assert.AreEqual(0, result.ExitCode, result.StdErr);
+            StringAssert.Contains(result.StdOut, "stacja Merode");
+
+            var rows = File.ReadAllLines(output);
+            var atEnd = rows[^1].Split(',');
+            var chainage = double.Parse(atEnd[2], System.Globalization.CultureInfo.InvariantCulture);
+            var speed = double.Parse(atEnd[4], System.Globalization.CultureInfo.InvariantCulture);
+            Assert.AreEqual(6686.35, chainage, 0.01,
+                "pełny ciąg ma kończyć hamowaniem przy Merode, przed twardym końcem osi");
+            Assert.AreEqual(0.0, speed);
+            Assert.AreEqual("0", atEnd[6], "stojący skład nie może raportować opóźnienia");
+            Assert.AreEqual("0", atEnd[7], "telemetria ma pokazać odcięty ciąg");
+            Assert.IsTrue(rows.Skip(1).Any(row =>
+            {
+                var cells = row.Split(',');
+                return double.Parse(cells[2], System.Globalization.CultureInfo.InvariantCulture) > 6500.0
+                    && double.Parse(cells[4], System.Globalization.CultureInfo.InvariantCulture) > 0.0
+                    && double.Parse(cells[8], System.Globalization.CultureInfo.InvariantCulture) > 0.0;
+            }), "telemetria musi wykazać hamowanie przed postojem");
+        }
+        finally
+        {
+            File.Delete(keys);
+            File.Delete(output);
         }
     }
 

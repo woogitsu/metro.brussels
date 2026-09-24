@@ -41,7 +41,10 @@ public static class TrackEndStop
         if (state.SpeedMps <= 0.0 || distance <= 0.0)
             return DriverCommand.FullServiceBrake;
 
-        return RequiredBrake(state, distance, conditions, controller);
+        var service = RequiredBrake(state, distance, conditions, controller);
+        // A driver's stronger service-brake request must never be weakened by
+        // the terminal approach servo. The intervention may only add braking.
+        return new DriverCommand(0.0, Math.Max(service.Brake, requested.Brake));
     }
 
     /// <summary>Brake already in progress: remaining distance uses v²/2d, without

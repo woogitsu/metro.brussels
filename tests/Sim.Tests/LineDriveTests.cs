@@ -55,6 +55,45 @@ public sealed class LineDriveTests
             FixedStep.Simulation);
 
     [TestMethod]
+    public void Reczny_postoj_S_na_koncowej_stacji_nie_pozwala_odjechac_po_W()
+    {
+        var axis = Axis(0.0, 1000.0);
+        var model = VehicleModel.M7;
+        var controller = new TrainController(model);
+        var solver = new BrakingPointSolver(model);
+        var drive = new LineDrive(axis, Level(), Settings(limitKmh: 30.0),
+            controller, solver, FixedStep.Simulation);
+        drive.DoorControl = DoorControl.Manual;
+
+        var brakingByDriver = false;
+        while (!drive.AtStation && drive.Steps < 30_000)
+        {
+            var remaining = 1000.0 - drive.ChainageM;
+            if (!brakingByDriver && drive.State.SpeedMps > 0.0 &&
+                remaining <= solver.DistanceM(drive.State.SpeedMps, 0.0,
+                    controller.ServiceBrakeMps2) + 2.0)
+                brakingByDriver = true;
+            drive.DriverInput = brakingByDriver
+                ? DriverCommand.FullServiceBrake : DriverCommand.FullPower;
+            drive.Step();
+        }
+
+        Assert.IsTrue(brakingByDriver, "test musi użyć ręcznego S");
+        Assert.IsTrue(drive.AtStation,
+            $"ręczne S ma zatrzymać w oknie peronu, stanął na {drive.ChainageM:R}");
+        var stoppedAt = drive.ChainageM;
+        drive.DriverInput = DriverCommand.FullPower;
+        for (var i = 0; i < 100; i++)
+        {
+            drive.Step();
+            Assert.AreEqual(stoppedAt, drive.ChainageM, 1e-9);
+            Assert.AreEqual(0.0, drive.State.SpeedMps);
+        }
+        Assert.IsTrue(drive.Result("manual-terminal-S-W").Energy.RelativeResidual < 1e-8,
+            "zatrzask postoju nie może rozjechać bilansu energii");
+    }
+
+    [TestMethod]
     public void Reczna_pelna_trakcja_na_L1_A_wywoluje_hamowanie_sluzbowe_przed_Merode()
     {
         var path = Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka,

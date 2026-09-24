@@ -344,6 +344,10 @@ public sealed class LineDrive
             && chainage - _departedFromM >= _settings.StopWindowM)
         {
             _stop = new StationStop(_cycle, _step, DoorControl);
+            // A manually braked terminal stop also closes the route. Without
+            // this latch, S followed by W could depart from Merode again.
+            if (DriverInput is not null && _next == _stations.Count - 1)
+                _terminalBrakeEngaged = true;
             _calls.Add(new StationCall(
                 _stations[_next].Name,
                 _stations[_next].StopId,

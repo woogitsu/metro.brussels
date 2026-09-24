@@ -1,3 +1,4 @@
+using MetroBxl.Sim.Physics;
 using MetroBxl.Sim.Train;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -6,6 +7,26 @@ namespace MetroBxl.Sim.Tests;
 [TestClass]
 public sealed class TrackEndStopTests
 {
+    [TestMethod]
+    public void TerminalInterventionNeverWeakensDriversStrongerServiceBrake()
+    {
+        var model = VehicleModel.M7;
+        var conditions = RunConditions.Level(model, TrainLoad.Aw0);
+        var controller = new TrainController(model);
+        var solver = new BrakingPointSolver(model);
+        var engaged = true;
+        var state = new DriveState(100, 8.0, 0.0, 0.0);
+        var calculated = TrackEndStop.RequiredBrake(state, 100.0, conditions, controller);
+        Assert.IsTrue(calculated.Brake < 1.0, "test wymaga słabszej komendy serwa");
+
+        var effective = TrackEndStop.ApproachCommand(state, 0.0, 100.0,
+            conditions, controller, solver, 1.0, DriverCommand.FullServiceBrake,
+            terminalSection: true, ref engaged);
+
+        Assert.AreEqual(0.0, effective.Throttle);
+        Assert.AreEqual(1.0, effective.Brake);
+    }
+
     [TestMethod]
     public void RepeatedPowerCannotMoveBeyondLastAxisPoint()
     {
