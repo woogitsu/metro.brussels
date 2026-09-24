@@ -230,7 +230,8 @@ public sealed class UiTextTests
     // 584 -> 586 (24.09.2026, preparing to brake): second cue key in both approaches.
     // 586 -> 588 (24.09.2026, oznaczenia stacji): nazwa zasobu i odmowa jego braku.
     // 588 -> 589 (24.09.2026, HUD 800x600): klucz krótszego kilometrażu.
-    private const int LiteralowWZasieguBramki = 589;
+    // 589 -> 590 (24.09.2026, interaktywne R): komunikat odmowy przeładowania sceny.
+    private const int LiteralowWZasieguBramki = 590;
 
     /// <summary>Ile różnych — dolne ostrze, zmierzone 12.09.2026.</summary>
     private const int RoznychLiteralowWZasieguBramki = 362;
@@ -1503,7 +1504,8 @@ public sealed class UiTextTests
     // 625 -> 627 (24.09.2026, preparing to brake): second cue key in both approaches.
     // 627 -> 629 (24.09.2026, oznaczenia stacji): dwa nowe literały FirstRun.
     // 629 -> 630 (24.09.2026, HUD 800x600): nowy klucz krótkiej pozycji.
-    private const int PozycjiStaregoCzytnika = 630;
+    // 630 -> 631 (24.09.2026, interaktywne R): ten sam nowy komunikat.
+    private const int PozycjiStaregoCzytnika = 631;
 
     /// <summary>
     /// Ile PLIKÓW korpusu stary czytnik czytał inaczej niż leksykalny — 6.D182.
@@ -2105,7 +2107,8 @@ public sealed class UiTextTests
     // 139 -> 137 (23.09.2026, 6.M1): odtworzenie linii — zdarzenia w zapisie wejść, `ExecuteLineEvent` w `FirstRun` i nowa odmowa `--replay --line` bez `--signalling` w `RunPlan`. PRZELICZONE.
     // 137 -> 138 (23.09.2026, tory i światła): nowy literał na drodze całego pliku. PRZELICZONE.
     // 138 -> 140 (24.09.2026, station-wayfinding): ścieżka tablicy i komunikat odmowy.
-    private const int ZgloszenFirstRunCalymPlikiem = 140;
+    // 140 -> 141 (24.09.2026, interaktywne R): odmowa przeładowania sceny.
+    private const int ZgloszenFirstRunCalymPlikiem = 141;
 
     /// <summary>Ile daje ten sam plik liczony WIERSZ PO WIERSZU — 6.D180.</summary>
     // 122 -> 132 (14.09.2026, MB-04): `FirstRun.AssetsRoot`, `DomyslnyZapisWejsc`
@@ -2120,7 +2123,8 @@ public sealed class UiTextTests
     // 151 -> 149 (23.09.2026, 6.M1): odtworzenie linii — zdarzenia w zapisie wejść, `ExecuteLineEvent` w `FirstRun` i nowa odmowa `--replay --line` bez `--signalling` w `RunPlan`. PRZELICZONE.
     // 149 -> 150 (23.09.2026, tory i światła): nowy literał na drodze wierszy. PRZELICZONE.
     // 150 -> 152 (24.09.2026, station-wayfinding): te same dwa literały tablicy.
-    private const int ZgloszenFirstRunWierszami = 152;
+    // 152 -> 153 (24.09.2026, interaktywne R): nowy komunikat błędu.
+    private const int ZgloszenFirstRunWierszami = 153;
 
     /// <summary>Ile plików korpusu daje różne liczby obiema drogami — 6.D180.</summary>
     private const int PlikowZRoznicaDrog = 1;
@@ -2317,7 +2321,8 @@ public sealed class UiTextTests
     // 402 -> 404 (24.09.2026, preparing to brake): two new catalog lookups.
     // 404 -> 406 (24.09.2026, station-wayfinding): dwa literały ścieżki i odmowy.
     // 406 -> 407 (24.09.2026, HUD 800x600): nowy klucz krótkiej pozycji.
-    private const int LiteralowDotknietychZdejmowaniem = 407;
+    // 407 -> 408 (24.09.2026, interaktywne R): komunikat błędu.
+    private const int LiteralowDotknietychZdejmowaniem = 408;
 
     /// <summary>
     /// Ilu literałom zdejmowanie jednostek ZABIERA werdykt „to słowo" — 6.D155.
@@ -3552,7 +3557,8 @@ public sealed class UiTextTests
     // sygnalizacji. Liczba PRZELICZONA przebiegiem.
     // 149 -> 148 (23.09.2026, 6.M1): odtworzenie linii w `FirstRun` i `RunPlan`. PRZELICZONE.
     // 148 -> 149 (24.09.2026, station-wayfinding): odmowa przy braku GLB tablicy ma interpolowaną ścieżkę.
-    private const int LiteralowZKlamra = 149;
+    // 149 -> 150 (24.09.2026, interaktywne R): interpolowany błąd restartu.
+    private const int LiteralowZKlamra = 150;
 
     /// <summary>
     /// Ilu literałom <see cref="BezDziur"/> zabiera WSZYSTKIE słowa — 6.D188.
@@ -5431,7 +5437,8 @@ public sealed class UiTextTests
     //: klauzule przy osi i przy manifeście chunków, jedna nowa przy planie sygnalizacji.
     // 26 -> 27 (24.09.2026): brak generowanej tablicy zatrzymuje uruchomienie.
     private const int WolajacychAbort = 27;
-    private const int WypisowBleduPozaAbort = 5;
+    // 5 -> 6 (24.09.2026, interaktywne R): błąd przeładowania poza Abort.
+    private const int WypisowBleduPozaAbort = 6;
 
     /// <summary>
     /// Dziury drogi błędu niosące tekst <b>obcy</b>, każda z wytwórcą. Zbiór, nie liczba

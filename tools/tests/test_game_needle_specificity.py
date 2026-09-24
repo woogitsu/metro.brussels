@@ -279,7 +279,10 @@ MAX_GAME_JUSTIFIED_NEEDLES = 4
 # i `obsłużone 1` sa wynikami podstawienia do szablonu `hud.station.doors-manual`,
 # wiec nie wystepuja doslownie w komunikatach src/Game. Obie asercje stoja na
 # wyniku UiText.Format i literowka natychmiast wywraca DoorPromptTests.
-MAX_GAME_UNMATCHED_NEEDLES = 50
+# 50 -> 54 (24.09.2026, interaktywne R): cztery asercje sprawdzaja ksztalt
+# sterowania sceny (guard konca, interaktywnosc, _done i raport raz), a nie
+# dokladny komunikat gracza; pozostaja jawne w zapadce.
+MAX_GAME_UNMATCHED_NEEDLES = 54
 
 #: Progi KW. Literowka we wzorcu daje zero dopasowan i caly modul zielony; te trzy
 #: liczby sa jedynym powodem, dla ktorego taka literowka jest widoczna. Zmierzone
@@ -327,7 +330,8 @@ MIN_GAME_MESSAGES = 142
 # `D: otwórz drzwi` oraz dwa sformatowane wyniki ponizej; ogolne `DRZWI`
 # i `trakcja WOLNA` zastapiono rownoscia calego tekstu, bo trafialy do
 # kilku komunikatow i oslabialy swoistosc testu.
-MIN_GAME_NEEDLES = 90
+# 90 -> 94 (24.09.2026, interaktywne R): te same cztery nowe igly.
+MIN_GAME_NEEDLES = 94
 MIN_GAME_SOURCES = 18
 
 #: Igla, na ktorej stoja kontrole dodatnia i przyrzadu. Musi byc SWOISTA i musi stac

@@ -464,7 +464,9 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 # 1947 -> 1950 (24.09.2026, HUD 800x600): trzy asercje zachowania pozycji.
 # 1950 -> 1966 (24.09.2026, wybór składu i HUD): 17 nowych kontroli N/T,
 # jedna mniej po scaleniu dwóch sprawdzeń pełnego wiersza pozycji.
-Z_KOMUNIKATEM_RAZEM = 1966
+# 1966 -> 1973 (24.09.2026, interaktywne R): siedem kontroli zakończenia,
+# wszystkie z komunikatem.
+Z_KOMUNIKATEM_RAZEM = 1973
 NIEROZSTRZYGNIETYCH = 68
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
 #: `tests/Sim.Tests/DefaultArmAuditTests.cs` — bramki na ramionach domyślnych
@@ -583,7 +585,8 @@ NIEROZSTRZYGNIETYCH = 68
 # 3385 -> 3393 (24.09.2026, autopilot E): te same osiem asercji.
 # 3393 -> 3396 (24.09.2026, HUD 800x600): te same trzy asercje.
 # 3396 -> 3412 (24.09.2026, wybór składu i HUD): te same 16 netto.
-ASERCJI_RAZEM = 3412
+# 3412 -> 3419 (24.09.2026, interaktywne R): te same siedem kontroli.
+ASERCJI_RAZEM = 3419
 
 
 def _rozklad():

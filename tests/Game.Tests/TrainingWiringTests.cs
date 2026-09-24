@@ -46,18 +46,22 @@ public sealed class TrainingWiringTests
         Assert.IsTrue(idleGuard > restart && advance > idleGuard,
             "ekran końca linii nie powinien dopisywać pustych kroków do akumulatora");
         StringAssert.Contains(process,
-            "else if (_lineMode && !_lineCompletionReported");
+            "else if (_lineMode && !_lineCompletionReported",
+            "po końcu linii krok fizyki powinien być pomijany");
 
         var finish = source[source.IndexOf("private void FinishLineRun()", StringComparison.Ordinal)
             ..source.IndexOf("private void WriteCalls(", StringComparison.Ordinal)];
         StringAssert.Contains(finish,
-            "var interactive = _readsKeyboard && _callsPath is null && _replay is null;");
-        StringAssert.Contains(finish, "_done = !interactive;");
+            "var interactive = _readsKeyboard && _callsPath is null && _replay is null;",
+            "tylko prawdziwy gracz utrzymuje ekran końca linii");
+        StringAssert.Contains(finish, "_done = !interactive;",
+            "headless i replay muszą zamknąć proces po ukończeniu linii");
         var exitGuard = finish.IndexOf("if (!interactive)", StringComparison.Ordinal);
         var exit = finish.IndexOf("GetTree().Quit()", StringComparison.Ordinal);
         Assert.IsTrue(exitGuard >= 0 && exit > exitGuard,
             "przebieg headless/replay ma nadal kończyć proces");
-        StringAssert.Contains(finish, "if (_lineCompletionReported)");
+        StringAssert.Contains(finish, "if (_lineCompletionReported)",
+            "raport końca linii powinien powstać tylko raz");
     }
 
     [TestMethod]

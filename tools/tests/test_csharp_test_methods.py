@@ -637,7 +637,9 @@ ROZKLAD_POSTACI = {
         # 4970 -> 4977 (24.09.2026, HUD 800x600): dwa testy pozycji i ich komunikaty.
         # 4977 -> 5000, 843 -> 844 (24.09.2026, wybór składu i HUD): testy N/T,
         # komunikaty asercji oraz pełny wiersz pozycji; przeliczone czytnikiem.
-        "zwykly": 5000,
+        # 5000 -> 5021 (24.09.2026, interaktywne R): test kolejności guardów
+        # i diagnostyki błędu, przeliczone czytnikiem testów.
+        "zwykly": 5021,
         "interpolowany ($)": 844,
         "werbatim (@)": 100,
         "surowy interpolowany ($$\"\"\")": 13,
@@ -708,7 +710,8 @@ ROZKLAD_POSTACI = {
         # 513 -> 514 (23.09.2026, 6.D357): wiersz odmowy `JsonText.Parse` przestal
         # doklejac `error.Message` i ma DWIE postacie — z pozycja z liczb parsera
         # i bez niej, gdy parser jej nie podal; jedna byla, sa dwie. ZMIERZONE.
-        "interpolowany ($)": 515,
+        # 515 -> 516 (24.09.2026, interaktywne R): błąd przeładowania sceny.
+        "interpolowany ($)": 516,
         "werbatim (@)": 0,
         "surowy interpolowany ($$\"\"\")": 1,
         "surowy (\"\"\")": 1,
