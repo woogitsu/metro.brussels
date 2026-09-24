@@ -123,14 +123,20 @@ public sealed class LineEntryScheduleTests
         Assert.AreEqual(0L, line.Trains[0].EnteredAtStep, "Gare de l'Ouest wjeżdża w kroku zero");
         Assert.IsTrue(line.Trains[1].EnteredAtStep > schedule.Entries[1].ReleaseStep,
             "Zajęty blok Beekkant musi opóźnić fizyczny wjazd po zgłoszeniu rozkładowym");
-        Assert.AreEqual(0, line.Trains[0].EntryStationIndex);
-        Assert.AreEqual(1, line.Trains[1].EntryStationIndex);
+        Assert.AreEqual(0, line.Trains[0].EntryStationIndex,
+            "pierwszy kurs musi wejść od Gare de l'Ouest");
+        Assert.AreEqual(1, line.Trains[1].EntryStationIndex,
+            "drugi kurs musi wejść od Beekkant");
         var westDrive = line.Trains[0].Drive!;
         var beekDrive = line.Trains[1].Drive!;
-        Assert.AreEqual(11, westDrive.Calls.Count);
-        Assert.AreEqual(10, beekDrive.Calls.Count);
-        Assert.AreEqual("Merode", westDrive.Calls[^1].Name);
-        Assert.AreEqual("Merode", beekDrive.Calls[^1].Name);
+        Assert.AreEqual(11, westDrive.Calls.Count,
+            "skład z Gare de l'Ouest powinien obsłużyć wszystkie 11 kolejnych stacji");
+        Assert.AreEqual(10, beekDrive.Calls.Count,
+            "skład z Beekkant powinien obsłużyć 10 kolejnych stacji");
+        Assert.AreEqual("Merode", westDrive.Calls[^1].Name,
+            "ostatnim postojem pierwszego składu musi być Merode");
+        Assert.AreEqual("Merode", beekDrive.Calls[^1].Name,
+            "ostatnim postojem drugiego składu musi być Merode");
         Assert.IsTrue(line.Trains[0].LeftPlan, "pierwszy skład musi zwolnić Merode dla drugiego");
     }
 }

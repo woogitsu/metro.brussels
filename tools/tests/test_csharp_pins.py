@@ -91,7 +91,8 @@ PINY_GRY = {
 # 81 -> 85 (24.09.2026, T-320): cztery kursy w dwóch przejściach obiegu.
 # 85 -> 86 (24.09.2026, T-320): pierwszy trip_id po remisie w planie.
 # 86 -> 87 (24.09.2026, koniec osi linii): nazwa postoju Merode w LineDriveTests.
-PINY_RDZENIA = 87
+# 87 -> 89 (24.09.2026, dwa wjazdy rozkładowe): oba składy muszą dojechać do Merode.
+PINY_RDZENIA = 89
 
 #: Kategorie, po jednej pozycji na pin — zamknięte i sumujące się do liczby wyżej.
 #:
@@ -196,6 +197,8 @@ KATEGORIE = {
 # wskazówki przy różnych pozycjach względem granicy. Kategoria C,
 # bo tekst powstaje w jednym formatterze ChaseAvailability.HudHint.
 # 66 -> 67 (24.09.2026, test końca planu): wynik `LineCore.Run` jest jednym źródłem.
+# Dwa nowe piny Merode należą do tests/Sim.Tests, więc nie zmieniają kategorii
+# testów warstwy gry liczonej poniżej.
 LICZBA_C = 67
 
 
@@ -488,9 +491,11 @@ ROZKLAD_LICZBOWYCH = {
         # 513 -> 515 (24.09.2026, T-320): niezmieniony krok i dwa kursy planu.
         # 515 -> 517 (24.09.2026, koniec osi): odległość i zerowa prędkość.
         # 517 -> 523 (24.09.2026, LineDrive): granica Merode, prędkość, ślad i bilans.
-        "razem": 523, "z_tolerancja": 191, "bez_tolerancji": 332,
+        # 523 -> 531 (24.09.2026, dwa wjazdy rozkładowe): osiem dokładnych
+        # całkowitych pinów liczby kursów, bloków, stacji, kroków i wezwań.
+        "razem": 531, "z_tolerancja": 191, "bez_tolerancji": 340,
         "zmiennoprzecinkowe": 206, "zmiennoprzecinkowe_bez_tolerancji": 15,
-        "calkowite": 317, "calkowite_z_tolerancja": 0, "tolerancja_zero": 121,
+        "calkowite": 325, "calkowite_z_tolerancja": 0, "tolerancja_zero": 121,
     },
 }
 

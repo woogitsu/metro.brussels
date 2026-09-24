@@ -487,7 +487,9 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 # 2049 -> 2054 (24.09.2026, T-320): walidacja dnia służby i godziny po północy.
 # 2054 -> 2063 (24.09.2026, koniec osi linii): dziewięć opisanych kontroli
 # postoju Merode i opraw scenerii.
-Z_KOMUNIKATEM_RAZEM = 2063
+# 2063 -> 2077 (24.09.2026, dwa wjazdy rozkładowe): czternaście kontroli
+# ma teraz jawne komunikaty, także sześć porównań początkowo bez opisu.
+Z_KOMUNIKATEM_RAZEM = 2077
 NIEROZSTRZYGNIETYCH = 68
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
 #: `tests/Sim.Tests/DefaultArmAuditTests.cs` — bramki na ramionach domyślnych
@@ -623,7 +625,10 @@ NIEROZSTRZYGNIETYCH = 68
 # 3506 -> 3512 (24.09.2026, koniec osi): sześć kontroli stanu granicznego.
 # 3512 -> 3530 (24.09.2026, koniec osi linii): końcowy postój i oprawy scenerii;
 # po dziewięć asercji z komunikatem i bez komunikatu.
-ASERCJI_RAZEM = 3530
+# 3530 -> 3544 (24.09.2026, dwa wjazdy rozkładowe): czternaście kontroli
+# integracji LineEntrySchedule/LineEntryGate z planem blokowym L1_A. Wszystkie
+# mają komunikat; zapadka BEZ_KOMUNIKATU pozostaje surowa.
+ASERCJI_RAZEM = 3544
 
 
 def _rozklad():

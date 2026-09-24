@@ -655,8 +655,10 @@ ROZKLAD_POSTACI = {
         # 5222 -> 5232 (24.09.2026, T-320): plan dnia i odmowy błędnej daty.
         # 5232 -> 5236 (24.09.2026, test lamp i osłony czytnika osi scenerii).
         # 5236 -> 5244 (24.09.2026, test skrętu osi scenerii i odmowy brakującego JSON).
-        "zwykly": 5244,
-        "interpolowany ($)": 852,
+        # 5244 -> 5268 i 852 -> 853 (24.09.2026, dwa wjazdy rozkładowe):
+        # identyfikatory kursów, komunikaty wszystkich asercji i interpolowany krok diagnostyki.
+        "zwykly": 5268,
+        "interpolowany ($)": 853,
         "werbatim (@)": 101,
         "surowy interpolowany ($$\"\"\")": 13,
         # 8 -> 10 (23.09.2026): dwie probki sceny w testach.
