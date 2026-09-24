@@ -2614,12 +2614,17 @@ public sealed partial class FirstRun : Node3D
                         zaLinie);
                 }
 
-                return UiText.Format(
+                var automaticStop = UiText.Format(
                     "hud.station.doors",
                     Faza(_line.Phase),
                     _line.DwellRemainingSeconds.ToString("F1", CultureInfo.InvariantCulture),
                     blad,
                     zaLinie);
+                // D/F also reach LineCore under autopilot. The core refuses them with
+                // AutomaticControl; show that answer while this stop is still active.
+                return _doorRefusal is null
+                    ? automaticStop
+                    : automaticStop + '\n' + DoorPrompt.For(_line.Phase, _doorRefusal);
             }
 
             var nastepnaNaLinii = _line.NextStation;
