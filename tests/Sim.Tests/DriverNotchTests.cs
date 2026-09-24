@@ -128,13 +128,15 @@ public sealed class DriverNotchTests
 
         notch.Set(new DriverCommand(0.0, movement / 4.0));
         var power = notch.Advance(DriverKeys.Powering, step);
-        Assert.AreEqual(0.0, power.Brake, 0.0);
-        Assert.AreEqual(3.0 * movement / 4.0, power.Throttle, 1e-15);
+        Assert.AreEqual(0.0, power.Brake, 0.0, "hamulec powinien zejść do neutralnego położenia");
+        Assert.AreEqual(3.0 * movement / 4.0, power.Throttle, 1e-15,
+            "ciąg może zużyć tylko pozostałe trzy czwarte kroku");
 
         notch.Set(new DriverCommand(movement / 4.0, 0.0));
         var brake = notch.Advance(DriverKeys.Braking, step);
-        Assert.AreEqual(0.0, brake.Throttle, 0.0);
-        Assert.AreEqual(3.0 * movement / 4.0, brake.Brake, 1e-15);
+        Assert.AreEqual(0.0, brake.Throttle, 0.0, "ciąg powinien zejść do neutralnego położenia");
+        Assert.AreEqual(3.0 * movement / 4.0, brake.Brake, 1e-15,
+            "hamulec może zużyć tylko pozostałe trzy czwarte kroku");
     }
 
     [TestMethod]

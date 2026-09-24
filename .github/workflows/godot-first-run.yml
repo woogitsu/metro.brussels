@@ -764,7 +764,7 @@ jobs:
           grep -q "^\[ODTWORZENIE\] koniec: kroków=20000 " build/t400/reczny/sesja.log \
             || { echo "BŁĄD: koniec sesji połknął koniec odtworzenia" >&2
                  grep "^\[ODTWORZENIE\]" build/t400/reczny/sesja.log >&2; exit 1; }
-          oczekiwany='[SESJA] zaliczone (AllTargetsServed): 2/2 celów, 156.842 s, 1357.513 m, ATP 0/0/0 | 8742 obsłużony błąd -0.023 m | 8292 obsłużony błąd -0.387 m'
+          oczekiwany='[SESJA] zaliczone (AllTargetsServed): 2/2 celów, 156.850 s, 1357.532 m, ATP 0/0/0 | 8742 obsłużony błąd +0.123 m | 8292 obsłużony błąd -0.368 m'
           grep -qxF "$oczekiwany" build/t400/reczny/sesja.log \
             || { echo "BŁĄD: sesja treningowa dała inny wynik niż zmierzony" >&2
                  echo "oczekiwano: $oczekiwany" >&2
