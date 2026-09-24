@@ -497,9 +497,10 @@ ROZKLAD_LICZBOWYCH = {
         # całkowitych pinów liczby kursów, bloków, stacji, kroków i wezwań.
         # 551 -> 560 (24.09.2026, adapter odtwarzania rozkladu): dziewiec
         # calkowitych pinow bez tolerancji, zmierzonych na polaczonym drzewie.
-        "razem": 560, "z_tolerancja": 191, "bez_tolerancji": 369,
+        # 25.09.2026: dwa nowe piny liczbowe przejścia nastawnika przez neutral.
+        "razem": 562, "z_tolerancja": 191, "bez_tolerancji": 371,
         "zmiennoprzecinkowe": 212, "zmiennoprzecinkowe_bez_tolerancji": 21,
-        "calkowite": 348, "calkowite_z_tolerancja": 0, "tolerancja_zero": 121,
+        "calkowite": 350, "calkowite_z_tolerancja": 0, "tolerancja_zero": 122,
     },
 }
 
@@ -571,6 +572,10 @@ def test_dokladnych_porownan_zmiennoprzecinkowych_jest_166_a_nie_27():
     # 137 -> 138 (23.09.2026, 6.M1): jedno porównanie z tolerancją 0.0 w
     # `LineReplayTests.cs` — skład ma STAĆ przed otwarciem drzwi, ani jednego bitu ruchu.
     assert zero == 139, ("tolerancji zapisanych jako 0.0: %d, pomiar mówił 139" % zero)
+=======
+    # 25.09.2026: zerowanie przeciwnego kierunku przy obu przejściach przez neutral.
+    assert zero == 140, ("tolerancji zapisanych jako 0.0: %d, pomiar mówi 140" % zero)
+
     assert bez + zero == DOKLADNE_ZMIENNOPRZECINKOWE, (
         "porównań dokładnych jest %d, a stała mówi %d" % (bez + zero,
                                                           DOKLADNE_ZMIENNOPRZECINKOWE))
