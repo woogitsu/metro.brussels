@@ -404,8 +404,9 @@ ROZKLAD_LICZBOWYCH = {
         # 255 -> 256: krok pojawienia sie PREP w replay, calkowity bez tolerancji.
         # 256 -> 257: pin pelnego hamulca z tolerancja po przejeciu przez gracza.
         # 257 -> 260 (24.09.2026, dwie tablice): trzy polozenia z tolerancja.
-        "razem": 260, "z_tolerancja": 115, "bez_tolerancji": 145,
-        "zmiennoprzecinkowe": 121, "zmiennoprzecinkowe_bez_tolerancji": 6,
+        # 260 -> 262 (24.09.2026, mocowania tablic): dwie długości z tolerancją.
+        "razem": 262, "z_tolerancja": 117, "bez_tolerancji": 145,
+        "zmiennoprzecinkowe": 123, "zmiennoprzecinkowe_bez_tolerancji": 6,
         "calkowite": 139, "calkowite_z_tolerancja": 0, "tolerancja_zero": 18,
     },
     "tests/Sim.Tests": {

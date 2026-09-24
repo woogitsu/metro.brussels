@@ -646,7 +646,8 @@ ROZKLAD_POSTACI = {
         # 5031 -> 5038 (24.09.2026, krótki HUD chase): teksty i komunikaty testu.
         # 5054 -> 5064 (24.09.2026, test końca planu): wejścia i komunikaty
         # rzeczywistego przebiegu LineCore w SignallingHudTests.
-        "zwykly": 5064,
+        # 5064 -> 5066 (24.09.2026, mocowania tablic): komunikaty dwóch asercji.
+        "zwykly": 5066,
         "interpolowany ($)": 849,
         "werbatim (@)": 101,
         "surowy interpolowany ($$\"\"\")": 13,
