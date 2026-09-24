@@ -2361,7 +2361,8 @@ public sealed partial class FirstRun : Node3D
             chainage, _axis.LengthM,
             name, distance, _command.Throttle, _command.Brake, _mode,
             StationLine(), SignallingLine(), _viewLine,
-            EmergencyBrake.Notice(_activeKeys, _command),
+            EmergencyBrake.Notice(_activeKeys, _command,
+                !_lineMode || ObservedOwner() == ControlOwner.Driver),
             HelpLine(),
             SummaryLine(),
             TractionLine());
