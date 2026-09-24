@@ -3396,8 +3396,8 @@ public sealed class UiTextTests
         Assert.IsNull(MetroBxl.Tests.Shared.LancuchZmian.SkadTaLiczba(nameof(ZgloszenWaskichWierszami), 4242, SciezkaTegoPliku),
             "liczba spoza łańcucha zgłoszona jako dawna wartość — czytnik odpowiada "
             + "na wszystko i komunikat odmowy stałby się szumem");
-        Assert.IsNull(MetroBxl.Tests.Shared.LancuchZmian.SkadTaLiczba(nameof(ZgloszenWaskichCalymPlikiem), 108, SciezkaTegoPliku),
-            "108 z łańcucha JEDNEJ stałej przypisane DRUGIEJ — czytnik nie rozdziela "
+        Assert.IsNull(MetroBxl.Tests.Shared.LancuchZmian.SkadTaLiczba(nameof(ZgloszenWaskichCalymPlikiem), 117, SciezkaTegoPliku),
+            "117 z łańcucha JEDNEJ stałej przypisane DRUGIEJ — czytnik nie rozdziela "
             + "łańcuchów i mówiłby o cudzej historii");
     }
 
