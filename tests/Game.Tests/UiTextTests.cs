@@ -240,7 +240,6 @@ public sealed class UiTextTests
     // 603 -> 604 (24.09.2026, tryb linii): komunikat końca toru przed postojem Merode.
     // 604 -> 609 (24.09.2026, lampy scenerii): ścieżka osi i odmowy dla uszkodzonego JSON-a.
     // 609 -> 615 (24.09.2026, osobne metadane wizualnej kontynuacji).
-    // 615 -> 634 (24.09.2026, scena i plan dwóch wejść rozkładowych).
     private const int LiteralowWZasieguBramki = 634;
 
     /// <summary>Ile różnych — dolne ostrze, zmierzone 12.09.2026.</summary>
@@ -2155,7 +2154,8 @@ public sealed class UiTextTests
     // 153 -> 156 (24.09.2026, sceneria za Merode): te same trzy literały.
     // 156 -> 161 (24.09.2026, lampy scenerii): ścieżka osi i cztery odmowy dla złych danych.
     // 161 -> 166 (24.09.2026, metadane wizualnej kontynuacji).
-    private const int ZgloszenFirstRunWierszami = 166;
+    // 166 -> 172 (24.09.2026, obsługa rozkładu w scenie).
+    private const int ZgloszenFirstRunWierszami = 172;
 
     /// <summary>Ile plików korpusu daje różne liczby obiema drogami — 6.D180.</summary>
     private const int PlikowZRoznicaDrog = 1;
@@ -3609,7 +3609,8 @@ public sealed class UiTextTests
     // 152 -> 153 (24.09.2026, integracja pomocy linii): jeden literał z klamrą.
     // 153 -> 156 (24.09.2026, lampy scenerii): trzy komunikaty `Abort` z interpolacją.
     // 156 -> 158 (24.09.2026, osobne pola metadanych ogona).
-    private const int LiteralowZKlamra = 158;
+    // 158 -> 163 (24.09.2026, komunikaty rozkładu).
+    private const int LiteralowZKlamra = 163;
 
     /// <summary>
     /// Ilu literałom <see cref="BezDziur"/> zabiera WSZYSTKIE słowa — 6.D188.
@@ -5342,7 +5343,8 @@ public sealed class UiTextTests
     // 23 -> 24 (14.09.2026, MB-04): `FirstRun.AssetsRoot`, `DomyslnyZapisWejsc`
     // i wiersz `[ZAPISY]`. Liczba ZMIERZONA przyrzadem tego testu.
     // 24 -> 25 (14.09.2026, MB-07): wiersz `[TUNEL koniec]` — własne słowa, polskie.
-    private const int WierszyLoguPoPolsku = 25;
+    // 25 -> 27 (24.09.2026, dwa wiersze logu wejść rozkładowych).
+    private const int WierszyLoguPoPolsku = 27;
 
     // Wiersze, których szablon NIE MA WŁASNYCH SŁÓW — cała treść przychodzi z wywołania.
     // Wszystkie w `FirstRun.cs`, i każdy z nich prowadzi do wytwórcy, który własne

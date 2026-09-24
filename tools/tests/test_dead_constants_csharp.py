@@ -63,9 +63,9 @@ DEKLARACJA = re.compile(
 #:
 #: **Wartosc jest PRZELICZONA 24.09.2026 (pelna integracja), a ten akapit przepisany, a nie
 #: dopisany obok.** Stalo tu `= 200` i „Zmierzone: 234" — pomiar z 07.09.2026. Drzewo
-#: ma dzis **422** deklaracje, wiec stara podloga 200 lezala **222** nizej, czyli 52,6 % populacji,
+#: ma dzis **422** deklaracji, wiec stara podloga 200 lezala **222** nizej, czyli 52,6 % populacji,
 #: i przepuszczala mutacje, dla ktorych istnieje: wyciecie z wzorca calej galezi na
-#: `static readonly` zabiera **93** deklaracje (zostaje **329**) i przy progu 200 PRZECHODZILO.
+#: `static readonly` zabiera **93** deklaracji (zostaje **329**) i przy progu 200 PRZECHODZILO.
 #:
 #: **Rownosci (`== 422`) tu nie ma i nie bedzie**: populacja rosnie z kazdym nowym polem
 #: w `src/`, wiec rownosc zapalalaby sie na pracy poprawnej, a taka bramka zostaje

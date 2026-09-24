@@ -492,7 +492,8 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 # ma teraz jawne komunikaty, także sześć porównań początkowo bez opisu.
 # Po integracji dyspozytora i hamowania: 2133 opisane asercje, zmierzone w drzewie.
 # 2077 -> 2144 (24.09.2026, integracja dyspozytora, test granicy, hamowanie i metadane).
-Z_KOMUNIKATEM_RAZEM = 2144
+# 2144 -> 2173 (24.09.2026, nowe testy sceny i adaptera rozkladu).
+Z_KOMUNIKATEM_RAZEM = 2173
 NIEROZSTRZYGNIETYCH = 69
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
 #: `tests/Sim.Tests/DefaultArmAuditTests.cs` — bramki na ramionach domyślnych
