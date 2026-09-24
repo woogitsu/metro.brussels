@@ -40,10 +40,12 @@ czas wejścia i kolejność stacji, a także odrzucają kurs dotykający jednego
 Dla każdego rzeczywistego kursu trzeba znać co najmniej: `trip_id`, `block_id`, linię i kierunek, uporządkowane `stop_id` z godzinami przyjazdu/odjazdu oraz identyfikatory stacji granicznych L1_A. Z tego można dopiero wyznaczyć moment wejścia na oś (`releaseStep`), docelowy koniec przejazdu oraz powiązanie kolejnych kursów tego samego pojazdu. Obecne `trip_windows` podaje tylko początek i koniec **całego kursu**; nie mówi, czy ani kiedy przejeżdża Gare de l'Ouest i Merode. `ServiceDay` potrafi z nich policzyć służbę, ale nie może ich bez zgadywania przekazać do `LineCore.Add`.
 
 Archiwum o wymaganym `content_sha256` jest teraz dostępne lokalnie. Generator zapisuje
-`trip_records`, a osobny skrypt deterministycznie wybiera kursy przecinające pakiet A.
+`trip_records`, a jego tryb `--project-trips` deterministycznie wybiera kursy przecinające pakiet A.
 Następny etap może użyć tej projekcji jako wejścia do LineCore i porównać symulowane
 wyjazdy z GTFS. Polityka dyspozytora i adapter LineCore nadal nie są zaimplementowane.
 
 ## Sprawdzenie
 
-Audyt opiera się na schemacie w `tools/track/timetable.py` i spisie plików śledzonych przez Git. Lokalnie wykonano testy parsera GTFS oraz bramkę higieny raportów; nie pobierano feedu i nie uruchamiano gry.
+Audyt opiera się na schemacie w `tools/track/timetable.py` i spisie plików śledzonych przez Git.
+Archiwum pobrano do lokalnego cache, sprawdzono jego SHA-256 i wykonano pomiar projekcji;
+testy parsera GTFS oraz pełna bramka narzędzi przeszły na połączonym commicie.
