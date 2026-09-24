@@ -1668,7 +1668,7 @@ public sealed partial class FirstRun : Node3D
                 // A dated plan may start after midnight. Until the first release
                 // there is no observed train; keep advancing the shared clock.
                 _line = null;
-                return true;
+                return _replay is null || _logStep < _replay.Steps;
             }
 
             // MB-07: `_line` to prowadzenie składu OBSERWOWANEGO, a nie zerowego.
