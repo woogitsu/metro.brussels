@@ -652,13 +652,15 @@ ROZKLAD_POSTACI = {
         # 5165 -> 5187 (24.09.2026, T-320): kursy, bloki i komunikaty bramki.
         # 5187 -> 5210 (24.09.2026, T-320): nazwy kursów i komunikaty kolejności.
         # 5210 -> 5222 (24.09.2026, T-320): dwa kursy i komunikaty testów pominięcia.
-        "zwykly": 5222,
+        # 5222 -> 5232 (24.09.2026, T-320): plan dnia i odmowy błędnej daty.
+        "zwykly": 5232,
         "interpolowany ($)": 852,
         "werbatim (@)": 101,
         "surowy interpolowany ($$\"\"\")": 13,
         # 8 -> 10 (23.09.2026): dwie probki sceny w testach.
         # 10 -> 12 (24.09.2026, T-320): dwa dokumenty syntetycznego planu.
-        "surowy (\"\"\")": 12,
+        # 12 -> 13 (24.09.2026, T-320): plan z datą dnia służby.
+        "surowy (\"\"\")": 13,
         "werbatim interpolowany ($@)": 8,
     },
     "src": {
@@ -722,7 +724,8 @@ ROZKLAD_POSTACI = {
         # 1510 -> 1512 (24.09.2026, kolor i rozmiar celu na starcie).
         # 1512 -> 1513 (24.09.2026, T-320): odmowa pustego kursu.
         # 1513 -> 1514 (24.09.2026, T-320): wymóg planu w bramce.
-        "zwykly": 1514,
+        # 1514 -> 1516 (24.09.2026, T-320): błędna data i odmowa dnia służby.
+        "zwykly": 1516,
         # 489 -> 494 (22.09.2026, 6.D235): piec komunikatow `Abort` dla pliku ZLEGO
         # w `FirstRun.cs`. Przeliczone z drzewa, nie zsumowane.
         # 494 -> 513 (23.09.2026, 6.M1): komunikaty odmow i wiersze zapisu zdarzen
@@ -734,7 +737,8 @@ ROZKLAD_POSTACI = {
         # 516 -> 518 (24.09.2026, krótki HUD chase): dystans i granica.
         # 527 -> 529 (24.09.2026, T-320): zegar i ponowny kurs obiegu.
         # 529 -> 531 (24.09.2026, T-320): wskazanie pominiętego kursu i porządku.
-        "interpolowany ($)": 531,
+        # 531 -> 533 (24.09.2026, T-320): data planu i zegara.
+        "interpolowany ($)": 533,
         "werbatim (@)": 0,
         "surowy interpolowany ($$\"\"\")": 1,
         "surowy (\"\"\")": 1,
