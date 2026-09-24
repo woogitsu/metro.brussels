@@ -408,6 +408,9 @@ których agent nie ruszy bez decyzji właściciela.
 - **Pomiar granicy pakietu A (24.09.2026):** `reports/t320-package-a-capacity.md` —
   syntetyczny takt 5:10 na jednej osi, osobno liczba zgłoszonych i jadących składów;
   sieciowe 48 kursów/71 obiegów nie jest miarą obsady tego pakietu.
+- **Audyt wejścia offline (24.09.2026):** `reports/t113-trip-input-gap.md` — wersjonowane
+  agregaty T-113 nie zachowują trasy ani godzin stacji pojedynczego kursu; adapter
+  jednej osi wymaga źródłowego GTFS o SHA-256 z manifestu albo jego wiernej projekcji.
 - **Wejście z T-313:** plan bloków pakietu A, zajętość, movement authority i ATP
 - **Wejście z T-314:** tryb scenariusza; dla 31.08.2026 zawsze `classic_2026`
 - **Wyjście:** `src/Sim/Line/` — LineCore z wieloma składami; testy w `tests/Sim.Tests`
