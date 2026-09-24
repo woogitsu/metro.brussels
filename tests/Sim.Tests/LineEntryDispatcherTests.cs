@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using MetroBxl.Sim.Line;
 using MetroBxl.Sim.Physics;
 using MetroBxl.Sim.Train;
@@ -197,5 +198,52 @@ public sealed class LineEntryDispatcherTests
         Assert.AreEqual(drive.State.SpeedMps / FixedStep.Simulation.Seconds,
             session.AccelerationMps2, 1e-9,
             "przyspieszenie pierwszego kroku musi wynikać z rzeczywistej zmiany prędkości");
+    }
+
+    [TestMethod]
+    public void Kamera_przechodzi_na_drugi_sklad_gdy_pierwszy_zjezdza_z_planu()
+    {
+        var axis = SignallingPlanTests.PackageAAxis();
+        var schedule = Schedule(axis, Entry("west", "block-west", "8733", 0) + "," +
+            Entry("beek", "block-beek", "8742", 55));
+        var line = Line(axis);
+        var session = new LineSession(line, new DriverNotch(0.5), FixedStep.Simulation,
+            new LineEntryDispatcher(line, schedule, schedule.ServiceDay));
+        while (!line.Trains.Any(t => t.LeftPlan) && line.Steps < 200_000L)
+            Assert.IsTrue(session.Step(DriverKeys.None));
+
+        Assert.IsTrue(line.Trains[0].LeftPlan, "pierwszy skład musi zjechać z planu");
+        Assert.IsTrue(line.Trains[1].OnLine, "drugi skład musi być jeszcze na planie");
+        Assert.AreEqual(1, session.ActiveObservedIndex, "obserwacja ma przejść na czynny skład");
+        Assert.AreEqual("beek", session.Observed.Id);
+        Assert.IsNotNull(session.TelemetryRow(), "telemetria ma śledzić drugi skład");
+        Assert.IsNull(session.NextActiveTrainId(), "samotnego czynnego składu nie można przełączyć na zjechany");
+        Assert.AreEqual(0.0, session.AccelerationMps2, 0.0,
+            "przy zmianie składu nie wolno odejmować jego prędkości od prędkości pierwszego");
+    }
+
+    [TestMethod]
+    public void Kamera_i_telemetria_czekaja_na_przyszly_kurs_po_zjezdzie_pierwszego()
+    {
+        var axis = SignallingPlanTests.PackageAAxis();
+        var schedule = Schedule(axis, Entry("west", "block-west", "8733", 0) + "," +
+            Entry("beek", "block-beek", "8742", 2000));
+        var line = Line(axis);
+        var session = new LineSession(line, new DriverNotch(0.5), FixedStep.Simulation,
+            new LineEntryDispatcher(line, schedule, schedule.ServiceDay));
+        while (!line.Trains.Any(t => t.LeftPlan) && line.Steps < 200_000L)
+            Assert.IsTrue(session.Step(DriverKeys.None));
+
+        Assert.IsTrue(line.Trains[0].LeftPlan);
+        Assert.IsNull(session.ActiveObservedIndex, "widok nie może śledzić zjechanego składu");
+        Assert.IsNull(session.TelemetryRow(), "zjechany skład nie może emitować dalszej telemetrii");
+        Assert.AreEqual(DriverCommand.Coast, session.Command);
+        Assert.AreEqual(0.0, session.AccelerationMps2, 0.0);
+        Assert.IsNull(session.NextActiveTrainId());
+        while (line.Trains.Count < 2 && line.Steps < schedule.Entries[1].ReleaseStep + 1)
+            Assert.IsTrue(session.Step(DriverKeys.None), "zegar musi doczekać drugiego kursu");
+        Assert.AreEqual(1, session.ActiveObservedIndex, "kamera ma przejąć nowy skład po wjeździe");
+        Assert.AreEqual("beek", session.Observed.Id);
+        Assert.IsNotNull(session.TelemetryRow());
     }
 }

@@ -1150,7 +1150,7 @@ public static class Program
 
             sessionStep++;
             var finished = sessionStep >= log.Steps || session.Finished;
-            if (core.Trains.Count > 0 && session.Observed.Drive is { } drive
+            if (session.ActiveObservedIndex is not null && session.Observed.Drive is { } drive
                 && (DriveTelemetry.IsSample(drive.State.Steps, sampleEvery) || finished))
             {
                 lines.Add(session.TelemetryRow()!);
