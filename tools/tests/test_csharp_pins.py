@@ -156,12 +156,12 @@ KATEGORIE = {
         # i 1372/1373 -> 1373/1374. Powod ten sam — komentarz z powodem przy
         # `LiteralowWZasieguBramki`, tym razem o jeden wiersz. TRESC pinow nie drgnela.
         # Przeliczone roznica plikow (difflib).
-        # Jeden komentarz przy pomiarze korpusu przesunął kotwice o wiersz.
-        ("UiTextTests.cs", 1282), ("UiTextTests.cs", 1295), ("UiTextTests.cs", 1313),
+        # Dodatkowe ogniwo pomiaru korpusu przesuwa kotwice o kolejny wiersz.
+        ("UiTextTests.cs", 1283), ("UiTextTests.cs", 1296), ("UiTextTests.cs", 1314),
         ("SignallingHudTests.cs", 37),
     },
     "B": {
-        ("UiTextTests.cs", 1382), ("UiTextTests.cs", 1383),
+        ("UiTextTests.cs", 1383), ("UiTextTests.cs", 1384),
     },
 }
 
@@ -258,10 +258,10 @@ def test_regula_po_ksztalcie_literalu_myli_sie_i_dlatego_jej_nie_ma():
                      if not regula.search(tresci[p])]
     zlapane_z_b = [p for p in sorted(KATEGORIE["B"]) if regula.search(tresci[p])]
 
-    assert przepuszczone == [("UiTextTests.cs", 1313)], (
+    assert przepuszczone == [("UiTextTests.cs", 1314)], (
         "reguła po kształcie przestała przepuszczać wiersz o hamulcu awaryjnym — "
         "rozstrzygnięcie 6.D131 wymaga przeliczenia: %s" % przepuszczone)
-    assert zlapane_z_b == [("UiTextTests.cs", 1383)], (
+    assert zlapane_z_b == [("UiTextTests.cs", 1384)], (
         "reguła po kształcie przestała łapić wejście syntetyczne: %s" % zlapane_z_b)
 
 
@@ -275,11 +275,11 @@ def test_czytnik_widzi_pin_takze_wtedy_gdy_literal_jest_sklejony():
     tresci = {(plik, wiersz): tresc
               for plik, wiersz, _r, tresc in CP.piny("tests/Game.Tests")}
 
-    assert len(tresci[("UiTextTests.cs", 1282)]) == 122, (
+    assert len(tresci[("UiTextTests.cs", 1283)]) == 122, (
         "sklejanie literałów przestało działać: %d znaków"
-        % len(tresci[("UiTextTests.cs", 1282)]))
-    assert len(tresci[("UiTextTests.cs", 1313)]) == 98, (
-        len(tresci[("UiTextTests.cs", 1313)]))
+        % len(tresci[("UiTextTests.cs", 1283)]))
+    assert len(tresci[("UiTextTests.cs", 1314)]) == 98, (
+        len(tresci[("UiTextTests.cs", 1314)]))
     assert len(tresci[("SignallingHudTests.cs", 37)]) == 84, (
         len(tresci[("SignallingHudTests.cs", 37)]))
 
