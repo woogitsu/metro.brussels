@@ -1,6 +1,33 @@
 # T-113 → LineCore: brak danych pojedynczych kursów w wersjonowanym wejściu
 
-**Audyt 24.09.2026 na `d583065`** (plus lokalny raport `72d7551`), bez sieci i bez źródłowego archiwum GTFS.
+**Audyt 24.09.2026 na `d583065`** (plus lokalny raport `72d7551`), następnie pomiar
+24.09.2026 na `a1cefb5` z archiwum GTFS identycznym bajtowo z manifestem.
+
+## Znalezione archiwum i projekcja L1_A
+
+Archiwalna kopia z [gtfs.flatturtle.cloud](https://gtfs.flatturtle.cloud/stib-mivb/stib-mivb-gtfs_2026-09-01.zip)
+ma **14 543 732 B** i SHA-256
+`28c2fba48783e278d20f8f703759e3f729b72608d015e00d0f8215fa3b278bb6` —
+dokładnie tyle samo co `data/network/gtfs-manifest.json` dla feedu STIB
+`2_20_20260831_010702`. Oficjalny [opis zbioru STIB](https://stibmivb.opendatasoft.com/explore/dataset/gtfs-files-production/information/?flg=en-gb)
+potwierdza, że obejmuje rozkładowe godziny zatrzymań. ZIP i wygenerowane JSON leżą
+wyłącznie w lokalnym cache poza repozytorium. Identyczność jest potwierdzona odciskiem
+całego ZIP, a nie podobieństwem daty lub rozmiaru.
+
+Tryb `--project-trips` w `tools/track/timetable.py` odmawia niezgodnego SHA i złącza kursy z osią
+po oficjalnych `stop_id`. Dla środy **02.09.2026** generator znajduje 1383 aktywne
+kursy metra, a projekcja **357 rozkładowych przejazdów L1_A**: 173 L1 od Gare de
+l'Ouest, 4 L1 od Beekkant, 3 L5 od Gare de l'Ouest i 177 L5 od Beekkant, wszystkie
+do Merode. Należą do 39 `block_id`; maksimum rozkładowo jednocześnie na tej osi,
+licząc od odjazdu pierwszej stacji pakietu do przyjazdu Merode, to **6**. Siedem
+innych kursów zawiera tylko Merode — pojedynczy wspólny przystanek nie jest
+przejazdem pakietu. Wynik jest **projekcją rozkładu**, nie symulacją 357 pociągów w
+LineCore i nie określa polityki dyspozytora lub nawrotu.
+
+Odtworzenie: uruchomić `tools/track/timetable.py --project-trips` z `--gtfs` wskazującym
+archiwum o podanym SHA, `--date 2026-09-02`, `--axis data/track/L1_A.json` oraz
+`--out` w katalogu poza `data/`. Testy syntetyczne wiążą identyfikator kursu, obieg,
+czas wejścia i kolejność stacji, a także odrzucają kurs dotykający jednego peronu.
 
 ## Co jest w repozytorium
 
@@ -12,7 +39,10 @@
 
 Dla każdego rzeczywistego kursu trzeba znać co najmniej: `trip_id`, `block_id`, linię i kierunek, uporządkowane `stop_id` z godzinami przyjazdu/odjazdu oraz identyfikatory stacji granicznych L1_A. Z tego można dopiero wyznaczyć moment wejścia na oś (`releaseStep`), docelowy koniec przejazdu oraz powiązanie kolejnych kursów tego samego pojazdu. Obecne `trip_windows` podaje tylko początek i koniec **całego kursu**; nie mówi, czy ani kiedy przejeżdża Gare de l'Ouest i Merode. `ServiceDay` potrafi z nich policzyć służbę, ale nie może ich bez zgadywania przekazać do `LineCore.Add`.
 
-Następny wymagany input offline to archiwum STIB o **tym samym** `content_sha256`, który stoi w manifeście, lub wersjonowana projekcja jego rekordów dla L1_A, zachowująca wymienione pola i pochodzenie. Generator zapisuje już osobne `trip_records` z `trip_id`, `block_id`, linią, kierunkiem i pełną sekwencją godzin przystanków, gdy ma źródłowy feed. Bez archiwum o zweryfikowanym odcisku nie da się jednak wytworzyć rzeczywistych rekordów ani zmierzyć zgodności z GTFS. Po otrzymaniu danych można napisać deterministyczny wybór kursów przecinających pakiet A i test porównujący wyjazdy z GTFS. Do tego czasu adapter używający agregatów byłby wymyślonym rozkładem. Nie dodano go, ani polityki dyspozytora.
+Archiwum o wymaganym `content_sha256` jest teraz dostępne lokalnie. Generator zapisuje
+`trip_records`, a osobny skrypt deterministycznie wybiera kursy przecinające pakiet A.
+Następny etap może użyć tej projekcji jako wejścia do LineCore i porównać symulowane
+wyjazdy z GTFS. Polityka dyspozytora i adapter LineCore nadal nie są zaimplementowane.
 
 ## Sprawdzenie
 

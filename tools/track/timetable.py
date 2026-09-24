@@ -31,6 +31,7 @@ inaczej ostatnie kursy wypadałyby z doby i takt nocny wychodziłby fałszywie r
 """
 import argparse
 import csv
+import hashlib
 import io
 import json
 import os
@@ -63,6 +64,9 @@ def parse_args(argv=None):
     parser.add_argument("--axis", action="append", default=None,
                         help="oś pakietu z data/track/*.json; można podać wielokrotnie. "
                              "Łączy odcinki rozkładowe z chainage po stop_id.")
+    parser.add_argument("--project-trips", action="store_true",
+                        help="wyeksportuj rozkładowe przejazdy na jednej osi; sprawdza SHA GTFS")
+    parser.add_argument("--manifest", default="data/network/gtfs-manifest.json")
     return parser.parse_args(argv)
 
 
@@ -427,6 +431,65 @@ def survey(archive, date_text, peak_hours, axis_paths=None):
     }
 
 
+def project_trip_records(records, axis):
+    """Keep contiguous forward stop_id runs of at least two axis stations."""
+    stations = axis["stations"]
+    by_id = {str(station["stop_id"]): index for index, station in enumerate(stations)}
+    if len(by_id) != len(stations):
+        raise ValueError("axis has duplicate stop_id values")
+    runs = []
+    for trip in records:
+        matches = [(by_id[str(stop["stop_id"])], stop) for stop in trip["stops"]
+                   if str(stop["stop_id"]) in by_id]
+        if len(matches) < 2:
+            continue
+        positions = [index for index, _stop in matches]
+        if positions != list(range(positions[0], positions[0] + len(positions))):
+            continue  # reverse direction or non-contiguous route through this package
+        if not trip["block_id"]:
+            raise ValueError(f"trip {trip['trip_id']} crosses axis without block_id")
+        projected_stops = [
+            {**stop, "chainage_m": stations[index]["chainage_m"]}
+            for index, stop in matches
+        ]
+        release = projected_stops[0]["departure_s"]
+        exit_time = projected_stops[-1]["arrival_s"]
+        if exit_time < release:
+            raise ValueError(f"trip {trip['trip_id']} has reversed axis time")
+        runs.append({
+            "trip_id": trip["trip_id"], "block_id": trip["block_id"],
+            "route_id": trip["route_id"], "direction_id": trip["direction_id"],
+            "release_s": release, "exit_s": exit_time,
+            "first_stop_id": projected_stops[0]["stop_id"],
+            "last_stop_id": projected_stops[-1]["stop_id"],
+            "stops": projected_stops,
+        })
+    return sorted(runs, key=lambda run: (run["release_s"], run["trip_id"]))
+
+
+def verified_projection(gtfs_path, manifest_path, date, axis_path):
+    """Refuse any ZIP whose exact bytes differ from the committed STIB manifest."""
+    with open(manifest_path, encoding="utf-8") as handle:
+        manifest = json.load(handle)
+    digest = hashlib.sha256()
+    with open(gtfs_path, "rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    actual = digest.hexdigest()
+    expected = manifest["content_sha256"]
+    if actual != expected:
+        raise ValueError(f"GTFS SHA-256 mismatch: expected {expected}, got {actual}")
+    with open(axis_path, encoding="utf-8") as handle:
+        axis = json.load(handle)
+    with zipfile.ZipFile(gtfs_path) as archive:
+        report = survey(archive, date.replace("-", ""), set(), [axis_path])
+    return {
+        "axis_id": axis["id"], "date": report["date"],
+        "source_gtfs_sha256": actual,
+        "runs": project_trip_records(report["trip_records"], axis),
+    }
+
+
 def main(argv=None):
     args = parse_args(argv)
     path = args.gtfs if os.path.isabs(args.gtfs) else os.path.join(ROOT, args.gtfs)
@@ -441,13 +504,27 @@ def main(argv=None):
             date_text = feed.get("feed_start_date", "")
             if not date_text:
                 raise SystemExit("BŁĄD: brak --date, a feed_info.txt nie podaje daty startu")
-        report = survey(archive, date_text, peak, args.axis)
+        if args.project_trips:
+            if not args.axis or len(args.axis) != 1:
+                raise SystemExit("BŁĄD: --project-trips wymaga dokładnie jednego --axis")
+            manifest_path = (args.manifest if os.path.isabs(args.manifest)
+                             else os.path.join(ROOT, args.manifest))
+            axis_path = (args.axis[0] if os.path.isabs(args.axis[0])
+                         else os.path.join(ROOT, args.axis[0]))
+            report = verified_projection(path, manifest_path, date_text, axis_path)
+        else:
+            report = survey(archive, date_text, peak, args.axis)
 
     out = args.out if os.path.isabs(args.out) else os.path.join(ROOT, args.out)
     os.makedirs(os.path.dirname(out), exist_ok=True)
     with open(out, "w", encoding="utf-8") as handle:
         json.dump(report, handle, ensure_ascii=False, indent=1, sort_keys=True)
         handle.write("\n")
+
+    if args.project_trips:
+        print(f"{report['axis_id']}: {len(report['runs'])} rozkładowych przejazdów; "
+              f"GTFS SHA-256 {report['source_gtfs_sha256']}")
+        return 0
 
     print(f"[ROZKŁAD] {report['date']} ({report['weekday']}): "
           f"{report['services_active']} kalendarzy kursowania "

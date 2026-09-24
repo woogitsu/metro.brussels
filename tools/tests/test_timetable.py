@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Testy odczytu rozkładu z GTFS. Bez sieci — archiwum budowane w locie."""
 import io
+import hashlib
 import json
 import os
 import sys
@@ -11,6 +12,14 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.insert(0, os.path.join(ROOT, "tools", "track"))
 
 import timetable as TT  # noqa: E402
+
+
+def _synthetic_axis():
+    return {"id": "TEST_A", "stations": [
+        {"stop_id": "A", "chainage_m": 0.0},
+        {"stop_id": "B", "chainage_m": 100.0},
+        {"stop_id": "C", "chainage_m": 200.0},
+    ]}
 
 
 def _zip(members):
@@ -174,6 +183,59 @@ def test_timetable_trip_projection_is_independent_of_gtfs_row_order():
     assert reordered["trip_records"] == original["trip_records"], "kolejność wierszy feedu nie zmienia projekcji"
     assert reordered["duties"] == original["duties"], "nowy eksport nie zmienia obiegów"
     assert reordered["lines"] == original["lines"], "nowy eksport nie zmienia taktów"
+
+
+def test_line_trip_projection_uses_real_trip_fields_from_synthetic_gtfs():
+    records = TT.survey(_feed(), "20260902", {6})["trip_records"]
+    runs = TT.project_trip_records(records, _synthetic_axis())
+    assert [run["trip_id"] for run in runs] == ["T1", "T2"], "tramwaj nie leży na osi metra"
+    assert runs[0]["block_id"] == "B1", "kurs zachowuje obieg pojazdu z GTFS"
+    assert (runs[0]["release_s"], runs[0]["exit_s"]) == (21615, 21840), "granice są godzinami przystanków osi"
+    assert [stop["chainage_m"] for stop in runs[0]["stops"]] == [0.0, 100.0, 200.0], "złączenie po stop_id"
+
+
+def test_line_trip_projection_excludes_one_stop_and_reverse_trip():
+    base = TT.survey(_feed(), "20260902", {6})["trip_records"][0]
+    reverse = {**base, "trip_id": "REV", "stops": list(reversed(base["stops"]))}
+    one_stop = {**base, "trip_id": "ONE", "stops": base["stops"][-1:]}
+    runs = TT.project_trip_records([reverse, one_stop, base], _synthetic_axis())
+    assert [run["trip_id"] for run in runs] == ["T1"], "postój graniczny i zły kierunek nie są przejazdem"
+
+
+def test_line_trip_projection_refuses_missing_vehicle_block():
+    base = TT.survey(_feed(), "20260902", {6})["trip_records"][0]
+    try:
+        TT.project_trip_records([{**base, "block_id": ""}], _synthetic_axis())
+    except ValueError as error:
+        assert str(error).startswith("trip T1 crosses axis without block_id"), "odmowa powinna podać brakujący klucz"
+    else:
+        assert False, "kurs bez obiegu nie może trafić do planu LineCore"
+
+
+def test_line_trip_projection_verifies_zip_bytes_before_using_feed():
+    feed_bytes = _feed().fp.getvalue()
+    with tempfile.TemporaryDirectory() as directory:
+        gtfs = os.path.join(directory, "source.zip")
+        manifest = os.path.join(directory, "manifest.json")
+        axis = os.path.join(directory, "axis.json")
+        with open(gtfs, "wb") as handle:
+            handle.write(feed_bytes)
+        with open(axis, "w", encoding="utf-8") as handle:
+            json.dump(_synthetic_axis(), handle)
+        with open(manifest, "w", encoding="utf-8") as handle:
+            json.dump({"content_sha256": "0" * 64}, handle)
+        try:
+            TT.verified_projection(gtfs, manifest, "2026-09-02", axis)
+        except ValueError as error:
+            assert str(error).startswith("GTFS SHA-256 mismatch"), "niewłaściwy feed musi zostać odrzucony"
+        else:
+            assert False, "projekt nie może uznać archiwum tylko na podstawie nazwy"
+        digest = hashlib.sha256(feed_bytes).hexdigest()
+        with open(manifest, "w", encoding="utf-8") as handle:
+            json.dump({"content_sha256": digest}, handle)
+        projection = TT.verified_projection(gtfs, manifest, "2026-09-02", axis)
+        assert projection["source_gtfs_sha256"] == digest, "wynik zachowuje odcisk wejścia"
+        assert len(projection["runs"]) == 2, "po zgodnym odcisku użyto syntetycznych kursów"
 
 
 def test_timetable_histogram_covers_every_intermediate_stop():
