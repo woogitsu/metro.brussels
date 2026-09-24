@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using MetroBxl.Sim.Line;
 using MetroBxl.Sim.Physics;
+using MetroBxl.Sim.Train;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace MetroBxl.Sim.Tests;
@@ -72,5 +74,63 @@ public sealed class LineEntryScheduleTests
             EntryProjectionJson(EntryRunJson("same", "block-a", "8733", 100) + "," +
                 EntryRunJson("same", "block-b", "8742", 200)), axis, FixedStep.Simulation),
             "Powtórzony trip_id czyni plan niejednoznacznym.");
+    }
+
+    [TestMethod]
+    public void Dwa_rozkladowe_wejscia_na_prawdziwy_plan_nie_dziela_bloku_i_dojezdzaja()
+    {
+        // Dwa różne obiegi na prawdziwej osi i planie wymagającym ryglowania tras.
+        // Godziny są syntetyczne: test sprawdza połączenie adaptera z sygnalizacją,
+        // nie odtworzenie dwóch wybranych kursów STIB ani politykę dyspozytora.
+        var axis = SignallingPlanTests.PackageAAxis();
+        var schedule = LineEntrySchedule.FromJson(EntryProjectionJson(
+            EntryRunJson("west", "block-west", "8733", 0) + "," +
+            EntryRunJson("beek", "block-beek", "8742", 55)),
+            axis, FixedStep.Simulation);
+        var line = LineCore.M7(SignallingPlanTests.PackageAPlan(), axis,
+            new RunConditions(VehicleModel.M7.MassKg(TrainLoad.Aw2), 0.0,
+                VehicleModel.M7.Adhesion(RailCondition.Dry), TrackEnvironment.Tunnel),
+            new LineRunSettings(Units.KmhToMps(70.0), 8.0, 1.0, 5.0));
+        var gate = new LineEntryGate(line, schedule, schedule.ServiceDay);
+
+        var next = 0;
+        var bothOnLineChecks = 0;
+        var sharedBlockChecks = 0;
+        while (!line.Finished && line.Steps < 200_000L)
+        {
+            if (next < schedule.Entries.Count &&
+                schedule.Entries[next].ReleaseStep == line.Steps)
+            {
+                gate.QueueDue(schedule.Entries[next]);
+                next++;
+            }
+            gate.Step();
+            if (line.Trains.Count < 2 || !line.Trains[0].OnLine || !line.Trains[1].OnLine)
+                continue;
+
+            bothOnLineChecks++;
+            var firstBlocks = new HashSet<string>(line.Signalling.BlocksOccupiedBy("west"),
+                StringComparer.Ordinal);
+            foreach (var block in line.Signalling.BlocksOccupiedBy("beek"))
+                if (firstBlocks.Contains(block)) sharedBlockChecks++;
+        }
+
+        Assert.AreEqual(2, next, "oba rozkładowe wjazdy muszą zostać zgłoszone");
+        Assert.AreEqual(2, line.Trains.Count, "każdy trip_id tworzy jeden skład");
+        Assert.IsTrue(line.Finished, $"oba składy nie dojechały w budżecie: krok {line.Steps}");
+        Assert.IsTrue(bothOnLineChecks > 0, "składy nigdy nie były jednocześnie na osi");
+        Assert.AreEqual(0, sharedBlockChecks, "dwa składy zajęły ten sam blok");
+        Assert.AreEqual(0L, line.Trains[0].EnteredAtStep, "Gare de l'Ouest wjeżdża w kroku zero");
+        Assert.IsTrue(line.Trains[1].EnteredAtStep > schedule.Entries[1].ReleaseStep,
+            "Zajęty blok Beekkant musi opóźnić fizyczny wjazd po zgłoszeniu rozkładowym");
+        Assert.AreEqual(0, line.Trains[0].EntryStationIndex);
+        Assert.AreEqual(1, line.Trains[1].EntryStationIndex);
+        var westDrive = line.Trains[0].Drive!;
+        var beekDrive = line.Trains[1].Drive!;
+        Assert.AreEqual(11, westDrive.Calls.Count);
+        Assert.AreEqual(10, beekDrive.Calls.Count);
+        Assert.AreEqual("Merode", westDrive.Calls[^1].Name);
+        Assert.AreEqual("Merode", beekDrive.Calls[^1].Name);
+        Assert.IsTrue(line.Trains[0].LeftPlan, "pierwszy skład musi zwolnić Merode dla drugiego");
     }
 }
