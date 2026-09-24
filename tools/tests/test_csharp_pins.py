@@ -152,11 +152,11 @@ KATEGORIE = {
         # i 1372/1373 -> 1373/1374. Powod ten sam — komentarz z powodem przy
         # `LiteralowWZasieguBramki`, tym razem o jeden wiersz. TRESC pinow nie drgnela.
         # Przeliczone roznica plikow (difflib).
-        ("UiTextTests.cs", 1277), ("UiTextTests.cs", 1290), ("UiTextTests.cs", 1308),
+        ("UiTextTests.cs", 1278), ("UiTextTests.cs", 1291), ("UiTextTests.cs", 1309),
         ("SignallingHudTests.cs", 37),
     },
     "B": {
-        ("UiTextTests.cs", 1378), ("UiTextTests.cs", 1378),
+        ("UiTextTests.cs", 1378), ("UiTextTests.cs", 1379),
     },
 }
 
@@ -174,7 +174,9 @@ KATEGORIE = {
 # 55 -> 58 (15.09.2026, 6.D214): trzy piny `UiTextTests.cs` opisane wyzej.
 # 58 -> 59 (24.09.2026, braking cue): pin w teście wskazówki hamowania.
 # 59 -> 60 (24.09.2026, integracja): dokladny wiersz fazy DoorPromptTests.
-LICZBA_C = 60
+# 60 -> 59 (24.09.2026, cue): dwa syntetyczne piny UiTextTests zajmuja teraz
+# osobne wiersze 1378/1379, wiec oba sa jawnie w kategorii B.
+LICZBA_C = 59
 
 
 def test_ile_pinow_stoi_w_testach_warstwy_gry():
@@ -243,10 +245,10 @@ def test_regula_po_ksztalcie_literalu_myli_sie_i_dlatego_jej_nie_ma():
                      if not regula.search(tresci[p])]
     zlapane_z_b = [p for p in sorted(KATEGORIE["B"]) if regula.search(tresci[p])]
 
-    assert przepuszczone == [("UiTextTests.cs", 1308)], (
+    assert przepuszczone == [("UiTextTests.cs", 1309)], (
         "reguła po kształcie przestała przepuszczać wiersz o hamulcu awaryjnym — "
         "rozstrzygnięcie 6.D131 wymaga przeliczenia: %s" % przepuszczone)
-    assert zlapane_z_b == [("UiTextTests.cs", 1378)], (
+    assert zlapane_z_b == [("UiTextTests.cs", 1379)], (
         "reguła po kształcie przestała łapić wejście syntetyczne: %s" % zlapane_z_b)
 
 
@@ -260,11 +262,11 @@ def test_czytnik_widzi_pin_takze_wtedy_gdy_literal_jest_sklejony():
     tresci = {(plik, wiersz): tresc
               for plik, wiersz, _r, tresc in CP.piny("tests/Game.Tests")}
 
-    assert len(tresci[("UiTextTests.cs", 1277)]) == 122, (
+    assert len(tresci[("UiTextTests.cs", 1278)]) == 122, (
         "sklejanie literałów przestało działać: %d znaków"
-        % len(tresci[("UiTextTests.cs", 1277)]))
-    assert len(tresci[("UiTextTests.cs", 1308)]) == 98, (
-        len(tresci[("UiTextTests.cs", 1308)]))
+        % len(tresci[("UiTextTests.cs", 1278)]))
+    assert len(tresci[("UiTextTests.cs", 1309)]) == 98, (
+        len(tresci[("UiTextTests.cs", 1309)]))
     assert len(tresci[("SignallingHudTests.cs", 37)]) == 84, (
         len(tresci[("SignallingHudTests.cs", 37)]))
 

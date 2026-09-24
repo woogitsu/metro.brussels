@@ -1851,7 +1851,7 @@ public sealed class UiTextTests
     // 41 -> 44 (14.09.2026, MB-07): przeliczone przebiegiem.
     // 44 -> 47 (14.09.2026, MB-08): `hud.station.doors-manual`, `input.door-open`,
     // `input.door-close`. Przeliczone przebiegiem.
-    // +2: podpowiedź hamowania jest kluczem katalogu w obu gałęziach dojazdu.
+    // 47 -> 58 (24.09.2026, integracja): podpowiedź hamowania w obu gałęziach dojazdu.
     // 58 -> 60 (24.09.2026, preparing to brake): key in both approaches.
     private const int KluczyKatalogunaEkranie = 60;
 

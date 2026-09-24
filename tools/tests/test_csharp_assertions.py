@@ -455,7 +455,9 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 # 1886 -> 1896 (24.09.2026, braking cue): dziesiec asercji wskazowki hamowania.
 # 1896 -> 1901 (24.09.2026, PR #771): piec asercji krawedzi peronu z komunikatem.
 # 1901 -> 1903 (24.09.2026, kamera): dwie kontrole koncow osi.
-Z_KOMUNIKATEM_RAZEM = 1903
+# 1903 -> 1915 (24.09.2026, dwustopniowe cue): dwanascie asercji z komunikatem.
+# 1915 -> 1920 (24.09.2026, S): piec kontroli natychmiastowego wygaszenia.
+Z_KOMUNIKATEM_RAZEM = 1920
 NIEROZSTRZYGNIETYCH = 68
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
 #: `tests/Sim.Tests/DefaultArmAuditTests.cs` — bramki na ramionach domyślnych
@@ -567,7 +569,9 @@ NIEROZSTRZYGNIETYCH = 68
 # 3332 -> 3342 (24.09.2026, braking cue): dziesiec asercji `BrakingCueTests`.
 # 3342 -> 3347 (24.09.2026, PR #771): piec asercji `StationEdgeVisibilityTests`.
 # 3347 -> 3349 (24.09.2026, kamera): dwie asercje ciaglosci i kierunku.
-ASERCJI_RAZEM = 3349
+# 3349 -> 3361 (24.09.2026, dwustopniowe cue): te same dwanascie asercji.
+# 3361 -> 3366 (24.09.2026, S): piec kontroli natychmiastowego wygaszenia.
+ASERCJI_RAZEM = 3366
 
 
 def _rozklad():

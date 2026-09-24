@@ -109,7 +109,8 @@ public sealed class BrakingCueTests
         var clearing = notch.Advance(DriverKeys.Braking, FixedStep.Simulation);
         Assert.IsTrue(clearing.Throttle > 0.0 && clearing.Brake == 0.0,
             "the test must exercise the notch-clearing interval");
-        Assert.IsTrue(BrakingCue.MayAdvise(DriverKeys.Powering, DriverCommand.FullPower));
+        Assert.IsTrue(BrakingCue.MayAdvise(DriverKeys.Powering, DriverCommand.FullPower),
+            "a powered approach still displays the advisory before S is pressed");
         Assert.IsFalse(BrakingCue.MayAdvise(DriverKeys.Braking, clearing),
             "S must clear the cue on its first accepted step, before Brake rises");
         Assert.IsFalse(BrakingCue.MayAdvise(DriverKeys.EmergencyBraking,

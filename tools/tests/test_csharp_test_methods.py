@@ -628,8 +628,10 @@ ROZKLAD_POSTACI = {
         # 4886 -> 4892 (24.09.2026, PR #771): nazwy siatek i komunikat asercji.
         # 4892 -> 4901 i 838 -> 840 (24.09.2026, kamera): testy ciaglosci.
         # 4901 -> 4904 (24.09.2026, integracja): scisle porownania w DoorPromptTests.
-        "zwykly": 4904,
-        "interpolowany ($)": 840,
+        # 4904 -> 4915 i 840 -> 842 (24.09.2026, dwustopniowe cue): testy obu faz.
+        # 4915 -> 4920 (24.09.2026, S): cztery literały i komunikat asercji.
+        "zwykly": 4920,
+        "interpolowany ($)": 842,
         "werbatim (@)": 100,
         "surowy interpolowany ($$\"\"\")": 13,
         # 8 -> 10 (23.09.2026): dwie probki sceny w testach.
@@ -687,7 +689,8 @@ ROZKLAD_POSTACI = {
         # innego ksztaltu, `Program.WrongJsonShapeText` w `Sim.Runner`. ZMIERZONE.
         # 1452 -> 1456 (23.09.2026): cztery literaly kodu nowej sceny.
         # 1456 -> 1460 (24.09.2026, braking cue): wskazowka w obu trybach.
-        "zwykly": 1460,
+        # 1460 -> 1464 (24.09.2026, dwustopniowe cue): cztery nowe literały HUD.
+        "zwykly": 1464,
         # 489 -> 494 (22.09.2026, 6.D235): piec komunikatow `Abort` dla pliku ZLEGO
         # w `FirstRun.cs`. Przeliczone z drzewa, nie zsumowane.
         # 494 -> 513 (23.09.2026, 6.M1): komunikaty odmow i wiersze zapisu zdarzen
