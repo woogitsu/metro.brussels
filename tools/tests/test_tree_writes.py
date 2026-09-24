@@ -109,6 +109,9 @@ POZA_DRZEWEM = {
     ("test_shot_metadata_gate.py",
      "test_visual_continuation_uses_independent_axis_and_glb_pair", "shutil.copyfile"):
         "niezalezna os wizualnego przedluzenia kopiowana do tempfile.TemporaryDirectory",
+    ("test_shot_metadata_gate.py",
+     "test_connector_preview_requires_explicit_kind_and_unmodelled_vertical", "shutil.copyfile"):
+        "oś prototypowego łącznika kopiowana wyłącznie do tempfile.TemporaryDirectory",
     ("test_dotnet_version.py", "_atrapa_dotnet_root", "shutil.copy2"):
         "atrapa układu .NET budowana w katalogu tymczasowym",
     ("test_mutation_sweep.py", "_cele_na_boku", "shutil.copyfile"):

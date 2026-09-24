@@ -125,6 +125,7 @@ public sealed class RunPlanTests
                 "trains" => "2",
                 "jitter" or "at-chainage" => "1.5",
                 "view" => "cab",
+                "visual-continuation" => "tail",
                 "limit-kmh" => "70",
                 _ => "x",
             };
@@ -169,7 +170,7 @@ public sealed class RunPlanTests
         // i oba LICZBOWE, więc na liście `PathArguments` ich nie ma i być nie powinno —
         // tamta mówi o kształcie WARTOŚCI, a pusta wartość liczbowa odpada już na
         // `TryLong`. Zakres `--trains` sprawdza osobna asercja przy `MaxTrains`.
-        Assert.AreEqual(20, samotnych, "argumentów bez zależności");
+        Assert.AreEqual(21, samotnych, "argumentów bez zależności");
         Assert.AreEqual(3, zZaleznoscia, "argumentów z zależnością");
         Assert.AreEqual(
             RunPlan.KnownArguments.Length, samotnych + zZaleznoscia,
@@ -177,6 +178,21 @@ public sealed class RunPlanTests
     }
 
     // --- USTERKA 2: nieznany widok -------------------------------------------------
+
+    [TestMethod]
+    public void Connector_preview_is_explicit_and_requires_geometry()
+    {
+        Assert.IsTrue(Parse("--visual-continuation=tail").IsValid,
+            "Domyślna sceneria pozostaje dostępna jawnie.");
+        Assert.IsTrue(Parse("--visual-continuation=connector-preview").IsValid,
+            "Projektowy podgląd można wybrać bez zmiany osi jazdy.");
+        Assert.AreEqual(BadArgumentValue,
+            Parse("--visual-continuation=connector-preview", "--no-geometry").ExitCode,
+            "Podgląd bez geometrii nie może kończyć się pustą sceną.");
+        Assert.AreEqual(BadArgumentValue,
+            Parse("--visual-continuation=unknown").ExitCode,
+            "Nieznana kontynuacja nie może po cichu wracać do 300 m ogona.");
+    }
 
     /// <summary>
     /// Zmierzone: <c>--view=zmyslony</c> CICHO spadało do widoku z kabiny. Zrzut
