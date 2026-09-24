@@ -48,9 +48,11 @@ public sealed class EmergencyBrakeTests
 
         Assert.AreEqual(DoorPhase.Open, session.Observed.Drive?.Phase,
             "autopilot must actually be serving a station with open doors");
-        Assert.AreEqual(ControlOwner.Autopilot, session.Observed.Owner);
+        Assert.AreEqual(ControlOwner.Autopilot, session.Observed.Owner,
+            "the train remains under autopilot before the ignored E input");
         session.Step(DriverKeys.EmergencyBraking);
-        Assert.AreEqual(DoorPhase.Open, session.Observed.Drive?.Phase);
+        Assert.AreEqual(DoorPhase.Open, session.Observed.Drive?.Phase,
+            "ignored E must not close the autopilot door cycle");
         Assert.AreEqual(string.Empty, EmergencyBrake.Notice(
             DriverKeys.EmergencyBraking, session.Command,
             session.Observed.Owner == ControlOwner.Driver),
@@ -58,13 +60,16 @@ public sealed class EmergencyBrakeTests
 
         core.TakeControl(LineSession.CabTrainId);
         session.Step(DriverKeys.EmergencyBraking);
-        Assert.AreEqual(ControlOwner.Driver, session.Observed.Owner);
+        Assert.AreEqual(ControlOwner.Driver, session.Observed.Owner,
+            "the second E input belongs to the driver after takeover");
         Assert.AreEqual(DoorPhase.Open, session.Observed.Drive?.Phase,
             "braking does not interrupt an open door cycle");
-        Assert.AreEqual(1.0, session.Command.Brake, 1e-12);
+        Assert.AreEqual(1.0, session.Command.Brake, 1e-12,
+            "the driver's E applies full service braking");
         StringAssert.Contains(EmergencyBrake.Notice(
             DriverKeys.EmergencyBraking, session.Command,
-            session.Observed.Owner == ControlOwner.Driver), "HAMULEC AWARYJNY");
+            session.Observed.Owner == ControlOwner.Driver), "HAMULEC AWARYJNY",
+            "the driver owned braking event is visible in the HUD");
     }
 
     /// <summary>Liczba hamulca wyciągnięta z gotowego wiersza HUD-u.</summary>

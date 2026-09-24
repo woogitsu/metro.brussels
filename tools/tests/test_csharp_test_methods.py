@@ -633,7 +633,8 @@ ROZKLAD_POSTACI = {
         # 4920 -> 4929 (24.09.2026, oznaczenia stacji): pelna nazwa i
         # komunikaty pieciu asercji testow znacznikow; zmierzone czytnikiem.
         # 4929 -> 4957 i 842 -> 843 (24.09.2026, pamiec cue): test przejazdu i zakresu pamieci.
-        "zwykly": 4957,
+        # 4957 -> 4970 (24.09.2026, autopilot E): osiem asercji i ich komunikaty.
+        "zwykly": 4970,
         "interpolowany ($)": 843,
         "werbatim (@)": 100,
         "surowy interpolowany ($$\"\"\")": 13,
