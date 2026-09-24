@@ -76,7 +76,7 @@ Dotyczy szczególnie:
 - deterministyczny seed;
 - brak temporal jitter.
 
-To nie jest finalne oświetlenie gry. Służy do porównywalnych screenshotów narzędzi. Baseline Godot powstanie dopiero po T-400, na rzeczywistym rendererze i sprzęcie self-hosted.
+To nie jest finalne oświetlenie gry. Służy do porównywalnych screenshotów narzędzi. Baseline Godot wymaga oceny na docelowym rendererze i sprzęcie; obraz `ubuntu-latest` służy do CI, nie do pomiaru wydajności gracza.
 
 ## Neutral material test scene
 
@@ -93,7 +93,7 @@ Scena:
 
 Artefakty nie trafiają do Git. Workflow `material-style-smoke.yml` przechowuje je jako artefakty CI do rzeczywistego obejrzenia.
 
-T-902 **nie może zostać zamknięte**, dopóki ten job nie wykona się na runnerze self-hosted i trzy PNG nie zostaną ręcznie ocenione.
+T-902 **nie może zostać zamknięte**, dopóki ten job nie wykona się na `ubuntu-latest` i trzy PNG nie zostaną ręcznie ocenione.
 
 ## Źródła zewnętrznych materiałów
 
@@ -160,7 +160,7 @@ Statusy safety mają mieć redundancję: tekst/ikona/kształt, nie sam kolor.
 
 Nie wpisujemy dziś arbitralnych limitów polygonów, draw calls, świateł, rozmiarów tekstur ani LOD distances.
 
-`visual-style.json` zostawia te budżety jako `null`, dopóki T-400/T-012 nie zmierzy na docelowym runnerze self-hosted, na jego GPU:
+`visual-style.json` zostawia te budżety jako `null`, dopóki T-400/T-012 nie zmierzy ich na docelowym sprzęcie gracza i GPU:
 - FPS/frame time;
 - sim tick time osobno;
 - draw calls;
@@ -183,12 +183,9 @@ Do tego czasu kod i assety mają pozostać kompatybilne z neutralnym fallbackiem
 
 ## Weryfikacja po odblokowaniu runnera
 
-Runner jest self-hosted, na komplecie etykiet `[self-hosted, Linux, X64, woogitsu,
-i5-10400f, nvidia-gtx1070]` — pula organizacji `woogitsu` (`CLAUDE.md` §9; nazw
-i liczby maszyn ten dokument nie podaje, bo dobór idzie po etykietach).
-Ten akapit jest **przepisany, a nie dopisany obok**, i to po raz drugi; obie
-poprzednie wersje są niżej, bo bez nich nie widać, czemu selektor ma dziś sześć
-etykiet.
+CI działa na GitHub-hosted `ubuntu-latest` (`CLAUDE.md` §9). Ta maszyna
+sprawdza poprawność assetów i zrzutów, ale nie zastępuje pomiaru wydajności
+na docelowym sprzęcie gracza.
 
 Wersja pierwsza tego rozdziału — i dwa miejsca wyżej — mówiła „na self-hosted
 WSL2"; etykietę `wsl2` zdjęto 02.08.2026, bo maszyna, która ją nosiła, została
@@ -197,7 +194,7 @@ dodatkowych etykiet", a od 05.09.2026 obowiązywał komplet `[self-hosted, Linux
 wsl2, woogitsu]` na czterech maszynach `woogitsu-wsl-DOM-NEW-*`. Oba te zapisy są
 dziś **nieprawdziwe co do stanu bieżącego** i stoją tu wyłącznie jako historia.
 
-Na runnerze self-hosted:
+Na runnerze `ubuntu-latest`:
 
 ```bash
 python3 tools/tests/test_all.py
