@@ -235,7 +235,7 @@ public sealed class UiTextTests
     // 592 -> 595 (24.09.2026, integracja pomocy linii): trzy literały testów pomocy.
     // 595 -> 596 (24.09.2026, stan składu po zjeździe): nowy wiersz HUD.
     // 596 -> 599 (24.09.2026, sceneria za Merode): dwie ścieżki GLB i odmowa niekompletnej pary.
-    // 599 -> 601 (24.09.2026): rozmiar i kolor wyróżnionego celu stacji w HUD.
+    // 599 -> 601 (24.09.2026, cel stacji): rozmiar i kolor wyróżnionego celu w HUD.
     private const int LiteralowWZasieguBramki = 601;
 
     /// <summary>Ile różnych — dolne ostrze, zmierzone 12.09.2026.</summary>
@@ -1514,7 +1514,7 @@ public sealed class UiTextTests
     // 633 -> 636 (24.09.2026, integracja pomocy linii): trzy pozycje źródłowe testów.
     // 636 -> 637 (24.09.2026, stan składu po zjeździe): ten sam wiersz HUD.
     // 637 -> 640 (24.09.2026, sceneria za Merode): te same trzy literały.
-    // 640 -> 642: dwa wywołania ustawiające wygląd celu stacji.
+    // 640 -> 642 (24.09.2026, cel stacji): dwa wywołania ustawiające wygląd.
     private const int PozycjiStaregoCzytnika = 642;
 
     /// <summary>
@@ -2338,7 +2338,7 @@ public sealed class UiTextTests
     // 410 -> 411 (24.09.2026, integracja pomocy linii): jeden dodatkowy literał.
     // 411 -> 412 (24.09.2026, stan składu po zjeździe): ten sam wiersz HUD.
     // 412 -> 415 (24.09.2026, sceneria za Merode): dwie ścieżki i odmowa.
-    // 415 -> 416: nowy kolor stacji w wywołaniu konstruktora Godota.
+    // 415 -> 416 (24.09.2026, cel stacji): nowy kolor w konstruktorze Godota.
     private const int LiteralowDotknietychZdejmowaniem = 416;
 
     /// <summary>
