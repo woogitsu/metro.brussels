@@ -59,6 +59,7 @@ public sealed partial class StationView : Node3D
         // The generated warning strips have their own `_edge` meshes. Give them
         // a readable, unbranded color instead of the slab's gray override.
         using var edgeMaterial = GlbLoader.NeutralMaterial(new Color(0.76f, 0.60f, 0.24f), 0.90f);
+        using var slabMaterial = GlbLoader.NeutralMaterial(new Color(0.48f, 0.48f, 0.46f), 0.95f);
 
         _slabs.Clear();
         foreach (var instance in MeshInstances(scene))
@@ -66,6 +67,10 @@ public sealed partial class StationView : Node3D
             if (IsEdgeMeshName((string)instance.Name))
             {
                 instance.MaterialOverride = edgeMaterial;
+            }
+            else if (IsPlatformMeshName((string)instance.Name))
+            {
+                instance.MaterialOverride = slabMaterial;
             }
 
             _slabs.Add(instance.GlobalTransform * instance.GetAabb());
@@ -77,6 +82,10 @@ public sealed partial class StationView : Node3D
     /// <summary>Generator station_kit oznacza pasy przy krawędzi sufiksem `_edge`.</summary>
     public static bool IsEdgeMeshName(string name) =>
         name.AsSpan().EndsWith(['_', 'e', 'd', 'g', 'e']);
+
+    /// <summary>Generator station_kit oznacza płyty peronowe sufiksem `_platform`.</summary>
+    private static bool IsPlatformMeshName(string name) =>
+        name.AsSpan().EndsWith(['_', 'p', 'l', 'a', 't', 'f', 'o', 'r', 'm']);
 
     /// <summary>Use the complete bilingual name, never abbreviated feed fields.</summary>
     public static string NameMarkerText(string axisName) => axisName.Replace('|', '\n');
