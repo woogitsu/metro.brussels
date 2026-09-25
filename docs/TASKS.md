@@ -457,6 +457,10 @@ których agent nie ruszy bez decyzji właściciela.
   rzeczywista scena i rdzeń kończą po 8041 tickach z identyczną telemetrią,
   czterema zdarzeniami linii, postojem i bez odmów drzwi.
   Dowód: `reports/t400-line-takeover-doors-fps-2026-09-25.md`.
+- **Wybór kamery nie dodaje ticków Sim (#26, 25.09.2026):** ten sam zapis
+  przejęcia, drzwi i oddania w rzeczywistej scenie ma identyczną telemetrię
+  dla kabiny i aktywnego widoku zewnętrznego. Bramkę i granice dowodu opisuje
+  `reports/t400-camera-ticks-line-2026-09-25.md`.
 - **Zrobione (etap 2):** zrzuty z silnika idą przez kontrolę wizualną z T-012,
   odtwarzalne co do bajtu również między maszynami (`reports/T-012-godot-capture.md`)
 - **Dowód sekwencji Parc/Park (25.09.2026):** 106 kolejnych klatek jednego przebiegu
