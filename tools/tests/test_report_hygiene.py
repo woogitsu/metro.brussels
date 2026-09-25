@@ -529,7 +529,8 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 # 476 -> 477 (25.09.2026, 6.D348): pomiar dwóch dokładności w narzędziach sceny.
 # 477 -> 478 (25.09.2026, T-400): przegląd obrazów z Parc i Beekkant.
 # 478 -> 479 (25.09.2026, ciągły wjazd Parc/Park): drugi raport; policzono reports/*.md.
-MIN_REPORTS = 479
+# 479 -> 480 (25.09.2026, #26): baseline wydajności sceny 1080p.
+MIN_REPORTS = 480
 
 #: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
 #: wierszem zaczynającym się od `**`, z którego `_header_shapes` czyta kształt.
