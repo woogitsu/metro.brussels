@@ -137,8 +137,9 @@ def znaczniki_w_drzewie():
         if any(wzgledna.startswith(prefix) for prefix in evidence_prefixes) and wzgledna.endswith((".png", ".gif")):
             data = open(pelna, "rb").read()
             item = evidence.get(wzgledna)
-            signature_ok = (data[:8] == b"\x89PNG\r\n\x1a\n" if wzgledna.endswith(".png")
-                            else data[:6] in (b"GIF87a", b"GIF89a"))
+            signature_ok = (data.startswith(b"\x89PNG\r\n\x1a\n")
+                            if wzgledna.endswith(".png")
+                            else data.startswith((b"GIF87a", b"GIF89a")))
             if (item is None or len(data) != item["bytes"] or
                     hashlib.sha256(data).hexdigest() != item["sha256"] or
                     not signature_ok):
