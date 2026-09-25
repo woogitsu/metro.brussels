@@ -2297,8 +2297,12 @@ public sealed partial class FirstRun : Node3D
             // płytę, na której stoi kandydat kamery, bez twierdzenia, że to
             // potwierdzona strona otwierania drzwi na rzeczywistej stacji.
             var at = chainage - 14.0;
-            var right = _sceneAxis.CabPoint(at, 0.0, 2.7, 6.0).Position;
-            var left = _sceneAxis.CabPoint(at, 0.0, 2.7, -6.0).Position;
+            // CabPoint measures from the selected track, already displaced from
+            // the route axis. The slabs instead straddle the route axis.
+            var right = _sceneAxis.CabPoint(
+                at, 0.0, 2.7, 6.0 - _sceneAxis.TrackOffsetM).Position;
+            var left = _sceneAxis.CabPoint(
+                at, 0.0, 2.7, -6.0 - _sceneAxis.TrackOffsetM).Position;
             // Między stacjami nie ma płyty: zachowujemy kadr boczny.
             var fallback = _sceneAxis.CabPoint(
                 at, 0.0, 2.0, DesignAssumptions.OutsideLateralM).Position;
