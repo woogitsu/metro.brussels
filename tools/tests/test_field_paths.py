@@ -2210,7 +2210,9 @@ def _istnieje_w_drzewie(nazwa):
 # tymczasowych przeszedl do wykonanych; obie liczby zmierzone na drzewie.
 # 1414 -> 1416 i 571 -> 573 (25.09.2026, 6.D360): blok pomiaru rozszerzen
 # przeszedl do wykonanych po scaleniu z 6.D368; liczby dla calego drzewa.
-ADRESOW_W_WYKONANYCH = {"Wejście": 1416, "Wyjście": 73, "Weryfikacja": 573}
+# 1416 -> 1419 i 573 -> 575 (25.09.2026, 6.D348): blok audytu
+# dokladnosci przeszedl do wykonanych; liczby zmierzone na drzewie.
+ADRESOW_W_WYKONANYCH = {"Wejście": 1419, "Wyjście": 73, "Weryfikacja": 575}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
@@ -2410,7 +2412,9 @@ ADRESOW_W_WYKONANYCH = {"Wejście": 1416, "Wyjście": 73, "Weryfikacja": 573}
 # 260 -> 262 (23.09.2026, 6.D352): dwa wywolania test_all.py; ZMIERZONE.
 # 262 -> 263 (25.09.2026, 6.D367): blok paczki Windows ma jedno wywolanie zestawu; ZMIERZONE.
 # 263 -> 265 (25.09.2026, 6.D360): blok ma dwa wywolania testowych modulow; ZMIERZONE.
-WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 265}
+# 265 -> 267 (25.09.2026, 6.D348): dwa wywolania modulow z bloku
+# audytu dokladnosci; liczba zmierzona na drzewie.
+WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 267}
 
 #: Ilu kandydatow zlego adresu daje regula prozy, per pole — 6.D158.
 # 12 -> 13 (14.09.2026, 6.D204): trzynastym kandydatem jest `test_mutation_sweep.py`
@@ -2442,7 +2446,9 @@ WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 265}
 # 21 -> 22 (23.09.2026, 6.D359): kandydat z plotka „Weryfikacji" bloku tej pozycji,
 # `test_next_task.py` — nazwa modulu bez sciezki, ktorej proza bloku nie wymienia
 # (odczytane wprost z `kandydaci_pola_w_wykonanych`). Ten sam ksztalt co poprzednie.
-KANDYDATOW_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 22}
+# 22 -> 24 (25.09.2026, 6.D348): dwa nowe trafienia z bloku wykonanej
+# weryfikacji; licznik przeliczony, reguly bez zmian.
+KANDYDATOW_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 24}
 
 
 def adresy_pola_w_wykonanych(pole):
