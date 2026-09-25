@@ -1,5 +1,8 @@
 # Parc/Park: continuous arrival capture
 
+**Data pomiaru:** 2026-09-25  
+**Zmierzone na commicie:** `1afb4d6235b5811699f5221cac58e47e8ac5957f`
+
 The reviewed [animation](visual-evidence/parc-arrival/parc-arrival.gif) contains **106 consecutive rendered frames from one line run**, frames 1720–1825 inclusive. It shows approach, braking, a stop at Parc/Park, doors opening, and doors open. Three original 1280×720 frames (`frame-1720.png`, `frame-1790.png`, `frame-1820.png`), the raw Godot log, and SHA-256 manifest sit beside it. The GIF is resized to 960×540 and plays its 0.25 simulation seconds per frame in 80 ms, so playback is about 3.1 times simulation speed; the final frame is held for 1 second.
 
 ## Reproduce
