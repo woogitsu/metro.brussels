@@ -49,6 +49,11 @@ def _czytaj(sciezka):
         return uchwyt.read()
 
 
+def _wymagaj(warunek, komunikat):
+    if not warunek:
+        raise AssertionError(komunikat)
+
+
 def readme_z_skryptu(tekst=None):
     """Treść heredoku `CZYTAJ`, czyli DOKŁADNIE to, co dostaje gracz.
 
@@ -259,22 +264,22 @@ def test_paczka_windows_ma_osobny_preset_i_instrukcje_startu():
                 assert os.path.isfile(manifest_path), "paczka nie zawiera release-manifest.json"
                 with open(manifest_path, encoding="utf-8") as uchwyt:
                     manifest = json.load(uchwyt)
-                assert manifest["schema_version"] == 1
-                assert manifest["package_system"] == (system or "linux")
-                assert manifest["godot_preset"] == preset
-                assert manifest["executable"] == plik
+                _wymagaj(manifest["schema_version"] == 1, "nieznana wersja manifestu")
+                _wymagaj(manifest["package_system"] == (system or "linux"), "zły system w manifeście")
+                _wymagaj(manifest["godot_preset"] == preset, "zły preset w manifeście")
+                _wymagaj(manifest["executable"] == plik, "zła binarka w manifeście")
                 wpisy = {w["path"]: w for w in manifest["files"]}
-                assert "release-manifest.json" not in wpisy
+                _wymagaj("release-manifest.json" not in wpisy, "manifest opisuje sam siebie")
                 rzeczywiste = {
                     sciezka.relative_to(Path(paczka)).as_posix(): str(sciezka)
                     for sciezka in Path(paczka).rglob("*")
                     if sciezka.is_file() and sciezka.name != "release-manifest.json"
                 }
-                assert set(wpisy) == set(rzeczywiste), "manifest nie opisuje dokładnie zawartości paczki"
+                _wymagaj(set(wpisy) == set(rzeczywiste), "manifest nie opisuje dokładnie zawartości paczki")
                 for sciezka, wpis in wpisy.items():
                     dane = open(rzeczywiste[sciezka], "rb").read()
-                    assert wpis["bytes"] == len(dane)
-                    assert wpis["sha256"] == hashlib.sha256(dane).hexdigest()
+                    _wymagaj(wpis["bytes"] == len(dane), f"zły rozmiar {sciezka}")
+                    _wymagaj(wpis["sha256"] == hashlib.sha256(dane).hexdigest(), f"zły hash {sciezka}")
                 assert os.path.isfile(os.path.join(paczka, "zasoby",
                                                    "L1_A-station-board.glb")), (
                     f"paczka {system or 'linux'} nie zawiera tablicy stacji")
