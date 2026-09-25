@@ -637,7 +637,9 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 # 428 -> 429 (25.09.2026, 6.D360): blok 6.D371 dopisany z kompletem szesciu pol.
 # 429 -> 430 (25.09.2026, 6.D348): blok 6.D370 wynika z siedmiu par
 # zaokraglen znalezionych przez 6.D348; zapas po obu pozycjach to 13/12.
-MINIMUM_DETAIL_BLOCKS = 430
+# 430 -> 431 (25.09.2026, 6.D344): blok 6.D372 dokumentuje
+# odsyłacze raportów poza grawisami, ujawnione porównaniem czterech sit.
+MINIMUM_DETAIL_BLOCKS = 431
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
