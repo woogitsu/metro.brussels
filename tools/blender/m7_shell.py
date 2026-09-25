@@ -107,7 +107,7 @@ def end_cap_with_panel(bm, ring):
 
 def build_tube(name, layout, start, end, extra_inset=0.0, taper_aware=True,
                dark_start=False, dark_end=False, dark_body=False,
-               window_band=False):
+               window_band=False, window_dividers=()):
     """Zamknięta skorupa zbudowana z pierścieni przekroju wzdłuż X."""
     mesh = bpy.data.meshes.new(name)
     obj = bpy.data.objects.new(name, mesh)
@@ -115,7 +115,10 @@ def build_tube(name, layout, start, end, extra_inset=0.0, taper_aware=True,
 
     bm = bmesh.new()
     rings = []
-    for x in RP.x_stations(layout, start, end, taper_aware):
+    stations = set(RP.x_stations(layout, start, end, taper_aware))
+    for x0, x1 in window_dividers:
+        stations.update((x0, x1))
+    for x in sorted(stations):
         section = layout.section(x, extra_inset)
         if window_band:
             # Rozbij tylko istniejące pionowe lica boków: materiał nie wystaje
@@ -132,10 +135,12 @@ def build_tube(name, layout, start, end, extra_inset=0.0, taper_aware=True,
 
     count = len(rings[0])
     for a, b in zip(rings, rings[1:]):
+        mid_x = (a[0].co.x + b[0].co.x) / 2.0
+        divider = any(x0 <= mid_x <= x1 for x0, x1 in window_dividers)
         for i in range(count):
             j = (i + 1) % count
             face = bm.faces.new((a[i], a[j], b[j], b[i]))
-            if window_band and i in (2, 8):
+            if window_band and not divider and i in (2, 8):
                 face.material_index = 2 if dark_start or dark_end else 1
     if dark_start:
         end_cap_with_panel(bm, rings[0])
@@ -226,7 +231,8 @@ def build_shell(layout):
         start, end = layout.car_body_span(index)
         car = build_tube(f"M7_car_{index + 1}", layout, start, end,
                          dark_start=index == 0, dark_end=index == layout.cars - 1,
-                         window_band=True)
+                         window_band=True,
+                         window_dividers=layout.window_divider_spans(index))
         solidify(car)
         car_doors = [d for d in doors if d["car"] == index]
         if car_doors:
