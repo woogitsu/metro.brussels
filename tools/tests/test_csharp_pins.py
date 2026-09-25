@@ -507,9 +507,11 @@ ROZKLAD_LICZBOWYCH = {
         # 560 -> 562 (25.09.2026, nastawnik): dwa piny przejścia przez neutral.
         # 562 -> 566 (25.09.2026, obserwacja czynnych składów): dwie dokładne
         # wartości przyspieszenia 0.0 i dwa całkowite indeksy obserwacji.
-        "razem": 566, "z_tolerancja": 195, "bez_tolerancji": 371,
-        "zmiennoprzecinkowe": 216, "zmiennoprzecinkowe_bez_tolerancji": 21,
-        "calkowite": 350, "calkowite_z_tolerancja": 0, "tolerancja_zero": 125,
+        # 566 -> 568 (25.09.2026, T-400 ATP): zerowy nastaw z tolerancją
+        # i dokładne zero naruszeń zezwolenia.
+        "razem": 568, "z_tolerancja": 196, "bez_tolerancji": 372,
+        "zmiennoprzecinkowe": 217, "zmiennoprzecinkowe_bez_tolerancji": 21,
+        "calkowite": 351, "calkowite_z_tolerancja": 0, "tolerancja_zero": 125,
     },
 }
 
