@@ -41,3 +41,5 @@ Result: **0.400 µs per LineCore tick**, 9.1% spread. This is a separate simulat
 ## Limits
 
 Xvfb used Mesa llvmpipe rather than the target hardware GPU. Frame timing and process memory include Godot, rendering, the scene and .NET runtime. The Godot process monitor measures frame processing, not the isolated simulation step. A hardware-rendered 1080p run and scene-specific simulation timing are still needed before setting performance budgets. No visible game window was opened.
+
+The later [visible-pass primitive measurement](t400-visible-pass-primitives-2026-09-25.md) adds a viewport counter while retaining the same software-rendering limitation.
