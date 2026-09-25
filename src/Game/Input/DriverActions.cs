@@ -17,7 +17,7 @@ namespace MetroBxl.Game.Input;
 /// </summary>
 /// <param name="Action">Nazwa akcji w <c>InputMap</c>, np. <c>driver_power</c>.</param>
 /// <param name="KeyName">
-/// Nazwa klawisza w wierszu pomocy, np. <c>W</c>. <b>Zostaje tutaj, a nie idzie do
+/// Nazwa klawisza w wierszu pomocy, np. <c>W/Z</c>. <b>Zostaje tutaj, a nie idzie do
 /// katalogu tekstów</b> (6.D99): to napis na klawiszu, nie zdanie po polsku, a dla
 /// nazw jednoliterowych <c>DriverActionsTests</c> porównuje go wprost
 /// z <c>physical_keycode</c>.
@@ -124,8 +124,11 @@ public static class DriverActions
     {
         // Strzałki obok liter, bo tak było przed przejściem na `InputMap` i zadanie G-3
         // nie zmienia sterowania, tylko sposób jego czytania.
+        // Na belgijskim AZERTY klawisze W i Z zamieniają miejsca. Oba położenia
+        // wywołują ciąg, więc napis W/Z jest prawdziwy na obu układach.
         new DriverBinding(
-            Power, "W", UiText.Get("input.power"), new[] { (int)Key.W, (int)Key.Up }),
+            Power, "W/Z", UiText.Get("input.power"),
+            new[] { (int)Key.W, (int)Key.Z, (int)Key.Up }),
         new DriverBinding(
             Brake, "S", UiText.Get("input.brake"), new[] { (int)Key.S, (int)Key.Down }),
         new DriverBinding(Coast, "X", UiText.Get("input.coast"), new[] { (int)Key.X }),

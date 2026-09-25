@@ -504,7 +504,8 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 # 2206 -> 2209 (25.09.2026, tablice stacyjne): trzy kontrole z komunikatami.
 # 2209 -> 2216 (25.09.2026, asercje odcisku i drugiego składu z komunikatami).
 # 2216 -> 2220 (25.09.2026, odcisk taktu pytań nastawni).
-Z_KOMUNIKATEM_RAZEM = 2220
+# 2220 -> 2223 (25.09.2026, AZERTY): trzy asercje pary W/Z mają komunikaty.
+Z_KOMUNIKATEM_RAZEM = 2223
 NIEROZSTRZYGNIETYCH = 69
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
 #: `tests/Sim.Tests/DefaultArmAuditTests.cs` — bramki na ramionach domyślnych
@@ -656,7 +657,8 @@ NIEROZSTRZYGNIETYCH = 69
 # 3668 -> 3671 (25.09.2026, tablice stacyjne): trzy kontrole skrajni i stropu.
 # 3671 -> 3678 (25.09.2026, powtarzalność odcisku i drugi skład).
 # 3678 -> 3682 (25.09.2026, stan nastawni o różnych terminach pytań).
-ASERCJI_RAZEM = 3682
+# 3682 -> 3685 (25.09.2026, AZERTY): trzy asercje nowego testu mapy.
+ASERCJI_RAZEM = 3685
 
 
 def _rozklad():
