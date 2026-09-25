@@ -1,6 +1,10 @@
+using System;
 using Godot;
+using MetroBxl.Game.UI;
 using MetroBxl.Game.World;
 using MetroBxl.Sim.Line;
+using MetroBxl.Sim.Physics;
+using MetroBxl.Sim.Train;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace MetroBxl.Game.Tests;
@@ -105,5 +109,53 @@ public sealed class StationWayfindingTests
         Assert.AreEqual(StationView.StopTargetVerticalLayout().CentreHeight,
             fromRoute.Dot(Vector3.Up), 0.001f,
             "The board must keep its measured roof clearance above the active track");
+    }
+
+    [TestMethod]
+    public void TargetOutcomeFollowsValidStopDepartureMissAndReset()
+    {
+        var service = new StationService(new[]
+        {
+            new AxisStation("Start", 0.0, "s0"),
+            new AxisStation("First", 500.0, "s1"),
+            new AxisStation("Second", 1200.0, "s2"),
+        }, new DoorCycle(0.0), FixedStep.Simulation, 5.0);
+
+        Assert.AreEqual(StopTargetOutcome.Approach, StationView.StopTargetOutcomeFor(service, "s1"),
+            "An untouched target starts amber");
+        Assert.AreEqual(string.Empty, ManualStopOutcomeCue.For(service),
+            "An untouched run has no stale cab outcome");
+        service.Filter(new DriveState(0, 1.0, 500.0, 0.0), DriverCommand.Coast, 500.0);
+        Assert.AreEqual(StopTargetOutcome.Approach, StationView.StopTargetOutcomeFor(service, "s1"),
+            "Passing the target while moving cannot confirm arrival");
+
+        service.Filter(new DriveState(1, 0.0, 500.0, 0.0), DriverCommand.Coast, 500.0);
+        Assert.AreEqual(StopTargetOutcome.Confirmed, StationView.StopTargetOutcomeFor(service, "s1"),
+            "Only StationService's valid call confirms arrival");
+        StringAssert.Contains(ManualStopOutcomeCue.For(service), "POTWIERDZONY",
+            "The driver must see confirmation while the overhead board is out of view");
+        var lastStep = (long)Math.Ceiling(service.Cycle.DwellSeconds / FixedStep.Simulation.Seconds) + 5;
+        for (var step = 2L; step <= lastStep; step++)
+            service.Filter(new DriveState(step, 0.0, 500.0, 0.0), DriverCommand.Coast, 500.0);
+        Assert.IsTrue(double.IsFinite(service.Calls[0].DepartureSeconds),
+            "The domain call must actually record a completed departure");
+        Assert.AreEqual(StopTargetOutcome.Served, StationView.StopTargetOutcomeFor(service, "s1"),
+            "A completed door cycle changes the target to served");
+        StringAssert.Contains(ManualStopOutcomeCue.For(service), "OBSŁUŻONY",
+            "The cab must show the completed service outcome");
+
+        service.Filter(new DriveState(lastStep + 1, 1.0, 1206.0, 0.0),
+            DriverCommand.Coast, 1206.0);
+        Assert.AreEqual(StopTargetOutcome.Missed, StationView.StopTargetOutcomeFor(service, "s2"),
+            "Crossing beyond the stop window without a call marks the target missed");
+        StringAssert.Contains(ManualStopOutcomeCue.For(service), "MINIĘTY",
+            "The newest missed target must replace the older served cue");
+        service.Reset();
+        Assert.AreEqual(StopTargetOutcome.Approach, StationView.StopTargetOutcomeFor(service, "s1"),
+            "Reset clears the served outcome");
+        Assert.AreEqual(StopTargetOutcome.Approach, StationView.StopTargetOutcomeFor(service, "s2"),
+            "Reset clears the missed outcome");
+        Assert.AreEqual(string.Empty, ManualStopOutcomeCue.For(service),
+            "Reset clears the in-cab outcome as well as the world board");
     }
 }
