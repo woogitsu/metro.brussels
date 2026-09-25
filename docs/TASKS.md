@@ -449,6 +449,10 @@ których agent nie ruszy bez decyzji właściciela.
   Metoda i wyniki: `reports/t400-performance-baseline-1080p.md`.
 - **Zrobione (etap 2):** zrzuty z silnika idą przez kontrolę wizualną z T-012,
   odtwarzalne co do bajtu również między maszynami (`reports/T-012-godot-capture.md`)
+- **Dowód sekwencji Parc/Park (25.09.2026):** 106 kolejnych klatek jednego przebiegu
+  linii pokazuje dojazd, hamowanie, postój na 4075,4 m i otwarcie drzwi
+  (`reports/parc-arrival-sequence-2026-09-25.md`). To nie zamyka Issue #26:
+  przyspieszony zapis nie mierzy płynności w czasie rzeczywistym ani szczegółów M7.
 - **Zrobione (etap 3a):** scena **streamuje** chunki i przełącza LOD. `TunnelView.Stream`
   zastąpił `LoadAll`; predykat okna i wybór poziomu liczy `StreamingPlan` (#174), scena
   go woła (#177). Zmierzone na pakiecie A, w trójkątach, co 50 m na całej osi 6686,7 m
