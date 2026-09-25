@@ -131,7 +131,9 @@ def material(name, color, metallic=0.0, emission=0.0):
 MATERIALS = {
     "ballast": ((0.16, 0.18, 0.19), 0, 0),
     "sleepers": ((0.10, 0.12, 0.13), 0, 0),
-    "rails": ((0.57, 0.61, 0.62), 0.55, 0),
+    # A strongly metallic rail loses its unlit side in the Godot tunnel. Keep
+    # enough metal response to distinguish it from the dark sleepers.
+    "rails": ((0.57, 0.61, 0.62), 0.15, 0),
     "wall": ((0.22, 0.29, 0.32), 0, 0),
     "lamp": ((0.58, 0.49, 0.37), 0, 0.60),
     "curve_cue": ((0.55, 0.61, 0.62), 0, 0.60),
