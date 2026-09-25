@@ -244,7 +244,8 @@ public sealed class UiTextTests
     // 649 -> 656 (24.09.2026, osłonięcie wymaganych pól JSON).
     // 656 -> 660 (24.09.2026, etykieta prototypu w HUD).
     // 660 -> 679 (25.09.2026, integracja rozkładu i projektowego podglądu).
-    private const int LiteralowWZasieguBramki = 679;
+    // 679 -> 680 (25.09.2026, log przejścia aktywnej kamery Cab->Chase).
+    private const int LiteralowWZasieguBramki = 680;
 
     /// <summary>Ile różnych — dolne ostrze, zmierzone 12.09.2026.</summary>
     private const int RoznychLiteralowWZasieguBramki = 362;
@@ -1531,7 +1532,8 @@ public sealed class UiTextTests
     // 703 -> 710 (24.09.2026, osłonięcie wymaganych pól JSON).
     // 710 -> 714 (24.09.2026, etykieta prototypu w HUD).
     // 714 -> 733 (25.09.2026, integracja rozkładu i projektowego podglądu).
-    private const int PozycjiStaregoCzytnika = 733;
+    // 733 -> 734 (25.09.2026, ten sam log przejścia kamery).
+    private const int PozycjiStaregoCzytnika = 734;
 
     /// <summary>
     /// Ile PLIKÓW korpusu stary czytnik czytał inaczej niż leksykalny — 6.D182.
@@ -2147,7 +2149,8 @@ public sealed class UiTextTests
     // 153 -> 170 (24.09.2026, opcjonalny podgląd łącznika).
     // 170 -> 177 (24.09.2026, osłonięcie wymaganych pól JSON).
     // 177 -> 183 (25.09.2026, dodatkowe komunikaty rozkładu w scenie).
-    private const int ZgloszenFirstRunCalymPlikiem = 183;
+    // 183 -> 184 (25.09.2026, log przejścia aktywnej kamery).
+    private const int ZgloszenFirstRunCalymPlikiem = 184;
 
     /// <summary>Ile daje ten sam plik liczony WIERSZ PO WIERSZU — 6.D180.</summary>
     // 122 -> 132 (14.09.2026, MB-04): `FirstRun.AssetsRoot`, `DomyslnyZapisWejsc`
@@ -2169,7 +2172,8 @@ public sealed class UiTextTests
     // 166 -> 184 (24.09.2026, opcjonalny podgląd łącznika).
     // 184 -> 191 (24.09.2026, osłonięcie wymaganych pól JSON).
     // 191 -> 197 (25.09.2026, dodatkowe komunikaty rozkładu w scenie).
-    private const int ZgloszenFirstRunWierszami = 197;
+    // 197 -> 198 (25.09.2026, log przejścia aktywnej kamery).
+    private const int ZgloszenFirstRunWierszami = 198;
 
     /// <summary>Ile plików korpusu daje różne liczby obiema drogami — 6.D180.</summary>
     private const int PlikowZRoznicaDrog = 1;
@@ -2380,7 +2384,8 @@ public sealed class UiTextTests
     // 446 -> 447 (24.09.2026, osłonięcie wymaganych pól JSON).
     // 447 -> 448 (24.09.2026, etykieta prototypu w HUD).
     // 448 -> 463 (25.09.2026, zintegrowane literały sceny i rozkładu).
-    private const int LiteralowDotknietychZdejmowaniem = 463;
+    // 463 -> 464 (25.09.2026, log przejścia aktywnej kamery).
+    private const int LiteralowDotknietychZdejmowaniem = 464;
 
     /// <summary>
     /// Ilu literałom zdejmowanie jednostek ZABIERA werdykt „to słowo" — 6.D155.
@@ -3630,7 +3635,8 @@ public sealed class UiTextTests
     // 153 -> 156 (24.09.2026, lampy scenerii): trzy komunikaty `Abort` z interpolacją.
     // 156 -> 158 (24.09.2026, osobne pola metadanych ogona).
     // 158 -> 163 (24.09.2026, komunikaty rozkładu).
-    private const int LiteralowZKlamra = 163;
+    // 163 -> 164 (25.09.2026, interpolowany log aktywnej kamery).
+    private const int LiteralowZKlamra = 164;
 
     /// <summary>
     /// Ilu literałom <see cref="BezDziur"/> zabiera WSZYSTKIE słowa — 6.D188.
@@ -5356,7 +5362,8 @@ public sealed class UiTextTests
     // 29 -> 30 (14.09.2026, MB-07): trzy klawisze obsługi linii (N/T/O), wiersz
     // `[TUNEL koniec]` i komunikaty zakresu `--trains`. Liczba PRZELICZONA przebiegiem.
     // 30 -> 32 (24.09.2026, log dwóch wejść rozkładowych).
-    private const int WierszyLoguWGame = 32;
+    // 32 -> 33 (25.09.2026, log aktywnej kamery po zmianie widoku).
+    private const int WierszyLoguWGame = 33;
 
     // 21 -> 23 (13.09.2026, MB-02): dwa wiersze `[SESJA]`. `WierszyLoguPoAngielsku`
     // zostaje ZEREM i to ono jest tu zdaniem.
@@ -5364,7 +5371,8 @@ public sealed class UiTextTests
     // i wiersz `[ZAPISY]`. Liczba ZMIERZONA przyrzadem tego testu.
     // 24 -> 25 (14.09.2026, MB-07): wiersz `[TUNEL koniec]` — własne słowa, polskie.
     // 25 -> 27 (24.09.2026, dwa wiersze logu wejść rozkładowych).
-    private const int WierszyLoguPoPolsku = 27;
+    // 27 -> 28 (25.09.2026, polski log aktywnej kamery).
+    private const int WierszyLoguPoPolsku = 28;
 
     // Wiersze, których szablon NIE MA WŁASNYCH SŁÓW — cała treść przychodzi z wywołania.
     // Wszystkie w `FirstRun.cs`, i każdy z nich prowadzi do wytwórcy, który własne

@@ -710,6 +710,12 @@ jobs:
               chainages = [float(row["chainage_m"]) for row in rows]
               assert chainages[0] == 94.0, f"{path}: start nie jest w kabinie"
               assert max(chainages) > 110.0, f"{path}: nie minieto progu chase"
+              log_path = Path(f"build/t400/reczny/scene-chase-spf{spf}.log")
+              log = log_path.read_text(encoding="utf-8")
+              transitions = [line for line in log.splitlines() if line.startswith("[WIDOK] ")]
+              assert len(transitions) == 1, f"{log_path}: oczekiwano jednego przejscia, jest {transitions}"
+              assert transitions[0].startswith("[WIDOK] Cab->Chase kabina=False chase=True krok="), (
+                  f"{log_path}: kamera nie przeszla z kabiny do chase: {transitions[0]}")
           WIDOK
           # ŚLAD CYKLU DRZWI W SAMEJ TELEMETRII. Maszynista trzyma W od 45,0 s, więc
           # nastawnik dobija do 1,0 — a `throttle` w telemetrii zostaje ZERO do 57,975 s,

@@ -2055,8 +2055,15 @@ public sealed partial class FirstRun : Node3D
     private void ApplyView()
     {
         var view = EffectiveView;
+        var wasCabCurrent = _cab.Current;
         _cab.Current = view == ViewKind.Cab;
         _chase.Current = view != ViewKind.Cab;
+        // Logujemy rzeczywiste przejście po _Ready, odczytując Camera3D.Current
+        // przed i po zmianie. Wstępny wybór w _Ready nie jest renderowaną klatką.
+        if (wasCabCurrent && !_cab.Current && _chase.Current && _frames > 0)
+        {
+            GD.Print($"[WIDOK] Cab->Chase kabina={_cab.Current} chase={_chase.Current} krok={_logStep}");
+        }
 
         // Z kabiny nie widać własnego pudła: kamera stoi wewnątrz skorupy M7, a ta ma
         // po solidify obie powierzchnie, więc bez ukrycia składu widać z bliska jego

@@ -767,7 +767,8 @@ ROZKLAD_POSTACI = {
         # 533 -> 536 (24.09.2026, odmowy dla osi scenerii).
         # 536 -> 537: odmowa ponownego użycia block_id wskazuje obieg.
         # 539 -> 546 (24.09.2026, komunikaty rozkladu).
-        "interpolowany ($)": 546,
+        # 546 -> 547 (25.09.2026, log aktywnej kamery Cab->Chase).
+        "interpolowany ($)": 547,
         "werbatim (@)": 0,
         "surowy interpolowany ($$\"\"\")": 1,
         "surowy (\"\"\")": 1,
