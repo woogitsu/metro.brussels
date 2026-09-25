@@ -122,6 +122,7 @@ def znaczniki_w_drzewie():
         "reports/visual-evidence/t400-run-36078093066/",
         "reports/visual-evidence/parc-arrival/",
         "reports/visual-evidence/t400-side/",
+        "reports/visual-evidence/t400-platform/",
     )
     evidence = {}
     for prefix in evidence_prefixes:

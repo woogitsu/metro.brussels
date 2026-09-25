@@ -33,6 +33,9 @@ public enum ViewKind
     /// <summary>Kontrolne ujęcie boku składu z sąsiedniego toru.</summary>
     Side,
 
+    /// <summary>Kontrolne ujęcie ze zbudowanej płyty peronu, gdy jest przy składzie.</summary>
+    Platform,
+
     /// <summary>
     /// Kamera inspekcyjna: stoi na osi tunelu przy zadanym kilometrażu i patrzy
     /// wzdłuż niego, <b>nie czekając na skład</b>. Trzy pozostałe widoki są widokami
@@ -2287,6 +2290,27 @@ public sealed partial class FirstRun : Node3D
             var target = _sceneAxis.CabPoint(
                 chainage - 28.0, 0.0, 1.8, 0.0).Position;
             _chase.LookAtFromPosition(position, target, Vector3.Up);
+        }
+        else if (_view == ViewKind.Platform)
+        {
+            // Obie strony istnieją w modelu technicznym. Wybieramy pierwszą
+            // płytę, na której stoi kandydat kamery, bez twierdzenia, że to
+            // potwierdzona strona otwierania drzwi na rzeczywistej stacji.
+            var at = chainage - 14.0;
+            // CabPoint measures from the selected track, already displaced from
+            // the route axis. The slabs instead straddle the route axis.
+            var right = _sceneAxis.CabPoint(
+                at, 0.0, 2.7, 6.0 - _sceneAxis.TrackOffsetM).Position;
+            var left = _sceneAxis.CabPoint(
+                at, 0.0, 2.7, -6.0 - _sceneAxis.TrackOffsetM).Position;
+            // Między stacjami nie ma płyty: zachowujemy kadr boczny.
+            var fallback = _sceneAxis.CabPoint(
+                at, 0.0, 2.0, DesignAssumptions.OutsideLateralM).Position;
+            var candidate = PlatformFit.CameraPosition(
+                _platforms.PlatformFootprints, right, left, fallback);
+
+            var target = _sceneAxis.CabPoint(chainage - 28.0, 0.0, 1.8, 0.0).Position;
+            _chase.LookAtFromPosition(candidate, target, Vector3.Up);
         }
         else if (_view == ViewKind.Outside)
         {

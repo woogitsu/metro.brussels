@@ -217,6 +217,8 @@ public sealed class RunPlanTests
         Assert.AreEqual(ViewKind.Chase, Parse("--view=chase").View);
         Assert.AreEqual(ViewKind.Outside, Parse("--view=outside").View);
         Assert.AreEqual(ViewKind.Inspect, Parse("--view=inspect").View);
+        Assert.AreEqual(ViewKind.Platform, Parse("--view=platform").View,
+            "widok z płyty peronu musi używać własnej kamery");
     }
 
     /// <summary>
@@ -255,7 +257,7 @@ public sealed class RunPlanTests
     public void Widok_inspekcyjny_dochodzi_do_trzech_a_nie_zamiast()
     {
         CollectionAssert.AreEqual(
-            new[] { "cab", "chase", "outside", "inspect", "side" },
+            new[] { "cab", "chase", "outside", "inspect", "side", "platform" },
             RunPlan.KnownViews,
             "kolejność i skład KnownViews: " + string.Join(", ", RunPlan.KnownViews));
     }

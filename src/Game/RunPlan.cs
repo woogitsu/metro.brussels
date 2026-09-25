@@ -47,7 +47,7 @@ public sealed class RunPlan
     };
 
     /// <summary>Widoki, jakie scena potrafi ustawić. Inna wartość jest BŁĘDEM, nie domyślną.</summary>
-    public static readonly string[] KnownViews = { "cab", "chase", "outside", "inspect", "side" };
+    public static readonly string[] KnownViews = { "cab", "chase", "outside", "inspect", "side", "platform" };
 
     /// <summary>
     /// Argumenty, których wartością jest ŚCIEŻKA. Pusta wartość jest dla nich błędem.
@@ -750,6 +750,7 @@ public sealed class RunPlan
                 "outside" => ViewKind.Outside,
                 "inspect" => ViewKind.Inspect,
                 "side" => ViewKind.Side,
+                "platform" => ViewKind.Platform,
                 _ => ViewKind.Cab,
             },
         };

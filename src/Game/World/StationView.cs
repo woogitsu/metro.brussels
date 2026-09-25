@@ -29,12 +29,20 @@ namespace MetroBxl.Game.World;
 public sealed partial class StationView : Node3D
 {
     private readonly List<Aabb> _slabs = new();
+    private readonly List<Aabb> _platformSlabs = new();
+    private readonly List<PlatformFit.Footprint> _platformFootprints = new();
 
     /// <summary>Liczba brył peronowych trzymanych w scenie.</summary>
     public int SlabCount => _slabs.Count;
 
     /// <summary>Obwiednie brył w układzie świata; do pomiarów i do metadanych zrzutu.</summary>
     public IReadOnlyList<Aabb> Slabs => _slabs;
+
+    /// <summary>Same płyty peronowe, bez pasów krawędziowych i wyposażenia stacji.</summary>
+    public IReadOnlyList<Aabb> PlatformSlabs => _platformSlabs;
+
+    /// <summary>Projected mesh triangles for exact camera placement on curved slabs.</summary>
+    public IReadOnlyList<PlatformFit.Footprint> PlatformFootprints => _platformFootprints;
 
     /// <summary>
     /// Wczytuje GLB peronów i zapamiętuje obwiednię każdej bryły. Zwraca liczbę brył;
@@ -62,6 +70,8 @@ public sealed partial class StationView : Node3D
         using var slabMaterial = GlbLoader.NeutralMaterial(new Color(0.48f, 0.48f, 0.46f), 0.95f);
 
         _slabs.Clear();
+        _platformSlabs.Clear();
+        _platformFootprints.Clear();
         foreach (var instance in MeshInstances(scene))
         {
             if (IsEdgeMeshName((string)instance.Name))
@@ -71,6 +81,18 @@ public sealed partial class StationView : Node3D
             else if (IsPlatformMeshName((string)instance.Name))
             {
                 instance.MaterialOverride = slabMaterial;
+                _platformSlabs.Add(instance.GlobalTransform * instance.GetAabb());
+                if (instance.Mesh is not null)
+                {
+                    var localFaces = instance.Mesh.GetFaces();
+                    var worldFaces = new List<Vector3>(localFaces.Length);
+                    foreach (var vertex in localFaces)
+                    {
+                        worldFaces.Add(instance.GlobalTransform * vertex);
+                    }
+                    _platformFootprints.Add(new PlatformFit.Footprint(
+                        instance.GlobalTransform * instance.GetAabb(), worldFaces));
+                }
             }
 
             _slabs.Add(instance.GlobalTransform * instance.GetAabb());
