@@ -171,7 +171,9 @@ KATEGORIE = {
         # 25.09.2026: komentarz z pomiarem połączonego korpusu przesuwa kotwice o wiersz.
         # 25.09.2026: komentarz o logu kamery przesuwa pięć kotwic o wiersz; treść bez zmian.
         ("UiTextTests.cs", 1295), ("UiTextTests.cs", 1308), ("UiTextTests.cs", 1326),
-        ("SignallingHudTests.cs", 39),
+        # 25.09.2026: parametr trainId przesuwa pin o jeden wiersz; zmiana tekstu
+        # dodaje identyfikator składu i koniec autorytetu z domeny.
+        ("SignallingHudTests.cs", 40),
     },
     "B": {
         ("UiTextTests.cs", 1395), ("UiTextTests.cs", 1396),
@@ -296,8 +298,8 @@ def test_czytnik_widzi_pin_takze_wtedy_gdy_literal_jest_sklejony():
         % len(tresci[("UiTextTests.cs", 1295)]))
     assert len(tresci[("UiTextTests.cs", 1326)]) == 98, (
         len(tresci[("UiTextTests.cs", 1326)]))
-    assert len(tresci[("SignallingHudTests.cs", 39)]) == 84, (
-        len(tresci[("SignallingHudTests.cs", 39)]))
+    assert len(tresci[("SignallingHudTests.cs", 40)]) == 106, (
+        len(tresci[("SignallingHudTests.cs", 40)]))
 
     # Kontrola w drugą stronę: krótki pin ma zostać krótki, inaczej sklejanie
     # zjadałoby sąsiednie argumenty.
