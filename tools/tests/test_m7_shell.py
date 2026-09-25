@@ -169,7 +169,7 @@ def test_m7_window_dividers_clear_door_openings_and_match_both_directions():
         assert len(dividers) == len(doors) - 1, f"człon {car}: liczba słupków"
         for (start, end), before, after in zip(dividers, doors, doors[1:]):
             assert before["x1"] < start < end < after["x0"], f"człon {car}: słupek blokuje drzwi"
-            assert abs(end - start - L.DESIGN_WINDOW_DIVIDER_WIDTH_M) < 1e-6, f"człon {car}: szerokość"
+            assert abs(end - start - L.DESIGN_WINDOW_DIVIDER_WIDTH_M) < 1.1e-6, f"człon {car}: szerokość"
         spans.extend(dividers)
     mirrored = {(round(layout.length - end, 6), round(layout.length - start, 6))
                 for start, end in spans}

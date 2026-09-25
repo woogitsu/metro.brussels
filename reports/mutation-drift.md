@@ -128,7 +128,7 @@ nie podaje liczby po triażu, więc jego wiersz ma w tej kolumnie kreskę, a nie
 | `tools/blender/profiles.py` | parametry | 1 | 1 | 0 | 13 | 13 | moduł bez zmian od `fe92daa` — `git diff` pusty |
 | `tools/track/detail_layout.py` | parametry | 1 | 1 | 0 | 8 | 9 | `74008bf` dołożył 1 mutację, zabitą |
 | `tools/track/network_chainage.py` | parametry | 0 | 0 | 0 | 7 | 7 | moduł bez zmian od `fe92daa` — `git diff` pusty |
-| `tools/blender/m7_layout.py` | parametry | 1 | 1 | 0 | 17 | 17 | moduł bez zmian od `fe92daa` — `git diff` pusty |
+| `tools/blender/m7_layout.py` | parametry | 1 | 1 | 0 | 17 | 20 | `0fb50f1` dodał słupki między drzwiami; licznik zestawu `operator,prog` wzrósł o 3. Historycznej liczby ocalałych nie przeliczono. |
 | `tools/track/station_layout.py` | parametry | 1 | 1 | 0 | 7 | 8 | `b7eef85` dołożył 1 mutację, zabitą |
 | `tools/data/provenance.py` | parametry | 0 | 0 | 0 | 7 | 7 | moduł bez zmian od `fe92daa` — `git diff` pusty |
 | `tools/track/data_freshness.py` | parametry | 0 | 0 | 0 | 5 | 6 | 6.D168 dołożył sprawdzenie dokładnego kształtu wiersza jawnej baseline (`set(row) != {file, valid_to, retrieved_at}`); kontrola negatywna z obcym polem dowodzi odmowy. Historyczne 0 ocalałych dotyczy 5 dawnych mutacji; nowej nie przypisano ocalałej bez osobnego przebiegu mutacyjnego. |
