@@ -30,6 +30,10 @@ DESIGN_ROOF_CHAMFER_M = profiles.M7_ROOF_CHAMFER_M
 # Spód pudła leży dokładnie o tę grubość poniżej podłogi, dzięki czemu wewnętrzne
 # lico płyty podłogowej wypada dokładnie na source-backed 1,03 m.
 DESIGN_SHELL_THICKNESS_M = 0.08
+# Neutralna strefa okienna wewnątrz istniejącej ściany, nie dodatkowa bryła ani
+# odwzorowanie konkretnego wzoru M7. Otwory drzwiowe przecinają ją naturalnie.
+DESIGN_WINDOW_BAND_BOTTOM_M = 2.05
+DESIGN_WINDOW_BAND_TOP_M = 2.78
 # Przegub między członami: długość przewężenia i wcięcie na stronę.
 DESIGN_ARTICULATION_LENGTH_M = 1.10
 DESIGN_ARTICULATION_INSET_M = 0.18
@@ -53,6 +57,10 @@ DESIGN_ASSUMPTIONS = {
     "shell_thickness_m": (DESIGN_SHELL_THICKNESS_M,
                           "grubość skorupy; bez niej otwór drzwiowy byłby wnęką, a spód pudła "
                           "leży o nią niżej, żeby lico podłogi wypadło dokładnie na 1,03 m"),
+    "window_band_bottom_m": (DESIGN_WINDOW_BAND_BOTTOM_M,
+                             "dolna krawędź neutralnego pasa okiennego na bocznej ścianie"),
+    "window_band_top_m": (DESIGN_WINDOW_BAND_TOP_M,
+                          "górna krawędź neutralnego pasa okiennego poniżej fazy dachu"),
     "articulation_length_m": (DESIGN_ARTICULATION_LENGTH_M, "długość przewężenia przegubowego między członami"),
     "articulation_inset_m": (DESIGN_ARTICULATION_INSET_M, "wcięcie przegubu na stronę"),
     "nose_length_m": (DESIGN_NOSE_LENGTH_M, "długość ścięcia czoła; ścięcie liniowe zamiast zgadywanych promieni"),
