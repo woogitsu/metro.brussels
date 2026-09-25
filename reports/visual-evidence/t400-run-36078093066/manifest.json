@@ -1,0 +1,130 @@
+{
+  "sources": [
+    {
+      "files": [
+        "GODOT_cab_2000m.png",
+        "GODOT_chase_2000m.png",
+        "GODOT_outside_2000m.png",
+        "LINIA_outside_Beekkant.png",
+        "GODOT_metadata.json",
+        "render-sanity.json"
+      ],
+      "repository": "woogitsu/metro.brussels",
+      "head": "4cc4237e400de1fbc416f4c7c5beac660c7bd145",
+      "workflow_run": 36078093066,
+      "artifact_id": 10841256039,
+      "artifact_name": "t-400-first-run-36078093066-1"
+    },
+    {
+      "files": [
+        "PARC_approach_cab.png",
+        "PARC_platform_chase.png",
+        "PARC_platform_outside.png",
+        "PARC_capture_metadata.json",
+        "PARC_approach_cab.log",
+        "PARC_platform_chase.log",
+        "PARC_platform_outside.log",
+        "PARC_line_outside.png",
+        "PARC_line_outside.log",
+        "PARC_line_chase.png",
+        "PARC_line_chase.log",
+        "PARC_line_chase_metadata.json"
+      ],
+      "repository": "woogitsu/metro.brussels",
+      "head": "1afb4d6235b5811699f5221cac58e47e8ac5957f",
+      "capture": "local WSL Ubuntu-24.04; Godot 4.7.2, Xvfb/OpenGL3, 1280x720; generated geometry by prepare-playable.sh"
+    }
+  ],
+  "files": [
+    {
+      "name": "GODOT_cab_2000m.png",
+      "sha256": "2163ae542bc75addbf855bd9cae62c3ad6b7c95c1a6754eef71ad9ab6db35ddd",
+      "bytes": 218995
+    },
+    {
+      "name": "GODOT_chase_2000m.png",
+      "sha256": "6eee4417f050ed4a7c436e67bacb3086c468d15419389a9dc14c572e763f00b3",
+      "bytes": 152248
+    },
+    {
+      "name": "GODOT_metadata.json",
+      "sha256": "08743d112d8835892bffde2557f7fc4bab7c611eafc26078a05fee7f2e9987a1",
+      "bytes": 1210
+    },
+    {
+      "name": "GODOT_outside_2000m.png",
+      "sha256": "fae44267d5ab9eb141ead2e9a614254eb47fec5ac6b0a07f3d3a77b7448339ca",
+      "bytes": 208538
+    },
+    {
+      "name": "LINIA_outside_Beekkant.png",
+      "sha256": "7b1f03c1ac42dede7876b57dbae5b7af70a2ee6ed4627110e39f6a70252afba7",
+      "bytes": 229083
+    },
+    {
+      "name": "PARC_approach_cab.log",
+      "sha256": "c7bd299020aad02a1ffb08215bc44b7acbeb21e4573c770d13b3f4bdb642b286",
+      "bytes": 6090
+    },
+    {
+      "name": "PARC_approach_cab.png",
+      "sha256": "60c4508617f0122cf12f3a4aba3c3dc0adfb897b60e5acafddf5864bcd8f5a92",
+      "bytes": 209328
+    },
+    {
+      "name": "PARC_capture_metadata.json",
+      "sha256": "798ba91fc1c444aa8cfbf604ce6ff23ada844967a6a2a861a2053c76de8c805a",
+      "bytes": 1216
+    },
+    {
+      "name": "PARC_line_chase.log",
+      "sha256": "c37e443369ce29339c6fdafd7cbda5f84626eaffd47063ffc45400edc57a9aba",
+      "bytes": 6107
+    },
+    {
+      "name": "PARC_line_chase.png",
+      "sha256": "7261bc5fdf5a0fa9cb7c13d91423ec1083bf4f47ea8c2b16101c2b757af19921",
+      "bytes": 167410
+    },
+    {
+      "name": "PARC_line_chase_metadata.json",
+      "sha256": "5b1239246f0c451ee3db04bbfed99f9a8ebdb46562cfde1cf6057985391101a6",
+      "bytes": 1214
+    },
+    {
+      "name": "PARC_line_outside.log",
+      "sha256": "bea0ea2d127c8e20f2ea5915f34f0fdf613ee219aed345ec0221d2ba8b2b0b17",
+      "bytes": 6113
+    },
+    {
+      "name": "PARC_line_outside.png",
+      "sha256": "ff837a28dd784fca073036fa5a9b0a204eb14a74917a637d7fb053353ed75dad",
+      "bytes": 301271
+    },
+    {
+      "name": "PARC_platform_chase.log",
+      "sha256": "9e763e5bc84295e23c4bdb9e586bc7403c86ffa24747b98ceef9e751585f0688",
+      "bytes": 6096
+    },
+    {
+      "name": "PARC_platform_chase.png",
+      "sha256": "2e300470d1718484fba4c96a7baf07299788f6f55b01e2fc2e71f124436c99b7",
+      "bytes": 151908
+    },
+    {
+      "name": "PARC_platform_outside.log",
+      "sha256": "e3db98a3d342aef0e205c241aa957d1ed12b1eb519270bb7df283e423be3f68a",
+      "bytes": 6102
+    },
+    {
+      "name": "PARC_platform_outside.png",
+      "sha256": "b192a84f9a35bbcb402853a8f8e40b91c8c4bef3975609c3023904b100ff24f8",
+      "bytes": 283301
+    },
+    {
+      "name": "render-sanity.json",
+      "sha256": "127f35fe67e50c7e15707eb1e0ef9d831ed4e83dca7569374c224cf4096f6256",
+      "bytes": 4256
+    }
+  ]
+}

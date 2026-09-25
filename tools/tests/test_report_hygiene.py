@@ -525,10 +525,11 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 # 472 -> 473 (24.09.2026, pomiar przepustowości pakietu A): nowy raport.
 # 473 -> 474 (24.09.2026, luka danych kursów T-113): nowy raport.
 # 474 -> 475 (24.09.2026, źródła wymiarów okien M7).
-# 475 -> 476 (25.09.2026, 6.D360): pomiar pi?ciu rozszerze? w raportach.
-# 476 -> 477 (25.09.2026, 6.D348): pomiar dwoch dokladnosci w narzedziach sceny.
-# 477 -> 478 (25.09.2026, #26): baseline wydajności sceny 1080p.
-MIN_REPORTS = 478
+# 475 -> 476 (25.09.2026, 6.D360): pomiar pięciu rozszerzeń w raportach.
+# 476 -> 477 (25.09.2026, 6.D348): pomiar dwóch dokładności w narzędziach sceny.
+# 477 -> 478 (25.09.2026, T-400): przegląd obrazów z Parc i Beekkant.
+# 478 -> 479 (25.09.2026, #26): baseline wydajności sceny 1080p.
+MIN_REPORTS = 479
 
 #: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
 #: wierszem zaczynającym się od `**`, z którego `_header_shapes` czyta kształt.
