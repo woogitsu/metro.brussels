@@ -1443,7 +1443,7 @@ public sealed partial class FirstRun : Node3D
         if (bodies <= 0)
         {
             Abort(ExitTrainMissing,
-                $"[SKŁAD] {shellPath} nie dał ani jednej bryły — scena bez składu nie jest przejazdem");
+                $"[SKŁAD] nie można wczytać {shellPath}. Rozpakuj ponownie pełną paczkę gry wraz z katalogiem zasoby.");
             return;
         }
 
@@ -1489,9 +1489,9 @@ public sealed partial class FirstRun : Node3D
         if (slabs <= 0)
         {
             Abort(ExitPlatformsMissing,
-                $"[PERON] {platformsPath} nie dał ani jednej bryły. Wygeneruj perony "
-                + "(tools/track/station_layout.py, potem tools/blender/station_kit.py "
-                + "--component platform --component edge) albo uruchom z --no-geometry.");
+                $"[PERON] nie można wczytać {platformsPath}. "
+                + "Rozpakuj ponownie pełną paczkę gry "
+                + "wraz z katalogiem zasoby.");
             return;
         }
         var namePlatePath = Path.Combine(assets, "L1_A-station-board.glb");
@@ -1523,9 +1523,9 @@ public sealed partial class FirstRun : Node3D
         if (cabBodies <= 0)
         {
             Abort(ExitCabMissing,
-                $"[KABINA] {cabPath} nie dał ani jednej bryły. Wygeneruj kabinę "
-                + "(tools/blender/m7_cab_build.py --out …/M7_cab.glb) albo uruchom "
-                + "z --no-geometry.");
+                $"[KABINA] nie można wczytać {cabPath}. "
+                + "Rozpakuj ponownie pełną paczkę gry "
+                + "wraz z katalogiem zasoby.");
             return;
         }
 
