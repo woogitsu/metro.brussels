@@ -645,6 +645,11 @@ public sealed partial class FirstRun : Node3D
         _aborted = true;
         GD.PushError(message);
         GD.PrintErr(message);
+        // Godot buffers GD.PrintErr while a GUI process is attached to a pipe.
+        // Flush the CLR stream before waiting for the acknowledgement dialog so
+        // CI and double-click diagnostics see the named startup failure immediately.
+        Console.Error.WriteLine(message);
+        Console.Error.Flush();
         if (_plan?.ShouldShowStartupErrorDialog(IsHeadlessDisplay) == true
             && code is ExitMissingInput or ExitMissingAssets or ExitTrainMissing
                 or ExitPlatformsMissing or ExitCabMissing)
