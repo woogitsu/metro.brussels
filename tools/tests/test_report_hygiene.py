@@ -530,8 +530,9 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 # 477 -> 478 (25.09.2026, T-400): przegląd obrazów z Parc i Beekkant.
 # 478 -> 479 (25.09.2026, ciągły wjazd Parc/Park): drugi raport; policzono reports/*.md.
 # 479 -> 480 (25.09.2026, #26): baseline wydajności sceny 1080p.
-# 480 -> 481 (25.09.2026, 6.D344): audyt czterech sit adresowych.
-MIN_REPORTS = 481
+# 480 -> 481 (25.09.2026, #26): czas kroku tej samej sceny 1080p.
+# 481 -> 482 (25.09.2026, 6.D344): audyt czterech sit adresowych.
+MIN_REPORTS = 482
 
 #: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
 #: wierszem zaczynającym się od `**`, z którego `_header_shapes` czyta kształt.
