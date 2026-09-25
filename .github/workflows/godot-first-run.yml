@@ -25,6 +25,7 @@ on:
       # apt_install.sh, listy pakietów i (w tunnel-alignment) vehicle_clearance.sh.
       # Przy wąskim wzorcu zmiana takiego pliku nie odpalała własnego CI.
       - 'tools/ci/**'
+      - 'tools/release/**'
       # Ten workflow URUCHAMIA `tests/Game.Tests` (krok „Engine layer unit tests"),
       # więc musi się odpalać, gdy tamte testy się zmieniają. Bez tego wpisu PR
       # dotykający wyłącznie `tests/Game.Tests/**` dostawał `sim` i `tools`, a job,
@@ -818,6 +819,32 @@ jobs:
           ile="$(grep -c "^\[SESJA\]" build/t400/reczny/sesja.log)"
           test "$ile" -eq 1 \
             || { echo "BŁĄD: wiersz [SESJA] wyszedł $ile razy zamiast raz" >&2; exit 1; }
+
+      - name: Exported player package must replay the same two-stop session
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$PWD"
+          out='build/t400/paczka kontrolna'
+          bash tools/release/package-playable.sh "$out" build/t400
+          package="$root/$out/MetroBXL"
+          mkdir -p build/t400/paczka-replay
+          (
+            cd "$package"
+            ./MetroBXL.x86_64 --headless -- \
+              --signalling="$package/zasoby/data/design/signalling/classic-2026.json" \
+              --replay="$root/tests/data/mb02-dwa-postoje.log" \
+              --telemetry="$root/build/t400/paczka-replay/scene.csv" \
+              --steps-per-frame=600
+          ) 2>&1 | tee build/t400/paczka-replay/scene.log
+          python3 tools/ci/assert_no_godot_warnings.py build/t400/paczka-replay/scene.log
+          grep '^\[SESJA\]' build/t400/reczny/sesja.log > build/t400/paczka-replay/expected-session.txt
+          grep '^\[SESJA\]' build/t400/paczka-replay/scene.log > build/t400/paczka-replay/actual-session.txt
+          cmp build/t400/paczka-replay/expected-session.txt build/t400/paczka-replay/actual-session.txt
+          grep -q '^\[ODTWORZENIE\] koniec: kroków=20000 ' build/t400/paczka-replay/scene.log
+          dotnet run --project src/Sim.Runner -c Release --no-build -- \
+            compare build/t400/sesja/core.csv build/t400/paczka-replay/scene.csv \
+            --tolerance 0
 
       - name: Negative control of the training session gate
         shell: bash
@@ -1898,6 +1925,9 @@ jobs:
             build/t400/reset/*.csv
             build/t400/reset/*.log
             build/t400/reset/*.txt
+            build/t400/paczka-replay/*.log
+            build/t400/paczka-replay/*.txt
+            build/t400/paczka-replay/*.csv
             # Bramka kabiny pod sygnalizacją: bez `core-atp.txt` i `scene-atp-spf*.txt`
             # nie da się sprawdzić, czy obie strony policzyły ochronę tak samo.
             build/t400/atp-kabina/*.csv
