@@ -1,1 +1,4 @@
 data/design/geometry/merode-montgomery-horizontal-probe.json text eol=lf
+reports/visual-evidence/parc-arrival/* -text
+tools/visual/capture_parc_arrival.sh text eol=lf
+tools/visual/build_parc_arrival.py text eol=lf
