@@ -46,5 +46,5 @@ WARNING: All audio drivers failed, falling back to the dummy driver.
 [ZAŁOŻENIE widok] LineBrakeUsageFraction = 1 - — ułamek hamulca służbowego, przy którym autopilot --line zaczyna hamować; brak źródła, ta sama liczba co przejazd referencyjny T-401
 [ZAŁOŻENIE widok] HeadlightRangeM = 70 m — zasięg reflektora; parametr oświetlenia sceny, nie dane o taborze
 [ZAŁOŻENIE widok] HeadlightEnergy = 2.5 - — jasność reflektora; jak wyżej
-[ZRZUT] metadane /tmp/metro-platform-review/captures/PARC_metadata.json
-[ZRZUT] /tmp/metro-platform-review/captures/PARC_fixed.png 1280x720 err=Ok widok=Platform kroków=54449 chainage=4075.4 m v=0.0 km/h
+[ZRZUT] metadane /tmp/metro-platform-review/captures/BEEKKANT_metadata.json
+[ZRZUT] /tmp/metro-platform-review/captures/BEEKKANT_fixed.png 1280x720 err=Ok widok=Platform kroków=5818 chainage=509.4 m v=0.0 km/h
