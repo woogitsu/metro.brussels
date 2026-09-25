@@ -679,6 +679,44 @@ jobs:
           dotnet run --project src/Sim.Runner -c Release --no-build -- \
             compare build/t400/reczny/scene-spf120.csv build/t400/reczny/scene-spf7.csv \
             --tolerance 0
+          # Logiczny rytm 30/60/120 FPS przy 120 Hz Sim: 4/2/1 tick na klatkę.
+          # Headless nie mierzy fizycznego odświeżania monitora.
+          # Każdy przebieg idzie przez rzeczywistą scenę i żąda kamery chase.
+          # Na starcie (94 m) jest niedostępna, więc scena wybiera kabinę;
+          # po minięciu progu odsłonięcia przełącza na chase w PlaceEverything.
+          # Porównanie z rdzeniem obejmuje stan zapisany w telemetrii po 8880 tickach.
+          for spf in 4 2 1; do
+            "$GODOT_BIN" --headless --path src/Game -- \
+              --replay="$PWD/tests/data/manual-keys.log" \
+              --telemetry="$PWD/build/t400/reczny/scene-chase-spf$spf.csv" \
+              --steps-per-frame="$spf" --view=chase \
+              2>&1 | tee "build/t400/reczny/scene-chase-spf$spf.log"
+            python3 tools/ci/assert_no_godot_warnings.py "build/t400/reczny/scene-chase-spf$spf.log"
+            grep -q "^\[ODTWORZENIE\] koniec: kroków=8880 " \
+              "build/t400/reczny/scene-chase-spf$spf.log" \
+              || { echo "BŁĄD: chase przy $spf krokach na klatkę nie ukończył replay" >&2; exit 1; }
+            dotnet run --project src/Sim.Runner -c Release --no-build -- \
+              compare build/t400/reczny/core.csv \
+              "build/t400/reczny/scene-chase-spf$spf.csv" --tolerance 0
+          done
+          python3 - <<'WIDOK'
+          import csv
+          from pathlib import Path
+
+          for spf in (4, 2, 1):
+              path = Path(f"build/t400/reczny/scene-chase-spf{spf}.csv")
+              with path.open(encoding="utf-8") as handle:
+                  rows = list(csv.DictReader(handle))
+              chainages = [float(row["chainage_m"]) for row in rows]
+              assert chainages[0] == 94.0, f"{path}: start nie jest w kabinie"
+              assert max(chainages) > 110.0, f"{path}: nie minieto progu chase"
+              log_path = Path(f"build/t400/reczny/scene-chase-spf{spf}.log")
+              log = log_path.read_text(encoding="utf-8")
+              transitions = [line for line in log.splitlines() if line.startswith("[WIDOK] ")]
+              assert len(transitions) == 1, f"{log_path}: oczekiwano jednego przejscia, jest {transitions}"
+              assert transitions[0].startswith("[WIDOK] Cab->Chase kabina=False chase=True krok="), (
+                  f"{log_path}: kamera nie przeszla z kabiny do chase: {transitions[0]}")
+          WIDOK
           # ŚLAD CYKLU DRZWI W SAMEJ TELEMETRII. Maszynista trzyma W od 45,0 s, więc
           # nastawnik dobija do 1,0 — a `throttle` w telemetrii zostaje ZERO do 57,975 s,
           # bo `StationService` trzyma blokadę trakcji. Jedenaście próbek stoi przy tym
