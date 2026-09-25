@@ -247,7 +247,8 @@ public sealed class UiTextTests
     // 656 -> 660 (24.09.2026, etykieta prototypu w HUD).
     // 660 -> 679 (25.09.2026, integracja rozkładu i projektowego podglądu).
     // 679 -> 680 (25.09.2026, log przejścia aktywnej kamery Cab->Chase).
-    private const int LiteralowWZasieguBramki = 680;
+    // 680 -> 682 (25.09.2026, T-400): dwa jawne literały nazwy widoku `side` w RunPlan.
+    private const int LiteralowWZasieguBramki = 682;
 
     /// <summary>Ile różnych — dolne ostrze, zmierzone 12.09.2026.</summary>
     private const int RoznychLiteralowWZasieguBramki = 362;
@@ -1535,7 +1536,8 @@ public sealed class UiTextTests
     // 710 -> 714 (24.09.2026, etykieta prototypu w HUD).
     // 714 -> 733 (25.09.2026, integracja rozkładu i projektowego podglądu).
     // 733 -> 734 (25.09.2026, ten sam log przejścia kamery).
-    private const int PozycjiStaregoCzytnika = 734;
+    // 734 -> 736 (25.09.2026, T-400): dwa jawne literały nazwy widoku `side`.
+    private const int PozycjiStaregoCzytnika = 736;
 
     /// <summary>
     /// Ile PLIKÓW korpusu stary czytnik czytał inaczej niż leksykalny — 6.D182.
@@ -2387,7 +2389,8 @@ public sealed class UiTextTests
     // 447 -> 448 (24.09.2026, etykieta prototypu w HUD).
     // 448 -> 463 (25.09.2026, zintegrowane literały sceny i rozkładu).
     // 463 -> 464 (25.09.2026, log przejścia aktywnej kamery).
-    private const int LiteralowDotknietychZdejmowaniem = 464;
+    // 464 -> 466 (25.09.2026, T-400): dwa literały nazwy widoku kontrolnego.
+    private const int LiteralowDotknietychZdejmowaniem = 466;
 
     /// <summary>
     /// Ilu literałom zdejmowanie jednostek ZABIERA werdykt „to słowo" — 6.D155.
@@ -3177,7 +3180,8 @@ public sealed class UiTextTests
     // 105 -> 109 (24.09.2026, osobna sekcja metadanych scenerii).
     // 109 -> 118 (24.09.2026, opcjonalny podgląd łącznika).
     // 118 -> 121 (25.09.2026, komunikaty rozkładu w scenie).
-    private const int ZgloszenWaskichCalymPlikiem = 121;
+    // 121 -> 123 (25.09.2026, T-400): dwa jawne wystąpienia nazwy `side`.
+    private const int ZgloszenWaskichCalymPlikiem = 123;
 
     /// <summary>Zgłoszeń wąskiej reguły, gdy czytnik dostaje WIERSZ — 6.D173/6.D186.</summary>
     // 108 -> 112 (14.09.2026, MB-04): `FirstRun.AssetsRoot`, `DomyslnyZapisWejsc`
@@ -3195,7 +3199,8 @@ public sealed class UiTextTests
     // 117 -> 122 (24.09.2026, osobna sekcja metadanych scenerii).
     // 122 -> 132 (24.09.2026, opcjonalny podgląd łącznika).
     // 132 -> 135 (25.09.2026, komunikaty rozkładu w scenie).
-    private const int ZgloszenWaskichWierszami = 135;
+    // 135 -> 137 (25.09.2026, T-400): dwa jawne wystąpienia nazwy `side`.
+    private const int ZgloszenWaskichWierszami = 137;
 
     /// <summary>
     /// Ile z nich stoi w kontekście CZYTANIA JSON-a — <b>18 obiema drogami</b>.
