@@ -1330,7 +1330,8 @@ właściciel.
 | 6.D345 | **Sto zwrotow to stala — ile czytnikow zdjelaby jedna klauzula** | zmierzone 21.09.2026 przy 6.D336: z 322 zwrotow w klasie nierozstrzygnietej STO to wezel `Constant` (`return None`, `return True`, `return False`), czyli ksztalt znany BEZ ZADNEGO SKOKU. Ile czytnikow zdjelaby jedna klauzula i ile z nich miesza stala z innym ksztaltem, nie policzyl nikt | M |
 | 6.D346 | **Przypisanie, ktorego regula skoku nie widzi — rozpakowanie krotki i `+=`** | zmierzone 21.09.2026 przy 6.D336: z czterdziestu czterech nazw zwracanych golo OSIEMNASCIE dostaje wartosc przez rozpakowanie krotki albo `+=`, a regula jednego skoku oglada `ast.Assign` z celem `ast.Name` — to sa przypisania W ZASIEGU, ktorych regula nie widzi, a nie zmienne spoza zasiegu. Ile ich jest w calym `tools/tests/`, nie policzyl nikt | M |
 | 6.D347 | **Jak szybko rosnie udzial adresow obejrzanych regula kandydatow** | zmierzone 21.09.2026 przy 6.D337: przestawienie JEDNEJ pozycji na WYKONANE przesunelo udzial z 246/1977 na 248/1982 i przebilo gorna strone pasma w `tools/tests/test_field_paths.py` o dwa adresy; pomiar z 6.D158 dawal 101/1276. Dwa punkty to nie tempo — ile wynosi naprawde i czy rosnie liniowo, nie policzyl nikt | M |
-| 6.D348 | **Ile razy ta sama wielkosc trafia do jednego pliku z dwiema dokladnosciami** | zmierzone 21.09.2026 przy 6.D338: dwa miejsca w `tools/track/tunnel_width.py` licza mediane TEJ SAMEJ wielkosci - szerokosci tunelu - a zaokraglaja ja do dwoch i do trzech miejsc po przecinku; obie liczby trafiaja do tego samego pliku wyjsciowego. Ile takich par stoi w calym `tools/`, nie policzyl nikt i nie pilnuje tego zadna bramka | M |
+| 6.D348 | **ZROBIONE (25.09.2026): audyt dokładności `round` w narzędziach toru i Blendera.** 368 wywołań z jawną precyzją; 147 kandydatów ze wspólnym rdzeniem po sicie nazw i wyrażeń; po prześledzeniu wartości **7 par** tej samej wielkości z różną dokładnością i **7 par** mogących trafić do jednego JSON. Para kontrolna median szerokości `tunnel_width.py` (2/3 miejsca) jest w wyniku. Odrzucone zbieżności nazw i warunkowy `--survey` opisuje `reports/6d348-dwie-dokladnosci.md`. Bez zmian geometrii, dokładności i zapadek. | M |
+| 6.D370 | **Czy dwie dokładności zmieniają widoczną liczbę, czy tylko liczbę cyfr** | 6.D348 znalazło siedem par z różną dokładnością w jednym JSON, ale pomiar statyczny nie powiedział, w ilu przypadkach zaokrąglenie zmienia wartość przy prawdziwym wyniku. Zmierzyć na kontrolowanym wejściu każdej pary i podać liczbę par z różną wartością oraz listę — bez zmiany dokładności | M |
 | 6.D349 | **Ile nazw niesie mianownik ulamka bez licznika** | zmierzone 21.09.2026 przy 6.D339: wszystkie piec mianownikow ulamka w nazwach stoi po `Per` albo po podkresleniu, ale JEDEN nie ma licznika - nazwa mowi na kilogram, nie mowiac, czego. Ile nazw w `src/` i `tools/` niesie mianownik, ktorego licznik nie pada w tej samej nazwie, nie policzyl nikt | M |
 | 6.D350 | **Ile bramek sumuje liczby zmiennoprzecinkowe w kolejnosci zaleznej od haszowania** | zmierzone 21.09.2026 przy 6.D341: przyrzad tamtej pozycji, uruchomiony trzy razy na TYCH SAMYCH danych, dal 74,418 / 74,418 / 74,417 s, a z ustalonym ziarnem haszowania dwa razy te sama wartosc; przyczyna jest w petli po ZBIORZE napisow i w tym, ze dodawanie float nie jest laczne. Ile miejsc pod `tools/` sumuje tak samo i w ilu kolejnosc NAPRAWDE zmienia wynik, nie policzyl nikt | M |
 | 6.D351 | **Ile kosztuje w bramkach uruchomienie cudzego skryptu** | zmierzone 21.09.2026 przy 6.D341: dwa moduly z pierwszej dziesiatki przyrostu wnosza razem 17,774 s i obydwa uruchamiaja `doctor.sh` w podprocesie; sa w tej dziesiatce jedynymi, ktore nie czytaja ani prozy, ani drzewa. Ile modulow pod `tools/tests/` startuje podproces i ile to razem kosztuje, nie policzyl nikt | M |
@@ -16571,6 +16572,33 @@ w drzewie**, a nie tylko w rozmowie — z tego samego powodu, co dwie sekcje wy�
   bramka na dokładności; `src/`; `data/`.
 - **Zależy od:** 6.D338 (stamtąd para wyjściowa), 6.D330 (stamtąd rozpoznawanie
   jednostki po nazwie).
+
+##### 6.D370 · Czy różna dokładność naprawdę zmienia liczbę w raporcie
+
+- **Skąd:** `reports/6d348-dwie-dokladnosci.md` znajduje siedem par tej samej
+  wielkości zapisanej z dwiema dokładnościami w jednym JSON. Samo występowanie
+  `round(x, 2)` i `round(x, 3)` nie mówi, czy w danym wyniku liczby są różne;
+  przykładowo 3,200 i 3,20 oznaczają tę samą wartość.
+- **Dlaczego bez decyzji:** pozycja tylko mierzy wartości na kontrolowanych
+  wejściach i wypisuje rozbieżności. Nie wybiera lepszej dokładności.
+- **Wejście:** `reports/6d348-dwie-dokladnosci.md`,
+  `tools/track/make_test_track.py`, `tools/track/tunnel_width.py`,
+  `tools/blender/clearance_profile.py`, `tools/blender/profile_scan.py`.
+- **Wyjście:** dla każdej z siedmiu par: wspólny lub równoważny wynik wejściowy,
+  dwie liczby po zaokrągleniu i informacja, czy różnią się **wartością**, a nie
+  tylko zapisem; suma par z różną wartością i lista imienna. Osobno oznaczyć
+  pary wymagające `--survey` oraz te zależne od wybrania minimum.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_tree_walks.py test_scan_gates.py
+  ```
+  Oczekiwane: zielone. Kontrola przyrządu: wartość 3,23456 m musi dać 3,23
+  wobec 3,235 m, a 3,20000 m tę samą wartość liczbową przy obu dokładnościach.
+- **Skończone, gdy:** siedem par ma jawne wejście, dwa wyniki i sumę różnic;
+  raport rozdziela różną wartość od różnej liczby cyfr.
+- **Poza zakresem:** zmiana `round`, ujednolicanie formatów, bramka na wartości,
+  zapis do `data/`, kod gry.
+- **Zależy od:** 6.D348 (imienna lista siedmiu par).
 
 ##### 6.D349 · Ile nazw niesie mianownik ułamka bez licznika
 
