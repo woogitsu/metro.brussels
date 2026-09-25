@@ -2,6 +2,10 @@
 
 **Date:** 2026-09-25 · **Measurement base:** `99397902be438f62d4596f0c9b2481fcf72bb103` plus the two probe changes described here.
 
+## Measurement
+
+This extends the [earlier 1080p baseline](t400-performance-baseline-1080p.md).
+
 Godot 4.7.2 exposes `RenderingServer.viewport_get_render_info()` for the root viewport. Its `VIEWPORT_RENDER_INFO_TYPE_VISIBLE` excludes the shadow pass, while `VIEWPORT_RENDER_INFO_PRIMITIVES_IN_FRAME` counts points, lines, **or** triangles drawn. The probe now records this as `visible_pass_primitives` alongside `visible_pass_draw_calls`. The existing global `render_primitives` monitor remains separate: [Godot's documentation](https://docs.godotengine.org/en/stable/classes/class_performance.html) describes that monitor as a count of vertices or indices across render passes. The [RenderingServer documentation](https://docs.godotengine.org/en/stable/classes/class_renderingserver.html) defines the viewport counter and its pass types.
 
 Run `bash tools/perf/run_1080p.sh` on Ubuntu. The script rejects a zero median for either new visible-pass counter. The existing warmup of five seconds exceeds Godot's requirement for two rendered frames before viewport statistics become available.
