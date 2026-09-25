@@ -25,7 +25,10 @@
         "PARC_platform_chase.log",
         "PARC_platform_outside.log",
         "PARC_line_outside.png",
-        "PARC_line_outside.log"
+        "PARC_line_outside.log",
+        "PARC_line_chase.png",
+        "PARC_line_chase.log",
+        "PARC_line_chase_metadata.json"
       ],
       "repository": "woogitsu/metro.brussels",
       "head": "1afb4d6235b5811699f5221cac58e47e8ac5957f",
@@ -72,6 +75,21 @@
       "name": "PARC_capture_metadata.json",
       "sha256": "798ba91fc1c444aa8cfbf604ce6ff23ada844967a6a2a861a2053c76de8c805a",
       "bytes": 1216
+    },
+    {
+      "name": "PARC_line_chase.log",
+      "sha256": "c37e443369ce29339c6fdafd7cbda5f84626eaffd47063ffc45400edc57a9aba",
+      "bytes": 6107
+    },
+    {
+      "name": "PARC_line_chase.png",
+      "sha256": "7261bc5fdf5a0fa9cb7c13d91423ec1083bf4f47ea8c2b16101c2b757af19921",
+      "bytes": 167410
+    },
+    {
+      "name": "PARC_line_chase_metadata.json",
+      "sha256": "5b1239246f0c451ee3db04bbfed99f9a8ebdb46562cfde1cf6057985391101a6",
+      "bytes": 1214
     },
     {
       "name": "PARC_line_outside.log",

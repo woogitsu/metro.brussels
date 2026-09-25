@@ -10,7 +10,7 @@ Four frames and two metadata files came from successful hosted run [36078093066]
 gh run download 36078093066 --repo woogitsu/metro.brussels --dir /tmp/t400-evidence
 ```
 
-The four new Parc frames and their raw logs were generated locally on Ubuntu 24.04 from `1afb4d6235b5811699f5221cac58e47e8ac5957f`. The generated geometry was made afresh, not read from a committed GLB. Reproduce without displaying the game:
+The five new Parc frames and their raw logs were generated locally on Ubuntu 24.04 from `1afb4d6235b5811699f5221cac58e47e8ac5957f`. The generated geometry was made afresh, not read from a committed GLB. Reproduce without displaying the game:
 
 ```sh
 git checkout 1afb4d6235b5811699f5221cac58e47e8ac5957f
@@ -31,9 +31,16 @@ xvfb-run -a "$GODOT_BIN" --rendering-driver opengl3 --resolution 1280x720 \
   --shot="$PWD/build/t400/visual-extra/PARC_line_outside.png" \
   --at-chainage=4075.66 --view=outside \
   > build/t400/visual-extra/PARC_line_outside.log 2>&1
+xvfb-run -a "$GODOT_BIN" --rendering-driver opengl3 --resolution 1280x720 \
+  --path src/Game -- --line --limit-kmh=70 \
+  --shot="$PWD/build/t400/visual-extra/PARC_line_chase.png" \
+  --at-chainage=4075 --view=chase \
+  > build/t400/visual-extra/PARC_line_chase.log 2>&1
+cp build/t400/visual-extra/PARC_metadata.json \
+  build/t400/visual-extra/PARC_line_chase_metadata.json
 ```
 
-The `--at-chainage` argument is a screenshot target. The log gives the actual capture position and speed. The first three Parc snapshots use scripted motion at 80 km/h. The fourth uses `--line`: its log records **4075.4 m and 0.0 km/h**, and the reviewed PNG shows `DRZWI otwarte`, the Parc/Park sign, a platform, and a gray train body. Parc/Park already exists at chainage 4075.66 m on `data/track/L1_A.json`; `data/stations/package-a.json` includes its station record. No data change was needed.
+The `--at-chainage` argument is a screenshot target. The log gives the actual capture position and speed. The first three Parc snapshots use scripted motion at 80 km/h. The last two use `--line`: both logs record **4075.4 m and 0.0 km/h**. The outside PNG shows `DRZWI otwarte`, the Parc/Park sign, a platform, and a gray train body. The chase PNG shows the rear of that stopped train; its metadata reports four platform slabs near the shot, although the platform is outside that camera frame. Parc/Park already exists at chainage 4075.66 m on `data/track/L1_A.json`; `data/stations/package-a.json` includes its station record. No data change was needed.
 
 ## Reviewed coverage
 
@@ -41,7 +48,7 @@ The `--at-chainage` argument is a screenshot target. The log gives the actual ca
 | --- | --- | --- |
 | Tunnel with train | `GODOT_chase_2000m.png`; rear of gray M7 body, track and tunnel visible | Observed, but visual finish remains basic |
 | Entry to Parc/Park | `PARC_approach_cab.png`; track enters lit station opening, HUD says Parc 81 m ahead. `PARC_platform_outside.png` shows Parc/Park sign inside station | Observed as approach and station context; not a continuous arrival sequence |
-| M7 at platform | `PARC_line_outside.png` shows a gray train body beside the Parc/Park platform and sign while stopped; `PARC_platform_chase.png` shows the train rear at Parc chainage | Observed as a train shape; model details and camera framing are too primitive for a convincing M7 showcase |
+| M7 at platform | `PARC_line_outside.png` shows a gray train body beside the Parc/Park platform and sign while stopped; `PARC_line_chase.png` shows its rear at the same stop | Observed as a train shape in complementary frames; model details and camera framing are too primitive for a convincing M7 showcase |
 | Driver view | `GODOT_cab_2000m.png` and `PARC_approach_cab.png` show forward cab camera and HUD | Observed; detailed cab interior is outside this framing |
 | HUD in motion | `GODOT_cab_2000m.png` and Parc shots show 80.0 km/h and chainage | Observed |
 | HUD stopped with doors open | `PARC_line_outside.png` shows 0.0 km/h, `DRZWI otwarte`, Parc/Park sign, and 4075.4 m; raw log agrees. `LINIA_outside_Beekkant.png` supplies a second station | Observed at Parc/Park and Beekkant |
