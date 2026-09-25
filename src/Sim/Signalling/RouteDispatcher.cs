@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using MetroBxl.Sim.Physics;
+using MetroBxl.Sim.Line;
 
 namespace MetroBxl.Sim.Signalling;
 
@@ -95,6 +96,25 @@ public sealed class RouteDispatcher
 
     /// <summary>Ile żądań odrzucono. Odmowa jest normalną odpowiedzią, nie usterką.</summary>
     public int Refused { get; private set; }
+
+    /// <summary>Exact digest of the request cadence and its counters, ordered by train ID.</summary>
+    public string StateSha256()
+    {
+        var hash = new StateHashWriter();
+        hash.Add(_plan.PlanId);
+        hash.Add(_intervalSteps);
+        hash.Add(Locked);
+        hash.Add(Refused);
+        var ids = new List<string>(_lastRequestStep.Keys);
+        ids.Sort(StringComparer.Ordinal);
+        hash.Add(ids.Count);
+        foreach (var id in ids)
+        {
+            hash.Add(id);
+            hash.Add(_lastRequestStep[id]);
+        }
+        return hash.Sha256();
+    }
 
     /// <summary>
     /// Jeden krok nastawni dla jednego składu. Zwraca prawdę, gdy trasa została

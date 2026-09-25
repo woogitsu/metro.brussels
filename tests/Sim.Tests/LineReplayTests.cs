@@ -190,11 +190,37 @@ public sealed class LineReplayTests
     public void Dwa_odtworzenia_tego_samego_zapisu_daja_telemetrie_identyczna_co_do_bajtu()
     {
         var log = InputLog.Parse(File.ReadAllText(WzorzecPath));
-        var pierwsze = Odtworz(log).Telemetria;
-        var drugie = Odtworz(log).Telemetria;
+        var first = Odtworz(log);
+        var second = Odtworz(log);
+        var pierwsze = first.Telemetria;
+        var drugie = second.Telemetria;
 
         Assert.IsTrue(pierwsze.Count > 100, $"telemetria ma tylko {pierwsze.Count} wierszy");
         CollectionAssert.AreEqual(pierwsze, drugie, "to samo odtworzenie dało dwa różne przejazdy");
+        Assert.AreEqual(first.Sesja.StateSha256(), second.Sesja.StateSha256(),
+            "pełny stan sesji po tym samym zapisie musi mieć ten sam odcisk");
+    }
+
+    [TestMethod]
+    public void Odcisk_widzi_drugi_sklad_mimo_identycznej_telemetrii_kabiny()
+    {
+        var first = Sesja();
+        var second = Sesja();
+        first.Core.Add(LineSession.TrainIdAt(1), 120L);
+        second.Core.Add(LineSession.TrainIdAt(1), 120L);
+        for (var i = 0; i < 16000 && !second.Core.Trains[1].OnLine; i++)
+        {
+            Assert.IsTrue(first.Step(DriverKeys.None), "pierwsza sesja nie powinna kończyć się przed drugim wjazdem");
+            Assert.IsTrue(second.Step(DriverKeys.None), "druga sesja nie powinna kończyć się przed drugim wjazdem");
+        }
+        Assert.IsTrue(second.Core.Trains[1].OnLine, "drugi skład musi naprawdę jechać");
+        Assert.AreEqual(first.StateSha256(), second.StateSha256(),
+            "ten sam początek i te same kroki muszą dać identyczny odcisk");
+        second.Core.Trains[1].Drive!.DoorControl = DoorControl.Manual;
+        Assert.AreEqual(first.TelemetryRow(), second.TelemetryRow(),
+            "własny wiersz kabiny nie powinien widzieć trybu drzwi innego składu");
+        Assert.AreNotEqual(first.StateSha256(), second.StateSha256(),
+            "odcisk linii ma widzieć stan drugiego składu");
     }
 
     [TestMethod]
