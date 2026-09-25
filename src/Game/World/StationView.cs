@@ -107,11 +107,19 @@ public sealed partial class StationView : Node3D
         // 113 px at +15 m; +8 m clips the board in the outside view.
         Math.Clamp(stationM + 12.0, 8.0, axisLengthM - 8.0);
 
-    /// <summary>Avoid overlapping signs where route ends clamp the two positions together.</summary>
+    /// <summary>Repeat the name on the platform approach while keeping the stop signs.</summary>
     public static double[] NameMarkerPositions(double stationM, double axisLengthM)
     {
+        // In the Parc cab frame 51 m before the stop, the existing -8 m board
+        // is distant; a -30 m copy is readable before it, while both stop
+        // frames remain unchanged. These are design placements, not a survey.
+        var entry = Math.Clamp(stationM - 30.0, 8.0, axisLengthM - 8.0);
         var approach = NameMarkerChainage(stationM, axisLengthM);
         var stop = StopMarkerChainage(stationM, axisLengthM);
+        if (approach - entry >= 15.0 && stop - approach >= 15.0)
+        {
+            return [entry, approach, stop];
+        }
         return stop - approach >= 15.0 ? [approach, stop] : [approach];
     }
 

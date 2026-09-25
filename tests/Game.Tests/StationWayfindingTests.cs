@@ -33,9 +33,9 @@ public sealed class StationWayfindingTests
             "The first station marker stays inside the route");
         Assert.AreEqual(6678.739, StationView.StopMarkerChainage(lengthM, lengthM), 1e-9,
             "The terminal's second marker stays inside the route");
-        CollectionAssert.AreEqual(new[] { 501.73, 521.73 },
+        CollectionAssert.AreEqual(new[] { 479.73, 501.73, 521.73 },
             StationView.NameMarkerPositions(509.73, lengthM),
-            "An interior station has approach and stop markers");
+            "An interior station is named on entry, near the stop, and at the stop");
         CollectionAssert.AreEqual(new[] { 6671.739 },
             StationView.NameMarkerPositions(lengthM, lengthM),
             "The terminal must not show overlapping duplicate markers");
