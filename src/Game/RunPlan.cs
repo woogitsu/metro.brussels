@@ -204,6 +204,9 @@ public sealed class RunPlan
     /// </summary>
     public bool ReadsKeyboard => !ScriptedMode && !ReplayMode && !FromTelemetryMode;
 
+    /// <summary>A manual GUI run needs a visible startup error; automation keeps its exit code.</summary>
+    public bool ShouldShowStartupErrorDialog(bool headless) => ReadsKeyboard && !headless;
+
     /// <summary>
     /// Plik, do którego zapisuje się wejścia maszynisty (numer kroku + klawisze),
     /// albo <c>null</c>. Format czyta i pisze <c>MetroBxl.Sim.Train.InputLog</c>.

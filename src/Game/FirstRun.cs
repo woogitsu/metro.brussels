@@ -645,21 +645,25 @@ public sealed partial class FirstRun : Node3D
         _aborted = true;
         GD.PushError(message);
         GD.PrintErr(message);
-        if (_plan?.ReadsKeyboard == true
+        if (_plan?.ShouldShowStartupErrorDialog(IsHeadlessDisplay) == true
             && code is ExitMissingInput or ExitMissingAssets or ExitTrainMissing
                 or ExitPlatformsMissing or ExitCabMissing)
         {
             // The GUI executable has no visible console when started by double-click.
-            // Headless jobs keep their exit status without waiting for a dialog.
-            if (!IsHeadlessDisplay)
+            // Defer the popup until the startup scene has entered the tree. Otherwise
+            // an error raised in _Ready can leave only a console message behind.
+            var dialog = new AcceptDialog
             {
-                var dialog = new AcceptDialog { DialogText = message };
-                AddChild(dialog);
-                dialog.Confirmed += () => GetTree().Quit(code);
-                dialog.Canceled += () => GetTree().Quit(code);
-                dialog.PopupCentered();
-                return;
-            }
+                DialogText = message,
+                Title = message[..message.IndexOf(']')].TrimStart('['),
+                Exclusive = true,
+            };
+            AddChild(dialog);
+            dialog.Confirmed += () => GetTree().Quit(code);
+            dialog.Canceled += () => GetTree().Quit(code);
+            dialog.CloseRequested += () => GetTree().Quit(code);
+            Callable.From(() => dialog.PopupCentered()).CallDeferred();
+            return;
         }
         GetTree().Quit(code);
     }
