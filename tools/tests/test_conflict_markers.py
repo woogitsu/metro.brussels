@@ -133,7 +133,7 @@ def znaczniki_w_drzewie():
             item = evidence.get(name)
             if (item is None or len(data) != item["bytes"] or
                     hashlib.sha256(data).hexdigest() != item["sha256"] or
-                    data[:8] != b"\x89PNG\r\n\x1a\n"):
+                    not data.startswith(b"\x89PNG\r\n\x1a\n")):
                 nieczytelne.append(wzgledna)
                 continue
             seen_pngs.add(name)

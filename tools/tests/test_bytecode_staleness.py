@@ -569,6 +569,7 @@ BAJTKOD_PO_COMPILEALL_KATALOGI = 7
 # 223 -> 225 (24.09.2026, render replay): skrypt i test pod tools/.
 # 225 -> 226 (24.09.2026, visual tail): build_visual_tail.py pod tools/track.
 # 226 -> 228 (24.09.2026, generator łącznika i jego test).
+# 228 -> 229 (25.09.2026, T-400 evidence verifier).
 BAJTKOD_PO_COMPILEALL_PLIKI = 229
 
 
@@ -922,6 +923,7 @@ KATALOG_Z_PYTHONEM = "tools"
 # 223 -> 225 (24.09.2026, render replay): skrypt i test pod tools/.
 # 225 -> 226 (24.09.2026, visual tail): build_visual_tail.py pod tools/track.
 # 226 -> 228 (24.09.2026, generator łącznika i jego test).
+# 228 -> 229 (25.09.2026, T-400 evidence verifier).
 MODULOW_W_CALYM_DRZEWIE = 229
 
 
