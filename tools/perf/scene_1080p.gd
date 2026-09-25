@@ -10,6 +10,8 @@ var previous_us := 0
 var frame_ms: Array[float] = []
 var draw_calls: Array[float] = []
 var primitives: Array[float] = []
+var visible_pass_primitives: Array[float] = []
+var visible_pass_draw_calls: Array[float] = []
 var static_memory: Array[float] = []
 var video_memory: Array[float] = []
 var process_ms: Array[float] = []
@@ -40,6 +42,13 @@ func _sample() -> void:
 		frame_ms.append(float(now - previous_us) / 1000.0)
 		draw_calls.append(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))
 		primitives.append(Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME))
+		var viewport_rid := get_root().get_viewport_rid()
+		visible_pass_primitives.append(float(RenderingServer.viewport_get_render_info(
+			viewport_rid, RenderingServer.VIEWPORT_RENDER_INFO_TYPE_VISIBLE,
+			RenderingServer.VIEWPORT_RENDER_INFO_PRIMITIVES_IN_FRAME)))
+		visible_pass_draw_calls.append(float(RenderingServer.viewport_get_render_info(
+			viewport_rid, RenderingServer.VIEWPORT_RENDER_INFO_TYPE_VISIBLE,
+			RenderingServer.VIEWPORT_RENDER_INFO_DRAW_CALLS_IN_FRAME)))
 		static_memory.append(Performance.get_monitor(Performance.MEMORY_STATIC))
 		video_memory.append(Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED))
 		process_ms.append(Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0)
@@ -72,6 +81,8 @@ func _sample() -> void:
 			"resident_mesh_triangles_end": _mesh_triangles(current_scene),
 			"draw_calls": _summary(draw_calls),
 			"render_primitives": _summary(primitives),
+			"visible_pass_primitives": _summary(visible_pass_primitives),
+			"visible_pass_draw_calls": _summary(visible_pass_draw_calls),
 			"static_memory_bytes": _summary(static_memory),
 			"video_memory_bytes": _summary(video_memory),
 			"linux_process_memory_kib": _linux_process_memory(),
