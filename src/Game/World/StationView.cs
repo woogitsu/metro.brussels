@@ -154,6 +154,28 @@ public sealed partial class StationView : Node3D
         bilingual ? (4.30f, 0.76f) : (4.22f, 0.60f);
 
     /// <summary>
+    /// The front of the train must reach this axis coordinate for a station stop.
+    /// End stations have no room for a board across the track; their target remains
+    /// in the HUD. This is a training cue, not a claim about operator signage.
+    /// </summary>
+    public static bool HasOverheadStopTarget(double stationM, double axisLengthM) =>
+        double.IsFinite(stationM) && double.IsFinite(axisLengthM) &&
+        stationM >= 2.0 && stationM <= axisLengthM - 2.0;
+
+    /// <summary>Keep the training board above the M7's 3.60 m roof and 0.30 m reserve.</summary>
+    public static (float CentreHeight, float PlateHeight) StopTargetVerticalLayout() =>
+        (4.29f, 0.72f);
+
+    /// <summary>Place the board over the active track, not over the route centre line.</summary>
+    public static Vector3 StopTargetCentre(SceneAxis sceneAxis, double chainageM)
+    {
+        var frame = sceneAxis.Chord(chainageM - 0.5, chainageM + 0.5);
+        var (heightM, _) = StopTargetVerticalLayout();
+        return sceneAxis.CentreLinePoint(chainageM)
+            + frame.Right * (float)sceneAxis.TrackOffsetM + frame.Up * heightM;
+    }
+
+    /// <summary>
     /// Place a neutral station-name marker above the tracks at each platform.
     /// The names come from the axis, not from copied operator signage.
     /// </summary>
@@ -237,6 +259,75 @@ public sealed partial class StationView : Node3D
                     };
                     AddChild(label);
                 }
+            }
+            count++;
+        }
+
+        platePrototype.Free();
+        return count;
+    }
+
+    /// <summary>
+    /// Add a distinct amber training target at the exact station coordinate used
+    /// by the stop service. The plate is the existing Blender-generated neutral
+    /// board; no network fact or platform side is inferred here.
+    /// </summary>
+    public int AddStopTargets(SceneAxis sceneAxis, string plateGlbPath)
+    {
+        if (_slabs.Count == 0)
+            return 0;
+
+        var platePrototype = GlbLoader.Load(plateGlbPath);
+        if (platePrototype is null)
+            return 0;
+
+        using var targetMaterial = GlbLoader.NeutralMaterial(new Color(0.84f, 0.57f, 0.12f), 0.9f);
+        using var hangerMaterial = GlbLoader.NeutralMaterial(new Color(0.27f, 0.30f, 0.31f), 0.7f);
+        var count = 0;
+        var (heightM, plateHeightM) = StopTargetVerticalLayout();
+        var widthM = 3.2f;
+        foreach (var station in sceneAxis.Axis.Stations)
+        {
+            var at = station.ChainageM;
+            if (!HasOverheadStopTarget(at, sceneAxis.Axis.LengthM))
+                continue;
+
+            var frame = sceneAxis.Chord(at - 0.5, at + 0.5);
+            var centre = StopTargetCentre(sceneAxis, at);
+            var orientation = new Basis(frame.Right, frame.Up, -frame.Forward);
+            var board = (Node3D)platePrototype.Duplicate();
+            board.Transform = new Transform3D(
+                new Basis(orientation.X * widthM, orientation.Y * plateHeightM, orientation.Z),
+                centre);
+            GlbLoader.ApplyNeutralMaterial(board, targetMaterial);
+            AddChild(board);
+
+            var hangerLength = NameMarkerHangerLength(heightM, plateHeightM);
+            foreach (var side in new[] { -1.0f, 1.0f })
+            {
+                AddChild(new MeshInstance3D
+                {
+                    Mesh = new BoxMesh { Size = new Vector3(0.08f, hangerLength, 0.08f) },
+                    MaterialOverride = hangerMaterial,
+                    Transform = new Transform3D(orientation,
+                        centre + frame.Right * (side * widthM * 0.38f)
+                        + frame.Up * (plateHeightM / 2 + hangerLength / 2)),
+                });
+                var face = side < 0
+                    ? orientation
+                    : new Basis(-orientation.X, orientation.Y, -orientation.Z);
+                AddChild(new Label3D
+                {
+                    Text = "STOP",
+                    Transform = new Transform3D(face, centre + frame.Forward * (side * 0.04f)),
+                    FontSize = 96,
+                    PixelSize = 0.0073f,
+                    Modulate = new Color(0.08f, 0.09f, 0.10f),
+                    OutlineModulate = new Color(0.96f, 0.82f, 0.52f),
+                    OutlineSize = 3,
+                    DoubleSided = true,
+                    NoDepthTest = false,
+                });
             }
             count++;
         }

@@ -508,7 +508,9 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 # 2223 -> 2232 (25.09.2026, T-400 ATP): wszystkie dziewięć nowych asercji ma komunikat.
 # 2232 -> 2233 (25.09.2026, T-400 platform): mapowanie widoku z komunikatem.
 # 2233 -> 2240 (25.09.2026, T-400 platform): siedem kontroli obrysu z komunikatem.
-Z_KOMUNIKATEM_RAZEM = 2240
+# 2240 -> 2247 (25.09.2026, T-400 stop target): all seven new assertions explain the failure.
+# 2247 -> 2250 (25.09.2026, T-400 stop target): three active-track placement checks.
+Z_KOMUNIKATEM_RAZEM = 2250
 NIEROZSTRZYGNIETYCH = 69
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
 #: `tests/Sim.Tests/DefaultArmAuditTests.cs` — bramki na ramionach domyślnych
@@ -664,7 +666,9 @@ NIEROZSTRZYGNIETYCH = 69
 # 3685 -> 3694 (25.09.2026, T-400 ATP): dziewięć asercji testu trzech składów.
 # 3694 -> 3695 (25.09.2026, T-400 platform): jawna kontrola mapowania widoku.
 # 3695 -> 3702 (25.09.2026, T-400 platform): siedem kontroli rzeczywistego obrysu peronu.
-ASERCJI_RAZEM = 3702
+# 3702 -> 3709 (25.09.2026, T-400 stop target): seven clearance and endpoint assertions.
+# 3709 -> 3712 (25.09.2026, T-400 stop target): three active-track placement assertions.
+ASERCJI_RAZEM = 3712
 
 
 def _rozklad():

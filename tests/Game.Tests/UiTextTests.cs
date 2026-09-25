@@ -248,7 +248,8 @@ public sealed class UiTextTests
     // 660 -> 679 (25.09.2026, integracja rozkładu i projektowego podglądu).
     // 679 -> 680 (25.09.2026, log przejścia aktywnej kamery Cab->Chase).
     // 680 -> 684 (25.09.2026, T-400): po dwa literały widoków `side` i `platform` w RunPlan.
-    private const int LiteralowWZasieguBramki = 684;
+    // 684 -> 686 (25.09.2026, T-400 stop target): visible label and missing-board error.
+    private const int LiteralowWZasieguBramki = 686;
 
     /// <summary>Ile różnych — dolne ostrze, zmierzone 12.09.2026.</summary>
     private const int RoznychLiteralowWZasieguBramki = 362;
@@ -1537,7 +1538,8 @@ public sealed class UiTextTests
     // 714 -> 733 (25.09.2026, integracja rozkładu i projektowego podglądu).
     // 733 -> 734 (25.09.2026, ten sam log przejścia kamery).
     // 734 -> 738 (25.09.2026, T-400): po dwa jawne literały widoków `side` i `platform`.
-    private const int PozycjiStaregoCzytnika = 738;
+    // 738 -> 740 (25.09.2026, T-400 stop target): the same two literals.
+    private const int PozycjiStaregoCzytnika = 740;
 
     /// <summary>
     /// Ile PLIKÓW korpusu stary czytnik czytał inaczej niż leksykalny — 6.D182.
@@ -2154,7 +2156,8 @@ public sealed class UiTextTests
     // 170 -> 177 (24.09.2026, osłonięcie wymaganych pól JSON).
     // 177 -> 183 (25.09.2026, dodatkowe komunikaty rozkładu w scenie).
     // 183 -> 184 (25.09.2026, log przejścia aktywnej kamery).
-    private const int ZgloszenFirstRunCalymPlikiem = 184;
+    // 184 -> 185 (25.09.2026, T-400 stop target): missing-board error.
+    private const int ZgloszenFirstRunCalymPlikiem = 185;
 
     /// <summary>Ile daje ten sam plik liczony WIERSZ PO WIERSZU — 6.D180.</summary>
     // 122 -> 132 (14.09.2026, MB-04): `FirstRun.AssetsRoot`, `DomyslnyZapisWejsc`
@@ -2177,7 +2180,8 @@ public sealed class UiTextTests
     // 184 -> 191 (24.09.2026, osłonięcie wymaganych pól JSON).
     // 191 -> 197 (25.09.2026, dodatkowe komunikaty rozkładu w scenie).
     // 197 -> 198 (25.09.2026, log przejścia aktywnej kamery).
-    private const int ZgloszenFirstRunWierszami = 198;
+    // 198 -> 199 (25.09.2026, T-400 stop target): the same FirstRun error on the line reader.
+    private const int ZgloszenFirstRunWierszami = 199;
 
     /// <summary>Ile plików korpusu daje różne liczby obiema drogami — 6.D180.</summary>
     private const int PlikowZRoznicaDrog = 1;
@@ -2390,7 +2394,8 @@ public sealed class UiTextTests
     // 448 -> 463 (25.09.2026, zintegrowane literały sceny i rozkładu).
     // 463 -> 464 (25.09.2026, log przejścia aktywnej kamery).
     // 464 -> 468 (25.09.2026, T-400): po dwa literały widoków `side` i `platform`.
-    private const int LiteralowDotknietychZdejmowaniem = 468;
+    // 468 -> 469 (25.09.2026, T-400 stop target): missing-board error.
+    private const int LiteralowDotknietychZdejmowaniem = 469;
 
     /// <summary>
     /// Ilu literałom zdejmowanie jednostek ZABIERA werdykt „to słowo" — 6.D155.
@@ -3645,7 +3650,8 @@ public sealed class UiTextTests
     // 156 -> 158 (24.09.2026, osobne pola metadanych ogona).
     // 158 -> 163 (24.09.2026, komunikaty rozkładu).
     // 163 -> 164 (25.09.2026, interpolowany log aktywnej kamery).
-    private const int LiteralowZKlamra = 164;
+    // 164 -> 165 (25.09.2026, T-400 stop target): interpolated missing-board error.
+    private const int LiteralowZKlamra = 165;
 
     /// <summary>
     /// Ilu literałom <see cref="BezDziur"/> zabiera WSZYSTKIE słowa — 6.D188.
@@ -5532,7 +5538,8 @@ public sealed class UiTextTests
     // 27 -> 28 (24.09.2026): niekompletna para GLB za Merode zatrzymuje uruchomienie.
     // 28 -> 31 (24.09.2026): trzy odmowy przy pliku osi scenerii.
     // 33 -> 36 (25.09.2026, odmowy błędnego rozkładu).
-    private const int WolajacychAbort = 36;
+    // 36 -> 37 (25.09.2026, T-400 stop target): reject a missing training board.
+    private const int WolajacychAbort = 37;
     // 5 -> 6 (24.09.2026, interaktywne R): błąd przeładowania poza Abort.
     private const int WypisowBleduPozaAbort = 6;
 

@@ -1,4 +1,6 @@
+using Godot;
 using MetroBxl.Game.World;
+using MetroBxl.Sim.Line;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace MetroBxl.Game.Tests;
@@ -61,5 +63,47 @@ public sealed class StationWayfindingTests
             Assert.IsTrue(StationView.NameMarkerHangerLength(centre, height) > 0,
                 "Each board must have room for a hanger beneath the ceiling");
         }
+    }
+
+    [TestMethod]
+    public void TrainingStopTargetUsesExactInteriorStationCoordinateAndClearsTheTrain()
+    {
+        var axisLengthM = 6686.35;
+        Assert.IsFalse(StationView.HasOverheadStopTarget(0.0, axisLengthM),
+            "A board must not hang through the beginning of the tunnel");
+        Assert.IsFalse(StationView.HasOverheadStopTarget(axisLengthM, axisLengthM),
+            "A board must not hang through the terminal end wall");
+        Assert.IsTrue(StationView.HasOverheadStopTarget(4075.66, axisLengthM),
+            "Parc's axis stop coordinate has room for an overhead training cue");
+        Assert.IsFalse(StationView.HasOverheadStopTarget(double.NaN, axisLengthM),
+            "An invalid coordinate must never create geometry");
+
+        var (centreM, plateHeightM) = StationView.StopTargetVerticalLayout();
+        Assert.IsTrue(centreM - plateHeightM / 2 >= 3.60f + 0.30f + 0.019f,
+            "The board must clear the M7 roof, reserve, and buffer");
+        Assert.IsTrue(centreM + plateHeightM / 2 <= 4.70f,
+            "The board must stay under the current station tunnel roof");
+        Assert.IsTrue(StationView.NameMarkerHangerLength(centreM, plateHeightM) > 0,
+            "The board must have room for a ceiling hanger");
+    }
+
+    [TestMethod]
+    public void TrainingStopTargetIsCentredOverTheActiveTrackAtTheExactChainage()
+    {
+        var axis = TrackAxis.FromJson("""
+            {"id":"STOP_TEST","points":[[0,0,0],[100,0,0],[200,50,0]],"stations":[]}
+            """);
+        var scene = new SceneAxis(axis, 2.10);
+        var frame = scene.Chord(99.5, 100.5);
+        var centre = StationView.StopTargetCentre(scene, 100.0);
+        var fromRoute = centre - scene.CentreLinePoint(100.0);
+
+        Assert.AreEqual(0.0f, fromRoute.Dot(frame.Forward), 0.001f,
+            "The board must stay at the exact stop chainage");
+        Assert.AreEqual(2.10f, fromRoute.Dot(frame.Right), 0.001f,
+            "The board must be above the active track, not the route centre line");
+        Assert.AreEqual(StationView.StopTargetVerticalLayout().CentreHeight,
+            fromRoute.Dot(Vector3.Up), 0.001f,
+            "The board must keep its measured roof clearance above the active track");
     }
 }

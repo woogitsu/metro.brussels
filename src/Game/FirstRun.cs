@@ -1501,6 +1501,18 @@ public sealed partial class FirstRun : Node3D
             Abort(5, $"[STACJA] {namePlatePath} nie dał tablic nazw wszystkich stacji.");
             return;
         }
+        var expectedStopTargets = 0;
+        foreach (var station in _sceneAxis.Axis.Stations)
+        {
+            if (StationView.HasOverheadStopTarget(station.ChainageM, _sceneAxis.Axis.LengthM))
+                expectedStopTargets++;
+        }
+        var stopTargets = _platforms.AddStopTargets(_sceneAxis, namePlatePath);
+        if (stopTargets != expectedStopTargets)
+        {
+            Abort(5, $"[STACJA] {namePlatePath} nie dał znaczników celu postoju.");
+            return;
+        }
 
         // KABINA WCHODZI TĄ SAMĄ DROGĄ CO SKORUPA I PERONY, łącznie z odmową przy zerze
         // brył (MB-05). Odrzucenie wyniku `Load` jest tu tą samą usterką co przy składzie

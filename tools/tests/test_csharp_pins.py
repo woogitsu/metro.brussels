@@ -174,12 +174,13 @@ KATEGORIE = {
         # 25.09.2026: komentarz o logu kamery przesuwa pięć kotwic o wiersz; treść bez zmian.
         # AZERTY (25.09.2026): dwa komentarze przesuwają kotwice, a W/Z wydłuża pomoc.
         # T-400 side dodaje kolejny komentarz, przesuwając kotwice o wiersz.
-        ("UiTextTests.cs", 1298), ("UiTextTests.cs", 1311), ("UiTextTests.cs", 1329),
+        # T-400 stop target adds one count-history line above these pins.
+        ("UiTextTests.cs", 1299), ("UiTextTests.cs", 1312), ("UiTextTests.cs", 1330),
         # HUD domenowy dodaje trainId; pin przesuwa się i obejmuje koniec autorytetu.
         ("SignallingHudTests.cs", 40),
     },
     "B": {
-        ("UiTextTests.cs", 1398), ("UiTextTests.cs", 1399),
+        ("UiTextTests.cs", 1399), ("UiTextTests.cs", 1400),
     },
 }
 
@@ -280,10 +281,10 @@ def test_regula_po_ksztalcie_literalu_myli_sie_i_dlatego_jej_nie_ma():
                      if not regula.search(tresci[p])]
     zlapane_z_b = [p for p in sorted(KATEGORIE["B"]) if regula.search(tresci[p])]
 
-    assert przepuszczone == [("UiTextTests.cs", 1329)], (
+    assert przepuszczone == [("UiTextTests.cs", 1330)], (
         "reguła po kształcie przestała przepuszczać wiersz o hamulcu awaryjnym — "
         "rozstrzygnięcie 6.D131 wymaga przeliczenia: %s" % przepuszczone)
-    assert zlapane_z_b == [("UiTextTests.cs", 1399)], (
+    assert zlapane_z_b == [("UiTextTests.cs", 1400)], (
         "reguła po kształcie przestała łapić wejście syntetyczne: %s" % zlapane_z_b)
 
 
@@ -297,11 +298,11 @@ def test_czytnik_widzi_pin_takze_wtedy_gdy_literal_jest_sklejony():
     tresci = {(plik, wiersz): tresc
               for plik, wiersz, _r, tresc in CP.piny("tests/Game.Tests")}
 
-    assert len(tresci[("UiTextTests.cs", 1298)]) == 124, (
+    assert len(tresci[("UiTextTests.cs", 1299)]) == 124, (
         "sklejanie literałów przestało działać: %d znaków"
-        % len(tresci[("UiTextTests.cs", 1298)]))
-    assert len(tresci[("UiTextTests.cs", 1329)]) == 98, (
-        len(tresci[("UiTextTests.cs", 1329)]))
+        % len(tresci[("UiTextTests.cs", 1299)]))
+    assert len(tresci[("UiTextTests.cs", 1330)]) == 98, (
+        len(tresci[("UiTextTests.cs", 1330)]))
     assert len(tresci[("SignallingHudTests.cs", 40)]) == 106, (
         len(tresci[("SignallingHudTests.cs", 40)]))
 
@@ -426,8 +427,9 @@ ROZKLAD_LICZBOWYCH = {
         # 256 -> 257: pin pelnego hamulca z tolerancja po przejeciu przez gracza.
         # 257 -> 260 (24.09.2026, dwie tablice): trzy polozenia z tolerancja.
         # 260 -> 262 (24.09.2026, mocowania tablic): dwie długości z tolerancją.
-        "razem": 262, "z_tolerancja": 117, "bez_tolerancji": 145,
-        "zmiennoprzecinkowe": 123, "zmiennoprzecinkowe_bez_tolerancji": 6,
+        # 262 -> 264 (25.09.2026, T-400 stop target): lateral and vertical position checks.
+        "razem": 264, "z_tolerancja": 119, "bez_tolerancji": 145,
+        "zmiennoprzecinkowe": 125, "zmiennoprzecinkowe_bez_tolerancji": 6,
         "calkowite": 139, "calkowite_z_tolerancja": 0, "tolerancja_zero": 18,
     },
     "tests/Sim.Tests": {

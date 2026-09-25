@@ -61,6 +61,8 @@ The images are a visual audit only. SHA-256 and render sanity protect file ident
 
 ## Side view follow-up
 
+The [training stop-target follow-up](t400-stop-target-2026-09-25.md) records a later cab approach and an actual line stop with the new neutral target board.
+
 The original `outside` image places the stopped train too far away to inspect its side. A separate technical `--view=side` camera now stands alongside the first car on the adjacent track, 14 m behind the front and 4.20 m laterally from the train axis, looking 28 m behind the front. It does not encode or establish the real platform side. [The 1280×720 Parc side frame](visual-evidence/t400-side/PARC_side.png) was captured from the generated package A scene with Godot 4.7.2, Xvfb/OpenGL3, at a real line stop. The [capture log](visual-evidence/t400-side/PARC_side.log) records 54,449 simulation steps, chainage 4075.4 m, speed 0.0 km/h and `widok=Side`; the HUD visibly says `DRZWI otwarte`. PNG SHA-256: `b7f6cae53041995d9e0238203cafd3eaf6bd98a0567f9b42f513cf10967362b5`.
 
 To reproduce after generating assets with `bash tools/dev/prepare-playable.sh build/t400` and building the game project, run Godot under Xvfb with `--line --limit-kmh=70 --shot=/absolute/path/PARC_side.png --at-chainage=4075.66 --view=side`. The existing `PARC_line_outside.png` is the before frame from an older head and a different camera. It shows a small gray train; the new frame exposes the window band and door openings across the side of the train. These are complementary diagnostic views, not a pixel-for-pixel visual regression pair. The open cutouts and plain body still make the M7 presentation unfinished; the frame does not close #26 or prove a continuous arrival.
