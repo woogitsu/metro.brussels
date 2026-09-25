@@ -269,13 +269,13 @@ public sealed partial class FirstRun : Node3D
     private StepAccumulator _accumulator = null!;
     private long _frames;
     private List<long>? _performanceStepTicks;
-    private List<double>? _performanceStepSpeedKmh;
+    private List<long>? _performanceStepOrdinals;
 
     /// <summary>Begin an opt-in timing sample of actual scene simulation steps.</summary>
     public void BeginStepTiming()
     {
         _performanceStepTicks = new List<long>(4096);
-        _performanceStepSpeedKmh = new List<double>(4096);
+        _performanceStepOrdinals = new List<long>(4096);
     }
 
     /// <summary>Return elapsed microseconds per completed scene step for a local benchmark.</summary>
@@ -296,8 +296,8 @@ public sealed partial class FirstRun : Node3D
         return result;
     }
 
-    /// <summary>Speed after each timed step, paired by index with its timing sample.</summary>
-    public double[] StepTimingSpeedsKmh() => _performanceStepSpeedKmh?.ToArray() ?? Array.Empty<double>();
+    /// <summary>Step index within its rendered frame, paired with timing samples.</summary>
+    public long[] StepTimingOrdinals() => _performanceStepOrdinals?.ToArray() ?? Array.Empty<long>();
     private long _sampleEvery = DriveTelemetry.DefaultSampleEverySteps;
     private long _stepsPerFrame = 120;
     private double _jitter;
@@ -1707,7 +1707,7 @@ public sealed partial class FirstRun : Node3D
             if (_performanceStepTicks is not null && completed)
             {
                 _performanceStepTicks.Add(Stopwatch.GetTimestamp() - start);
-                _performanceStepSpeedKmh!.Add(_state.SpeedKmh);
+                _performanceStepOrdinals!.Add(i);
             }
 
             if (!completed)
