@@ -2647,7 +2647,7 @@ MIN_GOLYCH_W_DOKUMENTACH = 1200
 # 41 -> 42 (23.09.2026, 6.D366): doszla `times-po.txt` z wiersza i bloku 6.D366,
 # gdzie stoi w cytacie komunikatu awarii — plik kroku `Run tool tests` zapisywany
 # do `$RUNNER_TEMP`, czyli POZA drzewem; druga rodzina, wytwory przebiegu; ZMIERZONE.
-# 42 -> 41 (25.09.2026): dokumentacja wskazuje nowy raport T-400.
+# 42 -> 41 (25.09.2026, T-400): dokumentacja wskazuje nowy raport.
 GOLYCH_BEZ_ODPOWIEDNIKA = 41
 
 #: To samo, ale WYLACZNIE w trzech polach skanowanych — czyli tam, gdzie poszerzony

@@ -24,7 +24,7 @@ def main() -> None:
         if hashlib.sha256(data).hexdigest() != item["sha256"]:
             raise ValueError(f"SHA-256 mismatch: {path}")
         if path.suffix == ".png":
-            if data[:8] != b"\x89PNG\r\n\x1a\n":
+            if not data.startswith(b"\x89PNG\r\n\x1a\n"):
                 raise ValueError(f"invalid PNG signature: {path}")
             if struct.unpack(">II", data[16:24]) != (1280, 720):
                 raise ValueError(f"unexpected PNG dimensions: {path}")
