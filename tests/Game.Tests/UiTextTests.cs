@@ -247,8 +247,7 @@ public sealed class UiTextTests
     // 656 -> 660 (24.09.2026, etykieta prototypu w HUD).
     // 660 -> 679 (25.09.2026, integracja rozkładu i projektowego podglądu).
     // 679 -> 680 (25.09.2026, log przejścia aktywnej kamery Cab->Chase).
-    // 680 -> 682 (25.09.2026, T-400): dwa jawne literały nazwy widoku `side` w RunPlan.
-    // 682 -> 684 (25.09.2026, T-400 platform): nazwa widoku w tablicy i parserze.
+    // 680 -> 684 (25.09.2026, T-400): po dwa literały widoków `side` i `platform` w RunPlan.
     private const int LiteralowWZasieguBramki = 684;
 
     /// <summary>Ile różnych — dolne ostrze, zmierzone 12.09.2026.</summary>
@@ -1537,8 +1536,7 @@ public sealed class UiTextTests
     // 710 -> 714 (24.09.2026, etykieta prototypu w HUD).
     // 714 -> 733 (25.09.2026, integracja rozkładu i projektowego podglądu).
     // 733 -> 734 (25.09.2026, ten sam log przejścia kamery).
-    // 734 -> 736 (25.09.2026, T-400): dwa jawne literały nazwy widoku `side`.
-    // 736 -> 738 (25.09.2026, T-400 platform): te same dwa literały.
+    // 734 -> 738 (25.09.2026, T-400): po dwa jawne literały widoków `side` i `platform`.
     private const int PozycjiStaregoCzytnika = 738;
 
     /// <summary>
@@ -2391,8 +2389,7 @@ public sealed class UiTextTests
     // 447 -> 448 (24.09.2026, etykieta prototypu w HUD).
     // 448 -> 463 (25.09.2026, zintegrowane literały sceny i rozkładu).
     // 463 -> 464 (25.09.2026, log przejścia aktywnej kamery).
-    // 464 -> 466 (25.09.2026, T-400): dwa literały nazwy widoku kontrolnego.
-    // 466 -> 468 (25.09.2026, T-400 platform): dwa literały widoku.
+    // 464 -> 468 (25.09.2026, T-400): po dwa literały widoków `side` i `platform`.
     private const int LiteralowDotknietychZdejmowaniem = 468;
 
     /// <summary>
@@ -3183,8 +3180,7 @@ public sealed class UiTextTests
     // 105 -> 109 (24.09.2026, osobna sekcja metadanych scenerii).
     // 109 -> 118 (24.09.2026, opcjonalny podgląd łącznika).
     // 118 -> 121 (25.09.2026, komunikaty rozkładu w scenie).
-    // 121 -> 123 (25.09.2026, T-400): dwa jawne wystąpienia nazwy `side`.
-    // 123 -> 125 (25.09.2026, T-400 platform): dwa literały nazwy widoku.
+    // 121 -> 125 (25.09.2026, T-400): po dwa jawne literały widoków `side` i `platform`.
     private const int ZgloszenWaskichCalymPlikiem = 125;
 
     /// <summary>Zgłoszeń wąskiej reguły, gdy czytnik dostaje WIERSZ — 6.D173/6.D186.</summary>
@@ -3203,8 +3199,7 @@ public sealed class UiTextTests
     // 117 -> 122 (24.09.2026, osobna sekcja metadanych scenerii).
     // 122 -> 132 (24.09.2026, opcjonalny podgląd łącznika).
     // 132 -> 135 (25.09.2026, komunikaty rozkładu w scenie).
-    // 135 -> 137 (25.09.2026, T-400): dwa jawne wystąpienia nazwy `side`.
-    // 137 -> 139 (25.09.2026, T-400 platform): te same dwa literały.
+    // 135 -> 139 (25.09.2026, T-400): po dwa jawne literały widoków `side` i `platform`.
     private const int ZgloszenWaskichWierszami = 139;
 
     /// <summary>
