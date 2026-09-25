@@ -673,7 +673,8 @@ ROZKLAD_POSTACI = {
         # 5570 -> 5571 (25.09.2026, T-400 side): publiczna nazwa --view=side.
         # 5571 -> 5582 i 859 -> 863 (25.09.2026, T-400 ATP): test trzech składów.
         # 5582 -> 5585 (25.09.2026, T-400 platform): widok, nazwa i komunikat.
-        "zwykly": 5585,
+        # 5585 -> 5592 (25.09.2026, T-400 platform): siedem literałów testu obrysu.
+        "zwykly": 5592,
         "interpolowany ($)": 863,
         "werbatim (@)": 102,
         "surowy interpolowany ($$\"\"\")": 13,
