@@ -14,6 +14,7 @@ a nie wyjątek.
 
 Wszystkie cztery są **bramkami**, nie pomocnikami: odpowiadają „czy wolno iść dalej".
 """
+import math
 import os
 
 #: Poniżej tylu bajtów plik nie jest renderem ani eksportem, tylko śladem po awarii.
@@ -69,4 +70,10 @@ def spec_id_problems(specs):
         problems.append(f"powtórzone identyfikatory materiałów: {powtorzone}")
     if any(not i for i in ids):
         problems.append(f"{sum(1 for i in ids if not i)} materiałów bez identyfikatora")
+    invalid_alpha = [s.get("id") for s in specs
+                     if "alpha" in s and (not isinstance(s.get("alpha"), (int, float))
+                                          or not math.isfinite(float(s["alpha"]))
+                                          or not 0.0 <= float(s["alpha"]) <= 1.0)]
+    if invalid_alpha:
+        problems.append(f"nieprawidłowe krycie materiałów: {invalid_alpha}")
     return problems

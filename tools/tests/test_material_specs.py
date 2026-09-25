@@ -171,6 +171,15 @@ def test_missing_ids_are_counted_separately_from_duplicates():
     assert len(missing) == 1
     assert missing[0].startswith("2 "), missing
 
+
+def test_alpha_outside_renderable_range_is_rejected():
+    assert any("krycie" in p for p in MS.spec_id_problems([{"id": "bad", "alpha": 1.1}]))
+    assert any("krycie" in p for p in MS.spec_id_problems([{"id": "bad", "alpha": -0.1}]))
+
+
+def test_non_finite_alpha_is_rejected():
+    assert any("krycie" in p for p in MS.spec_id_problems([{"id": "bad", "alpha": float("nan")}]))
+
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
 # z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
 # tools/tests/<modul>.py` konczyl sie kodem 0, nie wykonawszy ani jednego testu.
