@@ -669,10 +669,11 @@ ROZKLAD_POSTACI = {
         # 5550 -> 5553 (25.09.2026, tablice stacyjne): trzy komunikaty skrajni i stropu.
         # 5553 -> 5560 (25.09.2026, komunikaty asercji odcisku i drugiego składu).
         # 5566 -> 5569 i 858 -> 859 (25.09.2026, AZERTY): mapa, pomoc i test.
-        # 5569 -> 5570 (25.09.2026, T-400 side): publiczna nazwa --view=side.
-        # 5570 -> 5571 (25.09.2026, T-400 HUD): identyfikator składu w teście.
-        "zwykly": 5571,
-        "interpolowany ($)": 859,
+        # 5569 -> 5570 (25.09.2026, T-400 HUD): identyfikator składu w teście.
+        # 5570 -> 5571 (25.09.2026, T-400 side): publiczna nazwa --view=side.
+        # 5571 -> 5582 i 859 -> 863 (25.09.2026, T-400 ATP): test trzech składów.
+        "zwykly": 5582,
+        "interpolowany ($)": 863,
         "werbatim (@)": 102,
         "surowy interpolowany ($$\"\"\")": 13,
         # 8 -> 10 (23.09.2026): dwie probki sceny w testach.
@@ -1195,4 +1196,3 @@ def test_czytnik_rodzin_odroznia_TO_SAMO_CIALO_od_TEJ_SAMEJ_NAZWY():
         "duplikatem" % sorted(jednoimienne))
     assert "WJednymPliku" not in identyczne and "WJednymPliku" not in jednoimienne, (
         "przeciazenie w JEDNYM pliku policzone jako rodzina miedzy plikami")
-
