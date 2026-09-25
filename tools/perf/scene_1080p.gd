@@ -14,6 +14,7 @@ var static_memory: Array[float] = []
 var video_memory: Array[float] = []
 var process_ms: Array[float] = []
 var mesh_triangles_at_warmup := -1
+var step_timing_started := false
 
 func _initialize() -> void:
 	call_deferred("_start")
@@ -31,6 +32,9 @@ func _sample() -> void:
 	var now := Time.get_ticks_usec()
 	var elapsed := now - started_us
 	if elapsed >= WARMUP_US and previous_us > 0:
+		if not step_timing_started:
+			current_scene.call("BeginStepTiming")
+			step_timing_started = true
 		if mesh_triangles_at_warmup < 0:
 			mesh_triangles_at_warmup = _mesh_triangles(current_scene)
 		frame_ms.append(float(now - previous_us) / 1000.0)
@@ -41,12 +45,17 @@ func _sample() -> void:
 		process_ms.append(Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0)
 	previous_us = now
 	if elapsed >= WARMUP_US + MEASURE_US:
+		var step_values: Array[float] = []
+		for value in current_scene.call("StepTimingsMicroseconds"):
+			step_values.append(value)
 		var result := {
 			"frames": frame_ms.size(),
 			"resolution": [get_root().size.x, get_root().size.y],
 			"frames_drawn": Engine.get_frames_drawn(),
 			"frame_ms": _summary(frame_ms),
 			"process_ms": _summary(process_ms),
+			"scene_step_us": _summary(step_values),
+			"scene_steps": step_values.size(),
 			"resident_mesh_triangles_warmup": mesh_triangles_at_warmup,
 			"resident_mesh_triangles_end": _mesh_triangles(current_scene),
 			"draw_calls": _summary(draw_calls),

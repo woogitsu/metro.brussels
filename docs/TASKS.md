@@ -447,6 +447,9 @@ których agent nie ruszy bez decyzji właściciela.
   w Xvfb/Mesa llvmpipe, z czasem klatki, liczbą wywołań rysowania, geometrią i pamięcią.
   Jest to wynik renderingu programowego; sprzętowe GPU wymaga odrębnego pomiaru.
   Metoda i wyniki: `reports/t400-performance-baseline-1080p.md`.
+- **Czas kroku tej samej sceny (#26, 25.09.2026):** sonda rozdziela czas klatki
+  od czasu rzeczywistego `FirstRun.StepOnce` w trzech ukrytych przebiegach.
+  Wyniki i ograniczenia: `reports/t400-scene-step-timing-2026-09-25.md`.
 - **Zrobione (etap 2):** zrzuty z silnika idą przez kontrolę wizualną z T-012,
   odtwarzalne co do bajtu również między maszynami (`reports/T-012-godot-capture.md`)
 - **Dowód sekwencji Parc/Park (25.09.2026):** 106 kolejnych klatek jednego przebiegu
