@@ -514,7 +514,7 @@ KROK_ZESTAWU = "Run tool tests"
 #: zapaliła się na tej jedynce sama, w pierwszym przebiegu po dopisaniu pliku, i to
 #: jest dowód, że mierzy drzewo, a nie własny komentarz. Rozkład dzisiejszy:
 #: `tools/tests` **149**, `tools/blender` 33, `tools/track` 25, `tools/ci` 10,
-#: `tools/visual` 7, `tools/physics` 3, `tools/data` 2.
+#: `tools/visual` 8, `tools/physics` 3, `tools/data` 2.
 #:
 #: **Rozklad modulow po katalogach — 6.D263, i to jest zapadka na ZDANIE, nie na sume.**
 #:
@@ -534,7 +534,7 @@ ROZKLAD_MODULOW = {
     "tools/blender": 33,  # 32 -> 33 (24.09.2026): generator tablic stacji.
     "tools/track": 25,  # 24 -> 25 (24.09.2026, connector probe generator)
     "tools/ci": 10,  # 9 -> 10 (18.09.2026, 6.D280)
-    "tools/visual": 7,  # 6 -> 7 (25.09.2026, Parc arrival GIF builder)
+    "tools/visual": 8,  # 6 -> 7 (T-400 verifier), 7 -> 8 (Parc arrival GIF builder)
     "tools/physics": 3,
     "tools/data": 2,
 }
@@ -569,8 +569,9 @@ BAJTKOD_PO_COMPILEALL_KATALOGI = 7
 # 223 -> 225 (24.09.2026, render replay): skrypt i test pod tools/.
 # 225 -> 226 (24.09.2026, visual tail): build_visual_tail.py pod tools/track.
 # 226 -> 228 (24.09.2026, generator łącznika i jego test).
-# 228 -> 229 (25.09.2026, budowniczy animacji Parc/Park).
-BAJTKOD_PO_COMPILEALL_PLIKI = 229
+# 228 -> 229 (25.09.2026, T-400 evidence verifier).
+# 229 -> 230 (25.09.2026, budowniczy animacji Parc/Park).
+BAJTKOD_PO_COMPILEALL_PLIKI = 230
 
 
 def _workflow_zestawu():
@@ -923,8 +924,9 @@ KATALOG_Z_PYTHONEM = "tools"
 # 223 -> 225 (24.09.2026, render replay): skrypt i test pod tools/.
 # 225 -> 226 (24.09.2026, visual tail): build_visual_tail.py pod tools/track.
 # 226 -> 228 (24.09.2026, generator łącznika i jego test).
-# 228 -> 229 (25.09.2026, budowniczy animacji Parc/Park).
-MODULOW_W_CALYM_DRZEWIE = 229
+# 228 -> 229 (25.09.2026, T-400 evidence verifier).
+# 229 -> 230 (25.09.2026, budowniczy animacji Parc/Park).
+MODULOW_W_CALYM_DRZEWIE = 230
 
 
 def moduly_calego_drzewa(korzen=None):

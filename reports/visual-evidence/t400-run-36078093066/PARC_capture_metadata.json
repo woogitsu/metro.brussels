@@ -1,0 +1,49 @@
+{
+ "engine": "godot",
+ "engine_version": "4.7.2-stable (official)",
+ "manifest_version": "L1_A/flat-preview",
+ "resolution": [1280, 720],
+ "last_shot": {"view": "Outside", "chainage_m": 4075.068, "steps": 23077,
+               "subject_chainage_m": 4075.068},
+ "scene": {
+  "bbox_min": [2473.7288, -1.2000, 61.3391],
+  "bbox_max": [3710.2573, 4.7000, 506.4255],
+  "size_m": [1236.5286, 5.9000, 445.0864],
+  "mesh_objects": 24,
+  "vertices": 4860,
+  "faces": 1620,
+  "chunks_loaded": 3,
+  "chunks_declared": 12,
+  "window_low_m": 3775.068,
+  "window_high_m": 4675.068,
+  "axis_length_m": 6686.739
+ },
+ "visual_continuation": {
+  "kind": "tail",
+  "vertical_status": "not_modelled",
+  "source_sha256": "",
+  "present": true,
+  "mesh_objects": 6,
+  "bbox_min": [5445.0947, -1.2000, 1067.6475],
+  "bbox_max": [5733.4814, 4.7000, 1168.7913],
+  "axis_length_m": 300.001,
+  "seam_gap_m": 0.0000
+ },
+ "platforms": {
+  "slabs": 48,
+  "bbox_min": [-7.0828, 0.0000, -913.1798],
+  "bbox_max": [5449.0015, 1.0310, 1079.2051],
+  "top_m": 1.0310,
+  "near_shot": {
+   "radius_m": 20.000,
+   "slabs": 4,
+   "top_m": 1.0310
+  }
+ },
+ "train": {
+  "bodies": 11,
+  "length_m": 94.0000,
+  "width_m": 2.7000,
+  "roof_height_m": 3.6000
+ }
+}

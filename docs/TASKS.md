@@ -436,6 +436,7 @@ których agent nie ruszy bez decyzji właściciela.
 ## Silnik
 
 ### [~] T-400 · Scena Godota i pierwszy przejazd
+- **Przegląd klatek (25.09.2026):** [raport z obrazami Parc i Beekkant](../reports/t400-visual-evidence-2026-09-25.md) dokumentuje ujęcia z silnika oraz ograniczenia kadrowania M7. Zadanie #26 pozostaje otwarte.
 - **HUD sygnalizacji po końcu linii (24.09.2026):** w `--line` skład, który zjechał
   z planu po Merode, ma pusty autorytet. Wiersz rozróżnia teraz ten stan od składu,
   który jeszcze czeka na pierwszy wjazd; test prowadzi rzeczywisty `LineCore` do końca.
