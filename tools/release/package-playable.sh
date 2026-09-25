@@ -56,6 +56,7 @@ case "${PACZKA_SYSTEM:-linux}" in
         exit 2
         ;;
 esac
+PACZKA_SYSTEM="${PACZKA_SYSTEM:-linux}"
 
 GODOT_EXE="${GODOT_BIN:-godot}"
 if ! command -v "$GODOT_EXE" >/dev/null 2>&1 && [ ! -x "$GODOT_EXE" ]; then
@@ -215,4 +216,29 @@ CZYTAJ
 echo "[PACZKA] rozmiar:"
 du -sh "$DOCELOWY" | sed 's/^/[PACZKA]   /'
 find "$ZASOBY" -type f | wc -l | sed 's/^/[PACZKA]   plików w zasobach: /'
+RELEASE_COMMIT="$(git rev-parse HEAD 2>/dev/null || printf '%s' unknown)"
+export RELEASE_COMMIT PACZKA_SYSTEM PRESET BINARKA DOCELOWY
+python3 - <<'PY'
+import hashlib
+import json
+import os
+from pathlib import Path
+
+root = Path(os.environ["DOCELOWY"])
+files = []
+for path in sorted(p for p in root.rglob("*") if p.is_file() and p.name != "release-manifest.json"):
+    rel = path.relative_to(root).as_posix()
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    files.append({"path": rel, "bytes": path.stat().st_size, "sha256": digest})
+manifest = {
+    "schema_version": 1,
+    "git_commit": os.environ["RELEASE_COMMIT"],
+    "package_system": os.environ["PACZKA_SYSTEM"],
+    "godot_preset": os.environ["PRESET"],
+    "executable": os.environ["BINARKA"],
+    "files": files,
+}
+(root / "release-manifest.json").write_text(
+    json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+PY
 echo "[PACZKA] gotowe: $DOCELOWY/$BINARKA"
