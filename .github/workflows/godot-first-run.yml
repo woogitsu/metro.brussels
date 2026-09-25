@@ -1468,7 +1468,7 @@ jobs:
               --replay="$PWD/build/t400/linia-fps/keys.log" \
               --telemetry="$PWD/build/t400/linia-fps/scene-spf$spf.csv" \
               --steps-per-frame="$spf" \
-              > "build/t400/linia-fps/scene-spf$spf.log" 2>&1
+              2>&1 | tee "build/t400/linia-fps/scene-spf$spf.log"
             python3 tools/ci/assert_no_godot_warnings.py \
               "build/t400/linia-fps/scene-spf$spf.log"
             grep -q '^\[ODTWORZENIE\] koniec: kroków=8041 ' \
