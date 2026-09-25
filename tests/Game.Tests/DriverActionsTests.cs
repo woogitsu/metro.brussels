@@ -198,7 +198,8 @@ public sealed class DriverActionsTests
             new[] { (int)Key.W, (int)Key.Z, (int)Key.Up },
             power.PhysicalKeycodes.ToArray(),
             "oba położenia liter W/Z i strzałka w górę muszą dawać ciąg");
-        Assert.AreEqual("W/Z", power.KeyName);
+        Assert.AreEqual("W/Z", power.KeyName,
+            "pomoc sterowania musi wymieniać oba położenia klawisza ciągu");
 
         var mapped = InputMapFromProject();
         foreach (var code in new[] { (int)Key.W, (int)Key.Z })

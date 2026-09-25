@@ -667,8 +667,9 @@ ROZKLAD_POSTACI = {
         # i podglądu łącznika wraz z pomiarami w UiTextTests).
         # 5546 -> 5550 (25.09.2026, nastawnik): cztery komunikaty przejścia przez neutral.
         # 5550 -> 5553 (25.09.2026, tablice stacyjne): trzy komunikaty skrajni i stropu.
-        "zwykly": 5553,
-        "interpolowany ($)": 858,
+        # 5553 -> 5556 i 858 -> 859 (25.09.2026, AZERTY): mapa, pomoc i test.
+        "zwykly": 5556,
+        "interpolowany ($)": 859,
         "werbatim (@)": 102,
         "surowy interpolowany ($$\"\"\")": 13,
         # 8 -> 10 (23.09.2026): dwie probki sceny w testach.
