@@ -92,9 +92,11 @@ public sealed partial class StationView : Node3D
         return Math.Clamp(stationM - beforeM, 8.0, axisLengthM - 8.0);
     }
 
-    /// <summary>Keep a second name visible from the stopping point.</summary>
+    /// <summary>Keep a second name readable from the stopping point.</summary>
     public static double StopMarkerChainage(double stationM, double axisLengthM) =>
-        Math.Clamp(stationM + 15.0, 8.0, axisLengthM - 8.0);
+        // At Beekkant, +12 m makes the stopped cab label 135 px wide instead of
+        // 113 px at +15 m; +8 m clips the board in the outside view.
+        Math.Clamp(stationM + 12.0, 8.0, axisLengthM - 8.0);
 
     /// <summary>Avoid overlapping signs where route ends clamp the two positions together.</summary>
     public static double[] NameMarkerPositions(double stationM, double axisLengthM)
