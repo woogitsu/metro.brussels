@@ -645,6 +645,9 @@ public sealed partial class FirstRun : Node3D
         _aborted = true;
         GD.PushError(message);
         GD.PrintErr(message);
+        // Flush the named startup error before the GUI dialog waits for acknowledgement.
+        Console.Error.WriteLine(message);
+        Console.Error.Flush();
         if (_plan?.ReadsKeyboard == true
             && code is ExitMissingInput or ExitMissingAssets or ExitTrainMissing
                 or ExitPlatformsMissing or ExitCabMissing)
