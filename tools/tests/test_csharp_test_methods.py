@@ -667,7 +667,9 @@ ROZKLAD_POSTACI = {
         # i podglądu łącznika wraz z pomiarami w UiTextTests).
         # 5546 -> 5550 (25.09.2026, nastawnik): cztery komunikaty przejścia przez neutral.
         # 5550 -> 5553 (25.09.2026, tablice stacyjne): trzy komunikaty skrajni i stropu.
-        "zwykly": 5553,
+        # 5553 -> 5554 (25.09.2026, T-400 side): test przypina
+        # publiczna nazwe `--view=side` niezaleznie od nazwy enum.
+        "zwykly": 5554,
         "interpolowany ($)": 858,
         "werbatim (@)": 102,
         "surowy interpolowany ($$\"\"\")": 13,
@@ -752,7 +754,9 @@ ROZKLAD_POSTACI = {
         # Równoległy pomiar gałęzi podglądu łącznika:
         # 1582 -> 1613 (25.09.2026, dwa wejścia rozkładowe w scenie i Runnerze).
         # Połączone drzewo jest mierzone poniższą zapadką.
-        "zwykly": 1614,
+        # 1614 -> 1616 (25.09.2026, T-400 side): jawna nazwa
+        # widoku w KnownViews i mapowaniu argumentu.
+        "zwykly": 1616,
         # 489 -> 494 (22.09.2026, 6.D235): piec komunikatow `Abort` dla pliku ZLEGO
         # w `FirstRun.cs`. Przeliczone z drzewa, nie zsumowane.
         # 494 -> 513 (23.09.2026, 6.M1): komunikaty odmow i wiersze zapisu zdarzen
