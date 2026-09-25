@@ -674,7 +674,9 @@ ROZKLAD_POSTACI = {
         # 5571 -> 5582 i 859 -> 863 (25.09.2026, T-400 ATP): test trzech składów.
         # 5582 -> 5585 (25.09.2026, T-400 platform): widok, nazwa i komunikat.
         # 5585 -> 5592 (25.09.2026, T-400 platform): siedem literałów testu obrysu.
-        "zwykly": 5592,
+        # 5592 -> 5599 (25.09.2026, T-400 stop target): seven assertion messages.
+        # 5599 -> 5602 (25.09.2026, T-400 stop target): active-track placement messages.
+        "zwykly": 5602,
         "interpolowany ($)": 863,
         "werbatim (@)": 102,
         "surowy interpolowany ($$\"\"\")": 13,
@@ -682,7 +684,8 @@ ROZKLAD_POSTACI = {
         # 10 -> 12 (24.09.2026, T-320): dwa dokumenty syntetycznego planu.
         # 12 -> 13 (24.09.2026, T-320): plan z datą dnia służby.
         # 14 -> 15 (24.09.2026, syntetyczna oś scenerii w SceneAxisTests).
-        "surowy (\"\"\")": 15,
+        # 15 -> 16 (25.09.2026, T-400 stop target): curved placement fixture.
+        "surowy (\"\"\")": 16,
         "werbatim interpolowany ($@)": 8,
     },
     "src": {
@@ -763,7 +766,8 @@ ROZKLAD_POSTACI = {
         # znaczniki typów w kodowaniu stanu. Przeliczone przez ten sam czytnik.
         # 1619 -> 1621 (25.09.2026, T-400 side): widok w KnownViews i parserze.
         # 1621 -> 1623 (25.09.2026, T-400 platform): nazwa widoku i parser.
-        "zwykly": 1623,
+        # 1623 -> 1624 (25.09.2026, T-400 stop target): STOP label.
+        "zwykly": 1624,
         # 489 -> 494 (22.09.2026, 6.D235): piec komunikatow `Abort` dla pliku ZLEGO
         # w `FirstRun.cs`. Przeliczone z drzewa, nie zsumowane.
         # 494 -> 513 (23.09.2026, 6.M1): komunikaty odmow i wiersze zapisu zdarzen
@@ -781,7 +785,8 @@ ROZKLAD_POSTACI = {
         # 539 -> 546 (24.09.2026, komunikaty rozkladu).
         # 546 -> 547 (25.09.2026, log aktywnej kamery Cab->Chase).
         # 547 -> 548: wiersz odcisku w Runnerze; scena rozbudowuje istniejący log.
-        "interpolowany ($)": 548,
+        # 548 -> 549: explicit error when the stop-target board is missing.
+        "interpolowany ($)": 549,
         "werbatim (@)": 0,
         "surowy interpolowany ($$\"\"\")": 1,
         "surowy (\"\"\")": 1,

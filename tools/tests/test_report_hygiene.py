@@ -539,7 +539,8 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 # 486 -> 487 (25.09.2026, #26): wybór kamery a ticki Sim podczas przejęcia.
 # 487 -> 488 (25.09.2026, QA Windows x64 po #810): rzeczywisty eksport i start headless.
 # 488 -> 489 (25.09.2026, T-400): pomiar prymitywów widocznego przebiegu.
-MIN_REPORTS = 489
+# 489 -> 490 (25.09.2026, T-400): przegląd znacznika celu postoju.
+MIN_REPORTS = 490
 
 #: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
 #: wierszem zaczynającym się od `**`, z którego `_header_shapes` czyta kształt.
