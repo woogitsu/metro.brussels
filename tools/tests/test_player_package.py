@@ -34,6 +34,7 @@ import shutil
 import subprocess
 import tempfile
 import uuid
+from pathlib import Path
 import assertion_gate
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -265,11 +266,9 @@ def test_paczka_windows_ma_osobny_preset_i_instrukcje_startu():
                 wpisy = {w["path"]: w for w in manifest["files"]}
                 assert "release-manifest.json" not in wpisy
                 rzeczywiste = {
-                    os.path.relpath(os.path.join(katalog, nazwa), paczka).replace(os.sep, "/"):
-                    os.path.join(katalog, nazwa)
-                    for katalog, _, nazwy in os.walk(paczka)
-                    for nazwa in nazwy
-                    if nazwa != "release-manifest.json"
+                    sciezka.relative_to(Path(paczka)).as_posix(): str(sciezka)
+                    for sciezka in Path(paczka).rglob("*")
+                    if sciezka.is_file() and sciezka.name != "release-manifest.json"
                 }
                 assert set(wpisy) == set(rzeczywiste), "manifest nie opisuje dokładnie zawartości paczki"
                 for sciezka, wpis in wpisy.items():

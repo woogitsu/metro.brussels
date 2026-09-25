@@ -56,6 +56,7 @@ case "${PACZKA_SYSTEM:-linux}" in
         exit 2
         ;;
 esac
+PACZKA_SYSTEM="${PACZKA_SYSTEM:-linux}"
 
 GODOT_EXE="${GODOT_BIN:-godot}"
 if ! command -v "$GODOT_EXE" >/dev/null 2>&1 && [ ! -x "$GODOT_EXE" ]; then
