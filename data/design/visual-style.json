@@ -1,117 +1,323 @@
-{
-  "$comment": "T-902 neutral visual baseline. Values are project art-direction parameters unless a source explicitly says otherwise.",
-  "schema_version": 1,
-  "as_of": "2026-08-31",
-  "pipeline": ["technical", "neutral_realistic", "licensed_stib_optional"],
-  "current_default": "technical",
-  "direction": {
-    "style": "semi_realistic_physically_plausible",
-    "scale": "real_world_meters",
-    "priorities": ["geometry_and_clearance", "readability", "deterministic_visual_regression", "performance_measurement", "material_plausibility", "decorative_detail"],
-    "avoid": ["copied_stib_branding", "copied_artworks", "copied_maps", "aggressive_bloom", "chromatic_aberration", "unstable_auto_exposure", "showroom_gloss"]
-  },
-  "layers": {
-    "technical": {
-      "purpose": "geometry, scale, collision, clearance and diagnostic readability",
-      "branding": "none",
-      "external_textures_required": false,
-      "production_gate": "available_before_t400"
-    },
-    "neutral_realistic": {
-      "purpose": "physically plausible production presentation without protected STIB identity",
-      "branding": "original_neutral",
-      "external_textures_required": false,
-      "external_textures_allowed": true,
-      "production_gate": "after_visual_baseline_and_licence_metadata"
-    },
-    "licensed_stib_optional": {
-      "purpose": "optional later pass for brand/signage/artworks only when rights matrix clears a specific use",
-      "branding": "permission_gated",
-      "rights_gate": "data/legal/rights-matrix.json",
-      "production_gate": "t903_specific_permission_ref"
-    }
-  },
-  "render_baseline": {
-    "resolution": [960, 576],
-    "background_rgba": [0.055, 0.060, 0.070, 1.0],
-    "engine_preference": ["BLENDER_EEVEE_NEXT", "BLENDER_EEVEE"],
-    "auto_exposure": false,
-    "fixed_world_strength": 0.65,
-    "camera_lens_mm": 50,
-    "deterministic_seed": 902,
-    "temporal_jitter": false,
-    "notes": "Diagnostic Blender scene only. Godot baseline is defined after T-400 on the actual renderer/hardware."
-  },
-  "material_presets": [
-    {"id":"concrete_clean","status":"design_model","base_color":[0.48,0.49,0.50,1],"metallic":0.0,"roughness":0.82,"notes":"neutral procedural baseline"},
-    {"id":"concrete_aged","status":"design_model","base_color":[0.36,0.37,0.36,1],"metallic":0.0,"roughness":0.90,"notes":"age variation is diagnostic, not copied from a station"},
-    {"id":"painted_concrete","status":"design_model","base_color":[0.56,0.58,0.60,1],"metallic":0.0,"roughness":0.62},
-    {"id":"ceramic_tile_small","status":"design_model","base_color":[0.72,0.72,0.69,1],"metallic":0.0,"roughness":0.38,"notes":"generic tile, no station-specific pattern"},
-    {"id":"ceramic_tile_large","status":"design_model","base_color":[0.64,0.65,0.65,1],"metallic":0.0,"roughness":0.34,"notes":"generic tile, no station-specific pattern"},
-    {"id":"stone","status":"design_model","base_color":[0.42,0.41,0.39,1],"metallic":0.0,"roughness":0.70},
-    {"id":"brushed_metal","status":"design_model","base_color":[0.46,0.48,0.50,1],"metallic":0.85,"roughness":0.34},
-    {"id":"painted_metal","status":"design_model","base_color":[0.20,0.22,0.24,1],"metallic":0.25,"roughness":0.48},
-    {"id":"glass","status":"design_model","base_color":[0.70,0.78,0.82,1],"metallic":0.0,"roughness":0.12,"alpha":0.32,"transmission_weight":0.72},
-    {"id":"rubber","status":"design_model","base_color":[0.055,0.058,0.060,1],"metallic":0.0,"roughness":0.92},
-    {"id":"asphalt","status":"design_model","base_color":[0.095,0.100,0.105,1],"metallic":0.0,"roughness":0.94},
-    {"id":"rail_steel","status":"design_model","base_color":[0.30,0.32,0.33,1],"metallic":0.92,"roughness":0.28,"notes":"material only; rail profile remains source-dependent"},
-    {"id":"generic_safety_strip","status":"design_model","base_color":[0.68,0.57,0.16,1],"metallic":0.0,"roughness":0.64,"notes":"generic accessibility/safety marker, not STIB signage/pattern"}
-  ],
-  "external_asset_sources": [
-    {
-      "id": "project_procedural",
-      "publisher": "Metro BXL project",
-      "asset_types": ["materials", "textures", "decals", "meshes"],
-      "license": "project-owned",
-      "status": "preferred",
-      "url": null,
-      "notes": "Default for technical baseline."
-    },
-    {
-      "id": "poly_haven",
-      "publisher": "Poly Haven",
-      "asset_types": ["textures", "hdris", "3d_models"],
-      "license": "CC0",
-      "status": "allowed_with_asset_provenance",
-      "url": "https://polyhaven.com/license",
-      "checked_at": "2026-08-31",
-      "notes": "Assets are CC0. Website/logo/API terms are separate; do not treat site content or logo as CC0. Prefer direct asset download with recorded asset ID/hash rather than live API coupling."
-    },
-    {
-      "id": "ambientcg",
-      "publisher": "ambientCG",
-      "asset_types": ["textures", "hdris", "models"],
-      "license": "CC0",
-      "status": "allowed_with_asset_provenance",
-      "url": "https://ambientcg.com/",
-      "checked_at": "2026-08-31",
-      "notes": "Record exact asset ID/download and hash; brand/site assets are not assumed to share the material licence."
-    },
-    {
-      "id": "blender_institute_texture_archive",
-      "publisher": "Blender Institute",
-      "asset_types": ["textures"],
-      "license": "CC0",
-      "status": "allowed_with_asset_provenance",
-      "url": "https://download.blender.org/archive/textures/",
-      "checked_at": "2026-08-31"
-    }
-  ],
-  "asset_metadata_required": ["asset_id", "source_type", "source_url", "license", "source_hash", "processing", "redistribution_allowed"],
-  "performance_policy": {
-    "poly_budget": null,
-    "draw_call_budget": null,
-    "texture_budget": null,
-    "shadow_light_budget": null,
-    "lod_distances": null,
-    "status": "measure_first",
-    "blocked_until": "T-400/T-012 measured baseline on target self-hosted WSL2/GPU"
-  },
-  "unresolved_user_decisions": [
-    "final_photorealism_level",
-    "static_or_dynamic_time_of_day",
-    "whether_licensed_stib_pass_is_a_product_goal",
-    "target_hardware_resolution_fps",
-    "desired_wear_and_dirt_level"
-  ]
+﻿{
+    "$comment":  "T-902 neutral visual baseline. Values are project art-direction parameters unless a source explicitly says otherwise.",
+    "schema_version":  1,
+    "as_of":  "2026-08-31",
+    "pipeline":  [
+                     "technical",
+                     "neutral_realistic",
+                     "licensed_stib_optional"
+                 ],
+    "current_default":  "technical",
+    "direction":  {
+                      "style":  "semi_realistic_physically_plausible",
+                      "scale":  "real_world_meters",
+                      "priorities":  [
+                                         "geometry_and_clearance",
+                                         "readability",
+                                         "deterministic_visual_regression",
+                                         "performance_measurement",
+                                         "material_plausibility",
+                                         "decorative_detail"
+                                     ],
+                      "avoid":  [
+                                    "copied_stib_branding",
+                                    "copied_artworks",
+                                    "copied_maps",
+                                    "aggressive_bloom",
+                                    "chromatic_aberration",
+                                    "unstable_auto_exposure",
+                                    "showroom_gloss"
+                                ]
+                  },
+    "layers":  {
+                   "technical":  {
+                                     "purpose":  "geometry, scale, collision, clearance and diagnostic readability",
+                                     "branding":  "none",
+                                     "external_textures_required":  false,
+                                     "production_gate":  "available_before_t400"
+                                 },
+                   "neutral_realistic":  {
+                                             "purpose":  "physically plausible production presentation without protected STIB identity",
+                                             "branding":  "original_neutral",
+                                             "external_textures_required":  false,
+                                             "external_textures_allowed":  true,
+                                             "production_gate":  "after_visual_baseline_and_licence_metadata"
+                                         },
+                   "licensed_stib_optional":  {
+                                                  "purpose":  "optional later pass for brand/signage/artworks only when rights matrix clears a specific use",
+                                                  "branding":  "permission_gated",
+                                                  "rights_gate":  "data/legal/rights-matrix.json",
+                                                  "production_gate":  "t903_specific_permission_ref"
+                                              }
+               },
+    "render_baseline":  {
+                            "resolution":  [
+                                               960,
+                                               576
+                                           ],
+                            "background_rgba":  [
+                                                    0.055,
+                                                    0.060,
+                                                    0.070,
+                                                    1.0
+                                                ],
+                            "engine_preference":  [
+                                                      "BLENDER_EEVEE_NEXT",
+                                                      "BLENDER_EEVEE"
+                                                  ],
+                            "auto_exposure":  false,
+                            "fixed_world_strength":  0.65,
+                            "camera_lens_mm":  50,
+                            "deterministic_seed":  902,
+                            "temporal_jitter":  false,
+                            "notes":  "Diagnostic Blender scene only. Godot baseline is defined after T-400 on the actual renderer/hardware."
+                        },
+    "material_presets":  [
+                             {
+                                 "id":  "concrete_clean",
+                                 "status":  "design_model",
+                                 "base_color":  [
+                                                    0.48,
+                                                    0.49,
+                                                    0.50,
+                                                    1
+                                                ],
+                                 "metallic":  0.0,
+                                 "roughness":  0.82,
+                                 "notes":  "neutral procedural baseline"
+                             },
+                             {
+                                 "id":  "concrete_aged",
+                                 "status":  "design_model",
+                                 "base_color":  [
+                                                    0.36,
+                                                    0.37,
+                                                    0.36,
+                                                    1
+                                                ],
+                                 "metallic":  0.0,
+                                 "roughness":  0.90,
+                                 "notes":  "age variation is diagnostic, not copied from a station"
+                             },
+                             {
+                                 "id":  "painted_concrete",
+                                 "status":  "design_model",
+                                 "base_color":  [
+                                                    0.56,
+                                                    0.58,
+                                                    0.60,
+                                                    1
+                                                ],
+                                 "metallic":  0.0,
+                                 "roughness":  0.62
+                             },
+                             {
+                                 "id":  "ceramic_tile_small",
+                                 "status":  "design_model",
+                                 "base_color":  [
+                                                    0.72,
+                                                    0.72,
+                                                    0.69,
+                                                    1
+                                                ],
+                                 "metallic":  0.0,
+                                 "roughness":  0.38,
+                                 "notes":  "generic tile, no station-specific pattern"
+                             },
+                             {
+                                 "id":  "ceramic_tile_large",
+                                 "status":  "design_model",
+                                 "base_color":  [
+                                                    0.64,
+                                                    0.65,
+                                                    0.65,
+                                                    1
+                                                ],
+                                 "metallic":  0.0,
+                                 "roughness":  0.34,
+                                 "notes":  "generic tile, no station-specific pattern"
+                             },
+                             {
+                                 "id":  "stone",
+                                 "status":  "design_model",
+                                 "base_color":  [
+                                                    0.42,
+                                                    0.41,
+                                                    0.39,
+                                                    1
+                                                ],
+                                 "metallic":  0.0,
+                                 "roughness":  0.70
+                             },
+                             {
+                                 "id":  "brushed_metal",
+                                 "status":  "design_model",
+                                 "base_color":  [
+                                                    0.46,
+                                                    0.48,
+                                                    0.50,
+                                                    1
+                                                ],
+                                 "metallic":  0.85,
+                                 "roughness":  0.34
+                             },
+                             {
+                                 "id":  "painted_metal",
+                                 "status":  "design_model",
+                                 "base_color":  [
+                                                    0.20,
+                                                    0.22,
+                                                    0.24,
+                                                    1
+                                                ],
+                                 "metallic":  0.25,
+                                 "roughness":  0.48
+                             },
+                             {
+                                 "id":  "glass",
+                                 "status":  "design_model",
+                                 "base_color":  [
+                                                    0.70,
+                                                    0.78,
+                                                    0.82,
+                                                    1
+                                                ],
+                                 "metallic":  0.0,
+                                 "roughness":  0.12,
+                                 "alpha":  0.32,
+                                 "transmission_weight":  0.72
+                             },
+                             {
+                                 "id":  "rubber",
+                                 "status":  "design_model",
+                                 "base_color":  [
+                                                    0.055,
+                                                    0.058,
+                                                    0.060,
+                                                    1
+                                                ],
+                                 "metallic":  0.0,
+                                 "roughness":  0.92
+                             },
+                             {
+                                 "id":  "asphalt",
+                                 "status":  "design_model",
+                                 "base_color":  [
+                                                    0.095,
+                                                    0.100,
+                                                    0.105,
+                                                    1
+                                                ],
+                                 "metallic":  0.0,
+                                 "roughness":  0.94
+                             },
+                             {
+                                 "id":  "rail_steel",
+                                 "status":  "design_model",
+                                 "base_color":  [
+                                                    0.30,
+                                                    0.32,
+                                                    0.33,
+                                                    1
+                                                ],
+                                 "metallic":  0.92,
+                                 "roughness":  0.28,
+                                 "notes":  "material only; rail profile remains source-dependent"
+                             },
+                             {
+                                 "id":  "generic_safety_strip",
+                                 "status":  "design_model",
+                                 "base_color":  [
+                                                    0.68,
+                                                    0.57,
+                                                    0.16,
+                                                    1
+                                                ],
+                                 "metallic":  0.0,
+                                 "roughness":  0.64,
+                                 "notes":  "generic accessibility/safety marker, not STIB signage/pattern"
+                             }
+                         ],
+    "external_asset_sources":  [
+                                   {
+                                       "id":  "project_procedural",
+                                       "publisher":  "Metro BXL project",
+                                       "asset_types":  [
+                                                           "materials",
+                                                           "textures",
+                                                           "decals",
+                                                           "meshes"
+                                                       ],
+                                       "license":  "project-owned",
+                                       "status":  "preferred",
+                                       "url":  null,
+                                       "notes":  "Default for technical baseline."
+                                   },
+                                   {
+                                       "id":  "poly_haven",
+                                       "publisher":  "Poly Haven",
+                                       "asset_types":  [
+                                                           "textures",
+                                                           "hdris",
+                                                           "3d_models"
+                                                       ],
+                                       "license":  "CC0",
+                                       "status":  "allowed_with_asset_provenance",
+                                       "url":  "https://polyhaven.com/license",
+                                       "checked_at":  "2026-08-31",
+                                       "notes":  "Assets are CC0. Website/logo/API terms are separate; do not treat site content or logo as CC0. Prefer direct asset download with recorded asset ID/hash rather than live API coupling."
+                                   },
+                                   {
+                                       "id":  "ambientcg",
+                                       "publisher":  "ambientCG",
+                                       "asset_types":  [
+                                                           "textures",
+                                                           "hdris",
+                                                           "models"
+                                                       ],
+                                       "license":  "CC0",
+                                       "status":  "allowed_with_asset_provenance",
+                                       "url":  "https://ambientcg.com/",
+                                       "checked_at":  "2026-08-31",
+                                       "notes":  "Record exact asset ID/download and hash; brand/site assets are not assumed to share the material licence."
+                                   },
+                                   {
+                                       "id":  "blender_institute_texture_archive",
+                                       "publisher":  "Blender Institute",
+                                       "asset_types":  [
+                                                           "textures"
+                                                       ],
+                                       "license":  "CC0",
+                                       "status":  "allowed_with_asset_provenance",
+                                       "url":  "https://download.blender.org/archive/textures/",
+                                       "checked_at":  "2026-08-31"
+                                   }
+                               ],
+    "asset_metadata_required":  [
+                                    "asset_id",
+                                    "source_type",
+                                    "source_url",
+                                    "license",
+                                    "source_hash",
+                                    "processing",
+                                    "redistribution_allowed"
+                                ],
+    "performance_policy":  {
+                               "poly_budget":  null,
+                               "draw_call_budget":  null,
+                               "texture_budget":  null,
+                               "shadow_light_budget":  null,
+                               "lod_distances":  null,
+                               "status":  "measure_first",
+                               "blocked_until":  "T-400/T-012 measured baseline on target self-hosted WSL2/GPU"
+                           },
+    "unresolved_user_decisions":  [
+                                      "final_photorealism_level",
+                                      "static_or_dynamic_time_of_day",
+                                      "whether_licensed_stib_pass_is_a_product_goal",
+                                      "target_hardware_resolution_fps",
+                                      "desired_wear_and_dirt_level"
+                                  ],
+    "issue":  32,
+    "baseline_status":  "approved-neutral-baseline"
 }
