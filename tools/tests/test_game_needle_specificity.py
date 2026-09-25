@@ -336,7 +336,8 @@ MIN_GAME_MESSAGES = 142
 # 90 -> 94 (24.09.2026, interaktywne R): te same cztery nowe igly.
 # 94 -> 97 (24.09.2026, automat bez sygnalizacji): te same trzy igły.
 # 97 -> 99 (24.09.2026, pomoc starej linii): dwie nowe igły wyboru w HelpLine.
-MIN_GAME_NEEDLES = 99
+# 99 -> 102 (25.09.2026, trzy napisy wyniku celu STOP w HUD).
+MIN_GAME_NEEDLES = 102
 MIN_GAME_SOURCES = 18
 
 #: Igla, na ktorej stoja kontrole dodatnia i przyrzadu. Musi byc SWOISTA i musi stac

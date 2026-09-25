@@ -676,7 +676,11 @@ ROZKLAD_POSTACI = {
         # 5585 -> 5592 (25.09.2026, T-400 platform): siedem literałów testu obrysu.
         # 5592 -> 5599 (25.09.2026, T-400 stop target): seven assertion messages.
         # 5599 -> 5602 (25.09.2026, T-400 stop target): active-track placement messages.
-        "zwykly": 5602,
+        # 5602 -> 5623 (25.09.2026, T-400 outcome): domain fixture and lifecycle checks.
+        # 5623 -> 5631 (25.09.2026, T-400 outcome): in-cab cue texts and checks.
+        # 5631 -> 5636 (25.09.2026, dwie jawne drogi etykiet oraz ratchety STOP).
+        # 5636 -> 5638 (25.09.2026, dwa osobne ramiona domyślne wyniku STOP).
+        "zwykly": 5638,
         "interpolowany ($)": 863,
         "werbatim (@)": 102,
         "surowy interpolowany ($$\"\"\")": 13,
@@ -767,7 +771,9 @@ ROZKLAD_POSTACI = {
         # 1619 -> 1621 (25.09.2026, T-400 side): widok w KnownViews i parserze.
         # 1621 -> 1623 (25.09.2026, T-400 platform): nazwa widoku i parser.
         # 1623 -> 1624 (25.09.2026, T-400 stop target): STOP label.
-        "zwykly": 1624,
+        # 1624 -> 1628 (25.09.2026, T-400 outcome): four board state labels.
+        # 1628 -> 1637 (25.09.2026, T-400 outcome): HUD cue keys and messages.
+        "zwykly": 1637,
         # 489 -> 494 (22.09.2026, 6.D235): piec komunikatow `Abort` dla pliku ZLEGO
         # w `FirstRun.cs`. Przeliczone z drzewa, nie zsumowane.
         # 494 -> 513 (23.09.2026, 6.M1): komunikaty odmow i wiersze zapisu zdarzen

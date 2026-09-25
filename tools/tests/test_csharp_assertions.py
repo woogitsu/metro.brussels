@@ -510,7 +510,10 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 # 2233 -> 2240 (25.09.2026, T-400 platform): siedem kontroli obrysu z komunikatem.
 # 2240 -> 2247 (25.09.2026, T-400 stop target): all seven new assertions explain the failure.
 # 2247 -> 2250 (25.09.2026, T-400 stop target): three active-track placement checks.
-Z_KOMUNIKATEM_RAZEM = 2250
+# 2250 -> 2258 (25.09.2026, T-400 outcome): lifecycle assertions explain each transition.
+# 2258 -> 2263 (25.09.2026, T-400 outcome): cab cue lifecycle assertions.
+# 2263 -> 2265 (25.09.2026, liczność przypisań HUD i tablicy STOP).
+Z_KOMUNIKATEM_RAZEM = 2265
 NIEROZSTRZYGNIETYCH = 69
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
 #: `tests/Sim.Tests/DefaultArmAuditTests.cs` — bramki na ramionach domyślnych
@@ -668,7 +671,10 @@ NIEROZSTRZYGNIETYCH = 69
 # 3695 -> 3702 (25.09.2026, T-400 platform): siedem kontroli rzeczywistego obrysu peronu.
 # 3702 -> 3709 (25.09.2026, T-400 stop target): seven clearance and endpoint assertions.
 # 3709 -> 3712 (25.09.2026, T-400 stop target): three active-track placement assertions.
-ASERCJI_RAZEM = 3712
+# 3712 -> 3720 (25.09.2026, T-400 outcome): eight lifecycle assertions.
+# 3720 -> 3725 (25.09.2026, T-400 outcome): five in-cab cue assertions.
+# 3725 -> 3727 (25.09.2026, jawne granice aktualizacji etykiet HUD i STOP).
+ASERCJI_RAZEM = 3727
 
 
 def _rozklad():
