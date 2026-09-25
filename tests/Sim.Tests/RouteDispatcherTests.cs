@@ -136,6 +136,22 @@ public sealed class RouteDispatcherTests
         return (system, new RouteDispatcher(plan, interval));
     }
 
+    [TestMethod]
+    public void StateHashDistinguishesEqualCountersWithDifferentRequestCadence()
+    {
+        var (firstSystem, first) = SetupWithBlockedTarget(120L);
+        var (secondSystem, second) = SetupWithBlockedTarget(120L);
+        first.Dispatch(firstSystem, "A", 0.0, 0L);
+        second.Dispatch(secondSystem, "A", 0.0, 1L);
+
+        Assert.AreEqual(first.Locked, second.Locked, "liczba zaryglowanych tras różni się");
+        Assert.AreEqual(first.Refused, second.Refused, "liczba odmów różni się");
+        Assert.AreEqual(firstSystem.StateDigest(), secondSystem.StateDigest(),
+            "stan bloków różni się");
+        Assert.AreNotEqual(first.StateSha256(), second.StateSha256(),
+            "inny termin następnego żądania musi zmienić odcisk stanu");
+    }
+
     /// <summary>
     /// Woła nastawnię w KAŻDYM kroku z podanego zakresu i zwraca numery kroków, w których
     /// naprawdę zapytała. Bez tej listy test widziałby tylko „coś się wydarzyło"; z nią

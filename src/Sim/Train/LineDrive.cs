@@ -80,6 +80,58 @@ public sealed class LineDrive
     // rozjechałyby się przy pierwszej zmianie w AccumulateEnergy.
     private double _tractionWorkAtDepartureJ;
 
+    /// <summary>All mutable drive state used by future steps or the trip result.</summary>
+    internal void AppendState(StateHashWriter hash)
+    {
+        hash.Add(_state.Steps);
+        hash.Add(_state.SpeedMps);
+        hash.Add(_state.DistanceM);
+        hash.Add(_state.BrakeRateMps2);
+        hash.Add(_next);
+        hash.Add(_topSpeed);
+        hash.Add(_departedAtSeconds);
+        hash.Add(_departedFromM);
+        hash.Add(_braking);
+        hash.Add(_terminalBrakeEngaged);
+        hash.Add(_brakingToM);
+        hash.Add(_stop is not null);
+        _stop?.AppendState(hash);
+        hash.Add((long)DoorControl);
+        hash.Add(AuthorityEndM.HasValue);
+        if (AuthorityEndM is double authority) hash.Add(authority);
+        hash.Add(DriverInput.HasValue);
+        if (DriverInput is DriverCommand input)
+        {
+            hash.Add(input.Throttle);
+            hash.Add(input.Brake);
+        }
+        hash.Add(LastCommand.Throttle);
+        hash.Add(LastCommand.Brake);
+        hash.Add(_tractionWorkJ);
+        hash.Add(_resistanceWorkJ);
+        hash.Add(_gradeWorkJ);
+        hash.Add(_brakeWorkJ);
+        hash.Add(_discretizationWorkJ);
+        hash.Add(_clampedWorkJ);
+        hash.Add(_tractionWorkAtDepartureJ);
+        hash.Add(_calls.Count);
+        foreach (var call in _calls)
+        {
+            hash.Add(call.Name);
+            hash.Add(call.StopId);
+            hash.Add(call.ChainageM);
+            hash.Add(call.StoppedAtChainageM);
+            hash.Add(call.StopErrorM);
+            hash.Add(call.ArrivalSeconds);
+            hash.Add(call.DepartureSeconds);
+            hash.Add(call.RunSecondsFromPrevious);
+            hash.Add(call.DistanceFromPreviousM);
+            hash.Add(call.TopSpeedMps);
+            hash.Add(call.TractionWorkFromPreviousJ.HasValue);
+            if (call.TractionWorkFromPreviousJ is double work) hash.Add(work);
+        }
+    }
+
     /// <summary>Skład postawiony na początku osi, gotowy do pierwszego kroku.</summary>
     /// <param name="axis">Oś z kilometrażem stacji.</param>
     /// <param name="conditions">Masa, pochylenie, przyczepność, otoczenie toru.</param>

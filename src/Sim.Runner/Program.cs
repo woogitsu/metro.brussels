@@ -1192,6 +1192,7 @@ public static class Program
         }
 
         var observed = core.Trains.Count > 0 ? session.Observed : null;
+        Console.Out.WriteLine($"[LINE-STATE] końcowy odcisk sha256={session.StateSha256()}");
         Console.Out.WriteLine(string.Create(
             Inv,
             $"[ODTWORZENIE] {keysPath}: linia, sesja={sessionStep} kroków, "

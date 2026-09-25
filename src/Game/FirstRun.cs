@@ -3042,7 +3042,7 @@ public sealed partial class FirstRun : Node3D
             $"[ODTWORZENIE] koniec: kroków={_state.Steps} t={_state.TimeSeconds(_step):F3} s "
             + $"chainage={ChainageM:F3} m droga={_state.DistanceM:F3} m klatek={_frames} "
             + $"sesja={_logStep} kroków resetów={_replay?.Resets.Count ?? 0} "
-            + $"zapis={_replayPath}"));
+            + $"zapis={_replayPath} odcisk-linii-sha256={_lineSession?.StateSha256()}"));
 
         // Podsumowanie ochrony LICZBAMI, w tym samym kształcie, co wypisuje
         // `Sim.Runner replay --atp`. Telemetria nie ma kolumny o ingerencji — polecenie
