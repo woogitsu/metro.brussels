@@ -1490,6 +1490,58 @@ jobs:
                   f"{path}: expected {expected_frames} frames for {spf} steps/frame")
           FRAMES
 
+      - name: Camera choice does not advance Sim during line takeover
+        shell: bash
+        # Ta sama rzeczywista scena, zapis przejęcia/drzwi/oddania i liczba
+        # ticków co wyżej. Żądanie chase przełącza aktywną Camera3D w ruchu.
+        run: |
+          set -euo pipefail
+          dotnet run --project src/Sim.Runner -c Release --no-build -- \
+            replay --keys build/t400/linia-fps/keys.log --line --atp \
+            --axis data/track/L1_A.json \
+            --signalling data/design/signalling/classic-2026.json \
+            --limit-kmh 70 --notch-rate 0.80 --exchange-s 8 --stop-window-m 5 \
+            --out build/t400/linia-fps/core-camera.csv \
+            > build/t400/linia-fps/core-camera.log 2>&1
+          cmp build/t400/linia-fps/core.csv \
+            build/t400/linia-fps/core-camera.csv
+          "$GODOT_BIN" --headless --path src/Game -- \
+            --line --limit-kmh=70 --view=chase \
+            --signalling="$PWD/data/design/signalling/classic-2026.json" \
+            --replay="$PWD/build/t400/linia-fps/keys.log" \
+            --telemetry="$PWD/build/t400/linia-fps/scene-chase-spf4.csv" \
+            --steps-per-frame=4 \
+            2>&1 | tee build/t400/linia-fps/scene-chase-spf4.log
+          python3 tools/ci/assert_no_godot_warnings.py \
+            build/t400/linia-fps/scene-chase-spf4.log
+          dotnet run --project src/Sim.Runner -c Release --no-build -- \
+            compare build/t400/linia-fps/core-camera.csv \
+            build/t400/linia-fps/scene-chase-spf4.csv --tolerance 0
+          cmp build/t400/linia-fps/scene-spf4.csv \
+            build/t400/linia-fps/scene-chase-spf4.csv
+          python3 - <<'CAMERA'
+          import re
+          from pathlib import Path
+
+          base = Path("build/t400/linia-fps")
+          cab = (base / "scene-spf4.log").read_text(encoding="utf-8")
+          chase = (base / "scene-chase-spf4.log").read_text(encoding="utf-8")
+          transition = re.findall(
+              r"^\[WIDOK\] Cab->Chase kabina=False chase=True krok=(\d+)$",
+              chase, re.MULTILINE)
+          assert len(transition) == 1 and 0 < int(transition[0]) < 2880, (
+              f"{base / 'scene-chase-spf4.log'}: expected one active-camera "
+              "transition before takeover at tick 2880")
+          assert "[WIDOK] Cab->Chase" not in cab, (
+              f"{base / 'scene-spf4.log'}: unexpected Cab->Chase transition")
+          for name, log in (("cab", cab), ("chase", chase)):
+              match = re.search(
+                  r"^\[ODTWORZENIE\] koniec: kroków=(\d+) .* klatek=(\d+) ",
+                  log, re.MULTILINE)
+              assert match and match.groups() == ("8041", "2011"), (
+                  f"{name}: camera selection changed tick or frame count")
+          CAMERA
+
       - name: ATP must really brake above the plan limit
         shell: bash
         # DOWÓD, ŻE OCHRONA POCIĄGU DZIAŁA, A NIE TYLKO LICZY.
