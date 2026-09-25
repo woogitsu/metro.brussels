@@ -46,8 +46,18 @@ func _sample() -> void:
 	previous_us = now
 	if elapsed >= WARMUP_US + MEASURE_US:
 		var step_values: Array[float] = []
+		var step_by_speed: Dictionary = {"stopped": [], "slow": [], "moving": []}
+		var speeds: Array = Array(current_scene.call("StepTimingSpeedsKmh"))
 		for value in current_scene.call("StepTimingsMicroseconds"):
 			step_values.append(value)
+			var speed: float = speeds[step_values.size() - 1]
+			var category := "stopped" if speed < 1.0 else ("slow" if speed < 10.0 else "moving")
+			step_by_speed[category].append(value)
+		var by_speed_summary := {}
+		for category in step_by_speed:
+			var values: Array[float] = []
+			values.assign(step_by_speed[category])
+			by_speed_summary[category] = {"count": values.size(), "us": _summary(values)}
 		var result := {
 			"frames": frame_ms.size(),
 			"resolution": [get_root().size.x, get_root().size.y],
@@ -56,6 +66,7 @@ func _sample() -> void:
 			"process_ms": _summary(process_ms),
 			"scene_step_us": _summary(step_values),
 			"scene_steps": step_values.size(),
+			"scene_steps_by_speed": by_speed_summary,
 			"resident_mesh_triangles_warmup": mesh_triangles_at_warmup,
 			"resident_mesh_triangles_end": _mesh_triangles(current_scene),
 			"draw_calls": _summary(draw_calls),
