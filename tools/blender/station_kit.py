@@ -28,6 +28,7 @@ było trzeciej kopii tej liczby.
 """
 import argparse
 import json
+import math
 import os
 import sys
 
@@ -73,9 +74,15 @@ def parse_args():
     parser.add_argument("--axis", required=True)
     parser.add_argument("--layout", required=True, help="wyjście tools/track/station_layout.py")
     parser.add_argument("--profile", default="station", choices=list(profiles.PROFILES))
-    parser.add_argument("--platform-gap-m", type=float, required=True,
+    def positive_float(value):
+        parsed = float(value)
+        if not math.isfinite(parsed) or parsed <= 0.0:
+            raise argparse.ArgumentTypeError("musi być skończoną liczbą większą od zera")
+        return parsed
+
+    parser.add_argument("--platform-gap-m", type=positive_float, required=True,
                         help="szczelina peron–pudło; BEZ WARTOŚCI DOMYŚLNEJ (R-007: brak źródła)")
-    parser.add_argument("--ring-step-m", type=float, default=SW.DEFAULT_RING_STEP_M)
+    parser.add_argument("--ring-step-m", type=positive_float, default=SW.DEFAULT_RING_STEP_M)
     parser.add_argument("--out", required=True)
     parser.add_argument("--metrics")
     parser.add_argument("--only-station", help="zbuduj tylko ten peron, po nazwie")
