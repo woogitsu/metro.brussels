@@ -669,7 +669,8 @@ ROZKLAD_POSTACI = {
         # 5550 -> 5553 (25.09.2026, tablice stacyjne): trzy komunikaty skrajni i stropu.
         # 5553 -> 5560 (25.09.2026, komunikaty asercji odcisku i drugiego składu).
         # 5566 -> 5569 i 858 -> 859 (25.09.2026, AZERTY): mapa, pomoc i test.
-        "zwykly": 5569,
+        # 5569 -> 5570 (25.09.2026, T-400 HUD): identyfikator składu w teście.
+        "zwykly": 5570,
         "interpolowany ($)": 859,
         "werbatim (@)": 102,
         "surowy interpolowany ($$\"\"\")": 13,

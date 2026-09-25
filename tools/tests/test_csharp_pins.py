@@ -174,7 +174,8 @@ KATEGORIE = {
         # 25.09.2026: komentarz o logu kamery przesuwa pięć kotwic o wiersz; treść bez zmian.
         # AZERTY (25.09.2026): dwa komentarze przesuwają kotwice, a W/Z wydłuża pomoc.
         ("UiTextTests.cs", 1297), ("UiTextTests.cs", 1310), ("UiTextTests.cs", 1328),
-        ("SignallingHudTests.cs", 39),
+        # HUD domenowy dodaje trainId; pin przesuwa się i obejmuje koniec autorytetu.
+        ("SignallingHudTests.cs", 40),
     },
     "B": {
         ("UiTextTests.cs", 1397), ("UiTextTests.cs", 1398),
@@ -300,8 +301,8 @@ def test_czytnik_widzi_pin_takze_wtedy_gdy_literal_jest_sklejony():
         % len(tresci[("UiTextTests.cs", 1297)]))
     assert len(tresci[("UiTextTests.cs", 1328)]) == 98, (
         len(tresci[("UiTextTests.cs", 1328)]))
-    assert len(tresci[("SignallingHudTests.cs", 39)]) == 84, (
-        len(tresci[("SignallingHudTests.cs", 39)]))
+    assert len(tresci[("SignallingHudTests.cs", 40)]) == 106, (
+        len(tresci[("SignallingHudTests.cs", 40)]))
 
     # Kontrola w drugą stronę: krótki pin ma zostać krótki, inaczej sklejanie
     # zjadałoby sąsiednie argumenty.
