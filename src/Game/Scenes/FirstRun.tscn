@@ -87,6 +87,8 @@ script = ExtResource("4_hud")
 ; dziś z widoku minus 24 px z każdej strony, więc odstęp od brzegu jest ten sam
 ; po obu stronach i przy każdej rozdzielczości.
 [node name="Panel" type="PanelContainer" parent="Hud"]
+; HUD is informational and must not intercept camera/input clicks.
+mouse_filter = 2
 anchors_preset = 12
 anchor_top = 1.0
 anchor_right = 1.0
