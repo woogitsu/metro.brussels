@@ -81,9 +81,16 @@ public sealed partial class StationView : Node3D
     /// <summary>Use the complete bilingual name, never abbreviated feed fields.</summary>
     public static string NameMarkerText(string axisName) => axisName.Replace('|', '\n');
 
-    /// <summary>Show the name on approach while keeping terminal markers inside the route.</summary>
-    public static double NameMarkerChainage(double stationM, double axisLengthM) =>
-        Math.Clamp(stationM - 15.0, 8.0, axisLengthM - 8.0);
+    /// <summary>Keep the approach sign close enough to read at a stop, while
+    /// retaining the earlier sign before the terminal where track ends.</summary>
+    public static double NameMarkerChainage(double stationM, double axisLengthM)
+    {
+        // At Parc, the outside camera 12 m beyond the train showed the -15 m
+        // board only 58 px wide at 1280 px. -8 m brought it to about 80 px;
+        // keep -15 m at the terminal so its only sign remains earlier on approach.
+        var beforeM = stationM >= axisLengthM - 15.0 ? 15.0 : 8.0;
+        return Math.Clamp(stationM - beforeM, 8.0, axisLengthM - 8.0);
+    }
 
     /// <summary>Keep a second name visible from the stopping point.</summary>
     public static double StopMarkerChainage(double stationM, double axisLengthM) =>
@@ -126,8 +133,10 @@ public sealed partial class StationView : Node3D
             var names = station.Name.Split('|');
             var bilingual = names.Length == 2;
             var text = NameMarkerText(station.Name);
-            var fontSize = bilingual ? 42 : 60;
-            var pixelSize = bilingual ? 0.0075f : 0.0095f;
+            // Two bilingual lines occupy about 2 * 44 * 0.009 = 0.792 m,
+            // within the 0.82 m plate and the 4.70 m playable tunnel roof.
+            var fontSize = bilingual ? 44 : 60;
+            var pixelSize = bilingual ? 0.009f : 0.0095f;
             var longestLine = 0;
             foreach (var name in names)
             {
