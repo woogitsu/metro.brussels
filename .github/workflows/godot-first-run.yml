@@ -1391,14 +1391,18 @@ jobs:
           dotnet run --project src/Sim.Runner -c Release --no-build -- \
             replay --keys tests/data/m1-linia-drzwi.log --line --atp --axis data/track/L1_A.json \
             --signalling data/design/signalling/classic-2026.json \
+            --trains 2 --headway-steps 120 \
             --limit-kmh 70 --notch-rate 0.80 --exchange-s 8 --stop-window-m 5 \
             --out build/t400/linia-odtworzenie/core.csv 2>&1 | tee build/t400/linia-odtworzenie/core.log
           grep -q "zdarzeń linii=4 odmów drzwi=0" build/t400/linia-odtworzenie/core.log \
             || { echo "BŁĄD: rdzeń nie wykonał czterech poleceń wzorca bez odmowy drzwi" >&2
                  cat build/t400/linia-odtworzenie/core.log >&2; exit 1; }
+          core_state=$(grep -E '^\[LINE-STATE\] końcowy odcisk sha256=[0-9a-f]{64}$' build/t400/linia-odtworzenie/core.log | cut -d= -f2)
+          test "$(printf '%s\n' "$core_state" | wc -l)" -eq 1
           for spf in 120 7; do
             "$GODOT_BIN" --headless --path src/Game -- \
               --line --limit-kmh=70 \
+              --trains=2 --headway-steps=120 \
               --signalling="$PWD/data/design/signalling/classic-2026.json" \
               --replay="$PWD/tests/data/m1-linia-drzwi.log" \
               --telemetry="$PWD/build/t400/linia-odtworzenie/scene-spf$spf.csv" \
@@ -1412,6 +1416,10 @@ jobs:
             dotnet run --project src/Sim.Runner -c Release --no-build -- \
               compare build/t400/linia-odtworzenie/core.csv \
               "build/t400/linia-odtworzenie/scene-spf$spf.csv" --tolerance 0
+            scene_state=$(grep -Eo 'odcisk-linii-sha256=[0-9a-f]{64}$' "build/t400/linia-odtworzenie/scene-spf$spf.log" | cut -d= -f2)
+            test "$scene_state" = "$core_state" \
+              || { echo "BŁĄD: stan linii po odtworzeniu różni się od rdzenia ($spf kroków/klatkę)" >&2
+                   printf 'rdzeń: %s\nscena: %s\n' "$core_state" "$scene_state" >&2; exit 1; }
             cmp tests/data/m1-linia-drzwi.log "build/t400/linia-odtworzenie/zapis-spf$spf.log" \
               || { echo "BŁĄD: zapis wejść z odtworzenia linii różni się od wzorca" >&2; exit 1; }
           done
@@ -1422,11 +1430,15 @@ jobs:
           grep -v "przejmij:" tests/data/m1-linia-drzwi.log > build/t400/linia-odtworzenie/bez-przejecia.log
           "$GODOT_BIN" --headless --path src/Game -- \
             --line --limit-kmh=70 \
+            --trains=2 --headway-steps=120 \
             --signalling="$PWD/data/design/signalling/classic-2026.json" \
             --replay="$PWD/build/t400/linia-odtworzenie/bez-przejecia.log" \
             --telemetry="$PWD/build/t400/linia-odtworzenie/scene-bez-przejecia.csv" \
             --steps-per-frame=120 2>&1 | tee build/t400/linia-odtworzenie/negatyw.log
           python3 tools/ci/assert_no_godot_warnings.py build/t400/linia-odtworzenie/negatyw.log
+          bad_state=$(grep -Eo 'odcisk-linii-sha256=[0-9a-f]{64}$' build/t400/linia-odtworzenie/negatyw.log | cut -d= -f2)
+          test "$bad_state" != "$core_state" \
+            || { echo "BŁĄD: odcisk stanu nie zauważył usuniętego przejęcia" >&2; exit 1; }
           set +e
           dotnet run --project src/Sim.Runner -c Release --no-build -- \
             compare build/t400/linia-odtworzenie/core.csv \

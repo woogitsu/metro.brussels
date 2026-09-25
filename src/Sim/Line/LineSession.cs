@@ -1,5 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
 using MetroBxl.Sim.Physics;
 using MetroBxl.Sim.Train;
 
@@ -68,6 +72,115 @@ public sealed class LineSession
 
     /// <summary>Linia, którą sesja prowadzi.</summary>
     public LineCore Core => _core;
+
+    /// <summary>
+    /// Exact digest of the line session's deterministic operational state. The fixed
+    /// order is train registration order; driver-command map keys are sorted ordinally.
+    /// Rendering, frame accumulator and file output are deliberately outside this state.
+    /// </summary>
+    public string StateSha256()
+    {
+        var hash = new StateHashWriter();
+        hash.Add("line-session-v1");
+        hash.Add(_core.AxisId);
+        hash.Add(_core.Steps);
+        hash.Add(_core.Finished);
+        hash.Add(_core.ProtectionWarnings);
+        hash.Add(_core.ServiceInterventions);
+        hash.Add(_core.EmergencyInterventions);
+        hash.Add(_core.MaxBrakeDemandMps2);
+        hash.Add(_core.Dispatcher.StateSha256());
+        hash.Add(_core.Signalling.StateDigest());
+        _core.Signalling.AppendRuntimeState(hash);
+        hash.Add(_dispatcher is not null);
+        if (_dispatcher is not null) hash.Add(_dispatcher.RegisteredEntries);
+        hash.Add(_observed);
+        hash.Add(_notchTrainId);
+        hash.Add(_notch.Command.Throttle);
+        hash.Add(_notch.Command.Brake);
+        hash.Add(Command.Throttle);
+        hash.Add(Command.Brake);
+        hash.Add(AccelerationMps2);
+        foreach (var key in _commands.Keys.OrderBy(key => key, StringComparer.Ordinal))
+        {
+            hash.Add(key);
+            hash.Add(_commands[key].Throttle);
+            hash.Add(_commands[key].Brake);
+        }
+        hash.Add(_core.Trains.Count);
+        foreach (var train in _core.Trains)
+        {
+            hash.Add(train.Id);
+            hash.Add(train.ReleaseStep);
+            hash.Add(train.EntryStationIndex);
+            hash.Add(train.EnteredAtStep.HasValue);
+            if (train.EnteredAtStep is long entered) hash.Add(entered);
+            hash.Add(train.FinishedAtStep.HasValue);
+            if (train.FinishedAtStep is long finished) hash.Add(finished);
+            hash.Add(train.LeftPlan);
+            hash.Add((long)train.Owner);
+            hash.Add(train.DriverCommand.HasValue);
+            if (train.DriverCommand is DriverCommand command)
+            {
+                hash.Add(command.Throttle);
+                hash.Add(command.Brake);
+            }
+            hash.Add(train.Authority.HasValue);
+            if (train.Authority is { } authority)
+            {
+                hash.Add(authority.FrontChainageM);
+                hash.Add(authority.EndChainageM);
+                hash.Add(authority.LimitBlockId);
+                hash.Add((long)authority.Reason);
+            }
+            hash.Add(train.Protection.HasValue);
+            if (train.Protection is { } protection)
+            {
+                hash.Add(protection.PermittedSpeedMps);
+                hash.Add(protection.AuthorityDistanceM);
+                hash.Add((long)protection.Action);
+                hash.Add(protection.BrakeDemandMps2);
+                hash.Add(protection.Overspeed);
+                hash.Add(protection.Reason);
+            }
+            hash.Add(train.Drive is not null);
+            train.Drive?.AppendState(hash);
+            hash.Add(train.CompletedRuns.Count);
+            foreach (var run in train.CompletedRuns)
+            {
+                hash.Add(run.AxisId);
+                hash.Add(run.Steps);
+                hash.Add(run.TotalSeconds);
+                hash.Add(run.TotalDistanceM);
+                hash.Add(run.DwellSeconds);
+                hash.Add(run.FinishReason);
+                hash.Add(run.Calls.Count);
+                foreach (var call in run.Calls)
+                {
+                    hash.Add(call.Name);
+                    hash.Add(call.StopId);
+                    hash.Add(call.ChainageM);
+                    hash.Add(call.StoppedAtChainageM);
+                    hash.Add(call.StopErrorM);
+                    hash.Add(call.ArrivalSeconds);
+                    hash.Add(call.DepartureSeconds);
+                    hash.Add(call.RunSecondsFromPrevious);
+                    hash.Add(call.DistanceFromPreviousM);
+                    hash.Add(call.TopSpeedMps);
+                    hash.Add(call.TractionWorkFromPreviousJ.HasValue);
+                    if (call.TractionWorkFromPreviousJ is double work) hash.Add(work);
+                }
+                hash.Add(run.Energy.TractionWorkJ);
+                hash.Add(run.Energy.ResistanceWorkJ);
+                hash.Add(run.Energy.GradeWorkJ);
+                hash.Add(run.Energy.BrakeWorkJ);
+                hash.Add(run.Energy.KineticEnergyDeltaJ);
+                hash.Add(run.Energy.DiscretizationWorkJ);
+                hash.Add(run.Energy.ClampedWorkJ);
+            }
+        }
+        return hash.Sha256();
+    }
 
     /// <summary>Indeks składu obserwowanego w <see cref="LineCore.Trains"/>.</summary>
     public int ObservedIndex => _core.Trains.Count == 0
@@ -287,4 +400,32 @@ public sealed class LineSession
         throw new ArgumentException(
             $"Zdarzenie linii dotyczy składu '{trainId}', którego na linii nie ma.", nameof(trainId));
     }
+}
+
+/// <summary>Unambiguous, culture-independent encoding of a simulation state.</summary>
+internal sealed class StateHashWriter
+{
+    private readonly StringBuilder _text = new();
+
+    public void Add(string? value)
+    {
+        if (value is null)
+        {
+            _text.Append("N;");
+            return;
+        }
+        _text.Append('S').Append(value.Length.ToString(CultureInfo.InvariantCulture))
+            .Append(':').Append(value).Append(';');
+    }
+
+    public void Add(long value) => _text.Append('I').Append(value.ToString(CultureInfo.InvariantCulture)).Append(';');
+
+    public void Add(bool value) => _text.Append(value ? "T;" : "F;");
+
+    // Exact IEEE-754 bits: no rounding, locale, NaN or signed-zero ambiguity.
+    public void Add(double value) => _text.Append('D')
+        .Append(BitConverter.DoubleToInt64Bits(value).ToString("X16", CultureInfo.InvariantCulture)).Append(';');
+
+    public string Sha256() => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(_text.ToString())))
+        .ToLowerInvariant();
 }
