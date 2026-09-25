@@ -667,8 +667,9 @@ ROZKLAD_POSTACI = {
         # i podglądu łącznika wraz z pomiarami w UiTextTests).
         # 5546 -> 5550 (25.09.2026, nastawnik): cztery komunikaty przejścia przez neutral.
         # 5550 -> 5553 (25.09.2026, tablice stacyjne): trzy komunikaty skrajni i stropu.
-        # 25.09.2026, T-400: drugi identyfikator składu w teście sygnalizacji.
-        "zwykly": 5554,
+        # 5553 -> 5560 (25.09.2026, komunikaty asercji odcisku i drugiego składu).
+        # 5566 -> 5567 (25.09.2026, T-400 HUD): identyfikator składu w teście.
+        "zwykly": 5567,
         "interpolowany ($)": 858,
         "werbatim (@)": 102,
         "surowy interpolowany ($$\"\"\")": 13,
@@ -753,7 +754,9 @@ ROZKLAD_POSTACI = {
         # Równoległy pomiar gałęzi podglądu łącznika:
         # 1582 -> 1613 (25.09.2026, dwa wejścia rozkładowe w scenie i Runnerze).
         # Połączone drzewo jest mierzone poniższą zapadką.
-        "zwykly": 1614,
+        # 1614 -> 1619 (25.09.2026, odcisk sesji): znacznik wersji i jednoznaczne
+        # znaczniki typów w kodowaniu stanu. Przeliczone przez ten sam czytnik.
+        "zwykly": 1619,
         # 489 -> 494 (22.09.2026, 6.D235): piec komunikatow `Abort` dla pliku ZLEGO
         # w `FirstRun.cs`. Przeliczone z drzewa, nie zsumowane.
         # 494 -> 513 (23.09.2026, 6.M1): komunikaty odmow i wiersze zapisu zdarzen
@@ -770,7 +773,8 @@ ROZKLAD_POSTACI = {
         # 536 -> 537: odmowa ponownego użycia block_id wskazuje obieg.
         # 539 -> 546 (24.09.2026, komunikaty rozkladu).
         # 546 -> 547 (25.09.2026, log aktywnej kamery Cab->Chase).
-        "interpolowany ($)": 547,
+        # 547 -> 548: wiersz odcisku w Runnerze; scena rozbudowuje istniejący log.
+        "interpolowany ($)": 548,
         "werbatim (@)": 0,
         "surowy interpolowany ($$\"\"\")": 1,
         "surowy (\"\"\")": 1,
