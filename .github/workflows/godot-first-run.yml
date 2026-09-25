@@ -333,6 +333,10 @@ jobs:
         shell: bash
         run: dotnet test tests/Game.Tests/Game.Tests.csproj --configuration Release
 
+      - name: Missing resource is readable without a console
+        shell: bash
+        run: bash tools/ci/assert_startup_resource_error.sh
+
       # Sonda narzędzi: JEDNA implementacja w `.github/actions/probe-tools`.
       # Wyjście `libs` ma tę samą umowę co przed wydzieleniem, więc warunki
       # `if: steps.tools.outputs.libs == 'missing'` niżej zostają bez zmian.

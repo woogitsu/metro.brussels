@@ -639,8 +639,26 @@ public sealed partial class FirstRun : Node3D
         _aborted = true;
         GD.PushError(message);
         GD.PrintErr(message);
+        if (_plan?.ReadsKeyboard == true
+            && code is ExitMissingInput or ExitMissingAssets or ExitTrainMissing
+                or ExitPlatformsMissing or ExitCabMissing)
+        {
+            // The GUI executable has no visible console when started by double-click.
+            // Headless jobs keep their exit status without waiting for a dialog.
+            if (!IsHeadlessDisplay)
+            {
+                var dialog = new AcceptDialog { DialogText = message };
+                AddChild(dialog);
+                dialog.Confirmed += () => GetTree().Quit(code);
+                dialog.Canceled += () => GetTree().Quit(code);
+                dialog.PopupCentered();
+                return;
+            }
+        }
         GetTree().Quit(code);
     }
+
+    private static bool IsHeadlessDisplay => DisplayServer.GetName() == "headless";
 
     /// <summary>
     /// Domyślna ścieżka do zasobu — z KATALOGU REPOZYTORIUM w checkoucie, a z katalogu
@@ -1287,8 +1305,8 @@ public sealed partial class FirstRun : Node3D
         if (manifestFile is null)
         {
             Abort(ExitMissingAssets,
-                $"[ASSETS] brak manifestu {manifestPath}. Wygeneruj chunki " +
-                "(tools/blender/tunnel_sweep.py --chunk-dir ...) albo uruchom z --no-geometry.");
+                $"[ASSETS] brak manifestu {manifestPath}. Rozpakuj pełną paczkę gry " +
+                "i pozostaw katalog zasoby obok jej pliku wykonywalnego.");
             return;
         }
 
@@ -3406,7 +3424,7 @@ public sealed partial class FirstRun : Node3D
 
     private void SaveShot()
     {
-        if (DisplayServer.GetName() == "headless")
+        if (IsHeadlessDisplay)
         {
             Abort(ExitHeadlessCannotRender,
                 "[ZRZUT] --headless wyłącza renderer; użyj xvfb-run i --rendering-driver opengl3");
