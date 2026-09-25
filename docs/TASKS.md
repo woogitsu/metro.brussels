@@ -453,6 +453,10 @@ których agent nie ruszy bez decyzji właściciela.
 - **Rozrzut mediany kroku (#26, 25.09.2026):** pierwszy krok w klatce i następne
   mają osobne, stabilne rozkłady; agregat blisko połowy obu grup zmienia medianę.
   Pomiar: `reports/t400-scene-step-order-2026-09-25.md`.
+- **Przejęcie i drzwi przy 30/60/120 logicznych FPS (#26, 25.09.2026):**
+  rzeczywista scena i rdzeń kończą po 8041 tickach z identyczną telemetrią,
+  czterema zdarzeniami linii, postojem i bez odmów drzwi.
+  Dowód: `reports/t400-line-takeover-doors-fps-2026-09-25.md`.
 - **Zrobione (etap 2):** zrzuty z silnika idą przez kontrolę wizualną z T-012,
   odtwarzalne co do bajtu również między maszynami (`reports/T-012-godot-capture.md`)
 - **Dowód sekwencji Parc/Park (25.09.2026):** 106 kolejnych klatek jednego przebiegu
