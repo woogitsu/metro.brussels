@@ -2,6 +2,8 @@
 
 **Date:** 2026-09-25 · **Measurement base:** `54db92776c06445dbc3dfcc6d15954969a618662`.
 
+## Method and result
+
 The earlier 1080p scene probe measured roughly 1,800 real `FirstRun.StepOnce` calls in each 15-second sample, but one run's median was 2.426 µs and two others were around 13–14 µs. The probe now records each step's ordinal within the rendered frame and reports first steps separately from later steps. The timer still encloses the same scene step; storing the ordinal happens after the timer stops.
 
 Run the hidden probe with `bash tools/perf/run_1080p.sh`. Three new runs on the same WSL2/Xvfb Mesa llvmpipe host gave:
