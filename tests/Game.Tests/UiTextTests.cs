@@ -173,13 +173,15 @@ public sealed class UiTextTests
     /// </summary>
     // MB-07 dokłada do korpusu bramki `N`, `O` i `T` — nazwy trzech klawiszy obsługi
     // linii. Zbiór, nie liczba, więc wpisane są nazwy, a nie licznik.
-    // MB-08 dokłada `D` i `F` — drzwi na postoju ręcznym. Wniosek akapitu o ryzyku
+    // MB-08 dokłada `D` i `F` — drzwi na postoju ręcznym. W/Z jest teraz jednym
+    // napisem klawiszy dwóch układów i nie jest nazwą członu Godot.Key.
+    // Wniosek akapitu o ryzyku
     // przy `NazwyKlawiszySilnika` zostaje w mocy i to jest sprawdzone, a nie założone:
     // obie są JEDNOLITEROWE, więc `WzorzecSlowa` (dwie litery pod rząd) ich nie zgłasza
     // i kolizja pozostaje nieosiągalna ze względu strukturalnego. Druga połowa tego
     // testu nadal mierzy, że różnicę robi mechanizm, a nie zanik pilnowania.
     private static readonly string[] NazwyKlawiszyWZasieguBramki =
-        { "C", "D", "F", "F1", "F2", "N", "O", "R", "S", "T", "W", "X" };
+        { "C", "D", "F", "F1", "F2", "N", "O", "R", "S", "T", "X" };
 
     /// <summary>
     /// Nazwy klawiszy widoczne dopiero SZERZEJ niż bramka — 6.D153.
@@ -1290,10 +1292,10 @@ public sealed class UiTextTests
     /// są sprawdzone zrzutem ekranu, bo je widać.</para>
     /// </summary>
     [TestMethod]
-    public void Wiersze_zlozone_z_katalogu_brzmia_co_do_znaku_tak_jak_przed_przenosinami()
+    public void Wiersze_zlozone_z_katalogu_i_mapy_klawiszy_maja_ustalone_brzmienie()
     {
         Assert.AreEqual(
-            "W ciąg  ·  S hamulec  ·  X wybieg  ·  "
+            "W/Z ciąg  ·  S hamulec  ·  X wybieg  ·  "
             + "Spacja hamulec awaryjny (= pełny służbowy)  ·  C widok  ·  R od nowa  ·  "
             + "Esc wyjście",
             DriverActions.Help);
@@ -1308,7 +1310,7 @@ public sealed class UiTextTests
         Assert.AreEqual(
             "C widok  ·  R od nowa  ·  Esc wyjście  ·  N następny skład  ·  T przejmij  ·  O oddaj"
             + "  ·  D otwórz drzwi  ·  F zamknij drzwi"
-            + "  ·  prowadzi rdzeń: W, S, X, Spacja nie działają",
+            + "  ·  prowadzi rdzeń: W/Z, S, X, Spacja nie działają",
             DriverActions.HelpWhenTheCoreDrives,
             "wiersz pomocy pod autopilotem rozjechał się z katalogiem");
 
@@ -1316,7 +1318,7 @@ public sealed class UiTextTests
         // a oddanie sterowania musi być widoczne — inaczej gracz nie ma
         // jak wrócić pod autopilota.
         Assert.AreEqual(
-            "W ciąg  ·  S hamulec  ·  X wybieg  ·  "
+            "W/Z ciąg  ·  S hamulec  ·  X wybieg  ·  "
             + "Spacja hamulec awaryjny (= pełny służbowy)  ·  C widok  ·  R od nowa  ·  Esc wyjście"
             + "  ·  N następny skład  ·  T przejmij  ·  O oddaj"
             + "  ·  D otwórz drzwi  ·  F zamknij drzwi",
