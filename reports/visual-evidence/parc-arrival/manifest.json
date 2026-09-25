@@ -1,0 +1,39 @@
+{
+  "source_commit": "1afb4d6235b5811699f5221cac58e47e8ac5957f",
+  "godot_version": "4.7.2-stable Mono",
+  "movie_frame_range_inclusive": [
+    1720,
+    1825
+  ],
+  "movie_frame_count": 106,
+  "steps_per_frame": 30,
+  "simulation_seconds_per_raw_frame": 0.25,
+  "gif_ms_per_frame": 80,
+  "files": [
+    {
+      "name": "parc-arrival.gif",
+      "sha256": "680728a5b33f1e25c661e06c213d8a5d69778d69377eb41d81fc4f25f3531da6",
+      "bytes": 11678691
+    },
+    {
+      "name": "frame-1720.png",
+      "sha256": "325801b87a27ded3b23a2bfbaa0d2cd8cc3472ab9bea33ad5601609bf28d396e",
+      "bytes": 212279
+    },
+    {
+      "name": "frame-1790.png",
+      "sha256": "d400acb0068649d971d3ec9074b839e1acea6c4b7da41964b034bbc64eeca89f",
+      "bytes": 221062
+    },
+    {
+      "name": "frame-1820.png",
+      "sha256": "8d3edcf5e45f9a6647b2e6cb67f8f447b36a34b92b33660699289456d78cafef",
+      "bytes": 219924
+    },
+    {
+      "name": "capture.log",
+      "sha256": "e1bbeba4f0d60e09bc1da9437b398c3643a4403d03e3753447c47e16f10ea8c1",
+      "bytes": 5596
+    }
+  ]
+}
