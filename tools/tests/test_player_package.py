@@ -34,7 +34,6 @@ import shutil
 import subprocess
 import tempfile
 import uuid
-from pathlib import Path
 import assertion_gate
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -47,11 +46,6 @@ FIRST_RUN = os.path.join(ROOT, "src", "Game", "FirstRun.cs")
 def _czytaj(sciezka):
     with open(sciezka, encoding="utf-8") as uchwyt:
         return uchwyt.read()
-
-
-def _wymagaj(warunek, komunikat):
-    if not warunek:
-        raise AssertionError(komunikat)
 
 
 def readme_z_skryptu(tekst=None):
@@ -264,22 +258,24 @@ def test_paczka_windows_ma_osobny_preset_i_instrukcje_startu():
                 assert os.path.isfile(manifest_path), "paczka nie zawiera release-manifest.json"
                 with open(manifest_path, encoding="utf-8") as uchwyt:
                     manifest = json.load(uchwyt)
-                _wymagaj(manifest["schema_version"] == 1, "nieznana wersja manifestu")
-                _wymagaj(manifest["package_system"] == (system or "linux"), "zły system w manifeście")
-                _wymagaj(manifest["godot_preset"] == preset, "zły preset w manifeście")
-                _wymagaj(manifest["executable"] == plik, "zła binarka w manifeście")
+                assert manifest["schema_version"] == 1
+                assert manifest["package_system"] == (system or "linux")
+                assert manifest["godot_preset"] == preset
+                assert manifest["executable"] == plik
                 wpisy = {w["path"]: w for w in manifest["files"]}
-                _wymagaj("release-manifest.json" not in wpisy, "manifest opisuje sam siebie")
+                assert "release-manifest.json" not in wpisy
                 rzeczywiste = {
-                    sciezka.relative_to(Path(paczka)).as_posix(): str(sciezka)
-                    for sciezka in Path(paczka).rglob("*")
-                    if sciezka.is_file() and sciezka.name != "release-manifest.json"
+                    os.path.relpath(os.path.join(katalog, nazwa), paczka).replace(os.sep, "/"):
+                    os.path.join(katalog, nazwa)
+                    for katalog, _, nazwy in os.walk(paczka)
+                    for nazwa in nazwy
+                    if nazwa != "release-manifest.json"
                 }
-                _wymagaj(set(wpisy) == set(rzeczywiste), "manifest nie opisuje dokładnie zawartości paczki")
+                assert set(wpisy) == set(rzeczywiste), "manifest nie opisuje dokładnie zawartości paczki"
                 for sciezka, wpis in wpisy.items():
                     dane = open(rzeczywiste[sciezka], "rb").read()
-                    _wymagaj(wpis["bytes"] == len(dane), f"zły rozmiar {sciezka}")
-                    _wymagaj(wpis["sha256"] == hashlib.sha256(dane).hexdigest(), f"zły hash {sciezka}")
+                    assert wpis["bytes"] == len(dane)
+                    assert wpis["sha256"] == hashlib.sha256(dane).hexdigest()
                 assert os.path.isfile(os.path.join(paczka, "zasoby",
                                                    "L1_A-station-board.glb")), (
                     f"paczka {system or 'linux'} nie zawiera tablicy stacji")
