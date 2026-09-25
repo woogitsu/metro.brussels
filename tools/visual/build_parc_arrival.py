@@ -9,9 +9,6 @@ import json
 from pathlib import Path
 import shutil
 
-from PIL import Image
-
-
 START = 1720
 END = 1825
 KEYFRAMES = (1720, 1790, 1820)
@@ -23,6 +20,8 @@ def main() -> None:
     parser.add_argument("output_dir", type=Path)
     args = parser.parse_args()
     args.output_dir.mkdir(parents=True, exist_ok=True)
+
+    from PIL import Image  # Optional only when building the GIF; CI can import this tool.
 
     frames = []
     for number in range(START, END + 1):
