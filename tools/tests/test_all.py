@@ -364,6 +364,14 @@ def test_infrastructure_source_backed_facts_have_provenance():
             assert f.get("source_ids"),f["id"]
             assert set(f["source_ids"])<=ids,(f["id"],set(f["source_ids"])-ids)
 
+def test_infrastructure_observed_facts_keep_scope_and_limitations():
+    """R-005 facts must state where they apply and what they do not prove."""
+    gt=_infrastructure_ground_truth()
+    for fact in gt["facts"]:
+        if fact["status"] in {"spec", "observed"}:
+            assert isinstance(fact.get("scope"), str) and fact["scope"].strip(), fact["id"]
+            assert isinstance(fact.get("limitations"), str) and fact["limitations"].strip(), fact["id"]
+
 def test_infrastructure_900v_and_third_rail_are_source_backed():
     gt=_infrastructure_ground_truth(); facts={f["id"]:f for f in gt["facts"]}
     assert facts["traction_voltage"]["value"]==900
