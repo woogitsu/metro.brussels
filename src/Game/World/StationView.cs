@@ -3,8 +3,22 @@ using System.Collections.Generic;
 using System.Globalization;
 using Godot;
 using MetroBxl.Game.Assets;
+using MetroBxl.Sim.Train;
 
 namespace MetroBxl.Game.World;
+
+/// <summary>Visual state of a neutral training stop target.</summary>
+public enum StopTargetOutcome
+{
+    /// <summary>The station has not yet been served or missed.</summary>
+    Approach,
+    /// <summary>A valid stop call exists while the door cycle is active.</summary>
+    Confirmed,
+    /// <summary>The service recorded a completed departure.</summary>
+    Served,
+    /// <summary>The train passed the stop window without a valid call.</summary>
+    Missed,
+}
 
 /// <summary>
 /// Widok peronów: płyty i pasy ostrzegawcze wszystkich stacji pakietu, wczytane
@@ -28,9 +42,17 @@ namespace MetroBxl.Game.World;
 /// </summary>
 public sealed partial class StationView : Node3D
 {
+    private sealed class StopTargetVisual(StandardMaterial3D material, Label3D[] labels)
+    {
+        public StandardMaterial3D Material { get; } = material;
+        public Label3D[] Labels { get; } = labels;
+        public StopTargetOutcome Outcome { get; set; } = StopTargetOutcome.Approach;
+    }
+
     private readonly List<Aabb> _slabs = new();
     private readonly List<Aabb> _platformSlabs = new();
     private readonly List<PlatformFit.Footprint> _platformFootprints = new();
+    private readonly Dictionary<string, StopTargetVisual> _stopTargets = new();
 
     /// <summary>Liczba brył peronowych trzymanych w scenie.</summary>
     public int SlabCount => _slabs.Count;
@@ -175,6 +197,64 @@ public sealed partial class StationView : Node3D
             + frame.Right * (float)sceneAxis.TrackOffsetM + frame.Up * heightM;
     }
 
+    /// <summary>Read the domain service after a step; a location alone never confirms a stop.</summary>
+    public static StopTargetOutcome StopTargetOutcomeFor(StationService service, string stopId)
+    {
+        foreach (var call in service.Calls)
+        {
+            if (call.StopId == stopId)
+                return double.IsFinite(call.DepartureSeconds)
+                    ? StopTargetOutcome.Served : StopTargetOutcome.Confirmed;
+        }
+        foreach (var missed in service.Missed)
+        {
+            if (missed.StopId == stopId)
+                return StopTargetOutcome.Missed;
+        }
+        return StopTargetOutcome.Approach;
+    }
+
+    /// <summary>The most recent manual target event for the in-cab cue.</summary>
+    public static StopTargetOutcome? LatestStopTargetOutcome(StationService service)
+    {
+        var calls = service.Calls;
+        var missed = service.Missed;
+        if (calls.Count == 0 && missed.Count == 0)
+            return null;
+        if (missed.Count > 0 && (calls.Count == 0 ||
+            missed[^1].ChainageM > calls[^1].ChainageM))
+            return StopTargetOutcomeFor(service, missed[^1].StopId);
+        return StopTargetOutcomeFor(service, calls[^1].StopId);
+    }
+
+    /// <summary>Only the manual StationService calls this visual update.</summary>
+    public void UpdateStopTargets(StationService service)
+    {
+        foreach (var (stopId, visual) in _stopTargets)
+        {
+            var outcome = StopTargetOutcomeFor(service, stopId);
+            if (outcome == visual.Outcome)
+                continue;
+            visual.Outcome = outcome;
+            visual.Material.AlbedoColor = outcome switch
+            {
+                StopTargetOutcome.Confirmed => new Color(0.23f, 0.66f, 0.35f),
+                StopTargetOutcome.Served => new Color(0.31f, 0.57f, 0.69f),
+                StopTargetOutcome.Missed => new Color(0.77f, 0.27f, 0.24f),
+                _ => new Color(0.84f, 0.57f, 0.12f),
+            };
+            var label = outcome switch
+            {
+                StopTargetOutcome.Confirmed => "OK",
+                StopTargetOutcome.Served => "DONE",
+                StopTargetOutcome.Missed => "MISS",
+                _ => "STOP",
+            };
+            foreach (var face in visual.Labels)
+                face.Text = label;
+        }
+    }
+
     /// <summary>
     /// Place a neutral station-name marker above the tracks at each platform.
     /// The names come from the axis, not from copied operator signage.
@@ -281,7 +361,6 @@ public sealed partial class StationView : Node3D
         if (platePrototype is null)
             return 0;
 
-        using var targetMaterial = GlbLoader.NeutralMaterial(new Color(0.84f, 0.57f, 0.12f), 0.9f);
         using var hangerMaterial = GlbLoader.NeutralMaterial(new Color(0.27f, 0.30f, 0.31f), 0.7f);
         var count = 0;
         var (heightM, plateHeightM) = StopTargetVerticalLayout();
@@ -299,10 +378,12 @@ public sealed partial class StationView : Node3D
             board.Transform = new Transform3D(
                 new Basis(orientation.X * widthM, orientation.Y * plateHeightM, orientation.Z),
                 centre);
+            var targetMaterial = GlbLoader.NeutralMaterial(new Color(0.84f, 0.57f, 0.12f), 0.9f);
             GlbLoader.ApplyNeutralMaterial(board, targetMaterial);
             AddChild(board);
 
             var hangerLength = NameMarkerHangerLength(heightM, plateHeightM);
+            var labels = new List<Label3D>(2);
             foreach (var side in new[] { -1.0f, 1.0f })
             {
                 AddChild(new MeshInstance3D
@@ -316,7 +397,7 @@ public sealed partial class StationView : Node3D
                 var face = side < 0
                     ? orientation
                     : new Basis(-orientation.X, orientation.Y, -orientation.Z);
-                AddChild(new Label3D
+                var label = new Label3D
                 {
                     Text = "STOP",
                     Transform = new Transform3D(face, centre + frame.Forward * (side * 0.04f)),
@@ -327,8 +408,11 @@ public sealed partial class StationView : Node3D
                     OutlineSize = 3,
                     DoubleSided = true,
                     NoDepthTest = false,
-                });
+                };
+                AddChild(label);
+                labels.Add(label);
             }
+            _stopTargets.Add(station.StopId, new StopTargetVisual(targetMaterial, labels.ToArray()));
             count++;
         }
 

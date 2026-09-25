@@ -1693,6 +1693,8 @@ public sealed partial class FirstRun : Node3D
         // fikcyjnych kroków do akumulatora w klatkach tego ekranu.
         if (!_lineCompletionReported)
             AdvanceBy(synthetic ? SyntheticFrameSeconds() : delta);
+        if (_stations is not null)
+            _platforms.UpdateStopTargets(_stations);
         PlaceEverything();
         UpdateHud();
 
@@ -2971,6 +2973,7 @@ public sealed partial class FirstRun : Node3D
 
         var licznik = UiText.Format(
             "hud.station.counter", _stations.Calls.Count, _stations.Missed.Count);
+        var outcomeCue = ManualStopOutcomeCue.For(_stations);
 
         if (_stations.AtStation)
         {
@@ -2989,12 +2992,12 @@ public sealed partial class FirstRun : Node3D
                 blokada,
                 _stations.Calls[^1].StopErrorM.ToString(
                     BladZatrzymaniaFormat, CultureInfo.InvariantCulture),
-                licznik);
+                licznik) + outcomeCue;
         }
 
         if (_stations.Finished)
         {
-            return UiText.Format("hud.station.no-more", licznik);
+            return UiText.Format("hud.station.no-more", licznik) + outcomeCue;
         }
 
         var approach = _stations.Approach(ChainageM);
@@ -3015,7 +3018,7 @@ public sealed partial class FirstRun : Node3D
             approach.DistanceM.ToString("F0", CultureInfo.InvariantCulture),
             _stations.WindowM.ToString("F1", CultureInfo.InvariantCulture),
             okno + hamowanie,
-            licznik);
+            licznik) + outcomeCue;
     }
 
     /// <summary>

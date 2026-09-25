@@ -249,7 +249,8 @@ public sealed class UiTextTests
     // 679 -> 680 (25.09.2026, log przejścia aktywnej kamery Cab->Chase).
     // 680 -> 684 (25.09.2026, T-400): po dwa literały widoków `side` i `platform` w RunPlan.
     // 684 -> 686 (25.09.2026, T-400 stop target): visible label and missing-board error.
-    private const int LiteralowWZasieguBramki = 686;
+    // 686 -> 693 (25.09.2026, wynik STOP w scenie i HUD).
+    private const int LiteralowWZasieguBramki = 693;
 
     /// <summary>Ile różnych — dolne ostrze, zmierzone 12.09.2026.</summary>
     private const int RoznychLiteralowWZasieguBramki = 362;
@@ -1539,7 +1540,8 @@ public sealed class UiTextTests
     // 733 -> 734 (25.09.2026, ten sam log przejścia kamery).
     // 734 -> 738 (25.09.2026, T-400): po dwa jawne literały widoków `side` i `platform`.
     // 738 -> 740 (25.09.2026, T-400 stop target): the same two literals.
-    private const int PozycjiStaregoCzytnika = 740;
+    // 740 -> 747 (25.09.2026, wynik STOP w scenie i HUD).
+    private const int PozycjiStaregoCzytnika = 747;
 
     /// <summary>
     /// Ile PLIKÓW korpusu stary czytnik czytał inaczej niż leksykalny — 6.D182.
@@ -1792,8 +1794,8 @@ public sealed class UiTextTests
     /// przez pola, właściwości i metody w kilku plikach to analiza przepływu, a ta
     /// wymaga rozbioru składni C# — czyli zależności, przed którą <c>CLAUDE.md</c> §8
     /// każe przerwać. Mapa jest więc wpisana, ale NIE jest gołym twierdzeniem: pilnują
-    /// jej <see cref="Kazde_przypisanie_Text_stoi_w_ciele_Hud_Update"/> (że droga na
-    /// ekran jest JEDNA) i <see cref="Kazdy_argument_napisowy_Hud_Update_ma_zrodlo"/>
+    /// jej <see cref="Kazde_przypisanie_Text_stoi_w_ciele_Hud_lub_StationView_Update"/> (że droga na
+    /// ekran jest jawna) i <see cref="Kazdy_argument_napisowy_Hud_Update_ma_zrodlo"/>
     /// (że argumentów jest dokładnie tyle, ile mapa opisuje). Ósmy argument dopisany
     /// do <c>Update</c> zapala drugą z nich, zamiast po cichu wypaść z pomiaru.</para>
     ///
@@ -1964,37 +1966,50 @@ public sealed class UiTextTests
     /// liczby, a nie sama liczba.</para>
     /// </summary>
     // 8 -> 9 (14.09.2026, MB-03): dziewiąta etykieta to wiersz blokady trakcji.
-    // Droga na ekran zostaje JEDNA — wszystkie dziewięć przypisań stoi w ciele
-    // `Hud.Update`, co pilnuje asercja niżej.
-    private const int PrzypisanText = 9;
+    // 9 -> 10 (25.09.2026, tablica STOP ma własną etykietę w świecie gry).
+    // Dziewięć przypisań pozostaje w Hud.Update; jedno w StationView.UpdateStopTargets.
+    private const int PrzypisanText = 10;
 
     private static string ZrodloGry(string wzgledna) =>
         Zrodlo(new[] { "src", "Game" }.Concat(wzgledna.Split('/')).ToArray());
 
     /// <summary>
-    /// Każde przypisanie <c>.Text =</c> w warstwie gry stoi w ciele <c>Hud.Update</c>
-    /// — 6.D183.
+    /// Każde przypisanie <c>.Text =</c> w warstwie gry stoi w ciele
+    /// <c>Hud.Update</c> albo <c>StationView.UpdateStopTargets</c> — 6.D183.
     ///
     /// <para><b>To jest przesłanka całej pozycji, wykonana, a nie założona.</b> Pole
     /// „Skąd" 6.D183 mówi, że jedynym sprawdzalnym kryterium „tekst dla gracza" jest
-    /// DROGA WYWOŁANIA do <c>_hud.Update</c>. Zdanie to jest prawdziwe tylko wtedy,
-    /// gdy nic innego nie pisze po ekranie — i dopiero ten test to sprawdza. Gdyby
-    /// gdziekolwiek indziej stało <c>Label.Text = …</c>, cała odpowiedź pozycji
-    /// opisywałaby jedną z dwóch dróg i nie mówiła o tym ani słowa.</para>
+    /// DROGA WYWOŁANIA do <c>_hud.Update</c>. Tablica STOP w świecie gry ma osobną,
+    /// jawną drogę wywołania; test pilnuje obu miejsc i ich liczności.</para>
     /// </summary>
     [TestMethod]
-    public void Kazde_przypisanie_Text_stoi_w_ciele_Hud_Update()
+    public void Kazde_przypisanie_Text_stoi_w_ciele_Hud_lub_StationView_Update()
     {
         var cialo = CialoDeklaracji(HudSource(), "public void Update(");
+        var stationView = ZrodlaGry().Single(s => Path.GetFileName(s) == "StationView.cs");
+        var cialoTablicy = CialoDeklaracji(File.ReadAllText(stationView),
+            "public void UpdateStopTargets(");
         var wszystkie = new List<string>();
         var pozaCialem = new List<string>();
+        var wHud = 0;
+        var naTablicy = 0;
         foreach (var sciezka in ZrodlaGry())
         {
             var kod = File.ReadAllText(sciezka);
             foreach (Match trafienie in Regex.Matches(kod, @"\w+\.Text\s*="))
             {
                 wszystkie.Add($"{Path.GetFileName(sciezka)}: {trafienie.Value}");
-                if (!cialo.Contains(trafienie.Value, StringComparison.Ordinal))
+                var plik = Path.GetFileName(sciezka);
+                if (plik == "Hud.cs" && cialo.Contains(trafienie.Value, StringComparison.Ordinal))
+                {
+                    wHud++;
+                }
+                else if (plik == "StationView.cs"
+                    && cialoTablicy.Contains(trafienie.Value, StringComparison.Ordinal))
+                {
+                    naTablicy++;
+                }
+                else
                 {
                     pozaCialem.Add($"{Path.GetFileName(sciezka)}: {trafienie.Value}");
                 }
@@ -2006,9 +2021,10 @@ public sealed class UiTextTests
         Assert.AreEqual(PrzypisanText, wszystkie.Count,
             $"skan widzi {wszystkie.Count} przypisań `.Text =` w `src/Game/` wobec "
             + $"zmierzonych {PrzypisanText}: " + string.Join(" | ", wszystkie));
+        Assert.AreEqual(9, wHud, "dziewięć etykiet HUD ma być aktualizowanych przez Hud.Update");
+        Assert.AreEqual(1, naTablicy, "jedna etykieta STOP ma być aktualizowana przez StationView.UpdateStopTargets");
         Assert.AreEqual(0, pozaCialem.Count,
-            "po ekranie pisze coś spoza `Hud.Update`, więc kryterium „droga wywołania” "
-            + "z 6.D183 opisuje JEDNĄ z dwóch dróg i nie mówi o tym: "
+            "po ekranie pisze coś spoza dwóch opisanych dróg wywołania: "
             + string.Join(" | ", pozaCialem));
     }
 
@@ -2395,7 +2411,8 @@ public sealed class UiTextTests
     // 463 -> 464 (25.09.2026, log przejścia aktywnej kamery).
     // 464 -> 468 (25.09.2026, T-400): po dwa literały widoków `side` i `platform`.
     // 468 -> 469 (25.09.2026, T-400 stop target): missing-board error.
-    private const int LiteralowDotknietychZdejmowaniem = 469;
+    // 469 -> 472 (25.09.2026, wynik STOP w scenie i HUD).
+    private const int LiteralowDotknietychZdejmowaniem = 472;
 
     /// <summary>
     /// Ilu literałom zdejmowanie jednostek ZABIERA werdykt „to słowo" — 6.D155.
@@ -3985,7 +4002,8 @@ public sealed class UiTextTests
     // DOMYŚLNE, nie liczba — a to ramię jest ciche świadomie i stoi z nazwy na liście
     // milczków wyżej. Trzeci switch nie zakłada więc trzeciej rodziny: dołącza do tej,
     // którą 6.D185 przybiło ręcznie.
-    private const int SwitchyPoWyliczeniuWGame = 3;
+    // 3 -> 5 (25.09.2026, kolor i napis wyniku STOP mają jawne ramię domyślne).
+    private const int SwitchyPoWyliczeniuWGame = 5;
 
     // Switche po wyliczeniu, których ramię domyślne MILCZY zamiast rzucić — lista,
     // a nie liczba, bo to nazwy rozstrzygają, czy milczenie jest świadome.
@@ -3999,7 +4017,8 @@ public sealed class UiTextTests
     // klatkę zamiast pokazać graczowi, czego nie umie nazwać. Ramię domyślne oddaje
     // angielską nazwę członu — widoczną i zgłaszalną, tak samo jak w `Faza`.
     private static readonly string[] SwitcheZCichymRamieniem =
-        { "DoorPrompt.cs:refusal", "FirstRun.cs:phase" };
+        { "DoorPrompt.cs:refusal", "FirstRun.cs:phase",
+          "StationView.cs:outcome", "StationView.cs:outcome" };
 
     // Wszystkie konstrukty `switch` w `src/Game/`, z rozstrzygnięciem. Liczba jest tu
     // DRUGA, bo „jeden po wyliczeniu" nie mówi nic o tym, ile ich jest w ogóle — a to
@@ -4009,7 +4028,8 @@ public sealed class UiTextTests
     // `FirstRun.Faza`. Switchy jest CZTERY, a nie pięć, bo `DoorPrompt.For`
     // świadomie nim NIE jest: gotowość do odjazdu pyta o `DoorCycle.TractionAllowed`,
     // czyli o ten sam predykat, którym rdzeń zwalnia trakcję — powód przy tej metodzie.
-    private const int SwitchyWGameRazem = 4;
+    // 4 -> 6 (25.09.2026, barwa i napis wyniku tablicy STOP).
+    private const int SwitchyWGameRazem = 6;
 
     // Postać instrukcyjna (`switch (x) { case …: default: }`) NIE WYSTĘPUJE w src/Game/
     // ani razu. Zero jest tu wypisane, bo skan, który tej postaci nie widzi, odpowiada
@@ -4215,7 +4235,8 @@ public sealed class UiTextTests
     // skreślone tak samo, jak zostało po drugim.
     // 20 -> 21 (23.09.2026, 6.M1): `LineEventKind` w `src/Sim/Train/InputLog.cs`. CZWARTY ruch.
     // 21 -> 22 (24.09.2026, wskazówka hamowania): `BrakingCueStage` zatrzaskuje fazę wskazówki hamowania.
-    private const int WyliczenWSrc = 22;
+    // 22 -> 23 (25.09.2026, StopTargetOutcome).
+    private const int WyliczenWSrc = 23;
 
     // 22 -> 24 (13.09.2026, MB-02): `Ending` i `ending` z `TrainingEnding`.
     // 24 -> 25 (14.09.2026, MB-06): `Owner` z `ControlOwner`. JEDNA nazwa, a nie dwie
