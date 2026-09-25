@@ -204,6 +204,6 @@ jobs:
 
       - name: Report data freshness
         shell: bash
-        # Informacyjnie, bez --strict: przeterminowane okno ważności nie jest błędem
-        # samo w sobie, ale ma być widoczne w logu, zanim ktoś nazwie oś aktualną.
-        run: python3 tools/track/data_freshness.py
+        # 13 okien jednego historycznego archiwum STIB pozostaje widoczne.
+        # Każde nowe wygasłe okno lub zbędny wyjątek zatrzymuje CI.
+        run: python3 tools/track/data_freshness.py --strict --baseline tools/track/freshness-baseline.json

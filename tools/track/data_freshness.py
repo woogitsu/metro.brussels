@@ -89,7 +89,7 @@ def retrieved_at(document):
     return None
 
 
-def audit(paths, today):
+def audit(paths, today, root=ROOT):
     rows = []
     for path in paths:
         with open(path, encoding="utf-8") as handle:
@@ -103,7 +103,7 @@ def audit(paths, today):
             seen.add(key)
             days = (end - today).days
             rows.append({
-                "file": os.path.relpath(path, ROOT),
+                "file": os.path.relpath(path, root).replace(os.sep, "/"),
                 "where": where,
                 "valid_from": start.isoformat() if start else None,
                 "valid_to": end.isoformat(),
@@ -126,6 +126,28 @@ def data_files(root):
     return sorted(out)
 
 
+def known_expired(path):
+    """Read an explicit, exact exception list for legacy expired windows."""
+    with open(path, encoding="utf-8") as handle:
+        document = json.load(handle)
+    windows = document.get("windows") if isinstance(document, dict) else None
+    if not isinstance(windows, list):
+        raise ValueError("baseline must contain a windows list")
+    keys = set()
+    for row in windows:
+        if not isinstance(row, dict) or set(row) != {"file", "valid_to", "retrieved_at"}:
+            raise ValueError("baseline row must have file, valid_to and retrieved_at")
+        if not isinstance(row["file"], str) or not row["file"].startswith("data/") \
+                or "\\" in row["file"] or ".." in row["file"].split("/") \
+                or not parse_date(row["valid_to"]) or not parse_date(row["retrieved_at"]):
+            raise ValueError("invalid baseline row")
+        key = (row["file"], row["valid_to"], row["retrieved_at"])
+        if key in keys:
+            raise ValueError(f"duplicate baseline row: {key}")
+        keys.add(key)
+    return keys
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Kontrola świeżości skomitowanych danych")
     parser.add_argument("--root", default=ROOT)
@@ -133,10 +155,11 @@ def main(argv=None):
     parser.add_argument("--out", help="ścieżka na wynik JSON")
     parser.add_argument("--strict", action="store_true",
                         help="kod wyjścia != 0, gdy cokolwiek jest przeterminowane")
+    parser.add_argument("--baseline", help="jawne znane wyjątki dla --strict (JSON)")
     args = parser.parse_args(argv)
 
     today = parse_date(args.today) if args.today else datetime.date.today()
-    rows = audit(data_files(args.root), today)
+    rows = audit(data_files(args.root), today, args.root)
 
     if not rows:
         print("[ŚWIEŻOŚĆ] żaden skomitowany plik nie deklaruje okna ważności")
@@ -161,8 +184,21 @@ def main(argv=None):
             handle.write("\n")
         print(f"[RAPORT] {args.out}")
 
-    if args.strict and expired:
-        raise SystemExit(f"BŁĄD: {len(expired)} okien ważności minęło")
+    if args.baseline and not args.strict:
+        parser.error("--baseline wymaga --strict")
+    if args.strict:
+        baseline = known_expired(args.baseline) if args.baseline else set()
+        observed = {(r["file"], r["valid_to"], r["retrieved_at"]) for r in expired}
+        unexpected = observed - baseline
+        obsolete = baseline - observed
+        if unexpected or obsolete:
+            raise SystemExit(
+                f"BŁĄD: nowych przeterminowanych okien ważności: {len(unexpected)}, "
+                f"nieaktualnych wyjątków: {len(obsolete)}; "
+                f"nowe={sorted(unexpected)}, nieaktualne={sorted(obsolete)}")
+        if baseline:
+            print(f"[ŚWIEŻOŚĆ] {len(baseline)} znanych wygasłych okien w jawnej "
+                  "baseline; nowe wygasłe okno albo nieaktualny wyjątek zatrzyma CI")
     return 0
 
 

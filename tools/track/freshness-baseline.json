@@ -1,0 +1,19 @@
+{
+  "reviewed_on": "2026-09-25",
+  "reason": "One STIB shapes archive, retrieved 2026-09-01 after its declared validity ended 2026-08-28. Keep visible until a verified replacement can be committed to data/.",
+  "windows": [
+    {"file": "data/network/shapes-manifest.json", "valid_to": "2026-08-28", "retrieved_at": "2026-09-01"},
+    {"file": "data/track/L1_A.json", "valid_to": "2026-08-28", "retrieved_at": "2026-09-01"},
+    {"file": "data/track/L1_A.provenance.json", "valid_to": "2026-08-28", "retrieved_at": "2026-09-01"},
+    {"file": "data/track/L1_B.json", "valid_to": "2026-08-28", "retrieved_at": "2026-09-01"},
+    {"file": "data/track/L1_B.provenance.json", "valid_to": "2026-08-28", "retrieved_at": "2026-09-01"},
+    {"file": "data/track/L2_E.json", "valid_to": "2026-08-28", "retrieved_at": "2026-09-01"},
+    {"file": "data/track/L2_E.provenance.json", "valid_to": "2026-08-28", "retrieved_at": "2026-09-01"},
+    {"file": "data/track/L5_C.json", "valid_to": "2026-08-28", "retrieved_at": "2026-09-01"},
+    {"file": "data/track/L5_C.provenance.json", "valid_to": "2026-08-28", "retrieved_at": "2026-09-01"},
+    {"file": "data/track/L5_D.json", "valid_to": "2026-08-28", "retrieved_at": "2026-09-01"},
+    {"file": "data/track/L5_D.provenance.json", "valid_to": "2026-08-28", "retrieved_at": "2026-09-01"},
+    {"file": "data/track/L6_F.json", "valid_to": "2026-08-28", "retrieved_at": "2026-09-01"},
+    {"file": "data/track/L6_F.provenance.json", "valid_to": "2026-08-28", "retrieved_at": "2026-09-01"}
+  ]
+}
