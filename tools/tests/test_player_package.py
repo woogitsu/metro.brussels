@@ -27,6 +27,7 @@ rozjazd jest KŁAMSTWEM wobec gracza:
    jawnym `--input-log` — czyli paczka obiecywała rzecz, której nie robiła.
 """
 import json
+import hashlib
 import os
 import re
 import shutil
@@ -253,6 +254,28 @@ def test_paczka_windows_ma_osobny_preset_i_instrukcje_startu():
                 paczka = os.path.join(ROOT, out, "MetroBXL")
                 assert os.path.isfile(os.path.join(paczka, plik)), (
                     f"paczka {system or 'linux'} nie zawiera pliku {plik}")
+                manifest_path = os.path.join(paczka, "release-manifest.json")
+                assert os.path.isfile(manifest_path), "paczka nie zawiera release-manifest.json"
+                with open(manifest_path, encoding="utf-8") as uchwyt:
+                    manifest = json.load(uchwyt)
+                assert manifest["schema_version"] == 1
+                assert manifest["package_system"] == (system or "linux")
+                assert manifest["godot_preset"] == preset
+                assert manifest["executable"] == plik
+                wpisy = {w["path"]: w for w in manifest["files"]}
+                assert "release-manifest.json" not in wpisy
+                rzeczywiste = {
+                    os.path.relpath(os.path.join(katalog, nazwa), paczka).replace(os.sep, "/"):
+                    os.path.join(katalog, nazwa)
+                    for katalog, _, nazwy in os.walk(paczka)
+                    for nazwa in nazwy
+                    if nazwa != "release-manifest.json"
+                }
+                assert set(wpisy) == set(rzeczywiste), "manifest nie opisuje dokładnie zawartości paczki"
+                for sciezka, wpis in wpisy.items():
+                    dane = open(rzeczywiste[sciezka], "rb").read()
+                    assert wpis["bytes"] == len(dane)
+                    assert wpis["sha256"] == hashlib.sha256(dane).hexdigest()
                 assert os.path.isfile(os.path.join(paczka, "zasoby",
                                                    "L1_A-station-board.glb")), (
                     f"paczka {system or 'linux'} nie zawiera tablicy stacji")
