@@ -528,7 +528,8 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 # 475 -> 476 (25.09.2026, 6.D360): pomiar pięciu rozszerzeń w raportach.
 # 476 -> 477 (25.09.2026, 6.D348): pomiar dwóch dokładności w narzędziach sceny.
 # 477 -> 478 (25.09.2026, T-400): przegląd obrazów z Parc i Beekkant.
-MIN_REPORTS = 478
+# 478 -> 479 (25.09.2026, ciągły wjazd Parc/Park): drugi raport; policzono reports/*.md.
+MIN_REPORTS = 479
 
 #: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
 #: wierszem zaczynającym się od `**`, z którego `_header_shapes` czyta kształt.
