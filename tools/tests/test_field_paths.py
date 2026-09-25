@@ -2214,7 +2214,9 @@ def _istnieje_w_drzewie(nazwa):
 # dokladnosci przeszedl do wykonanych; liczby zmierzone na drzewie.
 # 1419 -> 1424 i 575 -> 576 (25.09.2026, 6.D344): blok audytu
 # czterech sit adresowych przeszedł do wykonanych; oba pola przeliczone z drzewa.
-ADRESOW_W_WYKONANYCH = {"Wejście": 1424, "Wyjście": 73, "Weryfikacja": 576}
+# 1424 -> 1426 i 576 -> 577 (25.09.2026, 6.D345): domknięty blok
+# wniósł dwa odsyłacze w Wejściu i jeden w Weryfikacji; zmierzone skanem.
+ADRESOW_W_WYKONANYCH = {"Wejście": 1426, "Wyjście": 73, "Weryfikacja": 577}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
@@ -2418,7 +2420,8 @@ ADRESOW_W_WYKONANYCH = {"Wejście": 1424, "Wyjście": 73, "Weryfikacja": 576}
 # audytu dokladnosci; liczba zmierzona na drzewie.
 # 267 -> 269 (25.09.2026, 6.D344): dwa moduły z pola Weryfikacja
 # nowo domkniętego bloku weszły do populacji.
-WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 269}
+# 269 -> 270 (25.09.2026, 6.D345): jeden moduł test_value_chains.py.
+WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 270}
 
 #: Ilu kandydatow zlego adresu daje regula prozy, per pole — 6.D158.
 # 12 -> 13 (14.09.2026, 6.D204): trzynastym kandydatem jest `test_mutation_sweep.py`
@@ -2452,7 +2455,9 @@ WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 269}
 # (odczytane wprost z `kandydaci_pola_w_wykonanych`). Ten sam ksztalt co poprzednie.
 # 22 -> 24 (25.09.2026, 6.D348): dwa nowe trafienia z bloku wykonanej
 # weryfikacji; licznik przeliczony, reguly bez zmian.
-KANDYDATOW_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 24}
+# 24 -> 25 (25.09.2026, 6.D345): test_value_chains.py z polecenia
+# weryfikacji to istniejący moduł bez ścieżki, nie błędny adres.
+KANDYDATOW_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 25}
 
 
 def adresy_pola_w_wykonanych(pole):
